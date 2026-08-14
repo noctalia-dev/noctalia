@@ -2118,7 +2118,7 @@ void TrayService::refreshItemMetadata(const std::string& itemId) {
           next.statusNotifierTitle = std::move(statusNotifierTitle);
           next.statusNotifierDescription = std::move(statusNotifierDescription);
           next.status = get_item_property_string_from(properties, "Status", cur.status);
-          next.needsAttention = (next.status == "NeedsAttention");
+          next.needsAttention = (StringUtils::toLower(next.status) == "needsattention");
 
           if (next.itemName == "chrome_status_icon_1" && !next.statusNotifierTitle.empty()) {
             next.itemName = next.itemName + "::" + next.statusNotifierTitle;

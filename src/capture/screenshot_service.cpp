@@ -621,62 +621,53 @@ ScreenshotService::OutputOptions ScreenshotService::outputOptionsFromConfig(cons
 }
 
 void ScreenshotService::registerIpc(IpcService& ipc, const ConfigService& configService) {
-  ipc.registerHandler(
-      "screenshot-region",
-      [this, &configService](const std::string& /*args*/) -> std::string {
-        if (!available()) {
-          return "error: screen capture is not available on this compositor\n";
-        }
-        auto* renderContext = PanelManager::instance().renderContext();
-        if (renderContext == nullptr) {
-          return "error: render context unavailable\n";
-        }
-        beginRegionCapture(*renderContext, outputOptionsFromConfig(configService.config()));
-        return "ok\n";
-      },
-      "", "Start an interactive region screenshot"
-  );
+  ipc.bind(noctalia::cli::msg::screenshotRegion, [this, &configService](const std::string& /*args*/) -> std::string {
+    if (!available()) {
+      return "error: screen capture is not available on this compositor\n";
+    }
+    auto* renderContext = PanelManager::instance().renderContext();
+    if (renderContext == nullptr) {
+      return "error: render context unavailable\n";
+    }
+    beginRegionCapture(*renderContext, outputOptionsFromConfig(configService.config()));
+    return "ok\n";
+  });
 
-  ipc.registerHandler(
-      "screenshot-fullscreen",
-      [this, &configService](const std::string& args) -> std::string {
-        if (!available()) {
-          return "error: screen capture is not available on this compositor\n";
-        }
-        const std::string token = StringUtils::trim(args);
-        const auto options = outputOptionsFromConfig(configService.config());
-        if (token == "all" || token == "*") {
-          captureAllOutputs(options);
-          return "ok\n";
-        }
-        if (token == "pick") {
-          const auto outputs = validOutputs(m_wayland);
-          if (outputs.size() <= 1) {
-            captureFullscreen(options, outputs.empty() ? nullptr : outputs.front());
-            return "ok\n";
-          }
-          auto* renderContext = PanelManager::instance().renderContext();
-          if (renderContext == nullptr) {
-            return "error: render context unavailable\n";
-          }
-          beginFullscreenCapture(*renderContext, options);
-          return "ok\n";
-        }
-        if (!token.empty() && token != "pick") {
-          auto output = resolveOutputSelector(m_wayland, token);
-          if (!output) {
-            return output.error();
-          }
-          captureFullscreen(options, *output);
-          return "ok\n";
-        }
-
-        captureFullscreen(options);
+  ipc.bind(noctalia::cli::msg::screenshotFullscreen, [this, &configService](const std::string& args) -> std::string {
+    if (!available()) {
+      return "error: screen capture is not available on this compositor\n";
+    }
+    const std::string token = StringUtils::trim(args);
+    const auto options = outputOptionsFromConfig(configService.config());
+    if (token == "all" || token == "*") {
+      captureAllOutputs(options);
+      return "ok\n";
+    }
+    if (token == "pick") {
+      const auto outputs = validOutputs(m_wayland);
+      if (outputs.size() <= 1) {
+        captureFullscreen(options, outputs.empty() ? nullptr : outputs.front());
         return "ok\n";
-      },
-      "[pick|monitor|all]",
-      "Capture the focused monitor by default, pick interactively with pick, or all outputs with all"
-  );
+      }
+      auto* renderContext = PanelManager::instance().renderContext();
+      if (renderContext == nullptr) {
+        return "error: render context unavailable\n";
+      }
+      beginFullscreenCapture(*renderContext, options);
+      return "ok\n";
+    }
+    if (!token.empty() && token != "pick") {
+      auto output = resolveOutputSelector(m_wayland, token);
+      if (!output) {
+        return output.error();
+      }
+      captureFullscreen(options, *output);
+      return "ok\n";
+    }
+
+    captureFullscreen(options);
+    return "ok\n";
+  });
 }
 
 wl_output* ScreenshotService::preferredCaptureOutput() const {

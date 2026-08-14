@@ -52,6 +52,15 @@ const noctalia::bar::WidgetDefinition<WorkspacesWidget::Options>& workspacesWidg
                           .group = "workspaces.list",
                       },
               }),
+              field<&Options::showAllOutputs>({
+                  .key = "show_all_outputs",
+                  .presentation =
+                      settings::WidgetSettingPresentation{
+                          .labelKey = "settings.widgets.settings.show-all-workspaces.label",
+                          .descriptionKey = "settings.widgets.settings.show-all-workspaces.description",
+                          .group = "workspaces.list",
+                      },
+              }),
               field<&Options::showLabels>({
                   .key = "show_labels",
                   .presentation =

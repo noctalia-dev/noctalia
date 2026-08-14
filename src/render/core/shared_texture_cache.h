@@ -26,8 +26,11 @@ public:
   [[nodiscard]] bool shared() const noexcept { return m_sharedGl != nullptr; }
 
   [[nodiscard]] TextureHandle acquire(const std::string& path);
+  [[nodiscard]] TextureHandle acquireAlphaMask(const std::string& path);
   [[nodiscard]] TextureHandle peek(const std::string& path) const;
+  [[nodiscard]] TextureHandle peekAlphaMask(const std::string& path) const;
   void release(TextureHandle& handle, const std::string& path);
+  void releaseAlphaMask(TextureHandle& handle, const std::string& path);
   void abandonGpuResources() noexcept;
   void reloadResidentTextures();
 
@@ -44,4 +47,5 @@ private:
   GlSharedContext* m_sharedGl = nullptr;
   std::unique_ptr<TextureManager> m_textureManager;
   std::unordered_map<std::string, Entry> m_entries;
+  std::unordered_map<std::string, Entry> m_alphaMaskEntries;
 };

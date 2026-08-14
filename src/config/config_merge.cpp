@@ -39,13 +39,18 @@ namespace noctalia::config {
       return ec ? path.lexically_normal() : key;
     }
 
+    struct IncludeEntry {
+      std::string value;
+      schema::SourceOrigin origin;
+    };
+
     struct IncludeDirective {
-      std::vector<std::string> files;
+      std::vector<IncludeEntry> files;
       bool autoload = true;
       bool hasAutoload = false;
     };
 
-    IncludeDirective readInclude(const toml::table& tbl) {
+    IncludeDirective readInclude(const std::filesystem::path& path, const toml::table& tbl) {
       IncludeDirective directive;
       const auto* inc = tbl["include"].as_table();
       if (inc == nullptr) {
@@ -58,7 +63,10 @@ namespace noctalia::config {
       if (const auto* arr = (*inc)["files"].as_array()) {
         for (const auto& node : *arr) {
           if (auto s = node.value<std::string>()) {
-            directive.files.push_back(*s);
+            const auto& src = node.source();
+            directive.files.push_back(
+                IncludeEntry{std::move(*s), schema::SourceOrigin{path.string(), src.begin.line, src.begin.column}}
+            );
           }
         }
       }
@@ -86,11 +94,11 @@ namespace noctalia::config {
       out.loadedFiles.push_back(key);
 
       const std::string includingDir = path.parent_path().string();
-      const IncludeDirective directive = readInclude(parsed);
+      const IncludeDirective directive = readInclude(path, parsed);
 
       toml::table base;
       for (const auto& entry : directive.files) {
-        const std::string expanded = FileUtils::expandEnvVars(entry);
+        const std::string expanded = FileUtils::expandEnvVars(entry.value);
         const std::filesystem::path target = FileUtils::resolvePath(expanded, includingDir);
 
         std::error_code ec;
@@ -103,11 +111,15 @@ namespace noctalia::config {
           ConfigService::deepMerge(base, loadAndExpand(target, visited, out));
         } else {
           if (out.firstError.empty()) {
-            out.firstError = std::format("include not found: {} (from {})", entry, path.filename().string());
+            out.firstError = std::format("include not found: {}", entry.value);
+            out.firstErrorOrigin = entry.origin;
           }
           kLog.warn("config include not found: {} (from {})", target.string(), path.string());
         }
       }
+
+      // Recorded after the includes so the host file's keys win here too.
+      out.origins.record(path, parsed);
 
       // Host wins: the file's own body overlays the includes it pulled in.
       toml::table body = parsed;
@@ -122,13 +134,11 @@ namespace noctalia::config {
       try {
         parsed = toml::parse_file(path.string());
       } catch (const toml::parse_error& e) {
-        const auto& src = e.source();
         if (out.firstError.empty()) {
-          out.firstError = std::format(
-              "{} line {}, column {}: {}", path.filename().string(), src.begin.line, src.begin.column, e.description()
-          );
+          out.firstError = std::string(e.description());
+          out.firstErrorOrigin = parseErrorOrigin(e, path);
         }
-        kLog.warn("parse error in {}: {}", path.filename().string(), e.description());
+        kLog.warn("parse error in {}: {}", path.string(), e.description());
         return toml::table{};
       }
       return expandFile(path, parsed, visited, out);
@@ -155,16 +165,14 @@ namespace noctalia::config {
       try {
         tbl = toml::parse_file(path.string());
       } catch (const toml::parse_error& e) {
-        const auto& src = e.source();
         if (out.firstError.empty()) {
-          out.firstError = std::format(
-              "{} line {}, column {}: {}", path.filename().string(), src.begin.line, src.begin.column, e.description()
-          );
+          out.firstError = std::string(e.description());
+          out.firstErrorOrigin = parseErrorOrigin(e, path);
         }
-        kLog.warn("parse error in {}: {}", path.filename().string(), e.description());
+        kLog.warn("parse error in {}: {}", path.string(), e.description());
         continue;
       }
-      const IncludeDirective directive = readInclude(tbl);
+      const IncludeDirective directive = readInclude(path, tbl);
       const bool optOut = directive.hasAutoload && !directive.autoload;
       anyOptOut = anyOptOut || optOut;
       roots.push_back(Root{.path = path, .table = std::move(tbl), .optOut = optOut});

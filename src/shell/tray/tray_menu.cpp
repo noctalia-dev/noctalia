@@ -958,7 +958,7 @@ void TrayMenu::buildScene(MenuInstance& inst, uint32_t width, uint32_t height) {
     openSubmenuAtLevel(0, entry.id, rowCenterY);
   });
   scrollView->content()->addChild(std::move(menu));
-  scrollView->layout(*m_renderContext);
+  scrollView->layout(inst.surface->renderTarget().renderer());
   inst.sceneRoot->addChild(std::move(scrollView));
 
   inst.inputDispatcher.setSceneRoot(inst.sceneRoot.get());
@@ -1311,7 +1311,7 @@ void TrayMenu::buildSubmenuScene(std::size_t levelIndex, MenuInstance& inst, uin
     openSubmenuAtLevel(levelIndex + 1, entry.id, rowCenterY);
   });
   scrollView->content()->addChild(std::move(menu));
-  scrollView->layout(*m_renderContext);
+  scrollView->layout(inst.surface->renderTarget().renderer());
   inst.sceneRoot->addChild(std::move(scrollView));
 
   inst.inputDispatcher.setSceneRoot(inst.sceneRoot.get());

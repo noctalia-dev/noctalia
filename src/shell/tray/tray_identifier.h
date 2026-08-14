@@ -13,6 +13,8 @@ namespace tray {
 
   inline bool isUniqueBusName(std::string_view value) { return !value.empty() && value.front() == ':'; }
 
+  inline bool isPassiveStatus(const TrayItemInfo& item) { return StringUtils::toLower(item.status) == "passive"; }
+
   inline bool isTransientUniqueIdentifier(std::string_view value) {
     return isUniqueBusName(value) || value.contains("/:");
   }

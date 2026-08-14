@@ -161,7 +161,8 @@ void AudioSpectrumProgram::draw(
   m_vertices.reserve(static_cast<std::size_t>(barCount) * 6U * 6U);
 
   for (int i = 0; i < barCount; ++i) {
-    const int valueIndex = style.mirrored ? (i < valueCount ? valueCount - 1 - i : i - valueCount) : i;
+    const int baseIndex = style.mirrored ? (i < valueCount ? valueCount - 1 - i : i - valueCount) : i;
+    const int valueIndex = style.reversed ? valueCount - 1 - baseIndex : baseIndex;
     const float rawValue = valueIndex >= 0 && valueIndex < valueCount
         ? std::clamp(values[static_cast<std::size_t>(valueIndex)], 0.0F, 1.0F)
         : 0.0F;

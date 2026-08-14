@@ -40,31 +40,45 @@ uniform float u_thickness;
 varying vec2 v_pixel;
 
 const float PI = 3.14159265359;
-const float NOTCH_ANGLE = 0.0;
+const float TWO_PI = 2.0 * PI;
 
 void main() {
     vec2 center = u_rect_size * 0.5;
-    float radius = min(u_rect_size.x, u_rect_size.y) * 0.5 - u_thickness * 0.5;
+    float strokeWidth = max(u_thickness, 0.5);
+    float radius = max(min(u_rect_size.x, u_rect_size.y) * 0.5 - strokeWidth * 0.5, strokeWidth * 0.5);
     vec2 p = v_pixel - center;
     float dist = length(p);
+    float aa = max(0.75, min(1.25, strokeWidth * 0.35));
 
-    // Ring SDF
-    float ring = abs(dist - radius) - u_thickness * 0.5;
-    float aa = 0.85;
-    float ringMask = 1.0 - smoothstep(-aa, aa, ring);
+    float ringSdf = abs(dist - radius) - strokeWidth * 0.5;
+    float ringMask = 1.0 - smoothstep(-aa, aa, ringSdf);
 
-    // Notch: hide a 90-degree arc at a fixed position (rotation is handled by the vertex shader)
+    // A faint track anchors the motion while the comet trail brightens toward its head.
     float theta = atan(p.y, p.x);
-    float diff = mod(theta - NOTCH_ANGLE + 3.0 * PI, 2.0 * PI) - PI;
-    float notchHalf = PI * 0.25;
-    float notchMask = smoothstep(-0.08, 0.08, abs(diff) - notchHalf);
+    float travel = mod(-theta + TWO_PI, TWO_PI);
+    float trailLength = PI * 1.48;
+    float angularAa = aa / max(radius, 1.0);
+    float trailMask = 1.0 - smoothstep(trailLength - angularAa, trailLength + angularAa, travel);
+    float trailProgress = clamp(1.0 - travel / trailLength, 0.0, 1.0);
+    float trailOpacity = mix(0.08, 0.88, pow(trailProgress, 0.72));
+    float coverage = ringMask * (0.12 + 0.88 * trailMask * trailOpacity);
 
-    float alpha = ringMask * notchMask * u_color.a;
+    // The circular cap and restrained halo make the leading edge read as a moving point
+    // instead of the square-cut end of a rotating ring.
+    vec2 head = vec2(radius, 0.0);
+    float headDistance = length(p - head);
+    float headMask = 1.0 - smoothstep(strokeWidth * 0.5 - aa, strokeWidth * 0.5 + aa, headDistance);
+    float halo = (1.0 - smoothstep(strokeWidth * 0.45, strokeWidth * 2.1 + aa, headDistance)) * 0.24;
+    coverage = 1.0 - (1.0 - coverage) * (1.0 - headMask);
+    coverage = 1.0 - (1.0 - coverage) * (1.0 - halo);
+
+    float alpha = clamp(coverage, 0.0, 1.0) * u_color.a;
     if (alpha <= 0.0) {
         discard;
     }
 
-    gl_FragColor = vec4(u_color.rgb * alpha, alpha);
+    vec3 litColor = mix(u_color.rgb, vec3(1.0), headMask * 0.14);
+    gl_FragColor = vec4(litColor * alpha, alpha);
 }
 )";
 
@@ -122,7 +136,7 @@ void SpinnerProgram::draw(
       0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 1.0F, 0.0F, 1.0F, 1.0F,
   };
 
-  const float padding = style.thickness + 2.0F;
+  const float padding = style.thickness * 2.5F + 2.0F;
   const float quadWidth = width + padding * 2.0F;
   const float quadHeight = height + padding * 2.0F;
   const Mat3 quadTransform = transform * Mat3::translation(-padding, -padding);

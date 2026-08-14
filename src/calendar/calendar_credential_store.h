@@ -78,9 +78,10 @@ namespace calendar {
     void setChangeCallback(ChangeCallback callback);
     [[nodiscard]] CredentialState state() const noexcept { return m_state; }
     [[nodiscard]] bool migrationPending() const noexcept { return m_migrationPending; }
-    [[nodiscard]] bool refreshTokenMissing(const std::string& accountId) const {
-      return m_missingRefreshTokens.contains(accountId);
-    }
+    [[nodiscard]] bool refreshTokenMissing(const std::string& accountId) const;
+    [[nodiscard]] bool refreshTokenLocked(const std::string& accountId) const;
+    [[nodiscard]] bool anyRefreshTokenMissing() const;
+    [[nodiscard]] bool anyRefreshTokenLocked() const;
 
   private:
     struct MigrationContext;
@@ -90,6 +91,8 @@ namespace calendar {
     static CredentialState stateForStatus(security::SecretStoreStatus status);
 
     void setState(CredentialState state, bool migrationPending, bool forceNotify = false);
+    bool
+    updateRefreshTokenStatus(CredentialKind kind, const std::string& accountId, security::SecretStoreStatus status);
     void runMigration(CredentialMigration migration, StatusCallback callback);
     void storeNextMigrationCredential(const std::shared_ptr<MigrationContext>& context);
     void lookup(CredentialKind kind, const std::string& accountId, LookupCallback callback);
@@ -104,8 +107,7 @@ namespace calendar {
     ChangeCallback m_changeCallback;
     std::unordered_map<std::string, std::shared_ptr<security::SecureBuffer>> m_passwords;
     std::unordered_map<std::string, std::shared_ptr<security::SecureBuffer>> m_refreshTokens;
-    std::unordered_set<std::string> m_missingPasswords;
-    std::unordered_set<std::string> m_missingRefreshTokens;
+    std::unordered_map<std::string, security::SecretStoreStatus> m_refreshTokenStatuses;
   };
 
 } // namespace calendar

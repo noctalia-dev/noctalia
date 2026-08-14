@@ -37,6 +37,7 @@ namespace settings {
     IdleBehaviorConfig norm = row;
     normalizeIdleBehaviorAction(norm);
     const bool showCustomCommands = (norm.action == "command");
+    const bool showLockedTimeout = (norm.action == "screen_off");
 
     auto body = ui::column({
         .align = FlexAlign::Stretch,
@@ -204,6 +205,45 @@ namespace settings {
     timeoutIn->setOnFocusLoss(commitTimeout);
     timeoutBlock->addChild(std::move(timeoutIn));
     body->addChild(std::move(timeoutBlock));
+
+    if (showLockedTimeout) {
+      auto lockedTimeoutBlock = ui::column(
+          {.align = FlexAlign::Stretch, .gap = Style::spaceXs * scale},
+          makeLabel(
+              i18n::tr("settings.idle.behavior.locked-timeout-label"), Style::fontSizeCaption * scale,
+              colorSpecFromRole(ColorRole::OnSurfaceVariant), FontWeight::Normal
+          )
+      );
+      Input* lockedTimeoutPtr = nullptr;
+      auto lockedTimeoutIn = ui::input({
+          .out = &lockedTimeoutPtr,
+          .value = StringUtils::formatDotDecimal(row.lockedTimeoutSeconds),
+          .placeholder = "0",
+          .fontSize = Style::fontSizeBody * scale,
+          .controlHeight = Style::controlHeight * scale,
+          .horizontalPadding = Style::spaceSm * scale,
+      });
+      const auto commitLockedTimeout = [&row, persist, lockedTimeoutPtr]() {
+        const auto parsed = parseDoubleInput(lockedTimeoutPtr->value());
+        constexpr double kMaxIdleTimeoutSeconds =
+            static_cast<double>(std::numeric_limits<std::uint32_t>::max()) / 1000.0;
+        if (!parsed.has_value() || *parsed < 0.0 || *parsed > kMaxIdleTimeoutSeconds) {
+          lockedTimeoutPtr->setInvalid(true);
+          return;
+        }
+        row.lockedTimeoutSeconds = *parsed;
+        lockedTimeoutPtr->setInvalid(false);
+        lockedTimeoutPtr->setValue(StringUtils::formatDotDecimal(row.lockedTimeoutSeconds));
+        persist();
+      };
+      lockedTimeoutIn->setOnChange([lockedTimeoutPtr](const std::string& /*t*/) {
+        lockedTimeoutPtr->setInvalid(false);
+      });
+      lockedTimeoutIn->setOnSubmit([commitLockedTimeout](const std::string& /*text*/) { commitLockedTimeout(); });
+      lockedTimeoutIn->setOnFocusLoss(commitLockedTimeout);
+      lockedTimeoutBlock->addChild(std::move(lockedTimeoutIn));
+      body->addChild(std::move(lockedTimeoutBlock));
+    }
 
     body->addChild(std::move(customCommandsGrp));
     body->addChild(std::move(resumeCommandGrp));

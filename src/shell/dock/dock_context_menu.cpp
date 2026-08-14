@@ -8,6 +8,7 @@
 #include "core/ui_phase.h"
 #include "i18n/i18n.h"
 #include "render/render_context.h"
+#include "render/render_target.h"
 #include "render/scene/node.h"
 #include "shell/dock/pinned_apps.h"
 #include "system/desktop_entry.h"
@@ -16,6 +17,7 @@
 #include "ui/popup_chrome.h"
 #include "ui/style.h"
 #include "wayland/popup_surface.h"
+#include "wayland/wayland_connection.h"
 #include "wayland/wayland_toplevels.h"
 #include "xdg-shell-client-protocol.h"
 
@@ -37,6 +39,11 @@ namespace shell::dock {
 
     bool isWindowClosable(const ToplevelInfo& window) {
       if (window.handle != nullptr) {
+        return true;
+      }
+      // Exact-identity ext toplevels (Hyprland/Niri via workspace-metadata backend) close
+      // through `closeToplevelInfo` via the backend, without a wlr handle.
+      if (window.exactIdentity && !window.identifier.empty()) {
         return true;
       }
       if (compositors::isKde()) {
@@ -254,8 +261,13 @@ namespace shell::dock {
 
     // Compute popup geometry; width grows past the base width to fit long window titles.
     const float menuHeight = ContextMenuControl::preferredHeight(entries, entries.size());
+    float measureScale = 1.0F;
+    if (const WaylandOutput* menuOutput = platform.wayland().findOutputByWl(output); menuOutput != nullptr) {
+      measureScale = menuOutput->configuredScale();
+    }
+    ScaledRenderer measureRenderer(renderContext, measureScale);
     const float menuWidth =
-        std::clamp(ContextMenuControl::preferredWidth(renderContext, entries), kMenuWidth, Style::menuAutoMaxWidth);
+        std::clamp(ContextMenuControl::preferredWidth(measureRenderer, entries), kMenuWidth, Style::menuAutoMaxWidth);
 
     // Determine anchor / gravity + gap based on dock position.
     const DockEdge edge = dockConfig.position;
@@ -417,7 +429,7 @@ namespace shell::dock {
       });
       ctrl->setPosition(menuPtr->chrome.contentX(), menuPtr->chrome.contentY());
       ctrl->setSize(menuPtr->chrome.contentWidth, menuPtr->chrome.contentHeight);
-      ctrl->layout(renderContext);
+      ctrl->layout(menuPtr->surface->renderTarget().renderer());
 
       menuPtr->sceneRoot->addChild(std::move(ctrl));
       menuPtr->inputDispatcher.setSceneRoot(menuPtr->sceneRoot.get());

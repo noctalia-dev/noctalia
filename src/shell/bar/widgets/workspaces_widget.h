@@ -45,6 +45,7 @@ public:
     std::size_t maxLabelChars = 1;
     bool labelsOnlyWhenOccupied = false;
     bool hideWhenEmpty = false;
+    bool showAllOutputs = false;
     float pillScale = 1.0F;
     float activePillSize = 2.2F;
     float inactivePillSize = 1.0F;
@@ -95,13 +96,18 @@ private:
   void syncWidgetVisibility(bool showWidget);
   void recalculateItemMetrics(Renderer& renderer, Item& item, const Workspace& workspace, std::size_t displayIndex);
   void ensureItemLabel(Renderer& renderer, Item& item, const Workspace& workspace);
-  void setWorkspaceClickHandler(InputArea& area, const Workspace& workspace);
+  void setWorkspaceClickHandler(InputArea& area, wl_output* output, const Workspace& workspace);
   void applyItemVisualStyle(Item& item);
   void updateHoverOverlay();
   [[nodiscard]] bool shouldHoldPreviousVisualWorkspace(
       const Workspace& previousVisualWorkspace, const Workspace& currentWorkspace
   ) const noexcept;
   [[nodiscard]] bool releaseHeldVisualStyles();
+
+  struct WorkspaceState {
+    Workspace workspace;
+    wl_output* output = nullptr;
+  };
 
   struct Item {
     InputArea* area = nullptr;
@@ -110,6 +116,7 @@ private:
     Image* icon = nullptr;
     Workspace workspace;
     Workspace visualWorkspace;
+    wl_output* output = nullptr;
     std::string key;
     std::string label;
     std::string iconPath;
@@ -133,6 +140,7 @@ private:
   struct ItemSnapshot {
     std::string key;
     Workspace workspace;
+    wl_output* output = nullptr;
     std::string label;
     bool showLabel = false;
     float width = 0.0F;
@@ -153,6 +161,7 @@ private:
   std::size_t m_maxLabelChars = 1;
   bool m_labelsOnlyWhenOccupied = false;
   bool m_hideWhenEmpty = false;
+  bool m_showAllOutputs = false;
   float m_pillScale = 1.0F;
   float m_activePillSize = 2.2F;
   float m_inactivePillSize = 1.0F;
@@ -166,7 +175,7 @@ private:
   std::unordered_map<std::string, std::string> m_appIcons;
   std::uint64_t m_desktopEntriesVersion = 0;
   Node* m_container = nullptr;
-  std::vector<Workspace> m_cachedState;
+  std::vector<WorkspaceState> m_cachedState;
   std::vector<Item> m_items;
   std::vector<ItemSnapshot> m_rebuildSnapshot;
   bool m_rebuildPending = true;

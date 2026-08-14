@@ -1,5 +1,8 @@
 #include "app/application.h"
 #include "app/single_instance_lock.h"
+#include "cli/completions.h"
+#include "cli/help.h"
+#include "cli/schema_root.h"
 #include "config/cli.h"
 #include "core/build_info.h"
 #include "core/log.h"
@@ -132,27 +135,7 @@ namespace {
       return 0;
     }
     if (std::strcmp(flag, "--help") == 0 || std::strcmp(flag, "-h") == 0) {
-      std::println(
-          "Usage: noctalia [OPTIONS]\n"
-          "\n"
-          "Options:\n"
-          "  -h, --help       Show this help message\n"
-          "  -v, --version    Show version information\n"
-          "  -d, --daemon     Run in background\n"
-          "\n"
-          "Subcommands:\n"
-          "  msg <command>    Send a command to the running instance\n"
-          "                   Run 'noctalia msg --help' for available commands\n"
-          "  theme <image>    Generate a color palette from an image\n"
-          "                   Run 'noctalia theme --help' for options\n"
-          "  config <command> Validate config and support/replay helpers\n"
-          "                   Run 'noctalia config --help' for options\n"
-          "  plugins <cmd>    Offline plugin author tools (lint)\n"
-          "                   Run 'noctalia plugins --help' for options\n"
-          "\n"
-          "For more information and documentation, visit:\n"
-          "  https://noctalia.dev"
-      );
+      std::print("{}", noctalia::cli::renderHelp(noctalia::cli::kRootCmd, "noctalia"));
       return 0;
     }
     return -1;
@@ -291,6 +274,8 @@ int main(int argc, char* argv[]) {
   if (argc >= 2) {
     if (noctalia::theme::isFirefoxNativeMessagingLaunch(argc, argv))
       return noctalia::theme::runFirefoxNativeMessagingHost();
+    if (std::strcmp(argv[1], "completions") == 0)
+      return noctalia::cli::runCompletionsCli(argc, argv);
     if (std::strcmp(argv[1], "firefox-theme") == 0)
       return noctalia::theme::runFirefoxThemeCli(argc, argv);
     if (std::strcmp(argv[1], "theme") == 0)
@@ -314,6 +299,12 @@ int main(int argc, char* argv[]) {
       std::println(stderr, "error: unknown option: {}", argv[i]);
       return 1;
     }
+  }
+
+  if (argc >= 2) {
+    std::println(stderr, "error: unknown command: {}", argv[1]);
+    std::println(stderr, "Run 'noctalia --help' for usage.");
+    return 1;
   }
 
   {

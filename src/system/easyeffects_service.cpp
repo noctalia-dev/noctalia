@@ -496,9 +496,8 @@ bool EasyEffectsService::loadEffectsProfile(AudioEffectsProfileKind kind, std::s
 void EasyEffectsService::registerIpc(
     IpcService& ipc, const ConfigService&, EffectsProfileFeedbackCallback effectsProfileFeedback
 ) {
-  ipc.registerHandler(
-      "effects-profile-set",
-      [this, effectsProfileFeedback](const std::string& args) -> std::string {
+  ipc.bind(
+      noctalia::cli::msg::effectsProfileSet, [this, effectsProfileFeedback](const std::string& args) -> std::string {
         const auto trimmedView = std::string_view(args);
         const auto split = trimmedView.find(' ');
         if (split == std::string_view::npos) {
@@ -534,7 +533,6 @@ void EasyEffectsService::registerIpc(
           effectsProfileFeedback(*kind, profile);
         }
         return "ok\n";
-      },
-      "<output|input> <profile>", "Set the EasyEffects output or input profile"
+      }
   );
 }

@@ -2,11 +2,29 @@
 
 #include "core/log.h"
 #include "render/backend/render_backend.h"
+#include "render/core/image_file_loader.h"
 #include "render/core/texture_manager.h"
 #include "render/gl_shared_context.h"
 
+#include <cstddef>
+
 namespace {
   constexpr Logger kLog("texcache");
+
+  TextureHandle loadAlphaMask(TextureManager& textureManager, const std::string& path) {
+    auto loaded = loadImageFile(path);
+    if (!loaded.has_value()) {
+      kLog.warn("failed to decode alpha mask {}: {}", path, loaded.error());
+      return {};
+    }
+    const std::size_t pixelCount = static_cast<std::size_t>(loaded->width) * static_cast<std::size_t>(loaded->height);
+    for (std::size_t pixel = 0; pixel < pixelCount; ++pixel) {
+      loaded->rgba[pixel] = loaded->rgba[pixel * 4U];
+    }
+    return textureManager.loadFromPixels(
+        loaded->rgba.data(), loaded->width, loaded->height, TextureDataFormat::Alpha, TextureFilter::Linear, true
+    );
+  }
 } // namespace
 
 SharedTextureCache::~SharedTextureCache() {
@@ -57,9 +75,45 @@ TextureHandle SharedTextureCache::acquire(const std::string& path) {
   return handle;
 }
 
+TextureHandle SharedTextureCache::acquireAlphaMask(const std::string& path) {
+  if (path.empty() || m_textureManager == nullptr) {
+    return {};
+  }
+
+  auto it = m_alphaMaskEntries.find(path);
+  if (it != m_alphaMaskEntries.end()) {
+    if (it->second.handle.id == 0) {
+      if (!makeCurrent()) {
+        return {};
+      }
+      it->second.handle = loadAlphaMask(*m_textureManager, path);
+      if (it->second.handle.id == 0) {
+        return {};
+      }
+    }
+    ++it->second.refCount;
+    return it->second.handle;
+  }
+
+  if (!makeCurrent()) {
+    return {};
+  }
+  auto handle = loadAlphaMask(*m_textureManager, path);
+  if (handle.id != 0) {
+    m_alphaMaskEntries[path] = Entry{.handle = handle, .refCount = 1};
+    kLog.info("uploaded alpha mask {}", path);
+  }
+  return handle;
+}
+
 TextureHandle SharedTextureCache::peek(const std::string& path) const {
   const auto it = m_entries.find(path);
   return it != m_entries.end() ? it->second.handle : TextureHandle{};
+}
+
+TextureHandle SharedTextureCache::peekAlphaMask(const std::string& path) const {
+  const auto it = m_alphaMaskEntries.find(path);
+  return it != m_alphaMaskEntries.end() ? it->second.handle : TextureHandle{};
 }
 
 void SharedTextureCache::release(TextureHandle& handle, const std::string& path) {
@@ -88,8 +142,31 @@ void SharedTextureCache::release(TextureHandle& handle, const std::string& path)
   handle = {};
 }
 
+void SharedTextureCache::releaseAlphaMask(TextureHandle& handle, const std::string& path) {
+  if (handle.id == 0 || path.empty() || m_textureManager == nullptr) {
+    handle = {};
+    return;
+  }
+
+  auto it = m_alphaMaskEntries.find(path);
+  if (it == m_alphaMaskEntries.end()) {
+    handle = {};
+    return;
+  }
+
+  --it->second.refCount;
+  if (it->second.refCount <= 0) {
+    if (makeCurrent()) {
+      m_textureManager->unload(it->second.handle);
+    }
+    m_alphaMaskEntries.erase(it);
+    kLog.info("evicted alpha mask {}", path);
+  }
+  handle = {};
+}
+
 void SharedTextureCache::reloadResidentTextures() {
-  if (m_textureManager == nullptr || m_entries.empty()) {
+  if (m_textureManager == nullptr || (m_entries.empty() && m_alphaMaskEntries.empty())) {
     return;
   }
 
@@ -109,6 +186,17 @@ void SharedTextureCache::reloadResidentTextures() {
       kLog.warn("failed to reupload {}", path);
     }
   }
+  for (auto& [path, entry] : m_alphaMaskEntries) {
+    if (entry.handle.id != 0) {
+      m_textureManager->unload(entry.handle);
+    }
+    entry.handle = loadAlphaMask(*m_textureManager, path);
+    if (entry.handle.id != 0) {
+      kLog.info("reuploaded alpha mask {}", path);
+    } else {
+      kLog.warn("failed to reupload alpha mask {}", path);
+    }
+  }
 }
 
 void SharedTextureCache::abandonGpuResources() noexcept {
@@ -116,6 +204,10 @@ void SharedTextureCache::abandonGpuResources() noexcept {
     m_textureManager->abandonGpuResources();
   }
   for (auto& [path, entry] : m_entries) {
+    (void)path;
+    entry.handle = {};
+  }
+  for (auto& [path, entry] : m_alphaMaskEntries) {
     (void)path;
     entry.handle = {};
   }

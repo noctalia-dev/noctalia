@@ -188,7 +188,7 @@ namespace settings {
       return;
     }
     m_root->setSize(contentWidth, contentHeight);
-    m_root->layout(*renderContext());
+    m_root->layout(renderer());
   }
 
   void SearchPickerPopup::cancelToFacade() {}

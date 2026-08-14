@@ -32,7 +32,7 @@ namespace {
 
 PluginDesktopWidget::PluginDesktopWidget(scripting::PluginRuntimeContext context, std::string outputName)
     : m_entryId(std::move(context.entryId)), m_sourcePath(std::move(context.sourcePath)),
-      m_pluginDir(m_sourcePath.parent_path()), m_outputName(std::move(outputName)), m_scriptApi(context.scriptApi),
+      m_pluginDir(std::move(context.pluginDir)), m_outputName(std::move(outputName)), m_scriptApi(context.scriptApi),
       m_settings(std::move(context.settings)), m_fileWatcher(context.fileWatcher), m_httpClient(context.httpClient),
       m_clipboard(context.clipboard) {
   scripting::PluginIpcRouter::instance().registerEndpoint(this);

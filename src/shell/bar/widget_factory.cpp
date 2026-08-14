@@ -266,6 +266,7 @@ std::unique_ptr<Widget> WidgetFactory::create(
         scripting::PluginRuntimeContext{
             .entryId = pluginEntry->fullId(),
             .sourcePath = pluginEntry->sourcePath,
+            .pluginDir = pluginEntry->pluginDir,
             .settings = std::move(seeded),
             .scriptApi = *m_scriptApi,
             .fileWatcher = m_fileWatcher,

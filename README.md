@@ -18,7 +18,7 @@ are designed as one cohesive shell instead of a collection of unrelated panels a
 </p>
 
 <p align="center">
-  <a href="https://docs.noctalia.dev/v5/getting-started/installation">
+  <a href="https://docs.noctalia.dev/noctalia/getting-started/installation/">
     <img
       src="https://img.shields.io/badge/Install_Noctalia-FFF59B?style=for-the-badge&labelColor=FFF59B"
       alt="Install Noctalia"
@@ -302,7 +302,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md#runtime-assets) for the full runtime asset
 ## Configuration
 
 A ready-to-use starting config with all defaults is at [example.toml](example.toml). The full configuration reference
-lives in the [documentation site](https://docs.noctalia.dev/v5/).
+lives in the [documentation site](https://docs.noctalia.dev/noctalia/).
 
 ## Contributing
 

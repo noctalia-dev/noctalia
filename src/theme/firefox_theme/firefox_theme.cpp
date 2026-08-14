@@ -1,10 +1,13 @@
 #include "theme/firefox_theme/firefox_theme.h"
 
+#include "cli/help.h"
+#include "cli/parse.h"
+#include "cli/schema_firefox_theme.h"
+#include "core/inotify/inotify.h"
 #include "theme/firefox_theme/css.h"
 #include "theme/firefox_theme/native_messaging.h"
 #include "theme/firefox_theme/settings.h"
 
-#include <algorithm>
 #include <array>
 #include <cerrno>
 #include <cstdint>
@@ -18,7 +21,6 @@
 #include <print>
 #include <string>
 #include <string_view>
-#include <sys/inotify.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -587,67 +589,25 @@ namespace noctalia::theme {
       return fd;
     }
 
-    [[nodiscard]] int openPathInotify(const std::filesystem::path& watchedPath, int* watchFdOut) {
-      *watchFdOut = -1;
-      const int fd = ::inotify_init1(IN_NONBLOCK | IN_CLOEXEC);
-      if (fd < 0) {
-        return -1;
-      }
+    bool openPathInotify(Inotify& inotify, const std::filesystem::path& watchedPath) {
+      constexpr std::uint32_t inotifyMask = IN_CLOSE_WRITE | IN_MOVED_TO | IN_CREATE;
+
       const auto dir = watchedPath.parent_path();
       std::error_code ec;
       std::filesystem::create_directories(dir, ec);
-      const int wd = ::inotify_add_watch(fd, dir.c_str(), IN_CLOSE_WRITE | IN_MOVED_TO | IN_CREATE);
-      if (wd < 0) {
-        ::close(fd);
-        return -1;
-      }
-      *watchFdOut = wd;
-      return fd;
+      const auto wd = inotify.watch(dir, inotifyMask);
+      return wd.has_value();
     }
 
     // Drain one inotify fd; returns whether `fileName` was among the events.
-    [[nodiscard]] bool drainInotifyMatches(int inotifyFd, std::string_view fileName) {
-      alignas(inotify_event) char buf[4096];
+    [[nodiscard]] bool drainInotifyMatches(Inotify& inotify, std::string_view fileName) {
       bool matched = false;
-      while (true) {
-        const ssize_t n = ::read(inotifyFd, buf, sizeof(buf));
-        if (n < 0) {
-          if (errno == EAGAIN || errno == EWOULDBLOCK) {
-            break;
-          }
-          break;
+      inotify.drain([&matched, &fileName](const inotify_event* event) {
+        if (event->len > 0 && fileName == event->name) {
+          matched = true;
         }
-        std::size_t offset = 0;
-        while (offset < static_cast<std::size_t>(n)) {
-          const auto* event = reinterpret_cast<const inotify_event*>(buf + offset);
-          if (event->len > 0 && fileName == event->name) {
-            matched = true;
-          }
-          offset += sizeof(inotify_event) + event->len;
-        }
-      }
+      });
       return matched;
-    }
-
-    void printCliHelp() {
-      std::println(
-          "noctalia firefox-theme — Firefox theme host helpers (Pywalfox-compatible)\n"
-          "\n"
-          "Usage: noctalia firefox-theme <ACTION>\n"
-          "\n"
-          "Actions:\n"
-          "  host           Run as Firefox native messaging host\n"
-          "  install        Install user-local native messaging manifest\n"
-          "  uninstall      Remove user-local native messaging manifest\n"
-          "  update         Ask all running hosts to push colors to their extensions\n"
-          "  dark|light|auto  Persist and push theme mode to all running hosts\n"
-          "  -h, --help     Show this help\n"
-          "\n"
-          "Templates use post_action = \"firefox-theme\" after writing colors.json.\n"
-          "Firefox still requires the Pywalfox browser extension.\n"
-          "Multiple Firefox profiles are supported: each profile runs a host process,\n"
-          "and theme pushes fan out to all of them.\n"
-      );
     }
 
   } // namespace
@@ -714,14 +674,14 @@ namespace noctalia::theme {
     // Only one host per uid owns the legacy socket; additional profiles skip bind.
     const int socketFd = openUnixDatagramServer(socketPath);
 
-    int colorsWatch = -1;
+    Inotify colorsInotify;
     const auto colorsPath = defaultColorsJsonPath();
-    const int colorsInotifyFd = openPathInotify(colorsPath, &colorsWatch);
+    openPathInotify(colorsInotify, colorsPath);
     const std::string colorsFileName = colorsPath.filename().string();
 
-    int commandWatch = -1;
+    Inotify commandInotify;
     const auto commandPath = commandNotifyPath();
-    const int commandInotifyFd = openPathInotify(commandPath, &commandWatch);
+    openPathInotify(commandInotify, commandPath);
     const std::string commandFileName = commandPath.filename().string();
 
     native_messaging::StdinReader reader;
@@ -734,11 +694,11 @@ namespace noctalia::theme {
       if (socketFd >= 0) {
         fds[nfds++] = {.fd = socketFd, .events = POLLIN, .revents = 0};
       }
-      if (colorsInotifyFd >= 0) {
-        fds[nfds++] = {.fd = colorsInotifyFd, .events = POLLIN, .revents = 0};
+      if (colorsInotify.fd() >= 0) {
+        fds[nfds++] = {.fd = colorsInotify.fd(), .events = POLLIN, .revents = 0};
       }
-      if (commandInotifyFd >= 0) {
-        fds[nfds++] = {.fd = commandInotifyFd, .events = POLLIN, .revents = 0};
+      if (commandInotify.fd() >= 0) {
+        fds[nfds++] = {.fd = commandInotify.fd(), .events = POLLIN, .revents = 0};
       }
 
       const int ready = ::poll(fds.data(), nfds, -1);
@@ -782,12 +742,12 @@ namespace noctalia::theme {
             }
             handleSocketCommandFromPrimary(std::string_view(buf, static_cast<std::size_t>(n)));
           }
-        } else if (colorsInotifyFd >= 0 && fds[i].fd == colorsInotifyFd) {
-          if (drainInotifyMatches(colorsInotifyFd, colorsFileName)) {
+        } else if (colorsInotify.fd() >= 0 && fds[i].fd == colorsInotify.fd()) {
+          if (drainInotifyMatches(colorsInotify, colorsFileName)) {
             sendColors();
           }
-        } else if (commandInotifyFd >= 0 && fds[i].fd == commandInotifyFd) {
-          if (drainInotifyMatches(commandInotifyFd, commandFileName)) {
+        } else if (commandInotify.fd() >= 0 && fds[i].fd == commandInotify.fd()) {
+          if (drainInotifyMatches(commandInotify, commandFileName)) {
             if (const auto command = readPublishedCommand()) {
               handleSocketCommand(*command);
             }
@@ -801,24 +761,22 @@ namespace noctalia::theme {
       ::close(socketFd);
       ::unlink(socketPath.c_str());
     }
-    if (colorsInotifyFd >= 0) {
-      ::close(colorsInotifyFd);
-    }
-    if (commandInotifyFd >= 0) {
-      ::close(commandInotifyFd);
-    }
     return 0;
   }
 
   int runFirefoxThemeCli(int argc, char* argv[]) {
-    std::string_view action;
-    if (argc >= 3 && argv[2] != nullptr) {
-      action = argv[2];
-    }
-
-    if (action.empty() || action == "-h" || action == "--help" || action == "help") {
-      printCliHelp();
-      return action.empty() ? 1 : 0;
+    auto parsed = cli::parseOrReport(
+        cli::kFirefoxThemeCmd, "noctalia firefox-theme",
+        std::span<char* const>{argv + 2, static_cast<std::size_t>(argc - 2)}
+    );
+    if (!parsed)
+      return 1;
+    if (parsed->helpRequested)
+      return 0;
+    const std::string_view action = parsed->positionals.front();
+    if (action == "help") {
+      std::print("{}", cli::renderHelp(cli::kFirefoxThemeCmd, "noctalia firefox-theme"));
+      return 0;
     }
     if (action == "host" || action == "start") {
       return runFirefoxNativeMessagingHost();
@@ -861,8 +819,6 @@ namespace noctalia::theme {
       return sendHostCommand(kCmdAuto);
     }
 
-    std::println(stderr, "error: unknown firefox-theme action '{}'", action);
-    printCliHelp();
     return 1;
   }
 

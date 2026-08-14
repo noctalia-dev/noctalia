@@ -150,6 +150,24 @@ namespace {
     return true;
   }
 
+  bool expectOneEventUrl(
+      const std::string& ics, system_clock::time_point start, system_clock::time_point end, const std::string& url,
+      const char* message
+  ) {
+    ICalParseResult result = parseEvents(ics, start, end);
+    if (result.status != ICalParseStatus::Complete || result.events.size() != 1) {
+      std::println(stderr, "ical_parser_test: {}: expected exactly one parsed event", message);
+      return false;
+    }
+    if (result.events.front().url != url) {
+      std::println(
+          stderr, R"(ical_parser_test: {}: url was "{}", expected "{}")", message, result.events.front().url, url
+      );
+      return false;
+    }
+    return true;
+  }
+
 } // namespace
 
 int main() {
@@ -177,6 +195,33 @@ int main() {
                             "LOCATION:Main\\, Room\r\n"
                             "DTSTART:20240101T090000Z\r\nDTEND:20240101T100000Z\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n";
     ok = expectOneEventText(ics, start, end, "Planning\nSession", "Main, Room", "escaped text values") && ok;
+  }
+
+  // A meeting link in LOCATION becomes the event's clickable url, and wins over the URL property.
+  {
+    const std::string ics = "BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nUID:meet\r\nSUMMARY:Daily Sync\r\n"
+                            "LOCATION:https://meet.google.com/abc-defg-hij\r\n"
+                            "URL:https://calendar.example/event/1\r\n"
+                            "DTSTART:20240101T090000Z\r\nDTEND:20240101T100000Z\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n";
+    ok =
+        expectOneEventUrl(ics, start, end, "https://meet.google.com/abc-defg-hij", "location link wins over url") && ok;
+  }
+
+  // With no link in LOCATION the URL property is used.
+  {
+    const std::string ics = "BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nUID:url\r\nSUMMARY:Review\r\n"
+                            "LOCATION:Meeting Room 3\r\n"
+                            "URL:https://calendar.example/event/2\r\n"
+                            "DTSTART:20240101T090000Z\r\nDTEND:20240101T100000Z\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n";
+    ok = expectOneEventUrl(ics, start, end, "https://calendar.example/event/2", "url property fallback") && ok;
+  }
+
+  // An event with neither carries no link.
+  {
+    const std::string ics = "BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nUID:plain\r\nSUMMARY:Dentist\r\n"
+                            "LOCATION:Kyiv\r\n"
+                            "DTSTART:20240101T090000Z\r\nDTEND:20240101T100000Z\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n";
+    ok = expectOneEventUrl(ics, start, end, "", "no link") && ok;
   }
 
   // Malformed/incomplete VEVENTs are skipped instead of producing epoch-placeholder events.
@@ -601,6 +646,47 @@ int main() {
              ics, start, end, {utc(2024, 1, 1, 9), utc(2024, 1, 1, 11), utc(2024, 1, 1, 12), utc(2024, 1, 1, 15)},
              "recurrence-id override only excludes exact occurrence"
          )
+        && ok;
+  }
+
+  // Responses that are not iCalendar at all must be distinguishable from an empty calendar, so a
+  // captive portal or expired share link cannot overwrite cached events with nothing.
+  {
+    const std::vector<std::string> invalid = {
+        "<!DOCTYPE html>\r\n<html><body><h1>Sign in</h1></body></html>\r\n",
+        R"({"error":"expired share"})",
+        "not a calendar at all\r\n",
+        "",
+        "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nBEGIN:VEVENT\r\nUID:a\r\n",
+        // The envelope survived but every content line inside the event was mangled, so nothing
+        // usable came out. Distinct from a calendar that is legitimately empty.
+        "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nBEGIN:VEVENT\r\n"
+        "DTSTART 20240115T100000Z\r\nSUMMARY Team Meeting\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n",
+    };
+    for (const std::string& ics : invalid) {
+      ok = expect(
+               parseEvents(ics, start, end).status == ICalParseStatus::InvalidCalendar,
+               "non-calendar response was not reported as invalid"
+           )
+          && ok;
+    }
+
+    const ICalParseResult empty = parseEvents("BEGIN:VCALENDAR\r\nVERSION:2.0\r\nEND:VCALENDAR\r\n", start, end);
+    ok = expect(empty.status == ICalParseStatus::Complete, "empty calendar was not reported as complete") && ok;
+    ok = expect(empty.events.empty(), "empty calendar produced events") && ok;
+  }
+
+  // Libical replaces unparseable content lines with X-LIC-ERROR properties instead of rejecting the
+  // document, so a partially damaged feed still yields its readable events. Rejecting the whole
+  // calendar here would let one quirky line hide every event in a large feed.
+  {
+    const std::string ics = "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Broken Corp//Bad Calendar//EN\r\n"
+                            "BEGIN:VEVENT\r\nUID:recovered\r\nDTSTART:20240115T100000Z\r\n"
+                            "DTEND 20240115T110000Z\r\n"
+                            "SUMMARY:Team Meeting\r\n"
+                            "Description This line has no colon separator\r\n"
+                            "END:VEVENT\r\nEND:VCALENDAR\r\n";
+    ok = expectOneEventText(ics, start, end, "Team Meeting", "", "damaged lines are skipped and the event survives")
         && ok;
   }
 

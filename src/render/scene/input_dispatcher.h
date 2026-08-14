@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <functional>
 #include <optional>
@@ -15,6 +16,10 @@ public:
   using CursorShapeCallback = std::function<void(std::uint32_t serial, std::uint32_t shape)>;
   using HoverChangeCallback = std::function<void(InputArea* oldArea, InputArea* newArea)>;
   using FocusChangeCallback = std::function<void(InputArea* oldArea, InputArea* newArea)>;
+  struct TabFocusSnapshot {
+    std::optional<std::size_t> index;
+    std::optional<std::string> key;
+  };
 
   InputDispatcher() = default;
 
@@ -47,6 +52,8 @@ public:
   void setFocus(InputArea* area);
   void stashTabFocus();
   void restoreStashedTabFocus();
+  [[nodiscard]] TabFocusSnapshot captureTabFocus() const;
+  void restoreTabFocus(TabFocusSnapshot snapshot);
   [[nodiscard]] bool cycleTabFocus(bool reverse);
   [[nodiscard]] bool cycleTabFocusInSubtree(Node* subtree, bool reverse);
   [[nodiscard]] InputArea* inputAreaAt(float x, float y);

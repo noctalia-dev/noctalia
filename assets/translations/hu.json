@@ -1464,7 +1464,7 @@
         "open-source": "A bővítmény forráskód-tárának megnyitása",
         "results-count": "{count} bővítmény",
         "search-placeholder": "Bővítmények keresése…",
-        "source-all": "Mind",
+        "source-all": "Összes forrás",
         "title": "Bővítményáruház"
       }
     },
@@ -3171,10 +3171,6 @@
         "custom-image-colorize": {
           "description": "Az egyéni kép színének beállítása a widget „Ikon színe” beállításával",
           "label": "Egyéni kép színezése"
-        },
-        "custom-labels": {
-          "description": "Billentyűzetkiosztás-nevek hozzárendelése egyéni címkékhez",
-          "label": "Egyéni címkék"
         },
         "detached-panel": {
           "description": "A fiókot lebegő panelként nyissa meg, saját háttérrel, a sávval való összevonás helyett",

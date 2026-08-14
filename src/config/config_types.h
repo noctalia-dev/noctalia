@@ -268,6 +268,8 @@ struct IdleBehaviorConfig {
   std::string resumeCommand;
   /// When `action` is `suspend`, lock the session before running suspend so lock surfaces are ready (recommended).
   bool lockBeforeSuspend = true;
+  /// Shorter timeout (seconds) applied only while the session is locked; 0 = always use timeoutSeconds.
+  double lockedTimeoutSeconds = 0.0;
 
   bool operator==(const IdleBehaviorConfig&) const = default;
 };
@@ -742,6 +744,7 @@ struct NotificationConfig {
   std::vector<std::string> monitors;
   bool collapseOnDismiss = true;
   int historyRetentionHours = 0;
+  int maxVisible = 0; // 0 = unlimited (space-based only)
 
   std::vector<NotificationFilterConfig> filters;
 
@@ -985,6 +988,8 @@ struct ShellConfig {
     bool compact = false;
     bool appGrid = false;
     bool sortByUsage = true;
+    // Desktop entry IDs shown first in the launcher when it opens without a query.
+    std::vector<std::string> pinned;
     /// When true, refresh currency exchange rates from libqalculate's online sources.
     bool fetchExchangeRates = true;
     std::string providerPrefix = "/";
@@ -1068,6 +1073,7 @@ struct ShellConfig {
   AnimationConfig animation;
   std::string avatarPath;
   bool settingsShowAdvanced = true;
+  bool settingsWindowTranslucent = false;
   bool showLocation = true;
   bool appIconColorize = false;
   std::optional<ColorSpec> appIconColor;
@@ -1128,7 +1134,7 @@ struct CalendarConfig {
   // are not stored here. id must be [a-z0-9_] because it identifies durable credential records.
   struct Account {
     std::string id;
-    std::string type; // "google" | "caldav"
+    std::string type; // "google" | "caldav" | "ics"
     std::string displayName;
     std::string color;                  // optional "#rrggbb" override
     std::string provider;               // "icloud" | "custom" (caldav only)
@@ -1173,6 +1179,10 @@ struct SystemConfig {
         noctalia::sysmon::thresholdProfile(noctalia::sysmon::Stat::CpuTemp).activityDefault;
     double cpuTempCriticalThreshold =
         noctalia::sysmon::thresholdProfile(noctalia::sysmon::Stat::CpuTemp).criticalDefault;
+    double cpuFreqActivityThreshold =
+        noctalia::sysmon::thresholdProfile(noctalia::sysmon::Stat::CpuFreq).activityDefault;
+    double cpuFreqCriticalThreshold =
+        noctalia::sysmon::thresholdProfile(noctalia::sysmon::Stat::CpuFreq).criticalDefault;
     double gpuTempActivityThreshold =
         noctalia::sysmon::thresholdProfile(noctalia::sysmon::Stat::GpuTemp).activityDefault;
     double gpuTempCriticalThreshold =
@@ -1515,6 +1525,7 @@ struct ControlCenterConfig {
   ControlCenterSidebarMode sidebarSectionMode = ControlCenterSidebarMode::Compact;
   std::int32_t width = kDefaultWidth; // full-sidebar logical width; compact/none modes scale down from this
   bool showShortcutLabels = true;
+  bool showSessionButton = true;
   CalendarTabConfig calendarTab;
   bool operator==(const ControlCenterConfig&) const = default;
 };

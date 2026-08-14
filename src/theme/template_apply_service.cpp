@@ -210,19 +210,15 @@ namespace noctalia::theme {
   }
 
   void TemplateApplyService::registerIpc(IpcService& ipc) {
-    ipc.registerHandler(
-        "templates-apply",
-        [this](const std::string& args) -> std::string {
-          if (!StringUtils::trim(args).empty()) {
-            return "error: usage: templates-apply\n";
-          }
-          if (!reapplyLast()) {
-            return "error: theme palette has not been resolved yet\n";
-          }
-          return "ok\n";
-        },
-        "", "Apply configured theme templates for the current palette"
-    );
+    ipc.bind(noctalia::cli::msg::templatesApply, [this](const std::string& args) -> std::string {
+      if (!StringUtils::trim(args).empty()) {
+        return "error: usage: templates-apply\n";
+      }
+      if (!reapplyLast()) {
+        return "error: theme palette has not been resolved yet\n";
+      }
+      return "ok\n";
+    });
   }
 
   TemplateApplyService::ApplyRequest

@@ -15,6 +15,19 @@ struct PointerEvent;
 namespace capture {
 
   enum class ConfirmAction { None, ForceClipboard, ForceSave };
+  enum class DragMode {
+    None,
+    NewSelection,
+    TopEdge,
+    BottomEdge,
+    LeftEdge,
+    RightEdge,
+    TopLeftCorner,
+    TopRightCorner,
+    BottomLeftCorner,
+    BottomRightCorner,
+    Move
+  };
 
   struct FrozenScreenshot {
     wl_output* output = nullptr;
@@ -52,6 +65,12 @@ namespace capture {
 
   private:
     struct Instance;
+
+    DragMode m_dragMode = DragMode::None;
+    double m_moveOffsetX = 0.0;
+    double m_moveOffsetY = 0.0;
+    double m_cursorGlobalX = 0.0;
+    double m_cursorGlobalY = 0.0;
 
     void ensureSurfaces();
     void destroySurfaces();

@@ -59,6 +59,7 @@
       },
       "network": {
         "active": "활성",
+        "band": "밴드",
         "connected": "연결됨",
         "connecting": "연결 중",
         "download": "다운로드",
@@ -685,7 +686,8 @@
     },
     "source": {
       "address": "주소",
-      "auto": "자동"
+      "auto": "자동",
+      "manual": "매뉴얼"
     }
   },
   "lockscreen": {
@@ -966,6 +968,7 @@
           "title": "바 위젯"
         },
         "group": {
+          "accordion": "아코디언",
           "action": "그룹",
           "border": "테두리",
           "border-description": "캡슐 외곽선 색상 역할, 외곽선을 보이지 않으려면 기본값으로 두세요",
@@ -1008,12 +1011,14 @@
           "show-widget": "이 위젯 표시",
           "style": "스타일",
           "title": "캡슐 그룹",
-          "ungroup": "그룹 해제"
+          "ungroup": "그룹 해제",
+          "widget-spacing": "간격"
         },
         "inspector": {
           "add-instance-title": "{lane}에 새로운 이름 있는 {widget} 위젯 추가",
           "add-title": "{lane}에 위젯 추가",
-          "move-to-lane": "{lane}으로 이동"
+          "move-to-lane": "{lane}으로 이동",
+          "reset-defaults": "기본값으로 초기화"
         },
         "instance": {
           "create-save": "생성",
@@ -1169,6 +1174,7 @@
         "idle": "유휴",
         "interface": "인터페이스",
         "keybinds": "단축키",
+        "keyboard-layout": "키보드 레이아웃",
         "kinds": "종류",
         "launcher": "런처",
         "layout": "레이아웃",
@@ -2457,19 +2463,19 @@
         },
         "calendar-credentials": {
           "button": "다시 시도",
-          "description-cancelled": "Secret Service 프롬프트가 취소되었습니다. 준비가 되면 다시 시도하세요.",
-          "description-error": "Secret Service를 통해 캘린더 자격 증명에 접근할 수 없습니다.",
+          "description-cancelled": "Secret Service 프롬프트가 취소되었습니다. 준비가 되면 다시 시도하세요",
+          "description-error": "Secret Service를 통해 캘린더 자격 증명에 접근할 수 없습니다",
           "description-locked": "캘린더 자격 증명이 잠겨 있거나 접근이 거부되었습니다. Secret Service를 잠금 해제하고 다시 시도하세요.",
           "description-migration": "평문 캘린더 자격 증명이 Secret Service로 이동 대기 중입니다. 캘린더 동기화에는 사용되지 않습니다.",
-          "description-opening": "Secret Service를 통해 캘린더 자격 증명을 여는 중입니다.",
-          "description-unavailable": "이 세션에서 사용 가능한 Secret Service 제공자가 없습니다.",
+          "description-opening": "Secret Service를 통해 캘린더 자격 증명을 여는 중입니다",
+          "description-unavailable": "이 세션에서 사용 가능한 Secret Service 제공자가 없습니다",
           "label": "캘린더 자격 증명 저장소"
         },
         "calendar-edit": {
           "button": "편집",
           "button-reconnect": "재연결",
           "description": "이 캘린더 계정 업데이트",
-          "description-reconnect": "Google 인증 정보가 누락되었습니다. 계정을 다시 연결해 주세요."
+          "description-reconnect": "Google 인증 정보가 누락되었습니다. 계정을 다시 연결해 주세요"
         },
         "calendar-event-date-format": {
           "description": "선택된 날짜의 이벤트 카드에 표시되는 날짜 형식",
@@ -2490,7 +2496,7 @@
           "description-locked": "암호화된 저장소가 잠겨 있거나 접근이 거부되었습니다. 접근을 수정하고 다시 시도하세요.",
           "description-migration": "평문 캘린더 이벤트 캐시가 암호화 대기 중입니다. 마이그레이션이 성공할 때까지 보존됩니다.",
           "description-missing-key": "설정된 암호화 저장소 키가 없습니다. 기존 캘린더 캐시 파일은 보존되었습니다.",
-          "description-opening": "암호화된 캘린더 이벤트 캐시를 여는 중입니다.",
+          "description-opening": "암호화된 캘린더 이벤트 캐시를 여는 중입니다",
           "description-recovery": "캘린더 이벤트 캐시를 인증할 수 없거나 손상되었습니다. 올바른 키를 복원한 후 다시 시도하거나 개인 저장소를 초기화하세요.",
           "description-unavailable": "사용 가능한 Secret Service 제공자가 없습니다. 캘린더 이벤트는 이 세션에서만 사용 가능합니다.",
           "label": "캘린더 이벤트 저장소"
@@ -2734,7 +2740,7 @@
         "clipboard-storage": {
           "button": "다시 시도",
           "description-cancelled": "Secret Service 프롬프트가 취소되었습니다. 클립보드 기록은 이 세션에서만 사용 가능합니다.",
-          "description-error": "암호화된 클립보드 기록을 열거나 저장할 수 없습니다.",
+          "description-error": "암호화된 클립보드 기록을 열거나 저장할 수 없습니다",
           "description-locked": "클립보드 키 저장소가 잠겨 있거나 접근이 거부되었습니다. 접근을 수정하고 다시 시도하세요.",
           "description-migration": "평문 클립보드 기록이 암호화 대기 중입니다. 마이그레이션이 성공할 때까지 기존 파일이 보존됩니다.",
           "description-missing-key": "설정된 암호화 저장소 키가 없습니다. 기존 클립보드 기록 파일은 보존되었습니다.",
@@ -3176,9 +3182,9 @@
         "cpu-temp": "CPU 온도",
         "cpu-usage": "CPU 사용률",
         "disk-free": "디스크 여유 공간",
-        "disk-free-percent": "디스크 여유 퍼센트",
+        "disk-free-percent": "디스크 여유 %",
         "disk-used": "디스크 사용됨",
-        "disk-used-percent": "디스크 사용 퍼센트",
+        "disk-used-percent": "디스크 사용 %",
         "dots": "점",
         "focus-hint": "포커스 힌트",
         "full": "전체",
@@ -3206,7 +3212,7 @@
         "on-hover": "마우스 오버 시",
         "output": "출력",
         "percent": "퍼센트",
-        "ram-percent": "메모리 퍼센트",
+        "ram-percent": "RAM %",
         "ram-used": "메모리 사용됨",
         "rate": "속도",
         "regular": "기본",
@@ -3215,7 +3221,7 @@
         "scroll-steps": "움직임마다",
         "shared": "공유",
         "short": "짧게",
-        "swap-percent": "스왑 퍼센트",
+        "swap-percent": "스왑 %",
         "text": "텍스트",
         "text-only": "텍스트만",
         "time": "시간",
@@ -3323,10 +3329,6 @@
         "custom-image-colorize": {
           "description": "위젯 아이콘 색상 설정으로 사용자 정의 이미지를 틴팅",
           "label": "사용자 정의 이미지 채색"
-        },
-        "custom-labels": {
-          "description": "키보드 레이아웃 이름을 사용자 정의 레이블에 매핑",
-          "label": "사용자 정의 레이블"
         },
         "detached-panel": {
           "description": "서랍을 바에 합치는 대신 자체 배경을 가진 플로팅 패널로 열기",
@@ -3648,6 +3650,10 @@
         "show-label": {
           "description": "위젯의 텍스트 레이블 표시",
           "label": "레이블 표시"
+        },
+        "show-labels": {
+          "description": "작업 공간에 텍스트 레이블 보이기",
+          "label": "레이블 보이기"
         },
         "show-num-lock": {
           "description": "Num Lock 상태 표시",

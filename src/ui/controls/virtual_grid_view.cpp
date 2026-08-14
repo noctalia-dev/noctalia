@@ -67,14 +67,21 @@ VirtualGridView::VirtualGridView() {
   inputArea->setOnMotion([this](const InputArea::PointerData& data) { onPointerMotion(data.localX, data.localY); });
   inputArea->setOnLeave([this]() { onPointerLeave(); });
   inputArea->setOnPress([this](const InputArea::PointerData& data) {
-    if (!data.pressed) {
-      return;
-    }
     if (data.button == BTN_LEFT) {
-      onPointerPress(data.localX, data.localY);
-    } else if (data.button == BTN_RIGHT) {
+      if (data.pressed) {
+        onPointerPress(data.localX, data.localY);
+      } else {
+        onPointerRelease(data.localX, data.localY);
+      }
+    } else if (data.pressed && data.button == BTN_RIGHT) {
       onSecondaryPointerPress(data.localX, data.localY);
     }
+  });
+  inputArea->setOnCancel([this]() {
+    if (m_adapterPointerCapture && m_adapter != nullptr) {
+      m_adapter->onPointerCancel();
+    }
+    m_adapterPointerCapture = false;
   });
   m_inputArea = static_cast<InputArea*>(m_canvas->addChild(std::move(inputArea)));
 }
@@ -83,7 +90,11 @@ void VirtualGridView::setAdapter(VirtualGridAdapter* adapter) {
   if (m_adapter == adapter) {
     return;
   }
+  if (m_adapterPointerCapture && m_adapter != nullptr) {
+    m_adapter->onPointerCancel();
+  }
   m_adapter = adapter;
+  m_adapterPointerCapture = false;
   // Drop the existing pool — tiles were built by the previous adapter's createTile().
   for (Node* tile : m_pool) {
     if (tile != nullptr) {
@@ -387,6 +398,12 @@ void VirtualGridView::doLayout(Renderer& renderer) {
         InputArea* tooltipArea = m_poolTooltipAreas[slot];
         tooltipArea->setPosition(x, y);
         tooltipArea->setFrameSize(cellW, cellH);
+        const auto tooltipInsets = m_adapter->itemTooltipAnchorInsets(logicalIndex, cellW, cellH);
+        if (tooltipInsets.has_value()) {
+          tooltipArea->setTooltipAnchorInsets(*tooltipInsets);
+        } else {
+          tooltipArea->clearTooltipAnchorInsets();
+        }
         tooltipArea->setVisible(true);
         const bool selected = m_selectedIndex.has_value() && *m_selectedIndex == logicalIndex;
         const bool hovered = m_hoveredIndex.has_value() && *m_hoveredIndex == logicalIndex;
@@ -453,6 +470,10 @@ LayoutSize VirtualGridView::doMeasure(Renderer& /*renderer*/, const LayoutConstr
 void VirtualGridView::doArrange(Renderer& renderer, const LayoutRect& rect) { arrangeByLayout(renderer, rect); }
 
 void VirtualGridView::onScrollChanged(float /*offset*/) {
+  if (m_adapterPointerCapture && m_adapter != nullptr) {
+    m_adapter->onPointerCancel();
+    m_adapterPointerCapture = false;
+  }
   if (m_hoveredOverlayIndex.has_value()) {
     setOverlayHoveredForIndex(*m_hoveredOverlayIndex, false);
   }
@@ -465,6 +486,13 @@ void VirtualGridView::onPointerEnter(float localX, float localY) { onPointerMoti
 
 void VirtualGridView::onPointerMotion(float localX, float localY) {
   const auto idx = indexAt(localX, localY);
+
+  if (m_adapterPointerCapture && m_adapter != nullptr) {
+    if (m_adapter->onPointerDrag(idx, localX, localY, m_cellWidth, m_cellHeightResolved)) {
+      notifyDataChanged();
+    }
+    return;
+  }
 
   std::optional<std::size_t> overlayIdx;
   if (idx.has_value() && m_adapter != nullptr) {
@@ -540,9 +568,20 @@ void VirtualGridView::onPointerPress(float localX, float localY) {
   const float cellLocalX = localX - static_cast<float>(col) * colStride;
   const float cellLocalY = localY - static_cast<float>(row) * rowStride;
   if (m_adapter->onPointerPress(*idx, cellLocalX, cellLocalY, m_cellWidth, m_cellHeightResolved)) {
+    m_adapterPointerCapture = true;
     return;
   }
   m_adapter->onActivate(*idx);
+}
+
+void VirtualGridView::onPointerRelease(float localX, float localY) {
+  if (!m_adapterPointerCapture || m_adapter == nullptr) {
+    return;
+  }
+  m_adapterPointerCapture = false;
+  if (m_adapter->onPointerRelease(indexAt(localX, localY))) {
+    notifyDataChanged();
+  }
 }
 
 void VirtualGridView::onSecondaryPointerPress(float localX, float localY) {

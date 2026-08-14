@@ -158,12 +158,6 @@ void CairoGlyphRenderer::cleanup() {
   m_textureManager = nullptr;
 }
 
-void CairoGlyphRenderer::setContentScale(float scale) {
-  if (scale > 0.0F) {
-    m_contentScale = scale;
-  }
-}
-
 void CairoGlyphRenderer::touch(CacheMap::iterator it) { m_lru.splice(m_lru.begin(), m_lru, it->second.lruIt); }
 
 void CairoGlyphRenderer::evict(CacheMap::iterator it) {
@@ -187,13 +181,14 @@ void CairoGlyphRenderer::evictIfNeeded() {
   }
 }
 
-CairoGlyphRenderer::TextMetrics CairoGlyphRenderer::measureGlyph(char32_t codepoint, float fontSize) {
+CairoGlyphRenderer::TextMetrics
+CairoGlyphRenderer::measureGlyph(float contentScale, char32_t codepoint, float fontSize) {
   if (m_face == nullptr || codepoint == 0 || fontSize <= 0.0F) {
     return {};
   }
 
-  const float rasterSize = std::max(1.0F, fontSize * m_contentScale);
-  const float invScale = 1.0F / m_contentScale;
+  const float rasterSize = std::max(1.0F, fontSize * contentScale);
+  const float invScale = 1.0F / contentScale;
 
   const FT_UInt glyphIndex = FT_Get_Char_Index(m_face, codepoint);
   if (glyphIndex == 0) {
@@ -220,11 +215,12 @@ CairoGlyphRenderer::TextMetrics CairoGlyphRenderer::measureGlyph(char32_t codepo
   return out;
 }
 
-CairoGlyphRenderer::CacheEntry* CairoGlyphRenderer::lookupOrRasterize(char32_t codepoint, float fontSize) {
+CairoGlyphRenderer::CacheEntry*
+CairoGlyphRenderer::lookupOrRasterize(float contentScale, char32_t codepoint, float fontSize) {
   CacheKey key;
   key.codepoint = codepoint;
   key.sizeQ = quantizeSize(fontSize);
-  key.scaleQ = quantizeScale(m_contentScale);
+  key.scaleQ = quantizeScale(contentScale);
 
   auto it = m_cache.find(key);
   if (it != m_cache.end()) {
@@ -232,7 +228,7 @@ CairoGlyphRenderer::CacheEntry* CairoGlyphRenderer::lookupOrRasterize(char32_t c
     return &it->second;
   }
 
-  const float rasterSize = std::max(1.0F, fontSize * m_contentScale);
+  const float rasterSize = std::max(1.0F, fontSize * contentScale);
   FT_Set_Pixel_Sizes(m_face, 0, static_cast<FT_UInt>(std::round(rasterSize)));
 
   const FT_UInt glyphIndex = FT_Get_Char_Index(m_face, codepoint);
@@ -317,7 +313,7 @@ CairoGlyphRenderer::CacheEntry* CairoGlyphRenderer::lookupOrRasterize(char32_t c
   }
   entry.bytes = static_cast<std::size_t>(pxWidth) * static_cast<std::size_t>(pxHeight);
 
-  const float invScale = 1.0F / m_contentScale;
+  const float invScale = 1.0F / contentScale;
   entry.metrics = metrics_from_extents(extents, invScale);
 
   auto [ins, inserted] = m_cache.emplace(key, entry);
@@ -330,19 +326,19 @@ CairoGlyphRenderer::CacheEntry* CairoGlyphRenderer::lookupOrRasterize(char32_t c
 }
 
 void CairoGlyphRenderer::drawGlyph(
-    float surfaceWidth, float surfaceHeight, float x, float baselineY, char32_t codepoint, float fontSize,
-    const Color& color, const Mat3& transform
+    float contentScale, float surfaceWidth, float surfaceHeight, float x, float baselineY, char32_t codepoint,
+    float fontSize, const Color& color, const Mat3& transform
 ) {
   if (m_face == nullptr || m_backend == nullptr || codepoint == 0) {
     return;
   }
 
-  CacheEntry* entry = lookupOrRasterize(codepoint, fontSize);
+  CacheEntry* entry = lookupOrRasterize(contentScale, codepoint, fontSize);
   if (entry == nullptr || entry->texture.id == 0) {
     return;
   }
 
-  const float invScale = 1.0F / m_contentScale;
+  const float invScale = 1.0F / contentScale;
   const float quadW = static_cast<float>(entry->pixelWidth) * invScale;
   const float quadH = static_cast<float>(entry->pixelHeight) * invScale;
   const float baselineXLocal = entry->baselineXPx * invScale;
@@ -356,8 +352,8 @@ void CairoGlyphRenderer::drawGlyph(
   // Skip when the transform has rotation/skew — snapping then introduces
   // whole-pixel jumps per frame and makes animations look jittery.
   if (isAxisAligned(world)) {
-    world.m[6] = snapToBufferPixel(world.m[6], m_contentScale);
-    world.m[7] = snapToBufferPixel(world.m[7], m_contentScale);
+    world.m[6] = snapToBufferPixel(world.m[6], contentScale);
+    world.m[7] = snapToBufferPixel(world.m[7], contentScale);
   }
 
   m_backend->drawGlyph(

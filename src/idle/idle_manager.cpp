@@ -83,6 +83,21 @@ void IdleManager::setScreenSaverInhibitLocks(std::int64_t locks) {
   }
 }
 
+void IdleManager::setSessionLocked(bool locked) {
+  if (m_sessionLocked == locked) {
+    return;
+  }
+  m_sessionLocked = locked;
+  recreateBehaviorNotifications();
+}
+
+double IdleManager::effectiveTimeoutSeconds(const IdleBehaviorConfig& config) const {
+  if (m_sessionLocked && std::isfinite(config.lockedTimeoutSeconds) && config.lockedTimeoutSeconds > 0.0) {
+    return config.lockedTimeoutSeconds;
+  }
+  return config.timeoutSeconds;
+}
+
 void IdleManager::reload(const IdleConfig& config) {
   clearBehaviors();
   m_idleConfig = config;
@@ -157,19 +172,24 @@ void IdleManager::recreateBehaviorNotification(BehaviorState& behavior) {
     return;
   }
 
+  // Re-arming an idled behavior (e.g. on unlock) has no natural resume event, so run it here —
+  // otherwise screen_off's display-off is never undone and the screen stays black.
+  if (behavior.phase == BehaviorPhase::Idled) {
+    runResumeBehavior(behavior);
+  }
+
   if (behavior.notification != nullptr) {
     ext_idle_notification_v1_destroy(behavior.notification);
     behavior.notification = nullptr;
   }
   behavior.phase = BehaviorPhase::Waiting;
 
-  if (!behavior.config.enabled
-      || !std::isfinite(behavior.config.timeoutSeconds)
-      || behavior.config.timeoutSeconds <= 0.0) {
+  const double timeout = effectiveTimeoutSeconds(behavior.config);
+  if (!behavior.config.enabled || !std::isfinite(timeout) || timeout <= 0.0) {
     return;
   }
 
-  const auto timeoutMs = timeoutSecondsToMilliseconds(behavior.config.timeoutSeconds);
+  const auto timeoutMs = timeoutSecondsToMilliseconds(timeout);
   behavior.notification = m_wayland->createIdleNotification(timeoutMs);
   if (behavior.notification == nullptr) {
     kLog.warn("failed to re-register idle behavior '{}'", behavior.config.name);
@@ -187,7 +207,7 @@ void IdleManager::recreateBehaviorNotifications() {
   for (auto& behavior : m_behaviors) {
     recreateBehaviorNotification(*behavior);
   }
-  kLog.info("idle behavior notifications reset after screensaver inhibit released");
+  kLog.debug("idle behavior notifications re-armed");
 }
 
 void IdleManager::createBehavior(const IdleBehaviorConfig& config) {
@@ -198,7 +218,11 @@ void IdleManager::createBehavior(const IdleBehaviorConfig& config) {
     kLog.warn("idle behavior '{}' ignored: timeout must be >= 0 seconds", config.name);
     return;
   }
-  if (config.timeoutSeconds == 0.0) {
+  if (!std::isfinite(config.lockedTimeoutSeconds) || config.lockedTimeoutSeconds < 0.0) {
+    kLog.warn("idle behavior '{}' ignored: locked timeout must be >= 0 seconds", config.name);
+    return;
+  }
+  if (config.timeoutSeconds == 0.0 && config.lockedTimeoutSeconds == 0.0) {
     kLog.debug("idle behavior '{}' disabled by zero timeout", config.name);
     return;
   }
@@ -211,15 +235,11 @@ void IdleManager::createBehavior(const IdleBehaviorConfig& config) {
   auto behavior = std::make_unique<BehaviorState>();
   behavior->owner = this;
   behavior->config = config;
-  const auto timeoutMs = timeoutSecondsToMilliseconds(config.timeoutSeconds);
-  behavior->notification = m_wayland->createIdleNotification(timeoutMs);
-  if (behavior->notification == nullptr) {
-    kLog.warn("failed to register idle behavior '{}'", config.name);
-    return;
-  }
-
-  ext_idle_notification_v1_add_listener(behavior->notification, &kIdleNotificationListener, behavior.get());
-  kLog.info("registered idle behavior '{}' timeout={}s", config.name, config.timeoutSeconds);
+  recreateBehaviorNotification(*behavior);
+  kLog.info(
+      "registered idle behavior '{}' timeout={}s locked_timeout={}s", config.name, config.timeoutSeconds,
+      config.lockedTimeoutSeconds
+  );
   m_behaviors.push_back(std::move(behavior));
 }
 

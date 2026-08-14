@@ -197,6 +197,8 @@ namespace shell::dock {
       return;
     }
 
+    Renderer& renderer = instance.surface->renderTarget().renderer();
+
     const auto& cfg = deps.config.config().dock;
     const bool vert = shell::dock::isVerticalEdge(cfg.position);
 
@@ -319,7 +321,7 @@ namespace shell::dock {
     // Row matches the pill; hover spread is clamped to stay inside the background.
     instance.row->setPosition(panelGeometry.panelX, panelGeometry.panelY);
     instance.row->setSize(panelGeometry.panelW, panelGeometry.panelH);
-    instance.row->layout(deps.renderContext);
+    instance.row->layout(renderer);
     shell::dock::syncDockItemRestPositions(instance, cfg);
 
     if (dockUsesAnyAutoHide(cfg)) {

@@ -81,6 +81,7 @@ private:
   void warnOnOversizedAvatarSource(const std::string& path);
   void syncScaledFonts();
   void syncShortcuts();
+  void syncHeaderActions();
   bool resizeMediaArtToCard();
   void onPanelCardOpacityChanged(float opacity) override;
 

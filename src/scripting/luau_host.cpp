@@ -128,30 +128,6 @@ namespace {
 
   void releaseDetachedCommandSlot() { inFlightDetachedCommands().fetch_sub(1, std::memory_order_relaxed); }
 
-  bool startDetachedCommandAsync(std::string command) {
-    if (command.empty()) {
-      return false;
-    }
-    if (!acquireDetachedCommandSlot()) {
-      return false;
-    }
-
-    try {
-      std::thread([command = std::move(command)]() mutable {
-        try {
-          (void)process::runAsync(std::vector<std::string>{"/bin/sh", "-c", std::move(command)});
-        } catch (...) {
-        }
-        releaseDetachedCommandSlot();
-      }).detach();
-    } catch (...) {
-      releaseDetachedCommandSlot();
-      return false;
-    }
-
-    return true;
-  }
-
   bool startDetachedProcessAsync(std::vector<std::string> args) {
     if (args.empty() || args.front().empty()) {
       return false;
@@ -179,6 +155,34 @@ namespace {
   bool startDetachedCommandInTerminalAsync(std::string command) {
     auto prepared = terminal_launch::prepareCommand(command);
     return prepared.has_value() && startDetachedProcessAsync(std::move(*prepared));
+  }
+  std::vector<std::string> processArgsFromLua(lua_State* L, int index) {
+    luaL_checktype(L, index, LUA_TTABLE);
+    const int count = lua_objlen(L, index);
+    if (count == 0) {
+      luaL_argerror(L, index, "argv must contain an executable");
+    }
+
+    std::vector<std::string> args;
+    args.reserve(static_cast<std::size_t>(count));
+    for (int i = 1; i <= count; ++i) {
+      lua_rawgeti(L, index, i);
+      if (lua_type(L, -1) != LUA_TSTRING) {
+        luaL_error(L, "argv[%d] must be a string", i);
+      }
+      size_t len = 0;
+      const char* value = lua_tolstring(L, -1, &len);
+      std::string arg(value, len);
+      lua_pop(L, 1);
+      if (arg.contains('\0')) {
+        luaL_error(L, "argv[%d] must not contain NUL bytes", i);
+      }
+      args.push_back(std::move(arg));
+    }
+    if (args.front().empty()) {
+      luaL_argerror(L, index, "argv executable must not be empty");
+    }
+    return args;
   }
 
   std::chrono::milliseconds commandTimeoutFromLua(lua_State* L) {
@@ -259,12 +263,21 @@ namespace {
   }
 
   int luau_runAsync(lua_State* L) {
-    size_t len = 0;
-    const char* cmd = luaL_checklstring(L, 1, &len);
-    std::string command(cmd, len);
+    std::vector<std::string> args;
+    if (lua_type(L, 1) == LUA_TSTRING) {
+      size_t len = 0;
+      const char* cmd = lua_tolstring(L, 1, &len);
+      if (len != 0) {
+        args = {"/bin/sh", "-c", std::string(cmd, len)};
+      }
+    } else if (lua_type(L, 1) == LUA_TTABLE) {
+      args = processArgsFromLua(L, 1);
+    } else {
+      luaL_argerror(L, 1, "expected a shell command string or argv table");
+    }
 
     if (lua_isnoneornil(L, 2)) {
-      bool ok = startDetachedCommandAsync(std::move(command));
+      const bool ok = startDetachedProcessAsync(std::move(args));
       lua_pushboolean(L, ok ? 1 : 0);
       return 1;
     }
@@ -279,7 +292,7 @@ namespace {
 
     const auto timeout = commandTimeoutFromLua(L);
     const int callbackRef = lua_ref(L, 2);
-    bool ok = host->startAsyncCommand(std::move(command), callbackRef, timeout);
+    const bool ok = host->startAsyncProcess(std::move(args), callbackRef, timeout);
     if (!ok) {
       lua_unref(L, callbackRef);
     }
@@ -402,7 +415,7 @@ namespace {
 
   // systemStats() -> a snapshot of the host's system monitor, or nil when it is unavailable.
   //
-  //   { sampledAtMs?, cpu = { usagePercent = 23.4, tempC = 47.0? },
+  //   { sampledAtMs?, cpu = { usagePercent = 23.4, tempC = 47.0?, freqMhz = 2400.0?, maxFreqMhz = 4800.0? },
   //     ram = { usagePercent, usedMb, totalMb }, swap = { usedMb, totalMb },
   //     gpu = { tempC?, usagePercent?, vramUsedBytes?, vramTotalBytes? },
   //     net = { rxBytesPerSec, txBytesPerSec,
@@ -429,11 +442,15 @@ namespace {
       setTableNumber(L, "sampledAtMs", sampledAtMs);
     }
 
-    lua_createtable(L, 0, 2);
+    lua_createtable(L, 0, 4);
     setTableNumber(L, "usagePercent", stats.cpuUsagePercent);
     // cpuTempAvailable false means the service is serving its 40C placeholder, not a reading.
     if (stats.cpuTempAvailable) {
       setTableOptionalNumber(L, "tempC", stats.cpuTempC);
+    }
+    if (stats.cpuFreqAvailable) {
+      setTableNumber(L, "freqMhz", stats.cpuFreqMhz);
+      setTableOptionalNumber(L, "maxFreqMhz", stats.cpuMaxFreqMhz);
     }
     lua_setfield(L, -2, "cpu");
 
@@ -635,6 +652,63 @@ namespace {
       host->scriptSetWallpaper(std::move(connector), std::move(path));
     }
     return 0;
+  }
+
+  int luau_wallpaperPath(lua_State* L) {
+    size_t len = 0;
+    const char* outputName = luaL_checklstring(L, 1, &len);
+    auto* host = hostForState(L);
+    const auto path = host != nullptr ? host->api().wallpaperPath(std::string(outputName, len)) : std::nullopt;
+    if (!path.has_value() || path->empty()) {
+      lua_pushnil(L);
+      return 1;
+    }
+    lua_pushlstring(L, path->data(), path->size());
+    return 1;
+  }
+
+  int luau_setWallpaperMask(lua_State* L) {
+    size_t outputLen = 0;
+    const char* outputName = luaL_checklstring(L, 1, &outputLen);
+    auto* host = hostForState(L);
+    if (host == nullptr) {
+      return 0;
+    }
+    if (lua_isnoneornil(L, 2)) {
+      host->scriptSetWallpaperMask(std::string(outputName, outputLen), {}, {});
+      return 0;
+    }
+
+    luaL_checktype(L, 2, LUA_TTABLE);
+    lua_getfield(L, 2, "path");
+    size_t pathLen = 0;
+    const char* path = luaL_checklstring(L, -1, &pathLen);
+    lua_pop(L, 1);
+    lua_getfield(L, 2, "wallpaperPath");
+    size_t wallpaperLen = 0;
+    const char* wallpaperPath = luaL_checklstring(L, -1, &wallpaperLen);
+    lua_pop(L, 1);
+    host->scriptSetWallpaperMask(
+        std::string(outputName, outputLen), std::string(path, pathLen), std::string(wallpaperPath, wallpaperLen)
+    );
+    return 0;
+  }
+
+  // Any effective shell config value by dotted path. Array indices in the path are zero-based.
+  int luau_getSetting(lua_State* L) {
+    size_t len = 0;
+    const char* path = luaL_checklstring(L, 1, &len);
+    auto* host = hostForState(L);
+    const auto snapshot = host != nullptr ? host->api().configSnapshot() : nullptr;
+    if (snapshot == nullptr) {
+      lua_pushnil(L);
+      return 1;
+    }
+    scripting::pushConfigSetting(L, *snapshot, std::string_view(path, len));
+    if (lua_isnil(L, -1)) {
+      kLog.warn("plugin {}: getSetting('{}') matched no config key", host->runtimeName(), std::string_view(path, len));
+    }
+    return 1;
   }
 
   // togglePanel("author/plugin:panel") — toggle a host panel by id.
@@ -1683,6 +1757,8 @@ namespace {
       {"appIconPath", luau_appIconPath},
       {"setWallpaperEnabled", luau_setWallpaperEnabled},
       {"setWallpaper", luau_setWallpaper},
+      {"wallpaperPath", luau_wallpaperPath},
+      {"setWallpaperMask", luau_setWallpaperMask},
       {"togglePanel", luau_togglePanel},
       {"openSettings", luau_openSettings},
       {"isDarkMode", luau_isDarkMode},
@@ -1718,6 +1794,7 @@ namespace {
       {"openColorPicker", luau_openColorPicker},
       {"fuzzyScore", luau_fuzzyScore},
       {"getConfig", scripting::luau_getConfig},
+      {"getSetting", luau_getSetting},
       {nullptr, nullptr},
   };
 
@@ -1845,6 +1922,7 @@ bool LuauHost::ensureDiskPathRetained(const std::string& path) {
 
 LuauHost::~LuauHost() {
   auto unloadPluginSounds = m_api.unloadPluginSoundsHook();
+  auto clearWallpaperMasks = m_api.clearWallpaperMasksHook();
   // Terminate any long-lived stream subprocesses and HTTP streams before tearing
   // down the state.
   stopAllStreams();
@@ -1907,10 +1985,18 @@ LuauHost::~LuauHost() {
       unloadPluginSounds(hostId);
     });
   }
+  if (clearWallpaperMasks) {
+    DeferredCall::callLater([clearWallpaperMasks = std::move(clearWallpaperMasks), hostId = m_hostId]() mutable {
+      clearWallpaperMasks(hostId);
+    });
+  }
 }
 
-bool LuauHost::startAsyncCommand(std::string command, int callbackRef, std::chrono::milliseconds timeout) {
-  if (command.empty() || callbackRef <= LUA_REFNIL || m_asyncCommandCallbackRefs.size() >= kMaxAsyncCommandsPerHost) {
+bool LuauHost::startAsyncProcess(std::vector<std::string> args, int callbackRef, std::chrono::milliseconds timeout) {
+  if (args.empty()
+      || args.front().empty()
+      || callbackRef <= LUA_REFNIL
+      || m_asyncCommandCallbackRefs.size() >= kMaxAsyncCommandsPerHost) {
     return false;
   }
 
@@ -1933,10 +2019,9 @@ bool LuauHost::startAsyncCommand(std::string command, int callbackRef, std::chro
     return false;
   }
   try {
-    std::thread([hostId = m_hostId, callbackRef, command = std::move(command), timeout,
+    std::thread([hostId = m_hostId, callbackRef, args = std::move(args), timeout,
                  handler = std::move(handler)]() mutable {
-      auto result =
-          process::runSyncWithTimeoutAndOutputLimit({"/bin/sh", "-c", command}, timeout, kMaxAsyncCommandOutputBytes);
+      auto result = process::runSyncWithTimeoutAndOutputLimit(args, timeout, kMaxAsyncCommandOutputBytes);
       inFlightAsyncCommands().fetch_sub(1, std::memory_order_relaxed);
       handler(hostId, callbackRef, std::move(result));
     }).detach();
@@ -2694,6 +2779,22 @@ void LuauHost::scriptSetWallpaper(std::string connector, std::string path) {
         {.kind = scripting::ScriptSideEffectKind::SetWallpaper, .title = std::move(connector), .body = std::move(path)}
     );
   }
+}
+
+void LuauHost::scriptSetWallpaperMask(std::string outputName, std::string path, std::string wallpaperPath) {
+  if (m_scriptContext == nullptr) {
+    return;
+  }
+  if (!path.empty()) {
+    path = resolveHostPath(this, path).string();
+  }
+  m_scriptContext->sideEffects.push_back({
+      .kind = scripting::ScriptSideEffectKind::SetWallpaperMask,
+      .title = std::move(outputName),
+      .body = std::move(path),
+      .extra = std::move(wallpaperPath),
+      .hostId = m_hostId,
+  });
 }
 
 void LuauHost::scriptTogglePanel(std::string panelId) {

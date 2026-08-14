@@ -58,7 +58,7 @@ public:
   [[nodiscard]] bool scrollable() const noexcept { return m_maxScrollOffset > 0.0F; }
   [[nodiscard]] ScrollOrientation orientation() const noexcept { return m_orientation; }
 
-  [[nodiscard]] float contentViewportWidth() const noexcept;
+  [[nodiscard]] float contentViewportWidth(bool reserveScrollbarGutter = false) const noexcept;
   [[nodiscard]] float contentViewportHeight() const noexcept;
   [[nodiscard]] float viewportPaddingH() const noexcept { return m_viewportPaddingH; }
   [[nodiscard]] float viewportPaddingV() const noexcept { return m_viewportPaddingV; }

@@ -46,6 +46,7 @@ namespace settings {
     std::function<void(std::vector<std::string>, ConfigOverrideValue)> setOverride;
     std::function<void(std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>>)> setOverrides;
     std::function<void(std::vector<std::string>)> clearOverride;
+    std::function<void(std::vector<std::vector<std::string>>)> clearOverrides;
     // Reverts a lane and the capsule groups it holds to the config file.
     std::function<void(std::vector<std::string>)> resetBarLane;
     std::function<void(std::string, std::string, std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>>)>

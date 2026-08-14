@@ -381,6 +381,8 @@ std::uint32_t DialogPopupHost::width() const noexcept { return m_surface != null
 
 std::uint32_t DialogPopupHost::height() const noexcept { return m_surface != nullptr ? m_surface->height() : 0; }
 
+Renderer& DialogPopupHost::renderer() const noexcept { return m_surface->renderTarget().renderer(); }
+
 void DialogPopupHost::cancel() {
   if (m_surface == nullptr) {
     return;

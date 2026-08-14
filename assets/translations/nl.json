@@ -2519,10 +2519,6 @@
           "description": "Kleur de aangepaste afbeelding in met de kleurinstelling van het widget-icoon",
           "label": "Aangepaste afbeelding inkleuren"
         },
-        "custom-labels": {
-          "description": "Koppel namen van toetsenbordindelingen aan aangepaste labels",
-          "label": "Aangepaste labels"
-        },
         "detached-panel": {
           "description": "Open de lade als een zwevend paneel met een eigen achtergrond in plaats van samen te voegen met de balk",
           "label": "Losgekoppeld paneel"

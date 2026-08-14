@@ -157,14 +157,10 @@ struct ScreenCornerStyle {
   Color color = rgba(0.0F, 0.0F, 0.0F, 1.0F);
   ScreenCornerPosition position = ScreenCornerPosition::TopLeft;
   float exponent = 4.0F;
-  float softness = 1.0F;
 };
 
 constexpr bool operator==(const ScreenCornerStyle& lhs, const ScreenCornerStyle& rhs) noexcept {
-  return lhs.color == rhs.color
-      && lhs.position == rhs.position
-      && lhs.exponent == rhs.exponent
-      && lhs.softness == rhs.softness;
+  return lhs.color == rhs.color && lhs.position == rhs.position && lhs.exponent == rhs.exponent;
 }
 
 enum class AudioSpectrumOrientation : std::uint8_t {
@@ -177,6 +173,7 @@ struct AudioSpectrumStyle {
   Color color2{};
   AudioSpectrumOrientation orientation = AudioSpectrumOrientation::Horizontal;
   bool mirrored = false;
+  bool reversed = false;
   bool centered = false;
 };
 
@@ -185,6 +182,7 @@ constexpr bool operator==(const AudioSpectrumStyle& lhs, const AudioSpectrumStyl
       && lhs.color2 == rhs.color2
       && lhs.orientation == rhs.orientation
       && lhs.mirrored == rhs.mirrored
+      && lhs.reversed == rhs.reversed
       && lhs.centered == rhs.centered;
 }
 

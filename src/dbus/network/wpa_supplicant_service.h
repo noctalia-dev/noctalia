@@ -40,7 +40,7 @@ public:
   bool activateAccessPoint(const AccessPointInfo& ap, const std::string& psk) override;
   bool activateVpnConnection(const VpnConnectionInfo& /*vpn*/) override { return false; }
   bool deactivateVpnConnection(const VpnConnectionInfo& /*vpn*/) override { return false; }
-  void setWirelessEnabled(bool enabled) override;
+  void setWirelessEnabled(bool enabled, WirelessEnabledCompletion onComplete = {}) override;
   void disconnect() override;
   void forgetSsid(const std::string& ssid) override;
   [[nodiscard]] bool hasSavedConnection(const std::string& ssid) const override;

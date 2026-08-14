@@ -1,6 +1,7 @@
 #include "shell/settings/plugin_store_content.h"
 
 #include "config/config_service.h"
+#include "core/deferred_call.h"
 #include "core/input/key_symbols.h"
 #include "core/input/keybind_matcher.h"
 #include "i18n/i18n.h"
@@ -141,6 +142,25 @@ namespace settings {
   }
 
   PluginStoreContent::~PluginStoreContent() = default;
+
+  void PluginStoreContent::stashScrollOffset() {
+    if (m_grid != nullptr && !isDetailView()) {
+      m_pendingRestoreScrollOffset = m_grid->scrollView().scrollOffset();
+    }
+  }
+
+  void PluginStoreContent::restoreScrollOffset() {
+    if (!m_pendingRestoreScrollOffset.has_value()) {
+      return;
+    }
+    const float offset = *m_pendingRestoreScrollOffset;
+    m_pendingRestoreScrollOffset.reset();
+    VirtualGridView* grid = m_grid;
+    if (grid == nullptr) {
+      return;
+    }
+    DeferredCall::callLater([grid, offset]() { grid->scrollView().setScrollOffset(offset); });
+  }
 
   void PluginStoreContent::setOnRebuildNeeded(std::function<void()> cb) { m_onRebuildNeeded = std::move(cb); }
 
@@ -452,6 +472,7 @@ namespace settings {
                 }
 
                 applyFilter();
+                stashScrollOffset();
                 if (m_onRebuildNeeded) {
                   m_onRebuildNeeded();
                 }
@@ -476,6 +497,7 @@ namespace settings {
               .variant = ButtonVariant::Ghost,
               .onClick = [this]() {
                 m_tagFiltersCollapsed = !m_tagFiltersCollapsed;
+                stashScrollOffset();
                 if (m_onRebuildNeeded) {
                   m_onRebuildNeeded();
                 }
@@ -496,6 +518,7 @@ namespace settings {
               .onClick = [this, tag = std::move(tag)]() {
                 m_selectedTag = tag;
                 applyFilter();
+                stashScrollOffset();
                 if (m_onRebuildNeeded) {
                   m_onRebuildNeeded();
                 }
@@ -587,6 +610,7 @@ namespace settings {
     if (const auto index = indexOfPluginId(m_selectedPluginId.value_or("")); index.has_value()) {
       m_grid->setSelectedIndex(index);
     }
+    restoreScrollOffset();
     body.addChild(std::move(grid));
 
     if (m_filteredIndices.empty()) {
@@ -859,6 +883,7 @@ namespace settings {
   }
 
   void PluginStoreContent::openDetail(std::size_t filteredIndex) {
+    stashScrollOffset();
     m_detailIndex = filteredIndex;
     m_selectedPluginId = m_catalog[m_filteredIndices[filteredIndex]].entry.id;
     m_detailReadme.clear();

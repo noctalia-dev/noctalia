@@ -13,6 +13,7 @@
 #include <cstdio>
 #include <memory>
 #include <string>
+#include <unordered_set>
 #include <utility>
 
 using namespace control_center;
@@ -699,12 +700,26 @@ void BluetoothTab::rebuildDeviceList(Renderer& renderer) {
     devices = sortedDevices(m_service->devices());
   }
   const std::string nextKey = structureKey(devices);
-  if (listWidth == m_lastListWidth && nextKey == m_lastStructureKey) {
+  const bool structureChanged = nextKey != m_lastStructureKey;
+  if (listWidth == m_lastListWidth && !structureChanged) {
     return;
   }
   m_lastListWidth = listWidth;
   m_lastStructureKey = nextKey;
+
+  if (!structureChanged) {
+    m_list->layout(renderer);
+    return;
+  }
+
   const float scale = contentScale();
+
+  std::unordered_set<std::string> expandedPaths;
+  for (const auto& [path, row] : m_deviceRows) {
+    if (row->expanded()) {
+      expandedPaths.insert(path);
+    }
+  }
 
   m_powerToggle = nullptr;
   m_discoverableToggle = nullptr;
@@ -880,6 +895,7 @@ void BluetoothTab::rebuildDeviceList(Renderer& renderer) {
     auto row = std::make_unique<BluetoothDeviceRow>(device, m_service, scale);
     auto* rowPtr = row.get();
     bucketCard->addChild(std::move(row));
+    rowPtr->setExpandedImmediate(expandedPaths.contains(device.path));
     rowPtr->startConnectingSpinner();
     m_deviceRows.emplace(rowPtr->devicePath(), rowPtr);
   }

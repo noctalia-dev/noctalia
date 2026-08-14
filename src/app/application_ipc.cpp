@@ -1,6 +1,7 @@
 #include "app/main_loop.h"
 #include "application.h"
 #include "application_internal.h"
+#include "cli/schema_msg.h"
 #include "compositors/compositor_detect.h"
 #include "config/config_types.h"
 #include "core/build_info.h"
@@ -121,8 +122,8 @@ void Application::initIpc() {
   m_dmenuIpc.setPanelManager(&m_panelManager);
   m_dmenuIpc.start();
 
-  m_ipcService.registerHandler(
-      "status",
+  m_ipcService.bind(
+      noctalia::cli::msg::status,
       [this](const std::string&) -> std::string {
         const bool panelOpen = m_panelManager.isOpen();
         std::string json = "{\n";
@@ -137,12 +138,11 @@ void Application::initIpc() {
         json += "\n}\n";
         return json;
       },
-      "", "Print current state as JSON",
       IpcService::HandlerOptions{.actionEditorVisibility = IpcService::ActionEditorVisibility::Hidden}
   );
 
-  m_ipcService.registerHandler(
-      "log-level-set",
+  m_ipcService.bind(
+      noctalia::cli::msg::logLevelSet,
       [](const std::string& args) -> std::string {
         const auto parts = noctalia::ipc::splitWords(args);
         if (parts.size() != 1) {
@@ -158,14 +158,12 @@ void Application::initIpc() {
         kLog.info("log level set to {}", logLevelName(*level));
         return "ok\n";
       },
-      "<debug|info|warn|error>", "Set the console log level",
       IpcService::HandlerOptions{.actionEditorVisibility = IpcService::ActionEditorVisibility::Hidden}
   );
 
-  m_ipcService.registerHandler(
-      "log-level-status",
-      [](const std::string&) -> std::string { return std::string(logLevelName(currentLogLevel())) + "\n"; }, "",
-      "Print the current console log level",
+  m_ipcService.bind(
+      noctalia::cli::msg::logLevelStatus,
+      [](const std::string&) -> std::string { return std::string(logLevelName(currentLogLevel())) + "\n"; },
       IpcService::HandlerOptions{.actionEditorVisibility = IpcService::ActionEditorVisibility::Hidden}
   );
 
@@ -177,9 +175,8 @@ void Application::initIpc() {
     }
   };
 
-  m_ipcService.registerHandler(
-      "notification-dnd-set",
-      [this, applyNotificationDnd](const std::string& args) -> std::string {
+  m_ipcService.bind(
+      noctalia::cli::msg::notificationDndSet, [this, applyNotificationDnd](const std::string& args) -> std::string {
         const auto parts = noctalia::ipc::splitWords(args);
         if (parts.size() != 1) {
           return "error: notification-dnd-set requires <on|off|true|false|1|0>\n";
@@ -201,336 +198,290 @@ void Application::initIpc() {
         applyNotificationDnd(*nextState);
         m_osdOverlay.show(dndOsdContent(*nextState));
         return "ok\n";
-      },
-      "<on|off|true|false|1|0>", "Set notification Do Not Disturb state"
+      }
   );
 
-  m_ipcService.registerHandler(
-      "notification-dnd-toggle",
-      [this, applyNotificationDnd](const std::string&) -> std::string {
+  m_ipcService.bind(
+      noctalia::cli::msg::notificationDndToggle, [this, applyNotificationDnd](const std::string&) -> std::string {
         const bool nextState = !m_notificationManager.doNotDisturb();
         applyNotificationDnd(nextState);
         m_osdOverlay.show(dndOsdContent(nextState));
         return "ok\n";
-      },
-      "", "Toggle notification Do Not Disturb state"
+      }
   );
 
-  m_ipcService.registerHandler(
-      "notification-dnd-status",
-      [this](const std::string&) -> std::string { return m_notificationManager.doNotDisturb() ? "on\n" : "off\n"; }, "",
-      "Print notification Do Not Disturb state",
+  m_ipcService.bind(
+      noctalia::cli::msg::notificationDndStatus,
+      [this](const std::string&) -> std::string { return m_notificationManager.doNotDisturb() ? "on\n" : "off\n"; },
       IpcService::HandlerOptions{.actionEditorVisibility = IpcService::ActionEditorVisibility::Hidden}
   );
 
-  m_ipcService.registerHandler(
-      "notification-clear-active",
-      [this](const std::string&) -> std::string {
-        std::vector<uint32_t> activeIds;
-        activeIds.reserve(m_notificationManager.all().size());
-        for (const auto& notification : m_notificationManager.all()) {
-          activeIds.push_back(notification.id);
-        }
-        for (const uint32_t id : activeIds) {
-          (void)m_notificationManager.close(id, CloseReason::Dismissed);
+  m_ipcService.bind(noctalia::cli::msg::notificationClearActive, [this](const std::string&) -> std::string {
+    std::vector<uint32_t> activeIds;
+    activeIds.reserve(m_notificationManager.all().size());
+    for (const auto& notification : m_notificationManager.all()) {
+      activeIds.push_back(notification.id);
+    }
+    for (const uint32_t id : activeIds) {
+      (void)m_notificationManager.close(id, CloseReason::Dismissed);
+    }
+    if (m_panelManager.isOpenPanel("control-center")) {
+      m_panelManager.refresh();
+    }
+    return "ok\n";
+  });
+
+  m_ipcService.bind(noctalia::cli::msg::notificationInvokeLatest, [this](const std::string&) -> std::string {
+    // Mirror the toast left-click behaviour for the most recent active notification:
+    // invoke its "default" action so the source application raises/focuses its window.
+    // all() stores notifications oldest-first (push_back), so iterate in reverse for newest.
+    const auto& notifications = m_notificationManager.all();
+    for (const auto& notification : std::views::reverse(notifications)) {
+      const auto& actions = notification.actions; // pairs: [key, label, ...]; "default" must be first.
+      if (actions.size() >= 2 && actions[0] == "default") {
+        if (!m_notificationManager.invokeAction(notification.id, "default", true)) {
+          return "error: invokeAction failed\n";
         }
         if (m_panelManager.isOpenPanel("control-center")) {
           m_panelManager.refresh();
         }
         return "ok\n";
-      },
-      "", "Dismiss all currently active notifications"
-  );
+      }
+    }
+    return "ok\n"; // No active notification carries a default action; nothing to do.
+  });
 
-  m_ipcService.registerHandler(
-      "notification-invoke-latest",
-      [this](const std::string&) -> std::string {
-        // Mirror the toast left-click behaviour for the most recent active notification:
-        // invoke its "default" action so the source application raises/focuses its window.
-        // all() stores notifications oldest-first (push_back), so iterate in reverse for newest.
-        const auto& notifications = m_notificationManager.all();
-        for (const auto& notification : std::views::reverse(notifications)) {
-          const auto& actions = notification.actions; // pairs: [key, label, ...]; "default" must be first.
-          if (actions.size() >= 2 && actions[0] == "default") {
-            if (!m_notificationManager.invokeAction(notification.id, "default", true)) {
-              return "error: invokeAction failed\n";
-            }
-            if (m_panelManager.isOpenPanel("control-center")) {
-              m_panelManager.refresh();
-            }
-            return "ok\n";
-          }
+  m_ipcService.bind(noctalia::cli::msg::notificationClearHistory, [this](const std::string&) -> std::string {
+    m_notificationManager.clearHistory();
+    if (m_panelManager.isOpenPanel("control-center")) {
+      m_panelManager.refresh();
+    }
+    return "ok\n";
+  });
+
+  m_ipcService.bind(noctalia::cli::msg::notificationShow, [this](const std::string& args) -> std::string {
+    const std::string input = StringUtils::trim(args);
+    if (input.empty()) {
+      return "error: notification-show requires <summary> or <json-payload>\n";
+    }
+
+    std::string appName = "Noctalia";
+    std::string summary;
+    std::string body;
+    Urgency urgency = Urgency::Normal;
+    int32_t timeoutMs = kDefaultNotificationTimeout;
+    std::optional<std::string> icon;
+    std::optional<std::string> category;
+    std::optional<std::string> desktopEntry;
+
+    auto parseUrgency = [](const std::string& value, Urgency& outUrgency) -> bool {
+      if (value == "low") {
+        outUrgency = Urgency::Low;
+        return true;
+      }
+      if (value == "normal") {
+        outUrgency = Urgency::Normal;
+        return true;
+      }
+      if (value == "critical") {
+        outUrgency = Urgency::Critical;
+        return true;
+      }
+      return false;
+    };
+
+    if (!input.empty() && input.front() == '{') {
+      const nlohmann::json payload = nlohmann::json::parse(input, nullptr, false);
+      if (payload.is_discarded() || !payload.is_object()) {
+        return "error: notification-show JSON payload must be an object\n";
+      }
+
+      if (const auto it = payload.find("app_name"); it != payload.end()) {
+        if (!it->is_string()) {
+          return "error: notification-show field 'app_name' must be a string\n";
         }
-        return "ok\n"; // No active notification carries a default action; nothing to do.
-      },
-      "", "Invoke the default action of the most recent active notification"
-  );
+        appName = it->get<std::string>();
+      }
 
-  m_ipcService.registerHandler(
-      "notification-clear-history",
-      [this](const std::string&) -> std::string {
-        m_notificationManager.clearHistory();
-        if (m_panelManager.isOpenPanel("control-center")) {
-          m_panelManager.refresh();
+      if (const auto it = payload.find("summary"); it != payload.end()) {
+        if (!it->is_string()) {
+          return "error: notification-show field 'summary' must be a string\n";
         }
-        return "ok\n";
-      },
-      "", "Clear notification history"
-  );
+        summary = it->get<std::string>();
+      }
 
-  m_ipcService.registerHandler(
-      "notification-show",
-      [this](const std::string& args) -> std::string {
-        const std::string input = StringUtils::trim(args);
-        if (input.empty()) {
-          return "error: notification-show requires <summary> or <json-payload>\n";
+      if (const auto it = payload.find("body"); it != payload.end()) {
+        if (!it->is_string()) {
+          return "error: notification-show field 'body' must be a string\n";
         }
+        body = it->get<std::string>();
+      }
 
-        std::string appName = "Noctalia";
-        std::string summary;
-        std::string body;
-        Urgency urgency = Urgency::Normal;
-        int32_t timeoutMs = kDefaultNotificationTimeout;
-        std::optional<std::string> icon;
-        std::optional<std::string> category;
-        std::optional<std::string> desktopEntry;
-
-        auto parseUrgency = [](const std::string& value, Urgency& outUrgency) -> bool {
-          if (value == "low") {
-            outUrgency = Urgency::Low;
-            return true;
-          }
-          if (value == "normal") {
-            outUrgency = Urgency::Normal;
-            return true;
-          }
-          if (value == "critical") {
-            outUrgency = Urgency::Critical;
-            return true;
-          }
-          return false;
-        };
-
-        if (!input.empty() && input.front() == '{') {
-          const nlohmann::json payload = nlohmann::json::parse(input, nullptr, false);
-          if (payload.is_discarded() || !payload.is_object()) {
-            return "error: notification-show JSON payload must be an object\n";
-          }
-
-          if (const auto it = payload.find("app_name"); it != payload.end()) {
-            if (!it->is_string()) {
-              return "error: notification-show field 'app_name' must be a string\n";
-            }
-            appName = it->get<std::string>();
-          }
-
-          if (const auto it = payload.find("summary"); it != payload.end()) {
-            if (!it->is_string()) {
-              return "error: notification-show field 'summary' must be a string\n";
-            }
-            summary = it->get<std::string>();
-          }
-
-          if (const auto it = payload.find("body"); it != payload.end()) {
-            if (!it->is_string()) {
-              return "error: notification-show field 'body' must be a string\n";
-            }
-            body = it->get<std::string>();
-          }
-
-          if (const auto it = payload.find("urgency"); it != payload.end()) {
-            if (!it->is_string()) {
-              return "error: notification-show field 'urgency' must be low, normal, or critical\n";
-            }
-            const std::string urgencyValue = StringUtils::toLower(it->get<std::string>());
-            if (!parseUrgency(urgencyValue, urgency)) {
-              return "error: notification-show field 'urgency' must be low, normal, or critical\n";
-            }
-          }
-
-          if (const auto it = payload.find("timeout_ms"); it != payload.end()) {
-            if (!it->is_number_integer()) {
-              return "error: notification-show field 'timeout_ms' must be an integer\n";
-            }
-            const auto timeoutValue = it->get<std::int64_t>();
-            if (timeoutValue < 0 || timeoutValue > std::numeric_limits<std::int32_t>::max()) {
-              return "error: notification-show field 'timeout_ms' must be between 0 and 2147483647\n";
-            }
-            timeoutMs = static_cast<std::int32_t>(timeoutValue);
-          }
-
-          if (const auto it = payload.find("icon"); it != payload.end()) {
-            if (!it->is_string()) {
-              return "error: notification-show field 'icon' must be a string\n";
-            }
-            icon = it->get<std::string>();
-          }
-
-          if (const auto it = payload.find("category"); it != payload.end()) {
-            if (!it->is_string()) {
-              return "error: notification-show field 'category' must be a string\n";
-            }
-            category = it->get<std::string>();
-          }
-
-          if (const auto it = payload.find("desktop_entry"); it != payload.end()) {
-            if (!it->is_string()) {
-              return "error: notification-show field 'desktop_entry' must be a string\n";
-            }
-            desktopEntry = it->get<std::string>();
-          }
-        } else {
-          constexpr std::string_view kBodyDelimiter = " -- ";
-          const std::size_t delimiterPos = input.find(kBodyDelimiter);
-          if (delimiterPos == std::string::npos) {
-            summary = input;
-          } else {
-            summary = StringUtils::trim(input.substr(0, delimiterPos));
-            body = StringUtils::trim(input.substr(delimiterPos + kBodyDelimiter.size()));
-          }
+      if (const auto it = payload.find("urgency"); it != payload.end()) {
+        if (!it->is_string()) {
+          return "error: notification-show field 'urgency' must be low, normal, or critical\n";
         }
-
-        summary = StringUtils::trim(summary);
-        if (summary.empty()) {
-          return "error: notification-show requires a non-empty summary\n";
+        const std::string urgencyValue = StringUtils::toLower(it->get<std::string>());
+        if (!parseUrgency(urgencyValue, urgency)) {
+          return "error: notification-show field 'urgency' must be low, normal, or critical\n";
         }
+      }
 
-        if (icon.has_value()) {
-          const std::string& iconValue = *icon;
-          const bool hasExplicitPrefix = iconValue.starts_with("noctalia-glyph:");
-          const bool looksLikePath =
-              iconValue.starts_with('/') || iconValue.starts_with("~/") || iconValue.contains('/');
-          const bool looksLikeFileUri = iconValue.starts_with("file:");
-          const bool looksLikeRemoteUrl = iconValue.starts_with("http://") || iconValue.starts_with("https://");
-          if (!hasExplicitPrefix && !looksLikePath && !looksLikeFileUri && !looksLikeRemoteUrl) {
-            icon = "noctalia-glyph:" + iconValue;
-          }
+      if (const auto it = payload.find("timeout_ms"); it != payload.end()) {
+        if (!it->is_number_integer()) {
+          return "error: notification-show field 'timeout_ms' must be an integer\n";
         }
-
-        (void)m_notificationManager.addInternal(
-            std::move(appName), std::move(summary), std::move(body), urgency, timeoutMs, std::move(icon), std::nullopt,
-            std::move(category), std::move(desktopEntry)
-        );
-        return "ok\n";
-      },
-      "<summary [-- body]|json>", "Show an internal Noctalia notification"
-  );
-
-  m_ipcService.registerHandler(
-      "clipboard-clear",
-      [this](const std::string&) -> std::string {
-        // Pinned entries survive; with nothing pinned this clears the whole history.
-        m_clipboardService.clearUnpinnedHistory();
-        return "ok\n";
-      },
-      "", "Clear clipboard history"
-  );
-
-  m_ipcService.registerHandler(
-      "clipboard-copy",
-      [this](const std::string& args) -> std::string {
-        if (args.empty()) {
-          return "error: clipboard-copy requires <text>\n";
+        const auto timeoutValue = it->get<std::int64_t>();
+        if (timeoutValue < 0 || timeoutValue > std::numeric_limits<std::int32_t>::max()) {
+          return "error: notification-show field 'timeout_ms' must be between 0 and 2147483647\n";
         }
-        if (!m_clipboardService.copyText(args)) {
-          return "error: failed to set the clipboard selection\n";
-        }
-        return "ok\n";
-      },
-      "<text>", "Copy text to the clipboard"
-  );
+        timeoutMs = static_cast<std::int32_t>(timeoutValue);
+      }
 
-  m_ipcService.registerHandler(
-      "clipboard-text",
-      // The response is the clipboard payload itself, so it carries no trailing newline.
-      [this](const std::string&) -> std::string { return m_clipboardService.clipboardText().value_or(""); }, "",
-      "Print the most recent clipboard text (empty when the selection holds no text)",
+      if (const auto it = payload.find("icon"); it != payload.end()) {
+        if (!it->is_string()) {
+          return "error: notification-show field 'icon' must be a string\n";
+        }
+        icon = it->get<std::string>();
+      }
+
+      if (const auto it = payload.find("category"); it != payload.end()) {
+        if (!it->is_string()) {
+          return "error: notification-show field 'category' must be a string\n";
+        }
+        category = it->get<std::string>();
+      }
+
+      if (const auto it = payload.find("desktop_entry"); it != payload.end()) {
+        if (!it->is_string()) {
+          return "error: notification-show field 'desktop_entry' must be a string\n";
+        }
+        desktopEntry = it->get<std::string>();
+      }
+    } else {
+      constexpr std::string_view kBodyDelimiter = " -- ";
+      const std::size_t delimiterPos = input.find(kBodyDelimiter);
+      if (delimiterPos == std::string::npos) {
+        summary = input;
+      } else {
+        summary = StringUtils::trim(input.substr(0, delimiterPos));
+        body = StringUtils::trim(input.substr(delimiterPos + kBodyDelimiter.size()));
+      }
+    }
+
+    summary = StringUtils::trim(summary);
+    if (summary.empty()) {
+      return "error: notification-show requires a non-empty summary\n";
+    }
+
+    if (icon.has_value()) {
+      const std::string& iconValue = *icon;
+      const bool hasExplicitPrefix = iconValue.starts_with("noctalia-glyph:");
+      const bool looksLikePath = iconValue.starts_with('/') || iconValue.starts_with("~/") || iconValue.contains('/');
+      const bool looksLikeFileUri = iconValue.starts_with("file:");
+      const bool looksLikeRemoteUrl = iconValue.starts_with("http://") || iconValue.starts_with("https://");
+      if (!hasExplicitPrefix && !looksLikePath && !looksLikeFileUri && !looksLikeRemoteUrl) {
+        icon = "noctalia-glyph:" + iconValue;
+      }
+    }
+
+    (void)m_notificationManager.addInternal(
+        std::move(appName), std::move(summary), std::move(body), urgency, timeoutMs, std::move(icon), std::nullopt,
+        std::move(category), std::move(desktopEntry)
+    );
+    return "ok\n";
+  });
+
+  m_ipcService.bind(noctalia::cli::msg::clipboardClear, [this](const std::string&) -> std::string {
+    // Pinned entries survive; with nothing pinned this clears the whole history.
+    m_clipboardService.clearUnpinnedHistory();
+    return "ok\n";
+  });
+
+  m_ipcService.bind(noctalia::cli::msg::clipboardCopy, [this](const std::string& args) -> std::string {
+    if (args.empty()) {
+      return "error: clipboard-copy requires <text>\n";
+    }
+    if (!m_clipboardService.copyText(args)) {
+      return "error: failed to set the clipboard selection\n";
+    }
+    return "ok\n";
+  });
+
+  m_ipcService.bind(
+      noctalia::cli::msg::clipboardText, // The response is the clipboard payload itself, so it carries no trailing
+                                         // newline.
+      [this](const std::string&) -> std::string { return m_clipboardService.clipboardText().value_or(""); },
       IpcService::HandlerOptions{.actionEditorVisibility = IpcService::ActionEditorVisibility::Hidden}
   );
 
-  m_ipcService.registerHandler(
-      "dpms-on",
-      [this](const std::string&) -> std::string {
-        if (!m_compositorPlatform.setOutputPower(true)) {
-          return "error: failed to execute dpms-on command\n";
-        }
-        return "ok\n";
-      },
-      "", "Turn monitors on"
-  );
+  m_ipcService.bind(noctalia::cli::msg::dpmsOn, [this](const std::string&) -> std::string {
+    if (!m_compositorPlatform.setOutputPower(true)) {
+      return "error: failed to execute dpms-on command\n";
+    }
+    return "ok\n";
+  });
 
-  m_ipcService.registerHandler(
-      "dpms-off",
-      [this](const std::string&) -> std::string {
-        if (!m_compositorPlatform.setOutputPower(false)) {
-          return "error: failed to execute dpms-off command\n";
-        }
-        return "ok\n";
-      },
-      "", "Turn monitors off"
-  );
+  m_ipcService.bind(noctalia::cli::msg::dpmsOff, [this](const std::string&) -> std::string {
+    if (!m_compositorPlatform.setOutputPower(false)) {
+      return "error: failed to execute dpms-off command\n";
+    }
+    return "ok\n";
+  });
 
-  m_ipcService.registerCycleHandler(
-      "workspace-switch",
-      [this](const std::string& args) -> std::string {
-        const auto parts = noctalia::ipc::splitWords(args);
-        if (parts.size() != 1 || (parts[0] != "next" && parts[0] != "prev")) {
-          return "error: workspace-switch requires <next|prev>\n";
-        }
-        // A bar widget gesture targets its own monitor; a keybind targets the focused one.
-        wl_output* output = nullptr;
-        if (const auto& context = m_ipcService.invocationContext(); context.has_value()) {
-          output = context->output;
-        }
-        if (output == nullptr) {
-          output = m_compositorPlatform.preferredInteractiveOutput();
-        }
-        const auto workspaces = m_compositorPlatform.workspaces(output);
-        if (workspaces.empty()) {
-          return "error: no workspaces on the target monitor\n";
-        }
+  m_ipcService.bindCycle(noctalia::cli::msg::workspaceSwitch, [this](const std::string& args) -> std::string {
+    const auto parts = noctalia::ipc::splitWords(args);
+    if (parts.size() != 1 || (parts[0] != "next" && parts[0] != "prev")) {
+      return "error: workspace-switch requires <next|prev>\n";
+    }
+    // A bar widget gesture targets its own monitor; a keybind targets the focused one.
+    wl_output* output = nullptr;
+    if (const auto& context = m_ipcService.invocationContext(); context.has_value()) {
+      output = context->output;
+    }
+    if (output == nullptr) {
+      output = m_compositorPlatform.preferredInteractiveOutput();
+    }
+    const auto workspaces = m_compositorPlatform.workspaces(output);
+    if (workspaces.empty()) {
+      return "error: no workspaces on the target monitor\n";
+    }
 
-        const bool forward = parts[0] == "next";
-        const auto active = std::ranges::find(workspaces, true, &Workspace::active);
-        std::size_t target = 0;
-        if (active == workspaces.end()) {
-          target = forward ? 0 : workspaces.size() - 1;
-        } else {
-          const auto current = static_cast<std::size_t>(std::ranges::distance(workspaces.begin(), active));
-          if (forward) {
-            if (current + 1 >= workspaces.size()) {
-              return "ok\n";
-            }
-            target = current + 1;
-          } else {
-            if (current == 0) {
-              return "ok\n";
-            }
-            target = current - 1;
-          }
+    const bool forward = parts[0] == "next";
+    const auto active = std::ranges::find(workspaces, true, &Workspace::active);
+    std::size_t target = 0;
+    if (active == workspaces.end()) {
+      target = forward ? 0 : workspaces.size() - 1;
+    } else {
+      const auto current = static_cast<std::size_t>(std::ranges::distance(workspaces.begin(), active));
+      if (forward) {
+        if (current + 1 >= workspaces.size()) {
+          return "ok\n";
         }
-        m_compositorPlatform.activateWorkspace(output, workspaces[target]);
-        return "ok\n";
-      },
-      "<next|prev>", "Switch to the adjacent workspace on the target monitor (stops at both ends)"
-  );
+        target = current + 1;
+      } else {
+        if (current == 0) {
+          return "ok\n";
+        }
+        target = current - 1;
+      }
+    }
+    m_compositorPlatform.activateWorkspace(output, workspaces[target]);
+    return "ok\n";
+  });
 
-  m_ipcService.registerCycleHandler(
-      "keyboard-layout-cycle",
-      [this](const std::string& args) -> std::string {
-        if (!noctalia::ipc::splitWords(args).empty()) {
-          return "error: keyboard-layout-cycle takes no arguments\n";
-        }
-        if (!m_compositorPlatform.hasKeyboardLayoutBackend()) {
-          return "error: this compositor has no keyboard layout backend\n";
-        }
-        if (!m_compositorPlatform.cycleKeyboardLayout()) {
-          return "error: failed to cycle the keyboard layout\n";
-        }
-        return "ok\n";
-      },
-      "", "Switch to the next keyboard layout"
-  );
+  m_ipcService.bindCycle(noctalia::cli::msg::keyboardLayoutCycle, [this](const std::string& args) -> std::string {
+    if (!noctalia::ipc::splitWords(args).empty()) {
+      return "error: keyboard-layout-cycle takes no arguments\n";
+    }
+    if (!m_compositorPlatform.hasKeyboardLayoutBackend()) {
+      return "error: this compositor has no keyboard layout backend\n";
+    }
+    if (!m_compositorPlatform.cycleKeyboardLayout()) {
+      return "error: failed to cycle the keyboard layout\n";
+    }
+    return "ok\n";
+  });
 
   auto workspaceAlertStatus = [this]() {
     const auto tokens = m_workspaceAlertService.tokens();
@@ -540,77 +491,60 @@ void Application::initIpc() {
     return StringUtils::join(tokens, "\n") + "\n";
   };
 
-  m_ipcService.registerHandler(
-      "workspace-alert-add",
-      [this](const std::string& args) -> std::string {
-        const std::string workspace = StringUtils::trim(args);
-        if (workspace.empty()) {
-          return "error: workspace-alert-add requires <workspace>\n";
-        }
-        if (!m_compositorPlatform.isKnownWorkspaceAlertKey(workspace)) {
-          return "error: unknown workspace '" + workspace + "'\n";
-        }
-        // Store unconditionally. The overlay only marks inactive rows, so
-        // alerting the active workspace simply shows once the user leaves it and
-        // auto-clears on return; on per-output compositors this also lets an
-        // inactive duplicate alert even when the same workspace is active elsewhere.
-        (void)m_workspaceAlertService.add(workspace);
-        m_bar.refresh();
-        return "ok\n";
-      },
-      "<workspace>", "Add a workspace alert (by number, name, or id)"
-  );
-  m_ipcService.registerHandler(
-      "workspace-alert-add-window",
-      [this](const std::string& args) -> std::string {
-        const auto parts = noctalia::ipc::splitWords(args);
-        if (parts.size() != 1) {
-          return "error: workspace-alert-add-window requires <window-id>\n";
-        }
-        const auto workspace = m_compositorPlatform.workspaceAlertKeyForWindow(parts[0]);
-        if (!workspace.has_value()) {
-          return "error: could not resolve workspace for window id '" + parts[0] + "'\n";
-        }
-        (void)m_workspaceAlertService.add(*workspace);
-        m_bar.refresh();
-        return "ok\n";
-      },
-      "<window-id>", "Add a workspace alert for a window"
-  );
-  m_ipcService.registerHandler(
-      "workspace-alert-clear",
-      [this](const std::string& args) -> std::string {
-        const std::string workspace = StringUtils::trim(args);
-        if (workspace.empty()) {
-          return "error: workspace-alert-clear requires <workspace>\n";
-        }
-        (void)m_workspaceAlertService.clear(workspace);
-        m_bar.refresh();
-        return "ok\n";
-      },
-      "<workspace>", "Clear a workspace alert"
-  );
-  m_ipcService.registerHandler(
-      "workspace-alert-clear-all",
-      [this](const std::string& args) -> std::string {
-        if (!noctalia::ipc::splitWords(args).empty()) {
-          return "error: workspace-alert-clear-all takes no arguments\n";
-        }
-        m_workspaceAlertService.clearAll();
-        m_bar.refresh();
-        return "ok\n";
-      },
-      "", "Clear all workspace alerts"
-  );
-  m_ipcService.registerHandler(
-      "workspace-alert-status",
+  m_ipcService.bind(noctalia::cli::msg::workspaceAlertAdd, [this](const std::string& args) -> std::string {
+    const std::string workspace = StringUtils::trim(args);
+    if (workspace.empty()) {
+      return "error: workspace-alert-add requires <workspace>\n";
+    }
+    if (!m_compositorPlatform.isKnownWorkspaceAlertKey(workspace)) {
+      return "error: unknown workspace '" + workspace + "'\n";
+    }
+    // Store unconditionally. The overlay only marks inactive rows, so
+    // alerting the active workspace simply shows once the user leaves it and
+    // auto-clears on return; on per-output compositors this also lets an
+    // inactive duplicate alert even when the same workspace is active elsewhere.
+    (void)m_workspaceAlertService.add(workspace);
+    m_bar.refresh();
+    return "ok\n";
+  });
+  m_ipcService.bind(noctalia::cli::msg::workspaceAlertAddWindow, [this](const std::string& args) -> std::string {
+    const auto parts = noctalia::ipc::splitWords(args);
+    if (parts.size() != 1) {
+      return "error: workspace-alert-add-window requires <window-id>\n";
+    }
+    const auto workspace = m_compositorPlatform.workspaceAlertKeyForWindow(parts[0]);
+    if (!workspace.has_value()) {
+      return "error: could not resolve workspace for window id '" + parts[0] + "'\n";
+    }
+    (void)m_workspaceAlertService.add(*workspace);
+    m_bar.refresh();
+    return "ok\n";
+  });
+  m_ipcService.bind(noctalia::cli::msg::workspaceAlertClear, [this](const std::string& args) -> std::string {
+    const std::string workspace = StringUtils::trim(args);
+    if (workspace.empty()) {
+      return "error: workspace-alert-clear requires <workspace>\n";
+    }
+    (void)m_workspaceAlertService.clear(workspace);
+    m_bar.refresh();
+    return "ok\n";
+  });
+  m_ipcService.bind(noctalia::cli::msg::workspaceAlertClearAll, [this](const std::string& args) -> std::string {
+    if (!noctalia::ipc::splitWords(args).empty()) {
+      return "error: workspace-alert-clear-all takes no arguments\n";
+    }
+    m_workspaceAlertService.clearAll();
+    m_bar.refresh();
+    return "ok\n";
+  });
+  m_ipcService.bind(
+      noctalia::cli::msg::workspaceAlertStatus,
       [workspaceAlertStatus](const std::string& args) -> std::string {
         if (!noctalia::ipc::splitWords(args).empty()) {
           return "error: workspace-alert-status takes no arguments\n";
         }
         return workspaceAlertStatus();
       },
-      "", "Print workspace alerts",
       IpcService::HandlerOptions{.actionEditorVisibility = IpcService::ActionEditorVisibility::Hidden}
   );
 
@@ -640,105 +574,85 @@ void Application::initIpc() {
   if (m_keyboardBacklightService != nullptr) {
     m_keyboardBacklightService->registerIpc(m_ipcService);
   }
-  m_ipcService.registerHandler(
-      "keyboard-backlight-osd",
-      [this](const std::string& args) -> std::string {
-        const auto parts = noctalia::ipc::splitWords(args);
-        if (parts.size() != 1) {
-          return "error: keyboard-backlight-osd requires <value>\n";
-        }
-        const auto value = noctalia::ipc::parseNormalizedOrPercent(parts[0]);
-        if (!value.has_value()) {
-          return "error: invalid keyboard backlight value (use percent like 65 or 65%, or normalized like 0.65)\n";
-        }
-        m_keyboardBacklightOsd.showValue(*value);
-        return "ok\n";
-      },
-      "<value>", "Show keyboard backlight OSD without changing brightness"
-  );
-  m_ipcService.registerHandler(
-      "brightness-osd",
-      [this](const std::string& args) -> std::string {
-        const auto parts = noctalia::ipc::splitWords(args);
-        if (parts.size() != 1) {
-          return "error: brightness-osd requires <value>\n";
-        }
-        const auto value = noctalia::ipc::parseNormalizedOrPercent(parts[0]);
-        if (!value.has_value()) {
-          return "error: invalid brightness value (use percent like 65 or 65%, or normalized like 0.65)\n";
-        }
-        m_brightnessOsd.showValue(*value);
-        return "ok\n";
-      },
-      "<value>", "Show brightness OSD without changing brightness"
-  );
-  m_ipcService.registerHandler(
-      "volume-osd",
-      [this](const std::string& args) -> std::string {
-        const auto parts = noctalia::ipc::splitWords(args);
-        if (parts.size() > 1) {
-          return "error: volume-osd accepts at most one optional [value]\n";
-        }
-        if (m_pipewireService == nullptr) {
-          return "error: audio unavailable\n";
-        }
-        const auto* sink = m_pipewireService->defaultSink();
-        if (sink == nullptr) {
-          return "error: no default output\n";
-        }
-        float volume = sink->volume;
-        if (parts.size() == 1) {
-          const auto value = noctalia::ipc::parseNormalizedOrPercent(
-              parts[0], maxAudioVolume(m_configService.config().audio) * 100.0F
-          );
-          if (!value.has_value()) {
-            return "error: invalid volume value (use percent like 65 or 65%, or normalized like 0.65)\n";
-          }
-          volume = *value;
-        }
-        m_audioOsd.showOutputValue(volume, sink->muted);
-        return "ok\n";
-      },
-      "[value]", "Show the volume OSD without changing volume (defaults to the current volume)"
-  );
-  m_ipcService.registerHandler(
-      "mic-volume-osd",
-      [this](const std::string& args) -> std::string {
-        const auto parts = noctalia::ipc::splitWords(args);
-        if (parts.size() > 1) {
-          return "error: mic-volume-osd accepts at most one optional [value]\n";
-        }
-        if (m_pipewireService == nullptr) {
-          return "error: audio unavailable\n";
-        }
-        const auto* source = m_pipewireService->defaultSource();
-        if (source == nullptr) {
-          return "error: no default input\n";
-        }
-        float volume = source->volume;
-        if (parts.size() == 1) {
-          const auto value = noctalia::ipc::parseNormalizedOrPercent(
-              parts[0], maxAudioVolume(m_configService.config().audio) * 100.0F
-          );
-          if (!value.has_value()) {
-            return "error: invalid mic volume value (use percent like 65 or 65%, or normalized like 0.65)\n";
-          }
-          volume = *value;
-        }
-        m_audioOsd.showInputValue(volume, source->muted);
-        return "ok\n";
-      },
-      "[value]", "Show the microphone volume OSD without changing volume (defaults to the current volume)"
-  );
+  m_ipcService.bind(noctalia::cli::msg::keyboardBacklightOsd, [this](const std::string& args) -> std::string {
+    const auto parts = noctalia::ipc::splitWords(args);
+    if (parts.size() != 1) {
+      return "error: keyboard-backlight-osd requires <value>\n";
+    }
+    const auto value = noctalia::ipc::parseNormalizedOrPercent(parts[0]);
+    if (!value.has_value()) {
+      return "error: invalid keyboard backlight value (use percent like 65 or 65%, or normalized like 0.65)\n";
+    }
+    m_keyboardBacklightOsd.showValue(*value);
+    return "ok\n";
+  });
+  m_ipcService.bind(noctalia::cli::msg::brightnessOsd, [this](const std::string& args) -> std::string {
+    const auto parts = noctalia::ipc::splitWords(args);
+    if (parts.size() != 1) {
+      return "error: brightness-osd requires <value>\n";
+    }
+    const auto value = noctalia::ipc::parseNormalizedOrPercent(parts[0]);
+    if (!value.has_value()) {
+      return "error: invalid brightness value (use percent like 65 or 65%, or normalized like 0.65)\n";
+    }
+    m_brightnessOsd.showValue(*value);
+    return "ok\n";
+  });
+  m_ipcService.bind(noctalia::cli::msg::volumeOsd, [this](const std::string& args) -> std::string {
+    const auto parts = noctalia::ipc::splitWords(args);
+    if (parts.size() > 1) {
+      return "error: volume-osd accepts at most one optional [value]\n";
+    }
+    if (m_pipewireService == nullptr) {
+      return "error: audio unavailable\n";
+    }
+    const auto* sink = m_pipewireService->defaultSink();
+    if (sink == nullptr) {
+      return "error: no default output\n";
+    }
+    float volume = sink->volume;
+    if (parts.size() == 1) {
+      const auto value =
+          noctalia::ipc::parseNormalizedOrPercent(parts[0], maxAudioVolume(m_configService.config().audio) * 100.0F);
+      if (!value.has_value()) {
+        return "error: invalid volume value (use percent like 65 or 65%, or normalized like 0.65)\n";
+      }
+      volume = *value;
+    }
+    m_audioOsd.showOutputValue(volume, sink->muted);
+    return "ok\n";
+  });
+  m_ipcService.bind(noctalia::cli::msg::micVolumeOsd, [this](const std::string& args) -> std::string {
+    const auto parts = noctalia::ipc::splitWords(args);
+    if (parts.size() > 1) {
+      return "error: mic-volume-osd accepts at most one optional [value]\n";
+    }
+    if (m_pipewireService == nullptr) {
+      return "error: audio unavailable\n";
+    }
+    const auto* source = m_pipewireService->defaultSource();
+    if (source == nullptr) {
+      return "error: no default input\n";
+    }
+    float volume = source->volume;
+    if (parts.size() == 1) {
+      const auto value =
+          noctalia::ipc::parseNormalizedOrPercent(parts[0], maxAudioVolume(m_configService.config().audio) * 100.0F);
+      if (!value.has_value()) {
+        return "error: invalid mic volume value (use percent like 65 or 65%, or normalized like 0.65)\n";
+      }
+      volume = *value;
+    }
+    m_audioOsd.showInputValue(volume, source->muted);
+    return "ok\n";
+  });
   m_configService.registerIpc(m_ipcService);
   scripting::PluginIpcRouter::instance().setPlatform(&m_compositorPlatform);
-  m_ipcService.registerHandler(
-      "plugin",
-      [](const std::string& args) -> std::string { return scripting::PluginIpcRouter::instance().dispatch(args); },
-      "<author/plugin:entry> <target[:bar-name]> <event> [payload]", "Dispatch an event to a plugin entry"
-  );
-  m_ipcService.registerHandler(
-      "plugins",
+  m_ipcService.bind(noctalia::cli::msg::plugin, [](const std::string& args) -> std::string {
+    return scripting::PluginIpcRouter::instance().dispatch(args);
+  });
+  m_ipcService.bind(
+      noctalia::cli::msg::plugins,
       [this](const std::string& args) -> std::string {
         const auto parts = noctalia::ipc::splitWords(args);
         if (parts.empty()) {
@@ -832,8 +746,6 @@ void Application::initIpc() {
         }
         return "error: unknown plugins subcommand '" + cmd + "'\n";
       },
-      "<list|enable|disable|update|source> ...",
-      "Manage plugins and sources (list/enable/disable/update, source list/add/remove)",
       IpcService::HandlerOptions{.actionEditorVisibility = IpcService::ActionEditorVisibility::Hidden}
   );
   m_bar.registerIpc(m_ipcService);
@@ -865,6 +777,10 @@ void Application::initIpc() {
   }
   m_screenshotService.registerIpc(m_ipcService, m_configService);
   m_windowSwitcher.registerIpc(m_ipcService);
+  for (const noctalia::cli::Command& command : noctalia::cli::kMsgCmd.subcommands) {
+    if (!m_ipcService.hasHandler(command.name))
+      kLog.debug("IPC schema command '{}' has no registered handler", command.name);
+  }
 }
 
 bool Application::runShellCommand(const std::string& command) {

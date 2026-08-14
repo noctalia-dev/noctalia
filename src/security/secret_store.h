@@ -56,9 +56,17 @@ namespace security {
     Other,
   };
 
+  enum class SecretStoreCollectionState {
+    Unknown,
+    Missing,
+    Locked,
+    Unlocked,
+  };
+
   struct SecretStoreBackendResult {
     SecretStoreStatus status = SecretStoreStatus::BackendError;
     SecretStoreErrorCategory errorCategory = SecretStoreErrorCategory::Other;
+    SecretStoreCollectionState defaultCollectionState = SecretStoreCollectionState::Unknown;
     SecureBuffer value;
   };
 

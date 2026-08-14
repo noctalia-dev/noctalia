@@ -2,11 +2,14 @@
 
 #include "config/config_service.h"
 #include "core/log.h"
+#include "render/core/shared_texture_cache.h"
 #include "render/render_context.h"
+#include "render/render_target.h"
 #include "render/scene/node.h"
 #include "scripting/plugin_registry.h"
 #include "shell/desktop/desktop_widget_layout.h"
 #include "shell/desktop/widget_transform.h"
+#include "shell/wallpaper/wallpaper_geometry.h"
 #include "time/time_format.h"
 #include "ui/builders.h"
 #include "wayland/layer_surface.h"
@@ -43,11 +46,60 @@ namespace {
 
 } // namespace
 
+DesktopWidgetsHost::~DesktopWidgetsHost() { releaseWallpaperMasks(); }
+
 void DesktopWidgetsHost::initialize(const DesktopWidgetServices& services) {
   m_wayland = &services.wayland;
   m_config = services.config;
   m_renderContext = services.renderContext;
+  m_textureCache = services.textureCache;
   m_factory = std::make_unique<DesktopWidgetFactory>(services.runtime);
+}
+
+void DesktopWidgetsHost::releaseWallpaperMasks() {
+  if (m_textureCache != nullptr) {
+    for (auto& [outputName, mask] : m_wallpaperMasks) {
+      (void)outputName;
+      m_textureCache->releaseAlphaMask(mask.retainedTexture, mask.descriptor.path);
+    }
+  }
+  m_wallpaperMasks.clear();
+}
+
+void DesktopWidgetsHost::setWallpaperMasks(const OutputWallpaperMaskMap& masks) {
+  for (auto it = m_wallpaperMasks.begin(); it != m_wallpaperMasks.end();) {
+    const auto desired = masks.find(it->first);
+    if (desired != masks.end() && desired->second == it->second.descriptor) {
+      ++it;
+      continue;
+    }
+    if (m_textureCache != nullptr) {
+      m_textureCache->releaseAlphaMask(it->second.retainedTexture, it->second.descriptor.path);
+    }
+    it = m_wallpaperMasks.erase(it);
+  }
+
+  if (m_textureCache != nullptr) {
+    for (const auto& [outputName, descriptor] : masks) {
+      if (m_wallpaperMasks.contains(outputName)) {
+        continue;
+      }
+      TextureHandle texture = m_textureCache->acquireAlphaMask(descriptor.path);
+      const TextureHandle wallpaperTexture = m_textureCache->peek(descriptor.wallpaperPath);
+      if (!texture.valid()
+          || !wallpaperTexture.valid()
+          || texture.width != wallpaperTexture.width
+          || texture.height != wallpaperTexture.height) {
+        kLog.warn("rejected wallpaper mask with invalid source dimensions for {}", outputName);
+        m_textureCache->releaseAlphaMask(texture, descriptor.path);
+        continue;
+      }
+      m_wallpaperMasks.emplace(outputName, LoadedWallpaperMask{.descriptor = descriptor, .retainedTexture = texture});
+    }
+  }
+  for (auto& instance : m_instances) {
+    updateWallpaperMask(*instance);
+  }
 }
 
 void DesktopWidgetsHost::show(const DesktopWidgetsSnapshot& snapshot) {
@@ -202,8 +254,9 @@ void DesktopWidgetsHost::createInstance(const DesktopWidgetState& state, const W
 
   widget->create();
   widget->setBox(state.boxWidth, state.boxHeight);
-  widget->update(*m_renderContext);
-  widget->layout(*m_renderContext);
+  ScaledRenderer measureRenderer(*m_renderContext, output.configuredScale());
+  widget->update(measureRenderer);
+  widget->layout(measureRenderer);
 
   const float intrinsicWidth = std::max(1.0F, widget->intrinsicWidth());
   const float intrinsicHeight = std::max(1.0F, widget->intrinsicHeight());
@@ -282,13 +335,21 @@ void DesktopWidgetsHost::createInstance(const DesktopWidgetState& state, const W
       return;
     }
     m_renderContext->makeCurrent(rawInstance->surface->renderTarget());
-    rawInstance->widget->onFrameTick(deltaMs, *m_renderContext);
+    Renderer& renderer = rawInstance->surface->renderTarget().renderer();
+    rawInstance->widget->onFrameTick(deltaMs, renderer);
   });
 
   if (!instance->surface->initialize(output.output)) {
     kLog.warn("desktop widgets host: failed to initialize widget {} on {}", state.id, instance->effectiveOutputName);
     return;
   }
+
+  // The pre-surface measurement above bound retained render state (owned Image
+  // textures, the sticker's frame renderer) to the stack-local ScaledRenderer.
+  // initialize() wired the surface's RenderTarget (renderer context + content
+  // scale seeded from this output), so rebind the whole widget tree to that
+  // stable view before the temporary dies.
+  instance->widget->rebindRenderer(instance->surface->renderTarget().renderer());
 
   m_instances.push_back(std::move(instance));
 }
@@ -317,12 +378,54 @@ void DesktopWidgetsHost::buildScene(DesktopWidgetInstance& instance) {
   }
 }
 
+void DesktopWidgetsHost::updateWallpaperMask(DesktopWidgetInstance& instance) {
+  if (instance.surface == nullptr || m_wayland == nullptr || m_config == nullptr || m_textureCache == nullptr) {
+    return;
+  }
+
+  const auto maskIt = m_wallpaperMasks.find(instance.effectiveOutputName);
+  const WaylandOutput* output = desktop_widgets::findOutputByKey(*m_wayland, instance.effectiveOutputName);
+  if (maskIt == m_wallpaperMasks.end()
+      || output == nullptr
+      || m_config->getWallpaperPath(instance.effectiveOutputName) != maskIt->second.descriptor.wallpaperPath) {
+    instance.surface->setWallpaperMask(std::nullopt);
+    return;
+  }
+
+  const TextureHandle texture = m_textureCache->peekAlphaMask(maskIt->second.descriptor.path);
+  if (!texture.valid() || texture.width <= 0 || texture.height <= 0) {
+    instance.surface->setWallpaperMask(std::nullopt);
+    return;
+  }
+
+  const auto fillMode = m_config->config().wallpaper.fillMode;
+  const WallpaperSpanParams span = fillMode == WallpaperFillMode::Span
+      ? computeWallpaperSpanParams(m_wayland->outputs(), output->name)
+      : WallpaperSpanParams{};
+  instance.surface->setWallpaperMask(
+      WallpaperMaskDrawParams{
+          .texture = texture.id,
+          .surfaceWidth = static_cast<float>(instance.surface->width()),
+          .surfaceHeight = static_cast<float>(instance.surface->height()),
+          .surfaceOffsetX = static_cast<float>(instance.surface->marginLeft()),
+          .surfaceOffsetY = static_cast<float>(instance.surface->marginTop()),
+          .outputWidth = desktop_widgets::outputLogicalWidth(*output),
+          .outputHeight = desktop_widgets::outputLogicalHeight(*output),
+          .imageWidth = static_cast<float>(texture.width),
+          .imageHeight = static_cast<float>(texture.height),
+          .fillMode = static_cast<float>(fillMode),
+          .span = span,
+      }
+  );
+}
+
 void DesktopWidgetsHost::prepareFrame(DesktopWidgetInstance& instance, bool needsUpdate, bool needsLayout) {
   if (instance.widget == nullptr || instance.surface == nullptr || m_renderContext == nullptr) {
     return;
   }
 
   m_renderContext->makeCurrent(instance.surface->renderTarget());
+  Renderer& renderer = instance.surface->renderTarget().renderer();
 
   buildScene(instance);
 
@@ -331,10 +434,10 @@ void DesktopWidgetsHost::prepareFrame(DesktopWidgetInstance& instance, bool need
   instance.widget->setBox(instance.state.boxWidth, instance.state.boxHeight);
 
   if (needsUpdate) {
-    instance.widget->update(*m_renderContext);
+    instance.widget->update(renderer);
   }
   if (needsLayout) {
-    instance.widget->layout(*m_renderContext);
+    instance.widget->layout(renderer);
     instance.intrinsicWidth = std::max(1.0F, instance.widget->intrinsicWidth());
     instance.intrinsicHeight = std::max(1.0F, instance.widget->intrinsicHeight());
   }
@@ -362,6 +465,7 @@ void DesktopWidgetsHost::prepareFrame(DesktopWidgetInstance& instance, bool need
     instance.surface->requestSize(geometry.surfaceWidth, geometry.surfaceHeight);
   }
   instance.surface->setMargins(geometry.marginTop, 0, 0, geometry.marginLeft);
+  updateWallpaperMask(instance);
 
   if (instance.sceneRoot != nullptr) {
     instance.sceneRoot->setFrameSize(

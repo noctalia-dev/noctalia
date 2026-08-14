@@ -1,6 +1,7 @@
 #pragma once
 
 #include "render/core/render_styles.h"
+#include "render/core/wallpaper_types.h"
 #include "render/render_target.h"
 
 #include <chrono>
@@ -63,6 +64,7 @@ public:
   using PrepareFrameCallback = std::function<void(bool needsUpdate, bool needsLayout)>;
   using UpdateCallback = std::function<void()>;
   using FrameTickCallback = std::function<void(float deltaMs)>;
+  using ScaleChangedCallback = std::function<void(float scale)>;
 
   explicit Surface(WaylandConnection& connection);
   virtual ~Surface();
@@ -78,6 +80,7 @@ public:
   void setPrepareFrameCallback(PrepareFrameCallback callback);
   void setUpdateCallback(UpdateCallback callback);
   void setFrameTickCallback(FrameTickCallback callback);
+  void setScaleChangedCallback(ScaleChangedCallback callback);
   void setInputRegion(const std::vector<InputRect>& rects);
   void setBlurRegion(const std::vector<InputRect>& rects);
   void clearBlurRegion();
@@ -117,6 +120,7 @@ public:
   void setAnimationManager(AnimationManager* manager) noexcept { m_animationManager = manager; }
   void setSceneRoot(Node* root);
   void setRenderContext(RenderContext* ctx);
+  void setWallpaperMask(std::optional<WallpaperMaskDrawParams> mask);
   [[nodiscard]] RenderContext* renderContext() const noexcept { return m_renderContext; }
   [[nodiscard]] RenderTarget& renderTarget() noexcept { return m_renderTarget; }
   [[nodiscard]] wl_surface* wlSurface() const noexcept { return m_surface; }
@@ -146,6 +150,9 @@ protected:
   bool prepareBlurEffect();
   void initializeSurfaceScaleProtocol();
   void applySurfaceScaleState();
+  // Seed the surface-local configured scale (/120 numerator) from a known output
+  // before first sizing, so explicit-output roles measure at the right scale.
+  void setConfiguredScaleNumerator(std::uint32_t numerator) noexcept;
   void requestFrame();
   void destroySurface();
 
@@ -175,12 +182,14 @@ private:
   RenderTarget m_renderTarget;
   AnimationManager* m_animationManager = nullptr;
   Node* m_sceneRoot = nullptr;
+  std::optional<WallpaperMaskDrawParams> m_wallpaperMask;
   std::string m_debugName;
   std::shared_ptr<InvalidationToken> m_invalidationToken = std::make_shared<InvalidationToken>();
   ConfigureCallback m_configureCallback;
   PrepareFrameCallback m_prepareFrameCallback;
   UpdateCallback m_updateCallback;
   FrameTickCallback m_frameTickCallback;
+  ScaleChangedCallback m_scaleChangedCallback;
   wl_callback* m_frameCallback = nullptr;
   ext_background_effect_surface_v1* m_backgroundEffect = nullptr;
   wp_viewport* m_viewport = nullptr;
@@ -202,5 +211,8 @@ private:
   std::uint32_t m_width = 0;
   std::uint32_t m_height = 0;
   std::int32_t m_bufferScale = 1;
-  std::uint32_t m_fractionalScaleNumerator = 0;
+  // Surface-local render scale (/120 numerators). effectiveBufferScale() prefers
+  // the compositor override, then the output seed, then integer buffer scale.
+  std::uint32_t m_configuredScaleNumerator = 0;
+  std::uint32_t m_preferredScaleNumerator = 0;
 };

@@ -120,9 +120,19 @@ namespace {
   }
 
   [[nodiscard]] bool matchesActiveWindow(
-      const ToplevelInfo& window, const ActiveToplevel& active, const std::vector<ToplevelInfo>& windows
+      const ToplevelInfo& window, const ActiveToplevel& active, std::string_view focusedCompositorWindowId,
+      const std::vector<ToplevelInfo>& windows
   ) {
     if (active.handle != nullptr && window.handle == active.handle) {
+      return true;
+    }
+
+    // Exact-identity ext toplevels have no wlr handle; match them by the compositor's focused
+    // window id, since `active.identifier` is an appId+title synthetic key for wlr toplevels.
+    if (window.exactIdentity
+        && !window.identifier.empty()
+        && !focusedCompositorWindowId.empty()
+        && window.identifier == focusedCompositorWindowId) {
       return true;
     }
 
@@ -141,7 +151,7 @@ namespace {
 
   const ToplevelInfo* nextActivatableWindow(
       const std::vector<ToplevelInfo>& windows, const std::optional<ActiveToplevel>& active,
-      std::string_view preferredIdentifier
+      std::string_view focusedCompositorWindowId, std::string_view preferredIdentifier
   ) {
     if (windows.empty()) {
       return nullptr;
@@ -149,7 +159,7 @@ namespace {
 
     if (active.has_value()) {
       for (std::size_t i = 0; i < windows.size(); ++i) {
-        if (!matchesActiveWindow(windows[i], *active, windows)) {
+        if (!matchesActiveWindow(windows[i], *active, focusedCompositorWindowId, windows)) {
           continue;
         }
         for (std::size_t offset = 1; offset <= windows.size(); ++offset) {
@@ -838,6 +848,11 @@ bool Dock::syncInstanceModel(shell::dock::DockInstance& instance) {
         m_lastActiveIdentifierByAppIdLower[activeIdLower] = active->identifier;
       }
     }
+    // Also record the compositor-exact focused window id so preferred-identifier lookups
+    // match ext-only toplevels (whose identifier is the exact window id, not appId+title).
+    if (const auto focusedId = m_platform->focusedCompositorWindowId(); focusedId.has_value() && !focusedId->empty()) {
+      m_lastActiveIdentifierByAppIdLower[activeIdLower] = *focusedId;
+    }
   }
 
   auto next = shell::dock::buildDockSnapshot({
@@ -1154,7 +1169,11 @@ void Dock::activateOrLaunchItem(shell::dock::DockInstance& instance, const shell
     preferredIdentifier = it->second;
   }
 
-  if (const ToplevelInfo* nextWindow = nextActivatableWindow(windows, active, preferredIdentifier);
+  const auto focusedCompositorWindowId = m_platform->focusedCompositorWindowId();
+  const std::string_view focusedCompositorWindowIdView =
+      focusedCompositorWindowId.has_value() ? std::string_view(*focusedCompositorWindowId) : std::string_view{};
+  if (const ToplevelInfo* nextWindow =
+          nextActivatableWindow(windows, active, focusedCompositorWindowIdView, preferredIdentifier);
       nextWindow != nullptr) {
     m_platform->activateToplevelInfo(*nextWindow);
     return;
@@ -1247,42 +1266,26 @@ void Dock::openItemMenu(shell::dock::DockInstance& instance, const shell::dock::
 }
 
 void Dock::registerIpc(IpcService& ipc) {
-  ipc.registerHandler(
-      "dock-show",
-      [this](const std::string&) -> std::string {
-        if (m_config)
-          m_config->setDockEnabled(true);
-        return "ok\n";
-      },
-      "", "Show the dock (persists override)"
-  );
+  ipc.bind(noctalia::cli::msg::dockShow, [this](const std::string&) -> std::string {
+    if (m_config)
+      m_config->setDockEnabled(true);
+    return "ok\n";
+  });
 
-  ipc.registerHandler(
-      "dock-hide",
-      [this](const std::string&) -> std::string {
-        if (m_config)
-          m_config->setDockEnabled(false);
-        return "ok\n";
-      },
-      "", "Hide the dock (persists override)"
-  );
+  ipc.bind(noctalia::cli::msg::dockHide, [this](const std::string&) -> std::string {
+    if (m_config)
+      m_config->setDockEnabled(false);
+    return "ok\n";
+  });
 
-  ipc.registerHandler(
-      "dock-toggle",
-      [this](const std::string&) -> std::string {
-        if (m_config)
-          m_config->setDockEnabled(!m_config->config().dock.enabled);
-        return "ok\n";
-      },
-      "", "Toggle dock visibility (persists override)"
-  );
+  ipc.bind(noctalia::cli::msg::dockToggle, [this](const std::string&) -> std::string {
+    if (m_config)
+      m_config->setDockEnabled(!m_config->config().dock.enabled);
+    return "ok\n";
+  });
 
-  ipc.registerHandler(
-      "dock-reload",
-      [this](const std::string&) -> std::string {
-        reload();
-        return "ok\n";
-      },
-      "", "Reload dock configuration"
-  );
+  ipc.bind(noctalia::cli::msg::dockReload, [this](const std::string&) -> std::string {
+    reload();
+    return "ok\n";
+  });
 }

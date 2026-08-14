@@ -566,6 +566,9 @@ namespace {
               toml::table row;
               row.insert_or_assign("enabled", item.enabled);
               row.insert_or_assign("timeout", item.timeoutSeconds);
+              if (item.lockedTimeoutSeconds > 0.0) {
+                row.insert_or_assign("locked_timeout", item.lockedTimeoutSeconds);
+              }
               if (!item.action.empty()) {
                 row.insert_or_assign("action", item.action);
               }
@@ -1411,7 +1414,10 @@ std::optional<Config> ConfigService::configForOverrides(const toml::table& overr
   auto mergeResult = noctalia::config::mergeConfigWithIncludes(m_configDir);
   toml::table merged = std::move(mergeResult.merged);
   if (!mergeResult.firstError.empty()) {
-    kLog.warn("skipping config error in effective override comparison: {}", mergeResult.firstError);
+    kLog.warn(
+        "skipping config error in effective override comparison: {}",
+        mergeResult.firstErrorOrigin.prefixed(mergeResult.firstError)
+    );
   }
 
   toml::table effectiveOverrides = overrides;
@@ -1450,12 +1456,16 @@ std::optional<Config> ConfigService::configForOverrides(const toml::table& overr
 noctalia::config::schema::Diagnostics ConfigService::diagnosticsForOverrides(const toml::table& overrides) const {
   auto mergeResult = noctalia::config::mergeConfigWithIncludes(m_configDir);
   toml::table merged = std::move(mergeResult.merged);
+  noctalia::config::ConfigOriginIndex origins = std::move(mergeResult.origins);
   noctalia::config::schema::Diagnostics diagnostics;
   if (!mergeResult.firstError.empty()) {
-    diagnostics.fatal("syntax", mergeResult.firstError, "config.syntax");
+    diagnostics.fatalAt(std::move(mergeResult.firstErrorOrigin), "syntax", mergeResult.firstError, "config.syntax");
   }
 
   toml::table effectiveOverrides = overrides;
+  if (!m_overridesPath.empty()) {
+    origins.record(std::filesystem::path(m_overridesPath), overrides);
+  }
   if (!effectiveOverrides.empty()) {
     const auto storedVersion = noctalia::config::storedConfigVersion(effectiveOverrides, diagnostics);
     if (storedVersion.has_value()) {
@@ -1469,8 +1479,9 @@ noctalia::config::schema::Diagnostics ConfigService::diagnosticsForOverrides(con
   for (const auto& issue : issues) {
     diagnostics.warn(issue.path, issue.message, "config.legacy");
   }
+  origins.annotate(diagnostics);
 
-  auto semantic = noctalia::config::validateMergedConfig(merged);
+  auto semantic = noctalia::config::validateMergedConfig(merged, origins);
   diagnostics.entries.insert(
       diagnostics.entries.end(), std::make_move_iterator(semantic.entries.begin()),
       std::make_move_iterator(semantic.entries.end())
@@ -1484,7 +1495,7 @@ bool ConfigService::validateOverrideMutation(
 ) {
   m_lastMutationError.clear();
   if (!m_overridesParseError.empty()) {
-    m_lastMutationError = m_overridesParseError;
+    m_lastMutationError = m_overridesParseError.flatten(m_configDir);
     return false;
   }
 
@@ -1498,13 +1509,13 @@ bool ConfigService::validateOverrideMutation(
           && entry.recoveryScope == noctalia::config::schema::Diagnostics::RecoveryScope::Document;
     });
     if (fatal != candidate.entries.end()) {
-      m_lastMutationError = fatal->path + ": " + fatal->message;
+      m_lastMutationError = fatal->describeShort(m_configDir);
       return false;
     }
     const auto introduced = candidate.introducedErrorsComparedTo(baseline);
     if (!introduced.entries.empty()) {
       const auto& entry = introduced.entries.front();
-      m_lastMutationError = entry.path + ": " + entry.message;
+      m_lastMutationError = entry.describeShort(m_configDir);
       return false;
     }
   } catch (const std::exception& e) {
@@ -1833,7 +1844,7 @@ bool ConfigService::validateOverride(
     return entry.severity == noctalia::config::schema::Diagnostics::Severity::Error && entry.path == settingPath;
   });
   if (fieldError != candidateDiagnostics.entries.end()) {
-    m_lastMutationError = fieldError->path + ": " + fieldError->message;
+    m_lastMutationError = fieldError->describeShort(m_configDir);
     if (error != nullptr) {
       *error = m_lastMutationError;
     }

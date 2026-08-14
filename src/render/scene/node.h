@@ -150,6 +150,11 @@ public:
   [[nodiscard]] LayoutSize measure(Renderer& renderer, const LayoutConstraints& constraints);
   void arrange(Renderer& renderer, const LayoutRect& rect);
   void invalidateGpuResources(Renderer& renderer, std::uint64_t generation);
+  // Rebinds retained Renderer pointers across the whole subtree to a stable
+  // view, unconditionally (visibility- and override-proof, unlike layout).
+  // Hosts that measured a retained tree with a transient fixed-scale renderer
+  // call this with the surface's stable renderer before the transient dies.
+  void rebindRenderer(Renderer& renderer);
   [[nodiscard]] std::uint64_t gpuResourceGeneration() const noexcept { return m_gpuResourceGeneration; }
   [[nodiscard]] bool containsScenePoint(float sceneX, float sceneY) const;
 
@@ -178,6 +183,8 @@ protected:
   virtual LayoutSize doMeasure(Renderer& renderer, const LayoutConstraints& constraints);
   virtual void doArrange(Renderer& renderer, const LayoutRect& rect);
   virtual void doInvalidateGpuResources(Renderer& renderer);
+  // Refreshes any Renderer pointer this node retains; no layout side effects.
+  virtual void doRebindRenderer(Renderer& renderer) { (void)renderer; }
   [[nodiscard]] virtual bool containsLocalPoint(float localX, float localY, bool includeHitOutset) const;
 
 private:

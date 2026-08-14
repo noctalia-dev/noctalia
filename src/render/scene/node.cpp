@@ -130,6 +130,13 @@ void Node::invalidateGpuResources(Renderer& renderer, std::uint64_t generation) 
   }
 }
 
+void Node::rebindRenderer(Renderer& renderer) {
+  doRebindRenderer(renderer);
+  for (auto& child : m_children) {
+    child->rebindRenderer(renderer);
+  }
+}
+
 bool Node::containsScenePoint(float sceneX, float sceneY) const {
   float localX = 0.0F;
   float localY = 0.0F;

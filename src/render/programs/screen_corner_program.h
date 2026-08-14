@@ -20,8 +20,8 @@ public:
   void abandon() noexcept;
 
   void draw(
-      float surfaceWidth, float surfaceHeight, float pixelScaleX, float pixelScaleY, float width, float height,
-      const ScreenCornerStyle& style, const Mat3& transform = Mat3::identity()
+      float surfaceWidth, float surfaceHeight, float width, float height, const ScreenCornerStyle& style,
+      const Mat3& transform = Mat3::identity()
   ) const;
 
 private:
@@ -29,10 +29,8 @@ private:
   GLint m_positionLocation = -1;
   GLint m_surfaceSizeLocation = -1;
   GLint m_sizeLocation = -1;
-  GLint m_pixelScaleLocation = -1;
   GLint m_colorLocation = -1;
   GLint m_cornerLocation = -1;
   GLint m_exponentLocation = -1;
-  GLint m_softnessLocation = -1;
   GLint m_transformLocation = -1;
 };

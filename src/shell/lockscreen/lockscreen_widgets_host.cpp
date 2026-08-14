@@ -229,8 +229,9 @@ void LockscreenWidgetsHost::createInstance(
 
   if (surface.renderTarget().isReady()) {
     m_renderContext->makeCurrent(surface.renderTarget());
-    widget->update(*m_renderContext);
-    widget->layout(*m_renderContext);
+    Renderer& renderer = surface.renderTarget().renderer();
+    widget->update(renderer);
+    widget->layout(renderer);
   }
 
   const float intrinsicWidth = std::max(1.0F, widget->intrinsicWidth());
@@ -313,6 +314,7 @@ void LockscreenWidgetsHost::syncSurfaceFrameTick(LockSurface* surfacePtr) {
       return;
     }
     host->m_renderContext->makeCurrent(surfacePtr->renderTarget());
+    Renderer& renderer = surfacePtr->renderTarget().renderer();
 
     bool needsRedraw = false;
     for (auto& instance : host->m_instances) {
@@ -328,7 +330,7 @@ void LockscreenWidgetsHost::syncSurfaceFrameTick(LockSurface* surfacePtr) {
       if (instance->surface != surfacePtr || instance->widget == nullptr || !instance->widget->needsFrameTick()) {
         continue;
       }
-      instance->widget->onFrameTick(deltaMs, *host->m_renderContext);
+      instance->widget->onFrameTick(deltaMs, renderer);
       needsContinuousRedraw = true;
     }
 
@@ -360,6 +362,7 @@ void LockscreenWidgetsHost::prepareFrame(LockSurface& surface, bool needsUpdate,
   }
 
   m_renderContext->makeCurrent(surface.renderTarget());
+  Renderer& renderer = surface.renderTarget().renderer();
 
   const float baseUiScale = m_config != nullptr ? m_config->config().accessibility.uiScale : 1.0F;
   const auto surfaceW = static_cast<float>(surface.width());
@@ -380,10 +383,10 @@ void LockscreenWidgetsHost::prepareFrame(LockSurface& surface, bool needsUpdate,
     instance->widget->setBox(instance->state.boxWidth, instance->state.boxHeight);
 
     if (needsUpdate) {
-      instance->widget->update(*m_renderContext);
+      instance->widget->update(renderer);
     }
     if (needsLayout) {
-      instance->widget->layout(*m_renderContext);
+      instance->widget->layout(renderer);
       instance->intrinsicWidth = std::max(1.0F, instance->widget->intrinsicWidth());
       instance->intrinsicHeight = std::max(1.0F, instance->widget->intrinsicHeight());
     }

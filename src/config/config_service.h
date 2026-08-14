@@ -2,7 +2,9 @@
 
 #include "config/config_migrations.h"
 #include "config/config_types.h"
+#include "config/schema/diagnostics.h"
 #include "config/state_store.h"
+#include "core/inotify/inotify.h"
 #include "core/timer_manager.h"
 #include "core/toml.h"
 
@@ -40,7 +42,7 @@ public:
   };
 
   ConfigService();
-  ~ConfigService();
+  ~ConfigService() = default;
 
   ConfigService(const ConfigService&) = delete;
   ConfigService& operator=(const ConfigService&) = delete;
@@ -53,7 +55,7 @@ public:
   [[nodiscard]] const ConfigChangeSet& lastChange() const noexcept { return m_lastChange; }
   [[nodiscard]] const std::string& lastMutationError() const noexcept { return m_lastMutationError; }
   [[nodiscard]] bool matchesKeybind(KeybindAction action, std::uint32_t sym, std::uint32_t modifiers) const;
-  [[nodiscard]] int watchFd() const noexcept { return m_inotifyFd; }
+  [[nodiscard]] int watchFd() const noexcept { return m_inotify.fd(); }
   [[nodiscard]] std::string buildSupportReport() const;
   [[nodiscard]] std::string buildMergedUserConfig() const;
   [[nodiscard]] std::string buildEffectiveConfig() const;
@@ -199,7 +201,22 @@ private:
   void refreshIncludeWatches();
   void fireReloadCallbacks();
   void loadOverridesFromFile();
-  void setConfigParseError(std::string parseError);
+  // A config problem kept as location + text rather than one pre-joined string:
+  // the on-screen notification puts the location in its title and the text in
+  // its body. `message` is "<dotted.path>: <problem>" and never carries a location.
+  struct ConfigProblem {
+    noctalia::config::schema::SourceOrigin origin;
+    std::string message;
+
+    [[nodiscard]] bool empty() const { return message.empty(); }
+    // Single-line form for logs and the settings status banner.
+    [[nodiscard]] std::string flatten(std::string_view baseDir) const { return origin.prefixedShort(baseDir, message); }
+    [[nodiscard]] static ConfigProblem from(const noctalia::config::schema::Diagnostics::Entry& entry) {
+      return ConfigProblem{entry.origin, entry.path + ": " + entry.message};
+    }
+  };
+
+  void setConfigParseError(ConfigProblem problem);
   void updateLegacyConfigIssues(noctalia::config::LegacyConfigIssues issues);
   void notifyLegacyConfigIssues();
   bool writeOverridesToFile();
@@ -235,8 +252,8 @@ private:
   std::vector<WallpaperFavorite> m_wallpaperFavorites;
   mutable std::unordered_map<std::string, bool> m_effectiveOverrideCache;
 
-  std::string m_overridesParseError;
-  std::string m_pendingError; // parse error from initial load, sent as notification once manager is wired up
+  ConfigProblem m_overridesParseError;
+  ConfigProblem m_pendingError;             // parse error from initial load, notified once the manager is wired up
   uint32_t m_configErrorNotificationId = 0; // ID of the active config-error notification, 0 if none
   noctalia::config::LegacyConfigIssues m_legacyConfigIssues;
   std::string m_loggedLegacyIssueFingerprint;
@@ -245,7 +262,7 @@ private:
   NotificationManager* m_notificationManager = nullptr;
 
   // Single inotify fd, two watch descriptors (config dir + state dir).
-  int m_inotifyFd = -1;
+  Inotify m_inotify;
   int m_configWatchWd = -1;
   int m_overridesWatchWd = -1;
   struct SymlinkTargetWatch {

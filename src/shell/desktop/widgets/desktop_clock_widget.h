@@ -23,7 +23,7 @@ public:
     ColorSpec color = colorSpecFromRole(ColorRole::OnSurface);
     bool shadow = true;
     bool showCircle = true;
-    bool centerText = false;
+    bool centerText = true;
     std::string timezone;
   };
 
@@ -41,6 +41,7 @@ private:
   void doLayout(Renderer& renderer) override;
   void doUpdate(Renderer& renderer) override;
   void onFontFamilyChanged(const std::string& family, Renderer& renderer) override;
+  [[nodiscard]] bool contentAlignsToStart() const noexcept override { return !m_centerText; }
   void applyShadow();
   void syncStyleVisibility();
   void syncCircleVisibility();
@@ -60,7 +61,7 @@ private:
   bool m_shadow;
   bool m_showCircle;
   std::string m_timezone;
-  bool m_centerText = false;
+  bool m_centerText = true;
   bool m_showsSeconds = false;
   Label* m_label = nullptr;
   Node* m_digitalRoot = nullptr;
@@ -84,11 +85,4 @@ private:
   char m_widestDigit = '0';
   float m_metricsFontSize = -1.0F;
   std::string m_metricsFontFamily;
-  // Horizontal centering for proportional digits: the label is start-aligned (leading glyph
-  // anchored) but shifted right by m_digitOffsetX so the *mean*-width rendering sits centered in
-  // the reserved box, instead of all the widest-digit slack piling up on the trailing side.
-  // m_digitOffsetX = digitCount * (widestAdvance - meanDigitAdvance); 0 for equal-width digits.
-  float m_maxDigitAdvance = 0.0F;
-  float m_meanDigitAdvance = 0.0F;
-  float m_digitOffsetX = 0.0F;
 };

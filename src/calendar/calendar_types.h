@@ -12,6 +12,7 @@ struct CalendarEvent {
   std::string calendarName; // owning calendar's display name
   std::string colorHex;     // owning calendar's color (e.g. "#3367d6"), empty when unknown
   std::string location;     // LOCATION, optional
+  std::string url;          // resolved http(s) link from LOCATION/URL, empty when the event has none
   std::chrono::system_clock::time_point start;
   std::chrono::system_clock::time_point end;
   bool allDay = false;

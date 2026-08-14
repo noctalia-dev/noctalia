@@ -1028,7 +1028,7 @@ namespace settings {
   ) {
     if (auto pw = resolvePluginWidget(type)) {
       scripting::PluginTranslationCatalog translations;
-      translations.load(pw->sourcePath.parent_path());
+      translations.load(pw->pluginDir);
       std::vector<WidgetSettingSpec> specs = manifestSettingSpecs(pw->entry->settings, &translations);
       // Host-owned gate for pointer-axis / onScroll handlers (same key as built-in widgets).
       specs.push_back(boolSpec("enable_scroll", true));

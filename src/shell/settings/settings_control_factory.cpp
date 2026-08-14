@@ -829,13 +829,14 @@ namespace settings {
                   [setOverride = ctx.setOverride, clearOverride = ctx.clearOverride,
                    requestRebuild = ctx.requestRebuild, pendingKey = &ctx.pendingGestureKey,
                    pendingVerb = &ctx.pendingGestureVerb, specFor, path, verb = actionVerb,
-                   defaultAction = setting.defaultAction, execMode](const std::string& text) {
+                   defaultAction = setting.defaultAction, effectiveAction = effective,
+                   execMode](const std::string& text) {
                     const std::string trimmed = StringUtils::trim(text);
+                    std::string commandLine;
+                    bool shouldClear = false;
                     if (trimmed.empty() && (execMode || specRequiresArgument(specFor(verb)))) {
-                      // A required argument cannot produce a valid binding.
-                      clearOverride(path);
+                      shouldClear = true;
                     } else {
-                      std::string commandLine;
                       if (execMode) {
                         commandLine = std::string(noctalia::bar::kExecVerb) + " " + trimmed;
                       } else {
@@ -844,7 +845,15 @@ namespace settings {
                           commandLine += " " + trimmed;
                         }
                       }
-                      if (commandLine == defaultAction) {
+                      shouldClear = commandLine == defaultAction;
+                    }
+
+                    // setOverride/clearOverride each queue a DeferredCall. Skip them
+                    // when the value hasn't changed so rapid focus switches between
+                    // argument text fields don't pile up deferred callbacks.
+                    const bool changed = shouldClear ? !effectiveAction.empty() : commandLine != effectiveAction;
+                    if (changed) {
+                      if (shouldClear) {
                         clearOverride(path);
                       } else {
                         setOverride(path, commandLine);
@@ -852,7 +861,7 @@ namespace settings {
                     }
                     pendingKey->clear();
                     pendingVerb->clear();
-                    if (requestRebuild) {
+                    if (requestRebuild && changed) {
                       requestRebuild();
                     }
                   },

@@ -140,6 +140,7 @@ namespace scripting {
     CopyToClipboard,
     SetWallpaperEnabled,
     SetWallpaper,
+    SetWallpaperMask,
     TogglePanel,
     OpenPluginSettings,
     LoadSound,
@@ -150,6 +151,7 @@ namespace scripting {
     ScriptSideEffectKind kind = ScriptSideEffectKind::Log;
     std::string title;
     std::string body;
+    std::string extra;
     // LoadSound: hostId identifies the sound bank, title the logical name, body the resolved path,
     // and callbackRef the accepted completion callback.
     // PlaySound: hostId identifies the sound bank and title the logical name.
@@ -157,6 +159,7 @@ namespace scripting {
     int callbackRef = 0;
     // SetWallpaperEnabled: title holds the output connector, flag the enabled state.
     // SetWallpaper: title holds the output connector (empty = all outputs), body the image path.
+    // SetWallpaperMask: title holds output, body mask path, extra wallpaper path, and hostId the owner.
     // TogglePanel: title holds the panel id ("author/plugin:panel").
     // OpenPluginSettings: title holds the plugin id ("author/plugin").
     bool flag = false;

@@ -80,7 +80,7 @@ namespace shell::dock {
   std::vector<ToplevelInfo> windowsForDockItem(
       CompositorPlatform& platform, std::string_view idLower, std::string_view wmClassLower, wl_output* outputFilter
   ) {
-    return platform.windowsForApp(std::string(idLower), std::string(wmClassLower), outputFilter);
+    return platform.enrichedWindowsForApp(std::string(idLower), std::string(wmClassLower), outputFilter);
   }
 
   DockSnapshot buildDockSnapshot(DockModelDependencies deps) {
@@ -95,7 +95,7 @@ namespace shell::dock {
 
     const auto runningIds =
         deps.config.showRunning ? deps.platform.runningAppIds(snapshot.filterOutput) : std::vector<std::string>{};
-    const auto resolvedRunning = app_identity::resolveRunningApps(runningIds, desktopEntries());
+    const auto resolvedRunning = app_identity::resolveRunningApps(runningIds, desktopEntries(), deps.pinnedEntries);
 
     std::unordered_map<std::string, std::string> compositorIdByEntryId;
     compositorIdByEntryId.reserve(resolvedRunning.size());

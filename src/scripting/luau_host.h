@@ -163,7 +163,8 @@ public:
   void setColorPickerResultHandler(ColorPickerResultHandler handler) {
     m_colorPickerResultHandler = std::move(handler);
   }
-  [[nodiscard]] bool startAsyncCommand(std::string command, int callbackRef, std::chrono::milliseconds timeout);
+  [[nodiscard]] bool
+  startAsyncProcess(std::vector<std::string> args, int callbackRef, std::chrono::milliseconds timeout);
   [[nodiscard]] bool startAsyncProcessMatch(std::vector<std::string> needles, int callbackRef);
   // `path` is already resolved by resolveHostPath(). The result is delivered as cb(data, error).
   [[nodiscard]] bool startAsyncFileRead(std::filesystem::path path, int callbackRef);
@@ -206,6 +207,7 @@ public:
   // Apply and persist a wallpaper image. Empty connector targets all outputs.
   // Queued as a side effect and applied on the main thread.
   void scriptSetWallpaper(std::string connector, std::string path);
+  void scriptSetWallpaperMask(std::string outputName, std::string path, std::string wallpaperPath);
   // Toggle a host panel by id ("author/plugin:panel"). Queued, applied on the main thread.
   void scriptTogglePanel(std::string panelId);
   // Open the settings window at this plugin's own settings. Queued, applied on the main thread.

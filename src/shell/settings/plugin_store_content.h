@@ -79,6 +79,8 @@ namespace settings {
   private:
     void buildGridView(Flex& body, Renderer& renderer, AsyncTextureCache* textureCache);
     void buildDetailView(Flex& body, Renderer& renderer, AsyncTextureCache* textureCache);
+    void stashScrollOffset();
+    void restoreScrollOffset();
     void syncSortButtonGlyph();
     void cycleSortMode();
     void setSortMode(SortMode mode);
@@ -129,6 +131,7 @@ namespace settings {
     std::function<void()> m_onRebuildNeeded;
 
     std::unordered_map<std::string, std::string> m_thumbnailPaths;
+    std::optional<float> m_pendingRestoreScrollOffset;
 
     Renderer* m_renderer = nullptr;
     AsyncTextureCache* m_textureCache = nullptr;

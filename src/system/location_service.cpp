@@ -72,14 +72,27 @@ bool LocationService::networkResolutionConfigured() const noexcept {
 
 bool LocationService::resolving() const noexcept { return networkResolutionConfigured() && !m_resolved; }
 
-bool LocationService::hasResolvedLocation() const noexcept { return m_resolved && coordinatesValid(); }
+bool LocationService::hasResolvedLocation() const noexcept {
+  return (m_resolved && resolvedCoordinatesValid()) || (!networkResolutionConfigured() && manualCoordinatesValid());
+}
 
 std::optional<ResolvedLocation> LocationService::resolvedLocation() const noexcept {
-  if (!hasResolvedLocation()) {
+  if (m_resolved && resolvedCoordinatesValid()) {
+    return ResolvedLocation{
+        .latitude = m_latitude, .longitude = m_longitude, .name = m_name, .sourceLabel = m_sourceLabel
+    };
+  }
+  if (networkResolutionConfigured() || !manualCoordinatesValid()) {
     return std::nullopt;
   }
+
+  const double latitude = *m_config.latitude;
+  const double longitude = *m_config.longitude;
   return ResolvedLocation{
-      .latitude = m_latitude, .longitude = m_longitude, .name = m_name, .sourceLabel = m_sourceLabel
+      .latitude = latitude,
+      .longitude = longitude,
+      .name = std::format("{:.4f}, {:.4f}", latitude, longitude),
+      .sourceLabel = i18n::tr("location.source.manual"),
   };
 }
 
@@ -137,10 +150,19 @@ void LocationService::onConfigReload() {
     return;
   }
   const bool resolutionInputsChanged = next.autoLocate != m_config.autoLocate || next.address != m_config.address;
+  const bool manualCoordinatesChanged = next.latitude != m_config.latitude || next.longitude != m_config.longitude;
   m_config = next;
+
   if (resolutionInputsChanged) {
     m_error.clear();
-    requestRefresh();
+    if (networkResolutionConfigured()) {
+      requestRefresh();
+    } else {
+      clearResolved();
+    }
+    notifyChanged();
+  } else if (!networkResolutionConfigured() && manualCoordinatesChanged) {
+    notifyChanged();
   }
 }
 
@@ -245,13 +267,21 @@ void LocationService::clearResolved() {
   m_nextRefreshAt = Clock::time_point{};
 }
 
-bool LocationService::coordinatesValid() const noexcept {
-  return std::isfinite(m_latitude)
-      && std::isfinite(m_longitude)
-      && m_latitude >= -90.0
-      && m_latitude <= 90.0
-      && m_longitude >= -180.0
-      && m_longitude <= 180.0;
+bool LocationService::resolvedCoordinatesValid() const noexcept { return coordinatesValid(m_latitude, m_longitude); }
+
+bool LocationService::manualCoordinatesValid() const noexcept {
+  return m_config.latitude.has_value()
+      && m_config.longitude.has_value()
+      && coordinatesValid(*m_config.latitude, *m_config.longitude);
+}
+
+bool LocationService::coordinatesValid(double latitude, double longitude) noexcept {
+  return std::isfinite(latitude)
+      && std::isfinite(longitude)
+      && latitude >= -90.0
+      && latitude <= 90.0
+      && longitude >= -180.0
+      && longitude <= 180.0;
 }
 
 std::filesystem::path LocationService::transportCacheDir() {
@@ -298,7 +328,7 @@ void LocationService::loadCache() {
 
     m_latitude = readNumber(json, "latitude");
     m_longitude = readNumber(json, "longitude");
-    if (!coordinatesValid()) {
+    if (!resolvedCoordinatesValid()) {
       m_latitude = 0.0;
       m_longitude = 0.0;
       return;

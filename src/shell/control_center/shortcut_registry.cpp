@@ -198,10 +198,8 @@ namespace {
       }
       return defaultLabel();
     }
-    std::string_view iconOn() const override {
-      return m_svc != nullptr && m_svc->configuredMode() == ThemeMode::Auto ? "theme-mode" : "weather-moon-stars";
-    }
-    std::string_view iconOff() const override { return "weather-sun"; }
+    std::string_view iconOn() const override { return "theme-mode"; }
+    std::string_view iconOff() const override { return "theme-mode"; }
     bool isToggle() const override { return true; }
     bool active() const override { return m_svc != nullptr && m_svc->configuredMode() != ThemeMode::Light; }
     void onClick() override {
@@ -526,6 +524,7 @@ std::unique_ptr<Shortcut> ShortcutRegistry::create(std::string_view type, const 
     return std::make_unique<PluginShortcut>(scripting::PluginRuntimeContext{
         .entryId = entry->fullId(),
         .sourcePath = entry->sourcePath,
+        .pluginDir = entry->pluginDir,
         .settings = std::move(seeded),
         .scriptApi = *s.scriptApi,
         .fileWatcher = s.fileWatcher,

@@ -4,6 +4,7 @@
 #include "config/config_service.h"
 #include "core/log.h"
 #include "i18n/i18n.h"
+#include "shell/panel/panel_manager.h"
 #include "system/desktop_entry_launch.h"
 #include "util/fuzzy_match.h"
 #include "util/string_utils.h"
@@ -20,6 +21,8 @@ namespace {
   constexpr Logger kLog("app-provider");
   constexpr std::size_t kMaxSearchResults = 50;
   constexpr std::string_view kDefaultAppIcon = "application-x-executable";
+  constexpr double kNameMatchPriority = 3'000.0;
+  constexpr double kLocalizedNameMatchPriority = 1'500.0;
 
   double scoreEntry(std::string_view pattern, const DesktopEntry& entry) {
     if (pattern.empty()) {
@@ -31,6 +34,19 @@ namespace {
       nameScore += 500.0;
     }
     const double genericScore = FuzzyMatch::score(pattern, entry.genericNameLower) * 2.0;
+
+    // Keep the application name as the primary match field.
+    if (FuzzyMatch::isMatch(nameScore)) {
+      return nameScore + kNameMatchPriority;
+    }
+
+    double localizedNameScore = FuzzyMatch::noMatchScore;
+    for (const std::string& name : entry.localizedNamesLower) {
+      localizedNameScore = std::max(localizedNameScore, FuzzyMatch::score(pattern, name) * 5.0);
+    }
+    if (FuzzyMatch::isMatch(localizedNameScore)) {
+      return localizedNameScore + kLocalizedNameMatchPriority;
+    }
 
     auto scoreList = [&](std::string_view list, double weight) {
       double best = FuzzyMatch::noMatchScore;
@@ -109,6 +125,41 @@ namespace {
     return i18n::tr("launcher.categories.applications." + std::string(id));
   }
 
+  std::string originLabel(DesktopEntryOrigin origin) {
+    switch (origin) {
+    case DesktopEntryOrigin::User:
+      return i18n::tr("launcher.origins.user");
+    case DesktopEntryOrigin::System:
+      return i18n::tr("launcher.origins.system");
+    case DesktopEntryOrigin::Flatpak:
+      return i18n::tr("launcher.origins.flatpak");
+    case DesktopEntryOrigin::Snap:
+      return i18n::tr("launcher.origins.snap");
+    case DesktopEntryOrigin::Nix:
+      return i18n::tr("launcher.origins.nix");
+    case DesktopEntryOrigin::AppImage:
+      return i18n::tr("launcher.origins.appimage");
+    case DesktopEntryOrigin::Unknown:
+      return {};
+    }
+    return {};
+  }
+
+  std::string originGlyph(DesktopEntryOrigin origin) {
+    switch (origin) {
+    case DesktopEntryOrigin::Flatpak:
+    case DesktopEntryOrigin::Snap:
+    case DesktopEntryOrigin::AppImage:
+      return "package";
+    case DesktopEntryOrigin::Unknown:
+    case DesktopEntryOrigin::User:
+    case DesktopEntryOrigin::System:
+    case DesktopEntryOrigin::Nix:
+      return {};
+    }
+    return {};
+  }
+
   std::optional<std::size_t> primaryCategoryIndex(std::string_view categories) {
     const auto& indexByToken = desktopCategoryIndexByToken();
     std::optional<std::size_t> found;
@@ -171,6 +222,8 @@ std::vector<LauncherResult> AppProvider::query(std::string_view text) const {
     result.id = entry.path;
     result.title = entry.name;
     result.subtitle = entry.genericName.empty() ? entry.comment : entry.genericName;
+    result.origin = originLabel(entry.origin);
+    result.originGlyph = originGlyph(entry.origin);
     result.iconName = entry.icon.empty() ? std::string(kDefaultAppIcon) : entry.icon;
     result.glyphName = "app-window";
     if (const auto index = primaryCategoryIndex(entry.categories)) {
@@ -249,8 +302,15 @@ bool AppProvider::activate(const LauncherResult& result) {
 
     if (m_platform != nullptr) {
       wl_output* launchOutput = nullptr;
-      if (wl_surface* pointerSurface = m_platform->lastPointerSurface(); pointerSurface != nullptr) {
-        launchOutput = m_platform->outputForSurface(pointerSurface);
+
+      if (PanelManager& panelManager = PanelManager::instance(); panelManager.isOpenPanel("launcher")) {
+        launchOutput = panelManager.attachedPanelOutput();
+      }
+
+      if (launchOutput == nullptr) {
+        if (wl_surface* pointerSurface = m_platform->lastPointerSurface(); pointerSurface != nullptr) {
+          launchOutput = m_platform->outputForSurface(pointerSurface);
+        }
       }
       if (launchOutput == nullptr) {
         launchOutput = m_platform->preferredInteractiveOutput();

@@ -30,7 +30,8 @@ namespace noctalia::config {
         "radius", "radius_top_left", "radius_top_right", "radius_bottom_left", "radius_bottom_right",
     };
 
-    bool migrateNegativeRadii(toml::table& table) {
+    template <typename OnChanged>
+    bool migrateNegativeRadii(toml::table& table, std::string_view path, OnChanged& onChanged) {
       bool changed = false;
       for (const std::string_view key : kBarRadiusKeys) {
         const auto radius = table[key].value<std::int64_t>();
@@ -40,6 +41,7 @@ namespace noctalia::config {
 
         const std::int64_t magnitude = *radius <= -kMaxBarRadius ? kMaxBarRadius : -*radius;
         table.insert_or_assign(key, magnitude);
+        onChanged(std::string(path) + "." + std::string(key));
         changed = true;
       }
 
@@ -62,9 +64,7 @@ namespace noctalia::config {
         }
 
         const std::string barPath = "bar." + std::string(barName.str());
-        if (migrateNegativeRadii(*bar)) {
-          onChanged(barPath);
-        }
+        (void)migrateNegativeRadii(*bar, barPath, onChanged);
 
         auto* monitors = (*bar)["monitor"].as_table();
         if (monitors == nullptr) {
@@ -72,8 +72,9 @@ namespace noctalia::config {
         }
         for (auto& [monitorName, monitorNode] : *monitors) {
           auto* monitor = monitorNode.as_table();
-          if (monitor != nullptr && migrateNegativeRadii(*monitor)) {
-            onChanged(barPath + ".monitor." + std::string(monitorName.str()));
+          if (monitor != nullptr) {
+            const std::string monitorPath = barPath + ".monitor." + std::string(monitorName.str());
+            (void)migrateNegativeRadii(*monitor, monitorPath, onChanged);
           }
         }
       }
@@ -108,7 +109,7 @@ namespace noctalia::config {
       }
 
       location->insert_or_assign("custom_schedule", true);
-      onChanged("location");
+      onChanged("location.sunset");
     }
 
     void migrateCustomScheduleSidecar(toml::table& root, schema::Diagnostics& diag) {
@@ -127,7 +128,7 @@ namespace noctalia::config {
 
       const bool wasEnabled = (*shell)["middle_click_opens_widget_settings"].value_or(true);
       shell->erase("middle_click_opens_widget_settings");
-      onChanged("shell");
+      onChanged("shell.middle_click_opens_widget_settings");
       if (wasEnabled) {
         return;
       }
@@ -157,7 +158,6 @@ namespace noctalia::config {
           continue;
         }
         actions->insert_or_assign("middle", "none");
-        onChanged("bar." + std::string(barName.str()) + ".actions");
       }
     }
 
@@ -200,7 +200,7 @@ namespace noctalia::config {
             bindAction(*widget, "scroll_up", "none");
             bindAction(*widget, "scroll_down", "none");
           }
-          onChanged(path, "enable_scroll is now the scroll_up/scroll_down gesture bindings");
+          onChanged(path + ".enable_scroll", "enable_scroll is now the scroll_up/scroll_down gesture bindings");
         }
 
         if (type == "keyboard_layout" && widget->contains("cycle_command")) {
@@ -209,7 +209,7 @@ namespace noctalia::config {
           if (!command.empty()) {
             bindAction(*widget, "left", "exec " + command);
           }
-          onChanged(path, "cycle_command is now the left gesture binding");
+          onChanged(path + ".cycle_command", "cycle_command is now the left gesture binding");
         }
       }
     }
@@ -241,7 +241,7 @@ namespace noctalia::config {
             bindAction(*widget, "scroll_up", "none");
             bindAction(*widget, "scroll_down", "none");
           }
-          onChanged(path, "enable_scroll is now the scroll_up/scroll_down gesture bindings");
+          onChanged(path + ".enable_scroll", "enable_scroll is now the scroll_up/scroll_down gesture bindings");
         }
 
         if ((type == "volume" || type == "brightness") && widget->contains("scroll_step")) {
@@ -259,7 +259,7 @@ namespace noctalia::config {
             bindAction(*widget, "scroll_up", upVerb + suffix);
             bindAction(*widget, "scroll_down", downVerb + suffix);
           }
-          onChanged(path, "scroll_step is now the step argument of the scroll gesture bindings");
+          onChanged(path + ".scroll_step", "scroll_step is now the step argument of the scroll gesture bindings");
         }
 
         if (type == "screenshot" && widget->contains("primary_click")) {
@@ -268,7 +268,7 @@ namespace noctalia::config {
           if (primary == "fullscreen") {
             bindAction(*widget, "left", "screenshot-fullscreen");
           }
-          onChanged(path, "primary_click is now the left gesture binding");
+          onChanged(path + ".primary_click", "primary_click is now the left gesture binding");
         }
       }
     }
@@ -307,7 +307,7 @@ namespace noctalia::config {
             bindAction(*widget, "scroll_up", "none");
             bindAction(*widget, "scroll_down", "none");
           }
-          onChanged(path, "enable_scroll is now the scroll_up/scroll_down gesture bindings");
+          onChanged(path + ".enable_scroll", "enable_scroll is now the scroll_up/scroll_down gesture bindings");
         }
 
         for (const auto& [key, gesture] : kCommandKeys) {
@@ -319,7 +319,10 @@ namespace noctalia::config {
           if (!command.empty()) {
             bindAction(*widget, gesture, "exec " + command);
           }
-          onChanged(path, std::string(key) + " is now the " + std::string(gesture) + " gesture binding");
+          onChanged(
+              path + "." + std::string(key),
+              std::string(key) + " is now the " + std::string(gesture) + " gesture binding"
+          );
         }
       }
     }
@@ -349,7 +352,10 @@ namespace noctalia::config {
           if (!command.empty()) {
             bindAction(*deadZone, gesture, "exec " + command);
           }
-          onChanged(path + ".dead_zone", std::string(key) + " is now the " + std::string(gesture) + " binding");
+          onChanged(
+              path + ".dead_zone." + std::string(key),
+              std::string(key) + " is now the " + std::string(gesture) + " binding"
+          );
         }
       };
 
@@ -409,7 +415,7 @@ namespace noctalia::config {
           continue;
         }
         if (settings->erase("show_password_hint") > 0) {
-          onChanged("lockscreen_widgets.widget." + id + ".settings");
+          onChanged("lockscreen_widgets.widget." + id + ".settings.show_password_hint");
         }
       }
     }
@@ -432,13 +438,12 @@ namespace noctalia::config {
           continue;
         }
 
-        bool changed = false;
         if (const auto showIcon = (*widget)["show_icon"].value<bool>(); showIcon.has_value()) {
           if (!widget->contains("show_glyph")) {
             widget->insert_or_assign("show_glyph", *showIcon);
           }
           widget->erase("show_icon");
-          changed = true;
+          onChanged("widget." + std::string(widgetName.str()) + ".show_icon", "show_icon is now show_glyph");
         }
 
         const auto display = (*widget)["display"].value<std::string>();
@@ -448,7 +453,9 @@ namespace noctalia::config {
             widget->insert_or_assign("visualization", visualization);
           }
           widget->erase("display");
-          changed = true;
+          onChanged(
+              "widget." + std::string(widgetName.str()) + ".display", "display is now visualization and show_value"
+          );
         }
 
         if (const auto showLabel = (*widget)["show_label"].value<bool>(); showLabel.has_value()) {
@@ -462,21 +469,16 @@ namespace noctalia::config {
             widget->insert_or_assign("show_value", showValue);
           }
           widget->erase("show_label");
-          changed = true;
+          onChanged("widget." + std::string(widgetName.str()) + ".show_label", "show_label is now show_value");
         } else if (display.has_value() && !widget->contains("show_value")) {
           widget->insert_or_assign("show_value", *display != "none");
-          changed = true;
-        }
-
-        if (changed) {
-          onChanged("widget." + std::string(widgetName.str()));
         }
       }
     }
 
     void migrateSysmonPresentationSettingsSidecar(toml::table& root, schema::Diagnostics& diag) {
-      migrateSysmonPresentationSettings(root, [&diag](const std::string& path) {
-        diag.warn(path, "migrated sysmon presentation settings to their canonical names");
+      migrateSysmonPresentationSettings(root, [&diag](const std::string& path, std::string_view message) {
+        diag.warn(path, std::string(message));
       });
     }
 
@@ -510,7 +512,7 @@ namespace noctalia::config {
         }
 
         widget->erase("display");
-        onChanged("widget." + std::string(widgetName.str()));
+        onChanged("widget." + std::string(widgetName.str()) + ".display");
       }
     }
 
@@ -540,7 +542,7 @@ namespace noctalia::config {
           widget->insert_or_assign("show_glyph", *showIcon);
         }
         widget->erase("show_icon");
-        onChanged("widget." + std::string(widgetName.str()));
+        onChanged("widget." + std::string(widgetName.str()) + ".show_icon");
       }
     }
 
@@ -601,7 +603,7 @@ namespace noctalia::config {
           targetLabels->insert(layoutName, *label);
         }
         widget->erase("custom_labels");
-        onChanged("widget." + std::string(widgetName.str()), keptCanonicalConflict);
+        onChanged("widget." + std::string(widgetName.str()) + ".custom_labels", keptCanonicalConflict);
       }
     }
 
@@ -845,11 +847,11 @@ namespace noctalia::config {
           .message = "removed deprecated show_password_hint",
       });
     });
-    migrateSysmonPresentationSettings(root, [&issues](const std::string& path) {
+    migrateSysmonPresentationSettings(root, [&issues](const std::string& path, std::string_view message) {
       issues.push_back({
           .migrationVersion = kSysmonPresentationMigrationVersion,
           .path = path,
-          .message = "sysmon display settings are now visualization, show_value, and show_glyph",
+          .message = std::string(message),
       });
     });
     migrateKeyboardLayoutShowGlyph(root, [&issues](const std::string& path) {

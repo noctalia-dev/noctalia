@@ -1,6 +1,7 @@
 #pragma once
 
 #include "wayland/ext_foreign_toplevels.h"
+#include "wayland/output_scale.h"
 #include "wayland/wayland_seat.h"
 #include "wayland/wayland_toplevels.h"
 
@@ -78,6 +79,15 @@ struct WaylandOutput {
   std::int32_t transform = 0;
   zxdg_output_v1* xdgOutput = nullptr;
   bool done = false;
+  // wlr-output-management fixed scale factor for this output (0 == not reported).
+  double headScaleFactor = 0.0;
+  // Canonical published render scale as a /120 numerator (120 == 1.0). Resolved
+  // from head scale, then mode/logical ratio, then integer wl_output.scale.
+  std::int32_t configuredScaleNumerator = wayland::kScaleNumeratorBase;
+
+  [[nodiscard]] float configuredScale() const noexcept {
+    return static_cast<float>(configuredScaleNumerator) / static_cast<float>(wayland::kScaleNumeratorBase);
+  }
 
   [[nodiscard]] std::int32_t effectiveLogicalWidth() const noexcept {
     if (logicalWidth > 0) {
@@ -112,6 +122,8 @@ struct WaylandOutputHeadInfo {
   std::string make;
   std::string model;
   std::string serialNumber;
+  // wlr-output-management fixed scale factor (0 == not reported by this head).
+  double scaleFactor = 0.0;
 };
 
 class WaylandConnection {
@@ -212,6 +224,7 @@ public:
   [[nodiscard]] std::vector<ToplevelInfo> windowsWithoutAppId(wl_output* outputFilter = nullptr) const;
   [[nodiscard]] std::vector<ToplevelInfo>
   extWindowsForApp(const std::string& idLower, const std::string& wmClassLower) const;
+  [[nodiscard]] std::vector<ToplevelInfo> extWindowsWithoutAppId() const;
   [[nodiscard]] bool containsWlrToplevelHandle(zwlr_foreign_toplevel_handle_v1* handle) const;
   template <typename Fn> void visitExtToplevelHandles(Fn&& fn) const {
     m_extForeignToplevels.visitExtHandles(std::forward<Fn>(fn));
@@ -264,10 +277,14 @@ public:
   void onOutputHeadModel(zwlr_output_head_v1* head, const char* model);
   void onOutputHeadSerialNumber(zwlr_output_head_v1* head, const char* serialNumber);
   void onOutputHeadMode(zwlr_output_head_v1* head, zwlr_output_mode_v1* mode);
+  void onOutputHeadScale(zwlr_output_head_v1* head, double scaleFactor);
   void onOutputModeFinished(zwlr_output_mode_v1* mode);
   void onOutputHeadFinished(zwlr_output_head_v1* head);
   // wl_output.name and the done event race; call from both sides to match either order.
   void matchPendingOutputHeads();
+  // Recompute out.configuredScaleNumerator from current head/mode/logical/wl-scale
+  // data. Returns true when the published numerator changed.
+  bool recomputeConfiguredScale(WaylandOutput& out);
 
 private:
   void bindGlobal(wl_registry* registry, std::uint32_t name, const char* interface, std::uint32_t version);

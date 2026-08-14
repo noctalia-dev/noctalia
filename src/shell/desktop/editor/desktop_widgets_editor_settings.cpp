@@ -937,8 +937,13 @@ void DesktopWidgetsEditor::applySettingChange(const std::string& key, WidgetSett
     if (view.transformNode == nullptr) {
       return;
     }
+    if (surface->surface == nullptr || m_renderContext == nullptr) {
+      return;
+    }
+    m_renderContext->makeCurrent(surface->surface->renderTarget());
+    Renderer& renderer = surface->surface->renderTarget().renderer();
 
-    if (view.widget != nullptr && view.widget->applySetting(key, value, state->settings, *m_renderContext)) {
+    if (view.widget != nullptr && view.widget->applySetting(key, value, state->settings, renderer)) {
       applyViewState(view, *state, true);
       updateSelectionVisuals(*surface);
       if (rebuildInspector) {
@@ -990,12 +995,15 @@ void DesktopWidgetsEditor::applySettingChange(const std::string& key, WidgetSett
       }
     });
     newWidget->setBox(state->boxWidth, state->boxHeight);
-    newWidget->update(*m_renderContext);
-    newWidget->layout(*m_renderContext);
+    newWidget->update(renderer);
+    newWidget->layout(renderer);
 
     view.intrinsicWidth = std::max(1.0F, newWidget->intrinsicWidth());
     view.intrinsicHeight = std::max(1.0F, newWidget->intrinsicHeight());
-    view.transformNode->addChild(newWidget->releaseRoot());
+    auto widgetRoot = newWidget->releaseRoot();
+    widgetRoot->setHitTestVisible(false);
+    widgetRoot->setExcludeSubtreeFromTabOrder(true);
+    view.transformNode->addChild(std::move(widgetRoot));
     view.widget = std::move(newWidget);
 
     applyViewState(view, *state, false);
@@ -1039,6 +1047,7 @@ void DesktopWidgetsEditor::resetSelectedWidgetSettings() {
 void DesktopWidgetsEditor::buildInspector(
     OverlaySurface& surface, Node& root, const DesktopWidgetState& selectedState
 ) {
+  Renderer& renderer = surface.surface->renderTarget().renderer();
   auto handleArea = ui::inputArea({});
   handleArea->setParticipatesInLayout(false);
   handleArea->setZIndex(1);
@@ -1159,7 +1168,7 @@ void DesktopWidgetsEditor::buildInspector(
 
   surface.inspector = panelPtr;
   root.addChild(std::move(panel));
-  panelPtr->layout(*m_renderContext);
+  panelPtr->layout(renderer);
   handleAreaPtr->setPosition(0.0F, 0.0F);
   handleAreaPtr->setFrameSize(dragHandlePtr->width(), dragHandlePtr->height());
 

@@ -85,6 +85,13 @@ void DesktopWidget::update(Renderer& renderer) {
   doUpdate(renderer);
 }
 
+void DesktopWidget::rebindRenderer(Renderer& renderer) {
+  doRebindRenderer(renderer);
+  if (Node* root = presentationRoot(); root != nullptr) {
+    root->rebindRenderer(renderer);
+  }
+}
+
 Node* DesktopWidget::presentationRoot() const noexcept {
   if (m_outerRootPtr != nullptr) {
     return m_outerRootPtr;
@@ -223,8 +230,9 @@ void DesktopWidget::applyBackground() {
   const float boxW = boxed ? m_boxWidth : contentW + 2.0F * pad;
   const float boxH = boxed ? m_boxHeight : contentH + 2.0F * pad;
 
-  // Center the content inside the tile.
-  m_contentRoot->setPosition(std::round((boxW - contentW) * 0.5F), std::round((boxH - contentH) * 0.5F));
+  // Place content inside the tile according to the widget's horizontal alignment policy.
+  const float contentX = contentAlignsToStart() ? pad : (boxW - contentW) * 0.5F;
+  m_contentRoot->setPosition(std::round(contentX), std::round((boxH - contentH) * 0.5F));
 
   if (m_bgEnabled && m_bgBox != nullptr) {
     m_bgBox->setPosition(0.0F, 0.0F);

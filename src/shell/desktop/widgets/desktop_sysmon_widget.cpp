@@ -23,6 +23,7 @@ namespace {
   constexpr float kBaseHeight = 80.0F;
   constexpr float kGraphLineWidth = 0.75F;
   constexpr double kBytesPerMb = 1000.0 * 1000.0;
+  constexpr double kFreqFallbackCeilingMhz = 5000.0;
 
   [[nodiscard]] ColorSpec gaugeTrackColor(const ColorSpec& fill) {
     ColorSpec track = fill;
@@ -575,6 +576,8 @@ std::pair<double, double> DesktopSysmonWidget::currentThresholds() const {
     return {monitorConfig.cpuUsageActivityThreshold, monitorConfig.cpuUsageCriticalThreshold};
   case DesktopSysmonStat::CpuTemp:
     return {monitorConfig.cpuTempActivityThreshold, monitorConfig.cpuTempCriticalThreshold};
+  case DesktopSysmonStat::CpuFreq:
+    return {monitorConfig.cpuFreqActivityThreshold, monitorConfig.cpuFreqCriticalThreshold};
   case DesktopSysmonStat::GpuTemp:
     return {monitorConfig.gpuTempActivityThreshold, monitorConfig.gpuTempCriticalThreshold};
   case DesktopSysmonStat::GpuUsage:
@@ -604,6 +607,8 @@ double DesktopSysmonWidget::currentGradientValue() const {
     return std::max(stats.cpuUsagePercent, 0.0);
   case DesktopSysmonStat::CpuTemp:
     return stats.cpuTempC.value_or(0.0);
+  case DesktopSysmonStat::CpuFreq:
+    return stats.cpuFreqAvailable ? stats.cpuFreqMhz / 1000.0 : 0.0;
   case DesktopSysmonStat::GpuTemp:
     return stats.gpuTempC.value_or(0.0);
   case DesktopSysmonStat::GpuUsage:
@@ -678,6 +683,13 @@ double DesktopSysmonWidget::normalizedFromStats(
       return std::clamp((temp - tempMin) / range, 0.0, 1.0);
     }
     return 0.0;
+
+  case DesktopSysmonStat::CpuFreq: {
+    const double maxMhz = stats.cpuMaxFreqMhz.value_or(0.0);
+    return stats.cpuFreqAvailable
+        ? std::clamp(stats.cpuFreqMhz / (maxMhz > 0.0 ? maxMhz : kFreqFallbackCeilingMhz), 0.0, 1.0)
+        : 0.0;
+  }
 
   case DesktopSysmonStat::GpuTemp:
     if (stats.gpuTempC.has_value()) {
@@ -754,6 +766,12 @@ std::string DesktopSysmonWidget::formatValueFor(DesktopSysmonStat stat) const {
   case DesktopSysmonStat::CpuTemp:
     if (stats.cpuTempC.has_value()) {
       return std::format("{:.0F}°C", *stats.cpuTempC);
+    }
+    return "--";
+
+  case DesktopSysmonStat::CpuFreq:
+    if (stats.cpuFreqAvailable) {
+      return std::format("{:.1f} GHz", stats.cpuFreqMhz / 1000.0);
     }
     return "--";
 
@@ -881,6 +899,8 @@ const char* DesktopSysmonWidget::glyphName(DesktopSysmonStat stat) {
     return "cpu-usage";
   case DesktopSysmonStat::CpuTemp:
     return "cpu-temperature";
+  case DesktopSysmonStat::CpuFreq:
+    return "performance";
   case DesktopSysmonStat::GpuTemp:
     return "temperature";
   case DesktopSysmonStat::GpuUsage:

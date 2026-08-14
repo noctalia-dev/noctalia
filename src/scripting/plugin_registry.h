@@ -11,12 +11,13 @@
 
 namespace scripting {
 
-  // A single entry resolved against the catalog: its owning manifest, the entry
-  // declaration, and the absolute path to its `.luau` source.
+  // A single entry resolved against the catalog: its owning manifest, the plugin
+  // directory, the entry declaration, and the absolute path to its `.luau` source.
   struct ResolvedPluginEntry {
     const PluginManifest* manifest = nullptr;
     const PluginEntry* entry = nullptr;
     std::filesystem::path sourcePath;
+    std::filesystem::path pluginDir;
 
     [[nodiscard]] std::string fullId() const; // "author/plugin:entry"
   };

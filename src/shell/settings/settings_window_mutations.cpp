@@ -16,7 +16,10 @@ namespace {
 
   bool settingPathNeedsSceneRebuild(const std::vector<std::string>& path) {
     if (path.size() == 2 && path[0] == "shell") {
-      return path[1] == "corner_radius_scale" || path[1] == "font_family" || path[1] == "lang";
+      return path[1] == "corner_radius_scale"
+          || path[1] == "font_family"
+          || path[1] == "lang"
+          || path[1] == "settings_window_translucent";
     }
     if (path.size() == 2 && path[0] == "accessibility") {
       return path[1] == "ui_scale";
@@ -53,8 +56,8 @@ void SettingsWindow::warnOnUnusableCustomSchedule(const std::vector<std::string>
 }
 
 void SettingsWindow::markSettingsWriteSuccess(bool requestRebuild) {
-  if (m_editorSheetPopup != nullptr && m_editorSheetPopup->isOpen()) {
-    m_editorSheetPopup->clearStatusMessage();
+  if (m_editorSheetModal != nullptr && m_editorSheetModal->isOpen()) {
+    m_editorSheetModal->clearStatusMessage();
   }
   m_statusMessage.clear();
   m_statusIsError = false;
@@ -66,8 +69,8 @@ void SettingsWindow::markSettingsWriteSuccess(bool requestRebuild) {
 }
 
 void SettingsWindow::markSettingsWriteError(std::string message) {
-  if (m_editorSheetPopup != nullptr && m_editorSheetPopup->isOpen()) {
-    m_editorSheetPopup->setStatusMessage(std::move(message), true);
+  if (m_editorSheetModal != nullptr && m_editorSheetModal->isOpen()) {
+    m_editorSheetModal->setStatusMessage(std::move(message), true);
     return;
   }
   m_statusMessage = std::move(message);

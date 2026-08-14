@@ -42,19 +42,17 @@ public:
   void initialize(const std::string& fontPath, RenderBackend* backend, TextureManager* textures);
   void cleanup();
 
-  void setContentScale(float scale);
-
   // Drops the uploaded icon-glyph textures so they are re-rasterized on the next
   // draw. Recovers from GPU memory loss across suspend/resume. Requires the
   // render context to be current.
   void invalidateGlyphTextures();
   void abandonGlyphTextures() noexcept;
 
-  [[nodiscard]] TextMetrics measureGlyph(char32_t codepoint, float fontSize);
+  [[nodiscard]] TextMetrics measureGlyph(float contentScale, char32_t codepoint, float fontSize);
 
   void drawGlyph(
-      float surfaceWidth, float surfaceHeight, float x, float baselineY, char32_t codepoint, float fontSize,
-      const Color& color, const Mat3& transform
+      float contentScale, float surfaceWidth, float surfaceHeight, float x, float baselineY, char32_t codepoint,
+      float fontSize, const Color& color, const Mat3& transform
   );
 
 private:
@@ -86,12 +84,10 @@ private:
 
   using CacheMap = std::unordered_map<CacheKey, CacheEntry, CacheKeyHash>;
 
-  CacheEntry* lookupOrRasterize(char32_t codepoint, float fontSize);
+  CacheEntry* lookupOrRasterize(float contentScale, char32_t codepoint, float fontSize);
   void touch(CacheMap::iterator it);
   void evict(CacheMap::iterator it);
   void evictIfNeeded();
-
-  float m_contentScale = 1.0F;
 
   FT_Library m_ftLibrary = nullptr;
   FT_Face m_face = nullptr;

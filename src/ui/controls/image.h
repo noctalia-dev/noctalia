@@ -81,6 +81,8 @@ public:
 private:
   void doLayout(Renderer& renderer) override;
   void doInvalidateGpuResources(Renderer& renderer) override;
+  void doRebindRenderer(Renderer& renderer) override { bindRenderer(renderer); }
+  void bindRenderer(Renderer& renderer);
   void applyPalette();
   void updateLayout();
   void clearAsyncSource();

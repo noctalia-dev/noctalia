@@ -98,6 +98,9 @@ private:
   [[nodiscard]] bool shouldUseAppGrid() const;
   void refreshLauncherAppIconColorization();
   void updateLauncherGridMetrics(Renderer& renderer);
+  void updatePinnedApplicationState();
+  void applyPinnedApplicationOrder();
+  void reorderPinnedApplication(std::string_view sourcePath, std::string_view targetPath);
   [[nodiscard]] bool shouldTrackUsage() const;
 
   std::vector<std::unique_ptr<LauncherProvider>> m_providers;

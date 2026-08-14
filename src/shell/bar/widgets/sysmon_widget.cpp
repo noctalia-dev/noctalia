@@ -70,6 +70,7 @@ namespace {
   constexpr auto kSampleRetryDelay = std::chrono::milliseconds(25);
   constexpr auto kInitialSampleRetryDelay = std::chrono::milliseconds(250);
   constexpr double kBytesPerMb = 1000.0 * 1000.0;
+  constexpr double kFreqFallbackCeilingMhz = 5000.0;
 
   [[nodiscard]] std::chrono::steady_clock::duration historyInterval(const SystemMonitorService* monitor) {
     return monitor != nullptr ? monitor->historySampleInterval()
@@ -112,10 +113,10 @@ namespace {
         || stat == SysmonStat::DiskFree;
   }
 
-  constexpr std::array<SysmonStat, 14> kTooltipStats{
-      SysmonStat::CpuUsage,    SysmonStat::CpuTemp,  SysmonStat::GpuTemp, SysmonStat::GpuUsage,    SysmonStat::GpuVram,
-      SysmonStat::RamUsed,     SysmonStat::RamPct,   SysmonStat::SwapPct, SysmonStat::DiskUsedPct, SysmonStat::DiskUsed,
-      SysmonStat::DiskFreePct, SysmonStat::DiskFree, SysmonStat::NetRx,   SysmonStat::NetTx,
+  constexpr std::array<SysmonStat, 15> kTooltipStats{
+      SysmonStat::CpuUsage, SysmonStat::CpuTemp,     SysmonStat::CpuFreq,  SysmonStat::GpuTemp, SysmonStat::GpuUsage,
+      SysmonStat::GpuVram,  SysmonStat::RamUsed,     SysmonStat::RamPct,   SysmonStat::SwapPct, SysmonStat::DiskUsedPct,
+      SysmonStat::DiskUsed, SysmonStat::DiskFreePct, SysmonStat::DiskFree, SysmonStat::NetRx,   SysmonStat::NetTx,
   };
 
   [[nodiscard]] double netRxFromStats(const SystemStats& stats, std::string_view interfaceName) {
@@ -146,6 +147,8 @@ namespace {
       return i18n::tr("bar.widgets.sysmon.cpu");
     case SysmonStat::CpuTemp:
       return i18n::tr("bar.widgets.sysmon.cpu-temp");
+    case SysmonStat::CpuFreq:
+      return i18n::tr("bar.widgets.sysmon.cpu-freq");
     case SysmonStat::GpuTemp:
       return i18n::tr("bar.widgets.sysmon.gpu-temp");
     case SysmonStat::GpuUsage:
@@ -398,6 +401,8 @@ std::pair<double, double> SysmonWidget::currentThresholds() const {
     return {monitorConfig.cpuUsageActivityThreshold, monitorConfig.cpuUsageCriticalThreshold};
   case SysmonStat::CpuTemp:
     return {monitorConfig.cpuTempActivityThreshold, monitorConfig.cpuTempCriticalThreshold};
+  case SysmonStat::CpuFreq:
+    return {monitorConfig.cpuFreqActivityThreshold, monitorConfig.cpuFreqCriticalThreshold};
   case SysmonStat::GpuTemp:
     return {monitorConfig.gpuTempActivityThreshold, monitorConfig.gpuTempCriticalThreshold};
   case SysmonStat::GpuUsage:
@@ -443,6 +448,8 @@ double SysmonWidget::currentGradientValue() {
     return std::max(stats.cpuUsagePercent, 0.0);
   case SysmonStat::CpuTemp:
     return stats.cpuTempAvailable ? stats.cpuTempC.value_or(0.0) : 0.0;
+  case SysmonStat::CpuFreq:
+    return stats.cpuFreqAvailable ? stats.cpuFreqMhz / 1000.0 : 0.0;
   case SysmonStat::GpuTemp:
     return stats.gpuTempC.value_or(0.0);
   case SysmonStat::GpuUsage:
@@ -798,6 +805,13 @@ double SysmonWidget::normalizedFromStats(
     }
     return 0.0;
 
+  case SysmonStat::CpuFreq: {
+    const double maxF = stats.cpuMaxFreqMhz.value_or(0.0);
+    return stats.cpuFreqAvailable
+        ? std::clamp(stats.cpuFreqMhz / (maxF > 0.0 ? maxF : kFreqFallbackCeilingMhz), 0.0, 1.0)
+        : 0.0;
+  }
+
   case SysmonStat::GpuTemp:
     if (stats.gpuTempC.has_value()) {
       const double temp = *stats.gpuTempC;
@@ -930,7 +944,11 @@ std::optional<std::string> SysmonWidget::formatValueFor(SysmonStat stat, const S
       return std::format("{:.0F}°C", *stats.cpuTempC);
     }
     return std::nullopt;
-
+  case SysmonStat::CpuFreq:
+    if (stats.cpuFreqAvailable) {
+      return std::format("{:.1f} GHz", stats.cpuFreqMhz / 1000.0);
+    }
+    return std::nullopt;
   case SysmonStat::GpuTemp:
     if (stats.gpuTempC.has_value()) {
       return std::format("{:.0F}°C", *stats.gpuTempC);
@@ -995,6 +1013,8 @@ bool SysmonWidget::statAvailableForTooltip(SysmonStat stat, const SystemStats& s
     return monitorConfig.cpuPollSeconds > 0.0F && sampled;
   case SysmonStat::CpuTemp:
     return monitorConfig.cpuPollSeconds > 0.0F && stats.cpuTempAvailable && stats.cpuTempC.has_value();
+  case SysmonStat::CpuFreq:
+    return monitorConfig.cpuPollSeconds > 0.0F && stats.cpuFreqAvailable;
   case SysmonStat::GpuTemp:
     return monitorConfig.gpuPollSeconds > 0.0F && stats.gpuTempC.has_value();
   case SysmonStat::GpuUsage:
@@ -1057,6 +1077,8 @@ const char* SysmonWidget::glyphName(SysmonStat stat) {
     return "cpu-usage";
   case SysmonStat::CpuTemp:
     return "cpu-temperature";
+  case SysmonStat::CpuFreq:
+    return "performance";
   case SysmonStat::GpuTemp:
     return "temperature";
   case SysmonStat::GpuUsage:

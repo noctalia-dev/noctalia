@@ -38,6 +38,13 @@ namespace {
     return resolveColorSpec(*config.fillColor);
   }
 
+  // An output can only carry a lock surface once it is complete and has real geometry.
+  bool hasUsableOutput(const WaylandConnection& wayland) {
+    return std::ranges::any_of(wayland.outputs(), [](const WaylandOutput& output) {
+      return output.done && output.output != nullptr && output.hasUsableGeometry();
+    });
+  }
+
   const ext_session_lock_v1_listener kSessionLockListener = {
       .locked = &LockScreen::handleLocked,
       .finished = &LockScreen::handleFinished,
@@ -116,7 +123,7 @@ bool LockScreen::lock() {
     kLog.warn("session lock protocol unavailable");
     return false;
   }
-  if (m_wayland->outputs().empty()) {
+  if (!hasUsableOutput(*m_wayland)) {
     m_lockDeferred = true;
     kLog.warn("no outputs available for lock screen; lock deferred until an output is connected");
     // No output can ever show a lock surface, so run any pending post-lock action (e.g. suspend)

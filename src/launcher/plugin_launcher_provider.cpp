@@ -28,7 +28,7 @@ PluginLauncherProvider::PluginLauncherProvider(
     scripting::PluginRuntimeContext context, PluginLauncherProviderOptions options
 )
     : m_entryId(std::move(context.entryId)), m_displayName(std::move(options.displayName)),
-      m_sourcePath(std::move(context.sourcePath)), m_pluginDir(m_sourcePath.parent_path()),
+      m_sourcePath(std::move(context.sourcePath)), m_pluginDir(std::move(context.pluginDir)),
       m_prefix(std::move(options.prefix)), m_glyph(std::move(options.glyph)), m_globalSearch(options.globalSearch),
       m_debounceMs(options.debounceMs), m_categories(std::move(options.categories)),
       m_settings(std::move(context.settings)), m_scriptApi(context.scriptApi), m_fileWatcher(context.fileWatcher),

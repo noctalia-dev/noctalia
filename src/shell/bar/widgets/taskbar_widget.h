@@ -97,6 +97,10 @@ private:
     std::string iconPath;
     std::string workspaceKey;
     std::string workspaceWindowId;
+    // Authoritative compositor window identity for focus/close actions.
+    // Unlike workspaceWindowId, never rewritten by workspace-placement
+    // reconciliation. Empty on compositors without exact identity.
+    std::string exactWindowId;
     // Desktop entry id used for pin persistence / launch (empty for unmatched windows).
     std::string desktopEntryId;
     std::uint64_t workspaceOrder = std::numeric_limits<std::uint64_t>::max();
@@ -165,6 +169,7 @@ private:
   [[nodiscard]] static bool taskInWorkspaceGroup(const TaskModel& task, const WorkspaceModel& ws);
   [[nodiscard]] static const TaskModel*
   resolveTask(const std::vector<TaskModel>& tasks, TaskRef ref, std::uint64_t currentGeneration);
+  [[nodiscard]] static std::string_view workspaceBindingWindowId(const TaskModel& task);
   void activateTaskModel(const TaskModel& task);
   void closeTaskModel(const TaskModel& task);
   void applyPinnedMerge(std::vector<TaskModel>& tasks);
@@ -230,9 +235,10 @@ private:
   std::unique_ptr<ContextMenuPopup> m_contextMenuPopup;
   std::vector<zwlr_foreign_toplevel_handle_v1*> m_contextMenuHandles;
   zwlr_foreign_toplevel_handle_v1* m_contextMenuPrimaryHandle = nullptr;
-  // KDE has no wlr foreign-toplevel handles; close targets use title/appId/uuid instead.
-  std::vector<ToplevelInfo> m_contextMenuKdeWindows;
-  ToplevelInfo m_contextMenuKdePrimary;
+  // KDE and Niri ext-foreign-toplevel tasks close through ToplevelInfo rather
+  // than a wlr foreign-toplevel handle.
+  std::vector<ToplevelInfo> m_contextMenuInfoWindows;
+  ToplevelInfo m_contextMenuInfoPrimary;
   std::uint64_t m_desktopEntriesVersion = 0;
   IconResolver m_iconResolver;
   Signal<>::ScopedConnection m_appIconColorizeConn;

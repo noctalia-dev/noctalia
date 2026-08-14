@@ -6,6 +6,7 @@
 #include "scripting/plugin_runtime_context.h"
 #include "shell/desktop/widgets/desktop_audio_visualizer_widget.h"
 #include "shell/desktop/widgets/desktop_button_widget.h"
+#include "shell/desktop/widgets/desktop_calendar_widget.h"
 #include "shell/desktop/widgets/desktop_clock_widget.h"
 #include "shell/desktop/widgets/desktop_fancy_audio_visualizer_widget.h"
 #include "shell/desktop/widgets/desktop_label_widget.h"
@@ -182,13 +183,26 @@ namespace {
 } // namespace
 
 DesktopWidgetFactory::DesktopWidgetFactory(DesktopWidgetRuntimeServices services)
-    : m_pipewire(services.pipewire), m_pipewireSpectrum(services.pipewireSpectrum), m_weather(services.weather),
-      m_mpris(services.mpris), m_httpClient(services.httpClient), m_sysmon(services.sysmon),
-      m_scriptDeps(services.scriptDeps) {}
+    : m_calendar(services.calendar), m_pipewire(services.pipewire), m_pipewireSpectrum(services.pipewireSpectrum),
+      m_weather(services.weather), m_mpris(services.mpris), m_httpClient(services.httpClient),
+      m_sysmon(services.sysmon), m_scriptDeps(services.scriptDeps) {}
 
 std::unique_ptr<DesktopWidget> DesktopWidgetFactory::create(
     const std::string& type, const std::unordered_map<std::string, WidgetSettingValue>& settings, float contentScale
 ) const {
+  if (type == "calendar") {
+    auto widget = std::make_unique<DesktopCalendarWidget>(
+        m_scriptDeps.configService, m_calendar,
+        DesktopCalendarWidget::Options{
+            .showEvents = getBoolSetting(settings, "show_events", true),
+            .showWeekNumbers = getBoolSetting(settings, "show_week_numbers", false),
+        }
+    );
+    applyCommonSettings(*widget, settings);
+    widget->setContentScale(contentScale);
+    return widget;
+  }
+
   if (type == "clock") {
     const std::string styleSetting = getStringSetting(settings, "clock_style", "digital");
     const DesktopClockWidget::Style style =
@@ -199,7 +213,7 @@ std::unique_ptr<DesktopWidget> DesktopWidgetFactory::create(
         .color = getColorSpecSetting(settings, "color", colorSpecFromRole(ColorRole::OnSurface)),
         .shadow = getBoolSetting(settings, "shadow", true),
         .showCircle = getBoolSetting(settings, "circle", true),
-        .centerText = getBoolSetting(settings, "center_text", false),
+        .centerText = getBoolSetting(settings, "center_text", true),
         .timezone = getStringSetting(settings, "timezone", ""),
     });
     applyCommonSettings(*widget, settings);
@@ -217,6 +231,7 @@ std::unique_ptr<DesktopWidget> DesktopWidgetFactory::create(
         DesktopAudioVisualizerWidget::Options{
             .bands = getIntSetting(settings, "bands", 32),
             .mirrored = getBoolSetting(settings, "mirrored", true),
+            .reversed = getBoolSetting(settings, "reversed", false),
             .centered = getBoolSetting(settings, "centered", true),
             .showWhenIdle = getBoolSetting(settings, "show_when_idle", true),
             .color1 = getColorSpecSetting(settings, "color_1", colorSpecFromRole(ColorRole::Primary)),
@@ -341,6 +356,8 @@ std::unique_ptr<DesktopWidget> DesktopWidgetFactory::create(
     auto parseStat = [](const std::string& s) -> DesktopSysmonStat {
       if (s == "cpu_temp")
         return DesktopSysmonStat::CpuTemp;
+      if (s == "cpu_freq")
+        return DesktopSysmonStat::CpuFreq;
       if (s == "gpu_temp")
         return DesktopSysmonStat::GpuTemp;
       if (s == "gpu_usage")
@@ -448,6 +465,7 @@ std::unique_ptr<DesktopWidget> DesktopWidgetFactory::create(
         scripting::PluginRuntimeContext{
             .entryId = pluginEntry->fullId(),
             .sourcePath = pluginEntry->sourcePath,
+            .pluginDir = pluginEntry->pluginDir,
             .settings = std::move(seeded),
             .scriptApi = *m_scriptDeps.scriptApi,
             .fileWatcher = m_scriptDeps.fileWatcher,

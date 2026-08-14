@@ -323,12 +323,23 @@ void Surface::setDebugName(std::string name) { m_debugName = std::move(name); }
 
 float Surface::effectiveBufferScale() const noexcept {
   if (m_fractionalScale != nullptr && m_viewport != nullptr) {
-    if (m_fractionalScaleNumerator > 0) {
-      return std::max(1.0F, static_cast<float>(m_fractionalScaleNumerator) / 120.0F);
+    if (m_preferredScaleNumerator > 0) {
+      return std::max(1.0F, static_cast<float>(m_preferredScaleNumerator) / 120.0F);
+    }
+    if (m_configuredScaleNumerator > 0) {
+      return std::max(1.0F, static_cast<float>(m_configuredScaleNumerator) / 120.0F);
     }
     return static_cast<float>(std::max(1, m_bufferScale));
   }
   return static_cast<float>(std::max(1, m_bufferScale));
+}
+
+void Surface::setConfiguredScaleNumerator(std::uint32_t numerator) noexcept {
+  if (numerator == 0 || numerator == m_configuredScaleNumerator) {
+    return;
+  }
+  m_configuredScaleNumerator = numerator;
+  m_renderTarget.setContentScale(effectiveBufferScale());
 }
 
 std::uint32_t Surface::bufferWidthFor(std::uint32_t logicalWidth) const noexcept {
@@ -373,7 +384,6 @@ void Surface::onSurfaceOutputEnter(wl_surface* surface, wl_output* output) {
   if (surface != m_surface || output == nullptr) {
     return;
   }
-
   m_connection.notifySurfaceOutputEnter(surface, output);
 
   const WaylandOutput* outputInfo = m_connection.findOutputByWl(output);
@@ -381,13 +391,20 @@ void Surface::onSurfaceOutputEnter(wl_surface* surface, wl_output* output) {
     return;
   }
 
-  const std::int32_t nextScale = std::max(1, outputInfo->scale);
-  if (nextScale == m_bufferScale) {
+  const std::int32_t nextBufferScale = std::max(1, outputInfo->scale);
+  const auto nextConfigured = static_cast<std::uint32_t>(std::max(1, outputInfo->configuredScaleNumerator));
+  if (nextBufferScale == m_bufferScale && nextConfigured == m_configuredScaleNumerator) {
     return;
   }
 
-  m_bufferScale = nextScale;
-  if ((m_fractionalScale == nullptr || m_viewport == nullptr || m_fractionalScaleNumerator == 0) && m_configured) {
+  const float previousScale = effectiveBufferScale();
+  m_bufferScale = nextBufferScale;
+  m_configuredScaleNumerator = nextConfigured;
+  // Output changed; drop the prior output's preferred, a new event may refine.
+  m_preferredScaleNumerator = 0;
+  m_renderTarget.setContentScale(effectiveBufferScale());
+
+  if (m_configured && std::abs(effectiveBufferScale() - previousScale) > 0.0001F) {
     onScaleChanged();
   }
 }
@@ -411,6 +428,7 @@ bool Surface::createWlSurface() {
 
   if (m_renderContext != nullptr) {
     m_renderTarget.create(m_surface, *m_renderContext);
+    m_renderTarget.setContentScale(effectiveBufferScale());
   }
   return true;
 }
@@ -422,11 +440,9 @@ void Surface::onConfigure(std::uint32_t width, std::uint32_t height) {
   traceSurfaceEvent(*this, "configure");
 
   const float resizeMs = elapsedMs([this] {
+    m_renderTarget.setContentScale(effectiveBufferScale());
     applySurfaceScaleState();
     resizeRenderTarget();
-    if (m_renderContext != nullptr) {
-      m_renderContext->syncContentScale(m_renderTarget);
-    }
   });
   logSlowSurfaceOperation(
       resizeMs, "surface configure resize took {:.1F}ms ({}, {}x{} logical)", resizeMs, static_cast<const void*>(this),
@@ -451,6 +467,8 @@ void Surface::setPrepareFrameCallback(PrepareFrameCallback callback) { m_prepare
 void Surface::setUpdateCallback(UpdateCallback callback) { m_updateCallback = std::move(callback); }
 
 void Surface::setFrameTickCallback(FrameTickCallback callback) { m_frameTickCallback = std::move(callback); }
+
+void Surface::setScaleChangedCallback(ScaleChangedCallback callback) { m_scaleChangedCallback = std::move(callback); }
 
 void Surface::setSceneRoot(Node* root) {
   if (m_sceneRoot == root) {
@@ -489,8 +507,17 @@ void Surface::setRenderContext(RenderContext* ctx) {
 
   if (m_surface != nullptr && m_renderContext != nullptr) {
     m_renderTarget.create(m_surface, *m_renderContext);
+    m_renderTarget.setContentScale(effectiveBufferScale());
     resizeRenderTarget();
   }
+}
+
+void Surface::setWallpaperMask(std::optional<WallpaperMaskDrawParams> mask) {
+  if (m_wallpaperMask == mask) {
+    return;
+  }
+  m_wallpaperMask = mask;
+  requestRedraw();
 }
 
 void Surface::initializeSurfaceScaleProtocol() {
@@ -560,17 +587,19 @@ void Surface::resizeRenderTarget() {
 }
 
 void Surface::onPreferredFractionalScale(std::uint32_t numerator) {
-  if (numerator == 0 || numerator == m_fractionalScaleNumerator) {
+  if (numerator == 0 || numerator == m_preferredScaleNumerator) {
     return;
   }
 
-  m_fractionalScaleNumerator = numerator;
+  m_preferredScaleNumerator = numerator;
   const float preferredScale = std::max(1.0F, static_cast<float>(numerator) / 120.0F);
   kLog.debug(
       "fractional scale preferred output={} surface={} scale={:.3F} raw={}/120 logical={}x{} buffer={}x{}",
       outputLabelForSurface(m_connection, m_surface), static_cast<const void*>(m_surface), preferredScale, numerator,
       m_width, m_height, bufferWidthFor(m_width), bufferHeightFor(m_height)
   );
+  // Seed target scale before first configure so the first frame is sharp.
+  m_renderTarget.setContentScale(effectiveBufferScale());
   if (!m_configured) {
     return;
   }
@@ -579,13 +608,14 @@ void Surface::onPreferredFractionalScale(std::uint32_t numerator) {
 }
 
 void Surface::onScaleChanged() {
+  m_renderTarget.setContentScale(effectiveBufferScale());
   applySurfaceScaleState();
   resizeRenderTarget();
-  if (m_renderContext != nullptr) {
-    m_renderContext->syncContentScale(m_renderTarget);
-  }
   requestLayout();
   requestRedraw();
+  if (m_scaleChangedCallback) {
+    m_scaleChangedCallback(effectiveBufferScale());
+  }
 }
 
 void Surface::setInputRegion(const std::vector<InputRect>& rects) {
@@ -1152,7 +1182,9 @@ void Surface::render() {
 
   requestFrame();
   traceSurfaceEvent(*this, "render-begin");
-  const float renderMs = elapsedMs([this] { m_renderContext->renderScene(m_renderTarget, m_sceneRoot); });
+  const float renderMs = elapsedMs([this] {
+    m_renderContext->renderScene(m_renderTarget, m_sceneRoot, m_wallpaperMask ? &*m_wallpaperMask : nullptr);
+  });
   traceSurfaceEvent(*this, "render-end");
   recordSurfaceProfileEvent(*this, SurfaceProfileEvent::Render, renderMs);
   logSlowSurfaceOperation(

@@ -15,6 +15,7 @@ public:
   void setGradient(const Color& color1, const Color& color2);
   void setOrientation(AudioSpectrumOrientation orientation);
   void setMirrored(bool mirrored);
+  void setReversed(bool reversed);
   void setCentered(bool centered);
   void setSmoothingTimeMs(float tauMs) noexcept { m_smoothingTauMs = std::max(0.0F, tauMs); }
 

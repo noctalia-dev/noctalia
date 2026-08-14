@@ -42,6 +42,25 @@ struct WallpaperSpanParams {
   bool operator==(const WallpaperSpanParams&) const = default;
 };
 
+// A source-aligned foreground mask applied after a desktop-widget surface is painted.
+// surfaceOffset is the surface's top-left in output logical coordinates. The mask uses
+// the same source dimensions and fill projection as its wallpaper.
+struct WallpaperMaskDrawParams {
+  TextureId texture;
+  float surfaceWidth = 0.0F;
+  float surfaceHeight = 0.0F;
+  float surfaceOffsetX = 0.0F;
+  float surfaceOffsetY = 0.0F;
+  float outputWidth = 0.0F;
+  float outputHeight = 0.0F;
+  float imageWidth = 0.0F;
+  float imageHeight = 0.0F;
+  float fillMode = 0.0F;
+  WallpaperSpanParams span{};
+
+  bool operator==(const WallpaperMaskDrawParams&) const = default;
+};
+
 // One wallpaper source: either an image texture or a solid color, plus the
 // source image's intrinsic size (used for aspect-correct fill modes).
 struct WallpaperLayer {

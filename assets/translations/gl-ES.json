@@ -2948,10 +2948,6 @@
           "description": "Tinxe a imaxe personalizada co axuste Cor da icona do widget",
           "label": "Colorear imaxe personalizada"
         },
-        "custom-labels": {
-          "description": "Asigna nomes de distribucións de teclado a etiquetas personalizadas",
-          "label": "Etiquetas personalizadas"
-        },
         "detached-panel": {
           "description": "Abre o caixón como panel flotante co seu propio fondo en vez de fusionalo coa barra",
           "label": "Panel separado"

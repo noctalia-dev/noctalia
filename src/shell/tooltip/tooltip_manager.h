@@ -11,6 +11,7 @@ class InputArea;
 class Node;
 class PopupSurface;
 class RenderContext;
+class Renderer;
 class ConfigService;
 class WaylandConnection;
 struct wl_output;
@@ -52,7 +53,9 @@ private:
   void refreshFromArea(InputArea* area);
   void refreshPopupContent();
   void scheduleProviderRefresh();
-  Size measureContent(const TooltipContent& content);
+  Size measureContent(Renderer& renderer, const TooltipContent& content);
+  // Configured render scale of m_pendingOutput, for pre-surface measurement.
+  [[nodiscard]] float pendingOutputScale() const;
   void buildScene(const TooltipContent& content, float w, float h, float opacity = 0.0F);
   void prepareFrame(bool needsUpdate, bool needsLayout);
 

@@ -1,5 +1,8 @@
 #include "config/cli.h"
 
+#include "cli/help.h"
+#include "cli/parse.h"
+#include "cli/schema_config.h"
 #include "config/config_service.h"
 #include "config/config_validate.h"
 #include "core/log.h"
@@ -26,75 +29,11 @@
 namespace noctalia::config {
   namespace {
 
-    constexpr const char* kHelpText =
-        "Usage: noctalia config <command> [options]\n"
-        "\n"
-        "Commands:\n"
-        "  validate [path]\n"
-        "      Check config validity: TOML syntax, unknown/misspelled settings, and bad\n"
-        "      values. Defaults to the active config dir + state settings.toml. A directory\n"
-        "      validates its *.toml files; a file validates only that file. Exit 1 on error.\n"
-        "\n"
-        "  export [merged|full]\n"
-        "      Print the active config as TOML. Defaults to merged user config.\n"
-        "\n"
-        "  settings-count\n"
-        "      Count Settings UI controls by registry, visibility state, and section.\n"
-        "\n"
-        "  replay-report <report.toml> --target <dir> [--force]\n"
-        "      Reconstruct config-home/noctalia and state-home/noctalia from a support report.\n"
-        "\n"
-        "  replay-report <report.toml> --target <dir> --flattened [--force]\n"
-        "      Reconstruct a single config-home/noctalia/config.toml from the report's merged config.\n";
-
-    constexpr const char* kValidateHelpText =
-        "Usage: noctalia config validate [path]\n"
-        "\n"
-        "With no path, validates the merged configuration the way the shell loads it:\n"
-        "  - every *.toml in the active config dir, then\n"
-        "  - the state-dir settings.toml overrides.\n"
-        "\n"
-        "With a directory path, validates only that directory's *.toml files.\n"
-        "With a file path, validates only that file.\n"
-        "\n"
-        "Reports TOML syntax errors, unknown sections/settings, and bad values\n"
-        "(wrong type, out-of-range, invalid enum/color). Exits 1 if any error is found.\n";
-
-    constexpr const char* kReplayHelpText =
-        "Usage: noctalia config replay-report <report.toml> --target <dir> [--flattened] [--force]\n"
-        "\n"
-        "Options:\n"
-        "  --target <dir>  Directory where replay files are written\n"
-        "  --flattened     Write only merged_config.content as config.toml\n"
-        "  --force         Remove an existing target directory before writing\n";
-
-    constexpr const char* kExportHelpText = "Usage: noctalia config export [merged|full]\n"
-                                            "\n"
-                                            "Prints TOML to stdout from the same config stack used by the shell:\n"
-                                            "  - every *.toml in the active config dir, then\n"
-                                            "  - the state-dir settings.toml overrides.\n"
-                                            "\n"
-                                            "Modes:\n"
-                                            "  merged  Export merged user config only (default)\n"
-                                            "  full    Export full effective config, including built-in defaults\n";
-
-    constexpr const char* kSettingsCountHelpText =
-        "Usage: noctalia config settings-count\n"
-        "\n"
-        "Counts one Settings UI row/control per SettingEntry: toggles, sliders, lists,\n"
-        "and pickers. Dropdown options and SettingsWindow-only action buttons are not\n"
-        "counted separately.\n";
-
     struct ReplayOptions {
       std::filesystem::path reportPath;
       std::filesystem::path targetDir;
       bool flattened = false;
       bool force = false;
-    };
-
-    struct ReplayOptionsParse {
-      ReplayOptions options;
-      bool helpRequested = false;
     };
 
     struct SettingsCountSet {
@@ -136,15 +75,14 @@ namespace noctalia::config {
     }
 
     int runSettingsCount(int argc, char* argv[]) {
-      for (int i = 3; i < argc; ++i) {
-        if (std::strcmp(argv[i], "--help") == 0) {
-          std::println("{}", kSettingsCountHelpText);
-          return 0;
-        }
-        std::println(stderr, "error: unexpected argument: {}", argv[i]);
-        std::println(stderr, "Run 'noctalia config settings-count --help' for usage.");
+      auto parsed = cli::parseOrReport(
+          cli::kConfigSettingsCountCmd, "noctalia config settings-count",
+          std::span<char* const>{argv + 3, static_cast<std::size_t>(argc - 3)}
+      );
+      if (!parsed)
         return 1;
-      }
+      if (parsed->helpRequested)
+        return 0;
 
       setLogLevel(LogLevel::Warn);
       ConfigService configService;
@@ -251,46 +189,6 @@ namespace noctalia::config {
         return std::unexpected("failed to create target " + target.string() + ": " + ec.message());
       }
       return {};
-    }
-
-    std::expected<ReplayOptionsParse, std::string> parseReplayOptions(int argc, char* argv[]) {
-      ReplayOptionsParse parsed;
-      for (int i = 3; i < argc; ++i) {
-        const char* arg = argv[i];
-        if (std::strcmp(arg, "--help") == 0) {
-          std::println("{}", kReplayHelpText);
-          parsed.helpRequested = true;
-          return parsed;
-        }
-        if (std::strcmp(arg, "--target") == 0) {
-          if (i + 1 >= argc) {
-            return std::unexpected("--target requires a directory");
-          }
-          parsed.options.targetDir = argv[++i];
-          continue;
-        }
-        if (std::strcmp(arg, "--flattened") == 0) {
-          parsed.options.flattened = true;
-          continue;
-        }
-        if (std::strcmp(arg, "--force") == 0) {
-          parsed.options.force = true;
-          continue;
-        }
-        if (parsed.options.reportPath.empty()) {
-          parsed.options.reportPath = arg;
-          continue;
-        }
-        return std::unexpected(std::string("unknown argument: ") + arg);
-      }
-
-      if (parsed.options.reportPath.empty()) {
-        return std::unexpected("missing report path");
-      }
-      if (parsed.options.targetDir.empty()) {
-        return std::unexpected("missing --target <dir>");
-      }
-      return parsed;
     }
 
     int replayReport(const ReplayOptions& options, const char* argv0) {
@@ -428,20 +326,16 @@ namespace noctalia::config {
     }
 
     int runValidate(int argc, char* argv[]) {
-      std::string pathArg;
-      for (int i = 3; i < argc; ++i) {
-        if (std::strcmp(argv[i], "--help") == 0) {
-          std::println("{}", kValidateHelpText);
-          return 0;
-        }
-        if (pathArg.empty()) {
-          pathArg = argv[i];
-          continue;
-        }
-        std::println(stderr, "error: unexpected argument: {}", argv[i]);
-        std::println(stderr, "Run 'noctalia config validate --help' for usage.");
+      auto parsed = cli::parseOrReport(
+          cli::kConfigValidateCmd, "noctalia config validate",
+          std::span<char* const>{argv + 3, static_cast<std::size_t>(argc - 3)}
+      );
+      if (!parsed)
         return 1;
-      }
+      if (parsed->helpRequested)
+        return 0;
+      const std::string pathArg =
+          parsed->positionals.empty() ? std::string{} : std::string(parsed->positionals.front());
 
       // Validation reports through diagnostics below; silence incidental INFO logs
       // (e.g. the plugin registry scan) so only validation results reach the user.
@@ -485,7 +379,8 @@ namespace noctalia::config {
         const char* tag = isError ? "ERROR" : "WARN "; // padded to align the path column
         const char* color = (isError ? colorErr : colorOut) ? (isError ? "\033[31m" : "\033[33m") : "";
         const char* reset = *color != '\0' ? "\033[0m" : "";
-        std::println(out, "{}{}{} {}: {}", color, tag, reset, entry.path, entry.message);
+        const std::string location = entry.origin.valid() ? entry.origin.format() + ": " : std::string{};
+        std::println(out, "{}{}{} {}{}: {}", color, tag, reset, location, entry.path, entry.message);
       }
 
       if (errors > 0) {
@@ -507,22 +402,16 @@ namespace noctalia::config {
     }
 
     int runExport(int argc, char* argv[]) {
-      std::string mode = "merged";
-      bool modeSet = false;
-      for (int i = 3; i < argc; ++i) {
-        if (std::strcmp(argv[i], "--help") == 0) {
-          std::println("{}", kExportHelpText);
-          return 0;
-        }
-        if (!modeSet) {
-          mode = argv[i];
-          modeSet = true;
-          continue;
-        }
-        std::println(stderr, "error: unexpected argument: {}", argv[i]);
-        std::println(stderr, "Run 'noctalia config export --help' for usage.");
+      auto parsed = cli::parseOrReport(
+          cli::kConfigExportCmd, "noctalia config export",
+          std::span<char* const>{argv + 3, static_cast<std::size_t>(argc - 3)}
+      );
+      if (!parsed)
         return 1;
-      }
+      if (parsed->helpRequested)
+        return 0;
+      const std::string_view mode =
+          parsed->positionals.empty() ? std::string_view{"merged"} : parsed->positionals.front();
 
       const std::string configDir = FileUtils::configDir();
       std::string settingsPath;
@@ -553,37 +442,36 @@ namespace noctalia::config {
   } // namespace
 
   int runCli(int argc, char* argv[]) {
-    if (argc < 3 || std::strcmp(argv[2], "--help") == 0) {
-      std::println("{}", kHelpText);
+    if (argc < 3 || std::strcmp(argv[2], "--help") == 0 || std::strcmp(argv[2], "-h") == 0) {
+      std::print("{}", cli::renderHelp(cli::kConfigCmd, "noctalia config"));
       return argc < 3 ? 1 : 0;
     }
 
-    if (std::strcmp(argv[2], "validate") == 0) {
+    if (std::strcmp(argv[2], "validate") == 0)
       return runValidate(argc, argv);
-    }
-
-    if (std::strcmp(argv[2], "export") == 0) {
+    if (std::strcmp(argv[2], "export") == 0)
       return runExport(argc, argv);
-    }
-
-    if (std::strcmp(argv[2], "settings-count") == 0) {
+    if (std::strcmp(argv[2], "settings-count") == 0)
       return runSettingsCount(argc, argv);
-    }
-
     if (std::strcmp(argv[2], "replay-report") == 0) {
-      const auto parsed = parseReplayOptions(argc, argv);
-      if (!parsed) {
-        std::println(stderr, "error: {}", parsed.error());
-        std::println(stderr, "Run 'noctalia config replay-report --help' for usage.");
+      auto parsed = cli::parseOrReport(
+          cli::kConfigReplayReportCmd, "noctalia config replay-report",
+          std::span<char* const>{argv + 3, static_cast<std::size_t>(argc - 3)}
+      );
+      if (!parsed)
         return 1;
-      }
-      if (parsed->helpRequested) {
+      if (parsed->helpRequested)
         return 0;
-      }
-      return replayReport(parsed->options, argv[0]);
+      ReplayOptions options{
+          .reportPath = parsed->positionals.front(),
+          .targetDir = parsed->value("--target"),
+          .flattened = parsed->has("--flattened"),
+          .force = parsed->has("--force"),
+      };
+      return replayReport(options, argv[0]);
     }
 
-    std::println(stderr, "error: unknown config command: {}", argv[2]);
+    std::println(stderr, "error: unknown command: {}", argv[2]);
     std::println(stderr, "Run 'noctalia config --help' for usage.");
     return 1;
   }

@@ -29,6 +29,7 @@ private:
   };
 
   void doLayout(Renderer& renderer) override;
+  void doRebindRenderer(Renderer& renderer) override { m_renderer = &renderer; }
   bool tryLoadAnimated(Renderer& renderer);
   void scheduleNextFrame();
   void onFrameTimer();

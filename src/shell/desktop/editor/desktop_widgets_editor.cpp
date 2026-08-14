@@ -420,10 +420,11 @@ void DesktopWidgetsEditor::createSurface(const WaylandOutput& output) {
       return;
     }
     m_renderContext->makeCurrent(rawOverlay->surface->renderTarget());
+    Renderer& renderer = rawOverlay->surface->renderTarget().renderer();
     for (auto& [id, view] : rawOverlay->views) {
       (void)id;
       if (view.widget != nullptr && view.widget->needsFrameTick()) {
-        view.widget->onFrameTick(deltaMs, *m_renderContext);
+        view.widget->onFrameTick(deltaMs, renderer);
       }
     }
   });
@@ -572,6 +573,7 @@ void DesktopWidgetsEditor::prepareFrame(OverlaySurface& surface, bool needsUpdat
   }
 
   m_renderContext->makeCurrent(surface.surface->renderTarget());
+  Renderer& renderer = surface.surface->renderTarget().renderer();
 
   if (surface.sceneRoot == nullptr || surface.sceneRebuildRequested) {
     rebuildScene(surface);
@@ -582,7 +584,7 @@ void DesktopWidgetsEditor::prepareFrame(OverlaySurface& surface, bool needsUpdat
     for (auto& [id, view] : surface.views) {
       (void)id;
       if (view.widget != nullptr) {
-        view.widget->update(*m_renderContext);
+        view.widget->update(renderer);
       }
     }
   }
@@ -601,7 +603,7 @@ void DesktopWidgetsEditor::prepareFrame(OverlaySurface& surface, bool needsUpdat
       if (m_drag.mode == DragMode::Scale && id != m_drag.widgetId && !m_drag.groupInitialStates.contains(id)) {
         continue;
       }
-      view.widget->layout(*m_renderContext);
+      view.widget->layout(renderer);
       const float w = std::max(1.0F, view.widget->intrinsicWidth());
       const float h = std::max(1.0F, view.widget->intrinsicHeight());
       if (w == view.intrinsicWidth && h == view.intrinsicHeight) {
@@ -618,7 +620,7 @@ void DesktopWidgetsEditor::prepareFrame(OverlaySurface& surface, bool needsUpdat
     if (intrinsicsChanged) {
       updateSelectionVisuals(surface);
     }
-    surface.sceneRoot->layout(*m_renderContext);
+    surface.sceneRoot->layout(renderer);
   }
 
   if (surface.wallpaperPreviewActive) {
@@ -634,6 +636,7 @@ void DesktopWidgetsEditor::prepareFrame(OverlaySurface& surface, bool needsUpdat
 }
 
 void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
+  Renderer& renderer = surface.surface->renderTarget().renderer();
   surface.views.clear();
   surface.secondarySelections.clear();
   surface.selectionFrameTransform = nullptr;
@@ -821,8 +824,8 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
       }
     });
     widget->setBox(widgetState.boxWidth, widgetState.boxHeight);
-    widget->update(*m_renderContext);
-    widget->layout(*m_renderContext);
+    widget->update(renderer);
+    widget->layout(renderer);
     if ((widgetState.type == "audio_visualizer" || widgetState.type == "fancy_audio_visualizer")
         && surface.surface != nullptr) {
       surface.surface->requestFrameTick();
@@ -866,7 +869,10 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
         updateDrag();
       }
     });
-    view.transformNode->addChild(widget->releaseRoot());
+    auto widgetRoot = widget->releaseRoot();
+    widgetRoot->setHitTestVisible(false);
+    widgetRoot->setExcludeSubtreeFromTabOrder(true);
+    view.transformNode->addChild(std::move(widgetRoot));
 
     root->addChild(std::move(bodyArea));
     view.widget = std::move(widget);
@@ -1290,7 +1296,7 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
 
   surface.toolbar = toolbarPtr;
   root->addChild(std::move(toolbar));
-  toolbarPtr->layout(*m_renderContext);
+  toolbarPtr->layout(renderer);
   toolbarHandleAreaPtr->setPosition(0.0F, 0.0F);
   toolbarHandleAreaPtr->setFrameSize(toolbarHandlePtr->width(), toolbarHandlePtr->height());
 
@@ -1428,26 +1434,36 @@ void DesktopWidgetsEditor::applyViewState(
     return;
   }
 
-  if (lockscreen_login_box::isLoginBoxWidget(state)) {
+  const bool loginBox = lockscreen_login_box::isLoginBoxWidget(state);
+  OverlaySurface* surface = nullptr;
+  Renderer* renderer = nullptr;
+  if (refreshContent || loginBox) {
+    surface = findSurfaceForWidget(state.id);
+    if (surface == nullptr || surface->surface == nullptr) {
+      return;
+    }
+    m_renderContext->makeCurrent(surface->surface->renderTarget());
+    renderer = &surface->surface->renderTarget().renderer();
+  }
+
+  if (loginBox) {
     if (auto* loginWidget = dynamic_cast<DesktopLoginBoxWidget*>(view.widget.get())) {
-      if (OverlaySurface* surface = findSurfaceForWidget(state.id); surface != nullptr && surface->surface != nullptr) {
-        loginWidget->setScreenMetrics(
-            static_cast<float>(surface->surface->width()), static_cast<float>(surface->surface->height()), state.cy
-        );
-      }
+      loginWidget->setScreenMetrics(
+          static_cast<float>(surface->surface->width()), static_cast<float>(surface->surface->height()), state.cy
+      );
     }
   }
 
   if (refreshContent) {
     view.widget->setContentScale(widgetContentScale());
     view.widget->setBox(state.boxWidth, state.boxHeight);
-    view.widget->update(*m_renderContext);
-    view.widget->layout(*m_renderContext);
+    view.widget->update(*renderer);
+    view.widget->layout(*renderer);
     view.intrinsicWidth = std::max(1.0F, view.widget->intrinsicWidth());
     view.intrinsicHeight = std::max(1.0F, view.widget->intrinsicHeight());
-  } else if (lockscreen_login_box::isLoginBoxWidget(state)) {
+  } else if (loginBox) {
     // Unlock-hint ghost flips above/below when the panel nears the top edge.
-    view.widget->layout(*m_renderContext);
+    view.widget->layout(*renderer);
   }
 
   view.transformNode->setFrameSize(view.intrinsicWidth, view.intrinsicHeight);

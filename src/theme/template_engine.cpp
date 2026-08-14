@@ -939,6 +939,9 @@ namespace noctalia::theme {
         } else if (base.starts_with("colors.")) {
           resolved = ScopeValue(processColorExpression(base, filters));
           return resolved;
+        } else if (base.starts_with("palettes.")) {
+          resolved = ScopeValue(processPaletteExpression(base, filters));
+          return resolved;
         } else {
           return ScopeValue(std::string(kUnknownPrefix) + expr + "}}");
         }
@@ -1002,6 +1005,89 @@ namespace noctalia::theme {
         }
 
         RichColor color{Color::fromHex(colorIt->second), 1.0};
+        for (const auto& filterStr : filters) {
+          auto [name, arg] = parseFilter(filterStr);
+          if (name == "replace")
+            return applyReplace(formatColor(color, formatType), arg);
+          if (name == "lower_case")
+            return StringUtils::toLower(formatColor(color, formatType));
+          if (name == "camel_case")
+            return toCamelCase(formatColor(color, formatType));
+          if (name == "pascal_case")
+            return toPascalCase(formatColor(color, formatType));
+          if (name == "snake_case")
+            return joinLower(formatColor(color, formatType), "_");
+          if (name == "kebab_case")
+            return joinLower(formatColor(color, formatType), "-");
+          if (name == "to_color") {
+            continue;
+          } else if (kColorArgFilters.contains(name)) {
+            try {
+              color = applyColorArgFilter(color, name, arg);
+            } catch (...) {
+              logError();
+              return "{{" + base + "}}";
+            }
+          } else if (kSupportedFilters.contains(name)) {
+            try {
+              color = applyColorFilter(color, name, arg);
+            } catch (...) {
+              logError();
+              return "{{" + base + "}}";
+            }
+          }
+        }
+        return formatColor(color, formatType);
+      }
+
+      // Direct palette tone access: palettes.<family>.<tone>.<format>
+      // Tone can be a plain integer (40) or underscore-prefixed (_40) for matugen compatibility.
+      std::string processPaletteExpression(const std::string& base, const std::vector<std::string>& filters) {
+        static const std::unordered_map<std::string, std::string> paletteColorMap = {
+            {"primary", "primary"}, {"secondary", "secondary"}, {"tertiary", "tertiary"},
+            {"error", "error"},     {"neutral", "surface"},     {"neutral_variant", "surface_variant"},
+        };
+
+        std::smatch match;
+        if (!std::regex_match(base, match, std::regex(R"(^palettes\.([a-z_]+)\.(_?\d+)\.([a-z_]+)$)"))) {
+          logError();
+          return "{{" + base + "}}";
+        }
+        const std::string family = match[1].str();
+        std::string toneStr = match[2].str();
+        const std::string formatType = match[3].str();
+
+        if (toneStr.starts_with("_"))
+          toneStr = toneStr.substr(1);
+
+        const auto mapped = paletteColorMap.find(family);
+        if (mapped == paletteColorMap.end()) {
+          logError();
+          return "{{UNKNOWN:" + family + "}}";
+        }
+
+        auto modeIt = m_themeData.find(m_options.defaultMode);
+        if (modeIt == m_themeData.end()) {
+          logError();
+          return "{{UNKNOWN:" + family + "}}";
+        }
+        auto colorIt = modeIt->second.find(mapped->second);
+        if (colorIt == modeIt->second.end()) {
+          logError();
+          return "{{UNKNOWN:" + family + "}}";
+        }
+
+        int tone = 0;
+        try {
+          tone = std::stoi(toneStr);
+        } catch (...) {
+          logError();
+          return "{{" + base + "}}";
+        }
+
+        material_color_utilities::TonalPalette palette(Color::fromHex(colorIt->second).toArgb());
+        RichColor color{Color::fromArgb(palette.get(static_cast<double>(tone))), 1.0};
+
         for (const auto& filterStr : filters) {
           auto [name, arg] = parseFilter(filterStr);
           if (name == "replace")

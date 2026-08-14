@@ -41,8 +41,10 @@ public:
   [[nodiscard]] std::unordered_map<std::string, std::vector<std::string>>
   appIdsByWorkspace(const std::string& outputName = {}) const override;
   [[nodiscard]] std::vector<WorkspaceWindow> workspaceWindows(const std::string& outputName = {}) const override;
-  bool focusWindowById(const std::string& windowId) override;
+  [[nodiscard]] bool hasExactWindowIdentity() const noexcept override { return true; }
   [[nodiscard]] std::optional<std::string> focusedWindowId() const override;
+  bool focusWindowById(const std::string& windowId) override;
+  bool closeWindowById(const std::string& windowId) override;
   void cleanup() override;
 
 private:
@@ -81,6 +83,7 @@ private:
       const std::unordered_map<std::uint64_t, WindowState>& lhs,
       const std::unordered_map<std::uint64_t, WindowState>& rhs
   ) noexcept;
+  [[nodiscard]] static bool sameWindowLayout(const WindowState& lhs, const WindowState& rhs) noexcept;
   [[nodiscard]] static std::optional<std::uint64_t> parseUnsigned(const std::string& value);
   [[nodiscard]] static std::optional<std::size_t> parseLeadingNumber(const std::string& value);
   [[nodiscard]] static std::string workspaceKey(const WorkspaceState& workspace);

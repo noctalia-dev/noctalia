@@ -15,6 +15,7 @@ class ConfigService;
 class InputArea;
 class Node;
 class RectNode;
+class Renderer;
 class RenderContext;
 class WaylandConnection;
 struct XdgPopupParent;
@@ -111,6 +112,8 @@ protected:
   [[nodiscard]] WaylandConnection* wayland() const noexcept { return m_wayland; }
   [[nodiscard]] ConfigService* config() const noexcept { return m_config; }
   [[nodiscard]] RenderContext* renderContext() const noexcept { return m_renderContext; }
+  // Stable Renderer view for this popup's own surface. Valid only while open.
+  [[nodiscard]] Renderer& renderer() const noexcept;
 
   // Construct the standard PopupSurfaceConfig with the shared constraint
   // flags, anchor/gravity NONE, grab=false (dialogs dismiss via Escape /

@@ -1,5 +1,8 @@
 #include "scripting/plugin_lint.h"
 
+#include "cli/help.h"
+#include "cli/parse.h"
+#include "cli/schema_plugins.h"
 #include "scripting/plugin_manifest.h"
 #include "scripting/plugin_panel_shell.h"
 #include "util/file_utils.h"
@@ -496,21 +499,6 @@ namespace scripting {
 namespace noctalia::plugins {
   namespace {
 
-    constexpr const char* kHelpText =
-        "Usage: noctalia plugins <command> [paths]\n"
-        "\n"
-        "Offline tools for plugin authors (no running shell required).\n"
-        "To manage installed plugins on the running instance, use 'noctalia msg plugins'.\n"
-        "\n"
-        "Commands:\n"
-        "  lint [path ...]\n"
-        "      Cross-check each plugin's declared settings against getConfig() calls in entries and static modules.\n"
-        "      Reports settings read but not declared in plugin.toml (a runtime loud miss),\n"
-        "      obsolete entry-specific getConfig aliases, settings declared but never read,\n"
-        "      and entries pointing at a missing file.\n"
-        "      A path may be a plugin directory or a directory of plugins. Defaults to '.'.\n"
-        "      Exits 1 if any error-level problem is found.\n";
-
     // Resolve a CLI path argument to the plugin directories it covers: the path
     // itself if it holds a plugin.toml, otherwise its immediate subdirectories that do.
     std::vector<std::filesystem::path> resolvePluginDirs(const std::filesystem::path& path, std::string& error) {
@@ -591,18 +579,13 @@ namespace noctalia::plugins {
       }
     }
 
-    int runLint(int argc, char* argv[]) {
+    int runLint(const cli::ParsedArgs& parsed) {
       std::vector<std::filesystem::path> args;
-      for (int i = 0; i < argc; ++i) {
-        if (std::strcmp(argv[i], "--help") == 0 || std::strcmp(argv[i], "-h") == 0) {
-          std::println("{}", kHelpText);
-          return 0;
-        }
-        args.emplace_back(argv[i]);
-      }
-      if (args.empty()) {
+      args.reserve(parsed.positionals.size());
+      for (const std::string_view path : parsed.positionals)
+        args.emplace_back(std::string(path));
+      if (args.empty())
         args.emplace_back(".");
-      }
 
       std::vector<std::filesystem::path> dirs;
       for (const auto& arg : args) {
@@ -635,21 +618,28 @@ namespace noctalia::plugins {
   } // namespace
 
   int runCli(int argc, char* argv[]) {
-    // argv[0] = "noctalia", argv[1] = "plugins"; commands start at argv[2].
     if (argc < 3) {
-      std::println(stderr, "{}", kHelpText);
+      std::print(stderr, "{}", cli::renderHelp(cli::kPluginsCmd, "noctalia plugins"));
       return 1;
     }
     const char* command = argv[2];
     if (std::strcmp(command, "--help") == 0 || std::strcmp(command, "-h") == 0) {
-      std::println("{}", kHelpText);
+      std::print("{}", cli::renderHelp(cli::kPluginsCmd, "noctalia plugins"));
       return 0;
     }
     if (std::strcmp(command, "lint") == 0) {
-      return runLint(argc - 3, argv + 3);
+      auto parsed = cli::parseOrReport(
+          cli::kPluginsLintCmd, "noctalia plugins lint",
+          std::span<char* const>{argv + 3, static_cast<std::size_t>(argc - 3)}
+      );
+      if (!parsed)
+        return 1;
+      if (parsed->helpRequested)
+        return 0;
+      return runLint(*parsed);
     }
-    std::println(stderr, "error: unknown plugins command '{}'\n", command);
-    std::println(stderr, "{}", kHelpText);
+    std::println(stderr, "error: unknown command: {}", command);
+    std::println(stderr, "Run 'noctalia plugins --help' for usage.");
     return 1;
   }
 

@@ -413,11 +413,11 @@ void DesktopClockWidget::layoutDigital(Renderer& renderer) {
   applyShadow();
   update(renderer);
   m_label->measure(renderer);
-  // Start-aligned mode shifts the label right so proportional digits stay visually stable; centered
-  // mode relies on TextAlign::Center inside the reserved widest-digit width.
-  m_label->setPosition(m_centerText ? 0.0F : m_digitOffsetX, 0.0F);
+  // Both alignments use the same stable-width label. The desktop host centers the content root in
+  // its tile; TextAlign then controls the text's position within that stable box.
+  m_label->setPosition(0.0F, 0.0F);
   if (m_digitalRoot != nullptr) {
-    m_digitalRoot->setSize(m_label->width() + m_digitOffsetX, m_label->height());
+    m_digitalRoot->setSize(m_label->width(), m_label->height());
   }
   if (root() != nullptr && m_digitalRoot != nullptr) {
     root()->setSize(m_digitalRoot->width(), m_digitalRoot->height());
@@ -571,30 +571,24 @@ void DesktopClockWidget::updateStableDigitalWidth(Renderer& renderer, const std:
     m_metricsFontSize = fontSize;
     m_metricsFontFamily = m_fontFamily;
     float widest = -1.0F;
-    float advanceSum = 0.0F;
     for (char digit = '0'; digit <= '9'; ++digit) {
       const std::string glyph(1, digit);
       const float advance =
           renderer.measureText(glyph, fontSize, FontWeight::Bold, 0.0F, 0, TextAlign::Start, m_fontFamily).width;
-      advanceSum += advance;
       if (advance > widest) {
         widest = advance;
         m_widestDigit = digit;
       }
     }
-    m_maxDigitAdvance = widest;
-    m_meanDigitAdvance = advanceSum / 10.0F;
     m_stableSample.clear(); // force a width recompute below
   }
 
   // Normalize digits to the widest glyph: the result's width is invariant across
   // seconds (and minutes), so the box keeps a constant size and never reflows.
   std::string sample = text;
-  int digitCount = 0;
   for (char& ch : sample) {
     if (ch >= '0' && ch <= '9') {
       ch = m_widestDigit;
-      ++digitCount;
     }
   }
   if (sample == m_stableSample) {
@@ -604,14 +598,12 @@ void DesktopClockWidget::updateStableDigitalWidth(Renderer& renderer, const std:
 
   const float width =
       renderer.measureText(sample, fontSize, FontWeight::Bold, 0.0F, 0, TextAlign::Start, m_fontFamily).width;
-  const float offset = m_centerText ? 0.0F : static_cast<float>(digitCount) * (m_maxDigitAdvance - m_meanDigitAdvance);
-  if (std::abs(width - m_stableWidth) > 0.5F || std::abs(offset - m_digitOffsetX) > 0.5F) {
+  if (std::abs(width - m_stableWidth) > 0.5F) {
     m_stableWidth = width;
-    m_digitOffsetX = offset;
     m_label->setMinWidth(m_stableWidth);
     m_label->setMaxWidth(m_stableWidth);
     // Re-arm layout only when the change surfaces outside layout (a non-digit field like the
-    // date/AM-PM rolling over on the Update tick). During layout() the new width/offset already
+    // date/AM-PM rolling over on the Update tick). During layout() the new width already
     // apply in this same pass, and its two box-fit passes (base then fitted scale) each measure a
     // different width — re-arming here would loop forever. The nested update() inside doLayout opens
     // an Update phase scope, so guard on isLayingOut() rather than the phase.

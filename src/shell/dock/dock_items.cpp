@@ -3,7 +3,7 @@
 #include "config/config_service.h"
 #include "core/ui_phase.h"
 #include "i18n/i18n.h"
-#include "render/render_context.h"
+#include "render/core/renderer.h"
 #include "render/scene/input_area.h"
 #include "render/scene/node.h"
 #include "shell/dock/dock_geometry.h"
@@ -396,7 +396,7 @@ namespace shell::dock {
   void handleItemClick(DockInstance& instance, const DockItemAction& action, DockItemClickContext& context);
 
   std::unique_ptr<InputArea> createLauncherButton(
-      DockInstance& instance, const DockConfig& cfg, RenderContext& renderContext,
+      DockInstance& instance, const DockConfig& cfg, Renderer& renderer,
       const std::shared_ptr<DockItemClickContext>& clickContext
   ) {
     const DockEdge edge = cfg.position;
@@ -414,13 +414,12 @@ namespace shell::dock {
     }
 
     if (!cfg.launcherCustomImage.empty()) {
-      RenderContext* renderContextPtr = &renderContext;
       auto launcherImage = ui::image({
           .fit = ImageFit::Contain,
           .width = iSize,
           .height = iSize,
-          .configure = [&cfg, iSize, renderContextPtr, iconDecodeTarget](Image& image) {
-            image.setSourceFile(*renderContextPtr, cfg.launcherCustomImage, iconDecodeTarget, true);
+          .configure = [&cfg, iSize, &renderer, iconDecodeTarget](Image& image) {
+            image.setSourceFile(renderer, cfg.launcherCustomImage, iconDecodeTarget, true);
             image.setForegroundTint(
                 cfg.launcherCustomImageColorize ? std::optional<ColorSpec>{colorSpecFromRole(ColorRole::OnSurface)}
                                                 : std::nullopt
@@ -475,6 +474,11 @@ namespace shell::dock {
       return;
     }
 
+    if (instance.surface == nullptr) {
+      return;
+    }
+    Renderer& renderer = instance.surface->renderTarget().renderer();
+
     resetDockItemDragState(instance);
 
     const auto& cfg = deps.model.config.config().dock;
@@ -520,7 +524,7 @@ namespace shell::dock {
     const auto& itemModels = snapshot.items;
 
     if (launcherPosition == DockLauncherPosition::Start) {
-      instance.row->addChild(createLauncherButton(instance, cfg, deps.renderContext, clickContext));
+      instance.row->addChild(createLauncherButton(instance, cfg, renderer, clickContext));
     }
 
     // Reserve up-front so emplace_back never reallocates while lambdas hold raw pointers.
@@ -559,15 +563,14 @@ namespace shell::dock {
       if (iconPath.empty()) {
         iconPath = deps.iconResolver.resolve("application-x-executable", iconDecodeTarget);
       }
-      RenderContext* renderContext = &deps.renderContext;
       auto iconImg = ui::image({
           .width = iSize,
           .height = iSize,
-          .configure = [renderContext, iconPath, iconDecodeTarget,
+          .configure = [&renderer, iconPath, iconDecodeTarget,
                         &shell = deps.model.config.config().shell](Image& image) {
             image.setAppIconColorization(effectiveShellAppIconColorizationTint(shell));
-            if (!iconPath.empty() && renderContext != nullptr) {
-              image.setSourceFile(*renderContext, iconPath, iconDecodeTarget, true);
+            if (!iconPath.empty()) {
+              image.setSourceFile(renderer, iconPath, iconDecodeTarget, true);
             }
             image.setPosition(kCellPad, kCellPad);
           },
@@ -745,7 +748,7 @@ namespace shell::dock {
     }
 
     if (launcherPosition == DockLauncherPosition::End) {
-      instance.row->addChild(createLauncherButton(instance, cfg, deps.renderContext, clickContext));
+      instance.row->addChild(createLauncherButton(instance, cfg, renderer, clickContext));
     }
 
     if (cfg.magnification && instance.launcherIconNode != nullptr) {
@@ -765,6 +768,11 @@ namespace shell::dock {
   }
 
   void updateVisuals(DockInstance& instance, DockItemSceneDependencies deps, const DockSnapshot& snapshot) {
+    if (instance.surface == nullptr) {
+      return;
+    }
+    Renderer& renderer = instance.surface->renderTarget().renderer();
+
     const auto& cfg = deps.model.config.config().dock;
     const auto& shell = deps.model.config.config().shell;
     const DockEdge edge = cfg.position;
@@ -873,7 +881,7 @@ namespace shell::dock {
           item.badgeLabel->setColor(colorSpecFromRole(ColorRole::OnPrimary));
           item.badge->setFill(colorSpecFromRole(ColorRole::Primary));
           const float bd = std::max(kBadgeMinSize, static_cast<float>(cfg.iconSize) * kBadgeSizeRatio);
-          item.badgeLabel->measure(deps.renderContext);
+          item.badgeLabel->measure(renderer);
           item.badgeLabel->setPosition(
               std::round((bd - item.badgeLabel->width()) * 0.5F), std::round((bd - item.badgeLabel->height()) * 0.5F)
           );

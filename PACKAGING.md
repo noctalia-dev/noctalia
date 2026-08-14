@@ -1,7 +1,7 @@
 # Packaging Noctalia
 
 Notes for distribution packagers. End-user install docs live in the
-[README](README.md) and at [docs.noctalia.dev](https://docs.noctalia.dev/v5/getting-started/installation).
+[README](README.md) and at [docs.noctalia.dev](https://docs.noctalia.dev/noctalia/getting-started/installation/).
 
 ## Package description
 
@@ -117,6 +117,20 @@ breaks fonts, translations, templates, glyphs, and sounds. See
 Not shipped (don’t look for them in the install): AppStream / metainfo XML, man
 pages, systemd units.
 
+### Shell completions
+
+Static completion files are not shipped. Generate them from the freshly built
+binary and install them in the distribution's completion directories:
+
+```text
+./build-<mode>/noctalia completions bash  → share/bash-completion/completions/noctalia
+./build-<mode>/noctalia completions zsh   → share/zsh/site-functions/_noctalia
+./build-<mode>/noctalia completions fish  → share/fish/vendor_completions.d/noctalia.fish
+```
+
+This is intentionally a packaging step rather than a Meson install rule:
+executing the target binary during installation would break cross-compilation.
+
 ## Dependencies
 
 No Qt or GTK. UI is Wayland + OpenGL ES (EGL/GLES, or `libepoxy` as a fallback
@@ -192,8 +206,13 @@ Override bases with `NOCTALIA_CONFIG_HOME`, `NOCTALIA_STATE_HOME`,
 - Not a compositor, display manager, or greeter. Greeter support is
   [noctalia-greeter](https://github.com/noctalia-dev/noctalia-greeter).
 - Not a replacement for file managers, screen casting, or drive mounting.
-- Compositor support varies (protocols / IPC). See
-  [compositor docs](https://docs.noctalia.dev/v5/compositor-settings/).
+- Compositor support varies (protocols / IPC). See the compositor docs for
+  [Niri](https://docs.noctalia.dev/noctalia/compositor-settings/niri/),
+  [Hyprland](https://docs.noctalia.dev/noctalia/compositor-settings/hyprland/),
+  [Sway / Scroll](https://docs.noctalia.dev/noctalia/compositor-settings/sway-scroll/),
+  [Mango](https://docs.noctalia.dev/noctalia/compositor-settings/mango/),
+  [Labwc](https://docs.noctalia.dev/noctalia/compositor-settings/labwc/), and
+  [KDE Plasma](https://docs.noctalia.dev/noctalia/compositor-settings/kde/).
 
 ## Versioning and beta
 

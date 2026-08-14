@@ -14,6 +14,7 @@ class RenderTarget;
 class TextureManager;
 struct wl_surface;
 struct WallpaperDrawParams;
+struct WallpaperMaskDrawParams;
 
 class RenderFramebuffer {
 public:
@@ -39,6 +40,7 @@ enum class RenderBlendMode {
   Disabled,
   StraightAlpha,
   PremultipliedAlpha,
+  DestinationOut,
 };
 
 enum class RenderImageFitMode : std::uint8_t {
@@ -147,8 +149,8 @@ public:
       const Mat3& transform
   ) = 0;
   virtual void drawScreenCorner(
-      float surfaceWidth, float surfaceHeight, float pixelScaleX, float pixelScaleY, float width, float height,
-      const ScreenCornerStyle& style, const Mat3& transform
+      float surfaceWidth, float surfaceHeight, float width, float height, const ScreenCornerStyle& style,
+      const Mat3& transform
   ) = 0;
   virtual void drawAudioSpectrum(
       float surfaceWidth, float surfaceHeight, float pixelScaleX, float pixelScaleY, float width, float height,
@@ -167,6 +169,7 @@ public:
       const GraphStyle& style, const Mat3& transform
   ) = 0;
   virtual void drawWallpaper(const WallpaperDrawParams& params) = 0;
+  virtual void drawWallpaperMask(const WallpaperMaskDrawParams& params) = 0;
   virtual void drawFullscreenTexture(TextureId texture, bool flipY) = 0;
   virtual void drawFullscreenTint(Color color) = 0;
   virtual void drawFramebufferBlur(

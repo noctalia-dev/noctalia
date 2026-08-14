@@ -82,6 +82,12 @@ void AudioVisualizer::setMirrored(bool mirrored) {
   setStyle(next);
 }
 
+void AudioVisualizer::setReversed(bool reversed) {
+  auto next = style();
+  next.reversed = reversed;
+  setStyle(next);
+}
+
 void AudioVisualizer::setCentered(bool centered) {
   auto next = style();
   next.centered = centered;

@@ -19,6 +19,7 @@
 #include "shell/bar/widget_gesture_defaults.h"
 #include "shell/bar/widgets/plugin_widget.h"
 #include "shell/bar/widgets/taskbar_widget.h"
+#include "shell/bar/widgets/tray_widget.h"
 #include "shell/panel/panel_manager.h"
 #include "shell/surface/shadow.h"
 #include "shell/tooltip/tooltip_manager.h"
@@ -1224,25 +1225,35 @@ namespace {
       placeGhostPills(instance.endWidgets);
     }
     if (screenEdgeClick) {
-      if (!instance.startSection->children().empty()) {
-        auto node = instance.startSection->children().front().get();
+      auto extendHitTestOutsetToScreenEdge = [&](Node* node, bool start) {
+        if (node == nullptr) {
+          return;
+        }
         auto hitTestOutset = node->hitTestOutset();
-        if (isVertical) {
-          hitTestOutset.top += paddingInsideSection;
+        if (start) {
+          if (isVertical) {
+            hitTestOutset.top += paddingInsideSection;
+          } else {
+            hitTestOutset.left += paddingInsideSection;
+          }
         } else {
-          hitTestOutset.left += paddingInsideSection;
+          if (isVertical) {
+            hitTestOutset.bottom += paddingInsideSection;
+          } else {
+            hitTestOutset.right += paddingInsideSection;
+          }
         }
         node->setHitTestOutset(hitTestOutset);
+      };
+      if (!instance.startWidgets.empty()) {
+        auto* widget = instance.startWidgets.front().get();
+        extendHitTestOutsetToScreenEdge(widget->outerNode(), true);
+        extendHitTestOutsetToScreenEdge(widget->root(), true);
       }
-      if (!instance.endSection->children().empty()) {
-        auto node = instance.endSection->children().back().get();
-        auto hitTestOutset = node->hitTestOutset();
-        if (isVertical) {
-          hitTestOutset.bottom += paddingInsideSection;
-        } else {
-          hitTestOutset.right += paddingInsideSection;
-        }
-        node->setHitTestOutset(hitTestOutset);
+      if (!instance.endWidgets.empty()) {
+        auto* widget = instance.endWidgets.back().get();
+        extendHitTestOutsetToScreenEdge(widget->outerNode(), false);
+        extendHitTestOutsetToScreenEdge(widget->root(), false);
       }
     }
   }
@@ -2472,6 +2483,10 @@ void Bar::attachWidgetsToSections(BarInstance& instance) {
           PanelManager::instance().togglePanel(std::string(panelId), request);
         }
       });
+      if (auto* tray = dynamic_cast<TrayWidget*>(widget.get())) {
+        tray->setHoverOverlayParent(instance.hoverUnderlay);
+      }
+
       widget->create();
       if (widget->outerNode() != nullptr) {
         instance.widgetByRoot[widget->outerNode()] = widget.get();
@@ -3022,10 +3037,10 @@ void Bar::startHideFadeOut(BarInstance& instance) {
 
 void Bar::buildScene(BarInstance& instance, std::uint32_t width, std::uint32_t height) {
   uiAssertNotRendering("Bar::buildScene");
-  if (m_renderContext == nullptr) {
+  if (m_renderContext == nullptr || instance.surface == nullptr) {
     return;
   }
-  auto* renderer = m_renderContext;
+  Renderer& renderer = instance.surface->renderTarget().renderer();
 
   const auto w = static_cast<float>(width);
   const auto h = static_cast<float>(height);
@@ -3195,7 +3210,7 @@ void Bar::buildScene(BarInstance& instance, std::uint32_t width, std::uint32_t h
 
   applyBarShadowStyle(instance, shadowConfig, w, h);
 
-  layoutBarSections(instance, *renderer, barAreaW, barAreaH, padding, isVertical);
+  layoutBarSections(instance, renderer, barAreaW, barAreaH, padding, isVertical);
 
   float contentLeft = barAreaX;
   float contentTop = barAreaY;
@@ -3227,10 +3242,10 @@ void Bar::buildScene(BarInstance& instance, std::uint32_t width, std::uint32_t h
 }
 
 void Bar::updateWidgets(BarInstance& instance) {
-  if (m_renderContext == nullptr) {
+  if (m_renderContext == nullptr || instance.surface == nullptr) {
     return;
   }
-  auto* renderer = m_renderContext;
+  Renderer& renderer = instance.surface->renderTarget().renderer();
 
   const auto w = static_cast<float>(instance.surface->width());
   const auto h = static_cast<float>(instance.surface->height());
@@ -3247,15 +3262,15 @@ void Bar::updateWidgets(BarInstance& instance) {
       if (widget->root() == nullptr) {
         continue;
       }
-      widget->update(*renderer);
-      widget->layout(*renderer, barAreaW, barAreaH);
+      widget->update(renderer);
+      widget->layout(renderer, barAreaW, barAreaH);
     }
   };
 
   updateSection(instance.startWidgets);
   updateSection(instance.centerWidgets);
   updateSection(instance.endWidgets);
-  layoutBarSections(instance, *renderer, barAreaW, barAreaH, padding, isVertical);
+  layoutBarSections(instance, renderer, barAreaW, barAreaH, padding, isVertical);
 }
 
 void Bar::prepareFrame(BarInstance& instance, bool needsUpdate, bool needsLayout) {
@@ -3264,6 +3279,7 @@ void Bar::prepareFrame(BarInstance& instance, bool needsUpdate, bool needsLayout
   }
 
   m_renderContext->makeCurrent(instance.surface->renderTarget());
+  Renderer& renderer = instance.surface->renderTarget().renderer();
 
   if (needsUpdate) {
     UiPhaseScope updatePhase(UiPhase::Update);
@@ -3288,15 +3304,15 @@ void Bar::prepareFrame(BarInstance& instance, bool needsUpdate, bool needsLayout
   {
     UiPhaseScope layoutPhase(UiPhase::Layout);
     for (auto& widget : instance.startWidgets) {
-      widget->layout(*m_renderContext, barAreaW, barAreaH);
+      widget->layout(renderer, barAreaW, barAreaH);
     }
     for (auto& widget : instance.centerWidgets) {
-      widget->layout(*m_renderContext, barAreaW, barAreaH);
+      widget->layout(renderer, barAreaW, barAreaH);
     }
     for (auto& widget : instance.endWidgets) {
-      widget->layout(*m_renderContext, barAreaW, barAreaH);
+      widget->layout(renderer, barAreaW, barAreaH);
     }
-    layoutBarSections(instance, *m_renderContext, barAreaW, barAreaH, padding, isVertical);
+    layoutBarSections(instance, renderer, barAreaW, barAreaH, padding, isVertical);
   }
 }
 
@@ -3909,56 +3925,42 @@ void Bar::registerIpc(IpcService& ipc) {
   // Widget gesture actions dispatch through the same registry.
   m_actionDispatcher.setIpcService(&ipc);
 
-  ipc.registerCycleHandler(
-      "taskbar-cycle",
-      [this, &ipc](const std::string& args) -> std::string {
-        const auto parts = noctalia::ipc::splitWords(args);
-        if (parts.size() != 1 || (parts[0] != "next" && parts[0] != "prev")) {
-          return "error: taskbar-cycle requires <next|prev>\n";
-        }
-        // Order comes from the taskbar's own model (pins, grouping, per-monitor filter), so the
-        // target is a widget instance rather than a global window list.
-        const auto& context = ipc.invocationContext();
-        if (!context.has_value() || context->widgetName.empty()) {
-          return "error: taskbar-cycle must be invoked from a taskbar widget gesture\n";
-        }
-        auto* taskbar = findTaskbarWidget(*context);
-        if (taskbar == nullptr) {
-          return "error: no taskbar widget named '" + context->widgetName + "' on bar '" + context->barName + "'\n";
-        }
-        taskbar->cycleAdjacent(parts[0] == "next" ? 1 : -1);
-        return "ok\n";
-      },
-      "taskbar-cycle <next|prev>", "Step to the adjacent task or workspace group in the invoking taskbar"
-  );
+  ipc.bindCycle(noctalia::cli::msg::taskbarCycle, [this, &ipc](const std::string& args) -> std::string {
+    const auto parts = noctalia::ipc::splitWords(args);
+    if (parts.size() != 1 || (parts[0] != "next" && parts[0] != "prev")) {
+      return "error: taskbar-cycle requires <next|prev>\n";
+    }
+    // Order comes from the taskbar's own model (pins, grouping, per-monitor filter), so the
+    // target is a widget instance rather than a global window list.
+    const auto& context = ipc.invocationContext();
+    if (!context.has_value() || context->widgetName.empty()) {
+      return "error: taskbar-cycle must be invoked from a taskbar widget gesture\n";
+    }
+    auto* taskbar = findTaskbarWidget(*context);
+    if (taskbar == nullptr) {
+      return "error: no taskbar widget named '" + context->widgetName + "' on bar '" + context->barName + "'\n";
+    }
+    taskbar->cycleAdjacent(parts[0] == "next" ? 1 : -1);
+    return "ok\n";
+  });
 
-  ipc.registerHandler(
-      "bar-show", [this](const std::string& args) -> std::string { return showBarIpc(args); },
-      "[bar-name] [monitor-selector]", "Show one or all bars"
-  );
+  ipc.bind(noctalia::cli::msg::barShow, [this](const std::string& args) -> std::string { return showBarIpc(args); });
 
-  ipc.registerHandler(
-      "bar-hide", [this](const std::string& args) -> std::string { return hideBarIpc(args); },
-      "[bar-name] [monitor-selector]", "Hide one or all bars and release their layout gaps"
-  );
+  ipc.bind(noctalia::cli::msg::barHide, [this](const std::string& args) -> std::string { return hideBarIpc(args); });
 
-  ipc.registerHandler(
-      "bar-toggle", [this](const std::string& args) -> std::string { return toggleBarIpc(args); },
-      "[bar-name] [monitor-selector]", "Toggle visibility for one or all bars"
-  );
+  ipc.bind(noctalia::cli::msg::barToggle, [this](const std::string& args) -> std::string {
+    return toggleBarIpc(args);
+  });
 
-  ipc.registerHandler(
-      "bar-reserve-toggle", [this](const std::string& args) -> std::string { return toggleBarReserveSpaceIpc(args); },
-      "[bar-name] [monitor-selector]", "Toggle reserve space for one or all bars"
-  );
+  ipc.bind(noctalia::cli::msg::barReserveToggle, [this](const std::string& args) -> std::string {
+    return toggleBarReserveSpaceIpc(args);
+  });
 
-  ipc.registerHandler(
-      "bar-auto-hide-set", [this](const std::string& args) -> std::string { return setBarAutoHideIpc(args); },
-      "<on|off|smart|true|false|1|0> [bar-name] [monitor-selector]", "Set auto-hide state for a bar"
-  );
+  ipc.bind(noctalia::cli::msg::barAutoHideSet, [this](const std::string& args) -> std::string {
+    return setBarAutoHideIpc(args);
+  });
 
-  ipc.registerHandler(
-      "bar-layer-set", [this](const std::string& args) -> std::string { return setBarLayerIpc(args); },
-      "<top|overlay> [bar-name] [monitor-selector]", "Set one or all bar layers"
-  );
+  ipc.bind(noctalia::cli::msg::barLayerSet, [this](const std::string& args) -> std::string {
+    return setBarLayerIpc(args);
+  });
 }

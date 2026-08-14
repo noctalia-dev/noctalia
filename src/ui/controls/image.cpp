@@ -111,6 +111,12 @@ Image::~Image() {
   }
 }
 
+// Retained binding used by teardown and deferred reloads. Callers must hand in
+// a renderer that outlives this Image (a RenderTarget's stable view); hosts
+// that measure with a transient fixed-scale view must rebind (relayout) against
+// the surface's stable renderer before the transient view dies.
+void Image::bindRenderer(Renderer& renderer) { m_renderer = &renderer; }
+
 void Image::setRadius(float radius) {
   if (m_radius == radius) {
     return;
@@ -201,7 +207,7 @@ bool Image::setSourceFile(
   }
 
   clear(renderer);
-  m_renderer = &renderer;
+  bindRenderer(renderer);
 
   if (path.empty()) {
     return false;
@@ -237,7 +243,7 @@ bool Image::setSourceFile(
 bool Image::reloadSourceFile(
     Renderer& renderer, const std::string& path, int targetSize, bool mipmap, bool centerSquareCrop
 ) {
-  m_renderer = &renderer;
+  bindRenderer(renderer);
 
   if (path.empty()) {
     return false;
@@ -271,7 +277,7 @@ bool Image::reloadSourceFile(
 bool Image::setSourceFileAsync(
     Renderer& renderer, AsyncTextureCache& cache, const std::string& path, int targetSize, bool mipmap
 ) {
-  m_renderer = &renderer;
+  bindRenderer(renderer);
 
   const int requestedTargetSize = std::max(0, targetSize);
   const int normalizedTargetSize = renderTargetSize(renderer, requestedTargetSize);
@@ -325,7 +331,7 @@ bool Image::setSourceFileAsync(
 
 bool Image::setSourceBytes(Renderer& renderer, const std::uint8_t* data, std::size_t size, bool mipmap) {
   clear(renderer);
-  m_renderer = &renderer;
+  bindRenderer(renderer);
 
   if (data == nullptr || size == 0) {
     return false;
@@ -360,7 +366,7 @@ bool Image::setSourceRaw(
     PixmapFormat format, bool mipmap
 ) {
   clear(renderer);
-  m_renderer = &renderer;
+  bindRenderer(renderer);
 
   if (data == nullptr || size == 0 || width <= 0 || height <= 0) {
     return false;
@@ -398,7 +404,7 @@ void Image::setExternalTexture(Renderer& renderer, TextureHandle handle) {
     return;
   }
 
-  m_renderer = &renderer;
+  bindRenderer(renderer);
   clearAsyncSource();
   clearColorizationSource();
   if (m_ownsTexture && m_texture.id != 0) {
@@ -419,7 +425,7 @@ void Image::setExternalTexture(Renderer& renderer, TextureHandle handle) {
 }
 
 void Image::clear(Renderer& renderer) {
-  m_renderer = &renderer;
+  bindRenderer(renderer);
   clearAsyncSource();
   if (m_ownsTexture && m_texture.id != 0) {
     renderer.textureManager().unload(m_texture);
@@ -479,6 +485,7 @@ void Image::setFrameSize(float width, float height) {
 }
 
 void Image::doLayout(Renderer& renderer) {
+  bindRenderer(renderer);
   if (m_ownsTexture && !m_sourcePath.empty() && m_sourceRequestedTargetSize > 0) {
     const int textureTargetSize = renderTargetSize(renderer, m_sourceRequestedTargetSize);
     if (textureTargetSize != m_sourceTargetSize) {
@@ -522,7 +529,7 @@ void Image::doLayout(Renderer& renderer) {
 }
 
 void Image::doInvalidateGpuResources(Renderer& renderer) {
-  m_renderer = &renderer;
+  bindRenderer(renderer);
 
   if (m_ownsTexture) {
     if (m_texture.id != 0) {

@@ -658,61 +658,45 @@ namespace noctalia::theme {
   }
 
   void ThemeService::registerIpc(IpcService& ipc) {
-    ipc.registerHandler(
-        "theme-mode-toggle",
-        [this](const std::string&) -> std::string {
-          toggleLightDark();
-          return "ok\n";
-        },
-        "", "Toggle theme mode between dark and light"
-    );
-    ipc.registerHandler(
-        "theme-mode-get",
+    ipc.bind(noctalia::cli::msg::themeModeToggle, [this](const std::string&) -> std::string {
+      toggleLightDark();
+      return "ok\n";
+    });
+    ipc.bind(
+        noctalia::cli::msg::themeModeGet,
         [this](const std::string&) -> std::string {
           std::string out(resolvedMode());
           out.push_back('\n');
           return out;
         },
-        "", "Print the current resolved theme mode",
         IpcService::HandlerOptions{.actionEditorVisibility = IpcService::ActionEditorVisibility::Hidden}
     );
-    ipc.registerHandler(
-        "theme-mode-set",
-        [this](const std::string& args) -> std::string {
-          const std::string token = StringUtils::trim(args);
-          const auto mode = enumFromKey(kThemeModes, token);
-          if (!mode.has_value()) {
-            return "error: expected dark, light, or auto\n";
-          }
-          m_config.setThemeMode(*mode);
-          return "ok\n";
-        },
-        "<dark|light|auto>", "Set theme mode and persist to settings.toml"
-    );
-    ipc.registerHandler(
-        "color-scheme-get",
-        [this](const std::string&) -> std::string { return formatColorSchemeLine(m_config.config().theme); }, "",
-        "Print active color scheme: <source> <name> (source is builtin, wallpaper, community, or custom)",
+    ipc.bind(noctalia::cli::msg::themeModeSet, [this](const std::string& args) -> std::string {
+      const std::string token = StringUtils::trim(args);
+      const auto mode = enumFromKey(kThemeModes, token);
+      if (!mode.has_value()) {
+        return "error: expected dark, light, or auto\n";
+      }
+      m_config.setThemeMode(*mode);
+      return "ok\n";
+    });
+    ipc.bind(
+        noctalia::cli::msg::colorSchemeGet,
+        [this](const std::string&) -> std::string { return formatColorSchemeLine(m_config.config().theme); },
         IpcService::HandlerOptions{.actionEditorVisibility = IpcService::ActionEditorVisibility::Hidden}
     );
-    ipc.registerHandler(
-        "color-scheme-set",
-        [this](const std::string& args) -> std::string {
-          PaletteSource source = PaletteSource::Builtin;
-          std::string value;
-          std::string error;
-          if (!parseColorSchemeSetArgs(args, source, value, error)) {
-            return error;
-          }
-          if (!m_config.setThemeColorScheme(source, value)) {
-            return "error: unknown scheme/palette or settings not writable\n";
-          }
-          return "ok\n";
-        },
-        "<source> <name>",
-        "Set palette source and selection in settings.toml (builtin name, wallpaper generator scheme, community id, or "
-        "custom scheme folder name)"
-    );
+    ipc.bind(noctalia::cli::msg::colorSchemeSet, [this](const std::string& args) -> std::string {
+      PaletteSource source = PaletteSource::Builtin;
+      std::string value;
+      std::string error;
+      if (!parseColorSchemeSetArgs(args, source, value, error)) {
+        return error;
+      }
+      if (!m_config.setThemeColorScheme(source, value)) {
+        return "error: unknown scheme/palette or settings not writable\n";
+      }
+      return "ok\n";
+    });
   }
 
 } // namespace noctalia::theme

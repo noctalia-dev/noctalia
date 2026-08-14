@@ -799,8 +799,8 @@ namespace greeter {
     if (!appearanceSyncAvailable(config.config().shell.greeterSync)) {
       return;
     }
-    ipc.registerHandler(
-        "greeter-sync",
+    ipc.bind(
+        noctalia::cli::msg::greeterSync,
         [&config, resolvedThemeMode = std::move(resolvedThemeMode), platform,
          logindOnSystemBus = std::move(logindOnSystemBus)](const std::string& args) -> std::string {
           if (!StringUtils::trim(args).empty()) {
@@ -820,7 +820,6 @@ namespace greeter {
           }
           return "ok\n";
         },
-        "", "Sync wallpaper, colors, and monitor layout to Noctalia Greeter",
         IpcService::HandlerOptions{.actionEditorVisibility = IpcService::ActionEditorVisibility::Hidden}
     );
   }

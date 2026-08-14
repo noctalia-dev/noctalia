@@ -313,8 +313,8 @@ void ScrollView::setViewportPaddingV(float padding) {
   markLayoutDirty();
 }
 
-float ScrollView::contentViewportWidth() const noexcept {
-  const float gutter = m_orientation == ScrollOrientation::Vertical && m_scrollbarShown
+float ScrollView::contentViewportWidth(bool reserveScrollbarGutter) const noexcept {
+  const float gutter = m_orientation == ScrollOrientation::Vertical && (m_scrollbarShown || reserveScrollbarGutter)
       ? (Style::scrollbarWidth + Style::scrollbarGap)
       : 0.0F;
   return std::max(0.0F, width() - m_viewportPaddingH * 2.0F - gutter);

@@ -58,7 +58,7 @@ void FileDialogPopup::layoutSheet(float contentWidth, float contentHeight) {
   if (m_dialog == nullptr) {
     return;
   }
-  m_dialog->layout(*renderContext(), contentWidth, contentHeight);
+  m_dialog->layout(renderer(), contentWidth, contentHeight);
 }
 
 void FileDialogPopup::cancelToFacade() { FileDialog::cancelIfPending(); }
@@ -74,7 +74,7 @@ float FileDialogPopup::computePadding(float /*scale*/) const {
 
 void FileDialogPopup::runUpdatePhase() {
   if (m_dialog != nullptr) {
-    m_dialog->update(*renderContext());
+    m_dialog->update(renderer());
   }
 }
 

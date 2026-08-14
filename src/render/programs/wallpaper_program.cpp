@@ -1,6 +1,9 @@
 #include "render/programs/wallpaper_program.h"
 
+#include "render/programs/wallpaper_sampling_glsl.h"
+
 #include <stdexcept>
+#include <string>
 
 namespace {
 
@@ -24,9 +27,7 @@ void main() {
 }
 )";
 
-  // Common GLSL functions shared by all transition fragment shaders.
-  // Included at the top of each fragment source via string concatenation.
-  constexpr char kCommonFunctions[] = R"(
+  constexpr char kCommonPrefix[] = R"(
 precision highp float;
 
 uniform sampler2D u_source1;
@@ -36,85 +37,24 @@ uniform float u_sourceKind2;
 uniform vec4 u_sourceColor1;
 uniform vec4 u_sourceColor2;
 uniform float u_progress;
-uniform float u_fillMode;
 uniform float u_imageWidth1;
 uniform float u_imageHeight1;
 uniform float u_imageWidth2;
 uniform float u_imageHeight2;
-uniform float u_screenWidth;
-uniform float u_screenHeight;
 uniform vec4 u_fillColor;
-uniform vec2 u_spanOffset;
-uniform vec2 u_spanMonitorSize;
-uniform vec2 u_spanTotalSize;
 
 varying vec2 v_texcoord;
+)";
 
-vec2 calculateUV(vec2 uv, float imgWidth, float imgHeight) {
-    vec2 transformedUV = uv;
-
-    if (u_fillMode < 0.5) {
-        // Center
-        vec2 screenPixel = uv * vec2(u_screenWidth, u_screenHeight);
-        vec2 imageOffset = (vec2(u_screenWidth, u_screenHeight) - vec2(imgWidth, imgHeight)) * 0.5;
-        vec2 imagePixel = screenPixel - imageOffset;
-        transformedUV = imagePixel / vec2(imgWidth, imgHeight);
-    }
-    else if (u_fillMode < 1.5) {
-        // Crop (fill/cover)
-        float scale = max(u_screenWidth / imgWidth, u_screenHeight / imgHeight);
-        vec2 scaledImageSize = vec2(imgWidth, imgHeight) * scale;
-        vec2 offset = (scaledImageSize - vec2(u_screenWidth, u_screenHeight)) / scaledImageSize;
-        transformedUV = uv * (vec2(1.0) - offset) + offset * 0.5;
-    }
-    else if (u_fillMode < 2.5) {
-        // Fit (contain)
-        float scale = min(u_screenWidth / imgWidth, u_screenHeight / imgHeight);
-        vec2 scaledImageSize = vec2(imgWidth, imgHeight) * scale;
-        vec2 offset = (vec2(u_screenWidth, u_screenHeight) - scaledImageSize) * 0.5;
-        vec2 screenPixel = uv * vec2(u_screenWidth, u_screenHeight);
-        vec2 imagePixel = (screenPixel - offset) / scale;
-        transformedUV = imagePixel / vec2(imgWidth, imgHeight);
-    }
-    else if (u_fillMode < 3.5) {
-        // Stretch - no transform
-    }
-    else if (u_fillMode < 4.5) {
-        // Repeat (tile)
-        vec2 screenPixel = uv * vec2(u_screenWidth, u_screenHeight);
-        transformedUV = screenPixel / vec2(imgWidth, imgHeight);
-    }
-    else {
-        // Span: cover-fit the image across the whole multi-monitor desktop and
-        // sample the slice that belongs to this output.
-        if (u_spanTotalSize.x <= 0.0 || u_spanTotalSize.y <= 0.0) {
-            // Span geometry unavailable: behave like Crop.
-            float scale = max(u_screenWidth / imgWidth, u_screenHeight / imgHeight);
-            vec2 scaledImageSize = vec2(imgWidth, imgHeight) * scale;
-            vec2 offset = (scaledImageSize - vec2(u_screenWidth, u_screenHeight)) / scaledImageSize;
-            transformedUV = uv * (vec2(1.0) - offset) + offset * 0.5;
-        } else {
-            vec2 imageSize = vec2(imgWidth, imgHeight);
-            float scale = max(u_spanTotalSize.x / imageSize.x, u_spanTotalSize.y / imageSize.y);
-            vec2 scaledImageSize = imageSize * scale;
-            vec2 desktopPixel = u_spanOffset + uv * u_spanMonitorSize;
-            vec2 imagePixel = desktopPixel + (scaledImageSize - u_spanTotalSize) * 0.5;
-            transformedUV = imagePixel / scaledImageSize;
-        }
-    }
-
-    return transformedUV;
-}
-
+  constexpr char kCommonSuffix[] = R"(
 vec4 sampleWithFillMode(sampler2D tex, vec2 uv, float imgWidth, float imgHeight) {
-    vec2 transformedUV = calculateUV(uv, imgWidth, imgHeight);
+    vec2 transformedUV = calculateWallpaperUV(uv, imgWidth, imgHeight);
 
     if (u_fillMode > 3.5 && u_fillMode < 4.5) {
         return texture2D(tex, fract(transformedUV));
     }
 
-    if (transformedUV.x < 0.0 || transformedUV.x > 1.0 ||
-        transformedUV.y < 0.0 || transformedUV.y > 1.0) {
+    if (wallpaperUVOutside(transformedUV)) {
         return u_fillColor;
     }
 
@@ -371,7 +311,8 @@ void WallpaperProgram::abandon() noexcept {
 }
 
 void WallpaperProgram::initProgram(std::size_t index, const char* fragSource) {
-  std::string fullFrag = std::string(kCommonFunctions) + fragSource;
+  const std::string fullFrag =
+      std::string(kCommonPrefix) + std::string(wallpaper_shader::kSamplingSource) + kCommonSuffix + fragSource;
 
   auto& pd = m_programs[index];
   pd.program.create(kVertexShader, fullFrag.c_str());

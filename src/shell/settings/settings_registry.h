@@ -2,6 +2,7 @@
 
 #include "config/config_types.h"
 #include "core/input/key_chord.h"
+#include "ui/controls/button.h"
 #include "ui/controls/color_swatch_preview.h"
 #include "ui/palette.h"
 
@@ -251,7 +252,7 @@ namespace settings {
     std::string label;
     std::function<void()> action;
     std::string glyph;
-    bool destructive = false;
+    ButtonVariant variant = ButtonVariant::Default;
   };
 
   struct ColorSpecPickerSetting {

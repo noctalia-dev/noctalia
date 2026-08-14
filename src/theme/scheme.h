@@ -1,8 +1,10 @@
 #pragma once
 
+#include <array>
 #include <optional>
 #include <string>
 #include <string_view>
+#include <utility>
 
 namespace noctalia::theme {
 
@@ -22,6 +24,26 @@ namespace noctalia::theme {
     Dysfunctional,
     Muted,
   };
+
+  inline constexpr std::array<std::pair<std::string_view, Scheme>, 10> kSchemeEntries{{
+      {"m3-tonal-spot", Scheme::TonalSpot},
+      {"m3-content", Scheme::Content},
+      {"m3-fruit-salad", Scheme::FruitSalad},
+      {"m3-rainbow", Scheme::Rainbow},
+      {"m3-monochrome", Scheme::Monochrome},
+      {"vibrant", Scheme::Vibrant},
+      {"faithful", Scheme::Faithful},
+      {"soft", Scheme::Soft},
+      {"dysfunctional", Scheme::Dysfunctional},
+      {"muted", Scheme::Muted},
+  }};
+
+  inline constexpr std::array<std::string_view, kSchemeEntries.size()> kSchemeNames = [] {
+    std::array<std::string_view, kSchemeEntries.size()> names{};
+    for (std::size_t i = 0; i < kSchemeEntries.size(); ++i)
+      names[i] = kSchemeEntries[i].first;
+    return names;
+  }();
 
   // True for the Material Design 3 schemes.
   constexpr bool isMaterialScheme(Scheme s) {

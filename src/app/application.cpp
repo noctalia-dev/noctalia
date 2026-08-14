@@ -137,9 +137,10 @@ namespace {
 } // namespace
 
 Application::Application()
-    : m_lockKeysService(m_wayland), m_gammaService(m_wayland), m_locationService(m_configService, m_httpClient),
-      m_weatherService(m_configService, m_httpClient),
-      m_calendarService(m_configService, m_httpClient, m_secretStore, m_storageKeyProvider, &m_notificationManager) {
+    : m_lockKeysService(m_wayland),
+      m_calendarService(m_configService, m_httpClient, m_secretStore, m_storageKeyProvider, &m_notificationManager),
+      m_gammaService(m_wayland), m_locationService(m_configService, m_httpClient),
+      m_weatherService(m_configService, m_httpClient) {
   m_notificationManager.loadPersistedHistory();
   notify::setInstance(&m_notificationManager);
 
@@ -165,6 +166,10 @@ Application::Application()
 }
 
 Application::~Application() {
+  ColorPickerDialog::setPresenter(nullptr);
+  GlyphPickerDialog::setPresenter(nullptr);
+  FileDialog::setPresenter(nullptr);
+  m_settingsWindow.shutdownDialogPresenter();
   // m_systemMonitor is declared after the plugin hosts, so it is destroyed first; drop the script
   // API's pointer to it here, while both are still alive, or a plugin that used noctalia.cpuCores
   // releases its reference through a dangling pointer as its host is torn down.

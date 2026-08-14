@@ -46,6 +46,7 @@ void Application::reloadPluginLauncherProviders() {
             scripting::PluginRuntimeContext{
                 .entryId = resolved.fullId(),
                 .sourcePath = resolved.sourcePath,
+                .pluginDir = resolved.pluginDir,
                 .settings = std::move(seeded),
                 .scriptApi = m_scriptApi,
                 .fileWatcher = &m_fileWatcher,
@@ -112,6 +113,7 @@ void Application::reloadPluginPanels() {
             scripting::PluginRuntimeContext{
                 .entryId = fullId,
                 .sourcePath = resolved.sourcePath,
+                .pluginDir = resolved.pluginDir,
                 .settings = std::move(seeded),
                 .scriptApi = m_scriptApi,
                 .fileWatcher = &m_fileWatcher,

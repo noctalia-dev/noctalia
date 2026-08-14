@@ -24,6 +24,7 @@
 #include "wayland/hyprland/focus_grab_service.h"
 #include "wayland/text_input_service.h"
 #include "wayland/virtual_keyboard_service.h"
+#include "wayland/wayland_protocol_policy.h"
 #include "wlr-data-control-unstable-v1-client-protocol.h"
 #include "wlr-foreign-toplevel-management-unstable-v1-client-protocol.h"
 #include "wlr-gamma-control-unstable-v1-client-protocol.h"
@@ -93,38 +94,9 @@ namespace {
   };
 
   DetectedOutputScale detectOutputScale(const WaylandOutput& output) {
-    if (output.width <= 0 || output.height <= 0 || output.logicalWidth <= 0 || output.logicalHeight <= 0) {
-      return {};
-    }
-
-    // wl_output.mode is physical buffer pixels; xdg_output.logical_size is the
-    // compositor's logical coordinate space. Their ratio is the output scale.
-    struct Candidate {
-      double scale = 0.0;
-      double axisDelta = 0.0;
-      bool rotated = false;
-    };
-
-    const auto candidate = [](double xScale, double yScale, bool rotated) {
-      return Candidate{
-          .scale = (xScale + yScale) * 0.5,
-          .axisDelta = std::abs(xScale - yScale),
-          .rotated = rotated,
-      };
-    };
-
-    const auto physicalW = static_cast<double>(output.width);
-    const auto physicalH = static_cast<double>(output.height);
-    const auto logicalW = static_cast<double>(output.logicalWidth);
-    const auto logicalH = static_cast<double>(output.logicalHeight);
-
-    const Candidate normal = candidate(physicalW / logicalW, physicalH / logicalH, false);
-    const Candidate rotated = candidate(physicalW / logicalH, physicalH / logicalW, true);
-    const Candidate& selected = rotated.axisDelta < normal.axisDelta ? rotated : normal;
-    if (selected.scale <= 0.0) {
-      return {};
-    }
-    return {.scale = selected.scale, .rotated = selected.rotated, .available = true};
+    const wayland::DetectedScale detected =
+        wayland::detectScaleFromDimensions(output.width, output.height, output.logicalWidth, output.logicalHeight);
+    return {.scale = detected.scale, .rotated = detected.rotated, .available = detected.available};
   }
 
   std::string outputLabel(const WaylandOutput& output) {
@@ -158,10 +130,12 @@ namespace {
     if ((flags & WL_OUTPUT_MODE_CURRENT) == 0) {
       return;
     }
-    auto* out = static_cast<WaylandConnection*>(data)->findOutputByWl(wlOut);
+    auto* self = static_cast<WaylandConnection*>(data);
+    auto* out = self->findOutputByWl(wlOut);
     if (out != nullptr) {
       out->width = w;
       out->height = h;
+      self->recomputeConfiguredScale(*out);
     }
   }
 
@@ -175,9 +149,11 @@ namespace {
   }
 
   void outputScale(void* data, wl_output* wlOut, int32_t factor) {
-    auto* out = static_cast<WaylandConnection*>(data)->findOutputByWl(wlOut);
+    auto* self = static_cast<WaylandConnection*>(data);
+    auto* out = self->findOutputByWl(wlOut);
     if (out != nullptr) {
       out->scale = factor;
+      self->recomputeConfiguredScale(*out);
     }
   }
 
@@ -225,10 +201,12 @@ namespace {
   }
 
   void xdgOutputLogicalSize(void* data, zxdg_output_v1* xdgOutput, int32_t w, int32_t h) {
-    auto* out = static_cast<WaylandConnection*>(data)->findOutputByXdg(xdgOutput);
+    auto* self = static_cast<WaylandConnection*>(data);
+    auto* out = self->findOutputByXdg(xdgOutput);
     if (out != nullptr) {
       out->logicalWidth = w;
       out->logicalHeight = h;
+      self->recomputeConfiguredScale(*out);
     }
   }
 
@@ -287,6 +265,10 @@ namespace {
     static_cast<WaylandConnection*>(data)->onOutputHeadFinished(head);
   }
 
+  void outputHeadScale(void* data, zwlr_output_head_v1* head, wl_fixed_t scale) {
+    static_cast<WaylandConnection*>(data)->onOutputHeadScale(head, wl_fixed_to_double(scale));
+  }
+
   // libwayland aborts on an event with a null listener slot, even one we don't need.
   const zwlr_output_head_v1_listener kOutputHeadListener = {
       .name = outputHeadName,
@@ -297,7 +279,7 @@ namespace {
       .current_mode = [](void*, zwlr_output_head_v1*, zwlr_output_mode_v1*) {},
       .position = [](void*, zwlr_output_head_v1*, int32_t, int32_t) {},
       .transform = [](void*, zwlr_output_head_v1*, int32_t) {},
-      .scale = [](void*, zwlr_output_head_v1*, wl_fixed_t) {},
+      .scale = outputHeadScale,
       .finished = outputHeadFinished,
       .make = outputHeadMake,
       .model = outputHeadModel,
@@ -626,10 +608,14 @@ std::vector<ToplevelInfo> WaylandConnection::windowsWithoutAppId(wl_output* outp
 
 std::vector<ToplevelInfo>
 WaylandConnection::extWindowsForApp(const std::string& idLower, const std::string& wmClassLower) const {
-  if ((!compositors::isHyprland() && !compositors::isKde()) || !m_extForeignToplevels.isBound()) {
+  if (!m_extForeignToplevels.isBound()) {
     return {};
   }
   return m_extForeignToplevels.windowsForApp(idLower, wmClassLower);
+}
+
+std::vector<ToplevelInfo> WaylandConnection::extWindowsWithoutAppId() const {
+  return m_extForeignToplevels.isBound() ? m_extForeignToplevels.windowsWithoutAppId() : std::vector<ToplevelInfo>{};
 }
 
 bool WaylandConnection::containsWlrToplevelHandle(zwlr_foreign_toplevel_handle_v1* handle) const {
@@ -833,6 +819,13 @@ void WaylandConnection::onOutputHeadSerialNumber(zwlr_output_head_v1* head, cons
   }
 }
 
+void WaylandConnection::onOutputHeadScale(zwlr_output_head_v1* head, double scaleFactor) {
+  auto it = m_outputHeads.find(head);
+  if (it != m_outputHeads.end()) {
+    it->second.scaleFactor = scaleFactor;
+  }
+}
+
 void WaylandConnection::onOutputHeadMode(zwlr_output_head_v1* /*head*/, zwlr_output_mode_v1* mode) {
   if (mode == nullptr) {
     return;
@@ -873,10 +866,26 @@ void WaylandConnection::matchPendingOutputHeads() {
       it->serialNumber = info.serialNumber;
       changed = true;
     }
+    it->headScaleFactor = info.scaleFactor;
+    if (recomputeConfiguredScale(*it)) {
+      changed = true;
+    }
   }
   if (changed && m_outputChangeCallback) {
     m_outputChangeCallback();
   }
+}
+
+bool WaylandConnection::recomputeConfiguredScale(WaylandOutput& out) {
+  const DetectedOutputScale detected = detectOutputScale(out);
+  const double detectedFactor = detected.available ? detected.scale : 0.0;
+  const std::int32_t numerator =
+      wayland::resolveConfiguredScaleNumerator(out.headScaleFactor, detectedFactor, out.scale);
+  if (numerator == out.configuredScaleNumerator) {
+    return false;
+  }
+  out.configuredScaleNumerator = numerator;
+  return true;
 }
 
 void WaylandConnection::onOutputManagerFinished(zwlr_output_manager_v1* manager) {
@@ -1069,8 +1078,9 @@ void WaylandConnection::bindGlobal(
 
   if (interfaceName == ext_foreign_toplevel_list_v1_interface.name) {
     const auto compositor = compositors::detect();
-    // Niri/Sway also expose this global; binding it duplicates every window on top of wlr foreign-toplevel.
-    if (compositor != compositors::CompositorKind::Hyprland && compositor != compositors::CompositorKind::Kde) {
+    // Niri needs the ext identifier for an exact join with its numeric IPC window id. Keep the
+    // wlr manager bound as well because other shell features still consume its richer state.
+    if (!wayland_protocol_policy::shouldBindExtForeignToplevelList(compositor)) {
       return;
     }
     m_hasExtForeignToplevelListGlobal = true;

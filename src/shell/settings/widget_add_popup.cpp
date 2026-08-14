@@ -4,6 +4,7 @@
 #include "core/deferred_call.h"
 #include "i18n/i18n.h"
 #include "render/render_context.h"
+#include "render/render_target.h"
 #include "render/scene/input_area.h"
 #include "render/scene/node.h"
 #include "shell/settings/widget_settings_registry.h"
@@ -575,7 +576,7 @@ namespace settings {
     }
 
     m_root->setSize(contentWidth, contentHeight);
-    m_root->layout(*renderContext());
+    m_root->layout(renderer());
   }
 
   std::string WidgetAddPopup::instanceFormTitle() const {
@@ -598,7 +599,14 @@ namespace settings {
     float contentWidth = kCreateMinWidth * m_scale;
     if (m_renderContext != nullptr && !m_createLabel.empty()) {
       const float fontSize = Style::fontSizeBody * m_scale;
-      const TextMetrics titleMetrics = m_renderContext->measureText(instanceFormTitle(), fontSize, FontWeight::Bold);
+      float measureScale = 1.0F;
+      if (wayland() != nullptr && m_parent.output != nullptr) {
+        if (const WaylandOutput* out = wayland()->findOutputByWl(m_parent.output); out != nullptr) {
+          measureScale = out->configuredScale();
+        }
+      }
+      ScaledRenderer measureRenderer(*m_renderContext, measureScale);
+      const TextMetrics titleMetrics = measureRenderer.measureText(instanceFormTitle(), fontSize, FontWeight::Bold);
       const float closeBtn = Style::controlHeightSm * m_scale;
       const float headerGap = Style::spaceSm * m_scale;
       const float rootPadding = Style::spaceSm * m_scale * 2.0F;

@@ -549,6 +549,7 @@
         "stat-swap-pct": "Swap %",
         "stat2": "Estadística 2",
         "title": "Título",
+        "track-color": "Color de la pista",
         "variant": "Estilo",
         "variant-default": "Por defecto",
         "variant-destructive": "Destructivo",
@@ -965,6 +966,9 @@
           "title": "Widgets de la barra"
         },
         "group": {
+          "accordion": "Acordeón",
+          "accordion-description": "Mostrar solo el primer widget; al pasar el cursor sobre la cápsula se revela el resto",
+          "accordion-direction": "Dirección de revelado",
           "action": "Grupo",
           "border": "Borde",
           "border-description": "Rol de color del contorno de la cápsula; deja en Predeterminado para no tener contorno",
@@ -2350,14 +2354,15 @@
           "description-cancelled": "La consulta al Almacen de Credenciales se ha cancelado. Reintentarlo cuando este disponible.",
           "description-error": "No se puede acceder a las credenciales del Calendario desde el Almacen de Credenciales",
           "description-locked": "Las credenciales del calendario estan bloqueadas o el acceso ha sido denegado. Desbloquee el Almacen de Credenciales y reintentelo",
-          "description-migration": "Las credenciales del calendario en texto plano se moverán al Almacen de credenciales. No se usaran para sincronizar el calendario.",
+          "description-migration": "Las credenciales del calendario en texto plano se moverán al Almacen de credenciales; no se usaran para sincronizar el calendario.",
           "description-opening": "Las credenciales del calendario se usaran desde el Almacen de Credenciales",
           "description-unavailable": "No hay ningun Almacen de Credenciales en esta sesion.",
           "label": "Almacenamiento de las credenciales del Calendario"
         },
         "calendar-edit": {
           "button": "Editar",
-          "description": "Actualizar esta cuenta de calendario"
+          "description": "Actualizar esta cuenta de calendario",
+          "description-reconnect": "Se ha perdido la autorizacion de Google. Reconecte esta cuenta."
         },
         "calendar-event-date-format": {
           "description": "El formato de la fecha mostrada en el panel de los eventos para la fecha seleccionada",
@@ -2373,7 +2378,8 @@
         },
         "calendar-storage": {
           "button": "Reintentar",
-          "description-unavailable": "No hay ningun Almacen de Credenciales disponible. Los eventos del Calendario permaneceran disponibles para esta sesion unicamente."
+          "description-recovery": "La cache de eventos del calendario no se puede autenticar o está dañada; reintentar despues de restaurar la key correcta, o reinicie el almacenamiento privado.",
+          "description-unavailable": "No hay ningun Almacen de Credenciales disponible; los eventos del calendario permaneceran disponibles para esta sesion unicamente."
         },
         "day-temperature": {
           "description": "Temperatura de color durante el día (Kelvin)",
@@ -2601,8 +2607,9 @@
         },
         "clipboard-storage": {
           "button": "Reintentar",
-          "description-cancelled": "El Almacen de Credenciales se ha cancelado. El historial del portapapeles permanecera disponible en esta sesion unicamente.",
-          "description-unavailable": "No hay ningun Almacen de Credenciales disponible. El historial del portapapeles permanecera disponible en esta sesion unicamente."
+          "description-cancelled": "El Almacen de Credenciales se ha cancelado; el historial del portapapeles permanecera disponible en esta sesion unicamente.",
+          "description-recovery": "El historial del portapapeles no se puede autenticar o esta dañado; reintentar despues de restaurar la key correcta, o reinicie el almacenamiento privado.",
+          "description-unavailable": "No hay ningun Almacen de Credenciales disponible; el historial del portapapeles permanecera disponible en esta sesion unicamente."
         },
         "date-format": {
           "description": "Formato de fecha predeterminado para la interfaz del shell sin configuración propia",
@@ -3095,10 +3102,6 @@
         "custom-image-colorize": {
           "description": "Teñir la imagen personalizada con la configuración de color de icono del widget",
           "label": "Colorear imagen personalizada"
-        },
-        "custom-labels": {
-          "description": "Asignar nombres de distribución de teclado a etiquetas personalizadas",
-          "label": "Etiquetas personalizadas"
         },
         "detached-panel": {
           "description": "Abrir bandeja desplegable como un panel flotante con fondo propio en lugar de fusionarse con la barra",

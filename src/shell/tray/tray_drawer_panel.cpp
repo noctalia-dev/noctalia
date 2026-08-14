@@ -196,6 +196,9 @@ std::size_t TrayDrawerPanel::visibleItemCount() const {
   };
   std::size_t visible = 0;
   for (const auto& item : m_tray->items()) {
+    if (tray::isPassiveStatus(item)) {
+      continue;
+    }
     const bool hidden =
         std::ranges::any_of(hiddenLower, [&](const std::string& token) { return tokenMatches(token, item); });
     const bool pinned =

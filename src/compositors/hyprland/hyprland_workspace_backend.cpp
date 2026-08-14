@@ -324,41 +324,41 @@ bool HyprlandWorkspaceBackend::refreshWorkspaces() {
   const auto rulesJson = m_runtime.requestJson("j/workspacerules");
   if (rulesJson && rulesJson->is_array()) {
     for (const auto& item : *rulesJson) {
-      if (!item.is_object()) {
+      if (!item.is_object() || !item.value("enabled", true)) {
         continue;
       }
 
-      bool isPersistent = false;
-      if (auto it = item.find("persistent"); it != item.end() && it->is_boolean()) {
-        isPersistent = it->get<bool>();
-      }
-      if (!isPersistent) {
-        continue;
-      }
-
-      std::string workspaceString = item.value("workspaceString", "");
+      const std::string workspaceString = item.value("workspaceString", "");
       if (workspaceString.empty()) {
         continue;
       }
+      // Only concrete IDs and explicit name: targets identify a workspace; selectors must not create phantom entries.
 
-      std::string nameStr = workspaceString;
-      if (nameStr.starts_with("name:")) {
-        nameStr = nameStr.substr(5);
+      const bool namedWorkspace = workspaceString.starts_with("name:");
+      const std::string workspaceName = namedWorkspace ? workspaceString.substr(5) : std::string{};
+      const auto workspaceId = namedWorkspace ? std::optional<int>{} : parseInt(workspaceString);
+      if ((namedWorkspace && workspaceName.empty())
+          || (!namedWorkspace && (!workspaceId.has_value() || *workspaceId < 0))) {
+        continue;
       }
 
-      int id = -1;
-      if (auto parsed = parseInt(nameStr); parsed.has_value()) {
-        id = *parsed;
+      const std::string key = namedWorkspace ? workspaceName : std::to_string(*workspaceId);
+      const std::string defaultName = item.value("defaultName", "");
+      if (!namedWorkspace && !defaultName.empty()) {
+        const auto existing = std::ranges::find(next, *workspaceId, &WorkspaceState::id);
+        if (existing != next.end() && (existing->name.empty() || existing->name == key)) {
+          existing->name = defaultName;
+        }
       }
 
-      std::string key = (id >= 0) ? std::to_string(id) : nameStr;
-      if (seenKeys.contains(key)) {
+      const bool isPersistent = item.value("persistent", false);
+      if (!isPersistent || seenKeys.contains(key)) {
         continue;
       }
 
       WorkspaceState workspace;
-      workspace.id = id;
-      workspace.name = (id >= 0) ? "" : nameStr;
+      workspace.id = namedWorkspace ? -1 : *workspaceId;
+      workspace.name = namedWorkspace ? workspaceName : defaultName;
       workspace.monitor = item.value("monitor", "");
 
       if (workspace.id >= 0) {

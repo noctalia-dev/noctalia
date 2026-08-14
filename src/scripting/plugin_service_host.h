@@ -60,6 +60,7 @@ namespace scripting {
     struct Service : public PluginIpcEndpoint {
       std::string entryId;
       std::filesystem::path sourcePath;
+      std::filesystem::path pluginDir;
       std::shared_ptr<ScriptRuntime> runtime;
       ScriptRuntime::SubscriberId subscription = 0;
       PluginScriptWatcher scriptWatcher;
@@ -84,8 +85,10 @@ namespace scripting {
     void subscribeAndArm(Service& service);
     // Build, register, and start a service runtime for an entry. Returns null on an
     // empty/unreadable source.
-    [[nodiscard]] std::unique_ptr<Service>
-    makeService(const std::string& entryId, const std::filesystem::path& source, ScriptSettings seeded);
+    [[nodiscard]] std::unique_ptr<Service> makeService(
+        const std::string& entryId, const std::filesystem::path& source, const std::filesystem::path& pluginDir,
+        ScriptSettings seeded
+    );
     // Full teardown for removal/shutdown: unregister IPC, stop timer + runtime, and
     // mark the alive token dead so any in-flight callback is a no-op.
     void stopService(Service& service, ScriptExitReason exitReason = ScriptExitReason::Reload);

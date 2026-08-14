@@ -6,6 +6,7 @@
 #include "core/log.h"
 #include "core/ui_phase.h"
 #include "render/render_context.h"
+#include "render/render_target.h"
 #include "render/scene/node.h"
 #include "ui/controls/scroll_view.h"
 #include "ui/popup_chrome.h"
@@ -45,7 +46,14 @@ void ContextMenuPopup::open(ContextMenuPopupRequest request) {
   const float menuHeight = ContextMenuControl::preferredHeight(request.entries, maxVisible, contentScale);
   float menuWidth = request.menuWidth;
   if (menuWidth <= 0.0F) {
-    menuWidth = ContextMenuControl::preferredWidth(m_renderContext, request.entries, contentScale);
+    float measureScale = 1.0F;
+    if (request.parent.output != nullptr) {
+      if (const WaylandOutput* out = m_wayland.findOutputByWl(request.parent.output); out != nullptr) {
+        measureScale = out->configuredScale();
+      }
+    }
+    ScaledRenderer measureRenderer(m_renderContext, measureScale);
+    menuWidth = ContextMenuControl::preferredWidth(measureRenderer, request.entries, contentScale);
     if (request.maxMenuWidth > 0.0F) {
       menuWidth = std::min(menuWidth, request.maxMenuWidth);
     }
@@ -179,7 +187,7 @@ void ContextMenuPopup::open(ContextMenuPopupRequest request) {
     });
     scrollView->content()->addChild(std::move(ctrl));
     ScrollView* scrollPtr = scrollView.get();
-    scrollView->layout(self->m_renderContext);
+    scrollView->layout(self->m_surface->renderTarget().renderer());
 
     self->m_scrollView = scrollPtr;
     self->m_menu = menuPtr;

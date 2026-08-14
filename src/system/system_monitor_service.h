@@ -36,6 +36,9 @@ struct SystemStats {
   std::uint64_t swapTotalMb{0};
   std::optional<double> cpuTempC;
   bool cpuTempAvailable{false};
+  double cpuFreqMhz{0.0};
+  std::optional<double> cpuMaxFreqMhz;
+  bool cpuFreqAvailable{false};
   std::optional<double> gpuTempC;
   std::optional<double> gpuUsagePercent;
   std::optional<std::uint64_t> gpuVramUsedBytes;

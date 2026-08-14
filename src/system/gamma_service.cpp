@@ -592,39 +592,23 @@ void GammaService::apply() {
 }
 
 void GammaService::registerIpc(IpcService& ipc) {
-  ipc.registerHandler(
-      "nightlight-enable",
-      [this](const std::string&) -> std::string {
-        setEnabled(true);
-        return "ok\n";
-      },
-      "", "Enable night light schedule"
-  );
+  ipc.bind(noctalia::cli::msg::nightlightEnable, [this](const std::string&) -> std::string {
+    setEnabled(true);
+    return "ok\n";
+  });
 
-  ipc.registerHandler(
-      "nightlight-disable",
-      [this](const std::string&) -> std::string {
-        setEnabled(false);
-        return "ok\n";
-      },
-      "", "Disable night light schedule"
-  );
+  ipc.bind(noctalia::cli::msg::nightlightDisable, [this](const std::string&) -> std::string {
+    setEnabled(false);
+    return "ok\n";
+  });
 
-  ipc.registerHandler(
-      "nightlight-toggle",
-      [this](const std::string&) -> std::string {
-        toggleEnabled();
-        return "ok\n";
-      },
-      "", "Toggle night light schedule"
-  );
+  ipc.bind(noctalia::cli::msg::nightlightToggle, [this](const std::string&) -> std::string {
+    toggleEnabled();
+    return "ok\n";
+  });
 
-  ipc.registerHandler(
-      "nightlight-force-toggle",
-      [this](const std::string&) -> std::string {
-        toggleForceEnabled();
-        return "ok\n";
-      },
-      "", "Toggle forced night light mode"
-  );
+  ipc.bind(noctalia::cli::msg::nightlightForceToggle, [this](const std::string&) -> std::string {
+    toggleForceEnabled();
+    return "ok\n";
+  });
 }

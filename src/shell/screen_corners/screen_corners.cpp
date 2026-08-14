@@ -185,7 +185,6 @@ void ScreenCorners::buildCornerScene(Corner& corner, std::uint32_t width, std::u
   root->setColor(Color{0.0F, 0.0F, 0.0F, 1.0F});
   root->setCorner(cornerPosition(cornerIndex));
   root->setExponent(4.0F);
-  root->setSoftness(1.5F);
 
   corner.sceneRoot = std::move(root);
   corner.builtWidth = width;

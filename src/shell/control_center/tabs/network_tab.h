@@ -1,10 +1,12 @@
 #pragma once
 
+#include "core/timer_manager.h"
 #include "dbus/network/network_secret_agent.h"
 #include "dbus/network/network_types.h"
 #include "shell/control_center/tab.h"
 
 #include <chrono>
+#include <cstdint>
 #include <memory>
 #include <optional>
 #include <string>
@@ -39,6 +41,8 @@ private:
 
   void syncCurrentCard();
   void beginPendingAction(bool wasConnected);
+  void requestWirelessEnabled(bool enabled);
+  void handleWirelessEnabledCompletion(std::uint64_t generation, bool success);
   void rebuildApList(Renderer& renderer);
   // Pushes live signal values into the existing rows. Returns true if any changed.
   bool syncApRows();
@@ -89,4 +93,14 @@ private:
   bool m_actionPending = false;
   bool m_actionPendingConnected = false;
   std::chrono::steady_clock::time_point m_actionPendingSince;
+
+  bool m_wifiTogglePending = false;
+  bool m_wifiToggleTarget = false;
+  bool m_wifiToggleWriteComplete = false;
+  bool m_wifiToggleTargetObserved = false;
+  std::uint64_t m_wifiToggleRequestGeneration = 0;
+
+  Timer m_actionPendingTimer;
+
+  static constexpr std::chrono::seconds kActionPendingTimeout = std::chrono::seconds(6);
 };
