@@ -231,7 +231,11 @@ namespace noctalia::theme {
 
     auto makeContainerDark = [](const Color& base) {
       auto [h, s, l] = base.toHsl();
-      return Color::fromHsl(h, std::min(s + 0.15, 1.0), std::max(l - 0.35, 0.15));
+      // Scale the saturation step by the remaining headroom instead of adding a
+      // constant: on already-saturated accents (e.g. pastel palettes with S near
+      // 1.0) a flat +0.15 clamps at the gamut wall while L still drops into the
+      // midtones, producing a neon "container" instead of a muted one.
+      return Color::fromHsl(h, s + 0.15 * (1.0 - s), std::max(l - 0.35, 0.15));
     };
     auto makeContainerLight = [](const Color& base) {
       auto [h, s, l] = base.toHsl();
