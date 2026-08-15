@@ -3,6 +3,7 @@
 #include "cli/parse.h"
 #include "cli/schema_root.h"
 
+#include <algorithm>
 #include <print>
 #include <span>
 #include <string_view>
@@ -218,6 +219,11 @@ namespace noctalia::cli {
         "  local words=\"$(noctalia msg plugins list 2>/dev/null | awk '$4 == \"disabled\" {print $1}')\"\n"
         "  COMPREPLY=( $(compgen -W \"$words\" -- \"$cur\") )\n"
         "}\n\n"
+        "_noctalia_plugin_prefix() {\n"
+        "  local words=\"$(noctalia msg plugins list 2>/dev/null | awk '$4 == \"enabled\" {print $1\":\"}')\"\n"
+        "  compopt -o nospace 2>/dev/null\n"
+        "  COMPREPLY=( $(compgen -W \"$words\" -- \"$cur\") )\n"
+        "}\n\n"
         "_noctalia_completions() {\n"
         "  local cur=\"${COMP_WORDS[COMP_CWORD]}\"\n"
         "  local path=noctalia\n"
@@ -373,6 +379,15 @@ namespace noctalia::cli {
         "  else\n"
         "    _message 'no disabled plugins found'\n"
         "  fi\n"
+        "}\n\n"
+        "_noctalia_plugin_prefix() {\n"
+        "  local -a plugins\n"
+        "  plugins=(${(f)\"$(noctalia msg plugins list 2>/dev/null | awk '$4 == \"enabled\" {print $1\":\"}')\"})\n"
+        "  if [[ ${#plugins[@]} -gt 0 ]]; then\n"
+        "    compadd -S '' -a plugins\n"
+        "  else\n"
+        "    _message 'no enabled plugins found'\n"
+        "  fi\n"
         "}\n\n";
 
     for (const CommandState& state : states) {
@@ -419,7 +434,7 @@ namespace noctalia::cli {
           std::string spec = positional.variadic ? "*" : std::to_string(i + 1);
           spec.push_back(':');
           std::string safeName{positional.name};
-          std::replace(safeName.begin(), safeName.end(), ':', '-');
+          std::ranges::replace(safeName, ':', '-');
           spec.append(safeName);
           spec.push_back(':');
 
@@ -504,6 +519,9 @@ namespace noctalia::cli {
                          "end\n\n"
                          "function __noctalia_plugins_disabled\n"
                          "    noctalia msg plugins list 2>/dev/null | awk '$4 == \"disabled\" {print $1}'\n"
+                         "end\n\n"
+                         "function __noctalia_plugin_prefix\n"
+                         "    noctalia msg plugins list 2>/dev/null | awk '$4 == \"enabled\" {print $1\":\"}'\n"
                          "end\n\n";
 
     for (const CommandState& state : states) {

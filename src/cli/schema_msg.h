@@ -173,7 +173,7 @@ namespace noctalia::cli {
       Positional{"context", {}, {}, false, false, false},
   };
   inline constexpr std::array kMsgPluginPositionals{
-      Positional{"author/plugin:entry", {}, {}, true, false, false, "plugins_enabled"},
+      Positional{"author/plugin:entry", {}, {}, true, false, false, "plugin_prefix"},
       Positional{"target[:bar-name]", {}, {}, true, false, false},
       Positional{"event", {}, {}, true, false, false},
       Positional{"payload", {}, {}, false, false, false},
