@@ -15,13 +15,14 @@ namespace wallpaper {
   }
 
   std::string ShuffleState::pick(
-      std::string_view scope, const std::vector<std::string>& candidates, std::string_view currentPath, float randomUnit
+      std::string_view scope, std::string_view source, const std::vector<std::string>& candidates,
+      std::string_view currentPath, float randomUnit
   ) {
     if (candidates.empty()) {
       return {};
     }
 
-    auto& seen = m_seenByScope[std::string(scope)];
+    auto& seen = m_seenByScope[std::string(scope)][std::string(source)];
     std::unordered_set<std::string_view> candidateSet;
     candidateSet.reserve(candidates.size());
     for (const std::string& candidate : candidates) {
@@ -82,21 +83,27 @@ namespace wallpaper {
 
     try {
       const nlohmann::json root = nlohmann::json::parse(file);
-      if (root.value("version", 0) != 1) {
+      if (root.value("version", 0) != 2) {
         return;
       }
       const auto scopes = root.find("scopes");
       if (scopes == root.end() || !scopes->is_object()) {
         return;
       }
-      for (const auto& [scope, paths] : scopes->items()) {
-        if (!paths.is_array()) {
+      for (const auto& [scope, sources] : scopes->items()) {
+        if (!sources.is_object()) {
           continue;
         }
-        auto& seen = m_seenByScope[scope];
-        for (const auto& path : paths) {
-          if (path.is_string()) {
-            seen.insert(path.get<std::string>());
+        auto& seenBySource = m_seenByScope[scope];
+        for (const auto& [source, paths] : sources.items()) {
+          if (!paths.is_array()) {
+            continue;
+          }
+          auto& seen = seenBySource[source];
+          for (const auto& path : paths) {
+            if (path.is_string()) {
+              seen.insert(path.get<std::string>());
+            }
           }
         }
       }
@@ -118,10 +125,14 @@ namespace wallpaper {
 
     try {
       nlohmann::json scopes = nlohmann::json::object();
-      for (const auto& [scope, seen] : m_seenByScope) {
-        scopes[scope] = seen;
+      for (const auto& [scope, seenBySource] : m_seenByScope) {
+        nlohmann::json sources = nlohmann::json::object();
+        for (const auto& [source, seen] : seenBySource) {
+          sources[source] = seen;
+        }
+        scopes[scope] = std::move(sources);
       }
-      const nlohmann::json root{{"version", 1}, {"scopes", std::move(scopes)}};
+      const nlohmann::json root{{"version", 2}, {"scopes", std::move(scopes)}};
       std::ofstream file(m_statePath, std::ios::trunc);
       if (file.is_open()) {
         file << root.dump(2) << '\n';

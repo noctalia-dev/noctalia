@@ -100,11 +100,12 @@ private:
   switchWallpaperTo(PickWallpaper action, std::optional<std::string_view> connector = std::nullopt);
   [[nodiscard]] ThemeMode directoryThemeMode() const noexcept;
   [[nodiscard]] std::string pickRandomWallpaperPath(
-      const std::vector<std::string>& candidates, const std::string& currentPath, std::string_view scope
+      const std::vector<std::string>& candidates, const std::string& currentPath, std::string_view scope,
+      std::string_view source
   );
   [[nodiscard]] std::string pickAutomationWallpaperPath(
       const WallpaperAutomationConfig& automation, std::vector<std::string> candidates, const std::string& currentPath,
-      std::string_view scope
+      std::string_view scope, std::string_view source
   );
   void createInstance(const WaylandOutput& output);
   [[nodiscard]] TextureHandle acquireTexture(const std::string& path);

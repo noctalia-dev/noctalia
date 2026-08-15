@@ -886,18 +886,19 @@ ThemeMode Wallpaper::directoryThemeMode() const noexcept {
 }
 
 std::string Wallpaper::pickRandomWallpaperPath(
-    const std::vector<std::string>& candidates, const std::string& currentPath, std::string_view scope
+    const std::vector<std::string>& candidates, const std::string& currentPath, std::string_view scope,
+    std::string_view source
 ) {
-  return m_shuffleState.pick(scope, candidates, currentPath, randomFloat(0.0F, 1.0F));
+  return m_shuffleState.pick(scope, source, candidates, currentPath, randomFloat(0.0F, 1.0F));
 }
 
 std::string Wallpaper::pickAutomationWallpaperPath(
     const WallpaperAutomationConfig& automation, std::vector<std::string> candidates, const std::string& currentPath,
-    std::string_view scope
+    std::string_view scope, std::string_view source
 ) {
   return automation.order == WallpaperAutomationConfig::Order::Alphabetical
       ? pickAlphabeticalWallpaperPath(std::move(candidates), currentPath)
-      : pickRandomWallpaperPath(candidates, currentPath, scope);
+      : pickRandomWallpaperPath(candidates, currentPath, scope, source);
 }
 
 void Wallpaper::applyStartupAutomation(std::int64_t secondStamp) {
@@ -923,17 +924,16 @@ void Wallpaper::applyStartupAutomation(std::int64_t secondStamp) {
       }
 
       attempted = true;
+      const std::string dir = wallpaper::resolveWallpaperDirectory(wallpaper, output, mode);
       std::vector<std::string> candidates;
-      collectWallpaperCandidates(
-          wallpaper::resolveWallpaperDirectory(wallpaper, output, mode), automation.recursive, candidates
-      );
+      collectWallpaperCandidates(dir, automation.recursive, candidates);
       if (candidates.empty()) {
         continue;
       }
 
       const std::string currentPath = m_config->getWallpaperPath(output.connectorName);
       const std::string picked = pickAutomationWallpaperPath(
-          automation, std::move(candidates), currentPath, outputShuffleScope(output.connectorName)
+          automation, std::move(candidates), currentPath, outputShuffleScope(output.connectorName), dir
       );
       if (picked.empty() || picked == currentPath) {
         continue;
@@ -958,14 +958,13 @@ void Wallpaper::applyStartupAutomation(std::int64_t secondStamp) {
     }
 
     if (attempted) {
+      const std::string dir = wallpaper::resolveGlobalWallpaperDirectory(wallpaper, mode);
       std::vector<std::string> candidates;
-      collectWallpaperCandidates(
-          wallpaper::resolveGlobalWallpaperDirectory(wallpaper, mode), automation.recursive, candidates
-      );
+      collectWallpaperCandidates(dir, automation.recursive, candidates);
       if (!candidates.empty()) {
         const std::string currentDefault = m_config->getDefaultWallpaperPath();
         const std::string picked =
-            pickAutomationWallpaperPath(automation, std::move(candidates), currentDefault, kGlobalShuffleScope);
+            pickAutomationWallpaperPath(automation, std::move(candidates), currentDefault, kGlobalShuffleScope, dir);
         if (!picked.empty()) {
           if (const WallpaperFavorite* favorite = m_config->wallpaperFavorite(picked); favorite != nullptr) {
             std::vector<std::string> connectors;
@@ -1040,7 +1039,7 @@ void Wallpaper::runAutomation(std::int64_t secondStamp) {
       }
       const std::string currentPath = m_config->getWallpaperPath(inst->connectorName);
       const std::string picked = pickAutomationWallpaperPath(
-          automation, std::move(candidates), currentPath, outputShuffleScope(inst->connectorName)
+          automation, std::move(candidates), currentPath, outputShuffleScope(inst->connectorName), dir
       );
       if (picked.empty() || picked == currentPath) {
         continue;
@@ -1059,7 +1058,7 @@ void Wallpaper::runAutomation(std::int64_t secondStamp) {
     if (!candidates.empty()) {
       const std::string currentDefault = m_config->getDefaultWallpaperPath();
       const std::string picked =
-          pickAutomationWallpaperPath(automation, std::move(candidates), currentDefault, kGlobalShuffleScope);
+          pickAutomationWallpaperPath(automation, std::move(candidates), currentDefault, kGlobalShuffleScope, dir);
       if (!picked.empty()) {
         if (const WallpaperFavorite* favorite = m_config->wallpaperFavorite(picked); favorite != nullptr) {
           std::vector<std::string> connectors;
@@ -1094,11 +1093,12 @@ Wallpaper::SwitchOutcome Wallpaper::switchWallpaperTo(PickWallpaper action, std:
   const ThemeMode mode = directoryThemeMode();
 
   const auto pick = [this, action](
-                        std::vector<std::string> candidates, const std::string& currentPath, std::string_view scope
+                        std::vector<std::string> candidates, const std::string& currentPath, std::string_view scope,
+                        std::string_view source
                     ) -> std::string {
     switch (action) {
     case PickWallpaper::Random:
-      return pickRandomWallpaperPath(candidates, currentPath, scope);
+      return pickRandomWallpaperPath(candidates, currentPath, scope, source);
     case PickWallpaper::Next:
       return pickAlphabeticalWallpaperPath(std::move(candidates), currentPath, 1);
     case PickWallpaper::Previous:
@@ -1146,7 +1146,8 @@ Wallpaper::SwitchOutcome Wallpaper::switchWallpaperTo(PickWallpaper action, std:
       return SwitchOutcome::Unavailable;
     }
     const std::string currentPath = m_config->getWallpaperPath(std::string(*connector));
-    const std::string picked = pick(std::move(candidates), currentPath, outputShuffleScope(std::string(*connector)));
+    const std::string picked =
+        pick(std::move(candidates), currentPath, outputShuffleScope(std::string(*connector)), dir);
     if (picked.empty() || picked == currentPath) {
       return SwitchOutcome::NoChange;
     }
@@ -1182,7 +1183,7 @@ Wallpaper::SwitchOutcome Wallpaper::switchWallpaperTo(PickWallpaper action, std:
       }
       sawCandidates = true;
       const std::string currentPath = m_config->getWallpaperPath(inst->connectorName);
-      const std::string picked = pick(std::move(candidates), currentPath, outputShuffleScope(inst->connectorName));
+      const std::string picked = pick(std::move(candidates), currentPath, outputShuffleScope(inst->connectorName), dir);
       if (picked.empty() || picked == currentPath) {
         continue;
       }
@@ -1197,7 +1198,7 @@ Wallpaper::SwitchOutcome Wallpaper::switchWallpaperTo(PickWallpaper action, std:
     if (!candidates.empty()) {
       sawCandidates = true;
       const std::string currentDefault = m_config->getDefaultWallpaperPath();
-      const std::string picked = pick(std::move(candidates), currentDefault, kGlobalShuffleScope);
+      const std::string picked = pick(std::move(candidates), currentDefault, kGlobalShuffleScope, dir);
       if (!picked.empty() && picked != currentDefault) {
         for (const auto& inst : m_instances) {
           if (!inst->connectorName.empty()) {
