@@ -110,11 +110,13 @@ void VolumeWidget::syncState(Renderer& renderer) {
   bool isActive = false;
   if (m_target == VolumeWidgetTarget::Input) {
     const auto& captures = m_audio->privacyState().captures;
-    isActive = std::any_of(captures.begin(), captures.end(), [](const auto& c) {
-      return c.kind == PrivacyCaptureKind::Microphone;
+    isActive = std::ranges::any_of(captures, [](const auto& capture) {
+      return capture.kind == PrivacyCaptureKind::Microphone;
     });
   } else {
-    isActive = !m_audio->state().programOutputs.empty();
+    isActive = std::ranges::any_of(m_audio->state().programOutputs, [](const auto& output) {
+      return output.nodeState == AudioNodeState::Running;
+    });
   }
 
   if (volume == m_lastVolume

@@ -21,6 +21,14 @@ class ConfigService;
 class IpcService;
 class WirePlumberMixer;
 
+enum class AudioNodeState : uint8_t {
+  Error,
+  Creating,
+  Suspended,
+  Idle,
+  Running,
+};
+
 struct AudioNode {
   std::uint32_t id = 0;
   std::string name;
@@ -36,6 +44,7 @@ struct AudioNode {
   std::uint32_t channelCount = 0;
   bool isDefault = false;
   bool available = true; // false for a device whose active route is unavailable (e.g. unplugged HDMI)
+  AudioNodeState nodeState = AudioNodeState::Idle;
 
   bool operator==(const AudioNode&) const = default;
 };
@@ -162,6 +171,7 @@ public:
     bool nodeRouteMute = false;
     // Effective mute for UI (includes device-route mute).
     bool muted = false;
+    AudioNodeState nodeState = AudioNodeState::Idle;
     std::uint32_t channelCount = 0;
     std::uint32_t deviceId = 0;
     bool hasRoute = false;
