@@ -3592,7 +3592,7 @@
         "max-label-chars": {
           "description": "Maximum number of characters to show for workspace names",
           "label": "Max Label Characters",
-          "workspaces-description": "Maximum characters for workspace name labels"
+          "workspaces-description": "Maximum characters for non-numeric workspace labels"
         },
         "max-length": {
           "description": "Maximum widget length in pixels",

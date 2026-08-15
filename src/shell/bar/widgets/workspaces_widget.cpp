@@ -1393,11 +1393,12 @@ std::string WorkspacesWidget::workspaceLabel(const Workspace& workspace, std::si
     }
   } else {
     label = !workspace.name.empty() ? workspace.name : workspace.id;
-    // Only truncate non-numeric labels (words like "VESKTOP" → "VE").
-    // Numeric labels (workspace IDs like "10", "11") stay as-is.
-    if (!isNumericLabel(label) && m_maxLabelChars > 0) {
-      label = StringUtils::truncateUtf8CodePoints(label, m_maxLabelChars);
-    }
+  }
+
+  // Only truncate non-numeric labels (words like "VESKTOP" → "VE").
+  // Numeric labels (workspace IDs like "10", "11") stay as-is.
+  if (!isNumericLabel(label) && m_maxLabelChars > 0) {
+    label = StringUtils::truncateUtf8CodePoints(label, m_maxLabelChars);
   }
 
   return label;

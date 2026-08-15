@@ -29,13 +29,13 @@ namespace {
   ])";
 
   std::string replyFor(std::string_view command) {
-    if (command.find("j/workspaces") != std::string_view::npos) {
+    if (command.contains("j/workspaces")) {
       return std::string(kWorkspacesJson);
     }
-    if (command.find("j/monitors") != std::string_view::npos) {
+    if (command.contains("j/monitors")) {
       return std::string(kMonitorsJson);
     }
-    if (command.find("j/status") != std::string_view::npos) {
+    if (command.contains("j/status")) {
       return R"({"configProvider": "lua"})";
     }
     return "[]";
