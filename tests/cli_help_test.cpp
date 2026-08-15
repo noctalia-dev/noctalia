@@ -1,7 +1,7 @@
 #include "cli/help.h"
+#include "tests/test_check.h"
 
 #include <array>
-#include <cassert>
 #include <cstdlib>
 #include <string>
 #include <string_view>
@@ -55,7 +55,7 @@ namespace {
                                  "Options:\n"
                                  "      --verbose  Enable verbose output\n"
                                  "  -h, --help     Show this help message\n";
-    assert(noctalia::cli::renderHelp(kGroup, "noctalia tools") == expected);
+    TEST_CHECK(noctalia::cli::renderHelp(kGroup, "noctalia tools") == expected);
   }
 
   void checkLeafHelp() {
@@ -76,9 +76,9 @@ namespace {
                                  "  -h, --help         Show this help message\n"
                                  "\n"
                                  "See https://example.test for details.\n";
-    assert(noctalia::cli::renderHelp(kLeaf, "noctalia convert") == expected);
-    assert(noctalia::cli::renderArgsSpec(kLeaf) == "<input> [kind] [options]");
-    assert(noctalia::cli::renderArgsSpec(kGroup) == "<{zeta|alpha}> ...");
+    TEST_CHECK(noctalia::cli::renderHelp(kLeaf, "noctalia convert") == expected);
+    TEST_CHECK(noctalia::cli::renderArgsSpec(kLeaf) == "<input> [kind] [options]");
+    TEST_CHECK(noctalia::cli::renderArgsSpec(kGroup) == "<{zeta|alpha}> ...");
   }
 
 } // namespace

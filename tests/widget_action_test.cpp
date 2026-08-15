@@ -4,10 +4,10 @@
 #include "shell/bar/widget_action_dispatcher.h"
 #include "shell/bar/widget_gesture.h"
 #include "shell/settings/settings_control_factory.h"
+#include "tests/test_check.h"
 #include "ui/controls/input.h"
 
 #include <array>
-#include <cassert>
 #include <linux/input-event-codes.h>
 #include <string>
 #include <wayland-client-protocol.h>
@@ -28,115 +28,115 @@ namespace {
   using namespace noctalia::bar;
 
   void testGestureKeys() {
-    assert(allGestures().size() == kGestureCount);
+    TEST_CHECK(allGestures().size() == kGestureCount);
 
     // Every gesture round-trips through its config key, and every key is distinct.
     for (const auto gesture : allGestures()) {
       const auto key = gestureConfigKey(gesture);
-      assert(!key.empty());
+      TEST_CHECK(!key.empty());
       const auto parsed = parseGestureKey(key);
-      assert(parsed.has_value());
-      assert(*parsed == gesture);
-      assert(!gestureLabelKey(gesture).empty());
+      TEST_CHECK(parsed.has_value());
+      TEST_CHECK(*parsed == gesture);
+      TEST_CHECK(!gestureLabelKey(gesture).empty());
     }
 
     // Modifier chords are not part of the vocabulary: the bar never holds keyboard focus.
-    assert(!parseGestureKey("ctrl+left").has_value());
-    assert(!parseGestureKey("Left").has_value());
-    assert(!parseGestureKey("").has_value());
-    assert(!parseGestureKey("scroll").has_value());
+    TEST_CHECK(!parseGestureKey("ctrl+left").has_value());
+    TEST_CHECK(!parseGestureKey("Left").has_value());
+    TEST_CHECK(!parseGestureKey("").has_value());
+    TEST_CHECK(!parseGestureKey("scroll").has_value());
   }
 
   void testButtonAndScrollMapping() {
-    assert(gestureForButton(BTN_LEFT) == Gesture::Left);
-    assert(gestureForButton(BTN_RIGHT) == Gesture::Right);
-    assert(gestureForButton(BTN_MIDDLE) == Gesture::Middle);
+    TEST_CHECK(gestureForButton(BTN_LEFT) == Gesture::Left);
+    TEST_CHECK(gestureForButton(BTN_RIGHT) == Gesture::Right);
+    TEST_CHECK(gestureForButton(BTN_MIDDLE) == Gesture::Middle);
     // Mice report thumb buttons either way.
-    assert(gestureForButton(BTN_SIDE) == Gesture::Back);
-    assert(gestureForButton(BTN_BACK) == Gesture::Back);
-    assert(gestureForButton(BTN_EXTRA) == Gesture::Forward);
-    assert(gestureForButton(BTN_FORWARD) == Gesture::Forward);
-    assert(!gestureForButton(BTN_TASK).has_value());
+    TEST_CHECK(gestureForButton(BTN_SIDE) == Gesture::Back);
+    TEST_CHECK(gestureForButton(BTN_BACK) == Gesture::Back);
+    TEST_CHECK(gestureForButton(BTN_EXTRA) == Gesture::Forward);
+    TEST_CHECK(gestureForButton(BTN_FORWARD) == Gesture::Forward);
+    TEST_CHECK(!gestureForButton(BTN_TASK).has_value());
 
-    assert(buttonsForGesture(Gesture::Back).size() == 2);
-    assert(buttonsForGesture(Gesture::ScrollUp).empty());
+    TEST_CHECK(buttonsForGesture(Gesture::Back).size() == 2);
+    TEST_CHECK(buttonsForGesture(Gesture::ScrollUp).empty());
 
     // Wayland reports up/left as a negative delta.
-    assert(gestureForScroll(WL_POINTER_AXIS_VERTICAL_SCROLL, -1.0f) == Gesture::ScrollUp);
-    assert(gestureForScroll(WL_POINTER_AXIS_VERTICAL_SCROLL, 1.0f) == Gesture::ScrollDown);
-    assert(gestureForScroll(WL_POINTER_AXIS_HORIZONTAL_SCROLL, -1.0f) == Gesture::ScrollLeft);
-    assert(gestureForScroll(WL_POINTER_AXIS_HORIZONTAL_SCROLL, 1.0f) == Gesture::ScrollRight);
+    TEST_CHECK(gestureForScroll(WL_POINTER_AXIS_VERTICAL_SCROLL, -1.0F) == Gesture::ScrollUp);
+    TEST_CHECK(gestureForScroll(WL_POINTER_AXIS_VERTICAL_SCROLL, 1.0F) == Gesture::ScrollDown);
+    TEST_CHECK(gestureForScroll(WL_POINTER_AXIS_HORIZONTAL_SCROLL, -1.0F) == Gesture::ScrollLeft);
+    TEST_CHECK(gestureForScroll(WL_POINTER_AXIS_HORIZONTAL_SCROLL, 1.0F) == Gesture::ScrollRight);
     // No whole detent accumulated yet.
-    assert(!gestureForScroll(WL_POINTER_AXIS_VERTICAL_SCROLL, 0.0f).has_value());
+    TEST_CHECK(!gestureForScroll(WL_POINTER_AXIS_VERTICAL_SCROLL, 0.0F).has_value());
   }
 
   void testScrollRepeatModes() {
-    assert(parseScrollRepeatMode("auto") == ScrollRepeatMode::Auto);
-    assert(parseScrollRepeatMode("gesture") == ScrollRepeatMode::Gesture);
-    assert(parseScrollRepeatMode("steps") == ScrollRepeatMode::Steps);
-    assert(!parseScrollRepeatMode("cycle").has_value());
-    assert(!parseScrollRepeatMode("").has_value());
+    TEST_CHECK(parseScrollRepeatMode("auto") == ScrollRepeatMode::Auto);
+    TEST_CHECK(parseScrollRepeatMode("gesture") == ScrollRepeatMode::Gesture);
+    TEST_CHECK(parseScrollRepeatMode("steps") == ScrollRepeatMode::Steps);
+    TEST_CHECK(!parseScrollRepeatMode("cycle").has_value());
+    TEST_CHECK(!parseScrollRepeatMode("").has_value());
 
-    assert(scrollRepeatsEveryStep(ScrollRepeatMode::Auto, false));
-    assert(!scrollRepeatsEveryStep(ScrollRepeatMode::Auto, true));
-    assert(!scrollRepeatsEveryStep(ScrollRepeatMode::Gesture, false));
-    assert(!scrollRepeatsEveryStep(ScrollRepeatMode::Gesture, true));
-    assert(scrollRepeatsEveryStep(ScrollRepeatMode::Steps, false));
-    assert(scrollRepeatsEveryStep(ScrollRepeatMode::Steps, true));
+    TEST_CHECK(scrollRepeatsEveryStep(ScrollRepeatMode::Auto, false));
+    TEST_CHECK(!scrollRepeatsEveryStep(ScrollRepeatMode::Auto, true));
+    TEST_CHECK(!scrollRepeatsEveryStep(ScrollRepeatMode::Gesture, false));
+    TEST_CHECK(!scrollRepeatsEveryStep(ScrollRepeatMode::Gesture, true));
+    TEST_CHECK(scrollRepeatsEveryStep(ScrollRepeatMode::Steps, false));
+    TEST_CHECK(scrollRepeatsEveryStep(ScrollRepeatMode::Steps, true));
   }
 
   void testActionGrammar() {
     const auto ipc = parseWidgetAction("media toggle");
-    assert(ipc.has_value());
-    assert(ipc->kind == WidgetAction::Kind::Ipc);
-    assert(ipc->verb == "media");
-    assert(ipc->args == "toggle");
-    assert(ipc->commandLine() == "media toggle");
-    assert(ipc->isBound());
+    TEST_CHECK(ipc.has_value());
+    TEST_CHECK(ipc->kind == WidgetAction::Kind::Ipc);
+    TEST_CHECK(ipc->verb == "media");
+    TEST_CHECK(ipc->args == "toggle");
+    TEST_CHECK(ipc->commandLine() == "media toggle");
+    TEST_CHECK(ipc->isBound());
 
     const auto bare = parseWidgetAction("power-cycle");
-    assert(bare.has_value());
-    assert(bare->verb == "power-cycle");
-    assert(bare->args.empty());
-    assert(bare->commandLine() == "power-cycle");
+    TEST_CHECK(bare.has_value());
+    TEST_CHECK(bare->verb == "power-cycle");
+    TEST_CHECK(bare->args.empty());
+    TEST_CHECK(bare->commandLine() == "power-cycle");
 
     const auto multiArg = parseWidgetAction("  panel-toggle control-center media  ");
-    assert(multiArg.has_value());
-    assert(multiArg->verb == "panel-toggle");
-    assert(multiArg->args == "control-center media");
+    TEST_CHECK(multiArg.has_value());
+    TEST_CHECK(multiArg->verb == "panel-toggle");
+    TEST_CHECK(multiArg->args == "control-center media");
 
     const auto exec = parseWidgetAction("exec notify-send hello world");
-    assert(exec.has_value());
-    assert(exec->kind == WidgetAction::Kind::Exec);
-    assert(exec->args == "notify-send hello world");
+    TEST_CHECK(exec.has_value());
+    TEST_CHECK(exec->kind == WidgetAction::Kind::Exec);
+    TEST_CHECK(exec->args == "notify-send hello world");
 
     const auto none = parseWidgetAction("none");
-    assert(none.has_value());
-    assert(none->kind == WidgetAction::Kind::None);
-    assert(!none->isBound());
+    TEST_CHECK(none.has_value());
+    TEST_CHECK(none->kind == WidgetAction::Kind::None);
+    TEST_CHECK(!none->isBound());
 
     // An unknown verb never falls through to a shell command, and empty is an error rather than a
     // silent synonym for "none".
-    assert(!parseWidgetAction("").has_value());
-    assert(!parseWidgetAction("   ").has_value());
-    assert(!parseWidgetAction("exec").has_value());
-    assert(!parseWidgetAction("exec   ").has_value());
-    assert(!parseWidgetAction("none please").has_value());
+    TEST_CHECK(!parseWidgetAction("").has_value());
+    TEST_CHECK(!parseWidgetAction("   ").has_value());
+    TEST_CHECK(!parseWidgetAction("exec").has_value());
+    TEST_CHECK(!parseWidgetAction("exec   ").has_value());
+    TEST_CHECK(!parseWidgetAction("none please").has_value());
   }
 
   void testPanelVerbs() {
-    assert(isAnchoredPanelVerb("panel-toggle"));
-    assert(isAnchoredPanelVerb("panel-open"));
-    assert(!isAnchoredPanelVerb("panel-close"));
-    assert(!isAnchoredPanelVerb("media"));
+    TEST_CHECK(isAnchoredPanelVerb("panel-toggle"));
+    TEST_CHECK(isAnchoredPanelVerb("panel-open"));
+    TEST_CHECK(!isAnchoredPanelVerb("panel-close"));
+    TEST_CHECK(!isAnchoredPanelVerb("media"));
 
     const auto withContext = parsePanelVerbArgs("control-center media");
-    assert(withContext.panelId == "control-center");
-    assert(withContext.panelContext == "media");
+    TEST_CHECK(withContext.panelId == "control-center");
+    TEST_CHECK(withContext.panelContext == "media");
 
     const auto bare = parsePanelVerbArgs("session");
-    assert(bare.panelId == "session");
-    assert(bare.panelContext.empty());
+    TEST_CHECK(bare.panelId == "session");
+    TEST_CHECK(bare.panelContext.empty());
   }
 
   WidgetConfig makeConfig(std::unordered_map<std::string, std::string> actions) {
@@ -156,13 +156,13 @@ namespace {
     {
       WidgetActionBindings bindings;
       bindings.resolve(WidgetActionBindings::Inputs{.builtinDefaults = kBuiltin, .widgetDefaults = kWidgetDefaults});
-      assert(bindings.find(Gesture::Middle)->verb == "settings-open-widget");
-      assert(bindings.find(Gesture::Left)->verb == "panel-toggle");
-      assert(bindings.find(Gesture::Right)->args == "toggle");
-      assert(bindings.find(Gesture::Forward) == nullptr);
-      assert(!bindings.empty());
-      assert(bindings.boundGestures().contains(Gesture::Left));
-      assert(!bindings.boundGestures().contains(Gesture::Forward));
+      TEST_CHECK(bindings.find(Gesture::Middle)->verb == "settings-open-widget");
+      TEST_CHECK(bindings.find(Gesture::Left)->verb == "panel-toggle");
+      TEST_CHECK(bindings.find(Gesture::Right)->args == "toggle");
+      TEST_CHECK(bindings.find(Gesture::Forward) == nullptr);
+      TEST_CHECK(!bindings.empty());
+      TEST_CHECK(bindings.boundGestures().contains(Gesture::Left));
+      TEST_CHECK(!bindings.boundGestures().contains(Gesture::Forward));
     }
 
     // Layer 2 can unbind a built-in too. This is how a plugin [[widget]] whose script implements
@@ -172,9 +172,9 @@ namespace {
       constexpr std::array kFreesMiddle{GestureBinding{Gesture::Middle, "none"}};
       WidgetActionBindings bindings;
       bindings.resolve(WidgetActionBindings::Inputs{.builtinDefaults = kBuiltin, .widgetDefaults = kFreesMiddle});
-      assert(bindings.find(Gesture::Middle) == nullptr);
-      assert(!bindings.boundGestures().contains(Gesture::Middle));
-      assert(bindings.empty());
+      TEST_CHECK(bindings.find(Gesture::Middle) == nullptr);
+      TEST_CHECK(!bindings.boundGestures().contains(Gesture::Middle));
+      TEST_CHECK(bindings.empty());
     }
 
     // Layer 4 overrides a widget default; "none" unbinds an inherited one.
@@ -189,9 +189,9 @@ namespace {
               .widgetContext = "widget.media",
           }
       );
-      assert(bindings.find(Gesture::Right)->args == "next");
-      assert(bindings.find(Gesture::Left) == nullptr);
-      assert(bindings.find(Gesture::Middle)->verb == "settings-open-widget");
+      TEST_CHECK(bindings.find(Gesture::Right)->args == "next");
+      TEST_CHECK(bindings.find(Gesture::Left) == nullptr);
+      TEST_CHECK(bindings.find(Gesture::Middle)->verb == "settings-open-widget");
     }
 
     // Layer 3 beats defaults, layer 4 beats layer 3.
@@ -209,8 +209,8 @@ namespace {
               .barContext = "bar.default",
           }
       );
-      assert(bindings.find(Gesture::Middle) == nullptr);
-      assert(bindings.find(Gesture::Right)->verb == "media");
+      TEST_CHECK(bindings.find(Gesture::Middle) == nullptr);
+      TEST_CHECK(bindings.find(Gesture::Right)->verb == "media");
     }
 
     // Reserved gestures never bind, whether they came from a default or from config.
@@ -227,8 +227,8 @@ namespace {
               .widgetName = "workspaces",
           }
       );
-      assert(bindings.find(Gesture::Left) == nullptr);
-      assert(bindings.find(Gesture::Middle) != nullptr);
+      TEST_CHECK(bindings.find(Gesture::Left) == nullptr);
+      TEST_CHECK(bindings.find(Gesture::Middle) != nullptr);
     }
 
     // An unrecognised verb still parses and binds: whether a command exists is settled at
@@ -245,9 +245,9 @@ namespace {
           }
       );
       const auto* bound = bindings.find(Gesture::Right);
-      assert(bound != nullptr);
-      assert(bound->verb == "medai");
-      assert(bound->commandLine() == "medai toggle");
+      TEST_CHECK(bound != nullptr);
+      TEST_CHECK(bound->verb == "medai");
+      TEST_CHECK(bound->commandLine() == "medai toggle");
     }
 
     // Unknown gesture keys are dropped without disturbing valid siblings.
@@ -260,18 +260,18 @@ namespace {
               .widgetContext = "widget.media",
           }
       );
-      assert(bindings.find(Gesture::Forward)->args == "next");
-      assert(bindings.boundGestures().contains(Gesture::Forward));
+      TEST_CHECK(bindings.find(Gesture::Forward)->args == "next");
+      TEST_CHECK(bindings.boundGestures().contains(Gesture::Forward));
     }
 
     // No actions table at all.
     {
       const WidgetConfig empty;
-      assert(findActionTable(&empty) == nullptr);
-      assert(findActionTable(nullptr) == nullptr);
+      TEST_CHECK(findActionTable(&empty) == nullptr);
+      TEST_CHECK(findActionTable(nullptr) == nullptr);
       WidgetActionBindings bindings;
       bindings.resolve(WidgetActionBindings::Inputs{});
-      assert(bindings.empty());
+      TEST_CHECK(bindings.empty());
     }
   }
 
@@ -322,12 +322,12 @@ namespace {
         "Scroll up", {"widget", "volume", "actions", "scroll_up"}
     );
     auto* inheritedStep = findInput(*inherited);
-    assert(inheritedStep != nullptr);
-    assert(inheritedStep->value().empty());
+    TEST_CHECK(inheritedStep != nullptr);
+    TEST_CHECK(inheritedStep->value().empty());
     inheritedStep->setValue("12%");
     inheritedStep->inputArea()->dispatchFocusLoss();
-    assert(storedAction == "volume-up 12%");
-    assert(storedPath == std::vector<std::string>({"widget", "volume", "actions", "scroll_up"}));
+    TEST_CHECK(storedAction == "volume-up 12%");
+    TEST_CHECK(storedPath == std::vector<std::string>({"widget", "volume", "actions", "scroll_up"}));
 
     auto configured = factory.makeGestureActionRow(
         settings::GestureActionSetting{
@@ -338,8 +338,8 @@ namespace {
         "Scroll up", {"widget", "volume", "actions", "scroll_up"}
     );
     const auto* configuredStep = findInput(*configured);
-    assert(configuredStep != nullptr);
-    assert(configuredStep->value() == "12%");
+    TEST_CHECK(configuredStep != nullptr);
+    TEST_CHECK(configuredStep->value() == "12%");
   }
 
 } // namespace

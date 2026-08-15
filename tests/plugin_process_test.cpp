@@ -1,9 +1,11 @@
 #include "core/process/process.h"
+#include "core/toml.h"
 #include "scripting/luau_host.h"
 #include "scripting/script_api_context.h"
 
 #include <chrono>
 #include <condition_variable>
+#include <memory>
 #include <mutex>
 #include <optional>
 #include <print>
@@ -23,6 +25,8 @@ namespace {
 
 int main() {
   scripting::ScriptApiContext api;
+  api.setConfigSnapshot(std::make_shared<const toml::table>(toml::parse("[shell]\noffline_mode = true")));
+  api.setWallpaperPaths({{"DP-1", "/tmp/wallpaper.png"}});
   LuauHost host(api, "test/plugin:service");
 
   std::mutex mutex;
@@ -45,6 +49,14 @@ assert(noctalia.runAsync(
   function(_) end,
   5000
 ))
+assert(noctalia.getSetting("shell.offline_mode"))
+assert(noctalia.wallpaperPath("DP-1") == "/tmp/wallpaper.png")
+assert(noctalia.wallpaperPath("missing") == nil)
+noctalia.setWallpaperMask("DP-1", {
+  path = "/tmp/mask.png",
+  wallpaperPath = "/tmp/wallpaper.png",
+})
+noctalia.setWallpaperMask("DP-1", nil)
 )";
   if (!expect(host.exec("=direct-argv", source), "argv call should be accepted")) {
     return 1;

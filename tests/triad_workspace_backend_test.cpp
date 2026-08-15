@@ -1,7 +1,7 @@
 #include "compositors/triad/triad_runtime.h"
 #include "compositors/triad/triad_workspace_backend.h"
+#include "tests/test_check.h"
 
-#include <cassert>
 #include <cstddef>
 #include <cstdlib>
 #include <nlohmann/json.hpp>
@@ -89,24 +89,24 @@ int main() {
   backend.setChangeCallback([&changes]() { ++changes; });
   backend.setOverviewChangeCallback([&overviewChanges]() { ++overviewChanges; });
 
-  assert(TriadWorkspaceBackendTestAccess::applyState(backend, initialState()));
-  assert(backend.hasOverviewState());
-  assert(!backend.isOverviewOpen());
-  assert(backend.all().size() == 2);
-  assert(backend.workspaceKeys() == std::vector<std::string>({"1", "2"}));
-  assert(backend.focusedWindowId() == std::optional<std::string>("4294967297"));
-  assert(TriadWorkspaceBackendTestAccess::windowCount(backend) == 2);
+  TEST_CHECK(TriadWorkspaceBackendTestAccess::applyState(backend, initialState()));
+  TEST_CHECK(backend.hasOverviewState());
+  TEST_CHECK(!backend.isOverviewOpen());
+  TEST_CHECK(backend.all().size() == 2);
+  TEST_CHECK(backend.workspaceKeys() == std::vector<std::string>({"1", "2"}));
+  TEST_CHECK(backend.focusedWindowId() == std::optional<std::string>("4294967297"));
+  TEST_CHECK(TriadWorkspaceBackendTestAccess::windowCount(backend) == 2);
 
   const auto apps = backend.appIdsByWorkspace();
-  assert(apps.at("1") == std::vector<std::string>({"helium"}));
-  assert(apps.at("2") == std::vector<std::string>({"kitty"}));
+  TEST_CHECK(apps.at("1") == std::vector<std::string>({"helium"}));
+  TEST_CHECK(apps.at("2") == std::vector<std::string>({"kitty"}));
 
   const auto dp1Windows = backend.workspaceWindows("DP-1");
-  assert(dp1Windows.size() == 1);
-  assert(dp1Windows[0].windowId == "4294967297");
-  assert(dp1Windows[0].title == "Browser Title");
+  TEST_CHECK(dp1Windows.size() == 1);
+  TEST_CHECK(dp1Windows[0].windowId == "4294967297");
+  TEST_CHECK(dp1Windows[0].title == "Browser Title");
 
-  assert(
+  TEST_CHECK(
       TriadWorkspaceBackendTestAccess::applyWindow(
           backend,
           {{"id", 42},
@@ -117,23 +117,23 @@ int main() {
            {"position", {{"column_idx", 3}, {"window_idx", 2}}}}
       )
   );
-  assert(backend.workspaceWindows("DP-1").size() == 2);
-  assert(!TriadWorkspaceBackendTestAccess::applyWindow(backend, {{"id", "bad"}}));
+  TEST_CHECK(backend.workspaceWindows("DP-1").size() == 2);
+  TEST_CHECK(!TriadWorkspaceBackendTestAccess::applyWindow(backend, {{"id", "bad"}}));
 
   auto replacement = initialState();
   replacement["overview"]["is_open"] = true;
   replacement["windows"].erase(1);
-  assert(
+  TEST_CHECK(
       TriadWorkspaceBackendTestAccess::handleMessage(
           backend, nlohmann::json{{"triad", {{"state", replacement}}}}.dump()
       )
   );
-  assert(changes == 1);
-  assert(overviewChanges == 1);
-  assert(backend.isOverviewOpen());
-  assert(TriadWorkspaceBackendTestAccess::windowCount(backend) == 1);
-  assert(TriadWorkspaceBackendTestAccess::handleMessage(backend, "not json"));
-  assert(changes == 1);
+  TEST_CHECK(changes == 1);
+  TEST_CHECK(overviewChanges == 1);
+  TEST_CHECK(backend.isOverviewOpen());
+  TEST_CHECK(TriadWorkspaceBackendTestAccess::windowCount(backend) == 1);
+  TEST_CHECK(TriadWorkspaceBackendTestAccess::handleMessage(backend, "not json"));
+  TEST_CHECK(changes == 1);
 
   return 0;
 }

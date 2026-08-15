@@ -1,6 +1,6 @@
 #include "shell/bar/widgets/taskbar_widget.h"
+#include "tests/test_check.h"
 
-#include <cassert>
 #include <cstdint>
 #include <optional>
 #include <string>
@@ -80,33 +80,35 @@ public:
 
 int main() {
   // A hidden title change keeps the layout and reports the title change for tooltip refreshes.
-  assert(TaskbarWidgetTestAccess::compare(false, 11, 11, "old", "new") == std::pair(true, true));
+  TEST_CHECK(TaskbarWidgetTestAccess::compare(false, 11, 11, "old", "new") == std::pair(true, true));
   // A displayed title is layout, so it still forces a rebuild.
-  assert(!TaskbarWidgetTestAccess::compare(true, 11, 11, "old", "new").first);
-  assert(TaskbarWidgetTestAccess::compare(true, 11, 11, "same", "same") == std::pair(true, false));
+  TEST_CHECK(!TaskbarWidgetTestAccess::compare(true, 11, 11, "old", "new").first);
+  TEST_CHECK(TaskbarWidgetTestAccess::compare(true, 11, 11, "same", "same") == std::pair(true, false));
   // Task identity changes rebuild regardless of the title.
-  assert(!TaskbarWidgetTestAccess::compare(false, 11, 12, "old", "new").first);
+  TEST_CHECK(!TaskbarWidgetTestAccess::compare(false, 11, 12, "old", "new").first);
 
   auto tasks = std::vector{
       TaskbarWidgetTestAccess::task(11, "first"),
       TaskbarWidgetTestAccess::task(12, "second"),
   };
-  assert(TaskbarWidgetTestAccess::resolvedTitle(tasks, 0, 7, 7) == std::optional<std::string>("first"));
+  TEST_CHECK(TaskbarWidgetTestAccess::resolvedTitle(tasks, 0, 7, 7) == std::optional<std::string>("first"));
   // Retained references read the current model, not the model they were built from.
   tasks[0].title = "retitled";
-  assert(TaskbarWidgetTestAccess::resolvedTitle(tasks, 0, 7, 7) == std::optional<std::string>("retitled"));
-  assert(!TaskbarWidgetTestAccess::resolvedTitle(tasks, 2, 7, 7).has_value());
-  assert(!TaskbarWidgetTestAccess::resolvedTitle(tasks, 0, 7, 8).has_value());
+  TEST_CHECK(TaskbarWidgetTestAccess::resolvedTitle(tasks, 0, 7, 7) == std::optional<std::string>("retitled"));
+  TEST_CHECK(!TaskbarWidgetTestAccess::resolvedTitle(tasks, 2, 7, 7).has_value());
+  TEST_CHECK(!TaskbarWidgetTestAccess::resolvedTitle(tasks, 0, 7, 8).has_value());
 
   // Workspace placement can be rebound while the authoritative exact identity
   // remains intact for focus/close actions.
-  assert(TaskbarWidgetTestAccess::rebindWorkspaceWindow("41", "42") == std::pair(std::string("42"), std::string("41")));
+  TEST_CHECK(
+      TaskbarWidgetTestAccess::rebindWorkspaceWindow("41", "42") == std::pair(std::string("42"), std::string("41"))
+  );
   // workspaceBindingWindowId prefers the authoritative exact identity when set.
-  assert(TaskbarWidgetTestAccess::bindingWindowId("42", "41") == "41");
-  assert(TaskbarWidgetTestAccess::bindingWindowId("42", "") == "42");
+  TEST_CHECK(TaskbarWidgetTestAccess::bindingWindowId("42", "41") == "41");
+  TEST_CHECK(TaskbarWidgetTestAccess::bindingWindowId("42", "") == "42");
   // Changing exactWindowId triggers a layout rebuild.
-  assert(!TaskbarWidgetTestAccess::exactWindowIdChangeKeepsLayout("", "41"));
-  assert(TaskbarWidgetTestAccess::exactWindowIdChangeKeepsLayout("41", "41"));
+  TEST_CHECK(!TaskbarWidgetTestAccess::exactWindowIdChangeKeepsLayout("", "41"));
+  TEST_CHECK(TaskbarWidgetTestAccess::exactWindowIdChangeKeepsLayout("41", "41"));
 
   return 0;
 }

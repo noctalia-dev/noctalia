@@ -87,12 +87,13 @@ bool LockScreen::initialize(
   return true;
 }
 
-void LockScreen::setSessionHooks(std::function<void()> onLocked, std::function<void()> onUnlocked) {
+void LockScreen::setSessionHooks(
+    std::function<void()> onLocked, std::function<void()> onUnlocked, std::function<void()> onLockAborted
+) {
   m_onSessionLocked = std::move(onLocked);
   m_onSessionUnlocked = std::move(onUnlocked);
+  m_onLockAborted = std::move(onLockAborted);
 }
-
-void LockScreen::setLockEngagedCallback(std::function<void()> callback) { m_onLockEngaged = std::move(callback); }
 
 void LockScreen::setLoginBoxServices(
     SessionActionRunner* sessionActions, MprisService* mpris, const WeatherService* weather, HttpClient* httpClient
@@ -166,9 +167,6 @@ bool LockScreen::lock() {
   }
   wl_display_flush(m_wayland->display());
   kLog.info("session lock requested");
-  if (m_onLockEngaged) {
-    m_onLockEngaged();
-  }
   return true;
 }
 
@@ -475,6 +473,7 @@ void LockScreen::handleLocked(void* data, ext_session_lock_v1* /*lock*/) {
 void LockScreen::handleFinished(void* data, ext_session_lock_v1* /*lock*/) {
   auto* self = static_cast<LockScreen*>(data);
   kLog.info("session lock finished by compositor");
+  const bool wasLockedInteractive = self->m_locked;
   self->m_pendingAfterLocked = {};
   self->invalidatePendingAuthentication();
   self->stopFingerprint();
@@ -494,8 +493,10 @@ void LockScreen::handleFinished(void* data, ext_session_lock_v1* /*lock*/) {
   self->m_statusIsError = false;
   self->m_desktopCaptures.clear();
   self->m_desktopCapturesPrimed = false;
-  if (self->m_onSessionUnlocked) {
+  if (wasLockedInteractive && self->m_onSessionUnlocked) {
     self->m_onSessionUnlocked();
+  } else if (!wasLockedInteractive && self->m_onLockAborted) {
+    self->m_onLockAborted();
   }
   self->clearInstances();
   self->m_pointerSurface = nullptr;

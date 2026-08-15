@@ -3,17 +3,32 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <vector>
 
 struct DesktopAction {
   std::string id;
   std::string name;
   std::string exec;
+  // Pre-lowercased for matching
+  std::string nameLower;
+  std::string execLower;
+};
+
+enum class DesktopEntryOrigin : std::uint8_t {
+  Unknown,
+  User,
+  System,
+  Flatpak,
+  Snap,
+  Nix,
+  AppImage,
 };
 
 struct DesktopEntry {
   std::string id;
   std::string path;
+  DesktopEntryOrigin origin = DesktopEntryOrigin::Unknown;
   std::string name;
   std::string genericName;
   std::string comment;
@@ -30,6 +45,7 @@ struct DesktopEntry {
 
   // Pre-lowercased for matching
   std::string nameLower;
+  std::vector<std::string> localizedNamesLower;
   std::string genericNameLower;
   std::string keywordsLower;
   std::string categoriesLower;
@@ -41,7 +57,7 @@ struct DesktopEntry {
   std::vector<DesktopAction> actions;
 };
 
-std::vector<DesktopEntry> scanDesktopEntries();
+std::vector<DesktopEntry> scanDesktopEntries(std::string_view language = {});
 
 const std::vector<DesktopEntry>& desktopEntries();
 
@@ -51,6 +67,7 @@ const std::vector<DesktopEntry>& desktopEntries();
 std::shared_ptr<const std::vector<DesktopEntry>> desktopEntriesSnapshot();
 
 std::uint64_t desktopEntriesVersion();
+void setDesktopEntryLanguage(std::string_view language);
 int desktopEntryWatchFd() noexcept;
 void checkDesktopEntryReload();
 

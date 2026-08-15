@@ -154,8 +154,9 @@ std::size_t TrayDrawerPanel::visibleItemCount() const {
   if (m_tray == nullptr) {
     return 0;
   }
-  const auto hiddenItems = currentHiddenItems();
-  const auto pinnedItems = currentPinnedItems();
+  const auto options = m_config != nullptr ? tray::resolvedTrayOptions(*m_config).options : TrayWidget::Options{};
+  const auto& hiddenItems = options.hiddenItems;
+  const auto& pinnedItems = options.pinnedItems;
   std::vector<std::string> hiddenLower;
   hiddenLower.reserve(hiddenItems.size());
   for (const auto& v : hiddenItems) {
@@ -196,7 +197,7 @@ std::size_t TrayDrawerPanel::visibleItemCount() const {
   };
   std::size_t visible = 0;
   for (const auto& item : m_tray->items()) {
-    if (tray::isPassiveStatus(item)) {
+    if (options.hidePassive && tray::isPassiveStatus(item)) {
       continue;
     }
     const bool hidden =
@@ -208,12 +209,4 @@ std::size_t TrayDrawerPanel::visibleItemCount() const {
     }
   }
   return visible;
-}
-
-std::vector<std::string> TrayDrawerPanel::currentHiddenItems() const {
-  return m_config != nullptr ? tray::resolvedTrayOptions(*m_config).options.hiddenItems : std::vector<std::string>{};
-}
-
-std::vector<std::string> TrayDrawerPanel::currentPinnedItems() const {
-  return m_config != nullptr ? tray::resolvedTrayOptions(*m_config).options.pinnedItems : std::vector<std::string>{};
 }

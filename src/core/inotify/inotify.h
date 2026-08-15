@@ -2,9 +2,9 @@
 
 #include <cstdint>
 #include <filesystem>
-#include <flat_set>
 #include <functional>
 #include <optional>
+#include <set>
 #include <sys/inotify.h>
 
 class Inotify {
@@ -34,5 +34,5 @@ public:
 
 private:
   int m_inotifyFd = -1;
-  std::flat_set<int> m_watchDescriptors;
+  std::set<int> m_watchDescriptors;
 };

@@ -1,11 +1,15 @@
 #pragma once
 
+#include "core/toml.h"
+
 #include <atomic>
 #include <cstdint>
 #include <functional>
+#include <memory>
 #include <mutex>
 #include <optional>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 // Pointer-only use; keeps the scripting layer off the system layer's header.
@@ -31,6 +35,9 @@ namespace scripting {
         std::function<std::optional<std::string>(std::uint64_t, const std::string&, const std::string&)>;
     using PlaySoundHook = std::function<void(std::uint64_t, const std::string&)>;
     using UnloadPluginSoundsHook = std::function<void(std::uint64_t)>;
+    using SetWallpaperMaskHook =
+        std::function<void(std::uint64_t, const std::string&, const std::string&, const std::string&)>;
+    using ClearWallpaperMasksHook = std::function<void(std::uint64_t)>;
 
     [[nodiscard]] bool isDarkMode() const noexcept { return m_darkMode.load(std::memory_order_relaxed); }
     void setDarkMode(bool dark) noexcept { m_darkMode.store(dark, std::memory_order_relaxed); }
@@ -45,6 +52,17 @@ namespace scripting {
       return m_wallpaperDirectory;
     }
 
+    void setWallpaperPaths(std::unordered_map<std::string, std::string> paths) {
+      std::scoped_lock lock(m_mutex);
+      m_wallpaperPaths = std::move(paths);
+    }
+
+    [[nodiscard]] std::optional<std::string> wallpaperPath(const std::string& outputName) const {
+      std::scoped_lock lock(m_mutex);
+      const auto it = m_wallpaperPaths.find(outputName);
+      return it != m_wallpaperPaths.end() ? std::optional<std::string>{it->second} : std::nullopt;
+    }
+
     // Output snapshot — refreshed on the main thread, copied out under lock so that
     // script bindings (which run on a worker thread) read it race-free.
     void setOutputs(std::vector<ScriptOutputInfo> outputs) {
@@ -55,6 +73,19 @@ namespace scripting {
     [[nodiscard]] std::vector<ScriptOutputInfo> outputs() const {
       std::scoped_lock lock(m_mutex);
       return m_outputs;
+    }
+
+    // Effective shell config, serialized via config_export::serialize — published on the
+    // main thread on every config (re)load, read from script worker threads. The pointed-to
+    // table is immutable; bindings hold the shared_ptr for the duration of one lookup.
+    void setConfigSnapshot(std::shared_ptr<const toml::table> snapshot) {
+      std::scoped_lock lock(m_mutex);
+      m_configSnapshot = std::move(snapshot);
+    }
+
+    [[nodiscard]] std::shared_ptr<const toml::table> configSnapshot() const {
+      std::scoped_lock lock(m_mutex);
+      return m_configSnapshot;
     }
 
     // Latest text clipboard content — mirrored from ClipboardService on the
@@ -113,6 +144,20 @@ namespace scripting {
         m_wallpaperHook(connector, path);
       }
     }
+
+    void setWallpaperMaskHook(SetWallpaperMaskHook hook) { m_wallpaperMaskHook = std::move(hook); }
+
+    void invokeSetWallpaperMask(
+        std::uint64_t ownerId, const std::string& outputName, const std::string& path, const std::string& wallpaperPath
+    ) const {
+      if (m_wallpaperMaskHook) {
+        m_wallpaperMaskHook(ownerId, outputName, path, wallpaperPath);
+      }
+    }
+
+    void setClearWallpaperMasksHook(ClearWallpaperMasksHook hook) { m_clearWallpaperMasksHook = std::move(hook); }
+
+    [[nodiscard]] ClearWallpaperMasksHook clearWallpaperMasksHook() const { return m_clearWallpaperMasksHook; }
 
     // The live system monitor, or nullptr when it is unavailable. Unlike the hooks around it this
     // is read straight from a script worker thread: SystemMonitorService::latest() is mutex-guarded
@@ -173,13 +218,17 @@ namespace scripting {
     std::atomic<SystemMonitorService*> m_systemMonitor{nullptr};
     std::atomic<bool> m_darkMode{true};
     mutable std::mutex m_mutex;
+    std::shared_ptr<const toml::table> m_configSnapshot;
     std::string m_wallpaperDirectory;
     std::string m_timeFormat;
     std::string m_dateFormat;
     std::vector<ScriptOutputInfo> m_outputs;
+    std::unordered_map<std::string, std::string> m_wallpaperPaths;
     std::optional<std::string> m_clipboardText;
     std::function<void(const std::string&, bool)> m_wallpaperEnabledHook;
     std::function<void(const std::string&, const std::string&)> m_wallpaperHook;
+    SetWallpaperMaskHook m_wallpaperMaskHook;
+    ClearWallpaperMasksHook m_clearWallpaperMasksHook;
     std::function<void(const std::string&)> m_togglePanelHook;
     std::function<void(const std::string&)> m_openPluginSettingsHook;
     LoadSoundHook m_loadSoundHook;

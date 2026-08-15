@@ -207,6 +207,7 @@ public:
   // Apply and persist a wallpaper image. Empty connector targets all outputs.
   // Queued as a side effect and applied on the main thread.
   void scriptSetWallpaper(std::string connector, std::string path);
+  void scriptSetWallpaperMask(std::string outputName, std::string path, std::string wallpaperPath);
   // Toggle a host panel by id ("author/plugin:panel"). Queued, applied on the main thread.
   void scriptTogglePanel(std::string panelId);
   // Open the settings window at this plugin's own settings. Queued, applied on the main thread.

@@ -94,13 +94,18 @@ struct UPowerDeviceInfo {
   bool operator==(const UPowerDeviceInfo&) const = default;
 
   [[nodiscard]] bool isLaptopBattery() const { return type == UPowerDeviceType::Battery && powerSupply; }
+  [[nodiscard]] bool sameCatalogEntry(const UPowerDeviceInfo& other) const;
+};
+
+struct UPowerChange {
+  bool deviceCatalogChanged = false;
 };
 
 [[nodiscard]] bool upowerDeviceMatchesSelector(const UPowerDeviceInfo& info, std::string_view selector);
 
 class UPowerService {
 public:
-  using ChangeCallback = std::function<void()>;
+  using ChangeCallback = std::function<void(const UPowerChange&)>;
 
   explicit UPowerService(SystemBus& bus);
 
@@ -126,7 +131,7 @@ private:
   [[nodiscard]] UPowerState readDeviceState(sdbus::IProxy& proxy) const;
   [[nodiscard]] UPowerDeviceInfo readDeviceInfo(std::string path, sdbus::IProxy& proxy) const;
   void refreshDisplayDeviceProxy();
-  void emitChangedIfNeeded(bool devicesChanged);
+  void emitChangedIfNeeded(bool devicesChanged, bool deviceCatalogChanged);
   void rescanDevices();
   void refreshDeviceStates();
 

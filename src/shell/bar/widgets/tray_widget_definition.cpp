@@ -16,6 +16,9 @@ const noctalia::bar::WidgetDefinition<TrayWidget::Options, TrayWidgetDefinitionC
               field<&Options::pinnedItems>({
                   .key = "pinned",
               }),
+              field<&Options::hidePassive>({
+                  .key = "hide_passive",
+              }),
               field<&Options::matchAdjacentSpacing>({
                   .key = "match_adjacent_spacing",
               }),

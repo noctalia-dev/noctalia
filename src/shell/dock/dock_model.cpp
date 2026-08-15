@@ -95,7 +95,7 @@ namespace shell::dock {
 
     const auto runningIds =
         deps.config.showRunning ? deps.platform.runningAppIds(snapshot.filterOutput) : std::vector<std::string>{};
-    const auto resolvedRunning = app_identity::resolveRunningApps(runningIds, desktopEntries());
+    const auto resolvedRunning = app_identity::resolveRunningApps(runningIds, desktopEntries(), deps.pinnedEntries);
 
     std::unordered_map<std::string, std::string> compositorIdByEntryId;
     compositorIdByEntryId.reserve(resolvedRunning.size());

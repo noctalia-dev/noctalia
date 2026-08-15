@@ -519,6 +519,7 @@
         "opacity": "Opacidade",
         "primary-color": "Cor Primária",
         "reset-defaults": "Redefinir para Padrão",
+        "reversed": "Invertido",
         "ring-opacity": "Opacidade do Anel",
         "rotation-speed": "Velocidade de Rotação",
         "scroll-step": "Graduação de Rolagem",
@@ -547,6 +548,7 @@
         "stat-gpu-temp": "Temperatura da GPU",
         "stat-gpu-usage": "Uso da GPU",
         "stat-gpu-vram": "VRAM da GPU",
+        "stat-gpu-vram-used": "VRAM Em Uso da GPU",
         "stat-net-rx": "Velocidade de Download",
         "stat-net-tx": "Velocidade de Upload",
         "stat-none": "Nenhum",
@@ -657,6 +659,14 @@
       "no-results": "Nenhum resultado encontrado",
       "type-to-search": "Digite para pesquisar..."
     },
+    "origins": {
+      "appimage": "AppImage",
+      "flatpak": "Flatpak",
+      "nix": "Nix",
+      "snap": "Snap",
+      "system": "Sistema",
+      "user": "Usuário"
+    },
     "providers": {
       "applications": {
         "title": "Aplicações"
@@ -724,6 +734,8 @@
       "battery-low-body": "{device}: {percent}% restantes",
       "battery-low-title": "Bateria baixa",
       "calendar": "Calendário",
+      "calendar-credential-locked-body": "Desbloqueie o chaveiro usado pelo Serviço Secreto e, em seguida, tente novamente em “Configurações”. No GNOME Keyring, defina como padrão um chaveiro que seja desbloqueado automaticamente, como o “Login”.",
+      "calendar-credential-locked-title": "Keyring do calendário está bloqueado",
       "calendar-google-connect-browser-failed": "Não foi possível abrir nenhum navegador com a autorização do Google. Verifique seu navegador padrão ou a configuração do xdg-open.",
       "calendar-google-connect-credential-store-failed": "A autorização foi concluída, mas não foi possível salvar o token de atualização. Desbloqueie ou inicie o Secret Service e, em seguida, conecte-se novamente.",
       "calendar-google-connect-expired": "A autorização do Google expirou antes da conclusão do login. Inicie a conexão novamente.",
@@ -1123,7 +1135,7 @@
       "merged-user-description": "Combina arquivos de configuração e alterações na interface gráfica em um único arquivo TOML. Os valores padrão predefinidos permanecem implícitos.",
       "merged-user-save-title": "Salvar Configuração de Usuário Mesclada",
       "merged-user-title": "Configuração de Usuário Mesclada (Recomendado)",
-      "title": "Exportar Configurações"
+      "title": "Exportar Configuração"
     },
     "idle": {
       "behavior": {
@@ -1513,6 +1525,7 @@
       },
       "store": {
         "add": "Adicionar ao Noctalia",
+        "back-to-catalog": "Voltar ao catálogo de plugins",
         "categories": "Categoria",
         "category-all": "Todos",
         "empty": "Não foram encontrados plugins",
@@ -2295,6 +2308,10 @@
           "description": "Mostrar rótulos de texto sob ícones de atalho na aba de início",
           "label": "Mostra Rótulos de Atalhos"
         },
+        "launcher-app-actions": {
+          "description": "Mostrar ações de aplicação junto com as aplicações",
+          "label": "Mostrar Ações de Aplicação"
+        },
         "launcher-app-grid": {
           "description": "Exibe uma grade de ícones de aplicativos com legendas abaixo deles quando os resultados forem apenas aplicativos",
           "label": "Visão em Grade de Apps"
@@ -2509,7 +2526,9 @@
         "calendar-edit": {
           "button": "Editar",
           "button-reconnect": "Reconectar",
+          "button-retry": "Tentar novamente",
           "description": "Atualizar essa conta de Calendário",
+          "description-locked": "O token de atualização está em um chaveiro bloqueado; desbloqueie o chaveiro e tente novamente",
           "description-reconnect": "Autorização do Google está ausente; reconecte esta conta."
         },
         "calendar-event-date-format": {
@@ -3238,6 +3257,7 @@
         "gpu-temp": "Temperatura da GPU",
         "gpu-usage": "Uso da GPU",
         "gpu-vram": "VRAM da GPU",
+        "gpu-vram-used": "VRAM Em Uso da GPU",
         "graph": "Gráfico",
         "graphic": "Gráfico",
         "hidden": "Oculto",
@@ -3594,7 +3614,7 @@
         "max-label-chars": {
           "description": "Número máximo de caracteres a serem exibidos nos nomes dos espaços de trabalho",
           "label": "Máximo de Caracteres de Rótulo",
-          "workspaces-description": "Número máximo de caracteres para rótulos de nomes de espaços de trabalho"
+          "workspaces-description": "Número máximo de caracteres para rótulos não-numéricos de espaços de trabalho"
         },
         "max-length": {
           "description": "Comprimento máximo do widget em pixels",
@@ -3660,6 +3680,10 @@
           "description": "Opacidade dos apps fixados que não estão em execução",
           "label": "Opacidade do App Fixado"
         },
+        "reversed": {
+          "description": "Inverta a ordem de frequência de baixo-para-alto da barras",
+          "label": "Invertido"
+        },
         "scale": {
           "description": "Dimensionar este widget em relação à escala do conteúdo da barra",
           "label": "Escala"
@@ -3683,6 +3707,10 @@
         "show-all-outputs": {
           "description": "Incluir janelas de todos os monitores neste widget",
           "label": "Exibir Todos Monitores"
+        },
+        "show-all-workspaces": {
+          "description": "Mostrar espaços de trabalho de todos monitores neste widget",
+          "label": "Mostrar Todos Monitores"
         },
         "show-caps-lock": {
           "description": "Mostra o estado do Caps Lock",
@@ -3861,7 +3889,7 @@
     },
     "window": {
       "export-config": "Exportar Config...",
-      "export-config-saved": "Exportação de Config salvo.",
+      "export-config-saved": "Exportação de configuração salva.",
       "filter-overridden": "Sobrescrito",
       "legacy-config-warning": "Configurações Legadas: {issue}. Edite esta entrada na fonte; Noctalia está aplicando está substituição só temporariamente. Execute nocatlia config validade para listar cada mudança necessária.",
       "native-title": "Configurações do Noctalia",

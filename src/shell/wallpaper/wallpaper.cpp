@@ -13,6 +13,7 @@
 #include "render/core/render_styles.h"
 #include "render/core/shared_texture_cache.h"
 #include "render/render_context.h"
+#include "shell/wallpaper/wallpaper_geometry.h"
 #include "shell/wallpaper/wallpaper_instance.h"
 #include "shell/wallpaper/wallpaper_paths.h"
 #include "theme/theme_service.h"
@@ -270,57 +271,6 @@ namespace {
       return false;
     }
     return tryParseHexColor(path.substr(kPrefix.size()), out);
-  }
-
-  // Build the Span geometry for one output: the desktop bounding box across every
-  // ready output and this output's offset/size within it. Returns a zeroed result
-  // (which makes the shader fall back to Crop) when geometry is not yet available.
-  WallpaperSpanParams computeSpanParams(const std::vector<WaylandOutput>& outputs, std::uint32_t outputName) {
-    WallpaperSpanParams span;
-
-    bool haveBounds = false;
-    std::int32_t minX = 0;
-    std::int32_t minY = 0;
-    std::int32_t maxX = 0;
-    std::int32_t maxY = 0;
-    const WaylandOutput* self = nullptr;
-
-    for (const auto& out : outputs) {
-      if (!out.done || out.logicalWidth <= 0 || out.logicalHeight <= 0) {
-        continue;
-      }
-      const std::int32_t left = out.logicalX;
-      const std::int32_t top = out.logicalY;
-      const std::int32_t right = out.logicalX + out.logicalWidth;
-      const std::int32_t bottom = out.logicalY + out.logicalHeight;
-      if (!haveBounds) {
-        minX = left;
-        minY = top;
-        maxX = right;
-        maxY = bottom;
-        haveBounds = true;
-      } else {
-        minX = std::min(minX, left);
-        minY = std::min(minY, top);
-        maxX = std::max(maxX, right);
-        maxY = std::max(maxY, bottom);
-      }
-      if (out.name == outputName) {
-        self = &out;
-      }
-    }
-
-    if (!haveBounds || self == nullptr) {
-      return span;
-    }
-
-    span.offsetX = static_cast<float>(self->logicalX - minX);
-    span.offsetY = static_cast<float>(self->logicalY - minY);
-    span.monitorWidth = static_cast<float>(self->logicalWidth);
-    span.monitorHeight = static_cast<float>(self->logicalHeight);
-    span.totalWidth = static_cast<float>(maxX - minX);
-    span.totalHeight = static_cast<float>(maxY - minY);
-    return span;
   }
 
   void
@@ -1585,7 +1535,7 @@ void Wallpaper::updateRendererState(WallpaperInstance& instance) {
   wallpaperNode->setFillColor(fillColor);
 
   if (wpConfig.fillMode == WallpaperFillMode::Span && m_wayland != nullptr) {
-    wallpaperNode->setSpan(computeSpanParams(m_wayland->outputs(), instance.outputName));
+    wallpaperNode->setSpan(computeWallpaperSpanParams(m_wayland->outputs(), instance.outputName));
   } else {
     wallpaperNode->setSpan(WallpaperSpanParams{});
   }

@@ -865,8 +865,9 @@ int main() {
     }
   }
 
-  // Multiline input: the prop applies, seeds a multi-line value, and the keyed
-  // instance survives re-renders like any other input.
+  // Multiline input: the props apply, seed a multi-line value, and the keyed
+  // instance survives re-renders like any other input. A frame-free field keeps
+  // the editor interactions while allowing its parent surface to show through.
   {
     ui::UiTreeReconciler reconciler;
     Flex host;
@@ -876,6 +877,7 @@ int main() {
     input.key = "editor";
     input.props.emplace("value", std::string("line one\nline two"));
     input.props.emplace("multiline", true);
+    input.props.emplace("frameVisible", false);
     tree.children.push_back(input);
     (void)reconciler.reconcile(host, tree, renderer);
 
@@ -883,6 +885,11 @@ int main() {
     auto* in = column != nullptr ? dynamic_cast<Input*>(column->children()[0].get()) : nullptr;
     ok =
         expect(in != nullptr && in->value() == "line one\nline two", "multiline input seeded with newline value") && ok;
+    if (in != nullptr) {
+      const auto& inputChildren = in->children();
+      ok = expect(!inputChildren.empty() && !inputChildren.front()->visible(), "frame-free input hides its chrome")
+          && ok;
+    }
     Node* inputBefore = in;
 
     (void)reconciler.reconcile(host, tree, renderer);

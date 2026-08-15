@@ -654,6 +654,63 @@ namespace {
     return 0;
   }
 
+  int luau_wallpaperPath(lua_State* L) {
+    size_t len = 0;
+    const char* outputName = luaL_checklstring(L, 1, &len);
+    auto* host = hostForState(L);
+    const auto path = host != nullptr ? host->api().wallpaperPath(std::string(outputName, len)) : std::nullopt;
+    if (!path.has_value() || path->empty()) {
+      lua_pushnil(L);
+      return 1;
+    }
+    lua_pushlstring(L, path->data(), path->size());
+    return 1;
+  }
+
+  int luau_setWallpaperMask(lua_State* L) {
+    size_t outputLen = 0;
+    const char* outputName = luaL_checklstring(L, 1, &outputLen);
+    auto* host = hostForState(L);
+    if (host == nullptr) {
+      return 0;
+    }
+    if (lua_isnoneornil(L, 2)) {
+      host->scriptSetWallpaperMask(std::string(outputName, outputLen), {}, {});
+      return 0;
+    }
+
+    luaL_checktype(L, 2, LUA_TTABLE);
+    lua_getfield(L, 2, "path");
+    size_t pathLen = 0;
+    const char* path = luaL_checklstring(L, -1, &pathLen);
+    lua_pop(L, 1);
+    lua_getfield(L, 2, "wallpaperPath");
+    size_t wallpaperLen = 0;
+    const char* wallpaperPath = luaL_checklstring(L, -1, &wallpaperLen);
+    lua_pop(L, 1);
+    host->scriptSetWallpaperMask(
+        std::string(outputName, outputLen), std::string(path, pathLen), std::string(wallpaperPath, wallpaperLen)
+    );
+    return 0;
+  }
+
+  // Any effective shell config value by dotted path. Array indices in the path are zero-based.
+  int luau_getSetting(lua_State* L) {
+    size_t len = 0;
+    const char* path = luaL_checklstring(L, 1, &len);
+    auto* host = hostForState(L);
+    const auto snapshot = host != nullptr ? host->api().configSnapshot() : nullptr;
+    if (snapshot == nullptr) {
+      lua_pushnil(L);
+      return 1;
+    }
+    scripting::pushConfigSetting(L, *snapshot, std::string_view(path, len));
+    if (lua_isnil(L, -1)) {
+      kLog.warn("plugin {}: getSetting('{}') matched no config key", host->runtimeName(), std::string_view(path, len));
+    }
+    return 1;
+  }
+
   // togglePanel("author/plugin:panel") — toggle a host panel by id.
   int luau_togglePanel(lua_State* L) {
     size_t len = 0;
@@ -1700,6 +1757,8 @@ namespace {
       {"appIconPath", luau_appIconPath},
       {"setWallpaperEnabled", luau_setWallpaperEnabled},
       {"setWallpaper", luau_setWallpaper},
+      {"wallpaperPath", luau_wallpaperPath},
+      {"setWallpaperMask", luau_setWallpaperMask},
       {"togglePanel", luau_togglePanel},
       {"openSettings", luau_openSettings},
       {"isDarkMode", luau_isDarkMode},
@@ -1735,6 +1794,7 @@ namespace {
       {"openColorPicker", luau_openColorPicker},
       {"fuzzyScore", luau_fuzzyScore},
       {"getConfig", scripting::luau_getConfig},
+      {"getSetting", luau_getSetting},
       {nullptr, nullptr},
   };
 
@@ -1862,6 +1922,7 @@ bool LuauHost::ensureDiskPathRetained(const std::string& path) {
 
 LuauHost::~LuauHost() {
   auto unloadPluginSounds = m_api.unloadPluginSoundsHook();
+  auto clearWallpaperMasks = m_api.clearWallpaperMasksHook();
   // Terminate any long-lived stream subprocesses and HTTP streams before tearing
   // down the state.
   stopAllStreams();
@@ -1922,6 +1983,11 @@ LuauHost::~LuauHost() {
   if (unloadPluginSounds) {
     DeferredCall::callLater([unloadPluginSounds = std::move(unloadPluginSounds), hostId = m_hostId]() mutable {
       unloadPluginSounds(hostId);
+    });
+  }
+  if (clearWallpaperMasks) {
+    DeferredCall::callLater([clearWallpaperMasks = std::move(clearWallpaperMasks), hostId = m_hostId]() mutable {
+      clearWallpaperMasks(hostId);
     });
   }
 }
@@ -2713,6 +2779,22 @@ void LuauHost::scriptSetWallpaper(std::string connector, std::string path) {
         {.kind = scripting::ScriptSideEffectKind::SetWallpaper, .title = std::move(connector), .body = std::move(path)}
     );
   }
+}
+
+void LuauHost::scriptSetWallpaperMask(std::string outputName, std::string path, std::string wallpaperPath) {
+  if (m_scriptContext == nullptr) {
+    return;
+  }
+  if (!path.empty()) {
+    path = resolveHostPath(this, path).string();
+  }
+  m_scriptContext->sideEffects.push_back({
+      .kind = scripting::ScriptSideEffectKind::SetWallpaperMask,
+      .title = std::move(outputName),
+      .body = std::move(path),
+      .extra = std::move(wallpaperPath),
+      .hostId = m_hostId,
+  });
 }
 
 void LuauHost::scriptTogglePanel(std::string panelId) {

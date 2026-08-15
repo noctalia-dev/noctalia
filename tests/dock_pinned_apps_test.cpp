@@ -1,7 +1,7 @@
 #include "shell/dock/pinned_apps.h"
 #include "system/internal_app_metadata.h"
+#include "tests/test_check.h"
 
-#include <cassert>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -44,21 +44,22 @@ namespace {
 int main() {
   const DesktopEntry chat = sampleEntry();
 
-  assert(shell::dock::pinned_apps::matchesEntry(chat, "sample-chat.desktop"));
-  assert(shell::dock::pinned_apps::matchesEntry(chat, "SampleChat"));
-  assert(shell::dock::pinned_apps::matchesEntry(chat, "sample chat"));
-  assert(shell::dock::pinned_apps::matchesEntry(chat, "sample_chat_desktop"));
-  assert(!shell::dock::pinned_apps::matchesEntry(chat, ""));
-  assert(!shell::dock::pinned_apps::matchesEntry(chat, "calendar"));
+  TEST_CHECK(shell::dock::pinned_apps::matchesEntry(chat, "sample-chat.desktop"));
+  TEST_CHECK(!shell::dock::pinned_apps::matchesEntry(chat, "SampleChat"));
+  TEST_CHECK(!shell::dock::pinned_apps::matchesEntry(chat, "sample chat"));
+  TEST_CHECK(!shell::dock::pinned_apps::matchesEntry(chat, "sample_chat_desktop"));
+  TEST_CHECK(!shell::dock::pinned_apps::matchesEntry(chat, ""));
+  TEST_CHECK(!shell::dock::pinned_apps::matchesEntry(chat, "calendar"));
 
   const DesktopEntry mail = pathStyleEntry();
-  assert(shell::dock::pinned_apps::matchesEntry(mail, "org.example.Mail"));
+  TEST_CHECK(!shell::dock::pinned_apps::matchesEntry(mail, "org.example.Mail"));
+  TEST_CHECK(shell::dock::pinned_apps::matchesEntry(mail, "/usr/share/applications/org.example.Mail.desktop"));
 
   std::vector<std::string> pinned = {"calendar", "samplechat", "sample-chat.desktop"};
-  assert(shell::dock::pinned_apps::containsEntry(pinned, chat));
+  TEST_CHECK(shell::dock::pinned_apps::containsEntry(pinned, chat));
 
   shell::dock::pinned_apps::removeEntry(pinned, chat);
-  assert((pinned == std::vector<std::string>{"calendar"}));
+  TEST_CHECK((pinned == std::vector<std::string>{"calendar", "samplechat"}));
 
   return 0;
 }

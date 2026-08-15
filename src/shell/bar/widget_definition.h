@@ -463,7 +463,11 @@ namespace noctalia::bar {
                     effectiveRange](Options& options, const WidgetConfig* config, std::string_view context) {
           T value = defaultValue;
           if (config != nullptr) {
-            if (const auto* configured = config->findSetting(key)) {
+            if constexpr (std::is_same_v<T, WidgetSettingStringMap>) {
+              if (const auto configured = config->tables.find(key); configured != config->tables.end()) {
+                value = configured->second;
+              }
+            } else if (const auto* configured = config->findSetting(key)) {
               const std::string fieldContext = context.empty() ? key : std::format("{}.{}", context, key);
               if (auto decoded = detail::settingValueAs<T>(*configured, choices, effectiveRange, fieldContext)) {
                 value = std::move(*decoded);

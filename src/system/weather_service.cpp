@@ -24,6 +24,8 @@ namespace {
   constexpr Logger kLog("weather");
   constexpr std::size_t kForecastDays = 7;
   constexpr std::size_t kForecastHours = kForecastDays * 24;
+  constexpr auto kInitialRetryDelay = std::chrono::seconds(30);
+  constexpr auto kMaximumRetryDelay = std::chrono::seconds(5 * 60);
 
   using Clock = std::chrono::system_clock;
 
@@ -651,6 +653,7 @@ void WeatherService::handleWeatherResponse(const std::filesystem::path& path, bo
 
     m_snapshot = std::move(next);
     m_error.clear();
+    m_retryDelay = kInitialRetryDelay;
     m_nextRefreshAt = Clock::now() + std::chrono::minutes(std::max(5, m_activeConfig.refreshMinutes));
     saveCache();
     notifyChanged();
@@ -664,7 +667,8 @@ void WeatherService::handleWeatherResponse(const std::filesystem::path& path, bo
 
 void WeatherService::scheduleRetryAfterFailure() {
   m_refreshQueued = false;
-  m_nextRefreshAt = Clock::now() + std::chrono::minutes(std::max(5, m_activeConfig.refreshMinutes));
+  m_nextRefreshAt = Clock::now() + m_retryDelay;
+  m_retryDelay = std::min(m_retryDelay * 2, kMaximumRetryDelay);
 }
 
 bool WeatherService::coordinatesValid() const noexcept {

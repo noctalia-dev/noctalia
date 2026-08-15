@@ -59,6 +59,7 @@
       },
       "network": {
         "active": "Активно",
+        "band": "Band",
         "connected": "Подключено",
         "connecting": "Подключение",
         "download": "Загрузка",
@@ -76,6 +77,7 @@
         "signal": "Сигнал",
         "upload": "Загрузить",
         "vpn": "VPN",
+        "wan-ip": "WAN IP",
         "wifi": "Wi-Fi",
         "wired": "Проводная",
         "yes": "Да"
@@ -91,6 +93,7 @@
       },
       "sysmon": {
         "cpu": "CPU",
+        "cpu-freq": "Частота CPU",
         "cpu-temp": "Температура CPU",
         "disk": "Диск",
         "download": "Скачать",
@@ -182,7 +185,7 @@
     },
     "bluetooth": {
       "accept": "Принять",
-      "address": "Адресс",
+      "address": "Адрес",
       "auto-reconnect": "Автоподключение",
       "bluetooth": "Bluetooth",
       "enter-code": "Введите код",
@@ -250,6 +253,7 @@
       "start-playback": "Начните воспроизведение в приложении MPRIS"
     },
     "network": {
+      "available": "Доступные",
       "connect": "Подключиться",
       "current-connection": "Текущее подключение",
       "external-ip": "WAN {ip}",
@@ -258,6 +262,7 @@
       "password": "Пароль",
       "password-prompt": "Введите пароль",
       "password-prompt-for": "Введите пароль для {ssid}",
+      "saved": "Сохраненные",
       "unavailable-detail": "Установите и включите NetworkManager, чтобы управлять сетями отсюда.",
       "unavailable-title": "NetworkManager недоступен",
       "vpns": "VPN",
@@ -295,6 +300,7 @@
       "unknown-device": "Неизвестное устройство"
     },
     "screen-time": {
+      "back": "Назад",
       "disabled": "Отслеживание экранного времени отключено. Включите его в настройках, чтобы отслеживать использование каждого приложения.",
       "empty": "Использование приложений ещё не зарегистрировано. Переключитесь на окно, чтобы начать отслеживание.",
       "hour-0": "00:00",
@@ -306,7 +312,8 @@
         "14-days": "14 дней",
         "3-days": "3 дня",
         "today": "Сегодня"
-      }
+      },
+      "view-day": "Подробнее о дне"
     },
     "shortcuts": {
       "audio": "Аудио",
@@ -448,6 +455,7 @@
         "bands": "Полосы",
         "bar-width": "Ширина столбцов",
         "bloom-intensity": "Свечение",
+        "center-password-text": "Центрировать текст пароля",
         "center-text": "Центрировать текст",
         "centered": "Отцентрировано",
         "change-image": "Изменить…",
@@ -462,6 +470,7 @@
         "command": "Команда",
         "custom-color": "Пользовательский…",
         "description": "Описание",
+        "device": "Устройство",
         "display": "Дисплей",
         "display-graph": "График",
         "fade-when-idle": "Затухание в режиме ожидания",

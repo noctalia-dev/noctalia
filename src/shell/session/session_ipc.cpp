@@ -13,23 +13,14 @@
 
 namespace {
 
+  [[nodiscard]] SessionPanelActionConfig builtinAction(std::string_view action) {
+    return SessionPanelActionConfig{.action = std::string(action)};
+  }
+
   [[nodiscard]] std::string unknownSessionActionError(std::string_view action) {
     return "error: unknown session action \""
         + std::string(action)
         + "\" (try: lock, suspend, lock-and-suspend, logout, reboot, shutdown)\n";
-  }
-
-  [[nodiscard]] std::string sessionActionUnavailableError(std::string_view action) {
-    return "error: session action \"" + std::string(action) + "\" is disabled or not configured\n";
-  }
-
-  [[nodiscard]] std::optional<SessionPanelActionConfig>
-  resolveIpcAction(const ConfigService& config, std::string_view ipcAction) {
-    const auto canonical = session_action::canonicalActionName(ipcAction);
-    if (!canonical.has_value()) {
-      return std::nullopt;
-    }
-    return session_action::resolveConfiguredAction(config.config().shell.session, *canonical);
   }
 
 } // namespace
@@ -42,16 +33,12 @@ void registerSessionIpc(IpcService& ipc, SessionActionRunner& runner, LockScreen
     }
 
     const std::string& ipcAction = parts[0];
-    const auto resolved = resolveIpcAction(config, ipcAction);
-    if (!resolved.has_value()) {
-      if (session_action::canonicalActionName(ipcAction).has_value()) {
-        return sessionActionUnavailableError(ipcAction);
-      }
+    const auto action = session_action::canonicalActionName(ipcAction);
+    if (!action.has_value()) {
       return unknownSessionActionError(ipcAction);
     }
 
-    const std::string_view action = resolved->action;
-    if (action == "lock") {
+    if (*action == "lock") {
       if (!config.isLockScreenEnabled()) {
         return "error: lock screen disabled\n";
       }
@@ -60,19 +47,16 @@ void registerSessionIpc(IpcService& ipc, SessionActionRunner& runner, LockScreen
       }
       return "error: lock screen unavailable\n";
     }
-    if (action == "lock_and_suspend") {
+    if (*action == "lock_and_suspend") {
       if (!config.isLockScreenEnabled()) {
-        if (const auto suspend = session_action::resolveConfiguredAction(config.config().shell.session, "suspend")) {
-          runner.invoke(*suspend);
-          return "ok\n";
-        }
-        return sessionActionUnavailableError("suspend");
+        runner.invoke(builtinAction("suspend"));
+        return "ok\n";
       }
-      runner.invoke(*resolved);
+      runner.invoke(builtinAction(*action));
       return "ok\n";
     }
 
-    runner.invoke(*resolved);
+    runner.invoke(builtinAction(*action));
     return "ok\n";
   };
 

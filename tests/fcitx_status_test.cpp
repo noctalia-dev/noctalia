@@ -1,7 +1,7 @@
 #include "dbus/tray/fcitx_status.h"
 #include "dbus/tray/tray_service.h"
+#include "tests/test_check.h"
 
-#include <cassert>
 #include <vector>
 
 namespace {
@@ -25,7 +25,7 @@ namespace {
 int main() {
   {
     const std::vector<TrayItemInfo> items;
-    assert(!resolveFcitxInputMethodState(items).has_value());
+    TEST_CHECK(!resolveFcitxInputMethodState(items).has_value());
   }
 
   {
@@ -33,14 +33,14 @@ int main() {
     unrelated.itemName = "Dropbox";
     unrelated.processName = "dropbox";
     const std::vector items{unrelated};
-    assert(!resolveFcitxInputMethodState(items).has_value());
+    TEST_CHECK(!resolveFcitxInputMethodState(items).has_value());
   }
 
   {
     const std::vector items{fcitxItem()};
     const auto state = resolveFcitxInputMethodState(items);
-    assert(state.has_value());
-    assert(state->label == "Rime");
+    TEST_CHECK(state.has_value());
+    TEST_CHECK(state->label == "Rime");
   }
 
   {
@@ -49,8 +49,8 @@ int main() {
     english.statusNotifierTitle = "Keyboard - English (US)";
     const std::vector items{english};
     const auto state = resolveFcitxInputMethodState(items);
-    assert(state.has_value());
-    assert(state->label == "Keyboard - English (US)");
+    TEST_CHECK(state.has_value());
+    TEST_CHECK(state->label == "Keyboard - English (US)");
   }
 
   {
@@ -58,45 +58,45 @@ int main() {
     byProcess.itemName.clear();
     const std::vector items{byProcess};
     const auto state = resolveFcitxInputMethodState(items);
-    assert(state.has_value());
-    assert(state->label == "Rime");
+    TEST_CHECK(state.has_value());
+    TEST_CHECK(state->label == "Rime");
   }
 
   {
     auto incomplete = fcitxItem();
     incomplete.statusNotifierTitle.clear();
     const std::vector items{incomplete};
-    assert(!resolveFcitxInputMethodState(items).has_value());
+    TEST_CHECK(!resolveFcitxInputMethodState(items).has_value());
   }
 
   {
     FcitxInputMethodTracker tracker;
     const std::vector<TrayItemInfo> empty;
-    assert(!tracker.update(empty).has_value());
-    assert(!tracker.available());
+    TEST_CHECK(!tracker.update(empty).has_value());
+    TEST_CHECK(!tracker.available());
 
     auto unrelated = fcitxItem();
     unrelated.itemName = "Dropbox";
     unrelated.processName = "dropbox";
-    assert(!tracker.update(std::vector{unrelated}).has_value());
-    assert(!tracker.available());
+    TEST_CHECK(!tracker.update(std::vector{unrelated}).has_value());
+    TEST_CHECK(!tracker.available());
 
     const auto rime = fcitxItem();
-    assert(!tracker.update(std::vector{rime}).has_value());
-    assert(tracker.available());
-    assert(!tracker.update(std::vector{unrelated, rime}).has_value());
+    TEST_CHECK(!tracker.update(std::vector{rime}).has_value());
+    TEST_CHECK(tracker.available());
+    TEST_CHECK(!tracker.update(std::vector{unrelated, rime}).has_value());
 
     auto english = rime;
     english.iconName = "rime-disable";
     english.statusNotifierTitle = "Keyboard - English (US)";
     const auto changed = tracker.update(std::vector{english});
-    assert(changed.has_value());
-    assert(changed->label == "Keyboard - English (US)");
-    assert(!tracker.update(std::vector{english}).has_value());
+    TEST_CHECK(changed.has_value());
+    TEST_CHECK(changed->label == "Keyboard - English (US)");
+    TEST_CHECK(!tracker.update(std::vector{english}).has_value());
 
-    assert(!tracker.update(empty).has_value());
-    assert(!tracker.available());
-    assert(!tracker.update(std::vector{rime}).has_value());
-    assert(tracker.available());
+    TEST_CHECK(!tracker.update(empty).has_value());
+    TEST_CHECK(!tracker.available());
+    TEST_CHECK(!tracker.update(std::vector{rime}).has_value());
+    TEST_CHECK(tracker.available());
   }
 }

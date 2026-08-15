@@ -1224,6 +1224,11 @@ namespace settings {
         ToggleSetting{cfg.shell.launcher.appGrid}, "launcher app grid icons view"
     ));
     entries.push_back(makeEntry(
+        SettingsSection::Launcher, "launcher", tr("settings.schema.panels.launcher-app-actions.label"),
+        tr("settings.schema.panels.launcher-app-actions.description"), {"shell", "launcher", "show_app_actions"},
+        ToggleSetting{cfg.shell.launcher.showAppActions}, "launcher app actions show"
+    ));
+    entries.push_back(makeEntry(
         SettingsSection::Launcher, "launcher", tr("settings.schema.panels.launcher-compact.label"),
         tr("settings.schema.panels.launcher-compact.description"), {"shell", "launcher", "compact"},
         ToggleSetting{cfg.shell.launcher.compact}, "launcher compact rows dense"

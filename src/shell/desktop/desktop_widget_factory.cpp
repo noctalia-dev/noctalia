@@ -364,6 +364,8 @@ std::unique_ptr<DesktopWidget> DesktopWidgetFactory::create(
         return DesktopSysmonStat::GpuUsage;
       if (s == "gpu_vram")
         return DesktopSysmonStat::GpuVram;
+      if (s == "gpu_vram_used")
+        return DesktopSysmonStat::GpuVramUsed;
       if (s == "ram_pct")
         return DesktopSysmonStat::RamPct;
       if (s == "swap_pct")

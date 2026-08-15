@@ -398,6 +398,12 @@ void VirtualGridView::doLayout(Renderer& renderer) {
         InputArea* tooltipArea = m_poolTooltipAreas[slot];
         tooltipArea->setPosition(x, y);
         tooltipArea->setFrameSize(cellW, cellH);
+        const auto tooltipInsets = m_adapter->itemTooltipAnchorInsets(logicalIndex, cellW, cellH);
+        if (tooltipInsets.has_value()) {
+          tooltipArea->setTooltipAnchorInsets(*tooltipInsets);
+        } else {
+          tooltipArea->clearTooltipAnchorInsets();
+        }
         tooltipArea->setVisible(true);
         const bool selected = m_selectedIndex.has_value() && *m_selectedIndex == logicalIndex;
         const bool hovered = m_hoveredIndex.has_value() && *m_hoveredIndex == logicalIndex;

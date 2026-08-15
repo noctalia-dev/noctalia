@@ -61,7 +61,8 @@ ControlCenterPanel::ControlCenterPanel(const ControlCenterServices& services) {
   );
   m_tabs[tabIndex(TabId::Weather)] = std::make_unique<WeatherTab>(services.weather, services.config);
   m_tabs[tabIndex(TabId::Calendar)] = std::make_unique<CalendarTab>(services.config, services.calendar);
-  m_tabs[tabIndex(TabId::Notifications)] = std::make_unique<NotificationsTab>(services.notifications);
+  m_tabs[tabIndex(TabId::Notifications)] =
+      std::make_unique<NotificationsTab>(services.notifications, services.platform);
   m_tabs[tabIndex(TabId::Network)] =
       std::make_unique<NetworkTab>(services.network, services.networkSecrets, services.externalIp);
   m_tabs[tabIndex(TabId::Bluetooth)] = std::make_unique<BluetoothTab>(services.bluetooth, services.bluetoothAgent);

@@ -512,6 +512,14 @@ void Surface::setRenderContext(RenderContext* ctx) {
   }
 }
 
+void Surface::setWallpaperMask(std::optional<WallpaperMaskDrawParams> mask) {
+  if (m_wallpaperMask == mask) {
+    return;
+  }
+  m_wallpaperMask = mask;
+  requestRedraw();
+}
+
 void Surface::initializeSurfaceScaleProtocol() {
   if (m_surface == nullptr || !m_connection.hasFractionalScale()) {
     return;
@@ -1174,7 +1182,9 @@ void Surface::render() {
 
   requestFrame();
   traceSurfaceEvent(*this, "render-begin");
-  const float renderMs = elapsedMs([this] { m_renderContext->renderScene(m_renderTarget, m_sceneRoot); });
+  const float renderMs = elapsedMs([this] {
+    m_renderContext->renderScene(m_renderTarget, m_sceneRoot, m_wallpaperMask ? &*m_wallpaperMask : nullptr);
+  });
   traceSurfaceEvent(*this, "render-end");
   recordSurfaceProfileEvent(*this, SurfaceProfileEvent::Render, renderMs);
   logSlowSurfaceOperation(

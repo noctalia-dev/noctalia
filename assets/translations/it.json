@@ -519,6 +519,7 @@
         "opacity": "Opacità",
         "primary-color": "Colore primario",
         "reset-defaults": "Ripristina predefiniti",
+        "reversed": "Invertito",
         "ring-opacity": "Opacità anello",
         "rotation-speed": "Velocità rotazione",
         "scroll-step": "Step scorrimento",
@@ -547,6 +548,7 @@
         "stat-gpu-temp": "Temp GPU",
         "stat-gpu-usage": "Uso GPU",
         "stat-gpu-vram": "VRAM GPU",
+        "stat-gpu-vram-used": "VRAM GPU utilizzata",
         "stat-net-rx": "Rete Rx",
         "stat-net-tx": "Rete Tx",
         "stat-none": "Nessuna",
@@ -651,11 +653,19 @@
       "pin": "Fissa sul launcher",
       "pin-to-dock": "Fissa alla dock",
       "unpin": "Sblocca dal launcher",
-      "unpin-from-dock": "Rimuovi dalla dock"
+      "unpin-from-dock": "Sblocca dalla dock"
     },
     "empty": {
       "no-results": "Nessun risultato trovato",
       "type-to-search": "Digita per cercare..."
+    },
+    "origins": {
+      "appimage": "AppImage",
+      "flatpak": "Flatpak",
+      "nix": "Nix",
+      "snap": "Snap",
+      "system": "System",
+      "user": "User"
     },
     "providers": {
       "applications": {
@@ -724,6 +734,8 @@
       "battery-low-body": "{device}: {percent}% rimanente",
       "battery-low-title": "Batteria scarica",
       "calendar": "Calendario",
+      "calendar-credential-locked-body": "Sblocca il portachiavi utilizzato dal Secret Service, quindi riprova in Impostazioni. Con GNOME Keyring, imposta come predefinito un portachiavi sbloccato automaticamente al Login.",
+      "calendar-credential-locked-title": "Il portachiavi del calendario è bloccato",
       "calendar-google-connect-browser-failed": "Impossibile avviare un browser per l'autorizzazione Google. Controlla il browser predefinito o la configurazione di xdg-open.",
       "calendar-google-connect-credential-store-failed": "Autorizzazione completata, ma non è stato possibile salvare il token di aggiornamento. Sblocca o avvia il Secret Service, quindi connettiti di nuovo.",
       "calendar-google-connect-expired": "L'autorizzazione Google è scaduta prima del completamento dell'accesso. Avvia di nuovo la connessione.",
@@ -1513,6 +1525,7 @@
       },
       "store": {
         "add": "Aggiungi a Noctalia",
+        "back-to-catalog": "Torna al catalogo dei plugin",
         "categories": "Categorie",
         "category-all": "Tutti",
         "empty": "Nessun plugin trovato",
@@ -2295,6 +2308,10 @@
           "description": "Visualizza le etichette di testo sotto le icone di collegamento nella scheda Home",
           "label": "Mostra etichette di scelta rapida"
         },
+        "launcher-app-actions": {
+          "description": "Mostra le voci delle azioni accanto alle applicazioni nei risultati",
+          "label": "Mostra azioni app"
+        },
         "launcher-app-grid": {
           "description": "Mostra una griglia di icone delle applicazioni con le etichette sottostanti quando i risultati riguardano solo le app",
           "label": "Vista app a griglia"
@@ -2509,7 +2526,9 @@
         "calendar-edit": {
           "button": "Modifica",
           "button-reconnect": "Riconnetti",
+          "button-retry": "Riprova",
           "description": "Aggiorna questo account calendario",
+          "description-locked": "Il refresh token si trova in un portachiavi bloccato; sbloccare il portachiavi e riprovare",
           "description-reconnect": "Manca l'autorizzazione di Google; riconnetti questo account"
         },
         "calendar-event-date-format": {
@@ -3238,6 +3257,7 @@
         "gpu-temp": "Temperatura GPU",
         "gpu-usage": "Uso GPU",
         "gpu-vram": "VRAM GPU",
+        "gpu-vram-used": "VRAM GPU utilizzata",
         "graph": "Grafico",
         "graphic": "Grafico",
         "hidden": "Nascosto",
@@ -3594,7 +3614,7 @@
         "max-label-chars": {
           "description": "Numero massimo di caratteri da mostrare per i nomi workspace",
           "label": "Caratteri etichetta max",
-          "workspaces-description": "Caratteri massimi per le etichette nome workspace"
+          "workspaces-description": "Numero massimo di caratteri per etichette non numeriche delle aree di lavoro"
         },
         "max-length": {
           "description": "Lunghezza massima widget in pixel",
@@ -3660,6 +3680,10 @@
           "description": "Opacità delle app fissate che non sono attualmente in esecuzione",
           "label": "Opacità app fissata"
         },
+        "reversed": {
+          "description": "Invertire l'ordine delle frequenze da bassa ad alta delle barre",
+          "label": "Invertito"
+        },
         "scale": {
           "description": "Scala questo widget rispetto alla scala contenuto della barra",
           "label": "Scala"
@@ -3681,7 +3705,11 @@
           "label": "Indicatore finestra attiva"
         },
         "show-all-outputs": {
-          "description": "Include finestre da ogni display su questo widget",
+          "description": "Include finestre da ogni monitor su questo widget",
+          "label": "Mostra tutti i monitor"
+        },
+        "show-all-workspaces": {
+          "description": "Mostra aree di lavoro da ogni monitor su questo widget",
           "label": "Mostra tutti i monitor"
         },
         "show-caps-lock": {

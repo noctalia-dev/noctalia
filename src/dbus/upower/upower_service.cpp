@@ -164,6 +164,17 @@ namespace {
 
 } // namespace
 
+bool UPowerDeviceInfo::sameCatalogEntry(const UPowerDeviceInfo& other) const {
+  return path == other.path
+      && nativePath == other.nativePath
+      && vendor == other.vendor
+      && model == other.model
+      && serial == other.serial
+      && type == other.type
+      && powerSupply == other.powerSupply
+      && isPresent == other.isPresent;
+}
+
 bool upowerDeviceMatchesSelector(const UPowerDeviceInfo& info, std::string_view selector) {
   const std::string trimmed = StringUtils::trim(selector);
   if (trimmed.empty()) {
@@ -255,7 +266,7 @@ void UPowerService::rescanDevices() {
     m_upowerProxy->callMethod("EnumerateDevices").onInterface(kUpowerInterface).storeResultsTo(paths);
   } catch (const sdbus::Error& e) {
     kLog.warn("EnumerateDevices failed: {}", e.what());
-    emitChangedIfNeeded(false);
+    emitChangedIfNeeded(false, false);
     return;
   }
 
@@ -291,19 +302,22 @@ void UPowerService::rescanDevices() {
   });
 
   bool devicesChanged = m_devices.size() != nextDevices.size();
+  bool deviceCatalogChanged = devicesChanged;
   if (!devicesChanged) {
     for (std::size_t i = 0; i < m_devices.size(); ++i) {
+      if (!m_devices[i].info.sameCatalogEntry(nextDevices[i].info)) {
+        deviceCatalogChanged = true;
+      }
       if (m_devices[i].info != nextDevices[i].info) {
         devicesChanged = true;
-        break;
       }
     }
   }
   m_devices = std::move(nextDevices);
-  if (devicesChanged) {
+  if (deviceCatalogChanged) {
     kLog.debug("tracking {} UPower battery-capable device(s)", m_devices.size());
   }
-  emitChangedIfNeeded(devicesChanged);
+  emitChangedIfNeeded(devicesChanged, deviceCatalogChanged);
 }
 
 UPowerState UPowerService::readDefaultState() const {
@@ -462,17 +476,19 @@ void UPowerService::refreshDisplayDeviceProxy() {
 
 void UPowerService::refreshDeviceStates() {
   bool devicesChanged = false;
+  bool deviceCatalogChanged = false;
   for (auto& device : m_devices) {
     auto next = readDeviceInfo(device.info.path, *device.proxy);
     if (next != device.info) {
+      deviceCatalogChanged = deviceCatalogChanged || !device.info.sameCatalogEntry(next);
       device.info = std::move(next);
       devicesChanged = true;
     }
   }
-  emitChangedIfNeeded(devicesChanged);
+  emitChangedIfNeeded(devicesChanged, deviceCatalogChanged);
 }
 
-void UPowerService::emitChangedIfNeeded(bool devicesChanged) {
+void UPowerService::emitChangedIfNeeded(bool devicesChanged, bool deviceCatalogChanged) {
   const UPowerState next = readDefaultState();
   if (!devicesChanged && next == m_state) {
     return;
@@ -480,6 +496,6 @@ void UPowerService::emitChangedIfNeeded(bool devicesChanged) {
 
   m_state = next;
   if (m_changeCallback) {
-    m_changeCallback();
+    m_changeCallback(UPowerChange{.deviceCatalogChanged = deviceCatalogChanged});
   }
 }

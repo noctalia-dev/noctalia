@@ -1,5 +1,6 @@
 #include "shell/control_center/tabs/notifications_tab.h"
 
+#include "compositors/compositor_platform.h"
 #include "core/log.h"
 #include "i18n/i18n.h"
 #include "net/uri.h"
@@ -9,6 +10,7 @@
 #include "render/animation/animation.h"
 #include "render/core/renderer.h"
 #include "render/core/texture_manager.h"
+#include "shell/control_center/control_center_panel.h"
 #include "shell/panel/panel_button_style.h"
 #include "shell/panel/panel_manager.h"
 #include "time/time_format.h"
@@ -639,7 +641,8 @@ private:
   float m_fillOpacity = 1.0F;
 };
 
-NotificationsTab::NotificationsTab(NotificationManager* notifications) : m_notifications(notifications) {}
+NotificationsTab::NotificationsTab(NotificationManager* notifications, CompositorPlatform* platform)
+    : m_notifications(notifications), m_platform(platform) {}
 
 NotificationsTab::~NotificationsTab() = default;
 
@@ -948,7 +951,12 @@ void NotificationsTab::clearAllNotifications() {
   if (m_list != nullptr) {
     m_list->notifyDataChanged();
   }
-  PanelManager::instance().refresh();
+  auto* panel = dynamic_cast<ControlCenterPanel*>(PanelManager::instance().activePanel());
+  if (panel != nullptr && !panel->showsSidebar()) {
+    PanelManager::instance().close();
+  } else {
+    PanelManager::instance().refresh();
+  }
 }
 
 void NotificationsTab::toggleDoNotDisturb() {
@@ -999,7 +1007,9 @@ void NotificationsTab::invokeNotificationAction(uint32_t id, const std::string& 
   if (m_notifications == nullptr || actionKey.empty() || !m_notifications->hasPendingDBusClose(id)) {
     return;
   }
-  if (!m_notifications->invokeAction(id, actionKey, true)) {
+  const std::string activationToken =
+      m_platform != nullptr ? m_platform->requestActivationToken(m_platform->lastPointerSurface()) : std::string{};
+  if (!m_notifications->invokeAction(id, actionKey, activationToken, true)) {
     kLog.warn("notification history: failed to invoke action '{}' for #{}", actionKey, id);
     return;
   }

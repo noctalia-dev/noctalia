@@ -101,7 +101,11 @@ namespace {
       WidgetConfig config;
       config.type = std::string(type);
       for (const auto& field : schema) {
-        config.settings[field.key] = field.defaultValue;
+        if (const auto* stringMap = std::get_if<WidgetSettingStringMap>(&field.defaultValue)) {
+          config.tables[field.key] = *stringMap;
+        } else {
+          config.settings[field.key] = field.defaultValue;
+        }
       }
       if (!definition.fieldValuesEqual(
               definition.resolve(&config, type, context...), definition.resolve(nullptr, type, context...)
@@ -224,7 +228,7 @@ int main() {
   WidgetConfig inputVolume;
   inputVolume.type = "volume";
   inputVolume.settings["device"] = std::string("input");
-  inputVolume.settings["effects_profile_glyphs"] = WidgetSettingStringMap{{"Noise Canceling", "microphone"}};
+  inputVolume.tables["effects_profile_glyphs"] = WidgetSettingStringMap{{"Noise Canceling", "microphone"}};
   const auto inputOptions = volumeWidgetDefinition().resolve(&inputVolume, "volume");
   if (inputOptions.device != VolumeWidgetTarget::Input
       || inputOptions.effectsProfileGlyphs

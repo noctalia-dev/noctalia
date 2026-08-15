@@ -1,6 +1,7 @@
 #pragma once
 
 #include "render/scene/node.h"
+#include "shell/tooltip/tooltip_content.h"
 #include "ui/controls/flex.h"
 
 #include <cstddef>
@@ -43,6 +44,12 @@ public:
 
   // Optional tooltip for the item under the pointer.
   [[nodiscard]] virtual std::string itemTooltip(std::size_t /*index*/) const { return {}; }
+
+  // Optional bounds, relative to a cell, for anchoring an item's tooltip.
+  [[nodiscard]] virtual std::optional<TooltipAnchorInsets>
+  itemTooltipAnchorInsets(std::size_t /*index*/, float /*cellWidth*/, float /*cellHeight*/) const {
+    return std::nullopt;
+  }
 
   // Return true when an overlay consumed the press.
   virtual bool onPointerPress(

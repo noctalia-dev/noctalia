@@ -164,6 +164,10 @@ namespace {
       constraintAdjustment = XDG_POSITIONER_CONSTRAINT_ADJUSTMENT_SLIDE_Y;
       break;
     case TooltipPlacement::Default:
+      anchorX = iconX;
+      anchorY = iconY + iconH;
+      anchorW = iconW;
+      anchorH = 1.0F;
       break;
     }
 

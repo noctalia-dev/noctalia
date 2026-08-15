@@ -1547,7 +1547,11 @@ void ClipboardPanel::performClearUnpinnedHistory() {
   }
   schedulePreviewPayloadRefresh(false);
   m_pendingScrollToSelected = true;
-  PanelManager::instance().refresh();
+  if (m_clipboard->history().empty()) {
+    PanelManager::instance().close();
+  } else {
+    PanelManager::instance().refresh();
+  }
 }
 
 void ClipboardPanel::performClearAllHistory() {
@@ -1566,7 +1570,11 @@ void ClipboardPanel::performClearAllHistory() {
   }
   schedulePreviewPayloadRefresh(false);
   m_pendingScrollToSelected = false;
-  PanelManager::instance().refresh();
+  if (m_clipboard->history().empty()) {
+    PanelManager::instance().close();
+  } else {
+    PanelManager::instance().refresh();
+  }
 }
 
 void ClipboardPanel::clearUnpinnedHistory() {

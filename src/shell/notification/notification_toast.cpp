@@ -78,6 +78,16 @@ namespace {
     return false;
   }
 
+  bool hasNotificationAction(const std::vector<std::string>& actions, std::string_view actionKey) {
+    const std::size_t limit = std::min(actions.size(), kMaxNotificationActions * 2);
+    for (std::size_t i = 0; i + 1 < limit; i += 2) {
+      if (actions[i] == actionKey) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   std::string inlineReplyPlaceholder(const std::vector<std::string>& actions) {
     const std::size_t limit = std::min(actions.size(), kMaxNotificationActions * 2);
     for (std::size_t i = 0; i + 1 < limit; i += 2) {
@@ -569,7 +579,29 @@ void NotificationToast::onOutputChange() {
   requestLayout();
 }
 
+void NotificationToast::hideAll() {
+  m_pendingAdds.clear();
+
+  if (m_notifications != nullptr) {
+    for (const auto& entry : m_entries) {
+      if (entry.rawTimeoutMs <= 0) {
+        continue;
+      }
+      const float remaining = std::clamp(entry.remainingProgress, 0.0F, 1.0F);
+      const int32_t remainingMs = std::max<int32_t>(
+          0, static_cast<int32_t>(std::ceil(static_cast<float>(entry.displayDurationMs) * remaining))
+      );
+      m_notifications->resumeExpiry(entry.notificationId, remainingMs);
+    }
+  }
+
+  if (!m_entries.empty() || !m_instances.empty()) {
+    destroySurfaces();
+  }
+}
+
 void NotificationToast::requestLayout() {
+
   for (auto& inst : m_instances) {
     if (inst->surface != nullptr) {
       inst->rebuildRequested = true;
@@ -811,6 +843,10 @@ void NotificationToast::flushPendingAdds() {
   if (m_pendingAdds.empty()) {
     return;
   }
+  if (m_notifications->doNotDisturb()) {
+    m_pendingAdds.clear();
+    return;
+  }
   auto pending = std::move(m_pendingAdds);
   m_pendingAdds.clear();
   for (const auto& n : pending) {
@@ -1033,7 +1069,7 @@ void NotificationToast::addCardToInstance(Instance& inst, std::size_t entryIndex
   const uint32_t notificationId = entry.notificationId;
   ProgressBar* progressBarPtr = cs.progressBar;
   InputArea* cardInput = card;
-  const bool hasDefaultAction = !entry.actions.empty() && entry.actions.size() >= 2 && entry.actions[0] == "default";
+  const bool hasDefaultAction = hasNotificationAction(entry.actions, "default");
 
   card->setOnEnter([this, notificationId, progressBarPtr, cardInput, hasDefaultAction](const InputArea::PointerData&) {
     cardInput->setCursorShape(
@@ -2241,15 +2277,17 @@ InputArea* NotificationToast::buildCard(
 
   auto viewport = ui::inputArea({});
   viewport->setAcceptedButtons(InputArea::buttonMask({BTN_LEFT, BTN_RIGHT}));
-  viewport->setOnClick([this, id = entry.notificationId,
-                        hasDefaultAction = !entry.actions.empty()
-                            && entry.actions.size() >= 2
-                            && entry.actions[0] == "default"](const InputArea::PointerData& data) {
+  wl_surface* const sourceSurface = outputInstance.surface->wlSurface();
+  viewport->setOnClick([this, id = entry.notificationId, sourceSurface,
+                        hasDefaultAction =
+                            hasNotificationAction(entry.actions, "default")](const InputArea::PointerData& data) {
     if (data.button == BTN_RIGHT) {
       requestClose(id, CloseReason::Dismissed);
     } else if (data.button == BTN_LEFT && hasDefaultAction) {
       if (m_notifications != nullptr) {
-        if (!m_notifications->invokeAction(id, "default", true)) {
+        const std::string activationToken =
+            m_wayland != nullptr ? m_wayland->requestActivationToken(sourceSurface) : std::string{};
+        if (!m_notifications->invokeAction(id, "default", activationToken, true)) {
           kLog.warn("notification toast: failed to invoke default action for #{}", id);
         }
       }
@@ -2445,7 +2483,7 @@ InputArea* NotificationToast::buildCard(
         actionButton->setOnLeave([this, notificationId, totalDuration]() {
           endPopupHover(notificationId, totalDuration);
         });
-        actionButton->setOnClick([this, id = entry.notificationId, actionKey]() {
+        actionButton->setOnClick([this, id = entry.notificationId, actionKey, sourceSurface]() {
           if (actionKey == "inline-reply") {
             enterInlineReplyMode(id);
             return;
@@ -2453,7 +2491,9 @@ InputArea* NotificationToast::buildCard(
           if (m_notifications == nullptr) {
             return;
           }
-          if (!m_notifications->invokeAction(id, actionKey, true)) {
+          const std::string activationToken =
+              m_wayland != nullptr ? m_wayland->requestActivationToken(sourceSurface) : std::string{};
+          if (!m_notifications->invokeAction(id, actionKey, activationToken, true)) {
             kLog.warn("notification toast: failed to invoke action '{}' for #{}", actionKey, id);
           }
         });
@@ -2489,7 +2529,8 @@ InputArea* NotificationToast::buildCard(
           .horizontalPadding = Style::spaceSm * scale,
           .frameVisible = true,
           .flexGrow = 1.0F,
-          .onSubmit = [this, id = entry.notificationId](const std::string& text) { submitInlineReply(id, text); },
+          .onSubmit = [this, id = entry.notificationId,
+                       sourceSurface](const std::string& text) { submitInlineReply(id, text, sourceSurface); },
           .configure =
               [this, replyNotificationId, replyTotalDuration](Input& input) {
                 InputArea* const replyInputArea = input.inputArea();
@@ -2540,7 +2581,7 @@ InputArea* NotificationToast::buildCard(
           .minHeight = kInlineReplySendButtonSize * scale,
           .padding = Style::spaceXs * scale,
           .radius = Style::scaledRadiusMd(scale),
-          .onClick = [this, id = entry.notificationId]() { submitInlineReply(id, {}); },
+          .onClick = [this, id = entry.notificationId, sourceSurface]() { submitInlineReply(id, {}, sourceSurface); },
           .onEnter = [this, notificationId = entry.notificationId]() { beginPopupHover(notificationId); },
           .onLeave = [this, notificationId = entry.notificationId,
                       totalDuration = entry.displayDurationMs]() { endPopupHover(notificationId, totalDuration); },
@@ -2650,7 +2691,9 @@ InputArea* NotificationToast::buildCard(
   return viewport.release();
 }
 
-void NotificationToast::submitInlineReply(uint32_t notificationId, const std::string& replyText) {
+void NotificationToast::submitInlineReply(
+    uint32_t notificationId, const std::string& replyText, wl_surface* sourceSurface
+) {
   if (m_notifications == nullptr) {
     return;
   }
@@ -2669,7 +2712,9 @@ void NotificationToast::submitInlineReply(uint32_t notificationId, const std::st
     return;
   }
 
-  if (!m_notifications->invokeInlineReply(notificationId, text, true)) {
+  const std::string activationToken =
+      m_wayland != nullptr ? m_wayland->requestActivationToken(sourceSurface) : std::string{};
+  if (!m_notifications->invokeInlineReply(notificationId, text, activationToken, true)) {
     kLog.warn("notification toast: failed to invoke inline-reply for #{}", notificationId);
   }
 }

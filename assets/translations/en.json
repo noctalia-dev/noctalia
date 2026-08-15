@@ -548,6 +548,7 @@
         "stat-gpu-temp": "GPU Temp",
         "stat-gpu-usage": "GPU Usage",
         "stat-gpu-vram": "GPU VRAM",
+        "stat-gpu-vram-used": "GPU VRAM Used",
         "stat-net-rx": "Net Rx",
         "stat-net-tx": "Net Tx",
         "stat-none": "None",
@@ -657,6 +658,14 @@
     "empty": {
       "no-results": "No results found",
       "type-to-search": "Type to search…"
+    },
+    "origins": {
+      "appimage": "AppImage",
+      "flatpak": "Flatpak",
+      "nix": "Nix",
+      "snap": "Snap",
+      "system": "System",
+      "user": "User"
     },
     "providers": {
       "applications": {
@@ -1516,6 +1525,7 @@
       },
       "store": {
         "add": "Add to Noctalia",
+        "back-to-catalog": "Back to the plugin catalog",
         "categories": "Categories",
         "category-all": "All",
         "empty": "No plugins found",
@@ -2297,6 +2307,10 @@
         "home-shortcuts-show-labels": {
           "description": "Display text labels under shortcut icons in the home tab",
           "label": "Show Shortcut Labels"
+        },
+        "launcher-app-actions": {
+          "description": "Show application action entries alongside applications in results",
+          "label": "Show App Actions"
         },
         "launcher-app-grid": {
           "description": "Show a grid of application icons with labels underneath when results are apps only",
@@ -3243,6 +3257,7 @@
         "gpu-temp": "GPU Temperature",
         "gpu-usage": "GPU Usage",
         "gpu-vram": "GPU VRAM",
+        "gpu-vram-used": "GPU VRAM Used",
         "graph": "Graph",
         "graphic": "Graphic",
         "hidden": "Hidden",
@@ -3489,6 +3504,10 @@
           "description": "Hide inactive privacy icons and hide the widget when nothing is active",
           "label": "Hide Inactive"
         },
+        "hide-passive": {
+          "description": "Hide tray items whose StatusNotifierItem status is Passive",
+          "label": "Hide Passive Items"
+        },
         "hide-when-empty": {
           "description": "Hide workspace pills when there are no open windows",
           "label": "Hide When Empty",
@@ -3599,7 +3618,7 @@
         "max-label-chars": {
           "description": "Maximum number of characters to show for workspace names",
           "label": "Max Label Characters",
-          "workspaces-description": "Maximum characters for workspace name labels"
+          "workspaces-description": "Maximum characters for non-numeric workspace labels"
         },
         "max-length": {
           "description": "Maximum widget length in pixels",
@@ -3690,7 +3709,11 @@
           "label": "Active Window Indicator"
         },
         "show-all-outputs": {
-          "description": "Include windows from every display on this widget",
+          "description": "Include windows from every monitor on this widget",
+          "label": "Show All Monitors"
+        },
+        "show-all-workspaces": {
+          "description": "Show workspaces from every monitor on this widget",
           "label": "Show All Monitors"
         },
         "show-caps-lock": {

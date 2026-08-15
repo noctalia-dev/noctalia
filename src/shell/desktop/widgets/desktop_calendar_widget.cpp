@@ -5,6 +5,7 @@
 #include "i18n/i18n.h"
 #include "render/core/renderer.h"
 #include "render/scene/input_area.h"
+#include "system/desktop_entry_launch.h"
 #include "time/time_format.h"
 #include "ui/builders.h"
 #include "ui/controls/button.h"
@@ -342,14 +343,17 @@ void DesktopCalendarWidget::rebuildCalendar() {
               .weekDaysGap = m_showWeekNumbers ? gap : 0.0F,
           },
       .fontFamily = m_fontFamily,
-      .onDateSelected = [this](calendar_view::Date date, int monthShift) {
-        m_selectedYear = date.year;
-        m_selectedMonth = date.month;
-        m_selectedDay = date.day;
-        m_monthOffset += monthShift;
-        m_dirty = true;
-        requestLayout();
-      },
+      .onDateSelected =
+          [this](calendar_view::Date date, int monthShift) {
+            m_selectedYear = date.year;
+            m_selectedMonth = date.month;
+            m_selectedDay = date.day;
+            m_monthOffset += monthShift;
+            m_dirty = true;
+            requestLayout();
+          },
+      .onDateRightClicked =
+          [](calendar_view::Date) { (void)desktop_entry_launch::launchDefaultForMimeType("text/calendar"); },
   });
 }
 

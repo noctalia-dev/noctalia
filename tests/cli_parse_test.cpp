@@ -1,7 +1,7 @@
 #include "cli/parse.h"
+#include "tests/test_check.h"
 
 #include <array>
-#include <cassert>
 #include <cstdlib>
 #include <string>
 #include <string_view>
@@ -40,56 +40,56 @@ namespace {
   void checkFlags() {
     Args args{"-v", "--output=result.json", "--render", "a:b", "-r", "c:d", "--mode", "light", "input.png"};
     auto parsed = noctalia::cli::parseArgs(kCommand, args.pointers);
-    assert(parsed.has_value());
-    assert(parsed->has("--verbose"));
-    assert(parsed->value("--verbose") == "1");
-    assert(parsed->value("--output") == "result.json");
-    assert(parsed->value("--mode") == "light");
+    TEST_CHECK(parsed.has_value());
+    TEST_CHECK(parsed->has("--verbose"));
+    TEST_CHECK(parsed->value("--verbose") == "1");
+    TEST_CHECK(parsed->value("--output") == "result.json");
+    TEST_CHECK(parsed->value("--mode") == "light");
     const auto renders = parsed->values("--render");
-    assert((renders == std::vector<std::string_view>{"a:b", "c:d"}));
-    assert(parsed->positionals.size() == 1);
-    assert(parsed->positionals[0] == "input.png");
+    TEST_CHECK((renders == std::vector<std::string_view>{"a:b", "c:d"}));
+    TEST_CHECK(parsed->positionals.size() == 1);
+    TEST_CHECK(parsed->positionals[0] == "input.png");
   }
 
   void checkLastFlagWins() {
     Args args{"--output", "first", "-o", "second", "input.png"};
     auto parsed = noctalia::cli::parseArgs(kCommand, args.pointers);
-    assert(parsed.has_value());
-    assert(parsed->value("--output") == "second");
-    assert(parsed->values("--output").size() == 1);
-    assert(parsed->valueOr("--missing", "fallback") == "fallback");
+    TEST_CHECK(parsed.has_value());
+    TEST_CHECK(parsed->value("--output") == "second");
+    TEST_CHECK(parsed->values("--output").size() == 1);
+    TEST_CHECK(parsed->valueOr("--missing", "fallback") == "fallback");
   }
 
   void checkErrors() {
     {
       Args args{"--mode", "sideways", "input.png"};
       auto parsed = noctalia::cli::parseArgs(kCommand, args.pointers);
-      assert(!parsed.has_value());
-      assert(parsed.error() == "error: invalid value 'sideways' for <mode> (expected dark, light)");
+      TEST_CHECK(!parsed.has_value());
+      TEST_CHECK(parsed.error() == "error: invalid value 'sideways' for <mode> (expected dark, light)");
     }
     {
       Args args{"--output"};
       auto parsed = noctalia::cli::parseArgs(kCommand, args.pointers);
-      assert(!parsed.has_value());
-      assert(parsed.error() == "error: --output requires a value");
+      TEST_CHECK(!parsed.has_value());
+      TEST_CHECK(parsed.error() == "error: --output requires a value");
     }
     {
       Args args{"--bogus"};
       auto parsed = noctalia::cli::parseArgs(kCommand, args.pointers);
-      assert(!parsed.has_value());
-      assert(parsed.error() == "error: unknown argument: --bogus");
+      TEST_CHECK(!parsed.has_value());
+      TEST_CHECK(parsed.error() == "error: unknown argument: --bogus");
     }
     {
       Args args{};
       auto parsed = noctalia::cli::parseArgs(kCommand, args.pointers);
-      assert(!parsed.has_value());
-      assert(parsed.error() == "error: missing required argument <input>");
+      TEST_CHECK(!parsed.has_value());
+      TEST_CHECK(parsed.error() == "error: missing required argument <input>");
     }
     {
       Args args{"input", "extra"};
       auto parsed = noctalia::cli::parseArgs(kCommand, args.pointers);
-      assert(!parsed.has_value());
-      assert(parsed.error() == "error: unexpected argument: extra");
+      TEST_CHECK(!parsed.has_value());
+      TEST_CHECK(parsed.error() == "error: unexpected argument: extra");
     }
   }
 
@@ -100,8 +100,8 @@ namespace {
     static constexpr noctalia::cli::Command command{"required", {}, {}, {}, flags, {}, {}, false};
     Args args{};
     auto parsed = noctalia::cli::parseArgs(command, args.pointers);
-    assert(!parsed.has_value());
-    assert(parsed.error() == "error: missing required flag --target");
+    TEST_CHECK(!parsed.has_value());
+    TEST_CHECK(parsed.error() == "error: missing required flag --target");
   }
 
   void checkVariadic() {
@@ -111,8 +111,8 @@ namespace {
     static constexpr noctalia::cli::Command command{"lint", {}, {}, {}, {}, positionals, {}, false};
     Args args{"one", "two", "three"};
     auto parsed = noctalia::cli::parseArgs(command, args.pointers);
-    assert(parsed.has_value());
-    assert((parsed->positionals == std::vector<std::string_view>{"one", "two", "three"}));
+    TEST_CHECK(parsed.has_value());
+    TEST_CHECK((parsed->positionals == std::vector<std::string_view>{"one", "two", "three"}));
   }
 
   void checkJoinedRemaining() {
@@ -123,17 +123,17 @@ namespace {
     static constexpr noctalia::cli::Command command{"notification-show", {}, {}, {}, {}, positionals, {}, false};
     Args args{"Hello", "World", "!"};
     auto parsed = noctalia::cli::parseArgs(command, args.pointers);
-    assert(parsed.has_value());
-    assert(parsed->positionals.size() == 1);
-    assert(parsed->positionals[0] == "Hello");
-    assert(parsed->joinedRemaining == "World !");
+    TEST_CHECK(parsed.has_value());
+    TEST_CHECK(parsed->positionals.size() == 1);
+    TEST_CHECK(parsed->positionals[0] == "Hello");
+    TEST_CHECK(parsed->joinedRemaining == "World !");
   }
 
   void checkHelpAnywhere() {
     Args args{"input.png", "--help", "--bogus"};
     auto parsed = noctalia::cli::parseArgs(kCommand, args.pointers);
-    assert(parsed.has_value());
-    assert(parsed->helpRequested);
+    TEST_CHECK(parsed.has_value());
+    TEST_CHECK(parsed->helpRequested);
   }
 
 } // namespace

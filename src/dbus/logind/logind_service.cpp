@@ -134,27 +134,15 @@ void LogindService::setLockCallback(SessionLockCallback callback) { m_lockCallba
 
 void LogindService::setUnlockCallback(SessionLockCallback callback) { m_unlockCallback = std::move(callback); }
 
-void LogindService::syncSessionLocked() {
+void LogindService::setSessionLockedHint(bool locked) {
   if (!m_sessionLockIntegrationEnabled || m_sessionProxy == nullptr) {
     return;
   }
   try {
-    m_sessionProxy->callMethod("Lock").onInterface(kLogindSessionInterface);
-    kLog.debug("logind session lock state synced");
+    m_sessionProxy->callMethod("SetLockedHint").onInterface(kLogindSessionInterface).withArguments(locked);
+    kLog.debug("logind session locked hint set to {}", locked);
   } catch (const sdbus::Error& e) {
-    kLog.warn("failed to sync logind session lock state: {}", e.what());
-  }
-}
-
-void LogindService::syncSessionUnlocked() {
-  if (!m_sessionLockIntegrationEnabled || m_sessionProxy == nullptr) {
-    return;
-  }
-  try {
-    m_sessionProxy->callMethod("Unlock").onInterface(kLogindSessionInterface);
-    kLog.debug("logind session unlock state synced");
-  } catch (const sdbus::Error& e) {
-    kLog.warn("failed to sync logind session unlock state: {}", e.what());
+    kLog.warn("failed to set logind session locked hint to {}: {}", locked, e.what());
   }
 }
 

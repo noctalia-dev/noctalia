@@ -166,9 +166,9 @@ namespace {
 
 TrayWidget::TrayWidget(ConfigService& config, TrayService* tray, Options options)
     : m_config(config), m_tray(tray), m_hiddenItems(std::move(options.hiddenItems)),
-      m_pinnedItems(std::move(options.pinnedItems)), m_drawerMode(options.drawerMode),
-      m_itemActivated(std::move(options.itemActivated)), m_barPosition(std::move(options.barPosition)),
-      m_panelGridMode(options.panelGridMode),
+      m_pinnedItems(std::move(options.pinnedItems)), m_hidePassive(options.hidePassive),
+      m_drawerMode(options.drawerMode), m_itemActivated(std::move(options.itemActivated)),
+      m_barPosition(std::move(options.barPosition)), m_panelGridMode(options.panelGridMode),
       m_panelGridColumns(std::clamp<std::size_t>(options.panelGridColumns, 1U, 5U)),
       m_inlineEntryGap(std::max(0.0F, options.inlineEntryGap)), m_matchAdjacentSpacing(options.matchAdjacentSpacing),
       m_customItemSize(options.customItemSize) {
@@ -538,7 +538,7 @@ void TrayWidget::rebuild(Renderer& renderer) {
     m_drawerChevronGlyph.clear();
     bool hasDrawerItems = false;
     for (const auto& item : m_items) {
-      if (tray::isPassiveStatus(item) || isHiddenItem(item) || isPinnedItem(item)) {
+      if ((m_hidePassive && tray::isPassiveStatus(item)) || isHiddenItem(item) || isPinnedItem(item)) {
         continue;
       }
       hasDrawerItems = true;
@@ -593,7 +593,7 @@ void TrayWidget::rebuild(Renderer& renderer) {
   Flex* gridRow = nullptr;
   std::size_t gridCol = 0;
   for (const auto& item : m_items) {
-    if (tray::isPassiveStatus(item) || isHiddenItem(item)) {
+    if ((m_hidePassive && tray::isPassiveStatus(item)) || isHiddenItem(item)) {
       continue;
     }
     if (m_drawerMode && !isPinnedItem(item)) {

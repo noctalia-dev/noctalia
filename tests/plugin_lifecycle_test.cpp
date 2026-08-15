@@ -1,5 +1,6 @@
 #include "config/config_service.h"
 #include "core/deferred_call.h"
+#include "core/toml.h"
 #include "scripting/plugin_manager.h"
 #include "scripting/plugin_script_watcher.h"
 #include "scripting/plugin_service_host.h"
@@ -887,6 +888,80 @@ int main() {
                    && scripting::PluginStateStore::instance().get("test/api17", "enabled").has_value();
              }),
              "manager enable did not deliver onEnable to the API 17 service after refresh"
+         )
+        && ok;
+  }
+
+  struct WallpaperMaskRequest {
+    std::uint64_t ownerId = 0;
+    std::string outputName;
+    std::string path;
+    std::string wallpaperPath;
+  };
+  std::vector<WallpaperMaskRequest> wallpaperMaskRequests;
+  std::vector<std::uint64_t> clearedWallpaperMaskOwners;
+  api.setWallpaperPaths({{"DP-1", "/wallpapers/current.png"}});
+  api.setConfigSnapshot(std::make_shared<const toml::table>(toml::parse("[shell]\noffline_mode = true")));
+  api.setWallpaperMaskHook([&](std::uint64_t ownerId, const std::string& outputName, const std::string& path,
+                               const std::string& wallpaperPath) {
+    wallpaperMaskRequests.push_back({
+        .ownerId = ownerId,
+        .outputName = outputName,
+        .path = path,
+        .wallpaperPath = wallpaperPath,
+    });
+  });
+  api.setClearWallpaperMasksHook([&](std::uint64_t ownerId) { clearedWallpaperMaskOwners.push_back(ownerId); });
+  const auto maskPluginDir = root / "wallpaper-mask-plugin";
+  {
+    scripting::ScriptRuntime runtime("test/wallpaper-mask:service", {}, api, maskPluginDir);
+    runtime.start(
+        "=wallpaper-mask",
+        "assert(noctalia.getSetting('shell.offline_mode'))\n"
+        "assert(noctalia.wallpaperPath('DP-1') == '/wallpapers/current.png')\n"
+        "assert(noctalia.wallpaperPath('missing') == nil)\n"
+        "noctalia.setWallpaperMask('DP-1', {\n"
+        "  path = 'cache/mask.png',\n"
+        "  wallpaperPath = '/wallpapers/current.png',\n"
+        "})\n"
+        "noctalia.setWallpaperMask('DP-1', nil)\n",
+        {}
+    );
+    ok = expect(
+             drainUntil([&] { return wallpaperMaskRequests.size() == 2; }),
+             "wallpaper mask side effects were not delivered"
+         )
+        && ok;
+    if (wallpaperMaskRequests.size() == 2) {
+      const auto& setRequest = wallpaperMaskRequests[0];
+      const auto& clearRequest = wallpaperMaskRequests[1];
+      ok = expect(
+               setRequest.ownerId != 0
+                   && setRequest.outputName == "DP-1"
+                   && setRequest.path == (maskPluginDir / "cache/mask.png").string()
+                   && setRequest.wallpaperPath == "/wallpapers/current.png",
+               "wallpaper mask binding returned the wrong set request"
+           )
+          && ok;
+      ok = expect(
+               clearRequest.ownerId == setRequest.ownerId
+                   && clearRequest.outputName == "DP-1"
+                   && clearRequest.path.empty()
+                   && clearRequest.wallpaperPath.empty(),
+               "wallpaper mask binding returned the wrong clear request"
+           )
+          && ok;
+    }
+  }
+  ok = expect(
+           drainUntil([&] { return clearedWallpaperMaskOwners.size() == 1; }),
+           "wallpaper mask runtime did not clear its owned masks"
+       )
+      && ok;
+  if (!wallpaperMaskRequests.empty() && !clearedWallpaperMaskOwners.empty()) {
+    ok = expect(
+             clearedWallpaperMaskOwners.front() == wallpaperMaskRequests.front().ownerId,
+             "wallpaper mask cleanup used the wrong runtime owner"
          )
         && ok;
   }

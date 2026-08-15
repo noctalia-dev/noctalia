@@ -1,22 +1,21 @@
 #include "shell/tray/tray_identifier.h"
-
-#include <cassert>
+#include "tests/test_check.h"
 
 int main() {
   TrayItemInfo item;
 
   item.status = "Passive";
-  assert(tray::isPassiveStatus(item));
+  TEST_CHECK(tray::isPassiveStatus(item));
 
   item.status = "passive";
-  assert(tray::isPassiveStatus(item));
+  TEST_CHECK(tray::isPassiveStatus(item));
 
   item.status = "Active";
-  assert(!tray::isPassiveStatus(item));
+  TEST_CHECK(!tray::isPassiveStatus(item));
 
   item.status = "NeedsAttention";
-  assert(!tray::isPassiveStatus(item));
+  TEST_CHECK(!tray::isPassiveStatus(item));
 
   item.status.clear();
-  assert(!tray::isPassiveStatus(item));
+  TEST_CHECK(!tray::isPassiveStatus(item));
 }

@@ -7,6 +7,7 @@
 #include "render/backend/render_backend.h"
 #include "render/core/texture_handle.h"
 #include "render/core/texture_manager.h"
+#include "render/core/wallpaper_types.h"
 #include "render/render_target.h"
 #include "render/scene/audio_spectrum_node.h"
 #include "render/scene/countdown_ring_node.h"
@@ -180,7 +181,7 @@ void RenderContext::notifyFontConfigChanged() {
   ++m_textMetricsGeneration;
 }
 
-void RenderContext::renderScene(RenderTarget& target, Node* sceneRoot) {
+void RenderContext::renderScene(RenderTarget& target, Node* sceneRoot, const WallpaperMaskDrawParams* wallpaperMask) {
   if (m_backend == nullptr || m_graphicsResetPending) {
     return;
   }
@@ -213,6 +214,11 @@ void RenderContext::renderScene(RenderTarget& target, Node* sceneRoot) {
       renderNode(
           renderScale, sceneRoot, Mat3::identity(), 1.0F, sw, sh, bw, bh, 0.0F, 0.0F, sw, sh, false, false, false
       );
+    }
+    if (wallpaperMask != nullptr && wallpaperMask->texture != 0) {
+      m_backend->disableScissor();
+      m_backend->setBlendMode(RenderBlendMode::DestinationOut);
+      m_backend->drawWallpaperMask(*wallpaperMask);
     }
   }
   float ms = elapsedSince(drawStart);

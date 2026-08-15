@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <unordered_map>
 #include <vector>
 
@@ -22,14 +23,9 @@ struct zwlr_layer_surface_v1;
 // routes that click to the app's surface, so without a catcher the panel
 // never sees it.
 //
-// Ordering: shields are mapped on the same layer as the panel; activate()
-// must be called BEFORE the panel surface is committed so that the panel
-// ends up on top of its co-output shield within the layer (wlroots stacks
-// within-layer surfaces in mapping order).
-//
-// Each shield's input region is fullscreen MINUS the rects returned by the
-// exclude provider for that output, so clicks on bar widgets keep flowing
-// to the bar.
+// Same-layer ordering is compositor-defined. The shield input region therefore
+// excludes the active panel as well as the bars, so pointer routing does not
+// depend on which surface the compositor stacks first.
 //
 // Keyboard interactivity:
 //   - Hyprland gates pointer delivery on keyboard_interactivity: layer-shell
@@ -58,7 +54,8 @@ public:
 
   // Map a fullscreen shield on each of the given outputs.
   void activate(const std::vector<wl_output*>& outputs, LayerShellLayer layer, ExcludeProvider excludeProvider);
-  // Change every mapped shield before changing the panel, preserving their stacking order.
+  // Exclude the panel's output-local input rect from its co-output shield.
+  void setPanelInputRect(wl_output* output, InputRect rect);
   void setLayer(LayerShellLayer layer);
 
   // Tear down all shields. Idempotent.
@@ -85,6 +82,7 @@ private:
     bool configured = false;
     bool bufferAttached = false;
     std::vector<InputRect> excludeRects;
+    std::optional<InputRect> panelInputRect;
   };
 
   bool ensureSharedBuffer();

@@ -26,6 +26,7 @@ struct KeyboardEvent;
 struct PointerEvent;
 struct WaylandOutput;
 struct wl_output;
+struct wl_surface;
 
 class NotificationToast {
 public:
@@ -43,6 +44,7 @@ public:
   );
   void onConfigReload();
   void onOutputChange();
+  void hideAll();
   void requestLayout();
   void requestRedraw();
 
@@ -127,7 +129,7 @@ private:
   void finishExitingEntryIfOrphaned(uint32_t notificationId);
   void updateInputRegion(Instance& inst) const;
   void enterInlineReplyMode(uint32_t notificationId);
-  void submitInlineReply(uint32_t notificationId, const std::string& replyText);
+  void submitInlineReply(uint32_t notificationId, const std::string& replyText, wl_surface* sourceSurface);
   void syncKeyboardInteractivity(Instance& inst) const;
   static void clearInlineReplyFocus(Instance& inst);
   [[nodiscard]] static bool isInlineReplyInputArea(const Instance& inst, const InputArea* area);

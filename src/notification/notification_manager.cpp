@@ -437,6 +437,12 @@ void NotificationManager::setCloseCallback(CloseCallback callback) { m_closeCall
 bool NotificationManager::hasPendingDBusClose(uint32_t id) const noexcept { return m_pendingDBusClose.contains(id); }
 
 bool NotificationManager::invokeAction(uint32_t id, const std::string& actionKey, bool closeAfterInvoke) {
+  return invokeAction(id, actionKey, {}, closeAfterInvoke);
+}
+
+bool NotificationManager::invokeAction(
+    uint32_t id, const std::string& actionKey, std::string activationToken, bool closeAfterInvoke
+) {
   if (actionKey.empty()) {
     return false;
   }
@@ -467,7 +473,7 @@ bool NotificationManager::invokeAction(uint32_t id, const std::string& actionKey
   }
 
   if (m_actionInvokeCallback) {
-    m_actionInvokeCallback(id, actionKey);
+    m_actionInvokeCallback(id, actionKey, activationToken);
   }
 
   if (closeAfterInvoke) {
@@ -485,6 +491,12 @@ bool NotificationManager::invokeAction(uint32_t id, const std::string& actionKey
 }
 
 bool NotificationManager::invokeInlineReply(uint32_t id, const std::string& replyText, bool closeAfterInvoke) {
+  return invokeInlineReply(id, replyText, {}, closeAfterInvoke);
+}
+
+bool NotificationManager::invokeInlineReply(
+    uint32_t id, const std::string& replyText, std::string activationToken, bool closeAfterInvoke
+) {
   if (StringUtils::isBlank(replyText)) {
     return false;
   }
@@ -493,7 +505,7 @@ bool NotificationManager::invokeInlineReply(uint32_t id, const std::string& repl
   actionKey.reserve(kInlineReplyActionPrefix.size() + replyText.size());
   actionKey.append(kInlineReplyActionPrefix);
   actionKey.append(StringUtils::truncateUtf8(replyText, kMaxActionKeyLength - kInlineReplyActionPrefix.size()));
-  return invokeAction(id, actionKey, closeAfterInvoke);
+  return invokeAction(id, actionKey, std::move(activationToken), closeAfterInvoke);
 }
 
 void NotificationManager::emitPendingDBusClose(uint32_t id, CloseReason reason) {

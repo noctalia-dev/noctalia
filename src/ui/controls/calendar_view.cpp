@@ -269,6 +269,9 @@ namespace calendar_view {
         }
       };
       button->setOnClick(selectDate);
+      if (options.onDateRightClicked) {
+        button->setOnRightClick([callback = options.onDateRightClicked, date]() { callback(date); });
+      }
       tile->addChild(std::move(button));
 
       auto dots = ui::row({

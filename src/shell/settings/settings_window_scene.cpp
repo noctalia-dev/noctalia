@@ -2064,6 +2064,8 @@ void SettingsWindow::buildScene(std::uint32_t width, std::uint32_t height) {
   logSettingsProfile("buildScene navigationState", phaseProfileWatch);
   phaseProfileWatch.reset();
 
+  dismissOpenSelectDropdown();
+  m_modalHost.detach();
   m_inputDispatcher.setSceneRoot(nullptr);
   m_mainContainer = nullptr;
   m_headerRow = nullptr;
@@ -2128,6 +2130,7 @@ void SettingsWindow::buildScene(std::uint32_t width, std::uint32_t height) {
   logSettingsProfile("buildScene scrollTarget", phaseProfileWatch);
   phaseProfileWatch.reset();
   m_mainContainer = static_cast<Flex*>(m_sceneRoot->addChild(std::move(main)));
+  m_modalHost.attach(*m_sceneRoot, m_mainContainer, renderer, w, h);
 
   m_inputDispatcher.setTextInputContext(m_surface->wlSurface(), m_wayland->textInputService());
   m_inputDispatcher.setCursorShapeCallback([this](std::uint32_t serial, std::uint32_t shape) {
@@ -2143,7 +2146,9 @@ void SettingsWindow::buildScene(std::uint32_t width, std::uint32_t height) {
     }
   });
   m_inputDispatcher.setFocusChangeCallback([this](InputArea* /*old*/, InputArea* next) {
-    scrollFocusedAreaIntoView(next);
+    if (!m_modalHost.isOpen()) {
+      scrollFocusedAreaIntoView(next);
+    }
   });
   m_inputDispatcher.setSceneRoot(m_sceneRoot.get());
   m_surface->setSceneRoot(m_sceneRoot.get());
