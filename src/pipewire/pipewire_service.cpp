@@ -2068,7 +2068,8 @@ void PipeWireService::moveProgramOutput(std::uint32_t programStreamId, std::uint
   if (targetSinkId == 0) {
     const int ret =
         pw_metadata_set_property(m_defaultMetadata, programStreamId, PW_KEY_TARGET_OBJECT, nullptr, nullptr);
-    kLog.info("moveProgramOutput: clear target for stream {} -> ret={}", programStreamId, ret);
+    if (ret < 0)
+      kLog.warn("moveProgramOutput: failed to clear target for stream {} ({})", programStreamId, ret);
     programIt->second->targetObject.clear();
   } else {
     auto sinkIt = m_nodes.find(targetSinkId);
@@ -2081,9 +2082,8 @@ void PipeWireService::moveProgramOutput(std::uint32_t programStreamId, std::uint
     const int ret = pw_metadata_set_property(
         m_defaultMetadata, programStreamId, PW_KEY_TARGET_OBJECT, "Spa:Id", targetIdStr.c_str()
     );
-    kLog.info(
-        "moveProgramOutput: stream {} -> sink {} ({}) ret={}", programStreamId, targetSinkId, sinkIt->second->name, ret
-    );
+    if (ret < 0)
+      kLog.warn("moveProgramOutput: failed to move stream {} to sink {} ({})", programStreamId, targetSinkId, ret);
 
     programIt->second->targetObject = sinkIt->second->name;
   }
