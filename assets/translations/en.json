@@ -547,6 +547,7 @@
         "stat-gpu-temp": "GPU Temp",
         "stat-gpu-usage": "GPU Usage",
         "stat-gpu-vram": "GPU VRAM",
+        "stat-gpu-vram-used": "GPU VRAM Used",
         "stat-net-rx": "Net Rx",
         "stat-net-tx": "Net Tx",
         "stat-none": "None",

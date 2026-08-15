@@ -21,6 +21,12 @@ type = "calendar"
 show_events = true
 show_week_numbers = true
 
+[desktop_widgets.widget.gpu_vram]
+type = "sysmon"
+
+[desktop_widgets.widget.gpu_vram.settings]
+stat = "gpu_vram_used"
+
 [plugins]
 enabled = ["noctalia/wallhaven"]
 

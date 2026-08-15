@@ -27,6 +27,7 @@ enum class DesktopSysmonStat : std::uint8_t {
   GpuTemp,
   GpuUsage,
   GpuVram,
+  GpuVramUsed,
   RamPct,
   SwapPct,
   NetRx,

@@ -222,6 +222,7 @@ namespace desktop_settings {
         {"gpu_temp", "desktop-widgets.editor.settings.stat-gpu-temp"},
         {"gpu_usage", "desktop-widgets.editor.settings.stat-gpu-usage"},
         {"gpu_vram", "desktop-widgets.editor.settings.stat-gpu-vram"},
+        {"gpu_vram_used", "desktop-widgets.editor.settings.stat-gpu-vram-used"},
         {"ram_pct", "desktop-widgets.editor.settings.stat-ram-pct"},
         {"swap_pct", "desktop-widgets.editor.settings.stat-swap-pct"},
         {"net_rx", "desktop-widgets.editor.settings.stat-net-rx"},
