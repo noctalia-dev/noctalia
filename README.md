@@ -183,6 +183,23 @@ sudo xbps-install meson ninja pkg-config git \
   polkit-devel librsvg-devel libqalculate-devel libxml2-devel jemalloc-devel
 ```
 
+### AerynOS
+
+```sh
+sudo moss install meson gcc clang just \
+  wayland-devel wayland-protocols-devel \
+  libglvnd-devel freetype-devel fontconfig-devel \
+  cairo-devel pango-devel harfbuzz-devel \
+  libxkbcommon-devel glib2-devel \
+  libsecret-devel libsodium-devel \
+  sdbus-cpp-devel pipewire-devel wireplumber-devel polkit-devel \
+  linux-pam-devel curl libwebp-devel libjxl-devel libsndfile-devel librsvg-devel \
+  libqalculate-devel libxml2-devel \
+  md4c-devel tomlplusplus-devel libical-devel \
+  nlohmann-json stb \
+  jemalloc-devel
+```
+
 Vendored dependencies, with no system package needed: `Wuffs`,
 `Luau`, `fzy`, and Material Color Utilities.
 
