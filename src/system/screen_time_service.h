@@ -49,6 +49,7 @@ public:
   void setChangeCallback(std::function<void()> callback);
   void setEnabled(bool enabled);
   void setSessionLocked(bool locked);
+  void setSuspendPaused(bool paused);
   [[nodiscard]] bool enabled() const noexcept { return m_enabled; }
 
   [[nodiscard]] ScreenTimeSnapshot snapshot(int rangeDays = 1);
@@ -64,7 +65,8 @@ private:
     std::unordered_map<std::string, std::array<std::chrono::seconds, 24>> appHourly;
     std::array<std::chrono::seconds, 24> hourly{};
   };
-
+  void pauseTracking();
+  void resumeTracking();
   void tick();
   void flushActiveSession(std::chrono::steady_clock::time_point now);
   void ensureCurrentDayLocked(std::chrono::system_clock::time_point now);
@@ -98,4 +100,5 @@ private:
   bool m_dirty = false;
   bool m_enabled = false;
   bool m_sessionLocked = false;
+  bool m_suspendPaused = false;
 };
