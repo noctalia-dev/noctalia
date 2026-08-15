@@ -27,10 +27,8 @@ struct BarCapsuleRun {
   Node* content = nullptr;
   WidgetBarCapsuleSpec spec{};
   float contentScale = 1.0F;
-  // Set by finalizeCapsules each layout pass: whether any member currently draws visible ink (capsule bg).
-  // Read by placeGroupHoverPills and extendCapsuleHitTargets to decide whether group-member hovers/triggers
-  // need the clipped/clamped treatment (ink visible) or the unclamped treatment (no ink).
-  bool hasVisibleInk = false;
+  // Capsule geometry can exist without a painted fill or border.
+  bool hasPaintedCapsuleBackground = false;
   std::vector<Widget*> widgets;
   // Hover highlight overlays, parallel to `widgets` for group runs; one shared box for single runs.
   std::vector<Box*> hoverBoxes;

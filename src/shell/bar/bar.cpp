@@ -484,6 +484,91 @@ namespace {
     }
   }
 
+  struct CapsuleMemberGeometry {
+    std::size_t widgetIndex = 0;
+    float x = 0.0F;
+    float y = 0.0F;
+    float width = 0.0F;
+    float height = 0.0F;
+    float sliceStart = 0.0F;
+    float sliceEnd = 0.0F;
+
+    [[nodiscard]] float mainStart(bool isVertical) const noexcept { return isVertical ? y : x; }
+    [[nodiscard]] float mainEnd(bool isVertical) const noexcept {
+      return mainStart(isVertical) + (isVertical ? height : width);
+    }
+  };
+
+  [[nodiscard]] std::vector<CapsuleMemberGeometry>
+  capsuleMemberSlices(const BarCapsuleRun& run, bool isVertical, float widgetHoverPadding) {
+    std::vector<CapsuleMemberGeometry> members;
+    if (run.shell == nullptr) {
+      return members;
+    }
+    members.reserve(run.widgets.size());
+
+    float shellX = 0.0F;
+    float shellY = 0.0F;
+    Node::absolutePosition(run.shell, shellX, shellY);
+    for (std::size_t i = 0; i < run.widgets.size(); ++i) {
+      Widget* widget = run.widgets[i];
+      Node* root = widget != nullptr ? widget->outerNode() : nullptr;
+      if (root == nullptr || !root->visible() || !root->participatesInLayout() || !root->hitTestVisible()) {
+        continue;
+      }
+
+      float rootX = 0.0F;
+      float rootY = 0.0F;
+      Node::absolutePosition(root, rootX, rootY);
+      members.push_back(
+          CapsuleMemberGeometry{
+              .widgetIndex = i,
+              .x = rootX - shellX,
+              .y = rootY - shellY,
+              .width = root->width(),
+              .height = root->height(),
+          }
+      );
+    }
+
+    const float shellMain = isVertical ? run.shell->height() : run.shell->width();
+    for (std::size_t i = 0; i < members.size(); ++i) {
+      auto& member = members[i];
+      const float memberStart = member.mainStart(isVertical);
+      const float memberEnd = member.mainEnd(isVertical);
+      const float pad = widgetHoverPadding * run.widgets[member.widgetIndex]->contentScale();
+      float before = pad;
+      float after = pad;
+
+      if (i > 0) {
+        before = std::min(before, std::max(0.0F, (memberStart - members[i - 1].mainEnd(isVertical)) * 0.5F));
+      }
+      if (i + 1 < members.size()) {
+        after = std::min(after, std::max(0.0F, (members[i + 1].mainStart(isVertical) - memberEnd) * 0.5F));
+      }
+
+      if (members.size() > 1) {
+        if (i == 0) {
+          before = after;
+        }
+        if (i + 1 == members.size()) {
+          after = before;
+        }
+      }
+      if (run.hasPaintedCapsuleBackground) {
+        if (i == 0) {
+          before = std::min(before, std::max(0.0F, memberStart));
+        }
+        if (i + 1 == members.size()) {
+          after = std::min(after, std::max(0.0F, shellMain - memberEnd));
+        }
+      }
+      member.sliceStart = memberStart - before;
+      member.sliceEnd = memberEnd + after;
+    }
+    return members;
+  }
+
   // Extends each member's hit target across the capsule padding and half the gap to its
   // neighbors, so hover/click coverage matches the capsule ink instead of stopping at the
   // content edge. Runs after applyBarWidgetHitTargets (which replaces outsets each layout).
@@ -519,56 +604,23 @@ namespace {
 
       // Tile only laid-out members; hidden ones keep stale geometry, and members clipped out of a
       // collapsed accordion are input-suppressed so their slice belongs to the visible member.
-      std::vector<std::size_t> laidOut;
-      laidOut.reserve(run.widgets.size());
-      for (std::size_t i = 0; i < run.widgets.size(); ++i) {
-        Widget* widget = run.widgets[i];
-        auto* root = widget != nullptr ? widget->outerNode() : nullptr;
-        if (root == nullptr || !root->visible() || !root->participatesInLayout() || !root->hitTestVisible()) {
-          continue;
-        }
-        laidOut.push_back(i);
-      }
-
+      const auto laidOut = capsuleMemberSlices(run, isVertical, widgetHoverPadding);
       const float shellMain = isVertical ? run.shell->height() : run.shell->width();
-      const float containerMain = isVertical ? run.container->y() : run.container->x();
-      auto memberStart = [&](std::size_t i) {
-        const Node* node = run.widgets[i]->outerNode();
-        return containerMain + (isVertical ? node->y() : node->x());
-      };
-      auto memberEnd = [&](std::size_t i) {
-        const Node* node = run.widgets[i]->outerNode();
-        return memberStart(i) + (isVertical ? node->height() : node->width());
-      };
-      for (std::size_t vi = 0; vi < laidOut.size(); ++vi) {
-        const std::size_t i = laidOut[vi];
+      float minSliceStart = 0.0F;
+      float maxSliceEnd = shellMain;
+      for (const auto& member : laidOut) {
+        const std::size_t i = member.widgetIndex;
         Node* area = run.widgets[i]->outerNode();
-
-        const float pad = widgetHoverPadding * run.widgets[i]->contentScale();
-
-        float sliceStart = memberStart(i) - pad;
-        if (vi == 0) {
-          if (run.hasVisibleInk) {
-            sliceStart = std::max(0.0F, sliceStart);
-          }
-        } else {
-          const float mid = (memberEnd(laidOut[vi - 1]) + memberStart(i)) * 0.5F;
-          sliceStart = std::max(sliceStart, mid);
-        }
-
-        float sliceEnd = memberEnd(i) + pad;
-        if (vi + 1 == laidOut.size()) {
-          if (run.hasVisibleInk) {
-            sliceEnd = std::min(shellMain, sliceEnd);
-          }
-        } else {
-          const float mid = (memberEnd(i) + memberStart(laidOut[vi + 1])) * 0.5F;
-          sliceEnd = std::min(sliceEnd, mid);
-        }
+        const float memberStart = member.mainStart(isVertical);
+        const float memberEnd = member.mainEnd(isVertical);
+        const float sliceStart = member.sliceStart;
+        const float sliceEnd = member.sliceEnd;
+        minSliceStart = std::min(minSliceStart, sliceStart);
+        maxSliceEnd = std::max(maxSliceEnd, sliceEnd);
 
         auto outset = area->hitTestOutset();
-        const float before = std::max(0.0F, memberStart(i) - sliceStart);
-        const float after = std::max(0.0F, sliceEnd - memberEnd(i));
+        const float before = std::max(0.0F, memberStart - sliceStart);
+        const float after = std::max(0.0F, sliceEnd - memberEnd);
         if (isVertical) {
           outset.top += before;
           outset.bottom += after;
@@ -578,6 +630,15 @@ namespace {
         }
         area->setHitTestOutset(outset);
       }
+      auto shellOutset = run.shell->hitTestOutset();
+      if (isVertical) {
+        shellOutset.top += std::max(0.0F, -minSliceStart);
+        shellOutset.bottom += std::max(0.0F, maxSliceEnd - shellMain);
+      } else {
+        shellOutset.left += std::max(0.0F, -minSliceStart);
+        shellOutset.right += std::max(0.0F, maxSliceEnd - shellMain);
+      }
+      run.shell->setHitTestOutset(shellOutset);
     }
   }
 
@@ -936,15 +997,17 @@ namespace {
         }
 
         bool hasVisibleContent = false;
-        bool hasVisibleInk = false;
+        bool hasCapsuleContent = false;
         for (Widget* widget : run.widgets) {
           if (widget == nullptr || widget->root() == nullptr) {
             continue;
           }
           hasVisibleContent = hasVisibleContent || widget->root()->visible();
-          hasVisibleInk = hasVisibleInk || widget->shouldShowBarCapsule();
+          hasCapsuleContent = hasCapsuleContent || widget->shouldShowBarCapsule();
         }
-        run.hasVisibleInk = hasVisibleInk;
+        const bool hasPaintedFill = resolveColorSpec(withOpacity(run.spec.fill, run.spec.opacity)).a > 0.0F;
+        const bool hasPaintedBorder = run.spec.border.has_value() && resolveColorSpec(*run.spec.border).a > 0.0F;
+        run.hasPaintedCapsuleBackground = hasCapsuleContent && (hasPaintedFill || hasPaintedBorder);
 
         shell->setVisible(hasVisibleContent);
         const float scale = run.contentScale;
@@ -959,7 +1022,7 @@ namespace {
             }
           }
         };
-        if (!hasVisibleInk) {
+        if (!hasCapsuleContent) {
           shell->setSize(iw, ih);
           if (run.accordionClip != nullptr) {
             run.accordionClip->setPosition(0.0F, 0.0F);
@@ -1261,41 +1324,34 @@ namespace {
           shellX -= underlayX;
           shellY -= underlayY;
           const float shellMainStart = isVertical ? shellY : shellX;
-          const float shellMainEnd = shellMainStart + (isVertical ? run.shell->height() : run.shell->width());
           const Widget* radiusSource = !run.widgets.empty() ? run.widgets.front() : nullptr;
           for (Widget* widget : run.widgets) {
-            Box* box = widget != nullptr ? widget->barHoverBox() : nullptr;
             Node* root = widget != nullptr ? widget->outerNode() : nullptr;
-            if (box == nullptr || root == nullptr) {
-              continue;
-            }
-            if (!root->visible() || !root->participatesInLayout()) {
+            Box* box = widget != nullptr ? widget->barHoverBox() : nullptr;
+            if (box != nullptr
+                && (root == nullptr || !root->visible() || !root->participatesInLayout() || !root->hitTestVisible())) {
               box->setSize(0.0F, 0.0F);
+            }
+          }
+
+          const auto laidOut = capsuleMemberSlices(run, isVertical, instance.barConfig.widgetCapsulePadding);
+          for (const auto& member : laidOut) {
+            Widget* widget = run.widgets[member.widgetIndex];
+            Box* box = widget->barHoverBox();
+            if (box == nullptr) {
               continue;
             }
-            float rootX = 0.0F;
-            float rootY = 0.0F;
-            Node::absolutePosition(root, rootX, rootY);
-            rootX -= underlayX;
-            rootY -= underlayY;
-            const float pad = instance.barConfig.widgetCapsulePadding * widget->contentScale();
-            const float rootMainStart = isVertical ? rootY : rootX;
-            const float rootMainExtent = isVertical ? root->height() : root->width();
-            float mainStart = rootMainStart - pad;
-            float mainEnd = rootMainStart + rootMainExtent + pad;
-            // Clamp to the shell's real edges only when the capsule bg is visible, so the pill
-            // never bleeds past a painted background; unclamped (free to overlap neighbors) when
-            // there is no ink to bleed past.
-            if (run.hasVisibleInk) {
-              mainStart = std::max(shellMainStart, mainStart);
-              mainEnd = std::min(shellMainEnd, mainEnd);
-            }
+
+            const float rootX = shellX + member.x;
+            const float rootY = shellY + member.y;
+            const float mainStart = shellMainStart + member.sliceStart;
+            const float mainEnd = shellMainStart + member.sliceEnd;
             const float mainExtent = std::max(0.0F, mainEnd - mainStart);
             const float hoverW = isVertical ? capsuleCross : mainExtent;
             const float hoverH = isVertical ? mainExtent : capsuleCross;
             box->setPosition(
-                isVertical ? rootX + (root->width() - capsuleCross) * 0.5F : mainStart,
-                isVertical ? mainStart : rootY + (root->height() - capsuleCross) * 0.5F
+                isVertical ? rootX + (member.width - capsuleCross) * 0.5F : mainStart,
+                isVertical ? mainStart : rootY + (member.height - capsuleCross) * 0.5F
             );
             box->setSize(hoverW, hoverH);
             box->setRadius(
