@@ -1,16 +1,13 @@
 #include "ui/controls/calendar_view.h"
 
 #include "calendar/calendar_types.h"
-#include "core/process/process.h"
 #include "core/ui_phase.h"
 #include "cursor-shape-v1-client-protocol.h"
 #include "i18n/i18n.h"
-#include "net/default_app_open.h"
 #include "net/url_open.h"
 #include "render/core/color.h"
 #include "render/scene/input_area.h"
 #include "render/scene/node.h"
-#include "shell/panel/panel_manager.h"
 #include "time/time_format.h"
 #include "ui/builders.h"
 #include "ui/controls/button.h"
@@ -26,10 +23,8 @@
 #include <array>
 #include <chrono>
 #include <cstddef>
-#include <cstring>
 #include <ctime>
 #include <format>
-#include <gio/gio.h>
 #include <memory>
 #include <string>
 #include <utility>
@@ -88,27 +83,6 @@ namespace {
     auto result = ui::column({});
     result->setSize(width, height);
     return result;
-  }
-
-  // Some calendar-capable default apps are primarily something else --
-  // Thunderbird is a mail client first, so a plain launch just focuses it on
-  // whatever tab (usually Mail) was open last, not Calendar. Where the
-  // resolved default app is one we know a "jump to calendar" flag for, use
-  // it instead of the generic launch. Apps we have no special-case for still
-  // get the plain default-app launch, just without the view forced.
-  bool openDefaultCalendarAppPreferringCalendarView() {
-    GAppInfo* appInfo = g_app_info_get_default_for_type("text/calendar", FALSE);
-    if (appInfo == nullptr) {
-      return false;
-    }
-    const char* id = g_app_info_get_id(appInfo);
-    const bool isThunderbird = id != nullptr && strcasestr(id, "thunderbird") != nullptr;
-    g_object_unref(appInfo);
-
-    if (isThunderbird) {
-      return process::runAsync({"thunderbird", "-calendar"});
-    }
-    return net::openDefaultAppForMimeType("text/calendar");
   }
 
 } // namespace
@@ -295,19 +269,9 @@ namespace calendar_view {
         }
       };
       button->setOnClick(selectDate);
-      // Noctalia v4 launched the user's calendar app (via a gnome-calendar-only check)
-      // on a date click; v5 dropped any external-app handoff entirely. This restores an
-      // equivalent, generalized to whatever the user has set as their default calendar
-      // app (Evolution, Thunderbird, GNOME Calendar, Morgen, ...) via the same
-      // text/calendar MIME association GNOME/KDE "Default Applications" settings and
-      // `xdg-mime` read/write -- on right-click so it doesn't collide with day selection.
-      // On success, also close this calendar panel: leaving it open behind the app
-      // you just launched to look at is just clutter once the handoff happened.
-      button->setOnRightClick([]() {
-        if (openDefaultCalendarAppPreferringCalendarView()) {
-          PanelManager::instance().closePanel();
-        }
-      });
+      if (options.onDateRightClicked) {
+        button->setOnRightClick([callback = options.onDateRightClicked, date]() { callback(date); });
+      }
       tile->addChild(std::move(button));
 
       auto dots = ui::row({
