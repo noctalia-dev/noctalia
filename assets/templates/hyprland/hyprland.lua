@@ -2,7 +2,8 @@
 
 local primary = "rgb({{colors.primary.default.hex_stripped}})"
 local surface = "rgb({{colors.surface.default.hex_stripped}})"
-local surface_variant = "rgb({{colors.surface_variant.default.hex_stripped}})"
+local on_surface = "rgb({{colors.on_surface.default.hex_stripped}})"
+local on_surface_variant = "rgb({{colors.on_surface_variant.default.hex_stripped}})"
 local secondary = "rgb({{colors.secondary.default.hex_stripped}})"
 local error = "rgb({{colors.error.default.hex_stripped}})"
 local shadow = "rgb({{colors.shadow.default.hex_stripped}})"
@@ -39,8 +40,8 @@ local function apply_theme()
                     locked_active = error,
                     locked_inactive = surface,
                 },
-                text_color = surface,
-                text_color_inactive = surface_variant,
+                text_color = on_surface,
+                text_color_inactive = on_surface_variant,
             },
         },
     })
