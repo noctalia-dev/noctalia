@@ -43,6 +43,7 @@ public:
   );
   void onConfigReload();
   void onOutputChange();
+  void hideAll();
   void requestLayout();
   void requestRedraw();
 

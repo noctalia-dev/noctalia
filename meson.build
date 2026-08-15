@@ -1130,6 +1130,7 @@ if build_tests
     'kde_color_scheme',
     'log',
     'math_provider',
+    'notification_dnd',
     'notification_filter',
     'notification_history_utf8',
     'path_browse',
