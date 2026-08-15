@@ -44,6 +44,7 @@ public:
   ~TrayWidget() override;
 
   void setHoverOverlayParent(Node* node) noexcept { m_hoverOverlayParent = node; }
+  void setCapsuleCross(float cross) noexcept { m_capsuleCross = cross; }
   void create() override;
   [[nodiscard]] bool wantsBarHoverHighlight() const noexcept override { return false; }
 
@@ -108,4 +109,5 @@ private:
   Signal<>::ScopedConnection m_appIconColorizeConn;
   Node* m_hoverOverlayParent = nullptr;
   std::vector<HoverOverlayEntry> m_hoverOverlays;
+  float m_capsuleCross = 0.0F;
 };

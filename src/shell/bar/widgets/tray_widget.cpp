@@ -467,7 +467,7 @@ void TrayWidget::rebuild(Renderer& renderer) {
     Box* hoverBoxPtr = nullptr;
     ColorSpec hoverFill = widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface));
     hoverFill.alpha = 0.0F;
-    const float padding = Style::spaceXs * m_contentScale;
+    const float padding = barCapsuleSpec().padding * m_contentScale;
     const float boxSize = size + padding * 2.0F;
 
     auto hoverBox = ui::box({
@@ -1060,7 +1060,27 @@ void TrayWidget::layoutHoverOverlays() {
     float areaX = 0.0F;
     float areaY = 0.0F;
     Node::absolutePosition(entry.area, areaX, areaY);
-    entry.box->setPosition(areaX - underlayX - entry.padding, areaY - underlayY - entry.padding);
+
+    const float mainExtent = m_isVertical ? entry.area->height() : entry.area->width();
+
+    const float hoverW = m_isVertical ? m_capsuleCross : mainExtent + 2.0F * entry.padding;
+    const float hoverH = m_isVertical ? mainExtent + 2.0F * entry.padding : m_capsuleCross;
+
+    entry.box->setSize(hoverW, hoverH);
+    entry.box->setRadius(resolvedBarCapsuleRadius(hoverW, hoverH));
+
+    float boxX = areaX - underlayX;
+    float boxY = areaY - underlayY;
+
+    if (m_isVertical) {
+      boxX += (entry.area->width() - m_capsuleCross) * 0.5F;
+      boxY -= entry.padding;
+    } else {
+      boxX -= entry.padding;
+      boxY += (entry.area->height() - m_capsuleCross) * 0.5F;
+    }
+
+    entry.box->setPosition(boxX, boxY);
   }
 }
 

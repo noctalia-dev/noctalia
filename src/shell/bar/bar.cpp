@@ -983,6 +983,18 @@ namespace {
     // Capsule cross-size is a fraction of the bar thickness (capsule_thickness), the same for every capsule
     // regardless of per-widget content scale. The max() guard keeps a thin bar from yielding a 0px capsule.
     const float capsuleCross = std::max(1.0F, std::round(slotCross * instance.barConfig.capsuleThickness));
+
+    auto updateTrayCross = [capsuleCross](std::vector<std::unique_ptr<Widget>>& widgets) {
+      for (auto& widget : widgets) {
+        if (auto* tray = dynamic_cast<TrayWidget*>(widget.get())) {
+          tray->setCapsuleCross(capsuleCross);
+        }
+      }
+    };
+    updateTrayCross(instance.startWidgets);
+    updateTrayCross(instance.centerWidgets);
+    updateTrayCross(instance.endWidgets);
+
     auto finalizeCapsules = [isVertical, capsuleCross, widgetHoverPadding = instance.barConfig.widgetCapsulePadding,
                              &renderer](std::vector<BarCapsuleRun>& runs) {
       for (auto& run : runs) {
