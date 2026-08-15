@@ -1165,6 +1165,7 @@ if build_tests
     'location_service',
     'math_provider',
     'monitor_selector',
+    'network_manager_security',
     'notification_dnd',
     'notification_filter',
     'notification_history_utf8',
