@@ -7,6 +7,7 @@
 
 #include <chrono>
 #include <cstdint>
+#include <filesystem>
 #include <functional>
 #include <optional>
 #include <string>
@@ -27,8 +28,8 @@ namespace scripting {
   struct ScriptImagePatch {
     std::string path;
     bool watch = false;
-    float width = 0.0f;
-    float height = 0.0f;
+    float width = 0.0F;
+    float height = 0.0F;
 
     bool operator==(const ScriptImagePatch&) const = default;
   };
@@ -139,16 +140,26 @@ namespace scripting {
     CopyToClipboard,
     SetWallpaperEnabled,
     SetWallpaper,
+    SetWallpaperMask,
     TogglePanel,
     OpenPluginSettings,
+    LoadSound,
+    PlaySound,
   };
 
   struct ScriptSideEffect {
     ScriptSideEffectKind kind = ScriptSideEffectKind::Log;
     std::string title;
     std::string body;
+    std::string extra;
+    // LoadSound: hostId identifies the sound bank, title the logical name, body the resolved path,
+    // and callbackRef the accepted completion callback.
+    // PlaySound: hostId identifies the sound bank and title the logical name.
+    std::uint64_t hostId = 0;
+    int callbackRef = 0;
     // SetWallpaperEnabled: title holds the output connector, flag the enabled state.
     // SetWallpaper: title holds the output connector (empty = all outputs), body the image path.
+    // SetWallpaperMask: title holds output, body mask path, extra wallpaper path, and hostId the owner.
     // TogglePanel: title holds the panel id ("author/plugin:panel").
     // OpenPluginSettings: title holds the plugin id ("author/plugin").
     bool flag = false;
@@ -168,8 +179,10 @@ namespace scripting {
     Call,
     CallArgs,
     AsyncCommandResult,
+    AsyncFileResult,
     AsyncProcessMatchResult,
     AsyncHttpResult,
+    SoundLoadResult,
     ColorPickerResult,
     StateWatchResult,
     StreamLine,
@@ -216,11 +229,18 @@ namespace scripting {
     bool droppable = false;
     int callbackRef = 0;
     process::RunResult commandResult;
+    // AsyncFileResult payload.
+    bool fileOk = false;
+    std::string fileData;
+    std::string fileError;
     // AsyncHttpResult / HttpStreamClosed payload.
     bool httpOk = false;
     bool httpIsDownload = false;
     int httpStatus = 0;
     std::string httpBody;
+    // SoundLoadResult payload.
+    bool soundLoadOk = false;
+    std::string soundLoadError;
     // ColorPickerResult payload (nil on cancellation).
     std::optional<std::string> colorPickerResult;
     // StateWatchResult payload (the changed value as JSON).
@@ -243,6 +263,8 @@ namespace scripting {
     bool timedOut = false;
     bool hasOnIpc = false;
     bool hasOnIpcKnown = false;
+    bool modulePathsKnown = false;
+    std::vector<std::filesystem::path> modulePaths;
     bool unhealthy = false;
     // True when this result included a CopyToClipboard side effect (before dispatch).
     bool copiedToClipboard = false;

@@ -194,64 +194,48 @@ bool KeyboardBacklightService::toggleBrightness() {
 void KeyboardBacklightService::setChangeCallback(ChangeCallback callback) { m_changeCallback = std::move(callback); }
 
 void KeyboardBacklightService::registerIpc(IpcService& ipc) {
-  ipc.registerHandler(
-      "keyboard-backlight-set",
-      [this](const std::string& args) -> std::string {
-        const auto parts = noctalia::ipc::splitWords(args);
-        if (parts.size() != 1) {
-          return "error: keyboard-backlight-set requires <value>\n";
-        }
-        const auto parsed = parseInt(parts[0]);
-        if (!parsed.has_value() || *parsed < 0 || *parsed > 100) {
-          return "error: invalid keyboard backlight value (use 0-100 for percentage)\n";
-        }
-        if (!available()) {
-          return "error: keyboard backlight unavailable\n";
-        }
-        return setPercent(*parsed) ? "ok\n" : "error: failed to set keyboard backlight\n";
-      },
-      "<value>", "Set all keyboard backlights (0-100 percentage)"
-  );
+  ipc.bind(noctalia::cli::msg::keyboardBacklightSet, [this](const std::string& args) -> std::string {
+    const auto parts = noctalia::ipc::splitWords(args);
+    if (parts.size() != 1) {
+      return "error: keyboard-backlight-set requires <value>\n";
+    }
+    const auto parsed = parseInt(parts[0]);
+    if (!parsed.has_value() || *parsed < 0 || *parsed > 100) {
+      return "error: invalid keyboard backlight value (use 0-100 for percentage)\n";
+    }
+    if (!available()) {
+      return "error: keyboard backlight unavailable\n";
+    }
+    return setPercent(*parsed) ? "ok\n" : "error: failed to set keyboard backlight\n";
+  });
 
-  ipc.registerHandler(
-      "keyboard-backlight-up",
-      [this](const std::string& args) -> std::string {
-        if (auto err = rejectArgs("keyboard-backlight-up", args); err.has_value()) {
-          return *err;
-        }
-        if (!available()) {
-          return "error: keyboard backlight unavailable\n";
-        }
-        return adjustBrightness(1) ? "ok\n" : "error: failed to set keyboard backlight\n";
-      },
-      "", "Increase all keyboard backlights by one level"
-  );
+  ipc.bind(noctalia::cli::msg::keyboardBacklightUp, [this](const std::string& args) -> std::string {
+    if (auto err = rejectArgs("keyboard-backlight-up", args); err.has_value()) {
+      return *err;
+    }
+    if (!available()) {
+      return "error: keyboard backlight unavailable\n";
+    }
+    return adjustBrightness(1) ? "ok\n" : "error: failed to set keyboard backlight\n";
+  });
 
-  ipc.registerHandler(
-      "keyboard-backlight-down",
-      [this](const std::string& args) -> std::string {
-        if (auto err = rejectArgs("keyboard-backlight-down", args); err.has_value()) {
-          return *err;
-        }
-        if (!available()) {
-          return "error: keyboard backlight unavailable\n";
-        }
-        return adjustBrightness(-1) ? "ok\n" : "error: failed to set keyboard backlight\n";
-      },
-      "", "Decrease all keyboard backlights by one level"
-  );
+  ipc.bind(noctalia::cli::msg::keyboardBacklightDown, [this](const std::string& args) -> std::string {
+    if (auto err = rejectArgs("keyboard-backlight-down", args); err.has_value()) {
+      return *err;
+    }
+    if (!available()) {
+      return "error: keyboard backlight unavailable\n";
+    }
+    return adjustBrightness(-1) ? "ok\n" : "error: failed to set keyboard backlight\n";
+  });
 
-  ipc.registerHandler(
-      "keyboard-backlight-toggle",
-      [this](const std::string& args) -> std::string {
-        if (auto err = rejectArgs("keyboard-backlight-toggle", args); err.has_value()) {
-          return *err;
-        }
-        if (!available()) {
-          return "error: keyboard backlight unavailable\n";
-        }
-        return toggleBrightness() ? "ok\n" : "error: failed to set keyboard backlight\n";
-      },
-      "", "Toggle all keyboard backlights on/off"
-  );
+  ipc.bind(noctalia::cli::msg::keyboardBacklightToggle, [this](const std::string& args) -> std::string {
+    if (auto err = rejectArgs("keyboard-backlight-toggle", args); err.has_value()) {
+      return *err;
+    }
+    if (!available()) {
+      return "error: keyboard backlight unavailable\n";
+    }
+    return toggleBrightness() ? "ok\n" : "error: failed to set keyboard backlight\n";
+  });
 }

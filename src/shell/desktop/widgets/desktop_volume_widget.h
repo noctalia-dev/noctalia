@@ -58,8 +58,8 @@ private:
   bool m_input = false;
   bool m_showDevice = true;
   bool m_shadow = true;
-  float m_scrollStep = 0.05f;
-  float m_glyphBox = 0.0f;
+  float m_scrollStep = 0.05F;
+  float m_glyphBox = 0.0F;
 
   InputArea* m_area = nullptr;
   InputArea* m_glyphHit = nullptr;
@@ -70,7 +70,7 @@ private:
   Node* m_fillClip = nullptr;
   Glyph* m_fillGlyph = nullptr;
 
-  float m_fillProgress = 0.0f;
+  float m_fillProgress = 0.0F;
   std::string m_lastGlyphName;
   std::string m_lastPercentText;
   std::string m_lastStatusText;

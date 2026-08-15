@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <functional>
 #include <optional>
@@ -15,6 +16,10 @@ public:
   using CursorShapeCallback = std::function<void(std::uint32_t serial, std::uint32_t shape)>;
   using HoverChangeCallback = std::function<void(InputArea* oldArea, InputArea* newArea)>;
   using FocusChangeCallback = std::function<void(InputArea* oldArea, InputArea* newArea)>;
+  struct TabFocusSnapshot {
+    std::optional<std::size_t> index;
+    std::optional<std::string> key;
+  };
 
   InputDispatcher() = default;
 
@@ -47,6 +52,8 @@ public:
   void setFocus(InputArea* area);
   void stashTabFocus();
   void restoreStashedTabFocus();
+  [[nodiscard]] TabFocusSnapshot captureTabFocus() const;
+  void restoreTabFocus(TabFocusSnapshot snapshot);
   [[nodiscard]] bool cycleTabFocus(bool reverse);
   [[nodiscard]] bool cycleTabFocusInSubtree(Node* subtree, bool reverse);
   [[nodiscard]] InputArea* inputAreaAt(float x, float y);
@@ -80,8 +87,8 @@ private:
   std::optional<std::size_t> m_stashedTabFocusIndex;
   std::optional<std::string> m_stashedTabFocusKey;
   std::uint32_t m_lastSerial = 0;
-  float m_lastPointerX = 0.0f;
-  float m_lastPointerY = 0.0f;
+  float m_lastPointerX = 0.0F;
+  float m_lastPointerY = 0.0F;
   bool m_hasPointerPosition = false;
   bool m_cancelingPointerCapture = false;
 };

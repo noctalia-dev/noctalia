@@ -44,7 +44,7 @@ namespace noctalia::theme {
     // form.
     inline float triangleKernel(float x) {
       x = x < 0 ? -x : x;
-      return x < 1.0f ? 1.0f - x : 0.0f;
+      return x < 1.0F ? 1.0F - x : 0.0F;
     }
 
     void verticalBoxSampleU8ToF32(const uint8_t* src, int srcW, int srcH, float* dst, int dstH) {
@@ -65,10 +65,10 @@ namespace noctalia::theme {
         const int count = stop - start;
         if (count <= 0)
           continue;
-        const float weight = 1.0f / static_cast<float>(count);
+        const float weight = 1.0F / static_cast<float>(count);
 
         for (int x = 0; x < srcW; ++x) {
-          float t0 = 0.0f, t1 = 0.0f, t2 = 0.0f, t3 = 0.0f;
+          float t0 = 0.0F, t1 = 0.0F, t2 = 0.0F, t3 = 0.0F;
           for (int i = start; i < stop; ++i) {
             const float sampleWeight = weight;
             const uint8_t* p = src + (i * srcW + x) * 4;
@@ -99,8 +99,8 @@ namespace noctalia::theme {
       scale = 1.0 / scale;
 
       auto toU8 = [](float v) -> uint8_t {
-        v = std::clamp(v, 0.0f, 255.0f);
-        return static_cast<uint8_t>(std::floor(v + 0.5f));
+        v = std::clamp(v, 0.0F, 255.0F);
+        return static_cast<uint8_t>(std::floor(v + 0.5F));
       };
 
       for (int outx = 0; outx < dstW; ++outx) {
@@ -110,10 +110,10 @@ namespace noctalia::theme {
         const int count = stop - start;
         if (count <= 0)
           continue;
-        const float weight = 1.0f / static_cast<float>(count);
+        const float weight = 1.0F / static_cast<float>(count);
 
         for (int y = 0; y < srcH; ++y) {
-          float t0 = 0.0f, t1 = 0.0f, t2 = 0.0f, t3 = 0.0f;
+          float t0 = 0.0F, t1 = 0.0F, t2 = 0.0F, t3 = 0.0F;
           for (int i = start; i < stop; ++i) {
             const float* p = src + (y * srcW + i) * 4;
             t0 += p[0] * weight;
@@ -135,22 +135,22 @@ namespace noctalia::theme {
     // Vertical pass: src is RGBA u8 (srcW × srcH), dst is RGBA f32 (srcW × dstH).
     void verticalSampleU8ToF32(const uint8_t* src, int srcW, int srcH, float* dst, int dstH) {
       const float ratio = static_cast<float>(srcH) / static_cast<float>(dstH);
-      const float sratio = ratio < 1.0f ? 1.0f : ratio;
-      const float srcSupport = 1.0f * sratio;
+      const float sratio = ratio < 1.0F ? 1.0F : ratio;
+      const float srcSupport = 1.0F * sratio;
 
       std::vector<float> ws;
       for (int outy = 0; outy < dstH; ++outy) {
-        const float inputyOrig = (static_cast<float>(outy) + 0.5f) * ratio;
+        const float inputyOrig = (static_cast<float>(outy) + 0.5F) * ratio;
         int left = static_cast<int>(std::floor(inputyOrig - srcSupport));
         int right = static_cast<int>(std::ceil(inputyOrig + srcSupport));
         left = std::max(left, 0);
         left = std::min(left, srcH - 1);
         right = std::max(right, left + 1);
         right = std::min(right, srcH);
-        const float inputy = inputyOrig - 0.5f;
+        const float inputy = inputyOrig - 0.5F;
 
         ws.clear();
-        float sum = 0.0f;
+        float sum = 0.0F;
         for (int i = left; i < right; ++i) {
           float w = triangleKernel((static_cast<float>(i) - inputy) / sratio);
           ws.push_back(w);
@@ -184,22 +184,22 @@ namespace noctalia::theme {
     // Horizontal pass: src is RGBA f32 (srcW × srcH), dst is RGBA u8 (dstW × srcH).
     void horizontalSampleF32ToU8(const float* src, int srcW, int srcH, uint8_t* dst, int dstW) {
       const float ratio = static_cast<float>(srcW) / static_cast<float>(dstW);
-      const float sratio = ratio < 1.0f ? 1.0f : ratio;
-      const float srcSupport = 1.0f * sratio;
+      const float sratio = ratio < 1.0F ? 1.0F : ratio;
+      const float srcSupport = 1.0F * sratio;
 
       std::vector<float> ws;
       for (int outx = 0; outx < dstW; ++outx) {
-        const float inputxOrig = (static_cast<float>(outx) + 0.5f) * ratio;
+        const float inputxOrig = (static_cast<float>(outx) + 0.5F) * ratio;
         int left = static_cast<int>(std::floor(inputxOrig - srcSupport));
         int right = static_cast<int>(std::ceil(inputxOrig + srcSupport));
         left = std::max(left, 0);
         left = std::min(left, srcW - 1);
         right = std::max(right, left + 1);
         right = std::min(right, srcW);
-        const float inputx = inputxOrig - 0.5f;
+        const float inputx = inputxOrig - 0.5F;
 
         ws.clear();
-        float sum = 0.0f;
+        float sum = 0.0F;
         for (int i = left; i < right; ++i) {
           float w = triangleKernel((static_cast<float>(i) - inputx) / sratio);
           ws.push_back(w);
@@ -222,8 +222,8 @@ namespace noctalia::theme {
           // FloatNearest(clamp(t, 0, 255)) → u8. Rust's f32::round is
           // round-half-away-from-zero.
           auto toU8 = [](float v) -> uint8_t {
-            v = std::clamp(v, 0.0f, 255.0f);
-            return static_cast<uint8_t>(std::floor(v + 0.5f));
+            v = std::clamp(v, 0.0F, 255.0F);
+            return static_cast<uint8_t>(std::floor(v + 0.5F));
           };
           uint8_t* dp = dst + (y * dstW + outx) * 4;
           dp[0] = toU8(t0);

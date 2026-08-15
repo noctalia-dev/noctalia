@@ -78,6 +78,38 @@ namespace {
     return name;
   }
 
+  // libdrm's amdgpu.ids maps device and revision IDs to a marketing name.
+  // This is generally more specific than pci.ids subsystem names.
+  std::string lookupAmdGpuIds(const std::string& deviceId, const std::string& revisionId) {
+    std::ifstream file{"/usr/share/libdrm/amdgpu.ids"};
+    if (!file.is_open()) {
+      return {};
+    }
+
+    std::string line;
+    while (std::getline(file, line)) {
+      if (line.empty() || line[0] == '#') {
+        continue;
+      }
+
+      const auto firstComma = line.find(',');
+      const auto secondComma = firstComma == std::string::npos ? std::string::npos : line.find(',', firstComma + 1);
+      if (firstComma == std::string::npos || secondComma == std::string::npos) {
+        continue;
+      }
+
+      const auto fileDevice = StringUtils::trim(line.substr(0, firstComma));
+      const auto fileRevision = StringUtils::trim(line.substr(firstComma + 1, secondComma - firstComma - 1));
+
+      if (StringUtils::equalsInsensitive(fileDevice, deviceId)
+          && StringUtils::equalsInsensitive(fileRevision, revisionId)) {
+        return StringUtils::trim(line.substr(secondComma + 1));
+      }
+    }
+
+    return {};
+  }
+
   std::string lookupPciIds(
       const std::string& vendorId, const std::string& deviceId, const std::string& subVendorId = {},
       const std::string& subDeviceId = {}
@@ -228,6 +260,21 @@ namespace {
       stripHexPrefix(subDeviceHex);
 
       if (!vendorHex.empty() && !deviceHex.empty()) {
+        if (vendorHex == "1002") {
+          auto revisionHex = readSysfsLine(deviceDir / "revision");
+          stripHexPrefix(revisionHex);
+          auto amdName = lookupAmdGpuIds(deviceHex, revisionHex);
+          if (!amdName.empty()) {
+            if (!amdName.contains("AMD")) {
+              amdName = "AMD " + amdName;
+            }
+            if (!std::ranges::contains(gpus, amdName)) {
+              gpus.push_back(std::move(amdName));
+            }
+            continue;
+          }
+        }
+
         auto pciName = lookupPciIds(vendorHex, deviceHex, subVendorHex, subDeviceHex);
         if (!pciName.empty()) {
           if (!std::ranges::contains(gpus, pciName)) {
@@ -373,7 +420,7 @@ std::string diskUsageLabel(const std::string& mountPoint) {
   const double avail = static_cast<double>(sv.f_bavail) * static_cast<double>(sv.f_frsize);
   const double used = std::max(0.0, total - avail);
   const double percent = total > 0.0 ? (used / total) * 100.0 : 0.0;
-  return std::format("{} ({:.0f}%)", FormatUnits::formatDecimalBytesUsage(used, total), percent);
+  return std::format("{} ({:.0F}%)", FormatUnits::formatDecimalBytesUsage(used, total), percent);
 }
 
 std::string compositorLabel() { return detectCompositor(); }

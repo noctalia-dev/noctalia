@@ -173,52 +173,40 @@ void IdleInhibitor::resyncAnchorSurfaces() {
 }
 
 void IdleInhibitor::registerIpc(IpcService& ipc, StateFeedbackCallback stateFeedback) {
-  ipc.registerHandler(
-      "caffeine-enable",
-      [this, stateFeedback](const std::string&) -> std::string {
-        if (!available())
-          return "error: caffeine protocol unavailable\n";
-        if (m_enabled) {
-          return "ok\n";
-        }
-        setEnabled(true);
-        if (stateFeedback) {
-          stateFeedback(true);
-        }
-        return "ok\n";
-      },
-      "", "Enable caffeine (idle inhibitor)"
-  );
+  ipc.bind(noctalia::cli::msg::caffeineEnable, [this, stateFeedback](const std::string&) -> std::string {
+    if (!available())
+      return "error: caffeine protocol unavailable\n";
+    if (m_enabled) {
+      return "ok\n";
+    }
+    setEnabled(true);
+    if (stateFeedback) {
+      stateFeedback(true);
+    }
+    return "ok\n";
+  });
 
-  ipc.registerHandler(
-      "caffeine-disable",
-      [this, stateFeedback](const std::string&) -> std::string {
-        if (!available())
-          return "error: caffeine protocol unavailable\n";
-        if (!m_enabled) {
-          return "ok\n";
-        }
-        setEnabled(false);
-        if (stateFeedback) {
-          stateFeedback(false);
-        }
-        return "ok\n";
-      },
-      "", "Disable caffeine (idle inhibitor)"
-  );
+  ipc.bind(noctalia::cli::msg::caffeineDisable, [this, stateFeedback](const std::string&) -> std::string {
+    if (!available())
+      return "error: caffeine protocol unavailable\n";
+    if (!m_enabled) {
+      return "ok\n";
+    }
+    setEnabled(false);
+    if (stateFeedback) {
+      stateFeedback(false);
+    }
+    return "ok\n";
+  });
 
-  ipc.registerHandler(
-      "caffeine-toggle",
-      [this, stateFeedback](const std::string&) -> std::string {
-        if (!available())
-          return "error: caffeine protocol unavailable\n";
-        const bool nextState = !m_enabled;
-        setEnabled(nextState);
-        if (stateFeedback) {
-          stateFeedback(nextState);
-        }
-        return "ok\n";
-      },
-      "", "Toggle caffeine (idle inhibitor)"
-  );
+  ipc.bind(noctalia::cli::msg::caffeineToggle, [this, stateFeedback](const std::string&) -> std::string {
+    if (!available())
+      return "error: caffeine protocol unavailable\n";
+    const bool nextState = !m_enabled;
+    setEnabled(nextState);
+    if (stateFeedback) {
+      stateFeedback(nextState);
+    }
+    return "ok\n";
+  });
 }

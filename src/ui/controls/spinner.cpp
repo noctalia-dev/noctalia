@@ -9,10 +9,10 @@
 
 namespace {
 
-  constexpr float kDefaultSize = 20.0f;
-  constexpr float kDefaultThickness = 2.0f;
-  constexpr float kRevolutionMs = 1200.0f;
-  constexpr float kTwoPi = 2.0f * std::numbers::pi_v<float>;
+  constexpr float kDefaultSize = 20.0F;
+  constexpr float kDefaultThickness = 2.0F;
+  constexpr float kRevolutionMs = 1200.0F;
+  constexpr float kTwoPi = 2.0F * std::numbers::pi_v<float>;
 
 } // namespace
 
@@ -81,7 +81,7 @@ void Spinner::startLoop() {
   }
 
   m_animId = animationManager()->animate(
-      0.0f, kTwoPi, kRevolutionMs, Easing::Linear,
+      0.0F, kTwoPi, kRevolutionMs, Easing::Linear,
       [this](float angle) {
         m_spinnerNode->setRotation(angle);
         markPaintDirty();
@@ -100,5 +100,5 @@ void Spinner::startLoop() {
 void Spinner::updateGeometry() {
   setSize(m_spinnerSize, m_spinnerSize);
   m_spinnerNode->setFrameSize(m_spinnerSize, m_spinnerSize);
-  m_spinnerNode->setPosition(0.0f, 0.0f);
+  m_spinnerNode->setPosition(0.0F, 0.0F);
 }

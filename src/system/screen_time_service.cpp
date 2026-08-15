@@ -4,6 +4,7 @@
 #include "system/app_identity.h"
 #include "system/desktop_entry.h"
 #include "system/internal_app_metadata.h"
+#include "time/time_format.h"
 #include "util/file_utils.h"
 #include "util/string_utils.h"
 #include "wayland/wayland_connection.h"
@@ -56,7 +57,7 @@ namespace {
   constexpr std::size_t kMaxChartSeries = 5;
 
   [[nodiscard]] std::string canonicalAppKey(std::string_view appKey) {
-    if (const auto sep = appKey.find('\x1f'); sep != std::string::npos) {
+    if (const auto sep = appKey.find('\x1F'); sep != std::string::npos) {
       return std::string(appKey.substr(0, sep));
     }
     return std::string(appKey);
@@ -169,7 +170,7 @@ namespace {
     if (appKey.starts_with("title:")) {
       return appKey.substr(6);
     }
-    if (const auto sep = appKey.find('\x1f'); sep != std::string::npos) {
+    if (const auto sep = appKey.find('\x1F'); sep != std::string::npos) {
       const std::string embeddedTitle = appKey.substr(sep + 1);
       if (!embeddedTitle.empty()) {
         return embeddedTitle;
@@ -392,8 +393,8 @@ std::string ScreenTimeService::shortDayLabel(const std::string& dayKey) {
   if (std::mktime(&tm) == -1) {
     return dayKey;
   }
-  static constexpr const char* kWeekdays[] = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
-  return kWeekdays[tm.tm_wday];
+  const std::string weekday = formatStrftime("%a", tm);
+  return weekday.empty() ? dayKey : weekday;
 }
 
 std::string ScreenTimeService::dayDisplayName(const std::string& dayKey) {
@@ -412,11 +413,8 @@ std::string ScreenTimeService::dayDisplayName(const std::string& dayKey) {
   if (std::mktime(&tm) == -1) {
     return dayKey;
   }
-  char buffer[64]{};
-  if (std::strftime(buffer, sizeof(buffer), "%a · %b %d", &tm) == 0) {
-    return dayKey;
-  }
-  return buffer;
+  const std::string formatted = formatStrftime("%a · %b %d", tm);
+  return formatted.empty() ? dayKey : formatted;
 }
 
 ScreenTimeSnapshot ScreenTimeService::buildHourlySnapshot(const DayRecord& day) const {

@@ -38,7 +38,7 @@ namespace settings {
   struct SettingsContentContext {
     const Config& config;
     ConfigService* configService = nullptr;
-    float scale = 1.0f;
+    float scale = 1.0F;
     std::string_view searchQuery;
     std::string_view selectedSection;
     const BarConfig* selectedBar = nullptr;
@@ -46,7 +46,6 @@ namespace settings {
     bool showAdvanced = false;
     bool showOverriddenOnly = false;
     std::vector<SelectOption> batteryDeviceOptions;
-    std::vector<std::string> keyboardLayoutNames;
 
     std::string& editingWidgetName;
     std::string& editingCapsuleGroupId;
@@ -72,6 +71,7 @@ namespace settings {
     std::function<void(std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>>)> setOverrides;
     std::function<void(std::vector<std::string>)> clearOverride;
     std::function<void(std::vector<std::vector<std::string>>)> clearOverrides;
+    std::function<void(std::vector<std::string>)> resetBarLane;
     std::function<bool(const std::vector<std::vector<std::string>>&)> isResetConfirmationPending;
     std::function<void(std::vector<std::vector<std::string>>)> requestResetConfirmation;
     std::function<void(std::string, std::string, std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>>)>

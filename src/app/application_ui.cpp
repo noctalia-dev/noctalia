@@ -317,6 +317,7 @@ void Application::initLockScreenAndSession() {
   m_configService.addReloadCallback([this]() {
     if (m_logindService != nullptr) {
       m_logindService->setSessionLockIntegrationEnabled(m_configService.isLockScreenEnabled());
+      m_logindService->setLockBeforeSuspendEnabled(m_configService.shouldLockBeforeSuspend());
     }
     m_lockScreen.onConfigChanged();
     m_lockscreenWidgetsController.onLockStateChanged();
@@ -325,12 +326,14 @@ void Application::initLockScreenAndSession() {
       [this]() {
         m_idleGraceOverlay.hide();
         m_lockscreenWidgetsController.onLockStateChanged();
+        m_idleManager.setSessionLocked(true);
         m_hookManager.fire(HookKind::SessionLocked);
         releaseSleepDelayInhibitIfPending();
       },
       [this]() {
         m_idleGraceOverlay.hide();
         m_lockscreenWidgetsController.onLockStateChanged();
+        m_idleManager.setSessionLocked(false);
         m_hookManager.fire(HookKind::SessionUnlocked);
         // Lock aborted before engage (e.g. compositor finished the lock object) — still release
         // so PrepareForSleep is not stuck on the delay inhibit.
@@ -343,6 +346,7 @@ void Application::initLockScreenAndSession() {
   );
   if (m_logindService != nullptr) {
     m_logindService->setSessionLockIntegrationEnabled(m_configService.isLockScreenEnabled());
+    m_logindService->setLockBeforeSuspendEnabled(m_configService.shouldLockBeforeSuspend());
     m_logindService->setLockCallback([this]() {
       if (!m_configService.isLockScreenEnabled()) {
         return;
@@ -368,6 +372,8 @@ void Application::initLockScreenAndSession() {
   sessionActionHooks.onLogout = [this]() { return m_hookManager.fireBlocking(HookKind::LoggingOut); };
   sessionActionHooks.onReboot = [this]() { return m_hookManager.fireBlocking(HookKind::Rebooting); };
   sessionActionHooks.onShutdown = [this]() { return m_hookManager.fireBlocking(HookKind::ShuttingDown); };
+  sessionActionHooks.onBeforePlainSuspend = [this]() { m_skipLockOnNextSleep = true; };
+  sessionActionHooks.onPlainSuspendAborted = [this]() { m_skipLockOnNextSleep = false; };
   m_sessionActionRunner.setHooks(std::move(sessionActionHooks));
   m_sessionActionRunner.setPowerConfig(m_configService.config().shell.session.power);
   m_configService.addReloadCallback(
@@ -920,13 +926,16 @@ void Application::initBarDockAndLayout() {
   );
 
   m_colorPickerDialogPopup.initialize(m_wayland, m_configService, m_renderContext, m_layerPopupHosts);
-  ColorPickerDialog::setPresenter(&m_colorPickerDialogPopup);
 
   m_glyphPickerDialogPopup.initialize(m_wayland, m_configService, m_renderContext, m_layerPopupHosts);
-  GlyphPickerDialog::setPresenter(&m_glyphPickerDialogPopup);
 
   m_fileDialogPopup.initialize(m_wayland, m_configService, m_renderContext, m_layerPopupHosts, m_thumbnailService);
-  FileDialog::setPresenter(&m_fileDialogPopup);
+  m_settingsWindow.initializeDialogPresenter(
+      m_colorPickerDialogPopup, m_glyphPickerDialogPopup, m_fileDialogPopup, m_thumbnailService
+  );
+  ColorPickerDialog::setPresenter(m_settingsWindow.colorPickerDialogPresenter());
+  GlyphPickerDialog::setPresenter(m_settingsWindow.glyphPickerDialogPresenter());
+  FileDialog::setPresenter(m_settingsWindow.fileDialogPresenter());
 }
 
 void Application::initWidgetControllersAndCallbacks() {
@@ -940,6 +949,7 @@ void Application::initWidgetControllersAndCallbacks() {
       .configService = &m_configService,
   };
   const DesktopWidgetRuntimeServices desktopWidgetRuntime{
+      .calendar = &m_calendarService,
       .pipewire = m_pipewireService.get(),
       .pipewireSpectrum = m_pipewireSpectrum.get(),
       .weather = &m_weatherService,
@@ -960,6 +970,7 @@ void Application::initWidgetControllersAndCallbacks() {
       .config = &m_configService,
       .renderContext = &m_renderContext,
       .runtime = desktopWidgetRuntime,
+      .textureCache = &m_sharedTextureCache,
   };
   m_lockscreenWidgetsController.initialize({
       .widgets = lockscreenWidgetServices,

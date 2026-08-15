@@ -686,46 +686,42 @@ void MprisService::refreshPlayers() {
 }
 
 void MprisService::registerIpc(IpcService& ipc) {
-  ipc.registerCycleHandler(
-      "media",
-      [this](const std::string& args) -> std::string {
-        const auto parts = noctalia::ipc::splitWords(args);
-        if (parts.size() != 1) {
-          return "error: media requires exactly one action "
-                 "<next|previous|toggle|play|pause|stop|next-player|previous-player>\n";
-        }
+  ipc.bindCycle(noctalia::cli::msg::media, [this](const std::string& args) -> std::string {
+    const auto parts = noctalia::ipc::splitWords(args);
+    if (parts.size() != 1) {
+      return "error: media requires exactly one action "
+             "<next|previous|toggle|play|pause|stop|next-player|previous-player>\n";
+    }
 
-        const std::string& action = parts[0];
-        if (action == "next") {
-          return nextActive() ? "ok\n" : "error: no active player or Next unsupported\n";
-        }
-        if (action == "previous") {
-          return previousActive() ? "ok\n" : "error: no active player or Previous unsupported\n";
-        }
-        if (action == "toggle" || action == "playPause" || action == "play-pause") {
-          return playPauseActive() ? "ok\n" : "error: no active player or PlayPause unsupported\n";
-        }
-        if (action == "play") {
-          return playActive() ? "ok\n" : "error: no active player or Play unsupported\n";
-        }
-        if (action == "pause") {
-          return pauseActive() ? "ok\n" : "error: no active player or Pause unsupported\n";
-        }
-        if (action == "stop") {
-          return stopActive() ? "ok\n" : "error: no active player or Stop unsupported\n";
-        }
-        if (action == "next-player") {
-          return cycleActivePlayer(1) ? "ok\n" : "error: no media players available\n";
-        }
-        if (action == "previous-player") {
-          return cycleActivePlayer(-1) ? "ok\n" : "error: no media players available\n";
-        }
+    const std::string& action = parts[0];
+    if (action == "next") {
+      return nextActive() ? "ok\n" : "error: no active player or Next unsupported\n";
+    }
+    if (action == "previous") {
+      return previousActive() ? "ok\n" : "error: no active player or Previous unsupported\n";
+    }
+    if (action == "toggle" || action == "playPause" || action == "play-pause") {
+      return playPauseActive() ? "ok\n" : "error: no active player or PlayPause unsupported\n";
+    }
+    if (action == "play") {
+      return playActive() ? "ok\n" : "error: no active player or Play unsupported\n";
+    }
+    if (action == "pause") {
+      return pauseActive() ? "ok\n" : "error: no active player or Pause unsupported\n";
+    }
+    if (action == "stop") {
+      return stopActive() ? "ok\n" : "error: no active player or Stop unsupported\n";
+    }
+    if (action == "next-player") {
+      return cycleActivePlayer(1) ? "ok\n" : "error: no media players available\n";
+    }
+    if (action == "previous-player") {
+      return cycleActivePlayer(-1) ? "ok\n" : "error: no media players available\n";
+    }
 
-        return "error: invalid media action (use next, previous, toggle, play, pause, stop, next-player, "
-               "previous-player)\n";
-      },
-      "<next|previous|toggle|play|pause|stop|next-player|previous-player>", "Control active media playback"
-  );
+    return "error: invalid media action (use next, previous, toggle, play, pause, stop, next-player, "
+           "previous-player)\n";
+  });
 }
 
 std::function<void(std::optional<sdbus::Error>)>

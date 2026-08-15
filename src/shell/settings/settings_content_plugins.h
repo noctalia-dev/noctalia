@@ -21,7 +21,7 @@ namespace settings {
   // Data + actions for the Plugins settings section. Populated by SettingsWindow
   // from the PluginManager; the section is fully custom (no registry entries).
   struct SettingsPluginsContext {
-    float scale = 1.0f;
+    float scale = 1.0F;
     std::string_view selectedSection;
     std::vector<scripting::PluginStatus> plugins;
     std::vector<PluginSourceConfig> sources;

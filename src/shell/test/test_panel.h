@@ -27,8 +27,8 @@ public:
   void create() override;
   void onClose() override;
 
-  [[nodiscard]] float preferredWidth() const override { return scaled(1100.0f); }
-  [[nodiscard]] float preferredHeight() const override { return scaled(780.0f); }
+  [[nodiscard]] float preferredWidth() const override { return scaled(1100.0F); }
+  [[nodiscard]] float preferredHeight() const override { return scaled(780.0F); }
 
 private:
   void doLayout(Renderer& renderer, float width, float height) override;

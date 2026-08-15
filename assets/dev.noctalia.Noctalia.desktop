@@ -8,6 +8,7 @@ Terminal=false
 Categories=Settings;DesktopSettings;
 StartupNotify=false
 Actions=Settings;
+Keywords=desktop;shell;wayland;
 
 [Desktop Action Settings]
 Name=Open Settings

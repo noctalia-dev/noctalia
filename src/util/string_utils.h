@@ -5,6 +5,7 @@
 #include <cctype>
 #include <charconv>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <format>
@@ -251,6 +252,22 @@ namespace StringUtils {
     toLowerInPlace(lhs);
     toLowerInPlace(rhs);
     return lhs.contains(rhs);
+  }
+
+  // Whitespace-bounded search, so "DP-1" does not match inside "eDP-1".
+  [[nodiscard]] inline bool containsWholeToken(std::string_view haystack, std::string_view needle) {
+    if (haystack.empty() || needle.empty()) {
+      return false;
+    }
+    for (std::size_t pos = haystack.find(needle); pos != std::string_view::npos; pos = haystack.find(needle, pos + 1)) {
+      const bool startOk = pos == 0 || std::isspace(static_cast<unsigned char>(haystack[pos - 1])) != 0;
+      const std::size_t end = pos + needle.size();
+      const bool endOk = end == haystack.size() || std::isspace(static_cast<unsigned char>(haystack[end])) != 0;
+      if (startOk && endOk) {
+        return true;
+      }
+    }
+    return false;
   }
 
   [[nodiscard]] inline std::string trimLeadingBlankLines(std::string_view text) {

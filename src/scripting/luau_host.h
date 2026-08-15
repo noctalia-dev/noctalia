@@ -33,7 +33,9 @@ namespace scripting {
 
 class LuauHost {
 public:
-  explicit LuauHost(scripting::ScriptApiContext& api, CompositorPlatform* platform = nullptr);
+  // `runtimeName` is the canonical full entry id ("author/plugin:entry"). It identifies
+  // every log line and scopes the shared state store, so it is required, not settable later.
+  LuauHost(scripting::ScriptApiContext& api, std::string runtimeName, CompositorPlatform* platform = nullptr);
   ~LuauHost();
 
   LuauHost(const LuauHost&) = delete;
@@ -42,6 +44,8 @@ public:
   using AsyncCommandResultHandler =
       std::function<void(std::uint64_t hostId, int callbackRef, process::RunResult result)>;
   using AsyncProcessMatchResultHandler = std::function<void(std::uint64_t hostId, int callbackRef, bool matched)>;
+  using AsyncFileResultHandler =
+      std::function<void(std::uint64_t hostId, int callbackRef, bool ok, std::string data, std::string error)>;
   using AsyncHttpResultHandler = std::function<
       void(std::uint64_t hostId, int callbackRef, bool ok, int status, std::string body, bool isDownload)>;
   using ColorPickerResultHandler =
@@ -60,6 +64,13 @@ public:
 
   // Convenience: loadString + run.
   bool exec(std::string_view chunkName, std::string_view source) { return loadString(chunkName, source) && run(); }
+  // Absolute canonical paths of the modules require() has successfully loaded in
+  // this VM, in sorted order. Grows as callbacks require lazily, so consumers that
+  // watch these files must re-read after every call, not only after load.
+  [[nodiscard]] std::vector<std::filesystem::path> loadedModulePaths() const;
+  [[nodiscard]] std::size_t loadedModuleCount() const noexcept { return m_modulePaths.size(); }
+  // Message of the most recent failed call/compile, cleared when a call succeeds.
+  [[nodiscard]] const std::string& lastError() const noexcept { return m_lastError; }
 
   // Callback lookup by name, shared by the call helpers below: a name generated
   // by a ui-tree render (see ui_handler_table.h) resolves in that render's
@@ -75,6 +86,9 @@ public:
   );
   bool callAsyncCommandCallback(int callbackRef, const process::RunResult& result, std::chrono::milliseconds budget);
   bool callAsyncProcessMatchCallback(int callbackRef, bool matched, std::chrono::milliseconds budget);
+  bool callAsyncFileCallback(
+      int callbackRef, bool ok, const std::string& data, const std::string& error, std::chrono::milliseconds budget
+  );
   [[nodiscard]] bool lastCallTimedOut() const noexcept { return m_lastCallTimedOut; }
 
   lua_State* state() { return m_T; }
@@ -86,9 +100,10 @@ public:
   // The plugin's own directory: relative filesystem/translation paths resolve against it.
   void setPluginDir(std::filesystem::path dir) { m_pluginDir = std::move(dir); }
   [[nodiscard]] const std::filesystem::path& pluginDir() const noexcept { return m_pluginDir; }
-  // The owning plugin id ("author/plugin"): scopes the shared state store.
-  void setPluginId(std::string id) { m_pluginId = std::move(id); }
+  // The owning plugin id ("author/plugin"), derived from the runtime name: scopes the
+  // shared state store.
   [[nodiscard]] const std::string& pluginId() const noexcept { return m_pluginId; }
+  [[nodiscard]] const std::string& runtimeName() const noexcept { return m_runtimeName; }
   void setStateWatchHandler(StateWatchHandler handler) { m_stateWatchHandler = std::move(handler); }
 
   // noctalia.state.* — host-mediated per-plugin shared data.
@@ -142,13 +157,17 @@ public:
   void setAsyncProcessMatchResultHandler(AsyncProcessMatchResultHandler handler) {
     m_asyncProcessMatchResultHandler = std::move(handler);
   }
+  void setAsyncFileResultHandler(AsyncFileResultHandler handler) { m_asyncFileResultHandler = std::move(handler); }
   void setHttpClient(HttpClient* client) { m_httpClient = client; }
   void setAsyncHttpResultHandler(AsyncHttpResultHandler handler) { m_asyncHttpResultHandler = std::move(handler); }
   void setColorPickerResultHandler(ColorPickerResultHandler handler) {
     m_colorPickerResultHandler = std::move(handler);
   }
-  [[nodiscard]] bool startAsyncCommand(std::string command, int callbackRef, std::chrono::milliseconds timeout);
+  [[nodiscard]] bool
+  startAsyncProcess(std::vector<std::string> args, int callbackRef, std::chrono::milliseconds timeout);
   [[nodiscard]] bool startAsyncProcessMatch(std::vector<std::string> needles, int callbackRef);
+  // `path` is already resolved by resolveHostPath(). The result is delivered as cb(data, error).
+  [[nodiscard]] bool startAsyncFileRead(std::filesystem::path path, int callbackRef);
   // HTTP/download dispatch to the main-thread HttpClient; the response is delivered back as an
   // AsyncHttpResult event. `isDownload` selects the on_done(bool) vs on_response(table) callback shape.
   [[nodiscard]] bool startAsyncHttp(HttpRequest request, int callbackRef);
@@ -162,13 +181,24 @@ public:
   callColorPickerCallback(int callbackRef, const std::optional<std::string>& color, std::chrono::milliseconds budget);
   [[nodiscard]] bool hasAsyncCommandCallback(int callbackRef) const;
   [[nodiscard]] bool hasAsyncProcessMatchCallback(int callbackRef) const;
+  [[nodiscard]] bool hasAsyncFileCallback(int callbackRef) const;
   [[nodiscard]] bool hasAsyncHttpCallback(int callbackRef) const;
   [[nodiscard]] bool hasColorPickerCallback(int callbackRef) const;
+  [[nodiscard]] bool hasSoundLoadCallback(int callbackRef) const;
+  bool callSoundLoadCallback(int callbackRef, bool ok, const std::string& error, std::chrono::milliseconds budget);
   void interruptIfBudgetExceeded(lua_State* L);
+  // Diagnostics only: a binding that can block reports the window it ran in, so an
+  // overrun names the binding the CPU deadline was crossed inside. Never extends the
+  // deadline and never feeds health policy -- an overrun with no recorded crossing
+  // means the Luau code itself ran long.
+  [[nodiscard]] bool budgetDeadlineCrossed() const noexcept;
+  void recordBudgetCrossing(std::string_view binding, std::string_view detail);
   void scriptLog(std::string message);
   // Request the runtime tick rate (how often update() fires). A runtime concern, so
   // it lives on noctalia.* and works for every entry type, including headless services.
   void scriptSetUpdateInterval(int ms);
+  [[nodiscard]] bool scriptLoadSound(std::string name, std::string path, int callbackRef);
+  void scriptPlaySound(std::string name);
   void scriptNotifyInfo(std::string title, std::string body);
   void scriptNotifyError(std::string title, std::string body);
   // Toggle the host wallpaper surface on an output. Queued as a side effect and
@@ -177,6 +207,7 @@ public:
   // Apply and persist a wallpaper image. Empty connector targets all outputs.
   // Queued as a side effect and applied on the main thread.
   void scriptSetWallpaper(std::string connector, std::string path);
+  void scriptSetWallpaperMask(std::string outputName, std::string path, std::string wallpaperPath);
   // Toggle a host panel by id ("author/plugin:panel"). Queued, applied on the main thread.
   void scriptTogglePanel(std::string panelId);
   // Open the settings window at this plugin's own settings. Queued, applied on the main thread.
@@ -206,11 +237,19 @@ private:
     std::shared_ptr<HttpStreamControl> control;
   };
 
+  static int luauRequire(lua_State* L);
+  // Directory the calling chunk's require() paths resolve against: the module dir
+  // recorded on the caller's environment metatable, or the plugin dir for the entry
+  // chunk. Lexical, so a deferred call from a module keeps that module's directory.
+  [[nodiscard]] std::filesystem::path requireBaseDir(lua_State* L) const;
+  bool pushRequiredModule(lua_State* L, std::string_view request, std::string& error);
   void stopAllStreams() noexcept;
   void stopAllHttpStreams() noexcept;
   // Pushes the callback `name` resolves to and reports whether it is callable.
   // Exactly one value is left on the stack either way, so callers pop one.
   bool pushCallback(const char* name);
+  // Collapse identical repeated call failures into one line plus a suppressed count.
+  void logCallFailure(std::string_view name, std::string_view error);
   bool callGlobalInternal(const char* name, int args, std::chrono::milliseconds budget);
   bool callWithBudget(const char* name, int args, int results, std::chrono::milliseconds budget);
   void beginBudget(std::string_view name, std::chrono::milliseconds budget);
@@ -222,6 +261,7 @@ private:
   scripting::PluginBindingContext* m_scriptContext = nullptr;
   std::filesystem::path m_pluginDir;
   std::string m_pluginId;
+  std::string m_runtimeName;
   scripting::PluginTranslationCatalog m_translations;
   std::unordered_set<int> m_stateWatchCallbackRefs;
   StateWatchHandler m_stateWatchHandler;
@@ -238,18 +278,35 @@ private:
   lua_State* m_L = nullptr; // main state, frozen by luaL_sandbox
   lua_State* m_T = nullptr; // sandboxed thread; user code runs here
   int m_threadRef = -1;     // registry ref pinning m_T against the GC
+  // ref into the registry, keyed by canonical module path
+  std::unordered_map<std::string, int> m_moduleCache;
+  // canonical paths currently executing, for cycle detection, innermost last
+  std::vector<std::string> m_moduleStack;
+  // canonical paths of successfully loaded modules
+  std::unordered_set<std::string> m_modulePaths;
   std::unordered_set<int> m_asyncCommandCallbackRefs;
+  std::unordered_set<int> m_asyncFileCallbackRefs;
   std::unordered_set<int> m_asyncProcessMatchCallbackRefs;
   std::unordered_set<int> m_asyncHttpCallbackRefs;
   std::unordered_set<int> m_colorPickerCallbackRefs;
+  std::unordered_map<int, std::string> m_soundLoadCallbacks;
   HttpClient* m_httpClient = nullptr;
   AsyncCommandResultHandler m_asyncCommandResultHandler;
+  AsyncFileResultHandler m_asyncFileResultHandler;
   AsyncProcessMatchResultHandler m_asyncProcessMatchResultHandler;
   AsyncHttpResultHandler m_asyncHttpResultHandler;
   ColorPickerResultHandler m_colorPickerResultHandler;
   std::size_t m_memUsed = 0; // bytes tracked by allocate(); guarded by the worker-thread serialization
   std::chrono::nanoseconds m_callCpuDeadline{};
   std::string m_currentCallName;
+  // Binding the CPU deadline was crossed inside, if any; cleared by beginBudget().
+  std::string m_budgetCrossedIn;
+  std::string m_lastError;
+  // Dedupe key for repeated failures: same callback and same message inside the window.
+  std::string m_lastLoggedCall;
+  std::string m_lastLoggedError;
+  std::chrono::steady_clock::time_point m_lastLoggedErrorAt;
+  std::size_t m_suppressedCallFailures = 0;
   bool m_cpuCoresRetained = false; // this host holds a SystemMonitorService per-core reference
   bool m_systemStatsRetained = false;
   std::unordered_set<std::string> m_diskPathsRetained;

@@ -42,11 +42,11 @@ private:
 
   std::function<void(bool)> m_onToggle;
   std::uint32_t m_animId = 0;
-  float m_expandProgress = 0.0f;
-  float m_clipHeight = 0.0f;
-  float m_bodyNaturalHeight = 0.0f;
-  float m_scale = 1.0f;
-  float m_headerPaddingV = 0.0f;
+  float m_expandProgress = 0.0F;
+  float m_clipHeight = 0.0F;
+  float m_bodyNaturalHeight = 0.0F;
+  float m_scale = 1.0F;
+  float m_headerPaddingV = 0.0F;
   float m_headerPaddingH = Style::spaceMd;
   bool m_expanded = false;
 };

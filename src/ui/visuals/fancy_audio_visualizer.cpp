@@ -36,55 +36,55 @@ void FancyAudioVisualizer::setSecondaryColor(const ColorSpec& color) {
 
 void FancyAudioVisualizer::setSensitivity(float sensitivity) {
   auto next = style();
-  next.sensitivity = std::clamp(sensitivity, 0.5f, 3.0f);
+  next.sensitivity = std::clamp(sensitivity, 0.5F, 3.0F);
   setStyle(next);
 }
 
 void FancyAudioVisualizer::setRotationSpeed(float speed) {
   auto next = style();
-  next.rotationSpeed = std::clamp(speed, 0.0f, 2.0f);
+  next.rotationSpeed = std::clamp(speed, 0.0F, 2.0F);
   setStyle(next);
 }
 
 void FancyAudioVisualizer::setBarWidth(float width) {
   auto next = style();
-  next.barWidth = std::clamp(width, 0.2f, 1.0f);
+  next.barWidth = std::clamp(width, 0.2F, 1.0F);
   setStyle(next);
 }
 
 void FancyAudioVisualizer::setRingOpacity(float opacity) {
   auto next = style();
-  next.ringOpacity = std::clamp(opacity, 0.0f, 1.0f);
+  next.ringOpacity = std::clamp(opacity, 0.0F, 1.0F);
   setStyle(next);
 }
 
 void FancyAudioVisualizer::setBloomIntensity(float intensity) {
   auto next = style();
-  next.bloomIntensity = std::clamp(intensity, 0.0f, 1.0f);
+  next.bloomIntensity = std::clamp(intensity, 0.0F, 1.0F);
   setStyle(next);
 }
 
 void FancyAudioVisualizer::setWaveThickness(float thickness) {
   auto next = style();
-  next.waveThickness = std::clamp(thickness, 0.3f, 2.0f);
+  next.waveThickness = std::clamp(thickness, 0.3F, 2.0F);
   setStyle(next);
 }
 
 void FancyAudioVisualizer::setInnerDiameter(float diameter) {
   auto next = style();
-  next.innerDiameter = std::clamp(diameter, 0.0f, 1.0f);
+  next.innerDiameter = std::clamp(diameter, 0.0F, 1.0F);
   setStyle(next);
 }
 
 void FancyAudioVisualizer::setCornerRadius(float radius) {
   auto next = style();
-  next.cornerRadius = std::max(0.0f, radius);
+  next.cornerRadius = std::max(0.0F, radius);
   setStyle(next);
 }
 
 void FancyAudioVisualizer::setTime(float time) {
   auto next = style();
-  next.time = std::fmod(std::max(0.0f, time), 3600.0f);
+  next.time = std::fmod(std::max(0.0F, time), 3600.0F);
   setStyle(next);
 }
 

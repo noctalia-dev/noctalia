@@ -61,7 +61,7 @@ in
       default = { };
       description = ''
         Configuration written to {file}`$XDG_CONFIG_HOME/noctalia/config.toml`.
-        See <https://docs.noctalia.dev/v5> for more information and examples.
+        See <https://docs.noctalia.dev/noctalia/configuration/> for more information and examples.
       '';
       example = lib.literalExpression ''
         shell = {
@@ -82,7 +82,7 @@ in
       default = { };
       description = ''
         Custom color palettes written to {file}`$XDG_CONFIG_HOME/noctalia/palettes/<name>.json`.
-        See <https://docs.noctalia.dev/v5/theming/#custom_palette> for more information.
+        See <https://docs.noctalia.dev/noctalia/theming/palette/#custom-palette-files> for more information.
       '';
       example = lib.literalExpression ''
         cherry-blossom = {
@@ -102,7 +102,7 @@ in
 
     systemd.services.noctalia = mkIf (cfg.systemd.enable) {
       description = "Noctalia - A lightweight Wayland shell and bar";
-      documentation = [ "https://docs.noctalia.dev/v5/" ];
+      documentation = [ "https://docs.noctalia.dev/noctalia/" ];
       partOf = [ cfg.systemd.target ];
       after = [ cfg.systemd.target ];
       wantedBy = [ cfg.systemd.target ];

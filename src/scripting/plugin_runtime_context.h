@@ -20,6 +20,7 @@ namespace scripting {
   struct PluginRuntimeContext {
     std::string entryId;
     std::filesystem::path sourcePath = {};
+    std::filesystem::path pluginDir = {};
     std::unordered_map<std::string, WidgetSettingValue> settings;
     ScriptApiContext& scriptApi;
     FileWatcher* fileWatcher = nullptr;

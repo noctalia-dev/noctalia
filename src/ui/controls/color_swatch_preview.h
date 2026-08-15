@@ -39,9 +39,9 @@ private:
 
   std::array<Box*, kMaxSwatches> m_swatches{};
   std::size_t m_visibleSwatches = 0;
-  float m_discSize = 10.0f;
-  float m_gap = 5.0f;
-  float m_paddingX = 4.0f;
-  float m_paddingY = 4.0f;
-  float m_height = 14.0f;
+  float m_discSize = 10.0F;
+  float m_gap = 5.0F;
+  float m_paddingX = 4.0F;
+  float m_paddingY = 4.0F;
+  float m_height = 14.0F;
 };

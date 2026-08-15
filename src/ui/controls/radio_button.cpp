@@ -56,7 +56,7 @@ void RadioButton::setEnabled(bool enabled) {
 void RadioButton::setOnChange(std::function<void(bool)> callback) { m_onChange = std::move(callback); }
 
 void RadioButton::setScale(float scale) {
-  m_scale = std::max(0.1f, scale);
+  m_scale = std::max(0.1F, scale);
   applyState();
   markLayoutDirty();
 }
@@ -68,26 +68,26 @@ bool RadioButton::pressed() const noexcept { return m_inputArea != nullptr && m_
 void RadioButton::doLayout(Renderer& /*renderer*/) {
   const float touchSize = Style::controlHeightSm * m_scale;
   const float indicatorSize = (Style::fontSizeTitle + Style::spaceXs) * m_scale;
-  const float indicatorInset = (touchSize - indicatorSize) * 0.5f;
+  const float indicatorInset = (touchSize - indicatorSize) * 0.5F;
   const float innerInset = (Style::spaceXs + Style::borderWidth) * m_scale;
-  const float innerSize = indicatorSize - innerInset * 2.0f;
+  const float innerSize = indicatorSize - innerInset * 2.0F;
 
   setSize(touchSize, touchSize);
 
   if (m_outer != nullptr) {
     m_outer->setPosition(indicatorInset, indicatorInset);
     m_outer->setFrameSize(indicatorSize, indicatorSize);
-    m_outer->setRadius(indicatorSize * 0.5f);
+    m_outer->setRadius(indicatorSize * 0.5F);
   }
 
   if (m_inner != nullptr) {
     m_inner->setPosition(indicatorInset + innerInset, indicatorInset + innerInset);
     m_inner->setFrameSize(innerSize, innerSize);
-    m_inner->setRadius(innerSize * 0.5f);
+    m_inner->setRadius(innerSize * 0.5F);
   }
 
   if (m_inputArea != nullptr) {
-    m_inputArea->setPosition(0.0f, 0.0f);
+    m_inputArea->setPosition(0.0F, 0.0F);
     m_inputArea->setFrameSize(width(), height());
   }
 }
@@ -112,8 +112,8 @@ void RadioButton::applyState() {
   const ColorSpec innerFill =
       m_checked ? colorSpecFromRole(ColorRole::OnPrimary) : colorSpecFromRole(ColorRole::Surface);
   m_inner->setFill(innerFill);
-  m_inner->setBorder(innerFill, 0.0f);
+  m_inner->setBorder(innerFill, 0.0F);
   m_inner->setVisible(m_checked);
 
-  setOpacity(m_enabled ? 1.0f : 0.55f);
+  setOpacity(m_enabled ? 1.0F : 0.55F);
 }

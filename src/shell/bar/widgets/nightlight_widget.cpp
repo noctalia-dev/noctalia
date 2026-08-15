@@ -83,7 +83,7 @@ void NightLightWidget::syncState(Renderer& renderer) {
 
   m_glyph->measure(renderer);
   if (auto* node = root(); node != nullptr) {
-    node->setOpacity(enabled || forced ? 1.0f : 0.55f);
+    node->setOpacity(enabled || forced ? 1.0F : 0.55F);
   }
   requestRedraw();
 }

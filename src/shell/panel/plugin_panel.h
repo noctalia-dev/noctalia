@@ -1,10 +1,10 @@
 #pragma once
 
-#include "core/files/file_watcher.h"
 #include "core/input/key_chord.h"
 #include "core/timer_manager.h"
 #include "scripting/plugin_ipc.h"
 #include "scripting/plugin_panel_shell.h"
+#include "scripting/plugin_script_watcher.h"
 #include "scripting/script_runtime.h"
 #include "shell/panel/panel.h"
 #include "ui/ui_tree.h"
@@ -117,7 +117,7 @@ private:
   FileWatcher* m_fileWatcher = nullptr;
   HttpClient* m_httpClient = nullptr;
   ClipboardService* m_clipboard = nullptr;
-  FileWatcher::WatchId m_watchId = 0;
+  scripting::PluginScriptWatcher m_scriptWatcher;
   Timer m_tickTimer;
 
   Flex* m_flex = nullptr;

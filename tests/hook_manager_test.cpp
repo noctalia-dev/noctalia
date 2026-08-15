@@ -1,6 +1,6 @@
 #include "hooks/hook_manager.h"
+#include "tests/test_check.h"
 
-#include <cassert>
 #include <cstdlib>
 #include <string>
 #include <string_view>
@@ -48,12 +48,12 @@ int main() {
 
   hooks.fire(HookKind::WallpaperChanged, {{kPathName, "/tmp/noctalia test/wallpaper.png"}, {kConnectorName, "DP-1"}});
 
-  assert(commands.size() == 1);
-  assert(commands[0] == "record-wallpaper-hook");
-  assert(pathSeen == "/tmp/noctalia test/wallpaper.png");
-  assert(connectorSeen == "DP-1");
-  assert(std::getenv(kPathName) == nullptr);
-  assert(std::getenv(kConnectorName) == nullptr);
+  TEST_CHECK(commands.size() == 1);
+  TEST_CHECK(commands[0] == "record-wallpaper-hook");
+  TEST_CHECK(pathSeen == "/tmp/noctalia test/wallpaper.png");
+  TEST_CHECK(connectorSeen == "DP-1");
+  TEST_CHECK(std::getenv(kPathName) == nullptr);
+  TEST_CHECK(std::getenv(kConnectorName) == nullptr);
 
   return 0;
 }

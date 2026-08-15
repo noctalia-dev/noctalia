@@ -151,6 +151,9 @@ private:
   void finishRequestTransfer(CURL* easy, CURLcode result);
   void finishStreamTransfer(CURL* easy, CURLcode result);
   void performMulti(const char* reason);
+  // Applies the options every transfer shares, including the non-blocking abandonment of a
+  // stuck DNS lookup. Call before the request-specific options.
+  static void applyCommonOptions(CURL* easy);
   [[nodiscard]] bool hasActiveTransfers() const;
 
   CURLM* m_multi = nullptr;

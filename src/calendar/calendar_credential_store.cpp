@@ -95,6 +95,42 @@ namespace calendar {
 
   void CalendarCredentialStore::setChangeCallback(ChangeCallback callback) { m_changeCallback = std::move(callback); }
 
+  bool CalendarCredentialStore::refreshTokenMissing(const std::string& accountId) const {
+    const auto it = m_refreshTokenStatuses.find(accountId);
+    return it != m_refreshTokenStatuses.end() && it->second == security::SecretStoreStatus::NotFound;
+  }
+
+  bool CalendarCredentialStore::refreshTokenLocked(const std::string& accountId) const {
+    const auto it = m_refreshTokenStatuses.find(accountId);
+    return it != m_refreshTokenStatuses.end() && it->second == security::SecretStoreStatus::DeniedOrLocked;
+  }
+
+  bool CalendarCredentialStore::anyRefreshTokenMissing() const {
+    return std::ranges::any_of(m_refreshTokenStatuses, [](const auto& item) {
+      return item.second == security::SecretStoreStatus::NotFound;
+    });
+  }
+
+  bool CalendarCredentialStore::anyRefreshTokenLocked() const {
+    return std::ranges::any_of(m_refreshTokenStatuses, [](const auto& item) {
+      return item.second == security::SecretStoreStatus::DeniedOrLocked;
+    });
+  }
+
+  bool CalendarCredentialStore::updateRefreshTokenStatus(
+      CredentialKind kind, const std::string& accountId, security::SecretStoreStatus status
+  ) {
+    if (kind != CredentialKind::RefreshToken) {
+      return false;
+    }
+    const auto [it, inserted] = m_refreshTokenStatuses.try_emplace(accountId, status);
+    if (!inserted && it->second == status) {
+      return false;
+    }
+    it->second = status;
+    return true;
+  }
+
   std::string_view CalendarCredentialStore::secretName(CredentialKind kind) {
     switch (kind) {
     case CredentialKind::Password:
@@ -230,13 +266,8 @@ namespace calendar {
 
   void CalendarCredentialStore::lookup(CredentialKind kind, const std::string& accountId, LookupCallback callback) {
     auto& cache = kind == CredentialKind::Password ? m_passwords : m_refreshTokens;
-    auto& missing = kind == CredentialKind::Password ? m_missingPasswords : m_missingRefreshTokens;
     if (const auto it = cache.find(accountId); it != cache.end()) {
       callback(security::SecretStoreStatus::Success, it->second);
-      return;
-    }
-    if (missing.contains(accountId)) {
-      callback(security::SecretStoreStatus::NotFound, {});
       return;
     }
 
@@ -244,21 +275,16 @@ namespace calendar {
         secretId(kind, accountId),
         [this, kind, accountId,
          callback = std::move(callback)](security::SecretStoreStatus status, security::SecureBuffer value) mutable {
+          const bool statusChanged = updateRefreshTokenStatus(kind, accountId, status);
           if (status == security::SecretStoreStatus::Success) {
             auto secret = std::make_shared<security::SecureBuffer>(std::move(value));
             auto& target = kind == CredentialKind::Password ? m_passwords : m_refreshTokens;
             target.insert_or_assign(accountId, secret);
-            setState(CredentialState::Ready, m_migrationPending);
+            setState(CredentialState::Ready, m_migrationPending, statusChanged);
             callback(status, std::move(secret));
             return;
           }
-          if (status == security::SecretStoreStatus::NotFound) {
-            auto& target = kind == CredentialKind::Password ? m_missingPasswords : m_missingRefreshTokens;
-            const bool missingChanged = target.insert(accountId).second;
-            setState(CredentialState::Ready, m_migrationPending, missingChanged);
-          } else {
-            setState(stateForStatus(status), m_migrationPending);
-          }
+          setState(stateForStatus(status), m_migrationPending, statusChanged);
           callback(status, {});
         }
     );
@@ -284,14 +310,13 @@ namespace calendar {
         secretId(kind, accountId), std::move(value), label(kind),
         [this, kind, accountId, cachedValue = std::move(cachedValue),
          callback = std::move(callback)](security::SecretStoreStatus status) mutable {
+          const bool statusChanged = updateRefreshTokenStatus(kind, accountId, status);
           if (status == security::SecretStoreStatus::Success) {
             auto& cache = kind == CredentialKind::Password ? m_passwords : m_refreshTokens;
-            auto& missing = kind == CredentialKind::Password ? m_missingPasswords : m_missingRefreshTokens;
             cache.insert_or_assign(accountId, std::move(cachedValue));
-            const bool missingChanged = missing.erase(accountId) > 0;
-            setState(CredentialState::Ready, m_migrationPending, missingChanged);
+            setState(CredentialState::Ready, m_migrationPending, statusChanged);
           } else {
-            setState(stateForStatus(status), m_migrationPending);
+            setState(stateForStatus(status), m_migrationPending, statusChanged);
           }
           if (callback) {
             callback(status);
@@ -302,8 +327,9 @@ namespace calendar {
 
   void CalendarCredentialStore::eraseRefreshToken(const std::string& accountId, StatusCallback callback) {
     m_refreshTokens.erase(accountId);
-    const bool missingChanged = m_missingRefreshTokens.insert(accountId).second;
-    setState(CredentialState::Ready, m_migrationPending, missingChanged);
+    const bool statusChanged =
+        updateRefreshTokenStatus(CredentialKind::RefreshToken, accountId, security::SecretStoreStatus::NotFound);
+    setState(CredentialState::Ready, m_migrationPending, statusChanged);
     erase(CredentialKind::RefreshToken, accountId, std::move(callback));
   }
 
@@ -315,14 +341,16 @@ namespace calendar {
     m_secretStore.erase(
         secretId(kind, accountId),
         [this, kind, accountId, callback = std::move(callback)](security::SecretStoreStatus status) mutable {
-          if (status == security::SecretStoreStatus::Success || status == security::SecretStoreStatus::NotFound) {
+          const bool erased =
+              status == security::SecretStoreStatus::Success || status == security::SecretStoreStatus::NotFound;
+          const auto effectiveStatus = erased ? security::SecretStoreStatus::NotFound : status;
+          const bool statusChanged = updateRefreshTokenStatus(kind, accountId, effectiveStatus);
+          if (erased) {
             auto& cache = kind == CredentialKind::Password ? m_passwords : m_refreshTokens;
-            auto& missing = kind == CredentialKind::Password ? m_missingPasswords : m_missingRefreshTokens;
             cache.erase(accountId);
-            const bool missingChanged = missing.insert(accountId).second;
-            setState(CredentialState::Ready, m_migrationPending, missingChanged);
+            setState(CredentialState::Ready, m_migrationPending, statusChanged);
           } else {
-            setState(stateForStatus(status), m_migrationPending);
+            setState(stateForStatus(status), m_migrationPending, statusChanged);
           }
           if (callback) {
             callback(status);
@@ -353,8 +381,7 @@ namespace calendar {
     };
     removeUnknown(m_passwords);
     removeUnknown(m_refreshTokens);
-    std::erase_if(m_missingPasswords, [&accountIds](const std::string& id) { return !accountIds.contains(id); });
-    std::erase_if(m_missingRefreshTokens, [&accountIds](const std::string& id) { return !accountIds.contains(id); });
+    removeUnknown(m_refreshTokenStatuses);
   }
 
 } // namespace calendar

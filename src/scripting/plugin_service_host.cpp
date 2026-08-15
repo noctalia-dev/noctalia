@@ -77,6 +77,9 @@ namespace scripting {
       if (token == nullptr || !*token) {
         return;
       }
+      if (result.modulePathsKnown) {
+        svc->scriptWatcher.setModulePaths(result.modulePaths);
+      }
       if (result.patch.updateIntervalMs.has_value()) {
         const int next = std::max(16, *result.patch.updateIntervalMs);
         if (next != svc->updateIntervalMs) {
@@ -89,7 +92,8 @@ namespace scripting {
   }
 
   std::unique_ptr<PluginServiceHost::Service> PluginServiceHost::makeService(
-      const std::string& entryId, const std::filesystem::path& source, ScriptSettings seeded
+      const std::string& entryId, const std::filesystem::path& source, const std::filesystem::path& pluginDir,
+      ScriptSettings seeded
   ) {
     std::string code = readFile(source);
     if (code.empty()) {
@@ -99,9 +103,10 @@ namespace scripting {
     auto service = std::make_unique<Service>();
     service->entryId = entryId;
     service->sourcePath = source;
+    service->pluginDir = pluginDir;
     service->lastSeededSettings = std::move(seeded);
     service->runtime = std::make_shared<ScriptRuntime>(
-        entryId, service->lastSeededSettings, m_scriptApi, source.parent_path(), m_httpClient, m_clipboard
+        entryId, service->lastSeededSettings, m_scriptApi, service->pluginDir, m_httpClient, m_clipboard
     );
     subscribeAndArm(*service);
     service->runtime->start(source.string(), std::move(code), {});
@@ -130,7 +135,8 @@ namespace scripting {
     PluginRegistry::instance().ensureScanned();
     for (const auto& entry : PluginRegistry::instance().entriesOfKind(PluginEntryKind::Service)) {
       auto seeded = seedFor(entry.fullId(), pluginSettings);
-      if (auto service = makeService(entry.fullId(), entry.sourcePath, seeded.value_or(ScriptSettings{}))) {
+      if (auto service =
+              makeService(entry.fullId(), entry.sourcePath, entry.pluginDir, seeded.value_or(ScriptSettings{}))) {
         kLog.info("started service '{}'", entry.fullId());
         m_services.push_back(std::move(service));
       }
@@ -167,7 +173,7 @@ namespace scripting {
       }
       const auto existing = std::ranges::find_if(m_services, [&](const auto& s) { return s->entryId == id; });
       if (existing == m_services.end()) {
-        if (auto service = makeService(id, entry.sourcePath, *seeded)) {
+        if (auto service = makeService(id, entry.sourcePath, entry.pluginDir, *seeded)) {
           kLog.info("started service '{}'", id);
           m_services.push_back(std::move(service));
         }
@@ -175,7 +181,7 @@ namespace scripting {
       }
 
       Service& service = **existing;
-      const bool sourceChanged = service.sourcePath != entry.sourcePath;
+      const bool sourceChanged = service.sourcePath != entry.sourcePath || service.pluginDir != entry.pluginDir;
       const bool settingsChanged = !settingsEqual(*seeded, service.lastSeededSettings);
       if (!sourceChanged && !settingsChanged) {
         continue;
@@ -196,6 +202,7 @@ namespace scripting {
       if (sourceChanged) {
         teardownScriptWatch(service);
         service.sourcePath = entry.sourcePath;
+        service.pluginDir = entry.pluginDir;
       }
       service.updateTimer.stop();
       if (service.subscription != 0) {
@@ -205,7 +212,7 @@ namespace scripting {
       service.runtime->stop();
       service.lastSeededSettings = *seeded;
       service.runtime = std::make_shared<ScriptRuntime>(
-          id, service.lastSeededSettings, m_scriptApi, service.sourcePath.parent_path(), m_httpClient, m_clipboard
+          id, service.lastSeededSettings, m_scriptApi, service.pluginDir, m_httpClient, m_clipboard
       );
       subscribeAndArm(service);
       service.runtime->start(service.sourcePath.string(), std::move(code), {});
@@ -242,22 +249,11 @@ namespace scripting {
   }
 
   void PluginServiceHost::setupScriptWatch(Service& service) {
-    if (service.watchId != 0 || service.sourcePath.empty() || m_fileWatcher == nullptr) {
-      return;
-    }
     Service* svc = &service;
-    service.watchId = m_fileWatcher->watch(
-        service.sourcePath, [this, svc] { reloadService(*svc); }, FileWatcher::WatchTrigger::WriteCompleted
-    );
+    service.scriptWatcher.start(m_fileWatcher, service.sourcePath, [this, svc] { reloadService(*svc); });
   }
 
-  void PluginServiceHost::teardownScriptWatch(Service& service) {
-    if (service.watchId == 0 || m_fileWatcher == nullptr) {
-      return;
-    }
-    m_fileWatcher->unwatch(service.watchId);
-    service.watchId = 0;
-  }
+  void PluginServiceHost::teardownScriptWatch(Service& service) { service.scriptWatcher.stop(); }
 
   void PluginServiceHost::reloadService(Service& service) {
     std::string code = readFile(service.sourcePath);

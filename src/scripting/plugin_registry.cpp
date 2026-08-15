@@ -131,7 +131,12 @@ namespace scripting {
     if (entry == nullptr) {
       return std::nullopt;
     }
-    return ResolvedPluginEntry{.manifest = &plugin->manifest, .entry = entry, .sourcePath = plugin->dir / entry->entry};
+    return ResolvedPluginEntry{
+        .manifest = &plugin->manifest,
+        .entry = entry,
+        .sourcePath = plugin->dir / entry->entry,
+        .pluginDir = plugin->dir,
+    };
   }
 
   bool PluginRegistry::hasEntry(std::string_view fullEntryId) const { return resolve(fullEntryId).has_value(); }
@@ -142,7 +147,12 @@ namespace scripting {
       for (const PluginEntry& entry : plugin.manifest.entries) {
         if (entry.kind == kind) {
           out.push_back(
-              ResolvedPluginEntry{.manifest = &plugin.manifest, .entry = &entry, .sourcePath = plugin.dir / entry.entry}
+              ResolvedPluginEntry{
+                  .manifest = &plugin.manifest,
+                  .entry = &entry,
+                  .sourcePath = plugin.dir / entry.entry,
+                  .pluginDir = plugin.dir,
+              }
           );
         }
       }
@@ -161,6 +171,11 @@ namespace scripting {
       return std::nullopt;
     }
     return plugin->dir;
+  }
+
+  bool isPluginEntryOfKind(std::string_view fullEntryId, PluginEntryKind kind) {
+    const auto resolved = PluginRegistry::instance().resolve(fullEntryId);
+    return resolved.has_value() && resolved->entry->kind == kind;
   }
 
 } // namespace scripting

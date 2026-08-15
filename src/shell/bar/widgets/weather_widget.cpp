@@ -73,17 +73,17 @@ void WeatherWidget::doLayout(Renderer& renderer, float containerWidth, float con
   m_label->setColor(widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface)));
   m_label->measure(renderer);
 
-  const float spacing = m_label->text().empty() ? 0.0f : (Style::spaceXs * m_contentScale);
+  const float spacing = m_label->text().empty() ? 0.0F : (Style::spaceXs * m_contentScale);
   if (m_isVertical) {
     const float contentWidth = std::max(m_glyph->width(), m_label->width());
-    m_glyph->setPosition(std::round((contentWidth - m_glyph->width()) * 0.5f), 0.0f);
-    m_label->setPosition(std::round((contentWidth - m_label->width()) * 0.5f), m_glyph->height() + spacing);
+    m_glyph->setPosition(std::round((contentWidth - m_glyph->width()) * 0.5F), 0.0F);
+    m_label->setPosition(std::round((contentWidth - m_label->width()) * 0.5F), m_glyph->height() + spacing);
     root()->setSize(contentWidth, m_label->y() + m_label->height());
   } else {
     const float contentHeight = std::max(m_glyph->height(), m_label->height());
-    const float glyphY = std::round((contentHeight - m_glyph->height()) * 0.5f);
-    const float labelY = std::round((contentHeight - m_label->height()) * 0.5f);
-    m_glyph->setPosition(0.0f, glyphY);
+    const float glyphY = std::round((contentHeight - m_glyph->height()) * 0.5F);
+    const float labelY = std::round((contentHeight - m_label->height()) * 0.5F);
+    m_glyph->setPosition(0.0F, glyphY);
     m_label->setPosition(m_glyph->width() + spacing, labelY);
     root()->setSize(m_label->x() + m_label->width(), contentHeight);
   }
@@ -182,8 +182,8 @@ void WeatherWidget::sync(Renderer& renderer) {
     const auto& today = snapshot.forecastDays.front();
     const int high = static_cast<int>(std::lround(m_weather->displayTemperature(today.temperatureMaxC)));
     const int low = static_cast<int>(std::lround(m_weather->displayTemperature(today.temperatureMinC)));
-    rows.push_back({i18n::tr("bar.widgets.weather.tooltip.high"), std::format("{}{}", high, tempUnit)});
     rows.push_back({i18n::tr("bar.widgets.weather.tooltip.low"), std::format("{}{}", low, tempUnit)});
+    rows.push_back({i18n::tr("bar.widgets.weather.tooltip.high"), std::format("{}{}", high, tempUnit)});
   }
 
   rows.push_back(
@@ -196,7 +196,7 @@ void WeatherWidget::sync(Renderer& renderer) {
            windDirectionLabel(snapshot.current.windDirectionDeg)
        )}
   );
-  rows.push_back({i18n::tr("bar.widgets.weather.tooltip.uv"), std::format("{:.1f}", snapshot.current.uvIndex)});
+  rows.push_back({i18n::tr("bar.widgets.weather.tooltip.uv"), std::format("{:.1F}", snapshot.current.uvIndex)});
 
   if (!snapshot.forecastDays.empty()) {
     const auto& today = snapshot.forecastDays.front();

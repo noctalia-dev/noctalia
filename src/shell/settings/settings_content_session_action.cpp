@@ -50,7 +50,7 @@ namespace settings {
     const float captionSize = Style::fontSizeCaption * scale;
     const std::string glyphLabelText = i18n::tr("settings.session-actions.glyph-label");
     const float glyphColumnWidth =
-        std::max(iconSq, static_cast<float>(glyphLabelText.size()) * captionSize * 0.62f + 2.0f * scale);
+        std::max(iconSq, static_cast<float>(glyphLabelText.size()) * captionSize * 0.62F + 2.0F * scale);
 
     auto body = ui::row({
         .align = FlexAlign::Start,
@@ -97,7 +97,7 @@ namespace settings {
         .variant = ButtonVariant::Default,
         .minWidth = iconSq,
         .maxWidth = iconSq,
-        .padding = 0.0f,
+        .padding = 0.0F,
         .radius = Style::scaledRadiusMd(scale),
     });
 
@@ -152,7 +152,7 @@ namespace settings {
     auto fields = ui::column({
         .align = FlexAlign::Stretch,
         .gap = Style::spaceSm * scale,
-        .flexGrow = 1.0f,
+        .flexGrow = 1.0F,
     });
 
     fields->addChild(makeLabel(
@@ -170,7 +170,7 @@ namespace settings {
     };
 
     auto cmdBlock = ui::column(
-        {.align = FlexAlign::Stretch, .gap = Style::spaceXs * scale, .flexGrow = 1.0f},
+        {.align = FlexAlign::Stretch, .gap = Style::spaceXs * scale, .flexGrow = 1.0F},
         makeLabel(
             i18n::tr("settings.session-actions.command-label"), Style::fontSizeCaption * scale,
             colorSpecFromRole(ColorRole::OnSurfaceVariant), FontWeight::Normal
@@ -183,7 +183,7 @@ namespace settings {
         .fontSize = Style::fontSizeBody * scale,
         .controlHeight = Style::controlHeight * scale,
         .horizontalPadding = Style::spaceSm * scale,
-        .minLayoutWidth = 280.0f * scale,
+        .minLayoutWidth = 280.0F * scale,
     });
     const auto commitCommand = [&row, persist, cmdPtr]() {
       const std::string t = StringUtils::trim(cmdPtr->value());
@@ -238,7 +238,7 @@ namespace settings {
     fields->addChild(std::move(kindSelect));
 
     auto labelBlock = ui::column(
-        {.align = FlexAlign::Stretch, .gap = Style::spaceXs * scale, .flexGrow = 1.0f},
+        {.align = FlexAlign::Stretch, .gap = Style::spaceXs * scale, .flexGrow = 1.0F},
         makeLabel(
             i18n::tr("settings.session-actions.label-field"), Style::fontSizeCaption * scale,
             colorSpecFromRole(ColorRole::OnSurfaceVariant), FontWeight::Normal
@@ -252,7 +252,7 @@ namespace settings {
         .fontSize = Style::fontSizeBody * scale,
         .controlHeight = Style::controlHeight * scale,
         .horizontalPadding = Style::spaceSm * scale,
-        .minLayoutWidth = 200.0f * scale,
+        .minLayoutWidth = 200.0F * scale,
     });
     const auto commitLabel = [&row, persist, labelPtr]() {
       const std::string t = StringUtils::trim(labelPtr->value());
@@ -275,7 +275,7 @@ namespace settings {
     const std::string selectedVariant(enumToKey(kSessionActionButtonVariants, row.variant));
     const auto selectedVariantIndex = optionIndex(variantOptions, selectedVariant);
     auto variantBlock = ui::column(
-        {.align = FlexAlign::Stretch, .gap = Style::spaceXs * scale, .flexGrow = 1.0f},
+        {.align = FlexAlign::Stretch, .gap = Style::spaceXs * scale, .flexGrow = 1.0F},
         makeLabel(
             i18n::tr("settings.session-actions.variant-label"), Style::fontSizeCaption * scale,
             colorSpecFromRole(ColorRole::OnSurfaceVariant), FontWeight::Normal
@@ -303,7 +303,7 @@ namespace settings {
     fields->addChild(std::move(variantBlock));
 
     auto shortcutBlock = ui::row(
-        {.align = FlexAlign::Center, .gap = Style::spaceXs * scale, .flexGrow = 1.0f},
+        {.align = FlexAlign::Center, .gap = Style::spaceXs * scale, .flexGrow = 1.0F},
         makeLabel(
             i18n::tr("settings.session-actions.shortcut-label"), Style::fontSizeCaption * scale,
             colorSpecFromRole(ColorRole::OnSurfaceVariant), FontWeight::Normal
@@ -346,7 +346,7 @@ namespace settings {
     fields->addChild(std::move(shortcutBlock));
 
     auto countdownBlock = ui::column(
-        {.align = FlexAlign::Stretch, .gap = Style::spaceXs * scale, .flexGrow = 1.0f},
+        {.align = FlexAlign::Stretch, .gap = Style::spaceXs * scale, .flexGrow = 1.0F},
         makeLabel(
             i18n::tr("settings.session-actions.countdown-seconds-label"), Style::fontSizeCaption * scale,
             colorSpecFromRole(ColorRole::OnSurfaceVariant), FontWeight::Normal

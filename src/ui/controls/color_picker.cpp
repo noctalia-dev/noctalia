@@ -65,20 +65,20 @@ namespace {
 Color ColorPicker::colorAtSv(float h, float s, float v) { return hsv(h, s, v); }
 
 float ColorPicker::intrinsicColumnHeight(float pickerWidth, float scale) {
-  const float s = std::max(0.1f, scale);
-  const float pw = std::max(120.0f, pickerWidth);
-  const float stripH = std::max(10.0f, 12.0f * s);
-  const float labelLine = Style::fontSizeCaption * s * 1.4f;
-  const float fieldRowH = labelLine + Style::spaceXs * 0.5f * s + Style::controlHeightSm * s;
+  const float s = std::max(0.1F, scale);
+  const float pw = std::max(120.0F, pickerWidth);
+  const float stripH = std::max(10.0F, 12.0F * s);
+  const float labelLine = Style::fontSizeCaption * s * 1.4F;
+  const float fieldRowH = labelLine + Style::spaceXs * 0.5F * s + Style::controlHeightSm * s;
   const float gapSm = Style::spaceSm * s;
-  return pw + stripH + fieldRowH + 2.0f * gapSm;
+  return pw + stripH + fieldRowH + 2.0F * gapSm;
 }
 
 ColorPicker::ColorPicker() {
   setDirection(FlexDirection::Vertical);
   setAlign(FlexAlign::Stretch);
   setGap(Style::spaceSm);
-  setPadding(0.0f);
+  setPadding(0.0F);
 
   addChild(
       ui::image({
@@ -92,15 +92,15 @@ ColorPicker::ColorPicker() {
   auto hueStrip = ui::row({
       .out = &m_hueStrip,
       .align = FlexAlign::Stretch,
-      .gap = 0.0f,
+      .gap = 0.0F,
   });
   for (int i = 0; i < kHueSegments; ++i) {
     const float t = static_cast<float>(i) / static_cast<float>(kHueSegments - 1);
     hueStrip->addChild(
         ui::box({
-            .fill = fixedColorSpec(hsv(t, 1.0f, 1.0f)),
-            .radius = 0.0f,
-            .flexGrow = 1.0f,
+            .fill = fixedColorSpec(hsv(t, 1.0F, 1.0F)),
+            .radius = 0.0F,
+            .flexGrow = 1.0F,
             .configure = [](Box& box) { box.clearBorder(); },
         })
     );
@@ -117,7 +117,7 @@ ColorPicker::ColorPicker() {
   auto addField = [this](const char* title, float w) {
     auto col = ui::column({
         .align = FlexAlign::Stretch,
-        .gap = Style::spaceXs * 0.5f,
+        .gap = Style::spaceXs * 0.5F,
     });
     col->addChild(
         ui::label({
@@ -134,17 +134,17 @@ ColorPicker::ColorPicker() {
             .controlHeight = Style::controlHeightSm,
             .horizontalPadding = Style::spaceSm,
             .width = w,
-            .height = 0.0f,
+            .height = 0.0F,
         })
     );
     m_fieldsRow->addChild(std::move(col));
     return inp;
   };
 
-  m_hexInput = addField("Hex", 108.0f);
-  m_rInput = addField("R", 56.0f);
-  m_gInput = addField("G", 56.0f);
-  m_bInput = addField("B", 56.0f);
+  m_hexInput = addField("Hex", 108.0F);
+  m_rInput = addField("R", 56.0F);
+  m_gInput = addField("G", 56.0F);
+  m_bInput = addField("B", 56.0F);
 
   m_hexInput->setOnChange([this](const std::string& v) { onHexInputChange(v); });
   m_hexInput->setOnSubmit([this](const std::string& v) { applyHexInput(sanitizeHexFieldInput(v)); });
@@ -194,14 +194,14 @@ ColorPicker::ColorPicker() {
   addChild(
       ui::box({
           .out = &m_svThumb,
-          .fill = fixedColorSpec(rgba(0.0f, 0.0f, 0.0f, 0.0f)),
-          .radius = 12.0f,
-          .width = 24.0f,
-          .height = 24.0f,
+          .fill = fixedColorSpec(rgba(0.0F, 0.0F, 0.0F, 0.0F)),
+          .radius = 12.0F,
+          .width = 24.0F,
+          .height = 24.0F,
           .participatesInLayout = false,
           .configure = [](Box& box) {
             box.setZIndex(6);
-            box.setBorder(rgba(1.0f, 1.0f, 1.0f, 1.0f), 2.5f);
+            box.setBorder(rgba(1.0F, 1.0F, 1.0F, 1.0F), 2.5F);
           },
       })
   );
@@ -209,9 +209,9 @@ ColorPicker::ColorPicker() {
   addChild(
       ui::box({
           .out = &m_hueThumb,
-          .radius = 10.0f,
-          .width = 20.0f,
-          .height = 20.0f,
+          .radius = 10.0F,
+          .width = 20.0F,
+          .height = 20.0F,
           .participatesInLayout = false,
           .configure = [](Box& box) { box.setZIndex(6); },
       })
@@ -227,7 +227,7 @@ InputArea* ColorPicker::primaryInputArea() const noexcept {
 }
 
 void ColorPicker::setScale(float scale) {
-  m_scale = std::max(0.1f, scale);
+  m_scale = std::max(0.1F, scale);
   setGap(Style::spaceSm * m_scale);
   if (m_fieldsRow != nullptr) {
     m_fieldsRow->setGap(Style::spaceSm * m_scale);
@@ -243,15 +243,15 @@ void ColorPicker::setScale(float scale) {
     }
   }
   if (m_svThumb != nullptr) {
-    const float t = 24.0f * m_scale;
+    const float t = 24.0F * m_scale;
     m_svThumb->setSize(t, t);
-    m_svThumb->setRadius(t * 0.5f);
-    m_svThumb->setBorder(rgba(1.0f, 1.0f, 1.0f, 1.0f), 2.5f * m_scale);
+    m_svThumb->setRadius(t * 0.5F);
+    m_svThumb->setBorder(rgba(1.0F, 1.0F, 1.0F, 1.0F), 2.5F * m_scale);
   }
   if (m_hueThumb != nullptr) {
-    const float t = 20.0f * m_scale;
+    const float t = 20.0F * m_scale;
     m_hueThumb->setSize(t, t);
-    m_hueThumb->setRadius(t * 0.5f);
+    m_hueThumb->setRadius(t * 0.5F);
   }
   if (m_svImage != nullptr) {
     m_svImage->setBorder(colorSpecFromRole(ColorRole::Outline), Style::borderWidth * m_scale);
@@ -260,7 +260,7 @@ void ColorPicker::setScale(float scale) {
 }
 
 void ColorPicker::setPickerWidth(float width) {
-  m_pickerWidth = std::max(120.0f, width);
+  m_pickerWidth = std::max(120.0F, width);
   setMinWidth(m_pickerWidth);
   markLayoutDirty();
 }
@@ -297,7 +297,7 @@ void ColorPicker::setEnabled(bool enabled) {
       field->setEnabled(enabled);
     }
   }
-  setOpacity(enabled ? 1.0f : 0.55f);
+  setOpacity(enabled ? 1.0F : 0.55F);
 }
 
 void ColorPicker::rebuildSvTexture(Renderer& renderer) {
@@ -309,15 +309,15 @@ void ColorPicker::rebuildSvTexture(Renderer& renderer) {
   const std::size_t bytes = static_cast<std::size_t>(tw) * static_cast<std::size_t>(th) * 4U;
   m_svPixels.resize(bytes);
   for (int y = 0; y < th; ++y) {
-    const float v = 1.0f - (static_cast<float>(y) + 0.5f) / static_cast<float>(th);
+    const float v = 1.0F - (static_cast<float>(y) + 0.5F) / static_cast<float>(th);
     for (int x = 0; x < tw; ++x) {
-      const float s = (static_cast<float>(x) + 0.5f) / static_cast<float>(tw);
+      const float s = (static_cast<float>(x) + 0.5F) / static_cast<float>(tw);
       const Color px = colorAtSv(m_h, s, v);
       const std::size_t o =
           (static_cast<std::size_t>(y) * static_cast<std::size_t>(tw) + static_cast<std::size_t>(x)) * 4U;
-      m_svPixels[o + 0U] = static_cast<std::uint8_t>(std::lround(std::clamp(px.r, 0.0f, 1.0f) * 255.0f));
-      m_svPixels[o + 1U] = static_cast<std::uint8_t>(std::lround(std::clamp(px.g, 0.0f, 1.0f) * 255.0f));
-      m_svPixels[o + 2U] = static_cast<std::uint8_t>(std::lround(std::clamp(px.b, 0.0f, 1.0f) * 255.0f));
+      m_svPixels[o + 0U] = static_cast<std::uint8_t>(std::lround(std::clamp(px.r, 0.0F, 1.0F) * 255.0F));
+      m_svPixels[o + 1U] = static_cast<std::uint8_t>(std::lround(std::clamp(px.g, 0.0F, 1.0F) * 255.0F));
+      m_svPixels[o + 2U] = static_cast<std::uint8_t>(std::lround(std::clamp(px.b, 0.0F, 1.0F) * 255.0F));
       m_svPixels[o + 3U] = 255U;
     }
   }
@@ -331,21 +331,21 @@ void ColorPicker::syncFieldsFromColor() {
     m_hexInput->setValue(formatRgbHex(m_color));
   }
   if (m_rInput != nullptr) {
-    m_rInput->setValue(std::to_string(static_cast<int>(std::lround(std::clamp(m_color.r, 0.0f, 1.0f) * 255.0f))));
+    m_rInput->setValue(std::to_string(static_cast<int>(std::lround(std::clamp(m_color.r, 0.0F, 1.0F) * 255.0F))));
   }
   if (m_gInput != nullptr) {
-    m_gInput->setValue(std::to_string(static_cast<int>(std::lround(std::clamp(m_color.g, 0.0f, 1.0f) * 255.0f))));
+    m_gInput->setValue(std::to_string(static_cast<int>(std::lround(std::clamp(m_color.g, 0.0F, 1.0F) * 255.0F))));
   }
   if (m_bInput != nullptr) {
-    m_bInput->setValue(std::to_string(static_cast<int>(std::lround(std::clamp(m_color.b, 0.0f, 1.0f) * 255.0f))));
+    m_bInput->setValue(std::to_string(static_cast<int>(std::lround(std::clamp(m_color.b, 0.0F, 1.0F) * 255.0F))));
   }
   m_suppressFieldCallbacks = false;
 }
 
 void ColorPicker::updateHueThumbStyle() {
   if (m_hueThumb != nullptr) {
-    m_hueThumb->setFill(hsv(m_h, 1.0f, 1.0f));
-    m_hueThumb->setBorder(rgba(1.0f, 1.0f, 1.0f, 1.0f), 2.0f * m_scale);
+    m_hueThumb->setFill(hsv(m_h, 1.0F, 1.0F));
+    m_hueThumb->setBorder(rgba(1.0F, 1.0F, 1.0F, 1.0F), 2.0F * m_scale);
   }
 }
 
@@ -355,11 +355,11 @@ void ColorPicker::applyPickFromSv(float localX, float localY) {
   }
   const float w = m_svImage->width();
   const float h = m_svImage->height();
-  if (w <= 0.0f || h <= 0.0f) {
+  if (w <= 0.0F || h <= 0.0F) {
     return;
   }
-  m_s = std::clamp(localX / w, 0.0f, 1.0f);
-  m_v = std::clamp(1.0f - localY / h, 0.0f, 1.0f);
+  m_s = std::clamp(localX / w, 0.0F, 1.0F);
+  m_v = std::clamp(1.0F - localY / h, 0.0F, 1.0F);
   m_color = hsv(m_h, m_s, m_v);
   m_color.a = m_alpha;
   syncFieldsFromColor();
@@ -375,10 +375,10 @@ void ColorPicker::applyPickFromHue(float localX) {
     return;
   }
   const float w = m_hueStrip->width();
-  if (w <= 0.0f) {
+  if (w <= 0.0F) {
     return;
   }
-  m_h = std::clamp(localX / w, 0.0f, 1.0f);
+  m_h = std::clamp(localX / w, 0.0F, 1.0F);
   m_svTextureDirty = true;
   m_color = hsv(m_h, m_s, m_v);
   m_color.a = m_alpha;
@@ -439,7 +439,7 @@ void ColorPicker::onRgbInputChange() {
   const int g = parseIntClamp(m_gInput->value(), 0, 255);
   const int b = parseIntClamp(m_bInput->value(), 0, 255);
   Color c =
-      rgba(static_cast<float>(r) / 255.0f, static_cast<float>(g) / 255.0f, static_cast<float>(b) / 255.0f, m_alpha);
+      rgba(static_cast<float>(r) / 255.0F, static_cast<float>(g) / 255.0F, static_cast<float>(b) / 255.0F, m_alpha);
   setColor(c);
   if (m_onColorChanged) {
     m_onColorChanged(m_color);
@@ -459,23 +459,23 @@ void ColorPicker::positionOverlays() {
     const float w = m_svImage->width();
     const float h = m_svImage->height();
     const float cx = m_svImage->x() + m_s * w;
-    const float cy = m_svImage->y() + (1.0f - m_v) * h;
-    m_svThumb->setPosition(cx - m_svThumb->width() * 0.5f, cy - m_svThumb->height() * 0.5f);
+    const float cy = m_svImage->y() + (1.0F - m_v) * h;
+    m_svThumb->setPosition(cx - m_svThumb->width() * 0.5F, cy - m_svThumb->height() * 0.5F);
   }
   if (m_hueStrip != nullptr && m_hueThumb != nullptr) {
     const float stripW = m_hueStrip->width();
     const float cx = m_hueStrip->x() + m_h * stripW;
     const float x = util::clampOrdered(
-        cx - m_hueThumb->width() * 0.5f, m_hueStrip->x(), m_hueStrip->x() + stripW - m_hueThumb->width()
+        cx - m_hueThumb->width() * 0.5F, m_hueStrip->x(), m_hueStrip->x() + stripW - m_hueThumb->width()
     );
-    const float y = m_hueStrip->y() + (m_hueStrip->height() - m_hueThumb->height()) * 0.5f;
+    const float y = m_hueStrip->y() + (m_hueStrip->height() - m_hueThumb->height()) * 0.5F;
     m_hueThumb->setPosition(x, y);
   }
 }
 
 void ColorPicker::doLayout(Renderer& renderer) {
   const float pw = m_pickerWidth;
-  const float stripH = std::max(10.0f, 12.0f * m_scale);
+  const float stripH = std::max(10.0F, 12.0F * m_scale);
 
   if (m_svImage != nullptr) {
     m_svImage->setSize(pw, pw);
@@ -497,7 +497,7 @@ LayoutSize ColorPicker::doMeasure(Renderer& renderer, const LayoutConstraints& c
 
 void ColorPicker::doArrange(Renderer& renderer, const LayoutRect& rect) { arrangeByLayout(renderer, rect); }
 
-ColorPickerSheet::ColorPickerSheet(float chromeScale) : m_chromeScale(std::max(0.1f, chromeScale)) {
+ColorPickerSheet::ColorPickerSheet(float chromeScale) : m_chromeScale(std::max(0.1F, chromeScale)) {
   setDirection(FlexDirection::Vertical);
   setAlign(FlexAlign::Stretch);
   setGap(Style::spaceMd * m_chromeScale);
@@ -549,7 +549,7 @@ ColorPickerSheet::ColorPickerSheet(float chromeScale) : m_chromeScale(std::max(0
           ui::button({
               .text = i18n::tr("common.actions.cancel"),
               .variant = ButtonVariant::Secondary,
-              .minWidth = 92.0f * m_chromeScale,
+              .minWidth = 92.0F * m_chromeScale,
               .minHeight = Style::controlHeight * m_chromeScale,
               .paddingV = Style::spaceSm * m_chromeScale,
               .paddingH = Style::spaceMd * m_chromeScale,
@@ -564,7 +564,7 @@ ColorPickerSheet::ColorPickerSheet(float chromeScale) : m_chromeScale(std::max(0
           ui::button({
               .text = i18n::tr("common.actions.apply"),
               .variant = ButtonVariant::Primary,
-              .minWidth = 92.0f * m_chromeScale,
+              .minWidth = 92.0F * m_chromeScale,
               .minHeight = Style::controlHeight * m_chromeScale,
               .paddingV = Style::spaceSm * m_chromeScale,
               .paddingH = Style::spaceMd * m_chromeScale,
@@ -595,15 +595,15 @@ void ColorPickerSheet::setPickerColumnWidth(float width) {
   }
 }
 
-float ColorPickerSheet::preferredDialogWidth(float scale) { return 440.0f * std::max(0.1f, scale); }
+float ColorPickerSheet::preferredDialogWidth(float scale) { return 440.0F * std::max(0.1F, scale); }
 
 float ColorPickerSheet::preferredDialogHeight(float dialogWidth, float scale) {
-  const float s = std::max(0.1f, scale);
+  const float s = std::max(0.1F, scale);
   const float pad = Style::spaceSm * s;
-  const float innerW = std::max(160.0f, dialogWidth - 2.0f * pad);
+  const float innerW = std::max(160.0F, dialogWidth - 2.0F * pad);
   const float pickerColH = ColorPicker::intrinsicColumnHeight(innerW, s);
-  const float titleH = Style::fontSizeTitle * s * 1.3f;
-  const float actionsH = Style::controlHeight * s + 2.0f * Style::spaceSm * s;
+  const float titleH = Style::fontSizeTitle * s * 1.3F;
+  const float actionsH = Style::controlHeight * s + 2.0F * Style::spaceSm * s;
   const float gapMd = Style::spaceMd * s;
-  return 2.0f * pad + titleH + pickerColH + actionsH + 2.0f * gapMd;
+  return 2.0F * pad + titleH + pickerColH + actionsH + 2.0F * gapMd;
 }

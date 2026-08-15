@@ -41,6 +41,9 @@ struct NetworkState {
   std::string ipv4;                // dotted-quad of first address; empty if none
   std::string interfaceName;       // e.g. "wlan0", "eth0"
   std::uint8_t signalStrength = 0; // 0..100, Wi-Fi only
+  // Operating frequency of the associated BSS. Wi-Fi only; 0 when the backend
+  // does not report one (iwd).
+  std::uint32_t frequencyMhz = 0;
 
   bool operator==(const NetworkState&) const = default;
 };

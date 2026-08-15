@@ -1,5 +1,6 @@
 #pragma once
 
+#include "calendar/caldav_client.h"
 #include "calendar/calendar_credential_store.h"
 #include "calendar/calendar_types.h"
 #include "calendar/google_client.h"
@@ -32,6 +33,7 @@ namespace security {
 class CalendarService {
 public:
   using ChangeCallback = std::function<void()>;
+  using ChangeCallbackId = std::uint64_t;
   enum class ConnectState : std::uint8_t { Idle, Pending, Success, Failed };
   enum class CachePersistenceState : std::uint8_t {
     Opening,
@@ -63,7 +65,8 @@ public:
   );
 
   void initialize();
-  void addChangeCallback(ChangeCallback callback);
+  [[nodiscard]] ChangeCallbackId addChangeCallback(ChangeCallback callback);
+  void removeChangeCallback(ChangeCallbackId callbackId);
   void setCredentialChangeCallback(ChangeCallback callback) { m_credentialChangeCallback = std::move(callback); }
 
   [[nodiscard]] int pollTimeoutMs() const;
@@ -93,6 +96,10 @@ public:
   [[nodiscard]] bool googleAccountNeedsReconnect(const std::string& accountId) const {
     return m_credentials.refreshTokenMissing(accountId);
   }
+  [[nodiscard]] bool googleAccountCredentialLocked(const std::string& accountId) const {
+    return m_credentials.refreshTokenLocked(accountId);
+  }
+  [[nodiscard]] bool hasMissingRefreshTokens() const { return m_credentials.anyRefreshTokenMissing(); }
   [[nodiscard]] CachePersistenceState cachePersistenceState() const noexcept { return m_cachePersistenceState; }
   [[nodiscard]] bool cacheMigrationPending() const noexcept { return m_cacheMigrationPending; }
   [[nodiscard]] bool hasEncryptedCache() const;
@@ -119,11 +126,13 @@ private:
   void lookupCalDavPassword(
       const CalendarConfig::Account& account, calendar::CalendarCredentialStore::LookupCallback callback
   );
+  void fetchIcs(const CalendarConfig::Account& account);
   void fetchGoogle(const CalendarConfig::Account& account);
   void refreshGoogleToken(const std::string& accountId, std::function<void(bool ok, std::string accessToken)> cb);
   void googleFetchWithToken(const std::string& accountId, const std::string& accessToken, bool allowRefreshRetry);
   void pollConnect();
   void notifyGoogleConnectFailure(const std::string& body) const;
+  void notifyGoogleCredentialLocked() const;
   void initializeCredentials();
   [[nodiscard]] calendar::CredentialMigration credentialMigration();
   void storeGoogleTokens(
@@ -144,7 +153,8 @@ private:
   HttpClient& m_httpClient;
   NotificationManager* m_notifications = nullptr;
   CalendarConfig m_activeConfig;
-  std::vector<ChangeCallback> m_callbacks;
+  std::vector<std::pair<ChangeCallbackId, ChangeCallback>> m_callbacks;
+  ChangeCallbackId m_nextCallbackId = 1;
   ChangeCallback m_credentialChangeCallback;
 
   calendar::GoogleOAuthBroker m_oauth;
@@ -169,5 +179,7 @@ private:
   CachePersistenceState m_cachePersistenceState = CachePersistenceState::Opening;
   bool m_cacheMigrationPending = false;
   std::size_t m_pendingAccounts = 0;
+  bool m_googleCredentialLockedNotificationShown = false;
   ConnectFlow m_connect;
+  calendar::CalDavClient m_caldav;
 };

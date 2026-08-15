@@ -45,8 +45,8 @@ public:
   ~WidgetFactory();
 
   [[nodiscard]] std::unique_ptr<Widget> create(
-      const std::string& name, wl_output* output, float contentScale = 1.0f, const std::string& barPosition = "top",
-      const std::string& barName = "default", float widgetSpacing = 6.0f
+      const std::string& name, wl_output* output, float contentScale = 1.0F, const std::string& barPosition = "top",
+      const std::string& barName = "default", float widgetSpacing = 6.0F, bool enableScroll = true
   ) const;
 
 private:

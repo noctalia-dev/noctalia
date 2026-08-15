@@ -105,15 +105,15 @@ namespace noctalia::bar {
   }
 
   std::optional<Gesture> gestureForScroll(std::uint32_t axis, float steps) noexcept {
-    if (steps == 0.0f) {
+    if (steps == 0.0F) {
       return std::nullopt;
     }
     // Wayland reports up/left as a negative delta.
     if (axis == WL_POINTER_AXIS_VERTICAL_SCROLL) {
-      return steps < 0.0f ? Gesture::ScrollUp : Gesture::ScrollDown;
+      return steps < 0.0F ? Gesture::ScrollUp : Gesture::ScrollDown;
     }
     if (axis == WL_POINTER_AXIS_HORIZONTAL_SCROLL) {
-      return steps < 0.0f ? Gesture::ScrollLeft : Gesture::ScrollRight;
+      return steps < 0.0F ? Gesture::ScrollLeft : Gesture::ScrollRight;
     }
     return std::nullopt;
   }

@@ -32,8 +32,8 @@ public:
 private:
   void applyVisualState();
 
-  float m_scale = 1.0f;
-  float m_rowHeight = 0.0f;
+  float m_scale = 1.0F;
+  float m_rowHeight = 0.0F;
   std::size_t m_boundIndex = static_cast<std::size_t>(-1);
   bool m_selected = false;
   bool m_hovered = false;

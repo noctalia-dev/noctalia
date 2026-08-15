@@ -45,7 +45,7 @@ namespace control_center {
             .fontSize = Style::fontSizeBody * scale,
             .fontWeight = FontWeight::Bold,
             .color = colorSpecFromRole(ColorRole::OnSurface),
-            .flexGrow = 1.0f,
+            .flexGrow = 1.0F,
         })
     );
   }

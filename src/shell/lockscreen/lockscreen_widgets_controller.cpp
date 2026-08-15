@@ -117,38 +117,26 @@ void LockscreenWidgetsController::initialize(const LockscreenWidgetsControllerSe
 }
 
 void LockscreenWidgetsController::registerIpc(IpcService& ipc) {
-  ipc.registerHandler(
-      "lockscreen-widgets-edit",
-      [this](const std::string&) -> std::string {
-        if (m_config != nullptr && !m_config->isLockScreenEnabled()) {
-          return "error: lock screen disabled\n";
-        }
-        enterEdit();
-        return "ok\n";
-      },
-      "", "Open the lockscreen widgets editor"
-  );
+  ipc.bind(noctalia::cli::msg::lockscreenWidgetsEdit, [this](const std::string&) -> std::string {
+    if (m_config != nullptr && !m_config->isLockScreenEnabled()) {
+      return "error: lock screen disabled\n";
+    }
+    enterEdit();
+    return "ok\n";
+  });
 
-  ipc.registerHandler(
-      "lockscreen-widgets-exit",
-      [this](const std::string&) -> std::string {
-        exitEdit();
-        return "ok\n";
-      },
-      "", "Close the lockscreen widgets editor"
-  );
+  ipc.bind(noctalia::cli::msg::lockscreenWidgetsExit, [this](const std::string&) -> std::string {
+    exitEdit();
+    return "ok\n";
+  });
 
-  ipc.registerHandler(
-      "lockscreen-widgets-toggle-edit",
-      [this](const std::string&) -> std::string {
-        if (m_config != nullptr && !m_config->isLockScreenEnabled()) {
-          return "error: lock screen disabled\n";
-        }
-        toggleEdit();
-        return "ok\n";
-      },
-      "", "Toggle lockscreen widgets edit mode"
-  );
+  ipc.bind(noctalia::cli::msg::lockscreenWidgetsToggleEdit, [this](const std::string&) -> std::string {
+    if (m_config != nullptr && !m_config->isLockScreenEnabled()) {
+      return "error: lock screen disabled\n";
+    }
+    toggleEdit();
+    return "ok\n";
+  });
 }
 
 void LockscreenWidgetsController::onLockStateChanged() { applyVisibility(); }
@@ -357,6 +345,11 @@ void LockscreenWidgetsController::handleConfigReload() {
     loadSnapshotFromConfig();
     if (m_host != nullptr && m_lockScreen != nullptr) {
       m_host->rebuild(m_snapshot, *m_lockScreen);
+      // Plugin-level settings live in [plugin_settings], outside the widget snapshot, so
+      // the host's instance diff cannot see them change.
+      if (m_config != nullptr && m_config->lastChange().plugins) {
+        m_host->reloadPluginWidgets(*m_lockScreen);
+      }
       m_lockScreen->requestLayout();
     }
   } else if (m_editor != nullptr) {

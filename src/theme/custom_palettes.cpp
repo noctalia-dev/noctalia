@@ -97,7 +97,7 @@ namespace noctalia::theme {
     }
 
     std::string renderColorToHex(const ::Color& color) {
-      auto toByte = [](float value) { return static_cast<int>(std::clamp(value, 0.0f, 1.0f) * 255.0f + 0.5f); };
+      auto toByte = [](float value) { return static_cast<int>(std::clamp(value, 0.0F, 1.0F) * 255.0F + 0.5F); };
       char buf[8];
       std::snprintf(buf, sizeof(buf), "#%02x%02x%02x", toByte(color.r), toByte(color.g), toByte(color.b));
       return std::string(buf);

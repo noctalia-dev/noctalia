@@ -55,8 +55,8 @@ namespace {
     size_t len = 0;
     const char* path = luaL_checklstring(L, 1, &len);
     const bool watch = lua_gettop(L) >= 2 && !lua_isnil(L, 2) && lua_toboolean(L, 2) != 0;
-    float width = 0.0f;
-    float height = 0.0f;
+    float width = 0.0F;
+    float height = 0.0F;
     if (lua_gettop(L) >= 3 && !lua_isnil(L, 3)) {
       width = static_cast<float>(luaL_checknumber(L, 3));
       height = width;
@@ -625,6 +625,35 @@ namespace {
       {nullptr, nullptr},
   };
 
+  void pushTomlNode(lua_State* L, const toml::node& node) {
+    luaL_checkstack(L, 4, "noctalia.getSetting");
+    if (const auto* table = node.as_table()) {
+      lua_createtable(L, 0, static_cast<int>(table->size()));
+      for (const auto& [key, value] : *table) {
+        lua_pushlstring(L, key.str().data(), key.str().size());
+        pushTomlNode(L, value);
+        lua_settable(L, -3);
+      }
+    } else if (const auto* array = node.as_array()) {
+      lua_createtable(L, static_cast<int>(array->size()), 0);
+      int index = 1;
+      for (const auto& value : *array) {
+        pushTomlNode(L, value);
+        lua_rawseti(L, -2, index++);
+      }
+    } else if (const auto* str = node.as_string()) {
+      lua_pushlstring(L, str->get().data(), str->get().size());
+    } else if (const auto* integer = node.as_integer()) {
+      lua_pushnumber(L, static_cast<double>(integer->get()));
+    } else if (const auto* floating = node.as_floating_point()) {
+      lua_pushnumber(L, floating->get());
+    } else if (const auto* boolean = node.as_boolean()) {
+      lua_pushboolean(L, boolean->get() ? 1 : 0);
+    } else {
+      // config_export::serialize never emits TOML date/time values.
+      lua_pushnil(L);
+    }
+  }
 } // namespace
 
 namespace scripting {
@@ -673,6 +702,16 @@ namespace scripting {
         },
         it->second
     );
+    return 1;
+  }
+
+  int pushConfigSetting(lua_State* L, const toml::table& config, std::string_view path) {
+    const auto view = config.at_path(path);
+    if (!view.node()) {
+      lua_pushnil(L);
+      return 1;
+    }
+    pushTomlNode(L, *view.node());
     return 1;
   }
 

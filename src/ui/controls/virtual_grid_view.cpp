@@ -17,8 +17,8 @@ public:
   Canvas() = default;
 
   void setVirtualSize(float width, float height) {
-    m_virtualWidth = std::max(0.0f, width);
-    m_virtualHeight = std::max(0.0f, height);
+    m_virtualWidth = std::max(0.0F, width);
+    m_virtualHeight = std::max(0.0F, height);
     setSize(m_virtualWidth, m_virtualHeight);
   }
 
@@ -37,22 +37,22 @@ protected:
   }
 
 private:
-  float m_virtualWidth = 0.0f;
-  float m_virtualHeight = 0.0f;
+  float m_virtualWidth = 0.0F;
+  float m_virtualHeight = 0.0F;
 };
 
 VirtualGridView::VirtualGridView() {
   setDirection(FlexDirection::Vertical);
   setAlign(FlexAlign::Stretch);
-  setGap(0.0f);
-  setPadding(0.0f);
+  setGap(0.0F);
+  setPadding(0.0F);
   setFillWidth(true);
   setFillHeight(true);
 
   auto scroll = std::make_unique<ScrollView>();
-  scroll->setFlexGrow(1.0f);
-  scroll->setViewportPaddingH(0.0f);
-  scroll->setViewportPaddingV(0.0f);
+  scroll->setFlexGrow(1.0F);
+  scroll->setViewportPaddingH(0.0F);
+  scroll->setViewportPaddingV(0.0F);
   scroll->setOnScrollChanged([this](float offset) { onScrollChanged(offset); });
   m_scroll = static_cast<ScrollView*>(addChild(std::move(scroll)));
 
@@ -67,14 +67,21 @@ VirtualGridView::VirtualGridView() {
   inputArea->setOnMotion([this](const InputArea::PointerData& data) { onPointerMotion(data.localX, data.localY); });
   inputArea->setOnLeave([this]() { onPointerLeave(); });
   inputArea->setOnPress([this](const InputArea::PointerData& data) {
-    if (!data.pressed) {
-      return;
-    }
     if (data.button == BTN_LEFT) {
-      onPointerPress(data.localX, data.localY);
-    } else if (data.button == BTN_RIGHT) {
+      if (data.pressed) {
+        onPointerPress(data.localX, data.localY);
+      } else {
+        onPointerRelease(data.localX, data.localY);
+      }
+    } else if (data.pressed && data.button == BTN_RIGHT) {
       onSecondaryPointerPress(data.localX, data.localY);
     }
+  });
+  inputArea->setOnCancel([this]() {
+    if (m_adapterPointerCapture && m_adapter != nullptr) {
+      m_adapter->onPointerCancel();
+    }
+    m_adapterPointerCapture = false;
   });
   m_inputArea = static_cast<InputArea*>(m_canvas->addChild(std::move(inputArea)));
 }
@@ -83,13 +90,23 @@ void VirtualGridView::setAdapter(VirtualGridAdapter* adapter) {
   if (m_adapter == adapter) {
     return;
   }
+  if (m_adapterPointerCapture && m_adapter != nullptr) {
+    m_adapter->onPointerCancel();
+  }
   m_adapter = adapter;
+  m_adapterPointerCapture = false;
   // Drop the existing pool — tiles were built by the previous adapter's createTile().
   for (Node* tile : m_pool) {
     if (tile != nullptr) {
       m_canvas->removeChild(tile);
     }
   }
+  for (InputArea* area : m_poolTooltipAreas) {
+    if (area != nullptr) {
+      m_inputArea->removeChild(area);
+    }
+  }
+  m_poolTooltipAreas.clear();
   m_pool.clear();
   m_slotBoundIndex.clear();
   m_selectedIndex.reset();
@@ -123,12 +140,12 @@ void VirtualGridView::setColumns(std::size_t columns) {
 }
 
 void VirtualGridView::setMinCellWidth(float width) {
-  m_minCellWidth = std::max(1.0f, width);
+  m_minCellWidth = std::max(1.0F, width);
   notifyDataChanged();
 }
 
 void VirtualGridView::setCellHeight(float height) {
-  m_cellHeight = std::max(1.0f, height);
+  m_cellHeight = std::max(1.0F, height);
   notifyDataChanged();
 }
 
@@ -141,12 +158,12 @@ void VirtualGridView::setSquareCells(bool square) {
 }
 
 void VirtualGridView::setColumnGap(float gap) {
-  m_columnGap = std::max(0.0f, gap);
+  m_columnGap = std::max(0.0F, gap);
   notifyDataChanged();
 }
 
 void VirtualGridView::setRowGap(float gap) {
-  m_rowGap = std::max(0.0f, gap);
+  m_rowGap = std::max(0.0F, gap);
   notifyDataChanged();
 }
 
@@ -189,12 +206,12 @@ void VirtualGridView::setOnSelectionChanged(std::function<void(std::optional<std
 }
 
 std::size_t VirtualGridView::pageItemStride() const noexcept {
-  if (m_scroll == nullptr || m_layoutColumns == 0 || m_cellHeightResolved <= 0.0f) {
+  if (m_scroll == nullptr || m_layoutColumns == 0 || m_cellHeightResolved <= 0.0F) {
     return 1;
   }
   const float viewportH = m_scroll->contentViewportHeight();
   const float rowStride = m_cellHeightResolved + m_rowGap;
-  if (rowStride <= 0.0f) {
+  if (rowStride <= 0.0F) {
     return m_layoutColumns;
   }
   const auto visibleRows = std::max<std::size_t>(1, static_cast<std::size_t>(std::floor(viewportH / rowStride)));
@@ -210,22 +227,22 @@ void VirtualGridView::doLayout(Renderer& renderer) {
   // Step 1: estimate the canvas's virtual size so ScrollView can measure
   // content height correctly. Match ScrollView's gutter behavior: reserve
   // space for the scrollbar only when the content overflows vertically.
-  const float ourW = std::max(0.0f, width());
-  const float ourH = std::max(0.0f, height());
+  const float ourW = std::max(0.0F, width());
+  const float ourH = std::max(0.0F, height());
   const float padH = m_scroll->viewportPaddingH();
   const float padV = m_scroll->viewportPaddingV();
-  const float innerW = std::max(0.0f, ourW - 2.0f * padH);
-  const float viewportH = std::max(0.0f, ourH - 2.0f * padV);
+  const float innerW = std::max(0.0F, ourW - 2.0F * padH);
+  const float viewportH = std::max(0.0F, ourH - 2.0F * padV);
   const float scrollbarGutter = Style::scrollbarWidth + Style::scrollbarGap;
 
   m_itemCount = m_adapter->itemCount();
 
   struct GridMetrics {
     std::size_t columns = 1;
-    float cellW = 0.0f;
-    float cellH = 0.0f;
+    float cellW = 0.0F;
+    float cellH = 0.0F;
     std::size_t rowCount = 0;
-    float virtualHeight = 0.0f;
+    float virtualHeight = 0.0F;
   };
 
   auto resolveMetrics = [this](float availableW) {
@@ -235,23 +252,23 @@ void VirtualGridView::doLayout(Renderer& renderer) {
         : std::max<std::size_t>(
               1,
               static_cast<std::size_t>(
-                  std::floor((availableW + m_columnGap) / std::max(1.0f, m_minCellWidth + m_columnGap))
+                  std::floor((availableW + m_columnGap) / std::max(1.0F, m_minCellWidth + m_columnGap))
               )
           );
     const auto columnsF = static_cast<float>(metrics.columns);
-    metrics.cellW = std::max(0.0f, (availableW - (columnsF - 1.0f) * m_columnGap) / std::max(1.0f, columnsF));
+    metrics.cellW = std::max(0.0F, (availableW - (columnsF - 1.0F) * m_columnGap) / std::max(1.0F, columnsF));
     metrics.cellH = m_squareCells ? metrics.cellW : m_cellHeight;
     metrics.rowCount = (m_itemCount + metrics.columns - 1) / metrics.columns;
     metrics.virtualHeight = metrics.rowCount == 0
-        ? 0.0f
+        ? 0.0F
         : (static_cast<float>(metrics.rowCount) * metrics.cellH + static_cast<float>(metrics.rowCount - 1) * m_rowGap);
     return metrics;
   };
 
   float viewportW = innerW;
   GridMetrics metrics = resolveMetrics(viewportW);
-  if (metrics.virtualHeight > viewportH + 0.5f) {
-    viewportW = std::max(0.0f, innerW - scrollbarGutter);
+  if (metrics.virtualHeight > viewportH + 0.5F) {
+    viewportW = std::max(0.0F, innerW - scrollbarGutter);
     metrics = resolveMetrics(viewportW);
   }
 
@@ -295,7 +312,7 @@ void VirtualGridView::doLayout(Renderer& renderer) {
   const float scrollY = m_scroll->scrollOffset();
   std::size_t firstRow = 0;
   std::size_t lastRow = 0;
-  if (rowStride > 0.0f && rowCount > 0) {
+  if (rowStride > 0.0F && rowCount > 0) {
     const long firstRaw = static_cast<long>(std::floor(scrollY / rowStride)) - static_cast<long>(m_overscanRows);
     const long lastRaw =
         static_cast<long>(std::ceil((scrollY + viewportH) / rowStride)) + static_cast<long>(m_overscanRows);
@@ -315,6 +332,7 @@ void VirtualGridView::doLayout(Renderer& renderer) {
     std::ranges::fill(m_slotBoundIndex, std::nullopt);
   }
   while (m_pool.size() < desiredPoolSize) {
+    const std::size_t slot = m_pool.size();
     auto tile = m_adapter->createTile();
     if (tile == nullptr) {
       break;
@@ -327,6 +345,25 @@ void VirtualGridView::doLayout(Renderer& renderer) {
     m_slotBoundSelected.push_back(false);
     m_slotBoundHovered.push_back(false);
     m_slotBoundOverlayHovered.push_back(false);
+
+    auto tooltipArea = std::make_unique<InputArea>();
+    tooltipArea->setVisible(false);
+    tooltipArea->setAcceptedButtons(0);
+    tooltipArea->setOnEnter([this, slot](const InputArea::PointerData& data) {
+      onPoolTooltipMotion(slot, data.localX, data.localY);
+    });
+    tooltipArea->setOnMotion([this, slot](const InputArea::PointerData& data) {
+      onPoolTooltipMotion(slot, data.localX, data.localY);
+    });
+    tooltipArea->setOnLeave([this, slot]() { onPoolTooltipLeave(slot); });
+    tooltipArea->setTooltipProvider([this, slot]() -> TooltipContent {
+      if (m_adapter == nullptr || slot >= m_slotBoundIndex.size() || !m_slotBoundIndex[slot].has_value()) {
+        return {};
+      }
+      std::string tooltip = m_adapter->itemTooltip(*m_slotBoundIndex[slot]);
+      return tooltip.empty() ? TooltipContent{} : TooltipContent{std::move(tooltip)};
+    });
+    m_poolTooltipAreas.push_back(static_cast<InputArea*>(m_inputArea->addChild(std::move(tooltipArea))));
   }
 
   // Step 4: bind / position pool slots, addressing by `row % poolRows`.
@@ -358,6 +395,16 @@ void VirtualGridView::doLayout(Renderer& renderer) {
         tile->setPosition(x, y);
         tile->setSize(cellW, cellH);
 
+        InputArea* tooltipArea = m_poolTooltipAreas[slot];
+        tooltipArea->setPosition(x, y);
+        tooltipArea->setFrameSize(cellW, cellH);
+        const auto tooltipInsets = m_adapter->itemTooltipAnchorInsets(logicalIndex, cellW, cellH);
+        if (tooltipInsets.has_value()) {
+          tooltipArea->setTooltipAnchorInsets(*tooltipInsets);
+        } else {
+          tooltipArea->clearTooltipAnchorInsets();
+        }
+        tooltipArea->setVisible(true);
         const bool selected = m_selectedIndex.has_value() && *m_selectedIndex == logicalIndex;
         const bool hovered = m_hoveredIndex.has_value() && *m_hoveredIndex == logicalIndex;
         const bool overlayHovered = m_hoveredOverlayIndex.has_value() && *m_hoveredOverlayIndex == logicalIndex;
@@ -387,12 +434,15 @@ void VirtualGridView::doLayout(Renderer& renderer) {
     if (!slotActive[slot] && m_pool[slot] != nullptr) {
       m_pool[slot]->setVisible(false);
       m_slotBoundIndex[slot].reset();
+      if (slot < m_poolTooltipAreas.size() && m_poolTooltipAreas[slot] != nullptr) {
+        m_poolTooltipAreas[slot]->setVisible(false);
+      }
       m_slotBoundOverlayHovered[slot] = false;
     }
   }
 
   // Step 5: position the input overlay across the entire virtual canvas.
-  m_inputArea->setPosition(0.0f, 0.0f);
+  m_inputArea->setPosition(0.0F, 0.0F);
   m_inputArea->setFrameSize(viewportW, virtualHeight);
 
   // Step 6: run the outer Flex layout so ScrollView lays itself out around
@@ -410,26 +460,44 @@ LayoutSize VirtualGridView::doMeasure(Renderer& /*renderer*/, const LayoutConstr
   // is known.
   const float w = constraints.hasExactWidth() ? constraints.maxWidth
       : constraints.hasMaxWidth               ? constraints.maxWidth
-                                              : 0.0f;
+                                              : 0.0F;
   const float h = constraints.hasExactHeight() ? constraints.maxHeight
       : constraints.hasMaxHeight               ? constraints.maxHeight
-                                               : 0.0f;
+                                               : 0.0F;
   return LayoutSize{.width = w, .height = h};
 }
 
 void VirtualGridView::doArrange(Renderer& renderer, const LayoutRect& rect) { arrangeByLayout(renderer, rect); }
 
-void VirtualGridView::onScrollChanged(float /*offset*/) { markLayoutDirty(); }
+void VirtualGridView::onScrollChanged(float /*offset*/) {
+  if (m_adapterPointerCapture && m_adapter != nullptr) {
+    m_adapter->onPointerCancel();
+    m_adapterPointerCapture = false;
+  }
+  if (m_hoveredOverlayIndex.has_value()) {
+    setOverlayHoveredForIndex(*m_hoveredOverlayIndex, false);
+  }
+  m_hoveredIndex.reset();
+  m_hoveredOverlayIndex.reset();
+  markLayoutDirty();
+}
 
 void VirtualGridView::onPointerEnter(float localX, float localY) { onPointerMotion(localX, localY); }
 
 void VirtualGridView::onPointerMotion(float localX, float localY) {
   const auto idx = indexAt(localX, localY);
 
+  if (m_adapterPointerCapture && m_adapter != nullptr) {
+    if (m_adapter->onPointerDrag(idx, localX, localY, m_cellWidth, m_cellHeightResolved)) {
+      notifyDataChanged();
+    }
+    return;
+  }
+
   std::optional<std::size_t> overlayIdx;
   if (idx.has_value() && m_adapter != nullptr) {
-    float cellLocalX = 0.0f;
-    float cellLocalY = 0.0f;
+    float cellLocalX = 0.0F;
+    float cellLocalY = 0.0F;
     cellLocalAt(localX, localY, *idx, cellLocalX, cellLocalY);
     if (m_adapter->overlayHitTest(*idx, cellLocalX, cellLocalY, m_cellWidth, m_cellHeightResolved)) {
       overlayIdx = idx;
@@ -464,6 +532,25 @@ void VirtualGridView::onPointerLeave() {
   markLayoutDirty();
 }
 
+void VirtualGridView::onPoolTooltipMotion(std::size_t slot, float localX, float localY) {
+  if (slot >= m_slotBoundIndex.size() || !m_slotBoundIndex[slot].has_value() || m_layoutColumns == 0) {
+    return;
+  }
+  const std::size_t index = *m_slotBoundIndex[slot];
+  const auto column = index % m_layoutColumns;
+  const auto row = index / m_layoutColumns;
+  onPointerMotion(
+      static_cast<float>(column) * (m_cellWidth + m_columnGap) + localX,
+      static_cast<float>(row) * (m_cellHeightResolved + m_rowGap) + localY
+  );
+}
+
+void VirtualGridView::onPoolTooltipLeave(std::size_t slot) {
+  if (slot >= m_slotBoundIndex.size() || (m_hoveredIndex.has_value() && m_slotBoundIndex[slot] == m_hoveredIndex)) {
+    onPointerLeave();
+  }
+}
+
 void VirtualGridView::onPointerPress(float localX, float localY) {
   const auto idx = indexAt(localX, localY);
   if (!idx.has_value()) {
@@ -481,9 +568,20 @@ void VirtualGridView::onPointerPress(float localX, float localY) {
   const float cellLocalX = localX - static_cast<float>(col) * colStride;
   const float cellLocalY = localY - static_cast<float>(row) * rowStride;
   if (m_adapter->onPointerPress(*idx, cellLocalX, cellLocalY, m_cellWidth, m_cellHeightResolved)) {
+    m_adapterPointerCapture = true;
     return;
   }
   m_adapter->onActivate(*idx);
+}
+
+void VirtualGridView::onPointerRelease(float localX, float localY) {
+  if (!m_adapterPointerCapture || m_adapter == nullptr) {
+    return;
+  }
+  m_adapterPointerCapture = false;
+  if (m_adapter->onPointerRelease(indexAt(localX, localY))) {
+    notifyDataChanged();
+  }
 }
 
 void VirtualGridView::onSecondaryPointerPress(float localX, float localY) {
@@ -493,8 +591,8 @@ void VirtualGridView::onSecondaryPointerPress(float localX, float localY) {
   }
   setSelectedIndex(idx);
   if (m_adapter != nullptr) {
-    float wx = 0.0f;
-    float wy = 0.0f;
+    float wx = 0.0F;
+    float wy = 0.0F;
     Node::absolutePosition(m_inputArea, wx, wy);
     wx += localX;
     wy += localY;
@@ -502,13 +600,45 @@ void VirtualGridView::onSecondaryPointerPress(float localX, float localY) {
   }
 }
 
+bool VirtualGridView::absoluteAnchorForIndex(std::size_t index, float& outX, float& outY) const noexcept {
+  if (m_inputArea == nullptr
+      || m_layoutColumns == 0
+      || m_cellWidth <= 0.0F
+      || m_cellHeightResolved <= 0.0F
+      || index >= m_itemCount) {
+    return false;
+  }
+
+  // Prefer a live pool tile when the item is currently materialized.
+  for (std::size_t slot = 0; slot < m_pool.size(); ++slot) {
+    if (!m_slotBoundIndex[slot].has_value() || *m_slotBoundIndex[slot] != index || m_pool[slot] == nullptr) {
+      continue;
+    }
+    Node::absolutePosition(m_pool[slot], outX, outY);
+    outX += m_pool[slot]->width() * 0.5F;
+    outY += m_pool[slot]->height() * 0.5F;
+    return true;
+  }
+
+  const auto col = index % m_layoutColumns;
+  const auto row = index / m_layoutColumns;
+  const float colStride = m_cellWidth + m_columnGap;
+  const float rowStride = m_cellHeightResolved + m_rowGap;
+  float wx = 0.0F;
+  float wy = 0.0F;
+  Node::absolutePosition(m_inputArea, wx, wy);
+  outX = wx + static_cast<float>(col) * colStride + m_cellWidth * 0.5F;
+  outY = wy + static_cast<float>(row) * rowStride + m_cellHeightResolved * 0.5F;
+  return true;
+}
+
 std::optional<std::size_t> VirtualGridView::indexAt(float localX, float localY) const noexcept {
-  if (m_layoutColumns == 0 || m_cellWidth <= 0.0f || m_cellHeightResolved <= 0.0f || m_itemCount == 0) {
+  if (m_layoutColumns == 0 || m_cellWidth <= 0.0F || m_cellHeightResolved <= 0.0F || m_itemCount == 0) {
     return std::nullopt;
   }
   const float colStride = m_cellWidth + m_columnGap;
   const float rowStride = m_cellHeightResolved + m_rowGap;
-  if (localX < 0.0f || localY < 0.0f || colStride <= 0.0f || rowStride <= 0.0f) {
+  if (localX < 0.0F || localY < 0.0F || colStride <= 0.0F || rowStride <= 0.0F) {
     return std::nullopt;
   }
   const auto colF = localX / colStride;

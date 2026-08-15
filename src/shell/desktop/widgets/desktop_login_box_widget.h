@@ -28,9 +28,9 @@ public:
 private:
   void doLayout(Renderer& renderer) override;
 
-  float m_screenWidth = 0.0f;
-  float m_screenHeight = 0.0f;
-  float m_panelCenterY = 0.0f;
+  float m_screenWidth = 0.0F;
+  float m_screenHeight = 0.0F;
+  float m_panelCenterY = 0.0F;
   std::unordered_map<std::string, WidgetSettingValue> m_settings;
   Box* m_panel = nullptr;
   Box* m_infoGhost = nullptr;

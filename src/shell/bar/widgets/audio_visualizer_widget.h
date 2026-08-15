@@ -14,6 +14,7 @@ public:
     int width = 56;
     int bands = 16;
     bool mirrored = true;
+    bool reversed = false;
     bool centered = true;
     bool showWhenIdle = false;
     ColorSpec color1 = colorSpecFromRole(ColorRole::Primary);
@@ -38,9 +39,10 @@ private:
   void startOpacityAnimation(float targetOpacity, bool collapseOnComplete);
 
   PipeWireSpectrum* m_spectrum = nullptr;
-  float m_width = 56.0f;
+  float m_width = 56.0F;
   int m_bands = 16;
   bool m_mirrored = false;
+  bool m_reversed = false;
   bool m_centered = true;
   bool m_showWhenIdle = false;
   ColorSpec m_color1 = colorSpecFromRole(ColorRole::Primary);

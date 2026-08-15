@@ -2,7 +2,7 @@
   description = "A sleek, customizable desktop shell crafted for Wayland.";
 
   inputs = {
-    nixpkgs.url = "https://channels.nixos.org/nixos-unstable/nixexprs.tar.xz";
+    nixpkgs.url = "https://channels.nixos.org/nixos-unstable/nixexprs.tar.zst";
   };
 
   outputs =
@@ -35,9 +35,7 @@
         rec {
           default = pkgs.callPackage ./nix/package.nix { };
           # DEPRECATED: identical to `default`; kept for compat, warns on use.
-          cuda = warn
-            "noctalia: the `.#cuda` package output is deprecated and now identical to `.#default` (autoAddDriverRunpath is always applied); switch to `.#default`. This alias will be removed in the future."
-            default;
+          cuda = warn "noctalia: the `.#cuda` package output is deprecated and now identical to `.#default` (autoAddDriverRunpath is always applied); switch to `.#default`. This alias will be removed in the future." default;
         }
       );
 

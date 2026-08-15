@@ -15,15 +15,6 @@ namespace session_action {
           || action == "shutdown";
     }
 
-    [[nodiscard]] std::optional<SessionPanelActionConfig> defaultBuiltinAction(std::string_view action) {
-      for (const SessionPanelActionConfig& row : defaultSessionPanelActions()) {
-        if (row.action == action) {
-          return row;
-        }
-      }
-      return std::nullopt;
-    }
-
   } // namespace
 
   bool isKnown(std::string_view action) {
@@ -88,21 +79,6 @@ namespace session_action {
       return ipcOrConfigAction;
     }
     return std::nullopt;
-  }
-
-  std::optional<SessionPanelActionConfig>
-  resolveConfiguredAction(const ShellSessionConfig& session, std::string_view action) {
-    if (!isBuiltinAction(action)) {
-      return std::nullopt;
-    }
-
-    for (const SessionPanelActionConfig& row : session.actions) {
-      if (row.action != action) {
-        continue;
-      }
-      return row;
-    }
-    return defaultBuiltinAction(action);
   }
 
 } // namespace session_action

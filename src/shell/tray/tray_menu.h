@@ -32,7 +32,7 @@ public:
   void initialize(WaylandConnection& wayland, ConfigService* config, TrayService* tray, RenderContext* renderContext);
   void onTrayChanged();
 
-  void toggleForItem(const std::string& itemId, float contentScale = 1.0f);
+  void toggleForItem(const std::string& itemId, float contentScale = 1.0F);
   void close();
   void onFontChanged();
   void onThemeChanged();
@@ -95,7 +95,7 @@ private:
   // focus, then restored to None on close.
   zwlr_layer_surface_v1* m_keyboardBarLayerSurface = nullptr;
   wl_surface* m_keyboardBarWlSurface = nullptr;
-  float m_contentScale = 1.0f;
+  float m_contentScale = 1.0F;
   bool m_visible = false;
   std::string m_lastClosedItemId;
   std::chrono::steady_clock::time_point m_lastCloseTime;
@@ -104,7 +104,7 @@ private:
     std::vector<TrayMenuEntry> entries;
     std::int32_t parentEntryId = 0;
     std::int32_t pendingParentEntryId = 0;
-    float pendingRowCenterY = 0.0f;
+    float pendingRowCenterY = 0.0F;
     std::unique_ptr<MenuInstance> instance;
   };
   std::vector<SubmenuLevel> m_submenuLevels;

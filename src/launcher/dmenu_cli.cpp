@@ -1,5 +1,7 @@
 #include "launcher/dmenu_cli.h"
 
+#include "cli/parse.h"
+#include "cli/schema_dmenu.h"
 #include "launcher/dmenu_socket_path.h"
 
 #include <cerrno>
@@ -31,34 +33,17 @@ namespace noctalia::launcher {
       return true;
     }
 
-    void printUsage() {
-      std::println(
-          stderr,
-          "Usage: noctalia dmenu [-p prompt]\n"
-          "Reads newline-separated items from stdin, presents them in the launcher,\n"
-          "and prints the selection to stdout."
-      );
-    }
-
   } // namespace
 
   int runDmenuCli(int argc, char** argv) {
-    std::string prompt;
-    for (int i = 2; i < argc; ++i) {
-      const char* arg = argv[i];
-      if ((std::strcmp(arg, "-p") == 0 || std::strcmp(arg, "--prompt") == 0) && i + 1 < argc) {
-        prompt = argv[++i];
-      } else if (std::strncmp(arg, "--prompt=", 9) == 0) {
-        prompt = arg + 9;
-      } else if (std::strcmp(arg, "-h") == 0 || std::strcmp(arg, "--help") == 0) {
-        printUsage();
-        return 0;
-      } else {
-        std::println(stderr, "error: unknown argument: {}", arg);
-        printUsage();
-        return 2;
-      }
-    }
+    auto parsed = cli::parseOrReport(
+        cli::kDmenuCmd, "noctalia dmenu", std::span<char* const>{argv + 2, static_cast<std::size_t>(argc - 2)}
+    );
+    if (!parsed)
+      return 1;
+    if (parsed->helpRequested)
+      return 0;
+    const std::string prompt{parsed->value("--prompt")};
 
     // Read all of stdin.
     std::string candidates;

@@ -31,7 +31,7 @@ struct AudioNode {
   std::string streamTitle;
   std::string iconName;
   std::string mediaClass; // "Audio/Sink", "Audio/Source"
-  float volume = 1.0f;
+  float volume = 1.0F;
   bool muted = false;
   std::uint32_t channelCount = 0;
   bool isDefault = false;
@@ -155,7 +155,7 @@ public:
     bool nodePassive = false;
     bool streamCaptureSink = false;
     bool streamClassificationReady = false;
-    float volume = 1.0f;
+    float volume = 1.0F;
     // Software / node-route mute from PipeWire props (SPA_PARAM_Props, node routes). For device nodes
     // swMute mirrors the authoritative mixer-api mute.
     bool swMute = false;
@@ -169,7 +169,7 @@ public:
     std::int32_t routeDevice = -1;
     std::uint32_t routeDirection = 0;
     std::vector<DeviceRouteData> routes;
-    float lastWrittenVolume = -1.0f;
+    float lastWrittenVolume = -1.0F;
     std::chrono::steady_clock::time_point volumeWriteGuardUntil;
     struct pw_node* proxy = nullptr;
     spa_hook* listener = nullptr;
@@ -231,7 +231,7 @@ private:
   relativeAdjustTarget(int gesture, float baseStep, float direction, float current, float maxVolume);
   struct RelativeAdjust {
     std::chrono::steady_clock::time_point lastAt;
-    float target = 0.0f;
+    float target = 0.0F;
     int gesture = 0;
   };
   RelativeAdjust m_relativeAdjust;

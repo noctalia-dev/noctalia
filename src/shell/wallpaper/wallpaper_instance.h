@@ -39,13 +39,13 @@ struct WallpaperInstance {
   std::string queuedPath;
   WallpaperSourceKind currentSourceKind = WallpaperSourceKind::Image;
   WallpaperSourceKind nextSourceKind = WallpaperSourceKind::Image;
-  Color currentColor = rgba(0.0f, 0.0f, 0.0f, 1.0f);
-  Color nextColor = rgba(0.0f, 0.0f, 0.0f, 1.0f);
+  Color currentColor = rgba(0.0F, 0.0F, 0.0F, 1.0F);
+  Color nextColor = rgba(0.0F, 0.0F, 0.0F, 1.0F);
   TextureHandle currentTexture;
   TextureHandle nextTexture;
 
   // Transition state
-  float transitionTime = 0.0f;
+  float transitionTime = 0.0F;
   bool transitioning = false;
   WallpaperTransitionDirection transitionDirection = WallpaperTransitionDirection::Forward;
   AnimationManager::Id transitionAnimId = 0;

@@ -12,18 +12,18 @@
 
 namespace {
 
-  constexpr float kBaseMaxWidth = 320.0f;
-  constexpr float kShadowAlpha = 0.6f;
-  constexpr float kShadowOffset = 1.5f;
+  constexpr float kBaseMaxWidth = 320.0F;
+  constexpr float kShadowAlpha = 0.6F;
+  constexpr float kShadowOffset = 1.5F;
 
-  float titleFontSize(float contentScale) { return Style::fontSizeBody * 1.5f * contentScale; }
+  float titleFontSize(float contentScale) { return Style::fontSizeBody * 1.5F * contentScale; }
   float descriptionFontSize(float contentScale) { return Style::fontSizeBody * contentScale; }
 
 } // namespace
 
 DesktopLabelWidget::DesktopLabelWidget(Options options)
     : m_title(std::move(options.title)), m_description(std::move(options.description)), m_color(options.color),
-      m_opacity(std::clamp(options.opacity, 0.0f, 1.0f)), m_shadow(options.shadow) {}
+      m_opacity(std::clamp(options.opacity, 0.0F, 1.0F)), m_shadow(options.shadow) {}
 
 void DesktopLabelWidget::create() {
   auto rootNode = ui::node({});
@@ -92,13 +92,13 @@ bool DesktopLabelWidget::applySetting(
   }
   if (key == "opacity") {
     if (const auto* v = std::get_if<double>(&value)) {
-      m_opacity = std::clamp(static_cast<float>(*v), 0.0f, 1.0f);
+      m_opacity = std::clamp(static_cast<float>(*v), 0.0F, 1.0F);
       applyLabelColors();
       applyShadow();
       return true;
     }
     if (const auto* v = std::get_if<std::int64_t>(&value)) {
-      m_opacity = std::clamp(static_cast<float>(*v), 0.0f, 1.0f);
+      m_opacity = std::clamp(static_cast<float>(*v), 0.0F, 1.0F);
       applyLabelColors();
       applyShadow();
       return true;
@@ -131,7 +131,7 @@ void DesktopLabelWidget::doLayout(Renderer& renderer) {
   }
 
   const float scale = contentScale();
-  const float maxWidth = std::max(1.0f, kBaseMaxWidth * scale);
+  const float maxWidth = std::max(1.0F, kBaseMaxWidth * scale);
   const bool showDescription = !m_description.empty();
 
   m_titleLabel->setFontSize(titleFontSize(scale));
@@ -148,12 +148,12 @@ void DesktopLabelWidget::doLayout(Renderer& renderer) {
     m_descriptionLabel->setMaxWidth(maxWidth);
     m_descriptionLabel->setText(m_description);
     m_descriptionLabel->measure(renderer);
-    m_descriptionLabel->setPosition(0.0f, height);
+    m_descriptionLabel->setPosition(0.0F, height);
     height += m_descriptionLabel->height();
     width = std::max(width, m_descriptionLabel->width());
   }
 
-  m_titleLabel->setPosition(0.0f, 0.0f);
+  m_titleLabel->setPosition(0.0F, 0.0F);
   root()->setSize(width, height);
   applyLabelColors();
   applyShadow();

@@ -5,6 +5,7 @@
 #include "render/core/renderer.h"
 #include "system/brightness_service.h"
 #include "ui/builders.h"
+#include "ui/controls/scroll_view.h"
 #include "ui/palette.h"
 
 #include <algorithm>
@@ -16,7 +17,7 @@ using namespace control_center;
 
 namespace {
 
-  constexpr float kBrightnessSyncEpsilon = 0.005f;
+  constexpr float kBrightnessSyncEpsilon = 0.005F;
   constexpr auto kBrightnessCommitInterval = std::chrono::milliseconds(16);
   constexpr auto kBrightnessStateHoldoff = std::chrono::milliseconds(180);
 
@@ -59,7 +60,7 @@ namespace {
     if (!display.controllable) {
       return i18n::tr("control-center.display.disabled");
     }
-    return std::to_string(static_cast<int>(std::round(brightness * 100.0f))) + "%";
+    return std::to_string(static_cast<int>(std::round(brightness * 100.0F))) + "%";
   }
 
 } // namespace
@@ -76,9 +77,30 @@ std::unique_ptr<Flex> MonitorTab::create() {
       .gap = Style::spaceMd * scale,
   });
 
+  auto cardsScroll = ui::scrollView({
+      .out = &m_cardsScroll,
+      .scrollbarVisible = true,
+      .viewportPaddingH = 0.0F,
+      .viewportPaddingV = 0.0F,
+      .flexGrow = 1.0F,
+      .configure = [](ScrollView& scrollView) {
+        scrollView.clearFill();
+        scrollView.clearBorder();
+      },
+  });
+  m_cardsLayout = cardsScroll->content();
+  m_cardsLayout->setDirection(FlexDirection::Vertical);
+  m_cardsLayout->setAlign(FlexAlign::Stretch);
+  m_cardsLayout->setGap(Style::spaceMd * scale);
+  tab->addChild(std::move(cardsScroll));
+
   // Empty state (shown when no displays are known)
   auto emptyState = ui::column(
-      {.out = &m_emptyState, .align = FlexAlign::Center, .justify = FlexJustify::Center, .flexGrow = 1.0f},
+      {.out = &m_emptyState,
+       .align = FlexAlign::Center,
+       .justify = FlexJustify::Center,
+       .flexGrow = 1.0F,
+       .visible = false},
       ui::label({
           .text = i18n::tr("control-center.display.no-displays"),
           .fontSize = Style::fontSizeBody * scale,
@@ -103,6 +125,8 @@ void MonitorTab::onClose() {
   m_debounceTimer.stop();
   m_rootLayout = nullptr;
   m_emptyState = nullptr;
+  m_cardsScroll = nullptr;
+  m_cardsLayout = nullptr;
   m_cards.clear();
   m_lastDisplayListKey.clear();
 }
@@ -123,11 +147,15 @@ void MonitorTab::doLayout(Renderer& renderer, float contentWidth, float bodyHeig
 
   rebuildCards(renderer);
 
+  m_rootLayout->setSize(contentWidth, bodyHeight);
+  m_rootLayout->layout(renderer);
+
   const float scale = contentScale();
-  const float cardWidth = std::max(1.0f, contentWidth);
-  const float cardInnerWidth = std::max(1.0f, cardWidth - Style::spaceMd * scale * 2.0f);
+  const float cardWidth =
+      std::max(1.0F, m_cardsScroll != nullptr ? m_cardsScroll->contentViewportWidth() : contentWidth);
+  const float cardInnerWidth = std::max(1.0F, cardWidth - Style::spaceMd * scale * 2.0F);
   const float headerTextMaxWidth =
-      std::max(1.0f, cardInnerWidth - Style::fontSizeTitle * scale - Style::spaceSm * scale);
+      std::max(1.0F, cardInnerWidth - Style::fontSizeTitle * scale - Style::spaceSm * scale);
   for (auto& card : m_cards) {
     if (card.card != nullptr) {
       card.card->setMinWidth(cardWidth);
@@ -142,7 +170,6 @@ void MonitorTab::doLayout(Renderer& renderer, float contentWidth, float bodyHeig
     }
   }
 
-  m_rootLayout->setSize(contentWidth, bodyHeight);
   m_rootLayout->layout(renderer);
 }
 
@@ -184,15 +211,15 @@ void MonitorTab::doUpdate(Renderer& renderer) {
     }
 
     const bool isDragging = card.slider->dragging();
-    const bool isPending = m_pendingDisplayId == card.displayId && m_pendingBrightness >= 0.0f;
+    const bool isPending = m_pendingDisplayId == card.displayId && m_pendingBrightness >= 0.0F;
     const bool holdState = isDragging
-        && m_lastSentBrightness >= 0.0f
+        && m_lastSentBrightness >= 0.0F
         && now < m_ignoreStateUntil
-        && std::abs(display->brightness - m_lastSentBrightness) > 0.02f;
+        && std::abs(display->brightness - m_lastSentBrightness) > 0.02F;
 
     const float minBrightness = m_configService->config().brightness.minimumBrightness;
     const float displayedBrightness = std::clamp(
-        isPending ? m_pendingBrightness : (holdState ? m_lastSentBrightness : display->brightness), minBrightness, 1.0f
+        isPending ? m_pendingBrightness : (holdState ? m_lastSentBrightness : display->brightness), minBrightness, 1.0F
     );
 
     if (!isDragging
@@ -210,7 +237,7 @@ void MonitorTab::doUpdate(Renderer& renderer) {
 }
 
 void MonitorTab::rebuildCards(Renderer& /*renderer*/) {
-  if (m_brightness == nullptr || m_rootLayout == nullptr) {
+  if (m_brightness == nullptr || m_cardsLayout == nullptr) {
     return;
   }
 
@@ -224,7 +251,7 @@ void MonitorTab::rebuildCards(Renderer& /*renderer*/) {
   // Remove old cards
   for (auto& card : m_cards) {
     if (card.card != nullptr) {
-      m_rootLayout->removeChild(card.card);
+      m_cardsLayout->removeChild(card.card);
     }
   }
   m_cards.clear();
@@ -233,6 +260,9 @@ void MonitorTab::rebuildCards(Renderer& /*renderer*/) {
   const bool empty = displays.empty();
   if (m_emptyState != nullptr) {
     m_emptyState->setVisible(empty);
+  }
+  if (m_cardsScroll != nullptr) {
+    m_cardsScroll->setVisible(!empty);
   }
 
   if (empty) {
@@ -266,7 +296,7 @@ void MonitorTab::rebuildCards(Renderer& /*renderer*/) {
             .fontSize = Style::fontSizeBody * scale,
             .fontWeight = FontWeight::Bold,
             .color = colorSpecFromRole(ColorRole::OnSurface),
-            .flexGrow = 1.0f,
+            .flexGrow = 1.0F,
         })
     );
     card->addChild(std::move(headerRow));
@@ -298,14 +328,14 @@ void MonitorTab::rebuildCards(Renderer& /*renderer*/) {
     auto slider = ui::slider({
         .out = &sliderPtr,
         .minValue = minBrightness,
-        .maxValue = 1.0f,
-        .step = 0.01f,
+        .maxValue = 1.0F,
+        .step = 0.01F,
         .value = std::max(display.brightness, minBrightness),
         .enabled = display.controllable,
         .trackHeight = Style::sliderTrackHeight * scale,
         .thumbSize = Style::sliderThumbSize * scale,
         .controlHeight = Style::controlHeight * scale,
-        .flexGrow = 1.0f,
+        .flexGrow = 1.0F,
         .onValueChanged =
             [this, displayId](double value) {
               if (m_syncingSlider) {
@@ -351,7 +381,7 @@ void MonitorTab::rebuildCards(Renderer& /*renderer*/) {
     card->addChild(std::move(sliderRow));
 
     auto* cardPtr = card.get();
-    m_rootLayout->addChild(std::move(card));
+    m_cardsLayout->addChild(std::move(card));
 
     m_cards.push_back(
         DisplayCard{
@@ -388,13 +418,13 @@ void MonitorTab::queueBrightness(const std::string& displayId, float value) {
 void MonitorTab::flushPendingBrightness(bool /*force*/) {
   m_debounceTimer.stop();
 
-  if (m_pendingBrightness < 0.0f || m_brightness == nullptr) {
+  if (m_pendingBrightness < 0.0F || m_brightness == nullptr) {
     return;
   }
 
   const auto* display = m_brightness->findDisplay(m_pendingDisplayId);
   if (display == nullptr || !display->controllable) {
-    m_pendingBrightness = -1.0f;
+    m_pendingBrightness = -1.0F;
     return;
   }
 
@@ -402,5 +432,5 @@ void MonitorTab::flushPendingBrightness(bool /*force*/) {
   m_lastSentBrightness = m_pendingBrightness;
   m_lastCommitAt = std::chrono::steady_clock::now();
   m_ignoreStateUntil = m_lastCommitAt + kBrightnessStateHoldoff;
-  m_pendingBrightness = -1.0f;
+  m_pendingBrightness = -1.0F;
 }

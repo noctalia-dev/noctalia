@@ -38,7 +38,7 @@ private:
   bool m_statsRetained = false;
   bool m_graphInitialized = false;
   bool m_gpuVisible = false;
-  float m_scrollProgress = 1.0f;
+  float m_scrollProgress = 1.0F;
   std::chrono::steady_clock::time_point m_lastSampleAt;
   FrameRateLimiter m_redrawLimiter{std::chrono::milliseconds{200}};
 

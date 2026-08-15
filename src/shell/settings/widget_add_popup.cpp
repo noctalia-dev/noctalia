@@ -4,6 +4,7 @@
 #include "core/deferred_call.h"
 #include "i18n/i18n.h"
 #include "render/render_context.h"
+#include "render/render_target.h"
 #include "render/scene/input_area.h"
 #include "render/scene/node.h"
 #include "shell/settings/widget_settings_registry.h"
@@ -216,7 +217,7 @@ namespace settings {
       close();
     }
 
-    m_scale = std::max(0.1f, request.scale);
+    m_scale = std::max(0.1F, request.scale);
     m_config = &request.config;
     m_normalOptions = std::move(normalOptions);
     m_instanceOptions = std::move(instanceOptions);
@@ -424,7 +425,7 @@ namespace settings {
             .placeholder = i18n::tr("settings.entities.widget.picker.placeholder"),
             .emptyText = i18n::tr("settings.entities.widget.picker.empty"),
             .options = m_normalOptions,
-            .flexGrow = 1.0f,
+            .flexGrow = 1.0F,
             .onActivated =
                 [this](const SearchPickerOption& option) {
                   if (option.value.empty()) {
@@ -482,8 +483,8 @@ namespace settings {
                 [](SearchPicker& picker) {
                   picker.clearFill();
                   picker.clearBorder();
-                  picker.setRadius(0.0f);
-                  picker.setPadding(0.0f);
+                  picker.setRadius(0.0F);
+                  picker.setPadding(0.0F);
                 },
         })
     );
@@ -575,7 +576,7 @@ namespace settings {
     }
 
     m_root->setSize(contentWidth, contentHeight);
-    m_root->layout(*renderContext());
+    m_root->layout(renderer());
   }
 
   std::string WidgetAddPopup::instanceFormTitle() const {
@@ -584,12 +585,12 @@ namespace settings {
   }
 
   std::pair<float, float> WidgetAddPopup::popupSize() const {
-    constexpr float kPickerWidth = 520.0f;
-    constexpr float kPickerHeight = 420.0f;
-    constexpr float kCreateMinWidth = 360.0f;
-    constexpr float kCreateHeight = 190.0f;
-    constexpr float kCreateMaxWidth = 640.0f;
-    constexpr float kParentMargin = 48.0f;
+    constexpr float kPickerWidth = 520.0F;
+    constexpr float kPickerHeight = 420.0F;
+    constexpr float kCreateMinWidth = 360.0F;
+    constexpr float kCreateHeight = 190.0F;
+    constexpr float kCreateMaxWidth = 640.0F;
+    constexpr float kParentMargin = 48.0F;
 
     if (!m_createFormVisible) {
       return {kPickerWidth * m_scale, kPickerHeight * m_scale};
@@ -598,11 +599,18 @@ namespace settings {
     float contentWidth = kCreateMinWidth * m_scale;
     if (m_renderContext != nullptr && !m_createLabel.empty()) {
       const float fontSize = Style::fontSizeBody * m_scale;
-      const TextMetrics titleMetrics = m_renderContext->measureText(instanceFormTitle(), fontSize, FontWeight::Bold);
+      float measureScale = 1.0F;
+      if (wayland() != nullptr && m_parent.output != nullptr) {
+        if (const WaylandOutput* out = wayland()->findOutputByWl(m_parent.output); out != nullptr) {
+          measureScale = out->configuredScale();
+        }
+      }
+      ScaledRenderer measureRenderer(*m_renderContext, measureScale);
+      const TextMetrics titleMetrics = measureRenderer.measureText(instanceFormTitle(), fontSize, FontWeight::Bold);
       const float closeBtn = Style::controlHeightSm * m_scale;
       const float headerGap = Style::spaceSm * m_scale;
-      const float rootPadding = Style::spaceSm * m_scale * 2.0f;
-      const float sheetPadding = computePadding(m_scale) * 2.0f;
+      const float rootPadding = Style::spaceSm * m_scale * 2.0F;
+      const float sheetPadding = computePadding(m_scale) * 2.0F;
 
       const float measured = titleMetrics.width + headerGap + closeBtn + rootPadding + sheetPadding;
 
@@ -626,8 +634,8 @@ namespace settings {
 
     const auto [panelWidth, panelHeight] = popupSize();
     const auto cfg = centeredPopupConfig(
-        m_parent.width, m_parent.height, static_cast<std::uint32_t>(std::max(1.0f, panelWidth)),
-        static_cast<std::uint32_t>(std::max(1.0f, panelHeight)), m_parent.serial
+        m_parent.width, m_parent.height, static_cast<std::uint32_t>(std::max(1.0F, panelWidth)),
+        static_cast<std::uint32_t>(std::max(1.0F, panelHeight)), m_parent.serial
     );
 
     m_internalReopen = true;

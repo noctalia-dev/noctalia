@@ -33,8 +33,8 @@ namespace popup_chrome {
 
   struct Geometry {
     shell::surface_shadow::Bleed bleed{};
-    float contentWidth = 1.0f;
-    float contentHeight = 1.0f;
+    float contentWidth = 1.0F;
+    float contentHeight = 1.0F;
     std::uint32_t surfaceWidth = 1;
     std::uint32_t surfaceHeight = 1;
 
@@ -57,7 +57,7 @@ namespace popup_chrome {
   void setContentInputRegion(PopupSurface& surface, const Geometry& geometry);
   [[nodiscard]] RectNode* addShadow(
       Node& parent, const Geometry& geometry, const ShellConfig::ShadowConfig& shadow, float radius,
-      float backgroundOpacity = 1.0f
+      float backgroundOpacity = 1.0F
   );
   // Rounded popup card background at the fixed content rect. Hosts that scroll a
   // ContextMenuControl draw the card here so its corners stay pinned to the viewport

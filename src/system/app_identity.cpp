@@ -41,7 +41,7 @@ namespace app_identity {
     }
 
     std::optional<DesktopEntry>
-    findDesktopEntryByIdTail(std::string_view appKey, const std::vector<DesktopEntry>& allEntries) {
+    findDesktopEntryByIdTail(std::string_view appKey, std::span<const DesktopEntry> allEntries) {
       const std::string appLower = StringUtils::toLower(std::string(appKey));
       const std::string tailLower = StringUtils::toLower(std::string(appIdTail(appKey)));
       if (tailLower.empty() || tailLower == appLower) {
@@ -82,9 +82,11 @@ namespace app_identity {
       bool matchedDesktopEntry = false;
     };
 
-    DesktopEntryResolution
-    resolveRunningDesktopEntryWithStatus(std::string_view runningAppId, const std::vector<DesktopEntry>& allEntries) {
-      if (auto matched = findDesktopEntry(runningAppId, allEntries)) {
+    DesktopEntryResolution resolveRunningDesktopEntryWithStatus(
+        std::string_view runningAppId, std::span<const DesktopEntry> allEntries,
+        std::span<const DesktopEntry> priorityEntries = {}
+    ) {
+      if (auto matched = findDesktopEntry(runningAppId, allEntries, priorityEntries)) {
         if (runningAppId.starts_with("steam_app_") && matched->startupWmClass.empty()) {
           matched->startupWmClass = std::string(runningAppId);
         }
@@ -129,12 +131,19 @@ namespace app_identity {
     );
   }
 
-  std::optional<DesktopEntry> findDesktopEntry(std::string_view appKey, const std::vector<DesktopEntry>& allEntries) {
+  std::optional<DesktopEntry> findDesktopEntry(
+      std::string_view appKey, std::span<const DesktopEntry> allEntries, std::span<const DesktopEntry> priorityEntries
+  ) {
     if (appKey.empty()) {
       return std::nullopt;
     }
 
     const std::string appLower = StringUtils::toLower(std::string(appKey));
+    for (const auto& entry : priorityEntries) {
+      if (desktopEntryMatchesLower(entry, appLower)) {
+        return entry;
+      }
+    }
     for (const auto& entry : allEntries) {
       if (desktopEntryMatchesLower(entry, appLower)) {
         return entry;
@@ -167,12 +176,14 @@ namespace app_identity {
     return std::nullopt;
   }
 
-  DesktopEntry resolveRunningDesktopEntry(std::string_view runningAppId, const std::vector<DesktopEntry>& allEntries) {
+  DesktopEntry resolveRunningDesktopEntry(std::string_view runningAppId, std::span<const DesktopEntry> allEntries) {
     return resolveRunningDesktopEntryWithStatus(runningAppId, allEntries).entry;
   }
 
-  std::vector<ResolvedRunningApp>
-  resolveRunningApps(const std::vector<std::string>& runningAppIds, const std::vector<DesktopEntry>& allEntries) {
+  std::vector<ResolvedRunningApp> resolveRunningApps(
+      std::span<const std::string> runningAppIds, std::span<const DesktopEntry> allEntries,
+      std::span<const DesktopEntry> priorityEntries
+  ) {
     std::vector<ResolvedRunningApp> resolved;
     resolved.reserve(runningAppIds.size());
 
@@ -181,7 +192,7 @@ namespace app_identity {
 
     for (const auto& runningAppId : runningAppIds) {
       const std::string runningLower = StringUtils::toLower(runningAppId);
-      const auto resolution = resolveRunningDesktopEntryWithStatus(runningAppId, allEntries);
+      const auto resolution = resolveRunningDesktopEntryWithStatus(runningAppId, allEntries, priorityEntries);
       std::string dedupeKey = resolution.matchedDesktopEntry ? StringUtils::toLower(resolution.entry.id) : runningLower;
       if (dedupeKey.empty()) {
         dedupeKey = runningLower;

@@ -9,11 +9,11 @@
 
 namespace desktop_widgets {
 
-  inline float widgetContentScale(float baseUiScale) { return std::max(0.01f, baseUiScale); }
+  inline float widgetContentScale(float baseUiScale) { return std::max(0.01F, baseUiScale); }
 
   inline void widgetNodeScale(const DesktopWidgetState& state, float& outScaleX, float& outScaleY) {
-    outScaleX = state.flipX ? -1.0f : 1.0f;
-    outScaleY = state.flipY ? -1.0f : 1.0f;
+    outScaleX = state.flipX ? -1.0F : 1.0F;
+    outScaleY = state.flipY ? -1.0F : 1.0F;
   }
 
   inline std::string outputKey(const WaylandOutput& output) {
@@ -88,7 +88,7 @@ namespace desktop_widgets {
       return nullptr;
     }
     const WidgetTransformClampResult clamped = clampWidgetCenterToOutput(
-        state.cx, state.cy, intrinsicWidth, intrinsicHeight, 1.0f, state.rotationRad, outputLogicalWidth(*output),
+        state.cx, state.cy, intrinsicWidth, intrinsicHeight, 1.0F, state.rotationRad, outputLogicalWidth(*output),
         outputLogicalHeight(*output), kDesktopWidgetMinVisibleFraction
     );
     state.cx = clamped.cx;

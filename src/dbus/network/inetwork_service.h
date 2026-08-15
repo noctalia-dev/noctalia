@@ -2,7 +2,6 @@
 
 #include "dbus/network/network_types.h"
 
-#include <cstdint>
 #include <functional>
 #include <string>
 #include <vector>
@@ -15,6 +14,7 @@ class INetworkService {
 public:
   using ChangeCallback = std::function<void(const NetworkState&, NetworkChangeOrigin)>;
   using WirelessFeedbackCallback = std::function<void(bool enabled)>;
+  using WirelessEnabledCompletion = std::function<void(bool success)>;
 
   virtual ~INetworkService() = default;
 
@@ -33,7 +33,7 @@ public:
   virtual bool deactivateVpnConnection(const VpnConnectionInfo& vpn) = 0;
   [[nodiscard]] virtual bool canActivateWiredConnection() const noexcept { return false; }
   virtual bool activateWiredConnection() { return false; }
-  virtual void setWirelessEnabled(bool enabled) = 0;
+  virtual void setWirelessEnabled(bool enabled, WirelessEnabledCompletion onComplete = {}) = 0;
   virtual void disconnect() = 0;
   virtual void forgetSsid(const std::string& ssid) = 0;
   [[nodiscard]] virtual bool hasSavedConnection(const std::string& ssid) const = 0;

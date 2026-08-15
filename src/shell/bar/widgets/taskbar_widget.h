@@ -47,25 +47,33 @@ struct TaskbarWidgetOptions {
   bool minimal = false;
   bool groupSingleIconPerApp = false;
   bool showActiveIndicator = true;
-  float activeOpacity = 1.0f;
-  float inactiveOpacity = 1.0f;
-  float pinnedOpacity = 0.5f;
+  ColorSpec activeIndicatorColor = colorSpecFromRole(ColorRole::Primary);
+  float activeOpacity = 1.0F;
+  float inactiveOpacity = 1.0F;
+  std::vector<std::string> pinned;
+  float pinnedOpacity = 0.5F;
   ColorSpec focusedColor = colorSpecFromRole(ColorRole::Primary);
   ColorSpec occupiedColor = colorSpecFromRole(ColorRole::Secondary);
   ColorSpec emptyColor = colorSpecFromRole(ColorRole::Secondary);
   ColorSpec urgentColor = colorSpecFromRole(ColorRole::Error);
   bool showWindowTitle = false;
-  float windowTitleMaxWidth = 100.0f;
-  float taskbarMaxWidth = 8192.0f;
+  int windowTitleMaxWidth = 100;
+  int taskbarMaxWidth = 8192;
+};
+
+struct TaskbarWidgetContext {
   std::string barPosition;
   std::string barName;
-  // Config key for [widget.<name>] overrides (pin list lives here).
+  // Config key for [widget.<name>] overrides.
   std::string widgetName;
 };
 
 class TaskbarWidget : public Widget {
 public:
-  TaskbarWidget(CompositorPlatform& platform, ConfigService& config, wl_output* output, TaskbarWidgetOptions options);
+  TaskbarWidget(
+      CompositorPlatform& platform, ConfigService& config, wl_output* output, TaskbarWidgetOptions options,
+      TaskbarWidgetContext context
+  );
   ~TaskbarWidget() override;
 
   void create() override;
@@ -89,6 +97,10 @@ private:
     std::string iconPath;
     std::string workspaceKey;
     std::string workspaceWindowId;
+    // Authoritative compositor window identity for focus/close actions.
+    // Unlike workspaceWindowId, never rewritten by workspace-placement
+    // reconciliation. Empty on compositors without exact identity.
+    std::string exactWindowId;
     // Desktop entry id used for pin persistence / launch (empty for unmatched windows).
     std::string desktopEntryId;
     std::uint64_t workspaceOrder = std::numeric_limits<std::uint64_t>::max();
@@ -157,12 +169,13 @@ private:
   [[nodiscard]] static bool taskInWorkspaceGroup(const TaskModel& task, const WorkspaceModel& ws);
   [[nodiscard]] static const TaskModel*
   resolveTask(const std::vector<TaskModel>& tasks, TaskRef ref, std::uint64_t currentGeneration);
+  [[nodiscard]] static std::string_view workspaceBindingWindowId(const TaskModel& task);
   void activateTaskModel(const TaskModel& task);
   void closeTaskModel(const TaskModel& task);
   void applyPinnedMerge(std::vector<TaskModel>& tasks);
   void activateOrLaunchPinned(const TaskModel& task);
   void launchDesktopEntry(const TaskModel& task);
-  [[nodiscard]] std::vector<std::string> pinnedConfigIds() const;
+  [[nodiscard]] const std::vector<std::string>& pinnedConfigIds() const noexcept;
   [[nodiscard]] static bool taskMatchesDesktopEntry(const TaskModel& task, const DesktopEntry& entry);
   void setEntryPinned(const DesktopEntry& entry, bool pinned);
   [[nodiscard]] std::optional<DesktopEntry> desktopEntryForTask(const TaskModel& task) const;
@@ -185,9 +198,10 @@ private:
   bool m_minimal = false;
   bool m_groupSingleIconPerApp = false;
   bool m_showActiveIndicator = true;
-  float m_activeOpacity = 1.0f;
-  float m_inactiveOpacity = 1.0f;
-  float m_pinnedOpacity = 0.5f;
+  ColorSpec m_activeIndicatorColor = colorSpecFromRole(ColorRole::Primary);
+  float m_activeOpacity = 1.0F;
+  float m_inactiveOpacity = 1.0F;
+  float m_pinnedOpacity = 0.5F;
   ColorSpec m_focusedColor = colorSpecFromRole(ColorRole::Primary);
   ColorSpec m_occupiedColor = colorSpecFromRole(ColorRole::Secondary);
   ColorSpec m_emptyColor = colorSpecFromRole(ColorRole::Secondary);
@@ -200,8 +214,8 @@ private:
   std::string m_widgetName;
   bool m_rebuildPending = true;
   bool m_vertical = false;
-  float m_containerWidth = 0.0f;
-  float m_containerHeight = 0.0f;
+  float m_containerWidth = 0.0F;
+  float m_containerHeight = 0.0F;
   std::uint64_t m_textMetricsGeneration = 0;
 
   Flex* m_root = nullptr;
@@ -221,9 +235,10 @@ private:
   std::unique_ptr<ContextMenuPopup> m_contextMenuPopup;
   std::vector<zwlr_foreign_toplevel_handle_v1*> m_contextMenuHandles;
   zwlr_foreign_toplevel_handle_v1* m_contextMenuPrimaryHandle = nullptr;
-  // KDE has no wlr foreign-toplevel handles; close targets use title/appId/uuid instead.
-  std::vector<ToplevelInfo> m_contextMenuKdeWindows;
-  ToplevelInfo m_contextMenuKdePrimary;
+  // KDE and Niri ext-foreign-toplevel tasks close through ToplevelInfo rather
+  // than a wlr foreign-toplevel handle.
+  std::vector<ToplevelInfo> m_contextMenuInfoWindows;
+  ToplevelInfo m_contextMenuInfoPrimary;
   std::uint64_t m_desktopEntriesVersion = 0;
   IconResolver m_iconResolver;
   Signal<>::ScopedConnection m_appIconColorizeConn;

@@ -14,13 +14,13 @@ class DesktopFancyAudioVisualizerWidget : public DesktopWidget {
 public:
   struct Options {
     FancyAudioVisualizerMode mode = FancyAudioVisualizerMode::BarsRings;
-    float sensitivity = 1.5f;
-    float rotationSpeed = 0.5f;
-    float barWidth = 0.6f;
-    float ringOpacity = 0.8f;
-    float bloomIntensity = 0.5f;
-    float waveThickness = 1.0f;
-    float innerDiameter = 0.7f;
+    float sensitivity = 1.5F;
+    float rotationSpeed = 0.5F;
+    float barWidth = 0.6F;
+    float ringOpacity = 0.8F;
+    float bloomIntensity = 0.5F;
+    float waveThickness = 1.0F;
+    float innerDiameter = 0.7F;
     bool fadeWhenIdle = true;
     ColorSpec primaryColor = colorSpecFromRole(ColorRole::Primary);
     ColorSpec secondaryColor = colorSpecFromRole(ColorRole::Secondary);
@@ -68,7 +68,7 @@ private:
 
   std::uint64_t m_listenerId = 0;
   FancyAudioVisualizer* m_visualizer = nullptr;
-  float m_shaderTime = 0.0f;
+  float m_shaderTime = 0.0F;
   bool m_pendingSpectrumUpdate = false;
   bool m_spectrumTextureInitialized = false;
   bool m_editorPreview = false;

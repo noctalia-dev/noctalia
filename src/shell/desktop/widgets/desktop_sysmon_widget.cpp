@@ -19,14 +19,15 @@
 
 namespace {
 
-  constexpr float kBaseWidth = 180.0f;
-  constexpr float kBaseHeight = 80.0f;
-  constexpr float kGraphLineWidth = 0.75f;
+  constexpr float kBaseWidth = 180.0F;
+  constexpr float kBaseHeight = 80.0F;
+  constexpr float kGraphLineWidth = 0.75F;
   constexpr double kBytesPerMb = 1000.0 * 1000.0;
+  constexpr double kFreqFallbackCeilingMhz = 5000.0;
 
   [[nodiscard]] ColorSpec gaugeTrackColor(const ColorSpec& fill) {
     ColorSpec track = fill;
-    track.alpha *= 0.3f;
+    track.alpha *= 0.3F;
     return track;
   }
 
@@ -55,16 +56,16 @@ namespace {
   bool needsGpuVram(DesktopSysmonStat stat) { return stat == DesktopSysmonStat::GpuVram; }
 
   struct GlyphInkBounds {
-    float left = 0.0f;
-    float right = 0.0f;
+    float left = 0.0F;
+    float right = 0.0F;
     [[nodiscard]] float width() const noexcept { return right - left; }
   };
 
   [[nodiscard]] GlyphInkBounds glyphHorizontalInkBounds(float boxWidth, const TextMetrics& metrics) {
-    const float halfSpan = (metrics.right - metrics.left) * 0.5f;
+    const float halfSpan = (metrics.right - metrics.left) * 0.5F;
     return {
-        .left = boxWidth * 0.5f - halfSpan,
-        .right = boxWidth * 0.5f + halfSpan,
+        .left = boxWidth * 0.5F - halfSpan,
+        .right = boxWidth * 0.5F + halfSpan,
     };
   }
 
@@ -138,7 +139,7 @@ void DesktopSysmonWidget::create() {
   if (m_displayMode == DesktopSysmonDisplayMode::Graph) {
     auto graph = std::make_unique<Graph>();
     graph->setLineWidth(kGraphLineWidth);
-    graph->setFillOpacity(0.2f);
+    graph->setFillOpacity(0.2F);
     m_graph = static_cast<Graph*>(rootNode->addChild(std::move(graph)));
 
     if (m_stat2.has_value()) {
@@ -153,20 +154,20 @@ void DesktopSysmonWidget::create() {
         ui::progressBar({
             .fill = m_lineColor,
             .track = gaugeTrackColor(m_lineColor),
-            .progress = 0.0f,
+            .progress = 0.0F,
         })
     ));
   }
 
   if (m_showLabel) {
-    const ColorSpec shadow = colorSpecFromRole(ColorRole::Shadow, 0.5f);
+    const ColorSpec shadow = colorSpecFromRole(ColorRole::Shadow, 0.5F);
     auto label = ui::label({
         .out = &m_label,
         .fontWeight = FontWeight::Medium,
-        .minWidth = m_labelMinWidth > 0.0f ? std::optional<float>{m_labelMinWidth} : std::nullopt,
+        .minWidth = m_labelMinWidth > 0.0F ? std::optional<float>{m_labelMinWidth} : std::nullopt,
     });
     if (m_shadow) {
-      label->setShadow(shadow, 0.0f, 1.0f);
+      label->setShadow(shadow, 0.0F, 1.0F);
     }
     rootNode->addChild(std::move(label));
 
@@ -176,7 +177,7 @@ void DesktopSysmonWidget::create() {
           .fontWeight = FontWeight::Medium,
       });
       if (m_shadow) {
-        label2->setShadow(shadow, 0.0f, 1.0f);
+        label2->setShadow(shadow, 0.0F, 1.0F);
       }
       rootNode->addChild(std::move(label2));
     }
@@ -189,7 +190,7 @@ bool DesktopSysmonWidget::needsFrameTick() const {
   if (m_displayMode == DesktopSysmonDisplayMode::Gauge) {
     return true;
   }
-  return m_scrollProgress < 1.0f;
+  return m_scrollProgress < 1.0F;
 }
 
 void DesktopSysmonWidget::onFrameTick(float deltaMs, Renderer& renderer) {
@@ -261,7 +262,7 @@ bool DesktopSysmonWidget::applySetting(
     if (const auto* v = std::get_if<std::int64_t>(&value)) {
       m_labelMinWidth = static_cast<float>(*v);
       if (m_label != nullptr) {
-        m_label->setMinWidth(m_labelMinWidth > 0.0f ? m_labelMinWidth * m_contentScale : 0.0f);
+        m_label->setMinWidth(m_labelMinWidth > 0.0F ? m_labelMinWidth * m_contentScale : 0.0F);
       }
       requestLayout();
       return true;
@@ -313,11 +314,11 @@ bool DesktopSysmonWidget::applySetting(
   if (key == "shadow") {
     if (const auto* v = std::get_if<bool>(&value)) {
       m_shadow = *v;
-      const ColorSpec shadow = colorSpecFromRole(ColorRole::Shadow, 0.5f);
+      const ColorSpec shadow = colorSpecFromRole(ColorRole::Shadow, 0.5F);
       for (Glyph* glyph : {m_glyph, m_glyph2}) {
         if (glyph != nullptr) {
           if (m_shadow)
-            glyph->setShadow(shadow, 0.0f, 1.0f);
+            glyph->setShadow(shadow, 0.0F, 1.0F);
           else
             glyph->clearShadow();
         }
@@ -325,7 +326,7 @@ bool DesktopSysmonWidget::applySetting(
       for (Label* label : {m_label, m_label2}) {
         if (label != nullptr) {
           if (m_shadow)
-            label->setShadow(shadow, 0.0f, 1.0f);
+            label->setShadow(shadow, 0.0F, 1.0F);
           else
             label->clearShadow();
         }
@@ -360,31 +361,31 @@ void DesktopSysmonWidget::doLayout(Renderer& renderer) {
 void DesktopSysmonWidget::layoutGaugeMode(Renderer& renderer) {
   const float scale = m_contentScale;
   const float gap = Style::spaceXs * scale;
-  const ColorSpec shadow = colorSpecFromRole(ColorRole::Shadow, 0.5f);
+  const ColorSpec shadow = colorSpecFromRole(ColorRole::Shadow, 0.5F);
   const bool stacked = m_gaugeLayout == DesktopSysmonGaugeLayout::Vertical;
 
   m_glyph->setGlyphSize(Style::baseGlyphSize * scale);
   if (m_shadow) {
-    m_glyph->setShadow(shadow, 0.0f, 1.0f);
+    m_glyph->setShadow(shadow, 0.0F, 1.0F);
   }
   m_glyph->measure(renderer);
   const float glyphH = m_glyph->height();
 
   if (m_label != nullptr) {
     m_label->setFontSize((stacked ? Style::fontSizeCaption : Style::fontSizeBody) * scale);
-    m_label->setMinWidth(m_labelMinWidth > 0.0f ? m_labelMinWidth * scale : 0.0f);
+    m_label->setMinWidth(m_labelMinWidth > 0.0F ? m_labelMinWidth * scale : 0.0F);
     m_label->measure(renderer);
   }
-  const float labelW = m_label != nullptr ? m_label->width() : 0.0f;
-  const float labelH = m_label != nullptr ? m_label->height() : 0.0f;
+  const float labelW = m_label != nullptr ? m_label->width() : 0.0F;
+  const float labelH = m_label != nullptr ? m_label->height() : 0.0F;
 
   if (m_gauge == nullptr) {
     return;
   }
 
   const float baseSize = Style::fontSizeBody * scale;
-  const float gaugeStem = std::round(baseSize * 0.85f);
-  const float gaugeThickness = std::max(3.0f, roundf(baseSize * 0.3f));
+  const float gaugeStem = std::round(baseSize * 0.85F);
+  const float gaugeThickness = std::max(3.0F, roundf(baseSize * 0.3F));
   const float glyphSize = Style::baseGlyphSize * scale;
   const TextMetrics glyphMetrics = glyphMetricsFor(renderer, glyphName(m_stat), glyphSize);
   const GlyphInkBounds ink = glyphHorizontalInkBounds(m_glyph->width(), glyphMetrics);
@@ -393,18 +394,18 @@ void DesktopSysmonWidget::layoutGaugeMode(Renderer& renderer) {
     m_gauge->setOrientation(ProgressBarOrientation::Horizontal);
     const float trackW = std::max(ink.width(), gaugeStem);
     const float trackH = gaugeThickness;
-    m_gauge->setRadius(trackH / 2.0f);
+    m_gauge->setRadius(trackH / 2.0F);
     float contentW = trackW;
     if (m_label != nullptr) {
       contentW = std::max(contentW, labelW);
     }
-    const float glyphX = std::round((contentW - ink.width()) * 0.5f - ink.left);
-    m_glyph->setPosition(glyphX, 0.0f);
-    m_gauge->setPosition(std::round((contentW - trackW) * 0.5f), glyphH + gap);
+    const float glyphX = std::round((contentW - ink.width()) * 0.5F - ink.left);
+    m_glyph->setPosition(glyphX, 0.0F);
+    m_gauge->setPosition(std::round((contentW - trackW) * 0.5F), glyphH + gap);
     m_gauge->setSize(trackW, trackH);
     float totalH = glyphH + gap + trackH;
     if (m_label != nullptr) {
-      m_label->setPosition(std::round((contentW - labelW) * 0.5f), totalH + gap);
+      m_label->setPosition(std::round((contentW - labelW) * 0.5F), totalH + gap);
       totalH += gap + labelH;
     }
     root()->setSize(contentW, totalH);
@@ -412,20 +413,20 @@ void DesktopSysmonWidget::layoutGaugeMode(Renderer& renderer) {
     m_gauge->setOrientation(ProgressBarOrientation::Vertical);
     const float gaugeW = gaugeThickness;
     const float gaugeH = gaugeStem;
-    m_gauge->setRadius(gaugeW / 2.0f);
+    m_gauge->setRadius(gaugeW / 2.0F);
     float contentH = std::max(glyphH, gaugeH);
     if (m_label != nullptr) {
       contentH = std::max(contentH, labelH);
     }
-    const float gaugeY = std::round((contentH - gaugeH) * 0.5f);
-    const float glyphX = std::round(std::max(0.0f, -ink.left));
-    m_glyph->setPosition(glyphX, std::round((contentH - glyphH) * 0.5f));
+    const float gaugeY = std::round((contentH - gaugeH) * 0.5F);
+    const float glyphX = std::round(std::max(0.0F, -ink.left));
+    m_glyph->setPosition(glyphX, std::round((contentH - glyphH) * 0.5F));
     const float gaugeX = std::round(glyphX + ink.right + gap);
     m_gauge->setPosition(gaugeX, gaugeY);
     m_gauge->setSize(gaugeW, gaugeH);
     float totalW = gaugeX + gaugeW;
     if (m_label != nullptr) {
-      m_label->setPosition(totalW + gap, std::round((contentH - labelH) * 0.5f));
+      m_label->setPosition(totalW + gap, std::round((contentH - labelH) * 0.5F));
       totalW = m_label->x() + labelW;
     }
     root()->setSize(totalW, contentH);
@@ -441,7 +442,7 @@ void DesktopSysmonWidget::layoutGraphMode(Renderer& renderer) {
   const float glyphSize = Style::baseGlyphSize * scale;
   const float groupGap = Style::spaceXs * scale;
   const float legendGap = Style::spaceMd * scale;
-  const ColorSpec shadow = colorSpecFromRole(ColorRole::Shadow, 0.5f);
+  const ColorSpec shadow = colorSpecFromRole(ColorRole::Shadow, 0.5F);
 
   m_graph->setColor(m_lineColor);
   if (m_stat2.has_value()) {
@@ -453,7 +454,7 @@ void DesktopSysmonWidget::layoutGraphMode(Renderer& renderer) {
     glyph->setGlyphSize(glyphSize);
     glyph->setColor(color);
     if (m_shadow) {
-      glyph->setShadow(shadow, 0.0f, 1.0f);
+      glyph->setShadow(shadow, 0.0F, 1.0F);
     }
     glyph->measure(renderer);
     width = glyph->width();
@@ -467,10 +468,10 @@ void DesktopSysmonWidget::layoutGraphMode(Renderer& renderer) {
     }
   };
 
-  float w1 = 0.0f, h1 = 0.0f;
+  float w1 = 0.0F, h1 = 0.0F;
   measureGroup(m_glyph, m_label, m_lineColor, w1, h1);
 
-  float w2 = 0.0f, h2 = 0.0f;
+  float w2 = 0.0F, h2 = 0.0F;
   if (m_glyph2 != nullptr) {
     measureGroup(m_glyph2, m_label2, m_lineColor2, w2, h2);
   }
@@ -482,19 +483,19 @@ void DesktopSysmonWidget::layoutGraphMode(Renderer& renderer) {
   const float headerH = std::max(h1, h2);
   const float contentW = std::max(totalW, headerW);
 
-  m_graph->setPosition(0.0f, 0.0f);
+  m_graph->setPosition(0.0F, 0.0F);
   m_graph->setSize(contentW, chartH);
   m_graph->sync(renderer);
 
   const float headerY = chartH + Style::spaceSm * scale;
-  float x = std::round((contentW - headerW) * 0.5f);
+  float x = std::round((contentW - headerW) * 0.5F);
 
   auto placeGroup = [&](Glyph* glyph, Label* label) {
-    glyph->setPosition(x, headerY + std::round((headerH - glyph->height()) * 0.5f));
+    glyph->setPosition(x, headerY + std::round((headerH - glyph->height()) * 0.5F));
     x += glyph->width();
     if (label != nullptr) {
       x += groupGap;
-      label->setPosition(x, headerY + std::round((headerH - label->height()) * 0.5f));
+      label->setPosition(x, headerY + std::round((headerH - label->height()) * 0.5F));
       x += label->width();
     }
   };
@@ -535,7 +536,7 @@ void DesktopSysmonWidget::syncGaugeProgress(double normalized) {
 
   const bool stacked = m_gaugeLayout == DesktopSysmonGaugeLayout::Vertical;
   const float fillAxis = stacked ? m_gauge->width() : m_gauge->height();
-  const float progress = (fillAxis > 0.0f && normalized * fillAxis < 1.0f) ? 0.0f : static_cast<float>(normalized);
+  const float progress = (fillAxis > 0.0F && normalized * fillAxis < 1.0F) ? 0.0F : static_cast<float>(normalized);
   m_gauge->setProgress(progress);
   requestRedraw();
 }
@@ -575,6 +576,8 @@ std::pair<double, double> DesktopSysmonWidget::currentThresholds() const {
     return {monitorConfig.cpuUsageActivityThreshold, monitorConfig.cpuUsageCriticalThreshold};
   case DesktopSysmonStat::CpuTemp:
     return {monitorConfig.cpuTempActivityThreshold, monitorConfig.cpuTempCriticalThreshold};
+  case DesktopSysmonStat::CpuFreq:
+    return {monitorConfig.cpuFreqActivityThreshold, monitorConfig.cpuFreqCriticalThreshold};
   case DesktopSysmonStat::GpuTemp:
     return {monitorConfig.gpuTempActivityThreshold, monitorConfig.gpuTempCriticalThreshold};
   case DesktopSysmonStat::GpuUsage:
@@ -604,6 +607,8 @@ double DesktopSysmonWidget::currentGradientValue() const {
     return std::max(stats.cpuUsagePercent, 0.0);
   case DesktopSysmonStat::CpuTemp:
     return stats.cpuTempC.value_or(0.0);
+  case DesktopSysmonStat::CpuFreq:
+    return stats.cpuFreqAvailable ? stats.cpuFreqMhz / 1000.0 : 0.0;
   case DesktopSysmonStat::GpuTemp:
     return stats.gpuTempC.value_or(0.0);
   case DesktopSysmonStat::GpuUsage:
@@ -679,6 +684,13 @@ double DesktopSysmonWidget::normalizedFromStats(
     }
     return 0.0;
 
+  case DesktopSysmonStat::CpuFreq: {
+    const double maxMhz = stats.cpuMaxFreqMhz.value_or(0.0);
+    return stats.cpuFreqAvailable
+        ? std::clamp(stats.cpuFreqMhz / (maxMhz > 0.0 ? maxMhz : kFreqFallbackCeilingMhz), 0.0, 1.0)
+        : 0.0;
+  }
+
   case DesktopSysmonStat::GpuTemp:
     if (stats.gpuTempC.has_value()) {
       const double temp = *stats.gpuTempC;
@@ -749,42 +761,48 @@ std::string DesktopSysmonWidget::formatValueFor(DesktopSysmonStat stat) const {
 
   switch (stat) {
   case DesktopSysmonStat::CpuUsage:
-    return std::format("{:.0f}%", stats.cpuUsagePercent);
+    return std::format("{:.0F}%", stats.cpuUsagePercent);
 
   case DesktopSysmonStat::CpuTemp:
     if (stats.cpuTempC.has_value()) {
-      return std::format("{:.0f}°C", *stats.cpuTempC);
+      return std::format("{:.0F}°C", *stats.cpuTempC);
+    }
+    return "--";
+
+  case DesktopSysmonStat::CpuFreq:
+    if (stats.cpuFreqAvailable) {
+      return std::format("{:.1f} GHz", stats.cpuFreqMhz / 1000.0);
     }
     return "--";
 
   case DesktopSysmonStat::GpuTemp:
     if (stats.gpuTempC.has_value()) {
-      return std::format("{:.0f}°C", *stats.gpuTempC);
+      return std::format("{:.0F}°C", *stats.gpuTempC);
     }
     return "--";
 
   case DesktopSysmonStat::GpuUsage:
     if (stats.gpuUsagePercent.has_value()) {
-      return std::format("{:.0f}%", *stats.gpuUsagePercent);
+      return std::format("{:.0F}%", *stats.gpuUsagePercent);
     }
     return "--";
 
   case DesktopSysmonStat::GpuVram:
     if (stats.gpuVramUsedBytes.has_value() && stats.gpuVramTotalBytes.has_value() && *stats.gpuVramTotalBytes > 0) {
       return std::format(
-          "{:.0f}%",
+          "{:.0F}%",
           100.0 * static_cast<double>(*stats.gpuVramUsedBytes) / static_cast<double>(*stats.gpuVramTotalBytes)
       );
     }
     return "--";
 
   case DesktopSysmonStat::RamPct:
-    return std::format("{:.0f}%", stats.ramUsagePercent);
+    return std::format("{:.0F}%", stats.ramUsagePercent);
 
   case DesktopSysmonStat::SwapPct:
     if (stats.swapTotalMb > 0) {
       return std::format(
-          "{:.0f}%", 100.0 * static_cast<double>(stats.swapUsedMb) / static_cast<double>(stats.swapTotalMb)
+          "{:.0F}%", 100.0 * static_cast<double>(stats.swapUsedMb) / static_cast<double>(stats.swapTotalMb)
       );
     }
     return "--";
@@ -812,7 +830,7 @@ void DesktopSysmonWidget::clearGraph() {
   m_graph->setValues2({});
   m_graphInitialized = false;
   m_lastSampleAt = {};
-  m_scrollProgress = 1.0f;
+  m_scrollProgress = 1.0F;
   requestRedraw();
 }
 
@@ -861,13 +879,13 @@ void DesktopSysmonWidget::updateGraph(Renderer& renderer) {
 
 float DesktopSysmonWidget::scrollProgressForSample(std::chrono::steady_clock::time_point sampledAt) const {
   if (sampledAt == std::chrono::steady_clock::time_point{}) {
-    return 1.0f;
+    return 1.0F;
   }
 
   const auto sampleInterval = m_monitor != nullptr ? m_monitor->historySampleInterval()
                                                    : std::chrono::steady_clock::duration{std::chrono::seconds(1)};
   if (sampleInterval.count() <= 0) {
-    return 1.0f;
+    return 1.0F;
   }
 
   const auto elapsed = std::chrono::steady_clock::now() - sampledAt;
@@ -881,6 +899,8 @@ const char* DesktopSysmonWidget::glyphName(DesktopSysmonStat stat) {
     return "cpu-usage";
   case DesktopSysmonStat::CpuTemp:
     return "cpu-temperature";
+  case DesktopSysmonStat::CpuFreq:
+    return "performance";
   case DesktopSysmonStat::GpuTemp:
     return "temperature";
   case DesktopSysmonStat::GpuUsage:

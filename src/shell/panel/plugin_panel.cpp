@@ -22,8 +22,8 @@ namespace {
 
   constexpr Logger kLog("plugin-panel");
   constexpr int kTickIntervalMs = 1000;
-  constexpr float kDefaultPanelWidth = 480.0f;
-  constexpr float kDefaultPanelHeight = 400.0f;
+  constexpr float kDefaultPanelWidth = 480.0F;
+  constexpr float kDefaultPanelHeight = 400.0F;
 
   // Manifest vocabulary (scripting::kPanelKeyboardFocusModes) to layer-shell mode.
   // The manifest parser rejects anything else, so an unknown token here means the
@@ -55,8 +55,8 @@ namespace {
 
 PluginPanel::PluginPanel(scripting::PluginRuntimeContext context, PluginPanelOptions options)
     : m_entryId(std::move(context.entryId)), m_sourcePath(std::move(context.sourcePath)),
-      m_pluginDir(m_sourcePath.parent_path()), m_scriptApi(context.scriptApi), m_settings(std::move(context.settings)),
-      m_fileWatcher(context.fileWatcher), m_httpClient(context.httpClient), m_clipboard(context.clipboard),
+      m_pluginDir(std::move(context.pluginDir)), m_scriptApi(context.scriptApi),
+      m_settings(std::move(context.settings)), m_fileWatcher(context.fileWatcher), m_httpClient(context.httpClient),
       m_preferredWidth(options.width > 0.0 ? static_cast<float>(options.width) : kDefaultPanelWidth),
       m_preferredHeight(options.height > 0.0 ? static_cast<float>(options.height) : kDefaultPanelHeight),
       m_widthFill(options.widthFill), m_heightFill(options.heightFill),
@@ -148,7 +148,7 @@ void PluginPanel::create() {
       ui::column({
           .out = &m_contentFlex,
           .align = FlexAlign::Stretch,
-          .flexGrow = 1.0f,
+          .flexGrow = 1.0F,
       }),
       ui::node({
           .out = &m_dragOverlay,
@@ -205,6 +205,9 @@ void PluginPanel::startScript() {
     if (token == nullptr || !*token) {
       return;
     }
+    if (result.modulePathsKnown) {
+      m_scriptWatcher.setModulePaths(result.modulePaths);
+    }
     handleScriptResult(std::move(result));
   });
 
@@ -241,7 +244,7 @@ void PluginPanel::onFrameTick(float deltaMs) {
   }
   // Coalesced like the desktop-widget path: a slow script only ever sees the latest frame.
   (void)m_runtime->enqueueCallStrings(
-      "onFrameTick", std::format("{:.3f}", deltaMs), {}, makeScriptSnapshot(), /*coalesce=*/true
+      "onFrameTick", std::format("{:.3F}", deltaMs), {}, makeScriptSnapshot(), /*coalesce=*/true
   );
   // Keep the frame loop alive while animating.
   PanelManager::instance().requestAnimationFrameForPanel(m_entryId);
@@ -259,7 +262,7 @@ void PluginPanel::doLayout(Renderer& renderer, float width, float height) {
   m_flex->setSize(width, height);
   m_flex->layout(renderer);
   if (m_dragOverlay != nullptr) {
-    m_dragOverlay->setPosition(0.0f, 0.0f);
+    m_dragOverlay->setPosition(0.0F, 0.0F);
     m_dragOverlay->setFrameSize(width, height);
   }
 }
@@ -355,19 +358,10 @@ std::string PluginPanel::resolvePluginPath(const std::string& path) const {
 }
 
 void PluginPanel::setupScriptWatch() {
-  if (m_sourcePath.empty() || m_fileWatcher == nullptr) {
-    return;
-  }
-  m_watchId = m_fileWatcher->watch(m_sourcePath, [this] { reloadScript(); }, FileWatcher::WatchTrigger::WriteCompleted);
+  m_scriptWatcher.start(m_fileWatcher, m_sourcePath, [this] { reloadScript(); });
 }
 
-void PluginPanel::teardownScriptWatch() {
-  if (m_watchId == 0 || m_fileWatcher == nullptr) {
-    return;
-  }
-  m_fileWatcher->unwatch(m_watchId);
-  m_watchId = 0;
-}
+void PluginPanel::teardownScriptWatch() { m_scriptWatcher.stop(); }
 
 void PluginPanel::reloadScript() {
   std::string source = readFile(m_sourcePath);

@@ -10,6 +10,7 @@
 #include "i18n/i18n.h"
 #include "render/animation/animation_manager.h"
 #include "render/core/color.h"
+#include "render/core/renderer.h"
 #include "render/core/texture_manager.h"
 #include "render/render_context.h"
 #include "render/scene/input_area.h"
@@ -39,13 +40,91 @@ namespace capture {
   namespace {
 
     constexpr Logger kLog("screenshot-region");
-    constexpr float kDimensionFontSize = 14.0f;
-    constexpr float kDimensionCursorOffsetX = 12.0f;
-    constexpr float kDimensionCursorOffsetY = 14.0f;
-    constexpr float kDimensionPaddingX = 6.0f;
-    constexpr float kDimensionPaddingY = 4.0f;
-    constexpr float kSelectionBorderWidth = 2.0f;
-    constexpr float kDimOpacity = 0.65f;
+    constexpr float kDimensionFontSize = 14.0F;
+    constexpr float kDimensionCursorOffsetX = 12.0F;
+    constexpr float kDimensionCursorOffsetY = 14.0F;
+    constexpr float kDimensionPaddingX = 6.0F;
+    constexpr float kDimensionPaddingY = 4.0F;
+    constexpr float kSelectionBorderWidth = 2.0F;
+    constexpr float kDimOpacity = 0.65F;
+
+    [[nodiscard]] capture::DragMode hitTestSelection(double x, double y, double x0, double y0, double x1, double y1) {
+      constexpr double kHandleMargin = 15.0; // Hitbox size in pixels
+
+      const bool withinX = x >= x0 - kHandleMargin && x <= x1 + kHandleMargin;
+      const bool withinY = y >= y0 - kHandleMargin && y <= y1 + kHandleMargin;
+
+      if (!withinX || !withinY)
+        return capture::DragMode::None;
+
+      const double distLeft = std::abs(x - x0);
+      const double distRight = std::abs(x - x1);
+      const double distTop = std::abs(y - y0);
+      const double distBottom = std::abs(y - y1);
+
+      bool nearLeft = distLeft <= kHandleMargin;
+      bool nearRight = distRight <= kHandleMargin;
+      bool nearTop = distTop <= kHandleMargin;
+      bool nearBottom = distBottom <= kHandleMargin;
+
+      // Narrow selections can overlap opposing hit zones; bind the pointer to the nearer edge.
+      if (nearLeft && nearRight) {
+        if (distLeft < distRight)
+          nearRight = false;
+        else
+          nearLeft = false;
+      }
+      if (nearTop && nearBottom) {
+        if (distTop < distBottom)
+          nearBottom = false;
+        else
+          nearTop = false;
+      }
+
+      if (nearTop && nearLeft)
+        return capture::DragMode::TopLeftCorner;
+      if (nearTop && nearRight)
+        return capture::DragMode::TopRightCorner;
+      if (nearBottom && nearLeft)
+        return capture::DragMode::BottomLeftCorner;
+      if (nearBottom && nearRight)
+        return capture::DragMode::BottomRightCorner;
+
+      if (nearTop && x >= x0 && x <= x1)
+        return capture::DragMode::TopEdge;
+      if (nearBottom && x >= x0 && x <= x1)
+        return capture::DragMode::BottomEdge;
+      if (nearLeft && y >= y0 && y <= y1)
+        return capture::DragMode::LeftEdge;
+      if (nearRight && y >= y0 && y <= y1)
+        return capture::DragMode::RightEdge;
+
+      if (x > x0 && x < x1 && y > y0 && y < y1)
+        return capture::DragMode::Move;
+
+      return capture::DragMode::None;
+    }
+
+    [[nodiscard]] std::uint32_t cursorShapeForDragMode(capture::DragMode mode) {
+      switch (mode) {
+      case capture::DragMode::TopEdge:
+      case capture::DragMode::BottomEdge:
+        return WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_NS_RESIZE;
+      case capture::DragMode::LeftEdge:
+      case capture::DragMode::RightEdge:
+        return WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_EW_RESIZE;
+      case capture::DragMode::TopLeftCorner:
+      case capture::DragMode::BottomRightCorner:
+        return WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_NWSE_RESIZE;
+      case capture::DragMode::TopRightCorner:
+      case capture::DragMode::BottomLeftCorner:
+        return WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_NESW_RESIZE;
+      case capture::DragMode::Move:
+        return WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_ALL_SCROLL;
+      default:
+        return WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_CROSSHAIR;
+      }
+    }
 
     [[nodiscard]] const WaylandOutput* findOutput(const WaylandConnection& wayland, wl_output* output) {
       for (const auto& entry : wayland.outputs()) {
@@ -102,7 +181,7 @@ namespace capture {
               .gap = Style::spaceSm,
               .paddingV = Style::spaceSm,
               .paddingH = Style::spaceMd,
-              .configure = [](Flex& control) { control.setCardStyle(1.0f, 0.94f, true); },
+              .configure = [](Flex& control) { control.setCardStyle(1.0F, 0.94F, true); },
           },
           ui::label({
               .text = i18n::tr("bar.screenshot.choose-display"),
@@ -135,7 +214,7 @@ namespace capture {
               .paddingV = Style::spaceSm,
               .paddingH = Style::spaceMd,
               .visible = false,
-              .configure = [](Flex& control) { control.setCardStyle(1.0f, 0.94f, true); },
+              .configure = [](Flex& control) { control.setCardStyle(1.0F, 0.94F, true); },
           },
           ui::label({
               .out = &hintOut,
@@ -356,8 +435,9 @@ namespace capture {
   void ScreenshotRegionOverlay::destroySurfaces() {
     for (auto& inst : m_instances) {
       if (inst != nullptr) {
-        if (inst->backdrop != nullptr && m_renderContext != nullptr) {
-          inst->backdrop->clear(*m_renderContext);
+        if (inst->backdrop != nullptr && inst->surface != nullptr && m_renderContext != nullptr) {
+          Renderer& renderer = inst->surface->renderTarget().renderer();
+          inst->backdrop->clear(renderer);
         }
         inst->inputDispatcher.setSceneRoot(nullptr);
         inst->animations.cancelAll();
@@ -378,13 +458,14 @@ namespace capture {
       return;
     }
 
+    // The overlay's EGL surface could not be made current (e.g. EGL_BAD_ALLOC when the
+    // driver is out of video memory). Painting would be a no-op, leaving an invisible
+    // fullscreen surface that eats input, so tear down and report instead of spinning.
     if (!m_renderContext->makeCurrent(inst.surface->renderTarget())) {
-      // The overlay's EGL surface could not be made current (e.g. EGL_BAD_ALLOC when the
-      // driver is out of video memory). Painting would be a no-op, leaving an invisible
-      // fullscreen surface that eats input, so tear down and report instead of spinning.
       abortWithError(i18n::tr("bar.screenshot.overlay-alloc-failed"));
       return;
     }
+    Renderer& renderer = inst.surface->renderTarget().renderer();
 
     const bool needsSceneBuild = inst.sceneRoot == nullptr
         || static_cast<std::uint32_t>(std::round(inst.sceneRoot->width())) != width
@@ -429,53 +510,151 @@ namespace capture {
       });
     } else {
       input->setOnPress([this, output = inst.output](const InputArea::PointerData& data) {
-        if (data.button != BTN_LEFT) {
+        if (data.button != BTN_LEFT)
           return;
-        }
+
         if (!data.pressed) {
-          if (!m_dragging) {
+          if (!m_dragging)
             return;
-          }
           m_dragging = false;
           // completeSelection() tears down surfaces; defer past InputDispatcher::pointerButton.
           DeferredCall::callLater([this]() { completeSelection(); });
           return;
         }
-        if (m_confirming) {
-          m_confirming = false;
-        }
+
         const auto* out = findOutput(*m_wayland, output);
-        if (out == nullptr) {
+        if (out == nullptr)
           return;
-        }
+
+        const double globalX = static_cast<double>(out->logicalX) + static_cast<double>(data.localX);
+        const double globalY = static_cast<double>(out->logicalY) + static_cast<double>(data.localY);
+
         m_dragging = true;
-        m_startGlobalX = static_cast<double>(out->logicalX) + static_cast<double>(data.localX);
-        m_startGlobalY = static_cast<double>(out->logicalY) + static_cast<double>(data.localY);
-        m_currentGlobalX = m_startGlobalX;
-        m_currentGlobalY = m_startGlobalY;
+
+        if (m_confirming) {
+          const double x0 = std::min(m_startGlobalX, m_currentGlobalX);
+          const double y0 = std::min(m_startGlobalY, m_currentGlobalY);
+          const double x1 = std::max(m_startGlobalX, m_currentGlobalX);
+          const double y1 = std::max(m_startGlobalY, m_currentGlobalY);
+
+          m_dragMode = hitTestSelection(globalX, globalY, x0, y0, x1, y1);
+
+          if (m_dragMode == DragMode::None) {
+            // Clicked outside the selection, start a new one
+            m_confirming = false;
+            m_dragMode = DragMode::NewSelection;
+          }
+        } else {
+          m_dragMode = DragMode::NewSelection;
+        }
+
+        if (m_dragMode == DragMode::NewSelection) {
+          m_startGlobalX = globalX;
+          m_startGlobalY = globalY;
+          m_currentGlobalX = globalX;
+          m_currentGlobalY = globalY;
+
+          m_cursorGlobalX = globalX;
+          m_cursorGlobalY = globalY;
+        } else if (m_dragMode == DragMode::Move) {
+          m_moveOffsetX = globalX;
+          m_moveOffsetY = globalY;
+        } else {
+          // Calculate anchors (the opposite side of what we are dragging)
+          const double x0 = std::min(m_startGlobalX, m_currentGlobalX);
+          const double y0 = std::min(m_startGlobalY, m_currentGlobalY);
+          const double x1 = std::max(m_startGlobalX, m_currentGlobalX);
+          const double y1 = std::max(m_startGlobalY, m_currentGlobalY);
+
+          if (m_dragMode == DragMode::LeftEdge
+              || m_dragMode == DragMode::TopLeftCorner
+              || m_dragMode == DragMode::BottomLeftCorner) {
+            m_startGlobalX = x1;
+            m_currentGlobalX = globalX;
+          } else if (
+              m_dragMode == DragMode::RightEdge
+              || m_dragMode == DragMode::TopRightCorner
+              || m_dragMode == DragMode::BottomRightCorner
+          ) {
+            m_startGlobalX = x0;
+            m_currentGlobalX = globalX;
+          }
+
+          if (m_dragMode == DragMode::TopEdge
+              || m_dragMode == DragMode::TopLeftCorner
+              || m_dragMode == DragMode::TopRightCorner) {
+            m_startGlobalY = y1;
+            m_currentGlobalY = globalY;
+          } else if (
+              m_dragMode == DragMode::BottomEdge
+              || m_dragMode == DragMode::BottomLeftCorner
+              || m_dragMode == DragMode::BottomRightCorner
+          ) {
+            m_startGlobalY = y0;
+            m_currentGlobalY = globalY;
+          }
+
+          m_cursorGlobalX = globalX;
+          m_cursorGlobalY = globalY;
+        }
+
         updateSelectionVisuals();
         for (auto& instance : m_instances) {
-          if (instance->surface != nullptr) {
+          if (instance->surface != nullptr)
             instance->surface->requestRedraw();
-          }
         }
       });
 
-      input->setOnMotion([this, output = inst.output](const InputArea::PointerData& data) {
-        if (!m_dragging) {
-          return;
-        }
+      input->setOnMotion([this, output = inst.output, inputPtr = input.get()](const InputArea::PointerData& data) {
         const auto* out = findOutput(*m_wayland, output);
-        if (out == nullptr) {
+        if (out == nullptr)
+          return;
+
+        const double globalX = static_cast<double>(out->logicalX) + static_cast<double>(data.localX);
+        const double globalY = static_cast<double>(out->logicalY) + static_cast<double>(data.localY);
+
+        if (!m_dragging) {
+          if (m_confirming) {
+            const double x0 = std::min(m_startGlobalX, m_currentGlobalX);
+            const double y0 = std::min(m_startGlobalY, m_currentGlobalY);
+            const double x1 = std::max(m_startGlobalX, m_currentGlobalX);
+            const double y1 = std::max(m_startGlobalY, m_currentGlobalY);
+
+            DragMode hoverMode = hitTestSelection(globalX, globalY, x0, y0, x1, y1);
+            inputPtr->setCursorShape(cursorShapeForDragMode(hoverMode));
+          } else {
+            inputPtr->setCursorShape(WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_CROSSHAIR);
+          }
           return;
         }
-        m_currentGlobalX = static_cast<double>(out->logicalX) + static_cast<double>(data.localX);
-        m_currentGlobalY = static_cast<double>(out->logicalY) + static_cast<double>(data.localY);
+
+        if (m_dragMode == DragMode::Move) {
+          const double deltaX = globalX - m_moveOffsetX;
+          const double deltaY = globalY - m_moveOffsetY;
+
+          m_startGlobalX += deltaX;
+          m_currentGlobalX += deltaX;
+          m_startGlobalY += deltaY;
+          m_currentGlobalY += deltaY;
+
+          m_moveOffsetX = globalX;
+          m_moveOffsetY = globalY;
+        } else {
+          if (m_dragMode != DragMode::TopEdge && m_dragMode != DragMode::BottomEdge) {
+            m_currentGlobalX = globalX;
+          }
+          if (m_dragMode != DragMode::LeftEdge && m_dragMode != DragMode::RightEdge) {
+            m_currentGlobalY = globalY;
+          }
+
+          m_cursorGlobalX = globalX;
+          m_cursorGlobalY = globalY;
+        }
+
         updateSelectionVisuals();
         for (auto& instance : m_instances) {
-          if (instance->surface != nullptr) {
+          if (instance->surface != nullptr)
             instance->surface->requestRedraw();
-          }
         }
       });
     }
@@ -509,11 +688,11 @@ namespace capture {
           .fit = ImageFit::Stretch,
           .width = w,
           .height = h,
-          .configure = [](Image& image) { image.setPosition(0.0f, 0.0f); },
+          .configure = [](Image& image) { image.setPosition(0.0F, 0.0F); },
       });
       if (!backdrop->setSourceRaw(
-              *m_renderContext, frozen->rgba.data(), frozen->rgba.size(), frozen->width, frozen->height,
-              frozen->width * 4, PixmapFormat::RGBA, false
+              renderer, frozen->rgba.data(), frozen->rgba.size(), frozen->width, frozen->height, frozen->width * 4,
+              PixmapFormat::RGBA, false
           )) {
         kLog.warn("failed to upload frozen screenshot backdrop");
       }
@@ -526,11 +705,11 @@ namespace capture {
     auto makeDimStrip = [&]() {
       auto strip = ui::box({
           // Fixed black scrim so it darkens under every theme.
-          .fill = fixedColorSpec(rgba(0.0f, 0.0f, 0.0f, 1.0f)),
-          .width = 0.0f,
-          .height = 0.0f,
+          .fill = fixedColorSpec(rgba(0.0F, 0.0F, 0.0F, 1.0F)),
+          .width = 0.0F,
+          .height = 0.0F,
           .opacity = kDimOpacity,
-          .configure = [](Box& box) { box.setPosition(0.0f, 0.0f); },
+          .configure = [](Box& box) { box.setPosition(0.0F, 0.0F); },
       });
       return static_cast<Box*>(input->addChild(std::move(strip)));
     };
@@ -540,7 +719,7 @@ namespace capture {
     inst.dimRight = makeDimStrip();
 
     Color border = colorForRole(ColorRole::Primary);
-    border.a = 1.0f;
+    border.a = 1.0F;
 
     auto selection = ui::box({
         .visible = false,
@@ -548,12 +727,12 @@ namespace capture {
     });
 
     Color badgeFill = colorForRole(ColorRole::Surface);
-    badgeFill.a = 0.94f;
+    badgeFill.a = 0.94F;
     auto dimensionsBadge = ui::box({
         .fill = fixedColorSpec(badgeFill),
         .radius = Style::radiusSm,
         .visible = false,
-        .configure = [border](Box& box) { box.setBorder(fixedColorSpec(border), 1.0f); },
+        .configure = [border](Box& box) { box.setBorder(fixedColorSpec(border), 1.0F); },
     });
 
     auto dimensionsLabel = ui::label({
@@ -576,8 +755,8 @@ namespace capture {
       });
       Flex* pickerBarPtr = pickerBar.get();
       inst.sceneRoot->addChild(std::move(pickerBar));
-      pickerBarPtr->layout(*m_renderContext);
-      pickerBarPtr->setPosition((w - pickerBarPtr->width()) * 0.5f, Style::spaceMd);
+      pickerBarPtr->layout(renderer);
+      pickerBarPtr->setPosition((w - pickerBarPtr->width()) * 0.5F, Style::spaceMd);
     } else if (m_confirmRegion) {
       auto hintBar = buildConfirmHintBar(inst.confirmHintLabel);
       inst.confirmHint = hintBar.get();
@@ -721,8 +900,8 @@ namespace capture {
     // Stop further frames from re-triggering the abort while teardown is pending.
     m_active = false;
     kLog.warn("aborting screenshot region overlay: {}", message);
-    // Defer past the surface's prepareFrame callback before destroying its surfaces.
     FailureCallback onFailure = m_onFailure;
+    // Defer past the surface's prepareFrame callback before destroying its surfaces.
     DeferredCall::callLater([this, onFailure, message]() {
       cancel();
       if (onFailure) {
@@ -736,23 +915,23 @@ namespace capture {
     // rect (surface-local). An empty hole dims the whole surface.
     const auto layoutDimFrame = [](Instance& inst, float surfaceW, float surfaceH, float hx0, float hy0, float hx1,
                                    float hy1) {
-      hx0 = std::clamp(hx0, 0.0f, surfaceW);
-      hx1 = std::clamp(hx1, 0.0f, surfaceW);
-      hy0 = std::clamp(hy0, 0.0f, surfaceH);
-      hy1 = std::clamp(hy1, 0.0f, surfaceH);
+      hx0 = std::clamp(hx0, 0.0F, surfaceW);
+      hx1 = std::clamp(hx1, 0.0F, surfaceW);
+      hy0 = std::clamp(hy0, 0.0F, surfaceH);
+      hy1 = std::clamp(hy1, 0.0F, surfaceH);
       if (hx1 < hx0 || hy1 < hy0) {
-        hx0 = hy0 = hx1 = hy1 = 0.0f;
+        hx0 = hy0 = hx1 = hy1 = 0.0F;
       }
       if (inst.dimTop != nullptr) {
-        inst.dimTop->setPosition(0.0f, 0.0f);
+        inst.dimTop->setPosition(0.0F, 0.0F);
         inst.dimTop->setSize(surfaceW, hy0);
       }
       if (inst.dimBottom != nullptr) {
-        inst.dimBottom->setPosition(0.0f, hy1);
+        inst.dimBottom->setPosition(0.0F, hy1);
         inst.dimBottom->setSize(surfaceW, surfaceH - hy1);
       }
       if (inst.dimLeft != nullptr) {
-        inst.dimLeft->setPosition(0.0f, hy0);
+        inst.dimLeft->setPosition(0.0F, hy0);
         inst.dimLeft->setSize(hx0, hy1 - hy0);
       }
       if (inst.dimRight != nullptr) {
@@ -765,8 +944,8 @@ namespace capture {
       for (auto& inst : m_instances) {
         if (inst->surface != nullptr) {
           layoutDimFrame(
-              *inst, static_cast<float>(inst->surface->width()), static_cast<float>(inst->surface->height()), 0.0f,
-              0.0f, 0.0f, 0.0f
+              *inst, static_cast<float>(inst->surface->width()), static_cast<float>(inst->surface->height()), 0.0F,
+              0.0F, 0.0F, 0.0F
           );
         }
         if (inst->selection != nullptr) {
@@ -788,8 +967,6 @@ namespace capture {
     const int globalY1 = static_cast<int>(std::ceil(std::max(m_startGlobalY, m_currentGlobalY)));
     const int selectionWidth = globalX1 - globalX0;
     const int selectionHeight = globalY1 - globalY0;
-    const int cursorGlobalX = static_cast<int>(std::lround(m_currentGlobalX));
-    const int cursorGlobalY = static_cast<int>(std::lround(m_currentGlobalY));
 
     char dimensionText[32];
     std::snprintf(dimensionText, sizeof(dimensionText), "%dx%d", selectionWidth, selectionHeight);
@@ -802,7 +979,7 @@ namespace capture {
       const auto surfaceH = static_cast<float>(inst->surface->height());
       const auto* out = findOutput(*m_wayland, inst->output);
       if (out == nullptr) {
-        layoutDimFrame(*inst, surfaceW, surfaceH, 0.0f, 0.0f, 0.0f, 0.0f);
+        layoutDimFrame(*inst, surfaceW, surfaceH, 0.0F, 0.0F, 0.0F, 0.0F);
         inst->selection->setVisible(false);
         if (inst->dimensionsBadge != nullptr) {
           inst->dimensionsBadge->setVisible(false);
@@ -820,7 +997,7 @@ namespace capture {
       const int ix1 = std::min(globalX1, outRight);
       const int iy1 = std::min(globalY1, outBottom);
       if (ix1 <= ix0 || iy1 <= iy0) {
-        layoutDimFrame(*inst, surfaceW, surfaceH, 0.0f, 0.0f, 0.0f, 0.0f);
+        layoutDimFrame(*inst, surfaceW, surfaceH, 0.0F, 0.0F, 0.0F, 0.0F);
         inst->selection->setVisible(false);
         if (inst->dimensionsBadge != nullptr) {
           inst->dimensionsBadge->setVisible(false);
@@ -839,30 +1016,39 @@ namespace capture {
       inst->selection->setVisible(true);
       inst->selection->setPosition(holeX0 - kSelectionBorderWidth, holeY0 - kSelectionBorderWidth);
       inst->selection->setSize(
-          (holeX1 - holeX0) + (kSelectionBorderWidth * 2.0f), (holeY1 - holeY0) + (kSelectionBorderWidth * 2.0f)
+          (holeX1 - holeX0) + (kSelectionBorderWidth * 2.0F), (holeY1 - holeY0) + (kSelectionBorderWidth * 2.0F)
       );
 
-      if (inst->dimensionsBadge != nullptr
-          && inst->dimensionsLabel != nullptr
-          && m_renderContext != nullptr
-          && m_dragging) {
-        const bool cursorOnOutput = cursorGlobalX >= outLeft
-            && cursorGlobalX < outRight
-            && cursorGlobalY >= outTop
-            && cursorGlobalY < outBottom;
-        if (cursorOnOutput) {
+      if (inst->dimensionsBadge != nullptr && inst->dimensionsLabel != nullptr && m_renderContext != nullptr) {
+        const bool showBadge = m_dragging && m_dragMode != DragMode::Move;
+        const double targetX = m_cursorGlobalX;
+        const double targetY = m_cursorGlobalY;
+        const bool badgeOnOutput = targetX >= outLeft && targetX < outRight && targetY >= outTop && targetY < outBottom;
+
+        if (showBadge && badgeOnOutput) {
           inst->dimensionsLabel->setText(dimensionText);
-          inst->dimensionsLabel->measure(*m_renderContext);
-          const float badgeWidth = inst->dimensionsLabel->width() + (kDimensionPaddingX * 2.0f);
-          const float badgeHeight = inst->dimensionsLabel->height() + (kDimensionPaddingY * 2.0f);
+          inst->dimensionsLabel->measure(inst->surface->renderTarget().renderer());
+
+          const float badgeWidth = inst->dimensionsLabel->width() + (kDimensionPaddingX * 2.0F);
+          const float badgeHeight = inst->dimensionsLabel->height() + (kDimensionPaddingY * 2.0F);
           inst->dimensionsBadge->setSize(badgeWidth, badgeHeight);
 
-          float badgeX = static_cast<float>(cursorGlobalX - outLeft) + kDimensionCursorOffsetX;
-          float badgeY = static_cast<float>(cursorGlobalY - outTop) + kDimensionCursorOffsetY;
-          const float maxX = std::max(0.0f, surfaceW - badgeWidth);
-          const float maxY = std::max(0.0f, surfaceH - badgeHeight);
-          badgeX = std::clamp(badgeX, 0.0f, maxX);
-          badgeY = std::clamp(badgeY, 0.0f, maxY);
+          const double selX0 = std::min(m_startGlobalX, m_currentGlobalX);
+          const double selX1 = std::max(m_startGlobalX, m_currentGlobalX);
+          const double selY0 = std::min(m_startGlobalY, m_currentGlobalY);
+          const double selY1 = std::max(m_startGlobalY, m_currentGlobalY);
+
+          const double badgeCursorX = std::clamp(targetX, selX0, selX1);
+          const double badgeCursorY = std::clamp(targetY, selY0, selY1);
+
+          float badgeX = static_cast<float>(badgeCursorX - outLeft) + kDimensionCursorOffsetX;
+          float badgeY = static_cast<float>(badgeCursorY - outTop) + kDimensionCursorOffsetY;
+
+          const float maxX = std::max(0.0F, surfaceW - badgeWidth);
+          const float maxY = std::max(0.0F, surfaceH - badgeHeight);
+
+          badgeX = std::clamp(badgeX, 0.0F, maxX);
+          badgeY = std::clamp(badgeY, 0.0F, maxY);
 
           inst->dimensionsBadge->setPosition(badgeX, badgeY);
           inst->dimensionsLabel->setPosition(kDimensionPaddingX, kDimensionPaddingY);
@@ -892,9 +1078,10 @@ namespace capture {
         }
         const auto surfaceW = static_cast<float>(inst->surface->width());
         const auto surfaceH = static_cast<float>(inst->surface->height());
-        inst->confirmHint->layout(*m_renderContext);
+        Renderer& renderer = inst->surface->renderTarget().renderer();
+        inst->confirmHint->layout(renderer);
         const float y = std::max(Style::spaceMd, surfaceH - inst->confirmHint->height() - Style::spaceMd);
-        inst->confirmHint->setPosition((surfaceW - inst->confirmHint->width()) * 0.5f, y);
+        inst->confirmHint->setPosition((surfaceW - inst->confirmHint->width()) * 0.5F, y);
       }
     }
   }

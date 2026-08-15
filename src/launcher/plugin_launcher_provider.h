@@ -1,9 +1,9 @@
 #pragma once
 
 #include "config/config_types.h"
-#include "core/files/file_watcher.h"
 #include "core/timer_manager.h"
 #include "launcher/launcher_provider.h"
+#include "scripting/plugin_script_watcher.h"
 #include "scripting/script_runtime.h"
 
 #include <filesystem>
@@ -93,7 +93,7 @@ private:
   ClipboardService* m_clipboard = nullptr;
   std::shared_ptr<scripting::ScriptRuntime> m_runtime;
   scripting::ScriptRuntime::SubscriberId m_subscription = 0;
-  FileWatcher::WatchId m_watchId = 0;
+  scripting::PluginScriptWatcher m_scriptWatcher;
   std::function<void()> m_onResultsChanged;
   std::function<void(std::string)> m_onQueryRequested;
   std::function<void(std::string, bool)> m_onActivationDone;

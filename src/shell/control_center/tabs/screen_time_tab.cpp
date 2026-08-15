@@ -30,12 +30,12 @@ using namespace control_center;
 
 namespace {
 
-  constexpr float kChartHeight = 132.0f;
-  constexpr float kBarGap = 2.0f;
-  constexpr float kAppIconSize = 28.0f;
-  constexpr float kUsageBarHeight = 4.0f;
-  constexpr float kLegendSwatch = 6.0f;
-  constexpr float kUsageDurationFontScale = 0.85f;
+  constexpr float kChartHeight = 132.0F;
+  constexpr float kBarGap = 2.0F;
+  constexpr float kAppIconSize = 28.0F;
+  constexpr float kUsageBarHeight = 4.0F;
+  constexpr float kLegendSwatch = 6.0F;
+  constexpr float kUsageDurationFontScale = 0.85F;
 
   IconResolver g_iconResolver;
 
@@ -98,15 +98,15 @@ namespace {
 
   [[nodiscard]] Color appSeriesColor(std::string_view appKey) {
     const Color primary = colorForRole(ColorRole::Primary);
-    float baseH = 0.0f;
-    float baseS = 0.0f;
-    float baseV = 0.0f;
+    float baseH = 0.0F;
+    float baseS = 0.0F;
+    float baseV = 0.0F;
     rgbToHsv(primary, baseH, baseS, baseV);
 
-    const float hashT = static_cast<float>(hashAppKey(appKey) % 1000U) / 1000.0f;
-    const float hue = baseH + hashT * 0.72f;
-    const float sat = std::clamp(baseS * (0.82f + hashT * 0.22f), 0.38f, 0.82f);
-    const float val = std::clamp(baseV * (0.86f + (1.0f - hashT) * 0.14f), 0.52f, 0.90f);
+    const float hashT = static_cast<float>(hashAppKey(appKey) % 1000U) / 1000.0F;
+    const float hue = baseH + hashT * 0.72F;
+    const float sat = std::clamp(baseS * (0.82F + hashT * 0.22F), 0.38F, 0.82F);
+    const float val = std::clamp(baseV * (0.86F + (1.0F - hashT) * 0.14F), 0.52F, 0.90F);
     return hsv(hue, sat, val);
   }
 
@@ -180,7 +180,7 @@ std::unique_ptr<Flex> ScreenTimeTab::create() {
               .fontSize = Style::fontSizeBody * scale,
               .fontWeight = FontWeight::Medium,
               .color = colorSpecFromRole(ColorRole::OnSurface),
-              .flexGrow = 1.0f,
+              .flexGrow = 1.0F,
           })
       )
   );
@@ -188,7 +188,7 @@ std::unique_ptr<Flex> ScreenTimeTab::create() {
   auto scroll = ui::scrollView({
       .out = &m_scroll,
       .scrollbarVisible = true,
-      .flexGrow = 1.0f,
+      .flexGrow = 1.0F,
       .configure = [](ScrollView& scrollView) {
         scrollView.clearFill();
         scrollView.clearBorder();
@@ -219,7 +219,7 @@ std::unique_ptr<Flex> ScreenTimeTab::create() {
   usageCard->addChild(
       ui::label({
           .out = &m_totalLabel,
-          .fontSize = Style::fontSizeHeader * 1.6f * scale,
+          .fontSize = Style::fontSizeHeader * 1.6F * scale,
           .fontWeight = FontWeight::Bold,
           .color = colorSpecFromRole(ColorRole::OnSurface),
       })
@@ -249,14 +249,14 @@ std::unique_ptr<Flex> ScreenTimeTab::create() {
         .out = &bucketColumn.plotColumn,
         .align = FlexAlign::Stretch,
         .justify = FlexJustify::End,
-        .flexGrow = 1.0f,
+        .flexGrow = 1.0F,
         .visible = false,
     });
 
     plotColumn->addChild(
         ui::box({
             .fill = clearColorSpec(),
-            .width = 1.0f,
+            .width = 1.0F,
             .height = kChartHeight * scale,
         })
     );
@@ -277,7 +277,7 @@ std::unique_ptr<Flex> ScreenTimeTab::create() {
       hitArea->setOnClick([this, bucketIndex](const InputArea::PointerData&) { openDayDetail(bucketIndex); });
 
       auto segment = ui::box({
-          .radius = 0.0f,
+          .radius = 0.0F,
           .visible = false,
           .participatesInLayout = false,
       });
@@ -292,24 +292,46 @@ std::unique_ptr<Flex> ScreenTimeTab::create() {
         {.out = &bucketColumn.labelCell,
          .align = FlexAlign::Center,
          .justify = FlexJustify::Center,
-         .flexGrow = 1.0f,
+         .flexGrow = 1.0F,
          .visible = false,
-         .configure = [scale](Flex& cell) { cell.setMinHeight(Style::fontSizeMini * scale * 2.25f); }},
+         .configure = [scale](Flex& cell) { cell.setMinHeight(Style::fontSizeMini * scale * 2.25F); }},
         ui::label({
             .out = &bucketColumn.label,
             .fontSize = Style::fontSizeMini * scale,
             .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
-            .flexGrow = 1.0f,
+            .flexGrow = 1.0F,
             .visible = false,
-            .configure = [this, bucketIndex](Label& label) {
+            .configure = [](Label& label) {
               label.setTextAlign(TextAlign::Center);
-              const auto requestHoverRedraw = [this]() { PanelManager::instance().requestRedraw(); };
-              label.setOnEnter([requestHoverRedraw](const InputArea::PointerData&) { requestHoverRedraw(); });
-              label.setOnLeave(requestHoverRedraw);
-              label.setOnClick([this, bucketIndex](const InputArea::PointerData&) { openDayDetail(bucketIndex); });
+              // Full-cell InputArea overlay owns hover/click/tooltip hits.
+              label.setHitTestVisible(false);
             },
         })
     );
+    auto labelHit = ui::inputArea({
+        .out = &bucketColumn.labelHit,
+        .visible = false,
+        .participatesInLayout = false,
+        .onEnter =
+            [this, bucketIndex](const InputArea::PointerData&) {
+              if (m_rangeDays <= 1 || !m_detailDayKey.empty()) {
+                return;
+              }
+              if (Label* dayLabel = m_bucketColumns[bucketIndex].label; dayLabel != nullptr) {
+                dayLabel->setColor(colorSpecFromRole(ColorRole::Primary));
+              }
+              PanelManager::instance().requestRedraw();
+            },
+        .onLeave =
+            [this, bucketIndex]() {
+              if (Label* dayLabel = m_bucketColumns[bucketIndex].label; dayLabel != nullptr) {
+                dayLabel->setColor(colorSpecFromRole(ColorRole::OnSurfaceVariant));
+              }
+              PanelManager::instance().requestRedraw();
+            },
+        .onClick = [this, bucketIndex](const InputArea::PointerData&) { openDayDetail(bucketIndex); },
+    });
+    labelCell->addChild(std::move(labelHit));
     chartLabelRow->addChild(std::move(labelCell));
   }
   usageCard->addChild(std::move(chartPlotRow));
@@ -349,7 +371,7 @@ std::unique_ptr<Flex> ScreenTimeTab::create() {
           .out = &m_appRows[i].cell,
           .align = FlexAlign::Stretch,
           .fillWidth = true,
-          .flexGrow = 1.0f,
+          .flexGrow = 1.0F,
           .visible = false,
       });
 
@@ -363,7 +385,7 @@ std::unique_ptr<Flex> ScreenTimeTab::create() {
       row->addChild(
           ui::box({
               .out = &m_appRows[i].chartSwatch,
-              .radius = kLegendSwatch * scale * 0.5f,
+              .radius = kLegendSwatch * scale * 0.5F,
               .width = kLegendSwatch * scale,
               .height = kLegendSwatch * scale,
               .visible = false,
@@ -388,7 +410,7 @@ std::unique_ptr<Flex> ScreenTimeTab::create() {
           ui::glyph({
               .out = &m_appRows[i].iconFallback,
               .glyph = "app-window",
-              .glyphSize = kAppIconSize * 0.55f * scale,
+              .glyphSize = kAppIconSize * 0.55F * scale,
               .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
               .participatesInLayout = false,
           })
@@ -398,7 +420,7 @@ std::unique_ptr<Flex> ScreenTimeTab::create() {
 
       row->addChild(
           ui::column(
-              {.align = FlexAlign::Stretch, .gap = Style::spaceXs * scale, .flexGrow = 1.0f},
+              {.align = FlexAlign::Stretch, .gap = Style::spaceXs * scale, .flexGrow = 1.0F},
               ui::row(
                   {.align = FlexAlign::Center, .gap = Style::spaceSm * scale, .fillWidth = true},
                   ui::label({
@@ -406,7 +428,7 @@ std::unique_ptr<Flex> ScreenTimeTab::create() {
                       .fontSize = Style::fontSizeBody * scale,
                       .color = colorSpecFromRole(ColorRole::OnSurface),
                       .maxLines = 1,
-                      .flexGrow = 1.0f,
+                      .flexGrow = 1.0F,
                   }),
                   ui::label({
                       .out = &m_appRows[i].duration,
@@ -428,7 +450,7 @@ std::unique_ptr<Flex> ScreenTimeTab::create() {
                   ui::box({
                       .out = &m_appRows[i].barFill,
                       .radius = Style::scaledRadiusSm(scale),
-                      .width = 0.0f,
+                      .width = 0.0F,
                       .height = kUsageBarHeight * scale,
                   })
               )
@@ -473,7 +495,7 @@ void ScreenTimeTab::cancelRangeSlide() {
   m_startRangeSlideIn = false;
   if (wasAnimating && m_scroll != nullptr) {
     m_scroll->setPosition(m_scrollBaseX, m_scrollBaseY);
-    m_scroll->setOpacity(1.0f);
+    m_scroll->setOpacity(1.0F);
   }
 }
 
@@ -483,7 +505,7 @@ void ScreenTimeTab::applyRangeSlide(float progress, bool slidingIn) {
   }
 
   const float travel = m_root->width();
-  if (travel <= 0.0f) {
+  if (travel <= 0.0F) {
     return;
   }
 
@@ -491,11 +513,11 @@ void ScreenTimeTab::applyRangeSlide(float progress, bool slidingIn) {
   const float baseX = m_scrollBaseX;
   const float baseY = m_scrollBaseY;
   if (slidingIn) {
-    m_scroll->setPosition(baseX + direction * travel * (1.0f - progress), baseY);
-    m_scroll->setOpacity(0.7f + 0.3f * progress);
+    m_scroll->setPosition(baseX + direction * travel * (1.0F - progress), baseY);
+    m_scroll->setOpacity(0.7F + 0.3F * progress);
   } else {
     m_scroll->setPosition(baseX - direction * travel * progress, baseY);
-    m_scroll->setOpacity(1.0f - 0.3f * progress);
+    m_scroll->setOpacity(1.0F - 0.3F * progress);
   }
 }
 
@@ -521,7 +543,7 @@ void ScreenTimeTab::beginRangeSlideOut(int nextRangeDays) {
 
   PanelManager::instance().requestFrameTick();
   m_rangeSlideAnimId = animations->animate(
-      0.0f, 1.0f, static_cast<float>(Style::animFast), Easing::EaseOutCubic,
+      0.0F, 1.0F, static_cast<float>(Style::animFast), Easing::EaseOutCubic,
       [this](float progress) {
         applyRangeSlide(progress, false);
         PanelManager::instance().requestRedraw();
@@ -542,10 +564,10 @@ void ScreenTimeTab::beginRangeSlideIn() {
     return;
   }
 
-  applyRangeSlide(0.0f, true);
+  applyRangeSlide(0.0F, true);
   PanelManager::instance().requestFrameTick();
   m_rangeSlideAnimId = animations->animate(
-      0.0f, 1.0f, static_cast<float>(Style::animFast), Easing::EaseOutCubic,
+      0.0F, 1.0F, static_cast<float>(Style::animFast), Easing::EaseOutCubic,
       [this](float progress) {
         applyRangeSlide(progress, true);
         PanelManager::instance().requestRedraw();
@@ -554,7 +576,7 @@ void ScreenTimeTab::beginRangeSlideIn() {
         m_rangeSlideAnimId = 0;
         if (m_scroll != nullptr) {
           m_scroll->setPosition(m_scrollBaseX, m_scrollBaseY);
-          m_scroll->setOpacity(1.0f);
+          m_scroll->setOpacity(1.0F);
         }
       },
       m_root
@@ -662,7 +684,7 @@ void ScreenTimeTab::doUpdate(Renderer& renderer) {
   }
 
   syncContent(renderer);
-  bindAppNameMaxWidths(renderer, m_root != nullptr ? m_root->width() : 0.0f);
+  bindAppNameMaxWidths(renderer, m_root != nullptr ? m_root->width() : 0.0F);
   if (m_root != nullptr) {
     m_root->layout(renderer);
   }
@@ -672,22 +694,25 @@ void ScreenTimeTab::doUpdate(Renderer& renderer) {
 }
 
 void ScreenTimeTab::bindAppNameMaxWidths(Renderer& renderer, float gridWidth) {
-  if (gridWidth <= 0.0f) {
+  if (gridWidth <= 0.0F) {
     return;
   }
 
   const float scale = contentScale();
   const float columnGap = Style::spaceSm * scale;
-  const float cellWidth = std::max(1.0f, (gridWidth - columnGap) * 0.5f);
+  const float cellWidth = std::max(1.0F, (gridWidth - columnGap) * 0.5F);
   const float rowGap = Style::spaceSm * scale;
-  const float leadingWidth = kLegendSwatch * scale + kAppIconSize * scale + rowGap * 2.0f;
-  const float textColumnWidth = std::max(1.0f, cellWidth - leadingWidth);
+  const float leadingWidth = kLegendSwatch * scale + kAppIconSize * scale + rowGap * 2.0F;
+  const float textColumnWidth = std::max(1.0F, cellWidth - leadingWidth);
 
-  float maxDurationWidth = 0.0f;
+  float maxDurationWidth = 0.0F;
   for (const auto& widgets : m_appRows) {
     if (widgets.duration == nullptr || widgets.row == nullptr || !widgets.row->visible()) {
       continue;
     }
+    // Drop the previous column lock so measure reflects the current duration text.
+    // Otherwise a long 14-day string keeps min-width after switching back to Today.
+    widgets.duration->setMinWidth(0.0F);
     widgets.duration->measure(renderer);
     maxDurationWidth = std::max(maxDurationWidth, widgets.duration->width());
   }
@@ -699,14 +724,14 @@ void ScreenTimeTab::bindAppNameMaxWidths(Renderer& renderer, float gridWidth) {
     }
 
     if (widgets.duration != nullptr) {
-      if (maxDurationWidth > 0.0f) {
+      if (maxDurationWidth > 0.0F) {
         widgets.duration->setMinWidth(maxDurationWidth);
       } else {
-        widgets.duration->setMinWidth(0.0f);
+        widgets.duration->setMinWidth(0.0F);
       }
     }
 
-    const float nameMax = std::max(1.0f, textColumnWidth - maxDurationWidth - rowGap);
+    const float nameMax = std::max(1.0F, textColumnWidth - maxDurationWidth - rowGap);
     widgets.name->setMaxWidth(nameMax);
   }
 }
@@ -765,22 +790,28 @@ void ScreenTimeTab::syncContent(Renderer& renderer) {
     if (columnWidgets.plotColumn != nullptr) {
       columnWidgets.plotColumn->setVisible(bucketActive);
       if (bucketActive) {
-        columnWidgets.plotColumn->setFlexGrow(1.0f);
+        columnWidgets.plotColumn->setFlexGrow(1.0F);
       }
     }
     if (columnWidgets.labelCell != nullptr) {
       columnWidgets.labelCell->setVisible(bucketActive);
       if (bucketActive) {
-        columnWidgets.labelCell->setFlexGrow(1.0f);
+        columnWidgets.labelCell->setFlexGrow(1.0F);
       }
+    }
+    if (columnWidgets.labelHit != nullptr && !bucketActive) {
+      columnWidgets.labelHit->setVisible(false);
+      columnWidgets.labelHit->clearTooltip();
     }
 
     if (columnWidgets.label != nullptr) {
       if (!bucketActive) {
         columnWidgets.label->setVisible(false);
-        columnWidgets.label->clearTooltip();
       } else if (snapshot.hourlyBuckets) {
-        columnWidgets.label->clearTooltip();
+        if (columnWidgets.labelHit != nullptr) {
+          columnWidgets.labelHit->clearTooltip();
+          columnWidgets.labelHit->setVisible(false);
+        }
         const int hour = static_cast<int>(bucket);
         if (hour == 0) {
           columnWidgets.label->setText(i18n::tr("control-center.screen-time.hour-0"));
@@ -803,10 +834,16 @@ void ScreenTimeTab::syncContent(Renderer& renderer) {
         const auto dayTotal = bucket < snapshot.buckets.size() ? snapshot.buckets[bucket] : std::chrono::seconds{0};
         auto tip = appUsageTooltip(snapshot.bucketLabels[bucket], dayTotal);
         tip.push_back({.key = i18n::tr("control-center.screen-time.view-day"), .value = {}});
-        columnWidgets.label->setTooltip(std::move(tip));
+        if (columnWidgets.labelHit != nullptr) {
+          columnWidgets.labelHit->setTooltip(std::move(tip));
+          columnWidgets.labelHit->setVisible(true);
+        }
       } else {
         columnWidgets.label->setVisible(false);
-        columnWidgets.label->clearTooltip();
+        if (columnWidgets.labelHit != nullptr) {
+          columnWidgets.labelHit->setVisible(false);
+          columnWidgets.labelHit->clearTooltip();
+        }
       }
       columnWidgets.label->setFontSize(Style::fontSizeMini * scale);
     }
@@ -820,7 +857,7 @@ void ScreenTimeTab::syncContent(Renderer& renderer) {
         if (columnWidgets.segments[seriesIdx] != nullptr) {
           columnWidgets.segments[seriesIdx]->setVisible(false);
         }
-        columnWidgets.segmentHeights[seriesIdx] = 0.0f;
+        columnWidgets.segmentHeights[seriesIdx] = 0.0F;
       }
       continue;
     }
@@ -836,7 +873,7 @@ void ScreenTimeTab::syncContent(Renderer& renderer) {
     }
     const float columnHeight = peakChartBucketSeconds > 0
         ? chartHeight * static_cast<float>(bucketChartTotal.count()) / static_cast<float>(peakChartBucketSeconds)
-        : 0.0f;
+        : 0.0F;
 
     for (std::size_t seriesIdx = 0; seriesIdx < kMaxChartSeries; ++seriesIdx) {
       Box* segment = columnWidgets.segments[seriesIdx];
@@ -850,7 +887,7 @@ void ScreenTimeTab::syncContent(Renderer& renderer) {
           hitArea->clearTooltip();
         }
         segment->setVisible(false);
-        columnWidgets.segmentHeights[seriesIdx] = 0.0f;
+        columnWidgets.segmentHeights[seriesIdx] = 0.0F;
         continue;
       }
 
@@ -862,7 +899,7 @@ void ScreenTimeTab::syncContent(Renderer& renderer) {
           hitArea->clearTooltip();
         }
         segment->setVisible(false);
-        columnWidgets.segmentHeights[seriesIdx] = 0.0f;
+        columnWidgets.segmentHeights[seriesIdx] = 0.0F;
         continue;
       }
 
@@ -870,7 +907,7 @@ void ScreenTimeTab::syncContent(Renderer& renderer) {
           columnHeight * static_cast<float>(seriesSeconds.count()) / static_cast<float>(bucketChartTotal.count());
       segment->setFill(series.chartColor);
       segment->setVisible(true);
-      columnWidgets.segmentHeights[seriesIdx] = std::max(2.0f, segmentHeight);
+      columnWidgets.segmentHeights[seriesIdx] = std::max(2.0F, segmentHeight);
       if (hitArea != nullptr) {
         hitArea->setVisible(true);
         hitArea->setTooltip(appUsageTooltip(series.displayName, seriesSeconds));
@@ -925,7 +962,7 @@ void ScreenTimeTab::syncContent(Renderer& renderer) {
     if (widgets.barFill != nullptr) {
       widgets.barFill->setFill(app.chartColor);
       widgets.barFillRatio =
-          topTotal.count() > 0 ? static_cast<float>(app.total.count()) / static_cast<float>(topTotal.count()) : 0.0f;
+          topTotal.count() > 0 ? static_cast<float>(app.total.count()) / static_cast<float>(topTotal.count()) : 0.0F;
     }
 
     updateIconForRow(renderer, widgets, app.appKey, scale);
@@ -964,25 +1001,25 @@ void ScreenTimeTab::layoutChart(Renderer& renderer) {
   }
 
   float rowWidth = m_chartPlotRow->width();
-  if (rowWidth <= 0.0f && m_usageCard != nullptr) {
+  if (rowWidth <= 0.0F && m_usageCard != nullptr) {
     rowWidth = m_usageCard->width();
   }
-  auto columnWidth = activeBuckets > 0 && rowWidth > 0.0f
+  auto columnWidth = activeBuckets > 0 && rowWidth > 0.0F
       ? (rowWidth - barGap * static_cast<float>(activeBuckets - 1)) / static_cast<float>(activeBuckets)
-      : 0.0f;
+      : 0.0F;
 
-  if (columnWidth <= 0.0f && activeBuckets > 0 && m_usageCard != nullptr) {
+  if (columnWidth <= 0.0F && activeBuckets > 0 && m_usageCard != nullptr) {
     m_usageCard->layout(renderer);
     rowWidth = m_chartPlotRow->width();
-    if (rowWidth <= 0.0f) {
+    if (rowWidth <= 0.0F) {
       rowWidth = m_usageCard->width();
     }
-    columnWidth = activeBuckets > 0 && rowWidth > 0.0f
+    columnWidth = activeBuckets > 0 && rowWidth > 0.0F
         ? (rowWidth - barGap * static_cast<float>(activeBuckets - 1)) / static_cast<float>(activeBuckets)
-        : 0.0f;
+        : 0.0F;
   }
 
-  if (columnWidth > 0.0f) {
+  if (columnWidth > 0.0F) {
     for (auto& columnWidgets : m_bucketColumns) {
       if (columnWidgets.plotColumn != nullptr && columnWidgets.plotColumn->visible()) {
         columnWidgets.plotColumn->setMinWidth(columnWidth);
@@ -999,17 +1036,23 @@ void ScreenTimeTab::layoutChart(Renderer& renderer) {
     m_chartLabelRow->layout(renderer);
   }
   for (auto& columnWidgets : m_bucketColumns) {
+    if (columnWidgets.labelCell != nullptr && columnWidgets.labelCell->visible() && columnWidgets.labelHit != nullptr) {
+      columnWidgets.labelHit->setPosition(0.0F, 0.0F);
+      columnWidgets.labelHit->setSize(
+          std::max(1.0F, columnWidgets.labelCell->width()), std::max(1.0F, columnWidgets.labelCell->height())
+      );
+    }
     if (columnWidgets.plotColumn == nullptr || !columnWidgets.plotColumn->visible()) {
       continue;
     }
     columnWidgets.plotColumn->layout(renderer);
     const float resolvedColumnWidth =
-        columnWidth > 0.0f ? columnWidth : std::max(1.0f, columnWidgets.plotColumn->width());
+        columnWidth > 0.0F ? columnWidth : std::max(1.0F, columnWidgets.plotColumn->width());
     const float plotHeight = std::max(chartHeight, columnWidgets.plotColumn->height());
 
     if (columnWidgets.track != nullptr) {
       columnWidgets.track->setVisible(true);
-      columnWidgets.track->setPosition(0.0f, plotHeight - chartHeight);
+      columnWidgets.track->setPosition(0.0F, plotHeight - chartHeight);
       columnWidgets.track->setSize(resolvedColumnWidth, chartHeight);
     }
 
@@ -1018,15 +1061,15 @@ void ScreenTimeTab::layoutChart(Renderer& renderer) {
       Box* segment = columnWidgets.segments[seriesIdx];
       InputArea* hitArea = columnWidgets.segmentHits[seriesIdx];
       const float segmentHeight = columnWidgets.segmentHeights[seriesIdx];
-      if (segment == nullptr || !segment->visible() || segmentHeight <= 0.0f) {
+      if (segment == nullptr || !segment->visible() || segmentHeight <= 0.0F) {
         continue;
       }
       stackTop -= segmentHeight;
       if (hitArea != nullptr) {
-        hitArea->setPosition(0.0f, stackTop);
+        hitArea->setPosition(0.0F, stackTop);
         hitArea->setSize(resolvedColumnWidth, segmentHeight);
       }
-      segment->setPosition(0.0f, 0.0f);
+      segment->setPosition(0.0F, 0.0F);
       segment->setSize(resolvedColumnWidth, segmentHeight);
     }
   }
@@ -1034,6 +1077,11 @@ void ScreenTimeTab::layoutChart(Renderer& renderer) {
 
 void ScreenTimeTab::syncDayLabelHover() {
   if (m_rangeDays <= 1 || !m_detailDayKey.empty()) {
+    for (auto& columnWidgets : m_bucketColumns) {
+      if (columnWidgets.label != nullptr && columnWidgets.label->visible()) {
+        columnWidgets.label->setColor(colorSpecFromRole(ColorRole::OnSurfaceVariant));
+      }
+    }
     return;
   }
 
@@ -1041,9 +1089,9 @@ void ScreenTimeTab::syncDayLabelHover() {
     if (columnWidgets.label == nullptr || !columnWidgets.label->visible()) {
       continue;
     }
+    const bool hovered = columnWidgets.labelHit != nullptr && columnWidgets.labelHit->hovered();
     columnWidgets.label->setColor(
-        columnWidgets.label->hovered() ? colorSpecFromRole(ColorRole::Primary)
-                                       : colorSpecFromRole(ColorRole::OnSurfaceVariant)
+        hovered ? colorSpecFromRole(ColorRole::Primary) : colorSpecFromRole(ColorRole::OnSurfaceVariant)
     );
   }
 }
@@ -1080,27 +1128,27 @@ void ScreenTimeTab::layoutAppRows(Renderer& renderer) {
     if (widgets.iconSlot != nullptr) {
       widgets.iconSlot->setSize(iconSize, iconSize);
       if (widgets.icon != nullptr) {
-        widgets.icon->setPosition(0.0f, 0.0f);
+        widgets.icon->setPosition(0.0F, 0.0F);
         widgets.icon->setSize(iconSize, iconSize);
       }
       if (widgets.iconFallback != nullptr) {
         widgets.iconFallback->measure(renderer);
-        const float glyphSize = kAppIconSize * 0.55f * scale;
-        widgets.iconFallback->setPosition((iconSize - glyphSize) * 0.5f, (iconSize - glyphSize) * 0.5f);
+        const float glyphSize = kAppIconSize * 0.55F * scale;
+        widgets.iconFallback->setPosition((iconSize - glyphSize) * 0.5F, (iconSize - glyphSize) * 0.5F);
       }
     }
     if (widgets.barHost != nullptr) {
       widgets.barHost->layout(renderer);
       const float barHeight = kUsageBarHeight * scale;
-      const float trackWidth = std::max(0.0f, widgets.barHost->width());
+      const float trackWidth = std::max(0.0F, widgets.barHost->width());
       if (widgets.barTrack != nullptr) {
         widgets.barTrack->setSize(trackWidth, barHeight);
       }
-      if (widgets.barFill != nullptr && widgets.barFillRatio > 0.0f && trackWidth > 0.0f) {
-        const float fillWidth = std::max(2.0f, trackWidth * widgets.barFillRatio);
+      if (widgets.barFill != nullptr && widgets.barFillRatio > 0.0F && trackWidth > 0.0F) {
+        const float fillWidth = std::max(2.0F, trackWidth * widgets.barFillRatio);
         widgets.barFill->setSize(fillWidth, barHeight);
       } else if (widgets.barFill != nullptr) {
-        widgets.barFill->setSize(0.0f, barHeight);
+        widgets.barFill->setSize(0.0F, barHeight);
       }
     }
   }
@@ -1131,7 +1179,7 @@ std::string ScreenTimeTab::resolveIconPath(const std::string& appKey) const {
   }
 
   std::string baseKey = appKey;
-  if (const auto sep = baseKey.find('\x1f'); sep != std::string::npos) {
+  if (const auto sep = baseKey.find('\x1F'); sep != std::string::npos) {
     baseKey = baseKey.substr(0, sep);
   }
 

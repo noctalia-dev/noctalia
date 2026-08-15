@@ -16,7 +16,10 @@ namespace {
 
   bool settingPathNeedsSceneRebuild(const std::vector<std::string>& path) {
     if (path.size() == 2 && path[0] == "shell") {
-      return path[1] == "corner_radius_scale" || path[1] == "font_family" || path[1] == "lang";
+      return path[1] == "corner_radius_scale"
+          || path[1] == "font_family"
+          || path[1] == "lang"
+          || path[1] == "settings_window_translucent";
     }
     if (path.size() == 2 && path[0] == "accessibility") {
       return path[1] == "ui_scale";
@@ -53,8 +56,8 @@ void SettingsWindow::warnOnUnusableCustomSchedule(const std::vector<std::string>
 }
 
 void SettingsWindow::markSettingsWriteSuccess(bool requestRebuild) {
-  if (m_editorSheetPopup != nullptr && m_editorSheetPopup->isOpen()) {
-    m_editorSheetPopup->clearStatusMessage();
+  if (m_editorSheetModal != nullptr && m_editorSheetModal->isOpen()) {
+    m_editorSheetModal->clearStatusMessage();
   }
   m_statusMessage.clear();
   m_statusIsError = false;
@@ -66,8 +69,8 @@ void SettingsWindow::markSettingsWriteSuccess(bool requestRebuild) {
 }
 
 void SettingsWindow::markSettingsWriteError(std::string message) {
-  if (m_editorSheetPopup != nullptr && m_editorSheetPopup->isOpen()) {
-    m_editorSheetPopup->setStatusMessage(std::move(message), true);
+  if (m_editorSheetModal != nullptr && m_editorSheetModal->isOpen()) {
+    m_editorSheetModal->setStatusMessage(std::move(message), true);
     return;
   }
   m_statusMessage = std::move(message);
@@ -204,6 +207,27 @@ void SettingsWindow::clearSettingOverrides(std::vector<std::vector<std::string>>
   });
 }
 
+void SettingsWindow::resetBarLane(std::vector<std::string> lanePath) {
+  DeferredCall::callLater([this, lanePath = std::move(lanePath)]() mutable {
+    if (m_config == nullptr) {
+      return;
+    }
+    bool changed = false;
+    const bool needsSceneRebuild = settingPathNeedsSceneRebuild(lanePath);
+    const auto previousResetPaths = currentPageResetPaths();
+    if (!m_config->resetBarLaneOverride(lanePath, &changed)) {
+      markSettingsWriteError(i18n::tr("settings.errors.write"));
+      return;
+    }
+
+    const std::vector<std::vector<std::string>> paths{lanePath};
+    const bool registryPatched = changed && !needsSceneRebuild && tryPatchSettingsRegistryResetValues(paths);
+    finishSettingsWrite(
+        changed, needsSceneRebuild, previousResetPaths != currentPageResetPaths(), registryPatched, true
+    );
+  });
+}
+
 void SettingsWindow::renameWidgetInstance(
     std::string oldName, std::string newName,
     std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>> referenceOverrides
@@ -253,7 +277,7 @@ void SettingsWindow::createBar(std::string name) {
       m_renamingMonitorOverrideMatch.clear();
       m_pendingDeleteMonitorOverrideBarName.clear();
       m_pendingDeleteMonitorOverrideMatch.clear();
-      m_contentScrollState.offset = 0.0f;
+      m_contentScrollState.offset = 0.0F;
       markSettingsWriteSuccess();
       return;
     }
@@ -279,7 +303,7 @@ void SettingsWindow::renameBar(std::string oldName, std::string newName) {
       m_renamingMonitorOverrideMatch.clear();
       m_pendingDeleteMonitorOverrideBarName.clear();
       m_pendingDeleteMonitorOverrideMatch.clear();
-      m_contentScrollState.offset = 0.0f;
+      m_contentScrollState.offset = 0.0F;
       markSettingsWriteSuccess();
       return;
     }
@@ -296,7 +320,7 @@ void SettingsWindow::deleteBar(std::string name) {
       if (m_selectedBarName == name) {
         m_selectedBarName.clear();
         m_selectedMonitorOverride.clear();
-        m_contentScrollState.offset = 0.0f;
+        m_contentScrollState.offset = 0.0F;
       }
       m_renamingBarName.clear();
       m_pendingDeleteBarName.clear();
@@ -341,7 +365,7 @@ void SettingsWindow::createMonitorOverride(std::string barName, std::string matc
       m_renamingMonitorOverrideMatch.clear();
       m_pendingDeleteMonitorOverrideBarName.clear();
       m_pendingDeleteMonitorOverrideMatch.clear();
-      m_contentScrollState.offset = 0.0f;
+      m_contentScrollState.offset = 0.0F;
       markSettingsWriteSuccess();
       return;
     }
@@ -363,7 +387,7 @@ void SettingsWindow::renameMonitorOverride(std::string barName, std::string oldM
       m_renamingMonitorOverrideMatch.clear();
       m_pendingDeleteMonitorOverrideBarName.clear();
       m_pendingDeleteMonitorOverrideMatch.clear();
-      m_contentScrollState.offset = 0.0f;
+      m_contentScrollState.offset = 0.0F;
       markSettingsWriteSuccess();
       return;
     }
@@ -379,7 +403,7 @@ void SettingsWindow::deleteMonitorOverride(std::string barName, std::string matc
     if (m_config->deleteMonitorOverride(barName, match)) {
       if (m_selectedBarName == barName && m_selectedMonitorOverride == match) {
         m_selectedMonitorOverride.clear();
-        m_contentScrollState.offset = 0.0f;
+        m_contentScrollState.offset = 0.0F;
       }
       m_renamingMonitorOverrideBarName.clear();
       m_renamingMonitorOverrideMatch.clear();

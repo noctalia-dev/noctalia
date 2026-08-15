@@ -117,7 +117,18 @@
         "error": "Error del Clima",
         "loading": "Clima...",
         "no-location": "Sin ubicación",
-        "off": "Clima apagado"
+        "off": "Clima apagado",
+        "tooltip": {
+          "condition": "Condición",
+          "high": "Alto",
+          "humidity": "Humedad",
+          "low": "Bajo",
+          "sunrise": "Amanecer",
+          "sunset": "Atardecer",
+          "temperature": "Temperatura",
+          "uv": "Indice UV",
+          "wind": "Viento"
+        }
       }
     }
   },
@@ -255,6 +266,7 @@
       "start-playback": "Comienza reproducción en una aplicación MPRIS"
     },
     "network": {
+      "available": "Disponible",
       "connect": "Conectar",
       "current-connection": "Conexión actual",
       "external-ip": "WAN {ip}",
@@ -263,6 +275,7 @@
       "password": "Contraseña",
       "password-prompt": "Introduzca contraseña",
       "password-prompt-for": "Introduzca contraseña para {ssid}",
+      "saved": "Guardadas",
       "unavailable-detail": "Instala y habilita tu servicio de red para gestionar redes desde allí",
       "unavailable-title": "Servicio de Red no disponible",
       "vpns": "VPNs",
@@ -516,7 +529,10 @@
         "show-keyboard-layout": "Distribución de teclado",
         "show-label": "Mostrar Etiqueta",
         "show-login-button": "Botón de login",
+        "show-media": "Media",
+        "show-password-hint": "Sugerencia de contraseña",
         "show-session-buttons": "Botones de sesion",
+        "show-unlock-hint": "Sugerencia desbloqueo",
         "show-vpn-label": "Mostrar etiqueta VPN",
         "show-weather": "Tiempo",
         "show-when-idle": "Mostrar cuando este inactivo",
@@ -533,6 +549,7 @@
         "stat-swap-pct": "Swap %",
         "stat2": "Estadística 2",
         "title": "Título",
+        "track-color": "Color de la pista",
         "variant": "Estilo",
         "variant-default": "Por defecto",
         "variant-destructive": "Destructivo",
@@ -949,10 +966,15 @@
           "title": "Widgets de la barra"
         },
         "group": {
+          "accordion": "Acordeón",
+          "accordion-description": "Mostrar solo el primer widget; al pasar el cursor sobre la cápsula se revela el resto",
+          "accordion-direction": "Dirección de revelado",
           "action": "Grupo",
           "border": "Borde",
           "border-description": "Rol de color del contorno de la cápsula; deja en Predeterminado para no tener contorno",
           "clear": "Eliminar",
+          "deselect": "Deseleccionar",
+          "drag": "Reordenar",
           "drawer-detached": "Panel Desacoplado",
           "drawer-glyph-closed": "Icono cuando Cerrado",
           "drawer-glyph-opened": "Icono cuando Abierto",
@@ -972,12 +994,18 @@
           "padding-description": "Relleno interior entre el borde de la cápsula y sus widgets, en píxeles",
           "radius": "Radio",
           "radius-description": "Radio de esquina de la cápsula en píxeles; Auto hereda el radio de cápsula de la barra",
+          "remove-from-group": "Eliminar del grupo",
+          "remove-orphan": "Eliminar grupo desconocido",
+          "remove-widget": "Eliminar de la barra",
+          "select": "Seleccionar para agrupar",
           "selected": "{count} seleccionados",
+          "settings-widget": "Ajustes de widget",
           "show": "Mostrar este grupo",
           "show-widget": "Mostrar este widget",
           "style": "Estilo",
           "title": "Grupo de cápsulas",
-          "ungroup": "Desagrupar"
+          "ungroup": "Desagrupar",
+          "widget-spacing": "Separacion"
         },
         "inspector": {
           "add-instance-title": "Añadir nuevo widget con nombre {widget} a {lane}",
@@ -1022,6 +1050,7 @@
             "runtime": "Runtime",
             "taskbar": {
               "grouping": "Agrupado",
+              "windows": "Ventana",
               "workspace-labels": "Etiquetas Espacios de Trabajo"
             },
             "widget": "Widget",
@@ -2325,14 +2354,15 @@
           "description-cancelled": "La consulta al Almacen de Credenciales se ha cancelado. Reintentarlo cuando este disponible.",
           "description-error": "No se puede acceder a las credenciales del Calendario desde el Almacen de Credenciales",
           "description-locked": "Las credenciales del calendario estan bloqueadas o el acceso ha sido denegado. Desbloquee el Almacen de Credenciales y reintentelo",
-          "description-migration": "Las credenciales del calendario en texto plano se moverán al Almacen de credenciales. No se usaran para sincronizar el calendario.",
+          "description-migration": "Las credenciales del calendario en texto plano se moverán al Almacen de credenciales; no se usaran para sincronizar el calendario.",
           "description-opening": "Las credenciales del calendario se usaran desde el Almacen de Credenciales",
           "description-unavailable": "No hay ningun Almacen de Credenciales en esta sesion.",
           "label": "Almacenamiento de las credenciales del Calendario"
         },
         "calendar-edit": {
           "button": "Editar",
-          "description": "Actualizar esta cuenta de calendario"
+          "description": "Actualizar esta cuenta de calendario",
+          "description-reconnect": "Se ha perdido la autorizacion de Google. Reconecte esta cuenta."
         },
         "calendar-event-date-format": {
           "description": "El formato de la fecha mostrada en el panel de los eventos para la fecha seleccionada",
@@ -2348,7 +2378,8 @@
         },
         "calendar-storage": {
           "button": "Reintentar",
-          "description-unavailable": "No hay ningun Almacen de Credenciales disponible. Los eventos del Calendario permaneceran disponibles para esta sesion unicamente."
+          "description-recovery": "La cache de eventos del calendario no se puede autenticar o está dañada; reintentar despues de restaurar la key correcta, o reinicie el almacenamiento privado.",
+          "description-unavailable": "No hay ningun Almacen de Credenciales disponible; los eventos del calendario permaneceran disponibles para esta sesion unicamente."
         },
         "day-temperature": {
           "description": "Temperatura de color durante el día (Kelvin)",
@@ -2576,8 +2607,9 @@
         },
         "clipboard-storage": {
           "button": "Reintentar",
-          "description-cancelled": "El Almacen de Credenciales se ha cancelado. El historial del portapapeles permanecera disponible en esta sesion unicamente.",
-          "description-unavailable": "No hay ningun Almacen de Credenciales disponible. El historial del portapapeles permanecera disponible en esta sesion unicamente."
+          "description-cancelled": "El Almacen de Credenciales se ha cancelado; el historial del portapapeles permanecera disponible en esta sesion unicamente.",
+          "description-recovery": "El historial del portapapeles no se puede autenticar o esta dañado; reintentar despues de restaurar la key correcta, o reinicie el almacenamiento privado.",
+          "description-unavailable": "No hay ningun Almacen de Credenciales disponible; el historial del portapapeles permanecera disponible en esta sesion unicamente."
         },
         "date-format": {
           "description": "Formato de fecha predeterminado para la interfaz del shell sin configuración propia",
@@ -3071,10 +3103,6 @@
           "description": "Teñir la imagen personalizada con la configuración de color de icono del widget",
           "label": "Colorear imagen personalizada"
         },
-        "custom-labels": {
-          "description": "Asignar nombres de distribución de teclado a etiquetas personalizadas",
-          "label": "Etiquetas personalizadas"
-        },
         "detached-panel": {
           "description": "Abrir bandeja desplegable como un panel flotante con fondo propio en lugar de fusionarse con la barra",
           "label": "Panel desanclado"
@@ -3351,10 +3379,6 @@
         "show-empty-label": {
           "description": "Mostrar texto de marcador de posición cuando no haya ninguna ventana enfocada en lugar de ocultar el widget",
           "label": "Mostrar etiqueta vacía"
-        },
-        "show-icon": {
-          "description": "Mostrar el icono de este widget",
-          "label": "Mostrar icono"
         },
         "show-label": {
           "description": "Mostrar texto junto al icono",

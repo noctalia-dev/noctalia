@@ -78,9 +78,9 @@ namespace scripting::plugin_git {
       const auto r = process::runSync(args, std::move(options));
       const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
       if (ms >= kSlowGitMs) {
-        kLog.info("{} took {:.0f}ms (exit {})", desc, ms, r.exitCode);
+        kLog.info("{} took {:.0F}ms (exit {})", desc, ms, r.exitCode);
       } else {
-        kLog.debug("{} took {:.0f}ms (exit {})", desc, ms, r.exitCode);
+        kLog.debug("{} took {:.0F}ms (exit {})", desc, ms, r.exitCode);
       }
 
       return GitResult{

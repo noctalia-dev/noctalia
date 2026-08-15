@@ -72,7 +72,7 @@ void ThemeModeWidget::syncState(Renderer& renderer) {
   m_glyph->measure(renderer);
 
   if (auto* node = root(); node != nullptr) {
-    node->setOpacity(isLight ? 1.0f : 0.85f);
+    node->setOpacity(isLight ? 1.0F : 0.85F);
   }
   requestRedraw();
 }

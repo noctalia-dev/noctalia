@@ -42,7 +42,6 @@
 #include <sstream>
 #include <stdexcept>
 #include <string_view>
-#include <sys/inotify.h>
 #include <tuple>
 #include <unistd.h>
 #include <unordered_map>
@@ -51,6 +50,8 @@
 namespace schema = noctalia::config::schema;
 
 namespace {
+
+  constexpr std::uint32_t inotifyMask = IN_MODIFY | IN_CLOSE_WRITE | IN_MOVED_TO | IN_CREATE;
 
   constexpr Logger kLog("config");
 
@@ -167,25 +168,15 @@ namespace {
     if (!widget.hasSetting("scale")) {
       return;
     }
-    (void)resolveWidgetContentScale(1.0f, &widget, "widget." + std::string(widgetName) + ".scale");
-  }
-
-  void validateKeyboardLayoutWidgetSettings(std::string_view widgetName, const WidgetConfig& widget) {
-    if (widget.type != "keyboard_layout") {
-      return;
-    }
-
-    const bool showIcon = widget.getBool("show_icon", true);
-    const bool showLabel = widget.getBool("show_label", true);
-    if (!showIcon && !showLabel) {
-      throw std::runtime_error("widget." + std::string(widgetName) + ": show_icon and show_label cannot both be false");
-    }
+    (void)resolveWidgetContentScale(1.0F, &widget, "widget." + std::string(widgetName) + ".scale");
   }
 
   void validateWidgetSettings(std::string_view widgetName, const WidgetConfig& widget) {
     validateWidgetColorSettings(widgetName, widget);
     validateWidgetScaleSetting(widgetName, widget);
-    validateKeyboardLayoutWidgetSettings(widgetName, widget);
+    if (auto error = settings::validateWidgetSemantics(widget.type, &widget); error.has_value()) {
+      throw std::runtime_error("widget." + std::string(widgetName) + ": " + *error);
+    }
   }
 
   std::optional<std::string> componentOwnerId(std::string_view ownerPath, std::string_view prefix) {
@@ -262,10 +253,10 @@ namespace {
       widget.cy = static_cast<float>(*cy);
     }
     if (auto boxWidth = finiteDouble(widgetTable["box_width"])) {
-      widget.boxWidth = std::max(0.0f, static_cast<float>(*boxWidth));
+      widget.boxWidth = std::max(0.0F, static_cast<float>(*boxWidth));
     }
     if (auto boxHeight = finiteDouble(widgetTable["box_height"])) {
-      widget.boxHeight = std::max(0.0f, static_cast<float>(*boxHeight));
+      widget.boxHeight = std::max(0.0F, static_cast<float>(*boxHeight));
     }
     if (auto rotation = finiteDouble(widgetTable["rotation"])) {
       widget.rotationRad = static_cast<float>(*rotation);
@@ -481,46 +472,44 @@ namespace {
     return compositor;
   }
 
-  std::string parseErrorMessage(const std::filesystem::path& path, const toml::parse_error& e) {
-    const auto& src = e.source();
-    return std::format(
-        "{} line {}, column {}: {}", path.filename().string(), src.begin.line, src.begin.column, e.description()
-    );
-  }
-
   std::optional<toml::table>
   mergeUserConfigSources(std::string_view configDir, std::string_view settingsPath, std::string* error) {
     auto mergeResult = noctalia::config::mergeConfigWithIncludes(configDir);
     toml::table merged = std::move(mergeResult.merged);
     if (!mergeResult.firstError.empty()) {
+      const std::string located = mergeResult.firstErrorOrigin.prefixed(mergeResult.firstError);
       if (error != nullptr) {
-        *error = mergeResult.firstError;
+        *error = located;
         return std::nullopt;
       }
-      kLog.warn("skipping config error in merged user config export: {}", mergeResult.firstError);
+      kLog.warn("skipping config error in merged user config export: {}", located);
     }
 
     if (!settingsPath.empty() && std::filesystem::exists(std::filesystem::path(std::string(settingsPath)))) {
+      const std::filesystem::path settingsFile{std::string(settingsPath)};
       try {
         toml::table sidecar = toml::parse_file(std::string(settingsPath));
+        noctalia::config::ConfigOriginIndex origins;
+        origins.record(settingsFile, sidecar);
         schema::Diagnostics migrationDiag;
         const auto storedVersion = noctalia::config::storedConfigVersion(sidecar, migrationDiag);
         if (storedVersion.has_value()) {
           (void)noctalia::config::applyPendingConfigMigrations(sidecar, *storedVersion, migrationDiag);
         }
+        origins.annotate(migrationDiag);
         for (const auto& entry : migrationDiag.entries) {
           if (entry.severity == schema::Diagnostics::Severity::Error) {
             if (error != nullptr) {
-              *error = entry.path + ": " + entry.message;
+              *error = entry.describe();
             }
             return std::nullopt;
           }
-          kLog.warn("{}: {}", entry.path, entry.message);
+          kLog.warn("{}", entry.describe());
         }
         ConfigService::deepMerge(merged, sidecar);
       } catch (const toml::parse_error& e) {
         if (error != nullptr) {
-          *error = parseErrorMessage(std::filesystem::path(std::string(settingsPath)), e);
+          *error = noctalia::config::parseErrorOrigin(e, settingsFile).prefixed(e.description());
           return std::nullopt;
         }
         kLog.warn("skipping parse error in merged user config export {}: {}", settingsPath, e.description());
@@ -570,26 +559,6 @@ ConfigService::ConfigService() {
   setupWatch();
 }
 
-ConfigService::~ConfigService() {
-  if (m_inotifyFd >= 0) {
-    if (m_configWatchWd >= 0) {
-      inotify_rm_watch(m_inotifyFd, m_configWatchWd);
-    }
-    if (m_overridesWatchWd >= 0) {
-      inotify_rm_watch(m_inotifyFd, m_overridesWatchWd);
-    }
-    for (const auto& [wd, _] : m_symlinkDirWds) {
-      if (wd != m_configWatchWd && wd != m_overridesWatchWd) {
-        inotify_rm_watch(m_inotifyFd, wd);
-      }
-    }
-    for (const int wd : m_includeDirWds) {
-      inotify_rm_watch(m_inotifyFd, wd);
-    }
-    ::close(m_inotifyFd);
-  }
-}
-
 // ── Public interface ─────────────────────────────────────────────────────────
 
 void ConfigService::addReloadCallback(ReloadCallback callback, std::string_view label) {
@@ -599,18 +568,14 @@ void ConfigService::addReloadCallback(ReloadCallback callback, std::string_view 
 void ConfigService::setNotificationManager(NotificationManager* manager) {
   m_notificationManager = manager;
   if (m_notificationManager != nullptr && !m_pendingError.empty()) {
-    const std::string pendingError = std::move(m_pendingError);
-    m_pendingError.clear();
-    DeferredCall::callLater([this, pendingError]() {
+    ConfigProblem pendingError = std::move(m_pendingError);
+    m_pendingError = {};
+    DeferredCall::callLater([this, pendingError = std::move(pendingError)]() mutable {
       if (m_notificationManager == nullptr) {
-        m_pendingError = pendingError;
+        m_pendingError = std::move(pendingError);
         return;
       }
-      if (m_configErrorNotificationId != 0) {
-        m_notificationManager->close(m_configErrorNotificationId);
-      }
-      m_configErrorNotificationId =
-          m_notificationManager->addInternal("Noctalia", "Config error", pendingError, Urgency::Critical, 0);
+      setConfigParseError(std::move(pendingError));
     });
   }
   if (m_notificationManager != nullptr && m_legacyReminderPending) {
@@ -687,10 +652,10 @@ void ConfigService::fireReloadCallbacks() {
     sub.callback();
     const double ms = one.elapsedMs();
     if (ms >= 0.5) {
-      kLog.info("reload[{}]: {:.1f} ms", sub.label.empty() ? std::format("#{}", i) : sub.label, ms);
+      kLog.info("reload[{}]: {:.1F} ms", sub.label.empty() ? std::format("#{}", i) : sub.label, ms);
     }
   }
-  kLog.info("reload: all subscribers {:.1f} ms", total.elapsedMs());
+  kLog.info("reload: all subscribers {:.1F} ms", total.elapsedMs());
 }
 
 bool ConfigService::shouldRunSetupWizard() const {
@@ -871,61 +836,49 @@ Config ConfigService::makeDefaultConfig() {
 }
 
 void ConfigService::checkReload() {
-  if (m_inotifyFd < 0) {
+  if (m_inotify.fd() < 0) {
     return;
   }
 
-  // Drain inotify events and bucket them per watch descriptor.
-  alignas(inotify_event) char buf[4096];
   bool configChanged = false;
   bool overridesChanged = false;
 
-  while (true) {
-    const auto n = ::read(m_inotifyFd, buf, sizeof(buf));
-    if (n <= 0) {
-      break;
-    }
-
-    std::size_t offset = 0;
-    while (offset < static_cast<std::size_t>(n)) {
-      auto* event = reinterpret_cast<inotify_event*>(buf + offset);
-      if (event->len > 0) {
-        const std::string_view name{event->name};
-        if (event->wd == m_configWatchWd) {
-          if (name.size() >= 5 && name.substr(name.size() - 5) == ".toml") {
-            configChanged = true;
-          }
-        }
-        if (event->wd == m_overridesWatchWd) {
-          const auto overridesFilename = std::filesystem::path(m_overridesPath).filename().string();
-          if (name == overridesFilename) {
-            overridesChanged = true;
-          }
-        }
-
-        // Check whether this event comes from a symlink-target directory.
-        const auto symIt = m_symlinkDirWds.find(event->wd);
-        if (symIt != m_symlinkDirWds.end()) {
-          for (const auto& watched : symIt->second) {
-            if (name != watched.filename) {
-              continue;
-            }
-            if (watched.overrides) {
-              overridesChanged = true;
-            } else {
-              configChanged = true;
-            }
-          }
-        }
-
-        // Any *.toml change in a watched [include] directory is a config change.
-        if (m_includeDirWds.contains(event->wd) && name.size() >= 5 && name.substr(name.size() - 5) == ".toml") {
+  m_inotify.drain([this, &configChanged, &overridesChanged](const inotify_event* event) {
+    if (event->len > 0) {
+      const std::string_view name{event->name};
+      if (event->wd == m_configWatchWd) {
+        if (name.size() >= 5 && name.substr(name.size() - 5) == ".toml") {
           configChanged = true;
         }
       }
-      offset += sizeof(inotify_event) + event->len;
+      if (event->wd == m_overridesWatchWd) {
+        const auto overridesFilename = std::filesystem::path(m_overridesPath).filename().string();
+        if (name == overridesFilename) {
+          overridesChanged = true;
+        }
+      }
+
+      // Check whether this event comes from a symlink-target directory.
+      const auto symIt = m_symlinkDirWds.find(event->wd);
+      if (symIt != m_symlinkDirWds.end()) {
+        for (const auto& watched : symIt->second) {
+          if (name != watched.filename) {
+            continue;
+          }
+          if (watched.overrides) {
+            overridesChanged = true;
+          } else {
+            configChanged = true;
+          }
+        }
+      }
+
+      // Any *.toml change in a watched [include] directory is a config change.
+      if (m_includeDirWds.contains(event->wd) && name.size() >= 5 && name.substr(name.size() - 5) == ".toml") {
+        configChanged = true;
+      }
     }
-  }
+  });
 
   // Skip the echo of our own write.
   if (overridesChanged && m_ownOverridesWritePending) {
@@ -1058,13 +1011,13 @@ BarConfig ConfigService::resolveForOutput(const BarConfig& base, const WaylandOu
       resolved.widgetCapsuleGroups = *ovr.widgetCapsuleGroups;
     }
     if (ovr.widgetCapsulePadding) {
-      resolved.widgetCapsulePadding = std::clamp(static_cast<float>(*ovr.widgetCapsulePadding), 0.0f, 48.0f);
+      resolved.widgetCapsulePadding = std::clamp(static_cast<float>(*ovr.widgetCapsulePadding), 0.0F, 48.0F);
     }
     if (ovr.widgetCapsuleRadius.has_value()) {
       resolved.widgetCapsuleRadius = std::clamp(*ovr.widgetCapsuleRadius, 0.0, 80.0);
     }
     if (ovr.widgetCapsuleOpacity) {
-      resolved.widgetCapsuleOpacity = std::clamp(static_cast<float>(*ovr.widgetCapsuleOpacity), 0.0f, 1.0f);
+      resolved.widgetCapsuleOpacity = std::clamp(static_cast<float>(*ovr.widgetCapsuleOpacity), 0.0F, 1.0F);
     }
     if (ovr.hoverHighlight) {
       resolved.hoverHighlight = *ovr.hoverHighlight;
@@ -1088,73 +1041,61 @@ void ConfigService::setupWatch() {
   std::error_code ec;
   std::filesystem::create_directories(m_configDir, ec);
 
-  m_inotifyFd = inotify_init1(IN_NONBLOCK | IN_CLOEXEC);
-  if (m_inotifyFd < 0) {
-    kLog.warn("inotify_init1 failed, hot reload disabled");
-    return;
-  }
-
-  m_configWatchWd =
-      inotify_add_watch(m_inotifyFd, m_configDir.c_str(), IN_MODIFY | IN_CLOSE_WRITE | IN_CREATE | IN_MOVED_TO);
-  if (m_configWatchWd < 0) {
+  const auto watchId = m_inotify.watch(m_configDir.c_str(), inotifyMask);
+  if (!watchId.has_value()) {
     kLog.warn("inotify_add_watch failed, hot reload disabled");
-    ::close(m_inotifyFd);
-    m_inotifyFd = -1;
     return;
   }
+  m_configWatchWd = watchId.value();
 
   kLog.debug("watching {} for changes", m_configDir);
 
   // For any *.toml entries that are symlinks, also watch the real target's parent
   // directory so that edits to the target file (e.g. via dotfile management) trigger
   // a reload even though the modification event fires in a different directory.
-  {
-    std::error_code scanEc;
-    for (const auto& entry : std::filesystem::directory_iterator(m_configDir, scanEc)) {
-      if (entry.path().extension() != ".toml") {
-        continue;
-      }
-      std::error_code symlinkEc;
-      if (!entry.is_symlink(symlinkEc) || symlinkEc) {
-        continue;
-      }
-      std::error_code canonEc;
-      const auto real = std::filesystem::canonical(entry.path(), canonEc);
-      if (canonEc) {
-        continue;
-      }
-      const auto realDir = real.parent_path().string();
-      const auto realName = real.filename().string();
-      // inotify_add_watch is idempotent per inode — if realDir == m_configDir the
-      // existing watch descriptor is returned and we simply record the extra name.
-      const int wd =
-          inotify_add_watch(m_inotifyFd, realDir.c_str(), IN_MODIFY | IN_CLOSE_WRITE | IN_MOVED_TO | IN_CREATE);
-      if (wd >= 0) {
-        m_symlinkDirWds[wd].push_back(SymlinkTargetWatch{.filename = realName, .overrides = false});
-        kLog.debug("watching symlink target {} in {}", realName, realDir);
-      }
+  std::error_code scanEc;
+  for (const auto& entry : std::filesystem::directory_iterator(m_configDir, scanEc)) {
+    if (entry.path().extension() != ".toml") {
+      continue;
+    }
+    std::error_code symlinkEc;
+    if (!entry.is_symlink(symlinkEc) || symlinkEc) {
+      continue;
+    }
+    std::error_code canonEc;
+    const auto real = std::filesystem::canonical(entry.path(), canonEc);
+    if (canonEc) {
+      continue;
+    }
+    const auto realDir = real.parent_path().string();
+    const auto realName = real.filename().string();
+    // inotify.watch is idempotent per inode — if realDir == m_configDir the
+    // existing watch descriptor is returned and we simply record the extra name.
+    const auto wd = m_inotify.watch(realDir.c_str(), inotifyMask);
+    if (wd.has_value()) {
+      m_symlinkDirWds[wd.value()].push_back(SymlinkTargetWatch{.filename = realName, .overrides = false});
+      kLog.debug("watching symlink target {} in {}", realName, realDir);
     }
   }
 
   // Also watch the state dir for settings.toml edits (external writes).
   if (!m_overridesPath.empty()) {
     const auto overridesDir = std::filesystem::path(m_overridesPath).parent_path().string();
-    m_overridesWatchWd =
-        inotify_add_watch(m_inotifyFd, overridesDir.c_str(), IN_MODIFY | IN_CLOSE_WRITE | IN_CREATE | IN_MOVED_TO);
-    if (m_overridesWatchWd < 0) {
+    const auto wd = m_inotify.watch(overridesDir.c_str(), inotifyMask);
+    if (!wd.has_value()) {
       kLog.warn("inotify_add_watch failed for {}, overrides reload disabled", overridesDir);
     } else {
       kLog.debug("watching {} for changes", overridesDir);
+      m_overridesWatchWd = wd.value();
     }
 
     const auto target = resolveAtomicWriteTarget(m_overridesPath);
     if (target.has_value() && target->throughSymlink) {
       const auto realDir = target->path.parent_path().string();
       const auto realName = target->path.filename().string();
-      const int wd =
-          inotify_add_watch(m_inotifyFd, realDir.c_str(), IN_MODIFY | IN_CLOSE_WRITE | IN_MOVED_TO | IN_CREATE);
-      if (wd >= 0) {
-        m_symlinkDirWds[wd].push_back(SymlinkTargetWatch{.filename = realName, .overrides = true});
+      const auto targetWd = m_inotify.watch(realDir.c_str(), inotifyMask);
+      if (targetWd.has_value()) {
+        m_symlinkDirWds[targetWd.value()].push_back(SymlinkTargetWatch{.filename = realName, .overrides = true});
         kLog.debug("watching settings symlink target {} in {}", realName, realDir);
       }
     }
@@ -1166,7 +1107,7 @@ void ConfigService::setupWatch() {
 }
 
 void ConfigService::refreshIncludeWatches() {
-  if (m_inotifyFd < 0) {
+  if (m_inotify.fd() < 0) {
     return;
   }
 
@@ -1201,7 +1142,7 @@ void ConfigService::refreshIncludeWatches() {
   // Drop watches no longer wanted.
   for (auto it = m_includeDirWatches.begin(); it != m_includeDirWatches.end();) {
     if (!desired.contains(it->first)) {
-      inotify_rm_watch(m_inotifyFd, it->second);
+      m_inotify.unwatch(it->second);
       m_includeDirWds.erase(it->second);
       it = m_includeDirWatches.erase(it);
     } else {
@@ -1214,18 +1155,18 @@ void ConfigService::refreshIncludeWatches() {
     if (m_includeDirWatches.contains(dir)) {
       continue;
     }
-    const int wd = inotify_add_watch(m_inotifyFd, dir.c_str(), IN_MODIFY | IN_CLOSE_WRITE | IN_CREATE | IN_MOVED_TO);
-    if (wd < 0) {
+    const auto wd = m_inotify.watch(dir.c_str(), inotifyMask);
+    if (!wd.has_value()) {
       continue;
     }
     // inotify_add_watch is idempotent per inode: if this dir is already watched by
     // the config/overrides/symlink-target watches, the existing wd comes back. Do
     // not record it (and never remove it) — its original owner manages its lifetime.
-    if (wd == m_configWatchWd || wd == m_overridesWatchWd || m_symlinkDirWds.contains(wd)) {
+    if (wd == m_configWatchWd || wd == m_overridesWatchWd || m_symlinkDirWds.contains(*wd)) {
       continue;
     }
-    m_includeDirWatches.emplace(dir, wd);
-    m_includeDirWds.insert(wd);
+    m_includeDirWatches.emplace(dir, *wd);
+    m_includeDirWds.insert(*wd);
     kLog.debug("watching include directory {}", dir);
   }
 }
@@ -1235,7 +1176,7 @@ void ConfigService::loadOverridesFromFile() {
   m_defaultWallpaperPath.clear();
   m_lastWallpaperPath.clear();
   m_monitorWallpaperPaths.clear();
-  m_overridesParseError.clear();
+  m_overridesParseError = {};
 
   if (m_overridesPath.empty() || !std::filesystem::exists(m_overridesPath)) {
     m_persistedOverridesTable = toml::table{};
@@ -1247,41 +1188,41 @@ void ConfigService::loadOverridesFromFile() {
     m_overridesTable = toml::parse_file(m_overridesPath);
     m_persistedOverridesTable = m_overridesTable;
   } catch (const toml::parse_error& e) {
-    const auto& src = e.source();
-    kLog.warn(
-        "parse error in {} at line {}, column {}: {}", m_overridesPath, src.begin.line, src.begin.column,
-        e.description()
-    );
-    m_overridesParseError = std::format(
-        "{} line {}, column {}: {}", std::filesystem::path(m_overridesPath).filename().string(), src.begin.line,
-        src.begin.column, e.description()
-    );
+    auto origin = noctalia::config::parseErrorOrigin(e, std::filesystem::path(m_overridesPath));
+    kLog.warn("{}", origin.prefixed(e.description()));
+    m_overridesParseError = ConfigProblem{std::move(origin), std::string(e.description())};
     m_overridesTable = toml::table{};
     return;
   }
   extractWallpaperFromOverrides();
 }
 
-void ConfigService::setConfigParseError(std::string parseError) {
-  if (parseError.empty()) {
+void ConfigService::setConfigParseError(ConfigProblem problem) {
+  if (problem.empty()) {
     // Dismiss any previous config-error notification.
     if (m_notificationManager != nullptr && m_configErrorNotificationId != 0) {
       m_notificationManager->close(m_configErrorNotificationId);
       m_configErrorNotificationId = 0;
     }
-    m_pendingError.clear();
+    m_pendingError = {};
     return;
   }
 
-  if (m_notificationManager != nullptr) {
-    if (m_configErrorNotificationId != 0) {
-      m_notificationManager->close(m_configErrorNotificationId);
-    }
-    m_configErrorNotificationId =
-        m_notificationManager->addInternal("Noctalia", "Config error", parseError, Urgency::Critical, 0);
-  } else {
-    m_pendingError = std::move(parseError);
+  if (m_notificationManager == nullptr) {
+    m_pendingError = std::move(problem);
+    return;
   }
+
+  if (m_configErrorNotificationId != 0) {
+    m_notificationManager->close(m_configErrorNotificationId);
+  }
+  // Title carries the location so the body has room for the whole message; with
+  // no location to show, the title says what kind of problem this is instead.
+  const bool located = problem.origin.valid();
+  std::string title = located ? problem.origin.shortFormat(m_configDir) : std::string("Config error");
+  std::string body = located ? "Error: " + problem.message : std::move(problem.message);
+  m_configErrorNotificationId =
+      m_notificationManager->addInternal("Noctalia", std::move(title), std::move(body), Urgency::Critical, 0);
 }
 
 void ConfigService::updateLegacyConfigIssues(noctalia::config::LegacyConfigIssues issues) {
@@ -1298,7 +1239,9 @@ void ConfigService::updateLegacyConfigIssues(noctalia::config::LegacyConfigIssue
   const std::string fingerprint = noctalia::config::legacyConfigIssueFingerprint(issues);
   if (fingerprint != m_loggedLegacyIssueFingerprint) {
     for (const auto& issue : issues) {
-      kLog.warn("{}: {} (migrated in memory)", issue.path, issue.message);
+      kLog.warn(
+          "{}", issue.origin.prefixed(issue.path + ": " + issue.message + " (source configuration needs updating)")
+      );
     }
     m_loggedLegacyIssueFingerprint = fingerprint;
   }
@@ -1339,11 +1282,14 @@ void ConfigService::notifyLegacyConfigIssues() {
     return;
   }
 
+  const auto& issue = m_legacyConfigIssues.front();
   const std::string fingerprint = noctalia::config::legacyConfigIssueFingerprint(m_legacyConfigIssues);
   const std::int64_t now = currentEpochSeconds();
+  std::string title = issue.origin.valid() ? issue.origin.shortFormat(m_configDir)
+                                           : i18n::tr("notifications.internal.config-migration-title");
   (void)m_notificationManager->addInternal(
-      "Noctalia", i18n::tr("notifications.internal.config-migration-title"),
-      i18n::tr("notifications.internal.config-migration-body", "path", m_legacyConfigIssues.front().path),
+      "Noctalia", std::move(title),
+      i18n::tr("notifications.internal.config-migration-body", "path", issue.path + ": " + issue.message),
       Urgency::Normal
   );
   (void)m_stateStore.setString(kMigrationReminderOwner, kMigrationReminderKey, std::format("{}\n{}", now, fingerprint));
@@ -1356,11 +1302,55 @@ void ConfigService::notifyLegacyConfigIssues() {
   );
 }
 
+namespace {
+
+  void mergeSessionActions(toml::table& base, const toml::array& overlay) {
+    const auto* baseActions = base["actions"].as_array();
+    if (baseActions == nullptr) {
+      base.insert_or_assign("actions", overlay);
+      return;
+    }
+
+    toml::array merged;
+    for (std::size_t index = 0; index < overlay.size(); ++index) {
+      const toml::node& overlayNode = overlay[index];
+      const toml::table* overlayAction = overlayNode.as_table();
+      const toml::table* baseAction = index < baseActions->size() ? (*baseActions)[index].as_table() : nullptr;
+      if (overlayAction == nullptr || baseAction == nullptr) {
+        merged.push_back(overlayNode);
+        continue;
+      }
+
+      const auto baseName = (*baseAction)["action"].value<std::string>();
+      const auto overlayName = (*overlayAction)["action"].value<std::string>();
+      if (baseName != overlayName) {
+        merged.push_back(overlayNode);
+        continue;
+      }
+
+      toml::table mergedAction = *baseAction;
+      ConfigService::deepMerge(mergedAction, *overlayAction);
+      merged.push_back(std::move(mergedAction));
+    }
+    base.insert_or_assign("actions", std::move(merged));
+  }
+
+} // namespace
+
 void ConfigService::deepMerge(toml::table& base, const toml::table& overlay) {
   for (const auto& [k, v] : overlay) {
     if (const auto* overlayTbl = v.as_table()) {
       if (auto* baseNode = base.get(k)) {
         if (auto* baseTbl = baseNode->as_table()) {
+          if (k == "session") {
+            if (const auto* overlayActions = (*overlayTbl)["actions"].as_array()) {
+              mergeSessionActions(*baseTbl, *overlayActions);
+            }
+            toml::table sessionOverlay = *overlayTbl;
+            sessionOverlay.erase("actions");
+            deepMerge(*baseTbl, sessionOverlay);
+            continue;
+          }
           deepMerge(*baseTbl, *overlayTbl);
           continue;
         }
@@ -1381,8 +1371,15 @@ void ConfigService::loadAll() {
   auto mergeResult = noctalia::config::mergeConfigWithIncludes(m_configDir);
   toml::table merged = std::move(mergeResult.merged);
   std::string firstError = std::move(mergeResult.firstError);
+  const noctalia::config::schema::SourceOrigin firstErrorOrigin = std::move(mergeResult.firstErrorOrigin);
   m_includeLoadedFiles = std::move(mergeResult.loadedFiles);
   m_includeDirs = std::move(mergeResult.includeDirs);
+
+  // Recorded after the config dir so the sidecar wins, matching the deepMerge below.
+  noctalia::config::ConfigOriginIndex origins = std::move(mergeResult.origins);
+  if (!m_overridesPath.empty()) {
+    origins.record(std::filesystem::path(m_overridesPath), m_overridesTable);
+  }
 
   decltype(m_configFileBarNames) configFileBarNames;
   decltype(m_configFileMonitorOverrideNames) configFileMonitorOverrideNames;
@@ -1423,7 +1420,7 @@ void ConfigService::loadAll() {
 
   toml::table effectiveOverrides = m_overridesTable;
   schema::Diagnostics migrationDiag;
-  std::string migrationError;
+  ConfigProblem migrationError;
   int storedVersion = noctalia::config::currentConfigVersion();
   int appliedVersion = storedVersion;
   bool sidecarNeedsPersist = false;
@@ -1438,13 +1435,14 @@ void ConfigService::loadAll() {
       );
     }
   }
+  origins.annotate(migrationDiag);
   for (const auto& entry : migrationDiag.entries) {
     if (entry.severity == schema::Diagnostics::Severity::Error) {
       if (migrationError.empty()) {
-        migrationError = entry.path + ": " + entry.message;
+        migrationError = ConfigProblem::from(entry);
       }
     } else {
-      kLog.warn("{}: {}", entry.path, entry.message);
+      kLog.warn("{}", entry.describe());
     }
   }
 
@@ -1454,6 +1452,11 @@ void ConfigService::loadAll() {
   merged.erase(noctalia::config::kConfigVersionKey);
   noctalia::config::LegacyConfigIssues legacyIssues;
   noctalia::config::normalizeLegacyConfig(merged, legacyIssues);
+  for (auto& issue : legacyIssues) {
+    if (const auto* origin = origins.find(issue.path)) {
+      issue.origin = *origin;
+    }
+  }
 
   if (m_includeLoadedFiles.empty() && m_overridesTable.empty()) {
     kLog.info("no config files found, using defaults");
@@ -1471,37 +1474,37 @@ void ConfigService::loadAll() {
     return;
   }
 
-  std::string semanticError = !firstError.empty() ? firstError
-      : !m_overridesParseError.empty()            ? m_overridesParseError
-                                                  : migrationError;
-  std::string diagnosticError;
+  ConfigProblem semanticError = !firstError.empty() ? ConfigProblem{firstErrorOrigin, std::move(firstError)}
+      : !m_overridesParseError.empty()              ? m_overridesParseError
+                                                    : migrationError;
+  ConfigProblem diagnosticError;
   schema::Diagnostics diagnostics;
   if (semanticError.empty()) {
     try {
-      diagnostics = noctalia::config::validateMergedConfig(merged);
+      diagnostics = noctalia::config::validateMergedConfig(merged, origins);
       std::size_t errorCount = 0;
       for (const auto& entry : diagnostics.entries) {
         if (entry.severity == schema::Diagnostics::Severity::Error) {
           if (entry.recoveryScope == schema::Diagnostics::RecoveryScope::Document) {
             if (semanticError.empty()) {
-              semanticError = entry.path + ": " + entry.message;
+              semanticError = ConfigProblem::from(entry);
             }
-            kLog.warn("{}: {}", entry.path, entry.message);
+            kLog.warn("{}", entry.describe());
             continue;
           }
           ++errorCount;
           if (diagnosticError.empty()) {
-            diagnosticError = entry.path + ": " + entry.message;
+            diagnosticError = ConfigProblem::from(entry);
           }
         }
-        kLog.warn("{}: {}", entry.path, entry.message);
+        kLog.warn("{}", entry.describe());
       }
       if (errorCount > 1) {
-        diagnosticError += std::format(" (and {} more config errors)", errorCount - 1);
+        diagnosticError.message += std::format(" (and {} more config errors)", errorCount - 1);
       }
     } catch (const std::exception& e) {
-      semanticError = e.what();
-      kLog.warn("config validation error: {}", semanticError);
+      semanticError = ConfigProblem{{}, e.what()};
+      kLog.warn("config validation error: {}", e.what());
     }
   }
   if (semanticError.empty()) {
@@ -1509,8 +1512,8 @@ void ConfigService::loadAll() {
       parseConfigTable(merged, nextConfig, true, false);
       restoreInvalidComponents(nextConfig, m_config, diagnostics);
     } catch (const std::exception& e) {
-      semanticError = e.what();
-      kLog.warn("config parse error: {}", semanticError);
+      semanticError = ConfigProblem{{}, e.what()};
+      kLog.warn("config parse error: {}", e.what());
     }
   }
 
@@ -1527,7 +1530,7 @@ void ConfigService::loadAll() {
       toml::table previousOverrides = m_overridesTable;
       m_overridesTable = std::move(effectiveOverrides);
       if (writeOverridesToFile()) {
-        m_ownOverridesWritePending = m_inotifyFd >= 0 && m_overridesWatchWd >= 0;
+        m_ownOverridesWritePending = m_inotify.fd() >= 0 && m_overridesWatchWd >= 0;
         extractWallpaperFromOverrides();
       } else {
         kLog.warn("failed to persist migrated config overrides to {}", m_overridesPath);
@@ -1548,11 +1551,8 @@ void ConfigService::loadAll() {
     m_lastChange = ConfigChangeSet{};
   }
 
-  const std::string parseError = !firstError.empty() ? firstError
-      : !m_overridesParseError.empty()               ? m_overridesParseError
-      : !semanticError.empty()                       ? semanticError
-                                                     : diagnosticError;
-  setConfigParseError(parseError);
+  // semanticError already absorbed the merge / overrides / migration errors above.
+  setConfigParseError(!semanticError.empty() ? std::move(semanticError) : std::move(diagnosticError));
 
   // Included files may live in subdirectories or absolute paths outside the config
   // dir, and the include set can change on every reload — reconcile their watches.
@@ -1829,12 +1829,8 @@ bool ConfigService::matchesKeybind(KeybindAction action, std::uint32_t sym, std:
 }
 
 void ConfigService::registerIpc(IpcService& ipc) {
-  ipc.registerHandler(
-      "config-reload",
-      [this](const std::string&) -> std::string {
-        forceReload();
-        return "ok\n";
-      },
-      "", "Reload the config file"
-  );
+  ipc.bind(noctalia::cli::msg::configReload, [this](const std::string&) -> std::string {
+    forceReload();
+    return "ok\n";
+  });
 }

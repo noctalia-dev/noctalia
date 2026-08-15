@@ -71,7 +71,7 @@ private:
   std::size_t m_pendingFilterIndex = std::numeric_limits<std::size_t>::max();
   bool m_startFilterSlideIn = false;
   int m_filterSlideDirection = 0;
-  float m_filterSlideBaseX = 0.0f;
-  float m_filterSlideBaseY = 0.0f;
+  float m_filterSlideBaseX = 0.0F;
+  float m_filterSlideBaseY = 0.0F;
   AnimationManager::Id m_filterSlideAnimId = 0;
 };

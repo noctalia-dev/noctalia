@@ -74,7 +74,7 @@ void DropZone::setDragOver(bool dragOver, float draggedHeight) {
     return;
   }
   m_dragOver = dragOver;
-  if (m_expandOnDrag && m_collapsedHeight > 0.0f) {
+  if (m_expandOnDrag && m_collapsedHeight > 0.0F) {
     const float target = dragOver ? std::max(m_collapsedHeight, draggedHeight) : m_collapsedHeight;
     animateHeight(target);
   }
@@ -86,13 +86,13 @@ void DropZone::setExpandOnDrag(bool enabled) {
     return;
   }
   m_expandOnDrag = enabled;
-  if (!enabled && m_collapsedHeight > 0.0f) {
+  if (!enabled && m_collapsedHeight > 0.0F) {
     animateHeight(m_collapsedHeight);
   }
 }
 
 void DropZone::setCollapsedHeight(float height) {
-  const float clamped = std::max(0.0f, height);
+  const float clamped = std::max(0.0F, height);
   if (m_collapsedHeight == clamped) {
     return;
   }
@@ -102,18 +102,18 @@ void DropZone::setCollapsedHeight(float height) {
   }
 }
 
-void DropZone::setHitSlop(float hitSlop) { m_hitSlop = std::clamp(hitSlop, 0.0f, 128.0f); }
+void DropZone::setHitSlop(float hitSlop) { m_hitSlop = std::clamp(hitSlop, 0.0F, 128.0F); }
 
 void DropZone::setZoneRadius(float radius) {
-  m_zoneRadius = std::max(0.0f, radius);
+  m_zoneRadius = std::max(0.0F, radius);
   m_idleRadius = m_zoneRadius;
   m_radiusApplied = true;
   Flex::setRadius(m_dragOver ? m_zoneRadius : m_idleRadius);
 }
 
 void DropZone::clearZoneRadius(float dragRadius) {
-  m_zoneRadius = std::max(0.0f, dragRadius);
-  m_idleRadius = 0.0f;
+  m_zoneRadius = std::max(0.0F, dragRadius);
+  m_idleRadius = 0.0F;
   if (m_radiusApplied || m_dragOver) {
     m_radiusApplied = true;
     Flex::setRadius(m_dragOver ? m_zoneRadius : m_idleRadius);
@@ -121,9 +121,9 @@ void DropZone::clearZoneRadius(float dragRadius) {
 }
 
 void DropZone::animateHeight(float target) {
-  target = std::max(0.0f, target);
+  target = std::max(0.0F, target);
   AnimationManager* animations = animationManager();
-  if (animations == nullptr || m_animatedHeight <= 0.0f) {
+  if (animations == nullptr || m_animatedHeight <= 0.0F) {
     applyAnimatedHeight(target);
     return;
   }
@@ -163,7 +163,7 @@ void DropZone::setZoneBorder(const ColorSpec& color, float width) {
 
 void DropZone::clearZoneBorder() {
   m_zoneBorder = clearColorSpec();
-  m_zoneBorderWidth = 0.0f;
+  m_zoneBorderWidth = 0.0F;
   m_hasZoneBorder = false;
   applyVisualState();
 }
@@ -176,7 +176,7 @@ void DropZone::applyVisualState() {
   if (m_dragOver) {
     m_radiusApplied = true;
     Flex::setRadius(m_zoneRadius);
-    Flex::setFill(colorSpecFromRole(ColorRole::Primary, 0.12f));
+    Flex::setFill(colorSpecFromRole(ColorRole::Primary, 0.12F));
     Flex::setBorder(colorSpecFromRole(ColorRole::Primary), Style::focusRingWidth);
     return;
   }

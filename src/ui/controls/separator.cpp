@@ -62,21 +62,21 @@ bool Separator::ruleIsHorizontal() const {
 
 LayoutSize Separator::doMeasure(Renderer& renderer, const LayoutConstraints& constraints) {
   const bool horiz = ruleIsHorizontal();
-  float w = 0.0f;
-  float h = 0.0f;
+  float w = 0.0F;
+  float h = 0.0F;
   if (horiz) {
-    h = m_thickness + 2.0f * m_spacing;
+    h = m_thickness + 2.0F * m_spacing;
     if (constraints.hasExactWidth()) {
       w = constraints.maxWidth;
     } else {
-      w = width() > 0.0f ? width() : m_thickness;
+      w = width() > 0.0F ? width() : m_thickness;
     }
   } else {
-    w = m_thickness + 2.0f * m_spacing;
+    w = m_thickness + 2.0F * m_spacing;
     if (constraints.hasExactHeight()) {
       h = constraints.maxHeight;
     } else {
-      h = height() > 0.0f ? height() : m_thickness;
+      h = height() > 0.0F ? height() : m_thickness;
     }
   }
   setSize(w, h);
@@ -87,18 +87,18 @@ LayoutSize Separator::doMeasure(Renderer& renderer, const LayoutConstraints& con
 void Separator::doLayout(Renderer& /*renderer*/) {
   const bool horiz = ruleIsHorizontal();
   if (horiz) {
-    const float w = width() > 0.0f ? width() : (parent() != nullptr ? parent()->width() : 0.0f);
-    setSize(w, m_thickness + 2.0f * m_spacing);
-    const float halfW = w * 0.5f;
-    m_rectStart->setPosition(0.0f, m_spacing);
+    const float w = width() > 0.0F ? width() : (parent() != nullptr ? parent()->width() : 0.0F);
+    setSize(w, m_thickness + 2.0F * m_spacing);
+    const float halfW = w * 0.5F;
+    m_rectStart->setPosition(0.0F, m_spacing);
     m_rectStart->setFrameSize(halfW, m_thickness);
     m_rectEnd->setPosition(halfW, m_spacing);
     m_rectEnd->setFrameSize(w - halfW, m_thickness);
   } else {
-    const float lineH = height() > 0.0f ? height() : (parent() != nullptr ? parent()->height() : 0.0f);
-    setSize(m_thickness + 2.0f * m_spacing, lineH);
-    const float halfH = lineH * 0.5f;
-    m_rectStart->setPosition(m_spacing, 0.0f);
+    const float lineH = height() > 0.0F ? height() : (parent() != nullptr ? parent()->height() : 0.0F);
+    setSize(m_thickness + 2.0F * m_spacing, lineH);
+    const float halfH = lineH * 0.5F;
+    m_rectStart->setPosition(m_spacing, 0.0F);
     m_rectStart->setFrameSize(m_thickness, halfH);
     m_rectEnd->setPosition(m_spacing, halfH);
     m_rectEnd->setFrameSize(m_thickness, lineH - halfH);
@@ -111,7 +111,7 @@ void Separator::applyPalette() {
   const bool horiz = ruleIsHorizontal();
 
   const Color opaque = resolveColorSpec(m_color);
-  const Color startEdge = m_gradientEdges ? Color{opaque.r, opaque.g, opaque.b, 0.0f} : opaque;
+  const Color startEdge = m_gradientEdges ? Color{opaque.r, opaque.g, opaque.b, 0.0F} : opaque;
   const Color endEdge = startEdge;
   const GradientDirection dir = horiz ? GradientDirection::Horizontal : GradientDirection::Vertical;
 
@@ -122,11 +122,11 @@ void Separator::applyPalette() {
           .fillMode = FillMode::LinearGradient,
           .gradientDirection = dir,
           .gradientStops =
-              {GradientStop{0.0f, startEdge}, GradientStop{0.0f, startEdge}, GradientStop{1.0f, opaque},
-               GradientStop{1.0f, opaque}},
-          .radius = 0.0f,
-          .softness = 0.0f,
-          .borderWidth = 0.0f,
+              {GradientStop{0.0F, startEdge}, GradientStop{0.0F, startEdge}, GradientStop{1.0F, opaque},
+               GradientStop{1.0F, opaque}},
+          .radius = 0.0F,
+          .softness = 0.0F,
+          .borderWidth = 0.0F,
       }
   );
 
@@ -137,11 +137,11 @@ void Separator::applyPalette() {
           .fillMode = FillMode::LinearGradient,
           .gradientDirection = dir,
           .gradientStops =
-              {GradientStop{0.0f, opaque}, GradientStop{0.0f, opaque}, GradientStop{1.0f, endEdge},
-               GradientStop{1.0f, endEdge}},
-          .radius = 0.0f,
-          .softness = 0.0f,
-          .borderWidth = 0.0f,
+              {GradientStop{0.0F, opaque}, GradientStop{0.0F, opaque}, GradientStop{1.0F, endEdge},
+               GradientStop{1.0F, endEdge}},
+          .radius = 0.0F,
+          .softness = 0.0F,
+          .borderWidth = 0.0F,
       }
   );
 }

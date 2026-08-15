@@ -20,12 +20,12 @@
 namespace settings {
   namespace {
 
-    constexpr float kSidebarWidth = 200.0f;
-    constexpr float kSidebarPadding = 6.0f;
-    constexpr float kSidebarGap = 2.0f;
-    constexpr float kPrimaryNavGlyphSize = 18.0f;
-    constexpr float kPrimaryNavGap = 6.0f;
-    constexpr float kPrimaryNavPaddingH = 10.0f;
+    constexpr float kSidebarWidth = 200.0F;
+    constexpr float kSidebarPadding = 6.0F;
+    constexpr float kSidebarGap = 2.0F;
+    constexpr float kPrimaryNavGlyphSize = 18.0F;
+    constexpr float kPrimaryNavGap = 6.0F;
+    constexpr float kPrimaryNavPaddingH = 10.0F;
 
     void addNavButton(RovingListNavHost& nav, std::unique_ptr<Button> button, std::function<void()> onClick) {
       Button* raw = button.get();
@@ -162,14 +162,14 @@ namespace settings {
     auto sidebarScroll = ui::scrollView({
         .state = &ctx.sidebarScrollState,
         .scrollbarVisible = true,
-        .viewportPaddingH = 0.0f,
-        .viewportPaddingV = 0.0f,
-        .fill = colorSpecFromRole(ColorRole::Surface),
+        .viewportPaddingH = 0.0F,
+        .viewportPaddingV = 0.0F,
+        .fill = ctx.config.shell.settingsWindowTranslucent ? clearColorSpec() : colorSpecFromRole(ColorRole::Surface),
         .radius = Style::scaledRadiusXl(scale),
         .minWidth = kSidebarWidth * scale,
         .fillHeight = true,
         .width = kSidebarWidth * scale,
-        .height = 0.0f,
+        .height = 0.0F,
         .configure = [](ScrollView& scrollView) { scrollView.clearBorder(); },
     });
 
@@ -191,7 +191,7 @@ namespace settings {
       const auto onClick = [selectedSection, scroll, sectionId, searchActive, clearTransientState, clearSearchQuery,
                             requestRebuild]() {
         if (searchActive || *selectedSection != sectionId) {
-          scroll->offset = 0.0f;
+          scroll->offset = 0.0F;
         }
         *selectedSection = sectionId;
         clearSearchQuery();
@@ -216,7 +216,7 @@ namespace settings {
             || *selectedSection != "bar"
             || *selectedBarName != barName
             || !selectedMonitorOverride->empty()) {
-          scroll->offset = 0.0f;
+          scroll->offset = 0.0F;
         }
         *selectedSection = "bar";
         *selectedBarName = barName;
@@ -251,7 +251,7 @@ namespace settings {
               || *selectedSection != "bar"
               || *selectedBarName != barName
               || *selectedMonitorOverride != match) {
-            scroll->offset = 0.0f;
+            scroll->offset = 0.0F;
           }
           *selectedSection = "bar";
           *selectedBarName = barName;
@@ -312,7 +312,7 @@ namespace settings {
           .align = FlexAlign::Stretch,
           .gap = Style::spaceXs * scale,
           .configure = [scale](Flex& panel) {
-            panel.setPadding(0.0f, Style::spaceXs * scale, 0.0f, Style::spaceLg * scale);
+            panel.setPadding(0.0F, Style::spaceXs * scale, 0.0F, Style::spaceLg * scale);
           },
       });
 
@@ -324,7 +324,7 @@ namespace settings {
           .fontSize = Style::fontSizeCaption * scale,
           .controlHeight = Style::controlHeightSm * scale,
           .horizontalPadding = Style::spaceXs * scale,
-          .width = 112.0f * scale,
+          .width = 112.0F * scale,
           .height = Style::controlHeightSm * scale,
       });
 
@@ -408,7 +408,7 @@ namespace settings {
       auto createPanel = ui::column({
           .align = FlexAlign::Stretch,
           .gap = Style::spaceXs * scale,
-          .configure = [scale](Flex& panel) { panel.setPadding(0.0f, Style::spaceXs * scale); },
+          .configure = [scale](Flex& panel) { panel.setPadding(0.0F, Style::spaceXs * scale); },
       });
 
       Input* inputPtr = nullptr;
@@ -419,7 +419,7 @@ namespace settings {
           .fontSize = Style::fontSizeCaption * scale,
           .controlHeight = Style::controlHeightSm * scale,
           .horizontalPadding = Style::spaceXs * scale,
-          .width = 120.0f * scale,
+          .width = 120.0F * scale,
           .height = Style::controlHeightSm * scale,
       });
 

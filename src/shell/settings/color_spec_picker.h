@@ -18,10 +18,10 @@ namespace settings {
     bool allowNone = false;
     bool allowCustomColor = true;
     std::string noneLabel;
-    float fontSize = 0.0f;
-    float controlHeight = 0.0f;
-    float glyphSize = 0.0f;
-    float width = 0.0f;
+    float fontSize = 0.0F;
+    float controlHeight = 0.0F;
+    float glyphSize = 0.0F;
+    float width = 0.0F;
     bool flexGrow = false;
   };
 

@@ -8,6 +8,7 @@ const noctalia::bar::WidgetDefinition<SessionWidget::Options>& sessionWidgetDefi
   static const noctalia::bar::WidgetDefinition<Options> definition{
       .type = "session",
       .fields = noctalia::bar::glyphButtonFields<Options>(),
+      .glyph = [](const Options& options) { return options.glyph; },
   };
   return definition;
 }
