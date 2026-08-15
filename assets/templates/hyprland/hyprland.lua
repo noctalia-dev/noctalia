@@ -2,8 +2,10 @@
 
 local primary = "rgb({{colors.primary.default.hex_stripped}})"
 local surface = "rgb({{colors.surface.default.hex_stripped}})"
+local surface_variant = "rgb({{colors.surface_variant.default.hex_stripped}})"
 local secondary = "rgb({{colors.secondary.default.hex_stripped}})"
 local error = "rgb({{colors.error.default.hex_stripped}})"
+local shadow = "rgb({{colors.shadow.default.hex_stripped}})"
 
 local function apply_theme()
     hl.config({
@@ -13,7 +15,15 @@ local function apply_theme()
                 inactive_border = surface,
             },
         },
-
+		decoration = {
+			shadow = {
+				color = shadow,
+			},
+			glow = {
+				color = primary,
+				color_inactive = surface,
+			},
+		},
         group = {
             col = {
                 border_active = secondary,
@@ -29,6 +39,8 @@ local function apply_theme()
                     locked_active = error,
                     locked_inactive = surface,
                 },
+                text_color = surface,
+                text_color_inactive = surface_variant,
             },
         },
     })
@@ -38,8 +50,10 @@ return {
     colors = {
         primary = primary,
         surface = surface,
+        surface_variant = surface_variant,
         secondary = secondary,
         error = error,
+        shadow = shadow,
     },
     apply_theme = apply_theme
 }
