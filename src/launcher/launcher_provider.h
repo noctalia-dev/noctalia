@@ -33,6 +33,8 @@ struct LauncherResult {
   // A short string drawn in the leading icon slot in place of an icon (e.g. an
   // emoji or a single symbol). When set, it replaces glyphName/iconName/iconPath.
   std::string badge;
+  // AppProvider source desktop file path; empty for other providers.
+  std::string desktopEntryPath;
   // When launching an application via AppProvider, matches DesktopAction::id (primary Exec leaves this empty).
   std::string desktopActionId;
   std::string category;

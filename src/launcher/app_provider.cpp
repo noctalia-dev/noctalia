@@ -69,11 +69,11 @@ namespace {
       return 0.0;
     }
 
-    double nameScore = FuzzyMatch::score(pattern, action.name) * 5.0;
-    if (FuzzyMatch::isMatch(nameScore) && action.name.starts_with(pattern)) {
+    double nameScore = FuzzyMatch::score(pattern, action.nameLower) * 5.0;
+    if (FuzzyMatch::isMatch(nameScore) && action.nameLower.starts_with(pattern)) {
       nameScore += 500.0;
     }
-    const double execScore = FuzzyMatch::score(pattern, action.exec);
+    const double execScore = FuzzyMatch::score(pattern, action.execLower);
 
     return std::max(nameScore, execScore);
   }
@@ -181,6 +181,20 @@ namespace {
 AppProvider::AppProvider(ConfigService* config, CompositorPlatform* platform)
     : m_config(config), m_platform(platform) {}
 
+std::string AppProvider::actionResultId(std::string_view desktopEntryPath, std::string_view desktopActionId) {
+  constexpr std::string_view prefix = "desktop-action:";
+  const std::string pathLength = std::to_string(desktopEntryPath.size());
+  std::string result;
+  result.reserve(prefix.size() + pathLength.size() + 2 + desktopEntryPath.size() + desktopActionId.size());
+  result.append(prefix);
+  result.append(pathLength);
+  result.push_back(':');
+  result.append(desktopEntryPath);
+  result.push_back(':');
+  result.append(desktopActionId);
+  return result;
+}
+
 void AppProvider::initialize() { refreshEntriesIfNeeded(); }
 
 std::string AppProvider::displayName() const { return i18n::tr("launcher.providers.applications.title"); }
@@ -223,6 +237,7 @@ std::vector<LauncherResult> AppProvider::query(std::string_view text) const {
   auto buildResult = [&](const DesktopEntry& entry, double s) {
     LauncherResult result;
     result.id = entry.path;
+    result.desktopEntryPath = entry.path;
     result.title = entry.name;
     result.subtitle = entry.genericName.empty() ? entry.comment : entry.genericName;
     result.origin = originLabel(entry.origin);
@@ -238,6 +253,7 @@ std::vector<LauncherResult> AppProvider::query(std::string_view text) const {
 
   auto buildActionResult = [&](const DesktopEntry& entry, const DesktopAction& action, double s) {
     LauncherResult result = buildResult(entry, s);
+    result.id = actionResultId(entry.path, action.id);
     result.title = action.name;
     result.subtitle = entry.name;
     result.desktopActionId = action.id;
@@ -291,7 +307,7 @@ bool AppProvider::activate(const LauncherResult& result) {
   refreshEntriesIfNeeded();
 
   for (const auto& entry : m_entries) {
-    if (entry.path != result.id) {
+    if (entry.path != result.desktopEntryPath) {
       continue;
     }
 

@@ -12,6 +12,7 @@ class CompositorPlatform;
 class AppProvider : public LauncherProvider {
 public:
   explicit AppProvider(ConfigService* config, CompositorPlatform* platform = nullptr);
+  [[nodiscard]] static std::string actionResultId(std::string_view desktopEntryPath, std::string_view desktopActionId);
 
   [[nodiscard]] std::string_view defaultPrefix() const override { return ""; }
   [[nodiscard]] bool allowCustomPrefix() const override { return false; }

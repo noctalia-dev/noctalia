@@ -348,6 +348,8 @@ namespace {
                 .id = it->first,
                 .name = it->second.name,
                 .exec = it->second.exec,
+                .nameLower = StringUtils::toLower(it->second.name),
+                .execLower = StringUtils::toLower(it->second.exec),
             }
         );
       }

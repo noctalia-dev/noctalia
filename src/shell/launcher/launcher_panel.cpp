@@ -7,6 +7,7 @@
 #include "core/input/keybind_matcher.h"
 #include "core/ui_phase.h"
 #include "i18n/i18n.h"
+#include "launcher/app_provider.h"
 #include "render/core/async_texture_cache.h"
 #include "render/core/renderer.h"
 #include "render/scene/node.h"
@@ -1122,7 +1123,7 @@ void LauncherPanel::create() {
     if (sourceIndex >= m_results.size() || targetIndex >= m_results.size()) {
       return;
     }
-    reorderPinnedApplication(m_results[sourceIndex].id, m_results[targetIndex].id);
+    reorderPinnedApplication(m_results[sourceIndex].desktopEntryPath, m_results[targetIndex].desktopEntryPath);
   });
   m_gridAdapter->setOnActivate(onActivate);
   m_gridAdapter->setOnSecondaryActivate(onSecondaryActivate);
@@ -1130,7 +1131,7 @@ void LauncherPanel::create() {
     if (sourceIndex >= m_results.size() || targetIndex >= m_results.size()) {
       return;
     }
-    reorderPinnedApplication(m_results[sourceIndex].id, m_results[targetIndex].id);
+    reorderPinnedApplication(m_results[sourceIndex].desktopEntryPath, m_results[targetIndex].desktopEntryPath);
   });
 
   body->addChild(
@@ -1712,7 +1713,7 @@ void LauncherPanel::applyPinnedApplicationOrder() {
       if (result.providerId != kApplicationsProviderId) {
         return pinnedPaths.size();
       }
-      const auto it = std::ranges::find(pinnedPaths, result.id);
+      const auto it = std::ranges::find(pinnedPaths, result.desktopEntryPath);
       return it == pinnedPaths.end() ? pinnedPaths.size() : static_cast<std::size_t>(it - pinnedPaths.begin());
     };
     return rank(a) < rank(b);
@@ -1732,8 +1733,9 @@ void LauncherPanel::updatePinnedApplicationState() {
     if (result.providerId != kApplicationsProviderId) {
       continue;
     }
-    result.pinned =
-        std::ranges::any_of(pinnedEntries, [&result](const DesktopEntry& entry) { return entry.path == result.id; });
+    result.pinned = std::ranges::any_of(pinnedEntries, [&result](const DesktopEntry& entry) {
+      return entry.path == result.desktopEntryPath;
+    });
   }
 }
 
@@ -1980,7 +1982,7 @@ bool LauncherPanel::openAppActionsMenu(std::size_t index, float anchorX, float a
 
   const DesktopEntry* match = nullptr;
   for (const auto& e : desktopEntries()) {
-    if (e.path == base.id) {
+    if (e.path == base.desktopEntryPath) {
       match = &e;
       break;
     }
@@ -2077,7 +2079,6 @@ bool LauncherPanel::openAppActionsMenu(std::size_t index, float anchorX, float a
   m_actionsMenu->setOnActivate([this, base, actionsCopy = std::move(actionsCopy),
                                 entryForPin = *match](const ContextMenuControlEntry& entry) {
     LauncherResult result = base;
-    result.desktopActionId.clear();
     if (entry.id == kActionPin) {
       if (m_config == nullptr
           || entryForPin.id.empty()
@@ -2103,7 +2104,9 @@ bool LauncherPanel::openAppActionsMenu(std::size_t index, float anchorX, float a
       return;
     }
     if (entry.id >= 0 && entry.id < static_cast<std::int32_t>(actionsCopy.size())) {
-      result.desktopActionId = actionsCopy[static_cast<std::size_t>(entry.id)].id;
+      const DesktopAction& action = actionsCopy[static_cast<std::size_t>(entry.id)];
+      result.id = AppProvider::actionResultId(result.desktopEntryPath, action.id);
+      result.desktopActionId = action.id;
     } else if (entry.id != kActionOpen) {
       return;
     }
