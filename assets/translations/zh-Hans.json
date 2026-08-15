@@ -1482,8 +1482,6 @@
         "held-back": "较旧版本",
         "held-back-hint": "v{version} 需要插件 API {required}；当前 Noctalia 最高仅支持 API {current}。请升级 Noctalia 以获取该版本。",
         "incompatible-plugin-api": "插件 API 不兼容",
-        "loading": "正在加载插件…",
-        "refreshing": "正在刷新插件…",
         "remove": "移除插件",
         "requires": "依赖：{dependencies}",
         "title": "插件",

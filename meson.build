@@ -728,6 +728,7 @@ _noctalia_sources = files(
   'src/system/app_identity.cpp',
   'src/shell/wallpaper/wallpaper_paths.cpp',
   'src/shell/wallpaper/wallpaper_geometry.cpp',
+  'src/shell/wallpaper/wallpaper_shuffle_state.cpp',
   'src/shell/wallpaper/wallpaper.cpp',
   'src/shell/wallpaper/panel/wallpaper_panel.cpp',
   'src/shell/wallpaper/panel/wallpaper_scanner.cpp',
@@ -1196,6 +1197,7 @@ if build_tests
     'wayland_toplevels_identity',
     'widget_action',
     'widget_definition',
+    'wallpaper_shuffle_state',
     'workspace_alert_service',
   ]
 

@@ -1482,8 +1482,6 @@
         "held-back": "older version",
         "held-back-hint": "v{version} needs plugin API {required}; this Noctalia supports up to {current}. Upgrade Noctalia to get it.",
         "incompatible-plugin-api": "incompatible plugin API",
-        "loading": "Loading plugins…",
-        "refreshing": "Refreshing plugins…",
         "remove": "Remove plugin",
         "requires": "Requires: {dependencies}",
         "title": "Plugins",

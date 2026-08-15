@@ -1481,8 +1481,6 @@
         "held-back": "eldre utgåve",
         "held-back-hint": "v{version} krev utvidings-API {required}; denne Noctalia stør opp til {current}. Få ei nyare Noctalia for å få henne.",
         "incompatible-plugin-api": "usemjande utvidings-API",
-        "loading": "Lastar inn utvidingar ...",
-        "refreshing": "Lastar inn utvidingar å nyo ...",
         "remove": "Sletta utviding",
         "requires": "Krev: {dependencies}",
         "title": "Utvidingar",

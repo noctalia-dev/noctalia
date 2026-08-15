@@ -66,7 +66,7 @@
         "interface": "Интерфейс",
         "ip": "IP",
         "network": "Сеть",
-        "networks": "Сеть",
+        "networks": "Сети",
         "networks-count": "{count} сеть",
         "networks-count-plural": "{count} сети",
         "no": "Нет",
@@ -96,6 +96,10 @@
         "cpu-freq": "Частота CPU",
         "cpu-temp": "Температура CPU",
         "disk": "Диск",
+        "disk-free": "Свободно на диске",
+        "disk-free-pct": "Свободно на диске в %",
+        "disk-used": "Занято на диске",
+        "disk-used-pct": "Занято на диске в %",
         "download": "Скачать",
         "gpu-temp": "Температура GPU",
         "gpu-usage": "Загрузка GPU",
@@ -115,7 +119,18 @@
         "error": "Погода: ошибка",
         "loading": "Погода...",
         "no-location": "Нет местоположения",
-        "off": "Погода выкл."
+        "off": "Погода выкл.",
+        "tooltip": {
+          "condition": "Состояние",
+          "high": "Максимальная",
+          "humidity": "Влажность",
+          "low": "Минимальная",
+          "sunrise": "Восход",
+          "sunset": "Закат",
+          "temperature": "Температура",
+          "uv": "УФ-индекс",
+          "wind": "Ветер"
+        }
       }
     }
   },
@@ -474,6 +489,7 @@
         "display": "Дисплей",
         "display-graph": "График",
         "fade-when-idle": "Затухание в режиме ожидания",
+        "fill-color": "Цвет заливки",
         "font-family": "Шрифт",
         "font-family-default": "По умолчанию",
         "format": "Формат",
@@ -1316,8 +1332,6 @@
         "delete-confirm-title": "Удалить \"{name}\"?",
         "deprecated": "Устаревший",
         "empty": "Нет включенных плагинов.",
-        "loading": "Загрузка плагинов...",
-        "refreshing": "Обновление плагинов...",
         "remove": "Удалить плагин",
         "requires": "Требуются: {dependencies}",
         "title": "Плагины",

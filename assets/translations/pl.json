@@ -1075,8 +1075,6 @@
       "plugins": {
         "configure": "Skonfiguruj",
         "empty": "Nie znaleziono wtyczek. Dodaj źródło, albo sprawdź swoją sieć.",
-        "loading": "Ładowanie wtyczek...",
-        "refreshing": "Odświeżanie wtyczek...",
         "title": "Wtyczki"
       },
       "settings": {

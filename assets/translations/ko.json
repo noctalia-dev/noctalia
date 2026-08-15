@@ -1451,8 +1451,6 @@
         "held-back": "이전 버전",
         "held-back-hint": "v{version}에는 플러그인 API {required}이(가) 필요합니다. 현재 Noctalia는 최대 {current}까지만 지원합니다. Noctalia를 업그레이드하여 API를 받으세요.",
         "incompatible-plugin-api": "호환되지 않는 플러그인 API",
-        "loading": "플러그인 불러오는 중…",
-        "refreshing": "플러그인 새로 고침 중…",
         "remove": "플러그인 제거",
         "requires": "필요: {dependencies}",
         "title": "플러그인",
