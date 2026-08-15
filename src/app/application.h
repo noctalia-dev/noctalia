@@ -251,6 +251,8 @@ private:
   bool m_releaseSleepDelayWhenLocked = false;
   // Set before Noctalia-initiated suspend so PrepareForSleep skips lock-before-sleep.
   bool m_skipLockOnNextSleep = false;
+  // Prevents the unlock hook from resuming tracking during suspend.
+  bool m_preparingForSleep = false;
   std::unique_ptr<AccountsService> m_accountsService;
   std::unique_ptr<ScreenSaverService> m_screenSaverService;
   std::unique_ptr<ScreenSaverPollSource> m_screenSaverPollSource;

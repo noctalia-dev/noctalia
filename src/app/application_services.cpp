@@ -965,6 +965,7 @@ void Application::initSystemBusServices() {
           m_idleGraceOverlay.hide();
           if (sleeping) {
             // Screen time must not accumulate across suspend even when lock-before-suspend is off.
+            m_preparingForSleep = true;
             m_screenTimeService.setTrackingPaused(true);
             // Delay inhibit (when lock_before_suspend is on) holds sleep until we lock.
             // Do not use runAfterSessionLocked here — that slot belongs to lock-and-suspend.
@@ -1013,8 +1014,10 @@ void Application::initSystemBusServices() {
           }
           m_skipLockOnNextSleep = false;
           m_releaseSleepDelayWhenLocked = false;
+          m_preparingForSleep = false;
           if (!m_lockScreen.isSessionLocked()) {
-            // Still locked after wake; the unlock hook resumes tracking.
+            // After wake, resume tracking if the session is already unlocked.
+            // Otherwise, keep it paused until the session unlocks.
             m_screenTimeService.setTrackingPaused(false);
           }
           if (m_configService.shouldLockBeforeSuspend() && m_logindService != nullptr) {
