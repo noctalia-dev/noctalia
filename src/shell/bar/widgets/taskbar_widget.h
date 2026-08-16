@@ -1,6 +1,7 @@
 #pragma once
 
 #include "compositors/compositor_platform.h"
+#include "core/timer_manager.h"
 #include "shell/bar/widget.h"
 #include "system/desktop_entry.h"
 #include "system/icon_resolver.h"
@@ -20,6 +21,7 @@ class Box;
 class Flex;
 class InputArea;
 class Label;
+class Node;
 class TaskbarWidgetTestAccess;
 struct wl_output;
 struct zwlr_foreign_toplevel_handle_v1;
@@ -149,6 +151,26 @@ private:
     Box* activeIndicator = nullptr;
   };
 
+  // Drag-to-reorder for pinned tiles in the flat strip.
+  struct DragState {
+    bool active = false;
+    bool armed = false; // hold fired; goes active on the next motion
+    std::size_t sourceIndex = 0;
+    std::size_t targetIndex = 0;
+    // m_taskGeneration when the drag began; a layout change invalidates the indices above.
+    std::uint64_t generation = 0;
+    // Pointer position along the strip's layout axis: x when horizontal, y when vertical.
+    float startMain = 0.0F;
+    float currentMain = 0.0F;
+    // Visuals: the dragged tile leaves the layout flow so Flex stops repositioning it.
+    InputArea* area = nullptr;
+    float restMain = 0.0F;
+    float restCross = 0.0F;
+    Node* spacer = nullptr;      // invisible placeholder that holds the drop gap open
+    std::size_t pinnedCount = 0; // pin count when the drag began; bounds the travel range
+    Timer holdTimer;
+  };
+
   void doLayout(Renderer& renderer, float containerWidth, float containerHeight) override;
   void doUpdate(Renderer& renderer) override;
 
@@ -190,6 +212,14 @@ private:
   void activateOrLaunchPinned(const TaskModel& task);
   void launchDesktopEntry(const TaskModel& task);
   [[nodiscard]] const std::vector<std::string>& pinnedConfigIds() const noexcept;
+  [[nodiscard]] bool reorderEnabled() const;
+  [[nodiscard]] float pointerMainOnStrip(const InputArea& area, float localX, float localY) const;
+  [[nodiscard]] std::size_t computeDragTargetIndex() const;
+  [[nodiscard]] bool commitDragReorder();
+  void beginDragVisual();
+  void updateDragVisual();
+  void endDragVisual();
+  void syncDragSpacer();
   [[nodiscard]] static bool taskMatchesDesktopEntry(const TaskModel& task, const DesktopEntry& entry);
   void setEntryPinned(const DesktopEntry& entry, bool pinned);
   [[nodiscard]] std::optional<DesktopEntry> desktopEntryForTask(const TaskModel& task) const;
@@ -226,6 +256,10 @@ private:
   std::string m_barPosition;
   std::string m_barName;
   std::string m_widgetName;
+  DragState m_drag;
+  bool m_suppressTileClick = false;
+
+  float m_tilePitchMain = 0.0F; // Main-axis distance between adjacent tiles; set while building the flat strip.
   bool m_rebuildPending = true;
   bool m_vertical = false;
   float m_containerWidth = 0.0F;

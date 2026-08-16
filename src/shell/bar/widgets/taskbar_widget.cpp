@@ -29,6 +29,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cctype>
+#include <chrono>
 #include <cmath>
 #include <functional>
 #include <linux/input-event-codes.h>
@@ -39,6 +40,11 @@
 #include <wayland-client-protocol.h>
 
 namespace {
+
+  constexpr auto kDragHoldDelay = std::chrono::milliseconds(300);
+  // Main-axis travel that starts a drag outright, so picking a tile up does not have to wait out
+  // the hold delay. Large enough that an unsteady click cannot trip it.
+  constexpr float kDragArmDistance = 8.0F;
 
   // Integer centering; optional odd spare pixel on the end side (right/bottom).
   [[nodiscard]] float centeredOffset(float extent, float content, float inset = 0.0F, bool oddSpareOnEnd = true) {
@@ -326,6 +332,121 @@ void TaskbarWidget::closeTaskModel(const TaskModel& task) {
 }
 
 const std::vector<std::string>& TaskbarWidget::pinnedConfigIds() const noexcept { return m_configOptions.pinned; }
+
+bool TaskbarWidget::reorderEnabled() const {
+  if (m_groupByWorkspace || m_widgetName.empty()) {
+    return false;
+  }
+  return pinnedConfigIds().size() >= 2;
+}
+
+float TaskbarWidget::pointerMainOnStrip(const InputArea& area, float localX, float localY) const {
+  return m_vertical ? area.y() + localY : area.x() + localX;
+}
+
+std::size_t TaskbarWidget::computeDragTargetIndex() const {
+  // Snapshotted at drag start so the target keeps referring to the list the drag began against,
+  // even if the pin list changes underneath.
+  const std::size_t pinnedCount = m_drag.pinnedCount;
+  if (m_tilePitchMain <= 0.0F || pinnedCount == 0) {
+    return m_drag.sourceIndex;
+  }
+  const float slots = (m_drag.currentMain - m_drag.startMain) / m_tilePitchMain;
+  const auto shifted =
+      static_cast<std::ptrdiff_t>(m_drag.sourceIndex) + static_cast<std::ptrdiff_t>(std::lround(slots));
+  return static_cast<std::size_t>(std::clamp<std::ptrdiff_t>(shifted, 0, static_cast<std::ptrdiff_t>(pinnedCount) - 1));
+}
+
+bool TaskbarWidget::commitDragReorder() {
+  if (m_widgetName.empty() || m_drag.sourceIndex == m_drag.targetIndex) {
+    return false;
+  }
+  std::vector<std::string> pinned = pinnedConfigIds();
+  if (m_drag.sourceIndex >= pinned.size() || m_drag.targetIndex >= pinned.size()) {
+    return false;
+  }
+
+  std::string moved = std::move(pinned[m_drag.sourceIndex]);
+  pinned.erase(pinned.begin() + static_cast<std::ptrdiff_t>(m_drag.sourceIndex));
+  pinned.insert(pinned.begin() + static_cast<std::ptrdiff_t>(m_drag.targetIndex), std::move(moved));
+
+  // Writing config rebuilds the taskbar, which can destroy the InputArea whose handler we are
+  // inside — defer so the write happens after this event finishes dispatching.
+  ConfigService* config = &m_configService;
+  DeferredCall::callLater([config, widgetName = m_widgetName, pinned = std::move(pinned)]() mutable {
+    (void)config->setOverride({"widget", widgetName, "pinned"}, std::move(pinned));
+  });
+  return true;
+}
+
+void TaskbarWidget::beginDragVisual() {
+  if (m_drag.area == nullptr) {
+    return;
+  }
+  // Capture the resting position before leaving the flow — afterwards Flex closes the gap and the
+  // neighbours move, but this node keeps whatever position we give it.
+  m_drag.restMain = m_vertical ? m_drag.area->y() : m_drag.area->x();
+  m_drag.restCross = m_vertical ? m_drag.area->x() : m_drag.area->y();
+  m_drag.pinnedCount = pinnedConfigIds().size();
+  m_drag.area->setParticipatesInLayout(false);
+  m_drag.area->setZIndex(200);
+  syncDragSpacer();
+}
+
+void TaskbarWidget::updateDragVisual() {
+  if (m_drag.area == nullptr || !m_drag.active) {
+    return;
+  }
+  // Slot i sits at restMain + (i - sourceIndex) * pitch, so clamping travel to the first and last
+  // slots keeps the tile from wandering somewhere it could never be dropped.
+  const auto source = static_cast<std::ptrdiff_t>(m_drag.sourceIndex);
+  const auto last = static_cast<std::ptrdiff_t>(m_drag.pinnedCount) - 1;
+  const float minMain = m_drag.restMain - static_cast<float>(source) * m_tilePitchMain;
+  const float maxMain = m_drag.restMain + static_cast<float>(last - source) * m_tilePitchMain;
+  const float travelled = m_drag.restMain + (m_drag.currentMain - m_drag.startMain);
+  const float main = (last > 0) ? std::clamp(travelled, minMain, maxMain) : travelled;
+  if (m_vertical) {
+    m_drag.area->setPosition(m_drag.restCross, main);
+  } else {
+    m_drag.area->setPosition(main, m_drag.restCross);
+  }
+  requestRedraw();
+}
+
+void TaskbarWidget::endDragVisual() {
+  if (m_drag.area == nullptr) {
+    return;
+  }
+  if (m_drag.spacer != nullptr && m_taskStrip != nullptr) {
+    (void)m_taskStrip->removeChild(m_drag.spacer);
+    m_drag.spacer = nullptr;
+  }
+  m_drag.area->setZIndex(0);
+  m_drag.area->setParticipatesInLayout(true);
+  m_drag.area = nullptr;
+  requestRedraw();
+}
+
+void TaskbarWidget::syncDragSpacer() {
+  if (m_taskStrip == nullptr || m_drag.area == nullptr) {
+    return;
+  }
+  // The dragged tile still holds a slot in the child vector but no longer participates in layout,
+  // so a target past the source needs one extra slot to land in the right visual gap.
+  const std::size_t insertAt = m_drag.targetIndex > m_drag.sourceIndex ? m_drag.targetIndex + 1 : m_drag.targetIndex;
+
+  std::unique_ptr<Node> held;
+  if (m_drag.spacer != nullptr) {
+    held = m_taskStrip->removeChild(m_drag.spacer);
+  } else {
+    held = ui::node({
+        .frameWidth = m_drag.area->width(),
+        .frameHeight = m_drag.area->height(),
+        .hitTestVisible = false,
+    });
+  }
+  m_drag.spacer = m_taskStrip->insertChildAt(insertAt, std::move(held));
+}
 
 bool TaskbarWidget::taskMatchesDesktopEntry(const TaskModel& task, const DesktopEntry& entry) {
   const std::string entryIdLower = StringUtils::toLower(entry.id);
@@ -734,6 +855,7 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
     };
   };
 
+  const std::size_t draggableTileCount = reorderEnabled() ? pinnedConfigIds().size() : 0;
   auto createTaskTile = [&](TaskRef taskRef, std::vector<TaskRef> cycleCandidates = {}, std::string cycleKey = {},
                             std::size_t badgeCount = 1) {
     // Unreachable at build time: every ref is built from a live m_tasks element at the current
@@ -753,6 +875,101 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
     }
     area->setOpacity(tileOpacity);
     area->setAcceptedButtons(InputArea::buttonMask({BTN_LEFT, BTN_RIGHT, BTN_MIDDLE}));
+    auto* dragArea = area.get();
+    const bool tileDraggable = taskRef.index < draggableTileCount;
+    area->setOnPress([this, dragArea, taskRef, tileDraggable](const InputArea::PointerData& data) {
+      if (data.pressed) {
+        // Any new press supersedes suppression left over from a drag that ended outside its tile.
+        m_suppressTileClick = false;
+      }
+      if (data.button != BTN_LEFT) {
+        return;
+      }
+      if (data.pressed) {
+        if (!tileDraggable) {
+          return;
+        }
+        m_drag = {};
+        m_drag.generation = m_taskGeneration;
+        m_drag.sourceIndex = taskRef.index;
+        m_drag.targetIndex = taskRef.index;
+        m_drag.startMain = pointerMainOnStrip(*dragArea, data.localX, data.localY);
+        m_drag.currentMain = m_drag.startMain;
+        m_drag.area = dragArea;
+        m_drag.holdTimer.start(kDragHoldDelay, [this, taskRef]() {
+          if (m_drag.sourceIndex == taskRef.index && !m_drag.active) {
+            m_drag.armed = true;
+          }
+        });
+        return;
+      }
+      if (!tileDraggable || m_drag.sourceIndex != taskRef.index) {
+        return;
+      }
+      if (m_drag.generation != m_taskGeneration) {
+        m_drag = {};
+        return;
+      }
+      m_drag.holdTimer.stop();
+      if (m_drag.active) {
+        m_suppressTileClick = true;
+        if (commitDragReorder()) {
+          // The deferred config write rebuilds the strip and destroys these nodes; restoring them
+          // now would briefly relayout at the old order and snap the tile back. Park the tile in
+          // the gap the spacer is holding so the strip looks settled while that write lands.
+          if (m_drag.area != nullptr && m_drag.spacer != nullptr) {
+            m_drag.area->setPosition(m_drag.spacer->x(), m_drag.spacer->y());
+          }
+          m_drag.area = nullptr;
+          m_drag.spacer = nullptr;
+        }
+      }
+      endDragVisual();
+      m_drag = {};
+    });
+    if (tileDraggable) {
+      area->setOnMotion([this, dragArea, taskRef](const InputArea::PointerData& data) {
+        if (m_drag.generation != m_taskGeneration) {
+          m_drag = {};
+          return;
+        }
+        // area is set on press and cleared on release, so it doubles as "this tile is held".
+        // Without it a plain hover would satisfy the distance check below and start a drag.
+        if (m_drag.area == nullptr || m_drag.sourceIndex != taskRef.index) {
+          return;
+        }
+        const float main = pointerMainOnStrip(*dragArea, data.localX, data.localY);
+        if (!m_drag.armed && !m_drag.active && std::abs(main - m_drag.startMain) >= kDragArmDistance) {
+          m_drag.holdTimer.stop();
+          m_drag.armed = true;
+        }
+        if (!m_drag.armed && !m_drag.active) {
+          return;
+        }
+        if (!m_drag.active) {
+          m_drag.active = true;
+          beginDragVisual();
+        }
+        m_drag.currentMain = main;
+        const std::size_t next = computeDragTargetIndex();
+        if (next != m_drag.targetIndex) {
+          m_drag.targetIndex = next;
+          syncDragSpacer();
+        }
+        updateDragVisual();
+      });
+      area->setOnCancel([this, taskRef]() {
+        if (m_drag.generation != m_taskGeneration) {
+          // The strip was rebuilt under us, so m_drag.area no longer points at a live node.
+          m_drag = {};
+          return;
+        }
+        if (m_drag.sourceIndex == taskRef.index) {
+          endDragVisual();
+          m_drag = {};
+        }
+      });
+    }
 
     const WorkspaceModel* taskWorkspace = nullptr;
     if (m_groupByWorkspace && !task.workspaceKey.empty()) {
@@ -774,6 +991,10 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
                         cycleKey = std::move(cycleKey)](const InputArea::PointerData& data) {
         const TaskModel* current = resolveTask(m_tasks, taskRef, m_taskGeneration);
         if (current == nullptr) {
+          return;
+        }
+        if (m_suppressTileClick) {
+          m_suppressTileClick = false;
           return;
         }
 
@@ -1386,6 +1607,7 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
   }
   m_taskStrip->setPadding(0.0F, 0.0F, 0.0F, 0.0F);
   m_taskStrip->setGap(tileGap);
+  m_tilePitchMain = (m_vertical ? tileSize : tileWidthWithTitle) + tileGap;
   std::unordered_set<std::string> pinnedCycleKeysThisFrame;
   for (std::size_t i = 0; i < m_tasks.size(); ++i) {
     const auto& task = m_tasks[i];
