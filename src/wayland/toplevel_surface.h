@@ -31,6 +31,8 @@ public:
 
   void setClosedCallback(std::function<void()> callback);
   void setMinSize(std::uint32_t minWidth, std::uint32_t minHeight);
+  // Compare configured size to min_size hints. Never inflates the local buffer beyond
+  // the compositor configure size (that caused settings crop on tiled/portrait outputs).
   void clampToMinSize(std::uint32_t minWidth, std::uint32_t minHeight);
   void beginMove(std::uint32_t serial);
 

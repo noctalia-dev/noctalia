@@ -57,6 +57,22 @@ namespace {
   constexpr float kWindowMinWidth = 1020.0F;
   constexpr float kWindowMinHeight = 500.0F;
 
+  // min_size hints are orientation-aware: portrait outputs constrain width, so the hint
+  // follows the same 66% short-edge budget as the default open size instead of 1020.
+  [[nodiscard]] std::pair<float, float> settingsWindowMinSize(float outputW, float outputH, float scale) {
+    float minW = kWindowMinWidth * scale;
+    float minH = kWindowMinHeight * scale;
+    if (outputW <= 0.0F || outputH <= 0.0F) {
+      return {minW, minH};
+    }
+    if (outputW < outputH) {
+      minW = std::min(minW, outputW * kWindowOutputFraction);
+    }
+    minW = std::min(minW, outputW);
+    minH = std::min(minH, outputH);
+    return {minW, minH};
+  }
+
   // Build the {"bar", name, <lane>} path the widget inspector expects, resolving which lane the widget
   // currently lives in (the inspector keys off the bar name at index 1 and the lane at the tail).
   std::vector<std::string>
@@ -423,13 +439,14 @@ void SettingsWindow::open(std::string context) {
   m_surface->setUpdateCallback([]() {});
 
   const float scale = uiScale();
-  const float minWidthF = kWindowMinWidth * scale;
-  const float minHeightF = kWindowMinHeight * scale;
   float desiredWidth = kWindowWidth * scale;
   float desiredHeight = kWindowHeight * scale;
+  float minWidthF = kWindowMinWidth * scale;
+  float minHeightF = kWindowMinHeight * scale;
   if (const WaylandOutput* info = m_wayland->findOutputByWl(output); info != nullptr && info->hasUsableGeometry()) {
     const auto outputW = static_cast<float>(info->effectiveLogicalWidth());
     const auto outputH = static_cast<float>(info->effectiveLogicalHeight());
+    std::tie(minWidthF, minHeightF) = settingsWindowMinSize(outputW, outputH, scale);
     if (outputW >= outputH) {
       desiredHeight = util::clampOrdered(outputH * kWindowOutputFraction, std::min(minHeightF, outputH), outputH);
       desiredWidth = util::clampOrdered(desiredHeight * kGoldenRatio, std::min(minWidthF, outputW), outputW);
@@ -653,8 +670,17 @@ void SettingsWindow::prepareFrame(bool needsUpdate, bool needsLayout) {
     m_filterRowRefreshRequested = false;
     phaseProfileWatch.reset();
     const float scale = uiScale();
-    const auto newMinW = static_cast<std::uint32_t>(std::round(kWindowMinWidth * scale));
-    const auto newMinH = static_cast<std::uint32_t>(std::round(kWindowMinHeight * scale));
+    float minWidthF = kWindowMinWidth * scale;
+    float minHeightF = kWindowMinHeight * scale;
+    if (m_wayland != nullptr && m_output != nullptr) {
+      if (const WaylandOutput* info = m_wayland->findOutputByWl(m_output); info != nullptr && info->hasUsableGeometry()) {
+        std::tie(minWidthF, minHeightF) = settingsWindowMinSize(
+            static_cast<float>(info->effectiveLogicalWidth()), static_cast<float>(info->effectiveLogicalHeight()), scale
+        );
+      }
+    }
+    const auto newMinW = static_cast<std::uint32_t>(std::round(minWidthF));
+    const auto newMinH = static_cast<std::uint32_t>(std::round(minHeightF));
     m_surface->setMinSize(newMinW, newMinH);
     m_surface->clampToMinSize(newMinW, newMinH);
     logSettingsProfile("prepareFrame updateMinSize", phaseProfileWatch);

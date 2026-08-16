@@ -100,10 +100,15 @@ void ToplevelSurface::setMinSize(std::uint32_t minWidth, std::uint32_t minHeight
 }
 
 void ToplevelSurface::clampToMinSize(std::uint32_t minWidth, std::uint32_t minHeight) {
-  const auto w = std::max(width(), minWidth);
-  const auto h = std::max(height(), minHeight);
-  if (w != width() || h != height()) {
-    onConfigure(w, h);
+  if (width() == 0 || height() == 0) {
+    return;
+  }
+
+  if (width() < minWidth || height() < minHeight) {
+    kLog.debug(
+        "toplevel: configured {}x{} is below min_size {}x{}; keeping compositor size (layout adapts, no buffer inflate)",
+        width(), height(), minWidth, minHeight
+    );
   }
 }
 
