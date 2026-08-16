@@ -3468,6 +3468,10 @@
           "description": "Allow mouse wheel and trackpad scroll actions on this widget",
           "label": "Enable Scroll"
         },
+        "focus-existing-window": {
+          "description": "Left-click focuses this app's already-open window instead of only sending the tray Activate action, which many apps ignore once their window is open",
+          "label": "Focus Existing Window"
+        },
         "focused-color": {
           "description": "Color role used for the focused workspace; fixed hex colors are also supported",
           "label": "Focused Color"

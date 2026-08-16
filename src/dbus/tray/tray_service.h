@@ -36,6 +36,7 @@ struct TrayItemInfo {
   std::int32_t attentionWidth = 0;
   std::int32_t attentionHeight = 0;
   bool needsAttention = false;
+  bool itemIsMenu = false;
 
   bool operator==(const TrayItemInfo&) const = default;
 };

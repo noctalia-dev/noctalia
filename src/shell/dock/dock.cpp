@@ -7,6 +7,7 @@
 #include "core/log.h"
 #include "ipc/ipc_service.h"
 #include "render/scene/node.h"
+#include "shell/common/window_activation.h"
 #include "shell/dock/dock_context_menu.h"
 #include "shell/dock/dock_geometry.h"
 #include "shell/dock/dock_instance.h"
@@ -102,23 +103,6 @@ namespace {
     return signature;
   }
 
-  [[nodiscard]] bool canActivateWindow(const ToplevelInfo& window) {
-    return window.handle != nullptr
-        || !window.identifier.empty()
-        || (compositors::isKde() && (!window.title.empty() || !window.appId.empty()));
-  }
-
-  [[nodiscard]] const ToplevelInfo* newestActivatableWindow(const std::vector<ToplevelInfo>& windows) {
-    const ToplevelInfo* best = nullptr;
-    for (const auto& window : windows) {
-      if (!canActivateWindow(window)) {
-        continue;
-      }
-      best = &window;
-    }
-    return best;
-  }
-
   [[nodiscard]] bool matchesActiveWindow(
       const ToplevelInfo& window, const ActiveToplevel& active, std::string_view focusedCompositorWindowId,
       const std::vector<ToplevelInfo>& windows
@@ -164,7 +148,7 @@ namespace {
         }
         for (std::size_t offset = 1; offset <= windows.size(); ++offset) {
           const auto& candidate = windows[(i + offset) % windows.size()];
-          if (canActivateWindow(candidate)) {
+          if (shell::canActivateWindow(candidate)) {
             return &candidate;
           }
         }
@@ -174,14 +158,14 @@ namespace {
 
     if (!preferredIdentifier.empty()) {
       for (const auto& window : windows) {
-        if (window.identifier == preferredIdentifier && canActivateWindow(window)) {
+        if (window.identifier == preferredIdentifier && shell::canActivateWindow(window)) {
           return &window;
         }
       }
     }
 
     for (const auto& window : windows) {
-      if (canActivateWindow(window)) {
+      if (shell::canActivateWindow(window)) {
         return &window;
       }
     }
@@ -1123,14 +1107,14 @@ void Dock::tryFulfillPendingLaunchFocus() {
 
   auto windowsOnTarget =
       shell::dock::windowsForDockItem(*m_platform, pending.idLower, pending.wmClassLower, pending.targetOutput);
-  const ToplevelInfo* window = newestActivatableWindow(windowsOnTarget);
+  const ToplevelInfo* window = shell::newestActivatableWindow(windowsOnTarget);
   if (window == nullptr) {
     auto windows =
         shell::dock::windowsForDockItem(*m_platform, pending.idLower, pending.wmClassLower, pending.outputFilter);
     if (windows.empty() && pending.outputFilter != nullptr) {
       windows = shell::dock::windowsForDockItem(*m_platform, pending.idLower, pending.wmClassLower, nullptr);
     }
-    window = newestActivatableWindow(windows);
+    window = shell::newestActivatableWindow(windows);
     if (window == nullptr) {
       return;
     }

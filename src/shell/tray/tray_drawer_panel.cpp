@@ -1,5 +1,6 @@
 #include "shell/tray/tray_drawer_panel.h"
 
+#include "compositors/compositor_platform.h"
 #include "config/config_service.h"
 #include "dbus/tray/tray_service.h"
 #include "shell/bar/widgets/tray_widget.h"
@@ -11,7 +12,8 @@
 #include <algorithm>
 #include <vector>
 
-TrayDrawerPanel::TrayDrawerPanel(TrayService* tray, ConfigService* config) : m_tray(tray), m_config(config) {}
+TrayDrawerPanel::TrayDrawerPanel(CompositorPlatform* platform, TrayService* tray, ConfigService* config)
+    : m_platform(platform), m_tray(tray), m_config(config) {}
 
 TrayDrawerPanel::~TrayDrawerPanel() = default;
 
@@ -67,7 +69,7 @@ float TrayDrawerPanel::preferredHeight() const {
 }
 
 void TrayDrawerPanel::create() {
-  if (m_config == nullptr) {
+  if (m_config == nullptr || m_platform == nullptr) {
     return;
   }
 
@@ -91,7 +93,7 @@ void TrayDrawerPanel::create() {
   options.itemActivated = []() { PanelManager::instance().close(); };
   options.panelGridMode = true;
   options.customItemSize = resolved.drawerItemSize;
-  m_drawerWidget = std::make_unique<TrayWidget>(*m_config, m_tray, std::move(options));
+  m_drawerWidget = std::make_unique<TrayWidget>(*m_platform, *m_config, m_tray, std::move(options));
   m_drawerWidget->setContentScale(contentScale());
   if (!m_config->config().bars.empty()) {
     const auto& barConfig = m_config->config().bars.front();

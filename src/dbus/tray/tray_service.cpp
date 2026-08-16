@@ -201,6 +201,20 @@ namespace {
     return fallback;
   }
 
+  bool get_item_property_bool_from(
+      const std::map<std::string, sdbus::Variant>& properties, std::string_view propertyName, bool fallback
+  ) {
+    const auto* value = findProperty(properties, propertyName);
+    if (value == nullptr) {
+      return fallback;
+    }
+    try {
+      return value->get<bool>();
+    } catch (const sdbus::Error&) {
+    }
+    return fallback;
+  }
+
   using IconPixmapTuple = std::tuple<std::int32_t, std::int32_t, std::vector<std::uint8_t>>;
   using IconPixmapStruct = sdbus::Struct<std::int32_t, std::int32_t, std::vector<std::uint8_t>>;
   using StatusNotifierTextTuple = std::tuple<std::string, std::vector<IconPixmapTuple>, std::string, std::string>;
@@ -2050,6 +2064,7 @@ void TrayService::refreshItemMetadata(const std::string& itemId) {
           next.statusNotifierDescription = std::move(statusNotifierDescription);
           next.status = get_item_property_string_from(properties, "Status", cur.status);
           next.needsAttention = (StringUtils::toLower(next.status) == "needsattention");
+          next.itemIsMenu = get_item_property_bool_from(properties, "ItemIsMenu", cur.itemIsMenu);
 
           if (next.itemName == "chrome_status_icon_1" && !next.statusNotifierTitle.empty()) {
             next.itemName = next.itemName + "::" + next.statusNotifierTitle;

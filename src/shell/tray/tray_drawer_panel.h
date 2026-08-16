@@ -6,13 +6,14 @@
 #include <string>
 #include <vector>
 
+class CompositorPlatform;
 class ConfigService;
 class TrayService;
 class TrayWidget;
 
 class TrayDrawerPanel : public Panel {
 public:
-  TrayDrawerPanel(TrayService* tray, ConfigService* config);
+  TrayDrawerPanel(CompositorPlatform* platform, TrayService* tray, ConfigService* config);
   ~TrayDrawerPanel() override;
 
   void create() override;
@@ -32,6 +33,7 @@ private:
   [[nodiscard]] float resolvedItemGap() const;
   [[nodiscard]] std::size_t visibleItemCount() const;
 
+  CompositorPlatform* m_platform = nullptr;
   TrayService* m_tray = nullptr;
   ConfigService* m_config = nullptr;
   std::unique_ptr<TrayWidget> m_drawerWidget;
