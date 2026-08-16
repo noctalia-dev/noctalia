@@ -426,6 +426,13 @@ void SettingsWindow::open(std::string context) {
 
   m_surface->setClosedCallback([this]() { destroyWindow(); });
 
+  m_surface->setOutputChangedCallback([this](wl_output* currentOutput) {
+    m_output = currentOutput;
+    if (currentOutput != nullptr && m_surface != nullptr) {
+      m_surface->requestLayout();
+    }
+  });
+
   m_surface->setConfigureCallback([this](std::uint32_t /*width*/, std::uint32_t /*height*/) {
     if (m_surface != nullptr) {
       m_surface->requestLayout();
@@ -474,6 +481,8 @@ void SettingsWindow::open(std::string context) {
     m_surface.reset();
     return;
   }
+  m_minWidthHint = minWidth;
+  m_minHeightHint = minHeight;
   m_pointerInside = false;
   m_lastSceneWidth = 0;
   m_lastSceneHeight = 0;
@@ -572,6 +581,8 @@ void SettingsWindow::destroyWindow() {
   m_surface.reset();
   m_pointerInside = false;
   m_output = nullptr;
+  m_minWidthHint = 0;
+  m_minHeightHint = 0;
   m_lastSceneWidth = 0;
   m_lastSceneHeight = 0;
   m_settingsRegistry.clear();
@@ -649,6 +660,32 @@ void SettingsWindow::prepareFrame(bool needsUpdate, bool needsLayout) {
   const bool sizeChanged = !firstBuild && (m_lastSceneWidth != width || m_lastSceneHeight != height);
   const bool needRebuild = firstBuild || m_rebuildRequested;
 
+  const float scale = uiScale();
+  float minWidthF = kWindowMinWidth * scale;
+  float minHeightF = kWindowMinHeight * scale;
+  wl_output* currentOutput = nullptr;
+  if (m_wayland != nullptr && m_surface != nullptr) {
+    currentOutput = m_wayland->outputForSurface(m_surface->wlSurface());
+  }
+  if (currentOutput == nullptr) {
+    currentOutput = m_output;
+  }
+  if (const WaylandOutput* info = m_wayland->findOutputByWl(currentOutput);
+      info != nullptr && info->hasUsableGeometry()) {
+    std::tie(minWidthF, minHeightF) = settingsWindowMinSize(
+        static_cast<float>(info->effectiveLogicalWidth()), static_cast<float>(info->effectiveLogicalHeight()), scale
+    );
+  }
+  const auto newMinW = static_cast<std::uint32_t>(std::round(minWidthF));
+  const auto newMinH = static_cast<std::uint32_t>(std::round(minHeightF));
+  if (newMinW != m_minWidthHint || newMinH != m_minHeightHint) {
+    phaseProfileWatch.reset();
+    m_surface->setMinSize(newMinW, newMinH);
+    m_minWidthHint = newMinW;
+    m_minHeightHint = newMinH;
+    logSettingsProfile("prepareFrame updateMinSize", phaseProfileWatch);
+  }
+
   if (needRebuild) {
     phaseProfileWatch.reset();
     UiPhaseScope layoutPhase(UiPhase::Layout);
@@ -668,22 +705,6 @@ void SettingsWindow::prepareFrame(bool needsUpdate, bool needsLayout) {
     m_contentRebuildRequested = false;
     m_settingsRegistryRefreshRequested = false;
     m_filterRowRefreshRequested = false;
-    phaseProfileWatch.reset();
-    const float scale = uiScale();
-    float minWidthF = kWindowMinWidth * scale;
-    float minHeightF = kWindowMinHeight * scale;
-    if (m_wayland != nullptr && m_output != nullptr) {
-      if (const WaylandOutput* info = m_wayland->findOutputByWl(m_output); info != nullptr && info->hasUsableGeometry()) {
-        std::tie(minWidthF, minHeightF) = settingsWindowMinSize(
-            static_cast<float>(info->effectiveLogicalWidth()), static_cast<float>(info->effectiveLogicalHeight()), scale
-        );
-      }
-    }
-    const auto newMinW = static_cast<std::uint32_t>(std::round(minWidthF));
-    const auto newMinH = static_cast<std::uint32_t>(std::round(minHeightF));
-    m_surface->setMinSize(newMinW, newMinH);
-    m_surface->clampToMinSize(newMinW, newMinH);
-    logSettingsProfile("prepareFrame updateMinSize", phaseProfileWatch);
   } else if ((m_contentRebuildRequested || sizeChanged || needsLayout) && m_sceneRoot != nullptr) {
     phaseProfileWatch.reset();
     UiPhaseScope layoutPhase(UiPhase::Layout);

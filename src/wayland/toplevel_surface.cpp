@@ -99,19 +99,6 @@ void ToplevelSurface::setMinSize(std::uint32_t minWidth, std::uint32_t minHeight
   }
 }
 
-void ToplevelSurface::clampToMinSize(std::uint32_t minWidth, std::uint32_t minHeight) {
-  if (width() == 0 || height() == 0) {
-    return;
-  }
-
-  if (width() < minWidth || height() < minHeight) {
-    kLog.debug(
-        "toplevel: configured {}x{} is below min_size {}x{}; keeping compositor size (layout adapts, no buffer inflate)",
-        width(), height(), minWidth, minHeight
-    );
-  }
-}
-
 void ToplevelSurface::beginMove(std::uint32_t serial) {
   if (m_toplevel != nullptr) {
     xdg_toplevel_move(m_toplevel, m_connection.seat(), serial);

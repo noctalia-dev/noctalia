@@ -272,6 +272,8 @@ private:
   std::unique_ptr<SelectDropdownPopup> m_selectPopup;
   bool m_pointerInside = false;
   wl_output* m_output = nullptr;
+  std::uint32_t m_minWidthHint = 0;
+  std::uint32_t m_minHeightHint = 0;
 
   std::uint32_t m_lastSceneWidth = 0;
   std::uint32_t m_lastSceneHeight = 0;
