@@ -21,8 +21,7 @@ local function apply_theme()
 				color = shadow,
 			},
 			glow = {
-				color = primary,
-				color_inactive = surface,
+				color = shadow,
 			},
 		},
         group = {
