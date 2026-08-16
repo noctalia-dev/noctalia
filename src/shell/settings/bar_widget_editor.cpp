@@ -2334,11 +2334,7 @@ namespace settings {
           )
       );
 
-      const float inheritedRadius = laneOvr != nullptr && laneOvr->widgetCapsuleRadius.has_value()
-          ? static_cast<float>(*laneOvr->widgetCapsuleRadius)
-          : (laneBar != nullptr && laneBar->widgetCapsuleRadius.has_value()
-                 ? static_cast<float>(*laneBar->widgetCapsuleRadius)
-                 : 12.0F);
+      const auto inheritedRadius = static_cast<float>(inheritedCapsuleRadiusForLane(ctx.config, laneListPath));
 
       ctx.makeRow(
           *panelPtr, groupEntry("radius"),
