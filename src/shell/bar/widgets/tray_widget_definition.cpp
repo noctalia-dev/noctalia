@@ -22,6 +22,9 @@ const noctalia::bar::WidgetDefinition<TrayWidget::Options, TrayWidgetDefinitionC
               field<&Options::matchAdjacentSpacing>({
                   .key = "match_adjacent_spacing",
               }),
+              field<&Options::focusExistingWindow>({
+                  .key = "focus_existing_window",
+              }),
               field<&Options::drawerMode>({
                   .key = "drawer",
               }),

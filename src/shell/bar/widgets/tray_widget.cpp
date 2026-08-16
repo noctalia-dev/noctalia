@@ -1,5 +1,6 @@
 #include "shell/bar/widgets/tray_widget.h"
 
+#include "compositors/compositor_platform.h"
 #include "config/config_service.h"
 #include "core/log.h"
 #include "core/ui_phase.h"
@@ -12,6 +13,7 @@
 #include "render/text/glyph_registry.h"
 #include "shell/panel/panel_manager.h"
 #include "shell/tray/tray_identifier.h"
+#include "shell/tray/tray_window_match.h"
 #include "system/desktop_entry.h"
 #include "ui/app_icon_colorization.h"
 #include "ui/builders.h"
@@ -164,14 +166,14 @@ namespace {
 
 } // namespace
 
-TrayWidget::TrayWidget(ConfigService& config, TrayService* tray, Options options)
-    : m_config(config), m_tray(tray), m_hiddenItems(std::move(options.hiddenItems)),
+TrayWidget::TrayWidget(CompositorPlatform& platform, ConfigService& config, TrayService* tray, Options options)
+    : m_platform(platform), m_config(config), m_tray(tray), m_hiddenItems(std::move(options.hiddenItems)),
       m_pinnedItems(std::move(options.pinnedItems)), m_hidePassive(options.hidePassive),
       m_drawerMode(options.drawerMode), m_itemActivated(std::move(options.itemActivated)),
       m_barPosition(std::move(options.barPosition)), m_panelGridMode(options.panelGridMode),
       m_panelGridColumns(std::clamp<std::size_t>(options.panelGridColumns, 1U, 5U)),
       m_inlineEntryGap(std::max(0.0F, options.inlineEntryGap)), m_matchAdjacentSpacing(options.matchAdjacentSpacing),
-      m_customItemSize(options.customItemSize) {
+      m_customItemSize(options.customItemSize), m_focusExistingWindow(options.focusExistingWindow) {
   auto normalizeTokens = [](std::vector<std::string>& tokens) {
     std::vector<std::string> normalized;
     normalized.reserve(tokens.size());
@@ -782,16 +784,25 @@ void TrayWidget::rebuild(Renderer& renderer) {
       }
       const auto [x, y] = trayPointerCoords(*areaPtr, data);
       if (data.button == BTN_LEFT) {
-        (void)m_tray->activateItem(itemId, x, y);
+        const auto decision = decideTrayClickForItem(itemId);
+        switch (decision.action) {
+        case tray::TrayClickAction::FocusWindow:
+          m_platform.activateToplevelInfo(*decision.window);
+          break;
+        case tray::TrayClickAction::Ignore:
+          break;
+        case tray::TrayClickAction::ActivateItem:
+          (void)m_tray->activateItem(itemId, x, y);
+          break;
+        case tray::TrayClickAction::OpenMenu:
+          openItemMenu(itemId, x, y);
+          break;
+        }
         if (m_itemActivated) {
           m_itemActivated();
         }
       } else if (data.button == BTN_RIGHT) {
-        if (m_tray->itemUsesDBusMenu(itemId)) {
-          m_tray->requestMenuToggle(itemId, m_contentScale);
-        } else {
-          (void)m_tray->openContextMenu(itemId, x, y);
-        }
+        openItemMenu(itemId, x, y);
       }
     });
     area->addChild(std::move(iconNode));
@@ -833,6 +844,26 @@ std::string TrayWidget::drawerChevronGlyph(bool panelOpen) const {
     return panelOpen ? "chevron-right" : "chevron-left";
   }
   return panelOpen ? "chevron-up" : "chevron-down";
+}
+
+tray::TrayClickDecision TrayWidget::decideTrayClickForItem(const std::string& itemId) const {
+  const auto itemIt = std::ranges::find(m_items, itemId, &TrayItemInfo::id);
+  if (itemIt == m_items.end()) {
+    return {tray::TrayClickAction::ActivateItem, std::nullopt};
+  }
+  // No output filter: the tray is global, the window may live on another monitor.
+  const tray::WindowLookup lookup = [this](const std::string& candidate) {
+    return m_platform.windowsForApp(candidate, {}, nullptr);
+  };
+  return tray::decideTrayClick(*itemIt, lookup, m_platform.activeToplevel(), m_focusExistingWindow);
+}
+
+void TrayWidget::openItemMenu(const std::string& itemId, std::int32_t x, std::int32_t y) {
+  if (m_tray->itemUsesDBusMenu(itemId)) {
+    m_tray->requestMenuToggle(itemId, m_contentScale);
+  } else {
+    (void)m_tray->openContextMenu(itemId, x, y);
+  }
 }
 
 bool TrayWidget::isHiddenItem(const TrayItemInfo& item) const {

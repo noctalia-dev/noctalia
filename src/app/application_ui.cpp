@@ -694,7 +694,9 @@ void Application::initPanelManagerAndPanels() {
           &m_wayland, &m_configService, &m_thumbnailService, &m_wallpaperScanner, &m_themeService
       )
   );
-  m_panelManager.registerPanel("tray-drawer", std::make_unique<TrayDrawerPanel>(m_trayService.get(), &m_configService));
+  m_panelManager.registerPanel(
+      "tray-drawer", std::make_unique<TrayDrawerPanel>(&m_compositorPlatform, m_trayService.get(), &m_configService)
+  );
   m_panelManager.registerPanel("polkit", std::make_unique<PolkitPanel>(&m_configService, [this]() {
                                  return m_polkitAgent.get();
                                }));
