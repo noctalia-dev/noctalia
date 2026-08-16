@@ -1233,13 +1233,15 @@ void PipeWireService::onNodeInfo(std::uint32_t id, const pw_node_info* info) {
   const bool isStream = isProgramStreamClass(nd.mediaClass);
   const bool isPrivacyCandidate = isPrivacyCandidateClass(nd.mediaClass);
   const bool wasStreamReady = nd.streamClassificationReady;
+  const bool streamStateChanged = isStream && (info->change_mask & PW_NODE_CHANGE_MASK_STATE) != 0;
   if (isStream) {
     nd.streamClassificationReady = true;
   }
   if ((isStream && (!wasStreamReady || filterPropsChanged))
       || wasProgramStream != isStream
       || wasPrivacyCandidate
-      || isPrivacyCandidate) {
+      || isPrivacyCandidate
+      || streamStateChanged) {
     rebuildState();
   }
 
