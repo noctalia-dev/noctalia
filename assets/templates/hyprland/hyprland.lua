@@ -50,7 +50,8 @@ return {
     colors = {
         primary = primary,
         surface = surface,
-        surface_variant = surface_variant,
+		on_surface = on_surface,
+        on_surface_variant = on_surface_variant,
         secondary = secondary,
         error = error,
         shadow = shadow,
