@@ -711,14 +711,16 @@ namespace {
           luaL_error(L, "panel.openContextMenu: items[%d].kind must be a string", i);
         }
         const std::string_view kind = lua_tostring(L, -1);
-        if (kind == "separator") {
+        if (kind == "item") {
+          item.kind = scripting::ScriptContextMenuItemKind::Action;
+        } else if (kind == "separator") {
           item.kind = scripting::ScriptContextMenuItemKind::Separator;
           item.enabled = false;
         } else if (kind == "header") {
           item.kind = scripting::ScriptContextMenuItemKind::Header;
           item.enabled = false;
         } else {
-          luaL_error(L, "panel.openContextMenu: items[%d].kind must be 'separator' or 'header'", i);
+          luaL_error(L, "panel.openContextMenu: items[%d].kind must be 'item', 'separator', or 'header'", i);
         }
       }
       lua_pop(L, 1);

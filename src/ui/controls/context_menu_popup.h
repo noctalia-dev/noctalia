@@ -20,6 +20,7 @@ class WaylandConnection;
 struct KeyboardEvent;
 struct PointerEvent;
 struct wl_surface;
+class ContextMenuPopupTestAccess;
 
 struct ContextMenuPopupPlacement {
   std::uint32_t anchor = 0;
@@ -80,6 +81,8 @@ public:
   static bool dispatchKeyboardEvent(const KeyboardEvent& event);
 
 private:
+  friend class ContextMenuPopupTestAccess;
+
   WaylandConnection& m_wayland;
   RenderContext& m_renderContext;
   std::unique_ptr<PopupSurface> m_surface;
@@ -96,10 +99,15 @@ private:
   void restoreParentKeyboardInteractivity();
   void ensureHighlightedVisible();
   void requestVisualUpdate();
+  void deferActivation(ContextMenuControlEntry entry);
+  void deferClose();
 
   std::function<void(const ContextMenuControlEntry&)> m_onActivate;
   std::function<void()> m_onDismissed;
   ShellConfig::ShadowConfig m_shadowConfig;
+  // Deferred popup callbacks must not dereference this after an owner (for
+  // example, a plugin panel being unregistered) destroys the popup.
+  std::shared_ptr<bool> m_alive = std::make_shared<bool>(true);
 
   // Parent layer surface (e.g. a bar) whose keyboard interactivity is flipped to
   // OnDemand while the menu is open so the grabbing popup inherits keyboard

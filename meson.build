@@ -1134,6 +1134,7 @@ if build_tests
     'config_path_resolution',
     'config_schema_roundtrip',
     'config_widget',
+    'context_menu_popup',
     'cpu_freq',
     'cpu_stat',
     'cpu_temp_sensor',

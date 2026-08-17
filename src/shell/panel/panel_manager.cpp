@@ -1807,6 +1807,12 @@ void PanelManager::requestFrameTick() {
 
 void PanelManager::close() { closePanel(); }
 
+void PanelManager::configureContextMenuPopup(ContextMenuPopup& popup) const {
+  if (m_config != nullptr) {
+    popup.setShadowConfig(m_config->config().shell.shadow);
+  }
+}
+
 void PanelManager::setActivePopup(ContextMenuPopup* popup) {
   if (m_selectPopup != nullptr && m_selectPopup->isSelectDropdownOpen()) {
     m_selectPopup->closeSelectDropdown();

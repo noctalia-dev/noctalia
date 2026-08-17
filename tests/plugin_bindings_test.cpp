@@ -339,7 +339,7 @@ order = ["a", "b"]
                "assert(panel.openContextMenu({\n"
                "  items = {\n"
                "    { kind = 'header', label = 'Clipboard' },\n"
-               "    { id = 'copy', label = 'Copy' },\n"
+               "    { kind = 'item', id = 'copy', label = 'Copy' },\n"
                "    { id = 'delete', label = 'Delete', enabled = false },\n"
                "    { kind = 'separator' },\n"
                "  },\n"
@@ -361,6 +361,7 @@ order = ["a", "b"]
     ok = expect(number != nullptr && *number == 7.0, "context menu should retain scalar context") && ok;
     ok = expect(
              menu->items.front().kind == scripting::ScriptContextMenuItemKind::Header
+                 && menu->items[1].kind == scripting::ScriptContextMenuItemKind::Action
                  && menu->items[1].id == "copy"
                  && !menu->items[2].enabled
                  && menu->items[3].kind == scripting::ScriptContextMenuItemKind::Separator,

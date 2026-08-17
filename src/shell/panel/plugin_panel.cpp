@@ -379,6 +379,7 @@ void PluginPanel::openContextMenu(scripting::ScriptContextMenuRequest request) {
   if (m_contextMenuPopup == nullptr) {
     m_contextMenuPopup = std::make_unique<ContextMenuPopup>(*wayland, *renderContext);
   }
+  panels.configureContextMenuPopup(*m_contextMenuPopup);
 
   std::vector<ContextMenuControlEntry> entries;
   std::vector<std::string> actionIds;

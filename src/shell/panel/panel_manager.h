@@ -126,6 +126,9 @@ public:
   [[nodiscard]] RenderContext* renderContext() const noexcept { return m_renderContext; }
   [[nodiscard]] WaylandConnection* wayland() const noexcept;
 
+  // Applies the shell's effective popup shadow settings to a panel-owned
+  // context menu before it opens.
+  void configureContextMenuPopup(ContextMenuPopup& popup) const;
   void setActivePopup(ContextMenuPopup* popup);
   void clearActivePopup();
 
