@@ -166,12 +166,18 @@ namespace {
     spa_hook* listener = nullptr;
   };
 
-  int onMetadataProperty(void* data, std::uint32_t, const char* key, const char*, const char* value) {
-    if (key == nullptr || value == nullptr) {
+  constexpr Logger kLog("pipewire");
+
+  int onMetadataProperty(void* data, std::uint32_t subject, const char* key, const char*, const char* value) {
+    if (key == nullptr) {
       return 0;
     }
     auto* md = static_cast<MetadataData*>(data);
+
     if (std::strcmp(key, "default.audio.sink") == 0 || std::strcmp(key, "default.audio.source") == 0) {
+      if (value == nullptr) {
+        return 0;
+      }
       const std::string name = extractDefaultMetadataNodeName(std::string_view(value));
       if (!name.empty()) {
         spa_dict_item items[1];
@@ -179,7 +185,15 @@ namespace {
         spa_dict dict = SPA_DICT_INIT(items, 1);
         md->service->parseDefaultNodes(&dict);
       }
+      return 0;
     }
+
+    if (std::strcmp(key, PW_KEY_TARGET_OBJECT) == 0) {
+      // value == nullptr means the property was cleared (route reset to default).
+      md->service->onTargetObjectMetadata(subject, value != nullptr ? std::string(value) : std::string{});
+      return 0;
+    }
+
     return 0;
   }
 
@@ -257,6 +271,20 @@ namespace {
       return fallback;
     }
     std::uint32_t out = fallback;
+    const auto* begin = value.data();
+    const auto* end = value.data() + value.size();
+    const auto [ptr, ec] = std::from_chars(begin, end, out);
+    if (ec != std::errc{} || ptr != end) {
+      return fallback;
+    }
+    return out;
+  }
+
+  std::uint64_t parseUint64Or(const std::string& value, std::uint64_t fallback = 0) {
+    if (value.empty()) {
+      return fallback;
+    }
+    std::uint64_t out = fallback;
     const auto* begin = value.data();
     const auto* end = value.data() + value.size();
     const auto [ptr, ec] = std::from_chars(begin, end, out);
@@ -524,8 +552,6 @@ namespace {
     }
     return 0;
   }
-
-  constexpr Logger kLog("pipewire");
 
   constexpr auto kTrackedNodeClasses = std::to_array<std::string_view>({
       "Audio/Sink",
@@ -970,6 +996,7 @@ void PipeWireService::onRegistryGlobal(std::uint32_t id, const char* type, std::
     auto nd = std::make_unique<NodeData>();
     nd->service = this;
     nd->id = id;
+    nd->serial = parseUint64Or(dictGet(props, PW_KEY_OBJECT_SERIAL));
     nd->name = dictGet(props, PW_KEY_NODE_NAME);
     nd->description = dictGet(props, PW_KEY_NODE_DESCRIPTION);
     if (nd->description.empty()) {
@@ -1505,6 +1532,18 @@ void PipeWireService::onMixerVolumeChanged(std::uint32_t id, float volume, bool 
   }
 }
 
+void PipeWireService::onTargetObjectMetadata(std::uint32_t subject, const std::string& target) {
+  auto it = m_nodes.find(subject);
+  if (it == m_nodes.end()) {
+    return;
+  }
+  if (it->second->targetObject != target) {
+    it->second->targetObject = target;
+    rebuildState();
+    emitChanged();
+  }
+}
+
 void PipeWireService::refreshNodeIdentity(NodeData& nd) {
   const auto it = m_clients.find(nd.clientId);
   if (it == m_clients.end()) {
@@ -1602,6 +1641,7 @@ void PipeWireService::rebuildState() {
   for (const auto& [id, nd] : m_nodes) {
     AudioNode node;
     node.id = id;
+    node.serial = nd->serial;
     node.name = nd->name;
     node.description = nd->description;
     node.applicationName = nd->applicationName;
@@ -2068,9 +2108,9 @@ void PipeWireService::moveProgramOutput(std::uint32_t programStreamId, std::uint
   if (targetSinkId == 0) {
     const int ret =
         pw_metadata_set_property(m_defaultMetadata, programStreamId, PW_KEY_TARGET_OBJECT, nullptr, nullptr);
-    if (ret < 0)
+    if (ret < 0) {
       kLog.warn("moveProgramOutput: failed to clear target for stream {} ({})", programStreamId, ret);
-    programIt->second->targetObject.clear();
+    }
   } else {
     auto sinkIt = m_nodes.find(targetSinkId);
     if (sinkIt == m_nodes.end()) {
@@ -2078,17 +2118,22 @@ void PipeWireService::moveProgramOutput(std::uint32_t programStreamId, std::uint
       return;
     }
 
-    const std::string targetIdStr = std::to_string(targetSinkId);
-    const int ret = pw_metadata_set_property(
-        m_defaultMetadata, programStreamId, PW_KEY_TARGET_OBJECT, "Spa:Id", targetIdStr.c_str()
-    );
-    if (ret < 0)
+    int ret = -1;
+    if (sinkIt->second->serial != 0) {
+      const std::string serialStr = std::to_string(sinkIt->second->serial);
+      ret = pw_metadata_set_property(
+          m_defaultMetadata, programStreamId, PW_KEY_TARGET_OBJECT, "Spa:Id", serialStr.c_str()
+      );
+    } else {
+      ret = pw_metadata_set_property(
+          m_defaultMetadata, programStreamId, PW_KEY_TARGET_OBJECT, "Spa:String", sinkIt->second->name.c_str()
+      );
+    }
+
+    if (ret < 0) {
       kLog.warn("moveProgramOutput: failed to move stream {} to sink {} ({})", programStreamId, targetSinkId, ret);
-
-    programIt->second->targetObject = sinkIt->second->name;
+    }
   }
-
-  rebuildState();
 }
 
 void PipeWireService::registerIpc(IpcService& ipc, const ConfigService& config) {

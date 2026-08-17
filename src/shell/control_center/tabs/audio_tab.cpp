@@ -1218,7 +1218,7 @@ namespace {
 
     void syncFromNode(
         const AudioNode& node, const MprisPlayerInfo* player, bool isDefault, float sliderMax, bool nodeEnabled,
-        std::size_t mprisPlayerCount
+        std::size_t mprisPlayerCount, bool isCustomRouted
     ) {
       const ResolveProgramNameResult resolved = resolveProgramDisplayName(node, player);
       const std::string& resolvedAppName = resolved.displayName;
@@ -1271,7 +1271,6 @@ namespace {
 
       if (m_routingButton != nullptr) {
         m_routingButton->setEnabled(nodeEnabled);
-        const bool isCustomRouted = !node.targetObject.empty();
         m_routingButton->setVariant(isCustomRouted ? ButtonVariant::Outline : ButtonVariant::Ghost);
       }
 
@@ -1397,6 +1396,21 @@ namespace {
     std::function<void()> m_onCommitVolume;
     std::function<void(Flex*)> m_onRoutingMenuRequested;
   };
+
+  bool targetMatchesSink(const std::string& target, const AudioNode& sink) {
+    return target == sink.name
+        || target == std::to_string(sink.id)
+        || (sink.serial != 0 && target == std::to_string(sink.serial));
+  }
+
+  // True if `node`'s target.object points somewhere other than the current default sink.
+  bool isCustomRouted(const AudioNode& node) {
+    if (node.targetObject.empty() || node.targetObject == "-1") {
+      return false;
+    }
+
+    return true;
+  }
 
   std::vector<AudioNode> sortedDevices(const std::vector<AudioNode>& devices) {
     std::vector<AudioNode> sorted = devices;
@@ -1571,20 +1585,20 @@ void AudioTab::openProgramRoutingMenu(Flex* anchor, std::uint32_t programStreamI
     }
   }
 
+  const bool isDefaultTarget = currentTarget.empty() || currentTarget == "-1";
   std::vector<ContextMenuControlEntry> entries;
   entries.push_back(
       ContextMenuControlEntry{
           .id = 0,
           .label = i18n::tr("control-center.audio.default-device"),
           .checkmark = true,
-          .toggleState = currentTarget.empty() ? 1 : 0,
+          .toggleState = isDefaultTarget ? 1 : 0,
       }
   );
   entries.push_back({.separator = true});
 
   for (const auto& sink : sortedDevices(availableDevices(state.sinks, state.defaultSinkId))) {
-    const bool matchesTarget =
-        !currentTarget.empty() && (currentTarget == sink.name || currentTarget == std::to_string(sink.id));
+    const bool matchesTarget = !currentTarget.empty() && !isDefaultTarget && targetMatchesSink(currentTarget, sink);
     entries.push_back(
         ContextMenuControlEntry{
             .id = static_cast<std::int32_t>(sink.id),
@@ -2256,7 +2270,7 @@ void AudioTab::rebuildProgramVolumes(Renderer& renderer) {
           [this, sinkId = sink.id](float value) { queueProgramSinkVolume(sinkId, value); },
           [this]() { flushPendingProgramVolumes(true); }
       );
-      row->syncFromNode(sink, player, false, sliderMax, true, players.size());
+      row->syncFromNode(sink, player, false, sliderMax, true, players.size(), isCustomRouted(sink));
       row->setRoutingMenuRequestedCallback([this, sinkId = sink.id](Flex* anchor) {
         const bool wasOpen = m_deviceMenuPopup != nullptr && m_deviceMenuPopup->isOpen();
         const bool wasOpenForThis = wasOpen && m_openProgramRoutingMenuStreamId == sinkId;
@@ -2301,7 +2315,7 @@ void AudioTab::syncProgramVolumeRows() {
       continue;
     }
     const MprisPlayerInfo* player = findMatchingPlayer(players, *it->second, it->second->applicationName);
-    row->syncFromNode(*it->second, player, false, sliderMax, true, players.size());
+    row->syncFromNode(*it->second, player, false, sliderMax, true, players.size(), isCustomRouted(*it->second));
   }
 }
 

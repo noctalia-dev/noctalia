@@ -23,6 +23,7 @@ class WirePlumberMixer;
 
 struct AudioNode {
   std::uint32_t id = 0;
+  std::uint64_t serial = 0;
   std::string name;
   std::string description;
   std::string applicationName;
@@ -142,6 +143,7 @@ public:
   struct NodeData {
     PipeWireService* service = nullptr;
     std::uint32_t id = 0;
+    std::uint64_t serial = 0;
     std::uint32_t clientId = 0;
     std::string name;
     std::string description;
@@ -213,6 +215,7 @@ public:
 
   // Authoritative device volume/mute from WirePlumber's mixer-api (see setWirePlumberMixer).
   void onMixerVolumeChanged(std::uint32_t id, float volume, bool muted);
+  void onTargetObjectMetadata(std::uint32_t subject, const std::string& target);
 
 private:
   bool m_pendingDefaultAudioDevicePropsEnum = false;
