@@ -920,6 +920,10 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
           m_drag.area = nullptr;
           m_drag.spacer = nullptr;
         }
+      } else if (m_drag.armed) {
+        m_suppressTileClick = true;
+        // Armed but not active means the user pressed and held long enough to arm, but never moved far enough to start
+        // a drag. Treat it as a click that was suppressed.
       }
       endDragVisual();
       m_drag = {};
