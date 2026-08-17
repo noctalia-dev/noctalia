@@ -1185,12 +1185,22 @@ void Input::handleKey(std::uint32_t sym, std::uint32_t utf32, std::uint32_t modi
   }
   if (clearShortcut) {
     resetUndoCoalescing();
-    if (!m_value.empty() || hasSelection()) {
-      pushUndoSnapshot(EditCoalesceKind::Discrete);
-      m_value.clear();
-      m_cursorPos = 0;
-      m_selectionAnchor = 0;
-      changed = true;
+    if (m_lineEditing) {
+      if (m_cursorPos > 0) {
+        pushUndoSnapshot(EditCoalesceKind::Discrete);
+        m_value.erase(0, m_cursorPos);
+        m_cursorPos = 0;
+        m_selectionAnchor = 0;
+        changed = true;
+      }
+    } else {
+      if (!m_value.empty() || hasSelection()) {
+        pushUndoSnapshot(EditCoalesceKind::Discrete);
+        m_value.clear();
+        m_cursorPos = 0;
+        m_selectionAnchor = 0;
+        changed = true;
+      }
     }
   } else if (ctrl && (sym == 'a' || sym == 'A')) {
     resetUndoCoalescing();
@@ -1227,7 +1237,7 @@ void Input::handleKey(std::uint32_t sym, std::uint32_t utf32, std::uint32_t modi
     m_selectionAnchor = m_cursorPos;
   } else if (lineEditWordForward) {
     resetUndoCoalescing();
-    m_cursorPos = nextWordStartForByteOffset(m_cursorPos);
+    m_cursorPos = nextWordEndForByteOffset(m_cursorPos);
     m_selectionAnchor = m_cursorPos;
   } else if (lineEditDeleteWordBack) {
     if (hasSelection()) {

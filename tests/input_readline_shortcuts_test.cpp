@@ -94,7 +94,7 @@ int main() {
     ctrlA(input);
     altF(input);
     type(input, 'x');
-    ok = expect(input.value() == "foo xbar", "Alt+F moves the caret forward one word") && ok;
+    ok = expect(input.value() == "foox bar", "Alt+F moves the caret forward one word") && ok;
   }
 
   // Ctrl+W: delete the word before the caret.
@@ -111,6 +111,16 @@ int main() {
     setup(input, "foo bar", true);
     ctrlU(input);
     ok = expect(input.value().empty(), "Ctrl+U clears the whole field") && ok;
+  }
+  {
+    Input input;
+    setup(input, "foo bar", true);
+    ctrlA(input);
+    ctrlF(input);
+    ctrlF(input);
+    ctrlF(input);
+    ctrlU(input);
+    ok = expect(input.value() == " bar", "Ctrl+U in the middle kills backward to start") && ok;
   }
 
   // Ctrl+K: delete from the caret to the end of the field.
