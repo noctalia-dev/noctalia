@@ -915,6 +915,8 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
       if (m_drag.active) {
         m_suppressTileClick = true;
         if (commitDragReorder()) {
+          // Mark drag as inactive so doLayout() cleans up spacer even if config write fails.
+          m_drag.active = false;
           // The deferred config write rebuilds the strip and destroys these nodes; restoring them
           // now would briefly relayout at the old order and snap the tile back. Park the tile in
           // the gap the spacer is holding so the strip looks settled while that write lands.
@@ -922,7 +924,6 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
             m_drag.area->setPosition(m_drag.spacer->x(), m_drag.spacer->y());
           }
           m_drag.area = nullptr;
-          m_drag.spacer = nullptr;
         }
       } else if (m_drag.armed) {
         m_suppressTileClick = true;
