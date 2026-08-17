@@ -42,9 +42,6 @@
 namespace {
 
   constexpr auto kDragHoldDelay = std::chrono::milliseconds(300);
-  // Main-axis travel that starts a drag outright, so picking a tile up does not have to wait out
-  // the hold delay. Large enough that an unsteady click cannot trip it.
-  constexpr float kDragArmDistance = 8.0F;
 
   // Integer centering; optional odd spare pixel on the end side (right/bottom).
   [[nodiscard]] float centeredOffset(float extent, float content, float inset = 0.0F, bool oddSpareOnEnd = true) {
@@ -939,7 +936,9 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
           return;
         }
         const float main = pointerMainOnStrip(*dragArea, data.localX, data.localY);
-        if (!m_drag.armed && !m_drag.active && std::abs(main - m_drag.startMain) >= kDragArmDistance) {
+        if (!m_drag.armed
+            && !m_drag.active
+            && std::abs(main - m_drag.startMain) >= Style::dragStartThreshold * m_contentScale) {
           m_drag.holdTimer.stop();
           m_drag.armed = true;
         }
