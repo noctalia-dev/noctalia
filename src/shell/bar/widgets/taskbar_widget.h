@@ -5,6 +5,7 @@
 #include "shell/bar/widget.h"
 #include "system/desktop_entry.h"
 #include "system/icon_resolver.h"
+#include "ui/controls/box.h"
 #include "ui/palette.h"
 #include "ui/signal.h"
 
@@ -166,8 +167,8 @@ private:
     InputArea* area = nullptr;
     float restMain = 0.0F;
     float restCross = 0.0F;
-    Node* spacer = nullptr;      // invisible placeholder that holds the drop gap open
-    std::size_t pinnedCount = 0; // pin count when the drag began; bounds the travel range
+    std::unique_ptr<Box> spacer = nullptr; // invisible placeholder that holds the drop gap open
+    std::size_t pinnedCount = 0;           // pin count when the drag began; bounds the travel range
     Timer holdTimer;
   };
 

@@ -387,7 +387,7 @@ void TaskbarWidget::beginDragVisual() {
   m_drag.pinnedCount = pinnedConfigIds().size();
   m_drag.area->setParticipatesInLayout(false);
   m_drag.area->setZIndex(200);
-  syncDragSpacer();
+  // Don't create spacer here; doLayout() will handle it.
 }
 
 void TaskbarWidget::updateDragVisual() {
@@ -414,35 +414,19 @@ void TaskbarWidget::endDragVisual() {
   if (m_drag.area == nullptr) {
     return;
   }
-  if (m_drag.spacer != nullptr && m_taskStrip != nullptr) {
-    (void)m_taskStrip->removeChild(m_drag.spacer);
-    m_drag.spacer = nullptr;
-  }
   m_drag.area->setZIndex(0);
   m_drag.area->setParticipatesInLayout(true);
   m_drag.area = nullptr;
+  // Spacer cleanup happens in doLayout().
   requestRedraw();
 }
 
 void TaskbarWidget::syncDragSpacer() {
+  // Just compute and store target index; doLayout() creates/positions the spacer.
   if (m_taskStrip == nullptr || m_drag.area == nullptr) {
     return;
   }
-  // The dragged tile still holds a slot in the child vector but no longer participates in layout,
-  // so a target past the source needs one extra slot to land in the right visual gap.
-  const std::size_t insertAt = m_drag.targetIndex > m_drag.sourceIndex ? m_drag.targetIndex + 1 : m_drag.targetIndex;
-
-  std::unique_ptr<Node> held;
-  if (m_drag.spacer != nullptr) {
-    held = m_taskStrip->removeChild(m_drag.spacer);
-  } else {
-    held = ui::node({
-        .frameWidth = m_drag.area->width(),
-        .frameHeight = m_drag.area->height(),
-        .hitTestVisible = false,
-    });
-  }
-  m_drag.spacer = m_taskStrip->insertChildAt(insertAt, std::move(held));
+  m_drag.targetIndex = computeDragTargetIndex();
 }
 
 bool TaskbarWidget::taskMatchesDesktopEntry(const TaskModel& task, const DesktopEntry& entry) {
@@ -698,6 +682,26 @@ void TaskbarWidget::doLayout(Renderer& renderer, float containerWidth, float con
   }
 
   m_root->layout(renderer);
+  // Manage spacer lifecycle during drag-to-reorder.
+  if (m_drag.active && m_taskStrip != nullptr && m_drag.area != nullptr) {
+    // Create or reposition spacer to hold the drop gap.
+    const std::size_t insertAt = m_drag.targetIndex > m_drag.sourceIndex ? m_drag.targetIndex + 1 : m_drag.targetIndex;
+    if (m_drag.spacer == nullptr) {
+      auto spacer = ui::box({
+          .width = m_drag.area->width(),
+          .height = m_drag.area->height(),
+      });
+      m_drag.spacer = std::unique_ptr<Box>(static_cast<Box*>(m_taskStrip->insertChildAt(insertAt, std::move(spacer))));
+    } else {
+      // Spacer exists; reposition if targetIndex changed.
+      auto held = m_taskStrip->removeChild(m_drag.spacer.get());
+      m_taskStrip->insertChildAt(insertAt, std::move(held));
+    }
+  } else if (m_drag.spacer != nullptr && m_taskStrip != nullptr) {
+    // Drag ended or was aborted; clean up spacer.
+    m_taskStrip->removeChild(m_drag.spacer.get());
+    m_drag.spacer = nullptr;
+  }
   if (Node* container = root(); container != nullptr && container != m_root) {
     container->setFrameSize(m_root->width(), m_root->height());
   }
