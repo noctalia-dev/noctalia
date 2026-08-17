@@ -1550,6 +1550,19 @@ constexpr EnumOption<PluginSourceKind> kPluginSourceKinds[] = {
     {PluginSourceKind::Path, "path", "settings.options.plugins.source.path"},
 };
 
+// Background auto-update scope for git plugin sources.
+enum class PluginAutoUpdateMode : std::uint8_t {
+  None = 0,     // never auto-update
+  Official = 1, // only the built-in "official" source
+  All = 2,      // every enabled git source
+};
+
+constexpr EnumOption<PluginAutoUpdateMode> kPluginAutoUpdateModes[] = {
+    {PluginAutoUpdateMode::None, "none", "settings.options.plugins.auto-update.none"},
+    {PluginAutoUpdateMode::Official, "official", "settings.options.plugins.auto-update.official"},
+    {PluginAutoUpdateMode::All, "all", "settings.options.plugins.auto-update.all"},
+};
+
 struct PluginSourceConfig {
   PluginSourceKind kind = PluginSourceKind::Git;
   std::string name;     // stable handle (also the clone subdir for git sources)
@@ -1563,7 +1576,7 @@ struct PluginSourceConfig {
 struct PluginsConfig {
   std::vector<PluginSourceConfig> sources;
   std::vector<std::string> enabled; // active plugin ids ("author/plugin"); opt-in for every source
-  bool autoUpdate = true;           // background auto-update of all git sources (startup + every 6h)
+  PluginAutoUpdateMode autoUpdate = PluginAutoUpdateMode::All; // background auto-update scope (startup + every 6h)
   // Plugin-level setting overrides, keyed by plugin id then setting key. Seeded
   // into every entry runtime of the plugin (widget/shortcut/service). Open-ended
   // (validated against the manifest schema), so compared via configEqual rather
@@ -1573,7 +1586,7 @@ struct PluginsConfig {
 };
 
 // Default sources seeded when [plugins] declares no [[plugins.source]]: the
-// official + community plugin repos (auto-update off).
+// official + community plugin repos.
 [[nodiscard]] std::vector<PluginSourceConfig> defaultPluginSources();
 [[nodiscard]] bool isDefaultPluginSourceName(std::string_view name);
 // Source names are stable user-facing handles and git source storage directory names.

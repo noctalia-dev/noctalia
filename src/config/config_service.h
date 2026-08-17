@@ -117,9 +117,9 @@ public:
   void addPluginSource(const PluginSourceConfig& source);
   void removePluginSource(std::string_view name);
 
-  // Persist the global [plugins].auto_update override to settings.toml and trigger the
-  // reload pipeline. Drives background auto-update of every git source.
-  void setPluginsAutoUpdate(bool enabled);
+  // Persist the global [plugins].auto_update mode to settings.toml and trigger the
+  // reload pipeline. Drives background auto-update of git sources per mode.
+  void setPluginsAutoUpdate(PluginAutoUpdateMode mode);
 
   // Persist a theme-mode override to settings.toml and trigger the reload pipeline.
   void setThemeMode(ThemeMode mode);

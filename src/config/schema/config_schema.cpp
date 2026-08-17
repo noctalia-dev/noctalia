@@ -536,7 +536,28 @@ namespace noctalia::config::schema {
             [](const PluginSourceConfig& src) { return isValidPluginSourceName(src.name); }
         ),
         field(&PluginsConfig::enabled, "enabled"),
-        field(&PluginsConfig::autoUpdate, "auto_update"),
+        // auto_update accepts the legacy booleans (true = all, false = none)
+        // and the string modes none|official|all.
+        custom<PluginsConfig>(
+            "auto_update",
+            [](const toml::table& tbl, PluginsConfig& out, std::string_view parentPath, Diagnostics& diag) {
+              if (auto v = tbl["auto_update"].value<bool>()) {
+                out.autoUpdate = *v ? PluginAutoUpdateMode::All : PluginAutoUpdateMode::None;
+              } else if (auto v = tbl["auto_update"].value<std::string>()) {
+                const std::string trimmed = StringUtils::trim(*v);
+                if (auto parsed = enumFromKey(kPluginAutoUpdateModes, trimmed)) {
+                  out.autoUpdate = *parsed;
+                } else {
+                  diag.warn(joinPath(parentPath, "auto_update"), "unknown value \"" + *v + "\"");
+                }
+              } else if (tbl.contains("auto_update")) {
+                diag.warn(joinPath(parentPath, "auto_update"), "expected a boolean or none|official|all");
+              }
+            },
+            [](toml::table& tbl, const PluginsConfig& in) {
+              tbl.insert_or_assign("auto_update", std::string(enumToKey(kPluginAutoUpdateModes, in.autoUpdate)));
+            }
+        ),
         finalize<PluginsConfig>([](PluginsConfig& plugins, std::string_view parentPath, Diagnostics& diag) {
           for (auto it = plugins.enabled.begin(); it != plugins.enabled.end();) {
             if (scripting::isValidPluginId(*it)) {

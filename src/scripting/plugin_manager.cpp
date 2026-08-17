@@ -927,15 +927,24 @@ namespace scripting {
     }
   }
 
-  void PluginManager::updateAll() {
+  void PluginManager::updateAutoUpdateScope(PluginAutoUpdateMode mode) {
+    if (mode == PluginAutoUpdateMode::None) {
+      return;
+    }
+    // The trusted built-in official source is matched by name and location; a
+    // user-added source that reuses the name is not the official source.
+    const auto official = defaultPluginSources()[0];
     for (const auto& source : m_config.config().plugins.sources) {
-      if (source.kind == PluginSourceKind::Git && source.enabled) {
+      if (source.kind == PluginSourceKind::Git
+          && source.enabled
+          && (mode == PluginAutoUpdateMode::All
+              || (source.name == official.name && source.location == official.location))) {
         update(source.name);
       }
     }
   }
 
-  void PluginManager::setAutoUpdateEnabled(bool enabled) { m_config.setPluginsAutoUpdate(enabled); }
+  void PluginManager::setAutoUpdateMode(PluginAutoUpdateMode mode) { m_config.setPluginsAutoUpdate(mode); }
 
   void PluginManager::removeSource(std::string sourceName) {
     if (isDefaultPluginSourceName(sourceName)) {

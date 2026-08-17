@@ -19,6 +19,7 @@
 #include "core/toml.h"
 #include "scripting/plugin_id.h"
 
+#include <algorithm>
 #include <optional>
 #include <print>
 #include <set>
@@ -558,7 +559,7 @@ location = "https://example.invalid/bad"
          .location = "https://github.com/noctalia-dev/official-plugins"},
     };
     c.plugins.enabled = {"noctalia/notes"};
-    c.plugins.autoUpdate = false; // non-default (default is true) so the round-trip exercises it
+    c.plugins.autoUpdate = PluginAutoUpdateMode::None; // non-default (default is All) so the round-trip exercises it
 
     c.bars = {makeProbeBar()};
     return c;
@@ -605,6 +606,47 @@ location = "https://example.invalid/bad"
       readInto(t, s, shellSchema(), "shell", d);
       if (s.clipboardHistoryMaxEntries != 10000) {
         fail("shell.clipboard_history_max_entries clamp: expected 10000");
+      }
+    }
+  }
+
+  void checkPluginAutoUpdateMode() {
+    const auto parse = [](std::string_view config) {
+      PluginsConfig plugins;
+      Diagnostics diagnostics;
+      const toml::table root = toml::parse(config);
+      readInto(root, plugins, pluginsSchema(), "plugins", diagnostics);
+      return std::pair{plugins.autoUpdate, diagnostics};
+    };
+    const auto warnedOnAutoUpdate = [](const Diagnostics& diag) {
+      return std::ranges::any_of(diag.entries, [](const auto& entry) {
+        return entry.severity == Diagnostics::Severity::Warning && entry.path == "plugins.auto_update";
+      });
+    };
+
+    // Cases: config snippet, expected mode, whether a warning is expected.
+    // Legacy booleans coerce (true = all, false = none); unknown strings and
+    // unsupported types warn and leave the default in place.
+    const auto cases = {
+        std::pair{"auto_update = true", PluginAutoUpdateMode::All},
+        std::pair{"auto_update = false", PluginAutoUpdateMode::None},
+        std::pair{"auto_update = \"official\"", PluginAutoUpdateMode::Official},
+    };
+    for (const auto& [text, expected] : cases) {
+      const auto [mode, diag] = parse(text);
+      if (mode != expected || diag.hasErrors()) {
+        fail(
+            std::string("plugins.auto_update: '")
+            + text
+            + "' should parse to "
+            + std::string(enumToKey(kPluginAutoUpdateModes, expected))
+        );
+      }
+    }
+    for (const auto text : {"auto_update = \"sometimes\"", "auto_update = 1.5"}) {
+      const auto [mode, diag] = parse(text);
+      if (mode != PluginAutoUpdateMode::All || !warnedOnAutoUpdate(diag)) {
+        fail(std::string("plugins.auto_update: '") + text + "' should warn and keep the default");
       }
     }
   }
@@ -1067,6 +1109,7 @@ widget_spacing = 8
   checkStorageKeySourceValidation();
   checkPanelFloatingLayerValidation();
   checkClamps();
+  checkPluginAutoUpdateMode();
   checkCustomColorFallback();
   checkTemplateConfigCustomColorsExport();
 

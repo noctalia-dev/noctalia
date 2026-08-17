@@ -1376,6 +1376,13 @@
       "panel-position": {
         "auto": "Follow Bar"
       },
+      "plugins": {
+        "auto-update": {
+          "all": "All sources",
+          "none": "None",
+          "official": "Official only"
+        }
+      },
       "screen-position": {
         "bottom-center": "Bottom Center",
         "bottom-left": "Bottom Left",
@@ -1498,7 +1505,7 @@
         "add": "Add Source",
         "add-title": "Add Plugin Source",
         "auto-update": "Auto-Update Plugins",
-        "auto-update-desc": "Check enabled sources for new versions in the background and keep installed plugins current",
+        "auto-update-desc": "Check selected sources for new versions in the background and keep installed plugins current",
         "edit": "Edit source",
         "edit-title": "Edit plugin source",
         "empty": "No sources configured.",
