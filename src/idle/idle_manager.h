@@ -67,6 +67,12 @@ private:
   };
 
   [[nodiscard]] double effectiveTimeoutSeconds(const IdleBehaviorConfig& config) const;
+  /// True while media holds an inhibit, including the short debounce that swallows renewals.
+  [[nodiscard]] bool screenSaverInhibited() const noexcept {
+    return m_screenSaverInhibitLocks > 0 || m_inhibitReleasePending;
+  }
+  void applyScreenSaverInhibitRelease();
+  void rearmWaitingBehaviors();
   void clearBehaviors();
   void syncHeartbeat();
   void destroyHeartbeat();
@@ -91,6 +97,7 @@ private:
   std::function<void()> m_onLiveIdleChange;
   IdleConfig m_idleConfig;
   Timer m_graceFallbackTimer;
+  Timer m_inhibitReleaseTimer;
   std::vector<BehaviorState*> m_graceBehaviors;
   bool m_activeGraceWillLock = false;
   std::uint64_t m_graceGeneration = 0;
@@ -99,6 +106,6 @@ private:
   bool m_heartbeatCompositorIdle = false;
   std::int64_t m_liveIdleSeconds = 0;
   std::int64_t m_screenSaverInhibitLocks = 0;
-  bool m_idledWhileScreenSaverInhibited = false;
+  bool m_inhibitReleasePending = false;
   bool m_sessionLocked = false;
 };
