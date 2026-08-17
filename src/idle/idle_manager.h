@@ -72,8 +72,10 @@ private:
   void destroyHeartbeat();
   void notifyLiveIdleChanged();
   void createBehavior(const IdleBehaviorConfig& config);
-  void recreateBehaviorNotification(BehaviorState& behavior);
-  void recreateBehaviorNotifications();
+  /// `resumeIfIdled` decides what happens to a behavior whose idle action already ran: run its resume
+  /// action and re-arm, or leave it idled so the input that wakes the seat still triggers the resume.
+  void recreateBehaviorNotification(BehaviorState& behavior, bool resumeIfIdled);
+  void recreateBehaviorNotifications(bool resumeIdledBehaviors);
   bool runBehavior(BehaviorState& behavior);
   void runResumeBehavior(BehaviorState& behavior);
   bool runAction(const IdleBehaviorConfig& behavior, const IdleActionRequest& action) const;

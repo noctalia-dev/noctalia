@@ -79,7 +79,7 @@ void IdleManager::setScreenSaverInhibitLocks(std::int64_t locks) {
   }
   if (wasInhibited && !inhibited && m_idledWhileScreenSaverInhibited) {
     m_idledWhileScreenSaverInhibited = false;
-    recreateBehaviorNotifications();
+    recreateBehaviorNotifications(false);
   }
 }
 
@@ -88,7 +88,11 @@ void IdleManager::setSessionLocked(bool locked) {
     return;
   }
   m_sessionLocked = locked;
-  recreateBehaviorNotifications();
+  // Locking must not undo an idle action that already ran: re-arming an idled behavior runs its resume
+  // action, which would light the display back up the moment the session locks. Those behaviors keep
+  // their state and get resumed by the real input that eventually wakes the seat. Unlocking keeps the
+  // safety net, being the transition after which a stuck display-off would never be undone.
+  recreateBehaviorNotifications(!locked);
 }
 
 double IdleManager::effectiveTimeoutSeconds(const IdleBehaviorConfig& config) const {
@@ -167,14 +171,18 @@ void IdleManager::clearBehaviors() {
   m_behaviors.clear();
 }
 
-void IdleManager::recreateBehaviorNotification(BehaviorState& behavior) {
+void IdleManager::recreateBehaviorNotification(BehaviorState& behavior, bool resumeIfIdled) {
   if (m_wayland == nullptr || !m_wayland->hasIdleNotifier() || m_wayland->seat() == nullptr) {
     return;
   }
 
-  // Re-arming an idled behavior (e.g. on unlock) has no natural resume event, so run it here —
-  // otherwise screen_off's display-off is never undone and the screen stays black.
   if (behavior.phase == BehaviorPhase::Idled) {
+    if (!resumeIfIdled) {
+      // Leave it idled: it still owes its resume action to the input that wakes the seat.
+      return;
+    }
+    // Re-arming an idled behavior on unlock has no natural resume event, so run it here — otherwise
+    // screen_off's display-off is never undone and the screen stays black.
     runResumeBehavior(behavior);
   }
 
@@ -198,14 +206,14 @@ void IdleManager::recreateBehaviorNotification(BehaviorState& behavior) {
   ext_idle_notification_v1_add_listener(behavior.notification, &kIdleNotificationListener, &behavior);
 }
 
-void IdleManager::recreateBehaviorNotifications() {
+void IdleManager::recreateBehaviorNotifications(bool resumeIdledBehaviors) {
   if (m_wayland == nullptr || !m_wayland->hasIdleNotifier() || m_wayland->seat() == nullptr) {
     return;
   }
 
   cancelActiveGrace(false);
   for (auto& behavior : m_behaviors) {
-    recreateBehaviorNotification(*behavior);
+    recreateBehaviorNotification(*behavior, resumeIdledBehaviors);
   }
   kLog.debug("idle behavior notifications re-armed");
 }
@@ -235,7 +243,7 @@ void IdleManager::createBehavior(const IdleBehaviorConfig& config) {
   auto behavior = std::make_unique<BehaviorState>();
   behavior->owner = this;
   behavior->config = config;
-  recreateBehaviorNotification(*behavior);
+  recreateBehaviorNotification(*behavior, false);
   kLog.info(
       "registered idle behavior '{}' timeout={}s locked_timeout={}s", config.name, config.timeoutSeconds,
       config.lockedTimeoutSeconds
@@ -357,7 +365,7 @@ void IdleManager::handleIdled(void* data, ext_idle_notification_v1* /*notificati
         "idle behavior '{}' suppressed (screensaver inhibit locks={})", behavior->config.name,
         self.m_screenSaverInhibitLocks
     );
-    self.recreateBehaviorNotification(*behavior);
+    self.recreateBehaviorNotification(*behavior, false);
     return;
   }
 
