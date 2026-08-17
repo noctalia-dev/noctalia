@@ -385,9 +385,9 @@ void TaskbarWidget::beginDragVisual() {
   m_drag.restMain = m_vertical ? m_drag.area->y() : m_drag.area->x();
   m_drag.restCross = m_vertical ? m_drag.area->x() : m_drag.area->y();
   m_drag.pinnedCount = pinnedConfigIds().size();
-  m_drag.area->setParticipatesInLayout(false);
-  m_drag.area->setZIndex(200);
-  // Don't create spacer here; doLayout() will handle it.
+  if (Node* container = root(); container != nullptr) {
+    container->markLayoutDirty();
+  }
 }
 
 void TaskbarWidget::updateDragVisual() {
@@ -414,10 +414,7 @@ void TaskbarWidget::endDragVisual() {
   if (m_drag.area == nullptr) {
     return;
   }
-  m_drag.area->setZIndex(0);
-  m_drag.area->setParticipatesInLayout(true);
-  m_drag.area = nullptr;
-  // Spacer cleanup happens in doLayout().
+  // doLayout() restores the tile and removes the spacer together.
   requestRedraw();
 }
 
@@ -426,7 +423,13 @@ void TaskbarWidget::syncDragSpacer() {
   if (m_taskStrip == nullptr || m_drag.area == nullptr) {
     return;
   }
-  m_drag.targetIndex = computeDragTargetIndex();
+  const std::size_t targetIndex = computeDragTargetIndex();
+  if (targetIndex != m_drag.targetIndex) {
+    m_drag.targetIndex = targetIndex;
+    if (Node* container = root(); container != nullptr) {
+      container->markLayoutDirty();
+    }
+  }
 }
 
 bool TaskbarWidget::taskMatchesDesktopEntry(const TaskModel& task, const DesktopEntry& entry) {
@@ -681,27 +684,38 @@ void TaskbarWidget::doLayout(Renderer& renderer, float containerWidth, float con
     m_rebuildPending = false;
   }
 
-  m_root->layout(renderer);
   // Manage spacer lifecycle during drag-to-reorder.
   if (m_drag.active && m_taskStrip != nullptr && m_drag.area != nullptr) {
+    m_drag.area->setParticipatesInLayout(false);
+    m_drag.area->setZIndex(200);
     // Create or reposition spacer to hold the drop gap.
     const std::size_t insertAt = m_drag.targetIndex > m_drag.sourceIndex ? m_drag.targetIndex + 1 : m_drag.targetIndex;
     if (m_drag.spacer == nullptr) {
       auto spacer = ui::box({
+          .fill = clearColorSpec(),
+          .border = clearColorSpec(),
+          .borderWidth = 0.0F,
           .width = m_drag.area->width(),
           .height = m_drag.area->height(),
+          .configure = [](Box& box) { box.setHitTestVisible(false); },
       });
-      m_drag.spacer = std::unique_ptr<Box>(static_cast<Box*>(m_taskStrip->insertChildAt(insertAt, std::move(spacer))));
+      m_drag.spacer = static_cast<Box*>(m_taskStrip->insertChildAt(insertAt, std::move(spacer)));
     } else {
       // Spacer exists; reposition if targetIndex changed.
-      auto held = m_taskStrip->removeChild(m_drag.spacer.get());
+      auto held = m_taskStrip->removeChild(m_drag.spacer);
       m_taskStrip->insertChildAt(insertAt, std::move(held));
     }
   } else if (m_drag.spacer != nullptr && m_taskStrip != nullptr) {
     // Drag ended or was aborted; clean up spacer.
-    m_taskStrip->removeChild(m_drag.spacer.get());
+    m_taskStrip->removeChild(m_drag.spacer);
     m_drag.spacer = nullptr;
   }
+  if (!m_drag.active && m_drag.area != nullptr) {
+    m_drag.area->setZIndex(0);
+    m_drag.area->setParticipatesInLayout(true);
+    m_drag.area = nullptr;
+  }
+  m_root->layout(renderer);
   if (Node* container = root(); container != nullptr && container != m_root) {
     container->setFrameSize(m_root->width(), m_root->height());
   }
@@ -728,6 +742,7 @@ void TaskbarWidget::rebuild(Renderer& renderer) {
   m_activeUsesFocusedColor = !m_focusedOutputOnly || isFocusedOutput();
   m_taskTiles.clear();
   m_taskTiles.reserve(m_tasks.size());
+  m_drag = {};
   clearChildren(m_taskStrip);
   buildTaskButtons(renderer);
 }
@@ -915,23 +930,34 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
       if (m_drag.active) {
         m_suppressTileClick = true;
         if (commitDragReorder()) {
-          // Mark drag as inactive so doLayout() cleans up spacer even if config write fails.
-          m_drag.active = false;
-          // The deferred config write rebuilds the strip and destroys these nodes; restoring them
-          // now would briefly relayout at the old order and snap the tile back. Park the tile in
-          // the gap the spacer is holding so the strip looks settled while that write lands.
           if (m_drag.area != nullptr && m_drag.spacer != nullptr) {
             m_drag.area->setPosition(m_drag.spacer->x(), m_drag.spacer->y());
           }
-          m_drag.area = nullptr;
+          DeferredCall::callLater([this]() {
+            if (!m_drag.active) {
+              return;
+            }
+            m_drag.active = false;
+            endDragVisual();
+            if (Node* container = root(); container != nullptr) {
+              container->markLayoutDirty();
+            }
+          });
+        } else {
+          m_drag.active = false;
+          endDragVisual();
+          if (Node* container = root(); container != nullptr) {
+            container->markLayoutDirty();
+          }
         }
       } else if (m_drag.armed) {
         m_suppressTileClick = true;
         // Armed but not active means the user pressed and held long enough to arm, but never moved far enough to start
         // a drag. Treat it as a click that was suppressed.
+        m_drag = {};
+      } else {
+        m_drag = {};
       }
-      endDragVisual();
-      m_drag = {};
     });
     if (tileDraggable) {
       area->setOnMotion([this, dragArea, taskRef](const InputArea::PointerData& data) {
@@ -959,11 +985,7 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
           beginDragVisual();
         }
         m_drag.currentMain = main;
-        const std::size_t next = computeDragTargetIndex();
-        if (next != m_drag.targetIndex) {
-          m_drag.targetIndex = next;
-          syncDragSpacer();
-        }
+        syncDragSpacer();
         updateDragVisual();
       });
       area->setOnCancel([this, taskRef]() {
@@ -973,8 +995,11 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
           return;
         }
         if (m_drag.sourceIndex == taskRef.index) {
+          m_drag.active = false;
           endDragVisual();
-          m_drag = {};
+          if (Node* container = root(); container != nullptr) {
+            container->markLayoutDirty();
+          }
         }
       });
     }

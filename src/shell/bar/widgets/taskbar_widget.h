@@ -167,8 +167,8 @@ private:
     InputArea* area = nullptr;
     float restMain = 0.0F;
     float restCross = 0.0F;
-    std::unique_ptr<Box> spacer = nullptr; // invisible placeholder that holds the drop gap open
-    std::size_t pinnedCount = 0;           // pin count when the drag began; bounds the travel range
+    Box* spacer = nullptr;       // invisible placeholder that holds the drop gap open
+    std::size_t pinnedCount = 0; // pin count when the drag began; bounds the travel range
     Timer holdTimer;
   };
 
