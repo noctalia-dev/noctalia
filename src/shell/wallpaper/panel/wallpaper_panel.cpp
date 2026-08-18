@@ -1032,17 +1032,6 @@ ThemeMode WallpaperPanel::browseThemeMode() const {
   return wallpaper::effectiveThemeMode(configured, isLight);
 }
 
-std::optional<ThemeMode> WallpaperPanel::themeSyncBindingMode() const {
-  if (m_favoriteThemeSegmented == nullptr) {
-    return std::nullopt;
-  }
-  const ThemeMode mode = themeModeFromSegmentIndex(m_favoriteThemeSegmented->selectedIndex());
-  if (mode == ThemeMode::Light || mode == ThemeMode::Dark) {
-    return mode;
-  }
-  return std::nullopt;
-}
-
 std::filesystem::path WallpaperPanel::rootDirectoryForSelection() const {
   if (m_config == nullptr || m_selectedMonitorIndex >= m_monitorChoices.size()) {
     return {};
@@ -1471,9 +1460,7 @@ void WallpaperPanel::applyWallpaperPath(const std::string& path, const Wallpaper
       choice.connector.empty() ? std::optional<std::string>{} : std::optional<std::string>{choice.connector};
 
   if (!path.empty() && !path.starts_with("color:")) {
-    if (const std::optional<ThemeMode> mode = themeSyncBindingMode(); mode.has_value()) {
-      wallpaper::setThemeSyncBinding(*m_config, connector, *mode, path);
-    }
+    wallpaper::setThemeSyncBinding(*m_config, connector, browseThemeMode(), path);
   }
 
   m_config->applyWallpaperSelection(connector, path, applyTheme, allMonitorConnectors());
