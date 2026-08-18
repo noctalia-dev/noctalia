@@ -1011,7 +1011,17 @@ void Wallpaper::updateThemeSyncBindingForManualPick(
   }
 
   const ThemeMode mode = m_themeService->isLightMode() ? ThemeMode::Light : ThemeMode::Dark;
-  wallpaper::setThemeSyncBinding(*m_config, connector, mode, path);
+  std::vector<std::string> connectors;
+  if (!connector.has_value() || connector->empty()) {
+    if (m_wayland != nullptr) {
+      for (const auto& out : m_wayland->outputs()) {
+        if (!out.connectorName.empty()) {
+          connectors.push_back(out.connectorName);
+        }
+      }
+    }
+  }
+  wallpaper::setThemeSyncBinding(*m_config, connector, mode, path, connectors);
 }
 
 void Wallpaper::seedThemeSyncBindingForCurrentMode() {
@@ -1033,7 +1043,18 @@ void Wallpaper::seedThemeSyncBindingForCurrentMode() {
     return;
   }
 
-  wallpaper::setThemeSyncBinding(*m_config, std::nullopt, isLight ? ThemeMode::Light : ThemeMode::Dark, path);
+  std::vector<std::string> connectors;
+  if (m_wayland != nullptr) {
+    for (const auto& out : m_wayland->outputs()) {
+      if (!out.connectorName.empty()) {
+        connectors.push_back(out.connectorName);
+      }
+    }
+  }
+
+  wallpaper::setThemeSyncBinding(
+      *m_config, std::nullopt, isLight ? ThemeMode::Light : ThemeMode::Dark, path, connectors
+  );
 }
 
 ThemeMode Wallpaper::directoryThemeMode() const noexcept {

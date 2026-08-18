@@ -145,7 +145,8 @@ std::optional<ThemeMode> wallpaper::themeSyncModeForPath(
 }
 
 void wallpaper::setThemeSyncBinding(
-    ConfigService& config, const std::optional<std::string>& connector, ThemeMode mode, std::string_view path
+    ConfigService& config, const std::optional<std::string>& connector, ThemeMode mode, std::string_view path,
+    std::span<const std::string> allConnectors
 ) {
   if (path.empty() || (mode != ThemeMode::Light && mode != ThemeMode::Dark)) {
     return;
@@ -162,6 +163,14 @@ void wallpaper::setThemeSyncBinding(
     );
   } else {
     overrides.emplace_back(std::vector<std::string>{"wallpaper", "theme_sync", key}, std::string(path));
+    for (const auto& mon : allConnectors) {
+      if (mon.empty()) {
+        continue;
+      }
+      overrides.emplace_back(
+          std::vector<std::string>{"wallpaper", "theme_sync", "monitor", mon, key}, std::string(path)
+      );
+    }
   }
   (void)config.setOverrides(std::move(overrides));
 }

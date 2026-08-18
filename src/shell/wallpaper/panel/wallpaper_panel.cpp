@@ -1460,7 +1460,7 @@ void WallpaperPanel::applyWallpaperPath(const std::string& path, const Wallpaper
       choice.connector.empty() ? std::optional<std::string>{} : std::optional<std::string>{choice.connector};
 
   if (!path.empty() && !path.starts_with("color:")) {
-    wallpaper::setThemeSyncBinding(*m_config, connector, browseThemeMode(), path);
+    wallpaper::setThemeSyncBinding(*m_config, connector, browseThemeMode(), path, allMonitorConnectors());
   }
 
   m_config->applyWallpaperSelection(connector, path, applyTheme, allMonitorConnectors());
