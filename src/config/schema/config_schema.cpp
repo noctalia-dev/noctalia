@@ -422,6 +422,7 @@ namespace noctalia::config::schema {
           field(&BrightnessMonitorOverride::match, "match"),
           optionalEnumField(&BrightnessMonitorOverride::backend, "backend", kBrightnessBackendPreferences),
           field(&BrightnessMonitorOverride::backlightDevice, "backlight_device"),
+          field(&BrightnessMonitorOverride::ddcBus, "ddc_bus"),
       };
       return s;
     }

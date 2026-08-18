@@ -277,6 +277,8 @@ enable_ddcutil = false
 # backlight_device = "intel_backlight"  # explicit sysfs device name or path; run: noctalia msg brightness-list-backlight-devices
 # [brightness.monitor.DP-1]
 # backend = "ddcutil"
+# [brightness.monitor.DP-2]
+# ddc_bus = "i2c-6"                 # pin the I2C bus when monitors share an EDID
 
 # ── Night Light ───────────────────────────────────────────────────────────────
 

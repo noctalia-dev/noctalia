@@ -405,8 +405,8 @@ location = "https://example.invalid/bad"
     c.brightness.enableDdcutil = true;
     c.brightness.ddcutilIgnoreMmids = {"ABC123"};
     c.brightness.monitorOverrides = {
-        {"DP-1", BrightnessBackendPreference::Ddcutil},
-        {"eDP-1", std::nullopt},
+        {"DP-1", BrightnessBackendPreference::Ddcutil, std::nullopt, "i2c-7"},
+        {"eDP-1", std::nullopt, "intel_backlight", std::nullopt},
     };
     c.battery.warningThreshold = 15;
     c.battery.deviceThresholds = {{"BAT0", 10}, {"hidpp:1", 25}};
