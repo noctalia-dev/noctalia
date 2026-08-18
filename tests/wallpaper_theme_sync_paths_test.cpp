@@ -77,5 +77,28 @@ int main() {
        )
       && ok;
 
+  const auto bindingModeForTab = [](ThemeMode tab, ThemeMode configured, bool isLight) {
+    if (tab == ThemeMode::Light || tab == ThemeMode::Dark) {
+      return tab;
+    }
+    return wallpaper::effectiveThemeMode(configured, isLight);
+  };
+
+  ok = expect(
+           bindingModeForTab(ThemeMode::Auto, ThemeMode::Auto, false) == ThemeMode::Dark,
+           "auto tab binds wallpaper picks to resolved dark"
+       )
+      && ok;
+  ok = expect(
+           bindingModeForTab(ThemeMode::Auto, ThemeMode::Auto, true) == ThemeMode::Light,
+           "auto tab binds wallpaper picks to resolved light"
+       )
+      && ok;
+  ok = expect(
+           bindingModeForTab(ThemeMode::Dark, ThemeMode::Auto, true) == ThemeMode::Dark,
+           "dark tab always binds to dark"
+       )
+      && ok;
+
   return ok ? 0 : 1;
 }
