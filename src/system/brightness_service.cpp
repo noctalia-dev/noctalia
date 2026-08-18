@@ -1284,6 +1284,10 @@ struct BrightnessService::Impl {
         continue;
       }
 
+      if (findInternal(candidate.connectorName) != nullptr) {
+        continue;
+      }
+
       DisplayInternal display;
       display.backend = RuntimeBackend::Ddcutil;
       display.connectorName = candidate.connectorName;
