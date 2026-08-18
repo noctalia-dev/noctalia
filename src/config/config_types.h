@@ -1558,9 +1558,9 @@ enum class PluginAutoUpdateMode : std::uint8_t {
 };
 
 constexpr EnumOption<PluginAutoUpdateMode> kPluginAutoUpdateModes[] = {
-    {PluginAutoUpdateMode::None, "none", "settings.options.plugins.auto-update.none"},
-    {PluginAutoUpdateMode::Official, "official", "settings.options.plugins.auto-update.official"},
     {PluginAutoUpdateMode::All, "all", "settings.options.plugins.auto-update.all"},
+    {PluginAutoUpdateMode::Official, "official", "settings.options.plugins.auto-update.official"},
+    {PluginAutoUpdateMode::None, "none", "settings.options.plugins.auto-update.none"},
 };
 
 struct PluginSourceConfig {

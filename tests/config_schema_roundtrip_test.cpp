@@ -624,13 +624,11 @@ location = "https://example.invalid/bad"
       });
     };
 
-    // Cases: config snippet, expected mode, whether a warning is expected.
-    // Legacy booleans coerce (true = all, false = none); unknown strings and
-    // unsupported types warn and leave the default in place.
+    // Cases: config snippet, expected mode
     const auto cases = {
-        std::pair{"auto_update = true", PluginAutoUpdateMode::All},
-        std::pair{"auto_update = false", PluginAutoUpdateMode::None},
+        std::pair{"auto_update = \"all\"", PluginAutoUpdateMode::All},
         std::pair{"auto_update = \"official\"", PluginAutoUpdateMode::Official},
+        std::pair{"auto_update = \"none\"", PluginAutoUpdateMode::None},
     };
     for (const auto& [text, expected] : cases) {
       const auto [mode, diag] = parse(text);
@@ -643,7 +641,10 @@ location = "https://example.invalid/bad"
         );
       }
     }
-    for (const auto text : {"auto_update = \"sometimes\"", "auto_update = 1.5"}) {
+    // Unknown strings, unsupported types, and the legacy boolean form warn
+    // and leave the default in place.
+    for (const auto text :
+         {"auto_update = \"sometimes\"", "auto_update = 1.5", "auto_update = true", "auto_update = false"}) {
       const auto [mode, diag] = parse(text);
       if (mode != PluginAutoUpdateMode::All || !warnedOnAutoUpdate(diag)) {
         fail(std::string("plugins.auto_update: '") + text + "' should warn and keep the default");
