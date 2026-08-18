@@ -395,9 +395,7 @@ void UPowerService::rescanDevices() {
                 ) {
             if (!lifetimeToken.expired() && interfaceName == kDeviceInterface) {
               const auto changes = refreshDevice(devicePath, chargeLimitPropertiesChanged(changed, invalidated));
-              emitChangedIfNeeded(
-                  changes.devicesChanged, changes.chargeLimitChanged, changes.deviceCatalogChanged
-              );
+              emitChangedIfNeeded(changes.devicesChanged, changes.chargeLimitChanged, changes.deviceCatalogChanged);
             }
           });
 
@@ -786,9 +784,7 @@ void UPowerService::emitChangedIfNeeded(bool devicesChanged, bool chargeLimitCha
 
   m_state = readDefaultState();
   if (m_changeCallback) {
-    m_changeCallback(
-        UPowerChange{.origin = ChangeOrigin::DeviceState, .deviceCatalogChanged = deviceCatalogChanged}
-    );
+    m_changeCallback(UPowerChange{.origin = ChangeOrigin::DeviceState, .deviceCatalogChanged = deviceCatalogChanged});
   }
 }
 
