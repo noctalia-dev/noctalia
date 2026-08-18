@@ -566,6 +566,19 @@ namespace noctalia::config::schema {
             diag.warn(joinPath(parentPath, "enabled"), "invalid plugin id \"" + *it + "\"; expected author/plugin");
             it = plugins.enabled.erase(it);
           }
+          // Duplicate names would share one checkout on disk: keep the first, error on the rest.
+          std::unordered_set<std::string> seen;
+          for (auto it = plugins.sources.begin(); it != plugins.sources.end();) {
+            if (seen.insert(it->name).second) {
+              ++it;
+              continue;
+            }
+            diag.error(
+                joinPath(parentPath, "source"),
+                "duplicate plugin source name \"" + it->name + "\"; source names must be unique"
+            );
+            it = plugins.sources.erase(it);
+          }
         }),
     };
     return s;

@@ -153,7 +153,7 @@ namespace scripting {
     [[nodiscard]] std::optional<PluginSourceConfig> findSource(std::string_view name) const;
     // The work behind update(name), on the exact configured source. Callers that
     // already hold the matched PluginSourceConfig must use this directly rather
-    // than resolving by name again (duplicate names are accepted by the schema).
+    // than resolving by name again.
     void updateSource(const PluginSourceConfig& source);
     // Plugin ids offered by the implicit local dev source.
     [[nodiscard]] std::unordered_set<std::string> localPluginIds() const;
