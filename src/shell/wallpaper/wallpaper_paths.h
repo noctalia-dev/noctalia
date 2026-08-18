@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <optional>
+#include <span>
 #include <string>
 
 class ConfigService;
@@ -39,7 +40,8 @@ namespace wallpaper {
   );
 
   void setThemeSyncBinding(
-      ConfigService& config, const std::optional<std::string>& connector, ThemeMode mode, std::string_view path
+      ConfigService& config, const std::optional<std::string>& connector, ThemeMode mode, std::string_view path,
+      std::span<const std::string> allConnectors = {}
   );
 
 } // namespace wallpaper
