@@ -2137,10 +2137,10 @@ namespace settings {
 
     // Radius Auto | Custom segmented control + stepper (no label).
     std::unique_ptr<Node> makeGroupRadiusControl(
-        const BarWidgetEditorContext& ctx, std::optional<float> radius,
+        const BarWidgetEditorContext& ctx, std::optional<float> radius, float inheritedRadius,
         std::function<void(std::optional<float>)> onChange
     ) {
-      const int radiusValue = static_cast<int>(std::lround(std::clamp(radius.value_or(12.0F), 0.0F, 80.0F)));
+      const int radiusValue = static_cast<int>(std::lround(std::clamp(radius.value_or(inheritedRadius), 0.0F, 80.0F)));
       auto wrap = ui::row({.align = FlexAlign::Center, .gap = Style::spaceSm * ctx.scale});
       wrap->addChild(
           ui::segmented({
@@ -2333,9 +2333,12 @@ namespace settings {
               }
           )
       );
+
+      const auto inheritedRadius = static_cast<float>(inheritedCapsuleRadiusForLane(ctx.config, laneListPath));
+
       ctx.makeRow(
           *panelPtr, groupEntry("radius"),
-          makeGroupRadiusControl(ctx, style.radius, [mutateGroup](std::optional<float> r) {
+          makeGroupRadiusControl(ctx, style.radius, inheritedRadius, [mutateGroup](std::optional<float> r) {
             mutateGroup([&](BarCapsuleGroupStyle& g) { g.radius = r; });
           })
       );

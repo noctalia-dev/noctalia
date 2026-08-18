@@ -18,16 +18,6 @@ namespace {
     return visibility;
   }
 
-  // Only name labels are truncated; ID labels are left alone.
-  settings::WidgetSettingVisibility nameLabelsShown() {
-    settings::WidgetSettingVisibility visibility;
-    visibility.all = {
-        {"show_labels", {"true"}},
-        {"label_source", {"name"}},
-    };
-    return visibility;
-  }
-
   settings::WidgetSettingVisibility regularStyleOnly() {
     settings::WidgetSettingVisibility visibility;
     visibility.all = {{"style", {"regular"}}};
@@ -109,7 +99,7 @@ const noctalia::bar::WidgetDefinition<WorkspacesWidget::Options>& workspacesWidg
                       settings::WidgetSettingPresentation{
                           .descriptionKey = "settings.widgets.settings.max-label-chars.workspaces-description",
                           .group = "workspaces.list",
-                          .visibleWhen = nameLabelsShown(),
+                          .visibleWhen = labelsShown(),
                       },
               }),
               field<&Options::style>({

@@ -1142,8 +1142,6 @@
         "configure": "Configura",
         "deprecated": "obsolet",
         "empty": "No s'han trobat plugins. Afegeix una font o comprova la xarxa.",
-        "loading": "S'estan carregant els plugins...",
-        "refreshing": "S'estan actualitzant els plugins...",
         "title": "Plugins"
       },
       "settings": {

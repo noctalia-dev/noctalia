@@ -137,6 +137,8 @@ constexpr Color lerpColor(const Color& a, const Color& b, float t) {
 void rgbToHsv(const Color& rgb, float& h, float& s, float& v);
 // Blends from a to b through HSV space on the shortest hue path; t in [0,1].
 [[nodiscard]] Color lerpHsv(const Color& a, const Color& b, float t);
+// HSV blend with shortest-path hue interpolation weighted by endpoint chroma; t in [0,1].
+[[nodiscard]] Color lerpHsvChromaWeighted(const Color& a, const Color& b, float t);
 // WCAG relative luminance of color, in [0,1].
 [[nodiscard]] float relativeLuminance(const Color& color);
 // Returns opaque black or white, whichever reads better on background.

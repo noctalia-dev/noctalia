@@ -16,8 +16,10 @@
 
 class ContextMenuPopup;
 class ConfigService;
+class Box;
 class Flex;
 class InputArea;
+class Label;
 class TaskbarWidgetTestAccess;
 struct wl_output;
 struct zwlr_foreign_toplevel_handle_v1;
@@ -50,6 +52,8 @@ struct TaskbarWidgetOptions {
   ColorSpec activeIndicatorColor = colorSpecFromRole(ColorRole::Primary);
   float activeOpacity = 1.0F;
   float inactiveOpacity = 1.0F;
+  float iconScale = 1.0F;
+  int itemSpacing = 4;
   std::vector<std::string> pinned;
   float pinnedOpacity = 0.5F;
   ColorSpec focusedColor = colorSpecFromRole(ColorRole::Primary);
@@ -128,11 +132,21 @@ private:
     bool layoutEqual = false;
     // Meaningful only when layoutEqual is true and the existing task tiles will be retained.
     bool titlesChanged = false;
+    bool activesChanged = false;
   };
 
   struct TaskRef {
     std::size_t index = 0;
     std::uint64_t generation = 0;
+  };
+
+  struct TaskTile {
+    std::size_t taskIndex = 0;
+    InputArea* area = nullptr;
+    // Flat mode with visible titles; null otherwise.
+    Label* titleLabel = nullptr;
+    // Present when m_showActiveIndicator; visibility tracks task.active.
+    Box* activeIndicator = nullptr;
   };
 
   void doLayout(Renderer& renderer, float containerWidth, float containerHeight) override;
@@ -146,7 +160,7 @@ private:
   [[nodiscard]] static std::string toLower(std::string value);
   [[nodiscard]] static std::string workspaceLabel(const Workspace& workspace, std::size_t index);
   [[nodiscard]] static ModelComparison compareModels(
-      bool showWindowTitle, const std::vector<TaskModel>& previousTasks,
+      bool groupByWorkspace, const std::vector<TaskModel>& previousTasks,
       const std::vector<WorkspaceModel>& previousWorkspaces, const std::vector<TaskModel>& nextTasks,
       const std::vector<WorkspaceModel>& nextWorkspaces
   );
@@ -225,7 +239,7 @@ private:
   // Retained controls resolve task indices only while this model generation matches.
   std::uint64_t m_taskGeneration = 0;
   // Non-owning; cleared before task-strip children are destroyed.
-  std::vector<InputArea*> m_taskTileAreas;
+  std::vector<TaskTile> m_taskTiles;
   std::vector<WorkspaceModel> m_workspaces;
   // Full workspace list before "hide empty" filtering; used for scroll navigation.
   std::vector<WorkspaceModel> m_allWorkspaces;

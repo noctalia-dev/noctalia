@@ -2485,7 +2485,8 @@ bool DesktopWidgetsEditor::onPointerEvent(const PointerEvent& event) {
     break;
   case PointerEvent::Type::Button:
     surface->inputDispatcher.pointerButton(
-        static_cast<float>(event.sx), static_cast<float>(event.sy), event.button, event.pressed
+        static_cast<float>(event.sx), static_cast<float>(event.sy), event.button, event.pressed, event.serial,
+        event.time, event.touch
     );
     if (!event.pressed && m_drag.mode != DragMode::None && event.button == BTN_LEFT) {
       finishDrag();

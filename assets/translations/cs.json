@@ -1314,8 +1314,6 @@
         "configure": "Konfigurovat",
         "deprecated": "zastaralé",
         "empty": "Žádné povolené pluginy.",
-        "loading": "Načítání pluginů...",
-        "refreshing": "Obnovování pluginů...",
         "remove": "Odebrat plugin",
         "requires": "Vyžaduje: {dependencies}",
         "title": "Pluginy"

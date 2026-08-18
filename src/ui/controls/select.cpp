@@ -284,12 +284,14 @@ void Select::doLayout(Renderer& renderer) {
       m_triggerIndicator->setBorder(colorSpecFromRole(ColorRole::Outline), indicatorBorder);
       m_triggerIndicator->setFrameSize(indicatorSize, indicatorSize);
       m_triggerIndicator->setRadius(indicatorSize * 0.5F);
-      m_triggerIndicator->setPosition(m_horizontalPadding, std::round((m_controlHeight - indicatorSize) * 0.5F));
+      const float indicatorX = Style::rtl() ? dropdownWidth - m_horizontalPadding - indicatorSize : m_horizontalPadding;
+      m_triggerIndicator->setPosition(indicatorX, std::round((m_controlHeight - indicatorSize) * 0.5F));
     }
   }
 
   if (m_triggerPreview != nullptr && hasSelectedPreview) {
-    m_triggerPreview->setPosition(m_horizontalPadding, std::round((m_controlHeight - previewHeight) * 0.5F));
+    const float previewX = Style::rtl() ? dropdownWidth - m_horizontalPadding - previewWidth : m_horizontalPadding;
+    m_triggerPreview->setPosition(previewX, std::round((m_controlHeight - previewHeight) * 0.5F));
   }
 
   const float triggerLabelLeft = m_horizontalPadding + leadingInset;
@@ -299,8 +301,12 @@ void Select::doLayout(Renderer& renderer) {
   m_triggerLabel->measure(renderer);
   float triggerLabelY = std::round((m_controlHeight - m_triggerLabel->height()) * 0.5F);
   float triggerGlyphY = std::round((m_controlHeight - m_triggerGlyph->height()) * 0.5F);
-  m_triggerLabel->setPosition(triggerLabelLeft, triggerLabelY);
-  m_triggerGlyph->setPosition(dropdownWidth - m_horizontalPadding - m_triggerGlyph->width(), triggerGlyphY);
+  const float triggerLabelX =
+      Style::rtl() ? dropdownWidth - triggerLabelLeft - m_triggerLabel->width() : triggerLabelLeft;
+  m_triggerLabel->setPosition(triggerLabelX, triggerLabelY);
+  const float triggerGlyphX =
+      Style::rtl() ? m_horizontalPadding : dropdownWidth - m_horizontalPadding - m_triggerGlyph->width();
+  m_triggerGlyph->setPosition(triggerGlyphX, triggerGlyphY);
   m_triggerArea->setPosition(0.0F, 0.0F);
   m_triggerArea->setFrameSize(dropdownWidth, m_controlHeight);
 

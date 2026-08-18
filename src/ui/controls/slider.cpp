@@ -113,12 +113,12 @@ Slider::Slider() {
       return;
     }
     if (KeybindMatcher::matches(KeybindAction::Left, key.sym, key.modifiers)) {
-      setValue(m_value - step);
+      setValue(m_value + (Style::rtl() ? step : -step));
       if (m_onDragEnd) {
         m_onDragEnd();
       }
     } else if (KeybindMatcher::matches(KeybindAction::Right, key.sym, key.modifiers)) {
-      setValue(m_value + step);
+      setValue(m_value + (Style::rtl() ? -step : step));
       if (m_onDragEnd) {
         m_onDragEnd();
       }
@@ -249,14 +249,17 @@ void Slider::updateGeometry() {
   const float trackX = Style::sliderHorizontalPadding;
   const float trackW = std::max(0.0F, widthPx - Style::sliderHorizontalPadding * 2.0F);
   const float t = normalizedValue();
-  const float thumbX = trackX + t * trackW;
+  const float tVis = Style::rtl() ? 1.0F - t : t;
+  const float thumbX = trackX + tVis * trackW;
   const float thumbY = (heightPx - m_thumbSizePx) * 0.5F;
 
   m_track->setPosition(trackX, trackY);
   m_track->setFrameSize(trackW, m_trackHeight);
 
-  m_fill->setPosition(trackX, trackY);
-  m_fill->setFrameSize(std::max(0.0F, thumbX - trackX), m_trackHeight);
+  const float fillX = Style::rtl() ? thumbX : trackX;
+  const float fillWidth = Style::rtl() ? trackX + trackW - thumbX : thumbX - trackX;
+  m_fill->setPosition(fillX, trackY);
+  m_fill->setFrameSize(std::max(0.0F, fillWidth), m_trackHeight);
 
   m_thumb->setPosition(
       util::clampOrdered(thumbX - m_thumbSizePx * 0.5F, trackX, trackX + trackW - m_thumbSizePx), thumbY
@@ -274,7 +277,8 @@ void Slider::updateFromLocalX(float x) {
   if (trackW <= 0.0F) {
     return;
   }
-  const double t = static_cast<double>(std::clamp((x - trackX) / trackW, 0.0F, 1.0F));
+  const double raw = static_cast<double>(std::clamp((x - trackX) / trackW, 0.0F, 1.0F));
+  const double t = Style::rtl() ? 1.0 - raw : raw;
   setValue(m_min + t * (m_max - m_min));
 }
 

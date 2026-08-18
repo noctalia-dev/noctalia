@@ -151,7 +151,8 @@ namespace {
 
     notifications.addInternal(
         i18n::tr("notifications.internal.battery"), title, body, urgency, timeout,
-        std::string("noctalia-glyph:battery-exclamation")
+        std::string("noctalia-glyph:battery-exclamation"), std::nullopt, std::nullopt, std::nullopt,
+        isSystem ? NotificationDndPolicy::ShowToast : NotificationDndPolicy::Respect
     );
   }
 

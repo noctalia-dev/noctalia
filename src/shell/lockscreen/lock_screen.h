@@ -43,8 +43,9 @@ public:
       WaylandConnection& wayland, RenderContext* renderContext, ConfigService* configService,
       SharedTextureCache* textureCache, SystemBus* systemBus, CompositorPlatform* compositorPlatform
   );
-  void setSessionHooks(std::function<void()> onLocked, std::function<void()> onUnlocked);
-  void setLockEngagedCallback(std::function<void()> callback);
+  void setSessionHooks(
+      std::function<void()> onLocked, std::function<void()> onUnlocked, std::function<void()> onLockAborted
+  );
   void setLoginBoxServices(
       SessionActionRunner* sessionActions, MprisService* mpris, const WeatherService* weather, HttpClient* httpClient
   );
@@ -143,7 +144,7 @@ private:
   std::function<void()> m_pendingAfterLocked;
   std::function<void()> m_onSessionLocked;
   std::function<void()> m_onSessionUnlocked;
-  std::function<void()> m_onLockEngaged;
+  std::function<void()> m_onLockAborted;
   SessionActionRunner* m_sessionActions = nullptr;
   MprisService* m_mpris = nullptr;
   const WeatherService* m_weather = nullptr;

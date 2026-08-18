@@ -59,13 +59,14 @@
       },
       "network": {
         "active": "Активно",
+        "band": "Band",
         "connected": "Подключено",
         "connecting": "Подключение",
         "download": "Загрузка",
         "interface": "Интерфейс",
         "ip": "IP",
         "network": "Сеть",
-        "networks": "Сеть",
+        "networks": "Сети",
         "networks-count": "{count} сеть",
         "networks-count-plural": "{count} сети",
         "no": "Нет",
@@ -76,6 +77,7 @@
         "signal": "Сигнал",
         "upload": "Загрузить",
         "vpn": "VPN",
+        "wan-ip": "WAN IP",
         "wifi": "Wi-Fi",
         "wired": "Проводная",
         "yes": "Да"
@@ -91,8 +93,13 @@
       },
       "sysmon": {
         "cpu": "CPU",
+        "cpu-freq": "Частота CPU",
         "cpu-temp": "Температура CPU",
         "disk": "Диск",
+        "disk-free": "Свободно на диске",
+        "disk-free-pct": "Свободно на диске в %",
+        "disk-used": "Занято на диске",
+        "disk-used-pct": "Занято на диске в %",
         "download": "Скачать",
         "gpu-temp": "Температура GPU",
         "gpu-usage": "Загрузка GPU",
@@ -112,7 +119,18 @@
         "error": "Погода: ошибка",
         "loading": "Погода...",
         "no-location": "Нет местоположения",
-        "off": "Погода выкл."
+        "off": "Погода выкл.",
+        "tooltip": {
+          "condition": "Состояние",
+          "high": "Максимальная",
+          "humidity": "Влажность",
+          "low": "Минимальная",
+          "sunrise": "Восход",
+          "sunset": "Закат",
+          "temperature": "Температура",
+          "uv": "УФ-индекс",
+          "wind": "Ветер"
+        }
       }
     }
   },
@@ -182,7 +200,7 @@
     },
     "bluetooth": {
       "accept": "Принять",
-      "address": "Адресс",
+      "address": "Адрес",
       "auto-reconnect": "Автоподключение",
       "bluetooth": "Bluetooth",
       "enter-code": "Введите код",
@@ -226,7 +244,7 @@
       "media": {
         "idle": "Ожидание",
         "no-active-player": "Нет активного плеера",
-        "nothing-playing": "Ничего не воспроизводится",
+        "nothing-playing": "Ничего не играет",
         "paused": "Приостановлено",
         "playback-unavailable": "Воспроизведение недоступно",
         "playing": "Воспроизводится",
@@ -245,11 +263,12 @@
     },
     "media": {
       "active-player": "Активный плеер",
-      "nothing-playing": "Ничего не воспроизводится",
+      "nothing-playing": "Ничего не играет",
       "now-playing": "Сейчас воспроизводится",
       "start-playback": "Начните воспроизведение в приложении MPRIS"
     },
     "network": {
+      "available": "Доступные",
       "connect": "Подключиться",
       "current-connection": "Текущее подключение",
       "external-ip": "WAN {ip}",
@@ -258,6 +277,7 @@
       "password": "Пароль",
       "password-prompt": "Введите пароль",
       "password-prompt-for": "Введите пароль для {ssid}",
+      "saved": "Сохраненные",
       "unavailable-detail": "Установите и включите NetworkManager, чтобы управлять сетями отсюда.",
       "unavailable-title": "NetworkManager недоступен",
       "vpns": "VPN",
@@ -295,6 +315,7 @@
       "unknown-device": "Неизвестное устройство"
     },
     "screen-time": {
+      "back": "Назад",
       "disabled": "Отслеживание экранного времени отключено. Включите его в настройках, чтобы отслеживать использование каждого приложения.",
       "empty": "Использование приложений ещё не зарегистрировано. Переключитесь на окно, чтобы начать отслеживание.",
       "hour-0": "00:00",
@@ -306,7 +327,8 @@
         "14-days": "14 дней",
         "3-days": "3 дня",
         "today": "Сегодня"
-      }
+      },
+      "view-day": "Подробнее о дне"
     },
     "shortcuts": {
       "audio": "Аудио",
@@ -448,6 +470,7 @@
         "bands": "Полосы",
         "bar-width": "Ширина столбцов",
         "bloom-intensity": "Свечение",
+        "center-password-text": "Центрировать текст пароля",
         "center-text": "Центрировать текст",
         "centered": "Отцентрировано",
         "change-image": "Изменить…",
@@ -462,11 +485,15 @@
         "command": "Команда",
         "custom-color": "Пользовательский…",
         "description": "Описание",
+        "device": "Устройство",
         "display": "Дисплей",
+        "display-gauge": "Датчик",
         "display-graph": "График",
         "fade-when-idle": "Затухание в режиме ожидания",
+        "fill-color": "Цвет заливки",
         "font-family": "Шрифт",
         "font-family-default": "По умолчанию",
+        "forecast-days": "Прогнозируемые дни",
         "format": "Формат",
         "glyph": "Глифы",
         "hide-when-no-media": "Скрыть, когда нет медиа",
@@ -531,6 +558,7 @@
       "types": {
         "audio-visualizer": "Аудиовизуализатор",
         "button": "Кпнока",
+        "calendar": "Календарь",
         "clock": "Часы",
         "fancy-audio-visualizer": "Красивый аудиовизуализатор",
         "label": "Метка",
@@ -538,11 +566,15 @@
         "media-player": "Медиаплеер",
         "sticker": "Стикер",
         "system-monitor": "Системный монитор",
+        "volume": "",
         "weather": "Погода"
       }
     },
     "media": {
-      "nothing-playing": "Ничего не воспроизводится"
+      "nothing-playing": "Ничего не играет"
+    },
+    "volume": {
+      "mic": "Микрофон"
     },
     "weather": {
       "error": "Ошибка",
@@ -592,8 +624,8 @@
     },
     "context-menu": {
       "open": "Открыть",
-      "pin-to-dock": "Закрепить в доке",
-      "unpin-from-dock": "Открепить от дока"
+      "pin-to-dock": "Закрепить в Доке",
+      "unpin-from-dock": "Открепить от Дока"
     },
     "empty": {
       "no-results": "Результаты не найдены",
@@ -1307,8 +1339,6 @@
         "delete-confirm-title": "Удалить \"{name}\"?",
         "deprecated": "Устаревший",
         "empty": "Нет включенных плагинов.",
-        "loading": "Загрузка плагинов...",
-        "refreshing": "Обновление плагинов...",
         "remove": "Удалить плагин",
         "requires": "Требуются: {dependencies}",
         "title": "Плагины",
@@ -2064,7 +2094,7 @@
         },
         "calendar-add": {
           "button": "Добавить учётную запись",
-          "description": "Добавить учётные записи iCloud, CalDAV или Google",
+          "description": "Добавить учётные записи iCloud, CalDAV, Google или ICS URL",
           "label": "Учётные записи календаря"
         },
         "calendar-edit": {
@@ -2589,6 +2619,15 @@
       "variant-label": "Стиль кнопки"
     },
     "widgets": {
+      "gestures": {
+        "left": "Левый клик",
+        "middle": "Средний клик",
+        "right": "Правый клик",
+        "scroll-down": "Прокрутка вниз",
+        "scroll-left": "Прокрутка влево",
+        "scroll-right": "Прокрутка вправо",
+        "scroll-up": "Прокрутка вверх"
+      },
       "instances": {
         "cpu": "ЦП",
         "date": "Дата",
@@ -3115,8 +3154,10 @@
       "day": "{count} день",
       "day-plural": "{count} дней",
       "hour": "{count} час",
+      "hour-compact": "{count}ч",
       "hour-plural": "{count} часов",
       "minute": "{count} минута",
+      "minute-compact": "{count}м",
       "minute-plural": "{count} минут",
       "month": "{count} месяц",
       "month-plural": "{count} месяцев",

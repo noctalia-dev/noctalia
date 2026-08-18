@@ -7,6 +7,7 @@
 #include "util/file_utils.h"
 
 #include <chrono>
+#include <gio/gio.h>
 #include <map>
 #include <mutex>
 #include <sdbus-c++/sdbus-c++.h>
@@ -302,6 +303,30 @@ namespace desktop_entry_launch {
       return std::nullopt;
     }
     return PreparedCommand{std::move(args)};
+  }
+
+  bool launchDefaultForMimeType(std::string_view mimeType) {
+    const std::string mimeTypeText(mimeType);
+    GAppInfo* appInfo = g_app_info_get_default_for_type(mimeTypeText.c_str(), FALSE);
+    if (appInfo == nullptr) {
+      kLog.warn("no default application set for MIME type '{}'", mimeType);
+      return false;
+    }
+
+    GError* error = nullptr;
+    const bool launched = g_app_info_launch(appInfo, nullptr, nullptr, &error) == TRUE;
+    if (!launched) {
+      if (error != nullptr) {
+        kLog.warn("failed to launch default application for MIME type '{}': {}", mimeType, error->message);
+      } else {
+        kLog.warn("failed to launch default application for MIME type '{}'", mimeType);
+      }
+    }
+    if (error != nullptr) {
+      g_error_free(error);
+    }
+    g_object_unref(appInfo);
+    return launched;
   }
 
   bool launchEntry(const DesktopEntry& entry, const LaunchOptions& options) {

@@ -254,6 +254,17 @@ namespace {
 
 } // namespace
 
+bool UPowerDeviceInfo::sameCatalogEntry(const UPowerDeviceInfo& other) const {
+  return path == other.path
+      && nativePath == other.nativePath
+      && vendor == other.vendor
+      && model == other.model
+      && serial == other.serial
+      && type == other.type
+      && powerSupply == other.powerSupply
+      && isPresent == other.isPresent;
+}
+
 bool upowerDeviceMatchesSelector(const UPowerDeviceInfo& info, std::string_view selector) {
   const std::string trimmed = StringUtils::trim(selector);
   if (trimmed.empty()) {
@@ -313,9 +324,9 @@ void UPowerService::setChangeCallback(ChangeCallback callback) { m_changeCallbac
 void UPowerService::refresh() {
   const auto changes = refreshDeviceStates();
   if (changes.devicesChanged) {
-    emitChangedIfNeeded(true, changes.chargeLimitChanged);
+    emitChangedIfNeeded(true, changes.chargeLimitChanged, changes.deviceCatalogChanged);
   } else if (!refreshDefaultState()) {
-    emitChangedIfNeeded(false, changes.chargeLimitChanged);
+    emitChangedIfNeeded(false, changes.chargeLimitChanged, changes.deviceCatalogChanged);
   }
 }
 
@@ -384,7 +395,9 @@ void UPowerService::rescanDevices() {
                 ) {
             if (!lifetimeToken.expired() && interfaceName == kDeviceInterface) {
               const auto changes = refreshDevice(devicePath, chargeLimitPropertiesChanged(changed, invalidated));
-              emitChangedIfNeeded(changes.devicesChanged, changes.chargeLimitChanged);
+              emitChangedIfNeeded(
+                  changes.devicesChanged, changes.chargeLimitChanged, changes.deviceCatalogChanged
+              );
             }
           });
 
@@ -409,8 +422,12 @@ void UPowerService::rescanDevices() {
 
   bool devicesChanged = m_devices.size() != nextDevices.size();
   bool chargeLimitChanged = false;
+  bool deviceCatalogChanged = devicesChanged;
   if (!devicesChanged) {
     for (std::size_t i = 0; i < m_devices.size(); ++i) {
+      if (!m_devices[i].info.sameCatalogEntry(nextDevices[i].info)) {
+        deviceCatalogChanged = true;
+      }
       if (!sameDeviceInfoExceptChargeLimit(m_devices[i].info, nextDevices[i].info)) {
         devicesChanged = true;
       }
@@ -418,13 +435,13 @@ void UPowerService::rescanDevices() {
     }
   }
   m_devices = std::move(nextDevices);
-  if (devicesChanged) {
+  if (deviceCatalogChanged) {
     kLog.debug("tracking {} UPower battery-capable device(s)", m_devices.size());
   }
   if (devicesChanged) {
-    emitChangedIfNeeded(true, chargeLimitChanged);
+    emitChangedIfNeeded(true, chargeLimitChanged, deviceCatalogChanged);
   } else if (!refreshDefaultState()) {
-    emitChangedIfNeeded(false, chargeLimitChanged);
+    emitChangedIfNeeded(false, chargeLimitChanged, deviceCatalogChanged);
   }
 }
 
@@ -598,7 +615,7 @@ bool UPowerService::enableChargeThreshold(std::string_view devicePath, bool enab
               kLog.warn("charge threshold change failed device={} err={}", path, error->what());
             }
             changes.chargeLimitChanged = true;
-            emitChangedIfNeeded(changes.devicesChanged, changes.chargeLimitChanged);
+            emitChangedIfNeeded(changes.devicesChanged, changes.chargeLimitChanged, changes.deviceCatalogChanged);
           }
         });
   } catch (const sdbus::Error& error) {
@@ -711,7 +728,7 @@ bool UPowerService::refreshDefaultState() {
 
   m_state = next;
   if (m_changeCallback) {
-    m_changeCallback(ChangeOrigin::DeviceState);
+    m_changeCallback(UPowerChange{.origin = ChangeOrigin::DeviceState});
   }
   return true;
 }
@@ -731,6 +748,7 @@ UPowerService::RefreshChanges UPowerService::refreshTrackedDevice(TrackedDevice&
 
   changes.devicesChanged = !sameDeviceInfoExceptChargeLimit(next, device.info);
   changes.chargeLimitChanged = next.chargeLimit != device.info.chargeLimit;
+  changes.deviceCatalogChanged = !device.info.sameCatalogEntry(next);
   if (next != device.info) {
     device.info = std::move(next);
   }
@@ -753,27 +771,30 @@ UPowerService::RefreshChanges UPowerService::refreshDeviceStates() {
     const auto deviceChanges = refreshTrackedDevice(device, true);
     changes.devicesChanged = changes.devicesChanged || deviceChanges.devicesChanged;
     changes.chargeLimitChanged = changes.chargeLimitChanged || deviceChanges.chargeLimitChanged;
+    changes.deviceCatalogChanged = changes.deviceCatalogChanged || deviceChanges.deviceCatalogChanged;
   }
   return changes;
 }
 
-void UPowerService::emitChangedIfNeeded(bool devicesChanged, bool chargeLimitChanged) {
+void UPowerService::emitChangedIfNeeded(bool devicesChanged, bool chargeLimitChanged, bool deviceCatalogChanged) {
   if (!devicesChanged) {
     if (chargeLimitChanged && m_changeCallback) {
-      m_changeCallback(ChangeOrigin::ChargeLimit);
+      m_changeCallback(UPowerChange{.origin = ChangeOrigin::ChargeLimit});
     }
     return;
   }
 
   m_state = readDefaultState();
   if (m_changeCallback) {
-    m_changeCallback(ChangeOrigin::DeviceState);
+    m_changeCallback(
+        UPowerChange{.origin = ChangeOrigin::DeviceState, .deviceCatalogChanged = deviceCatalogChanged}
+    );
   }
 }
 
 void UPowerService::emitControlOperationChanged() {
   if (m_changeCallback) {
-    m_changeCallback(ChangeOrigin::ChargeLimit);
+    m_changeCallback(UPowerChange{.origin = ChangeOrigin::ChargeLimit});
   }
 }
 

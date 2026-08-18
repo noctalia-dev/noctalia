@@ -120,18 +120,25 @@ struct UPowerDeviceInfo {
   bool operator==(const UPowerDeviceInfo&) const = default;
 
   [[nodiscard]] bool isLaptopBattery() const { return type == UPowerDeviceType::Battery && powerSupply; }
+  [[nodiscard]] bool sameCatalogEntry(const UPowerDeviceInfo& other) const;
+};
+
+enum class UPowerChangeOrigin : std::uint8_t {
+  DeviceState,
+  ChargeLimit,
+};
+
+struct UPowerChange {
+  UPowerChangeOrigin origin = UPowerChangeOrigin::DeviceState;
+  bool deviceCatalogChanged = false;
 };
 
 [[nodiscard]] bool upowerDeviceMatchesSelector(const UPowerDeviceInfo& info, std::string_view selector);
 
 class UPowerService {
 public:
-  enum class ChangeOrigin : std::uint8_t {
-    DeviceState,
-    ChargeLimit,
-  };
-
-  using ChangeCallback = std::function<void(ChangeOrigin)>;
+  using ChangeOrigin = UPowerChangeOrigin;
+  using ChangeCallback = std::function<void(const UPowerChange&)>;
 
   explicit UPowerService(SystemBus& bus);
   ~UPowerService();
@@ -162,6 +169,7 @@ private:
   struct RefreshChanges {
     bool devicesChanged = false;
     bool chargeLimitChanged = false;
+    bool deviceCatalogChanged = false;
   };
 
   [[nodiscard]] UPowerState readDefaultState() const;
@@ -174,7 +182,7 @@ private:
   readDeviceInfo(std::string path, sdbus::IProxy& proxy, std::optional<bool>& chargeThresholdMethodAvailable) const;
   void refreshDisplayDeviceProxy();
   [[nodiscard]] bool refreshDefaultState();
-  void emitChangedIfNeeded(bool devicesChanged, bool chargeLimitChanged = false);
+  void emitChangedIfNeeded(bool devicesChanged, bool chargeLimitChanged = false, bool deviceCatalogChanged = false);
   void emitControlOperationChanged();
   void invalidateChargeThresholdRequest(std::string_view devicePath);
   void rescanDevices();

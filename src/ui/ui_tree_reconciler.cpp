@@ -476,10 +476,11 @@ namespace ui {
       static const std::unordered_set<std::string> kGraph = {"width",   "height",    "flexGrow",   "opacity",
                                                              "visible", "values",    "values2",    "color",
                                                              "color2",  "lineWidth", "fillOpacity"};
-      static const std::unordered_set<std::string> kInput = {"width",    "height",   "flexGrow",    "opacity",
-                                                             "visible",  "value",    "placeholder", "fontSize",
-                                                             "enabled",  "password", "multiline",   "focus",
-                                                             "onChange", "onSubmit", "controlSize", "submitOnEnter"};
+      static const std::unordered_set<std::string> kInput = {"width",       "height",   "flexGrow",    "opacity",
+                                                             "visible",     "value",    "placeholder", "fontSize",
+                                                             "enabled",     "password", "multiline",   "focus",
+                                                             "onChange",    "onSubmit", "controlSize", "submitOnEnter",
+                                                             "frameVisible"};
       static const std::unordered_set<std::string> kMarkdown = {"width",   "height",  "flexGrow",
                                                                 "opacity", "visible", "text"};
       static const std::unordered_set<std::string> kSelect = {"width",       "height",   "flexGrow",      "opacity",
@@ -1373,11 +1374,16 @@ namespace ui {
       if (const std::string* onRightClick = strProp(desired, "onRightClick");
           onRightClick != nullptr && *onRightClick != slot.rightCallbackName) {
         slot.rightCallbackName = *onRightClick;
-        button->setOnRightClick([this, name = slot.rightCallbackName]() {
-          if (m_sink) {
-            m_sink(ControlCallback{name});
-          }
-        });
+        button->setOnRightClickWithPointer(
+            [this, name = slot.rightCallbackName](float x, float y, std::uint32_t serial, std::uint32_t time) {
+              if (m_sink) {
+                ControlCallback callback{name};
+                callback.pointerContext =
+                    ControlCallback::PointerContext{.x = x, .y = y, .serial = serial, .time = time};
+                m_sink(callback);
+              }
+            }
+        );
       }
       // Compact hosts (bar widgets): drop the settings-tier control chrome
       // (min-height, wide padding) and hug the content — a bar capsule is
@@ -1573,6 +1579,9 @@ namespace ui {
       }
       if (const bool* enabled = boolProp(desired, "enabled")) {
         input->setEnabled(*enabled);
+      }
+      if (const bool* frameVisible = boolProp(desired, "frameVisible")) {
+        input->setFrameVisible(*frameVisible);
       }
       if (const std::string* onChange = strProp(desired, "onChange");
           onChange != nullptr && *onChange != slot.callbackName) {

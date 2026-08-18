@@ -15,6 +15,7 @@
 Toggle::Toggle() {
   setAlign(FlexAlign::Center);
   setDirection(FlexDirection::Horizontal);
+  setMirrorInRtl(false);
   setBorder(colorSpecFromRole(ColorRole::Outline), Style::borderWidth);
 
   auto thumb = std::make_unique<RectNode>();
@@ -176,7 +177,7 @@ void Toggle::applyAnimatedState(float t) {
   m_animationProgress = t;
   const Color trackColor = lerpColor(colorForRole(ColorRole::Outline), colorForRole(ColorRole::Primary), t);
   const Color thumbColor = lerpColor(colorForRole(ColorRole::OnPrimary), colorForRole(ColorRole::OnPrimary), t);
-  const float thumbX = m_inset + m_travel * t;
+  const float thumbX = m_inset + m_travel * (Style::rtl() ? 1.0F - t : t);
   ColorSpec borderColor = colorSpecFromRole(ColorRole::Outline);
 
   if (m_enabled) {

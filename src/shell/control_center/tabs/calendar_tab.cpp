@@ -11,6 +11,7 @@
 #include "shell/control_center/tab.h"
 #include "shell/panel/panel_button_style.h"
 #include "shell/panel/panel_manager.h"
+#include "system/desktop_entry_launch.h"
 #include "time/time_format.h"
 #include "ui/builders.h"
 #include "ui/controls/button.h"
@@ -129,7 +130,7 @@ std::unique_ptr<Flex> CalendarTab::create() {
       {.out = &m_previousSlot, .align = FlexAlign::Center, .justify = FlexJustify::Center},
       ui::button({
           .out = &m_previousButton,
-          .glyph = "chevron-left",
+          .glyph = Style::rtl() ? "chevron-right" : "chevron-left",
           .variant = ButtonVariant::Ghost,
           .minWidth = kCalendarNavButtonSize * scale,
           .minHeight = kCalendarNavButtonSize * scale,
@@ -154,7 +155,7 @@ std::unique_ptr<Flex> CalendarTab::create() {
       {.out = &m_nextSlot, .align = FlexAlign::Center, .justify = FlexJustify::Center},
       ui::button({
           .out = &m_nextButton,
-          .glyph = "chevron-right",
+          .glyph = Style::rtl() ? "chevron-left" : "chevron-right",
           .variant = ButtonVariant::Ghost,
           .minWidth = kCalendarNavButtonSize * scale,
           .minHeight = kCalendarNavButtonSize * scale,
@@ -560,17 +561,24 @@ void CalendarTab::rebuild() {
               .weekDividerWidth = weekDividerWidth,
               .weekDaysGap = m_showWeekNumbers ? kCalendarGridGap * scale : 0.0F,
           },
-      .onDateSelected = [this](calendar_view::Date date, int monthShift) {
-        m_selectedYear = date.year;
-        m_selectedMonth = date.month;
-        m_selectedDay = date.day;
-        m_eventsDirty = true;
-        if (monthShift != 0) {
-          changeMonthBy(monthShift);
-        } else {
-          PanelManager::instance().refresh();
-        }
-      },
+      .onDateSelected =
+          [this](calendar_view::Date date, int monthShift) {
+            m_selectedYear = date.year;
+            m_selectedMonth = date.month;
+            m_selectedDay = date.day;
+            m_eventsDirty = true;
+            if (monthShift != 0) {
+              changeMonthBy(monthShift);
+            } else {
+              PanelManager::instance().refresh();
+            }
+          },
+      .onDateRightClicked =
+          [](calendar_view::Date) {
+            if (desktop_entry_launch::launchDefaultForMimeType("text/calendar")) {
+              PanelManager::instance().closePanel();
+            }
+          },
   });
 
   if (m_gridViewport != nullptr) {

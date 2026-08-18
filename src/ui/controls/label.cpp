@@ -256,7 +256,8 @@ void Label::syncTextNodeConstraints() {
 }
 
 void Label::applyScrollPosition() {
-  const float targetX = m_textBaseX - m_scrollOffset;
+  const bool rtlOverflow = Style::rtl() && m_autoScroll && m_fullTextWidth > width() + 0.5F;
+  const float targetX = rtlOverflow ? m_textBaseX + m_scrollOffset : m_textBaseX - m_scrollOffset;
   const float targetY = m_baselineOffset;
 
   // Text is snapped in the renderer, so keep the raw fractional position but
@@ -670,10 +671,12 @@ LayoutSize Label::measureWithConstraints(Renderer& renderer, const LayoutConstra
     if (align == TextAlign::Center) {
       textX = (layoutWidth - alignWidth) * 0.5F;
     } else if (align == TextAlign::End) {
+      textX = Style::rtl() ? 0.0F : layoutWidth - alignWidth;
+    } else if (Style::rtl()) {
       textX = layoutWidth - alignWidth;
     }
   }
-  m_textBaseX = overflow ? 0.0F : textX;
+  m_textBaseX = textX;
   if (!overflow) {
     m_scrollOffset = 0.0F;
   }
@@ -686,6 +689,10 @@ LayoutSize Label::measureWithConstraints(Renderer& renderer, const LayoutConstra
   } else {
     m_marqueeLoopPeriod = 0.0F;
     m_textNode->setText(m_plainText);
+  }
+  if (Style::rtl() && overflow) {
+    const float contentWidth = m_marqueeLoopPeriod > 0.0F ? m_fullTextWidth + m_marqueeLoopPeriod : m_fullTextWidth;
+    m_textBaseX = layoutWidth - contentWidth;
   }
 
   applyScrollPosition();

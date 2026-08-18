@@ -55,6 +55,7 @@ namespace {
   };
 
   constexpr Logger kLog("seat");
+
   constexpr float kAxisValue120PerStep = 120.0F;
   // libinput reports one wheel detent as 15 degrees of rotation.
   constexpr float kLegacyWheelAxisUnitsPerStep = 15.0F;
@@ -453,6 +454,7 @@ void WaylandSeat::handleTouchDown(
           .sx = self->m_lastPointerX,
           .sy = self->m_lastPointerY,
           .time = time,
+          .touch = true,
       }
   );
   self->m_pendingTouchEvents.push_back(
@@ -465,6 +467,7 @@ void WaylandSeat::handleTouchDown(
           .time = time,
           .button = BTN_LEFT,
           .pressed = true,
+          .touch = true,
       }
   );
 }
@@ -488,6 +491,7 @@ void WaylandSeat::handleTouchUp(
           .time = time,
           .button = BTN_LEFT,
           .pressed = false,
+          .touch = true,
       }
   );
   self->m_pendingTouchEvents.push_back(
@@ -495,6 +499,7 @@ void WaylandSeat::handleTouchUp(
           .type = PointerEvent::Type::Leave,
           .serial = serial,
           .surface = surface,
+          .touch = true,
       }
   );
   self->m_activeTouchId = -1;
@@ -519,6 +524,7 @@ void WaylandSeat::handleTouchMotion(
           .sx = self->m_lastPointerX,
           .sy = self->m_lastPointerY,
           .time = time,
+          .touch = true,
       }
   );
 }
@@ -564,18 +570,9 @@ void WaylandSeat::handleTouchCancel(void* data, wl_touch* /*touch*/) {
     self->bumpUserActivity();
     self->m_pointerEventCallback(
         PointerEvent{
-            .type = PointerEvent::Type::Button,
-            .surface = surface,
-            .sx = self->m_lastPointerX,
-            .sy = self->m_lastPointerY,
-            .button = BTN_LEFT,
-            .pressed = false,
-        }
-    );
-    self->m_pointerEventCallback(
-        PointerEvent{
             .type = PointerEvent::Type::Leave,
             .surface = surface,
+            .touch = true,
         }
     );
   }

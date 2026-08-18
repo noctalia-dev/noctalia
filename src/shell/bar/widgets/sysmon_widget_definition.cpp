@@ -58,6 +58,11 @@ const noctalia::bar::WidgetDefinition<SysmonWidget::Options, SysmonWidgetDefinit
                           .labelKey = "settings.widgets.options.gpu-vram",
                       },
                       {
+                          .value = SysmonStat::GpuVramUsed,
+                          .configValue = "gpu_vram_used",
+                          .labelKey = "settings.widgets.options.gpu-vram-used",
+                      },
+                      {
                           .value = SysmonStat::RamUsed,
                           .configValue = "ram_used",
                           .labelKey = "settings.widgets.options.ram-used",

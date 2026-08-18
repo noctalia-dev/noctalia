@@ -54,7 +54,7 @@
         "scroll-short": "B"
       },
       "media": {
-        "nothing-playing": "Inkje spelar",
+        "nothing-playing": "Inkje spelar av",
         "playing": "Spelar"
       },
       "network": {
@@ -93,6 +93,7 @@
       },
       "sysmon": {
         "cpu": "Prosessor",
+        "cpu-freq": "Prosessorfrekvens",
         "cpu-temp": "Prosessortemp",
         "disk": "Disk",
         "disk-free": "Disk att",
@@ -518,6 +519,7 @@
         "opacity": "Uklårleik",
         "primary-color": "Hovudlet",
         "reset-defaults": "Stell tilbake",
+        "reversed": "Omvendt",
         "ring-opacity": "Ringuklårleik",
         "rotation-speed": "Omsvivsfart",
         "scroll-step": "Bladsteg",
@@ -526,6 +528,7 @@
         "shadow": "Skugge",
         "show-caps-lock": "Storlåsåtvaring",
         "show-device": "Vis eining",
+        "show-events": "Vis arrangement",
         "show-forecast": "Vis varsel",
         "show-keyboard-layout": "Knappefjøloppsett",
         "show-label": "Vis namn",
@@ -536,8 +539,10 @@
         "show-unlock-hint": "Lås opp hjelp",
         "show-vpn-label": "Vis VPN-merkelapp",
         "show-weather": "Vêr",
+        "show-week-numbers": "Vis veketal",
         "show-when-idle": "Vis når inaktiv",
         "stat": "Info",
+        "stat-cpu-freq": "Prosessorfrekvens",
         "stat-cpu-temp": "Prosessortemp",
         "stat-cpu-usage": "Prosessorbruk",
         "stat-gpu-temp": "Skjermkorttemp",
@@ -576,6 +581,7 @@
       "types": {
         "audio-visualizer": "Ljodframsyning",
         "button": "Knapp",
+        "calendar": "Kalender",
         "clock": "Klokke",
         "fancy-audio-visualizer": "Tøff ljodframsyning",
         "label": "Namn",
@@ -643,12 +649,22 @@
     },
     "context-menu": {
       "open": "Opna",
-      "pin-to-dock": "Fest til festepunktet",
-      "unpin-from-dock": "Fest frå festepunktet"
+      "pin": "Fest til Veljaren",
+      "pin-to-dock": "Fest til Festepunktet",
+      "unpin": "Fest frå Veljaren",
+      "unpin-from-dock": "Fest frå Festepunktet"
     },
     "empty": {
       "no-results": "Ingen oppslag",
       "type-to-search": "Skriv for å leita ..."
+    },
+    "origins": {
+      "appimage": "AppImage",
+      "flatpak": "Flatpak",
+      "nix": "Nix",
+      "snap": "Snap",
+      "system": "System",
+      "user": "Brukar"
     },
     "providers": {
       "applications": {
@@ -717,6 +733,8 @@
       "battery-low-body": "{device}: {percent} % att",
       "battery-low-title": "Lågt batteri",
       "calendar": "Kalender",
+      "calendar-credential-locked-body": "Lås opp lykelringen bruka av Løyndomstenesta, og prøv att i Innstillingar. Med GNOME Keyring må du gjera ein lykelring som låser seg opp automatisk til standardvalet, til dømes Login.",
+      "calendar-credential-locked-title": "Kalenderlykelringen er låst",
       "calendar-google-connect-browser-failed": "Ingen nettlesaropnar kunne opna for å køyra Google-sanning. Sjå etter standardlesaren eller oppsettet for xdg-open.",
       "calendar-google-connect-credential-store-failed": "Sanning ferdig, men oppattnyingsteiknet kunne ikkje lagrast. Lås opp eller byrja Løyndomstenesta, og kopla til att.",
       "calendar-google-connect-expired": "Google-sanning gjekk ut før innskrivinga var ferdig. Du må byrja koplinga å nyo.",
@@ -727,7 +745,7 @@
       "calendar-google-connect-start-failed": "Kunne ikkje byrja Google-sanninga. Sjå etter nettverktilkoplinga og prøv å nyo.",
       "calendar-google-connect-start-http": "Kunne ikkje byrja Google-sanninga. OAuth-handsamaren svara med HTTP {status}.",
       "calendar-google-connect-timeout": "Google-sanning gjekk ut. Byrja koplinga å nyo når du vil skriva deg inn.",
-      "config-migration-body": "Utdatert tilmåting vert flytta i minnet, medrekna {path}. Oppdater brunntilmåtinga; Innstillingar og noctalia config validate vis det som må bytast ut.",
+      "config-migration-body": "Oppdater {path} i brunnfila. Noctalia legg til dette utbytet berre mellombels. Køyr noctalia config validate for å sjå alle dei naudsynlege brigda.",
       "config-migration-title": "Tilmåtinga krev oppdatering",
       "dbus-disabled": "DBus-varsel avslegne",
       "desktop-widgets-editor": "Nøytelbrigdar",
@@ -881,6 +899,7 @@
       "credential-source-label": "Lagring for innskrivingsdata",
       "delete-error": "Kunne ikkje sletta kalenderkonto",
       "edit-title": "Brigda på kalenderkonto",
+      "ics-url-label": "ICS-URL",
       "id-label": "Konto-ID",
       "invalid": "Sjå etter dei merkte felta for kalenderkontoen",
       "name-label": "Visingsnamn",
@@ -894,7 +913,8 @@
       "provider": {
         "custom": "CalDAV",
         "google": "Google",
-        "icloud": "iCloud"
+        "icloud": "iCloud",
+        "ics": "ICS-URL"
       },
       "provider-label": "Leverandør",
       "save": "Lagra",
@@ -1129,6 +1149,7 @@
           "suspend": "Set i dvale"
         },
         "kind-section-label": "Gjerd",
+        "locked-timeout-label": "Tidsavbrot når låst (sekund, 0 = av)",
         "name-label": "Namn",
         "name-placeholder": "Inaktiv-åtburd",
         "resume-command-label": "Framhaldkommando",
@@ -1191,6 +1212,7 @@
         "monitor-thresholds": "Framhevingstreskel",
         "monitors": "Skjermar",
         "motion": "Rørsle",
+        "navigation": "Framleiting",
         "network": "Nettverk",
         "night-light": "Natteljos",
         "notifications": "Varsel",
@@ -1459,8 +1481,6 @@
         "held-back": "eldre utgåve",
         "held-back-hint": "v{version} krev utvidings-API {required}; denne Noctalia stør opp til {current}. Få ei nyare Noctalia for å få henne.",
         "incompatible-plugin-api": "usemjande utvidings-API",
-        "loading": "Lastar inn utvidingar ...",
-        "refreshing": "Lastar inn utvidingar å nyo ...",
         "remove": "Sletta utviding",
         "requires": "Krev: {dependencies}",
         "title": "Utvidingar",
@@ -1502,6 +1522,7 @@
       },
       "store": {
         "add": "Legg til i Noctalia",
+        "back-to-catalog": "Attende til utvidingskatalogen",
         "categories": "Klasser",
         "category-all": "Alle",
         "empty": "Ingen utvidingar funne",
@@ -1615,7 +1636,7 @@
           "label": "Heilsvart"
         },
         "theme-mode": {
-          "description": "Vel mørk, ljos eller automatisk alt etter tida",
+          "description": "Vel Mørk, Ljos eller Automatisk alt etter tida",
           "label": "Hammodus"
         },
         "ui-scale": {
@@ -2272,6 +2293,10 @@
           "description": "Gap i piksel mellom ei flytande eller ubunden fjøl og stongranda",
           "label": "Flyteavvik"
         },
+        "home-session-button": {
+          "description": "Vis øyktegjerningar-knappen øvst i heimefana",
+          "label": "Vis øykteknapp øvst"
+        },
         "home-shortcuts": {
           "description": "Vel opp til seks snarvegsknappar på heimefana",
           "label": "Heimesnarvegar"
@@ -2319,6 +2344,10 @@
         "launcher-global-windows": {
           "description": "Vis opne ruter i søk utan førefeste i tillegg",
           "label": "Ruter i allsøk"
+        },
+        "launcher-pinned-apps": {
+          "description": "Skriverbords-IDar til appane feste til veljaren; desse viser seg fyrst når veljaren opnar",
+          "label": "Feste appar"
         },
         "launcher-prefix-calculator": {
           "description": "Førefeste til kalkulator i allsøk",
@@ -2474,7 +2503,7 @@
         },
         "calendar-add": {
           "button": "Legg til konto",
-          "description": "Legg til iCloud-, CalDAV- eller Google-kontoar",
+          "description": "Legg til iCloud-, CalDAV-, Google-kontoar eller ein ICS-URL",
           "label": "Kalenderkontoar"
         },
         "calendar-credentials": {
@@ -2490,7 +2519,9 @@
         "calendar-edit": {
           "button": "Brigda",
           "button-reconnect": "Kopla til att",
+          "button-retry": "Prøv att",
           "description": "Oppdater denne kalenderkontoen",
+          "description-locked": "Oppattnyingsteiknet ligg i ein låst lykelring; lås han opp og prøv att",
           "description-reconnect": "Google-sanning vantar; kopla til kontoen att."
         },
         "calendar-event-date-format": {
@@ -2621,6 +2652,7 @@
             "label": "Nettverk-spørjingsmellomrom"
           },
           "stats": {
+            "cpu-freq": "Prosessorfrekvens",
             "cpu-temp": "Prossessortemp",
             "cpu-usage": "Prosessorbruk",
             "disk-free": "Disk att",
@@ -3134,7 +3166,7 @@
     "storage-recovery": {
       "button": "Nullstill privat lagring",
       "button-confirm": "Stadfest nullstilling",
-      "description": "Sletta lagra tavlehistorikk og kalenderarrangement i all æve, og opna privat lagring å nyo. Ei tilmåta lykelfil vert aldri brigda.",
+      "description": "Sletta lagra tavlehistorikk og kalenderarrangement i all æve, og opna privat lagring å nyo (ei tilmåta lykelfil vert aldri brigda)",
       "error-delete": "Nokre filer i privat lagring kunne ikkje slettast. Lagringslykene var berga.",
       "error-key": "Filer i privat lagring var sletta, men Noctalia kunne ikkje opna trygg lagring å nyo. Ordna tilgang og prøv att.",
       "label": "Berga privat lagring",
@@ -3200,9 +3232,10 @@
         "always": "Alltid",
         "auto": "Auto",
         "before": "Før",
-        "both": "Båe",
+        "both": "Både",
         "compact": "Tett",
         "count": "Tal",
+        "cpu-freq": "Prosessorfrekvens",
         "cpu-temp": "Prosessortemperatur",
         "cpu-usage": "Prosessorbruk",
         "disk-free": "Disk att",
@@ -3255,7 +3288,7 @@
       },
       "settings": {
         "actions": {
-          "description": "Det kvar musrørsle gjer med denne nøytelen. Vel kommando, køyr skalkommando, eller slå han av.",
+          "description": "Det musrørsler gjer med denne nøytelen. Vel kommando, køyr skalkommando, eller slå han av.",
           "label": "Rørslegjerningar"
         },
         "active-color": {
@@ -3639,6 +3672,10 @@
           "description": "Uklårleiken på feste appar som ikkje køyrer no",
           "label": "Uklårleik på feste appar"
         },
+        "reversed": {
+          "description": "Vend om frekvensrekkjefylgja til stengene frå låg-til-høg til høg-til-låg",
+          "label": "Omvendt"
+        },
         "scale": {
           "description": "Brigda storleiken på denne nøytelen i høve til innhaldsskala på stonga",
           "label": "Skala"
@@ -3652,7 +3689,7 @@
           "label": "Skrift"
         },
         "scroll-repeat": {
-          "description": "Vel om bladgjerningar fylgjer kommantosemantikk, køyrer éin gong kvar rørsle, eller tek seg opp att med kvart bladsteg",
+          "description": "Vel om bladgjerningar fylgjer kommandosemantikk, køyrer éin gong kvar rørsle, eller tek seg opp att med kvart bladsteg",
           "label": "Bladoppattak"
         },
         "show-active-indicator": {
@@ -3661,6 +3698,10 @@
         },
         "show-all-outputs": {
           "description": "Tak med ruter frå alle skjermar på denne nøytelen.",
+          "label": "Vis alle skjermar"
+        },
+        "show-all-workspaces": {
+          "description": "Vis arbeidsrom frå alle skjermar på denne nøytelen",
           "label": "Vis alle skjermar"
         },
         "show-caps-lock": {
@@ -3708,7 +3749,7 @@
           "label": "Vis verde"
         },
         "show-vpn-label": {
-          "description": "Byter ut nettverksnamn med VPN-namn i utbytemodus; legg til VPN-namn attmed VPN-merke i bådemodus",
+          "description": "Byter ut nettverksnamn med VPN-namn i Utbytemodus; legg til VPN-namn attmed VPN-merke i Bådemodus",
           "label": "Vis VPN-namn"
         },
         "show-when-idle": {
@@ -3773,7 +3814,7 @@
           "label": "Framsyning"
         },
         "vpn-status": {
-          "description": "Korleis VPN-stoda viser seg: byt ut byter ut nettverksmerke for VPN-skjold, båe viser dei attmed kvarandre, gøymd slår av VPN-visaren",
+          "description": "Korleis VPN-stoda viser seg: Byt ut byter ut nettverksmerke for VPN-skjold, Både viser dei attmed kvarandre, Gøymd slår av VPN-visaren",
           "label": "VPN-stode"
         },
         "warning-color": {
@@ -3842,7 +3883,7 @@
       "export-config": "Før ut tilmåting ...",
       "export-config-saved": "Tilmåtingsutførsle lagra.",
       "filter-overridden": "Overstyrt",
-      "legacy-config-warning": "Utdatert tilmåting flyttar i minnet: {issue}. Køyr noctalia config validate for å sjå kva du må brigda.",
+      "legacy-config-warning": "Utdatert innstilling: {issue}. Brigda på dette brunnoppslag; Noctalia legg til dette utbytet berre mellombels. Køyr nocatlia config validate for å sjå alle dei naudsynlege brigda.",
       "native-title": "Noctalia-innstillingar",
       "no-results": "Ingen innstillingar funne",
       "no-results-hint": "Prøv med eit anna innstillingsnamn eller config-lykel.",

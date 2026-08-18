@@ -141,6 +141,9 @@ private:
   void onSecondaryPointerPress(float localX, float localY);
   [[nodiscard]] std::optional<std::size_t> indexAt(float localX, float localY) const noexcept;
   void cellLocalAt(float localX, float localY, std::size_t index, float& cellLocalX, float& cellLocalY) const noexcept;
+  [[nodiscard]] std::size_t visualCol(std::size_t col) const noexcept {
+    return Style::rtl() ? m_layoutColumns - 1 - col : col;
+  }
   void setOverlayHoveredForIndex(std::size_t index, bool hovered);
 
   ScrollView* m_scroll = nullptr;

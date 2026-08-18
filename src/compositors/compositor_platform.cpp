@@ -1407,9 +1407,9 @@ const char* CompositorPlatform::workspaceBackendName() const noexcept {
   return m_workspaces != nullptr ? m_workspaces->backendName() : "none";
 }
 
-void CompositorPlatform::focusCompositorWindow(const std::string& windowId) const {
+void CompositorPlatform::focusCompositorWindow(const std::string& windowId, bool warpPointer) const {
   if (compositors::isKde() && m_kwinActiveWindow != nullptr && m_kwinActiveWindow->isAvailable() && !windowId.empty()) {
-    m_kwinActiveWindow->activateWindow({}, {}, windowId);
+    m_kwinActiveWindow->activateWindow({}, {}, windowId, warpPointer);
     return;
   }
   if (m_workspaceMetadataBackend != nullptr && m_workspaceMetadataBackend->focusWindowById(windowId)) {

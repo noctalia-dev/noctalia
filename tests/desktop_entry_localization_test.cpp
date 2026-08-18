@@ -1,3 +1,4 @@
+#include "i18n/i18n_service.h"
 #include "launcher/app_provider.h"
 #include "system/desktop_entry.h"
 #include "tests/test_check.h"
@@ -27,8 +28,14 @@ namespace {
 
 } // namespace
 
-int main() {
+int main(int argc, char* argv[]) {
   namespace fs = std::filesystem;
+
+  TEST_CHECK(argc == 2);
+  setenv("NOCTALIA_ASSETS_DIR", argv[1], 1);
+  unsetenv("LC_ALL");
+  unsetenv("LC_MESSAGES");
+  setenv("LANG", "zh_CN.UTF-8", 1);
 
   const fs::path root = fs::temp_directory_path() / ("noctalia-desktop-entry-locale-" + std::to_string(getpid()));
   const fs::path applications = root / "data/applications";
@@ -42,6 +49,8 @@ int main() {
         << "Name[en@shaw]=𐑛𐑦𐑕𐑒 Locale Probe\n"
         << "Name[ru]=Диски Locale Probe\n"
         << "Name[pt_BR]=Discos Locale Probe\n"
+        << "Name[zh]=磁盘 Locale Probe\n"
+        << "Name[zh_CN]=软件\n"
         << "GenericName=Storage Utility\n"
         << "GenericName[ru]=Дисковая утилита\n"
         << "Keywords=disk;storage;\n"
@@ -51,6 +60,12 @@ int main() {
 
   setenv("XDG_DATA_HOME", (root / "data").c_str(), 1);
   setenv("XDG_DATA_DIRS", (root / "empty").c_str(), 1);
+
+  i18n::Service::instance().init();
+  TEST_CHECK(i18n::Service::instance().language() == "zh-Hans");
+  TEST_CHECK(i18n::Service::instance().requestedLanguage() == "zh-CN");
+  setDesktopEntryLanguage(i18n::Service::instance().requestedLanguage());
+  TEST_CHECK(findEntry("noctalia-locale-probe").name == "软件");
 
   setDesktopEntryLanguage("en");
   TEST_CHECK(findEntry("noctalia-locale-probe").name == "Disk Locale Probe");

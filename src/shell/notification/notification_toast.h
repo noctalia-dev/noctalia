@@ -26,6 +26,7 @@ struct KeyboardEvent;
 struct PointerEvent;
 struct WaylandOutput;
 struct wl_output;
+struct wl_surface;
 
 class NotificationToast {
 public:
@@ -43,6 +44,7 @@ public:
   );
   void onConfigReload();
   void onOutputChange();
+  void hideDndSuppressed();
   void requestLayout();
   void requestRedraw();
 
@@ -62,6 +64,7 @@ private:
     std::optional<std::string> icon;
     std::optional<NotificationImageData> imageData;
     Urgency urgency = Urgency::Normal;
+    NotificationDndPolicy dndPolicy = NotificationDndPolicy::Respect;
     int displayDurationMs = 0; // -1 = persistent (no auto-dismiss)
     int32_t rawTimeoutMs = 0;  // raw DBus timeout; >0 means manager has an auto-expire timer we must coordinate with
     float remainingProgress = 1.0F;
@@ -127,7 +130,7 @@ private:
   void finishExitingEntryIfOrphaned(uint32_t notificationId);
   void updateInputRegion(Instance& inst) const;
   void enterInlineReplyMode(uint32_t notificationId);
-  void submitInlineReply(uint32_t notificationId, const std::string& replyText);
+  void submitInlineReply(uint32_t notificationId, const std::string& replyText, wl_surface* sourceSurface);
   void syncKeyboardInteractivity(Instance& inst) const;
   static void clearInlineReplyFocus(Instance& inst);
   [[nodiscard]] static bool isInlineReplyInputArea(const Instance& inst, const InputArea* area);

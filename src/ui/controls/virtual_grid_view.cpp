@@ -390,7 +390,7 @@ void VirtualGridView::doLayout(Renderer& renderer) {
 
         slotActive[slot] = true;
 
-        const float x = static_cast<float>(col) * (cellW + m_columnGap);
+        const float x = static_cast<float>(visualCol(col)) * (cellW + m_columnGap);
         const float y = static_cast<float>(row) * (cellH + m_rowGap);
         tile->setPosition(x, y);
         tile->setSize(cellW, cellH);
@@ -540,7 +540,7 @@ void VirtualGridView::onPoolTooltipMotion(std::size_t slot, float localX, float 
   const auto column = index % m_layoutColumns;
   const auto row = index / m_layoutColumns;
   onPointerMotion(
-      static_cast<float>(column) * (m_cellWidth + m_columnGap) + localX,
+      static_cast<float>(visualCol(column)) * (m_cellWidth + m_columnGap) + localX,
       static_cast<float>(row) * (m_cellHeightResolved + m_rowGap) + localY
   );
 }
@@ -561,12 +561,9 @@ void VirtualGridView::onPointerPress(float localX, float localY) {
     return;
   }
 
-  const float colStride = m_cellWidth + m_columnGap;
-  const float rowStride = m_cellHeightResolved + m_rowGap;
-  const auto col = *idx % m_layoutColumns;
-  const auto row = *idx / m_layoutColumns;
-  const float cellLocalX = localX - static_cast<float>(col) * colStride;
-  const float cellLocalY = localY - static_cast<float>(row) * rowStride;
+  float cellLocalX = 0.0F;
+  float cellLocalY = 0.0F;
+  cellLocalAt(localX, localY, *idx, cellLocalX, cellLocalY);
   if (m_adapter->onPointerPress(*idx, cellLocalX, cellLocalY, m_cellWidth, m_cellHeightResolved)) {
     m_adapterPointerCapture = true;
     return;
@@ -627,7 +624,7 @@ bool VirtualGridView::absoluteAnchorForIndex(std::size_t index, float& outX, flo
   float wx = 0.0F;
   float wy = 0.0F;
   Node::absolutePosition(m_inputArea, wx, wy);
-  outX = wx + static_cast<float>(col) * colStride + m_cellWidth * 0.5F;
+  outX = wx + static_cast<float>(visualCol(col)) * colStride + m_cellWidth * 0.5F;
   outY = wy + static_cast<float>(row) * rowStride + m_cellHeightResolved * 0.5F;
   return true;
 }
@@ -654,7 +651,7 @@ std::optional<std::size_t> VirtualGridView::indexAt(float localX, float localY) 
   if (cellLocalX > m_cellWidth || cellLocalY > m_cellHeightResolved) {
     return std::nullopt;
   }
-  const std::size_t idx = row * m_layoutColumns + col;
+  const std::size_t idx = row * m_layoutColumns + visualCol(col);
   if (idx >= m_itemCount) {
     return std::nullopt;
   }
@@ -666,7 +663,7 @@ void VirtualGridView::cellLocalAt(
 ) const noexcept {
   const float colStride = m_cellWidth + m_columnGap;
   const float rowStride = m_cellHeightResolved + m_rowGap;
-  const auto col = index % m_layoutColumns;
+  const auto col = visualCol(index % m_layoutColumns);
   const auto row = index / m_layoutColumns;
   cellLocalX = localX - static_cast<float>(col) * colStride;
   cellLocalY = localY - static_cast<float>(row) * rowStride;

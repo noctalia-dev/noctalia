@@ -573,6 +573,15 @@ bool LockSurface::initialize(ext_session_lock_v1* lock, wl_output* output, std::
     return false;
   }
 
+  if (const auto* outputInfo = m_connection.findOutputByWl(output); outputInfo != nullptr) {
+    setConfiguredScaleNumerator(
+        outputInfo->configuredScaleNumerator > 0 ? static_cast<std::uint32_t>(outputInfo->configuredScaleNumerator) : 1U
+    );
+    setBufferScale(outputInfo->scale);
+  } else {
+    setBufferScale(scale);
+  }
+
   if (!createWlSurface()) {
     return false;
   }
@@ -580,8 +589,6 @@ bool LockSurface::initialize(ext_session_lock_v1* lock, wl_output* output, std::
 
   m_output = output;
   m_connection.registerSurfaceOutput(m_surface, output);
-  setBufferScale(scale);
-
   m_lockSurface = ext_session_lock_v1_get_lock_surface(lock, m_surface, output);
   if (m_lockSurface == nullptr) {
     destroySurface();
@@ -597,6 +604,10 @@ bool LockSurface::initialize(ext_session_lock_v1* lock, wl_output* output, std::
 
   setRunning(true);
   return true;
+}
+
+void LockSurface::syncOutputScale(std::int32_t bufferScale, std::uint32_t configuredScaleNumerator) {
+  updateOutputScale(bufferScale, configuredScaleNumerator);
 }
 
 void LockSurface::setLockedState(bool locked) {
@@ -786,7 +797,7 @@ void LockSurface::onPointerEvent(const PointerEvent& event) {
     if (m_locked && pressed && passwordFieldContainsPoint(x, y)) {
       focusPasswordField();
     }
-    m_inputDispatcher.pointerButton(x, y, event.button, pressed);
+    m_inputDispatcher.pointerButton(x, y, event.button, pressed, event.serial, event.time, event.touch);
     if (m_locked && pressed && passwordFieldContainsPoint(x, y)) {
       focusPasswordField();
       requestRedraw();

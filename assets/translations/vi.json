@@ -1443,8 +1443,6 @@
         "empty": "Không tìm thấy plugin nào. Hãy thêm nguồn hoặc kiểm tra mạng của bạn.",
         "held-back": "phiên bản cũ",
         "incompatible-plugin-api": "API plugin không tương thích",
-        "loading": "Đang tải các plugin...",
-        "refreshing": "Đang làm mới các plugin...",
         "remove": "Loại bỏ plugin",
         "requires": "Cần: {dependencies}",
         "title": "Plugins",

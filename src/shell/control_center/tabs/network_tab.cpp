@@ -809,10 +809,10 @@ void NetworkTab::handleWirelessEnabledCompletion(std::uint64_t generation, bool 
   PanelManager::instance().requestRedraw();
 }
 
-// Identity of the built list: which rows exist, in which order, and which controls
-// each carries. The signal strength is absent by design — it refreshes in place
-// through syncApRows(), so a scan update no longer tears the list down. Access points
-// arrive sorted, so a change in row order changes the key.
+// Identity of the built list: which rows exist, in which order, which controls
+// each carries, and how each activates. The signal strength is absent by design —
+// it refreshes in place through syncApRows(), so a scan update no longer tears the
+// list down. Access points arrive sorted, so a change in row order changes the key.
 std::string
 NetworkTab::structureKey(const std::vector<AccessPointInfo>& aps, const std::vector<VpnConnectionInfo>& vpns) const {
   std::string key;
@@ -820,6 +820,8 @@ NetworkTab::structureKey(const std::vector<AccessPointInfo>& aps, const std::vec
     key += ap.ssid;
     key.push_back(':');
     key += ap.secured ? '1' : '0';
+    key.push_back(':');
+    key += ap.supportsSae ? '1' : '0';
     key.push_back(':');
     key += ap.active ? '1' : '0';
     key.push_back(':');

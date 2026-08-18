@@ -503,6 +503,9 @@ namespace settings {
     if (filter.playSound) {
       parts.emplace_back(i18n::tr("settings.notifications.filter.flag.sound"));
     }
+    if (filter.bypassDnd) {
+      parts.emplace_back(i18n::tr("settings.notifications.filter.flag.dnd-bypass"));
+    }
     if (filter.allowPermanent) {
       parts.emplace_back(i18n::tr("settings.notifications.filter.flag.permanent"));
     }

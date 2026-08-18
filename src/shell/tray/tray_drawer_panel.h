@@ -30,8 +30,6 @@ private:
   [[nodiscard]] std::size_t currentDrawerColumns() const;
   [[nodiscard]] std::optional<float> currentDrawerItemSize() const;
   [[nodiscard]] float resolvedItemGap() const;
-  [[nodiscard]] std::vector<std::string> currentHiddenItems() const;
-  [[nodiscard]] std::vector<std::string> currentPinnedItems() const;
   [[nodiscard]] std::size_t visibleItemCount() const;
 
   TrayService* m_tray = nullptr;

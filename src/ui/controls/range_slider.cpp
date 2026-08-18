@@ -124,9 +124,9 @@ RangeSlider::RangeSlider() {
       }
     };
     if (KeybindMatcher::matches(KeybindAction::Left, key.sym, key.modifiers)) {
-      nudge(-step);
+      nudge(Style::rtl() ? step : -step);
     } else if (KeybindMatcher::matches(KeybindAction::Right, key.sym, key.modifiers)) {
-      nudge(step);
+      nudge(Style::rtl() ? -step : step);
     } else if (KeySymbol::isPageDown(key.sym)) {
       nudge(-step * 10.0);
     } else if (KeySymbol::isPageUp(key.sym)) {
@@ -277,15 +277,18 @@ void RangeSlider::updateGeometry() {
   const float trackY = (heightPx - m_trackHeight) * 0.5F;
   const float trackX = Style::sliderHorizontalPadding;
   const float trackW = std::max(0.0F, widthPx - Style::sliderHorizontalPadding * 2.0F);
-  const float lowX = trackX + normalized(m_low) * trackW;
-  const float highX = trackX + normalized(m_high) * trackW;
+  const float lowT = normalized(m_low);
+  const float highT = normalized(m_high);
+  const float lowX = trackX + (Style::rtl() ? 1.0F - lowT : lowT) * trackW;
+  const float highX = trackX + (Style::rtl() ? 1.0F - highT : highT) * trackW;
   const float thumbY = (heightPx - m_thumbSizePx) * 0.5F;
 
   m_track->setPosition(trackX, trackY);
   m_track->setFrameSize(trackW, m_trackHeight);
 
-  m_fill->setPosition(lowX, trackY);
-  m_fill->setFrameSize(std::max(0.0F, highX - lowX), m_trackHeight);
+  const float fillX = std::min(lowX, highX);
+  m_fill->setPosition(fillX, trackY);
+  m_fill->setFrameSize(std::abs(highX - lowX), m_trackHeight);
 
   const float maxThumbX = trackX + trackW - m_thumbSizePx;
   m_lowThumb->setPosition(util::clampOrdered(lowX - m_thumbSizePx * 0.5F, trackX, maxThumbX), thumbY);
@@ -304,7 +307,8 @@ void RangeSlider::updateFromLocalX(float x) {
   if (trackW <= 0.0F || m_activeThumb == ActiveThumb::None) {
     return;
   }
-  const double t = static_cast<double>(std::clamp((x - trackX) / trackW, 0.0F, 1.0F));
+  const double raw = static_cast<double>(std::clamp((x - trackX) / trackW, 0.0F, 1.0F));
+  const double t = Style::rtl() ? 1.0 - raw : raw;
   const double value = m_min + t * (m_max - m_min);
   if (m_activeThumb == ActiveThumb::Low) {
     setLowValue(value);
@@ -366,7 +370,8 @@ float RangeSlider::thumbCenterX(double value) const noexcept {
   const float widthPx = width() > 0.0F ? width() : Style::sliderDefaultWidth;
   const float trackX = Style::sliderHorizontalPadding;
   const float trackW = std::max(0.0F, widthPx - Style::sliderHorizontalPadding * 2.0F);
-  return trackX + normalized(value) * trackW;
+  const float t = normalized(value);
+  return trackX + (Style::rtl() ? 1.0F - t : t) * trackW;
 }
 
 double RangeSlider::snapped(double value) const noexcept {

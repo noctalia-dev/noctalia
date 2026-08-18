@@ -1421,16 +1421,20 @@ std::string WorkspacesWidget::workspaceLabel(const Workspace& workspace, std::si
       label = std::to_string(workspace.index);
     } else if (const auto numericId = numericWorkspaceId(workspace); numericId.has_value()) {
       label = std::to_string(*numericId);
+    } else if (!workspace.name.empty()) {
+      // Named workspaces have no numeric id, so the name beats labeling them by bar position.
+      label = workspace.name;
     } else {
       label = std::to_string(displayIndex + 1);
     }
   } else {
     label = !workspace.name.empty() ? workspace.name : workspace.id;
-    // Only truncate non-numeric labels (words like "VESKTOP" → "VE").
-    // Numeric labels (workspace IDs like "10", "11") stay as-is.
-    if (!isNumericLabel(label) && m_maxLabelChars > 0) {
-      label = StringUtils::truncateUtf8CodePoints(label, m_maxLabelChars);
-    }
+  }
+
+  // Only truncate non-numeric labels (words like "VESKTOP" → "VE").
+  // Numeric labels (workspace IDs like "10", "11") stay as-is.
+  if (!isNumericLabel(label) && m_maxLabelChars > 0) {
+    label = StringUtils::truncateUtf8CodePoints(label, m_maxLabelChars);
   }
 
   return label;

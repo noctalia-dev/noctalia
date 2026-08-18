@@ -1333,8 +1333,6 @@
         "delete-confirm-title": "Выдаліць «{name}»?",
         "deprecated": "састарэлая",
         "empty": "Няма ўключаных убудоў.",
-        "loading": "Загрузка ўбудоў...",
-        "refreshing": "Абнаўленне сіпсу ўбудоў...",
         "remove": "Выдаліць убудову",
         "requires": "Патрабуе {dependencies}",
         "title": "Убудовы"

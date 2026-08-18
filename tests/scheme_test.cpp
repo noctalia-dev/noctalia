@@ -1,3 +1,4 @@
+#include "theme/builtin_palettes.h"
 #include "theme/color.h"
 #include "theme/contrast.h"
 #include "theme/palette_generator.h"
@@ -104,6 +105,30 @@ namespace {
     ok = expect(
              mutedSurface < softSurface && softSurface < faithfulSurface,
              "soft surface saturation sits between muted and faithful"
+         )
+        && ok;
+
+    return ok;
+  }
+
+  bool checkContainerSaturationHeadroom() {
+    bool ok = true;
+
+    const auto* catppuccin = noctalia::theme::findBuiltinPalette("Catppuccin");
+    if (!expect(catppuccin != nullptr, "finds Catppuccin builtin palette"))
+      return false;
+
+    const auto fixed = noctalia::theme::expandBuiltinPalette(*catppuccin);
+    const auto fixedContainer = noctalia::theme::Color::fromArgb(token(fixed, "primary_container"));
+    ok = expect(fixedContainer.toHex() == "#6d10da", "fixed palette container saturation scales by remaining headroom")
+        && ok;
+
+    const auto custom = noctalia::theme::generateCustom(makeColorfulBuffer(), noctalia::theme::Scheme::Faithful);
+    const double customPrimarySaturation = saturation(token(custom, "primary"));
+    const double customContainerSaturation = saturation(token(custom, "primary_container"));
+    ok = expect(
+             customContainerSaturation < customPrimarySaturation + 0.10,
+             "custom palette container saturation scales by remaining headroom"
          )
         && ok;
 
@@ -243,6 +268,7 @@ int main() {
   bool ok = true;
   ok = checkSchemeStrings() && ok;
   ok = checkSoftGeneration() && ok;
+  ok = checkContainerSaturationHeadroom() && ok;
   ok = checkPerceptualContrastAdjustment() && ok;
   ok = checkTerminalContrast() && ok;
   return ok ? 0 : 1;

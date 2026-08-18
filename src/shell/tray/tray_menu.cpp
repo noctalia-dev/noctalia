@@ -400,7 +400,8 @@ bool TrayMenu::onPointerEvent(const PointerEvent& event) {
           sub->pointerInside = true;
         const bool pressed = event.pressed;
         sub->inputDispatcher.pointerButton(
-            static_cast<float>(event.sx), static_cast<float>(event.sy), event.button, pressed
+            static_cast<float>(event.sx), static_cast<float>(event.sy), event.button, pressed, event.serial, event.time,
+            event.touch
         );
         subConsumed = true;
       }
@@ -465,7 +466,8 @@ bool TrayMenu::onPointerEvent(const PointerEvent& event) {
       }
       const bool pressed = event.pressed;
       inst->inputDispatcher.pointerButton(
-          static_cast<float>(event.sx), static_cast<float>(event.sy), event.button, pressed
+          static_cast<float>(event.sx), static_cast<float>(event.sy), event.button, pressed, event.serial, event.time,
+          event.touch
       );
       consumed = true;
       if (!m_visible || m_instance == nullptr) {

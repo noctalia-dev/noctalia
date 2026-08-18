@@ -124,6 +124,8 @@ namespace {
         && a.outputName == b.outputName
         && a.cx == b.cx
         && a.cy == b.cy
+        && a.placementWidth == b.placementWidth
+        && a.placementHeight == b.placementHeight
         && a.boxWidth == b.boxWidth
         && a.boxHeight == b.boxHeight
         && a.rotationRad == b.rotationRad
@@ -449,6 +451,8 @@ namespace {
     widgetTable.insert_or_assign("output", widget.outputName);
     widgetTable.insert_or_assign("cx", static_cast<double>(widget.cx));
     widgetTable.insert_or_assign("cy", static_cast<double>(widget.cy));
+    widgetTable.insert_or_assign("placement_width", static_cast<double>(widget.placementWidth));
+    widgetTable.insert_or_assign("placement_height", static_cast<double>(widget.placementHeight));
     widgetTable.insert_or_assign("box_width", static_cast<double>(widget.boxWidth));
     widgetTable.insert_or_assign("box_height", static_cast<double>(widget.boxHeight));
     widgetTable.insert_or_assign("rotation", static_cast<double>(widget.rotationRad));
@@ -608,6 +612,7 @@ namespace {
               row.insert_or_assign("show_toast", item.showToast);
               row.insert_or_assign("save_history", item.saveHistory);
               row.insert_or_assign("play_sound", item.playSound);
+              row.insert_or_assign("bypass_dnd", item.bypassDnd);
               row.insert_or_assign("allow_permanent", item.allowPermanent);
               if (item.overrideDuration.has_value()) {
                 row.insert_or_assign("override_duration", static_cast<std::int64_t>(*item.overrideDuration));

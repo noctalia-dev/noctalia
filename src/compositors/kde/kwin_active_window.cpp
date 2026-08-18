@@ -458,7 +458,9 @@ namespace compositors::kde {
     return std::nullopt;
   }
 
-  void KwinActiveWindow::activateWindow(const std::string& title, const std::string& appId, const std::string& uuid) {
+  void KwinActiveWindow::activateWindow(
+      const std::string& title, const std::string& appId, const std::string& uuid, bool warpPointer
+  ) {
     if (!m_scriptInstalled) {
       return;
     }
@@ -468,6 +470,16 @@ namespace compositors::kde {
 const targetUuid = {};
 const targetClass = {};
 const targetCaption = {};
+const warpPointer = {};
+function movePointerToFocus() {{
+  callDBus(
+      "org.kde.kglobalaccel",
+      "/component/kwin",
+      "org.kde.kglobalaccel.Component",
+      "invokeShortcut",
+      "MoveMouseToFocus"
+  );
+}}
 for (const window of workspace.windowList()) {{
   if (!window || !window.normalWindow) {{
     continue;
@@ -475,15 +487,21 @@ for (const window of workspace.windowList()) {{
   const uuid = window.internalId === undefined ? "" : String(window.internalId);
   if (targetUuid && uuid === targetUuid) {{
     workspace.activeWindow = window;
+    if (warpPointer) {{
+      movePointerToFocus();
+    }}
     break;
   }}
   if (window.resourceClass === targetClass && window.caption === targetCaption) {{
     workspace.activeWindow = window;
+    if (warpPointer) {{
+      movePointerToFocus();
+    }}
     break;
   }}
 }}
 )js",
-        jsStringLiteral(uuid), jsStringLiteral(appId), jsStringLiteral(title)
+        jsStringLiteral(uuid), jsStringLiteral(appId), jsStringLiteral(title), warpPointer ? "true" : "false"
     );
 
     const std::string label = std::format("noctalia-activate-{}", ++m_transientScriptSerial);

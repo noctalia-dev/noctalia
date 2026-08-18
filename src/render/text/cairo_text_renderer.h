@@ -55,6 +55,7 @@ public:
   void cleanup();
 
   void setFontFamily(std::string family);
+  void setBaseDirection(bool rtl);
   void notifyFontConfigChanged();
 
   // Drops the uploaded glyph textures (keeping CPU-side metrics) so they are
@@ -207,6 +208,7 @@ private:
   bool m_fontConfigInitialized = false;
   std::uint64_t m_syncedFontGeneration = 0;
   std::string m_fontFamily = "sans-serif";
+  bool m_baseDirRtl = false;
 
   PangoFontMap* m_fontMap = nullptr;      // owned
   PangoContext* m_pangoContext = nullptr; // owned

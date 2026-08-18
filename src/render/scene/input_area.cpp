@@ -200,12 +200,29 @@ void InputArea::dispatchMotion(float localX, float localY) {
   }
 }
 
-void InputArea::dispatchPress(float localX, float localY, std::uint32_t button, bool isPressed) {
+void InputArea::dispatchPress(
+    float localX, float localY, std::uint32_t button, bool isPressed, float sceneX, float sceneY, std::uint32_t serial,
+    std::uint32_t time
+) {
+  const PointerData data{
+      .localX = localX,
+      .localY = localY,
+      .sceneX = sceneX,
+      .sceneY = sceneY,
+      .serial = serial,
+      .time = time,
+      .button = button,
+      .pressed = isPressed,
+  };
   if (isPressed) {
     m_pressed = true;
     m_pressedButton = button;
+    m_pressedSceneX = sceneX;
+    m_pressedSceneY = sceneY;
+    m_pressedSerial = serial;
+    m_pressedTime = time;
     if (m_onPress) {
-      m_onPress({.localX = localX, .localY = localY, .button = button, .pressed = true});
+      m_onPress(data);
     }
   } else {
     const bool releasedInside = containsLocalPoint(localX, localY, true);
@@ -214,12 +231,19 @@ void InputArea::dispatchPress(float localX, float localY, std::uint32_t button, 
     m_pressedButton = 0;
 
     if (m_onPress) {
-      m_onPress({.localX = localX, .localY = localY, .button = button, .pressed = false});
+      m_onPress(data);
     }
 
     // Click: release inside the same InputArea that received the press.
     if (shouldClick) {
-      m_onClick({.localX = localX, .localY = localY, .button = button, .pressed = false});
+      PointerData clickData = data;
+      // Native popup grabs must use the serial of the press that established
+      // the implicit pointer grab, not the later release serial.
+      clickData.sceneX = m_pressedSceneX;
+      clickData.sceneY = m_pressedSceneY;
+      clickData.serial = m_pressedSerial;
+      clickData.time = m_pressedTime;
+      m_onClick(clickData);
     }
   }
 }

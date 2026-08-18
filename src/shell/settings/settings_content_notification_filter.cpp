@@ -207,6 +207,13 @@ namespace settings {
         }
     );
     addToggleRow(
+        *flagsBlock, scale, i18n::tr("settings.notifications.filter.bypass-dnd"), row.bypassDnd,
+        [&row, persistDraft](bool value) {
+          row.bypassDnd = value;
+          persistDraft();
+        }
+    );
+    addToggleRow(
         *flagsBlock, scale, i18n::tr("settings.notifications.filter.allow-permanent"), row.allowPermanent,
         [&row, persistDraft](bool value) {
           row.allowPermanent = value;

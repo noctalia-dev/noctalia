@@ -26,15 +26,6 @@ if [ ! -f "$config_file" ]; then
     exit 0
 fi
 
-if awk '
-    /^[[:space:]]*\[include\][[:space:]]*(#.*)?$/ { in_include = 1; next }
-    in_include && /^[[:space:]]*\[/ { exit found ? 0 : 1 }
-    in_include && index($0, "noctalia.toml") != 0 { found = 1; exit 0 }
-    END { exit found ? 0 : 1 }
-' "$config_file"; then
-    exit 0
-fi
-
 tmp_file="$(mktemp "$config_file.tmp.XXXXXX")"
 trap 'rm -f "$tmp_file"' EXIT
 
@@ -63,10 +54,14 @@ awk '
             print "error: include.files must be an array" > "/dev/stderr"
             exit 2
         }
-        if ($0 ~ /\[[[:space:]]*\]/)
+        gsub(/"noctalia\.toml"[[:space:]]*,[[:space:]]*/, "")
+        gsub(/,[[:space:]]*"noctalia\.toml"/, "")
+        gsub(/"noctalia\.toml"/, "")
+        if ($0 ~ /\[[[:space:]]*\]/) {
             sub(/\[[[:space:]]*\]/, "[\"noctalia.toml\"]")
-        else
-            sub(/\[/, "[\"noctalia.toml\", ")
+        } else {
+            sub(/[[:space:]]*\]/, ", \"noctalia.toml\"]")
+        }
         added = 1
     }
 
@@ -83,4 +78,6 @@ awk '
     }
 ' "$config_file" >"$tmp_file"
 
-cp "$tmp_file" "$config_file"
+if ! cmp -s "$config_file" "$tmp_file"; then
+    cp "$tmp_file" "$config_file"
+fi

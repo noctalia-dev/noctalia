@@ -30,30 +30,15 @@ namespace i18n {
     std::string_view displayName;
   };
 
-  inline constexpr std::array<LanguageOption, 23> kSupportedLanguages = {{
-      {"be", "Беларуская"},
-      {"be-Latn", "Biełaruskaja (Łacinka)"},
-      {"ca", "Català"},
-      {"cs", "Čeština"},
-      {"de", "Deutsch"},
-      {"en", "English"},
-      {"es", "Español"},
-      {"fr", "Français"},
-      {"gl-ES", "Galego"},
-      {"hu", "Magyar"},
-      {"it", "Italiano"},
-      {"ko", "한국어"},
-      {"ku", "Kurdî"},
-      {"nl", "Nederlands"},
-      {"nn", "Norsk nynorsk"},
-      {"pl", "Polski"},
-      {"pt-BR", "Português (Brasil)"},
-      {"ru", "Русский"},
-      {"sv", "Svenska"},
-      {"tr", "Türkçe"},
-      {"uk-UA", "Українська"},
-      {"vi", "Tiếng Việt"},
-      {"zh-Hans", "简体中文"},
+  inline constexpr std::array<LanguageOption, 24> kSupportedLanguages = {{
+      {"ar", "العربية"},       {"be", "Беларуская"}, {"be-Latn", "Biełaruskaja (Łacinka)"},
+      {"ca", "Català"},        {"cs", "Čeština"},    {"de", "Deutsch"},
+      {"en", "English"},       {"es", "Español"},    {"fr", "Français"},
+      {"gl-ES", "Galego"},     {"hu", "Magyar"},     {"it", "Italiano"},
+      {"ko", "한국어"},        {"ku", "Kurdî"},      {"nl", "Nederlands"},
+      {"nn", "Norsk nynorsk"}, {"pl", "Polski"},     {"pt-BR", "Português (Brasil)"},
+      {"ru", "Русский"},       {"sv", "Svenska"},    {"tr", "Türkçe"},
+      {"uk-UA", "Українська"}, {"vi", "Tiếng Việt"}, {"zh-Hans", "简体中文"},
   }};
 
   // Loads translation catalogs and resolves dotted keys against them.
@@ -70,6 +55,8 @@ namespace i18n {
 
     void setLanguage(std::string_view lang);
     [[nodiscard]] std::string_view language() const noexcept { return m_language; }
+    [[nodiscard]] std::string_view requestedLanguage() const noexcept { return m_requestedLanguage; }
+    [[nodiscard]] bool rtl() const noexcept { return m_rtl; }
 
     // Returns a view into the active or fallback catalog, or {} if the key
     // exists in neither.
@@ -81,6 +68,8 @@ namespace i18n {
     Catalog m_active;
     Catalog m_fallback;
     std::string m_language;
+    std::string m_requestedLanguage;
+    bool m_rtl = false;
   };
 
 } // namespace i18n

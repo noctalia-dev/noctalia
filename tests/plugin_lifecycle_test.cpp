@@ -707,7 +707,7 @@ int main() {
                root / "path-plugins/plugin/plugin.toml",
                "id = \"test/plugin\"\n"
                "name = \"Lifecycle test\"\n"
-               "version = \"1\"\n"
+               "version = \"1.0.0\"\n"
                "plugin_api = 17\n"
            ),
            "failed to create local plugin fixture"
@@ -718,7 +718,7 @@ int main() {
                root / "path-plugins/api16/plugin.toml",
                "id = \"test/api16\"\n"
                "name = \"API 16 service\"\n"
-               "version = \"1\"\n"
+               "version = \"1.0.0\"\n"
                "plugin_api = 16\n"
                "[[service]]\n"
                "id = \"service\"\n"
@@ -735,7 +735,7 @@ int main() {
                    root / "path-plugins/api17/plugin.toml",
                    "id = \"test/api17\"\n"
                    "name = \"API 17 service\"\n"
-                   "version = \"1\"\n"
+                   "version = \"1.0.0\"\n"
                    "plugin_api = 17\n"
                    "[[service]]\n"
                    "id = \"service\"\n"

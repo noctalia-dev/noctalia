@@ -75,10 +75,12 @@
 #include "wayland/wayland_connection.h"
 
 #include <algorithm>
+#include <array>
 #include <cstdint>
 #include <format>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <utility>
 
@@ -126,114 +128,260 @@ std::unique_ptr<Widget> WidgetFactory::create(
   // Config path prefix used when a widget definition reports a bad setting value.
   const std::string settingContext = std::format("widget.{}", name);
 
-  if (type == "active_window") {
-    return createWidget<ActiveWindowWidget>(
-        contentScale, m_configService, m_platform, activeWindowWidgetDefinition().resolve(wc, settingContext)
-    );
-  }
+  struct BuiltinWidgetContext {
+    const std::string& name;
+    const WidgetConfig* config;
+    wl_output* output;
+    float contentScale;
+    const std::string& settingContext;
+    const std::string& barPosition;
+    const std::string& barName;
+    float widgetSpacing;
+    bool verticalBar;
+  };
 
-  if (type == "audio_visualizer") {
-    return createWidget<AudioVisualizerWidget>(
-        contentScale, m_audioSpectrum, audioVisualizerWidgetDefinition().resolve(wc, settingContext)
-    );
-  }
+  using BuiltinWidgetCreator =
+      std::unique_ptr<Widget> (*)(const WidgetFactory& factory, const BuiltinWidgetContext& context);
+  struct BuiltinWidget {
+    std::string_view type;
+    BuiltinWidgetCreator create;
+  };
 
-  if (type == "battery") {
-    return createWidget<BatteryWidget>(
-        contentScale, m_upower,
-        batteryWidgetDefinition().resolve(
-            wc, settingContext, BatteryWidgetDefinitionContext{.batteryConfig = &m_config.battery, .upower = m_upower}
-        )
-    );
-  }
+  static constexpr auto kBuiltinWidgets = std::to_array<BuiltinWidget>({
+      {"active_window", [](const WidgetFactory& f, const BuiltinWidgetContext& context) {
+            return createWidget<ActiveWindowWidget>(
+                context.contentScale, f.m_configService, f.m_platform,
+                activeWindowWidgetDefinition().resolve(context.config, context.settingContext)
+            );
+          }},
+      {"audio_visualizer", [](const WidgetFactory& f, const BuiltinWidgetContext& context) {
+            return createWidget<AudioVisualizerWidget>(
+                context.contentScale, f.m_audioSpectrum,
+                audioVisualizerWidgetDefinition().resolve(context.config, context.settingContext)
+            );
+          }},
+      {"battery", [](const WidgetFactory& f, const BuiltinWidgetContext& context) {
+            return createWidget<BatteryWidget>(
+                context.contentScale, f.m_upower,
+                batteryWidgetDefinition().resolve(
+                    context.config, context.settingContext,
+                    BatteryWidgetDefinitionContext{
+                        .batteryConfig = &f.m_config.battery,
+                        .upower = f.m_upower,
+                    }
+                )
+            );
+          }},
+      {"bluetooth", [](const WidgetFactory& f, const BuiltinWidgetContext& context) {
+            return createWidget<BluetoothWidget>(
+                context.contentScale, f.m_bluetooth, context.output,
+                bluetoothWidgetDefinition().resolve(context.config, context.settingContext)
+            );
+          }},
+      {"brightness", [](const WidgetFactory& f, const BuiltinWidgetContext& context) {
+            return createWidget<BrightnessWidget>(
+                context.contentScale, f.m_brightness, context.output,
+                brightnessWidgetDefinition().resolve(context.config, context.settingContext)
+            );
+          }},
+      {"caffeine", [](const WidgetFactory& f, const BuiltinWidgetContext& context) {
+            return createWidget<IdleInhibitorWidget>(context.contentScale, f.m_idleInhibitor);
+          }},
+      {"clipboard", [](const WidgetFactory& f, const BuiltinWidgetContext& context) {
+            if (!f.m_config.shell.clipboardEnabled) {
+              return std::unique_ptr<Widget>{};
+            }
+            return createWidget<ClipboardWidget>(
+                context.contentScale, context.output,
+                clipboardWidgetDefinition().resolve(context.config, context.settingContext)
+            );
+          }},
+      {"clock", [](const WidgetFactory&, const BuiltinWidgetContext& context) {
+            return createWidget<ClockWidget>(
+                context.contentScale, context.output,
+                clockWidgetDefinition().resolve(context.config, context.settingContext)
+            );
+          }},
+      {"control-center", [](const WidgetFactory&, const BuiltinWidgetContext& context) {
+            return createWidget<ControlCenterWidget>(
+                context.contentScale, context.output,
+                controlCenterWidgetDefinition().resolve(context.config, context.settingContext)
+            );
+          }},
+      {"custom_button", [](const WidgetFactory&, const BuiltinWidgetContext& context) {
+            return createWidget<CustomButtonWidget>(
+                context.contentScale, customButtonWidgetDefinition().resolve(context.config, context.settingContext)
+            );
+          }},
+#ifndef NDEBUG
+      {"debug_indicator", [](const WidgetFactory&, const BuiltinWidgetContext& context) {
+            return createWidget<DebugIndicatorWidget>(context.contentScale);
+          }},
+#endif
+      {"keyboard_layout", [](const WidgetFactory& f, const BuiltinWidgetContext& context) {
+            return createWidget<KeyboardLayoutWidget>(
+                context.contentScale, f.m_platform,
+                keyboardLayoutWidgetDefinition().resolve(context.config, context.settingContext),
+                f.m_config.shell.keyboardLayout.customLabels
+            );
+          }},
+      {"launcher", [](const WidgetFactory&, const BuiltinWidgetContext& context) {
+            return createWidget<LauncherWidget>(
+                context.contentScale, context.output,
+                launcherWidgetDefinition().resolve(context.config, context.settingContext)
+            );
+          }},
+      {"lock_keys", [](const WidgetFactory& f, const BuiltinWidgetContext& context) {
+            if (f.m_lockKeys == nullptr) {
+              return std::unique_ptr<Widget>{};
+            }
+            return createWidget<LockKeysWidget>(
+                context.contentScale, f.m_lockKeys,
+                lockKeysWidgetDefinition().resolve(context.config, context.settingContext)
+            );
+          }},
+      {"media", [](const WidgetFactory& f, const BuiltinWidgetContext& context) {
+            return createWidget<MediaWidget>(
+                context.contentScale, f.m_mpris, f.m_httpClient, context.output,
+                mediaWidgetDefinition().resolve(context.config, context.settingContext)
+            );
+          }},
+      {"network", [](const WidgetFactory& f, const BuiltinWidgetContext& context) {
+            return createWidget<NetworkWidget>(
+                context.contentScale, f.m_network, f.m_externalIp, f.m_sysmon, context.output,
+                networkWidgetDefinition().resolve(context.config, context.settingContext)
+            );
+          }},
+      {"nightlight", [](const WidgetFactory& f, const BuiltinWidgetContext& context) {
+            return createWidget<NightLightWidget>(context.contentScale, f.m_nightLight);
+          }},
+      {"notifications", [](const WidgetFactory& f, const BuiltinWidgetContext& context) {
+            return createWidget<NotificationWidget>(
+                context.contentScale, f.m_notifications, context.output,
+                notificationWidgetDefinition().resolve(context.config, context.settingContext)
+            );
+          }},
+      {"power_profile", [](const WidgetFactory& f, const BuiltinWidgetContext& context) {
+            return createWidget<PowerProfileWidget>(context.contentScale, f.m_powerProfiles);
+          }},
+      {"privacy", [](const WidgetFactory& f, const BuiltinWidgetContext& context) {
+            return createWidget<PrivacyWidget>(
+                context.contentScale, f.m_audio, &f.m_configService,
+                privacyWidgetDefinition().resolve(context.config, context.settingContext)
+            );
+          }},
+      {"screenshot", [](const WidgetFactory& f, const BuiltinWidgetContext& context) {
+            if (f.m_screenshots == nullptr || f.m_renderContext == nullptr
+                || !f.m_screenshots->available()) {
+              return std::unique_ptr<Widget>{};
+            }
+            return createWidget<ScreenshotWidget>(
+                context.contentScale, context.output, *f.m_screenshots, f.m_configService,
+                f.m_platform, *f.m_renderContext, context.barPosition,
+                screenshotWidgetDefinition().resolve(context.config, context.settingContext)
+            );
+          }},
+      {"session", [](const WidgetFactory&, const BuiltinWidgetContext& context) {
+            return createWidget<SessionWidget>(
+                context.contentScale, context.output,
+                sessionWidgetDefinition().resolve(context.config, context.settingContext)
+            );
+          }},
+      {"settings", [](const WidgetFactory&, const BuiltinWidgetContext& context) {
+            return createWidget<SettingsWidget>(
+                context.contentScale, context.output,
+                settingsWidgetDefinition().resolve(context.config, context.settingContext)
+            );
+          }},
+      {"spacer", [](const WidgetFactory&, const BuiltinWidgetContext& context) {
+            return createWidget<SpacerWidget>(
+                context.contentScale, context.verticalBar,
+                spacerWidgetDefinition().resolve(context.config, context.settingContext)
+            );
+          }},
+      {"sysmon", [](const WidgetFactory& f, const BuiltinWidgetContext& context) {
+            return createWidget<SysmonWidget>(
+                context.contentScale, f.m_sysmon, f.m_configService,
+                sysmonWidgetDefinition().resolve(
+                    context.config, context.settingContext,
+                    SysmonWidgetDefinitionContext{.verticalBar = context.verticalBar}
+                )
+            );
+          }},
+      {"taskbar", [](const WidgetFactory& f, const BuiltinWidgetContext& context) {
+            return createWidget<TaskbarWidget>(
+                context.contentScale, f.m_platform, f.m_configService, context.output,
+                taskbarWidgetDefinition().resolve(context.config, context.settingContext),
+                TaskbarWidgetContext{
+                    .barPosition = context.barPosition,
+                    .barName = context.barName,
+                    .widgetName = context.name,
+                }
+            );
+          }},
+      {"test", [](const WidgetFactory&, const BuiltinWidgetContext& context) {
+            return createWidget<TestWidget>(context.contentScale, context.output);
+          }},
+      {"text", [](const WidgetFactory&, const BuiltinWidgetContext& context) {
+            return createWidget<TextWidget>(
+                context.contentScale, textWidgetDefinition().resolve(context.config, context.settingContext)
+            );
+          }},
+      {"theme_mode", [](const WidgetFactory& f, const BuiltinWidgetContext& context) {
+            return createWidget<ThemeModeWidget>(context.contentScale, f.m_themeService);
+          }},
+      {"tray", [](const WidgetFactory& f, const BuiltinWidgetContext& context) {
+            return createWidget<TrayWidget>(
+                context.contentScale, f.m_configService, f.m_tray,
+                trayWidgetDefinition().resolve(
+                    context.config, context.settingContext,
+                    TrayWidgetDefinitionContext{
+                        .barPosition = context.barPosition,
+                        .inlineEntryGap = context.widgetSpacing,
+                    }
+                )
+            );
+          }},
+      {"volume", [](const WidgetFactory& f, const BuiltinWidgetContext& context) {
+            return createWidget<VolumeWidget>(
+                context.contentScale, f.m_audio, f.m_easyEffects,
+                volumeWidgetDefinition().resolve(context.config, context.settingContext)
+            );
+          }},
+      {"wallpaper", [](const WidgetFactory&, const BuiltinWidgetContext& context) {
+            return createWidget<WallpaperWidget>(
+                context.contentScale, context.output,
+                wallpaperWidgetDefinition().resolve(context.config, context.settingContext)
+            );
+          }},
+      {"weather", [](const WidgetFactory& f, const BuiltinWidgetContext& context) {
+            return createWidget<WeatherWidget>(
+                context.contentScale, f.m_weather, context.output,
+                weatherWidgetDefinition().resolve(context.config, context.settingContext)
+            );
+          }},
+      {"workspaces", [](const WidgetFactory& f, const BuiltinWidgetContext& context) {
+            return createWidget<WorkspacesWidget>(
+                context.contentScale, f.m_platform, f.m_configService, context.output,
+                workspacesWidgetDefinition().resolve(context.config, context.settingContext)
+            );
+          }},
+  });
 
-  if (type == "bluetooth") {
-    return createWidget<BluetoothWidget>(
-        contentScale, m_bluetooth, output, bluetoothWidgetDefinition().resolve(wc, settingContext)
-    );
-  }
-
-  if (type == "brightness") {
-    return createWidget<BrightnessWidget>(
-        contentScale, m_brightness, output, brightnessWidgetDefinition().resolve(wc, settingContext)
-    );
-  }
-
-  if (type == "clock") {
-    return createWidget<ClockWidget>(contentScale, output, clockWidgetDefinition().resolve(wc, settingContext));
-  }
-
-  if (type == "clipboard") {
-    if (!m_config.shell.clipboardEnabled) {
-      return nullptr;
-    }
-    return createWidget<ClipboardWidget>(contentScale, output, clipboardWidgetDefinition().resolve(wc, settingContext));
-  }
-
-  if (type == "control-center") {
-    return createWidget<ControlCenterWidget>(
-        contentScale, output, controlCenterWidgetDefinition().resolve(wc, settingContext)
-    );
-  }
-
-  if (type == "custom_button") {
-    return createWidget<CustomButtonWidget>(contentScale, customButtonWidgetDefinition().resolve(wc, settingContext));
-  }
-
-  if (type == "caffeine") {
-    return createWidget<IdleInhibitorWidget>(contentScale, m_idleInhibitor);
-  }
-
-  if (type == "keyboard_layout") {
-    return createWidget<KeyboardLayoutWidget>(
-        contentScale, m_platform, keyboardLayoutWidgetDefinition().resolve(wc, settingContext),
-        m_config.shell.keyboardLayout.customLabels
-    );
-  }
-
-  if (type == "launcher") {
-    return createWidget<LauncherWidget>(contentScale, output, launcherWidgetDefinition().resolve(wc, settingContext));
-  }
-
-  if (type == "lock_keys") {
-    if (m_lockKeys == nullptr) {
-      return nullptr;
-    }
-    return createWidget<LockKeysWidget>(
-        contentScale, m_lockKeys, lockKeysWidgetDefinition().resolve(wc, settingContext)
-    );
-  }
-
-  if (type == "media") {
-    return createWidget<MediaWidget>(
-        contentScale, m_mpris, m_httpClient, output, mediaWidgetDefinition().resolve(wc, settingContext)
-    );
-  }
-
-  if (type == "network") {
-    return createWidget<NetworkWidget>(
-        contentScale, m_network, m_externalIp, m_sysmon, output, networkWidgetDefinition().resolve(wc, settingContext)
-    );
-  }
-
-  if (type == "nightlight") {
-    return createWidget<NightLightWidget>(contentScale, m_nightLight);
-  }
-
-  if (type == "notifications") {
-    return createWidget<NotificationWidget>(
-        contentScale, m_notifications, output, notificationWidgetDefinition().resolve(wc, settingContext)
-    );
-  }
-
-  if (type == "power_profile") {
-    return createWidget<PowerProfileWidget>(contentScale, m_powerProfiles);
-  }
-
-  if (type == "privacy") {
-    return createWidget<PrivacyWidget>(
-        contentScale, m_audio, &m_configService, privacyWidgetDefinition().resolve(wc, settingContext)
-    );
+  const BuiltinWidgetContext context{
+      .name = name,
+      .config = wc,
+      .output = output,
+      .contentScale = contentScale,
+      .settingContext = settingContext,
+      .barPosition = barPosition,
+      .barName = barName,
+      .widgetSpacing = widgetSpacing,
+      .verticalBar = barPosition == "left" || barPosition == "right",
+  };
+  if (const auto builtin = std::ranges::find(kBuiltinWidgets, type, &BuiltinWidget::type);
+      builtin != kBuiltinWidgets.end()) {
+    return builtin->create(*this, context);
   }
 
   if (auto pluginEntry = scripting::PluginRegistry::instance().resolve(type);
@@ -281,103 +429,6 @@ std::unique_ptr<Widget> WidgetFactory::create(
     widget->setContentScale(contentScale);
     return widget;
   }
-
-  if (type == "screenshot") {
-    if (m_screenshots == nullptr || m_renderContext == nullptr || !m_screenshots->available()) {
-      return nullptr;
-    }
-    return createWidget<ScreenshotWidget>(
-        contentScale, output, *m_screenshots, m_configService, m_platform, *m_renderContext, barPosition,
-        screenshotWidgetDefinition().resolve(wc, settingContext)
-    );
-  }
-
-  if (type == "session") {
-    return createWidget<SessionWidget>(contentScale, output, sessionWidgetDefinition().resolve(wc, settingContext));
-  }
-
-  if (type == "settings") {
-    return createWidget<SettingsWidget>(contentScale, output, settingsWidgetDefinition().resolve(wc, settingContext));
-  }
-
-  if (type == "spacer") {
-    const bool verticalBar = barPosition == "left" || barPosition == "right";
-    return createWidget<SpacerWidget>(contentScale, verticalBar, spacerWidgetDefinition().resolve(wc, settingContext));
-  }
-
-  if (type == "text") {
-    return createWidget<TextWidget>(contentScale, textWidgetDefinition().resolve(wc, settingContext));
-  }
-
-  if (type == "sysmon") {
-    const bool verticalBar = barPosition == "left" || barPosition == "right";
-    return createWidget<SysmonWidget>(
-        contentScale, m_sysmon, m_configService,
-        sysmonWidgetDefinition().resolve(wc, settingContext, SysmonWidgetDefinitionContext{.verticalBar = verticalBar})
-    );
-  }
-
-  if (type == "test") {
-    return createWidget<TestWidget>(contentScale, output);
-  }
-
-  if (type == "taskbar") {
-    return createWidget<TaskbarWidget>(
-        contentScale, m_platform, m_configService, output, taskbarWidgetDefinition().resolve(wc, settingContext),
-        TaskbarWidgetContext{
-            .barPosition = barPosition,
-            .barName = barName,
-            .widgetName = name,
-        }
-    );
-  }
-
-  if (type == "theme_mode") {
-    return createWidget<ThemeModeWidget>(contentScale, m_themeService);
-  }
-
-  if (type == "tray") {
-    return createWidget<TrayWidget>(
-        contentScale, m_configService, m_tray,
-        trayWidgetDefinition().resolve(
-            wc, settingContext,
-            TrayWidgetDefinitionContext{
-                .barPosition = barPosition,
-                .inlineEntryGap = widgetSpacing,
-            }
-        )
-    );
-  }
-
-  if (type == "volume") {
-    return createWidget<VolumeWidget>(
-        contentScale, m_audio, m_easyEffects, volumeWidgetDefinition().resolve(wc, settingContext)
-    );
-  }
-
-  if (type == "wallpaper") {
-    return createWidget<WallpaperWidget>(contentScale, output, wallpaperWidgetDefinition().resolve(wc, settingContext));
-  }
-
-  if (type == "weather") {
-    return createWidget<WeatherWidget>(
-        contentScale, m_weather, output, weatherWidgetDefinition().resolve(wc, settingContext)
-    );
-  }
-
-  if (type == "workspaces") {
-    return createWidget<WorkspacesWidget>(
-        contentScale, m_platform, m_configService, output, workspacesWidgetDefinition().resolve(wc, settingContext)
-    );
-  }
-
-#ifndef NDEBUG
-  if (type == "debug_indicator") {
-    auto widget = std::make_unique<DebugIndicatorWidget>();
-    widget->setContentScale(contentScale);
-    return widget;
-  }
-#endif
 
   kLog.warn("widget factory: unknown widget \"{}\"", name);
   return nullptr;

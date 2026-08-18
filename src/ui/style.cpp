@@ -8,6 +8,7 @@ namespace {
   bool g_buttonBordersEnabled = true;
   bool g_inputBordersEnabled = true;
   bool g_popupBordersEnabled = true;
+  bool g_rtl = false;
   bool g_popupShadowsEnabled = true;
   bool g_cardBordersEnabled = true;
 
@@ -52,6 +53,8 @@ namespace Style {
   bool popupBordersEnabled() noexcept { return g_popupBordersEnabled; }
   void setPopupBordersEnabled(bool enabled) { g_popupBordersEnabled = enabled; }
 
+  bool rtl() noexcept { return g_rtl; }
+  void setRtl(bool rtl) noexcept { g_rtl = rtl; }
   bool cardBordersEnabled() noexcept { return g_cardBordersEnabled; }
   void setCardBordersEnabled(bool enabled) { g_cardBordersEnabled = enabled; }
 

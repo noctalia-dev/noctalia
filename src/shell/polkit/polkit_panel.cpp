@@ -260,17 +260,29 @@ void PolkitPanel::create() {
 void PolkitPanel::onOpen(std::string_view /*context*/) {
   m_lastResponseRequired = false;
   m_iconResolved = false;
+  m_hasTrackedRequest = false;
+  m_trackedRequestCookie.clear();
+  if (PolkitAgent* agent = m_agentProvider != nullptr ? m_agentProvider() : nullptr;
+      agent != nullptr && agent->hasPendingRequest()) {
+    m_trackedRequestCookie = agent->pendingRequest().cookie;
+    m_hasTrackedRequest = true;
+  }
   if (m_input != nullptr) {
     m_input->setValue("");
   }
 }
 
 void PolkitPanel::onClose() {
-  // Do not cancelAuth() here. Auto-close after a successful auth races with
-  // chained polkit actions (e.g. pkexec install then systemd enable): a follow-up
-  // BeginAuthentication can land before teardown finishes, and canceling it
-  // produces pam_unix "conversation failed" / empty-password failures.
-  // User dismiss goes through cancelAuth() (Cancel button / Escape).
+  // A panel close must settle the request it displayed. Match the cookie so a
+  // chained authentication that arrived after a successful response survives.
+  if (m_hasTrackedRequest) {
+    if (PolkitAgent* agent = m_agentProvider != nullptr ? m_agentProvider() : nullptr;
+        agent != nullptr && agent->hasPendingRequest() && agent->pendingRequest().cookie == m_trackedRequestCookie) {
+      agent->cancelRequest();
+    }
+  }
+  m_hasTrackedRequest = false;
+  m_trackedRequestCookie.clear();
   m_lastResponseRequired = false;
   clearReleasedRoot();
 
@@ -344,6 +356,10 @@ void PolkitPanel::doUpdate(Renderer& renderer) {
     return;
   }
   const PolkitRequest request = agent->pendingRequest();
+  if (agent->hasPendingRequest()) {
+    m_trackedRequestCookie = request.cookie;
+    m_hasTrackedRequest = true;
+  }
   const bool needsInput = agent->isResponseRequired();
   const std::string supplementaryRaw = agent->supplementaryMessage();
   const bool supplementaryError = agent->supplementaryIsError();

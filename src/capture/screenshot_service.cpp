@@ -45,6 +45,7 @@ namespace {
   constexpr const char* kScreenshotPathEnv = "NOCTALIA_SCREENSHOT_PATH";
   constexpr const char* kStateOwner = "screenshot";
   constexpr const char* kLastRegionKey = "last_region";
+  constexpr auto kFreezeCaptureTimeout = std::chrono::seconds(1);
 
   [[nodiscard]] std::string encodeRegion(const LogicalRect& region) {
     return std::format("{},{},{},{}", region.x, region.y, region.width, region.height);
@@ -884,48 +885,70 @@ void ScreenshotService::beginFreezeCapture() {
   }
 
   m_freezeCaptureActive = true;
+  startNextFreezeCapture();
+}
 
-  while (!m_pendingFreezeOutputs.empty()) {
-    if (!m_freezeCaptureActive) {
-      m_frozenScreenshots.clear();
-      return;
-    }
-
-    wl_output* output = m_pendingFreezeOutputs.front();
-    m_pendingFreezeOutputs.erase(m_pendingFreezeOutputs.begin());
-
-    if (m_capture.busy()) {
-      m_capture.cancelInFlight();
-    }
-
-    ScreencopyImage image;
-    std::string error;
-    if (!screencopy::captureOutputBlocking(
-            m_capture, m_wayland, output, image, error, m_regionOutputOptions.showCursor
-        )) {
-      if (!m_freezeCaptureActive) {
-        m_frozenScreenshots.clear();
-        return;
-      }
-      abortFreezeCapture(error.empty() ? "Failed to freeze screen" : error);
-      return;
-    }
-    if (!m_freezeCaptureActive) {
-      m_frozenScreenshots.clear();
-      return;
-    }
-    if (!screencopy::orientCaptureNative(image, m_wayland, output)) {
-      abortFreezeCapture("Failed to orient frozen screenshot");
-      return;
-    }
-    m_frozenScreenshots.push_back(capture::FrozenScreenshot{.output = output, .image = std::move(image)});
+void ScreenshotService::startNextFreezeCapture() {
+  if (!m_freezeCaptureActive) {
+    return;
   }
 
-  m_freezeCaptureActive = false;
-  finishFreezeCapture();
+  if (m_pendingFreezeOutputs.empty()) {
+    m_freezeCaptureActive = false;
+    finishFreezeCapture();
+    return;
+  }
+
+  wl_output* output = m_pendingFreezeOutputs.front();
+  m_pendingFreezeOutputs.erase(m_pendingFreezeOutputs.begin());
+  if (m_capture.busy()) {
+    m_capture.cancelInFlight();
+  }
+
+  m_capture.capture(
+      output, std::nullopt, m_regionOutputOptions.showCursor,
+      [this, output](std::optional<ScreencopyImage> image, const std::string& error) {
+        onFreezeFrameCaptured(output, std::move(image), error);
+      }
+  );
+  if (m_capture.busy()) {
+    m_freezeCaptureTimeout.start(kFreezeCaptureTimeout, [this]() {
+      if (!m_freezeCaptureActive || !m_capture.busy()) {
+        return;
+      }
+      kLog.warn("timed out freezing output for screenshot region");
+      m_capture.cancelInFlight();
+      DeferredCall::callLater([this]() {
+        if (m_freezeCaptureActive) {
+          startNextFreezeCapture();
+        }
+      });
+    });
+  }
+}
+
+void ScreenshotService::onFreezeFrameCaptured(
+    wl_output* output, std::optional<ScreencopyImage> image, const std::string& error
+) {
+  m_freezeCaptureTimeout.stop();
+  if (!m_freezeCaptureActive) {
+    return;
+  }
+
+  if (!error.empty() || !image.has_value()) {
+    kLog.warn("failed to freeze output for screenshot region: {}", error.empty() ? "empty frame" : error);
+  } else if (!screencopy::orientCaptureNative(*image, m_wayland, output)) {
+    kLog.warn("failed to orient frozen screenshot");
+  } else {
+    m_frozenScreenshots.push_back(capture::FrozenScreenshot{.output = output, .image = std::move(*image)});
+  }
+
+  DeferredCall::callLater([this]() { startNextFreezeCapture(); });
 }
 
 void ScreenshotService::finishFreezeCapture() {
+  m_freezeCaptureTimeout.stop();
+  m_freezeCaptureActive = false;
   if (m_regionRenderContext == nullptr) {
     notifyError("Render context unavailable");
     m_frozenScreenshots.clear();
@@ -947,6 +970,7 @@ void ScreenshotService::finishFreezeCapture() {
 
 void ScreenshotService::abortFreezeCapture(const std::string& message) {
   cancelAllOutputsBatch();
+  m_freezeCaptureTimeout.stop();
   m_freezeCaptureActive = false;
   m_pendingFreezeOutputs.clear();
   m_frozenScreenshots.clear();

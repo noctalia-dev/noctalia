@@ -55,6 +55,7 @@ namespace calendar_view {
     MonthLayout layout;
     std::string fontFamily;
     std::function<void(Date date, int monthShift)> onDateSelected;
+    std::function<void(Date date)> onDateRightClicked;
   };
   struct EventLinkOverlay {
     Flex* row = nullptr;

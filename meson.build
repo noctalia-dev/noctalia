@@ -729,6 +729,7 @@ _noctalia_sources = files(
   'src/system/app_identity.cpp',
   'src/shell/wallpaper/wallpaper_paths.cpp',
   'src/shell/wallpaper/wallpaper_geometry.cpp',
+  'src/shell/wallpaper/wallpaper_shuffle_state.cpp',
   'src/shell/wallpaper/wallpaper.cpp',
   'src/shell/wallpaper/panel/wallpaper_panel.cpp',
   'src/shell/wallpaper/panel/wallpaper_scanner.cpp',
@@ -1061,7 +1062,6 @@ _noctalia_test_dependencies = _noctalia_system_dependencies + [
 ]
 
 _noctalia_compile_definitions = [
-  '-DNOCTALIA_SOURCE_ASSETS_DIR="' + meson.project_source_root() / 'assets' + '"',
   '-DNOCTALIA_INSTALL_PREFIX="' + get_option('prefix') + '"',
   '-DNOCTALIA_INSTALL_DATADIR="' + get_option('datadir') + '"',
   '-DNOCTALIA_VERSION="' + meson.project_version() + '"',
@@ -1135,6 +1135,7 @@ if build_tests
     'config_path_resolution',
     'config_schema_roundtrip',
     'config_widget',
+    'context_menu_popup',
     'cpu_freq',
     'cpu_stat',
     'cpu_temp_sensor',
@@ -1146,6 +1147,7 @@ if build_tests
     'fcitx_status',
     'google_client_calendar_list',
     'hook_manager',
+    'hyprland_workspace_backend',
     'i18n_language_tag',
     'i18n_supported_languages',
     'ical_parser',
@@ -1165,6 +1167,8 @@ if build_tests
     'location_service',
     'math_provider',
     'monitor_selector',
+    'network_manager_security',
+    'notification_dnd',
     'notification_filter',
     'notification_history_utf8',
     'niri_workspace_backend',
@@ -1191,10 +1195,12 @@ if build_tests
     'triad_workspace_backend',
     'ui_tree_reconciler',
     'upower_charge_limit',
+    'upower_device_catalog',
     'wayland_output_scale',
     'wayland_toplevels_identity',
     'widget_action',
     'widget_definition',
+    'wallpaper_shuffle_state',
     'workspace_alert_service',
   ]
 
@@ -1204,7 +1210,13 @@ if build_tests
       dependencies: noctalia_core_dep,
       override_options: ['b_ndebug=false'],
     )
-    test(test_name, test_exe)
+    test_args = []
+    if test_name == 'desktop_entry_localization'
+      test_args = [meson.project_source_root() / 'assets']
+    elif test_name == 'i18n_supported_languages'
+      test_args = [meson.project_source_root() / 'assets' / 'translations']
+    endif
+    test(test_name, test_exe, args: test_args)
   endforeach
 
   upower_integration_exe = executable('upower_charge_limit_integration_test',

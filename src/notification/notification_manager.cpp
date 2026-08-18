@@ -221,6 +221,7 @@ uint32_t NotificationManager::addOrReplace(NotificationRequest request) {
   const Urgency urgency = request.urgency;
   int32_t timeout = request.timeout;
   const NotificationOrigin origin = request.origin;
+  NotificationDndPolicy dndPolicy = request.dndPolicy;
   const bool transient = request.transient;
   auto& actions = request.actions;
   auto& icon = request.icon;
@@ -250,6 +251,9 @@ uint32_t NotificationManager::addOrReplace(NotificationRequest request) {
 
   const ExternalNotificationDispatch dispatch =
       evaluateExternalDispatch(origin, urgency, appName, category, desktopEntry, summary, body, transient);
+  if (dispatch.bypassDnd) {
+    dndPolicy = NotificationDndPolicy::Bypass;
+  }
 
   if (dispatch.overrideDuration.has_value()) {
     timeout = normalizeNotifyExpireTimeout(*dispatch.overrideDuration);
@@ -281,6 +285,7 @@ uint32_t NotificationManager::addOrReplace(NotificationRequest request) {
            || n.urgency != urgency
            || n.origin != origin
            || n.transient != transient
+           || n.dndPolicy != dndPolicy
            || n.actions != actions
            || n.icon != icon
            || n.imageData != imageData
@@ -290,6 +295,7 @@ uint32_t NotificationManager::addOrReplace(NotificationRequest request) {
       n.origin = origin;
       n.transient = transient;
       n.appName = std::move(appName);
+      n.dndPolicy = dndPolicy;
       n.summary = std::move(summary);
       n.body = std::move(body);
       n.timeout = timeout;
@@ -344,6 +350,7 @@ uint32_t NotificationManager::addOrReplace(NotificationRequest request) {
       Notification{
           .id = id,
           .origin = origin,
+          .dndPolicy = dndPolicy,
           .transient = transient,
           .appName = std::move(appName),
           .summary = std::move(summary),
@@ -376,7 +383,8 @@ uint32_t NotificationManager::addOrReplace(NotificationRequest request) {
       cb(n, NotificationEvent::Added);
     }
   }
-  if (!m_doNotDisturb && m_soundPlayer != nullptr && dispatch.playSound) {
+  const bool dndAllowsSound = !m_doNotDisturb || dndPolicy == NotificationDndPolicy::Bypass;
+  if (dndAllowsSound && m_soundPlayer != nullptr && dispatch.playSound) {
     m_soundPlayer->play("notification");
   }
 
@@ -410,7 +418,7 @@ uint32_t NotificationManager::adoptExternal(uint32_t id, NotificationRequest req
 uint32_t NotificationManager::addInternal(
     std::string appName, std::string summary, std::string body, Urgency urgency, int32_t timeout,
     std::optional<std::string> icon, std::optional<NotificationImageData> imageData,
-    std::optional<std::string> category, std::optional<std::string> desktopEntry
+    std::optional<std::string> category, std::optional<std::string> desktopEntry, NotificationDndPolicy dndPolicy
 ) {
   return addOrReplace(
       NotificationRequest{
@@ -420,6 +428,7 @@ uint32_t NotificationManager::addInternal(
           .urgency = urgency,
           .timeout = timeout,
           .origin = NotificationOrigin::Internal,
+          .dndPolicy = dndPolicy,
           .icon = std::move(icon),
           .imageData = std::move(imageData),
           .category = std::move(category),
@@ -437,6 +446,12 @@ void NotificationManager::setCloseCallback(CloseCallback callback) { m_closeCall
 bool NotificationManager::hasPendingDBusClose(uint32_t id) const noexcept { return m_pendingDBusClose.contains(id); }
 
 bool NotificationManager::invokeAction(uint32_t id, const std::string& actionKey, bool closeAfterInvoke) {
+  return invokeAction(id, actionKey, {}, closeAfterInvoke);
+}
+
+bool NotificationManager::invokeAction(
+    uint32_t id, const std::string& actionKey, std::string activationToken, bool closeAfterInvoke
+) {
   if (actionKey.empty()) {
     return false;
   }
@@ -467,7 +482,7 @@ bool NotificationManager::invokeAction(uint32_t id, const std::string& actionKey
   }
 
   if (m_actionInvokeCallback) {
-    m_actionInvokeCallback(id, actionKey);
+    m_actionInvokeCallback(id, actionKey, activationToken);
   }
 
   if (closeAfterInvoke) {
@@ -485,6 +500,12 @@ bool NotificationManager::invokeAction(uint32_t id, const std::string& actionKey
 }
 
 bool NotificationManager::invokeInlineReply(uint32_t id, const std::string& replyText, bool closeAfterInvoke) {
+  return invokeInlineReply(id, replyText, {}, closeAfterInvoke);
+}
+
+bool NotificationManager::invokeInlineReply(
+    uint32_t id, const std::string& replyText, std::string activationToken, bool closeAfterInvoke
+) {
   if (StringUtils::isBlank(replyText)) {
     return false;
   }
@@ -493,7 +514,7 @@ bool NotificationManager::invokeInlineReply(uint32_t id, const std::string& repl
   actionKey.reserve(kInlineReplyActionPrefix.size() + replyText.size());
   actionKey.append(kInlineReplyActionPrefix);
   actionKey.append(StringUtils::truncateUtf8(replyText, kMaxActionKeyLength - kInlineReplyActionPrefix.size()));
-  return invokeAction(id, actionKey, closeAfterInvoke);
+  return invokeAction(id, actionKey, std::move(activationToken), closeAfterInvoke);
 }
 
 void NotificationManager::emitPendingDBusClose(uint32_t id, CloseReason reason) {
@@ -709,6 +730,7 @@ NotificationManager::ExternalNotificationDispatch NotificationManager::evaluateE
   dispatch.saveHistory =
       origin == NotificationOrigin::External && resolved.saveHistory && shouldTrackHistory(origin, urgency, transient);
   dispatch.playSound = resolved.playSound && dispatch.showToast;
+  dispatch.bypassDnd = resolved.bypassDnd;
   dispatch.fullySuppress = !dispatch.showToast && !dispatch.saveHistory;
   dispatch.overrideDuration = resolved.overrideDuration;
   return dispatch;

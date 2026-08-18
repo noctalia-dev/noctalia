@@ -113,6 +113,37 @@ namespace {
     };
   }
 
+  std::int32_t anchoredSurfaceOrigin(
+      std::uint32_t anchor, std::uint32_t startAnchor, std::uint32_t endAnchor, std::int32_t startMargin,
+      std::int32_t endMargin, std::int32_t outputExtent, std::int32_t surfaceExtent
+  ) {
+    const bool anchoredStart = (anchor & startAnchor) != 0;
+    const bool anchoredEnd = (anchor & endAnchor) != 0;
+    if (anchoredStart != anchoredEnd) {
+      return anchoredStart ? startMargin : outputExtent - surfaceExtent - endMargin;
+    }
+    return (outputExtent - surfaceExtent) / 2;
+  }
+
+  InputRect panelInputRectForSurface(
+      std::uint32_t anchor, std::int32_t marginTop, std::int32_t marginRight, std::int32_t marginBottom,
+      std::int32_t marginLeft, std::int32_t outputWidth, std::int32_t outputHeight, std::uint32_t surfaceWidth,
+      std::uint32_t surfaceHeight, std::int32_t insetX, std::int32_t insetY, std::uint32_t panelWidth,
+      std::uint32_t panelHeight
+  ) {
+    const auto resolvedSurfaceWidth = static_cast<std::int32_t>(surfaceWidth);
+    const auto resolvedSurfaceHeight = static_cast<std::int32_t>(surfaceHeight);
+    const auto surfaceX = anchoredSurfaceOrigin(
+        anchor, LayerShellAnchor::Left, LayerShellAnchor::Right, marginLeft, marginRight, outputWidth,
+        resolvedSurfaceWidth
+    );
+    const auto surfaceY = anchoredSurfaceOrigin(
+        anchor, LayerShellAnchor::Top, LayerShellAnchor::Bottom, marginTop, marginBottom, outputHeight,
+        resolvedSurfaceHeight
+    );
+    return InputRect{surfaceX + insetX, surfaceY + insetY, static_cast<int>(panelWidth), static_cast<int>(panelHeight)};
+  }
+
   InputRect boundsForPanelTrace(const std::vector<InputRect>& rects) {
     if (rects.empty()) {
       return {};
@@ -738,6 +769,12 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
     }
   }
 
+  InputRect detachedPanelInputRect = panelInputRectForSurface(
+      standaloneAnchor, standaloneMarginTop, standaloneMarginRight, standaloneMarginBottom, standaloneMarginLeft,
+      outputWidth, outputHeight, detachedSurfaceWidth, detachedSurfaceHeight, detachedShadowBleed.left,
+      detachedShadowBleed.up, panelWidth, panelHeight
+  );
+
   // Single-bar detached panels are placed relative to the bar's config edge. Honor
   // other surfaces' exclusive zones (exclusive_zone = 0 below) and anchor to the
   // bar's reserved edge so the panel tracks the bar's real on-screen position;
@@ -782,6 +819,8 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
     requestedSurfaceWidth = 0;
     fallbackSurfaceWidth =
         static_cast<std::uint32_t>(std::max(1, outputWidth - standaloneMarginLeft - standaloneMarginRight));
+    detachedPanelInputRect.x = screenPadding;
+    detachedPanelInputRect.width = std::max(1, outputWidth - screenPadding * 2);
   }
   if (fillHeight) {
     standaloneAnchor |= LayerShellAnchor::Top | LayerShellAnchor::Bottom;
@@ -790,6 +829,8 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
     requestedSurfaceHeight = 0;
     fallbackSurfaceHeight =
         static_cast<std::uint32_t>(std::max(1, outputHeight - standaloneMarginTop - standaloneMarginBottom));
+    detachedPanelInputRect.y = screenPadding;
+    detachedPanelInputRect.height = std::max(1, outputHeight - screenPadding * 2);
   }
 
   const bool useAttachedPlacement = activePlacement == PanelPlacement::Attached
@@ -817,8 +858,6 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
   const PanelKeyboardPlan attachedKeyboardPlan =
       resolvePanelKeyboardPlan(m_activePanel->keyboardMode(), hasFocusGrab, hasFocusGrab && wantsOutsideDismiss, true);
 
-  // Map shields BEFORE the panel surface is created or committed.
-  // Within a single layer, wlroots stacks surfaces by mapping order.
   if (wantsOutsideDismiss) {
     activateClickShield(panelLayer);
   }
@@ -875,6 +914,7 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
     m_panelInsetY = 0;
     m_panelVisualWidth = 0;
     m_panelVisualHeight = 0;
+    m_panelOutputInputRect.reset();
     m_panelFillWidth = false;
     m_panelFillHeight = false;
     m_detachedBleedRight = 0;
@@ -1088,6 +1128,10 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
     m_layerSurface = layerSurfaceUnique.get();
     m_surface = std::move(layerSurfaceUnique);
     configureSurfaceCallbacks(*m_surface);
+    if (wantsOutsideDismiss) {
+      m_panelOutputInputRect = InputRect{visualX, visualY, static_cast<int>(panelWidth), static_cast<int>(panelHeight)};
+      m_clickShield.setPanelInputRect(request.output, *m_panelOutputInputRect);
+    }
 
     m_inTransition = true;
     const bool ok = m_layerSurface->initialize(request.output);
@@ -1169,6 +1213,10 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
   m_attachedPanelGeometry.reset();
   m_attachedToBar = false;
   configureSurfaceCallbacks(*m_surface);
+  if (wantsOutsideDismiss) {
+    m_panelOutputInputRect = detachedPanelInputRect;
+    m_clickShield.setPanelInputRect(request.output, *m_panelOutputInputRect);
+  }
 
   // Guard against re-entrancy: initialize can process queued Wayland events.
   m_inTransition = true;
@@ -1363,6 +1411,7 @@ void PanelManager::destroyPanel() {
   m_panelInsetY = 0;
   m_panelVisualWidth = 0;
   m_panelVisualHeight = 0;
+  m_panelOutputInputRect.reset();
   m_panelFillWidth = false;
   m_panelFillHeight = false;
   m_detachedBleedRight = 0;
@@ -1437,6 +1486,18 @@ void PanelManager::togglePanel(const std::string& panelId) {
 }
 
 bool PanelManager::onPointerEvent(const PointerEvent& event) {
+  // A context menu may belong to a persistent plugin panel, for which the
+  // ordinary single-panel host is closed. Route the grabbing popup first.
+  if (m_activePopup != nullptr) {
+    if (m_activePopup->onPointerEvent(event)) {
+      return true;
+    }
+    if (event.type == PointerEvent::Type::Button && event.pressed) {
+      m_activePopup->close();
+      return true;
+    }
+  }
+
   // Persistent panels own separate surfaces; the host claims only its own.
   if (m_persistentHost.onPointerEvent(event)) {
     return true;
@@ -1451,16 +1512,6 @@ bool PanelManager::onPointerEvent(const PointerEvent& event) {
     }
     if (event.type == PointerEvent::Type::Button && event.pressed) {
       m_selectPopup->closeSelectDropdown();
-      return true;
-    }
-  }
-
-  if (m_activePopup != nullptr) {
-    if (m_activePopup->onPointerEvent(event)) {
-      return true;
-    }
-    if (event.type == PointerEvent::Type::Button && event.pressed) {
-      m_activePopup->close();
       return true;
     }
   }
@@ -1515,7 +1566,8 @@ bool PanelManager::onPointerEvent(const PointerEvent& event) {
         }
       }
       m_inputDispatcher.pointerButton(
-          static_cast<float>(event.sx), static_cast<float>(event.sy), event.button, pressed
+          static_cast<float>(event.sx), static_cast<float>(event.sy), event.button, pressed, event.serial, event.time,
+          event.touch
       );
     }
     break;
@@ -1626,12 +1678,45 @@ void PanelManager::relayoutActivePanelPreferredSize() {
   const std::uint32_t surfaceHeight =
       shell::panel_surface::surfaceExtent(panelHeight, detachedShadowBleed.up, detachedShadowBleed.down);
 
-  m_panelVisualWidth = panelWidth;
-  m_panelVisualHeight = panelHeight;
-
   const std::string panelPosition = resolvePanelPosition(m_config, m_activePanelId);
   const bool useCenterScreenLayout =
       m_activePanel->panelPlacement() == PanelPlacement::Floating && panelPosition == "center";
+  if (m_panelOutputInputRect.has_value()) {
+    InputRect rect = *m_panelOutputInputRect;
+    const std::uint32_t anchor = m_layerSurface->anchor();
+    if (!m_panelFillWidth) {
+      const auto widthDelta = static_cast<std::int32_t>(panelWidth) - static_cast<std::int32_t>(m_panelVisualWidth);
+      const bool anchoredLeft = (anchor & LayerShellAnchor::Left) != 0;
+      const bool anchoredRight = (anchor & LayerShellAnchor::Right) != 0;
+      if (useCenterScreenLayout && outputWidth > 0) {
+        rect.x = (outputWidth - static_cast<std::int32_t>(panelWidth)) / 2;
+      } else if (anchoredRight && !anchoredLeft) {
+        rect.x -= widthDelta;
+      } else if (anchoredLeft == anchoredRight) {
+        rect.x -= widthDelta / 2;
+      }
+      rect.width = static_cast<int>(panelWidth);
+    }
+    if (!m_panelFillHeight) {
+      const auto heightDelta = static_cast<std::int32_t>(panelHeight) - static_cast<std::int32_t>(m_panelVisualHeight);
+      const bool anchoredTop = (anchor & LayerShellAnchor::Top) != 0;
+      const bool anchoredBottom = (anchor & LayerShellAnchor::Bottom) != 0;
+      if (useCenterScreenLayout && outputHeight > 0) {
+        rect.y = (outputHeight - static_cast<std::int32_t>(panelHeight)) / 2;
+      } else if (anchoredBottom && !anchoredTop) {
+        rect.y -= heightDelta;
+      } else if (anchoredTop == anchoredBottom) {
+        rect.y -= heightDelta / 2;
+      }
+      rect.height = static_cast<int>(panelHeight);
+    }
+    m_panelOutputInputRect = rect;
+    m_clickShield.setPanelInputRect(m_output, rect);
+  }
+
+  m_panelVisualWidth = panelWidth;
+  m_panelVisualHeight = panelHeight;
+
   if (useCenterScreenLayout && outputWidth > 0 && outputHeight > 0) {
     const std::int32_t marginLeft =
         (outputWidth - static_cast<std::int32_t>(panelWidth)) / 2 - detachedShadowBleed.left;
@@ -1723,7 +1808,21 @@ void PanelManager::requestFrameTick() {
 
 void PanelManager::close() { closePanel(); }
 
-void PanelManager::setActivePopup(ContextMenuPopup* popup) { m_activePopup = popup; }
+void PanelManager::configureContextMenuPopup(ContextMenuPopup& popup) const {
+  if (m_config != nullptr) {
+    popup.setShadowConfig(m_config->config().shell.shadow);
+  }
+}
+
+void PanelManager::setActivePopup(ContextMenuPopup* popup) {
+  if (m_selectPopup != nullptr && m_selectPopup->isSelectDropdownOpen()) {
+    m_selectPopup->closeSelectDropdown();
+  }
+  if (m_activePopup != nullptr && m_activePopup != popup) {
+    m_activePopup->close();
+  }
+  m_activePopup = popup;
+}
 
 void PanelManager::clearActivePopup() { m_activePopup = nullptr; }
 
@@ -1795,6 +1894,17 @@ std::optional<LayerPopupParentContext> PanelManager::fallbackPopupParentContext(
     return std::nullopt;
   }
   return context;
+}
+
+std::optional<LayerPopupParentContext>
+PanelManager::popupParentContextForPanel(std::string_view panelId) const noexcept {
+  if (m_persistentHost.hasPanel(panelId)) {
+    return m_persistentHost.popupParentContext(panelId);
+  }
+  if (panelId != m_activePanelId) {
+    return std::nullopt;
+  }
+  return fallbackPopupParentContext();
 }
 
 void PanelManager::onKeyboardEvent(const KeyboardEvent& event) {

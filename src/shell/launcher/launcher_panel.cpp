@@ -7,6 +7,7 @@
 #include "core/input/keybind_matcher.h"
 #include "core/ui_phase.h"
 #include "i18n/i18n.h"
+#include "launcher/app_provider.h"
 #include "render/core/async_texture_cache.h"
 #include "render/core/renderer.h"
 #include "render/scene/node.h"
@@ -109,6 +110,7 @@ namespace {
   struct LauncherListStyle {
     float scale = 1.0F;
     bool showIcons = true;
+    bool showAppOriginIndicator = true;
     bool compact = false;
     std::optional<ColorSpec> appIconColorizeTint;
     std::optional<ColorSpec> listItemBackground;
@@ -181,6 +183,7 @@ namespace {
     if (config != nullptr) {
       const auto& launcher = config->config().shell.launcher;
       style.showIcons = launcher.showIcons;
+      style.showAppOriginIndicator = launcher.showAppOriginIndicator;
       style.compact = launcher.compact;
       style.appIconColorizeTint = effectiveShellAppIconColorizationTint(config->config().shell);
       if (config->config().shell.panel.listItemBackground) {
@@ -350,7 +353,7 @@ namespace {
       m_pinnedGlyph->setGlyphSize(Style::fontSizeBody * m_style.scale);
       m_pinnedGlyph->setVisible(result.pinned);
       m_pinnedGlyph->setParticipatesInLayout(result.pinned);
-      const bool hasOrigin = !result.originGlyph.empty();
+      const bool hasOrigin = m_style.showAppOriginIndicator && !result.originGlyph.empty();
       if (hasOrigin) {
         m_originGlyph->setGlyph(result.originGlyph);
       }
@@ -554,15 +557,15 @@ namespace {
       const float padding = Style::spaceSm * m_style.scale;
       m_pinnedGlyph->setGlyphSize(pinSize);
       m_pinnedGlyph->setVisible(result.pinned);
-      m_pinnedGlyph->setPosition(width - padding - pinSize, padding);
+      m_pinnedGlyph->setPosition(Style::rtl() ? padding : width - padding - pinSize, padding);
       m_pinnedGlyph->setFrameSize(pinSize, pinSize);
-      const bool hasOrigin = !result.originGlyph.empty();
+      const bool hasOrigin = m_style.showAppOriginIndicator && !result.originGlyph.empty();
       if (hasOrigin) {
         m_originGlyph->setGlyph(result.originGlyph);
       }
       m_originGlyph->setGlyphSize(pinSize);
       m_originGlyph->setVisible(hasOrigin);
-      m_originGlyph->setPosition(width - padding - pinSize, height - padding - pinSize);
+      m_originGlyph->setPosition(Style::rtl() ? padding : width - padding - pinSize, height - padding - pinSize);
       m_originGlyph->setFrameSize(pinSize, pinSize);
 
       m_image->setVisible(false);
@@ -1122,7 +1125,7 @@ void LauncherPanel::create() {
     if (sourceIndex >= m_results.size() || targetIndex >= m_results.size()) {
       return;
     }
-    reorderPinnedApplication(m_results[sourceIndex].id, m_results[targetIndex].id);
+    reorderPinnedApplication(m_results[sourceIndex].desktopEntryPath, m_results[targetIndex].desktopEntryPath);
   });
   m_gridAdapter->setOnActivate(onActivate);
   m_gridAdapter->setOnSecondaryActivate(onSecondaryActivate);
@@ -1130,7 +1133,7 @@ void LauncherPanel::create() {
     if (sourceIndex >= m_results.size() || targetIndex >= m_results.size()) {
       return;
     }
-    reorderPinnedApplication(m_results[sourceIndex].id, m_results[targetIndex].id);
+    reorderPinnedApplication(m_results[sourceIndex].desktopEntryPath, m_results[targetIndex].desktopEntryPath);
   });
 
   body->addChild(
@@ -1296,15 +1299,18 @@ void LauncherPanel::syncLauncherViewLayout(Renderer* renderer) {
 
 void LauncherPanel::syncLauncherListStyle() {
   const bool showIcons = m_config == nullptr || m_config->config().shell.launcher.showIcons;
+  const bool showAppOriginIndicator = m_config == nullptr || m_config->config().shell.launcher.showAppOriginIndicator;
   const bool compact = m_config != nullptr && m_config->config().shell.launcher.compact;
   const bool appGrid = m_config != nullptr && m_config->config().shell.launcher.appGrid;
   if (showIcons == m_launcherShowIcons
+      && showAppOriginIndicator == m_launcherShowAppOriginIndicator
       && compact == m_launcherCompact
       && appGrid == m_launcherAppGrid
       && m_listAdapter != nullptr) {
     return;
   }
   m_launcherShowIcons = showIcons;
+  m_launcherShowAppOriginIndicator = showAppOriginIndicator;
   m_launcherCompact = compact;
   m_launcherAppGrid = appGrid;
   m_launcherRowHeight = 0.0F;
@@ -1712,7 +1718,7 @@ void LauncherPanel::applyPinnedApplicationOrder() {
       if (result.providerId != kApplicationsProviderId) {
         return pinnedPaths.size();
       }
-      const auto it = std::ranges::find(pinnedPaths, result.id);
+      const auto it = std::ranges::find(pinnedPaths, result.desktopEntryPath);
       return it == pinnedPaths.end() ? pinnedPaths.size() : static_cast<std::size_t>(it - pinnedPaths.begin());
     };
     return rank(a) < rank(b);
@@ -1732,8 +1738,9 @@ void LauncherPanel::updatePinnedApplicationState() {
     if (result.providerId != kApplicationsProviderId) {
       continue;
     }
-    result.pinned =
-        std::ranges::any_of(pinnedEntries, [&result](const DesktopEntry& entry) { return entry.path == result.id; });
+    result.pinned = std::ranges::any_of(pinnedEntries, [&result](const DesktopEntry& entry) {
+      return entry.path == result.desktopEntryPath;
+    });
   }
 }
 
@@ -1980,7 +1987,7 @@ bool LauncherPanel::openAppActionsMenu(std::size_t index, float anchorX, float a
 
   const DesktopEntry* match = nullptr;
   for (const auto& e : desktopEntries()) {
-    if (e.path == base.id) {
+    if (e.path == base.desktopEntryPath) {
       match = &e;
       break;
     }
@@ -2077,7 +2084,6 @@ bool LauncherPanel::openAppActionsMenu(std::size_t index, float anchorX, float a
   m_actionsMenu->setOnActivate([this, base, actionsCopy = std::move(actionsCopy),
                                 entryForPin = *match](const ContextMenuControlEntry& entry) {
     LauncherResult result = base;
-    result.desktopActionId.clear();
     if (entry.id == kActionPin) {
       if (m_config == nullptr
           || entryForPin.id.empty()
@@ -2103,7 +2109,9 @@ bool LauncherPanel::openAppActionsMenu(std::size_t index, float anchorX, float a
       return;
     }
     if (entry.id >= 0 && entry.id < static_cast<std::int32_t>(actionsCopy.size())) {
-      result.desktopActionId = actionsCopy[static_cast<std::size_t>(entry.id)].id;
+      const DesktopAction& action = actionsCopy[static_cast<std::size_t>(entry.id)];
+      result.id = AppProvider::actionResultId(result.desktopEntryPath, action.id);
+      result.desktopActionId = action.id;
     } else if (entry.id != kActionOpen) {
       return;
     }

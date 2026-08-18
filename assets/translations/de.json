@@ -519,6 +519,7 @@
         "opacity": "Deckkraft",
         "primary-color": "Primärfarbe",
         "reset-defaults": "Auf Standardeinstellungen zurücksetzen",
+        "reversed": "Umgekehrt",
         "ring-opacity": "Ring-Deckkraft",
         "rotation-speed": "Rotationsgeschwindigkeit",
         "scroll-step": "Scroll-Schritt",
@@ -657,6 +658,13 @@
       "no-results": "Keine Ergebnisse gefunden",
       "type-to-search": "Zum Suchen eingeben…"
     },
+    "origins": {
+      "flatpak": "Flatpak",
+      "nix": "Nix",
+      "snap": "Snap",
+      "system": "System",
+      "user": "Benutzer"
+    },
     "providers": {
       "applications": {
         "title": "Anwendungen"
@@ -724,6 +732,8 @@
       "battery-low-body": "{device}: {percent}% verbleibend",
       "battery-low-title": "Akkustand niedrig",
       "calendar": "Kalender",
+      "calendar-credential-locked-body": "Entsperre den vom Secret Service verwendeten Schlüsselbund und versuche es dann in den Einstellungen erneut. Mit GNOME Keyring mache einen automatisch entsperrten Schlüsselbund wie Login zum Standard.",
+      "calendar-credential-locked-title": "Kalender-Schlüsselbund ist gesperrt",
       "calendar-google-connect-browser-failed": "Es konnte kein Browser für die Google-Autorisierung gestartet werden. Überprüfe deinen Standardbrowser oder die xdg-open-Konfiguration.",
       "calendar-google-connect-credential-store-failed": "Autorisierung abgeschlossen, aber das Refresh-Token konnte nicht gespeichert werden. Entsperre oder starte den Secret Service, dann verbinde dich erneut.",
       "calendar-google-connect-expired": "Die Google-Autorisierung ist vor Abschluss der Anmeldung abgelaufen. Starte die Verbindung erneut.",
@@ -884,7 +894,7 @@
       "calendars-label": "Kalender",
       "color-label": "Farbe",
       "credential-source-file": "Passwortdatei",
-      "credential-source-keyring": "Keyring",
+      "credential-source-keyring": "Schlüsselbund",
       "credential-source-label": "Anmeldedatenspeicher",
       "delete-error": "Kalenderkonto konnte nicht gelöscht werden.",
       "edit-title": "Kalenderkonto bearbeiten",
@@ -909,7 +919,7 @@
       "save": "Speichern",
       "save-connect": "Speichern und verbinden",
       "save-error": "Kalenderkonto konnte nicht gespeichert werden.",
-      "secret-cleanup-error": "Das Konto konnte nicht gespeichert werden und die Keyring-Anmeldedaten konnten nicht wiederhergestellt oder bereinigt werden. Versuche es erneut nach dem Entsperren des Secret Service.",
+      "secret-cleanup-error": "Das Konto konnte nicht gespeichert werden und die Schlüsselbund-Anmeldedaten konnten nicht wiederhergestellt oder bereinigt werden. Versuche es erneut nach dem Entsperren des Secret Service.",
       "secret-service-cancelled": "Die Secret-Service-Anfrage wurde abgebrochen. Versuche es erneut, wenn du bereit bist, ihn zu entsperren.",
       "secret-service-error": "Auf Kalender-Anmeldedaten im Secret Service konnte nicht zugegriffen werden. Versuche die Operation erneut.",
       "secret-service-locked": "Kalender-Anmeldedaten sind gesperrt oder der Zugriff wurde verweigert. Entsperre den Secret Service und versuche es erneut.",
@@ -1470,8 +1480,6 @@
         "held-back": "ältere Version",
         "held-back-hint": "v{version} benötigt Plugin-API {required}; diese Noctalia-Version unterstützt bis zu {current}. Aktualisiere Noctalia, um es zu erhalten.",
         "incompatible-plugin-api": "inkompatible Plugin-API",
-        "loading": "Plugins werden geladen…",
-        "refreshing": "Plugins werden aktualisiert…",
         "remove": "Plugin entfernen",
         "requires": "Erfordert: {dependencies}",
         "title": "Plugins",
@@ -2509,7 +2517,9 @@
         "calendar-edit": {
           "button": "Bearbeiten",
           "button-reconnect": "Neu verbinden",
+          "button-retry": "Erneut versuchen",
           "description": "Aktualisiere dieses Kalenderkonto",
+          "description-locked": "Das Refresh-Token befindet sich in einem gesperrten Schlüsselbund; entsperre den Schlüsselbund und versuche es erneut",
           "description-reconnect": "Google-Autorisierung fehlt; verbinde dieses Konto neu"
         },
         "calendar-event-date-format": {
@@ -3594,7 +3604,7 @@
         "max-label-chars": {
           "description": "Maximale Anzahl der angezeigten Zeichen für Arbeitsbereichsnamen",
           "label": "Maximale Beschriftungszeichen",
-          "workspaces-description": "Maximale Zeichenanzahl für Beschriftungen von Arbeitsbereichsnamen"
+          "workspaces-description": "Maximale Zeichenanzahl für nicht-numerische Arbeitsbereichsbeschriftungen"
         },
         "max-length": {
           "description": "Maximale Widget-Länge in Pixeln",
@@ -3659,6 +3669,10 @@
         "pinned-opacity": {
           "description": "Deckkraft von angehefteten Apps, die derzeit nicht ausgeführt werden",
           "label": "Deckkraft angehefteter Apps"
+        },
+        "reversed": {
+          "description": "Kehre die Reihenfolge der Balken von niedrigen zu hohen Frequenzen um",
+          "label": "Umgekehrt"
         },
         "scale": {
           "description": "Skaliere dieses Widget relativ zur Inhaltsskala der Leiste",

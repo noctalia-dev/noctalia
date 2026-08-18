@@ -10,6 +10,9 @@ struct DesktopAction {
   std::string id;
   std::string name;
   std::string exec;
+  // Pre-lowercased for matching
+  std::string nameLower;
+  std::string execLower;
 };
 
 enum class DesktopEntryOrigin : std::uint8_t {

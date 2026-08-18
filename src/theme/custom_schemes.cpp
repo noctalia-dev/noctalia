@@ -621,7 +621,10 @@ namespace noctalia::theme {
 
       auto makeContainerDark = [](const Color& base) {
         auto [h, s, l] = base.toHsl();
-        return fromHsl(h, std::min(s + 0.15, 1.0), std::max(l - 0.35, 0.15));
+        // Scale the saturation step by the remaining headroom instead of adding a
+        // constant: a flat +0.15 clamps at S = 1.0 for already-saturated accents,
+        // producing a maximally saturated "container" instead of a muted one.
+        return fromHsl(h, s + 0.15 * (1.0 - s), std::max(l - 0.35, 0.15));
       };
       const Color primary_container = makeContainerDark(primary_adjusted);
       const Color secondary_container = makeContainerDark(secondary_adjusted);

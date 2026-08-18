@@ -92,7 +92,8 @@
         "reloaded": "Yenilenen betik"
       },
       "sysmon": {
-        "cpu": "CPU",
+        "cpu": "İşlemci",
+        "cpu-freq": "İşlemci Frekansı",
         "cpu-temp": "CPU Isısı",
         "disk": "Disk",
         "disk-free": "Kullanılabilir Disk",
@@ -102,7 +103,7 @@
         "download": "İndirme",
         "gpu-temp": "GPU Sıcaklığı",
         "gpu-usage": "GPU Kullanımı",
-        "gpu-vram": "GPU VRAM",
+        "gpu-vram": "Ekran Kartı VRAM",
         "ram": "RAM",
         "swap": "Takas",
         "system": "Sistem",
@@ -349,7 +350,7 @@
         "scheduled-day": "Zamanlanmış",
         "scheduled-night": "Çalışıyor"
       },
-      "notification": "DND",
+      "notification": "Rahatsız Etmeyin",
       "power-profile": "Güç",
       "screen-time": "Ekran Süresi",
       "session": "Oturum",
@@ -365,8 +366,8 @@
         "swap": "Takas"
       },
       "titles": {
-        "cpu": "CPU",
-        "gpu": "GPU",
+        "cpu": "İşlemci",
+        "gpu": "Ekran Kartı",
         "memory": "Bellek",
         "network": "Ağ",
         "resources": "Kaynaklar",
@@ -375,7 +376,8 @@
       "tooltips": {
         "load": "1 / 5 / 15 dakikalık ortalama yük"
       },
-      "unknown": "bilinmiyor"
+      "unknown": "bilinmiyor",
+      "uptime-prefix": "Açık {uptime} · {osAge}"
     },
     "tabs": {
       "audio": "Ses",
@@ -450,7 +452,12 @@
         "hide": "Gizle",
         "settings": "Ayarlar",
         "show": "Göster",
+        "stack-back": "Arkaya Taşı",
+        "stack-front": "Öne Taşı",
         "trash": "Sil"
+      },
+      "dialogs": {
+        "select-sticker-image": "Çıkartma Resmi Seç"
       },
       "settings": {
         "aspect-ratio": "En Boy Oranı",
@@ -460,8 +467,12 @@
         "background-padding": "İç Boşluk",
         "background-radius": "Yarıçap",
         "background-section": "Arka Plan",
+        "bands": "Bantlar",
         "bar-width": "Bar Genişliği",
         "bloom-intensity": "Parlama",
+        "center-password-text": "Şifre Metnini Ortala",
+        "center-text": "Metni Ortala",
+        "centered": "Ortalanmış",
         "change-image": "Değiştir…",
         "circle": "Çember",
         "clock-style": "Saat Tarzı",
@@ -479,14 +490,20 @@
         "display-gauge": "Gösterge",
         "display-graph": "Grafik",
         "fade-when-idle": "Boştayken Soldur",
-        "font-family": "Font",
+        "fill-color": "Doldurma Rengi",
+        "font-family": "Yazı Tipi",
         "font-family-default": "Sistem varsayılanı",
-        "format": "Format",
+        "forecast-days": "Tahmin Günleri",
+        "format": "Biçim",
         "gauge-layout": "Gösterge Düzeni",
         "glyph": "Simge",
         "hide-when-no-media": "Medya Yokken Gizle",
+        "highlight-color": "Vurgu Rengi",
         "horizontal": "Yatay",
+        "hover-background": "Vurgu Arka Planı",
+        "hover-foreground": "Vurgu Metin Rengi",
         "image-path": "Görsel",
+        "inner-diameter": "İç Çap",
         "input-opacity": "Giriş Opaklığı",
         "input-radius": "Giriş Yarıçapı",
         "interface": "Arayüz",
@@ -502,6 +519,7 @@
         "opacity": "Şeffaflık",
         "primary-color": "Ana Renk",
         "reset-defaults": "Varsayılanlara Döndür",
+        "reversed": "Tersine Çevrilmiş",
         "ring-opacity": "Yüzük Şeffaflığı",
         "rotation-speed": "Dönme Hızı",
         "scroll-step": "Kaydırma Adımı",
@@ -510,6 +528,7 @@
         "shadow": "Gölge",
         "show-caps-lock": "Caps Lock Uyarısı",
         "show-device": "Cihazı Göster",
+        "show-events": "Etkinlikleri Göster",
         "show-forecast": "Hava Tahminini Göster",
         "show-keyboard-layout": "Klavye Düzeni",
         "show-label": "Etiketi Göster",
@@ -520,18 +539,21 @@
         "show-unlock-hint": "Kilit Açama İpucu",
         "show-vpn-label": "VPN Etiketini Göster",
         "show-weather": "Hava Durumu",
+        "show-week-numbers": "Hafta Numaralarını Göster",
         "show-when-idle": "Boştayken Göster",
         "stat": "İstatistik",
+        "stat-cpu-freq": "İşlemci Frekansı",
         "stat-cpu-temp": "CPU Sıcaklığı",
         "stat-cpu-usage": "CPU Kullanımı",
         "stat-gpu-temp": "GPU Sıcaklığı",
         "stat-gpu-usage": "GPU Kullanımı",
-        "stat-gpu-vram": "GPU VRAM",
-        "stat-net-rx": "Ağ Alımı (RX)",
-        "stat-net-tx": "Ağ Gönderimi (TX)",
+        "stat-gpu-vram": "Ekran Kartı VRAM",
+        "stat-gpu-vram-used": "Kullanılan Ekran Kartı VRAM",
+        "stat-net-rx": "Ağ Alımı",
+        "stat-net-tx": "Ağ Gönderimi",
         "stat-none": "Hiçbiri",
         "stat-ram-pct": "RAM %",
-        "stat-swap-pct": "Swap %",
+        "stat-swap-pct": "Takas Alanı %",
         "stat2": "İstatistik 2",
         "title": "Başlık",
         "track-color": "Şarkı Rengi",
@@ -560,6 +582,7 @@
       "types": {
         "audio-visualizer": "Ses Görselleştiricisi",
         "button": "Buton",
+        "calendar": "Takvim",
         "clock": "Saat",
         "fancy-audio-visualizer": "Havalı Ses Görselleştiricisi",
         "label": "Etiket",
@@ -627,12 +650,22 @@
     },
     "context-menu": {
       "open": "Aç",
+      "pin": "Başlatıcıya Sabitle",
       "pin-to-dock": "Dock'a sabitle",
+      "unpin": "Başlatıcıdan Kaldır",
       "unpin-from-dock": "Dock'tan çıkar"
     },
     "empty": {
       "no-results": "Sonuç bulunamadı",
       "type-to-search": "Arama…"
+    },
+    "origins": {
+      "appimage": "AppImage",
+      "flatpak": "Flatpak",
+      "nix": "Nix",
+      "snap": "Snap",
+      "system": "Sistem",
+      "user": "Kullanıcı"
     },
     "providers": {
       "applications": {
@@ -670,7 +703,8 @@
     },
     "source": {
       "address": "Adres",
-      "auto": "Otomatik"
+      "auto": "Otomatik",
+      "manual": "Manuel"
     }
   },
   "lockscreen": {
@@ -700,13 +734,46 @@
       "battery-low-body": "{device}: {percent}% kaldı",
       "battery-low-title": "Düşük Pil",
       "calendar": "Takvim",
+      "calendar-credential-locked-body": "Secret Service tarafından kullanılan anahtarlığın kilidini açın, ardından Ayarlar'da tekrar deneyin. GNOME Anahtarlığı kullanıyorsanız, Oturum Açma gibi otomatik açılan bir anahtarlığı varsayılan yapın.",
+      "calendar-credential-locked-title": "Takvim anahtarlığı kilitli",
+      "calendar-google-connect-browser-failed": "Google yetkilendirmesi için tarayıcı açılamadı. Varsayılan tarayıcınızı veya xdg-open ayarlarınızı kontrol edin.",
+      "calendar-google-connect-credential-store-failed": "Yetkilendirme tamamlandı, ancak yenileme belirteci kaydedilemedi. Secret Service kilidini açın veya başlatın, ardından tekrar bağlanın.",
+      "calendar-google-connect-expired": "Giriş işlemi tamamlanmadan Google yetkilendirmesinin süresi doldu. Bağlantıyı tekrar başlatın.",
+      "calendar-google-connect-failed-title": "Google Takvim bağlantısı başarısız oldu",
+      "calendar-google-connect-missing-account": "\"{account}\" ile eşleşen yapılandırılmış bir Google takvim hesabı bulunamadı.",
+      "calendar-google-connect-rate-limited": "Google yetkilendirmesi geçici olarak hız sınırına takıldı. Biraz bekleyip tekrar deneyin.",
+      "calendar-google-connect-result-failed": "Google yetkilendirmesi tamamlanamadı. Bağlantıyı tekrar başlatın.",
+      "calendar-google-connect-start-failed": "Google yetkilendirmesi başlatılamadı. Ağ bağlantınızı kontrol edin ve tekrar deneyin.",
+      "calendar-google-connect-start-http": "Google yetkilendirmesi başlatılamadı. OAuth aracısı HTTP {status} döndürdü.",
+      "calendar-google-connect-timeout": "Google yetkilendirmesi zaman aşımına uğradı. Oturum açmaya hazır olduğunuzda bağlantıyı tekrar başlatın.",
+      "config-migration-body": "Kaynak dosyadaki {path} konumunu güncelleyin. Noctalia bu değişimi sadece geçici olarak uyguluyor. Gerekli tüm değişiklikleri listelemek için noctalia config validate komutunu çalıştırın.",
+      "config-migration-title": "Yapılandırma güncellemesi gerekiyor",
+      "dbus-disabled": "DBus bildirimleri devre dışı",
+      "desktop-widgets-editor": "Bileşen düzenleyici",
+      "desktop-widgets-editor-enabled": "Masaüstü bileşen düzenleyicisi açık. Açık pencerelerin düzenleyiciyi kapatmaması için boş bir çalışma alanına geçin.",
+      "greeter-sync": "Noctalia Karşılama Ekranı",
+      "greeter-sync-pending": "Karşılama ekranına yazmak için yönetici onayı bekleniyor.",
+      "greeter-sync-pending-console": "Yönetici onayı bekleniyor. Noctalia içindeki, bir TTY veya konsoldaki polkit istemini onaylayın ya da pkexec'i manuel olarak çalıştırın.",
+      "greeter-sync-pending-manual": "Dosyalar hazırlandı. Terminalde çalıştırın: pkexec noctalia-greeter-apply-appearance \"$XDG_RUNTIME_DIR/noctalia-greeter-sync\". Veya shell.greeter_sync.privilege_command (örneğin ghostty -e pkexec) ayarlayıp tekrar senkronize edin.",
+      "greeter-sync-success": "Görünüm senkronize edildi. Değişiklikler bir sonraki giriş ekranında uygulanacak.",
+      "greeter-sync-timeout": "Karşılama ekranı senkronizasyonu hâlâ yönetici onayı bekliyor. Polkit istemi için bir TTY veya konsolu kontrol edin, Güvenlik ayarlarında polkit aracısını etkinleştirin veya pkexec'i manuel olarak çalıştırın.",
+      "greeter-sync-timeout-manual": "Karşılama ekranı senkronizasyonu hâlâ yönetici onayı gerektiriyor. Terminalde şunu çalıştırın: pkexec noctalia-greeter-apply-appearance \"$XDG_RUNTIME_DIR/noctalia-greeter-sync\"",
+      "keybind-app": "Noctalia",
+      "keybind-invalid-modifier": "Bu kısayol, değiştirici olmadan yalnızca tek bir tuş kabul eder.",
+      "keybind-invalid-printable": "Yazdırılabilir tuşlar (harfler, sayılar, semboller) Ctrl veya Alt gibi bir değiştirici tuş gerektirir.",
+      "keybind-invalid-super": "Super/Windows tuşu sistem tuş atamalarında kullanılamaz.",
+      "keybind-invalid-title": "Tuş atamasına izin verilmiyor",
       "launcher-usage-reset": "Başlat",
       "launcher-usage-reset-success": "Kullanım verisi temizlendi.",
       "lockscreen-widgets-editor": "Kilit ekranı bileşen düzenleyicisi",
       "lockscreen-widgets-editor-blocked-locked": "Kilit ekranı bileşenlerini düzenlemeden önce oturumu açın.",
       "lockscreen-widgets-editor-enabled": "Kilit ekranı bileşen düzenleyicisi açık. Açık pencerelerin düzenleyici ekranını kaplamaması için boş bir masaüstüne geçin.",
+      "mpris-disabled": "MPRIS devre dışı",
+      "polkit-agent": "Polkit Aracısı",
+      "polkit-no-session": "Polkit aracısı logind, elogind veya XDG_SESSION_ID gerektirir. Yalnızca seatd içeren sistemlerde grafiksel istemler için kaydedilemez. Karşılama ekranı senkronizasyonu için terminalden pkexec kullanın veya oturum içi kimlik doğrulama için elogind yükleyin.",
       "screen-time-reset": "Ekran Süresi",
       "screen-time-reset-success": "Kullanım geçmişi temizlendi.",
+      "session-bus-unavailable": "Oturum veriyolu kullanılamıyor",
       "wallpaper-palette-export": "Özel Palet",
       "wallpaper-palette-export-success": "\"{name}\" kaydedildi ve palet kaynağı özel olarak değiştirildi."
     }
@@ -775,6 +842,7 @@
         "charging": "Şarj oluyor",
         "discharging": "Deşarj oluyor",
         "empty": "Boş",
+        "pending-discharge": "Deşarj bekleniyor",
         "plugged-in": "Fişe takılı"
       },
       "tooltip": {
@@ -784,8 +852,29 @@
         "rate": "Oran",
         "status": "Durum",
         "time-left": "Kalan Süre",
+        "time-to-full": "Dolmasına Kalan Süre",
         "unknown-device": "Tanınmayan Cihaz"
       }
+    },
+    "profiles": {
+      "balanced": "Dengeli",
+      "performance": "Performans",
+      "power-saver": "Güç Tasarrufu"
+    }
+  },
+  "session": {
+    "actions": {
+      "custom": "Özel",
+      "lock": "Kilitle",
+      "lock-and-suspend": "Kilitle ve Uykuya Geç",
+      "logout": "Oturumu Kapat",
+      "reboot": "Yeniden Başlat",
+      "shutdown": "Bilgisayarı Kapat",
+      "suspend": "Uyku Modu"
+    },
+    "errors": {
+      "lock-body": "Oturum kilitleme protokolü kullanılamıyor.",
+      "lock-title": "Kilitleme devre dışı"
     }
   },
   "settings": {
@@ -798,34 +887,58 @@
       "community": "Topluluk",
       "deprecated": "Kullanımdan Kaldırıldı",
       "inherited": "Devralındı",
-      "official": "Resmi"
+      "monitor": "Monitör",
+      "official": "Resmi",
+      "override": "Geçersiz Kılma"
     },
     "calendar-accounts": {
       "add-title": "Takvim Hesabı Ekle",
       "calendars-label": "Takvimler",
       "color-label": "Renk",
       "credential-source-file": "Şifre dosyası",
+      "credential-source-keyring": "Anahtarlık",
+      "credential-source-label": "Kimlik Bilgisi Depolama",
       "delete-error": "Takvim hesabı silinemedi.",
       "edit-title": "Takvim Hesabını Düzenle",
+      "ics-url-label": "ICS URL",
       "id-label": "Hesap ID'si",
+      "invalid": "Vurgulanan takvim hesabı alanlarını kontrol edin.",
+      "name-label": "Görünen Ad",
+      "name-placeholder": "Kişisel Takvim",
+      "password-file-error": "Yapılandırılan şifre dosyası okunamadı. Dosyanın var olduğundan, okunabilir normal bir dosya olduğundan ve şifre içerdiğinden emin olun.",
       "password-file-label": "Şifre Dosyası",
-      "password-keep-placeholder": "Şuanki şifreyi kullanmak için boş bırakın",
+      "password-keep-placeholder": "Mevcut şifreyi korumak için boş bırakın",
       "password-label": "Uygulama Şifresi",
       "password-placeholder": "Uygulamaya özel şifre",
       "password-save-error": "Takvim hesabı şifresi kaydedilemedi.",
       "provider": {
         "custom": "CalDAV",
         "google": "Google",
-        "icloud": "iCloud"
+        "icloud": "iCloud",
+        "ics": "ICS URL"
       },
       "provider-label": "Sağlayıcı",
       "save": "Kaydet",
       "save-connect": "Kaydet ve Bağlan",
+      "save-error": "Takvim hesabı kaydedilemedi.",
+      "secret-cleanup-error": "Hesap kaydedilemedi ve anahtarlık kimlik bilgisi geri yüklenemedi ya da temizlenemedi. Secret Service kilidini açtıktan sonra tekrar deneyin.",
+      "secret-service-cancelled": "Secret Service istemi iptal edildi. Kilidi açmaya hazır olduğunuzda tekrar deneyin.",
+      "secret-service-error": "Secret Service'teki takvim kimlik bilgilerine ulaşılamadı. İşlemi tekrar deneyin.",
+      "secret-service-locked": "Takvim kimlik bilgileri kilitli veya erişim reddedildi. Secret Service kilidini açıp tekrar deneyin.",
+      "secret-service-unavailable": "Secret Service sağlayıcısı bulunamadı. Uyumlu bir sağlayıcı başlatıp tekrar deneyin.",
       "server-url-label": "Server URL'si",
       "username-label": "Kullanıcı Adı",
       "username-placeholder": "isim@ornek.com"
     },
     "controls": {
+      "keybind": {
+        "add": "Tuş ataması eklemek için tıklayın",
+        "recording-placeholder": "Bir tuş kombinasyonuna basın...",
+        "unset-placeholder": "Atamak için tıklayın..."
+      },
+      "list": {
+        "add-entry-placeholder": "Kayıt ekle..."
+      },
       "path-browse": {
         "file-title": "Dosya Seç",
         "folder-title": "Klasör Seç"
@@ -843,12 +956,13 @@
       "bar": {
         "create": "Oluştur",
         "delete": "Sil",
+        "delete-confirm-desc": "Arayüz üzerinden oluşturulan bu çubuk settings.toml dosyasından kaldırılacaktır.",
         "delete-confirm-title": "\"{name}\"i sil?",
         "id-placeholder": "Çubuk ID'si",
         "label": "Çubuk: {name}",
         "management": "Çubuk",
         "move-down": "Aşağı İndir",
-        "move-up": "Yukaru Çıkar",
+        "move-up": "Yukarı Çıkar",
         "new": "Yeni Çubuk",
         "rename": "Tekrar İsimlendir",
         "rename-save": "Kaydet"
@@ -856,66 +970,451 @@
       "monitor-override": {
         "create": "Oluştur",
         "delete": "Sil",
+        "delete-confirm-desc": "Arayüz üzerinden oluşturulan bu monitör kuralı settings.toml dosyasından kaldırılacaktır.",
         "delete-confirm-title": "\"{name}\"i sil?",
+        "label": "Monitör: {name}",
+        "management": "Monitör Geçersiz Kılma",
+        "match-placeholder": "Monitör eşleşmesi",
+        "new": "Yeni Monitör Geçersiz Kılma",
+        "rename": "Yeniden Adlandır",
         "rename-save": "Kaydet"
       },
       "widget": {
+        "add": "Araç Ekle",
+        "detail": {
+          "custom": "özel araç"
+        },
+        "editor": {
+          "description": "Araçları çubuk alanlarına göre düzenleyin",
+          "title": "Çubuk Araçları"
+        },
         "group": {
-          "clear": "Temizle"
+          "accordion": "Akordeon",
+          "accordion-description": "Sadece ilk aracı göster; imleç üzerine geldiğinde diğerleri açılır",
+          "accordion-direction": "Açılma yönü",
+          "accordion-direction-description": "Gizli araçların hangi yöne doğru açılacağını belirler",
+          "action": "Grup",
+          "border": "Kenarlık",
+          "border-description": "Kapsül kenarlık rengi rolü; kenarlıksız olması için Varsayılan'da bırakın",
+          "clear": "Temizle",
+          "deselect": "Seçimi Kaldır",
+          "drag": "Sırala",
+          "drawer-columns": "Çekmece Sütunları",
+          "drawer-columns-description": "Çekmece panelinde satır başına düşen araç sayısı",
+          "drawer-detached": "Ayrık Panel",
+          "drawer-detached-description": "Çekmeceyi çubukla birleştirmek yerine kendi arka planına sahip yüzen bir panel olarak aç",
+          "drawer-enabled": "Çekmece",
+          "drawer-enabled-description": "Grup araçlarını bir düğmeyle açılıp kapanabilen bir çekmece paneline taşı",
+          "drawer-glyph-closed": "Kapalı Simge",
+          "drawer-glyph-closed-description": "Panel kapalıyken çekmece düğmesinde gösterilecek simge",
+          "drawer-glyph-opened": "Açık Simge",
+          "drawer-glyph-opened-description": "Panel açıkken çekmece düğmesinde gösterilecek simge",
+          "edit": "Stili düzenle",
+          "fill": "Arka Plan",
+          "fill-description": "Kapsül arka plan rengi; sabit hex renkleri de desteklenir",
+          "foreground": "Ön Plan",
+          "foreground-description": "Bu gruptaki araçların simge ve yazı rengi",
+          "hide": "Bu grubu gizle",
+          "hide-widget": "Bu aracı gizle",
+          "hint": "Bir kapsül grubunun parçası",
+          "members": "{count} araç",
+          "opacity": "Şeffaflık",
+          "opacity-description": "Kapsül arka plan şeffaflığı",
+          "orphan": "Bilinmeyen grup",
+          "padding": "İç Boşluk",
+          "padding-description": "Kapsül kenarı ile araçları arasındaki piksel cinsinden iç boşluk",
+          "radius": "Kavis",
+          "radius-description": "Piksel cinsinden kapsül köşesi kavisi; 'Otomatik' çubuğun kavis ayarını devralır",
+          "remove-from-group": "Gruptan çıkar",
+          "remove-orphan": "Bilinmeyen grubu kaldır",
+          "remove-widget": "Çubuktan kaldır",
+          "select": "Gruplamak için seç",
+          "selected": "{count} seçildi",
+          "settings-widget": "Araç ayarları",
+          "show": "Bu grubu göster",
+          "show-widget": "Bu aracı göster",
+          "style": "Stil",
+          "title": "Kapsül grubu",
+          "ungroup": "Grubu dağıt",
+          "widget-spacing": "Aralık",
+          "widget-spacing-description": "Bu gruptaki araçlar arasındaki piksel cinsinden boşluk; 'Otomatik' çubuğun araç boşluğunu devralır"
+        },
+        "inspector": {
+          "add-instance-title": "{lane} alanına '{widget}' isminde yeni bir araç ekle",
+          "add-title": "{lane} alanına Araç Ekle",
+          "move-to-lane": "{lane} alanına taşı",
+          "reset-defaults": "Varsayılanlara Sıfırla"
         },
         "instance": {
           "create-save": "Oluştur",
           "delete": "Sil",
+          "delete-confirm-desc": "İsimlendirilmiş bu araç tüm çubuklardan kaldırılacak ve ayarları silinecek.",
           "delete-confirm-title": "\"{name}\"i sil?",
+          "id-description": "Sadece harf, rakam, alt çizgi veya tire kullanın. Boşluk kullanılamaz; benzersiz olmalıdır.",
+          "id-placeholder": "Araç ID'si",
+          "rename": "Yeniden Adlandır",
           "rename-save": "Kaydet"
         },
+        "lanes": {
+          "center": "Orta",
+          "customize": "Özelleştir",
+          "empty": "Araç yok",
+          "empty-hint": "Bu alanı doldurmak için bir araç ekleyin.",
+          "end": "Son",
+          "start": "Başlangıç"
+        },
+        "picker": {
+          "empty": "Araç bulunamadı",
+          "instance-description": "\"{type}\" tipi için isimlendirilmiş araç",
+          "instance-toggle": "İsimlendirilmiş Araç",
+          "placeholder": "Araçlarda ara..."
+        },
         "raw": {
-          "delete": "Sil"
+          "delete": "Sil",
+          "description": "Bu araç yapılandırmasında desteklenmeyen ama korunan anahtarlar.",
+          "title": "Ham Ayarlar"
+        },
+        "settings": {
+          "empty": "Mevcut filtrelerle eşleşen bir ayar bulunamadı.",
+          "groups": {
+            "actions": "Eylemler",
+            "behavior": "Davranış",
+            "grouping": "Gruplama",
+            "presentation": "Görünüm",
+            "runtime": "Çalışma Zamanı",
+            "taskbar": {
+              "grouping": "Gruplama",
+              "windows": "Pencereler",
+              "workspace-labels": "Çalışma Alanı İsimleri"
+            },
+            "widget": "Araç",
+            "workspaces": {
+              "colors": "Renkler",
+              "list": "Çalışma Alanları",
+              "pills": "Kapsül Stili"
+            }
+          }
         }
       }
     },
     "errors": {
+      "avatar-accounts": "Sistem hesap resmi güncellenemedi.",
+      "avatar-invalid-path": "Seçilen resim yolu okunabilir bir görsel dosyası değil.",
+      "avatar-load": "Seçilen görsel yüklenemedi. PNG, JPEG, WebP, GIF, BMP veya SVG kullanın.",
+      "avatar-write": "Profil resmi kaydedilmek üzere hazırlanamadı.",
       "bar": {
-        "delete": "Çubuk silinemedi."
+        "create": "Çubuk oluşturulamadı.",
+        "delete": "Çubuk silinemedi.",
+        "move": "Çubuk taşınamadı.",
+        "rename": "Çubuk yeniden adlandırılamadı."
       },
-      "export-wallpaper-palette": "Duvar kağıdı paleti, özel palet olarak kaydedilemedi."
+      "batch-write": "Bazı ayarlar kaydedilemedi.",
+      "custom-schedule-times": "Özel bir planın çalışabilmesi için SS:DD formatında hem gün doğumu hem de gün batımı saatine ihtiyacı vardır.",
+      "export-config": "Yapılandırma dışa aktarımı kaydedilemedi.",
+      "export-wallpaper-palette": "Duvar kağıdı paleti, özel palet olarak kaydedilemedi.",
+      "monitor-override": {
+        "create": "Monitör geçersiz kılma kuralı oluşturulamadı.",
+        "delete": "Monitör geçersiz kılma kuralı silinemedi.",
+        "rename": "Monitör geçersiz kılma kuralı yeniden adlandırılamadı."
+      },
+      "reset-page": "Bazı ayarlar sıfırlanamadı.",
+      "support-report": "Destek raporu kaydedilemedi.",
+      "sync-greeter": "Görünüm, Noctalia Karşılama Ekranı ile senkronize edilemedi.",
+      "sync-greeter-timeout": "Karşılama ekranı senkronizasyonu hala yönetici onayı bekliyor. TTY veya konsoldaki polkit onayını kontrol edin, Güvenlik ayarlarından polkit aracını etkinleştirin veya pkexec komutunu manuel olarak çalıştırın.",
+      "sync-greeter-timeout-manual": "Karşılama ekranı senkronizasyonu hala yönetici onayına ihtiyaç duyuyor. Terminalde şu komutu çalıştırın: pkexec noctalia-greeter-apply-appearance \"$XDG_RUNTIME_DIR/noctalia-greeter-sync\"",
+      "widget": {
+        "rename": "İsimlendirilmiş araç yeniden adlandırılamadı."
+      },
+      "write": "Ayarlar kaydedilemedi."
+    },
+    "export-config": {
+      "export": "Dışa Aktar",
+      "full-effective-description": "Varsayılan ayarlar da dahil olmak üzere her aktif ayarı dışa aktarır. İncelemek veya ayarların tam bir anlık görüntüsünü paylaşmak için kullanışlıdır, ancak mevcut varsayılanları sabitler.",
+      "full-effective-save-title": "Tam Aktif Yapılandırmayı Kaydet",
+      "full-effective-title": "Tam Aktif Yapılandırma",
+      "merged-user-description": "Yapılandırma dosyalarını ve arayüzdeki değişiklikleri tek bir TOML dosyasında birleştirir. Varsayılan ayarlar gizli kalır.",
+      "merged-user-save-title": "Birleştirilmiş Kullanıcı Yapılandırmasını Kaydet",
+      "merged-user-title": "Birleştirilmiş Kullanıcı Yapılandırması (Önerilen)",
+      "title": "Yapılandırmayı Dışa Aktar"
+    },
+    "idle": {
+      "behavior": {
+        "add": "Davranış Ekle",
+        "command-label": "Boşta kalma komutu",
+        "command-placeholder": "notify-send \"Boşta\"",
+        "kind": {
+          "custom": "Özel",
+          "lock": "Kilitle",
+          "lock-and-suspend": "Kilitle ve Uykuya Geç",
+          "screen-off": "Ekranı Kapat",
+          "suspend": "Uyku Modu"
+        },
+        "kind-section-label": "Eylem",
+        "locked-timeout-label": "Kilitliyken zaman aşımı (saniye, 0 = kapalı)",
+        "name-label": "İsim",
+        "name-placeholder": "bosta-kalma-davranisi",
+        "resume-command-label": "Devam etme komutu",
+        "resume-command-placeholder": "notify-send 'Geri döndü'",
+        "summary": "{name} · {seconds}sn",
+        "summary-disabled-timeout": "{name} · zaman aşımı kapalı",
+        "timeout-label": "Saniye cinsinden zaman aşımı",
+        "unnamed": "İsimsiz davranış"
+      },
+      "live-status": {
+        "active": "Aktif",
+        "idle-for-one": "1 saniyedir boşta",
+        "idle-for-seconds": "{seconds} saniyedir boşta"
+      }
     },
     "navigation": {
       "groups": {
+        "accessibility": "Erişilebilirlik",
+        "audio": "Ses",
+        "authentication": "Kimlik Doğrulama",
+        "automation": "Otomasyon",
+        "backdrop": "Arka Plan Fonu",
+        "background": "Arka Plan",
         "battery": "Pil",
+        "behavior": "Davranış",
+        "borders": "Kenarlıklar",
+        "brightness": "Parlaklık",
+        "built-in": "Dahili",
+        "calendar": "Takvim",
+        "capsules": "Kapsüller",
+        "clipboard": "Pano",
+        "community": "Topluluk",
+        "control-center": "Kontrol Merkezi",
+        "dead-zone": "Ölü Bölge",
+        "directories": "Dizinler",
+        "display": "Ekran",
+        "effects": "Efektler",
+        "filtering": "Filtreleme",
+        "focus-styling": "Odak Stili",
+        "formats": "Formatlar",
+        "general": "Genel",
+        "greeter": "Karşılama Ekranı",
+        "grouping": "Gruplama",
+        "history": "Geçmiş",
+        "home": "Ana Sayfa",
+        "hot-corners": "Sıcak Köşeler",
+        "idle": "Boşta Kalma",
+        "interface": "Arayüz",
+        "keybinds": "Tuş Atamaları",
+        "keyboard-layout": "Klavye Düzeni",
+        "kinds": "Türler",
         "launcher": "Başlat",
+        "layout": "Düzen",
+        "lifecycle": "Yaşam Döngüsü",
         "location": "Konum",
+        "lock-screen": "Kilit Ekranı",
         "media": "Medya",
-        "osd": "OSD",
+        "monitor": "Sistem Monitörü",
+        "monitor-polling": "Yoklama Aralıkları",
+        "monitor-thresholds": "Vurgulama Eşikleri",
+        "monitors": "Monitörler",
+        "motion": "Hareket",
+        "navigation": "Gezinme",
+        "network": "Ağ",
+        "night-light": "Gece Işığı",
+        "notifications": "Bildirimler",
+        "osd": "Ekranda Gösterim",
+        "overview": "Genel Bakış",
+        "pinned-apps": "Sabitlenmiş Uygulamalar",
+        "polkit": "Polkit",
+        "power": "Güç",
+        "privacy": "Gizlilik",
+        "profile": "Profil",
+        "providers": "Sağlayıcılar",
+        "screen-corners": "Ekran Köşeleri",
         "screen-time": "Ekran Süresi",
+        "screenshot": "Ekran Görüntüsü",
+        "security": "Güvenlik",
+        "session-panel": "Oturum Paneli",
+        "shape": "Şekil",
+        "system": "Sistem",
         "theme": "Tema",
-        "wallpaper": "Duvar Kağıdı"
+        "toasts": "Bildirim Kutuları",
+        "transition": "Geçiş",
+        "user": "Kullanıcı",
+        "wallpaper": "Duvar Kağıdı",
+        "weather": "Hava Durumu",
+        "widget-list": "Araç Listesi",
+        "widgets": "Araçlar"
       },
       "sections": {
+        "accessibility": "Erişilebilirlik",
+        "appearance": "Görünüm",
+        "backdrop": "Arka Plan Fonu",
+        "bar": "Çubuk",
+        "control-center": "Kontrol Merkezi",
+        "desktop": "Masaüstü",
+        "dock": "Rıhtım",
+        "hooks": "Kancalar",
+        "keybinds": "Tuş Atamaları",
         "launcher": "Başlat",
         "location": "Konum",
-        "osd": "OSD",
+        "niri": "Niri",
+        "notifications": "Bildirimler",
+        "osd": "Ekranda Gösterim",
+        "panels": "Paneller",
         "plugins": "Eklentiler",
+        "popups": "Açılır Pencereler",
+        "power": "Güç",
+        "security": "Güvenlik",
+        "services": "Hizmetler",
+        "shell": "Kabuk",
+        "system": "Sistem",
+        "templates": "Şablonlar",
         "wallpaper": "Duvar Kağıdı"
       }
     },
+    "notifications": {
+      "filter": {
+        "add": "Filtre Ekle",
+        "add-title": "Bildirim Filtresi Ekle",
+        "allow-permanent": "Kalıcılığa izin ver",
+        "allowed-urgencies-label": "İzin verilen aciliyetler",
+        "flag": {
+          "history": "geçmiş",
+          "permanent": "kalıcı",
+          "sound": "ses",
+          "toast": "kutu"
+        },
+        "flags-label": "Eşleştiğinde",
+        "match-content-label": "İçerik Regex'i",
+        "match-content-placeholder": "Özet veya gövde ile eşleşecek Regex...",
+        "match-label": "Uygulama",
+        "match-placeholder": "Uygulama adı, masaüstü girdisi veya kategori...",
+        "override-duration": "Süreyi geçersiz kıl",
+        "play-sound": "Ses çal",
+        "save-history": "Geçmişe kaydet",
+        "show-toast": "Kutu göster",
+        "summary": "{match} · {flags}",
+        "summary-blocked": "{match} · engellendi",
+        "summary-disabled": "{match} · devre dışı",
+        "unnamed": "İsimsiz filtre"
+      }
+    },
     "options": {
+      "accordion-direction": {
+        "end": "İlk araçtan sonra",
+        "start": "İlk araçtan önce"
+      },
+      "bar": {
+        "auto-hide": {
+          "off": "Kapalı",
+          "on": "Açık",
+          "smart": "Akıllı"
+        }
+      },
+      "clipboard": {
+        "auto-paste": {
+          "ctrl-shift-v": "Ctrl+Shift+V",
+          "ctrl-v": "Ctrl+V",
+          "shift-insert": "Shift+Insert"
+        }
+      },
+      "control-center": {
+        "sidebar": {
+          "compact": "Kompakt",
+          "full": "Tam",
+          "none": "Yok"
+        }
+      },
       "dock-launcher-position": {
         "end": "Son",
         "none": "Hiçbiri",
         "start": "Baş"
       },
+      "edge": {
+        "bottom": "Alt",
+        "left": "Sol",
+        "right": "Sağ",
+        "top": "Üst"
+      },
+      "font-weight": {
+        "bold": "Kalın",
+        "book": "Kitap",
+        "default": "Varsayılan (çubuk)",
+        "heavy": "Ağır",
+        "light": "Hafif",
+        "medium": "Orta",
+        "regular": "Normal",
+        "semi-bold": "Yarı Kalın",
+        "semi-light": "Yarı Hafif",
+        "thin": "İnce",
+        "ultra-bold": "Ekstra Kalın",
+        "ultra-heavy": "Ekstra Ağır",
+        "ultra-light": "Ekstra Hafif"
+      },
       "hot-corners": {
+        "command": "Komut Çalıştır",
+        "control-center": "Kontrol Merkezi",
         "launcher": "Başlat",
+        "none": "Yok",
         "window-switcher": "Pencere Değiştirici"
+      },
+      "layer": {
+        "overlay": "Arayüz Katmanı",
+        "top": "En Üst"
+      },
+      "notification-urgency": {
+        "critical": "Kritik",
+        "low": "Düşük",
+        "normal": "Normal"
+      },
+      "orientation": {
+        "horizontal": "Yatay",
+        "vertical": "Dikey"
+      },
+      "panel-bar-alignment": {
+        "centered": "Ortalanmış",
+        "near-trigger": "Tetikleyiciye Yakın"
       },
       "panel-position": {
         "auto": "Çubuğu Takip Et"
       },
+      "screen-position": {
+        "bottom-center": "Alt Orta",
+        "bottom-left": "Alt Sol",
+        "bottom-right": "Alt Sağ",
+        "center": "Orta",
+        "center-left": "Orta Sol",
+        "center-right": "Orta Sağ",
+        "top-center": "Üst Orta",
+        "top-left": "Üst Sol",
+        "top-right": "Üst Sağ"
+      },
+      "shell": {
+        "panel-placement": {
+          "attached": "Bitişik",
+          "floating": "Yüzen"
+        },
+        "panel-transparency": {
+          "glass": "Cam",
+          "soft": "Yumuşak",
+          "solid": "Mat"
+        },
+        "password-style": {
+          "filled-circles": "Dolu Daireler",
+          "random-icons": "Rastgele Simgeler"
+        },
+        "shadow-direction": {
+          "center": "Orta",
+          "down": "Aşağı",
+          "down-left": "Sol Aşağı",
+          "down-right": "Sağ Aşağı",
+          "left": "Sol",
+          "right": "Sağ",
+          "up": "Yukarı",
+          "up-left": "Sol Yukarı",
+          "up-right": "Sağ Yukarı"
+        }
+      },
       "theme": {
         "mode": {
-          "dark": "Açık",
-          "light": "Koyu"
+          "dark": "Koyu",
+          "light": "Açık"
         },
         "source": {
           "built-in": "Dahili",
@@ -949,6 +1448,12 @@
           "wipe": "Sil",
           "zoom": "Yakınlaştır"
         }
+      },
+      "weather": {
+        "unit": {
+          "imperial": "Emperyal",
+          "metric": "Metrik"
+        }
       }
     },
     "plugins": {
@@ -957,37 +1462,495 @@
         "open-near-click": {
           "description": "Çubuk bileşenine tıklayarak açıldığında panelin nerede konumlandırılacağı",
           "label": "Çubuk Boyunca"
+        },
+        "placement": {
+          "description": "Paneli çubuğa iliştirin ya da çubuğun kenarında yüzen halde bırakın",
+          "label": "Yerleşim"
+        },
+        "position": {
+          "description": "Panel yüzer haldeyken ekrandaki konumu",
+          "label": "Konum"
         }
       },
       "plugins": {
+        "configure": "Yapılandır",
         "delete": "Sil",
-        "delete-confirm-title": "\"{name}\"i sil?"
+        "delete-confirm-desc": "Bu eklenti kaldırılacak ve diskten tamamen silinecek.",
+        "delete-confirm-title": "\"{name}\"i sil?",
+        "deprecated": "kullanımdan kaldırıldı",
+        "empty": "Etkin eklenti yok.",
+        "held-back": "eski sürüm",
+        "held-back-hint": "v{version} sürümü {required} eklenti API'sine ihtiyaç duyuyor; Noctalia sürümünüz en fazla {current} destekliyor. Yüklemek için Noctalia'yı güncelleyin.",
+        "incompatible-plugin-api": "uyumsuz eklenti API'si",
+        "remove": "Eklentiyi kaldır",
+        "requires": "Gereksinimler: {dependencies}",
+        "title": "Eklentiler",
+        "update-all": "Tümünü güncelle ({count})",
+        "update-available": "güncelleme mevcut",
+        "update-to": "v{version} sürümüne güncelle"
+      },
+      "settings": {
+        "empty": "Mevcut ayar yok."
       },
       "sources": {
+        "add": "Kaynak Ekle",
+        "add-title": "Eklenti Kaynağı Ekle",
+        "auto-update": "Eklentileri Otomatik Güncelle",
+        "auto-update-desc": "Arka planda etkin kaynaklardaki yeni sürümleri denetle ve yüklü eklentileri güncel tut",
+        "edit": "Kaynağı düzenle",
+        "edit-title": "Eklenti kaynağını düzenle",
+        "empty": "Hiçbir kaynak yapılandırılmamış.",
         "errors": {
-          "location-required": "Kaynak "
+          "duplicate-name": "Bu ID'ye sahip bir kaynak zaten var.",
+          "invalid-name": "Kaynak ID'si harf, rakam, '.', '_' veya '-' içermeli ve harf ya da rakamla başlamalıdır.",
+          "location-required": "Kaynak konumu gereklidir."
         },
+        "kind": {
+          "git": "Git",
+          "path": "Dosya Yolu"
+        },
+        "kind-label": "Tür",
         "location-label": "Konum",
-        "location-placeholder-git": "https://github.com/me/noctalia-plugins",
-        "location-placeholder-path": "~/dev/noctalia-plugins",
-        "save": "Kaydet"
+        "location-placeholder-git": "https://github.com/ben/noctalia-eklentilerim",
+        "location-placeholder-path": "~/dev/noctalia-eklentilerim",
+        "name-label": "Kaynak ID'si",
+        "name-placeholder": "eklentilerim",
+        "precedence-hint": "Aynı eklentiyi sunduklarında alt sıradaki kaynaklar üst sıradakileri ezer.",
+        "remove": "Kaynağı kaldır",
+        "save": "Kaydet",
+        "title": "Kaynaklar",
+        "update": "Kaynağı güncelle"
+      },
+      "store": {
+        "add": "Noctalia'ya Ekle",
+        "back-to-catalog": "Eklenti kataloğuna dön",
+        "categories": "Kategoriler",
+        "category-all": "Tümü",
+        "empty": "Eklenti bulunamadı",
+        "held-back": "Eski sürüm",
+        "held-back-hint": "Eklenti API'si {resolved} için v{version} kuruluyor. En yeni v{latest} sürümü, eklenti API'si {latestRequired} gerektirir; Noctalia sürümünüz en fazla {current} destekliyor.",
+        "incompatible": "Uyumsuz",
+        "incompatible-hint": "Eklenti API'si {required} gerektirir; Noctalia sürümünüz {oldest}–{current} arasını destekliyor.",
+        "loading": "Katalog yükleniyor...",
+        "no-readme": "Açıklama mevcut değil.",
+        "open-page": "Eklentinin sayfasını noctalia.dev'de aç",
+        "open-source": "Eklentinin kaynak kod deposunu aç",
+        "results-count": "{count} eklenti",
+        "search-placeholder": "Eklentilerde ara...",
+        "sort-added-at-asc": "Eklenme tarihine göre sırala (eskiden yeniye)",
+        "sort-added-at-desc": "Eklenme tarihine göre sırala (yeniden eskiye)",
+        "sort-name-asc": "İsme göre sırala (A-Z)",
+        "sort-name-desc": "İsme göre sırala (Z-A)",
+        "sort-updated-at-asc": "Güncellenme tarihine göre sırala (eskiden yeniye)",
+        "sort-updated-at-desc": "Güncellenme tarihine göre sırala (yeniden eskiye)",
+        "source-all": "Tüm kaynaklar",
+        "title": "Eklenti Mağazası"
       }
     },
     "schema": {
+      "accessibility": {
+        "high-contrast": {
+          "description": "Yüzey ve arka plan renklerini uç değerlere çekerek kontrastı artır",
+          "label": "Yüksek Kontrast"
+        }
+      },
       "appearance": {
+        "animation-speed": {
+          "description": "Tüm animasyonlar için hız çarpanı",
+          "label": "Animasyon Hızı"
+        },
+        "animations": {
+          "description": "Arayüz animasyonlarını aç veya kapat",
+          "label": "Animasyonlar"
+        },
+        "app-icon-color": {
+          "description": "Uygulama simgelerini renklendirirken kullanılacak palet rengi",
+          "label": "Uygulama Simge Rengi"
+        },
+        "app-icon-colorize": {
+          "description": "Kullanıcı arayüzündeki uygulama simgelerini aktif paletle uyumlu olacak şekilde yeniden renklendir",
+          "label": "Uygulama Simgelerini Renklendir"
+        },
+        "builtin-palette": {
+          "description": "Dahili katalogdan bir palet seç",
+          "label": "Dahili Palet"
+        },
+        "button-borders": {
+          "description": "Kullanıcı arayüzündeki tüm butonların etrafına dış hat çiz",
+          "label": "Buton Kenarlıkları"
+        },
+        "card-borders": {
+          "description": "Panellerin içindeki bölme kartlarına ve ayarlar penceresine dış hat çiz",
+          "label": "Kart Kenarlıkları"
+        },
+        "community-palette": {
+          "description": "Topluluk kataloğundan bir palet seç",
+          "label": "Topluluk Paleti",
+          "search-placeholder": "Paletlerde ara..."
+        },
+        "corner-roundness": {
+          "description": "Kullanıcı arayüzündeki kutuların ve kontrollerin köşe kavislerini ayarla",
+          "label": "Köşe Yuvarlaklığı"
+        },
+        "custom-palette": {
+          "description": "~/.config/noctalia/palettes/ klasöründen özel bir palet seç",
+          "label": "Özel Palet",
+          "search-placeholder": "Özel paletlerde ara..."
+        },
         "export-wallpaper-palette": {
           "button": "Özel Paleti Farklı Kaydet",
           "description": "Şuanki, duvar kağıdına göre oluşturulmuş paleti, tekrar kullanılabilir özel palet dosyası olarak farklı kaydet",
           "label": "Duvar Kağıdı Paletini Dışa Aktar"
         },
+        "font-family": {
+          "description": "Arayüz için kullanılacak yazı tipi ailesi",
+          "label": "Yazı Tipi Ailesi"
+        },
+        "global-shadow-alpha": {
+          "description": "Genel yüzey gölge şeffaflığı"
+        },
+        "global-shadow-direction": {
+          "description": "Gölgelerin yüzeylerden hangi yöne düşeceği"
+        },
+        "input-borders": {
+          "description": "Kullanıcı arayüzündeki metin alanları ve girdilerin etrafına dış hat çiz",
+          "label": "Girdi Kenarlıkları"
+        },
+        "language": {
+          "description": "Otomatik dil algılamasını geçersiz kıl",
+          "label": "Dil"
+        },
+        "palette-source": {
+          "description": "Renk paletinin nereden alınacağı",
+          "label": "Palet Kaynağı"
+        },
+        "popup-borders": {
+          "description": "Açılır pencerelerin ve açılır menülerin etrafına dış hat çiz",
+          "label": "Açılır Pencere Kenarlıkları"
+        },
+        "popup-shadows": {
+          "description": "Açılır pencerelerin ve açılır menülerin arkasına gölge ekle",
+          "label": "Açılır Pencere Gölgeleri"
+        },
+        "pure-black-dark": {
+          "description": "Koyu yüzeyleri tam siyaha sabitler, OLED panellerde bantlanmayı önler (yalnızca koyu mod)",
+          "label": "Tam Siyah"
+        },
         "theme-mode": {
           "description": "Günün saatine göre koyu, açık veya otomatik seçeneğini seçin",
           "label": "Tema Modu"
+        },
+        "ui-scale": {
+          "description": "Tüm arayüzü büyüt veya küçült",
+          "label": "Arayüz Ölçeği"
+        },
+        "wallpaper-generation-scheme": {
+          "description": "Duvar kağıdı renklerinin bir palete nasıl dönüştürüleceğini seçin",
+          "label": "Duvar Kağıdı Üretim Şeması"
+        }
+      },
+      "backdrop": {
+        "blur-intensity": {
+          "description": "Arka plan fonunun bulanıklık yoğunluğu",
+          "label": "Bulanıklık Yoğunluğu"
+        },
+        "enabled": {
+          "description": "Arka plan fonunu etkinleştir"
+        },
+        "tint-intensity": {
+          "description": "Arka plan fonunun renk tonu yoğunluğu",
+          "label": "Renk Tonu Yoğunluğu"
+        }
+      },
+      "bar": {
+        "auto-hide": {
+          "description": "'Kapalı' çubuğu hep görünür tutar; 'Açık' imleci ekran kenarına götürene kadar çubuğu gizler; 'Akıllı' boş çalışma alanında gösterip pencereler açıkken gizler"
+        },
+        "background-opacity": {
+          "description": "Çubuğun arka plan şeffaflığı"
+        },
+        "border": {
+          "description": "Çubuk kenarlığı için renk rolü; sabit hex renkleri de desteklenir",
+          "label": "Kenarlık"
+        },
+        "border-width": {
+          "description": "Çubuğun içe doğru kenarlık kalınlığı",
+          "label": "Kenarlık Kalınlığı"
+        },
+        "capsule-border": {
+          "description": "Varsayılan kapsül kenarlığı renk rolü; sabit hex renkleri de desteklenir",
+          "label": "Kapsül Kenarlığı"
+        },
+        "capsule-fill": {
+          "description": "Varsayılan kapsül arka plan renk rolü; sabit hex renkleri de desteklenir",
+          "label": "Kapsül Dolgusu"
+        },
+        "capsule-foreground": {
+          "description": "Kapsül içindeki varsayılan simge ve yazı renk rolü; sabit hex renkleri de desteklenir",
+          "label": "Kapsül Ön Planı"
+        },
+        "capsule-opacity": {
+          "description": "Araç kapsülü arka planlarının şeffaflığı",
+          "label": "Kapsül Şeffaflığı"
+        },
+        "capsule-padding": {
+          "description": "Araç kapsüllerinin iç boşluğu",
+          "label": "Kapsül İç Boşluğu"
+        },
+        "capsule-radius": {
+          "description": "Araç kapsülleri, çalışma alanı göstergeleri ve görev çubuğu grupları için varsayılan köşe kavisi; otomatik şekil için boş bırakın veya kare köşeler için 0 yapın",
+          "label": "Kapsül Kavisi"
+        },
+        "capsule-thickness": {
+          "description": "Çubuk genelinde kapsül boyutunun çubuk kalınlığına oranı (1.0 çubuğu tamamen doldurur)",
+          "label": "Kapsül Kalınlığı"
+        },
+        "center-widgets": {
+          "description": "Çubuğun ortasındaki araçlar",
+          "label": "Orta Araçlar"
+        },
+        "concave-edge-corners": {
+          "description": "Çubuğun iki köşesine içbükey çentikler açar (Kenar Boşluğunun 0 olmasını gerektirir); Uç Boşlukları 0 olduğunda çubuğun iç kenarındaki köşeler oyulur, aksi takdirde ekran kenarına dokunan köşeler oyulur",
+          "label": "İçbükey Kenar Köşeleri"
+        },
+        "contact-shadow": {
+          "description": "Derinlik hissi vermek için çubuğa iliştirilmiş panel ile çubuk arasındaki koyu geçiş"
+        },
+        "content-padding": {
+          "description": "Çubuk içerik alanının iç boşluğu",
+          "label": "İçerik Boşluğu"
+        },
+        "content-scale": {
+          "description": "Çubuk içeriği için ölçek çarpanı",
+          "label": "İçerik Ölçeği"
+        },
+        "corner-bottom-left": {
+          "description": "Çubuk için sol alt köşe kavisi"
+        },
+        "corner-bottom-right": {
+          "description": "Çubuk için sağ alt köşe kavisi"
+        },
+        "corner-radius": {
+          "description": "Çubuğun köşe kavisi"
+        },
+        "corner-top-left": {
+          "description": "Çubuk için sol üst köşe kavisi"
+        },
+        "corner-top-right": {
+          "description": "Çubuk için sağ üst köşe kavisi"
+        },
+        "dead-zone-action": {
+          "description": "Çubuğun hiçbir araç bulunmayan kısımlarında çalıştırılacak eylem"
+        },
+        "edge-margin": {
+          "description": "Çubuk ile üzerinde bulunduğu ekran kenarı arasındaki boşluk; o kenara sıfır oturması için 0 piksel yapın"
+        },
+        "enabled": {
+          "description": "Bu çubuğu göster veya gizle"
+        },
+        "end-widgets": {
+          "description": "Çubuğun sonundaki (sağ/alt) araçlar",
+          "label": "Son Araçlar"
+        },
+        "ends-margin": {
+          "description": "Çubuğu uzunluğu boyunca her iki ucundan kısaltır; tam genişlik veya tam yükseklik için 0 piksel yapın"
+        },
+        "font-family": {
+          "description": "Bu çubuğun araçları için yazı tipi ailesi; genel yazı tipini devralmak için boş bırakın (araçlara özel 'Yazı Tipi Ailesi' ayarı bunu ezer)",
+          "label": "Yazı Tipi Ailesi"
+        },
+        "font-weight": {
+          "description": "Bu çubuktaki araç yazıları için varsayılan kalınlık.",
+          "label": "Yazı Kalınlığı"
+        },
+        "hover-highlight": {
+          "description": "Fareyle üzerine gelinen aracı kendi ön plan rengiyle hafifçe renklendir",
+          "label": "Üzerine Gelme Vurgusu"
+        },
+        "layer": {
+          "description": "Çubuğu tam ekran uygulamaların üzerinde göstermek için Arayüz Katmanını kullanın; iliştirilmiş paneller çubuğu takip eder",
+          "label": "Wayland Katmanı"
+        },
+        "opposite-edge-margin": {
+          "description": "Çubuğun ekran kenarından uzak, iç kısmında fazladan ayrılmış boşluk; büyütülmüş pencereler sınırları yok saydığında kullanın"
+        },
+        "panel-overlap": {
+          "description": "İliştirilmiş bir panelin birleşim yerini gizlemek için çubuk kenarının üzerine bineceği piksel miktarı (çizgi veya boşluk görüyorsanız ayarlayın)",
+          "label": "Panel Örtüşmesi"
+        },
+        "position": {
+          "description": "Çubuğun ekranın hangi kenarında duracağı"
+        },
+        "reserve-space": {
+          "description": "Pencereleri çubuk kenarından uzağa it"
+        },
+        "shadow": {
+          "description": "Genel yüzey gölgesini çubuktan düşür"
+        },
+        "show-on-workspace-switch": {
+          "description": "Aktif çalışma alanı değiştiğinde çubuğu kısa süreliğine göster",
+          "label": "Çalışma Alanı Değişiminde Göster"
+        },
+        "start-widgets": {
+          "description": "Çubuğun başındaki (sol/üst) araçlar",
+          "label": "Baş Araçlar"
+        },
+        "thickness": {
+          "description": "Piksel cinsinden çubuk kalınlığı",
+          "label": "Kalınlık"
+        },
+        "widget-capsules": {
+          "description": "Araçları kapsül arka planları ile sar",
+          "label": "Araç Kapsülleri"
+        },
+        "widget-color": {
+          "description": "Bu çubuktaki araçlar için varsayılan simge ve yazı renk rolü; sabit hex renkleri de desteklenir",
+          "label": "Araç Rengi"
+        },
+        "widget-icon-color": {
+          "description": "Bu çubuktaki simgeler için araç rengini ezer; sabit hex renkleri de desteklenir",
+          "label": "Araç Simge Rengi"
+        },
+        "widget-spacing": {
+          "description": "Çubuktaki araçlar arasındaki boşluk",
+          "label": "Araç Boşluğu"
+        }
+      },
+      "desktop": {
+        "hot-corners-bottom-left": {
+          "description": "Fare imleci sol alt köşeye çarptığında yapılacak eylem",
+          "label": "Sol Alt Köşe"
+        },
+        "hot-corners-bottom-left-command": {
+          "description": "Sol alt köşeye çarpıldığında çalıştırılacak konsol komutu",
+          "label": "Komut"
+        },
+        "hot-corners-bottom-right": {
+          "description": "Fare imleci sağ alt köşeye çarptığında yapılacak eylem",
+          "label": "Sağ Alt Köşe"
+        },
+        "hot-corners-bottom-right-command": {
+          "description": "Sağ alt köşeye çarpıldığında çalıştırılacak konsol komutu",
+          "label": "Komut"
+        },
+        "hot-corners-delay-ms": {
+          "description": "Eylem tetiklenmeden önce imlecin köşede ne kadar süre kalması gerektiği (0 = anında)",
+          "label": "Etkinleşme Gecikmesi"
+        },
+        "hot-corners-enabled": {
+          "description": "Fare imlecini ekran köşelerine iterek eylemleri tetikleyin",
+          "label": "Sıcak Köşeler"
+        },
+        "hot-corners-top-left": {
+          "description": "Fare imleci sol üst köşeye çarptığında yapılacak eylem",
+          "label": "Sol Üst Köşe"
+        },
+        "hot-corners-top-left-command": {
+          "description": "Sol üst köşeye çarpıldığında çalıştırılacak konsol komutu",
+          "label": "Komut"
+        },
+        "hot-corners-top-right": {
+          "description": "Fare imleci sağ üst köşeye çarptığında yapılacak eylem",
+          "label": "Sağ Üst Köşe"
+        },
+        "hot-corners-top-right-command": {
+          "description": "Sağ üst köşeye çarpıldığında çalıştırılacak konsol komutu",
+          "label": "Komut"
+        },
+        "screen-corners-enabled": {
+          "description": "Siyah bir arayüz ile ekran köşelerini yuvarlaklaştır",
+          "label": "Ekran Köşeleri"
+        },
+        "screen-corners-size": {
+          "description": "Yuvarlatılmış ekran köşelerinin piksel cinsinden kavisi",
+          "label": "Köşe Boyutu"
+        },
+        "widgets": {
+          "description": "Masaüstünde araçları göster",
+          "label": "Masaüstü Araçları"
+        },
+        "widgets-editor": {
+          "button": "Düzenleyiciyi Aç/Kapat",
+          "description": "Masaüstü araçları ekle, taşı ve boyutlandır",
+          "label": "Araç Düzenleyici"
         }
       },
       "dock": {
+        "active-icon-opacity": {
+          "description": "Odaklanılan rıhtım simgesinin şeffaflığı",
+          "label": "Aktif Simge Şeffaflığı"
+        },
+        "active-icon-scale": {
+          "description": "Odaklanılan rıhtım simgesinin ölçeği",
+          "label": "Aktif Simge Ölçeği"
+        },
+        "active-monitor-only": {
+          "description": "Yalnızca aktif monitörde çalışan uygulamaları göster",
+          "label": "Yalnızca Aktif Monitör"
+        },
+        "auto-hide": {
+          "description": "'Kapalı' rıhtımı hep görünür tutar; 'Açık' imleci ekran kenarına götürene kadar gizler; 'Akıllı' boş çalışma alanında gösterip pencereler açıkken gizler"
+        },
+        "background-opacity": {
+          "description": "Rıhtımın arka plan şeffaflığı"
+        },
+        "border": {
+          "description": "Rıhtım kenarlığı için renk rolü; sabit hex renkleri de desteklenir",
+          "label": "Kenarlık"
+        },
+        "border-width": {
+          "description": "Rıhtımın içe doğru kenarlık kalınlığı",
+          "label": "Kenarlık Kalınlığı"
+        },
+        "concave-edge-corners": {
+          "description": "Ekran kenarına temas eden tarafa içbükey köşeler açar; ekran kenarına olan boşluğun 0 olmasını gerektirir",
+          "label": "İçbükey Kenar Köşeleri"
+        },
+        "corner-bottom-left": {
+          "description": "Rıhtım için sol alt köşe kavisi"
+        },
+        "corner-bottom-right": {
+          "description": "Rıhtım için sağ alt köşe kavisi"
+        },
+        "corner-radius": {
+          "description": "Rıhtımın köşe kavisi"
+        },
+        "corner-top-left": {
+          "description": "Rıhtım için sol üst köşe kavisi"
+        },
+        "corner-top-right": {
+          "description": "Rıhtım için sağ üst köşe kavisi"
+        },
+        "cross-axis-padding": {
+          "description": "Rıhtımın dikey (çapraz) ekseni boyunca iç boşluk (simgeler ile ekran kenarı arası)"
+        },
+        "edge-margin": {
+          "description": "En yakın ekran kenarına olan mesafe; pozitif değerler rıhtımı ekrandan uzağa doğru yüzdürür"
+        },
+        "enabled": {
+          "description": "Rıhtımı göster veya gizle"
+        },
+        "ends-margin": {
+          "description": "Rıhtımın ana ekseni boyunca her iki ucundan olan iç girinti"
+        },
+        "icon-size": {
+          "description": "Rıhtım simgelerinin piksel cinsinden boyutu",
+          "label": "Simge Boyutu"
+        },
+        "inactive-icon-opacity": {
+          "description": "Odaklanılmamış rıhtım simgelerinin şeffaflığı",
+          "label": "İnaktif Simge Şeffaflığı"
+        },
+        "inactive-icon-scale": {
+          "description": "Odaklanılmamış rıhtım simgelerinin ölçeği",
+          "label": "İnaktif Simge Ölçeği"
+        },
+        "item-spacing": {
+          "description": "Rıhtım öğeleri arasındaki boşluk",
+          "label": "Öğe Boşluğu"
+        },
         "launcher-custom-image": {
-          "description": "Dock başlat butonunda ikon yerine özel bir görsel kullan",
+          "description": "Rıhtım başlat butonunda ikon yerine özel bir görsel kullan",
           "label": "Özel Başlat Resmi",
           "placeholder": "Bir görselin dosya yolu"
         },
@@ -996,46 +1959,188 @@
           "label": "Özel Görseli Renklendir"
         },
         "launcher-icon": {
-          "description": "Dock'taki başlat butonun ikonu",
+          "description": "Rıhtımdaki başlat butonun ikonu",
           "label": "Başlat İkonu"
         },
         "launcher-position": {
-          "description": "Dock'un başında veya sonunda bir başlat butonu göster",
+          "description": "Rıhtımın başında veya sonunda bir başlat butonu göster",
           "label": "Başlat Butonu"
+        },
+        "layer": {
+          "description": "Rıhtımı tam ekran uygulamaların üzerinde göstermek için Arayüz Katmanını kullanın",
+          "label": "Wayland Katmanı"
+        },
+        "magnification": {
+          "description": "İmlece yakın rıhtım simgelerini macOS tarzında büyüt",
+          "label": "Büyütme"
+        },
+        "magnification-scale": {
+          "description": "İmlecin merkezindeki maksimum simge büyütme çarpanı (1.0 büyütmeyi devre dışı bırakır)",
+          "label": "Büyütme Ölçeği"
+        },
+        "main-axis-padding": {
+          "description": "Simge sırasının uçlarındaki iç boşluk (ilk simgeden önce ve son simgeden sonra)"
+        },
+        "monitors": {
+          "description": "Rıhtımın hangi monitörlerde gösterileceğini seçin (tümü için boş bırakın); aktif monitör filtrelemesi bu monitörler içinde uygulanır",
+          "label": "Monitörler"
+        },
+        "pinned-apps": {
+          "description": "Rıhtıma sabitlenmiş uygulamaların masaüstü girdi kimlikleri",
+          "label": "Sabitlenmiş Uygulamalar"
+        },
+        "position": {
+          "description": "Rıhtımın ekranın hangi kenarında duracağı"
+        },
+        "reserve-space": {
+          "description": "Pencereleri rıhtım kenarından uzağa it"
+        },
+        "shadow": {
+          "description": "Genel yüzey gölgesini rıhtımdan düşür"
+        },
+        "show-dots": {
+          "description": "Rıhtım simgelerinin altında çalışan pencereleri belirten noktaları göster",
+          "label": "Noktaları Göster"
+        },
+        "show-instance-count": {
+          "description": "Açık olan pencere sayısını gösteren bir rozet göster",
+          "label": "Pencere Sayısını Göster"
+        },
+        "show-running": {
+          "description": "Sabitlenmemiş olsa bile çalışan uygulamaları göster",
+          "label": "Çalışanları Göster"
         }
       },
       "hooks": {
+        "command-placeholder": "konsol komutu veya betik yolu",
         "events": {
           "battery-charging": {
-            "description": "Pil şarj olmaya başladığında çalışacak komut",
+            "description": "Pil şarj olmaya başladığında çalıştırılacak komut",
             "label": "Pil Şarj Olurken"
           },
           "battery-discharging": {
-            "description": "Pil deşarj olmaya başladığında çalışacak komut",
+            "description": "Pil deşarj olmaya başladığında çalıştırılacak komut",
             "label": "Pil Deşarj Olurken"
           },
+          "battery-percentage-changed": {
+            "description": "Pil yüzdesi değiştiğinde çalıştırılacak komut",
+            "label": "Pil Yüzdesi Değiştiğinde"
+          },
+          "battery-plugged": {
+            "description": "Pil tamamen şarj olduğunda veya şarj beklerken çalıştırılacak komut",
+            "label": "Pil Fişe Takıldığında"
+          },
+          "bluetooth-disabled": {
+            "description": "Bluetooth kapatıldığında çalıştırılacak komut",
+            "label": "Bluetooth Kapatıldığında"
+          },
+          "bluetooth-enabled": {
+            "description": "Bluetooth açıldığında çalıştırılacak komut",
+            "label": "Bluetooth Açıldığında"
+          },
+          "colors-changed": {
+            "description": "Aktif renk paleti değiştiğinde çalıştırılacak komut",
+            "label": "Renkler Değiştiğinde"
+          },
+          "logging-out": {
+            "description": "Oturumu kapatmadan önce çalıştırılacak komut",
+            "label": "Çıkış Yaparken"
+          },
+          "power-profile-changed": {
+            "description": "Aktif UPower/PPD güç profili değiştiğinde çalıştırılacak komut",
+            "label": "Güç Profili Değiştiğinde"
+          },
+          "rebooting": {
+            "description": "Sistemi yeniden başlatmadan önce çalıştırılacak komut",
+            "label": "Yeniden Başlatırken"
+          },
+          "session-locked": {
+            "description": "Oturum kilitlendiğinde çalıştırılacak komut",
+            "label": "Oturum Kilitlendiğinde"
+          },
+          "session-unlocked": {
+            "description": "Oturumun kilidi açıldıktan sonra çalıştırılacak komut",
+            "label": "Oturum Kilidi Açıldığında"
+          },
+          "shutting-down": {
+            "description": "Sistemi kapatmadan önce çalıştırılacak komut",
+            "label": "Sistem Kapanırken"
+          },
+          "started": {
+            "description": "Noctalia başladıktan sonra çalıştırılacak komut",
+            "label": "Başlangıçta"
+          },
           "theme-mode-changed": {
-            "description": "Çözümlenen tema modu açık ve koyu arasında değiştiğinde çalıştırılacak komut",
+            "description": "Tema modu açık ve koyu arasında değiştiğinde çalıştırılacak komut",
             "label": "Tema Modu Değiştiğinde"
           },
           "wallpaper-changed": {
-            "description": "Duvar kağıdı değiştiğinde çalıştırılacak komut; NOCTALIA_WALLPAPER_PATH ve NOCTALIA_WALLPAPER_CONNECTOR isimlerini sağlar",
+            "description": "Duvar kağıdı değiştiğinde çalıştırılacak komut; ortam değişkeni olarak NOCTALIA_WALLPAPER_PATH ve NOCTALIA_WALLPAPER_CONNECTOR sağlar",
             "label": "Duvar Kağıdı Değiştiğinde"
+          },
+          "wifi-disabled": {
+            "description": "Wi-Fi kapatıldığında çalıştırılacak komut",
+            "label": "Wi-Fi Kapatıldığında"
+          },
+          "wifi-enabled": {
+            "description": "Wi-Fi açıldığında çalıştırılacak komut",
+            "label": "Wi-Fi Açıldığında"
           }
+        }
+      },
+      "idle": {
+        "behaviors": {
+          "description": "Ön tanımlı (kilitle, ekranı kapat, uykuya dal) veya özel komutlarla isimlendirilmiş boşta kalma eylemleri, zaman aşımları, uyanma eşleştirmesi ve sıralama",
+          "label": "Davranışlar"
+        },
+        "pre-action-fade": {
+          "description": "Boşta kalma komutundan önce tam ekranın kararacağı saniye süresi (0 devre dışı bırakır)",
+          "label": "Boştayken Karartma"
         }
       },
       "keybinds": {
         "cancel": {
+          "description": "Açılır pencereleri kapatır, panelleri gizler veya geçerli işlemi iptal eder",
           "label": "İptal Et"
+        },
+        "copy": {
+          "description": "Geçerli seçimi veya öğeyi kopyalar",
+          "label": "Kopyala"
         },
         "delete": {
           "description": "Seçilen öğeyi sil",
           "label": "Sil"
         },
+        "down": {
+          "description": "Odağı veya seçimi bir satır aşağı taşır",
+          "label": "Aşağı Git"
+        },
+        "left": {
+          "description": "Odağı veya seçimi sola taşır",
+          "label": "Sola Git"
+        },
+        "right": {
+          "description": "Odağı veya seçimi sağa taşır",
+          "label": "Sağa Git"
+        },
         "save": {
+          "description": "Geçerli seçimi veya öğeyi kaydeder",
           "label": "Kaydet"
         },
+        "tab-next": {
+          "description": "Odağı bir sonraki kontrole geçirir",
+          "label": "Sonrakine Odaklan"
+        },
+        "tab-previous": {
+          "description": "Odağı bir önceki kontrole geçirir",
+          "label": "Öncekine Odaklan"
+        },
+        "up": {
+          "description": "Odağı veya seçimi bir satır yukarı taşır",
+          "label": "Yukarı Git"
+        },
         "validate": {
+          "description": "Seçimleri onaylar, girdileri gönderir veya odaklanılmış öğeyi etkinleştirir",
           "label": "Onayla"
         }
       },
@@ -1053,37 +2158,158 @@
           "label": "Masaüstü Yakalama"
         },
         "enabled": {
-          "description": "Oturum kitleme, logind entegrasyonu, ve oturum kilitleme aksiyonlarını aç",
+          "description": "Oturum kilitleme, logind entegrasyonu ve oturum kilitleme eylemlerini aç",
           "label": "Kilit Ekranı"
         },
         "fingerprint": {
           "description": "Şifreyle birlikte parmak izini kullanarak fprintd aracılığıyla kilidi aç",
           "label": "Parmak İziyle Aç"
         },
+        "lock-before-suspend": {
+          "description": "Sistem uyumadan önce oturumu kilitle (kapak kapatma, systemctl suspend, hazırda bekletme); 'Kilitle & Beklet' eylemleri her halükarda önce kilitler",
+          "label": "Uyumadan Önce Kilitle"
+        },
         "monitors": {
           "description": "Kilit ekranının hangi monitörlerde görüneceğini seçin; tüm monitörlerde görünmesi için boş bırakın",
           "label": "Monitörler"
         },
         "tint-intensity": {
-          "description": "Kilit ekranı arka planı üzerindeki yüzey renk tonu",
+          "description": "Kilit ekranı arka planı üzerindeki yüzey renk tonu yoğunluğu",
           "label": "Renk Tonu Yoğunluğu"
         },
         "wallpaper": {
           "description": "Kilit ekranı özel arka planı; masaüstü duvar kağıdını kullanmak için boş bırakın",
-          "label": "Duvar kağıdı",
-          "placeholder": "Masaütü duvar kağıdını kullan"
+          "label": "Duvar Kağıdı",
+          "placeholder": "Masaüstü duvar kağıdını kullan"
         },
         "widgets": {
-          "description": "Kilit ekranında ayarlanabilir bileşenler göster",
-          "label": "Kilit Ekranı Bileşenleri"
+          "description": "Kilit ekranında araçları göster",
+          "label": "Kilit Ekranı Araçları"
         },
         "widgets-editor": {
-          "button": "Editörü aç",
-          "description": "Kilit ekranına bileşenler ekleyin, taşıyın, ve yeniden boyutlandırın",
-          "label": "Kilit Ekranı Bileşeni Editörü"
+          "button": "Düzenleyiciyi Aç",
+          "description": "Kilit ekranına araçlar ekleyin, taşıyın ve yeniden boyutlandırın",
+          "label": "Kilit Ekranı Araç Düzenleyici"
+        }
+      },
+      "notifications": {
+        "allowed-urgencies": {
+          "description": "Harici bildirimleri yalnızca seçili aciliyet düzeylerinde göster",
+          "label": "İzin Verilen Aciliyetler"
+        },
+        "blacklist": {
+          "description": "Eşleşen göndericileri gizle (uygulama adı, masaüstü girdisi veya kategori)",
+          "label": "Bildirim Kara Listesi"
+        },
+        "blacklist-allow-critical": {
+          "description": "Kara listedeki göndericilerin kritik bildirimlerini yine de göster"
+        },
+        "border": {
+          "description": "Bildirim kutularının etrafına dış hat çiz",
+          "label": "Kenarlık"
+        },
+        "collapse-on-dismiss": {
+          "description": "Bir bildirim kapatıldığında boşlukları kapatmak için kalan bildirimleri kaydır",
+          "label": "Kapatıldığında Daralt"
+        },
+        "daemon": {
+          "description": "Dahili bildirim sunucusunu etkinleştir",
+          "label": "Bildirim Sunucusu"
+        },
+        "filters": {
+          "description": "Bildirimler, geçmiş ve sesler için göndericiye özel kurallar; eşleşen ilk etkin filtre kazanır",
+          "label": "Bildirim Filtreleri"
+        },
+        "history-retention-hours": {
+          "description": "Belirtilen saatten daha eski bildirim geçmişi kayıtlarını otomatik olarak sil (Sonsuza dek tutmak için 0 yapın)",
+          "label": "Saklama Süresi"
+        },
+        "layer": {
+          "description": "Bildirimleri tam ekran uygulamaların üzerinde göstermek için Arayüz Katmanını kullanın",
+          "label": "Wayland Katmanı"
+        },
+        "max-visible": {
+          "description": "Ekranda aynı anda görünebilen maksimum bildirim sayısı (Mevcut tüm alanı doldurmak için 0 yapın)",
+          "label": "Maksimum Görünür Bildirim"
+        },
+        "monitors": {
+          "description": "Bildirimlerin hangi monitörlerde görüneceğini seçin; tüm monitörlerde görünmesi için boş bırakın",
+          "label": "Monitörler"
+        },
+        "offset-x": {
+          "description": "Ekran veya çubuk kenarından mutlak yatay boşluk",
+          "label": "Yatay Boşluk"
+        },
+        "offset-y": {
+          "description": "Ekran veya çubuk kenarından mutlak dikey boşluk",
+          "label": "Dikey Boşluk"
+        },
+        "position": {
+          "description": "Bildirimler için ekran konumu",
+          "label": "Ekran Konumu"
+        },
+        "scale": {
+          "description": "Bildirimleri arayüz ölçeğine göre ölçeklendir",
+          "label": "Boyut"
+        },
+        "show-actions": {
+          "description": "Bildirimlerde eylem butonlarını göster; devre dışı bırakıldığında, bildirime tıklamak varsayılan eylemini tetikler",
+          "label": "Eylem Butonlarını Göster"
+        },
+        "show-app-name": {
+          "description": "Bildirimlerde gönderici uygulamanın adını göster",
+          "label": "Uygulama Adını Göster"
+        },
+        "toast-opacity": {
+          "description": "Bildirimlerin arka plan şeffaflığı",
+          "label": "Arka Plan Şeffaflığı"
         }
       },
       "panels": {
+        "borders": {
+          "description": "Yüzen panellerin etrafına dış hat çiz",
+          "label": "Kenarlıklar"
+        },
+        "control-center-sidebar": {
+          "description": "Kenar çubuğunun nasıl görüntüleneceğini seçin",
+          "label": "Kenar Çubuğu"
+        },
+        "control-center-sidebar-section": {
+          "description": "Belirli bir sekme açıldığında (ses, medya vb.)",
+          "label": "Sekme Açarken Kenar Çubuğu"
+        },
+        "control-center-tabs": {
+          "description": "Kontrol Merkezinde hangi sekmelerin görüneceğini seçin; işaretsiz sekmeler gizlenir",
+          "label": "Kontrol Merkezi Sekmeleri"
+        },
+        "control-center-width": {
+          "description": "Piksel cinsinden Kontrol Merkezi panelinin genişliği (kompakt ve kenar çubuğu olmayan modlar buna göre küçülür)",
+          "label": "Kontrol Merkezi Genişliği"
+        },
+        "floating-layer": {
+          "description": "Girdi yöntemi penceresi yüzen panellerin arkasında gizleniyorsa 'En Üst' katmanını kullanın; 'Arayüz Katmanı' panelleri tam ekran içeriğinin üzerinde tutar",
+          "label": "Yüzen Panel Katmanı"
+        },
+        "floating-offset": {
+          "description": "Yüzen veya ayrılmış bir panel ile çubuk kenarı arasındaki piksel cinsinden boşluk",
+          "label": "Yüzen Panel Boşluğu"
+        },
+        "home-session-button": {
+          "description": "Ana sekme başlığında oturum eylemleri butonunu göster",
+          "label": "Başlık Oturum Butonunu Göster"
+        },
+        "home-shortcuts": {
+          "description": "Ana sekme için en fazla altı kısayol butonu seçin",
+          "label": "Ana Sekme Kısayolları"
+        },
+        "home-shortcuts-show-labels": {
+          "description": "Ana sekmedeki kısayol ikonlarının altında metin etiketlerini göster",
+          "label": "Kısayol Etiketlerini Göster"
+        },
+        "launcher-app-actions": {
+          "description": "Sonuçlarda uygulamaların yanında uygulama eylem girdilerini de göster",
+          "label": "Uygulama Eylemlerini Göster"
+        },
         "launcher-app-grid": {
           "description": "Sonuçlar yalnızca uygulamalarken uygulamaları, altlarında etiketleri yer alan bir uygulama ikonu ızgarası olarak göster",
           "label": "Uygulama Izgarası Görünümü"
@@ -1123,6 +2349,10 @@
         "launcher-global-windows": {
           "description": "Pencereleri önek olmadan aramada göster",
           "label": "Global Aramada Pencereler"
+        },
+        "launcher-pinned-apps": {
+          "description": "Başlat menüsüne sabitlenmiş uygulamaların masaüstü girdi ID'leri; başlat menüsü açıldığında ilk olarak onlar görünür",
+          "label": "Sabitlenmiş Uygulamalar"
         },
         "launcher-prefix-calculator": {
           "description": "Hesap makinesi hesaplarını tetiklemek için önek",
@@ -1166,7 +2396,8 @@
           "label": "Kullanıma Göre Sırala"
         },
         "list-item-background": {
-          "description": "Her bir başlat ve pano listesi elemanına yuvarlak bir arka plan çiz"
+          "description": "Her bir başlat ve pano listesi elemanına yuvarlak bir arka plan çiz",
+          "label": "Liste Öğesi Arka Planı"
         },
         "open-near-click-clipboard": {
           "description": "Çubuk bileşenine tıklayarak açıldığında panonun nerede konumlandırılacağı",
@@ -1188,63 +2419,426 @@
           "description": "Çubuk bileşenine tıklayarak açıldığında duvar kağıdı seçicisinin nerede konumlandırılacağı",
           "label": "Çubuk Boyunca"
         },
+        "panel-anchor-bar": {
+          "description": "Panellerin açıldığında tutunacağı çubuk; paneli açan aracı, kısayolu veya rıhtımı takip etmesi için boş bırakın",
+          "label": "Çapalanan Çubuk"
+        },
+        "placement-clipboard": {
+          "description": "Panonun çubuğa mı tutunacağını, yoksa ekranda seçilen konumda mı yer alacağını seçin",
+          "label": "Yerleşim"
+        },
+        "placement-control-center": {
+          "description": "Kontrol Merkezinin çubuğa mı tutunacağını, yoksa ekranda seçilen konumda mı yer alacağını seçin",
+          "label": "Yerleşim"
+        },
         "placement-launcher": {
           "description": "Başlatın çubuğa mı tutunacağını, yoksa ekranda seçilen konumda mı yer alacağını seçin",
-          "label": "Konumlandırma"
+          "label": "Yerleşim"
+        },
+        "placement-polkit": {
+          "description": "Polkit doğrulamasının çubuğa mı tutunacağını, yoksa ekranda seçilen konumda mı yer alacağını seçin",
+          "label": "Yerleşim"
+        },
+        "placement-session": {
+          "description": "Oturum panelinin çubuğa mı tutunacağını, yoksa ekranda seçilen konumda mı yer alacağını seçin",
+          "label": "Yerleşim"
         },
         "placement-wallpaper": {
           "description": "Duvar kağıdı seçicisinin çubuğa mı tutunacağını veya seçili ekran konumunda mı açılacağını seçin",
-          "label": "Konumlandırma"
+          "label": "Yerleşim"
         },
         "position-clipboard": {
-          "description": "Panonun nerede açılacağı; Çubuğu Takip Et, çubuğa yakın olmasını sağlar"
+          "description": "Panonun nerede açılacağı; Çubuğu Takip Et, çubuğa yakın olmasını sağlar",
+          "label": "Konum"
         },
         "position-control-center": {
-          "description": "Kontrol Merkezinin nerede açılacağı; Çubuğu Takip Et, çubuğa yakın olmasını sağlar"
+          "description": "Kontrol Merkezinin nerede açılacağı; Çubuğu Takip Et, çubuğa yakın olmasını sağlar",
+          "label": "Konum"
         },
         "position-launcher": {
           "description": "Başlatın nerede açılacağı; Çubuğu Takip Et, çubuğa yakın olmasını sağlar",
           "label": "Konum"
         },
         "position-polkit": {
-          "description": "Polkit doğrulamasının nerede açılacağı; Çubuğu Takip Et, çubuğa yakın olmasını sağlar"
+          "description": "Polkit doğrulamasının nerede açılacağı; Çubuğu Takip Et, çubuğa yakın olmasını sağlar",
+          "label": "Konum"
         },
         "position-session": {
-          "description": "Oturum panelinin nerede açılacağı; Çubuğu Takip Et, çubuğa yakın olmasını sağlar"
+          "description": "Oturum panelinin nerede açılacağı; Çubuğu Takip Et, çubuğa yakın olmasını sağlar",
+          "label": "Konum"
         },
         "position-wallpaper": {
           "description": "Duvar kağıdı seçicisinin nerede açılacağı; Çubuğu Takip Et, çubuğa yakın olmasını sağlar",
           "label": "Konum"
+        },
+        "shadow": {
+          "description": "Genel yüzey gölgesini panel yüzeylerinden düşür"
+        },
+        "transparency-mode": {
+          "description": "Yüzen panel şeffaflığı ve kart saydamlığı da dahil olmak üzere panel camı stili",
+          "label": "Şeffaflık"
+        }
+      },
+      "power": {
+        "session-actions": {
+          "description": "Oturum paneli girdileri, sıralama, özel komutlar ve simgeler",
+          "label": "Girdiler"
+        },
+        "session-grid": {
+          "description": "Oturum paneli eylemlerini bir ızgara düzeninde göster",
+          "label": "Izgara Düzeni"
+        },
+        "session-grid-columns": {
+          "description": "Izgara düzeni için sütun sayısı",
+          "label": "Sütunlar"
+        },
+        "session-show-shortcuts": {
+          "description": "Kısayol ipuçlarını göster veya gizle",
+          "label": "Kısayolları Göster"
         }
       },
       "services": {
+        "audio-overdrive": {
+          "description": "Ses seviyesinin %100'ün üzerine çıkmasına izin ver",
+          "label": "Ses Yükseltici"
+        },
+        "calendar": {
+          "description": "Çevrimiçi takvim hesaplarınızdaki etkinlikleri göster",
+          "label": "Takvim"
+        },
+        "calendar-add": {
+          "button": "Hesap Ekle",
+          "description": "iCloud, CalDAV, Google hesapları veya bir ICS URL'si ekleyin",
+          "label": "Takvim Hesapları"
+        },
+        "calendar-credentials": {
+          "button": "Yeniden Dene",
+          "description-cancelled": "Gizli Servis istemi iptal edildi; hazır olduğunuzda tekrar deneyin",
+          "description-error": "Takvim kimlik bilgilerine Gizli Servis üzerinden erişilemedi",
+          "description-locked": "Takvim kimlik bilgileri kilitli veya erişim reddedildi; Gizli Servisin kilidini açın ve tekrar deneyin",
+          "description-migration": "Düz metin takvim kimlik bilgileri Gizli Servise taşınmayı bekliyor; bunlar takvim senkronizasyonu için kullanılmaz",
+          "description-opening": "Takvim kimlik bilgileri Gizli Servis üzerinden açılıyor",
+          "description-unavailable": "Bu oturumda kullanılabilecek hiçbir Gizli Servis sağlayıcısı yok",
+          "label": "Takvim Kimlik Bilgisi Deposu"
+        },
+        "calendar-edit": {
+          "button": "Düzenle",
+          "button-reconnect": "Yeniden Bağlan",
+          "button-retry": "Yeniden Dene",
+          "description": "Bu takvim hesabını güncelle",
+          "description-locked": "Yenileme jetonu kilitli bir anahtarlıkta; anahtarlığın kilidini açın ve tekrar deneyin",
+          "description-reconnect": "Google yetkilendirmesi eksik; bu hesaba yeniden bağlanın"
+        },
+        "calendar-event-date-format": {
+          "description": "Seçili tarih için etkinlik kartında gösterilen tarih biçimi",
+          "label": "Etkinlik Tarihi Biçimi"
+        },
+        "calendar-event-time-format": {
+          "description": "Takvim etkinlikleri için gösterilen saat biçimi",
+          "label": "Etkinlik Saati Biçimi"
+        },
+        "calendar-refresh-interval": {
+          "description": "Takvim etkinliklerinin ne sıklıkla senkronize edileceği (dakika)",
+          "label": "Yenileme Aralığı"
+        },
+        "calendar-storage": {
+          "button": "Yeniden Dene",
+          "description-cancelled": "Şifreli depolama istemi iptal edildi; takvim etkinlikleri sadece bu oturum için kullanılabilir durumda kalır",
+          "description-error": "Şifrelenmiş takvim etkinliği önbelleği açılamadı veya kaydedilemedi",
+          "description-locked": "Şifreli depolama kilitli veya erişim reddedildi; erişimi düzeltin ve tekrar deneyin",
+          "description-migration": "Düz metin takvim etkinliği önbelleği şifrelenmeyi bekliyor; taşıma başarılı olana kadar korunur",
+          "description-missing-key": "Takvim etkinliği önbellek anahtarı eksik; hesap kimlik bilgileri ayrı bir depolama alanı kullanır (mevcut önbellek dosyaları korundu)",
+          "description-opening": "Şifrelenmiş takvim etkinliği önbelleği açılıyor",
+          "description-recovery": "Takvim etkinliği önbelleği doğrulanamadı veya hasar görmüş; doğru anahtarı geri yükledikten sonra tekrar deneyin veya özel depolama alanını sıfırlayın",
+          "description-unavailable": "Kullanılabilecek Gizli Servis sağlayıcısı yok; takvim etkinlikleri sadece bu oturum için kullanılabilir durumda kalır",
+          "label": "Takvim Etkinlik Deposu"
+        },
+        "calendar-week-numbers": {
+          "description": "Takvim ızgarasının yanında ISO 8601 hafta numaralarını göster",
+          "label": "Hafta Numaraları"
+        },
+        "custom-schedule": {
+          "description": "Koordinatlardan hesaplamak yerine manuel gün doğumu/gün batımı saatlerini kullanın",
+          "label": "Özel Program"
+        },
+        "day-temperature": {
+          "description": "Gündüz vakti renk sıcaklığı (Kelvin)",
+          "label": "Gündüz Sıcaklığı"
+        },
+        "ddcutil": {
+          "description": "DDC/CI üzerinden harici monitör parlaklığını kontrol et",
+          "label": "DDC/CI (ddcutil)",
+          "requires-ddcutil": "DDC/CI parlaklık kontrolünü etkinleştirmek için ddcutil uygulamasını yükleyin"
+        },
+        "force-night-light": {
+          "description": "Zaman fark etmeksizin gece ışığını her zaman uygula",
+          "label": "Gece Işığını Zorla"
+        },
+        "latitude": {
+          "description": "Gün doğumu/gün batımı programı için manuel enlem, Otomatik-Konumlandır ve adres kapalıyken kullanılır",
+          "label": "Enlem"
+        },
         "location-address": {
           "description": "Konumlandırma için şehir veya adres bilgisi, otomatik-konumlandırma kapalıyken kullanılır",
           "label": "Adres",
           "placeholder": "Şehir, Ülke"
         },
         "location-auto-locate": {
-          "description": "noctalia.dev aracılığıyla konumu IP üzerinden otomatikmen tespit et",
+          "description": "noctalia.dev aracılığıyla konumu IP üzerinden otomatik olarak tespit et",
           "label": "Otomatik-Konumlandır (IP)"
         },
+        "longitude": {
+          "description": "Gün doğumu/gün batımı programı için manuel boylam, Otomatik-Konumlandır ve adres kapalıyken kullanılır",
+          "label": "Boylam"
+        },
+        "minimum-brightness": {
+          "description": "Ekranın tamamen kararmasını engelle",
+          "label": "Minimum Parlaklık"
+        },
+        "mpris-blacklist": {
+          "description": "Medya kontrolleri ve Şimdi Çalınanlar için yoksayılacak oynatıcılar",
+          "label": "MPRIS Oynatıcı Kara Listesi"
+        },
+        "night-light": {
+          "description": "Gece vakti ekran renklerini daha sıcak tonlara kaydır",
+          "label": "Gece Işığı",
+          "requires-gamma-control": "Görüntü sunucusu gama kontrolünü desteklemiyor"
+        },
+        "night-temperature": {
+          "description": "Gece vakti renk sıcaklığı (Kelvin)",
+          "label": "Gece Sıcaklığı"
+        },
+        "notification-sound": {
+          "description": "Bildirim geri bildirimi için kullanılacak ses dosyası",
+          "label": "Bildirim Sesi",
+          "placeholder": "/ses/dosyasi/yolu.wav"
+        },
+        "shell-sounds": {
+          "description": "Kabuk olayları için ses efektleri oynat",
+          "label": "Kabuk Sesleri"
+        },
+        "sound-volume": {
+          "description": "Kabuk ses efektlerinin seviyesi",
+          "label": "Ses Seviyesi"
+        },
         "sunrise": {
-          "description": "HH:MM manuel gün doğumu zamanı, konum ayarlanmadığında kullanılır"
+          "description": "SS:DD biçiminde manuel gün doğumu zamanı, konum ayarlanmadığında kullanılır",
+          "label": "Gün Doğumu"
         },
         "sunset": {
-          "description": "HH:MM manuel gün batımı zamanı, konum ayarlanmadığında kullanılır"
+          "description": "SS:DD biçiminde manuel gün batımı zamanı, konum ayarlanmadığında kullanılır",
+          "label": "Gün Batımı"
+        },
+        "sync-monitor-brightness": {
+          "description": "Tüm monitörlerin parlaklığını senkronize et",
+          "label": "Monitör Parlaklığını Senkronize Et"
+        },
+        "system-monitor": {
+          "cpu-poll": {
+            "description": "CPU kullanımı, CPU sıcaklığı ve ortalama yük (load average) örneklemeleri arasındaki saniye süresi (0 devre dışı bırakır)",
+            "label": "CPU Ölçüm Aralığı"
+          },
+          "description": "CPU, bellek, ağ, yük, sıcaklık ve disk istatistiklerini örnekle",
+          "disk-poll": {
+            "description": "Disk kullanımı ve takas (swap) alanı kullanımı örneklemeleri arasındaki saniye süresi (0 devre dışı bırakır)",
+            "label": "Disk Ölçüm Aralığı"
+          },
+          "gpu-poll": {
+            "description": "GPU sıcaklığı, kullanımı ve VRAM örneklemeleri arasındaki saniye süresi; GPU yalnızca bir yerde GPU istatistiği gösterilirken örneklenir, bu nedenle boşta duran bir makine asla uyandırılmaz (0 tamamen devre dışı bırakır)",
+            "label": "GPU Ölçüm Aralığı"
+          },
+          "label": "Sistem Monitörü",
+          "memory-poll": {
+            "description": "RAM kullanımı örneklemeleri arasındaki saniye süresi (0 devre dışı bırakır)",
+            "label": "Bellek Ölçüm Aralığı"
+          },
+          "network-poll": {
+            "description": "Ağ veri aktarım hızı örneklemeleri arasındaki saniye süresi (0 devre dışı bırakır)",
+            "label": "Ağ Ölçüm Aralığı"
+          },
+          "stats": {
+            "cpu-freq": "CPU Frekansı",
+            "cpu-temp": "CPU Sıcaklığı",
+            "cpu-usage": "CPU Kullanımı",
+            "disk-free": "Boş Disk",
+            "disk-free-pct": "Boş Disk %",
+            "disk-usage": "Disk Kullanımı",
+            "disk-used": "Kullanılan Disk",
+            "disk-used-pct": "Kullanılan Disk %",
+            "gpu-temp": "GPU Sıcaklığı",
+            "gpu-usage": "GPU Kullanımı",
+            "gpu-vram": "Ekran Kartı VRAM",
+            "network-rx": "İndirme",
+            "network-tx": "Yükleme",
+            "ram-usage": "RAM Kullanımı",
+            "swap-usage": "Takas Alanı Kullanımı"
+          },
+          "threshold": {
+            "description": "Aktivite eşiği (sol) ve kritik eşik (sağ)",
+            "label": "{stat}"
+          }
+        },
+        "volume-change-sound": {
+          "description": "Ses seviyesi geri bildirimi için kullanılacak ses dosyası",
+          "label": "Ses Değişim Sesi",
+          "placeholder": "/ses/dosyasi/yolu.wav"
+        },
+        "weather": {
+          "description": "open-meteo.com üzerinden hava durumu servisini etkinleştir",
+          "label": "Hava Durumu"
+        },
+        "weather-effects": {
+          "description": "Görsel hava durumu efektlerini göster",
+          "label": "Hava Durumu Efektleri"
+        },
+        "weather-refresh-interval": {
+          "description": "Hava durumu verilerinin ne sıklıkla yenileneceği (dakika)",
+          "label": "Yenileme Aralığı"
+        },
+        "weather-unit": {
+          "description": "Hava durumu gösterimi için birim sistemi",
+          "label": "Birimler"
+        }
+      },
+      "shared": {
+        "auto-hide": {
+          "label": "Otomatik Gizle"
+        },
+        "background-opacity": {
+          "label": "Arka Plan Şeffaflığı"
+        },
+        "contact-shadow": {
+          "label": "Temas Gölgesi"
+        },
+        "corner-bottom-left": {
+          "label": "Sol Alt Kavis"
+        },
+        "corner-bottom-right": {
+          "label": "Sağ Alt Kavis"
+        },
+        "corner-radius": {
+          "label": "Köşe Kavisi"
+        },
+        "corner-top-left": {
+          "label": "Sol Üst Kavis"
+        },
+        "corner-top-right": {
+          "label": "Sağ Üst Kavis"
+        },
+        "cross-axis-padding": {
+          "label": "Çapraz Eksen Boşluğu"
+        },
+        "edge-margin": {
+          "label": "Kenar Mesafesi"
+        },
+        "enabled": {
+          "label": "Etkin"
+        },
+        "ends-margin": {
+          "label": "Uç Nokta Mesafesi"
+        },
+        "main-axis-padding": {
+          "label": "Ana Eksen Boşluğu"
+        },
+        "opposite-edge-margin": {
+          "label": "Karşı Kenar Mesafesi"
+        },
+        "position": {
+          "label": "Konum"
+        },
+        "reserve-space": {
+          "label": "Alan Ayır"
+        },
+        "shadow": {
+          "label": "Gölge"
+        },
+        "shadow-alpha": {
+          "label": "Gölge Şeffaflığı"
+        },
+        "shadow-direction": {
+          "label": "Gölge Yönü"
         }
       },
       "shell": {
+        "avatar-path": {
+          "description": "Özel bir avatar görselinin yolu; büyük görseller otomatik olarak kırpılır ve yeniden boyutlandırılır",
+          "label": "Avatar Yolu",
+          "placeholder": "/profil/resmi/yolu.png"
+        },
+        "clipboard-auto-paste": {
+          "description": "Pano seçimlerini otomatik olarak yapıştır",
+          "label": "Pano Otomatik Yapıştırma"
+        },
+        "clipboard-confirm-clear-history": {
+          "description": "Pano geçmişini temizlemeden veya sabitlenmemiş bir öğeyi panelden silmeden önce sor; kapalı olduğunda bu eylemler anında uygulanır (sabitlenmiş öğeler silinmeden önce yine de onay ister)",
+          "label": "Geçmişi Temizlemeyi Onayla"
+        },
+        "clipboard-enabled": {
+          "description": "Pano geçmişini, pano panelini ve kopyala/yapıştır entegrasyonunu etkinleştir",
+          "label": "Pano"
+        },
+        "clipboard-history-max-entries": {
+          "description": "Pano geçmişinde tutulan maksimum sabitlenmemiş öğe sayısı",
+          "label": "Geçmiş Boyutu"
+        },
+        "clipboard-image-action": {
+          "description": "Pano içindeki görsellerden çalıştırılacak komut; dosya yolu için {path}, stdin konumunu işaretlemek için {stdin} kullanın veya otomatik aktarım için {path}'i atlayın",
+          "label": "Görsel Eylem Komutu",
+          "placeholder": "gimp {path} veya satty -f -"
+        },
+        "clipboard-keep-from-closed-apps": {
+          "description": "Kopyaladığınız uygulama kapansa bile kopyalanan son öğeyi yapıştırmak için sakla",
+          "label": "Kapanan Uygulamaların Panosunu Koru"
+        },
+        "clipboard-storage": {
+          "button": "Yeniden Dene",
+          "description-cancelled": "Gizli Servis istemi iptal edildi; pano geçmişi yalnızca bu oturum için kullanılabilir durumda kalır",
+          "description-error": "Şifreli pano geçmişi açılamadı veya kaydedilemedi",
+          "description-locked": "Pano anahtarı depolama alanı kilitli veya erişim reddedildi; erişimi düzeltin ve tekrar deneyin",
+          "description-migration": "Düz metin pano geçmişi şifrelenmeyi bekliyor; mevcut dosyalar taşıma işlemi başarılı olana kadar korunur",
+          "description-missing-key": "Yapılandırılmış şifreli depolama anahtarı eksik; mevcut pano geçmişi dosyaları korundu",
+          "description-opening": "Şifreli pano geçmişi açılıyor",
+          "description-recovery": "Pano geçmişi doğrulanamadı veya hasar görmüş; doğru anahtarı geri yükledikten sonra tekrar deneyin veya özel depolama alanını sıfırlayın",
+          "description-unavailable": "Kullanılabilecek Gizli Servis sağlayıcısı yok; pano geçmişi yalnızca bu oturum için kullanılabilir durumda kalır",
+          "label": "Pano Geçmişi Deposu"
+        },
+        "date-format": {
+          "description": "Kendi özel ayarı olmayan kabuk arayüzleri için varsayılan tarih biçimi",
+          "label": "Tarih Biçimi"
+        },
+        "external-ip": {
+          "description": "Bağlantının genel WAN IP adresini çözümle (api.noctalia.dev üzerinden) ve Kontrol Merkezi ağ sekmesinde göster",
+          "label": "WAN IP'yi Göster"
+        },
         "greeter-sync-auto": {
-          "description": "Duvar kağıdı, renkler, veya tema modu değiştiğinde otomatikman karşılayıcı ekranını senkronize et"
+          "description": "Duvar kağıdı, renkler, veya tema modu değiştiğinde otomatikman karşılayıcı ekranını senkronize et",
+          "label": "Karşılayıcıyı Otomatik Senkronize Et"
+        },
+        "greeter-sync-privilege-command": {
+          "description": "Karşılayıcı (greeter) 'Şimdi Senkronize Et' için pkexec/run0 komutunu değiştirin; uygulama yardımcısı yolu ve hazırlama dizini otomatik olarak eklenir (örnek: ghostty -e pkexec)",
+          "label": "Karşılayıcı Senkronizasyon Yetki Komutu"
+        },
+        "keyboard-layout-custom-labels": {
+          "description": "Klavye düzeni isimlerini arayüzde kullanılacak etiketlerle eşleştir",
+          "label": "Klavye Düzeni Etiketleri"
+        },
+        "launch-apps-as-systemd-services": {
+          "description": "Uygulamaları Noctalia'nın cgroup'unu paylaşmamaları için ayrı systemd servisleri olarak başlatır",
+          "label": "Uygulamaları systemd Servisi Olarak Başlat",
+          "requires-systemd-session": "Noctalia'nın bir systemd kullanıcı servisi olarak çalışmasını gerektirir (uwsm veya systemd kullanıcı birimi)"
         },
         "launch-apps-custom-command": {
-          "description": "Başlatıcıdan, dock'tan ve görev çubuğundan başlatılan uygulamaları sarar; $CMD'yi orijinal komutla değiştirir.",
-          "label": "Özel Uygulama Çalıştırma Komutu"
+          "description": "Başlatıcıdan, rıhtımdan ve görev çubuğundan başlatılan uygulamaları sarar; $CMD'yi orijinal komutla değiştirir.",
+          "label": "Özel Uygulama Çalıştırma Komutu",
+          "placeholder": "$CMD"
         },
         "niri-overview-type-to-launch": {
-          "description": "Niri genel bakışında yazarken başlatı aç; genel bakış açıkken küçük bir klavye odak yüzeyi kullanır",
+          "description": "Niri genel bakışında yazarken başlat menüsünü aç; genel bakış açıkken küçük bir klavye odak yüzeyi kullanır",
           "label": "Başlatmak İçin Yaz"
+        },
+        "offline-mode": {
+          "description": "Tüm dışa giden ağ isteklerini engelle",
+          "label": "Çevrimdışı Mod"
         },
         "osd-background-opacity": {
           "description": "OSD bildirimlerinin arka plan opaklığı",
@@ -1315,7 +2909,8 @@
           "label": "Çıkış Ses Düzeyi"
         },
         "osd-kinds-wifi": {
-          "description": "Wi-Fi açılıp kapandığında OSD bildirimi göster"
+          "description": "Wi-Fi açılıp kapandığında OSD bildirimi göster",
+          "label": "Wi-Fi"
         },
         "osd-monitors": {
           "description": "OSD bildirimlerinin gösterileceği monitörü seçin; tüm monitörlerde gösterilmesi için boş bırakın",
@@ -1333,6 +2928,38 @@
           "description": "OSD bildirimlerinin yerleşim yönü",
           "label": "Yönelim"
         },
+        "osd-position": {
+          "description": "OSD bildirimleri için ekran konumu",
+          "label": "Ekran Konumu"
+        },
+        "osd-position-vertical": {
+          "description": "Kaydırıcı yönü dikey olduğundaki ekran konumu",
+          "label": "Dikey Konum"
+        },
+        "osd-scale": {
+          "description": "OSD bildirimlerini arayüz (UI) ölçeğine göre ölçeklendir (1.0 varsayılan boyutu korur)",
+          "label": "Ölçek"
+        },
+        "password-style": {
+          "description": "Şifre girişi maskelemesi için görsel stil",
+          "label": "Şifre Stili"
+        },
+        "polkit-agent": {
+          "description": "Dahili yetkilendirme aracısını etkinleştir",
+          "label": "Yetkilendirme Aracısı"
+        },
+        "privacy-cam-filter-regex": {
+          "description": "Gizlilik göstergeleri ve OSD'lerde yoksayılacak kamera uygulamaları için Regex",
+          "label": "Kamera Filtreleme Regex"
+        },
+        "privacy-mic-filter-regex": {
+          "description": "Gizlilik göstergeleri ve OSD'lerde yoksayılacak mikrofon uygulamaları için Regex",
+          "label": "Mikrofon Filtreleme Regex"
+        },
+        "privacy-screen-filter-regex": {
+          "description": "Gizlilik göstergeleri ve OSD'lerde yoksayılacak ekran paylaşım uygulamaları için Regex",
+          "label": "Ekran Paylaşımı Filtreleme Regex"
+        },
         "screen-time-enabled": {
           "description": "Uygulama başına kullanımı takip et ve Kontrol Merkezinde göster",
           "label": "Ekran Süresi"
@@ -1342,34 +2969,105 @@
           "description": "Depolanan uygulama başına odaklı kullanım geçmişini sıfırla",
           "label": "Ekran Süresi Verisini Sıfırla"
         },
+        "screenshot-confirm-region": {
+          "description": "Bir alan çizdikten sonra, Enter veya Boşluk tuşu ile onaylayana kadar ekran alıntısı aracını açık tut",
+          "label": "Alanı Onayla"
+        },
+        "screenshot-copy-to-clipboard": {
+          "description": "Yakalanan PNG görselini panoya kopyala",
+          "label": "Panoya Kopyala"
+        },
+        "screenshot-directory": {
+          "description": "Kaydedilen PNG dosyaları için klasör; ~/Pictures klasörünü kullanmak için boş bırakın",
+          "label": "Çıktı Klasörü",
+          "placeholder": "~/Pictures"
+        },
         "screenshot-filename-pattern": {
-          "description": "Uzantısız strftime biçim dizgesi (.png otomatik eklenir); Unix zaman damgası için %s kullanın"
+          "description": "Uzantısız strftime biçim dizgesi (.png otomatik eklenir); Unix zaman damgası için %s kullanın",
+          "label": "Dosya Adı Biçimi"
+        },
+        "screenshot-freeze-screen": {
+          "description": "Alan seçiminden önce masaüstünü yakalayarak hareketli içeriğin sabit kalmasını sağla",
+          "label": "Ekranı Dondur"
+        },
+        "screenshot-pipe-command": {
+          "description": "PNG'yi stdin üzerinde tutarak /bin/sh -lc ile çalıştırılan komut; düzenleyiciler veya yükleyiciler için (örneğin: swappy -f - veya satty -f -)",
+          "label": "Aktarım Komutu",
+          "placeholder": "swappy -f -"
+        },
+        "screenshot-pipe-to-command": {
+          "description": "Yakalanan PNG'yi stdin üzerinden bir kabuk komutuna gönder",
+          "label": "Komuta Aktar"
+        },
+        "screenshot-remember-last-region": {
+          "description": "Bir sonraki alan ekran alıntısında (iptalden sonrası dahil) son alanı önceden seç",
+          "label": "Son Alanı Hatırla"
         },
         "screenshot-save-to-file": {
+          "description": "Ekran alıntılarını PNG dosyaları olarak çıktı klasörüne yaz",
           "label": "Dosyaya Kaydet"
+        },
+        "screenshot-show-cursor": {
+          "description": "Ekran alıntılarına fare imlecini dahil et",
+          "label": "İmleci Göster"
+        },
+        "settings-window-translucent": {
+          "description": "Görüntü sunucusu efektleri için Ayarlar arka planını yarı saydam yap",
+          "label": "Yarı Saydam Ayarlar Arka Planı"
         },
         "show-location": {
           "description": "Konum ismini hava durumu bileşenlerinde göster",
           "label": "Konumu Göster"
         },
+        "sync-greeter": {
+          "button": "Şimdi Senkronize Et",
+          "description": "Geçerli duvar kağıdını ve renkleri Noctalia Karşılayıcısına (Greeter) kopyala (yönetici izni gerektirir)",
+          "label": "Noctalia Karşılayıcısı"
+        },
+        "telemetry": {
+          "description": "Sürüm, işletim sistemi, görüntü sunucusu, monitör çözünürlükleri, RAM ve arayüz ölçeği bilgilerini içeren küçük bir anonim başlangıç isteği gönderir",
+          "label": "Anonim Başlangıç İsteği"
+        },
         "time-format": {
+          "description": "Kendi özel ayarı olmayan kabuk arayüzleri için varsayılan saat biçimi",
           "label": "Saat Biçimi"
+        }
+      },
+      "system": {
+        "battery-device-warning-threshold": {
+          "description": "Bu cihaz için pil uyarısı eşiğini geçersiz kıl (0, bu cihaz için uyarıları devre dışı bırakır)",
+          "label": "{device} Uyarı Eşiği"
+        },
+        "battery-warning-threshold": {
+          "description": "Arayüzün (shell) düşük pil bildirimi göndereceği ve pil araçlarının uyarı rengini kullanacağı sistem pil yüzdesi sınırı (0 devre dışı bırakır)",
+          "label": "Pil Uyarı Eşiği"
         }
       },
       "templates": {
         "builtin-ids": {
-          "description": "Her tema değişikliğinde uygulanan paketlenmiş uygulama şablonlarını aç/kapat"
+          "description": "Her tema değişikliğinde uygulanan paketlenmiş uygulama şablonlarını aç/kapat",
+          "empty": "Kullanılabilir dahili şablon yok.",
+          "label": "Dahili Şablonlar"
         },
         "community-ids": {
-          "description": "Her tema değişikliğinde uygulanan topluluk şablonlarına göz at ve etkinleştir"
+          "description": "Her tema değişikliğinde uygulanan topluluk şablonlarına göz at ve etkinleştir",
+          "empty": "Henüz kullanılabilir topluluk şablonu yok. Önce topluluk şablonlarını etkinleştirin ve kataloğu yenileyin.",
+          "label": "Topluluk Şablonları"
         },
+        "dynamic-output": "Şablon uygulandığında çıktı yolu çözümlenir",
         "enable-builtins": {
-          "description": "Uygulamalar için paketlenmiş tema şablonları kataloğunu kullanın"
+          "description": "Uygulamalar için paketlenmiş tema şablonları kataloğunu kullanın",
+          "label": "Dahili Şablonları Etkinleştir"
+        },
+        "enable-community-templates": {
+          "description": "Topluluk kataloğundan şablonları indirin ve uygulayın",
+          "label": "Topluluk Şablonlarını Etkinleştir"
         }
       },
       "wallpaper": {
         "automation": {
-          "description": "Duvar kağıtlarını bir zamanlayıcıyla otomatik olarak değiştir"
+          "description": "Duvar kağıtlarını bir zamanlayıcıyla otomatik olarak değiştir",
+          "label": "Otomatik Değişim"
         },
         "automation-interval": {
           "description": "Duvar kağıdı değişikleri arasındaki saniye cinsinden süre",
@@ -1383,66 +3081,780 @@
           "description": "İç içe klasörlerde duvar kağıtlarını ara",
           "label": "Alt Klasörler Dahil"
         },
+        "directory": {
+          "description": "Duvar kağıtlarını içeren klasör",
+          "label": "Duvar Kağıdı Klasörü"
+        },
         "directory-dark": {
           "description": "Koyu tema modunda kullanılan duvar kağıdı klasörü",
-          "placeholder": "~/Pictures/Wallpapers"
+          "label": "Koyu Mod Klasörü",
+          "placeholder": "~/Resimler/DuvarKağıtları"
         },
         "directory-light": {
           "description": "Açık tema modunda kullanılan duvar kağıdı klasörü",
-          "placeholder": "~/Pictures/Wallpapers"
+          "label": "Açık Mod Klasörü",
+          "placeholder": "~/Resimler/DuvarKağıtları"
+        },
+        "edge-smoothness": {
+          "description": "Duvar kağıtları arasındaki geçiş kenarlarının yumuşaklığı",
+          "label": "Kenar Yumuşaklığı"
+        },
+        "enabled": {
+          "description": "Duvar kağıdı servisini etkinleştir"
+        },
+        "fill-color": {
+          "description": "Kaplanmayan alanlarda görüntünün arkasında gösterilen düz renk",
+          "label": "Doldurma Rengi"
+        },
+        "fill-mode": {
+          "description": "Duvar kağıtlarının ekrana nasıl sığdırılacağı",
+          "label": "Doldurma Modu"
+        },
+        "monitor-directory": {
+          "label": "Duvar Kağıdı Klasörü"
         },
         "monitor-directory-dark": {
-          "placeholder": "~/Pictures/Wallpapers"
+          "label": "Koyu Mod Klasörü",
+          "placeholder": "~/Resimler/DuvarKağıtları"
         },
         "monitor-directory-light": {
-          "placeholder": "~/Pictures/Wallpapers"
+          "label": "Açık Mod Klasörü",
+          "placeholder": "~/Resimler/DuvarKağıtları"
+        },
+        "panel": {
+          "button": "Paneli Aç",
+          "description": "Duvar kağıdı seçici panelini aç",
+          "label": "Duvar Kağıdı Paneli"
+        },
+        "per-monitor-directories": {
+          "description": "Her monitör için ayrı duvar kağıdı klasörleri kullan",
+          "label": "Monitör Başına Klasörler"
+        },
+        "transition-duration": {
+          "description": "Duvar kağıdı değiştirme animasyonunun milisaniye cinsinden uzunluğu",
+          "label": "Geçiş Süresi"
+        },
+        "transition-on-startup": {
+          "description": "Arayüz ilk kez bir duvar kağıdı gösterdiğinde bir geçiş oynat",
+          "label": "Başlangıçta Animasyon Oynat"
         },
         "transitions": {
-          "label": "Geçi Efektleri"
+          "description": "Duvar kağıdı değiştiğinde kullanılabilecek efektler (her değişimde rastgele biri seçilir)",
+          "label": "Geçiş Efektleri"
         }
       }
     },
     "session-actions": {
-      "clear-glyph": "Temizle"
+      "add": "Eylem Ekle",
+      "clear-glyph": "Sembolü Temizle",
+      "command-label": "Kabuk komutu",
+      "command-placeholder": "İsteğe bağlı bash komutu, yerleşik davranış için boş bırakın",
+      "command-required-placeholder": "Çalıştırılacak kabuk komutu",
+      "countdown-seconds-description": "Çalıştırmadan önce bu kadar saniye bekle. Anında onaylamak için tekrar etkinleştir. 0 hemen çalıştırır.",
+      "countdown-seconds-label": "Geri Sayım (saniye)",
+      "glyph-label": "Sembol",
+      "glyph-picker-title": "Eylem sembolü",
+      "kind-section-label": "Davranış",
+      "label-field": "Etiket",
+      "label-placeholder": "İsteğe bağlı düğme metni",
+      "shortcut-label": "Kısayol",
+      "variant": {
+        "default": "Varsayılan",
+        "destructive": "Yıkıcı",
+        "ghost": "Hayalet",
+        "outline": "Dış Çizgili",
+        "primary": "Birincil",
+        "secondary": "İkincil"
+      },
+      "variant-label": "Düğme stili"
+    },
+    "storage-recovery": {
+      "button": "Özel Depolamayı Sıfırla",
+      "button-confirm": "Depolama Sıfırlamasını Onayla",
+      "description": "Kaydedilen pano geçmişini ve takvim etkinliği önbelleğini kalıcı olarak sil, ardından özel depolamayı yeniden aç (yapılandırılmış bir anahtar dosyası asla değiştirilmez)",
+      "error-delete": "Bazı özel depolama dosyaları silinemedi. Depolama anahtarı korundu.",
+      "error-key": "Özel depolama dosyaları silindi, ancak güvenli depolama yeniden açılamadı. Erişimi düzeltin ve tekrar deneyin.",
+      "label": "Özel Depolamayı Kurtar",
+      "success": "Özel depolama başarıyla sıfırlandı."
+    },
+    "templates": {
+      "store": {
+        "browse": "Şablonlara Göz At",
+        "categories": "Kategoriler",
+        "category-all": "Tümü",
+        "empty": "Filtrelerinizle eşleşen şablon yok",
+        "enabled-count": "{count} etkin",
+        "filter-all": "Tümü",
+        "filter-enabled": "Etkin Olanlar",
+        "results-count": "{count} şablon",
+        "search-placeholder": "Şablonları ara…",
+        "sort-category-asc": "Kategoriye göre sırala (A-Z)",
+        "sort-category-desc": "Kategoriye göre sırala (Z-A)",
+        "sort-name-asc": "İsme göre sırala (A-Z)",
+        "sort-name-desc": "İsme göre sırala (Z-A)",
+        "title": "Topluluk Şablonları"
+      }
     },
     "widgets": {
+      "actions": {
+        "command-placeholder": "Kabuk komutu",
+        "default": "Varsayılan",
+        "disabled": "Devre Dışı",
+        "run-command": "Bir komut çalıştır…",
+        "unset": "Ayarlanmadı"
+      },
+      "gestures": {
+        "back": "Geri Düğmesi",
+        "forward": "İleri Düğmesi",
+        "left": "Sol Tık",
+        "middle": "Orta Tık",
+        "right": "Sağ Tık",
+        "scroll-down": "Aşağı Kaydır",
+        "scroll-left": "Sola Kaydır",
+        "scroll-right": "Sağa Kaydır",
+        "scroll-up": "Yukarı Kaydır"
+      },
+      "instances": {
+        "cpu": "İşlemci",
+        "date": "Tarih",
+        "input-volume": "Giriş Ses Düzeyi",
+        "network-rx": "Ağ İndirmesi",
+        "network-tx": "Ağ Yüklemesi",
+        "output-volume": "Çıkış Ses Düzeyi",
+        "ram": "RAM",
+        "temp": "Sıcaklık"
+      },
+      "map-placeholders": {
+        "effects-profile-name": "Profil adı",
+        "glyph-name": "Sembol adı",
+        "key": "Anahtar",
+        "label": "Etiket",
+        "layout-name": "Düzen adı",
+        "value": "Değer"
+      },
       "options": {
-        "time": "Saat"
+        "after": "Sonra",
+        "always": "Her Zaman",
+        "auto": "Otomatik",
+        "before": "Önce",
+        "both": "Her İkisi",
+        "compact": "Sıkı",
+        "count": "Sayı",
+        "cpu-freq": "CPU Frekansı",
+        "cpu-temp": "CPU Sıcaklığı",
+        "cpu-usage": "CPU Kullanımı",
+        "disk-free": "Boş Disk",
+        "disk-free-percent": "Boş Disk %",
+        "disk-used": "Kullanılan Disk",
+        "disk-used-percent": "Kullanılan Disk %",
+        "dots": "Noktalar",
+        "focus-hint": "Odak İpucu",
+        "full": "Tam",
+        "gauge": "Gösterge",
+        "glyph": "Sembol",
+        "gpu-temp": "GPU Sıcaklığı",
+        "gpu-usage": "GPU Kullanımı",
+        "gpu-vram": "Ekran Kartı VRAM",
+        "gpu-vram-used": "Kullanılan Ekran Kartı VRAM",
+        "graph": "Grafik",
+        "graphic": "Görsel",
+        "hidden": "Gizli",
+        "icon-and-text": "İkon ve Metin",
+        "icon-only": "Sadece İkon",
+        "icons": "İkonlar",
+        "id": "Kimlik",
+        "input": "Giriş",
+        "instance": "Yerleşim Başına",
+        "kilobytes": "kB/sn",
+        "megabytes": "MB/sn",
+        "minimal": "Minimal",
+        "name": "İsim",
+        "net-rx": "Ağ İndirmesi",
+        "net-tx": "Ağ Yüklemesi",
+        "none": "Yok",
+        "on-hover": "Üzerine Gelindiğinde",
+        "output": "Çıkış",
+        "percent": "Yüzde",
+        "ram-percent": "RAM %",
+        "ram-used": "Kullanılan RAM",
+        "rate": "Oran",
+        "regular": "Normal",
+        "replace": "Değiştir",
+        "scroll-gesture": "Hareket Başına Bir Kez",
+        "scroll-steps": "Her Adımda",
+        "shared": "Paylaşılan",
+        "short": "Kısa",
+        "swap-percent": "Takas Alanı %",
+        "text": "Metin",
+        "text-only": "Sadece Metin",
+        "time": "Saat",
+        "workspace-label-centered": "Ortalanmış",
+        "workspace-label-corner": "Köşede",
+        "workspace-label-inside": "Hap İçinde"
       },
       "settings": {
+        "actions": {
+          "description": "Bu bileşende her fare hareketinin ne yapacağı; bir komut seçin, bir kabuk komutu çalıştırın veya devre dışı bırakın",
+          "label": "Fare Hareketi Eylemleri"
+        },
+        "active-color": {
+          "description": "Aktif gizlilik göstergeleri için kullanılan renk; sabit hex renkleri de desteklenir",
+          "label": "Aktif Renk"
+        },
+        "active-indicator-color": {
+          "description": "Aktif pencere ikonunun altındaki göstergenin rengi",
+          "label": "Aktif Gösterge Rengi"
+        },
+        "active-opacity": {
+          "description": "Aktif (odaklanılmış) pencere ikonunun opaklığı",
+          "label": "Aktif İkon Opaklığı"
+        },
+        "active-pill-size": {
+          "description": "Çubuk boyunca minimum aktif çalışma alanı hapı uzunluğu, hap kalınlığının bir katı olarak",
+          "label": "Aktif Hap Boyutu",
+          "workspaces-description": "Çubuk boyunca minimum aktif çalışma alanı hapı uzunluğu, hap kalınlığının bir katı olarak; etiketler bunun ötesine genişleyebilir"
+        },
+        "album-art-only": {
+          "description": "Parça adı olmadan sadece dairesel albüm resmini göster",
+          "label": "Sadece Albüm Resmi"
+        },
+        "anchor": {
+          "description": "Bu bileşeni merkez hizalama çapası olarak sabitle",
+          "label": "Çapa"
+        },
+        "art-size": {
+          "description": "Piksel cinsinden medya resmi boyutu",
+          "label": "Resim Boyutu"
+        },
+        "artist-first": {
+          "description": "Sanatçıyı parça adından önce göster (Sanatçı - Parça Adı)",
+          "label": "Önce Sanatçı"
+        },
+        "bands": {
+          "description": "Görselleştirici bant sayısı",
+          "label": "Bantlar"
+        },
+        "cam-filter-regex": {
+          "description": "Yoksayılacak kamera işlem adları için Regex",
+          "label": "Kamera Filtreleme Regex"
+        },
+        "capsule": {
+          "description": "Bu bileşenin arkasına bir kapsül çiz",
+          "label": "Kapsül"
+        },
+        "capsule-border": {
+          "description": "Kapsül dış çizgisi için renk rolü; sabit hex renkleri de desteklenir",
+          "label": "Kapsül Kenarlığı"
+        },
+        "capsule-fill": {
+          "description": "Kapsül arka planı için renk rolü; sabit hex renkleri de desteklenir",
+          "label": "Kapsül Dolgusu"
+        },
+        "capsule-foreground": {
+          "description": "Kapsül içindeki içerik için renk rolü; sabit hex renkleri de desteklenir",
+          "label": "Kapsül Ön Planı"
+        },
+        "capsule-opacity": {
+          "description": "Kapsül arka planının opaklığı",
+          "label": "Kapsül Opaklığı"
+        },
+        "capsule-padding": {
+          "description": "Kapsül içindeki iç boşluk",
+          "label": "Kapsül İç Boşluğu"
+        },
+        "capsule-radius": {
+          "description": "Bu bileşen kapsülü için köşe kavisi; otomatik hap şekli için boş bırakın veya kare köşeler için 0 olarak ayarlayın",
+          "label": "Kapsül Kavisi",
+          "taskbar-description": "Bileşen kapsülü, çalışma alanı disk göstergeleri ve çalışma alanı grubu kapsülleri için köşe kavisi; otomatik hap şekli için boş bırakın veya kare köşeler için 0 olarak ayarlayın",
+          "workspaces-description": "Bu bileşen kapsülü ve çalışma alanı hapları için köşe kavisi; otomatik hap şekli için boş bırakın veya kare köşeler için 0 olarak ayarlayın"
+        },
+        "centered": {
+          "description": "Görselleştirici bantları kenara hizalamak yerine ortala",
+          "label": "Ortalanmış"
+        },
+        "change-color-on-hover": {
+          "description": "İmleç üzerine geldiğinde bir çalışma alanının dolgu ve etiket renklerini değiştir",
+          "label": "Üzerine Gelindiğinde Rengi Değiştir"
+        },
+        "color": {
+          "description": "Bu bileşenin ikonu ve etiketi için renk rolü; sabit hex renkleri de desteklenir",
+          "label": "Renk"
+        },
+        "color-1": {
+          "description": "Görselleştiricideki ilk geçişli renk",
+          "label": "Renk 1"
+        },
+        "color-2": {
+          "description": "Görselleştiricideki ikinci geçişli renk",
+          "label": "Renk 2"
+        },
+        "custom-image": {
+          "description": "Özel bir resmin yolu; ikon sembolünü kullanmak için boş bırakın",
+          "dialog-title": "Özel Resim Seçin",
+          "label": "Özel Resim"
+        },
+        "custom-image-colorize": {
+          "description": "Özel resmi, bileşenin İkon Rengi ayarıyla renklendir",
+          "label": "Özel Resmi Renklendir"
+        },
+        "detached-panel": {
+          "description": "Çekmeceyi çubuk kenarına sabitlemek yerine yüzen bir panel olarak aç",
+          "label": "Ayrık Panel"
+        },
+        "device": {
+          "description": "İzlenecek veya kontrol edilecek cihaz",
+          "label": "Cihaz"
+        },
+        "display": {
+          "active-window-description": "Yatay çubuklarda ikon, başlık veya her ikisi; dikey çubuklar sadece ikon olarak kalır",
+          "description": "Bu bileşen için görünüm modu",
+          "label": "Görünüm"
+        },
+        "display-mode": {
+          "description": "Pili grafiksel bir şekil, bir Tabler ikonu veya yalnızca etiket olarak işle",
+          "label": "Görünüm Modu"
+        },
+        "drawer": {
+          "description": "Çubukta bir tepsi düğmesi göster ve öğeleri bir panelde aç",
+          "label": "Çekmece Paneli Kullan"
+        },
+        "drawer-columns": {
+          "description": "Çekmece panelindeki her satır için tepsi ikonu sayısı",
+          "label": "Çekmece Sütunları"
+        },
+        "drawer-item-size": {
+          "description": "Çekmece panelindeki tepsi ikonlarının piksel cinsinden boyutu",
+          "label": "Çekmece İkon Boyutu"
+        },
+        "effects-profile-glyphs": {
+          "description": "EasyEffects profil isimlerini ikon sembolleriyle eşleştir",
+          "label": "Efekt Profili Sembolleri"
+        },
+        "empty-color": {
+          "description": "Boş çalışma alanları için kullanılan renk; sabit onaltılık renkler de desteklenir",
+          "label": "Boş Renk"
+        },
+        "enable-scroll": {
+          "description": "Bu bileşende fare tekerleği ve dokunmatik yüzey kaydırma eylemlerine izin ver",
+          "label": "Kaydırmayı Etkinleştir"
+        },
+        "focused-color": {
+          "description": "Odaklanılmış çalışma alanı için kullanılan renk; sabit onaltılık renkler de desteklenir",
+          "label": "Odak Rengi"
+        },
+        "focused-output-only": {
+          "description": "Sadece odaklanılan monitördeki aktif çalışma alanını vurgula",
+          "label": "Sadece Odaklanılan Monitörü Vurgula",
+          "taskbar-description": "Yalnızca klavye veya işaretçi odağına sahip monitördeki aktif çalışma alanı için odak rengini kullan; diğer monitörler meşgul rengini kullanır",
+          "workspaces-description": "Yalnızca klavye veya işaretçi odağına sahip monitördeki aktif çalışma alanını vurgula; diğer monitörler bunun yerine aktif çalışma alanlarını meşgul olarak gösterir"
+        },
+        "font-family": {
+          "description": "Bu bileşen için yazı tipi; çubuğun yazı tipini devralmak için boş bırakın",
+          "label": "Yazı Tipi"
+        },
+        "font-weight": {
+          "description": "Varsayılan olarak çubuk yazı tipi kalınlığını devralır",
+          "label": "Yazı Tipi Kalınlığı"
+        },
         "format": {
-          "description": "Saat biçimi dizgesi"
+          "description": "Saat biçimi dizgesi",
+          "label": "Biçim"
+        },
+        "glyph": {
+          "description": "İkon sembolü adı",
+          "label": "Sembol",
+          "sysmon-description": "Özel ikon sembolü; seçili istatistik için ikonu kullanmak üzere boş bırakın",
+          "volume-description": "Özel ikon sembolü; yerleşik dinamik ikonları kullanmak için boş bırakın"
+        },
+        "glyph-position": {
+          "description": "Sembolün metin, grafik veya göstergeye göre hangi sırada gösterileceği",
+          "label": "Sembol Konumu"
+        },
+        "group-by-workspace": {
+          "description": "Görüntü sunucusu verisi mevcut olduğunda görev çubuğu ikonlarını çalışma alanı kapsüllerinde grupla",
+          "label": "Çalışma Alanına Göre Grupla"
+        },
+        "group-single-icon-per-app": {
+          "description": "Çalışma alanına göre ikonlarla gruplama yaparken, aynı uygulamanın birden fazla penceresini sayı rozeti içeren tek bir ikonda birleştir",
+          "label": "Uygulama Başına Tek İkon"
+        },
+        "height": {
+          "description": "Bileşenin piksel cinsinden yüksekliği",
+          "label": "Yükseklik"
+        },
+        "hidden": {
+          "description": "Gizlenecek tepsi öğelerinin kimlikleri",
+          "label": "Gizli Öğeler"
+        },
+        "hide-album-art": {
+          "description": "Albüm resmini gizle",
+          "label": "Albüm Resmini Gizle"
+        },
+        "hide-artist": {
+          "description": "Sanatçı ismini gizle ve sadece parça adını göster",
+          "label": "Sanatçıyı Gizle"
+        },
+        "hide-empty-workspaces": {
+          "description": "Çalışma alanına göre gruplama yaparken, görev çubuğu listesinde çalışan penceresi olmayan kapsülleri atla.",
+          "label": "Boş Çalışma Alanlarını Gizle"
+        },
+        "hide-inactive": {
+          "description": "Aktif olmayan gizlilik ikonlarını gizle ve hiçbir şey aktif olmadığında bileşeni gizle",
+          "label": "Aktif Olmayanları Gizle"
+        },
+        "hide-passive": {
+          "description": "StatusNotifierItem durumu Pasif olan sistem çekmecesi ögelerini gizle",
+          "label": "Pasif Ögeleri Gizle"
+        },
+        "hide-when-empty": {
+          "description": "Açık pencere olmadığında çalışma alanı haplarını gizle",
+          "label": "Boş Olduğunda Gizle",
+          "workspaces-description": "Açık penceresi olmayan çalışma alanı haplarını gizle"
+        },
+        "hide-when-full": {
+          "description": "Tam şarj olduğunda pil bileşenini gizle",
+          "label": "Dolduğunda Gizle"
+        },
+        "hide-when-no-connected-device": {
+          "description": "Hiçbir cihaz bağlı değilken Bluetooth bileşenini gizle",
+          "label": "Bağlı Cihaz Yokken Gizle"
         },
         "hide-when-no-media": {
-          "description": "Hiçbir MPRIS oynatıcısı aktif değişken medya bileşenini gizle",
+          "description": "Hiçbir MPRIS oynatıcısı aktif değilken medya bileşenini gizle",
           "label": "Medya Yokken Gizle"
         },
+        "hide-when-no-unread": {
+          "description": "Okunmamış bildirim olmadığında bildirimler bileşenini gizle",
+          "label": "Yeni Bildirim Yokken Gizle"
+        },
+        "hide-when-off": {
+          "description": "Kilit tuşu göstergesi aktif değilken gizle",
+          "label": "Kapalıyken Gizle"
+        },
+        "hide-when-plugged": {
+          "description": "Prize takılıyken pil bileşenini gizle",
+          "label": "Fişe Takılıyken Gizle"
+        },
+        "hide-when-single-layout": {
+          "description": "Birden fazla klavye düzeni ayarlanmadığı sürece klavye düzeni bileşenini gizle",
+          "label": "Tek Düzen Varsa Gizle"
+        },
+        "highlight-color": {
+          "description": "Kritik eşiğe ulaşıldığında veya aşıldığında ulaşılan renk",
+          "label": "Vurgu Rengi"
+        },
+        "hot-reload": {
+          "description": "Kaynak kodu değiştiğinde betikli bileşeni yeniden yükle",
+          "label": "Anında Yenile"
+        },
+        "icon-color": {
+          "description": "Sadece ikonlar için bileşen rengini geçersiz kılar; sabit onaltılık renkler de desteklenir",
+          "label": "İkon Rengi"
+        },
+        "icon-size": {
+          "description": "İkonun piksel cinsinden boyutu",
+          "label": "İkon Boyutu"
+        },
+        "icon-spacing": {
+          "description": "Gizlilik göstergesi ikonları arasındaki piksel boşluğu",
+          "label": "İkon Boşluğu"
+        },
+        "inactive-color": {
+          "description": "Aktif olmayan gizlilik göstergeleri için kullanılan renk; sabit onaltılık renkler de desteklenir",
+          "label": "Aktif Olmayan Renk"
+        },
+        "inactive-opacity": {
+          "description": "Aktif olmayan odaklanmamış pencerelerin ikonları için opaklık",
+          "label": "Aktif Olmayan İkon Opaklığı"
+        },
+        "inactive-pill-size": {
+          "description": "Çubuk boyunca minimum aktif olmayan çalışma alanı hapı uzunluğu, hap kalınlığının bir katı olarak",
+          "label": "Aktif Olmayan Hap Boyutu",
+          "workspaces-description": "Çubuk boyunca minimum aktif olmayan çalışma alanı hapı uzunluğu, hap kalınlığının bir katı olarak; etiketler bunun ötesine genişleyebilir"
+        },
+        "interactive": {
+          "description": "Bu bileşen için imleçle üzerine gelme, tıklama, kaydırma ve ipuçlarına izin ver",
+          "label": "Etkileşimli"
+        },
+        "interface": {
+          "description": "İzlenecek ağ arayüzü; tüm arayüzlerin toplamını kullanmak için boş bırakın",
+          "label": "Arayüz"
+        },
+        "label": {
+          "description": "Bu düğmede gösterilen isteğe bağlı sabit metin",
+          "label": "Etiket"
+        },
+        "label-content": {
+          "description": "Pil etiketinin gösterdiği şey: şarj yüzdesi, kalan süre veya güç tüketimi",
+          "label": "Etiket İçeriği"
+        },
+        "label-min-width": {
+          "description": "Yeniden boyutlandırmayı önlemek için piksel cinsinden minimum etiket genişliği",
+          "label": "Etiket Minimum Genişliği"
+        },
+        "label-show-units": {
+          "description": "Yüzde, GiB, °C gibi birimleri göster",
+          "label": "Birimleri Göster"
+        },
+        "label-source": {
+          "description": "Çalışma alanı etiketlerinin ne göstereceği",
+          "label": "Etiket Kaynağı"
+        },
+        "labels-only-when-occupied": {
+          "description": "Boş, inaktif çalışma alanlarında çalışma alanı etiketlerini gizle",
+          "label": "Sadece Meşgulken Etiketler",
+          "workspaces-description": "Açık penceresi olan çalışma alanlarında ve boş olsa bile aktif çalışma alanında çalışma alanı kimliği veya isim etiketlerini göster; diğer boş etiketler isimsiz kalır"
+        },
+        "length": {
+          "description": "Piksel cinsinden ayırıcı uzunluğu",
+          "label": "Uzunluk"
+        },
+        "match-adjacent-spacing": {
+          "description": "Tepsi ikonları arasındaki boşlukları, komşu çubuk bileşenlerinin görsel boşluğuna uyacak şekilde genişlet (kapsül dolgusu dahil)",
+          "label": "Komşu Bileşen Boşluğunu Eşleştir"
+        },
+        "max-label-chars": {
+          "description": "Çalışma alanı isimleri için gösterilecek maksimum karakter sayısı",
+          "label": "Maksimum Etiket Karakteri",
+          "workspaces-description": "Çalışma alanı isim etiketleri için maksimum karakter sayısı"
+        },
+        "max-length": {
+          "description": "Piksel cinsinden maksimum bileşen uzunluğu",
+          "label": "Maksimum Uzunluk"
+        },
+        "mic-filter-regex": {
+          "description": "Yoksayılacak mikrofon uygulaması isimleri için düzenli ifade",
+          "label": "Mikrofon Filtresi Regex"
+        },
+        "min-length": {
+          "description": "Piksel cinsinden minimum bileşen uzunluğu",
+          "label": "Minimum Uzunluk"
+        },
+        "minimal": {
+          "description": "Animasyonlu haplar olmadan sadece çalışma alanı kimliğini veya isim etiketlerini göster",
+          "label": "Minimal Stil",
+          "taskbar-description": "Renkli disk arka planları olmayan sadece metin tabanlı çalışma alanı etiketleri"
+        },
+        "mirrored": {
+          "description": "Görselleştiriciyi merkezine göre aynala",
+          "label": "Aynalanmış"
+        },
+        "mute-color": {
+          "description": "Sesi kapatıldığında ikon ve etiket için kullanılan renk rolü; sabit onaltılık renkler de desteklenir",
+          "label": "Sessiz Renk"
+        },
+        "mute-glyph": {
+          "description": "Sesi kapatıldığında veya hacim %0 olduğunda kullanılan ikon sembolü; yerleşik sessiz ikonunu kullanmak için boş bırakın",
+          "label": "Sessiz Sembol"
+        },
+        "network-speed-compact": {
+          "description": "1.2 MB/sn yerine 1.2M gibi kısa birim son ekleri kullan",
+          "label": "Kompakt Ağ Hızı"
+        },
+        "network-speed-unit": {
+          "description": "Ağ alma ve gönderme hızları için kullanılan birim; Otomatik seçeneği B/sn, kB/sn, MB/sn ve GB/sn arasında geçiş yapar",
+          "label": "Ağ Hızı Birimi"
+        },
+        "occupied-color": {
+          "description": "Dolu çalışma alanları için kullanılan renk; sabit onaltılık renkler de desteklenir",
+          "label": "Dolu Renk"
+        },
+        "only-active-workspace": {
+          "description": "Aktif olmayan çalışma alanlarındaki pencereleri gizle",
+          "label": "Sadece Aktif Çalışma Alanı"
+        },
+        "path": {
+          "description": "Disk istatistikleri tarafından kullanılan yol",
+          "label": "Yol"
+        },
+        "pill-scale": {
+          "description": "Çalışma alanı haplarının ölçeğini ayarla",
+          "label": "Hap Ölçeği",
+          "workspaces-description": "Çalışma alanı haplarının ölçeğini ayarla"
+        },
+        "pinned": {
+          "description": "Çekmece modu etkinken çubukta görünür kalan tepsi öğesi kimlikleri",
+          "label": "Sabitlenmiş Öğeler",
+          "taskbar-description": "Çalışmadığında görev çubuğunda kalan masaüstü uygulamaları; Çalışma Alanına Göre Grupla açıkken yoksayılır",
+          "taskbar-label": "Sabitlenmiş Uygulamalar"
+        },
+        "pinned-opacity": {
+          "description": "Şu anda çalışmayan sabitlenmiş uygulamaların opaklığı",
+          "label": "Sabitlenmiş Uygulama Opaklığı"
+        },
+        "reversed": {
+          "description": "Çubukların düşükten yükseğe frekans sırasını tersine çevir",
+          "label": "Tersine Çevrilmiş"
+        },
+        "scale": {
+          "description": "Bu bileşeni çubuk içerik ölçeğine göre ölçeklendir",
+          "label": "Ölçek"
+        },
+        "scope": {
+          "description": "Canlı bileşen yerleşimi başına bir betik çalışma zamanı çalıştırın veya aynı bileşen kimliğine sahip çubuklar arasında bir çalışma zamanı paylaşın",
+          "label": "Çalışma Zamanı Kapsamı"
+        },
+        "script": {
+          "description": "Lua betiğinin yolu",
+          "label": "Betik"
+        },
+        "scroll-repeat": {
+          "description": "Kaydırma eylemlerinin komut anlambilimini izlemesini, hareket başına bir kez çalışmasını veya her kaydırma adımı için tekrarlanmasını seçin",
+          "label": "Kaydırma Tekrarı"
+        },
+        "show-active-indicator": {
+          "description": "Görev çubuğunda aktif pencere ikonunun altında küçük bir nokta göster",
+          "label": "Aktif Pencere Göstergesi"
+        },
+        "show-all-outputs": {
+          "description": "Bu bileşendeki her ekrandan gelen pencereleri dahil et",
+          "label": "Tüm Monitörleri Göster"
+        },
+        "show-all-workspaces": {
+          "description": "Bu araçta tüm monitörlerdeki çalışma alanlarını göster",
+          "label": "Tüm Monitörleri Göster"
+        },
+        "show-caps-lock": {
+          "description": "Caps Lock durumunu göster",
+          "label": "Caps Lock Göster"
+        },
+        "show-condition": {
+          "description": "Hava durumu metnini göster",
+          "label": "Durumu Göster"
+        },
+        "show-empty-label": {
+          "description": "Hiçbir pencere odaklanmadığında bileşeni gizlemek yerine yer tutucu metni göster",
+          "label": "Boş Etiketi Göster"
+        },
+        "show-glyph": {
+          "description": "Bileşen sembolünü veya özel resmi göster",
+          "label": "Sembolü Göster"
+        },
+        "show-label": {
+          "description": "Bileşenin metin etiketini göster",
+          "label": "Etiketi Göster"
+        },
+        "show-labels": {
+          "description": "Çalışma alanlarındaki metin etiketlerini göster",
+          "label": "Etiketleri Göster"
+        },
+        "show-num-lock": {
+          "description": "Num Lock durumunu göster",
+          "label": "Num Lock Göster"
+        },
+        "show-scroll-lock": {
+          "description": "Scroll Lock durumunu göster",
+          "label": "Scroll Lock Göster"
+        },
+        "show-temperature": {
+          "description": "Mevcut sıcaklık metnini göster",
+          "label": "Sıcaklığı Göster"
+        },
+        "show-unlock-hint": {
+          "description": "Kilit açma ipuçları ve kimlik doğrulama istemleri için giriş kutusunun üzerinde durum kartını göster; bu kapalıyken bile hatalar ve Caps Lock uyarıları görünmeye devam eder",
+          "label": "Kilit Açma İpucu"
+        },
+        "show-value": {
+          "description": "Görselleştirmenin yanında mevcut değeri göster",
+          "label": "Değeri Göster"
+        },
+        "show-vpn-label": {
+          "description": "Değiştir modunda ağ etiketini VPN etiketi ile değiştirir; Her İkisi modunda VPN ikonunun yanına VPN etiketi ekler",
+          "label": "VPN Etiketini Göster"
+        },
+        "show-when-idle": {
+          "description": "Herhangi bir medya oynatılmadığında bile görselleştiriciyi görünür tut",
+          "label": "Boştayken Göster"
+        },
+        "show-window-title": {
+          "description": "Pencere başlığını ikonunun yanında göster (sadece yatay çubuklarda)",
+          "label": "Pencere Başlığını Göster"
+        },
+        "show-workspace-label": {
+          "description": "Gruplandırılmış görev çubuğu kapsüllerinde küçük çalışma alanı etiketini göster; sadece ikon içeren gruplar için kapatın",
+          "label": "Çalışma Alanı Kapsülü Etiketi"
+        },
+        "stat": {
+          "description": "Görüntülenecek sistem istatistiği",
+          "label": "İstatistik"
+        },
+        "style": {
+          "description": "Çalışma alanı değiştirici görünümü",
+          "label": "Stil",
+          "workspaces-description": "Normal, animasyonlu haplar gösterir; Minimal, sadece metin etiketleridir; Odak İpucu, aktif olmayan çalışma alanları için noktalar ve odaklanmış uygulama ikonu ile genişletilmiş aktif bir hap kullanır"
+        },
+        "taskbar-max-width": {
+          "description": "Piksel cinsinden toplam genişlik bütçesi; pencere başlıkları sığmak için küçülür ve çok dar olduğunda gizlenir",
+          "label": "Görev Çubuğu Maksimum Genişliği"
+        },
+        "text": {
+          "description": "Çubukta gösterilen metin",
+          "label": "Metin"
+        },
         "timezone": {
+          "description": "Bu saat için kullanılacak saat dilimi tanımlayıcısı örneğin Europe/Istanbul; sistem yerel saatini kullanmak için boş bırakın",
           "label": "Saat Dilimi"
         },
+        "title-scroll": {
+          "description": "Bileşen başlığının ne zaman kaydırılacağı",
+          "label": "Başlık Kaydırma"
+        },
+        "tooltip": {
+          "description": "Bu düğmenin üzerine gelindiğinde gösterilen ipucu",
+          "label": "İpucu"
+        },
+        "tooltip-format": {
+          "description": "İpucu için isteğe bağlı biçim",
+          "label": "İpucu Biçimi"
+        },
+        "type": {
+          "description": "Bu adlandırılmış bileşen için yerleşik bileşen türü",
+          "label": "Tür"
+        },
+        "urgent-color": {
+          "description": "Acil çalışma alanları için kullanılan renk rolü; sabit onaltılık renkler de desteklenir",
+          "label": "Acil Renk"
+        },
+        "vertical-format": {
+          "description": "Yatay çubuklarda kullanılan isteğe bağlı biçim",
+          "label": "Dikey Biçim"
+        },
+        "visualization": {
+          "description": "Gösterge, grafik veya veri görselleştirmesi yok",
+          "label": "Görselleştirme"
+        },
         "vpn-status": {
+          "description": "VPN durumunun nasıl görüntüleneceği: Değiştir ağ ikonunu bir VPN kalkanı ile değiştirir, Her İkisi yan yana gösterir, Gizli VPN göstergesini devre dışı bırakır",
           "label": "VPN Durumu"
         },
         "warning-color": {
+          "description": "Şarj durumu Sistem pil uyarı eşiğinde veya altında olduğunda uygulanan renk",
           "label": "Uyarı Rengi"
         },
         "width": {
-          "description": "Widget genişliği pixel ile",
+          "description": "Piksel cinsinden bileşen genişliği",
           "label": "Genişlik"
         },
         "window-title-max-width": {
-          "description": "Pencere başlıkları için maksimum başlkık genişliği"
+          "description": "Pencere başlıkları için maksimum başlık genişliği",
+          "label": "Maksimum Pencere Başlığı Genişliği"
+        },
+        "workspace-group-capsule": {
+          "description": "Her gruplandırılmış çalışma alanının etrafına arka planı ve kenarlığı çizin. Sadece ikon gruplamayı ve çalışma alanı disk etiketlerini korumak için kapatın.",
+          "label": "Çalışma Alanı Grubu Kapsülü"
         },
         "workspace-group-content": {
+          "description": "Her çalışma alanı grubunun ne gösterdiği: uygulama ikonları, pencere sayısı veya noktalar 5'e kadar, sonra kalanı için +N",
           "label": "Grup İçeriği"
         },
         "workspace-label-placement": {
+          "description": "Köşe, kenarda ortalanmış veya hapın içinde",
           "label": "Çalışma Alanı Yerleşimi"
         }
       },
       "types": {
         "active-window": "Aktif Pencere",
-        "audio-visualizer": "Ses  göstergesi",
+        "audio-visualizer": "Ses Görselleştirici",
         "battery": "Pil",
         "bluetooth": "Bluetooth",
         "brightness": "Parlaklık",
@@ -1452,19 +3864,20 @@
         "control-center": "Kontrol Merkezi",
         "custom-button": "Özel Buton",
         "keyboard-layout": "Klavye Düzeni",
-        "launcher": "Başlat",
-        "lock-keys": "Lock Keys",
+        "launcher": "Başlatıcı",
+        "lock-keys": "Kilit Tuşları",
         "media": "Medya",
         "network": "Ağ",
         "nightlight": "Gece Işığı",
         "notifications": "Bildirimler",
         "power-profile": "Güç Profili",
         "privacy": "Gizlilik Göstergesi",
-        "screenshot": "Ekran Görüntüşü",
+        "screenshot": "Ekran Görüntüsü",
+        "scripted": "Betik",
         "session": "Oturum",
         "settings": "Ayarlar",
-        "spacer": "Ara Çubuk",
-        "sysmon": "Sistem Monitorü",
+        "spacer": "Ayırıcı",
+        "sysmon": "Sistem Monitörü",
         "taskbar": "Görev Çubuğu",
         "test": "Test",
         "text": "Metin",
@@ -1477,35 +3890,45 @@
       }
     },
     "window": {
-      "export-config": "Konfigi Dışa Aktar...",
-      "export-config-saved": "Konfig dışa aktarma kaydedildi.",
+      "export-config": "Yapılandırmayı Dışa Aktar...",
+      "export-config-saved": "Yapılandırma dışa aktarımı kaydedildi.",
       "filter-overridden": "Üzerine yazıldı",
+      "legacy-config-warning": "Eski ayar: {issue}. Bu kaynak girişini düzenleyin; Noctalia değişimi sadece geçici olarak uyguluyor. Gerekli tüm değişiklikleri listelemek için noctalia config validate komutunu çalıştırın.",
       "native-title": "Noctalia Ayarları",
       "no-results": "Ayar bulunamadı",
-      "no-results-hint": "Farklı bir ayar veya konfig adı girin.",
+      "no-results-hint": "Farklı bir ayar veya yapılandırma adı girin.",
       "offline-mode-notice": {
+        "appearance": "Topluluk paleti indirmeleri çalışmayacak.",
+        "calendar-account": "Takvim bulma ve eşzamanlama çalışmayacak.",
+        "disable-hint": "Güvenlik bölümünden Çevrimdışı Modu devre dışı bırakın.",
         "launcher": "Döviz kuru çekimi çalışmayacak.",
         "location": "Hava durumu ve konum sorgulamaları çalışmayacak.",
+        "plugin-store": "Uzak eklenti kataloğu ve indirme istekleri çalışmayacak.",
+        "plugins": "Eklenti HTTP istekleri çalışmayacak. Git kaynakları yine de güncellenebilir.",
+        "security": "Harici IP sorgulama ve telemetri çalışmayacak.",
+        "services": "Takvim hesabı eşzamanlaması çalışmayacak.",
+        "template-store": "Topluluk şablonu indirmeleri çalışmayacak.",
+        "templates": "Topluluk şablonu indirmeleri ve güncellemeleri çalışmayacak.",
         "title": "Çevrimdışı Mod"
       },
       "reset-page": "Sayfayı Sıfırla",
       "reset-page-confirm": "Sıfırlamayı onayla",
       "search-placeholder": "Ayarlarda ara...",
-      "search-truncated": "İlk {count} ayar gösteriliyor. Sonuçları daraltmak için araemayı değiştirin.",
+      "search-truncated": "İlk {count} ayar gösteriliyor. Sonuçları daraltmak için aramayı değiştirin.",
       "support-report": "Destek Raporu",
-      "support-report-saved": "Destek Raporunu Kaydededildi",
+      "support-report-saved": "Destek Raporu Kaydedildi",
       "support-report-title": "Destek Raporunu Kaydet",
       "title": "Ayarlar"
     }
   },
   "setup-wizard": {
-    "browse": "Tara",
-    "builtin-palette": "Yüklü Palet",
-    "footer-note": "Bunları daha sonra ayarlarda değiştirebilirsiniz.",
-    "get-started": "Başlayın",
+    "browse": "Göz At",
+    "builtin-palette": "Yerleşik Palet",
+    "footer-note": "Bunları daha sonra ayarlardan değiştirebilirsiniz.",
+    "get-started": "Başla",
     "mode": "Mod",
     "no-wallpaper-selected": "Duvar kağıdı seçilmedi",
-    "select-wallpaper": "Duvar Kağıdı Seçin",
+    "select-wallpaper": "Duvar Kağıdı Seç",
     "subtitle": "Başlamanız için birkaç hızlı seçenek.",
     "title": "Noctalia'ya Hoş Geldiniz",
     "wallpaper": "Duvar Kağıdı",
@@ -1514,9 +3937,9 @@
   "system": {
     "hardware": {
       "unknown": "Bilinmiyor",
-      "unknown-cpu": "Bilinmeyen CPU",
-      "unknown-distro": "Bilinnmeyen distro",
-      "unknown-gpu": "Bilinmeyen GPU"
+      "unknown-cpu": "Bilinmeyen İşlemci",
+      "unknown-distro": "Bilinmeyen Dağıtım",
+      "unknown-gpu": "Bilinmeyen Ekran Kartı"
     }
   },
   "theme": {
@@ -1546,8 +3969,8 @@
     "relative": {
       "days-ago": "{count} gün önce",
       "days-ago-plural": "{count} gün önce",
-      "hours-ago": "{count} s önce",
-      "hours-ago-plural": "{count} s önce",
+      "hours-ago": "{count} saat önce",
+      "hours-ago-plural": "{count} saat önce",
       "just-now": "şimdi",
       "minutes-ago": "{count} dk önce",
       "minutes-ago-plural": "{count} dk önce"
@@ -1571,7 +3994,7 @@
     "menu": {
       "empty": "Menü öğesi yok",
       "pin": "Sabitle",
-      "unpin": "Serbest bırak"
+      "unpin": "Serbest Bırak"
     }
   },
   "ui": {
@@ -1608,7 +4031,7 @@
           "size": "Boyut"
         },
         "title": {
-          "default": "Dosya diyalogu",
+          "default": "Dosya İletişim Kutusu",
           "open": "Dosya Aç",
           "save": "Dosyayı Kaydet",
           "select-folder": "Klasör Seç"
@@ -1616,8 +4039,8 @@
       },
       "glyph-picker": {
         "all-categories": "Tümü",
-        "search-placeholder": "Glif ara...",
-        "title": "Bir Glif Seç"
+        "search-placeholder": "Sembol ara...",
+        "title": "Bir Sembol Seç"
       }
     }
   },
@@ -1648,8 +4071,8 @@
         "rain-showers": "Yağmur sağanağı",
         "snow": "Kar",
         "snow-showers": "Kar sağanağı",
-        "thunderstorm": "Gök gürüntülü fırtına",
-        "unknown": "Bİlinmiyor"
+        "thunderstorm": "Gök gürültülü fırtına",
+        "unknown": "Bilinmiyor"
       },
       "short": {
         "clear": "Temiz",
@@ -1672,7 +4095,7 @@
   },
   "window-switcher": {
     "empty": "Açık pencere yok",
-    "hint": "Tab · Shift+Tab · Yön tuşları · Değiştirmek için Alt'ı bırak · İptel etmek için Esc",
-    "title": "Penceler"
+    "hint": "Tab · Shift+Tab · Yön tuşları · Değiştirmek için Alt'ı bırak · İptal etmek için Esc",
+    "title": "Pencereler"
   }
 }

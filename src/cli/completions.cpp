@@ -3,6 +3,7 @@
 #include "cli/parse.h"
 #include "cli/schema_root.h"
 
+#include <algorithm>
 #include <print>
 #include <span>
 #include <string_view>
@@ -203,20 +204,34 @@ namespace noctalia::cli {
 
   std::string generateBash(const Command& root) {
     const auto states = collectStates(root);
-    std::string output = "# bash completion for noctalia; generated from the live CLI schema\n"
-                         "_noctalia_complete_words() {\n"
-                         "  local words=\"$1\"\n"
-                         "  local IFS=$'\\n'\n"
-                         "  COMPREPLY=( $(compgen -W \"$words\" -- \"$cur\") )\n"
-                         "}\n\n"
-                         "_noctalia_completions() {\n"
-                         "  local cur=\"${COMP_WORDS[COMP_CWORD]}\"\n"
-                         "  local path=noctalia\n"
-                         "  local depth=1\n"
-                         "  local i token\n"
-                         "  for ((i=1; i<COMP_CWORD; ++i)); do\n"
-                         "    token=\"${COMP_WORDS[i]}\"\n"
-                         "    case \"$path:$token\" in\n";
+    std::string output =
+        "# bash completion for noctalia; generated from the live CLI schema\n"
+        "_noctalia_complete_words() {\n"
+        "  local words=\"$1\"\n"
+        "  local IFS=$'\\n'\n"
+        "  COMPREPLY=( $(compgen -W \"$words\" -- \"$cur\") )\n"
+        "}\n\n"
+        "_noctalia_plugins_enabled() {\n"
+        "  local words=\"$(noctalia msg plugins list 2>/dev/null | awk '$4 == \"enabled\" {print $1}')\"\n"
+        "  COMPREPLY=( $(compgen -W \"$words\" -- \"$cur\") )\n"
+        "}\n\n"
+        "_noctalia_plugins_disabled() {\n"
+        "  local words=\"$(noctalia msg plugins list 2>/dev/null | awk '$4 == \"disabled\" {print $1}')\"\n"
+        "  COMPREPLY=( $(compgen -W \"$words\" -- \"$cur\") )\n"
+        "}\n\n"
+        "_noctalia_plugin_prefix() {\n"
+        "  local words=\"$(noctalia msg plugins list 2>/dev/null | awk '$4 == \"enabled\" {print $1\":\"}')\"\n"
+        "  compopt -o nospace 2>/dev/null\n"
+        "  COMPREPLY=( $(compgen -W \"$words\" -- \"$cur\") )\n"
+        "}\n\n"
+        "_noctalia_completions() {\n"
+        "  local cur=\"${COMP_WORDS[COMP_CWORD]}\"\n"
+        "  local path=noctalia\n"
+        "  local depth=1\n"
+        "  local i token\n"
+        "  for ((i=1; i<COMP_CWORD; ++i)); do\n"
+        "    token=\"${COMP_WORDS[i]}\"\n"
+        "    case \"$path:$token\" in\n";
 
     for (const CommandState& state : states) {
       for (const Command& child : state.command->subcommands) {
@@ -309,10 +324,16 @@ namespace noctalia::cli {
         output.append("        ");
         output.append(std::to_string(i));
         output.append(")\n");
-        if (positional.choices.empty())
+        if (!positional.runtimeProvider.empty()) {
+          output.append(10, ' ');
+          output.append("_noctalia_");
+          output.append(positional.runtimeProvider);
+          output.append("\n");
+        } else if (positional.choices.empty()) {
           appendBashFiles(output, 10);
-        else
+        } else {
           appendBashCompletion(output, positional.choices, 10);
+        }
         output.append("          ;;\n");
         if (positional.variadic)
           break;
@@ -320,10 +341,16 @@ namespace noctalia::cli {
       output.append("        *)\n");
       if (!command.positionals.empty() && command.positionals.back().variadic) {
         const Positional& positional = command.positionals.back();
-        if (positional.choices.empty())
+        if (!positional.runtimeProvider.empty()) {
+          output.append(10, ' ');
+          output.append("_noctalia_");
+          output.append(positional.runtimeProvider);
+          output.append("\n");
+        } else if (positional.choices.empty()) {
           appendBashFiles(output, 10);
-        else
+        } else {
           appendBashCompletion(output, positional.choices, 10);
+        }
       }
       output.append("          ;;\n      esac\n      ;;\n");
     }
@@ -333,7 +360,35 @@ namespace noctalia::cli {
 
   std::string generateZsh(const Command& root) {
     const auto states = collectStates(root);
-    std::string output = "#compdef noctalia\n# generated from the live CLI schema\n\n";
+    std::string output =
+        "#compdef noctalia\n# generated from the live CLI schema\n\n"
+        "_noctalia_plugins_enabled() {\n"
+        "  local -a plugins\n"
+        "  plugins=(${(f)\"$(noctalia msg plugins list 2>/dev/null | awk '$4 == \"enabled\" {print $1}')\"})\n"
+        "  if [[ ${#plugins[@]} -gt 0 ]]; then\n"
+        "    _values 'enabled plugin' $plugins\n"
+        "  else\n"
+        "    _message 'no enabled plugins found'\n"
+        "  fi\n"
+        "}\n\n"
+        "_noctalia_plugins_disabled() {\n"
+        "  local -a plugins\n"
+        "  plugins=(${(f)\"$(noctalia msg plugins list 2>/dev/null | awk '$4 == \"disabled\" {print $1}')\"})\n"
+        "  if [[ ${#plugins[@]} -gt 0 ]]; then\n"
+        "    _values 'disabled plugin' $plugins\n"
+        "  else\n"
+        "    _message 'no disabled plugins found'\n"
+        "  fi\n"
+        "}\n\n"
+        "_noctalia_plugin_prefix() {\n"
+        "  local -a plugins\n"
+        "  plugins=(${(f)\"$(noctalia msg plugins list 2>/dev/null | awk '$4 == \"enabled\" {print $1\":\"}')\"})\n"
+        "  if [[ ${#plugins[@]} -gt 0 ]]; then\n"
+        "    compadd -S '' -a plugins\n"
+        "  else\n"
+        "    _message 'no enabled plugins found'\n"
+        "  fi\n"
+        "}\n\n";
 
     for (const CommandState& state : states) {
       const Command& command = *state.command;
@@ -378,9 +433,18 @@ namespace noctalia::cli {
           const Positional& positional = command.positionals[i];
           std::string spec = positional.variadic ? "*" : std::to_string(i + 1);
           spec.push_back(':');
-          spec.append(positional.name);
+          std::string safeName{positional.name};
+          std::ranges::replace(safeName, ':', '-');
+          spec.append(safeName);
           spec.push_back(':');
-          spec.append(positional.choices.empty() ? "_files" : zshChoiceList(positional.choices));
+
+          if (!positional.runtimeProvider.empty())
+            spec.append("_noctalia_").append(positional.runtimeProvider);
+          else if (positional.choices.empty())
+            spec.append("_files");
+          else
+            spec.append(zshChoiceList(positional.choices));
+
           output.append("    ");
           output.append(shellSingleQuote(spec));
           output.append(i + 1 == command.positionals.size() ? "\n" : " \\\n");
@@ -449,6 +513,15 @@ namespace noctalia::cli {
                          "        end\n"
                          "    end\n"
                          "    test $seen -eq $wanted\n"
+                         "end\n\n"
+                         "function __noctalia_plugins_enabled\n"
+                         "    noctalia msg plugins list 2>/dev/null | awk '$4 == \"enabled\" {print $1}'\n"
+                         "end\n\n"
+                         "function __noctalia_plugins_disabled\n"
+                         "    noctalia msg plugins list 2>/dev/null | awk '$4 == \"disabled\" {print $1}'\n"
+                         "end\n\n"
+                         "function __noctalia_plugin_prefix\n"
+                         "    noctalia msg plugins list 2>/dev/null | awk '$4 == \"enabled\" {print $1\":\"}'\n"
                          "end\n\n";
 
     for (const CommandState& state : states) {
@@ -503,8 +576,9 @@ namespace noctalia::cli {
 
       for (std::size_t i = 0; i < command.positionals.size(); ++i) {
         const Positional& positional = command.positionals[i];
-        if (positional.choices.empty())
+        if (positional.choices.empty() && positional.runtimeProvider.empty())
           continue;
+
         std::string condition = "__noctalia_at_pos " + std::to_string(i);
         if (!path.empty()) {
           condition.push_back(' ');
@@ -513,7 +587,14 @@ namespace noctalia::cli {
         output.append("complete -c noctalia -n ");
         output.append(shellSingleQuote(condition));
         output.append(" -f -a ");
-        output.append(shellSingleQuote(fishChoiceList(positional.choices)));
+
+        if (!positional.runtimeProvider.empty()) {
+          std::string call = "(__noctalia_" + std::string(positional.runtimeProvider) + ")";
+          output.append(shellSingleQuote(call));
+        } else {
+          output.append(shellSingleQuote(fishChoiceList(positional.choices)));
+        }
+
         if (!positional.description.empty()) {
           output.append(" -d ");
           output.append(shellSingleQuote(positional.description));

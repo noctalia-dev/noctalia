@@ -754,6 +754,14 @@ namespace settings {
     pluginsHeader->addChild(makeLabel(
         i18n::tr("settings.plugins.plugins.title"), Style::fontSizeBody * scale, ColorRole::Secondary, FontWeight::Bold
     ));
+    if (ctx.pluginsLoading) {
+      pluginsHeader->addChild(
+          ui::spinner({
+              .spinnerSize = Style::fontSizeBody * scale,
+              .spinning = true,
+          })
+      );
+    }
     pluginsHeader->addChild(ui::spacer());
     const int updatesAvailable = static_cast<int>(
         std::ranges::count_if(ctx.plugins, [](const scripting::PluginStatus& p) { return p.updateAvailable; })
@@ -791,13 +799,7 @@ namespace settings {
       );
     }
     section->addChild(std::move(pluginsHeader));
-    if (ctx.pluginsLoading) {
-      section->addChild(makeLabel(
-          ctx.plugins.empty() ? i18n::tr("settings.plugins.plugins.loading")
-                              : i18n::tr("settings.plugins.plugins.refreshing"),
-          Style::fontSizeCaption * scale, ColorRole::OnSurfaceVariant
-      ));
-    } else if (ctx.plugins.empty()) {
+    if (!ctx.pluginsLoading && ctx.plugins.empty()) {
       section->addChild(makeLabel(
           i18n::tr("settings.plugins.plugins.empty"), Style::fontSizeCaption * scale, ColorRole::OnSurfaceVariant
       ));

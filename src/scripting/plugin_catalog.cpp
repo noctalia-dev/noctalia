@@ -102,8 +102,11 @@ namespace scripting {
             .version = tableString(*row, "version"),
             .revision = tableString(*row, "rev"),
         };
-        if (release.version.empty()) {
-          kLog.warn("catalog row '{}' release for plugin API {} missing 'version'", id, release.pluginApiVersion);
+        if (!isValidPluginVersion(release.version)) {
+          kLog.warn(
+              "catalog row '{}' release for plugin API {} has invalid 'version'; expected MAJOR.MINOR.PATCH", id,
+              release.pluginApiVersion
+          );
           continue;
         }
         if (!isCommitSha(release.revision)) {
@@ -235,6 +238,10 @@ namespace scripting {
       }
       if (e.name.empty()) {
         kLog.warn("catalog row '{}' missing mandatory key 'name'", e.id);
+        continue;
+      }
+      if (!isValidPluginVersion(e.version)) {
+        kLog.warn("catalog row '{}' has invalid mandatory key 'version'; expected MAJOR.MINOR.PATCH", e.id);
         continue;
       }
       const auto pluginApiVersion = tablePluginApiVersion(*tbl);

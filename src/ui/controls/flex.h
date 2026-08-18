@@ -49,6 +49,7 @@ public:
   void setPadding(float top, float right, float bottom, float left);
   void setPadding(float all);
   void setPadding(float vertical, float horizontal);
+  void setMirrorInRtl(bool mirror);
 
   void setFill(const ColorSpec& color);
   // Explicit fixed color.
@@ -90,6 +91,7 @@ public:
   [[nodiscard]] float gap() const noexcept { return m_gap; }
   [[nodiscard]] FlexAlign align() const noexcept { return m_align; }
   [[nodiscard]] FlexJustify justify() const noexcept { return m_justify; }
+  [[nodiscard]] bool mirrorInRtl() const noexcept { return m_mirrorInRtl; }
   [[nodiscard]] FlexSizePolicy widthPolicy() const noexcept { return m_widthPolicy; }
   [[nodiscard]] FlexSizePolicy heightPolicy() const noexcept { return m_heightPolicy; }
   [[nodiscard]] float minWidth() const noexcept { return m_minWidth; }
@@ -130,6 +132,7 @@ private:
   Signal<>::ScopedConnection m_paletteConn;
   FlexDirection m_direction = FlexDirection::Horizontal;
   bool m_wrap = false;
+  bool m_mirrorInRtl = true;
   FlexAlign m_align = FlexAlign::Center;
   FlexJustify m_justify = FlexJustify::Start;
   FlexSizePolicy m_widthPolicy = FlexSizePolicy::Content;

@@ -1,5 +1,6 @@
 #include "shell/control_center/tabs/notifications_tab.h"
 
+#include "compositors/compositor_platform.h"
 #include "core/log.h"
 #include "i18n/i18n.h"
 #include "net/uri.h"
@@ -640,7 +641,8 @@ private:
   float m_fillOpacity = 1.0F;
 };
 
-NotificationsTab::NotificationsTab(NotificationManager* notifications) : m_notifications(notifications) {}
+NotificationsTab::NotificationsTab(NotificationManager* notifications, CompositorPlatform* platform)
+    : m_notifications(notifications), m_platform(platform) {}
 
 NotificationsTab::~NotificationsTab() = default;
 
@@ -1005,7 +1007,9 @@ void NotificationsTab::invokeNotificationAction(uint32_t id, const std::string& 
   if (m_notifications == nullptr || actionKey.empty() || !m_notifications->hasPendingDBusClose(id)) {
     return;
   }
-  if (!m_notifications->invokeAction(id, actionKey, true)) {
+  const std::string activationToken =
+      m_platform != nullptr ? m_platform->requestActivationToken(m_platform->lastPointerSurface()) : std::string{};
+  if (!m_notifications->invokeAction(id, actionKey, activationToken, true)) {
     kLog.warn("notification history: failed to invoke action '{}' for #{}", actionKey, id);
     return;
   }

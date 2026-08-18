@@ -116,7 +116,8 @@ namespace shell::dock {
         popup.inputDispatcher.pointerMotion(static_cast<float>(event.sx), static_cast<float>(event.sy), event.serial);
         const bool pressed = event.pressed;
         popup.inputDispatcher.pointerButton(
-            static_cast<float>(event.sx), static_cast<float>(event.sy), event.button, pressed
+            static_cast<float>(event.sx), static_cast<float>(event.sy), event.button, pressed, event.serial, event.time,
+            event.touch
         );
         consumed = true;
       } else if (popup.pointerInside && event.surface != nullptr) {

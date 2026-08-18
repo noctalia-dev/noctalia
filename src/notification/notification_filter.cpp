@@ -151,6 +151,7 @@ ResolvedNotificationFilter resolveNotificationFilter(
         .showToast = filter.showToast,
         .saveHistory = filter.saveHistory,
         .playSound = filter.playSound,
+        .bypassDnd = filter.bypassDnd,
         .allowPermanent = filter.allowPermanent,
         .overrideDuration = filter.overrideDuration,
         .allowedUrgencies = normalizeAllowedUrgencies(filter.allowedUrgencies),

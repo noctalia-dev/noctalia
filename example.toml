@@ -73,6 +73,7 @@ open_near_click_session        = false # for attached/floating placement, follow
 [shell.launcher]
 categories    = true                    # show category filters in the launcher
 show_icons    = true                    # show application icons in launcher results
+show_app_origin_indicator = true        # show package origin indicators on application results
 compact       = false                   # use smaller icons and tighter result rows
 app_grid      = false                   # show app icon grid view when results are apps only
 sort_by_usage = true                    # sort apps by usage frequency
@@ -176,6 +177,7 @@ offset_y           = 8              # absolute vertical margin from the screen e
 # show_toast      = true
 # save_history    = false
 # play_sound      = true
+# bypass_dnd      = false            # bypass DND for matching notifications; play_sound still controls sound
 # allowed_urgencies = ["normal", "critical"]  # omit or list all three to allow every level
 # IPC examples:
 # noctalia msg notification-invoke-latest

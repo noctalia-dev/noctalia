@@ -183,6 +183,14 @@ void Flex::setJustify(FlexJustify justify) {
   markLayoutDirty();
 }
 
+void Flex::setMirrorInRtl(bool mirror) {
+  if (m_mirrorInRtl == mirror) {
+    return;
+  }
+  m_mirrorInRtl = mirror;
+  markLayoutDirty();
+}
+
 void Flex::setPadding(float top, float right, float bottom, float left) {
   m_paddingTop = top;
   m_paddingRight = right;
@@ -389,6 +397,7 @@ void Flex::setSizeFromLayout(float width, float height) {
 
 LayoutSize Flex::runLayout(Renderer& renderer, const LayoutConstraints& constraints, bool arrangeChildren) {
   const bool horizontal = m_direction == FlexDirection::Horizontal;
+  const bool mirrored = m_mirrorInRtl && Style::rtl();
   const bool explicitWidth = width() > 0.0F && (arrangingByLayout() || m_explicitWidth);
   const bool explicitHeight = height() > 0.0F && (arrangingByLayout() || m_explicitHeight);
 
@@ -638,8 +647,11 @@ LayoutSize Flex::runLayout(Renderer& renderer, const LayoutConstraints& constrai
             }
           }
 
+          const float mainPos = horizontal && mirrored ? width() - cursor - items[i].main : cursor;
+          const float crossPosPhysical = !horizontal && mirrored ? width() - crossPos - childCross : crossPos;
           items[i].node->arrange(
-              renderer, rectFromAxes(horizontal, std::round(cursor), std::round(crossPos), items[i].main, childCross)
+              renderer,
+              rectFromAxes(horizontal, std::round(mainPos), std::round(crossPosPhysical), items[i].main, childCross)
           );
           cursor += items[i].main;
         }
@@ -717,8 +729,10 @@ LayoutSize Flex::runLayout(Renderer& renderer, const LayoutConstraints& constrai
           }
         }
 
+        const float mainPos = horizontal && mirrored ? width() - cursor - item.main : cursor;
+        const float crossPosPhysical = !horizontal && mirrored ? width() - crossPos - childCross : crossPos;
         item.node->arrange(
-            renderer, rectFromAxes(horizontal, std::round(cursor), std::round(crossPos), item.main, childCross)
+            renderer, rectFromAxes(horizontal, std::round(mainPos), std::round(crossPosPhysical), item.main, childCross)
         );
         cursor += item.main;
       }

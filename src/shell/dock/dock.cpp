@@ -603,7 +603,8 @@ bool Dock::onPointerEvent(const PointerEvent& event) {
       break;
     const bool pressed = event.pressed;
     m_hoveredInstance->inputDispatcher.pointerButton(
-        static_cast<float>(event.sx), static_cast<float>(event.sy), event.button, pressed
+        static_cast<float>(event.sx), static_cast<float>(event.sy), event.button, pressed, event.serial, event.time,
+        event.touch
     );
     break;
   }
@@ -668,7 +669,12 @@ void Dock::syncInstances() {
   // Remove instances for dead outputs or outputs no longer selected.
   std::erase_if(m_instances, [this, &outputs, &outputAllowed](const auto& inst) {
     const auto it = std::ranges::find(outputs, inst->outputName, &WaylandOutput::name);
-    const bool drop = (it == outputs.end()) || !outputAllowed(*it);
+    const bool geometryChanged = it != outputs.end()
+        && (inst->outputLogicalX != it->logicalX
+            || inst->outputLogicalY != it->logicalY
+            || inst->outputLogicalWidth != it->effectiveLogicalWidth()
+            || inst->outputLogicalHeight != it->effectiveLogicalHeight());
+    const bool drop = (it == outputs.end()) || !outputAllowed(*it) || geometryChanged;
     if (drop) {
       detachInstanceState(*inst);
     }
@@ -778,6 +784,10 @@ void Dock::createInstance(const WaylandOutput& output) {
   instance->outputName = output.name;
   instance->output = output.output;
   instance->scale = output.scale;
+  instance->outputLogicalX = output.logicalX;
+  instance->outputLogicalY = output.logicalY;
+  instance->outputLogicalWidth = output.effectiveLogicalWidth();
+  instance->outputLogicalHeight = output.effectiveLogicalHeight();
 
   const auto& shadowConfig = m_config->config().shell.shadow;
   LayerSurfaceConfig lsCfg = shell::dock::makeLayerSurfaceConfig(

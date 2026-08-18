@@ -313,18 +313,59 @@ void ScreenTimeService::setEnabled(bool enabled) {
     }
     m_tickTimer.stop();
   } else {
-    onFocusChange();
-    if (!m_tickTimer.active()) {
-      m_tickTimer.startRepeating(kTickInterval, [this]() { tick(); });
-    }
+    resumeTracking();
   }
   if (m_changeCallback) {
     m_changeCallback();
   }
 }
 
+void ScreenTimeService::setSessionLocked(bool locked) {
+  if (m_sessionLocked == locked) {
+    return;
+  }
+  m_sessionLocked = locked;
+  if (locked) {
+    pauseTracking();
+    return;
+  }
+  resumeTracking();
+}
+
+void ScreenTimeService::setSuspendPaused(bool paused) {
+  if (m_suspendPaused == paused) {
+    return;
+  }
+  m_suspendPaused = paused;
+  if (paused) {
+    pauseTracking();
+    return;
+  }
+  resumeTracking();
+}
+
+void ScreenTimeService::pauseTracking() {
+  if (m_enabled) {
+    flushActiveSession(std::chrono::steady_clock::now());
+    if (m_dirty) {
+      save();
+    }
+  }
+  m_activeAppKey.clear();
+  m_activeSince = {};
+  m_tickTimer.stop();
+}
+
+void ScreenTimeService::resumeTracking() {
+  if (!m_enabled || m_sessionLocked || m_suspendPaused) {
+    return;
+  }
+  onFocusChange();
+  m_tickTimer.startRepeating(kTickInterval, [this]() { tick(); });
+}
+
 void ScreenTimeService::onFocusChange() {
-  if (!m_enabled) {
+  if (!m_enabled || m_sessionLocked || m_suspendPaused) {
     return;
   }
   const std::string candidate = appKeyForActive();
@@ -347,7 +388,7 @@ void ScreenTimeService::onFocusChange() {
 }
 
 void ScreenTimeService::tick() {
-  if (!m_enabled) {
+  if (!m_enabled || m_sessionLocked || m_suspendPaused) {
     return;
   }
   const bool wasDirty = m_dirty;

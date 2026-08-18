@@ -4,6 +4,7 @@
 #include "render/core/renderer.h"
 #include "render/scene/input_area.h"
 #include "render/scene/input_dispatcher.h"
+#include "shell/tooltip/tooltip_manager.h"
 #include "ui/builders.h"
 #include "ui/controls/box.h"
 #include "ui/palette.h"
@@ -303,6 +304,9 @@ namespace settings {
     if (m_impl->entries.empty() || m_impl->stackRoot == nullptr) {
       return;
     }
+    // The hovered tooltip is a popup whose anchor belongs to this modal subtree.
+    // Destroy it before removing that anchor instead of leaving a fade-out to run.
+    TooltipManager::instance().forceDestroy();
     if (m_impl->input != nullptr) {
       m_impl->input->cancelPointerCapture();
       m_impl->input->setFocus(nullptr);

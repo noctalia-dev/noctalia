@@ -2,6 +2,7 @@
 
 #include "capture/screencopy_capture.h"
 #include "capture/screenshot_region_overlay.h"
+#include "core/timer_manager.h"
 
 #include <filesystem>
 #include <memory>
@@ -104,6 +105,8 @@ private:
   void startRegionOverlay(RenderContext& renderContext);
   void startFullscreenOverlay(RenderContext& renderContext);
   void beginFreezeCapture();
+  void startNextFreezeCapture();
+  void onFreezeFrameCaptured(wl_output* output, std::optional<ScreencopyImage> image, const std::string& error);
   void finishFreezeCapture();
   void abortFreezeCapture(const std::string& message);
   void cancelRegionCapture();
@@ -158,4 +161,5 @@ private:
   std::vector<capture::FrozenScreenshot> m_frozenScreenshots;
   std::vector<wl_output*> m_pendingFreezeOutputs;
   bool m_freezeCaptureActive = false;
+  Timer m_freezeCaptureTimeout;
 };

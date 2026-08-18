@@ -139,7 +139,7 @@ when separate EGL/GLES packages are missing).
 ### Build-time (required)
 
 Canonical list is the `dependency(...)` / header checks in
-[`meson.build`](meson.build). Distro package names differ; the [README](README.md)
+[`meson.build`](meson.build). Distro package names differ; [BUILDING.md](BUILDING.md)
 has copy-paste install lines for common distros.
 
 Notes packagers hit often:

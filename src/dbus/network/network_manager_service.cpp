@@ -1,6 +1,7 @@
 #include "dbus/network/network_manager_service.h"
 
 #include "core/log.h"
+#include "dbus/network/network_manager_security.h"
 #include "dbus/system_bus.h"
 #include "system/rfkill_helper.h"
 
@@ -389,7 +390,8 @@ bool NetworkManagerService::addAndActivateAccessPoint(
   ConnectionSettings settings;
   if (ap.secured) {
     // Minimal secured-wifi settings — NM fills in ssid from the specific_object.
-    settings["802-11-wireless-security"]["key-mgmt"] = sdbus::Variant{std::string("wpa-psk")};
+    settings["802-11-wireless-security"]["key-mgmt"] =
+        sdbus::Variant{std::string(network_manager_security::keyManagement(ap.supportsSae))};
     if (psk.has_value()) {
       settings["802-11-wireless-security"]["psk"] = sdbus::Variant{*psk};
     }
@@ -1693,6 +1695,7 @@ void NetworkManagerService::refreshAccessPoints(std::function<void()> onComplete
                                           }();
                                           info.secured =
                                               (wpaFlags != k_nm80211ApSecNone) || (rsnFlags != k_nm80211ApSecNone);
+                                          info.supportsSae = network_manager_security::supportsSae(rsnFlags);
                                           if (!info.ssid.empty()) {
                                             apState->aps.push_back(std::move(info));
                                           }
@@ -1774,6 +1777,7 @@ void NetworkManagerService::finishRefreshAccessPoints(
       it->path = ap.path;
       it->devicePath = ap.devicePath;
       it->secured = ap.secured;
+      it->supportsSae = ap.supportsSae;
     }
   }
   std::ranges::sort(deduped, [](const AccessPointInfo& a, const AccessPointInfo& b) {

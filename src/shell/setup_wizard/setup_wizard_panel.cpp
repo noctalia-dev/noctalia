@@ -411,7 +411,7 @@ void SetupWizardPanel::create() {
     footer->addChild(
         ui::button({
             .text = i18n::tr("setup-wizard.get-started"),
-            .glyph = "chevron-right",
+            .glyph = Style::rtl() ? "chevron-left" : "chevron-right",
             .fontSize = Style::fontSizeBody * scale,
             .glyphSize = Style::fontSizeBody * scale,
             .variant = ButtonVariant::Primary,

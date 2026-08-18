@@ -8,9 +8,12 @@
 #include "scripting/plugin_runtime_context.h"
 #include "shell/panel/panel_manager.h"
 #include "ui/builders.h"
+#include "ui/controls/context_menu_popup.h"
 #include "ui/controls/flex.h"
+#include "ui/style.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstdlib>
 #include <format>
 #include <fstream>
@@ -57,6 +60,7 @@ PluginPanel::PluginPanel(scripting::PluginRuntimeContext context, PluginPanelOpt
     : m_entryId(std::move(context.entryId)), m_sourcePath(std::move(context.sourcePath)),
       m_pluginDir(std::move(context.pluginDir)), m_scriptApi(context.scriptApi),
       m_settings(std::move(context.settings)), m_fileWatcher(context.fileWatcher), m_httpClient(context.httpClient),
+      m_clipboard(context.clipboard),
       m_preferredWidth(options.width > 0.0 ? static_cast<float>(options.width) : kDefaultPanelWidth),
       m_preferredHeight(options.height > 0.0 ? static_cast<float>(options.height) : kDefaultPanelHeight),
       m_widthFill(options.widthFill), m_heightFill(options.heightFill),
@@ -118,6 +122,7 @@ void PluginPanel::releaseCapturedKeys() {
 }
 
 PluginPanel::~PluginPanel() {
+  closeContextMenu();
   scripting::PluginIpcRouter::instance().unregisterEndpoint(this);
   if (m_alive) {
     *m_alive = false;
@@ -165,8 +170,18 @@ void PluginPanel::create() {
 
   m_reconciler.setCallbackSink([this](const ui::UiTreeReconciler::ControlCallback& callback) {
     if (m_runtime != nullptr) {
+      auto snapshot = makeScriptSnapshot();
+      if (callback.pointerContext.has_value()) {
+        snapshot.pointerContext = scripting::ScriptPointerContext{
+            .x = callback.pointerContext->x,
+            .y = callback.pointerContext->y,
+            .serial = callback.pointerContext->serial,
+            .time = callback.pointerContext->time,
+            .surfaceGeneration = m_openGeneration,
+        };
+      }
       (void)m_runtime->enqueueCallStrings(
-          callback.fn, callback.arg1, callback.arg2, makeScriptSnapshot(), callback.coalesce
+          callback.fn, callback.arg1, callback.arg2, std::move(snapshot), callback.coalesce
       );
     }
   });
@@ -215,6 +230,8 @@ void PluginPanel::startScript() {
 }
 
 void PluginPanel::onOpen(std::string_view context) {
+  closeContextMenu();
+  ++m_openGeneration;
   m_open = true;
   if (m_runtime != nullptr) {
     (void)m_runtime->enqueueCallStrings("onOpen", std::string(context), {}, makeScriptSnapshot());
@@ -226,7 +243,9 @@ void PluginPanel::onOpen(std::string_view context) {
 }
 
 void PluginPanel::onClose() {
+  ++m_openGeneration;
   m_open = false;
+  closeContextMenu();
   m_tickTimer.stop();
   releaseCapturedKeys();
   // The scene (including the overlay node) is torn down after close; cancel any
@@ -236,6 +255,14 @@ void PluginPanel::onClose() {
   if (m_runtime != nullptr) {
     (void)m_runtime->enqueueCall("onClose", makeScriptSnapshot());
   }
+}
+
+bool PluginPanel::dismissTransientUi() {
+  if (m_contextMenuPopup == nullptr || !m_contextMenuPopup->isOpen()) {
+    return false;
+  }
+  closeContextMenu();
+  return true;
 }
 
 void PluginPanel::onFrameTick(float deltaMs) {
@@ -321,6 +348,7 @@ void PluginPanel::handleScriptResult(scripting::ScriptResult result) {
     }
   }
   if (patch.requestClose.value_or(false)) {
+    closeContextMenu();
     PanelManager::instance().closePanelById(m_entryId);
     return;
   }
@@ -328,6 +356,115 @@ void PluginPanel::handleScriptResult(scripting::ScriptResult result) {
     m_tree = *patch.uiTree;
     m_treeDirty = true;
     PanelManager::instance().refreshPanel(m_entryId);
+  }
+  if (result.ok && result.contextMenuRequest.has_value()) {
+    openContextMenu(std::move(*result.contextMenuRequest));
+  }
+}
+
+void PluginPanel::openContextMenu(scripting::ScriptContextMenuRequest request) {
+  if (!m_open
+      || m_runtime == nullptr
+      || request.pointer.serial == 0
+      || request.pointer.surfaceGeneration != m_openGeneration) {
+    return;
+  }
+  auto& panels = PanelManager::instance();
+  auto parent = panels.popupParentContextForPanel(m_entryId);
+  auto* renderContext = panels.renderContext();
+  auto* wayland = panels.wayland();
+  if (!parent.has_value() || renderContext == nullptr || wayland == nullptr) {
+    return;
+  }
+
+  if (m_contextMenuPopup == nullptr) {
+    m_contextMenuPopup = std::make_unique<ContextMenuPopup>(*wayland, *renderContext);
+  }
+  panels.configureContextMenuPopup(*m_contextMenuPopup);
+
+  std::vector<ContextMenuControlEntry> entries;
+  std::vector<std::string> actionIds;
+  entries.reserve(request.items.size());
+  actionIds.reserve(request.items.size());
+  for (const auto& item : request.items) {
+    const auto nativeId = static_cast<std::int32_t>(actionIds.size());
+    ContextMenuControlEntry entry{
+        .id = nativeId,
+        .label = item.label,
+        .enabled = item.enabled,
+        .separator = item.kind == scripting::ScriptContextMenuItemKind::Separator,
+        .header = item.kind == scripting::ScriptContextMenuItemKind::Header,
+    };
+    if (item.kind == scripting::ScriptContextMenuItemKind::Action) {
+      actionIds.push_back(item.id);
+    } else {
+      entry.id = -1;
+    }
+    entries.push_back(std::move(entry));
+  }
+
+  const std::string callback = std::move(request.onActivate);
+  const std::optional<scripting::ScriptArg> callbackContext = std::move(request.context);
+  const std::weak_ptr<bool> alive = m_alive;
+  const std::uint64_t openGeneration = m_openGeneration;
+  m_contextMenuPopup->setOnActivate([this, alive, openGeneration, actionIds = std::move(actionIds), callback,
+                                     callbackContext](const ContextMenuControlEntry& entry) {
+    const auto token = alive.lock();
+    if (token == nullptr || !*token || !m_open || m_openGeneration != openGeneration) {
+      return;
+    }
+    if (m_runtime == nullptr || entry.id < 0 || static_cast<std::size_t>(entry.id) >= actionIds.size()) {
+      return;
+    }
+    scripting::ScriptArgs args{actionIds[static_cast<std::size_t>(entry.id)]};
+    if (callbackContext.has_value()) {
+      args.push_back(*callbackContext);
+    }
+    (void)m_runtime->enqueueCallArgs(callback, std::move(args), makeScriptSnapshot());
+  });
+  wl_surface* const parentSurface = parent->surface;
+  panels.beginAttachedPopup(parentSurface);
+  m_contextMenuPopup->setOnDismissed([parentSurface] {
+    if (auto* manager = PanelManager::current(); manager != nullptr) {
+      manager->clearActivePopup();
+      manager->endAttachedPopup(parentSurface);
+    }
+  });
+
+  const auto anchorX = static_cast<std::int32_t>(std::lround(request.pointer.x));
+  const auto anchorY = static_cast<std::int32_t>(std::lround(request.pointer.y));
+  m_contextMenuPopup->open(
+      ContextMenuPopupRequest{
+          .entries = std::move(entries),
+          .maxMenuWidth = Style::menuAutoMaxWidth * contentScale(),
+          .contentScale = contentScale(),
+          .maxVisible = request.maxVisible,
+          .anchor = PopupAnchorRect{.x = anchorX, .y = anchorY, .width = 1, .height = 1},
+          .parent =
+              PopupSurfaceParent{
+                  .layerSurface = parent->layerSurface,
+                  .xdgSurface = parent->xdgSurface,
+                  .output = parent->output,
+                  // ContextMenuPopup uses a non-null wlSurface to temporarily
+                  // promote a keyboard-inert layer parent and restores None on
+                  // dismissal. Panels already using OnDemand/Exclusive must
+                  // keep their current mode untouched.
+                  .wlSurface = m_keyboardMode == LayerShellKeyboard::None ? parent->surface : nullptr,
+              },
+          .pointerParentSurface = parent->surface,
+          .inputSerial = request.pointer.serial,
+      }
+  );
+  if (m_contextMenuPopup->isOpen()) {
+    panels.setActivePopup(m_contextMenuPopup.get());
+  } else {
+    panels.endAttachedPopup(parentSurface);
+  }
+}
+
+void PluginPanel::closeContextMenu() {
+  if (m_contextMenuPopup != nullptr) {
+    m_contextMenuPopup->close();
   }
 }
 
@@ -364,6 +501,8 @@ void PluginPanel::setupScriptWatch() {
 void PluginPanel::teardownScriptWatch() { m_scriptWatcher.stop(); }
 
 void PluginPanel::reloadScript() {
+  ++m_openGeneration;
+  closeContextMenu();
   std::string source = readFile(m_sourcePath);
   auto name = m_sourcePath.filename().string();
   if (source.empty() || m_runtime == nullptr) {

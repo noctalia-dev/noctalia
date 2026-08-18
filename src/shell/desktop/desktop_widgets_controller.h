@@ -1,6 +1,7 @@
 #pragma once
 
 #include "config/config_types.h"
+#include "shell/desktop/desktop_widget_layout.h"
 #include "shell/desktop/desktop_widget_services.h"
 #include "shell/desktop/wallpaper_mask.h"
 #include "ui/dialogs/layer_popup_host.h"
@@ -48,6 +49,7 @@ public:
   void exitEdit();
   void toggleEdit();
   void setOnEnterEditCallback(std::function<void()> callback);
+  void setOnExitEditCallback(std::function<void()> callback);
 
   /// Hides on-screen desktop widgets while another overlay editor (e.g. lockscreen layout) is active.
   void suppressDisplay();
@@ -87,6 +89,7 @@ private:
   RenderContext* m_renderContext = nullptr;
 
   DesktopWidgetsSnapshot m_snapshot;
+  desktop_widgets::PlacementMapper m_placementMapper;
   OutputWallpaperMaskMap m_wallpaperMasks;
   bool m_initialized = false;
   bool m_displaySuppressed = false;
@@ -94,6 +97,7 @@ private:
   // Last-seen saved desktop_widgets.enabled; an explicit transition clears the runtime override.
   bool m_lastEnabled = false;
   std::function<void()> m_onEnterEdit;
+  std::function<void()> m_onExitEdit;
   std::unique_ptr<DesktopWidgetsHost> m_host;
   std::unique_ptr<DesktopWidgetsEditor> m_editor;
 };

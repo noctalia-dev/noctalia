@@ -269,6 +269,7 @@ void CairoTextRenderer::initialize(RenderBackend* backend, TextureManager* textu
 
   m_fontMap = pango_cairo_font_map_new();
   m_pangoContext = pango_font_map_create_context(m_fontMap);
+  pango_context_set_base_dir(m_pangoContext, m_baseDirRtl ? PANGO_DIRECTION_RTL : PANGO_DIRECTION_LTR);
 
   // Force grayscale AA only. The tinted fast path rasterizes to A8 coverage and
   // tints in the shader (u_tint), which cannot carry per-channel subpixel/LCD
@@ -357,6 +358,17 @@ void CairoTextRenderer::setFontFamily(std::string family) {
   }
   m_fontFamily = std::move(family);
   text::invalidateFontWeightCatalogCache();
+  clearCaches();
+}
+
+void CairoTextRenderer::setBaseDirection(bool rtl) {
+  if (m_baseDirRtl == rtl) {
+    return;
+  }
+  m_baseDirRtl = rtl;
+  if (m_pangoContext != nullptr) {
+    pango_context_set_base_dir(m_pangoContext, rtl ? PANGO_DIRECTION_RTL : PANGO_DIRECTION_LTR);
+  }
   clearCaches();
 }
 

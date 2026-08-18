@@ -369,7 +369,8 @@ namespace settings {
     toolbar->addChild(
         ui::button({
             .text = i18n::tr("settings.templates.store.categories"),
-            .glyph = m_categoryFiltersCollapsed ? std::string("chevron-right") : std::string("chevron-down"),
+            .glyph = m_categoryFiltersCollapsed ? std::string(Style::rtl() ? "chevron-left" : "chevron-right")
+                                                : std::string("chevron-down"),
             .fontSize = Style::fontSizeCaption * scale,
             .glyphSize = Style::fontSizeCaption * scale,
             .contentAlign = ButtonContentAlign::Start,

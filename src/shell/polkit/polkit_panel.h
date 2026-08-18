@@ -63,4 +63,6 @@ private:
   std::string m_lastIconName;
   bool m_iconResolved = false;
   bool m_lastResponseRequired = false;
+  std::string m_trackedRequestCookie;
+  bool m_hasTrackedRequest = false;
 };

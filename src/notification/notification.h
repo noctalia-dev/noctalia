@@ -24,6 +24,12 @@ enum class NotificationOrigin : uint8_t {
   Internal = 1,
 };
 
+enum class NotificationDndPolicy : uint8_t {
+  Respect = 0,
+  ShowToast = 1,
+  Bypass = 2,
+};
+
 using Clock = std::chrono::steady_clock;
 using TimePoint = Clock::time_point;
 using WallClock = std::chrono::system_clock;
@@ -44,6 +50,7 @@ struct NotificationImageData {
 struct Notification {
   uint32_t id;
   NotificationOrigin origin;
+  NotificationDndPolicy dndPolicy = NotificationDndPolicy::Respect;
   bool transient = false;
   std::string appName;
   std::string summary;

@@ -120,10 +120,15 @@ public:
   [[nodiscard]] bool isActivePanelContext(std::string_view context) const noexcept;
   [[nodiscard]] std::optional<LayerPopupParentContext> popupParentContextForSurface(wl_surface* surface) const noexcept;
   [[nodiscard]] std::optional<LayerPopupParentContext> fallbackPopupParentContext() const noexcept;
+  [[nodiscard]] std::optional<LayerPopupParentContext>
+  popupParentContextForPanel(std::string_view panelId) const noexcept;
 
   [[nodiscard]] RenderContext* renderContext() const noexcept { return m_renderContext; }
   [[nodiscard]] WaylandConnection* wayland() const noexcept;
 
+  // Applies the shell's effective popup shadow settings to a panel-owned
+  // context menu before it opens.
+  void configureContextMenuPopup(ContextMenuPopup& popup) const;
   void setActivePopup(ContextMenuPopup* popup);
   void clearActivePopup();
 
@@ -174,8 +179,9 @@ private:
   void prepareFrame(bool needsUpdate, bool needsLayout);
   void applyPendingPanelFocus();
   void destroyPanel();
-  // Called BEFORE the panel surface commits so shields sit below the panel
-  // within the layer-shell layer. No-op when the focus-grab path is in use.
+  // Called before the panel surface commits so outside-click dismissal is ready
+  // for its first frame. The panel rect is excluded separately because
+  // same-layer stacking order is compositor-defined.
   void activateClickShield(LayerShellLayer layer);
   // Called AFTER the panel surface is mapped so the panel wl_surface is
   // available for the whitelist. No-op when focus-grab is unavailable.
@@ -245,6 +251,7 @@ private:
   std::int32_t m_panelInsetY = 0;
   std::uint32_t m_panelVisualWidth = 0;
   std::uint32_t m_panelVisualHeight = 0;
+  std::optional<InputRect> m_panelOutputInputRect;
   // Fill axes derive their visual size from the compositor-configured surface
   // size in buildScene; that math also needs the trailing shadow bleed.
   bool m_panelFillWidth = false;

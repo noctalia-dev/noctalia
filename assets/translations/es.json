@@ -1433,8 +1433,6 @@
         "empty": "No hay plugins activados.",
         "held-back": "version antigua",
         "incompatible-plugin-api": "API de plugin incompatible",
-        "loading": "Cargando plugins...",
-        "refreshing": "Actualizando plugins...",
         "remove": "Eliminar plugin",
         "requires": "Requiere: {dependencies}",
         "title": "Plugins",

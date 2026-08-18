@@ -44,15 +44,15 @@ namespace {
     return true;
   }
 
-  std::string row(std::uint32_t pluginApiVersion, std::string_view releases) {
+  std::string row(std::uint32_t pluginApiVersion, std::string_view releases, std::string_view version = "2.0.0") {
     return std::format(
         "[[plugin]]\n"
         "id = \"me/demo\"\n"
         "name = \"Demo\"\n"
-        "version = \"2.0.0\"\n"
+        "version = \"{}\"\n"
         "plugin_api = {}\n"
         "{}",
-        pluginApiVersion, releases
+        version, pluginApiVersion, releases
     );
   }
 
@@ -167,6 +167,19 @@ int main() {
     ok = expect(entries.size() == 1, "a row with a versionless release should parse") && ok;
     if (entries.size() == 1) {
       ok = expect(entries.front().releases.empty(), "a release without a version is dropped") && ok;
+    }
+  }
+  {
+    const auto entries = scripting::parseCatalogToml(row(kNewest, "", "1.2.3-beta.1"), kHeadRev);
+    ok = expect(entries.empty(), "a catalog row with a non-canonical version should be dropped") && ok;
+  }
+
+  {
+    const auto entries = scripting::parseCatalogToml(row(kTooNew, release(kNewest, "01.9.0", kNewestRev)), kHeadRev);
+    ok = expect(entries.size() == 1, "an invalid release version should not drop its catalog row") && ok;
+    if (entries.size() == 1) {
+      ok = expect(entries.front().releases.empty(), "a release with a non-canonical version is dropped") && ok;
+      ok = expect(!entries.front().compatible, "an invalid release cannot satisfy compatibility") && ok;
     }
   }
 

@@ -2,8 +2,12 @@
 
 local primary = "rgb({{colors.primary.default.hex_stripped}})"
 local surface = "rgb({{colors.surface.default.hex_stripped}})"
+local on_surface = "rgb({{colors.on_surface.default.hex_stripped}})"
 local secondary = "rgb({{colors.secondary.default.hex_stripped}})"
+local on_secondary = "rgb({{colors.on_secondary.default.hex_stripped}})"
 local error = "rgb({{colors.error.default.hex_stripped}})"
+local on_error = "rgb({{colors.on_error.default.hex_stripped}})"
+local shadow = "rgb({{colors.shadow.default.hex_stripped}})"
 
 local function apply_theme()
     hl.config({
@@ -13,7 +17,14 @@ local function apply_theme()
                 inactive_border = surface,
             },
         },
-
+        decoration = {
+            shadow = {
+                color = shadow,
+            },
+            glow = {
+                color = shadow,
+            },
+        },
         group = {
             col = {
                 border_active = secondary,
@@ -23,12 +34,17 @@ local function apply_theme()
             },
 
             groupbar = {
+                gradients = true,
                 col = {
                     active = secondary,
                     inactive = surface,
                     locked_active = error,
                     locked_inactive = surface,
                 },
+                text_color = on_secondary,
+                text_color_inactive = on_surface,
+                text_color_locked_active = on_error,
+                text_color_locked_inactive = on_surface,
             },
         },
     })
@@ -38,8 +54,12 @@ return {
     colors = {
         primary = primary,
         surface = surface,
+        on_surface = on_surface,
         secondary = secondary,
+        on_secondary = on_secondary,
         error = error,
+        on_error = on_error,
+        shadow = shadow,
     },
     apply_theme = apply_theme
 }

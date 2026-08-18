@@ -9,6 +9,7 @@ struct AccessPointInfo {
   std::string ssid;
   std::uint8_t strength = 0; // 0..100
   bool secured = false;
+  bool supportsSae = false;
   bool active = false;
 
   bool operator==(const AccessPointInfo&) const = default;

@@ -57,6 +57,22 @@ namespace {
   constexpr float kWindowMinWidth = 1020.0F;
   constexpr float kWindowMinHeight = 500.0F;
 
+  // min_size hints are orientation-aware: portrait outputs constrain width, so the hint
+  // follows the same 66% short-edge budget as the default open size instead of 1020.
+  [[nodiscard]] std::pair<float, float> settingsWindowMinSize(float outputW, float outputH, float scale) {
+    float minW = kWindowMinWidth * scale;
+    float minH = kWindowMinHeight * scale;
+    if (outputW <= 0.0F || outputH <= 0.0F) {
+      return {minW, minH};
+    }
+    if (outputW < outputH) {
+      minW = std::min(minW, outputW * kWindowOutputFraction);
+    }
+    minW = std::min(minW, outputW);
+    minH = std::min(minH, outputH);
+    return {minW, minH};
+  }
+
   // Build the {"bar", name, <lane>} path the widget inspector expects, resolving which lane the widget
   // currently lives in (the inspector keys off the bar name at index 1 and the lane at the tail).
   std::vector<std::string>
@@ -410,6 +426,13 @@ void SettingsWindow::open(std::string context) {
 
   m_surface->setClosedCallback([this]() { destroyWindow(); });
 
+  m_surface->setOutputChangedCallback([this](wl_output* currentOutput) {
+    m_output = currentOutput;
+    if (currentOutput != nullptr && m_surface != nullptr) {
+      m_surface->requestLayout();
+    }
+  });
+
   m_surface->setConfigureCallback([this](std::uint32_t /*width*/, std::uint32_t /*height*/) {
     if (m_surface != nullptr) {
       m_surface->requestLayout();
@@ -423,13 +446,14 @@ void SettingsWindow::open(std::string context) {
   m_surface->setUpdateCallback([]() {});
 
   const float scale = uiScale();
-  const float minWidthF = kWindowMinWidth * scale;
-  const float minHeightF = kWindowMinHeight * scale;
   float desiredWidth = kWindowWidth * scale;
   float desiredHeight = kWindowHeight * scale;
+  float minWidthF = kWindowMinWidth * scale;
+  float minHeightF = kWindowMinHeight * scale;
   if (const WaylandOutput* info = m_wayland->findOutputByWl(output); info != nullptr && info->hasUsableGeometry()) {
     const auto outputW = static_cast<float>(info->effectiveLogicalWidth());
     const auto outputH = static_cast<float>(info->effectiveLogicalHeight());
+    std::tie(minWidthF, minHeightF) = settingsWindowMinSize(outputW, outputH, scale);
     if (outputW >= outputH) {
       desiredHeight = util::clampOrdered(outputH * kWindowOutputFraction, std::min(minHeightF, outputH), outputH);
       desiredWidth = util::clampOrdered(desiredHeight * kGoldenRatio, std::min(minWidthF, outputW), outputW);
@@ -457,6 +481,8 @@ void SettingsWindow::open(std::string context) {
     m_surface.reset();
     return;
   }
+  m_minWidthHint = minWidth;
+  m_minHeightHint = minHeight;
   m_pointerInside = false;
   m_lastSceneWidth = 0;
   m_lastSceneHeight = 0;
@@ -509,6 +535,21 @@ void SettingsWindow::close() {
   destroyWindow();
 }
 
+void SettingsWindow::closeForWidgetEditor() {
+  if (!isOpen()) {
+    return;
+  }
+  m_reopenAfterWidgetEditorSection = m_selectedSection;
+  DeferredCall::callLater([this]() { close(); });
+}
+
+void SettingsWindow::reopenAfterWidgetEditor() {
+  if (m_reopenAfterWidgetEditorSection.empty()) {
+    return;
+  }
+  open(std::exchange(m_reopenAfterWidgetEditorSection, {}));
+}
+
 void SettingsWindow::dismissOpenSelectDropdown() {
   if (m_selectPopup != nullptr && m_selectPopup->isSelectDropdownOpen()) {
     m_selectPopup->closeSelectDropdown();
@@ -555,6 +596,8 @@ void SettingsWindow::destroyWindow() {
   m_surface.reset();
   m_pointerInside = false;
   m_output = nullptr;
+  m_minWidthHint = 0;
+  m_minHeightHint = 0;
   m_lastSceneWidth = 0;
   m_lastSceneHeight = 0;
   m_settingsRegistry.clear();
@@ -632,6 +675,32 @@ void SettingsWindow::prepareFrame(bool needsUpdate, bool needsLayout) {
   const bool sizeChanged = !firstBuild && (m_lastSceneWidth != width || m_lastSceneHeight != height);
   const bool needRebuild = firstBuild || m_rebuildRequested;
 
+  const float scale = uiScale();
+  float minWidthF = kWindowMinWidth * scale;
+  float minHeightF = kWindowMinHeight * scale;
+  wl_output* currentOutput = nullptr;
+  if (m_wayland != nullptr && m_surface != nullptr) {
+    currentOutput = m_wayland->outputForSurface(m_surface->wlSurface());
+  }
+  if (currentOutput == nullptr) {
+    currentOutput = m_output;
+  }
+  if (const WaylandOutput* info = m_wayland->findOutputByWl(currentOutput);
+      info != nullptr && info->hasUsableGeometry()) {
+    std::tie(minWidthF, minHeightF) = settingsWindowMinSize(
+        static_cast<float>(info->effectiveLogicalWidth()), static_cast<float>(info->effectiveLogicalHeight()), scale
+    );
+  }
+  const auto newMinW = static_cast<std::uint32_t>(std::round(minWidthF));
+  const auto newMinH = static_cast<std::uint32_t>(std::round(minHeightF));
+  if (newMinW != m_minWidthHint || newMinH != m_minHeightHint) {
+    phaseProfileWatch.reset();
+    m_surface->setMinSize(newMinW, newMinH);
+    m_minWidthHint = newMinW;
+    m_minHeightHint = newMinH;
+    logSettingsProfile("prepareFrame updateMinSize", phaseProfileWatch);
+  }
+
   if (needRebuild) {
     phaseProfileWatch.reset();
     UiPhaseScope layoutPhase(UiPhase::Layout);
@@ -651,13 +720,6 @@ void SettingsWindow::prepareFrame(bool needsUpdate, bool needsLayout) {
     m_contentRebuildRequested = false;
     m_settingsRegistryRefreshRequested = false;
     m_filterRowRefreshRequested = false;
-    phaseProfileWatch.reset();
-    const float scale = uiScale();
-    const auto newMinW = static_cast<std::uint32_t>(std::round(kWindowMinWidth * scale));
-    const auto newMinH = static_cast<std::uint32_t>(std::round(kWindowMinHeight * scale));
-    m_surface->setMinSize(newMinW, newMinH);
-    m_surface->clampToMinSize(newMinW, newMinH);
-    logSettingsProfile("prepareFrame updateMinSize", phaseProfileWatch);
   } else if ((m_contentRebuildRequested || sizeChanged || needsLayout) && m_sceneRoot != nullptr) {
     phaseProfileWatch.reset();
     UiPhaseScope layoutPhase(UiPhase::Layout);
@@ -943,7 +1005,8 @@ bool SettingsWindow::onPointerEvent(const PointerEvent& event) {
         break;
       }
       m_inputDispatcher.pointerButton(
-          static_cast<float>(event.sx), static_cast<float>(event.sy), event.button, pressed
+          static_cast<float>(event.sx), static_cast<float>(event.sy), event.button, pressed, event.serial, event.time,
+          event.touch
       );
       consumed = m_pointerInside;
     }

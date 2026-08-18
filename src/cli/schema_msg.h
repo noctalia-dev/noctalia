@@ -33,8 +33,11 @@ namespace noctalia::cli {
       Command{"custom", "Use a custom palette", {}, {}, {}, kMsgColorSchemeSetCustomPositionals, {}, false},
   };
 
-  inline constexpr std::array kMsgPluginsPluginPositionals{
-      Positional{"author/plugin", {}, {}, true, false, false},
+  inline constexpr std::array kMsgPluginsEnablePositionals{
+      Positional{"author/plugin", {}, {}, true, false, false, "plugins_disabled"},
+  };
+  inline constexpr std::array kMsgPluginsDisablePositionals{
+      Positional{"author/plugin", {}, {}, true, false, false, "plugins_enabled"},
   };
   inline constexpr std::array kMsgPluginsUpdatePositionals{
       Positional{"source-name", {}, {}, true, false, false},
@@ -55,8 +58,8 @@ namespace noctalia::cli {
   };
   inline constexpr std::array kMsgPluginsSubcommands{
       Command{"list", "List installed plugins", {}, {}, {}, {}, {}, false},
-      Command{"enable", "Enable a plugin", {}, {}, {}, kMsgPluginsPluginPositionals, {}, false},
-      Command{"disable", "Disable a plugin", {}, {}, {}, kMsgPluginsPluginPositionals, {}, false},
+      Command{"enable", "Enable a plugin", {}, {}, {}, kMsgPluginsEnablePositionals, {}, false},
+      Command{"disable", "Disable a plugin", {}, {}, {}, kMsgPluginsDisablePositionals, {}, false},
       Command{"update", "Update a plugin source", {}, {}, {}, kMsgPluginsUpdatePositionals, {}, false},
       Command{"source", "Manage plugin sources", {}, {}, {}, {}, kMsgPluginsSourceSubcommands, false},
   };
@@ -170,7 +173,7 @@ namespace noctalia::cli {
       Positional{"context", {}, {}, false, false, false},
   };
   inline constexpr std::array kMsgPluginPositionals{
-      Positional{"author/plugin:entry", {}, {}, true, false, false},
+      Positional{"author/plugin:entry", {}, {}, true, false, false, "plugin_prefix"},
       Positional{"target[:bar-name]", {}, {}, true, false, false},
       Positional{"event", {}, {}, true, false, false},
       Positional{"payload", {}, {}, false, false, false},

@@ -1376,8 +1376,6 @@
         "delete-confirm-title": "Eliminar \"{name}\"?",
         "deprecated": "obsoleto",
         "empty": "Non hai complementos activados.",
-        "loading": "Cargando complementos...",
-        "refreshing": "Actualizando complementos...",
         "remove": "Eliminar complemento",
         "requires": "Require: {dependencies}",
         "title": "Complementos"

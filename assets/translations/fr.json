@@ -642,8 +642,8 @@
     },
     "context-menu": {
       "open": "Ouvrir",
-      "pin-to-dock": "Épingler au dock",
-      "unpin-from-dock": "Retirer du dock"
+      "pin-to-dock": "Épingler au Dock",
+      "unpin-from-dock": "Retirer du Dock"
     },
     "empty": {
       "no-results": "Aucun résultat",
@@ -1396,7 +1396,7 @@
       "panels": {
         "open-near-click": {
           "description": "Où le panel sera situé après avoir cliqué sur le widget de la barre",
-          "label": "Ouverture près du clic"
+          "label": "Le long de la Barre"
         },
         "placement": {
           "description": "Attacher le panel à la Bar ou le faire flotter près de son bord",
@@ -1415,8 +1415,6 @@
         "deprecated": "Déprécié",
         "empty": "Aucun plugin activé.",
         "incompatible-plugin-api": "API du plugin incompatible",
-        "loading": "Chargement des plugins…",
-        "refreshing": "Actualisation des plugins…",
         "remove": "Enlever le plugin",
         "requires": "A besoins de : {dependencies}",
         "title": "Plugins",
@@ -2315,7 +2313,7 @@
         },
         "calendar-add": {
           "button": "Ajouter un compte",
-          "description": "Ajoute des comptes iCloud, CalDAV ou Google",
+          "description": "Ajoute des comptes iCloud, CalDAV, Google ou ICS",
           "label": "Comptes de calendrier"
         },
         "calendar-credentials": {

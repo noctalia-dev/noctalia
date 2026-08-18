@@ -104,7 +104,7 @@ namespace {
   bool needsCpuTemp(SysmonStat stat) { return stat == SysmonStat::CpuTemp; }
   bool needsGpuTemp(SysmonStat stat) { return stat == SysmonStat::GpuTemp; }
   bool needsGpuUsage(SysmonStat stat) { return stat == SysmonStat::GpuUsage; }
-  bool needsGpuVram(SysmonStat stat) { return stat == SysmonStat::GpuVram; }
+  bool needsGpuVram(SysmonStat stat) { return stat == SysmonStat::GpuVram || stat == SysmonStat::GpuVramUsed; }
 
   bool isDiskStat(SysmonStat stat) {
     return stat == SysmonStat::DiskUsedPct
@@ -113,10 +113,11 @@ namespace {
         || stat == SysmonStat::DiskFree;
   }
 
-  constexpr std::array<SysmonStat, 15> kTooltipStats{
-      SysmonStat::CpuUsage, SysmonStat::CpuTemp,     SysmonStat::CpuFreq,  SysmonStat::GpuTemp, SysmonStat::GpuUsage,
-      SysmonStat::GpuVram,  SysmonStat::RamUsed,     SysmonStat::RamPct,   SysmonStat::SwapPct, SysmonStat::DiskUsedPct,
-      SysmonStat::DiskUsed, SysmonStat::DiskFreePct, SysmonStat::DiskFree, SysmonStat::NetRx,   SysmonStat::NetTx,
+  constexpr std::array<SysmonStat, 16> kTooltipStats{
+      SysmonStat::CpuUsage,    SysmonStat::CpuTemp,  SysmonStat::CpuFreq,     SysmonStat::GpuTemp,
+      SysmonStat::GpuUsage,    SysmonStat::GpuVram,  SysmonStat::GpuVramUsed, SysmonStat::RamUsed,
+      SysmonStat::RamPct,      SysmonStat::SwapPct,  SysmonStat::DiskUsedPct, SysmonStat::DiskUsed,
+      SysmonStat::DiskFreePct, SysmonStat::DiskFree, SysmonStat::NetRx,       SysmonStat::NetTx,
   };
 
   [[nodiscard]] double netRxFromStats(const SystemStats& stats, std::string_view interfaceName) {
@@ -154,6 +155,7 @@ namespace {
     case SysmonStat::GpuUsage:
       return i18n::tr("bar.widgets.sysmon.gpu-usage");
     case SysmonStat::GpuVram:
+    case SysmonStat::GpuVramUsed:
       return i18n::tr("bar.widgets.sysmon.gpu-vram");
     case SysmonStat::RamUsed:
     case SysmonStat::RamPct:
@@ -354,7 +356,7 @@ Color SysmonWidget::currentValueColor(ColorSpec baseColor) {
   const Color highlight = resolveColorSpec(m_highlightColor);
   const auto [activityThreshold, criticalThreshold] = currentThresholds();
   const auto factor = static_cast<float>(gradientFactor(currentGradientValue(), activityThreshold, criticalThreshold));
-  return lerpHsv(base, highlight, factor);
+  return lerpHsvChromaWeighted(base, highlight, factor);
 }
 
 void SysmonWidget::syncIcon(Renderer& renderer) {
@@ -408,6 +410,7 @@ std::pair<double, double> SysmonWidget::currentThresholds() const {
   case SysmonStat::GpuUsage:
     return {monitorConfig.gpuUsageActivityThreshold, monitorConfig.gpuUsageCriticalThreshold};
   case SysmonStat::GpuVram:
+  case SysmonStat::GpuVramUsed:
     return {monitorConfig.gpuVramActivityThreshold, monitorConfig.gpuVramCriticalThreshold};
   case SysmonStat::RamUsed:
   case SysmonStat::RamPct:
@@ -455,6 +458,7 @@ double SysmonWidget::currentGradientValue() {
   case SysmonStat::GpuUsage:
     return stats.gpuUsagePercent.value_or(0.0);
   case SysmonStat::GpuVram:
+  case SysmonStat::GpuVramUsed:
     if (stats.gpuVramUsedBytes.has_value() && stats.gpuVramTotalBytes.has_value() && *stats.gpuVramTotalBytes > 0) {
       return 100.0 * static_cast<double>(*stats.gpuVramUsedBytes) / static_cast<double>(*stats.gpuVramTotalBytes);
     }
@@ -832,6 +836,7 @@ double SysmonWidget::normalizedFromStats(
     return 0.0;
 
   case SysmonStat::GpuVram:
+  case SysmonStat::GpuVramUsed:
     if (stats.gpuVramUsedBytes.has_value() && stats.gpuVramTotalBytes.has_value() && *stats.gpuVramTotalBytes > 0) {
       return static_cast<double>(*stats.gpuVramUsedBytes) / static_cast<double>(*stats.gpuVramTotalBytes);
     }
@@ -970,6 +975,12 @@ std::optional<std::string> SysmonWidget::formatValueFor(SysmonStat stat, const S
     }
     return std::nullopt;
 
+  case SysmonStat::GpuVramUsed:
+    if (stats.gpuVramUsedBytes.has_value()) {
+      return FormatUnits::formatBinaryBytesAsGib(*stats.gpuVramUsedBytes);
+    }
+    return std::nullopt;
+
   case SysmonStat::RamUsed:
     return FormatUnits::formatBinaryMib(stats.ramUsedMb);
 
@@ -1020,6 +1031,7 @@ bool SysmonWidget::statAvailableForTooltip(SysmonStat stat, const SystemStats& s
   case SysmonStat::GpuUsage:
     return monitorConfig.gpuPollSeconds > 0.0F && stats.gpuUsagePercent.has_value();
   case SysmonStat::GpuVram:
+  case SysmonStat::GpuVramUsed:
     return monitorConfig.gpuPollSeconds > 0.0F
         && stats.gpuVramUsedBytes.has_value()
         && stats.gpuVramTotalBytes.has_value()
@@ -1084,6 +1096,7 @@ const char* SysmonWidget::glyphName(SysmonStat stat) {
   case SysmonStat::GpuUsage:
     return "gpu-usage";
   case SysmonStat::GpuVram:
+  case SysmonStat::GpuVramUsed:
     return "memory";
   case SysmonStat::RamUsed:
   case SysmonStat::RamPct:

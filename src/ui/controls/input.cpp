@@ -869,7 +869,7 @@ void Input::rebuildCursorStops(Renderer& renderer) {
 
 void Input::recomputeContentLeadSlack(Renderer& renderer, float width, bool showClearButton) {
   m_contentLeadSlack = 0.0F;
-  if (m_multiline || m_textAlign != TextAlign::Center) {
+  if (m_multiline || (m_textAlign != TextAlign::Center && !Style::rtl())) {
     return;
   }
 
@@ -882,13 +882,14 @@ void Input::recomputeContentLeadSlack(Renderer& renderer, float width, bool show
     const std::size_t charCount = !m_stopByte.empty() ? m_stopByte.size() - 1 : 0;
     const float passwordCellSize = std::round(m_fontSize * kPasswordGlyphScale);
     textExtent = static_cast<float>(charCount) * passwordCellSize;
-  } else if (!m_value.empty() && m_stopX.size() > 1U) {
-    textExtent = m_stopX.back();
+  } else if (!m_value.empty() && !m_stopX.empty()) {
+    textExtent = *std::ranges::max_element(m_stopX);
   } else if (m_value.empty() && !m_placeholder.empty()) {
     textExtent = renderer.measureText(m_placeholder, m_fontSize, m_label->fontWeight()).width;
   }
   if (viewportWidth > 0.0F && textExtent > 0.0F && textExtent + 0.5F < viewportWidth) {
-    m_contentLeadSlack = std::round((viewportWidth - textExtent) * 0.5F);
+    m_contentLeadSlack = m_textAlign == TextAlign::Center ? std::round((viewportWidth - textExtent) * 0.5F)
+                                                          : std::max(0.0F, viewportWidth - textExtent);
   }
 }
 
@@ -927,21 +928,24 @@ void Input::updateLabelVisibleSlice(Renderer& renderer) {
     return;
   }
 
-  const float viewportW = textViewportWidth();
-  const float pad = std::max(viewportW, m_fontSize * 4.0F);
-  const float sliceContentW = std::min(kMaxLabelRasterWidth, viewportW + pad * 2.0F);
-
-  std::size_t sliceStart = visibleLabelStartByte();
-  if (sliceStart > 0) {
-    sliceStart = prevCharPos(m_value, sliceStart + 1);
+  std::size_t sliceStart = 0;
+  std::size_t sliceEnd = m_value.size();
+  if (!Style::rtl()) {
+    const float viewportW = textViewportWidth();
+    const float pad = std::max(viewportW, m_fontSize * 4.0F);
+    const float sliceContentW = std::min(kMaxLabelRasterWidth, viewportW + pad * 2.0F);
+    sliceStart = visibleLabelStartByte();
+    if (sliceStart > 0) {
+      sliceStart = prevCharPos(m_value, sliceStart + 1);
+    }
+    sliceEnd = visibleLabelEndByte(sliceContentW, sliceStart);
   }
-  const std::size_t sliceEnd = visibleLabelEndByte(sliceContentW, sliceStart);
   if (sliceEnd <= sliceStart) {
     return;
   }
 
   const std::string slice = m_value.substr(sliceStart, sliceEnd - sliceStart);
-  m_labelSliceOriginX = stopXForByte(sliceStart);
+  m_labelSliceOriginX = Style::rtl() ? 0.0F : stopXForByte(sliceStart);
   m_labelVisibleStartByte = sliceStart;
   if (slice != m_labelVisibleSlice) {
     m_labelVisibleSlice = slice;
@@ -1599,15 +1603,20 @@ void Input::updateInteractiveGeometry() {
     m_scrollOffset = 0.0F;
   }
   if (std::abs(m_scrollOffset - previousScrollOffset) > 0.001F) {
-    std::size_t sliceStart = visibleLabelStartByte();
-    if (sliceStart > 0) {
-      sliceStart = prevCharPos(m_value, sliceStart + 1);
-    }
-    if (!m_value.empty() && sliceStart != m_labelVisibleStartByte) {
-      markLayoutDirty();
-    } else {
+    if (Style::rtl()) {
       syncLabelScrollPosition();
       markPaintDirty();
+    } else {
+      std::size_t sliceStart = visibleLabelStartByte();
+      if (sliceStart > 0) {
+        sliceStart = prevCharPos(m_value, sliceStart + 1);
+      }
+      if (!m_value.empty() && sliceStart != m_labelVisibleStartByte) {
+        markLayoutDirty();
+      } else {
+        syncLabelScrollPosition();
+        markPaintDirty();
+      }
     }
   }
 
@@ -1623,8 +1632,8 @@ void Input::updateInteractiveGeometry() {
   if (hasSelection()) {
     const float selX0 = stopXForByte(selectionStart()) - m_scrollOffset + m_contentLeadSlack;
     const float selX1 = stopXForByte(selectionEnd()) - m_scrollOffset + m_contentLeadSlack;
-    m_selectionRect->setPosition(selX0, cursorY);
-    m_selectionRect->setFrameSize(std::max(0.0F, selX1 - selX0), cursorHeight);
+    m_selectionRect->setPosition(std::min(selX0, selX1), cursorY);
+    m_selectionRect->setFrameSize(std::abs(selX1 - selX0), cursorHeight);
     m_selectionRect->setVisible(true);
   } else {
     m_selectionRect->setVisible(false);
@@ -1664,7 +1673,8 @@ void Input::clampScrollOffset() {
     m_scrollOffset = 0.0F;
     return;
   }
-  const float maxOffset = std::max(0.0F, m_stopX.back() - textViewportWidth() + kCursorWidth + kCursorRevealPadding);
+  const float textExtent = *std::ranges::max_element(m_stopX);
+  const float maxOffset = std::max(0.0F, textExtent - textViewportWidth() + kCursorWidth + kCursorRevealPadding);
   m_scrollOffset = std::clamp(m_scrollOffset, 0.0F, maxOffset);
 }
 
@@ -2189,19 +2199,19 @@ void Input::restoreEditSnapshot(const EditSnapshot& snapshot) {
 }
 
 std::size_t Input::xToByteOffset(float localX) const {
-  if (m_stopX.empty() || localX <= 0.0F) {
+  if (m_stopX.empty()) {
     return 0;
   }
-  if (localX >= m_stopX.back()) {
-    return m_stopByte.back();
-  }
+  std::size_t best = 0;
+  float bestDistance = std::abs(m_stopX.front() - localX);
   for (std::size_t i = 1; i < m_stopX.size(); ++i) {
-    const float mid = (m_stopX[i - 1] + m_stopX[i]) * 0.5F;
-    if (localX < mid) {
-      return m_stopByte[i - 1];
+    const float distance = std::abs(m_stopX[i] - localX);
+    if (distance < bestDistance) {
+      best = i;
+      bestDistance = distance;
     }
   }
-  return m_stopByte.back();
+  return m_stopByte[best];
 }
 
 std::size_t Input::pointToByteOffset(float localX, float localY) const {
@@ -2348,13 +2358,15 @@ void Input::updateMultilineSelection() {
     const TextCursorStop& b = m_stopRect[i + 1];
     // A char whose next boundary sits on another line ends its line; highlight
     // it with a short stub (its true advance is not in the stop data).
-    const float spanEnd = sameLineY(a.y, b.y) ? b.x : a.x + stub;
+    const float boundaryX = sameLineY(a.y, b.y) ? b.x : a.x + stub;
+    const float spanStart = std::min(a.x, boundaryX);
+    const float spanEnd = std::max(a.x, boundaryX);
     if (!lines.empty() && sameLineY(lines.back().y, a.y)) {
-      lines.back().x0 = std::min(lines.back().x0, a.x);
+      lines.back().x0 = std::min(lines.back().x0, spanStart);
       lines.back().x1 = std::max(lines.back().x1, spanEnd);
       lines.back().h = std::max(lines.back().h, a.height);
     } else {
-      lines.push_back(LineSpan{a.x, spanEnd, a.y, a.height});
+      lines.push_back(LineSpan{spanStart, spanEnd, a.y, a.height});
     }
   }
 

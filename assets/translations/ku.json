@@ -856,8 +856,6 @@
       "plugins": {
         "delete": "Jê bibe",
         "delete-confirm-title": "\"{name}\" jê bibe?",
-        "loading": "Pêvek têne barkirin...",
-        "refreshing": "Pêvek têne rojanekirin...",
         "title": "Pêvek"
       },
       "sources": {

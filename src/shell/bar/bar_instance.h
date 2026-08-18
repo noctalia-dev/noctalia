@@ -27,6 +27,8 @@ struct BarCapsuleRun {
   Node* content = nullptr;
   WidgetBarCapsuleSpec spec{};
   float contentScale = 1.0F;
+  // Capsule geometry can exist without a painted fill or border.
+  bool hasPaintedCapsuleBackground = false;
   std::vector<Widget*> widgets;
   // Hover highlight overlays, parallel to `widgets` for group runs; one shared box for single runs.
   std::vector<Box*> hoverBoxes;
@@ -44,6 +46,10 @@ struct BarInstance {
   std::uint32_t outputName = 0;
   wl_output* output = nullptr;
   std::int32_t scale = 1;
+  std::int32_t outputLogicalX = 0;
+  std::int32_t outputLogicalY = 0;
+  std::int32_t outputLogicalWidth = 0;
+  std::int32_t outputLogicalHeight = 0;
   std::size_t barIndex = 0;
   BarConfig barConfig;
   std::unique_ptr<LayerSurface> surface;

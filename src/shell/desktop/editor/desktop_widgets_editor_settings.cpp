@@ -405,6 +405,16 @@ namespace {
   std::unique_ptr<Flex> makeStringListRow(
       std::string_view labelText, const std::string& key, std::vector<std::string> items, DesktopWidgetsEditor* editor
   ) {
+
+    auto row = ui::column({.align = FlexAlign::Stretch, .gap = Style::spaceXs, .fillWidth = true});
+    row->addChild(
+        ui::label({
+            .text = std::string(labelText),
+            .fontSize = Style::fontSizeCaption,
+            .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+        })
+    );
+
     auto listEditor = std::make_unique<ListEditor>();
     listEditor->setAddPlaceholder(i18n::tr("settings.controls.list.add-entry-placeholder"));
     listEditor->setItems(items);
@@ -429,7 +439,8 @@ namespace {
       std::swap(items[from], items[to]);
       editor->applySettingChange(key, items);
     });
-    return makeRow(labelText, std::move(listEditor));
+    row->addChild(std::move(listEditor));
+    return row;
   }
 
   std::unique_ptr<Flex> makeStringMapRow(

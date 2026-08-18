@@ -252,6 +252,12 @@ namespace {
     if (auto cy = finiteDouble(widgetTable["cy"])) {
       widget.cy = static_cast<float>(*cy);
     }
+    if (auto placementWidth = finiteDouble(widgetTable["placement_width"])) {
+      widget.placementWidth = std::max(0.0F, static_cast<float>(*placementWidth));
+    }
+    if (auto placementHeight = finiteDouble(widgetTable["placement_height"])) {
+      widget.placementHeight = std::max(0.0F, static_cast<float>(*placementHeight));
+    }
     if (auto boxWidth = finiteDouble(widgetTable["box_width"])) {
       widget.boxWidth = std::max(0.0F, static_cast<float>(*boxWidth));
     }

@@ -86,7 +86,7 @@ int main() {
 
   std::filesystem::create_directories(source);
   ok = runGit({"git", "-C", source.string(), "init", "-q"}) && ok;
-  ok = writeText(source / "clock/plugin.toml", "id = \"noctalia/clock\"\nversion = \"1\"\nplugin_api = 3\n") && ok;
+  ok = writeText(source / "clock/plugin.toml", "id = \"noctalia/clock\"\nversion = \"1.0.0\"\nplugin_api = 3\n") && ok;
   ok = writeText(source / "clock/main.luau", "barWidget.setText(\"ok\")\n") && ok;
   ok = runGit({"git", "-C", source.string(), "add", "clock/plugin.toml", "clock/main.luau"}) && ok;
   ok = runGit(
@@ -106,7 +106,7 @@ int main() {
   const auto initialHead = scripting::plugin_git::headRevision(repo);
   ok = expect(static_cast<bool>(initialHead), "failed to resolve initial HEAD") && ok;
 
-  ok = writeText(source / "cat/plugin.toml", "id = \"dotnetrob/cat\"\nversion = \"1\"\nplugin_api = 3\n") && ok;
+  ok = writeText(source / "cat/plugin.toml", "id = \"dotnetrob/cat\"\nversion = \"1.0.0\"\nplugin_api = 3\n") && ok;
   ok = writeText(source / "cat/main.luau", "barWidget.setText(\"cat\")\n") && ok;
   ok = runGit({"git", "-C", source.string(), "add", "cat/plugin.toml", "cat/main.luau"}) && ok;
   ok = runGit(
@@ -134,12 +134,13 @@ int main() {
 
   // A plugin whose tip moves past the supported API range must still be exportable at the
   // older revision a catalog release row names, straight out of the blobless clone.
-  ok = writeText(
-           source / "clock/plugin.toml",
-           std::format(
-               "id = \"noctalia/clock\"\nversion = \"2\"\nplugin_api = {}\n", scripting::kCurrentPluginApiVersion + 1
-           )
-       )
+  ok =
+      writeText(
+          source / "clock/plugin.toml",
+          std::format(
+              "id = \"noctalia/clock\"\nversion = \"2.0.0\"\nplugin_api = {}\n", scripting::kCurrentPluginApiVersion + 1
+          )
+      )
       && ok;
   ok = runGit({"git", "-C", source.string(), "add", "clock/plugin.toml"}) && ok;
   ok = runGit(
@@ -164,7 +165,7 @@ int main() {
   ok = expect(static_cast<bool>(olderExport), "exporting an older revision failed") && ok;
   const auto olderManifest = readText(root / "older-export/clock/plugin.toml");
   ok = expect(olderManifest.contains("plugin_api = 3"), "the older export did not carry its own api level") && ok;
-  ok = expect(olderManifest.contains("version = \"1\""), "the older export did not carry its own version") && ok;
+  ok = expect(olderManifest.contains("version = \"1.0.0\""), "the older export did not carry its own version") && ok;
 
   std::error_code ec;
   std::filesystem::remove_all(root, ec);

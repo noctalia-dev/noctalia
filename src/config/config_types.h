@@ -284,6 +284,7 @@ struct NotificationFilterConfig {
   bool showToast = true;
   bool saveHistory = true;
   bool playSound = true;
+  bool bypassDnd = false;
   bool allowPermanent = true;
   std::optional<std::int32_t> overrideDuration;
   /// Empty = allow low, normal, and critical. Otherwise only listed urgencies pass this filter.
@@ -664,6 +665,10 @@ struct DesktopWidgetState {
   std::string outputName;
   float cx = 0.0F;
   float cy = 0.0F;
+  // Logical output size the position was last stored against. Zero denotes a
+  // legacy position whose reference size has not been recorded yet.
+  float placementWidth = 0.0F;
+  float placementHeight = 0.0F;
   // Box size of the widget's grid tile, in logical px. 0 means "unsized": the tile
   // auto-fits the content's natural size. Resizing in the editor sets explicit values.
   float boxWidth = 0.0F;
@@ -985,8 +990,10 @@ struct ShellConfig {
   struct LauncherConfig {
     bool categories = true;
     bool showIcons = true;
+    bool showAppOriginIndicator = true;
     bool compact = false;
     bool appGrid = false;
+    bool showAppActions = false;
     bool sortByUsage = true;
     // Desktop entry IDs shown first in the launcher when it opens without a query.
     std::vector<std::string> pinned;

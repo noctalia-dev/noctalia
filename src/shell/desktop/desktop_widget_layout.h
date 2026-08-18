@@ -1,11 +1,12 @@
 #pragma once
 
-#include "shell/desktop/desktop_widgets_controller.h"
+#include "config/config_types.h"
 #include "shell/desktop/widget_transform.h"
 #include "wayland/wayland_connection.h"
 
 #include <algorithm>
 #include <string>
+#include <vector>
 
 namespace desktop_widgets {
 
@@ -73,6 +74,51 @@ namespace desktop_widgets {
   inline float outputLogicalHeight(const WaylandOutput& output) {
     return static_cast<float>(std::max(1, output.effectiveLogicalHeight()));
   }
+
+  class PlacementMapper {
+  public:
+    [[nodiscard]] bool
+    remapForOutputChange(const WaylandConnection& wayland, std::vector<DesktopWidgetState>& widgets) const {
+      bool changed = false;
+      for (auto& widget : widgets) {
+        const WaylandOutput* output = resolveStateOutput(wayland, widget);
+        if (output == nullptr) {
+          continue;
+        }
+
+        const float width = outputLogicalWidth(*output);
+        const float height = outputLogicalHeight(*output);
+        if (widget.placementWidth <= 0.0F || widget.placementHeight <= 0.0F) {
+          widget.placementWidth = width;
+          widget.placementHeight = height;
+          changed = true;
+          continue;
+        }
+
+        if (widget.placementWidth == width && widget.placementHeight == height) {
+          continue;
+        }
+
+        widget.cx *= width / widget.placementWidth;
+        widget.cy *= height / widget.placementHeight;
+        widget.placementWidth = width;
+        widget.placementHeight = height;
+        changed = true;
+      }
+      return changed;
+    }
+
+    void rebaseForCurrentOutputs(const WaylandConnection& wayland, std::vector<DesktopWidgetState>& widgets) const {
+      for (auto& widget : widgets) {
+        const WaylandOutput* output = resolveStateOutput(wayland, widget);
+        if (output == nullptr) {
+          continue;
+        }
+        widget.placementWidth = outputLogicalWidth(*output);
+        widget.placementHeight = outputLogicalHeight(*output);
+      }
+    }
+  };
 
   // Single source of truth for desktop widget coordinate clamping. Edit mode, default mode, and
   // snapshot normalization all route through here so the visibility rule stays identical. Resolves

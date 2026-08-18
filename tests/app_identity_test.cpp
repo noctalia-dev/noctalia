@@ -9,6 +9,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <sys/stat.h>
 #include <unistd.h>
 #include <vector>
 
@@ -95,8 +96,14 @@ namespace {
 
     const fs::path root = fs::temp_directory_path() / ("noctalia-appimage-origin-" + std::to_string(getpid()));
     const fs::path applications = root / "data/applications";
+    const fs::path systemApplications = root / "system/applications";
     const fs::path executable = root / "PortableApp";
+    const fs::path bin = root / "bin";
+    const fs::path workingDirectory = root / "cwd";
     fs::create_directories(applications);
+    fs::create_directories(systemApplications);
+    fs::create_directories(bin);
+    fs::create_directories(workingDirectory);
     {
       std::ofstream binary(executable, std::ios::binary);
       binary.write(
@@ -105,6 +112,7 @@ namespace {
           "AI",
           10
       );
+      chmod(executable.c_str(), 0700);
     }
     {
       std::ofstream entry(applications / "metadata.desktop");
@@ -120,15 +128,41 @@ namespace {
       std::ofstream entry(applications / "suffix.desktop");
       entry << "[Desktop Entry]\nType=Application\nName=Suffixed AppImage\nExec=/opt/Suffixed.AppImage\n";
     }
+    {
+      std::ofstream binary(bin / "native-app");
+      binary << "#!/bin/sh\nexit 0\n";
+      chmod((bin / "native-app").c_str(), 0700);
+      fs::create_symlink(executable, bin / "path-appimage");
+      fs::create_symlink(executable, bin / "shadowed-native");
+      fs::create_symlink(executable, workingDirectory / "native-app");
+    }
+    {
+      std::ofstream entry(applications / "native.desktop");
+      entry << "[Desktop Entry]\nType=Application\nName=Native App\nExec=native-app\n";
+    }
+    {
+      std::ofstream entry(applications / "path.desktop");
+      entry << "[Desktop Entry]\nType=Application\nName=PATH AppImage\nExec=path-appimage\n";
+    }
+    {
+      std::ofstream entry(systemApplications / "shadowed-native.desktop");
+      entry << "[Desktop Entry]\nType=Application\nName=Shadowed Native App\nExec=shadowed-native\n";
+    }
 
     const char* oldDataHome = std::getenv("XDG_DATA_HOME");
     const char* oldDataDirs = std::getenv("XDG_DATA_DIRS");
+    const char* oldPath = std::getenv("PATH");
     const std::optional<std::string> savedDataHome =
         oldDataHome == nullptr ? std::nullopt : std::optional<std::string>(oldDataHome);
     const std::optional<std::string> savedDataDirs =
         oldDataDirs == nullptr ? std::nullopt : std::optional<std::string>(oldDataDirs);
+    const std::optional<std::string> savedPath =
+        oldPath == nullptr ? std::nullopt : std::optional<std::string>(oldPath);
+    const fs::path savedWorkingDirectory = fs::current_path();
     setenv("XDG_DATA_HOME", (root / "data").c_str(), 1);
-    setenv("XDG_DATA_DIRS", (root / "empty").c_str(), 1);
+    setenv("XDG_DATA_DIRS", (root / "system").c_str(), 1);
+    setenv("PATH", bin.c_str(), 1);
+    fs::current_path(workingDirectory);
 
     const auto entries = scanDesktopEntries();
     const auto findOrigin = [&](std::string_view id) {
@@ -138,6 +172,11 @@ namespace {
     TEST_CHECK(findOrigin("metadata") == DesktopEntryOrigin::AppImage);
     TEST_CHECK(findOrigin("portable") == DesktopEntryOrigin::AppImage);
     TEST_CHECK(findOrigin("suffix") == DesktopEntryOrigin::AppImage);
+    TEST_CHECK(findOrigin("native") == DesktopEntryOrigin::System);
+    TEST_CHECK(findOrigin("path") == DesktopEntryOrigin::AppImage);
+    TEST_CHECK(findOrigin("shadowed-native") == DesktopEntryOrigin::System);
+
+    fs::current_path(savedWorkingDirectory);
 
     if (savedDataHome.has_value()) {
       setenv("XDG_DATA_HOME", savedDataHome->c_str(), 1);
@@ -148,6 +187,11 @@ namespace {
       setenv("XDG_DATA_DIRS", savedDataDirs->c_str(), 1);
     } else {
       unsetenv("XDG_DATA_DIRS");
+    }
+    if (savedPath.has_value()) {
+      setenv("PATH", savedPath->c_str(), 1);
+    } else {
+      unsetenv("PATH");
     }
     fs::remove_all(root);
   }

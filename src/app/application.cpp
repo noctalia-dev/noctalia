@@ -162,7 +162,12 @@ Application::Application()
     scheduleNotificationShellRefresh();
   });
 
-  m_notificationManager.setStateCallback([this]() { scheduleNotificationShellRefresh(); });
+  m_notificationManager.setStateCallback([this]() {
+    if (m_notificationManager.doNotDisturb()) {
+      m_notificationToast.hideDndSuppressed();
+    }
+    scheduleNotificationShellRefresh();
+  });
 }
 
 Application::~Application() {

@@ -73,6 +73,7 @@ private:
   void stopScrollAnimation();
   void animateScrollTo(float target, float durationMs = -1.0F);
   void startFling();
+  void updateTouchScrollAxis();
   [[nodiscard]] float clampOffset(float offset) const noexcept;
 
   RectNode* m_background = nullptr;

@@ -83,6 +83,9 @@ namespace Style {
   [[nodiscard]] bool popupBordersEnabled() noexcept;
   void setPopupBordersEnabled(bool enabled);
 
+  [[nodiscard]] bool rtl() noexcept;
+  void setRtl(bool rtl) noexcept;
+
   [[nodiscard]] bool cardBordersEnabled() noexcept;
   void setCardBordersEnabled(bool enabled);
 

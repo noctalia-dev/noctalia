@@ -362,8 +362,8 @@ int main() {
     UPowerService service(bus);
     int deviceChanges = 0;
     int chargeLimitChanges = 0;
-    service.setChangeCallback([&](UPowerService::ChangeOrigin origin) {
-      if (origin == UPowerService::ChangeOrigin::DeviceState) {
+    service.setChangeCallback([&](const UPowerChange& change) {
+      if (change.origin == UPowerService::ChangeOrigin::DeviceState) {
         ++deviceChanges;
       } else {
         ++chargeLimitChanges;

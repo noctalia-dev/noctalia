@@ -66,6 +66,25 @@ bool PersistentPanelHost::isOpen(std::string_view id) const noexcept {
   return std::ranges::any_of(m_instances, [&](const auto& instance) { return instance->id == id; });
 }
 
+std::optional<LayerPopupParentContext> PersistentPanelHost::popupParentContext(std::string_view id) const noexcept {
+  const auto it = std::ranges::find_if(m_instances, [&](const auto& instance) { return instance->id == id; });
+  if (it == m_instances.end() || (*it)->surface == nullptr) {
+    return std::nullopt;
+  }
+  const auto& instance = **it;
+  LayerPopupParentContext context{
+      .surface = instance.surface->wlSurface(),
+      .layerSurface = instance.surface->layerSurface(),
+      .output = instance.output,
+      .width = instance.surface->width(),
+      .height = instance.surface->height(),
+  };
+  if (context.surface == nullptr || context.layerSurface == nullptr || context.width == 0 || context.height == 0) {
+    return std::nullopt;
+  }
+  return context;
+}
+
 PersistentPanelHost::Instance* PersistentPanelHost::findInstance(std::string_view id) noexcept {
   for (auto& instance : m_instances) {
     if (instance->id == id) {
@@ -502,7 +521,8 @@ bool PersistentPanelHost::onPointerEvent(const PointerEvent& event) {
       return false;
     }
     instance->inputDispatcher.pointerButton(
-        static_cast<float>(event.sx), static_cast<float>(event.sy), event.button, event.pressed
+        static_cast<float>(event.sx), static_cast<float>(event.sy), event.button, event.pressed, event.serial,
+        event.time, event.touch
     );
     break;
   case PointerEvent::Type::Axis:

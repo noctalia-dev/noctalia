@@ -133,6 +133,15 @@ void ScrollView::setOrientation(ScrollOrientation orientation) {
     m_scrollbar->setOrientation(orientation);
   }
   markLayoutDirty();
+  updateTouchScrollAxis();
+}
+
+void ScrollView::updateTouchScrollAxis() {
+  m_viewportArea->setTouchScrollAxis(
+      scrollable() ? (m_orientation == ScrollOrientation::Horizontal ? InputArea::TouchScrollAxis::Horizontal
+                                                                     : InputArea::TouchScrollAxis::Vertical)
+                   : InputArea::TouchScrollAxis::None
+  );
 }
 
 void ScrollView::setScrollOffset(float offset) {
@@ -382,6 +391,7 @@ void ScrollView::doLayout(Renderer& renderer) {
     m_viewportArea->setFrameSize(availableW, viewportH);
 
     m_maxScrollOffset = std::max(0.0F, contentWidth - availableW);
+    updateTouchScrollAxis();
     m_scrollbar->setPosition(viewportX, viewportY + viewportH + Style::scrollbarGap);
     m_scrollbar->setVisible(m_showScrollbar);
     m_scrollbar->update(availableW, contentWidth, m_scrollOffset);
@@ -417,7 +427,9 @@ void ScrollView::doLayout(Renderer& renderer) {
 
     const float contentHeight = m_content->height();
     m_maxScrollOffset = std::max(0.0F, contentHeight - viewportH);
-    const float scrollbarX = m_viewportPaddingH + m_viewportWidth - Style::scrollbarWidth;
+    updateTouchScrollAxis();
+    const float scrollbarX =
+        Style::rtl() ? m_viewportPaddingH : m_viewportPaddingH + m_viewportWidth - Style::scrollbarWidth;
     m_scrollbar->setPosition(scrollbarX, m_viewportPaddingV);
     m_scrollbar->setVisible(m_showScrollbar);
     m_scrollbar->update(viewportH, contentHeight, m_scrollOffset);
@@ -463,7 +475,8 @@ void ScrollView::applyScrollOffset() {
     if (m_orientation == ScrollOrientation::Horizontal) {
       m_content->setPosition(-m_scrollOffset, 0.0F);
     } else {
-      m_content->setPosition(0.0F, -m_scrollOffset);
+      const float gutter = Style::rtl() && m_scrollbarShown ? Style::scrollbarWidth + Style::scrollbarGap : 0.0F;
+      m_content->setPosition(gutter, -m_scrollOffset);
     }
   }
   if (m_scrollbar != nullptr && m_scrollbarShown) {

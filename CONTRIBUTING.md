@@ -4,7 +4,7 @@ Contributing
 This file collects contributor-facing details for Noctalia: design goals, stack notes, code style, source layout,
 runtime asset behavior, and debugging helpers.
 
-For dependencies and normal build commands, start with [README.md](README.md).
+For dependencies and normal build commands, start with [BUILDING.md](BUILDING.md).
 
 Before contributing, read our [ethos](https://noctalia.dev/ethos) to understand the values and philosophy guiding the
 project.

@@ -484,10 +484,95 @@ namespace {
     }
   }
 
+  struct CapsuleMemberGeometry {
+    std::size_t widgetIndex = 0;
+    float x = 0.0F;
+    float y = 0.0F;
+    float width = 0.0F;
+    float height = 0.0F;
+    float sliceStart = 0.0F;
+    float sliceEnd = 0.0F;
+
+    [[nodiscard]] float mainStart(bool isVertical) const noexcept { return isVertical ? y : x; }
+    [[nodiscard]] float mainEnd(bool isVertical) const noexcept {
+      return mainStart(isVertical) + (isVertical ? height : width);
+    }
+  };
+
+  [[nodiscard]] std::vector<CapsuleMemberGeometry>
+  capsuleMemberSlices(const BarCapsuleRun& run, bool isVertical, float widgetHoverPadding) {
+    std::vector<CapsuleMemberGeometry> members;
+    if (run.shell == nullptr) {
+      return members;
+    }
+    members.reserve(run.widgets.size());
+
+    float shellX = 0.0F;
+    float shellY = 0.0F;
+    Node::absolutePosition(run.shell, shellX, shellY);
+    for (std::size_t i = 0; i < run.widgets.size(); ++i) {
+      Widget* widget = run.widgets[i];
+      Node* root = widget != nullptr ? widget->outerNode() : nullptr;
+      if (root == nullptr || !root->visible() || !root->participatesInLayout() || !root->hitTestVisible()) {
+        continue;
+      }
+
+      float rootX = 0.0F;
+      float rootY = 0.0F;
+      Node::absolutePosition(root, rootX, rootY);
+      members.push_back(
+          CapsuleMemberGeometry{
+              .widgetIndex = i,
+              .x = rootX - shellX,
+              .y = rootY - shellY,
+              .width = root->width(),
+              .height = root->height(),
+          }
+      );
+    }
+
+    const float shellMain = isVertical ? run.shell->height() : run.shell->width();
+    for (std::size_t i = 0; i < members.size(); ++i) {
+      auto& member = members[i];
+      const float memberStart = member.mainStart(isVertical);
+      const float memberEnd = member.mainEnd(isVertical);
+      const float pad = widgetHoverPadding * run.widgets[member.widgetIndex]->contentScale();
+      float before = pad;
+      float after = pad;
+
+      if (i > 0) {
+        before = std::min(before, std::max(0.0F, (memberStart - members[i - 1].mainEnd(isVertical)) * 0.5F));
+      }
+      if (i + 1 < members.size()) {
+        after = std::min(after, std::max(0.0F, (members[i + 1].mainStart(isVertical) - memberEnd) * 0.5F));
+      }
+
+      if (members.size() > 1) {
+        if (i == 0) {
+          before = after;
+        }
+        if (i + 1 == members.size()) {
+          after = before;
+        }
+      }
+      if (run.hasPaintedCapsuleBackground) {
+        if (i == 0) {
+          before = std::min(before, std::max(0.0F, memberStart));
+        }
+        if (i + 1 == members.size()) {
+          after = std::min(after, std::max(0.0F, shellMain - memberEnd));
+        }
+      }
+      member.sliceStart = memberStart - before;
+      member.sliceEnd = memberEnd + after;
+    }
+    return members;
+  }
+
   // Extends each member's hit target across the capsule padding and half the gap to its
   // neighbors, so hover/click coverage matches the capsule ink instead of stopping at the
   // content edge. Runs after applyBarWidgetHitTargets (which replaces outsets each layout).
-  void extendCapsuleHitTargets(std::vector<BarCapsuleRun>& runs, bool isVertical) {
+  void extendCapsuleHitTargets(std::vector<BarCapsuleRun>& runs, bool isVertical, float widgetHoverPadding) {
     for (auto& run : runs) {
       if (run.shell == nullptr || run.hoverBoxes.empty()) {
         continue;
@@ -519,36 +604,23 @@ namespace {
 
       // Tile only laid-out members; hidden ones keep stale geometry, and members clipped out of a
       // collapsed accordion are input-suppressed so their slice belongs to the visible member.
-      std::vector<std::size_t> laidOut;
-      laidOut.reserve(run.widgets.size());
-      for (std::size_t i = 0; i < run.widgets.size(); ++i) {
-        Widget* widget = run.widgets[i];
-        auto* root = widget != nullptr ? widget->outerNode() : nullptr;
-        if (root == nullptr || !root->visible() || !root->participatesInLayout() || !root->hitTestVisible()) {
-          continue;
-        }
-        laidOut.push_back(i);
-      }
-
+      const auto laidOut = capsuleMemberSlices(run, isVertical, widgetHoverPadding);
       const float shellMain = isVertical ? run.shell->height() : run.shell->width();
-      const float containerMain = isVertical ? run.container->y() : run.container->x();
-      auto memberStart = [&](std::size_t i) {
-        const Node* node = run.widgets[i]->outerNode();
-        return containerMain + (isVertical ? node->y() : node->x());
-      };
-      auto memberEnd = [&](std::size_t i) {
-        const Node* node = run.widgets[i]->outerNode();
-        return memberStart(i) + (isVertical ? node->height() : node->width());
-      };
-      for (std::size_t vi = 0; vi < laidOut.size(); ++vi) {
-        const std::size_t i = laidOut[vi];
+      float minSliceStart = 0.0F;
+      float maxSliceEnd = shellMain;
+      for (const auto& member : laidOut) {
+        const std::size_t i = member.widgetIndex;
         Node* area = run.widgets[i]->outerNode();
-        const float sliceStart = vi > 0 ? (memberEnd(laidOut[vi - 1]) + memberStart(i)) * 0.5F : 0.0F;
-        const float sliceEnd =
-            vi + 1 < laidOut.size() ? (memberEnd(i) + memberStart(laidOut[vi + 1])) * 0.5F : shellMain;
+        const float memberStart = member.mainStart(isVertical);
+        const float memberEnd = member.mainEnd(isVertical);
+        const float sliceStart = member.sliceStart;
+        const float sliceEnd = member.sliceEnd;
+        minSliceStart = std::min(minSliceStart, sliceStart);
+        maxSliceEnd = std::max(maxSliceEnd, sliceEnd);
+
         auto outset = area->hitTestOutset();
-        const float before = std::max(0.0F, memberStart(i) - sliceStart);
-        const float after = std::max(0.0F, sliceEnd - memberEnd(i));
+        const float before = std::max(0.0F, memberStart - sliceStart);
+        const float after = std::max(0.0F, sliceEnd - memberEnd);
         if (isVertical) {
           outset.top += before;
           outset.bottom += after;
@@ -558,6 +630,15 @@ namespace {
         }
         area->setHitTestOutset(outset);
       }
+      auto shellOutset = run.shell->hitTestOutset();
+      if (isVertical) {
+        shellOutset.top += std::max(0.0F, -minSliceStart);
+        shellOutset.bottom += std::max(0.0F, maxSliceEnd - shellMain);
+      } else {
+        shellOutset.left += std::max(0.0F, -minSliceStart);
+        shellOutset.right += std::max(0.0F, maxSliceEnd - shellMain);
+      }
+      run.shell->setHitTestOutset(shellOutset);
     }
   }
 
@@ -888,8 +969,15 @@ namespace {
   ) {
     const float slotCross = isVertical ? barAreaW : barAreaH;
 
+    // Capsule cross-size is a fraction of the bar thickness (capsule_thickness), the same for every capsule
+    // regardless of per-widget content scale. The max() guard keeps a thin bar from yielding a 0px capsule.
+    const float capsuleCross = std::max(1.0F, std::round(slotCross * instance.barConfig.capsuleThickness));
+
     auto layoutWidgets = [&](std::vector<std::unique_ptr<Widget>>& widgets) {
       for (auto& widget : widgets) {
+        if (auto* tray = dynamic_cast<TrayWidget*>(widget.get())) {
+          tray->setCapsuleCross(capsuleCross);
+        }
         if (widget->root() != nullptr) {
           widget->layout(renderer, barAreaW, barAreaH);
         }
@@ -899,9 +987,6 @@ namespace {
     layoutWidgets(instance.centerWidgets);
     layoutWidgets(instance.endWidgets);
 
-    // Capsule cross-size is a fraction of the bar thickness (capsule_thickness), the same for every capsule
-    // regardless of per-widget content scale. The max() guard keeps a thin bar from yielding a 0px capsule.
-    const float capsuleCross = std::max(1.0F, std::round(slotCross * instance.barConfig.capsuleThickness));
     auto finalizeCapsules = [isVertical, capsuleCross, widgetHoverPadding = instance.barConfig.widgetCapsulePadding,
                              &renderer](std::vector<BarCapsuleRun>& runs) {
       for (auto& run : runs) {
@@ -916,14 +1001,17 @@ namespace {
         }
 
         bool hasVisibleContent = false;
-        bool hasVisibleInk = false;
+        bool hasCapsuleContent = false;
         for (Widget* widget : run.widgets) {
           if (widget == nullptr || widget->root() == nullptr) {
             continue;
           }
           hasVisibleContent = hasVisibleContent || widget->root()->visible();
-          hasVisibleInk = hasVisibleInk || widget->shouldShowBarCapsule();
+          hasCapsuleContent = hasCapsuleContent || widget->shouldShowBarCapsule();
         }
+        const bool hasPaintedFill = resolveColorSpec(withOpacity(run.spec.fill, run.spec.opacity)).a > 0.0F;
+        const bool hasPaintedBorder = run.spec.border.has_value() && resolveColorSpec(*run.spec.border).a > 0.0F;
+        run.hasPaintedCapsuleBackground = hasCapsuleContent && (hasPaintedFill || hasPaintedBorder);
 
         shell->setVisible(hasVisibleContent);
         const float scale = run.contentScale;
@@ -938,7 +1026,7 @@ namespace {
             }
           }
         };
-        if (!hasVisibleInk) {
+        if (!hasCapsuleContent) {
           shell->setSize(iw, ih);
           if (run.accordionClip != nullptr) {
             run.accordionClip->setPosition(0.0F, 0.0F);
@@ -1023,7 +1111,11 @@ namespace {
         const float capsuleRadius = radiusSource != nullptr ? radiusSource->resolvedBarCapsuleRadius(shellW, shellH)
                                                             : std::max(0.0F, std::min(shellW, shellH) * 0.5F);
         bg->setRadius(capsuleRadius);
-        placeCapsuleHoverBoxes(run, isVertical, shellW, shellH, contentX, contentY, capsuleRadius, widgetHoverPadding);
+        if (run.container == nullptr) {
+          placeCapsuleHoverBoxes(
+              run, isVertical, shellW, shellH, contentX, contentY, capsuleRadius, widgetHoverPadding
+          );
+        }
         // Members outside the reveal window are clipped out; while collapsed (or collapsing) the
         // non-primary members are pointer-suppressed by reveal window so their hidden slots don't
         // capture clicks. While expanded, every valid layout member stays unsuppressed so hover
@@ -1167,11 +1259,12 @@ namespace {
     }
 
     applyBarWidgetHitTargets(instance.startSection, instance.startSlot, isVertical);
+    applyBarWidgetHitTargets(instance.startSection, instance.startSlot, isVertical);
     applyBarWidgetHitTargets(instance.centerSection, instance.centerSlot, isVertical);
     applyBarWidgetHitTargets(instance.endSection, instance.endSlot, isVertical);
-    extendCapsuleHitTargets(instance.startCapsuleRuns, isVertical);
-    extendCapsuleHitTargets(instance.centerCapsuleRuns, isVertical);
-    extendCapsuleHitTargets(instance.endCapsuleRuns, isVertical);
+    extendCapsuleHitTargets(instance.startCapsuleRuns, isVertical, instance.barConfig.widgetCapsulePadding);
+    extendCapsuleHitTargets(instance.centerCapsuleRuns, isVertical, instance.barConfig.widgetCapsulePadding);
+    extendCapsuleHitTargets(instance.endCapsuleRuns, isVertical, instance.barConfig.widgetCapsulePadding);
 
     // Ghost pills for capsule-less widgets: positioned on the bar-level underlay with the
     // metrics an enabled capsule would have (capsuleCross across the bar, capsule padding
@@ -1223,6 +1316,58 @@ namespace {
       placeGhostPills(instance.startWidgets);
       placeGhostPills(instance.centerWidgets);
       placeGhostPills(instance.endWidgets);
+
+      auto placeGroupHoverPills = [&](std::vector<BarCapsuleRun>& runs) {
+        for (auto& run : runs) {
+          if (run.container == nullptr || run.shell == nullptr) {
+            continue;
+          }
+          float shellX = 0.0F;
+          float shellY = 0.0F;
+          Node::absolutePosition(run.shell, shellX, shellY);
+          shellX -= underlayX;
+          shellY -= underlayY;
+          const float shellMainStart = isVertical ? shellY : shellX;
+          const Widget* radiusSource = !run.widgets.empty() ? run.widgets.front() : nullptr;
+          for (Widget* widget : run.widgets) {
+            Node* root = widget != nullptr ? widget->outerNode() : nullptr;
+            Box* box = widget != nullptr ? widget->barHoverBox() : nullptr;
+            if (box != nullptr
+                && (root == nullptr || !root->visible() || !root->participatesInLayout() || !root->hitTestVisible())) {
+              box->setSize(0.0F, 0.0F);
+            }
+          }
+
+          const auto laidOut = capsuleMemberSlices(run, isVertical, instance.barConfig.widgetCapsulePadding);
+          for (const auto& member : laidOut) {
+            Widget* widget = run.widgets[member.widgetIndex];
+            Box* box = widget->barHoverBox();
+            if (box == nullptr) {
+              continue;
+            }
+
+            const float rootX = shellX + member.x;
+            const float rootY = shellY + member.y;
+            const float mainStart = shellMainStart + member.sliceStart;
+            const float mainEnd = shellMainStart + member.sliceEnd;
+            const float mainExtent = std::max(0.0F, mainEnd - mainStart);
+            const float hoverW = isVertical ? capsuleCross : mainExtent;
+            const float hoverH = isVertical ? mainExtent : capsuleCross;
+            box->setPosition(
+                isVertical ? rootX + (member.width - capsuleCross) * 0.5F : mainStart,
+                isVertical ? mainStart : rootY + (member.height - capsuleCross) * 0.5F
+            );
+            box->setSize(hoverW, hoverH);
+            box->setRadius(
+                radiusSource != nullptr ? radiusSource->resolvedBarCapsuleRadius(hoverW, hoverH)
+                                        : widget->resolvedBarCapsuleRadius(hoverW, hoverH)
+            );
+          }
+        }
+      };
+      placeGroupHoverPills(instance.startCapsuleRuns);
+      placeGroupHoverPills(instance.centerCapsuleRuns);
+      placeGroupHoverPills(instance.endCapsuleRuns);
     }
     if (screenEdgeClick) {
       auto extendHitTestOutsetToScreenEdge = [&](Node* node, bool start) {
@@ -2132,6 +2277,13 @@ void Bar::syncInstances() {
   const auto& outputs = m_platform->outputs();
   const auto& bars = m_config->config().bars;
 
+  const auto geometryChanged = [](const BarInstance& instance, const WaylandOutput& output) {
+    return instance.outputLogicalX != output.logicalX
+        || instance.outputLogicalY != output.logicalY
+        || instance.outputLogicalWidth != output.effectiveLogicalWidth()
+        || instance.outputLogicalHeight != output.effectiveLogicalHeight();
+  };
+
   std::erase_if(m_lastActiveWorkspaceByOutput, [&outputs](const auto& pair) {
     return std::ranges::find(outputs, pair.first, &WaylandOutput::name) == outputs.end();
   });
@@ -2146,14 +2298,25 @@ void Bar::syncInstances() {
     }
   }
 
-  // Remove instances for outputs that no longer exist
-  std::erase_if(m_instances, [&outputs, this](const auto& inst) {
+  // Layer-shell surfaces are output-bound, but some compositors do not reposition an existing surface after that
+  // output moves. Recreate every bar on an affected output to preserve their config-order stacking.
+  std::unordered_set<std::uint32_t> outputsNeedingRecreate;
+  for (const auto& instance : m_instances) {
+    const auto output = std::ranges::find(outputs, instance->outputName, &WaylandOutput::name);
+    if (output != outputs.end() && output->done && output->hasUsableGeometry() && geometryChanged(*instance, *output)) {
+      outputsNeedingRecreate.insert(output->name);
+    }
+  }
+
+  // Remove instances for outputs that no longer exist or whose output geometry changed.
+  std::erase_if(m_instances, [&outputs, &outputsNeedingRecreate, this](const auto& inst) {
     const auto it = std::ranges::find(outputs, inst->outputName, &WaylandOutput::name);
     const bool found = it != outputs.end() && it->done && it->hasUsableGeometry();
-    if (!found) {
+    const bool recreate = found && outputsNeedingRecreate.contains(inst->outputName);
+    if (!found || recreate) {
       kLog.info("removing instance for output {}", inst->outputName);
     }
-    if (!found) {
+    if (!found || recreate) {
       if (inst->surface != nullptr) {
         m_surfaceMap.erase(inst->surface->wlSurface());
       }
@@ -2161,7 +2324,7 @@ void Bar::syncInstances() {
         m_hoveredInstance = nullptr;
       }
     }
-    return !found;
+    return !found || recreate;
   });
 
   // Create instances for each bar definition × each output
@@ -2193,6 +2356,10 @@ void Bar::createInstance(const WaylandOutput& output, std::size_t barIndex, cons
   instance->outputName = output.name;
   instance->output = output.output;
   instance->scale = output.scale;
+  instance->outputLogicalX = output.logicalX;
+  instance->outputLogicalY = output.logicalY;
+  instance->outputLogicalWidth = output.effectiveLogicalWidth();
+  instance->outputLogicalHeight = output.effectiveLogicalHeight();
   instance->barConfig = barConfig;
   instance->barIndex = barIndex;
 
@@ -2645,7 +2812,9 @@ void Bar::attachWidgetsToSections(BarInstance& instance) {
       if (hoverHighlight) {
         hoverBoxes.reserve(memberOrder.size());
         for (const std::size_t memberIndex : memberOrder) {
-          hoverBoxes.push_back(addHoverBox(*widgets[memberIndex], *shellPtr));
+          hoverBoxes.push_back(
+              instance.hoverUnderlay != nullptr ? addHoverBox(*widgets[memberIndex], *instance.hoverUnderlay) : nullptr
+          );
         }
       }
 
@@ -3099,14 +3268,14 @@ void Bar::buildScene(BarInstance& instance, std::uint32_t width, std::uint32_t h
     }
     // Note: shadow is inserted before bar sections so it renders below them (z=-1 is set below).
 
+    auto contentClip = ui::node({});
+    contentClip->setClipChildren(true);
+    instance.contentClip = instance.slideRoot->addChild(std::move(contentClip));
+
     auto hoverUnderlay = ui::node({});
     hoverUnderlay->setHitTestVisible(false);
     hoverUnderlay->setSize(static_cast<float>(w), static_cast<float>(h));
     instance.hoverUnderlay = instance.slideRoot->addChild(std::move(hoverUnderlay));
-
-    auto contentClip = ui::node({});
-    contentClip->setClipChildren(true);
-    instance.contentClip = instance.slideRoot->addChild(std::move(contentClip));
 
     auto makeSlot = [&instance]() {
       auto slot = ui::node({});
@@ -3119,13 +3288,15 @@ void Bar::buildScene(BarInstance& instance, std::uint32_t width, std::uint32_t h
 
     // Create section boxes
     auto makeSection = [widgetSpacing, isVertical]() {
-      return ui::flex(
+      auto section = ui::flex(
           isVertical ? FlexDirection::Vertical : FlexDirection::Horizontal,
           {
               .align = FlexAlign::Center,
               .gap = widgetSpacing,
           }
       );
+      section->setMirrorInRtl(false);
+      return section;
     };
 
     instance.startSection = static_cast<Flex*>(instance.startSlot->addChild(makeSection()));
@@ -3441,7 +3612,9 @@ bool Bar::onPointerEvent(const PointerEvent& event) {
     const auto sx = static_cast<float>(event.sx);
     const auto sy = static_cast<float>(event.sy);
     bool pressed = event.pressed;
-    consumed = m_hoveredInstance->inputDispatcher.pointerButton(sx, sy, event.button, pressed);
+    consumed = m_hoveredInstance->inputDispatcher.pointerButton(
+        sx, sy, event.button, pressed, event.serial, event.time, event.touch
+    );
     if (pressed && !consumed) {
       if (handleBarDeadZoneButton(*m_hoveredInstance, sx, sy, event.button, m_platform, m_actionDispatcher)) {
         consumed = true;

@@ -571,7 +571,7 @@ void TaskbarWidget::doLayout(Renderer& renderer, float containerWidth, float con
   m_taskStrip->setDirection(m_vertical ? FlexDirection::Vertical : FlexDirection::Horizontal);
   m_taskStrip->setAlign(FlexAlign::Center);
   if (!m_groupByWorkspace) {
-    m_taskStrip->setGap(Style::spaceSm * m_contentScale);
+    m_taskStrip->setGap(static_cast<float>(m_configOptions.itemSpacing) * m_contentScale);
   }
 
   if (m_rebuildPending) {
@@ -604,8 +604,8 @@ void TaskbarWidget::rebuild(Renderer& renderer) {
     return;
   }
   m_activeUsesFocusedColor = !m_focusedOutputOnly || isFocusedOutput();
-  m_taskTileAreas.clear();
-  m_taskTileAreas.reserve(m_tasks.size());
+  m_taskTiles.clear();
+  m_taskTiles.reserve(m_tasks.size());
   clearChildren(m_taskStrip);
   buildTaskButtons(renderer);
 }
@@ -620,7 +620,9 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
   if (m_taskStrip == nullptr) {
     return;
   }
-  float iconSize = std::round(Style::baseGlyphSize * m_contentScale);
+  const float effectiveIconScale =
+      m_groupByWorkspace && m_workspaceGroupContent != WorkspaceGroupContent::Icons ? 1.0F : m_configOptions.iconScale;
+  float iconSize = std::round(Style::baseGlyphSize * effectiveIconScale * m_contentScale);
   float tilePadding = Style::spaceXs * 0.35F * m_contentScale;
   float tileSize = std::round(iconSize + tilePadding * 2.0F);
   const float barCross = m_vertical ? m_containerWidth : m_containerHeight;
@@ -650,7 +652,7 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
       tileSize = std::round(iconSize + tilePadding * 2.0F);
     }
   }
-  const float tileGap = Style::spaceSm * m_contentScale;
+  const float tileGap = static_cast<float>(m_configOptions.itemSpacing) * m_contentScale;
 
   const FontWeight fontWeight = labelFontWeight();
   const std::string fontFamily = labelFontFamily();
@@ -868,6 +870,7 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
       content->addChild(std::move(glyph));
     }
 
+    Label* titleLabelPtr = nullptr;
     if (showWindowTitle) {
       auto label = ui::label({
           .text = task.title,
@@ -877,6 +880,7 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
           .maxWidth = windowTitleWidth,
           .maxLines = 1,
       });
+      titleLabelPtr = label.get();
       label->measure(renderer);
       content->addChild(std::move(label));
     }
@@ -906,7 +910,8 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
       }
     }
 
-    if (task.active && m_showActiveIndicator) {
+    Box* indicatorPtr = nullptr;
+    if (m_showActiveIndicator) {
       const float d = std::max(4.0F, std::round(Style::baseGlyphSize * 0.32F * m_contentScale));
       const float groupedCapsuleInset =
           (m_groupByWorkspace && m_workspaceGroupCapsule ? Style::borderWidth : 0.0F) * m_contentScale;
@@ -919,6 +924,8 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
             .width = tileWidthWithTitle - tilePadding * 2,
             .height = lineThickness,
         });
+        indicatorPtr = indicator.get();
+        indicator->setVisible(task.active);
         indicator->setPosition(tilePadding, std::round(tileSize));
         area->addChild(std::move(indicator));
       } else {
@@ -928,6 +935,8 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
             .width = d,
             .height = d,
         });
+        indicatorPtr = indicator.get();
+        indicator->setVisible(task.active);
         indicator->setPosition(std::round((tileSize - d) * 0.5F), std::round(tileSize - d - bottomInset));
         area->addChild(std::move(indicator));
       }
@@ -939,7 +948,12 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
       return current != nullptr && !current->title.empty() ? TooltipContent{current->title}
                                                            : TooltipContent{std::monostate{}};
     });
-    m_taskTileAreas.push_back(area.get());
+    m_taskTiles.push_back({
+        .taskIndex = taskRef.index,
+        .area = area.get(),
+        .titleLabel = titleLabelPtr,
+        .activeIndicator = indicatorPtr,
+    });
     attachHover(*area, tileWidthWithTitle, tileSize);
     return area;
   };
@@ -2465,15 +2479,44 @@ void TaskbarWidget::updateModels() {
     applyPinnedMerge(nextTasks);
   }
 
-  const ModelComparison comparison = compareModels(m_showWindowTitle, m_tasks, m_workspaces, nextTasks, nextWorkspaces);
+  const ModelComparison comparison =
+      compareModels(m_groupByWorkspace, m_tasks, m_workspaces, nextTasks, nextWorkspaces);
   if (comparison.layoutEqual) {
     m_tasks = std::move(nextTasks);
     m_workspaces = std::move(nextWorkspaces);
-    if (comparison.titlesChanged) {
-      for (InputArea* area : m_taskTileAreas) {
-        if (area != nullptr) {
-          area->requestTooltipRefresh();
+    if (comparison.titlesChanged || comparison.activesChanged) {
+      bool textChanged = false;
+      for (const TaskTile& tile : m_taskTiles) {
+        if (tile.taskIndex >= m_tasks.size()) {
+          continue;
         }
+        const TaskModel& task = m_tasks[tile.taskIndex];
+        if (comparison.titlesChanged) {
+          if (tile.titleLabel != nullptr && tile.titleLabel->setText(task.title)) {
+            textChanged = true;
+          }
+          if (tile.area != nullptr) {
+            tile.area->requestTooltipRefresh();
+          }
+        }
+        if (comparison.activesChanged) {
+          if (tile.area != nullptr) {
+            float opacity = task.active ? m_activeOpacity : m_inactiveOpacity;
+            if (task.pinned && !task.running) {
+              opacity *= m_pinnedOpacity;
+            }
+            tile.area->setOpacity(opacity);
+          }
+          if (tile.activeIndicator != nullptr) {
+            tile.activeIndicator->setVisible(task.active);
+          }
+        }
+      }
+      if (textChanged && root() != nullptr) {
+        root()->markLayoutDirty();
+      }
+      if (comparison.activesChanged) {
+        requestRedraw();
       }
     }
     return;
@@ -2829,7 +2872,7 @@ std::string TaskbarWidget::workspaceLabel(const Workspace& workspace, std::size_
 }
 
 TaskbarWidget::ModelComparison TaskbarWidget::compareModels(
-    bool showWindowTitle, const std::vector<TaskModel>& previousTasks,
+    bool groupByWorkspace, const std::vector<TaskModel>& previousTasks,
     const std::vector<WorkspaceModel>& previousWorkspaces, const std::vector<TaskModel>& nextTasks,
     const std::vector<WorkspaceModel>& nextWorkspaces
 ) {
@@ -2837,20 +2880,23 @@ TaskbarWidget::ModelComparison TaskbarWidget::compareModels(
     return {};
   }
   bool titlesChanged = false;
+  bool activesChanged = false;
   for (std::size_t i = 0; i < nextTasks.size(); ++i) {
     const bool titleChanged = nextTasks[i].title != previousTasks[i].title;
+    const bool activeChanged = nextTasks[i].active != previousTasks[i].active;
     titlesChanged = titlesChanged || titleChanged;
+    activesChanged = activesChanged || activeChanged;
     if (nextTasks[i].appId != previousTasks[i].appId
         || nextTasks[i].iconPath != previousTasks[i].iconPath
-        || nextTasks[i].active != previousTasks[i].active
         || nextTasks[i].firstHandle != previousTasks[i].firstHandle
-        || nextTasks[i].workspaceKey != previousTasks[i].workspaceKey
-        || nextTasks[i].workspaceWindowId != previousTasks[i].workspaceWindowId
-        || nextTasks[i].exactWindowId != previousTasks[i].exactWindowId
+        || (groupByWorkspace
+            && (activeChanged
+                || nextTasks[i].workspaceKey != previousTasks[i].workspaceKey
+                || nextTasks[i].workspaceWindowId != previousTasks[i].workspaceWindowId
+                || nextTasks[i].exactWindowId != previousTasks[i].exactWindowId))
         || nextTasks[i].order != previousTasks[i].order
         || nextTasks[i].workspaceOrder != previousTasks[i].workspaceOrder
         || nextTasks[i].handleKey != previousTasks[i].handleKey
-        || (showWindowTitle && titleChanged)
         || nextTasks[i].pinned != previousTasks[i].pinned
         || nextTasks[i].running != previousTasks[i].running
         || nextTasks[i].instanceCount != previousTasks[i].instanceCount
@@ -2872,7 +2918,7 @@ TaskbarWidget::ModelComparison TaskbarWidget::compareModels(
       return {};
     }
   }
-  return {.layoutEqual = true, .titlesChanged = titlesChanged};
+  return {.layoutEqual = true, .titlesChanged = titlesChanged, .activesChanged = activesChanged};
 }
 
 void TaskbarWidget::buildDesktopIconIndex() {
@@ -2896,7 +2942,8 @@ void TaskbarWidget::buildDesktopIconIndex() {
 }
 
 std::string TaskbarWidget::resolveIconPath(const std::string& appId, const std::string& iconNameOrPath) {
-  const int iconTargetSize = std::max(1, static_cast<int>(std::round(Style::baseGlyphSize * m_contentScale)));
+  const int iconTargetSize =
+      std::max(1, static_cast<int>(std::round(Style::baseGlyphSize * m_configOptions.iconScale * m_contentScale)));
 
   auto resolveIconName = [this, iconTargetSize](const std::string& name) -> std::string {
     if (name.empty()) {

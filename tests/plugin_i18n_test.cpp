@@ -86,6 +86,7 @@ int main() {
            pluginRoot / "plugin.toml",
            "id = \"test/example\"\n"
            "name = \"Example\"\n"
+           "version = \"1.0.0\"\n"
            "plugin_api = "
                + std::to_string(scripting::kCurrentPluginApiVersion)
                + "\n"

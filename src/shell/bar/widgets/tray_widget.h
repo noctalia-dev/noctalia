@@ -26,6 +26,7 @@ public:
   struct Options {
     std::vector<std::string> hiddenItems;
     std::vector<std::string> pinnedItems;
+    bool hidePassive = true;
     bool drawerMode = false;
     std::function<void()> itemActivated;
     std::string barPosition = "top";
@@ -43,6 +44,7 @@ public:
   ~TrayWidget() override;
 
   void setHoverOverlayParent(Node* node) noexcept { m_hoverOverlayParent = node; }
+  void setCapsuleCross(float cross) noexcept { m_capsuleCross = cross; }
   void create() override;
   [[nodiscard]] bool wantsBarHoverHighlight() const noexcept override { return false; }
 
@@ -83,6 +85,7 @@ private:
   std::vector<TrayItemInfo> m_items;
   std::vector<std::string> m_hiddenItems;
   std::vector<std::string> m_pinnedItems;
+  bool m_hidePassive = true;
   std::vector<Image*> m_loadedImages;
   std::vector<Image*> m_colorizedAppIcons;
   std::unordered_map<std::string, std::size_t> m_initialPixmaps;
@@ -106,4 +109,5 @@ private:
   Signal<>::ScopedConnection m_appIconColorizeConn;
   Node* m_hoverOverlayParent = nullptr;
   std::vector<HoverOverlayEntry> m_hoverOverlays;
+  float m_capsuleCross = 0.0F;
 };

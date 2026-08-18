@@ -77,6 +77,7 @@ public:
   void onPointerEvent(const PointerEvent& event);
   void onKeyboardEvent(const KeyboardEvent& event);
   [[nodiscard]] wl_output* output() const noexcept { return m_output; }
+  void syncOutputScale(std::int32_t bufferScale, std::uint32_t configuredScaleNumerator);
   [[nodiscard]] bool hasDesktopCapture() const noexcept;
   [[nodiscard]] Node* widgetLayer() noexcept { return m_widgetLayer; }
   void setOutputKey(std::string outputKey) { m_outputKey = std::move(outputKey); }
