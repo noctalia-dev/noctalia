@@ -72,6 +72,17 @@ bool isDefaultPluginSourceName(std::string_view name) {
   return std::ranges::contains(sources, name, &PluginSourceConfig::name);
 }
 
+bool sourceInAutoUpdateScope(const PluginSourceConfig& source, PluginAutoUpdateMode mode) {
+  if (mode == PluginAutoUpdateMode::None || source.kind != PluginSourceKind::Git || !source.enabled) {
+    return false;
+  }
+  if (mode == PluginAutoUpdateMode::All) {
+    return true;
+  }
+  const auto official = defaultPluginSources()[0];
+  return source.name == official.name && source.location == official.location;
+}
+
 bool isValidPluginSourceName(std::string_view name) {
   if (name.empty()) {
     return false;

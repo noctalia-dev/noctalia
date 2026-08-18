@@ -1589,6 +1589,11 @@ struct PluginsConfig {
 // official + community plugin repos.
 [[nodiscard]] std::vector<PluginSourceConfig> defaultPluginSources();
 [[nodiscard]] bool isDefaultPluginSourceName(std::string_view name);
+// Whether the background auto-update mode covers `source` (kind, enabled state, and
+// official identity for PluginAutoUpdateMode::Official). The official source matches
+// by name AND location, so a user-added source that reuses the name is not the
+// official source. Pure, so the auto-update tick and its tests share one decision.
+[[nodiscard]] bool sourceInAutoUpdateScope(const PluginSourceConfig& source, PluginAutoUpdateMode mode);
 // Source names are stable user-facing handles and git source storage directory names.
 // Keep them flat so they can never escape the plugin source cache.
 [[nodiscard]] bool isValidPluginSourceName(std::string_view name);

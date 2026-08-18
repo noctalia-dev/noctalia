@@ -733,10 +733,17 @@ namespace scripting {
 
   void PluginManager::update(std::string sourceName) {
     const auto source = findSource(sourceName);
-    if (!source.has_value() || source->kind != PluginSourceKind::Git) {
-      return; // path / unknown sources are externally owned
+    if (!source.has_value()) {
+      return; // unknown source
     }
-    const std::filesystem::path repoRoot = plugin_paths::gitRepoRoot(*source);
+    updateSource(*source);
+  }
+
+  void PluginManager::updateSource(const PluginSourceConfig& source) {
+    if (source.kind != PluginSourceKind::Git) {
+      return; // path sources are externally owned
+    }
+    const std::filesystem::path repoRoot = plugin_paths::gitRepoRoot(source);
     if (repoRoot.empty()) {
       return;
     }
@@ -754,8 +761,8 @@ namespace scripting {
 
     // The whole git sequence runs off-thread; only the final registry rescan marshals
     // back to the main thread. `this` is an Application member, so it outlives the worker.
-    std::thread([this, source = *source, repoRoot, sourceName = std::move(sourceName),
-                 enabled = std::move(enabled)]() mutable {
+    const std::string sourceName = source.name;
+    std::thread([this, source, repoRoot, sourceName, enabled = std::move(enabled)]() mutable {
       auto sourceLock = plugin_source_locks::acquire(source.name);
       const auto fetched = plugin_git::fetch(repoRoot);
       if (!fetched) {
@@ -928,18 +935,9 @@ namespace scripting {
   }
 
   void PluginManager::updateAutoUpdateScope(PluginAutoUpdateMode mode) {
-    if (mode == PluginAutoUpdateMode::None) {
-      return;
-    }
-    // The trusted built-in official source is matched by name and location; a
-    // user-added source that reuses the name is not the official source.
-    const auto official = defaultPluginSources()[0];
     for (const auto& source : m_config.config().plugins.sources) {
-      if (source.kind == PluginSourceKind::Git
-          && source.enabled
-          && (mode == PluginAutoUpdateMode::All
-              || (source.name == official.name && source.location == official.location))) {
-        update(source.name);
+      if (sourceInAutoUpdateScope(source, mode)) {
+        updateSource(source);
       }
     }
   }

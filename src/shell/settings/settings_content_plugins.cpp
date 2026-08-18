@@ -746,12 +746,9 @@ namespace settings {
               .fontSize = Style::fontSizeBody * scale,
               .controlHeight = Style::controlHeight * scale,
               .glyphSize = Style::fontSizeBody * scale,
-              .onSelectionChanged = [cb = ctx.setAutoUpdate,
-                                     modeOptions](std::size_t index, std::string_view /*label*/) {
-                if (cb && index < modeOptions.size()) {
-                  if (auto mode = enumFromKey(kPluginAutoUpdateModes, modeOptions[index].value)) {
-                    cb(*mode);
-                  }
+              .onSelectionChanged = [cb = ctx.setAutoUpdate](std::size_t index, std::string_view /*label*/) {
+                if (cb && index < std::size(kPluginAutoUpdateModes)) {
+                  cb(kPluginAutoUpdateModes[index].value);
                 }
               },
           })

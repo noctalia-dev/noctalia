@@ -652,6 +652,47 @@ location = "https://example.invalid/bad"
     }
   }
 
+  void checkAutoUpdateScopeSelection() {
+    // Duplicate source names pass schema validation, so the official scope must
+    // match by name AND location — the first same-named entry must not win.
+    const std::vector<PluginSourceConfig> sources = {
+        {.kind = PluginSourceKind::Git, .name = "official", .location = "https://example.invalid/untrusted"},
+        defaultPluginSources()[0], // the real official source, listed second
+        {.kind = PluginSourceKind::Git,
+         .name = "community",
+         .location = "https://github.com/noctalia-dev/community-plugins"},
+        {.kind = PluginSourceKind::Git,
+         .name = "disabled",
+         .location = "https://example.invalid/disabled",
+         .enabled = false},
+        {.kind = PluginSourceKind::Path, .name = "local", .location = "/tmp/plugins"},
+    };
+    const auto expectLocations = [&](PluginAutoUpdateMode mode, std::vector<std::string_view> locations) {
+      std::vector<std::string_view> selected;
+      for (const auto& source : sources) {
+        if (sourceInAutoUpdateScope(source, mode)) {
+          selected.push_back(source.location);
+        }
+      }
+      if (!std::ranges::equal(selected, locations)) {
+        fail(
+            "auto-update scope: unexpected sources selected for " + std::string(enumToKey(kPluginAutoUpdateModes, mode))
+        );
+      }
+    };
+    expectLocations(PluginAutoUpdateMode::None, {});
+    // Only the entry with the official name AND location; the untrusted first
+    // "official" entry must never be selected.
+    expectLocations(PluginAutoUpdateMode::Official, {"https://github.com/noctalia-dev/official-plugins"});
+    // Every enabled git source, each distinct entry, duplicates included; disabled
+    // and path sources stay out.
+    expectLocations(
+        PluginAutoUpdateMode::All,
+        {"https://example.invalid/untrusted", "https://github.com/noctalia-dev/official-plugins",
+         "https://github.com/noctalia-dev/community-plugins"}
+    );
+  }
+
   void checkCalendarCredentialSourceValidation() {
     const auto parse = [](std::string_view accountConfig) {
       const toml::table table = toml::parse(accountConfig);
@@ -1111,6 +1152,7 @@ widget_spacing = 8
   checkPanelFloatingLayerValidation();
   checkClamps();
   checkPluginAutoUpdateMode();
+  checkAutoUpdateScopeSelection();
   checkCustomColorFallback();
   checkTemplateConfigCustomColorsExport();
 

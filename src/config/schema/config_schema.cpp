@@ -540,9 +540,7 @@ namespace noctalia::config::schema {
         custom<PluginsConfig>(
             "auto_update",
             [](const toml::table& tbl, PluginsConfig& out, std::string_view parentPath, Diagnostics& diag) {
-              if (auto v = tbl["auto_update"].value<bool>()) {
-                out.autoUpdate = *v ? PluginAutoUpdateMode::All : PluginAutoUpdateMode::Official : PLuginAutoUpdateMode::None;
-              } else if (auto v = tbl["auto_update"].value<std::string>()) {
+              if (auto v = tbl["auto_update"].value<std::string>()) {
                 const std::string trimmed = StringUtils::trim(*v);
                 if (auto parsed = enumFromKey(kPluginAutoUpdateModes, trimmed)) {
                   out.autoUpdate = *parsed;
