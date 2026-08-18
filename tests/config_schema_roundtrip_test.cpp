@@ -618,9 +618,9 @@ location = "https://example.invalid/bad"
       readInto(root, plugins, pluginsSchema(), "plugins", diagnostics);
       return std::pair{plugins.autoUpdate, diagnostics};
     };
-    const auto warnedOnAutoUpdate = [](const Diagnostics& diag) {
+    const auto erroredOnAutoUpdate = [](const Diagnostics& diag) {
       return std::ranges::any_of(diag.entries, [](const auto& entry) {
-        return entry.severity == Diagnostics::Severity::Warning && entry.path == "plugins.auto_update";
+        return entry.severity == Diagnostics::Severity::Error && entry.path == "plugins.auto_update";
       });
     };
 
@@ -641,13 +641,13 @@ location = "https://example.invalid/bad"
         );
       }
     }
-    // Unknown strings, unsupported types, and the legacy boolean form warn
+    // Unknown strings, unsupported types, and the legacy boolean form error
     // and leave the default in place.
     for (const auto text :
          {"auto_update = \"sometimes\"", "auto_update = 1.5", "auto_update = true", "auto_update = false"}) {
       const auto [mode, diag] = parse(text);
-      if (mode != PluginAutoUpdateMode::All || !warnedOnAutoUpdate(diag)) {
-        fail(std::string("plugins.auto_update: '") + text + "' should warn and keep the default");
+      if (mode != PluginAutoUpdateMode::All || !erroredOnAutoUpdate(diag)) {
+        fail(std::string("plugins.auto_update: '") + text + "' should error and keep the default");
       }
     }
   }

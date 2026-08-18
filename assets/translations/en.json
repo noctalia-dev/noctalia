@@ -1379,8 +1379,8 @@
       "plugins": {
         "auto-update": {
           "all": "All sources",
-          "none": "None",
-          "official": "Official only"
+          "official": "Official only",
+          "none": "None"
         }
       },
       "screen-position": {

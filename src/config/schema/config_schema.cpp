@@ -545,10 +545,12 @@ namespace noctalia::config::schema {
                 if (auto parsed = enumFromKey(kPluginAutoUpdateModes, trimmed)) {
                   out.autoUpdate = *parsed;
                 } else {
-                  diag.warn(joinPath(parentPath, "auto_update"), "unknown value \"" + *v + "\"");
+                  diag.error(
+                      joinPath(parentPath, "auto_update"), "unknown value \"" + *v + "\"; expected all|official|none"
+                  );
                 }
               } else if (tbl.contains("auto_update")) {
-                diag.warn(joinPath(parentPath, "auto_update"), "expected all|official|none");
+                diag.error(joinPath(parentPath, "auto_update"), "expected all|official|none");
               }
             },
             [](toml::table& tbl, const PluginsConfig& in) {
