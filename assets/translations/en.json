@@ -717,6 +717,11 @@
     "unlocked": "Unlocked",
     "waiting": "Waiting for lock confirmation…"
   },
+  "lockscreen-widgets":{
+    "editor":{
+      "title": "Lockscreen Widgets"
+    }
+  },
   "notifications": {
     "actions": {
       "fallback": "Action",

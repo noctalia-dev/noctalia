@@ -1134,7 +1134,7 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
                           .glyphSize = 14.0F,
                       }),
                       ui::label({
-                          .text = i18n::tr("desktop-widgets.editor.title"),
+                          .text = i18n::tr(m_profile.titleKey),
                           .fontSize = Style::fontSizeBody,
                           .fontWeight = FontWeight::Bold,
                       }),
