@@ -579,6 +579,7 @@
         "grid": "Grid"
       },
       "title": "Desktop Widgets",
+      "title-lockscreen": "Lockscreen Widgets",
       "types": {
         "audio-visualizer": "Audio Visualizer",
         "button": "Button",
@@ -716,11 +717,6 @@
     "ready": "Type your password and press Enter.",
     "unlocked": "Unlocked",
     "waiting": "Waiting for lock confirmation…"
-  },
-  "lockscreen-widgets":{
-    "editor":{
-      "title": "Lockscreen Widgets"
-    }
   },
   "notifications": {
     "actions": {
