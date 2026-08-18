@@ -80,6 +80,10 @@ private:
   void syncBackButton();
   void navigateInto(const std::filesystem::path& dir);
   void navigateUp();
+  void refreshBrowseDirectory();
+  [[nodiscard]] std::optional<std::string> selectedMonitorConnector() const;
+  [[nodiscard]] ThemeMode browseThemeMode() const;
+  [[nodiscard]] std::optional<ThemeMode> themeSyncBindingMode() const;
   void applyWallpaperFromEntry(const WallpaperEntry& entry);
   void applyWallpaperPath(const std::string& path, const WallpaperFavorite* applyTheme);
   [[nodiscard]] const WallpaperFavorite* favoriteThemeToApply(std::string_view path) const;
