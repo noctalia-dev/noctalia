@@ -182,6 +182,9 @@ void LockScreen::unlock() {
   stopFingerprint();
 
   const bool wasLockedInteractive = m_locked;
+  for (auto& instance : m_instances) {
+    instance.surface->setLockedState(false);
+  }
 
   if (m_lock != nullptr) {
     if (m_locked) {

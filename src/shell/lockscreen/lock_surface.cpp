@@ -585,9 +585,7 @@ bool LockSurface::initialize(ext_session_lock_v1* lock, wl_output* output, std::
   if (!createWlSurface()) {
     return false;
   }
-
-  // Keep the lock surface out of text-input-v3; it can leave Chromium's fcitx
-  // context inactive after unlock. Password input still uses wl_keyboard.
+  m_inputDispatcher.setTextInputContext(m_surface, m_connection.textInputService());
 
   m_output = output;
   m_connection.registerSurfaceOutput(m_surface, output);
