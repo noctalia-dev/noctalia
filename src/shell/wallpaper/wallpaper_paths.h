@@ -33,8 +33,7 @@ namespace wallpaper {
   [[nodiscard]] std::optional<std::string>
   resolveThemeSyncPath(const WallpaperConfig& config, const WaylandOutput& output, ThemeMode mode);
 
-  [[nodiscard]] bool
-  hasThemeSyncBinding(const WallpaperConfig& config, const WaylandOutput& output, ThemeMode mode);
+  [[nodiscard]] bool hasThemeSyncBinding(const WallpaperConfig& config, const WaylandOutput& output, ThemeMode mode);
 
   [[nodiscard]] bool hasGlobalThemeSyncBinding(const WallpaperConfig& config, ThemeMode mode);
 
