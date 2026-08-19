@@ -148,15 +148,13 @@ void wallpaper::setThemeSyncBinding(
     ConfigService& config, const std::optional<std::string>& connector, ThemeMode mode, std::string_view path,
     std::span<const std::string> allConnectors
 ) {
-  if (path.empty() || (mode != ThemeMode::Light && mode != ThemeMode::Dark)) {
+  if (path.empty() || (mode != ThemeMode::Light && mode != ThemeMode::Dark)
+      || !config.config().wallpaper.themeSync.enabled) {
     return;
   }
 
   const std::string key = mode == ThemeMode::Light ? "path_light" : "path_dark";
   std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>> overrides;
-  if (!config.config().wallpaper.themeSync.enabled) {
-    overrides.emplace_back(std::vector<std::string>{"wallpaper", "theme_sync", "enabled"}, true);
-  }
   overrides.emplace_back(std::vector<std::string>{"wallpaper", "theme_sync", key}, std::string(path));
   if (connector.has_value() && !connector->empty()) {
     overrides.emplace_back(
@@ -173,4 +171,57 @@ void wallpaper::setThemeSyncBinding(
     }
   }
   (void)config.setOverrides(std::move(overrides));
+}
+
+std::vector<std::string> wallpaper::themeSyncConnectorsForGlobalBinding(
+    const std::optional<std::string>& connector, std::span<const std::string> allOutputConnectors
+) {
+  if (connector.has_value() && !connector->empty()) {
+    return {};
+  }
+  std::vector<std::string> connectors;
+  connectors.reserve(allOutputConnectors.size());
+  for (const auto& name : allOutputConnectors) {
+    if (!name.empty()) {
+      connectors.push_back(name);
+    }
+  }
+  return connectors;
+}
+
+bool wallpaper::shouldSeedThemeSyncBinding(const WallpaperThemeSyncConfig& themeSync, bool resolvedIsLight) noexcept {
+  if (!themeSync.enabled) {
+    return false;
+  }
+  return resolvedIsLight ? themeSync.pathLight.empty() : themeSync.pathDark.empty();
+}
+
+ThemeMode wallpaper::themeSyncModeForResolvedAppearance(bool resolvedIsLight) noexcept {
+  return resolvedIsLight ? ThemeMode::Light : ThemeMode::Dark;
+}
+
+void wallpaper::bindThemeSyncForManualPick(
+    ConfigService& config, const std::optional<std::string>& connector, bool resolvedIsLight, std::string_view path,
+    std::span<const std::string> allOutputConnectors
+) {
+  if (path.empty()) {
+    return;
+  }
+  setThemeSyncBinding(
+      config, connector, themeSyncModeForResolvedAppearance(resolvedIsLight), path,
+      themeSyncConnectorsForGlobalBinding(connector, allOutputConnectors)
+  );
+}
+
+void wallpaper::seedThemeSyncBindingIfNeeded(
+    ConfigService& config, bool resolvedIsLight, std::string_view wallpaperPath,
+    std::span<const std::string> allOutputConnectors
+) {
+  if (wallpaperPath.empty() || !shouldSeedThemeSyncBinding(config.config().wallpaper.themeSync, resolvedIsLight)) {
+    return;
+  }
+  setThemeSyncBinding(
+      config, std::nullopt, themeSyncModeForResolvedAppearance(resolvedIsLight), wallpaperPath,
+      themeSyncConnectorsForGlobalBinding(std::nullopt, allOutputConnectors)
+  );
 }
