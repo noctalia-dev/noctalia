@@ -635,12 +635,8 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
   };
 
   PanelPlacement activePlacement = m_activePanel->panelPlacement();
-  const bool fillWidth = m_activePanel->fillsWidth();
-  const bool fillHeight = m_activePanel->fillsHeight();
-  if ((fillWidth || fillHeight) && activePlacement != PanelPlacement::Floating) {
-    kLog.warn("panel manager: \"{}\" uses fill sizing, which requires floating placement — opening floating", panelId);
-    activePlacement = PanelPlacement::Floating;
-  }
+  const bool fillWidth = m_activePanel->fillsWidth() && activePlacement == PanelPlacement::Floating;
+  const bool fillHeight = m_activePanel->fillsHeight() && activePlacement == PanelPlacement::Floating;
   m_panelFillWidth = fillWidth;
   m_panelFillHeight = fillHeight;
   const bool pluginPanel = m_activePanelId.contains(':');
