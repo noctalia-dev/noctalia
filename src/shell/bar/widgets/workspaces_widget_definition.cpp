@@ -24,6 +24,12 @@ namespace {
     return visibility;
   }
 
+  settings::WidgetSettingVisibility focusHintStyleOnly() {
+    settings::WidgetSettingVisibility visibility;
+    visibility.all = {{"style", {"focus_hint"}}};
+    return visibility;
+  }
+
 } // namespace
 
 const noctalia::bar::WidgetDefinition<WorkspacesWidget::Options>& workspacesWidgetDefinition() {
@@ -100,6 +106,14 @@ const noctalia::bar::WidgetDefinition<WorkspacesWidget::Options>& workspacesWidg
                           .descriptionKey = "settings.widgets.settings.max-label-chars.workspaces-description",
                           .group = "workspaces.list",
                           .visibleWhen = labelsShown(),
+                      },
+              }),
+              field<&Options::showIcons>({
+                  .key = "show_icons",
+                  .presentation =
+                      settings::WidgetSettingPresentation{
+                          .group = "workspaces.list",
+                          .visibleWhen = focusHintStyleOnly(),
                       },
               }),
               field<&Options::style>({

@@ -37,6 +37,7 @@ public:
     WorkspacesStyle style = WorkspacesStyle::Regular;
     WorkspacesLabelSource labelSource = WorkspacesLabelSource::Id;
     bool showLabels = true;
+    bool showIcons = true;
     ColorSpec focusedColor = colorSpecFromRole(ColorRole::Primary);
     ColorSpec occupiedColor = colorSpecFromRole(ColorRole::Secondary);
     ColorSpec emptyColor = colorSpecFromRole(ColorRole::Secondary);
@@ -160,6 +161,7 @@ private:
   bool m_showLabels = true;
   std::size_t m_maxLabelChars = 1;
   bool m_labelsOnlyWhenOccupied = false;
+  bool m_showIcons = true;
   bool m_hideWhenEmpty = false;
   bool m_showAllOutputs = false;
   float m_pillScale = 1.0F;

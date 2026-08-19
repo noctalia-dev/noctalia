@@ -4243,6 +4243,10 @@
           "description": "Show the widget glyph or custom image",
           "label": "Show Glyph"
         },
+        "show-icons": {
+          "description": "Show the focused app icon on the active pill",
+          "label": "Show Icons"
+        },
         "show-label": {
           "description": "Show the widget's text label",
           "label": "Show Label"
