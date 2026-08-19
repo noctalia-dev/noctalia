@@ -25,6 +25,9 @@ public:
 // Approximate OS install age, formatted as "{y}y {m}mo" / "{y}y" / "{d}d".
 [[nodiscard]] std::string osAgeLabel();
 
+// Name of the current session user.
+[[nodiscard]] std::string sessionUserName();
+
 // Display name of the current session user (gecos or login).
 [[nodiscard]] std::string sessionDisplayName();
 

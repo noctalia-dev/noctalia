@@ -151,6 +151,20 @@ std::string osAgeLabel() {
   return i18n::trp("time.units.day", static_cast<long>(days));
 }
 
+std::string sessionUserName() {
+  struct passwd* pw = getpwuid(getuid());
+  if (pw != nullptr) {
+    return pw->pw_name;
+  }
+
+  const char* loginEnv = std::getenv("USER");
+  if (loginEnv != nullptr) {
+    return loginEnv;
+  }
+
+  return "user";
+}
+
 std::string sessionDisplayName() {
   struct passwd* pw = getpwuid(getuid());
   const char* loginEnv = std::getenv("USER");
