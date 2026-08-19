@@ -115,7 +115,7 @@ int main() {
        )
       && ok;
 
-  const auto fetchResult = scripting::plugin_git::fetch(repo);
+  const auto fetchResult = scripting::plugin_git::fetch(repo, source.string());
   ok = expect(static_cast<bool>(fetchResult), "fetch failed") && ok;
   const auto fetchedHead = scripting::plugin_git::remoteHead(repo);
   ok = expect(static_cast<bool>(fetchedHead), "failed to resolve FETCH_HEAD") && ok;
@@ -148,7 +148,8 @@ int main() {
             "-q", "-m", "clock requires a newer api"}
        )
       && ok;
-  ok = expect(static_cast<bool>(scripting::plugin_git::fetch(repo)), "fetch after the api bump failed") && ok;
+  ok = expect(static_cast<bool>(scripting::plugin_git::fetch(repo, source.string())), "fetch after the api bump failed")
+      && ok;
   const auto bumpedHead = scripting::plugin_git::remoteHead(repo);
   ok = expect(static_cast<bool>(bumpedHead), "failed to resolve the bumped revision") && ok;
 
@@ -166,6 +167,32 @@ int main() {
   const auto olderManifest = readText(root / "older-export/clock/plugin.toml");
   ok = expect(olderManifest.contains("plugin_api = 3"), "the older export did not carry its own api level") && ok;
   ok = expect(olderManifest.contains("version = \"1.0.0\""), "the older export did not carry its own version") && ok;
+
+  // A checkout retained after its configured source location changes must fetch
+  // the new canonical location, never the stale origin recorded by the clone.
+  const auto replacementSource = root / "replacement-source";
+  std::filesystem::create_directories(replacementSource);
+  ok = runGit({"git", "-C", replacementSource.string(), "init", "-q"}) && ok;
+  ok = writeText(replacementSource / "replacement.txt", "replacement\n") && ok;
+  ok = runGit({"git", "-C", replacementSource.string(), "add", "replacement.txt"}) && ok;
+  ok = runGit(
+           {"git", "-C", replacementSource.string(), "-c", "user.name=test", "-c", "user.email=test@example.invalid",
+            "commit", "-q", "-m", "replacement source"}
+       )
+      && ok;
+  const auto replacementHead = scripting::plugin_git::headRevision(replacementSource);
+  ok = expect(static_cast<bool>(replacementHead), "failed to resolve replacement source HEAD") && ok;
+  ok = expect(
+           static_cast<bool>(scripting::plugin_git::fetch(repo, replacementSource.string())),
+           "fetch did not accept the replacement source location"
+       )
+      && ok;
+  const auto reboundHead = scripting::plugin_git::remoteHead(repo);
+  ok = expect(static_cast<bool>(reboundHead), "failed to resolve rebound FETCH_HEAD") && ok;
+  ok = expect(
+           reboundHead.out == replacementHead.out, "fetch used the stale clone origin instead of the configured source"
+       )
+      && ok;
 
   std::error_code ec;
   std::filesystem::remove_all(root, ec);

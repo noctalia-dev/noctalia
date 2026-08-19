@@ -25,6 +25,7 @@ namespace noctalia::config {
     constexpr int kKeyboardLayoutShowGlyphMigrationVersion = 10;
     constexpr int kWorkspacesDisplayMigrationVersion = 11;
     constexpr int kKeyboardLayoutCustomLabelsMigrationVersion = 12;
+    constexpr int kPluginAutoUpdateModeMigrationVersion = 13;
     constexpr std::int64_t kMaxBarRadius = 500;
     constexpr std::array<std::string_view, 5> kBarRadiusKeys = {
         "radius", "radius_top_left", "radius_top_right", "radius_bottom_left", "radius_bottom_right",
@@ -642,6 +643,28 @@ namespace noctalia::config {
       });
     }
 
+    template <typename OnChanged> void migratePluginAutoUpdateMode(toml::table& root, OnChanged&& onChanged) {
+      auto* plugins = root["plugins"].as_table();
+      if (plugins == nullptr) {
+        return;
+      }
+
+      const auto legacy = (*plugins)["auto_update"].value<bool>();
+      if (!legacy.has_value()) {
+        return;
+      }
+
+      const std::string_view mode = *legacy ? "all" : "none";
+      plugins->insert_or_assign("auto_update", std::string(mode));
+      onChanged("plugins.auto_update", mode);
+    }
+
+    void migratePluginAutoUpdateModeSidecar(toml::table& root, schema::Diagnostics& diag) {
+      migratePluginAutoUpdateMode(root, [&diag](const std::string& path, std::string_view mode) {
+        diag.warn(path, "migrated boolean plugin auto-update setting to \"" + std::string(mode) + "\"");
+      });
+    }
+
     std::uint64_t stableIssueHash(int migrationVersion, std::string_view path) {
       constexpr std::uint64_t kOffset = 14695981039346656037ULL;
       constexpr std::uint64_t kPrime = 1099511628211ULL;
@@ -738,6 +761,11 @@ namespace noctalia::config {
             .toVersion = kKeyboardLayoutCustomLabelsMigrationVersion,
             .summary = "keyboard layout: move custom labels to shell configuration",
             .apply = migrateKeyboardLayoutCustomLabelsSidecar,
+        },
+        {
+            .toVersion = kPluginAutoUpdateModeMigrationVersion,
+            .summary = "plugins: migrate boolean auto-update to source scope",
+            .apply = migratePluginAutoUpdateModeSidecar,
         },
     };
     return migrations;
@@ -876,6 +904,13 @@ namespace noctalia::config {
               ? "keyboard layout custom_labels moved to shell.keyboard_layout.custom_labels; conflicting canonical "
                 "labels were kept"
               : "keyboard layout custom_labels moved to shell.keyboard_layout.custom_labels",
+      });
+    });
+    migratePluginAutoUpdateMode(root, [&issues](const std::string& path, std::string_view mode) {
+      issues.push_back({
+          .migrationVersion = kPluginAutoUpdateModeMigrationVersion,
+          .path = path,
+          .message = "boolean plugin auto-update is deprecated; use \"" + std::string(mode) + "\"",
       });
     });
   }

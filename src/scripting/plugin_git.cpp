@@ -144,7 +144,17 @@ namespace scripting::plugin_git {
     );
   }
 
-  GitResult fetch(const std::filesystem::path& dest) {
+  GitResult setOrigin(const std::filesystem::path& dest, std::string_view sourceLocation) {
+    return run(
+        {"git", "-C", dest.string(), "remote", "set-url", "origin", std::string(sourceLocation)}, kLocalTimeout,
+        kProgressCap
+    );
+  }
+
+  GitResult fetch(const std::filesystem::path& dest, std::string_view sourceLocation) {
+    if (auto configured = setOrigin(dest, sourceLocation); !configured) {
+      return configured;
+    }
     // Updates remote-tracking refs + FETCH_HEAD without touching the working tree.
     return run({"git", "-C", dest.string(), "fetch", "origin"}, kNetworkTimeout, kProgressCap);
   }

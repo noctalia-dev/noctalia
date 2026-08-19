@@ -302,6 +302,14 @@ namespace scripting {
         return {.ok = false, .error = "clone failed: " + cloned.err, .entries = {}, .revision = {}};
       }
     }
+    if (const auto configured = plugin_git::setOrigin(dest, source.location); !configured) {
+      return {
+          .ok = false,
+          .error = "cannot configure origin for source '" + source.name + "': " + configured.err,
+          .entries = {},
+          .revision = {}
+      };
+    }
     // Browse the freshest catalog: when a prior fetch left FETCH_HEAD ahead of the
     // applied HEAD, read the catalog there so newly published plugins are listed.
     // Return the exact chosen revision so later file reads/exports use the same tree.
