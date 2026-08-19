@@ -148,7 +148,8 @@ void wallpaper::setThemeSyncBinding(
     ConfigService& config, const std::optional<std::string>& connector, ThemeMode mode, std::string_view path,
     std::span<const std::string> allConnectors
 ) {
-  if (path.empty() || (mode != ThemeMode::Light && mode != ThemeMode::Dark)
+  if (path.empty()
+      || (mode != ThemeMode::Light && mode != ThemeMode::Dark)
       || !config.config().wallpaper.themeSync.enabled) {
     return;
   }

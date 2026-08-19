@@ -1,7 +1,6 @@
-#include "shell/wallpaper/wallpaper_paths.h"
-
 #include "config/config_service.h"
 #include "config/config_types.h"
+#include "shell/wallpaper/wallpaper_paths.h"
 #include "wayland/wayland_connection.h"
 
 #include <cstdio>
@@ -47,12 +46,11 @@ int main() {
       && ok;
   ok = expect(
            !wallpaper::resolveThemeSyncPath(config, output, ThemeMode::Light).has_value()
-           || wallpaper::hasThemeSyncBinding(config, output, ThemeMode::Light),
+               || wallpaper::hasThemeSyncBinding(config, output, ThemeMode::Light),
            "hasThemeSyncBinding matches global light binding"
        )
       && ok;
-  ok = expect(wallpaper::hasGlobalThemeSyncBinding(config, ThemeMode::Light), "global light binding detected")
-      && ok;
+  ok = expect(wallpaper::hasGlobalThemeSyncBinding(config, ThemeMode::Light), "global light binding detected") && ok;
 
   config.themeSync.monitorOverrides.push_back(
       WallpaperThemeSyncMonitorOverride{.match = "eDP-1", .pathLight = "/wallpapers/edp-day.jpg", .pathDark = ""}
@@ -99,8 +97,7 @@ int main() {
        )
       && ok;
   ok = expect(
-           bindingModeForTab(ThemeMode::Dark, ThemeMode::Auto, true) == ThemeMode::Dark,
-           "dark tab always binds to dark"
+           bindingModeForTab(ThemeMode::Dark, ThemeMode::Auto, true) == ThemeMode::Dark, "dark tab always binds to dark"
        )
       && ok;
 
@@ -148,12 +145,10 @@ int main() {
     wallpaper::setThemeSyncBinding(config, std::string{"DP-1"}, ThemeMode::Dark, kPath, {});
 
     ok = expect(
-             config.config().wallpaper.themeSync.pathDark == kPath,
-             "single-monitor bind also updates global path_dark"
+             config.config().wallpaper.themeSync.pathDark == kPath, "single-monitor bind also updates global path_dark"
          )
         && ok;
-    ok = expect(config.config().wallpaper.themeSync.monitorOverrides.size() == 1, "monitor override stored")
-        && ok;
+    ok = expect(config.config().wallpaper.themeSync.monitorOverrides.size() == 1, "monitor override stored") && ok;
     ok = expect(
              config.config().wallpaper.themeSync.monitorOverrides.front().match == "DP-1"
                  && config.config().wallpaper.themeSync.monitorOverrides.front().pathDark == kPath,
@@ -181,8 +176,7 @@ int main() {
     ConfigService config;
     wallpaper::setThemeSyncBinding(config, std::string{"DP-1"}, ThemeMode::Dark, "/wallpapers/dp-dark.jpg", {});
 
-    ok = expect(config.config().wallpaper.themeSync.pathDark.empty(), "bind skipped when theme sync disabled")
-        && ok;
+    ok = expect(config.config().wallpaper.themeSync.pathDark.empty(), "bind skipped when theme sync disabled") && ok;
     ok = expect(!config.config().wallpaper.themeSync.enabled, "theme sync stays disabled") && ok;
 
     std::filesystem::remove_all(root);
@@ -259,8 +253,10 @@ int main() {
         break;
       }
     }
-    ok = expect(dp1 != nullptr && dp1->pathLight == "/wallpapers/manual-light.jpg",
-                "manual single-monitor pick updates only that monitor light binding")
+    ok = expect(
+             dp1 != nullptr && dp1->pathLight == "/wallpapers/manual-light.jpg",
+             "manual single-monitor pick updates only that monitor light binding"
+         )
         && ok;
 
     std::filesystem::remove_all(root);
@@ -285,13 +281,15 @@ int main() {
     constexpr std::string_view kSeedPath = "/wallpapers/current.jpg";
     const std::vector<std::string> seedOutputs{"DP-1"};
     wallpaper::seedThemeSyncBindingIfNeeded(config, false, kSeedPath, seedOutputs);
-    ok = expect(config.config().wallpaper.themeSync.pathDark == kSeedPath, "seed writes dark binding from current wallpaper")
+    ok =
+        expect(
+            config.config().wallpaper.themeSync.pathDark == kSeedPath, "seed writes dark binding from current wallpaper"
+        )
         && ok;
 
     wallpaper::seedThemeSyncBindingIfNeeded(config, false, "/wallpapers/other.jpg", seedOutputs);
     ok = expect(
-             config.config().wallpaper.themeSync.pathDark == kSeedPath,
-             "seed does not overwrite existing dark binding"
+             config.config().wallpaper.themeSync.pathDark == kSeedPath, "seed does not overwrite existing dark binding"
          )
         && ok;
 
