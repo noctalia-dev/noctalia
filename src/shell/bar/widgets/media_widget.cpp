@@ -195,18 +195,18 @@ void MediaWidget::doLayout(Renderer& renderer, float containerWidth, float conta
   }
   m_progressBar->setVisible(showProgressFill);
   if (showProgressFill) {
-    // The bar sizes an enabled capsule as content + 2 * padding on the main axis, so widen the fill
-    // by the same padding to span the pill instead of sitting inset within it.
-    const float capsulePad = shouldShowBarCapsule() ? barCapsuleSpec().padding * m_contentScale : 0.0F;
-    const float fillWidth = rootNode->width() + 2.0F * capsulePad;
+    const float fillWidth = rootNode->width();
     const float fillHeight = rootNode->height();
-    m_progressBar->setPosition(-capsulePad, 0.0F);
+    m_progressBar->setPosition(0.0F, 0.0F);
     m_progressBar->setSize(fillWidth, fillHeight);
     m_progressBar->setRadius(std::min(fillWidth, fillHeight) * 0.5F);
   }
 }
 
-void MediaWidget::doUpdate(Renderer& renderer) { syncState(renderer); }
+void MediaWidget::doUpdate(Renderer& renderer) {
+  syncState(renderer);
+  syncProgress();
+}
 
 void MediaWidget::applyTitleScrollMode(bool titleVisible) {
   if (m_label == nullptr) {
@@ -259,7 +259,7 @@ void MediaWidget::syncProgress() {
   const float fillWidth = std::max(1.0F, m_progressBar->width());
   const auto intervalMs =
       static_cast<std::int64_t>(std::clamp(static_cast<float>(active->lengthUs / 1000) / fillWidth, 250.0F, 1000.0F));
-  m_progressTimer.start(std::chrono::milliseconds(intervalMs), [this]() { syncProgress(); });
+  m_progressTimer.start(std::chrono::milliseconds(intervalMs), [this]() { requestUpdate(); });
 }
 
 void MediaWidget::syncState(Renderer& renderer) {
@@ -284,7 +284,6 @@ void MediaWidget::syncState(Renderer& renderer) {
     artUrl = effectiveArtUrl(*active);
   }
 
-  syncProgress();
   const bool textChanged = displayText != m_lastText;
   const bool artChanged = artUrl != m_lastArtUrl;
   const bool playbackChanged = playbackStatus != m_lastPlaybackStatus;
