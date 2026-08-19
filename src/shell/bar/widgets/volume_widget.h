@@ -41,6 +41,7 @@ private:
   void doLayout(Renderer& renderer, float containerWidth, float containerHeight) override;
   void doUpdate(Renderer& renderer) override;
   void syncState(Renderer& renderer);
+  void syncWidgetVisibility(bool showWidget);
   [[nodiscard]] std::string glyphName(float volume, bool muted, const std::string& effectsProfile = {}) const;
 
   PipeWireService* m_audio = nullptr;
@@ -52,6 +53,7 @@ private:
   std::string m_muteGlyphOverride;
   std::unordered_map<std::string, std::string> m_effectsProfileGlyphs;
   WidgetCustomImage m_customImage;
+  // Only ever true for the input widget: "inactive" means no application is capturing audio.
   bool m_hideWhenInactive = false;
   Glyph* m_glyph = nullptr;
   Image* m_image = nullptr;
@@ -61,5 +63,5 @@ private:
   bool m_lastMuted = false;
   bool m_isVertical = false;
   bool m_lastVertical = false;
-  bool m_lastActive = true;
+  bool m_lastMicActive = false;
 };

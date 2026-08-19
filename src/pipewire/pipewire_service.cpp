@@ -1151,18 +1151,6 @@ void PipeWireService::onNodeInfo(std::uint32_t id, const pw_node_info* info) {
   const bool wasPrivacyCandidate = isPrivacyCandidateClass(nd.mediaClass);
   bool filterPropsChanged = false;
 
-  if (info->state == PW_NODE_STATE_CREATING) {
-    nd.nodeState = AudioNodeState::Creating;
-  } else if (info->state == PW_NODE_STATE_SUSPENDED) {
-    nd.nodeState = AudioNodeState::Suspended;
-  } else if (info->state == PW_NODE_STATE_IDLE) {
-    nd.nodeState = AudioNodeState::Idle;
-  } else if (info->state == PW_NODE_STATE_RUNNING) {
-    nd.nodeState = AudioNodeState::Running;
-  } else {
-    nd.nodeState = AudioNodeState::Error;
-  }
-
   if (info->props != nullptr) {
     std::string mediaClass = dictGet(info->props, PW_KEY_MEDIA_CLASS);
     if (!mediaClass.empty()) {
@@ -1233,15 +1221,13 @@ void PipeWireService::onNodeInfo(std::uint32_t id, const pw_node_info* info) {
   const bool isStream = isProgramStreamClass(nd.mediaClass);
   const bool isPrivacyCandidate = isPrivacyCandidateClass(nd.mediaClass);
   const bool wasStreamReady = nd.streamClassificationReady;
-  const bool streamStateChanged = isStream && (info->change_mask & PW_NODE_CHANGE_MASK_STATE) != 0;
   if (isStream) {
     nd.streamClassificationReady = true;
   }
   if ((isStream && (!wasStreamReady || filterPropsChanged))
       || wasProgramStream != isStream
       || wasPrivacyCandidate
-      || isPrivacyCandidate
-      || streamStateChanged) {
+      || isPrivacyCandidate) {
     rebuildState();
   }
 
@@ -1623,7 +1609,6 @@ void PipeWireService::rebuildState() {
     node.mediaClass = nd->mediaClass;
     node.volume = nd->volume;
     node.muted = nd->muted;
-    node.nodeState = nd->nodeState;
     node.channelCount = nd->channelCount;
 
     // Availability from the active output/input route: a device with a matching route that is

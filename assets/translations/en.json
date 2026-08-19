@@ -3507,7 +3507,7 @@
           "label": "Hide When Full"
         },
         "hide-when-inactive": {
-          "description": "Hide the volume widget when not in use",
+          "description": "Hide the microphone widget while no application is capturing audio",
           "label": "Hide When Inactive"
         },
         "hide-when-no-connected-device": {
