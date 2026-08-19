@@ -138,11 +138,7 @@ void Application::reloadPluginPanels() {
 }
 
 void Application::runPluginAutoUpdate() {
-  // With [plugins].auto_update on, pull every git source in the background. Each update
-  // runs off-thread and serializes per-source via a source lock, so a tick that overlaps
-  // a still-running update queues behind it rather than racing (at 6h it never does).
-  if (!m_configService.config().plugins.autoUpdate) {
-    return;
-  }
-  m_pluginManager.updateAll();
+  // Each update runs off-thread and serializes per-source via a source lock, so a tick
+  // that overlaps a still-running update queues behind it rather than racing (at 6h it never does).
+  m_pluginManager.updateAutoUpdateScope(m_configService.config().plugins.autoUpdate);
 }

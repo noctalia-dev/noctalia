@@ -19,6 +19,7 @@
 #include <utility>
 
 class ClipboardService;
+class ContextMenuPopup;
 class Flex;
 class HttpClient;
 class Node;
@@ -71,6 +72,7 @@ public:
   [[nodiscard]] std::string panelScreenPosition() const override { return m_shellConfig.position; }
   [[nodiscard]] bool panelOpenNearClick() const override { return m_shellConfig.openNearClick; }
   [[nodiscard]] InputArea* takePendingFocusArea() override { return std::exchange(m_pendingFocusArea, nullptr); }
+  [[nodiscard]] bool dismissTransientUi() override;
 
   // Delivers a manifest-declared capture_keys chord to the script's onKey(chord, pressed) and
   // reports it consumed. Declared chords only: everything else keeps its host behaviour, and a
@@ -89,6 +91,8 @@ private:
   void doUpdate(Renderer& renderer) override;
 
   void handleScriptResult(scripting::ScriptResult result);
+  void openContextMenu(scripting::ScriptContextMenuRequest request);
+  void closeContextMenu();
   [[nodiscard]] scripting::ScriptSnapshot makeScriptSnapshot() const;
   [[nodiscard]] std::string resolvePluginPath(const std::string& path) const;
   void releaseCapturedKeys();
@@ -125,11 +129,13 @@ private:
   Node* m_dragOverlay = nullptr;
   InputArea* m_pendingFocusArea = nullptr;
   ui::UiTreeReconciler m_reconciler;
+  std::unique_ptr<ContextMenuPopup> m_contextMenuPopup;
   std::optional<ui::UiTreeNode> m_tree;
   bool m_treeDirty = false;
   bool m_wantsSecondTicks = false;
   bool m_needsFrameTick = false;
   bool m_open = false;
+  std::uint64_t m_openGeneration = 0;
   bool m_hasOnIpc = false;
   bool m_hasOnIpcKnown = false;
   float m_preferredWidth;

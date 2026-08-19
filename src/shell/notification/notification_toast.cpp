@@ -2921,7 +2921,8 @@ bool NotificationToast::onPointerEvent(const PointerEvent& event) {
         const bool pressed = event.pressed;
         inst->inputDispatcher.pointerMotion(static_cast<float>(event.sx), static_cast<float>(event.sy), event.serial);
         inst->inputDispatcher.pointerButton(
-            static_cast<float>(event.sx), static_cast<float>(event.sy), event.button, pressed
+            static_cast<float>(event.sx), static_cast<float>(event.sy), event.button, pressed, event.serial, event.time,
+            event.touch
         );
         consumed = true;
       }

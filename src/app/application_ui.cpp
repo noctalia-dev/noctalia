@@ -170,9 +170,6 @@ void Application::initUiRenderSurfacesAndSettings() {
     const bool wasEditing = m_lockscreenWidgetsController.isEditing();
     m_lockscreenWidgetsController.toggleEdit();
     if (!wasEditing && m_lockscreenWidgetsController.isEditing()) {
-      if (m_settingsWindow.isOpen()) {
-        DeferredCall::callLater([this]() { m_settingsWindow.close(); });
-      }
       notify::info(
           "Noctalia", i18n::tr("notifications.internal.lockscreen-widgets-editor"),
           i18n::tr("notifications.internal.lockscreen-widgets-editor-enabled")
@@ -988,11 +985,17 @@ void Application::initWidgetControllersAndCallbacks() {
       .widgets = desktopWidgetServices,
       .lockscreenWidgets = &m_lockscreenWidgetsController,
   });
-  m_desktopWidgetsController.setOnEnterEditCallback([this]() {
-    if (m_settingsWindow.isOpen()) {
-      DeferredCall::callLater([this]() { m_settingsWindow.close(); });
-    }
-  });
+  m_desktopWidgetsController.setOnEnterEditCallback([this]() { m_settingsWindow.closeForWidgetEditor(); });
+  m_lockscreenWidgetsController.setOnEnterEditCallback([this]() { m_settingsWindow.closeForWidgetEditor(); });
+  const auto restoreSettingsAfterWidgetEditor = [this]() {
+    DeferredCall::callLater([this]() {
+      if (!m_desktopWidgetsController.isEditing() && !m_lockscreenWidgetsController.isEditing()) {
+        m_settingsWindow.reopenAfterWidgetEditor();
+      }
+    });
+  };
+  m_desktopWidgetsController.setOnExitEditCallback(restoreSettingsAfterWidgetEditor);
+  m_lockscreenWidgetsController.setOnExitEditCallback(restoreSettingsAfterWidgetEditor);
   m_iconThemePollSource.setChangeCallback([this]() { onIconThemeChanged(); });
 
   std::string lastShellFontFamily = m_configService.config().shell.fontFamily;

@@ -349,6 +349,9 @@ void DesktopWidgetsController::exitEdit() {
   (void)m_editor->close();
   saveSnapshotToConfig();
   applyVisibility();
+  if (m_onExitEdit) {
+    m_onExitEdit();
+  }
 }
 
 void DesktopWidgetsController::toggleEdit() {
@@ -361,6 +364,10 @@ void DesktopWidgetsController::toggleEdit() {
 
 void DesktopWidgetsController::setOnEnterEditCallback(std::function<void()> callback) {
   m_onEnterEdit = std::move(callback);
+}
+
+void DesktopWidgetsController::setOnExitEditCallback(std::function<void()> callback) {
+  m_onExitEdit = std::move(callback);
 }
 
 void DesktopWidgetsController::suppressDisplay() {

@@ -21,7 +21,8 @@ VolumeWidget::VolumeWidget(PipeWireService* audio, EasyEffectsService* easyEffec
       m_muteColor(options.muteColor), m_glyphOverride(std::move(options.glyph)),
       m_muteGlyphOverride(std::move(options.muteGlyph)),
       m_effectsProfileGlyphs(std::move(options.effectsProfileGlyphs)),
-      m_customImage(widget_custom_image::fromConfig(options.customImage, options.customImageColorize)) {}
+      m_customImage(widget_custom_image::fromConfig(options.customImage, options.customImageColorize)),
+      m_hideWhenInactive(options.hideWhenInactive && options.device == VolumeWidgetTarget::Input) {}
 
 void VolumeWidget::create() {
   auto area = ui::inputArea({});
@@ -94,6 +95,16 @@ void VolumeWidget::doLayout(Renderer& renderer, float containerWidth, float cont
 
 void VolumeWidget::doUpdate(Renderer& renderer) { syncState(renderer); }
 
+void VolumeWidget::syncWidgetVisibility(bool showWidget) {
+  if (Node* rootNode = root(); rootNode != nullptr) {
+    if (rootNode->visible() != showWidget || rootNode->participatesInLayout() != showWidget) {
+      rootNode->setVisible(showWidget);
+      rootNode->setParticipatesInLayout(showWidget);
+      requestUpdate();
+    }
+  }
+}
+
 void VolumeWidget::syncState(Renderer& renderer) {
   if (m_audio == nullptr || (m_glyph == nullptr && m_image == nullptr) || m_label == nullptr) {
     return;
@@ -106,11 +117,18 @@ void VolumeWidget::syncState(Renderer& renderer) {
       m_target == VolumeWidgetTarget::Input ? AudioEffectsProfileKind::Input : AudioEffectsProfileKind::Output;
   const std::string effectsProfile =
       m_easyEffects != nullptr ? m_easyEffects->activeEffectsProfile(kind) : std::string{};
+  // Reuses the privacy signal: a microphone capture exists while an application is linked to a
+  // source. Skipped entirely for the output widget, where m_hideWhenInactive is always false.
+  const bool micActive =
+      m_hideWhenInactive && std::ranges::any_of(m_audio->privacyState().captures, [](const PrivacyCapture& capture) {
+        return capture.kind == PrivacyCaptureKind::Microphone;
+      });
 
   if (volume == m_lastVolume
       && muted == m_lastMuted
       && m_isVertical == m_lastVertical
-      && effectsProfile == m_lastEffectsProfile) {
+      && effectsProfile == m_lastEffectsProfile
+      && micActive == m_lastMicActive) {
     return;
   }
 
@@ -118,6 +136,13 @@ void VolumeWidget::syncState(Renderer& renderer) {
   m_lastMuted = muted;
   m_lastVertical = m_isVertical;
   m_lastEffectsProfile = effectsProfile;
+  m_lastMicActive = micActive;
+
+  const bool showWidget = !m_hideWhenInactive || micActive;
+  syncWidgetVisibility(showWidget);
+  if (!showWidget) {
+    return;
+  }
 
   if (m_image != nullptr) {
     widget_custom_image::sync(

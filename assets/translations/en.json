@@ -305,6 +305,22 @@
     },
     "power": {
       "battery": "Battery",
+      "charging": {
+        "configured": "Configured: {limits}",
+        "display-only": "Display only",
+        "error-denied": "Authorization was denied. Charge thresholds were not changed.",
+        "error-failed": "Charge thresholds could not be changed.",
+        "externally-managed": "Set by another tool. Configure UPower to manage charge thresholds.",
+        "firmware-managed": "Charging is managed by system firmware",
+        "full-charge": "Can charge to 100%",
+        "starts": "Starts below {start}%",
+        "starts-stops": "Starts below {start}% · Stops at {end}%",
+        "stops": "Stops at {end}%",
+        "title": "Battery charging",
+        "unreadable": "Unavailable",
+        "unsupported": "Charge thresholds are not supported",
+        "use-thresholds": "Use charge thresholds"
+      },
       "design-capacity": "Of design capacity",
       "health": "Battery Health",
       "performance-inhibited": "Performance unavailable",
@@ -579,6 +595,7 @@
         "grid": "Grid"
       },
       "title": "Desktop Widgets",
+      "title-lockscreen": "Lockscreen Widgets",
       "types": {
         "audio-visualizer": "Audio Visualizer",
         "button": "Button",
@@ -1376,6 +1393,13 @@
       "panel-position": {
         "auto": "Follow Bar"
       },
+      "plugins": {
+        "auto-update": {
+          "all": "All sources",
+          "official": "Official only",
+          "none": "None"
+        }
+      },
       "screen-position": {
         "bottom-center": "Bottom Center",
         "bottom-left": "Bottom Left",
@@ -1498,7 +1522,7 @@
         "add": "Add Source",
         "add-title": "Add Plugin Source",
         "auto-update": "Auto-Update Plugins",
-        "auto-update-desc": "Check enabled sources for new versions in the background and keep installed plugins current",
+        "auto-update-desc": "Check selected sources for new versions in the background and keep installed plugins current",
         "edit": "Edit source",
         "edit-title": "Edit plugin source",
         "empty": "No sources configured.",
@@ -3520,6 +3544,10 @@
         "hide-when-full": {
           "description": "Hide the battery widget when fully charged",
           "label": "Hide When Full"
+        },
+        "hide-when-inactive": {
+          "description": "Hide the microphone widget while no application is capturing audio",
+          "label": "Hide When Inactive"
         },
         "hide-when-no-connected-device": {
           "description": "Hide the Bluetooth widget when no device is connected",

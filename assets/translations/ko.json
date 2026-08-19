@@ -93,6 +93,7 @@
       },
       "sysmon": {
         "cpu": "CPU",
+        "cpu-freq": "CPU 주파수",
         "cpu-temp": "CPU 온도",
         "disk": "디스크",
         "disk-free": "디스크 여유 공간",
@@ -526,6 +527,7 @@
         "shadow": "그림자",
         "show-caps-lock": "Caps Lock 경고",
         "show-device": "장치 표시",
+        "show-events": "이벤트 보기",
         "show-forecast": "예보 표시",
         "show-keyboard-layout": "키보드 레이아웃",
         "show-label": "레이블 표시",
@@ -538,6 +540,7 @@
         "show-weather": "날씨",
         "show-when-idle": "유휴 시 표시",
         "stat": "통계",
+        "stat-cpu-freq": "CPU 주파수",
         "stat-cpu-temp": "CPU 온도",
         "stat-cpu-usage": "CPU 사용률",
         "stat-gpu-temp": "GPU 온도",
@@ -576,6 +579,7 @@
       "types": {
         "audio-visualizer": "오디오 비주얼라이저",
         "button": "버튼",
+        "calendar": "캘린더",
         "clock": "시계",
         "fancy-audio-visualizer": "고급 오디오 비주얼라이저",
         "label": "레이블",
@@ -643,12 +647,22 @@
     },
     "context-menu": {
       "open": "열기",
+      "pin": "런처에 고정",
       "pin-to-dock": "Dock에 고정",
+      "unpin": "런처에 고정 해제",
       "unpin-from-dock": "Dock에서 고정 해제"
     },
     "empty": {
       "no-results": "결과 없음",
       "type-to-search": "검색..."
+    },
+    "origins": {
+      "appimage": "AppImage",
+      "flatpak": "Flatpak",
+      "nix": "Nix",
+      "snap": "Snap",
+      "system": "시스템",
+      "user": "사용자"
     },
     "providers": {
       "applications": {
@@ -2302,6 +2316,9 @@
           "description": "접두사 없는 검색에서도 열린 창 표시",
           "label": "전체 검색에서 창"
         },
+        "launcher-pinned-apps": {
+          "label": "고정된 앱"
+        },
         "launcher-prefix-calculator": {
           "description": "계산기 계산을 위한 트리거 접두사",
           "label": "계산기 접두사"
@@ -2456,7 +2473,7 @@
         },
         "calendar-add": {
           "button": "계정 추가",
-          "description": "iCloud, CalDAV 또는 Google 계정 추가",
+          "description": "iCloud, CalDAV, Google 계정 또는 ICS URL 추가",
           "label": "캘린더 계정"
         },
         "calendar-credentials": {
@@ -2472,6 +2489,7 @@
         "calendar-edit": {
           "button": "편집",
           "button-reconnect": "재연결",
+          "button-retry": "다시 시도",
           "description": "이 캘린더 계정 업데이트",
           "description-reconnect": "Google 인증 정보가 누락되었습니다. 계정을 다시 연결해 주세요"
         },
@@ -2603,6 +2621,7 @@
             "label": "네트워크 폴링 간격"
           },
           "stats": {
+            "cpu-freq": "CPU 주파수",
             "cpu-temp": "CPU 온도",
             "cpu-usage": "CPU 사용률",
             "disk-free": "디스크 여유 공간",
@@ -2952,6 +2971,9 @@
           "description": "스크린샷에 마우스 포인터 포함",
           "label": "커서 표시"
         },
+        "settings-window-translucent": {
+          "label": "투명 배경 설정"
+        },
         "show-location": {
           "description": "날씨 위젯에 위치 이름 표시",
           "label": "위치 표시"
@@ -3177,6 +3199,7 @@
         "both": "둘 다",
         "compact": "간결",
         "count": "개수",
+        "cpu-freq": "CPU 주파수",
         "cpu-temp": "CPU 온도",
         "cpu-usage": "CPU 사용률",
         "disk-free": "디스크 여유 공간",
@@ -3478,6 +3501,9 @@
           "description": "아이콘에만 위젯 색상을 재정의합니다. 고정 hex 색상도 지원됩니다",
           "label": "아이콘 색상"
         },
+        "icon-scale": {
+          "label": "아이콘 크기"
+        },
         "icon-size": {
           "description": "아이콘 크기 (픽셀)",
           "label": "아이콘 크기"
@@ -3626,8 +3652,11 @@
           "label": "활성 창 표시기"
         },
         "show-all-outputs": {
-          "description": "이 위젯에 모든 디스플레이의 창 포함",
+          "description": "이 위젯에 모든 모니터의 창 포함",
           "label": "모든 모니터 표시"
+        },
+        "show-all-workspaces": {
+          "label": "모든 모니터 보기"
         },
         "show-caps-lock": {
           "description": "Caps Lock 상태 표시",

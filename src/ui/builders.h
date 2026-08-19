@@ -146,6 +146,7 @@ namespace ui {
     std::optional<float> horizontalPadding = std::nullopt;
     std::optional<bool> clearButtonEnabled = std::nullopt;
     std::optional<bool> passwordMode = std::nullopt;
+    std::optional<bool> lineEditing = std::nullopt;
     std::optional<bool> invalid = std::nullopt;
     std::optional<bool> frameVisible = std::nullopt;
     std::optional<bool> embeddedOnSolidPrimary = std::nullopt;

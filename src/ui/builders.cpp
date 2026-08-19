@@ -243,6 +243,9 @@ namespace ui {
     if (props.passwordMode.has_value()) {
       control->setPasswordMode(*props.passwordMode);
     }
+    if (props.lineEditing.has_value()) {
+      control->setLineEditingEnabled(*props.lineEditing);
+    }
     if (props.invalid.has_value()) {
       control->setInvalid(*props.invalid);
     }

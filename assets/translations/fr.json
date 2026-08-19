@@ -59,6 +59,7 @@
       },
       "network": {
         "active": "Actif",
+        "band": "Bande",
         "connected": "Connecté",
         "connecting": "Connexion",
         "download": "Téléchargement",

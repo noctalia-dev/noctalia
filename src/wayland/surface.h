@@ -119,6 +119,9 @@ public:
   void requestRedraw();
   void requestFrameTick();
   void renderNow();
+  /// Discards an in-flight Wayland frame callback without losing queued work
+  /// or the tick intent attached to that callback.
+  void discardPendingFrameCallback();
   void setAnimationManager(AnimationManager* manager) noexcept { m_animationManager = manager; }
   void setSceneRoot(Node* root);
   void setRenderContext(RenderContext* ctx);

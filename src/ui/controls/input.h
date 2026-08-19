@@ -39,6 +39,8 @@ public:
   void setHorizontalPadding(float padding);
   void setClearButtonEnabled(bool enabled);
   void setPasswordMode(bool enabled);
+  /// Apply readline-style line editing shortcuts.
+  void setLineEditingEnabled(bool enabled);
   /// Multi-line editing: Enter inserts '\n' (Ctrl+Enter submits), the text wraps
   /// at the viewport width and scrolls vertically. The control keeps whatever
   /// height layout assigns (explicit height or flex-grown) instead of forcing
@@ -230,6 +232,7 @@ private:
   bool m_clearButtonEnabled = false;
   bool m_passwordMode = false;
   bool m_multiline = false;
+  bool m_lineEditing = false;
   bool m_invalid = false;
   bool m_frameVisible = true;
   bool m_embeddedOnSolidPrimary = false;

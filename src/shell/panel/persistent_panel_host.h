@@ -2,6 +2,7 @@
 
 #include "render/animation/animation_manager.h"
 #include "render/scene/input_dispatcher.h"
+#include "ui/dialogs/layer_popup_host.h"
 #include "wayland/layer_surface.h"
 
 #include <cstdint>
@@ -52,6 +53,7 @@ public:
   void closeAll();
   [[nodiscard]] bool isOpen(std::string_view id) const noexcept;
   [[nodiscard]] bool anyOpen() const noexcept { return !m_instances.empty(); }
+  [[nodiscard]] std::optional<LayerPopupParentContext> popupParentContext(std::string_view id) const noexcept;
 
   bool onPointerEvent(const PointerEvent& event);
   bool onKeyboardEvent(const KeyboardEvent& event);

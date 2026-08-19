@@ -37,10 +37,10 @@ namespace settings {
     std::function<void(std::string source)> updateSource;
     std::function<void()> refresh;
 
-    // True when every enabled git source has background auto-update on; drives the
-    // single "auto-update plugins" toggle. setAutoUpdate flips it for all git sources.
-    bool autoUpdateEnabled = false;
-    std::function<void(bool)> setAutoUpdate;
+    // Background auto-update scope for git sources; drives the "auto-update plugins"
+    // dropdown. setAutoUpdate persists the mode for all git sources.
+    PluginAutoUpdateMode autoUpdateMode = PluginAutoUpdateMode::All;
+    std::function<void(PluginAutoUpdateMode)> setAutoUpdate;
     // Update every enabled git source at once (the "update all" action).
     std::function<void()> updateAll;
 

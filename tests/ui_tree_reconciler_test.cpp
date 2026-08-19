@@ -21,6 +21,7 @@
 #include "ui/ui_tree_reconciler.h"
 
 #include <cstdlib>
+#include <optional>
 #include <print>
 #include <string>
 #include <utility>
@@ -283,6 +284,43 @@ int main() {
     ok = expect(control != nullptr, "button built") && ok;
     // The sink wiring is exercised via the reconciler-installed callback.
     ok = expect(fired.empty(), "sink not fired before click") && ok;
+  }
+
+  // A declarative button's right-click callback carries host-only pointer
+  // metadata so a native popup can use the exact originating event.
+  {
+    ui::UiTreeReconciler reconciler;
+    std::optional<ui::UiTreeReconciler::ControlCallback> fired;
+    reconciler.setCallbackSink([&fired](const ui::UiTreeReconciler::ControlCallback& callback) { fired = callback; });
+    Flex host;
+
+    ui::UiTreeNode tree = makeNode("column");
+    ui::UiTreeNode button = makeNode("button");
+    button.props.emplace("text", std::string("Menu"));
+    button.props.emplace("onRightClick", std::string("openMenu"));
+    tree.children.push_back(button);
+    (void)reconciler.reconcile(host, tree, renderer);
+
+    auto* column = dynamic_cast<Flex*>(host.children().front().get());
+    auto* control = column != nullptr ? dynamic_cast<Button*>(column->children()[0].get()) : nullptr;
+    ok = expect(control != nullptr && control->inputArea() != nullptr, "right-click button built") && ok;
+    if (control != nullptr && control->inputArea() != nullptr) {
+      control->setSize(100.0F, 40.0F);
+      control->layout(renderer);
+      control->inputArea()->dispatchPress(5.0F, 6.0F, BTN_RIGHT, true, 25.0F, 30.0F, 77, 90);
+      control->inputArea()->dispatchPress(5.0F, 6.0F, BTN_RIGHT, false, 25.0F, 30.0F, 78, 91);
+    }
+    ok = expect(fired.has_value() && fired->fn == "openMenu", "right click should reach its callback") && ok;
+    ok = expect(
+             fired.has_value()
+                 && fired->pointerContext.has_value()
+                 && fired->pointerContext->x == 25.0F
+                 && fired->pointerContext->y == 30.0F
+                 && fired->pointerContext->serial == 77
+                 && fired->pointerContext->time == 90,
+             "right click should preserve scene coordinates, serial, and time"
+         )
+        && ok;
   }
 
   // The global button-border style updates existing buttons and preserves custom widths.

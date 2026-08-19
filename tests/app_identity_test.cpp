@@ -96,10 +96,12 @@ namespace {
 
     const fs::path root = fs::temp_directory_path() / ("noctalia-appimage-origin-" + std::to_string(getpid()));
     const fs::path applications = root / "data/applications";
+    const fs::path systemApplications = root / "system/applications";
     const fs::path executable = root / "PortableApp";
     const fs::path bin = root / "bin";
     const fs::path workingDirectory = root / "cwd";
     fs::create_directories(applications);
+    fs::create_directories(systemApplications);
     fs::create_directories(bin);
     fs::create_directories(workingDirectory);
     {
@@ -131,6 +133,7 @@ namespace {
       binary << "#!/bin/sh\nexit 0\n";
       chmod((bin / "native-app").c_str(), 0700);
       fs::create_symlink(executable, bin / "path-appimage");
+      fs::create_symlink(executable, bin / "shadowed-native");
       fs::create_symlink(executable, workingDirectory / "native-app");
     }
     {
@@ -140,6 +143,10 @@ namespace {
     {
       std::ofstream entry(applications / "path.desktop");
       entry << "[Desktop Entry]\nType=Application\nName=PATH AppImage\nExec=path-appimage\n";
+    }
+    {
+      std::ofstream entry(systemApplications / "shadowed-native.desktop");
+      entry << "[Desktop Entry]\nType=Application\nName=Shadowed Native App\nExec=shadowed-native\n";
     }
 
     const char* oldDataHome = std::getenv("XDG_DATA_HOME");
@@ -153,7 +160,7 @@ namespace {
         oldPath == nullptr ? std::nullopt : std::optional<std::string>(oldPath);
     const fs::path savedWorkingDirectory = fs::current_path();
     setenv("XDG_DATA_HOME", (root / "data").c_str(), 1);
-    setenv("XDG_DATA_DIRS", (root / "empty").c_str(), 1);
+    setenv("XDG_DATA_DIRS", (root / "system").c_str(), 1);
     setenv("PATH", bin.c_str(), 1);
     fs::current_path(workingDirectory);
 
@@ -167,6 +174,7 @@ namespace {
     TEST_CHECK(findOrigin("suffix") == DesktopEntryOrigin::AppImage);
     TEST_CHECK(findOrigin("native") == DesktopEntryOrigin::System);
     TEST_CHECK(findOrigin("path") == DesktopEntryOrigin::AppImage);
+    TEST_CHECK(findOrigin("shadowed-native") == DesktopEntryOrigin::System);
 
     fs::current_path(savedWorkingDirectory);
 

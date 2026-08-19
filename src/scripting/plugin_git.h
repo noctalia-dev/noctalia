@@ -48,9 +48,14 @@ namespace scripting {
         const std::filesystem::path& workTree
     );
 
-    // `git -C dest fetch origin` — update remote-tracking refs + FETCH_HEAD; the
-    // working tree is untouched, so the new revision can be inspected before applying.
-    [[nodiscard]] GitResult fetch(const std::filesystem::path& dest);
+    // Bind the checkout's canonical `origin` URL to the configured source location.
+    // This is local-only and must precede operations that may lazy-fetch blobs.
+    [[nodiscard]] GitResult setOrigin(const std::filesystem::path& dest, std::string_view sourceLocation);
+
+    // Bind `origin` to `sourceLocation`, then fetch it. This prevents a checkout
+    // retained from an older source configuration from fetching its stale remote.
+    // Updates remote-tracking refs + FETCH_HEAD without touching the working tree.
+    [[nodiscard]] GitResult fetch(const std::filesystem::path& dest, std::string_view sourceLocation);
 
     // `git -C dest rev-parse FETCH_HEAD` — out = the just-fetched revision (trimmed).
     [[nodiscard]] GitResult remoteHead(const std::filesystem::path& dest);

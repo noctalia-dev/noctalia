@@ -24,6 +24,11 @@ public:
   struct PointerData {
     float localX = 0.0F;
     float localY = 0.0F;
+    // Coordinates in the dispatcher's scene (the parent wl_surface).
+    float sceneX = 0.0F;
+    float sceneY = 0.0F;
+    std::uint32_t serial = 0;
+    std::uint32_t time = 0;
     std::uint32_t button = 0;
     std::uint32_t axis = 0;
     std::uint32_t axisSource = 0;
@@ -136,6 +141,12 @@ public:
   void setAcceptedScrollDirections(std::uint32_t mask) noexcept { m_acceptedScrollDirections = mask; }
   [[nodiscard]] std::uint32_t acceptedScrollDirections() const noexcept { return m_acceptedScrollDirections; }
 
+  // Marks a scroll-view viewport as a touch drag-to-scroll target on one axis.
+  // The dispatcher hands a touch drag past child areas to the nearest marked ancestor.
+  enum class TouchScrollAxis : std::uint8_t { None, Vertical, Horizontal };
+  void setTouchScrollAxis(TouchScrollAxis axis) noexcept { m_touchScrollAxis = axis; }
+  [[nodiscard]] TouchScrollAxis touchScrollAxis() const noexcept { return m_touchScrollAxis; }
+
   void setPropagateEvents(bool propagate);
   [[nodiscard]] bool propagateEvents() const noexcept { return m_propagateEvents; }
 
@@ -174,7 +185,10 @@ public:
   void dispatchEnter(float localX, float localY);
   void dispatchLeave();
   void dispatchMotion(float localX, float localY);
-  void dispatchPress(float localX, float localY, std::uint32_t button, bool isPressed);
+  void dispatchPress(
+      float localX, float localY, std::uint32_t button, bool isPressed, float sceneX = 0.0F, float sceneY = 0.0F,
+      std::uint32_t serial = 0, std::uint32_t time = 0
+  );
   void dispatchCancel();
   [[nodiscard]] bool dispatchAxis(
       float localX, float localY, std::uint32_t axis, std::uint32_t axisSource, double axisValue,
@@ -209,12 +223,17 @@ private:
   std::uint32_t m_cursorShape = 0;
   std::uint32_t m_acceptedButtons = buttonMask(BTN_LEFT);
   std::uint32_t m_acceptedScrollDirections = allScrollDirections();
+  TouchScrollAxis m_touchScrollAxis = TouchScrollAxis::None;
   bool m_propagateEvents = false;
   bool m_enabled = true;
   HitShape m_hitShape = HitShape::Rect;
   bool m_hovered = false;
   bool m_pressed = false;
   std::uint32_t m_pressedButton = 0;
+  float m_pressedSceneX = 0.0F;
+  float m_pressedSceneY = 0.0F;
+  std::uint32_t m_pressedSerial = 0;
+  std::uint32_t m_pressedTime = 0;
   // Detent-unit scroll accumulators, indexed by wl_pointer axis (vertical, horizontal).
   std::array<float, 2> m_scrollStepAccum{};
   // When the last step was delivered on each axis, and in which direction (0 = none this

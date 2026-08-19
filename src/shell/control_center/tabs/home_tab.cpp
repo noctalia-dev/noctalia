@@ -117,7 +117,7 @@ namespace {
     return formatLocalTime(format);
   }
 
-  std::string userHostLine() { return std::format("{}@{}", sessionDisplayName(), hostName()); }
+  std::string userHostLine() { return std::format("{}@{}", sessionUserName(), hostName()); }
 
   std::string noctaliaVersionLine() { return std::format("Noctalia {}", noctalia::build_info::displayVersion()); }
 

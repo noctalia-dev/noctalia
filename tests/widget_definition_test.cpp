@@ -274,6 +274,32 @@ int main() {
   if (pickerGlyph("network-download") != "download") {
     fail("sysmon", "network receive stat did not select the download picker glyph");
   }
+
+  // hide_when_inactive keys off microphone capture, so the settings UI must only offer it on a
+  // volume widget bound to the input device.
+  WidgetConfig outputVolume;
+  outputVolume.type = "volume";
+  glyphConfig.widgets.emplace("speaker", std::move(outputVolume));
+  const auto hideWhenInactiveVisible = [&](std::string_view widgetName) {
+    const WidgetConfig& widget = glyphConfig.widgets.at(std::string(widgetName));
+    const auto specs = settings::widgetSettingSpecs("volume", &widget, "", false);
+    const auto spec = std::ranges::find(specs, "hide_when_inactive", [](const settings::WidgetSettingSpec& candidate) {
+      return std::string_view(candidate.schema.key);
+    });
+    if (spec == specs.end()) {
+      fail("volume", "hide_when_inactive is missing from the settings specs");
+      return false;
+    }
+    return settings::widgetSettingIsVisible(
+        glyphConfig, widgetName, *spec, specs, settings::WidgetSettingCapabilities{}
+    );
+  };
+  if (!hideWhenInactiveVisible("mic")) {
+    fail("volume", "hide_when_inactive is hidden on an input widget");
+  }
+  if (hideWhenInactiveVisible("speaker")) {
+    fail("volume", "hide_when_inactive is offered on an output widget");
+  }
   checkDefinition("wallpaper", wallpaperWidgetDefinition);
   checkDefinition("weather", weatherWidgetDefinition);
 

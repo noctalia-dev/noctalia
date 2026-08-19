@@ -752,6 +752,33 @@ German = "Clock"
     expect(secondPassIssues.empty(), "keyboard layout custom_labels normalization was not idempotent");
   }
 
+  void checkPluginAutoUpdateModeMigration() {
+    for (const bool enabled : {true, false}) {
+      toml::table config = toml::parse(std::format("[plugins]\nauto_update = {}", enabled));
+      noctalia::config::LegacyConfigIssues issues;
+      noctalia::config::normalizeLegacyConfig(config, issues);
+
+      const std::string_view expected = enabled ? "all" : "none";
+      expect(
+          config["plugins"]["auto_update"].value<std::string_view>() == expected,
+          "legacy plugin auto-update boolean was not converted to its matching scope"
+      );
+      expect(
+          issues.size() == 1 && hasIssuePath(issues, "plugins.auto_update"),
+          "plugin auto-update migration did not identify its source key"
+      );
+    }
+
+    toml::table sidecar = toml::parse("config_version = 12\n[plugins]\nauto_update = false");
+    noctalia::config::schema::Diagnostics diagnostics;
+    const int applied = noctalia::config::applyPendingConfigMigrations(sidecar, 12, diagnostics);
+    expect(applied == noctalia::config::currentConfigVersion(), "plugin auto-update sidecar migration was not applied");
+    expect(
+        sidecar["plugins"]["auto_update"].value<std::string_view>() == std::optional<std::string_view>{"none"},
+        "plugin auto-update sidecar migration did not preserve false as none"
+    );
+  }
+
   void checkVersionGating() {
     toml::table legacy = toml::parse(R"(
 [bar.main]
@@ -901,6 +928,7 @@ int main() {
   checkKeyboardLayoutShowGlyphMigration();
   checkKeyboardLayoutCustomLabelsMigration();
   checkWorkspacesDisplayMigration();
+  checkPluginAutoUpdateModeMigration();
   checkVersionGating();
   checkReminderFingerprint();
   checkRegistryOrdering();

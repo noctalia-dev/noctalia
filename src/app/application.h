@@ -188,8 +188,8 @@ private:
   void reloadDmenuProviders();
   // (Re)register plugin-backed panels from the enabled plugin set.
   void reloadPluginPanels();
-  // When [plugins].auto_update is on, pull every git source. Run once at startup and on
-  // a 6h repeating timer so long-lived sessions pick up new plugin versions.
+  // When [plugins].auto_update is on, pull git sources per the configured mode. Run once at
+  // startup and on a 6h repeating timer so long-lived sessions pick up new plugin versions.
   void runPluginAutoUpdate();
   void startTrayService();
   void syncNotificationDaemon();

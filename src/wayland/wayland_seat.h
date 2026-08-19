@@ -41,6 +41,7 @@ struct PointerEvent {
   std::int32_t axisValue120 = 0;
   float axisLines = 0.0F;
   std::uint32_t axisGestureSerial = 0;
+  bool touch = false;
 };
 
 struct KeyboardEvent {

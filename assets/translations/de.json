@@ -548,6 +548,7 @@
         "stat-gpu-temp": "GPU-Temperatur",
         "stat-gpu-usage": "GPU-Auslastung",
         "stat-gpu-vram": "GPU VRAM",
+        "stat-gpu-vram-used": "Genutzter GPU-VRAM",
         "stat-net-rx": "Net Rx",
         "stat-net-tx": "Net Tx",
         "stat-none": "Nichts",
@@ -659,6 +660,7 @@
       "type-to-search": "Zum Suchen eingeben…"
     },
     "origins": {
+      "appimage": "AppImage",
       "flatpak": "Flatpak",
       "nix": "Nix",
       "snap": "Snap",
@@ -1272,7 +1274,9 @@
         "add-title": "Benachrichtigungsfilter hinzufügen",
         "allow-permanent": "Dauerhaft erlauben",
         "allowed-urgencies-label": "Erlaubte Dringlichkeiten",
+        "bypass-dnd": "Nicht stören umgehen",
         "flag": {
+          "dnd-bypass": "DND umgehen",
           "history": "Verlauf",
           "permanent": "dauerhaft",
           "sound": "Ton",
@@ -1521,6 +1525,7 @@
       },
       "store": {
         "add": "Zu Noctalia hinzufügen",
+        "back-to-catalog": "Zurück zum Plugin-Katalog",
         "categories": "Kategorien",
         "category-all": "Alle",
         "empty": "Keine Plugins gefunden",
@@ -2302,6 +2307,10 @@
         "home-shortcuts-show-labels": {
           "description": "Zeige Textbeschriftungen unter Shortcut-Icons im Start-Tab an",
           "label": "Shortcut-Beschriftungen anzeigen"
+        },
+        "launcher-app-actions": {
+          "description": "Zeige App-Aktionseinträge neben Apps in den Ergebnissen an",
+          "label": "App-Aktionen anzeigen"
         },
         "launcher-app-grid": {
           "description": "Zeige ein Raster von App-Icons mit Beschriftungen darunter, wenn die Ergebnisse ausschließlich Apps sind",
@@ -3248,6 +3257,7 @@
         "gpu-temp": "GPU-Temperatur",
         "gpu-usage": "GPU-Auslastung",
         "gpu-vram": "GPU VRAM",
+        "gpu-vram-used": "Genutzter GPU-VRAM",
         "graph": "Graph",
         "graphic": "Grafik",
         "hidden": "Versteckt",
@@ -3494,6 +3504,10 @@
           "description": "Blende inaktive Privatsphäre-Icons aus und versteckt das Widget, wenn nichts aktiv ist",
           "label": "Inaktive ausblenden"
         },
+        "hide-passive": {
+          "description": "Blende Tray-Elemente aus, deren StatusNotifierItem-Status „Passive“ ist",
+          "label": "Passive Elemente ausblenden"
+        },
         "hide-when-empty": {
           "description": "Blende Arbeitsbereichs-Pills aus, wenn keine Fenster geöffnet sind",
           "label": "Ausblenden, wenn leer",
@@ -3539,6 +3553,10 @@
           "description": "Überschreibt die Widget-Farbe nur für Icons; feste Hex-Farben werden ebenfalls unterstützt",
           "label": "Icon-Farbe"
         },
+        "icon-scale": {
+          "description": "Skalierung der Taskleisten-App-Icons relativ zu ihrer Standardgröße",
+          "label": "Icon-Skalierung"
+        },
         "icon-size": {
           "description": "Icon-Größe in Pixeln",
           "label": "Icon-Größe"
@@ -3567,6 +3585,10 @@
         "interface": {
           "description": "Netzwerkschnittstelle zum Überwachen; leer lassen, um die Gesamtsumme über alle Schnittstellen zu verwenden",
           "label": "Schnittstelle"
+        },
+        "item-spacing": {
+          "description": "Abstand zwischen Privatsphäre-Indikator-Icons in Pixeln",
+          "label": "Icon-Abstand"
         },
         "label": {
           "description": "Optionaler statischer Text, der auf diesem Button angezeigt wird",
@@ -3696,6 +3718,10 @@
         },
         "show-all-outputs": {
           "description": "Zeige Fenster von allen Monitoren in diesem Widget an",
+          "label": "Alle Monitore anzeigen"
+        },
+        "show-all-workspaces": {
+          "description": "Zeige Arbeitsbereiche von allen Monitoren auf diesem Widget an",
           "label": "Alle Monitore anzeigen"
         },
         "show-caps-lock": {

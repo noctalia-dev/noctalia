@@ -232,6 +232,15 @@ void LockScreen::requestUpdate() {
   }
 }
 
+void LockScreen::forceRepaintAfterResume() {
+  for (auto& inst : m_instances) {
+    if (inst.surface != nullptr) {
+      inst.surface->discardPendingFrameCallback();
+      inst.surface->requestRedraw();
+    }
+  }
+}
+
 void LockScreen::onOutputChange() {
   if (m_lockDeferred) {
     if (m_wayland != nullptr && !m_wayland->outputs().empty()) {
@@ -549,14 +558,14 @@ bool LockScreen::shouldUseBlurredDesktop() const {
 }
 
 bool LockScreen::allSurfacesReady() const {
-  if (m_instances.empty()) {
-    return false;
-  }
   for (const auto& instance : m_instances) {
     if (instance.surface != nullptr && !instance.surface->firstFrameRendered()) {
       return false;
     }
   }
+
+  // With all outputs disconnected, no surface can ever render, so allow pending
+  // actions to run instead of waiting for the fallback timeout.
   return true;
 }
 

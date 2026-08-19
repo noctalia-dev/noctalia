@@ -121,6 +121,7 @@ private:
 
   ext_session_lock_surface_v1* m_lockSurface = nullptr;
   wl_output* m_output = nullptr;
+  bool m_receivedConfigure = false;
   ConfigService* m_config = nullptr;
   // Declared before m_root so it outlives the scene: ~Node cancels its animations through this manager.
   AnimationManager m_animations;

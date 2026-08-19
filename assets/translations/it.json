@@ -2316,6 +2316,10 @@
           "description": "Mostra una griglia di icone delle applicazioni con le etichette sottostanti quando i risultati riguardano solo le app",
           "label": "Vista app a griglia"
         },
+        "launcher-app-origin-indicator": {
+          "description": "Mostra l'origine dei pacchetti nei risultati",
+          "label": "Mostra origine app"
+        },
         "launcher-auto-paste": {
           "description": "Dopo calcolatrice, emoji e altre azioni di copia, incolla nella finestra evidenziata (stesse scorciatoie dell'incolla automatico dagli appunti)",
           "label": "Incolla automatico"
@@ -3552,6 +3556,10 @@
         "icon-color": {
           "description": "Sostituisce il colore del widget solo per le icone; sono supportati anche codici colore in formato esadecimale",
           "label": "Colore icona"
+        },
+        "icon-scale": {
+          "description": "Scala delle icone delle applicazioni sulla barra delle applicazioni rispetto alla dimensione predefinita",
+          "label": "Scala icone"
         },
         "icon-size": {
           "description": "Dimensione icona in pixel",

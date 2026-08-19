@@ -12,9 +12,13 @@ if [ -f "$config_file" ]; then
     trap 'rm -f "$tmp_file"' EXIT
     awk '
         {
+            original = $0
             gsub(/"noctalia\.toml"[[:space:]]*,[[:space:]]*/, "")
             gsub(/,[[:space:]]*"noctalia\.toml"/, "")
             gsub(/"noctalia\.toml"/, "")
+            # Drop a line that held only the noctalia entry (multi-line arrays).
+            if ($0 != original && $0 ~ /^[[:space:]]*$/)
+                next
             print
         }
     ' "$config_file" >"$tmp_file"

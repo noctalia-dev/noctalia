@@ -926,7 +926,8 @@ bool WindowSwitcher::onPointerEvent(const PointerEvent& event) {
       return true;
     }
     return target->inputDispatcher.pointerButton(
-        static_cast<float>(event.sx), static_cast<float>(event.sy), event.button, pressed
+        static_cast<float>(event.sx), static_cast<float>(event.sy), event.button, pressed, event.serial, event.time,
+        event.touch
     );
   }
   case PointerEvent::Type::Axis:

@@ -2316,6 +2316,10 @@
           "description": "Exibe uma grade de ícones de aplicativos com legendas abaixo deles quando os resultados forem apenas aplicativos",
           "label": "Visão em Grade de Apps"
         },
+        "launcher-app-origin-indicator": {
+          "description": "Mostrar indicadores de origem do pacote nos resultados de aplicação",
+          "label": "Mostrar Indicadores de Origem da Aplicação"
+        },
         "launcher-auto-paste": {
           "description": "Após ativar a calculadora, os emojis e outras funções de cópia, cole na janela em foco (os mesmos atalhos da colagem automática da área de transferência)",
           "label": "Colagem Automática"
@@ -3552,6 +3556,10 @@
         "icon-color": {
           "description": "Substitui a cor do widget apenas para ícones; cores hexadecimais fixas também são suportadas",
           "label": "Cor do Ícone"
+        },
+        "icon-scale": {
+          "description": "Escala dos ícones dos aplicativos na barra de tarefas em relação ao seu tamanho padrão",
+          "label": "Escala de Ícone"
         },
         "icon-size": {
           "description": "Tamanho do ícone em pixels",

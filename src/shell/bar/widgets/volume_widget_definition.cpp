@@ -52,6 +52,13 @@ const noctalia::bar::WidgetDefinition<VolumeWidget::Options>& volumeWidgetDefini
               field<&Options::muteColor>({
                   .key = "mute_color",
               }),
+              field<&Options::hideWhenInactive>({
+                  .key = "hide_when_inactive",
+                  .presentation =
+                      settings::WidgetSettingPresentation{
+                          .visibleWhen = settings::WidgetSettingVisibility{"device", {"input"}},
+                      },
+              }),
           },
       .glyph = [](const Options& options) -> std::string {
         if (!options.glyph.empty()) {

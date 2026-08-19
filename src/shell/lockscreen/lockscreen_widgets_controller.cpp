@@ -221,6 +221,9 @@ void LockscreenWidgetsController::enterEdit() {
   if (m_dock != nullptr) {
     m_dock->suppressDisplay();
   }
+  if (m_onEnterEdit) {
+    m_onEnterEdit();
+  }
   m_editor->open(toDesktopWidgetsEditorSnapshot(m_snapshot));
   m_host->hide();
 }
@@ -245,6 +248,17 @@ void LockscreenWidgetsController::exitEdit() {
   if (m_dock != nullptr) {
     m_dock->unsuppressDisplay();
   }
+  if (m_onExitEdit) {
+    m_onExitEdit();
+  }
+}
+
+void LockscreenWidgetsController::setOnEnterEditCallback(std::function<void()> callback) {
+  m_onEnterEdit = std::move(callback);
+}
+
+void LockscreenWidgetsController::setOnExitEditCallback(std::function<void()> callback) {
+  m_onExitEdit = std::move(callback);
 }
 
 void LockscreenWidgetsController::toggleEdit() {

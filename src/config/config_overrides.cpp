@@ -1129,18 +1129,19 @@ void ConfigService::setDockEnabled(bool enabled) {
   fireReloadCallbacks();
 }
 
-void ConfigService::setPluginsAutoUpdate(bool enabled) {
+void ConfigService::setPluginsAutoUpdate(PluginAutoUpdateMode mode) {
   if (m_overridesPath.empty()) {
     return;
   }
 
   auto* pluginsTbl = ensureTable(m_overridesTable, "plugins");
-  const auto existing = (*pluginsTbl)["auto_update"].value<bool>();
-  if (existing.has_value() && *existing == enabled && m_config.plugins.autoUpdate == enabled) {
+  const auto existingKey = (*pluginsTbl)["auto_update"].value<std::string>();
+  const auto existingMode = existingKey.has_value() ? enumFromKey(kPluginAutoUpdateModes, *existingKey) : std::nullopt;
+  if (existingMode.has_value() && *existingMode == mode && m_config.plugins.autoUpdate == mode) {
     return;
   }
 
-  pluginsTbl->insert_or_assign("auto_update", enabled);
+  pluginsTbl->insert_or_assign("auto_update", std::string(enumToKey(kPluginAutoUpdateModes, mode)));
 
   if (!writeOverridesToFile()) {
     kLog.warn("failed to write {}", m_overridesPath);

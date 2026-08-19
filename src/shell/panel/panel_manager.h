@@ -120,10 +120,15 @@ public:
   [[nodiscard]] bool isActivePanelContext(std::string_view context) const noexcept;
   [[nodiscard]] std::optional<LayerPopupParentContext> popupParentContextForSurface(wl_surface* surface) const noexcept;
   [[nodiscard]] std::optional<LayerPopupParentContext> fallbackPopupParentContext() const noexcept;
+  [[nodiscard]] std::optional<LayerPopupParentContext>
+  popupParentContextForPanel(std::string_view panelId) const noexcept;
 
   [[nodiscard]] RenderContext* renderContext() const noexcept { return m_renderContext; }
   [[nodiscard]] WaylandConnection* wayland() const noexcept;
 
+  // Applies the shell's effective popup shadow settings to a panel-owned
+  // context menu before it opens.
+  void configureContextMenuPopup(ContextMenuPopup& popup) const;
   void setActivePopup(ContextMenuPopup* popup);
   void clearActivePopup();
 

@@ -1134,7 +1134,7 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
                           .glyphSize = 14.0F,
                       }),
                       ui::label({
-                          .text = i18n::tr("desktop-widgets.editor.title"),
+                          .text = i18n::tr(m_profile.titleKey),
                           .fontSize = Style::fontSizeBody,
                           .fontWeight = FontWeight::Bold,
                       }),
@@ -1199,20 +1199,22 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
                       .tooltip = i18n::tr("desktop-widgets.editor.actions.flip-vertical"),
                       .onClick = [this]() { deferEditorMutation([this]() { flipSelectedWidgetVertical(); }); },
                   }),
-                  ui::button({
-                      .glyph = "settings",
-                      .enabled = hasSelectedWidget,
-                      .selected = m_inspectorOpen,
-                      .variant = ButtonVariant::Default,
-                      .tooltip = i18n::tr("desktop-widgets.editor.actions.settings"),
-                      .onClick =
-                          [this]() {
-                            deferEditorMutation([this]() {
-                              m_inspectorOpen = !m_inspectorOpen;
-                              requestLayout();
-                            });
-                          },
-                  }),
+                  ui::button(
+                      {
+                          .glyph = "settings",
+                          .enabled = hasSelectedWidget,
+                          .selected = m_inspectorOpen,
+                          .variant = ButtonVariant::Default,
+                          .tooltip = i18n::tr("desktop-widgets.editor.actions.settings"),
+                          .onClick =
+                              [this]() {
+                                deferEditorMutation([this]() {
+                                  m_inspectorOpen = !m_inspectorOpen;
+                                  requestLayout();
+                                });
+                              },
+                      }
+                  ),
                   [&]() -> std::unique_ptr<Node> {
                     bool canToggleVisibility = hasSelectedWidget;
                     if (hasSelectedWidget
@@ -2485,7 +2487,8 @@ bool DesktopWidgetsEditor::onPointerEvent(const PointerEvent& event) {
     break;
   case PointerEvent::Type::Button:
     surface->inputDispatcher.pointerButton(
-        static_cast<float>(event.sx), static_cast<float>(event.sy), event.button, event.pressed
+        static_cast<float>(event.sx), static_cast<float>(event.sy), event.button, event.pressed, event.serial,
+        event.time, event.touch
     );
     if (!event.pressed && m_drag.mode != DragMode::None && event.button == BTN_LEFT) {
       finishDrag();

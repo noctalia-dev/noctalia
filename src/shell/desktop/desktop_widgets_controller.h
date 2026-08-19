@@ -49,6 +49,7 @@ public:
   void exitEdit();
   void toggleEdit();
   void setOnEnterEditCallback(std::function<void()> callback);
+  void setOnExitEditCallback(std::function<void()> callback);
 
   /// Hides on-screen desktop widgets while another overlay editor (e.g. lockscreen layout) is active.
   void suppressDisplay();
@@ -96,6 +97,7 @@ private:
   // Last-seen saved desktop_widgets.enabled; an explicit transition clears the runtime override.
   bool m_lastEnabled = false;
   std::function<void()> m_onEnterEdit;
+  std::function<void()> m_onExitEdit;
   std::unique_ptr<DesktopWidgetsHost> m_host;
   std::unique_ptr<DesktopWidgetsEditor> m_editor;
 };

@@ -64,6 +64,9 @@ public:
   void onKeyboardLayoutChanged();
   void requestLayout();
   void requestUpdate();
+  /// After suspend/resume, discard pending callbacks on active lock surfaces
+  /// while preserving queued work, then request an immediate redraw.
+  void forceRepaintAfterResume();
   void onPointerEvent(const PointerEvent& event);
   void onKeyboardEvent(const KeyboardEvent& event);
   [[nodiscard]] bool isActive() const noexcept;

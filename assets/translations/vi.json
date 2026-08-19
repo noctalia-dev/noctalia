@@ -93,6 +93,7 @@
       },
       "sysmon": {
         "cpu": "CPU",
+        "cpu-freq": "Tần số CPU",
         "cpu-temp": "Nhiệt độ CPU",
         "disk": "Ổ đĩa",
         "disk-free": "Dung lượng ổ đĩa trống",
@@ -518,6 +519,7 @@
         "opacity": "Độ trong suốt",
         "primary-color": "Màu chính",
         "reset-defaults": "Khôi phục về mặc định",
+        "reversed": "Đảo ngược",
         "ring-opacity": "Độ mờ vòng",
         "rotation-speed": "Tốc độ quay",
         "scroll-step": "Bước cuộn",
@@ -526,6 +528,7 @@
         "shadow": "Bóng",
         "show-caps-lock": "Cảnh báo phím Caps Lock",
         "show-device": "Hiển thị thiết bị",
+        "show-events": "Hiển thị sự kiện",
         "show-forecast": "Hiển thị dự báo",
         "show-keyboard-layout": "Bố cục bàn phím",
         "show-label": "Hiển thị nhãn",
@@ -536,13 +539,16 @@
         "show-unlock-hint": "Gợi ý mở khóa",
         "show-vpn-label": "Hiển thị nhãn VPN",
         "show-weather": "Thời tiết",
+        "show-week-numbers": "Hiển thị số tuần",
         "show-when-idle": "Hiển thị khi không hoạt động",
         "stat": "Trạng thái",
+        "stat-cpu-freq": "Tần số CPU",
         "stat-cpu-temp": "Nhiệt độ CPU",
         "stat-cpu-usage": "Mức sử dụng CPU",
         "stat-gpu-temp": "Nhiệt độ GPU",
         "stat-gpu-usage": "Mức sử dụng GPU",
         "stat-gpu-vram": "GPU VRAM",
+        "stat-gpu-vram-used": "VRAM GPU đã sử dụng",
         "stat-net-rx": "Nhận",
         "stat-net-tx": "Mạng truyền",
         "stat-none": "Không có",
@@ -576,6 +582,7 @@
       "types": {
         "audio-visualizer": "Trực quan hóa âm thanh",
         "button": "Nút",
+        "calendar": "Lịch",
         "clock": "Đồng hồ",
         "fancy-audio-visualizer": "Trình hiển thị âm thanh đẹp mắt",
         "label": "Nhãn",
@@ -643,12 +650,22 @@
     },
     "context-menu": {
       "open": "Mở",
+      "pin": "Ghim vào Launcher",
       "pin-to-dock": "Ghim vào Dock",
+      "unpin": "Bỏ ghim khỏi Launcher",
       "unpin-from-dock": "Bỏ ghim khỏi Dock"
     },
     "empty": {
       "no-results": "Không tìm thấy kết quả nào",
       "type-to-search": "Gõ để tìm kiếm..."
+    },
+    "origins": {
+      "appimage": "AppImage",
+      "flatpak": "Flatpak",
+      "nix": "Nix",
+      "snap": "Snap",
+      "system": "Hệ thống",
+      "user": "Người dùng"
     },
     "providers": {
       "applications": {
@@ -686,7 +703,8 @@
     },
     "source": {
       "address": "Địa chỉ",
-      "auto": "Tự động"
+      "auto": "Tự động",
+      "manual": "Thủ công"
     }
   },
   "lockscreen": {
@@ -716,7 +734,10 @@
       "battery-low-body": "{device}: còn {percent}%",
       "battery-low-title": "Pin yếu",
       "calendar": "Lịch",
+      "calendar-credential-locked-body": "Hãy mở khóa keyring mà Secret Service sử dụng, sau đó thử lại trong phần Cài đặt. Với GNOME Keyring, hãy đặt một chùm chìa khóa tự động mở khóa ví dụ như Login làm mặc định.",
+      "calendar-credential-locked-title": "Keyring của Lịch đang bị khóa",
       "calendar-google-connect-browser-failed": "Không thể khởi chạy trình mở trình duyệt để ủy quyền Google. Kiểm tra trình duyệt mặc định của bạn hoặc thiết lập xdg-open.",
+      "calendar-google-connect-credential-store-failed": "Xác minh hoàn tất, nhưng refresh token không thể được lưu. Vui lòng thử kết nối lại sau khi đã mở khóa hoặc bắt đầu Secret Service.",
       "calendar-google-connect-expired": "Ủy quyền Google đã hết hạn trước khi đăng nhập hoàn tất. Hãy bắt đầu lại kết nối.",
       "calendar-google-connect-failed-title": "Kết nối Lịch Google thất bại",
       "calendar-google-connect-missing-account": "Không tìm thấy tài khoản Google calendar nào phù hợp với \"{account}\".",
@@ -876,12 +897,15 @@
       "color-label": "Màu sắc",
       "credential-source-file": "Tệp mật khẩu",
       "credential-source-keyring": "Keyring",
+      "credential-source-label": "Lưu trữ thông tin xác thực",
       "delete-error": "Không thể xóa tài khoản lịch.",
       "edit-title": "Chỉnh sửa tài khoản lịch",
+      "ics-url-label": "ICS URL",
       "id-label": "ID tài khoản",
       "invalid": "Kiểm tra các trường tài khoản lịch được tô sáng.",
       "name-label": "Tên hiển thị",
       "name-placeholder": "Lịch cá nhân",
+      "password-file-error": "Không thể đọc tệp mật khẩu đã được cấu hình. Hãy kiểm tra xem tệp có tồn tại, là tệp thông thường có thể đọc được và có chứa mật khẩu hay không.",
       "password-file-label": "Tệp mật khẩu",
       "password-keep-placeholder": "Để trống nếu muốn giữ mật khẩu hiện tại",
       "password-label": "Mật khẩu ứng dụng",
@@ -890,12 +914,15 @@
       "provider": {
         "custom": "CalDAV",
         "google": "Google",
-        "icloud": "iCloud"
+        "icloud": "iCloud",
+        "ics": "ICS URL"
       },
       "provider-label": "Nhà cung cấp",
       "save": "Lưu",
       "save-connect": "Lưu và kết nối",
       "save-error": "Không thể lưu tài khoản lịch.",
+      "secret-cleanup-error": "Không thể lưu tài khoản, cũng như không thể khôi phục hoặc dọn dẹp thông tin xác thực trong keyring của tài khoản đó. Vui lòng thử lại sau khi mở khóa Secret Service.",
+      "secret-service-cancelled": "Yêu cầu của Secret Service đã bị hủy. Hãy thử lại khi bạn sẵn sàng mở khóa.",
       "server-url-label": "URL máy chủ",
       "username-label": "Tên người dùng",
       "username-placeholder": "name@example.com"
@@ -2245,6 +2272,9 @@
           "description": "Dùng biểu tượng nhỏ hơn và hàng kết quả gọn hơn",
           "label": "Hàng gọn"
         },
+        "launcher-pinned-apps": {
+          "label": "Ứng dụng đã được ghim"
+        },
         "launcher-reset-usage": {
           "button": "Đặt lại",
           "description": "Xóa dữ liệu số lần mở ứng dụng và lịch sử dùng gần đây phục vụ cho việc sắp xếp trình khởi chạy",
@@ -2462,6 +2492,7 @@
             "label": "Khoảng thời gian thăm dò mạng"
           },
           "stats": {
+            "cpu-freq": "Tần số CPU",
             "cpu-temp": "Nhiệt độ CPU",
             "cpu-usage": "Mức sử dụng CPU",
             "disk-usage": "Sử dụng đĩa",
@@ -2922,6 +2953,7 @@
       },
       "options": {
         "always": "Luôn",
+        "cpu-freq": "Tần số CPU",
         "cpu-temp": "Nhiệt độ CPU",
         "cpu-usage": "Sử dụng CPU",
         "full": "Đầy đủ",
@@ -3255,7 +3287,11 @@
         },
         "pinned": {
           "description": "ID của các mục Tray sẽ luôn hiển thị trên Bar khi chế độ ngăn kéo được bật",
-          "label": "Mục đã ghim"
+          "label": "Mục đã ghim",
+          "taskbar-label": "Những ứng dụng đã ghim"
+        },
+        "pinned-opacity": {
+          "label": "Độ trong suốt của ứng dụng đã ghim"
         },
         "scale": {
           "description": "Tỉ lệ widget này theo tỉ lệ nội dung của Bar",

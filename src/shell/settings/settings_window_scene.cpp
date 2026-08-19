@@ -1077,14 +1077,14 @@ void SettingsWindow::rebuildSettingsContent() {
                   markPluginListDirty();
                   requestSceneRebuild();
                 },
-            .autoUpdateEnabled = cfg.plugins.autoUpdate,
+            .autoUpdateMode = cfg.plugins.autoUpdate,
             .setAutoUpdate =
-                [this](bool on) {
-                  m_pluginManager->setAutoUpdateEnabled(on);
+                [this](PluginAutoUpdateMode mode) {
+                  m_pluginManager->setAutoUpdateMode(mode);
                   markPluginListDirty();
                   requestSceneRebuild();
                 },
-            .updateAll = [this]() { m_pluginManager->updateAll(); },
+            .updateAll = [this]() { m_pluginManager->updateAutoUpdateScope(PluginAutoUpdateMode::All); },
             .config = &cfg,
             .onConfigure = [this](std::string id) { openPluginSettingsEditor(std::move(id)); },
             .onRemove =

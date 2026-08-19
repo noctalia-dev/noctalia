@@ -603,7 +603,8 @@ bool Dock::onPointerEvent(const PointerEvent& event) {
       break;
     const bool pressed = event.pressed;
     m_hoveredInstance->inputDispatcher.pointerButton(
-        static_cast<float>(event.sx), static_cast<float>(event.sy), event.button, pressed
+        static_cast<float>(event.sx), static_cast<float>(event.sy), event.button, pressed, event.serial, event.time,
+        event.touch
     );
     break;
   }

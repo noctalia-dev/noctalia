@@ -1073,6 +1073,7 @@ void LauncherPanel::create() {
           .controlHeight = Style::controlHeight * scale,
           .horizontalPadding = Style::spaceMd * scale,
           .clearButtonEnabled = true,
+          .lineEditing = true,
           .surfaceOpacity = panelCardOpacity(),
           .onChange =
               [this](const std::string& text) {

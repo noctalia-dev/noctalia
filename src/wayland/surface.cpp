@@ -1135,6 +1135,19 @@ void Surface::requestUpdate() {
   kickFrameLoop();
 }
 
+void Surface::discardPendingFrameCallback() {
+  if (m_frameCallback == nullptr) {
+    return;
+  }
+
+  // Carry the in-flight callback's tick intent to the replacement callback.
+  // Queued frame work and pending update/layout/redraw state remain untouched.
+  m_nextFrameCallbackShouldTick = m_nextFrameCallbackShouldTick || m_frameCallbackShouldTick;
+  m_frameCallbackShouldTick = false;
+  wl_callback_destroy(m_frameCallback);
+  m_frameCallback = nullptr;
+}
+
 void Surface::requestUpdateOnly() {
   recordSurfaceProfileEvent(*this, SurfaceProfileEvent::RequestUpdateOnly);
   m_updateRequested = true;
