@@ -278,7 +278,7 @@ enable_ddcutil = false
 # [brightness.monitor.DP-1]
 # backend = "ddcutil"
 # [brightness.monitor.DP-2]
-# ddc_bus = "i2c-6"                 # pin the I2C bus when monitors share an EDID
+# ddc_bus = 6                       # pin the I2C bus when monitors share an EDID
 
 # ── Night Light ───────────────────────────────────────────────────────────────
 

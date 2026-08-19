@@ -28,7 +28,6 @@
 #include <mutex>
 #include <optional>
 #include <queue>
-#include <ranges>
 #include <sdbus-c++/IProxy.h>
 #include <sdbus-c++/Types.h>
 #include <set>
@@ -625,8 +624,8 @@ namespace {
     return candidates;
   }
 
-  std::map<int, std::string> getBusOverrides(const BrightnessConfig& config, const WaylandConnection& wayland) {
-    std::map<int, std::string> busOverrides;
+  std::map<int, std::string> pinnedConnectorByBus(const BrightnessConfig& config, const WaylandConnection& wayland) {
+    std::map<int, std::string> pins;
     std::set<int> contestedBuses;
 
     for (const auto& output : wayland.outputs()) {
@@ -644,32 +643,26 @@ namespace {
       const BrightnessBackendPreference preference = backendPreferenceForOutput(config, &output);
       if (preference == BrightnessBackendPreference::None || preference == BrightnessBackendPreference::Backlight) {
         kLog.debug(
-            "ignoring ddc_bus '{}' for connector {} because backend is not set to 'ddcutil'", *override->ddcBus,
+            "ignoring ddc_bus {} for connector '{}' because backend is not set to 'ddcutil'", *override->ddcBus,
             output.connectorName
         );
         continue;
       }
 
-      const auto parsedBus = parseI2cBus(*override->ddcBus);
-      if (!parsedBus.has_value()) {
-        kLog.warn("ddc_bus '{}' for connector {} could not be parsed", *override->ddcBus, output.connectorName);
-        continue;
-      }
-
-      if (const auto [it, inserted] = busOverrides.try_emplace(*parsedBus, output.connectorName); !inserted) {
+      if (const auto [it, inserted] = pins.try_emplace(*override->ddcBus, output.connectorName); !inserted) {
         kLog.warn(
-            "ignoring ddc_bus {} because both '{}' and '{}' pin it; only one connector can own a bus", *parsedBus,
-            it->second, output.connectorName
+            "ignoring ddc_bus {} because both '{}' and '{}' pin it; only one connector can own a bus",
+            *override->ddcBus, it->second, output.connectorName
         );
-        contestedBuses.insert(*parsedBus);
+        contestedBuses.insert(*override->ddcBus);
       }
     }
 
     for (const int contestedBus : contestedBuses) {
-      busOverrides.erase(contestedBus);
+      pins.erase(contestedBus);
     }
 
-    return busOverrides;
+    return pins;
   }
 
 } // namespace
@@ -1313,21 +1306,36 @@ struct BrightnessService::Impl {
 
     std::erase_if(internals, [](const DisplayInternal& display) { return display.backend == RuntimeBackend::Ddcutil; });
 
-    const std::map<int, std::string> busOverrides = getBusOverrides(activeConfig, wayland);
-    const auto resolvedCandidates =
-        completion.candidates | std::views::transform([&busOverrides](auto candidate) {
-          const auto override = busOverrides.find(candidate.bus);
-          if (override != busOverrides.end()) {
-            kLog.info(
-                "ddcutil: bus {} reporting connector '{}', pinning it to '{}' as per config ", candidate.bus,
-                candidate.connectorName, override->second
-            );
-            candidate.connectorName = override->second;
-          }
-          return candidate;
-        });
+    const std::map<int, std::string> pins = pinnedConnectorByBus(activeConfig, wayland);
 
-    for (const auto& candidate : resolvedCandidates) {
+    if (!completion.candidates.empty()) {
+      for (const auto& [b, connectorName] : pins) {
+        if (std::ranges::none_of(completion.candidates, [b](const DdcCandidate& candidate) {
+              return candidate.bus == b;
+            })) {
+          kLog.warn("ddc_bus {} is pinned to connector '{}' but ddcutil did not report that bus", b, connectorName);
+        }
+      }
+    }
+
+    for (auto candidate : completion.candidates) {
+      if (const auto pin = pins.find(candidate.bus); pin != pins.end()) {
+        kLog.info(
+            "ddcutil: bus {} reports connector '{}', pinned to '{}' as per config", candidate.bus,
+            candidate.connectorName, pin->second
+        );
+        candidate.connectorName = pin->second;
+      } else if (std::ranges::any_of(pins, [&candidate](const auto& entry) {
+                   return entry.second == candidate.connectorName;
+                 })) {
+        kLog.warn(
+            "ddcutil: ignoring bus {} because connector '{}' is pinned to another bus; pin this bus to its own "
+            "connector with [brightness.monitor.<connector>] ddc_bus = {}",
+            candidate.bus, candidate.connectorName, candidate.bus
+        );
+        continue;
+      }
+
       const WaylandOutput* output = findOutputByConnector(wayland, candidate.connectorName);
       if (output == nullptr) {
         kLog.debug(
@@ -1348,10 +1356,13 @@ struct BrightnessService::Impl {
         continue;
       }
 
-      if (findInternal(candidate.connectorName) != nullptr) {
+      const auto alreadyControlled = std::ranges::any_of(internals, [&candidate](const DisplayInternal& display) {
+        return display.backend == RuntimeBackend::Ddcutil && display.connectorName == candidate.connectorName;
+      });
+      if (alreadyControlled) {
         kLog.warn(
-            "ddcutil: ignoring bus {} because connector '{}' is already controlled; identical EDIDs hide which monitor "
-            "this is, so pin it with [brightness.monitor.<connector>] ddc_bus = \"i2c-{}\"",
+            "ddcutil: ignoring bus {} because connector '{}' is already controlled; identical EDIDs hide which "
+            "monitor this is, so pin it with [brightness.monitor.<connector>] ddc_bus = {}",
             candidate.bus, candidate.connectorName, candidate.bus
         );
         continue;
