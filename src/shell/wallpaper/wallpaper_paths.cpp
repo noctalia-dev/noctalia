@@ -157,12 +157,12 @@ void wallpaper::setThemeSyncBinding(
   if (!config.config().wallpaper.themeSync.enabled) {
     overrides.emplace_back(std::vector<std::string>{"wallpaper", "theme_sync", "enabled"}, true);
   }
+  overrides.emplace_back(std::vector<std::string>{"wallpaper", "theme_sync", key}, std::string(path));
   if (connector.has_value() && !connector->empty()) {
     overrides.emplace_back(
         std::vector<std::string>{"wallpaper", "theme_sync", "monitor", *connector, key}, std::string(path)
     );
   } else {
-    overrides.emplace_back(std::vector<std::string>{"wallpaper", "theme_sync", key}, std::string(path));
     for (const auto& mon : allConnectors) {
       if (mon.empty()) {
         continue;
