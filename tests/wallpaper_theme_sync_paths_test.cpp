@@ -1,10 +1,13 @@
 #include "shell/wallpaper/wallpaper_paths.h"
 
+#include "config/config_service.h"
 #include "config/config_types.h"
 #include "wayland/wayland_connection.h"
 
 #include <cstdio>
+#include <filesystem>
 #include <string>
+#include <unistd.h>
 
 namespace {
 
@@ -99,6 +102,66 @@ int main() {
            "dark tab always binds to dark"
        )
       && ok;
+
+  {
+    WallpaperConfig monitorOnly{};
+    monitorOnly.themeSync.enabled = true;
+    monitorOnly.themeSync.monitorOverrides.push_back(
+        WallpaperThemeSyncMonitorOverride{.match = "DP-1", .pathDark = "/wallpapers/dp-dark.jpg"}
+    );
+    const WaylandOutput dp1 = makeOutput("DP-1");
+
+    ok = expect(
+             wallpaper::resolveThemeSyncPath(monitorOnly, dp1, ThemeMode::Dark) == "/wallpapers/dp-dark.jpg",
+             "monitor-only dark binding resolves for that output"
+         )
+        && ok;
+    ok = expect(
+             !wallpaper::hasGlobalThemeSyncBinding(monitorOnly, ThemeMode::Dark),
+             "monitor-only binding is invisible to global automation guard"
+         )
+        && ok;
+    ok = expect(
+             !wallpaper::themeSyncModeForPath(monitorOnly, "/wallpapers/dp-dark.jpg", std::nullopt).has_value(),
+             "all-monitors badge lookup ignores monitor-only bindings"
+         )
+        && ok;
+  }
+
+  {
+    const std::filesystem::path root =
+        std::filesystem::temp_directory_path() / ("noctalia-theme-sync-bind-" + std::to_string(::getpid()));
+    std::filesystem::remove_all(root);
+    std::filesystem::create_directories(root / "config" / "noctalia");
+    std::filesystem::create_directories(root / "state" / "noctalia");
+    ::setenv("NOCTALIA_CONFIG_HOME", (root / "config").c_str(), 1);
+    ::setenv("XDG_STATE_HOME", (root / "state").c_str(), 1);
+
+    ConfigService config;
+    constexpr std::string_view kPath = "/wallpapers/dp-dark.jpg";
+    wallpaper::setThemeSyncBinding(config, std::string{"DP-1"}, ThemeMode::Dark, kPath, {});
+
+    ok = expect(
+             config.config().wallpaper.themeSync.pathDark == kPath,
+             "single-monitor bind also updates global path_dark"
+         )
+        && ok;
+    ok = expect(config.config().wallpaper.themeSync.monitorOverrides.size() == 1, "monitor override stored")
+        && ok;
+    ok = expect(
+             config.config().wallpaper.themeSync.monitorOverrides.front().match == "DP-1"
+                 && config.config().wallpaper.themeSync.monitorOverrides.front().pathDark == kPath,
+             "monitor override matches single-monitor bind"
+         )
+        && ok;
+    ok = expect(
+             wallpaper::hasGlobalThemeSyncBinding(config.config().wallpaper, ThemeMode::Dark),
+             "global automation guard sees single-monitor bind"
+         )
+        && ok;
+
+    std::filesystem::remove_all(root);
+  }
 
   return ok ? 0 : 1;
 }
