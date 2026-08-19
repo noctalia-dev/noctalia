@@ -4,11 +4,14 @@
 #include <optional>
 #include <span>
 #include <string>
+#include <string_view>
+#include <vector>
 
 class ConfigService;
 
 struct WallpaperConfig;
 struct WallpaperMonitorOverride;
+struct WallpaperThemeSyncConfig;
 struct WaylandOutput;
 enum class ThemeMode : std::uint8_t;
 
@@ -43,6 +46,26 @@ namespace wallpaper {
   void setThemeSyncBinding(
       ConfigService& config, const std::optional<std::string>& connector, ThemeMode mode, std::string_view path,
       std::span<const std::string> allConnectors = {}
+  );
+
+  // Returns output connectors to mirror when binding for all outputs; empty for a single monitor.
+  [[nodiscard]] std::vector<std::string> themeSyncConnectorsForGlobalBinding(
+      const std::optional<std::string>& connector, std::span<const std::string> allOutputConnectors
+  );
+
+  [[nodiscard]] bool
+  shouldSeedThemeSyncBinding(const WallpaperThemeSyncConfig& themeSync, bool resolvedIsLight) noexcept;
+
+  [[nodiscard]] ThemeMode themeSyncModeForResolvedAppearance(bool resolvedIsLight) noexcept;
+
+  void bindThemeSyncForManualPick(
+      ConfigService& config, const std::optional<std::string>& connector, bool resolvedIsLight, std::string_view path,
+      std::span<const std::string> allOutputConnectors
+  );
+
+  void seedThemeSyncBindingIfNeeded(
+      ConfigService& config, bool resolvedIsLight, std::string_view wallpaperPath,
+      std::span<const std::string> allOutputConnectors
   );
 
 } // namespace wallpaper

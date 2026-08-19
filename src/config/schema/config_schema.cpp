@@ -8,7 +8,6 @@
 #include "core/input/key_chord.h"
 #include "notification/notification_filter.h"
 #include "scripting/plugin_id.h"
-#include "util/file_utils.h"
 
 #include <algorithm>
 #include <filesystem>

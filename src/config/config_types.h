@@ -1,10 +1,10 @@
 #pragma once
 
-#include "config/color_spec.h"
 #include "config/config_limits.h"
 #include "config/widget_setting_value.h"
 #include "core/input/key_chord.h"
 #include "system/sysmon_threshold_profile.h"
+#include "ui/palette.h"
 #include "ui/style.h"
 
 #include <array>

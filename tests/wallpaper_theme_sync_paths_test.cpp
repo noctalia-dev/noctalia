@@ -8,6 +8,7 @@
 #include <filesystem>
 #include <string>
 #include <unistd.h>
+#include <vector>
 
 namespace {
 
@@ -139,6 +140,11 @@ int main() {
 
     ConfigService config;
     constexpr std::string_view kPath = "/wallpapers/dp-dark.jpg";
+    ok = expect(
+             config.setOverride(std::vector<std::string>{"wallpaper", "theme_sync", "enabled"}, true),
+             "enable theme sync for bind test"
+         )
+        && ok;
     wallpaper::setThemeSyncBinding(config, std::string{"DP-1"}, ThemeMode::Dark, kPath, {});
 
     ok = expect(
@@ -157,6 +163,135 @@ int main() {
     ok = expect(
              wallpaper::hasGlobalThemeSyncBinding(config.config().wallpaper, ThemeMode::Dark),
              "global automation guard sees single-monitor bind"
+         )
+        && ok;
+
+    std::filesystem::remove_all(root);
+  }
+
+  {
+    const std::filesystem::path root =
+        std::filesystem::temp_directory_path() / ("noctalia-theme-sync-bind-off-" + std::to_string(::getpid()));
+    std::filesystem::remove_all(root);
+    std::filesystem::create_directories(root / "config" / "noctalia");
+    std::filesystem::create_directories(root / "state" / "noctalia");
+    ::setenv("NOCTALIA_CONFIG_HOME", (root / "config").c_str(), 1);
+    ::setenv("XDG_STATE_HOME", (root / "state").c_str(), 1);
+
+    ConfigService config;
+    wallpaper::setThemeSyncBinding(config, std::string{"DP-1"}, ThemeMode::Dark, "/wallpapers/dp-dark.jpg", {});
+
+    ok = expect(config.config().wallpaper.themeSync.pathDark.empty(), "bind skipped when theme sync disabled")
+        && ok;
+    ok = expect(!config.config().wallpaper.themeSync.enabled, "theme sync stays disabled") && ok;
+
+    std::filesystem::remove_all(root);
+  }
+
+  ok = expect(
+           wallpaper::themeSyncConnectorsForGlobalBinding(std::nullopt, std::vector<std::string>{"DP-1", "DP-2"})
+               == std::vector<std::string>{"DP-1", "DP-2"},
+           "global bind mirrors all output connectors"
+       )
+      && ok;
+  ok = expect(
+           wallpaper::themeSyncConnectorsForGlobalBinding("DP-1", std::vector<std::string>{"DP-1", "DP-2"}).empty(),
+           "single-monitor bind does not mirror other outputs"
+       )
+      && ok;
+  ok = expect(
+           wallpaper::themeSyncModeForResolvedAppearance(true) == ThemeMode::Light,
+           "resolved light maps to light binding"
+       )
+      && ok;
+  ok = expect(
+           wallpaper::shouldSeedThemeSyncBinding(WallpaperThemeSyncConfig{.enabled = true}, false),
+           "seed allowed when dark binding is empty"
+       )
+      && ok;
+  ok = expect(
+           !wallpaper::shouldSeedThemeSyncBinding(
+               WallpaperThemeSyncConfig{.enabled = true, .pathDark = "/wallpapers/night.jpg"}, false
+           ),
+           "seed skipped when dark binding already exists"
+       )
+      && ok;
+  ok = expect(
+           !wallpaper::shouldSeedThemeSyncBinding(WallpaperThemeSyncConfig{.enabled = false}, false),
+           "seed skipped when theme sync disabled"
+       )
+      && ok;
+
+  {
+    const std::filesystem::path root =
+        std::filesystem::temp_directory_path() / ("noctalia-theme-sync-manual-" + std::to_string(::getpid()));
+    std::filesystem::remove_all(root);
+    std::filesystem::create_directories(root / "config" / "noctalia");
+    std::filesystem::create_directories(root / "state" / "noctalia");
+    ::setenv("NOCTALIA_CONFIG_HOME", (root / "config").c_str(), 1);
+    ::setenv("XDG_STATE_HOME", (root / "state").c_str(), 1);
+
+    ConfigService config;
+    constexpr std::string_view kPath = "/wallpapers/manual-dark.jpg";
+    ok = expect(
+             config.setOverride(std::vector<std::string>{"wallpaper", "theme_sync", "enabled"}, true),
+             "enable theme sync for manual-pick test"
+         )
+        && ok;
+
+    const std::vector<std::string> outputs{"DP-1", "DP-2"};
+    wallpaper::bindThemeSyncForManualPick(config, std::nullopt, false, kPath, outputs);
+    ok = expect(config.config().wallpaper.themeSync.pathDark == kPath, "manual global pick updates global dark binding")
+        && ok;
+    ok = expect(config.config().wallpaper.themeSync.monitorOverrides.size() == 2, "manual global pick mirrors monitors")
+        && ok;
+
+    wallpaper::bindThemeSyncForManualPick(config, std::string{"DP-1"}, true, "/wallpapers/manual-light.jpg", outputs);
+    ok = expect(
+             config.config().wallpaper.themeSync.pathLight == "/wallpapers/manual-light.jpg",
+             "manual single-monitor pick updates global light binding"
+         )
+        && ok;
+    const WallpaperThemeSyncMonitorOverride* dp1 = nullptr;
+    for (const auto& ovr : config.config().wallpaper.themeSync.monitorOverrides) {
+      if (ovr.match == "DP-1") {
+        dp1 = &ovr;
+        break;
+      }
+    }
+    ok = expect(dp1 != nullptr && dp1->pathLight == "/wallpapers/manual-light.jpg",
+                "manual single-monitor pick updates only that monitor light binding")
+        && ok;
+
+    std::filesystem::remove_all(root);
+  }
+
+  {
+    const std::filesystem::path root =
+        std::filesystem::temp_directory_path() / ("noctalia-theme-sync-seed-" + std::to_string(::getpid()));
+    std::filesystem::remove_all(root);
+    std::filesystem::create_directories(root / "config" / "noctalia");
+    std::filesystem::create_directories(root / "state" / "noctalia");
+    ::setenv("NOCTALIA_CONFIG_HOME", (root / "config").c_str(), 1);
+    ::setenv("XDG_STATE_HOME", (root / "state").c_str(), 1);
+
+    ConfigService config;
+    ok = expect(
+             config.setOverride(std::vector<std::string>{"wallpaper", "theme_sync", "enabled"}, true),
+             "enable theme sync for seed test"
+         )
+        && ok;
+
+    constexpr std::string_view kSeedPath = "/wallpapers/current.jpg";
+    const std::vector<std::string> seedOutputs{"DP-1"};
+    wallpaper::seedThemeSyncBindingIfNeeded(config, false, kSeedPath, seedOutputs);
+    ok = expect(config.config().wallpaper.themeSync.pathDark == kSeedPath, "seed writes dark binding from current wallpaper")
+        && ok;
+
+    wallpaper::seedThemeSyncBindingIfNeeded(config, false, "/wallpapers/other.jpg", seedOutputs);
+    ok = expect(
+             config.config().wallpaper.themeSync.pathDark == kSeedPath,
+             "seed does not overwrite existing dark binding"
          )
         && ok;
 
