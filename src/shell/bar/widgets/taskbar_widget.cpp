@@ -11,6 +11,7 @@
 #include "render/scene/input_area.h"
 #include "shell/dock/pinned_apps.h"
 #include "shell/panel/panel_manager.h"
+#include "shell/tooltip/tooltip_manager.h"
 #include "system/app_identity.h"
 #include "system/desktop_entry.h"
 #include "system/desktop_entry_launch.h"
@@ -42,6 +43,8 @@
 namespace {
 
   constexpr auto kDragHoldDelay = std::chrono::milliseconds(300);
+  // Lifts the dragged tile above the rest of the strip while it follows the pointer.
+  constexpr std::int32_t kDragTileZIndex = 200;
 
   // Integer centering; optional odd spare pixel on the end side (right/bottom).
   [[nodiscard]] float centeredOffset(float extent, float content, float inset = 0.0F, bool oddSpareOnEnd = true) {
@@ -258,7 +261,7 @@ void TaskbarWidget::syncWorkspaceGroupingCapability() {
   }
 }
 
-TaskbarWidget::~TaskbarWidget() = default;
+TaskbarWidget::~TaskbarWidget() { m_aliveGuard.reset(); }
 
 bool TaskbarWidget::taskInWorkspaceGroup(const TaskModel& task, const WorkspaceModel& ws) {
   if (task.workspaceKey.empty()) {
@@ -376,21 +379,40 @@ bool TaskbarWidget::commitDragReorder() {
   return true;
 }
 
-void TaskbarWidget::beginDragVisual() {
+void TaskbarWidget::requestDragLayout() {
+  if (Node* container = root(); container != nullptr) {
+    container->markLayoutDirty();
+  }
+  // Only requestUpdate() marks the surface as needing a layout pass; requestRedraw() would paint
+  // the scene again without ever running doLayout(), leaving the drag visuals stale.
+  requestUpdate();
+}
+
+void TaskbarWidget::beginDrag() {
   if (m_drag.area == nullptr) {
     return;
   }
+  m_drag.active = true;
   // Capture the resting position before leaving the flow — afterwards Flex closes the gap and the
   // neighbours move, but this node keeps whatever position we give it.
   m_drag.restMain = m_vertical ? m_drag.area->y() : m_drag.area->x();
   m_drag.restCross = m_vertical ? m_drag.area->x() : m_drag.area->y();
   m_drag.pinnedCount = pinnedConfigIds().size();
-  if (Node* container = root(); container != nullptr) {
-    container->markLayoutDirty();
+  // The press that started this gesture has already shown the tile's tooltip; it would hang over
+  // the strip for the whole drag.
+  TooltipManager::instance().onHoverChange(nullptr, static_cast<zwlr_layer_surface_v1*>(nullptr), nullptr);
+  requestDragLayout();
+}
+
+void TaskbarWidget::updateDragTarget() {
+  const std::size_t targetIndex = computeDragTargetIndex();
+  if (targetIndex != m_drag.targetIndex) {
+    m_drag.targetIndex = targetIndex;
+    requestDragLayout();
   }
 }
 
-void TaskbarWidget::updateDragVisual() {
+void TaskbarWidget::moveDragTile() {
   if (m_drag.area == nullptr || !m_drag.active) {
     return;
   }
@@ -410,25 +432,90 @@ void TaskbarWidget::updateDragVisual() {
   requestRedraw();
 }
 
-void TaskbarWidget::endDragVisual() {
-  if (m_drag.area == nullptr) {
+void TaskbarWidget::endDrag(bool commit) {
+  m_drag.holdTimer.stop();
+  const bool wasActive = m_drag.active;
+  if (wasActive || m_drag.armed) {
+    // A consumed gesture must not also activate or launch the app on release.
+    m_suppressTileClick = true;
+  }
+  const bool reordered = wasActive && commit && commitDragReorder();
+  if (reordered && m_drag.area != nullptr && m_dragSpacer != nullptr) {
+    // Park the tile in the gap so the strip looks settled while the deferred write lands.
+    m_drag.area->setPosition(m_dragSpacer->x(), m_dragSpacer->y());
+  }
+  // m_dragFloatTile and m_dragSpacer deliberately survive this reset: applyDragLayout() restores
+  // the tile and drops the spacer on the next layout pass, whichever path ended the gesture.
+  m_drag = {};
+  if (!wasActive) {
     return;
   }
-  // doLayout() restores the tile and removes the spacer together.
-  requestRedraw();
+  if (!reordered) {
+    requestDragLayout();
+    return;
+  }
+  // Restoring now would put the tile back in the pre-write order for a frame, so it visibly jumps
+  // to an edge before the reordered strip appears. Deferred calls run FIFO, so this lands after
+  // the write — which normally destroys this widget outright, because a `widget.*` config change
+  // reloads the bar. It therefore only runs when the write failed or changed nothing.
+  m_dragParked = true;
+  DeferredCall::callLater([this, alive = std::weak_ptr<void>(m_aliveGuard)]() {
+    if (alive.expired()) {
+      return;
+    }
+    m_dragParked = false;
+    requestDragLayout();
+  });
 }
 
-void TaskbarWidget::syncDragSpacer() {
-  // Just compute and store target index; doLayout() creates/positions the spacer.
-  if (m_taskStrip == nullptr || m_drag.area == nullptr) {
+void TaskbarWidget::applyDragLayout() {
+  if (m_taskStrip == nullptr) {
     return;
   }
-  const std::size_t targetIndex = computeDragTargetIndex();
-  if (targetIndex != m_drag.targetIndex) {
-    m_drag.targetIndex = targetIndex;
-    if (Node* container = root(); container != nullptr) {
-      container->markLayoutDirty();
+  if (m_dragParked) {
+    // A committed drop is holding its tile in the target gap until the write lands.
+    return;
+  }
+  InputArea* const floatTile = (m_drag.active && m_drag.area != nullptr) ? m_drag.area : nullptr;
+  if (m_dragFloatTile != nullptr && m_dragFloatTile != floatTile) {
+    m_dragFloatTile->setZIndex(0);
+    m_dragFloatTile->setParticipatesInLayout(true);
+    m_dragFloatTile = nullptr;
+  }
+  if (floatTile == nullptr) {
+    if (m_dragSpacer != nullptr) {
+      m_taskStrip->removeChild(m_dragSpacer);
+      m_dragSpacer = nullptr;
     }
+    return;
+  }
+
+  m_dragFloatTile = floatTile;
+  floatTile->setParticipatesInLayout(false);
+  floatTile->setZIndex(kDragTileZIndex);
+  // The dragged tile is still a child at sourceIndex, just outside the flow, so a target past the
+  // source needs the gap one slot further along.
+  const std::size_t insertAt = m_drag.targetIndex > m_drag.sourceIndex ? m_drag.targetIndex + 1 : m_drag.targetIndex;
+  if (m_dragSpacer == nullptr) {
+    // The fill is not redundant: a Box copies RectNode's default style, whose fill is opaque black,
+    // and only resolves a ColorSpec once one is set. Setting it also resolves the zero-width border.
+    m_taskStrip->insertChildAt(
+        insertAt,
+        ui::box({
+            .out = &m_dragSpacer,
+            .fill = clearColorSpec(),
+            .width = floatTile->width(),
+            .height = floatTile->height(),
+            .configure = [](Box& box) { box.setHitTestVisible(false); },
+        })
+    );
+    return;
+  }
+  // Re-seating the spacer dirties the strip, so only move it when the slot actually changed.
+  const auto& children = m_taskStrip->children();
+  const auto it = std::ranges::find_if(children, [this](const auto& child) { return child.get() == m_dragSpacer; });
+  if (it != children.end() && static_cast<std::size_t>(std::distance(children.begin(), it)) != insertAt) {
+    m_taskStrip->insertChildAt(insertAt, m_taskStrip->removeChild(m_dragSpacer));
   }
 }
 
@@ -684,37 +771,7 @@ void TaskbarWidget::doLayout(Renderer& renderer, float containerWidth, float con
     m_rebuildPending = false;
   }
 
-  // Manage spacer lifecycle during drag-to-reorder.
-  if (m_drag.active && m_taskStrip != nullptr && m_drag.area != nullptr) {
-    m_drag.area->setParticipatesInLayout(false);
-    m_drag.area->setZIndex(200);
-    // Create or reposition spacer to hold the drop gap.
-    const std::size_t insertAt = m_drag.targetIndex > m_drag.sourceIndex ? m_drag.targetIndex + 1 : m_drag.targetIndex;
-    if (m_drag.spacer == nullptr) {
-      auto spacer = ui::box({
-          .fill = clearColorSpec(),
-          .border = clearColorSpec(),
-          .borderWidth = 0.0F,
-          .width = m_drag.area->width(),
-          .height = m_drag.area->height(),
-          .configure = [](Box& box) { box.setHitTestVisible(false); },
-      });
-      m_drag.spacer = static_cast<Box*>(m_taskStrip->insertChildAt(insertAt, std::move(spacer)));
-    } else {
-      // Spacer exists; reposition if targetIndex changed.
-      auto held = m_taskStrip->removeChild(m_drag.spacer);
-      m_taskStrip->insertChildAt(insertAt, std::move(held));
-    }
-  } else if (m_drag.spacer != nullptr && m_taskStrip != nullptr) {
-    // Drag ended or was aborted; clean up spacer.
-    m_taskStrip->removeChild(m_drag.spacer);
-    m_drag.spacer = nullptr;
-  }
-  if (!m_drag.active && m_drag.area != nullptr) {
-    m_drag.area->setZIndex(0);
-    m_drag.area->setParticipatesInLayout(true);
-    m_drag.area = nullptr;
-  }
+  applyDragLayout();
   m_root->layout(renderer);
   if (Node* container = root(); container != nullptr && container != m_root) {
     container->setFrameSize(m_root->width(), m_root->height());
@@ -742,7 +799,12 @@ void TaskbarWidget::rebuild(Renderer& renderer) {
   m_activeUsesFocusedColor = !m_focusedOutputOnly || isFocusedOutput();
   m_taskTiles.clear();
   m_taskTiles.reserve(m_tasks.size());
+  // The strip's children are about to be destroyed; drop the gesture and its visuals so nothing
+  // outlives the nodes they point at.
   m_drag = {};
+  m_dragFloatTile = nullptr;
+  m_dragSpacer = nullptr;
+  m_dragParked = false;
   clearChildren(m_taskStrip);
   buildTaskButtons(renderer);
 }
@@ -894,113 +956,76 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
     auto* dragArea = area.get();
     const bool tileDraggable = taskRef.index < draggableTileCount;
     area->setOnPress([this, dragArea, taskRef, tileDraggable](const InputArea::PointerData& data) {
-      if (data.pressed) {
-        // Any new press supersedes suppression left over from a drag that ended outside its tile.
-        m_suppressTileClick = false;
+      // m_drag.area is set on press and cleared when the gesture ends, so pointer identity alone
+      // says whether this tile owns the live gesture.
+      const bool ownsGesture = m_drag.area == dragArea;
+      if (!data.pressed) {
+        if (data.button != BTN_LEFT || !ownsGesture) {
+          return;
+        }
+        // Only commit against the pin list the drag was measured on.
+        endDrag(m_drag.generation == m_taskGeneration);
+        return;
       }
       if (data.button != BTN_LEFT) {
-        return;
-      }
-      if (data.pressed) {
-        if (!tileDraggable) {
-          return;
+        // A second button during a live gesture must not clear its click suppression, otherwise the
+        // release opens a context menu on top of the drag.
+        if (!m_drag.active && !m_drag.armed) {
+          m_suppressTileClick = false;
         }
-        m_drag = {};
-        m_drag.generation = m_taskGeneration;
-        m_drag.sourceIndex = taskRef.index;
-        m_drag.targetIndex = taskRef.index;
-        m_drag.startMain = pointerMainOnStrip(*dragArea, data.localX, data.localY);
-        m_drag.currentMain = m_drag.startMain;
-        m_drag.area = dragArea;
-        m_drag.holdTimer.start(kDragHoldDelay, [this, taskRef]() {
-          if (m_drag.sourceIndex == taskRef.index && !m_drag.active) {
-            m_drag.armed = true;
-          }
-        });
         return;
       }
-      if (!tileDraggable || m_drag.sourceIndex != taskRef.index) {
+      // A left press always starts fresh: abandon a tile still held from a lost release or grab,
+      // then drop suppression left over from a gesture that ended outside its tile.
+      endDrag(false);
+      m_suppressTileClick = false;
+      if (!tileDraggable) {
         return;
       }
-      if (m_drag.generation != m_taskGeneration) {
-        m_drag = {};
-        return;
-      }
-      m_drag.holdTimer.stop();
-      if (m_drag.active) {
-        m_suppressTileClick = true;
-        if (commitDragReorder()) {
-          if (m_drag.area != nullptr && m_drag.spacer != nullptr) {
-            m_drag.area->setPosition(m_drag.spacer->x(), m_drag.spacer->y());
-          }
-          DeferredCall::callLater([this]() {
-            if (!m_drag.active) {
-              return;
-            }
-            m_drag.active = false;
-            endDragVisual();
-            if (Node* container = root(); container != nullptr) {
-              container->markLayoutDirty();
-            }
-          });
-        } else {
-          m_drag.active = false;
-          endDragVisual();
-          if (Node* container = root(); container != nullptr) {
-            container->markLayoutDirty();
-          }
+      m_drag.generation = m_taskGeneration;
+      m_drag.sourceIndex = taskRef.index;
+      m_drag.targetIndex = taskRef.index;
+      m_drag.startMain = pointerMainOnStrip(*dragArea, data.localX, data.localY);
+      m_drag.currentMain = m_drag.startMain;
+      m_drag.area = dragArea;
+      m_drag.holdTimer.start(kDragHoldDelay, [this, dragArea]() {
+        if (m_drag.area == dragArea && !m_drag.active) {
+          m_drag.armed = true;
         }
-      } else if (m_drag.armed) {
-        m_suppressTileClick = true;
-        // Armed but not active means the user pressed and held long enough to arm, but never moved far enough to start
-        // a drag. Treat it as a click that was suppressed.
-        m_drag = {};
-      } else {
-        m_drag = {};
-      }
+      });
     });
     if (tileDraggable) {
-      area->setOnMotion([this, dragArea, taskRef](const InputArea::PointerData& data) {
-        if (m_drag.generation != m_taskGeneration) {
-          m_drag = {};
+      area->setOnMotion([this, dragArea](const InputArea::PointerData& data) {
+        // Without the ownership check a plain hover would satisfy the distance check below and
+        // start a drag on a tile nobody is holding.
+        if (m_drag.area != dragArea) {
           return;
         }
-        // area is set on press and cleared on release, so it doubles as "this tile is held".
-        // Without it a plain hover would satisfy the distance check below and start a drag.
-        if (m_drag.area == nullptr || m_drag.sourceIndex != taskRef.index) {
+        if (m_drag.generation != m_taskGeneration) {
+          endDrag(false);
           return;
         }
         const float main = pointerMainOnStrip(*dragArea, data.localX, data.localY);
-        if (!m_drag.armed
-            && !m_drag.active
-            && std::abs(main - m_drag.startMain) >= Style::dragStartThreshold * m_contentScale) {
+        if (!m_drag.active) {
+          const bool travelled = std::abs(main - m_drag.startMain) >= Style::dragStartThreshold * m_contentScale;
+          if (!m_drag.armed && !travelled) {
+            return;
+          }
           m_drag.holdTimer.stop();
           m_drag.armed = true;
-        }
-        if (!m_drag.armed && !m_drag.active) {
-          return;
-        }
-        if (!m_drag.active) {
-          m_drag.active = true;
-          beginDragVisual();
+          beginDrag();
         }
         m_drag.currentMain = main;
-        syncDragSpacer();
-        updateDragVisual();
+        updateDragTarget();
+        moveDragTile();
       });
-      area->setOnCancel([this, taskRef]() {
-        if (m_drag.generation != m_taskGeneration) {
-          // The strip was rebuilt under us, so m_drag.area no longer points at a live node.
-          m_drag = {};
+      area->setOnCancel([this, dragArea]() {
+        if (m_drag.area != dragArea) {
           return;
         }
-        if (m_drag.sourceIndex == taskRef.index) {
-          m_drag.active = false;
-          endDragVisual();
-          if (Node* container = root(); container != nullptr) {
-            container->markLayoutDirty();
-          }
-        }
+        // Pointer capture is gone (leave or compositor grab), so no release will arrive: tear the
+        // whole gesture down, hold timer included.
+        endDrag(false);
       });
     }
 
@@ -1022,12 +1047,17 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
       auto* areaPtr = area.get();
       area->setOnClick([this, taskRef, areaPtr, cycleCandidates = std::move(cycleCandidates),
                         cycleKey = std::move(cycleKey)](const InputArea::PointerData& data) {
-        const TaskModel* current = resolveTask(m_tasks, taskRef, m_taskGeneration);
-        if (current == nullptr) {
+        if (m_drag.active || m_drag.armed) {
+          // A click arriving mid-gesture is a second button pressed during a drag: it must neither
+          // activate the app nor open a context menu over the moving tile.
           return;
         }
         if (m_suppressTileClick) {
           m_suppressTileClick = false;
+          return;
+        }
+        const TaskModel* current = resolveTask(m_tasks, taskRef, m_taskGeneration);
+        if (current == nullptr) {
           return;
         }
 
