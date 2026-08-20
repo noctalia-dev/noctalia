@@ -603,7 +603,7 @@ void CalendarService::fetchIcs(const CalendarConfig::Account& account) {
     auto result = calendar::parseICalEvents(resp.body, now - kWindowBefore, now + kWindowAfter, control);
     for (auto& event : result.events) {
       event.calendarName = displayName;
-      if (!colorHex.empty()) {
+      if (event.colorHex.empty() && !colorHex.empty()) {
         event.colorHex = colorHex;
       }
     }

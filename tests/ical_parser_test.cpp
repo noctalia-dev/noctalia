@@ -724,5 +724,27 @@ int main() {
         && ok;
   }
 
+  {
+    const std::string icsRfcColor = wrap("COLOR:#336699\r\n");
+    const ICalParseResult res1 = parseEvents(icsRfcColor, start, end);
+    ok = expect(res1.status == ICalParseStatus::Complete, "RFC COLOR parse failed") && ok;
+    ok = expect(!res1.events.empty() && res1.events[0].colorHex == "#336699", "RFC COLOR not extracted") && ok;
+
+    const std::string icsCssColor = wrap("COLOR:blue\r\n");
+    const ICalParseResult res2 = parseEvents(icsCssColor, start, end);
+    ok = expect(res2.status == ICalParseStatus::Complete, "CSS COLOR parse failed") && ok;
+    ok = expect(!res2.events.empty() && res2.events[0].colorHex == "#0000FF", "CSS COLOR not converted to hex") && ok;
+
+    const std::string icsAppleColor = wrap("X-APPLE-CALENDAR-COLOR:#FF5500\r\n");
+    const ICalParseResult res3 = parseEvents(icsAppleColor, start, end);
+    ok = expect(res3.status == ICalParseStatus::Complete, "Apple color parse failed") && ok;
+    ok = expect(!res3.events.empty() && res3.events[0].colorHex == "#FF5500", "Apple color not extracted") && ok;
+
+    const std::string icsNoColor = wrap("");
+    const ICalParseResult res4 = parseEvents(icsNoColor, start, end);
+    ok = expect(res4.status == ICalParseStatus::Complete, "No-color parse failed") && ok;
+    ok = expect(!res4.events.empty() && res4.events[0].colorHex.empty(), "No-color event has non-empty colorHex") && ok;
+  }
+
   return ok ? 0 : 1;
 }

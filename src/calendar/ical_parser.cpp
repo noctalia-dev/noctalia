@@ -2,6 +2,7 @@
 
 #include "calendar/event_link.h"
 #include "core/log.h"
+#include "render/core/color.h"
 
 #include <algorithm>
 #include <chrono>
@@ -191,6 +192,47 @@ namespace calendar {
       return std::ranges::contains(exclusions, occurrence);
     }
 
+    std::string extractComponentColor(icalcomponent* component) {
+      if (component == nullptr) {
+        return {};
+      }
+
+      auto parseColor = [](const char* val) -> std::string {
+        if (val == nullptr || *val == '\0') {
+          return {};
+        }
+        Color c;
+        if (tryParseCssColor(val, c)) {
+          return formatRgbHex(c);
+        }
+        return {};
+      };
+
+      // 1. RFC 7986 COLOR property
+      if (icalproperty* prop = icalcomponent_get_first_property(component, ICAL_COLOR_PROPERTY); prop != nullptr) {
+        if (auto hex = parseColor(icalproperty_get_color(prop)); !hex.empty()) {
+          return hex;
+        }
+      }
+
+      // 2. Vendor properties: X-APPLE-CALENDAR-COLOR, X-COLOR, X-OUTLOOK-COLOR
+      for (icalproperty* prop = icalcomponent_get_first_property(component, ICAL_X_PROPERTY); prop != nullptr;
+           prop = icalcomponent_get_next_property(component, ICAL_X_PROPERTY)) {
+        const char* xname = icalproperty_get_x_name(prop);
+        if (xname == nullptr) {
+          continue;
+        }
+        std::string_view name(xname);
+        if (name == "X-APPLE-CALENDAR-COLOR" || name == "X-COLOR" || name == "X-OUTLOOK-COLOR") {
+          if (auto hex = parseColor(icalproperty_get_x(prop)); !hex.empty()) {
+            return hex;
+          }
+        }
+      }
+
+      return {};
+    }
+
     CalendarEvent baseEventFromComponent(icalcomponent* component) {
       CalendarEvent event;
       if (const char* uid = icalcomponent_get_uid(component); uid != nullptr) {
@@ -215,6 +257,7 @@ namespace calendar {
       event.start = timePointFromICal(start);
       event.end = timePointFromICal(end);
       event.allDay = icaltime_is_date(start) != 0;
+      event.colorHex = extractComponentColor(component);
       return event;
     }
 
