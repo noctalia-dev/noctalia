@@ -778,12 +778,15 @@ void Button::doLayout(Renderer& renderer) {
       const float contentHeight = contentBottom - contentTop;
       float targetLeft = 0.0F;
       if (m_contentAlign == ButtonContentAlign::Center) {
-        targetLeft = std::round((width() - contentWidth) * 0.5F);
+        // Keep the exact centered position, including half logical pixels. The
+        // text and glyph renderers perform buffer-scale-aware pixel snapping;
+        // rounding here biases odd residual space toward the right and bottom.
+        targetLeft = (width() - contentWidth) * 0.5F;
       } else { // End
         targetLeft = std::round(Style::rtl() ? paddingLeft() : width() - contentWidth - paddingRight());
       }
       const float shiftX = targetLeft - contentLeft;
-      const float targetTop = std::round((height() - contentHeight) * 0.5F);
+      const float targetTop = (height() - contentHeight) * 0.5F;
       const float shiftY = targetTop - contentTop;
       if (std::abs(shiftX) > 0.01F || std::abs(shiftY) > 0.01F) {
         for (auto& child : children()) {
