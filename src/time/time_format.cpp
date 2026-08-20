@@ -209,8 +209,8 @@ std::string formatLocalTime(const char* fmt) {
     return *compat;
   }
 
+  const auto local = local_seconds{seconds{raw + localTm.tm_gmtoff}};
   try {
-    const auto local = current_zone()->to_local(now);
     return std::vformat(std::locale(""), normalizedFmt, std::make_format_args(local));
   } catch (...) {
     return normalizedFmt;
@@ -306,8 +306,8 @@ std::string formatLocalUnixTime(std::int64_t unixSeconds, std::string_view fmt) 
     return *compat;
   }
 
+  const auto local = local_seconds{seconds{raw + localTm.tm_gmtoff}};
   try {
-    const auto local = current_zone()->to_local(tp);
     return std::vformat(std::locale(""), normalizedFmt, std::make_format_args(local));
   } catch (...) {
     return normalizedFmt;
