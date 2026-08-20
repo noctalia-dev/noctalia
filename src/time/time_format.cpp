@@ -83,13 +83,42 @@ namespace {
     return fmt.contains("%-") || (fmt.contains('%') && (!fmt.contains('{') || fmt.contains("{:")));
   }
 
+  // musl's strftime resolves %Z from its own timezone state and ignores tm_zone, so the
+  // abbreviation is interpolated into the spec before strftime ever sees it.
+  std::string substituteTzAbbrev(std::string_view fmt, const char* abbrev) {
+    if (!fmt.contains("%Z") || abbrev == nullptr) {
+      return std::string{fmt};
+    }
+    std::string out;
+    out.reserve(fmt.size());
+    for (std::size_t i = 0; i < fmt.size();) {
+      if (fmt[i] != '%' || i + 1 >= fmt.size()) {
+        out.push_back(fmt[i++]);
+      } else if (fmt[i + 1] == '%') {
+        out.append("%%");
+        i += 2;
+      } else if (fmt[i + 1] == 'Z') {
+        // The abbreviation becomes part of a strftime spec, so its own '%' must stay literal.
+        for (const char* c = abbrev; *c != '\0'; ++c) {
+          if (*c == '%') {
+            out.push_back('%');
+          }
+          out.push_back(*c);
+        }
+        i += 2;
+      } else {
+        out.push_back(fmt[i++]);
+      }
+    }
+    return out;
+  }
+
   std::string formatStrftimeRaw(std::string_view fmt, const std::tm& tm) {
-    std::string spec(fmt);
+    const std::string spec = substituteTzAbbrev(fmt, tm.tm_zone);
     std::size_t size = std::max<std::size_t>(64, spec.size() * 4 + 16);
     for (int attempt = 0; attempt < 6; ++attempt) {
       std::string buffer(size, '\0');
-      std::tm copy = tm;
-      const std::size_t written = std::strftime(buffer.data(), buffer.size(), spec.c_str(), &copy);
+      const std::size_t written = std::strftime(buffer.data(), buffer.size(), spec.c_str(), &tm);
       if (written > 0 || spec.empty()) {
         buffer.resize(written);
         return buffer;
@@ -266,10 +295,8 @@ std::string formatTimezoneUnixTime(std::int64_t unixSeconds, std::string_view fm
   tm.tm_wday = weekday(localDays).c_encoding();
   tm.tm_yday = static_cast<int>((localDays - local_days{ymd.year() / January / 1}).count());
   tm.tm_isdst = zoneInfo.save != minutes::zero();
-#if defined(__linux__) || defined(__APPLE__) || defined(__FreeBSD__) || defined(__NetBSD__) || defined(__OpenBSD__)
   tm.tm_gmtoff = static_cast<long>(zoneInfo.offset.count());
   tm.tm_zone = zoneInfo.abbrev.c_str();
-#endif
 
   if (auto compat = formatStrftimeCompat(normalizedFmt, tm, unixSeconds)) {
     return *compat;
