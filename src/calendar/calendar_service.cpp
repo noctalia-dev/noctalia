@@ -6,6 +6,7 @@
 #include "calendar/calendar_discovery_state.h"
 #include "calendar/event_link.h"
 #include "calendar/ical_parser.h"
+#include "calendar/vdir_reader.h"
 #include "config/config_service.h"
 #include "core/log.h"
 #include "i18n/i18n.h"
@@ -109,6 +110,7 @@ void CalendarService::initialize() {
   m_initialized = true;
   syncCachePersistence();
   initializeCredentials();
+  updateVdirWatches();
 }
 
 void CalendarService::syncCachePersistence() {
@@ -290,6 +292,7 @@ void CalendarService::onConfigReload() {
     return;
   }
   m_activeConfig = next;
+  updateVdirWatches();
   std::unordered_set<std::string> activeAccountIds;
   activeAccountIds.reserve(m_activeConfig.accounts.size());
   for (const CalendarConfig::Account& account : m_activeConfig.accounts) {
@@ -325,6 +328,9 @@ int CalendarService::pollTimeoutMs() const {
     timeout = timeout < 0 ? clamped : std::min(timeout, clamped);
   };
 
+  if (m_vdirDebouncePending) {
+    consider(m_vdirDebounceUntil);
+  }
   if (m_connect.state == ConnectState::Pending && !m_connect.inFlight) {
     consider(m_connect.nextPollAt);
   }
@@ -336,6 +342,11 @@ int CalendarService::pollTimeoutMs() const {
 
 void CalendarService::tick() {
   const auto now = std::chrono::steady_clock::now();
+
+  if (m_vdirDebouncePending && now >= m_vdirDebounceUntil) {
+    m_vdirDebouncePending = false;
+    requestRefresh();
+  }
 
   if (m_connect.state == ConnectState::Pending && !m_connect.inFlight && now >= m_connect.nextPollAt) {
     if (now >= m_connect.deadline) {
@@ -351,6 +362,25 @@ void CalendarService::tick() {
   if (m_credentialsInitialized && m_activeConfig.enabled && !m_refreshing && now >= m_nextRefreshAt) {
     startRefresh();
   }
+}
+
+void CalendarService::addPollFds(std::vector<pollfd>& fds) {
+  if (m_vdirInotify.fd() >= 0) {
+    fds.push_back({.fd = m_vdirInotify.fd(), .events = POLLIN, .revents = 0});
+  }
+}
+
+void CalendarService::dispatchPoll(const std::vector<pollfd>& fds, std::size_t startIdx) {
+  if (m_vdirInotify.fd() >= 0 && startIdx < fds.size() && (fds[startIdx].revents & POLLIN) != 0) {
+    bool changed = false;
+    m_vdirInotify.drain([&](const inotify_event* /*event*/) { changed = true; });
+    if (changed) {
+      m_vdirDebouncePending = true;
+      m_vdirDebounceUntil = std::chrono::steady_clock::now() + std::chrono::milliseconds{300};
+      notifyChanged();
+    }
+  }
+  tick();
 }
 
 void CalendarService::scheduleNextRefresh() {
@@ -380,6 +410,8 @@ void CalendarService::startRefresh() {
       fetchGoogle(account);
     } else if (account.type == "ics") {
       fetchIcs(account);
+    } else if (account.type == "vdir" || account.type == "local") {
+      fetchVdir(account);
     } else {
       kLog.warn("unknown calendar account type '{}' for id {}", account.type, account.id);
       accountDone(account.id, false, {});
@@ -624,6 +656,97 @@ void CalendarService::fetchIcs(const CalendarConfig::Account& account) {
     }
     accountDone(accountId, false, {});
   });
+}
+
+void CalendarService::updateVdirWatches() {
+  if (!m_activeConfig.enabled) {
+    return;
+  }
+
+  std::set<std::filesystem::path> targetPaths;
+  for (const CalendarConfig::Account& account : m_activeConfig.accounts) {
+    if (account.type != "vdir" && account.type != "local") {
+      continue;
+    }
+    const std::filesystem::path rootPath =
+        account.path.empty() ? calendar::defaultVdirPath() : std::filesystem::path(account.path);
+    std::error_code ec;
+    if (!std::filesystem::exists(rootPath, ec) || !std::filesystem::is_directory(rootPath, ec)) {
+      continue;
+    }
+
+    targetPaths.insert(rootPath);
+    auto collections = calendar::discoverVdirCollections(rootPath);
+    for (const auto& col : collections) {
+      targetPaths.insert(col.path);
+    }
+  }
+
+  constexpr std::uint32_t mask = IN_CREATE | IN_DELETE | IN_MODIFY | IN_MOVED_TO | IN_MOVED_FROM | IN_CLOSE_WRITE;
+  for (const auto& path : targetPaths) {
+    if (!m_watchedVdirPaths.contains(path)) {
+      if (m_vdirInotify.watch(path, mask).has_value()) {
+        m_watchedVdirPaths.insert(path);
+      }
+    }
+  }
+}
+
+void CalendarService::fetchVdir(const CalendarConfig::Account& account) {
+  const std::filesystem::path rootPath =
+      account.path.empty() ? calendar::defaultVdirPath() : std::filesystem::path(account.path);
+  std::error_code ec;
+  if (!std::filesystem::exists(rootPath, ec) || !std::filesystem::is_directory(rootPath, ec)) {
+    kLog.warn("vdir account {} path does not exist or is not a directory: {}", account.id, rootPath.string());
+    accountDone(account.id, false, {});
+    return;
+  }
+
+  auto collections = calendar::discoverVdirCollections(rootPath);
+  if (collections.empty()) {
+    kLog.warn("vdir account {} found no calendar collections in {}", account.id, rootPath.string());
+    accountDone(account.id, false, {});
+    return;
+  }
+
+  updateVdirWatches();
+
+  std::vector<CalendarSource> sources;
+  sources.reserve(collections.size());
+  for (const auto& col : collections) {
+    sources.push_back({
+        .id = col.id,
+        .name = col.name,
+    });
+  }
+  (void)m_configService.setStateString(
+      kCalendarDiscoveryOwner, account.id + "_calendars", calendar::serializeCalendarSources(sources)
+  );
+
+  const std::vector<std::string> selectedIds = calendar::selectedCalendarSourceIds(sources, account.calendars);
+  std::erase_if(collections, [&](const calendar::VdirCollection& col) {
+    return !std::ranges::contains(selectedIds, col.id);
+  });
+
+  const auto now = std::chrono::system_clock::now();
+  const auto windowStart = now - kWindowBefore;
+  const auto windowEnd = now + kWindowAfter;
+
+  std::vector<CalendarEvent> allEvents;
+  calendar::ICalParseControl control{};
+
+  for (auto& col : collections) {
+    if (!account.displayName.empty() && collections.size() == 1) {
+      col.name = account.displayName;
+    }
+    if (!account.color.empty()) {
+      col.colorHex = account.color;
+    }
+    auto events = calendar::loadVdirCollectionEvents(col, windowStart, windowEnd, control);
+    allEvents.insert(allEvents.end(), std::make_move_iterator(events.begin()), std::make_move_iterator(events.end()));
+  }
+
+  accountDone(account.id, true, std::move(allEvents));
 }
 
 void CalendarService::refreshGoogleToken(const std::string& accountId, std::function<void(bool, std::string)> cb) {

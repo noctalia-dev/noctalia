@@ -1881,7 +1881,11 @@ void SettingsWindow::refreshSettingsRegistry(const Config& cfg) {
     ++it;
 
     for (const CalendarConfig::Account& account : cfg.calendar.accounts) {
-      if (account.type != "google" && account.type != "caldav" && account.type != "ics") {
+      if (account.type != "google"
+          && account.type != "caldav"
+          && account.type != "ics"
+          && account.type != "vdir"
+          && account.type != "local") {
         continue;
       }
       const bool credentialLocked = account.type == "google"
@@ -1919,7 +1923,8 @@ void SettingsWindow::refreshSettingsRegistry(const Config& cfg) {
                                             : "edit",
                   .variant = credentialLocked ? ButtonVariant::Secondary : ButtonVariant::Default,
               },
-          .searchText = "calendar account edit connect authorize caldav icloud google password ics ical subscription "
+          .searchText =
+              "calendar account edit connect authorize caldav icloud google password ics ical subscription vdir local "
               + account.id,
           .visibleWhen = calendarOn,
       };

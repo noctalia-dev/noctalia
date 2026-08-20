@@ -935,9 +935,11 @@
         "custom": "CalDAV",
         "google": "Google",
         "icloud": "iCloud",
-        "ics": "ICS URL"
+        "ics": "ICS URL",
+        "vdir": "Local (vdir)"
       },
       "provider-label": "Provider",
+      "vdir-path-label": "Directory Path",
       "save": "Save",
       "save-connect": "Save and Connect",
       "save-error": "Could not save calendar account.",
