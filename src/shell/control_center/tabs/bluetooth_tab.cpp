@@ -1,6 +1,7 @@
 #include "shell/control_center/tabs/bluetooth_tab.h"
 
 #include "core/ui_phase.h"
+#include "dbus/bluetooth/bluetooth_uuid_names.h"
 #include "i18n/i18n.h"
 #include "render/core/renderer.h"
 #include "shell/panel/panel_manager.h"
@@ -452,6 +453,25 @@ std::unique_ptr<Flex> BluetoothTab::create() {
               },
       }),
       ui::button({
+          .out = &m_pairingAlwaysAllow,
+          .text = i18n::tr("control-center.bluetooth.always-allow"),
+          .variant = ButtonVariant::Default,
+          .onClick =
+              [this]() {
+                if (m_agent == nullptr) {
+                  return;
+                }
+                // Trusting the device is what stops BlueZ from asking again: it
+                // auto-authorizes services for trusted devices without calling the agent.
+                const auto req = m_agent->pendingRequest();
+                if (m_service != nullptr && !req.devicePath.empty()) {
+                  m_service->setTrusted(req.devicePath, true);
+                }
+                m_agent->acceptConfirm();
+                PanelManager::instance().refresh();
+              },
+      }),
+      ui::button({
           .out = &m_pairingReject,
           .text = i18n::tr("control-center.bluetooth.reject"),
           .variant = ButtonVariant::Ghost,
@@ -528,6 +548,7 @@ void BluetoothTab::onClose() {
   m_pairingInput = nullptr;
   m_pairingButtonRow = nullptr;
   m_pairingAccept = nullptr;
+  m_pairingAlwaysAllow = nullptr;
   m_pairingReject = nullptr;
   m_listScroll = nullptr;
   m_list = nullptr;
@@ -604,7 +625,11 @@ void BluetoothTab::syncPairingCard() {
       m_pairingDetail->setText(i18n::tr("control-center.bluetooth.pairing-detail.authorize"));
       break;
     case BluetoothPairingKind::AuthorizeService:
-      m_pairingDetail->setText(i18n::tr("control-center.bluetooth.pairing-detail.authorize-service", "uuid", req.uuid));
+      // The {uuid} placeholder predates the lookup and is kept for the existing locale
+      // catalogs; it now carries the SIG service name, falling back to the raw UUID.
+      m_pairingDetail->setText(
+          i18n::tr("control-center.bluetooth.pairing-detail.authorize-service", "uuid", bluetoothServiceLabel(req.uuid))
+      );
       break;
     case BluetoothPairingKind::DisplayPinCode:
       m_pairingDetail->setText(i18n::tr("control-center.bluetooth.pairing-detail.display-pin"));
@@ -636,6 +661,11 @@ void BluetoothTab::syncPairingCard() {
   }
   if (m_pairingInputRow != nullptr) {
     m_pairingInputRow->setVisible(needsInput);
+  }
+  if (m_pairingAlwaysAllow != nullptr) {
+    // Only service authorization is suppressed by the Trusted flag, so "always allow"
+    // would be a false promise on the other request kinds.
+    m_pairingAlwaysAllow->setVisible(req.kind == BluetoothPairingKind::AuthorizeService);
   }
 }
 
