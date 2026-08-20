@@ -357,7 +357,9 @@ void PluginPanel::handleScriptResult(scripting::ScriptResult result) {
     m_treeDirty = true;
     PanelManager::instance().refreshPanel(m_entryId);
   }
-  if (result.ok && result.contextMenuRequest.has_value()) {
+  if (result.ok
+      && result.contextMenuRequest.has_value()
+      && result.contextMenuRequest->origin == scripting::ScriptContextMenuOrigin::Pointer) {
     openContextMenu(std::move(*result.contextMenuRequest));
   }
 }

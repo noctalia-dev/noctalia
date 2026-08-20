@@ -1,6 +1,7 @@
 #include "config/config_service.h"
 #include "core/deferred_call.h"
 #include "core/toml.h"
+#include "scripting/plugin_ipc.h"
 #include "scripting/plugin_manager.h"
 #include "scripting/plugin_script_watcher.h"
 #include "scripting/plugin_service_host.h"
@@ -747,6 +748,32 @@ int main() {
                    "function onEnable()\n"
                    "  noctalia.state.set('enabled', true)\n"
                    "end\n"
+               )
+               && writeText(
+                   root / "path-plugins/api29/plugin.toml",
+                   "id = \"test/api29\"\n"
+                   "name = \"API 29 service\"\n"
+                   "version = \"1.0.0\"\n"
+                   "plugin_api = 29\n"
+                   "[[service]]\n"
+                   "id = \"service\"\n"
+                   "entry = \"service.luau\"\n"
+               )
+               && writeText(
+                   root / "path-plugins/api29/service.luau",
+                   "noctalia.state.set('loaded', true)\n"
+                   "function onIpc(event)\n"
+                   "  if event == 'open-menu' then\n"
+                   "    assert(service.openContextMenu({\n"
+                   "      items = {{ id = 'new', label = 'New note' }},\n"
+                   "      onActivate = 'onMenuAction',\n"
+                   "      context = 73,\n"
+                   "    }))\n"
+                   "  end\n"
+                   "end\n"
+                   "function onMenuAction(id, context)\n"
+                   "  noctalia.state.set('menu_action', id .. ':' .. tostring(context))\n"
+                   "end\n"
                ),
            "failed to create service API fixtures"
        )
@@ -764,6 +791,14 @@ int main() {
     manager.refresh();
     config.addReloadCallback([&]() { manager.refresh(); });
     scripting::PluginServiceHost host(api, nullptr, nullptr, nullptr);
+    std::optional<scripting::ScriptContextMenuRequest> serviceMenuRequest;
+    scripting::PluginServiceHost::ContextMenuActivate serviceMenuActivate;
+    host.setContextMenuOpenHandler([&](scripting::ScriptContextMenuRequest request,
+                                       scripting::PluginServiceHost::ContextMenuActivate activate) {
+      serviceMenuRequest = std::move(request);
+      serviceMenuActivate = std::move(activate);
+      return true;
+    });
     host.start(config.config().plugins.pluginSettings);
     config.addReloadCallback([&]() {
       if (config.lastChange().plugins) {
@@ -890,6 +925,45 @@ int main() {
              "manager enable did not deliver onEnable to the API 17 service after refresh"
          )
         && ok;
+
+    const auto contextMenuEnable = manager.enable("test/api29");
+    ok = expect(contextMenuEnable.ok, "API 29 enable request failed") && ok;
+    ok = expect(
+             drainUntil([&] {
+               return std::ranges::contains(config.config().plugins.enabled, "test/api29")
+                   && scripting::PluginStateStore::instance().get("test/api29", "loaded").has_value();
+             }),
+             "API 29 service did not load"
+         )
+        && ok;
+    const std::string contextMenuDispatch =
+        scripting::PluginIpcRouter::instance().dispatch("test/api29:service all open-menu");
+    ok = expect(contextMenuDispatch == "ok: dispatched 1\n", "API 29 menu IPC was not dispatched") && ok;
+    ok = expect(
+             drainUntil([&] { return serviceMenuRequest.has_value() && static_cast<bool>(serviceMenuActivate); }),
+             "service context menu request did not reach the UI bridge"
+         )
+        && ok;
+    if (serviceMenuRequest.has_value()) {
+      ok = expect(
+               serviceMenuRequest->origin == scripting::ScriptContextMenuOrigin::Cursor
+                   && serviceMenuRequest->items.size() == 1
+                   && serviceMenuRequest->items.front().id == "new"
+                   && serviceMenuRequest->context == std::optional<scripting::ScriptArg>{73.0},
+               "service context menu bridge changed the request"
+           )
+          && ok;
+    }
+    if (serviceMenuActivate) {
+      serviceMenuActivate("new");
+      ok = expect(
+               drainUntil([&] {
+                 return scripting::PluginStateStore::instance().get("test/api29", "menu_action") == R"("new:73")";
+               }),
+               "service context menu activation did not return to its runtime"
+           )
+          && ok;
+    }
   }
 
   struct WallpaperMaskRequest {

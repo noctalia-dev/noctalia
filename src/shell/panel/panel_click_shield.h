@@ -1,6 +1,6 @@
 #pragma once
 
-#include "wayland/surface.h"
+#include "wayland/layer_surface.h"
 
 #include <cstdint>
 #include <functional>
@@ -16,6 +16,12 @@ struct wl_output;
 struct wl_surface;
 struct wp_viewport;
 struct zwlr_layer_surface_v1;
+
+struct PanelClickShieldSurface {
+  wl_output* output = nullptr;
+  wl_surface* surface = nullptr;
+  zwlr_layer_surface_v1* layerSurface = nullptr;
+};
 
 // Transparent fullscreen layer-shell surfaces (one per output) that catch
 // clicks landing outside the active panel and outside the bars. Used to
@@ -53,7 +59,10 @@ public:
   void initialize(WaylandConnection& wayland);
 
   // Map a fullscreen shield on each of the given outputs.
-  void activate(const std::vector<wl_output*>& outputs, LayerShellLayer layer, ExcludeProvider excludeProvider);
+  void activate(
+      const std::vector<wl_output*>& outputs, LayerShellLayer layer, ExcludeProvider excludeProvider,
+      std::optional<LayerShellKeyboard> keyboardMode = std::nullopt
+  );
   // Exclude the panel's output-local input rect from its co-output shield.
   void setPanelInputRect(wl_output* output, InputRect rect);
   void setLayer(LayerShellLayer layer);
@@ -63,6 +72,7 @@ public:
 
   [[nodiscard]] bool isActive() const noexcept { return !m_shields.empty(); }
   [[nodiscard]] bool ownsSurface(wl_surface* surface) const noexcept;
+  [[nodiscard]] std::optional<PanelClickShieldSurface> surfaceContext(wl_surface* surface) const noexcept;
 
   // Public so the C-callback bridge in panel_click_shield.cpp can dispatch.
   static void handleConfigure(
@@ -86,7 +96,9 @@ private:
   };
 
   bool ensureSharedBuffer();
-  std::unique_ptr<Shield> createShield(wl_output* output, LayerShellLayer layer, std::vector<InputRect> excludeRects);
+  std::unique_ptr<Shield> createShield(
+      wl_output* output, LayerShellLayer layer, std::vector<InputRect> excludeRects, LayerShellKeyboard keyboardMode
+  );
   void destroyShield(Shield& shield);
   void applyConfigured(Shield& shield, std::uint32_t width, std::uint32_t height);
   void applyInputRegion(Shield& shield);

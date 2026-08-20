@@ -627,27 +627,29 @@ namespace {
   constexpr std::size_t kContextMenuMaxCallbackBytes = 128;
 
   std::string requiredExactStringField(
-      lua_State* L, int tableIndex, const char* field, std::size_t maxBytes, std::string_view description
+      lua_State* L, int tableIndex, const char* field, std::size_t maxBytes, std::string_view description,
+      std::string_view apiName
   ) {
     lua_getfield(L, tableIndex, field);
     if (lua_type(L, -1) != LUA_TSTRING) {
-      luaL_error(L, "panel.openContextMenu: %s must be a string", description.data());
+      luaL_error(L, "%s: %s must be a string", apiName.data(), description.data());
     }
     std::size_t len = 0;
     const char* value = lua_tolstring(L, -1, &len);
     if (len == 0 || len > maxBytes) {
-      luaL_error(L, "panel.openContextMenu: %s must contain 1..%zu bytes", description.data(), maxBytes);
+      luaL_error(L, "%s: %s must contain 1..%zu bytes", apiName.data(), description.data(), maxBytes);
     }
     std::string out(value, len);
     lua_pop(L, 1);
     return out;
   }
 
-  int luau_panel_openContextMenu(lua_State* L) {
+  scripting::ScriptContextMenuRequest readContextMenuRequest(lua_State* L, std::string_view apiName) {
     luaL_checktype(L, 1, LUA_TTABLE);
 
     scripting::ScriptContextMenuRequest request;
-    request.onActivate = requiredExactStringField(L, 1, "onActivate", kContextMenuMaxCallbackBytes, "onActivate");
+    request.onActivate =
+        requiredExactStringField(L, 1, "onActivate", kContextMenuMaxCallbackBytes, "onActivate", apiName);
 
     lua_getfield(L, 1, "maxVisible");
     if (!lua_isnil(L, -1)) {
@@ -656,7 +658,7 @@ namespace {
           || std::trunc(value) != value
           || value < 1.0
           || value > static_cast<double>(kContextMenuMaxVisible)) {
-        luaL_error(L, "panel.openContextMenu: maxVisible must be an integer between 1 and %d", kContextMenuMaxVisible);
+        luaL_error(L, "%s: maxVisible must be an integer between 1 and %d", apiName.data(), kContextMenuMaxVisible);
       }
       const int integer = static_cast<int>(value);
       request.maxVisible = static_cast<std::size_t>(integer);
@@ -680,18 +682,18 @@ namespace {
       break;
     }
     default:
-      luaL_error(L, "panel.openContextMenu: context must be a string, number, boolean, or nil");
+      luaL_error(L, "%s: context must be a string, number, boolean, or nil", apiName.data());
     }
     lua_pop(L, 1);
 
     lua_getfield(L, 1, "items");
     if (!lua_istable(L, -1)) {
-      luaL_error(L, "panel.openContextMenu: items must be an array");
+      luaL_error(L, "%s: items must be an array", apiName.data());
     }
     const int itemTable = lua_gettop(L);
     const int itemCount = lua_objlen(L, itemTable);
     if (itemCount < 1 || itemCount > kContextMenuMaxItems) {
-      luaL_error(L, "panel.openContextMenu: items must contain 1..%d entries", kContextMenuMaxItems);
+      luaL_error(L, "%s: items must contain 1..%d entries", apiName.data(), kContextMenuMaxItems);
     }
 
     std::set<std::string, std::less<>> ids;
@@ -700,7 +702,7 @@ namespace {
     for (int i = 1; i <= itemCount; ++i) {
       lua_rawgeti(L, itemTable, i);
       if (!lua_istable(L, -1)) {
-        luaL_error(L, "panel.openContextMenu: items[%d] must be a table", i);
+        luaL_error(L, "%s: items[%d] must be a table", apiName.data(), i);
       }
       const int itemIndex = lua_gettop(L);
       scripting::ScriptContextMenuItem item;
@@ -708,7 +710,7 @@ namespace {
       lua_getfield(L, itemIndex, "kind");
       if (!lua_isnil(L, -1)) {
         if (lua_type(L, -1) != LUA_TSTRING) {
-          luaL_error(L, "panel.openContextMenu: items[%d].kind must be a string", i);
+          luaL_error(L, "%s: items[%d].kind must be a string", apiName.data(), i);
         }
         const std::string_view kind = lua_tostring(L, -1);
         if (kind == "item") {
@@ -720,23 +722,25 @@ namespace {
           item.kind = scripting::ScriptContextMenuItemKind::Header;
           item.enabled = false;
         } else {
-          luaL_error(L, "panel.openContextMenu: items[%d].kind must be 'item', 'separator', or 'header'", i);
+          luaL_error(L, "%s: items[%d].kind must be 'item', 'separator', or 'header'", apiName.data(), i);
         }
       }
       lua_pop(L, 1);
 
       if (item.kind == scripting::ScriptContextMenuItemKind::Action) {
-        item.id = requiredExactStringField(L, itemIndex, "id", kContextMenuMaxIdBytes, std::format("items[{}].id", i));
+        item.id = requiredExactStringField(
+            L, itemIndex, "id", kContextMenuMaxIdBytes, std::format("items[{}].id", i), apiName
+        );
         item.label = requiredExactStringField(
-            L, itemIndex, "label", kContextMenuMaxLabelBytes, std::format("items[{}].label", i)
+            L, itemIndex, "label", kContextMenuMaxLabelBytes, std::format("items[{}].label", i), apiName
         );
         if (!ids.insert(item.id).second) {
-          luaL_error(L, "panel.openContextMenu: duplicate item id '%s'", item.id.c_str());
+          luaL_error(L, "%s: duplicate item id '%s'", apiName.data(), item.id.c_str());
         }
         lua_getfield(L, itemIndex, "enabled");
         if (!lua_isnil(L, -1)) {
           if (lua_type(L, -1) != LUA_TBOOLEAN) {
-            luaL_error(L, "panel.openContextMenu: items[%d].enabled must be a boolean", i);
+            luaL_error(L, "%s: items[%d].enabled must be a boolean", apiName.data(), i);
           }
           item.enabled = lua_toboolean(L, -1) != 0;
         }
@@ -744,7 +748,7 @@ namespace {
         hasActionableItem = hasActionableItem || item.enabled;
       } else if (item.kind == scripting::ScriptContextMenuItemKind::Header) {
         item.label = requiredExactStringField(
-            L, itemIndex, "label", kContextMenuMaxLabelBytes, std::format("items[{}].label", i)
+            L, itemIndex, "label", kContextMenuMaxLabelBytes, std::format("items[{}].label", i), apiName
         );
       }
       request.items.push_back(std::move(item));
@@ -753,8 +757,14 @@ namespace {
     lua_pop(L, 1);
 
     if (!hasActionableItem) {
-      luaL_error(L, "panel.openContextMenu: items must contain at least one enabled action");
+      luaL_error(L, "%s: items must contain at least one enabled action", apiName.data());
     }
+
+    return request;
+  }
+
+  int luau_panel_openContextMenu(lua_State* L) {
+    auto request = readContextMenuRequest(L, "panel.openContextMenu");
 
     auto* context = getContext(L);
     if (context == nullptr
@@ -764,6 +774,20 @@ namespace {
       return 1;
     }
     request.pointer = *context->snapshot.pointerContext;
+    request.origin = scripting::ScriptContextMenuOrigin::Pointer;
+    context->contextMenuRequest = std::move(request);
+    lua_pushboolean(L, 1);
+    return 1;
+  }
+
+  int luau_service_openContextMenu(lua_State* L) {
+    auto request = readContextMenuRequest(L, "service.openContextMenu");
+    auto* context = getContext(L);
+    if (context == nullptr) {
+      lua_pushboolean(L, 0);
+      return 1;
+    }
+    request.origin = scripting::ScriptContextMenuOrigin::Cursor;
     context->contextMenuRequest = std::move(request);
     lua_pushboolean(L, 1);
     return 1;
@@ -775,6 +799,11 @@ namespace {
       {"openContextMenu", luau_panel_openContextMenu},
       {"setWantsSecondTicks", luau_ui_setWantsSecondTicks},
       {"setNeedsFrameTick", luau_ui_setNeedsFrameTick},
+      {nullptr, nullptr},
+  };
+
+  const luaL_Reg kServiceLib[] = {
+      {"openContextMenu", luau_service_openContextMenu},
       {nullptr, nullptr},
   };
 
@@ -881,6 +910,8 @@ namespace scripting {
     luaL_register(L, "desktopWidget", kDesktopWidgetLib);
     lua_pop(L, 1);
     luaL_register(L, "panel", kPanelLib);
+    lua_pop(L, 1);
+    luaL_register(L, "service", kServiceLib);
     lua_pop(L, 1);
   }
 

@@ -87,6 +87,29 @@ namespace scripting {
           armTimer(*svc);
         }
       }
+      if (result.ok
+          && result.contextMenuRequest.has_value()
+          && result.contextMenuRequest->origin == ScriptContextMenuOrigin::Cursor
+          && m_contextMenuOpenHandler) {
+        ScriptContextMenuRequest request = *result.contextMenuRequest;
+        const std::string callback = request.onActivate;
+        const std::optional<ScriptArg> callbackContext = request.context;
+        const bool opened =
+            m_contextMenuOpenHandler(std::move(request), [svc, alive, callback, callbackContext](std::string actionId) {
+              const auto callbackToken = alive.lock();
+              if (callbackToken == nullptr || !*callbackToken || svc->runtime == nullptr) {
+                return;
+              }
+              ScriptArgs args{std::move(actionId)};
+              if (callbackContext.has_value()) {
+                args.push_back(*callbackContext);
+              }
+              (void)svc->runtime->enqueueCallArgs(callback, std::move(args), {});
+            });
+        if (!opened) {
+          kLog.warn("service '{}' context menu could not be opened", svc->entryId);
+        }
+      }
     });
     armTimer(service);
   }

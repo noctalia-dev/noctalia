@@ -35,6 +35,11 @@ namespace scripting {
     Header,
   };
 
+  enum class ScriptContextMenuOrigin : std::uint8_t {
+    Pointer,
+    Cursor,
+  };
+
   struct ScriptContextMenuItem {
     ScriptContextMenuItemKind kind = ScriptContextMenuItemKind::Action;
     std::string id;
@@ -47,6 +52,7 @@ namespace scripting {
     std::string onActivate;
     std::optional<ScriptArg> context;
     std::size_t maxVisible = 12;
+    ScriptContextMenuOrigin origin = ScriptContextMenuOrigin::Pointer;
     ScriptPointerContext pointer;
   };
 

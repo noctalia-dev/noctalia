@@ -330,6 +330,34 @@ order = ["a", "b"]
       && ok;
   ok = expect(!context.contextMenuRequest.has_value(), "a failed context menu open should not publish a request") && ok;
 
+  // A service-triggered menu has no originating input serial. The host discovers
+  // the cursor through its portable layer-shell surface instead.
+  context.beginCall({});
+  ok = expect(
+           runLuau(
+               state, "=service-context-menu",
+               "assert(service.openContextMenu({\n"
+               "  items = {{ id = 'new', label = 'Create note' }},\n"
+               "  onActivate = 'activateSelectionMenu', context = 'generation-1',\n"
+               "}) == true)"
+           ),
+           "service.openContextMenu should accept a request without pointer context"
+       )
+      && ok;
+  ok = expect(context.contextMenuRequest.has_value(), "service context menu should publish a one-shot request") && ok;
+  if (context.contextMenuRequest.has_value()) {
+    ok = expect(
+             context.contextMenuRequest->origin == scripting::ScriptContextMenuOrigin::Cursor,
+             "service context menu should request cursor discovery"
+         )
+        && ok;
+    ok = expect(
+             context.contextMenuRequest->pointer.serial == 0,
+             "service context menu must not invent a Wayland input serial"
+         )
+        && ok;
+  }
+
   scripting::ScriptSnapshot pointerSnapshot;
   pointerSnapshot.pointerContext = scripting::ScriptPointerContext{.x = 42.5F, .y = 17.0F, .serial = 99, .time = 123};
   context.beginCall(pointerSnapshot);
@@ -355,6 +383,11 @@ order = ["a", "b"]
     ok = expect(menu->items.size() == 4, "context menu should retain every item") && ok;
     ok = expect(menu->onActivate == "activateMenu", "context menu should retain its callback") && ok;
     ok = expect(menu->maxVisible == 4, "context menu should retain maxVisible") && ok;
+    ok = expect(
+             menu->origin == scripting::ScriptContextMenuOrigin::Pointer,
+             "panel context menu should preserve pointer origin"
+         )
+        && ok;
     ok = expect(menu->pointer.serial == 99 && menu->pointer.x == 42.5F, "context menu should retain pointer metadata")
         && ok;
     const auto* number = menu->context.has_value() ? std::get_if<double>(&*menu->context) : nullptr;

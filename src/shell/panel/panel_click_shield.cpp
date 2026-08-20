@@ -91,7 +91,8 @@ bool PanelClickShield::ensureSharedBuffer() {
 }
 
 void PanelClickShield::activate(
-    const std::vector<wl_output*>& outputs, LayerShellLayer layer, ExcludeProvider excludeProvider
+    const std::vector<wl_output*>& outputs, LayerShellLayer layer, ExcludeProvider excludeProvider,
+    std::optional<LayerShellKeyboard> keyboardMode
 ) {
   if (m_wayland == nullptr) {
     return;
@@ -124,7 +125,7 @@ void PanelClickShield::activate(
     if (excludeProvider) {
       excludeRects = excludeProvider(output);
     }
-    auto shield = createShield(output, layer, std::move(excludeRects));
+    auto shield = createShield(output, layer, std::move(excludeRects), keyboardMode.value_or(shieldKeyboardMode()));
     if (shield) {
       m_shields.emplace(output, std::move(shield));
     }
@@ -145,8 +146,9 @@ void PanelClickShield::setPanelInputRect(wl_output* output, InputRect rect) {
   }
 }
 
-std::unique_ptr<PanelClickShield::Shield>
-PanelClickShield::createShield(wl_output* output, LayerShellLayer layer, std::vector<InputRect> excludeRects) {
+std::unique_ptr<PanelClickShield::Shield> PanelClickShield::createShield(
+    wl_output* output, LayerShellLayer layer, std::vector<InputRect> excludeRects, LayerShellKeyboard keyboardMode
+) {
   auto shield = std::make_unique<Shield>();
   shield->owner = this;
   shield->output = output;
@@ -178,9 +180,7 @@ PanelClickShield::createShield(wl_output* output, LayerShellLayer layer, std::ve
   );
   zwlr_layer_surface_v1_set_size(shield->layerSurface, 0, 0);
   zwlr_layer_surface_v1_set_exclusive_zone(shield->layerSurface, -1);
-  zwlr_layer_surface_v1_set_keyboard_interactivity(
-      shield->layerSurface, static_cast<std::uint32_t>(shieldKeyboardMode())
-  );
+  zwlr_layer_surface_v1_set_keyboard_interactivity(shield->layerSurface, static_cast<std::uint32_t>(keyboardMode));
 
   // Empty input region until we receive a configure with the actual surface
   // size. Until then any click would land on the 1×1 buffer at (0,0) before
@@ -241,6 +241,22 @@ bool PanelClickShield::ownsSurface(wl_surface* surface) const noexcept {
     }
   }
   return false;
+}
+
+std::optional<PanelClickShieldSurface> PanelClickShield::surfaceContext(wl_surface* surface) const noexcept {
+  if (surface == nullptr) {
+    return std::nullopt;
+  }
+  for (const auto& [output, shield] : m_shields) {
+    if (shield != nullptr && shield->surface == surface) {
+      return PanelClickShieldSurface{
+          .output = output,
+          .surface = shield->surface,
+          .layerSurface = shield->layerSurface,
+      };
+    }
+  }
+  return std::nullopt;
 }
 
 void PanelClickShield::handleConfigure(

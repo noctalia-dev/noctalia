@@ -180,6 +180,8 @@ Application::Application()
 }
 
 Application::~Application() {
+  m_pluginServiceHost.setContextMenuOpenHandler({});
+  m_transientContextMenu.close();
   ColorPickerDialog::setPresenter(nullptr);
   GlyphPickerDialog::setPresenter(nullptr);
   FileDialog::setPresenter(nullptr);

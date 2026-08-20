@@ -78,6 +78,7 @@
 #include "theme/theme_service.h"
 #include "time/time_poll_source.h"
 #include "time/time_service.h"
+#include "ui/controls/transient_context_menu.h"
 #include "ui/dialogs/color_picker_dialog_popup.h"
 #include "ui/dialogs/file_dialog_popup.h"
 #include "ui/dialogs/glyph_picker_dialog_popup.h"
@@ -317,6 +318,7 @@ private:
   LockscreenWidgetsController m_lockscreenWidgetsController;
   SessionActionRunner m_sessionActionRunner{m_compositorPlatform, m_lockScreen};
   PanelManager m_panelManager;
+  TransientContextMenu m_transientContextMenu;
   // Owned by m_panelManager; kept raw so plugin launcher providers can be re-applied.
   LauncherPanel* m_launcherPanel = nullptr;
   // Ids of plugin-backed panels currently registered with m_panelManager, so a

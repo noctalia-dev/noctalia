@@ -124,6 +124,51 @@ void Application::initUi() {
 void Application::initUiRenderSurfacesAndSettings() {
 
   m_renderContext.initialize(m_glShared);
+  m_transientContextMenu.initialize(m_wayland, m_renderContext);
+  m_pluginServiceHost.setContextMenuOpenHandler(
+      [this](scripting::ScriptContextMenuRequest request, scripting::PluginServiceHost::ContextMenuActivate activate) {
+        if (m_lockScreen.isActive()) {
+          return false;
+        }
+        if (m_panelManager.isOpen()) {
+          m_panelManager.close();
+        }
+        if (m_trayMenu.isOpen()) {
+          m_trayMenu.close();
+        }
+
+        std::vector<ContextMenuControlEntry> entries;
+        std::vector<std::string> actionIds;
+        entries.reserve(request.items.size());
+        actionIds.reserve(request.items.size());
+        for (const auto& item : request.items) {
+          ContextMenuControlEntry entry{
+              .id = -1,
+              .label = item.label,
+              .enabled = item.enabled,
+              .separator = item.kind == scripting::ScriptContextMenuItemKind::Separator,
+              .header = item.kind == scripting::ScriptContextMenuItemKind::Header,
+          };
+          if (item.kind == scripting::ScriptContextMenuItemKind::Action) {
+            entry.id = static_cast<std::int32_t>(actionIds.size());
+            actionIds.push_back(item.id);
+          }
+          entries.push_back(std::move(entry));
+        }
+
+        return m_transientContextMenu.open(
+            TransientContextMenuRequest{
+                .entries = std::move(entries),
+                .maxVisible = request.maxVisible,
+            },
+            [activate = std::move(activate), actionIds = std::move(actionIds)](const ContextMenuControlEntry& entry) {
+              if (activate && entry.id >= 0 && static_cast<std::size_t>(entry.id) < actionIds.size()) {
+                activate(actionIds[static_cast<std::size_t>(entry.id)]);
+              }
+            }
+        );
+      }
+  );
   m_renderContext.setGraphicsResetCallback([this](RenderGraphicsResetStatus status) { onGraphicsReset(status); });
   if (!m_glShared.hasSharedContext()) {
     m_asyncTextureCache.setMakeCurrentCallback([this]() { m_renderContext.backend().makeCurrentNoSurface(); });
@@ -324,6 +369,7 @@ void Application::initLockScreenAndSession() {
   m_lockScreen.setSessionHooks(
       [this]() {
         m_idleGraceOverlay.hide();
+        m_transientContextMenu.close();
         m_lockscreenWidgetsController.onLockStateChanged();
         m_idleManager.setSessionLocked(true);
         m_screenTimeService.setSessionLocked(true);
@@ -397,6 +443,9 @@ void Application::initInputDispatch() {
         return;
       }
       // Enter/Leave/Motion fall through so other surfaces' hover state stays in sync.
+    }
+    if (m_transientContextMenu.onPointerEvent(event)) {
+      return;
     }
     if (m_colorPickerDialogPopup.onPointerEvent(event)) {
       return;

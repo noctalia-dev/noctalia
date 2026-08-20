@@ -6,6 +6,7 @@
 #include "scripting/script_runtime.h"
 
 #include <filesystem>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <string>
@@ -29,6 +30,9 @@ namespace scripting {
   // plugin's UI entries (widgets, panels) consume it via noctalia.state.
   class PluginServiceHost {
   public:
+    using ContextMenuActivate = std::function<void(std::string)>;
+    using ContextMenuOpenHandler = std::function<bool(ScriptContextMenuRequest, ContextMenuActivate)>;
+
     PluginServiceHost(
         ScriptApiContext& scriptApi, HttpClient* httpClient, ClipboardService* clipboard, FileWatcher* fileWatcher
     );
@@ -53,6 +57,10 @@ namespace scripting {
     // service can reconcile (e.g. relaunch a per-output child). The current output
     // list is read via noctalia.outputs() inside the callback.
     void onOutputChange();
+
+    // Install the UI bridge for service.openContextMenu(). The service runtime
+    // remains the owner of the activation callback; the UI only returns an item id.
+    void setContextMenuOpenHandler(ContextMenuOpenHandler handler) { m_contextMenuOpenHandler = std::move(handler); }
 
   private:
     // A service is reachable by IPC via the `all` target (it is a singleton with no
@@ -101,6 +109,7 @@ namespace scripting {
     HttpClient* m_httpClient = nullptr;
     ClipboardService* m_clipboard = nullptr;
     FileWatcher* m_fileWatcher = nullptr;
+    ContextMenuOpenHandler m_contextMenuOpenHandler;
     std::vector<std::unique_ptr<Service>> m_services;
   };
 

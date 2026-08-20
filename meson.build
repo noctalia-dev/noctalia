@@ -853,6 +853,7 @@ _noctalia_sources = files(
   'src/ui/controls/collapsible.cpp',
   'src/ui/controls/context_menu.cpp',
   'src/ui/controls/context_menu_popup.cpp',
+  'src/ui/controls/transient_context_menu.cpp',
   'src/ui/controls/countdown_ring.cpp',
   'src/ui/controls/flex.cpp',
   'src/ui/controls/glyph.cpp',
