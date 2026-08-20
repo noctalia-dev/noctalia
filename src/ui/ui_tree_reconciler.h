@@ -34,7 +34,8 @@ namespace ui {
     // callbacks like button clicks. onHover sends state in `arg1` and the node's
     // `key` in `arg2`, so one handler can serve a whole keyed list. `coalesce`
     // is set for high-frequency streams (slider drag, input typing) where only
-    // the latest value matters.
+    // the latest value matters. Drop callbacks additionally carry the dragged
+    // control's target-local top-left position in `dropX`/`dropY`.
     struct ControlCallback {
       struct PointerContext {
         float x = 0.0F;
@@ -53,6 +54,8 @@ namespace ui {
       std::string arg2;
       bool coalesce = false;
       std::optional<PointerContext> pointerContext;
+      std::optional<double> dropX;
+      std::optional<double> dropY;
     };
     using CallbackSink = std::function<void(const ControlCallback& callback)>;
     // Resolves a tree-supplied path (e.g. image source) to an absolute path.

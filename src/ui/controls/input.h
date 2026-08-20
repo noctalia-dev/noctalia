@@ -55,6 +55,7 @@ public:
   void setTextAlign(TextAlign align);
   void setOnChange(std::function<void(const std::string&)> callback);
   void setOnSubmit(std::function<void(const std::string&)> callback);
+  void setOnPress(std::function<void()> callback);
   void setOnKeyEvent(std::function<bool(std::uint32_t sym, std::uint32_t modifiers)> callback);
   void setOnFocusLoss(std::function<void()> callback);
   void setOnFocusGain(std::function<void()> callback);
@@ -221,6 +222,7 @@ private:
 
   std::function<void(const std::string&)> m_onChange;
   std::function<void(const std::string&)> m_onSubmit;
+  std::function<void()> m_onPress;
   std::function<bool(std::uint32_t, std::uint32_t)> m_onKeyEvent;
   std::function<void()> m_onFocusLoss;
   std::function<void()> m_onFocusGain;

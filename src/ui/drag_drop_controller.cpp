@@ -128,14 +128,26 @@ void DragDropController::release(DragSource& source, float localX, float localY)
   std::string callback;
   std::string payload;
   std::string targetValue;
+  float targetX = 0.0F;
+  float targetY = 0.0F;
   if (m_target != nullptr) {
     callback = m_target->onDrop();
     payload = m_payload;
     targetValue = m_targetValue;
+    // Report the preview's top-left corner in target-local logical
+    // coordinates. Preserving the grab offset makes a dropped canvas item
+    // land exactly where it was shown during the drag.
+    (void)Node::mapFromScene(m_target, sceneX - m_pointerOffsetX, sceneY - m_pointerOffsetY, targetX, targetY);
+    const float draggedWidth = m_previewTarget != nullptr ? m_previewTarget->width() : source.width();
+    const float draggedHeight = m_previewTarget != nullptr ? m_previewTarget->height() : source.height();
+    targetX = std::clamp(targetX, 0.0F, std::max(0.0F, m_target->width() - draggedWidth));
+    targetY = std::clamp(targetY, 0.0F, std::max(0.0F, m_target->height() - draggedHeight));
   }
   clearState(true);
   if (!callback.empty() && m_dropCallback) {
-    m_dropCallback(std::move(callback), std::move(payload), std::move(targetValue));
+    m_dropCallback(
+        std::move(callback), std::move(payload), std::move(targetValue), targetX / m_scale, targetY / m_scale
+    );
   }
 }
 

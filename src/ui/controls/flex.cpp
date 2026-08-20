@@ -467,8 +467,14 @@ LayoutSize Flex::runLayout(Renderer& renderer, const LayoutConstraints& constrai
   FlexScratchGuard scratch;
   auto& items = scratch.items();
   items.reserve(children().size());
+  std::vector<Node*> absoluteChildren;
+  absoluteChildren.reserve(children().size());
   float totalGrow = 0.0F;
   for (auto& child : children()) {
+    if (child->visible() && child->absolutePositioned()) {
+      absoluteChildren.push_back(child.get());
+      continue;
+    }
     if (!child->visible() || !child->participatesInLayout() || child.get() == m_background) {
       continue;
     }
@@ -736,6 +742,14 @@ LayoutSize Flex::runLayout(Renderer& renderer, const LayoutConstraints& constrai
         );
         cursor += item.main;
       }
+    }
+  }
+
+  if (arrangeChildren) {
+    for (Node* child : absoluteChildren) {
+      child->arrange(
+          renderer, LayoutRect{.x = child->x(), .y = child->y(), .width = child->width(), .height = child->height()}
+      );
     }
   }
 

@@ -63,7 +63,7 @@ PluginPanel::PluginPanel(scripting::PluginRuntimeContext context, PluginPanelOpt
       m_clipboard(context.clipboard),
       m_preferredWidth(options.width > 0.0 ? static_cast<float>(options.width) : kDefaultPanelWidth),
       m_preferredHeight(options.height > 0.0 ? static_cast<float>(options.height) : kDefaultPanelHeight),
-      m_widthFill(options.widthFill), m_heightFill(options.heightFill),
+      m_widthFill(options.widthFill), m_heightFill(options.heightFill), m_decorated(options.decorated),
       m_dismissOnOutsideClick(options.dismissOnOutsideClick),
       m_keyboardMode(keyboardModeFromManifest(options.keyboardFocus)), m_persistent(options.persistent),
       m_shellConfig(options.shellConfig) {
@@ -180,9 +180,15 @@ void PluginPanel::create() {
             .surfaceGeneration = m_openGeneration,
         };
       }
-      (void)m_runtime->enqueueCallStrings(
-          callback.fn, callback.arg1, callback.arg2, std::move(snapshot), callback.coalesce
-      );
+      if (callback.dropX.has_value() && callback.dropY.has_value()) {
+        (void)m_runtime->enqueueCallArgs(
+            callback.fn, {callback.arg1, callback.arg2, *callback.dropX, *callback.dropY}, std::move(snapshot)
+        );
+      } else {
+        (void)m_runtime->enqueueCallStrings(
+            callback.fn, callback.arg1, callback.arg2, std::move(snapshot), callback.coalesce
+        );
+      }
     }
   });
   m_reconciler.setDragDropEnabled(true);

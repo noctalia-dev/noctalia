@@ -641,7 +641,44 @@ int main() {
     ok = expect(entry.panelWidth == 420.0, "fill panel width should parse") && ok;
     ok = expect(!entry.panelWidthFill, "numeric width is not fill") && ok;
     ok = expect(entry.panelHeightFill, "height \"fill\" should set the fill flag") && ok;
+    ok = expect(entry.panelDecorated, "panel decoration defaults on") && ok;
   }
+
+  const auto undecoratedPanelManifestPath = root / "undecorated-panel/plugin.toml";
+  ok = writeManifest(
+           undecoratedPanelManifestPath,
+           "id = \"me/undecorated-panel\"\n"
+           "name = \"Undecorated Panel\"\n"
+           "plugin_api = 29\n"
+           "[[panel]]\n"
+           "id = \"panel\"\n"
+           "entry = \"panel.luau\"\n"
+           "decorated = false\n"
+       )
+      && ok;
+  error.clear();
+  const auto undecoratedPanel = scripting::parsePluginManifest(undecoratedPanelManifestPath, &error);
+  ok = expect(undecoratedPanel.has_value(), error.empty() ? "failed to parse undecorated panel" : error.c_str()) && ok;
+  if (undecoratedPanel.has_value()) {
+    ok = expect(!undecoratedPanel->entries.front().panelDecorated, "decorated false should parse") && ok;
+  }
+
+  const auto oldApiUndecoratedPath = root / "old-api-undecorated-panel/plugin.toml";
+  ok = writeManifest(
+           oldApiUndecoratedPath,
+           "id = \"me/old-api-undecorated-panel\"\n"
+           "name = \"Old API Undecorated Panel\"\n"
+           "plugin_api = 28\n"
+           "[[panel]]\n"
+           "id = \"panel\"\n"
+           "entry = \"panel.luau\"\n"
+           "decorated = false\n"
+       )
+      && ok;
+  error.clear();
+  const auto oldApiUndecorated = scripting::parsePluginManifest(oldApiUndecoratedPath, &error);
+  ok = expect(!oldApiUndecorated.has_value(), "decorated should require the free-form canvas API") && ok;
+  ok = expectEq(error, "panel entry 'panel': decorated requires plugin_api >= 29", "decorated API gate error") && ok;
 
   const auto badFillManifestPath = root / "bad-fill/plugin.toml";
   ok = writeManifest(

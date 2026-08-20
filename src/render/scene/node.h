@@ -97,6 +97,7 @@ public:
   [[nodiscard]] float flexGrow() const noexcept { return m_flexGrow; }
   [[nodiscard]] bool visible() const noexcept { return m_visible; }
   [[nodiscard]] bool participatesInLayout() const noexcept { return m_participatesInLayout; }
+  [[nodiscard]] bool absolutePositioned() const noexcept { return m_absolutePositioned; }
   [[nodiscard]] bool paintDirty() const noexcept { return m_paintDirty; }
   [[nodiscard]] bool layoutDirty() const noexcept { return m_layoutDirty; }
   [[nodiscard]] bool clipChildren() const noexcept { return m_clipChildren; }
@@ -126,6 +127,9 @@ public:
   void setFlexGrow(float grow);
   void setVisible(bool visible);
   void setParticipatesInLayout(bool participatesInLayout);
+  // Excludes this node from its Flex parent's flow while still arranging its
+  // own subtree at the position and size assigned by the caller.
+  void setAbsolutePositioned(bool absolutePositioned);
   void setClipChildren(bool clipChildren);
   // Promises that every node in this subtree paints within its own bounds (plus a small slack).
   // Lets the renderer skip subtrees entirely outside the active clip.
@@ -206,6 +210,7 @@ private:
   float m_flexGrow = 0.0F;
   bool m_visible = true;
   bool m_participatesInLayout = true;
+  bool m_absolutePositioned = false;
   bool m_paintDirty = true;
   bool m_layoutDirty = true;
   bool m_clipChildren = false;

@@ -236,6 +236,9 @@ Input::Input() {
   });
   area->setOnPress([this](const InputArea::PointerData& data) {
     if (data.pressed) {
+      if (m_onPress) {
+        m_onPress();
+      }
       resetUndoCoalescing();
       m_goalCaretX = -1.0F;
       const float textStartX = m_horizontalPadding + kTextInnerInset;
@@ -554,6 +557,8 @@ void Input::setTextAlign(TextAlign align) {
 void Input::setOnChange(std::function<void(const std::string&)> callback) { m_onChange = std::move(callback); }
 
 void Input::setOnSubmit(std::function<void(const std::string&)> callback) { m_onSubmit = std::move(callback); }
+
+void Input::setOnPress(std::function<void()> callback) { m_onPress = std::move(callback); }
 
 void Input::setOnKeyEvent(std::function<bool(std::uint32_t, std::uint32_t)> callback) {
   m_onKeyEvent = std::move(callback);

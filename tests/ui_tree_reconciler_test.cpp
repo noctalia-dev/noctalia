@@ -192,6 +192,56 @@ int main() {
     }
   }
 
+  // Any declarative control can leave normal flex flow and retain a position
+  // inside its parent, which is the primitive used by free-form plugin canvases.
+  {
+    ui::UiTreeReconciler reconciler;
+    Flex host;
+
+    ui::UiTreeNode tree = makeNode("column");
+    ui::UiTreeNode card = makeNode("column");
+    card.key = "card";
+    card.props.emplace("position", std::string("absolute"));
+    card.props.emplace("x", 37.0);
+    card.props.emplace("y", 53.0);
+    card.props.emplace("zIndex", 4.0);
+    card.props.emplace("clipChildren", true);
+    card.props.emplace("width", 80.0);
+    card.props.emplace("height", 60.0);
+    card.children.push_back(makeLabel("Card body"));
+    tree.children.push_back(card);
+    (void)reconciler.reconcile(host, tree, renderer);
+
+    auto* column = dynamic_cast<Flex*>(host.children().front().get());
+    Node* positioned = column != nullptr && !column->children().empty() ? column->children().front().get() : nullptr;
+    ok = expect(positioned != nullptr, "absolute-position fixture built") && ok;
+    if (positioned != nullptr) {
+      ok = expect(positioned->absolutePositioned(), "absolute child leaves flex flow") && ok;
+      ok = expect(positioned->x() == 37.0f && positioned->y() == 53.0f, "absolute child keeps x/y") && ok;
+      ok = expect(positioned->zIndex() == 4, "absolute child applies zIndex") && ok;
+      ok = expect(positioned->clipChildren(), "common clipChildren prop is applied") && ok;
+      host.setSize(300.0f, 200.0f);
+      host.layout(renderer);
+      ok = expect(
+               !positioned->children().empty()
+                   && positioned->children().front()->width() > 0.0f
+                   && positioned->children().front()->height() > 0.0f,
+               "absolute child still lays out its own subtree"
+           )
+          && ok;
+    }
+
+    tree.children[0].props["position"] = std::string("flow");
+    tree.children[0].props.erase("zIndex");
+    tree.children[0].props.erase("clipChildren");
+    (void)reconciler.reconcile(host, tree, renderer);
+    if (positioned != nullptr) {
+      ok = expect(!positioned->absolutePositioned(), "flow child rejoins flex layout") && ok;
+      ok = expect(positioned->zIndex() == 0, "removed zIndex resets retained control") && ok;
+      ok = expect(!positioned->clipChildren(), "removed clipChildren resets retained control") && ok;
+    }
+  }
+
   // Keyed reorder reuses control instances.
   {
     ui::UiTreeReconciler reconciler;
@@ -903,6 +953,36 @@ int main() {
     }
   }
 
+  // Input presses can be observed on every click without replacing the
+  // control's normal caret-placement behavior.
+  {
+    ui::UiTreeReconciler reconciler;
+    Flex host;
+    int callbackCount = 0;
+    reconciler.setCallbackSink([&](const ui::UiTreeReconciler::ControlCallback& callback) {
+      if (callback.fn == "onInputPressed") {
+        ++callbackCount;
+      }
+    });
+
+    ui::UiTreeNode tree = makeNode("input");
+    tree.props.emplace("onPress", std::string("onInputPressed"));
+    (void)reconciler.reconcile(host, tree, renderer);
+    auto* input = !host.children().empty() ? dynamic_cast<Input*>(host.children().front().get()) : nullptr;
+    ok = expect(input != nullptr, "press callback input built") && ok;
+    if (input != nullptr) {
+      input->inputArea()->dispatchPress(5.0F, 5.0F, BTN_LEFT, true);
+      input->inputArea()->dispatchPress(5.0F, 5.0F, BTN_LEFT, false);
+      input->inputArea()->dispatchPress(5.0F, 5.0F, BTN_LEFT, true);
+      ok = expect(callbackCount == 2, "input press callback fires on every press") && ok;
+
+      tree.props.erase("onPress");
+      (void)reconciler.reconcile(host, tree, renderer);
+      input->inputArea()->dispatchPress(5.0F, 5.0F, BTN_LEFT, true);
+      ok = expect(callbackCount == 2, "removed input press callback does not remain active") && ok;
+    }
+  }
+
   // Multiline input: the props apply, seed a multi-line value, and the keyed
   // instance survives re-renders like any other input. A frame-free field keeps
   // the editor interactions while allowing its parent surface to show through.
@@ -1419,6 +1499,16 @@ int main() {
         ok = expect(callbacks[0].fn == "onDropKeybind", "drop callback name preserved") && ok;
         ok = expect(callbacks[0].arg1 == "bind:42", "drop callback receives source payload") && ok;
         ok = expect(callbacks[0].arg2 == "category:media", "drop callback receives target value") && ok;
+        ok = expect(
+                 callbacks[0].dropX.has_value() && callbacks[0].dropY.has_value(),
+                 "drop callback receives target-local coordinates"
+             )
+            && ok;
+        ok = expect(
+                 callbacks[0].dropX == 33.0 && callbacks[0].dropY == 10.0,
+                 "drop coordinates preserve the grab offset and clamp the dragged control inside the target"
+             )
+            && ok;
         ok = expect(!callbacks[0].coalesce, "drop callback is non-coalesced") && ok;
       }
       ok = expect(callbackSawCleanState, "drag state and visuals clear before callback dispatch") && ok;

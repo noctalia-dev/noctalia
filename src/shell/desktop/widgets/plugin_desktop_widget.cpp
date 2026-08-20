@@ -60,9 +60,15 @@ void PluginDesktopWidget::create() {
 
   m_reconciler.setCallbackSink([this](const ui::UiTreeReconciler::ControlCallback& callback) {
     if (m_runtime != nullptr) {
-      (void)m_runtime->enqueueCallStrings(
-          callback.fn, callback.arg1, callback.arg2, makeScriptSnapshot(), callback.coalesce
-      );
+      if (callback.dropX.has_value() && callback.dropY.has_value()) {
+        (void)m_runtime->enqueueCallArgs(
+            callback.fn, {callback.arg1, callback.arg2, *callback.dropX, *callback.dropY}, makeScriptSnapshot()
+        );
+      } else {
+        (void)m_runtime->enqueueCallStrings(
+            callback.fn, callback.arg1, callback.arg2, makeScriptSnapshot(), callback.coalesce
+        );
+      }
     }
   });
   m_reconciler.setPathResolver([this](const std::string& path) { return resolvePluginPath(path); });

@@ -117,6 +117,9 @@ namespace scripting {
     double panelHeight = 0.0;
     bool panelWidthFill = false;
     bool panelHeightFill = false;
+    // false: the plugin owns every visible surface; the host adds no panel
+    // background, border, shadow, corner radius, or content padding.
+    bool panelDecorated = true;
     // Host-standard shell placement settings (see plugin_panel_shell.*). Parsed from
     // optional [[panel]] keys; injected settings use "{id}_placement" etc.
     std::string panelPlacementDefault = "floating";

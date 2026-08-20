@@ -2202,6 +2202,10 @@ void PanelManager::applyPanelCompositorBlur(
   if (m_surface == nullptr || m_activePanel == nullptr) {
     return;
   }
+  if (!m_activePanel->hasDecoration()) {
+    m_surface->clearBlurRegion();
+    return;
+  }
 
   if (blurTraceEnabled()) {
     kLog.debug(

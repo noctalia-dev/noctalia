@@ -284,6 +284,15 @@ void Node::setParticipatesInLayout(bool participatesInLayout) {
   markLayoutDirty();
 }
 
+void Node::setAbsolutePositioned(bool absolutePositioned) {
+  if (m_absolutePositioned == absolutePositioned) {
+    return;
+  }
+  uiAssertSceneMutationAllowed("Node::setAbsolutePositioned");
+  m_absolutePositioned = absolutePositioned;
+  markLayoutDirty();
+}
+
 void Node::setClipChildren(bool clipChildren) {
   if (m_clipChildren == clipChildren) {
     return;

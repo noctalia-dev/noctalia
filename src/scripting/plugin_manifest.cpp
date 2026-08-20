@@ -465,6 +465,21 @@ namespace scripting {
             error = "panel entry '" + entry.id + R"(': width/height "fill" requires placement = "floating")";
             return false;
           }
+          if ((*entryTable)["decorated"]) {
+            if (manifest.pluginApiVersion < kFreeformCanvasPluginApiVersion) {
+              error = "panel entry '"
+                  + entry.id
+                  + "': decorated requires plugin_api >= "
+                  + std::to_string(kFreeformCanvasPluginApiVersion);
+              return false;
+            }
+            if (const auto* decorated = (*entryTable)["decorated"].as_boolean()) {
+              entry.panelDecorated = decorated->get();
+            } else {
+              error = "panel entry '" + entry.id + "': decorated must be a bool";
+              return false;
+            }
+          }
           if (const std::string position = tableString(*entryTable, "position"); !position.empty()) {
             entry.panelPositionDefault = position;
           }

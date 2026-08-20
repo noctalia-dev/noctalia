@@ -11,7 +11,8 @@ class RenderProxyNode;
 
 class DragDropController {
 public:
-  using DropCallback = std::function<void(std::string callback, std::string payload, std::string target)>;
+  using DropCallback =
+      std::function<void(std::string callback, std::string payload, std::string target, float x, float y)>;
 
   enum class State {
     Idle,

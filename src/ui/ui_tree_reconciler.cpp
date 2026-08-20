@@ -476,11 +476,11 @@ namespace ui {
       static const std::unordered_set<std::string> kGraph = {"width",   "height",    "flexGrow",   "opacity",
                                                              "visible", "values",    "values2",    "color",
                                                              "color2",  "lineWidth", "fillOpacity"};
-      static const std::unordered_set<std::string> kInput = {"width",       "height",   "flexGrow",    "opacity",
-                                                             "visible",     "value",    "placeholder", "fontSize",
-                                                             "enabled",     "password", "multiline",   "focus",
-                                                             "onChange",    "onSubmit", "controlSize", "submitOnEnter",
-                                                             "frameVisible"};
+      static const std::unordered_set<std::string> kInput = {
+          "width",       "height",   "flexGrow", "opacity",     "visible",       "value",
+          "placeholder", "fontSize", "enabled",  "password",    "multiline",     "focus",
+          "onChange",    "onSubmit", "onPress",  "controlSize", "submitOnEnter", "frameVisible"
+      };
       static const std::unordered_set<std::string> kMarkdown = {"width",   "height",  "flexGrow",
                                                                 "opacity", "visible", "text"};
       static const std::unordered_set<std::string> kSelect = {"width",       "height",   "flexGrow",      "opacity",
@@ -563,6 +563,10 @@ namespace ui {
       return kCommon;
     }
 
+    bool isCommonPositionProp(std::string_view prop) {
+      return prop == "position" || prop == "x" || prop == "y" || prop == "zIndex" || prop == "clipChildren";
+    }
+
   } // namespace
 
   struct UiTreeReconciler::Slot {
@@ -573,6 +577,7 @@ namespace ui {
     std::string rightCallbackName;   // last-wired button onRightClick target
     std::string hoverCallbackName;   // last-wired onHover target (button/box/image/row/column)
     std::string submitCallbackName;  // last-wired input onSubmit target
+    std::string pressCallbackName;   // last-wired input onPress target
     std::string dragEndCallbackName; // last-wired slider onDragEnd target
     std::string imagePath;           // last-applied resolved image source
     std::string lastText;            // markdown source cache - setMarkdown re-parses, only call on change
@@ -588,11 +593,16 @@ namespace ui {
 
   UiTreeReconciler::UiTreeReconciler()
       : m_defaultFontWeight(FontWeight::Normal), m_dragDropController(std::make_unique<DragDropController>()) {
-    m_dragDropController->setDropCallback([this](std::string callback, std::string payload, std::string target) {
-      if (m_sink) {
-        m_sink(ControlCallback{std::move(callback), std::move(payload), std::move(target), false});
-      }
-    });
+    m_dragDropController->setDropCallback(
+        [this](std::string callback, std::string payload, std::string target, float x, float y) {
+          if (m_sink) {
+            ControlCallback event{std::move(callback), std::move(payload), std::move(target), false};
+            event.dropX = static_cast<double>(x);
+            event.dropY = static_cast<double>(y);
+            m_sink(event);
+          }
+        }
+    );
   }
 
   UiTreeReconciler::~UiTreeReconciler() { reset(); }
@@ -931,7 +941,7 @@ namespace ui {
     const auto& known = knownProps(desired.type);
     for (const auto& [key, value] : desired.props) {
       (void)value;
-      if (!known.contains(key)) {
+      if (!known.contains(key) && !isCommonPositionProp(key)) {
         kLog.warn("ui tree: '{}' has no prop '{}', ignored", desired.type, key);
       }
     }
@@ -939,6 +949,53 @@ namespace ui {
     const auto scaled = [this](double v) { return static_cast<float>(v) * m_scale; };
 
     // Common node props.
+    bool absolute = false;
+    if (const std::string* position = strProp(desired, "position")) {
+      if (*position == "absolute") {
+        absolute = true;
+      } else if (*position != "flow") {
+        kLog.warn("ui tree: '{}' key '{}': unknown position '{}'", desired.type, desired.key, *position);
+      }
+    } else if (desired.props.contains("position")) {
+      warnMistypedOptionalProp(desired, "position", R"("flow" or "absolute")");
+    }
+    const bool wasAbsolute = node->absolutePositioned();
+    node->setAbsolutePositioned(absolute);
+
+    if (const bool* clipChildren = boolProp(desired, "clipChildren")) {
+      node->setClipChildren(*clipChildren);
+    } else if (desired.props.contains("clipChildren")) {
+      warnMistypedOptionalProp(desired, "clipChildren", "a boolean");
+    } else if (wasAbsolute && !absolute) {
+      node->setClipChildren(false);
+    }
+
+    if (absolute) {
+      const double* x = numProp(desired, "x");
+      const double* y = numProp(desired, "y");
+      if (x == nullptr && desired.props.contains("x")) {
+        warnMistypedOptionalProp(desired, "x", "a number");
+      }
+      if (y == nullptr && desired.props.contains("y")) {
+        warnMistypedOptionalProp(desired, "y", "a number");
+      }
+      node->setPosition(scaled(x != nullptr ? *x : 0.0), scaled(y != nullptr ? *y : 0.0));
+      if (numProp(desired, "width") == nullptr || numProp(desired, "height") == nullptr) {
+        kLog.warn(
+            "ui tree: '{}' key '{}': absolute position requires numeric width and height", desired.type,
+            desired.key.empty() ? "<unkeyed>" : desired.key
+        );
+      }
+    }
+
+    if (const double* zIndex = numProp(desired, "zIndex")) {
+      node->setZIndex(static_cast<std::int32_t>(std::clamp(*zIndex, -1000000.0, 1000000.0)));
+    } else if (desired.props.contains("zIndex")) {
+      warnMistypedOptionalProp(desired, "zIndex", "a number");
+    } else if (wasAbsolute && !absolute) {
+      node->setZIndex(0);
+    }
+
     if (const bool* visible = boolProp(desired, "visible")) {
       if (!*visible) {
         m_dragDropController->cancelIfParticipantIn(node);
@@ -1582,6 +1639,20 @@ namespace ui {
       }
       if (const bool* frameVisible = boolProp(desired, "frameVisible")) {
         input->setFrameVisible(*frameVisible);
+      }
+      const std::string* onPress = callbackProp(desired, "onPress");
+      const std::string pressName = onPress != nullptr ? *onPress : std::string{};
+      if (pressName != slot.pressCallbackName) {
+        slot.pressCallbackName = pressName;
+        if (slot.pressCallbackName.empty()) {
+          input->setOnPress(nullptr);
+        } else {
+          input->setOnPress([this, name = slot.pressCallbackName]() {
+            if (m_sink) {
+              m_sink(ControlCallback{name});
+            }
+          });
+        }
       }
       if (const std::string* onChange = strProp(desired, "onChange");
           onChange != nullptr && *onChange != slot.callbackName) {
