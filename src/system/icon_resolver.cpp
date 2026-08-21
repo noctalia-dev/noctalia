@@ -3,6 +3,7 @@
 #include "util/string_utils.h"
 
 #include <algorithm>
+#include <chrono> // IWYU pragma: keep
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
@@ -148,7 +149,7 @@ namespace {
       signature += ':';
       std::error_code ec;
       const auto modified = fs::last_write_time(path, ec);
-      signature += ec ? "missing" : std::to_string(modified.time_since_epoch().count());
+      signature += ec ? "missing" : std::format("{}", modified);
       signature += '\n';
     };
     for (const auto& root : plan.baseDirs) {

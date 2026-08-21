@@ -979,9 +979,7 @@ private:
 };
 
 LauncherPanel::LauncherPanel(ConfigService* config, AsyncTextureCache* asyncTextures)
-    : m_iconResolver(true), m_config(config), m_asyncTextures(asyncTextures) {
-  syncUsageTrackingState();
-}
+    : m_iconResolver(true), m_config(config), m_asyncTextures(asyncTextures) {}
 
 LauncherPanel::~LauncherPanel() = default;
 
@@ -1466,8 +1464,8 @@ bool LauncherPanel::shouldTrackUsage() const {
 }
 
 void LauncherPanel::syncUsageTrackingState() {
-  if (!shouldTrackUsage()) {
-    clearUsage();
+  if (m_input != nullptr) {
+    reapplyCurrentQuery();
   }
 }
 

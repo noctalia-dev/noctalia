@@ -85,7 +85,7 @@ namespace compositors::umbriel {
     if (reply.json->contains("err") || !reply.json->contains("ok")) {
       return std::nullopt;
     }
-    return reply.json->at("ok");
+    return reply.json;
   }
 
   bool UmbrielRuntime::requestAction(std::string_view action) const {

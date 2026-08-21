@@ -1125,6 +1125,7 @@ if build_tests
     'audio_glyphs',
     'battery_hook_state',
     'bluetooth_uuid_names',
+    'button_layout',
     'cairo_text_renderer',
     'calendar_cache_permissions',
     'cli_help',
