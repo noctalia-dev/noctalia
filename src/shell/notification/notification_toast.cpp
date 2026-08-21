@@ -1,5 +1,6 @@
 #include "shell/notification/notification_toast.h"
 
+#include "compositors/compositor_platform.h"
 #include "config/config_service.h"
 #include "config/config_types.h"
 #include "core/deferred_call.h"
@@ -16,6 +17,8 @@
 #include "render/render_target.h"
 #include "render/scene/input_area.h"
 #include "shell/surface/edge_inset.h"
+#include "system/app_identity.h"
+#include "system/desktop_entry.h"
 #include "ui/builders.h"
 #include "ui/palette.h"
 #include "ui/style.h"
@@ -511,12 +514,13 @@ NotificationToast::~NotificationToast() {
 
 void NotificationToast::initialize(
     WaylandConnection& wayland, ConfigService* config, NotificationManager* notifications, RenderContext* renderContext,
-    HttpClient* httpClient
+    CompositorPlatform* platform, HttpClient* httpClient
 ) {
   m_wayland = &wayland;
   m_config = config;
   m_notifications = notifications;
   m_renderContext = renderContext;
+  m_platform = platform;
   m_httpClient = httpClient;
 
   m_callbackToken = m_notifications->addEventCallback([this](const Notification& n, NotificationEvent event) {
@@ -534,6 +538,7 @@ void NotificationToast::onConfigReload() {
     return;
   }
   ensureSurfaces();
+  refreshNotificationOutputs();
   std::vector<bool> wasPlaced(m_entries.size(), false);
   for (std::size_t i = 0; i < m_entries.size(); ++i) {
     wasPlaced[i] = hasPlacement(m_entries[i]);
@@ -573,10 +578,21 @@ void NotificationToast::onOutputChange() {
     return;
   }
   ensureSurfaces();
+  refreshNotificationOutputs();
   for (std::size_t i = 0; i < m_entries.size(); ++i) {
     syncEntryVisibility(i);
   }
   requestLayout();
+}
+
+void NotificationToast::onToplevelChange() {
+  if (m_entries.empty() || m_config == nullptr || !m_config->config().notification.routeToSourceOutput) {
+    return;
+  }
+  refreshNotificationOutputs();
+  for (std::size_t i = 0; i < m_entries.size(); ++i) {
+    syncEntryVisibility(i);
+  }
 }
 
 void NotificationToast::hideDndSuppressed() {
@@ -650,6 +666,8 @@ void NotificationToast::onNotificationEvent(const Notification& n, NotificationE
         const float previousHeight = m_entries[i].height;
         const int prevToastBodyLines = m_entries[i].toastBodyLines;
         const bool previouslyPlaced = hasPlacement(m_entries[i]);
+        const wl_output* previousOutput = m_entries[i].targetOutput;
+        m_entries[i].targetOutput = resolveNotificationOutput(n);
         m_entries[i].appName = notificationDisplayAppName(n);
         m_entries[i].summary = n.summary;
         m_entries[i].body = n.body;
@@ -817,7 +835,7 @@ void NotificationToast::onNotificationEvent(const Notification& n, NotificationE
           m_notifications->pauseExpiry(n.id);
         }
 
-        if (!hasPlacement(m_entries[i])) {
+        if (previousOutput != m_entries[i].targetOutput || !hasPlacement(m_entries[i])) {
           syncEntryVisibility(i);
           revealQueuedEntries();
         } else if (std::abs(previousHeight - m_entries[i].height) > 0.5F) {
@@ -870,6 +888,7 @@ void NotificationToast::addPopup(const Notification& n) {
 
   PopupEntry entry;
   entry.notificationId = n.id;
+  entry.targetOutput = resolveNotificationOutput(n);
   entry.appName = notificationDisplayAppName(n);
   entry.summary = n.summary;
   entry.body = n.body;
@@ -903,7 +922,10 @@ void NotificationToast::addPopup(const Notification& n) {
   revealQueuedEntries();
   enforceMaxVisible();
 
-  kLog.debug("notification toast: showing #{}", n.id);
+  const auto* output = m_wayland != nullptr ? m_wayland->findOutputByWl(m_entries[index].targetOutput) : nullptr;
+  kLog.debug(
+      "notification toast: showing #{} on {}", n.id, output != nullptr ? output->connectorName : "all eligible outputs"
+  );
 }
 
 void NotificationToast::requestClose(uint32_t notificationId, CloseReason reason) {
@@ -1001,7 +1023,9 @@ void NotificationToast::finishRemoval(uint32_t notificationId) {
 
 void NotificationToast::addCardToInstance(Instance& inst, std::size_t entryIndex) {
   auto& entry = m_entries[entryIndex];
-  if (!hasPlacement(entry) || !fitsOnSurface(entry, static_cast<float>(inst.surface->height()))) {
+  if (!hasPlacement(entry)
+      || (entry.targetOutput != nullptr && entry.targetOutput != inst.output)
+      || !fitsOnSurface(entry, static_cast<float>(inst.surface->height()))) {
     return;
   }
 
@@ -1182,6 +1206,7 @@ void NotificationToast::syncEntryVisibility(std::size_t entryIndex) {
 
     auto& cs = inst->cards[entryIndex];
     const bool shouldShow = hasPlacement(m_entries[entryIndex])
+        && (m_entries[entryIndex].targetOutput == nullptr || m_entries[entryIndex].targetOutput == inst->output)
         && fitsOnSurface(m_entries[entryIndex], static_cast<float>(inst->surface->height()));
     if (shouldShow) {
       if (cs.cardNode == nullptr) {
@@ -1978,6 +2003,59 @@ uint32_t NotificationToast::surfaceHeightForOutput(wl_output* output) const {
   }
 
   return fallbackSurfaceHeight(notificationUiScale(m_config));
+}
+
+wl_output* NotificationToast::resolveNotificationOutput(const Notification& notification) const {
+  if (m_config == nullptr || !m_config->config().notification.routeToSourceOutput || m_platform == nullptr) {
+    return nullptr;
+  }
+
+  std::string appKey = notification.desktopEntry.value_or("");
+  if (StringUtils::isBlank(appKey)) {
+    appKey = notification.appName;
+  }
+  if (appKey.ends_with(".desktop")) {
+    appKey.resize(appKey.size() - std::string_view(".desktop").size());
+  }
+  if (const auto slash = appKey.find_last_of('/'); slash != std::string::npos) {
+    appKey.erase(0, slash + 1);
+  }
+  if (StringUtils::isBlank(appKey)) {
+    return nullptr;
+  }
+
+  std::string idLower = StringUtils::toLower(appKey);
+  std::string wmClassLower = idLower;
+  if (const auto entry = app_identity::findDesktopEntry(appKey, desktopEntries()); entry.has_value()) {
+    idLower = !entry->idLower.empty() ? entry->idLower : StringUtils::toLower(entry->id);
+    wmClassLower = !entry->startupWmClassLower.empty() ? entry->startupWmClassLower : idLower;
+  }
+
+  wl_output* match = nullptr;
+  for (const auto& inst : m_instances) {
+    if (inst == nullptr
+        || inst->output == nullptr
+        || m_platform->enrichedWindowsForApp(idLower, wmClassLower, inst->output).empty()) {
+      continue;
+    }
+    if (match != nullptr) {
+      return nullptr;
+    }
+    match = inst->output;
+  }
+  return match;
+}
+
+void NotificationToast::refreshNotificationOutputs() {
+  if (m_notifications == nullptr) {
+    return;
+  }
+  for (auto& entry : m_entries) {
+    const auto notification = std::ranges::find(m_notifications->all(), entry.notificationId, &Notification::id);
+    if (notification != m_notifications->all().end()) {
+      entry.targetOutput = resolveNotificationOutput(*notification);
+    }
+  }
 }
 
 // --- Surface lifecycle ---

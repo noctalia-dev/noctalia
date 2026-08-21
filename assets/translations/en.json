@@ -2274,6 +2274,10 @@
           "description": "Screen position for notification toasts",
           "label": "Screen Position"
         },
+        "route-to-source-output": {
+          "description": "Use the monitor containing a uniquely matched source-app window; otherwise use the selected monitors",
+          "label": "Route to Source App Monitor"
+        },
         "scale": {
           "description": "Scale notification toasts relative to the shell UI scale",
           "label": "Size"

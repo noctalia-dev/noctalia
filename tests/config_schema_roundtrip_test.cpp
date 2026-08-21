@@ -377,6 +377,7 @@ location = "https://example.invalid/bad"
         .offsetX = 12,
         .offsetY = 6,
         .monitors = {"DP-2"},
+        .routeToSourceOutput = true,
         .collapseOnDismiss = false,
         .historyRetentionHours = 48,
         .filters = {NotificationFilterConfig{

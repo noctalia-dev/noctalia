@@ -2954,6 +2954,12 @@ namespace settings {
         "monitor output display screen"
     ));
     entries.push_back(makeEntry(
+        SettingsSection::Notifications, "toasts", tr("settings.schema.notifications.route-to-source-output.label"),
+        tr("settings.schema.notifications.route-to-source-output.description"),
+        {"notification", "route_to_source_output"}, ToggleSetting{cfg.notification.routeToSourceOutput},
+        "source application monitor output route"
+    ));
+    entries.push_back(makeEntry(
         SettingsSection::Notifications, "history", tr("settings.schema.notifications.history-retention-hours.label"),
         tr("settings.schema.notifications.history-retention-hours.description"),
         {"notification", "history_retention_hours"},
