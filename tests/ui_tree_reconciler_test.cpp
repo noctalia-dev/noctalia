@@ -1704,6 +1704,50 @@ int main() {
            )
           && ok;
 
+      if (proxy != nullptr) {
+        const auto previewBounds = [proxy]() {
+          const float left = proxy->x() + proxy->transformOriginX() * (1.0f - proxy->scaleX());
+          const float top = proxy->y() + proxy->transformOriginY() * (1.0f - proxy->scaleY());
+          return LayoutRect{
+              .x = left,
+              .y = top,
+              .width = proxy->width() * proxy->scaleX(),
+              .height = proxy->height() * proxy->scaleY(),
+          };
+        };
+
+        source->inputArea()->dispatchMotion(-100.0f, -100.0f);
+        auto bounds = previewBounds();
+        ok = expect(bounds.x >= -0.001f && bounds.y >= -0.001f, "drag preview stays inside the top-left edge") && ok;
+
+        const float leftEdgeX = proxy->x();
+        const float topEdgeY = proxy->y();
+        source->inputArea()->dispatchMotion(-100.0f, 80.0f);
+        ok = expect(
+                 proxy->x() == leftEdgeX && proxy->y() > topEdgeY,
+                 "drag preview keeps moving vertically along a clamped left edge"
+             )
+            && ok;
+
+        source->inputArea()->dispatchMotion(overlay.width() + 100.0f, overlay.height() + 100.0f);
+        bounds = previewBounds();
+        ok = expect(
+                 bounds.x + bounds.width <= overlay.width() + 0.001f
+                     && bounds.y + bounds.height <= overlay.height() + 0.001f,
+                 "drag preview stays inside the bottom-right edge"
+             )
+            && ok;
+
+        const float rightEdgeX = proxy->x();
+        const float bottomEdgeY = proxy->y();
+        source->inputArea()->dispatchMotion(80.0f, overlay.height() + 100.0f);
+        ok = expect(
+                 proxy->x() < rightEdgeX && proxy->y() == bottomEdgeY,
+                 "drag preview keeps moving horizontally along a clamped bottom edge"
+             )
+            && ok;
+      }
+
       source->inputArea()->dispatchPress(localX, localY, BTN_LEFT, false);
       ok = expect(overlay.children().empty(), "drop removes drag preview before callback rerender") && ok;
       ok = expect(

@@ -48,6 +48,18 @@ namespace {
     return safe;
   }
 
+  float
+  clampPreviewPosition(float position, float previewSize, float previewScale, float transformOrigin, float limit) {
+    const float scaledStart = transformOrigin * (1.0F - previewScale);
+    const float scaledEnd = scaledStart + previewSize * previewScale;
+    const float minimum = -scaledStart;
+    const float maximum = limit - scaledEnd;
+    if (minimum > maximum) {
+      return (limit - scaledStart - scaledEnd) * 0.5F;
+    }
+    return std::clamp(position, minimum, maximum);
+  }
+
 } // namespace
 
 DragDropController::~DragDropController() {
@@ -336,9 +348,17 @@ void DragDropController::updatePreview(float sceneX, float sceneY) {
   }
   float localX = 0.0F;
   float localY = 0.0F;
-  if (Node::mapFromScene(m_overlayRoot, sceneX - m_pointerOffsetX, sceneY - m_pointerOffsetY, localX, localY)) {
-    m_preview->setPosition(localX, localY);
-  }
+  // Pointer capture can deliver positions outside the overlay. mapFromScene still
+  // provides the transformed coordinates when its containment result is false.
+  (void)Node::mapFromScene(m_overlayRoot, sceneX - m_pointerOffsetX, sceneY - m_pointerOffsetY, localX, localY);
+  m_preview->setPosition(
+      clampPreviewPosition(
+          localX, m_preview->width(), m_preview->scaleX(), m_preview->transformOriginX(), m_overlayRoot->width()
+      ),
+      clampPreviewPosition(
+          localY, m_preview->height(), m_preview->scaleY(), m_preview->transformOriginY(), m_overlayRoot->height()
+      )
+  );
 }
 
 void DragDropController::clearPreview() {
