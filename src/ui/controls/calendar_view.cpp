@@ -52,6 +52,13 @@ namespace {
 #endif
   }
 
+  constexpr float kPassedEventAlpha = 0.55F;
+
+  std::chrono::system_clock::time_point eventEndInstant(const CalendarEvent& event) {
+    const auto minEnd = event.allDay ? event.start + std::chrono::hours{24} : event.start;
+    return std::max(event.end, minEnd);
+  }
+
   int localDateKey(std::chrono::system_clock::time_point time) {
     const std::time_t raw = std::chrono::system_clock::to_time_t(time);
     std::tm value{};
@@ -68,15 +75,15 @@ namespace {
     return {start, std::max(start, localDateKey(endTime))};
   }
 
-  ColorSpec eventColor(const CalendarEvent& event) {
-    Color color;
-    if (!event.colorHex.empty() && tryParseHexColor(event.colorHex, color)) {
-      return fixedColorSpec(color);
+  ColorSpec eventColor(const CalendarEvent& event, float alpha = 1.0F) {
+    ColorSpec spec = colorSpecFromRole(ColorRole::Primary);
+    if (Color color; !event.colorHex.empty() && tryParseHexColor(event.colorHex, color)) {
+      spec = fixedColorSpec(color);
+    } else if (const auto role = colorRoleFromToken(event.colorHex); role.has_value()) {
+      spec = colorSpecFromRole(*role);
     }
-    if (const auto role = colorRoleFromToken(event.colorHex); role.has_value()) {
-      return colorSpecFromRole(*role);
-    }
-    return colorSpecFromRole(ColorRole::Primary);
+    spec.alpha = alpha;
+    return spec;
   }
 
   std::unique_ptr<Flex> spacer(float width, float height) {
@@ -109,6 +116,10 @@ namespace calendar_view {
   }
 
   int dateKey(Date date) noexcept { return date.year * 10000 + (date.month + 1) * 100 + date.day; }
+
+  bool eventPassed(const CalendarEvent& event, std::chrono::system_clock::time_point now) {
+    return eventEndInstant(event) < now;
+  }
 
   void rebuildMonth(const MonthBuildOptions& options) {
     uiAssertNotRendering("calendar_view::rebuildMonth");
@@ -180,12 +191,14 @@ namespace calendar_view {
     if (options.snapshot != nullptr) {
       const int firstKey = dateKey({.year = year, .month = month, .day = 1});
       const int lastKey = dateKey({.year = year, .month = month, .day = monthDays});
+      const auto now = std::chrono::system_clock::now();
       for (const CalendarEvent& event : options.snapshot->events) {
         const auto [eventStart, eventEnd] = eventDayRange(event);
         if (eventEnd < firstKey || eventStart > lastKey) {
           continue;
         }
-        const ColorSpec color = eventColor(event);
+        const float eventAlpha = eventPassed(event, now) ? kPassedEventAlpha : 1.0F;
+        const ColorSpec color = eventColor(event, eventAlpha);
         for (int day = 1; day <= monthDays; ++day) {
           const int key = dateKey({.year = year, .month = month, .day = day});
           auto& dots = eventDots[static_cast<std::size_t>(day)];
@@ -399,6 +412,7 @@ namespace calendar_view {
     const float linkGlyphSize = Style::fontSizeCaption * options.scale;
     const float linkGlyphGap = Style::spaceXs * options.scale;
     const int selectedKey = dateKey(options.selected);
+    const auto now = std::chrono::system_clock::now();
     bool hasEvents = false;
     if (options.snapshot != nullptr) {
       for (const CalendarEvent& event : options.snapshot->events) {
@@ -410,6 +424,7 @@ namespace calendar_view {
         const bool hasLink = options.state != nullptr && !event.url.empty();
         const float timeMaxWidth =
             hasLink ? std::max(40.0F, textMaxWidth - linkGlyphSize - linkGlyphGap) : textMaxWidth;
+        const float eventAlpha = eventPassed(event, now) ? kPassedEventAlpha : 1.0F;
 
         std::string timeText;
         if (event.allDay) {
@@ -423,7 +438,7 @@ namespace calendar_view {
             .text = timeText,
             .fontSize = Style::fontSizeCaption * options.scale,
             .fontFamily = options.fontFamily,
-            .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+            .color = colorSpecFromRole(ColorRole::OnSurfaceVariant, eventAlpha),
             .maxWidth = timeMaxWidth,
             .maxLines = 1,
         });
@@ -434,7 +449,7 @@ namespace calendar_view {
               ui::glyph({
                   .glyph = "external-link",
                   .glyphSize = linkGlyphSize,
-                  .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+                  .color = colorSpecFromRole(ColorRole::OnSurfaceVariant, eventAlpha),
                   .flexGrow = 0.0F,
               })
           );
@@ -446,7 +461,7 @@ namespace calendar_view {
                 .text = event.title.empty() ? i18n::tr("control-center.calendar.events") : event.title,
                 .fontSize = Style::fontSizeBody * options.scale,
                 .fontFamily = options.fontFamily,
-                .color = colorSpecFromRole(ColorRole::OnSurface),
+                .color = colorSpecFromRole(ColorRole::OnSurface, eventAlpha),
                 .maxWidth = textMaxWidth,
                 .maxLines = 3,
             }),
@@ -457,7 +472,7 @@ namespace calendar_view {
         auto eventRowNode = ui::row(
             {.out = &eventRow, .align = FlexAlign::Stretch, .gap = rowGap},
             ui::box({
-                .fill = eventColor(event),
+                .fill = eventColor(event, eventAlpha),
                 .radius = dotWidth * 0.5F,
                 .width = dotWidth,
                 .flexGrow = 0.0F,

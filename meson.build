@@ -1132,6 +1132,7 @@ if build_tests
     'caldav_client',
     'calendar_credential_store',
     'calendar_discovery_state',
+    'calendar_view_passed_event',
     'capsule_group_lane_override',
     'capsule_group_reconcile',
     'clipboard_service',
