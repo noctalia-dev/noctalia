@@ -929,7 +929,9 @@ namespace settings {
     };
 
     const auto makeIdleBehaviorsInlineBlock = [&](Flex& section, const SettingEntry& entry,
-                                                  const IdleBehaviorsSetting& idle) {
+                                                  const IdleBehaviorsSetting& idle,
+                                                  const std::function<void(std::size_t)>& openEntry,
+                                                  const std::function<void()>& openCreate) {
       const bool overridden = (ctx.configService != nullptr && ctx.configService->hasEffectiveOverride(entry.path));
 
       auto block = makeCollectionBlock(entry, overridden);
@@ -1008,7 +1010,7 @@ namespace settings {
             .minHeight = Style::controlHeightSm * scale,
             .padding = Style::spaceXs * scale,
             .radius = Style::scaledRadiusSm(scale),
-            .onClick = [openEntry = ctx.openIdleBehaviorEntryEditor, rowIndex = idx]() {
+            .onClick = [openEntry, rowIndex = idx]() {
               if (openEntry) {
                 openEntry(rowIndex);
               }
@@ -1043,7 +1045,7 @@ namespace settings {
           .paddingV = Style::spaceSm * scale,
           .paddingH = Style::spaceMd * scale,
           .radius = Style::scaledRadiusMd(scale),
-          .onClick = [openCreate = ctx.openIdleBehaviorCreateEditor]() {
+          .onClick = [openCreate]() {
             if (openCreate) {
               openCreate();
             }
@@ -1419,7 +1421,11 @@ namespace settings {
         } else if (const auto* sessionActs = std::get_if<SessionPanelActionsSetting>(&entry.control)) {
           makeSessionActionsInlineBlock(*activeGroupBody, entry, *sessionActs);
         } else if (const auto* idle = std::get_if<IdleBehaviorsSetting>(&entry.control)) {
-          makeIdleBehaviorsInlineBlock(*activeGroupBody, entry, *idle);
+          const bool isAc = entry.path.size() >= 2 && entry.path[0] == "idle" && entry.path[1] == "ac";
+          makeIdleBehaviorsInlineBlock(
+              *activeGroupBody, entry, *idle, isAc ? ctx.openAcIdleBehaviorEntryEditor : ctx.openIdleBehaviorEntryEditor,
+              isAc ? ctx.openAcIdleBehaviorCreateEditor : ctx.openIdleBehaviorCreateEditor
+          );
         } else if (const auto* filters = std::get_if<NotificationFiltersSetting>(&entry.control)) {
           makeNotificationFiltersInlineBlock(*activeGroupBody, entry, *filters);
         } else if (const auto* picker = std::get_if<SearchPickerSetting>(&entry.control)) {

@@ -68,8 +68,8 @@ namespace {
     }
   }
 
-  [[nodiscard]] const std::vector<std::vector<std::string>>& suspendCommandVariants() {
-    static const std::vector<std::vector<std::string>> variants = {
+  [[nodiscard]] const std::vector<std::vector<std::string>>& suspendCommandVariants(std::string_view behavior) {
+    static const std::vector<std::vector<std::string>> suspend = {
         {"systemctl", "suspend"},
         {"loginctl", "suspend"},
         {"pm-suspend"},
@@ -82,7 +82,28 @@ namespace {
         {"sudo", "-n", "zzz"},
         {"sudo", "-n", "sh", "-c", "echo mem > /sys/power/state"},
     };
-    return variants;
+    static const std::vector<std::vector<std::string>> hibernate = {
+        {"systemctl", "hibernate"},
+        {"loginctl", "hibernate"},
+        {"pm-hibernate"},
+        {"pkexec", "pm-hibernate"},
+        {"run0", "pm-hibernate"},
+        {"sudo", "-n", "pm-hibernate"},
+        {"pkexec", "sh", "-c", "echo disk > /sys/power/state"},
+        {"run0", "sh", "-c", "echo disk > /sys/power/state"},
+        {"sudo", "-n", "sh", "-c", "echo disk > /sys/power/state"},
+    };
+    static const std::vector<std::vector<std::string>> suspendThenHibernate = {
+        {"systemctl", "suspend-then-hibernate"},
+        {"loginctl", "suspend-then-hibernate"},
+    };
+    if (behavior == "hibernate") {
+      return hibernate;
+    }
+    if (behavior == "suspend-then-hibernate") {
+      return suspendThenHibernate;
+    }
+    return suspend;
   }
 
   [[nodiscard]] const std::vector<std::vector<std::string>>& rebootCommandVariants() {
@@ -232,6 +253,8 @@ void SessionActionRunner::setPowerConfig(const ShellSessionConfig::ShellSessionP
   m_rebootCommandOverride = power.reboot;
   m_shutdownCommandOverride = power.shutdown;
   m_cachedSuspendAutoStartIdx.reset();
+  m_cachedHibernateAutoStartIdx.reset();
+  m_cachedSuspendThenHibernateAutoStartIdx.reset();
   m_cachedRebootAutoStartIdx.reset();
   m_cachedShutdownAutoStartIdx.reset();
 }
@@ -292,15 +315,25 @@ std::function<bool()> SessionActionRunner::hookFor(std::string_view action) cons
 
 bool SessionActionRunner::lock() const { return requestLock(m_lockScreen); }
 
-bool SessionActionRunner::requestSuspendDetached() const {
+std::optional<std::size_t>& SessionActionRunner::suspendCacheFor(std::string_view behavior) const {
+  if (behavior == "hibernate") {
+    return m_cachedHibernateAutoStartIdx;
+  }
+  if (behavior == "suspend-then-hibernate") {
+    return m_cachedSuspendThenHibernateAutoStartIdx;
+  }
+  return m_cachedSuspendAutoStartIdx;
+}
+
+bool SessionActionRunner::requestSuspendDetached(std::string_view behavior) const {
   logActionContext("suspend");
   if (m_hooks.onBeforePlainSuspend) {
     m_hooks.onBeforePlainSuspend();
   }
   std::scoped_lock lock(m_powerMutex);
+  const std::optional<std::string> commandOverride = (behavior == "suspend") ? m_suspendCommandOverride : std::nullopt;
   const bool started = runPowerActionResolved(
-      "suspend", m_suspendCommandOverride, suspendCommandVariants(), m_cachedSuspendAutoStartIdx,
-      PowerLaunchMode::Detached
+      "suspend", commandOverride, suspendCommandVariants(behavior), suspendCacheFor(behavior), PowerLaunchMode::Detached
   );
   if (!started && m_hooks.onPlainSuspendAborted) {
     m_hooks.onPlainSuspendAborted();
@@ -325,20 +358,22 @@ bool SessionActionRunner::requestShutdownDetached() const {
   );
 }
 
-bool SessionActionRunner::lockThenSuspendDetached() const {
-  m_lockScreen.runAfterSessionLocked([this]() { (void)requestSuspendDetached(); });
+bool SessionActionRunner::lockThenSuspendDetached(std::string_view behavior) const {
+  m_lockScreen.runAfterSessionLocked([this, behavior = std::string(behavior)]() {
+    (void)requestSuspendDetached(behavior);
+  });
   return true;
 }
 
-bool SessionActionRunner::suspendBlocking() const {
+bool SessionActionRunner::suspendBlocking(std::string_view behavior) const {
   logActionContext("suspend");
   if (m_hooks.onBeforePlainSuspend) {
     m_hooks.onBeforePlainSuspend();
   }
   std::scoped_lock lock(m_powerMutex);
+  const std::optional<std::string> commandOverride = (behavior == "suspend") ? m_suspendCommandOverride : std::nullopt;
   const bool started = runPowerActionResolved(
-      "suspend", m_suspendCommandOverride, suspendCommandVariants(), m_cachedSuspendAutoStartIdx,
-      PowerLaunchMode::Blocking
+      "suspend", commandOverride, suspendCommandVariants(behavior), suspendCacheFor(behavior), PowerLaunchMode::Blocking
   );
   if (!started && m_hooks.onPlainSuspendAborted) {
     m_hooks.onPlainSuspendAborted();

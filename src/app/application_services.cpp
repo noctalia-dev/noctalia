@@ -1151,6 +1151,7 @@ void Application::initSystemBusServices() {
           return;
         }
         onUpowerStateChangedForHooks();
+        reloadIdleBehaviors();
         m_batteryWarningMonitor.evaluate(m_configService.config().battery, *m_upowerService, m_notificationManager);
         if (m_bluetoothService != nullptr) {
           m_bluetoothService->refreshBatteryFromUPower();

@@ -2756,10 +2756,40 @@ namespace settings {
         "idle fade dim seconds overlay"
     ));
     entries.push_back(makeEntry(
-        SettingsSection::Power, "idle", tr("settings.schema.idle.behaviors.label"),
+        SettingsSection::Power, "battery", tr("settings.schema.idle.behaviors.label"),
         tr("settings.schema.idle.behaviors.description"), {"idle", "behavior"},
         IdleBehaviorsSetting{.items = cfg.idle.behaviors},
         "idle behavior timeout command resume screen lock dpms suspend lock_and_suspend caffeine"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Power, "battery", tr("settings.schema.idle.power-profile.label"),
+        tr("settings.schema.idle.power-profile.description"), {"idle", "power_profile"},
+        plainSelect(
+            {{"power-saver", "power.profiles.power-saver"},
+             {"balanced", "power.profiles.balanced"},
+             {"performance", "power.profiles.performance"}},
+            cfg.idle.powerProfile
+        ),
+        "idle power profile balanced performance saver"
+    ));
+
+    // AC power idle behavior: used instead of the battery behaviors while on AC power.
+    entries.push_back(makeEntry(
+        SettingsSection::Power, "ac", tr("settings.schema.idle.behaviors.label"),
+        tr("settings.schema.idle.behaviors.description"), {"idle", "ac", "behavior"},
+        IdleBehaviorsSetting{.items = cfg.idle.ac.behaviors},
+        "idle ac behavior timeout command resume screen lock dpms suspend lock_and_suspend"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Power, "ac", tr("settings.schema.idle.power-profile.label"),
+        tr("settings.schema.idle.power-profile.description"), {"idle", "ac", "power_profile"},
+        plainSelect(
+            {{"power-saver", "power.profiles.power-saver"},
+             {"balanced", "power.profiles.balanced"},
+             {"performance", "power.profiles.performance"}},
+            cfg.idle.ac.powerProfile
+        ),
+        "idle ac power profile balanced performance saver"
     ));
 
     // Hooks

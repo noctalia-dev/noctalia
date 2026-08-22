@@ -941,6 +941,8 @@ settings::SettingsContentContext SettingsWindow::makeContentContext(
       .openSessionActionEntryEditor = [this](std::size_t entryIndex) { openSessionActionEntryEditor(entryIndex); },
       .openIdleBehaviorEntryEditor = [this](std::size_t entryIndex) { openIdleBehaviorEntryEditor(entryIndex); },
       .openIdleBehaviorCreateEditor = [this]() { openIdleBehaviorCreateEditor(); },
+      .openAcIdleBehaviorEntryEditor = [this](std::size_t entryIndex) { openAcIdleBehaviorEntryEditor(entryIndex); },
+      .openAcIdleBehaviorCreateEditor = [this]() { openAcIdleBehaviorCreateEditor(); },
       .openNotificationFilterEntryEditor =
           [this](std::size_t entryIndex) { openNotificationFilterEntryEditor(entryIndex); },
       .openNotificationFilterCreateEditor = [this]() { openNotificationFilterCreateEditor(); },

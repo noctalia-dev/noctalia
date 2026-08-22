@@ -819,12 +819,12 @@ bool Application::runIdleAction(const IdleActionRequest& action) {
   case IdleActionKind::ScreenOn:
     return m_compositorPlatform.setOutputPower(true);
   case IdleActionKind::Suspend:
-    return m_sessionActionRunner.requestSuspendDetached();
+    return m_sessionActionRunner.requestSuspendDetached(action.suspendBehavior);
   case IdleActionKind::LockAndSuspend:
     if (!m_configService.isLockScreenEnabled()) {
-      return m_sessionActionRunner.requestSuspendDetached();
+      return m_sessionActionRunner.requestSuspendDetached(action.suspendBehavior);
     }
-    return m_sessionActionRunner.lockThenSuspendDetached();
+    return m_sessionActionRunner.lockThenSuspendDetached(action.suspendBehavior);
   }
   return false;
 }

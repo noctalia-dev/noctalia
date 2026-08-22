@@ -741,7 +741,7 @@ void Application::initNotificationAndOsd() {
   );
   m_configService.addReloadCallback([this]() { m_osdOverlay.onConfigReload(); });
   m_idleGraceOverlay.initialize(m_wayland, &m_renderContext);
-  m_wayland.setIdleCapabilitiesReadyCallback([this]() { m_idleManager.reload(m_configService.config().idle); });
+  m_wayland.setIdleCapabilitiesReadyCallback([this]() { reloadIdleBehaviors(); });
   m_idleManager.initialize(
       m_wayland,
       [this](
@@ -777,7 +777,7 @@ void Application::initNotificationAndOsd() {
   m_idleManager.setLiveIdleChangeCallback([this]() {
     DeferredCall::callLater([this]() { m_settingsWindow.onIdleLiveStatusChanged(); });
   });
-  m_idleManager.reload(m_configService.config().idle);
+  reloadIdleBehaviors();
   try {
     m_screenSaverService = std::make_unique<ScreenSaverService>(m_systemBus.get());
     if (m_screenSaverService->active()) {
@@ -795,7 +795,7 @@ void Application::initNotificationAndOsd() {
   m_configService.addReloadCallback(
       [this]() {
         if (m_configService.lastChange().idle) {
-          m_idleManager.reload(m_configService.config().idle);
+          reloadIdleBehaviors();
         }
       },
       "idle"
@@ -828,6 +828,24 @@ void Application::initNotificationAndOsd() {
       },
       "privacy-filters"
   );
+}
+
+void Application::reloadIdleBehaviors() {
+  const IdleConfig& idle = m_configService.config().idle;
+  // Unknown power source (upower unavailable) falls back to the battery behaviors so pre-existing
+  // systems without upower keep their current idle config.
+  const bool onBattery = m_upowerService == nullptr || m_upowerService->state().onBattery;
+  if (onBattery) {
+    m_idleManager.reload(idle);
+  } else {
+    IdleConfig ac = idle;
+    ac.behaviors = idle.ac.behaviors;
+    m_idleManager.reload(ac);
+  }
+  const std::string& profile = onBattery ? idle.powerProfile : idle.ac.powerProfile;
+  if (m_powerProfilesService != nullptr && !profile.empty() && profile != m_powerProfilesService->activeProfile()) {
+    (void)m_powerProfilesService->setActiveProfile(profile);
+  }
 }
 
 void Application::initBarDockAndLayout() {

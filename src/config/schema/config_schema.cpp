@@ -931,77 +931,121 @@ namespace noctalia::config::schema {
                 }
               }
           ),
+          custom<IdleBehaviorConfig>(
+              "suspend_behavior",
+              [](const toml::table& tbl, IdleBehaviorConfig& out, std::string_view, Diagnostics&) {
+                if (auto v = tbl["suspend_behavior"].value<std::string>()) {
+                  out.suspendBehavior = StringUtils::trim(*v);
+                }
+              },
+              [](toml::table& tbl, const IdleBehaviorConfig& in) {
+                // Emitted only for a suspend action that deviates from the default.
+                if ((in.action == "suspend" || in.action == "lock_and_suspend") && in.suspendBehavior != "suspend") {
+                  tbl.insert_or_assign("suspend_behavior", in.suspendBehavior);
+                }
+              }
+          ),
           finalize<IdleBehaviorConfig>([](IdleBehaviorConfig& b, std::string_view, Diagnostics&) {
             normalizeIdleBehaviorAction(b);
           }),
       };
       return s;
     }
+
+    // Shared by idleSchema and acIdleSchema: reorder behaviors to match behavior_order,
+    // leaving any unlisted behaviors in their original relative order at the end.
+    void reorderIdleBehaviors(const toml::table& tbl, std::vector<IdleBehaviorConfig>& behaviors) {
+      const auto* orderArr = tbl["behavior_order"].as_array();
+      if (orderArr == nullptr || behaviors.empty()) {
+        return;
+      }
+      std::vector<std::string> orderedNames;
+      for (const auto& item : *orderArr) {
+        if (auto name = item.value<std::string>(); name && !name->empty()) {
+          orderedNames.push_back(*name);
+        }
+      }
+      if (orderedNames.empty()) {
+        return;
+      }
+      std::unordered_map<std::string, IdleBehaviorConfig> byName;
+      for (auto& b : behaviors) {
+        byName.insert_or_assign(b.name, std::move(b));
+      }
+      std::vector<IdleBehaviorConfig> ordered;
+      ordered.reserve(byName.size());
+      for (const auto& name : orderedNames) {
+        auto it = byName.find(name);
+        if (it == byName.end()) {
+          continue;
+        }
+        ordered.push_back(std::move(it->second));
+        byName.erase(it);
+      }
+      for (auto& [name, b] : byName) {
+        (void)name;
+        ordered.push_back(std::move(b));
+      }
+      behaviors = std::move(ordered);
+    }
+
+    // Shared by idleSchema and acIdleSchema: the name-keyed [behavior] map, its
+    // vector-order mirror behavior_order (emitted first so it reads before the
+    // map), and the keyless reorder finalizer that runs last on read.
+    template <typename Struct>
+    void appendIdleBehaviorFields(Schema<Struct>& schema, std::vector<IdleBehaviorConfig> Struct::* behaviors) {
+      schema.push_back(
+          custom<Struct>(
+              "behavior_order", [](const toml::table&, Struct&, std::string_view, Diagnostics&) {},
+              [behaviors](toml::table& tbl, const Struct& in) {
+                toml::array order;
+                for (const auto& b : in.*behaviors) {
+                  if (!b.name.empty()) {
+                    order.push_back(b.name);
+                  }
+                }
+                tbl.insert_or_assign("behavior_order", std::move(order));
+              }
+          )
+      );
+      schema.push_back(
+          namedMap<Struct, IdleBehaviorConfig>(
+              behaviors, "behavior", idleBehaviorSchema(),
+              [](IdleBehaviorConfig& b, std::string_view name) { b.name = std::string(name); },
+              [](const IdleBehaviorConfig& b) { return b.name; }
+          )
+      );
+      schema.push_back(
+          custom<Struct>(
+              "",
+              [behaviors](const toml::table& tbl, Struct& out, std::string_view, Diagnostics&) {
+                reorderIdleBehaviors(tbl, out.*behaviors);
+              },
+              [](toml::table&, const Struct&) {}
+          )
+      );
+    }
   } // namespace
 
   const Schema<IdleConfig>& idleSchema() {
-    static const Schema<IdleConfig> s = {
-        field(&IdleConfig::preActionFadeSeconds, "pre_action_fade_seconds", Range<float>{0.0F, 120.0F}),
-        // behavior_order is emitted here (vector order); the actual reorder runs
-        // last, after the behavior map has been read.
-        custom<IdleConfig>(
-            "behavior_order", [](const toml::table&, IdleConfig&, std::string_view, Diagnostics&) {},
-            [](toml::table& tbl, const IdleConfig& in) {
-              toml::array order;
-              for (const auto& b : in.behaviors) {
-                if (!b.name.empty()) {
-                  order.push_back(b.name);
-                }
-              }
-              tbl.insert_or_assign("behavior_order", std::move(order));
-            }
-        ),
-        namedMap<IdleConfig, IdleBehaviorConfig>(
-            &IdleConfig::behaviors, "behavior", idleBehaviorSchema(),
-            [](IdleBehaviorConfig& b, std::string_view name) { b.name = std::string(name); },
-            [](const IdleBehaviorConfig& b) { return b.name; }
-        ),
-        // Keyless finalizer: reorder behaviors to match behavior_order, leaving
-        // any unlisted behaviors in their original relative order at the end.
-        custom<IdleConfig>(
-            "",
-            [](const toml::table& tbl, IdleConfig& out, std::string_view, Diagnostics&) {
-              const auto* orderArr = tbl["behavior_order"].as_array();
-              if (orderArr == nullptr || out.behaviors.empty()) {
-                return;
-              }
-              std::vector<std::string> orderedNames;
-              for (const auto& item : *orderArr) {
-                if (auto name = item.value<std::string>(); name && !name->empty()) {
-                  orderedNames.push_back(*name);
-                }
-              }
-              if (orderedNames.empty()) {
-                return;
-              }
-              std::unordered_map<std::string, IdleBehaviorConfig> byName;
-              for (auto& b : out.behaviors) {
-                byName.insert_or_assign(b.name, std::move(b));
-              }
-              std::vector<IdleBehaviorConfig> ordered;
-              ordered.reserve(byName.size());
-              for (const auto& name : orderedNames) {
-                auto it = byName.find(name);
-                if (it == byName.end()) {
-                  continue;
-                }
-                ordered.push_back(std::move(it->second));
-                byName.erase(it);
-              }
-              for (auto& [name, b] : byName) {
-                (void)name;
-                ordered.push_back(std::move(b));
-              }
-              out.behaviors = std::move(ordered);
-            },
-            [](toml::table&, const IdleConfig&) {}
-        ),
-    };
+    static const Schema<IdleConfig> s = [] {
+      Schema<IdleConfig> schema;
+      schema.push_back(field(&IdleConfig::preActionFadeSeconds, "pre_action_fade_seconds", Range<float>{0.0F, 120.0F}));
+      schema.push_back(field(&IdleConfig::powerProfile, "power_profile"));
+      appendIdleBehaviorFields(schema, &IdleConfig::behaviors);
+      schema.push_back(subTable<IdleConfig, AcIdleConfig>(&IdleConfig::ac, "ac", acIdleSchema()));
+      return schema;
+    }();
+    return s;
+  }
+
+  const Schema<AcIdleConfig>& acIdleSchema() {
+    static const Schema<AcIdleConfig> s = [] {
+      Schema<AcIdleConfig> schema;
+      schema.push_back(field(&AcIdleConfig::powerProfile, "power_profile"));
+      appendIdleBehaviorFields(schema, &AcIdleConfig::behaviors);
+      return schema;
+    }();
     return s;
   }
 
