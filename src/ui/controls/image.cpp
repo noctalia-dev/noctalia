@@ -229,6 +229,8 @@ bool Image::setSourceFile(
     }
     return false;
   }
+  m_texture.sourceWidth = loaded->sourceWidth;
+  m_texture.sourceHeight = loaded->sourceHeight;
 
   m_sourcePath = path;
   m_sourceRequestedTargetSize = requestedTargetSize;
@@ -260,6 +262,8 @@ bool Image::reloadSourceFile(
   if (!commitColorizedRgba(renderer, loaded->rgba.data(), loaded->width, loaded->height, mipmap)) {
     return false;
   }
+  m_texture.sourceWidth = loaded->sourceWidth;
+  m_texture.sourceHeight = loaded->sourceHeight;
 
   m_sourcePath = path;
   m_sourceRequestedTargetSize = requestedTargetSize;

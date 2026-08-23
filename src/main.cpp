@@ -242,7 +242,9 @@ namespace {
 } // namespace
 
 #ifdef NOCTALIA_USE_JEMALLOC
-const char* malloc_conf = "narenas:2,dirty_decay_ms:1000,muzzy_decay_ms:5000,lg_tcache_max:12";
+// jemalloc reads this before its first allocation; the background thread runs
+// decay even while the shell is idle.
+const char* malloc_conf = "background_thread:true,narenas:2,dirty_decay_ms:1000,muzzy_decay_ms:5000,lg_tcache_max:12";
 #endif
 
 int main(int argc, char* argv[]) {

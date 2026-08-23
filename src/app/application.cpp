@@ -98,13 +98,22 @@
 #include <cmath>
 #include <csignal>
 #include <cstdint>
+#include <cstring>
 #include <filesystem>
 #include <limits>
 #include <malloc.h>
+#ifdef NOCTALIA_USE_JEMALLOC
+#include <jemalloc/jemalloc.h>
+#endif
 #include <optional>
 #include <stdexcept>
 #include <string_view>
 #include <utility>
+
+#ifdef NOCTALIA_USE_JEMALLOC
+#define NOCTALIA_STRINGIFY_HELPER(x) #x
+#define NOCTALIA_STRINGIFY(x) NOCTALIA_STRINGIFY_HELPER(x)
+#endif
 
 std::atomic<bool> Application::s_shutdownRequested{false};
 
@@ -252,7 +261,18 @@ void Application::run(std::function<void()> startupReadyCallback) {
   });
 
 #ifdef __GLIBC__
-  runStartupPhase("malloc_trim", []() { malloc_trim(0); });
+  runStartupPhase("allocator_trim", []() {
+#ifdef NOCTALIA_USE_JEMALLOC
+    // jemalloc exports no malloc_trim; purge unused pages in every arena.
+    const int purgeResult =
+        mallctl("arena." NOCTALIA_STRINGIFY(MALLCTL_ARENAS_ALL) ".purge", nullptr, nullptr, nullptr, 0);
+    if (purgeResult != 0) {
+      kLog.warn("failed to purge jemalloc arenas: {}", std::strerror(purgeResult));
+    }
+#else
+    malloc_trim(0);
+#endif
+  });
 #endif
 
   m_trayInitTimer.start(std::chrono::milliseconds(500), [this]() { startTrayService(); });

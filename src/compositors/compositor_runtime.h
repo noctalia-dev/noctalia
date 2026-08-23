@@ -24,6 +24,10 @@ namespace compositors {
     class TriadRuntime;
   } // namespace triad
 
+  namespace umbriel {
+    class UmbrielRuntime;
+  } // namespace umbriel
+
   class CompositorRuntimeRegistry {
   public:
     CompositorRuntimeRegistry();
@@ -42,6 +46,8 @@ namespace compositors {
     [[nodiscard]] const sway::SwayRuntime& sway() const noexcept;
     [[nodiscard]] triad::TriadRuntime& triad() noexcept;
     [[nodiscard]] const triad::TriadRuntime& triad() const noexcept;
+    [[nodiscard]] umbriel::UmbrielRuntime& umbriel() noexcept;
+    [[nodiscard]] const umbriel::UmbrielRuntime& umbriel() const noexcept;
 
   private:
     std::unique_ptr<hyprland::HyprlandRuntime> m_hyprland;
@@ -49,6 +55,7 @@ namespace compositors {
     std::unique_ptr<niri::NiriRuntime> m_niri;
     std::unique_ptr<sway::SwayRuntime> m_sway;
     std::unique_ptr<triad::TriadRuntime> m_triad;
+    std::unique_ptr<umbriel::UmbrielRuntime> m_umbriel;
   };
 
 } // namespace compositors
