@@ -54,7 +54,6 @@ private:
   bool m_verifying = false;
   bool m_claiming = false;
   bool m_sleeping = false;
-  bool m_abort = false;
   bool m_reclaimAttempted = false;
   bool m_faceDetected = false;
   bool m_exhausted = false;

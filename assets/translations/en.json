@@ -34,8 +34,9 @@
       "too-close": "Move back from camera",
       "too-far": "Move closer to camera",
       "too-many-attempts": "Face unlock disabled (too many attempts)",
-      "error": "Face authentication error",
-      "recognized": "Face recognized"
+      "recognized": "Face recognized",
+      "confirm-unlock": "Face recognized — press Enter to unlock",
+      "confirm-action": "Face recognized — press Enter to confirm"
     }
   },
   "bar": {

@@ -29,6 +29,7 @@ namespace {
 
   constexpr int kMaxRetries = 1;
   constexpr auto kRetryDelay = std::chrono::milliseconds(500);
+  constexpr auto kVerifySource = "any";
 
   struct FaceStatusMessage {
     std::string key;
@@ -67,8 +68,9 @@ FaceAuthenticator::FaceAuthenticator(SystemBus& bus) : m_bus(bus) {
     m_loginManager->uponSignal("PrepareForSleep").onInterface(kLoginManagerInterface).call([this](bool sleeping) {
       m_sleeping = sleeping;
       if (sleeping) {
+        m_claiming = false;
         stopVerify();
-      } else if (m_active && !m_abort) {
+      } else if (m_active) {
         release();
         m_retries = 0;
         m_faceDetected = false;
@@ -97,7 +99,6 @@ void FaceAuthenticator::start() {
   }
 
   m_active = true;
-  m_abort = false;
   m_retries = 0;
   m_reclaimAttempted = false;
   m_faceDetected = false;
@@ -113,11 +114,7 @@ void FaceAuthenticator::stop() {
   m_active = false;
   m_verifying = false;
   m_claiming = false;
-  if (!m_abort) {
-    release();
-  } else {
-    m_proxy.reset();
-  }
+  release();
 }
 
 bool FaceAuthenticator::createProxy() {
@@ -198,7 +195,7 @@ void FaceAuthenticator::claim() {
 }
 
 void FaceAuthenticator::startVerify(bool isRetry) {
-  if (!m_active || m_sleeping || m_abort) {
+  if (!m_active || m_sleeping) {
     return;
   }
   m_verifying = true;
@@ -219,7 +216,7 @@ void FaceAuthenticator::startVerify(bool isRetry) {
 
   m_proxy->callMethodAsync("VerifyStart")
       .onInterface(kGazeInterface)
-      .withArguments(std::string{"any"})
+      .withArguments(std::string{kVerifySource})
       .uponReplyInvoke([this, isRetry](std::optional<sdbus::Error> e) {
         if (e.has_value()) {
           kLog.info("could not start face verification: {}", e->what());
@@ -227,7 +224,7 @@ void FaceAuthenticator::startVerify(bool isRetry) {
           // A claim dropped across suspend/resume makes VerifyStart fail; drop the
           // stale proxy and recreate+reclaim once. Destroying the proxy here would
           // use-after-free the async reply handler, so defer the reset.
-          if (!m_reclaimAttempted && m_active && !m_sleeping && !m_abort && isRecoverableClaimError(*e)) {
+          if (!m_reclaimAttempted && m_active && !m_sleeping && isRecoverableClaimError(*e)) {
             m_reclaimAttempted = true;
             m_retryTimer.start(kRetryDelay, [this]() {
               m_proxy.reset();

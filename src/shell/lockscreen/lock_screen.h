@@ -145,6 +145,7 @@ private:
   wl_surface* m_pointerSurface = nullptr;
   bool m_statusIsError = false;
   bool m_authenticating = false;
+  bool m_faceVerified = false;
   std::uint64_t m_authGeneration = 0;
   bool m_lockPending = false;
   bool m_locked = false;

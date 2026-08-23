@@ -87,10 +87,11 @@ bool LockScreen::initialize(
 
     m_faceAuth = std::make_unique<FaceAuthenticator>(*m_systemBus);
     m_faceAuth->setAuthenticatedCallback([this]() {
-      m_status = i18n::tr("lockscreen.unlocked");
+      m_faceVerified = true;
+      clearSensitiveString(m_password);
+      m_status = i18n::tr("auth.face.confirm-unlock");
       m_statusIsError = false;
       updatePromptOnSurfaces();
-      unlock();
     });
     m_faceAuth->setStatusCallback([this](const std::string& message, bool isError) {
       handleFaceAuthStatus(message, isError);
@@ -169,6 +170,7 @@ bool LockScreen::lock() {
   m_lockPending = true;
   m_locked = false;
   clearSensitiveString(m_password);
+  m_faceVerified = false;
   m_status = i18n::tr("lockscreen.waiting");
   m_statusIsError = false;
   syncInstances();
@@ -209,6 +211,7 @@ void LockScreen::unlock() {
 
   m_lockPending = false;
   m_locked = false;
+  m_faceVerified = false;
   clearSensitiveString(m_password);
   m_status.clear();
   m_statusIsError = false;
@@ -246,6 +249,7 @@ void LockScreen::requestUpdate() {
 }
 
 void LockScreen::forceRepaintAfterResume() {
+  m_faceVerified = false;
   for (auto& inst : m_instances) {
     if (inst.surface != nullptr) {
       inst.surface->discardPendingFrameCallback();
@@ -390,6 +394,7 @@ void LockScreen::onKeyboardEvent(const KeyboardEvent& event) {
   }
 
   if (KeybindMatcher::matches(KeybindAction::Cancel, event.sym, event.modifiers)) {
+    m_faceVerified = false;
     clearSensitiveString(m_password);
     m_status = i18n::tr("lockscreen.password-cleared");
     m_statusIsError = false;
@@ -843,6 +848,7 @@ void LockScreen::onKeyboardLayoutChanged() {
 void LockScreen::invalidatePendingAuthentication() {
   ++m_authGeneration;
   m_authenticating = false;
+  m_faceVerified = false;
 }
 
 void LockScreen::handlePasswordEdited(const std::string& value) {
@@ -851,6 +857,7 @@ void LockScreen::handlePasswordEdited(const std::string& value) {
     updatePromptOnSurfaces();
     return;
   }
+  m_faceVerified = false;
   if (m_password == value && m_status.empty() && !m_statusIsError) {
     return;
   }
@@ -864,6 +871,16 @@ void LockScreen::tryAuthenticate() {
   if (m_authenticating || !m_locked) {
     return;
   }
+
+  if (m_faceVerified) {
+    m_faceVerified = false;
+    m_status = i18n::tr("lockscreen.unlocked");
+    m_statusIsError = false;
+    updatePromptOnSurfaces();
+    unlock();
+    return;
+  }
+
   if (m_password.empty()) {
     const bool allowEmptyPassword =
         m_configService != nullptr && m_configService->config().lockscreen.allowEmptyPassword;
