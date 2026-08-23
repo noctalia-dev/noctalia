@@ -2040,9 +2040,6 @@ void SettingsWindow::openPluginStore() {
                     }
                     if (enable) {
                       (void)m_pluginManager->enable(id);
-                      if (m_editorSheetModal != nullptr) {
-                        m_editorSheetModal->close();
-                      }
                       ++m_pluginListRefreshGeneration;
                       m_pluginListDirty = false;
                       auto existing = std::ranges::find_if(m_pluginList, [&](const auto& p) { return p.id == id; });
@@ -2062,7 +2059,10 @@ void SettingsWindow::openPluginStore() {
                       m_pluginManager->disable(id);
                       m_pluginListDirty = true;
                     }
-                    requestContentRebuild();
+                    // Keep the store open, rebuild the sheet body so Add swaps to the install spinner.
+                    requestContentRebuild(
+                        /*refreshRegistry=*/false, /*refreshFilterRow=*/false, /*rebuildEditorSheet=*/true
+                    );
                   },
               .isEnabling = [this](
                                 const std::string& id

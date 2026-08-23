@@ -106,6 +106,8 @@ namespace settings {
     void moveSelection(int delta);
     [[nodiscard]] bool activateSelection();
     [[nodiscard]] bool installDetailIfAvailable();
+    // Marks plugin installed then enables it.
+    void installFromStore(const std::string& id);
 
     std::vector<StoreCatalogEntry> m_catalog;
     ConfigService* m_config = nullptr;

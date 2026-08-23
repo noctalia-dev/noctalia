@@ -831,11 +831,16 @@ namespace settings {
               .text = i18n::tr("settings.plugins.store.add"),
               .fontSize = Style::fontSizeCaption * scale,
               .variant = ButtonVariant::Primary,
-              .onClick = [this, id = entry.id]() {
-                if (m_callbacks.setEnabled) {
-                  m_callbacks.setEnabled(id, true);
-                }
-              },
+              .onClick = [this, id = entry.id]() { installFromStore(id); },
+          })
+      );
+    } else {
+      info->addChild(
+          ui::button({
+              .glyph = "check",
+              .glyphSize = Style::fontSizeCaption * scale,
+              .enabled = false,
+              .variant = ButtonVariant::Default,
           })
       );
     }
@@ -977,8 +982,16 @@ namespace settings {
     if (!m_callbacks.setEnabled) {
       return false;
     }
-    m_callbacks.setEnabled(entry.id, true);
+    installFromStore(entry.id);
     return true;
+  }
+
+  void PluginStoreContent::installFromStore(const std::string& id) {
+    // Installed immediately, a failed export self-heals on store reopen.
+    m_onDiskIds.insert(id);
+    if (m_callbacks.setEnabled) {
+      m_callbacks.setEnabled(id, true);
+    }
   }
 
   bool PluginStoreContent::handleKeyEvent(

@@ -1207,7 +1207,7 @@ void SettingsWindow::onExternalOptionsChanged() { requestSceneRebuild(); }
 void SettingsWindow::onPluginsChanged() {
   markPluginListDirty();
   if (isOpen() && m_selectedSection == "plugins") {
-    requestContentRebuild();
+    requestContentRebuild(/*refreshRegistry=*/false, /*refreshFilterRow=*/false, /*rebuildEditorSheet=*/true);
   }
 }
 
