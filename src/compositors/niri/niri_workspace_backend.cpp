@@ -318,6 +318,18 @@ std::optional<std::string> NiriWorkspaceBackend::focusedWindowId() const {
   return std::to_string(*m_focusedWindowId);
 }
 
+bool NiriWorkspaceBackend::closeWindowById(const std::string& windowId) {
+  const auto id = parseUnsigned(windowId);
+  if (!id.has_value()) {
+    return false;
+  }
+  return m_runtime.requestAction(
+      nlohmann::json{
+          {"CloseWindow", nlohmann::json{{"id", *id}}},
+      }
+  );
+}
+
 void NiriWorkspaceBackend::cleanup() { m_runtime.cleanup(); }
 
 void NiriWorkspaceBackend::handleStreamReset() {
@@ -481,12 +493,13 @@ bool NiriWorkspaceBackend::handleWindowOpenedOrChanged(const nlohmann::json& pay
 
   const bool membershipChanged = existing == m_windows.end() ? (state.workspaceId.has_value() || !state.appId.empty())
                                                              : !sameWindowMembership(existing->second, state);
+  const bool layoutChanged = existing != m_windows.end() && !sameWindowLayout(existing->second, state);
   m_windows[*id] = state;
   if (membershipChanged) {
     recomputeOccupancy();
   }
 
-  return membershipChanged || focusUpdated;
+  return membershipChanged || layoutChanged || focusUpdated;
 }
 
 bool NiriWorkspaceBackend::handleWindowLayoutsChanged(const nlohmann::json& payload) {
@@ -692,6 +705,10 @@ bool NiriWorkspaceBackend::sameWindowMembership(
     }
   }
   return true;
+}
+
+bool NiriWorkspaceBackend::sameWindowLayout(const WindowState& lhs, const WindowState& rhs) noexcept {
+  return lhs.x == rhs.x && lhs.y == rhs.y;
 }
 
 std::optional<std::uint64_t> NiriWorkspaceBackend::parseUnsigned(const std::string& value) {

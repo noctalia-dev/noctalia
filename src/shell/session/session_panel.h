@@ -33,7 +33,6 @@ public:
   [[nodiscard]] float preferredWidth() const override;
   [[nodiscard]] float preferredHeight() const override;
   [[nodiscard]] bool hasDecoration() const override { return true; }
-  [[nodiscard]] LayerShellLayer layer() const override { return LayerShellLayer::Overlay; }
   [[nodiscard]] LayerShellKeyboard keyboardMode() const override { return LayerShellKeyboard::Exclusive; }
   [[nodiscard]] PanelPlacement panelPlacement() const noexcept override;
 
@@ -50,8 +49,8 @@ private:
     double totalMs = 0.0;
   };
 
-  static constexpr float kActionButtonMinHeight = 112.0f;
-  static constexpr float kButtonMinWidth = 152.0f;
+  static constexpr float kActionButtonMinHeight = 112.0F;
+  static constexpr float kButtonMinWidth = 152.0F;
   static constexpr std::size_t kMaxColumns = 5;
 
   void doLayout(Renderer& renderer, float width, float height) override;

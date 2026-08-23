@@ -117,38 +117,26 @@ void LockscreenWidgetsController::initialize(const LockscreenWidgetsControllerSe
 }
 
 void LockscreenWidgetsController::registerIpc(IpcService& ipc) {
-  ipc.registerHandler(
-      "lockscreen-widgets-edit",
-      [this](const std::string&) -> std::string {
-        if (m_config != nullptr && !m_config->isLockScreenEnabled()) {
-          return "error: lock screen disabled\n";
-        }
-        enterEdit();
-        return "ok\n";
-      },
-      "", "Open the lockscreen widgets editor"
-  );
+  ipc.bind(noctalia::cli::msg::lockscreenWidgetsEdit, [this](const std::string&) -> std::string {
+    if (m_config != nullptr && !m_config->isLockScreenEnabled()) {
+      return "error: lock screen disabled\n";
+    }
+    enterEdit();
+    return "ok\n";
+  });
 
-  ipc.registerHandler(
-      "lockscreen-widgets-exit",
-      [this](const std::string&) -> std::string {
-        exitEdit();
-        return "ok\n";
-      },
-      "", "Close the lockscreen widgets editor"
-  );
+  ipc.bind(noctalia::cli::msg::lockscreenWidgetsExit, [this](const std::string&) -> std::string {
+    exitEdit();
+    return "ok\n";
+  });
 
-  ipc.registerHandler(
-      "lockscreen-widgets-toggle-edit",
-      [this](const std::string&) -> std::string {
-        if (m_config != nullptr && !m_config->isLockScreenEnabled()) {
-          return "error: lock screen disabled\n";
-        }
-        toggleEdit();
-        return "ok\n";
-      },
-      "", "Toggle lockscreen widgets edit mode"
-  );
+  ipc.bind(noctalia::cli::msg::lockscreenWidgetsToggleEdit, [this](const std::string&) -> std::string {
+    if (m_config != nullptr && !m_config->isLockScreenEnabled()) {
+      return "error: lock screen disabled\n";
+    }
+    toggleEdit();
+    return "ok\n";
+  });
 }
 
 void LockscreenWidgetsController::onLockStateChanged() { applyVisibility(); }
@@ -157,7 +145,12 @@ void LockscreenWidgetsController::onOutputChange() {
   if (!m_initialized || m_lockScreen == nullptr) {
     return;
   }
+  bool placementChanged = m_placementMapper.remapForOutputChange(*m_wayland, m_snapshot.widgets);
   normalizeSnapshot();
+  placementChanged |= m_placementMapper.remapForOutputChange(*m_wayland, m_snapshot.widgets);
+  if (placementChanged) {
+    saveSnapshotToConfig();
+  }
   if (isEditing()) {
     m_editor->onOutputChange();
   } else if (m_host != nullptr) {
@@ -228,6 +221,9 @@ void LockscreenWidgetsController::enterEdit() {
   if (m_dock != nullptr) {
     m_dock->suppressDisplay();
   }
+  if (m_onEnterEdit) {
+    m_onEnterEdit();
+  }
   m_editor->open(toDesktopWidgetsEditorSnapshot(m_snapshot));
   m_host->hide();
 }
@@ -239,6 +235,7 @@ void LockscreenWidgetsController::exitEdit() {
 
   m_snapshot = fromDesktopWidgetsEditorSnapshot(m_editor->snapshot());
   normalizeSnapshot();
+  m_placementMapper.rebaseForCurrentOutputs(*m_wayland, m_snapshot.widgets);
   applyVisibility();
   (void)m_editor->close();
   saveSnapshotToConfig();
@@ -251,6 +248,17 @@ void LockscreenWidgetsController::exitEdit() {
   if (m_dock != nullptr) {
     m_dock->unsuppressDisplay();
   }
+  if (m_onExitEdit) {
+    m_onExitEdit();
+  }
+}
+
+void LockscreenWidgetsController::setOnEnterEditCallback(std::function<void()> callback) {
+  m_onEnterEdit = std::move(callback);
+}
+
+void LockscreenWidgetsController::setOnExitEditCallback(std::function<void()> callback) {
+  m_onExitEdit = std::move(callback);
 }
 
 void LockscreenWidgetsController::toggleEdit() {
@@ -298,9 +306,13 @@ void LockscreenWidgetsController::loadSnapshotFromConfig() {
     return;
   }
   m_snapshot = m_config->config().lockscreenWidgets;
+  // The login box clamps its position while normalizing. Rebase persisted coordinates first so
+  // that clamp operates in the current output's logical coordinate space.
+  bool placementChanged = m_placementMapper.remapForOutputChange(*m_wayland, m_snapshot.widgets);
   const std::size_t widgetCountBefore = m_snapshot.widgets.size();
   normalizeSnapshot();
-  if (m_snapshot.widgets.size() > widgetCountBefore) {
+  placementChanged |= m_placementMapper.remapForOutputChange(*m_wayland, m_snapshot.widgets);
+  if (placementChanged || m_snapshot.widgets.size() > widgetCountBefore) {
     saveSnapshotToConfig();
   }
 }
@@ -357,6 +369,11 @@ void LockscreenWidgetsController::handleConfigReload() {
     loadSnapshotFromConfig();
     if (m_host != nullptr && m_lockScreen != nullptr) {
       m_host->rebuild(m_snapshot, *m_lockScreen);
+      // Plugin-level settings live in [plugin_settings], outside the widget snapshot, so
+      // the host's instance diff cannot see them change.
+      if (m_config != nullptr && m_config->lastChange().plugins) {
+        m_host->reloadPluginWidgets(*m_lockScreen);
+      }
       m_lockScreen->requestLayout();
     }
   } else if (m_editor != nullptr) {

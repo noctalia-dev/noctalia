@@ -14,9 +14,10 @@ public:
   void trackWrappableLabel(Label* label) { m_wrappableLabels.push_back(label); }
 
 protected:
+  LayoutSize doMeasure(Renderer& renderer, const LayoutConstraints& constraints) override;
   void doLayout(Renderer& renderer) override;
 
 private:
-  float m_scale = 1.0f;
+  float m_scale = 1.0F;
   std::vector<Label*> m_wrappableLabels;
 };

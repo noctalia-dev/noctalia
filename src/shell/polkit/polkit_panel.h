@@ -27,7 +27,7 @@ public:
   void onOpen(std::string_view context) override;
   void onClose() override;
 
-  [[nodiscard]] float preferredWidth() const override { return scaled(480.0f); }
+  [[nodiscard]] float preferredWidth() const override { return scaled(480.0F); }
   [[nodiscard]] float preferredHeight() const override;
   [[nodiscard]] PanelPlacement panelPlacement() const noexcept override;
   [[nodiscard]] LayerShellLayer layer() const override { return LayerShellLayer::Overlay; }
@@ -63,4 +63,6 @@ private:
   std::string m_lastIconName;
   bool m_iconResolved = false;
   bool m_lastResponseRequired = false;
+  std::string m_trackedRequestCookie;
+  bool m_hasTrackedRequest = false;
 };

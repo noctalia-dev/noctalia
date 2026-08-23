@@ -16,16 +16,16 @@ namespace FormatUnits {
         double value, std::string_view fullSuffix, std::string_view compactSuffix, ByteRateLabelStyle labelStyle
     ) {
       if (labelStyle == ByteRateLabelStyle::Compact) {
-        return std::format("{:.1f}{}", value, compactSuffix);
+        return std::format("{:.1F}{}", value, compactSuffix);
       }
-      return std::format("{:.1f} {}", value, fullSuffix);
+      return std::format("{:.1F} {}", value, fullSuffix);
     }
 
     [[nodiscard]] std::string formatByteRateBytes(double bytesPerSec, ByteRateLabelStyle labelStyle) {
       if (labelStyle == ByteRateLabelStyle::Compact) {
-        return std::format("{:.0f}B", bytesPerSec);
+        return std::format("{:.0F}B", bytesPerSec);
       }
-      return std::format("{:.0f} B/s", bytesPerSec);
+      return std::format("{:.0F} B/s", bytesPerSec);
     }
 
   } // namespace
@@ -38,29 +38,29 @@ namespace FormatUnits {
   }
 
   std::string formatBinaryMibAsGib(std::uint64_t mib) {
-    return std::format("{:.1f} GiB", static_cast<double>(mib) / kMibPerGib);
+    return std::format("{:.1F} GiB", static_cast<double>(mib) / kMibPerGib);
   }
 
   std::string formatBinaryMibUsageAsGib(std::uint64_t usedMib, std::uint64_t totalMib) {
     return std::format(
-        "{:.1f} / {:.1f} GiB", static_cast<double>(usedMib) / kMibPerGib, static_cast<double>(totalMib) / kMibPerGib
+        "{:.1F} / {:.1F} GiB", static_cast<double>(usedMib) / kMibPerGib, static_cast<double>(totalMib) / kMibPerGib
     );
   }
 
   std::string formatBinaryBytesAsGib(std::uint64_t bytes) {
-    return std::format("{:.1f} GiB", static_cast<double>(bytes) / kBytesPerGib);
+    return std::format("{:.1F} GiB", static_cast<double>(bytes) / kBytesPerGib);
   }
 
   std::string formatDecimalBytesUsage(double usedBytes, double totalBytes) {
     // Pick the unit from the total so both numbers share it; TB once disks pass 1000 GB
     // keeps the column narrow and readable (e.g. "1.3 / 2.0 TB" not "1332.2 / 1967.9 GB").
     if (totalBytes >= kBytesPerTb) {
-      return std::format("{:.1f} / {:.1f} TB", usedBytes / kBytesPerTb, totalBytes / kBytesPerTb);
+      return std::format("{:.1F} / {:.1F} TB", usedBytes / kBytesPerTb, totalBytes / kBytesPerTb);
     }
-    return std::format("{:.1f} / {:.1f} GB", usedBytes / kBytesPerGb, totalBytes / kBytesPerGb);
+    return std::format("{:.1F} / {:.1F} GB", usedBytes / kBytesPerGb, totalBytes / kBytesPerGb);
   }
 
-  std::string formatDecimalBytesAsGb(double bytes) { return std::format("{:.1f} GB", bytes / kBytesPerGb); }
+  std::string formatDecimalBytesAsGb(double bytes) { return std::format("{:.1F} GB", bytes / kBytesPerGb); }
 
   DecimalByteRateUnit decimalByteRateUnitFromString(std::string_view value) {
     if (value == "kb") {

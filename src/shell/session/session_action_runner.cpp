@@ -294,11 +294,18 @@ bool SessionActionRunner::lock() const { return requestLock(m_lockScreen); }
 
 bool SessionActionRunner::requestSuspendDetached() const {
   logActionContext("suspend");
+  if (m_hooks.onBeforePlainSuspend) {
+    m_hooks.onBeforePlainSuspend();
+  }
   std::scoped_lock lock(m_powerMutex);
-  return runPowerActionResolved(
+  const bool started = runPowerActionResolved(
       "suspend", m_suspendCommandOverride, suspendCommandVariants(), m_cachedSuspendAutoStartIdx,
       PowerLaunchMode::Detached
   );
+  if (!started && m_hooks.onPlainSuspendAborted) {
+    m_hooks.onPlainSuspendAborted();
+  }
+  return started;
 }
 
 bool SessionActionRunner::requestRebootDetached() const {
@@ -325,11 +332,18 @@ bool SessionActionRunner::lockThenSuspendDetached() const {
 
 bool SessionActionRunner::suspendBlocking() const {
   logActionContext("suspend");
+  if (m_hooks.onBeforePlainSuspend) {
+    m_hooks.onBeforePlainSuspend();
+  }
   std::scoped_lock lock(m_powerMutex);
-  return runPowerActionResolved(
+  const bool started = runPowerActionResolved(
       "suspend", m_suspendCommandOverride, suspendCommandVariants(), m_cachedSuspendAutoStartIdx,
       PowerLaunchMode::Blocking
   );
+  if (!started && m_hooks.onPlainSuspendAborted) {
+    m_hooks.onPlainSuspendAborted();
+  }
+  return started;
 }
 
 bool SessionActionRunner::rebootBlocking() const {

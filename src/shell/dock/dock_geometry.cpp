@@ -11,12 +11,12 @@ namespace shell::dock {
 
     constexpr std::int32_t kCellPad = 6;
     constexpr std::int32_t kAutoHideTriggerPx = 2;
-    constexpr float kAutoHideSlideExtraPx = 16.0f;
+    constexpr float kAutoHideSlideExtraPx = 16.0F;
     // Keep in sync with dock_items instance-count badge geometry.
-    constexpr float kBadgeSizeRatio = 0.30f;
-    constexpr float kBadgeMinSize = 16.0f;
+    constexpr float kBadgeSizeRatio = 0.30F;
+    constexpr float kBadgeMinSize = 16.0F;
     // Badge hangs past the icon's top and right by this fraction of badge diameter.
-    constexpr float kBadgeCornerOverhang = 0.45f;
+    constexpr float kBadgeCornerOverhang = 0.45F;
 
     [[nodiscard]] int dockAutoHideEdgeGutter(const DockConfig& cfg) noexcept {
       if ((!cfg.autoHide && !cfg.smartAutoHide) || cfg.marginEdge <= 0) {
@@ -26,20 +26,20 @@ namespace shell::dock {
     }
 
     [[nodiscard]] float dockHoverZoomPeakScale(const DockConfig& cfg) noexcept {
-      if (!cfg.magnification || cfg.magnificationScale <= 1.0f) {
-        return 1.0f;
+      if (!cfg.magnification || cfg.magnificationScale <= 1.0F) {
+        return 1.0F;
       }
       const float baseScale = std::max(cfg.activeScale, cfg.inactiveScale);
-      return std::max(1.0f, baseScale * std::max(1.0f, cfg.magnificationScale));
+      return std::max(1.0F, baseScale * std::max(1.0F, cfg.magnificationScale));
     }
 
     [[nodiscard]] float dockHoverZoomBadgeOverhang(const DockConfig& cfg) noexcept {
       if (!cfg.showInstanceCount) {
-        return 0.0f;
+        return 0.0F;
       }
       const float peak = dockHoverZoomPeakScale(cfg);
-      if (peak <= 1.0f) {
-        return 0.0f;
+      if (peak <= 1.0F) {
+        return 0.0F;
       }
       const float badgeSize = std::max(kBadgeMinSize, static_cast<float>(cfg.iconSize) * kBadgeSizeRatio);
       return badgeSize * kBadgeCornerOverhang * peak;
@@ -71,7 +71,7 @@ namespace shell::dock {
 
     // Ceil so logicalInset is integral: surface sizing, panel placement, and blur
     // tessellation all consume it and must agree on whole pixels.
-    const float cap = static_cast<float>(dockThickness(cfg)) * 0.5f;
+    const float cap = static_cast<float>(dockThickness(cfg)) * 0.5F;
     const auto capped = [&](float v) { return std::ceil(std::min(cap, v)); };
 
     // Carve concavity only on corners facing the screen edge.
@@ -149,21 +149,21 @@ namespace shell::dock {
 
   std::int32_t dockHoverZoomCrossPad(const DockConfig& cfg) {
     const float peak = dockHoverZoomPeakScale(cfg);
-    if (peak <= 1.0f) {
+    if (peak <= 1.0F) {
       return 0;
     }
     // Icons grow fully away from the screen edge (shiftAlongEdge), not half-and-half.
-    const float iconGrowth = static_cast<float>(cfg.iconSize) * (peak - 1.0f);
+    const float iconGrowth = static_cast<float>(cfg.iconSize) * (peak - 1.0F);
     const float extra = iconGrowth + dockHoverZoomBadgeOverhang(cfg);
     return static_cast<std::int32_t>(std::ceil(extra + static_cast<float>(kCellPad)));
   }
 
   std::int32_t dockHoverZoomMainPad(const DockConfig& cfg) {
     const float peak = dockHoverZoomPeakScale(cfg);
-    if (peak <= 1.0f) {
+    if (peak <= 1.0F) {
       return 0;
     }
-    const float halfIconGrowth = static_cast<float>(cfg.iconSize) * (peak - 1.0f) * 0.5f;
+    const float halfIconGrowth = static_cast<float>(cfg.iconSize) * (peak - 1.0F) * 0.5F;
     const float extra = halfIconGrowth + dockHoverZoomBadgeOverhang(cfg);
     return static_cast<std::int32_t>(std::ceil(extra));
   }
@@ -295,7 +295,7 @@ namespace shell::dock {
       return DockPanelGeometry{
           .panelX = bleedL + insetL + mainPad,
           .panelY = y,
-          .panelW = surfaceW - bleedL - bleedR - insetL - insetR - mainPad * 2.0f,
+          .panelW = surfaceW - bleedL - bleedR - insetL - insetR - mainPad * 2.0F,
           .panelH = panelThickness,
       };
     }
@@ -312,7 +312,7 @@ namespace shell::dock {
         .panelX = x,
         .panelY = bleedU + insetT + mainPad,
         .panelW = panelThickness,
-        .panelH = surfaceH - bleedU - bleedD - insetT - insetB - mainPad * 2.0f,
+        .panelH = surfaceH - bleedU - bleedD - insetT - insetB - mainPad * 2.0F,
     };
   }
 
@@ -337,14 +337,14 @@ namespace shell::dock {
     const DockEdge edge = cfg.position;
     if (!isVerticalEdge(edge)) {
       if (edge == DockEdge::Bottom) {
-        return {0.0f, (surfaceH - contentTop) + kAutoHideSlideExtraPx};
+        return {0.0F, (surfaceH - contentTop) + kAutoHideSlideExtraPx};
       }
-      return {0.0f, -(contentBottom + kAutoHideSlideExtraPx)};
+      return {0.0F, -(contentBottom + kAutoHideSlideExtraPx)};
     }
     if (edge == DockEdge::Right) {
-      return {(surfaceW - contentLeft) + kAutoHideSlideExtraPx, 0.0f};
+      return {(surfaceW - contentLeft) + kAutoHideSlideExtraPx, 0.0F};
     }
-    return {-(contentRight + kAutoHideSlideExtraPx), 0.0f};
+    return {-(contentRight + kAutoHideSlideExtraPx), 0.0F};
   }
 
   std::vector<InputRect>

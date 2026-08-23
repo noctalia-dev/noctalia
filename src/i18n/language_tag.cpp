@@ -202,6 +202,15 @@ namespace i18n::detail {
     return join(parts);
   }
 
+  bool isRtlLanguage(std::string_view tag) {
+    const std::size_t separator = tag.find('-');
+    const std::string language = lower(tag.substr(0, separator));
+    constexpr std::array<std::string_view, 11> rtlLanguages = {
+        "ar", "ckb", "dv", "fa", "he", "ps", "sd", "ug", "ur", "yi",
+    };
+    return std::ranges::contains(rtlLanguages, language);
+  }
+
   std::vector<std::string> catalogLanguageCandidates(std::string_view raw) {
     std::vector<std::string> candidates;
 

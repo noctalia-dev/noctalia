@@ -340,9 +340,10 @@ bool IwdService::activateAccessPoint(const AccessPointInfo& ap, const std::strin
   return activateAccessPoint(ap);
 }
 
-void IwdService::setWirelessEnabled(bool enabled) {
+void IwdService::setWirelessEnabled(bool enabled, WirelessEnabledCompletion onComplete) {
   const bool softBlocked = !enabled;
   bool rfkillDone = false;
+  bool hardBlocked = false;
   for (const auto& [stationPath, ifname] : m_deviceNames) {
     (void)stationPath;
     if (ifname.empty()) {
@@ -351,6 +352,8 @@ void IwdService::setWirelessEnabled(bool enabled) {
     const RfkillSwitchResult result = setRfkillSoftBlockedForNetInterface(ifname, softBlocked);
     if (result.hardBlocked) {
       kLog.warn("setWirelessEnabled: rfkill hard block on {}", ifname);
+      hardBlocked = enabled;
+      rfkillDone = !enabled;
       break;
     }
     if (result.success) {
@@ -363,6 +366,8 @@ void IwdService::setWirelessEnabled(bool enabled) {
     const RfkillSwitchResult fallback = setRfkillSoftBlocked(RfkillDeviceType::Wlan, softBlocked);
     if (fallback.hardBlocked) {
       kLog.warn("setWirelessEnabled: wlan rfkill hard block is active");
+      hardBlocked = enabled;
+      rfkillDone = !enabled;
     } else if (fallback.success) {
       rfkillDone = true;
     } else if (!fallback.detail.empty()) {
@@ -370,17 +375,22 @@ void IwdService::setWirelessEnabled(bool enabled) {
     }
   }
 
+  bool poweredUpdated = false;
   for (const auto& [stationPath, ifname] : m_deviceNames) {
     (void)ifname;
     try {
       auto device = sdbus::createProxy(m_bus.connection(), kIwdBusName, sdbus::ObjectPath{stationPath});
       device->setProperty("Powered").onInterface(kDeviceInterface).toValue(enabled);
+      poweredUpdated = true;
     } catch (const sdbus::Error& e) {
       kLog.debug("setting IWD Powered failed on {}: {}", stationPath, e.what());
     }
   }
 
   refresh();
+  if (onComplete) {
+    onComplete(!hardBlocked && (rfkillDone || poweredUpdated));
+  }
 }
 
 void IwdService::disconnect() {

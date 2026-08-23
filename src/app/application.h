@@ -188,12 +188,17 @@ private:
   void reloadDmenuProviders();
   // (Re)register plugin-backed panels from the enabled plugin set.
   void reloadPluginPanels();
-  // When [plugins].auto_update is on, pull every git source. Run once at startup and on
-  // a 6h repeating timer so long-lived sessions pick up new plugin versions.
+  // When [plugins].auto_update is on, pull git sources per the configured mode. Run once at
+  // startup and on a 6h repeating timer so long-lived sessions pick up new plugin versions.
   void runPluginAutoUpdate();
   void startTrayService();
   void syncNotificationDaemon();
   void installNotificationBusNameWatch();
+  // gnome-keyring / kwalletd usually claim org.freedesktop.secrets a moment after Noctalia starts,
+  // so the first credential lookups report "no provider". Watch the bus name and re-drive the
+  // consumers that gave up once an owner appears.
+  void installSecretServiceNameWatch();
+  void retrySecretServiceConsumers();
   void scheduleNotificationShellRefresh();
   void syncPolkitAgent();
   [[nodiscard]] bool likelySupportsInSessionPolkit() const noexcept;
@@ -208,6 +213,7 @@ private:
   void onGraphicsReset(RenderGraphicsResetStatus status);
   void recoverGraphicsAfterReset();
   void requestAllSurfacesRedraw();
+  void releaseSleepDelayInhibitIfPending();
   void onUpowerStateChangedForHooks();
   void onNetworkStateChangedForEvents(const NetworkState& state, NetworkChangeOrigin origin);
   void onBluetoothStateChangedForEvents(const BluetoothState& state, BluetoothStateChangeOrigin origin);
@@ -237,9 +243,14 @@ private:
   TimeService m_timeService;
   LockKeysService m_lockKeysService;
   NotificationManager m_notificationManager;
+  CalendarService m_calendarService;
   std::unique_ptr<SessionBus> m_bus;
   std::unique_ptr<SystemBus> m_systemBus;
   std::unique_ptr<LogindService> m_logindService;
+  // Set on PrepareForSleep(true); cleared when the session lock engages (or the lock aborts).
+  bool m_releaseSleepDelayWhenLocked = false;
+  // Set before Noctalia-initiated suspend so PrepareForSleep skips lock-before-sleep.
+  bool m_skipLockOnNextSleep = false;
   std::unique_ptr<AccountsService> m_accountsService;
   std::unique_ptr<ScreenSaverService> m_screenSaverService;
   std::unique_ptr<ScreenSaverPollSource> m_screenSaverPollSource;
@@ -251,18 +262,21 @@ private:
   HookManager m_hookManager;
   DependencyService m_dependencyService;
   GammaService m_gammaService;
-  ScreenshotService m_screenshotService{m_wayland, m_compositorPlatform, m_notificationManager, &m_clipboardService};
+  ScreenshotService m_screenshotService{
+      m_wayland, m_compositorPlatform, m_configService, m_notificationManager, &m_clipboardService
+  };
   std::unique_ptr<MprisService> m_mprisService;
   std::unique_ptr<PowerProfilesService> m_powerProfilesService;
   std::unique_ptr<INetworkService> m_networkService;
   std::unique_ptr<NetworkSecretAgent> m_networkSecretAgent;
   ExternalIpService m_externalIpService{&m_httpClient, &m_configService};
   std::unique_ptr<IwdSecretAgent> m_iwdSecretAgent;
+  // Declared before m_bluetoothService so it outlives the raw pointer in that service.
+  std::unique_ptr<UPowerService> m_upowerService;
   std::unique_ptr<BluetoothService> m_bluetoothService;
   std::unique_ptr<BluetoothAgent> m_bluetoothAgent;
   Timer m_bluetoothResumeTimer;
   std::unique_ptr<PolkitAgent> m_polkitAgent;
-  std::unique_ptr<UPowerService> m_upowerService;
   std::optional<bool> m_notificationDaemonEnabled;
   bool m_notificationDaemonInitFailed = false;
   bool m_notificationShellRefreshScheduled = false;
@@ -277,11 +291,16 @@ private:
   std::unique_ptr<NotificationDBusHost> m_notificationDbus;
   std::unique_ptr<sdbus::IProxy> m_notificationBusNameWatchProxy;
   bool m_notificationBusNameWatchInstalled = false;
+  std::unique_ptr<sdbus::IProxy> m_secretServiceNameWatchProxy;
+  bool m_secretServiceNameWatchInstalled = false;
+  bool m_secretServiceOwned = false;
+  bool m_storageKeyAutoRetried = false;
+  bool m_calendarCredentialAutoRetried = false;
   std::unique_ptr<PipeWireService> m_pipewireService;
   std::unique_ptr<WirePlumberMixer> m_wirePlumberMixer;
   std::unique_ptr<EasyEffectsService> m_easyEffectsService;
   std::unique_ptr<PipeWireSpectrum> m_pipewireSpectrum;
-  std::unique_ptr<SoundPlayer> m_soundPlayer;
+  std::shared_ptr<SoundPlayer> m_soundPlayer;
 
   TelemetryService m_telemetryService;
   ScreenTimeService m_screenTimeService;
@@ -350,7 +369,6 @@ private:
   DmenuIpcService m_dmenuIpc;
   LocationService m_locationService;
   WeatherService m_weatherService;
-  CalendarService m_calendarService;
   HttpClientPollSource m_httpClientPollSource{m_httpClient};
   FileWatchPollSource m_fileWatchPollSource{m_fileWatcher};
   LocationPollSource m_locationPollSource{m_locationService};

@@ -1,0 +1,20 @@
+[colors]
+background = "#{{colors.surface_container.default.hex_stripped}}F0"
+text_primary = "#{{colors.on_surface.default.hex_stripped}}FF"
+text_muted = "#{{colors.on_surface_variant.default.hex_stripped}}FF"
+accent_primary = "#{{colors.primary.default.hex_stripped}}FF"
+accent_secondary = "#{{colors.secondary.default.hex_stripped}}FF"
+warning = "#{{colors.tertiary.default.hex_stripped}}FF"
+error = "#{{colors.error.default.hex_stripped}}FF"
+
+[appearance]
+border_focused = "#{{colors.primary.default.hex_stripped}}FF"
+border_unfocused = "#{{colors.surface_variant.default.hex_stripped}}FF"
+scratchpad_border_focused = "#{{colors.tertiary.default.hex_stripped}}FF"
+scratchpad_border_unfocused = "#{{colors.tertiary_container.default.hex_stripped}}FF"
+outer_border_color = "#{{colors.terminal_background.default.hex_stripped}}FF"
+insert_hint_color = "#{{colors.tertiary.default.hex_stripped}}80"
+backdrop_color = "#{{colors.surface_variant.default.hex_stripped}}FF"
+
+[overview]
+background_tint = "#{{colors.surface.default.hex_stripped}}30"

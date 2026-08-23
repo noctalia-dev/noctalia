@@ -94,7 +94,7 @@ private:
   int m_analysisBandCount = 32;
   int m_lowerCutoff = 20;
   int m_upperCutoff = 20000;
-  float m_noiseReduction = 0.77f;
+  float m_noiseReduction = 0.77F;
   bool m_smoothing = true;
   std::vector<float> m_analysisBands;
   bool m_idle = true;
@@ -110,9 +110,18 @@ private:
   int m_idleFrames = 0;
   bool m_samplesReceived = false;
 
+  // Env-gated diagnostics (NOCTALIA_SPECTRUM_DEBUG=1): ~1 line/s capture + analysis summaries.
+  void noteProcessDiag(int frameCount, int channelCount, float peak);
+  bool m_diagEnabled = false;
+  std::chrono::steady_clock::time_point m_diagLastProcessLog;
+  std::chrono::steady_clock::time_point m_diagLastFrameLog;
+  float m_diagPeak = 0.0F;
+  int m_diagBatches = 0;
+  int m_diagFrames = 0;
+
   std::vector<float> m_window;
   std::vector<float> m_analysisBandBins;
-  float m_sensitivity = 1.0f;
+  float m_sensitivity = 1.0F;
   bool m_sensInit = true;
   std::vector<std::complex<float>> m_fftBuf;
 };

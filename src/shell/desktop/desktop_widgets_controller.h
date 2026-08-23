@@ -1,7 +1,9 @@
 #pragma once
 
 #include "config/config_types.h"
+#include "shell/desktop/desktop_widget_layout.h"
 #include "shell/desktop/desktop_widget_services.h"
+#include "shell/desktop/wallpaper_mask.h"
 #include "ui/dialogs/layer_popup_host.h"
 
 #include <cstdint>
@@ -40,11 +42,14 @@ public:
   void requestUpdate();
   void requestLayout();
   void requestRedraw();
+  void setWallpaperMask(std::uint64_t ownerId, const std::string& outputName, std::optional<OutputWallpaperMask> mask);
+  void clearWallpaperMasks(std::uint64_t ownerId);
 
   void enterEdit();
   void exitEdit();
   void toggleEdit();
   void setOnEnterEditCallback(std::function<void()> callback);
+  void setOnExitEditCallback(std::function<void()> callback);
 
   /// Hides on-screen desktop widgets while another overlay editor (e.g. lockscreen layout) is active.
   void suppressDisplay();
@@ -74,6 +79,8 @@ private:
   void applyVisibility();
   void handleConfigReload();
   void normalizeSnapshot();
+  void syncWallpaperMasks();
+  void pruneWallpaperMasks();
   [[nodiscard]] bool runtimeWantsVisible() const noexcept;
 
   WaylandConnection* m_wayland = nullptr;
@@ -82,12 +89,15 @@ private:
   RenderContext* m_renderContext = nullptr;
 
   DesktopWidgetsSnapshot m_snapshot;
+  desktop_widgets::PlacementMapper m_placementMapper;
+  OutputWallpaperMaskMap m_wallpaperMasks;
   bool m_initialized = false;
   bool m_displaySuppressed = false;
   RuntimeVisibility m_runtimeVisibility = RuntimeVisibility::FollowConfig;
   // Last-seen saved desktop_widgets.enabled; an explicit transition clears the runtime override.
   bool m_lastEnabled = false;
   std::function<void()> m_onEnterEdit;
+  std::function<void()> m_onExitEdit;
   std::unique_ptr<DesktopWidgetsHost> m_host;
   std::unique_ptr<DesktopWidgetsEditor> m_editor;
 };

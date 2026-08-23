@@ -42,6 +42,8 @@ public:
   void reload(const IdleConfig& config);
   /// D-Bus screensaver inhibits (e.g. Chrome video playback). Suppresses idle actions while > 0.
   void setScreenSaverInhibitLocks(std::int64_t locks);
+  /// While locked, behaviors with a positive lockedTimeoutSeconds re-arm at that shorter timeout.
+  void setSessionLocked(bool locked);
   /// Seconds the compositor has reported session-idle (1s heartbeat notification); 0 when active.
   [[nodiscard]] std::int64_t liveIdleSeconds() const noexcept { return m_liveIdleSeconds; }
   void onSecondTick();
@@ -64,6 +66,7 @@ private:
     BehaviorPhase phase = BehaviorPhase::Waiting;
   };
 
+  [[nodiscard]] double effectiveTimeoutSeconds(const IdleBehaviorConfig& config) const;
   void clearBehaviors();
   void syncHeartbeat();
   void destroyHeartbeat();
@@ -95,4 +98,5 @@ private:
   std::int64_t m_liveIdleSeconds = 0;
   std::int64_t m_screenSaverInhibitLocks = 0;
   bool m_idledWhileScreenSaverInhibited = false;
+  bool m_sessionLocked = false;
 };

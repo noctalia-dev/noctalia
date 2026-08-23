@@ -36,6 +36,7 @@
 #include <memory>
 #include <string_view>
 #include <tuple>
+#include <wayland-client-core.h>
 
 namespace {
 
@@ -44,18 +45,18 @@ namespace {
   };
 
   constexpr float kMediaArtSize = lockscreen_login_box::kRegularMediaArtSize;
-  constexpr float kWeatherGlyphSize = 28.0f;
+  constexpr float kWeatherGlyphSize = 28.0F;
   constexpr float kForecastGlyphSize = lockscreen_login_box::kRegularForecastGlyphSize;
-  constexpr float kLayoutChipMaxWidth = 96.0f;
+  constexpr float kLayoutChipMaxWidth = 96.0F;
   constexpr int kForecastDayCountPaired = 3;
   constexpr int kForecastDayCountAlone = 5;
-  constexpr float kWeatherCurrentMinText = 56.0f;
+  constexpr float kWeatherCurrentMinText = 56.0F;
 
   [[nodiscard]] int fitForecastDays(
       Renderer& renderer, float weatherBudget, float weatherGlyphSize, float forecastGlyphSize, float captionSize,
       int maxDays
   ) {
-    if (maxDays <= 0 || weatherBudget <= 0.0f) {
+    if (maxDays <= 0 || weatherBudget <= 0.0F) {
       return 0;
     }
     // Vertical forecast column width is dominated by the hi/lo caption.
@@ -73,7 +74,7 @@ namespace {
 
   [[nodiscard]] float forecastBlockWidth(Renderer& renderer, int dayCount, float forecastGlyphSize, float captionSize) {
     if (dayCount <= 0) {
-      return 0.0f;
+      return 0.0F;
     }
     const float tempsW = renderer.measureText("99°/99°", captionSize).width;
     const float dayW = renderer.measureText("Wed", captionSize).width;
@@ -221,7 +222,7 @@ LockSurface::LockSurface(WaylandConnection& connection, ConfigService* config) :
               .widthPolicy = FlexSizePolicy::Fill,
               .heightPolicy = FlexSizePolicy::Content,
               .clipChildren = true,
-              .flexGrow = 1.0f,
+              .flexGrow = 1.0F,
               .visible = false,
           }
       )
@@ -230,7 +231,7 @@ LockSurface::LockSurface(WaylandConnection& connection, ConfigService* config) :
       ui::image({
           .out = &m_mediaArt,
           .fit = ImageFit::Cover,
-          .radius = kMediaArtSize * 0.5f,
+          .radius = kMediaArtSize * 0.5F,
           .width = kMediaArtSize,
           .height = kMediaArtSize,
           .visible = false,
@@ -240,7 +241,7 @@ LockSurface::LockSurface(WaylandConnection& connection, ConfigService* config) :
       ui::glyph({
           .out = &m_mediaFallbackGlyph,
           .glyph = "disc",
-          .glyphSize = 18.0f,
+          .glyphSize = 18.0F,
           .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
           .visible = false,
       })
@@ -252,11 +253,11 @@ LockSurface::LockSurface(WaylandConnection& connection, ConfigService* config) :
               .out = &m_mediaTextColumn,
               .align = FlexAlign::Stretch,
               .justify = FlexJustify::Center,
-              .gap = 2.0f,
+              .gap = 2.0F,
               .widthPolicy = FlexSizePolicy::Fill,
               .heightPolicy = FlexSizePolicy::Content,
               .clipChildren = true,
-              .flexGrow = 1.0f,
+              .flexGrow = 1.0F,
           }
       )
   );
@@ -291,7 +292,7 @@ LockSurface::LockSurface(WaylandConnection& connection, ConfigService* config) :
               .widthPolicy = FlexSizePolicy::Fill,
               .heightPolicy = FlexSizePolicy::Content,
               .clipChildren = true,
-              .flexGrow = 1.0f,
+              .flexGrow = 1.0F,
               .visible = false,
           }
       )
@@ -325,7 +326,7 @@ LockSurface::LockSurface(WaylandConnection& connection, ConfigService* config) :
               .out = &m_weatherTextColumn,
               .align = FlexAlign::Stretch,
               .justify = FlexJustify::Center,
-              .gap = 2.0f,
+              .gap = 2.0F,
               .widthPolicy = FlexSizePolicy::Content,
               .heightPolicy = FlexSizePolicy::Content,
               .clipChildren = true,
@@ -373,7 +374,7 @@ LockSurface::LockSurface(WaylandConnection& connection, ConfigService* config) :
                 .out = &column.column,
                 .align = FlexAlign::Center,
                 .justify = FlexJustify::Center,
-                .gap = 2.0f,
+                .gap = 2.0F,
                 .widthPolicy = FlexSizePolicy::Content,
                 .heightPolicy = FlexSizePolicy::Content,
                 .visible = false,
@@ -408,34 +409,36 @@ LockSurface::LockSurface(WaylandConnection& connection, ConfigService* config) :
     );
   }
 
-  m_loginPanel->addChild(
+  // Auth panel is a sibling of the login panel (child of root), not a flex row inside it.
+  // It floats above (or below) the login box without affecting panel dimensions.
+  m_root.addChild(
       ui::flex(
           FlexDirection::Horizontal,
           {
-              .out = &m_statusPanel,
+              .out = &m_authPanel,
               .align = FlexAlign::Center,
               .justify = FlexJustify::Center,
               .gap = Style::spaceXs,
-              .paddingV = Style::spaceXs,
-              .paddingH = Style::spaceSm,
-              .fill = colorSpecFromRole(ColorRole::Surface, 0.55f),
-              .radius = Style::radiusSm,
+              .paddingV = Style::spaceMd,
+              .paddingH = Style::spaceMd,
               .widthPolicy = FlexSizePolicy::Fill,
               .heightPolicy = FlexSizePolicy::Content,
               .visible = false,
+              .participatesInLayout = false,
+              .configure = [](Flex& flex) { flex.setZIndex(7); },
           }
       )
   );
-  m_statusPanel->addChild(
+  m_authPanel->addChild(
       ui::label({
-          .out = &m_statusLabel,
+          .out = &m_authLabel,
           .fontSize = Style::fontSizeCaption,
           .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
           .maxLines = 1,
           .textAlign = TextAlign::Center,
           .configure = [](Label& label) {
             label.setZIndex(2);
-            label.setFlexGrow(1.0f);
+            label.setFlexGrow(1.0F);
           },
       })
   );
@@ -492,7 +495,7 @@ LockSurface::LockSurface(WaylandConnection& connection, ConfigService* config) :
           .configure =
               [](Input& input) {
                 input.setZIndex(2);
-                input.setFlexGrow(1.0f);
+                input.setFlexGrow(1.0F);
               },
       })
   );
@@ -502,7 +505,7 @@ LockSurface::LockSurface(WaylandConnection& connection, ConfigService* config) :
           .out = &m_loginButton,
           .text = "",
           .glyph = "check",
-          .glyphSize = 16.0f,
+          .glyphSize = 16.0F,
           .variant = ButtonVariant::Primary,
           .onClick =
               [this]() {
@@ -550,7 +553,18 @@ LockSurface::~LockSurface() {
   }
   m_connection.unregisterSurface(m_surface);
   if (m_lockSurface != nullptr) {
-    ext_session_lock_surface_v1_destroy(m_lockSurface);
+    // If get_lock_surface raced with the output disappearing server-side, some
+    // compositors (e.g. Hyprland) silently drop the request without binding the
+    // new object id. The compositor otherwise sends the first configure event
+    // immediately, so "output gone and no configure ever received" identifies
+    // such a zombie proxy: sending its destructor request would be answered
+    // with a fatal invalid-object protocol error. Destroy it client-side only.
+    const bool outputGone = m_connection.findOutputByWl(m_output) == nullptr;
+    if (!m_receivedConfigure && outputGone) {
+      wl_proxy_destroy(reinterpret_cast<wl_proxy*>(m_lockSurface));
+    } else {
+      ext_session_lock_surface_v1_destroy(m_lockSurface);
+    }
     m_lockSurface = nullptr;
   }
 }
@@ -571,15 +585,24 @@ bool LockSurface::initialize(ext_session_lock_v1* lock, wl_output* output, std::
     return false;
   }
 
+  if (const auto* outputInfo = m_connection.findOutputByWl(output); outputInfo != nullptr) {
+    setConfiguredScaleNumerator(
+        outputInfo->configuredScaleNumerator > 0 ? static_cast<std::uint32_t>(outputInfo->configuredScaleNumerator) : 1U
+    );
+    setBufferScale(outputInfo->scale);
+  } else {
+    setBufferScale(scale);
+  }
+
   if (!createWlSurface()) {
     return false;
   }
-  m_inputDispatcher.setTextInputContext(m_surface, m_connection.textInputService());
+
+  // Keep the lock surface out of text-input-v3; it can leave Chromium's fcitx
+  // context inactive after unlock. Password input still uses wl_keyboard.
 
   m_output = output;
   m_connection.registerSurfaceOutput(m_surface, output);
-  setBufferScale(scale);
-
   m_lockSurface = ext_session_lock_v1_get_lock_surface(lock, m_surface, output);
   if (m_lockSurface == nullptr) {
     destroySurface();
@@ -595,6 +618,10 @@ bool LockSurface::initialize(ext_session_lock_v1* lock, wl_output* output, std::
 
   setRunning(true);
   return true;
+}
+
+void LockSurface::syncOutputScale(std::int32_t bufferScale, std::uint32_t configuredScaleNumerator) {
+  updateOutputScale(bufferScale, configuredScaleNumerator);
 }
 
 void LockSurface::setLockedState(bool locked) {
@@ -692,7 +719,7 @@ void LockSurface::setWallpaperFillColor(Color fillColor) {
     m_wallpaper->setFillColor(m_wallpaperFillColor);
   }
   if (m_backdrop != nullptr) {
-    m_backdrop->setVisible(m_wallpaperFillColor.a > 0.0f);
+    m_backdrop->setVisible(m_wallpaperFillColor.a > 0.0F);
     m_backdrop->setStyle(
         RoundedRectStyle{
             .fill = m_wallpaperFillColor,
@@ -784,7 +811,7 @@ void LockSurface::onPointerEvent(const PointerEvent& event) {
     if (m_locked && pressed && passwordFieldContainsPoint(x, y)) {
       focusPasswordField();
     }
-    m_inputDispatcher.pointerButton(x, y, event.button, pressed);
+    m_inputDispatcher.pointerButton(x, y, event.button, pressed, event.serial, event.time, event.touch);
     if (m_locked && pressed && passwordFieldContainsPoint(x, y)) {
       focusPasswordField();
       requestRedraw();
@@ -839,6 +866,7 @@ void LockSurface::handleConfigure(
     std::uint32_t height
 ) {
   auto* self = static_cast<LockSurface*>(data);
+  self->m_receivedConfigure = true;
   if (self->width() != width || self->height() != height) {
     self->m_firstFrameRendered = false;
   }
@@ -847,12 +875,13 @@ void LockSurface::handleConfigure(
 }
 
 void LockSurface::prepareFrame(bool needsUpdate, bool needsLayout) {
-  auto* renderer = renderContext();
-  if (renderer == nullptr || width() == 0 || height() == 0) {
+  auto* context = renderContext();
+  if (context == nullptr || width() == 0 || height() == 0) {
     return;
   }
 
-  renderer->makeCurrent(renderTarget());
+  context->makeCurrent(renderTarget());
+  Renderer& renderer = renderTarget().renderer();
 
   if (m_widgetsHost != nullptr) {
     m_widgetsHost->prepareFrame(*this, needsUpdate, needsLayout);
@@ -861,7 +890,7 @@ void LockSurface::prepareFrame(bool needsUpdate, bool needsLayout) {
   if (needsUpdate) {
     UiPhaseScope updatePhase(UiPhase::Update);
     updateCopy();
-    syncRegularExtras(*renderer);
+    syncRegularExtras(renderer);
   }
 
   if (needsUpdate || needsLayout) {
@@ -871,26 +900,26 @@ void LockSurface::prepareFrame(bool needsUpdate, bool needsLayout) {
 }
 
 void LockSurface::layoutScene(std::uint32_t width, std::uint32_t height) {
-  auto* renderer = renderContext();
-  if (renderer == nullptr) {
+  if (renderContext() == nullptr) {
     return;
   }
+  Renderer& renderer = renderTarget().renderer();
 
   const auto sw = static_cast<float>(width);
   const auto sh = static_cast<float>(height);
 
   if (m_blackout) {
     m_root.setSize(sw, sh);
-    m_backgroundLayer->setPosition(0.0f, 0.0f);
+    m_backgroundLayer->setPosition(0.0F, 0.0F);
     m_backgroundLayer->setSize(sw, sh);
     m_wallpaper->setVisible(false);
     m_tintOverlay->setVisible(false);
-    m_backdrop->setPosition(0.0f, 0.0f);
+    m_backdrop->setPosition(0.0F, 0.0F);
     m_backdrop->setSize(sw, sh);
     m_backdrop->setVisible(true);
     m_backdrop->setStyle(
         RoundedRectStyle{
-            .fill = rgba(0.0f, 0.0f, 0.0f, 1.0f),
+            .fill = rgba(0.0F, 0.0F, 0.0F, 1.0F),
             .fillMode = FillMode::Solid,
         }
     );
@@ -907,11 +936,8 @@ void LockSurface::layoutScene(std::uint32_t width, std::uint32_t height) {
     if (m_layoutChip != nullptr) {
       m_layoutChip->setVisible(false);
     }
-    if (m_statusPanel != nullptr) {
-      m_statusPanel->setVisible(false);
-    }
-    if (m_statusLabel != nullptr) {
-      m_statusLabel->setVisible(false);
+    if (m_authPanel != nullptr) {
+      m_authPanel->setVisible(false);
     }
     return;
   }
@@ -934,28 +960,21 @@ void LockSurface::layoutScene(std::uint32_t width, std::uint32_t height) {
   }
   const bool showSession = regular && loginStyle.showSessionButtons && !m_sessionButtons.empty();
   const bool showInfoConfigured = regular && lockscreen_login_box::styleShowsInfoExtras(loginStyle);
-  bool statusErrorEarly = false;
-  const bool hasStatusText = !resolveStatusText(loginStyle, statusErrorEarly).empty() && isLoginBoxEnabled();
-  const bool showStatus = loginVisible && hasStatusText;
-  const bool reserveStatus = !regular || lockscreen_login_box::styleReservesStatus(loginStyle, showStatus);
-
-  float panelHeight =
-      lockscreen_login_box::defaultPanelHeight(loginStyle.layout, showSession, showInfoConfigured, reserveStatus);
+  float panelHeight = lockscreen_login_box::defaultPanelHeight(loginStyle.layout, showSession, showInfoConfigured);
   float panelWidth = lockscreen_login_box::defaultPanelWidth(sw, loginStyle.layout);
-  float panelX = std::round((sw - panelWidth) * 0.5f);
-  float panelY = std::max(Style::spaceLg, sh - panelHeight - 84.0f);
+  float panelX = std::round((sw - panelWidth) * 0.5F);
+  float panelY = std::max(Style::spaceLg, sh - panelHeight - 84.0F);
   if (m_config != nullptr) {
     if (const DesktopWidgetState* loginBox =
             lockscreen_login_box::findForOutput(m_config->config().lockscreenWidgets.widgets, m_outputKey);
         loginBox != nullptr) {
       float cx = loginBox->cx;
       float cy = loginBox->cy;
-      // Fit height to visible chrome so disabling hint/media/weather does not leave empty panel space.
-      panelHeight =
-          lockscreen_login_box::defaultPanelHeight(loginStyle.layout, showSession, showInfoConfigured, reserveStatus);
+      // Fit height to visible chrome so disabling media/weather/sessions does not leave empty panel space.
+      panelHeight = lockscreen_login_box::defaultPanelHeight(loginStyle.layout, showSession, showInfoConfigured);
       panelWidth = lockscreen_login_box::resolvePanelWidth(sw, loginBox->boxWidth, loginStyle.layout);
-      panelX = cx - panelWidth * 0.5f;
-      panelY = cy - panelHeight * 0.5f;
+      panelX = cx - panelWidth * 0.5F;
+      panelY = cy - panelHeight * 0.5F;
     }
   }
 
@@ -964,17 +983,17 @@ void LockSurface::layoutScene(std::uint32_t width, std::uint32_t height) {
 
   m_root.setSize(sw, sh);
 
-  m_backgroundLayer->setPosition(0.0f, 0.0f);
+  m_backgroundLayer->setPosition(0.0F, 0.0F);
   m_backgroundLayer->setSize(sw, sh);
 
-  m_wallpaper->setPosition(0.0f, 0.0f);
+  m_wallpaper->setPosition(0.0F, 0.0F);
   m_wallpaper->setSize(sw, sh);
   m_wallpaper->setFillMode(m_wallpaperFillMode);
   m_wallpaper->setFillColor(m_wallpaperFillColor);
 
-  m_backdrop->setPosition(0.0f, 0.0f);
+  m_backdrop->setPosition(0.0F, 0.0F);
   m_backdrop->setSize(sw, sh);
-  m_backdrop->setVisible(m_wallpaperFillColor.a > 0.0f);
+  m_backdrop->setVisible(m_wallpaperFillColor.a > 0.0F);
   m_backdrop->setStyle(
       RoundedRectStyle{
           .fill = m_wallpaperFillColor,
@@ -983,10 +1002,10 @@ void LockSurface::layoutScene(std::uint32_t width, std::uint32_t height) {
   );
 
   if (m_tintOverlay != nullptr) {
-    m_tintOverlay->setPosition(0.0f, 0.0f);
+    m_tintOverlay->setPosition(0.0F, 0.0F);
     m_tintOverlay->setSize(sw, sh);
     const float tintIntensity = m_tintIntensity;
-    const bool showTint = tintIntensity > 0.0f;
+    const bool showTint = tintIntensity > 0.0F;
     m_tintOverlay->setVisible(showTint);
     if (showTint) {
       m_tintOverlay->setStyle(
@@ -1001,10 +1020,10 @@ void LockSurface::layoutScene(std::uint32_t width, std::uint32_t height) {
   m_loginPanel->setFill(loginStyle.panelFill);
   m_loginPanel->setBorder(colorForRole(ColorRole::Outline, loginStyle.panelOpacity), Style::borderWidth);
   m_loginPanel->setRadius(Style::scaledRadius(loginStyle.panelRadius));
-  m_loginPanel->setSoftness(1.0f);
+  m_loginPanel->setSoftness(1.0F);
   m_loginPanel->setClipChildren(true);
 
-  const float contentWidth = std::max(0.0f, panelWidth - 2.0f * Style::spaceLg);
+  const float contentWidth = std::max(0.0F, panelWidth - 2.0F * Style::spaceLg);
 
   m_loginPanel->setJustify(regular ? FlexJustify::Start : FlexJustify::Center);
 
@@ -1025,31 +1044,30 @@ void LockSurface::layoutScene(std::uint32_t width, std::uint32_t height) {
       loginVisible && loginStyle.showKeyboardLayout && m_layoutChip != nullptr && m_layoutChip->visible();
 
   const lockscreen_login_box::RegularRowHeights rows = regular
-      ? lockscreen_login_box::regularRowHeights(panelHeight, showSession, reserveStatus, showInfoExtras)
+      ? lockscreen_login_box::regularRowHeights(panelHeight, showSession, showInfoExtras)
       : lockscreen_login_box::RegularRowHeights{};
-  const float compactStatusHeight = reserveStatus ? lockscreen_login_box::regularStatusContentHeight() : 0.0f;
-  const float contentScale = regular ? rows.scale : 1.0f;
+  const float contentScale = regular ? rows.scale : 1.0F;
   m_regularContentScale = contentScale;
   const float captionSize = Style::fontSizeCaption * contentScale;
   const float bodySize = Style::fontSizeBody * contentScale;
   const float mediaArtSize = kMediaArtSize * contentScale;
   const float weatherGlyphSize = kWeatherGlyphSize * contentScale;
   const float forecastGlyphSize = kForecastGlyphSize * contentScale;
-  const float sessionGlyphSize = 16.0f * contentScale;
+  const float sessionGlyphSize = 16.0F * contentScale;
 
   forecastDaysFit = showWeather
-      ? fitForecastDays(*renderer, weatherBudget, weatherGlyphSize, forecastGlyphSize, captionSize, maxForecastDays)
+      ? fitForecastDays(renderer, weatherBudget, weatherGlyphSize, forecastGlyphSize, captionSize, maxForecastDays)
       : 0;
   const bool showForecast = forecastDaysFit > 0;
   const float forecastWidth =
-      showForecast ? forecastBlockWidth(*renderer, forecastDaysFit, forecastGlyphSize, captionSize) : 0.0f;
+      showForecast ? forecastBlockWidth(renderer, forecastDaysFit, forecastGlyphSize, captionSize) : 0.0F;
 
   if (m_mediaArt != nullptr) {
     m_mediaArt->setSize(mediaArtSize, mediaArtSize);
-    m_mediaArt->setRadius(mediaArtSize * 0.5f);
+    m_mediaArt->setRadius(mediaArtSize * 0.5F);
   }
   if (m_mediaFallbackGlyph != nullptr) {
-    m_mediaFallbackGlyph->setGlyphSize(18.0f * contentScale);
+    m_mediaFallbackGlyph->setGlyphSize(18.0F * contentScale);
   }
   if (m_mediaTitle != nullptr) {
     m_mediaTitle->setFontSize(bodySize);
@@ -1060,13 +1078,13 @@ void LockSurface::layoutScene(std::uint32_t width, std::uint32_t height) {
   if (m_mediaBlock != nullptr) {
     m_mediaBlock->setVisible(showMedia);
     m_mediaBlock->setMaxWidth(mediaBudget);
-    m_mediaBlock->setFlexGrow(showMedia ? 1.0f : 0.0f);
+    m_mediaBlock->setFlexGrow(showMedia ? 1.0F : 0.0F);
     m_mediaBlock->setJustify(mediaAlone ? FlexJustify::Center : FlexJustify::Start);
   }
   if (m_weatherBlock != nullptr) {
     m_weatherBlock->setVisible(showWeather);
     m_weatherBlock->setMaxWidth(weatherBudget);
-    m_weatherBlock->setFlexGrow(showWeather ? 1.0f : 0.0f);
+    m_weatherBlock->setFlexGrow(showWeather ? 1.0F : 0.0F);
     m_weatherBlock->setJustify(weatherAlone ? FlexJustify::Center : FlexJustify::End);
   }
   if (m_forecastRow != nullptr) {
@@ -1107,7 +1125,7 @@ void LockSurface::layoutScene(std::uint32_t width, std::uint32_t height) {
     }
   }
 
-  const float mediaTextMax = std::max(48.0f, mediaBudget - mediaArtSize - Style::spaceSm);
+  const float mediaTextMax = std::max(48.0F, mediaBudget - mediaArtSize - Style::spaceSm);
   if (m_mediaTitle != nullptr) {
     m_mediaTitle->setMaxWidth(mediaTextMax);
     m_mediaTitle->setEllipsize(TextEllipsize::End);
@@ -1131,7 +1149,7 @@ void LockSurface::layoutScene(std::uint32_t width, std::uint32_t height) {
   if (m_weatherMeta != nullptr) {
     m_weatherMeta->setMaxWidth(weatherTextMax);
     m_weatherMeta->setEllipsize(TextEllipsize::End);
-    m_weatherMeta->setVisible(showWeather && weatherBudget >= 160.0f && !m_weatherMeta->text().empty());
+    m_weatherMeta->setVisible(showWeather && weatherBudget >= 160.0F && !m_weatherMeta->text().empty());
   }
 
   // Scale info / status / password / session by the same factor so extra panel
@@ -1139,52 +1157,36 @@ void LockSurface::layoutScene(std::uint32_t width, std::uint32_t height) {
   if (m_infoRow != nullptr) {
     m_infoRow->setVisible(regular && showInfoExtras);
     m_infoRow->setMaxWidth(contentWidth);
-    m_infoRow->setMinHeight(regular && showInfoExtras ? rows.info : 0.0f);
-    m_infoRow->setMaxHeight(regular && showInfoExtras ? rows.info : 0.0f);
-    m_infoRow->setFlexGrow(0.0f);
+    m_infoRow->setMinHeight(regular && showInfoExtras ? rows.info : 0.0F);
+    m_infoRow->setMaxHeight(regular && showInfoExtras ? rows.info : 0.0F);
+    m_infoRow->setFlexGrow(0.0F);
     m_infoRow->setJustify((mediaAlone || weatherAlone) ? FlexJustify::Center : FlexJustify::Start);
-  }
-
-  if (m_statusPanel != nullptr) {
-    m_statusPanel->setMaxWidth(contentWidth);
-    m_statusPanel->setRadius(Style::scaledRadius(loginStyle.inputRadius));
-    const float statusHeight = regular ? (reserveStatus ? rows.status : 0.0f) : compactStatusHeight;
-    m_statusPanel->setMinHeight(statusHeight);
-    m_statusPanel->setMaxHeight(statusHeight);
-    m_statusPanel->setFlexGrow(0.0f);
-  }
-  if (m_statusLabel != nullptr) {
-    m_statusLabel->setFontSize(captionSize);
-    if (m_statusLabel->visible()) {
-      m_statusLabel->setMaxWidth(std::max(0.0f, contentWidth - Style::spaceSm * 2.0f));
-      m_statusLabel->setEllipsize(TextEllipsize::End);
-    }
   }
 
   const float controlHeight = regular ? rows.password : Style::controlHeight;
   m_loginContentRow->setMinHeight(controlHeight);
   m_loginContentRow->setMaxHeight(controlHeight);
   m_loginContentRow->setMaxWidth(contentWidth);
-  m_loginContentRow->setFlexGrow(0.0f);
+  m_loginContentRow->setFlexGrow(0.0F);
 
   if (m_sessionRow != nullptr) {
     m_sessionRow->setVisible(showSession);
     m_sessionRow->setMaxWidth(contentWidth);
-    m_sessionRow->setMinHeight(showSession ? rows.session : 0.0f);
-    m_sessionRow->setMaxHeight(showSession ? rows.session : 0.0f);
-    m_sessionRow->setFlexGrow(0.0f);
+    m_sessionRow->setMinHeight(showSession ? rows.session : 0.0F);
+    m_sessionRow->setMaxHeight(showSession ? rows.session : 0.0F);
+    m_sessionRow->setFlexGrow(0.0F);
     if (showSession) {
       const float gaps = Style::spaceSm * static_cast<float>(std::max<std::size_t>(1, m_sessionButtons.size()) - 1);
       const float buttonMaxWidth = m_sessionButtons.empty()
           ? contentWidth
-          : std::max(48.0f, (contentWidth - gaps) / static_cast<float>(m_sessionButtons.size()));
+          : std::max(48.0F, (contentWidth - gaps) / static_cast<float>(m_sessionButtons.size()));
       for (Button* button : m_sessionButtons) {
         if (button == nullptr) {
           continue;
         }
         button->setMaxWidth(buttonMaxWidth);
-        button->setMinHeight(0.0f);
-        button->setMaxHeight(0.0f);
+        button->setMinHeight(0.0F);
+        button->setMaxHeight(0.0F);
         button->setFillHeight(true);
         button->setGlyphSize(sessionGlyphSize);
         button->setFontSize(captionSize);
@@ -1216,7 +1218,47 @@ void LockSurface::layoutScene(std::uint32_t width, std::uint32_t height) {
     m_loginButton->setGlyphSize(sessionGlyphSize);
   }
 
-  m_loginPanel->arrange(*renderer, LayoutRect{panelX, panelY, panelWidth, panelHeight});
+  m_loginPanel->arrange(renderer, LayoutRect{panelX, panelY, panelWidth, panelHeight});
+
+  // Auth panel: sibling above/below the login box (flips below when near the top edge).
+  if (m_authPanel != nullptr && m_authLabel != nullptr) {
+    bool statusError = false;
+    const std::string authText = resolveStatusText(loginStyle, statusError);
+    const bool showAuth = m_locked && !m_blackout && loginVisible && !authText.empty();
+    m_authPanel->setVisible(showAuth);
+    m_authLabel->setVisible(showAuth);
+    if (showAuth) {
+      m_authLabel->setText(authText);
+      m_authLabel->setColor(colorSpecFromRole(statusError ? ColorRole::Error : ColorRole::OnSurfaceVariant));
+      const float authFontSize = captionSize + (regular ? contentScale : 1.0F);
+      m_authLabel->setFontSize(authFontSize);
+      m_authLabel->setEllipsize(TextEllipsize::End);
+
+      const float authPadV = Style::spaceMd * (regular ? contentScale : 1.0F);
+      const float authPadH = Style::spaceMd * (regular ? contentScale : 1.0F);
+      const float authW = panelWidth;
+      const float authH = authPadV * 2.0F + authFontSize;
+      const float labelMaxW = std::max(0.0F, authW - authPadH * 2.0F);
+
+      m_authPanel->setPadding(authPadV, authPadH);
+      m_authPanel->setFill(loginStyle.panelFill);
+      m_authPanel->setBorder(colorForRole(ColorRole::Outline, loginStyle.panelOpacity), Style::borderWidth);
+      m_authPanel->setRadius(Style::scaledRadius(loginStyle.panelRadius));
+      m_authPanel->setSoftness(1.0F);
+      m_authPanel->setMinWidth(authW);
+      m_authPanel->setMaxWidth(authW);
+      m_authPanel->setMinHeight(authH);
+      m_authPanel->setMaxHeight(authH);
+      m_authLabel->setMaxWidth(labelMaxW);
+
+      const float authGap = Style::spaceSm;
+      const float authX = panelX;
+      const float authYAbove = panelY - authGap - authH;
+      const float authYBelow = panelY + panelHeight + authGap;
+      const float authY = (authYAbove >= Style::spaceLg) ? authYAbove : authYBelow;
+      m_authPanel->arrange(renderer, LayoutRect{authX, authY, authW, authH});
+    }
+  }
 }
 
 void LockSurface::updateCopy() {
@@ -1233,15 +1275,15 @@ void LockSurface::updateCopy() {
 
   const lockscreen_login_box::LoginBoxStyle style = resolveLoginStyle();
 
-  if (m_statusPanel != nullptr && m_statusLabel != nullptr) {
+  if (m_authPanel != nullptr && m_authLabel != nullptr) {
     bool isError = false;
     const std::string text = resolveStatusText(style, isError);
     const bool show = m_locked && !m_blackout && !text.empty() && isLoginBoxEnabled();
-    m_statusPanel->setVisible(show);
-    m_statusLabel->setVisible(show);
+    m_authPanel->setVisible(show);
+    m_authLabel->setVisible(show);
     if (show) {
-      m_statusLabel->setText(text);
-      m_statusLabel->setColor(colorSpecFromRole(isError ? ColorRole::Error : ColorRole::OnSurfaceVariant));
+      m_authLabel->setText(text);
+      m_authLabel->setColor(colorSpecFromRole(isError ? ColorRole::Error : ColorRole::OnSurfaceVariant));
     }
   }
 
@@ -1362,16 +1404,16 @@ void LockSurface::rebuildSessionButtons() {
         .text = labelText,
         .glyph = cfg.glyph.has_value() && !cfg.glyph->empty() ? *cfg.glyph : session_action::defaultGlyph(cfg.action),
         .fontSize = Style::fontSizeCaption,
-        .glyphSize = 16.0f,
+        .glyphSize = 16.0F,
         .contentAlign = ButtonContentAlign::Center,
         .variant = lockscreenSessionVariant(cfg.variant),
-        .minHeight = 0.0f,
-        .maxHeight = 0.0f,
+        .minHeight = 0.0F,
+        .maxHeight = 0.0F,
         .paddingV = Style::spaceXs,
         .paddingH = Style::spaceSm,
         .gap = Style::spaceXs,
         .radius = Style::scaledRadiusMd(),
-        .flexGrow = 1.0f,
+        .flexGrow = 1.0F,
         .onClick =
             [this, cfg]() {
               if (m_sessionActions != nullptr) {
@@ -1426,7 +1468,7 @@ void LockSurface::syncRegularExtras(Renderer& renderer) {
     }
     if (artChanged || (m_mediaArt != nullptr && !artUrl.empty() && !m_mediaArt->hasImage())) {
       m_lastArtUrl = artUrl;
-      const int targetPx = static_cast<int>(std::round(kMediaArtSize * std::max(1.0f, m_regularContentScale)));
+      const int targetPx = static_cast<int>(std::round(kMediaArtSize * std::max(1.0F, m_regularContentScale)));
       bool hasArt = false;
       if (m_mediaArt != nullptr) {
         if (!artUrl.empty()) {
@@ -1489,8 +1531,8 @@ void LockSurface::syncRegularExtras(Renderer& renderer) {
           forecast.emplace_back(
               weekdayAbbrev(day.dateIso), WeatherService::glyphForCode(day.weatherCode, true),
               std::format(
-                  "{}°/{}°", static_cast<int>(std::lround(m_weather->displayTemperature(day.temperatureMaxC))),
-                  static_cast<int>(std::lround(m_weather->displayTemperature(day.temperatureMinC)))
+                  "{}°/{}°", static_cast<int>(std::lround(m_weather->displayTemperature(day.temperatureMinC))),
+                  static_cast<int>(std::lround(m_weather->displayTemperature(day.temperatureMaxC)))
               )
           );
         }
@@ -1554,18 +1596,21 @@ bool LockSurface::isLoginBoxEnabled() const {
 
 std::string LockSurface::resolveStatusText(const lockscreen_login_box::LoginBoxStyle& style, bool& isError) const {
   isError = false;
-  // A live authentication/error message always wins, then any other transient status
-  // (e.g. "password cleared"), then the caps-lock warning, then the idle password hint.
-  if (m_authenticating || m_error) {
-    isError = m_error;
-    return m_status;
-  }
-  if (!m_status.empty()) {
+  // Errors always show. Caps Lock has its own toggle. Everything else (idle hint,
+  // authenticating, PAM prompts) is gated by showUnlockHint.
+  if (m_error) {
+    isError = true;
     return m_status;
   }
   if (m_capsLock && style.showCapsLock) {
     isError = true;
     return i18n::tr("lockscreen.caps-lock-on");
+  }
+  if (!style.showUnlockHint) {
+    return {};
+  }
+  if (m_authenticating || !m_status.empty()) {
+    return m_status;
   }
   return i18n::tr("lockscreen.ready");
 }
@@ -1604,7 +1649,7 @@ void LockSurface::applyWallpaperTexture() {
   }
 
   bool loaded = true;
-  Color color = rgba(0.0f, 0.0f, 0.0f, 1.0f);
+  Color color = rgba(0.0F, 0.0F, 0.0F, 1.0F);
   if (parseColorWallpaperPath(m_wallpaperPath, color)) {
     if (m_wallpaperTexture.id != 0) {
       releaseWallpaperTextureRef(m_textureWallpaperPath);
@@ -1615,10 +1660,10 @@ void LockSurface::applyWallpaperTexture() {
       m_blurredWallpaperTexture = {};
     }
     m_wallpaper->setSources(
-        WallpaperSourceKind::Color, {}, color, WallpaperSourceKind::Image, {}, rgba(0.0f, 0.0f, 0.0f, 1.0f), 0.0f, 0.0f,
-        0.0f, 0.0f
+        WallpaperSourceKind::Color, {}, color, WallpaperSourceKind::Image, {}, rgba(0.0F, 0.0F, 0.0F, 1.0F), 0.0F, 0.0F,
+        0.0F, 0.0F
     );
-    m_wallpaper->setTransition(WallpaperTransition::Fade, 0.0f, TransitionParams{});
+    m_wallpaper->setTransition(WallpaperTransition::Fade, 0.0F, TransitionParams{});
     m_wallpaper->setFillMode(m_wallpaperFillMode);
     m_wallpaper->setFillColor(m_wallpaperFillColor);
   } else if (m_textureCache != nullptr && !m_wallpaperPath.empty()) {
@@ -1647,11 +1692,11 @@ void LockSurface::applyWallpaperTexture() {
         renderContext()->textureManager().unload(m_blurredWallpaperTexture);
         m_blurredWallpaperTexture = {};
       }
-      if (m_blurIntensity > 0.0f && renderContext() != nullptr) {
+      if (m_blurIntensity > 0.0F && renderContext() != nullptr) {
         auto* renderer = renderContext();
         renderer->makeCurrent(renderTarget());
         static constexpr int kBlurRounds = 3;
-        const float blurRadius = m_blurIntensity * 40.0f;
+        const float blurRadius = m_blurIntensity * 40.0F;
         const std::uint32_t blurWidth = renderTarget().bufferWidth();
         const std::uint32_t blurHeight = renderTarget().bufferHeight();
         m_blurredWallpaperTexture = m_wallpaperBlurCache.get(
@@ -1663,9 +1708,9 @@ void LockSurface::applyWallpaperTexture() {
       }
       m_wallpaper->setTextures(
           textureToDisplay.id, {}, static_cast<float>(textureToDisplay.width),
-          static_cast<float>(textureToDisplay.height), 0.0f, 0.0f
+          static_cast<float>(textureToDisplay.height), 0.0F, 0.0F
       );
-      m_wallpaper->setTransition(WallpaperTransition::Fade, 0.0f, TransitionParams{});
+      m_wallpaper->setTransition(WallpaperTransition::Fade, 0.0F, TransitionParams{});
       m_wallpaper->setFillMode(m_wallpaperFillMode);
       m_wallpaper->setFillColor(m_wallpaperFillColor);
     }
@@ -1673,7 +1718,7 @@ void LockSurface::applyWallpaperTexture() {
     if (m_wallpaperTexture.id != 0) {
       releaseWallpaperTextureRef(m_textureWallpaperPath);
     }
-    m_wallpaper->setTextures({}, {}, 0.0f, 0.0f, 0.0f, 0.0f);
+    m_wallpaper->setTextures({}, {}, 0.0F, 0.0F, 0.0F, 0.0F);
   } else {
     loaded = false;
   }
@@ -1743,7 +1788,7 @@ void LockSurface::applyBlurredDesktopTexture() {
   }
 
   static constexpr int kBlurRounds = 3;
-  const float blurRadius = m_blurIntensity * 40.0f;
+  const float blurRadius = m_blurIntensity * 40.0F;
   const std::uint32_t blurWidth = renderTarget().bufferWidth();
   const std::uint32_t blurHeight = renderTarget().bufferHeight();
   m_blurredDesktopTexture =
@@ -1754,11 +1799,11 @@ void LockSurface::applyBlurredDesktopTexture() {
 
   m_wallpaper->setTextures(
       m_blurredDesktopTexture.id, {}, static_cast<float>(m_blurredDesktopTexture.width),
-      static_cast<float>(m_blurredDesktopTexture.height), 0.0f, 0.0f
+      static_cast<float>(m_blurredDesktopTexture.height), 0.0F, 0.0F
   );
-  m_wallpaper->setTransition(WallpaperTransition::Fade, 0.0f, TransitionParams{});
+  m_wallpaper->setTransition(WallpaperTransition::Fade, 0.0F, TransitionParams{});
   m_wallpaper->setFillMode(m_wallpaperFillMode);
-  m_wallpaper->setFillColor(rgba(0.0f, 0.0f, 0.0f, 0.0f));
+  m_wallpaper->setFillColor(rgba(0.0F, 0.0F, 0.0F, 0.0F));
   m_backdrop->setVisible(false);
   m_captureDirty = false;
   m_wallpaperDirty = false;

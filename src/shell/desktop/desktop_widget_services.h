@@ -1,6 +1,7 @@
 #pragma once
 
 class ClipboardService;
+class CalendarService;
 class ConfigService;
 class FileWatcher;
 class HttpClient;
@@ -27,6 +28,7 @@ struct DesktopWidgetScriptDeps {
 };
 
 struct DesktopWidgetRuntimeServices {
+  CalendarService* calendar = nullptr;
   PipeWireService* pipewire = nullptr;
   PipeWireSpectrum* pipewireSpectrum = nullptr;
   const WeatherService* weather = nullptr;

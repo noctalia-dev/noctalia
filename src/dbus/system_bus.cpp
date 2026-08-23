@@ -22,9 +22,9 @@ namespace {
 
   void logSlowEvent(double ms) {
     if (ms >= kSlowEventWarnMs) {
-      kLog.warn("single event dispatch took {:.1f}ms", ms);
+      kLog.warn("single event dispatch took {:.1F}ms", ms);
     } else if (ms >= kSlowEventDebugMs) {
-      kLog.debug("single event dispatch took {:.1f}ms", ms);
+      kLog.debug("single event dispatch took {:.1F}ms", ms);
     }
   }
 } // namespace

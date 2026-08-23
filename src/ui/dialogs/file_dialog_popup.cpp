@@ -58,7 +58,7 @@ void FileDialogPopup::layoutSheet(float contentWidth, float contentHeight) {
   if (m_dialog == nullptr) {
     return;
   }
-  m_dialog->layout(*renderContext(), contentWidth, contentHeight);
+  m_dialog->layout(renderer(), contentWidth, contentHeight);
 }
 
 void FileDialogPopup::cancelToFacade() { FileDialog::cancelIfPending(); }
@@ -69,12 +69,12 @@ float FileDialogPopup::computePadding(float /*scale*/) const {
   // Track the dialog's own contentScale to match prior behavior; this
   // happens to equal uiScale() in practice (set in openFileDialog) but
   // staying consistent with FileDialogView's view of the world.
-  return m_dialog != nullptr ? m_dialog->contentScale() * 12.0f : 0.0f;
+  return m_dialog != nullptr ? m_dialog->contentScale() * 12.0F : 0.0F;
 }
 
 void FileDialogPopup::runUpdatePhase() {
   if (m_dialog != nullptr) {
-    m_dialog->update(*renderContext());
+    m_dialog->update(renderer());
   }
 }
 

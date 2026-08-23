@@ -42,6 +42,9 @@ namespace {
     xdg_positioner_set_gravity(positioner, config.gravity);
     xdg_positioner_set_constraint_adjustment(positioner, config.constraintAdjustment);
     xdg_positioner_set_offset(positioner, config.offsetX, config.offsetY);
+    if (config.reactive && xdg_positioner_get_version(positioner) >= XDG_POSITIONER_SET_REACTIVE_SINCE_VERSION) {
+      xdg_positioner_set_reactive(positioner);
+    }
     return positioner;
   }
 
@@ -93,16 +96,20 @@ bool PopupSurface::initialize(zwlr_layer_surface_v1* parentLayerSurface, wl_outp
     return false;
   }
 
+  std::int32_t bufferScale = 1;
+  if (const auto* wlOutput = m_connection.findOutputByWl(output); wlOutput != nullptr) {
+    bufferScale = wlOutput->scale;
+    setConfiguredScaleNumerator(
+        wlOutput->configuredScaleNumerator > 0 ? static_cast<std::uint32_t>(wlOutput->configuredScaleNumerator) : 1U
+    );
+  }
+  setBufferScale(bufferScale);
+
   if (!createWlSurface()) {
     return false;
   }
 
-  std::int32_t bufferScale = 1;
-  if (const auto* wlOutput = m_connection.findOutputByWl(output); wlOutput != nullptr) {
-    bufferScale = wlOutput->scale;
-  }
   m_connection.registerSurfaceOutput(m_surface, output);
-  setBufferScale(bufferScale);
 
   m_config = config;
   m_config.anchorWidth = std::max(m_config.anchorWidth, 1);
@@ -278,16 +285,20 @@ bool PopupSurface::initializeAsChild(xdg_surface* parentXdgSurface, wl_output* o
     return false;
   }
 
+  std::int32_t bufferScale = 1;
+  if (const auto* wlOutput = m_connection.findOutputByWl(output); wlOutput != nullptr) {
+    bufferScale = wlOutput->scale;
+    setConfiguredScaleNumerator(
+        wlOutput->configuredScaleNumerator > 0 ? static_cast<std::uint32_t>(wlOutput->configuredScaleNumerator) : 1U
+    );
+  }
+  setBufferScale(bufferScale);
+
   if (!createWlSurface()) {
     return false;
   }
 
-  std::int32_t bufferScale = 1;
-  if (const auto* wlOutput = m_connection.findOutputByWl(output); wlOutput != nullptr) {
-    bufferScale = wlOutput->scale;
-  }
   m_connection.registerSurfaceOutput(m_surface, output);
-  setBufferScale(bufferScale);
 
   m_config = config;
   m_config.anchorWidth = std::max(m_config.anchorWidth, 1);

@@ -15,7 +15,7 @@ public:
   BlurCache& operator=(const BlurCache&) = delete;
 
   TextureHandle
-  get(RenderBackend& backend, TextureHandle source, std::uint32_t width, std::uint32_t height, float radius = 20.0f,
+  get(RenderBackend& backend, TextureHandle source, std::uint32_t width, std::uint32_t height, float radius = 20.0F,
       int rounds = 3);
 
   void invalidate() { m_layer.invalidate(); }
@@ -26,6 +26,6 @@ private:
   CachedLayer m_layer;
   RenderBackend* m_backend = nullptr;
   TextureId m_lastSourceTex;
-  float m_lastRadius = 0.0f;
+  float m_lastRadius = 0.0F;
   int m_lastRounds = 0;
 };

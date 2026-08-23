@@ -104,12 +104,18 @@ public:
   [[nodiscard]] std::vector<ToplevelInfo>
   windowsForApp(const std::string& idLower, const std::string& wmClassLower, wl_output* outputFilter = nullptr) const;
   [[nodiscard]] std::vector<ToplevelInfo> windowsWithoutAppId(wl_output* outputFilter = nullptr) const;
+  [[nodiscard]] std::vector<ToplevelInfo> enrichedWindowsForApp(
+      const std::string& idLower, const std::string& wmClassLower, wl_output* outputFilter = nullptr
+  ) const;
+  [[nodiscard]] std::vector<ToplevelInfo> enrichedWindowsWithoutAppId(wl_output* outputFilter = nullptr) const;
+  // True when taskbar windows carry exact compositor-assigned identities.
+  [[nodiscard]] bool hasExactWindowIdentity() const noexcept;
   [[nodiscard]] bool containsWlrToplevelHandle(zwlr_foreign_toplevel_handle_v1* handle) const;
   void activateToplevel(zwlr_foreign_toplevel_handle_v1* handle);
   void activateToplevelInfo(const ToplevelInfo& window);
   void closeToplevel(zwlr_foreign_toplevel_handle_v1* handle);
   void closeToplevelInfo(const ToplevelInfo& window);
-  void focusCompositorWindow(const std::string& windowId) const;
+  void focusCompositorWindow(const std::string& windowId, bool warpPointer = false) const;
 
   // Focus `output` before spawning (Hyprland) so clients follow the launch monitor.
   void prepareAppLaunchOnOutput(wl_output* output);

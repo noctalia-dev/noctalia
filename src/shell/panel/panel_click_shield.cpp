@@ -131,6 +131,20 @@ void PanelClickShield::activate(
   }
 }
 
+void PanelClickShield::setPanelInputRect(wl_output* output, InputRect rect) {
+  const auto it = m_shields.find(output);
+  if (it == m_shields.end() || it->second == nullptr) {
+    return;
+  }
+
+  Shield& shield = *it->second;
+  shield.panelInputRect = rect;
+  if (shield.configured && shield.surface != nullptr) {
+    applyInputRegion(shield);
+    wl_surface_commit(shield.surface);
+  }
+}
+
 std::unique_ptr<PanelClickShield::Shield>
 PanelClickShield::createShield(wl_output* output, LayerShellLayer layer, std::vector<InputRect> excludeRects) {
   auto shield = std::make_unique<Shield>();
@@ -181,6 +195,16 @@ PanelClickShield::createShield(wl_output* output, LayerShellLayer layer, std::ve
   wl_surface_commit(shield->surface);
 
   return shield;
+}
+
+void PanelClickShield::setLayer(LayerShellLayer layer) {
+  for (auto& [output, shield] : m_shields) {
+    if (shield == nullptr || shield->layerSurface == nullptr || shield->surface == nullptr) {
+      continue;
+    }
+    zwlr_layer_surface_v1_set_layer(shield->layerSurface, static_cast<std::uint32_t>(layer));
+    wl_surface_commit(shield->surface);
+  }
 }
 
 void PanelClickShield::deactivate() {
@@ -285,6 +309,10 @@ void PanelClickShield::applyInputRegion(Shield& shield) {
 
   wl_region_add(region, 0, 0, shield.width, shield.height);
   for (const auto& r : shield.excludeRects) {
+    wl_region_subtract(region, r.x, r.y, r.width, r.height);
+  }
+  if (shield.panelInputRect.has_value()) {
+    const auto& r = *shield.panelInputRect;
     wl_region_subtract(region, r.x, r.y, r.width, r.height);
   }
 

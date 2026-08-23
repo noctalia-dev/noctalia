@@ -2,6 +2,7 @@
 
 #include "capture/screencopy_capture.h"
 #include "capture/screenshot_region_overlay.h"
+#include "core/timer_manager.h"
 
 #include <filesystem>
 #include <memory>
@@ -29,6 +30,7 @@ public:
     bool pipeToCommand = false;
     bool freezeScreen = false;
     bool confirmRegion = false;
+    bool rememberLastRegion = false;
     bool showCursor = false;
     std::string pipeCommand;
     std::string directory;
@@ -36,8 +38,8 @@ public:
   };
 
   ScreenshotService(
-      WaylandConnection& wayland, CompositorPlatform& platform, NotificationManager& notifications,
-      ClipboardService* clipboard = nullptr
+      WaylandConnection& wayland, CompositorPlatform& platform, ConfigService& configService,
+      NotificationManager& notifications, ClipboardService* clipboard = nullptr
   );
   ~ScreenshotService();
 
@@ -103,6 +105,8 @@ private:
   void startRegionOverlay(RenderContext& renderContext);
   void startFullscreenOverlay(RenderContext& renderContext);
   void beginFreezeCapture();
+  void startNextFreezeCapture();
+  void onFreezeFrameCaptured(wl_output* output, std::optional<ScreencopyImage> image, const std::string& error);
   void finishFreezeCapture();
   void abortFreezeCapture(const std::string& message);
   void cancelRegionCapture();
@@ -138,10 +142,13 @@ private:
   makeScreenshotPath(const OutputOptions& options, const std::string& labelBase, int suffix = 0) const;
   void notifySaved(const std::filesystem::path& path);
   void notifyError(const std::string& message);
+  void rememberRegion(const LogicalRect& region);
+  [[nodiscard]] std::optional<LogicalRect> loadRememberedRegion() const;
 
   WaylandConnection& m_wayland;
   CompositorPlatform& m_platform;
   NotificationManager& m_notifications;
+  ConfigService& m_configService;
   ClipboardService* m_clipboard = nullptr;
   ScreencopyCapture m_capture;
   std::unique_ptr<capture::ScreenshotRegionOverlay> m_regionOverlay;
@@ -154,4 +161,5 @@ private:
   std::vector<capture::FrozenScreenshot> m_frozenScreenshots;
   std::vector<wl_output*> m_pendingFreezeOutputs;
   bool m_freezeCaptureActive = false;
+  Timer m_freezeCaptureTimeout;
 };

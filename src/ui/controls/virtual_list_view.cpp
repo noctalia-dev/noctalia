@@ -14,8 +14,8 @@ public:
   Canvas() = default;
 
   void setVirtualSize(float width, float height) {
-    m_virtualWidth = std::max(0.0f, width);
-    m_virtualHeight = std::max(0.0f, height);
+    m_virtualWidth = std::max(0.0F, width);
+    m_virtualHeight = std::max(0.0F, height);
     setSize(m_virtualWidth, m_virtualHeight);
   }
 
@@ -32,8 +32,8 @@ protected:
   }
 
 private:
-  float m_virtualWidth = 0.0f;
-  float m_virtualHeight = 0.0f;
+  float m_virtualWidth = 0.0F;
+  float m_virtualHeight = 0.0F;
 };
 
 class VirtualListView::Slot : public InputArea {
@@ -52,7 +52,7 @@ public:
   void setItemGeometry(float width, float height) {
     setSize(width, height);
     if (m_item != nullptr) {
-      m_item->setPosition(0.0f, 0.0f);
+      m_item->setPosition(0.0F, 0.0F);
       m_item->setSize(width, height);
     }
   }
@@ -64,13 +64,13 @@ private:
 
 namespace {
 
-  int widthCacheKey(float width) { return static_cast<int>(std::lround(std::max(0.0f, width))); }
+  int widthCacheKey(float width) { return static_cast<int>(std::lround(std::max(0.0F, width))); }
 
   float saneHeight(float height) {
     if (!std::isfinite(height)) {
-      return 1.0f;
+      return 1.0F;
     }
-    return std::max(1.0f, height);
+    return std::max(1.0F, height);
   }
 
 } // namespace
@@ -78,15 +78,15 @@ namespace {
 VirtualListView::VirtualListView() {
   setDirection(FlexDirection::Vertical);
   setAlign(FlexAlign::Stretch);
-  setGap(0.0f);
-  setPadding(0.0f);
+  setGap(0.0F);
+  setPadding(0.0F);
   setFillWidth(true);
   setFillHeight(true);
 
   auto scroll = std::make_unique<ScrollView>();
-  scroll->setFlexGrow(1.0f);
-  scroll->setViewportPaddingH(0.0f);
-  scroll->setViewportPaddingV(0.0f);
+  scroll->setFlexGrow(1.0F);
+  scroll->setViewportPaddingH(0.0F);
+  scroll->setViewportPaddingV(0.0F);
   scroll->setOnScrollChanged([this](float offset) { onScrollChanged(offset); });
   m_scroll = static_cast<ScrollView*>(addChild(std::move(scroll)));
 
@@ -138,7 +138,7 @@ void VirtualListView::notifyItemChanged(std::size_t index) {
 }
 
 void VirtualListView::setItemGap(float gap) {
-  const float next = std::max(0.0f, gap);
+  const float next = std::max(0.0F, gap);
   if (m_itemGap == next) {
     return;
   }
@@ -166,19 +166,19 @@ void VirtualListView::doLayout(Renderer& renderer) {
     return;
   }
 
-  const float ourW = std::max(0.0f, width());
-  const float ourH = std::max(0.0f, height());
+  const float ourW = std::max(0.0F, width());
+  const float ourH = std::max(0.0F, height());
   const float padH = m_scroll->viewportPaddingH();
   const float padV = m_scroll->viewportPaddingV();
-  const float innerW = std::max(0.0f, ourW - 2.0f * padH);
-  const float viewportH = std::max(0.0f, ourH - 2.0f * padV);
+  const float innerW = std::max(0.0F, ourW - 2.0F * padH);
+  const float viewportH = std::max(0.0F, ourH - 2.0F * padV);
   const float scrollbarGutter = Style::scrollbarWidth + Style::scrollbarGap;
 
   // Match ScrollView: only reserve the scrollbar gutter when content overflows vertically.
   recomputeMetrics(renderer, innerW);
   float viewportW = innerW;
-  if (m_virtualHeight > viewportH + 0.5f) {
-    viewportW = std::max(0.0f, innerW - scrollbarGutter);
+  if (m_virtualHeight > viewportH + 0.5F) {
+    viewportW = std::max(0.0F, innerW - scrollbarGutter);
     recomputeMetrics(renderer, viewportW);
   }
   m_canvas->setVirtualSize(m_virtualWidth, m_virtualHeight);
@@ -256,7 +256,7 @@ void VirtualListView::doLayout(Renderer& renderer) {
       slotActive[slotIndex] = true;
       slot->setBoundIndex(index);
       slot->setEnabled(m_adapter->itemInteractive(index));
-      slot->setPosition(0.0f, itemY);
+      slot->setPosition(0.0F, itemY);
       slot->setItemGeometry(viewportW, itemH);
 
       if (dirty && slot->item() != nullptr) {
@@ -289,10 +289,10 @@ void VirtualListView::doLayout(Renderer& renderer) {
 LayoutSize VirtualListView::doMeasure(Renderer& /*renderer*/, const LayoutConstraints& constraints) {
   const float w = constraints.hasExactWidth() ? constraints.maxWidth
       : constraints.hasMaxWidth               ? constraints.maxWidth
-                                              : 0.0f;
+                                              : 0.0F;
   const float h = constraints.hasExactHeight() ? constraints.maxHeight
       : constraints.hasMaxHeight               ? constraints.maxHeight
-                                               : 0.0f;
+                                               : 0.0F;
   return LayoutSize{.width = w, .height = h};
 }
 
@@ -317,13 +317,13 @@ void VirtualListView::activateSlot(const Slot& slot) {
 
 void VirtualListView::recomputeMetrics(Renderer& renderer, float width) {
   m_itemCount = m_adapter != nullptr ? m_adapter->itemCount() : 0;
-  m_virtualWidth = std::max(0.0f, width);
+  m_virtualWidth = std::max(0.0F, width);
   m_heightCache.resize(m_itemCount);
   m_itemHeights.resize(m_itemCount);
   m_itemOffsets.resize(m_itemCount + 1);
 
   const int widthKey = widthCacheKey(width);
-  float cursor = 0.0f;
+  float cursor = 0.0F;
   for (std::size_t index = 0; index < m_itemCount; ++index) {
     const std::uint64_t key = m_adapter->itemKey(index);
     const std::uint64_t revision = m_adapter->itemRevision(index);
@@ -366,7 +366,7 @@ std::size_t VirtualListView::firstVisibleIndex(float scrollY) const noexcept {
   }
   const auto begin = m_itemOffsets.begin();
   const auto end = m_itemOffsets.begin() + static_cast<std::ptrdiff_t>(m_itemCount);
-  auto it = std::upper_bound(begin, end, std::max(0.0f, scrollY));
+  auto it = std::upper_bound(begin, end, std::max(0.0F, scrollY));
   std::size_t index = it == begin ? 0 : static_cast<std::size_t>((it - begin) - 1);
   while (index + 1 < m_itemCount
          && index < m_itemHeights.size()

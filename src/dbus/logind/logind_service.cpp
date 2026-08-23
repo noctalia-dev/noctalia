@@ -4,6 +4,7 @@
 #include "dbus/system_bus.h"
 
 #include <cstdlib>
+#include <fcntl.h>
 #include <optional>
 #include <sdbus-c++/Error.h>
 #include <sdbus-c++/IProxy.h>
@@ -19,6 +20,20 @@ namespace {
   const sdbus::ObjectPath kLogindObjectPath{"/org/freedesktop/login1"};
   constexpr auto kLogindManagerInterface = "org.freedesktop.login1.Manager";
   constexpr auto kLogindSessionInterface = "org.freedesktop.login1.Session";
+
+  // Inhibit locks stay alive until every duplicate of the fd is closed. Our detached
+  // process launcher double-forks without closing fds, so without CLOEXEC `systemctl
+  // suspend` inherits the sleep-delay inhibit and logind waits the full InhibitDelayMaxSec.
+  [[nodiscard]] bool setCloexec(int fd) {
+    if (fd < 0) {
+      return false;
+    }
+    const int flags = ::fcntl(fd, F_GETFD);
+    if (flags < 0) {
+      return false;
+    }
+    return ::fcntl(fd, F_SETFD, flags | FD_CLOEXEC) == 0;
+  }
 
   [[nodiscard]] std::optional<sdbus::ObjectPath> resolveSessionPath(sdbus::IConnection& connection) {
     try {
@@ -59,7 +74,10 @@ LogindService::LogindService(SystemBus& bus) : m_bus(bus) {
   });
 }
 
-LogindService::~LogindService() { releaseIdleInhibit(); }
+LogindService::~LogindService() {
+  releaseSleepDelayInhibit();
+  releaseIdleInhibit();
+}
 
 void LogindService::ensureSessionLockMonitor() {
   if (m_sessionProxy != nullptr) {
@@ -92,11 +110,20 @@ void LogindService::setSessionLockIntegrationEnabled(bool enabled) {
   }
   m_sessionLockIntegrationEnabled = enabled;
   if (!enabled) {
+    releaseSleepDelayInhibit();
     m_sessionProxy.reset();
     kLog.info("logind session lock monitor disabled");
     return;
   }
   ensureSessionLockMonitor();
+}
+
+void LogindService::setLockBeforeSuspendEnabled(bool enabled) {
+  if (!m_sessionLockIntegrationEnabled || !enabled) {
+    releaseSleepDelayInhibit();
+    return;
+  }
+  (void)acquireSleepDelayInhibit();
 }
 
 void LogindService::setPrepareForSleepCallback(PrepareForSleepCallback callback) {
@@ -107,27 +134,15 @@ void LogindService::setLockCallback(SessionLockCallback callback) { m_lockCallba
 
 void LogindService::setUnlockCallback(SessionLockCallback callback) { m_unlockCallback = std::move(callback); }
 
-void LogindService::syncSessionLocked() {
+void LogindService::setSessionLockedHint(bool locked) {
   if (!m_sessionLockIntegrationEnabled || m_sessionProxy == nullptr) {
     return;
   }
   try {
-    m_sessionProxy->callMethod("Lock").onInterface(kLogindSessionInterface);
-    kLog.debug("logind session lock state synced");
+    m_sessionProxy->callMethod("SetLockedHint").onInterface(kLogindSessionInterface).withArguments(locked);
+    kLog.debug("logind session locked hint set to {}", locked);
   } catch (const sdbus::Error& e) {
-    kLog.warn("failed to sync logind session lock state: {}", e.what());
-  }
-}
-
-void LogindService::syncSessionUnlocked() {
-  if (!m_sessionLockIntegrationEnabled || m_sessionProxy == nullptr) {
-    return;
-  }
-  try {
-    m_sessionProxy->callMethod("Unlock").onInterface(kLogindSessionInterface);
-    kLog.debug("logind session unlock state synced");
-  } catch (const sdbus::Error& e) {
-    kLog.warn("failed to sync logind session unlock state: {}", e.what());
+    kLog.warn("failed to set logind session locked hint to {}: {}", locked, e.what());
   }
 }
 
@@ -154,6 +169,12 @@ bool LogindService::acquireIdleInhibit() {
       kLog.warn("logind idle inhibit returned invalid fd");
       return false;
     }
+    if (!setCloexec(m_idleInhibitFd)) {
+      kLog.warn("failed to set CLOEXEC on logind idle inhibit fd");
+      ::close(m_idleInhibitFd);
+      m_idleInhibitFd = -1;
+      return false;
+    }
     kLog.info("logind idle inhibit acquired");
     return true;
   } catch (const sdbus::Error& e) {
@@ -169,4 +190,50 @@ void LogindService::releaseIdleInhibit() {
   ::close(m_idleInhibitFd);
   m_idleInhibitFd = -1;
   kLog.debug("logind idle inhibit released");
+}
+
+bool LogindService::hasSleepDelayInhibit() const noexcept { return m_sleepDelayInhibitFd >= 0; }
+
+bool LogindService::acquireSleepDelayInhibit() {
+  if (m_sleepDelayInhibitFd >= 0) {
+    return true;
+  }
+  if (m_managerProxy == nullptr) {
+    return false;
+  }
+
+  try {
+    sdbus::UnixFd fd;
+    m_managerProxy->callMethod("Inhibit")
+        .onInterface(kLogindManagerInterface)
+        .withArguments(
+            std::string("sleep"), std::string("noctalia"), std::string("Lock before sleep"), std::string("delay")
+        )
+        .storeResultsTo(fd);
+    m_sleepDelayInhibitFd = fd.release();
+    if (m_sleepDelayInhibitFd < 0) {
+      kLog.warn("logind sleep delay inhibit returned invalid fd");
+      return false;
+    }
+    if (!setCloexec(m_sleepDelayInhibitFd)) {
+      kLog.warn("failed to set CLOEXEC on logind sleep delay inhibit fd");
+      ::close(m_sleepDelayInhibitFd);
+      m_sleepDelayInhibitFd = -1;
+      return false;
+    }
+    kLog.info("logind sleep delay inhibit acquired");
+    return true;
+  } catch (const sdbus::Error& e) {
+    kLog.warn("failed to acquire logind sleep delay inhibit: {}", e.what());
+    return false;
+  }
+}
+
+void LogindService::releaseSleepDelayInhibit() {
+  if (m_sleepDelayInhibitFd < 0) {
+    return;
+  }
+  ::close(m_sleepDelayInhibitFd);
+  m_sleepDelayInhibitFd = -1;
+  kLog.info("logind sleep delay inhibit released");
 }

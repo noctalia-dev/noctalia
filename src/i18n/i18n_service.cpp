@@ -75,6 +75,7 @@ namespace i18n {
     } else {
       candidate = detectSystemLanguage();
     }
+    m_requestedLanguage = candidate;
 
     // English fallback is always loaded first so lookup() can fall back to it
     // even if the active catalog is English itself.
@@ -85,6 +86,7 @@ namespace i18n {
     if (candidate.empty() || candidate == "en") {
       m_active = m_fallback;
       m_language = "en";
+      m_rtl = false;
       kLog.info("language: en");
       return;
     }
@@ -92,6 +94,7 @@ namespace i18n {
     for (const std::string& lang : detail::catalogLanguageCandidates(candidate)) {
       if (loadCatalog(lang, m_active)) {
         m_language = lang;
+        m_rtl = detail::isRtlLanguage(m_language);
         if (lang == candidate) {
           kLog.info("language: {}", m_language);
         } else {
@@ -104,6 +107,7 @@ namespace i18n {
     kLog.warn("no catalog for '{}', falling back to English", candidate);
     m_active = m_fallback;
     m_language = "en";
+    m_rtl = false;
   }
 
   void Service::setLanguage(std::string_view lang) {

@@ -32,13 +32,13 @@ namespace shell::dock {
     Label* badgeLabel = nullptr;
     Image* iconImage = nullptr;
     Glyph* iconGlyph = nullptr;
-    float restMainPos = 0.0f;
-    float restCrossPos = 0.0f;
-    float hoverMainOffset = 0.0f;
-    float dragMainOffset = 0.0f; // additional offset applied while dragging this item
+    float restMainPos = 0.0F;
+    float restCrossPos = 0.0F;
+    float hoverMainOffset = 0.0F;
+    float dragMainOffset = 0.0F; // additional offset applied while dragging this item
     bool isDragGhost = false;    // drawn at reduced opacity as the placeholder slot
-    float visualScale = -1.0f;
-    float visualOpacity = -1.0f;
+    float visualScale = -1.0F;
+    float visualOpacity = -1.0F;
     AnimationManager::Id scaleAnimId = 0;
     AnimationManager::Id opacityAnimId = 0;
   };

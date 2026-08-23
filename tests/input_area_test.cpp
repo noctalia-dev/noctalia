@@ -6,6 +6,7 @@
 #include <linux/input-event-codes.h>
 #include <memory>
 #include <print>
+#include <string>
 #include <thread>
 #include <wayland-client-protocol.h>
 
@@ -283,6 +284,30 @@ int main() {
 
     wheelFrame(area, 1.0f, 8);
     ok = expect(gestureStarts == 2, "axis stop serial starts the next gesture immediately") && ok;
+  }
+
+  {
+    InputArea area;
+    std::string title = "old";
+    int refreshes = 0;
+    area.setTooltipProvider([&title]() -> TooltipContent { return title; });
+    area.setTooltipChangedCallback([&refreshes](InputArea*) { ++refreshes; });
+
+    title = "new";
+    area.requestTooltipRefresh();
+    ok = expect(refreshes == 0, "tooltip refresh stays dormant while not hovered") && ok;
+
+    area.dispatchEnter(0.0f, 0.0f);
+    area.requestTooltipRefresh();
+    ok = expect(refreshes == 1, "tooltip refresh notifies while hovered") && ok;
+    ok = expect(
+             std::get<std::string>(area.tooltipContent()) == "new", "event refresh reads the provider's latest content"
+         )
+        && ok;
+
+    area.dispatchLeave();
+    area.requestTooltipRefresh();
+    ok = expect(refreshes == 1, "tooltip refresh stops notifying after hover leaves") && ok;
   }
 
   return ok ? 0 : 1;

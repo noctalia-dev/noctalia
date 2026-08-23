@@ -13,7 +13,7 @@
 class ConfigService;
 class HttpClient;
 
-// Coordinates resolved from IP geolocation or a geocoded address.
+// Coordinates selected from IP geolocation, a geocoded address, or manual configuration.
 struct ResolvedLocation {
   double latitude = 0.0;
   double longitude = 0.0;
@@ -21,11 +21,10 @@ struct ResolvedLocation {
   std::string sourceLabel; // i18n label describing how the location was resolved
 };
 
-// Owns "where am I" for the whole shell. Resolves coordinates from IP geolocation
-// (auto_locate) or a geocoded address and publishes them to consumers (weather,
-// night light, theme auto mode). Manual latitude/longitude and fixed sunrise/sunset
-// live in LocationConfig and are read directly by those consumers; this service only
-// performs the network resolution. Runs independently of whether weather is enabled.
+// Owns "where am I" for the whole shell. Selects coordinates from IP geolocation,
+// a geocoded address, or manual latitude/longitude and publishes them to consumers.
+// Fixed sunrise/sunset schedules remain in LocationConfig. Runs independently of
+// whether weather is enabled.
 class LocationService {
 public:
   using ChangeCallback = std::function<void()>;
@@ -63,7 +62,9 @@ private:
   void scheduleRetryAfterFailure();
   void loadCache();
   void saveCache() const;
-  [[nodiscard]] bool coordinatesValid() const noexcept;
+  [[nodiscard]] bool resolvedCoordinatesValid() const noexcept;
+  [[nodiscard]] bool manualCoordinatesValid() const noexcept;
+  [[nodiscard]] static bool coordinatesValid(double latitude, double longitude) noexcept;
 
   [[nodiscard]] static std::filesystem::path transportCacheDir();
   [[nodiscard]] static std::filesystem::path stateCacheFilePath();

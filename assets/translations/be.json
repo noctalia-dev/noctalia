@@ -4,8 +4,8 @@
       "disconnected": "Чытальнік адбіткаў пальцаў адключаны",
       "error": "Не ўдалося аўтэнтыфікавацца па адбітку пальца",
       "no-match": "Адбітак пальца не супадае",
-      "not-centered": "Пастаўце ваш палец па цэнтру чытальніка і паспрабуйце яшчэ раз",
-      "present": "Чытанне адбітку пальца...",
+      "not-centered": "Пастаўце ваш палец па цэнтры чытальніка і паспрабуйце яшчэ раз",
+      "present": "Чытанне адбітку пальца…",
       "ready": "Прыкладзіце палец да чытальніку",
       "remove-and-retry": "Падыміце палец і паспрабуйце яшчэ раз",
       "retry": "Праскануйце ваш адбітак пальцу яшчэ раз",
@@ -18,10 +18,10 @@
       "user-unavailable": "Не ўдалося вызначыць бягучага карыстальніка"
     },
     "polkit": {
-      "authenticate": "Аўтарызавацца",
-      "authenticating": "Аўтэнтыфікацыя...",
+      "authenticate": "Аўтэнтыфікавацца",
+      "authenticating": "Аўтэнтыфікацыя…",
       "default-message": "Патрабуецца аўтэнтыфікацыя",
-      "invalid-password": "Пароль памылковы",
+      "invalid-password": "Пароль няправільны",
       "password-placeholder": "Пароль",
       "title": "Патрабуецца аўтэнтыфікацыя"
     }
@@ -29,10 +29,10 @@
   "bar": {
     "screenshot": {
       "choose-display": "Выбраць дысплэй",
-      "confirm-region": "Enter або Прабел каб зняць · Esc каб скасаваць · перацягніце, каб выбраць зноў",
+      "confirm-region": "{copy} для капіравання · {save} для захавання · Увод або Прабел для скіду · {cancel} для скасавання · Перацягванне для змены вобласці",
       "fullscreen": "Увесь экран",
       "overlay-alloc-failed": "Не ўдалося адлюстраваць накладку здымка экрана (у ГП скончылася відэапамяць?)",
-      "region": "Выбраць рэгіён"
+      "region": "Выбраць вобласць"
     },
     "widgets": {
       "active-window": {
@@ -59,9 +59,10 @@
       },
       "network": {
         "active": "Актыўная",
+        "band": "Частата",
         "connected": "Падлучана",
         "connecting": "Ідзе падлучэнне",
-        "download": "Спампоўванне",
+        "download": "Спампоўка",
         "interface": "Інтэрфейс",
         "ip": "Адрас IP",
         "network": "Сетка",
@@ -74,8 +75,9 @@
         "on": "Укл",
         "scanning": "Ідзе сканіраванне",
         "signal": "Сігнал",
-        "upload": "Запампоўванне",
+        "upload": "Запампоўка",
         "vpn": "VPN",
+        "wan-ip": "WAN IP",
         "wifi": "Wi-Fi",
         "wired": "Правадны",
         "yes": "Так"
@@ -93,14 +95,18 @@
         "cpu": "ЦП",
         "cpu-temp": "Тэмпература ЦП",
         "disk": "Дыск",
-        "download": "Спампоўванне",
+        "disk-free": "Свабодна",
+        "disk-free-pct": "Свабодна %",
+        "disk-used": "Выкарыстана",
+        "disk-used-pct": "Выкарыстана %",
+        "download": "Спампоўка",
         "gpu-temp": "Тэмпература ГП",
         "gpu-usage": "Выкарыстанне ГП",
         "gpu-vram": "VRAM ГП",
         "ram": "Аператыўная памяць",
         "swap": "Swap",
         "system": "Сістэма",
-        "upload": "Запампоўванне"
+        "upload": "Запампоўка"
       },
       "volume": {
         "device": "Прылада",
@@ -110,9 +116,20 @@
       "weather": {
         "default": "Надвор'е",
         "error": "Памылка надвор'я",
-        "loading": "Надвор'е...",
-        "no-location": "Няма месцазнаходжання",
-        "off": "Надвор'е выключана"
+        "loading": "Надвор'е…",
+        "no-location": "Не задана",
+        "off": "Надвор'е выключана",
+        "tooltip": {
+          "condition": "Стан",
+          "high": "Высок",
+          "humidity": "Вільготнасць",
+          "low": "Нізк",
+          "sunrise": "Усход",
+          "sunset": "Захад",
+          "temperature": "Тэмпература",
+          "uv": "УФ-індэкс",
+          "wind": "Вецер"
+        }
       }
     }
   },
@@ -140,11 +157,11 @@
       "image": "Відарыс",
       "title": "Запіс у буферы абмену"
     },
-    "filter-placeholder": "Фільтраваць буфер абмену...",
+    "filter-placeholder": "Фільтраваць буфер абмену…",
     "preview": {
       "empty-text-payload": "(пусты тэкст)",
       "image-title": "Відарыс у буферы абмену",
-      "loading": "Загрузка перадпрагляду...",
+      "loading": "Загрузка перадпрагляду…",
       "text-title": "Тэкст у буферы абмену",
       "truncated": "... няпоўны"
     },
@@ -182,6 +199,7 @@
     },
     "bluetooth": {
       "accept": "Прыняць",
+      "address": "Адрас",
       "auto-reconnect": "Перападлучацца аўтаматычна",
       "bluetooth": "Bluetooth",
       "enter-code": "Увядзіце код",
@@ -235,11 +253,11 @@
       },
       "select-avatar": "Выбраць аватар",
       "unknown": "невядома",
-      "uptime": "Час працы - {uptime}",
+      "uptime": "Час працы – {uptime}",
       "weather": {
         "data-unavailable": "Дадзеныя аб надвор'і недаступныя.",
         "disabled": "Надвор'е выключана ў файле канфігурацыі.",
-        "fetching": "Загрузка прагнозу..."
+        "fetching": "Загрузка прагнозу…"
       }
     },
     "media": {
@@ -249,6 +267,7 @@
       "start-playback": "Пачніце прайграванне ў праграме MPRIS"
     },
     "network": {
+      "available": "Даступна",
       "connect": "Злучыцца",
       "current-connection": "Бягучае злучэнне",
       "external-ip": "WAN {ip}",
@@ -257,8 +276,9 @@
       "password": "Пароль",
       "password-prompt": "Увядзіце пароль",
       "password-prompt-for": "Увядзіце пароль для {ssid}",
-      "unavailable-detail": "Усталюйце і ўключыце NetworkManager, каб кіраваць сеткамі тут.",
-      "unavailable-title": "NetworkManager недаступны",
+      "saved": "Захавана",
+      "unavailable-detail": "Усталюйце і ўключыце NetworkManager, wpa_supplicant або iwd, каб кіраваць сеткамі тут.",
+      "unavailable-title": "Сэрвіс сеткі недаступны",
       "vpns": "VPN",
       "wi-fi": "Wi-Fi",
       "wifi": "Wi-Fi",
@@ -294,6 +314,7 @@
       "unknown-device": "Невядомая прылада"
     },
     "screen-time": {
+      "back": "Назад",
       "disabled": "Адсочванне экраннага часу выключана. Уключыце яго ў наладах, каб запісваць выкарыстанне кожнай праграмы.",
       "empty": "Пакуль што няма запісаў выкарыстання праграм. Сфакусіруйцеся на акне, каб пачаць адсочванне.",
       "hour-0": "0:00",
@@ -305,7 +326,8 @@
         "14-days": "14 дзён",
         "3-days": "3 дні",
         "today": "Сёння"
-      }
+      },
+      "view-day": "Падрабязнасці пра дзень"
     },
     "shortcuts": {
       "audio": "Аўдыя",
@@ -317,7 +339,7 @@
         "dark": "Цёмны рэжым",
         "light": "Светлы рэжым"
       },
-      "keyboard-layout": "Макет",
+      "keyboard-layout": "Макет клавіятуры",
       "media": "Медыя",
       "mic-mute": "Мікрафон",
       "nightlight": "Начное святло",
@@ -392,11 +414,11 @@
         "wind": "Вецер"
       },
       "disabled": "Уключыце [weather] у config.toml",
-      "fetching": "Загрузка прагнозу...",
+      "fetching": "Загрузка прагнозу…",
       "forecast-placeholder": {
         "day": "Нядзеля",
         "description": "Надвор'е",
-        "temperature": "10 / 4C"
+        "temperature": "10 / 4°C"
       },
       "forecast-view": {
         "daily": "Па дням",
@@ -406,7 +428,7 @@
         "summary": "{condition} / Дождж {precip}%",
         "tooltip": {
           "condition": "Стан",
-          "humidity": "Вільг.",
+          "humidity": "Вільготнасць",
           "rain": "Дождж",
           "wind": "Вецер"
         }
@@ -414,7 +436,7 @@
       "location-unavailable": "Месцазнаходжанне недаступна",
       "no-location-body": "Дадайце ваш адрас або ўключыце аўтавызначэнне ў наладах месцазнаходжання.",
       "no-location-title": "Месцазнаходжання не задана",
-      "refreshing": "Абнаўленне надвор'я...",
+      "refreshing": "Абнаўленне надвор'я…",
       "waiting": "Чаканне дадзеных аб надвор'і"
     }
   },
@@ -447,24 +469,27 @@
         "bands": "Паласа",
         "bar-width": "Шырыня панэлі",
         "bloom-intensity": "Свячэнне",
-        "center-text": "Тэкст па цэнтру",
-        "centered": "Па цэнтру",
-        "change-image": "Змяніць...",
+        "center-password-text": "Пароль па цэнтры",
+        "center-text": "Тэкст па цэнтры",
+        "centered": "Па цэнтры",
+        "change-image": "Змяніць…",
         "circle": "Круг",
         "clock-style": "Стыль гадзінніку",
         "clock-style-analog": "Аналагавы",
         "clock-style-digital": "Лічбавы",
         "color": "Колер",
-        "color-1": "Першы колер",
-        "color-2": "Другі колер",
+        "color-1": "Колер 1",
+        "color-2": "Колер 2",
         "color2": "Колер 2",
         "command": "Каманда",
-        "custom-color": "Уласны...",
+        "custom-color": "Уласны",
         "description": "Апісанне",
+        "device": "Прылада",
         "display": "Дысплэй",
         "display-gauge": "Паказчык",
         "display-graph": "Графік",
         "fade-when-idle": "Затухаць пры неактыўнасці",
+        "fill-color": "Колер запаўнення",
         "font-family": "Шрыфт",
         "font-family-default": "Як у сістэме",
         "forecast-days": "Дні прагнозу",
@@ -473,7 +498,7 @@
         "glyph": "Гліф",
         "hide-when-no-media": "Хаваць, калі няма медыя",
         "highlight-color": "Колер вылучэння",
-        "horizontal": "Гарызантальна",
+        "horizontal": "Гарызанталь",
         "hover-background": "Фон пры навядзенні",
         "hover-foreground": "Пярэдні план пры навядзенні",
         "image-path": "Відарыс",
@@ -493,30 +518,44 @@
         "opacity": "Непразрыстасць",
         "primary-color": "Асноўны колер",
         "reset-defaults": "Скінуць да прадвызначэнняў",
+        "reversed": "Адваротны",
         "ring-opacity": "Бачнасць кола",
         "rotation-speed": "Хуткасць павароту",
+        "scroll-step": "Крок пракрутцы",
         "secondary-color": "Другасны колер",
         "sensitivity": "Адчувальнасць",
         "shadow": "Цень",
         "show-caps-lock": "Папярэджанне: Caps Lock",
-        "show-forecast": "Паказаць прагноз",
+        "show-device": "Паказваць прыладу",
+        "show-events": "Паказваць падзеі",
+        "show-forecast": "Паказваць прагноз",
         "show-keyboard-layout": "Раскладка клавіятуры",
         "show-label": "Паказваць подпіс",
         "show-login-button": "Кнопка ўваходу",
+        "show-media": "Медыя",
+        "show-password-hint": "Падказка да пароля",
+        "show-session-buttons": "Кнопкі сеанса",
+        "show-unlock-hint": "Падказка",
+        "show-vpn-label": "Паказваць пазнаку VPN",
+        "show-weather": "Надвор'е",
+        "show-week-numbers": "Паказваць нумары тыдняў",
         "show-when-idle": "Паказваць пры неактыўнасці",
         "stat": "Статыстыка",
+        "stat-cpu-freq": "Частата ЦП",
         "stat-cpu-temp": "Тэмпература ЦП",
         "stat-cpu-usage": "Выкарыстанне ЦП",
         "stat-gpu-temp": "Тэмпература ГП",
         "stat-gpu-usage": "Выкарыстанне ГП",
         "stat-gpu-vram": "VRAM ГП",
+        "stat-gpu-vram-used": "Выкарыстанне VRAM",
         "stat-net-rx": "Net Rx",
         "stat-net-tx": "Net Tx",
         "stat-none": "Нічога",
         "stat-ram-pct": "RAM %",
         "stat-swap-pct": "Swap %",
-        "stat2": " Статыстыка 2",
+        "stat2": "Статыстыка 2",
         "title": "Загаловак",
+        "track-color": "Колер назвы",
         "variant": "Стыль",
         "variant-default": "Прадвызначаны",
         "variant-destructive": "Разбуральны",
@@ -524,7 +563,7 @@
         "variant-outline": "Контур",
         "variant-primary": "Першасны",
         "variant-secondary": "Другасны",
-        "vertical": "Вертыкальна",
+        "vertical": "Вертыкаль",
         "visualization-mode": "Рэжым",
         "visualization-mode-all": "Усё",
         "visualization-mode-bars": "Палосы",
@@ -535,10 +574,14 @@
         "wave-thickness": "Таўшчыня хвалі",
         "widget-section": "Віджэт"
       },
+      "state": {
+        "grid": "Сетка"
+      },
       "title": "Віджэты працоўнага стала",
       "types": {
         "audio-visualizer": "Візуалізатар аўдыя",
         "button": "Кнопка",
+        "calendar": "Каляндар",
         "clock": "Гадзіннік",
         "fancy-audio-visualizer": "Вычварны візуалізатар аўдыя",
         "label": "Загаловак",
@@ -546,15 +589,21 @@
         "media-player": "Медыяпрайгравальнік",
         "sticker": "Стыкер",
         "system-monitor": "Манітор рэсурсаў",
+        "volume": "Гучнасць",
         "weather": "Надвор'е"
       }
     },
     "media": {
       "nothing-playing": "Нічога не грае"
     },
+    "volume": {
+      "mic": "Мікрафон",
+      "muted": "Заглушана",
+      "volume": "Гучнасць"
+    },
     "weather": {
       "error": "Памылка",
-      "loading": "Загрузка",
+      "loading": "Загрузка…",
       "no-location": "Няма месцазнаходжання",
       "off": "Надвор'е выключана"
     }
@@ -600,12 +649,22 @@
     },
     "context-menu": {
       "open": "Адкрыць",
+      "pin": "Замацаваць у меню",
       "pin-to-dock": "Замацаваць у доке",
+      "unpin": "Адмацаваць ад меню",
       "unpin-from-dock": "Адмацаваць ад дока"
     },
     "empty": {
       "no-results": "Вынікаў не знойдзена",
-      "type-to-search": "Пачніце ўвод для пошуку..."
+      "type-to-search": "Пачніце ўвод для пошуку…"
+    },
+    "origins": {
+      "appimage": "AppImage",
+      "flatpak": "Flatpak",
+      "nix": "Nix",
+      "snap": "Snap",
+      "system": "Сістэма",
+      "user": "Карыстальнік"
     },
     "providers": {
       "applications": {
@@ -629,7 +688,7 @@
         "title": "Вокны"
       }
     },
-    "search-placeholder": "Пошук праграм..."
+    "search-placeholder": "Пошук праграм…"
   },
   "location": {
     "errors": {
@@ -643,18 +702,19 @@
     },
     "source": {
       "address": "Адрас",
-      "auto": "Аўтаматычна"
+      "auto": "Аўтаматычна",
+      "manual": "Уручную"
     }
   },
   "lockscreen": {
-    "authenticating": "Аўтэнтыфікацыя...",
+    "authenticating": "Аўтэнтыфікацыя…",
     "authentication-failed": "Аўтэнтыфікацыя не ўдалася",
     "caps-lock-on": "Caps Lock уключаны",
     "password-cleared": "Пароль ачышчаны",
     "password-placeholder": "Пароль",
     "ready": "Увядзіце ваш пароль і націсніце Enter.",
     "unlocked": "Рзблакіроўка выканана",
-    "waiting": "Чаканне пацвярджэння блакіроўкі..."
+    "waiting": "Чаканне пацвярджэння блакіроўкі…"
   },
   "notifications": {
     "actions": {
@@ -663,7 +723,7 @@
     },
     "inline-reply": {
       "button": "Адказаць",
-      "placeholder": "Увядзіце адказ..."
+      "placeholder": "Увядзіце адказ…"
     },
     "internal": {
       "battery": "Батарэя",
@@ -673,7 +733,10 @@
       "battery-low-body": "{device}: засталося {percent}%",
       "battery-low-title": "Нізкі зарад батарэі",
       "calendar": "Каляндар",
+      "calendar-credential-locked-body": "Разблакіруйце набор ключоў, які выкарыстоўваецца сэрвісам сакрэтаў, і паспрабуйце зноў. У праграме GNOME Keyring зрабіце прадвызначаным набор ключоў, які разблакіруецца аўтаматычна, напрыклад, «Login».",
+      "calendar-credential-locked-title": "Набор ключоў календара заблакіраваны",
       "calendar-google-connect-browser-failed": "Не ўдаецца адкрыць браўзер для аўтарызацыі праз Google. Праверце ваш прадвызначаны браўзер або налады xdg-open.",
+      "calendar-google-connect-credential-store-failed": "Аўтарызацыя выканана, але токен абнаўлення не захоўваецца. Разблакіруйце або запусціце сэрвіс сакрэтаў, затым перападлуыцеся.",
       "calendar-google-connect-expired": "Аўтарызацыя Google пратэрмінавалася да сканчэння ўваходу. Паўтарыце працэс падлучэння.",
       "calendar-google-connect-failed-title": "Не ўдалося падлучыць Google Calendar",
       "calendar-google-connect-missing-account": "Няма сканфігураванага ўліковага запісу календару Google, які адпавядае «{account}».",
@@ -682,9 +745,11 @@
       "calendar-google-connect-start-failed": "Не ўдалося запусціць аўтарызацыю Google. Праверце ваша злучэнне з сеткай і паспрабуйце яшчэ раз.",
       "calendar-google-connect-start-http": "Не ўдалося запусціць аўтарызацыю Google. Брокер OAuth вярнуў код HTTP {status}.",
       "calendar-google-connect-timeout": "Скончыўся час чакання аўтарызацыі Google. Пачніце падлучэнне яшчэ раз, калі будзеце гатовыя ўвайсці.",
+      "config-migration-body": "Абнавіце {path} у зыходным файле. Noctalia толькі тэрмінова прымяняе гэтую замену. Выканайце noctalia config validate, каб убачыць усе патрэбныя змены.",
+      "config-migration-title": "Патрабуецца абнаўленне канфігурацыі",
       "dbus-disabled": "Апавяшчэнні DBus выключаныя",
       "desktop-widgets-editor": "Рэдактар віджэтаў",
-      "desktop-widgets-editor-enabled": "Рэдактар віджэтаў працоўнага стала ўключаны. Пераключыцеся на пустую працоўную прастору, каб убачыць накладку рэдактара.",
+      "desktop-widgets-editor-enabled": "Рэдактар віджэтаў працоўнага стала ўключаны. Пераключыцеся на пустую прастору, каб вокны не перакрывалі рэдактар.",
       "greeter-sync": "Noctalia Greeter",
       "greeter-sync-pending": "Чаканне ухвалення адміністратара на запіс у Greeter.",
       "greeter-sync-pending-console": "Чаканне ухвалення адміністратара. Ухваліце запыт polkit у Noctalia, на TTY ці кансолі, або ўласнаручна выканайце pkexec.",
@@ -694,14 +759,14 @@
       "greeter-sync-timeout-manual": "Сінхранізацыя Greeter усё яшчэ патрабуе ухвалення адміністратарам. Выканайце ў тэрмінале каманду: pkexec noctalia-greeter-apply-appearance \"$XDG_RUNTIME_DIR/noctalia-greeter-sync\"",
       "keybind-app": "Noctalia",
       "keybind-invalid-modifier": "Гэта спалучэнне можа быць адной клавішай без мадыфікатараў.",
-      "keybind-invalid-printable": "Клавішам-сімвалам (літарам, лічбам, пунктуацыі і інш.) патрабуецца мадыфікатары, такія як Ctrl або Alt.",
+      "keybind-invalid-printable": "Клавішам-сімвалам (літарам, лічбам, пунктуацыі і інш.) патрабуюцца мадыфікатары, такія як Ctrl або Alt.",
       "keybind-invalid-super": "Клавіша Super/Windows не можа быць выкарыстана ў спалучэннях клавішаў абалонкі.",
       "keybind-invalid-title": "Недапушчальнае спалучэнне клавішаў",
       "launcher-usage-reset": "Меню запуску",
       "launcher-usage-reset-success": "Дадзеныя аб выкарыстанні ачышчаны.",
       "lockscreen-widgets-editor": "Рэдактар віджэтаў экрана блакіроўкі",
       "lockscreen-widgets-editor-blocked-locked": "Разблакіруйце сеанс перад тым, як рэдагаваць віджэты.",
-      "lockscreen-widgets-editor-enabled": "Рэдактар віджэтаў працоўнага стала ўключаны. Наладзьце віджэты на накладке папярэдняга прагляду, затым заблакіруйце сеанс, каб пацвердзіць макет.",
+      "lockscreen-widgets-editor-enabled": "Рэдактар віджэтаў экрана блакіроўкі ўключаны. Пераключыцеся на пустую прастору, каб вокны не перакрывалі рэдактар.",
       "mpris-disabled": "MPRIS выключаны",
       "polkit-agent": "Агент Polkit",
       "polkit-no-session": "Агент Polkit патрабуе logind, elogind або XDG_SESSION_ID. На seatd-only сістэмах ён не можа выяўляць графічныя запыты. Скарыстайцеся pkexec праз тэрмінал, каб сінхранізаваць Greeter, або ўсталюйце elogind для праверкі сапраўднасці ў сеансе.",
@@ -764,7 +829,7 @@
     },
     "enable-failed": {
       "body-error": "{plugin}: {error}",
-      "body-incompatible": "{plugin} патрабуе версію Noctalia {version} або больш новую.",
+      "body-incompatible": "{plugin} разлічаны на API {version}; ваша Noctalia падтрымлівае API {oldest}–{current}.",
       "body-timeout": "{plugin} усталёўвалася надта доўга.",
       "title": "Убудова не ўключана"
     }
@@ -813,6 +878,7 @@
   },
   "settings": {
     "actions": {
+      "confirm-reset": "Пацвярдзіць скід",
       "reset": "Скінуць"
     },
     "badges": {
@@ -826,13 +892,20 @@
     },
     "calendar-accounts": {
       "add-title": "Дадаць уліковы запіс календара",
+      "calendars-label": "Календары",
       "color-label": "Колер",
+      "credential-source-file": "Парольны файл",
+      "credential-source-keyring": "Набор ключоў",
+      "credential-source-label": "Сховішча ўліковых дадзеных",
       "delete-error": "Не ўдалося выдаліць уліковы запіс календара.",
       "edit-title": "Рэдагаваць уліковы запіс календара",
+      "ics-url-label": "URL-адрас ICS",
       "id-label": "ID уліковага запісу",
       "invalid": "Праверце вылучаныя палі уліковага запісу календара.",
       "name-label": "Адлюстраванае імя",
       "name-placeholder": "Асабісты каляндар",
+      "password-file-error": "Не ўдалося прачытаць сканфігураваны парольны файл. Праверце, ці ён існуе, з'яўляецца звычайным файлам, яго можна прачытаць і ён змяшчае пароль.",
+      "password-file-label": "Парольны файл",
       "password-keep-placeholder": "Пакіньце пустым, каб захаваць бягучы пароль",
       "password-label": "Пароль праграмы",
       "password-placeholder": "Пароль для пэўнай праграмы",
@@ -840,12 +913,18 @@
       "provider": {
         "custom": "CalDAV",
         "google": "Google",
-        "icloud": "iCloud"
+        "icloud": "iCloud",
+        "ics": "URL-адрас ICS"
       },
       "provider-label": "Пастаўшчык",
       "save": "Захаваць",
       "save-connect": "Захаваць і падлучыць",
       "save-error": "Не ўдалося захаваць уліковы запіс календара.",
+      "secret-cleanup-error": "Уліковы запіс не ўдалося захаваць, а яго набор ключоў не ўдалося аднавіць або ачысціць. Паспрабуйце яшчэ раз пасля разблакіроўкі сэрвісу сакрэтаў.",
+      "secret-service-cancelled": "Запыт сэрвісу сакрэтаў быў скасаваны. Паспрабуйце зноў, калі будзеце гатовы да разблакіроўкі.",
+      "secret-service-error": "Не ўдалося атрымаць доступ для дадзеных для ўваходу ў календар з сэрвісу сакрэтаў. Паспрабуйце яшчэ раз.",
+      "secret-service-locked": "Дадзеныя для ўваходу ў каляднар заблакіраваныя або ў доступе да іх адмоўлена. Разблакіруйце сэрвіс сакрэтаў і паспрабуйце яшчэ раз.",
+      "secret-service-unavailable": "Няма пастаўшчыкоў сэрвісу сакрэтаў. Запусціце пастаўшчыка, які падтрымліваецца, і паспрабуйце зноў.",
       "server-url-label": "URL-адрас сервера",
       "username-label": "Імя карыстальніка",
       "username-placeholder": "imia@prykład.by"
@@ -909,10 +988,25 @@
           "title": "Віджэты панэлі"
         },
         "group": {
+          "accordion": "Акардэон",
+          "accordion-description": "Паказваць толькі першы віджэт, астатнія паказваюцца пры навядзенні на капсулу",
+          "accordion-direction": "Напраўленне паказу",
+          "accordion-direction-description": "Бок першага віджэту, з якога паказваюцца астатнія",
           "action": "Згрупіраваць",
           "border": "Мяжа",
           "border-description": "Колер контура капсулы; пакіньце на прадвызначаным, каб выключыць контур",
           "clear": "Ачысціць",
+          "deselect": "Зняць выбар",
+          "drag": "Змяніць парадак",
+          "drawer-columns": "Слупкі высоўнага меню",
+          "drawer-columns-description": "Колькасць віджэтаў ",
+          "drawer-detached-description": "Адкрываць высоўнае меню асобным акном замест аб'яднання яго з панэллю",
+          "drawer-enabled": "Высоўнае меню",
+          "drawer-enabled-description": "Перамясціць згрупаваныя віджэты ў высоўнае меню, якое актывуецца з кнопкі",
+          "drawer-glyph-closed": "Значок закрытага меню",
+          "drawer-glyph-closed-description": "Гліф, паказаны на кнопке высоўнага меню пры закрытай панэлі",
+          "drawer-glyph-opened": "Значок адкрытага меню",
+          "drawer-glyph-opened-description": "Гліф, паказаны на кнопке высоўнага меню пры адкрытай панэлі",
           "edit": "Рэдагаваць стыль",
           "fill": "Фон",
           "fill-description": "Колер фона капсулы; таксама падтрымліваюцца фіксаваныя колеры HEX",
@@ -929,17 +1023,25 @@
           "padding-description": "Унутраны водступ паміж краем капсулы і яе віджэтамі, у піскелях",
           "radius": "Радыус",
           "radius-description": "Радыус вуглоў капсулы ў пікселях; «Аўтаматычна» бярэ радыус капсулы ўсёй панэлі",
+          "remove-from-group": "Выдаліць з групы",
+          "remove-orphan": "Выдаліць невядомую групу",
+          "remove-widget": "Выдаліць з панэлі",
+          "select": "Выбраць для групіравання",
           "selected": "{count} выбрана",
+          "settings-widget": "Налады віджэта",
           "show": "Паказаць гэту групу",
           "show-widget": "Паказаць гэты віджэт",
           "style": "Стыль",
           "title": "Група капсул",
-          "ungroup": "Разгрупіраваць"
+          "ungroup": "Разгрупіраваць",
+          "widget-spacing": "Інтэрвал",
+          "widget-spacing-description": "Прагал паміж віджэтамі ў гэтай групе, у пікселях; «Аўтаматычна» прымяняе інтэрвалы панэлі"
         },
         "inspector": {
           "add-instance-title": "Дадаць новы названы віджэт «{widget}» да {lane}",
           "add-title": "Дадаць віджэт да {lane}",
-          "move-to-lane": "Перамясціць на {lane}"
+          "move-to-lane": "Перамясціць на {lane}",
+          "reset-defaults": "Скінуць да прадвызначэнняў"
         },
         "instance": {
           "create-save": "Стварыць",
@@ -963,7 +1065,7 @@
           "empty": "Віджэтаў не знойдзена",
           "instance-description": "Названы віджэт для тыпу «{type}»",
           "instance-toggle": "Названы віджэт",
-          "placeholder": "Пошук віджэтаў..."
+          "placeholder": "Пошук віджэтаў…"
         },
         "raw": {
           "delete": "Выдаліць",
@@ -973,10 +1075,22 @@
         "settings": {
           "empty": "Няма налад, якія адпавядаюць бягучым фільтрам.",
           "groups": {
+            "actions": "Дзеянні",
+            "behavior": "Паводзіны",
             "grouping": "Групіраванне",
             "presentation": "Прэзентацыя",
             "runtime": "Асяроддзе выканання",
-            "widget": "Віджэт"
+            "taskbar": {
+              "grouping": "Групіраванне",
+              "windows": "Вокны",
+              "workspace-labels": "Назвы прастораў"
+            },
+            "widget": "Віджэт",
+            "workspaces": {
+              "colors": "Колеры",
+              "list": "Прасторы",
+              "pills": "Стыль капсулы"
+            }
           }
         }
       }
@@ -993,6 +1107,7 @@
         "rename": "Не ўдалося перайменаваць панэль."
       },
       "batch-write": "Некаторыя налады не ўдалося захаваць.",
+      "custom-schedule-times": "Уласны расклад патрабуе і час ўсходу, і час захаду ў фармаце ГГ:ХХ.",
       "export-config": "Не ўдалося захаваць канфігурацыю.",
       "export-wallpaper-palette": "Не ўдалося захаваць палітру шпалер як уласную палітру.",
       "monitor-override": {
@@ -1033,6 +1148,7 @@
           "suspend": "Прыпыніць"
         },
         "kind-section-label": "Дзеянне",
+        "locked-timeout-label": "Час чакання ў блакіроўцы (ў секундах, 0 = выкл)",
         "name-label": "Назва",
         "name-placeholder": "dziejannie-pry-niekat",
         "resume-command-label": "Каманда пры ўзнаўленні",
@@ -1050,6 +1166,7 @@
     },
     "navigation": {
       "groups": {
+        "accessibility": "Спец. магчымасці",
         "audio": "Аўдыя",
         "authentication": "Аўтэнтыфікацыя",
         "automation": "Аўтаматызацыя",
@@ -1057,6 +1174,7 @@
         "background": "Фон",
         "battery": "Батарэя",
         "behavior": "Паводзіны",
+        "borders": "Краі",
         "brightness": "Яркасць",
         "built-in": "Убудавана",
         "calendar": "Каляндар",
@@ -1066,6 +1184,7 @@
         "control-center": "Цэнтр кіравання",
         "dead-zone": "Мёртвая зона",
         "directories": "Каталогі",
+        "display": "Дысплэй",
         "effects": "Эфекты",
         "filtering": "Фільтрацыя",
         "focus-styling": "Стыль факусіроўкі",
@@ -1073,11 +1192,13 @@
         "general": "Агульныя",
         "greeter": "Greeter",
         "grouping": "Групіраванне",
+        "history": "Гісторыя",
         "home": "Дамашняя",
         "hot-corners": "Гарачыя куты",
         "idle": "Неактыўнасць",
         "interface": "Інтэрфейс",
         "keybinds": "Спалучэнні клавішаў",
+        "keyboard-layout": "Раскладка клавіятуры",
         "kinds": "Тыпы",
         "launcher": "Меню запуску",
         "layout": "Макет",
@@ -1090,6 +1211,7 @@
         "monitor-thresholds": "Вылучэнне парогаў",
         "monitors": "Маніторы",
         "motion": "Рух",
+        "navigation": "Навігацыя",
         "network": "Сетка",
         "night-light": "Начное святло",
         "notifications": "Апавяшчэнні",
@@ -1098,12 +1220,14 @@
         "pinned-apps": "Замацаваныя праграмы",
         "polkit": "Polkit",
         "power": "Сілкаванне",
+        "privacy": "Прыватнасць",
         "profile": "Профіль",
+        "providers": "Пастаўшчыкі",
         "screen-corners": "Куты экрану",
         "screen-time": "Экранны час",
         "screenshot": "Здымак экрану",
         "security": "Бяспека",
-        "session-panel": "Сеанс",
+        "session-panel": "Панэль сеансу",
         "shape": "Форма",
         "system": "Сістэма",
         "theme": "Тэма",
@@ -1116,6 +1240,7 @@
         "widgets": "Віджэты"
       },
       "sections": {
+        "accessibility": "Спец. магчымасці",
         "appearance": "Знешні выгляд",
         "backdrop": "Заднік",
         "bar": "Панэль",
@@ -1124,11 +1249,12 @@
         "dock": "Док",
         "hooks": "Хукі",
         "keybinds": "Спалучэнні клавішаў",
+        "launcher": "Меню запуску",
         "location": "Месцазнаходжанне",
         "niri": "Niri",
         "notifications": "Апавяшчэнні",
         "osd": "OSD",
-        "panels": "Палосы",
+        "panels": "Панэлі",
         "plugins": "Убудовы",
         "popups": "Усплывальныя вокны",
         "power": "Сілкаванне",
@@ -1146,15 +1272,20 @@
         "add-title": "Дадаць фільтр апавяшчэнняў",
         "allow-permanent": "Дазволіць пастаянны",
         "allowed-urgencies-label": "Дазволеныя пільнасці",
+        "bypass-dnd": "Абыход рэжыму «Не турбаваць»",
         "flag": {
+          "dnd-bypass": "Абыход Не турбаваць",
           "history": "гісторыя",
           "permanent": "пастаянны",
           "sound": "гук",
           "toast": "усплывальнае акно"
         },
         "flags-label": "Калі ёсць супадзенне",
+        "match-content-label": "Рэгулярны выраз змесціва",
+        "match-content-placeholder": "Узор рэгулярнага выразу, які павінны супадаць…",
         "match-label": "Праграма",
         "match-placeholder": "Назва праграмы, запісу працоўнага стала або катэгорыі...",
+        "override-duration": "Працягласць перавызначэння",
         "play-sound": "Прайграваць гук",
         "save-history": "Захоўваць у гісторыю",
         "show-toast": "Паказваць усплывальнае акно",
@@ -1165,6 +1296,17 @@
       }
     },
     "options": {
+      "accordion-direction": {
+        "end": "Пасля першага віджэту",
+        "start": "Перад першым віджэтам"
+      },
+      "bar": {
+        "auto-hide": {
+          "off": "Выкл",
+          "on": "Укл",
+          "smart": "Разумна"
+        }
+      },
       "clipboard": {
         "auto-paste": {
           "ctrl-shift-v": "Ctrl+Shift+V",
@@ -1225,17 +1367,21 @@
         "horizontal": "Гарызантальна",
         "vertical": "Вертыкальна"
       },
+      "panel-bar-alignment": {
+        "centered": "Па цэнтры",
+        "near-trigger": "Побач"
+      },
       "panel-position": {
         "auto": "Кіравацца панэлі"
       },
       "screen-position": {
-        "bottom-center": "Унізе па цэнтру",
+        "bottom-center": "Унізе па цэнтры",
         "bottom-left": "Унізе злева",
         "bottom-right": "Унізе справа",
-        "center": "Па цэнтру",
-        "center-left": "Па цэнтру злева",
-        "center-right": "Па цэнтру справа",
-        "top-center": "Зверху па цэнтру",
+        "center": "Па цэнтры",
+        "center-left": "Па цэнтры злева",
+        "center-right": "Па цэнтры справа",
+        "top-center": "Зверху па цэнтры",
         "top-left": "Зверху злева",
         "top-right": "Зверху справа"
       },
@@ -1278,7 +1424,7 @@
         }
       },
       "theme-role": {
-        "custom": "Карыстацкiя...",
+        "custom": "Карыстальніцкiя",
         "default": "Прадвызначана"
       },
       "wallpaper": {
@@ -1315,7 +1461,7 @@
       "panels": {
         "open-near-click": {
           "description": "Адкрываць панэль побач з віджэтам, які яе актывіраваў",
-          "label": "Адкрываць побач з націсканнем"
+          "label": "Побач з панэллю"
         },
         "placement": {
           "description": "Ці прымацоўваць панэль да краю",
@@ -1333,11 +1479,15 @@
         "delete-confirm-title": "Выдаліць «{name}»?",
         "deprecated": "састарэлая",
         "empty": "Няма ўключаных убудоў.",
-        "loading": "Загрузка ўбудоў...",
-        "refreshing": "Абнаўленне сіпсу ўбудоў...",
+        "held-back": "старэйшая версія",
+        "held-back-hint": "v{version} патрабуе API {required}; ваша Noctalia падтрымлівае версіі да {current}. Абнавіце Noctalia, каб атрымаць.",
+        "incompatible-plugin-api": "несумяшчальны API",
         "remove": "Выдаліць убудову",
         "requires": "Патрабуе {dependencies}",
-        "title": "Убудовы"
+        "title": "Убудовы",
+        "update-all": "Абнавіць усе ({count})",
+        "update-available": "даступна абнаўленне",
+        "update-to": "абнавіць да {version}"
       },
       "settings": {
         "empty": "Няма даступных налад."
@@ -1345,6 +1495,8 @@
       "sources": {
         "add": "Дадаць крыніцу",
         "add-title": "Дадаць крыніцу ўбудоў",
+        "auto-update": "Абнаўляць аўтаматычна",
+        "auto-update-desc": "Правяраць уключаныя крыніцы на новыя версіі ў фоне і трымаць усталяваныя ўбудовы актуальнымі",
         "edit": "Рэдагаваць крыніцу",
         "edit-title": "Рэдагаваць крыніцу ўбудоў",
         "empty": "Няма сканфігураваных крыніц.",
@@ -1367,7 +1519,7 @@
         "remove": "Выдаліць крыніцы",
         "save": "Захаваць",
         "title": "Крыніцы",
-        "update": "Абнавіць"
+        "update": "Абнавіць крыніцу"
       },
       "store": {
         "add": "Дадаць у Noctalia",
@@ -1375,10 +1527,10 @@
         "category-all": "Усе",
         "empty": "Убудоў не знойдзена",
         "incompatible": "Несумяшчальная",
-        "loading": "Загрузка каталога...",
+        "loading": "Загрузка каталога…",
         "no-readme": "Апісання няма",
         "results-count": "{count} убудовы(-оў)",
-        "search-placeholder": "Шукаць убудовы...",
+        "search-placeholder": "Шукаць убудовы…",
         "title": "Крама ўбудоў"
       }
     },
@@ -1411,7 +1563,7 @@
         "community-palette": {
           "description": "Выберыце палітру з каталога супольнасці",
           "label": "Каталог супольнасці",
-          "search-placeholder": "Пошук палітраў..."
+          "search-placeholder": "Пошук палітраў…"
         },
         "corner-roundness": {
           "description": "Радыус кутоў у інтэрфейсе кантэйнераў і кіравання",
@@ -1420,7 +1572,7 @@
         "custom-palette": {
           "description": "Выберыце палітру з ~/.config/noctalia/palettes/",
           "label": "Уласная палітра",
-          "search-placeholder": "Шукаць карыстальніцкія палітры..."
+          "search-placeholder": "Шукаць карыстальніцкія палітры…"
         },
         "export-wallpaper-palette": {
           "button": "Захаваць як карыстальніцкую палітру",
@@ -1450,7 +1602,7 @@
           "label": "Абсалютны чорны"
         },
         "theme-mode": {
-          "description": "Выбраць паміж цёмным, светлым, або аўтаматычным рэжымам",
+          "description": "Выбярыце паміж цёмны, светлы, або аўтаматычны рэжым",
           "label": "Рэжым"
         },
         "ui-scale": {
@@ -1476,9 +1628,6 @@
         }
       },
       "bar": {
-        "auto-hide": {
-          "description": "Аўтаматычна хаваць панэль, калі яна не выкарыстоўваецца"
-        },
         "background-opacity": {
           "description": "Непразрыстасць фона панэлі"
         },
@@ -1511,7 +1660,7 @@
           "label": "Водступы капсулы"
         },
         "capsule-radius": {
-          "description": "Прадвызначаны радыус для капсул віджэтаў, працоўных прастор і груп працоўных прастор; пакіньце пустым для аўтаматычнай формы, або задайце 0 для квадратных кутоў",
+          "description": "Прадвызначаны радыус для капсул віджэтаў, прастор і груп прастор; пакіньце пустым для аўтаматычнай формы, або задайце 0 для квадратных кутоў",
           "label": "Радыус капсул"
         },
         "capsule-thickness": {
@@ -1557,7 +1706,7 @@
           "description": "Колер значка і загалоўка гэтага віджэта; таксама падтрымліваюцца фіксаваныя колеры HEX"
         },
         "empty-color": {
-          "description": "Колер пустых працоўных прастор; таксама падтрымліваюцца фіксаваныя колеры HEX"
+          "description": "Колер пустых прастор; таксама падтрымліваюцца фіксаваныя колеры HEX"
         },
         "focused-color": {
           "description": "Колер сфакусаванай прасторы; таксама падтрымліваюцца фіксаваныя колеры HEX"

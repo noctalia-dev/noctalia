@@ -27,6 +27,9 @@ public:
 
   virtual void layout(Renderer& renderer);
   void update(Renderer& renderer);
+  // Rebinds retained Renderer pointers (widget-level and across the owned or
+  // released node tree) to a stable renderer view; see Node::rebindRenderer.
+  void rebindRenderer(Renderer& renderer);
 
   [[nodiscard]] virtual bool wantsSecondTicks() const { return false; }
   [[nodiscard]] virtual bool needsFrameTick() const { return false; }
@@ -80,7 +83,7 @@ public:
   [[nodiscard]] bool hasBackground() const noexcept { return m_bgEnabled; }
   [[nodiscard]] bool hasVisibleBackground() const noexcept;
   [[nodiscard]] float backgroundRadius() const noexcept {
-    return m_bgEnabled ? std::round(m_bgRadius * m_baseScale) : 0.0f;
+    return m_bgEnabled ? std::round(m_bgRadius * m_baseScale) : 0.0F;
   }
 
   virtual bool applySetting(
@@ -123,6 +126,8 @@ protected:
 
   virtual void doLayout(Renderer& renderer) = 0;
   virtual void doUpdate(Renderer& renderer) { (void)renderer; }
+  // Refreshes any Renderer pointer the widget itself retains.
+  virtual void doRebindRenderer(Renderer& renderer) { (void)renderer; }
 
   // Push the widget's configured font family onto every text node it owns. Empty family means
   // inherit the shell font. The base handles the `font_family` setting and the relayout; text
@@ -131,23 +136,26 @@ protected:
     (void)family;
     (void)renderer;
   }
+  // Content is centered in boxed desktop widgets by default. Widgets with text that should be
+  // start-aligned can opt into the tile's leading edge without changing their intrinsic size.
+  [[nodiscard]] virtual bool contentAlignsToStart() const noexcept { return false; }
 
   // Outer node released to the host: background wrapper when enabled, otherwise content.
   [[nodiscard]] Node* presentationRoot() const noexcept;
 
   bool m_inLayout = false;
-  float m_contentScale = 1.0f;
-  float m_baseScale = 1.0f;
-  float m_boxWidth = 0.0f;
-  float m_boxHeight = 0.0f;
+  float m_contentScale = 1.0F;
+  float m_baseScale = 1.0F;
+  float m_boxWidth = 0.0F;
+  float m_boxHeight = 0.0F;
   std::string m_fontFamily; // empty = inherit the shell font
   // High-water marks of the natural content size (measured at base scale), so the box-fit factor
   // tracks the widest content ever seen rather than the live content. This keeps the font size
   // stable for dynamic text (e.g. a seconds clock in a proportional font) instead of breathing
   // every update. Reset when the base scale changes.
-  float m_maxNaturalWidth = 0.0f;
-  float m_maxNaturalHeight = 0.0f;
-  float m_fitRefScale = -1.0f;
+  float m_maxNaturalWidth = 0.0F;
+  float m_maxNaturalHeight = 0.0F;
+  float m_fitRefScale = -1.0F;
   AnimationManager* m_animations = nullptr;
 
   void applyBackground();
@@ -163,6 +171,6 @@ protected:
 
   bool m_bgEnabled = false;
   ColorSpec m_bgColor;
-  float m_bgRadius = 0.0f;
-  float m_bgPadding = 0.0f;
+  float m_bgRadius = 0.0F;
+  float m_bgPadding = 0.0F;
 };

@@ -1,6 +1,7 @@
 #include "system/system_monitor_service.h"
 
 #include "core/log.h"
+#include "system/cpu_freq.h"
 #include "system/cpu_stat.h"
 #include "system/cpu_temp_sensor.h"
 #include "system/format_units.h"
@@ -118,7 +119,7 @@ namespace {
 
   // 0 disables a metric; any other value is clamped to the supported poll range.
   [[nodiscard]] float clampPollSeconds(float seconds) noexcept {
-    if (seconds <= 0.0f) {
+    if (seconds <= 0.0F) {
       return SystemConfig::MonitorConfig::kDisabledPollSeconds;
     }
     return std::clamp(
@@ -134,10 +135,10 @@ namespace {
     for (const float seconds :
          {config.cpuPollSeconds, config.gpuPollSeconds, config.memoryPollSeconds, config.networkPollSeconds,
           config.diskPollSeconds}) {
-      if (seconds <= 0.0f) {
+      if (seconds <= 0.0F) {
         continue;
       }
-      if (fastest <= 0.0f || seconds < fastest) {
+      if (fastest <= 0.0F || seconds < fastest) {
         fastest = seconds;
       }
     }
@@ -1090,7 +1091,7 @@ void SystemMonitorService::releaseGpuVram() { m_gpuVramRefs.fetch_sub(1, std::me
 
 namespace {
   struct DiskStatvfsData {
-    float percent = 0.0f;
+    float percent = 0.0F;
     std::uint64_t totalBytes = 0;
     std::uint64_t freeBytes = 0;
     std::uint64_t availBytes = 0;
@@ -1159,7 +1160,7 @@ std::optional<DiskStats> SystemMonitorService::diskStats(const std::string& path
 float SystemMonitorService::diskUsagePercent(const std::string& path) const {
   std::scoped_lock lock{m_statsMutex};
   const auto it = m_diskHistories.find(path);
-  return it != m_diskHistories.end() ? it->second.latestPercent : 0.0f;
+  return it != m_diskHistories.end() ? it->second.latestPercent : 0.0F;
 }
 
 std::uint64_t SystemMonitorService::diskTotalBytes(const std::string& path) const {
@@ -1233,7 +1234,7 @@ void SystemMonitorService::logDetectedSources() {
 
   const auto cpuTemp = readCpuTempSensor(pollCfg);
   if (cpuTemp.reading.has_value()) {
-    kLog.info("detected CPU temperature source: {} ({:.0f}C)", cpuTemp.reading->source, cpuTemp.reading->tempC);
+    kLog.info("detected CPU temperature source: {} ({:.0F}C)", cpuTemp.reading->source, cpuTemp.reading->tempC);
   } else if (!cpuTemp.error.empty()) {
     kLog.warn("detected CPU temperature source: unavailable; {}", cpuTemp.error);
   } else {
@@ -1242,7 +1243,7 @@ void SystemMonitorService::logDetectedSources() {
 
   // GPU sources are reported from the sampling thread on the first probe: detecting them here would
   // wake a discrete GPU at startup even when nothing displays a GPU stat.
-  if (pollCfg.gpuPollSeconds <= 0.0f) {
+  if (pollCfg.gpuPollSeconds <= 0.0F) {
     kLog.info("GPU monitoring disabled");
   }
 }
@@ -1269,12 +1270,12 @@ void SystemMonitorService::samplingLoop() {
     const float historyPollSeconds = effectiveHistoryPollSeconds(pollCfg);
 
     // A poll value of 0 disables that metric: it is never sampled and never schedules a wakeup.
-    const bool cpuEnabled = pollCfg.cpuPollSeconds > 0.0f;
-    const bool gpuEnabled = pollCfg.gpuPollSeconds > 0.0f;
-    const bool memoryEnabled = pollCfg.memoryPollSeconds > 0.0f;
-    const bool networkEnabled = pollCfg.networkPollSeconds > 0.0f;
-    const bool diskEnabled = pollCfg.diskPollSeconds > 0.0f;
-    const bool historyEnabled = historyPollSeconds > 0.0f;
+    const bool cpuEnabled = pollCfg.cpuPollSeconds > 0.0F;
+    const bool gpuEnabled = pollCfg.gpuPollSeconds > 0.0F;
+    const bool memoryEnabled = pollCfg.memoryPollSeconds > 0.0F;
+    const bool networkEnabled = pollCfg.networkPollSeconds > 0.0F;
+    const bool diskEnabled = pollCfg.diskPollSeconds > 0.0F;
+    const bool historyEnabled = historyPollSeconds > 0.0F;
     // Per-core is opt-in via retainCpuCores() and runs on a fixed 1s cadence, deliberately
     // independent of cpu_poll_seconds (default 2s): consumers want per-second resolution, and
     // pinning it here leaves aggregate CPU behaviour untouched whatever the user configures.
@@ -1343,6 +1344,13 @@ void SystemMonitorService::samplingLoop() {
       }
 
       nextCpu = now + cpuInterval;
+      const auto freq = noctalia::system::cpu_freq::readFreqs();
+      {
+        std::scoped_lock lock{m_statsMutex};
+        m_latest.cpuFreqAvailable = freq.curMhz.has_value();
+        m_latest.cpuFreqMhz = freq.curMhz.value_or(0.0);
+        m_latest.cpuMaxFreqMhz = freq.curMhz.has_value() ? freq.maxMhz : std::nullopt;
+      }
       statsTouched = true;
     }
 
@@ -1437,7 +1445,7 @@ void SystemMonitorService::samplingLoop() {
           if (logSources) {
             if (gpuTemp.tempC.has_value()) {
               kLog.info(
-                  "detected GPU temperature source: {} ({:.0f}C); {}", gpuTemp.source, *gpuTemp.tempC, gpuTemp.detail
+                  "detected GPU temperature source: {} ({:.0F}C); {}", gpuTemp.source, *gpuTemp.tempC, gpuTemp.detail
               );
             } else {
               kLog.info("detected GPU temperature source: unavailable; {}", gpuTemp.detail);
@@ -1452,7 +1460,7 @@ void SystemMonitorService::samplingLoop() {
           const auto gpuUsage = readGpuUsageData(nvidiaDisplayState);
           if (logSources) {
             if (gpuUsage.percent.has_value()) {
-              kLog.info("detected GPU usage source: {} ({:.0f}%)", gpuUsage.source, *gpuUsage.percent);
+              kLog.info("detected GPU usage source: {} ({:.0F}%)", gpuUsage.source, *gpuUsage.percent);
             } else if (!gpuUsage.source.empty()) {
               // Counter-delta sources have nothing to report until their second sample.
               kLog.info("detected GPU usage source: {} (awaiting first sample)", gpuUsage.source);

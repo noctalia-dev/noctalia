@@ -79,6 +79,12 @@ int main() {
   bool ok = true;
 
   ok = expectArgs(
+           desktop_entry_launch::prepareCommand("Telegram -- %U", false), {"Telegram", "--"},
+           "Telegram-style Exec with trailing %U should keep the option separator"
+       )
+      && ok;
+
+  ok = expectArgs(
            desktop_entry_launch::prepareCommand("sample --name %% --file %f --url %U --keep", false),
            {"sample", "--name", "%", "--file", "--url", "--keep"}, "field codes should be removed"
        )

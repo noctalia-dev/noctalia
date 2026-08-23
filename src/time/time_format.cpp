@@ -223,9 +223,9 @@ bool isValidTimezone(std::string_view tzName) {
   }
 }
 
-std::string formatTimezoneTime(const char* fmt, std::string_view tzName) {
+std::string formatTimezoneUnixTime(std::int64_t unixSeconds, std::string_view fmt, std::string_view tzName) {
   if (tzName.empty()) {
-    return formatLocalTime(fmt);
+    return formatLocalUnixTime(unixSeconds, fmt);
   }
 
   using namespace std::chrono;
@@ -233,18 +233,17 @@ std::string formatTimezoneTime(const char* fmt, std::string_view tzName) {
   try {
     tz = locate_zone(tzName);
   } catch (...) {
-    return formatLocalTime(fmt);
+    return formatLocalUnixTime(unixSeconds, fmt);
   }
 
   if (tz == nullptr) {
-    return formatLocalTime(fmt);
+    return formatLocalUnixTime(unixSeconds, fmt);
   }
 
   const std::string normalizedFmt = normalizeFormatEscapes(fmt);
-  const auto now = floor<seconds>(system_clock::now());
-  const auto unixSeconds = duration_cast<seconds>(now.time_since_epoch()).count();
-  const auto local = tz->to_local(now);
-  const auto zoneInfo = tz->get_info(now);
+  const auto tp = sys_seconds{seconds{unixSeconds}};
+  const auto local = tz->to_local(tp);
+  const auto zoneInfo = tz->get_info(tp);
 
   std::tm tm{};
   const auto localDays = floor<days>(local);
@@ -273,6 +272,13 @@ std::string formatTimezoneTime(const char* fmt, std::string_view tzName) {
   } catch (...) {
     return normalizedFmt;
   }
+}
+
+std::string formatTimezoneTime(const char* fmt, std::string_view tzName) {
+  using namespace std::chrono;
+  const auto now = floor<seconds>(system_clock::now());
+  const auto unixSeconds = duration_cast<seconds>(now.time_since_epoch()).count();
+  return formatTimezoneUnixTime(unixSeconds, fmt, tzName);
 }
 
 std::string formatLocalUnixTime(std::int64_t unixSeconds, std::string_view fmt) {

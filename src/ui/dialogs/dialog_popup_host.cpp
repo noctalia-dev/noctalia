@@ -232,9 +232,9 @@ void DialogPopupHost::closeAfterAccept() { destroyPopup(); }
 
 float DialogPopupHost::uiScale() const {
   if (m_config == nullptr) {
-    return 1.0f;
+    return 1.0F;
   }
-  return std::max(0.1f, m_config->config().accessibility.uiScale);
+  return std::max(0.1F, m_config->config().accessibility.uiScale);
 }
 
 PopupSurfaceConfig DialogPopupHost::defaultPopupConfig(
@@ -265,8 +265,8 @@ bool DialogPopupHost::onPointerEvent(const PointerEvent& event) {
   }
 
   const bool captured = m_inputDispatcher.pointerCaptured();
-  float localX = 0.0f;
-  float localY = 0.0f;
+  float localX = 0.0F;
+  float localY = 0.0F;
   const bool mapped = mapPointerEvent(event, localX, localY);
   if (!mapped) {
     if ((event.type == PointerEvent::Type::Leave && event.surface == m_parentSurface)
@@ -310,7 +310,7 @@ bool DialogPopupHost::onPointerEvent(const PointerEvent& event) {
     } else {
       m_inputDispatcher.pointerMotion(localX, localY, event.serial);
     }
-    m_inputDispatcher.pointerButton(localX, localY, event.button, event.pressed);
+    m_inputDispatcher.pointerButton(localX, localY, event.button, event.pressed, event.serial, event.time, event.touch);
     break;
   case PointerEvent::Type::Axis:
     if (captured) {
@@ -380,6 +380,8 @@ xdg_surface* DialogPopupHost::xdgSurface() const noexcept {
 std::uint32_t DialogPopupHost::width() const noexcept { return m_surface != nullptr ? m_surface->width() : 0; }
 
 std::uint32_t DialogPopupHost::height() const noexcept { return m_surface != nullptr ? m_surface->height() : 0; }
+
+Renderer& DialogPopupHost::renderer() const noexcept { return m_surface->renderTarget().renderer(); }
 
 void DialogPopupHost::cancel() {
   if (m_surface == nullptr) {
@@ -488,8 +490,8 @@ void DialogPopupHost::syncSceneGeometryFromSurface() {
   const auto surfH = static_cast<float>(surfaceHeight);
   if (surfaceWidth != m_chrome.surfaceWidth || surfaceHeight != m_chrome.surfaceHeight) {
     const auto& bleed = m_chrome.bleed;
-    m_chrome.contentWidth = std::max(1.0f, surfW - static_cast<float>(bleed.left + bleed.right));
-    m_chrome.contentHeight = std::max(1.0f, surfH - static_cast<float>(bleed.up + bleed.down));
+    m_chrome.contentWidth = std::max(1.0F, surfW - static_cast<float>(bleed.left + bleed.right));
+    m_chrome.contentHeight = std::max(1.0F, surfH - static_cast<float>(bleed.up + bleed.down));
     m_chrome.surfaceWidth = surfaceWidth;
     m_chrome.surfaceHeight = surfaceHeight;
     popup_chrome::setContentInputRegion(*m_surface, m_chrome);
@@ -511,8 +513,8 @@ void DialogPopupHost::syncSceneGeometryFromSurface() {
     m_bgNode->setSize(panelW, panelH);
   }
   const float padding = computePadding(uiScale());
-  const float contentWidth = panelW - padding * 2.0f;
-  const float contentHeight = panelH - padding * 2.0f;
+  const float contentWidth = panelW - padding * 2.0F;
+  const float contentHeight = panelH - padding * 2.0F;
   if (m_contentNode != nullptr) {
     m_contentNode->setPosition(panelX + padding, panelY + padding);
     m_contentNode->setSize(contentWidth, contentHeight);
@@ -529,8 +531,8 @@ void DialogPopupHost::layoutScene(float width, float height) {
   syncSceneGeometryFromSurface();
 
   const float padding = computePadding(uiScale());
-  float contentWidth = m_chrome.contentWidth - padding * 2.0f;
-  float contentHeight = m_chrome.contentHeight - padding * 2.0f;
+  float contentWidth = m_chrome.contentWidth - padding * 2.0F;
+  float contentHeight = m_chrome.contentHeight - padding * 2.0F;
 
   layoutSheet(contentWidth, contentHeight);
 
@@ -602,8 +604,8 @@ void DialogPopupHost::syncPointerStateFromCurrentPosition() {
   synthetic.sy = m_wayland->lastPointerY();
   synthetic.serial = m_wayland->lastInputSerial();
 
-  float localX = 0.0f;
-  float localY = 0.0f;
+  float localX = 0.0F;
+  float localY = 0.0F;
   if (!mapPointerEvent(synthetic, localX, localY)) {
     return;
   }

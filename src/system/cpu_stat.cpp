@@ -1,5 +1,7 @@
 #include "system/cpu_stat.h"
 
+#include "util/sys_utils.h"
+
 #include <algorithm>
 #include <fstream>
 #include <sstream>
@@ -15,13 +17,7 @@ namespace noctalia::system::cpu_stat {
       return space == std::string::npos ? std::string_view{} : std::string_view{line}.substr(0, space);
     }
 
-    [[nodiscard]] bool isCoreLabel(std::string_view label) {
-      if (!label.starts_with("cpu") || label.size() == 3) {
-        return false;
-      }
-      const std::string_view index = label.substr(3);
-      return std::ranges::all_of(index, [](char c) { return c >= '0' && c <= '9'; });
-    }
+    [[nodiscard]] bool isCoreLabel(std::string_view label) { return SysUtils::isCpuN(label); }
 
   } // namespace
 

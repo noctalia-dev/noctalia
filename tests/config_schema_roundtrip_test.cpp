@@ -19,6 +19,7 @@
 #include "core/toml.h"
 #include "scripting/plugin_id.h"
 
+#include <algorithm>
 #include <optional>
 #include <print>
 #include <set>
@@ -163,6 +164,28 @@ location = "https://example.invalid/bad"
         fail("plugins: derived subdir for invalid plugin id " + id);
       }
     }
+
+    // Canonical entry ids gate host construction and state-store scoping, so the
+    // shapes that must not slip through are the near-misses: no colon, extra colons,
+    // and an empty or malformed entry segment.
+    const std::string validEntries[] = {
+        "noctalia/screen_recorder:widget", "me/hello:a", "Team/repo_2:entry-1", "a/b.c-d:e.f"
+    };
+    for (const auto& id : validEntries) {
+      if (!scripting::isValidPluginEntryId(id)) {
+        fail("plugins: rejected valid entry id " + id);
+      }
+    }
+
+    const std::string invalidEntries[] = {
+        "",          "me/hello",   "me/hello:",   ":widget",          "me/hello:a:b",
+        "mehello:a", "me/hello:.", "me/hello:..", "me/hello:wid get", "me/foo/bar:a",
+    };
+    for (const auto& id : invalidEntries) {
+      if (scripting::isValidPluginEntryId(id)) {
+        fail("plugins: accepted invalid entry id " + id);
+      }
+    }
   }
 
   // A fully-specified bar with a fully-specified monitor override. Every override
@@ -234,6 +257,9 @@ location = "https://example.invalid/bad"
     group.padding = 20.0f;
     group.radius = 14.0f;
     group.opacity = 0.8f;
+    group.accordion = true;
+    group.accordionDirection = BarAccordionDirection::Start;
+    group.widgetSpacing = 10;
     bar.widgetCapsuleGroups = {group};
 
     BarMonitorOverride ovr;
@@ -317,8 +343,13 @@ location = "https://example.invalid/bad"
     c.osd.kinds.lockKeys = false;
     c.osd.kinds.keyboardLayout = false;
     c.backdrop = BackdropConfig{true, 0.8f, 0.2f};
-    c.lockscreen =
-        LockscreenConfig{.blurredDesktop = true, .blurIntensity = 0.6f, .tintIntensity = 0.25f, .monitors = {"DP-1"}};
+    c.lockscreen = LockscreenConfig{
+        .lockBeforeSuspend = false,
+        .blurredDesktop = true,
+        .blurIntensity = 0.6f,
+        .tintIntensity = 0.25f,
+        .monitors = {"DP-1"}
+    };
     c.system.monitor.enabled = false;
     c.system.monitor.cpuTempSensorPath = "/sys/class/hwmon/hwmon3/temp1_input";
     c.system.monitor.cpuPollSeconds = 5.0f;
@@ -411,13 +442,16 @@ location = "https://example.invalid/bad"
     c.keybinds.down = {*parseKeyChordSpec("Down")};
     c.keybinds.tabNext = defaultKeybindSet(KeybindAction::TabNext);
     c.keybinds.tabPrevious = defaultKeybindSet(KeybindAction::TabPrevious);
+    c.keybinds.deleteEntry = defaultKeybindSet(KeybindAction::Delete);
+    c.keybinds.copy = defaultKeybindSet(KeybindAction::Copy);
+    c.keybinds.save = defaultKeybindSet(KeybindAction::Save);
     c.hooks.commands[0] = {"notify-send hi"};
     c.hooks.commands[2] = {"cmd-a", "cmd-b"};
     c.idle.preActionFadeSeconds = 3.0f;
     // Explicit normalized actions so normalizeIdleBehaviorAction is a no-op on read.
     c.idle.behaviors = {
         {"dim", true, 60, "lock", "", "", true},
-        {"off", false, 300, "screen_off", "", "", true},
+        {"off", false, 300, "screen_off", "", "", true, 30},
     };
     c.wallpaper.enabled = false;
     c.wallpaper.fillColor = colorSpecFromConfigString("#ff8800");
@@ -442,9 +476,11 @@ location = "https://example.invalid/bad"
     c.storage.keySource = StorageKeySource::File;
     c.storage.keyFile = "/run/agenix/noctalia-storage-key";
     c.shell.avatarPath = "/home/u/face.png";
+    c.shell.settingsWindowTranslucent = true;
     c.shell.animation.speed = 1.5f;
     c.shell.shadow.direction = ShadowDirection::UpLeft;
     c.shell.panel.transparencyMode = PanelTransparencyMode::Glass;
+    c.shell.panel.floatingLayer = "top";
     c.shell.panel.launcherPlacement = PanelPlacement::Floating;
     c.shell.launcher.compact = true;
     c.shell.launcher.sortByUsage = false;
@@ -460,6 +496,7 @@ location = "https://example.invalid/bad"
     c.shell.launcher.providers = {
         LauncherProviderConfig{"session", "s", true}, LauncherProviderConfig{"wallpaper", "w"}
     };
+    c.shell.keyboardLayout.customLabels = {{"English (US)", "US"}, {"German", "DE"}};
     c.shell.screenCorners.enabled = true;
     c.shell.screenCorners.size = 24;
     c.shell.mpris.blacklist = {"firefox"};
@@ -522,7 +559,7 @@ location = "https://example.invalid/bad"
          .location = "https://github.com/noctalia-dev/official-plugins"},
     };
     c.plugins.enabled = {"noctalia/notes"};
-    c.plugins.autoUpdate = false; // non-default (default is true) so the round-trip exercises it
+    c.plugins.autoUpdate = PluginAutoUpdateMode::None; // non-default (default is All) so the round-trip exercises it
 
     c.bars = {makeProbeBar()};
     return c;
@@ -570,6 +607,130 @@ location = "https://example.invalid/bad"
       if (s.clipboardHistoryMaxEntries != 10000) {
         fail("shell.clipboard_history_max_entries clamp: expected 10000");
       }
+    }
+  }
+
+  std::pair<PluginsConfig, Diagnostics> parsePlugins(std::string_view config) {
+    PluginsConfig plugins;
+    Diagnostics diagnostics;
+    const toml::table root = toml::parse(config);
+    readInto(root, plugins, pluginsSchema(), "plugins", diagnostics);
+    return {std::move(plugins), std::move(diagnostics)};
+  }
+
+  void checkPluginAutoUpdateMode() {
+    const auto erroredOnAutoUpdate = [](const Diagnostics& diag) {
+      return std::ranges::any_of(diag.entries, [](const auto& entry) {
+        return entry.severity == Diagnostics::Severity::Error && entry.path == "plugins.auto_update";
+      });
+    };
+
+    // Cases: config snippet, expected mode
+    const auto cases = {
+        std::pair{"auto_update = \"all\"", PluginAutoUpdateMode::All},
+        std::pair{"auto_update = \"official\"", PluginAutoUpdateMode::Official},
+        std::pair{"auto_update = \"none\"", PluginAutoUpdateMode::None},
+    };
+    for (const auto& [text, expected] : cases) {
+      const auto [plugins, diag] = parsePlugins(text);
+      if (plugins.autoUpdate != expected || diag.hasErrors()) {
+        fail(
+            std::string("plugins.auto_update: '")
+            + text
+            + "' should parse to "
+            + std::string(enumToKey(kPluginAutoUpdateModes, expected))
+        );
+      }
+    }
+    // Unknown strings, unsupported types, and the legacy boolean form error
+    // and leave the default in place.
+    for (const auto text :
+         {"auto_update = \"sometimes\"", "auto_update = 1.5", "auto_update = true", "auto_update = false"}) {
+      const auto [plugins, diag] = parsePlugins(text);
+      if (plugins.autoUpdate != PluginAutoUpdateMode::All || !erroredOnAutoUpdate(diag)) {
+        fail(std::string("plugins.auto_update: '") + text + "' should error and keep the default");
+      }
+    }
+  }
+
+  void checkAutoUpdateScopeSelection() {
+    // The official scope matches by name AND location: a user-added source that
+    // reuses the "official" name is not the official source.
+    const std::vector<PluginSourceConfig> sources = {
+        defaultPluginSources()[0], // the official source
+        {.kind = PluginSourceKind::Git,
+         .name = "community",
+         .location = "https://github.com/noctalia-dev/community-plugins"},
+        {.kind = PluginSourceKind::Git,
+         .name = "disabled",
+         .location = "https://example.invalid/disabled",
+         .enabled = false},
+        {.kind = PluginSourceKind::Path, .name = "local", .location = "/tmp/plugins"},
+    };
+    const auto expectLocations = [](std::string_view fixtureName, const std::vector<PluginSourceConfig>& fixture,
+                                    PluginAutoUpdateMode mode, std::vector<std::string_view> locations) {
+      std::vector<std::string_view> selected;
+      for (const auto& source : fixture) {
+        if (sourceInAutoUpdateScope(source, mode)) {
+          selected.push_back(source.location);
+        }
+      }
+      if (!std::ranges::equal(selected, locations)) {
+        fail(
+            "auto-update scope ("
+            + std::string(fixtureName)
+            + "): unexpected sources selected for "
+            + std::string(enumToKey(kPluginAutoUpdateModes, mode))
+        );
+      }
+    };
+    expectLocations("defaults", sources, PluginAutoUpdateMode::None, {});
+    expectLocations(
+        "defaults", sources, PluginAutoUpdateMode::Official, {"https://github.com/noctalia-dev/official-plugins"}
+    );
+    // Every enabled git source; disabled and path sources stay out.
+    expectLocations(
+        "defaults", sources, PluginAutoUpdateMode::All,
+        {"https://github.com/noctalia-dev/official-plugins", "https://github.com/noctalia-dev/community-plugins"}
+    );
+    // A single source reusing the "official" name with an untrusted location is
+    // legal config (names must be unique, locations need not), but the location
+    // check must keep it out of the official scope.
+    const std::vector<PluginSourceConfig> untrustedOfficial = {
+        {.kind = PluginSourceKind::Git, .name = "official", .location = "https://example.invalid/untrusted"},
+        {.kind = PluginSourceKind::Git,
+         .name = "community",
+         .location = "https://github.com/noctalia-dev/community-plugins"},
+    };
+    expectLocations("untrustedOfficial", untrustedOfficial, PluginAutoUpdateMode::Official, {});
+    expectLocations(
+        "untrustedOfficial", untrustedOfficial, PluginAutoUpdateMode::All,
+        {"https://example.invalid/untrusted", "https://github.com/noctalia-dev/community-plugins"}
+    );
+  }
+
+  void checkDuplicatePluginSourceRejection() {
+    const auto erroredOnSource = [](const Diagnostics& diag) {
+      return std::ranges::any_of(diag.entries, [](const auto& entry) {
+        return entry.severity == Diagnostics::Severity::Error && entry.path == "plugins.source";
+      });
+    };
+    // Legit official source first: the duplicate is dropped, the legit entry kept.
+    const auto [legitPlugins, legitDiag] = parsePlugins(R"(
+[[source]]
+name = "official"
+kind = "git"
+location = "https://github.com/noctalia-dev/official-plugins"
+
+[[source]]
+name = "official"
+kind = "git"
+location = "https://example.invalid/untrusted"
+)");
+    if (!erroredOnSource(legitDiag)
+        || legitPlugins.sources.size() != 1
+        || legitPlugins.sources[0].location != "https://github.com/noctalia-dev/official-plugins") {
+      fail("plugins.source: duplicate names must error and keep the first entry");
     }
   }
 
@@ -627,6 +788,36 @@ credential_source = "automatic"
 )");
     if (!unknownSource.hasErrors()) {
       fail("calendar: unknown credential source was not an error");
+    }
+  }
+
+  void checkPanelFloatingLayerValidation() {
+    const auto parse = [](std::string_view panelConfig, ShellConfig& shell) {
+      const toml::table table = toml::parse(panelConfig);
+      Diagnostics diagnostics;
+      readInto(table, shell, shellSchema(), "shell", diagnostics);
+      return diagnostics;
+    };
+
+    ShellConfig validShell;
+    const Diagnostics valid = parse("[panel]\nfloating_layer = \"top\"", validShell);
+    if (valid.hasErrors() || validShell.panel.floatingLayer != "top") {
+      fail("shell.panel.floating_layer: valid top layer was rejected");
+    }
+
+    ShellConfig invalidShell;
+    const Diagnostics invalid = parse("[panel]\nfloating_layer = \"bottom\"", invalidShell);
+    if (invalidShell.panel.floatingLayer != "overlay") {
+      fail("shell.panel.floating_layer: invalid value replaced the overlay default");
+    }
+    bool sawWarning = false;
+    for (const auto& entry : invalid.entries) {
+      if (entry.severity == Diagnostics::Severity::Warning && entry.path == "shell.panel.floating_layer") {
+        sawWarning = true;
+      }
+    }
+    if (!sawWarning) {
+      fail("shell.panel.floating_layer: invalid value did not produce a warning");
     }
   }
 
@@ -874,6 +1065,8 @@ widget_spacing = 8
         right = "exec notify-send bar-right"
 
         [[default.monitor.DP-1.capsule_group]]
+        accordion = false
+        accordion_direction = "end"
         border = "#0F0E0D"
         enabled = true
         fill = "#F1F2F3"
@@ -885,6 +1078,8 @@ widget_spacing = 8
         radius = 9.0
 
     [[default.capsule_group]]
+    accordion = true
+    accordion_direction = "start"
     border = "#333435"
     enabled = true
     fill = "#222324"
@@ -893,7 +1088,8 @@ widget_spacing = 8
     members = [ "clock", "weather" ]
     opacity = 0.80000001192092896
     padding = 20.0
-    radius = 14.0)";
+    radius = 14.0
+    widget_spacing = 10)";
 
   const Config probe = makeProbe();
   const toml::table serialized = config_export::serialize(probe);
@@ -994,7 +1190,11 @@ widget_spacing = 8
   checkPluginSourceNameValidation();
   checkCalendarCredentialSourceValidation();
   checkStorageKeySourceValidation();
+  checkPanelFloatingLayerValidation();
   checkClamps();
+  checkPluginAutoUpdateMode();
+  checkAutoUpdateScopeSelection();
+  checkDuplicatePluginSourceRejection();
   checkCustomColorFallback();
   checkTemplateConfigCustomColorsExport();
 

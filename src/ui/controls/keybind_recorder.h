@@ -61,7 +61,7 @@ private:
   std::string m_unsetPlaceholder;
   std::string m_recordingPlaceholder;
   std::uint32_t m_pendingModifiers = 0;
-  float m_scale = 1.0f;
+  float m_scale = 1.0F;
   bool m_recording = false;
   bool m_enabled = true;
   ModifierPolicy m_modifierPolicy = ModifierPolicy::Required;

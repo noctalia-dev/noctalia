@@ -29,13 +29,14 @@ private:
   };
 
   void doLayout(Renderer& renderer) override;
+  void doRebindRenderer(Renderer& renderer) override { m_renderer = &renderer; }
   bool tryLoadAnimated(Renderer& renderer);
   void scheduleNextFrame();
   void onFrameTimer();
   void unloadFrames();
 
   std::string m_imagePath;
-  float m_opacity = 1.0f;
+  float m_opacity = 1.0F;
   Image* m_image = nullptr;
   bool m_loaded = false;
 

@@ -30,9 +30,11 @@ struct SystemStats;
 enum class SysmonStat {
   CpuUsage,
   CpuTemp,
+  CpuFreq,
   GpuTemp,
   GpuUsage,
   GpuVram,
+  GpuVramUsed,
   RamUsed,
   RamPct,
   SwapPct,
@@ -43,7 +45,7 @@ enum class SysmonStat {
   NetRx,
   NetTx
 };
-enum class SysmonDisplayMode { Text, Graph, Gauge, None };
+enum class SysmonVisualization { Graph, Gauge, None };
 enum class SysmonGlyphPosition { Before, After };
 
 class SysmonWidget : public Widget {
@@ -57,9 +59,10 @@ public:
     std::string networkInterface;
     FormatUnits::DecimalByteRateUnit networkSpeedUnit = FormatUnits::DecimalByteRateUnit::Auto;
     bool networkSpeedCompact = false;
-    SysmonDisplayMode displayMode = SysmonDisplayMode::Gauge;
+    SysmonVisualization visualization = SysmonVisualization::Gauge;
     ColorSpec highlightColor = colorSpecFromRole(ColorRole::Error);
-    bool showLabel = true;
+    bool showGlyph = true;
+    bool showValue = true;
     int labelMinWidth = 0;
     bool showUnits = true;
     SysmonGlyphPosition glyphPosition = SysmonGlyphPosition::Before;
@@ -69,6 +72,7 @@ public:
   ~SysmonWidget() override;
 
   void create() override;
+  [[nodiscard]] static const char* glyphName(SysmonStat stat);
 
 private:
   void doLayout(Renderer& renderer, float containerWidth, float containerHeight) override;
@@ -79,7 +83,6 @@ private:
   void syncGaugeProgress(double normalized);
   [[nodiscard]] std::string formatValue() const;
   [[nodiscard]] double currentNormalized();
-  [[nodiscard]] static const char* glyphName(SysmonStat stat);
   void scheduleNextUpdate(std::chrono::steady_clock::time_point latestSampleAt);
   void clearGraph();
   void syncVisualPalette();
@@ -102,11 +105,12 @@ private:
 
   SystemMonitorService* m_monitor;
   SysmonStat m_stat;
-  SysmonDisplayMode m_displayMode;
+  SysmonVisualization m_visualization;
   ColorSpec m_highlightColor = colorSpecFromRole(ColorRole::Error);
   ConfigService& m_configService;
-  bool m_showLabel;
-  float m_labelMinWidth = 0.0f;
+  bool m_showGlyph;
+  bool m_showValue;
+  float m_labelMinWidth = 0.0F;
   std::string m_diskPath;
   std::string m_networkInterface;
   FormatUnits::DecimalByteRateUnit m_networkSpeedUnit = FormatUnits::DecimalByteRateUnit::Auto;
@@ -131,7 +135,7 @@ private:
   double m_tempMax = 80.0;
   Box* m_chartBg = nullptr;
   Graph* m_graph = nullptr;
-  float m_scrollProgress = 1.0f;
+  float m_scrollProgress = 1.0F;
   Timer m_updateTimer;
   FrameRateLimiter m_redrawLimiter{std::chrono::milliseconds{200}};
 

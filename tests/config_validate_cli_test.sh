@@ -25,24 +25,25 @@ esac
 
 warn_output=$("$noctalia_bin" config validate tests/config_validate/warn-only.toml 2>&1) \
   || fail "warning-only config should validate"
+# Every diagnostic is prefixed with the file:line:column it came from.
 case "$warn_output" in
-  *"WARN  accessibility.ui_scl: unknown setting"*) ;;
-  *) fail "warning-only config did not report the unknown setting" ;;
+  *"WARN  tests/config_validate/warn-only.toml:3:10: accessibility.ui_scl: unknown setting"*) ;;
+  *) fail "warning-only config did not report the unknown setting with its origin" ;;
 esac
 case "$warn_output" in
-  *"WARN  shell.launcher.providers.applications: custom settings are not allowed"*) ;;
+  *"WARN  tests/config_validate/warn-only.toml:8:1: shell.launcher.providers.applications: custom settings are not allowed"*) ;;
   *) fail "warning-only config did not report the disallowed applications provider setting" ;;
 esac
 case "$warn_output" in
-  *"WARN  shell.launcher.provider_prefix: is empty"*) ;;
+  *"WARN  tests/config_validate/warn-only.toml:6:19: shell.launcher.provider_prefix: is empty"*) ;;
   *) fail "warning-only config did not report the empty provider_prefix" ;;
 esac
 case "$warn_output" in
-  *"WARN  shell.launcher.providers.nonexistent: provider is nonexistent"*) ;;
+  *"WARN  tests/config_validate/warn-only.toml:11:1: shell.launcher.providers.nonexistent: provider is nonexistent"*) ;;
   *) fail "warning-only config did not report the nonexistent provider setting" ;;
 esac
 case "$warn_output" in
-  *"WARN  shell.launcher.providers.author/my-plugin:entry: plugin 'author/my-plugin' is not enabled"*) ;;
+  *"shell.launcher.providers.author/my-plugin:entry: plugin 'author/my-plugin' is not enabled"*) ;;
   *) fail "warning-only config did not report the disabled plugin provider setting" ;;
 esac
 case "$warn_output" in
@@ -53,14 +54,14 @@ esac
 syntax_output=$("$noctalia_bin" config validate tests/config_validate/syntax-error.toml 2>&1) \
   && fail "syntax-error config should fail"
 case "$syntax_output" in
-  *"ERROR syntax: tests/config_validate/syntax-error.toml:"*) ;;
-  *) fail "syntax-error config did not report the source path" ;;
+  *"ERROR tests/config_validate/syntax-error.toml:2:25: syntax: "*) ;;
+  *) fail "syntax-error config did not report the source position" ;;
 esac
 
 timezone_output=$("$noctalia_bin" config validate tests/config_validate/invalid-timezone.toml 2>&1) \
   && fail "invalid timezone config should fail"
 case "$timezone_output" in
-  *'ERROR widget.world-clock.timezone: unknown timezone "Europe/Berln"'*) ;;
+  *'ERROR tests/config_validate/invalid-timezone.toml:3:12: widget.world-clock.timezone: unknown timezone "Europe/Berln"'*) ;;
   *) fail "invalid timezone config did not report the widget setting path" ;;
 esac
 

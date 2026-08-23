@@ -82,7 +82,12 @@ void Label::setColor(const ColorSpec& color) {
 
 void Label::setColor(const Color& color) { setColor(fixedColorSpec(color)); }
 
-void Label::applyPalette() { m_textNode->setColor(resolveColorSpec(m_color)); }
+void Label::applyPalette() {
+  m_textNode->setColor(resolveColorSpec(m_color));
+  if (m_shadowColor.has_value()) {
+    m_textNode->setShadow(resolveColorSpec(*m_shadowColor), m_shadowOffsetX, m_shadowOffsetY);
+  }
+}
 
 void Label::setMinWidth(float minWidth) {
   if (m_minWidth == minWidth) {
@@ -168,11 +173,21 @@ void Label::setBaselineMode(LabelBaselineMode mode) {
   m_measureCached = false;
 }
 
-void Label::setShadow(const Color& color, float offsetX, float offsetY) {
-  m_textNode->setShadow(color, offsetX, offsetY);
+void Label::setShadow(const ColorSpec& color, float offsetX, float offsetY) {
+  m_shadowColor = color;
+  m_shadowOffsetX = offsetX;
+  m_shadowOffsetY = offsetY;
+  applyPalette();
 }
 
-void Label::clearShadow() { m_textNode->clearShadow(); }
+void Label::setShadow(const Color& color, float offsetX, float offsetY) {
+  setShadow(fixedColorSpec(color), offsetX, offsetY);
+}
+
+void Label::clearShadow() {
+  m_shadowColor.reset();
+  m_textNode->clearShadow();
+}
 
 void Label::setAutoScroll(bool enabled) {
   if (m_autoScroll == enabled) {
@@ -180,7 +195,7 @@ void Label::setAutoScroll(bool enabled) {
   }
   m_autoScroll = enabled;
   stopScrollAnimations();
-  m_scrollOffset = 0.0f;
+  m_scrollOffset = 0.0F;
   syncTextNodeConstraints();
   m_measureCached = false;
   syncHoverInteraction();
@@ -196,20 +211,27 @@ void Label::setAutoScrollOnlyWhenHovered(bool enabled) {
 }
 
 void Label::syncHoverInteraction() {
-  if (!m_autoScroll || !m_autoScrollHoverOnly) {
-    setOnEnter(nullptr);
-    setOnLeave(nullptr);
-    // A tooltip needs hits to reach the label, so keep hit testing on for it.
-    setHitTestVisible(hasTooltip());
+  if (m_autoScroll && m_autoScrollHoverOnly) {
+    setHitTestVisible(true);
+    setOnEnter([this](const PointerData&) { restartScrollIfNeeded(); });
+    setOnLeave([this]() { restartScrollIfNeeded(); });
+    m_ownsHoverHandlers = true;
     return;
   }
-  setHitTestVisible(true);
-  setOnEnter([this](const PointerData&) { restartScrollIfNeeded(); });
-  setOnLeave([this]() { restartScrollIfNeeded(); });
+  // Leaving hover-only marquee: drop only the handlers we installed. Callers may
+  // own enter/leave for hover styling (e.g. screen-time day labels); wiping them
+  // on setTooltip made hover color stick or lag until the next update pass.
+  if (m_ownsHoverHandlers) {
+    setOnEnter(nullptr);
+    setOnLeave(nullptr);
+    m_ownsHoverHandlers = false;
+  }
+  // A tooltip needs hits to reach the label.
+  setHitTestVisible(hasTooltip());
 }
 
 void Label::setAutoScrollSpeed(float pixelsPerSecond) {
-  const float next = std::max(pixelsPerSecond, 1.0f);
+  const float next = std::max(pixelsPerSecond, 1.0F);
   if (m_scrollSpeedPxPerSec == next) {
     return;
   }
@@ -218,14 +240,14 @@ void Label::setAutoScrollSpeed(float pixelsPerSecond) {
     return;
   }
   stopScrollAnimations();
-  m_scrollOffset = 0.0f;
+  m_scrollOffset = 0.0F;
   applyScrollPosition();
   startMarqueeLoop();
 }
 
 void Label::syncTextNodeConstraints() {
   if (m_autoScroll) {
-    m_textNode->setMaxWidth(0.0f);
+    m_textNode->setMaxWidth(0.0F);
     m_textNode->setMaxLines(1);
   } else {
     m_textNode->setMaxWidth(m_userMaxWidth);
@@ -234,36 +256,37 @@ void Label::syncTextNodeConstraints() {
 }
 
 void Label::applyScrollPosition() {
-  const float targetX = m_textBaseX - m_scrollOffset;
+  const bool rtlOverflow = Style::rtl() && m_autoScroll && m_fullTextWidth > width() + 0.5F;
+  const float targetX = rtlOverflow ? m_textBaseX + m_scrollOffset : m_textBaseX - m_scrollOffset;
   const float targetY = m_baselineOffset;
 
   // Text is snapped in the renderer, so keep the raw fractional position but
   // avoid invalidating the surface while its snapped buffer position is unchanged.
-  if (m_marqueeLoopPeriod > 0.0f) {
-    float originX = 0.0f;
-    float originY = 0.0f;
-    float xAxisX = 0.0f;
-    float xAxisY = 0.0f;
-    float yAxisX = 0.0f;
-    float yAxisY = 0.0f;
-    Node::mapToScene(this, 0.0f, 0.0f, originX, originY);
-    Node::mapToScene(this, 1.0f, 0.0f, xAxisX, xAxisY);
-    Node::mapToScene(this, 0.0f, 1.0f, yAxisX, yAxisY);
+  if (m_marqueeLoopPeriod > 0.0F) {
+    float originX = 0.0F;
+    float originY = 0.0F;
+    float xAxisX = 0.0F;
+    float xAxisY = 0.0F;
+    float yAxisX = 0.0F;
+    float yAxisY = 0.0F;
+    Node::mapToScene(this, 0.0F, 0.0F, originX, originY);
+    Node::mapToScene(this, 1.0F, 0.0F, xAxisX, xAxisY);
+    Node::mapToScene(this, 0.0F, 1.0F, yAxisX, yAxisY);
 
-    constexpr float kTransformEpsilon = 0.0001f;
-    const bool translationOnly = std::abs((xAxisX - originX) - 1.0f) <= kTransformEpsilon
+    constexpr float kTransformEpsilon = 0.0001F;
+    const bool translationOnly = std::abs((xAxisX - originX) - 1.0F) <= kTransformEpsilon
         && std::abs(xAxisY - originY) <= kTransformEpsilon
         && std::abs(yAxisX - originX) <= kTransformEpsilon
-        && std::abs((yAxisY - originY) - 1.0f) <= kTransformEpsilon;
+        && std::abs((yAxisY - originY) - 1.0F) <= kTransformEpsilon;
     if (translationOnly) {
-      float currentSceneX = 0.0f;
-      float currentSceneY = 0.0f;
-      float targetSceneX = 0.0f;
-      float targetSceneY = 0.0f;
+      float currentSceneX = 0.0F;
+      float currentSceneY = 0.0F;
+      float targetSceneX = 0.0F;
+      float targetSceneY = 0.0F;
       Node::absolutePosition(m_textNode, currentSceneX, currentSceneY);
       Node::mapToScene(this, targetX, targetY, targetSceneX, targetSceneY);
 
-      const float scale = std::max(1.0f, m_marqueeRenderScale);
+      const float scale = std::max(1.0F, m_marqueeRenderScale);
       const bool sameBufferPosition = std::round(currentSceneX * scale) == std::round(targetSceneX * scale)
           && std::round(currentSceneY * scale) == std::round(targetSceneY * scale);
       if (sameBufferPosition) {
@@ -296,13 +319,13 @@ void Label::stopScrollAnimations() {
 
 void Label::startSnapToZero() {
   stopMarqueeAnimation();
-  if (m_scrollOffset <= 0.5f) {
-    m_scrollOffset = 0.0f;
+  if (m_scrollOffset <= 0.5F) {
+    m_scrollOffset = 0.0F;
     applyScrollPosition();
     return;
   }
   if (animationManager() == nullptr) {
-    m_scrollOffset = 0.0f;
+    m_scrollOffset = 0.0F;
     applyScrollPosition();
     return;
   }
@@ -310,18 +333,18 @@ void Label::startSnapToZero() {
     return;
   }
   const float from = m_scrollOffset;
-  const float rewindSpeed = m_scrollSpeedPxPerSec * 8.0f;
-  float durationMs = std::max(36.0f, (from / rewindSpeed) * 1000.0f);
-  durationMs = std::min(durationMs, 180.0f);
+  const float rewindSpeed = m_scrollSpeedPxPerSec * 8.0F;
+  float durationMs = std::max(36.0F, (from / rewindSpeed) * 1000.0F);
+  durationMs = std::min(durationMs, 180.0F);
   m_snapAnimId = animationManager()->animate(
-      from, 0.0f, durationMs, Easing::EaseOutCubic,
+      from, 0.0F, durationMs, Easing::EaseOutCubic,
       [this](float v) {
         m_scrollOffset = v;
         applyScrollPosition();
       },
       [this]() {
         m_snapAnimId = 0;
-        m_scrollOffset = 0.0f;
+        m_scrollOffset = 0.0F;
         applyScrollPosition();
       },
       this
@@ -337,10 +360,10 @@ void Label::startMarqueeLoop() {
     return;
   }
   const float viewportW = width();
-  if (viewportW <= 0.0f || m_fullTextWidth <= viewportW + 0.5f) {
+  if (viewportW <= 0.0F || m_fullTextWidth <= viewportW + 0.5F) {
     return;
   }
-  if (m_marqueeLoopPeriod <= 0.0f) {
+  if (m_marqueeLoopPeriod <= 0.0F) {
     return;
   }
   if (m_marqueeAnimId != 0) {
@@ -349,19 +372,19 @@ void Label::startMarqueeLoop() {
   stopSnapAnimation();
 
   const float period = m_marqueeLoopPeriod;
-  const float durationMs = (period / m_scrollSpeedPxPerSec) * 1000.0f;
+  const float durationMs = (period / m_scrollSpeedPxPerSec) * 1000.0F;
   // Marquee scroll is content motion at a fixed px/sec rate, not a UI transition:
   // it must keep scrolling (and at its own speed) regardless of the global motion
   // enable/speed settings, so drive it off real elapsed time.
   m_marqueeAnimId = animationManager()->animateTimer(
-      0.0f, period, durationMs, Easing::Linear,
+      0.0F, period, durationMs, Easing::Linear,
       [this](float v) {
         m_scrollOffset = v;
         applyScrollPosition();
       },
       [this]() {
         m_marqueeAnimId = 0;
-        m_scrollOffset = 0.0f;
+        m_scrollOffset = 0.0F;
         applyScrollPosition();
         const std::weak_ptr<void> aliveGuard = m_aliveGuard;
         DeferredCall::callLater([this, aliveGuard]() {
@@ -377,7 +400,7 @@ void Label::startMarqueeLoop() {
 }
 
 void Label::restartScrollIfNeeded() {
-  const bool overflow = m_autoScroll && width() > 0.0f && m_fullTextWidth > width() + 0.5f;
+  const bool overflow = m_autoScroll && width() > 0.0F && m_fullTextWidth > width() + 0.5F;
   const bool runMarquee = overflow && (!m_autoScrollHoverOnly || hovered());
 
   // Skip the reset path when none of the marquee-relevant inputs have changed
@@ -413,7 +436,7 @@ void Label::restartScrollIfNeeded() {
 
   if (!overflow) {
     stopSnapAnimation();
-    m_scrollOffset = 0.0f;
+    m_scrollOffset = 0.0F;
     setClipChildren(false);
     m_textNode->setText(m_plainText);
     applyScrollPosition();
@@ -423,17 +446,17 @@ void Label::restartScrollIfNeeded() {
   setClipChildren(true);
 
   if (!runMarquee) {
-    if (m_scrollOffset > 0.5f) {
+    if (m_scrollOffset > 0.5F) {
       startSnapToZero();
     } else {
-      m_scrollOffset = 0.0f;
+      m_scrollOffset = 0.0F;
       applyScrollPosition();
     }
     return;
   }
 
   stopSnapAnimation();
-  m_scrollOffset = 0.0f;
+  m_scrollOffset = 0.0F;
   applyScrollPosition();
   startMarqueeLoop();
 }
@@ -452,7 +475,7 @@ void Label::doArrange(Renderer& renderer, const LayoutRect& rect) {
   // exact width is the label's own (rounded) measured width fed back, not a parent
   // wrap-intent — feeding it to Pango as maxWidth can trigger sub-pixel ellipsis.
   const LayoutSize measured = measureWithConstraints(renderer, constraints, true);
-  setSize(rect.width, rect.height > 0.0f ? rect.height : measured.height);
+  setSize(rect.width, rect.height > 0.0F ? rect.height : measured.height);
 }
 
 void Label::measure(Renderer& renderer) {
@@ -472,10 +495,10 @@ LayoutSize Label::measureWithConstraints(Renderer& renderer, const LayoutConstra
     measureMaxWidth = m_textNode->maxWidth();
   } else if (constraints.hasMaxWidth) {
     measureMaxWidth =
-        configuredMaxWidth > 0.0f ? std::min(configuredMaxWidth, constraints.maxWidth) : constraints.maxWidth;
+        configuredMaxWidth > 0.0F ? std::min(configuredMaxWidth, constraints.maxWidth) : constraints.maxWidth;
   }
   if (m_autoScroll) {
-    measureMaxWidth = 0.0f;
+    measureMaxWidth = 0.0F;
   }
   const int effectiveMaxLines = m_autoScroll ? 1 : m_userMaxLines;
   const TextAlign align = m_textNode->textAlign();
@@ -539,31 +562,31 @@ LayoutSize Label::measureWithConstraints(Renderer& renderer, const LayoutConstra
   // measured line count tells us whether to apply single-line cap-band centering
   // or lay out a multi-line block. Auto-scroll always renders a single marquee line.
   const bool singleLine = m_autoScroll || metrics.lineCount <= 1;
-  const float measuredWidth = measureMaxWidth > 0.0f ? std::min(metrics.width, measureMaxWidth) : metrics.width;
-  m_fullTextWidth = m_autoScroll ? measuredWidth : 0.0f;
+  const float measuredWidth = measureMaxWidth > 0.0F ? std::min(metrics.width, measureMaxWidth) : metrics.width;
+  m_fullTextWidth = m_autoScroll ? measuredWidth : 0.0F;
   const bool hasAssignedWidth = constraints.hasExactWidth();
   const float assignedWidth = constraints.maxWidth;
 
   const float actualHeight = metrics.bottom - metrics.top;
-  const float inkHeight = std::max(0.0f, metrics.inkBottom - metrics.inkTop);
+  const float inkHeight = std::max(0.0F, metrics.inkBottom - metrics.inkTop);
   // An icon glyph (Nerd Font / PUA) ignores the cap/x metrics text centering
   // relies on, and its ink can be far wider/taller than the advance. Make the
   // box BE the ink so a container that box-centers the label centers the icon on
   // both axes.
-  const bool isIconGlyph = singleLine && inkHeight > 0.0f && StringUtils::isSinglePrivateUseGlyph(m_plainText);
-  const float inkWidth = std::max(0.0f, metrics.inkRight - metrics.inkLeft);
-  if (singleLine && inkHeight > 0.0f) {
-    float height = 0.0f;
+  const bool isIconGlyph = singleLine && inkHeight > 0.0F && StringUtils::isSinglePrivateUseGlyph(m_plainText);
+  const float inkWidth = std::max(0.0F, metrics.inkRight - metrics.inkLeft);
+  if (singleLine && inkHeight > 0.0F) {
+    float height = 0.0F;
     if (m_baselineMode == LabelBaselineMode::InkCentered || isIconGlyph) {
       // Explicit ink mode, or an icon glyph: center the glyph's own ink.
       // Unrounded — the renderer snaps the glyph quad to the pixel grid.
       height = std::round(std::max(actualHeight, inkHeight));
-      m_baselineOffset = -metrics.inkTop + (height - inkHeight) * 0.5f;
+      m_baselineOffset = -metrics.inkTop + (height - inkHeight) * 0.5F;
     } else if (m_baselineMode == LabelBaselineMode::TextFixedHeight) {
       const auto fontMetrics = renderer.measureFont(m_textNode->fontSize(), fontWeight);
       height = std::round(fontMetrics.bottom - fontMetrics.top);
       const float capHeight = fontMetrics.capHeight;
-      m_baselineOffset = capHeight > 0.0f ? height * 0.5f + capHeight * 0.5f : -fontMetrics.top;
+      m_baselineOffset = capHeight > 0.0F ? height * 0.5F + capHeight * 0.5F : -fontMetrics.top;
     } else if (m_baselineMode == LabelBaselineMode::Pictographic) {
       // Center the cap-height band measured from the *ink top* rather than the
       // baseline. For pictographic script fonts (e.g. bongocat poses) the ink top
@@ -574,8 +597,8 @@ LayoutSize Label::measureWithConstraints(Renderer& renderer, const LayoutConstra
       // the renderer snaps the glyph quad to the pixel grid.
       height = std::round(actualHeight);
       const float capHeight = renderer.measureFont(m_textNode->fontSize(), fontWeight).capHeight;
-      m_baselineOffset = capHeight > 0.0f ? height * 0.5f - (metrics.inkTop + capHeight * 0.5f)
-                                          : -metrics.inkTop + (height - inkHeight) * 0.5f;
+      m_baselineOffset = capHeight > 0.0F ? height * 0.5F - (metrics.inkTop + capHeight * 0.5F)
+                                          : -metrics.inkTop + (height - inkHeight) * 0.5F;
     } else {
       height = std::round(actualHeight);
       // Center the cap band (baseline → cap-top) in the box, so a container that
@@ -584,9 +607,9 @@ LayoutSize Label::measureWithConstraints(Renderer& renderer, const LayoutConstra
       // snaps the glyph quad to the pixel grid, so rounding here double-rounds.
       const float capHeight = renderer.measureFont(m_textNode->fontSize(), fontWeight).capHeight;
       m_baselineOffset =
-          capHeight > 0.0f ? height * 0.5f + capHeight * 0.5f : -metrics.top + (height - actualHeight) * 0.5f;
+          capHeight > 0.0F ? height * 0.5F + capHeight * 0.5F : -metrics.top + (height - actualHeight) * 0.5F;
     }
-    float finalWidth = 0.0f;
+    float finalWidth = 0.0F;
     if (m_autoScroll) {
       float boxW = m_fullTextWidth;
       if (hasAssignedWidth) {
@@ -595,7 +618,7 @@ LayoutSize Label::measureWithConstraints(Renderer& renderer, const LayoutConstra
         if (constraints.hasMaxWidth) {
           boxW = std::min(boxW, constraints.maxWidth);
         }
-        if (m_userMaxWidth > 0.0f) {
+        if (m_userMaxWidth > 0.0F) {
           boxW = std::min(boxW, m_userMaxWidth);
         }
       }
@@ -613,9 +636,9 @@ LayoutSize Label::measureWithConstraints(Renderer& renderer, const LayoutConstra
     setSize(std::ceil(finalWidth), height);
   } else {
     m_baselineOffset = -metrics.top;
-    const float inkSpan = inkHeight > 0.0f ? (metrics.inkBottom - metrics.inkTop) : actualHeight;
+    const float inkSpan = inkHeight > 0.0F ? (metrics.inkBottom - metrics.inkTop) : actualHeight;
     const float height = std::max(actualHeight, inkSpan);
-    float finalWidth = 0.0f;
+    float finalWidth = 0.0F;
     if (m_autoScroll) {
       float boxW = m_fullTextWidth;
       if (hasAssignedWidth) {
@@ -624,7 +647,7 @@ LayoutSize Label::measureWithConstraints(Renderer& renderer, const LayoutConstra
         if (constraints.hasMaxWidth) {
           boxW = std::min(boxW, constraints.maxWidth);
         }
-        if (m_userMaxWidth > 0.0f) {
+        if (m_userMaxWidth > 0.0F) {
           boxW = std::min(boxW, m_userMaxWidth);
         }
       }
@@ -638,32 +661,38 @@ LayoutSize Label::measureWithConstraints(Renderer& renderer, const LayoutConstra
     setSize(std::ceil(m_minWidth), height());
   }
   const float layoutWidth = width();
-  const bool overflow = m_autoScroll && m_fullTextWidth > layoutWidth + 0.5f;
+  const bool overflow = m_autoScroll && m_fullTextWidth > layoutWidth + 0.5F;
   const float alignWidth = m_autoScroll ? m_fullTextWidth : measuredWidth;
-  float textX = 0.0f;
+  float textX = 0.0F;
   if (isIconGlyph) {
     // Center the icon's ink (not its advance) within the box.
-    textX = (layoutWidth - inkWidth) * 0.5f - metrics.inkLeft;
+    textX = (layoutWidth - inkWidth) * 0.5F - metrics.inkLeft;
   } else if (!overflow) {
     if (align == TextAlign::Center) {
-      textX = (layoutWidth - alignWidth) * 0.5f;
+      textX = (layoutWidth - alignWidth) * 0.5F;
     } else if (align == TextAlign::End) {
+      textX = Style::rtl() ? 0.0F : layoutWidth - alignWidth;
+    } else if (Style::rtl()) {
       textX = layoutWidth - alignWidth;
     }
   }
-  m_textBaseX = overflow ? 0.0f : textX;
+  m_textBaseX = textX;
   if (!overflow) {
-    m_scrollOffset = 0.0f;
+    m_scrollOffset = 0.0F;
   }
 
   if (overflow && m_autoScroll) {
     auto gapMetrics =
-        renderer.measureText(kMarqueeGap, m_textNode->fontSize(), fontWeight, 0.0f, 1, align, m_textNode->fontFamily());
+        renderer.measureText(kMarqueeGap, m_textNode->fontSize(), fontWeight, 0.0F, 1, align, m_textNode->fontFamily());
     m_marqueeLoopPeriod = m_fullTextWidth + gapMetrics.width;
     m_textNode->setText(m_plainText + kMarqueeGap + m_plainText);
   } else {
-    m_marqueeLoopPeriod = 0.0f;
+    m_marqueeLoopPeriod = 0.0F;
     m_textNode->setText(m_plainText);
+  }
+  if (Style::rtl() && overflow) {
+    const float contentWidth = m_marqueeLoopPeriod > 0.0F ? m_fullTextWidth + m_marqueeLoopPeriod : m_fullTextWidth;
+    m_textBaseX = layoutWidth - contentWidth;
   }
 
   applyScrollPosition();

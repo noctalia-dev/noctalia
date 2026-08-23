@@ -1,13 +1,14 @@
 #pragma once
 
 #include "config/config_types.h"
-#include "core/files/file_watcher.h"
 #include "core/timer_manager.h"
+#include "scripting/plugin_script_watcher.h"
 #include "scripting/script_runtime.h"
 #include "shell/control_center/shortcut_registry.h"
 
 #include <filesystem>
 #include <memory>
+#include <span>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -50,6 +51,7 @@ private:
   void teardownScriptWatch();
   void reloadScript(bool notifyUser = true);
   void recordLoadedSourceMtime();
+  void recordLoadedModuleMtimes(std::span<const std::filesystem::path> paths);
   [[nodiscard]] bool sourceChangedSinceLoad() const;
   void resetPresentation();
   void handleResult(const scripting::ScriptResult& result);
@@ -68,7 +70,7 @@ private:
   CompositorPlatform* m_platform = nullptr;
   std::shared_ptr<scripting::ScriptRuntime> m_runtime;
   scripting::ScriptRuntime::SubscriberId m_subscription = 0;
-  FileWatcher::WatchId m_watchId = 0;
+  scripting::PluginScriptWatcher m_scriptWatcher;
   std::string m_label;
   std::string m_iconOn = "circle";
   std::string m_iconOff = "circle";
@@ -77,5 +79,6 @@ private:
   Timer m_updateTimer;
   int m_updateIntervalMs = 1000;
   std::filesystem::file_time_type m_loadedSourceMtime;
+  std::unordered_map<std::filesystem::path, std::filesystem::file_time_type> m_loadedModuleMtimes;
   std::shared_ptr<bool> m_alive = std::make_shared<bool>(true);
 };

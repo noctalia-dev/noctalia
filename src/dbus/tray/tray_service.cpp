@@ -1,8 +1,8 @@
 #include "dbus/tray/tray_service.h"
 
-#include "compositors/compositor_detect.h"
 #include "core/deferred_call.h"
 #include "core/log.h"
+#include "core/timer_manager.h"
 #include "dbus/session_bus.h"
 #include "util/string_utils.h"
 
@@ -31,7 +31,10 @@ namespace {
   constexpr auto kMenuInterface = "com.canonical.dbusmenu";
   constexpr auto kDefaultItemPath = "/StatusNotifierItem";
   constexpr auto kAyatanaItemPath = "/org/ayatana/NotificationItem";
-  constexpr auto kItemPropertyTimeout = std::chrono::milliseconds(200);
+  // SNI GetAll often carries IconPixmap; 200 ms drops slow-but-valid clients.
+  constexpr auto kItemPropertyTimeout = std::chrono::milliseconds(3000);
+  constexpr int kBusOnlyRegistrationProbeAttempts = 5;
+  constexpr auto kBusOnlyRegistrationProbeBackoff = std::chrono::milliseconds(250);
 
   bool isStatusNotifierItemBusName(std::string_view value) {
     // Different implementations use different bus-name prefixes for SNI items.
@@ -559,82 +562,14 @@ void TrayService::start() {
     return;
   }
 
-  if (compositors::isKde()) {
-    startKde();
-  } else {
-    startLegacyOwner();
-  }
+  // Another watcher may already own the name on any desktop, not just KDE: kded6 is
+  // commonly run outside a Plasma session. Become its client if so, own it otherwise.
+  startWithWatcherDetection();
 
   m_started = true;
 }
 
-void TrayService::startLegacyOwner() {
-  m_watcherRole = WatcherRole::Owner;
-
-  m_watcherObject = sdbus::createObject(m_bus.connection(), kWatcherObjectPath);
-
-  auto regItem = sdbus::registerMethod("RegisterStatusNotifierItem").withInputParamNames("service");
-  regItem.inputSignature = "s";
-  regItem.callbackHandler = [this](sdbus::MethodCall msg) {
-    std::string serviceOrPath;
-    msg >> serviceOrPath;
-    const char* sender = msg.getSender();
-    msg.createReply().send();
-    DeferredCall::callLater([this, serviceOrPath = std::move(serviceOrPath),
-                             senderBusName = std::string(sender != nullptr ? sender : "")]() {
-      onRegisterStatusNotifierItem(serviceOrPath, senderBusName);
-    });
-  };
-
-  m_watcherObject
-      ->addVTable(
-          std::move(regItem),
-
-          sdbus::registerMethod("RegisterStatusNotifierHost")
-              .withInputParamNames("service")
-              .implementedAs([this](const std::string& host) { onRegisterStatusNotifierHost(host); }),
-
-          sdbus::registerMethod("GetRegisteredItems").withOutputParamNames("items").implementedAs([this]() {
-            return registeredItems();
-          }),
-
-          sdbus::registerProperty("RegisteredStatusNotifierItems").withGetter([this]() { return registeredItems(); }),
-          sdbus::registerProperty("IsStatusNotifierHostRegistered").withGetter([this]() { return m_hostRegistered; }),
-          sdbus::registerProperty("ProtocolVersion").withGetter([]() { return static_cast<std::int32_t>(0); }),
-
-          sdbus::registerSignal("StatusNotifierItemRegistered").withParameters<std::string>("service"),
-          sdbus::registerSignal("StatusNotifierItemUnregistered").withParameters<std::string>("service"),
-          sdbus::registerSignal("StatusNotifierHostRegistered").withParameters<>()
-      )
-      .forInterface(kWatcherInterface);
-
-  try {
-    m_bus.connection().requestName(kWatcherBusName);
-  } catch (const sdbus::Error& e) {
-    kLog.warn("tray failed to claim {}: {}", std::string{kWatcherBusName}, e.what());
-    throw;
-  }
-
-  m_dbusProxy = sdbus::createProxy(m_bus.connection(), kDbusName, kDbusPath);
-  m_dbusProxy->uponSignal("NameOwnerChanged")
-      .onInterface(kDbusInterface)
-      .call([this](const std::string& name, const std::string& old_owner, const std::string& new_owner) {
-        if (old_owner.empty() && !new_owner.empty() && isStatusNotifierItemBusName(name)) {
-          DeferredCall::callLater([this, name]() { tryRegisterItemForBusName(name); });
-        }
-        if (!old_owner.empty() && new_owner.empty()) {
-          removeItemsForBusName(name);
-        }
-      });
-
-  kLog.debug("tray watcher active on {}", std::string{kWatcherBusName});
-
-  m_watcherObject->emitSignal("StatusNotifierHostRegistered").onInterface(kWatcherInterface);
-  DeferredCall::callLater([this]() { discoverExistingItems(); });
-  DeferredCall::callLater([this]() { discoverExistingItems(); });
-}
-
-void TrayService::startKde() {
+void TrayService::startWithWatcherDetection() {
   m_dbusProxy = sdbus::createProxy(m_bus.connection(), kDbusName, kDbusPath);
   m_dbusProxy->uponSignal("NameOwnerChanged")
       .onInterface(kDbusInterface)
@@ -1568,7 +1503,7 @@ void TrayService::onRegisterStatusNotifierItem(const std::string& serviceOrPath,
               kLog.debug("register item ignored: no DBus owner for bus='{}'", busName);
               return;
             }
-            scheduleBusOnlyRegistrationProbe(busName, 5);
+            scheduleBusOnlyRegistrationProbe(busName, kBusOnlyRegistrationProbeAttempts);
           });
     }
     return;
@@ -1669,7 +1604,7 @@ void TrayService::tryRegisterItemForBusName(const std::string& busName, std::fun
       );
       probe->callMethodAsync("GetAll")
           .onInterface("org.freedesktop.DBus.Properties")
-          .withTimeout(std::chrono::milliseconds(200))
+          .withTimeout(kItemPropertyTimeout)
           .withArguments(kItemInterface)
           .uponReplyInvoke([this, busName, candidatePathString, pending, registeredAny, finish,
                             probe](std::optional<sdbus::Error> error, std::map<std::string, sdbus::Variant>) {
@@ -1698,7 +1633,10 @@ void TrayService::scheduleBusOnlyRegistrationProbe(const std::string& busName, i
   if (retriesRemaining <= 0 || busName.empty()) {
     return;
   }
-  DeferredCall::callLater([this, busName, retriesRemaining]() {
+  // First attempt is immediate; later attempts back off so a slow SNI can answer.
+  const int attemptIndex = kBusOnlyRegistrationProbeAttempts - retriesRemaining;
+  const auto delay = kBusOnlyRegistrationProbeBackoff * std::max(0, attemptIndex);
+  (void)TimerManager::instance().start(0, delay, [this, busName, retriesRemaining]() {
     tryRegisterItemForBusName(busName, [this, busName, retriesRemaining](bool registered) {
       if (!registered) {
         scheduleBusOnlyRegistrationProbe(busName, retriesRemaining - 1);
@@ -1712,19 +1650,18 @@ void TrayService::scheduleMetadataRefreshRetry(const std::string& itemId, int re
     return;
   }
 
-  DeferredCall::callLater([this, itemId, retriesRemaining]() {
+  // Let the in-flight GetAll finish (or time out) before judging readiness.
+  const auto delay = kItemPropertyTimeout + std::chrono::milliseconds(100);
+  (void)TimerManager::instance().start(0, delay, [this, itemId, retriesRemaining]() {
     auto it = m_items.find(itemId);
     if (it == m_items.end()) {
       return;
     }
-    refreshItemMetadata(itemId);
-    it = m_items.find(itemId);
-    if (it == m_items.end()) {
+    if (isMetadataReady(it->second)) {
       return;
     }
-    if (!isMetadataReady(it->second)) {
-      scheduleMetadataRefreshRetry(itemId, retriesRemaining - 1);
-    }
+    refreshItemMetadata(itemId);
+    scheduleMetadataRefreshRetry(itemId, retriesRemaining - 1);
   });
 }
 
@@ -2112,7 +2049,7 @@ void TrayService::refreshItemMetadata(const std::string& itemId) {
           next.statusNotifierTitle = std::move(statusNotifierTitle);
           next.statusNotifierDescription = std::move(statusNotifierDescription);
           next.status = get_item_property_string_from(properties, "Status", cur.status);
-          next.needsAttention = (next.status == "NeedsAttention");
+          next.needsAttention = (StringUtils::toLower(next.status) == "needsattention");
 
           if (next.itemName == "chrome_status_icon_1" && !next.statusNotifierTitle.empty()) {
             next.itemName = next.itemName + "::" + next.statusNotifierTitle;

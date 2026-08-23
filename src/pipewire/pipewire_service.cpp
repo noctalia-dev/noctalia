@@ -37,8 +37,8 @@
 namespace {
 
   // Volume change thresholds.
-  constexpr auto kVolumeStepDefault = 0.05f;
-  constexpr auto kVolumeChangeEpsilon = 0.0001f;
+  constexpr auto kVolumeStepDefault = 0.05F;
+  constexpr auto kVolumeChangeEpsilon = 0.0001F;
 
   // Held-key relative adjustment: accumulate a gesture-local target so async read-back echoes
   // can't rubber-band the ramp; a gap past the window or a direction change restarts the gesture.
@@ -47,7 +47,7 @@ namespace {
 
   // Write guard: keep optimistic local volume briefly and ignore echoes within epsilon.
   constexpr auto kVolumeWriteGuardDuration = std::chrono::milliseconds(400);
-  constexpr auto kVolumeWriteGuardEpsilon = 0.02f;
+  constexpr auto kVolumeWriteGuardEpsilon = 0.02F;
 
   // Registry events.
   void onRegistryGlobal(
@@ -341,10 +341,10 @@ namespace {
       const std::uint32_t elemType = SPA_POD_ARRAY_VALUE_TYPE(arr);
       if (n > 0 && elemType == SPA_TYPE_Float && elemSize == sizeof(float)) {
         const auto* samples = static_cast<const float*>(SPA_POD_ARRAY_VALUES(arr));
-        float maxVol = 0.0f;
+        float maxVol = 0.0F;
         for (std::uint32_t i = 0; i < n; ++i) {
           const float cubic = samples[i];
-          const float linear = std::cbrt(std::max(0.0f, cubic));
+          const float linear = std::cbrt(std::max(0.0F, cubic));
           maxVol = std::max(linear, maxVol);
         }
         outVolume = maxVol;
@@ -354,9 +354,9 @@ namespace {
         return;
       }
     }
-    float cubic = 0.0f;
+    float cubic = 0.0F;
     if (spa_pod_get_float(inner, &cubic) == 0) {
-      outVolume = std::cbrt(std::max(0.0f, cubic));
+      outVolume = std::cbrt(std::max(0.0F, cubic));
       if (outChannelCount != nullptr) {
         *outChannelCount = 1;
       }
@@ -364,9 +364,9 @@ namespace {
   }
 
   struct ParsedPropsVolumes {
-    float channelVol = 1.0f;
-    float scalarVol = 1.0f;
-    float softVol = 1.0f;
+    float channelVol = 1.0F;
+    float scalarVol = 1.0F;
+    float softVol = 1.0F;
     std::uint32_t channelCount = 0;
     bool hasChannel = false;
     bool hasScalar = false;
@@ -393,9 +393,9 @@ namespace {
         const spa_pod* inner = spa_pod_get_values(&prop->value, &nVals, &choiceType);
         (void)nVals;
         (void)choiceType;
-        float cubic = 0.0f;
+        float cubic = 0.0F;
         if (inner != nullptr && spa_pod_get_float(inner, &cubic) == 0) {
-          out->scalarVol = std::cbrt(std::max(0.0f, cubic));
+          out->scalarVol = std::cbrt(std::max(0.0F, cubic));
           out->hasScalar = true;
         }
       } else if (prop->key == SPA_PROP_softVolumes) {
@@ -426,11 +426,11 @@ namespace {
     if (p.hasSoft) {
       return p.softVol;
     }
-    return -1.0f;
+    return -1.0F;
   }
 
   [[nodiscard]] bool shouldRejectVolumeWrite(const PipeWireService::NodeData& nd, float candidateVol) {
-    if (nd.lastWrittenVolume < 0.0f) {
+    if (nd.lastWrittenVolume < 0.0F) {
       return false;
     }
     const auto now = std::chrono::steady_clock::now();
@@ -441,7 +441,7 @@ namespace {
   }
 
   void confirmVolumeWrite(PipeWireService::NodeData& nd, float candidateVol) {
-    if (nd.lastWrittenVolume < 0.0f) {
+    if (nd.lastWrittenVolume < 0.0F) {
       return;
     }
     if (std::abs(candidateVol - nd.lastWrittenVolume) <= kVolumeWriteGuardEpsilon) {
@@ -451,11 +451,11 @@ namespace {
 
   bool mergeIncomingVolumes(PipeWireService::NodeData& nd, const ParsedPropsVolumes& p) {
     const float candidate = resolvedVolume(p);
-    if (candidate >= 0.0f && shouldRejectVolumeWrite(nd, candidate)) {
+    if (candidate >= 0.0F && shouldRejectVolumeWrite(nd, candidate)) {
       return false;
     }
     mergeParsedVolumesIntoNode(nd, p);
-    if (candidate >= 0.0f) {
+    if (candidate >= 0.0F) {
       confirmVolumeWrite(nd, candidate);
     }
     return true;
@@ -586,6 +586,17 @@ namespace {
 
   [[nodiscard]] bool isTrackedNodeClass(std::string_view mediaClass) {
     return std::ranges::contains(kTrackedNodeClasses, mediaClass) || mediaClass.contains("Video");
+  }
+
+  // PipeWire exposes virtual endpoints (e.g. EasyEffects) with a suffix such
+  // as `Audio/Sink/Virtual`; collapse them to the base class so downstream
+  // tracking treats them like normal sinks/sources.
+  void normalizeAudioMediaClass(std::string& mediaClass) {
+    if (mediaClass.starts_with("Audio/Sink")) {
+      mediaClass = "Audio/Sink";
+    } else if (mediaClass.starts_with("Audio/Source")) {
+      mediaClass = "Audio/Source";
+    }
   }
 
   [[nodiscard]] bool isPrivacyCandidateClass(std::string_view mediaClass) {
@@ -758,7 +769,7 @@ PipeWireService::PipeWireService() {
   kLog.info("connected (version {})", pw_get_library_version());
   const auto* sink = defaultSink();
   if (sink != nullptr) {
-    kLog.info("default sink \"{}\" vol={:.0f}%", sink->description, sink->volume * 100.0f);
+    kLog.info("default sink \"{}\" vol={:.0F}%", sink->description, sink->volume * 100.0F);
   }
 }
 
@@ -947,6 +958,8 @@ void PipeWireService::onRegistryGlobal(std::uint32_t id, const char* type, std::
   // Track audio nodes and privacy-relevant stream nodes.
   if (std::strcmp(type, PW_TYPE_INTERFACE_Node) == 0) {
     std::string mediaClass = dictGet(props, PW_KEY_MEDIA_CLASS);
+    normalizeAudioMediaClass(mediaClass);
+
     if (!isTrackedNodeClass(mediaClass)) {
       return;
     }
@@ -1141,6 +1154,7 @@ void PipeWireService::onNodeInfo(std::uint32_t id, const pw_node_info* info) {
   if (info->props != nullptr) {
     std::string mediaClass = dictGet(info->props, PW_KEY_MEDIA_CLASS);
     if (!mediaClass.empty()) {
+      normalizeAudioMediaClass(mediaClass);
       nd.mediaClass = std::move(mediaClass);
     }
     std::string desc = dictGet(info->props, PW_KEY_NODE_DESCRIPTION);
@@ -1328,7 +1342,7 @@ void PipeWireService::onNodeParam(
   }
 
   float candidateVol = resolvedVolume(parsed);
-  if (candidateVol >= 0.0f) {
+  if (candidateVol >= 0.0F) {
     mergeIncomingVolumes(nd, parsed);
   }
 
@@ -1471,7 +1485,7 @@ void PipeWireService::onMixerVolumeChanged(std::uint32_t id, float volume, bool 
     return;
   }
 
-  const float clamped = std::clamp(volume, 0.0f, 1.5f);
+  const float clamped = std::clamp(volume, 0.0F, 1.5F);
   bool changed = false;
   if (std::abs(nd.volume - clamped) >= kVolumeChangeEpsilon) {
     nd.volume = clamped;
@@ -1710,15 +1724,15 @@ void PipeWireService::applyVolumePropsFromDict(NodeData& nd, const spa_dict* pro
   }
 
   if (applyMixerFieldsFromDict) {
-    float candidate = -1.0f;
+    float candidate = -1.0F;
     if (const auto maybeChannelmixVolume = parseFloat(dictGet(props, "channelmix.volume"));
         maybeChannelmixVolume.has_value()) {
-      candidate = std::clamp(*maybeChannelmixVolume, 0.0f, 1.5f);
+      candidate = std::clamp(*maybeChannelmixVolume, 0.0F, 1.5F);
     } else if (const auto maybeVolume = parseFloat(dictGet(props, "volume")); maybeVolume.has_value()) {
-      candidate = std::clamp(*maybeVolume, 0.0f, 1.5f);
+      candidate = std::clamp(*maybeVolume, 0.0F, 1.5F);
     }
 
-    if (candidate >= 0.0f && !shouldRejectVolumeWrite(nd, candidate)) {
+    if (candidate >= 0.0F && !shouldRejectVolumeWrite(nd, candidate)) {
       nd.volume = candidate;
       confirmVolumeWrite(nd, candidate);
     }
@@ -1750,7 +1764,7 @@ bool PipeWireService::applyNodeVolume(std::uint32_t id, float volume) {
     return false;
   }
 
-  volume = std::clamp(volume, 0.0f, 1.5f);
+  volume = std::clamp(volume, 0.0F, 1.5F);
 
   // Device nodes go through WirePlumber's mixer-api so the change lands where pipewire-pulse /
   // pavucontrol read it. A raw node/route write bypasses that and desyncs pavucontrol; see
@@ -1813,13 +1827,13 @@ float PipeWireService::relativeAdjustTarget(
 
   if (!held) {
     // Isolated tap or new gesture: a fixed, granular step from the live volume.
-    m_relativeAdjust.target = std::clamp(current + direction * baseStep, 0.0f, maxVolume);
+    m_relativeAdjust.target = std::clamp(current + direction * baseStep, 0.0F, maxVolume);
     return m_relativeAdjust.target;
   }
 
   // Held: advance the gesture-local target by a flat baseStep on every event, relying on
   // the gesture-local target accumulator to bypass asynchronous read-back echoes.
-  m_relativeAdjust.target = std::clamp(m_relativeAdjust.target + direction * baseStep, 0.0f, maxVolume);
+  m_relativeAdjust.target = std::clamp(m_relativeAdjust.target + direction * baseStep, 0.0F, maxVolume);
   return m_relativeAdjust.target;
 }
 
@@ -1833,7 +1847,7 @@ void PipeWireService::setNodeVolume(std::uint32_t id, float volume) {
     return;
   }
 
-  const float clamped = std::clamp(volume, 0.0f, 1.5f);
+  const float clamped = std::clamp(volume, 0.0F, 1.5F);
 
   const std::string& appBinary = it->second->applicationBinary;
   if (!appBinary.empty()) {
@@ -1982,7 +1996,7 @@ void PipeWireService::setVolume(float volume) {
     return;
   }
   const std::uint32_t sinkId = sink->id;
-  volume = std::clamp(volume, 0.0f, 1.5f);
+  volume = std::clamp(volume, 0.0F, 1.5F);
   setNodeVolume(sinkId, volume);
   emitVolumePreview(false, sinkId, volume);
 }
@@ -2004,7 +2018,7 @@ void PipeWireService::setMicVolume(float volume) {
     return;
   }
   const std::uint32_t sourceId = source->id;
-  volume = std::clamp(volume, 0.0f, 1.5f);
+  volume = std::clamp(volume, 0.0F, 1.5F);
   setNodeVolume(sourceId, volume);
   emitVolumePreview(true, sourceId, volume);
 }
@@ -2026,7 +2040,7 @@ void PipeWireService::emitVolumePreview(bool isInput, std::uint32_t id, float vo
   }
   const auto it = m_nodes.find(id);
   const bool muted = (it != m_nodes.end()) ? it->second->muted : false;
-  m_volumePreviewCallback(isInput, id, std::clamp(volume, 0.0f, 1.5f), muted);
+  m_volumePreviewCallback(isInput, id, std::clamp(volume, 0.0F, 1.5F), muted);
 }
 
 void PipeWireService::emitChanged() {
@@ -2041,9 +2055,8 @@ void PipeWireService::registerIpc(IpcService& ipc, const ConfigService& config) 
       "error: invalid volume value (use percent like 65 or 65%, or normalized like 0.65)\n";
   const auto parseVolumeStepError = "error: invalid volume step (use percent like 5 or 5%, or normalized like 0.05)\n";
 
-  ipc.registerHandler(
-      "volume-set",
-      [this, maxVolume, parseVolumeValueError](const std::string& args) -> std::string {
+  ipc.bind(
+      noctalia::cli::msg::volumeSet, [this, maxVolume, parseVolumeValueError](const std::string& args) -> std::string {
         const auto parts = noctalia::ipc::splitWords(args);
         if (parts.size() != 1) {
           return "error: volume-set requires <value>\n";
@@ -2052,20 +2065,18 @@ void PipeWireService::registerIpc(IpcService& ipc, const ConfigService& config) 
         if (!sink)
           return "error: no default output\n";
 
-        const auto amount = noctalia::ipc::parseNormalizedOrPercent(parts[0], maxVolume() * 100.0f);
+        const auto amount = noctalia::ipc::parseNormalizedOrPercent(parts[0], maxVolume() * 100.0F);
         if (!amount.has_value()) {
           return parseVolumeValueError;
         }
 
-        setVolume(std::clamp(*amount, 0.0f, maxVolume()));
+        setVolume(std::clamp(*amount, 0.0F, maxVolume()));
         return "ok\n";
-      },
-      "<value>", "Set speaker volume"
+      }
   );
 
-  ipc.registerHandler(
-      "volume-up",
-      [this, maxVolume, parseVolumeStepError](const std::string& args) -> std::string {
+  ipc.bind(
+      noctalia::cli::msg::volumeUp, [this, maxVolume, parseVolumeStepError](const std::string& args) -> std::string {
         const auto parts = noctalia::ipc::splitWords(args);
         if (parts.size() > 1) {
           return "error: volume-up accepts at most one optional [step]\n";
@@ -2075,20 +2086,18 @@ void PipeWireService::registerIpc(IpcService& ipc, const ConfigService& config) 
           return "error: no default output\n";
 
         const auto step = parts.empty() ? std::optional<float>(kVolumeStepDefault)
-                                        : noctalia::ipc::parseNormalizedOrPercent(parts[0], maxVolume() * 100.0f);
+                                        : noctalia::ipc::parseNormalizedOrPercent(parts[0], maxVolume() * 100.0F);
         if (!step.has_value()) {
           return parseVolumeStepError;
         }
 
-        setVolume(relativeAdjustTarget(1, *step, 1.0f, sink->volume, maxVolume()));
+        setVolume(relativeAdjustTarget(1, *step, 1.0F, sink->volume, maxVolume()));
         return "ok\n";
-      },
-      "[step]", "Increase speaker volume"
+      }
   );
 
-  ipc.registerHandler(
-      "volume-down",
-      [this, maxVolume, parseVolumeStepError](const std::string& args) -> std::string {
+  ipc.bind(
+      noctalia::cli::msg::volumeDown, [this, maxVolume, parseVolumeStepError](const std::string& args) -> std::string {
         const auto parts = noctalia::ipc::splitWords(args);
         if (parts.size() > 1) {
           return "error: volume-down accepts at most one optional [step]\n";
@@ -2098,31 +2107,26 @@ void PipeWireService::registerIpc(IpcService& ipc, const ConfigService& config) 
           return "error: no default output\n";
 
         const auto step = parts.empty() ? std::optional<float>(kVolumeStepDefault)
-                                        : noctalia::ipc::parseNormalizedOrPercent(parts[0], maxVolume() * 100.0f);
+                                        : noctalia::ipc::parseNormalizedOrPercent(parts[0], maxVolume() * 100.0F);
         if (!step.has_value()) {
           return parseVolumeStepError;
         }
 
-        setVolume(relativeAdjustTarget(2, *step, -1.0f, sink->volume, maxVolume()));
+        setVolume(relativeAdjustTarget(2, *step, -1.0F, sink->volume, maxVolume()));
         return "ok\n";
-      },
-      "[step]", "Decrease speaker volume"
+      }
   );
 
-  ipc.registerHandler(
-      "volume-mute",
-      [this](const std::string&) -> std::string {
-        const auto* sink = defaultSink();
-        if (!sink)
-          return "error: no default output\n";
-        setMuted(!sink->muted);
-        return "ok\n";
-      },
-      "", "Toggle speaker mute"
-  );
+  ipc.bind(noctalia::cli::msg::volumeMute, [this](const std::string&) -> std::string {
+    const auto* sink = defaultSink();
+    if (!sink)
+      return "error: no default output\n";
+    setMuted(!sink->muted);
+    return "ok\n";
+  });
 
-  ipc.registerHandler(
-      "mic-volume-set",
+  ipc.bind(
+      noctalia::cli::msg::micVolumeSet,
       [this, maxVolume, parseVolumeValueError](const std::string& args) -> std::string {
         const auto parts = noctalia::ipc::splitWords(args);
         if (parts.size() != 1) {
@@ -2132,20 +2136,18 @@ void PipeWireService::registerIpc(IpcService& ipc, const ConfigService& config) 
         if (!source)
           return "error: no default input\n";
 
-        const auto amount = noctalia::ipc::parseNormalizedOrPercent(parts[0], maxVolume() * 100.0f);
+        const auto amount = noctalia::ipc::parseNormalizedOrPercent(parts[0], maxVolume() * 100.0F);
         if (!amount.has_value()) {
           return parseVolumeValueError;
         }
 
-        setMicVolume(std::clamp(*amount, 0.0f, maxVolume()));
+        setMicVolume(std::clamp(*amount, 0.0F, maxVolume()));
         return "ok\n";
-      },
-      "<value>", "Set microphone volume"
+      }
   );
 
-  ipc.registerHandler(
-      "mic-volume-up",
-      [this, maxVolume, parseVolumeStepError](const std::string& args) -> std::string {
+  ipc.bind(
+      noctalia::cli::msg::micVolumeUp, [this, maxVolume, parseVolumeStepError](const std::string& args) -> std::string {
         const auto parts = noctalia::ipc::splitWords(args);
         if (parts.size() > 1) {
           return "error: mic-volume-up accepts at most one optional [step]\n";
@@ -2155,19 +2157,18 @@ void PipeWireService::registerIpc(IpcService& ipc, const ConfigService& config) 
           return "error: no default input\n";
 
         const auto step = parts.empty() ? std::optional<float>(kVolumeStepDefault)
-                                        : noctalia::ipc::parseNormalizedOrPercent(parts[0], maxVolume() * 100.0f);
+                                        : noctalia::ipc::parseNormalizedOrPercent(parts[0], maxVolume() * 100.0F);
         if (!step.has_value()) {
           return parseVolumeStepError;
         }
 
-        setMicVolume(relativeAdjustTarget(3, *step, 1.0f, source->volume, maxVolume()));
+        setMicVolume(relativeAdjustTarget(3, *step, 1.0F, source->volume, maxVolume()));
         return "ok\n";
-      },
-      "[step]", "Increase microphone volume"
+      }
   );
 
-  ipc.registerHandler(
-      "mic-volume-down",
+  ipc.bind(
+      noctalia::cli::msg::micVolumeDown,
       [this, maxVolume, parseVolumeStepError](const std::string& args) -> std::string {
         const auto parts = noctalia::ipc::splitWords(args);
         if (parts.size() > 1) {
@@ -2178,26 +2179,21 @@ void PipeWireService::registerIpc(IpcService& ipc, const ConfigService& config) 
           return "error: no default input\n";
 
         const auto step = parts.empty() ? std::optional<float>(kVolumeStepDefault)
-                                        : noctalia::ipc::parseNormalizedOrPercent(parts[0], maxVolume() * 100.0f);
+                                        : noctalia::ipc::parseNormalizedOrPercent(parts[0], maxVolume() * 100.0F);
         if (!step.has_value()) {
           return parseVolumeStepError;
         }
 
-        setMicVolume(relativeAdjustTarget(4, *step, -1.0f, source->volume, maxVolume()));
+        setMicVolume(relativeAdjustTarget(4, *step, -1.0F, source->volume, maxVolume()));
         return "ok\n";
-      },
-      "[step]", "Decrease microphone volume"
+      }
   );
 
-  ipc.registerHandler(
-      "mic-mute",
-      [this](const std::string&) -> std::string {
-        const auto* source = defaultSource();
-        if (!source)
-          return "error: no default input\n";
-        setMicMuted(!source->muted);
-        return "ok\n";
-      },
-      "", "Toggle microphone mute"
-  );
+  ipc.bind(noctalia::cli::msg::micMute, [this](const std::string&) -> std::string {
+    const auto* source = defaultSource();
+    if (!source)
+      return "error: no default input\n";
+    setMicMuted(!source->muted);
+    return "ok\n";
+  });
 }

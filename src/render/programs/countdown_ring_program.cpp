@@ -117,17 +117,17 @@ void CountdownRingProgram::draw(
     float surfaceWidth, float surfaceHeight, float width, float height, const CountdownRingStyle& style,
     const Mat3& transform
 ) const {
-  if (!m_program.isValid() || width <= 0.0f || height <= 0.0f) {
+  if (!m_program.isValid() || width <= 0.0F || height <= 0.0F) {
     return;
   }
 
   const std::array<GLfloat, 12> vertices = {
-      0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f, 1.0f,
+      0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 1.0F, 0.0F, 1.0F, 1.0F,
   };
 
-  const float padding = style.thickness + 2.0f;
-  const float quadWidth = width + padding * 2.0f;
-  const float quadHeight = height + padding * 2.0f;
+  const float padding = style.thickness + 2.0F;
+  const float quadWidth = width + padding * 2.0F;
+  const float quadHeight = height + padding * 2.0F;
   const Mat3 quadTransform = transform * Mat3::translation(-padding, -padding);
 
   glUseProgram(m_program.id());

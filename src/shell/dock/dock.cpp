@@ -51,7 +51,7 @@ namespace {
   }
 
   desktop_entry_launch::LaunchOptions
-  dockLaunchOptions(const CompositorPlatform& platform, const ConfigService& config) {
+  dockLaunchOptions(const CompositorPlatform& platform, const ConfigService& config, const DesktopEntry& entry = {}) {
     std::string token;
     if (platform.hasXdgActivation()) {
       // No layer-shell surface — binding it can misplace first launches on Hyprland.
@@ -61,12 +61,14 @@ namespace {
         .activationToken = std::move(token),
         .runAsSystemdService = config.config().shell.launchAppsAsSystemdServices,
         .customCommand = config.config().shell.launchAppsCustomCommand,
+        .dbusActivatable = entry.dbusActivatable,
+        .dbusAppId = entry.id,
     };
   }
 
   template <typename T> void appendOptionalStackPart(std::string& out, const std::optional<T>& value) {
     out += value.has_value() ? std::format("{}", *value) : "-";
-    out.push_back('\x1f');
+    out.push_back('\x1F');
   }
 
   std::vector<std::string> barLayerStackSignature(const Config& config) {
@@ -75,14 +77,14 @@ namespace {
 
     for (const auto& bar : config.bars) {
       std::string item = std::format(
-          "{}\x1f{}\x1f{}\x1f{}\x1f{}\x1f{}\x1f{}\x1f{}\x1f{}\x1f{}", bar.name, bar.position, bar.enabled, bar.autoHide,
+          "{}\x1F{}\x1F{}\x1F{}\x1F{}\x1F{}\x1F{}\x1F{}\x1F{}\x1F{}", bar.name, bar.position, bar.enabled, bar.autoHide,
           bar.reserveSpace, bar.layer, bar.thickness, bar.marginEnds, bar.marginEdge, bar.shadow
       );
 
       item.push_back('\x1e');
       for (const auto& override : bar.monitorOverrides) {
         item += override.match;
-        item.push_back('\x1f');
+        item.push_back('\x1F');
         appendOptionalStackPart(item, override.enabled);
         appendOptionalStackPart(item, override.autoHide);
         appendOptionalStackPart(item, override.reserveSpace);
@@ -118,9 +120,19 @@ namespace {
   }
 
   [[nodiscard]] bool matchesActiveWindow(
-      const ToplevelInfo& window, const ActiveToplevel& active, const std::vector<ToplevelInfo>& windows
+      const ToplevelInfo& window, const ActiveToplevel& active, std::string_view focusedCompositorWindowId,
+      const std::vector<ToplevelInfo>& windows
   ) {
     if (active.handle != nullptr && window.handle == active.handle) {
+      return true;
+    }
+
+    // Exact-identity ext toplevels have no wlr handle; match them by the compositor's focused
+    // window id, since `active.identifier` is an appId+title synthetic key for wlr toplevels.
+    if (window.exactIdentity
+        && !window.identifier.empty()
+        && !focusedCompositorWindowId.empty()
+        && window.identifier == focusedCompositorWindowId) {
       return true;
     }
 
@@ -139,7 +151,7 @@ namespace {
 
   const ToplevelInfo* nextActivatableWindow(
       const std::vector<ToplevelInfo>& windows, const std::optional<ActiveToplevel>& active,
-      std::string_view preferredIdentifier
+      std::string_view focusedCompositorWindowId, std::string_view preferredIdentifier
   ) {
     if (windows.empty()) {
       return nullptr;
@@ -147,7 +159,7 @@ namespace {
 
     if (active.has_value()) {
       for (std::size_t i = 0; i < windows.size(); ++i) {
-        if (!matchesActiveWindow(windows[i], *active, windows)) {
+        if (!matchesActiveWindow(windows[i], *active, focusedCompositorWindowId, windows)) {
           continue;
         }
         for (std::size_t offset = 1; offset <= windows.size(); ++offset) {
@@ -512,7 +524,7 @@ bool Dock::onPointerEvent(const PointerEvent& event) {
       }
       const float current = m_hoveredInstance->hideOpacity;
       m_hoveredInstance->hideAnimId = m_hoveredInstance->animations.animate(
-          current, 1.0f, Style::animNormal, Easing::EaseOutCubic,
+          current, 1.0F, Style::animNormal, Easing::EaseOutCubic,
           [inst = m_hoveredInstance, this](float v) {
             inst->hideOpacity = v;
             const auto& cfg = m_config->config().dock;
@@ -591,7 +603,8 @@ bool Dock::onPointerEvent(const PointerEvent& event) {
       break;
     const bool pressed = event.pressed;
     m_hoveredInstance->inputDispatcher.pointerButton(
-        static_cast<float>(event.sx), static_cast<float>(event.sy), event.button, pressed
+        static_cast<float>(event.sx), static_cast<float>(event.sy), event.button, pressed, event.serial, event.time,
+        event.touch
     );
     break;
   }
@@ -656,7 +669,12 @@ void Dock::syncInstances() {
   // Remove instances for dead outputs or outputs no longer selected.
   std::erase_if(m_instances, [this, &outputs, &outputAllowed](const auto& inst) {
     const auto it = std::ranges::find(outputs, inst->outputName, &WaylandOutput::name);
-    const bool drop = (it == outputs.end()) || !outputAllowed(*it);
+    const bool geometryChanged = it != outputs.end()
+        && (inst->outputLogicalX != it->logicalX
+            || inst->outputLogicalY != it->logicalY
+            || inst->outputLogicalWidth != it->effectiveLogicalWidth()
+            || inst->outputLogicalHeight != it->effectiveLogicalHeight());
+    const bool drop = (it == outputs.end()) || !outputAllowed(*it) || geometryChanged;
     if (drop) {
       detachInstanceState(*inst);
     }
@@ -736,12 +754,12 @@ void Dock::reevaluateSmartAutoHide() {
 
     bool needsRedraw = pinnedChanged;
     if (wantsPinned) {
-      if (instance->hideOpacity < 1.0f || pinnedChanged) {
+      if (instance->hideOpacity < 1.0F || pinnedChanged) {
         shell::dock::revealAutoHideDock(*instance, *m_config);
         needsRedraw = true;
       }
     } else if (!instance->pointerInside && m_popupOwnerInstance == nullptr) {
-      if (instance->hideOpacity > 0.0f || pinnedChanged) {
+      if (instance->hideOpacity > 0.0F || pinnedChanged) {
         shell::dock::startHideFadeOut(*instance, *m_config);
         needsRedraw = true;
       }
@@ -766,6 +784,10 @@ void Dock::createInstance(const WaylandOutput& output) {
   instance->outputName = output.name;
   instance->output = output.output;
   instance->scale = output.scale;
+  instance->outputLogicalX = output.logicalX;
+  instance->outputLogicalY = output.logicalY;
+  instance->outputLogicalWidth = output.effectiveLogicalWidth();
+  instance->outputLogicalHeight = output.effectiveLogicalHeight();
 
   const auto& shadowConfig = m_config->config().shell.shadow;
   LayerSurfaceConfig lsCfg = shell::dock::makeLayerSurfaceConfig(
@@ -835,6 +857,11 @@ bool Dock::syncInstanceModel(shell::dock::DockInstance& instance) {
       if (!active->identifier.empty()) {
         m_lastActiveIdentifierByAppIdLower[activeIdLower] = active->identifier;
       }
+    }
+    // Also record the compositor-exact focused window id so preferred-identifier lookups
+    // match ext-only toplevels (whose identifier is the exact window id, not appId+title).
+    if (const auto focusedId = m_platform->focusedCompositorWindowId(); focusedId.has_value() && !focusedId->empty()) {
+      m_lastActiveIdentifierByAppIdLower[activeIdLower] = *focusedId;
     }
   }
 
@@ -1076,7 +1103,7 @@ void Dock::closeItemMenu() {
 
   if (owner->pointerInside
       || m_config == nullptr
-      || owner->hideOpacity <= 0.0f
+      || owner->hideOpacity <= 0.0F
       || !dockPointerHideAllowed(m_config->config().dock, *owner)) {
     return;
   }
@@ -1136,7 +1163,7 @@ void Dock::activateOrLaunchItem(shell::dock::DockInstance& instance, const shell
         .deadline = std::chrono::steady_clock::now() + std::chrono::seconds(8),
     };
     m_platform->prepareAppLaunchOnOutput(instance.output);
-    (void)desktop_entry_launch::launchEntry(action.entry, dockLaunchOptions(*m_platform, *m_config));
+    (void)desktop_entry_launch::launchEntry(action.entry, dockLaunchOptions(*m_platform, *m_config, action.entry));
     return;
   }
 
@@ -1152,7 +1179,11 @@ void Dock::activateOrLaunchItem(shell::dock::DockInstance& instance, const shell
     preferredIdentifier = it->second;
   }
 
-  if (const ToplevelInfo* nextWindow = nextActivatableWindow(windows, active, preferredIdentifier);
+  const auto focusedCompositorWindowId = m_platform->focusedCompositorWindowId();
+  const std::string_view focusedCompositorWindowIdView =
+      focusedCompositorWindowId.has_value() ? std::string_view(*focusedCompositorWindowId) : std::string_view{};
+  if (const ToplevelInfo* nextWindow =
+          nextActivatableWindow(windows, active, focusedCompositorWindowIdView, preferredIdentifier);
       nextWindow != nullptr) {
     m_platform->activateToplevelInfo(*nextWindow);
     return;
@@ -1206,11 +1237,12 @@ void Dock::openItemMenu(shell::dock::DockInstance& instance, const shell::dock::
             }
           },
       .launchAction =
-          [this, entryId, entryWorkingDir, entryTerminal,
+          [this, entryId, entryWorkingDir, entryTerminal, entryForPin,
            output = instance.output](const DesktopAction& desktopAction) {
             m_platform->prepareAppLaunchOnOutput(output);
             (void)desktop_entry_launch::launchAction(
-                desktopAction, entryId, entryWorkingDir, entryTerminal, dockLaunchOptions(*m_platform, *m_config)
+                desktopAction, entryId, entryWorkingDir, entryTerminal,
+                dockLaunchOptions(*m_platform, *m_config, entryForPin)
             );
           },
       .setEntryPinned =
@@ -1244,42 +1276,26 @@ void Dock::openItemMenu(shell::dock::DockInstance& instance, const shell::dock::
 }
 
 void Dock::registerIpc(IpcService& ipc) {
-  ipc.registerHandler(
-      "dock-show",
-      [this](const std::string&) -> std::string {
-        if (m_config)
-          m_config->setDockEnabled(true);
-        return "ok\n";
-      },
-      "", "Show the dock (persists override)"
-  );
+  ipc.bind(noctalia::cli::msg::dockShow, [this](const std::string&) -> std::string {
+    if (m_config)
+      m_config->setDockEnabled(true);
+    return "ok\n";
+  });
 
-  ipc.registerHandler(
-      "dock-hide",
-      [this](const std::string&) -> std::string {
-        if (m_config)
-          m_config->setDockEnabled(false);
-        return "ok\n";
-      },
-      "", "Hide the dock (persists override)"
-  );
+  ipc.bind(noctalia::cli::msg::dockHide, [this](const std::string&) -> std::string {
+    if (m_config)
+      m_config->setDockEnabled(false);
+    return "ok\n";
+  });
 
-  ipc.registerHandler(
-      "dock-toggle",
-      [this](const std::string&) -> std::string {
-        if (m_config)
-          m_config->setDockEnabled(!m_config->config().dock.enabled);
-        return "ok\n";
-      },
-      "", "Toggle dock visibility (persists override)"
-  );
+  ipc.bind(noctalia::cli::msg::dockToggle, [this](const std::string&) -> std::string {
+    if (m_config)
+      m_config->setDockEnabled(!m_config->config().dock.enabled);
+    return "ok\n";
+  });
 
-  ipc.registerHandler(
-      "dock-reload",
-      [this](const std::string&) -> std::string {
-        reload();
-        return "ok\n";
-      },
-      "", "Reload dock configuration"
-  );
+  ipc.bind(noctalia::cli::msg::dockReload, [this](const std::string&) -> std::string {
+    reload();
+    return "ok\n";
+  });
 }

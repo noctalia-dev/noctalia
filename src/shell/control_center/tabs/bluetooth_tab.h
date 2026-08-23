@@ -65,5 +65,5 @@ private:
   std::unordered_map<std::string, BluetoothDeviceRow*> m_deviceRows;
 
   std::string m_lastStructureKey;
-  float m_lastListWidth = -1.0f;
+  float m_lastListWidth = -1.0F;
 };

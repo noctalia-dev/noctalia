@@ -26,6 +26,7 @@ struct KeyboardEvent;
 struct PointerEvent;
 struct WaylandOutput;
 struct wl_output;
+struct wl_surface;
 
 class NotificationToast {
 public:
@@ -43,6 +44,7 @@ public:
   );
   void onConfigReload();
   void onOutputChange();
+  void hideDndSuppressed();
   void requestLayout();
   void requestRedraw();
 
@@ -62,11 +64,12 @@ private:
     std::optional<std::string> icon;
     std::optional<NotificationImageData> imageData;
     Urgency urgency = Urgency::Normal;
+    NotificationDndPolicy dndPolicy = NotificationDndPolicy::Respect;
     int displayDurationMs = 0; // -1 = persistent (no auto-dismiss)
     int32_t rawTimeoutMs = 0;  // raw DBus timeout; >0 means manager has an auto-expire timer we must coordinate with
-    float remainingProgress = 1.0f;
-    float y = -1.0f; // stable top position while visible; negative = queued/off-screen
-    float height = 0.0f;
+    float remainingProgress = 1.0F;
+    float y = -1.0F; // stable top position while visible; negative = queued/off-screen
+    float height = 0.0F;
     // Planned toast chrome (refreshEntryGeometry); buildCard must match these for placement vs paint.
     int toastBodyLines = 0;
     bool exiting = false;
@@ -90,6 +93,7 @@ private:
     InputDispatcher inputDispatcher;
     bool pointerInside = false;
     bool rebuildRequested = false;
+    float sceneRenderScale = 0.0F;
 
     // Per-entry visual nodes for this instance
     struct CardState {
@@ -103,7 +107,7 @@ private:
       // Real laid-out card height for this instance, measured at this surface's render
       // scale in buildCard(). The reveal clip uses this, not the shared entry.height,
       // which is measured once at whatever scale was current on arrival.
-      float clipHeight = 0.0f;
+      float clipHeight = 0.0F;
       AnimationManager::Id countdownAnimId = 0;
       AnimationManager::Id entryAnimId = 0;
       AnimationManager::Id slideAnimId = 0;
@@ -111,8 +115,8 @@ private:
       bool replyMode = false;
     };
     std::vector<CardState> cards;
-    float lastPointerX = 0.0f;
-    float lastPointerY = 0.0f;
+    float lastPointerX = 0.0F;
+    float lastPointerY = 0.0F;
   };
 
   void onNotificationEvent(const Notification& n, NotificationEvent event);
@@ -126,7 +130,7 @@ private:
   void finishExitingEntryIfOrphaned(uint32_t notificationId);
   void updateInputRegion(Instance& inst) const;
   void enterInlineReplyMode(uint32_t notificationId);
-  void submitInlineReply(uint32_t notificationId, const std::string& replyText);
+  void submitInlineReply(uint32_t notificationId, const std::string& replyText, wl_surface* sourceSurface);
   void syncKeyboardInteractivity(Instance& inst) const;
   static void clearInlineReplyFocus(Instance& inst);
   [[nodiscard]] static bool isInlineReplyInputArea(const Instance& inst, const InputArea* area);
@@ -138,8 +142,8 @@ private:
   void prepareFrame(Instance& inst, bool needsUpdate, bool needsLayout);
   void buildScene(Instance& inst, uint32_t width, uint32_t height);
   InputArea* buildCard(
-      const PopupEntry& entry, Node** outCardContent, Node** outCardForeground, ProgressBar** outProgress,
-      Node** outActionsRow, Node** outInlineReplyRow, Input** outInlineReplyInput
+      Instance& outputInstance, const PopupEntry& entry, Node** outCardContent, Node** outCardForeground,
+      ProgressBar** outProgress, Node** outActionsRow, Node** outInlineReplyRow, Input** outInlineReplyInput
   );
   void applyCardReveal(Instance::CardState& cs, float reveal, float y, float cardHeight) const;
   [[nodiscard]] float cardReveal(const Instance::CardState& cs, float cardHeight) const;
@@ -159,6 +163,7 @@ private:
   void pauseCountdowns(uint32_t notificationId);
   void resumeCountdowns(uint32_t notificationId);
   void revealQueuedEntries();
+  void enforceMaxVisible();
   void collapseStack();
   void evictOverlappingEntries(std::size_t anchorIndex);
   [[nodiscard]] bool hasPlacement(const PopupEntry& entry) const;
@@ -184,6 +189,8 @@ private:
   [[nodiscard]] std::optional<float>
   findPlacementY(float entryHeight, std::optional<uint32_t> ignoreNotificationId = std::nullopt) const;
   [[nodiscard]] uint32_t surfaceHeightForOutput(wl_output* output) const;
+  // Configured render scale of a notification output, for pre-surface sizing.
+  [[nodiscard]] float notificationScale() const;
   [[nodiscard]] std::string resolveNotificationIconPath(const PopupEntry& entry);
 
   WaylandConnection* m_wayland = nullptr;

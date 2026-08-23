@@ -78,9 +78,9 @@ namespace scripting::plugin_git {
       const auto r = process::runSync(args, std::move(options));
       const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
       if (ms >= kSlowGitMs) {
-        kLog.info("{} took {:.0f}ms (exit {})", desc, ms, r.exitCode);
+        kLog.info("{} took {:.0F}ms (exit {})", desc, ms, r.exitCode);
       } else {
-        kLog.debug("{} took {:.0f}ms (exit {})", desc, ms, r.exitCode);
+        kLog.debug("{} took {:.0F}ms (exit {})", desc, ms, r.exitCode);
       }
 
       return GitResult{
@@ -144,7 +144,17 @@ namespace scripting::plugin_git {
     );
   }
 
-  GitResult fetch(const std::filesystem::path& dest) {
+  GitResult setOrigin(const std::filesystem::path& dest, std::string_view sourceLocation) {
+    return run(
+        {"git", "-C", dest.string(), "remote", "set-url", "origin", std::string(sourceLocation)}, kLocalTimeout,
+        kProgressCap
+    );
+  }
+
+  GitResult fetch(const std::filesystem::path& dest, std::string_view sourceLocation) {
+    if (auto configured = setOrigin(dest, sourceLocation); !configured) {
+      return configured;
+    }
     // Updates remote-tracking refs + FETCH_HEAD without touching the working tree.
     return run({"git", "-C", dest.string(), "fetch", "origin"}, kNetworkTimeout, kProgressCap);
   }

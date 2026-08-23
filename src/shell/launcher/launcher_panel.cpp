@@ -7,6 +7,7 @@
 #include "core/input/keybind_matcher.h"
 #include "core/ui_phase.h"
 #include "i18n/i18n.h"
+#include "launcher/app_provider.h"
 #include "render/core/async_texture_cache.h"
 #include "render/core/renderer.h"
 #include "render/scene/node.h"
@@ -36,8 +37,8 @@ namespace {
   constexpr std::size_t kRowOverscan = 3;
   // Minimum trimmed query length before prefixed opt-in providers join the global search.
   constexpr std::size_t kGlobalOptInMinChars = 2;
-  constexpr float kIconSizeDefault = 40.0f;
-  constexpr float kIconSizeCompact = 28.0f;
+  constexpr float kIconSizeDefault = 40.0F;
+  constexpr float kIconSizeCompact = 28.0F;
   constexpr std::size_t kAppGridColumns = 5;
   constexpr std::string_view kApplicationsProviderId = "Applications";
   constexpr double kUsageScorePerCount = 0.1;
@@ -107,8 +108,9 @@ namespace {
   }
 
   struct LauncherListStyle {
-    float scale = 1.0f;
+    float scale = 1.0F;
     bool showIcons = true;
+    bool showAppOriginIndicator = true;
     bool compact = false;
     std::optional<ColorSpec> appIconColorizeTint;
     std::optional<ColorSpec> listItemBackground;
@@ -131,23 +133,23 @@ namespace {
   }
 
   [[nodiscard]] float launcherRowHeight(Renderer& renderer, const LauncherListStyle& style) {
-    const float paddingY = (style.compact ? Style::spaceXs * 0.5f : Style::spaceXs) * style.scale;
+    const float paddingY = (style.compact ? Style::spaceXs * 0.5F : Style::spaceXs) * style.scale;
     const float textHeight = launcherTextStackHeight(renderer, style);
     if (!style.showIcons) {
-      return std::ceil(textHeight + paddingY * 2.0f);
+      return std::ceil(textHeight + paddingY * 2.0F);
     }
-    return std::ceil(std::max(launcherIconSize(style), textHeight) + paddingY * 2.0f);
+    return std::ceil(std::max(launcherIconSize(style), textHeight) + paddingY * 2.0F);
   }
 
   [[nodiscard]] float launcherRowHeightEstimate(const LauncherListStyle& style) {
-    const float paddingY = (style.compact ? Style::spaceXs * 0.5f : Style::spaceXs) * style.scale;
+    const float paddingY = (style.compact ? Style::spaceXs * 0.5F : Style::spaceXs) * style.scale;
     const float bodySize = Style::fontSizeBody * style.scale;
     const float captionSize = Style::fontSizeCaption * style.scale;
-    const float textHeight = bodySize + (style.compact ? 0.0f : captionSize);
+    const float textHeight = bodySize + (style.compact ? 0.0F : captionSize);
     if (!style.showIcons) {
-      return std::ceil(textHeight + paddingY * 2.0f);
+      return std::ceil(textHeight + paddingY * 2.0F);
     }
-    return std::ceil(std::max(launcherIconSize(style), textHeight) + paddingY * 2.0f);
+    return std::ceil(std::max(launcherIconSize(style), textHeight) + paddingY * 2.0F);
   }
 
   [[nodiscard]] float launcherAppGridLabelHeight(Renderer& renderer, const LauncherListStyle& style, float wrapWidth) {
@@ -155,9 +157,9 @@ namespace {
     const TextMetrics metrics =
         renderer.measureText("Ag\nyg", fontSize, FontWeight::Normal, wrapWidth, 2, TextAlign::Center);
     const float actualHeight = metrics.bottom - metrics.top;
-    const float inkSpan = std::max(0.0f, metrics.inkBottom - metrics.inkTop);
+    const float inkSpan = std::max(0.0F, metrics.inkBottom - metrics.inkTop);
     const float rowExtent = renderer.fontRowExtent(fontSize, FontWeight::Normal);
-    return std::ceil(std::max({actualHeight, inkSpan, rowExtent * 2.0f}));
+    return std::ceil(std::max({actualHeight, inkSpan, rowExtent * 2.0F}));
   }
 
   [[nodiscard]] float launcherAppGridCellHeight(Renderer& renderer, const LauncherListStyle& style, float wrapWidth) {
@@ -165,15 +167,15 @@ namespace {
     const float gap = Style::spaceXs * style.scale;
     const float iconSize = launcherIconSize(style);
     const float labelHeight = launcherAppGridLabelHeight(renderer, style, wrapWidth);
-    return std::ceil(paddingY * 2.0f + iconSize + gap + labelHeight);
+    return std::ceil(paddingY * 2.0F + iconSize + gap + labelHeight);
   }
 
   [[nodiscard]] float launcherAppGridCellHeightEstimate(const LauncherListStyle& style) {
     const float paddingY = Style::spaceSm * style.scale;
     const float gap = Style::spaceXs * style.scale;
     const float iconSize = launcherIconSize(style);
-    const float labelHeight = Style::fontSizeCaption * style.scale * 2.4f;
-    return std::ceil(paddingY * 2.0f + iconSize + gap + labelHeight);
+    const float labelHeight = Style::fontSizeCaption * style.scale * 2.4F;
+    return std::ceil(paddingY * 2.0F + iconSize + gap + labelHeight);
   }
 
   [[nodiscard]] LauncherListStyle launcherListStyleFrom(const ConfigService* config, float scale, float cardOpacity) {
@@ -181,6 +183,7 @@ namespace {
     if (config != nullptr) {
       const auto& launcher = config->config().shell.launcher;
       style.showIcons = launcher.showIcons;
+      style.showAppOriginIndicator = launcher.showAppOriginIndicator;
       style.compact = launcher.compact;
       style.appIconColorizeTint = effectiveShellAppIconColorizationTint(config->config().shell);
       if (config->config().shell.panel.listItemBackground) {
@@ -196,7 +199,7 @@ namespace {
         : m_style(style), m_asyncTextures(asyncTextures) {
       const float iconSize = launcherIconSize(m_style);
       const float gap = (m_style.compact ? Style::spaceSm : Style::spaceMd) * m_style.scale;
-      const float paddingV = (m_style.compact ? Style::spaceXs * 0.5f : Style::spaceXs) * m_style.scale;
+      const float paddingV = (m_style.compact ? Style::spaceXs * 0.5F : Style::spaceXs) * m_style.scale;
       auto row = ui::row(
           {.out = &m_row,
            .align = FlexAlign::Center,
@@ -252,8 +255,8 @@ namespace {
               {
                   .out = &m_textCol,
                   .align = FlexAlign::Start,
-                  .gap = 0.0f,
-                  .flexGrow = 1.0f,
+                  .gap = 0.0F,
+                  .flexGrow = 1.0F,
               },
               ui::label({
                   .out = &m_title,
@@ -272,9 +275,30 @@ namespace {
               })
           )
       );
+
+      m_row->addChild(
+          ui::glyph({
+              .out = &m_originGlyph,
+              .glyph = "package",
+              .glyphSize = Style::fontSizeBody * m_style.scale,
+              .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+              .visible = false,
+          })
+      );
+
+      m_row->addChild(
+          ui::glyph({
+              .out = &m_pinnedGlyph,
+              .glyph = "pin-filled",
+              .glyphSize = Style::fontSizeBody * m_style.scale,
+              .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+              .visible = false,
+          })
+      );
     }
 
     void setListStyle(LauncherListStyle style) { m_style = style; }
+    void setReorderTarget(bool target) { m_reorderTarget = target; }
 
     void
     bind(Renderer& renderer, const LauncherResult& result, float width, float height, bool selected, bool hovered) {
@@ -323,9 +347,21 @@ namespace {
       }
 
       const float gap = (m_style.compact ? Style::spaceSm : Style::spaceMd) * m_style.scale;
-      const float horizontalPad = Style::spaceSm * m_style.scale * 2.0f;
-      const float leadingWidth = showLeadingVisual ? iconSize + gap : 0.0f;
-      const float textWidth = std::max(0.0f, width - leadingWidth - horizontalPad);
+      const float horizontalPad = Style::spaceSm * m_style.scale * 2.0F;
+      const float leadingWidth = showLeadingVisual ? iconSize + gap : 0.0F;
+      const float pinnedWidth = result.pinned ? Style::fontSizeBody * m_style.scale + gap : 0.0F;
+      m_pinnedGlyph->setGlyphSize(Style::fontSizeBody * m_style.scale);
+      m_pinnedGlyph->setVisible(result.pinned);
+      m_pinnedGlyph->setParticipatesInLayout(result.pinned);
+      const bool hasOrigin = m_style.showAppOriginIndicator && !result.originGlyph.empty();
+      if (hasOrigin) {
+        m_originGlyph->setGlyph(result.originGlyph);
+      }
+      m_originGlyph->setGlyphSize(Style::fontSizeBody * m_style.scale);
+      m_originGlyph->setVisible(hasOrigin);
+      m_originGlyph->setParticipatesInLayout(hasOrigin);
+      const float originWidth = hasOrigin ? Style::fontSizeBody * m_style.scale + gap : 0.0F;
+      const float textWidth = std::max(0.0F, width - leadingWidth - pinnedWidth - originWidth - horizontalPad);
       m_title->setText(singleLinePreview(result.title));
       m_title->setMaxWidth(textWidth);
 
@@ -382,20 +418,27 @@ namespace {
       } else {
         m_row->setFill(m_style.listItemBackground.value_or(clearColorSpec()));
       }
+      if (m_reorderTarget) {
+        m_row->setBorder(colorSpecFromRole(ColorRole::Primary), Style::focusRingWidth);
+      } else {
+        m_row->clearBorder();
+      }
 
       const auto activeRole = m_selected ? ColorRole::OnPrimary : ColorRole::OnHover;
       const bool active = m_selected || m_hovered;
       const ColorSpec foreground = colorSpecFromRole(active ? activeRole : ColorRole::OnSurface);
       const ColorSpec mutedForeground =
-          active ? colorSpecFromRole(activeRole, 0.7f) : colorSpecFromRole(ColorRole::OnSurfaceVariant);
+          active ? colorSpecFromRole(activeRole, 0.7F) : colorSpecFromRole(ColorRole::OnSurfaceVariant);
       m_badgeLabel->setColor(foreground);
       m_glyph->setColor(foreground);
       m_title->setColor(foreground);
       m_subtitle->setColor(mutedForeground);
+      m_pinnedGlyph->setColor(mutedForeground);
+      m_originGlyph->setColor(mutedForeground);
     }
 
     LauncherListStyle m_style{};
-    float m_rowHeight = 0.0f;
+    float m_rowHeight = 0.0F;
     bool m_selected = false;
     bool m_hovered = false;
     Flex* m_row = nullptr;
@@ -405,11 +448,14 @@ namespace {
     Flex* m_textCol = nullptr;
     Label* m_title = nullptr;
     Label* m_subtitle = nullptr;
+    Glyph* m_pinnedGlyph = nullptr;
+    Glyph* m_originGlyph = nullptr;
     AsyncTextureCache* m_asyncTextures = nullptr;
     std::string m_iconPath;
     std::string m_fallbackGlyph;
     int m_iconTargetSize = 0;
     bool m_badgeVisible = false;
+    bool m_reorderTarget = false;
   };
 
   class LauncherAppGridTile final : public Node {
@@ -429,6 +475,28 @@ namespace {
           .fillHeight = true,
       });
       addChild(std::move(col));
+
+      addChild(
+          ui::glyph({
+              .out = &m_pinnedGlyph,
+              .glyph = "pin-filled",
+              .glyphSize = Style::fontSizeBody * m_style.scale,
+              .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+              .visible = false,
+              .participatesInLayout = false,
+          })
+      );
+
+      addChild(
+          ui::glyph({
+              .out = &m_originGlyph,
+              .glyph = "package",
+              .glyphSize = Style::fontSizeBody * m_style.scale,
+              .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+              .visible = false,
+              .participatesInLayout = false,
+          })
+      );
 
       m_col->addChild(
           ui::image({
@@ -471,6 +539,7 @@ namespace {
     }
 
     void setListStyle(LauncherListStyle style) { m_style = style; }
+    void setReorderTarget(bool target) { m_reorderTarget = target; }
 
     void
     bind(Renderer& renderer, const LauncherResult& result, float width, float height, bool selected, bool hovered) {
@@ -483,6 +552,21 @@ namespace {
 
       setSize(width, height);
       m_col->setSize(width, height);
+
+      const float pinSize = Style::fontSizeBody * m_style.scale;
+      const float padding = Style::spaceSm * m_style.scale;
+      m_pinnedGlyph->setGlyphSize(pinSize);
+      m_pinnedGlyph->setVisible(result.pinned);
+      m_pinnedGlyph->setPosition(Style::rtl() ? padding : width - padding - pinSize, padding);
+      m_pinnedGlyph->setFrameSize(pinSize, pinSize);
+      const bool hasOrigin = m_style.showAppOriginIndicator && !result.originGlyph.empty();
+      if (hasOrigin) {
+        m_originGlyph->setGlyph(result.originGlyph);
+      }
+      m_originGlyph->setGlyphSize(pinSize);
+      m_originGlyph->setVisible(hasOrigin);
+      m_originGlyph->setPosition(Style::rtl() ? padding : width - padding - pinSize, height - padding - pinSize);
+      m_originGlyph->setFrameSize(pinSize, pinSize);
 
       m_image->setVisible(false);
       m_image->setParticipatesInLayout(false);
@@ -508,8 +592,8 @@ namespace {
         m_image->clear(renderer);
       }
 
-      const float horizontalPad = Style::spaceSm * m_style.scale * 2.0f;
-      const float textWidth = std::max(0.0f, width - horizontalPad);
+      const float horizontalPad = Style::spaceSm * m_style.scale * 2.0F;
+      const float textWidth = std::max(0.0F, width - horizontalPad);
       m_title->setText(singleLinePreview(result.title));
       m_title->setMaxWidth(textWidth);
 
@@ -558,12 +642,23 @@ namespace {
       } else {
         m_col->setFill(m_style.listItemBackground.value_or(clearColorSpec()));
       }
+      if (m_reorderTarget) {
+        m_col->setBorder(colorSpecFromRole(ColorRole::Primary), Style::focusRingWidth);
+      } else {
+        m_col->clearBorder();
+      }
 
       const auto activeRole = m_selected ? ColorRole::OnPrimary : ColorRole::OnHover;
       const bool active = m_selected || m_hovered;
       const ColorSpec foreground = colorSpecFromRole(active ? activeRole : ColorRole::OnSurface);
       m_glyph->setColor(foreground);
       m_title->setColor(foreground);
+      m_pinnedGlyph->setColor(
+          active ? colorSpecFromRole(activeRole, 0.7F) : colorSpecFromRole(ColorRole::OnSurfaceVariant)
+      );
+      m_originGlyph->setColor(
+          active ? colorSpecFromRole(activeRole, 0.7F) : colorSpecFromRole(ColorRole::OnSurfaceVariant)
+      );
     }
 
     LauncherListStyle m_style{};
@@ -572,11 +667,14 @@ namespace {
     Flex* m_col = nullptr;
     Image* m_image = nullptr;
     Glyph* m_glyph = nullptr;
+    Glyph* m_pinnedGlyph = nullptr;
+    Glyph* m_originGlyph = nullptr;
     Label* m_title = nullptr;
     AsyncTextureCache* m_asyncTextures = nullptr;
     std::string m_iconPath;
     std::string m_fallbackGlyph;
     int m_iconTargetSize = 0;
+    bool m_reorderTarget = false;
   };
 
 } // namespace
@@ -585,14 +683,23 @@ class LauncherResultAdapter final : public VirtualGridAdapter {
 public:
   using ActivateCallback = std::function<void(std::size_t)>;
   using SecondaryActivateCallback = std::function<void(std::size_t, float, float)>;
+  using ReorderCallback = std::function<void(std::size_t, std::size_t)>;
 
   LauncherResultAdapter(LauncherListStyle style, AsyncTextureCache* cache) : m_style(style), m_cache(cache) {}
 
   void setListStyle(LauncherListStyle style) { m_style = style; }
   void setResults(const std::vector<LauncherResult>* results) { m_results = results; }
   void setRenderer(Renderer* renderer) { m_renderer = renderer; }
+  [[nodiscard]] bool setReorderEnabled(bool enabled) {
+    if (m_reorderEnabled == enabled) {
+      return false;
+    }
+    m_reorderEnabled = enabled;
+    return true;
+  }
   void setOnActivate(ActivateCallback callback) { m_onActivate = std::move(callback); }
   void setOnSecondaryActivate(SecondaryActivateCallback callback) { m_onSecondaryActivate = std::move(callback); }
+  void setOnReorder(ReorderCallback callback) { m_onReorder = std::move(callback); }
 
   [[nodiscard]] std::size_t itemCount() const override { return m_results == nullptr ? 0U : m_results->size(); }
 
@@ -606,7 +713,92 @@ public:
     }
     auto* row = static_cast<LauncherResultRow*>(&tile);
     row->setListStyle(m_style);
+    row->setReorderTarget(m_dropIndex.has_value() && *m_dropIndex == index);
     row->bind(*m_renderer, (*m_results)[index], tile.width(), tile.height(), selected, hovered);
+  }
+
+  [[nodiscard]] std::string itemTooltip(std::size_t index) const override {
+    if (m_results == nullptr || index >= m_results->size() || (*m_results)[index].originGlyph.empty()) {
+      return {};
+    }
+    return (*m_results)[index].origin;
+  }
+
+  [[nodiscard]] std::optional<TooltipAnchorInsets>
+  itemTooltipAnchorInsets(std::size_t index, float cellWidth, float cellHeight) const override {
+    if (m_results == nullptr || index >= m_results->size() || (*m_results)[index].originGlyph.empty()) {
+      return std::nullopt;
+    }
+    const float glyphSize = Style::fontSizeBody * m_style.scale;
+    const float gap = (m_style.compact ? Style::spaceSm : Style::spaceMd) * m_style.scale;
+    const float padding = Style::spaceSm * m_style.scale;
+    const float pinnedWidth = (*m_results)[index].pinned ? glyphSize + gap : 0.0F;
+    const float left = std::max(padding, cellWidth - padding - pinnedWidth - glyphSize);
+    const float top = std::max(0.0F, (cellHeight - glyphSize) * 0.5F);
+    return TooltipAnchorInsets{
+        .top = top,
+        .right = std::max(0.0F, cellWidth - left - glyphSize),
+        .bottom = std::max(0.0F, cellHeight - top - glyphSize),
+        .left = left,
+    };
+  }
+
+  [[nodiscard]] bool overlayHitTest(
+      std::size_t index, float /*cellLocalX*/, float /*cellLocalY*/, float /*cellWidth*/, float /*cellHeight*/
+  ) const override {
+    return isReorderable(index);
+  }
+
+  bool
+  onPointerPress(std::size_t index, float cellLocalX, float cellLocalY, float cellWidth, float cellHeight) override {
+    if (!overlayHitTest(index, cellLocalX, cellLocalY, cellWidth, cellHeight)) {
+      return false;
+    }
+    m_dragSourceIndex = index;
+    m_dropIndex.reset();
+    m_dragging = false;
+    return true;
+  }
+
+  bool onPointerDrag(
+      std::optional<std::size_t> index, float /*localX*/, float /*localY*/, float /*cellWidth*/, float /*cellHeight*/
+  ) override {
+    if (!m_dragSourceIndex.has_value()) {
+      return false;
+    }
+    if (!m_dragging) {
+      m_dragging = true;
+    }
+
+    const std::optional<std::size_t> nextTarget =
+        index.has_value() && *index != *m_dragSourceIndex && isReorderable(*index) ? index : std::nullopt;
+    if (nextTarget == m_dropIndex) {
+      return false;
+    }
+    m_dropIndex = nextTarget;
+    return true;
+  }
+
+  bool onPointerRelease(std::optional<std::size_t> /*index*/) override {
+    const auto sourceIndex = m_dragSourceIndex;
+    const auto targetIndex = m_dropIndex;
+    const bool reordered = m_dragging && sourceIndex.has_value() && targetIndex.has_value() && m_onReorder;
+    const bool activated = !m_dragging && sourceIndex.has_value() && m_onActivate;
+    m_dragSourceIndex.reset();
+    m_dropIndex.reset();
+    m_dragging = false;
+    if (reordered) {
+      m_onReorder(*sourceIndex, *targetIndex);
+    } else if (activated) {
+      m_onActivate(*sourceIndex);
+    }
+    return sourceIndex.has_value() || targetIndex.has_value();
+  }
+
+  void onPointerCancel() override {
+    m_dragSourceIndex.reset();
+    m_dropIndex.reset();
+    m_dragging = false;
   }
 
   void onActivate(std::size_t index) override {
@@ -622,26 +814,44 @@ public:
   }
 
 private:
+  [[nodiscard]] bool isReorderable(std::size_t index) const {
+    return m_reorderEnabled && m_results != nullptr && index < m_results->size() && (*m_results)[index].pinned;
+  }
+
   LauncherListStyle m_style{};
   AsyncTextureCache* m_cache = nullptr;
   Renderer* m_renderer = nullptr;
   const std::vector<LauncherResult>* m_results = nullptr;
   ActivateCallback m_onActivate;
   SecondaryActivateCallback m_onSecondaryActivate;
+  ReorderCallback m_onReorder;
+  bool m_reorderEnabled = false;
+  std::optional<std::size_t> m_dragSourceIndex;
+  std::optional<std::size_t> m_dropIndex;
+  bool m_dragging = false;
 };
 
 class LauncherAppGridAdapter final : public VirtualGridAdapter {
 public:
   using ActivateCallback = std::function<void(std::size_t)>;
   using SecondaryActivateCallback = std::function<void(std::size_t, float, float)>;
+  using ReorderCallback = std::function<void(std::size_t, std::size_t)>;
 
   LauncherAppGridAdapter(LauncherListStyle style, AsyncTextureCache* cache) : m_style(style), m_cache(cache) {}
 
   void setListStyle(LauncherListStyle style) { m_style = style; }
   void setResults(const std::vector<LauncherResult>* results) { m_results = results; }
   void setRenderer(Renderer* renderer) { m_renderer = renderer; }
+  [[nodiscard]] bool setReorderEnabled(bool enabled) {
+    if (m_reorderEnabled == enabled) {
+      return false;
+    }
+    m_reorderEnabled = enabled;
+    return true;
+  }
   void setOnActivate(ActivateCallback callback) { m_onActivate = std::move(callback); }
   void setOnSecondaryActivate(SecondaryActivateCallback callback) { m_onSecondaryActivate = std::move(callback); }
+  void setOnReorder(ReorderCallback callback) { m_onReorder = std::move(callback); }
 
   [[nodiscard]] std::size_t itemCount() const override { return m_results == nullptr ? 0U : m_results->size(); }
 
@@ -655,7 +865,87 @@ public:
     }
     auto* gridTile = static_cast<LauncherAppGridTile*>(&tile);
     gridTile->setListStyle(m_style);
+    gridTile->setReorderTarget(m_dropIndex.has_value() && *m_dropIndex == index);
     gridTile->bind(*m_renderer, (*m_results)[index], tile.width(), tile.height(), selected, hovered);
+  }
+
+  [[nodiscard]] std::string itemTooltip(std::size_t index) const override {
+    if (m_results == nullptr || index >= m_results->size() || (*m_results)[index].originGlyph.empty()) {
+      return {};
+    }
+    return (*m_results)[index].origin;
+  }
+
+  [[nodiscard]] std::optional<TooltipAnchorInsets>
+  itemTooltipAnchorInsets(std::size_t index, float cellWidth, float cellHeight) const override {
+    if (m_results == nullptr || index >= m_results->size() || (*m_results)[index].originGlyph.empty()) {
+      return std::nullopt;
+    }
+    const float glyphSize = Style::fontSizeBody * m_style.scale;
+    const float padding = Style::spaceSm * m_style.scale;
+    const float left = std::max(0.0F, cellWidth - padding - glyphSize);
+    const float top = std::max(0.0F, cellHeight - padding - glyphSize);
+    return TooltipAnchorInsets{
+        .top = top,
+        .right = std::max(0.0F, cellWidth - left - glyphSize),
+        .bottom = std::max(0.0F, cellHeight - top - glyphSize),
+        .left = left,
+    };
+  }
+
+  [[nodiscard]] bool overlayHitTest(
+      std::size_t index, float /*cellLocalX*/, float /*cellLocalY*/, float /*cellWidth*/, float /*cellHeight*/
+  ) const override {
+    return isReorderable(index);
+  }
+
+  bool
+  onPointerPress(std::size_t index, float cellLocalX, float cellLocalY, float cellWidth, float cellHeight) override {
+    if (!overlayHitTest(index, cellLocalX, cellLocalY, cellWidth, cellHeight)) {
+      return false;
+    }
+    m_dragSourceIndex = index;
+    m_dropIndex.reset();
+    m_dragging = false;
+    return true;
+  }
+
+  bool onPointerDrag(
+      std::optional<std::size_t> index, float /*localX*/, float /*localY*/, float /*cellWidth*/, float /*cellHeight*/
+  ) override {
+    if (!m_dragSourceIndex.has_value()) {
+      return false;
+    }
+    m_dragging = true;
+    const std::optional<std::size_t> nextTarget =
+        index.has_value() && *index != *m_dragSourceIndex && isReorderable(*index) ? index : std::nullopt;
+    if (nextTarget == m_dropIndex) {
+      return false;
+    }
+    m_dropIndex = nextTarget;
+    return true;
+  }
+
+  bool onPointerRelease(std::optional<std::size_t> /*index*/) override {
+    const auto sourceIndex = m_dragSourceIndex;
+    const auto targetIndex = m_dropIndex;
+    const bool reordered = m_dragging && sourceIndex.has_value() && targetIndex.has_value() && m_onReorder;
+    const bool activated = !m_dragging && sourceIndex.has_value() && m_onActivate;
+    m_dragSourceIndex.reset();
+    m_dropIndex.reset();
+    m_dragging = false;
+    if (reordered) {
+      m_onReorder(*sourceIndex, *targetIndex);
+    } else if (activated) {
+      m_onActivate(*sourceIndex);
+    }
+    return sourceIndex.has_value() || targetIndex.has_value();
+  }
+
+  void onPointerCancel() override {
+    m_dragSourceIndex.reset();
+    m_dropIndex.reset();
+    m_dragging = false;
   }
 
   void onActivate(std::size_t index) override {
@@ -671,18 +961,25 @@ public:
   }
 
 private:
+  [[nodiscard]] bool isReorderable(std::size_t index) const {
+    return m_reorderEnabled && m_results != nullptr && index < m_results->size() && (*m_results)[index].pinned;
+  }
+
   LauncherListStyle m_style{};
   AsyncTextureCache* m_cache = nullptr;
   Renderer* m_renderer = nullptr;
   const std::vector<LauncherResult>* m_results = nullptr;
   ActivateCallback m_onActivate;
   SecondaryActivateCallback m_onSecondaryActivate;
+  ReorderCallback m_onReorder;
+  bool m_reorderEnabled = false;
+  std::optional<std::size_t> m_dragSourceIndex;
+  std::optional<std::size_t> m_dropIndex;
+  bool m_dragging = false;
 };
 
 LauncherPanel::LauncherPanel(ConfigService* config, AsyncTextureCache* asyncTextures)
-    : m_iconResolver(true), m_config(config), m_asyncTextures(asyncTextures) {
-  syncUsageTrackingState();
-}
+    : m_iconResolver(true), m_config(config), m_asyncTextures(asyncTextures) {}
 
 LauncherPanel::~LauncherPanel() = default;
 
@@ -758,7 +1055,7 @@ void LauncherPanel::setScopedProvider(std::string_view providerId, std::string_v
 }
 
 void LauncherPanel::create() {
-  m_launcherRowHeight = 0.0f;
+  m_launcherRowHeight = 0.0F;
   const float scale = contentScale();
   auto container = ui::column({
       .out = &m_container,
@@ -774,6 +1071,7 @@ void LauncherPanel::create() {
           .controlHeight = Style::controlHeight * scale,
           .horizontalPadding = Style::spaceMd * scale,
           .clearButtonEnabled = true,
+          .lineEditing = true,
           .surfaceOpacity = panelCardOpacity(),
           .onChange =
               [this](const std::string& text) {
@@ -808,7 +1106,7 @@ void LauncherPanel::create() {
       .out = &m_body,
       .align = FlexAlign::Stretch,
       .fillWidth = true,
-      .flexGrow = 1.0f,
+      .flexGrow = 1.0F,
   });
 
   const LauncherListStyle initialStyle = launcherListStyleFrom(m_config, scale, panelCardOpacity());
@@ -817,11 +1115,25 @@ void LauncherPanel::create() {
   m_listAdapter->setResults(&m_results);
   m_gridAdapter->setResults(&m_results);
   const auto onActivate = [this](std::size_t index) { activateAt(index); };
-  const auto onSecondaryActivate = [this](std::size_t index, float ax, float ay) { openAppActionsMenu(index, ax, ay); };
+  const auto onSecondaryActivate = [this](std::size_t index, float ax, float ay) {
+    (void)openAppActionsMenu(index, ax, ay);
+  };
   m_listAdapter->setOnActivate(onActivate);
   m_listAdapter->setOnSecondaryActivate(onSecondaryActivate);
+  m_listAdapter->setOnReorder([this](std::size_t sourceIndex, std::size_t targetIndex) {
+    if (sourceIndex >= m_results.size() || targetIndex >= m_results.size()) {
+      return;
+    }
+    reorderPinnedApplication(m_results[sourceIndex].desktopEntryPath, m_results[targetIndex].desktopEntryPath);
+  });
   m_gridAdapter->setOnActivate(onActivate);
   m_gridAdapter->setOnSecondaryActivate(onSecondaryActivate);
+  m_gridAdapter->setOnReorder([this](std::size_t sourceIndex, std::size_t targetIndex) {
+    if (sourceIndex >= m_results.size() || targetIndex >= m_results.size()) {
+      return;
+    }
+    reorderPinnedApplication(m_results[sourceIndex].desktopEntryPath, m_results[targetIndex].desktopEntryPath);
+  });
 
   body->addChild(
       ui::virtualGridView({
@@ -829,11 +1141,11 @@ void LauncherPanel::create() {
           .columns = 1,
           .cellHeight = launcherRowHeightEstimate(initialStyle),
           .squareCells = false,
-          .columnGap = 0.0f,
+          .columnGap = 0.0F,
           .rowGap = Style::spaceXs * scale,
           .overscanRows = kRowOverscan,
           .adapter = m_listAdapter.get(),
-          .flexGrow = 1.0f,
+          .flexGrow = 1.0F,
           .onSelectionChanged =
               [this](std::optional<std::size_t> idx) {
                 if (idx.has_value() && *idx < m_results.size()) {
@@ -849,7 +1161,7 @@ void LauncherPanel::create() {
       .scrollbarVisible = true,
       .viewportPaddingH = Style::spaceSm * scale,
       .viewportPaddingV = Style::spaceSm * scale,
-      .flexGrow = 1.0f,
+      .flexGrow = 1.0F,
       .visible = false,
       .participatesInLayout = false,
       .configure = [scale, opacity = panelCardOpacity()](ScrollView& scrollView) {
@@ -877,7 +1189,7 @@ void LauncherPanel::create() {
           .fontSize = Style::fontSizeBody * scale,
           .color = colorSpecFromRole(ColorRole::OnSurface),
           .maxLines = 0,
-          .flexGrow = 1.0f,
+          .flexGrow = 1.0F,
       })
   );
   body->addChild(std::move(detailScroll));
@@ -937,6 +1249,10 @@ void LauncherPanel::syncLauncherViewLayout(Renderer* renderer) {
   const LauncherListStyle style = launcherListStyleFrom(m_config, scale, panelCardOpacity());
   m_listAdapter->setListStyle(style);
   m_gridAdapter->setListStyle(style);
+  const bool reorderEnabled = m_query.empty() && m_scopedProviderId.empty() && m_activeCategoryType == All;
+  const bool listReorderEnabledChanged = m_listAdapter->setReorderEnabled(reorderEnabled);
+  const bool gridReorderEnabledChanged = m_gridAdapter->setReorderEnabled(reorderEnabled);
+  const bool reorderEnabledChanged = listReorderEnabledChanged || gridReorderEnabledChanged;
   if (renderer != nullptr) {
     m_listAdapter->setRenderer(renderer);
     m_gridAdapter->setRenderer(renderer);
@@ -944,8 +1260,8 @@ void LauncherPanel::syncLauncherViewLayout(Renderer* renderer) {
 
   const bool modeChanged = useGrid != m_usingAppGrid;
   m_usingAppGrid = useGrid;
-  if (modeChanged) {
-    m_launcherRowHeight = 0.0f;
+  if (modeChanged || reorderEnabledChanged) {
+    m_launcherRowHeight = 0.0F;
   }
 
   if (useGrid) {
@@ -959,7 +1275,7 @@ void LauncherPanel::syncLauncherViewLayout(Renderer* renderer) {
     }
   } else {
     m_grid->setColumns(1);
-    m_grid->setColumnGap(0.0f);
+    m_grid->setColumnGap(0.0F);
     m_grid->setRowGap(Style::spaceXs * scale);
     const float listCellHeight =
         renderer != nullptr ? launcherRowHeight(*renderer, style) : launcherRowHeightEstimate(style);
@@ -972,7 +1288,7 @@ void LauncherPanel::syncLauncherViewLayout(Renderer* renderer) {
     }
   }
 
-  if (modeChanged) {
+  if (modeChanged || reorderEnabledChanged) {
     if (renderer != nullptr) {
       updateLauncherGridMetrics(*renderer);
     }
@@ -982,18 +1298,21 @@ void LauncherPanel::syncLauncherViewLayout(Renderer* renderer) {
 
 void LauncherPanel::syncLauncherListStyle() {
   const bool showIcons = m_config == nullptr || m_config->config().shell.launcher.showIcons;
+  const bool showAppOriginIndicator = m_config == nullptr || m_config->config().shell.launcher.showAppOriginIndicator;
   const bool compact = m_config != nullptr && m_config->config().shell.launcher.compact;
   const bool appGrid = m_config != nullptr && m_config->config().shell.launcher.appGrid;
   if (showIcons == m_launcherShowIcons
+      && showAppOriginIndicator == m_launcherShowAppOriginIndicator
       && compact == m_launcherCompact
       && appGrid == m_launcherAppGrid
       && m_listAdapter != nullptr) {
     return;
   }
   m_launcherShowIcons = showIcons;
+  m_launcherShowAppOriginIndicator = showAppOriginIndicator;
   m_launcherCompact = compact;
   m_launcherAppGrid = appGrid;
-  m_launcherRowHeight = 0.0f;
+  m_launcherRowHeight = 0.0F;
   syncLauncherViewLayout(nullptr);
   if (m_grid != nullptr) {
     m_grid->notifyDataChanged();
@@ -1008,17 +1327,17 @@ void LauncherPanel::updateLauncherGridMetrics(Renderer& renderer) {
   const LauncherListStyle style = launcherListStyleFrom(m_config, contentScale(), panelCardOpacity());
   float cellHeight = launcherRowHeight(renderer, style);
   if (m_usingAppGrid) {
-    float wrapWidth = 0.0f;
+    float wrapWidth = 0.0F;
     const std::size_t columns = std::max<std::size_t>(1, m_grid->layoutColumnCount());
     const float viewportW = m_grid->scrollView().contentViewportWidth();
     const float gap = Style::spaceSm * contentScale();
     const float cellW =
         columns > 0 ? (viewportW - static_cast<float>(columns - 1) * gap) / static_cast<float>(columns) : viewportW;
-    const float paddingH = Style::spaceSm * contentScale() * 2.0f;
-    wrapWidth = std::max(0.0f, cellW - paddingH);
+    const float paddingH = Style::spaceSm * contentScale() * 2.0F;
+    wrapWidth = std::max(0.0F, cellW - paddingH);
     cellHeight = launcherAppGridCellHeight(renderer, style, wrapWidth);
   }
-  if (std::abs(cellHeight - m_launcherRowHeight) < 0.5f) {
+  if (std::abs(cellHeight - m_launcherRowHeight) < 0.5F) {
     return;
   }
 
@@ -1080,7 +1399,7 @@ void LauncherPanel::onOpen(std::string_view context) {
     m_input->setValue(singleLinePreview(initialValue));
   }
   if (m_grid != nullptr) {
-    m_grid->scrollView().setScrollOffset(0.0f);
+    m_grid->scrollView().setScrollOffset(0.0F);
   }
   onInputChanged(initialValue);
 }
@@ -1110,7 +1429,7 @@ void LauncherPanel::onClose() {
   m_hasRecentlyUsed = false;
   m_selectedIndex = 0;
   m_usingAppGrid = false;
-  m_launcherRowHeight = 0.0f;
+  m_launcherRowHeight = 0.0F;
 
   if (m_grid != nullptr) {
     m_grid->setAdapter(nullptr);
@@ -1145,8 +1464,8 @@ bool LauncherPanel::shouldTrackUsage() const {
 }
 
 void LauncherPanel::syncUsageTrackingState() {
-  if (!shouldTrackUsage()) {
-    clearUsage();
+  if (m_input != nullptr) {
+    reapplyCurrentQuery();
   }
 }
 
@@ -1177,7 +1496,7 @@ void LauncherPanel::setQuery(std::string query) {
   }
   m_input->setValue(singleLinePreview(query));
   if (m_grid != nullptr) {
-    m_grid->scrollView().setScrollOffset(0.0f);
+    m_grid->scrollView().setScrollOffset(0.0F);
   }
   onInputChanged(query);
 }
@@ -1345,6 +1664,8 @@ void LauncherPanel::onInputChanged(const std::string& text) {
     }
   }
 
+  updatePinnedApplicationState();
+
   bool categoriesChanged = newCategories.size() != m_currentCategories.size();
   if (!categoriesChanged) {
     for (std::size_t i = 0; i < newCategories.size(); ++i) {
@@ -1366,7 +1687,90 @@ void LauncherPanel::onInputChanged(const std::string& text) {
     rebuildCategoryFilter(newCategories);
   }
 
+  if (text.empty() && m_scopedProviderId.empty()) {
+    applyPinnedApplicationOrder();
+  }
+
   applyActiveCategory();
+}
+
+void LauncherPanel::applyPinnedApplicationOrder() {
+  if (m_config == nullptr || m_config->config().shell.launcher.pinned.empty()) {
+    return;
+  }
+
+  const auto pinnedEntries = shell::dock::pinned_apps::resolveEntries(m_config->config().shell.launcher.pinned);
+  if (pinnedEntries.empty()) {
+    return;
+  }
+
+  std::vector<std::string> pinnedPaths;
+  pinnedPaths.reserve(pinnedEntries.size());
+  for (const DesktopEntry& entry : pinnedEntries) {
+    if (!entry.path.empty()) {
+      pinnedPaths.push_back(entry.path);
+    }
+  }
+
+  std::ranges::stable_sort(m_allResults, [&pinnedPaths](const LauncherResult& a, const LauncherResult& b) {
+    const auto rank = [&pinnedPaths](const LauncherResult& result) {
+      if (result.providerId != kApplicationsProviderId) {
+        return pinnedPaths.size();
+      }
+      const auto it = std::ranges::find(pinnedPaths, result.desktopEntryPath);
+      return it == pinnedPaths.end() ? pinnedPaths.size() : static_cast<std::size_t>(it - pinnedPaths.begin());
+    };
+    return rank(a) < rank(b);
+  });
+}
+
+void LauncherPanel::updatePinnedApplicationState() {
+  for (LauncherResult& result : m_allResults) {
+    result.pinned = false;
+  }
+  if (m_config == nullptr || m_config->config().shell.launcher.pinned.empty()) {
+    return;
+  }
+
+  const auto pinnedEntries = shell::dock::pinned_apps::resolveEntries(m_config->config().shell.launcher.pinned);
+  for (LauncherResult& result : m_allResults) {
+    if (result.providerId != kApplicationsProviderId) {
+      continue;
+    }
+    result.pinned = std::ranges::any_of(pinnedEntries, [&result](const DesktopEntry& entry) {
+      return entry.path == result.desktopEntryPath;
+    });
+  }
+}
+
+void LauncherPanel::reorderPinnedApplication(std::string_view sourcePath, std::string_view targetPath) {
+  if (m_config == nullptr || sourcePath.empty() || targetPath.empty() || sourcePath == targetPath) {
+    return;
+  }
+
+  std::vector<std::string> pinned = m_config->config().shell.launcher.pinned;
+  const auto entries = shell::dock::pinned_apps::resolveEntries(pinned);
+  const auto indexForPath = [&entries](std::string_view path) -> std::optional<std::size_t> {
+    const auto it = std::ranges::find(entries, path, &DesktopEntry::path);
+    if (it == entries.end()) {
+      return std::nullopt;
+    }
+    return static_cast<std::size_t>(it - entries.begin());
+  };
+
+  const auto sourceIndex = indexForPath(sourcePath);
+  const auto targetIndex = indexForPath(targetPath);
+  if (!sourceIndex.has_value() || !targetIndex.has_value() || *sourceIndex == *targetIndex) {
+    return;
+  }
+
+  std::string moved = std::move(pinned[*sourceIndex]);
+  pinned.erase(pinned.begin() + static_cast<std::ptrdiff_t>(*sourceIndex));
+  pinned.insert(pinned.begin() + static_cast<std::ptrdiff_t>(*targetIndex), std::move(moved));
+
+  if (m_config->setOverride({"shell", "launcher", "pinned"}, std::move(pinned))) {
+    reapplyCurrentQuery();
+  }
 }
 
 void LauncherPanel::rebuildCategoryFilter(const std::vector<LauncherCategory>& categories) {
@@ -1524,7 +1928,7 @@ void LauncherPanel::refreshResults() {
   m_grid->notifyDataChanged();
   if (m_results.empty()) {
     m_grid->setSelectedIndex(std::nullopt);
-    m_grid->scrollView().setScrollOffset(0.0f);
+    m_grid->scrollView().setScrollOffset(0.0F);
   } else {
     m_grid->setSelectedIndex(m_selectedIndex);
   }
@@ -1571,35 +1975,35 @@ void LauncherPanel::bindDetailResult() {
   m_detailSubtitle->setParticipatesInLayout(hasSubtitle);
   m_detailSubtitle->setText(singleLinePreview(result.subtitle));
   m_detailBody->setText(result.title.empty() ? result.id : result.title);
-  m_detailScroll->setScrollOffset(0.0f);
+  m_detailScroll->setScrollOffset(0.0F);
 }
 
-void LauncherPanel::openAppActionsMenu(std::size_t index, float anchorX, float anchorY) {
+bool LauncherPanel::openAppActionsMenu(std::size_t index, float anchorX, float anchorY) {
   if (index >= m_results.size()) {
-    return;
+    return false;
   }
   const LauncherResult& base = m_results[index];
 
   const DesktopEntry* match = nullptr;
   for (const auto& e : desktopEntries()) {
-    if (e.path == base.id) {
+    if (e.path == base.desktopEntryPath) {
       match = &e;
       break;
     }
   }
   if (match == nullptr) {
-    return;
+    return false;
   }
 
   WaylandConnection* wl = PanelManager::instance().wayland();
   RenderContext* rc = PanelManager::instance().renderContext();
   if (wl == nullptr || rc == nullptr) {
-    return;
+    return false;
   }
 
   const auto parentCtx = PanelManager::instance().fallbackPopupParentContext();
   if (!parentCtx.has_value()) {
-    return;
+    return false;
   }
 
   if (m_actionsMenu == nullptr) {
@@ -1607,14 +2011,14 @@ void LauncherPanel::openAppActionsMenu(std::size_t index, float anchorX, float a
   }
 
   std::vector<DesktopAction> actionsCopy = match->actions;
-  const bool dockPinned =
-      m_config != nullptr && shell::dock::pinned_apps::containsEntry(m_config->config().dock.pinned, *match);
-  const bool canPinToDock = m_config != nullptr && !dockPinned;
-  const bool canUnpinFromDock = m_config != nullptr && dockPinned;
+  const bool launcherPinned =
+      m_config != nullptr && shell::dock::pinned_apps::containsEntry(m_config->config().shell.launcher.pinned, *match);
+  const bool canPin = m_config != nullptr && !launcherPinned;
+  const bool canUnpin = m_config != nullptr && launcherPinned;
 
   constexpr std::int32_t kActionOpen = -1;
-  constexpr std::int32_t kActionPinToDock = -2;
-  constexpr std::int32_t kActionUnpinFromDock = -3;
+  constexpr std::int32_t kActionPin = -2;
+  constexpr std::int32_t kActionUnpin = -3;
 
   std::vector<ContextMenuControlEntry> entries;
   entries.reserve(actionsCopy.size() + 2);
@@ -1627,27 +2031,7 @@ void LauncherPanel::openAppActionsMenu(std::size_t index, float anchorX, float a
           .hasSubmenu = false,
       }
   );
-  if (canPinToDock) {
-    entries.push_back(
-        ContextMenuControlEntry{
-            .id = kActionPinToDock,
-            .label = i18n::tr("launcher.context-menu.pin-to-dock"),
-            .enabled = true,
-            .separator = false,
-            .hasSubmenu = false,
-        }
-    );
-  } else if (canUnpinFromDock) {
-    entries.push_back(
-        ContextMenuControlEntry{
-            .id = kActionUnpinFromDock,
-            .label = i18n::tr("launcher.context-menu.unpin-from-dock"),
-            .enabled = true,
-            .separator = false,
-            .hasSubmenu = false,
-        }
-    );
-  }
+  // Desktop actions sit above pin/unpin so pin stays last in the menu.
   for (std::int32_t i = 0; i < static_cast<std::int32_t>(actionsCopy.size()); ++i) {
     entries.push_back(
         ContextMenuControlEntry{
@@ -1659,9 +2043,30 @@ void LauncherPanel::openAppActionsMenu(std::size_t index, float anchorX, float a
         }
     );
   }
+  if (canPin) {
+    entries.push_back(
+        ContextMenuControlEntry{
+            .id = kActionPin,
+            .label = i18n::tr("launcher.context-menu.pin"),
+            .enabled = true,
+            .separator = false,
+            .hasSubmenu = false,
+        }
+    );
+  } else if (canUnpin) {
+    entries.push_back(
+        ContextMenuControlEntry{
+            .id = kActionUnpin,
+            .label = i18n::tr("launcher.context-menu.unpin"),
+            .enabled = true,
+            .separator = false,
+            .hasSubmenu = false,
+        }
+    );
+  }
 
   const float scale = contentScale();
-  constexpr float kMenuWidth = 240.0f;
+  constexpr float kMenuWidth = 240.0F;
   const float minMenuWidth = kMenuWidth * scale;
 
   if (m_config != nullptr) {
@@ -1678,29 +2083,34 @@ void LauncherPanel::openAppActionsMenu(std::size_t index, float anchorX, float a
   m_actionsMenu->setOnActivate([this, base, actionsCopy = std::move(actionsCopy),
                                 entryForPin = *match](const ContextMenuControlEntry& entry) {
     LauncherResult result = base;
-    result.desktopActionId.clear();
-    if (entry.id == kActionPinToDock) {
+    if (entry.id == kActionPin) {
       if (m_config == nullptr
           || entryForPin.id.empty()
-          || shell::dock::pinned_apps::containsEntry(m_config->config().dock.pinned, entryForPin)) {
+          || shell::dock::pinned_apps::containsEntry(m_config->config().shell.launcher.pinned, entryForPin)) {
         return;
       }
-      std::vector<std::string> pinned = m_config->config().dock.pinned;
+      std::vector<std::string> pinned = m_config->config().shell.launcher.pinned;
       pinned.push_back(entryForPin.id);
-      (void)m_config->setOverride({"dock", "pinned"}, std::move(pinned));
+      if (m_config->setOverride({"shell", "launcher", "pinned"}, std::move(pinned))) {
+        reapplyCurrentQuery();
+      }
       return;
     }
-    if (entry.id == kActionUnpinFromDock) {
+    if (entry.id == kActionUnpin) {
       if (m_config == nullptr) {
         return;
       }
-      std::vector<std::string> pinned = m_config->config().dock.pinned;
+      std::vector<std::string> pinned = m_config->config().shell.launcher.pinned;
       shell::dock::pinned_apps::removeEntry(pinned, entryForPin);
-      (void)m_config->setOverride({"dock", "pinned"}, std::move(pinned));
+      if (m_config->setOverride({"shell", "launcher", "pinned"}, std::move(pinned))) {
+        reapplyCurrentQuery();
+      }
       return;
     }
     if (entry.id >= 0 && entry.id < static_cast<std::int32_t>(actionsCopy.size())) {
-      result.desktopActionId = actionsCopy[static_cast<std::size_t>(entry.id)].id;
+      const DesktopAction& action = actionsCopy[static_cast<std::size_t>(entry.id)];
+      result.id = AppProvider::actionResultId(result.desktopEntryPath, action.id);
+      result.desktopActionId = action.id;
     } else if (entry.id != kActionOpen) {
       return;
     }
@@ -1718,11 +2128,11 @@ void LauncherPanel::openAppActionsMenu(std::size_t index, float anchorX, float a
     return;
   });
 
-  const float inset = std::round(std::max(4.0f, Style::spaceXs * scale));
+  const float inset = std::round(std::max(4.0F, Style::spaceXs * scale));
   const auto ax = static_cast<std::int32_t>(std::round(anchorX - inset));
   const auto ay = static_cast<std::int32_t>(std::round(anchorY - inset));
-  const auto aw = static_cast<std::int32_t>(std::round(inset * 2.0f));
-  const auto ah = static_cast<std::int32_t>(std::round(inset * 2.0f));
+  const auto aw = static_cast<std::int32_t>(std::round(inset * 2.0F));
+  const auto ah = static_cast<std::int32_t>(std::round(inset * 2.0F));
 
   m_actionsMenu->open(
       ContextMenuPopupRequest{
@@ -1743,6 +2153,7 @@ void LauncherPanel::openAppActionsMenu(std::size_t index, float anchorX, float a
           },
       }
   );
+  return true;
 }
 
 void LauncherPanel::activateAt(std::size_t index) {
@@ -1768,7 +2179,7 @@ void LauncherPanel::activateSelected() {
       m_input->setValue(prefix);
     }
     if (m_grid != nullptr) {
-      m_grid->scrollView().setScrollOffset(0.0f);
+      m_grid->scrollView().setScrollOffset(0.0F);
     }
     onInputChanged(prefix);
     return;
@@ -1866,6 +2277,22 @@ bool LauncherPanel::handleKeyEvent(std::uint32_t sym, std::uint32_t modifiers) {
   if (gridNav && KeybindMatcher::matches(KeybindAction::Right, sym, modifiers)) {
     moveSelection(1);
     return true;
+  }
+
+  // Validate+Shift opens the app context menu (Shift layered on the configured
+  // Validate chord). Menu navigation uses the Up/Down/Validate/Cancel keybinds.
+  if ((modifiers & KeyMod::Shift) != 0
+      && KeybindMatcher::matches(KeybindAction::Validate, sym, modifiers & ~KeyMod::Shift)) {
+    float anchorX = 0.0F;
+    float anchorY = 0.0F;
+    if (m_grid == nullptr || !m_grid->absoluteAnchorForIndex(m_selectedIndex, anchorX, anchorY)) {
+      if (m_grid != nullptr) {
+        Node::absolutePosition(m_grid, anchorX, anchorY);
+        anchorX += m_grid->width() * 0.5F;
+        anchorY += m_grid->height() * 0.5F;
+      }
+    }
+    return openAppActionsMenu(m_selectedIndex, anchorX, anchorY);
   }
 
   if (KeybindMatcher::matches(KeybindAction::Validate, sym, modifiers)) {

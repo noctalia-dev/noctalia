@@ -13,6 +13,7 @@
 #include <vector>
 
 class NotificationManager;
+class CompositorPlatform;
 struct NotificationHistoryEntry;
 class Button;
 class Segmented;
@@ -22,7 +23,7 @@ class NotificationHistoryAdapter;
 
 class NotificationsTab : public Tab {
 public:
-  explicit NotificationsTab(NotificationManager* notifications);
+  NotificationsTab(NotificationManager* notifications, CompositorPlatform* platform);
   ~NotificationsTab() override;
 
   std::unique_ptr<Flex> create() override;
@@ -51,6 +52,7 @@ private:
   [[nodiscard]] bool filterSlideOutActive() const;
 
   NotificationManager* m_notifications = nullptr;
+  CompositorPlatform* m_platform = nullptr;
   IconResolver m_iconResolver;
   std::unique_ptr<NotificationHistoryAdapter> m_adapter;
   std::vector<const NotificationHistoryEntry*> m_filtered;
@@ -71,7 +73,7 @@ private:
   std::size_t m_pendingFilterIndex = std::numeric_limits<std::size_t>::max();
   bool m_startFilterSlideIn = false;
   int m_filterSlideDirection = 0;
-  float m_filterSlideBaseX = 0.0f;
-  float m_filterSlideBaseY = 0.0f;
+  float m_filterSlideBaseX = 0.0F;
+  float m_filterSlideBaseY = 0.0F;
   AnimationManager::Id m_filterSlideAnimId = 0;
 };

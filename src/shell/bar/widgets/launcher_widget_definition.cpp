@@ -8,6 +8,7 @@ const noctalia::bar::WidgetDefinition<LauncherWidget::Options>& launcherWidgetDe
   static const noctalia::bar::WidgetDefinition<Options> definition{
       .type = "launcher",
       .fields = noctalia::bar::glyphButtonFields<Options>(),
+      .glyph = [](const Options& options) { return options.glyph; },
   };
   return definition;
 }

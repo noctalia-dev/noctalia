@@ -4,6 +4,7 @@
 #include "system/app_identity.h"
 #include "system/desktop_entry.h"
 #include "system/internal_app_metadata.h"
+#include "time/time_format.h"
 #include "util/file_utils.h"
 #include "util/string_utils.h"
 #include "wayland/wayland_connection.h"
@@ -56,7 +57,7 @@ namespace {
   constexpr std::size_t kMaxChartSeries = 5;
 
   [[nodiscard]] std::string canonicalAppKey(std::string_view appKey) {
-    if (const auto sep = appKey.find('\x1f'); sep != std::string::npos) {
+    if (const auto sep = appKey.find('\x1F'); sep != std::string::npos) {
       return std::string(appKey.substr(0, sep));
     }
     return std::string(appKey);
@@ -169,7 +170,7 @@ namespace {
     if (appKey.starts_with("title:")) {
       return appKey.substr(6);
     }
-    if (const auto sep = appKey.find('\x1f'); sep != std::string::npos) {
+    if (const auto sep = appKey.find('\x1F'); sep != std::string::npos) {
       const std::string embeddedTitle = appKey.substr(sep + 1);
       if (!embeddedTitle.empty()) {
         return embeddedTitle;
@@ -312,18 +313,59 @@ void ScreenTimeService::setEnabled(bool enabled) {
     }
     m_tickTimer.stop();
   } else {
-    onFocusChange();
-    if (!m_tickTimer.active()) {
-      m_tickTimer.startRepeating(kTickInterval, [this]() { tick(); });
-    }
+    resumeTracking();
   }
   if (m_changeCallback) {
     m_changeCallback();
   }
 }
 
+void ScreenTimeService::setSessionLocked(bool locked) {
+  if (m_sessionLocked == locked) {
+    return;
+  }
+  m_sessionLocked = locked;
+  if (locked) {
+    pauseTracking();
+    return;
+  }
+  resumeTracking();
+}
+
+void ScreenTimeService::setSuspendPaused(bool paused) {
+  if (m_suspendPaused == paused) {
+    return;
+  }
+  m_suspendPaused = paused;
+  if (paused) {
+    pauseTracking();
+    return;
+  }
+  resumeTracking();
+}
+
+void ScreenTimeService::pauseTracking() {
+  if (m_enabled) {
+    flushActiveSession(std::chrono::steady_clock::now());
+    if (m_dirty) {
+      save();
+    }
+  }
+  m_activeAppKey.clear();
+  m_activeSince = {};
+  m_tickTimer.stop();
+}
+
+void ScreenTimeService::resumeTracking() {
+  if (!m_enabled || m_sessionLocked || m_suspendPaused) {
+    return;
+  }
+  onFocusChange();
+  m_tickTimer.startRepeating(kTickInterval, [this]() { tick(); });
+}
+
 void ScreenTimeService::onFocusChange() {
-  if (!m_enabled) {
+  if (!m_enabled || m_sessionLocked || m_suspendPaused) {
     return;
   }
   const std::string candidate = appKeyForActive();
@@ -346,7 +388,7 @@ void ScreenTimeService::onFocusChange() {
 }
 
 void ScreenTimeService::tick() {
-  if (!m_enabled) {
+  if (!m_enabled || m_sessionLocked || m_suspendPaused) {
     return;
   }
   const bool wasDirty = m_dirty;
@@ -392,8 +434,8 @@ std::string ScreenTimeService::shortDayLabel(const std::string& dayKey) {
   if (std::mktime(&tm) == -1) {
     return dayKey;
   }
-  static constexpr const char* kWeekdays[] = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
-  return kWeekdays[tm.tm_wday];
+  const std::string weekday = formatStrftime("%a", tm);
+  return weekday.empty() ? dayKey : weekday;
 }
 
 std::string ScreenTimeService::dayDisplayName(const std::string& dayKey) {
@@ -412,11 +454,8 @@ std::string ScreenTimeService::dayDisplayName(const std::string& dayKey) {
   if (std::mktime(&tm) == -1) {
     return dayKey;
   }
-  char buffer[64]{};
-  if (std::strftime(buffer, sizeof(buffer), "%a · %b %d", &tm) == 0) {
-    return dayKey;
-  }
-  return buffer;
+  const std::string formatted = formatStrftime("%a · %b %d", tm);
+  return formatted.empty() ? dayKey : formatted;
 }
 
 ScreenTimeSnapshot ScreenTimeService::buildHourlySnapshot(const DayRecord& day) const {

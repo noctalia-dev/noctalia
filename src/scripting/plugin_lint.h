@@ -36,7 +36,7 @@ namespace scripting {
   };
 
   // Lint the plugin whose plugin.toml lives in `dir`: cross-check declared settings
-  // against the `getConfig` calls in each entry's source. Pure (no live state).
+  // against `getConfig` calls in each entry and its statically required modules. Pure (no live state).
   [[nodiscard]] PluginLintReport lintPluginDir(const std::filesystem::path& dir);
 
 } // namespace scripting

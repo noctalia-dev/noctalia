@@ -1,6 +1,7 @@
 #pragma once
 
 #include "compositors/compositor_platform.h"
+#include "core/timer_manager.h"
 #include "shell/bar/widget.h"
 #include "system/desktop_entry.h"
 #include "system/icon_resolver.h"
@@ -16,8 +17,11 @@
 
 class ContextMenuPopup;
 class ConfigService;
+class Box;
 class Flex;
 class InputArea;
+class Label;
+class TaskbarWidgetTestAccess;
 struct wl_output;
 struct zwlr_foreign_toplevel_handle_v1;
 
@@ -46,25 +50,35 @@ struct TaskbarWidgetOptions {
   bool minimal = false;
   bool groupSingleIconPerApp = false;
   bool showActiveIndicator = true;
-  float activeOpacity = 1.0f;
-  float inactiveOpacity = 1.0f;
-  float pinnedOpacity = 0.5f;
+  ColorSpec activeIndicatorColor = colorSpecFromRole(ColorRole::Primary);
+  float activeOpacity = 1.0F;
+  float inactiveOpacity = 1.0F;
+  float iconScale = 1.0F;
+  int itemSpacing = 4;
+  std::vector<std::string> pinned;
+  float pinnedOpacity = 0.5F;
   ColorSpec focusedColor = colorSpecFromRole(ColorRole::Primary);
   ColorSpec occupiedColor = colorSpecFromRole(ColorRole::Secondary);
   ColorSpec emptyColor = colorSpecFromRole(ColorRole::Secondary);
   ColorSpec urgentColor = colorSpecFromRole(ColorRole::Error);
   bool showWindowTitle = false;
-  float windowTitleMaxWidth = 100.0f;
-  float taskbarMaxWidth = 8192.0f;
+  int windowTitleMaxWidth = 100;
+  int taskbarMaxWidth = 8192;
+};
+
+struct TaskbarWidgetContext {
   std::string barPosition;
   std::string barName;
-  // Config key for [widget.<name>] overrides (pin list lives here).
+  // Config key for [widget.<name>] overrides.
   std::string widgetName;
 };
 
 class TaskbarWidget : public Widget {
 public:
-  TaskbarWidget(CompositorPlatform& platform, ConfigService& config, wl_output* output, TaskbarWidgetOptions options);
+  TaskbarWidget(
+      CompositorPlatform& platform, ConfigService& config, wl_output* output, TaskbarWidgetOptions options,
+      TaskbarWidgetContext context
+  );
   ~TaskbarWidget() override;
 
   void create() override;
@@ -74,6 +88,8 @@ public:
   void cycleAdjacent(int direction);
 
 private:
+  friend class TaskbarWidgetTestAccess;
+
   struct TaskModel {
     std::uintptr_t handleKey = 0;
     std::uint64_t order = 0;
@@ -86,6 +102,10 @@ private:
     std::string iconPath;
     std::string workspaceKey;
     std::string workspaceWindowId;
+    // Authoritative compositor window identity for focus/close actions.
+    // Unlike workspaceWindowId, never rewritten by workspace-placement
+    // reconciliation. Empty on compositors without exact identity.
+    std::string exactWindowId;
     // Desktop entry id used for pin persistence / launch (empty for unmatched windows).
     std::string desktopEntryId;
     std::uint64_t workspaceOrder = std::numeric_limits<std::uint64_t>::max();
@@ -109,6 +129,49 @@ private:
     std::uint8_t votes = 0;
   };
 
+  struct ModelComparison {
+    bool layoutEqual = false;
+    // Meaningful only when layoutEqual is true and the existing task tiles will be retained.
+    bool titlesChanged = false;
+    bool activesChanged = false;
+  };
+
+  struct TaskRef {
+    std::size_t index = 0;
+    std::uint64_t generation = 0;
+  };
+
+  struct TaskTile {
+    std::size_t taskIndex = 0;
+    InputArea* area = nullptr;
+    // Flat mode with visible titles; null otherwise.
+    Label* titleLabel = nullptr;
+    // Present when m_showActiveIndicator; visibility tracks task.active.
+    Box* activeIndicator = nullptr;
+  };
+
+  // Gesture state for drag-to-reorder of pinned tiles in the flat strip. Holds no obligation to
+  // restore the scene: that lives in m_dragFloatTile / m_dragSpacer, so resetting a gesture can
+  // never leave a tile stranded outside the layout flow.
+  struct DragState {
+    bool active = false;
+    bool armed = false; // hold fired; goes active on the next motion
+    std::size_t sourceIndex = 0;
+    std::size_t targetIndex = 0;
+    // m_taskGeneration when the drag began; a rebuild invalidates the indices above.
+    std::uint64_t generation = 0;
+    // Pointer position along the strip's layout axis: x when horizontal, y when vertical.
+    float startMain = 0.0F;
+    float currentMain = 0.0F;
+    // The held tile; also the "this tile owns the gesture" marker for motion and cancel.
+    InputArea* area = nullptr;
+    // Resting position of the held tile, captured before it left the layout flow.
+    float restMain = 0.0F;
+    float restCross = 0.0F;
+    std::size_t pinnedCount = 0; // pin count when the drag began; bounds the travel range
+    Timer holdTimer;
+  };
+
   void doLayout(Renderer& renderer, float containerWidth, float containerHeight) override;
   void doUpdate(Renderer& renderer) override;
 
@@ -119,8 +182,11 @@ private:
   void syncWorkspaceGroupingCapability();
   [[nodiscard]] static std::string toLower(std::string value);
   [[nodiscard]] static std::string workspaceLabel(const Workspace& workspace, std::size_t index);
-  [[nodiscard]] bool
-  modelsEqual(const std::vector<TaskModel>& tasks, const std::vector<WorkspaceModel>& workspaces) const;
+  [[nodiscard]] static ModelComparison compareModels(
+      bool groupByWorkspace, const std::vector<TaskModel>& previousTasks,
+      const std::vector<WorkspaceModel>& previousWorkspaces, const std::vector<TaskModel>& nextTasks,
+      const std::vector<WorkspaceModel>& nextWorkspaces
+  );
   void buildDesktopIconIndex();
   [[nodiscard]] std::string resolveIconPath(const std::string& appId, const std::string& iconNameOrPath);
   void openTaskContextMenu(const TaskModel& task, InputArea& area);
@@ -138,12 +204,25 @@ private:
   [[nodiscard]] static ColorSpec readableColorForFill(const ColorSpec& fill);
   [[nodiscard]] static ColorRole onRoleForFill(ColorRole fill);
   [[nodiscard]] static bool taskInWorkspaceGroup(const TaskModel& task, const WorkspaceModel& ws);
+  [[nodiscard]] static const TaskModel*
+  resolveTask(const std::vector<TaskModel>& tasks, TaskRef ref, std::uint64_t currentGeneration);
+  [[nodiscard]] static std::string_view workspaceBindingWindowId(const TaskModel& task);
   void activateTaskModel(const TaskModel& task);
   void closeTaskModel(const TaskModel& task);
   void applyPinnedMerge(std::vector<TaskModel>& tasks);
   void activateOrLaunchPinned(const TaskModel& task);
   void launchDesktopEntry(const TaskModel& task);
-  [[nodiscard]] std::vector<std::string> pinnedConfigIds() const;
+  [[nodiscard]] const std::vector<std::string>& pinnedConfigIds() const noexcept;
+  [[nodiscard]] bool reorderEnabled() const;
+  [[nodiscard]] float pointerMainOnStrip(const InputArea& area, float localX, float localY) const;
+  [[nodiscard]] std::size_t computeDragTargetIndex() const;
+  [[nodiscard]] bool commitDragReorder();
+  void beginDrag();
+  void updateDragTarget();
+  void moveDragTile();
+  void endDrag(bool commit);
+  void applyDragLayout();
+  void requestDragLayout();
   [[nodiscard]] static bool taskMatchesDesktopEntry(const TaskModel& task, const DesktopEntry& entry);
   void setEntryPinned(const DesktopEntry& entry, bool pinned);
   [[nodiscard]] std::optional<DesktopEntry> desktopEntryForTask(const TaskModel& task) const;
@@ -166,9 +245,10 @@ private:
   bool m_minimal = false;
   bool m_groupSingleIconPerApp = false;
   bool m_showActiveIndicator = true;
-  float m_activeOpacity = 1.0f;
-  float m_inactiveOpacity = 1.0f;
-  float m_pinnedOpacity = 0.5f;
+  ColorSpec m_activeIndicatorColor = colorSpecFromRole(ColorRole::Primary);
+  float m_activeOpacity = 1.0F;
+  float m_inactiveOpacity = 1.0F;
+  float m_pinnedOpacity = 0.5F;
   ColorSpec m_focusedColor = colorSpecFromRole(ColorRole::Primary);
   ColorSpec m_occupiedColor = colorSpecFromRole(ColorRole::Secondary);
   ColorSpec m_emptyColor = colorSpecFromRole(ColorRole::Secondary);
@@ -179,16 +259,33 @@ private:
   std::string m_barPosition;
   std::string m_barName;
   std::string m_widgetName;
+  DragState m_drag;
+  // Drag visuals, owned by the Layout phase and outliving the gesture: the tile currently lifted
+  // out of the flow, and the placeholder holding its drop gap open (the strip owns the node).
+  InputArea* m_dragFloatTile = nullptr;
+  Box* m_dragSpacer = nullptr;
+  // Set by a committed drop: layout must hold the tile parked in its target gap until the deferred
+  // pin-list write lands, otherwise it snaps back to the pre-write order for a frame.
+  bool m_dragParked = false;
+  bool m_suppressTileClick = false;
+  // Guards deferred callbacks: writing the pin list reloads the bar, which destroys this widget.
+  std::shared_ptr<void> m_aliveGuard = std::make_shared<int>(0);
+
+  float m_tilePitchMain = 0.0F; // Main-axis distance between adjacent tiles; set while building the flat strip.
   bool m_rebuildPending = true;
   bool m_vertical = false;
-  float m_containerWidth = 0.0f;
-  float m_containerHeight = 0.0f;
+  float m_containerWidth = 0.0F;
+  float m_containerHeight = 0.0F;
   std::uint64_t m_textMetricsGeneration = 0;
 
   Flex* m_root = nullptr;
   Flex* m_taskStrip = nullptr;
 
   std::vector<TaskModel> m_tasks;
+  // Retained controls resolve task indices only while this model generation matches.
+  std::uint64_t m_taskGeneration = 0;
+  // Non-owning; cleared before task-strip children are destroyed.
+  std::vector<TaskTile> m_taskTiles;
   std::vector<WorkspaceModel> m_workspaces;
   // Full workspace list before "hide empty" filtering; used for scroll navigation.
   std::vector<WorkspaceModel> m_allWorkspaces;
@@ -198,9 +295,10 @@ private:
   std::unique_ptr<ContextMenuPopup> m_contextMenuPopup;
   std::vector<zwlr_foreign_toplevel_handle_v1*> m_contextMenuHandles;
   zwlr_foreign_toplevel_handle_v1* m_contextMenuPrimaryHandle = nullptr;
-  // KDE has no wlr foreign-toplevel handles; close targets use title/appId/uuid instead.
-  std::vector<ToplevelInfo> m_contextMenuKdeWindows;
-  ToplevelInfo m_contextMenuKdePrimary;
+  // KDE and Niri ext-foreign-toplevel tasks close through ToplevelInfo rather
+  // than a wlr foreign-toplevel handle.
+  std::vector<ToplevelInfo> m_contextMenuInfoWindows;
+  ToplevelInfo m_contextMenuInfoPrimary;
   std::uint64_t m_desktopEntriesVersion = 0;
   IconResolver m_iconResolver;
   Signal<>::ScopedConnection m_appIconColorizeConn;

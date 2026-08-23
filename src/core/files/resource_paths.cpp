@@ -25,8 +25,6 @@ namespace paths {
       return std::filesystem::path(NOCTALIA_INSTALL_PREFIX) / datadir / "noctalia" / "assets";
     }
 
-    std::filesystem::path sourceAssetsRoot() { return std::filesystem::path(NOCTALIA_SOURCE_ASSETS_DIR); }
-
     bool isAssetRoot(const std::filesystem::path& root) {
       if (root.empty()) {
         return false;
@@ -84,7 +82,6 @@ namespace paths {
       }
 
       appendUnique(candidates, installedAssetsRoot());
-      appendUnique(candidates, sourceAssetsRoot());
       return candidates;
     }
 

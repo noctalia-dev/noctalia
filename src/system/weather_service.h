@@ -22,6 +22,7 @@ struct WeatherCurrentUnits {
   std::string isDay;
   std::string weatherCode;
   std::string uvIndex;
+  std::string relativeHumidity;
 };
 
 struct WeatherDailyUnits {
@@ -52,6 +53,7 @@ struct WeatherCurrentConditions {
   bool isDay = true;
   std::int32_t weatherCode = 0;
   double uvIndex = 0.0;
+  std::int32_t relativeHumidityPercent = 0;
 };
 
 struct WeatherForecastDay {
@@ -158,6 +160,7 @@ private:
   std::chrono::system_clock::time_point m_nextRefreshAt;
   bool m_loading = false;
   bool m_refreshQueued = false;
+  std::chrono::seconds m_retryDelay{30};
   bool m_hasLocation = false;
   std::string m_error;
   std::string m_locationName;

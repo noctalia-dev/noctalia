@@ -22,13 +22,20 @@ public:
   void setUnlockCallback(SessionLockCallback callback);
 
   void setSessionLockIntegrationEnabled(bool enabled);
-  void syncSessionLocked();
-  void syncSessionUnlocked();
+  // Sleep-delay inhibit for lock-before-suspend. Released when session lock integration is off.
+  void setLockBeforeSuspendEnabled(bool enabled);
+  void setSessionLockedHint(bool locked);
 
   [[nodiscard]] bool supportsIdleInhibit() const noexcept;
   [[nodiscard]] bool hasIdleInhibit() const noexcept;
   bool acquireIdleInhibit();
   void releaseIdleInhibit();
+
+  // Delay-type sleep inhibit: holds off suspend/hibernate until released so the
+  // session can lock first (same pattern as swayidle/hypridle).
+  [[nodiscard]] bool hasSleepDelayInhibit() const noexcept;
+  bool acquireSleepDelayInhibit();
+  void releaseSleepDelayInhibit();
 
 private:
   void ensureSessionLockMonitor();
@@ -41,4 +48,5 @@ private:
   SessionLockCallback m_lockCallback;
   SessionLockCallback m_unlockCallback;
   int m_idleInhibitFd = -1;
+  int m_sleepDelayInhibitFd = -1;
 };

@@ -1,5 +1,6 @@
 id = "noctalia/wallhaven"
 name = "Wallhaven"
+version = "1.0.0"
 plugin_api = 3
 
 [[panel]]

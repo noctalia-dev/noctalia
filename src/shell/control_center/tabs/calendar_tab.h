@@ -2,6 +2,7 @@
 
 #include "render/animation/animation_manager.h"
 #include "shell/control_center/tab.h"
+#include "ui/controls/calendar_view.h"
 
 #include <limits>
 
@@ -55,12 +56,13 @@ private:
   Flex* m_eventsCard = nullptr;
   Label* m_eventsTitle = nullptr;
   ScrollView* m_eventsScroll = nullptr;
+  calendar_view::EventListState m_eventListState;
   int m_selectedYear = std::numeric_limits<int>::min();
   int m_selectedMonth = -1;
   int m_selectedDay = -1;
   int m_monthOffset = 0;
-  float m_lastInnerWidth = -1.0f;
-  float m_lastInnerHeight = -1.0f;
+  float m_lastInnerWidth = -1.0F;
+  float m_lastInnerHeight = -1.0F;
   int m_lastDisplayYear = std::numeric_limits<int>::min();
   int m_lastDisplayMonth = -1;
   int m_lastCurrentYear = std::numeric_limits<int>::min();

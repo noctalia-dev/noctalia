@@ -77,6 +77,7 @@ public:
   void onPointerEvent(const PointerEvent& event);
   void onKeyboardEvent(const KeyboardEvent& event);
   [[nodiscard]] wl_output* output() const noexcept { return m_output; }
+  void syncOutputScale(std::int32_t bufferScale, std::uint32_t configuredScaleNumerator);
   [[nodiscard]] bool hasDesktopCapture() const noexcept;
   [[nodiscard]] Node* widgetLayer() noexcept { return m_widgetLayer; }
   void setOutputKey(std::string outputKey) { m_outputKey = std::move(outputKey); }
@@ -120,6 +121,7 @@ private:
 
   ext_session_lock_surface_v1* m_lockSurface = nullptr;
   wl_output* m_output = nullptr;
+  bool m_receivedConfigure = false;
   ConfigService* m_config = nullptr;
   // Declared before m_root so it outlives the scene: ~Node cancels its animations through this manager.
   AnimationManager m_animations;
@@ -145,8 +147,8 @@ private:
   Label* m_weatherMeta = nullptr;
   Flex* m_forecastRow = nullptr;
   std::array<ForecastColumn, 5> m_forecastColumns{};
-  Flex* m_statusPanel = nullptr;
-  Label* m_statusLabel = nullptr;
+  Flex* m_authPanel = nullptr;
+  Label* m_authLabel = nullptr;
   Flex* m_loginContentRow = nullptr;
   Input* m_passwordField = nullptr;
   Button* m_loginButton = nullptr;
@@ -161,15 +163,15 @@ private:
   BlurCache m_blurCache;
   BlurCache m_wallpaperBlurCache;
   std::optional<ScreencopyImage> m_desktopCapture;
-  float m_blurIntensity = 0.5f;
-  float m_tintIntensity = 0.3f;
-  float m_regularContentScale = 1.0f;
+  float m_blurIntensity = 0.5F;
+  float m_tintIntensity = 0.3F;
+  float m_regularContentScale = 1.0F;
   bool m_blackout = false;
   bool m_captureDirty = true;
   std::string m_wallpaperPath;
   std::string m_textureWallpaperPath;
   WallpaperFillMode m_wallpaperFillMode = WallpaperFillMode::Crop;
-  Color m_wallpaperFillColor = rgba(0.0f, 0.0f, 0.0f, 0.0f);
+  Color m_wallpaperFillColor = rgba(0.0F, 0.0F, 0.0F, 0.0F);
   bool m_wallpaperDirty = false;
   InputDispatcher m_inputDispatcher;
   std::function<void()> m_onLogin;

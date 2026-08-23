@@ -12,7 +12,12 @@ class Glyph;
 class DesktopLoginBoxWidget : public DesktopWidget {
 public:
   void create() override;
-  void setScreenWidth(float screenWidth) noexcept { m_screenWidth = screenWidth; }
+  void layout(Renderer& renderer) override;
+  void setScreenMetrics(float screenWidth, float screenHeight, float panelCenterY) noexcept {
+    m_screenWidth = screenWidth;
+    m_screenHeight = screenHeight;
+    m_panelCenterY = panelCenterY;
+  }
   void setSettings(const std::unordered_map<std::string, WidgetSettingValue>& settings);
 
   bool applySetting(
@@ -23,7 +28,9 @@ public:
 private:
   void doLayout(Renderer& renderer) override;
 
-  float m_screenWidth = 0.0f;
+  float m_screenWidth = 0.0F;
+  float m_screenHeight = 0.0F;
+  float m_panelCenterY = 0.0F;
   std::unordered_map<std::string, WidgetSettingValue> m_settings;
   Box* m_panel = nullptr;
   Box* m_infoGhost = nullptr;

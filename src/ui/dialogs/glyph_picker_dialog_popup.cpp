@@ -80,7 +80,7 @@ void GlyphPickerDialogPopup::layoutSheet(float contentWidth, float contentHeight
     return;
   }
   m_sheet->setSize(contentWidth, contentHeight);
-  m_sheet->layout(*renderContext());
+  m_sheet->layout(renderer());
 }
 
 void GlyphPickerDialogPopup::cancelToFacade() { GlyphPickerDialog::cancelIfPending(); }

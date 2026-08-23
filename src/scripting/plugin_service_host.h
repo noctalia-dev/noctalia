@@ -1,8 +1,8 @@
 #pragma once
 
-#include "core/files/file_watcher.h"
 #include "core/timer_manager.h"
 #include "scripting/plugin_ipc.h"
+#include "scripting/plugin_script_watcher.h"
 #include "scripting/script_runtime.h"
 
 #include <filesystem>
@@ -45,6 +45,10 @@ namespace scripting {
     // whose effective settings changed. Called on config reload.
     void refresh(const PluginSettingsMap& pluginSettings);
 
+    // Invoke the optional onEnable() callback for every service belonging to
+    // a plugin after an explicit successful enable.
+    void enablePlugin(std::string_view pluginId);
+
     // Notify every service that the set/geometry of connected outputs changed, so a
     // service can reconcile (e.g. relaunch a per-output child). The current output
     // list is read via noctalia.outputs() inside the callback.
@@ -56,9 +60,10 @@ namespace scripting {
     struct Service : public PluginIpcEndpoint {
       std::string entryId;
       std::filesystem::path sourcePath;
+      std::filesystem::path pluginDir;
       std::shared_ptr<ScriptRuntime> runtime;
       ScriptRuntime::SubscriberId subscription = 0;
-      FileWatcher::WatchId watchId = 0;
+      PluginScriptWatcher scriptWatcher;
       Timer updateTimer;
       int updateIntervalMs = 1000;
       ScriptSettings lastSeededSettings;
@@ -80,11 +85,13 @@ namespace scripting {
     void subscribeAndArm(Service& service);
     // Build, register, and start a service runtime for an entry. Returns null on an
     // empty/unreadable source.
-    [[nodiscard]] std::unique_ptr<Service>
-    makeService(const std::string& entryId, const std::filesystem::path& source, ScriptSettings seeded);
+    [[nodiscard]] std::unique_ptr<Service> makeService(
+        const std::string& entryId, const std::filesystem::path& source, const std::filesystem::path& pluginDir,
+        ScriptSettings seeded
+    );
     // Full teardown for removal/shutdown: unregister IPC, stop timer + runtime, and
     // mark the alive token dead so any in-flight callback is a no-op.
-    void stopService(Service& service);
+    void stopService(Service& service, ScriptExitReason exitReason = ScriptExitReason::Reload);
     // Build the effective seeded settings for an entry (manifest defaults + plugin
     // overrides). Returns nullopt if the entry no longer resolves.
     [[nodiscard]] std::optional<ScriptSettings>

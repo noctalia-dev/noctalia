@@ -41,14 +41,6 @@ public:
     markPaintDirty();
   }
 
-  void setSoftness(float softness) {
-    if (m_style.softness == softness) {
-      return;
-    }
-    m_style.softness = softness;
-    markPaintDirty();
-  }
-
 private:
   ScreenCornerStyle m_style;
 };

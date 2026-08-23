@@ -13,17 +13,17 @@ enum class AttachedRevealDirection : std::uint8_t {
 };
 
 struct AttachedPanelGeometry {
-  float x = 0.0f;
-  float y = 0.0f;
-  float width = 0.0f;
-  float height = 0.0f;
+  float x = 0.0F;
+  float y = 0.0F;
+  float width = 0.0F;
+  float height = 0.0F;
   // Full panel corner radius; used for the away-side convex corners, which are visible
   // throughout the open/close animation and should always render rounded.
-  float cornerRadius = 0.0f;
+  float cornerRadius = 0.0F;
   // Bar-side concave-corner radius. Animated with the reveal progress: zero while the
   // bg's bar-side edge is still hidden behind the bar, ramps to cornerRadius as the
   // bulges slide into view near the end of the open animation.
-  float bulgeRadius = 0.0f;
+  float bulgeRadius = 0.0F;
 };
 
 namespace attached_panel {
@@ -66,17 +66,17 @@ namespace attached_panel {
     const bool vertical = (barPosition == "left" || barPosition == "right");
     if (vertical) {
       return RectInsets{
-          .left = 0.0f,
+          .left = 0.0F,
           .top = radius,
-          .right = 0.0f,
+          .right = 0.0F,
           .bottom = radius,
       };
     }
     return RectInsets{
         .left = radius,
-        .top = 0.0f,
+        .top = 0.0F,
         .right = radius,
-        .bottom = 0.0f,
+        .bottom = 0.0F,
     };
   }
 
@@ -95,15 +95,15 @@ namespace attached_panel {
 
   [[nodiscard]] inline Radii cornerRadii(std::string_view barPosition, float radius) {
     if (barPosition == "bottom") {
-      return Radii{0.0f, 0.0f, radius, radius};
+      return Radii{0.0F, 0.0F, radius, radius};
     }
     if (barPosition == "left") {
-      return Radii{0.0f, radius, radius, 0.0f};
+      return Radii{0.0F, radius, radius, 0.0F};
     }
     if (barPosition == "right") {
-      return Radii{radius, 0.0f, 0.0f, radius};
+      return Radii{radius, 0.0F, 0.0F, radius};
     }
-    return Radii{radius, radius, 0.0f, 0.0f};
+    return Radii{radius, radius, 0.0F, 0.0F};
   }
 
 } // namespace attached_panel

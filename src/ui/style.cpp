@@ -4,10 +4,11 @@
 
 namespace {
 
-  float g_cornerRadiusScale = 1.0f;
+  float g_cornerRadiusScale = 1.0F;
   bool g_buttonBordersEnabled = true;
   bool g_inputBordersEnabled = true;
   bool g_popupBordersEnabled = true;
+  bool g_rtl = false;
   bool g_popupShadowsEnabled = true;
   bool g_cardBordersEnabled = true;
 
@@ -17,7 +18,7 @@ namespace Style {
 
   float cornerRadiusScale() noexcept { return g_cornerRadiusScale; }
 
-  void setCornerRadiusScale(float scale) noexcept { g_cornerRadiusScale = std::clamp(scale, 0.0f, 2.0f); }
+  void setCornerRadiusScale(float scale) noexcept { g_cornerRadiusScale = std::clamp(scale, 0.0F, 2.0F); }
 
   bool buttonBordersEnabled() noexcept { return g_buttonBordersEnabled; }
 
@@ -52,6 +53,8 @@ namespace Style {
   bool popupBordersEnabled() noexcept { return g_popupBordersEnabled; }
   void setPopupBordersEnabled(bool enabled) { g_popupBordersEnabled = enabled; }
 
+  bool rtl() noexcept { return g_rtl; }
+  void setRtl(bool rtl) noexcept { g_rtl = rtl; }
   bool cardBordersEnabled() noexcept { return g_cardBordersEnabled; }
   void setCardBordersEnabled(bool enabled) { g_cardBordersEnabled = enabled; }
 

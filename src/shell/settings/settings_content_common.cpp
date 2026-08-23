@@ -173,8 +173,8 @@ namespace settings {
   void updateSettingsStatusBanner(Flex& banner, Label& message, std::string_view text, bool error) {
     message.setText(std::string(text));
     message.setColor(colorSpecFromRole(error ? ColorRole::Error : ColorRole::Secondary));
-    banner.setFill(colorSpecFromRole(error ? ColorRole::Error : ColorRole::Secondary, 0.14f));
-    banner.setBorder(colorSpecFromRole(error ? ColorRole::Error : ColorRole::Secondary, 0.45f), Style::borderWidth);
+    banner.setFill(colorSpecFromRole(error ? ColorRole::Error : ColorRole::Secondary, 0.14F));
+    banner.setBorder(colorSpecFromRole(error ? ColorRole::Error : ColorRole::Secondary, 0.45F), Style::borderWidth);
     banner.setVisible(!text.empty());
   }
 
@@ -189,8 +189,8 @@ namespace settings {
         .configure = [scale, error](Flex& row) {
           row.setPadding(Style::spaceXs * scale, Style::spaceSm * scale);
           row.setRadius(Style::scaledRadiusMd(scale));
-          row.setFill(colorSpecFromRole(error ? ColorRole::Error : ColorRole::Secondary, 0.14f));
-          row.setBorder(colorSpecFromRole(error ? ColorRole::Error : ColorRole::Secondary, 0.45f), Style::borderWidth);
+          row.setFill(colorSpecFromRole(error ? ColorRole::Error : ColorRole::Secondary, 0.14F));
+          row.setBorder(colorSpecFromRole(error ? ColorRole::Error : ColorRole::Secondary, 0.45F), Style::borderWidth);
         },
     });
     banner->addChild(
@@ -201,7 +201,7 @@ namespace settings {
             .fontWeight = FontWeight::Bold,
             .color = colorSpecFromRole(error ? ColorRole::Error : ColorRole::Secondary),
             .maxLines = 3,
-            .flexGrow = 1.0f,
+            .flexGrow = 1.0F,
         })
     );
     if (props.onDismiss) {
@@ -219,6 +219,103 @@ namespace settings {
       );
     }
     return banner;
+  }
+
+  bool settingsSectionNeedsOfflineModeNotice(SettingsSection section) {
+    switch (section) {
+    case SettingsSection::Appearance:
+    case SettingsSection::Templates:
+    case SettingsSection::Launcher:
+    case SettingsSection::Security:
+    case SettingsSection::Services:
+    case SettingsSection::Location:
+      return true;
+    case SettingsSection::Wallpaper:
+    case SettingsSection::Desktop:
+    case SettingsSection::Dock:
+    case SettingsSection::Panels:
+    case SettingsSection::ControlCenter:
+    case SettingsSection::Notifications:
+    case SettingsSection::Osd:
+    case SettingsSection::Shell:
+    case SettingsSection::Keybinds:
+    case SettingsSection::System:
+    case SettingsSection::Power:
+    case SettingsSection::Hooks:
+    case SettingsSection::Niri:
+    case SettingsSection::Bar:
+    case SettingsSection::Plugins:
+      return false;
+    }
+    return false;
+  }
+
+  std::string offlineModeNoticeMessage(SettingsSection section) {
+    switch (section) {
+    case SettingsSection::Appearance:
+      return i18n::tr("settings.window.offline-mode-notice.appearance");
+    case SettingsSection::Templates:
+      return i18n::tr("settings.window.offline-mode-notice.templates");
+    case SettingsSection::Launcher:
+      return i18n::tr("settings.window.offline-mode-notice.launcher");
+    case SettingsSection::Security:
+      return i18n::tr("settings.window.offline-mode-notice.security");
+    case SettingsSection::Services:
+      return i18n::tr("settings.window.offline-mode-notice.services");
+    case SettingsSection::Location:
+      return i18n::tr("settings.window.offline-mode-notice.location");
+    case SettingsSection::Wallpaper:
+    case SettingsSection::Desktop:
+    case SettingsSection::Dock:
+    case SettingsSection::Panels:
+    case SettingsSection::ControlCenter:
+    case SettingsSection::Notifications:
+    case SettingsSection::Osd:
+    case SettingsSection::Shell:
+    case SettingsSection::Keybinds:
+    case SettingsSection::System:
+    case SettingsSection::Power:
+    case SettingsSection::Hooks:
+    case SettingsSection::Niri:
+    case SettingsSection::Bar:
+    case SettingsSection::Plugins:
+      return {};
+    }
+    return {};
+  }
+
+  std::unique_ptr<Flex> makeOfflineModeNotice(float scale, std::string message, bool showDisableHint) {
+    if (showDisableHint) {
+      message += ' ';
+      message += i18n::tr("settings.window.offline-mode-notice.disable-hint");
+    }
+    auto panel = ui::column({
+        .align = FlexAlign::Stretch,
+        .gap = Style::spaceXs * scale,
+        .padding = Style::spaceSm * scale,
+        .configure = [scale](Flex& column) {
+          column.setRadius(Style::scaledRadiusMd(scale));
+          column.setFill(colorSpecFromRole(ColorRole::Error, 0.10F));
+          column.setBorder(colorSpecFromRole(ColorRole::Error, 0.5F), Style::borderWidth);
+        },
+    });
+    panel->addChild(
+        ui::label({
+            .text = i18n::tr("settings.window.offline-mode-notice.title"),
+            .fontSize = Style::fontSizeBody * scale,
+            .fontWeight = FontWeight::Bold,
+            .color = colorSpecFromRole(ColorRole::Error),
+        })
+    );
+    panel->addChild(
+        ui::label({
+            .text = std::move(message),
+            .fontSize = Style::fontSizeCaption * scale,
+            .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+            .maxLines = 4,
+        })
+    );
+    return panel;
   }
 
   std::unique_ptr<Label> makeSettingSubtitleLabel(std::string_view text, float scale) {
@@ -405,6 +502,9 @@ namespace settings {
     }
     if (filter.playSound) {
       parts.emplace_back(i18n::tr("settings.notifications.filter.flag.sound"));
+    }
+    if (filter.bypassDnd) {
+      parts.emplace_back(i18n::tr("settings.notifications.filter.flag.dnd-bypass"));
     }
     if (filter.allowPermanent) {
       parts.emplace_back(i18n::tr("settings.notifications.filter.flag.permanent"));

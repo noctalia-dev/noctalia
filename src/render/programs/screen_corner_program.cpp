@@ -31,14 +31,13 @@ void main() {
 )";
 
   constexpr char kFragmentShaderSource[] = R"(
+#extension GL_OES_standard_derivatives : require
 precision highp float;
 
 uniform vec2 u_size;
-uniform vec2 u_pixel_scale;
 uniform vec4 u_color;
 uniform int u_corner;
 uniform float u_exponent;
-uniform float u_softness;
 varying vec2 v_local;
 
 vec2 corner_center() {
@@ -58,9 +57,12 @@ void main() {
     vec2 radius = max(u_size, vec2(1.0));
     vec2 normalized = abs(v_local - corner_center()) / radius;
     float shape = pow(normalized.x, u_exponent) + pow(normalized.y, u_exponent) - 1.0;
-    float pixel_scale = max(min(u_pixel_scale.x, u_pixel_scale.y), 1.0);
-    float aa = max(u_softness / (min(radius.x, radius.y) * pixel_scale), 0.0001);
-    float coverage = smoothstep(-aa, aa, shape);
+    // The superellipse implicit function is not a distance: its gradient scales with the
+    // exponent and varies along the curve, so a fixed window antialiases over a fraction of
+    // a pixel. Normalize by the screen-space gradient for a one-device-pixel transition, and
+    // ramp linearly so partial pixels carry true box-filter coverage of the outside region.
+    float pixel_width = max(length(vec2(dFdx(shape), dFdy(shape))), 1e-6);
+    float coverage = clamp(0.5 + shape / pixel_width, 0.0, 1.0);
     float alpha = u_color.a * coverage;
     if (alpha <= 0.0) {
         discard;
@@ -80,21 +82,17 @@ void ScreenCornerProgram::ensureInitialized() {
   m_positionLocation = glGetAttribLocation(m_program.id(), "a_position");
   m_surfaceSizeLocation = glGetUniformLocation(m_program.id(), "u_surface_size");
   m_sizeLocation = glGetUniformLocation(m_program.id(), "u_size");
-  m_pixelScaleLocation = glGetUniformLocation(m_program.id(), "u_pixel_scale");
   m_colorLocation = glGetUniformLocation(m_program.id(), "u_color");
   m_cornerLocation = glGetUniformLocation(m_program.id(), "u_corner");
   m_exponentLocation = glGetUniformLocation(m_program.id(), "u_exponent");
-  m_softnessLocation = glGetUniformLocation(m_program.id(), "u_softness");
   m_transformLocation = glGetUniformLocation(m_program.id(), "u_transform");
 
   if (m_positionLocation < 0
       || m_surfaceSizeLocation < 0
       || m_sizeLocation < 0
-      || m_pixelScaleLocation < 0
       || m_colorLocation < 0
       || m_cornerLocation < 0
       || m_exponentLocation < 0
-      || m_softnessLocation < 0
       || m_transformLocation < 0) {
     throw std::runtime_error("failed to query screen-corner shader locations");
   }
@@ -105,36 +103,32 @@ void ScreenCornerProgram::destroy() {
   m_positionLocation = -1;
   m_surfaceSizeLocation = -1;
   m_sizeLocation = -1;
-  m_pixelScaleLocation = -1;
   m_colorLocation = -1;
   m_cornerLocation = -1;
   m_exponentLocation = -1;
-  m_softnessLocation = -1;
   m_transformLocation = -1;
 }
 
 void ScreenCornerProgram::abandon() noexcept { m_program.abandon(); }
 
 void ScreenCornerProgram::draw(
-    float surfaceWidth, float surfaceHeight, float pixelScaleX, float pixelScaleY, float width, float height,
-    const ScreenCornerStyle& style, const Mat3& transform
+    float surfaceWidth, float surfaceHeight, float width, float height, const ScreenCornerStyle& style,
+    const Mat3& transform
 ) const {
-  if (!m_program.isValid() || width <= 0.0f || height <= 0.0f || style.color.a <= 0.0f) {
+  if (!m_program.isValid() || width <= 0.0F || height <= 0.0F || style.color.a <= 0.0F) {
     return;
   }
 
   const std::array<GLfloat, 12> vertices = {
-      0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f, 1.0f,
+      0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 1.0F, 0.0F, 1.0F, 1.0F,
   };
 
   glUseProgram(m_program.id());
   glUniform2f(m_surfaceSizeLocation, surfaceWidth, surfaceHeight);
   glUniform2f(m_sizeLocation, width, height);
-  glUniform2f(m_pixelScaleLocation, std::max(1.0f, pixelScaleX), std::max(1.0f, pixelScaleY));
   glUniform4f(m_colorLocation, style.color.r, style.color.g, style.color.b, style.color.a);
   glUniform1i(m_cornerLocation, static_cast<GLint>(style.position));
-  glUniform1f(m_exponentLocation, std::max(1.0f, style.exponent));
-  glUniform1f(m_softnessLocation, std::max(0.0f, style.softness));
+  glUniform1f(m_exponentLocation, std::max(1.0F, style.exponent));
   glUniformMatrix3fv(m_transformLocation, 1, GL_FALSE, transform.m.data());
   const auto posAttr = static_cast<GLuint>(m_positionLocation);
   glVertexAttribPointer(posAttr, 2, GL_FLOAT, GL_FALSE, 0, vertices.data());

@@ -93,6 +93,11 @@
       "sysmon": {
         "cpu": "CPU",
         "cpu-temp": "CPU temp",
+        "disk": "Lagring",
+        "disk-free": "Ledig lagring",
+        "disk-free-pct": "Ledig lagring %",
+        "disk-used": "Använd lagring",
+        "disk-used-pct": "Använd lagring %",
         "download": "Nedladdning",
         "gpu-temp": "GPU temp",
         "gpu-usage": "GPU anv",
@@ -112,7 +117,18 @@
         "error": "Väder fel",
         "loading": "Väder...",
         "no-location": "Ingen plats",
-        "off": "Väder av"
+        "off": "Väder av",
+        "tooltip": {
+          "condition": "Väder",
+          "high": "Högst",
+          "humidity": "Luftfuktighet",
+          "low": "Lägst",
+          "sunrise": "Soluppgång",
+          "sunset": "Solnedgång",
+          "temperature": "Temperatur",
+          "uv": "UV-index",
+          "wind": "Vind"
+        }
       }
     }
   },
@@ -306,7 +322,8 @@
         "14-days": "14 dagar",
         "3-days": "3 dagar",
         "today": "Idag"
-      }
+      },
+      "view-day": "Se dagens detaljer"
     },
     "shortcuts": {
       "audio": "Ljud",
@@ -318,7 +335,7 @@
         "dark": "Mörkt Läge",
         "light": "Ljust Läge"
       },
-      "keyboard-layout": "Layout",
+      "keyboard-layout": "Tangentbordslayout",
       "media": "Media",
       "mic-mute": "Mikrofon",
       "nightlight": "Nattläge",
@@ -444,11 +461,15 @@
         "background-opacity": "Opacitet",
         "background-radius": "Radie",
         "background-section": "Bakgrund",
+        "bands": "Band",
+        "bar-width": "Bar-bredd",
+        "bloom-intensity": "Glöd",
         "center-password-text": "Centrera lösenordstext",
         "center-text": "Centrera text",
         "centered": "Centrerad",
         "change-image": "Byt...",
         "circle": "Cirkel",
+        "clock-style": "Klockstil",
         "clock-style-analog": "Analog",
         "clock-style-digital": "Digital",
         "color": "Färg",
@@ -459,19 +480,28 @@
         "custom-color": "Anpassad",
         "description": "Beskrivning",
         "device": "Enhet",
+        "display": "Visningsläge",
+        "display-gauge": "Mätare",
         "display-graph": "Graf",
+        "fade-when-idle": "Göm när inaktiv",
         "font-family": "Typsnitt",
         "font-family-default": "Systemstandard",
         "forecast-days": "Prognosdagar",
         "format": "Format",
+        "gauge-layout": "Mätarlayout",
         "glyph": "Glyf",
         "hide-when-no-media": "Göm när media saknas",
         "highlight-color": "Markeringsfärg",
         "horizontal": "Horisontal",
         "image-path": "Bild",
+        "inner-diameter": "Inre diameter",
         "interface": "Gränssnitt",
         "label": "Etikett",
+        "label-min-width": "Etikett minimumbredd",
+        "layout": "Layout",
         "mirrored": "Speglad",
+        "network-speed-compact": "Kompakt nätverkshastighet",
+        "network-speed-unit": "Nätverkshastighetsenhet",
         "network-speed-unit-auto": "Automatisk",
         "network-speed-unit-kilobytes": "kB/s",
         "network-speed-unit-megabytes": "MB/s",
@@ -490,7 +520,11 @@
         "show-keyboard-layout": "Tangentbordslayout",
         "show-label": "Visa Etikett",
         "show-login-button": "Loginknapp",
+        "show-media": "Media",
+        "show-password-hint": "Lösenordsledtråd",
+        "show-session-buttons": "Sessionknappar",
         "show-vpn-label": "Visa VPN-etikett",
+        "show-weather": "Väder",
         "show-when-idle": "Visa när inaktiv",
         "stat-cpu-temp": "CPU-temperatur",
         "stat-cpu-usage": "CPU-användning",
@@ -686,13 +720,41 @@
       "off": "Stör ej av",
       "on": "Stör ej på"
     },
+    "lock-keys": {
+      "caps-off": "Skiftlås av",
+      "caps-on": "Skiftlås på",
+      "num-off": "Sifferlås av",
+      "num-on": "Sifferlås på",
+      "scroll-off": "Skrollås av",
+      "scroll-on": "Skrollås på"
+    },
     "nightlight": {
       "forced": "Alltid på",
+      "off": "Nattläge av",
+      "running": "Kör",
       "scheduled": "Schemalagd"
+    },
+    "privacy": {
+      "camera-off": "Kamera av",
+      "camera-on": "Kamera på",
+      "mic-off": "Mikrofon av",
+      "mic-on": "Mikrofon på",
+      "screen-off": "Skärmdelning av",
+      "screen-on": "Skärmdelning på"
     },
     "wifi": {
       "off": "Wi-Fi av",
       "on": "Wi-Fi på"
+    }
+  },
+  "plugins": {
+    "auto-disabled": {
+      "title": "Plugin avstängt"
+    },
+    "enable-failed": {
+      "body-error": "{plugin}: {error}",
+      "body-timeout": "{plugin} tog för lång tid att installera.",
+      "title": "Plugin inte aktivt"
     }
   },
   "power": {
@@ -722,6 +784,7 @@
   },
   "session": {
     "actions": {
+      "custom": "Anpassad",
       "lock": "Lås",
       "logout": "Logga ut",
       "reboot": "Starta om",
@@ -733,20 +796,28 @@
   },
   "settings": {
     "actions": {
+      "confirm-reset": "Bekräfta återställning",
       "reset": "Återställ"
     },
     "badges": {
       "advanced": "Avancerat",
       "community": "Community",
       "inherited": "Ärvt",
-      "official": "Officiell"
+      "official": "Officiell",
+      "override": "Överskrivet"
     },
     "calendar-accounts": {
       "add-title": "Lägg till kalenderkonto",
       "calendars-label": "Kalendrar",
       "color-label": "Färg",
+      "credential-source-file": "Lösenordsfil",
+      "credential-source-keyring": "Keyring",
       "delete-error": "Kunde inte ta bort kalenderkonto.",
       "edit-title": "Ändra kalenderkonto",
+      "id-label": "Konto ID",
+      "name-label": "Visningsnamn",
+      "name-placeholder": "Personlig kalender",
+      "password-save-error": "Kunde inte spara kalenderkontolösenord.",
       "provider": {
         "custom": "CalDAV",
         "google": "Google",
@@ -754,19 +825,41 @@
       },
       "provider-label": "Leverantör",
       "save": "Spara",
-      "save-connect": "Spara och anslut"
+      "save-connect": "Spara och anslut",
+      "save-error": "Kunde inte spara kalenderkonto.",
+      "username-label": "Användarnamn",
+      "username-placeholder": "namn@exempel.se"
     },
     "entities": {
       "bar": {
         "create": "Skapa",
         "delete": "Ta bort",
         "delete-confirm-title": "Ta bort \"{name}\"?",
+        "label": "Bar: {name}",
         "move-down": "Flytta ner",
         "move-up": "Flytta upp",
         "rename": "Byt namn",
         "rename-save": "Spara"
       },
+      "monitor-override": {
+        "delete-confirm-title": "Ta bort \"{name}\"?",
+        "label": "Skärm: {name}",
+        "rename": "Byt namn",
+        "rename-save": "Spara"
+      },
       "widget": {
+        "inspector": {
+          "add-instance-title": "Lägg till namngiven {widget} widget till {lane}"
+        },
+        "instance": {
+          "delete-confirm-title": "Ta bort \"{name}\"?",
+          "rename": "Byt namn",
+          "rename-save": "Spara"
+        },
+        "picker": {
+          "instance-description": "Namngiven widget för typ \"{type}\"",
+          "instance-toggle": "Namngiven widget"
+        },
         "settings": {
           "groups": {
             "taskbar": {
@@ -777,8 +870,21 @@
         }
       }
     },
+    "errors": {
+      "bar": {
+        "rename": "Kunde inte byta namn på bar."
+      }
+    },
+    "idle": {
+      "behavior": {
+        "name-label": "Namn",
+        "summary": "{name} · {seconds}s",
+        "summary-disabled-timeout": "{name} · timeout avstängd"
+      }
+    },
     "navigation": {
       "groups": {
+        "calendar": "Kalender",
         "weather": "Väder"
       }
     },
@@ -809,8 +915,23 @@
       }
     },
     "plugins": {
+      "panels": {
+        "placement": {
+          "label": "Placering"
+        }
+      },
+      "plugins": {
+        "delete-confirm-title": "Ta bort \"{name}\"?",
+        "update-available": "uppdatering tillgänglig"
+      },
       "settings": {
         "empty": "Inga inställningar tillgängliga."
+      },
+      "store": {
+        "sort-name-asc": "Sortera namn (A-Z)",
+        "sort-name-desc": "Sortera namn (Z-A)",
+        "sort-updated-at-asc": "Sortera uppdateringsdatum (äldst först)",
+        "sort-updated-at-desc": "Sortera uppdateringsdatum (senast först)"
       }
     },
     "schema": {
@@ -820,6 +941,31 @@
         },
         "ui-scale": {
           "label": "Gränsnittsskala"
+        }
+      },
+      "notifications": {
+        "show-app-name": {
+          "label": "Visa appnamn"
+        }
+      },
+      "panels": {
+        "placement-clipboard": {
+          "label": "Placering"
+        },
+        "placement-control-center": {
+          "label": "Placering"
+        },
+        "placement-launcher": {
+          "label": "Placering"
+        },
+        "placement-polkit": {
+          "label": "Placering"
+        },
+        "placement-session": {
+          "label": "Placering"
+        },
+        "placement-wallpaper": {
+          "label": "Placering"
         }
       },
       "services": {
@@ -857,14 +1003,79 @@
         }
       }
     },
+    "templates": {
+      "store": {
+        "sort-name-asc": "Sortera namn (A-Z)",
+        "sort-name-desc": "Sortera namn (Z-A)"
+      }
+    },
     "widgets": {
+      "map-placeholders": {
+        "effects-profile-name": "Profilnamn",
+        "glyph-name": "Glyfnamn",
+        "layout-name": "Layoutnamn"
+      },
+      "options": {
+        "instance": "Per placering",
+        "name": "Namn"
+      },
       "settings": {
         "interface": {
           "label": "Gränsnitt"
+        },
+        "show-condition": {
+          "description": "Visa väderförhållande-texten",
+          "label": "Visa väder"
         }
       },
       "types": {
         "caffeine": "Koffein"
+      }
+    }
+  },
+  "ui": {
+    "dialogs": {
+      "file": {
+        "filename-placeholder": "Filnamn",
+        "sort": {
+          "name": "Namn"
+        }
+      }
+    }
+  },
+  "wallpaper": {
+    "panel": {
+      "sort-name-asc": "Sortera namn (A-Z)",
+      "sort-name-desc": "Sortera namn (Z-A)"
+    }
+  },
+  "weather": {
+    "conditions": {
+      "full": {
+        "clear-sky": "Klar himmel",
+        "drizzle": "Duggregn",
+        "fog": "Dimmigt",
+        "mainly-clear": "Mest klart",
+        "overcast": "Mulet",
+        "partly-cloudy": "Halvklart",
+        "rain-showers": "Regnskurar",
+        "snow": "Snö",
+        "snow-showers": "Snöskurar",
+        "thunderstorm": "Åskväder",
+        "unknown": "Okänt"
+      },
+      "short": {
+        "clear": "Klart",
+        "cloudy": "Molnigt",
+        "drizzle": "Duggregn",
+        "fog": "Mulet",
+        "mostly-clear": "Mest klart",
+        "overcast": "Mulet",
+        "showers": "Skurar",
+        "snow": "Snö",
+        "snow-showers": "Snöskurar",
+        "storm": "Stormigt",
+        "weather": "Väder"
       }
     }
   }

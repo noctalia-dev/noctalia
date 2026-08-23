@@ -16,8 +16,8 @@
 
 namespace {
 
-  constexpr float kSizeColumnWidth = 96.0f;
-  constexpr float kDateColumnWidth = 152.0f;
+  constexpr float kSizeColumnWidth = 96.0F;
+  constexpr float kDateColumnWidth = 152.0F;
 
   std::string formatSize(const FileEntry& entry) {
     if (entry.isDir) {
@@ -45,7 +45,7 @@ namespace {
 
 } // namespace
 
-FileEntryRow::FileEntryRow(float scale) : m_scale(scale), m_rowHeight(std::ceil(32.0f * scale)) {
+FileEntryRow::FileEntryRow(float scale) : m_scale(scale), m_rowHeight(std::ceil(32.0F * scale)) {
   setPropagateEvents(true);
   setOnClick([this](const InputArea::PointerData&) {
     if (m_boundIndex != static_cast<std::size_t>(-1) && m_onClick) {
@@ -88,7 +88,7 @@ FileEntryRow::FileEntryRow(float scale) : m_scale(scale), m_rowHeight(std::ceil(
   auto name = ui::label({
       .fontSize = Style::fontSizeBody * scale,
       .maxLines = 1,
-      .flexGrow = 1.0f,
+      .flexGrow = 1.0F,
   });
   m_name = static_cast<Label*>(m_row->addChild(std::move(name)));
 
@@ -134,7 +134,7 @@ void FileEntryRow::bind(
 
   m_icon->setGlyph(entry.isDir ? "folder" : (DirectoryScanner::isImagePath(entry.absPath) ? "image" : "file"));
   m_name->setText(entry.name);
-  m_name->setMaxWidth(std::max(0.0f, width - (kSizeColumnWidth + kDateColumnWidth + 72.0f) * m_scale));
+  m_name->setMaxWidth(std::max(0.0F, width - (kSizeColumnWidth + kDateColumnWidth + 72.0F) * m_scale));
   m_size->setText(formatSize(entry));
   m_date->setText(formatFileTime(entry.mtime));
 
@@ -170,7 +170,7 @@ void FileEntryRow::applyVisualState() {
   const Color sub = m_selected ? colorForRole(ColorRole::OnPrimary)
       : m_hovered              ? colorForRole(ColorRole::OnHover)
                                : colorForRole(ColorRole::OnSurfaceVariant);
-  const float alpha = m_disabled ? 0.55f : 1.0f;
+  const float alpha = m_disabled ? 0.55F : 1.0F;
 
   m_background->setFill(bg);
   m_icon->setColor(withAlpha(fg, alpha));

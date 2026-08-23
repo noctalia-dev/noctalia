@@ -14,6 +14,12 @@ namespace desktop_entry_launch {
     std::string activationToken;
     bool runAsSystemdService = false;
     std::string customCommand;
+    // When true, try org.freedesktop.Application Activate/ActivateAction before Exec.
+    bool dbusActivatable = false;
+    // Desktop-file id (stem) used as the D-Bus well-known name; required when dbusActivatable.
+    std::string dbusAppId;
+    // Empty → Activate; otherwise ActivateAction(action_name, ...).
+    std::string desktopActionId;
   };
 
   struct PrepareOptions {
@@ -27,6 +33,9 @@ namespace desktop_entry_launch {
 
   [[nodiscard]] std::optional<PreparedCommand>
   prepareCommand(std::string_view exec, bool terminal, const PrepareOptions& options = {});
+
+  // Launches the configured MIME handler without passing a file or URI.
+  [[nodiscard]] bool launchDefaultForMimeType(std::string_view mimeType);
 
   [[nodiscard]] bool launchEntry(const DesktopEntry& entry, const LaunchOptions& options = {});
 

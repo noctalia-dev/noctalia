@@ -7,7 +7,10 @@
 #include "ui/ui_tree.h"
 
 #include <algorithm>
+#include <cmath>
+#include <format>
 #include <optional>
+#include <set>
 #include <string>
 #include <string_view>
 #include <variant>
@@ -55,8 +58,8 @@ namespace {
     size_t len = 0;
     const char* path = luaL_checklstring(L, 1, &len);
     const bool watch = lua_gettop(L) >= 2 && !lua_isnil(L, 2) && lua_toboolean(L, 2) != 0;
-    float width = 0.0f;
-    float height = 0.0f;
+    float width = 0.0F;
+    float height = 0.0F;
     if (lua_gettop(L) >= 3 && !lua_isnil(L, 3)) {
       width = static_cast<float>(luaL_checknumber(L, 3));
       height = width;
@@ -582,7 +585,9 @@ namespace {
     return 0;
   }
 
-  int luau_desktop_setWantsSecondTicks(lua_State* L) {
+  // setWantsSecondTicks(bool) / setNeedsFrameTick(bool) — shared by
+  // desktopWidget.* and panel.*.
+  int luau_ui_setWantsSecondTicks(lua_State* L) {
     const bool wants = lua_toboolean(L, 1) != 0;
     if (auto* context = getContext(L)) {
       context->patch.wantsSecondTicks = wants;
@@ -590,7 +595,7 @@ namespace {
     return 0;
   }
 
-  int luau_desktop_setNeedsFrameTick(lua_State* L) {
+  int luau_ui_setNeedsFrameTick(lua_State* L) {
     const bool needs = lua_toboolean(L, 1) != 0;
     if (auto* context = getContext(L)) {
       context->patch.needsFrameTick = needs;
@@ -600,8 +605,8 @@ namespace {
 
   const luaL_Reg kDesktopWidgetLib[] = {
       {"render", luau_ui_render},
-      {"setWantsSecondTicks", luau_desktop_setWantsSecondTicks},
-      {"setNeedsFrameTick", luau_desktop_setNeedsFrameTick},
+      {"setWantsSecondTicks", luau_ui_setWantsSecondTicks},
+      {"setNeedsFrameTick", luau_ui_setNeedsFrameTick},
       {nullptr, nullptr},
   };
 
@@ -615,21 +620,193 @@ namespace {
     return 0;
   }
 
-  int luau_panel_setWantsSecondTicks(lua_State* L) {
-    const bool wants = lua_toboolean(L, 1) != 0;
-    if (auto* context = getContext(L)) {
-      context->patch.wantsSecondTicks = wants;
+  constexpr int kContextMenuMaxItems = 64;
+  constexpr int kContextMenuMaxVisible = 30;
+  constexpr std::size_t kContextMenuMaxIdBytes = 128;
+  constexpr std::size_t kContextMenuMaxLabelBytes = 512;
+  constexpr std::size_t kContextMenuMaxCallbackBytes = 128;
+
+  std::string requiredExactStringField(
+      lua_State* L, int tableIndex, const char* field, std::size_t maxBytes, std::string_view description
+  ) {
+    lua_getfield(L, tableIndex, field);
+    if (lua_type(L, -1) != LUA_TSTRING) {
+      luaL_error(L, "panel.openContextMenu: %s must be a string", description.data());
     }
-    return 0;
+    std::size_t len = 0;
+    const char* value = lua_tolstring(L, -1, &len);
+    if (len == 0 || len > maxBytes) {
+      luaL_error(L, "panel.openContextMenu: %s must contain 1..%zu bytes", description.data(), maxBytes);
+    }
+    std::string out(value, len);
+    lua_pop(L, 1);
+    return out;
+  }
+
+  int luau_panel_openContextMenu(lua_State* L) {
+    luaL_checktype(L, 1, LUA_TTABLE);
+
+    scripting::ScriptContextMenuRequest request;
+    request.onActivate = requiredExactStringField(L, 1, "onActivate", kContextMenuMaxCallbackBytes, "onActivate");
+
+    lua_getfield(L, 1, "maxVisible");
+    if (!lua_isnil(L, -1)) {
+      const double value = luaL_checknumber(L, -1);
+      if (!std::isfinite(value)
+          || std::trunc(value) != value
+          || value < 1.0
+          || value > static_cast<double>(kContextMenuMaxVisible)) {
+        luaL_error(L, "panel.openContextMenu: maxVisible must be an integer between 1 and %d", kContextMenuMaxVisible);
+      }
+      const int integer = static_cast<int>(value);
+      request.maxVisible = static_cast<std::size_t>(integer);
+    }
+    lua_pop(L, 1);
+
+    lua_getfield(L, 1, "context");
+    switch (lua_type(L, -1)) {
+    case LUA_TNIL:
+      break;
+    case LUA_TBOOLEAN:
+      request.context = lua_toboolean(L, -1) != 0;
+      break;
+    case LUA_TNUMBER:
+      request.context = lua_tonumber(L, -1);
+      break;
+    case LUA_TSTRING: {
+      std::size_t len = 0;
+      const char* value = lua_tolstring(L, -1, &len);
+      request.context = std::string(value, len);
+      break;
+    }
+    default:
+      luaL_error(L, "panel.openContextMenu: context must be a string, number, boolean, or nil");
+    }
+    lua_pop(L, 1);
+
+    lua_getfield(L, 1, "items");
+    if (!lua_istable(L, -1)) {
+      luaL_error(L, "panel.openContextMenu: items must be an array");
+    }
+    const int itemTable = lua_gettop(L);
+    const int itemCount = lua_objlen(L, itemTable);
+    if (itemCount < 1 || itemCount > kContextMenuMaxItems) {
+      luaL_error(L, "panel.openContextMenu: items must contain 1..%d entries", kContextMenuMaxItems);
+    }
+
+    std::set<std::string, std::less<>> ids;
+    bool hasActionableItem = false;
+    request.items.reserve(static_cast<std::size_t>(itemCount));
+    for (int i = 1; i <= itemCount; ++i) {
+      lua_rawgeti(L, itemTable, i);
+      if (!lua_istable(L, -1)) {
+        luaL_error(L, "panel.openContextMenu: items[%d] must be a table", i);
+      }
+      const int itemIndex = lua_gettop(L);
+      scripting::ScriptContextMenuItem item;
+
+      lua_getfield(L, itemIndex, "kind");
+      if (!lua_isnil(L, -1)) {
+        if (lua_type(L, -1) != LUA_TSTRING) {
+          luaL_error(L, "panel.openContextMenu: items[%d].kind must be a string", i);
+        }
+        const std::string_view kind = lua_tostring(L, -1);
+        if (kind == "item") {
+          item.kind = scripting::ScriptContextMenuItemKind::Action;
+        } else if (kind == "separator") {
+          item.kind = scripting::ScriptContextMenuItemKind::Separator;
+          item.enabled = false;
+        } else if (kind == "header") {
+          item.kind = scripting::ScriptContextMenuItemKind::Header;
+          item.enabled = false;
+        } else {
+          luaL_error(L, "panel.openContextMenu: items[%d].kind must be 'item', 'separator', or 'header'", i);
+        }
+      }
+      lua_pop(L, 1);
+
+      if (item.kind == scripting::ScriptContextMenuItemKind::Action) {
+        item.id = requiredExactStringField(L, itemIndex, "id", kContextMenuMaxIdBytes, std::format("items[{}].id", i));
+        item.label = requiredExactStringField(
+            L, itemIndex, "label", kContextMenuMaxLabelBytes, std::format("items[{}].label", i)
+        );
+        if (!ids.insert(item.id).second) {
+          luaL_error(L, "panel.openContextMenu: duplicate item id '%s'", item.id.c_str());
+        }
+        lua_getfield(L, itemIndex, "enabled");
+        if (!lua_isnil(L, -1)) {
+          if (lua_type(L, -1) != LUA_TBOOLEAN) {
+            luaL_error(L, "panel.openContextMenu: items[%d].enabled must be a boolean", i);
+          }
+          item.enabled = lua_toboolean(L, -1) != 0;
+        }
+        lua_pop(L, 1);
+        hasActionableItem = hasActionableItem || item.enabled;
+      } else if (item.kind == scripting::ScriptContextMenuItemKind::Header) {
+        item.label = requiredExactStringField(
+            L, itemIndex, "label", kContextMenuMaxLabelBytes, std::format("items[{}].label", i)
+        );
+      }
+      request.items.push_back(std::move(item));
+      lua_pop(L, 1);
+    }
+    lua_pop(L, 1);
+
+    if (!hasActionableItem) {
+      luaL_error(L, "panel.openContextMenu: items must contain at least one enabled action");
+    }
+
+    auto* context = getContext(L);
+    if (context == nullptr
+        || !context->snapshot.pointerContext.has_value()
+        || context->snapshot.pointerContext->serial == 0) {
+      lua_pushboolean(L, 0);
+      return 1;
+    }
+    request.pointer = *context->snapshot.pointerContext;
+    context->contextMenuRequest = std::move(request);
+    lua_pushboolean(L, 1);
+    return 1;
   }
 
   const luaL_Reg kPanelLib[] = {
       {"render", luau_ui_render},
       {"close", luau_panel_close},
-      {"setWantsSecondTicks", luau_panel_setWantsSecondTicks},
+      {"openContextMenu", luau_panel_openContextMenu},
+      {"setWantsSecondTicks", luau_ui_setWantsSecondTicks},
+      {"setNeedsFrameTick", luau_ui_setNeedsFrameTick},
       {nullptr, nullptr},
   };
 
+  void pushTomlNode(lua_State* L, const toml::node& node) {
+    luaL_checkstack(L, 4, "noctalia.getSetting");
+    if (const auto* table = node.as_table()) {
+      lua_createtable(L, 0, static_cast<int>(table->size()));
+      for (const auto& [key, value] : *table) {
+        lua_pushlstring(L, key.str().data(), key.str().size());
+        pushTomlNode(L, value);
+        lua_settable(L, -3);
+      }
+    } else if (const auto* array = node.as_array()) {
+      lua_createtable(L, static_cast<int>(array->size()), 0);
+      int index = 1;
+      for (const auto& value : *array) {
+        pushTomlNode(L, value);
+        lua_rawseti(L, -2, index++);
+      }
+    } else if (const auto* str = node.as_string()) {
+      lua_pushlstring(L, str->get().data(), str->get().size());
+    } else if (const auto* integer = node.as_integer()) {
+      lua_pushnumber(L, static_cast<double>(integer->get()));
+    } else if (const auto* floating = node.as_floating_point()) {
+      lua_pushnumber(L, floating->get());
+    } else if (const auto* boolean = node.as_boolean()) {
+      lua_pushboolean(L, boolean->get() ? 1 : 0);
+    } else {
+      // config_export::serialize never emits TOML date/time values.
+      lua_pushnil(L);
+    }
+  }
 } // namespace
 
 namespace scripting {
@@ -678,6 +855,16 @@ namespace scripting {
         },
         it->second
     );
+    return 1;
+  }
+
+  int pushConfigSetting(lua_State* L, const toml::table& config, std::string_view path) {
+    const auto view = config.at_path(path);
+    if (!view.node()) {
+      lua_pushnil(L);
+      return 1;
+    }
+    pushTomlNode(L, *view.node());
     return 1;
   }
 

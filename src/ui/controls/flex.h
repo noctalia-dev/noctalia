@@ -49,6 +49,7 @@ public:
   void setPadding(float top, float right, float bottom, float left);
   void setPadding(float all);
   void setPadding(float vertical, float horizontal);
+  void setMirrorInRtl(bool mirror);
 
   void setFill(const ColorSpec& color);
   // Explicit fixed color.
@@ -65,7 +66,7 @@ public:
   // Default app card chrome: filled surface variant with a soft outline.
   // Section card background. The outline follows the [shell].card_borders
   // toggle unless a caller passes an explicit showBorder.
-  void setCardStyle(float scale = 1.0f, float fillOpacity = 1.0f, bool showBorder = Style::cardBordersEnabled());
+  void setCardStyle(float scale = 1.0F, float fillOpacity = 1.0F, bool showBorder = Style::cardBordersEnabled());
 
   void setMinWidth(float minWidth);
   void setMinHeight(float minHeight);
@@ -90,6 +91,7 @@ public:
   [[nodiscard]] float gap() const noexcept { return m_gap; }
   [[nodiscard]] FlexAlign align() const noexcept { return m_align; }
   [[nodiscard]] FlexJustify justify() const noexcept { return m_justify; }
+  [[nodiscard]] bool mirrorInRtl() const noexcept { return m_mirrorInRtl; }
   [[nodiscard]] FlexSizePolicy widthPolicy() const noexcept { return m_widthPolicy; }
   [[nodiscard]] FlexSizePolicy heightPolicy() const noexcept { return m_heightPolicy; }
   [[nodiscard]] float minWidth() const noexcept { return m_minWidth; }
@@ -130,19 +132,20 @@ private:
   Signal<>::ScopedConnection m_paletteConn;
   FlexDirection m_direction = FlexDirection::Horizontal;
   bool m_wrap = false;
+  bool m_mirrorInRtl = true;
   FlexAlign m_align = FlexAlign::Center;
   FlexJustify m_justify = FlexJustify::Start;
   FlexSizePolicy m_widthPolicy = FlexSizePolicy::Content;
   FlexSizePolicy m_heightPolicy = FlexSizePolicy::Content;
-  float m_gap = 0.0f;
-  float m_paddingTop = 0.0f;
-  float m_paddingRight = 0.0f;
-  float m_paddingBottom = 0.0f;
-  float m_paddingLeft = 0.0f;
-  float m_minWidth = 0.0f;
-  float m_minHeight = 0.0f;
-  float m_maxWidth = 0.0f;
-  float m_maxHeight = 0.0f;
+  float m_gap = 0.0F;
+  float m_paddingTop = 0.0F;
+  float m_paddingRight = 0.0F;
+  float m_paddingBottom = 0.0F;
+  float m_paddingLeft = 0.0F;
+  float m_minWidth = 0.0F;
+  float m_minHeight = 0.0F;
+  float m_maxWidth = 0.0F;
+  float m_maxHeight = 0.0F;
   bool m_sizingFromLayout = false;
   bool m_explicitWidth = false;
   bool m_explicitHeight = false;

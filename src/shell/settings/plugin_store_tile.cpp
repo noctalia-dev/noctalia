@@ -15,7 +15,7 @@ namespace settings {
 
   namespace {
 
-    constexpr float kSourceBadgeMaxWidth = 120.0f;
+    constexpr float kSourceBadgeMaxWidth = 120.0F;
 
   } // namespace
 
@@ -33,8 +33,8 @@ namespace settings {
             .out = &m_thumbnail,
             .fit = ImageFit::Cover,
             .radius = Style::scaledRadiusSm(scale),
-            .width = -1.0f,
-            .height = 80.0f * scale,
+            .width = -1.0F,
+            .height = 80.0F * scale,
             .visible = false,
         })
     );
@@ -44,11 +44,11 @@ namespace settings {
             {.out = &m_iconContainer,
              .align = FlexAlign::Center,
              .justify = FlexJustify::Center,
-             .height = 80.0f * scale},
+             .height = 80.0F * scale},
             ui::glyph({
                 .out = &m_icon,
                 .glyph = "apps",
-                .glyphSize = Style::fontSizeHeader * 1.5f * scale,
+                .glyphSize = Style::fontSizeHeader * 1.5F * scale,
                 .color = colorSpecFromRole(ColorRole::Primary),
             })
         )
@@ -80,7 +80,7 @@ namespace settings {
             {.out = &m_badge,
              .align = FlexAlign::Center,
              .paddingH = Style::spaceXs * scale,
-             .fill = colorSpecFromRole(ColorRole::Primary, 0.15f),
+             .fill = colorSpecFromRole(ColorRole::Primary, 0.15F),
              .radius = Style::scaledRadiusSm(scale),
              .maxWidth = kSourceBadgeMaxWidth * scale,
              .visible = false},
@@ -89,7 +89,7 @@ namespace settings {
                 .fontSize = Style::fontSizeMini * scale,
                 .fontWeight = FontWeight::Bold,
                 .color = colorSpecFromRole(ColorRole::Primary),
-                .maxWidth = (kSourceBadgeMaxWidth - (Style::spaceXs * 2.0f)) * scale,
+                .maxWidth = (kSourceBadgeMaxWidth - (Style::spaceXs * 2.0F)) * scale,
                 .maxLines = 1,
                 .ellipsize = TextEllipsize::End,
             })
@@ -101,7 +101,7 @@ namespace settings {
             {.out = &m_statusBadge,
              .align = FlexAlign::Center,
              .paddingH = Style::spaceXs * scale,
-             .fill = colorSpecFromRole(ColorRole::Error, 0.15f),
+             .fill = colorSpecFromRole(ColorRole::Error, 0.15F),
              .radius = Style::scaledRadiusSm(scale),
              .maxWidth = kSourceBadgeMaxWidth * scale,
              .visible = false},
@@ -110,7 +110,7 @@ namespace settings {
                 .fontSize = Style::fontSizeMini * scale,
                 .fontWeight = FontWeight::Bold,
                 .color = colorSpecFromRole(ColorRole::Error),
-                .maxWidth = (kSourceBadgeMaxWidth - (Style::spaceXs * 2.0f)) * scale,
+                .maxWidth = (kSourceBadgeMaxWidth - (Style::spaceXs * 2.0F)) * scale,
                 .maxLines = 1,
                 .ellipsize = TextEllipsize::End,
             })
@@ -138,7 +138,7 @@ namespace settings {
             .fontSize = Style::fontSizeMini * scale,
             .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
             .maxLines = 1,
-            .flexGrow = 1.0f,
+            .flexGrow = 1.0F,
         })
     );
     bottomRow->addChild(
@@ -162,7 +162,7 @@ namespace settings {
     if (hasThumbnail && thumbnailPath != m_boundThumbnailPath) {
       // The thumbnail is Cover-fit across the grid cell (~200px logical wide); decode to that
       // size and mipmap so the full-res webp does not alias when minified into the tile.
-      const int targetSize = static_cast<int>(std::ceil(200.0f * m_scale));
+      const int targetSize = static_cast<int>(std::ceil(200.0F * m_scale));
       if (textureCache != nullptr) {
         m_thumbnail->setSourceFileAsync(*renderer, *textureCache, thumbnailPath, targetSize, true);
       } else {
@@ -184,19 +184,19 @@ namespace settings {
     if (source == "official") {
       m_badge->setVisible(true);
       m_badge->setParticipatesInLayout(true);
-      m_badge->setFill(colorSpecFromRole(ColorRole::Primary, 0.15f));
+      m_badge->setFill(colorSpecFromRole(ColorRole::Primary, 0.15F));
       m_badgeLabel->setText(i18n::tr("settings.badges.official"));
       m_badgeLabel->setColor(colorSpecFromRole(ColorRole::Primary));
     } else if (source == "community") {
       m_badge->setVisible(true);
       m_badge->setParticipatesInLayout(true);
-      m_badge->setFill(colorSpecFromRole(ColorRole::Secondary, 0.15f));
+      m_badge->setFill(colorSpecFromRole(ColorRole::Secondary, 0.15F));
       m_badgeLabel->setText(i18n::tr("settings.badges.community"));
       m_badgeLabel->setColor(colorSpecFromRole(ColorRole::Secondary));
     } else {
       m_badge->setVisible(true);
       m_badge->setParticipatesInLayout(true);
-      m_badge->setFill(colorSpecFromRole(ColorRole::Tertiary, 0.15f));
+      m_badge->setFill(colorSpecFromRole(ColorRole::Tertiary, 0.15F));
       m_badgeLabel->setText(source);
       m_badgeLabel->setColor(colorSpecFromRole(ColorRole::Tertiary));
     }
@@ -208,7 +208,7 @@ namespace settings {
     m_statusBadge->setParticipatesInLayout(hasStatus);
     if (hasStatus) {
       const ColorRole role = entry.compatible ? ColorRole::Tertiary : ColorRole::Error;
-      m_statusBadge->setFill(colorSpecFromRole(role, 0.15f));
+      m_statusBadge->setFill(colorSpecFromRole(role, 0.15F));
       m_statusLabel->setColor(colorSpecFromRole(role));
       m_statusLabel->setText(
           i18n::tr(entry.compatible ? "settings.plugins.store.held-back" : "settings.plugins.store.incompatible")
@@ -222,7 +222,7 @@ namespace settings {
     m_addedGlyph->setParticipatesInLayout(onDisk);
 
     const ColorRole borderRole = selected ? ColorRole::Primary : (hovered ? ColorRole::Hover : ColorRole::Outline);
-    setBorder(colorSpecFromRole(borderRole), selected ? Style::borderWidth * 2.0f : Style::borderWidth);
+    setBorder(colorSpecFromRole(borderRole), selected ? Style::borderWidth * 2.0F : Style::borderWidth);
   }
 
 } // namespace settings

@@ -1376,8 +1376,6 @@
         "delete-confirm-title": "Eliminar \"{name}\"?",
         "deprecated": "obsoleto",
         "empty": "Non hai complementos activados.",
-        "loading": "Cargando complementos...",
-        "refreshing": "Actualizando complementos...",
         "remove": "Eliminar complemento",
         "requires": "Require: {dependencies}",
         "title": "Complementos"
@@ -2948,10 +2946,6 @@
           "description": "Tinxe a imaxe personalizada co axuste Cor da icona do widget",
           "label": "Colorear imaxe personalizada"
         },
-        "custom-labels": {
-          "description": "Asigna nomes de distribucións de teclado a etiquetas personalizadas",
-          "label": "Etiquetas personalizadas"
-        },
         "detached-panel": {
           "description": "Abre o caixón como panel flotante co seu propio fondo en vez de fusionalo coa barra",
           "label": "Panel separado"
@@ -3234,10 +3228,6 @@
         "show-empty-label": {
           "description": "Mostra texto de marcador cando non hai ningunha xanela con foco en vez de ocultar o widget",
           "label": "Mostrar etiqueta baleira"
-        },
-        "show-icon": {
-          "description": "Mostra a icona deste widget",
-          "label": "Mostrar icona"
         },
         "show-label": {
           "description": "Mostra texto xunto á icona",

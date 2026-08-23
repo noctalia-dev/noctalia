@@ -8,6 +8,7 @@ const noctalia::bar::WidgetDefinition<ControlCenterWidget::Options>& controlCent
   static const noctalia::bar::WidgetDefinition<Options> definition{
       .type = "control-center",
       .fields = noctalia::bar::glyphButtonFields<Options>(),
+      .glyph = [](const Options& options) { return options.glyph; },
   };
   return definition;
 }

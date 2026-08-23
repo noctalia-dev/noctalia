@@ -21,7 +21,7 @@ namespace {
       return 0;
     }
 
-    const float scale = std::max(1.0f, renderer.renderScale());
+    const float scale = std::max(1.0F, renderer.renderScale());
     return std::max(1, static_cast<int>(std::round(static_cast<float>(targetSize) * scale)));
   }
 
@@ -110,6 +110,12 @@ Image::~Image() {
     m_renderer->textureManager().unload(m_texture);
   }
 }
+
+// Retained binding used by teardown and deferred reloads. Callers must hand in
+// a renderer that outlives this Image (a RenderTarget's stable view); hosts
+// that measure with a transient fixed-scale view must rebind (relayout) against
+// the surface's stable renderer before the transient view dies.
+void Image::bindRenderer(Renderer& renderer) { m_renderer = &renderer; }
 
 void Image::setRadius(float radius) {
   if (m_radius == radius) {
@@ -201,7 +207,7 @@ bool Image::setSourceFile(
   }
 
   clear(renderer);
-  m_renderer = &renderer;
+  bindRenderer(renderer);
 
   if (path.empty()) {
     return false;
@@ -237,7 +243,7 @@ bool Image::setSourceFile(
 bool Image::reloadSourceFile(
     Renderer& renderer, const std::string& path, int targetSize, bool mipmap, bool centerSquareCrop
 ) {
-  m_renderer = &renderer;
+  bindRenderer(renderer);
 
   if (path.empty()) {
     return false;
@@ -271,7 +277,7 @@ bool Image::reloadSourceFile(
 bool Image::setSourceFileAsync(
     Renderer& renderer, AsyncTextureCache& cache, const std::string& path, int targetSize, bool mipmap
 ) {
-  m_renderer = &renderer;
+  bindRenderer(renderer);
 
   const int requestedTargetSize = std::max(0, targetSize);
   const int normalizedTargetSize = renderTargetSize(renderer, requestedTargetSize);
@@ -314,7 +320,7 @@ bool Image::setSourceFileAsync(
     m_sourcePath = path;
     if (m_image != nullptr) {
       m_image->setTextureId({});
-      m_image->setFrameSize(0.0f, 0.0f);
+      m_image->setFrameSize(0.0F, 0.0F);
     }
     return false;
   }
@@ -325,7 +331,7 @@ bool Image::setSourceFileAsync(
 
 bool Image::setSourceBytes(Renderer& renderer, const std::uint8_t* data, std::size_t size, bool mipmap) {
   clear(renderer);
-  m_renderer = &renderer;
+  bindRenderer(renderer);
 
   if (data == nullptr || size == 0) {
     return false;
@@ -360,7 +366,7 @@ bool Image::setSourceRaw(
     PixmapFormat format, bool mipmap
 ) {
   clear(renderer);
-  m_renderer = &renderer;
+  bindRenderer(renderer);
 
   if (data == nullptr || size == 0 || width <= 0 || height <= 0) {
     return false;
@@ -398,7 +404,7 @@ void Image::setExternalTexture(Renderer& renderer, TextureHandle handle) {
     return;
   }
 
-  m_renderer = &renderer;
+  bindRenderer(renderer);
   clearAsyncSource();
   clearColorizationSource();
   if (m_ownsTexture && m_texture.id != 0) {
@@ -419,7 +425,7 @@ void Image::setExternalTexture(Renderer& renderer, TextureHandle handle) {
 }
 
 void Image::clear(Renderer& renderer) {
-  m_renderer = &renderer;
+  bindRenderer(renderer);
   clearAsyncSource();
   if (m_ownsTexture && m_texture.id != 0) {
     renderer.textureManager().unload(m_texture);
@@ -435,7 +441,7 @@ void Image::clear(Renderer& renderer) {
   clearColorizationSource();
   if (m_image != nullptr) {
     m_image->setTextureId({});
-    m_image->setFrameSize(0.0f, 0.0f);
+    m_image->setFrameSize(0.0F, 0.0F);
   }
 }
 
@@ -479,6 +485,7 @@ void Image::setFrameSize(float width, float height) {
 }
 
 void Image::doLayout(Renderer& renderer) {
+  bindRenderer(renderer);
   if (m_ownsTexture && !m_sourcePath.empty() && m_sourceRequestedTargetSize > 0) {
     const int textureTargetSize = renderTargetSize(renderer, m_sourceRequestedTargetSize);
     if (textureTargetSize != m_sourceTargetSize) {
@@ -502,7 +509,7 @@ void Image::doLayout(Renderer& renderer) {
       m_asyncTargetSize = textureTargetSize;
       if (m_image != nullptr) {
         m_image->setTextureId({});
-        m_image->setFrameSize(0.0f, 0.0f);
+        m_image->setFrameSize(0.0F, 0.0F);
       }
       m_texture = m_asyncTextureCache->acquire(m_asyncSourcePath, m_asyncTargetSize, m_asyncMipmap);
       if (m_texture.id != 0) {
@@ -522,7 +529,7 @@ void Image::doLayout(Renderer& renderer) {
 }
 
 void Image::doInvalidateGpuResources(Renderer& renderer) {
-  m_renderer = &renderer;
+  bindRenderer(renderer);
 
   if (m_ownsTexture) {
     if (m_texture.id != 0) {
@@ -799,7 +806,7 @@ void Image::applyPalette() {
     reloadUncolorizedSource();
   }
   if (m_appIconColorizeTint.has_value()) {
-    m_image->setTint(rgba(1.0f, 1.0f, 1.0f, 1.0f));
+    m_image->setTint(rgba(1.0F, 1.0F, 1.0F, 1.0F));
     m_image->setMonochromeTint(false);
     m_image->setAlphaMaskTint(false);
     reloadColorizedSource();
@@ -813,7 +820,7 @@ void Image::applyPalette() {
     return;
   }
 
-  m_image->setTint(rgba(1.0f, 1.0f, 1.0f, 1.0f));
+  m_image->setTint(rgba(1.0F, 1.0F, 1.0F, 1.0F));
   m_image->setMonochromeTint(false);
   m_image->setAlphaMaskTint(false);
 }
@@ -823,8 +830,8 @@ void Image::updateLayout() {
     return;
   }
 
-  const float paddedWidth = std::max(0.0f, width() - m_padding * 2.0f);
-  const float paddedHeight = std::max(0.0f, height() - m_padding * 2.0f);
+  const float paddedWidth = std::max(0.0F, width() - m_padding * 2.0F);
+  const float paddedHeight = std::max(0.0F, height() - m_padding * 2.0F);
   m_image->setPosition(m_padding, m_padding);
   m_image->setFrameSize(paddedWidth, paddedHeight);
   m_image->setTextureSize(m_texture.width, m_texture.height);

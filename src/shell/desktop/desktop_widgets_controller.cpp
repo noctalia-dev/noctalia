@@ -1,6 +1,7 @@
 #include "shell/desktop/desktop_widgets_controller.h"
 
 #include "config/config_service.h"
+#include "core/log.h"
 #include "ipc/ipc_service.h"
 #include "shell/desktop/desktop_widget_layout.h"
 #include "shell/desktop/desktop_widgets_host.h"
@@ -16,6 +17,7 @@
 namespace {
 
   constexpr std::string_view kDesktopWidgetIdPrefix = "desktop-widget-";
+  constexpr Logger kLog("desktop-mask");
 
   void clampOpacitySetting(DesktopWidgetState& widget, const std::string& key, double fallback) {
     const auto it = widget.settings.find(key);
@@ -99,9 +101,13 @@ void DesktopWidgetsController::initialize(const DesktopWidgetsControllerServices
   m_editor->initialize(services.widgets);
   m_editor->setExitRequestedCallback([this]() { exitEdit(); });
   loadSnapshotFromConfig();
+  const bool placementChanged = m_placementMapper.remapForOutputChange(*m_wayland, m_snapshot.widgets);
   m_initialized = true;
   if (m_config != nullptr) {
     m_lastEnabled = m_config->config().desktopWidgets.enabled;
+  }
+  if (placementChanged) {
+    saveSnapshotToConfig();
   }
   applyVisibility();
 
@@ -111,32 +117,20 @@ void DesktopWidgetsController::initialize(const DesktopWidgetsControllerServices
 }
 
 void DesktopWidgetsController::registerIpc(IpcService& ipc) {
-  ipc.registerHandler(
-      "desktop-widgets-edit",
-      [this](const std::string&) -> std::string {
-        enterEdit();
-        return "ok\n";
-      },
-      "", "Open the desktop widgets editor"
-  );
+  ipc.bind(noctalia::cli::msg::desktopWidgetsEdit, [this](const std::string&) -> std::string {
+    enterEdit();
+    return "ok\n";
+  });
 
-  ipc.registerHandler(
-      "desktop-widgets-exit",
-      [this](const std::string&) -> std::string {
-        exitEdit();
-        return "ok\n";
-      },
-      "", "Close the desktop widgets editor"
-  );
+  ipc.bind(noctalia::cli::msg::desktopWidgetsExit, [this](const std::string&) -> std::string {
+    exitEdit();
+    return "ok\n";
+  });
 
-  ipc.registerHandler(
-      "desktop-widgets-toggle-edit",
-      [this](const std::string&) -> std::string {
-        toggleEdit();
-        return "ok\n";
-      },
-      "", "Toggle desktop widgets edit mode"
-  );
+  ipc.bind(noctalia::cli::msg::desktopWidgetsToggleEdit, [this](const std::string&) -> std::string {
+    toggleEdit();
+    return "ok\n";
+  });
 
   // Ephemeral runtime show/hide override layered on top of the saved `desktop_widgets.enabled`
   // setting (bidirectional version of bar-show/bar-hide/bar-toggle). These never touch settings.toml
@@ -144,32 +138,20 @@ void DesktopWidgetsController::registerIpc(IpcService& ipc) {
   // widgets on demand without rewriting the user's saved preference on every keypress. `show` is a
   // force-show: it reveals widgets even when the saved setting is disabled, so an opt-in workflow
   // (saved default off, revealed only on demand) works without persisting transient state.
-  ipc.registerHandler(
-      "desktop-widgets-show",
-      [this](const std::string&) -> std::string {
-        setRuntimeVisibility(RuntimeVisibility::ForceShown);
-        return "ok\n";
-      },
-      "", "Show desktop widgets now (runtime only; does not change the saved setting)"
-  );
+  ipc.bind(noctalia::cli::msg::desktopWidgetsShow, [this](const std::string&) -> std::string {
+    setRuntimeVisibility(RuntimeVisibility::ForceShown);
+    return "ok\n";
+  });
 
-  ipc.registerHandler(
-      "desktop-widgets-hide",
-      [this](const std::string&) -> std::string {
-        setRuntimeVisibility(RuntimeVisibility::ForceHidden);
-        return "ok\n";
-      },
-      "", "Hide desktop widgets now (runtime only; does not change the saved setting)"
-  );
+  ipc.bind(noctalia::cli::msg::desktopWidgetsHide, [this](const std::string&) -> std::string {
+    setRuntimeVisibility(RuntimeVisibility::ForceHidden);
+    return "ok\n";
+  });
 
-  ipc.registerHandler(
-      "desktop-widgets-toggle",
-      [this](const std::string&) -> std::string {
-        toggleRuntimeVisibility();
-        return isEffectivelyVisible() ? "shown\n" : "hidden\n";
-      },
-      "", "Toggle desktop widgets visibility (runtime only; does not change the saved setting)"
-  );
+  ipc.bind(noctalia::cli::msg::desktopWidgetsToggle, [this](const std::string&) -> std::string {
+    toggleRuntimeVisibility();
+    return isEffectivelyVisible() ? "shown\n" : "hidden\n";
+  });
 }
 
 bool DesktopWidgetsController::runtimeWantsVisible() const noexcept {
@@ -203,11 +185,87 @@ bool DesktopWidgetsController::isEffectivelyVisible() const noexcept {
   return runtimeWantsVisible() && !m_displaySuppressed && !isEditing();
 }
 
+void DesktopWidgetsController::setWallpaperMask(
+    std::uint64_t ownerId, const std::string& outputName, std::optional<OutputWallpaperMask> mask
+) {
+  if (ownerId == 0 || outputName.empty()) {
+    kLog.warn("rejected wallpaper mask with missing owner or output");
+    return;
+  }
+
+  const auto existing = m_wallpaperMasks.find(outputName);
+  if (!mask.has_value()) {
+    if (existing != m_wallpaperMasks.end() && existing->second.ownerId == ownerId) {
+      m_wallpaperMasks.erase(existing);
+      syncWallpaperMasks();
+    }
+    return;
+  }
+
+  if (mask->path.empty() || mask->wallpaperPath.empty()) {
+    kLog.warn("rejected incomplete wallpaper mask for {}", outputName);
+    return;
+  }
+  if (existing != m_wallpaperMasks.end() && existing->second.ownerId != ownerId) {
+    kLog.warn("output {} already has a wallpaper mask owner", outputName);
+    return;
+  }
+  if (m_wayland == nullptr || desktop_widgets::findOutputByKey(*m_wayland, outputName) == nullptr) {
+    kLog.warn("rejected wallpaper mask for unknown output {}", outputName);
+    return;
+  }
+  if (m_config == nullptr || m_config->getWallpaperPath(outputName) != mask->wallpaperPath) {
+    kLog.warn("rejected wallpaper mask for stale wallpaper on {}", outputName);
+    return;
+  }
+
+  mask->ownerId = ownerId;
+  m_wallpaperMasks.insert_or_assign(outputName, std::move(*mask));
+  syncWallpaperMasks();
+}
+
+void DesktopWidgetsController::clearWallpaperMasks(std::uint64_t ownerId) {
+  if (ownerId == 0) {
+    return;
+  }
+  const auto removed =
+      std::erase_if(m_wallpaperMasks, [ownerId](const auto& item) { return item.second.ownerId == ownerId; });
+  if (removed != 0) {
+    syncWallpaperMasks();
+  }
+}
+
+void DesktopWidgetsController::syncWallpaperMasks() {
+  if (m_host != nullptr) {
+    m_host->setWallpaperMasks(m_wallpaperMasks);
+  }
+}
+
+void DesktopWidgetsController::pruneWallpaperMasks() {
+  if (m_config == nullptr) {
+    m_wallpaperMasks.clear();
+    syncWallpaperMasks();
+    return;
+  }
+  const auto removed = std::erase_if(m_wallpaperMasks, [this](const auto& item) {
+    return m_config->getWallpaperPath(item.first) != item.second.wallpaperPath;
+  });
+  if (removed != 0) {
+    syncWallpaperMasks();
+  }
+}
+
 void DesktopWidgetsController::onOutputChange() {
   if (!m_initialized) {
     return;
   }
+  bool placementChanged = m_placementMapper.remapForOutputChange(*m_wayland, m_snapshot.widgets);
   normalizeSnapshot();
+  placementChanged |= m_placementMapper.remapForOutputChange(*m_wayland, m_snapshot.widgets);
+  if (placementChanged) {
+    saveSnapshotToConfig();
+  }
+  pruneWallpaperMasks();
   if (isEditing()) {
     m_editor->onOutputChange();
   } else if (m_host != nullptr) {
@@ -286,10 +344,14 @@ void DesktopWidgetsController::exitEdit() {
 
   m_snapshot = m_editor->snapshot();
   normalizeSnapshot();
+  m_placementMapper.rebaseForCurrentOutputs(*m_wayland, m_snapshot.widgets);
   m_host->show(m_snapshot);
   (void)m_editor->close();
   saveSnapshotToConfig();
   applyVisibility();
+  if (m_onExitEdit) {
+    m_onExitEdit();
+  }
 }
 
 void DesktopWidgetsController::toggleEdit() {
@@ -302,6 +364,10 @@ void DesktopWidgetsController::toggleEdit() {
 
 void DesktopWidgetsController::setOnEnterEditCallback(std::function<void()> callback) {
   m_onEnterEdit = std::move(callback);
+}
+
+void DesktopWidgetsController::setOnExitEditCallback(std::function<void()> callback) {
+  m_onExitEdit = std::move(callback);
 }
 
 void DesktopWidgetsController::suppressDisplay() {
@@ -406,11 +472,17 @@ void DesktopWidgetsController::handleConfigReload() {
       m_runtimeVisibility = RuntimeVisibility::FollowConfig;
     }
   }
+  pruneWallpaperMasks();
 
   if (!isEditing()) {
     loadSnapshotFromConfig();
     if (m_host != nullptr) {
       m_host->rebuild(m_snapshot);
+      // Plugin-level settings live in [plugin_settings], outside the widget snapshot, so
+      // the host's instance diff cannot see them change.
+      if (m_config != nullptr && m_config->lastChange().plugins) {
+        m_host->reloadPluginWidgets();
+      }
     }
   }
   applyVisibility();

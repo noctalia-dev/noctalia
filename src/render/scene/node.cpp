@@ -11,8 +11,8 @@
 namespace {
 
   Mat3 localTransform(const Node* node) {
-    const float cx = node->width() * 0.5f;
-    const float cy = node->height() * 0.5f;
+    const float cx = node->width() * 0.5F;
+    const float cy = node->height() * 0.5F;
     return Mat3::translation(node->x(), node->y())
         * Mat3::translation(cx, cy)
         * Mat3::rotation(node->rotation())
@@ -47,22 +47,22 @@ LayoutConstraints LayoutConstraints::exact(float width, float height) noexcept {
 }
 
 void LayoutConstraints::setMaxWidth(float width) noexcept {
-  maxWidth = std::max(0.0f, width);
+  maxWidth = std::max(0.0F, width);
   hasMaxWidth = true;
 }
 
 void LayoutConstraints::setMaxHeight(float height) noexcept {
-  maxHeight = std::max(0.0f, height);
+  maxHeight = std::max(0.0F, height);
   hasMaxHeight = true;
 }
 
 void LayoutConstraints::setExactWidth(float width) noexcept {
-  minWidth = std::max(0.0f, width);
+  minWidth = std::max(0.0F, width);
   setMaxWidth(minWidth);
 }
 
 void LayoutConstraints::setExactHeight(float height) noexcept {
-  minHeight = std::max(0.0f, height);
+  minHeight = std::max(0.0F, height);
   setMaxHeight(minHeight);
 }
 
@@ -130,9 +130,16 @@ void Node::invalidateGpuResources(Renderer& renderer, std::uint64_t generation) 
   }
 }
 
+void Node::rebindRenderer(Renderer& renderer) {
+  doRebindRenderer(renderer);
+  for (auto& child : m_children) {
+    child->rebindRenderer(renderer);
+  }
+}
+
 bool Node::containsScenePoint(float sceneX, float sceneY) const {
-  float localX = 0.0f;
-  float localY = 0.0f;
+  float localX = 0.0F;
+  float localY = 0.0F;
   return pointInsideNode(this, sceneX, sceneY, localX, localY, false);
 }
 
@@ -159,7 +166,7 @@ void Node::doInvalidateGpuResources(Renderer& renderer) { (void)renderer; }
 
 bool Node::containsLocalPoint(float localX, float localY, bool includeHitOutset) const {
   if (!includeHitOutset) {
-    return localX >= 0.0f && localX < width() && localY >= 0.0f && localY < height();
+    return localX >= 0.0F && localX < width() && localY >= 0.0F && localY < height();
   }
   const HitTestOutset outset = hitTestOutset();
   return localX >= -outset.left
@@ -285,14 +292,16 @@ void Node::setClipChildren(bool clipChildren) {
   markPaintDirty();
 }
 
+void Node::setPaintContained(bool paintContained) { m_paintContained = paintContained; }
+
 void Node::setHitTestVisible(bool hitTestVisible) { m_hitTestVisible = hitTestVisible; }
 
 void Node::setHitTestOutset(const HitTestOutset& outset) {
   const HitTestOutset clamped{
-      .left = std::max(0.0f, outset.left),
-      .top = std::max(0.0f, outset.top),
-      .right = std::max(0.0f, outset.right),
-      .bottom = std::max(0.0f, outset.bottom),
+      .left = std::max(0.0F, outset.left),
+      .top = std::max(0.0F, outset.top),
+      .right = std::max(0.0F, outset.right),
+      .bottom = std::max(0.0F, outset.bottom),
   };
   if (m_hitTestOutset.left == clamped.left
       && m_hitTestOutset.top == clamped.top
@@ -427,18 +436,18 @@ void Node::clearDirty() {
   }
 }
 
-Node* Node::hitTest(Node* root, float x, float y) { return hitTestImpl(root, x, y, true); }
+Node* Node::hitTest(Node* root, float x, float y) { return hitTestImpl(root, x, y, true, Mat3::identity()); }
 
-Node* Node::hitTestStrict(Node* root, float x, float y) { return hitTestImpl(root, x, y, false); }
+Node* Node::hitTestStrict(Node* root, float x, float y) { return hitTestImpl(root, x, y, false, Mat3::identity()); }
 
-Node* Node::hitTestImpl(Node* node, float px, float py, bool allowOverflow) {
+Node* Node::hitTestImpl(Node* node, float px, float py, bool allowOverflow, const Mat3& parentTransform) {
   if (node == nullptr || !node->m_visible || !node->m_hitTestVisible) {
     return nullptr;
   }
 
-  float localX = 0.0f;
-  float localY = 0.0f;
-  const bool inside = pointInsideNode(node, px, py, localX, localY, true);
+  const Mat3 worldTransform = parentTransform * localTransform(node);
+  const Vec2 local = worldTransform.inverse().transformPoint(px, py);
+  const bool inside = node->containsLocalPoint(local.x, local.y, true);
 
   if ((!allowOverflow || node->m_clipChildren) && !inside) {
     return nullptr;
@@ -461,7 +470,7 @@ Node* Node::hitTestImpl(Node* node, float px, float py, bool allowOverflow) {
   // Children are allowed to overflow parent bounds (needed for menus/popovers).
   if (childrenSorted) {
     for (const auto& child : std::views::reverse(children)) {
-      auto* hit = hitTestImpl(child.get(), px, py, allowOverflow);
+      auto* hit = hitTestImpl(child.get(), px, py, allowOverflow, worldTransform);
       if (hit != nullptr) {
         return hit;
       }
@@ -474,7 +483,7 @@ Node* Node::hitTestImpl(Node* node, float px, float py, bool allowOverflow) {
     }
     std::ranges::stable_sort(orderedChildren, [](const Node* a, const Node* b) { return a->zIndex() < b->zIndex(); });
     for (Node* child : std::views::reverse(orderedChildren)) {
-      auto* hit = hitTestImpl(child, px, py, allowOverflow);
+      auto* hit = hitTestImpl(child, px, py, allowOverflow, worldTransform);
       if (hit != nullptr) {
         return hit;
       }
@@ -485,7 +494,7 @@ Node* Node::hitTestImpl(Node* node, float px, float py, bool allowOverflow) {
 }
 
 void Node::absolutePosition(const Node* node, float& outX, float& outY) {
-  const Vec2 topLeft = computeWorldTransform(node).transformPoint(0.0f, 0.0f);
+  const Vec2 topLeft = computeWorldTransform(node).transformPoint(0.0F, 0.0F);
   outX = topLeft.x;
   outY = topLeft.y;
 }
@@ -498,8 +507,8 @@ void Node::mapToScene(const Node* node, float localX, float localY, float& outSc
 
 bool Node::mapFromScene(const Node* node, float sceneX, float sceneY, float& outLocalX, float& outLocalY) {
   if (node == nullptr) {
-    outLocalX = 0.0f;
-    outLocalY = 0.0f;
+    outLocalX = 0.0F;
+    outLocalY = 0.0F;
     return false;
   }
 
@@ -510,10 +519,10 @@ void Node::transformedBounds(
     const Node* node, const Mat3& world, float& outLeft, float& outTop, float& outRight, float& outBottom
 ) {
   const Vec2 corners[] = {
-      world.transformPoint(0.0f, 0.0f),
-      world.transformPoint(node->width(), 0.0f),
+      world.transformPoint(0.0F, 0.0F),
+      world.transformPoint(node->width(), 0.0F),
       world.transformPoint(node->width(), node->height()),
-      world.transformPoint(0.0f, node->height()),
+      world.transformPoint(0.0F, node->height()),
   };
 
   outLeft = corners[0].x;

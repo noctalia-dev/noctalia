@@ -13,6 +13,7 @@
 #include "scripting/plugin_registry.h"
 #include "scripting/plugin_source_locks.h"
 #include "scripting/plugin_source_paths.h"
+#include "scripting/script_runtime.h"
 #include "util/file_utils.h"
 #include "util/string_utils.h"
 
@@ -426,6 +427,10 @@ namespace scripting {
           return; // offline / unreachable — list/enable will retry
         }
       }
+      if (const auto configured = plugin_git::setOrigin(repoRoot, source.location); !configured) {
+        kLog.warn("plugin source '{}': cannot configure origin: {}", source.name, configured.err);
+        return;
+      }
       if (!materializeEnabledFromRepo(source, repoRoot, enabled)) {
         return; // nothing exported; the startup registry scan already reflects disk state
       }
@@ -508,15 +513,19 @@ namespace scripting {
           error = "source '" + offering->source.name + "' did not resolve a catalog revision";
         } else {
           auto sourceLock = plugin_source_locks::acquire(offering->source.name);
-          logHeldBack(offering->source, offering->entry);
-          auto materialized = materializeGitPlugin(
-              offering->source, plugin_paths::gitRepoRoot(offering->source), offering->entry.resolvedRevision, id, true
-          );
-          ok = materialized && materialized.manifest.id == id;
-          incompatible = materialized.incompatible;
-          timedOut = materialized.timedOut;
-          pluginApiVersion = materialized.pluginApiVersion;
-          error = std::move(materialized.error);
+          const auto repoRoot = plugin_paths::gitRepoRoot(offering->source);
+          if (const auto configured = plugin_git::setOrigin(repoRoot, offering->source.location); !configured) {
+            error = "cannot configure source origin: " + configured.err;
+          } else {
+            logHeldBack(offering->source, offering->entry);
+            auto materialized =
+                materializeGitPlugin(offering->source, repoRoot, offering->entry.resolvedRevision, id, true);
+            ok = materialized && materialized.manifest.id == id;
+            incompatible = materialized.incompatible;
+            timedOut = materialized.timedOut;
+            pluginApiVersion = materialized.pluginApiVersion;
+            error = std::move(materialized.error);
+          }
         }
       } else if (offering.has_value()) {
         const auto manifest = parsePluginManifest(sourceRootFor(offering->source) / subdir / "plugin.toml", &error);
@@ -541,8 +550,12 @@ namespace scripting {
                                error = std::move(error)]() mutable {
         m_enabling.erase(id);
         if (ok) {
-          kLog.info("enabling plugin '{}' (resolved + exported in {:.0f}ms)", id, elapsedMs);
+          kLog.info("enabling plugin '{}' (resolved + exported in {:.0F}ms)", id, elapsedMs);
+          const bool wasEnabled = std::ranges::contains(m_config.config().plugins.enabled, id);
           m_config.setPluginEnabled(id, true);
+          if (!wasEnabled && std::ranges::contains(m_config.config().plugins.enabled, id) && m_onEnabled) {
+            m_onEnabled(id);
+          }
           refresh();
         } else if (incompatible) {
           kLog.warn(
@@ -582,6 +595,12 @@ namespace scripting {
 
   void PluginManager::disable(std::string_view pluginId) {
     kLog.info("disabling plugin '{}'", pluginId);
+    const bool wasEnabled = std::ranges::contains(m_config.config().plugins.enabled, pluginId);
+    const auto* manifest = wasEnabled ? PluginRegistry::instance().findManifest(pluginId) : nullptr;
+    std::optional<PluginExitReasonScope> exitScope;
+    if (manifest != nullptr && manifest->pluginApiVersion >= kServiceLifecyclePluginApiVersion) {
+      exitScope.emplace(pluginId, ScriptExitReason::Disable);
+    }
     m_config.setPluginEnabled(pluginId, false);
     refresh();
   }
@@ -592,7 +611,15 @@ namespace scripting {
       return;
     }
     kLog.info("removing plugin '{}'", pluginId);
-    m_config.setPluginEnabled(pluginId, false);
+    const bool wasEnabled = std::ranges::contains(m_config.config().plugins.enabled, pluginId);
+    const auto* manifest = wasEnabled ? PluginRegistry::instance().findManifest(pluginId) : nullptr;
+    std::optional<PluginExitReasonScope> exitScope;
+    if (manifest != nullptr && manifest->pluginApiVersion >= kServiceLifecyclePluginApiVersion) {
+      exitScope.emplace(pluginId, ScriptExitReason::Uninstall);
+    }
+    if (wasEnabled) {
+      m_config.setPluginEnabled(pluginId, false);
+    }
 
     const auto& plugins = m_config.config().plugins;
     for (const auto& source : plugins.sources) {
@@ -714,10 +741,17 @@ namespace scripting {
 
   void PluginManager::update(std::string sourceName) {
     const auto source = findSource(sourceName);
-    if (!source.has_value() || source->kind != PluginSourceKind::Git) {
-      return; // path / unknown sources are externally owned
+    if (!source.has_value()) {
+      return; // unknown source
     }
-    const std::filesystem::path repoRoot = plugin_paths::gitRepoRoot(*source);
+    updateSource(*source);
+  }
+
+  void PluginManager::updateSource(const PluginSourceConfig& source) {
+    if (source.kind != PluginSourceKind::Git) {
+      return; // path sources are externally owned
+    }
+    const std::filesystem::path repoRoot = plugin_paths::gitRepoRoot(source);
     if (repoRoot.empty()) {
       return;
     }
@@ -735,10 +769,10 @@ namespace scripting {
 
     // The whole git sequence runs off-thread; only the final registry rescan marshals
     // back to the main thread. `this` is an Application member, so it outlives the worker.
-    std::thread([this, source = *source, repoRoot, sourceName = std::move(sourceName),
-                 enabled = std::move(enabled)]() mutable {
+    const std::string sourceName = source.name;
+    std::thread([this, source, repoRoot, sourceName, enabled = std::move(enabled)]() mutable {
       auto sourceLock = plugin_source_locks::acquire(source.name);
-      const auto fetched = plugin_git::fetch(repoRoot);
+      const auto fetched = plugin_git::fetch(repoRoot, source.location);
       if (!fetched) {
         DeferredCall::callLater([sourceName, err = fetched.err]() {
           kLog.warn("update '{}': fetch failed: {}", sourceName, err);
@@ -902,21 +936,21 @@ namespace scripting {
         continue; // nothing cloned yet; discoverCatalog clones on first browse
       }
       auto sourceLock = plugin_source_locks::acquire(source.name);
-      if (const auto fetched = plugin_git::fetch(repoRoot); !fetched) {
+      if (const auto fetched = plugin_git::fetch(repoRoot, source.location); !fetched) {
         kLog.warn("browse fetch '{}' failed: {}", source.name, fetched.err);
       }
     }
   }
 
-  void PluginManager::updateAll() {
+  void PluginManager::updateAutoUpdateScope(PluginAutoUpdateMode mode) {
     for (const auto& source : m_config.config().plugins.sources) {
-      if (source.kind == PluginSourceKind::Git && source.enabled) {
-        update(source.name);
+      if (sourceInAutoUpdateScope(source, mode)) {
+        updateSource(source);
       }
     }
   }
 
-  void PluginManager::setAutoUpdateEnabled(bool enabled) { m_config.setPluginsAutoUpdate(enabled); }
+  void PluginManager::setAutoUpdateMode(PluginAutoUpdateMode mode) { m_config.setPluginsAutoUpdate(mode); }
 
   void PluginManager::removeSource(std::string sourceName) {
     if (isDefaultPluginSourceName(sourceName)) {

@@ -1,10 +1,10 @@
 #pragma once
 
-#include "core/files/file_watcher.h"
 #include "core/input/key_chord.h"
 #include "core/timer_manager.h"
 #include "scripting/plugin_ipc.h"
 #include "scripting/plugin_panel_shell.h"
+#include "scripting/plugin_script_watcher.h"
 #include "scripting/script_runtime.h"
 #include "shell/panel/panel.h"
 #include "ui/ui_tree.h"
@@ -19,6 +19,7 @@
 #include <utility>
 
 class ClipboardService;
+class ContextMenuPopup;
 class Flex;
 class HttpClient;
 class Node;
@@ -58,6 +59,7 @@ public:
   void create() override;
   void onOpen(std::string_view context) override;
   void onClose() override;
+  void onFrameTick(float deltaMs) override;
 
   [[nodiscard]] float preferredWidth() const override { return scaled(m_preferredWidth); }
   [[nodiscard]] float preferredHeight() const override { return scaled(m_preferredHeight); }
@@ -70,6 +72,7 @@ public:
   [[nodiscard]] std::string panelScreenPosition() const override { return m_shellConfig.position; }
   [[nodiscard]] bool panelOpenNearClick() const override { return m_shellConfig.openNearClick; }
   [[nodiscard]] InputArea* takePendingFocusArea() override { return std::exchange(m_pendingFocusArea, nullptr); }
+  [[nodiscard]] bool dismissTransientUi() override;
 
   // Delivers a manifest-declared capture_keys chord to the script's onKey(chord, pressed) and
   // reports it consumed. Declared chords only: everything else keeps its host behaviour, and a
@@ -88,6 +91,8 @@ private:
   void doUpdate(Renderer& renderer) override;
 
   void handleScriptResult(scripting::ScriptResult result);
+  void openContextMenu(scripting::ScriptContextMenuRequest request);
+  void closeContextMenu();
   [[nodiscard]] scripting::ScriptSnapshot makeScriptSnapshot() const;
   [[nodiscard]] std::string resolvePluginPath(const std::string& path) const;
   void releaseCapturedKeys();
@@ -116,7 +121,7 @@ private:
   FileWatcher* m_fileWatcher = nullptr;
   HttpClient* m_httpClient = nullptr;
   ClipboardService* m_clipboard = nullptr;
-  FileWatcher::WatchId m_watchId = 0;
+  scripting::PluginScriptWatcher m_scriptWatcher;
   Timer m_tickTimer;
 
   Flex* m_flex = nullptr;
@@ -124,10 +129,13 @@ private:
   Node* m_dragOverlay = nullptr;
   InputArea* m_pendingFocusArea = nullptr;
   ui::UiTreeReconciler m_reconciler;
+  std::unique_ptr<ContextMenuPopup> m_contextMenuPopup;
   std::optional<ui::UiTreeNode> m_tree;
   bool m_treeDirty = false;
   bool m_wantsSecondTicks = false;
+  bool m_needsFrameTick = false;
   bool m_open = false;
+  std::uint64_t m_openGeneration = 0;
   bool m_hasOnIpc = false;
   bool m_hasOnIpcKnown = false;
   float m_preferredWidth;

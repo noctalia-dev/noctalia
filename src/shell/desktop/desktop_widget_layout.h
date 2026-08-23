@@ -1,19 +1,20 @@
 #pragma once
 
-#include "shell/desktop/desktop_widgets_controller.h"
+#include "config/config_types.h"
 #include "shell/desktop/widget_transform.h"
 #include "wayland/wayland_connection.h"
 
 #include <algorithm>
 #include <string>
+#include <vector>
 
 namespace desktop_widgets {
 
-  inline float widgetContentScale(float baseUiScale) { return std::max(0.01f, baseUiScale); }
+  inline float widgetContentScale(float baseUiScale) { return std::max(0.01F, baseUiScale); }
 
   inline void widgetNodeScale(const DesktopWidgetState& state, float& outScaleX, float& outScaleY) {
-    outScaleX = state.flipX ? -1.0f : 1.0f;
-    outScaleY = state.flipY ? -1.0f : 1.0f;
+    outScaleX = state.flipX ? -1.0F : 1.0F;
+    outScaleY = state.flipY ? -1.0F : 1.0F;
   }
 
   inline std::string outputKey(const WaylandOutput& output) {
@@ -74,6 +75,51 @@ namespace desktop_widgets {
     return static_cast<float>(std::max(1, output.effectiveLogicalHeight()));
   }
 
+  class PlacementMapper {
+  public:
+    [[nodiscard]] bool
+    remapForOutputChange(const WaylandConnection& wayland, std::vector<DesktopWidgetState>& widgets) const {
+      bool changed = false;
+      for (auto& widget : widgets) {
+        const WaylandOutput* output = resolveStateOutput(wayland, widget);
+        if (output == nullptr) {
+          continue;
+        }
+
+        const float width = outputLogicalWidth(*output);
+        const float height = outputLogicalHeight(*output);
+        if (widget.placementWidth <= 0.0F || widget.placementHeight <= 0.0F) {
+          widget.placementWidth = width;
+          widget.placementHeight = height;
+          changed = true;
+          continue;
+        }
+
+        if (widget.placementWidth == width && widget.placementHeight == height) {
+          continue;
+        }
+
+        widget.cx *= width / widget.placementWidth;
+        widget.cy *= height / widget.placementHeight;
+        widget.placementWidth = width;
+        widget.placementHeight = height;
+        changed = true;
+      }
+      return changed;
+    }
+
+    void rebaseForCurrentOutputs(const WaylandConnection& wayland, std::vector<DesktopWidgetState>& widgets) const {
+      for (auto& widget : widgets) {
+        const WaylandOutput* output = resolveStateOutput(wayland, widget);
+        if (output == nullptr) {
+          continue;
+        }
+        widget.placementWidth = outputLogicalWidth(*output);
+        widget.placementHeight = outputLogicalHeight(*output);
+      }
+    }
+  };
+
   // Single source of truth for desktop widget coordinate clamping. Edit mode, default mode, and
   // snapshot normalization all route through here so the visibility rule stays identical. Resolves
   // the widget's effective output, then constrains state.cx/cy so that at least
@@ -88,7 +134,7 @@ namespace desktop_widgets {
       return nullptr;
     }
     const WidgetTransformClampResult clamped = clampWidgetCenterToOutput(
-        state.cx, state.cy, intrinsicWidth, intrinsicHeight, 1.0f, state.rotationRad, outputLogicalWidth(*output),
+        state.cx, state.cy, intrinsicWidth, intrinsicHeight, 1.0F, state.rotationRad, outputLogicalWidth(*output),
         outputLogicalHeight(*output), kDesktopWidgetMinVisibleFraction
     );
     state.cx = clamped.cx;

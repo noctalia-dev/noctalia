@@ -10,15 +10,15 @@
 namespace {
 
   const char* kbdBacklightIcon(float brightness) {
-    if (brightness <= 0.0f) {
+    if (brightness <= 0.0F) {
       return "keyboard-off";
     }
     return "keyboard";
   }
 
   OsdContent makeKbdBacklightContent(float brightness) {
-    const float progress = std::clamp(brightness, 0.0f, 1.0f);
-    const int percent = static_cast<int>(std::round(progress * 100.0f));
+    const float progress = std::clamp(brightness, 0.0F, 1.0F);
+    const int percent = static_cast<int>(std::round(progress * 100.0F));
     return OsdContent{
         .kind = OsdKind::KeyboardBacklight,
         .icon = kbdBacklightIcon(progress),
@@ -39,7 +39,7 @@ void KeyboardBacklightOsd::onBrightnessChanged(const KeyboardBacklightService& s
   const int maxBrightness = service.maxBrightness();
   if (m_overlay != nullptr) {
     const float normalized =
-        maxBrightness > 0 ? static_cast<float>(brightness) / static_cast<float>(maxBrightness) : 0.0f;
+        maxBrightness > 0 ? static_cast<float>(brightness) / static_cast<float>(maxBrightness) : 0.0F;
     m_overlay->show(makeKbdBacklightContent(normalized));
   }
 }

@@ -10,13 +10,13 @@
 namespace noctalia::config::schema {
 
   // Shared ranges for concepts that recur verbatim across many settings.
-  inline constexpr Range<float> kUnitRange{0.0f, 1.0f, 0.01f};          // opacities, intensities, 0..1 factors
-  inline constexpr Range<float> kScaleRange{0.5f, 2.5f, 0.05f};         // ui_scale, notification/osd scale
+  inline constexpr Range<float> kUnitRange{0.0F, 1.0F, 0.01F};          // opacities, intensities, 0..1 factors
+  inline constexpr Range<float> kScaleRange{0.5F, 2.5F, 0.05F};         // ui_scale, notification/osd scale
   inline constexpr Range<std::int64_t> kRefreshMinutesRange{5, 240, 5}; // calendar/weather refresh interval
 
   // Shell.
-  inline constexpr Range<float> kAnimationSpeedRange{0.1f, 4.0f, 0.05f};
-  inline constexpr Range<float> kCornerRadiusScaleRange{0.0f, 2.0f, 0.05f};
+  inline constexpr Range<float> kAnimationSpeedRange{0.1F, 4.0F, 0.05F};
+  inline constexpr Range<float> kCornerRadiusScaleRange{0.0F, 2.0F, 0.05F};
   inline constexpr Range<std::int64_t> kControlCenterWidthRange{600, 1200, 10};
   inline constexpr Range<std::int64_t> kScreenCornersSizeRange{1, 100, 1};
   inline constexpr Range<std::int64_t> kHotCornersDelayMsRange{0, 2000, 50};
@@ -29,7 +29,7 @@ namespace noctalia::config::schema {
 
   // Battery / wallpaper.
   inline constexpr Range<std::int64_t> kBatteryWarningThresholdRange{0, 100, 1};
-  inline constexpr Range<float> kWallpaperTransitionDurationRange{100.0f, 30000.0f, 100.0f};
+  inline constexpr Range<float> kWallpaperTransitionDurationRange{100.0F, 30000.0F, 100.0F};
   inline constexpr Range<std::int64_t> kWallpaperAutomationIntervalRange{1, 86400, 1};
 
   // Dock.
@@ -39,9 +39,9 @@ namespace noctalia::config::schema {
   inline constexpr Range<std::int64_t> kDockMarginEndsRange{0, 500, 1};
   inline constexpr Range<std::int64_t> kDockMarginEdgeRange{0, 100, 1};
   inline constexpr Range<std::int64_t> kDockRadiusRange{0, 80, 1}; // radius + each corner
-  inline constexpr Range<float> kDockBorderWidthRange{0.0f, 20.0f, 0.5f};
-  inline constexpr Range<float> kDockActiveScaleRange{0.1f, 1.75f, 0.05f};
-  inline constexpr Range<float> kDockInactiveScaleRange{0.1f, 1.0f, 0.05f};
-  inline constexpr Range<float> kDockMagnificationScaleRange{1.0f, 2.0f, 0.05f};
+  inline constexpr Range<float> kDockBorderWidthRange{0.0F, 20.0F, 0.5F};
+  inline constexpr Range<float> kDockActiveScaleRange{0.1F, 1.75F, 0.05F};
+  inline constexpr Range<float> kDockInactiveScaleRange{0.1F, 1.0F, 0.05F};
+  inline constexpr Range<float> kDockMagnificationScaleRange{1.0F, 2.0F, 0.05F};
 
 } // namespace noctalia::config::schema

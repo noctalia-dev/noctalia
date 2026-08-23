@@ -38,8 +38,8 @@ struct wl_surface;
 
 struct PanelOpenRequest {
   wl_output* output = nullptr;
-  float anchorX = 0.0f;
-  float anchorY = 0.0f;
+  float anchorX = 0.0F;
+  float anchorY = 0.0F;
   bool hasExplicitAnchor = false;
   bool hasAnchorPosition = false;
   std::string_view context;
@@ -102,7 +102,6 @@ public:
   void togglePanel(const std::string& panelId, PanelOpenRequest request);
   // IPC-friendly overload: asks CompositorPlatform for preferred interactive output.
   void togglePanel(const std::string& panelId);
-  void clearClipboardHistory();
 
   bool onPointerEvent(const PointerEvent& event);
   void onKeyboardEvent(const KeyboardEvent& event);
@@ -116,14 +115,20 @@ public:
   // Bar that opened the active panel; empty when none was recorded.
   [[nodiscard]] std::string_view attachedSourceBarName() const noexcept;
   [[nodiscard]] const std::string& activePanelId() const noexcept;
+  [[nodiscard]] Panel* activePanel() const noexcept { return m_activePanel; }
   // True when a panel is open and it reports the given context as active (e.g. control-center tab).
   [[nodiscard]] bool isActivePanelContext(std::string_view context) const noexcept;
   [[nodiscard]] std::optional<LayerPopupParentContext> popupParentContextForSurface(wl_surface* surface) const noexcept;
   [[nodiscard]] std::optional<LayerPopupParentContext> fallbackPopupParentContext() const noexcept;
+  [[nodiscard]] std::optional<LayerPopupParentContext>
+  popupParentContextForPanel(std::string_view panelId) const noexcept;
 
   [[nodiscard]] RenderContext* renderContext() const noexcept { return m_renderContext; }
   [[nodiscard]] WaylandConnection* wayland() const noexcept;
 
+  // Applies the shell's effective popup shadow settings to a panel-owned
+  // context menu before it opens.
+  void configureContextMenuPopup(ContextMenuPopup& popup) const;
   void setActivePopup(ContextMenuPopup* popup);
   void clearActivePopup();
 
@@ -136,6 +141,11 @@ public:
   void refreshPanel(std::string_view panelId);
   // Close a panel by id, whichever host owns it.
   void closePanelById(std::string_view panelId);
+  // Arms the next frame tick for a panel by id, whichever host owns it. Requests
+  // a redraw: that queues a frame and flags the frame callback to run the panel's
+  // onFrameTick, so a panel can sustain its own animation loop without knowing
+  // which host it lives in.
+  void requestAnimationFrameForPanel(std::string_view panelId);
   // Reacts to a ConfigService reload while a panel is open: re-pulls the host bar's
   // per-panel-relevant config (attached background opacity), styling, and compositor
   // blur region. No-op when no panel is open.
@@ -169,8 +179,9 @@ private:
   void prepareFrame(bool needsUpdate, bool needsLayout);
   void applyPendingPanelFocus();
   void destroyPanel();
-  // Called BEFORE the panel surface commits so shields sit below the panel
-  // within the layer-shell layer. No-op when the focus-grab path is in use.
+  // Called before the panel surface commits so outside-click dismissal is ready
+  // for its first frame. The panel rect is excluded separately because
+  // same-layer stacking order is compositor-defined.
   void activateClickShield(LayerShellLayer layer);
   // Called AFTER the panel surface is mapped so the panel wl_surface is
   // available for the whitelist. No-op when focus-grab is unavailable.
@@ -211,6 +222,7 @@ private:
 
   std::unique_ptr<Surface> m_surface;
   LayerSurface* m_layerSurface = nullptr;
+  LayerShellLayer m_panelLayer = LayerShellLayer::Top;
   // m_sceneRoot must be destroyed before m_animations — ~Node() calls cancelForOwner().
   // Also m_panels (which own their own Nodes parented under m_sceneRoot) must be destroyed
   // before m_animations for the same reason.
@@ -233,22 +245,23 @@ private:
 
   wl_output* m_output = nullptr;
   wl_surface* m_wlSurface = nullptr;
-  float m_contentWidth = 0.0f;
-  float m_contentHeight = 0.0f;
+  float m_contentWidth = 0.0F;
+  float m_contentHeight = 0.0F;
   std::int32_t m_panelInsetX = 0;
   std::int32_t m_panelInsetY = 0;
   std::uint32_t m_panelVisualWidth = 0;
   std::uint32_t m_panelVisualHeight = 0;
+  std::optional<InputRect> m_panelOutputInputRect;
   // Fill axes derive their visual size from the compositor-configured surface
   // size in buildScene; that math also needs the trailing shadow bleed.
   bool m_panelFillWidth = false;
   bool m_panelFillHeight = false;
   std::int32_t m_detachedBleedRight = 0;
   std::int32_t m_detachedBleedBottom = 0;
-  float m_attachedBackgroundOpacity = 1.0f;
+  float m_attachedBackgroundOpacity = 1.0F;
   bool m_attachedContactShadow = false;
-  float m_attachedRevealProgress = 1.0f;
-  float m_detachedRevealProgress = 1.0f;
+  float m_attachedRevealProgress = 1.0F;
+  float m_detachedRevealProgress = 1.0F;
   AttachedRevealDirection m_attachedRevealDirection = AttachedRevealDirection::Down;
   AttachedRevealDirection m_detachedRevealDirection = AttachedRevealDirection::Down;
   Timer m_keyboardRelaxTimer;

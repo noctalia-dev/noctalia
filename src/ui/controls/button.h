@@ -40,7 +40,7 @@ public:
   };
 
   struct ButtonPalette {
-    float borderWidth = 0.0f;
+    float borderWidth = 0.0F;
     ButtonStateColors normal;
     ButtonStateColors hover;
     ButtonStateColors pressed;
@@ -66,6 +66,9 @@ public:
   void setSurfaceOpacity(float opacity);
   void setOnClick(std::function<void()> callback);
   void setOnRightClick(std::function<void()> callback);
+  void setOnRightClickWithPointer(
+      std::function<void(float sceneX, float sceneY, std::uint32_t serial, std::uint32_t time)> callback
+  );
   void setOnPress(std::function<void(float localX, float localY, bool pressed)> callback);
   void setOnMotion(std::function<void()> callback);
   void setOnPointerMotion(std::function<void(float localX, float localY)> callback);
@@ -122,6 +125,7 @@ private:
   std::uint32_t m_animId = 0;
   std::function<void()> m_onClick;
   std::function<void()> m_onRightClick;
+  std::function<void(float, float, std::uint32_t, std::uint32_t)> m_onRightClickWithPointer;
   std::function<void(float, float, bool)> m_onPress;
   std::function<void()> m_onMotion;
   std::function<void(float, float)> m_onPointerMotion;
@@ -138,7 +142,7 @@ private:
   Color m_targetBorder{};
   Color m_targetLabel{};
   ButtonContentAlign m_contentAlign = ButtonContentAlign::Center;
-  float m_surfaceOpacity = 1.0f;
+  float m_surfaceOpacity = 1.0F;
   bool m_enabled = true;
   bool m_selected = false;
   bool m_keyboardFocusHint = false;
@@ -157,7 +161,7 @@ std::vector<std::vector<std::unique_ptr<Button>>>
 wrapButtonsIntoRows(Renderer& renderer, std::vector<std::unique_ptr<Button>>& buttons, float maxWidth, float gap);
 
 // Populates a container column with row sub-containers, applying layout alignment,
-// gaps, setFlexGrow(1.0f), and setMaxWidth for single-button rows.
+// gaps, setFlexGrow(1.0F), and setMaxWidth for single-button rows.
 void populateRowContainer(
     Flex& container, std::vector<std::vector<std::unique_ptr<Button>>> rows, float maxWidth, float gap
 );

@@ -1,16 +1,19 @@
 #pragma once
 
 #include "config/config_types.h"
+#include "core/toml.h" // IWYU pragma: keep
 #include "theme/palette.h"
 
 #include <condition_variable>
 #include <cstdint>
 #include <functional>
+#include <memory>
 #include <mutex>
 #include <optional>
 #include <string>
 #include <string_view>
 #include <thread>
+#include <vector>
 
 class ConfigService;
 class IpcService;
@@ -33,15 +36,19 @@ namespace noctalia::theme {
     struct ApplyRequest {
       GeneratedPalette palette;
       ThemeConfig::TemplatesConfig templates;
+      std::shared_ptr<const toml::table> configTable;
       std::string defaultMode;
       std::string imagePath;
       std::string schemeType;
+      std::vector<std::string> disabledBuiltinIds;
+      bool reconcileDisabledBuiltinIds = false;
       std::uint64_t generation = 0;
     };
 
     [[nodiscard]] bool reapplyLast() const;
     [[nodiscard]] ApplyRequest makeRequest(const GeneratedPalette& palette, std::string_view defaultMode) const;
     [[nodiscard]] static bool sameInputs(const ApplyRequest& a, const ApplyRequest& b);
+    void undoDisabledBuiltinTemplates(const ApplyRequest& request) const;
     void applyRequest(const ApplyRequest& request) const;
     void workerLoop();
     [[nodiscard]] bool requestSuperseded(std::uint64_t generation) const;

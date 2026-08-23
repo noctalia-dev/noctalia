@@ -39,6 +39,8 @@ public:
   void setHorizontalPadding(float padding);
   void setClearButtonEnabled(bool enabled);
   void setPasswordMode(bool enabled);
+  /// Apply readline-style line editing shortcuts.
+  void setLineEditingEnabled(bool enabled);
   /// Multi-line editing: Enter inserts '\n' (Ctrl+Enter submits), the text wraps
   /// at the viewport width and scrolls vertically. The control keeps whatever
   /// height layout assigns (explicit height or flex-grown) instead of forcing
@@ -57,6 +59,9 @@ public:
   void setOnFocusLoss(std::function<void()> callback);
   void setOnFocusGain(std::function<void()> callback);
   void setSubmitOnFocusLoss(bool enabled);
+  /// Multiline chat-style submit: Enter submits and Shift+Enter inserts a
+  /// newline. Off (default), Enter inserts a newline and Ctrl+Enter submits.
+  void setSubmitOnEnter(bool enabled);
   void setEnabled(bool enabled);
   void setSurfaceOpacity(float opacity);
   void setFrameRadius(float radius);
@@ -199,18 +204,18 @@ private:
   std::vector<float> m_stopX;
   std::vector<std::size_t> m_stopByte;
   std::vector<TextCursorStop> m_stopRect;
-  float m_stopsBuiltForWidth = -1.0f;
+  float m_stopsBuiltForWidth = -1.0F;
   bool m_textMetricsDirty = true;
-  float m_cachedLabelY = 0.0f;
+  float m_cachedLabelY = 0.0F;
   std::string m_labelVisibleSlice;
   std::size_t m_labelVisibleStartByte = 0;
-  float m_labelSliceOriginX = 0.0f;
+  float m_labelSliceOriginX = 0.0F;
   std::vector<GlyphNode*> m_passwordGlyphs;
   std::vector<RectNode*> m_selectionLineRects;
-  float m_scrollOffset = 0.0f;
-  float m_scrollOffsetY = 0.0f;
+  float m_scrollOffset = 0.0F;
+  float m_scrollOffsetY = 0.0F;
   // Sticky caret column for Up/Down runs; negative = unset.
-  float m_goalCaretX = -1.0f;
+  float m_goalCaretX = -1.0F;
   bool m_cursorBlinkVisible = true;
   Timer m_cursorBlinkTimer;
 
@@ -220,25 +225,27 @@ private:
   std::function<void()> m_onFocusLoss;
   std::function<void()> m_onFocusGain;
   bool m_submitOnFocusLoss = false;
+  bool m_submitOnEnter = false;
   float m_fontSize = Style::fontSizeBody;
   float m_controlHeight = Style::controlHeight;
   float m_horizontalPadding = Style::spaceMd;
   bool m_clearButtonEnabled = false;
   bool m_passwordMode = false;
   bool m_multiline = false;
+  bool m_lineEditing = false;
   bool m_invalid = false;
   bool m_frameVisible = true;
   bool m_embeddedOnSolidPrimary = false;
-  float m_surfaceOpacity = 1.0f;
+  float m_surfaceOpacity = 1.0F;
   float m_frameRadius = Style::radiusMd;
   bool m_enabled = true;
   TextInputService* m_textInputService = nullptr;
-  float m_minLayoutWidth = 0.0f;
-  float m_contentLeadSlack = 0.0f;
+  float m_minLayoutWidth = 0.0F;
+  float m_contentLeadSlack = 0.0F;
   TextAlign m_textAlign = TextAlign::Start;
   std::chrono::steady_clock::time_point m_lastPrimaryPressTime;
-  float m_lastPrimaryPressX = 0.0f;
-  float m_lastPrimaryPressY = 0.0f;
+  float m_lastPrimaryPressX = 0.0F;
+  float m_lastPrimaryPressY = 0.0F;
   bool m_hasLastPrimaryPress = false;
   // 1 = caret/char drag, 2 = word, 3 = line (resets outside the multi-click window).
   int m_primaryClickCount = 0;

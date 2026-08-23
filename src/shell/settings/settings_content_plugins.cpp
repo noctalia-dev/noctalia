@@ -8,6 +8,7 @@
 #include "scripting/plugin_id.h"
 #include "scripting/plugin_panel_shell.h"
 #include "scripting/plugin_registry.h"
+#include "shell/settings/settings_content_common.h"
 #include "shell/settings/settings_control_factory.h"
 #include "shell/settings/settings_registry.h"
 #include "shell/settings/widget_settings_registry.h"
@@ -68,8 +69,8 @@ namespace settings {
           .padding = Style::spaceSm * scale,
           .configure = [scale](Flex& p) {
             p.setRadius(Style::scaledRadiusSm(scale));
-            p.setFill(colorSpecFromRole(ColorRole::Error, 0.10f));
-            p.setBorder(colorSpecFromRole(ColorRole::Error, 0.5f), Style::borderWidth);
+            p.setFill(colorSpecFromRole(ColorRole::Error, 0.10F));
+            p.setBorder(colorSpecFromRole(ColorRole::Error, 0.5F), Style::borderWidth);
           },
       });
       panel->addChild(makeLabel(
@@ -147,7 +148,7 @@ namespace settings {
       auto row = ui::row({.align = FlexAlign::Center, .gap = Style::spaceSm * scale, .fillWidth = true});
       Flex* r = row.get();
 
-      auto info = ui::column({.align = FlexAlign::Start, .gap = 2.0f * scale, .flexGrow = 1.0f});
+      auto info = ui::column({.align = FlexAlign::Start, .gap = 2.0F * scale, .flexGrow = 1.0F});
       info->addChild(makeLabel(
           pluginSourceDisplayName(source.name), Style::fontSizeBody * scale,
           source.enabled ? ColorRole::OnSurface : ColorRole::OnSurfaceVariant, FontWeight::Medium
@@ -201,7 +202,7 @@ namespace settings {
       return row;
     }
 
-    std::unique_ptr<Flex> makeRoleBadge(std::string_view label, ColorRole role, float scale, float fillAlpha = 0.15f) {
+    std::unique_ptr<Flex> makeRoleBadge(std::string_view label, ColorRole role, float scale, float fillAlpha = 0.15F) {
       return ui::row(
           {.align = FlexAlign::Center,
            .paddingH = Style::spaceXs * scale,
@@ -232,7 +233,7 @@ namespace settings {
           })
       );
 
-      auto info = ui::column({.align = FlexAlign::Start, .gap = 2.0f * scale, .flexGrow = 1.0f});
+      auto info = ui::column({.align = FlexAlign::Start, .gap = 2.0F * scale, .flexGrow = 1.0F});
       auto title = ui::row({.align = FlexAlign::Center, .gap = Style::spaceXs * scale});
       const std::string version = plugin.version.empty() ? std::string("?") : plugin.version;
       title->addChild(
@@ -342,7 +343,7 @@ namespace settings {
       if (busy) {
         r->addChild(
             ui::spinner({
-                .spinnerSize = Style::controlHeightSm * scale * 0.7f,
+                .spinnerSize = Style::controlHeightSm * scale * 0.7F,
                 .spinning = true,
             })
         );
@@ -540,7 +541,7 @@ namespace settings {
             TextSetting{
                 .value = valueAsString(value),
                 .placeholder = {},
-                .width = 190.0f,
+                .width = 190.0F,
                 .browseMode = spec.control == WidgetControlKind::Folder ? TextSettingBrowseMode::SelectFolder
                                                                         : TextSettingBrowseMode::OpenFile,
                 .browseFileExtensions = spec.extensions,
@@ -673,6 +674,10 @@ namespace settings {
         )
     );
 
+    if (ctx.config != nullptr && ctx.config->shell.offlineMode) {
+      section->addChild(makeOfflineModeNotice(scale, i18n::tr("settings.window.offline-mode-notice.plugins")));
+    }
+
     // ── Sources ──────────────────────────────────────────────────────────
     auto sourcesHeader = ui::row({.align = FlexAlign::Center, .gap = Style::spaceSm * scale, .fillWidth = true});
     sourcesHeader->addChild(makeLabel(
@@ -715,10 +720,10 @@ namespace settings {
       return s.kind == PluginSourceKind::Git && s.enabled;
     });
     if (hasGitSource && ctx.setAutoUpdate) {
-      // Separate from the source list so the toggle doesn't read as another source.
+      // Separate from the source list so the dropdown doesn't read as another source.
       section->addChild(ui::separator({.spacing = Style::spaceSm * scale}));
       auto autoRow = ui::row({.align = FlexAlign::Center, .gap = Style::spaceSm * scale, .fillWidth = true});
-      auto autoInfo = ui::column({.align = FlexAlign::Start, .gap = 2.0f * scale, .flexGrow = 1.0f});
+      auto autoInfo = ui::column({.align = FlexAlign::Start, .gap = 2.0F * scale, .flexGrow = 1.0F});
       autoInfo->addChild(makeLabel(
           i18n::tr("settings.plugins.sources.auto-update"), Style::fontSizeBody * scale, ColorRole::OnSurface,
           FontWeight::Medium
@@ -727,14 +732,23 @@ namespace settings {
           i18n::tr("settings.plugins.sources.auto-update-desc"), Style::fontSizeCaption * scale,
           ColorRole::OnSurfaceVariant
       ));
+      std::vector<SelectOption> modeOptions;
+      modeOptions.reserve(std::size(kPluginAutoUpdateModes));
+      for (const auto& opt : kPluginAutoUpdateModes) {
+        modeOptions.push_back(SelectOption{std::string(opt.key), i18n::tr(opt.labelKey)});
+      }
+      const auto selectedModeIndex = optionIndex(modeOptions, enumToKey(kPluginAutoUpdateModes, ctx.autoUpdateMode));
       autoRow->addChild(std::move(autoInfo));
       autoRow->addChild(
-          ui::toggle({
-              .checked = ctx.autoUpdateEnabled,
-              .scale = scale,
-              .onChange = [cb = ctx.setAutoUpdate](bool on) {
-                if (cb) {
-                  cb(on);
+          ui::select({
+              .options = optionLabels(modeOptions),
+              .selectedIndex = selectedModeIndex,
+              .fontSize = Style::fontSizeBody * scale,
+              .controlHeight = Style::controlHeight * scale,
+              .glyphSize = Style::fontSizeBody * scale,
+              .onSelectionChanged = [cb = ctx.setAutoUpdate](std::size_t index, std::string_view /*label*/) {
+                if (cb && index < std::size(kPluginAutoUpdateModes)) {
+                  cb(kPluginAutoUpdateModes[index].value);
                 }
               },
           })
@@ -749,6 +763,14 @@ namespace settings {
     pluginsHeader->addChild(makeLabel(
         i18n::tr("settings.plugins.plugins.title"), Style::fontSizeBody * scale, ColorRole::Secondary, FontWeight::Bold
     ));
+    if (ctx.pluginsLoading) {
+      pluginsHeader->addChild(
+          ui::spinner({
+              .spinnerSize = Style::fontSizeBody * scale,
+              .spinning = true,
+          })
+      );
+    }
     pluginsHeader->addChild(ui::spacer());
     const int updatesAvailable = static_cast<int>(
         std::ranges::count_if(ctx.plugins, [](const scripting::PluginStatus& p) { return p.updateAvailable; })
@@ -786,13 +808,7 @@ namespace settings {
       );
     }
     section->addChild(std::move(pluginsHeader));
-    if (ctx.pluginsLoading) {
-      section->addChild(makeLabel(
-          ctx.plugins.empty() ? i18n::tr("settings.plugins.plugins.loading")
-                              : i18n::tr("settings.plugins.plugins.refreshing"),
-          Style::fontSizeCaption * scale, ColorRole::OnSurfaceVariant
-      ));
-    } else if (ctx.plugins.empty()) {
+    if (!ctx.pluginsLoading && ctx.plugins.empty()) {
       section->addChild(makeLabel(
           i18n::tr("settings.plugins.plugins.empty"), Style::fontSizeCaption * scale, ColorRole::OnSurfaceVariant
       ));

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <functional>
 #include <optional>
@@ -15,6 +16,10 @@ public:
   using CursorShapeCallback = std::function<void(std::uint32_t serial, std::uint32_t shape)>;
   using HoverChangeCallback = std::function<void(InputArea* oldArea, InputArea* newArea)>;
   using FocusChangeCallback = std::function<void(InputArea* oldArea, InputArea* newArea)>;
+  struct TabFocusSnapshot {
+    std::optional<std::size_t> index;
+    std::optional<std::string> key;
+  };
 
   InputDispatcher() = default;
 
@@ -33,7 +38,9 @@ public:
   void pointerMotion(float x, float y, std::uint32_t serial);
   void syncPointerHover();
   // Returns true if the event was consumed by a scene widget
-  bool pointerButton(float x, float y, std::uint32_t button, bool pressed);
+  bool pointerButton(
+      float x, float y, std::uint32_t button, bool pressed, std::uint32_t serial, std::uint32_t time, bool touch
+  );
   bool pointerAxis(
       float x, float y, std::uint32_t axis, std::uint32_t axisSource, double value, std::int32_t discrete,
       std::int32_t value120, float lines, std::uint32_t axisGestureSerial = 0
@@ -47,6 +54,8 @@ public:
   void setFocus(InputArea* area);
   void stashTabFocus();
   void restoreStashedTabFocus();
+  [[nodiscard]] TabFocusSnapshot captureTabFocus() const;
+  void restoreTabFocus(TabFocusSnapshot snapshot);
   [[nodiscard]] bool cycleTabFocus(bool reverse);
   [[nodiscard]] bool cycleTabFocusInSubtree(Node* subtree, bool reverse);
   [[nodiscard]] InputArea* inputAreaAt(float x, float y);
@@ -66,6 +75,17 @@ private:
   void clearTextInputFocus(InputArea* area);
   void syncTextInputFocus();
 
+  struct TouchScrollGesture {
+    bool pending = false;
+    float pressX = 0.0F;
+    float pressY = 0.0F;
+    std::uint32_t button = 0;
+    std::uint32_t serial = 0;
+    std::uint32_t time = 0;
+    InputArea* verticalArea = nullptr;
+    InputArea* horizontalArea = nullptr;
+  };
+
   Node* m_sceneRoot = nullptr;
   CursorShapeCallback m_cursorShapeCallback;
   HoverChangeCallback m_hoverChangeCallback;
@@ -77,11 +97,12 @@ private:
   InputArea* m_hoveredArea = nullptr;
   InputArea* m_focusedArea = nullptr;
   InputArea* m_capturedArea = nullptr; // held while any button is pressed
+  TouchScrollGesture m_touchGesture;
   std::optional<std::size_t> m_stashedTabFocusIndex;
   std::optional<std::string> m_stashedTabFocusKey;
   std::uint32_t m_lastSerial = 0;
-  float m_lastPointerX = 0.0f;
-  float m_lastPointerY = 0.0f;
+  float m_lastPointerX = 0.0F;
+  float m_lastPointerY = 0.0F;
   bool m_hasPointerPosition = false;
   bool m_cancelingPointerCapture = false;
 };

@@ -270,12 +270,12 @@ void GraphProgram::draw(
     TextureId dataTexture, int texWidth, float surfaceWidth, float surfaceHeight, float width, float height,
     const GraphStyle& style, const Mat3& transform
 ) const {
-  if (!m_program.isValid() || width <= 0.0f || height <= 0.0f || dataTexture == 0) {
+  if (!m_program.isValid() || width <= 0.0F || height <= 0.0F || dataTexture == 0) {
     return;
   }
 
   static constexpr std::array<GLfloat, 12> kQuad = {
-      0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f, 1.0f,
+      0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 1.0F, 0.0F, 1.0F, 1.0F,
   };
 
   glUseProgram(m_program.id());

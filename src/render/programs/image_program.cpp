@@ -245,16 +245,16 @@ void ImageProgram::draw(
     bool monochromeTint, bool alphaMaskTint, float opacity, float radius, const Color& borderColor, float borderWidth,
     int fitMode, float textureWidth, float textureHeight, const Mat3& transform, const ImageScrim& scrim
 ) const {
-  if (!m_program.isValid() || texture == 0 || width <= 0.0f || height <= 0.0f) {
+  if (!m_program.isValid() || texture == 0 || width <= 0.0F || height <= 0.0F) {
     return;
   }
 
   const std::array<GLfloat, 12> positions = {
-      0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f, 1.0f,
+      0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 1.0F, 0.0F, 1.0F, 1.0F,
   };
 
   const std::array<GLfloat, 12> texcoords = {
-      0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f, 1.0f,
+      0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 1.0F, 0.0F, 1.0F, 1.0F,
   };
 
   glUseProgram(m_program.id());
@@ -264,16 +264,16 @@ void ImageProgram::draw(
   glUniform1i(m_monochromeLocation, monochromeTint ? 1 : 0);
   glUniform1i(m_alphaMaskLocation, alphaMaskTint ? 1 : 0);
   glUniform1f(m_opacityLocation, opacity);
-  glUniform1f(m_radiusLocation, std::max(0.0f, radius));
+  glUniform1f(m_radiusLocation, std::max(0.0F, radius));
   glUniform4f(m_borderColorLocation, borderColor.r, borderColor.g, borderColor.b, borderColor.a);
-  glUniform1f(m_borderWidthLocation, std::max(0.0f, borderWidth));
+  glUniform1f(m_borderWidthLocation, std::max(0.0F, borderWidth));
   glUniform2f(m_texSizeLocation, textureWidth, textureHeight);
   glUniform1i(m_fitModeLocation, fitMode);
   glUniformMatrix3fv(m_transformLocation, 1, GL_FALSE, transform.m.data());
   glUniform1i(m_scrimEnabledLocation, scrim.enabled ? 1 : 0);
   glUniform2f(
-      m_scrimDirectionLocation, scrim.direction == GradientDirection::Horizontal ? 1.0f : 0.0f,
-      scrim.direction == GradientDirection::Vertical ? 1.0f : 0.0f
+      m_scrimDirectionLocation, scrim.direction == GradientDirection::Horizontal ? 1.0F : 0.0F,
+      scrim.direction == GradientDirection::Vertical ? 1.0F : 0.0F
   );
   const auto& scrim0 = scrim.stops[0];
   const auto& scrim1 = scrim.stops[1];

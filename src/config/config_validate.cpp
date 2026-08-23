@@ -41,40 +41,33 @@ namespace noctalia::config {
       return std::to_string(value);
     }
 
-    std::string formatParseError(const std::filesystem::path& file, const toml::parse_error& e) {
-      const auto& pos = e.source().begin;
-      return file.string()
-          + ":"
-          + std::to_string(pos.line)
-          + ":"
-          + std::to_string(pos.column)
-          + ": "
-          + std::string(e.description());
-    }
-
     // Merge config-dir *.toml (honoring [include]) then the state-dir settings.toml,
     // mirroring loadAll's order. Syntax / missing-include errors are recorded and
-    // merging continues with what parsed.
+    // merging continues with what parsed. `originsOut` collects each key's source
+    // position in the same precedence order.
     toml::table mergeSources(
         std::string_view configDir, std::string_view settingsTomlPath, schema::Diagnostics& diag,
-        std::vector<std::filesystem::path>& loadedFilesOut
+        std::vector<std::filesystem::path>& loadedFilesOut, ConfigOriginIndex& originsOut
     ) {
       auto mergeResult = mergeConfigWithIncludes(configDir);
       toml::table merged = std::move(mergeResult.merged);
       loadedFilesOut = std::move(mergeResult.loadedFiles);
+      originsOut = std::move(mergeResult.origins);
       if (!mergeResult.firstError.empty()) {
-        diag.fatal("syntax", mergeResult.firstError, "config.syntax");
+        diag.fatalAt(std::move(mergeResult.firstErrorOrigin), "syntax", mergeResult.firstError, "config.syntax");
       }
       if (!settingsTomlPath.empty() && std::filesystem::exists(settingsTomlPath)) {
+        const std::filesystem::path settingsFile{std::string(settingsTomlPath)};
         try {
           toml::table sidecar = toml::parse_file(std::string(settingsTomlPath));
+          originsOut.record(settingsFile, sidecar);
           if (const auto version = storedConfigVersion(sidecar, diag); version.has_value()) {
             const int appliedVersion = applyPendingConfigMigrations(sidecar, *version, diag);
             sidecar.insert_or_assign(kConfigVersionKey, static_cast<std::int64_t>(appliedVersion));
           }
           ConfigService::deepMerge(merged, sidecar);
         } catch (const toml::parse_error& e) {
-          diag.fatal("syntax", formatParseError(settingsTomlPath, e), "config.syntax");
+          diag.fatalAt(parseErrorOrigin(e, settingsFile), "syntax", std::string(e.description()), "config.syntax");
         }
       }
       merged.erase(kConfigVersionKey);
@@ -497,6 +490,9 @@ namespace noctalia::config {
         // Plugin widgets resolve their settings from a static plugin.toml manifest, so
         // unknown keys are flagged like any other widget.
         validateSettingsMap(*tbl, fields, base, /*flagUnknown=*/true, diag, /*ignoreKeys=*/{"type"}, base);
+        if (auto error = settings::validateWidgetSemantics(type, &wc); error.has_value()) {
+          diag.componentError(base, base, *error);
+        }
         if (type == "clock") {
           if (const auto timezone = (*tbl)["timezone"].value<std::string>();
               timezone.has_value() && !isValidTimezone(*timezone)) {
@@ -542,9 +538,10 @@ namespace noctalia::config {
       if (widgets == nullptr) {
         return;
       }
-      static const std::unordered_set<std::string> kWidgetKeys = {"id",     "type",      "output",     "cx",
-                                                                  "cy",     "box_width", "box_height", "rotation",
-                                                                  "flip_x", "flip_y",    "enabled",    "settings"};
+      static const std::unordered_set<std::string> kWidgetKeys = {
+          "id",        "type",       "output",   "cx",     "cy",     "placement_width", "placement_height",
+          "box_width", "box_height", "rotation", "flip_x", "flip_y", "enabled",         "settings",
+      };
       for (const auto& [id, node] : *widgets) {
         const auto* tbl = node.as_table();
         if (tbl == nullptr) {
@@ -624,9 +621,10 @@ namespace noctalia::config {
       if (widgets == nullptr) {
         return;
       }
-      static const std::unordered_set<std::string> kWidgetKeys = {"id",     "type",      "output",     "cx",
-                                                                  "cy",     "box_width", "box_height", "rotation",
-                                                                  "flip_x", "flip_y",    "enabled",    "settings"};
+      static const std::unordered_set<std::string> kWidgetKeys = {
+          "id",        "type",       "output",   "cx",     "cy",     "placement_width", "placement_height",
+          "box_width", "box_height", "rotation", "flip_x", "flip_y", "enabled",         "settings",
+      };
       for (const auto& [id, node] : *widgets) {
         const auto* tbl = node.as_table();
         if (tbl == nullptr) {
@@ -769,7 +767,8 @@ namespace noctalia::config {
   schema::Diagnostics validateConfigSources(std::string_view configDir, std::string_view settingsTomlPath) {
     schema::Diagnostics diag;
     std::vector<std::filesystem::path> loadedFiles;
-    const toml::table merged = mergeSources(configDir, settingsTomlPath, diag, loadedFiles);
+    ConfigOriginIndex origins;
+    const toml::table merged = mergeSources(configDir, settingsTomlPath, diag, loadedFiles, origins);
     // [include] is stripped from the merged table, so validate each loaded file's
     // raw [include] shape directly (covers root and subdirectory includes).
     for (const auto& file : loadedFiles) {
@@ -781,18 +780,25 @@ namespace noctalia::config {
       }
     }
     appendMergedConfigDiagnostics(merged, diag);
+    origins.annotate(diag);
     return diag;
   }
 
   schema::Diagnostics validateConfigFile(std::string_view path) {
     schema::Diagnostics diag;
+    const std::filesystem::path file{std::string(path)};
     toml::table parsed;
     try {
       parsed = toml::parse_file(std::string(path));
     } catch (const toml::parse_error& e) {
-      diag.fatal("syntax", formatParseError(std::filesystem::path(std::string(path)), e), "config.syntax");
+      diag.fatalAt(parseErrorOrigin(e, file), "syntax", std::string(e.description()), "config.syntax");
       return diag;
     }
+
+    // Indexed before normalizeLegacyConfig rewrites keys, so legacy warnings still
+    // resolve to the spelling the file actually uses.
+    ConfigOriginIndex origins;
+    origins.record(file, parsed);
 
     LegacyConfigIssues issues;
     normalizeLegacyConfig(parsed, issues);
@@ -800,12 +806,14 @@ namespace noctalia::config {
       diag.warn(issue.path, issue.message);
     }
     appendMergedConfigDiagnostics(parsed, diag);
+    origins.annotate(diag);
     return diag;
   }
 
-  schema::Diagnostics validateMergedConfig(const toml::table& merged) {
+  schema::Diagnostics validateMergedConfig(const toml::table& merged, const ConfigOriginIndex& origins) {
     schema::Diagnostics diag;
     appendMergedConfigDiagnostics(merged, diag);
+    origins.annotate(diag);
     return diag;
   }
 

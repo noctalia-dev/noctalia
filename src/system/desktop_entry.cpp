@@ -1,17 +1,20 @@
 #include "system/desktop_entry.h"
 
+#include "core/inotify/inotify.h"
 #include "core/log.h"
+#include "i18n/language_tag.h"
 #include "util/string_utils.h"
 
 #include <algorithm>
+#include <array>
+#include <cctype>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <memory>
 #include <mutex>
-#include <ranges>
+#include <optional>
 #include <string_view>
-#include <sys/inotify.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <unordered_map>
@@ -22,6 +25,110 @@ namespace fs = std::filesystem;
 namespace {
 
   constexpr Logger kLog("desktop_entry");
+
+  bool isUserDesktopEntry(const fs::path& filepath) {
+    fs::path dataHome;
+    if (const char* configured = std::getenv("XDG_DATA_HOME"); configured != nullptr && configured[0] != '\0') {
+      dataHome = configured;
+    } else if (const char* home = std::getenv("HOME"); home != nullptr && home[0] != '\0') {
+      dataHome = fs::path(home) / ".local/share";
+    } else {
+      return false;
+    }
+
+    const fs::path applications = (dataHome / "applications").lexically_normal();
+    const fs::path normalized = filepath.lexically_normal();
+    const auto mismatch = std::ranges::mismatch(applications, normalized);
+    return mismatch.in1 == applications.end();
+  }
+
+  fs::path resolveExecutable(std::string_view executable) {
+    const fs::path path(executable);
+    if (path.has_parent_path()) {
+      return path;
+    }
+
+    const char* pathEnv = std::getenv("PATH");
+    if (pathEnv == nullptr || pathEnv[0] == '\0') {
+      return {};
+    }
+
+    const std::string_view searchPath(pathEnv);
+    std::size_t start = 0;
+    while (start <= searchPath.size()) {
+      const std::size_t end = searchPath.find(':', start);
+      const std::string_view directory =
+          end == std::string_view::npos ? searchPath.substr(start) : searchPath.substr(start, end - start);
+      const fs::path candidate = directory.empty() ? path : fs::path(directory) / path;
+      std::error_code ec;
+      if (::access(candidate.c_str(), X_OK) == 0 && fs::is_regular_file(candidate, ec)) {
+        return candidate;
+      }
+      if (end == std::string_view::npos) {
+        break;
+      }
+      start = end + 1;
+    }
+    return {};
+  }
+
+  bool executableIsAppImage(std::string_view exec, bool resolveFromPath) {
+    const auto start = exec.find_first_not_of(' ');
+    if (start == std::string_view::npos) {
+      return false;
+    }
+
+    const char quote = exec[start] == '"' ? '"' : '\0';
+    const std::size_t executableStart = start + (quote == '\0' ? 0 : 1);
+    const std::size_t executableEnd =
+        quote == '\0' ? exec.find(' ', executableStart) : exec.find(quote, executableStart);
+    const fs::path executable(exec.substr(
+        executableStart,
+        executableEnd == std::string_view::npos ? std::string_view::npos : executableEnd - executableStart
+    ));
+    if (StringUtils::toLower(executable.extension().string()) == ".appimage") {
+      return true;
+    }
+
+    const fs::path resolved = executable.has_parent_path()
+        ? executable
+        : (resolveFromPath ? resolveExecutable(executable.string()) : fs::path{});
+    std::ifstream file(resolved, std::ios::binary);
+    std::array<char, 10> header{};
+    if (!file.read(header.data(), static_cast<std::streamsize>(header.size()))) {
+      return false;
+    }
+    // AppImage reserves these two ELF identification bytes for its format marker.
+    return header[0] == '\x7F'
+        && header[1] == 'E'
+        && header[2] == 'L'
+        && header[3] == 'F'
+        && header[8] == 'A'
+        && header[9] == 'I';
+  }
+
+  DesktopEntryOrigin detectOrigin(const fs::path& filepath, bool appImage) {
+    const std::string path = filepath.lexically_normal().string();
+    if (path.contains("/flatpak/") && path.contains("/exports/share/applications/")) {
+      return DesktopEntryOrigin::Flatpak;
+    }
+    if (path.contains("/snap/") || path.contains("/snapd/desktop/applications/")) {
+      return DesktopEntryOrigin::Snap;
+    }
+    if (path.contains("/nix/store/")) {
+      return DesktopEntryOrigin::Nix;
+    }
+    if (appImage) {
+      return DesktopEntryOrigin::AppImage;
+    }
+    if (const char* home = std::getenv("HOME"); home != nullptr && home[0] != '\0') {
+      const std::string userApplications = std::string(home) + "/.local/share/applications/";
+      if (path.starts_with(userApplications)) {
+        return DesktopEntryOrigin::User;
+      }
+    }
+    return DesktopEntryOrigin::System;
+  }
 
   bool parseDesktopBool(std::string_view value) {
     const std::string lower = StringUtils::toLower(value);
@@ -72,71 +179,73 @@ namespace {
     return visibleByDefault;
   }
 
-  struct LocaleInfo {
-    std::string lang;
-    std::string country;
+  using LocalizedValues = std::unordered_map<std::string, std::string>;
+
+  struct LocalizedAssignment {
+    std::string_view key;
+    std::string locale;
+    std::string_view value;
   };
 
-  LocaleInfo parseLocale() {
-    LocaleInfo info;
-    const char* lang = std::getenv("LANG");
-    if (lang == nullptr) {
-      lang = std::getenv("LC_MESSAGES");
-    }
-    if (lang == nullptr) {
-      return info;
+  std::string normalizeDesktopLocale(std::string_view rawLocale) {
+    const auto modifierStart = rawLocale.find('@');
+    const std::string_view base = rawLocale.substr(0, modifierStart);
+    std::string locale = i18n::detail::normalizeLanguageTag(base);
+    if (locale.empty() || modifierStart == std::string_view::npos) {
+      return locale;
     }
 
-    std::string_view sv(lang);
-
-    // Strip encoding (e.g., ".UTF-8")
-    auto dot = sv.find('.');
-    if (dot != std::string_view::npos) {
-      sv = sv.substr(0, dot);
+    const std::string_view modifier = rawLocale.substr(modifierStart + 1);
+    if (modifier.empty()) {
+      return {};
     }
-
-    // Strip modifier (e.g., "@euro")
-    auto at = sv.find('@');
-    if (at != std::string_view::npos) {
-      sv = sv.substr(0, at);
+    locale += '@';
+    for (const unsigned char character : modifier) {
+      locale += static_cast<char>(std::tolower(character));
     }
-
-    auto underscore = sv.find('_');
-    if (underscore != std::string_view::npos) {
-      info.lang = std::string(sv.substr(0, underscore));
-      info.country = std::string(sv);
-    } else {
-      info.lang = std::string(sv);
-    }
-
-    return info;
+    return locale;
   }
 
-  std::string extractLocalizedValue(const std::string& line, const std::string& key, const LocaleInfo& locale) {
-    // Try key[lang_COUNTRY]=
-    if (!locale.country.empty()) {
-      std::string locKey = key + "[" + locale.country + "]=";
-      if (line.size() > locKey.size() && line.starts_with(locKey)) {
-        return line.substr(locKey.size());
-      }
+  std::optional<LocalizedAssignment> parseLocalizedAssignment(std::string_view line) {
+    const auto equals = line.find('=');
+    if (equals == std::string_view::npos) {
+      return std::nullopt;
     }
-    // Try key[lang]=
-    if (!locale.lang.empty()) {
-      std::string locKey = key + "[" + locale.lang + "]=";
-      if (line.size() > locKey.size() && line.starts_with(locKey)) {
-        return line.substr(locKey.size());
-      }
+
+    const std::string_view fullKey = line.substr(0, equals);
+    const auto bracket = fullKey.find('[');
+    if (bracket == std::string_view::npos || bracket == 0 || fullKey.back() != ']') {
+      return std::nullopt;
     }
-    return {};
+
+    const std::string_view rawLocale = fullKey.substr(bracket + 1, fullKey.size() - bracket - 2);
+    std::string locale = normalizeDesktopLocale(rawLocale);
+    if (locale.empty()) {
+      return std::nullopt;
+    }
+
+    return LocalizedAssignment{
+        .key = fullKey.substr(0, bracket),
+        .locale = std::move(locale),
+        .value = line.substr(equals + 1),
+    };
   }
 
-  void parseDesktopFile(const fs::path& filepath, std::vector<DesktopEntry>& entries) {
+  std::string localizedValue(std::string_view language, const LocalizedValues& values, std::string_view defaultValue) {
+    for (const std::string& candidate : i18n::detail::catalogLanguageCandidates(language)) {
+      if (const auto it = values.find(candidate); it != values.end()) {
+        return it->second;
+      }
+    }
+    return std::string(defaultValue);
+  }
+
+  void parseDesktopFile(const fs::path& filepath, std::string_view language, std::vector<DesktopEntry>& entries) {
     std::ifstream file(filepath);
     if (!file.is_open()) {
+      kLog.debug("failed to open desktop entry file '{}'", filepath.string());
       return;
     }
-
-    static const LocaleInfo locale = parseLocale();
 
     DesktopEntry entry;
     entry.path = filepath.string();
@@ -144,10 +253,12 @@ namespace {
 
     bool inDesktopEntry = false;
     bool inAction = false;
-    std::string localizedName;
-    std::string localizedGenericName;
-    std::string localizedComment;
+    LocalizedValues localizedNames;
+    LocalizedValues localizedGenericNames;
+    LocalizedValues localizedComments;
+    LocalizedValues localizedKeywords;
     std::string type;
+    bool hasAppImageMetadata = false;
 
     // Desktop-environment visibility lists (OnlyShowIn/NotShowIn)
     std::vector<std::string> onlyShowIn;
@@ -156,7 +267,9 @@ namespace {
     // Action parsing state
     std::vector<std::string> actionOrder;
     struct ActionData {
-      std::string name, exec, localizedName;
+      std::string name;
+      std::string exec;
+      LocalizedValues localizedNames;
     };
     std::unordered_map<std::string, ActionData> actionMap;
     std::string currentActionId;
@@ -164,9 +277,7 @@ namespace {
 
     auto flushCurrentAction = [&]() {
       if (!currentActionId.empty()) {
-        if (!currentActionData.localizedName.empty()) {
-          currentActionData.name = currentActionData.localizedName;
-        }
+        currentActionData.name = localizedValue(language, currentActionData.localizedNames, currentActionData.name);
         if (!currentActionData.name.empty() && !currentActionData.exec.empty()) {
           actionMap[currentActionId] = currentActionData;
         }
@@ -203,9 +314,8 @@ namespace {
       }
 
       if (inAction) {
-        auto locName = extractLocalizedValue(line, "Name", locale);
-        if (!locName.empty()) {
-          currentActionData.localizedName = std::move(locName);
+        if (const auto localized = parseLocalizedAssignment(line); localized && localized->key == "Name") {
+          currentActionData.localizedNames.insert_or_assign(localized->locale, localized->value);
           continue;
         }
         auto eq = line.find('=');
@@ -225,20 +335,20 @@ namespace {
         continue;
       }
 
-      // Check for localized values first
-      auto locName = extractLocalizedValue(line, "Name", locale);
-      if (!locName.empty()) {
-        localizedName = std::move(locName);
-        continue;
-      }
-      auto locGenericName = extractLocalizedValue(line, "GenericName", locale);
-      if (!locGenericName.empty()) {
-        localizedGenericName = std::move(locGenericName);
-        continue;
-      }
-      auto locComment = extractLocalizedValue(line, "Comment", locale);
-      if (!locComment.empty()) {
-        localizedComment = std::move(locComment);
+      if (const auto localized = parseLocalizedAssignment(line)) {
+        LocalizedValues* values = nullptr;
+        if (localized->key == "Name") {
+          values = &localizedNames;
+        } else if (localized->key == "GenericName") {
+          values = &localizedGenericNames;
+        } else if (localized->key == "Comment") {
+          values = &localizedComments;
+        } else if (localized->key == "Keywords") {
+          values = &localizedKeywords;
+        }
+        if (values != nullptr) {
+          values->insert_or_assign(localized->locale, localized->value);
+        }
         continue;
       }
 
@@ -276,12 +386,16 @@ namespace {
         entry.workingDir = std::string(value);
       } else if (key == "Terminal") {
         entry.terminal = parseDesktopBool(value);
+      } else if (key == "DBusActivatable") {
+        entry.dbusActivatable = parseDesktopBool(value);
       } else if (key == "OnlyShowIn") {
         splitMultipleDesktopStrings(onlyShowIn, value);
       } else if (key == "NotShowIn") {
         splitMultipleDesktopStrings(notShowIn, value);
       } else if (key == "Actions") {
         splitMultipleDesktopStrings(actionOrder, value);
+      } else if (key.starts_with("X-AppImage-")) {
+        hasAppImageMetadata = true;
       }
     }
 
@@ -296,15 +410,24 @@ namespace {
       return;
     }
 
-    // Apply localized values
-    if (!localizedName.empty()) {
-      entry.name = std::move(localizedName);
-    }
-    if (!localizedGenericName.empty()) {
-      entry.genericName = std::move(localizedGenericName);
-    }
-    if (!localizedComment.empty()) {
-      entry.comment = std::move(localizedComment);
+    const std::string defaultName = entry.name;
+    entry.name = localizedValue(language, localizedNames, entry.name);
+    entry.genericName = localizedValue(language, localizedGenericNames, entry.genericName);
+    entry.comment = localizedValue(language, localizedComments, entry.comment);
+    entry.keywords = localizedValue(language, localizedKeywords, entry.keywords);
+
+    entry.localizedNamesLower.reserve(localizedNames.size() + 1);
+    auto appendNameAlias = [&](std::string_view name) {
+      const std::string lower = StringUtils::toLower(name);
+      if (!lower.empty()
+          && lower != StringUtils::toLower(entry.name)
+          && !std::ranges::contains(entry.localizedNamesLower, lower)) {
+        entry.localizedNamesLower.push_back(lower);
+      }
+    };
+    appendNameAlias(defaultName);
+    for (const auto& [_, name] : localizedNames) {
+      appendNameAlias(name);
     }
 
     // Pre-lowercase for matching
@@ -315,6 +438,8 @@ namespace {
     entry.startupWmClassLower = StringUtils::toLower(entry.startupWmClass);
     entry.idLower = StringUtils::toLower(entry.id);
     entry.execLower = StringUtils::toLower(entry.exec);
+    entry.origin =
+        detectOrigin(filepath, hasAppImageMetadata || executableIsAppImage(entry.exec, isUserDesktopEntry(filepath)));
 
     // Build actions in the declared order.
     for (const auto& id : actionOrder) {
@@ -325,6 +450,8 @@ namespace {
                 .id = it->first,
                 .name = it->second.name,
                 .exec = it->second.exec,
+                .nameLower = StringUtils::toLower(it->second.name),
+                .execLower = StringUtils::toLower(it->second.exec),
             }
         );
       }
@@ -380,14 +507,9 @@ namespace {
 
   class DesktopEntryCache {
   public:
-    DesktopEntryCache() { setupWatchFd(); }
+    DesktopEntryCache() = default;
 
-    ~DesktopEntryCache() {
-      clearWatches();
-      if (m_inotifyFd >= 0) {
-        ::close(m_inotifyFd);
-      }
-    }
+    ~DesktopEntryCache() { clearWatches(); }
 
     const std::vector<DesktopEntry>& entries() {
       refreshIfNeeded();
@@ -407,58 +529,51 @@ namespace {
       return m_version;
     }
 
-    int watchFd() const noexcept { return m_inotifyFd; }
+    int watchFd() const noexcept { return m_inotify.fd(); }
 
     void checkSourcesChanged() {
       if (computeSourceSignature() != m_sourceSignature) {
+        kLog.debug("desktop entry source signature changed; marking cache dirty");
         m_dirty = true;
       }
     }
 
     void checkReload() {
-      if (m_inotifyFd < 0) {
+      if (m_inotify.fd() < 0) {
         return;
       }
 
-      alignas(inotify_event) char buf[4096];
       bool changed = false;
-      while (true) {
-        const auto n = ::read(m_inotifyFd, buf, sizeof(buf));
-        if (n <= 0) {
-          break;
+      m_inotify.drain([this, &changed](const inotify_event* event) {
+        if ((event->mask & IN_IGNORED) != 0) {
+          m_watches.erase(event->wd);
+        } else {
+          changed = true;
         }
-
-        std::size_t offset = 0;
-        while (offset < static_cast<std::size_t>(n)) {
-          auto* event = reinterpret_cast<inotify_event*>(buf + offset);
-          if ((event->mask & IN_IGNORED) != 0) {
-            m_watches.erase(event->wd);
-          } else {
-            changed = true;
-          }
-          offset += sizeof(inotify_event) + event->len;
-        }
-      }
+      });
 
       if (changed) {
+        kLog.debug("desktop entry inotify detected filesystem changes; marking cache dirty");
         m_dirty = true;
       }
     }
 
-  private:
-    void setupWatchFd() {
-      m_inotifyFd = inotify_init1(IN_NONBLOCK | IN_CLOEXEC);
-      if (m_inotifyFd < 0) {
-        kLog.warn("inotify_init1 failed, desktop entry hot reload disabled");
+    void setLanguage(std::string_view language) {
+      const std::string normalized = i18n::detail::normalizeLanguageTag(language);
+      if (normalized == m_language) {
+        return;
       }
+      m_language = normalized;
+      m_dirty = true;
     }
 
+  private:
     void refreshIfNeeded() {
       if (!m_dirty) {
         return;
       }
 
-      auto scanned = std::make_shared<const std::vector<DesktopEntry>>(scanDesktopEntries());
+      auto scanned = std::make_shared<const std::vector<DesktopEntry>>(scanDesktopEntries(m_language));
       {
         std::scoped_lock lock(m_entriesMutex);
         m_entries = std::move(scanned);
@@ -467,6 +582,7 @@ namespace {
       m_sourceSignature = computeSourceSignature();
       m_dirty = false;
       ++m_version;
+      kLog.debug("refreshed desktop entries: {} apps (version {})", m_entries->size(), m_version);
     }
 
     // Signature of the resolved application source directories: canonical path
@@ -506,15 +622,9 @@ namespace {
     }
 
     void clearWatches() {
-      if (m_inotifyFd < 0) {
-        m_watches.clear();
-        m_watchedPaths.clear();
-        return;
-      }
-
-      for (const auto& [wd, path] : m_watches) {
-        (void)path;
-        inotify_rm_watch(m_inotifyFd, wd);
+      if (m_inotify.fd() >= 0) {
+        for (const auto& [wd, _] : m_watches)
+          m_inotify.unwatch(wd);
       }
       m_watches.clear();
       m_watchedPaths.clear();
@@ -523,7 +633,7 @@ namespace {
     void rebuildWatches() {
       clearWatches();
 
-      if (m_inotifyFd < 0) {
+      if (m_inotify.fd() < 0) {
         return;
       }
 
@@ -561,21 +671,23 @@ namespace {
           | IN_DELETE_SELF
           | IN_MOVE_SELF
           | IN_ATTRIB;
-      const int wd = inotify_add_watch(m_inotifyFd, key.c_str(), kMask);
-      if (wd < 0) {
-        return;
+      const auto wd = m_inotify.watch(key.c_str(), kMask);
+      if (wd.has_value()) {
+        m_watches[wd.value()] = key;
+      } else {
+        kLog.warn("failed to watch desktop entry directory '{}'", key);
       }
-      m_watches[wd] = key;
     }
 
     std::shared_ptr<const std::vector<DesktopEntry>> m_entries = std::make_shared<std::vector<DesktopEntry>>();
     mutable std::mutex m_entriesMutex; // guards the m_entries swap against entriesSnapshot() readers
     std::uint64_t m_version = 0;
-    int m_inotifyFd = -1;
+    Inotify m_inotify;
     bool m_dirty = true;
     std::unordered_map<int, std::string> m_watches;
     std::unordered_set<std::string> m_watchedPaths;
     std::string m_sourceSignature;
+    std::string m_language;
   };
 
   DesktopEntryCache& cache() {
@@ -585,7 +697,7 @@ namespace {
 
 } // namespace
 
-std::vector<DesktopEntry> scanDesktopEntries() {
+std::vector<DesktopEntry> scanDesktopEntries(std::string_view language) {
   std::vector<DesktopEntry> entries;
 
   // Track seen IDs to deduplicate (first occurrence wins per XDG spec).
@@ -613,7 +725,7 @@ std::vector<DesktopEntry> scanDesktopEntries() {
         continue;
       }
 
-      parseDesktopFile(dirEntry.path(), entries);
+      parseDesktopFile(dirEntry.path(), language, entries);
     }
   }
 
@@ -628,6 +740,8 @@ const std::vector<DesktopEntry>& desktopEntries() { return cache().entries(); }
 std::shared_ptr<const std::vector<DesktopEntry>> desktopEntriesSnapshot() { return cache().entriesSnapshot(); }
 
 std::uint64_t desktopEntriesVersion() { return cache().version(); }
+
+void setDesktopEntryLanguage(std::string_view language) { cache().setLanguage(language); }
 
 int desktopEntryWatchFd() noexcept { return cache().watchFd(); }
 

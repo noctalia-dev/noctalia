@@ -1,6 +1,7 @@
 #include "i18n/language_tag.h"
 
 #include <cstdio>
+#include <print>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -9,9 +10,17 @@ namespace {
 
   bool expectEqual(std::string_view actual, std::string_view expected, const char* message) {
     if (actual != expected) {
-      std::fprintf(
-          stderr, "i18n_language_tag_test: %s: expected '%.*s', got '%.*s'\n", message,
-          static_cast<int>(expected.size()), expected.data(), static_cast<int>(actual.size()), actual.data()
+      std::println(stderr, "i18n_language_tag_test: {}: expected '{}', got '{}'", message, expected, actual);
+      return false;
+    }
+    return true;
+  }
+
+  bool expectEqual(bool actual, bool expected, const char* message) {
+    if (actual != expected) {
+      std::println(
+          stderr, "i18n_language_tag_test: {}: expected {}, got {}", message, expected ? "true" : "false",
+          actual ? "true" : "false"
       );
       return false;
     }
@@ -24,19 +33,16 @@ namespace {
       return true;
     }
 
-    std::fprintf(
-        stderr, "i18n_language_tag_test: %s: candidates for '%.*s' differed\n", message, static_cast<int>(raw.size()),
-        raw.data()
-    );
-    std::fprintf(stderr, "  expected:");
+    std::println(stderr, "i18n_language_tag_test: {}: candidates for '{}' differed", message, raw);
+    std::print(stderr, "  expected:");
     for (const auto& candidate : expected) {
-      std::fprintf(stderr, " %s", candidate.c_str());
+      std::print(stderr, " {}", candidate);
     }
-    std::fprintf(stderr, "\n  actual:");
+    std::print(stderr, "\n  actual:");
     for (const auto& candidate : actual) {
-      std::fprintf(stderr, " %s", candidate.c_str());
+      std::print(stderr, " {}", candidate);
     }
-    std::fprintf(stderr, "\n");
+    std::println(stderr);
     return false;
   }
 
@@ -49,6 +55,10 @@ int main() {
   ok = expectEqual(i18n::detail::normalizeLanguageTag("pt-br"), "pt-BR", "canonicalizes region case") && ok;
   ok = expectEqual(i18n::detail::normalizeLanguageTag("zh_hans_cn"), "zh-Hans-CN", "canonicalizes script case") && ok;
   ok = expectEqual(i18n::detail::normalizeLanguageTag("C.UTF-8"), "", "ignores C locale") && ok;
+  ok = expectEqual(i18n::detail::isRtlLanguage("ar"), true, "recognizes Arabic as RTL") && ok;
+  ok = expectEqual(i18n::detail::isRtlLanguage("AR-EG"), true, "matches RTL primary subtags case-insensitively") && ok;
+  ok = expectEqual(i18n::detail::isRtlLanguage("ku"), false, "keeps Kurmanji LTR") && ok;
+  ok = expectEqual(i18n::detail::isRtlLanguage("en"), false, "keeps English LTR") && ok;
 
   ok = expectCandidates("zh_CN.UTF-8", {"zh-Hans-CN", "zh-CN", "zh-Hans", "zh"}, "infers Simplified Chinese from China")
       && ok;

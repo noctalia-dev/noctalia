@@ -18,7 +18,7 @@ namespace settings {
   struct SettingsStatusBannerProps {
     std::string message;
     bool error = false;
-    float scale = 1.0f;
+    float scale = 1.0F;
     std::function<void()> onDismiss;
     Flex** out = nullptr;
     Label** messageOut = nullptr;
@@ -28,6 +28,13 @@ namespace settings {
   makeLabel(std::string_view text, float fontSize, const ColorSpec& color, FontWeight fontWeight = FontWeight::Normal);
   [[nodiscard]] std::unique_ptr<Flex> makeSettingsStatusBanner(SettingsStatusBannerProps props);
   void updateSettingsStatusBanner(Flex& banner, Label& message, std::string_view text, bool error);
+
+  // Non-dismissible callout for settings pages/sheets that need HTTP while offline_mode is on.
+  // showDisableHint is false on the Security page (toggle lives there already).
+  [[nodiscard]] std::unique_ptr<Flex>
+  makeOfflineModeNotice(float scale, std::string message, bool showDisableHint = true);
+  [[nodiscard]] bool settingsSectionNeedsOfflineModeNotice(SettingsSection section);
+  [[nodiscard]] std::string offlineModeNoticeMessage(SettingsSection section);
 
   [[nodiscard]] std::optional<std::size_t>
   optionIndex(const std::vector<SelectOption>& options, std::string_view value);

@@ -23,7 +23,9 @@
   ;; Guix build systems
   #:use-module (guix build-system meson)
   ;; Guix packages
+  #:use-module (gnu packages calendar)
   #:use-module (gnu packages cpp)
+  #:use-module (gnu packages crypto)
   #:use-module (gnu packages curl)
   #:use-module (gnu packages fontutils)
   #:use-module (gnu packages freedesktop)
@@ -39,6 +41,7 @@
   #:use-module (gnu packages multiprecision)
   #:use-module (gnu packages pkg-config)
   #:use-module (gnu packages polkit)
+  #:use-module (gnu packages pulseaudio)
   #:use-module (gnu packages stb)
   #:use-module (gnu packages xdisorg)
   #:use-module (gnu packages xml))
@@ -77,9 +80,6 @@
            #~(modify-phases %standard-phases
                (add-after 'unpack 'prepare-for-build
                  (lambda _
-                   ;; For reproducibility.
-                   (substitute* "meson.build"
-                     (("'-march=native', '-mtune=native',") ""))
                    ;; /bin/sh doesn't exist in the build environment.
                    (substitute* "tests/process_test.cpp"
                      (("/bin/(sh)" _ cmd)
@@ -101,7 +101,11 @@
            mpfr
            (librsvg-for-system)
            libjxl
+           libical
            libqalculate
+           libsecret
+           libsndfile
+           libsodium
            libwebp
            libxkbcommon
            libxml2

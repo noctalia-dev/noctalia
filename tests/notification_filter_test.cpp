@@ -146,6 +146,24 @@ int main() {
       }
   );
   ok &= check(noPermanent.matched && !noPermanent.allowPermanent, "filter disallows permanent");
+  const auto dndBypass = resolveNotificationFilter(
+      {NotificationFilterConfig{
+          .name = "medication",
+          .enabled = true,
+          .match = "medication",
+          .bypassDnd = true,
+      }},
+      NotificationFilterFields{
+          .appName = "Medication Reminder",
+          .category = std::nullopt,
+          .desktopEntry = std::nullopt,
+      }
+  );
+  ok &= check(dndBypass.matched && dndBypass.bypassDnd, "filter allows DND bypass");
+  ok &= check(
+      !resolveNotificationFilter({}, NotificationFilterFields{.appName = "Medication Reminder"}).bypassDnd,
+      "default respects DND"
+  );
   ok &= check(
       resolveNotificationFilter({}, NotificationFilterFields{.appName = "Browser"}).allowPermanent,
       "default allows permanent"

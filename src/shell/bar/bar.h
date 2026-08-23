@@ -75,6 +75,9 @@ public:
   void setAutoHideSuppressionCallback(std::function<bool(const BarInstance&)> callback);
   // Re-run auto-hide after a panel closes so unrelated bars are not left visible.
   void reevaluateAutoHide();
+  // Grabbed popups often swallow Leave; resync pointerInside from the compositor
+  // then re-run auto-hide (tray menus, same pattern as dock context menus).
+  void reevaluateAutoHideAfterPopup();
   // Requests a redraw on every bar surface without re-running widget update/layout.
   // Intended for reactive restyling (palette changes) where the scene graph has
   // already been mutated in place and only a repaint is needed.
@@ -124,6 +127,7 @@ private:
   void attachWidgetsToSections(BarInstance& instance);
   void updateWidgetHoverHighlight(BarInstance& instance, InputArea* hoveredArea);
   void animateWidgetHoverHighlight(BarInstance& instance, Widget& widget, bool hovered);
+  void updateAccordionExpansion(BarInstance& instance, InputArea* hoveredArea);
   void rebuildInstanceContents(BarInstance& instance, const BarConfig& newConfig);
   [[nodiscard]] BarServices services() const;
   void buildScene(BarInstance& instance, std::uint32_t width, std::uint32_t height);

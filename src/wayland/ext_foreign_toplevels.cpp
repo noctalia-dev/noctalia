@@ -92,7 +92,10 @@ std::vector<std::string> WaylandExtForeignToplevels::allAppIds() const {
   std::vector<const ToplevelState*> ordered;
   ordered.reserve(m_handles.size());
   for (const auto& [_, state] : m_handles) {
-    const auto appId = effectiveAppId(state.appId, state.title);
+    if (!state.ready) {
+      continue;
+    }
+    const auto appId = effectiveAppId(state.committed.appId, state.committed.title);
     if (!appId.empty()) {
       ordered.push_back(&state);
     }
@@ -104,7 +107,7 @@ std::vector<std::string> WaylandExtForeignToplevels::allAppIds() const {
   std::vector<std::string> ids;
   ids.reserve(ordered.size());
   for (const auto* state : ordered) {
-    ids.push_back(effectiveAppId(state->appId, state->title));
+    ids.push_back(effectiveAppId(state->committed.appId, state->committed.title));
   }
   return ids;
 }
@@ -118,7 +121,10 @@ WaylandExtForeignToplevels::windowsForApp(const std::string& idLower, const std:
 
   std::vector<MatchedWindow> matched;
   for (const auto& [handle, state] : m_handles) {
-    const auto appId = effectiveAppId(state.appId, state.title);
+    if (!state.ready) {
+      continue;
+    }
+    const auto appId = effectiveAppId(state.committed.appId, state.committed.title);
     if (appId.empty()) {
       continue;
     }
@@ -133,9 +139,9 @@ WaylandExtForeignToplevels::windowsForApp(const std::string& idLower, const std:
         MatchedWindow{
             .order = state.order,
             .info = ToplevelInfo{
-                .title = state.title,
+                .title = state.committed.title,
                 .appId = appId,
-                .identifier = state.identifier,
+                .identifier = state.committed.identifier,
                 .order = state.order,
                 .handle = nullptr,
                 .extHandle = handle,
@@ -161,7 +167,10 @@ std::vector<ToplevelInfo> WaylandExtForeignToplevels::windowsWithoutAppId() cons
 
   std::vector<OrphanWindow> orphans;
   for (const auto& [handle, state] : m_handles) {
-    const auto appId = effectiveAppId(state.appId, state.title);
+    if (!state.ready) {
+      continue;
+    }
+    const auto appId = effectiveAppId(state.committed.appId, state.committed.title);
     if (!appId.empty()) {
       continue;
     }
@@ -169,9 +178,9 @@ std::vector<ToplevelInfo> WaylandExtForeignToplevels::windowsWithoutAppId() cons
         OrphanWindow{
             .order = state.order,
             .info = ToplevelInfo{
-                .title = state.title,
+                .title = state.committed.title,
                 .appId = {},
-                .identifier = state.identifier,
+                .identifier = state.committed.identifier,
                 .order = state.order,
                 .handle = nullptr,
                 .extHandle = handle,
@@ -210,19 +219,26 @@ void WaylandExtForeignToplevels::onListFinished() {
 void WaylandExtForeignToplevels::onHandleClosed(ext_foreign_toplevel_handle_v1* handle) {
   if (handle != nullptr) {
     ext_foreign_toplevel_handle_v1_destroy(handle);
-    m_handles.erase(handle);
-    notifyChanged();
+    removeHandle(handle);
   }
 }
 
-void WaylandExtForeignToplevels::onHandleDone(ext_foreign_toplevel_handle_v1* /*handle*/) { notifyChanged(); }
+void WaylandExtForeignToplevels::onHandleDone(ext_foreign_toplevel_handle_v1* handle) {
+  const auto it = m_handles.find(handle);
+  if (it == m_handles.end()) {
+    return;
+  }
+  it->second.committed = it->second.pending;
+  it->second.ready = true;
+  notifyChanged();
+}
 
 void WaylandExtForeignToplevels::onHandleTitle(ext_foreign_toplevel_handle_v1* handle, const char* title) {
   const auto it = m_handles.find(handle);
   if (it == m_handles.end()) {
     return;
   }
-  it->second.title = StringUtils::windowTitleSingleLine(title != nullptr ? title : "");
+  it->second.pending.title = StringUtils::windowTitleSingleLine(title != nullptr ? title : "");
 }
 
 void WaylandExtForeignToplevels::onHandleAppId(ext_foreign_toplevel_handle_v1* handle, const char* appId) {
@@ -230,7 +246,7 @@ void WaylandExtForeignToplevels::onHandleAppId(ext_foreign_toplevel_handle_v1* h
   if (it == m_handles.end()) {
     return;
   }
-  it->second.appId = appId != nullptr ? appId : "";
+  it->second.pending.appId = appId != nullptr ? appId : "";
 }
 
 void WaylandExtForeignToplevels::onHandleIdentifier(ext_foreign_toplevel_handle_v1* handle, const char* identifier) {
@@ -238,7 +254,13 @@ void WaylandExtForeignToplevels::onHandleIdentifier(ext_foreign_toplevel_handle_
   if (it == m_handles.end()) {
     return;
   }
-  it->second.identifier = identifier != nullptr ? identifier : "";
+  it->second.pending.identifier = identifier != nullptr ? identifier : "";
+}
+
+void WaylandExtForeignToplevels::removeHandle(ext_foreign_toplevel_handle_v1* handle) {
+  if (m_handles.erase(handle) > 0) {
+    notifyChanged();
+  }
 }
 
 void WaylandExtForeignToplevels::notifyChanged() {

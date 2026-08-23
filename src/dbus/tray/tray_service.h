@@ -69,7 +69,7 @@ public:
   void start();
   void setChangeCallback(ChangeCallback callback);
   void setMenuToggleCallback(MenuToggleCallback callback);
-  void requestMenuToggle(const std::string& itemId, float contentScale = 1.0f) const;
+  void requestMenuToggle(const std::string& itemId, float contentScale = 1.0F) const;
   [[nodiscard]] std::size_t itemCount() const noexcept;
   [[nodiscard]] std::vector<TrayItemInfo> items() const;
   [[nodiscard]] bool itemUsesDBusMenu(const std::string& itemId) const;
@@ -108,8 +108,7 @@ private:
 
   void onRegisterStatusNotifierItem(const std::string& serviceOrPath, const std::string& senderBusName);
   void onRegisterStatusNotifierHost(const std::string& host);
-  void startLegacyOwner();
-  void startKde();
+  void startWithWatcherDetection();
   void startAsWatcherOwner();
   void startAsWatcherClient();
   void connectToExternalWatcher();

@@ -1,3 +1,4 @@
+#include "core/toml.h"
 #include "lua.h"
 #include "luacode.h"
 #include "lualib.h"
@@ -75,6 +76,48 @@ int main() {
            "getConfig should expose string maps as associative tables"
        )
       && ok;
+
+  const auto config = toml::parse(R"(
+[shell]
+offline_mode = true
+time_format = "%H:%M"
+answer = 42
+scale = 1.25
+
+[shell.nested]
+name = "section"
+enabled = false
+
+[bar]
+order = ["a", "b"]
+)");
+  const auto checkConfigSetting = [&](std::string_view path, std::string_view assertion, const char* message) {
+    scripting::pushConfigSetting(state, config, path);
+    lua_setglobal(state, "v");
+    return expect(runLuau(state, "=config-setting", assertion), message);
+  };
+  ok = checkConfigSetting("shell.offline_mode", "assert(v == true)", "getSetting should expose booleans") && ok;
+  ok = checkConfigSetting("shell.time_format", "assert(v == '%H:%M')", "getSetting should expose exact strings") && ok;
+  ok = checkConfigSetting("shell.answer", "assert(v == 42)", "getSetting should expose integers") && ok;
+  ok = checkConfigSetting(
+           "shell.scale", "assert(math.abs(v - 1.25) < 0.000001)", "getSetting should expose floating-point values"
+       )
+      && ok;
+  ok = checkConfigSetting(
+           "bar.order", "assert(#v == 2 and v[1] == 'a' and v[2] == 'b')",
+           "getSetting should expose arrays as one-based Lua tables"
+       )
+      && ok;
+  ok =
+      checkConfigSetting(
+          "shell.nested", "assert(v.name == 'section' and v.enabled == false)", "getSetting should expose nested tables"
+      )
+      && ok;
+  ok = checkConfigSetting(
+           "bar.order[0]", "assert(v == 'a')", "getSetting paths should use zero-based TOML array indices"
+       )
+      && ok;
+  ok = checkConfigSetting("shell.nope", "assert(v == nil)", "getSetting should return nil for missing paths") && ok;
   ok = expect(runLuau(state, "=ui-prelude", scripting::kUiPrelude), "failed to execute production UI prelude") && ok;
   ok = expect(
            runLuau(state, "=empty-accepts", "panel.render(ui.dropZone({ accepts = {} }))"),
@@ -127,11 +170,7 @@ int main() {
       continue;
     }
     ok = expect(context.patch.uiTree->key == expectedKey, "only a string key should become the node key") && ok;
-    ok = expect(
-             context.patch.uiTree->props.find("key") == context.patch.uiTree->props.end(),
-             "key should never remain a prop"
-         )
-        && ok;
+    ok = expect(!context.patch.uiTree->props.contains("key"), "key should never remain a prop") && ok;
   }
 
   // A function-valued callback prop is registered in the render's handler table
@@ -169,7 +208,7 @@ int main() {
       }
       // Distinct keys must yield distinct names, or one button would fire the
       // other's closure.
-      ok = expect(name->find(expected) != std::string::npos, "a handler name should carry the node key") && ok;
+      ok = expect(name->contains(expected), "a handler name should carry the node key") && ok;
       if (child == 0) {
         firstRenderName = *name;
       }
@@ -275,6 +314,92 @@ int main() {
       ok = expect(fired == expected, "each callback prop should run its own closure") && ok;
     }
   }
+
+  // Native context menus are accepted only from a direct pointer callback.
+  context.beginCall({});
+  ok = expect(
+           runLuau(
+               state, "=context-menu-no-pointer",
+               "assert(panel.openContextMenu({\n"
+               "  items = {{ id = 'copy', label = 'Copy' }},\n"
+               "  onActivate = 'activateMenu',\n"
+               "}) == false)"
+           ),
+           "openContextMenu should return false without pointer context"
+       )
+      && ok;
+  ok = expect(!context.contextMenuRequest.has_value(), "a failed context menu open should not publish a request") && ok;
+
+  scripting::ScriptSnapshot pointerSnapshot;
+  pointerSnapshot.pointerContext = scripting::ScriptPointerContext{.x = 42.5F, .y = 17.0F, .serial = 99, .time = 123};
+  context.beginCall(pointerSnapshot);
+  ok = expect(
+           runLuau(
+               state, "=context-menu-valid",
+               "assert(panel.openContextMenu({\n"
+               "  items = {\n"
+               "    { kind = 'header', label = 'Clipboard' },\n"
+               "    { kind = 'item', id = 'copy', label = 'Copy' },\n"
+               "    { id = 'delete', label = 'Delete', enabled = false },\n"
+               "    { kind = 'separator' },\n"
+               "  },\n"
+               "  onActivate = 'activateMenu', context = 7, maxVisible = 4,\n"
+               "}) == true)"
+           ),
+           "openContextMenu should accept a valid request from a pointer callback"
+       )
+      && ok;
+  const auto& menu = context.contextMenuRequest;
+  ok = expect(menu.has_value(), "a valid context menu should publish a one-shot request") && ok;
+  if (menu.has_value()) {
+    ok = expect(menu->items.size() == 4, "context menu should retain every item") && ok;
+    ok = expect(menu->onActivate == "activateMenu", "context menu should retain its callback") && ok;
+    ok = expect(menu->maxVisible == 4, "context menu should retain maxVisible") && ok;
+    ok = expect(menu->pointer.serial == 99 && menu->pointer.x == 42.5F, "context menu should retain pointer metadata")
+        && ok;
+    const auto* number = menu->context.has_value() ? std::get_if<double>(&*menu->context) : nullptr;
+    ok = expect(number != nullptr && *number == 7.0, "context menu should retain scalar context") && ok;
+    ok = expect(
+             menu->items.front().kind == scripting::ScriptContextMenuItemKind::Header
+                 && menu->items[1].kind == scripting::ScriptContextMenuItemKind::Action
+                 && menu->items[1].id == "copy"
+                 && !menu->items[2].enabled
+                 && menu->items[3].kind == scripting::ScriptContextMenuItemKind::Separator,
+             "context menu should preserve item kinds, ids, and enabled state"
+         )
+        && ok;
+  }
+
+  context.beginCall(pointerSnapshot);
+  ok = expect(
+           !runLuau(
+               state, "=context-menu-duplicate-id",
+               "panel.openContextMenu({ items = {\n"
+               "  { id = 'same', label = 'One' }, { id = 'same', label = 'Two' },\n"
+               "}, onActivate = 'activateMenu' })"
+           ),
+           "openContextMenu should reject duplicate ids"
+       )
+      && ok;
+  context.beginCall(pointerSnapshot);
+  ok = expect(
+           !runLuau(
+               state, "=context-menu-no-action",
+               "panel.openContextMenu({ items = { { kind = 'separator' } }, onActivate = 'activateMenu' })"
+           ),
+           "openContextMenu should reject a menu without an enabled action"
+       )
+      && ok;
+  context.beginCall(pointerSnapshot);
+  ok = expect(
+           !runLuau(
+               state, "=context-menu-invalid-context",
+               "panel.openContextMenu({ items = {{ id = 'x', label = 'X' }}, onActivate = 'activateMenu', context = {} "
+               "})"
+           ),
+           "openContextMenu should reject non-scalar context"
+       )
+      && ok;
 
   lua_close(state);
   return ok ? 0 : 1;

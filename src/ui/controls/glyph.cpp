@@ -51,13 +51,28 @@ void Glyph::setColor(const ColorSpec& color) {
 
 void Glyph::setColor(const Color& color) { setColor(fixedColorSpec(color)); }
 
-void Glyph::setShadow(const Color& color, float offsetX, float offsetY) {
-  m_glyphNode->setShadow(color, offsetX, offsetY);
+void Glyph::setShadow(const ColorSpec& color, float offsetX, float offsetY) {
+  m_shadowColor = color;
+  m_shadowOffsetX = offsetX;
+  m_shadowOffsetY = offsetY;
+  applyPalette();
 }
 
-void Glyph::clearShadow() { m_glyphNode->clearShadow(); }
+void Glyph::setShadow(const Color& color, float offsetX, float offsetY) {
+  setShadow(fixedColorSpec(color), offsetX, offsetY);
+}
 
-void Glyph::applyPalette() { m_glyphNode->setColor(resolveColorSpec(m_color)); }
+void Glyph::clearShadow() {
+  m_shadowColor.reset();
+  m_glyphNode->clearShadow();
+}
+
+void Glyph::applyPalette() {
+  m_glyphNode->setColor(resolveColorSpec(m_color));
+  if (m_shadowColor.has_value()) {
+    m_glyphNode->setShadow(resolveColorSpec(*m_shadowColor), m_shadowOffsetX, m_shadowOffsetY);
+  }
+}
 
 void Glyph::doLayout(Renderer& renderer) { measure(renderer); }
 
@@ -69,7 +84,7 @@ void Glyph::doArrange(Renderer& renderer, const LayoutRect& rect) {
   setPosition(rect.x, rect.y);
   LayoutConstraints constraints;
   constraints.setExactWidth(rect.width);
-  if (rect.height > 0.0f) {
+  if (rect.height > 0.0F) {
     constraints.setExactHeight(rect.height);
   }
   measureWithConstraints(renderer, constraints);
@@ -77,7 +92,7 @@ void Glyph::doArrange(Renderer& renderer, const LayoutRect& rect) {
 
 void Glyph::measure(Renderer& renderer) {
   LayoutConstraints constraints;
-  if (width() > 0.0f && !sizeAssignedByLayout()) {
+  if (width() > 0.0F && !sizeAssignedByLayout()) {
     constraints.setExactWidth(width());
   }
   measureWithConstraints(renderer, constraints);
@@ -106,10 +121,10 @@ LayoutSize Glyph::measureWithConstraints(Renderer& renderer, const LayoutConstra
   const float finalHeight = constraints.hasExactHeight() ? constraints.maxHeight : boxSize;
   Node::setSize(std::round(finalWidth), std::round(finalHeight));
 
-  const float glyphCenterX = (metrics.left + metrics.right) * 0.5f;
-  const float glyphInkCenter = (metrics.top + metrics.bottom) * 0.5f; // relative to baseline
-  m_baselineOffset = height() * 0.5f - glyphInkCenter;
-  m_glyphNode->setPosition(width() * 0.5f - glyphCenterX, m_baselineOffset);
+  const float glyphCenterX = (metrics.left + metrics.right) * 0.5F;
+  const float glyphInkCenter = (metrics.top + metrics.bottom) * 0.5F; // relative to baseline
+  m_baselineOffset = height() * 0.5F - glyphInkCenter;
+  m_glyphNode->setPosition(width() * 0.5F - glyphCenterX, m_baselineOffset);
 
   m_cachedCodepoint = m_glyphNode->codepoint();
   m_cachedFontSize = m_glyphNode->fontSize();

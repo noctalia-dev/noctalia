@@ -271,12 +271,21 @@ wl_output* WaylandToplevels::currentOutput() const {
   return it->second.output;
 }
 
+bool WaylandToplevels::matchesOutputFilter(const ToplevelState& state, wl_output* outputFilter) {
+  if (outputFilter == nullptr || state.output == outputFilter) {
+    return true;
+  }
+  // Some compositors omit output_enter for toplevels that predate the bind (observed on Hyprland),
+  // leaving the output unknown.
+  return !state.sawOutputEnter;
+}
+
 std::vector<std::string> WaylandToplevels::allAppIds(wl_output* outputFilter) const {
   std::vector<const ToplevelState*> ordered;
   ordered.reserve(m_handles.size());
   for (const auto& [handle, state] : m_handles) {
     (void)handle;
-    if (outputFilter != nullptr && state.output != outputFilter) {
+    if (!matchesOutputFilter(state, outputFilter)) {
       continue;
     }
     ordered.push_back(&state);
@@ -307,7 +316,7 @@ std::vector<ToplevelInfo> WaylandToplevels::windowsForApp(
   std::vector<MatchedWindow> matched;
   std::vector<ToplevelInfo> out;
   for (const auto& [handle, state] : m_handles) {
-    if (outputFilter != nullptr && state.output != outputFilter) {
+    if (!matchesOutputFilter(state, outputFilter)) {
       continue;
     }
     const auto appId = effectiveAppId(state.appId, state.title);
@@ -329,6 +338,7 @@ std::vector<ToplevelInfo> WaylandToplevels::windowsForApp(
                   .identifier = appId + ":" + state.title,
                   .order = state.order,
                   .handle = handle,
+                  .outputAnnounced = state.sawOutputEnter,
               },
           }
       );
@@ -350,7 +360,7 @@ std::vector<ToplevelInfo> WaylandToplevels::windowsWithoutAppId(wl_output* outpu
 
   std::vector<OrphanWindow> orphans;
   for (const auto& [handle, state] : m_handles) {
-    if (outputFilter != nullptr && state.output != outputFilter) {
+    if (!matchesOutputFilter(state, outputFilter)) {
       continue;
     }
     if (!effectiveAppId(state.appId, state.title).empty()) {
@@ -365,6 +375,7 @@ std::vector<ToplevelInfo> WaylandToplevels::windowsWithoutAppId(wl_output* outpu
                 .identifier = state.title,
                 .order = state.order,
                 .handle = handle,
+                .outputAnnounced = state.sawOutputEnter,
             },
         }
     );
@@ -398,6 +409,7 @@ void WaylandToplevels::closeHandle(zwlr_foreign_toplevel_handle_v1* handle) {
 void WaylandToplevels::onHandleOutputEnter(zwlr_foreign_toplevel_handle_v1* handle, wl_output* output) {
   auto it = m_handles.find(handle);
   if (it != m_handles.end()) {
+    it->second.sawOutputEnter = true;
     if (!std::ranges::contains(it->second.activeOutputs, output)) {
       it->second.activeOutputs.push_back(output);
     }

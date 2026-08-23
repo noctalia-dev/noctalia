@@ -1,6 +1,7 @@
 #pragma once
 
 #include "app/poll_source.h"
+#include "core/inotify/inotify.h"
 
 #include <chrono>
 #include <cstdint>
@@ -19,8 +20,8 @@ public:
     WriteCompleted,
   };
 
-  FileWatcher();
-  ~FileWatcher();
+  FileWatcher() = default;
+  ~FileWatcher() = default;
 
   FileWatcher(const FileWatcher&) = delete;
   FileWatcher& operator=(const FileWatcher&) = delete;
@@ -29,7 +30,7 @@ public:
   watch(const std::filesystem::path& filePath, Callback callback, WatchTrigger trigger = WatchTrigger::Modified);
   void unwatch(WatchId id);
 
-  [[nodiscard]] int fd() const noexcept { return m_inotifyFd; }
+  [[nodiscard]] int fd() const noexcept { return inotify.fd(); }
   void dispatch();
 
 private:
@@ -41,7 +42,7 @@ private:
     std::chrono::steady_clock::time_point lastFired;
   };
 
-  int m_inotifyFd = -1;
+  Inotify inotify;
   WatchId m_nextId = 1;
   std::unordered_map<WatchId, WatchEntry> m_watches;
   std::unordered_map<int, int> m_dirWdRefCount;

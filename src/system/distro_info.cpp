@@ -3,8 +3,9 @@
 #include "i18n/i18n.h"
 #include "util/string_utils.h"
 
+#include <cerrno>
+#include <cstddef>
 #include <cstdint>
-#include <cstdlib>
 #include <ctime>
 #include <fcntl.h>
 #include <filesystem>
@@ -17,6 +18,7 @@
 #include <unistd.h>
 #include <unordered_map>
 #include <utility>
+#include <vector>
 
 namespace {
 
@@ -45,6 +47,47 @@ namespace {
     }
 
     return values;
+  }
+
+  struct SessionUserInfo {
+    std::string userName;
+    std::string displayName;
+  };
+
+  std::optional<SessionUserInfo> resolveSessionUser(uid_t uid) {
+    constexpr std::size_t kMaxBufferSize = 1U << 20;
+
+    passwd pwd{};
+    passwd* result = nullptr;
+    std::vector<char> buffer(4096);
+
+    while (true) {
+      const int rc = getpwuid_r(uid, &pwd, buffer.data(), buffer.size(), &result);
+      if (rc == 0) {
+        if (result == nullptr || result->pw_name == nullptr || result->pw_name[0] == '\0') {
+          return std::nullopt;
+        }
+
+        SessionUserInfo info{
+            .userName = result->pw_name,
+            .displayName = result->pw_name,
+        };
+        if (result->pw_gecos != nullptr && result->pw_gecos[0] != '\0') {
+          const std::string_view gecos(result->pw_gecos);
+          const auto comma = gecos.find(',');
+          const auto displayName = gecos.substr(0, comma);
+          if (!displayName.empty()) {
+            info.displayName = displayName;
+          }
+        }
+        return info;
+      }
+
+      if (rc != ERANGE || buffer.size() >= kMaxBufferSize) {
+        return std::nullopt;
+      }
+      buffer.resize(buffer.size() * 2);
+    }
   }
 
 } // namespace
@@ -151,22 +194,20 @@ std::string osAgeLabel() {
   return i18n::trp("time.units.day", static_cast<long>(days));
 }
 
-std::string sessionDisplayName() {
-  struct passwd* pw = getpwuid(getuid());
-  const char* loginEnv = std::getenv("USER");
-  std::string login = "user";
-  if (pw != nullptr) {
-    login = pw->pw_name;
-  } else if (loginEnv != nullptr) {
-    login = loginEnv;
+std::string sessionUserName() {
+  const uid_t uid = getuid();
+  if (const auto user = resolveSessionUser(uid); user.has_value()) {
+    return user->userName;
   }
+  return std::to_string(uid);
+}
 
-  if (pw != nullptr && pw->pw_gecos != nullptr && pw->pw_gecos[0] != '\0') {
-    std::string gecos = pw->pw_gecos;
-    const auto comma = gecos.find(',');
-    return comma == std::string::npos ? gecos : gecos.substr(0, comma);
+std::string sessionDisplayName() {
+  const uid_t uid = getuid();
+  if (const auto user = resolveSessionUser(uid); user.has_value()) {
+    return user->displayName;
   }
-  return login;
+  return std::to_string(uid);
 }
 
 std::string hostName() {

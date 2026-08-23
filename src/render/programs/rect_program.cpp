@@ -32,6 +32,7 @@ void main() {
 )";
 
   constexpr char kFragmentShaderSource[] = R"(
+#extension GL_OES_standard_derivatives : require
 precision highp float;
 
 uniform vec2 u_rect_size;
@@ -61,32 +62,21 @@ uniform vec4 u_shadow_exclusion_logical_inset;
 uniform vec4 u_shadow_exclusion_radii;
 varying vec2 v_pixel;
 
-// Returns (signed distance, is_corner). is_corner = 1.0 when the fragment lies in
-// the curved-corner quadrant of the active radius (both q components positive).
-vec2 rounded_rect_distance_with_corner(vec2 point, vec2 size, vec4 radii) {
+float rounded_rect_distance(vec2 point, vec2 size, vec4 radii) {
     vec2 half_size = size * 0.5;
     vec2 centered = point - half_size;
     float r = centered.x < 0.0
         ? (centered.y < 0.0 ? radii.x : radii.w)
         : (centered.y < 0.0 ? radii.y : radii.z);
     vec2 q = abs(centered) - (half_size - vec2(r));
-    float distance = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - r;
-    float is_corner = (r > 0.0 && q.x > 0.0 && q.y > 0.0) ? 1.0 : 0.0;
-    return vec2(distance, is_corner);
-}
-
-float rounded_rect_distance(vec2 point, vec2 size, vec4 radii) {
-    return rounded_rect_distance_with_corner(point, size, radii).x;
+    return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - r;
 }
 
 float circle_extent(float radius, float delta) {
     return sqrt(max(0.0, radius * radius - delta * delta));
 }
 
-// Returns (signed distance, is_corner). is_corner = 1.0 when the fragment is
-// inside any active corner's r×r axis-aligned band (curved region — concave or
-// convex). Fragments in straight-edge bands return 0.0.
-vec2 shape_distance_with_corner(vec2 point, vec2 size, vec4 radii, vec4 corner_shapes, vec4 logical_inset) {
+float shape_distance(vec2 point, vec2 size, vec4 radii, vec4 corner_shapes, vec4 logical_inset) {
     vec4 safe_inset = max(logical_inset, vec4(0.0));
     vec2 body_min = min(safe_inset.xy, size);
     vec2 body_max = max(body_min, size - safe_inset.zw);
@@ -101,14 +91,8 @@ vec2 shape_distance_with_corner(vec2 point, vec2 size, vec4 radii, vec4 corner_s
     bool any_concave = tl_concave || tr_concave || br_concave || bl_concave;
 
     if (!any_concave) {
-        return rounded_rect_distance_with_corner(point - body_min, body_size, r);
+        return rounded_rect_distance(point - body_min, body_size, r);
     }
-
-    bool in_corner_box = false;
-    if (r.x > 0.0 && point.x < body_min.x + r.x && point.y < body_min.y + r.x) in_corner_box = true;
-    if (r.y > 0.0 && point.x > body_max.x - r.y && point.y < body_min.y + r.y) in_corner_box = true;
-    if (r.z > 0.0 && point.x > body_max.x - r.z && point.y > body_max.y - r.z) in_corner_box = true;
-    if (r.w > 0.0 && point.x < body_min.x + r.w && point.y > body_max.y - r.w) in_corner_box = true;
 
     float x = point.x;
     float y = point.y;
@@ -206,82 +190,60 @@ vec2 shape_distance_with_corner(vec2 point, vec2 size, vec4 radii, vec4 corner_s
     }
 
     float boundary_distance = max(max(left - x, x - right), max(top - y, y - bottom));
-    float visual_clip = max(max(-point.x, point.x - size.x), max(-point.y, point.y - size.y));
-    // Curve AA only when the curved boundary actually dominates. Where visual_clip wins
-    // (e.g. concave wing along the visual-rect top edge) the boundary is axis-aligned —
-    // snap with the straight-edge window instead.
-    float is_corner = (in_corner_box && boundary_distance > visual_clip) ? 1.0 : 0.0;
-    return vec2(max(boundary_distance, visual_clip), is_corner);
-}
 
-float shape_distance(vec2 point, vec2 size, vec4 radii, vec4 corner_shapes, vec4 logical_inset) {
-    return shape_distance_with_corner(point, size, radii, corner_shapes, logical_inset).x;
-}
-
-float shadow_shape_distance(vec2 point, vec2 size, vec4 radii, vec4 corner_shapes, vec4 logical_inset) {
-    float distance = shape_distance(point, size, radii, corner_shapes, logical_inset);
-
-    vec4 safe_inset = max(logical_inset, vec4(0.0));
-    vec2 body_min = min(safe_inset.xy, size);
-    vec2 body_max = max(body_min, size - safe_inset.zw);
-    vec2 body_size = max(body_max - body_min, vec2(0.0));
-    float max_radius = max(min(body_size.x, body_size.y) * 0.5, 0.0);
-    vec4 r = clamp(radii, vec4(0.0), vec4(max_radius));
-
-    bool tl_concave = corner_shapes.x > 0.5;
-    bool tr_concave = corner_shapes.y > 0.5;
-    bool br_concave = corner_shapes.z > 0.5;
-    bool bl_concave = corner_shapes.w > 0.5;
-    bool any_concave = tl_concave || tr_concave || br_concave || bl_concave;
-    if (!any_concave) {
-        return distance;
-    }
-
-    float x = point.x;
-    float y = point.y;
-    float left_distance = body_min.x - x;
-    float right_distance = x - body_max.x;
-    float top_distance = body_min.y - y;
-    float bottom_distance = y - body_max.y;
-
-    float radius = r.x;
+    // The carved boundary above measures distance along x/y, so on an arc its
+    // gradient is not unit length and it creases where the dominant edge term
+    // switches; both distort the coverage ramp. A convex corner is a single circle,
+    // so use its exact perpendicular distance and keep the corner a true SDF.
+    radius = r.x;
     if (!tl_concave && radius > 0.0 && x < body_min.x + radius && y < body_min.y + radius) {
-        float corner_distance = length(point - vec2(body_min.x + radius, body_min.y + radius)) - radius;
-        distance = max(max(right_distance, bottom_distance), corner_distance);
+        boundary_distance = max(
+            max(x - body_max.x, y - body_max.y),
+            length(point - vec2(body_min.x + radius, body_min.y + radius)) - radius
+        );
     }
 
     radius = r.y;
     if (!tr_concave && radius > 0.0 && x > body_max.x - radius && y < body_min.y + radius) {
-        float corner_distance = length(point - vec2(body_max.x - radius, body_min.y + radius)) - radius;
-        distance = max(max(left_distance, bottom_distance), corner_distance);
+        boundary_distance = max(
+            max(body_min.x - x, y - body_max.y),
+            length(point - vec2(body_max.x - radius, body_min.y + radius)) - radius
+        );
     }
 
     radius = r.z;
     if (!br_concave && radius > 0.0 && x > body_max.x - radius && y > body_max.y - radius) {
-        float corner_distance = length(point - vec2(body_max.x - radius, body_max.y - radius)) - radius;
-        distance = max(max(left_distance, top_distance), corner_distance);
+        boundary_distance = max(
+            max(body_min.x - x, body_min.y - y),
+            length(point - vec2(body_max.x - radius, body_max.y - radius)) - radius
+        );
     }
 
     radius = r.w;
     if (!bl_concave && radius > 0.0 && x < body_min.x + radius && y > body_max.y - radius) {
-        float corner_distance = length(point - vec2(body_min.x + radius, body_max.y - radius)) - radius;
-        distance = max(max(right_distance, top_distance), corner_distance);
+        boundary_distance = max(
+            max(x - body_max.x, body_min.y - y),
+            length(point - vec2(body_min.x + radius, body_max.y - radius)) - radius
+        );
     }
 
     float visual_clip = max(max(-point.x, point.x - size.x), max(-point.y, point.y - size.y));
-    return max(distance, visual_clip);
+    return max(boundary_distance, visual_clip);
 }
 
-// Pixel-grid-snap window for axis-aligned edges: half-coverage falls exactly on
-// the boundary so an integer-aligned edge produces 100% on the inside pixel and
-// 0% on the outside pixel, with no semi-transparent leakage.
-float coverage_for(vec2 distance_with_corner, float aa_curve) {
+// Analytic edge coverage: the signed distance is normalized by its screen-space
+// rate of change, so the transition is one device pixel wide whatever the
+// surface scale, node scale, or how fast the field varies along a curve. The
+// linear ramp is the exact box-filter coverage of a straight edge, so an edge
+// landing on a pixel boundary still gives 100% on the inside pixel and 0% on the
+// outside one. A smoothstep window instead pushes partial coverage toward the
+// extremes, which reads as stair-stepping on curves.
+float coverage_for(float distance) {
     if (u_no_aa == 1) {
-        return 1.0 - step(0.0, distance_with_corner.x);
+        return 1.0 - step(0.0, distance);
     }
-    float lo = mix(-0.5, -aa_curve, distance_with_corner.y);
-    float hi = mix( 0.5,  aa_curve, distance_with_corner.y);
-    return 1.0 - smoothstep(lo, hi, distance_with_corner.x);
+    float pixel_width = max(length(vec2(dFdx(distance), dFdy(distance))), 1e-5);
+    return clamp(0.5 - distance / pixel_width, 0.0, 1.0);
 }
 
 float gradient_segment_t(float position, float start, float end) {
@@ -313,14 +275,13 @@ void main() {
     vec2 local_point = v_pixel;
     vec2 uv = clamp(local_point / u_rect_size, vec2(0.0), vec2(1.0));
 
-    vec2 outer = shape_distance_with_corner(local_point, u_rect_size, u_radii, u_corner_shapes, u_logical_inset);
-    float outer_distance = outer.x;
-    float outer_coverage = coverage_for(outer, aa);
+    float outer_distance = shape_distance(local_point, u_rect_size, u_radii, u_corner_shapes, u_logical_inset);
+    float outer_coverage = coverage_for(outer_distance);
     if (u_invert_fill == 1) outer_coverage = 1.0 - outer_coverage;
 
     if (u_outer_shadow == 1) {
         float cutout_aa = 0.85;
-        float shadow_distance = shadow_shape_distance(local_point, u_rect_size, u_radii, u_corner_shapes, u_logical_inset);
+        float shadow_distance = shape_distance(local_point, u_rect_size, u_radii, u_corner_shapes, u_logical_inset);
         float shadow_outer_coverage = 1.0 - smoothstep(-aa, aa, shadow_distance);
         float cutout_distance = shape_distance(local_point + u_shadow_cutout_offset, u_rect_size, u_radii, u_corner_shapes, u_logical_inset);
         float cutout_mask = 1.0 - smoothstep(-cutout_aa, cutout_aa, cutout_distance);
@@ -358,17 +319,17 @@ void main() {
     }
 
     bool any_concave = u_corner_shapes.x > 0.5 || u_corner_shapes.y > 0.5 || u_corner_shapes.z > 0.5 || u_corner_shapes.w > 0.5;
-    vec2 inner;
+    float inner_distance;
     if (any_concave) {
-        inner = vec2(outer_distance + u_border_width, outer.y);
+        inner_distance = outer_distance + u_border_width;
     } else {
         vec4 inner_radii = max(u_radii - vec4(u_border_width), vec4(0.0));
         vec2 inner_size = max(u_rect_size - vec2(u_border_width * 2.0), vec2(0.0));
         vec2 inner_point = local_point - vec2(u_border_width);
         vec4 inner_inset = max(u_logical_inset - vec4(u_border_width), vec4(0.0));
-        inner = shape_distance_with_corner(inner_point, inner_size, inner_radii, u_corner_shapes, inner_inset);
+        inner_distance = shape_distance(inner_point, inner_size, inner_radii, u_corner_shapes, inner_inset);
     }
-    float inner_coverage = coverage_for(inner, aa);
+    float inner_coverage = coverage_for(inner_distance);
 
     if (fill_base.a <= 0.0) {
         float ring_coverage = outer_coverage * (1.0 - inner_coverage);
@@ -514,17 +475,17 @@ void RectProgram::draw(
     float surfaceWidth, float surfaceHeight, float width, float height, const RoundedRectStyle& style,
     const Mat3& transform
 ) const {
-  if (!m_program.isValid() || width <= 0.0f || height <= 0.0f) {
+  if (!m_program.isValid() || width <= 0.0F || height <= 0.0F) {
     return;
   }
 
   const std::array<GLfloat, 12> vertices = {
-      0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f, 1.0f,
+      0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 1.0F, 0.0F, 1.0F, 1.0F,
   };
 
-  const float padding = std::max(style.borderWidth + style.softness + 2.0f, 2.0f);
-  const float quadWidth = width + padding * 2.0f;
-  const float quadHeight = height + padding * 2.0f;
+  const float padding = std::max(style.borderWidth + style.softness + 2.0F, 2.0F);
+  const float quadWidth = width + padding * 2.0F;
+  const float quadHeight = height + padding * 2.0F;
   const float rectOrigin = padding;
   const Mat3 quadTransform = transform * Mat3::translation(-padding, -padding);
 
@@ -543,8 +504,8 @@ void RectProgram::draw(
   }
   glUniform1i(m_fillModeLocation, fillMode);
   glUniform2f(
-      m_gradientDirectionLocation, style.gradientDirection == GradientDirection::Horizontal ? 1.0f : 0.0f,
-      style.gradientDirection == GradientDirection::Vertical ? 1.0f : 0.0f
+      m_gradientDirectionLocation, style.gradientDirection == GradientDirection::Horizontal ? 1.0F : 0.0F,
+      style.gradientDirection == GradientDirection::Vertical ? 1.0F : 0.0F
   );
   const auto& stop0 = style.gradientStops[0];
   const auto& stop1 = style.gradientStops[1];
@@ -555,7 +516,7 @@ void RectProgram::draw(
   glUniform4f(m_gradientColor1Location, stop1.color.r, stop1.color.g, stop1.color.b, stop1.color.a);
   glUniform4f(m_gradientColor2Location, stop2.color.r, stop2.color.g, stop2.color.b, stop2.color.a);
   glUniform4f(m_gradientColor3Location, stop3.color.r, stop3.color.g, stop3.color.b, stop3.color.a);
-  const auto cornerShapeValue = [](CornerShape shape) { return shape == CornerShape::Concave ? 1.0f : 0.0f; };
+  const auto cornerShapeValue = [](CornerShape shape) { return shape == CornerShape::Concave ? 1.0F : 0.0F; };
   glUniform4f(
       m_cornerShapesLocation, cornerShapeValue(style.corners.tl), cornerShapeValue(style.corners.tr),
       cornerShapeValue(style.corners.br), cornerShapeValue(style.corners.bl)

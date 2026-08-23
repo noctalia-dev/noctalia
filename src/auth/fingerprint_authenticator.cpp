@@ -67,11 +67,17 @@ namespace {
 FingerprintAuthenticator::FingerprintAuthenticator(SystemBus& bus) : m_bus(bus) {
   try {
     m_loginManager = sdbus::createProxy(m_bus.connection(), kLoginBusName, kLoginPath);
-    // on sleep, stop verification; on resume, restart if active and not aborted
+    // on sleep, leave the device to fprintd; on resume, re-arm if still active
     m_loginManager->uponSignal("PrepareForSleep").onInterface(kLoginManagerInterface).call([this](bool sleeping) {
       m_sleeping = sleeping;
       if (sleeping) {
-        stopVerify();
+        // Do not call into fprintd here. It handles PrepareForSleep itself and has
+        // already powered the sensor down; a call arriving after that never gets a
+        // reply and blocks until logind freezes the session mid-transfer, leaving
+        // the sensor with a stalled endpoint on resume. startVerify() already
+        // refuses to run while m_sleeping, so only the re-arm state needs clearing.
+        m_retryTimer.stop();
+        m_verifying = false;
       } else if (m_active && !m_abort) {
         startVerify(false);
       }

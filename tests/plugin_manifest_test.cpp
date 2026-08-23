@@ -48,6 +48,12 @@ namespace {
     return out.good();
   }
 
+  bool writeManifest(const std::filesystem::path& path, std::string_view text) {
+    std::string manifest{"version = \"1.0.0\"\n"};
+    manifest.append(text);
+    return writeText(path, manifest);
+  }
+
 } // namespace
 
 int main() {
@@ -81,7 +87,7 @@ int main() {
         && ok;
   }
   const auto defaultManifestPath = root / "defaults/plugin.toml";
-  ok = writeText(defaultManifestPath, "id = \"me/defaults\"\nname = \"Defaults\"\nplugin_api = 3\n") && ok;
+  ok = writeManifest(defaultManifestPath, "id = \"me/defaults\"\nname = \"Defaults\"\nplugin_api = 3\n") && ok;
 
   std::string error;
   const auto defaults = scripting::parsePluginManifest(defaultManifestPath, &error);
@@ -92,9 +98,39 @@ int main() {
     ok = expect(!defaults->deprecated, "deprecated should default to false") && ok;
     ok = expect(defaults->dependencies.empty(), "dependencies should default to empty") && ok;
   }
+  ok = expect(scripting::isValidPluginVersion("0.0.0"), "zero version should be valid") && ok;
+  ok = expect(scripting::isValidPluginVersion("10.20.30"), "multi-digit version should be valid") && ok;
+  ok = expect(!scripting::isValidPluginVersion("1.2"), "two-component version should fail") && ok;
+  ok = expect(!scripting::isValidPluginVersion("1.2.3.4"), "four-component version should fail") && ok;
+  ok = expect(!scripting::isValidPluginVersion("01.2.3"), "leading-zero major version should fail") && ok;
+  ok = expect(!scripting::isValidPluginVersion("1.02.3"), "leading-zero minor version should fail") && ok;
+  ok = expect(!scripting::isValidPluginVersion("1.2.03"), "leading-zero patch version should fail") && ok;
+  ok = expect(!scripting::isValidPluginVersion("1.2.3-beta.1"), "prerelease version should fail") && ok;
+  ok = expect(!scripting::isValidPluginVersion("1.2.three"), "non-numeric version should fail") && ok;
+
+  const auto missingVersionPath = root / "missing-version/plugin.toml";
+  ok = writeText(missingVersionPath, "id = \"me/missing-version\"\nname = \"Missing Version\"\nplugin_api = 3\n") && ok;
+  error.clear();
+  const auto missingVersion = scripting::parsePluginManifest(missingVersionPath, &error);
+  ok = expect(!missingVersion.has_value(), "manifest without version should fail") && ok;
+  ok = expectEq(error, "missing mandatory key 'version'", "missing version error") && ok;
+
+  const auto invalidVersionPath = root / "invalid-version/plugin.toml";
+  ok = writeText(
+           invalidVersionPath,
+           "id = \"me/invalid-version\"\n"
+           "name = \"Invalid Version\"\n"
+           "version = \"1.2.3-beta.1\"\n"
+           "plugin_api = 3\n"
+       )
+      && ok;
+  error.clear();
+  const auto invalidVersion = scripting::parsePluginManifest(invalidVersionPath, &error);
+  ok = expect(!invalidVersion.has_value(), "manifest with prerelease version should fail") && ok;
+  ok = expectEq(error, "invalid 'version' (expected MAJOR.MINOR.PATCH)", "invalid version error") && ok;
 
   const auto explicitManifestPath = root / "explicit/plugin.toml";
-  ok = writeText(
+  ok = writeManifest(
            explicitManifestPath,
            "id = \"me/explicit\"\n"
            "name = \"Explicit\"\n"
@@ -119,7 +155,7 @@ int main() {
   }
 
   const auto translatedSettingsManifestPath = root / "translated-settings/plugin.toml";
-  ok = writeText(
+  ok = writeManifest(
            translatedSettingsManifestPath,
            "id = \"me/translated-settings\"\n"
            "name = \"Translated Settings\"\n"
@@ -177,7 +213,7 @@ int main() {
   }
 
   const auto pathSettingsManifestPath = root / "path-settings/plugin.toml";
-  ok = writeText(
+  ok = writeManifest(
            pathSettingsManifestPath,
            "id = \"me/path-settings\"\n"
            "name = \"Path Settings\"\n"
@@ -226,7 +262,7 @@ int main() {
   }
 
   const auto literalLabelPath = root / "literal-label/plugin.toml";
-  ok = writeText(
+  ok = writeManifest(
            literalLabelPath,
            "id = \"me/literal-label\"\n"
            "name = \"Literal Label\"\n"
@@ -246,7 +282,7 @@ int main() {
       && ok;
 
   const auto literalDescriptionPath = root / "literal-description/plugin.toml";
-  ok = writeText(
+  ok = writeManifest(
            literalDescriptionPath,
            "id = \"me/literal-description\"\n"
            "name = \"Literal Description\"\n"
@@ -267,7 +303,7 @@ int main() {
       && ok;
 
   const auto missingLabelKeyPath = root / "missing-label-key/plugin.toml";
-  ok = writeText(
+  ok = writeManifest(
            missingLabelKeyPath,
            "id = \"me/missing-label-key\"\n"
            "name = \"Missing Label Key\"\n"
@@ -282,7 +318,7 @@ int main() {
   ok = expectEq(error, "setting 'mode' is missing 'label_key'", "missing label_key error") && ok;
 
   const auto literalOptionLabelPath = root / "literal-option-label/plugin.toml";
-  ok = writeText(
+  ok = writeManifest(
            literalOptionLabelPath,
            "id = \"me/literal-option-label\"\n"
            "name = \"Literal Option Label\"\n"
@@ -305,7 +341,7 @@ int main() {
       && ok;
 
   const auto missingOptionLabelKeyPath = root / "missing-option-label-key/plugin.toml";
-  ok = writeText(
+  ok = writeManifest(
            missingOptionLabelKeyPath,
            "id = \"me/missing-option-label-key\"\n"
            "name = \"Missing Option Label Key\"\n"
@@ -324,7 +360,7 @@ int main() {
   ok = expectEq(error, "setting 'mode' option must be a table with value and label_key", "bare option error") && ok;
 
   const auto launcherManifestPath = root / "launcher/plugin.toml";
-  ok = writeText(
+  ok = writeManifest(
            launcherManifestPath,
            "id = \"me/launcher\"\n"
            "name = \"Launcher\"\n"
@@ -362,7 +398,7 @@ int main() {
   // Entry-level settings on a launcher provider (a singleton with no settings UI)
   // are rejected — authors must use a plugin-level [[setting]] instead.
   const auto launcherSettingManifestPath = root / "launcher-setting/plugin.toml";
-  ok = writeText(
+  ok = writeManifest(
            launcherSettingManifestPath,
            "id = \"me/launcher-setting\"\n"
            "name = \"Launcher Setting\"\n"
@@ -389,7 +425,7 @@ int main() {
       && ok;
 
   const auto listManifestPath = root / "string-list/plugin.toml";
-  ok = writeText(
+  ok = writeManifest(
            listManifestPath,
            "id = \"me/string-list\"\n"
            "name = \"String List\"\n"
@@ -427,7 +463,7 @@ int main() {
   }
 
   const auto mapManifestPath = root / "string-map/plugin.toml";
-  ok = writeText(
+  ok = writeManifest(
            mapManifestPath,
            "id = \"me/string-map\"\n"
            "name = \"String Map\"\n"
@@ -463,7 +499,7 @@ int main() {
   }
 
   const auto invalidMapManifestPath = root / "invalid-string-map/plugin.toml";
-  ok = writeText(
+  ok = writeManifest(
            invalidMapManifestPath,
            "id = \"me/invalid-string-map\"\n"
            "name = \"Invalid String Map\"\n"
@@ -482,7 +518,7 @@ int main() {
       && ok;
 
   const auto oldApiMapManifestPath = root / "old-api-string-map/plugin.toml";
-  ok = writeText(
+  ok = writeManifest(
            oldApiMapManifestPath,
            "id = \"me/old-api-string-map\"\n"
            "name = \"Old API String Map\"\n"
@@ -502,7 +538,7 @@ int main() {
       && ok;
 
   const auto doubleManifestPath = root / "double-setting/plugin.toml";
-  ok = writeText(
+  ok = writeManifest(
            doubleManifestPath,
            "id = \"me/double-setting\"\n"
            "name = \"Double Setting\"\n"
@@ -548,7 +584,7 @@ int main() {
           "key = \"value\"\n"
           "label_key = \"settings.value.label\"\n"
         + std::string(settingBody);
-    bool result = writeText(manifestPath, manifest);
+    bool result = writeManifest(manifestPath, manifest);
     error.clear();
     const auto parsed = scripting::parsePluginManifest(manifestPath, &error);
     result = expect(!parsed.has_value(), "invalid numeric setting should fail") && result;
@@ -583,7 +619,7 @@ int main() {
 
   // Panel width/height: number, "fill", or a loud error — never a silent default.
   const auto fillPanelManifestPath = root / "fill-panel/plugin.toml";
-  ok = writeText(
+  ok = writeManifest(
            fillPanelManifestPath,
            "id = \"me/fill-panel\"\n"
            "name = \"Fill Panel\"\n"
@@ -608,7 +644,7 @@ int main() {
   }
 
   const auto badFillManifestPath = root / "bad-fill/plugin.toml";
-  ok = writeText(
+  ok = writeManifest(
            badFillManifestPath,
            "id = \"me/bad-fill\"\n"
            "name = \"Bad Fill\"\n"
@@ -625,7 +661,7 @@ int main() {
   ok = expectEq(error, "panel entry 'panel': height must be a positive number or \"fill\"", "bad fill error") && ok;
 
   const auto negativeSizeManifestPath = root / "negative-size/plugin.toml";
-  ok = writeText(
+  ok = writeManifest(
            negativeSizeManifestPath,
            "id = \"me/negative-size\"\n"
            "name = \"Negative Size\"\n"
@@ -643,7 +679,7 @@ int main() {
       expectEq(error, "panel entry 'panel': width must be a positive number or \"fill\"", "negative width error") && ok;
 
   const auto fillAttachedManifestPath = root / "fill-attached/plugin.toml";
-  ok = writeText(
+  ok = writeManifest(
            fillAttachedManifestPath,
            "id = \"me/fill-attached\"\n"
            "name = \"Fill Attached\"\n"
@@ -664,35 +700,36 @@ int main() {
       && ok;
 
   const auto missingNameManifestPath = root / "missing-name/plugin.toml";
-  ok = writeText(missingNameManifestPath, "id = \"me/missing-name\"\nplugin_api = 3\n") && ok;
+  ok = writeManifest(missingNameManifestPath, "id = \"me/missing-name\"\nplugin_api = 3\n") && ok;
   error.clear();
   const auto missingName = scripting::parsePluginManifest(missingNameManifestPath, &error);
   ok = expect(!missingName.has_value(), "manifest without name should fail") && ok;
   ok = expectEq(error, "missing mandatory key 'name'", "missing name error") && ok;
 
   const auto missingPluginApiPath = root / "missing-plugin-api/plugin.toml";
-  ok = writeText(missingPluginApiPath, "id = \"me/missing-api\"\nname = \"Missing API\"\n") && ok;
+  ok = writeManifest(missingPluginApiPath, "id = \"me/missing-api\"\nname = \"Missing API\"\n") && ok;
   error.clear();
   const auto missingPluginApi = scripting::parsePluginManifest(missingPluginApiPath, &error);
   ok = expect(!missingPluginApi.has_value(), "manifest without plugin_api should fail") && ok;
   ok = expectEq(error, "missing mandatory key 'plugin_api'", "missing plugin API error") && ok;
 
   const auto invalidPluginApiPath = root / "invalid-plugin-api/plugin.toml";
-  ok = writeText(invalidPluginApiPath, "id = \"me/invalid-api\"\nname = \"Invalid API\"\nplugin_api = \"3\"\n") && ok;
+  ok = writeManifest(invalidPluginApiPath, "id = \"me/invalid-api\"\nname = \"Invalid API\"\nplugin_api = \"3\"\n")
+      && ok;
   error.clear();
   const auto invalidPluginApi = scripting::parsePluginManifest(invalidPluginApiPath, &error);
   ok = expect(!invalidPluginApi.has_value(), "string plugin_api should fail") && ok;
   ok = expectEq(error, "invalid 'plugin_api' (expected a positive integer)", "invalid plugin API error") && ok;
 
   const auto zeroPluginApiPath = root / "zero-plugin-api/plugin.toml";
-  ok = writeText(zeroPluginApiPath, "id = \"me/zero-api\"\nname = \"Zero API\"\nplugin_api = 0\n") && ok;
+  ok = writeManifest(zeroPluginApiPath, "id = \"me/zero-api\"\nname = \"Zero API\"\nplugin_api = 0\n") && ok;
   error.clear();
   const auto zeroPluginApi = scripting::parsePluginManifest(zeroPluginApiPath, &error);
   ok = expect(!zeroPluginApi.has_value(), "zero plugin_api should fail") && ok;
   ok = expectEq(error, "invalid 'plugin_api' (expected a positive integer)", "zero plugin API error") && ok;
 
   const auto oldApiDismissPath = root / "old-api-dismiss/plugin.toml";
-  ok = writeText(
+  ok = writeManifest(
            oldApiDismissPath,
            "id = \"me/old-api-dismiss\"\n"
            "name = \"Old API Dismiss\"\n"
@@ -713,7 +750,7 @@ int main() {
       && ok;
 
   const auto dismissPanelPath = root / "dismiss-panel/plugin.toml";
-  ok = writeText(
+  ok = writeManifest(
            dismissPanelPath,
            "id = \"me/dismiss-panel\"\n"
            "name = \"Dismiss Panel\"\n"
@@ -734,7 +771,7 @@ int main() {
   }
 
   const auto oldApiKeyboardPath = root / "old-api-keyboard/plugin.toml";
-  ok = writeText(
+  ok = writeManifest(
            oldApiKeyboardPath,
            "id = \"me/old-api-keyboard\"\n"
            "name = \"Old API Keyboard\"\n"
@@ -752,7 +789,7 @@ int main() {
       && ok;
 
   const auto badKeyboardPath = root / "bad-keyboard/plugin.toml";
-  ok = writeText(
+  ok = writeManifest(
            badKeyboardPath,
            "id = \"me/bad-keyboard\"\n"
            "name = \"Bad Keyboard\"\n"
@@ -773,7 +810,7 @@ int main() {
       && ok;
 
   const auto keyboardDismissPath = root / "keyboard-dismiss/plugin.toml";
-  ok = writeText(
+  ok = writeManifest(
            keyboardDismissPath,
            "id = \"me/keyboard-dismiss\"\n"
            "name = \"Keyboard Dismiss\"\n"
@@ -795,7 +832,7 @@ int main() {
       && ok;
 
   const auto keyboardPanelPath = root / "keyboard-panel/plugin.toml";
-  ok = writeText(
+  ok = writeManifest(
            keyboardPanelPath,
            "id = \"me/keyboard-panel\"\n"
            "name = \"Keyboard Panel\"\n"
@@ -816,7 +853,7 @@ int main() {
   }
 
   const auto defaultKeyboardPath = root / "default-keyboard/plugin.toml";
-  ok = writeText(
+  ok = writeManifest(
            defaultKeyboardPath,
            "id = \"me/default-keyboard\"\n"
            "name = \"Default Keyboard\"\n"
@@ -839,7 +876,7 @@ int main() {
   }
 
   const auto oldApiPersistentPath = root / "old-api-persistent/plugin.toml";
-  ok = writeText(
+  ok = writeManifest(
            oldApiPersistentPath,
            "id = \"me/old-api-persistent\"\n"
            "name = \"Old API Persistent\"\n"
@@ -856,7 +893,7 @@ int main() {
   ok = expectEq(error, "panel entry 'panel': persistent requires plugin_api >= 11", "persistent API gate error") && ok;
 
   const auto persistentDismissPath = root / "persistent-dismiss/plugin.toml";
-  ok = writeText(
+  ok = writeManifest(
            persistentDismissPath,
            "id = \"me/persistent-dismiss\"\n"
            "name = \"Persistent Dismiss\"\n"
@@ -877,7 +914,7 @@ int main() {
       && ok;
 
   const auto persistentExclusivePath = root / "persistent-exclusive/plugin.toml";
-  ok = writeText(
+  ok = writeManifest(
            persistentExclusivePath,
            "id = \"me/persistent-exclusive\"\n"
            "name = \"Persistent Exclusive\"\n"
@@ -900,7 +937,7 @@ int main() {
       && ok;
 
   const auto persistentAttachedPath = root / "persistent-attached/plugin.toml";
-  ok = writeText(
+  ok = writeManifest(
            persistentAttachedPath,
            "id = \"me/persistent-attached\"\n"
            "name = \"Persistent Attached\"\n"
@@ -923,7 +960,7 @@ int main() {
       && ok;
 
   const auto oskPanelPath = root / "osk-panel/plugin.toml";
-  ok = writeText(
+  ok = writeManifest(
            oskPanelPath,
            "id = \"me/osk-panel\"\n"
            "name = \"OSK Panel\"\n"
@@ -959,7 +996,7 @@ int main() {
   }
 
   const auto oldApiCapturePath = root / "old-api-capture/plugin.toml";
-  ok = writeText(
+  ok = writeManifest(
            oldApiCapturePath,
            "id = \"me/old-api-capture\"\n"
            "name = \"Old API Capture\"\n"
@@ -980,7 +1017,7 @@ int main() {
       && ok;
 
   const auto badCapturePath = root / "bad-capture/plugin.toml";
-  ok = writeText(
+  ok = writeManifest(
            badCapturePath,
            "id = \"me/bad-capture\"\n"
            "name = \"Bad Capture\"\n"
@@ -1003,7 +1040,7 @@ int main() {
   // A Super chord belongs to the compositor; parseKeyChordSpec throws rather than returning
   // nullopt for it, so this covers the other rejection path.
   const auto superCapturePath = root / "super-capture/plugin.toml";
-  ok = writeText(
+  ok = writeManifest(
            superCapturePath,
            "id = \"me/super-capture\"\n"
            "name = \"Super Capture\"\n"
@@ -1024,7 +1061,7 @@ int main() {
       && ok;
 
   const auto captureNoFocusPath = root / "capture-no-focus/plugin.toml";
-  ok = writeText(
+  ok = writeManifest(
            captureNoFocusPath,
            "id = \"me/capture-no-focus\"\n"
            "name = \"Capture No Focus\"\n"
@@ -1050,7 +1087,7 @@ int main() {
       && ok;
 
   const auto capturePath = root / "capture/plugin.toml";
-  ok = writeText(
+  ok = writeManifest(
            capturePath,
            "id = \"me/capture\"\n"
            "name = \"Capture\"\n"
@@ -1075,7 +1112,7 @@ int main() {
   }
 
   const auto noCapturePath = root / "no-capture/plugin.toml";
-  ok = writeText(
+  ok = writeManifest(
            noCapturePath,
            "id = \"me/no-capture\"\n"
            "name = \"No Capture\"\n"
@@ -1096,7 +1133,7 @@ int main() {
   // vocabulary and the action grammar belong to the bar, not to the manifest parser.
   const auto actionsPath = root / "actions" / "plugin.toml";
   ok = expect(
-           writeText(
+           writeManifest(
                actionsPath,
                "id = \"me/actions\"\n"
                "name = \"Actions\"\n"
@@ -1127,7 +1164,7 @@ int main() {
   // The capability is gated on its API level, like every other manifest addition.
   const auto oldApiPath = root / "old-api" / "plugin.toml";
   ok = expect(
-           writeText(
+           writeManifest(
                oldApiPath,
                "id = \"me/old-api\"\n"
                "name = \"Old Api\"\n"
@@ -1151,7 +1188,7 @@ int main() {
   // A non-string action is a manifest error rather than something to guess at.
   const auto badActionPath = root / "bad-action" / "plugin.toml";
   ok = expect(
-           writeText(
+           writeManifest(
                badActionPath,
                "id = \"me/bad-action\"\n"
                "name = \"Bad Action\"\n"

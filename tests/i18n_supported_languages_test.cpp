@@ -2,20 +2,26 @@
 
 #include <cstdio>
 #include <filesystem>
+#include <print>
 #include <set>
 #include <string>
 
 namespace {
 
   bool fail(const char* message, const std::string& value) {
-    std::fprintf(stderr, "i18n_supported_languages_test: %s: %s\n", message, value.c_str());
+    std::println(stderr, "i18n_supported_languages_test: {}: {}", message, value);
     return false;
   }
 
 } // namespace
 
-int main() {
-  const std::filesystem::path translationsDir = std::filesystem::path(NOCTALIA_SOURCE_ASSETS_DIR) / "translations";
+int main(int argc, char* argv[]) {
+  if (argc != 2) {
+    std::println(stderr, "i18n_supported_languages_test: expected translations directory");
+    return 1;
+  }
+
+  const std::filesystem::path translationsDir(argv[1]);
 
   std::set<std::string> supported;
   for (const auto& language : i18n::kSupportedLanguages) {

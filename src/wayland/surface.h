@@ -1,6 +1,7 @@
 #pragma once
 
 #include "render/core/render_styles.h"
+#include "render/core/wallpaper_types.h"
 #include "render/render_target.h"
 
 #include <chrono>
@@ -63,6 +64,8 @@ public:
   using PrepareFrameCallback = std::function<void(bool needsUpdate, bool needsLayout)>;
   using UpdateCallback = std::function<void()>;
   using FrameTickCallback = std::function<void(float deltaMs)>;
+  using ScaleChangedCallback = std::function<void(float scale)>;
+  using OutputChangedCallback = std::function<void(wl_output* output)>;
 
   explicit Surface(WaylandConnection& connection);
   virtual ~Surface();
@@ -78,6 +81,8 @@ public:
   void setPrepareFrameCallback(PrepareFrameCallback callback);
   void setUpdateCallback(UpdateCallback callback);
   void setFrameTickCallback(FrameTickCallback callback);
+  void setScaleChangedCallback(ScaleChangedCallback callback);
+  void setOutputChangedCallback(OutputChangedCallback callback);
   void setInputRegion(const std::vector<InputRect>& rects);
   void setBlurRegion(const std::vector<InputRect>& rects);
   void clearBlurRegion();
@@ -114,9 +119,13 @@ public:
   void requestRedraw();
   void requestFrameTick();
   void renderNow();
+  /// Discards an in-flight Wayland frame callback without losing queued work
+  /// or the tick intent attached to that callback.
+  void discardPendingFrameCallback();
   void setAnimationManager(AnimationManager* manager) noexcept { m_animationManager = manager; }
   void setSceneRoot(Node* root);
   void setRenderContext(RenderContext* ctx);
+  void setWallpaperMask(std::optional<WallpaperMaskDrawParams> mask);
   [[nodiscard]] RenderContext* renderContext() const noexcept { return m_renderContext; }
   [[nodiscard]] RenderTarget& renderTarget() noexcept { return m_renderTarget; }
   [[nodiscard]] wl_surface* wlSurface() const noexcept { return m_surface; }
@@ -146,6 +155,10 @@ protected:
   bool prepareBlurEffect();
   void initializeSurfaceScaleProtocol();
   void applySurfaceScaleState();
+  // Seed the surface-local configured scale (/120 numerator) from a known output
+  // before first sizing, so explicit-output roles measure at the right scale.
+  void setConfiguredScaleNumerator(std::uint32_t numerator) noexcept;
+  void updateOutputScale(std::int32_t bufferScale, std::uint32_t configuredScaleNumerator);
   void requestFrame();
   void destroySurface();
 
@@ -160,7 +173,7 @@ private:
 
   void preparePendingFrame();
   void kickFrameLoop();
-  void queueFrameWork(bool runFrameTick = false, float deltaMs = 0.0f);
+  void queueFrameWork(bool runFrameTick = false, float deltaMs = 0.0F);
   void cancelQueuedFrameWork();
   void processQueuedFrameWork();
   void queueRenderIfNeeded();
@@ -175,12 +188,15 @@ private:
   RenderTarget m_renderTarget;
   AnimationManager* m_animationManager = nullptr;
   Node* m_sceneRoot = nullptr;
+  std::optional<WallpaperMaskDrawParams> m_wallpaperMask;
   std::string m_debugName;
   std::shared_ptr<InvalidationToken> m_invalidationToken = std::make_shared<InvalidationToken>();
   ConfigureCallback m_configureCallback;
   PrepareFrameCallback m_prepareFrameCallback;
   UpdateCallback m_updateCallback;
   FrameTickCallback m_frameTickCallback;
+  ScaleChangedCallback m_scaleChangedCallback;
+  OutputChangedCallback m_outputChangedCallback;
   wl_callback* m_frameCallback = nullptr;
   ext_background_effect_surface_v1* m_backgroundEffect = nullptr;
   wp_viewport* m_viewport = nullptr;
@@ -198,9 +214,12 @@ private:
   bool m_frameCallbackShouldTick = false;
   bool m_nextFrameCallbackShouldTick = false;
   bool m_renderQueued = false;
-  float m_pendingFrameDeltaMs = 0.0f;
+  float m_pendingFrameDeltaMs = 0.0F;
   std::uint32_t m_width = 0;
   std::uint32_t m_height = 0;
   std::int32_t m_bufferScale = 1;
-  std::uint32_t m_fractionalScaleNumerator = 0;
+  // Surface-local render scale (/120 numerators). effectiveBufferScale() prefers
+  // the compositor override, then the output seed, then integer buffer scale.
+  std::uint32_t m_configuredScaleNumerator = 0;
+  std::uint32_t m_preferredScaleNumerator = 0;
 };

@@ -140,9 +140,9 @@ namespace scripting {
   };
 
   struct PluginManifest {
-    std::string id;   // "author/plugin"
-    std::string name; // mandatory display name
-    std::string version;
+    std::string id;                     // "author/plugin"
+    std::string name;                   // mandatory display name
+    std::string version;                // mandatory MAJOR.MINOR.PATCH
     std::uint32_t pluginApiVersion = 0; // mandatory
     std::string author;
     std::string license = "MIT";
@@ -162,6 +162,8 @@ namespace scripting {
 
   // The TOML array-table name for each entry kind (e.g. "widget" -> [[widget]]).
   [[nodiscard]] std::string_view pluginEntryTableName(PluginEntryKind kind);
+  // Canonical plugin version: three non-negative decimal components without leading zeros.
+  [[nodiscard]] bool isValidPluginVersion(std::string_view version);
 
   // Build the runtime settings for an instance: every declared field seeded with
   // its manifest default, then overlaid by the instance's configured values.
@@ -186,8 +188,7 @@ namespace scripting {
   );
 
   // Parse a plugin.toml. Returns nullopt and sets `error` on a hard failure:
-  // unreadable file, TOML parse error, or a missing mandatory `id` / `name` / `plugin_api`.
-  // Entry ids are validated for uniqueness within the plugin.
+  // unreadable file, TOML parse error, invalid mandatory metadata, or invalid entries/settings.
   [[nodiscard]] std::optional<PluginManifest>
   parsePluginManifest(const std::filesystem::path& manifestPath, std::string* error);
 

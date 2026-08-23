@@ -30,7 +30,7 @@ namespace FuzzyMatch {
       return 1024.0;
     }
     if (rawScore == SCORE_MIN || !std::isfinite(rawScore)) {
-      return -1024.0;
+      return noMatchScore;
     }
     return rawScore;
   }

@@ -22,7 +22,7 @@ namespace noctalia::theme {
     }
 
     Color toUiColor(const ::Color& color) {
-      auto toByte = [](float value) { return static_cast<int>(std::clamp(value, 0.0f, 1.0f) * 255.0f + 0.5f); };
+      auto toByte = [](float value) { return static_cast<int>(std::clamp(value, 0.0F, 1.0F) * 255.0F + 0.5F); };
       return Color(toByte(color.r), toByte(color.g), toByte(color.b));
     }
 
@@ -30,7 +30,7 @@ namespace noctalia::theme {
 
     std::uint32_t colorToArgb(const ::Color& color) {
       auto toByte = [](float value) {
-        return static_cast<std::uint32_t>(value <= 0.0f ? 0.0f : (value >= 1.0f ? 255.0f : value * 255.0f + 0.5f));
+        return static_cast<std::uint32_t>(value <= 0.0F ? 0.0F : (value >= 1.0F ? 255.0F : value * 255.0F + 0.5F));
       };
       return kOpaqueBlack | (toByte(color.r) << 16U) | (toByte(color.g) << 8U) | toByte(color.b);
     }
@@ -141,6 +141,10 @@ namespace noctalia::theme {
       return Color(mix(a.r, b.r), mix(a.g, b.g), mix(a.b, b.b));
     }
 
+    std::uint32_t ensureTerminalTextContrast(std::uint32_t foreground, std::uint32_t background) {
+      return ensureContrast(Color::fromArgb(foreground), Color::fromArgb(background), 4.5).toArgb();
+    }
+
   } // namespace
 
   void applyTerminalPalette(TokenMap& tokens, const TerminalPalette& terminal) {
@@ -173,22 +177,30 @@ namespace noctalia::theme {
     setMissingToken(tokens, "terminal_selection_fg", onSurfaceVariant);
     setMissingToken(tokens, "terminal_selection_bg", surfaceVariant);
 
+    const std::uint32_t terminalBackground = tokenOr(tokens, "terminal_background", background);
+    const std::uint32_t terminalRed = ensureTerminalTextContrast(error, terminalBackground);
+    const std::uint32_t terminalGreen = ensureTerminalTextContrast(primary, terminalBackground);
+    const std::uint32_t terminalYellow = ensureTerminalTextContrast(secondary, terminalBackground);
+    const std::uint32_t terminalBlue = ensureTerminalTextContrast(tertiary, terminalBackground);
+    const std::uint32_t terminalMagenta = ensureTerminalTextContrast(primaryFixedDim, terminalBackground);
+    const std::uint32_t terminalCyan = ensureTerminalTextContrast(secondaryFixedDim, terminalBackground);
+
     setMissingToken(tokens, "terminal_normal_black", surfaceVariant);
-    setMissingToken(tokens, "terminal_normal_red", error);
-    setMissingToken(tokens, "terminal_normal_green", primary);
-    setMissingToken(tokens, "terminal_normal_yellow", secondary);
-    setMissingToken(tokens, "terminal_normal_blue", tertiary);
-    setMissingToken(tokens, "terminal_normal_magenta", primaryFixedDim);
-    setMissingToken(tokens, "terminal_normal_cyan", secondaryFixedDim);
+    setMissingToken(tokens, "terminal_normal_red", terminalRed);
+    setMissingToken(tokens, "terminal_normal_green", terminalGreen);
+    setMissingToken(tokens, "terminal_normal_yellow", terminalYellow);
+    setMissingToken(tokens, "terminal_normal_blue", terminalBlue);
+    setMissingToken(tokens, "terminal_normal_magenta", terminalMagenta);
+    setMissingToken(tokens, "terminal_normal_cyan", terminalCyan);
     setMissingToken(tokens, "terminal_normal_white", foreground);
 
     setMissingToken(tokens, "terminal_bright_black", outline);
-    setMissingToken(tokens, "terminal_bright_red", error);
-    setMissingToken(tokens, "terminal_bright_green", primary);
-    setMissingToken(tokens, "terminal_bright_yellow", secondary);
-    setMissingToken(tokens, "terminal_bright_blue", tertiary);
-    setMissingToken(tokens, "terminal_bright_magenta", primaryFixedDim);
-    setMissingToken(tokens, "terminal_bright_cyan", secondaryFixedDim);
+    setMissingToken(tokens, "terminal_bright_red", terminalRed);
+    setMissingToken(tokens, "terminal_bright_green", terminalGreen);
+    setMissingToken(tokens, "terminal_bright_yellow", terminalYellow);
+    setMissingToken(tokens, "terminal_bright_blue", terminalBlue);
+    setMissingToken(tokens, "terminal_bright_magenta", terminalMagenta);
+    setMissingToken(tokens, "terminal_bright_cyan", terminalCyan);
     setMissingToken(tokens, "terminal_bright_white", foreground);
   }
 
@@ -219,7 +231,11 @@ namespace noctalia::theme {
 
     auto makeContainerDark = [](const Color& base) {
       auto [h, s, l] = base.toHsl();
-      return Color::fromHsl(h, std::min(s + 0.15, 1.0), std::max(l - 0.35, 0.15));
+      // Scale the saturation step by the remaining headroom instead of adding a
+      // constant: on already-saturated accents (e.g. pastel palettes with S near
+      // 1.0) a flat +0.15 clamps at the gamut wall while L still drops into the
+      // midtones, producing a neon "container" instead of a muted one.
+      return Color::fromHsl(h, s + 0.15 * (1.0 - s), std::max(l - 0.35, 0.15));
     };
     auto makeContainerLight = [](const Color& base) {
       auto [h, s, l] = base.toHsl();

@@ -21,6 +21,7 @@ struct ResolvedNotificationFilter {
   bool showToast = true;
   bool saveHistory = true;
   bool playSound = true;
+  bool bypassDnd = false;
   bool allowPermanent = true;
   std::optional<std::int32_t> overrideDuration;
   /// Empty = all urgencies allowed for this filter.

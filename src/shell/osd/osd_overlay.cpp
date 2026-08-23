@@ -5,6 +5,9 @@
 #include "core/deferred_call.h"
 #include "core/log.h"
 #include "core/ui_phase.h"
+#include "ipc/ipc_arg_parse.h"
+#include "ipc/ipc_service.h"
+#include "render/core/renderer.h"
 #include "render/render_context.h"
 #include "render/scene/node.h"
 #include "shell/surface/edge_inset.h"
@@ -26,20 +29,20 @@ namespace {
   enum class OsdRevealDir { FromLeft, FromRight, FromTop, FromBottom };
 
   [[nodiscard]] float osdContentOpacity(float reveal) {
-    const float v = std::clamp(reveal, 0.0f, 1.0f);
-    if (v <= 0.15f) {
-      return 0.0f;
+    const float v = std::clamp(reveal, 0.0F, 1.0F);
+    if (v <= 0.15F) {
+      return 0.0F;
     }
-    return std::clamp((v - 0.15f) / 0.85f, 0.0f, 1.0f);
+    return std::clamp((v - 0.15F) / 0.85F, 0.0F, 1.0F);
   }
 
   [[nodiscard]] float osdUiScale(const ConfigService* config) {
     if (config == nullptr) {
-      return 1.0f;
+      return 1.0F;
     }
     const auto& accessibility = config->config().accessibility;
     const auto& osd = config->config().osd;
-    return std::max(0.1f, accessibility.uiScale * osd.scale);
+    return std::max(0.1F, accessibility.uiScale * osd.scale);
   }
 
   [[nodiscard]] bool isOsdKindEnabled(const OsdKindsConfig& kinds, OsdKind kind) {
@@ -78,9 +81,9 @@ namespace {
 
   [[nodiscard]] float osdBackgroundOpacity(const ConfigService* config) {
     if (config == nullptr) {
-      return 0.97f;
+      return 0.97F;
     }
-    return std::clamp(config->config().osd.backgroundOpacity, 0.0f, 1.0f);
+    return std::clamp(config->config().osd.backgroundOpacity, 0.0F, 1.0F);
   }
 
   [[nodiscard]] bool isVerticalOrientation(const std::string& orientation) { return orientation == "vertical"; }
@@ -125,7 +128,7 @@ namespace {
   }
 
   [[nodiscard]] std::uint32_t osdSurfaceWidth(float s, const std::string& orientation, float innerPadX) {
-    const float w = cardWidth(s, orientation) + innerPadX * 2.0f;
+    const float w = cardWidth(s, orientation) + innerPadX * 2.0F;
     return static_cast<std::uint32_t>(std::max(1, static_cast<int>(std::ceil(w))));
   }
 
@@ -140,20 +143,20 @@ namespace {
 
   [[nodiscard]] float progressHeight(float s) { return (Style::spaceXs + Style::borderWidth * 2) * s; }
 
-  [[nodiscard]] float verticalProgressWidth(float s) { return progressHeight(s) * 1.75f; }
+  [[nodiscard]] float verticalProgressWidth(float s) { return progressHeight(s) * 1.75F; }
 
   [[nodiscard]] float cardPadding(float s) { return Style::spaceMd * s; }
 
-  [[nodiscard]] float innerGap(float s) { return (Style::spaceSm + Style::spaceXs * 0.5f) * s; }
+  [[nodiscard]] float innerGap(float s) { return (Style::spaceSm + Style::spaceXs * 0.5F) * s; }
 
   [[nodiscard]] float osdCardRadius(float cw, float ch, float layoutScale) {
-    const float maxR = std::min(cw, ch) * 0.5f;
+    const float maxR = std::min(cw, ch) * 0.5F;
     return std::min(maxR, Style::scaledRadiusXl(layoutScale));
   }
 
   [[nodiscard]] float osdProgressRadius(float layoutScale) {
     const float ph = progressHeight(layoutScale);
-    return std::min(ph * 0.5f, Style::scaledRadiusSm(layoutScale));
+    return std::min(ph * 0.5F, Style::scaledRadiusSm(layoutScale));
   }
 
   [[nodiscard]] bool isBottomPosition(const std::string& position) { return position.starts_with("bottom_"); }
@@ -164,16 +167,16 @@ namespace {
 
   [[nodiscard]] bool isRightPosition(const std::string& position) { return position.ends_with("_right"); }
 
-  float cardBaseX(float surfaceWidth, float cardW) { return (surfaceWidth - cardW) * 0.5f; }
+  float cardBaseX(float surfaceWidth, float cardW) { return (surfaceWidth - cardW) * 0.5F; }
 
   float cardBaseYForPosition(const std::string& position, float surfaceHeight, float cardH) {
     if (isBottomPosition(position)) {
-      return std::max(0.0f, surfaceHeight - cardH);
+      return std::max(0.0F, surfaceHeight - cardH);
     }
     if (isCenterPosition(position)) {
-      return (surfaceHeight - cardH) * 0.5f;
+      return (surfaceHeight - cardH) * 0.5F;
     }
-    return 0.0f;
+    return 0.0F;
   }
 
   OsdRevealDir revealDirForPosition(const std::string& position) {
@@ -191,10 +194,51 @@ namespace {
 
 } // namespace
 
+OsdOverlay::OsdOverlay() = default;
+
+OsdOverlay::~OsdOverlay() = default;
+
 void OsdOverlay::initialize(WaylandConnection& wayland, ConfigService* config, RenderContext* renderContext) {
   m_wayland = &wayland;
   m_config = config;
   m_renderContext = renderContext;
+  m_lastConfiguredEnabled = m_config == nullptr || m_config->config().osd.enabled;
+}
+
+void OsdOverlay::registerIpc(IpcService& ipc) {
+  ipc.bind(noctalia::cli::msg::osdEnable, [this](const std::string& args) -> std::string {
+    if (!noctalia::ipc::splitWords(args).empty()) {
+      return "error: osd-enable takes no arguments\n";
+    }
+    setEnabledOverride(true);
+    return "ok\n";
+  });
+  ipc.bind(noctalia::cli::msg::osdDisable, [this](const std::string& args) -> std::string {
+    if (!noctalia::ipc::splitWords(args).empty()) {
+      return "error: osd-disable takes no arguments\n";
+    }
+    setEnabledOverride(false);
+    return "ok\n";
+  });
+  ipc.bind(noctalia::cli::msg::osdToggle, [this](const std::string& args) -> std::string {
+    if (!noctalia::ipc::splitWords(args).empty()) {
+      return "error: osd-toggle takes no arguments\n";
+    }
+    setEnabledOverride(!isEnabled());
+    return isEnabled() ? "on\n" : "off\n";
+  });
+}
+
+bool OsdOverlay::isEnabled() const noexcept {
+  const bool configuredEnabled = m_config == nullptr || m_config->config().osd.enabled;
+  return m_runtimeEnabledOverride.value_or(configuredEnabled);
+}
+
+void OsdOverlay::setEnabledOverride(bool enabled) {
+  m_runtimeEnabledOverride = enabled;
+  if (!enabled) {
+    destroySurfaces();
+  }
 }
 
 void OsdOverlay::requestRedraw() {
@@ -217,7 +261,7 @@ void OsdOverlay::show(const OsdContent& content) {
   if (m_wayland == nullptr || m_renderContext == nullptr) {
     return;
   }
-  if (m_config != nullptr && !m_config->config().osd.enabled) {
+  if (!isEnabled()) {
     return;
   }
   if (m_config != nullptr && !isOsdKindEnabled(m_config->config().osd.kinds, content.kind)) {
@@ -308,7 +352,18 @@ void OsdOverlay::onOutputChange() {
   requestLayout();
 }
 
-void OsdOverlay::onConfigReload() { onOutputChange(); }
+void OsdOverlay::onConfigReload() {
+  const bool configuredEnabled = m_config == nullptr || m_config->config().osd.enabled;
+  if (configuredEnabled != m_lastConfiguredEnabled) {
+    m_runtimeEnabledOverride.reset();
+    m_lastConfiguredEnabled = configuredEnabled;
+  }
+  if (!isEnabled()) {
+    destroySurfaces();
+    return;
+  }
+  onOutputChange();
+}
 
 void OsdOverlay::ensureSurfaces() {
   if (m_wayland == nullptr || m_renderContext == nullptr) {
@@ -338,11 +393,11 @@ void OsdOverlay::ensureSurfaces() {
     destroySurfaces();
   }
 
-  if (!m_instances.empty() && std::abs(layoutScale - m_lastLayoutScale) > 1.0e-4f) {
+  if (!m_instances.empty() && std::abs(layoutScale - m_lastLayoutScale) > 1.0e-4F) {
     destroySurfaces();
   }
 
-  if (!m_instances.empty() && std::abs(Style::cornerRadiusScale() - m_lastCornerRadiusScale) > 1.0e-4f) {
+  if (!m_instances.empty() && std::abs(Style::cornerRadiusScale() - m_lastCornerRadiusScale) > 1.0e-4F) {
     destroySurfaces();
   }
 
@@ -514,7 +569,7 @@ void OsdOverlay::prepareFrame(Instance& inst, bool needsUpdate, bool needsLayout
 
   if (inst.sceneRoot != nullptr && inst.background != nullptr) {
     const float corner = Style::cornerRadiusScale();
-    if (std::abs(corner - inst.appliedCornerRadiusScale) > 1.0e-4f) {
+    if (std::abs(corner - inst.appliedCornerRadiusScale) > 1.0e-4F) {
       const float s = inst.uiLayoutScale;
       const float cw = cardWidth(s, m_lastOrientation);
       const float ch = cardHeight(s, m_lastOrientation, m_lastShowProgress);
@@ -538,9 +593,10 @@ void OsdOverlay::prepareFrame(Instance& inst, bool needsUpdate, bool needsLayout
 
 void OsdOverlay::buildScene(Instance& inst, std::uint32_t width, std::uint32_t height) {
   uiAssertNotRendering("OsdOverlay::buildScene");
-  if (m_renderContext == nullptr) {
+  if (m_renderContext == nullptr || inst.surface == nullptr) {
     return;
   }
+  Renderer& renderer = inst.surface->renderTarget().renderer();
 
   const auto w = static_cast<float>(width);
   const auto h = static_cast<float>(height);
@@ -553,14 +609,14 @@ void OsdOverlay::buildScene(Instance& inst, std::uint32_t width, std::uint32_t h
 
   inst.sceneRoot = ui::node({});
   inst.sceneRoot->setSize(w, h);
-  inst.sceneRoot->setOpacity(1.0f);
+  inst.sceneRoot->setOpacity(1.0F);
   inst.surface->setSceneRoot(inst.sceneRoot.get());
 
   const float cardX = cardBaseX(w, cw);
   const float cardY = cardBaseYForPosition(m_lastPosition, h, ch);
   const float backgroundOpacity = osdBackgroundOpacity(m_config);
   const bool drawBorder = m_config == nullptr || m_config->config().osd.border;
-  const float border = drawBorder ? Style::borderWidth * s : 0.0f;
+  const float border = drawBorder ? Style::borderWidth * s : 0.0F;
 
   inst.sceneRoot->addChild(
       ui::box({
@@ -595,8 +651,8 @@ void OsdOverlay::buildScene(Instance& inst, std::uint32_t width, std::uint32_t h
       .align = FlexAlign::Center,
       .justify = FlexJustify::Start,
       .gap = gap,
-      .width = cw - pad * 2.0f,
-      .height = vertical ? ch - pad * 2.0f : ch,
+      .width = cw - pad * 2.0F,
+      .height = vertical ? ch - pad * 2.0F : ch,
       .configure = [](Flex& flex) { flex.setZIndex(1); },
   };
 
@@ -613,15 +669,15 @@ void OsdOverlay::buildScene(Instance& inst, std::uint32_t width, std::uint32_t h
       .fontSize = valueFontSize(s),
       .fontWeight = FontWeight::Bold,
       .color = colorSpecFromRole(ColorRole::OnSurface),
-      .maxWidth = vertical ? cw - pad * 2.0f : 0.0f,
+      .maxWidth = vertical ? cw - pad * 2.0F : 0.0F,
       .maxLines = 1,
       .textAlign = vertical ? TextAlign::Center : TextAlign::End,
       .configure = [](Label& label) { label.setZIndex(1); },
   });
   // Reserve enough width for "100%" so the progress bar doesn't shrink at max values.
-  value->measure(*m_renderContext);
+  value->measure(renderer);
   inst.progressValueMinWidth = value->width();
-  value->setMinWidth(vertical ? 0.0f : inst.progressValueMinWidth);
+  value->setMinWidth(vertical ? 0.0F : inst.progressValueMinWidth);
 
   const float ph = progressHeight(s);
   auto progress = ui::progressBar({
@@ -630,9 +686,9 @@ void OsdOverlay::buildScene(Instance& inst, std::uint32_t width, std::uint32_t h
       .track = colorSpecFromRole(ColorRole::SurfaceVariant),
       .radius = osdProgressRadius(s),
       .orientation = vertical ? ProgressBarOrientation::Vertical : ProgressBarOrientation::Horizontal,
-      .width = vertical ? verticalProgressWidth(s) : 0.0f,
-      .height = vertical ? 0.0f : ph,
-      .flexGrow = 1.0f,
+      .width = vertical ? verticalProgressWidth(s) : 0.0F,
+      .height = vertical ? 0.0F : ph,
+      .flexGrow = 1.0F,
       .configure = [](ProgressBar& progressBar) { progressBar.setZIndex(1); },
   });
 
@@ -651,6 +707,7 @@ void OsdOverlay::buildScene(Instance& inst, std::uint32_t width, std::uint32_t h
 
 void OsdOverlay::updateInstanceContent(Instance& inst) {
   if (m_renderContext == nullptr
+      || inst.surface == nullptr
       || inst.card == nullptr
       || inst.row == nullptr
       || inst.background == nullptr
@@ -685,19 +742,20 @@ void OsdOverlay::updateInstanceContent(Instance& inst) {
   // Text OSDs (media title, device name, ...) carry arbitrary-length values; cap them to the card
   // interior so they ellipsize within the padding instead of overflowing. Progress OSDs keep the
   // uncapped "100%" value so it can reserve minWidth beside the bar.
-  const float horizontalValueMax = cw - cardPadding(s) * 2.0f - glyphSize(s) - innerGap(s);
+  const float horizontalValueMax = cw - cardPadding(s) * 2.0F - glyphSize(s) - innerGap(s);
   inst.value->setMaxWidth(
-      vertical                      ? cw - cardPadding(s) * 2.0f
-          : !m_content.showProgress ? std::max(0.0f, horizontalValueMax)
-                                    : 0.0f
+      vertical                      ? cw - cardPadding(s) * 2.0F
+          : !m_content.showProgress ? std::max(0.0F, horizontalValueMax)
+                                    : 0.0F
   );
-  inst.value->setMinWidth((!vertical && m_content.showProgress) ? inst.progressValueMinWidth : 0.0f);
+  inst.value->setMinWidth((!vertical && m_content.showProgress) ? inst.progressValueMinWidth : 0.0F);
   inst.value->setText(m_content.value);
   inst.progress->setRadius(osdProgressRadius(s));
   inst.progress->setProgress(m_content.progress);
-  inst.row->layout(*m_renderContext);
-  const float rowX = std::round((cw - inst.row->width()) * 0.5f);
-  const float rowY = std::round((ch - inst.row->height()) * 0.5f);
+  Renderer& renderer = inst.surface->renderTarget().renderer();
+  inst.row->layout(renderer);
+  const float rowX = std::round((cw - inst.row->width()) * 0.5F);
+  const float rowY = std::round((ch - inst.row->height()) * 0.5F);
   inst.rowBaseX = vertical ? rowX : cardPadding(s);
   inst.rowBaseY = rowY;
   inst.row->setPosition(inst.rowBaseX, inst.rowBaseY);
@@ -730,7 +788,7 @@ void OsdOverlay::applyReveal(Instance& inst, float reveal) {
   const float ch = cardHeight(s, m_lastOrientation, m_lastShowProgress);
   const float baseX = cardBaseX(inst.sceneRoot->width(), cw);
   const float baseY = cardBaseYForPosition(m_lastPosition, inst.sceneRoot->height(), ch);
-  const float r = std::clamp(reveal, 0.0f, 1.0f);
+  const float r = std::clamp(reveal, 0.0F, 1.0F);
 
   if (inst.row != nullptr) {
     inst.row->setOpacity(osdContentOpacity(r));
@@ -795,10 +853,10 @@ void OsdOverlay::animateInstance(Instance& inst) {
     // During fast updates (e.g. slider drag), don't restart the show animation
     // every tick; keep the current show motion and only extend hide timing.
     if (inst.showAnimId == 0) {
-      inst.sceneRoot->setOpacity(1.0f);
-      applyReveal(inst, 0.0f);
+      inst.sceneRoot->setOpacity(1.0F);
+      applyReveal(inst, 0.0F);
       inst.showAnimId = inst.animations.animate(
-          0.0f, 1.0f, Style::animNormal, Easing::EaseOutCubic, [this, &inst](float v) { applyReveal(inst, v); },
+          0.0F, 1.0F, Style::animNormal, Easing::EaseOutCubic, [this, &inst](float v) { applyReveal(inst, v); },
           [&inst]() {
             inst.showAnimId = 0;
             inst.visible = true;
@@ -806,14 +864,14 @@ void OsdOverlay::animateInstance(Instance& inst) {
       );
     }
   } else {
-    applyReveal(inst, 1.0f);
+    applyReveal(inst, 1.0F);
   }
 
   inst.hideAnimId = inst.animations.animateTimer(
-      1.0f, 0.0f, kHideDelayMs, Easing::Linear, [](float /*v*/) {},
+      1.0F, 0.0F, kHideDelayMs, Easing::Linear, [](float /*v*/) {},
       [this, &inst]() {
         inst.hideAnimId = inst.animations.animate(
-            1.0f, 0.0f, Style::animNormal, Easing::EaseInQuad, [this, &inst](float v) { applyReveal(inst, v); },
+            1.0F, 0.0F, Style::animNormal, Easing::EaseInQuad, [this, &inst](float v) { applyReveal(inst, v); },
             [this, &inst]() {
               inst.hideAnimId = 0;
               inst.visible = false;

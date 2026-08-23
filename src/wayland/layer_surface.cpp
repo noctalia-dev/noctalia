@@ -77,17 +77,20 @@ bool LayerSurface::initialize(wl_output* output) {
     return false;
   }
 
+  std::int32_t bufferScale = 1;
+  if (const auto* wlOutput = m_connection.findOutputByWl(output); wlOutput != nullptr) {
+    bufferScale = wlOutput->scale;
+    setConfiguredScaleNumerator(
+        wlOutput->configuredScaleNumerator > 0 ? static_cast<std::uint32_t>(wlOutput->configuredScaleNumerator) : 1U
+    );
+  }
+  setBufferScale(bufferScale);
+
   if (!createWlSurface()) {
     return false;
   }
 
-  std::int32_t bufferScale = 1;
-  if (const auto* wlOutput = m_connection.findOutputByWl(output); wlOutput != nullptr) {
-    bufferScale = wlOutput->scale;
-  }
-
   m_connection.registerSurfaceOutput(m_surface, output);
-  setBufferScale(bufferScale);
 
   m_layerSurface = zwlr_layer_shell_v1_get_layer_surface(
       m_connection.layerShell(), m_surface, output, static_cast<std::uint32_t>(m_config.layer),

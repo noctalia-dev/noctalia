@@ -29,7 +29,7 @@ namespace noctalia::bar {
     bool run(const WidgetAction& action, IpcInvocationContext context) const;
 
     // True when the action's verb declared itself as stepping one position along an ordered set
-    // (IpcService::registerCycleHandler). Bound to a scroll gesture, those run once per flick
+    // (IpcService::bindCycle). Bound to a scroll gesture, those run once per flick
     // rather than once per notch. Exec actions are opaque and never count as cycles.
     [[nodiscard]] bool cycles(const WidgetAction& action) const noexcept;
 

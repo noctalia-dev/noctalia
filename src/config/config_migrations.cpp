@@ -21,12 +21,18 @@ namespace noctalia::config {
     constexpr int kCustomButtonCommandsMigrationVersion = 6;
     constexpr int kDeadZoneActionsMigrationVersion = 7;
     constexpr int kLockscreenLoginBoxDeprecatedSettingsMigrationVersion = 8;
+    constexpr int kSysmonPresentationMigrationVersion = 9;
+    constexpr int kKeyboardLayoutShowGlyphMigrationVersion = 10;
+    constexpr int kWorkspacesDisplayMigrationVersion = 11;
+    constexpr int kKeyboardLayoutCustomLabelsMigrationVersion = 12;
+    constexpr int kPluginAutoUpdateModeMigrationVersion = 13;
     constexpr std::int64_t kMaxBarRadius = 500;
     constexpr std::array<std::string_view, 5> kBarRadiusKeys = {
         "radius", "radius_top_left", "radius_top_right", "radius_bottom_left", "radius_bottom_right",
     };
 
-    bool migrateNegativeRadii(toml::table& table) {
+    template <typename OnChanged>
+    bool migrateNegativeRadii(toml::table& table, std::string_view path, OnChanged& onChanged) {
       bool changed = false;
       for (const std::string_view key : kBarRadiusKeys) {
         const auto radius = table[key].value<std::int64_t>();
@@ -36,6 +42,7 @@ namespace noctalia::config {
 
         const std::int64_t magnitude = *radius <= -kMaxBarRadius ? kMaxBarRadius : -*radius;
         table.insert_or_assign(key, magnitude);
+        onChanged(std::string(path) + "." + std::string(key));
         changed = true;
       }
 
@@ -58,9 +65,7 @@ namespace noctalia::config {
         }
 
         const std::string barPath = "bar." + std::string(barName.str());
-        if (migrateNegativeRadii(*bar)) {
-          onChanged(barPath);
-        }
+        (void)migrateNegativeRadii(*bar, barPath, onChanged);
 
         auto* monitors = (*bar)["monitor"].as_table();
         if (monitors == nullptr) {
@@ -68,8 +73,9 @@ namespace noctalia::config {
         }
         for (auto& [monitorName, monitorNode] : *monitors) {
           auto* monitor = monitorNode.as_table();
-          if (monitor != nullptr && migrateNegativeRadii(*monitor)) {
-            onChanged(barPath + ".monitor." + std::string(monitorName.str()));
+          if (monitor != nullptr) {
+            const std::string monitorPath = barPath + ".monitor." + std::string(monitorName.str());
+            (void)migrateNegativeRadii(*monitor, monitorPath, onChanged);
           }
         }
       }
@@ -104,7 +110,7 @@ namespace noctalia::config {
       }
 
       location->insert_or_assign("custom_schedule", true);
-      onChanged("location");
+      onChanged("location.sunset");
     }
 
     void migrateCustomScheduleSidecar(toml::table& root, schema::Diagnostics& diag) {
@@ -123,7 +129,7 @@ namespace noctalia::config {
 
       const bool wasEnabled = (*shell)["middle_click_opens_widget_settings"].value_or(true);
       shell->erase("middle_click_opens_widget_settings");
-      onChanged("shell");
+      onChanged("shell.middle_click_opens_widget_settings");
       if (wasEnabled) {
         return;
       }
@@ -153,7 +159,6 @@ namespace noctalia::config {
           continue;
         }
         actions->insert_or_assign("middle", "none");
-        onChanged("bar." + std::string(barName.str()) + ".actions");
       }
     }
 
@@ -196,7 +201,7 @@ namespace noctalia::config {
             bindAction(*widget, "scroll_up", "none");
             bindAction(*widget, "scroll_down", "none");
           }
-          onChanged(path, "enable_scroll is now the scroll_up/scroll_down gesture bindings");
+          onChanged(path + ".enable_scroll", "enable_scroll is now the scroll_up/scroll_down gesture bindings");
         }
 
         if (type == "keyboard_layout" && widget->contains("cycle_command")) {
@@ -205,7 +210,7 @@ namespace noctalia::config {
           if (!command.empty()) {
             bindAction(*widget, "left", "exec " + command);
           }
-          onChanged(path, "cycle_command is now the left gesture binding");
+          onChanged(path + ".cycle_command", "cycle_command is now the left gesture binding");
         }
       }
     }
@@ -237,7 +242,7 @@ namespace noctalia::config {
             bindAction(*widget, "scroll_up", "none");
             bindAction(*widget, "scroll_down", "none");
           }
-          onChanged(path, "enable_scroll is now the scroll_up/scroll_down gesture bindings");
+          onChanged(path + ".enable_scroll", "enable_scroll is now the scroll_up/scroll_down gesture bindings");
         }
 
         if ((type == "volume" || type == "brightness") && widget->contains("scroll_step")) {
@@ -255,7 +260,7 @@ namespace noctalia::config {
             bindAction(*widget, "scroll_up", upVerb + suffix);
             bindAction(*widget, "scroll_down", downVerb + suffix);
           }
-          onChanged(path, "scroll_step is now the step argument of the scroll gesture bindings");
+          onChanged(path + ".scroll_step", "scroll_step is now the step argument of the scroll gesture bindings");
         }
 
         if (type == "screenshot" && widget->contains("primary_click")) {
@@ -264,7 +269,7 @@ namespace noctalia::config {
           if (primary == "fullscreen") {
             bindAction(*widget, "left", "screenshot-fullscreen");
           }
-          onChanged(path, "primary_click is now the left gesture binding");
+          onChanged(path + ".primary_click", "primary_click is now the left gesture binding");
         }
       }
     }
@@ -303,7 +308,7 @@ namespace noctalia::config {
             bindAction(*widget, "scroll_up", "none");
             bindAction(*widget, "scroll_down", "none");
           }
-          onChanged(path, "enable_scroll is now the scroll_up/scroll_down gesture bindings");
+          onChanged(path + ".enable_scroll", "enable_scroll is now the scroll_up/scroll_down gesture bindings");
         }
 
         for (const auto& [key, gesture] : kCommandKeys) {
@@ -315,7 +320,10 @@ namespace noctalia::config {
           if (!command.empty()) {
             bindAction(*widget, gesture, "exec " + command);
           }
-          onChanged(path, std::string(key) + " is now the " + std::string(gesture) + " gesture binding");
+          onChanged(
+              path + "." + std::string(key),
+              std::string(key) + " is now the " + std::string(gesture) + " gesture binding"
+          );
         }
       }
     }
@@ -345,7 +353,10 @@ namespace noctalia::config {
           if (!command.empty()) {
             bindAction(*deadZone, gesture, "exec " + command);
           }
-          onChanged(path + ".dead_zone", std::string(key) + " is now the " + std::string(gesture) + " binding");
+          onChanged(
+              path + ".dead_zone." + std::string(key),
+              std::string(key) + " is now the " + std::string(gesture) + " binding"
+          );
         }
       };
 
@@ -405,7 +416,7 @@ namespace noctalia::config {
           continue;
         }
         if (settings->erase("show_password_hint") > 0) {
-          onChanged("lockscreen_widgets.widget." + id + ".settings");
+          onChanged("lockscreen_widgets.widget." + id + ".settings.show_password_hint");
         }
       }
     }
@@ -413,6 +424,198 @@ namespace noctalia::config {
     void migrateLockscreenLoginBoxDeprecatedSettingsSidecar(toml::table& root, schema::Diagnostics& diag) {
       migrateLockscreenLoginBoxDeprecatedSettings(root, [&diag](const std::string& path) {
         diag.warn(path, "removed deprecated show_password_hint");
+      });
+    }
+
+    template <typename OnChanged> void migrateSysmonPresentationSettings(toml::table& root, OnChanged&& onChanged) {
+      auto* widgets = root["widget"].as_table();
+      if (widgets == nullptr) {
+        return;
+      }
+
+      for (auto& [widgetName, widgetNode] : *widgets) {
+        auto* widget = widgetNode.as_table();
+        if (widget == nullptr || (*widget)["type"].value_or(std::string(widgetName.str())) != "sysmon") {
+          continue;
+        }
+
+        if (const auto showIcon = (*widget)["show_icon"].value<bool>(); showIcon.has_value()) {
+          if (!widget->contains("show_glyph")) {
+            widget->insert_or_assign("show_glyph", *showIcon);
+          }
+          widget->erase("show_icon");
+          onChanged("widget." + std::string(widgetName.str()) + ".show_icon", "show_icon is now show_glyph");
+        }
+
+        const auto display = (*widget)["display"].value<std::string>();
+        if (display.has_value()) {
+          if (!widget->contains("visualization")) {
+            const std::string visualization = *display == "text" ? "none" : *display;
+            widget->insert_or_assign("visualization", visualization);
+          }
+          widget->erase("display");
+          onChanged(
+              "widget." + std::string(widgetName.str()) + ".display", "display is now visualization and show_value"
+          );
+        }
+
+        if (const auto showLabel = (*widget)["show_label"].value<bool>(); showLabel.has_value()) {
+          if (!widget->contains("show_value")) {
+            bool showValue = *showLabel;
+            if (display == "text") {
+              showValue = true;
+            } else if (display == "none") {
+              showValue = false;
+            }
+            widget->insert_or_assign("show_value", showValue);
+          }
+          widget->erase("show_label");
+          onChanged("widget." + std::string(widgetName.str()) + ".show_label", "show_label is now show_value");
+        } else if (display.has_value() && !widget->contains("show_value")) {
+          widget->insert_or_assign("show_value", *display != "none");
+        }
+      }
+    }
+
+    void migrateSysmonPresentationSettingsSidecar(toml::table& root, schema::Diagnostics& diag) {
+      migrateSysmonPresentationSettings(root, [&diag](const std::string& path, std::string_view message) {
+        diag.warn(path, std::string(message));
+      });
+    }
+
+    template <typename OnChanged> void migrateWorkspacesDisplaySettings(toml::table& root, OnChanged&& onChanged) {
+      auto* widgets = root["widget"].as_table();
+      if (widgets == nullptr) {
+        return;
+      }
+
+      for (auto& [widgetName, widgetNode] : *widgets) {
+        auto* widget = widgetNode.as_table();
+        if (widget == nullptr || (*widget)["type"].value_or(std::string(widgetName.str())) != "workspaces") {
+          continue;
+        }
+
+        const auto display = (*widget)["display"].value<std::string>();
+        if (!display.has_value()) {
+          continue;
+        }
+
+        if (*display == "none") {
+          if (!widget->contains("show_labels")) {
+            widget->insert_or_assign("show_labels", false);
+          }
+        } else if (*display == "id" || *display == "name") {
+          if (!widget->contains("label_source")) {
+            widget->insert_or_assign("label_source", *display);
+          }
+        } else {
+          continue;
+        }
+
+        widget->erase("display");
+        onChanged("widget." + std::string(widgetName.str()) + ".display");
+      }
+    }
+
+    void migrateWorkspacesDisplaySettingsSidecar(toml::table& root, schema::Diagnostics& diag) {
+      migrateWorkspacesDisplaySettings(root, [&diag](const std::string& path) {
+        diag.warn(path, "migrated workspaces display to label_source/show_labels");
+      });
+    }
+
+    template <typename OnChanged> void migrateKeyboardLayoutShowGlyph(toml::table& root, OnChanged&& onChanged) {
+      auto* widgets = root["widget"].as_table();
+      if (widgets == nullptr) {
+        return;
+      }
+
+      for (auto& [widgetName, widgetNode] : *widgets) {
+        auto* widget = widgetNode.as_table();
+        if (widget == nullptr || (*widget)["type"].value_or(std::string(widgetName.str())) != "keyboard_layout") {
+          continue;
+        }
+
+        const auto showIcon = (*widget)["show_icon"].value<bool>();
+        if (!showIcon.has_value()) {
+          continue;
+        }
+        if (!widget->contains("show_glyph")) {
+          widget->insert_or_assign("show_glyph", *showIcon);
+        }
+        widget->erase("show_icon");
+        onChanged("widget." + std::string(widgetName.str()) + ".show_icon");
+      }
+    }
+
+    void migrateKeyboardLayoutShowGlyphSidecar(toml::table& root, schema::Diagnostics& diag) {
+      migrateKeyboardLayoutShowGlyph(root, [&diag](const std::string& path) {
+        diag.warn(path, "migrated keyboard layout show_icon to show_glyph");
+      });
+    }
+
+    template <typename OnChanged> void migrateKeyboardLayoutCustomLabels(toml::table& root, OnChanged&& onChanged) {
+      auto* widgets = root["widget"].as_table();
+      if (widgets == nullptr) {
+        return;
+      }
+
+      const auto ensureTable = [](toml::table& parent, std::string_view key) -> toml::table* {
+        if (auto* existing = parent[key].as_table()) {
+          return existing;
+        }
+        if (parent.contains(key)) {
+          return nullptr;
+        }
+        parent.insert(key, toml::table{});
+        return parent[key].as_table();
+      };
+
+      toml::table* targetLabels = nullptr;
+      for (auto& [widgetName, widgetNode] : *widgets) {
+        auto* widget = widgetNode.as_table();
+        if (widget == nullptr || (*widget)["type"].value_or(std::string(widgetName.str())) != "keyboard_layout") {
+          continue;
+        }
+        auto* customLabels = (*widget)["custom_labels"].as_table();
+        if (customLabels == nullptr) {
+          continue;
+        }
+
+        if (targetLabels == nullptr) {
+          auto* shell = ensureTable(root, "shell");
+          auto* keyboardLayout = shell != nullptr ? ensureTable(*shell, "keyboard_layout") : nullptr;
+          targetLabels = keyboardLayout != nullptr ? ensureTable(*keyboardLayout, "custom_labels") : nullptr;
+        }
+        if (targetLabels == nullptr) {
+          continue;
+        }
+
+        bool keptCanonicalConflict = false;
+        for (const auto& [layoutName, labelNode] : *customLabels) {
+          const auto label = labelNode.value<std::string>();
+          if (!label.has_value()) {
+            continue;
+          }
+          if (targetLabels->contains(layoutName)) {
+            const auto existing = (*targetLabels)[layoutName].value<std::string>();
+            keptCanonicalConflict = keptCanonicalConflict || !existing.has_value() || *existing != *label;
+            continue;
+          }
+          targetLabels->insert(layoutName, *label);
+        }
+        widget->erase("custom_labels");
+        onChanged("widget." + std::string(widgetName.str()) + ".custom_labels", keptCanonicalConflict);
+      }
+    }
+
+    void migrateKeyboardLayoutCustomLabelsSidecar(toml::table& root, schema::Diagnostics& diag) {
+      migrateKeyboardLayoutCustomLabels(root, [&diag](const std::string& path, bool keptCanonicalConflict) {
+        diag.warn(
+            path,
+            keptCanonicalConflict
+                ? "moved custom_labels to shell.keyboard_layout.custom_labels; kept conflicting canonical labels"
+                : "moved custom_labels to shell.keyboard_layout.custom_labels"
+        );
       });
     }
 
@@ -437,6 +640,28 @@ namespace noctalia::config {
     void migrateWidgetActionsSidecar(toml::table& root, schema::Diagnostics& diag) {
       migrateWidgetActions(root, [&diag](const std::string& path) {
         diag.warn(path, "middle_click_opens_widget_settings is now the `middle` widget gesture binding");
+      });
+    }
+
+    template <typename OnChanged> void migratePluginAutoUpdateMode(toml::table& root, OnChanged&& onChanged) {
+      auto* plugins = root["plugins"].as_table();
+      if (plugins == nullptr) {
+        return;
+      }
+
+      const auto legacy = (*plugins)["auto_update"].value<bool>();
+      if (!legacy.has_value()) {
+        return;
+      }
+
+      const std::string_view mode = *legacy ? "all" : "none";
+      plugins->insert_or_assign("auto_update", std::string(mode));
+      onChanged("plugins.auto_update", mode);
+    }
+
+    void migratePluginAutoUpdateModeSidecar(toml::table& root, schema::Diagnostics& diag) {
+      migratePluginAutoUpdateMode(root, [&diag](const std::string& path, std::string_view mode) {
+        diag.warn(path, "migrated boolean plugin auto-update setting to \"" + std::string(mode) + "\"");
       });
     }
 
@@ -516,6 +741,31 @@ namespace noctalia::config {
             .toVersion = kLockscreenLoginBoxDeprecatedSettingsMigrationVersion,
             .summary = "lockscreen: drop removed login box show_password_hint setting",
             .apply = migrateLockscreenLoginBoxDeprecatedSettingsSidecar,
+        },
+        {
+            .toVersion = kSysmonPresentationMigrationVersion,
+            .summary = "widget: migrate sysmon presentation settings",
+            .apply = migrateSysmonPresentationSettingsSidecar,
+        },
+        {
+            .toVersion = kKeyboardLayoutShowGlyphMigrationVersion,
+            .summary = "widget: rename keyboard layout show_icon to show_glyph",
+            .apply = migrateKeyboardLayoutShowGlyphSidecar,
+        },
+        {
+            .toVersion = kWorkspacesDisplayMigrationVersion,
+            .summary = "widget: split workspaces display into label_source and show_labels",
+            .apply = migrateWorkspacesDisplaySettingsSidecar,
+        },
+        {
+            .toVersion = kKeyboardLayoutCustomLabelsMigrationVersion,
+            .summary = "keyboard layout: move custom labels to shell configuration",
+            .apply = migrateKeyboardLayoutCustomLabelsSidecar,
+        },
+        {
+            .toVersion = kPluginAutoUpdateModeMigrationVersion,
+            .summary = "plugins: migrate boolean auto-update to source scope",
+            .apply = migratePluginAutoUpdateModeSidecar,
         },
     };
     return migrations;
@@ -623,6 +873,44 @@ namespace noctalia::config {
           .migrationVersion = kLockscreenLoginBoxDeprecatedSettingsMigrationVersion,
           .path = path,
           .message = "removed deprecated show_password_hint",
+      });
+    });
+    migrateSysmonPresentationSettings(root, [&issues](const std::string& path, std::string_view message) {
+      issues.push_back({
+          .migrationVersion = kSysmonPresentationMigrationVersion,
+          .path = path,
+          .message = std::string(message),
+      });
+    });
+    migrateKeyboardLayoutShowGlyph(root, [&issues](const std::string& path) {
+      issues.push_back({
+          .migrationVersion = kKeyboardLayoutShowGlyphMigrationVersion,
+          .path = path,
+          .message = "keyboard layout show_icon is now show_glyph",
+      });
+    });
+    migrateWorkspacesDisplaySettings(root, [&issues](const std::string& path) {
+      issues.push_back({
+          .migrationVersion = kWorkspacesDisplayMigrationVersion,
+          .path = path,
+          .message = "workspaces display is now label_source and show_labels",
+      });
+    });
+    migrateKeyboardLayoutCustomLabels(root, [&issues](const std::string& path, bool keptCanonicalConflict) {
+      issues.push_back({
+          .migrationVersion = kKeyboardLayoutCustomLabelsMigrationVersion,
+          .path = path,
+          .message = keptCanonicalConflict
+              ? "keyboard layout custom_labels moved to shell.keyboard_layout.custom_labels; conflicting canonical "
+                "labels were kept"
+              : "keyboard layout custom_labels moved to shell.keyboard_layout.custom_labels",
+      });
+    });
+    migratePluginAutoUpdateMode(root, [&issues](const std::string& path, std::string_view mode) {
+      issues.push_back({
+          .migrationVersion = kPluginAutoUpdateModeMigrationVersion,
+          .path = path,
+          .message = "boolean plugin auto-update is deprecated; use \"" + std::string(mode) + "\"",
       });
     });
   }

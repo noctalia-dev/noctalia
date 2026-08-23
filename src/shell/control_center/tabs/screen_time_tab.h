@@ -56,8 +56,8 @@ private:
   int m_pendingRangeDays = 1;
   bool m_startRangeSlideIn = false;
   AnimationManager::Id m_rangeSlideAnimId = 0;
-  float m_scrollBaseX = 0.0f;
-  float m_scrollBaseY = 0.0f;
+  float m_scrollBaseX = 0.0F;
+  float m_scrollBaseY = 0.0F;
 
   Flex* m_root = nullptr;
   Flex* m_usageCard = nullptr;
@@ -84,6 +84,7 @@ private:
     Flex* plotColumn = nullptr;
     Box* track = nullptr;
     Label* label = nullptr;
+    InputArea* labelHit = nullptr;
     Flex* labelCell = nullptr;
     std::array<InputArea*, kMaxChartSeries> segmentHits{};
     std::array<Box*, kMaxChartSeries> segments{};
@@ -103,7 +104,7 @@ private:
     Flex* barHost = nullptr;
     Box* barTrack = nullptr;
     Box* barFill = nullptr;
-    float barFillRatio = 0.0f;
+    float barFillRatio = 0.0F;
     std::string iconPath;
   };
   std::array<AppRowWidgets, kMaxAppRows> m_appRows{};

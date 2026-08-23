@@ -24,6 +24,7 @@ namespace noctalia::config {
     int migrationVersion;
     std::string path;
     std::string message;
+    schema::SourceOrigin origin;
 
     bool operator==(const LegacyConfigIssue&) const = default;
   };

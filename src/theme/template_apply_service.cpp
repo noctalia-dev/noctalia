@@ -1,9 +1,11 @@
 #include "theme/template_apply_service.h"
 
+#include "config/config_export.h"
 #include "config/config_service.h"
 #include "core/deferred_call.h"
 #include "core/files/resource_paths.h"
 #include "core/log.h"
+#include "core/process/process.h"
 #include "ipc/ipc_service.h"
 #include "theme/community_templates.h"
 #include "theme/template_engine.h"
@@ -12,6 +14,7 @@
 
 #include <filesystem>
 #include <string>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -132,6 +135,26 @@ namespace noctalia::theme {
       return root;
     }
 
+    std::vector<std::string>
+    disabledBuiltinIds(const ThemeConfig::TemplatesConfig& previous, const ThemeConfig::TemplatesConfig& current) {
+      if (!previous.enableBuiltinTemplates) {
+        return {};
+      }
+
+      std::unordered_set<std::string> enabled;
+      if (current.enableBuiltinTemplates) {
+        enabled.insert(current.builtinIds.begin(), current.builtinIds.end());
+      }
+
+      std::vector<std::string> disabled;
+      for (const auto& id : previous.builtinIds) {
+        if (!enabled.contains(id)) {
+          disabled.push_back(id);
+        }
+      }
+      return disabled;
+    }
+
   } // namespace
 
   TemplateApplyService::TemplateApplyService(const ConfigService& config) : m_config(config) {
@@ -160,10 +183,9 @@ namespace noctalia::theme {
     std::function<void()> afterApplyCallback;
     {
       std::scoped_lock lock(m_mutex);
-      // Config reloads fire on every settings change, not just theme changes.
-      // Skip redundant reprocessing (and its synchronous template hooks) when
-      // nothing the templates depend on has changed. Explicit re-application
-      // (startup, IPC, template activation) passes force or carries new inputs.
+      // Skip rendering and hooks when palette and template inputs are unchanged. Config values
+      // are captured only when an application is queued; forced IPC re-application bypasses
+      // this deduplication.
       if (!force && m_lastAppliedRequest.has_value() && sameInputs(request, *m_lastAppliedRequest)) {
         if (m_afterApplyCallback && !m_inFlight) {
           afterApplyCallback = m_afterApplyCallback;
@@ -172,6 +194,11 @@ namespace noctalia::theme {
           return;
         }
       } else {
+        if (m_lastAppliedRequest.has_value()) {
+          request.disabledBuiltinIds = disabledBuiltinIds(m_lastAppliedRequest->templates, request.templates);
+        } else {
+          request.reconcileDisabledBuiltinIds = true;
+        }
         request.generation = ++m_nextGeneration;
         m_lastAppliedRequest = request;
         m_pendingRequest = std::move(request);
@@ -210,27 +237,25 @@ namespace noctalia::theme {
   }
 
   void TemplateApplyService::registerIpc(IpcService& ipc) {
-    ipc.registerHandler(
-        "templates-apply",
-        [this](const std::string& args) -> std::string {
-          if (!StringUtils::trim(args).empty()) {
-            return "error: usage: templates-apply\n";
-          }
-          if (!reapplyLast()) {
-            return "error: theme palette has not been resolved yet\n";
-          }
-          return "ok\n";
-        },
-        "", "Apply configured theme templates for the current palette"
-    );
+    ipc.bind(noctalia::cli::msg::templatesApply, [this](const std::string& args) -> std::string {
+      if (!StringUtils::trim(args).empty()) {
+        return "error: usage: templates-apply\n";
+      }
+      if (!reapplyLast()) {
+        return "error: theme palette has not been resolved yet\n";
+      }
+      return "ok\n";
+    });
   }
 
   TemplateApplyService::ApplyRequest
   TemplateApplyService::makeRequest(const GeneratedPalette& palette, std::string_view defaultMode) const {
-    const ThemeConfig& theme = m_config.config().theme;
+    const Config& config = m_config.config();
+    const ThemeConfig& theme = config.theme;
     return ApplyRequest{
         .palette = palette,
         .templates = theme.templates,
+        .configTable = std::make_shared<const toml::table>(config_export::serialize(config)),
         .defaultMode = std::string(defaultMode),
         .imagePath = m_config.getPaletteWallpaperPath(),
         .schemeType = schemeTypeFromConfig(theme),
@@ -244,8 +269,11 @@ namespace noctalia::theme {
     options.schemeType = request.schemeType;
     options.verbose = true;
     options.cancelRequested = [this, generation = request.generation]() { return requestSuperseded(generation); };
+    options.configTable = request.configTable;
 
     TemplateEngine engine(TemplateEngine::makeThemeData(request.palette), options);
+
+    undoDisabledBuiltinTemplates(request);
 
     if (request.templates.enableBuiltinTemplates
         && !request.templates.builtinIds.empty()
@@ -291,6 +319,75 @@ namespace noctalia::theme {
     const std::filesystem::path configPath = userTemplateConfigPath();
     if (!engine.processConfigTable(userTemplateRoot, configPath)) {
       kLog.warn("failed to apply user templates from main config");
+    }
+  }
+
+  void TemplateApplyService::undoDisabledBuiltinTemplates(const ApplyRequest& request) const {
+    if ((!request.reconcileDisabledBuiltinIds && request.disabledBuiltinIds.empty())
+        || requestSuperseded(request.generation)) {
+      return;
+    }
+
+    const std::filesystem::path configPath = builtinTemplateConfigPath();
+    toml::table root;
+    try {
+      root = toml::parse_file(configPath.string());
+    } catch (const toml::parse_error&) {
+      kLog.warn("failed to parse built-in templates for undo hooks from {}", configPath.string());
+      return;
+    }
+
+    const toml::table* templates = root["templates"].as_table();
+    if (templates == nullptr) {
+      return;
+    }
+
+    std::vector<std::string> ids = request.disabledBuiltinIds;
+    if (request.reconcileDisabledBuiltinIds) {
+      std::unordered_set<std::string> enabled;
+      if (request.templates.enableBuiltinTemplates) {
+        enabled.insert(request.templates.builtinIds.begin(), request.templates.builtinIds.end());
+      }
+      for (const auto& [id, entry] : *templates) {
+        if (entry.is_table() && !enabled.contains(std::string(id.str()))) {
+          ids.emplace_back(id.str());
+        }
+      }
+    }
+
+    TemplateEngine::Options hookOptions;
+    hookOptions.defaultMode = request.defaultMode;
+    hookOptions.imagePath = request.imagePath;
+    hookOptions.schemeType = request.schemeType;
+    hookOptions.verbose = true;
+    hookOptions.configTable = request.configTable;
+    hookOptions.configDir = configPath.parent_path().string();
+    hookOptions.configFile = configPath.string();
+    TemplateEngine hookEngine(TemplateEngine::makeThemeData(request.palette), std::move(hookOptions));
+
+    for (const auto& id : ids) {
+      if (requestSuperseded(request.generation)) {
+        return;
+      }
+      const toml::table* entry = (*templates)[id].as_table();
+      if (entry == nullptr) {
+        kLog.warn("cannot undo unknown built-in template '{}'", id);
+        continue;
+      }
+      const auto hook = entry->get_as<std::string>("undo_hook");
+      if (hook == nullptr) {
+        continue;
+      }
+
+      const RenderResult rendered = hookEngine.render(hook->get());
+      if (rendered.errorCount != 0 || rendered.text.empty()) {
+        kLog.warn("failed to render undo hook for built-in template '{}'", id);
+        continue;
+      }
+      const process::RunResult result = process::runSync(rendered.text);
+      if (!result) {
+        kLog.warn("undo hook for built-in template '{}' failed with exit code {}: {}", id, result.exitCode, result.err);
+      }
     }
   }
 

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "config/config_origins.h"
+#include "config/schema/diagnostics.h"
 #include "core/toml.h"
 
 #include <filesystem>
@@ -18,8 +20,13 @@ namespace noctalia::config {
     // Directories named directly in an [include].files list (canonicalized).
     // Used to watch for newly-created *.toml within them.
     std::vector<std::filesystem::path> includeDirs;
-    // First parse / missing-include error encountered, empty if none.
+    // First parse / missing-include error encountered, empty if none. The text
+    // carries no location; firstErrorOrigin has it.
     std::string firstError;
+    schema::SourceOrigin firstErrorOrigin;
+    // Source position of every merged key. `merged` cannot carry it: toml++
+    // drops source regions on copy.
+    ConfigOriginIndex origins;
   };
 
   // Scans `configDir` for *.toml (alphabetical) and merges them, honoring each

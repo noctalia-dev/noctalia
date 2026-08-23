@@ -6,11 +6,12 @@
 #include "render/scene/node.h"
 #include "scripting/plugin_file_cache.h"
 #include "scripting/plugin_manager.h"
-#include "shell/settings/config_export_dialog_popup.h"
+#include "shell/settings/config_export_dialog_modal.h"
 #include "shell/settings/search_picker_popup.h"
 #include "shell/settings/settings_control_factory.h"
+#include "shell/settings/settings_modal_host.h"
 #include "shell/settings/settings_registry.h"
-#include "shell/settings/settings_sheet_popup.h"
+#include "shell/settings/settings_sheet_modal.h"
 #include "shell/settings/widget_add_popup.h"
 #include "ui/controls/context_menu_popup.h"
 #include "ui/controls/roving_list_nav.h"
@@ -28,6 +29,7 @@
 #include <vector>
 
 class Box;
+class AsyncTextureCache;
 class Button;
 class AccountsService;
 class CalendarService;
@@ -35,12 +37,16 @@ class ClipboardService;
 class IpcService;
 class ConfigService;
 class CompositorPlatform;
+class ColorPickerDialogPresenter;
 class DependencyService;
+class FileDialogPresenter;
 class Flex;
+class GlyphPickerDialogPresenter;
 class IdleManager;
 class Input;
 class Label;
 class RenderContext;
+class ThumbnailService;
 class UPowerService;
 class WaylandConnection;
 struct KeyboardEvent;
@@ -49,12 +55,14 @@ struct wl_output;
 struct wl_surface;
 
 namespace settings {
+  class SettingsDialogPresenter;
   struct SettingsContentContext;
 } // namespace settings
 
 // Standalone xdg-toplevel settings UI (same binary as the shell; shares RenderContext).
 class SettingsWindow {
 public:
+  SettingsWindow();
   ~SettingsWindow();
 
   void initialize(
@@ -68,6 +76,10 @@ public:
   // Returns false when the plugin is unknown, disabled, or exposes no settings.
   [[nodiscard]] bool openToPlugin(std::string pluginId);
   void close();
+  // Closes the window for a widget editor while preserving the active section for its return.
+  void closeForWidgetEditor();
+  // Reopens the section saved by closeForWidgetEditor(), if any.
+  void reopenAfterWidgetEditor();
   [[nodiscard]] bool isOpen() const noexcept { return m_surface != nullptr && m_surface->isRunning(); }
   [[nodiscard]] wl_surface* wlSurface() const noexcept {
     return m_surface != nullptr ? m_surface->wlSurface() : nullptr;
@@ -102,6 +114,16 @@ public:
   // Source for the bar widget gesture action picker.
   void setIpcService(IpcService* service) { m_ipcService = service; }
   void setClipboardService(ClipboardService* service) { m_clipboardService = service; }
+  // Backs plugin-store thumbnails; trimmed when the window closes.
+  void setAsyncTextureCache(AsyncTextureCache* cache) { m_asyncTextures = cache; }
+  void initializeDialogPresenter(
+      ColorPickerDialogPresenter& colorFallback, GlyphPickerDialogPresenter& glyphFallback,
+      FileDialogPresenter& fileFallback, ThumbnailService& thumbnails
+  );
+  void shutdownDialogPresenter();
+  [[nodiscard]] ColorPickerDialogPresenter* colorPickerDialogPresenter() noexcept;
+  [[nodiscard]] GlyphPickerDialogPresenter* glyphPickerDialogPresenter() noexcept;
+  [[nodiscard]] FileDialogPresenter* fileDialogPresenter() noexcept;
 
   void onSecondTick();
   void onIdleLiveStatusChanged();
@@ -112,6 +134,7 @@ public:
 
 private:
   void destroyWindow();
+  [[nodiscard]] bool shouldUseModalDialogs() const noexcept;
   void prepareFrame(bool needsUpdate, bool needsLayout);
   void buildScene(std::uint32_t width, std::uint32_t height);
   void rebuildSettingsContent();
@@ -143,6 +166,7 @@ private:
   void requestSceneRebuild();
   void
   requestContentRebuild(bool refreshRegistry = false, bool refreshFilterRow = false, bool rebuildEditorSheet = false);
+  void scheduleDeferredRebuild();
   void markPluginListDirty();
   void refreshPluginListIfNeeded();
   void maybeOpenPendingEditor();
@@ -185,6 +209,8 @@ private:
   void setSettingOverrides(std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>> overrides);
   void clearSettingOverride(std::vector<std::string> path);
   void clearSettingOverrides(std::vector<std::vector<std::string>> paths);
+  // Reverts a bar lane to the config file, including the capsule groups that lane holds.
+  void resetBarLane(std::vector<std::string> lanePath);
   void renameWidgetInstance(
       std::string oldName, std::string newName,
       std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>> referenceOverrides
@@ -219,6 +245,7 @@ private:
   CalendarService* m_calendarService = nullptr;
   ClipboardService* m_clipboardService = nullptr;
   IpcService* m_ipcService = nullptr;
+  AsyncTextureCache* m_asyncTextures = nullptr;
   Label* m_idleLiveStatusLabel = nullptr;
   std::vector<Label*> m_sessionActionSummaryLabels;
   std::shared_ptr<std::vector<SessionPanelActionConfig>> m_sessionActionsEditState;
@@ -238,15 +265,19 @@ private:
   RovingListNavHost* m_sidebarNav = nullptr;
   std::unique_ptr<ContextMenuPopup> m_actionsMenuPopup;
   std::unique_ptr<settings::WidgetAddPopup> m_widgetAddPopup;
-  std::unique_ptr<settings::ConfigExportDialogPopup> m_configExportDialogPopup;
+  std::unique_ptr<settings::ConfigExportDialogModal> m_configExportDialogModal;
   std::unique_ptr<settings::SearchPickerPopup> m_searchPickerPopup;
-  std::unique_ptr<settings::SettingsSheetPopup> m_editorSheetPopup;
+  InputDispatcher m_inputDispatcher;
+  settings::SettingsModalHost m_modalHost;
+  std::unique_ptr<settings::SettingsDialogPresenter> m_dialogPresenter;
+  std::unique_ptr<settings::SettingsSheetModal> m_editorSheetModal;
   std::unique_ptr<settings::SettingsControlFactory> m_editorSheetFactory;
   std::vector<std::string> m_editorSheetListPath;
-  InputDispatcher m_inputDispatcher;
   std::unique_ptr<SelectDropdownPopup> m_selectPopup;
   bool m_pointerInside = false;
   wl_output* m_output = nullptr;
+  std::uint32_t m_minWidthHint = 0;
+  std::uint32_t m_minHeightHint = 0;
 
   std::uint32_t m_lastSceneWidth = 0;
   std::uint32_t m_lastSceneHeight = 0;
@@ -257,6 +288,11 @@ private:
   bool m_contentRebuildRequested = false;
   bool m_settingsRegistryRefreshRequested = false;
   bool m_filterRowRefreshRequested = false;
+  bool m_deferredRebuildQueued = false;
+  bool m_deferredSceneRebuild = false;
+  bool m_deferredRefreshRegistry = false;
+  bool m_deferredRefreshFilterRow = false;
+  bool m_deferredRebuildEditorSheet = false;
   bool m_focusSearchOnRebuild = false;
   Input* m_settingsSearchInput = nullptr;
   bool m_scrollToPendingContentTarget = false;
@@ -266,14 +302,10 @@ private:
   Node* m_pendingContentScrollTarget = nullptr;
   std::string m_searchQuery;
   Timer m_searchDebounceTimer;
-  // Set by openToBarWidget (e.g. middle-click on a bar widget) / openToPlugin; consumed once the
-  // window holds keyboard focus so the sheet's grab popup gets a serial the compositor accepts.
+  // Set by openToBarWidget (e.g. middle-click on a bar widget) / openToPlugin and consumed after
+  // the Settings scene is available so the requested editor can be mounted into it.
   std::string m_pendingOpenWidgetInspectorName;
   std::string m_pendingOpenPluginSettingsId;
-  int m_pendingEditorOpenFrames = 0;
-  // When the editor sheet is opened programmatically (bar middle-click) there is no grab-valid serial,
-  // so open it without an xdg_popup grab. Consumed by openBarWidgetEditorSheet.
-  bool m_pendingEditorSheetNoGrab = false;
   std::string m_editingWidgetName;
   std::string m_editingCapsuleGroupId;
   std::vector<std::string> m_selectedLaneWidgets;
@@ -300,6 +332,7 @@ private:
   std::string m_selectedBarName;
   std::string m_selectedMonitorOverride;
   std::string m_selectedSection;
+  std::string m_reopenAfterWidgetEditorSection;
   std::string m_statusMessage;
   std::string m_pendingResetPageScope;
   std::vector<std::vector<std::string>> m_pendingResetSettingPaths;

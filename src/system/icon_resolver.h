@@ -29,6 +29,7 @@ public:
 
   static bool checkThemeChanged();
   static std::uint64_t themeGeneration();
+  static std::string activeThemeName();
 
 private:
   void rebuild();

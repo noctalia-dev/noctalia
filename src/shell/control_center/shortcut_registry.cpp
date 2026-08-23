@@ -5,7 +5,7 @@
 #include "dbus/bluetooth/bluetooth_service.h"
 #include "dbus/mpris/mpris_service.h"
 #include "dbus/network/inetwork_service.h"
-#include "dbus/network/network_glyphs.h"
+#include "dbus/network/network_display.h"
 #include "dbus/power/power_profiles_service.h"
 #include "i18n/i18n.h"
 #include "idle/idle_inhibitor.h"
@@ -14,9 +14,9 @@
 #include "scripting/plugin_manifest.h"
 #include "scripting/plugin_registry.h"
 #include "scripting/plugin_runtime_context.h"
-#include "shell/bar/widgets/keyboard_layout_widget.h"
 #include "shell/control_center/plugin_shortcut.h"
 #include "shell/control_center/shortcut_services.h"
+#include "shell/keyboard_layout_label.h"
 #include "shell/panel/panel_manager.h"
 #include "system/gamma_service.h"
 #include "system/weather_service.h"
@@ -27,30 +27,10 @@
 #include <deque>
 #include <format>
 #include <optional>
+#include <ranges>
 #include <vector>
 
 namespace {
-
-  constexpr std::array<ShortcutRegistry::CatalogEntry, 17> kShortcutCatalog{{
-      {"wifi", "control-center.shortcuts.wifi"},
-      {"bluetooth", "control-center.shortcuts.bluetooth"},
-      {"nightlight", "control-center.shortcuts.nightlight"},
-      {"notification", "control-center.shortcuts.notification"},
-      {"dark_mode", "control-center.shortcuts.dark-mode.dark"},
-      {"caffeine", "control-center.shortcuts.caffeine"},
-      {"audio", "control-center.shortcuts.audio"},
-      {"mic_mute", "control-center.shortcuts.mic-mute"},
-      {"power_profile", "control-center.shortcuts.power-profile"},
-      {"media", "control-center.shortcuts.media"},
-      {"weather", "control-center.shortcuts.weather"},
-      {"system", "control-center.shortcuts.system"},
-      {"screen_time", "control-center.shortcuts.screen-time"},
-      {"keyboard_layout", "control-center.shortcuts.keyboard-layout"},
-      {"wallpaper", "control-center.shortcuts.wallpaper"},
-      {"session", "control-center.shortcuts.session"},
-      {"clipboard", "control-center.shortcuts.clipboard"},
-  }};
-
   void openTab(std::string_view tab) {
     PanelManager::instance().togglePanel("control-center", PanelOpenRequest{.context = tab});
   }
@@ -77,7 +57,7 @@ namespace {
       if (m_svc == nullptr) {
         return "wifi-question";
       }
-      return network_glyphs::wifiGlyphForState(m_svc->state());
+      return network_display::wifiGlyphForState(m_svc->state());
     }
     bool isToggle() const override { return true; }
     bool active() const override { return m_svc != nullptr && m_svc->state().wirelessEnabled; }
@@ -198,10 +178,8 @@ namespace {
       }
       return defaultLabel();
     }
-    std::string_view iconOn() const override {
-      return m_svc != nullptr && m_svc->configuredMode() == ThemeMode::Auto ? "theme-mode" : "weather-moon-stars";
-    }
-    std::string_view iconOff() const override { return "weather-sun"; }
+    std::string_view iconOn() const override { return "theme-mode"; }
+    std::string_view iconOff() const override { return "theme-mode"; }
     bool isToggle() const override { return true; }
     bool active() const override { return m_svc != nullptr && m_svc->configuredMode() != ThemeMode::Light; }
     void onClick() override {
@@ -289,48 +267,6 @@ namespace {
     PipeWireService* m_svc;
   };
 
-  const WidgetConfig* findKeyboardLayoutWidgetConfig(const Config& config) {
-    auto resolve = [&config](const std::string& name) -> const WidgetConfig* {
-      const auto it = config.widgets.find(name);
-      if (it == config.widgets.end() || it->second.type != "keyboard_layout") {
-        return nullptr;
-      }
-      return &it->second;
-    };
-
-    auto search = [&resolve](const std::vector<std::string>& widgets) -> const WidgetConfig* {
-      for (const std::string& name : widgets) {
-        if (const WidgetConfig* wc = resolve(name); wc != nullptr) {
-          return wc;
-        }
-      }
-      return nullptr;
-    };
-
-    for (const BarConfig& bar : config.bars) {
-      if (const WidgetConfig* wc = search(bar.startWidgets); wc != nullptr) {
-        return wc;
-      }
-      if (const WidgetConfig* wc = search(bar.centerWidgets); wc != nullptr) {
-        return wc;
-      }
-      if (const WidgetConfig* wc = search(bar.endWidgets); wc != nullptr) {
-        return wc;
-      }
-    }
-
-    return resolve("keyboard_layout");
-  }
-
-  KeyboardLayoutWidget::DisplayMode keyboardLayoutDisplayMode(const ConfigService* config) {
-    if (config == nullptr) {
-      return KeyboardLayoutWidget::DisplayMode::Short;
-    }
-    const WidgetConfig* wc = findKeyboardLayoutWidgetConfig(config->config());
-    const std::string display = wc != nullptr ? wc->getString("display", "short") : std::string("short");
-    return KeyboardLayoutWidget::parseDisplayMode(display);
-  }
-
   class PowerProfileShortcut final : public Shortcut {
   public:
     explicit PowerProfileShortcut(PowerProfilesService* svc) : m_svc(svc) {}
@@ -403,7 +339,13 @@ namespace {
     std::string_view id() const override { return "keyboard_layout"; }
     std::string defaultLabel() const override { return i18n::tr("control-center.shortcuts.keyboard-layout"); }
     std::string displayLabel() const override {
-      return KeyboardLayoutWidget::formatLayoutLabel(resolvedLayoutName(), keyboardLayoutDisplayMode(m_config));
+      const std::string layoutName = resolvedLayoutName();
+      if (m_config == nullptr) {
+        return formatKeyboardLayoutLabel(layoutName, KeyboardLayoutDisplayMode::Short);
+      }
+      return resolveKeyboardLayoutLabel(
+          layoutName, KeyboardLayoutDisplayMode::Short, m_config->config().shell.keyboardLayout.customLabels
+      );
     }
     std::string_view iconOn() const override { return "keyboard"; }
     std::string_view iconOff() const override { return "keyboard"; }
@@ -509,6 +451,108 @@ namespace {
     void onClick() override { PanelManager::instance().togglePanel("clipboard"); }
   };
 
+  using ShortcutCreator = std::unique_ptr<Shortcut> (*)(const ShortcutServices& services);
+  using ShortcutAvailability = bool (*)(const Config& config);
+
+  struct BuiltinShortcutDescriptor {
+    std::string_view type;
+    std::string_view labelKey;
+    ShortcutAvailability isAvailable = nullptr;
+    ShortcutCreator create = nullptr;
+  };
+
+  template <typename T, auto... ServiceMembers>
+  constexpr BuiltinShortcutDescriptor builtinShortcut(BuiltinShortcutDescriptor descriptor) {
+    descriptor.create = [](const ShortcutServices& services) -> std::unique_ptr<Shortcut> {
+      return std::make_unique<T>((services.*ServiceMembers)...);
+    };
+    return descriptor;
+  }
+
+  constexpr auto kBuiltinShortcuts = std::to_array<BuiltinShortcutDescriptor>({
+      builtinShortcut<WifiShortcut, &ShortcutServices::network>({
+          .type = "wifi",
+          .labelKey = "control-center.shortcuts.wifi",
+      }),
+      builtinShortcut<BluetoothShortcut, &ShortcutServices::bluetooth>({
+          .type = "bluetooth",
+          .labelKey = "control-center.shortcuts.bluetooth",
+      }),
+      builtinShortcut<NightlightShortcut, &ShortcutServices::nightLight, &ShortcutServices::platform>({
+          .type = "nightlight",
+          .labelKey = "control-center.shortcuts.nightlight",
+      }),
+      builtinShortcut<NotificationShortcut, &ShortcutServices::notifications>({
+          .type = "notification",
+          .labelKey = "control-center.shortcuts.notification",
+      }),
+      builtinShortcut<DarkModeShortcut, &ShortcutServices::theme>({
+          .type = "dark_mode",
+          .labelKey = "control-center.shortcuts.dark-mode.dark",
+      }),
+      builtinShortcut<IdleInhibitorShortcut, &ShortcutServices::idleInhibitor>({
+          .type = "caffeine",
+          .labelKey = "control-center.shortcuts.caffeine",
+      }),
+      builtinShortcut<AudioShortcut, &ShortcutServices::audio>({
+          .type = "audio",
+          .labelKey = "control-center.shortcuts.audio",
+      }),
+      builtinShortcut<MicMuteShortcut, &ShortcutServices::audio>({
+          .type = "mic_mute",
+          .labelKey = "control-center.shortcuts.mic-mute",
+      }),
+      builtinShortcut<PowerProfileShortcut, &ShortcutServices::powerProfiles>({
+          .type = "power_profile",
+          .labelKey = "control-center.shortcuts.power-profile",
+      }),
+      builtinShortcut<MediaShortcut, &ShortcutServices::mpris>({
+          .type = "media",
+          .labelKey = "control-center.shortcuts.media",
+      }),
+      builtinShortcut<WeatherShortcut, &ShortcutServices::weather>({
+          .type = "weather",
+          .labelKey = "control-center.shortcuts.weather",
+          .isAvailable = [](const Config& config) { return config.weather.enabled; },
+      }),
+      builtinShortcut<SystemShortcut>({
+          .type = "system",
+          .labelKey = "control-center.shortcuts.system",
+          .isAvailable = [](const Config& config) { return config.system.monitor.enabled; },
+      }),
+      builtinShortcut<ScreenTimeShortcut>({
+          .type = "screen_time",
+          .labelKey = "control-center.shortcuts.screen-time",
+          .isAvailable = [](const Config& config) { return config.shell.screenTimeEnabled; },
+      }),
+      builtinShortcut<KeyboardLayoutShortcut, &ShortcutServices::platform, &ShortcutServices::config>({
+          .type = "keyboard_layout",
+          .labelKey = "control-center.shortcuts.keyboard-layout",
+      }),
+      builtinShortcut<WallpaperShortcut>({
+          .type = "wallpaper",
+          .labelKey = "control-center.shortcuts.wallpaper",
+      }),
+      builtinShortcut<SessionShortcut>({
+          .type = "session",
+          .labelKey = "control-center.shortcuts.session",
+      }),
+      builtinShortcut<ClipboardShortcut>({
+          .type = "clipboard",
+          .labelKey = "control-center.shortcuts.clipboard",
+          .isAvailable = [](const Config& config) { return config.shell.clipboardEnabled; },
+      }),
+  });
+
+  const BuiltinShortcutDescriptor* findBuiltinShortcut(std::string_view type) {
+    for (const auto& shortcut : kBuiltinShortcuts) {
+      if (shortcut.type == type) {
+        return &shortcut;
+      }
+    }
+    return nullptr;
+  }
+
 } // namespace
 
 std::span<const ShortcutRegistry::CatalogEntry> ShortcutRegistry::catalog() {
@@ -516,7 +560,11 @@ std::span<const ShortcutRegistry::CatalogEntry> ShortcutRegistry::catalog() {
   // strings are held in a stable static deque so the CatalogEntry views stay valid.
   static std::deque<std::string> storage;
   static const std::vector<CatalogEntry> combined = [] {
-    std::vector<CatalogEntry> result(kShortcutCatalog.begin(), kShortcutCatalog.end());
+    auto result = kBuiltinShortcuts
+        | std::views::transform([](const BuiltinShortcutDescriptor& shortcut) {
+                    return CatalogEntry{.type = shortcut.type, .labelKey = shortcut.labelKey};
+                  })
+        | std::ranges::to<std::vector>();
     scripting::PluginRegistry::instance().ensureScanned();
     for (const auto& entry :
          scripting::PluginRegistry::instance().entriesOfKind(scripting::PluginEntryKind::Shortcut)) {
@@ -532,15 +580,8 @@ std::span<const ShortcutRegistry::CatalogEntry> ShortcutRegistry::catalog() {
 }
 
 bool ShortcutRegistry::isAvailable(std::string_view type, const Config& config) {
-  if (type == "weather")
-    return config.weather.enabled;
-  if (type == "system")
-    return config.system.monitor.enabled;
-  if (type == "screen_time")
-    return config.shell.screenTimeEnabled;
-  if (type == "clipboard")
-    return config.shell.clipboardEnabled;
-  return true;
+  const auto* shortcut = findBuiltinShortcut(type);
+  return shortcut == nullptr || shortcut->isAvailable == nullptr || shortcut->isAvailable(config);
 }
 
 std::unique_ptr<Shortcut> ShortcutRegistry::create(std::string_view type, const ShortcutServices& s) {
@@ -562,6 +603,7 @@ std::unique_ptr<Shortcut> ShortcutRegistry::create(std::string_view type, const 
     return std::make_unique<PluginShortcut>(scripting::PluginRuntimeContext{
         .entryId = entry->fullId(),
         .sourcePath = entry->sourcePath,
+        .pluginDir = entry->pluginDir,
         .settings = std::move(seeded),
         .scriptApi = *s.scriptApi,
         .fileWatcher = s.fileWatcher,
@@ -570,42 +612,9 @@ std::unique_ptr<Shortcut> ShortcutRegistry::create(std::string_view type, const 
         .platform = s.platform,
     });
   }
-  if (type == "wifi")
-    return std::make_unique<WifiShortcut>(s.network);
-  if (type == "bluetooth")
-    return std::make_unique<BluetoothShortcut>(s.bluetooth);
-  if (type == "nightlight")
-    return std::make_unique<NightlightShortcut>(s.nightLight, s.platform);
-  if (type == "notification")
-    return std::make_unique<NotificationShortcut>(s.notifications);
-  if (type == "dark_mode")
-    return std::make_unique<DarkModeShortcut>(s.theme);
-  if (type == "caffeine")
-    return std::make_unique<IdleInhibitorShortcut>(s.idleInhibitor);
-  if (type == "audio")
-    return std::make_unique<AudioShortcut>(s.audio);
-  if (type == "mic_mute")
-    return std::make_unique<MicMuteShortcut>(s.audio);
-  if (type == "power_profile")
-    return std::make_unique<PowerProfileShortcut>(s.powerProfiles);
-  if (type == "media")
-    return std::make_unique<MediaShortcut>(s.mpris);
-  if (s.config != nullptr && !isAvailable(type, s.config->config())) {
+  const auto* shortcut = findBuiltinShortcut(type);
+  if (shortcut == nullptr || (s.config != nullptr && !isAvailable(type, s.config->config()))) {
     return nullptr;
   }
-  if (type == "weather")
-    return std::make_unique<WeatherShortcut>(s.weather);
-  if (type == "system")
-    return std::make_unique<SystemShortcut>();
-  if (type == "screen_time")
-    return std::make_unique<ScreenTimeShortcut>();
-  if (type == "keyboard_layout")
-    return std::make_unique<KeyboardLayoutShortcut>(s.platform, s.config);
-  if (type == "wallpaper")
-    return std::make_unique<WallpaperShortcut>();
-  if (type == "session")
-    return std::make_unique<SessionShortcut>();
-  if (type == "clipboard")
-    return std::make_unique<ClipboardShortcut>();
-  return nullptr;
+  return shortcut->create(s);
 }

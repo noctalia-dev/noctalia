@@ -78,9 +78,11 @@ KdeNotificationClient::KdeNotificationClient(SessionBus& bus, NotificationManage
     throw;
   }
 
-  m_manager.setActionInvokeCallback([this](uint32_t id, const std::string& actionKey) {
-    proxyInvokeAction(id, actionKey);
-  });
+  m_manager.setActionInvokeCallback(
+      [this](uint32_t id, const std::string& actionKey, const std::string& /*activationToken*/) {
+        proxyInvokeAction(id, actionKey);
+      }
+  );
   m_manager.setCloseCallback([this](uint32_t id, CloseReason /*reason*/) {
     if (m_suppressPlasmaClose) {
       return;
