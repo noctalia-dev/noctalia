@@ -555,6 +555,7 @@ namespace {
   });
 
   constexpr auto kScreenShareNamePrefixes = std::to_array<std::string_view>({
+      "xdpw-stream",
       "xdph-streaming",
       "gsr-default",
       "game capture",
