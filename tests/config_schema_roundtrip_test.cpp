@@ -420,6 +420,10 @@ location = "https://example.invalid/bad"
     c.controlCenter.shortcuts = {{"wifi"}, {"bluetooth"}};
     c.calendar.enabled = true;
     c.calendar.refreshMinutes = 30;
+    c.calendar.reminders.enabled = false;
+    c.calendar.reminders.useEventReminders = false;
+    c.calendar.reminders.defaultLeadMinutes = 25;
+    c.calendar.reminders.allDayDigestTime = "07:45";
     c.calendar.accounts = {
         {"acc1", "google", "Work", "#ff0000", "", "", "", {}},
         {"acc2",
@@ -566,6 +570,16 @@ location = "https://example.invalid/bad"
   }
 
   void checkClamps() {
+    // Calendar reminder lead is capped at a day ahead.
+    {
+      auto t = toml::parse("default_lead_minutes = 99999");
+      CalendarConfig::Reminders r{};
+      Diagnostics d;
+      readInto(t, r, calendarRemindersSchema(), "calendar.reminders", d);
+      if (r.defaultLeadMinutes != 1440) {
+        fail("calendar.reminders.default_lead_minutes clamp: expected 1440");
+      }
+    }
     // sound_volume above the max clamps to 1.0.
     {
       auto t = toml::parse("sound_volume = 2.5");
