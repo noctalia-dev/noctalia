@@ -332,7 +332,7 @@ std::unique_ptr<Widget> WidgetFactory::create(
           }},
       {"tray", [](const WidgetFactory& f, const BuiltinWidgetContext& context) {
             return createWidget<TrayWidget>(
-                context.contentScale, f.m_configService, f.m_tray,
+                context.contentScale, f.m_platform, f.m_configService, f.m_tray,
                 trayWidgetDefinition().resolve(
                     context.config, context.settingContext,
                     TrayWidgetDefinitionContext{

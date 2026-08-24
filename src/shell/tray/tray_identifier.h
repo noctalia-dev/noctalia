@@ -168,6 +168,33 @@ namespace tray {
     return candidates;
   }
 
+  // Window matching orders identity-strong fields first: descriptive fields (title, tooltip)
+  // can collide with an unrelated app's window. Lowercased because compositor lookups compare
+  // against a lowercased app id verbatim.
+  [[nodiscard]] inline std::vector<std::string> windowMatchCandidates(const TrayItemInfo& item) {
+    std::vector<std::string> candidates;
+    appendIdentifierVariants(candidates, item.id);
+    appendIdentifierVariants(candidates, item.busName);
+    appendIdentifierVariants(candidates, item.processName);
+    appendIdentifierVariants(candidates, item.itemName);
+    appendIdentifierVariants(candidates, item.objectPath);
+    appendIdentifierVariants(candidates, item.iconName);
+    appendIdentifierVariants(candidates, item.overlayIconName);
+    appendIdentifierVariants(candidates, item.attentionIconName);
+    appendIdentifierVariants(candidates, item.title);
+    appendIdentifierVariants(candidates, item.statusNotifierTitle);
+    appendIdentifierVariants(candidates, item.statusNotifierDescription);
+
+    std::vector<std::string> lowered;
+    for (const auto& candidate : candidates) {
+      auto lower = StringUtils::toLower(candidate);
+      if (!std::ranges::contains(lowered, lower)) {
+        lowered.push_back(std::move(lower));
+      }
+    }
+    return lowered;
+  }
+
   inline bool tokenMatchesItem(std::string_view token, const TrayItemInfo& item) {
     if (looksGenericStatusItemName(token) || isTransientUniqueIdentifier(token)) {
       return false;

@@ -36,9 +36,20 @@ struct TrayItemInfo {
   std::int32_t attentionWidth = 0;
   std::int32_t attentionHeight = 0;
   bool needsAttention = false;
-
+  bool itemIsMenu = false;
   bool operator==(const TrayItemInfo&) const = default;
 };
+
+[[nodiscard]] inline bool trayItemHasDBusMenu(const TrayItemInfo& item) {
+  return !item.menuObjectPath.empty() && item.menuObjectPath != "/NO_DBUSMENU";
+}
+
+// SNI spec: ItemIsMenu declares the context menu as the item's only interaction, so left
+// click opens it — but only when a real DBusMenu is exported; otherwise the flag is a lie
+// and Activate is the only useful behavior left.
+[[nodiscard]] inline bool trayItemPrefersMenu(const TrayItemInfo& item) {
+  return item.itemIsMenu && trayItemHasDBusMenu(item);
+}
 
 struct TrayMenuEntry {
   std::int32_t id = 0;

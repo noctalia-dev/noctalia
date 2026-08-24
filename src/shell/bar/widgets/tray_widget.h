@@ -2,6 +2,7 @@
 
 #include "dbus/tray/tray_service.h"
 #include "shell/bar/widget.h"
+#include "shell/tray/tray_window_match.h"
 #include "system/icon_resolver.h"
 #include "ui/palette.h"
 #include "ui/signal.h"
@@ -14,6 +15,7 @@
 #include <unordered_map>
 #include <vector>
 
+class CompositorPlatform;
 class ConfigService;
 class Flex;
 class Image;
@@ -35,12 +37,13 @@ public:
     float inlineEntryGap = Style::spaceXs;
     bool matchAdjacentSpacing = false;
     std::optional<float> customItemSize;
+    bool focusExistingWindow = true;
     // Read by TrayDrawerPanel, not by TrayWidget: they live here so the tray widget definition owns their defaults.
     double drawerItemSize = Style::baseGlyphSize;
     bool detachedPanel = false;
   };
 
-  TrayWidget(ConfigService& config, TrayService* tray, Options options);
+  TrayWidget(CompositorPlatform& platform, ConfigService& config, TrayService* tray, Options options);
   ~TrayWidget() override;
 
   void setHoverOverlayParent(Node* node) noexcept { m_hoverOverlayParent = node; }
@@ -65,6 +68,8 @@ private:
   [[nodiscard]] std::string iconForItem(const TrayItemInfo& item) const;
   [[nodiscard]] bool isPinnedItem(const TrayItemInfo& item) const;
   [[nodiscard]] bool isHiddenItem(const TrayItemInfo& item) const;
+  [[nodiscard]] tray::TrayClickDecision decideTrayClickForItem(const std::string& itemId) const;
+  void openItemMenu(const std::string& itemId, std::int32_t x, std::int32_t y);
   [[nodiscard]] std::string drawerChevronGlyph(bool panelOpen) const;
   // Bar section gap is between capsule shells; inline tray icons share one shell, so add the
   // lateral inset that adjacent single-icon capsules would contribute between their icons.
@@ -74,6 +79,7 @@ private:
   void clearHoverOverlays();
   [[nodiscard]] std::optional<ColorSpec> currentAppIconColorizeTint() const;
 
+  CompositorPlatform& m_platform;
   ConfigService& m_config;
   TrayService* m_tray = nullptr;
   Flex* m_container = nullptr;
@@ -101,6 +107,7 @@ private:
   float m_inlineEntryGap = Style::spaceXs;
   bool m_matchAdjacentSpacing = false;
   std::optional<float> m_customItemSize;
+  bool m_focusExistingWindow = true;
   bool m_appIconColorizeDirty = false;
   InputArea* m_drawerTrigger = nullptr;
   Glyph* m_drawerChevron = nullptr;

@@ -7,6 +7,7 @@
 #include "core/log.h"
 #include "ipc/ipc_service.h"
 #include "render/scene/node.h"
+#include "shell/common/window_activation.h"
 #include "shell/dock/dock_context_menu.h"
 #include "shell/dock/dock_geometry.h"
 #include "shell/dock/dock_instance.h"
@@ -102,53 +103,6 @@ namespace {
     return signature;
   }
 
-  [[nodiscard]] bool canActivateWindow(const ToplevelInfo& window) {
-    return window.handle != nullptr
-        || !window.identifier.empty()
-        || (compositors::isKde() && (!window.title.empty() || !window.appId.empty()));
-  }
-
-  [[nodiscard]] const ToplevelInfo* newestActivatableWindow(const std::vector<ToplevelInfo>& windows) {
-    const ToplevelInfo* best = nullptr;
-    for (const auto& window : windows) {
-      if (!canActivateWindow(window)) {
-        continue;
-      }
-      best = &window;
-    }
-    return best;
-  }
-
-  [[nodiscard]] bool matchesActiveWindow(
-      const ToplevelInfo& window, const ActiveToplevel& active, std::string_view focusedCompositorWindowId,
-      const std::vector<ToplevelInfo>& windows
-  ) {
-    if (active.handle != nullptr && window.handle == active.handle) {
-      return true;
-    }
-
-    // Exact-identity ext toplevels have no wlr handle; match them by the compositor's focused
-    // window id, since `active.identifier` is an appId+title synthetic key for wlr toplevels.
-    if (window.exactIdentity
-        && !window.identifier.empty()
-        && !focusedCompositorWindowId.empty()
-        && window.identifier == focusedCompositorWindowId) {
-      return true;
-    }
-
-    if (active.identifier.empty() || window.identifier.empty() || active.identifier != window.identifier) {
-      return false;
-    }
-
-    int count = 0;
-    for (const auto& w : windows) {
-      if (w.identifier == active.identifier && ++count > 1) {
-        return false;
-      }
-    }
-    return true;
-  }
-
   const ToplevelInfo* nextActivatableWindow(
       const std::vector<ToplevelInfo>& windows, const std::optional<ActiveToplevel>& active,
       std::string_view focusedCompositorWindowId, std::string_view preferredIdentifier
@@ -159,12 +113,12 @@ namespace {
 
     if (active.has_value()) {
       for (std::size_t i = 0; i < windows.size(); ++i) {
-        if (!matchesActiveWindow(windows[i], *active, focusedCompositorWindowId, windows)) {
+        if (!shell::matchesActiveWindow(windows[i], *active, focusedCompositorWindowId, windows)) {
           continue;
         }
         for (std::size_t offset = 1; offset <= windows.size(); ++offset) {
           const auto& candidate = windows[(i + offset) % windows.size()];
-          if (canActivateWindow(candidate)) {
+          if (shell::canActivateWindow(candidate)) {
             return &candidate;
           }
         }
@@ -174,14 +128,14 @@ namespace {
 
     if (!preferredIdentifier.empty()) {
       for (const auto& window : windows) {
-        if (window.identifier == preferredIdentifier && canActivateWindow(window)) {
+        if (window.identifier == preferredIdentifier && shell::canActivateWindow(window)) {
           return &window;
         }
       }
     }
 
     for (const auto& window : windows) {
-      if (canActivateWindow(window)) {
+      if (shell::canActivateWindow(window)) {
         return &window;
       }
     }
@@ -1123,14 +1077,14 @@ void Dock::tryFulfillPendingLaunchFocus() {
 
   auto windowsOnTarget =
       shell::dock::windowsForDockItem(*m_platform, pending.idLower, pending.wmClassLower, pending.targetOutput);
-  const ToplevelInfo* window = newestActivatableWindow(windowsOnTarget);
+  const ToplevelInfo* window = shell::lastActivatableWindow(windowsOnTarget);
   if (window == nullptr) {
     auto windows =
         shell::dock::windowsForDockItem(*m_platform, pending.idLower, pending.wmClassLower, pending.outputFilter);
     if (windows.empty() && pending.outputFilter != nullptr) {
       windows = shell::dock::windowsForDockItem(*m_platform, pending.idLower, pending.wmClassLower, nullptr);
     }
-    window = newestActivatableWindow(windows);
+    window = shell::lastActivatableWindow(windows);
     if (window == nullptr) {
       return;
     }
