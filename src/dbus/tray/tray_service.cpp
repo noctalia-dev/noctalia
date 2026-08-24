@@ -1725,40 +1725,6 @@ void TrayService::requestProcessNameForItem(const std::string& itemId, const std
   }
 }
 
-void TrayService::requestActivateCapabilityForItem(const std::string& itemId) {
-  const auto proxyIt = m_itemProxies.find(itemId);
-  if (proxyIt == m_itemProxies.end()) {
-    return;
-  }
-
-  try {
-    proxyIt->second->callMethodAsync("Introspect")
-        .onInterface("org.freedesktop.DBus.Introspectable")
-        .withTimeout(kItemPropertyTimeout)
-        .uponReplyInvoke([this, itemId](std::optional<sdbus::Error> error, std::string introspectionXml) {
-          if (error.has_value()) {
-            kLog.debug("tray introspect failed id={} err={}", itemId, error->what());
-            return;
-          }
-
-          auto itemIt = m_items.find(itemId);
-          if (itemIt == m_items.end()) {
-            return;
-          }
-
-          const bool hasActivate = sniActivateMethodPresent(introspectionXml);
-          if (itemIt->second.hasActivateMethod == hasActivate) {
-            return;
-          }
-          itemIt->second.hasActivateMethod = hasActivate;
-          kLog.debug("tray item id={} hasActivateMethod={}", itemId, hasActivate);
-          emitChanged();
-        });
-  } catch (const sdbus::Error& e) {
-    kLog.debug("tray introspect dispatch failed id={} err={}", itemId, e.what());
-  }
-}
-
 std::uint32_t TrayService::connectionPidForBusName(const std::string& busName) const {
   if (busName.empty() || m_dbusProxy == nullptr || !looks_like_dbus_name(busName)) {
     return 0;
@@ -1856,7 +1822,6 @@ void TrayService::registerOrRefreshItem(const std::string& busName, const std::s
           itemId, sdbus::createProxy(m_bus.connection(), sdbus::ServiceName{busName}, sdbus::ObjectPath{objectPath})
       );
       attachItemProxySignals(itemId, *proxyIt->second);
-      requestActivateCapabilityForItem(itemId);
     }
 
     notifyWatcherItemRegistered(itemId);
@@ -2015,7 +1980,6 @@ void TrayService::resolvePathOnlyItemProxy(const std::string& itemId) {
                     }
 
                     attachItemProxySignals(itemId, *proxyIt->second);
-                    requestActivateCapabilityForItem(itemId);
                     m_pathOnlyResolutionsInFlight.erase(itemId);
                     refreshItemMetadata(itemId);
                     emitChanged();

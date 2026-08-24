@@ -243,7 +243,7 @@ int main() {
   }
 
   // decideTrayClick: matched window is the active one by handle -> falls through to
-  // ActivateItem (finding 2: preserves each app's Activate-driven hide toggle).
+  // ActivateItem, preserving each app's Activate-driven hide toggle.
   {
     auto* sharedHandle = reinterpret_cast<zwlr_foreign_toplevel_handle_v1*>(0x2);
     const auto item = makeItem("someapp");
@@ -262,7 +262,7 @@ int main() {
   }
 
   // decideTrayClick: matched window is the active one by identifier -> falls through to
-  // ActivateItem (finding 2: preserves each app's Activate-driven hide toggle).
+  // ActivateItem, preserving each app's Activate-driven hide toggle.
   {
     const auto item = makeItem("otherapp");
     const auto window = makeWindow("shared-id", 1);
@@ -385,102 +385,38 @@ int main() {
     TEST_CHECK(decision.window->identifier == window.identifier);
   }
 
-  // sniActivateMethodPresent: Activate exported on the SNI interface itself -> true.
+  // trayItemPrefersMenu: ItemIsMenu with a real DBusMenu -> menu.
   {
-    const std::string xml = "<node><interface name=\"org.kde.StatusNotifierItem\">"
-                            "<method name=\"Activate\"><arg name=\"x\" type=\"i\"/></method>"
-                            "<method name=\"ContextMenu\"/></interface></node>";
-    TEST_CHECK(sniActivateMethodPresent(xml));
-  }
-
-  // sniActivateMethodPresent: nm-applet-shaped item — SecondaryActivate and the ayatana
-  // variant only, no Activate -> false.
-  {
-    const std::string xml = "<node><interface name=\"org.kde.StatusNotifierItem\">"
-                            "<method name=\"SecondaryActivate\"/>"
-                            "<method name=\"XAyatanaSecondaryActivate\"/>"
-                            "<method name=\"Scroll\"/></interface></node>";
-    TEST_CHECK(!sniActivateMethodPresent(xml));
-  }
-
-  // sniActivateMethodPresent: Activate on a different interface at the same path does not
-  // count for the SNI interface.
-  {
-    const std::string xml = "<node><interface name=\"org.kde.StatusNotifierItem\">"
-                            "<method name=\"ContextMenu\"/></interface>"
-                            "<interface name=\"org.freedesktop.Application\">"
-                            "<method name=\"Activate\"/></interface></node>";
-    TEST_CHECK(!sniActivateMethodPresent(xml));
-  }
-
-  // sniActivateMethodPresent: empty / SNI interface absent -> false.
-  {
-    TEST_CHECK(!sniActivateMethodPresent(""));
-    TEST_CHECK(!sniActivateMethodPresent("<node><interface name=\"org.other\"/></node>"));
-  }
-
-  // sniActivateMethodPresent: single-quoted attributes (GDBus-style XML) -> same results
-  // as double-quoted.
-  {
-    const std::string withActivate = "<node><interface name='org.kde.StatusNotifierItem'>"
-                                     "<method name='Activate'><arg name='x' type='i'/></method>"
-                                     "</interface></node>";
-    TEST_CHECK(sniActivateMethodPresent(withActivate));
-    const std::string withoutActivate = "<node><interface name='org.kde.StatusNotifierItem'>"
-                                        "<method name='SecondaryActivate'/>"
-                                        "</interface></node>";
-    TEST_CHECK(!sniActivateMethodPresent(withoutActivate));
-  }
-
-  // trayItemPrefersMenu: no Activate method + real DBusMenu -> menu, without ItemIsMenu.
-  {
-    auto item = makeItem("no-activate-with-menu");
-    item.hasActivateMethod = false;
+    auto item = makeItem("menu-only");
+    item.itemIsMenu = true;
     item.menuObjectPath = "/MenuBar";
     TEST_CHECK(trayItemPrefersMenu(item));
   }
 
-  // trayItemPrefersMenu: no Activate method but no menu either -> not menu.
+  // trayItemPrefersMenu: ItemIsMenu without a menu -> not menu.
   {
-    auto item = makeItem("no-activate-no-menu");
-    item.hasActivateMethod = false;
+    auto item = makeItem("menu-flag-no-menu");
+    item.itemIsMenu = true;
     TEST_CHECK(!trayItemPrefersMenu(item));
   }
 
-  // trayItemPrefersMenu: default item (Activate assumed present, not menu-only) -> not menu.
+  // trayItemPrefersMenu: regular item with a menu but no ItemIsMenu -> not menu; the menu
+  // stays on right click only.
   {
     auto item = makeItem("regular");
     item.menuObjectPath = "/MenuBar";
     TEST_CHECK(!trayItemPrefersMenu(item));
   }
 
-  // decideTrayClick: no Activate method + menu -> OpenMenu even when a window would match
-  // and even with the focus feature disabled.
+  // decideTrayClick: regular item with a menu and an unfocused matching window -> the menu
+  // must never open on left click; the window is focused.
   {
-    auto item = makeItem("no-activate-menu-app");
-    item.hasActivateMethod = false;
+    auto item = makeItem("windowed-app-with-menu");
     item.menuObjectPath = "/MenuBar";
-    const auto window = makeWindow("no-activate-window", 1);
-    bool lookupCalled = false;
-    const tray::WindowLookup lookup = [&](const std::string&) {
-      lookupCalled = true;
-      return std::vector<ToplevelInfo>{window};
-    };
-    const auto onDecision = tray::decideTrayClick(item, lookup, noRunningApps, std::nullopt, "", true);
-    TEST_CHECK(onDecision.action == tray::TrayClickAction::OpenMenu);
-    const auto offDecision = tray::decideTrayClick(item, lookup, noRunningApps, std::nullopt, "", false);
-    TEST_CHECK(offDecision.action == tray::TrayClickAction::OpenMenu);
-    TEST_CHECK(!lookupCalled);
-  }
-
-  // decideTrayClick: no Activate method, no menu, matching window, feature on -> FocusWindow.
-  {
-    auto item = makeItem("no-activate-windowed-app");
-    item.hasActivateMethod = false;
     auto* handle = reinterpret_cast<zwlr_foreign_toplevel_handle_v1*>(0x1);
-    const auto window = makeWindow("no-activate-windowed", 1, handle);
+    const auto window = makeWindow("windowed-app-window", 1, handle);
     const tray::WindowLookup lookup = [&](const std::string& candidate) {
-      if (candidate == "no-activate-windowed-app") {
+      if (candidate == "windowed-app-with-menu") {
         return std::vector<ToplevelInfo>{window};
       }
       return std::vector<ToplevelInfo>{};
@@ -488,5 +424,17 @@ int main() {
     const auto decision = tray::decideTrayClick(item, lookup, noRunningApps, std::nullopt, "", true);
     TEST_CHECK(decision.action == tray::TrayClickAction::FocusWindow);
     TEST_CHECK(decision.window.has_value());
+  }
+
+  // decideTrayClick: regular item with a menu but no matching window -> ActivateItem, never
+  // the menu.
+  {
+    auto item = makeItem("menu-but-no-window");
+    item.menuObjectPath = "/MenuBar";
+    const tray::WindowLookup lookup = [](const std::string&) { return std::vector<ToplevelInfo>{}; };
+    const auto onDecision = tray::decideTrayClick(item, lookup, noRunningApps, std::nullopt, "", true);
+    TEST_CHECK(onDecision.action == tray::TrayClickAction::ActivateItem);
+    const auto offDecision = tray::decideTrayClick(item, lookup, noRunningApps, std::nullopt, "", false);
+    TEST_CHECK(offDecision.action == tray::TrayClickAction::ActivateItem);
   }
 }

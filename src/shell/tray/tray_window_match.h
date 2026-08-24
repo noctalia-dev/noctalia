@@ -110,15 +110,16 @@ namespace tray {
     std::optional<ToplevelInfo> window;
   };
 
+  // Left click keeps each item's expected behavior: declared menu-only items open their
+  // menu, everything else gets Activate. With focus_existing_window on, an unfocused
+  // already-mapped window is focused instead of trusting Activate to do it — some items
+  // export no Activate at all, and some Electron apps reply OK without doing anything.
   // An already-focused window falls through to Activate so apps whose tray icon is an
   // Activate-driven show/hide toggle keep their hide half (upstream issue 3859).
   [[nodiscard]] inline TrayClickDecision decideTrayClick(
       const TrayItemInfo& item, const WindowLookup& lookup, const RunningAppIds& runningAppIds,
       const std::optional<ActiveToplevel>& active, std::string_view focusedCompositorWindowId, bool focusExistingWindow
   ) {
-    // Menu-only either declared (SNI ItemIsMenu) or structural (no Activate method exported,
-    // per introspection — the libappindicator/ayatana class). Requires a real exported
-    // DBusMenu, else left click would be a silent no-op.
     if (trayItemPrefersMenu(item)) {
       return {TrayClickAction::OpenMenu, std::nullopt};
     }
