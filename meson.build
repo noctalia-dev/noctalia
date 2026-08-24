@@ -430,6 +430,7 @@ _noctalia_sources = files(
   'src/calendar/calendar_cache.cpp',
   'src/calendar/calendar_credential_store.cpp',
   'src/calendar/calendar_discovery_state.cpp',
+  'src/calendar/calendar_reminder_monitor.cpp',
   'src/calendar/calendar_reminders.cpp',
   'src/calendar/calendar_service.cpp',
   'src/calendar/event_link.cpp',
