@@ -52,6 +52,9 @@ struct Notification {
   NotificationOrigin origin;
   NotificationDndPolicy dndPolicy = NotificationDndPolicy::Respect;
   bool transient = false;
+  // Opt-in for internal notifications that must survive being missed. External notifications are
+  // already kept; internal ones are toast-only unless they set this.
+  bool persistInHistory = false;
   std::string appName;
   std::string summary;
   std::string body;

@@ -75,14 +75,16 @@ namespace {
         && notification.body == body;
   }
 
-  bool shouldTrackHistory(NotificationOrigin origin, Urgency urgency, bool transient) noexcept {
-    return origin == NotificationOrigin::External && urgency != Urgency::Low && !transient;
+  bool shouldTrackHistory(NotificationOrigin origin, Urgency urgency, bool transient, bool persistInHistory) noexcept {
+    return (origin == NotificationOrigin::External || persistInHistory) && urgency != Urgency::Low && !transient;
   }
 
   bool shouldSaveNotificationToHistory(
       const std::vector<NotificationFilterConfig>& filters, const Notification& notification
   ) {
-    if (!shouldTrackHistory(notification.origin, notification.urgency, notification.transient)) {
+    if (!shouldTrackHistory(
+            notification.origin, notification.urgency, notification.transient, notification.persistInHistory
+        )) {
       return false;
     }
     const auto resolved = resolveNotificationFilter(
@@ -102,7 +104,10 @@ namespace {
   }
 
   bool shouldRetainHistoryEntry(const NotificationHistoryEntry& entry) noexcept {
-    return shouldTrackHistory(entry.notification.origin, entry.notification.urgency, entry.notification.transient)
+    return shouldTrackHistory(
+               entry.notification.origin, entry.notification.urgency, entry.notification.transient,
+               entry.notification.persistInHistory
+           )
         && entry.closeReason != CloseReason::Dismissed;
   }
 
@@ -223,6 +228,7 @@ uint32_t NotificationManager::addOrReplace(NotificationRequest request) {
   const NotificationOrigin origin = request.origin;
   NotificationDndPolicy dndPolicy = request.dndPolicy;
   const bool transient = request.transient;
+  const bool persistInHistory = request.persistInHistory;
   auto& actions = request.actions;
   auto& icon = request.icon;
   auto& imageData = request.imageData;
@@ -249,8 +255,9 @@ uint32_t NotificationManager::addOrReplace(NotificationRequest request) {
     );
   };
 
-  const ExternalNotificationDispatch dispatch =
-      evaluateExternalDispatch(origin, urgency, appName, category, desktopEntry, summary, body, transient);
+  const ExternalNotificationDispatch dispatch = evaluateExternalDispatch(
+      origin, urgency, appName, category, desktopEntry, summary, body, transient, persistInHistory
+  );
   if (dispatch.bypassDnd) {
     dndPolicy = NotificationDndPolicy::Bypass;
   }
@@ -294,6 +301,7 @@ uint32_t NotificationManager::addOrReplace(NotificationRequest request) {
 
       n.origin = origin;
       n.transient = transient;
+      n.persistInHistory = persistInHistory;
       n.appName = std::move(appName);
       n.dndPolicy = dndPolicy;
       n.summary = std::move(summary);
@@ -352,6 +360,7 @@ uint32_t NotificationManager::addOrReplace(NotificationRequest request) {
           .origin = origin,
           .dndPolicy = dndPolicy,
           .transient = transient,
+          .persistInHistory = persistInHistory,
           .appName = std::move(appName),
           .summary = std::move(summary),
           .body = std::move(body),
@@ -437,6 +446,10 @@ uint32_t NotificationManager::addInternal(
   );
 }
 
+void NotificationManager::setInternalActionCallback(ActionInvokeCallback callback) {
+  m_internalActionCallback = std::move(callback);
+}
+
 void NotificationManager::setActionInvokeCallback(ActionInvokeCallback callback) {
   m_actionInvokeCallback = std::move(callback);
 }
@@ -481,7 +494,12 @@ bool NotificationManager::invokeAction(
     return false;
   }
 
-  if (m_actionInvokeCallback) {
+  // Internal notifications have no D-Bus owner, so their actions are dispatched in-process instead.
+  if (notification->origin == NotificationOrigin::Internal) {
+    if (m_internalActionCallback) {
+      m_internalActionCallback(id, actionKey, activationToken);
+    }
+  } else if (m_actionInvokeCallback) {
     m_actionInvokeCallback(id, actionKey, activationToken);
   }
 
@@ -704,7 +722,8 @@ const std::vector<NotificationFilterConfig>& NotificationManager::filters() cons
 
 NotificationManager::ExternalNotificationDispatch NotificationManager::evaluateExternalDispatch(
     NotificationOrigin origin, Urgency urgency, std::string_view appName, const std::optional<std::string>& category,
-    const std::optional<std::string>& desktopEntry, std::string_view summary, std::string_view body, bool transient
+    const std::optional<std::string>& desktopEntry, std::string_view summary, std::string_view body, bool transient,
+    bool persistInHistory
 ) const {
   ExternalNotificationDispatch dispatch;
   const auto resolved = resolveNotificationFilter(
@@ -726,9 +745,11 @@ NotificationManager::ExternalNotificationDispatch NotificationManager::evaluateE
     return dispatch;
   }
   dispatch.showToast = resolved.showToast;
-  // Internal notifications are toast/sound only — filters never put them in history.
-  dispatch.saveHistory =
-      origin == NotificationOrigin::External && resolved.saveHistory && shouldTrackHistory(origin, urgency, transient);
+  // Internal notifications are toast/sound only unless they explicitly opt into history. Filters
+  // still apply either way, so a user can silence an opted-in source by app name.
+  dispatch.saveHistory = (origin == NotificationOrigin::External || persistInHistory)
+      && resolved.saveHistory
+      && shouldTrackHistory(origin, urgency, transient, persistInHistory);
   dispatch.playSound = resolved.playSound && dispatch.showToast;
   dispatch.bypassDnd = resolved.bypassDnd;
   dispatch.fullySuppress = !dispatch.showToast && !dispatch.saveHistory;
