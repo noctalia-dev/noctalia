@@ -2,15 +2,18 @@
 
 #include "calendar/event_link.h"
 #include "calendar/google_calendar_list.h"
+#include "calendar/google_reminders.h"
 #include "core/log.h"
 #include "net/http_client.h"
 #include "net/uri.h"
 #include "time/time_format.h"
 
 #include <charconv>
+#include <cstdint>
 #include <memory>
 #include <nlohmann/json.hpp>
 #include <optional>
+#include <vector>
 
 namespace calendar {
 
@@ -100,6 +103,9 @@ namespace calendar {
       if (items == j.end() || !items->is_array()) {
         return;
       }
+      // The events.list response carries this calendar's own defaults, so resolving reminders.useDefault
+      // needs no separate calendarList lookup and cannot go stale against one.
+      const std::vector<std::int32_t> calendarDefaults = detail::googleDefaultReminders(j);
       for (const auto& item : *items) {
         if (item.value("status", std::string{}) == "cancelled") {
           continue;
@@ -142,6 +148,7 @@ namespace calendar {
           event.end = event.start;
         }
         event.allDay = startAllDay;
+        event.reminderLeadSeconds = detail::googleEventReminders(item, calendarDefaults);
         out.push_back(std::move(event));
       }
     }
