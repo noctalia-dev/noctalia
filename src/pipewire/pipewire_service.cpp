@@ -1606,20 +1606,17 @@ void PipeWireService::rebuildState() {
     // SPA_DIRECTION_INPUT == 0, so `wantDir != 0` would wrongly exclude every Audio/Source; guard on the
     // media class being a device node instead (matches the isDeviceNode check used during route parsing).
     const bool isDeviceNode = nd->mediaClass == "Audio/Sink" || nd->mediaClass == "Audio/Source";
-    const DeviceRouteData* activeRoute = isDeviceNode ? activeAudioDeviceRoute(nd->routes, wantDir, -1) : nullptr;
     const DeviceData* device = nullptr;
     if (nd->deviceId != 0) {
       if (const auto devIt = m_devices.find(nd->deviceId); devIt != m_devices.end()) {
         device = &devIt->second;
-        if (activeRoute == nullptr && isDeviceNode) {
-          activeRoute = activeAudioDeviceRoute(device->routes, wantDir, nd->profileDevice);
-        }
       }
     }
-    const auto matchesDir = [&](const DeviceRouteData& r) { return r.direction == wantDir; };
-    const bool hasDirRoutes = std::ranges::any_of(nd->routes, matchesDir)
-        || (device != nullptr && std::ranges::any_of(device->routes, matchesDir));
-    node.available = activeRoute != nullptr || !hasDirRoutes;
+    static const std::vector<DeviceRouteData> noDeviceRoutes;
+    node.available = !isDeviceNode
+        || audioNodeRouteAvailable(
+            nd->routes, device != nullptr ? device->routes : noDeviceRoutes, wantDir, nd->profileDevice
+        );
 
     if (nd->mediaClass == "Audio/Sink") {
       node.isDefault = (nd->name == m_defaultSinkName);

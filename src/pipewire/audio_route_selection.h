@@ -11,3 +11,11 @@
 [[nodiscard]] const PipeWireService::DeviceRouteData* activeAudioDeviceRoute(
     const std::vector<PipeWireService::DeviceRouteData>& routes, std::uint32_t wantDirection, std::int32_t profileDevice
 );
+
+// Node-local routes are direction-wide. Card routes only affect a node when their device matches
+// card.profile.device; an explicitly unavailable matching route hides the node.
+[[nodiscard]] bool audioNodeRouteAvailable(
+    const std::vector<PipeWireService::DeviceRouteData>& nodeRoutes,
+    const std::vector<PipeWireService::DeviceRouteData>& deviceRoutes, std::uint32_t wantDirection,
+    std::int32_t profileDevice
+);

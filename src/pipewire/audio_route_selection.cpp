@@ -1,5 +1,7 @@
 #include "pipewire/audio_route_selection.h"
 
+#include <algorithm>
+
 namespace {
   [[nodiscard]] bool routeIsSelectable(
       const PipeWireService::DeviceRouteData& route, std::uint32_t wantDirection, std::int32_t profileDevice
@@ -35,4 +37,23 @@ const PipeWireService::DeviceRouteData* activeAudioDeviceRoute(
     }
   }
   return best;
+}
+
+bool audioNodeRouteAvailable(
+    const std::vector<PipeWireService::DeviceRouteData>& nodeRoutes,
+    const std::vector<PipeWireService::DeviceRouteData>& deviceRoutes, std::uint32_t wantDirection,
+    std::int32_t profileDevice
+) {
+  if (activeAudioDeviceRoute(nodeRoutes, wantDirection, -1) != nullptr
+      || activeAudioDeviceRoute(deviceRoutes, wantDirection, profileDevice) != nullptr) {
+    return true;
+  }
+
+  const auto matchesDirection = [wantDirection](const PipeWireService::DeviceRouteData& route) {
+    return route.direction == wantDirection;
+  };
+  const auto matchesDevice = [wantDirection, profileDevice](const PipeWireService::DeviceRouteData& route) {
+    return route.direction == wantDirection && (profileDevice < 0 || route.device == profileDevice);
+  };
+  return !std::ranges::any_of(nodeRoutes, matchesDirection) && !std::ranges::any_of(deviceRoutes, matchesDevice);
 }

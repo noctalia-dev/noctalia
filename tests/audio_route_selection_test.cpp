@@ -40,5 +40,21 @@ int main() {
     ok = false;
   }
 
+  const std::vector<Route> unrelatedDeviceRoutes = {
+      Route{.index = 2, .device = 1, .direction = SPA_DIRECTION_OUTPUT, .available = SPA_PARAM_AVAILABILITY_yes},
+  };
+  if (!audioNodeRouteAvailable({}, unrelatedDeviceRoutes, SPA_DIRECTION_OUTPUT, 0)) {
+    std::println(stderr, "audio_route_selection_test: an unrelated device route must not hide the node");
+    ok = false;
+  }
+
+  const std::vector<Route> unavailableMatchingRoutes = {
+      Route{.index = 3, .device = 0, .direction = SPA_DIRECTION_OUTPUT, .available = SPA_PARAM_AVAILABILITY_no},
+  };
+  if (audioNodeRouteAvailable({}, unavailableMatchingRoutes, SPA_DIRECTION_OUTPUT, 0)) {
+    std::println(stderr, "audio_route_selection_test: an unavailable matching device route must hide the node");
+    ok = false;
+  }
+
   return ok ? 0 : 1;
 }
