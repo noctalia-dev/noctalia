@@ -5,7 +5,6 @@
 #include <memory>
 #include <sdbus-c++/sdbus-c++.h>
 #include <string>
-#include <string_view>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -38,10 +37,6 @@ struct TrayItemInfo {
   std::int32_t attentionHeight = 0;
   bool needsAttention = false;
   bool itemIsMenu = false;
-  // Defaults true so an item behaves like today until introspection answers (or when it
-  // fails); only a completed introspection that lacks the method flips it off.
-  bool hasActivateMethod = true;
-
   bool operator==(const TrayItemInfo&) const = default;
 };
 
@@ -49,44 +44,11 @@ struct TrayItemInfo {
   return !item.menuObjectPath.empty() && item.menuObjectPath != "/NO_DBUSMENU";
 }
 
-// Introspection XML quote style differs by toolkit (GDBus can emit single-quoted
-// attributes, sdbus/Qt double-quoted), so probe both. Returns the position just past the
-// quoted value, or npos.
-[[nodiscard]] inline std::size_t
-findQuotedAttrEnd(std::string_view xml, std::string_view attrPrefix, std::string_view value) {
-  for (const char quote : {'"', '\''}) {
-    std::string needle{attrPrefix};
-    needle += quote;
-    needle += value;
-    needle += quote;
-    if (const auto pos = xml.find(needle); pos != std::string_view::npos) {
-      return pos + needle.size();
-    }
-  }
-  return std::string_view::npos;
-}
-
-// Scoped to the org.kde.StatusNotifierItem interface block so an Activate method on an
-// unrelated interface exported at the same path (e.g. org.freedesktop.Application) does
-// not count. The closing quote in the needle keeps SecondaryActivate/
-// XAyatanaSecondaryActivate from matching.
-[[nodiscard]] inline bool sniActivateMethodPresent(std::string_view introspectionXml) {
-  const auto blockStart = findQuotedAttrEnd(introspectionXml, "name=", "org.kde.StatusNotifierItem");
-  if (blockStart == std::string_view::npos) {
-    return false;
-  }
-  const auto blockEnd = introspectionXml.find("</interface>", blockStart);
-  const auto block = introspectionXml.substr(
-      blockStart, blockEnd == std::string_view::npos ? std::string_view::npos : blockEnd - blockStart
-  );
-  return findQuotedAttrEnd(block, "<method name=", "Activate") != std::string_view::npos;
-}
-
-// A left click cannot reach the app when the item is declared menu-only (ItemIsMenu) or
-// exports no Activate method at all (libappindicator/ayatana items such as nm-applet);
-// open the menu instead of dispatching a call that dies with UnknownMethod.
+// SNI spec: ItemIsMenu declares the context menu as the item's only interaction, so left
+// click opens it — but only when a real DBusMenu is exported; otherwise the flag is a lie
+// and Activate is the only useful behavior left.
 [[nodiscard]] inline bool trayItemPrefersMenu(const TrayItemInfo& item) {
-  return (item.itemIsMenu || !item.hasActivateMethod) && trayItemHasDBusMenu(item);
+  return item.itemIsMenu && trayItemHasDBusMenu(item);
 }
 
 struct TrayMenuEntry {
@@ -177,8 +139,6 @@ private:
   void attachItemProxySignals(const std::string& itemId, sdbus::IProxy& proxy);
   void resolvePathOnlyItemProxy(const std::string& itemId);
   void requestProcessNameForItem(const std::string& itemId, const std::string& busName);
-
-  void requestActivateCapabilityForItem(const std::string& itemId);
   [[nodiscard]] std::uint32_t connectionPidForBusName(const std::string& busName) const;
   void refreshItemMetadata(const std::string& itemId);
   void ensureMenuCache(const std::string& itemId, const std::string& busName, const std::string& menuPath);
