@@ -17,14 +17,6 @@ local function apply_theme()
                 inactive_border = surface,
             },
         },
-        decoration = {
-            shadow = {
-                color = shadow,
-            },
-            glow = {
-                color = shadow,
-            },
-        },
         group = {
             col = {
                 border_active = secondary,

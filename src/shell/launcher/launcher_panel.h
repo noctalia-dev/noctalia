@@ -47,7 +47,6 @@ public:
   void onIconThemeChanged() override;
 
   void clearUsage();
-  // Drops persisted usage data when sort-by-usage is off (including after config reload).
   void syncUsageTrackingState();
 
   // Invoked after a terminal close when the activation copied text and the provider

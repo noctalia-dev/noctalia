@@ -103,7 +103,12 @@ ScrollView::ScrollView() {
       return false;
     }
 
-    scrollBy(data.scrollDelta(m_scrollWheelStep));
+    const float delta = data.scrollDelta(m_scrollWheelStep);
+    if (data.axisSource == WL_POINTER_AXIS_SOURCE_FINGER) {
+      setScrollOffset(m_scrollOffset + delta);
+    } else {
+      scrollBy(delta);
+    }
     return true;
   });
   m_viewportArea = static_cast<InputArea*>(addChild(std::move(viewportArea)));

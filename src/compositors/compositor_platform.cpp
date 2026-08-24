@@ -23,6 +23,7 @@
 #include "compositors/triad/triad_runtime.h"
 #include "compositors/triad/triad_workspace_backend.h"
 #include "compositors/umbriel/umbriel_keyboard_backend.h"
+#include "compositors/umbriel/umbriel_output_backend.h"
 #include "compositors/umbriel/umbriel_runtime.h"
 #include "compositors/umbriel/umbriel_workspace_backend.h"
 #include "compositors/workspace_alert_service.h"
@@ -354,10 +355,15 @@ namespace {
           },
           true
       );
+    case compositors::CompositorKind::Umbriel:
+      return std::make_unique<LambdaOutputPowerBackend>(
+          [&runtime = runtimeRegistry.umbriel()](WaylandConnection& /*wayland*/, bool on) {
+            return compositors::umbriel::setOutputPower(runtime, on);
+          }
+      );
     case compositors::CompositorKind::Dwl:
     case compositors::CompositorKind::Labwc:
     case compositors::CompositorKind::Kde:
-    case compositors::CompositorKind::Umbriel:
     case compositors::CompositorKind::Unknown:
       return std::make_unique<LambdaOutputPowerBackend>(&setGenericOutputPower);
     }

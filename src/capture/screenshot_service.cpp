@@ -424,6 +424,14 @@ namespace {
     return targets;
   }
 
+  [[nodiscard]] int scaleLogicalFloor(int logical, double scale) {
+    return static_cast<int>(std::floor(static_cast<double>(logical) * scale));
+  }
+
+  [[nodiscard]] int scaleLogicalCeil(int logical, double scale) {
+    return static_cast<int>(std::ceil(static_cast<double>(logical) * scale));
+  }
+
   [[nodiscard]] std::optional<ScreencopyImage>
   composeGlobalRegion(LogicalRect globalRegion, std::vector<GlobalRegionPiece> pieces) {
     if (globalRegion.width <= 0 || globalRegion.height <= 0 || pieces.empty()) {
@@ -446,10 +454,8 @@ namespace {
       });
     }
 
-    const auto scaled = [canvasScale](int logical) { return static_cast<int>(std::lround(logical * canvasScale)); };
-
-    const int canvasWidth = scaled(globalRegion.width);
-    const int canvasHeight = scaled(globalRegion.height);
+    const int canvasWidth = scaleLogicalCeil(globalRegion.width, canvasScale);
+    const int canvasHeight = scaleLogicalCeil(globalRegion.height, canvasScale);
     if (canvasWidth <= 0 || canvasHeight <= 0) {
       return std::nullopt;
     }
@@ -462,10 +468,12 @@ namespace {
     for (auto& piece : pieces) {
       const int globalPieceX = piece.output->logicalX + piece.localRegion.x;
       const int globalPieceY = piece.output->logicalY + piece.localRegion.y;
-      const int destX = scaled(globalPieceX - globalRegion.x);
-      const int destY = scaled(globalPieceY - globalRegion.y);
-      const int targetWidth = scaled(piece.localRegion.width);
-      const int targetHeight = scaled(piece.localRegion.height);
+      const int offsetX = globalPieceX - globalRegion.x;
+      const int offsetY = globalPieceY - globalRegion.y;
+      const int destX = scaleLogicalFloor(offsetX, canvasScale);
+      const int destY = scaleLogicalFloor(offsetY, canvasScale);
+      const int targetWidth = scaleLogicalCeil(offsetX + piece.localRegion.width, canvasScale) - destX;
+      const int targetHeight = scaleLogicalCeil(offsetY + piece.localRegion.height, canvasScale) - destY;
       if (!resampleRgbaImage(piece.image, targetWidth, targetHeight)) {
         return std::nullopt;
       }
@@ -507,19 +515,28 @@ namespace {
       minLogicalY = std::min(minLogicalY, frame.output->logicalY);
     }
 
-    const auto scaled = [canvasScale](int logical) { return static_cast<int>(std::lround(logical * canvasScale)); };
+    const auto outputPixelRect = [canvasScale, minLogicalX, minLogicalY](const WaylandOutput& output) {
+      const int offsetX = output.logicalX - minLogicalX;
+      const int offsetY = output.logicalY - minLogicalY;
+      const int x = scaleLogicalFloor(offsetX, canvasScale);
+      const int y = scaleLogicalFloor(offsetY, canvasScale);
+      return LogicalRect{
+          .x = x,
+          .y = y,
+          .width = scaleLogicalCeil(offsetX + output.logicalWidth, canvasScale) - x,
+          .height = scaleLogicalCeil(offsetY + output.logicalHeight, canvasScale) - y,
+      };
+    };
 
     int canvasWidth = 0;
     int canvasHeight = 0;
     for (auto& frame : frames) {
-      const auto* out = frame.output;
-      const int targetWidth = scaled(out->logicalWidth);
-      const int targetHeight = scaled(out->logicalHeight);
-      if (!resampleRgbaImage(frame.image, targetWidth, targetHeight)) {
+      const LogicalRect pixelRect = outputPixelRect(*frame.output);
+      if (!resampleRgbaImage(frame.image, pixelRect.width, pixelRect.height)) {
         return std::nullopt;
       }
-      canvasWidth = std::max(canvasWidth, scaled(out->logicalX - minLogicalX) + targetWidth);
-      canvasHeight = std::max(canvasHeight, scaled(out->logicalY - minLogicalY) + targetHeight);
+      canvasWidth = std::max(canvasWidth, pixelRect.x + pixelRect.width);
+      canvasHeight = std::max(canvasHeight, pixelRect.y + pixelRect.height);
     }
 
     if (canvasWidth <= 0 || canvasHeight <= 0) {
@@ -532,8 +549,8 @@ namespace {
     canvas.rgba.assign(static_cast<std::size_t>(canvasWidth) * static_cast<std::size_t>(canvasHeight) * 4U, 0);
 
     for (const auto& frame : frames) {
-      const auto* out = frame.output;
-      blitOpaqueRgba(canvas, scaled(out->logicalX - minLogicalX), scaled(out->logicalY - minLogicalY), frame.image);
+      const LogicalRect pixelRect = outputPixelRect(*frame.output);
+      blitOpaqueRgba(canvas, pixelRect.x, pixelRect.y, frame.image);
     }
 
     return canvas;

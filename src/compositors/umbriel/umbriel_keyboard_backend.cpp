@@ -59,7 +59,7 @@ std::optional<KeyboardLayoutState> UmbrielKeyboardBackend::layoutState() const {
   if (!response.has_value()) {
     return std::nullopt;
   }
-  return parseLayoutState(*response);
+  return parseLayoutState(response->at("ok"));
 }
 
 std::optional<std::string> UmbrielKeyboardBackend::currentLayoutName() const {
