@@ -28,6 +28,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 
 namespace {
 
@@ -785,21 +786,18 @@ void TrayWidget::rebuild(Renderer& renderer) {
       const auto [x, y] = trayPointerCoords(*areaPtr, data);
       if (data.button == BTN_LEFT) {
         const auto decision = decideTrayClickForItem(itemId);
-        switch (decision.action) {
-        case tray::TrayClickAction::FocusWindow:
-          m_platform.activateToplevelInfo(*decision.window);
-          break;
-        case tray::TrayClickAction::Ignore:
-          break;
-        case tray::TrayClickAction::ActivateItem:
-          (void)m_tray->activateItem(itemId, x, y);
-          break;
-        case tray::TrayClickAction::OpenMenu:
+        if (decision.action == tray::TrayClickAction::OpenMenu) {
+          // The drawer's itemActivated closes the panel that parents the menu popup.
           openItemMenu(itemId, x, y);
-          break;
-        }
-        if (m_itemActivated) {
-          m_itemActivated();
+        } else {
+          if (decision.action == tray::TrayClickAction::FocusWindow) {
+            m_platform.activateToplevelInfo(*decision.window);
+          } else {
+            (void)m_tray->activateItem(itemId, x, y);
+          }
+          if (m_itemActivated) {
+            m_itemActivated();
+          }
         }
       } else if (data.button == BTN_RIGHT) {
         openItemMenu(itemId, x, y);
@@ -855,7 +853,13 @@ tray::TrayClickDecision TrayWidget::decideTrayClickForItem(const std::string& it
   const tray::WindowLookup lookup = [this](const std::string& candidate) {
     return m_platform.windowsForApp(candidate, {}, nullptr);
   };
-  return tray::decideTrayClick(*itemIt, lookup, m_platform.activeToplevel(), m_focusExistingWindow);
+  const tray::RunningAppIds runningAppIds = [this] { return m_platform.runningAppIds(nullptr); };
+  const auto focusedCompositorWindowId = m_platform.focusedCompositorWindowId();
+  const std::string_view focusedCompositorWindowIdView =
+      focusedCompositorWindowId.has_value() ? std::string_view(*focusedCompositorWindowId) : std::string_view{};
+  return tray::decideTrayClick(
+      *itemIt, lookup, runningAppIds, m_platform.activeToplevel(), focusedCompositorWindowIdView, m_focusExistingWindow
+  );
 }
 
 void TrayWidget::openItemMenu(const std::string& itemId, std::int32_t x, std::int32_t y) {
