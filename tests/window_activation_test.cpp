@@ -85,4 +85,77 @@ int main() {
     TEST_CHECK(result != nullptr);
     TEST_CHECK(result->identifier == second.identifier);
   }
+
+  // lastActivatableWindow picks the last vector element even when an earlier one has a
+  // higher `order`, which is exactly what distinguishes it from newestActivatableWindow.
+  {
+    auto* handle = reinterpret_cast<zwlr_foreign_toplevel_handle_v1*>(0x1);
+    const auto highOrderFirst = makeWindow("high-order-first", 9, handle);
+    const auto lowOrderLast = makeWindow("low-order-last", 1, handle);
+    const std::vector<ToplevelInfo> windows{highOrderFirst, lowOrderLast};
+    const auto* last = shell::lastActivatableWindow(windows);
+    const auto* newest = shell::newestActivatableWindow(windows);
+    TEST_CHECK(last != nullptr);
+    TEST_CHECK(last->identifier == lowOrderLast.identifier);
+    TEST_CHECK(newest != nullptr);
+    TEST_CHECK(newest->identifier == highOrderFirst.identifier);
+    TEST_CHECK(last != newest);
+  }
+
+  {
+    const std::vector<ToplevelInfo> windows;
+    TEST_CHECK(shell::lastActivatableWindow(windows) == nullptr);
+  }
+
+  {
+    auto* handle = reinterpret_cast<zwlr_foreign_toplevel_handle_v1*>(0x1);
+    auto notActivatable = ToplevelInfo{};
+    notActivatable.order = 5;
+    const auto activatable = makeWindow("activatable", 1, handle);
+    const std::vector<ToplevelInfo> windows{activatable, notActivatable};
+    const auto* result = shell::lastActivatableWindow(windows);
+    TEST_CHECK(result != nullptr);
+    TEST_CHECK(result->identifier == activatable.identifier);
+  }
+
+  // matchesActiveWindow: handle equality wins regardless of identifier.
+  {
+    auto* handle = reinterpret_cast<zwlr_foreign_toplevel_handle_v1*>(0x1);
+    const auto window = makeWindow("window-a", 0, handle);
+    ActiveToplevel active;
+    active.handle = handle;
+    active.identifier = "window-b";
+    const std::vector<ToplevelInfo> windows{window};
+    TEST_CHECK(shell::matchesActiveWindow(window, active, "", windows));
+  }
+
+  // matchesActiveWindow: exactIdentity window matches by focusedCompositorWindowId.
+  {
+    ToplevelInfo window;
+    window.identifier = "compositor-window-id";
+    window.exactIdentity = true;
+    ActiveToplevel active;
+    const std::vector<ToplevelInfo> windows{window};
+    TEST_CHECK(shell::matchesActiveWindow(window, active, "compositor-window-id", windows));
+  }
+
+  // matchesActiveWindow: ambiguity guard returns false when two windows share the
+  // active identifier, even though the identifiers themselves match.
+  {
+    const auto windowOne = makeWindow("shared-identifier", 0);
+    const auto windowTwo = makeWindow("shared-identifier", 0);
+    ActiveToplevel active;
+    active.identifier = "shared-identifier";
+    const std::vector<ToplevelInfo> windows{windowOne, windowTwo};
+    TEST_CHECK(!shell::matchesActiveWindow(windowOne, active, "", windows));
+  }
+
+  // matchesActiveWindow: identifier match is accepted when it is unique in the vector.
+  {
+    const auto window = makeWindow("unique-identifier", 0);
+    ActiveToplevel active;
+    active.identifier = "unique-identifier";
+    const std::vector<ToplevelInfo> windows{window};
+    TEST_CHECK(shell::matchesActiveWindow(window, active, "", windows));
+  }
 }

@@ -103,36 +103,6 @@ namespace {
     return signature;
   }
 
-  [[nodiscard]] bool matchesActiveWindow(
-      const ToplevelInfo& window, const ActiveToplevel& active, std::string_view focusedCompositorWindowId,
-      const std::vector<ToplevelInfo>& windows
-  ) {
-    if (active.handle != nullptr && window.handle == active.handle) {
-      return true;
-    }
-
-    // Exact-identity ext toplevels have no wlr handle; match them by the compositor's focused
-    // window id, since `active.identifier` is an appId+title synthetic key for wlr toplevels.
-    if (window.exactIdentity
-        && !window.identifier.empty()
-        && !focusedCompositorWindowId.empty()
-        && window.identifier == focusedCompositorWindowId) {
-      return true;
-    }
-
-    if (active.identifier.empty() || window.identifier.empty() || active.identifier != window.identifier) {
-      return false;
-    }
-
-    int count = 0;
-    for (const auto& w : windows) {
-      if (w.identifier == active.identifier && ++count > 1) {
-        return false;
-      }
-    }
-    return true;
-  }
-
   const ToplevelInfo* nextActivatableWindow(
       const std::vector<ToplevelInfo>& windows, const std::optional<ActiveToplevel>& active,
       std::string_view focusedCompositorWindowId, std::string_view preferredIdentifier
@@ -143,7 +113,7 @@ namespace {
 
     if (active.has_value()) {
       for (std::size_t i = 0; i < windows.size(); ++i) {
-        if (!matchesActiveWindow(windows[i], *active, focusedCompositorWindowId, windows)) {
+        if (!shell::matchesActiveWindow(windows[i], *active, focusedCompositorWindowId, windows)) {
           continue;
         }
         for (std::size_t offset = 1; offset <= windows.size(); ++offset) {
@@ -1107,14 +1077,14 @@ void Dock::tryFulfillPendingLaunchFocus() {
 
   auto windowsOnTarget =
       shell::dock::windowsForDockItem(*m_platform, pending.idLower, pending.wmClassLower, pending.targetOutput);
-  const ToplevelInfo* window = shell::newestActivatableWindow(windowsOnTarget);
+  const ToplevelInfo* window = shell::lastActivatableWindow(windowsOnTarget);
   if (window == nullptr) {
     auto windows =
         shell::dock::windowsForDockItem(*m_platform, pending.idLower, pending.wmClassLower, pending.outputFilter);
     if (windows.empty() && pending.outputFilter != nullptr) {
       windows = shell::dock::windowsForDockItem(*m_platform, pending.idLower, pending.wmClassLower, nullptr);
     }
-    window = shell::newestActivatableWindow(windows);
+    window = shell::lastActivatableWindow(windows);
     if (window == nullptr) {
       return;
     }

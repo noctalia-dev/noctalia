@@ -4,6 +4,7 @@
 #include "util/string_utils.h"
 #include "wayland/wayland_toplevels.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <optional>
 #include <string>
@@ -29,10 +30,12 @@ namespace {
 } // namespace
 
 int main() {
+  const tray::RunningAppIds noRunningApps = [] { return std::vector<std::string>{}; };
+
   {
     const auto item = makeItem("firefox-app");
     const tray::WindowLookup lookup = [](const std::string&) { return std::vector<ToplevelInfo>{}; };
-    TEST_CHECK(!tray::findNewestWindowForTrayItem(item, lookup).has_value());
+    TEST_CHECK(!tray::findNewestWindowForTrayItem(item, lookup, noRunningApps).newest.has_value());
   }
 
   {
@@ -45,29 +48,130 @@ int main() {
       }
       return std::vector<ToplevelInfo>{};
     };
-    const auto result = tray::findNewestWindowForTrayItem(item, lookup);
-    TEST_CHECK(result.has_value());
-    TEST_CHECK(result->identifier == newer.identifier);
+    const auto result = tray::findNewestWindowForTrayItem(item, lookup, noRunningApps);
+    TEST_CHECK(result.newest.has_value());
+    TEST_CHECK(result.newest->identifier == newer.identifier);
   }
 
   {
     const auto item = makeItem("RegularApp");
     const tray::WindowLookup lookup = [](const std::string&) { return std::vector<ToplevelInfo>{ToplevelInfo{}}; };
-    TEST_CHECK(!tray::findNewestWindowForTrayItem(item, lookup).has_value());
+    TEST_CHECK(!tray::findNewestWindowForTrayItem(item, lookup, noRunningApps).newest.has_value());
   }
 
+  // Transient item id short-circuits before any candidate exists: neither lookup nor
+  // runningAppIds is ever invoked.
   {
     const auto item = makeItem(":1.234/org/status/electron");
     TEST_CHECK(tray::isTransientUniqueIdentifier(item.id));
     TEST_CHECK(tray::pinMatchCandidates(item).empty());
     bool lookupCalled = false;
+    bool runningAppIdsCalled = false;
     const tray::WindowLookup lookup = [&](const std::string&) {
       lookupCalled = true;
       return std::vector<ToplevelInfo>{};
     };
-    const auto result = tray::findNewestWindowForTrayItem(item, lookup);
+    const tray::RunningAppIds runningAppIds = [&] {
+      runningAppIdsCalled = true;
+      return std::vector<std::string>{};
+    };
+    const auto result = tray::findNewestWindowForTrayItem(item, lookup, runningAppIds);
     TEST_CHECK(!lookupCalled);
-    TEST_CHECK(!result.has_value());
+    TEST_CHECK(!runningAppIdsCalled);
+    TEST_CHECK(!result.newest.has_value());
+  }
+
+  // Reverse-DNS tail match: SNI id "keepassxc" matches a running app id whose reverse-DNS
+  // tail is "keepassxc", but only after the exact pass fails.
+  {
+    const auto item = makeItem("keepassxc");
+    auto* handle = reinterpret_cast<zwlr_foreign_toplevel_handle_v1*>(0x1);
+    const auto window = makeWindow("keepassxc-window", 1, handle);
+    const tray::RunningAppIds runningAppIds = [] { return std::vector<std::string>{"org.keepassxc.KeePassXC"}; };
+    const tray::WindowLookup lookup = [&](const std::string& candidate) {
+      if (candidate == "org.keepassxc.keepassxc") {
+        return std::vector<ToplevelInfo>{window};
+      }
+      return std::vector<ToplevelInfo>{};
+    };
+    const auto result = tray::findNewestWindowForTrayItem(item, lookup, runningAppIds);
+    TEST_CHECK(result.newest.has_value());
+    TEST_CHECK(result.newest->identifier == window.identifier);
+  }
+
+  // Ambiguity guard: two running apps share the "slack" tail, so the tail pass must never
+  // resolve either one and lookup must never be called with either resolved app id.
+  {
+    const auto item = makeItem("slack");
+    const tray::RunningAppIds runningAppIds = [] { return std::vector<std::string>{"org.a.Slack", "com.b.Slack"}; };
+    std::vector<std::string> lookupCalls;
+    const tray::WindowLookup lookup = [&](const std::string& candidate) {
+      lookupCalls.push_back(candidate);
+      if (candidate != "slack" && candidate.contains("slack")) {
+        return std::vector<ToplevelInfo>{makeWindow("ambiguous-window")};
+      }
+      return std::vector<ToplevelInfo>{};
+    };
+    const auto result = tray::findNewestWindowForTrayItem(item, lookup, runningAppIds);
+    TEST_CHECK(!result.newest.has_value());
+    TEST_CHECK(!std::ranges::contains(lookupCalls, std::string("org.a.slack")));
+    TEST_CHECK(!std::ranges::contains(lookupCalls, std::string("com.b.slack")));
+  }
+
+  // Exact match must always win over a tail match, even when a tail match would also succeed.
+  {
+    const auto item = makeItem("slack");
+    const auto exactWindow =
+        makeWindow("slack-exact-window", 1, reinterpret_cast<zwlr_foreign_toplevel_handle_v1*>(0x1));
+    const auto tailWindow = makeWindow("slack-tail-window", 1, reinterpret_cast<zwlr_foreign_toplevel_handle_v1*>(0x2));
+    const tray::RunningAppIds runningAppIds = [] { return std::vector<std::string>{"org.x.Slack"}; };
+    const tray::WindowLookup lookup = [&](const std::string& candidate) {
+      if (candidate == "slack") {
+        return std::vector<ToplevelInfo>{exactWindow};
+      }
+      if (candidate == "org.x.slack") {
+        return std::vector<ToplevelInfo>{tailWindow};
+      }
+      return std::vector<ToplevelInfo>{};
+    };
+    const auto result = tray::findNewestWindowForTrayItem(item, lookup, runningAppIds);
+    TEST_CHECK(result.newest.has_value());
+    TEST_CHECK(result.newest->identifier == exactWindow.identifier);
+  }
+
+  // Short-tail guard: "ab" is under the 3-char minimum, so the tail pass must never call
+  // lookup with the running app id sharing that short tail.
+  {
+    const auto item = makeItem("ab");
+    const tray::RunningAppIds runningAppIds = [] { return std::vector<std::string>{"org.x.ab"}; };
+    std::vector<std::string> lookupCalls;
+    const tray::WindowLookup lookup = [&](const std::string& candidate) {
+      lookupCalls.push_back(candidate);
+      return std::vector<ToplevelInfo>{};
+    };
+    const auto result = tray::findNewestWindowForTrayItem(item, lookup, runningAppIds);
+    TEST_CHECK(!result.newest.has_value());
+    TEST_CHECK(!std::ranges::contains(lookupCalls, std::string("org.x.ab")));
+  }
+
+  // findNewestWindowForTrayItem: MatchedWindows.windows carries the full candidate vector
+  // returned by the winning lookup call, not just the chosen window.
+  {
+    const auto item = makeItem("multi-window-app");
+    const auto winner = makeWindow("multi-window-app-newest", 2);
+    const auto sibling = makeWindow("multi-window-app-older", 1);
+    const tray::WindowLookup lookup = [&](const std::string& candidate) {
+      if (candidate == "multi-window-app") {
+        return std::vector<ToplevelInfo>{winner, sibling};
+      }
+      return std::vector<ToplevelInfo>{};
+    };
+    const auto result = tray::findNewestWindowForTrayItem(item, lookup, noRunningApps);
+    TEST_CHECK(result.newest.has_value());
+    TEST_CHECK(result.newest->identifier == winner.identifier);
+    TEST_CHECK(result.windows.size() == 2);
+    TEST_CHECK(result.windows[0].identifier == winner.identifier);
+    TEST_CHECK(result.windows[1].identifier == sibling.identifier);
   }
 
   {
@@ -76,32 +180,47 @@ int main() {
     ActiveToplevel active;
     active.handle = sharedHandle;
     active.identifier = "window-b";
-    TEST_CHECK(tray::trayWindowIsFocused(window, active));
+    const std::vector<ToplevelInfo> windows{window};
+    TEST_CHECK(tray::trayWindowIsFocused(window, windows, active, ""));
   }
 
   {
     const auto window = makeWindow("shared-identifier");
     ActiveToplevel active;
     active.identifier = "shared-identifier";
-    TEST_CHECK(tray::trayWindowIsFocused(window, active));
+    const std::vector<ToplevelInfo> windows{window};
+    TEST_CHECK(tray::trayWindowIsFocused(window, windows, active, ""));
   }
 
   {
     const auto window = makeWindow("window-a");
-    TEST_CHECK(!tray::trayWindowIsFocused(window, std::nullopt));
+    const std::vector<ToplevelInfo> windows{window};
+    TEST_CHECK(!tray::trayWindowIsFocused(window, windows, std::nullopt, ""));
   }
 
   {
     const auto window = makeWindow("");
     ActiveToplevel active;
-    TEST_CHECK(!tray::trayWindowIsFocused(window, active));
+    const std::vector<ToplevelInfo> windows{window};
+    TEST_CHECK(!tray::trayWindowIsFocused(window, windows, active, ""));
+  }
+
+  // trayWindowIsFocused: false positive guard - two windows sharing the active identifier
+  // must never resolve to focused.
+  {
+    const auto windowOne = makeWindow("shared-identifier");
+    const auto windowTwo = makeWindow("shared-identifier");
+    ActiveToplevel active;
+    active.identifier = "shared-identifier";
+    const std::vector<ToplevelInfo> windows{windowOne, windowTwo};
+    TEST_CHECK(!tray::trayWindowIsFocused(windowOne, windows, active, ""));
   }
 
   // decideTrayClick: no matched window -> ActivateItem, no window.
   {
     const auto item = makeItem("firefox-app");
     const tray::WindowLookup lookup = [](const std::string&) { return std::vector<ToplevelInfo>{}; };
-    const auto decision = tray::decideTrayClick(item, lookup, std::nullopt, true);
+    const auto decision = tray::decideTrayClick(item, lookup, noRunningApps, std::nullopt, "", true);
     TEST_CHECK(decision.action == tray::TrayClickAction::ActivateItem);
     TEST_CHECK(!decision.window.has_value());
   }
@@ -117,13 +236,14 @@ int main() {
       }
       return std::vector<ToplevelInfo>{};
     };
-    const auto decision = tray::decideTrayClick(item, lookup, std::nullopt, true);
+    const auto decision = tray::decideTrayClick(item, lookup, noRunningApps, std::nullopt, "", true);
     TEST_CHECK(decision.action == tray::TrayClickAction::FocusWindow);
     TEST_CHECK(decision.window.has_value());
     TEST_CHECK(decision.window->identifier == newer.identifier);
   }
 
-  // decideTrayClick: matched window is the active one by handle -> Ignore, no window.
+  // decideTrayClick: matched window is the active one by handle -> falls through to
+  // ActivateItem (finding 2: preserves each app's Activate-driven hide toggle).
   {
     auto* sharedHandle = reinterpret_cast<zwlr_foreign_toplevel_handle_v1*>(0x2);
     const auto item = makeItem("someapp");
@@ -136,12 +256,13 @@ int main() {
     };
     ActiveToplevel active;
     active.handle = sharedHandle;
-    const auto decision = tray::decideTrayClick(item, lookup, active, true);
-    TEST_CHECK(decision.action == tray::TrayClickAction::Ignore);
+    const auto decision = tray::decideTrayClick(item, lookup, noRunningApps, active, "", true);
+    TEST_CHECK(decision.action == tray::TrayClickAction::ActivateItem);
     TEST_CHECK(!decision.window.has_value());
   }
 
-  // decideTrayClick: matched window is the active one by identifier -> Ignore, no window.
+  // decideTrayClick: matched window is the active one by identifier -> falls through to
+  // ActivateItem (finding 2: preserves each app's Activate-driven hide toggle).
   {
     const auto item = makeItem("otherapp");
     const auto window = makeWindow("shared-id", 1);
@@ -153,40 +274,63 @@ int main() {
     };
     ActiveToplevel active;
     active.identifier = "shared-id";
-    const auto decision = tray::decideTrayClick(item, lookup, active, true);
-    TEST_CHECK(decision.action == tray::TrayClickAction::Ignore);
+    const auto decision = tray::decideTrayClick(item, lookup, noRunningApps, active, "", true);
+    TEST_CHECK(decision.action == tray::TrayClickAction::ActivateItem);
     TEST_CHECK(!decision.window.has_value());
   }
 
-  // decideTrayClick: itemIsMenu -> OpenMenu, no window, lookup never called.
+  // decideTrayClick: itemIsMenu with a real DBusMenu -> OpenMenu, no window, lookup never called.
   {
     auto item = makeItem("menu-only-app");
     item.itemIsMenu = true;
+    item.menuObjectPath = "/MenuBar";
     bool lookupCalled = false;
     const tray::WindowLookup lookup = [&](const std::string&) {
       lookupCalled = true;
       return std::vector<ToplevelInfo>{};
     };
-    const auto decision = tray::decideTrayClick(item, lookup, std::nullopt, true);
+    const auto decision = tray::decideTrayClick(item, lookup, noRunningApps, std::nullopt, "", true);
     TEST_CHECK(decision.action == tray::TrayClickAction::OpenMenu);
     TEST_CHECK(!decision.window.has_value());
     TEST_CHECK(!lookupCalled);
   }
 
-  // decideTrayClick: itemIsMenu wins even when a window would otherwise match.
+  // decideTrayClick: itemIsMenu with a real DBusMenu wins even when a window would otherwise match.
   {
     auto item = makeItem("menu-only-with-window");
     item.itemIsMenu = true;
+    item.menuObjectPath = "/MenuBar";
     const auto window = makeWindow("menu-only-window", 1);
     bool lookupCalled = false;
     const tray::WindowLookup lookup = [&](const std::string&) {
       lookupCalled = true;
       return std::vector<ToplevelInfo>{window};
     };
-    const auto decision = tray::decideTrayClick(item, lookup, std::nullopt, true);
+    const auto decision = tray::decideTrayClick(item, lookup, noRunningApps, std::nullopt, "", true);
     TEST_CHECK(decision.action == tray::TrayClickAction::OpenMenu);
     TEST_CHECK(!decision.window.has_value());
     TEST_CHECK(!lookupCalled);
+  }
+
+  // decideTrayClick: itemIsMenu true but menuObjectPath empty -> NOT OpenMenu, falls through
+  // to the window path.
+  {
+    auto item = makeItem("menu-flag-no-menu-path");
+    item.itemIsMenu = true;
+    const tray::WindowLookup lookup = [](const std::string&) { return std::vector<ToplevelInfo>{}; };
+    const auto decision = tray::decideTrayClick(item, lookup, noRunningApps, std::nullopt, "", true);
+    TEST_CHECK(decision.action != tray::TrayClickAction::OpenMenu);
+  }
+
+  // decideTrayClick: itemIsMenu true but menuObjectPath is the sentinel "/NO_DBUSMENU" ->
+  // NOT OpenMenu.
+  {
+    auto item = makeItem("menu-flag-sentinel-menu-path");
+    item.itemIsMenu = true;
+    item.menuObjectPath = "/NO_DBUSMENU";
+    const tray::WindowLookup lookup = [](const std::string&) { return std::vector<ToplevelInfo>{}; };
+    const auto decision = tray::decideTrayClick(item, lookup, noRunningApps, std::nullopt, "", true);
+    TEST_CHECK(decision.action != tray::TrayClickAction::OpenMenu);
   }
 
   // decideTrayClick: itemIsMenu = false, focusExistingWindow = false, matching window present
@@ -195,7 +339,7 @@ int main() {
     const auto item = makeItem("regular-app-no-focus-feature");
     const auto window = makeWindow("regular-app-window", 1);
     const tray::WindowLookup lookup = [&](const std::string&) { return std::vector<ToplevelInfo>{window}; };
-    const auto decision = tray::decideTrayClick(item, lookup, std::nullopt, false);
+    const auto decision = tray::decideTrayClick(item, lookup, noRunningApps, std::nullopt, "", false);
     TEST_CHECK(decision.action == tray::TrayClickAction::ActivateItem);
     TEST_CHECK(!decision.window.has_value());
   }
@@ -217,8 +361,132 @@ int main() {
       }
       return std::vector<ToplevelInfo>{};
     };
-    const auto result = tray::findNewestWindowForTrayItem(item, lookup);
-    TEST_CHECK(result.has_value());
-    TEST_CHECK(result->identifier == processWindow.identifier);
+    const auto result = tray::findNewestWindowForTrayItem(item, lookup, noRunningApps);
+    TEST_CHECK(result.newest.has_value());
+    TEST_CHECK(result.newest->identifier == processWindow.identifier);
+  }
+
+  // decideTrayClick end-to-end: no exact match, tail-resolved window present -> FocusWindow
+  // with the tail-matched window.
+  {
+    const auto item = makeItem("keepassxc");
+    auto* handle = reinterpret_cast<zwlr_foreign_toplevel_handle_v1*>(0x1);
+    const auto window = makeWindow("keepassxc-window", 1, handle);
+    const tray::RunningAppIds runningAppIds = [] { return std::vector<std::string>{"org.keepassxc.KeePassXC"}; };
+    const tray::WindowLookup lookup = [&](const std::string& candidate) {
+      if (candidate == "org.keepassxc.keepassxc") {
+        return std::vector<ToplevelInfo>{window};
+      }
+      return std::vector<ToplevelInfo>{};
+    };
+    const auto decision = tray::decideTrayClick(item, lookup, runningAppIds, std::nullopt, "", true);
+    TEST_CHECK(decision.action == tray::TrayClickAction::FocusWindow);
+    TEST_CHECK(decision.window.has_value());
+    TEST_CHECK(decision.window->identifier == window.identifier);
+  }
+
+  // sniActivateMethodPresent: Activate exported on the SNI interface itself -> true.
+  {
+    const std::string xml = "<node><interface name=\"org.kde.StatusNotifierItem\">"
+                            "<method name=\"Activate\"><arg name=\"x\" type=\"i\"/></method>"
+                            "<method name=\"ContextMenu\"/></interface></node>";
+    TEST_CHECK(sniActivateMethodPresent(xml));
+  }
+
+  // sniActivateMethodPresent: nm-applet-shaped item — SecondaryActivate and the ayatana
+  // variant only, no Activate -> false.
+  {
+    const std::string xml = "<node><interface name=\"org.kde.StatusNotifierItem\">"
+                            "<method name=\"SecondaryActivate\"/>"
+                            "<method name=\"XAyatanaSecondaryActivate\"/>"
+                            "<method name=\"Scroll\"/></interface></node>";
+    TEST_CHECK(!sniActivateMethodPresent(xml));
+  }
+
+  // sniActivateMethodPresent: Activate on a different interface at the same path does not
+  // count for the SNI interface.
+  {
+    const std::string xml = "<node><interface name=\"org.kde.StatusNotifierItem\">"
+                            "<method name=\"ContextMenu\"/></interface>"
+                            "<interface name=\"org.freedesktop.Application\">"
+                            "<method name=\"Activate\"/></interface></node>";
+    TEST_CHECK(!sniActivateMethodPresent(xml));
+  }
+
+  // sniActivateMethodPresent: empty / SNI interface absent -> false.
+  {
+    TEST_CHECK(!sniActivateMethodPresent(""));
+    TEST_CHECK(!sniActivateMethodPresent("<node><interface name=\"org.other\"/></node>"));
+  }
+
+  // sniActivateMethodPresent: single-quoted attributes (GDBus-style XML) -> same results
+  // as double-quoted.
+  {
+    const std::string withActivate = "<node><interface name='org.kde.StatusNotifierItem'>"
+                                     "<method name='Activate'><arg name='x' type='i'/></method>"
+                                     "</interface></node>";
+    TEST_CHECK(sniActivateMethodPresent(withActivate));
+    const std::string withoutActivate = "<node><interface name='org.kde.StatusNotifierItem'>"
+                                        "<method name='SecondaryActivate'/>"
+                                        "</interface></node>";
+    TEST_CHECK(!sniActivateMethodPresent(withoutActivate));
+  }
+
+  // trayItemPrefersMenu: no Activate method + real DBusMenu -> menu, without ItemIsMenu.
+  {
+    auto item = makeItem("no-activate-with-menu");
+    item.hasActivateMethod = false;
+    item.menuObjectPath = "/MenuBar";
+    TEST_CHECK(trayItemPrefersMenu(item));
+  }
+
+  // trayItemPrefersMenu: no Activate method but no menu either -> not menu.
+  {
+    auto item = makeItem("no-activate-no-menu");
+    item.hasActivateMethod = false;
+    TEST_CHECK(!trayItemPrefersMenu(item));
+  }
+
+  // trayItemPrefersMenu: default item (Activate assumed present, not menu-only) -> not menu.
+  {
+    auto item = makeItem("regular");
+    item.menuObjectPath = "/MenuBar";
+    TEST_CHECK(!trayItemPrefersMenu(item));
+  }
+
+  // decideTrayClick: no Activate method + menu -> OpenMenu even when a window would match
+  // and even with the focus feature disabled.
+  {
+    auto item = makeItem("no-activate-menu-app");
+    item.hasActivateMethod = false;
+    item.menuObjectPath = "/MenuBar";
+    const auto window = makeWindow("no-activate-window", 1);
+    bool lookupCalled = false;
+    const tray::WindowLookup lookup = [&](const std::string&) {
+      lookupCalled = true;
+      return std::vector<ToplevelInfo>{window};
+    };
+    const auto onDecision = tray::decideTrayClick(item, lookup, noRunningApps, std::nullopt, "", true);
+    TEST_CHECK(onDecision.action == tray::TrayClickAction::OpenMenu);
+    const auto offDecision = tray::decideTrayClick(item, lookup, noRunningApps, std::nullopt, "", false);
+    TEST_CHECK(offDecision.action == tray::TrayClickAction::OpenMenu);
+    TEST_CHECK(!lookupCalled);
+  }
+
+  // decideTrayClick: no Activate method, no menu, matching window, feature on -> FocusWindow.
+  {
+    auto item = makeItem("no-activate-windowed-app");
+    item.hasActivateMethod = false;
+    auto* handle = reinterpret_cast<zwlr_foreign_toplevel_handle_v1*>(0x1);
+    const auto window = makeWindow("no-activate-windowed", 1, handle);
+    const tray::WindowLookup lookup = [&](const std::string& candidate) {
+      if (candidate == "no-activate-windowed-app") {
+        return std::vector<ToplevelInfo>{window};
+      }
+      return std::vector<ToplevelInfo>{};
+    };
+    const auto decision = tray::decideTrayClick(item, lookup, noRunningApps, std::nullopt, "", true);
+    TEST_CHECK(decision.action == tray::TrayClickAction::FocusWindow);
+    TEST_CHECK(decision.window.has_value());
   }
 }
