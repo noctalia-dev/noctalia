@@ -755,6 +755,8 @@ PipeWireService::PipeWireService() {
   spa_zero(*m_registryListener);
   pw_registry_add_listener(m_registry, m_registryListener, &kRegistryEvents, this);
 
+  pw_loop_enter(m_loop);
+
   // Do initial roundtrip to discover existing objects
   auto* loop = m_loop;
   pw_core_sync(m_core, PW_ID_CORE, 0);
@@ -828,6 +830,7 @@ PipeWireService::~PipeWireService() {
     pw_context_destroy(m_context);
   }
   if (m_loop != nullptr) {
+    pw_loop_leave(m_loop);
     pw_loop_destroy(m_loop);
   }
 

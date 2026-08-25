@@ -163,7 +163,7 @@ void BatteryWidget::createGlyphMode() {
   container->addChild(
       ui::label({
           .out = &m_label,
-          .fontSize = Style::fontSizeBody * m_contentScale,
+          .fontSize = Style::fontSizeBody * fontScale(),
           .fontWeight = labelFontWeight(),
           .fontFamily = labelFontFamily(),
           .visible = m_showLabel,
@@ -177,7 +177,7 @@ void BatteryWidget::createLabelOnlyMode() {
   container->addChild(
       ui::label({
           .out = &m_label,
-          .fontSize = Style::fontSizeBody * m_contentScale,
+          .fontSize = Style::fontSizeBody * fontScale(),
           .fontWeight = labelFontWeight(),
           .fontFamily = labelFontFamily(),
           .visible = m_showLabel,
@@ -221,7 +221,7 @@ void BatteryWidget::layoutGraphicMode(Renderer& renderer) {
   const bool hasOverlay = showLabel || showStateGlyph;
 
   if (showLabel) {
-    m_overlayLabel->setFontSize((m_isVertical ? Style::fontSizeCaption : Style::fontSizeBody) * m_contentScale);
+    m_overlayLabel->setFontSize((m_isVertical ? Style::fontSizeCaption : Style::fontSizeBody) * fontScale());
     m_overlayLabel->measure(renderer);
   }
   if (showStateGlyph) {
@@ -329,7 +329,7 @@ void BatteryWidget::layoutLabelOnlyMode(Renderer& renderer, float /*containerWid
     return;
   }
 
-  m_label->setFontSize((m_isVertical ? Style::fontSizeCaption : Style::fontSizeBody) * m_contentScale);
+  m_label->setFontSize((m_isVertical ? Style::fontSizeCaption : Style::fontSizeBody) * fontScale());
   m_label->measure(renderer);
   rootNode->setSize(m_label->width(), m_label->height());
 }
@@ -484,7 +484,7 @@ void BatteryWidget::syncState(Renderer& renderer) {
     }
 
     if (m_label != nullptr && m_showLabel) {
-      m_label->setFontSize((m_isVertical ? Style::fontSizeCaption : Style::fontSizeBody) * m_contentScale);
+      m_label->setFontSize((m_isVertical ? Style::fontSizeCaption : Style::fontSizeBody) * fontScale());
       m_label->setText(buildLabelText(pct, s));
       m_label->setColor(fgColor);
       m_label->measure(renderer);
@@ -494,7 +494,7 @@ void BatteryWidget::syncState(Renderer& renderer) {
     const ColorSpec fgColor = isWarning ? m_warningColor : normalFgColor;
 
     if (m_label != nullptr && m_showLabel) {
-      m_label->setFontSize((m_isVertical ? Style::fontSizeCaption : Style::fontSizeBody) * m_contentScale);
+      m_label->setFontSize((m_isVertical ? Style::fontSizeCaption : Style::fontSizeBody) * fontScale());
       m_label->setText(buildLabelText(pct, s));
       m_label->setColor(fgColor);
       m_label->measure(renderer);

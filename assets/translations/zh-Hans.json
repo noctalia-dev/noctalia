@@ -579,6 +579,7 @@
         "grid": "网格"
       },
       "title": "桌面小组件",
+      "title-lockscreen": "锁屏小组件",
       "types": {
         "audio-visualizer": "音频可视化",
         "button": "按钮",
@@ -2316,6 +2317,10 @@
           "description": "当搜索结果仅包含应用时，以网格形式显示应用图标，并在图标下方显示名称",
           "label": "应用网格视图"
         },
+        "launcher-app-origin-indicator": {
+          "description": "在应用搜索结果中显示软件包来源指示器",
+          "label": "显示应用来源指示器"
+        },
         "launcher-auto-paste": {
           "description": "选择计算结果、表情符号等可复制项后，自动粘贴到焦点窗口（快捷键选项与剪贴板自动粘贴相同）",
           "label": "自动粘贴"
@@ -3517,6 +3522,10 @@
           "description": "电池充满时隐藏电池小组件",
           "label": "充满时隐藏"
         },
+        "hide-when-inactive": {
+          "description": "无应用捕获音频时隐藏麦克风小组件",
+          "label": "未活动时隐藏"
+        },
         "hide-when-no-connected-device": {
           "description": "没有已连接的设备时隐藏蓝牙小组件",
           "label": "无设备连接时隐藏"
@@ -3552,6 +3561,10 @@
         "icon-color": {
           "description": "仅覆盖小组件图标的颜色；支持固定的十六进制颜色值",
           "label": "图标颜色"
+        },
+        "icon-scale": {
+          "description": "任务栏应用图标相对于其默认大小的缩放比例",
+          "label": "图标缩放"
         },
         "icon-size": {
           "description": "图标大小（像素）",

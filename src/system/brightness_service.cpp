@@ -23,12 +23,14 @@
 #include <dirent.h>
 #include <filesystem>
 #include <fstream>
+#include <map>
 #include <memory>
 #include <mutex>
 #include <optional>
 #include <queue>
 #include <sdbus-c++/IProxy.h>
 #include <sdbus-c++/Types.h>
+#include <set>
 #include <string>
 #include <string_view>
 #include <sys/epoll.h>
@@ -620,6 +622,47 @@ namespace {
     }
     kLog.info("ddcutil detect parsed {} candidate display(s)", candidates.size());
     return candidates;
+  }
+
+  std::map<int, std::string> pinnedConnectorByBus(const BrightnessConfig& config, const WaylandConnection& wayland) {
+    std::map<int, std::string> pins;
+    std::set<int> contestedBuses;
+
+    for (const auto& output : wayland.outputs()) {
+      if (output.connectorName.empty()) {
+        continue;
+      }
+
+      const auto override = std::ranges::find_if(config.monitorOverrides, [&output](const auto& entry) {
+        return !entry.match.empty() && outputMatchesSelector(entry.match, output);
+      });
+      if (override == config.monitorOverrides.end() || !override->ddcBus.has_value()) {
+        continue;
+      }
+
+      const BrightnessBackendPreference preference = backendPreferenceForOutput(config, &output);
+      if (preference == BrightnessBackendPreference::None || preference == BrightnessBackendPreference::Backlight) {
+        kLog.debug(
+            "ignoring ddc_bus {} for connector '{}' because backend is not set to 'ddcutil'", *override->ddcBus,
+            output.connectorName
+        );
+        continue;
+      }
+
+      if (const auto [it, inserted] = pins.try_emplace(*override->ddcBus, output.connectorName); !inserted) {
+        kLog.warn(
+            "ignoring ddc_bus {} because both '{}' and '{}' pin it; only one connector can own a bus",
+            *override->ddcBus, it->second, output.connectorName
+        );
+        contestedBuses.insert(*override->ddcBus);
+      }
+    }
+
+    for (const int contestedBus : contestedBuses) {
+      pins.erase(contestedBus);
+    }
+
+    return pins;
   }
 
 } // namespace
@@ -1263,7 +1306,36 @@ struct BrightnessService::Impl {
 
     std::erase_if(internals, [](const DisplayInternal& display) { return display.backend == RuntimeBackend::Ddcutil; });
 
-    for (const auto& candidate : completion.candidates) {
+    const std::map<int, std::string> pins = pinnedConnectorByBus(activeConfig, wayland);
+
+    if (!completion.candidates.empty()) {
+      for (const auto& [b, connectorName] : pins) {
+        if (std::ranges::none_of(completion.candidates, [b](const DdcCandidate& candidate) {
+              return candidate.bus == b;
+            })) {
+          kLog.warn("ddc_bus {} is pinned to connector '{}' but ddcutil did not report that bus", b, connectorName);
+        }
+      }
+    }
+
+    for (auto candidate : completion.candidates) {
+      if (const auto pin = pins.find(candidate.bus); pin != pins.end()) {
+        kLog.info(
+            "ddcutil: bus {} reports connector '{}', pinned to '{}' as per config", candidate.bus,
+            candidate.connectorName, pin->second
+        );
+        candidate.connectorName = pin->second;
+      } else if (std::ranges::any_of(pins, [&candidate](const auto& entry) {
+                   return entry.second == candidate.connectorName;
+                 })) {
+        kLog.warn(
+            "ddcutil: ignoring bus {} because connector '{}' is pinned to another bus; pin this bus to its own "
+            "connector with [brightness.monitor.<connector>] ddc_bus = {}",
+            candidate.bus, candidate.connectorName, candidate.bus
+        );
+        continue;
+      }
+
       const WaylandOutput* output = findOutputByConnector(wayland, candidate.connectorName);
       if (output == nullptr) {
         kLog.debug(
@@ -1281,6 +1353,18 @@ struct BrightnessService::Impl {
         return display.backend == RuntimeBackend::Backlight && display.connectorName == candidate.connectorName;
       });
       if (hasBacklight && preference != BrightnessBackendPreference::Ddcutil) {
+        continue;
+      }
+
+      const auto alreadyControlled = std::ranges::any_of(internals, [&candidate](const DisplayInternal& display) {
+        return display.backend == RuntimeBackend::Ddcutil && display.connectorName == candidate.connectorName;
+      });
+      if (alreadyControlled) {
+        kLog.warn(
+            "ddcutil: ignoring bus {} because connector '{}' is already controlled; identical EDIDs hide which "
+            "monitor this is, so pin it with [brightness.monitor.<connector>] ddc_bus = {}",
+            candidate.bus, candidate.connectorName, candidate.bus
+        );
         continue;
       }
 

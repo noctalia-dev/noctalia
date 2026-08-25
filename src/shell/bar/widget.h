@@ -97,6 +97,9 @@ public:
   void setPanelToggleCallback(PanelToggleCallback callback);
   void setContentScale(float scale) noexcept { m_contentScale = scale; }
   [[nodiscard]] float contentScale() const noexcept { return m_contentScale; }
+  void setFontScale(float scale) noexcept { m_fontScale = scale; }
+  [[nodiscard]] float fontScale() const noexcept { return m_contentScale * m_fontScale; }
+  [[nodiscard]] float fontScaleMultiplier() const noexcept { return m_fontScale; }
   void setLabelFontWeight(FontWeight fontWeight) noexcept { m_labelFontWeight = fontWeight; }
   [[nodiscard]] FontWeight labelFontWeight() const noexcept { return m_labelFontWeight; }
   void setLabelFontFamily(std::string family) noexcept { m_labelFontFamily = std::move(family); }
@@ -164,6 +167,7 @@ protected:
   virtual void doUpdate(Renderer& renderer) { (void)renderer; }
 
   float m_contentScale = 1.0F;
+  float m_fontScale = 1.0F;
   FontWeight m_labelFontWeight = FontWeight::Medium;
   std::string m_labelFontFamily; // empty = inherit renderer-global family
   std::string m_configName;

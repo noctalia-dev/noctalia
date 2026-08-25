@@ -67,8 +67,8 @@ public:
   [[nodiscard]] const std::string& sourcePath() const noexcept { return m_sourcePath; }
   [[nodiscard]] bool hasImage() const noexcept { return m_texture.valid(); }
   [[nodiscard]] TextureId textureId() const noexcept { return m_texture.id; }
-  [[nodiscard]] int sourceWidth() const noexcept { return m_texture.width; }
-  [[nodiscard]] int sourceHeight() const noexcept { return m_texture.height; }
+  [[nodiscard]] int sourceWidth() const noexcept { return m_texture.sourceWidth; }
+  [[nodiscard]] int sourceHeight() const noexcept { return m_texture.sourceHeight; }
   [[nodiscard]] float aspectRatio() const noexcept {
     return m_texture.width > 0 && m_texture.height > 0
         ? static_cast<float>(m_texture.width) / static_cast<float>(m_texture.height)

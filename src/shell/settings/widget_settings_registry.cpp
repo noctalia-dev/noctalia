@@ -641,6 +641,7 @@ namespace settings {
     auto anchor = withGroup(boolSpec("anchor", false, true), "presentation");
     auto interactive = withGroup(boolSpec("interactive", true), "presentation");
     auto scale = withGroup(doubleSpec("scale", 1.0, 0.2, 2.5, 0.05), "presentation");
+    auto fontScale = withGroup(doubleSpec("font_scale", 1.0, 0.2, 2.5, 0.01), "presentation");
     auto widgetColor = withGroup(colorSpec("color", {}, true), "presentation");
     auto widgetIconColor = withGroup(colorSpec("icon_color", {}, true), "presentation");
     std::vector<WidgetSettingSelectOption> fontWeightOptions;
@@ -702,11 +703,15 @@ namespace settings {
     actions.visibleWhen = WidgetSettingVisibility{"interactive", {"true"}};
 
     return {
-        std::move(enabled),           std::move(anchor),          std::move(interactive),    std::move(scale),
-        std::move(widgetColor),       std::move(widgetIconColor), std::move(fontFamily),     std::move(fontWeight),
-        std::move(capsuleToggle),     std::move(capsuleRadius),   std::move(capsuleFill),    std::move(capsuleBorder),
-        std::move(capsuleForeground), std::move(capsulePadding),  std::move(capsuleOpacity), std::move(scrollRepeat),
-        std::move(actions),
+        std::move(enabled),         std::move(anchor),
+        std::move(interactive),     std::move(scale),
+        std::move(fontScale),       std::move(widgetColor),
+        std::move(widgetIconColor), std::move(fontFamily),
+        std::move(fontWeight),      std::move(capsuleToggle),
+        std::move(capsuleRadius),   std::move(capsuleFill),
+        std::move(capsuleBorder),   std::move(capsuleForeground),
+        std::move(capsulePadding),  std::move(capsuleOpacity),
+        std::move(scrollRepeat),    std::move(actions),
     };
   }
 

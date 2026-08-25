@@ -1396,8 +1396,8 @@
       "plugins": {
         "auto-update": {
           "all": "All sources",
-          "official": "Official only",
-          "none": "None"
+          "none": "None",
+          "official": "Official only"
         }
       },
       "screen-position": {
@@ -1522,7 +1522,7 @@
         "add": "Add Source",
         "add-title": "Add Plugin Source",
         "auto-update": "Auto-Update Plugins",
-        "auto-update-desc": "Check selected sources for new versions in the background and keep installed plugins current",
+        "auto-update-desc": "Check enabled sources for new versions in the background and keep installed plugins current",
         "edit": "Edit source",
         "edit-title": "Edit plugin source",
         "empty": "No sources configured.",
@@ -1784,6 +1784,10 @@
         "font-family": {
           "description": "Typeface for this bar's widgets; leave empty to inherit the global font (per-widget Font Family overrides this)",
           "label": "Font Family"
+        },
+        "font-scale": {
+          "description": "Scale factor for text across all widgets on this bar; per-widget font_scale multiplies this",
+          "label": "Font Scale"
         },
         "font-weight": {
           "description": "Default weight for widget labels on this bar.",
@@ -3481,6 +3485,10 @@
         "font-family": {
           "description": "Typeface for this widget; leave empty to inherit the bar font",
           "label": "Font Family"
+        },
+        "font-scale": {
+          "description": "Scale multiplier for text in this widget, independent of the widget's overall scale",
+          "label": "Font Scale"
         },
         "font-weight": {
           "description": "Default inherits the bar font weight",

@@ -94,6 +94,8 @@ VirtualListView::VirtualListView() {
   m_canvas = static_cast<Canvas*>(m_scroll->content()->addChild(std::move(canvas)));
 }
 
+void VirtualListView::bindScrollState(ScrollViewState* state) { m_scroll->bindState(state); }
+
 void VirtualListView::setAdapter(VirtualListAdapter* adapter) {
   if (m_adapter == adapter) {
     return;
@@ -186,7 +188,7 @@ void VirtualListView::doLayout(Renderer& renderer) {
   if (m_pendingScrollToIndex) {
     m_pendingScrollToIndex = false;
     if (m_pendingScrollIndex < m_itemCount && m_pendingScrollIndex < m_itemOffsets.size()) {
-      m_scroll->setScrollOffset(m_itemOffsets[m_pendingScrollIndex]);
+      m_scroll->requestScrollToOffset(m_itemOffsets[m_pendingScrollIndex]);
     }
   }
 

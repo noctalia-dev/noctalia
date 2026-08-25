@@ -278,6 +278,8 @@ enable_ddcutil = false
 # backlight_device = "intel_backlight"  # explicit sysfs device name or path; run: noctalia msg brightness-list-backlight-devices
 # [brightness.monitor.DP-1]
 # backend = "ddcutil"
+# [brightness.monitor.DP-2]
+# ddc_bus = 6                       # pin the I2C bus when monitors share an EDID
 
 # ── Night Light ───────────────────────────────────────────────────────────────
 
@@ -342,6 +344,7 @@ margin_edge        = 10
 padding            = 14
 widget_spacing     = 6
 scale              = 1.0
+font_scale         = 1.0            # text-only scale multiplier across widgets
 shadow             = true
 auto_hide          = false
 # smart_auto_hide    = false       # show when the active workspace is empty; hide when it has windows
@@ -540,5 +543,6 @@ enabled = false
 # vertical_format = "{:%H\n%M}"
 # tooltip_format = "{:%A, %B %d, %Y}"
 # scale = 1.0                         # multiplies the bar scale for this widget only
+# font_scale = 1.0                    # multiplies text size for this widget only
 # font_weight = 700
 # interactive = false                 # pass clicks/scrolls through to the bar and disable hover/tooltips

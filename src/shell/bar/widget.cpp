@@ -202,6 +202,8 @@ void Widget::applyCommonOptions(
     m_labelFontFamily = std::move(labelFontFamily);
   }
 
+  m_fontScale = options.fontScale;
+
   m_scrollRepeatMode = noctalia::bar::ScrollRepeatMode::Auto;
   if (const auto mode = noctalia::bar::parseScrollRepeatMode(options.scrollRepeat); mode.has_value()) {
     m_scrollRepeatMode = *mode;

@@ -9,6 +9,7 @@
 #include <chrono>
 #include <cstdint>
 #include <functional>
+#include <optional>
 
 class InputArea;
 class RectNode;
@@ -28,10 +29,10 @@ public:
   void setScrollOffset(float offset);
   // Keep the view pinned to the bottom while content grows, as long as the user has not scrolled away from the bottom.
   void setStickToBottom(bool enabled);
-  // One-shot jump to the bottom, deferred to the next layout pass: callers
-  // that mutate content in the same frame (e.g. the plugin reconciler) need
-  // the jump to target the new extent, while an immediate setScrollOffset
-  // would clamp against the previous pass's maxScrollOffset().
+  // One-shot absolute jump deferred until the next layout pass, after the
+  // content extent and maxScrollOffset() have been computed.
+  void requestScrollToOffset(float offset);
+  // One-shot jump to the bottom under the same layout-time semantics.
   void requestScrollToBottom();
   void scrollBy(float delta);
   void setScrollbarVisible(bool visible);
@@ -84,6 +85,7 @@ private:
   ScrollViewState* m_boundState = nullptr;
   bool m_stickToBottom = false;
   bool m_pendingScrollToBottom = false;
+  std::optional<float> m_pendingScrollOffset;
   std::function<void(float)> m_onScrollChanged;
   ColorSpec m_backgroundFill = clearColorSpec();
   ColorSpec m_backgroundBorder = clearColorSpec();
