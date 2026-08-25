@@ -410,10 +410,32 @@ namespace noctalia::theme {
       ApplyRequest request;
       {
         std::unique_lock lock(m_mutex);
+
+        // Wait for initial request
         m_cv.wait(lock, [this]() { return m_shutdown || m_pendingRequest.has_value(); });
+
         if (m_shutdown) {
           return;
         }
+
+        // Track generation to detect new requests during debounce
+        auto lastGeneration = m_nextGeneration;
+        auto debounceEnd = std::chrono::steady_clock::now() + std::chrono::milliseconds(100);
+
+        while (std::chrono::steady_clock::now() < debounceEnd) {
+          m_cv.wait_until(lock, debounceEnd);
+
+          // Reset timer when new request arrives
+          if (m_nextGeneration != lastGeneration) {
+            lastGeneration = m_nextGeneration;
+            debounceEnd = std::chrono::steady_clock::now() + std::chrono::milliseconds(100);
+          }
+        }
+
+        if (m_shutdown) {
+          return;
+        }
+
         request = std::move(*m_pendingRequest);
         m_pendingRequest.reset();
         m_inFlight = true;
