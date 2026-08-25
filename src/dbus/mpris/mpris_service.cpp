@@ -2153,6 +2153,10 @@ void MprisService::clearPlayerState(const std::string& busName) {
     TimerManager::instance().cancel(it->second);
     m_positionResyncTimers.erase(it);
   }
+  if (auto it = m_propertiesRefreshTimers.find(busName); it != m_propertiesRefreshTimers.end()) {
+    TimerManager::instance().cancel(it->second);
+    m_propertiesRefreshTimers.erase(it);
+  }
   m_pendingPositionSignalRefresh.erase(busName);
   m_hasAuthoritativePositionSample.erase(busName);
   m_lastLogicalTrackChangeAt.erase(busName);

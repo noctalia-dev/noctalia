@@ -19,14 +19,16 @@ namespace {
     };
   }
 
-  OsdContent makeVolumeContent(std::string playerName, double volume) {
+  // Text-only, like the track OSD: the value carries a player identity of arbitrary length, which the
+  // overlay only ellipsizes to the card interior when there is no progress bar beside it.
+  OsdContent makeVolumeContent(const std::string& playerName, double volume) {
     const int percent = static_cast<int>(std::round(std::max(0.0, volume) * 100.0));
+    const std::string level = std::to_string(percent) + "%";
     return OsdContent{
         .kind = OsdKind::Media,
         .icon = "disc-filled",
-        .value =
-            playerName.empty() ? std::to_string(percent) + "%" : playerName + " - " + std::to_string(percent) + "%",
-        .progress = static_cast<float>(std::clamp(volume, 0.0, 1.0)),
+        .value = playerName.empty() ? level : playerName + " — " + level,
+        .showProgress = false,
         .overLimit = percent > 100,
     };
   }
@@ -41,7 +43,7 @@ void MediaOsd::onMprisChanged(const MprisService& service) {
     const auto& activePlayer = activePlayerOpt.value();
     const MediaOsdData osdData = {.title = activePlayer.title, .artist = joinedArtists(activePlayer.artists)};
 
-    // Show an OSD when the active player changes its track while playing, or when the OSD is first initialized.
+    // First snapshot seeds the baseline; it is not a user-visible transition.
     if (!m_hasData) {
       m_lastData = osdData;
       m_hasData = true;
@@ -53,11 +55,13 @@ void MediaOsd::onMprisChanged(const MprisService& service) {
     }
   }
 
-  // Show an OSD when any player's volume changes, even if it's not the active player.
-  for (const auto& [busName, player] : service.players()) {
-    const auto it = m_lastVolumes.find(busName);
+  // Volume is tracked per player rather than for the active one only: turning down a background
+  // player is exactly when its name matters. listPlayers() is the blacklist-filtered view.
+  const auto players = service.listPlayers();
+  for (const auto& player : players) {
+    const auto it = m_lastVolumes.find(player.busName);
     if (it == m_lastVolumes.end()) {
-      m_lastVolumes.emplace(busName, player.volume);
+      m_lastVolumes.emplace(player.busName, player.volume);
       continue;
     }
     if (std::abs(player.volume - it->second) <= kVolumeChangeEpsilon) {
@@ -69,8 +73,9 @@ void MediaOsd::onMprisChanged(const MprisService& service) {
     }
   }
 
-  // Remove any cached volume entries for players that have disappeared.
-  if (m_lastVolumes.size() != service.players().size()) {
-    std::erase_if(m_lastVolumes, [&](const auto& entry) { return !service.players().contains(entry.first); });
-  }
+  std::erase_if(m_lastVolumes, [&players](const auto& entry) {
+    return std::ranges::none_of(players, [&entry](const MprisPlayerInfo& player) {
+      return player.busName == entry.first;
+    });
+  });
 }
