@@ -29,7 +29,10 @@ int main() {
   bool ok = true;
   ok = expectRoute(activeAudioDeviceRoute(outputRoutes, SPA_DIRECTION_OUTPUT, 0), 0, false, "speaker route") && ok;
   ok = expectRoute(activeAudioDeviceRoute(outputRoutes, SPA_DIRECTION_OUTPUT, 1), 1, true, "headphone route") && ok;
-  ok = expectRoute(activeAudioDeviceRoute(outputRoutes, SPA_DIRECTION_OUTPUT, -1), 1, true, "unbound fallback") && ok;
+  ok = expectRoute(
+           activeAudioDeviceRoute(outputRoutes, SPA_DIRECTION_OUTPUT, kAnyProfileDevice), 1, true, "unbound fallback"
+       )
+      && ok;
 
   if (activeAudioDeviceRoute(outputRoutes, SPA_DIRECTION_OUTPUT, 9) != nullptr) {
     std::println(stderr, "audio_route_selection_test: unmatched profile device must not inherit another route");
@@ -39,6 +42,30 @@ int main() {
     std::println(stderr, "audio_route_selection_test: direction mismatch must not select a route");
     ok = false;
   }
+
+  // Within one profile device, an available route beats a higher-priority one of unknown availability.
+  const std::vector<Route> sameDeviceRoutes = {
+      Route{
+          .index = 4,
+          .device = 0,
+          .direction = SPA_DIRECTION_OUTPUT,
+          .priority = 100,
+          .available = SPA_PARAM_AVAILABILITY_yes,
+          .muted = true
+      },
+      Route{
+          .index = 5,
+          .device = 0,
+          .direction = SPA_DIRECTION_OUTPUT,
+          .priority = 200,
+          .available = SPA_PARAM_AVAILABILITY_unknown,
+          .muted = false
+      },
+  };
+  ok = expectRoute(
+           activeAudioDeviceRoute(sameDeviceRoutes, SPA_DIRECTION_OUTPUT, 0), 0, true, "available beats priority"
+       )
+      && ok;
 
   const std::vector<Route> unrelatedDeviceRoutes = {
       Route{.index = 2, .device = 1, .direction = SPA_DIRECTION_OUTPUT, .available = SPA_PARAM_AVAILABILITY_yes},

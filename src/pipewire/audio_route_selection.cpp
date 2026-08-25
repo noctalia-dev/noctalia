@@ -3,13 +3,17 @@
 #include <algorithm>
 
 namespace {
+  [[nodiscard]] bool routeMatchesDevice(const PipeWireService::DeviceRouteData& route, std::int32_t profileDevice) {
+    return profileDevice == kAnyProfileDevice || route.device == profileDevice;
+  }
+
   [[nodiscard]] bool routeIsSelectable(
       const PipeWireService::DeviceRouteData& route, std::uint32_t wantDirection, std::int32_t profileDevice
   ) {
     return route.index >= 0
         && route.direction == wantDirection
         && route.available != SPA_PARAM_AVAILABILITY_no
-        && (profileDevice < 0 || route.device == profileDevice);
+        && routeMatchesDevice(route, profileDevice);
   }
 
   [[nodiscard]] bool routeIsBetterCandidate(
@@ -24,9 +28,8 @@ namespace {
   }
 } // namespace
 
-const PipeWireService::DeviceRouteData* activeAudioDeviceRoute(
-    const std::vector<PipeWireService::DeviceRouteData>& routes, std::uint32_t wantDirection, std::int32_t profileDevice
-) {
+const PipeWireService::DeviceRouteData*
+activeAudioDeviceRoute(AudioDeviceRoutes routes, std::uint32_t wantDirection, std::int32_t profileDevice) {
   const PipeWireService::DeviceRouteData* best = nullptr;
   for (const auto& route : routes) {
     if (!routeIsSelectable(route, wantDirection, profileDevice)) {
@@ -40,11 +43,10 @@ const PipeWireService::DeviceRouteData* activeAudioDeviceRoute(
 }
 
 bool audioNodeRouteAvailable(
-    const std::vector<PipeWireService::DeviceRouteData>& nodeRoutes,
-    const std::vector<PipeWireService::DeviceRouteData>& deviceRoutes, std::uint32_t wantDirection,
+    AudioDeviceRoutes nodeRoutes, AudioDeviceRoutes deviceRoutes, std::uint32_t wantDirection,
     std::int32_t profileDevice
 ) {
-  if (activeAudioDeviceRoute(nodeRoutes, wantDirection, -1) != nullptr
+  if (activeAudioDeviceRoute(nodeRoutes, wantDirection, kAnyProfileDevice) != nullptr
       || activeAudioDeviceRoute(deviceRoutes, wantDirection, profileDevice) != nullptr) {
     return true;
   }
@@ -53,7 +55,7 @@ bool audioNodeRouteAvailable(
     return route.direction == wantDirection;
   };
   const auto matchesDevice = [wantDirection, profileDevice](const PipeWireService::DeviceRouteData& route) {
-    return route.direction == wantDirection && (profileDevice < 0 || route.device == profileDevice);
+    return route.direction == wantDirection && routeMatchesDevice(route, profileDevice);
   };
   return !std::ranges::any_of(nodeRoutes, matchesDirection) && !std::ranges::any_of(deviceRoutes, matchesDevice);
 }

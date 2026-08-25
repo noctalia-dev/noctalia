@@ -14,6 +14,7 @@
 #include <charconv>
 #include <chrono>
 #include <cmath>
+#include <concepts>
 #include <cstring>
 #include <memory>
 #include <optional>
@@ -253,11 +254,11 @@ namespace {
     return changed;
   }
 
-  std::uint32_t parseUint32Or(const std::string& value, std::uint32_t fallback = 0) {
+  template <std::integral T> T parseIntegerOr(const std::string& value, T fallback) {
     if (value.empty()) {
       return fallback;
     }
-    std::uint32_t out = fallback;
+    T out = fallback;
     const auto* begin = value.data();
     const auto* end = value.data() + value.size();
     const auto [ptr, ec] = std::from_chars(begin, end, out);
@@ -267,18 +268,12 @@ namespace {
     return out;
   }
 
-  std::int32_t parseInt32Or(const std::string& value, std::int32_t fallback = -1) {
-    if (value.empty()) {
-      return fallback;
-    }
-    std::int32_t out = fallback;
-    const auto* begin = value.data();
-    const auto* end = value.data() + value.size();
-    const auto [ptr, ec] = std::from_chars(begin, end, out);
-    if (ec != std::errc{} || ptr != end) {
-      return fallback;
-    }
-    return out;
+  std::uint32_t parseUint32Or(const std::string& value, std::uint32_t fallback = 0) {
+    return parseIntegerOr(value, fallback);
+  }
+
+  std::int32_t parseInt32Or(const std::string& value, std::int32_t fallback = kAnyProfileDevice) {
+    return parseIntegerOr(value, fallback);
   }
 
   std::optional<float> parseFloat(const std::string& value) {
@@ -1137,6 +1132,7 @@ void PipeWireService::onNodeInfo(std::uint32_t id, const pw_node_info* info) {
   const bool wasProgramStream = isProgramStreamClass(nd.mediaClass);
   const bool wasPrivacyCandidate = isPrivacyCandidateClass(nd.mediaClass);
   bool filterPropsChanged = false;
+  bool profileDeviceChanged = false;
 
   if (info->props != nullptr) {
     std::string mediaClass = dictGet(info->props, PW_KEY_MEDIA_CLASS);
@@ -1174,7 +1170,12 @@ void PipeWireService::onNodeInfo(std::uint32_t id, const pw_node_info* info) {
     if (deviceId != 0) {
       nd.deviceId = deviceId;
     }
-    nd.profileDevice = parseInt32Or(dictGet(info->props, "card.profile.device"), nd.profileDevice);
+    // card.profile.device is absent from the registry-global props and only arrives here, after the
+    // card already published its routes. It selects which card route drives this node, so a change
+    // must re-derive the cached effective mute.
+    const std::int32_t profileDevice = parseInt32Or(dictGet(info->props, "card.profile.device"), nd.profileDevice);
+    profileDeviceChanged = profileDevice != nd.profileDevice;
+    nd.profileDevice = profileDevice;
     std::string appBinary = dictGet(info->props, "application.process.binary");
     if (!appBinary.empty()) {
       nd.applicationBinary = appBinary;
@@ -1212,7 +1213,11 @@ void PipeWireService::onNodeInfo(std::uint32_t id, const pw_node_info* info) {
   if (isStream) {
     nd.streamClassificationReady = true;
   }
-  if ((isStream && (!wasStreamReady || filterPropsChanged))
+  if (profileDeviceChanged) {
+    recomputeEffectiveMute(nd);
+  }
+  if (profileDeviceChanged
+      || (isStream && (!wasStreamReady || filterPropsChanged))
       || wasProgramStream != isStream
       || wasPrivacyCandidate
       || isPrivacyCandidate) {
@@ -1612,11 +1617,8 @@ void PipeWireService::rebuildState() {
         device = &devIt->second;
       }
     }
-    static const std::vector<DeviceRouteData> noDeviceRoutes;
-    node.available = !isDeviceNode
-        || audioNodeRouteAvailable(
-            nd->routes, device != nullptr ? device->routes : noDeviceRoutes, wantDir, nd->profileDevice
-        );
+    const AudioDeviceRoutes deviceRoutes = device != nullptr ? AudioDeviceRoutes{device->routes} : AudioDeviceRoutes{};
+    node.available = !isDeviceNode || audioNodeRouteAvailable(nd->routes, deviceRoutes, wantDir, nd->profileDevice);
 
     if (nd->mediaClass == "Audio/Sink") {
       node.isDefault = (nd->name == m_defaultSinkName);
@@ -1675,7 +1677,8 @@ void PipeWireService::recomputeEffectiveMute(NodeData& nd) {
   const std::uint32_t wantDir = routeDirectionForMediaClass(nd.mediaClass);
   // SPA_DIRECTION_INPUT == 0, so guard on the media class rather than `wantDir != 0` (which would skip sources).
   const bool isDeviceNode = nd.mediaClass == "Audio/Sink" || nd.mediaClass == "Audio/Source";
-  const DeviceRouteData* nodeRoute = isDeviceNode ? activeAudioDeviceRoute(nd.routes, wantDir, -1) : nullptr;
+  const DeviceRouteData* nodeRoute =
+      isDeviceNode ? activeAudioDeviceRoute(nd.routes, wantDir, kAnyProfileDevice) : nullptr;
   const DeviceRouteData* deviceRoute = nullptr;
   if (nd.deviceId != 0 && isDeviceNode) {
     const auto it = m_devices.find(nd.deviceId);
