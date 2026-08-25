@@ -2,8 +2,8 @@
 
 #include "ui/controls/color_swatch_preview.h"
 #include "ui/controls/flex.h"
+#include "ui/signal.h"
 #include "ui/style.h"
-#include "util/signal.h"
 
 #include <cstddef>
 #include <cstdint>

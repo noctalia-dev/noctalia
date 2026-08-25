@@ -3,7 +3,7 @@
 #include "config/config_types.h"
 #include "system/desktop_entry.h"
 #include "system/icon_resolver.h"
-#include "util/signal.h"
+#include "ui/signal.h"
 
 #include <chrono>
 #include <cstdint>

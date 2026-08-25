@@ -2,7 +2,7 @@
 
 #include "render/animation/animation_manager.h"
 #include "shell/control_center/tab.h"
-#include "util/signal.h"
+#include "ui/signal.h"
 
 #include <array>
 #include <string>

@@ -19,9 +19,9 @@
 #include "ui/controls/context_menu_popup.h"
 #include "ui/controls/scroll_view.h"
 #include "ui/palette.h"
+#include "ui/signal.h"
 #include "ui/style.h"
 #include "util/fuzzy_match.h"
-#include "util/signal.h"
 #include "util/string_utils.h"
 
 #include <algorithm>

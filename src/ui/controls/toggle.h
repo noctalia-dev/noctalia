@@ -1,7 +1,7 @@
 #pragma once
 
 #include "ui/controls/flex.h"
-#include "util/signal.h"
+#include "ui/signal.h"
 
 #include <functional>
 #include <string>

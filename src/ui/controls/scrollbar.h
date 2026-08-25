@@ -1,7 +1,7 @@
 #pragma once
 
 #include "render/scene/node.h"
-#include "util/signal.h"
+#include "ui/signal.h"
 
 #include <functional>
 

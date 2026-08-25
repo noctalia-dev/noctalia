@@ -4,8 +4,8 @@
 #include "shell/bar/widget.h"
 #include "system/icon_resolver.h"
 #include "ui/palette.h"
+#include "ui/signal.h"
 #include "ui/style.h"
-#include "util/signal.h"
 
 #include <cstdint>
 #include <functional>

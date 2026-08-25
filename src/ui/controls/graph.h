@@ -2,7 +2,7 @@
 
 #include "render/scene/node.h"
 #include "ui/palette.h"
-#include "util/signal.h"
+#include "ui/signal.h"
 
 #include <array>
 #include <vector>

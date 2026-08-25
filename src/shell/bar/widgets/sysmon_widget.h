@@ -8,7 +8,7 @@
 #include "system/format_units.h"
 #include "ui/controls/flex.h"
 #include "ui/palette.h"
-#include "util/signal.h"
+#include "ui/signal.h"
 
 #include <chrono>
 #include <optional>

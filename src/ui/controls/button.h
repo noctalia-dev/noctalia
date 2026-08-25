@@ -2,7 +2,7 @@
 
 #include "render/core/color.h"
 #include "ui/controls/flex.h"
-#include "util/signal.h"
+#include "ui/signal.h"
 
 #include <functional>
 #include <memory>
