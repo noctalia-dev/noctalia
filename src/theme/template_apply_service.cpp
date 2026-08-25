@@ -8,6 +8,7 @@
 #include "core/process/process.h"
 #include "ipc/ipc_service.h"
 #include "theme/community_templates.h"
+#include "theme/hook_runner.h"
 #include "theme/template_engine.h"
 #include "util/file_utils.h"
 #include "util/string_utils.h"
@@ -262,7 +263,15 @@ namespace noctalia::theme {
     };
   }
 
+  HookRunner& TemplateApplyService::getHookRunner() const {
+    if (!m_hookRunner) {
+      m_hookRunner = std::make_unique<HookRunner>();
+    }
+    return *m_hookRunner;
+  }
+
   void TemplateApplyService::applyRequest(const ApplyRequest& request) const {
+    HookRunner& hookRunner = getHookRunner();
     TemplateEngine::Options options;
     options.defaultMode = request.defaultMode;
     options.imagePath = request.imagePath;
@@ -270,6 +279,7 @@ namespace noctalia::theme {
     options.verbose = true;
     options.cancelRequested = [this, generation = request.generation]() { return requestSuperseded(generation); };
     options.configTable = request.configTable;
+    options.hookRunner = &hookRunner;
 
     TemplateEngine engine(TemplateEngine::makeThemeData(request.palette), options);
 
@@ -319,6 +329,10 @@ namespace noctalia::theme {
     const std::filesystem::path configPath = userTemplateConfigPath();
     if (!engine.processConfigTable(userTemplateRoot, configPath)) {
       kLog.warn("failed to apply user templates from main config");
+    }
+
+    if (!requestSuperseded(request.generation)) {
+      hookRunner.waitIdle();
     }
   }
 

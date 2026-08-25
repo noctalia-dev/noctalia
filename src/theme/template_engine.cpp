@@ -13,6 +13,7 @@
 #include "system/icon_resolver.h"
 #include "theme/color.h"
 #include "theme/firefox_theme/firefox_theme.h"
+#include "theme/hook_runner.h"
 #include "theme/kde_color_scheme.h"
 #include "theme/palette.h"
 #include "util/file_utils.h"
@@ -1644,10 +1645,19 @@ namespace noctalia::theme {
       }
 
       auto runHook = [&](const std::string& hook) {
-        if (!hook.empty() && !cancelRequested()) {
-          const auto hookRendered = EngineImpl(m_themeData, renderOptions).render(hook);
-          if (hookRendered.errorCount == 0 && !hookRendered.text.empty()) [[maybe_unused]]
-            const bool hookOk = process::runSync(hookRendered.text);
+        if (hook.empty() || cancelRequested()) {
+          return;
+        }
+
+        const auto hookRendered = EngineImpl(m_themeData, renderOptions).render(hook);
+        if (hookRendered.errorCount != 0 || hookRendered.text.empty()) {
+          return;
+        }
+
+        if (renderOptions.hookRunner != nullptr) {
+          renderOptions.hookRunner->enqueue(hookRendered.text);
+        } else {
+          [[maybe_unused]] const bool hookOk = process::runSync(hookRendered.text);
         }
       };
 
