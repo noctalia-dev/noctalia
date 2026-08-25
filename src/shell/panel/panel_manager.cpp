@@ -163,14 +163,42 @@ namespace {
     return InputRect{minX, minY, maxX - minX, maxY - minY};
   }
 
+  // Per-panel bar anchor, used only when a panel is opened without a source bar
+  // (keybind, CLI, IPC). Empty means "no preference".
+  [[nodiscard]] std::string_view panelAnchorBarForPanel(const ConfigService* configService, std::string_view panelId) {
+    if (configService == nullptr) {
+      return {};
+    }
+    const auto& pc = configService->config().shell.panel;
+    if (panelId == "launcher") {
+      return pc.launcherAnchorBar;
+    }
+    if (panelId == "clipboard") {
+      return pc.clipboardAnchorBar;
+    }
+    if (panelId == "control-center") {
+      return pc.controlCenterAnchorBar;
+    }
+    if (panelId == "wallpaper") {
+      return pc.wallpaperAnchorBar;
+    }
+    if (panelId == "session") {
+      return pc.sessionAnchorBar;
+    }
+    if (panelId == "polkit") {
+      return pc.polkitAnchorBar;
+    }
+    return {};
+  }
+
   // Resolves the bar a panel should attach to / position relative to.
   // `shell.panel_anchor_bar` wins when set; otherwise `barName` is the opening
-  // source bar. A named bar that does not exist fails loudly (nullopt).
-  // Prefer an enabled bar on the output; if none is enabled there (e.g. a bar-less
-  // monitor), still return a resolved bar so openPanel can use a center-screen
-  // floating layout via attached-panel availability.
+  // source bar, and failing that the panel's own `*_anchor_bar` is used. A named bar that does not exist fails loudly
+  // (nullopt). Prefer an enabled bar on the output; if none is enabled there (e.g. a bar-less monitor), still return a
+  // resolved bar so openPanel can use a center-screen floating layout via attached-panel availability.
   std::optional<BarConfig> resolvePanelBarConfig(
-      ConfigService* configService, CompositorPlatform* platform, wl_output* output, std::string_view barName = {}
+      ConfigService* configService, CompositorPlatform* platform, wl_output* output, std::string_view barName = {},
+      std::string_view panelId = {}
   ) {
     if (configService == nullptr || configService->config().bars.empty()) {
       return BarConfig{};
@@ -178,7 +206,12 @@ namespace {
 
     const auto& bars = configService->config().bars;
     const std::string_view panelAnchorBar = configService->config().shell.panelAnchorBar;
-    const std::string_view effectiveName = !panelAnchorBar.empty() ? panelAnchorBar : barName;
+    const std::string_view perPanelAnchorBar = panelAnchorBarForPanel(configService, panelId);
+    // Additive: the per-panel anchor only applies when nothing else resolved a
+    // bar, so the global anchor and source-bar behaviour are unchanged.
+    const std::string_view effectiveName = !panelAnchorBar.empty() ? panelAnchorBar
+        : !barName.empty()                                         ? barName
+                                                                   : perPanelAnchorBar;
 
     const WaylandOutput* wlOutput = nullptr;
     if (platform != nullptr && output != nullptr) {
@@ -575,7 +608,7 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
     return;
   }
 
-  auto barConfigOpt = resolvePanelBarConfig(m_config, m_platform, request.output, request.sourceBarName);
+  auto barConfigOpt = resolvePanelBarConfig(m_config, m_platform, request.output, request.sourceBarName, panelId);
   if (!barConfigOpt.has_value()) {
     return;
   }
@@ -2383,7 +2416,7 @@ void PanelManager::onConfigReloaded() {
     return;
   }
 
-  const auto barConfigOpt = resolvePanelBarConfig(m_config, m_platform, m_output, m_sourceBarName);
+  const auto barConfigOpt = resolvePanelBarConfig(m_config, m_platform, m_output, m_sourceBarName, m_activePanelId);
   if (!barConfigOpt.has_value()) {
     return;
   }

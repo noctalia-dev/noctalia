@@ -1192,11 +1192,32 @@ namespace settings {
       return e;
     };
 
+    // Per-panel anchor bar: which bar this panel attaches to when it is opened
+    // without a source bar (keybind, CLI, IPC). Empty = inherit existing behaviour.
+    const auto panelAnchorEntry = [&](SettingsSection section, std::string_view group, std::string_view labelKey,
+                                      std::string_view descKey, const std::string& current, std::string_view tomlKey) {
+      SelectSetting sel;
+      for (const auto& name : barNames(cfg)) {
+        sel.options.push_back(SelectOption{name, name});
+      }
+      sel.selectedValue = current;
+      sel.allowEmptySelection = true;
+      return makeEntry(
+          section, std::string(group), tr(labelKey), tr(descKey), {"shell", "panel", std::string(tomlKey)},
+          std::move(sel), "anchor attach bar panel shortcut keybind"
+      );
+    };
+
     entries.push_back(makeEntry(
         SettingsSection::Launcher, "launcher", tr("settings.schema.panels.placement-launcher.label"),
         tr("settings.schema.panels.placement-launcher.description"), {"shell", "panel", "launcher_placement"},
         asSegmented(enumSelect(kPanelPlacements, cfg.shell.panel.launcherPlacement)),
         "attached floating bar panel position"
+    ));
+    entries.push_back(panelAnchorEntry(
+        SettingsSection::Launcher, "launcher", "settings.schema.panels.anchor-bar-launcher.label",
+        "settings.schema.panels.anchor-bar-launcher.description", cfg.shell.panel.launcherAnchorBar,
+        "launcher_anchor_bar"
     ));
     entries.push_back(panelPositionEntry(
         SettingsSection::Launcher, "launcher", "launcher", "settings.schema.panels.position-launcher.label",
@@ -1335,6 +1356,11 @@ namespace settings {
           "launcher windows global search unprefixed"
       ));
     }
+    entries.push_back(panelAnchorEntry(
+        SettingsSection::Panels, "clipboard", "settings.schema.panels.anchor-bar-clipboard.label",
+        "settings.schema.panels.anchor-bar-clipboard.description", cfg.shell.panel.clipboardAnchorBar,
+        "clipboard_anchor_bar"
+    ));
     entries.push_back(makeEntry(
         SettingsSection::Panels, "clipboard", tr("settings.schema.panels.placement-clipboard.label"),
         tr("settings.schema.panels.placement-clipboard.description"), {"shell", "panel", "clipboard_placement"},
@@ -1351,6 +1377,10 @@ namespace settings {
         "settings.schema.panels.open-near-click-clipboard.description", cfg.shell.panel.openNearClickClipboard,
         &ShellConfig::PanelConfig::clipboardPlacement, &ShellConfig::PanelConfig::clipboardPosition
     ));
+    entries.push_back(panelAnchorEntry(
+        SettingsSection::Panels, "polkit", "settings.schema.panels.anchor-bar-polkit.label",
+        "settings.schema.panels.anchor-bar-polkit.description", cfg.shell.panel.polkitAnchorBar, "polkit_anchor_bar"
+    ));
     entries.push_back(makeEntry(
         SettingsSection::Panels, "polkit", tr("settings.schema.panels.placement-polkit.label"),
         tr("settings.schema.panels.placement-polkit.description"), {"shell", "panel", "polkit_placement"},
@@ -1361,6 +1391,11 @@ namespace settings {
         SettingsSection::Panels, "polkit", "polkit", "settings.schema.panels.position-polkit.label",
         "settings.schema.panels.position-polkit.description", cfg.shell.panel.polkitPosition,
         &ShellConfig::PanelConfig::polkitPlacement
+    ));
+    entries.push_back(panelAnchorEntry(
+        SettingsSection::Panels, "wallpaper", "settings.schema.panels.anchor-bar-wallpaper.label",
+        "settings.schema.panels.anchor-bar-wallpaper.description", cfg.shell.panel.wallpaperAnchorBar,
+        "wallpaper_anchor_bar"
     ));
     entries.push_back(makeEntry(
         SettingsSection::Panels, "wallpaper", tr("settings.schema.panels.placement-wallpaper.label"),
@@ -1380,6 +1415,11 @@ namespace settings {
     ));
 
     // Control Center
+    entries.push_back(panelAnchorEntry(
+        SettingsSection::ControlCenter, "layout", "settings.schema.panels.anchor-bar-control-center.label",
+        "settings.schema.panels.anchor-bar-control-center.description", cfg.shell.panel.controlCenterAnchorBar,
+        "control_center_anchor_bar"
+    ));
     entries.push_back(makeEntry(
         SettingsSection::ControlCenter, "layout", tr("settings.schema.panels.placement-control-center.label"),
         tr("settings.schema.panels.placement-control-center.description"),
@@ -2716,6 +2756,10 @@ namespace settings {
     ));
 
     // Power
+    entries.push_back(panelAnchorEntry(
+        SettingsSection::Power, "session-panel", "settings.schema.panels.anchor-bar-session.label",
+        "settings.schema.panels.anchor-bar-session.description", cfg.shell.panel.sessionAnchorBar, "session_anchor_bar"
+    ));
     entries.push_back(makeEntry(
         SettingsSection::Power, "session-panel", tr("settings.schema.panels.placement-session.label"),
         tr("settings.schema.panels.placement-session.description"), {"shell", "panel", "session_placement"},
