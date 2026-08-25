@@ -5,6 +5,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 #include <unordered_set>
 
@@ -48,9 +49,13 @@ private:
   void doLayout(Renderer& renderer, float containerWidth, float containerHeight) override;
   void doUpdate(Renderer& renderer) override;
   void applyTitleScrollMode(bool titleVisible);
-  void syncState(Renderer& renderer);
+  void syncState(Renderer& renderer, const std::optional<MprisPlayerInfo>& active);
   void syncWidgetVisibility(bool hasMedia);
-  void syncProgress();
+  // Applies playback position to the fill and arms the update timer. Update-phase only: it decides
+  // eligibility itself instead of reading the visibility that doLayout() applies afterwards.
+  void syncProgress(const std::optional<MprisPlayerInfo>& active);
+  [[nodiscard]] bool progressFillEligible(const std::optional<MprisPlayerInfo>& active) const noexcept;
+  [[nodiscard]] std::optional<MprisPlayerInfo> activePlayer() const;
   [[nodiscard]] static std::string buildDisplayText(const MprisPlayerInfo& player, bool hideArtist, bool artistFirst);
 
   MprisService* m_mpris = nullptr;
@@ -65,6 +70,9 @@ private:
   bool m_hideArtist = false;
   bool m_artistFirst = false;
   bool m_showProgress = false;
+  // Cached from the last doLayout(); the update phase has no container extents of its own.
+  bool m_isVertical = false;
+  bool m_progressFillVisible = false;
   InputArea* m_area = nullptr;
   Image* m_art = nullptr;
   Glyph* m_emptyGlyph = nullptr;

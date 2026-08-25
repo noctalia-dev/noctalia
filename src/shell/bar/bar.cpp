@@ -415,12 +415,6 @@ namespace {
     return LayerShellAnchor::Top | LayerShellAnchor::Left | LayerShellAnchor::Right;
   }
 
-  ColorSpec withOpacity(const ColorSpec& color, float opacity) {
-    ColorSpec out = color;
-    out.alpha = std::clamp(out.alpha * std::clamp(opacity, 0.0F, 1.0F), 0.0F, 1.0F);
-    return out;
-  }
-
   // Hover highlight: peak fill alpha of the widget-foreground tint, and the cross-axis inset
   // (logical px, content-scaled) of per-member pills inside capsule groups.
   constexpr float kWidgetHoverFillAlpha = 0.1F;
@@ -1009,7 +1003,7 @@ namespace {
           hasVisibleContent = hasVisibleContent || widget->root()->visible();
           hasCapsuleContent = hasCapsuleContent || widget->shouldShowBarCapsule();
         }
-        const bool hasPaintedFill = resolveColorSpec(withOpacity(run.spec.fill, run.spec.opacity)).a > 0.0F;
+        const bool hasPaintedFill = resolveColorSpec(scaleAlpha(run.spec.fill, run.spec.opacity)).a > 0.0F;
         const bool hasPaintedBorder = run.spec.border.has_value() && resolveColorSpec(*run.spec.border).a > 0.0F;
         run.hasPaintedCapsuleBackground = hasCapsuleContent && (hasPaintedFill || hasPaintedBorder);
 
@@ -2577,7 +2571,7 @@ void Bar::attachWidgetsToSections(BarInstance& instance) {
     shell.addChild(
         ui::box({
             .out = &boxPtr,
-            .fill = withOpacity(widget.widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface)), 0.0F),
+            .fill = scaleAlpha(widget.widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface)), 0.0F),
             .visible = false,
             .configure = [](Box& box) { box.setZIndex(-1); },
         })
@@ -2687,7 +2681,7 @@ void Bar::attachWidgetsToSections(BarInstance& instance) {
       Box* bgPtr = nullptr;
       auto capsuleBg = ui::box({
           .out = &bgPtr,
-          .fill = withOpacity(cap.fill, cap.opacity),
+          .fill = scaleAlpha(cap.fill, cap.opacity),
           .configure = [&cap, scale](Box& bg) {
             if (cap.border.has_value()) {
               bg.setBorder(*cap.border, Style::borderWidth * scale);
@@ -2778,7 +2772,7 @@ void Bar::attachWidgetsToSections(BarInstance& instance) {
       Box* bgPtr = nullptr;
       auto capsuleBg = ui::box({
           .out = &bgPtr,
-          .fill = withOpacity(cap.fill, cap.opacity),
+          .fill = scaleAlpha(cap.fill, cap.opacity),
           .configure = [&cap, scale](Box& bg) {
             if (cap.border.has_value()) {
               bg.setBorder(*cap.border, Style::borderWidth * scale);
@@ -2920,7 +2914,7 @@ void Bar::animateWidgetHoverHighlight(BarInstance& instance, Widget& widget, boo
       [&widget, box, fill](float progress) {
         widget.setBarHoverProgress(progress);
         box->setVisible(progress > 0.001F);
-        box->setFill(withOpacity(fill, kWidgetHoverFillAlpha * progress));
+        box->setFill(scaleAlpha(fill, kWidgetHoverFillAlpha * progress));
       },
       {}, box
   );

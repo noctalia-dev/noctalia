@@ -21,10 +21,6 @@ using namespace mpris;
 namespace {
 
   const Logger kLog{"media"};
-  ColorSpec withOpacity(ColorSpec color, float opacity) {
-    color.alpha *= opacity;
-    return color;
-  }
 
 } // namespace
 
@@ -50,13 +46,14 @@ void MediaWidget::create() {
   area->addChild(
       ui::progressBar(
           {.out = &m_progressBar,
-           .fill = withOpacity(widgetForegroundOr(colorSpecFromRole(ColorRole::Primary)), 0.25F),
+           .fill = scaleAlpha(widgetForegroundOr(colorSpecFromRole(ColorRole::Primary)), 0.25F),
            .track = clearColorSpec(),
            .visible = false,
            .participatesInLayout = false,
            .configure = [](ProgressBar& bar) {
              bar.setZIndex(-1);
              bar.setHitTestVisible(false);
+             bar.setProgress(0.0F);
            }}
       )
   );
@@ -105,15 +102,15 @@ void MediaWidget::doLayout(Renderer& renderer, float containerWidth, float conta
       || m_progressBar == nullptr) {
     return;
   }
-  syncState(renderer);
+  const bool wasVertical = m_isVertical;
+  m_isVertical = containerHeight > containerWidth;
+  const auto active = activePlayer();
+  syncState(renderer, active);
 
-  const bool isVertical = containerHeight > containerWidth;
-  const bool artOnly = isVertical || m_albumArtOnly;
+  const bool artOnly = m_isVertical || m_albumArtOnly;
   const float maxLength = std::max(0.0F, m_maxWidth * m_contentScale);
   const float minLength = std::clamp(m_minWidth * m_contentScale, 0.0F, maxLength);
-  const auto progressPlayer = m_mpris != nullptr ? m_mpris->activePlayer() : std::nullopt;
-  const bool showProgressFill =
-      m_showProgress && !artOnly && progressPlayer.has_value() && progressPlayer->lengthUs > 0;
+  const bool showProgressFill = progressFillEligible(active);
 
   m_label->setColor(
       m_lastPlaybackStatus == "Playing" ? widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface))
@@ -124,7 +121,7 @@ void MediaWidget::doLayout(Renderer& renderer, float containerWidth, float conta
   m_emptyGlyph->setColor(colorSpecFromRole(ColorRole::OnSurfaceVariant));
   m_emptyGlyph->measure(renderer);
 
-  const bool hideAlbumArt = m_hideAlbumArt && !isVertical;
+  const bool hideAlbumArt = m_hideAlbumArt && !m_isVertical;
   const bool showArtSlot = !hideAlbumArt && m_art->hasImage();
 
   // Clamp art to the label's single-line height so oversized art_size cannot
@@ -199,13 +196,21 @@ void MediaWidget::doLayout(Renderer& renderer, float containerWidth, float conta
     const float fillHeight = rootNode->height();
     m_progressBar->setPosition(0.0F, 0.0F);
     m_progressBar->setSize(fillWidth, fillHeight);
-    m_progressBar->setRadius(std::min(fillWidth, fillHeight) * 0.5F);
+    m_progressBar->setRadius(resolvedBarCapsuleRadius(fillWidth, fillHeight));
+  }
+  // The update phase owns the fill value and the timer, and it runs before layout. Re-enter it when
+  // a layout-only pass changes an input it cannot observe, so the fill never shows a stale value and
+  // the timer cannot stay unarmed while the fill is on screen.
+  if (m_isVertical != wasVertical || showProgressFill != m_progressFillVisible) {
+    m_progressFillVisible = showProgressFill;
+    requestUpdate();
   }
 }
 
 void MediaWidget::doUpdate(Renderer& renderer) {
-  syncState(renderer);
-  syncProgress();
+  const auto active = activePlayer();
+  syncState(renderer, active);
+  syncProgress(active);
 }
 
 void MediaWidget::applyTitleScrollMode(bool titleVisible) {
@@ -231,43 +236,49 @@ void MediaWidget::syncWidgetVisibility(bool hasMedia) {
   }
 }
 
-void MediaWidget::syncProgress() {
+std::optional<MprisPlayerInfo> MediaWidget::activePlayer() const {
+  return m_mpris != nullptr ? m_mpris->activePlayer() : std::nullopt;
+}
+
+bool MediaWidget::progressFillEligible(const std::optional<MprisPlayerInfo>& active) const noexcept {
+  return m_showProgress && !m_isVertical && !m_albumArtOnly && active.has_value() && active->lengthUs > 0;
+}
+
+void MediaWidget::syncProgress(const std::optional<MprisPlayerInfo>& active) {
   if (m_progressBar == nullptr) {
     return;
   }
-  if (!m_progressBar->visible()) {
+  // Reset while ineligible so a later reveal cannot flash the previous track's position.
+  if (!progressFillEligible(active)) {
     m_progressTimer.stop();
+    if (m_progressBar->progress() != 0.0F) {
+      m_progressBar->setProgress(0.0F);
+      requestRedraw();
+    }
     return;
   }
-  const auto active = m_mpris != nullptr ? m_mpris->activePlayer() : std::nullopt;
-  const bool playing = active.has_value() && active->playbackStatus == "Playing";
-  const bool hasLength = active.has_value() && active->lengthUs > 0;
 
-  if (!m_showProgress || !hasLength) {
-    m_progressTimer.stop();
-    return;
-  }
   const float progress = static_cast<float>(active->positionUs) / static_cast<float>(active->lengthUs);
   if (std::abs(progress - m_progressBar->progress()) > 0.0005F) {
     m_progressBar->setProgress(progress);
     requestRedraw();
   }
-  if (!playing) {
+  if (active->playbackStatus != "Playing") {
     m_progressTimer.stop();
     return;
   }
+  // One wakeup per pixel of travel: a 3-minute track in a 200 px widget moves a pixel every ~900 ms.
   const float fillWidth = std::max(1.0F, m_progressBar->width());
   const auto intervalMs =
       static_cast<std::int64_t>(std::clamp(static_cast<float>(active->lengthUs / 1000) / fillWidth, 250.0F, 1000.0F));
   m_progressTimer.start(std::chrono::milliseconds(intervalMs), [this]() { requestUpdate(); });
 }
 
-void MediaWidget::syncState(Renderer& renderer) {
+void MediaWidget::syncState(Renderer& renderer, const std::optional<MprisPlayerInfo>& active) {
   if (m_art == nullptr || m_label == nullptr) {
     return;
   }
 
-  const auto active = m_mpris != nullptr ? m_mpris->activePlayer() : std::nullopt;
   syncWidgetVisibility(active.has_value());
   if (m_hideWhenNoMedia && !active.has_value()) {
     applyTitleScrollMode(false);

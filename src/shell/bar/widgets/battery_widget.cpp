@@ -24,11 +24,6 @@ namespace {
   constexpr float kGraphicTerminalHeight = 7.0F;
   constexpr float kGraphicCornerRadius = 3.0F;
 
-  ColorSpec withOpacity(ColorSpec color, float opacity) {
-    color.alpha *= opacity;
-    return color;
-  }
-
   const char* batteryStateGlyph(BatteryState state) {
     if (state == BatteryState::Charging) {
       return "bolt-filled";
@@ -111,7 +106,7 @@ void BatteryWidget::createGraphicMode() {
   container->addChild(
       ui::box({
           .out = &m_bodyBg,
-          .fill = withOpacity(widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface)), 0.3F),
+          .fill = scaleAlpha(widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface)), 0.3F),
       })
   );
 
@@ -124,7 +119,7 @@ void BatteryWidget::createGraphicMode() {
   container->addChild(
       ui::box({
           .out = &m_terminalNub,
-          .fill = withOpacity(widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface)), 0.3F),
+          .fill = scaleAlpha(widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface)), 0.3F),
       })
   );
 
@@ -423,11 +418,11 @@ void BatteryWidget::syncState(Renderer& renderer) {
       m_fillRect->setFill(fgColor);
     }
     if (m_bodyBg != nullptr) {
-      m_bodyBg->setFill(withOpacity(fgColor, 0.3F));
+      m_bodyBg->setFill(scaleAlpha(fgColor, 0.3F));
     }
 
     if (m_terminalNub != nullptr) {
-      m_terminalNub->setFill(withOpacity(fgColor, 0.3F));
+      m_terminalNub->setFill(scaleAlpha(fgColor, 0.3F));
     }
 
     // Animate fill percentage
