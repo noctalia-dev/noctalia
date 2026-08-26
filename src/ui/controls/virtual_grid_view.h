@@ -13,6 +13,7 @@
 
 class InputArea;
 class ScrollView;
+struct ScrollViewState;
 
 // Adapter that drives a VirtualGridView from an external data source.
 //
@@ -93,6 +94,8 @@ public:
 
   // Adapter is non-owning and must outlive the grid.
   void setAdapter(VirtualGridAdapter* adapter);
+  // State is non-owning and must outlive the grid.
+  void bindScrollState(ScrollViewState* state);
 
   // Notify the grid that the adapter's item count or contents changed.
   void notifyDataChanged();

@@ -1523,18 +1523,37 @@
       },
       "store": {
         "add": "Дадаць у Noctalia",
+        "back-to-catalog": "Вярнуцца ў каталог",
         "categories": "Катэгорыі",
         "category-all": "Усе",
         "empty": "Убудоў не знойдзена",
+        "held-back": "Старэйшая версія",
+        "held-back-hint": "Усталюе {version} для API {resolved}. Найноўшая версія {latest} патрабуе API {latestRequired}; ваша Noctalia падтрымлівае версіі да {current}.",
         "incompatible": "Несумяшчальная",
+        "incompatible-hint": "Патрабуе API {required}; ваша Noctalia падтрымлівае API {oldest}–{current}.",
         "loading": "Загрузка каталога…",
         "no-readme": "Апісання няма",
+        "open-page": "Адкрыць старонку ўбудовы на noctalia.dev",
+        "open-source": "Адкрыць рэпазіторый убудовы",
         "results-count": "{count} убудовы(-оў)",
         "search-placeholder": "Шукаць убудовы…",
+        "sort-added-at-asc": "Сартаваць па даце дадавання (спачатку старыя)",
+        "sort-added-at-desc": "Сартаваць па даце дадавання (спачатку новыя)",
+        "sort-name-asc": "Сартаваць па назве (ад A да Z)",
+        "sort-name-desc": "Сартаваць па назве (ад Z да A)",
+        "sort-updated-at-asc": "Сартаваць па даце абнаўлення (спачатку старыя)",
+        "sort-updated-at-desc": "Сартаваць па даце абнаўлення (спачатку новыя)",
+        "source-all": "Усе крыніцы",
         "title": "Крама ўбудоў"
       }
     },
     "schema": {
+      "accessibility": {
+        "high-contrast": {
+          "description": "Павялічэнне кантрасту экстрэмальным павелічэннем каляровых значэнняў паверхняў і фона",
+          "label": "Высокі кантраст"
+        }
+      },
       "appearance": {
         "animation-speed": {
           "description": "Множнік хуткасці для ўсіх анімацый",
@@ -1557,8 +1576,12 @@
           "label": "Убудаваная палітра"
         },
         "button-borders": {
-          "description": "Дадаць рамкі кнопкам абалонкі",
-          "label": "Рамкі кнопак"
+          "description": "Дадаць краі вакол кнопак абалонкі",
+          "label": "Межы кнопак"
+        },
+        "card-borders": {
+          "description": "Дадаць краі вакол картак секцый унутры панэляў і акна налад",
+          "label": "Межы картак"
         },
         "community-palette": {
           "description": "Выберыце палітру з каталога супольнасці",
@@ -1589,6 +1612,10 @@
         "global-shadow-direction": {
           "description": "Бок, у які элементы інтэрфейсу адкідваюць цені"
         },
+        "input-borders": {
+          "description": "Дадаць краі вакол",
+          "label": "Межы палёў увода"
+        },
         "language": {
           "description": "Перавызначэнне аўтаматычна выбранай лакалі",
           "label": "Мова"
@@ -1596,6 +1623,14 @@
         "palette-source": {
           "description": "Адкуль браць колеры палітры",
           "label": "Колеры палітры"
+        },
+        "popup-borders": {
+          "description": "Дадаць краі вакол усплывальных і выпадных акон",
+          "label": "Межы ўсплывальных акон"
+        },
+        "popup-shadows": {
+          "description": "Дадаць цені за ўсплвальнымі і выпадныя вокна",
+          "label": "Цені ўсплывальных акон"
         },
         "pure-black-dark": {
           "description": "Прымяняць сапраўдны чорны да цёмных паверхняў, каб папярэдзіць выгаранне",
@@ -1628,6 +1663,9 @@
         }
       },
       "bar": {
+        "auto-hide": {
+          "description": "«Выкл» не хавае панэль; «Укл» паказвае яе пры навядзенні курсора на край экрана; «Разумна» паказвае панэль на пустой прасторы і хавае яе пры адкрытых вокнах"
+        },
         "background-opacity": {
           "description": "Непразрыстасць фона панэлі"
         },

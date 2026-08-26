@@ -8,6 +8,7 @@
 #include <cmath>
 #include <linux/input-event-codes.h>
 #include <memory>
+#include <utility>
 
 // Internal canvas that reports a virtual size set externally and never moves
 // its children during its own layout pass — VirtualGridView positions pool
@@ -85,6 +86,8 @@ VirtualGridView::VirtualGridView() {
   });
   m_inputArea = static_cast<InputArea*>(m_canvas->addChild(std::move(inputArea)));
 }
+
+void VirtualGridView::bindScrollState(ScrollViewState* state) { m_scroll->bindState(state); }
 
 void VirtualGridView::setAdapter(VirtualGridAdapter* adapter) {
   if (m_adapter == adapter) {
@@ -300,9 +303,9 @@ void VirtualGridView::doLayout(Renderer& renderer) {
       const float visibleTop = m_scroll->scrollOffset();
       const float visibleBottom = visibleTop + viewportH;
       if (rowTop < visibleTop) {
-        m_scroll->setScrollOffset(rowTop);
+        m_scroll->requestScrollToOffset(rowTop);
       } else if (rowBottom > visibleBottom) {
-        m_scroll->setScrollOffset(rowBottom - viewportH);
+        m_scroll->requestScrollToOffset(rowBottom - viewportH);
       }
     }
   }
