@@ -272,6 +272,34 @@ namespace noctalia::theme {
 
   void TemplateApplyService::applyRequest(const ApplyRequest& request) const {
     HookRunner& hookRunner = getHookRunner();
+
+    // Drop queued hooks from superseded generations before reusing the runner.
+    hookRunner.invalidateBefore(request.generation);
+
+    class ScopeExit {
+    public:
+      explicit ScopeExit(std::function<void()> fn) : m_fn(std::move(fn)) {}
+      ~ScopeExit() {
+        if (m_fn) {
+          m_fn();
+        }
+      }
+
+      ScopeExit(const ScopeExit&) = delete;
+      ScopeExit& operator=(const ScopeExit&) = delete;
+
+    private:
+      std::function<void()> m_fn;
+    };
+
+    // Drain hooks on every exit path unless this request was superseded; a
+    // superseded request must not block the worker on stale generation hooks.
+    ScopeExit hookWaiter{[this, generation = request.generation, &hookRunner]() {
+      if (!requestSuperseded(generation)) {
+        hookRunner.waitIdle();
+      }
+    }};
+
     TemplateEngine::Options options;
     options.defaultMode = request.defaultMode;
     options.imagePath = request.imagePath;
@@ -280,6 +308,7 @@ namespace noctalia::theme {
     options.cancelRequested = [this, generation = request.generation]() { return requestSuperseded(generation); };
     options.configTable = request.configTable;
     options.hookRunner = &hookRunner;
+    options.generation = request.generation;
 
     TemplateEngine engine(TemplateEngine::makeThemeData(request.palette), options);
 
@@ -329,10 +358,6 @@ namespace noctalia::theme {
     const std::filesystem::path configPath = userTemplateConfigPath();
     if (!engine.processConfigTable(userTemplateRoot, configPath)) {
       kLog.warn("failed to apply user templates from main config");
-    }
-
-    if (!requestSuperseded(request.generation)) {
-      hookRunner.waitIdle();
     }
   }
 

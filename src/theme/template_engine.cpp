@@ -1596,6 +1596,9 @@ namespace noctalia::theme {
     std::ranges::stable_sort(entries, {}, &ParsedTemplateEntry::index);
     markMultiClientGatedEntries(entries);
 
+    // index > 0 opts into deterministic sequencing: drain earlier async hooks
+    // once before the first positive-index entry runs.
+    bool indexBarrierDrained = false;
     bool ok = true;
     for (const ParsedTemplateEntry& entry : entries) {
       if (cancelRequested()) {
@@ -1617,6 +1620,11 @@ namespace noctalia::theme {
       renderOptions.closestColor = closestColor;
       renderOptions.configDir = configPath.has_parent_path() ? configPath.parent_path().string() : "";
       renderOptions.configFile = configPath.string();
+
+      if (!indexBarrierDrained && entry.index > 0 && renderOptions.hookRunner != nullptr) {
+        renderOptions.hookRunner->waitIdle();
+        indexBarrierDrained = true;
+      }
 
       std::string effectiveInput = entry.inputPath;
       if (!entry.inputPathDynamic.empty()) {
@@ -1644,7 +1652,7 @@ namespace noctalia::theme {
         }
       }
 
-      auto runHook = [&](const std::string& hook) {
+      auto runHook = [&](const std::string& hook, bool async) {
         if (hook.empty() || cancelRequested()) {
           return;
         }
@@ -1654,8 +1662,8 @@ namespace noctalia::theme {
           return;
         }
 
-        if (renderOptions.hookRunner != nullptr && entry.index == 0) {
-          renderOptions.hookRunner->enqueue(hookRendered.text);
+        if (async && renderOptions.hookRunner != nullptr) {
+          renderOptions.hookRunner->enqueue(hookRendered.text, renderOptions.generation);
         } else {
           [[maybe_unused]] const bool hookOk = process::runSync(hookRendered.text);
         }
@@ -1702,7 +1710,7 @@ namespace noctalia::theme {
 
       const bool hasOutputs = !effectiveOutputs.empty();
       if (hasOutputs)
-        runHook(entry.preHook);
+        runHook(entry.preHook, /*async=*/false);
 
       bool outputsOk = true;
       for (const std::string& outputPath : effectiveOutputs) {
@@ -1739,7 +1747,7 @@ namespace noctalia::theme {
         if (!runPostAction()) {
           ok = false;
         }
-        runHook(entry.postHook);
+        runHook(entry.postHook, entry.index == 0 && renderOptions.hookRunner != nullptr);
       }
     }
 

@@ -31,6 +31,9 @@ namespace noctalia::theme {
     {
       std::scoped_lock lock(m_mutex);
       m_shutdown = true;
+      // Drop queued-but-not-started hooks; only running hooks finish.
+      m_pending -= m_queue.size();
+      m_queue.clear();
     }
     m_cv.notify_all();
 
@@ -41,21 +44,41 @@ namespace noctalia::theme {
     }
   }
 
-  void HookRunner::enqueue(std::string command) {
+  void HookRunner::enqueue(std::string command, std::uint64_t generation) {
     {
       std::scoped_lock lock(m_mutex);
-      if (m_shutdown) {
+      if (m_shutdown || generation < m_currentGeneration) {
         return;
       }
-      m_queue.push_back(std::move(command));
+      m_queue.emplace_back(QueuedHook{std::move(command), generation});
       ++m_pending;
     }
     m_cv.notify_one();
   }
 
+  void HookRunner::invalidateBefore(std::uint64_t generation) {
+    std::scoped_lock lock(m_mutex);
+    if (generation <= m_currentGeneration) {
+      return;
+    }
+    m_currentGeneration = generation;
+
+    for (auto it = m_queue.begin(); it != m_queue.end();) {
+      if (it->generation < m_currentGeneration) {
+        it = m_queue.erase(it);
+        --m_pending;
+      } else {
+        ++it;
+      }
+    }
+    if (m_pending == 0) {
+      m_idleCv.notify_all();
+    }
+  }
+
   void HookRunner::waitIdle() {
     std::unique_lock lock(m_mutex);
-    m_idleCv.wait(lock, [this]() { return m_shutdown || (m_pending == 0 && m_queue.empty()); });
+    m_idleCv.wait(lock, [this]() { return m_shutdown || m_pending == 0; });
   }
 
   size_t HookRunner::pendingCount() const {
@@ -65,12 +88,12 @@ namespace noctalia::theme {
 
   void HookRunner::workerLoop() {
     while (true) {
-      std::string command;
+      QueuedHook item;
       {
         std::unique_lock lock(m_mutex);
         m_cv.wait(lock, [this]() { return m_shutdown || !m_queue.empty(); });
 
-        if (m_shutdown && m_queue.empty()) {
+        if (m_shutdown) {
           return;
         }
 
@@ -78,18 +101,31 @@ namespace noctalia::theme {
           continue;
         }
 
-        command = std::move(m_queue.front());
+        item = std::move(m_queue.front());
         m_queue.pop_front();
       }
 
-      const auto result = process::runSync(command);
+      // Re-check staleness in case invalidateBefore() advanced the generation
+      // between the pop above and releasing the lock.
+      {
+        std::scoped_lock lock(m_mutex);
+        if (item.generation < m_currentGeneration) {
+          --m_pending;
+          if (m_pending == 0) {
+            m_idleCv.notify_all();
+          }
+          continue;
+        }
+      }
+
+      const auto result = process::runSync(item.command);
 
       {
         std::scoped_lock lock(m_mutex);
         --m_pending;
 
-        if (!result) {
-          kLog.warn("hook failed with exit code {}: {} (command: {})", result.exitCode, result.err, command);
+        if (!result && item.generation >= m_currentGeneration) {
+          kLog.warn("hook failed with exit code {}: {} (command: {})", result.exitCode, result.err, item.command);
         }
 
         if (m_pending == 0) {
