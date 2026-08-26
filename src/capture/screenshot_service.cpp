@@ -1482,22 +1482,9 @@ void ScreenshotService::onCaptureComplete(
   startNextQueuedCapture();
 }
 
-std::filesystem::path ScreenshotService::defaultPicturesDirectory() const {
-  std::string rawPath;
-  if (const char* xdgPictures = std::getenv("XDG_PICTURES_DIR"); xdgPictures != nullptr && xdgPictures[0] != '\0') {
-    rawPath = xdgPictures;
-  } else if (const char* home = std::getenv("HOME"); home != nullptr && home[0] != '\0') {
-    rawPath = std::string(home) + "/Pictures";
-  } else {
-    return std::filesystem::path("/tmp");
-  }
-
-  return FileUtils::expandUserPath(FileUtils::expandEnvVars(rawPath));
-}
-
 std::filesystem::path ScreenshotService::outputDirectory(const OutputOptions& options) const {
   if (options.directory.empty()) {
-    return defaultPicturesDirectory();
+    return FileUtils::defaultPicturesDirectory();
   }
   return FileUtils::expandUserPath(options.directory);
 }

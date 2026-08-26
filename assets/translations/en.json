@@ -3008,9 +3008,9 @@
           "label": "Copy to Clipboard"
         },
         "screenshot-directory": {
-          "description": "Folder for saved PNG files; leave empty to use ~/Pictures",
+          "description": "Folder for saved PNG files; leave empty to use the standard XDG Pictures directory",
           "label": "Output Directory",
-          "placeholder": "~/Pictures"
+          "placeholder": "XDG Pictures directory"
         },
         "screenshot-filename-pattern": {
           "description": "strftime pattern without extension (.png is added); use %s for unix epoch",
@@ -3112,7 +3112,7 @@
           "label": "Include Subfolders"
         },
         "directory": {
-          "description": "Folder containing wallpapers",
+          "description": "Folder containing wallpapers; leave empty to use the standard XDG Pictures directory",
           "label": "Wallpaper Directory"
         },
         "directory-dark": {

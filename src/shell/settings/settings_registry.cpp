@@ -18,6 +18,7 @@
 #include "theme/builtin_palettes.h"
 #include "theme/builtin_templates.h"
 #include "ui/app_icon_colorization.h"
+#include "util/file_utils.h"
 #include "util/string_utils.h"
 
 #include <algorithm>
@@ -629,7 +630,7 @@ namespace settings {
         tr("settings.schema.wallpaper.directory.description"), {"wallpaper", "directory"},
         TextSetting{
             .value = cfg.wallpaper.directory,
-            .placeholder = std::string(wallpaper::kDefaultWallpaperDirectory),
+            .placeholder = FileUtils::defaultPicturesDirectory().string(),
             .browseMode = TextSettingBrowseMode::SelectFolder,
             .browseFileExtensions = {}
         },
@@ -698,7 +699,7 @@ namespace settings {
             monitorPath("directory"),
             TextSetting{
                 .value = ovr != nullptr && ovr->directory.has_value() ? *ovr->directory : "",
-                .placeholder = std::string(wallpaper::kDefaultWallpaperDirectory),
+                .placeholder = FileUtils::defaultPicturesDirectory().string(),
                 .browseMode = TextSettingBrowseMode::SelectFolder,
                 .browseFileExtensions = {}
             },
