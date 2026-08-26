@@ -24,6 +24,7 @@
 #include <cmath>
 #include <cstddef>
 #include <format>
+#include <iterator>
 #include <memory>
 #include <ranges>
 #include <span>
@@ -992,7 +993,6 @@ namespace {
       clearBorder();
 
       constexpr float kIconSizeSm = 28.0F;
-      constexpr float kRoutingButtonSize = 28.0F;
       constexpr float kCompactSliderControlHeight = 20.0F;
       m_iconSize = kIconSizeSm * scale;
       m_iconContentGap = Style::spaceSm * scale;
@@ -1097,23 +1097,20 @@ namespace {
           .gap = Style::spaceXs * scale,
       });
 
-      m_routingAnchor = actionsRow.get();
-
       actionsRow->addChild(
           ui::button({
               .out = &m_routingButton,
               .glyph = "headphones",
               .glyphSize = Style::fontSizeBody * scale,
               .variant = ButtonVariant::Ghost,
-              .minWidth = kRoutingButtonSize * scale,
-              .minHeight = kRoutingButtonSize * scale,
-              .padding = 0.0F,
+              .minWidth = Style::controlHeightSm * scale,
+              .minHeight = Style::controlHeightSm * scale,
+              .padding = Style::spaceXs * scale,
               .radius = Style::scaledRadiusMd(scale),
               .onClick = [this]() {
-                if (m_audio == nullptr)
-                  return;
-                if (m_onRoutingMenuRequested)
-                  m_onRoutingMenuRequested(m_routingAnchor);
+                if (m_onRoutingMenuRequested) {
+                  m_onRoutingMenuRequested(m_routingButton);
+                }
               },
           })
       );
@@ -1124,9 +1121,9 @@ namespace {
               .glyph = "volume-high",
               .glyphSize = Style::fontSizeBody * scale,
               .variant = ButtonVariant::Default,
-              .minWidth = kRoutingButtonSize * scale,
-              .minHeight = kRoutingButtonSize * scale,
-              .padding = 0.0F,
+              .minWidth = Style::controlHeightSm * scale,
+              .minHeight = Style::controlHeightSm * scale,
+              .padding = Style::spaceXs * scale,
               .radius = Style::scaledRadiusMd(scale),
               .onClick = [this]() {
                 if (m_audio == nullptr) {
@@ -1212,13 +1209,13 @@ namespace {
 
     void doArrange(Renderer& renderer, const LayoutRect& rect) override { arrangeByLayout(renderer, rect); }
 
-    void setRoutingMenuRequestedCallback(std::function<void(Flex*)> callback) {
+    void setRoutingMenuRequestedCallback(std::function<void(Node*)> callback) {
       m_onRoutingMenuRequested = std::move(callback);
     }
 
     void syncFromNode(
         const AudioNode& node, const MprisPlayerInfo* player, bool isDefault, float sliderMax, bool nodeEnabled,
-        std::size_t mprisPlayerCount, bool isCustomRouted
+        std::size_t mprisPlayerCount
     ) {
       const ResolveProgramNameResult resolved = resolveProgramDisplayName(node, player);
       const std::string& resolvedAppName = resolved.displayName;
@@ -1271,7 +1268,7 @@ namespace {
 
       if (m_routingButton != nullptr) {
         m_routingButton->setEnabled(nodeEnabled);
-        m_routingButton->setVariant(isCustomRouted ? ButtonVariant::Outline : ButtonVariant::Ghost);
+        m_routingButton->setVariant(node.routePinned ? ButtonVariant::Outline : ButtonVariant::Ghost);
       }
 
       if (shouldSetSlider) {
@@ -1386,7 +1383,6 @@ namespace {
     Label* m_valueLabel = nullptr;
     Button* m_muteButton = nullptr;
     Button* m_routingButton = nullptr;
-    Flex* m_routingAnchor = nullptr;
 
     bool m_syncing = false;
     bool m_muted = false;
@@ -1394,23 +1390,8 @@ namespace {
 
     std::function<void(float)> m_onQueueVolume;
     std::function<void()> m_onCommitVolume;
-    std::function<void(Flex*)> m_onRoutingMenuRequested;
+    std::function<void(Node*)> m_onRoutingMenuRequested;
   };
-
-  bool targetMatchesSink(const std::string& target, const AudioNode& sink) {
-    return target == sink.name
-        || target == std::to_string(sink.id)
-        || (sink.serial != 0 && target == std::to_string(sink.serial));
-  }
-
-  // True if `node`'s target.object points somewhere other than the current default sink.
-  bool isCustomRouted(const AudioNode& node) {
-    if (node.targetObject.empty() || node.targetObject == "-1") {
-      return false;
-    }
-
-    return true;
-  }
 
   std::vector<AudioNode> sortedDevices(const std::vector<AudioNode>& devices) {
     std::vector<AudioNode> sorted = devices;
@@ -1571,60 +1552,60 @@ void AudioTab::openDeviceMenu(DeviceVolumeCardState& card, const DeviceMenuModel
   }
 }
 
-void AudioTab::openProgramRoutingMenu(Flex* anchor, std::uint32_t programStreamId) {
+void AudioTab::openProgramRoutingMenu(Node* anchor, std::uint32_t programStreamId) {
   if (m_deviceMenuPopup == nullptr || m_audio == nullptr || anchor == nullptr) {
     return;
   }
 
   const AudioState& state = m_audio->state();
-  std::string currentTarget;
-  for (const auto& node : state.programOutputs) {
-    if (node.id == programStreamId) {
-      currentTarget = node.targetObject;
-      break;
-    }
+  const auto stream = std::ranges::find(state.programOutputs, programStreamId, &AudioNode::id);
+  if (stream == state.programOutputs.end()) {
+    return;
   }
 
-  const bool isDefaultTarget = currentTarget.empty() || currentTarget == "-1";
-  std::vector<ContextMenuControlEntry> entries;
-  entries.push_back(
+  auto items = availableDevices(state.sinks, state.defaultSinkId)
+      | std::views::transform([&](const AudioNode& sink) {
+                 return DeviceMenuItem{
+                     .id = sink.id,
+                     .label = audioDeviceLabel(sink),
+                     .selected = stream->routePinned && sink.id == stream->routeSinkId,
+                 };
+               })
+      | std::ranges::to<std::vector>();
+
+  // Entry id 0 clears the route: the stream follows the default sink again.
+  std::vector<ContextMenuControlEntry> entries{
       ContextMenuControlEntry{
           .id = 0,
           .label = i18n::tr("control-center.audio.default-device"),
           .checkmark = true,
-          .toggleState = isDefaultTarget ? 1 : 0,
-      }
-  );
-  entries.push_back({.separator = true});
-
-  for (const auto& sink : sortedDevices(availableDevices(state.sinks, state.defaultSinkId))) {
-    const bool matchesTarget = !currentTarget.empty() && !isDefaultTarget && targetMatchesSink(currentTarget, sink);
-    entries.push_back(
-        ContextMenuControlEntry{
-            .id = static_cast<std::int32_t>(sink.id),
-            .label = audioDeviceLabel(sink),
-            .checkmark = true,
-            .toggleState = matchesTarget ? 1 : 0,
-            .ellipsize = TextEllipsize::Middle,
-        }
-    );
-  }
+          .toggleState = stream->routePinned ? 0 : 1,
+      },
+      ContextMenuControlEntry{.separator = true},
+  };
+  std::ranges::move(buildDeviceMenuEntries(std::move(items)), std::back_inserter(entries));
 
   const auto parentCtx = PanelManager::instance().fallbackPopupParentContext();
-  if (!parentCtx.has_value())
+  if (!parentCtx.has_value()) {
     return;
+  }
 
   float anchorAbsX = 0.0F;
   float anchorAbsY = 0.0F;
   Node::absolutePosition(anchor, anchorAbsX, anchorAbsY);
 
   const float scale = contentScale();
+  if (m_config != nullptr) {
+    m_deviceMenuPopup->setShadowConfig(m_config->config().shell.shadow);
+  }
   PanelManager::instance().beginAttachedPopup(parentCtx->surface);
   PanelManager::instance().setActivePopup(m_deviceMenuPopup.get());
 
   m_deviceMenuPopup->setOnActivate([this, programStreamId](const ContextMenuControlEntry& entry) {
-    if (m_audio != nullptr)
-      m_audio->moveProgramOutput(programStreamId, static_cast<std::uint32_t>(std::max<std::int32_t>(0, entry.id)));
+    if (m_audio == nullptr) {
+      return;
+    }
+    m_audio->moveProgramOutput(programStreamId, static_cast<std::uint32_t>(std::max<std::int32_t>(0, entry.id)));
   });
 
   m_deviceMenuPopup->setOnDismissed([this, parentSurface = parentCtx->surface]() {
@@ -1644,10 +1625,14 @@ void AudioTab::openProgramRoutingMenu(Flex* anchor, std::uint32_t programStreamI
                   .x = static_cast<std::int32_t>(anchorAbsX),
                   .y = static_cast<std::int32_t>(anchorAbsY),
                   .width = static_cast<std::int32_t>(anchor->width()),
-                  .height = static_cast<std::int32_t>(anchor->height())
+                  .height = static_cast<std::int32_t>(anchor->height()),
               },
-          .parent = PopupSurfaceParent{.layerSurface = parentCtx->layerSurface, .output = parentCtx->output},
-          .pointerParentSurface = parentCtx->surface
+          .parent =
+              PopupSurfaceParent{
+                  .layerSurface = parentCtx->layerSurface,
+                  .output = parentCtx->output,
+              },
+          .pointerParentSurface = parentCtx->surface,
       }
   );
 
@@ -2270,14 +2255,16 @@ void AudioTab::rebuildProgramVolumes(Renderer& renderer) {
           [this, sinkId = sink.id](float value) { queueProgramSinkVolume(sinkId, value); },
           [this]() { flushPendingProgramVolumes(true); }
       );
-      row->syncFromNode(sink, player, false, sliderMax, true, players.size(), isCustomRouted(sink));
-      row->setRoutingMenuRequestedCallback([this, sinkId = sink.id](Flex* anchor) {
+      row->syncFromNode(sink, player, false, sliderMax, true, players.size());
+      row->setRoutingMenuRequestedCallback([this, streamId = sink.id](Node* anchor) {
         const bool wasOpen = m_deviceMenuPopup != nullptr && m_deviceMenuPopup->isOpen();
-        const bool wasOpenForThis = wasOpen && m_openProgramRoutingMenuStreamId == sinkId;
-        if (wasOpen)
+        const bool wasOpenForThis = wasOpen && m_openProgramRoutingMenuStreamId == streamId;
+        if (wasOpen) {
           dismissTransientUi();
-        if (!wasOpenForThis)
-          openProgramRoutingMenu(anchor, sinkId);
+        }
+        if (!wasOpenForThis) {
+          openProgramRoutingMenu(anchor, streamId);
+        }
       });
       m_programRows.push_back(row.get());
       m_programList->addChild(std::move(row));
@@ -2315,7 +2302,7 @@ void AudioTab::syncProgramVolumeRows() {
       continue;
     }
     const MprisPlayerInfo* player = findMatchingPlayer(players, *it->second, it->second->applicationName);
-    row->syncFromNode(*it->second, player, false, sliderMax, true, players.size(), isCustomRouted(*it->second));
+    row->syncFromNode(*it->second, player, false, sliderMax, true, players.size());
   }
 }
 

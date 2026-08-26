@@ -19,6 +19,7 @@ class EasyEffectsService;
 class Flex;
 class Label;
 class MprisService;
+class Node;
 class PipeWireService;
 class RenderContext;
 class Renderer;
@@ -85,7 +86,7 @@ private:
   void flushPendingVolumes(bool force = false);
 
   void openDeviceMenu(DeviceVolumeCardState& card, const DeviceMenuModel& menu);
-  void openProgramRoutingMenu(Flex* anchor, std::uint32_t programStreamId);
+  void openProgramRoutingMenu(Node* anchor, std::uint32_t programStreamId);
   void syncEffectsProfileControls(Renderer& renderer);
 
   PipeWireService* m_audio = nullptr;
