@@ -513,7 +513,7 @@ struct WallpaperConfig {
   float transitionDurationMs = 1500.0F;
   float edgeSmoothness = 0.3F;
   bool transitionOnStartup = false;
-  std::string directory;      // empty = ~/Pictures/Wallpapers
+  std::string directory;      // empty = XDG_PICTURES_DIR
   std::string directoryLight; // empty = directory
   std::string directoryDark;  // empty = directory
   bool perMonitorDirectories = false;
@@ -1050,7 +1050,7 @@ struct ShellConfig {
     bool showCursor = false;
     bool pipeToCommand = false;
     std::string pipeCommand;
-    std::string directory;       // empty = ~/Pictures
+    std::string directory;       // empty = XDG Pictures directory
     std::string filenamePattern; // empty = screenshot_%Y%m%d_%H%M%S
 
     bool operator==(const ScreenshotConfig&) const = default;
