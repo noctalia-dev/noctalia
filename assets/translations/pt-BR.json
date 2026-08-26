@@ -579,6 +579,7 @@
         "grid": "Grade"
       },
       "title": "Widgets da Área de Trabalho",
+      "title-lockscreen": "Widgets da Tela de Bloqueio",
       "types": {
         "audio-visualizer": "Visualizador de Áudio",
         "button": "Botão",
@@ -3520,6 +3521,10 @@
         "hide-when-full": {
           "description": "Oculte o widget da bateria quando estiver totalmente carregado",
           "label": "Ocultar Quando Cheia"
+        },
+        "hide-when-inactive": {
+          "description": "Ocultar o widget de microfone enquanto não houver aplicação capturando áudio",
+          "label": "Ocultar Quando Inativo"
         },
         "hide-when-no-connected-device": {
           "description": "Ocultar o widget do Bluetooth quando nenhum dispositivo estiver conectado",

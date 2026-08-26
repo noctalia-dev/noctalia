@@ -579,6 +579,7 @@
         "grid": "Griglia"
       },
       "title": "Widget desktop",
+      "title-lockscreen": "Widget della schermata di blocco",
       "types": {
         "audio-visualizer": "Visualizzatore audio",
         "button": "Pulsante",
@@ -3520,6 +3521,10 @@
         "hide-when-full": {
           "description": "Nasconde il widget batteria quando è completamente carica",
           "label": "Nascondi quando piena"
+        },
+        "hide-when-inactive": {
+          "description": "Nascondi il widget del microfono quando nessuna applicazione sta catturando l'audio",
+          "label": "Nascondi quando inattivo"
         },
         "hide-when-no-connected-device": {
           "description": "Nasconde il widget Bluetooth quando nessun dispositivo è connesso",

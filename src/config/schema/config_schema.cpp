@@ -422,19 +422,8 @@ namespace noctalia::config::schema {
       static const Schema<BrightnessMonitorOverride> s = {
           field(&BrightnessMonitorOverride::match, "match"),
           optionalEnumField(&BrightnessMonitorOverride::backend, "backend", kBrightnessBackendPreferences),
-          custom<BrightnessMonitorOverride>(
-              "backlight_device",
-              [](const toml::table& tbl, BrightnessMonitorOverride& out, std::string_view, Diagnostics&) {
-                if (auto v = tbl["backlight_device"].value<std::string>()) {
-                  out.backlightDevice = *v;
-                }
-              },
-              [](toml::table& tbl, const BrightnessMonitorOverride& in) {
-                if (in.backlightDevice.has_value()) {
-                  tbl.insert_or_assign("backlight_device", *in.backlightDevice);
-                }
-              }
-          ),
+          field(&BrightnessMonitorOverride::backlightDevice, "backlight_device"),
+          field(&BrightnessMonitorOverride::ddcBus, "ddc_bus"),
       };
       return s;
     }
@@ -1984,24 +1973,8 @@ namespace noctalia::config::schema {
       );
     }
 
-    template <typename Struct>
-    Field<Struct> optionalStringField(std::optional<std::string> Struct::* member, std::string_view key) {
-      return custom<Struct>(
-          key,
-          [member, key](const toml::table& tbl, Struct& out, std::string_view, Diagnostics&) {
-            if (auto v = tbl[key].value<std::string>()) {
-              out.*member = *v;
-            }
-          },
-          [member, key](toml::table& tbl, const Struct& in) {
-            if ((in.*member).has_value()) {
-              tbl.insert_or_assign(key, *(in.*member));
-            }
-          }
-      );
-    }
-
-    // Like optionalStringField but trims; a present-but-empty value stays unset so it inherits the parent.
+    // Like field(std::optional<std::string>…) but trims; a present-but-empty value stays unset so it inherits the
+    // parent.
     template <typename Struct>
     Field<Struct> optionalTrimmedStringField(std::optional<std::string> Struct::* member, std::string_view key) {
       return custom<Struct>(
@@ -2230,6 +2203,7 @@ namespace noctalia::config::schema {
         field(&BarConfig::panelOverlap, "panel_overlap", kBarPanelOverlapRange),
         field(&BarConfig::capsuleThickness, "capsule_thickness", kBarCapsuleThicknessRange),
         field(&BarConfig::scale, "scale", kBarScaleRange),
+        field(&BarConfig::fontScale, "font_scale", kBarFontScaleRange),
         field(&BarConfig::fontWeight, "font_weight"),
         optionalTrimmedStringField(&BarConfig::fontFamily, "font_family"),
         field(&BarConfig::startWidgets, "start"),
@@ -2258,7 +2232,7 @@ namespace noctalia::config::schema {
   const Schema<BarMonitorOverride>& barMonitorOverrideSchema() {
     static const Schema<BarMonitorOverride> s = {
         field(&BarMonitorOverride::match, "match"),
-        optionalStringField(&BarMonitorOverride::position, "position"),
+        field(&BarMonitorOverride::position, "position"),
         optionalBoolField(&BarMonitorOverride::enabled, "enabled"),
         optionalBoolField(&BarMonitorOverride::autoHide, "auto_hide"),
         optionalBoolField(&BarMonitorOverride::smartAutoHide, "smart_auto_hide"),
@@ -2298,6 +2272,7 @@ namespace noctalia::config::schema {
         optionalIntField(&BarMonitorOverride::padding, "padding"),
         optionalIntField(&BarMonitorOverride::widgetSpacing, "widget_spacing"),
         optionalFloatField(&BarMonitorOverride::scale, "scale", kBarScaleRange),
+        optionalFloatField(&BarMonitorOverride::fontScale, "font_scale", kBarFontScaleRange),
         optionalBoolField(&BarMonitorOverride::shadow, "shadow"),
         optionalBoolField(&BarMonitorOverride::contactShadow, "contact_shadow"),
         optionalIntField(&BarMonitorOverride::panelOverlap, "panel_overlap", kBarPanelOverlapRange),

@@ -579,6 +579,7 @@
         "grid": "الشبكة"
       },
       "title": "ودجات سطح المكتب",
+      "title-lockscreen": "ودجت شاشة القفل",
       "types": {
         "audio-visualizer": "مؤثر صوتي بصري",
         "button": "زر",
@@ -3520,6 +3521,10 @@
         "hide-when-full": {
           "description": "إخفاء ودجت البطارية عند اكتمال الشحن",
           "label": "إخفاء عند الامتلاء"
+        },
+        "hide-when-inactive": {
+          "description": "إخفاء ودجت واجهة الميكروفون عند عدم استخدام أي تطبيق للميكروفون.",
+          "label": "الإخفاء عند عدم النشاط"
         },
         "hide-when-no-connected-device": {
           "description": "إخفاء ودجت البلوتوث عند عدم اتصال أي جهاز",
