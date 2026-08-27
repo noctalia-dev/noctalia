@@ -23,6 +23,7 @@
 #include "compositors/triad/triad_runtime.h"
 #include "compositors/triad/triad_workspace_backend.h"
 #include "compositors/umbriel/umbriel_keyboard_backend.h"
+#include "util/string_utils.h"
 #include "compositors/umbriel/umbriel_output_backend.h"
 #include "compositors/umbriel/umbriel_runtime.h"
 #include "compositors/umbriel/umbriel_workspace_backend.h"
@@ -854,7 +855,26 @@ std::optional<ActiveToplevel> CompositorPlatform::activeToplevel() const {
   return m_wayland.activeToplevel();
 }
 
-wl_output* CompositorPlatform::activeToplevelOutput() const { return m_wayland.activeToplevelOutput(); }
+wl_output* CompositorPlatform::activeToplevelOutput() const {
+  if (compositors::isKde() && m_kwinActiveWindow != nullptr) {
+    if (const auto focusedName = m_kwinActiveWindow->focusedOutputName(); focusedName.has_value()) {
+      if (wl_output* output = resolveOutputName(*focusedName); output != nullptr) {
+        return output;
+      }
+    }
+  }
+  if (compositors::detect() == compositors::CompositorKind::Mango && m_workspaces != nullptr) {
+    if (wl_output* selected = m_workspaces->mangoIpcSelectedOutput(); selected != nullptr) {
+      return selected;
+    }
+  }
+  if (compositors::detect() == compositors::CompositorKind::Dwl && m_workspaces != nullptr) {
+    if (wl_output* selected = m_workspaces->dwlIpcSelectedOutput(); selected != nullptr) {
+      return selected;
+    }
+  }
+  return m_wayland.activeToplevelOutput();
+}
 
 std::vector<std::string> CompositorPlatform::runningAppIds(wl_output* outputFilter) const {
   if (compositors::isKde() && m_kwinActiveWindow != nullptr && m_kwinActiveWindow->isAvailable()) {
@@ -951,6 +971,18 @@ bool CompositorPlatform::hasExactWindowIdentity() const noexcept {
 
 void CompositorPlatform::activateToplevel(zwlr_foreign_toplevel_handle_v1* handle) {
   m_wayland.activateToplevel(handle);
+}
+
+void CompositorPlatform::activateToplevelForAppId(std::string_view appId) {
+  if (appId.empty()) {
+    return;
+  }
+  const std::string idLower = StringUtils::toLower(std::string(appId));
+  const auto windows = windowsForApp(idLower, idLower);
+  if (windows.empty()) {
+    return;
+  }
+  activateToplevelInfo(windows.back());
 }
 
 void CompositorPlatform::activateToplevelInfo(const ToplevelInfo& window) {
