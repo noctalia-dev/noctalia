@@ -866,10 +866,12 @@ void LockScreen::tryAuthenticate() {
   updatePromptOnSurfaces();
 
   const PamAuthenticator authenticator = m_authenticator;
-  // Authenticate against the "login" stack. If fingerprint is enabled, strip
-  // pam_fprintd from it: noctalia drives the reader itself over D-Bus and the
-  // two can't share the sensor. See docs/fingerprint.md.
-  const std::string pamService = "login";
+  // Authenticate against the configured PAM stack ([lockscreen].pam_service,
+  // "login" by default). Noctalia drives the fingerprint reader itself over
+  // D-Bus when fingerprint is enabled, so a stack whose pam_fprintd would
+  // block the password conversation is better replaced by a custom service.
+  const std::string pamService =
+      m_configService != nullptr ? m_configService->config().lockscreen.pamService : std::string("login");
   std::thread([this, generation, password = std::move(password), authenticator, pamService]() mutable {
     const auto result = authenticator.authenticateCurrentUser(password, pamService);
     clearSensitiveString(password);
