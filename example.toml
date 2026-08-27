@@ -79,6 +79,7 @@ app_grid      = false                   # show app icon grid view when results a
 sort_by_usage = true                    # sort apps by usage frequency
 pinned        = []                      # e.g. ["firefox", "code", "kitty"] (launcher only)
 fetch_exchange_rates = true             # refresh currency rates from third-party sources
+line_editing = true                     # use readline-style shortcuts in the launcher
 provider_prefix = "/"                     # common prefix character for provider trigger words (e.g. "/" or ".")
 auto_paste = "auto"                       # off | auto | ctrl_v | ctrl_shift_v | shift_insert (copy activations)
 

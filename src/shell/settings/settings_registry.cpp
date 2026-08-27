@@ -1262,6 +1262,11 @@ namespace settings {
         enumSelect(kClipboardAutoPasteModes, cfg.shell.launcher.autoPaste), "launcher auto paste"
     ));
     entries.push_back(makeEntry(
+        SettingsSection::Launcher, "launcher", tr("settings.schema.panels.launcher-readline-enabled.label"),
+        tr("settings.schema.panels.launcher-readline-enabled.description"), {"shell", "launcher", "line_editing"},
+        ToggleSetting{cfg.shell.launcher.lineEditing}, "launcher readline line editing shortcut"
+    ));
+    entries.push_back(makeEntry(
         SettingsSection::Launcher, "providers", tr("settings.schema.panels.launcher-prefix-character.label"),
         tr("settings.schema.panels.launcher-prefix-character.description"), {"shell", "launcher", "provider_prefix"},
         TextSetting{.value = cfg.shell.launcher.providerPrefix, .placeholder = "/"}, "launcher common prefix character"

@@ -1071,7 +1071,7 @@ void LauncherPanel::create() {
           .controlHeight = Style::controlHeight * scale,
           .horizontalPadding = Style::spaceMd * scale,
           .clearButtonEnabled = true,
-          .lineEditing = true,
+          .lineEditing = shouldUseLineEditing(),
           .surfaceOpacity = panelCardOpacity(),
           .onChange =
               [this](const std::string& text) {
@@ -1237,6 +1237,13 @@ bool LauncherPanel::shouldUseAppGrid() const {
   return std::ranges::all_of(m_results, [](const LauncherResult& result) {
     return result.providerId == kApplicationsProviderId;
   });
+}
+
+bool LauncherPanel::shouldUseLineEditing() const {
+  if (m_config == nullptr || !m_config->config().shell.launcher.lineEditing) {
+    return false;
+  }
+  return m_config->config().shell.launcher.lineEditing;
 }
 
 void LauncherPanel::syncLauncherViewLayout(Renderer* renderer) {
