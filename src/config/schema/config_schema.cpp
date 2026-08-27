@@ -1648,6 +1648,8 @@ namespace noctalia::config::schema {
     static const Schema<CalendarConfig> s = {
         field(&CalendarConfig::enabled, "enabled"),
         field(&CalendarConfig::refreshMinutes, "refresh_minutes", kRefreshMinutesRange),
+        field(&CalendarConfig::remindersEnabled, "reminders_enabled"),
+        field(&CalendarConfig::reminderLeadMinutes, "reminder_lead_minutes", kReminderLeadMinutesRange),
         namedMap<CalendarConfig, CalendarConfig::Account>(
             &CalendarConfig::accounts, "account", calendarAccountSchema(),
             [](CalendarConfig::Account& a, std::string_view id) { a.id = std::string(id); },

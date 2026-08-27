@@ -4,6 +4,8 @@
 #include "app/timer_poll_source.h"
 #include "calendar/calendar_poll_source.h"
 #include "calendar/calendar_service.h"
+#include "calendar/reminder_poll_source.h"
+#include "calendar/reminder_scheduler.h"
 #include "capture/screenshot_service.h"
 #include "compositors/compositor_platform.h"
 #include "compositors/workspace_alert_service.h"
@@ -244,6 +246,7 @@ private:
   LockKeysService m_lockKeysService;
   NotificationManager m_notificationManager;
   CalendarService m_calendarService;
+  CalendarReminderScheduler m_calendarReminderScheduler;
   std::unique_ptr<SessionBus> m_bus;
   std::unique_ptr<SystemBus> m_systemBus;
   std::unique_ptr<LogindService> m_logindService;
@@ -374,6 +377,7 @@ private:
   LocationPollSource m_locationPollSource{m_locationService};
   WeatherPollSource m_weatherPollSource{m_weatherService};
   CalendarPollSource m_calendarPollSource{m_calendarService};
+  ReminderPollSource m_reminderPollSource{m_calendarReminderScheduler};
   Timer m_trayInitTimer;
   Timer m_polkitInitTimer;
   Timer m_polkitIdleCloseTimer;

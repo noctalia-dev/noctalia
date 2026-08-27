@@ -1522,6 +1522,7 @@ void Application::initSessionBusServices() {
   m_locationService.initialize();
   m_weatherService.initialize();
   m_calendarService.initialize();
+  m_calendarReminderScheduler.initialize();
 
   // LocationService is the single source of "where am I": push its resolved coordinates to the
   // weather service, night light, and theme auto mode. Manual latitude/longitude and fixed

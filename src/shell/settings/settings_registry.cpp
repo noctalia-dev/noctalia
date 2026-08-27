@@ -2655,6 +2655,25 @@ namespace settings {
       e.visibleWhen = calendarOn;
       entries.push_back(std::move(e));
     }
+    {
+      auto e = makeEntry(
+          SettingsSection::Services, "calendar", tr("settings.schema.services.calendar-reminders.label"),
+          tr("settings.schema.services.calendar-reminders.description"), {"calendar", "reminders_enabled"},
+          ToggleSetting{cfg.calendar.remindersEnabled}, "calendar reminder notification alert event"
+      );
+      e.visibleWhen = calendarOn;
+      entries.push_back(std::move(e));
+    }
+    {
+      auto e = makeEntry(
+          SettingsSection::Services, "calendar", tr("settings.schema.services.calendar-reminder-lead.label"),
+          tr("settings.schema.services.calendar-reminder-lead.description"), {"calendar", "reminder_lead_minutes"},
+          sliderFor(cfg.calendar.reminderLeadMinutes, noctalia::config::schema::kReminderLeadMinutesRange, true),
+          "calendar reminder lead minutes"
+      );
+      e.visibleWhen = [](const Config& c) { return c.calendar.enabled && c.calendar.remindersEnabled; };
+      entries.push_back(std::move(e));
+    }
 
     entries.push_back(makeEntry(
         SettingsSection::Services, "audio", tr("settings.schema.services.audio-overdrive.label"),

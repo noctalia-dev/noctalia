@@ -435,6 +435,7 @@ _noctalia_sources = files(
   'src/calendar/google_client.cpp',
   'src/calendar/google_oauth.cpp',
   'src/calendar/ical_parser.cpp',
+  'src/calendar/reminder_scheduler.cpp',
   'src/config/atomic_file.cpp',
   'src/config/config_export.cpp',
   'src/config/config_merge.cpp',

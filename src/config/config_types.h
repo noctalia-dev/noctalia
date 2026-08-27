@@ -1161,6 +1161,9 @@ struct CalendarConfig {
 
   bool enabled = false;
   std::int32_t refreshMinutes = 15;
+  // Raise a desktop notification remindersLeadMinutes before each timed event starts.
+  bool remindersEnabled = false;
+  std::int32_t reminderLeadMinutes = 10;
   std::vector<Account> accounts;
 
   bool operator==(const CalendarConfig&) const = default;

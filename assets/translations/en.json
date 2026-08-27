@@ -764,6 +764,9 @@
       "calendar-google-connect-start-failed": "Could not start Google authorization. Check your network connection and try again.",
       "calendar-google-connect-start-http": "Could not start Google authorization. The OAuth broker returned HTTP {status}.",
       "calendar-google-connect-timeout": "Google authorization timed out. Start the connection again when you are ready to sign in.",
+      "calendar-reminder-body": "Starts in {minutes} min",
+      "calendar-reminder-now": "Starting now",
+      "calendar-reminder-untitled": "Untitled event",
       "config-migration-body": "Update {path} in the source file. Noctalia is applying this replacement only temporarily. Run noctalia config validate to list every required change.",
       "config-migration-title": "Configuration update needed",
       "dbus-disabled": "DBus notifications disabled",
@@ -2575,6 +2578,14 @@
         "calendar-refresh-interval": {
           "description": "How often to sync calendar events (minutes)",
           "label": "Refresh Interval"
+        },
+        "calendar-reminder-lead": {
+          "description": "How many minutes before an event starts to send the reminder",
+          "label": "Reminder Lead Time"
+        },
+        "calendar-reminders": {
+          "description": "Send a desktop notification before a timed event starts",
+          "label": "Event Reminders"
         },
         "calendar-storage": {
           "button": "Retry",

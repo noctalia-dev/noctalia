@@ -148,6 +148,7 @@ namespace {
 Application::Application()
     : m_lockKeysService(m_wayland),
       m_calendarService(m_configService, m_httpClient, m_secretStore, m_storageKeyProvider, &m_notificationManager),
+      m_calendarReminderScheduler(m_configService, m_calendarService, &m_notificationManager),
       m_gammaService(m_wayland), m_locationService(m_configService, m_httpClient),
       m_weatherService(m_configService, m_httpClient) {
   m_notificationManager.loadPersistedHistory();

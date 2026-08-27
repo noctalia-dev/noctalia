@@ -238,6 +238,8 @@ disk_poll_seconds = 10.0            # disk usage and swap usage; graph widgets u
 [calendar]
 enabled                     = false
 refresh_minutes             = 15
+reminders_enabled           = false         # notify before a timed event starts (all-day events excluded)
+reminder_lead_minutes       = 10            # how many minutes before the start to notify
 
 # Calendar tab of the control center.
 
