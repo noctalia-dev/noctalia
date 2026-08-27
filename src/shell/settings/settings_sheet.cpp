@@ -12,6 +12,18 @@
 #include <utility>
 
 namespace settings {
+  namespace {
+
+    void performCloseRequest(const std::function<bool()>& onCloseRequested, const std::function<void()>& closeAction) {
+      if (onCloseRequested && onCloseRequested()) {
+        return;
+      }
+      if (closeAction) {
+        closeAction();
+      }
+    }
+
+  } // namespace
 
   void SettingsSheet::configure(SettingsSheetRequest request) {
     m_scale = std::max(0.1F, request.scale);
@@ -22,6 +34,7 @@ namespace settings {
     m_scrollableBody = request.scrollableBody;
     m_onCloseRequested = std::move(request.onCloseRequested);
     m_preDispatchKeyboard = std::move(request.preDispatchKeyboard);
+    m_onClosed = std::move(request.onClosed);
     m_title = std::move(request.sheetTitle);
     m_removeAction = std::move(request.removeAction);
     m_createLeadingAction = std::move(request.createLeadingAction);
@@ -98,10 +111,12 @@ namespace settings {
             .minHeight = Style::controlHeightSm * m_scale,
             .padding = Style::spaceXs * m_scale,
             .radius = Style::scaledRadiusMd(m_scale),
-            .onClick = [this]() {
-              if (m_closeAction) {
-                DeferredCall::callLater(m_closeAction);
-              }
+            .onClick = [onCloseRequested = m_onCloseRequested, closeAction = m_closeAction]() {
+              // Snapshot the callbacks so the deferred close never depends on
+              // the SettingsSheet still being alive.
+              DeferredCall::callLater([onCloseRequested, closeAction]() {
+                performCloseRequest(onCloseRequested, closeAction);
+              });
             },
         })
     );
@@ -169,18 +184,20 @@ namespace settings {
     m_populateBody = nullptr;
     m_onCloseRequested = nullptr;
     m_preDispatchKeyboard = nullptr;
+    m_onClosed = nullptr;
     m_closeAction = nullptr;
     m_dismissSelectDropdown = nullptr;
   }
 
   void SettingsSheet::requestClose() {
     const auto onCloseRequested = m_onCloseRequested;
-    if (onCloseRequested && onCloseRequested()) {
-      return;
-    }
     const auto closeAction = m_closeAction;
-    if (closeAction) {
-      closeAction();
+    performCloseRequest(onCloseRequested, closeAction);
+  }
+  void SettingsSheet::notifyClosed() {
+    const auto onClosed = m_onClosed;
+    if (onClosed) {
+      onClosed();
     }
   }
 

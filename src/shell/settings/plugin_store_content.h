@@ -21,6 +21,7 @@ class Button;
 class Renderer;
 class VirtualGridAdapter;
 class VirtualGridView;
+struct ScrollViewState;
 
 namespace scripting {
   class PluginFileCache;
@@ -53,9 +54,12 @@ namespace settings {
   public:
     PluginStoreContent(
         std::vector<StoreCatalogEntry> catalog, ConfigService* config, std::unordered_set<std::string> onDiskIds,
-        PluginStoreCallbacks callbacks, scripting::PluginFileCache* fileCache
+        PluginStoreCallbacks callbacks, scripting::PluginFileCache* fileCache, ScrollViewState* scrollState
     );
     ~PluginStoreContent();
+
+    // Forgets pointers into the hosting sheet before its nodes are destroyed.
+    void detachGrid() noexcept;
 
     void populateBody(Flex& body, Renderer& renderer, AsyncTextureCache* textureCache);
 
@@ -79,8 +83,7 @@ namespace settings {
   private:
     void buildGridView(Flex& body, Renderer& renderer, AsyncTextureCache* textureCache);
     void buildDetailView(Flex& body, Renderer& renderer, AsyncTextureCache* textureCache);
-    void stashScrollOffset();
-    void restoreScrollOffset();
+    void requestRebuild();
     void syncSortButtonGlyph();
     void cycleSortMode();
     void setSortMode(SortMode mode);
@@ -119,6 +122,7 @@ namespace settings {
     std::string m_selectedSource;
     PluginStoreCallbacks m_callbacks;
     scripting::PluginFileCache* m_fileCache = nullptr;
+    ScrollViewState* m_scrollState = nullptr;
 
     std::optional<std::size_t> m_detailIndex;
     std::string m_detailReadme;
@@ -131,7 +135,6 @@ namespace settings {
     std::function<void()> m_onRebuildNeeded;
 
     std::unordered_map<std::string, std::string> m_thumbnailPaths;
-    std::optional<float> m_pendingRestoreScrollOffset;
 
     Renderer* m_renderer = nullptr;
     AsyncTextureCache* m_textureCache = nullptr;

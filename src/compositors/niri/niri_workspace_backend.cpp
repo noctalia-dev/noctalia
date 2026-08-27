@@ -299,7 +299,7 @@ std::vector<WorkspaceWindow> NiriWorkspaceBackend::workspaceWindows(const std::s
   return result;
 }
 
-bool NiriWorkspaceBackend::focusWindowById(const std::string& windowId) {
+bool NiriWorkspaceBackend::focusWindowById(const std::string& windowId, bool /*warpPointer*/) {
   const auto id = parseUnsigned(windowId);
   if (!id.has_value()) {
     return false;

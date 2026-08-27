@@ -58,7 +58,7 @@ void KeyboardLayoutWidget::create() {
       ui::label({
           .out = &m_label,
           .text = "--",
-          .fontSize = Style::fontSizeBody * m_contentScale,
+          .fontSize = Style::fontSizeBody * fontScale(),
           .fontWeight = labelFontWeight(),
           .fontFamily = labelFontFamily(),
       })
@@ -235,7 +235,7 @@ void KeyboardLayoutWidget::sync(Renderer& renderer) {
   }
   m_label->setVisible(m_showLabel);
   if (m_showLabel) {
-    m_label->setFontSize((m_isVertical ? Style::fontSizeCaption : Style::fontSizeBody) * m_contentScale);
+    m_label->setFontSize((m_isVertical ? Style::fontSizeCaption : Style::fontSizeBody) * fontScale());
     m_label->setText(layoutLabel);
     m_label->setColor(widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface)));
     m_label->measure(renderer);

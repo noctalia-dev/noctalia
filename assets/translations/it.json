@@ -305,6 +305,22 @@
     },
     "power": {
       "battery": "Batteria",
+      "charging": {
+        "configured": "Configurato: {limits}",
+        "display-only": "Mostra soltanto",
+        "error-denied": "Autorizzazione negata. Le soglie di carica non sono state modificate",
+        "error-failed": "Le soglie di carica non possono essere modificate.",
+        "externally-managed": "Impostato da un altro strumento. Configura UPower per gestire le soglie di carica.",
+        "firmware-managed": "La ricarica è gestita dal firmware di sistema",
+        "full-charge": "Può caricare fino al 100%",
+        "starts": "Inizia sotto il {start}%",
+        "starts-stops": "Inizia sotto il {start}% · Termina al {end}%",
+        "stops": "Termina al {end}%",
+        "title": "In carica",
+        "unreadable": "Non disponibile",
+        "unsupported": "Soglie di carica non supportate",
+        "use-thresholds": "Usa soglie di carica"
+      },
       "design-capacity": "della capacità originale",
       "health": "Stato batteria",
       "performance-inhibited": "Performance non disponibile",
@@ -579,6 +595,7 @@
         "grid": "Griglia"
       },
       "title": "Widget desktop",
+      "title-lockscreen": "Widget della schermata di blocco",
       "types": {
         "audio-visualizer": "Visualizzatore audio",
         "button": "Pulsante",
@@ -1210,7 +1227,7 @@
         "media": "Media",
         "monitor": "Monitor di sistema",
         "monitor-polling": "Intervalli campionamento",
-        "monitor-thresholds": "Soglie evidenziazione",
+        "monitor-thresholds": "Soglie di evidenziazione",
         "monitors": "Monitor",
         "motion": "Movimento",
         "navigation": "Navigazione",
@@ -1375,6 +1392,13 @@
       },
       "panel-position": {
         "auto": "Segui la barra"
+      },
+      "plugins": {
+        "auto-update": {
+          "all": "Tutte le sorgenti",
+          "none": "Nessuno",
+          "official": "Solo ufficiali"
+        }
       },
       "screen-position": {
         "bottom-center": "Basso centro",
@@ -1760,6 +1784,10 @@
         "font-family": {
           "description": "Font per questo widget nella barra; lascia vuoto per ereditare quello globale (Famiglia font per-widget lo sovrascrive)",
           "label": "Famiglia font"
+        },
+        "font-scale": {
+          "description": "Fattore di scala per il testo su tutti i widget di questa barra; font_scale per widget moltiplica questo fattore",
+          "label": "Scala del font"
         },
         "font-weight": {
           "description": "Peso predefinito per le etichette widget su questa barra.",
@@ -3458,6 +3486,10 @@
           "description": "Font per il widget; lasciare vuoto per editare quello della barra",
           "label": "Famiglia font"
         },
+        "font-scale": {
+          "description": "Moltiplicatore di scala per il testo in questo widget, indipendente dalla scala complessiva del widget.",
+          "label": "Scala del font"
+        },
         "font-weight": {
           "description": "Predefinito eredita il peso carattere della barra",
           "label": "Peso carattere"
@@ -3520,6 +3552,10 @@
         "hide-when-full": {
           "description": "Nasconde il widget batteria quando è completamente carica",
           "label": "Nascondi quando piena"
+        },
+        "hide-when-inactive": {
+          "description": "Nascondi il widget del microfono quando nessuna applicazione sta catturando l'audio",
+          "label": "Nascondi quando inattivo"
         },
         "hide-when-no-connected-device": {
           "description": "Nasconde il widget Bluetooth quando nessun dispositivo è connesso",

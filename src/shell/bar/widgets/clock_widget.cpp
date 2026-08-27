@@ -87,7 +87,7 @@ void ClockWidget::create() {
   area->addChild(
       ui::label({
           .out = &m_label,
-          .fontSize = Style::fontSizeBody * m_contentScale,
+          .fontSize = Style::fontSizeBody * fontScale(),
           .fontWeight = labelFontWeight(),
           .fontFamily = labelFontFamily(),
           .textAlign = TextAlign::Center,
@@ -97,7 +97,7 @@ void ClockWidget::create() {
   area->addChild(
       ui::label({
           .out = &m_secondaryLabel,
-          .fontSize = Style::fontSizeBody * m_contentScale * kStackedSecondaryScale,
+          .fontSize = Style::fontSizeBody * fontScale() * kStackedSecondaryScale,
           .fontWeight = labelFontWeight(),
           .fontFamily = labelFontFamily(),
           .textAlign = TextAlign::Center,
@@ -123,8 +123,8 @@ void ClockWidget::doLayout(Renderer& renderer, float containerWidth, float conta
   const bool noCapsule = !barCapsuleSpec().enabled;
   const float stackedPrimaryScale = noCapsule ? kStackedPrimaryScaleNoCapsule : kStackedPrimaryScale;
   const float stackedSecondaryScale = noCapsule ? kStackedSecondaryScaleNoCapsule : kStackedSecondaryScale;
-  float primaryFontSize = Style::fontSizeBody * m_contentScale * (showSecondary ? stackedPrimaryScale : 1.0F);
-  float secondaryFontSize = Style::fontSizeBody * m_contentScale * stackedSecondaryScale;
+  float primaryFontSize = Style::fontSizeBody * fontScale() * (showSecondary ? stackedPrimaryScale : 1.0F);
+  float secondaryFontSize = Style::fontSizeBody * fontScale() * stackedSecondaryScale;
   const FontWeight fontWeight = labelFontWeight();
 
   // Horizontal clocks use single-line metrics unless the configured format

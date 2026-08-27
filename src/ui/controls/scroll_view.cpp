@@ -311,8 +311,16 @@ void ScrollView::setOnScrollChanged(std::function<void(float)> callback) { m_onS
 
 void ScrollView::setStickToBottom(bool enabled) { m_stickToBottom = enabled; }
 
+void ScrollView::requestScrollToOffset(float offset) {
+  stopScrollAnimation();
+  m_pendingScrollOffset = offset;
+  m_pendingScrollToBottom = false;
+  markLayoutDirty();
+}
+
 void ScrollView::requestScrollToBottom() {
   stopScrollAnimation();
+  m_pendingScrollOffset.reset();
   m_pendingScrollToBottom = true;
   markLayoutDirty();
 }
@@ -451,15 +459,21 @@ void ScrollView::doLayout(Renderer& renderer) {
   } else {
     m_targetScrollOffset = m_scrollOffset;
   }
-  // A pending jump consumes its flag even when the assignment below is
-  // skipped, so a request issued while already at the bottom cannot fire
-  // again on a later, unrelated pass.
+  // Pending jumps consume their flags even when the requested position is
+  // already current, so they cannot fire again on an unrelated layout pass.
+  const std::optional<float> requestedOffset = std::exchange(m_pendingScrollOffset, std::nullopt);
   const bool jumpToBottom = std::exchange(m_pendingScrollToBottom, false);
-  if ((jumpToBottom || (m_stickToBottom && wasAtBottom)) && m_scrollOffset < m_maxScrollOffset) {
-    m_scrollOffset = m_maxScrollOffset;
-    m_targetScrollOffset = m_maxScrollOffset;
+  std::optional<float> nextOffset;
+  if (requestedOffset.has_value()) {
+    nextOffset = clampOffset(*requestedOffset);
+  } else if ((jumpToBottom || (m_stickToBottom && wasAtBottom)) && m_scrollOffset < m_maxScrollOffset) {
+    nextOffset = m_maxScrollOffset;
+  }
+  if (nextOffset.has_value() && std::abs(*nextOffset - m_scrollOffset) >= 0.001F) {
+    m_scrollOffset = *nextOffset;
+    m_targetScrollOffset = *nextOffset;
     if (m_boundState != nullptr) {
-      m_boundState->offset = m_maxScrollOffset;
+      m_boundState->offset = *nextOffset;
     }
     if (m_onScrollChanged) {
       m_onScrollChanged(m_scrollOffset);

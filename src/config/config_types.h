@@ -91,6 +91,7 @@ struct BarMonitorOverride {
   std::optional<float> capsuleThickness;          // capsule cross-size as a fraction of bar thickness
   std::optional<std::string> fontFamily;          // unset = inherit shell.font_family
   std::optional<float> scale;
+  std::optional<float> fontScale;
   std::optional<std::vector<std::string>> startWidgets;
   std::optional<std::vector<std::string>> centerWidgets;
   std::optional<std::vector<std::string>> endWidgets;
@@ -161,6 +162,7 @@ struct BarConfig {
   std::int32_t panelOverlap = 1;
   float capsuleThickness = 0.76F; // capsule cross-size as a fraction of bar thickness
   float scale = 1.0F;             // content scale multiplier for glyphs and text
+  float fontScale = 1.0F;         // font scale multiplier, independent of content scale
   int fontWeight = 500;           // primary label weight for bar widgets
   // Typeface for this bar's widgets; unset inherits shell.font_family. Per-widget `font_family` overrides.
   std::optional<std::string> fontFamily;
@@ -390,6 +392,7 @@ struct CommonWidgetOptions {
   bool anchor = false;
   bool interactive = true;
   float contentScale = 1.0F;
+  float fontScale = 1.0F;
   std::optional<ColorSpec> color;
   std::optional<ColorSpec> iconColor;
   std::optional<std::int64_t> labelFontWeight;
@@ -450,6 +453,8 @@ capsuleGroupRefsForMonitorScope(const BarConfig& bar, const BarMonitorOverride& 
 );
 [[nodiscard]] float
 resolveWidgetContentScale(float barScale, const WidgetConfig* widget, std::string_view context = "widget.scale");
+[[nodiscard]] float
+resolveWidgetFontScale(float barScale, const WidgetConfig* widget, std::string_view context = "widget");
 
 // Shared output selector matching used by monitor-scoped config and IPC selectors.
 // Matches connector name exactly, or a word-boundary token within output description.
@@ -508,7 +513,7 @@ struct WallpaperConfig {
   float transitionDurationMs = 1500.0F;
   float edgeSmoothness = 0.3F;
   bool transitionOnStartup = false;
-  std::string directory;      // empty = ~/Pictures/Wallpapers
+  std::string directory;      // empty = XDG_PICTURES_DIR
   std::string directoryLight; // empty = directory
   std::string directoryDark;  // empty = directory
   bool perMonitorDirectories = false;
@@ -1042,7 +1047,7 @@ struct ShellConfig {
     bool showCursor = false;
     bool pipeToCommand = false;
     std::string pipeCommand;
-    std::string directory;       // empty = ~/Pictures
+    std::string directory;       // empty = XDG Pictures directory
     std::string filenamePattern; // empty = screenshot_%Y%m%d_%H%M%S
 
     bool operator==(const ScreenshotConfig&) const = default;
@@ -1285,6 +1290,7 @@ struct BrightnessMonitorOverride {
   std::string match;
   std::optional<BrightnessBackendPreference> backend;
   std::optional<std::string> backlightDevice; // sysfs device name or path, e.g. "intel_backlight"
+  std::optional<std::int32_t> ddcBus;         // DDC bus number, e.g. 6 for i2c-6
 
   bool operator==(const BrightnessMonitorOverride&) const = default;
 };

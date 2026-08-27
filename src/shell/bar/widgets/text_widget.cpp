@@ -17,7 +17,7 @@ void TextWidget::create() {
       ui::label({
           .out = &m_label,
           .text = m_text,
-          .fontSize = Style::fontSizeBody * m_contentScale,
+          .fontSize = Style::fontSizeBody * fontScale(),
           .fontWeight = labelFontWeight(),
           .fontFamily = labelFontFamily(),
           .color = widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface)),
@@ -42,7 +42,7 @@ void TextWidget::doLayout(Renderer& renderer, float containerWidth, float contai
 
   const bool isVertical = containerHeight > containerWidth;
   m_label->setVisible(true);
-  m_label->setFontSize((isVertical ? Style::fontSizeCaption : Style::fontSizeBody) * m_contentScale);
+  m_label->setFontSize((isVertical ? Style::fontSizeCaption : Style::fontSizeBody) * fontScale());
   m_label->setFontWeight(labelFontWeight());
   m_label->setFontFamily(labelFontFamily());
   m_label->setTextAlign(isVertical ? TextAlign::Center : TextAlign::Start);

@@ -82,6 +82,7 @@ namespace settings {
                   if (!aliveGuard.expired()) {
                     m_open = false;
                     m_modalId.reset();
+                    m_sheet.notifyClosed();
                     m_sheet.clear();
                   }
                 },
