@@ -569,14 +569,15 @@ namespace ui {
     std::string type;
     std::string key;
     Node* node = nullptr;
-    std::string callbackName;        // last-wired button onClick / control onChange target
-    std::string rightCallbackName;   // last-wired button onRightClick target
-    std::string hoverCallbackName;   // last-wired onHover target (button/box/image/row/column)
-    std::string submitCallbackName;  // last-wired input onSubmit target
-    std::string dragEndCallbackName; // last-wired slider onDragEnd target
-    std::string imagePath;           // last-applied resolved image source
-    std::string lastText;            // markdown source cache - setMarkdown re-parses, only call on change
-    float lastMarkdownScale = 0.0F;  // scale baked into the parsed markdown; a rescale must re-call setMarkdown
+    std::string callbackName;           // last-wired button onClick / control onChange target
+    std::string rightCallbackName;      // last-wired button onRightClick target
+    std::string hoverCallbackName;      // last-wired onHover target (button/box/image/row/column)
+    std::string submitCallbackName;     // last-wired input onSubmit target
+    std::string dragEndCallbackName;    // last-wired slider onDragEnd target
+    std::string imagePath;              // last-applied resolved image source
+    std::string lastText;               // markdown source cache - setMarkdown re-parses, only call on change
+    float lastMarkdownScale = 0.0F;     // content scale baked into the parsed markdown
+    float lastMarkdownFontScale = 0.0F; // text-only multiplier baked into the parsed markdown
     float imageTargetSize = 0.0F;
     // Controlled-with-change-detection: a value-driven control (toggle/slider/
     // select) only re-applies its declared value when it differs from the last
@@ -601,6 +602,8 @@ namespace ui {
     m_scale = scale;
     m_dragDropController->setScale(scale);
   }
+
+  void UiTreeReconciler::setFontScale(float scale) { m_fontScale = scale; }
 
   void UiTreeReconciler::setDragDropEnabled(bool enabled) {
     if (m_dragDropEnabled == enabled) {
@@ -937,6 +940,7 @@ namespace ui {
     }
 
     const auto scaled = [this](double v) { return static_cast<float>(v) * m_scale; };
+    const auto scaledFont = [this](double v) { return static_cast<float>(v) * m_scale * m_fontScale; };
 
     // Common node props.
     if (const bool* visible = boolProp(desired, "visible")) {
@@ -1165,9 +1169,9 @@ namespace ui {
         label->setText(*text);
       }
       if (const double* fontSize = numProp(desired, "fontSize")) {
-        label->setFontSize(scaled(*fontSize));
+        label->setFontSize(scaledFont(*fontSize));
       } else {
-        label->setFontSize(Style::fontSizeBody * m_scale);
+        label->setFontSize(Style::fontSizeBody * m_scale * m_fontScale);
       }
       if (auto color = parseColor(desired, "color")) {
         label->setColor(*color);
@@ -1309,11 +1313,11 @@ namespace ui {
         button->setText("");
       }
       if (const double* fontSize = numProp(desired, "fontSize")) {
-        button->setFontSize(scaled(*fontSize));
+        button->setFontSize(scaledFont(*fontSize));
       } else if (text != nullptr && !text->empty()) {
         // Guarded on non-empty text: setFontSize creates the label, which
         // would flip a glyph-only button to the taller text chrome tier.
-        button->setFontSize(Style::fontSizeBody * m_scale);
+        button->setFontSize(Style::fontSizeBody * m_scale * m_fontScale);
       }
       if (const double* glyphSize = numProp(desired, "glyphSize")) {
         button->setGlyphSize(scaled(*glyphSize));
@@ -1521,6 +1525,7 @@ namespace ui {
       if (const std::string* placeholder = strProp(desired, "placeholder")) {
         select->setPlaceholder(*placeholder);
       }
+      select->setFontSize(Style::fontSizeBody * m_scale * m_fontScale);
       if (onChangeProp != nullptr && *onChangeProp != slot.callbackName) {
         slot.callbackName = *onChangeProp;
         select->setOnSelectionChanged([this, name = slot.callbackName](std::size_t idx, std::string_view text) {
@@ -1565,7 +1570,9 @@ namespace ui {
         input->setPlaceholder(*placeholder);
       }
       if (const double* fontSize = numProp(desired, "fontSize")) {
-        input->setFontSize(scaled(*fontSize));
+        input->setFontSize(scaledFont(*fontSize));
+      } else {
+        input->setFontSize(Style::fontSizeBody * m_scale * m_fontScale);
       }
       // Multiline before password: they are mutually exclusive and multiline wins.
       if (const bool* multiline = boolProp(desired, "multiline")) {
@@ -1618,12 +1625,15 @@ namespace ui {
       // The scale check sits outside the text-presence gate: a render that
       // omits text (retained-prop convention) must still pick up a rescale.
       const std::string* text = strProp(desired, "text");
-      if ((text != nullptr && *text != slot.lastText) || m_scale != slot.lastMarkdownScale) {
+      if ((text != nullptr && *text != slot.lastText)
+          || m_scale != slot.lastMarkdownScale
+          || m_fontScale != slot.lastMarkdownFontScale) {
         if (text != nullptr) {
           slot.lastText = *text;
         }
         slot.lastMarkdownScale = m_scale;
-        md->setMarkdown(slot.lastText, m_scale);
+        slot.lastMarkdownFontScale = m_fontScale;
+        md->setMarkdown(slot.lastText, m_scale, m_fontScale);
       }
       if (width != nullptr) {
         md->setMinWidth(scaled(*width));

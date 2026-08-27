@@ -1233,6 +1233,7 @@ void HomeTab::setActive(bool active) {
   m_active = active;
   if (!active) {
     m_progressTimer.stop();
+    m_clockTimer.stop();
     m_nextRealtimeUpdateAt = {};
     m_lastRealtimeMprisPollAt = {};
     m_mediaPositionBusName.clear();
@@ -1251,11 +1252,33 @@ void HomeTab::setActive(bool active) {
       PanelManager::instance().requestLayout();
       PanelManager::instance().requestUpdateOnly();
     });
+
+    // Tick the clock once per second so the time/date labels keep moving while the panel is
+    // open and idle. Without this, the clock only refreshes when an unrelated service happens
+    // to force a redraw (see issue #4046). setText() is a no-op when the text is unchanged, so
+    // formats without seconds cost nothing beyond the cheap format + comparison each second.
+    m_clockTimer.startRepeating(std::chrono::milliseconds(1000), [this]() {
+      if (!m_active) {
+        return;
+      }
+      bool changed = false;
+      if (m_timeLabel != nullptr) {
+        changed = m_timeLabel->setText(formatShellTime(m_config)) || changed;
+      }
+      if (m_dateLabel != nullptr) {
+        changed = m_dateLabel->setText(formatShellDate(m_config)) || changed;
+      }
+      if (changed) {
+        PanelManager::instance().requestLayout();
+        PanelManager::instance().requestRedraw();
+      }
+    });
   }
 }
 
 void HomeTab::onClose() {
   m_progressTimer.stop();
+  m_clockTimer.stop();
   m_rootLayout = nullptr;
   m_bottomRow = nullptr;
   m_dateTimeCard = nullptr;

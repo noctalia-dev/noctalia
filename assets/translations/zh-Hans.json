@@ -305,6 +305,22 @@
     },
     "power": {
       "battery": "电池",
+      "charging": {
+        "configured": "已配置：{limits}",
+        "display-only": "仅供查看",
+        "error-denied": "授权被拒绝。充电阈值未更改。",
+        "error-failed": "无法更改充电阈值。",
+        "externally-managed": "已由其他工具设置。请配置 UPower 以管理充电阈值。",
+        "firmware-managed": "充电由系统固件管理",
+        "full-charge": "可充电至 100%",
+        "starts": "低于 {start}% 时开始",
+        "starts-stops": "低于 {start}% 时开始 · 达到 {end}% 时停止",
+        "stops": "达到 {end}% 时停止",
+        "title": "电池充电",
+        "unreadable": "不可用",
+        "unsupported": "不支持充电阈值",
+        "use-thresholds": "使用充电阈值"
+      },
       "design-capacity": "相对于设计容量",
       "health": "电池健康度",
       "performance-inhibited": "性能模式不可用",
@@ -579,6 +595,7 @@
         "grid": "网格"
       },
       "title": "桌面小组件",
+      "title-lockscreen": "锁屏小组件",
       "types": {
         "audio-visualizer": "音频可视化",
         "button": "按钮",
@@ -1376,6 +1393,13 @@
       "panel-position": {
         "auto": "跟随状态栏"
       },
+      "plugins": {
+        "auto-update": {
+          "all": "所有源",
+          "none": "无",
+          "official": "仅官方源"
+        }
+      },
       "screen-position": {
         "bottom-center": "底部居中",
         "bottom-left": "左下角",
@@ -1760,6 +1784,10 @@
         "font-family": {
           "description": "状态栏上小组件的字体；留空时继承全局字体（单独设置的小组件字体将覆盖此项）",
           "label": "字体"
+        },
+        "font-scale": {
+          "description": "状态栏上小组件文本的缩放比例；各小组件的字体缩放会在此基础上叠加",
+          "label": "字体缩放"
         },
         "font-weight": {
           "description": "状态栏上小组件标签的默认字重。",
@@ -2315,6 +2343,10 @@
         "launcher-app-grid": {
           "description": "当搜索结果仅包含应用时，以网格形式显示应用图标，并在图标下方显示名称",
           "label": "应用网格视图"
+        },
+        "launcher-app-origin-indicator": {
+          "description": "在应用搜索结果中显示软件包来源标识",
+          "label": "显示应用来源标识"
         },
         "launcher-auto-paste": {
           "description": "选择计算结果、表情符号等可复制项后，自动粘贴到焦点窗口（快捷键选项与剪贴板自动粘贴相同）",
@@ -3454,6 +3486,10 @@
           "description": "小组件的字体；留空时继承状态栏字体",
           "label": "字体"
         },
+        "font-scale": {
+          "description": "小组件文本的缩放比例，独立于小组件的整体缩放",
+          "label": "字体缩放"
+        },
         "font-weight": {
           "description": "默认继承状态栏字重",
           "label": "字重"
@@ -3505,8 +3541,8 @@
           "label": "隐藏未活动项"
         },
         "hide-passive": {
-          "description": "隐藏 StatusNotifierItem 状态为被动（Passive）的托盘项",
-          "label": "隐藏被动项"
+          "description": "隐藏 StatusNotifierItem 状态为 Passive 的托盘项",
+          "label": "隐藏非活动项"
         },
         "hide-when-empty": {
           "description": "隐藏无窗口的工作区胶囊",
@@ -3516,6 +3552,10 @@
         "hide-when-full": {
           "description": "电池充满时隐藏电池小组件",
           "label": "充满时隐藏"
+        },
+        "hide-when-inactive": {
+          "description": "没有应用正在录音时隐藏麦克风小组件",
+          "label": "未活动时隐藏"
         },
         "hide-when-no-connected-device": {
           "description": "没有已连接的设备时隐藏蓝牙小组件",
@@ -3552,6 +3592,10 @@
         "icon-color": {
           "description": "仅覆盖小组件图标的颜色；支持固定的十六进制颜色值",
           "label": "图标颜色"
+        },
+        "icon-scale": {
+          "description": "任务栏应用图标相对于默认大小的缩放比例",
+          "label": "图标缩放"
         },
         "icon-size": {
           "description": "图标大小（像素）",

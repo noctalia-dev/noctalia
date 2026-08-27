@@ -20,6 +20,7 @@ namespace {
   struct MdContext {
     MarkdownView* view = nullptr;
     float scale = 1.0F;
+    float fontScale = 1.0F;
     std::string textBuf;
     int headingLevel = 0;
     bool inCodeBlock = false;
@@ -59,13 +60,13 @@ namespace {
   constexpr int kWrapUnlimited = 500;
 
   std::unique_ptr<Label> makeMarkdownLabel(
-      const std::string& text, float fontSize, float scale, ColorRole color, FontWeight weight = FontWeight::Normal,
+      const std::string& text, float fontSize, float textScale, ColorRole color, FontWeight weight = FontWeight::Normal,
       bool markup = false, int maxLines = kWrapUnlimited, std::optional<float> maxWidth = std::nullopt,
       std::optional<float> flexGrow = std::nullopt
   ) {
     return ui::label({
         .text = text,
-        .fontSize = fontSize * scale,
+        .fontSize = fontSize * textScale,
         .fontWeight = weight,
         .color = colorSpecFromRole(color),
         .maxWidth = maxWidth,
@@ -91,9 +92,9 @@ namespace {
       break;
     }
     ctx.view->addChild(ui::row({.height = Style::spaceSm * ctx.scale}));
-    ctx.view->addChild(
-        makeMarkdownLabel(ctx.textBuf, fontSize, ctx.scale, ColorRole::Primary, FontWeight::Bold, true, 1)
-    );
+    ctx.view->addChild(makeMarkdownLabel(
+        ctx.textBuf, fontSize, ctx.scale * ctx.fontScale, ColorRole::Primary, FontWeight::Bold, true, 1
+    ));
     ctx.view->addChild(ui::separator({.spacing = Style::spaceXs * ctx.scale * 0.5F}));
   }
 
@@ -101,8 +102,9 @@ namespace {
     if (ctx.textBuf.empty()) {
       return;
     }
-    auto label =
-        makeMarkdownLabel(ctx.textBuf, Style::fontSizeBody, ctx.scale, ColorRole::OnSurface, FontWeight::Normal, true);
+    auto label = makeMarkdownLabel(
+        ctx.textBuf, Style::fontSizeBody, ctx.scale * ctx.fontScale, ColorRole::OnSurface, FontWeight::Normal, true
+    );
     ctx.view->trackWrappableLabel(label.get());
     ctx.view->addChild(std::move(label));
   }
@@ -125,7 +127,7 @@ namespace {
     block->addChild(
         ui::label({
             .text = ctx.textBuf,
-            .fontSize = Style::fontSizeCaption * ctx.scale,
+            .fontSize = Style::fontSizeCaption * ctx.scale * ctx.fontScale,
             .fontFamily = std::string("monospace"),
             .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
             .maxLines = kWrapUnlimited,
@@ -164,7 +166,7 @@ namespace {
     const float borderWidth = std::max(1.0F, Style::borderWidth * ctx.scale);
     const float paddingH = Style::spaceSm * ctx.scale;
     const float paddingV = Style::spaceXs * ctx.scale;
-    const float characterWidth = Style::fontSizeCaption * ctx.scale * 0.62F;
+    const float characterWidth = Style::fontSizeCaption * ctx.scale * ctx.fontScale * 0.62F;
     std::vector<float> columnWidths;
     columnWidths.reserve(ctx.tableColumnWidths.size());
     for (const std::size_t characters : ctx.tableColumnWidths) {
@@ -234,7 +236,7 @@ namespace {
         });
 
         auto label = makeMarkdownLabel(
-            i < cells.size() ? cells[i] : std::string{}, Style::fontSizeCaption, ctx.scale,
+            i < cells.size() ? cells[i] : std::string{}, Style::fontSizeCaption, ctx.scale * ctx.fontScale,
             isHeader ? ColorRole::OnSurfaceVariant : ColorRole::OnSurface,
             isHeader ? FontWeight::Bold : FontWeight::Normal, true, kWrapUnlimited,
             std::max(0.0F, columnWidths[i] - paddingH * 2.0F)
@@ -269,12 +271,12 @@ namespace {
     } else {
       bullet = "•";
     }
-    row->addChild(
-        makeMarkdownLabel(bullet, Style::fontSizeBody, ctx.scale, ColorRole::OnSurfaceVariant, FontWeight::Normal)
-    );
+    row->addChild(makeMarkdownLabel(
+        bullet, Style::fontSizeBody, ctx.scale * ctx.fontScale, ColorRole::OnSurfaceVariant, FontWeight::Normal
+    ));
     auto textLabel = makeMarkdownLabel(
-        ctx.textBuf, Style::fontSizeBody, ctx.scale, ColorRole::OnSurface, FontWeight::Normal, true, kWrapUnlimited,
-        std::nullopt, 1.0F
+        ctx.textBuf, Style::fontSizeBody, ctx.scale * ctx.fontScale, ColorRole::OnSurface, FontWeight::Normal, true,
+        kWrapUnlimited, std::nullopt, 1.0F
     );
     ctx.view->trackWrappableLabel(textLabel.get());
     row->addChild(std::move(textLabel));
@@ -503,7 +505,7 @@ namespace {
 
 } // namespace
 
-void MarkdownView::setMarkdown(const std::string& markdown, float scale) {
+void MarkdownView::setMarkdown(const std::string& markdown, float scale, float fontScale) {
   clear();
   m_scale = scale;
   setDirection(FlexDirection::Vertical);
@@ -514,6 +516,7 @@ void MarkdownView::setMarkdown(const std::string& markdown, float scale) {
   MdContext ctx;
   ctx.view = this;
   ctx.scale = scale;
+  ctx.fontScale = fontScale;
 
   MD_PARSER parser = {};
   parser.abi_version = 0;

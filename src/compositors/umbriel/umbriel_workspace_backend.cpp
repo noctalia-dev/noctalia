@@ -155,8 +155,8 @@ std::vector<WorkspaceWindow> UmbrielWorkspaceBackend::workspaceWindows(const std
   return result;
 }
 
-bool UmbrielWorkspaceBackend::focusWindowById(const std::string& windowId) {
-  return m_runtime.requestAction("window-focus:" + windowId);
+bool UmbrielWorkspaceBackend::focusWindowById(const std::string& windowId, bool warpPointer) {
+  return m_runtime.requestAction(std::string(warpPointer ? "window-focus-warp:" : "window-focus:") + windowId);
 }
 
 std::optional<std::string> UmbrielWorkspaceBackend::focusedWindowId() const { return m_focusedWindowId; }

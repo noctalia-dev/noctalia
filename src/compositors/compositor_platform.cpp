@@ -1427,7 +1427,7 @@ void CompositorPlatform::focusCompositorWindow(const std::string& windowId, bool
     m_kwinActiveWindow->activateWindow({}, {}, windowId, warpPointer);
     return;
   }
-  if (m_workspaceMetadataBackend != nullptr && m_workspaceMetadataBackend->focusWindowById(windowId)) {
+  if (m_workspaceMetadataBackend != nullptr && m_workspaceMetadataBackend->focusWindowById(windowId, warpPointer)) {
     return;
   }
   if (m_workspaces != nullptr) {

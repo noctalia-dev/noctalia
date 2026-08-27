@@ -30,13 +30,30 @@ int main() {
 
   const fs::path root(tempDir);
   const fs::path iconDir = root / "icons/hicolor/scalable/apps";
+  const fs::path deniedDataHome = root / "denied";
+  const fs::path deniedIcon = deniedDataHome / "private-icon.svg";
   fs::create_directories(iconDir);
+  fs::create_directories(deniedDataHome);
+  std::ofstream(deniedIcon) << "<svg/>";
+  fs::permissions(deniedDataHome, fs::perms::none);
   setenv("HOME", tempDir, 1);
-  setenv("XDG_DATA_HOME", tempDir, 1);
+  setenv("XDG_DATA_HOME", deniedDataHome.c_str(), 1);
   setenv("XDG_DATA_DIRS", tempDir, 1);
 
   bool ok = true;
   IconResolver resolver(true);
+
+  ok = expect(
+           resolver.resolve(deniedIcon.string(), 32).empty(),
+           "an icon beneath an inaccessible directory should not terminate resolution"
+       )
+      && ok;
+  fs::permissions(deniedDataHome, fs::perms::owner_all);
+  ok = expect(
+           resolver.resolve(deniedIcon.string(), 32) == deniedIcon.string(),
+           "an absolute icon denied earlier should resolve once it is readable"
+       )
+      && ok;
 
   const fs::path invalidatedIcon = iconDir / "invalidated-icon.svg";
   ok = expect(resolver.resolve("invalidated-icon", 32).empty(), "initial missing icon should not resolve") && ok;

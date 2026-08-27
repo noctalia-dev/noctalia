@@ -1499,16 +1499,9 @@ void ScreenshotService::onCaptureComplete(
   startNextQueuedCapture();
 }
 
-std::filesystem::path ScreenshotService::defaultPicturesDirectory() const {
-  if (const char* home = std::getenv("HOME"); home != nullptr && home[0] != '\0') {
-    return std::filesystem::path(home) / "Pictures";
-  }
-  return std::filesystem::path("/tmp");
-}
-
 std::filesystem::path ScreenshotService::outputDirectory(const OutputOptions& options) const {
   if (options.directory.empty()) {
-    return defaultPicturesDirectory();
+    return FileUtils::defaultPicturesDirectory();
   }
   return FileUtils::expandUserPath(options.directory);
 }
