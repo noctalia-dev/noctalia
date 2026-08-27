@@ -1,5 +1,6 @@
 #include "system/screen_time_service.h"
 
+#include "compositors/compositor_platform.h"
 #include "core/log.h"
 #include "system/app_identity.h"
 #include "system/desktop_entry.h"
@@ -7,7 +8,6 @@
 #include "time/time_format.h"
 #include "util/file_utils.h"
 #include "util/string_utils.h"
-#include "compositors/compositor_platform.h"
 #include "wayland/wayland_toplevels.h"
 
 #include <algorithm>
