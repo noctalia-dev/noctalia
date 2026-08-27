@@ -108,7 +108,7 @@ namespace {
                entry.notification.origin, entry.notification.urgency, entry.notification.transient,
                entry.notification.persistInHistory
            )
-        && entry.closeReason != CloseReason::Dismissed;
+        && (entry.notification.persistInHistory || entry.closeReason != CloseReason::Dismissed);
   }
 
   bool notificationHasInvokableActions(const Notification& notification) {
@@ -569,14 +569,19 @@ bool NotificationManager::close(uint32_t id, CloseReason reason) {
   const size_t index = it->second;
   const Notification closed = m_notifications[index];
   const bool hadUnreadBefore = computeHasUnreadNotificationHistory();
-  const bool historyHandledUnreadChange =
-      shouldSaveNotificationToHistory(m_filters, closed) && reason == CloseReason::Dismissed;
+  const bool historyHandledUnreadChange = shouldSaveNotificationToHistory(m_filters, closed)
+      && reason == CloseReason::Dismissed
+      && !closed.persistInHistory;
   const char* reasonStr = (reason == CloseReason::Expired) ? "expired"
       : (reason == CloseReason::Dismissed)                 ? "dismissed"
                                                            : "closed";
   kLog.debug("notification {} #{}", reasonStr, id);
   if (shouldSaveNotificationToHistory(m_filters, closed)) {
-    if (reason == CloseReason::Dismissed) {
+    // Dismissing normally drops the history entry: the user acted on the notification, so keeping a
+    // record would be noise. A notification that opted into persistence keeps its record instead,
+    // because it has no expiry — dismissal is the only way it can ever close, so removing it here
+    // would mean it never reaches history at all.
+    if (reason == CloseReason::Dismissed && !closed.persistInHistory) {
       removeHistoryEntry(id, reason);
     } else {
       upsertHistory(closed, false, reason);

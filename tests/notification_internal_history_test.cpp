@@ -118,6 +118,30 @@ int main() {
     manager.setInternalActionCallback(nullptr);
   }
 
+  // Dismissal is the only way a timeout-0 reminder can close, so it must not take the history entry
+  // with it — otherwise opting into history buys nothing for exactly the notifications that need it.
+  {
+    const auto stickyId = manager.addOrReplace(
+        NotificationRequest{
+            .appName = "calendar-test",
+            .summary = "dismissed-reminder",
+            .timeout = 0,
+            .origin = NotificationOrigin::Internal,
+            .persistInHistory = true,
+        }
+    );
+    ok = check(manager.close(stickyId, CloseReason::Dismissed), "a persistent reminder could not be dismissed") && ok;
+    ok = check(historyContains(manager, "dismissed-reminder"), "dismissing a persistent reminder erased its history")
+        && ok;
+
+    // Everything else still loses its entry on dismissal — the pre-existing behavior.
+    const auto plainId =
+        manager.addOrReplace(NotificationRequest{.appName = "other-app", .summary = "dismissed-external"});
+    ok = check(manager.close(plainId, CloseReason::Dismissed), "an external notification could not be dismissed") && ok;
+    ok = check(!historyContains(manager, "dismissed-external"), "dismissing an external notification kept its history")
+        && ok;
+  }
+
   // External notifications are unaffected.
   (void)manager.addOrReplace(NotificationRequest{.appName = "other-app", .summary = "external"});
   ok = check(historyContains(manager, "external"), "an external notification stopped being persisted") && ok;
