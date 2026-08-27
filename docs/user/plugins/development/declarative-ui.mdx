@@ -64,7 +64,7 @@ to size it explicitly).
 | `ui.spacer` | flexible filler (use `flexGrow`) |
 | `ui.progress` | `progress` (0–1), `fill`, `track`, `radius`, `width`, `height` |
 | `ui.button` | `text`, `glyph`, `fontSize`, `glyphSize`, `variant` (`default`/`primary`/`secondary`/`destructive`/`outline`/`ghost`), `contentAlign` (`start`/`center`/`end`), `controlSize` (`sm`/`md`/`lg`), `tooltip`, `enabled`, `selected`, `onClick`, `onRightClick`, `onHover` |
-| `ui.graph` | `values` / `values2` (arrays of 0–1 numbers), `color` / `color2`, `lineWidth`, `fillOpacity`, `width`, `height` |
+| `ui.graph` | `values` / `values2` (arrays of 0–1 numbers), `color` / `color2`, `lineWidth`, `fillOpacity`, `width`, `height`, `onPointerMove`, `onPointerLeave` |
 | `ui.toggle` | `checked` (bool), `enabled`, `onChange` |
 | `ui.slider` | `min`, `max`, `step`, `value`, `controlSize` (`sm`/`md`/`lg`), `enabled`, `onChange`, `onDragEnd` |
 | `ui.select` | `options` (array of strings), `selectedIndex`, `placeholder`, `controlSize` (`sm`/`md`/`lg`), `enabled`, `width`, `height`, `onChange` |
@@ -122,6 +122,30 @@ prop is logged and skipped - typos surface in the log instead of failing silentl
   child, hovering that child makes *it* the hover target and the container reports `"false"`. Every `"true"` is
   matched by a `"false"`, including when the hovered node disappears in a later render, so a hover flag never gets
   stuck on.
+- **Graph pointer tracking**: `onPointerMove` on `ui.graph` fires while the pointer is over the graph and receives the
+  position normalized to the graph's own box as two strings, `"0.0000"` to `"1.0000"`, with `0,0` at the top-left, so
+  `normY` grows downward. Map the x-position onto your own data: the graph does not know what its samples mean.
+  `onPointerLeave` is independent and fires with no arguments.
+  ```lua
+  function onGraphMove(normX)
+    hoveredIndex = math.floor(tonumber(normX) * #series) + 1
+    render()
+  end
+
+  function onGraphLeave()
+    hoveredIndex = nil
+    render()
+  end
+
+  ui.graph({ values = series, onPointerMove = "onGraphMove", onPointerLeave = "onGraphLeave" })
+  ```
+  Positions are coalesced: a graph never has more than one pending pointer event, so a fast pointer cannot flood a slow
+  script, and the newest event always wins. Both edges share that stream, so a leave can never arrive before a position
+  it followed. Every entered graph reports its leave, including when the graph disappears from a later render or its
+  callbacks are rewired, so a hover highlight never gets stuck on; that teardown leave needs a **named** handler,
+  because a closure from the render that dropped the graph is already superseded. A graph with neither prop takes no
+  pointer input at all; an empty callback name counts as unset.
+  Requires <PluginApiBadge feature="graph-pointer-tracking" />.
 - **Clickable containers**: `onClick` on `ui.row` and `ui.column` makes the whole container a click target while
   keeping its layout and sizing, so an entire chip (glyph + label) activates as one unit rather than only a bare
   `ui.box`. The same applies to `ui.image` and `ui.box` (thumbnail grids, placeholder tiles). A clickable container

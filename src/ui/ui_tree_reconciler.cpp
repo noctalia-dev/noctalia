@@ -363,17 +363,27 @@ namespace ui {
       return name != nullptr && !name->empty() ? name : nullptr;
     }
 
-    // Box/image and row/column get an InputArea wrapper only when clickable (see
-    // createControl). If a reconcile flips that need, the existing node can't
-    // be reused — its structure no longer matches — so it must be rebuilt like
-    // a type change.
+    // Only these types can carry an InputArea wrapper (see createControl).
+    bool wrappableType(const std::string& type) {
+      return type == "box" || type == "image" || type == "row" || type == "column" || type == "graph";
+    }
+
+    // The props that make a wrappable type need its InputArea: pointer tracking
+    // for a graph, click/hover for the rest.
+    bool wantsInputAreaWrapper(const UiTreeNode& want) {
+      if (want.type == "graph") {
+        return callbackProp(want, "onPointerMove") != nullptr || callbackProp(want, "onPointerLeave") != nullptr;
+      }
+      return callbackProp(want, "onClick") != nullptr || callbackProp(want, "onHover") != nullptr;
+    }
+
+    // If a reconcile flips that need, the existing node cannot be reused (its
+    // structure no longer matches), so it is rebuilt like a type change.
     bool clickableWrapMismatch(const UiTreeNode& want, Node* node) {
-      if (want.type != "box" && want.type != "image" && want.type != "row" && want.type != "column") {
+      if (!wrappableType(want.type)) {
         return false;
       }
-      const bool wantsWrapper = callbackProp(want, "onClick") != nullptr || callbackProp(want, "onHover") != nullptr;
-      const bool hasWrapper = inputAreaFromSlot(node) != nullptr;
-      return wantsWrapper != hasWrapper;
+      return wantsInputAreaWrapper(want) != (inputAreaFromSlot(node) != nullptr);
     }
 
     // InputArea never self-sizes; box/image mirror explicit sizes, but a
@@ -473,9 +483,10 @@ namespace ui {
                                                               "glyphSize",   "variant", "contentAlign", "enabled",
                                                               "selected",    "onClick", "onRightClick", "tooltip",
                                                               "controlSize", "onHover"};
-      static const std::unordered_set<std::string> kGraph = {"width",   "height",    "flexGrow",   "opacity",
-                                                             "visible", "values",    "values2",    "color",
-                                                             "color2",  "lineWidth", "fillOpacity"};
+      static const std::unordered_set<std::string> kGraph = {
+          "width", "height", "flexGrow",  "opacity",     "visible",       "values",        "values2",
+          "color", "color2", "lineWidth", "fillOpacity", "onPointerMove", "onPointerLeave"
+      };
       static const std::unordered_set<std::string> kInput = {"width",       "height",   "flexGrow",    "opacity",
                                                              "visible",     "value",    "placeholder", "fontSize",
                                                              "enabled",     "password", "multiline",   "focus",
@@ -569,15 +580,18 @@ namespace ui {
     std::string type;
     std::string key;
     Node* node = nullptr;
-    std::string callbackName;           // last-wired button onClick / control onChange target
-    std::string rightCallbackName;      // last-wired button onRightClick target
-    std::string hoverCallbackName;      // last-wired onHover target (button/box/image/row/column)
-    std::string submitCallbackName;     // last-wired input onSubmit target
-    std::string dragEndCallbackName;    // last-wired slider onDragEnd target
-    std::string imagePath;              // last-applied resolved image source
-    std::string lastText;               // markdown source cache - setMarkdown re-parses, only call on change
-    float lastMarkdownScale = 0.0F;     // content scale baked into the parsed markdown
-    float lastMarkdownFontScale = 0.0F; // text-only multiplier baked into the parsed markdown
+    std::string callbackName;             // last-wired button onClick / control onChange target
+    std::string rightCallbackName;        // last-wired button onRightClick target
+    std::string hoverCallbackName;        // last-wired onHover target (button/box/image/row/column)
+    std::string submitCallbackName;       // last-wired input onSubmit target
+    std::string dragEndCallbackName;      // last-wired slider onDragEnd target
+    std::string pointerMoveCallbackName;  // last-wired graph onPointerMove target
+    std::string pointerLeaveCallbackName; // last-wired graph onPointerLeave target
+    std::string pointerStreamKey;         // coalescing stream shared by this graph's pointer callbacks
+    std::string imagePath;                // last-applied resolved image source
+    std::string lastText;                 // markdown source cache - setMarkdown re-parses, only call on change
+    float lastMarkdownScale = 0.0F;       // content scale baked into the parsed markdown
+    float lastMarkdownFontScale = 0.0F;   // text-only multiplier baked into the parsed markdown
     float imageTargetSize = 0.0F;
     // Controlled-with-change-detection: a value-driven control (toggle/slider/
     // select) only re-applies its declared value when it differs from the last
@@ -625,9 +639,11 @@ namespace ui {
 
   void UiTreeReconciler::reset() {
     m_dragDropController->cancel();
-    // The host tree is gone, so any hover it was reporting has ended. The slots
-    // still name it; the Nodes they point at are already freed.
+    // The host tree is gone, so any hover or graph pointer session it was
+    // reporting has ended. The slots still name it; the Nodes they point at are
+    // already freed.
     closeHover();
+    closePointer();
     m_rootSlots.clear();
   }
 
@@ -701,6 +717,9 @@ namespace ui {
       return std::make_unique<Button>();
     }
     if (desired.type == "graph") {
+      if (wantsInputAreaWrapper(desired)) {
+        return wrapClickable(std::make_unique<Graph>(), /*acceptClicks=*/false);
+      }
       return std::make_unique<Graph>();
     }
     if (desired.type == "input") {
@@ -801,9 +820,14 @@ namespace ui {
       }
 
       for (const auto& leftover : detached) {
-        if (!leftover.used && subtreeOwnsHover(leftover.slot)) {
+        if (leftover.used) {
+          continue;
+        }
+        if (subtreeOwnsHover(leftover.slot)) {
           closeHover();
-          break;
+        }
+        if (subtreeOwnsPointer(leftover.slot)) {
+          closePointer();
         }
       }
     }
@@ -920,6 +944,99 @@ namespace ui {
     }
     for (const Slot& child : slot.children) {
       if (subtreeOwnsHover(child)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // Both edges of a graph's pointer session are wired together: the enter/motion
+  // reporter and the leave share one coalescing stream key, so the script queue
+  // holds a single pending event per graph and the newest one always wins. A
+  // fresh key per rewire keeps a superseded stream from swallowing the leave the
+  // old wiring owes.
+  void UiTreeReconciler::syncGraphPointerCallbacks(Slot& slot, const UiTreeNode& desired, Node* node) {
+    const std::string* move = callbackProp(desired, "onPointerMove");
+    const std::string* leave = callbackProp(desired, "onPointerLeave");
+    const std::string moveName = move != nullptr ? *move : std::string{};
+    const std::string leaveName = leave != nullptr ? *leave : std::string{};
+    if (moveName == slot.pointerMoveCallbackName && leaveName == slot.pointerLeaveCallbackName) {
+      return;
+    }
+    releasePointer(node);
+    slot.pointerMoveCallbackName = moveName;
+    slot.pointerLeaveCallbackName = leaveName;
+
+    InputArea* inputArea = inputAreaFromSlot(node);
+    if (inputArea == nullptr) {
+      return; // no wrapper: clickableWrapMismatch rebuilds instead of rewiring
+    }
+    if (moveName.empty() && leaveName.empty()) {
+      slot.pointerStreamKey.clear();
+      inputArea->setOnEnter(nullptr);
+      inputArea->setOnMotion(nullptr);
+      inputArea->setOnLeave(nullptr);
+      return;
+    }
+    slot.pointerStreamKey = std::format("graph-pointer:{}", ++m_pointerStreamSeq);
+
+    // Position is normalized to [0,1] over the graph's content area, which fills
+    // the whole control (Graph::setSize puts the render node at 0,0, no inset).
+    auto report = [this, name = moveName, key = slot.pointerStreamKey,
+                   inputArea](const InputArea::PointerData& pointer) {
+      if (!m_sink || name.empty() || inputArea->width() <= 0.0F || inputArea->height() <= 0.0F) {
+        return;
+      }
+      const float normX = std::clamp(pointer.localX / inputArea->width(), 0.0F, 1.0F);
+      const float normY = std::clamp(pointer.localY / inputArea->height(), 0.0F, 1.0F);
+      m_sink(ControlCallback{name, std::format("{:.4F}", normX), std::format("{:.4F}", normY), true, key});
+    };
+    inputArea->setOnEnter([this, node, leaveName, key = slot.pointerStreamKey,
+                           report](const InputArea::PointerData& pointer) {
+      openPointer(node, leaveName, key);
+      report(pointer);
+    });
+    inputArea->setOnMotion(report);
+    inputArea->setOnLeave([this, node]() { releasePointer(node); });
+  }
+
+  void UiTreeReconciler::openPointer(const Node* owner, std::string leaveCallback, std::string streamKey) {
+    if (m_pointerOwner == owner) {
+      return;
+    }
+    closePointer();
+    m_pointerLeaveCallback = std::move(leaveCallback);
+    m_pointerStreamKey = std::move(streamKey);
+    m_pointerOwner = owner;
+  }
+
+  void UiTreeReconciler::closePointer() {
+    if (m_pointerOwner == nullptr) {
+      return;
+    }
+    const std::string name = std::exchange(m_pointerLeaveCallback, std::string{});
+    const std::string key = std::exchange(m_pointerStreamKey, std::string{});
+    m_pointerOwner = nullptr;
+    if (m_sink && !name.empty()) {
+      m_sink(ControlCallback{name, {}, {}, true, key});
+    }
+  }
+
+  void UiTreeReconciler::releasePointer(const Node* owner) {
+    if (owner != nullptr && owner == m_pointerOwner) {
+      closePointer();
+    }
+  }
+
+  bool UiTreeReconciler::subtreeOwnsPointer(const Slot& slot) const {
+    if (m_pointerOwner == nullptr) {
+      return false;
+    }
+    if (slot.node == m_pointerOwner) {
+      return true;
+    }
+    for (const Slot& child : slot.children) {
+      if (subtreeOwnsPointer(child)) {
         return true;
       }
     }
@@ -1414,7 +1531,10 @@ namespace ui {
     }
 
     if (desired.type == "graph") {
-      auto* graph = static_cast<Graph*>(node);
+      auto* graph = controlFromSlot<Graph>(node);
+      if (graph == nullptr) {
+        return;
+      }
       if (const std::vector<double>* values = arrayProp(desired, "values")) {
         graph->setValues(toFloatSeries(*values));
       }
@@ -1433,9 +1553,14 @@ namespace ui {
       if (const double* fillOpacity = numProp(desired, "fillOpacity")) {
         graph->setFillOpacity(std::clamp(static_cast<float>(*fillOpacity), 0.0F, 1.0F));
       }
-      graph->setSize(
-          width != nullptr ? scaled(*width) : node->width(), height != nullptr ? scaled(*height) : node->height()
-      );
+      const float graphWidth = width != nullptr ? scaled(*width) : graph->width();
+      const float graphHeight = height != nullptr ? scaled(*height) : graph->height();
+      graph->setSize(graphWidth, graphHeight);
+      InputArea* inputArea = inputAreaFromSlot(node);
+      if (inputArea != nullptr) {
+        inputArea->setSize(graphWidth, graphHeight);
+      }
+      syncGraphPointerCallbacks(slot, desired, node);
       return;
     }
 

@@ -181,7 +181,7 @@ void PluginPanel::create() {
         };
       }
       (void)m_runtime->enqueueCallStrings(
-          callback.fn, callback.arg1, callback.arg2, std::move(snapshot), callback.coalesce
+          callback.fn, callback.arg1, callback.arg2, std::move(snapshot), callback.coalesce, callback.coalesceKey
       );
     }
   });
