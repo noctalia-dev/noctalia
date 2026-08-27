@@ -20,6 +20,7 @@
 #include "ui/controls/scroll_view.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <memory>
 #include <string_view>
@@ -307,9 +308,16 @@ void CalendarTab::doUpdate(Renderer& renderer) {
 
 void CalendarTab::setActive(bool active) {
   if (!active) {
+    m_eventFadeTimer.stop();
     return;
   }
   focusToday();
+  if (!m_eventFadeTimer.active()) {
+    m_eventFadeTimer.startRepeating(std::chrono::minutes{1}, [this]() {
+      m_eventsDirty = true;
+      PanelManager::instance().refresh();
+    });
+  }
 }
 
 void CalendarTab::focusToday() {
@@ -325,6 +333,7 @@ void CalendarTab::focusToday() {
 }
 
 void CalendarTab::onClose() {
+  m_eventFadeTimer.stop();
   cancelMonthSlide();
   m_rootLayout = nullptr;
   m_calendarArea = nullptr;

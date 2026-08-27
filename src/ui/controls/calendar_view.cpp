@@ -54,9 +54,30 @@ namespace {
 
   constexpr float kPassedEventAlpha = 0.55F;
 
+  std::chrono::system_clock::time_point nextLocalMidnight(std::chrono::system_clock::time_point time) {
+    const std::time_t raw = std::chrono::system_clock::to_time_t(time);
+    std::tm local{};
+    if (localtime_r(&raw, &local) == nullptr) {
+      return time + std::chrono::hours{24};
+    }
+    local.tm_hour = 0;
+    local.tm_min = 0;
+    local.tm_sec = 0;
+    ++local.tm_mday;
+    local.tm_isdst = -1;
+    const std::time_t next = std::mktime(&local);
+    return next == static_cast<std::time_t>(-1) ? time + std::chrono::hours{24}
+                                                : std::chrono::system_clock::from_time_t(next);
+  }
+
   std::chrono::system_clock::time_point eventEndInstant(const CalendarEvent& event) {
-    const auto minEnd = event.allDay ? event.start + std::chrono::hours{24} : event.start;
-    return std::max(event.end, minEnd);
+    if (!event.allDay) {
+      return std::max(event.end, event.start);
+    }
+    if (event.end > event.start) {
+      return event.end;
+    }
+    return nextLocalMidnight(event.start);
   }
 
   int localDateKey(std::chrono::system_clock::time_point time) {
