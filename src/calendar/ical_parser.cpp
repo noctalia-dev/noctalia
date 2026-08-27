@@ -5,6 +5,7 @@
 #include "render/core/color.h"
 
 #include <algorithm>
+#include <cctype>
 #include <chrono>
 #include <ctime>
 #include <libical/ical.h>
@@ -202,7 +203,7 @@ namespace calendar {
           return {};
         }
         Color c;
-        if (tryParseCssColor(val, c)) {
+        if (tryParseCssColorWithNamedColors(val, c)) {
           return formatRgbHex(c);
         }
         return {};
@@ -215,7 +216,12 @@ namespace calendar {
         }
       }
 
-      // 2. Vendor properties: X-APPLE-CALENDAR-COLOR, X-COLOR, X-OUTLOOK-COLOR
+      const auto equalsIgnoreCase = [](std::string_view lhs, std::string_view rhs) {
+        return lhs.size() == rhs.size() && std::ranges::equal(lhs, rhs, [](char left, char right) {
+                 return std::tolower(static_cast<unsigned char>(left))
+                     == std::tolower(static_cast<unsigned char>(right));
+               });
+      };
       for (icalproperty* prop = icalcomponent_get_first_property(component, ICAL_X_PROPERTY); prop != nullptr;
            prop = icalcomponent_get_next_property(component, ICAL_X_PROPERTY)) {
         const char* xname = icalproperty_get_x_name(prop);
@@ -223,7 +229,9 @@ namespace calendar {
           continue;
         }
         std::string_view name(xname);
-        if (name == "X-APPLE-CALENDAR-COLOR" || name == "X-COLOR" || name == "X-OUTLOOK-COLOR") {
+        if (equalsIgnoreCase(name, "X-APPLE-CALENDAR-COLOR")
+            || equalsIgnoreCase(name, "X-COLOR")
+            || equalsIgnoreCase(name, "X-OUTLOOK-COLOR")) {
           if (auto hex = parseColor(icalproperty_get_x(prop)); !hex.empty()) {
             return hex;
           }

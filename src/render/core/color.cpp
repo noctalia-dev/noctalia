@@ -221,7 +221,7 @@ bool tryParseHexColor(std::string_view input, Color& out) {
   }
 }
 
-bool tryParseCssColor(std::string_view text, Color& out) {
+static bool parseCssColor(std::string_view text, Color& out, bool allowNamedColors) {
   while (!text.empty() && static_cast<unsigned char>(text.front()) <= ' ') {
     text.remove_prefix(1);
   }
@@ -426,6 +426,9 @@ bool tryParseCssColor(std::string_view text, Color& out) {
     return true;
   }
 
+  if (!allowNamedColors) {
+    return false;
+  }
   static const std::unordered_map<std::string_view, std::string_view> kNamedColors = {
       {"black", "#000000"},
       {"silver", "#C0C0C0"},
@@ -435,6 +438,7 @@ bool tryParseCssColor(std::string_view text, Color& out) {
       {"maroon", "#800000"},
       {"red", "#FF0000"},
       {"purple", "#800080"},
+      {"rebeccapurple", "#663399"},
       {"fuchsia", "#FF00FF"},
       {"green", "#008000"},
       {"lime", "#00FF00"},
@@ -587,3 +591,7 @@ bool tryParseCssColor(std::string_view text, Color& out) {
 
   return false;
 }
+
+bool tryParseCssColor(std::string_view text, Color& out) { return parseCssColor(text, out, false); }
+
+bool tryParseCssColorWithNamedColors(std::string_view text, Color& out) { return parseCssColor(text, out, true); }
