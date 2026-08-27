@@ -7,7 +7,7 @@
 #include "time/time_format.h"
 #include "util/file_utils.h"
 #include "util/string_utils.h"
-#include "wayland/wayland_connection.h"
+#include "compositors/compositor_platform.h"
 #include "wayland/wayland_toplevels.h"
 
 #include <algorithm>
@@ -281,8 +281,8 @@ ScreenTimeService::DayRecord ScreenTimeService::materializeDayForCharts(const Da
   return day;
 }
 
-void ScreenTimeService::initialize(WaylandConnection* wayland) {
-  m_wayland = wayland;
+void ScreenTimeService::initialize(CompositorPlatform* platform) {
+  m_platform = platform;
   const std::string dir = FileUtils::stateDir();
   m_storagePath = dir.empty() ? "screen_time.json" : dir + "/screen_time.json";
   load();
@@ -884,10 +884,10 @@ void ScreenTimeService::pruneOldDaysLocked() {
 }
 
 std::string ScreenTimeService::appKeyForActive() const {
-  if (m_wayland == nullptr) {
+  if (m_platform == nullptr) {
     return {};
   }
-  const auto active = m_wayland->activeToplevel();
+  const auto active = m_platform->activeToplevel();
   if (!active.has_value()) {
     return {};
   }
