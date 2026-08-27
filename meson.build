@@ -1131,6 +1131,7 @@ if build_tests
     'calendar_cache_permissions',
     'cli_help',
     'cli_parse',
+    'config_shadowed_override',
     'cli_schema',
     'caldav_client',
     'calendar_credential_store',

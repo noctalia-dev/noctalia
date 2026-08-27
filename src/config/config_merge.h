@@ -41,4 +41,15 @@ namespace noctalia::config {
   // responsible for overlaying settings.toml afterwards (it is never include-expanded).
   [[nodiscard]] MergeResult mergeConfigWithIncludes(std::string_view configDir);
 
+  // Appends warnings for keys under the widget placement sections ([desktop_widgets] /
+  // [lockscreen_widgets]) that are defined in both the config-directory table `base` and
+  // the state-dir settings.toml `overlay` with different values. Those sections are
+  // captured wholesale into settings.toml by widget-editor saves and by automatic
+  // placement remaps, which silently turns the same keys in the config directory into
+  // dead config; the warnings name the hand-authored values that are being ignored.
+  // Call before deepMerge applies `overlay` so `base` still carries the hand-authored
+  // values. Keys defined only in `overlay` are intentional overrides and stay silent.
+  void
+  collectShadowedPlacementOverrides(const toml::table& base, const toml::table& overlay, schema::Diagnostics& diag);
+
 } // namespace noctalia::config
