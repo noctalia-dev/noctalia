@@ -7,7 +7,6 @@ local secondary = "rgb({{colors.secondary.default.hex_stripped}})"
 local on_secondary = "rgb({{colors.on_secondary.default.hex_stripped}})"
 local error = "rgb({{colors.error.default.hex_stripped}})"
 local on_error = "rgb({{colors.on_error.default.hex_stripped}})"
-local shadow = "rgb({{colors.shadow.default.hex_stripped}})"
 
 local function apply_theme()
     hl.config({
@@ -51,7 +50,6 @@ return {
         on_secondary = on_secondary,
         error = error,
         on_error = on_error,
-        shadow = shadow,
     },
     apply_theme = apply_theme
 }

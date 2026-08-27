@@ -1138,6 +1138,7 @@ if build_tests
     'calendar_credential_store',
     'calendar_discovery_state',
     'calendar_reminders',
+    'calendar_view_passed_event',
     'capsule_group_lane_override',
     'capsule_group_reconcile',
     'clipboard_service',
