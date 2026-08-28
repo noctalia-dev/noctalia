@@ -546,6 +546,7 @@
         "stat-gpu-temp": "GPU 온도",
         "stat-gpu-usage": "GPU 사용률",
         "stat-gpu-vram": "GPU VRAM",
+        "stat-gpu-vram-used": "GPU VRAM 사용량",
         "stat-net-rx": "네트워크 수신",
         "stat-net-tx": "네트워크 송신",
         "stat-none": "없음",
@@ -576,6 +577,7 @@
         "grid": "그리드"
       },
       "title": "데스크톱 위젯",
+      "title-lockscreen": "잠금 화면 위젯",
       "types": {
         "audio-visualizer": "오디오 비주얼라이저",
         "button": "버튼",
@@ -731,6 +733,7 @@
       "battery-low-body": "{device}: {percent}% 남음",
       "battery-low-title": "배터리 부족",
       "calendar": "캘린더",
+      "calendar-credential-locked-title": "캘린더 키링이 잠겨있습니다",
       "calendar-google-connect-browser-failed": "Google 인증을 위한 브라우저를 실행할 수 없습니다. 기본 브라우저 또는 xdg-open 설정을 확인하세요.",
       "calendar-google-connect-credential-store-failed": "갱신 토큰을 저장할 수 없습니다. Secret Service를 잠금 해제하거나 시작한 후 다시 시도하세요.",
       "calendar-google-connect-expired": "로그인을 완료하기 전에 Google 인증이 만료되었습니다. 다시 시도하세요.",
@@ -762,7 +765,7 @@
       "launcher-usage-reset-success": "사용 데이터가 지워졌습니다.",
       "lockscreen-widgets-editor": "잠금 화면 위젯 편집기",
       "lockscreen-widgets-editor-blocked-locked": "잠금 화면 위젯을 편집하려면 세션을 잠금 해제하세요.",
-      "lockscreen-widgets-editor-enabled": "잠금 화면 위젯 편집기가 켜져 있습니다. 미리보기 오버레이에서 위젯을 배치한 후 세션을 잠가 레이아웃을 확인하세요.",
+      "lockscreen-widgets-editor-enabled": "잠금 화면 위젯 편집기가 켜져 있습니다. 열린 창이 편집기를 가리지 않도록 빈 작업 공간으로 전환합니다.",
       "mpris-disabled": "MPRIS 비활성화됨",
       "polkit-agent": "Polkit 에이전트",
       "polkit-no-session": "Polkit 에이전트에는 logind, elogind 또는 XDG_SESSION_ID가 필요합니다. seatd 전용 설정에서는 그래픽 프롬프트를 등록할 수 없습니다. Greeter 동기화에는 터미널 pkexec를 사용하거나, 세션 내 인증을 위해 elogind를 설치하세요.",
@@ -895,6 +898,7 @@
       "credential-source-label": "자격 증명 저장소",
       "delete-error": "캘린더 계정을 삭제할 수 없습니다.",
       "edit-title": "캘린더 계정 편집",
+      "ics-url-label": "ICS URL",
       "id-label": "계정 ID",
       "invalid": "강조 표시된 캘린더 계정 필드를 확인하세요.",
       "name-label": "표시 이름",
@@ -908,7 +912,8 @@
       "provider": {
         "custom": "CalDAV",
         "google": "Google",
-        "icloud": "iCloud"
+        "icloud": "iCloud",
+        "ics": "ICS URL"
       },
       "provider-label": "제공업체",
       "save": "저장",
@@ -1261,7 +1266,9 @@
         "add-title": "알림 필터 추가",
         "allow-permanent": "영구 허용",
         "allowed-urgencies-label": "허용된 긴급도",
+        "bypass-dnd": "방해 금지 모드 무시",
         "flag": {
+          "dnd-bypass": "방해 금지 모드 무시",
           "history": "기록",
           "permanent": "영구",
           "sound": "소리",

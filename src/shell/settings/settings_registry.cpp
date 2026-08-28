@@ -18,6 +18,7 @@
 #include "theme/builtin_palettes.h"
 #include "theme/builtin_templates.h"
 #include "ui/app_icon_colorization.h"
+#include "util/file_utils.h"
 #include "util/string_utils.h"
 
 #include <algorithm>
@@ -629,7 +630,7 @@ namespace settings {
         tr("settings.schema.wallpaper.directory.description"), {"wallpaper", "directory"},
         TextSetting{
             .value = cfg.wallpaper.directory,
-            .placeholder = std::string(wallpaper::kDefaultWallpaperDirectory),
+            .placeholder = FileUtils::defaultPicturesDirectory().string(),
             .browseMode = TextSettingBrowseMode::SelectFolder,
             .browseFileExtensions = {}
         },
@@ -698,7 +699,7 @@ namespace settings {
             monitorPath("directory"),
             TextSetting{
                 .value = ovr != nullptr && ovr->directory.has_value() ? *ovr->directory : "",
-                .placeholder = std::string(wallpaper::kDefaultWallpaperDirectory),
+                .placeholder = FileUtils::defaultPicturesDirectory().string(),
                 .browseMode = TextSettingBrowseMode::SelectFolder,
                 .browseFileExtensions = {}
             },
@@ -3033,6 +3034,11 @@ namespace settings {
           SliderSetting{bar.scale, 0.5F, 4.0F, 0.05F, false}, "zoom size"
       ));
       entries.push_back(makeEntry(
+          section, "layout", tr("settings.schema.bar.font-scale.label"),
+          tr("settings.schema.bar.font-scale.description"), path("font_scale"),
+          sliderFor(bar.fontScale, noctalia::config::schema::kBarFontScaleRange, false), "text zoom size"
+      ));
+      entries.push_back(makeEntry(
           section, "layout", tr("settings.schema.shared.ends-margin.label"),
           tr("settings.schema.bar.ends-margin.description"), path("margin_ends"), barMarginStepper(bar.marginEnds),
           "gap inset"
@@ -3351,6 +3357,12 @@ namespace settings {
             section, "layout", tr("settings.schema.bar.content-scale.label"),
             tr("settings.schema.bar.content-scale.description"), monitorPath("scale"),
             SliderSetting{ovr.scale.value_or(bar.scale), 0.5F, 4.0F, 0.05F, false}, "zoom size"
+        ));
+        entries.push_back(makeEntry(
+            section, "layout", tr("settings.schema.bar.font-scale.label"),
+            tr("settings.schema.bar.font-scale.description"), monitorPath("font_scale"),
+            sliderFor(ovr.fontScale.value_or(bar.fontScale), noctalia::config::schema::kBarFontScaleRange, false),
+            "text zoom size"
         ));
         entries.push_back(makeEntry(
             section, "layout", tr("settings.schema.shared.ends-margin.label"),

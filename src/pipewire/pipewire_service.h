@@ -31,6 +31,11 @@ struct AudioNode {
   std::string streamTitle;
   std::string iconName;
   std::string mediaClass; // "Audio/Sink", "Audio/Source"
+  // Explicit output route of a program stream (metadata "target.object"): routePinned is set while
+  // the stream does not follow the default sink; routeSinkId is the resolved sink node id, or 0 when
+  // the pinned target no longer exists.
+  bool routePinned = false;
+  std::uint32_t routeSinkId = 0;
   float volume = 1.0F;
   bool muted = false;
   std::uint32_t channelCount = 0;
@@ -122,6 +127,7 @@ public:
   // Program/application streams (PipeWire "Stream/*/Audio")
   void setProgramOutputVolume(std::uint32_t id, float volume);
   void setProgramOutputMuted(std::uint32_t id, bool muted);
+  void moveProgramOutput(std::uint32_t programStreamId, std::uint32_t targetSinkId);
 
   // Registers audio-related IPC commands (set/raise/lower-volume, mute, set/raise/lower-mic-volume, mute-mic).
   void registerIpc(IpcService& ipc, const ConfigService& config);
@@ -140,6 +146,7 @@ public:
   struct NodeData {
     PipeWireService* service = nullptr;
     std::uint32_t id = 0;
+    std::uint64_t serial = 0;
     std::uint32_t clientId = 0;
     std::string name;
     std::string description;
@@ -164,6 +171,8 @@ public:
     bool muted = false;
     std::uint32_t channelCount = 0;
     std::uint32_t deviceId = 0;
+    // Binds this node to the matching route.device from its card's ParamRoute table.
+    std::int32_t profileDevice = -1;
     bool hasRoute = false;
     std::int32_t routeIndex = -1;
     std::int32_t routeDevice = -1;
@@ -211,12 +220,15 @@ public:
 
   // Authoritative device volume/mute from WirePlumber's mixer-api (see setWirePlumberMixer).
   void onMixerVolumeChanged(std::uint32_t id, float volume, bool muted);
+  void onTargetObjectMetadata(std::uint32_t subject, const std::string& target);
 
 private:
   bool m_pendingDefaultAudioDevicePropsEnum = false;
   void enumDefaultAudioDeviceParams();
 
   void rebuildState();
+  // Resolves a metadata "target.object" value to a sink node id, or 0 when no sink matches.
+  [[nodiscard]] std::uint32_t resolveTargetObjectSink(const std::string& target) const;
   void refreshNodeIdentity(NodeData& nd);
   void applyVolumePropsFromDict(NodeData& nd, const spa_dict* props, bool applyMixerFieldsFromDict = true);
   void recomputeEffectiveMute(NodeData& nd);
@@ -260,6 +272,10 @@ private:
   std::unordered_map<std::uint32_t, ClientData> m_clients;
   std::unordered_map<std::uint32_t, DeviceData> m_devices;
   std::unordered_map<std::uint32_t, LinkData> m_links;
+  // Explicit stream routes from the "default" metadata, keyed by subject node id. Held here rather
+  // than on NodeData: the metadata is authoritative and independent of node registration order,
+  // while NodeData::targetObject is the node's own creation-time target property.
+  std::unordered_map<std::uint32_t, std::string> m_metadataTargetObjects;
   std::vector<std::function<void()>> m_metadataCleanups;
   std::string m_defaultSinkName;
   std::string m_defaultSourceName;

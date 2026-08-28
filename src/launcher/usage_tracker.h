@@ -14,16 +14,17 @@ public:
 
   void record(std::string_view providerId, std::string_view resultId);
   void clear();
-  [[nodiscard]] int getCount(std::string_view providerId, std::string_view resultId) const;
-  [[nodiscard]] int getRecentlyUsedIndex(std::string_view providerId, std::string_view resultId) const;
-  [[nodiscard]] std::size_t getRecentlyUsedCount(std::string_view providerId) const;
+  [[nodiscard]] int getCount(std::string_view providerId, std::string_view resultId);
+  [[nodiscard]] int getRecentlyUsedIndex(std::string_view providerId, std::string_view resultId);
+  [[nodiscard]] std::size_t getRecentlyUsedCount(std::string_view providerId);
 
 private:
-  void load();
+  void ensureLoaded();
   void save() const;
 
   std::string m_usageCountsPath;
   std::string m_recentlyUsedPath;
+  bool m_loaded = false;
   std::unordered_map<std::string, std::unordered_map<std::string, int>> m_counts;
   std::unordered_map<std::string, std::deque<std::string>> m_recentlyUsed;
   std::unordered_map<std::string, std::unordered_map<std::string, int>> m_recentlyUsedIndex;

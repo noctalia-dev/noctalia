@@ -248,13 +248,15 @@ int main() {
     }
   }
 
-  // Scale multiplies size-like props.
+  // Content scale affects every size-like prop; font scale affects text only.
   {
     ui::UiTreeReconciler reconciler;
     reconciler.setScale(2.0f);
+    reconciler.setFontScale(1.5f);
     Flex host;
 
     ui::UiTreeNode tree = makeNode("column");
+    tree.props.emplace("gap", 4.0);
     ui::UiTreeNode label = makeLabel("S");
     label.props.emplace("fontSize", 10.0);
     tree.children.push_back(label);
@@ -262,7 +264,8 @@ int main() {
 
     auto* column = dynamic_cast<Flex*>(host.children().front().get());
     auto* scaled = column != nullptr ? dynamic_cast<Label*>(column->children()[0].get()) : nullptr;
-    ok = expect(scaled != nullptr && scaled->fontSize() == 20.0f, "fontSize scaled by content scale") && ok;
+    ok = expect(scaled != nullptr && scaled->fontSize() == 30.0f, "fontSize includes the text-only scale") && ok;
+    ok = expect(column != nullptr && column->gap() == 8.0f, "font scale does not affect spacing") && ok;
   }
 
   // Button onClick routes through the callback sink.
