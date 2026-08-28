@@ -2210,6 +2210,7 @@ namespace noctalia::config::schema {
         field(&BarConfig::smartAutoHide, "smart_auto_hide"),
         field(&BarConfig::showOnWorkspaceSwitch, "show_on_workspace_switch"),
         field(&BarConfig::reserveSpace, "reserve_space"),
+        field(&BarConfig::autoHideReserveSpace, "auto_hide_reserve_space"),
         barLayerField(),
         field(&BarConfig::thickness, "thickness", kBarThicknessRange),
         field(&BarConfig::backgroundOpacity, "background_opacity", kBarOpacityRange),
@@ -2266,6 +2267,7 @@ namespace noctalia::config::schema {
         optionalBoolField(&BarMonitorOverride::smartAutoHide, "smart_auto_hide"),
         optionalBoolField(&BarMonitorOverride::showOnWorkspaceSwitch, "show_on_workspace_switch"),
         optionalBoolField(&BarMonitorOverride::reserveSpace, "reserve_space"),
+        optionalBoolField(&BarMonitorOverride::autoHideReserveSpace, "auto_hide_reserve_space"),
         // layer accepts top|overlay; anything else warns and leaves it unset.
         custom<BarMonitorOverride>(
             "layer",
