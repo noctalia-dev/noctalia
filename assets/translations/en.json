@@ -1835,6 +1835,10 @@
           "description": "Briefly reveal the bar when the active workspace changes",
           "label": "Show on Workspace Switch"
         },
+        "auto-hide-reserve-space": {
+          "description": "With auto-hide or smart auto-hide, reserve layout only while the bar is visible so hidden windows use the full screen",
+          "label": "Reserve Space While Visible"
+        },
         "start-widgets": {
           "description": "Widgets on the start (left/top) side of the bar",
           "label": "Start Widgets"

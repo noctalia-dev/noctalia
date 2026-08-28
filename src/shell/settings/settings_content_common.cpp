@@ -45,6 +45,9 @@ namespace settings {
     if (key == "smart_auto_hide") {
       return override->smartAutoHide.has_value();
     }
+    if (key == "auto_hide_reserve_space") {
+      return override->autoHideReserveSpace.has_value();
+    }
     if (key == "show_on_workspace_switch") {
       return override->showOnWorkspaceSwitch.has_value();
     }
