@@ -53,6 +53,7 @@ namespace compositors::kde {
       std::string title;
       std::string outputName;
       std::vector<std::string> desktopIds;
+      bool minimized = false;
     };
 
     [[nodiscard]] bool ensureScriptFile(std::string& scriptPath) const;

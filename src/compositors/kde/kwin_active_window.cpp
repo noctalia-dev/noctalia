@@ -162,6 +162,7 @@ function serializeWindow(window) {
     window.caption || "",
     desktopIdsFor(window),
     outputNameFor(window),
+    window.minimized ? "1" : "0",
   ].join(FIELD_SEP);
 }
 
@@ -201,6 +202,9 @@ function wireWindow(window) {
   }
   if (typeof window.outputChanged !== "undefined") {
     window.outputChanged.connect(updateTracked);
+  }
+  if (typeof window.minimizedChanged !== "undefined") {
+    window.minimizedChanged.connect(updateTracked);
   }
 }
 
@@ -401,6 +405,7 @@ namespace compositors::kde {
                 .appId = appId,
                 .title = title,
                 .outputName = window.outputName,
+                .minimized = window.minimized,
             }
         );
         continue;
@@ -420,6 +425,7 @@ namespace compositors::kde {
                 .appId = appId,
                 .title = title,
                 .outputName = window.outputName,
+                .minimized = window.minimized,
             }
         );
         continue;
@@ -432,6 +438,7 @@ namespace compositors::kde {
                 .appId = window.appId,
                 .title = title,
                 .outputName = window.outputName,
+                .minimized = window.minimized,
             }
         );
       }
@@ -738,6 +745,7 @@ for (const window of workspace.windowList()) {{
           .title = StringUtils::windowTitleSingleLine(fields[2]),
           .outputName = fields.size() >= 5 ? fields[4] : std::string{},
           .desktopIds = {},
+          .minimized = fields.size() >= 6 && fields[5] == "1",
       };
       if (fields.size() >= 4 && !fields[3].empty() && fields[3] != "*") {
         window.desktopIds = splitString(fields[3], ',');
@@ -762,7 +770,8 @@ for (const window of workspace.windowList()) {{
             || lhs.appId != rhs.appId
             || lhs.title != rhs.title
             || lhs.outputName != rhs.outputName
-            || lhs.desktopIds != rhs.desktopIds) {
+            || lhs.desktopIds != rhs.desktopIds
+            || lhs.minimized != rhs.minimized) {
           return true;
         }
       }
