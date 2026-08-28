@@ -1,6 +1,6 @@
 #include "compositors/kde/kwin_active_window.h"
-#include "compositors/kde/kwin_window_list.h"
 
+#include "compositors/kde/kwin_window_list.h"
 #include "core/log.h"
 #include "dbus/session_bus.h"
 #include "system/app_identity.h"
