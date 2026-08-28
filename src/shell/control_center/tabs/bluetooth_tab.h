@@ -30,6 +30,8 @@ public:
   void setActive(bool active) override;
 
 private:
+  void stopRequestedDiscovery();
+
   void doLayout(Renderer& renderer, float contentWidth, float bodyHeight) override;
   void doUpdate(Renderer& renderer) override;
   void onPanelCardOpacityChanged(float opacity) override;
@@ -64,6 +66,7 @@ private:
   Button* m_rescanButton = nullptr;
   Spinner* m_scanSpinner = nullptr;
   Timer m_discoveryTimer;
+  bool m_discoveryRequested = false;
 
   static constexpr auto kDiscoveryTimeout = std::chrono::seconds(10);
 

@@ -514,15 +514,12 @@ void BluetoothTab::doUpdate(Renderer& renderer) {
 
 void BluetoothTab::setActive(bool active) {
   if (!active) {
-    m_discoveryTimer.stop();
-  }
-  if (!active && m_service != nullptr && m_service->state().discovering) {
-    m_service->stopDiscovery();
+    stopRequestedDiscovery();
   }
 }
 
 void BluetoothTab::onClose() {
-  m_discoveryTimer.stop();
+  stopRequestedDiscovery();
   m_rootLayout = nullptr;
   m_pairingCard = nullptr;
   m_pairingTitle = nullptr;
@@ -542,6 +539,18 @@ void BluetoothTab::onClose() {
   m_deviceRows.clear();
   m_lastStructureKey.clear();
   m_lastListWidth = -1.0F;
+}
+
+void BluetoothTab::stopRequestedDiscovery() {
+  if (!m_discoveryRequested) {
+    return;
+  }
+
+  m_discoveryRequested = false;
+  m_discoveryTimer.stop();
+  if (m_service != nullptr) {
+    m_service->stopDiscovery();
+  }
 }
 
 void BluetoothTab::syncHeader() {
@@ -791,12 +800,13 @@ void BluetoothTab::rebuildDeviceList(Renderer& renderer) {
               if (m_service == nullptr) {
                 return;
               }
-              m_service->stopDiscovery();
-              m_service->startDiscovery();
+              if (!m_discoveryRequested) {
+                m_service->stopDiscovery();
+                m_discoveryRequested = true;
+                m_service->startDiscovery();
+              }
               m_discoveryTimer.start(kDiscoveryTimeout, [this]() {
-                if (m_service != nullptr) {
-                  m_service->stopDiscovery();
-                }
+                stopRequestedDiscovery();
               });
             },
         })
