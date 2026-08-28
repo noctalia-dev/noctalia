@@ -195,6 +195,34 @@ void NotificationManager::upsertHistory(
   schedulePersistHistory();
 }
 
+bool NotificationManager::updateBody(uint32_t id, std::string body) {
+  const auto it = m_idToIndex.find(id);
+  if (it == m_idToIndex.end()) {
+    return false;
+  }
+  Notification& n = m_notifications[it->second];
+  if (n.body == body) {
+    return true;
+  }
+  n.body = std::move(body);
+
+  if (const auto entry = m_historyIndex.find(id); entry != m_historyIndex.end()) {
+    // Patched in place rather than through upsertHistory, which reorders. The serial still moves so
+    // the control center picks the new text up; `seen` deliberately does not, because a body that
+    // rewrites itself is not a new notification the user has yet to read.
+    m_history[entry->second].notification.body = n.body;
+    m_history[entry->second].eventSerial = ++m_changeSerial;
+    schedulePersistHistory();
+  } else {
+    ++m_changeSerial;
+  }
+
+  for (auto& [token, cb] : m_eventCallbacks) {
+    cb(n, NotificationEvent::Updated);
+  }
+  return true;
+}
+
 int NotificationManager::addEventCallback(EventCallback callback) {
   int token = m_nextCallbackToken++;
   m_eventCallbacks.emplace_back(token, std::move(callback));

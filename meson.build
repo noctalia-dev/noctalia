@@ -1137,6 +1137,7 @@ if build_tests
     'caldav_client',
     'calendar_credential_store',
     'calendar_discovery_state',
+    'calendar_reminder_monitor',
     'calendar_reminders',
     'calendar_view_passed_event',
     'capsule_group_lane_override',

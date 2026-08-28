@@ -1,6 +1,7 @@
 #include "notification/notification_manager.h"
 
 #include <algorithm>
+#include <cstdint>
 #include <iostream>
 #include <string>
 #include <utility>
@@ -12,6 +13,13 @@ namespace {
       std::cerr << "FAIL: " << message << '\n';
     }
     return condition;
+  }
+
+  const NotificationHistoryEntry* historyEntry(const NotificationManager& manager, std::uint32_t id) {
+    const auto& history = manager.history();
+    const auto it =
+        std::ranges::find(history, id, [](const NotificationHistoryEntry& entry) { return entry.notification.id; });
+    return it == history.end() ? nullptr : &*it;
   }
 
   bool historyContains(const NotificationManager& manager, std::string_view summary) {
@@ -140,6 +148,41 @@ int main() {
     ok = check(manager.close(plainId, CloseReason::Dismissed), "an external notification could not be dismissed") && ok;
     ok = check(!historyContains(manager, "dismissed-external"), "dismissing an external notification kept its history")
         && ok;
+  }
+
+  // A reminder counting down rewrites its own body. That must reach the history record without
+  // reordering it, resetting its age, or marking an already-seen entry unread again.
+  {
+    const auto id = manager.addOrReplace(
+        NotificationRequest{
+            .appName = "calendar-test",
+            .summary = "countdown",
+            .body = "Starts in 10 min",
+            .timeout = 0,
+            .origin = NotificationOrigin::Internal,
+            .persistInHistory = true,
+        }
+    );
+    (void)manager.addOrReplace(NotificationRequest{.appName = "other-app", .summary = "arrived-later"});
+    const auto* before = historyEntry(manager, id);
+    ok = check(before != nullptr, "a persistent reminder never reached history") && ok;
+    const auto receivedAt = before != nullptr ? before->notification.receivedTime : TimePoint{};
+
+    ok = check(manager.updateBody(id, "Starts now"), "updateBody rejected a live notification") && ok;
+    const auto* after = historyEntry(manager, id);
+    ok = check(after != nullptr && after->notification.body == "Starts now", "updateBody did not reach history") && ok;
+    ok = check(after != nullptr && after->notification.receivedTime == receivedAt, "updateBody aged the notification")
+        && ok;
+    ok = check(
+             manager.history().back().notification.summary == "arrived-later",
+             "updateBody shoved the reminder back to the top of the notification list"
+         )
+        && ok;
+
+    // A dismissed reminder must report as gone, or the caller would resurrect it as a new toast.
+    ok = check(manager.close(id, CloseReason::Dismissed), "the countdown reminder could not be dismissed") && ok;
+    ok = check(!manager.updateBody(id, "Starts now"), "updateBody accepted a dismissed notification") && ok;
+    ok = check(!manager.updateBody(0xDEADBEEF, "nobody"), "updateBody accepted an unknown id") && ok;
   }
 
   // External notifications are unaffected.

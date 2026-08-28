@@ -125,6 +125,21 @@ namespace calendar {
     return duration_cast<minutes>(remaining + minutes{1} - system_clock::duration{1}).count();
   }
 
+  std::optional<system_clock::time_point>
+  countdownNextChange(system_clock::time_point start, system_clock::time_point now) {
+    const std::int64_t shown = countdownMinutes(start, now);
+    if (shown <= 0) {
+      return std::nullopt; // already reading "starting now"
+    }
+    if (shown > kCountdownWindow.count()) {
+      return start - kCountdownWindow; // nothing to say until the event enters the counting window
+    }
+    // Rounding up means the label reads `shown` while more than shown - 1 minutes remain, so it drops
+    // the moment exactly that many are left. For the last step that instant is the event start itself.
+    // poll() never wakes early, so landing on the boundary always observes a lower value.
+    return start - seconds{(shown - 1) * 60};
+  }
+
   ReminderPlan planReminders(
       const CalendarSnapshot& snapshot, const CalendarConfig::Reminders& config,
       const std::unordered_set<std::string>& fired, const std::optional<std::string>& lastDigestDate,

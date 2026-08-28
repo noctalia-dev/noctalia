@@ -57,14 +57,24 @@ namespace calendar {
   // True when the all-day `event` covers the local date of `now`.
   [[nodiscard]] bool allDayEventCoversDate(const CalendarEvent& event, std::chrono::system_clock::time_point now);
 
+  // How far ahead a reminder body keeps counting down. A VALARM a day out would otherwise rewrite its
+  // notification 1440 times over; outside this window the text stays as it read when the reminder fired.
+  inline constexpr std::chrono::minutes kCountdownWindow{60};
+
   // Whole minutes from `now` to `start`, rounded *up*: the label means "starts in at most N minutes".
-  // Truncating instead renders a ten-minute lead as "in 9 min" every single time, because a reminder
-  // fires a hair after its due instant and duration_cast rounds toward zero. Rounding to nearest would
-  // fix that but put the boundary on the half minute, so a reminder would read "3 min" three and a half
-  // minutes out and disagree with a glance at the clock. Rounding up keeps every value anchored to a
-  // whole minute before the event and reaches zero — "starting now" — exactly at the start.
+  // Truncating instead would render a ten-minute lead as "in 9 min" every single time, because a
+  // reminder fires a hair after its due instant. Rounding to nearest fixes that but moves every step
+  // to the half minute, so "3 min" would appear 3.5 minutes out and disagree with a glance at the
+  // clock for half of each minute. Rounding up anchors every step to a whole minute before the event,
+  // and reaches zero — "starting now" — exactly at the start rather than 30 seconds early.
   [[nodiscard]] std::int64_t
   countdownMinutes(std::chrono::system_clock::time_point start, std::chrono::system_clock::time_point now);
+
+  // When the countdown label for `start` next changes, or nullopt once it has settled on "starting now"
+  // and can never change again. Always strictly after `now`, so a caller polling on it makes progress
+  // instead of spinning on the boundary instant.
+  [[nodiscard]] std::optional<std::chrono::system_clock::time_point>
+  countdownNextChange(std::chrono::system_clock::time_point start, std::chrono::system_clock::time_point now);
 
   struct DueReminder {
     const CalendarEvent* event = nullptr;

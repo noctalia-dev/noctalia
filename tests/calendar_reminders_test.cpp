@@ -360,8 +360,8 @@ int main() {
   // ---- countdown: rounds up, and every step sits on a whole minute before the event ----
   {
     const auto start = at(1'700'000'000);
-    // A reminder fires a hair after its due instant, which is the case that rendered every ten-minute
-    // lead as "in 9 min".
+    // A reminder fires a hair after its due instant, which is the case that used to render every
+    // ten-minute lead as "in 9 min".
     ok = expect(
              calendar::countdownMinutes(start, start - seconds{600} + milliseconds{7}) == 10,
              "a reminder firing just after its due instant did not read 10 minutes"
@@ -371,7 +371,7 @@ int main() {
              calendar::countdownMinutes(start, start - seconds{600}) == 10, "an exact ten-minute lead did not read 10"
          )
         && ok;
-    // The value must change exactly nine minutes before the event, not eight and a half.
+    // The label must change exactly nine minutes before the event, not eight and a half.
     ok = expect(calendar::countdownMinutes(start, start - seconds{541}) == 10, "9m01s did not still read 10") && ok;
     ok = expect(calendar::countdownMinutes(start, start - seconds{540}) == 9, "an exact nine minutes did not read 9")
         && ok;
@@ -380,6 +380,41 @@ int main() {
     ok = expect(calendar::countdownMinutes(start, start) == 0, "the event start did not read 0") && ok;
     ok = expect(calendar::countdownMinutes(start, start + seconds{90}) <= 0, "a started event reported minutes left")
         && ok;
+  }
+
+  // ---- countdown: each wake observes a lower value, and the last one settles ----
+  {
+    const auto start = at(1'700'000'000);
+    auto now = start - seconds{600};
+    std::int64_t shown = calendar::countdownMinutes(start, now);
+    ok = expect(shown == 10, "the countdown did not start at 10") && ok;
+
+    int steps = 0;
+    while (auto next = calendar::countdownNextChange(start, now)) {
+      ok = expect(*next > now, "the next countdown change was not strictly in the future") && ok;
+      now = *next;
+      const std::int64_t updated = calendar::countdownMinutes(start, now);
+      ok = expect(updated < shown, "a countdown wake did not lower the displayed minutes") && ok;
+      shown = updated;
+      if (++steps > 20) {
+        break;
+      }
+    }
+    ok = expect(steps == 10, "the countdown from 10 minutes out did not take 10 steps to settle") && ok;
+    ok = expect(shown <= 0, "the countdown settled on something other than \"starts now\"") && ok;
+    ok = expect(now == start, "the countdown did not settle exactly at the event start") && ok;
+  }
+
+  // ---- countdown: a far-out reminder waits instead of ticking all day ----
+  {
+    const auto start = at(1'700'000'000);
+    const auto next = calendar::countdownNextChange(start, start - hours{24});
+    ok = expect(
+             next.has_value() && *next == start - calendar::kCountdownWindow,
+             "a day-ahead reminder armed a per-minute wake instead of waiting for the window"
+         )
+        && ok;
+    ok = expect(!calendar::countdownNextChange(start, start).has_value(), "a started event still armed a wake") && ok;
   }
 
   return ok ? 0 : 1;

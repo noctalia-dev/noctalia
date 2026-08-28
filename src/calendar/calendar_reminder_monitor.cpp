@@ -35,6 +35,10 @@ namespace {
   constexpr std::int32_t kStayUntilDismissed = 0;
   // Titles listed individually in the all-day digest before collapsing into "+N more".
   constexpr std::size_t kMaxDigestTitles = 5;
+  // Reminders whose body is counted down at once. Only reminders that have fired but whose event has
+  // not started qualify, so this is a handful in practice; the cap just keeps a pathological feed from
+  // arming an unbounded number of per-minute rewrites.
+  constexpr std::size_t kMaxLiveCountdowns = 16;
 
   std::string formatEventTime(const CalendarEvent& event) {
     const std::time_t raw = std::chrono::system_clock::to_time_t(event.start);
@@ -167,6 +171,9 @@ void CalendarReminderMonitor::evaluate(std::chrono::system_clock::time_point now
   }
   if (!active()) {
     m_nextWake.reset();
+    // Whatever is already on screen stays as it reads: reminders are off, so nothing should keep
+    // waking the shell to rewrite it.
+    m_countdowns.clear();
     return;
   }
 
@@ -204,7 +211,11 @@ void CalendarReminderMonitor::evaluate(std::chrono::system_clock::time_point now
     dirty = true;
   }
 
+  const auto countdownWake = refreshCountdowns(now);
   m_nextWake = plan.nextWake;
+  if (countdownWake.has_value() && (!m_nextWake.has_value() || *countdownWake < *m_nextWake)) {
+    m_nextWake = countdownWake;
+  }
 
   if (!plan.due.empty() || plan.digestDue) {
     persistState(); // an actual fire is rare and must survive an immediate restart
@@ -239,12 +250,44 @@ void CalendarReminderMonitor::fireReminder(
   }
 
   const std::uint32_t id = m_notifications.addOrReplace(std::move(request));
-  if (clickable && id != 0) {
+  if (id == 0) {
+    return;
+  }
+  if (clickable) {
     m_actionUrls.emplace_back(id, event.url);
     while (m_actionUrls.size() > kMaxTrackedActionUrls) {
       m_actionUrls.pop_front();
     }
   }
+  if (calendar::countdownNextChange(event.start, now).has_value()) {
+    if (m_countdowns.size() >= kMaxLiveCountdowns) {
+      m_countdowns.erase(m_countdowns.begin());
+    }
+    m_countdowns.push_back({.id = id, .start = event.start, .timeText = timeText, .location = event.location});
+  }
+}
+
+std::optional<std::chrono::system_clock::time_point>
+CalendarReminderMonitor::refreshCountdowns(std::chrono::system_clock::time_point now) {
+  std::optional<std::chrono::system_clock::time_point> wake;
+  std::erase_if(m_countdowns, [&](const LiveCountdown& live) {
+    const std::int64_t minutes = calendar::countdownMinutes(live.start, now);
+    // Beyond the counting window the body still reads as it did when the reminder fired, so it is left
+    // alone — and with it the only chance to notice a dismissal, which the cap above covers instead.
+    if (minutes <= calendar::kCountdownWindow.count()
+        && !m_notifications.updateBody(live.id, reminderBody(minutes, live.timeText, live.location))) {
+      return true; // dismissed; there is nothing left to rewrite
+    }
+    const auto next = calendar::countdownNextChange(live.start, now);
+    if (!next.has_value()) {
+      return true; // settled on "starts now"; the label can never change again
+    }
+    if (!wake.has_value() || *next < *wake) {
+      wake = next;
+    }
+    return false;
+  });
+  return wake;
 }
 
 void CalendarReminderMonitor::onNotificationAction(
