@@ -1,9 +1,11 @@
 #pragma once
 
+#include "core/timer_manager.h"
 #include "dbus/bluetooth/bluetooth_agent.h"
 #include "dbus/bluetooth/bluetooth_service.h"
 #include "shell/control_center/tab.h"
 
+#include <chrono>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -61,6 +63,9 @@ private:
   Toggle* m_discoverableToggle = nullptr;
   Button* m_rescanButton = nullptr;
   Spinner* m_scanSpinner = nullptr;
+  Timer m_discoveryTimer;
+
+  static constexpr auto kDiscoveryTimeout = std::chrono::seconds(10);
 
   std::unordered_map<std::string, BluetoothDeviceRow*> m_deviceRows;
 

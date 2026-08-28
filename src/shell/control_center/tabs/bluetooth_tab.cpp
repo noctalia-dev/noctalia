@@ -513,12 +513,16 @@ void BluetoothTab::doUpdate(Renderer& renderer) {
 }
 
 void BluetoothTab::setActive(bool active) {
+  if (!active) {
+    m_discoveryTimer.stop();
+  }
   if (!active && m_service != nullptr && m_service->state().discovering) {
     m_service->stopDiscovery();
   }
 }
 
 void BluetoothTab::onClose() {
+  m_discoveryTimer.stop();
   m_rootLayout = nullptr;
   m_pairingCard = nullptr;
   m_pairingTitle = nullptr;
@@ -789,6 +793,11 @@ void BluetoothTab::rebuildDeviceList(Renderer& renderer) {
               }
               m_service->stopDiscovery();
               m_service->startDiscovery();
+              m_discoveryTimer.start(kDiscoveryTimeout, [this]() {
+                if (m_service != nullptr) {
+                  m_service->stopDiscovery();
+                }
+              });
             },
         })
     );
