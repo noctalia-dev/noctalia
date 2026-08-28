@@ -1,4 +1,5 @@
 #include "compositors/kde/kwin_active_window.h"
+#include "compositors/kde/kwin_window_list.h"
 
 #include "core/log.h"
 #include "dbus/session_bus.h"
@@ -27,9 +28,6 @@ namespace {
   const sdbus::ObjectPath kKwinScriptingPath{"/Scripting"};
   constexpr auto kKwinInterface = "org.kde.KWin";
   constexpr auto kKwinScriptingInterface = "org.kde.kwin.Scripting";
-
-  constexpr char kRecordSeparator = '\x1F';
-  constexpr char kFieldSeparator = '\x1e';
 
   constexpr std::string_view kScriptSource = R"js(
 const BUS = "dev.noctalia.KWinActiveWindow";
@@ -245,21 +243,6 @@ syncWindows();
   }
 
   [[nodiscard]] std::string jsStringLiteral(const std::string& value) { return nlohmann::json(value).dump(); }
-
-  [[nodiscard]] std::vector<std::string> splitString(std::string_view value, char separator) {
-    std::vector<std::string> parts;
-    std::size_t start = 0;
-    while (start <= value.size()) {
-      const std::size_t end = value.find(separator, start);
-      if (end == std::string_view::npos) {
-        parts.emplace_back(value.substr(start));
-        break;
-      }
-      parts.emplace_back(value.substr(start, end - start));
-      start = end + 1;
-    }
-    return parts;
-  }
 
   [[nodiscard]] bool isNoctaliaShellSurface(const std::string& appId, const std::string& title) {
     const std::string appLower = StringUtils::toLower(appId);
@@ -730,34 +713,7 @@ for (const window of workspace.windowList()) {{
   }
 
   void KwinActiveWindow::onNotifyWindowList(const std::string& payload) {
-    std::vector<TrackedWindow> next;
-    for (const auto& record : splitString(payload, kRecordSeparator)) {
-      if (record.empty()) {
-        continue;
-      }
-      const auto fields = splitString(record, kFieldSeparator);
-      if (fields.size() < 3) {
-        continue;
-      }
-      TrackedWindow window{
-          .uuid = fields[0],
-          .appId = fields[1],
-          .title = StringUtils::windowTitleSingleLine(fields[2]),
-          .outputName = fields.size() >= 5 ? fields[4] : std::string{},
-          .desktopIds = {},
-          .minimized = fields.size() >= 6 && fields[5] == "1",
-      };
-      if (fields.size() >= 4 && !fields[3].empty() && fields[3] != "*") {
-        window.desktopIds = splitString(fields[3], ',');
-      }
-      if (window.uuid.empty() && window.appId.empty()) {
-        continue;
-      }
-      if (isNoctaliaShellSurface(window.appId, window.title)) {
-        continue;
-      }
-      next.push_back(std::move(window));
-    }
+    const auto next = parseWindowListPayload(payload);
 
     const bool changed = [&] {
       if (m_trackedWindows.size() != next.size()) {
@@ -777,7 +733,7 @@ for (const window of workspace.windowList()) {{
       }
       return false;
     }();
-    m_trackedWindows = std::move(next);
+    m_trackedWindows = next;
     if (changed) {
       notifyChanged();
     }

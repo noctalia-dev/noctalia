@@ -906,6 +906,7 @@ _noctalia_sources = files(
   'src/wayland/virtual_keyboard_service.cpp',
   'src/compositors/compositor_platform.cpp',
   'src/compositors/workspace_alert_service.cpp',
+  'src/compositors/workspace_visibility.cpp',
   'src/compositors/compositor_detect.cpp',
   'src/compositors/compositor_runtime.cpp',
   'src/compositors/dwl/dwl_workspace_backend.cpp',
@@ -941,6 +942,7 @@ _noctalia_sources = files(
   'src/compositors/sway/sway_output_backend.cpp',
   'src/compositors/sway/sway_workspace_backend.cpp',
   'src/compositors/kde/kwin_active_window.cpp',
+  'src/compositors/kde/kwin_window_list.cpp',
   'src/compositors/kde/kwin_workspace_backend.cpp',
   'src/compositors/labwc/labwc_workspace_backend.cpp',
   'src/wayland/layer_surface.cpp',
@@ -1212,6 +1214,7 @@ if build_tests
     'widget_definition',
     'wallpaper_shuffle_state',
     'workspace_alert_service',
+    'workspace_visibility',
   ]
 
   foreach test_name : _cpp_test_names

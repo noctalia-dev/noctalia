@@ -26,6 +26,7 @@
 #include "compositors/umbriel/umbriel_output_backend.h"
 #include "compositors/umbriel/umbriel_runtime.h"
 #include "compositors/umbriel/umbriel_workspace_backend.h"
+#include "compositors/workspace_visibility.h"
 #include "compositors/workspace_alert_service.h"
 #include "core/log.h"
 #include "core/process/process.h"
@@ -81,48 +82,6 @@ namespace {
   void
   retainToplevelsWithWindowIds(std::vector<ToplevelInfo>& windows, const std::unordered_set<std::string>& windowIds) {
     std::erase_if(windows, [&](const ToplevelInfo& window) { return !windowIds.contains(window.identifier); });
-  }
-
-  [[nodiscard]] bool workspaceKeyMatchesAssignment(std::string_view assignmentKey, const Workspace& workspace) {
-    if (assignmentKey.empty()) {
-      return false;
-    }
-    if (!workspace.id.empty() && assignmentKey == workspace.id) {
-      return true;
-    }
-    if (!workspace.name.empty() && assignmentKey == workspace.name) {
-      return true;
-    }
-    if (workspace.index > 0 && assignmentKey == std::to_string(workspace.index)) {
-      return true;
-    }
-    return false;
-  }
-
-  void enrichAssignmentsWithMinimizedState(
-      std::vector<WorkspaceWindowAssignment>& assignments, const WaylandConnection& wayland
-  ) {
-    std::unordered_map<std::string, bool> minimizedKeys;
-    wayland.visitWlrToplevels([&](const WlrToplevelSnapshot& toplevel) {
-      if (!toplevel.minimized) {
-        return;
-      }
-      if (toplevel.handle != nullptr) {
-        minimizedKeys.emplace(std::to_string(reinterpret_cast<std::uintptr_t>(toplevel.handle)), true);
-      }
-      if (!toplevel.appId.empty() || !toplevel.title.empty()) {
-        minimizedKeys.emplace(toplevel.appId + ":" + toplevel.title, true);
-      }
-    });
-    for (auto& assignment : assignments) {
-      if (assignment.minimized) {
-        continue;
-      }
-      if (minimizedKeys.contains(assignment.windowId)
-          || minimizedKeys.contains(assignment.appId + ":" + assignment.title)) {
-        assignment.minimized = true;
-      }
-    }
   }
 
   [[nodiscard]] const char* valueOrUnset(const char* value) {
@@ -1430,41 +1389,18 @@ std::vector<WorkspaceWindowAssignment> CompositorPlatform::workspaceWindowAssign
         }
     );
   }
-  enrichAssignmentsWithMinimizedState(result, m_wayland);
+  std::vector<WlrToplevelSnapshot> minimizedToplevels;
+  m_wayland.visitWlrToplevels([&](const WlrToplevelSnapshot& toplevel) {
+    if (toplevel.minimized) {
+      minimizedToplevels.push_back(toplevel);
+    }
+  });
+  compositors::enrichAssignmentsWithMinimizedState(result, minimizedToplevels);
   return result;
 }
 
 bool CompositorPlatform::activeWorkspaceHasVisibleWindows(wl_output* output) const {
-  const auto workspacesList = workspaces(output);
-  const Workspace* active = nullptr;
-  for (const auto& workspace : workspacesList) {
-    if (workspace.active) {
-      active = &workspace;
-      break;
-    }
-  }
-  if (active == nullptr) {
-    return false;
-  }
-
-  const auto assignments = workspaceWindowAssignments(output);
-  bool hasOnActive = false;
-  for (const auto& assignment : assignments) {
-    if (!workspaceKeyMatchesAssignment(assignment.workspaceKey, *active)) {
-      continue;
-    }
-    hasOnActive = true;
-    if (!assignment.minimized) {
-      return true;
-    }
-  }
-  if (hasOnActive) {
-    return false;
-  }
-  if (!assignments.empty()) {
-    return false;
-  }
-  return active->occupied;
+  return compositors::activeWorkspaceHasVisibleWindows(workspaces(output), workspaceWindowAssignments(output));
 }
 
 TaskbarAssignmentMode CompositorPlatform::taskbarAssignmentMode() const noexcept {

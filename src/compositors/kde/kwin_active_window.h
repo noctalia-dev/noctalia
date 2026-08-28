@@ -1,5 +1,6 @@
 #pragma once
 
+#include "compositors/kde/kwin_window_list.h"
 #include "compositors/workspace_backend.h"
 #include "wayland/wayland_toplevels.h"
 
@@ -47,14 +48,7 @@ namespace compositors::kde {
     [[nodiscard]] bool isAvailable() const noexcept { return m_scriptInstalled; }
 
   private:
-    struct TrackedWindow {
-      std::string uuid;
-      std::string appId;
-      std::string title;
-      std::string outputName;
-      std::vector<std::string> desktopIds;
-      bool minimized = false;
-    };
+    using TrackedWindow = KwinTrackedWindow;
 
     [[nodiscard]] bool ensureScriptFile(std::string& scriptPath) const;
     [[nodiscard]] bool installScript(const std::string& scriptPath);
