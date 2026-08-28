@@ -357,5 +357,30 @@ int main() {
     ok = expect(calendar::digestInstantFor(now, "09:30").has_value(), "a valid digest time was rejected") && ok;
   }
 
+  // ---- countdown: rounds up, and every step sits on a whole minute before the event ----
+  {
+    const auto start = at(1'700'000'000);
+    // A reminder fires a hair after its due instant, which is the case that rendered every ten-minute
+    // lead as "in 9 min".
+    ok = expect(
+             calendar::countdownMinutes(start, start - seconds{600} + milliseconds{7}) == 10,
+             "a reminder firing just after its due instant did not read 10 minutes"
+         )
+        && ok;
+    ok = expect(
+             calendar::countdownMinutes(start, start - seconds{600}) == 10, "an exact ten-minute lead did not read 10"
+         )
+        && ok;
+    // The value must change exactly nine minutes before the event, not eight and a half.
+    ok = expect(calendar::countdownMinutes(start, start - seconds{541}) == 10, "9m01s did not still read 10") && ok;
+    ok = expect(calendar::countdownMinutes(start, start - seconds{540}) == 9, "an exact nine minutes did not read 9")
+        && ok;
+    // And "starting now" belongs to the start itself, not to the last half minute before it.
+    ok = expect(calendar::countdownMinutes(start, start - seconds{1}) == 1, "one second out already read 0") && ok;
+    ok = expect(calendar::countdownMinutes(start, start) == 0, "the event start did not read 0") && ok;
+    ok = expect(calendar::countdownMinutes(start, start + seconds{90}) <= 0, "a started event reported minutes left")
+        && ok;
+  }
+
   return ok ? 0 : 1;
 }

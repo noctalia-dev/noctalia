@@ -117,6 +117,14 @@ namespace calendar {
     return *today >= *startDay && *today <= last;
   }
 
+  std::int64_t countdownMinutes(system_clock::time_point start, system_clock::time_point now) {
+    const auto remaining = start - now;
+    if (remaining <= system_clock::duration::zero()) {
+      return 0;
+    }
+    return duration_cast<minutes>(remaining + minutes{1} - system_clock::duration{1}).count();
+  }
+
   ReminderPlan planReminders(
       const CalendarSnapshot& snapshot, const CalendarConfig::Reminders& config,
       const std::unordered_set<std::string>& fired, const std::optional<std::string>& lastDigestDate,

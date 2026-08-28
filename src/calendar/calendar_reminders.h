@@ -57,6 +57,15 @@ namespace calendar {
   // True when the all-day `event` covers the local date of `now`.
   [[nodiscard]] bool allDayEventCoversDate(const CalendarEvent& event, std::chrono::system_clock::time_point now);
 
+  // Whole minutes from `now` to `start`, rounded *up*: the label means "starts in at most N minutes".
+  // Truncating instead renders a ten-minute lead as "in 9 min" every single time, because a reminder
+  // fires a hair after its due instant and duration_cast rounds toward zero. Rounding to nearest would
+  // fix that but put the boundary on the half minute, so a reminder would read "3 min" three and a half
+  // minutes out and disagree with a glance at the clock. Rounding up keeps every value anchored to a
+  // whole minute before the event and reaches zero — "starting now" — exactly at the start.
+  [[nodiscard]] std::int64_t
+  countdownMinutes(std::chrono::system_clock::time_point start, std::chrono::system_clock::time_point now);
+
   struct DueReminder {
     const CalendarEvent* event = nullptr;
     std::chrono::system_clock::time_point due;

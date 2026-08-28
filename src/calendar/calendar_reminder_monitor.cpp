@@ -43,6 +43,16 @@ namespace {
     return formatStrftime("%H:%M", local);
   }
 
+  std::string reminderBody(std::int64_t minutes, const std::string& timeText, const std::string& location) {
+    std::string when = minutes <= 0
+        ? i18n::tr("notifications.internal.calendar-reminder-now", "time", timeText)
+        : i18n::tr("notifications.internal.calendar-reminder-in", "minutes", minutes, "time", timeText);
+    if (!location.empty()) {
+      when = i18n::tr("notifications.internal.calendar-reminder-with-location", "when", when, "location", location);
+    }
+    return when;
+  }
+
   std::vector<std::string> splitLines(const std::string& text) {
     std::vector<std::string> out;
     for (const auto part : std::views::split(text, '\n')) {
@@ -207,20 +217,13 @@ void CalendarReminderMonitor::fireReminder(
     const calendar::DueReminder& due, std::chrono::system_clock::time_point now
 ) {
   const CalendarEvent& event = *due.event;
-  const auto minutes = std::chrono::duration_cast<std::chrono::minutes>(event.start - now).count();
-
-  std::string when = minutes <= 0
-      ? i18n::tr("notifications.internal.calendar-reminder-now", "time", formatEventTime(event))
-      : i18n::tr("notifications.internal.calendar-reminder-in", "minutes", minutes, "time", formatEventTime(event));
-  if (!event.location.empty()) {
-    when = i18n::tr("notifications.internal.calendar-reminder-with-location", "when", when, "location", event.location);
-  }
+  const std::string timeText = formatEventTime(event);
 
   NotificationRequest request;
   // The app name must match the other calendar notifications so notification filters can target them.
   request.appName = i18n::tr("notifications.internal.calendar");
   request.summary = event.title.empty() ? i18n::tr("notifications.internal.calendar-reminder-untitled") : event.title;
-  request.body = std::move(when);
+  request.body = reminderBody(calendar::countdownMinutes(event.start, now), timeText, event.location);
   request.urgency = Urgency::Normal; // Urgency::Low is excluded from history unconditionally
   request.timeout = kStayUntilDismissed;
   request.origin = NotificationOrigin::Internal;
