@@ -746,6 +746,7 @@ namespace settings {
               .fontSize = Style::fontSizeBody * scale,
               .controlHeight = Style::controlHeight * scale,
               .glyphSize = Style::fontSizeBody * scale,
+              .width = 110.0F * scale,
               .onSelectionChanged = [cb = ctx.setAutoUpdate](std::size_t index, std::string_view /*label*/) {
                 if (cb && index < std::size(kPluginAutoUpdateModes)) {
                   cb(kPluginAutoUpdateModes[index].value);
