@@ -70,3 +70,17 @@ barEdgeLayerMargin(const BarConfig& barConfig, const ShellConfig::ShadowConfig& 
 reservedBarEdgeDistance(const BarConfig& barConfig, const ShellConfig::ShadowConfig& shadowConfig) {
   return reservedBarExclusiveZone(barConfig, shadowConfig) + barEdgeLayerMargin(barConfig, shadowConfig);
 }
+
+/// Whether the bar should publish a non-zero layer-shell exclusive zone right now.
+/// With auto_hide_reserve_space enabled, reserve_space applies only while the bar is shown.
+[[nodiscard]] inline bool barShouldReserveExclusiveZone(
+    const BarConfig& barConfig, bool ipcLayoutReleased, bool contentVisuallyShown
+) noexcept {
+  if (ipcLayoutReleased || !barConfig.reserveSpace) {
+    return false;
+  }
+  if (barConfig.isAutoHideEnabled() && barConfig.autoHideReserveSpace) {
+    return contentVisuallyShown;
+  }
+  return true;
+}

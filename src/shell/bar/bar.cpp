@@ -1963,10 +1963,9 @@ bool Bar::barContentVisuallyShown(const BarInstance& instance) const noexcept {
 }
 
 bool Bar::shouldReserveExclusiveZone(const BarInstance& instance) const noexcept {
-  if (instance.ipcLayoutReleased) {
-    return false;
-  }
-  return instance.barConfig.reserveSpace;
+  return barShouldReserveExclusiveZone(
+      instance.barConfig, instance.ipcLayoutReleased, barContentVisuallyShown(instance)
+  );
 }
 
 void Bar::syncBarExclusiveZone(BarInstance& instance) {
