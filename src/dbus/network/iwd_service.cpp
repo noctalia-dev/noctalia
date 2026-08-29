@@ -383,6 +383,13 @@ void IwdService::applyNetworkdState(NetworkState& next) const {
   // cable into a dead socket comes up with carrier and no address.
   const NetworkdLinkMonitor::Link* wired = m_networkd->primaryWired();
   if (wired == nullptr || !wired->connected() || wired->ipv4.empty()) {
+    // iwd reports the association but not the address on it, so a Wi-Fi
+    // connection is left without an IP unless networkd supplies one.
+    if (next.kind == NetworkConnectivity::Wireless && next.connected) {
+      if (const NetworkdLinkMonitor::Link* wireless = m_networkd->findLink(next.interfaceName); wireless != nullptr) {
+        next.ipv4 = wireless->ipv4;
+      }
+    }
     return;
   }
 
