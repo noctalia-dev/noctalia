@@ -93,7 +93,6 @@
 #include "util/string_utils.h"
 
 #include <algorithm>
-#include <chrono>
 #include <cmath>
 #include <csignal>
 #include <cstdint>
@@ -567,9 +566,7 @@ void Application::initIpc() {
   m_osdOverlay.registerIpc(m_ipcService);
 
   if (m_brightnessService != nullptr) {
-    m_brightnessService->registerIpc(m_ipcService, [this]() {
-      m_brightnessOsd.suppressFor(std::chrono::milliseconds(250));
-    });
+    m_brightnessService->registerIpc(m_ipcService);
   }
   if (m_keyboardBacklightService != nullptr) {
     m_keyboardBacklightService->registerIpc(m_ipcService);

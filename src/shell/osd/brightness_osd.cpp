@@ -43,13 +43,8 @@ void BrightnessOsd::primeFromService(const BrightnessService& service) {
   }
 }
 
-void BrightnessOsd::suppressFor(std::chrono::milliseconds duration) {
-  m_suppressUntil = std::chrono::steady_clock::now() + duration;
-}
-
 void BrightnessOsd::onBrightnessChanged(const BrightnessService& service) {
   const auto& displays = service.displays();
-  const auto now = std::chrono::steady_clock::now();
 
   // Find the display whose brightness actually changed
   const BrightnessDisplay* changed = nullptr;
@@ -78,7 +73,7 @@ void BrightnessOsd::onBrightnessChanged(const BrightnessService& service) {
     }
   }
 
-  if (changed == nullptr || now < m_suppressUntil) {
+  if (changed == nullptr) {
     return;
   }
 
