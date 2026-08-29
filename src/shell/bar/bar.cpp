@@ -297,6 +297,16 @@ namespace {
         || pointInsideNode(instance.sceneRoot.get(), sceneX, sceneY);
   }
 
+  // A widget whose panel will not show a tooltip: the pointer stays
+  // on the widget, so no hover-leave arrives, and bar surfaces remain whitelisted
+  // in the panel's focus grab. Held until the panel closes, so hovering away and
+  // back cannot raise a tooltip over the open panel either.
+  void suppressTooltipForOpenPanel(BarInstance& instance) {
+    if (auto* hovered = instance.inputDispatcher.hoveredArea(); hovered != nullptr) {
+      TooltipManager::instance().setSuppressedArea(hovered);
+    }
+  }
+
   // The dead zone has no widget to anchor to, so a panel action anchors at the pointer instead.
   void openPanelAtBarPointer(
       BarInstance& instance, float sx, float sy, CompositorPlatform* platform, std::string_view sourceBarName,
@@ -1817,6 +1827,21 @@ void Bar::reevaluateAutoHide() {
   }
 }
 
+void Bar::rearmTooltipForHoveredWidget() {
+  if (m_hoveredInstance == nullptr || !m_hoveredInstance->pointerInside) {
+    return;
+  }
+  auto* hovered = m_hoveredInstance->inputDispatcher.hoveredArea();
+  if (hovered == nullptr || m_hoveredInstance->surface == nullptr) {
+    return;
+  }
+  // Same path a real hover takes, so the usual show delay still applies — the
+  // tooltip must not blink into existence the instant the panel disappears.
+  TooltipManager::instance().onHoverChange(
+      hovered, m_hoveredInstance->surface->layerSurface(), m_hoveredInstance->output
+  );
+}
+
 void Bar::reevaluateAutoHideAfterPopup() {
   for (const auto& instance : m_instances) {
     if (instance == nullptr || instance->surface == nullptr) {
@@ -2643,6 +2668,9 @@ void Bar::attachWidgetsToSections(BarInstance& instance) {
           PanelManager::instance().openPanel(std::string(panelId), request);
         } else {
           PanelManager::instance().togglePanel(std::string(panelId), request);
+        }
+        if (PanelManager::instance().isOpenPanel(panelId)) {
+          suppressTooltipForOpenPanel(*inst);
         }
       });
       if (auto* tray = dynamic_cast<TrayWidget*>(widget.get())) {

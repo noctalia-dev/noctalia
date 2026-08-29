@@ -32,6 +32,13 @@ public:
   void onHoverChange(InputArea* area, xdg_surface* parentXdgSurface, wl_output* output);
   void syncAnchor(InputArea* area);
 
+  // Suppress the tooltip for one area for as long as its own panel is open, and
+  // fade out any tooltip already up for it. The suppression deliberately outlives
+  // hovering away and back: the widget stays "active" the whole time its panel is
+  // open, so a return visit must not raise a tooltip over the panel. Only the
+  // matching setSuppressedArea(nullptr) on panel close (or forceDestroy) lifts it.
+  void setSuppressedArea(InputArea* area);
+
 private:
   TooltipManager() = default;
 
@@ -70,6 +77,8 @@ private:
   bool m_showAfterDestroy = false;
   Timer m_showTimer;
   Timer m_refreshTimer;
+
+  InputArea* m_suppressedArea = nullptr;
 
   TooltipContent m_pendingContent;
   zwlr_layer_surface_v1* m_pendingLayerParent = nullptr;
