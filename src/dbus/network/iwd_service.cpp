@@ -2,6 +2,7 @@
 
 #include "core/log.h"
 #include "dbus/network/iwd_secret_agent.h"
+#include "dbus/network/networkd_link_monitor.h"
 #include "dbus/system_bus.h"
 #include "system/rfkill_helper.h"
 
@@ -98,6 +99,13 @@ IwdService::IwdService(SystemBus& bus) : m_bus(bus) {
   m_iwd->uponSignal("InterfacesRemoved")
       .onInterface(kObjectManagerInterface)
       .call([this](const sdbus::ObjectPath&, const std::vector<std::string>&) { refresh(); });
+
+  try {
+    m_networkd = std::make_unique<NetworkdLinkMonitor>(m_bus);
+    m_networkd->setChangeCallback([this]() { refresh(); });
+  } catch (const sdbus::Error& e) {
+    kLog.debug("systemd-networkd unavailable, wired links will not be reported: {}", e.what());
+  }
 
   refresh();
 }
@@ -281,6 +289,8 @@ void IwdService::refresh() {
     return a.strength > b.strength;
   });
 
+  applyNetworkdState(next);
+
   m_accessPoints = std::move(aps);
   emitChangedIfNeeded(std::move(next));
 
@@ -338,6 +348,52 @@ bool IwdService::activateAccessPoint(const AccessPointInfo& ap, const std::strin
   // Store the PSK for the agent to submit when RequestPassphrase is called
   m_pendingPsk = psk;
   return activateAccessPoint(ap);
+}
+
+bool IwdService::canActivateWiredConnection() const noexcept {
+  return m_networkd != nullptr && m_networkd->primaryWired() != nullptr;
+}
+
+bool IwdService::activateWiredConnection() {
+  if (m_state.kind == NetworkConnectivity::Wired && m_state.connected) {
+    return true;
+  }
+  if (m_networkd == nullptr) {
+    return false;
+  }
+  const NetworkdLinkMonitor::Link* wired = m_networkd->primaryWired();
+  if (wired == nullptr) {
+    return false;
+  }
+  return m_networkd->reconfigure(*wired);
+}
+
+bool IwdService::canDisconnect() const noexcept {
+  // networkd has no operation that takes a link down — Reconfigure only
+  // reapplies its configuration — so a wired link here is not ours to drop.
+  return m_state.kind != NetworkConnectivity::Wired;
+}
+
+void IwdService::applyNetworkdState(NetworkState& next) const {
+  if (m_networkd == nullptr) {
+    return;
+  }
+
+  // A wired link only displaces Wi-Fi once it can actually carry traffic: a
+  // cable into a dead socket comes up with carrier and no address.
+  const NetworkdLinkMonitor::Link* wired = m_networkd->primaryWired();
+  if (wired == nullptr || !wired->connected() || wired->ipv4.empty()) {
+    return;
+  }
+
+  next.kind = NetworkConnectivity::Wired;
+  next.connected = true;
+  next.resolving = false;
+  next.interfaceName = wired->name;
+  next.ipv4 = wired->ipv4;
+  next.ssid.clear();
+  next.signalStrength = 0;
+  next.frequencyMhz = 0;
 }
 
 void IwdService::setWirelessEnabled(bool enabled, WirelessEnabledCompletion onComplete) {

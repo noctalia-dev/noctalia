@@ -157,7 +157,7 @@ src/
     idle/           Screensaver D-Bus service
     logind/         logind integration
     mpris/          Media player integration and artwork cache
-    network/        NetworkManager, wpa_supplicant, and secret agent integration
+    network/        NetworkManager, wpa_supplicant, iwd, systemd-networkd, and secret agent integration
     notification/   Desktop notification D-Bus service
     polkit/         Polkit authentication agent
     power/          power-profiles-daemon integration

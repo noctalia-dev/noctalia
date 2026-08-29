@@ -84,6 +84,9 @@ void INetworkService::registerIpc(IpcService& ipc, WirelessFeedbackCallback wire
       return setWifi(false);
     }
     if (s.kind == NetworkConnectivity::Wired && (s.connected || s.resolving)) {
+      if (!canDisconnect()) {
+        return "error: this backend cannot take the wired connection down\n";
+      }
       disconnect();
       return "ok\n";
     }

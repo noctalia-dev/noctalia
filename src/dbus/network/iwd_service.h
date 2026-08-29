@@ -9,6 +9,7 @@
 #include <unordered_map>
 #include <vector>
 
+class NetworkdLinkMonitor;
 class SystemBus;
 
 namespace sdbus {
@@ -39,6 +40,9 @@ public:
   bool activateAccessPoint(const AccessPointInfo& ap, const std::string& psk) override;
   bool activateVpnConnection(const VpnConnectionInfo& /*vpn*/) override { return false; }
   bool deactivateVpnConnection(const VpnConnectionInfo& /*vpn*/) override { return false; }
+  [[nodiscard]] bool canActivateWiredConnection() const noexcept override;
+  bool activateWiredConnection() override;
+  [[nodiscard]] bool canDisconnect() const noexcept override;
   void setWirelessEnabled(bool enabled, WirelessEnabledCompletion onComplete = {}) override;
   void disconnect() override;
   void forgetSsid(const std::string& ssid) override;
@@ -51,9 +55,13 @@ private:
       const std::string& path, const std::map<std::string, std::map<std::string, sdbus::Variant>>& interfaces
   );
   void emitChangedIfNeeded(NetworkState next);
+  void applyNetworkdState(NetworkState& next) const;
 
   SystemBus& m_bus;
   std::unique_ptr<sdbus::IProxy> m_iwd;
+  // iwd speaks 802.11 only, so wired links and addresses come from networkd.
+  // Null on a host that does not run it.
+  std::unique_ptr<NetworkdLinkMonitor> m_networkd;
   NetworkState m_state;
   std::vector<AccessPointInfo> m_accessPoints;
   const std::vector<VpnConnectionInfo> m_vpnConnections; // always empty
