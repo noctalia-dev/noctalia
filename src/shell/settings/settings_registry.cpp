@@ -1917,6 +1917,11 @@ namespace settings {
         tr("settings.schema.shell.screenshot-pipe-to-command.description"), {"shell", "screenshot", "pipe_to_command"},
         ToggleSetting{cfg.shell.screenshot.pipeToCommand}, "screenshot capture pipe command stdin"
     ));
+    entries.push_back(makeEntry(
+        SettingsSection::Shell, "window-switcher", tr("settings.schema.shell.window-switcher-mru.label"),
+        tr("settings.schema.shell.window-switcher-mru.description"), {"shell", "window_switcher", "mru"},
+        ToggleSetting{cfg.shell.windowSwitcher.mru}, "window switcher alt tab mru most recently used"
+    ));
     {
       auto e = makeEntry(
           SettingsSection::Shell, "screenshot", tr("settings.schema.shell.screenshot-pipe-command.label"),

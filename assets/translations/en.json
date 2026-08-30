@@ -1257,7 +1257,8 @@
         "wallpaper": "Wallpaper",
         "weather": "Weather",
         "widget-list": "Widget List",
-        "widgets": "Widgets"
+        "widgets": "Widgets",
+        "window-switcher": "Window Switcher"
       },
       "sections": {
         "accessibility": "Accessibility",
@@ -3058,6 +3059,10 @@
           "button": "Sync Now",
           "description": "Copy the current wallpaper and colors to Noctalia Greeter (requires administrator approval)",
           "label": "Noctalia Greeter"
+        },
+        "window-switcher-mru": {
+          "description": "Order windows in the switcher by most recently used rather than workspace and screen layout",
+          "label": "Use MRU Order"
         },
         "telemetry": {
           "description": "Sends a small anonymous startup ping with version, OS, compositor, monitor resolutions, RAM, and UI scale",

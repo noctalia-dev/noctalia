@@ -224,6 +224,16 @@ namespace {
     return {};
   }
 
+  [[nodiscard]] std::string currentFocusedWindowKey(const CompositorPlatform& platform) {
+    if (const auto focusedId = platform.focusedCompositorWindowId(); focusedId.has_value() && !focusedId->empty()) {
+      return canonicalWindowId(*focusedId);
+    }
+    if (const auto active = platform.activeToplevel(); active.has_value() && active->handle != nullptr) {
+      return "handle:" + std::to_string(reinterpret_cast<std::uintptr_t>(active->handle));
+    }
+    return {};
+  }
+
   [[nodiscard]] std::uintptr_t resolveCloseHandle(
       const CompositorPlatform& platform, std::string_view windowId, std::string_view appId, std::string_view title
   ) {
@@ -274,6 +284,8 @@ namespace {
     std::int32_t sortX = 0;
     std::int32_t sortY = 0;
     std::uint64_t toplevelOrder = 0;
+    // Initialize to max so non-MRU items gracefully fall to the back
+    std::size_t mruIndex = std::numeric_limits<std::size_t>::max();
   };
 
   [[nodiscard]] WindowSwitcherEntry makeEntryFromAssignment(
@@ -329,7 +341,8 @@ namespace {
 
   void buildWindowEntries(
       const CompositorPlatform& platform, IconResolver& iconResolver, int iconSize,
-      std::vector<WindowSwitcherEntry>& out, const std::optional<std::string>& focusedId
+      std::vector<WindowSwitcherEntry>& out, const std::optional<std::string>& focusedId, bool useMru = false,
+      const std::deque<std::string>& mruKeys = {}
   ) {
     std::unordered_map<std::string, WorkspaceWindowAssignment> assignmentById;
     assignmentById.reserve(32);
@@ -351,11 +364,26 @@ namespace {
     std::vector<WindowSwitcherCandidate> candidates;
     candidates.reserve(assignmentById.size() + liveToplevelById.size());
 
+    std::unordered_map<std::string_view, std::size_t> mruRanks;
+    if (useMru) {
+      mruRanks.reserve(mruKeys.size());
+      for (std::size_t i = 0; i < mruKeys.size(); ++i) {
+        mruRanks.try_emplace(mruKeys[i], i);
+      }
+    }
+
     auto addCandidate = [&](WindowSwitcherCandidate candidate, const std::string& key) {
       if (key.empty() || seenKeys.contains(key)) {
         return;
       }
       seenKeys.insert(key);
+
+      if (useMru) {
+        const std::string idKey = identityKeyForEntry(candidate.entry);
+        if (auto it = mruRanks.find(idKey); it != mruRanks.end()) {
+          candidate.mruIndex = it->second;
+        }
+      }
       candidates.push_back(std::move(candidate));
     };
 
@@ -391,7 +419,23 @@ namespace {
       addCandidate(std::move(candidate), key);
     }
 
+    std::optional<std::string> focusedKey;
+    if (focusedId.has_value()) {
+      focusedKey = canonicalWindowId(*focusedId);
+      if (focusedKey->empty()) {
+        focusedKey = *focusedId;
+      }
+    }
+    if (!focusedKey.has_value()) {
+      if (const auto active = platform.activeToplevel(); active.has_value() && active->handle != nullptr) {
+        focusedKey = "handle:" + std::to_string(reinterpret_cast<std::uintptr_t>(active->handle));
+      }
+    }
+
     std::ranges::stable_sort(candidates, [](const WindowSwitcherCandidate& a, const WindowSwitcherCandidate& b) {
+      if (a.mruIndex != b.mruIndex) {
+        return a.mruIndex < b.mruIndex;
+      }
       if (a.workspaceKey != b.workspaceKey) {
         return a.workspaceKey < b.workspaceKey;
       }
@@ -411,14 +455,6 @@ namespace {
 
     out.clear();
     out.reserve(candidates.size());
-
-    std::optional<std::string> focusedKey;
-    if (focusedId.has_value()) {
-      focusedKey = canonicalWindowId(*focusedId);
-      if (focusedKey->empty()) {
-        focusedKey = *focusedId;
-      }
-    }
 
     if (focusedKey.has_value()) {
       for (auto it = candidates.begin(); it != candidates.end(); ++it) {
@@ -577,8 +613,33 @@ void WindowSwitcher::onOutputChange() {
   }
 }
 
+void WindowSwitcher::recordFocusedWindow() {
+  if (m_platform == nullptr) {
+    return;
+  }
+  const bool useMru = (m_config != nullptr) ? m_config->config().shell.windowSwitcher.mru : false;
+  if (useMru) {
+    promoteMruKey(currentFocusedWindowKey(*m_platform));
+  }
+}
+
+void WindowSwitcher::promoteMruKey(const std::string& key) {
+  if (key.empty()) {
+    return;
+  }
+  auto it = std::ranges::find(m_mruKeys, key);
+  if (it != m_mruKeys.end()) {
+    if (it != m_mruKeys.begin()) {
+      std::rotate(m_mruKeys.begin(), it, it + 1);
+    }
+  } else {
+    m_mruKeys.insert(m_mruKeys.begin(), key);
+  }
+}
+
 void WindowSwitcher::onToplevelChange() {
   if (!m_active) {
+    recordFocusedWindow();
     return;
   }
   const std::size_t previousCount = m_windows.size();
@@ -595,6 +656,9 @@ void WindowSwitcher::show(wl_output* output) {
   }
 
   const bool wasActive = m_active;
+  if (!wasActive) {
+    recordFocusedWindow();
+  }
   refreshWindows();
 
   m_output = output;
@@ -640,9 +704,25 @@ void WindowSwitcher::refreshWindows() {
     }
   }
 
+  const bool useMru = (m_config != nullptr) ? m_config->config().shell.windowSwitcher.mru : false;
+
   IconResolver iconResolver;
   const int iconSize = 96;
-  buildWindowEntries(*m_platform, iconResolver, iconSize, m_windows, m_platform->focusedCompositorWindowId());
+  buildWindowEntries(
+      *m_platform, iconResolver, iconSize, m_windows, m_platform->focusedCompositorWindowId(), useMru, m_mruKeys
+  );
+
+  if (useMru) {
+    std::unordered_set<std::string> currentKeys;
+    currentKeys.reserve(m_windows.size());
+    for (const auto& entry : m_windows) {
+      const std::string k = identityKeyForEntry(entry);
+      if (!k.empty()) {
+        currentKeys.insert(k);
+      }
+    }
+    std::erase_if(m_mruKeys, [&](const std::string& k) { return !currentKeys.contains(k); });
+  }
 
   if (selectedKey.has_value()) {
     for (std::size_t i = 0; i < m_windows.size(); ++i) {
@@ -704,10 +784,11 @@ void WindowSwitcher::activateSelected() {
   if (m_platform == nullptr || m_windows.empty() || m_selectedIndex >= m_windows.size()) {
     return;
   }
+  const WindowSwitcherEntry entry = m_windows[m_selectedIndex];
+  promoteMruKey(identityKeyForEntry(entry));
   // Hyprland ignores zwlr_foreign_toplevel_handle_v1.activate while an exclusive
   // keyboard layer-shell surface is mapped (hyprwm/Hyprland#4829). Snapshot the
   // selection, tear the overlay down, then activate on the next loop tick.
-  const WindowSwitcherEntry entry = m_windows[m_selectedIndex];
   CompositorPlatform* platform = m_platform;
   hide();
   DeferredCall::callLater([platform, entry]() { activateWindowSwitcherEntry(*platform, entry); });

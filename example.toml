@@ -104,6 +104,10 @@ prefix = "win"
 [shell.mpris]
 blacklist = []                      # ignore MPRIS players by bus/identity/desktop entry token
 
+
+[shell.window_switcher]
+mru = false                           # order windows by most recently used (Alt+Tab toggle) instead of workspace layout
+
 # ── Wallpaper ─────────────────────────────────────────────────────────────────
 
 [wallpaper]
