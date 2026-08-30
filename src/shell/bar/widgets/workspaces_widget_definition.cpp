@@ -8,6 +8,12 @@ namespace {
     return visibility;
   }
 
+  settings::WidgetSettingVisibility labelSourceIsIdAndName() {
+    settings::WidgetSettingVisibility visibility;
+    visibility.all = {{"label_source", {"id_and_name"}}};
+    return visibility;
+  }
+
   // FocusHint labels the focused workspace only, so the occupied filter never bites there.
   settings::WidgetSettingVisibility occupiedFilterApplies() {
     settings::WidgetSettingVisibility visibility;
@@ -72,6 +78,11 @@ const noctalia::bar::WidgetDefinition<WorkspacesWidget::Options>& workspacesWidg
                               .configValue = "name",
                               .labelKey = "settings.widgets.options.name",
                           },
+                          {
+                              .value = WorkspacesLabelSource::IdAndName,
+                              .configValue = "id_and_name",
+                              .labelKey = "settings.widgets.options.id-and-name",
+                          },
                       },
                   .presentation =
                       settings::WidgetSettingPresentation{
@@ -79,6 +90,15 @@ const noctalia::bar::WidgetDefinition<WorkspacesWidget::Options>& workspacesWidg
                           .segmented = true,
                           .visibleWhen = labelsShown(),
                       },
+              }),
+              field<&Options::labelSeparator>({
+                .key = "label_separator",
+                .presentation =
+                    settings::WidgetSettingPresentation{
+                        .descriptionKey = "settings.widgets.settings.label-separator.description",
+                        .group = "workspaces.list",
+                        .visibleWhen = labelSourceIsIdAndName(),
+                    },
               }),
               field<&Options::labelsOnlyWhenOccupied>({
                   .key = "labels_only_when_occupied",

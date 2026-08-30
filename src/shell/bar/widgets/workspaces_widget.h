@@ -29,6 +29,7 @@ enum class WorkspacesStyle : std::uint8_t {
 enum class WorkspacesLabelSource : std::uint8_t {
   Id,
   Name,
+  IdAndName,
 };
 
 class WorkspacesWidget : public Widget {
@@ -36,6 +37,7 @@ public:
   struct Options {
     WorkspacesStyle style = WorkspacesStyle::Regular;
     WorkspacesLabelSource labelSource = WorkspacesLabelSource::Id;
+    std::string labelSeparator = " ";
     bool showLabels = true;
     ColorSpec focusedColor = colorSpecFromRole(ColorRole::Primary);
     ColorSpec occupiedColor = colorSpecFromRole(ColorRole::Secondary);
@@ -157,6 +159,7 @@ private:
   ConfigService& m_configService;
   wl_output* m_output = nullptr;
   WorkspacesLabelSource m_labelSource = WorkspacesLabelSource::Id;
+  std::string m_labelSeparator = " ";
   bool m_showLabels = true;
   std::size_t m_maxLabelChars = 1;
   bool m_labelsOnlyWhenOccupied = false;

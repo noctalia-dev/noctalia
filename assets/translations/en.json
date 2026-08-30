@@ -3298,6 +3298,7 @@
         "icon-only": "Icon Only",
         "icons": "Icons",
         "id": "ID",
+        "id-and-name": "ID and Name",
         "input": "Input",
         "instance": "Per Placement",
         "kilobytes": "kB/s",
@@ -3642,6 +3643,10 @@
         "label-min-width": {
           "description": "Minimum label width in pixels to prevent resizing",
           "label": "Label Min Width"
+        },
+        "label-separator": {
+          "description": "Separator when label source is set to ID and Name",
+          "label": "Label Separator"
         },
         "label-show-units": {
           "description": "Show units like percent / GiB / °C",

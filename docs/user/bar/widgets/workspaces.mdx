@@ -18,7 +18,8 @@ Pill styling and `capsule_radius` apply only when `style = "regular"`.
 |---------|------|---------|-------------|
 | `style` | string | `"regular"` | Pill style: `"regular"` (animated pills), `"minimal"` (labels drawn without pill backgrounds), or `"focus_hint"` (inactive dots + expanded active pill with focused app icon). |
 | `show_labels` | bool | `true` | Draw text labels on workspaces. Minimal renders labels and nothing else, so turning them off leaves its workspaces as empty slots. |
-| `label_source` | string | `"id"` | What labels show: `"id"` (workspace number, falling back to its name when no numeric identity exists) or `"name"` (workspace name). |
+| `label_source` | string | `"id"` | What labels show: `"id"` (workspace number, falling back to its name when no numeric identity exists), `"name"` (workspace name), or `"id_and_name"` (both). |
+| `label_separator` | string | `" "` | Separator between workspace ID and name, if `label_source` is `id_and_name`. |
 | `max_label_chars` | int | `1` | Maximum characters for non-numeric workspace labels, including names used as the `"id"` fallback. Numeric labels such as `10` and `11` are never truncated. |
 | `pill_scale` | float | `1.0` | Scale workspace pill thickness (cross-axis size; regular style only). |
 | `active_pill_size` | float | `2.2` | Minimum active pill length along the bar, as a multiple of pill thickness. Labels may expand beyond this. |

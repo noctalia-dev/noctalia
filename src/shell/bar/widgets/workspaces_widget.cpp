@@ -79,9 +79,9 @@ WorkspacesWidget::WorkspacesWidget(
     CompositorPlatform& platform, ConfigService& config, wl_output* output, Options options
 )
     : m_platform(platform), m_configService(config), m_output(output), m_labelSource(options.labelSource),
-      m_showLabels(options.showLabels), m_maxLabelChars(options.maxLabelChars),
-      m_labelsOnlyWhenOccupied(options.labelsOnlyWhenOccupied), m_hideWhenEmpty(options.hideWhenEmpty),
-      m_showAllOutputs(options.showAllOutputs), m_pillScale(options.pillScale),
+      m_labelSeparator(options.labelSeparator), m_showLabels(options.showLabels),
+      m_maxLabelChars(options.maxLabelChars), m_labelsOnlyWhenOccupied(options.labelsOnlyWhenOccupied),
+      m_hideWhenEmpty(options.hideWhenEmpty), m_showAllOutputs(options.showAllOutputs), m_pillScale(options.pillScale),
       m_activePillSize(std::clamp(options.activePillSize, 0.25F, 8.0F)),
       m_inactivePillSize(std::clamp(options.inactivePillSize, 0.25F, 8.0F)), m_style(options.style),
       m_focusedOutputOnly(options.focusedOutputOnly), m_changeColorOnHover(options.changeColorOnHover),
@@ -1427,8 +1427,14 @@ std::string WorkspacesWidget::workspaceLabel(const Workspace& workspace, std::si
     } else {
       label = std::to_string(displayIndex + 1);
     }
-  } else {
+  } else if (m_labelSource == WorkspacesLabelSource::Name) {
     label = !workspace.name.empty() ? workspace.name : workspace.id;
+  } else {
+    if (workspace.name != std::to_string(workspace.index)) {
+      label = std::to_string(workspace.index) + m_labelSeparator + workspace.name;
+    } else {
+      label = std::to_string(workspace.index);
+    }
   }
 
   // Only truncate non-numeric labels (words like "VESKTOP" → "VE").
