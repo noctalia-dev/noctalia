@@ -82,6 +82,8 @@
 #include "shell/wallpaper/wallpaper_paths.h"
 #include "system/brightness_poll_source.h"
 #include "system/brightness_service.h"
+#include "system/surface_capability_probe.h"
+#include "system/surface_display_service.h"
 #include "system/distro_info.h"
 #include "system/easyeffects_service.h"
 #include "system/keyboard_backlight_service.h"
@@ -1349,6 +1351,29 @@ void Application::initBrightnessAndPipewire() {
   } catch (const std::exception& e) {
     kLog.warn("brightness service disabled: {}", e.what());
     m_brightnessService.reset();
+  }
+
+  {
+    const bool surfaceHost = noctalia::system::surface::probe().sectionGate;
+    m_surfaceDisplayService = std::make_unique<SurfaceDisplayService>(
+        m_compositorPlatform, m_brightnessService.get(), &m_brightnessOsd, m_configService.config().surface,
+        m_configService.config().brightness.minimumBrightness, surfaceHost
+    );
+    m_configService.addReloadCallback(
+        [this]() {
+          if (m_surfaceDisplayService == nullptr) {
+            return;
+          }
+          if (!m_configService.lastChange().surface && !m_configService.lastChange().brightness) {
+            return;
+          }
+          m_surfaceDisplayService->reload(
+              m_configService.config().surface, m_configService.config().brightness.minimumBrightness,
+              noctalia::system::surface::probe().sectionGate
+          );
+        },
+        "surface-display"
+    );
   }
 
   try {

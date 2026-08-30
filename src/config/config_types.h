@@ -1290,6 +1290,33 @@ struct BrightnessConfig {
   bool operator==(const BrightnessConfig&) const = default;
 };
 
+/// Linux Surface kernel–specific shell options (`[surface]` in settings.toml).
+struct SurfaceConfig {
+  bool autoBrightness = false;
+  /// Show the brightness OSD when auto-brightness finishes a ramp (default off).
+  bool autoBrightnessOsd = false;
+  /// Lux at which brightness reaches the Noctalia brightness minimum.
+  double autoBrightnessDarkLux = 5.0;
+  /// Lux at which brightness reaches 100%.
+  double autoBrightnessBrightLux = 800.0;
+  bool autoRotate = false;
+  /// When false, auto-rotate only applies in tablet/slate posture (not laptop).
+  bool autoRotateInLaptopMode = false;
+  /// Consecutive matching samples required before applying a rotation.
+  std::int32_t autoRotateStableSamples = 2;
+  /// Kernel `tablet_mode_in_slate_state` — treat slate posture as tablet mode.
+  /// Default false: leave the kernel param alone until the user opts in (writes often need root).
+  bool slateAsTablet = false;
+  /// Use Type Cover attach/detach for auto-rotate gating and reset transform on reattach (Niri).
+  /// Default false: opt-in so Surface+Niri hosts do not poll cover/input by default.
+  bool coverDetachAwareness = false;
+  /// Arm a Wayland OSK (squeekboard) while the Type Cover is detached so it can appear for
+  /// text-input focus. Requires cover_detach_awareness and an OSK package on PATH.
+  bool oskOnCoverDetach = false;
+
+  bool operator==(const SurfaceConfig&) const = default;
+};
+
 struct BatteryDeviceWarningThreshold {
   std::string selector;
   // 0 disables the low-battery warning notification and widget warning state for this device.
@@ -1649,6 +1676,7 @@ struct Config {
   SystemConfig system;
   AudioConfig audio;
   BrightnessConfig brightness;
+  SurfaceConfig surface;
   BatteryConfig battery;
   KeybindsConfig keybinds;
   NightLightConfig nightlight;
@@ -1680,6 +1708,7 @@ struct ConfigChangeSet {
   bool system = true;
   bool audio = true;
   bool brightness = true;
+  bool surface = true;
   bool battery = true;
   bool keybinds = true;
   bool nightlight = true;
@@ -1710,6 +1739,7 @@ struct ConfigChangeSet {
         || system
         || audio
         || brightness
+        || surface
         || battery
         || keybinds
         || nightlight

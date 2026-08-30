@@ -65,7 +65,7 @@ namespace settings {
       return defaultKeybindSet(action);
     }
 
-    constexpr std::array<SettingsSectionDescriptor, 21> kSettingsSections{{
+    constexpr std::array<SettingsSectionDescriptor, 22> kSettingsSections{{
         {SettingsSection::Appearance, "appearance", "adjustments-horizontal"},
         {SettingsSection::Wallpaper, "wallpaper", "paint"},
         {SettingsSection::Templates, "templates", "color-swatch"},
@@ -2181,7 +2181,7 @@ namespace settings {
     ));
 
     // Niri-specific integrations
-    if (env.niriOverviewTypeToLaunchSupported || env.niriBackdropSupported) {
+    if (env.niriOverviewTypeToLaunchSupported || env.niriBackdropSupported || env.surfaceNiriDisplay) {
       if (env.niriOverviewTypeToLaunchSupported) {
         entries.push_back(makeEntry(
             SettingsSection::Niri, "overview", tr("settings.schema.shell.niri-overview-type-to-launch.label"),
@@ -2189,6 +2189,54 @@ namespace settings {
             {"shell", "niri_overview_type_to_launch_enabled"}, ToggleSetting{cfg.shell.niriOverviewTypeToLaunchEnabled},
             "niri overview type launch launcher search keyboard focus"
         ));
+      }
+      if (env.surfaceNiriDisplay) {
+        if (env.surfaceAccelAvailable) {
+          entries.push_back(makeEntry(
+              SettingsSection::Niri, "display", tr("settings.schema.niri.auto-rotate.label"),
+              tr("settings.schema.niri.auto-rotate.description"), {"surface", "auto_rotate"},
+              ToggleSetting{cfg.surface.autoRotate}, "surface tablet auto rotate orientation accelerometer niri"
+          ));
+          {
+            auto laptopRotate = makeEntry(
+                SettingsSection::Niri, "display", tr("settings.schema.niri.auto-rotate-laptop.label"),
+                tr("settings.schema.niri.auto-rotate-laptop.description"), {"surface", "auto_rotate_in_laptop_mode"},
+                ToggleSetting{cfg.surface.autoRotateInLaptopMode},
+                "surface tablet auto rotate laptop mode orientation"
+            );
+            laptopRotate.visibleWhen = [](const Config& c) { return c.surface.autoRotate; };
+            entries.push_back(std::move(laptopRotate));
+          }
+        }
+        if (env.surfaceSlateAsTabletAvailable) {
+          entries.push_back(makeEntry(
+              SettingsSection::Niri, "display", tr("settings.schema.niri.slate-as-tablet.label"),
+              tr("settings.schema.niri.slate-as-tablet.description"), {"surface", "slate_as_tablet"},
+              ToggleSetting{cfg.surface.slateAsTablet},
+              "surface slate tablet mode kernel parameter posture"
+          ));
+        }
+        if (env.surfaceTypeCoverHotplug) {
+          entries.push_back(makeEntry(
+              SettingsSection::Niri, "display", tr("settings.schema.niri.cover-detach.label"),
+              tr("settings.schema.niri.cover-detach.description"), {"surface", "cover_detach_awareness"},
+              ToggleSetting{cfg.surface.coverDetachAwareness},
+              "surface type cover detach attach tablet auto rotate osk niri"
+          ));
+          {
+            auto osk = makeEntry(
+                SettingsSection::Niri, "display", tr("settings.schema.niri.osk-on-cover-detach.label"),
+                tr("settings.schema.niri.osk-on-cover-detach.description"), {"surface", "osk_on_cover_detach"},
+                ToggleSetting{
+                    .checked = cfg.surface.oskOnCoverDetach && env.surfaceOskAvailable,
+                    .enabled = env.surfaceOskAvailable,
+                },
+                "surface type cover detach on screen keyboard squeekboard wvkbd osk niri"
+            );
+            osk.visibleWhen = [](const Config& c) { return c.surface.coverDetachAwareness; };
+            entries.push_back(std::move(osk));
+          }
+        }
       }
       if (env.niriBackdropSupported) {
         entries.push_back(makeEntry(
@@ -2710,6 +2758,22 @@ namespace settings {
         tr("settings.schema.services.sync-monitor-brightness.description"), {"brightness", "sync_all_monitors"},
         ToggleSetting{.checked = cfg.brightness.syncBrightnessOfAllMonitors}, "monitor brightness"
     ));
+    if (env.surfaceAvailable && env.surfaceAlsAvailable) {
+      entries.push_back(makeEntry(
+          SettingsSection::Services, "brightness", tr("settings.schema.services.auto-brightness.label"),
+          tr("settings.schema.services.auto-brightness.description"), {"surface", "auto_brightness"},
+          ToggleSetting{cfg.surface.autoBrightness}, "surface als ambient light auto brightness"
+      ));
+      {
+        auto autoBrightnessOsd = makeEntry(
+            SettingsSection::Services, "brightness", tr("settings.schema.services.auto-brightness-osd.label"),
+            tr("settings.schema.services.auto-brightness-osd.description"), {"surface", "auto_brightness_osd"},
+            ToggleSetting{cfg.surface.autoBrightnessOsd}, "surface als auto brightness osd popup"
+        );
+        autoBrightnessOsd.visibleWhen = [](const Config& c) { return c.surface.autoBrightness; };
+        entries.push_back(std::move(autoBrightnessOsd));
+      }
+    }
     entries.push_back(makeEntry(
         SettingsSection::Services, "media", tr("settings.schema.services.mpris-blacklist.label"),
         tr("settings.schema.services.mpris-blacklist.description"), {"shell", "mpris", "blacklist"},

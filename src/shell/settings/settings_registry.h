@@ -314,6 +314,17 @@ namespace settings {
     std::vector<SelectOption> fontFamilies;
     std::string shellAvatarPath;
     std::vector<std::string> keyboardLayoutNames;
+    bool surfaceAvailable = false;
+    /// Surface display features under Settings → Niri (requires Niri + SAM).
+    bool surfaceNiriDisplay = false;
+    /// Kernel module param `tablet_mode_in_slate_state` is present and writable.
+    bool surfaceSlateAsTabletAvailable = false;
+    /// Type Cover hotplug can be detected.
+    bool surfaceTypeCoverHotplug = false;
+    /// Wayland OSK binary (squeekboard / wvkbd-mobintl) is on PATH.
+    bool surfaceOskAvailable = false;
+    bool surfaceAlsAvailable = false;
+    bool surfaceAccelAvailable = false;
   };
 
   [[nodiscard]] const BarConfig* findBar(const Config& cfg, std::string_view name);

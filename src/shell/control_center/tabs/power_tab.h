@@ -20,14 +20,6 @@ struct UPowerChargeLimitState;
 
 class PowerTab : public Tab {
 public:
-  PowerTab(UPowerService* upower, PowerProfilesService* powerProfiles);
-
-  std::unique_ptr<Flex> create() override;
-  void onClose() override;
-
-private:
-  friend class PowerTabTestAccess;
-
   enum class ChargeLimitMode : std::uint8_t {
     Unsupported,
     UPowerActive,
@@ -45,9 +37,17 @@ private:
     bool operator==(const ChargeLimitControlState&) const = default;
   };
 
+  PowerTab(UPowerService* upower, PowerProfilesService* powerProfiles);
+
+  std::unique_ptr<Flex> create() override;
+  void onClose() override;
+
   [[nodiscard]] static ChargeLimitMode classifyChargeLimit(const UPowerChargeLimitState& state) noexcept;
   [[nodiscard]] static ChargeLimitControlState chargeLimitControlState(const UPowerChargeLimitState& state) noexcept;
   [[nodiscard]] static bool shouldShowChargeLimit(const UPowerChargeLimitState& state) noexcept;
+
+private:
+  friend class PowerTabTestAccess;
 
   void doLayout(Renderer& renderer, float contentWidth, float bodyHeight) override;
   void doUpdate(Renderer& renderer) override;

@@ -451,6 +451,22 @@ namespace noctalia::config::schema {
     return s;
   }
 
+  const Schema<SurfaceConfig>& surfaceSchema() {
+    static const Schema<SurfaceConfig> s = {
+        field(&SurfaceConfig::autoBrightness, "auto_brightness"),
+        field(&SurfaceConfig::autoBrightnessOsd, "auto_brightness_osd"),
+        field(&SurfaceConfig::autoBrightnessDarkLux, "auto_brightness_dark_lux"),
+        field(&SurfaceConfig::autoBrightnessBrightLux, "auto_brightness_bright_lux"),
+        field(&SurfaceConfig::autoRotate, "auto_rotate"),
+        field(&SurfaceConfig::autoRotateInLaptopMode, "auto_rotate_in_laptop_mode"),
+        field(&SurfaceConfig::autoRotateStableSamples, "auto_rotate_stable_samples"),
+        field(&SurfaceConfig::slateAsTablet, "slate_as_tablet"),
+        field(&SurfaceConfig::coverDetachAwareness, "cover_detach_awareness"),
+        field(&SurfaceConfig::oskOnCoverDetach, "osk_on_cover_detach"),
+    };
+    return s;
+  }
+
   const Schema<BatteryConfig>& batterySchema() {
     static const Schema<BatteryConfig> s = {
         field(&BatteryConfig::warningThreshold, "warning_threshold", kBatteryWarningThresholdRange),

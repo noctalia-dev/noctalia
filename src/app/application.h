@@ -108,6 +108,7 @@ class BluetoothAgent;
 class BluetoothService;
 class BrightnessPollSource;
 class BrightnessService;
+class SurfaceDisplayService;
 class KeyboardBacklightService;
 class DebugService;
 class EasyEffectsService;
@@ -286,6 +287,7 @@ private:
   std::optional<bool> m_prevBluetoothPoweredForEvents;
   std::optional<std::string> m_prevPowerProfileActiveForEvents;
   std::unique_ptr<BrightnessService> m_brightnessService;
+  std::unique_ptr<SurfaceDisplayService> m_surfaceDisplayService;
   std::unique_ptr<KeyboardBacklightService> m_keyboardBacklightService;
   std::unique_ptr<TrayService> m_trayService;
   std::unique_ptr<NotificationDBusHost> m_notificationDbus;

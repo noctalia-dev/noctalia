@@ -21,6 +21,7 @@ namespace noctalia::config::schema {
   const Schema<DesktopWidgetsConfig>& desktopWidgetsSchema();
   const Schema<LockscreenWidgetsConfig>& lockscreenWidgetsSchema();
   const Schema<BrightnessConfig>& brightnessSchema();
+  const Schema<SurfaceConfig>& surfaceSchema();
   const Schema<BatteryConfig>& batterySchema();
   const Schema<ControlCenterConfig>& controlCenterSchema();
   const Schema<PluginsConfig>& pluginsSchema();

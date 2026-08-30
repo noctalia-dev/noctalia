@@ -999,21 +999,21 @@ struct BrightnessService::Impl {
     }
   }
 
-  void setBrightness(DisplayInternal* display, float value) {
+  void setBrightness(DisplayInternal* display, float value, bool notify) {
     value = std::clamp(value, activeConfig.minimumBrightness, 1.0F);
     switch (display->backend) {
     case RuntimeBackend::Backlight:
-      setBacklightBrightness(*display, value);
+      setBacklightBrightness(*display, value, notify);
       break;
     case RuntimeBackend::Ddcutil:
-      setDdcBrightness(*display, value);
+      setDdcBrightness(*display, value, notify);
       break;
     }
   }
 
   void setBrightness(const std::string& displayId, float value) {
     if (activeConfig.syncBrightnessOfAllMonitors) {
-      setAllBrightness(value);
+      setAllBrightness(value, true);
       return;
     }
 
@@ -1021,16 +1021,19 @@ struct BrightnessService::Impl {
     if (display == nullptr) {
       return;
     }
-    setBrightness(display, value);
+    setBrightness(display, value, true);
   }
 
-  void setAllBrightness(float value) {
+  void setAllBrightness(float value, bool notify) {
     for (auto& display : internals) {
-      setBrightness(&display, value);
+      setBrightness(&display, value, false);
+    }
+    if (notify && changeCallback) {
+      changeCallback();
     }
   }
 
-  void setBacklightBrightness(DisplayInternal& display, float value) {
+  void setBacklightBrightness(DisplayInternal& display, float value, bool notify) {
     const auto rawValue = static_cast<std::uint32_t>(std::round(value * static_cast<float>(display.maxRaw)));
     const std::string& backlightName = display.backlightName.empty() ? display.pub.id : display.backlightName;
     if (sessionProxy != nullptr) {
@@ -1040,7 +1043,7 @@ struct BrightnessService::Impl {
             .withArguments(std::string("backlight"), backlightName, rawValue);
         display.pub.brightness = value;
         syncPublicDisplay(display);
-        if (changeCallback) {
+        if (notify && changeCallback) {
           changeCallback();
         }
         return;
@@ -1048,10 +1051,10 @@ struct BrightnessService::Impl {
         kLog.warn("SetBrightness failed for '{}' via '{}': {}", display.pub.id, backlightName, e.what());
       }
     }
-    writeSysfsBacklight(display, rawValue);
+    writeSysfsBacklight(display, rawValue, notify);
   }
 
-  bool writeSysfsBacklight(DisplayInternal& display, std::uint32_t rawValue) {
+  bool writeSysfsBacklight(DisplayInternal& display, std::uint32_t rawValue, bool notify = true) {
     const std::string brightnessPath = display.sysfsPath + "/brightness";
     std::ofstream file(brightnessPath);
     if (!file.is_open()) {
@@ -1066,13 +1069,13 @@ struct BrightnessService::Impl {
     }
     display.pub.brightness = static_cast<float>(rawValue) / static_cast<float>(display.maxRaw);
     syncPublicDisplay(display);
-    if (changeCallback) {
+    if (notify && changeCallback) {
       changeCallback();
     }
     return true;
   }
 
-  void setDdcBrightness(DisplayInternal& display, float value) {
+  void setDdcBrightness(DisplayInternal& display, float value, bool notify) {
     const auto now = std::chrono::steady_clock::now();
     if (display.quarantined && now < display.cooldownUntil) {
       kLog.debug("ddcutil write skipped for '{}' during cooldown", display.pub.id);
@@ -1083,7 +1086,7 @@ struct BrightnessService::Impl {
     display.pub.brightness = value;
     display.quarantined = false;
     syncPublicDisplay(display);
-    if (changeCallback) {
+    if (notify && changeCallback) {
       changeCallback();
     }
 
@@ -1524,7 +1527,9 @@ void BrightnessService::setBrightness(const std::string& displayId, float value)
   m_impl->setBrightness(displayId, value);
 }
 
-void BrightnessService::setAllBrightness(float value) { m_impl->setAllBrightness(value); }
+void BrightnessService::setAllBrightness(float value) { m_impl->setAllBrightness(value, true); }
+
+void BrightnessService::setAllBrightness(float value, bool notify) { m_impl->setAllBrightness(value, notify); }
 
 void BrightnessService::requestDdcRefresh() { m_impl->queueDdcRefreshes(); }
 

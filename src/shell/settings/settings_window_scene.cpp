@@ -27,6 +27,8 @@
 #include "shell/tooltip/tooltip_manager.h"
 #include "system/battery_warning_monitor.h"
 #include "system/dependency_service.h"
+#include "system/surface_capability_probe.h"
+#include "system/surface_display_sensors.h"
 #include "theme/builtin_templates.h"
 #include "theme/community_palettes.h"
 #include "theme/community_templates.h"
@@ -406,6 +408,9 @@ namespace {
     }
     if (section == "brightness") {
       return schema::writeTable(cfg.brightness, schema::brightnessSchema());
+    }
+    if (section == "surface") {
+      return schema::writeTable(cfg.surface, schema::surfaceSchema());
     }
     if (section == "calendar") {
       return schema::writeTable(cfg.calendar, schema::calendarSchema());
@@ -795,6 +800,14 @@ settings::RegistryEnvironment SettingsWindow::buildRegistryEnvironment() const {
     }
   }
   env.keyboardLayoutNames = m_wayland != nullptr ? m_wayland->keyboardLayoutNames() : std::vector<std::string>{};
+  const auto surfaceCaps = noctalia::system::surface::probe();
+  env.surfaceAvailable = surfaceCaps.sectionGate;
+  env.surfaceNiriDisplay = surfaceCaps.sectionGate && compositors::isNiri();
+  env.surfaceSlateAsTabletAvailable = surfaceCaps.slateAsTabletParam;
+  env.surfaceTypeCoverHotplug = surfaceCaps.typeCoverHotplug;
+  env.surfaceOskAvailable = noctalia::system::surface::waylandOskAvailable();
+  env.surfaceAlsAvailable = surfaceCaps.alsSensor;
+  env.surfaceAccelAvailable = surfaceCaps.accelSensor;
   if (m_wayland != nullptr) {
     for (const auto& output : m_wayland->outputs()) {
       if (output.output == nullptr || output.connectorName.empty()) {
@@ -1111,6 +1124,7 @@ void SettingsWindow::rebuildSettingsContent() {
         }
     );
   }
+
   logSettingsProfile("rebuildContent plugins", phaseProfileWatch);
   logSettingsProfile("rebuildContent total", totalProfileWatch);
   if (noctalia::profiling::enabled()) {

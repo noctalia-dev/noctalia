@@ -41,6 +41,9 @@ public:
   [[nodiscard]] bool available() const noexcept;
 
   void setAllBrightness(float value);
+  /// Like setAllBrightness, but skips change callbacks (bar/OSD) when notify is false.
+  /// Use for animation steps; pass notify=true on the final value.
+  void setAllBrightness(float value, bool notify);
   void setBrightness(const std::string& displayId, float value);
   void requestDdcRefresh();
   void reload(const BrightnessConfig& config);

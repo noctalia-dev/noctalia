@@ -1689,6 +1689,28 @@
           "label": "Tint Intensity"
         }
       },
+      "niri": {
+        "auto-rotate": {
+          "description": "Rotate the built-in panel from the Surface accelerometer (tablet/slate posture by default)",
+          "label": "Auto-rotate"
+        },
+        "auto-rotate-laptop": {
+          "description": "Also apply auto-rotate while in laptop posture",
+          "label": "Also Rotate in Laptop Mode"
+        },
+        "slate-as-tablet": {
+          "description": "Treat slate posture as tablet mode (kernel tablet_mode_in_slate_state). Only shown when the kernel parameter is writable by the shell.",
+          "label": "Treat Slate as Tablet Mode"
+        },
+        "cover-detach": {
+          "description": "Treat Type Cover detach as tablet mode for auto-rotate, and reset rotation when the Cover reattaches",
+          "label": "Type Cover Detach Awareness"
+        },
+        "osk-on-cover-detach": {
+          "description": "When the Type Cover is detached, start squeekboard so it can appear for focused text fields (and stop it when the Cover reattaches). Requires Type Cover Detach Awareness and the squeekboard package. The toggle stays disabled until an OSK is installed.",
+          "label": "On-Screen Keyboard on Cover Detach"
+        }
+      },
       "bar": {
         "auto-hide": {
           "description": "Off keeps the bar visible; On hides it until you move the pointer to the screen edge; Smart shows the bar on an empty workspace and hides it when windows are open"
@@ -2629,6 +2651,14 @@
         "minimum-brightness": {
           "description": "Prevent the screen from going completely dark",
           "label": "Minimum Brightness"
+        },
+        "auto-brightness": {
+          "description": "Adjust display brightness from the Surface ambient light sensor",
+          "label": "Auto-brightness"
+        },
+        "auto-brightness-osd": {
+          "description": "Show the brightness OSD when auto-brightness finishes a change",
+          "label": "Show OSD for Auto-brightness"
         },
         "mpris-blacklist": {
           "description": "Players to ignore for media controls and Now Playing",
