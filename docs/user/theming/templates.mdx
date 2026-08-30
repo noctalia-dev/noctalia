@@ -527,7 +527,9 @@ the environment variable when it is set, otherwise the spec default (`~/.config`
 `~/.local/state`, `~/.cache`). Prefer these tokens over a hardcoded `~/.config` so output lands in the right
 place when a config/data/cache home is relocated. A leading `~` still expands to `$HOME` only.
 
-`index` controls processing order and defaults to `0`.
+`index` controls processing order and hook execution mode, and defaults to `0`. When `index = 0` (default), hooks execute asynchronously via a thread pool. Templates render without waiting for their hooks to finish.
+
+When `index > 0`, hooks execute synchronously. Templates with higher index values are processed later, in ascending order. Use this when hook execution order matters or when a hook must complete before subsequent templates are processed.
 
 `requires_path` is optional. When set, the entry is skipped unless that path already exists on disk. Use it for explicit install checks (for example a Flatpak data directory).
 
