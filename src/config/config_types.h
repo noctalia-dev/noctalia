@@ -1494,6 +1494,8 @@ struct ThemeConfig {
     std::string postHook;
     std::string postAction;
     int index = 0;
+    // False runs post_hook inline, serialized against other hooks of the same run.
+    bool hookAsync = true;
 
     bool operator==(const UserTemplateConfig&) const = default;
   };

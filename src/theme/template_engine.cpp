@@ -200,6 +200,9 @@ namespace noctalia::theme {
       // When true, skip each output whose inferred client config root is missing.
       bool gateOutputsByClientRoot = false;
       int index = 0;
+      // False runs post_hook inline, after every background hook started so far has
+      // finished. For entries whose hook must not overlap with another one.
+      bool hookAsync = true;
     };
 
     std::optional<std::filesystem::path> inferClientConfigRoot(const std::filesystem::path& outputPath) {
@@ -1452,6 +1455,8 @@ namespace noctalia::theme {
         entry.requiresPath = resolveConfigPath(configPath, requiresPath->get()).string();
       if (const auto index = tpl.get_as<int64_t>("index"))
         entry.index = static_cast<int>(index->get());
+      if (const auto hookAsync = tpl.get_as<bool>("hook_async"))
+        entry.hookAsync = hookAsync->get();
       return entry;
     }
 
@@ -1596,9 +1601,6 @@ namespace noctalia::theme {
     std::ranges::stable_sort(entries, {}, &ParsedTemplateEntry::index);
     markMultiClientGatedEntries(entries);
 
-    // index > 0 opts into deterministic sequencing: drain earlier async hooks
-    // once before the first positive-index entry runs.
-    bool indexBarrierDrained = false;
     bool ok = true;
     for (const ParsedTemplateEntry& entry : entries) {
       if (cancelRequested()) {
@@ -1620,11 +1622,6 @@ namespace noctalia::theme {
       renderOptions.closestColor = closestColor;
       renderOptions.configDir = configPath.has_parent_path() ? configPath.parent_path().string() : "";
       renderOptions.configFile = configPath.string();
-
-      if (!indexBarrierDrained && entry.index > 0 && renderOptions.hookRunner != nullptr) {
-        renderOptions.hookRunner->waitIdle();
-        indexBarrierDrained = true;
-      }
 
       std::string effectiveInput = entry.inputPath;
       if (!entry.inputPathDynamic.empty()) {
@@ -1747,7 +1744,12 @@ namespace noctalia::theme {
         if (!runPostAction()) {
           ok = false;
         }
-        runHook(entry.postHook, entry.index == 0 && renderOptions.hookRunner != nullptr);
+        // An inline post_hook is a barrier: it must not overlap with a background hook
+        // started earlier in this run.
+        if (!entry.hookAsync && !entry.postHook.empty() && renderOptions.hookRunner != nullptr) {
+          renderOptions.hookRunner->waitIdle();
+        }
+        runHook(entry.postHook, /*async=*/entry.hookAsync);
       }
     }
 
