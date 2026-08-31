@@ -577,10 +577,10 @@ void BluetoothService::setPowered(bool enabled) {
   if (enabled) {
     const RfkillSwitchResult rfkillResult = setRfkillSoftBlocked(RfkillDeviceType::Bluetooth, false);
     if (rfkillResult.hardBlocked) {
-      kLog.warn("setPowered: bluetooth rfkill hard block is active");
-      return;
-    }
-    if (!rfkillResult.success) {
+      // Platform rfkill state can be stale; let BlueZ attempt activation while
+      // the kernel continues to enforce genuine hardware blocks.
+      kLog.warn("setPowered: bluetooth rfkill hard block reported, trying BlueZ Powered anyway");
+    } else if (!rfkillResult.success) {
       kLog.warn("setPowered: rfkill unblock failed ({}), trying BlueZ Powered anyway", rfkillResult.detail);
     }
     const bool wasSoftBlocked = m_state.rfkillSoftBlocked;
