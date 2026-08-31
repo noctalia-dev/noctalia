@@ -122,6 +122,7 @@
         "off": "Weather off",
         "tooltip": {
           "condition": "Condition",
+          "feels-like": "Feels like",
           "high": "High",
           "humidity": "Humidity",
           "low": "Low",
@@ -423,10 +424,10 @@
       "data-unavailable": "Weather data unavailable",
       "details": {
         "elevation": "Elevation",
+        "feels-like": "Feels Like",
         "sunrise": "Sunrise",
         "sunset": "Sunset",
-        "temp-max": "Temperature Max",
-        "temp-min": "Temperature Min",
+        "temp-range": "Temperature Range",
         "timezone": "Timezone",
         "uv-index": "UV Index",
         "wind": "Wind"

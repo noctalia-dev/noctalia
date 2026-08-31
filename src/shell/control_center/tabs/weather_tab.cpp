@@ -254,8 +254,8 @@ std::unique_ptr<Flex> WeatherTab::create() {
     return rowPtr;
   };
 
-  addDetailRow("temperature", i18n::tr("control-center.weather.details.temp-min"), m_tempMinLabel);
-  addDetailRow("temperature-sun", i18n::tr("control-center.weather.details.temp-max"), m_tempMaxLabel);
+  addDetailRow("temperature", i18n::tr("control-center.weather.details.temp-range"), m_tempRangeLabel);
+  addDetailRow("thermometer", i18n::tr("control-center.weather.details.feels-like"), m_feelsLikeLabel);
   addDetailRow("wind", i18n::tr("control-center.weather.details.wind"), m_windLabel);
   addDetailRow("weather-sunrise", i18n::tr("control-center.weather.details.sunrise"), m_sunriseLabel);
   addDetailRow("weather-sunset", i18n::tr("control-center.weather.details.sunset"), m_sunsetLabel);
@@ -523,8 +523,8 @@ void WeatherTab::doLayout(Renderer& renderer, float contentWidth, float bodyHeig
     m_statusLabel->setMaxWidth(leftColumnWidth);
   }
   for (auto* label :
-       {m_windLabel, m_sunriseLabel, m_sunsetLabel, m_tempMinLabel, m_tempMaxLabel, m_elevationLabel, m_uvIndexLabel,
-        m_timeZoneLabel}) {
+       {m_windLabel, m_sunriseLabel, m_sunsetLabel, m_tempRangeLabel, m_feelsLikeLabel, m_elevationLabel,
+        m_uvIndexLabel, m_timeZoneLabel}) {
     if (label != nullptr) {
       label->setMaxWidth(leftColumnWidth);
     }
@@ -726,8 +726,8 @@ void WeatherTab::onClose() {
   m_windLabel = nullptr;
   m_sunriseLabel = nullptr;
   m_sunsetLabel = nullptr;
-  m_tempMaxLabel = nullptr;
-  m_tempMinLabel = nullptr;
+  m_tempRangeLabel = nullptr;
+  m_feelsLikeLabel = nullptr;
   m_elevationLabel = nullptr;
   m_uvIndexLabel = nullptr;
   m_timeZoneLabel = nullptr;
@@ -785,11 +785,11 @@ void WeatherTab::sync(Renderer& renderer) {
     if (m_sunsetLabel != nullptr) {
       m_sunsetLabel->setText("--");
     }
-    if (m_tempMaxLabel != nullptr) {
-      m_tempMaxLabel->setText("--");
+    if (m_tempRangeLabel != nullptr) {
+      m_tempRangeLabel->setText("--");
     }
-    if (m_tempMinLabel != nullptr) {
-      m_tempMinLabel->setText("--");
+    if (m_feelsLikeLabel != nullptr) {
+      m_feelsLikeLabel->setText("--");
     }
     if (m_elevationLabel != nullptr) {
       m_elevationLabel->setText("--");
@@ -816,11 +816,11 @@ void WeatherTab::sync(Renderer& renderer) {
     if (m_sunsetLabel != nullptr) {
       m_sunsetLabel->setText("--");
     }
-    if (m_tempMaxLabel != nullptr) {
-      m_tempMaxLabel->setText("--");
+    if (m_tempRangeLabel != nullptr) {
+      m_tempRangeLabel->setText("--");
     }
-    if (m_tempMinLabel != nullptr) {
-      m_tempMinLabel->setText("--");
+    if (m_feelsLikeLabel != nullptr) {
+      m_feelsLikeLabel->setText("--");
     }
     if (m_elevationLabel != nullptr) {
       m_elevationLabel->setText("--");
@@ -862,11 +862,11 @@ void WeatherTab::sync(Renderer& renderer) {
     if (m_sunsetLabel != nullptr) {
       m_sunsetLabel->setText("--");
     }
-    if (m_tempMaxLabel != nullptr) {
-      m_tempMaxLabel->setText("--");
+    if (m_tempRangeLabel != nullptr) {
+      m_tempRangeLabel->setText("--");
     }
-    if (m_tempMinLabel != nullptr) {
-      m_tempMinLabel->setText("--");
+    if (m_feelsLikeLabel != nullptr) {
+      m_feelsLikeLabel->setText("--");
     }
     if (m_elevationLabel != nullptr) {
       m_elevationLabel->setText("--");
@@ -947,23 +947,23 @@ void WeatherTab::sync(Renderer& renderer) {
     );
   }
   auto unit = m_weather->displayTemperatureUnit();
-  if (m_tempMaxLabel != nullptr) {
+  if (m_tempRangeLabel != nullptr) {
     if (!snapshot.forecastDays.empty()) {
-      const int temp =
-          static_cast<int>(std::lround(m_weather->displayTemperature(snapshot.forecastDays.front().temperatureMaxC)));
-      m_tempMaxLabel->setText(std::format("{}{}", temp, unit));
+      const auto& today = snapshot.forecastDays.front();
+      const int tempMin = static_cast<int>(std::lround(m_weather->displayTemperature(today.temperatureMinC)));
+      const int tempMax = static_cast<int>(std::lround(m_weather->displayTemperature(today.temperatureMaxC)));
+      m_tempRangeLabel->setText(std::format("{}{} / {}{}", tempMin, unit, tempMax, unit));
     } else {
-      m_tempMaxLabel->setText("--");
+      m_tempRangeLabel->setText("--");
     }
   }
-  if (m_tempMinLabel != nullptr) {
-    if (!snapshot.forecastDays.empty()) {
-      const int temp =
-          static_cast<int>(std::lround(m_weather->displayTemperature(snapshot.forecastDays.front().temperatureMinC)));
-      m_tempMinLabel->setText(std::format("{}{}", temp, unit));
-    } else {
-      m_tempMinLabel->setText("--");
-    }
+  if (m_feelsLikeLabel != nullptr) {
+    m_feelsLikeLabel->setText(
+        std::format(
+            "{}{}", static_cast<int>(std::lround(m_weather->displayTemperature(snapshot.current.apparentTemperatureC))),
+            unit
+        )
+    );
   }
   if (m_elevationLabel != nullptr) {
     const bool imperial = m_weather->useImperial();

@@ -500,7 +500,8 @@ void WeatherService::startWeatherFetch() {
   const auto path = transportCacheDir() / "forecast.json";
   const std::string url = std::format(
       "https://api.open-meteo.com/v1/forecast?latitude={}&longitude={}"
-      "&current=temperature_2m,wind_speed_10m,wind_direction_10m,weather_code,is_day,uv_index,relative_humidity_2m"
+      "&current=temperature_2m,apparent_temperature,wind_speed_10m,wind_direction_10m,weather_code,is_day,uv_index,"
+      "relative_humidity_2m"
       "&hourly=temperature_2m,relative_humidity_2m,precipitation_probability,weather_code,is_day,wind_speed_10m"
       "&daily=temperature_2m_max,temperature_2m_min,weather_code,sunrise,sunset"
       "&forecast_days={}&forecast_hours={}&timezone=auto",
@@ -593,6 +594,7 @@ void WeatherService::handleWeatherResponse(const std::filesystem::path& path, bo
     next.current.timeIso = readString(current, "time");
     next.current.intervalSeconds = readOptionalInt(current, "interval");
     next.current.temperatureC = readNumber(current, "temperature_2m");
+    next.current.apparentTemperatureC = readOptionalNumber(current, "apparent_temperature");
     next.current.windSpeedKmh = readOptionalNumber(current, "wind_speed_10m");
     next.current.windDirectionDeg = readOptionalInt(current, "wind_direction_10m");
     next.current.isDay = readBool(current, "is_day", true);
@@ -734,6 +736,7 @@ void WeatherService::loadCache() {
       m_snapshot.current.timeIso = readString(*it, "time_iso");
       m_snapshot.current.intervalSeconds = readOptionalInt(*it, "interval_seconds");
       m_snapshot.current.temperatureC = readOptionalNumber(*it, "temperature_c");
+      m_snapshot.current.apparentTemperatureC = readOptionalNumber(*it, "apparent_temperature_c");
       m_snapshot.current.windSpeedKmh = readOptionalNumber(*it, "wind_speed_kmh");
       m_snapshot.current.windDirectionDeg = readOptionalInt(*it, "wind_direction_deg");
       m_snapshot.current.isDay = readBool(*it, "is_day", true);
@@ -825,6 +828,7 @@ void WeatherService::saveCache() const {
                 {"time_iso", m_snapshot.current.timeIso},
                 {"interval_seconds", m_snapshot.current.intervalSeconds},
                 {"temperature_c", m_snapshot.current.temperatureC},
+                {"apparent_temperature_c", m_snapshot.current.apparentTemperatureC},
                 {"wind_speed_kmh", m_snapshot.current.windSpeedKmh},
                 {"wind_direction_deg", m_snapshot.current.windDirectionDeg},
                 {"is_day", m_snapshot.current.isDay},
