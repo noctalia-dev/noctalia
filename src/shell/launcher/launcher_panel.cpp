@@ -757,28 +757,16 @@ public:
     m_dragSourceIndex = index;
     m_dropIndex.reset();
     m_dragging = false;
-    m_dragStartPos.reset();
     return true;
   }
 
   bool onPointerDrag(
-      std::optional<std::size_t> index, float localX, float localY, float /*cellWidth*/, float /*cellHeight*/
+      std::optional<std::size_t> index, float /*localX*/, float /*localY*/, float /*cellWidth*/, float /*cellHeight*/
   ) override {
     if (!m_dragSourceIndex.has_value()) {
       return false;
     }
-    if (!m_dragStartPos.has_value()) {
-      m_dragStartPos = std::pair<float, float>{localX, localY};
-    }
-    const float dx = localX - m_dragStartPos->first;
-    const float dy = localY - m_dragStartPos->second;
-    const float threshold = Style::dragStartThreshold * m_style.scale;
-    if (!m_dragging) {
-      if (std::hypot(dx, dy) < threshold) {
-        return false;
-      }
-      m_dragging = true;
-    }
+    m_dragging = true;
 
     const std::optional<std::size_t> nextTarget =
         index.has_value() && *index != *m_dragSourceIndex && isReorderable(*index) ? index : std::nullopt;
@@ -789,16 +777,14 @@ public:
     return true;
   }
 
-  bool onPointerRelease(std::optional<std::size_t> releaseIndex) override {
+  bool onPointerRelease(std::optional<std::size_t> /*index*/) override {
     const auto sourceIndex = m_dragSourceIndex;
     const auto targetIndex = m_dropIndex;
     const bool reordered = m_dragging && sourceIndex.has_value() && targetIndex.has_value() && m_onReorder;
-    const bool activated = !reordered && sourceIndex.has_value() && m_onActivate
-        && (!m_dragging || (!targetIndex.has_value() && releaseIndex == sourceIndex));
+    const bool activated = !m_dragging && sourceIndex.has_value() && m_onActivate;
     m_dragSourceIndex.reset();
     m_dropIndex.reset();
     m_dragging = false;
-    m_dragStartPos.reset();
     if (reordered) {
       m_onReorder(*sourceIndex, *targetIndex);
     } else if (activated) {
@@ -811,7 +797,6 @@ public:
     m_dragSourceIndex.reset();
     m_dropIndex.reset();
     m_dragging = false;
-    m_dragStartPos.reset();
   }
 
   void onActivate(std::size_t index) override {
@@ -842,7 +827,6 @@ private:
   std::optional<std::size_t> m_dragSourceIndex;
   std::optional<std::size_t> m_dropIndex;
   bool m_dragging = false;
-  std::optional<std::pair<float, float>> m_dragStartPos;
 };
 
 class LauncherAppGridAdapter final : public VirtualGridAdapter {
@@ -921,29 +905,16 @@ public:
     m_dragSourceIndex = index;
     m_dropIndex.reset();
     m_dragging = false;
-    m_dragStartPos.reset();
     return true;
   }
 
   bool onPointerDrag(
-      std::optional<std::size_t> index, float localX, float localY, float /*cellWidth*/, float /*cellHeight*/
+      std::optional<std::size_t> index, float /*localX*/, float /*localY*/, float /*cellWidth*/, float /*cellHeight*/
   ) override {
     if (!m_dragSourceIndex.has_value()) {
       return false;
     }
-    if (!m_dragStartPos.has_value()) {
-      m_dragStartPos = std::pair<float, float>{localX, localY};
-    }
-    const float dx = localX - m_dragStartPos->first;
-    const float dy = localY - m_dragStartPos->second;
-    const float threshold = Style::dragStartThreshold * m_style.scale;
-    if (!m_dragging) {
-      if (std::hypot(dx, dy) < threshold) {
-        return false;
-      }
-      m_dragging = true;
-    }
-
+    m_dragging = true;
     const std::optional<std::size_t> nextTarget =
         index.has_value() && *index != *m_dragSourceIndex && isReorderable(*index) ? index : std::nullopt;
     if (nextTarget == m_dropIndex) {
@@ -953,16 +924,14 @@ public:
     return true;
   }
 
-  bool onPointerRelease(std::optional<std::size_t> releaseIndex) override {
+  bool onPointerRelease(std::optional<std::size_t> /*index*/) override {
     const auto sourceIndex = m_dragSourceIndex;
     const auto targetIndex = m_dropIndex;
     const bool reordered = m_dragging && sourceIndex.has_value() && targetIndex.has_value() && m_onReorder;
-    const bool activated = !reordered && sourceIndex.has_value() && m_onActivate
-        && (!m_dragging || (!targetIndex.has_value() && releaseIndex == sourceIndex));
+    const bool activated = !m_dragging && sourceIndex.has_value() && m_onActivate;
     m_dragSourceIndex.reset();
     m_dropIndex.reset();
     m_dragging = false;
-    m_dragStartPos.reset();
     if (reordered) {
       m_onReorder(*sourceIndex, *targetIndex);
     } else if (activated) {
@@ -975,7 +944,6 @@ public:
     m_dragSourceIndex.reset();
     m_dropIndex.reset();
     m_dragging = false;
-    m_dragStartPos.reset();
   }
 
   void onActivate(std::size_t index) override {
@@ -1006,7 +974,6 @@ private:
   std::optional<std::size_t> m_dragSourceIndex;
   std::optional<std::size_t> m_dropIndex;
   bool m_dragging = false;
-  std::optional<std::pair<float, float>> m_dragStartPos;
 };
 
 LauncherPanel::LauncherPanel(ConfigService* config, AsyncTextureCache* asyncTextures)
@@ -1278,6 +1245,7 @@ void LauncherPanel::syncLauncherViewLayout(Renderer* renderer) {
   const bool useGrid = shouldUseAppGrid();
   const float scale = contentScale();
   const LauncherListStyle style = launcherListStyleFrom(m_config, scale, panelCardOpacity());
+  m_grid->setScale(scale);
   m_listAdapter->setListStyle(style);
   m_gridAdapter->setListStyle(style);
   const bool reorderEnabled = m_query.empty() && m_scopedProviderId.empty() && m_activeCategoryType == All;
