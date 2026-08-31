@@ -765,6 +765,13 @@ namespace {
         && a.monitorOverrides == b.monitorOverrides;
   }
 
+  [[nodiscard]] LayerShellLayer effectiveBarLayer(const BarInstance& instance) {
+    if (instance.barConfig.layer == "smart") {
+      return instance.attachedPanelOpen ? LayerShellLayer::Overlay : LayerShellLayer::Top;
+    }
+    return layerShellLayerFromConfig(instance.barConfig.layer);
+  }
+
   bool barSurfaceOrderRequiresRecreate(const std::vector<BarConfig>& previous, const std::vector<BarConfig>& next) {
     std::vector<std::string> preserved;
     preserved.reserve(previous.size());
@@ -2116,12 +2123,23 @@ LayerShellLayer Bar::highestLayerForOutput(wl_output* output) const noexcept {
     if (instance->output != output || !instance->barConfig.enabled) {
       continue;
     }
-    const LayerShellLayer layer = layerShellLayerFromConfig(instance->barConfig.layer);
+    const LayerShellLayer layer = effectiveBarLayer(*instance);
     if (static_cast<std::uint32_t>(layer) > static_cast<std::uint32_t>(highest)) {
       highest = layer;
     }
   }
   return highest;
+}
+
+void Bar::setAttachedPanelOpen(wl_output* output, std::string_view barName, bool open) {
+  BarInstance* instance = instanceForBar(output, barName);
+  if (instance == nullptr || instance->surface == nullptr || instance->attachedPanelOpen == open) {
+    return;
+  }
+  instance->attachedPanelOpen = open;
+  if (instance->barConfig.layer == "smart") {
+    instance->surface->setLayer(effectiveBarLayer(*instance));
+  }
 }
 
 bool Bar::isAttachedPanelBarSettled(wl_output* output, std::string_view barName) const noexcept {
@@ -2368,7 +2386,8 @@ void Bar::createInstance(const WaylandOutput& output, std::size_t barIndex, cons
 
   auto surfaceConfig = LayerSurfaceConfig{
       .nameSpace = "noctalia-bar-" + barConfig.name,
-      .layer = layerShellLayerFromConfig(barConfig.layer),
+      // Smart starts on Top and is promoted when PanelManager attaches a panel.
+      .layer = barConfig.layer == "smart" ? LayerShellLayer::Top : layerShellLayerFromConfig(barConfig.layer),
       .anchor = anchor,
       .width = surfaceSpec.surfaceWidth,
       .height = surfaceSpec.surfaceHeight,
@@ -4029,12 +4048,12 @@ std::string Bar::setBarAutoHideIpc(std::string_view args) {
 std::string Bar::setBarLayerIpc(std::string_view args) {
   const auto parts = noctalia::ipc::splitWords(args);
   if (parts.empty() || parts.size() > 3) {
-    return "error: usage: bar-layer-set <top|overlay> [bar-name] [monitor-selector]\n";
+    return "error: usage: bar-layer-set <top|overlay|smart> [bar-name] [monitor-selector]\n";
   }
 
   const std::string& layer = parts[0];
-  if (layer != "top" && layer != "overlay") {
-    return "error: invalid layer (use top or overlay)\n";
+  if (layer != "top" && layer != "overlay" && layer != "smart") {
+    return "error: invalid layer (use top, overlay, or smart)\n";
   }
 
   std::optional<std::string> barName;
@@ -4051,13 +4070,13 @@ std::string Bar::setBarLayerIpc(std::string_view args) {
     return *collectError;
   }
 
-  const LayerShellLayer shellLayer = layerShellLayerFromConfig(layer);
   for (BarInstance* instance : targets) {
     if (instance == nullptr || instance->surface == nullptr) {
       continue;
     }
-    instance->surface->setLayer(shellLayer);
     instance->barConfig.layer = layer;
+    instance->surface->setLayer(effectiveBarLayer(*instance));
+    PanelManager::instance().onAttachedBarLayerChanged(instance->output, instance->barConfig.name, layer);
   }
 
   return "ok\n";

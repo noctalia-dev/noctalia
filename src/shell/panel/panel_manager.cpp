@@ -314,6 +314,10 @@ namespace {
     return panel.layer();
   }
 
+  [[nodiscard]] LayerShellLayer attachedPanelLayerFromBarPolicy(std::string_view layer) {
+    return layer == "smart" ? LayerShellLayer::Overlay : layerShellLayerFromConfig(layer);
+  }
+
   [[nodiscard]] bool openNearClickEnabledForPanel(const ConfigService* configService, std::string_view panelId) {
     if (panelId == "tray-drawer") {
       return true;
@@ -478,6 +482,10 @@ void PanelManager::setAttachedPanelLayerProvider(
   m_attachedPanelLayerProvider = std::move(provider);
 }
 
+void PanelManager::setAttachedPanelStateCallback(std::function<void(wl_output*, std::string_view, bool)> callback) {
+  m_attachedPanelStateCallback = std::move(callback);
+}
+
 void PanelManager::setAttachedPanelBarSettledCallback(std::function<bool(wl_output*, std::string_view)> callback) {
   m_attachedPanelBarSettledCallback = std::move(callback);
 }
@@ -491,6 +499,24 @@ void PanelManager::onAttachedBarRevealSettled(wl_output* output, std::string_vie
   }
   startAttachedOpenAnimation();
   requestFrameTick();
+}
+
+void PanelManager::onAttachedBarLayerChanged(
+    wl_output* output, std::string_view barName, std::string_view layerPolicy
+) {
+  if (!isAttachedOpen() || m_output != output || m_layerSurface == nullptr) {
+    return;
+  }
+  if (!m_sourceBarName.empty() && !barName.empty() && m_sourceBarName != barName) {
+    return;
+  }
+  const LayerShellLayer layer = attachedPanelLayerFromBarPolicy(layerPolicy);
+  if (layer == m_panelLayer) {
+    return;
+  }
+  m_clickShield.setLayer(layer);
+  m_layerSurface->setLayer(layer);
+  m_panelLayer = layer;
 }
 
 void PanelManager::registerPanel(const std::string& id, std::unique_ptr<Panel> content) {
@@ -841,8 +867,14 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
       && outputHeight > 0;
   const LayerShellLayer floatingPanelLayer = resolveFloatingPanelLayer(m_config, m_activePanelId, *m_activePanel);
   const LayerShellLayer panelLayer =
-      useAttachedPlacement ? layerShellLayerFromConfig(barConfig.layer) : floatingPanelLayer;
+      useAttachedPlacement ? attachedPanelLayerFromBarPolicy(barConfig.layer) : floatingPanelLayer;
   m_panelLayer = panelLayer;
+
+  if (useAttachedPlacement && m_attachedPanelStateCallback != nullptr) {
+    // Promote a Smart host bar before either surface commits, so the bar and its
+    // attached panel enter the Overlay layer together.
+    m_attachedPanelStateCallback(request.output, m_sourceBarName, true);
+  }
 
   const bool hasFocusGrab =
       m_platform != nullptr && m_platform->focusGrabService() != nullptr && m_platform->focusGrabService()->available();
@@ -1187,6 +1219,9 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
     m_attachedPanelGeometry.reset();
     m_attachedOpenAnimationPending = false;
     kLog.warn("panel manager: attached layer-shell failed for \"{}\", falling back to standalone", panelId);
+    if (m_attachedPanelStateCallback != nullptr) {
+      m_attachedPanelStateCallback(request.output, m_sourceBarName, false);
+    }
     if (m_panelLayer != floatingPanelLayer) {
       m_clickShield.setLayer(floatingPanelLayer);
       m_panelLayer = floatingPanelLayer;
@@ -1369,6 +1404,9 @@ void PanelManager::closePanel(bool animateClose) {
 }
 
 void PanelManager::destroyPanel() {
+  if (m_attachedToBar && m_attachedPanelStateCallback && m_output != nullptr) {
+    m_attachedPanelStateCallback(m_output, m_sourceBarName, false);
+  }
   if (m_attachedToBar && m_attachedPanelGeometryCallback && m_output != nullptr) {
     m_attachedPanelGeometryCallback(m_output, m_sourceBarName, std::nullopt);
   }
@@ -2388,6 +2426,22 @@ void PanelManager::onConfigReloaded() {
     return;
   }
   const auto& barConfig = *barConfigOpt;
+  std::string attachedLayerPolicy = barConfig.layer;
+  if (m_attachedPanelLayerProvider != nullptr) {
+    if (auto layer = m_attachedPanelLayerProvider(m_output, m_sourceBarName); layer.has_value()) {
+      attachedLayerPolicy = *layer;
+    }
+  }
+  if (m_attachedPanelStateCallback != nullptr) {
+    // The bar may have been recreated earlier in this same config reload.
+    m_attachedPanelStateCallback(m_output, m_sourceBarName, true);
+  }
+  const LayerShellLayer attachedLayer = attachedPanelLayerFromBarPolicy(attachedLayerPolicy);
+  if (m_layerSurface != nullptr && attachedLayer != m_panelLayer) {
+    m_clickShield.setLayer(attachedLayer);
+    m_layerSurface->setLayer(attachedLayer);
+    m_panelLayer = attachedLayer;
+  }
   bool changed = false;
   if (m_activePanel->inheritsBarBackgroundOpacity()) {
     const float newOpacity = barConfig.backgroundOpacity;

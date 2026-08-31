@@ -75,6 +75,8 @@ struct BarInstance {
   float lastPointerSx = 0.0F;
   float lastPointerSy = 0.0F;
   std::size_t attachedPopupCount = 0;
+  // A Smart-layer bar is promoted to Overlay for the lifetime of its attached panel.
+  bool attachedPanelOpen = false;
 
   // Bar background, shadow, and layout sections (start/center/end along main axis)
   Box* bg = nullptr;

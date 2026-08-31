@@ -20,7 +20,7 @@ auto_hide          = false       # slide out after pointer leaves; reveal from e
 smart_auto_hide    = false       # show when the active workspace is empty; hide when it has windows
 show_on_workspace_switch = true  # with auto_hide: briefly reveal when the active workspace changes
 reserve_space      = true        # reserve compositor exclusive zone / push windows away
-layer              = "top"       # top | overlay; overlay appears above fullscreen apps
+layer              = "top"       # top | overlay | smart
 
 thickness          = 34          # bar cross-axis size in pixels (height for horizontal, width for vertical)
 background_opacity = 1.0         # 0.0 (transparent) to 1.0 (opaque)
@@ -179,9 +179,9 @@ Set auto-hide to **Smart** in bar settings (or `smart_auto_hide = true` with `au
 
 `margin_opposite_edge` adds extra reserved space on the inward side of the bar (below a top bar, above a bottom bar, and so on for vertical bars). The bar itself does not move; the compositor exclusive zone grows so tiled and maximized windows stop further away. Use it when a compositor ignores or under-reserves struts - for example Labwc with a maximized window that still touches the bar. Requires `reserve_space = true`. The default is `0`.
 
-`layer = "overlay"` shows the bar above fullscreen apps. Attached panels (for example Control Center when it attaches to the bar) follow the bar's layer. Floating panels keep their own layer (typically overlay), including when their screen position is `center`.
+`layer = "overlay"` shows the bar above fullscreen apps. `layer = "smart"` normally keeps the bar on the Top layer, then promotes both the bar and an attached panel (for example Control Center) to Overlay until the panel closes. This keeps the hidden bar from intercepting pointer movement over a fullscreen app while still making attached panels visible above it. Floating panels keep their own layer (typically overlay), including when their screen position is `center`.
 
-The IPC `bar-layer-set <top|overlay> [bar-name] [monitor-selector]` switches the layer of matching bar instance(s) at runtime; omit `bar-name` to update every bar. The change is transient and resets to the configured `layer` on the next config reload. This is handy for peeking the bar above a fullscreen window on a keybind, for example in niri:
+The IPC `bar-layer-set <top|overlay|smart> [bar-name] [monitor-selector]` switches the layer policy of matching bar instance(s) at runtime; omit `bar-name` to update every bar. The change is transient and resets to the configured `layer` on the next relevant bar config reload. This is handy for peeking the bar above a fullscreen window on a keybind, for example in niri:
 
 ```kdl
 binds {
