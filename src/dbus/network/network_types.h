@@ -1,5 +1,7 @@
 #pragma once
 
+#include "dbus/network/network_manager_security.h"
+
 #include <cstdint>
 #include <string>
 
@@ -9,8 +11,13 @@ struct AccessPointInfo {
   std::string ssid;
   std::uint8_t strength = 0; // 0..100
   bool secured = false;
-  bool supportsSae = false;
+  // How the AP wants to be authenticated, derived from its RSN flags. Drives both
+  // the credential form the UI shows and the NM key-mgmt value we write. A single
+  // enum rather than parallel bools so contradictory states cannot be built.
+  network_manager_security::KeyManagement keyManagement = network_manager_security::KeyManagement::Psk;
   bool active = false;
+
+  [[nodiscard]] bool isEnterprise() const noexcept { return network_manager_security::isEnterprise(keyManagement); }
 
   bool operator==(const AccessPointInfo&) const = default;
 };

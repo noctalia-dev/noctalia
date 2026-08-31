@@ -821,7 +821,7 @@ NetworkTab::structureKey(const std::vector<AccessPointInfo>& aps, const std::vec
     key.push_back(':');
     key += ap.secured ? '1' : '0';
     key.push_back(':');
-    key += ap.supportsSae ? '1' : '0';
+    key += static_cast<char>('0' + static_cast<int>(ap.keyManagement));
     key.push_back(':');
     key += ap.active ? '1' : '0';
     key.push_back(':');

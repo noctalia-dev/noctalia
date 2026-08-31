@@ -381,6 +381,13 @@ bool NetworkManagerService::activateAccessPoint(const AccessPointInfo& ap, const
   if (ap.secured && psk.empty()) {
     return false;
   }
+  // An 802.1X AP has no pre-shared key to accept. Falling through would build a
+  // wpa-eap profile carrying a "psk", which NM rejects and which reads to the
+  // user as a wrong password.
+  if (ap.isEnterprise()) {
+    kLog.warn("ssid={} needs 802.1X credentials, not a pre-shared key", ap.ssid);
+    return false;
+  }
   return addAndActivateAccessPoint(ap, psk);
 }
 
@@ -391,7 +398,7 @@ bool NetworkManagerService::addAndActivateAccessPoint(
   if (ap.secured) {
     // Minimal secured-wifi settings — NM fills in ssid from the specific_object.
     settings["802-11-wireless-security"]["key-mgmt"] =
-        sdbus::Variant{std::string(network_manager_security::keyManagement(ap.supportsSae))};
+        sdbus::Variant{std::string(network_manager_security::keyManagementName(ap.keyManagement))};
     if (psk.has_value()) {
       settings["802-11-wireless-security"]["psk"] = sdbus::Variant{*psk};
     }
@@ -1695,7 +1702,7 @@ void NetworkManagerService::refreshAccessPoints(std::function<void()> onComplete
                                           }();
                                           info.secured =
                                               (wpaFlags != k_nm80211ApSecNone) || (rsnFlags != k_nm80211ApSecNone);
-                                          info.supportsSae = network_manager_security::supportsSae(rsnFlags);
+                                          info.keyManagement = network_manager_security::keyManagementFor(rsnFlags);
                                           if (!info.ssid.empty()) {
                                             apState->aps.push_back(std::move(info));
                                           }
@@ -1777,7 +1784,7 @@ void NetworkManagerService::finishRefreshAccessPoints(
       it->path = ap.path;
       it->devicePath = ap.devicePath;
       it->secured = ap.secured;
-      it->supportsSae = ap.supportsSae;
+      it->keyManagement = ap.keyManagement;
     }
   }
   std::ranges::sort(deduped, [](const AccessPointInfo& a, const AccessPointInfo& b) {
