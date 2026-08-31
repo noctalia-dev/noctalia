@@ -61,6 +61,7 @@ public:
   void onClose() override;
   void onFrameTick(float deltaMs) override;
 
+  [[nodiscard]] bool isContextActive(std::string_view context) const override { return m_context == context; }
   [[nodiscard]] float preferredWidth() const override { return scaled(m_preferredWidth); }
   [[nodiscard]] float preferredHeight() const override { return scaled(m_preferredHeight); }
   [[nodiscard]] bool fillsWidth() const noexcept override { return m_widthFill; }
@@ -147,4 +148,5 @@ private:
   bool m_persistent = false;
   scripting::PluginPanelShellConfig m_shellConfig;
   std::shared_ptr<bool> m_alive = std::make_shared<bool>(true);
+  std::string m_context;
 };

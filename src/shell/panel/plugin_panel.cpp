@@ -230,6 +230,7 @@ void PluginPanel::startScript() {
 }
 
 void PluginPanel::onOpen(std::string_view context) {
+  m_context = std::string(context);
   closeContextMenu();
   ++m_openGeneration;
   m_open = true;
