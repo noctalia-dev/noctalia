@@ -13,6 +13,8 @@
 #include "util/file_utils.h"
 #include "util/string_utils.h"
 
+#include <algorithm>
+#include <chrono>
 #include <filesystem>
 #include <string>
 #include <unordered_set>
@@ -24,6 +26,12 @@ namespace noctalia::theme {
   namespace {
 
     constexpr Logger kLog("theme_templates");
+
+    // Request coalescing window: a burst of requests applies once, after the stream has
+    // been quiet for kRequestQuietWindow, and at the latest kMaxRequestDeferral after the
+    // first request of the burst.
+    constexpr auto kRequestQuietWindow = std::chrono::milliseconds(100);
+    constexpr auto kMaxRequestDeferral = std::chrono::milliseconds(500);
 
     std::filesystem::path builtinTemplateConfigPath() { return paths::assetPath("templates/builtin.toml"); }
 
@@ -127,6 +135,9 @@ namespace noctalia::theme {
         if (userTemplate.index != 0) {
           templateTable.insert_or_assign("index", static_cast<std::int64_t>(userTemplate.index));
         }
+        if (!userTemplate.hookAsync) {
+          templateTable.insert_or_assign("hook_async", false);
+        }
         userTemplates.insert_or_assign(userTemplate.id, std::move(templateTable));
       }
 
@@ -158,7 +169,8 @@ namespace noctalia::theme {
 
   } // namespace
 
-  TemplateApplyService::TemplateApplyService(const ConfigService& config) : m_config(config) {
+  TemplateApplyService::TemplateApplyService(const ConfigService& config)
+      : m_config(config), m_hookRunner(std::make_unique<HookRunner>()) {
     m_worker = std::thread([this]() { workerLoop(); });
   }
 
@@ -169,6 +181,9 @@ namespace noctalia::theme {
       m_pendingRequest.reset();
     }
     m_cv.notify_one();
+    // The worker may be draining hooks; drop the backlog so shutdown waits only for
+    // the hooks already running.
+    m_hookRunner->requestShutdown();
     if (m_worker.joinable()) {
       m_worker.join();
     }
@@ -188,7 +203,8 @@ namespace noctalia::theme {
       // are captured only when an application is queued; forced IPC re-application bypasses
       // this deduplication.
       if (!force && m_lastAppliedRequest.has_value() && sameInputs(request, *m_lastAppliedRequest)) {
-        if (m_afterApplyCallback && !m_inFlight) {
+        // A queued request has not been applied yet; it fires the callback when it lands.
+        if (m_afterApplyCallback && !m_inFlight && !m_pendingRequest.has_value()) {
           afterApplyCallback = m_afterApplyCallback;
         }
         if (!afterApplyCallback) {
@@ -263,42 +279,15 @@ namespace noctalia::theme {
     };
   }
 
-  HookRunner& TemplateApplyService::getHookRunner() const {
-    if (!m_hookRunner) {
-      m_hookRunner = std::make_unique<HookRunner>();
-    }
-    return *m_hookRunner;
-  }
-
   void TemplateApplyService::applyRequest(const ApplyRequest& request) const {
-    HookRunner& hookRunner = getHookRunner();
+    HookRunner& hookRunner = *m_hookRunner;
 
-    // Drop queued hooks from superseded generations before reusing the runner.
+    // Hooks from superseded generations must not outlive them: drop the queued ones and
+    // wait out the ones already running. A started hook cannot be cancelled safely, so
+    // without this wait a slow hook from an older generation could finish last and win
+    // the final state (and undo hooks below could be reverted by it).
     hookRunner.invalidateBefore(request.generation);
-
-    class ScopeExit {
-    public:
-      explicit ScopeExit(std::function<void()> fn) : m_fn(std::move(fn)) {}
-      ~ScopeExit() {
-        if (m_fn) {
-          m_fn();
-        }
-      }
-
-      ScopeExit(const ScopeExit&) = delete;
-      ScopeExit& operator=(const ScopeExit&) = delete;
-
-    private:
-      std::function<void()> m_fn;
-    };
-
-    // Drain hooks on every exit path unless this request was superseded; a
-    // superseded request must not block the worker on stale generation hooks.
-    ScopeExit hookWaiter{[this, generation = request.generation, &hookRunner]() {
-      if (!requestSuperseded(generation)) {
-        hookRunner.waitIdle();
-      }
-    }};
+    hookRunner.waitIdle();
 
     TemplateEngine::Options options;
     options.defaultMode = request.defaultMode;
@@ -443,17 +432,23 @@ namespace noctalia::theme {
           return;
         }
 
-        // Track generation to detect new requests during debounce
+        // Coalesce bursts of requests (theme scrubbing, wallpaper cycling) into one
+        // application: wait for a quiet window, but never defer past kMaxRequestDeferral
+        // from the first request of the burst, so a steady request stream still applies.
+        const auto burstStart = std::chrono::steady_clock::now();
+        const auto deferralLimit = burstStart + kMaxRequestDeferral;
+        auto quietUntil = burstStart + kRequestQuietWindow;
         auto lastGeneration = m_nextGeneration;
-        auto debounceEnd = std::chrono::steady_clock::now() + std::chrono::milliseconds(100);
 
-        while (std::chrono::steady_clock::now() < debounceEnd) {
-          m_cv.wait_until(lock, debounceEnd);
-
-          // Reset timer when new request arrives
+        while (!m_shutdown) {
+          const auto wakeAt = std::min(quietUntil, deferralLimit);
+          if (std::chrono::steady_clock::now() >= wakeAt) {
+            break;
+          }
+          m_cv.wait_until(lock, wakeAt);
           if (m_nextGeneration != lastGeneration) {
             lastGeneration = m_nextGeneration;
-            debounceEnd = std::chrono::steady_clock::now() + std::chrono::milliseconds(100);
+            quietUntil = std::chrono::steady_clock::now() + kRequestQuietWindow;
           }
         }
 
@@ -467,6 +462,13 @@ namespace noctalia::theme {
       }
 
       applyRequest(request);
+
+      // Hooks of the current generation must finish before the after-apply callback
+      // reports the theme as applied. A superseded generation skips the drain; the next
+      // applyRequest() waits its hooks out before touching anything.
+      if (!requestSuperseded(request.generation)) {
+        m_hookRunner->waitIdle();
+      }
 
       std::function<void()> afterApplyCallback;
       {

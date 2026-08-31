@@ -54,7 +54,6 @@ namespace noctalia::theme {
     void applyRequest(const ApplyRequest& request) const;
     void workerLoop();
     [[nodiscard]] bool requestSuperseded(std::uint64_t generation) const;
-    HookRunner& getHookRunner() const;
 
     const ConfigService& m_config;
     mutable std::mutex m_mutex;

@@ -1,76 +1,104 @@
 #include "theme/hook_runner.h"
 
 #include <cassert>
-#include <chrono>
-#include <cstdint>
+#include <filesystem>
+#include <fstream>
+#include <string>
 
 namespace {
-  constexpr std::uint64_t kGeneration = 1;
 
-  void test_hook_runner_basic() {
-    noctalia::theme::HookRunner runner(2);
-
-    runner.enqueue("true", kGeneration);
-    runner.enqueue("true", kGeneration);
-
-    runner.waitIdle();
-    assert(runner.pendingCount() == 0);
+  std::filesystem::path sentinelPath(const char* name) {
+    return std::filesystem::temp_directory_path() / (std::string("noctalia_hook_runner_") + name);
   }
 
-  void test_hook_runner_async() {
-    noctalia::theme::HookRunner runner(2);
-
-    auto start = std::chrono::steady_clock::now();
-
-    runner.enqueue("sleep 1", kGeneration);
-    runner.enqueue("true", kGeneration);
-
-    auto enqueue_time = std::chrono::steady_clock::now();
-    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(enqueue_time - start).count();
-
-    // Enqueue should return immediately
-    assert(elapsed < 50);
-    (void)elapsed;
-
-    runner.waitIdle();
+  std::string readSentinel(const std::filesystem::path& path) {
+    std::ifstream in(path);
+    std::string contents;
+    std::getline(in, contents);
+    return contents;
   }
 
-  void test_hook_runner_parallel() {
-    noctalia::theme::HookRunner runner(4);
+  void test_runs_every_enqueued_hook() {
+    const auto sentinel = sentinelPath("run");
+    std::filesystem::remove(sentinel);
 
-    auto start = std::chrono::steady_clock::now();
-
-    for (int i = 0; i < 4; ++i) {
-      runner.enqueue("sleep 1", kGeneration);
+    {
+      noctalia::theme::HookRunner runner(2);
+      for (int i = 0; i < 4; ++i) {
+        runner.enqueue("printf x >> " + sentinel.string(), /*generation=*/1);
+      }
+      runner.waitIdle();
+      assert(runner.pendingCount() == 0);
     }
 
-    runner.waitIdle();
-
-    auto end = std::chrono::steady_clock::now();
-    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-
-    // 4 hooks of 1s on 4 threads = ~1s (not 4s)
-    assert(elapsed < 2000);
-    (void)elapsed;
+    // Concurrency is bounded, so queued hooks must still all run before waitIdle returns.
+    assert(readSentinel(sentinel) == "xxxx");
+    std::filesystem::remove(sentinel);
   }
 
-  void test_hook_runner_invalidate() {
-    noctalia::theme::HookRunner runner(2);
+  void test_drops_hooks_from_superseded_generations() {
+    const auto sentinel = sentinelPath("generation");
+    std::filesystem::remove(sentinel);
 
-    runner.enqueue("true", /*generation=*/1);
-    runner.invalidateBefore(2);
-    runner.enqueue("true", /*generation=*/2);
+    {
+      noctalia::theme::HookRunner runner(2);
+      runner.invalidateBefore(2);
+      // Generation 1 is already superseded: the hook must never run.
+      runner.enqueue("printf stale > " + sentinel.string(), /*generation=*/1);
+      runner.enqueue("printf current > " + sentinel.string(), /*generation=*/2);
+      runner.waitIdle();
+      assert(runner.pendingCount() == 0);
+    }
 
-    runner.waitIdle();
-    assert(runner.pendingCount() == 0);
+    assert(readSentinel(sentinel) == "current");
+    std::filesystem::remove(sentinel);
+  }
+
+  void test_invalidate_drops_queued_hooks() {
+    const auto sentinel = sentinelPath("invalidate");
+    std::filesystem::remove(sentinel);
+
+    {
+      // A single slot occupied by a long hook keeps the rest of the batch queued, so
+      // invalidateBefore() has to discard them.
+      noctalia::theme::HookRunner runner(1);
+      runner.enqueue("sleep 0.2", /*generation=*/1);
+      runner.enqueue("printf stale > " + sentinel.string(), /*generation=*/1);
+      runner.invalidateBefore(2);
+      runner.waitIdle();
+      assert(runner.pendingCount() == 0);
+    }
+
+    assert(!std::filesystem::exists(sentinel));
+  }
+
+  void test_shutdown_drops_backlog_and_awaits_running() {
+    const auto running = sentinelPath("shutdown_running");
+    const auto queued = sentinelPath("shutdown_queued");
+    std::filesystem::remove(running);
+    std::filesystem::remove(queued);
+
+    {
+      noctalia::theme::HookRunner runner(1);
+      runner.enqueue("sleep 0.2; printf ran > " + running.string(), /*generation=*/1);
+      runner.enqueue("printf ran > " + queued.string(), /*generation=*/1);
+      runner.requestShutdown();
+      // waitIdle() must not block on the discarded backlog after a shutdown request.
+      runner.waitIdle();
+    }
+
+    // Destruction waits for the hook that had already started, and only for that one.
+    assert(std::filesystem::exists(running));
+    assert(!std::filesystem::exists(queued));
+    std::filesystem::remove(running);
   }
 
 } // namespace
 
 int main() {
-  test_hook_runner_basic();
-  test_hook_runner_async();
-  test_hook_runner_parallel();
-  test_hook_runner_invalidate();
+  test_runs_every_enqueued_hook();
+  test_drops_hooks_from_superseded_generations();
+  test_invalidate_drops_queued_hooks();
+  test_shutdown_drops_backlog_and_awaits_running();
   return 0;
 }

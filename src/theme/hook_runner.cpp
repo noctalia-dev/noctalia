@@ -3,136 +3,126 @@
 #include "core/log.h"
 #include "core/process/process.h"
 
-#include <algorithm>
+#include <utility>
 
 namespace noctalia::theme {
 
   namespace {
     constexpr Logger kLog("hook_runner");
-  }
+    // Hook output is only read back for the failure warning.
+    constexpr std::size_t kMaxHookOutputBytes = 8 * 1024;
+  } // namespace
 
-  HookRunner::HookRunner(size_t threadCount) {
-    if (threadCount == 0) {
-      const unsigned int hw = std::thread::hardware_concurrency();
-      threadCount = std::max(2U, hw / 2);
-    }
-
-    threadCount = std::min(threadCount, size_t{8});
-
-    kLog.debug("starting hook runner with {} threads", threadCount);
-
-    m_workers.reserve(threadCount);
-    for (size_t i = 0; i < threadCount; ++i) {
-      m_workers.emplace_back([this]() { workerLoop(); });
-    }
+  HookRunner::HookRunner(std::size_t maxConcurrent) : m_state(std::make_shared<State>()) {
+    m_state->maxConcurrent = maxConcurrent > 0 ? maxConcurrent : kDefaultMaxConcurrent;
   }
 
   HookRunner::~HookRunner() {
-    {
-      std::scoped_lock lock(m_mutex);
-      m_shutdown = true;
-      // Drop queued-but-not-started hooks; only running hooks finish.
-      m_pending -= m_queue.size();
-      m_queue.clear();
-    }
-    m_cv.notify_all();
+    requestShutdown();
+    std::unique_lock lock(m_state->mutex);
+    // Hooks that already started own the shared state; wait them out instead of
+    // killing a command halfway through rewriting an application's config.
+    m_state->idleCv.wait(lock, [this]() { return m_state->running == 0; });
+  }
 
-    for (auto& worker : m_workers) {
-      if (worker.joinable()) {
-        worker.join();
-      }
-    }
+  void HookRunner::requestShutdown() {
+    std::scoped_lock lock(m_state->mutex);
+    m_state->shutdown = true;
+    m_state->queue.clear();
+    // Releases waitIdle() callers: the queued backlog is gone and running hooks
+    // are awaited by the destructor, not by whoever was draining.
+    m_state->idleCv.notify_all();
   }
 
   void HookRunner::enqueue(std::string command, std::uint64_t generation) {
+    if (command.empty()) {
+      return;
+    }
     {
-      std::scoped_lock lock(m_mutex);
-      if (m_shutdown || generation < m_currentGeneration) {
+      std::scoped_lock lock(m_state->mutex);
+      if (m_state->shutdown || generation < m_state->currentGeneration) {
         return;
       }
-      m_queue.emplace_back(QueuedHook{std::move(command), generation});
-      ++m_pending;
+      m_state->queue.emplace_back(QueuedHook{std::move(command), generation});
     }
-    m_cv.notify_one();
+    pump(m_state);
   }
 
   void HookRunner::invalidateBefore(std::uint64_t generation) {
-    std::scoped_lock lock(m_mutex);
-    if (generation <= m_currentGeneration) {
+    std::scoped_lock lock(m_state->mutex);
+    if (generation <= m_state->currentGeneration) {
       return;
     }
-    m_currentGeneration = generation;
-
-    for (auto it = m_queue.begin(); it != m_queue.end();) {
-      if (it->generation < m_currentGeneration) {
-        it = m_queue.erase(it);
-        --m_pending;
-      } else {
-        ++it;
-      }
-    }
-    if (m_pending == 0) {
-      m_idleCv.notify_all();
+    m_state->currentGeneration = generation;
+    std::erase_if(m_state->queue, [generation](const QueuedHook& hook) { return hook.generation < generation; });
+    if (m_state->queue.empty() && m_state->running == 0) {
+      m_state->idleCv.notify_all();
     }
   }
 
   void HookRunner::waitIdle() {
-    std::unique_lock lock(m_mutex);
-    m_idleCv.wait(lock, [this]() { return m_shutdown || m_pending == 0; });
+    std::unique_lock lock(m_state->mutex);
+    m_state->idleCv.wait(lock, [this]() {
+      return m_state->shutdown || (m_state->queue.empty() && m_state->running == 0);
+    });
   }
 
-  size_t HookRunner::pendingCount() const {
-    std::scoped_lock lock(m_mutex);
-    return m_pending;
+  std::size_t HookRunner::pendingCount() const {
+    std::scoped_lock lock(m_state->mutex);
+    return m_state->queue.size() + m_state->running;
   }
 
-  void HookRunner::workerLoop() {
-    while (true) {
-      QueuedHook item;
+  void HookRunner::pump(const std::shared_ptr<State>& state) {
+    for (;;) {
+      std::string command;
       {
-        std::unique_lock lock(m_mutex);
-        m_cv.wait(lock, [this]() { return m_shutdown || !m_queue.empty(); });
+        std::scoped_lock lock(state->mutex);
+        while (!state->shutdown && state->running < state->maxConcurrent && !state->queue.empty()) {
+          QueuedHook hook = std::move(state->queue.front());
+          state->queue.pop_front();
+          if (hook.generation < state->currentGeneration) {
+            continue;
+          }
+          command = std::move(hook.command);
+          ++state->running;
+          break;
+        }
 
-        if (m_shutdown) {
+        if (command.empty()) {
+          if (state->queue.empty() && state->running == 0) {
+            state->idleCv.notify_all();
+          }
           return;
         }
-
-        if (m_queue.empty()) {
-          continue;
-        }
-
-        item = std::move(m_queue.front());
-        m_queue.pop_front();
       }
 
-      // Re-check staleness in case invalidateBefore() advanced the generation
-      // between the pop above and releasing the lock.
-      {
-        std::scoped_lock lock(m_mutex);
-        if (item.generation < m_currentGeneration) {
-          --m_pending;
-          if (m_pending == 0) {
-            m_idleCv.notify_all();
-          }
-          continue;
-        }
-      }
-
-      const auto result = process::runSync(item.command);
-
-      {
-        std::scoped_lock lock(m_mutex);
-        --m_pending;
-
-        if (!result && item.generation >= m_currentGeneration) {
-          kLog.warn("hook failed with exit code {}: {} (command: {})", result.exitCode, result.err, item.command);
-        }
-
-        if (m_pending == 0) {
-          m_idleCv.notify_all();
-        }
+      if (!launch(state, command)) {
+        std::scoped_lock lock(state->mutex);
+        --state->running;
       }
     }
+  }
+
+  bool HookRunner::launch(const std::shared_ptr<State>& state, const std::string& command) {
+    process::RunCallbacks callbacks;
+    callbacks.onExit = [state, command](process::RunResult result) {
+      if (!result) {
+        kLog.warn("hook failed with exit code {}: {} (command: {})", result.exitCode, result.err, command);
+      }
+      {
+        std::scoped_lock lock(state->mutex);
+        --state->running;
+      }
+      pump(state);
+    };
+
+    process::RunOptions options;
+    options.maxOutputBytes = kMaxHookOutputBytes;
+    if (process::runAsync(command, std::move(callbacks), options)) {
+      return true;
+    }
+    kLog.warn("failed to start hook (command: {})", command);
+    return false;
   }
 
 } // namespace noctalia::theme
