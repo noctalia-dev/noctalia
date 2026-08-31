@@ -10,6 +10,9 @@ const noctalia::bar::WidgetDefinition<BluetoothWidget::Options>& bluetoothWidget
           field<&Options::showLabel>({
               .key = "show_label",
           }),
+          field<&Options::hideWhenAdapterOff>({
+              .key = "hide_when_adapter_off",
+          }),
           field<&Options::hideWhenNoConnectedDevice>({
               .key = "hide_when_no_connected_device",
           }),

@@ -3545,6 +3545,10 @@
           "description": "Hide tray items whose StatusNotifierItem status is Passive",
           "label": "Hide Passive Items"
         },
+        "hide-when-adapter-off": {
+          "description": "Hide the Bluetooth widget when adapter is powered off",
+          "label": "Hide When Off"
+        },
         "hide-when-empty": {
           "description": "Hide workspace pills when there are no open windows",
           "label": "Hide When Empty",
