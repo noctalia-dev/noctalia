@@ -391,8 +391,34 @@ bool NetworkManagerService::activateAccessPoint(const AccessPointInfo& ap, const
   return addAndActivateAccessPoint(ap, psk);
 }
 
+bool NetworkManagerService::activateEnterpriseAccessPoint(
+    const AccessPointInfo& ap, const network_enterprise::EnterpriseCredentials& credentials
+) {
+  if (ap.devicePath.empty() || ap.path.empty()) {
+    return false;
+  }
+  if (ap.active) {
+    return true;
+  }
+  if (!ap.isEnterprise()) {
+    kLog.warn("enterprise activation requested for non-802.1X ssid={}", ap.ssid);
+    return false;
+  }
+  if (!network_enterprise::passwordAuthUsable(ap.keyManagement)) {
+    kLog.warn("ssid={} requires certificate-based EAP (WPA3-Enterprise 192-bit); not supported yet", ap.ssid);
+    return false;
+  }
+  const auto problem = network_enterprise::validate(credentials);
+  if (problem != network_enterprise::Validation::Ok) {
+    kLog.warn("enterprise credentials rejected for ssid={} reason={}", ap.ssid, static_cast<std::uint32_t>(problem));
+    return false;
+  }
+  return addAndActivateAccessPoint(ap, std::nullopt, credentials);
+}
+
 bool NetworkManagerService::addAndActivateAccessPoint(
-    const AccessPointInfo& ap, const std::optional<std::string>& psk
+    const AccessPointInfo& ap, const std::optional<std::string>& psk,
+    const std::optional<network_enterprise::EnterpriseCredentials>& credentials
 ) {
   ConnectionSettings settings;
   if (ap.secured) {
@@ -401,6 +427,29 @@ bool NetworkManagerService::addAndActivateAccessPoint(
         sdbus::Variant{std::string(network_manager_security::keyManagementName(ap.keyManagement))};
     if (psk.has_value()) {
       settings["802-11-wireless-security"]["psk"] = sdbus::Variant{*psk};
+    }
+    if (credentials.has_value()) {
+      // PMF is left to NM: it negotiates what the AP requires, and pinning a value
+      // here would only be a guess about the other end.
+      const auto eap = network_enterprise::buildEapSetting(*credentials);
+      auto& eapSettings = settings["802-1x"];
+      eapSettings["eap"] = sdbus::Variant{eap.eap};
+      eapSettings["identity"] = sdbus::Variant{eap.identity};
+      eapSettings["phase2-auth"] = sdbus::Variant{eap.phase2Auth};
+      eapSettings["password"] = sdbus::Variant{eap.password};
+      if (!eap.anonymousIdentity.empty()) {
+        eapSettings["anonymous-identity"] = sdbus::Variant{eap.anonymousIdentity};
+      }
+      // The two trust anchors are mutually exclusive: a pinned file replaces the
+      // system store rather than adding to it.
+      if (eap.systemCaCerts) {
+        eapSettings["system-ca-certs"] = sdbus::Variant{true};
+      } else {
+        eapSettings["ca-cert"] = sdbus::Variant{eap.caCert};
+      }
+      if (!eap.domainSuffixMatch.empty()) {
+        eapSettings["domain-suffix-match"] = sdbus::Variant{eap.domainSuffixMatch};
+      }
     }
   }
   const sdbus::ObjectPath devicePath{ap.devicePath};

@@ -1154,6 +1154,7 @@ if build_tests
     'desktop_entry_localization',
     'disk_mounts',
     'dock_pinned_apps',
+    'enterprise_credentials',
     'event_link',
     'fcitx_status',
     'freedesktop_key_file',

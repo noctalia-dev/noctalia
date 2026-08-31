@@ -49,6 +49,11 @@ public:
   bool activateAccessPoint(const AccessPointInfo& ap) override;
   bool activateAccessPoint(const AccessPointInfo& ap, const std::string& psk) override;
 
+  [[nodiscard]] bool supportsEnterprise() const noexcept override { return true; }
+  bool activateEnterpriseAccessPoint(
+      const AccessPointInfo& ap, const network_enterprise::EnterpriseCredentials& credentials
+  ) override;
+
   // Activate / deactivate a saved VPN connection profile. Deactivate also
   // aborts a connection that is stuck activating.
   bool activateVpnConnection(const VpnConnectionInfo& vpn) override;
@@ -78,7 +83,10 @@ private:
       std::vector<std::string>& ssids, std::vector<std::string>& wiredConnectionPaths, std::function<void()> onComplete
   );
   void finishRefreshAccessPoints(std::vector<AccessPointInfo>& aps, std::function<void()> onComplete);
-  bool addAndActivateAccessPoint(const AccessPointInfo& ap, const std::optional<std::string>& psk);
+  bool addAndActivateAccessPoint(
+      const AccessPointInfo& ap, const std::optional<std::string>& psk,
+      const std::optional<network_enterprise::EnterpriseCredentials>& credentials = std::nullopt
+  );
   void watchPendingAccessPointActivation(
       const std::string& ssid, const std::string& connectionPath, const std::string& activePath
   );

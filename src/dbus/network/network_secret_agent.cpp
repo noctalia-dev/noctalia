@@ -35,7 +35,9 @@ namespace {
 
   constexpr auto kWirelessSettingName = "802-11-wireless";
   constexpr auto kWirelessSecuritySettingName = "802-11-wireless-security";
+  constexpr auto kEnterpriseSettingName = "802-1x";
   constexpr auto kPskKey = "psk";
+  constexpr auto kEapPasswordKey = "password";
 
   std::string extractSsid(const SecretsDict& connection) {
     auto wifiIt = connection.find(kWirelessSettingName);
@@ -79,7 +81,10 @@ struct NetworkSecretAgent::Impl {
       );
       return;
     }
-    if (settingName != kWirelessSecuritySettingName) {
+    // NM asks for the pre-shared key under "802-11-wireless-security" and for EAP
+    // credentials under "802-1x". Rejecting the latter is what leaves an
+    // enterprise profile unable to re-authenticate after its password changes.
+    if (settingName != kWirelessSecuritySettingName && settingName != kEnterpriseSettingName) {
       kLog.debug("GetSecrets for unsupported setting \"{}\" -> NoSecrets", settingName);
       result.returnError(
           sdbus::Error{
@@ -126,12 +131,13 @@ struct NetworkSecretAgent::Impl {
     pendingSettingName.clear();
   }
 
-  void submitPending(const std::string& psk) {
+  void submitPending(const std::string& secret) {
     if (!pendingResult.has_value()) {
       return;
     }
     SecretsDict secrets;
-    secrets[pendingSettingName][kPskKey] = sdbus::Variant{psk};
+    const auto* key = pendingSettingName == kEnterpriseSettingName ? kEapPasswordKey : kPskKey;
+    secrets[pendingSettingName][key] = sdbus::Variant{secret};
     pendingResult->returnResults(secrets);
     pendingResult.reset();
     pendingSettingName.clear();
@@ -201,9 +207,9 @@ void NetworkSecretAgent::setRequestCallback(RequestCallback callback) {
   }
 }
 
-void NetworkSecretAgent::submitSecret(const std::string& psk) {
+void NetworkSecretAgent::submitSecret(const std::string& secret) {
   if (m_impl != nullptr) {
-    m_impl->submitPending(psk);
+    m_impl->submitPending(secret);
   }
 }
 

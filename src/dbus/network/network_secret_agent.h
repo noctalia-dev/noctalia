@@ -7,7 +7,8 @@
 class SystemBus;
 
 // NetworkManager secret agent. Registers with org.freedesktop.NetworkManager.AgentManager
-// on the system bus and answers GetSecrets requests for new Wi-Fi PSK connections.
+// on the system bus and answers GetSecrets requests for new Wi-Fi connections,
+// both pre-shared key ("802-11-wireless-security") and 802.1X ("802-1x").
 //
 // The agent is single-slot: one in-flight prompt at a time. Additional GetSecrets
 // calls while a prompt is open are rejected with NoSecrets, letting NM fall back
@@ -34,8 +35,10 @@ public:
 
   void setRequestCallback(RequestCallback callback);
 
-  // Reply paths for the pending request. Safe no-ops if nothing is pending.
-  void submitSecret(const std::string& psk);
+  // Reply paths for the pending request. Safe no-ops if nothing is pending. The
+  // secret is written under the key the pending setting expects: "psk" for
+  // pre-shared keys, "password" for 802.1X.
+  void submitSecret(const std::string& secret);
   void cancelSecret();
 
   [[nodiscard]] bool hasPendingRequest() const noexcept;
