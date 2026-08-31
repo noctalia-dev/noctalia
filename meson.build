@@ -1209,6 +1209,7 @@ if build_tests
     'state_store',
     'string_utils',
     'system_monitor_service',
+    'surface_blur_region',
     'taskbar_widget',
     'template_apply_notify',
     'template_hook_async',

@@ -86,6 +86,7 @@ public:
   void setInputRegion(const std::vector<InputRect>& rects);
   void setBlurRegion(const std::vector<InputRect>& rects);
   void clearBlurRegion();
+  static bool regionIntersectsBounds(const std::vector<InputRect>& rects, std::uint32_t width, std::uint32_t height);
   void setDebugName(std::string name);
 
   // Approximates a rounded rectangle as a stack of horizontal axis-aligned strips
