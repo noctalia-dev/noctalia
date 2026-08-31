@@ -463,23 +463,6 @@ void WallpaperPanel::create() {
       })
   );
 
-  toolbar->addChild(
-      ui::button({
-          .out = &m_favoriteCurrentButton,
-          .glyph = "star",
-          .glyphSize = Style::fontSizeBody * scale,
-          .variant = ButtonVariant::Default,
-          .minWidth = Style::controlHeightSm * scale,
-          .minHeight = Style::controlHeightSm * scale,
-          .padding = Style::spaceXs * scale,
-          .radius = Style::scaledRadiusMd(scale),
-          .onClick = [this]() { toggleFavoriteForPath(currentWallpaperPathForSelection()); },
-      })
-  );
-  if (m_favoriteCurrentButton != nullptr) {
-    m_favoriteCurrentButton->setTooltip(i18n::tr("wallpaper.panel.favorite-current"));
-  }
-
   toolbar->addChild(ui::spacer());
 
   toolbar->addChild(
@@ -680,6 +663,23 @@ void WallpaperPanel::create() {
           .configure = [scale](Select& select) { select.setMinWidth(kFavoriteSelectMinWidth * scale); },
       })
   );
+
+  favoritesOptions->addChild(
+      ui::button({
+          .out = &m_favoriteCurrentButton,
+          .glyph = "star",
+          .glyphSize = Style::fontSizeBody * scale,
+          .variant = ButtonVariant::Default,
+          .minWidth = Style::controlHeightSm * scale,
+          .minHeight = Style::controlHeightSm * scale,
+          .padding = Style::spaceXs * scale,
+          .radius = Style::scaledRadiusMd(scale),
+          .onClick = [this]() { toggleFavoriteForPath(currentWallpaperPathForSelection()); },
+      })
+  );
+  if (m_favoriteCurrentButton != nullptr) {
+    m_favoriteCurrentButton->setTooltip(i18n::tr("wallpaper.panel.favorite-current"));
+  }
 
   favoritesOptions->addChild(ui::spacer());
 
