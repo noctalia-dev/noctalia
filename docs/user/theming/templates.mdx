@@ -496,6 +496,7 @@ Each template entry supports:
 - `post_action`
 - `input_path_modes`
 - `index`
+- `hook_async`
 - `requires_path`
 
 `output_path` accepts either a single string or an array of strings:
@@ -527,9 +528,23 @@ the environment variable when it is set, otherwise the spec default (`~/.config`
 `~/.local/state`, `~/.cache`). Prefer these tokens over a hardcoded `~/.config` so output lands in the right
 place when a config/data/cache home is relocated. A leading `~` still expands to `$HOME` only.
 
-`index` controls processing order and hook execution mode, and defaults to `0`. When `index = 0` (default), hooks execute asynchronously via a thread pool. Templates render without waiting for their hooks to finish.
+`index` controls processing order and defaults to `0`. Entries are processed in ascending index order.
 
-When `index > 0`, hooks execute synchronously. Templates with higher index values are processed later, in ascending order. Use this when hook execution order matters or when a hook must complete before subsequent templates are processed.
+`hook_async` controls how this entry's `post_hook` runs and defaults to `true`. A background hook lets the remaining
+templates render without waiting for it, which is what makes a slow hook (a browser or player patcher, a full
+application restart) stop holding up everything behind it.
+
+Set `hook_async = false` when the hook must not overlap with another one. Such a hook runs inline, after every
+background hook started earlier in the same run has finished, and nothing else starts until it returns. Use it when
+two entries drive the same script or touch the same files, or when a later template depends on the hook's result.
+
+```toml
+[theme.templates.user.my_app]
+input_path  = "$XDG_CONFIG_HOME/noctalia/templates/my-app.css"
+output_path = "$XDG_CONFIG_HOME/my-app/theme.css"
+post_hook   = "my-app --reload-theme"
+hook_async  = false
+```
 
 `requires_path` is optional. When set, the entry is skipped unless that path already exists on disk. Use it for explicit install checks (for example a Flatpak data directory).
 
@@ -555,9 +570,16 @@ Supported hooks:
 Behavior:
 
 - hook commands are rendered through the template engine first
-- `pre_hook` runs before any output files are written
+- `pre_hook` runs before any output files are written, and always runs synchronously
 - `post_hook` runs after a template is processed successfully, even when rendered output was unchanged
 - `closest_color` is available inside hooks
+
+By default `post_hook` commands from different entries run in the background: they can overlap and finish in any order,
+and at most four run at a time. Set `hook_async = false` on an entry whose hook must not overlap with another one, for
+example when two entries restart or reconfigure the same application.
+
+A theme change always waits for the hooks it started before reporting the theme as applied, and hooks left over from a
+superseded theme change are dropped or awaited before the next one is applied.
 
 `post_action` selects a Noctalia-owned native operation that runs after all outputs are written successfully. The
 canonical `kde-color-scheme` action requires exactly one output, merges that generated KDE color scheme into
