@@ -50,7 +50,6 @@ private:
   [[nodiscard]] static EffectType effectForWeatherCode(std::int32_t code, bool isDay);
 
   static constexpr std::size_t kForecastRowCount = 7;
-  static constexpr std::size_t kDetailRowCount = 8;
 
   WeatherService* m_weather = nullptr;
   ConfigService* m_config = nullptr;
@@ -75,13 +74,13 @@ private:
   Label* m_windLabel = nullptr;
   Label* m_sunriseLabel = nullptr;
   Label* m_sunsetLabel = nullptr;
-  Label* m_tempRangeLabel = nullptr;
+  Label* m_tempMaxLabel = nullptr;
+  Label* m_tempMinLabel = nullptr;
   Label* m_feelsLikeLabel = nullptr;
   Label* m_elevationLabel = nullptr;
   Label* m_timeZoneLabel = nullptr;
   Flex* m_timeZoneRow = nullptr;
   Label* m_uvIndexLabel = nullptr;
-  std::array<Flex*, kDetailRowCount> m_detailRows{};
   std::array<Flex*, kForecastRowCount> m_forecastRows{};
   std::array<Separator*, kForecastRowCount - 1> m_forecastSeparators{};
   std::array<Flex*, kForecastRowCount> m_forecastIconSlots{};

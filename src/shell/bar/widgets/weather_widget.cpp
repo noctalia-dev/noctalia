@@ -169,8 +169,7 @@ void WeatherWidget::sync(Renderer& renderer) {
   const std::string windUnit = imperial ? "mph" : "km/h";
 
   const int currentTemp = static_cast<int>(std::lround(m_weather->displayTemperature(snapshot.current.temperatureC)));
-  const int feelsLikeTemp =
-      static_cast<int>(std::lround(m_weather->displayTemperature(snapshot.current.apparentTemperatureC)));
+  const auto& apparentTemp = snapshot.current.apparentTemperatureC;
   const double displayWind = imperial ? snapshot.current.windSpeedKmh * 0.621371 : snapshot.current.windSpeedKmh;
 
   std::vector<TooltipRow> rows;
@@ -179,7 +178,12 @@ void WeatherWidget::sync(Renderer& renderer) {
        WeatherService::shortDescriptionForCode(snapshot.current.weatherCode)}
   );
   rows.push_back({i18n::tr("bar.widgets.weather.tooltip.temperature"), std::format("{}{}", currentTemp, tempUnit)});
-  rows.push_back({i18n::tr("bar.widgets.weather.tooltip.feels-like"), std::format("{}{}", feelsLikeTemp, tempUnit)});
+  if (apparentTemp.has_value()) {
+    rows.push_back(
+        {i18n::tr("bar.widgets.weather.tooltip.feels-like"),
+         std::format("{}{}", static_cast<int>(std::lround(m_weather->displayTemperature(*apparentTemp))), tempUnit)}
+    );
+  }
 
   if (!snapshot.forecastDays.empty()) {
     const auto& today = snapshot.forecastDays.front();

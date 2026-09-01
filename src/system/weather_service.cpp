@@ -130,6 +130,14 @@ namespace {
     return it->get<double>();
   }
 
+  std::optional<double> findNumber(const nlohmann::json& json, const char* key) {
+    const auto it = json.find(key);
+    if (it == json.end() || !it->is_number()) {
+      return std::nullopt;
+    }
+    return it->get<double>();
+  }
+
   std::int32_t readInt(const nlohmann::json& json, const char* key) {
     const auto it = json.find(key);
     if (it == json.end() || !it->is_number_integer()) {
@@ -594,7 +602,7 @@ void WeatherService::handleWeatherResponse(const std::filesystem::path& path, bo
     next.current.timeIso = readString(current, "time");
     next.current.intervalSeconds = readOptionalInt(current, "interval");
     next.current.temperatureC = readNumber(current, "temperature_2m");
-    next.current.apparentTemperatureC = readOptionalNumber(current, "apparent_temperature");
+    next.current.apparentTemperatureC = findNumber(current, "apparent_temperature");
     next.current.windSpeedKmh = readOptionalNumber(current, "wind_speed_10m");
     next.current.windDirectionDeg = readOptionalInt(current, "wind_direction_10m");
     next.current.isDay = readBool(current, "is_day", true);
@@ -736,7 +744,7 @@ void WeatherService::loadCache() {
       m_snapshot.current.timeIso = readString(*it, "time_iso");
       m_snapshot.current.intervalSeconds = readOptionalInt(*it, "interval_seconds");
       m_snapshot.current.temperatureC = readOptionalNumber(*it, "temperature_c");
-      m_snapshot.current.apparentTemperatureC = readOptionalNumber(*it, "apparent_temperature_c");
+      m_snapshot.current.apparentTemperatureC = findNumber(*it, "apparent_temperature_c");
       m_snapshot.current.windSpeedKmh = readOptionalNumber(*it, "wind_speed_kmh");
       m_snapshot.current.windDirectionDeg = readOptionalInt(*it, "wind_direction_deg");
       m_snapshot.current.isDay = readBool(*it, "is_day", true);
@@ -828,7 +836,10 @@ void WeatherService::saveCache() const {
                 {"time_iso", m_snapshot.current.timeIso},
                 {"interval_seconds", m_snapshot.current.intervalSeconds},
                 {"temperature_c", m_snapshot.current.temperatureC},
-                {"apparent_temperature_c", m_snapshot.current.apparentTemperatureC},
+                {"apparent_temperature_c",
+                 m_snapshot.current.apparentTemperatureC.has_value()
+                     ? nlohmann::json(*m_snapshot.current.apparentTemperatureC)
+                     : nlohmann::json()},
                 {"wind_speed_kmh", m_snapshot.current.windSpeedKmh},
                 {"wind_direction_deg", m_snapshot.current.windDirectionDeg},
                 {"is_day", m_snapshot.current.isDay},
