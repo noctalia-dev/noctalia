@@ -1127,6 +1127,7 @@ if build_tests
     'app_identity',
     'audio_glyphs',
     'audio_route_selection',
+    'battery_health',
     'battery_hook_state',
     'button_layout',
     'cairo_text_renderer',

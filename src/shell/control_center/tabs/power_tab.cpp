@@ -710,13 +710,13 @@ void PowerTab::syncBatteryHealth() {
   }
 
   const UPowerDeviceInfo* battery = m_upower->defaultSystemBattery();
-  const bool hasHealth = battery != nullptr && battery->energyFullDesign > 0.0 && battery->energyFull > 0.0;
+  const bool hasHealth = battery != nullptr && battery->hasHealth();
   m_healthCard->setVisible(hasHealth);
   if (!hasHealth) {
     return;
   }
 
-  const double health = std::clamp(battery->energyFull / battery->energyFullDesign * 100.0, 0.0, 100.0);
+  const double health = battery->healthPercent();
   if (m_healthLabel != nullptr) {
     m_healthLabel->setText(std::format("{:.0F}%", health));
   }

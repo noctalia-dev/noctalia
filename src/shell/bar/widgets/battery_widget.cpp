@@ -538,9 +538,8 @@ void BatteryWidget::syncState(Renderer& renderer) {
           rows.push_back({i18n::tr("power.battery.tooltip.rate"), oss.str()});
         }
 
-        if (dev.energyFullDesign > 0.0) {
-          int health = static_cast<int>(std::round(dev.energyFull / dev.energyFullDesign * 100.0));
-          rows.push_back({i18n::tr("power.battery.tooltip.health"), std::to_string(health) + "%"});
+        if (dev.hasHealth()) {
+          rows.push_back({i18n::tr("power.battery.tooltip.health"), std::format("{:.0F}%", dev.healthPercent())});
         }
       }
     }
