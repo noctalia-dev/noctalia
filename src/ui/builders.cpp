@@ -817,6 +817,9 @@ namespace ui {
     if (props.overscanRows.has_value()) {
       control->setOverscanRows(*props.overscanRows);
     }
+    if (props.itemCursorShape.has_value()) {
+      control->setItemCursorShape(*props.itemCursorShape);
+    }
     if (props.scrollbarVisible.has_value()) {
       control->scrollView().setScrollbarVisible(*props.scrollbarVisible);
     }

@@ -438,16 +438,11 @@ namespace {
     WindowSwitcherGridAdapter(float scale, AsyncTextureCache* cache, std::optional<ColorSpec> iconTint)
         : m_scale(scale), m_cache(cache), m_iconTint(iconTint) {}
 
-    void setEntries(const std::vector<WindowSwitcherEntry>* entries) {
-      m_entries = entries;
-      m_hoveredIndex = std::nullopt; // Limpa o estado se as janelas mudarem
-    }
+    void setEntries(const std::vector<WindowSwitcherEntry>* entries) { m_entries = entries; }
     void setRenderer(Renderer* renderer) { m_renderer = renderer; }
     void setOnActivate(std::function<void(std::size_t)> callback) { m_onActivate = std::move(callback); }
     void setOnClose(std::function<void(std::size_t)> callback) { m_onClose = std::move(callback); }
     void setOnInvalidate(std::function<void()> callback) { m_onInvalidate = std::move(callback); }
-
-    [[nodiscard]] bool hasHoveredTile() const noexcept { return m_hoveredIndex.has_value(); }
 
     [[nodiscard]] std::size_t itemCount() const override { return m_entries == nullptr ? 0U : m_entries->size(); }
 
@@ -468,12 +463,6 @@ namespace {
       }
       windowTile->setCellSize(windowTile->width(), windowTile->height());
       windowTile->bind(*m_renderer, (*m_entries)[index], selected, hovered);
-
-      if (hovered) {
-        m_hoveredIndex = index;
-      } else if (m_hoveredIndex == index) {
-        m_hoveredIndex = std::nullopt;
-      }
     }
 
     void onActivate(std::size_t index) override {
@@ -513,7 +502,6 @@ namespace {
     std::function<void(std::size_t)> m_onActivate;
     std::function<void(std::size_t)> m_onClose;
     std::function<void()> m_onInvalidate;
-    std::optional<std::size_t> m_hoveredIndex;
   };
 
 } // namespace
@@ -916,7 +904,6 @@ bool WindowSwitcher::onPointerEvent(const PointerEvent& event) {
     }
     if (onTarget || target->pointerInside) {
       target->inputDispatcher.pointerMotion(static_cast<float>(event.sx), static_cast<float>(event.sy), 0);
-      requestSceneUpdate();
       return true;
     }
     return false;
@@ -1061,13 +1048,6 @@ void WindowSwitcher::prepareFrame(Instance& instance, bool /*needsUpdate*/, bool
     if (instance.sceneRoot != nullptr && instance.sceneRoot->layoutDirty()) {
       instance.sceneRoot->layout(renderer);
       positionGrid(instance, static_cast<float>(width), static_cast<float>(height));
-
-      const uint32_t shape = instance.adapter->hasHoveredTile() ? WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_POINTER
-                                                                : WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_DEFAULT;
-      instance.input->setCursorShape(shape);
-      if (auto* hovered = instance.inputDispatcher.hoveredArea()) {
-        hovered->setCursorShape(shape);
-      }
     }
   }
 }
@@ -1143,6 +1123,7 @@ void WindowSwitcher::buildScene(Instance& instance, std::uint32_t width, std::ui
           .columnGap = metrics.colGap,
           .rowGap = metrics.rowGap,
           .overscanRows = 1,
+          .itemCursorShape = WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_POINTER,
           .adapter = instance.adapter.get(),
           .width = metrics.gridW,
           .height = metrics.gridH,

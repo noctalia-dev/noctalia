@@ -1151,6 +1151,7 @@ if build_tests
     'event_link',
     'fcitx_status',
     'google_client_calendar_list',
+    'grid_item_cursor',
     'hook_manager',
     'hyprland_workspace_backend',
     'i18n_language_tag',
