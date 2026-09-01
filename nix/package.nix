@@ -70,7 +70,7 @@ lib.warnIf cudaSupport
   postFixup = ''
     wrapProgram $out/bin/noctalia \
       --prefix PATH : ${lib.makeBinPath [ git ]} \
-      --prefix XDG_DATA_DIRS : "${gsettings-desktop-schemas}/share/gsettings-schemas/${gsettings-desktop-schemas.name}"
+      --prefix XDG_DATA_DIRS : "${glib.getSchemaDataDirPath gsettings-desktop-schemas}"
 
     $out/bin/noctalia completions bash | install -D /dev/stdin $out/share/bash-completion/completions/noctalia
     $out/bin/noctalia completions zsh  | install -D /dev/stdin $out/share/zsh/site-functions/_noctalia
