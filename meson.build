@@ -1164,6 +1164,7 @@ if build_tests
     'jxl_decoder',
     'keyboard_layout_label',
     'kde_color_scheme',
+    'lane_selection_token',
     'log',
     'location_service',
     'math_provider',
