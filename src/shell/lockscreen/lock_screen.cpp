@@ -118,6 +118,11 @@ bool LockScreen::lock() {
     return false;
   }
   if (isActive()) {
+    // Seen desynced once (2026-08-04): an external locker + compositor lock
+    // restore left m_locked stuck true while the compositor was unlocked, and
+    // every lock request no-op'd silently. Log so that state is diagnosable;
+    // a shell restart clears it.
+    kLog.info("lock requested but lock already active (pending={} locked={}); ignoring", m_lockPending, m_locked);
     return true;
   }
   if (!m_wayland->hasSessionLockManager()) {

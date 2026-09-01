@@ -1,10 +1,14 @@
 #include "capture/screencopy_util.h"
 
+#include "capture/screencopy_blocking.h"
 #include "capture/screencopy_capture.h"
 #include "wayland/wayland_connection.h"
 
 #include <algorithm>
+#include <cerrno>
+#include <chrono>
 #include <cstring>
+#include <poll.h>
 #include <wayland-client-core.h>
 #include <wayland-client-protocol.h>
 
@@ -194,6 +198,63 @@ namespace {
     }
   }
 
+  // Deadline-aware wait on the Wayland fd. wl_display_roundtrip() cannot be
+  // used here: it blocks until the server answers, so a compositor that never
+  // delivers ready/failed for a frame (seen 2026-08-04 with lock-screen
+  // snapshots on Hyprland) blocks it forever and no deadline checked around it
+  // can fire. Dispatch what is already queued, then poll the fd for at most
+  // the remaining budget and dispatch whatever arrived.
+  //
+  // Returns >0 when events were dispatched, 0 when the wait expired or was
+  // interrupted with no progress, <0 on a connection error.
+  [[nodiscard]] int waitAndDispatchWayland(wl_display* display, std::chrono::milliseconds timeout) {
+    if (display == nullptr) {
+      return -1;
+    }
+
+    if (wl_display_dispatch_pending(display) < 0) {
+      return -1;
+    }
+
+    // prepare_read/read_events rather than wl_display_dispatch(): only the
+    // latter pair lets us sit in our own poll() with a timeout.
+    while (wl_display_prepare_read(display) != 0) {
+      // prepare_read only refuses while the queue still holds events, so drain
+      // them; any progress goes back to the caller, which re-checks the
+      // deadline before waiting again.
+      const int dispatched = wl_display_dispatch_pending(display);
+      if (dispatched < 0) {
+        return -1;
+      }
+      if (dispatched > 0) {
+        return dispatched;
+      }
+      // Nothing drained and still cannot prepare: yield instead of spinning.
+      return 0;
+    }
+
+    if (wl_display_flush(display) < 0 && errno != EAGAIN) {
+      wl_display_cancel_read(display);
+      return -1;
+    }
+
+    pollfd pollFd{.fd = wl_display_get_fd(display), .events = POLLIN, .revents = 0};
+    const int ready = ::poll(&pollFd, 1, static_cast<int>(timeout.count()));
+    if (ready < 0) {
+      wl_display_cancel_read(display);
+      return errno == EINTR ? 0 : -1;
+    }
+    if (ready == 0) {
+      wl_display_cancel_read(display);
+      return 0;
+    }
+
+    if (wl_display_read_events(display) < 0) {
+      return -1;
+    }
+    return wl_display_dispatch_pending(display);
+  }
+
 } // namespace
 
 namespace screencopy {
@@ -202,43 +263,24 @@ namespace screencopy {
       ScreencopyCapture& capture, WaylandConnection& wayland, wl_output* output, ScreencopyImage& out,
       std::string& error, bool overlayCursor
   ) {
-    error.clear();
-    bool finished = false;
-    capture.capture(
-        output, std::nullopt, overlayCursor, [&](std::optional<ScreencopyImage> image, const std::string& err) {
-          finished = true;
-          if (!err.empty() || !image.has_value()) {
-            error = err.empty() ? "screencopy capture failed" : err;
-            return;
-          }
-          out = std::move(*image);
-        }
-    );
+    // The wait is bounded (see runBlockingCapture): a compositor that never
+    // delivers ready/failed for this capture used to spin here forever —
+    // inside the main loop, freezing the whole shell. On timeout the caller
+    // falls back to the wallpaper background.
+    const BlockingCaptureOps ops{
+        .start = [&](
+                     ScreencopyCapture::CompletionCallback onComplete
+                 ) { capture.capture(output, std::nullopt, overlayCursor, std::move(onComplete)); },
+        .busy = [&] { return capture.busy(); },
+        .cancel = [&] { capture.cancelInFlight(); },
+    };
+    const EventWaitOps wait{
+        .waitAndDispatch = [&](std::chrono::milliseconds timeout) {
+          return waitAndDispatchWayland(wayland.display(), timeout);
+        },
+    };
 
-    if (!error.empty()) {
-      return false;
-    }
-
-    while (!finished && capture.busy()) {
-      if (wl_display_roundtrip(wayland.display()) < 0) {
-        error = "Wayland roundtrip failed";
-        return false;
-      }
-    }
-
-    if (!error.empty() || !finished) {
-      if (error.empty()) {
-        error = "screencopy capture failed";
-      }
-      return false;
-    }
-
-    if (out.width <= 0 || out.height <= 0 || out.rgba.empty()) {
-      error = "screencopy capture returned an empty frame";
-      return false;
-    }
-
-    return true;
+    return runBlockingCapture(ops, wait, out, error);
   }
 
   bool orientCaptureNative(ScreencopyImage& image, const WaylandConnection& wayland, wl_output* output) {

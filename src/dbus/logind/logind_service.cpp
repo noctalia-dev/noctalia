@@ -1,9 +1,9 @@
 #include "dbus/logind/logind_service.h"
 
 #include "core/log.h"
+#include "dbus/logind/logind_session.h"
 #include "dbus/system_bus.h"
 
-#include <cstdlib>
 #include <fcntl.h>
 #include <optional>
 #include <sdbus-c++/Error.h>
@@ -35,34 +35,6 @@ namespace {
     return ::fcntl(fd, F_SETFD, flags | FD_CLOEXEC) == 0;
   }
 
-  [[nodiscard]] std::optional<sdbus::ObjectPath> resolveSessionPath(sdbus::IConnection& connection) {
-    try {
-      auto managerProxy = sdbus::createProxy(connection, kLogindBusName, kLogindObjectPath);
-
-      if (const char* sessionId = std::getenv("XDG_SESSION_ID"); sessionId != nullptr && sessionId[0] != '\0') {
-        try {
-          sdbus::ObjectPath sessionPath;
-          managerProxy->callMethod("GetSession")
-              .onInterface(kLogindManagerInterface)
-              .withArguments(std::string(sessionId))
-              .storeResultsTo(sessionPath);
-          return sessionPath;
-        } catch (const sdbus::Error& e) {
-          kLog.debug("failed to resolve logind session via XDG_SESSION_ID={}: {}", sessionId, e.what());
-        }
-      }
-
-      sdbus::ObjectPath sessionPath;
-      managerProxy->callMethod("GetSessionByPID")
-          .onInterface(kLogindManagerInterface)
-          .withArguments(static_cast<std::uint32_t>(::getpid()))
-          .storeResultsTo(sessionPath);
-      return sessionPath;
-    } catch (const sdbus::Error& e) {
-      kLog.warn("failed to resolve logind session: {}", e.what());
-      return std::nullopt;
-    }
-  }
 } // namespace
 
 LogindService::LogindService(SystemBus& bus) : m_bus(bus) {
@@ -84,13 +56,13 @@ void LogindService::ensureSessionLockMonitor() {
     return;
   }
 
-  const auto sessionPath = resolveSessionPath(m_bus.connection());
-  if (!sessionPath.has_value()) {
+  const auto session = logind::resolveSession(m_bus.connection());
+  if (!session.has_value()) {
     kLog.warn("logind session lock monitor disabled: session path unavailable");
     return;
   }
 
-  m_sessionProxy = sdbus::createProxy(m_bus.connection(), kLogindBusName, *sessionPath);
+  m_sessionProxy = sdbus::createProxy(m_bus.connection(), kLogindBusName, session->path);
   m_sessionProxy->uponSignal("Lock").onInterface(kLogindSessionInterface).call([this]() {
     if (m_lockCallback) {
       m_lockCallback();
@@ -101,7 +73,10 @@ void LogindService::ensureSessionLockMonitor() {
       m_unlockCallback();
     }
   });
-  kLog.info("logind session lock monitor active ({})", std::string(sessionPath->c_str()));
+  kLog.info(
+      "logind session lock monitor active ({}, resolved via {})", std::string(session->path.c_str()),
+      logind::describe(session->source)
+  );
 }
 
 void LogindService::setSessionLockIntegrationEnabled(bool enabled) {
