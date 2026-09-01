@@ -12,6 +12,7 @@
 #include <chrono>
 #include <cmath>
 #include <format>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <utility>
@@ -538,8 +539,8 @@ void BatteryWidget::syncState(Renderer& renderer) {
           rows.push_back({i18n::tr("power.battery.tooltip.rate"), oss.str()});
         }
 
-        if (dev.hasHealth()) {
-          rows.push_back({i18n::tr("power.battery.tooltip.health"), std::format("{:.0F}%", dev.healthPercent())});
+        if (const std::optional<double> health = dev.healthPercent()) {
+          rows.push_back({i18n::tr("power.battery.tooltip.health"), std::format("{:.0F}%", *health)});
         }
       }
     }

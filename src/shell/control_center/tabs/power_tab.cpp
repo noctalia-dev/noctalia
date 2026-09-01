@@ -14,6 +14,7 @@
 #include <cstdint>
 #include <format>
 #include <memory>
+#include <optional>
 #include <string>
 
 using namespace control_center;
@@ -710,19 +711,18 @@ void PowerTab::syncBatteryHealth() {
   }
 
   const UPowerDeviceInfo* battery = m_upower->defaultSystemBattery();
-  const bool hasHealth = battery != nullptr && battery->hasHealth();
-  m_healthCard->setVisible(hasHealth);
-  if (!hasHealth) {
+  const std::optional<double> health = battery != nullptr ? battery->healthPercent() : std::nullopt;
+  m_healthCard->setVisible(health.has_value());
+  if (!health) {
     return;
   }
 
-  const double health = battery->healthPercent();
   if (m_healthLabel != nullptr) {
-    m_healthLabel->setText(std::format("{:.0F}%", health));
+    m_healthLabel->setText(std::format("{:.0F}%", *health));
   }
   if (m_healthBar != nullptr) {
-    m_healthBar->setProgress(static_cast<float>(health / 100.0));
-    m_healthBar->setFill(colorSpecFromRole(healthRole(health)));
+    m_healthBar->setProgress(static_cast<float>(*health / 100.0));
+    m_healthBar->setFill(colorSpecFromRole(healthRole(*health)));
   }
 }
 

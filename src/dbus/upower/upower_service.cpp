@@ -254,9 +254,9 @@ namespace {
 
 } // namespace
 
-double UPowerDeviceInfo::healthPercent() const {
-  if (!hasHealth()) {
-    return 0.0;
+std::optional<double> UPowerDeviceInfo::healthPercent() const {
+  if (energyFullDesign <= 0.0 || energyFull <= 0.0) {
+    return std::nullopt;
   }
   return std::clamp(energyFull / energyFullDesign * 100.0, 0.0, 100.0);
 }
