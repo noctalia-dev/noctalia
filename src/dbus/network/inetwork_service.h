@@ -34,6 +34,9 @@ public:
   [[nodiscard]] virtual bool canActivateWiredConnection() const noexcept { return false; }
   virtual bool activateWiredConnection() { return false; }
   virtual void setWirelessEnabled(bool enabled, WirelessEnabledCompletion onComplete = {}) = 0;
+  // False when the active connection is one this backend cannot take down, so
+  // callers can hide the control rather than offer an action that does nothing.
+  [[nodiscard]] virtual bool canDisconnect() const noexcept { return true; }
   virtual void disconnect() = 0;
   virtual void forgetSsid(const std::string& ssid) = 0;
   [[nodiscard]] virtual bool hasSavedConnection(const std::string& ssid) const = 0;

@@ -468,6 +468,9 @@ std::unique_ptr<Flex> NetworkTab::create() {
             }
             const bool wasConnected = m_network->state().connected;
             if (wasConnected) {
+              if (!m_network->canDisconnect()) {
+                return;
+              }
               m_network->disconnect();
             } else if (!m_network->activateWiredConnection()) {
               return;
@@ -745,8 +748,9 @@ void NetworkTab::syncCurrentCard() {
   m_currentTitle->setText(currentTitle(s));
   m_currentDetail->setText(currentDetail(s, externalIp));
   if (m_disconnectButton != nullptr) {
+    const bool canDisconnect = s.connected && m_network->canDisconnect();
     const bool canReconnectWired = !s.connected && m_network->canActivateWiredConnection();
-    m_disconnectButton->setVisible(s.connected || canReconnectWired || m_actionPending);
+    m_disconnectButton->setVisible(canDisconnect || canReconnectWired || m_actionPending);
     m_disconnectButton->setGlyph(s.connected ? "plug-off" : "plug");
     m_disconnectButton->setVariant(s.connected ? ButtonVariant::Destructive : ButtonVariant::Default);
     m_disconnectButton->setEnabled(!m_actionPending);
