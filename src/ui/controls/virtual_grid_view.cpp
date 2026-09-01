@@ -8,6 +8,7 @@
 #include <cmath>
 #include <linux/input-event-codes.h>
 #include <memory>
+#include <utility>
 
 // Internal canvas that reports a virtual size set externally and never moves
 // its children during its own layout pass — VirtualGridView positions pool
@@ -85,6 +86,8 @@ VirtualGridView::VirtualGridView() {
   });
   m_inputArea = static_cast<InputArea*>(m_canvas->addChild(std::move(inputArea)));
 }
+
+void VirtualGridView::bindScrollState(ScrollViewState* state) { m_scroll->bindState(state); }
 
 void VirtualGridView::setAdapter(VirtualGridAdapter* adapter) {
   if (m_adapter == adapter) {
@@ -312,9 +315,9 @@ void VirtualGridView::doLayout(Renderer& renderer) {
       const float visibleTop = m_scroll->scrollOffset();
       const float visibleBottom = visibleTop + viewportH;
       if (rowTop < visibleTop) {
-        m_scroll->setScrollOffset(rowTop);
+        m_scroll->requestScrollToOffset(rowTop);
       } else if (rowBottom > visibleBottom) {
-        m_scroll->setScrollOffset(rowBottom - viewportH);
+        m_scroll->requestScrollToOffset(rowBottom - viewportH);
       }
     }
   }
@@ -502,6 +505,17 @@ void VirtualGridView::onPointerMotion(float localX, float localY) {
   const auto idx = indexAt(localX, localY);
 
   if (m_adapterPointerCapture && m_adapter != nullptr) {
+    // A held press only becomes a drag once the pointer has travelled the same
+    // distance the rest of the shell requires. Pointers emit motion between
+    // press and release (and enter is replayed as motion after a scene-root
+    // swap), so without this every click would reach the adapter as a
+    // zero-distance drag and never as a click.
+    if (!m_dragThresholdPassed) {
+      if (std::hypot(localX - m_pressLocalX, localY - m_pressLocalY) < Style::dragStartThreshold * m_scale) {
+        return;
+      }
+      m_dragThresholdPassed = true;
+    }
     if (m_adapter->onPointerDrag(idx, localX, localY, m_cellWidth, m_cellHeightResolved)) {
       notifyDataChanged();
     }
@@ -580,6 +594,9 @@ void VirtualGridView::onPointerPress(float localX, float localY) {
   cellLocalAt(localX, localY, *idx, cellLocalX, cellLocalY);
   if (m_adapter->onPointerPress(*idx, cellLocalX, cellLocalY, m_cellWidth, m_cellHeightResolved)) {
     m_adapterPointerCapture = true;
+    m_pressLocalX = localX;
+    m_pressLocalY = localY;
+    m_dragThresholdPassed = false;
     return;
   }
   m_adapter->onActivate(*idx);

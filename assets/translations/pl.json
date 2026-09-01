@@ -31,6 +31,7 @@
       "choose-display": "Wybierz ekran",
       "confirm-region": "Enter lub Spacja aby wykonać zrzut · Esc aby anulować · Przeciągnij, aby wybrać ponownie",
       "fullscreen": "Pełny ekran",
+      "overlay-alloc-failed": "Nie można było pokazać nakładki od robienia zrzutu ekranu (GPU nie ma wolnej pamięci?)",
       "region": "Wybierz obszar"
     },
     "widgets": {
@@ -58,6 +59,7 @@
       },
       "network": {
         "active": "Aktywna",
+        "band": "Częstotliwość",
         "connected": "Połączono",
         "connecting": "Łączenie",
         "download": "Pobieranie",
@@ -65,18 +67,70 @@
         "ip": "IP",
         "network": "Sieć",
         "networks": "Sieci",
-        "wired": "Przewodowa"
+        "networks-count": "{count} sieć",
+        "networks-count-plural": "{count} sieci",
+        "no": "Nie",
+        "not-connected": "Nie połączono",
+        "off": "Wyłączono",
+        "on": "Włączono",
+        "scanning": "Skanowanie",
+        "signal": "Sygnał",
+        "upload": "Wysyłanie",
+        "vpn": "VPN",
+        "wan-ip": "WAN IP",
+        "wifi": "Wi-Fi",
+        "wired": "Przewodowe",
+        "yes": "Tak"
+      },
+      "privacy": {
+        "camera": "Kamera",
+        "microphone": "Mikrofon",
+        "screen-sharing": "Udzielanie ekranu"
       },
       "scripted": {
         "reload-failed": "Nie udało się przeładować skryptu",
         "reloaded": "Przeładowano skrypt"
+      },
+      "sysmon": {
+        "cpu": "CPU",
+        "cpu-freq": "Częstotliwość CPU",
+        "cpu-temp": "Temperatura CPU",
+        "disk": "Dysk",
+        "disk-free": "Wolnego miejsca na dysku",
+        "disk-free-pct": "Wolnego miejsca na dysku %",
+        "disk-used": "Zajętego miejsca na dysku",
+        "disk-used-pct": "Zajętego miejsca na dysku %",
+        "download": "Pobieranie",
+        "gpu-temp": "Temperatura GPU",
+        "gpu-usage": "Użycie GPU",
+        "gpu-vram": "VRAM GPU",
+        "ram": "RAM",
+        "swap": "Swap",
+        "system": "System",
+        "upload": "Wysyłanie"
+      },
+      "volume": {
+        "device": "Urządenie",
+        "mic": "Mikrofon",
+        "volume": "Głośność"
       },
       "weather": {
         "default": "Pogoda",
         "error": "Błąd pogody",
         "loading": "Pogoda...",
         "no-location": "Brak lokalizacji",
-        "off": "Pogoda wyłączona"
+        "off": "Pogoda wyłączona",
+        "tooltip": {
+          "condition": "Kondycja",
+          "high": "Wysoka",
+          "humidity": "Wilgotność",
+          "low": "Niska",
+          "sunrise": "Wschód",
+          "sunset": "Zachód",
+          "temperature": "Temperatura",
+          "uv": "Indeks UV",
+          "wind": "Wiatr"
+        }
       }
     }
   },
@@ -129,6 +183,10 @@
   "control-center": {
     "audio": {
       "application-volumes": "Głośność aplikacji",
+      "choose-effects-profile": "Wybierz profil",
+      "default-device": "Domyślne urządzenie",
+      "effects-profile": "Efekty",
+      "input-device-prefix": "Wejście",
       "no-application-audio": "Brak dźwięku aplikacji",
       "no-application-audio-body": "Brak dostępnych strumieni odtwarzania aplikacji.",
       "no-input-devices": "Brak urządzeń wejściowych",
@@ -137,11 +195,13 @@
       "no-output-devices": "Brak urządzeń wyjściowych",
       "no-output-devices-body": "Brak dostępnych wyjść do odtwarzania.",
       "no-output-selected": "Nie wybrano urządzenia wyjściowego",
+      "output-device-prefix": "Wyjście",
       "unavailable-body": "PipeWire nie jest aktywny.",
       "unavailable-title": "Audio niedostępne"
     },
     "bluetooth": {
       "accept": "Akceptuj",
+      "address": "Adres",
       "auto-reconnect": "Automatyczne ponowne łączenie",
       "bluetooth": "Bluetooth",
       "enter-code": "Wprowadź kod",
@@ -171,7 +231,8 @@
     "calendar": {
       "all-day": "Całodziennie",
       "events": "Zdarzenia",
-      "no-events": "Brak zdarzeń."
+      "no-events": "Brak zdarzeń.",
+      "today": "Dzisiaj "
     },
     "display": {
       "disabled": "Wyłączone",
@@ -182,7 +243,7 @@
       "media": {
         "idle": "Bezczynność",
         "no-active-player": "Brak aktywnego odtwarzacza",
-        "nothing-playing": "Nic nie odtwarza",
+        "nothing-playing": "Nic nie jest odtwarzane",
         "paused": "Wstrzymane",
         "playback-unavailable": "Odtwarzanie niedostępne",
         "playing": "Odtwarzanie",
@@ -201,7 +262,7 @@
     },
     "media": {
       "active-player": "Aktywny odtwarzacz",
-      "nothing-playing": "Nic nie odtwarza",
+      "nothing-playing": "Nic nie jest odtwarzane",
       "now-playing": "Teraz odtwarzane",
       "start-playback": "Uruchom odtwarzanie w aplikacji MPRIS"
     },
@@ -235,6 +296,14 @@
       "filter-empty-title": "Nic tu nie ma",
       "untitled": "Nienazwane powiadomienie"
     },
+    "power": {
+      "battery": "Bateria",
+      "charging": {
+        "title": "Naładowanie baterii"
+      },
+      "health": "Życie baterii",
+      "unknown-device": "Nieznane urządzenie"
+    },
     "screen-time": {
       "disabled": "Śledzenie czasu na ekranie jest wyłączone. Włącz je w Ustawieniach, aby rejestrować użycie aplikacji.",
       "empty": "Nie zarejestrowano jeszcze użycia aplikacji. Aktywuj okno, aby rozpocząć śledzenie.",
@@ -259,7 +328,7 @@
         "dark": "Tryb ciemny",
         "light": "Tryb jasny"
       },
-      "keyboard-layout": "Układ",
+      "keyboard-layout": "Układ klawiatury",
       "media": "Multimedia",
       "mic-mute": "Mikrofon",
       "nightlight": "Night Light",
@@ -415,7 +484,7 @@
       }
     },
     "media": {
-      "nothing-playing": "Nic nie odtwarza"
+      "nothing-playing": "Nic nie jest odtwarzane"
     },
     "weather": {
       "error": "Błąd",
@@ -530,10 +599,12 @@
       "placeholder": "Wpisz odpowiedź…"
     },
     "internal": {
-      "battery": "Akumulator",
-      "battery-device": "Urządzenie zasilane akumulatorem",
+      "battery": "Bateria",
+      "battery-critical-body": "{device}: {precent}% - twój komputer się zaraz wyłączy",
+      "battery-critical-title": "Naładowanie baterii krytycznie niskie",
+      "battery-device": "Urządzenie zasilane baterią",
       "battery-low-body": "{device}: pozostało {percent}%",
-      "battery-low-title": "Niski poziom akumulatora",
+      "battery-low-title": "Niski poziom baterii",
       "calendar": "Kalendarz",
       "calendar-google-connect-browser-failed": "Nie można uruchomić przeglądarki do autoryzacji Google. Sprawdź domyślną przeglądarkę lub konfigurację xdg-open.",
       "calendar-google-connect-expired": "Autoryzacja Google wygasła przed zakończeniem logowania. Ponownie rozpocznij połączenie.",
@@ -592,11 +663,11 @@
   "power": {
     "battery": {
       "states": {
-        "battery": "Akumulator",
+        "battery": "Bateria",
         "charging": "Ładowanie",
         "discharging": "Rozładowywanie",
-        "empty": "Pusty",
-        "pending-discharge": "Oczekujące rozładowanie",
+        "empty": "Pusta",
+        "pending-discharge": "Oczekuje rozładowania",
         "plugged-in": "Podłączony"
       },
       "tooltip": {
@@ -858,7 +929,7 @@
         "automation": "automatyzacja",
         "backdrop": "tło",
         "background": "tło",
-        "battery": "bateria",
+        "battery": "Bateria",
         "behavior": "zachowanie",
         "brightness": "jasność",
         "built-in": "wbudowane",
@@ -1739,7 +1810,7 @@
         },
         "calendar-add": {
           "button": "Dodaj konto",
-          "description": "Dodaj konta iCloud, CalDAV lub Google",
+          "description": "Dodaj konta iCloud, CalDAV, Google lub ICS URL",
           "label": "Konta kalendarza"
         },
         "calendar-edit": {
@@ -2064,9 +2135,9 @@
           "label": "Kopiuj do schowka"
         },
         "screenshot-directory": {
-          "description": "Folder dla zapisanych plików PNG; zostaw puste aby użyć ~/Pictures",
+          "description": "Folder dla zapisanych plików PNG; zostaw puste aby użyć standardowego katalogu zdjęć XDG",
           "label": "Katalog wyjścia",
-          "placeholder": "~/Pictures"
+          "placeholder": "Katalog zdjęć XDG"
         },
         "screenshot-filename-pattern": {
           "description": "Wzór strftime bez rozszerzenia (dodawane jest .png); użyj %s dla uniksowego znacznika czasu",
@@ -2155,7 +2226,7 @@
           "label": "Dołącz podfoldery"
         },
         "directory": {
-          "description": "Folder zawierający tapety",
+          "description": "Folder zawierający tapety; pozostaw pusty aby użyć domyślnego katalogu zdjęć XDG",
           "label": "Katalog tapet"
         },
         "directory-dark": {
@@ -2273,11 +2344,11 @@
         "none": "Brak",
         "on-hover": "Po najechaniu",
         "output": "Wyjście",
-        "ram-percent": "Procent RAM",
+        "ram-percent": "% RAM",
         "ram-used": "Użyty RAM",
         "shared": "Wspólny",
         "short": "Krótki",
-        "swap-percent": "Procent zamiany",
+        "swap-percent": "% Swap",
         "text": "Tekst",
         "text-only": "Tylko tekst",
         "workspace-label-centered": "Wyśrodkowany",
@@ -2362,7 +2433,7 @@
           "label": "Wyświetlanie"
         },
         "display-mode": {
-          "description": "Renderuj baterię jako kształt graficzny lub glifę Tablera",
+          "description": "Renderuj baterię jako kształt graficzny lub glifę Tablera, albo tylko jako eytkieta",
           "label": "Tryb wyświetlania"
         },
         "drawer": {
@@ -2486,7 +2557,7 @@
         "max-label-chars": {
           "description": "Maksymalna liczba znaków do wyświetlenia dla nazw obszarów roboczych",
           "label": "Maksymalna liczba znaków etykiety",
-          "workspaces-description": "Maksymalna liczba znaków dla etykiet nazw obszarów roboczych"
+          "workspaces-description": "Maksymalna liczba znaków dla nie numerycznych etykiet nazw obszarów roboczych"
         },
         "max-length": {
           "description": "Maksymalna długość widżetu w pikselach",
@@ -2542,7 +2613,7 @@
           "label": "Wskaźnik aktywnego okna"
         },
         "show-all-outputs": {
-          "description": "Dołącz okna z każdego ekranu do tego widżetu",
+          "description": "Dołącz okna z każdego monitora do tego widżetu",
           "label": "Pokaż wszystkie monitory"
         },
         "show-caps-lock": {

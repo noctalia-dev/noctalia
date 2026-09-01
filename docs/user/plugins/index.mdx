@@ -1,0 +1,148 @@
+---
+title: Using Plugins
+description: Install, enable, update, and configure Noctalia plugins from git or local sources.
+sidebar:
+  label: Using Plugins
+  order: 1
+---
+
+import PluginApiRange from '../../../../components/PluginApiRange.astro';
+
+:::caution[Beta - APIs may still change]
+The plugin system is in **beta**. The manifest format and APIs may still change before v5 is stable, so build with that in mind.
+:::
+
+Plugins extend Noctalia with **bar widgets**, **desktop widgets**, **shell panels**, **control-center shortcuts**,
+**launcher providers**, and headless **background services** - all driven by trusted [Luau](https://luau.org) scripts
+running in isolated VMs. A plugin is a directory containing a static
+`plugin.toml` manifest and one or more `.luau` entry scripts.
+
+Plugins come from **sources**. Two git sources ship by default:
+
+- **official** - `https://github.com/noctalia-dev/official-plugins`
+- **community** - `https://github.com/noctalia-dev/community-plugins`
+
+You can also add your own git repos or local directories.
+
+## Enabling a plugin
+
+Nothing is active until you enable it - installed ≠ enabled. Enabling a plugin from a git source exports just that
+plugin's directory from the source repo cache into `$XDG_STATE_HOME/noctalia/plugins/materialized/`. Noctalia owns both
+the repo cache and exported runtime files.
+
+### From the settings GUI
+
+Open **Settings → Plugins**. Use **Add source** to add a git repo or local directory. Each configured source is listed
+with **Update** where applicable and **Remove** for custom sources, and every discovered plugin has an **enable toggle**.
+Toggle a plugin on to fetch + activate it; toggle off to deactivate it. Incompatible plugins (see
+[Compatibility](#compatibility)) are shown but cannot be enabled.
+
+Plugins that expose **plugin-level settings** show a **gear** on their row - open it to configure options shared across
+all of the plugin's parts (for example the screen recorder's codec, quality, and output folder). Settings persist to the
+state dir, so a read-only config directory is fine. Bar-widget entries can also declare widget settings, edited where
+that widget is configured.
+
+If a plugin is enabled in `config.toml` and you disable it in Settings, Noctalia writes an app-owned
+`[plugins].enabled` override to `settings.toml`. That override wins until you remove or edit it.
+
+### From the command line
+
+```sh
+noctalia msg plugins list                              # every plugin across all sources, with enabled state
+noctalia msg plugins enable noctalia/screen_recorder   # fetch (if needed) + enable
+noctalia msg plugins disable noctalia/screen_recorder  # disable; code + settings are retained
+noctalia msg plugins update official                   # update a source, then hot-reload its plugins
+```
+
+Manage sources too:
+
+```sh
+noctalia msg plugins source list
+noctalia msg plugins source add my-repo git https://github.com/me/my-plugins
+noctalia msg plugins source add my-dev path ~/dev/my-plugins
+noctalia msg plugins source remove my-repo
+```
+
+The built-in `official` and `community` sources can be updated and enabled or disabled in Settings, but are protected
+from removal in Settings and IPC. Custom git/path sources are removable. **Auto-update plugins** is a dropdown that
+controls the global `[plugins].auto_update` mode: **All sources** (default), **Official only**, or **None**.
+
+Enabling a plugin makes its entries available. Its **bar widget** then shows up in the Add-widget picker - add a widget
+instance just like any built-in widget (or configure one by hand with `type = "<author>/<plugin>:<entry>"`). A
+**control-center shortcut** is added from the control-center shortcuts settings, like any other shortcut. A **panel**
+opens with `noctalia msg panel-toggle <author>/<plugin>:<entry>` (or from a bar widget that runs the same command).
+Panel **placement** (attached/floating, screen position, open-near-click) is configured per panel entry under
+**Settings → Plugins**, same as built-in shell panels.
+
+## Configuration
+
+Plugin state lives under `[plugins]`. The `enabled` list and the sources are user intent (declarative-friendly); the app
+also writes runtime toggles to its state file, and both are merged.
+
+```toml
+[plugins]
+# Fully-qualified ids ("<author>/<plugin>") that are active.
+enabled = ["noctalia/screen_recorder"]
+auto_update = "all" # "all" | "official" | "none"; background git updates on startup and every 6 hours
+
+# A git source: cached and updated by Noctalia.
+[[plugins.source]]
+name     = "official"
+kind     = "git"
+location = "https://github.com/noctalia-dev/official-plugins"
+enabled  = true
+
+# A path source: an immutable local directory Noctalia treats read-only
+# (no git ops). Ideal for local development or Nix-managed plugins.
+[[plugins.source]]
+name     = "my-dev"
+kind     = "path"
+location = "~/dev/my-plugins"
+enabled  = true
+```
+
+`auto_update` accepts one of:
+
+- `"all"` (default) - update every enabled git source on startup and every 6 hours
+- `"official"` - update only the built-in `official` source if enabled (matched by name **and** location, so a custom source reusing the name isn't trusted)
+- `"none"` - never auto-update
+
+The boolean form (`auto_update = true` / `false`) from earlier builds is no longer accepted - use `"all"` or `"none"`.
+`enabled = false` on a source prevents it from being scanned or updated while retaining its app-managed clone.
+
+Plugins placed by hand under `~/.local/share/noctalia/plugins/<plugin>/` are discovered as a built-in **local** source - 
+handy for development. Like every plugin, they must be enabled before they activate. See
+[File locations](/noctalia/configuration/#file-locations) for where plugin code and everything else lives.
+
+Git source operations are non-interactive. Private repos must be reachable through an already-working credential helper,
+SSH agent, or SSH config; otherwise clone/update fails and Noctalia continues without prompting for a password.
+Git source runtime files are exported caches, not editable plugin state. Use a `path` source or
+`~/.local/share/noctalia/plugins/` for local plugin development.
+
+A source `name` is its identity, so duplicate names in `[[plugins.source]]` are rejected with a config error. Replacing
+a git source with the same name but a different `location` deletes Noctalia's app-managed repo cache and exported
+runtime files for that source, then re-fetches from the new location when needed.
+
+## Updating
+
+`noctalia msg plugins update <source>` updates the source and hot-reloads its enabled plugins. The global
+`[plugins].auto_update` mode decides what the background tick (startup + every 6 hours) updates: `"all"` (default)
+pulls every enabled git source, `"official"` pulls only the built-in `official` source, and `"none"` disables
+background updates.
+Updates are safe per enabled plugin: if one enabled plugin's new
+version targets an unsupported plugin API level, Noctalia keeps that plugin's previous exported copy, still updates
+compatible enabled plugins from the same source, and advances the source catalog. After Noctalia gains support for that
+API level, the held plugin can catch up from the already-updated source revision.
+
+## Compatibility
+
+Every plugin declares a mandatory integer `plugin_api` in its manifest. It is the oldest Noctalia plugin API level that
+the plugin requires, independent of both the plugin's version and Noctalia's release version. Noctalia supports
+plugin API levels <PluginApiRange />. Plugins outside the API range supported by the running shell are shown but badged
+**"incompatible plugin API"** and cannot be enabled.
+
+## Writing your own
+
+Want to build a plugin? See **[Plugin Development](/noctalia/plugins/development/)**. When it is ready to share, submit it to
+[community-plugins](https://github.com/noctalia-dev/community-plugins) - merged plugins show up in everyone's plugin
+store.

@@ -101,7 +101,8 @@ Source dependencies, distro-specific package commands, build modes, and install 
 ## Configuration
 
 A ready-to-use starting config with all defaults is at [example.toml](example.toml). The full configuration reference
-lives in the [documentation site](https://docs.noctalia.dev/noctalia/).
+lives in the [documentation site](https://docs.noctalia.dev/noctalia/). The source MDX files are in
+[`docs/user/`](docs/user/); sync them to a local docs checkout with `tools/sync-docs.sh`.
 
 ## Contributing
 

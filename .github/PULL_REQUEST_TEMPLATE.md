@@ -50,7 +50,7 @@
 - [ ] I ran the relevant build or test commands, or explained why they were not run.
 - [ ] I self-reviewed the changes.
 - [ ] I checked for new warnings or errors.
-- [ ] I will update end-user documentation after merge, or this PR does not change user-facing configuration or behavior.
+- [ ] I updated user-facing documentation in [`docs/user/`](../docs/user/) when this PR changes documented behavior or configuration, or this PR does not require documentation changes.
 - [ ] I added or updated `assets/translations/en.json`, or this PR adds no new user-facing strings.
 - [ ] I did not edit non-English translation files unless this PR is explicitly for translation tooling, an import/export sync, or a maintainer-requested locale change.
 - [ ] I used the existing canonical names for config keys, IPC names, paths, and identifiers.

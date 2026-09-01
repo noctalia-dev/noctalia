@@ -1,0 +1,146 @@
+---
+title: Dock
+description: Application dock, pinned apps, running apps, and auto-hide.
+sidebar:
+  order: 3
+---
+
+A standalone application dock that displays pinned and running apps. Disabled by default.
+
+```toml
+[dock]
+enabled             = false      # set true to activate
+position            = "bottom"   # top | bottom | left | right
+active_monitor_only = false      # when true, only show apps/windows from the active monitor
+monitors            = []         # connector names to show on; empty = all outputs
+
+icon_size           = 48
+main_axis_padding   = 16          # inner padding along the icon row (main axis)
+cross_axis_padding  = 8           # inner padding perpendicular to the icon row
+item_spacing        = 6          # gap between items in pixels
+background_opacity  = 0.88
+border              = "outline"  # color role or #RRGGBB for the dock outline
+border_width        = 0.0        # inside outline width in pixels; 0 disables it
+shadow              = true       # cast the global [shell.shadow]
+radius              = 16
+radius_top_left     = 16         # optional per-corner overrides
+radius_top_right    = 16
+radius_bottom_left  = 16
+radius_bottom_right = 16
+concave_edge_corners = true      # carve the screen-edge corners inward; requires margin_edge = 0
+margin_ends         = 0          # inset from each end of the dock along its main axis
+margin_edge         = 0          # distance from the nearest screen edge (positive values float the dock)
+
+show_running        = true       # also show running apps not in the pinned list
+auto_hide           = false      # slide out when pointer leaves; reveal from edge trigger strip
+smart_auto_hide     = false      # show when the active workspace is empty; hide when it has windows
+reserve_space       = true       # reserve compositor exclusive zone / push windows away
+layer               = "top"      # top | overlay — overlay keeps the dock above fullscreen apps
+
+active_scale        = 1.0        # icon scale for the focused app (clamped 0.1–1.75)
+inactive_scale      = 0.85       # icon scale for non-focused apps (clamped 0.1–1.0)
+magnification       = true       # magnify icons near the pointer (macOS-style)
+magnification_scale = 1.45       # max scale multiplier at the pointer center (1.0–2.0; 1.0 = off)
+active_opacity      = 1.0
+inactive_opacity    = 0.85
+show_instance_count = true       # badge with window count when an app has 2+ windows
+show_dots           = false      # running-window indicator dots below app icons
+
+launcher_position   = "none"     # none | start | end - optional launcher button on the dock
+launcher_icon       = "grid-dots" # Tabler glyph for the launcher button
+launcher_custom_image          = ""    # image path; overrides launcher_icon when set
+launcher_custom_image_colorize = false # tint the custom image with the icon color
+
+# Desktop entry IDs, StartupWMClass, or human-readable names
+pinned = ["firefox", "code", "kitty"]
+```
+
+`radius` sets all four corners at once. Any `radius_*` key overrides just that corner.
+
+`concave_edge_corners = true` inverts the two corners on the side that touches the screen edge, so the dock flares outward and blends into it. The corner radii still control the curve size. Only applies when the dock actually touches the edge (`margin_edge = 0`).
+
+`border_width` draws an inside outline using `border`.
+
+Shadow blur, offset, and alpha are global under `[shell.shadow]`. The dock only exposes `shadow = true|false`.
+
+---
+
+## `pinned` matching
+
+Each entry in `pinned` is matched against desktop entries using these rules in order:
+
+1. Desktop entry ID stem (`"firefox"` matches `firefox.desktop` and `org.mozilla.Firefox.desktop`)
+2. `StartupWMClass` field of the desktop entry
+3. App `Name` field (case-insensitive)
+4. Full desktop entry path
+
+If no match is found, a placeholder slot is reserved so the dock position is preserved.
+
+---
+
+## Icon colorization
+
+Dock application icons follow the global `[shell.app_icon_colorize]` / `[shell.app_icon_color]` settings (see [Shell → App icon colorization](/noctalia/configuration/shell/#app-icon-colorization)).
+
+Configure in **Settings → Appearance → Interface**, or under `[shell]` in the Noctalia TOML config stack.
+
+---
+
+## Active app emphasis
+
+- The focused app uses `active_scale` and `active_opacity`.
+- All other apps use `inactive_scale` and `inactive_opacity`.
+- Focus changes animate smoothly between the two states.
+
+## Magnification
+
+When `magnification = true` (default), icons grow as the pointer moves along the dock - similar to the macOS dock. Icons under the pointer grow the most; nearby entries scale down smoothly with distance.
+
+- `magnification_scale` sets the maximum multiplier at the pointer center (default `1.45`, range `1.0`–`2.0`). At `1.0`, magnification is disabled even when `magnification` is on.
+- Magnification applies on top of `active_scale` / `inactive_scale`.
+- Icons may extend past the dock capsule into a small cross-axis pad (macOS-style); the background slab stays fixed size.
+- The launcher button participates when shown.
+- Hovering an entry shows a tooltip with its app name (launcher button shows **Launcher**).
+
+## Reordering pinned apps
+
+Pinned dock icons can be reordered by drag-and-drop:
+
+1. Press and hold a **pinned** icon for about 300 ms.
+2. Drag along the dock axis to the desired position. Neighboring pinned icons shift to show where the item will land.
+3. Release to save the new order to `settings.toml` immediately (same persistence path as pin/unpin from the context menu).
+
+Running-only entries (apps shown because `show_running = true` but not in `pinned`) cannot be dragged, their order is not persisted. An app that is both running and pinned is treated as pinned and can be reordered.
+
+Leaving the dock surface while dragging cancels the reorder. Tooltips are hidden for the duration of a drag.
+
+---
+
+## Auto-hide
+
+Dock settings expose **Off**, **On**, and **Smart** as one control. In config they map to `auto_hide` and `smart_auto_hide`:
+
+- **Off** — `auto_hide = false`, `smart_auto_hide = false`
+- **On** — pointer auto-hide (`auto_hide = true`)
+- **Smart** — workspace-based hide (`smart_auto_hide = true`, `auto_hide = false`)
+
+When `auto_hide = true`, the dock slides out after the pointer leaves and slides back in when the pointer reaches the matching screen edge trigger strip.
+
+### Smart auto-hide
+
+Set auto-hide to **Smart** in dock settings (or `smart_auto_hide = true` with `auto_hide = false` in config). The dock stays visible while the active workspace on that monitor is empty and hides when the workspace has windows.
+
+- Mutually exclusive with pointer auto-hide; if both are set in config, smart auto-hide takes precedence.
+- Uses the same slide animation and edge reveal strip while hidden.
+- On compositors that report overview state (Niri, Triad), the dock is kept visible while overview is open.
+
+`reserve_space` controls whether the dock keeps a compositor exclusive zone. With both auto-hide modes off, `reserve_space = true` keeps windows pushed away; `reserve_space = false` overlays the dock on top of full-screen clients. With pointer or smart auto-hide active, `reserve_space = false` retracts the dock as an overlay (no gap); `reserve_space = true` keeps the gap while the dock slides out of view.
+
+`layer` selects the Wayland layer-shell stacking layer (`top` or `overlay`). Use `overlay` so the dock stays reachable above fullscreen apps — same idea as the bar's Wayland Layer setting.
+
+---
+
+## Related IPC
+
+For dock visibility and reload commands, see
+[Surfaces → Dock](/noctalia/ipc/surfaces/#dock).

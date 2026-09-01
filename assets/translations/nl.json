@@ -4,7 +4,7 @@
       "disconnected": "Vingerafdruksensor niet aangesloten",
       "error": "Fout bij vingerafdrukverificatie",
       "no-match": "Vingerafdruk komt niet overeen",
-      "not-centered": "Centreer je vinger op de sensor en probeer opniew",
+      "not-centered": "Centreer je vinger op de sensor en probeer het opnieuw",
       "present": "Vingerafdruk aan het lezen...",
       "ready": "Plaats je vinger op de sensor",
       "remove-and-retry": "Haal je vinger weg en probeer opnieuw",
@@ -51,7 +51,7 @@
         "scroll-short": "S"
       },
       "media": {
-        "nothing-playing": "Niets aan het afspelen",
+        "nothing-playing": "Niets speelt af",
         "playing": "Afspelen"
       },
       "network": {
@@ -73,6 +73,7 @@
         "signal": "Signaal",
         "upload": "Upload",
         "vpn": "VPN",
+        "wan-ip": "WAN IP",
         "wifi": "WiFi",
         "wired": "Bedraad",
         "yes": "Ja"
@@ -88,8 +89,13 @@
       },
       "sysmon": {
         "cpu": "CPU",
+        "cpu-freq": "CPU Freq",
         "cpu-temp": "CPU Temp",
         "disk": "Schijf",
+        "disk-free": "Schijfruimte beschikbaar",
+        "disk-free-pct": "Schijfruimte beschikbaar %",
+        "disk-used": "Schijfruimte in gebruik",
+        "disk-used-pct": "Schijfruimte in gebruik %",
         "download": "Download",
         "gpu-temp": "GPU Temp",
         "gpu-usage": "GPU Gebruik",
@@ -109,7 +115,16 @@
         "error": "Weer fout",
         "loading": "Weer...",
         "no-location": "Geen locatie",
-        "off": "Weer uit"
+        "off": "Weer uit",
+        "tooltip": {
+          "high": "Hoog",
+          "low": "Laag",
+          "sunrise": "Zonsopgang",
+          "sunset": "Zonsondergang",
+          "temperature": "Temperatuur",
+          "uv": "UV Index",
+          "wind": "Wind"
+        }
       }
     }
   },
@@ -179,6 +194,7 @@
     },
     "bluetooth": {
       "accept": "Accepteren",
+      "address": "Adres",
       "auto-reconnect": "Automatisch opnieuw verbinden",
       "bluetooth": "Bluetooth",
       "enter-code": "Voer code in",
@@ -245,6 +261,7 @@
       "start-playback": "Start afspelen in een MPRIS-app"
     },
     "network": {
+      "available": "Beschikbaar",
       "connect": "Verbinden",
       "current-connection": "Huidige verbinding",
       "external-ip": "WAN {ip}",
@@ -253,6 +270,7 @@
       "password": "Wachtwoord",
       "password-prompt": "Voer wachtwoord in",
       "password-prompt-for": "Voer wachtwoord in voor {ssid}",
+      "saved": "Opgeslagen",
       "unavailable-detail": "Installeer en schakel NetworkManager in om vanaf hier netwerken te beheren.",
       "unavailable-title": "NetworkManager niet beschikbaar",
       "vpns": "VPN's",
@@ -289,6 +307,7 @@
       "unknown-device": "Onbekend apparaat"
     },
     "screen-time": {
+      "back": "Terug",
       "disabled": "Schermtijdregistratie staat uit. Schakel dit in bij Instellingen om het gebruik per app vast te leggen.",
       "empty": "Nog geen app-gebruik geregistreerd. Focus op een venster om te beginnen met registreren.",
       "hour-0": "00:00",
@@ -469,6 +488,7 @@
         "label": "Label",
         "layout": "Indeling",
         "mirrored": "Gespiegeld",
+        "network-speed-unit-auto": "Auto",
         "opacity": "Transparantie",
         "primary-color": "Primaire kleur",
         "reset-defaults": "Terugzetten naar standaardinstellingen",
@@ -477,15 +497,22 @@
         "secondary-color": "Secundaire kleur",
         "sensitivity": "Gevoeligheid",
         "shadow": "Schaduw",
+        "show-keyboard-layout": "Toetsenbordindeling",
         "show-label": "Label tonen",
         "show-login-button": "Inlog knop",
+        "show-media": "Media",
+        "show-password-hint": "Wachtwoordhint",
+        "show-weather": "Weer",
+        "show-week-numbers": "Toon weeknummers",
         "show-when-idle": "Tonen bij inactiviteit",
         "stat": "Statistiek",
+        "stat-cpu-freq": "CPU Freq",
         "stat-cpu-temp": "CPU-temp",
         "stat-cpu-usage": "CPU-gebruik",
         "stat-gpu-temp": "GPU-temp",
         "stat-gpu-usage": "GPU-gebruik",
         "stat-gpu-vram": "GPU-VRAM",
+        "stat-gpu-vram-used": "GPU VRAM Gebruikt",
         "stat-net-rx": "Net Rx",
         "stat-net-tx": "Net Tx",
         "stat-none": "Geen",
@@ -495,6 +522,8 @@
         "title": "Titel",
         "variant": "Stijl",
         "variant-default": "Standaard",
+        "variant-primary": "Primair",
+        "variant-secondary": "Secundair",
         "vertical": "Verticaal",
         "visualization-mode": "Modus",
         "visualization-mode-all": "Alle",
@@ -516,11 +545,15 @@
         "media-player": "Mediaspeler",
         "sticker": "Sticker",
         "system-monitor": "Systeemmonitor",
+        "volume": "Volume",
         "weather": "Weer"
       }
     },
     "media": {
       "nothing-playing": "Niets speelt af"
+    },
+    "volume": {
+      "mic": "Mic"
     },
     "weather": {
       "error": "Fout",
@@ -571,11 +604,18 @@
     "context-menu": {
       "open": "Openen",
       "pin-to-dock": "Vastmaken aan dock",
-      "unpin-from-dock": "Losmaken van dock"
+      "unpin-from-dock": "Ontkoppel van dock"
     },
     "empty": {
       "no-results": "Geen resultaten gevonden",
       "type-to-search": "Typ om te zoeken..."
+    },
+    "origins": {
+      "appimage": "AppImage",
+      "flatpak": "Flatpak",
+      "nix": "Nix",
+      "snap": "Snap",
+      "system": "Systeem"
     },
     "providers": {
       "applications": {
@@ -665,6 +705,7 @@
       "lockscreen-widgets-editor-enabled": "Widget-editor voor vergrendelscherm staat aan. Rangschik de widgets op de voorvertoning-overlay en vergrendel vervolgens de sessie om de indeling te controleren.",
       "mpris-disabled": "MPRIS uitgeschakeld",
       "polkit-agent": "Polkit Agent",
+      "screen-time-reset": "Schermtijd",
       "session-bus-unavailable": "Sessiebus niet beschikbaar",
       "wallpaper-palette-export": "Aangepast palet",
       "wallpaper-palette-export-success": "\"{name}\" opgeslagen en paletbron gewijzigd naar aangepast."
@@ -1050,8 +1091,10 @@
     },
     "notifications": {
       "filter": {
+        "bypass-dnd": "Omzeil niet storen",
         "flag": {
           "history": "geschiedenis",
+          "permanent": "permanent",
           "sound": "geluid"
         },
         "play-sound": "Speel geluid",
@@ -1196,9 +1239,13 @@
     "plugins": {
       "plugins": {
         "configure": "Configureren",
+        "delete": "Verwijder",
         "deprecated": "verouderd",
         "empty": "Er zijn geen plugins gevonden. Voeg een bron toe of controleer je netwerk.",
-        "title": "Plugins"
+        "held-back": "Oudere versie",
+        "remove": "Verwijder plugin",
+        "title": "Plugins",
+        "update-available": "Update alles"
       },
       "settings": {
         "empty": "Geen instellingen beschikbaar."
@@ -1290,7 +1337,7 @@
           "label": "Paletbron"
         },
         "theme-mode": {
-          "description": "Kies donkere, lichte of automatische modus op basis van het tijdstip van de dag",
+          "description": "Kies donker, licht of automatische modus op basis van het tijdstip van de dag",
           "label": "Themamodus"
         },
         "ui-scale": {
@@ -1886,7 +1933,7 @@
         },
         "calendar-add": {
           "button": "Account toevoegen",
-          "description": "Voeg iCloud-, CalDAV- of Google-accounts toe",
+          "description": "Voeg iCloud, CalDAV, Google accounts of ICS URL toe",
           "label": "Agenda-accounts"
         },
         "calendar-edit": {
@@ -2510,7 +2557,7 @@
         },
         "custom-image": {
           "description": "Pad naar een aangepaste afbeelding. Laat leeg om een icoon te gebruiken.",
-          "dialog-title": "Selecteer aangepaste afbeelding",
+          "dialog-title": "Kies een afbeelding naar keuze",
           "label": "Aangepaste afbeelding"
         },
         "custom-image-colorize": {
@@ -2662,7 +2709,7 @@
         "max-label-chars": {
           "description": "Maximaal aantal tekens voor werkruimtenamen",
           "label": "Maximaal aantal tekens voor label",
-          "workspaces-description": "Maximaal aantal tekens voor werkruimtenaamlabels"
+          "workspaces-description": "Maximaal aantal tekens voor niet-numerieke werkruimtelabels"
         },
         "max-length": {
           "description": "Maximale widgetlengte in pixels",
@@ -2718,7 +2765,7 @@
           "label": "Actief venster-indicator"
         },
         "show-all-outputs": {
-          "description": "Toon vensters van elk scherm op deze widget.",
+          "description": "Toon vensters van alle schermen in deze widget",
           "label": "Toon alle monitoren"
         },
         "show-caps-lock": {

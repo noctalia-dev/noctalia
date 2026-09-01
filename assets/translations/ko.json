@@ -184,6 +184,7 @@
     "audio": {
       "application-volumes": "앱 볼륨",
       "choose-effects-profile": "프로필 선택",
+      "default-device": "기본 기기",
       "effects-profile": "효과",
       "input-device-prefix": "입력",
       "no-application-audio": "앱 오디오 없음",
@@ -305,6 +306,21 @@
     },
     "power": {
       "battery": "배터리",
+      "charging": {
+        "configured": "구성됨: {limits}",
+        "display-only": "디스플레이 전용",
+        "error-denied": "인증이 거부되어 충전 임계값이 변경되지 않았습니다.",
+        "error-failed": "충전 임계값이 변경되지 않았습니다.",
+        "firmware-managed": "시스템 펌웨어에서 충전이 관리됨",
+        "full-charge": "100%까지 충전할 수 있음",
+        "starts": "{start}% 미만에서 시작",
+        "starts-stops": "{start}% 미만에서 시작 · {end}%에서 종료",
+        "stops": "{end}%에서 종료됨",
+        "title": "배터리 충전 중",
+        "unreadable": "사용할 수 없음",
+        "unsupported": "충전 임계값이 지원하지 않습니다",
+        "use-thresholds": "충전 임계값 사용"
+      },
       "design-capacity": "설계 용량 대비",
       "health": "배터리 성능",
       "performance-inhibited": "성능 사용 불가",
@@ -538,6 +554,7 @@
         "show-unlock-hint": "잠금 해제 힌트",
         "show-vpn-label": "VPN 레이블 표시",
         "show-weather": "날씨",
+        "show-week-numbers": "주차 표시",
         "show-when-idle": "유휴 시 표시",
         "stat": "통계",
         "stat-cpu-freq": "CPU 주파수",
@@ -546,6 +563,7 @@
         "stat-gpu-temp": "GPU 온도",
         "stat-gpu-usage": "GPU 사용률",
         "stat-gpu-vram": "GPU VRAM",
+        "stat-gpu-vram-used": "GPU VRAM 사용량",
         "stat-net-rx": "네트워크 수신",
         "stat-net-tx": "네트워크 송신",
         "stat-none": "없음",
@@ -576,6 +594,7 @@
         "grid": "그리드"
       },
       "title": "데스크톱 위젯",
+      "title-lockscreen": "잠금 화면 위젯",
       "types": {
         "audio-visualizer": "오디오 비주얼라이저",
         "button": "버튼",
@@ -731,6 +750,7 @@
       "battery-low-body": "{device}: {percent}% 남음",
       "battery-low-title": "배터리 부족",
       "calendar": "캘린더",
+      "calendar-credential-locked-title": "캘린더 키링이 잠겨있습니다",
       "calendar-google-connect-browser-failed": "Google 인증을 위한 브라우저를 실행할 수 없습니다. 기본 브라우저 또는 xdg-open 설정을 확인하세요.",
       "calendar-google-connect-credential-store-failed": "갱신 토큰을 저장할 수 없습니다. Secret Service를 잠금 해제하거나 시작한 후 다시 시도하세요.",
       "calendar-google-connect-expired": "로그인을 완료하기 전에 Google 인증이 만료되었습니다. 다시 시도하세요.",
@@ -762,7 +782,7 @@
       "launcher-usage-reset-success": "사용 데이터가 지워졌습니다.",
       "lockscreen-widgets-editor": "잠금 화면 위젯 편집기",
       "lockscreen-widgets-editor-blocked-locked": "잠금 화면 위젯을 편집하려면 세션을 잠금 해제하세요.",
-      "lockscreen-widgets-editor-enabled": "잠금 화면 위젯 편집기가 켜져 있습니다. 미리보기 오버레이에서 위젯을 배치한 후 세션을 잠가 레이아웃을 확인하세요.",
+      "lockscreen-widgets-editor-enabled": "잠금 화면 위젯 편집기가 켜져 있습니다. 열린 창이 편집기를 가리지 않도록 빈 작업 공간으로 전환합니다.",
       "mpris-disabled": "MPRIS 비활성화됨",
       "polkit-agent": "Polkit 에이전트",
       "polkit-no-session": "Polkit 에이전트에는 logind, elogind 또는 XDG_SESSION_ID가 필요합니다. seatd 전용 설정에서는 그래픽 프롬프트를 등록할 수 없습니다. Greeter 동기화에는 터미널 pkexec를 사용하거나, 세션 내 인증을 위해 elogind를 설치하세요.",
@@ -895,6 +915,7 @@
       "credential-source-label": "자격 증명 저장소",
       "delete-error": "캘린더 계정을 삭제할 수 없습니다.",
       "edit-title": "캘린더 계정 편집",
+      "ics-url-label": "ICS URL",
       "id-label": "계정 ID",
       "invalid": "강조 표시된 캘린더 계정 필드를 확인하세요.",
       "name-label": "표시 이름",
@@ -908,7 +929,8 @@
       "provider": {
         "custom": "CalDAV",
         "google": "Google",
-        "icloud": "iCloud"
+        "icloud": "iCloud",
+        "ics": "ICS URL"
       },
       "provider-label": "제공업체",
       "save": "저장",
@@ -1261,7 +1283,9 @@
         "add-title": "알림 필터 추가",
         "allow-permanent": "영구 허용",
         "allowed-urgencies-label": "허용된 긴급도",
+        "bypass-dnd": "방해 금지 모드 무시",
         "flag": {
+          "dnd-bypass": "방해 금지 모드 무시",
           "history": "기록",
           "permanent": "영구",
           "sound": "소리",
@@ -1740,6 +1764,9 @@
         "font-family": {
           "description": "이 바의 위젯에 사용할 글꼴. 비워 두면 전역 글꼴을 상속합니다 (위젯별 글꼴 패밀리 설정이 이를 재정의합니다)",
           "label": "글꼴 패밀리"
+        },
+        "font-scale": {
+          "label": "폰트 크기"
         },
         "font-weight": {
           "description": "이 바의 위젯 레이블 기본 두께.",
@@ -3214,6 +3241,7 @@
         "gpu-temp": "GPU 온도",
         "gpu-usage": "GPU 사용률",
         "gpu-vram": "GPU VRAM",
+        "gpu-vram-used": "GPU VRAM 사용량",
         "graph": "그래프",
         "graphic": "그래픽",
         "hidden": "숨겨짐",
@@ -3406,6 +3434,9 @@
           "description": "이 위젯의 글꼴. 비워 두면 바 글꼴을 상속합니다",
           "label": "글꼴 패밀리"
         },
+        "font-scale": {
+          "label": "폰트 크기"
+        },
         "font-weight": {
           "description": "기본값은 바 글꼴 두께를 상속합니다",
           "label": "글꼴 두께"
@@ -3464,6 +3495,9 @@
         "hide-when-full": {
           "description": "완전히 충전되었을 때 배터리 위젯 숨기기",
           "label": "가득 찼을 때 숨기기"
+        },
+        "hide-when-inactive": {
+          "label": "비활성 상태일 때 숨김"
         },
         "hide-when-no-connected-device": {
           "description": "연결된 장치가 없을 때 Bluetooth 위젯 숨기기",
@@ -3532,6 +3566,9 @@
         "interface": {
           "description": "모니터링할 네트워크 인터페이스. 비워 두면 모든 인터페이스의 합계를 사용합니다",
           "label": "인터페이스"
+        },
+        "item-spacing": {
+          "label": "항목 간격"
         },
         "label": {
           "description": "이 버튼에 표시되는 선택적 정적 텍스트",
@@ -3656,6 +3693,7 @@
           "label": "모든 모니터 표시"
         },
         "show-all-workspaces": {
+          "description": "모든 모니터의 워크스페이스를 이 위젯에 표시",
           "label": "모든 모니터 보기"
         },
         "show-caps-lock": {
@@ -3685,6 +3723,9 @@
         "show-num-lock": {
           "description": "Num Lock 상태 표시",
           "label": "Num Lock 표시"
+        },
+        "show-progress": {
+          "label": "재생 진행률 표시"
         },
         "show-scroll-lock": {
           "description": "Scroll Lock 상태 표시",

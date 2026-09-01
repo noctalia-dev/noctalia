@@ -184,6 +184,7 @@
     "audio": {
       "application-volumes": "Volumes des applications",
       "choose-effects-profile": "Choisir un profil",
+      "default-device": "Périphérique par défaut",
       "effects-profile": "Effets",
       "input-device-prefix": "Entrée",
       "no-application-audio": "Aucun flux audio d’application",
@@ -305,6 +306,20 @@
     },
     "power": {
       "battery": "Batterie",
+      "charging": {
+        "configured": "Configuré: {limits}",
+        "error-denied": "L'autorisation n'a pas été accordée. Les limites de charges n'ont pas été modifiées.",
+        "error-failed": "Les limites de charge n'ont pas pu être modifiées.",
+        "externally-managed": "Géré par un autre outil. Configurez UPower pour modifier les limites de charge.",
+        "full-charge": "Peut être chargée à 100%",
+        "starts": "Commence à partir de {start}%",
+        "starts-stops": "Commence à partir de {start}% · S'arrête à {end}%",
+        "stops": "S'arrête à {end}%",
+        "title": "Batterie en cours de charge",
+        "unreadable": "Indisponible",
+        "unsupported": "Les limites de charges ne sont pas disponibles",
+        "use-thresholds": "Utiliser les limites de charge"
+      },
       "design-capacity": "De la capacité d'origine",
       "health": "État de la batterie",
       "performance-inhibited": "Performance indisponible",
@@ -650,6 +665,12 @@
       "no-results": "Aucun résultat",
       "type-to-search": "Saisir pour rechercher…"
     },
+    "origins": {
+      "appimage": "AppImage",
+      "flatpak": "Flatpak",
+      "nix": "Nix",
+      "snap": "Snap"
+    },
     "providers": {
       "applications": {
         "title": "Applications"
@@ -877,6 +898,7 @@
       "credential-source-file": "Fichier de mots de passe",
       "delete-error": "Impossible de supprimer le compte de calendrier.",
       "edit-title": "Modifier le compte de calendrier",
+      "ics-url-label": "URL ICS",
       "id-label": "iD du compte",
       "invalid": "Vérifiez les champs surlignés du compte de calendrier.",
       "name-label": "Nom d’affichage",
@@ -889,7 +911,8 @@
       "provider": {
         "custom": "CalDAV",
         "google": "Google",
-        "icloud": "iCloud"
+        "icloud": "iCloud",
+        "ics": "URL ICS"
       },
       "provider-label": "Fournisseur",
       "save": "Sauvegarder",
@@ -2725,7 +2748,7 @@
           "label": "Copier dans le presse-papiers"
         },
         "screenshot-directory": {
-          "description": "Dossier dans lequel enregistrer les fichiers PNG. Laissez vide pour utiliser ~/Pictures",
+          "description": "Dossier dans lequel enregistrer les fichiers PNG. Laissez vide pour utiliser le répertoire Photos d'XDG standard",
           "label": "Dossier de destination",
           "placeholder": "~/Pictures"
         },
@@ -2788,7 +2811,7 @@
           "label": "Modèles intégrés"
         },
         "community-ids": {
-          "description": "Active/désactive l’application des modèles communautaires mis en cache à chaque changement de thème",
+          "description": "Parcourir et activer les modèles communautaires appliqués à chaque changement de thème",
           "empty": "Aucun modèle communautaire disponible pour le moment. Activez les modèles communautaires et actualisez le catalogue.",
           "label": "Modèles communautaires"
         },
@@ -2819,7 +2842,7 @@
           "label": "Inclure les sous-dossiers"
         },
         "directory": {
-          "description": "Dossier contenant les fonds d’écran",
+          "description": "Dossier contenant les fonds d’écran. Laissez vide pour utiliser le répertoire Photos d'XDG standard",
           "label": "Dossier des fonds d’écran"
         },
         "directory-dark": {

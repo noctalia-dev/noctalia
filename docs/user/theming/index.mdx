@@ -1,0 +1,109 @@
+---
+title: Theme
+description: Theme mode and palette source configuration.
+sidebar:
+  order: 8
+---
+
+Controls the active palette source and dark/light mode used across the shell.
+
+```toml
+[theme]
+mode              = "dark"        # dark | light | auto
+source            = "builtin"     # builtin | wallpaper | community | custom
+builtin           = "Noctalia"    # bundled palette name
+community_palette = "Oxocarbon"   # community palette name when source = "community"
+custom_palette    = "MyPalette"   # file name (without .json) when source = "custom"
+wallpaper_scheme  = "m3-content"  # generator used when source = "wallpaper"
+pure_black_dark   = false         # replace dark-mode backgrounds with pure black
+```
+
+Palette changes apply live when the resolved config changes, whether through Settings or edits to `~/.config/noctalia/*.toml`. Wallpaper-derived themes re-resolve automatically when the default wallpaper changes. See [Palette](/noctalia/theming/palette/) for color roles, custom palette files, and terminal colors.
+
+---
+
+## `mode`
+
+`dark` or `light` selects the palette variant directly. `auto` switches between them using the shared sunrise/sunset
+schedule in [`[location]`](/noctalia/services/location/) (same rules as [Night Light](/noctalia/services/night-light/)): sunrise and
+sunset computed from your coordinates, or your own `sunset` / `sunrise` times when
+[`custom_schedule = true`](/noctalia/services/location/#custom-schedule). Night light does not need to be enabled for theme
+auto to follow the schedule. When the schedule cannot be resolved, `auto` uses the light (day) palette until a valid
+schedule is available.
+
+## `pure_black_dark`
+
+When `true`, replaces dark-mode background roles with pure black while preserving the palette's foreground and accent
+colors. It has no effect in light mode. Accessibility `high_contrast` also forces this behavior for dark themes.
+
+### Related IPC
+
+For theme mode and palette commands, see
+[Media & UI → Theme](/noctalia/ipc/media-and-ui/#theme).
+
+---
+
+## `source`
+
+| Value | Description |
+|-------|-------------|
+| `builtin` | Use one of the palettes compiled into the binary. |
+| `wallpaper` | Generate a palette from the current default wallpaper each time it changes. |
+| `community` | Fetch a palette by name from `https://api.noctalia.dev/palette/<name>`. |
+| `custom` | Load a palette JSON file from the Noctalia config directory's `palettes/` folder. |
+
+---
+
+## `builtin`
+
+Names which bundled palette to load when `source = "builtin"`. Unknown names fall back to `Noctalia`.
+
+Available palettes: `Ayu`, `Catppuccin`, `Dracula`, `Eldritch`, `Gruvbox`, `Kanagawa`, `Noctalia`, `Nord`, `Rosé Pine`, `Tokyo-Night`
+
+---
+
+## `community_palette`
+
+Names a palette served by `https://api.noctalia.dev/palette/<name>`. The shell downloads the palette on first use and stores it in `~/.local/state/noctalia/community-palettes/` (honoring `NOCTALIA_STATE_HOME`, then `XDG_STATE_HOME`).
+
+The Settings GUI lists palette names from the cached `https://api.noctalia.dev/palettes` catalog when that catalog is available.
+
+The catalog is refreshed on every launch and config reload. Each catalog entry carries an `md5` of its palette JSON; when the cached palette's checksum no longer matches the catalog, the shell re-downloads it and cross-fades to the updated colors. This means edits you publish to the online catalog reach clients automatically - no manual cache clearing. A cached palette whose catalog entry omits an `md5` is treated as up to date and kept. If the catalog cannot be fetched, the cached palette is used as-is, so community palettes still work offline.
+
+While the initial download is in flight - or if it fails - the shell falls back to `Noctalia` built-in and cross-fades once the download arrives.
+
+---
+
+## `custom_palette`
+
+Names a palette file in the Noctalia config directory's `palettes/` folder (honoring `NOCTALIA_CONFIG_HOME`, then `XDG_CONFIG_HOME`). The value is the file name without the `.json` extension - for example, `custom_palette = "MyPalette"` loads `~/.config/noctalia/palettes/MyPalette.json` with the default config location.
+
+The Settings GUI lists palette files found in the directory when `source = "custom"` is selected. If the file is missing or invalid, the shell falls back to the `Noctalia` built-in palette.
+
+See [Palette](/noctalia/theming/palette/) for the custom palette JSON format.
+
+---
+
+## `wallpaper_scheme`
+
+Picks the generator when `source = "wallpaper"`:
+
+| Value | Description |
+|-------|-------------|
+| `m3-tonal-spot` | M3 default - balanced tones anchored on the seed color |
+| `m3-content` | M3 for content-forward UIs - higher chroma |
+| `m3-fruit-salad` | M3 with playful cross-hue accents |
+| `m3-rainbow` | M3 spanning the full wheel for multi-accent layouts |
+| `m3-monochrome` | M3 collapsed to a single hue |
+| `vibrant` | Custom - saturated and high-contrast |
+| `faithful` | Custom - stays close to the source image |
+| `soft` | Custom - source-faithful with gentler saturation |
+| `dysfunctional` | Custom - deliberately off-kilter |
+| `muted` | Custom - low-saturation |
+
+## Where next?
+
+- [Palette](/noctalia/theming/palette/) covers color roles, custom palette files, and terminal colors.
+- [App Theming](/noctalia/theming/app-theming/) covers applying Noctalia colors to app config files.
+- [Template Reference](/noctalia/theming/templates/) covers template syntax, tokens, filters, hooks, and CLI rendering.
+- [FAQ: external wallpaper apps](/noctalia/getting-started/faq/#how-do-i-use-noctalia-colors-with-an-external-wallpaper-app) covers wallpaper-driven colors when another tool displays the wallpaper.

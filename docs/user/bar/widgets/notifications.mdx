@@ -1,0 +1,30 @@
+---
+title: notifications
+description: Shows unread notifications and controls Do Not Disturb mode.
+sidebar:
+  order: 17
+---
+
+Shows the pending notification count. Right-clicking toggles transient Do Not Disturb (DND) mode.
+
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| `hide_when_no_unread` | bool | `false` | Hide the widget when there are no unread notifications |
+
+```toml
+[widget.notifications]
+hide_when_no_unread = true
+```
+
+**Command-line controls:**
+
+```sh
+noctalia msg notification-dnd-toggle
+noctalia msg notification-dnd-status
+noctalia msg notification-clear-active
+noctalia msg notification-clear-history
+```
+
+Enabling DND immediately hides visible toast popups and suppresses new external notification toasts. Hidden and
+suppressed notifications remain in history/control center. Disabling DND allows new toast popups but does not replay
+the hidden or suppressed popups. Internal Noctalia notifications are not stored in history.

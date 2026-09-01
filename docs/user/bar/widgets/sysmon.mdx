@@ -1,0 +1,64 @@
+---
+title: sysmon
+description: Shows one configurable system resource statistic.
+sidebar:
+  order: 24
+---
+
+System resource monitor. Shows a configurable combination of a glyph, visualization, and text value for one stat. Multiple instances with different stats can coexist on the same bar. Sampling cadence is controlled globally by [`[system.monitor]`](/noctalia/services/system-monitor/), not per widget. Hovering the widget shows the selected stat first, followed by the other currently available sysmon stats.
+
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| `stat` | string | `"cpu_usage"` | Which stat to display. See [Available stats](/noctalia/services/system-monitor/#available-stats) |
+| `path` | string | `"/"` | Mount path for `disk_used_pct`, `disk_used`, `disk_free_pct`, or `disk_free` (ignored otherwise) |
+| `interface` | string | `""` | Network interface to monitor for `net_rx`/`net_tx`; empty uses the total across all non-loopback interfaces |
+| `network_speed_unit` | string | `"auto"` | Unit for `net_rx`/`net_tx`: `"auto"` (scales between B/s, kB/s, MB/s, GB/s), `"kb"` (always kB/s), or `"mb"` (always MB/s) |
+| `network_speed_compact` | bool | `false` | Use short unit suffixes such as `1.2M` instead of `1.2 MB/s` for `net_rx`/`net_tx` |
+| `visualization` | string | `"gauge"` | Data visualization: `"gauge"`, `"graph"`, or `"none"` |
+| `show_value` | bool | `true` | Show the current text value |
+| `label_show_units` | bool | `true` | Include units such as `%`, `GiB`, or `°C` in the text value |
+| `label_min_width` | float | `0` | Minimum value width in pixels to prevent resizing as values change |
+| `show_glyph` | bool | `true` | Show the stat glyph or custom image |
+| `glyph` | string | `""` | Custom bar glyph name (Noctalia alias, Tabler icon name, or `U+` / `0x` codepoint). Leave empty to use the glyph for the selected stat |
+| `custom_image` | string | `""` | Path to a custom image displayed instead of the glyph. Leave empty to use the glyph |
+| `custom_image_colorize` | bool | `false` | When `true`, tint the custom image with the same dynamic color the glyph would use |
+| `glyph_position` | string | `"before"` | Place the glyph before or after the value or visualization |
+| `highlight_color` | string | `"error"` | Color role (or fixed hex) the value tints toward as the stat rises past its activity/critical thresholds. See [System Monitor](/noctalia/services/system-monitor/). |
+
+The stats a `sysmon` widget can show, what each one displays, and where the values come from are listed under [Available stats](/noctalia/services/system-monitor/#available-stats).
+
+```toml
+[widget.cpu]
+type = "sysmon"
+stat = "cpu_usage"
+
+[widget.cpu-graph]
+type       = "sysmon"
+stat       = "cpu_usage"
+visualization = "graph"
+show_value    = false
+
+[widget.temp]
+type = "sysmon"
+stat = "cpu_temp"
+
+[widget.ram]
+type = "sysmon"
+stat = "ram_used"
+
+[widget.disk]
+type = "sysmon"
+stat = "disk_used_pct"
+path = "/"
+
+[widget.wifi-download]
+type      = "sysmon"
+stat      = "net_rx"
+interface = "wlan0"
+
+[widget.wifi-upload]
+type                  = "sysmon"
+stat                  = "net_tx"
+network_speed_unit    = "mb"      # auto | kb | mb
+network_speed_compact = true      # show "1.2M" instead of "1.2 MB/s"
+```

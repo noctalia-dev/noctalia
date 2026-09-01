@@ -59,6 +59,7 @@
       },
       "network": {
         "active": "Activo",
+        "band": "Banda",
         "connected": "Conectado",
         "connecting": "Conectando",
         "download": "Descarga",
@@ -92,6 +93,7 @@
       },
       "sysmon": {
         "cpu": "CPU",
+        "cpu-freq": "Frecuencia de CPU",
         "cpu-temp": "Temp. de CPU",
         "disk": "Disco",
         "disk-free": "Disco disponible",
@@ -182,6 +184,7 @@
     "audio": {
       "application-volumes": "Volumen de aplicaciones",
       "choose-effects-profile": "Selecciona un perfil",
+      "default-device": "Dispositivo predeterminado",
       "effects-profile": "Efectos",
       "input-device-prefix": "Entrada",
       "no-application-audio": "Sin aplicacion de audio",
@@ -303,6 +306,22 @@
     },
     "power": {
       "battery": "Batería",
+      "charging": {
+        "configured": "Configurado: {limits}",
+        "display-only": "Solo visualización",
+        "error-denied": "Se denegó la autorización. No se cambiaron los umbrales de carga.",
+        "error-failed": "No se pudieron cambiar los umbrales de carga.",
+        "externally-managed": "Establecido por otra herramienta. Configura UPower para gestionar los umbrales de carga.",
+        "firmware-managed": "La carga la gestiona el firmware del sistema",
+        "full-charge": "Puede cargarse al 100%",
+        "starts": "Empieza por debajo de {start}%",
+        "starts-stops": "Empieza por debajo de {start}% · Para al {end}%",
+        "stops": "Para al {end}%",
+        "title": "Carga de batería",
+        "unreadable": "No disponible",
+        "unsupported": "Los umbrales de carga no son compatibles",
+        "use-thresholds": "Usar umbrales de carga"
+      },
       "design-capacity": "Capacidad de diseño",
       "health": "Salud de la bateria",
       "performance-inhibited": "Rendimiento no disponible",
@@ -517,6 +536,7 @@
         "opacity": "Opacidad",
         "primary-color": "Color Primario",
         "reset-defaults": "Restablecer valores por defecto",
+        "reversed": "Invertido",
         "ring-opacity": "Opacidad del anillo",
         "rotation-speed": "Velocidad de rotación",
         "scroll-step": "Pasos de desplazamiento",
@@ -525,6 +545,7 @@
         "shadow": "Sombra",
         "show-caps-lock": "Advertencia de Bloq Mayús",
         "show-device": "Mostrar dispositivo",
+        "show-events": "Mostrar eventos",
         "show-forecast": "Mostrar previsión",
         "show-keyboard-layout": "Distribución de teclado",
         "show-label": "Mostrar Etiqueta",
@@ -535,13 +556,16 @@
         "show-unlock-hint": "Sugerencia desbloqueo",
         "show-vpn-label": "Mostrar etiqueta VPN",
         "show-weather": "Tiempo",
+        "show-week-numbers": "Mostrar números de semana",
         "show-when-idle": "Mostrar cuando este inactivo",
         "stat": "Estadistica",
+        "stat-cpu-freq": "Frecuencia de CPU",
         "stat-cpu-temp": "Temp. de CPU",
         "stat-cpu-usage": "Uso de CPU",
         "stat-gpu-temp": "Temp. de GPU",
         "stat-gpu-usage": "Uso de GPU",
         "stat-gpu-vram": "GPU VRAM",
+        "stat-gpu-vram-used": "VRAM de GPU usada",
         "stat-net-rx": "Red Rx",
         "stat-net-tx": "Red Tx",
         "stat-none": "Ninguno",
@@ -572,9 +596,11 @@
         "grid": "Rejilla"
       },
       "title": "Widgets de Escritorio",
+      "title-lockscreen": "Widgets de la pantalla de bloqueo",
       "types": {
         "audio-visualizer": "Visualizador de Audio",
         "button": "Botón",
+        "calendar": "Calendario",
         "clock": "Reloj",
         "fancy-audio-visualizer": "Visualizador de audio Fancy",
         "label": "Etiqueta",
@@ -642,12 +668,22 @@
     },
     "context-menu": {
       "open": "Abrir",
+      "pin": "Fijar al lanzador",
       "pin-to-dock": "Fijar al dock",
+      "unpin": "Desfijar del lanzador",
       "unpin-from-dock": "Desfijar del dock"
     },
     "empty": {
       "no-results": "No se han encontrado resultados.",
       "type-to-search": "Escribe para buscar..."
+    },
+    "origins": {
+      "appimage": "AppImage",
+      "flatpak": "Flatpak",
+      "nix": "Nix",
+      "snap": "Snap",
+      "system": "Sistema",
+      "user": "Usuario"
     },
     "providers": {
       "applications": {
@@ -685,7 +721,8 @@
     },
     "source": {
       "address": "Dirección",
-      "auto": "Auto"
+      "auto": "Auto",
+      "manual": "Manual"
     }
   },
   "lockscreen": {

@@ -1,0 +1,98 @@
+---
+title: Umbriel
+description: Configure Umbriel for the best experience with Noctalia.
+sidebar:
+  order: 6
+---
+
+Add the following settings to your Umbriel configuration file, usually located at `~/.config/umbriel/config.toml`.
+Umbriel's packaged [`examples/config.toml`](https://github.com/noctalia-dev/umbriel/blob/main/examples/config.toml) is a useful reference for the complete configuration. Umbriel also provides dedicated documentation for [configuration](/umbriel/configuration/), [window rules](/umbriel/window-rules/), and [layer rules](/umbriel/layer-rules/).
+
+## Autostart Noctalia
+
+Add `noctalia` to the `autostart` array under `[general]`. Preserve any commands that are already in the array:
+
+```toml
+[general]
+autostart = ["noctalia"]
+```
+
+Umbriel runs these commands once after startup and does not run them again when its configuration is reloaded.
+
+## Compositor Settings
+
+These settings provide rounded windows, consistent borders, and a blurred compositor background:
+
+```toml
+[appearance]
+prefer_no_csd = true
+border_width = 2
+corner_radius = 10
+
+[appearance.blur]
+enabled = true
+optimized = true
+passes = 3
+radius = 3
+noise = 0.02
+brightness = 0.9
+contrast = 0.9
+saturation = 1.1
+```
+
+Adjust these values to match your preferred appearance. The full list of options is available in Umbriel's [Appearance](/umbriel/appearance/) and [Animation](/umbriel/animation/) references.
+
+## Window Rules
+
+Use a `window_rule` to configure Noctalia's settings window as floating with a predictable size. Umbriel combines matching rules in file order, so add this to your existing rules or to a dedicated included file:
+
+```toml
+[[window_rule]]
+match.app_id = "^dev.noctalia.Noctalia$"
+default_floating = true
+default_size = [1020, 900]
+```
+
+`match.app_id` is an ECMAScript regular expression. The `^` and `$` anchors make this rule apply only to Noctalia's settings window. See Umbriel's [Window Rules](/umbriel/window-rules/) reference for placement, workspace, opacity, blur, and focus options.
+
+## Layer Rules and Blur
+
+Noctalia publishes blur regions for its layer-shell surfaces when the compositor supports the `ext-background-effects` protocol. Enable blur for the bar, notifications, dock, panels, and OSD with the layer rule from Umbriel's example configuration:
+
+```toml
+[[layer_rule]]
+match.namespace = "^noctalia-(bar-[^\"]+|notification|dock|panel|attached-panel|osd)$"
+blur = true
+blur_ignore_alpha = 0.5
+blur_optimized = false
+```
+
+The namespace expression targets Noctalia's standard surfaces without matching unrelated layer-shell clients. `blur_ignore_alpha = 0.5` avoids blurring highly transparent parts of a surface. `blur_optimized = false` makes this rule use the regular blur path instead of the optimized mode configured globally under `[appearance.blur]`.
+
+Layer-surface blur is disabled by default in Umbriel. Inspect active namespaces with:
+
+```sh
+umbriel layers
+```
+
+For the complete set of layer-rule options, see Umbriel's [Layer Rules](/umbriel/layer-rules/) reference.
+
+## IPC Keybinds
+
+Umbriel can launch Noctalia IPC commands directly from its `[keybinds]` table. Add these bindings to `~/.config/umbriel/config.toml`:
+
+```toml
+[keybinds]
+"Mod+Space" = "spawn:noctalia msg panel-toggle launcher"
+"Mod+S" = "spawn:noctalia msg panel-toggle control-center"
+"Mod+Comma" = "spawn:noctalia msg settings-toggle"
+"Alt+Tab" = "spawn:noctalia msg window-switcher"
+
+"XF86AudioRaiseVolume" = "spawn:noctalia msg volume-up"
+"XF86AudioLowerVolume" = "spawn:noctalia msg volume-down"
+"XF86AudioMute" = "spawn:noctalia msg volume-mute"
+"XF86MonBrightnessUp" = "spawn:noctalia msg brightness-up"
+"XF86MonBrightnessDown" = "spawn:noctalia msg brightness-down"
+```
+
+`Mod` uses Umbriel's configured modifier from `general.mod_key` and defaults to Super in a native session. See [Keybinds](/umbriel/keybinds/) for more Noctalia IPC examples and the complete action reference.

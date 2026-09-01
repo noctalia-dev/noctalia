@@ -14,6 +14,7 @@
 #include "shell/settings/widget_settings_registry.h"
 #include "ui/builders.h"
 #include "ui/controls/flex.h"
+#include "ui/dialogs/glyph_picker_dialog.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 #include "util/string_utils.h"
@@ -549,8 +550,41 @@ namespace settings {
             },
             path
         );
+      case WidgetControlKind::Glyph: {
+        const std::string currentValue = valueAsString(value);
+        auto textNode = factory.makeText(currentValue, {}, path);
+        return ui::row(
+            {
+                .align = FlexAlign::Center,
+                .gap = Style::spaceSm * factory.scale(),
+            },
+            std::move(textNode),
+            ui::button({
+                .glyph = "apps",
+                .glyphSize = Style::fontSizeBody * factory.scale(),
+                .variant = ButtonVariant::Default,
+                .minWidth = Style::controlHeight * factory.scale(),
+                .minHeight = Style::controlHeight * factory.scale(),
+                .paddingV = Style::spaceXs * factory.scale(),
+                .paddingH = Style::spaceSm * factory.scale(),
+                .radius = Style::scaledRadiusMd(factory.scale()),
+                .onClick = [setOverride = factory.context().setOverride, path, currentValue]() {
+                  GlyphPickerDialogOptions options;
+                  if (!currentValue.empty()) {
+                    options.initialGlyph = currentValue;
+                  }
+                  (void)GlyphPickerDialog::open(
+                      std::move(options), [setOverride, path](std::optional<GlyphPickerResult> result) {
+                        if (result.has_value()) {
+                          setOverride(path, result->name);
+                        }
+                      }
+                  );
+                },
+            })
+        );
+      }
       case WidgetControlKind::String:
-      case WidgetControlKind::Glyph:
       default:
         return factory.makeText(valueAsString(value), {}, path);
       }

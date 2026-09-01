@@ -184,6 +184,7 @@
     "audio": {
       "application-volumes": "Volume de Aplicativos",
       "choose-effects-profile": "Escolha um perfil",
+      "default-device": "Dispositivo padrão",
       "effects-profile": "Efeitos",
       "input-device-prefix": "Entrada",
       "no-application-audio": "Sem Áudio de Aplicativos",
@@ -305,6 +306,22 @@
     },
     "power": {
       "battery": "Bateria",
+      "charging": {
+        "configured": "Configurado: {limits}",
+        "display-only": "Mostrar somente",
+        "error-denied": "Autorização foi negada. Limites de carga não foram modificados.",
+        "error-failed": "Limites de carga não puderam ser alterados.",
+        "externally-managed": "Definido por outra ferramenta. Configure UPower para gerenciar limites de carga.",
+        "firmware-managed": "Carregamento é gerenciado pelo firmware do sistema",
+        "full-charge": "Pode carregar até 100%",
+        "starts": "Inicia abaixo de {start}%",
+        "starts-stops": "Inicia abaixo de {start}% · Para em {end}%",
+        "stops": "Para em {end}%",
+        "title": "Bateria carregando",
+        "unreadable": "Indisponível",
+        "unsupported": "Limites de carga não são suportados",
+        "use-thresholds": "Usar limites de carga"
+      },
       "design-capacity": "Da capacidade padrão",
       "health": "Saúde da Bateria",
       "performance-inhibited": "Performance indisponível",
@@ -579,6 +596,7 @@
         "grid": "Grade"
       },
       "title": "Widgets da Área de Trabalho",
+      "title-lockscreen": "Widgets da Tela de Bloqueio",
       "types": {
         "audio-visualizer": "Visualizador de Áudio",
         "button": "Botão",
@@ -1376,6 +1394,13 @@
       "panel-position": {
         "auto": "Seguir a Barra"
       },
+      "plugins": {
+        "auto-update": {
+          "all": "Todas fontes",
+          "none": "Nenhum",
+          "official": "Somente oficial"
+        }
+      },
       "screen-position": {
         "bottom-center": "Inferior Central",
         "bottom-left": "Inferior à esquerda",
@@ -1760,6 +1785,10 @@
         "font-family": {
           "description": "Fonte a ser usada nos widgets desta barra; deixe em branco para herdar a fonte global (Família de fontes definida para cada widget tem prioridade sobre esta)",
           "label": "Família da Fonte"
+        },
+        "font-scale": {
+          "description": "Fator de escala para texto em todos widgets nesta barra; por widget font_scale multiplies this",
+          "label": "Escala de Fonte"
         },
         "font-weight": {
           "description": "Peso padrão para os rótulos dos widgets nesta barra.",
@@ -2984,9 +3013,9 @@
           "label": "Copiar para a Área de Transferência"
         },
         "screenshot-directory": {
-          "description": "Pasta para salvar arquivos PNG; deixe vazia para usar ~/Imagens",
+          "description": "Pasta para arquivos PNG salvos; deixe vazia para usar o padrão XDG do diretório Imagens",
           "label": "Diretório de Saída",
-          "placeholder": "~/Imagens"
+          "placeholder": "Diretório Imagens XDG"
         },
         "screenshot-filename-pattern": {
           "description": "Padrão strftime sem extensão (.png é adicionado); use %s para a unix epoch.",
@@ -3458,6 +3487,10 @@
           "description": "Fonte para utilizar neste widget; deixe em vazio para herdar a fonte da barra",
           "label": "Família da Fonte"
         },
+        "font-scale": {
+          "description": "Multiplicador de escala para texto neste widget, independente da escala geral de widgets",
+          "label": "Escala de Fonte"
+        },
         "font-weight": {
           "description": "O padrão herda o peso da fonte da barra",
           "label": "Peso da Fonte"
@@ -3520,6 +3553,10 @@
         "hide-when-full": {
           "description": "Oculte o widget da bateria quando estiver totalmente carregado",
           "label": "Ocultar Quando Cheia"
+        },
+        "hide-when-inactive": {
+          "description": "Ocultar o widget de microfone enquanto não houver aplicação capturando áudio",
+          "label": "Ocultar Quando Inativo"
         },
         "hide-when-no-connected-device": {
           "description": "Ocultar o widget do Bluetooth quando nenhum dispositivo estiver conectado",
@@ -3755,6 +3792,10 @@
         "show-num-lock": {
           "description": "Exibe estado do Num Lock",
           "label": "Exibir Num Lock"
+        },
+        "show-progress": {
+          "description": "Preencha o fundo do widget para mostrar o progresso da reprodução",
+          "label": "Mostrar Progresso da Reprodução"
         },
         "show-scroll-lock": {
           "description": "Exibe estado do Scroll Lock",

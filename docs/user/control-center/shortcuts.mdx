@@ -1,0 +1,85 @@
+---
+title: Shortcuts
+description: Control Center Home shortcut buttons and their configuration.
+sidebar:
+  order: 4
+---
+
+The Home tab displays a row of shortcut buttons at the bottom. Up to 6 shortcuts are shown. You can configure the list in TOML or edit it from **Settings -> Control Center**.
+
+```toml
+[[control_center.shortcuts]]
+type = "wifi"
+
+[[control_center.shortcuts]]
+type = "bluetooth"
+
+[[control_center.shortcuts]]
+type = "nightlight"
+
+[[control_center.shortcuts]]
+type = "notification"
+
+[[control_center.shortcuts]]
+type = "wallpaper"
+
+[[control_center.shortcuts]]
+type = "session"
+```
+
+When no `[[control_center.shortcuts]]` entries are defined, the default set is: `wifi`, `bluetooth`, `caffeine`, `nightlight`, `notification`, `power_profile`.
+Set `shortcuts = []` under `[control_center]` to hide all Home shortcut buttons.
+
+Use `show_shortcut_labels` under `[control_center]` to show or hide the text under each shortcut icon (default `true`). When labels are off, the icons scale with the shortcut cell size — useful at narrower Control Center widths.
+
+```toml
+[control_center]
+show_shortcut_labels = false
+```
+
+## Entry Fields
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `type` | string | *required* | Shortcut type from the list below |
+
+## Types
+
+| Type | Label | Behavior | Right-click |
+|------|-------|----------|-------------|
+| `wifi` | Wi-Fi | Toggle wireless on/off | Open network tab |
+| `bluetooth` | Bluetooth | Toggle adapter on/off | Open bluetooth tab |
+| `nightlight` | Night Light | Toggle blue-light filter (forced -> scheduled-on) | Toggle always-on (force) |
+| `notification` | DND | Toggle Do Not Disturb | Open notifications tab |
+| `dark_mode` | Dark Mode | Toggle light/dark theme | - |
+| `caffeine` | Caffeine | Toggle idle/sleep prevention | - |
+| `audio` | Audio | Toggle output mute | Open audio tab |
+| `mic_mute` | Microphone | Toggle mic mute | Open audio tab |
+| `power_profile` | Current profile | Cycle power profile | Open system tab |
+| `media` | Media | Play/Pause active player | Open media tab |
+| `weather` | Temperature | Open weather tab | Open weather tab |
+| `system` | System | Open system tab | Open system tab |
+| `screen_time` | Screen Time | Open screen time tab | Open screen time tab |
+| `keyboard_layout` | Current layout | Cycle keyboard layout | - |
+| `screen_recorder` | Recorder | Toggle recording | Toggle replay buffer |
+| `wallpaper` | Wallpaper | Open wallpaper panel | - |
+| `session` | Session | Open session panel | - |
+| `clipboard` | Clipboard | Open clipboard panel | - |
+
+## Dynamic Shortcuts
+
+Toggle shortcuts show an active/inactive visual state. `power_profile`, `weather`, and `keyboard_layout` display dynamic labels such as the current power profile, temperature, or keyboard layout.
+
+`weather` is available only when `[weather].enabled = true`. `system` is available only when `[system.monitor].enabled = true`. `screen_time` is available only when `[shell].screen_time_enabled = true`.
+
+`screen_recorder` requires the official [`noctalia/screen_recorder` plugin](/noctalia/plugins/official-plugins/#screen_recorder) to be enabled; without it the shortcut stays disabled.
+
+## Related IPC
+
+Many shortcut buttons trigger the same canonical IPC commands documented elsewhere:
+
+- [System Controls](/noctalia/ipc/system-controls/) for Wi-Fi, Bluetooth, night light, audio, caffeine, and power profile
+- [Media & UI -> Notifications](/noctalia/ipc/media-and-ui/#notifications) for DND
+- [Media & UI -> Media](/noctalia/ipc/media-and-ui/#media) for media controls
+- [Media & UI -> Theme](/noctalia/ipc/media-and-ui/#theme) for dark mode
+- [Shell -> Session](/noctalia/ipc/shell/#session) for session actions

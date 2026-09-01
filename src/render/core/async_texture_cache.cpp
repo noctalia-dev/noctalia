@@ -274,6 +274,8 @@ void AsyncTextureCache::dispatch(const std::vector<pollfd>& fds, std::size_t sta
       entryIt->second.failed = true;
       continue;
     }
+    entryIt->second.handle.sourceWidth = job.sourceWidth;
+    entryIt->second.handle.sourceHeight = job.sourceHeight;
     touchEntry(entryIt->second);
     notifyReady(job.key, entryIt->second.handle);
   }
@@ -332,6 +334,8 @@ void AsyncTextureCache::reloadResidentTextures() {
       entry.failed = true;
       continue;
     }
+    entry.handle.sourceWidth = loaded->sourceWidth;
+    entry.handle.sourceHeight = loaded->sourceHeight;
     touchEntry(entry);
     notifyReady(key, entry.handle);
   }
@@ -364,6 +368,8 @@ void AsyncTextureCache::workerLoop() {
       result.rgba = std::move(loaded->rgba);
       result.width = loaded->width;
       result.height = loaded->height;
+      result.sourceWidth = loaded->sourceWidth;
+      result.sourceHeight = loaded->sourceHeight;
     } else {
       result.failed = true;
       kLog.warn("failed to decode image: {} ({})", ImageSourceLog::describe(key.path), loaded.error());

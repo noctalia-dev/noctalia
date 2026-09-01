@@ -231,6 +231,7 @@ location = "https://example.invalid/bad"
     bar.panelOverlap = 2;
     bar.capsuleThickness = 0.5f;
     bar.scale = 2.0f;
+    bar.fontScale = 1.5f;
     bar.fontWeight = 600;
     bar.fontFamily = "Inter";
     bar.startWidgets = {"launcher"};
@@ -295,6 +296,7 @@ location = "https://example.invalid/bad"
     ovr.panelOverlap = -1;
     ovr.capsuleThickness = 0.25f;
     ovr.scale = 1.5f;
+    ovr.fontScale = 1.5f;
     ovr.fontFamily = "Fira Sans";
     ovr.startWidgets = std::vector<std::string>{"tray"};
     ovr.centerWidgets = std::vector<std::string>{"media"};
@@ -406,8 +408,8 @@ location = "https://example.invalid/bad"
     c.brightness.enableDdcutil = true;
     c.brightness.ddcutilIgnoreMmids = {"ABC123"};
     c.brightness.monitorOverrides = {
-        {"DP-1", BrightnessBackendPreference::Ddcutil},
-        {"eDP-1", std::nullopt},
+        {"DP-1", BrightnessBackendPreference::Ddcutil, std::nullopt, 7},
+        {"eDP-1", std::nullopt, "intel_backlight", std::nullopt},
     };
     c.battery.warningThreshold = 15;
     c.battery.deviceThresholds = {{"BAT0", 10}, {"hidpp:1", 25}};
@@ -597,6 +599,16 @@ location = "https://example.invalid/bad"
         fail("osd.scale clamp: expected 0.5");
       }
     }
+    // Bar font_scale uses the same lower bound exposed by the Settings slider.
+    {
+      auto t = toml::parse("font_scale = 0.1");
+      BarConfig b{};
+      Diagnostics d;
+      readInto(t, b, barFieldsSchema(), "bar", d);
+      if (b.fontScale != 0.2f) {
+        fail("bar.font_scale clamp: expected 0.2");
+      }
+    }
     // Clipboard history count accepts large text-heavy histories but still has
     // an explicit config ceiling.
     {
@@ -607,6 +619,22 @@ location = "https://example.invalid/bad"
       if (s.clipboardHistoryMaxEntries != 10000) {
         fail("shell.clipboard_history_max_entries clamp: expected 10000");
       }
+    }
+  }
+
+  void checkMonitorFontScaleChangeSet() {
+    Config before;
+    BarConfig bar;
+    bar.name = "default";
+    BarMonitorOverride monitor;
+    monitor.match = "DP-1";
+    bar.monitorOverrides.push_back(monitor);
+    before.bars.push_back(bar);
+
+    Config after = before;
+    after.bars.front().monitorOverrides.front().fontScale = 1.5F;
+    if (!computeConfigChangeSet(before, after).bars) {
+      fail("monitor font_scale override did not mark bars changed");
     }
   }
 
@@ -974,6 +1002,7 @@ contact_shadow = true
 enabled = false
 end = [ "battery" ]
 font_family = "Inter"
+font_scale = 1.5
 font_weight = 600
 hover_highlight = false
 icon_color = "#0C0B0A"
@@ -1031,6 +1060,7 @@ widget_spacing = 8
     enabled = true
     end = [ "volume" ]
     font_family = "Fira Sans"
+    font_scale = 1.5
     font_weight = 600
     hover_highlight = true
     icon_color = "#E3E2E1"
@@ -1192,6 +1222,7 @@ widget_spacing = 8
   checkStorageKeySourceValidation();
   checkPanelFloatingLayerValidation();
   checkClamps();
+  checkMonitorFontScaleChangeSet();
   checkPluginAutoUpdateMode();
   checkAutoUpdateScopeSelection();
   checkDuplicatePluginSourceRejection();

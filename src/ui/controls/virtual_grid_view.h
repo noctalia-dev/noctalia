@@ -14,6 +14,7 @@
 
 class InputArea;
 class ScrollView;
+struct ScrollViewState;
 
 // Adapter that drives a VirtualGridView from an external data source.
 //
@@ -94,6 +95,8 @@ public:
 
   // Adapter is non-owning and must outlive the grid.
   void setAdapter(VirtualGridAdapter* adapter);
+  // State is non-owning and must outlive the grid.
+  void bindScrollState(ScrollViewState* state);
 
   // Notify the grid that the adapter's item count or contents changed.
   void notifyDataChanged();
@@ -109,6 +112,9 @@ public:
   void setOverscanRows(std::size_t rows);
   // wp_cursor_shape value applied while the pointer is over a cell (0 = inherit).
   void setItemCursorShape(std::uint32_t shape);
+  // Content scale, used for the pointer travel threshold that separates a click
+  // from a drag on an adapter-consumed press.
+  void setScale(float scale) { m_scale = scale; }
 
   void scrollToIndex(std::size_t index);
   void setSelectedIndex(std::optional<std::size_t> index);
@@ -169,6 +175,7 @@ private:
   float m_rowGap = 4.0F;
   std::size_t m_overscanRows = 2;
   std::uint32_t m_itemCursorShape = 0;
+  float m_scale = 1.0F;
 
   std::optional<std::size_t> m_selectedIndex;
   std::optional<std::size_t> m_hoveredIndex;
@@ -187,4 +194,10 @@ private:
   bool m_pendingScrollToIndex = false;
   std::size_t m_pendingScrollIndex = 0;
   bool m_adapterPointerCapture = false;
+  // Press point of the captured press, and whether the pointer has travelled
+  // far enough since for the gesture to count as a drag. Only meaningful while
+  // m_adapterPointerCapture holds, and both are set when capture begins.
+  float m_pressLocalX = 0.0F;
+  float m_pressLocalY = 0.0F;
+  bool m_dragThresholdPassed = false;
 };

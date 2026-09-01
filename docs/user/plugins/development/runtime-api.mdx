@@ -1,0 +1,441 @@
+---
+title: Runtime API
+description: Use noctalia.* host capabilities and share state across plugin entries.
+sidebar:
+  label: Runtime API
+  order: 5
+---
+
+import PluginApiBadge from '../../../../../components/PluginApiBadge.astro';
+
+:::caution[Beta - APIs may still change]
+The plugin system is in **beta**. The manifest format and APIs may still change before v5 is stable, so build with that in mind.
+:::
+
+Most `noctalia.*` functions are synchronous. Methods that start subprocesses, HTTP requests, or downloads return a
+boolean immediately to say whether the work was accepted, then deliver results to a callback.
+
+## Runtime and settings
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `noctalia.setUpdateInterval(ms)` | nothing | Sets how often this entry's `update()` function runs. Values below 16 ms are clamped. |
+| `noctalia.log(msg)` | nothing | Writes a message to Noctalia's log with this plugin's script context. |
+| `noctalia.isDarkMode()` | bool | Returns whether the active theme mode is dark. |
+| `noctalia.getSetting(path)` | config value or `nil` | Reads any effective shell config value by TOML dotted path. Tables and arrays become Luau tables; array indices in paths are zero-based. Missing paths log a warning and return `nil`. Requires <PluginApiBadge feature="get-setting" />. |
+| `noctalia.focusedOutputName()` | string or `nil` | Returns the focused output's connector name, falling back to the preferred interactive output when needed. |
+| `noctalia.getConfig(key)` | setting value or `nil` | Reads a declared plugin or entry setting. Undeclared keys log a warning and return `nil`. |
+
+`getConfig(key)` reads the calling plugin entry's declared settings. `getSetting(path)` instead reads the shell's
+effective configuration. For example, `noctalia.getSetting("shell.offline_mode")` returns a boolean,
+`noctalia.getSetting("bar.order[0]")` returns the first configured bar name, and
+`noctalia.getSetting("widget.clock")` returns the whole table when it exists.
+
+## Outputs, wallpaper, and panels
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `noctalia.outputs()` | array | Returns connected outputs as `{ name, description, width, height, x, y, scale, focused }` tables. |
+| `noctalia.setWallpaperEnabled(connector, enabled)` | nothing | Enables or disables Noctalia's own wallpaper surface on one output. This is runtime-only and clears on restart. |
+| `noctalia.setWallpaper(path)` | nothing | Applies and persists a wallpaper image on every output. |
+| `noctalia.setWallpaper(connector, path)` | nothing | Applies and persists a wallpaper image on one output. |
+| `noctalia.wallpaperDirectory()` | string or `nil` | Returns the resolved wallpaper folder for the current theme mode, or `nil` when unset. |
+| `noctalia.wallpaperPath(connector)` | string or `nil` | Returns the exact wallpaper source configured for an output, or `nil` for an unknown output. Requires <PluginApiBadge feature="wallpaper-mask" />. |
+| `noctalia.setWallpaperMask(connector, { path, wallpaperPath })` | nothing | Applies a source-aligned grayscale occlusion mask to every desktop-widget surface on the output. Requires <PluginApiBadge feature="wallpaper-mask" />. |
+| `noctalia.setWallpaperMask(connector, nil)` | nothing | Clears this plugin runtime's mask from the output. Requires <PluginApiBadge feature="wallpaper-mask" />. |
+| `noctalia.togglePanel("author/plugin:panel")` | nothing | Opens or closes a plugin panel by full entry id. |
+| `noctalia.openSettings()` | nothing | Opens the settings window at this plugin's own settings, closing any open panel. Requires <PluginApiBadge feature="open-settings" />. |
+
+`outputs()` uses the DRM connector name in `name`; that is the same connector string expected by compositor tools such
+as `mpvpaper`. A `[[service]]` may also define `onOutputsChanged()`, which Noctalia calls whenever the output set or
+geometry changes.
+
+`setWallpaper(path)` behaves like the built-in wallpaper panel. Prefer it and `togglePanel(id)` over shelling out to the
+`noctalia` CLI from a plugin; the API path runs in-process and avoids an IPC round trip.
+
+Wallpaper masks use the wallpaper source's intrinsic pixel dimensions and Noctalia's configured fill mode, so plugins
+must not pre-crop or project them to output geometry. Pixel value `0` leaves widgets visible, `255` erases them, and
+intermediate values feather the boundary. `wallpaperPath` must exactly match `noctalia.wallpaperPath(connector)`;
+stale, malformed, unreadable, and dimension-mismatched masks are rejected. One plugin runtime owns an output mask at a
+time. The owner may replace or clear it, and Noctalia clears all of that runtime's masks when it unloads.
+
+`openSettings()` takes no id - the host uses the calling plugin's own id, so a plugin can only ever open its own page.
+It is the way to offer a "configure me" affordance from a panel or widget, since plugins read config but cannot write
+it. Nothing happens when the plugin declares no settings; the host logs a warning.
+
+## Dialogs
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `noctalia.openColorPicker(initialColor, onClose)` | bool | Opens the color picker with a `#RRGGBB` initial color. The callback receives the selected canonical `#RRGGBB` value, or `nil` when cancelled. |
+
+The return value says whether the request was accepted. An entry can have one color picker callback pending at a time.
+
+```lua
+noctalia.openColorPicker("#FFF59B", function(color)
+  if color ~= nil then
+    noctalia.log("Selected " .. color)
+  end
+end)
+```
+
+## Application icons
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `noctalia.appIconPath(appId, sizePx)` | string or `nil` | Resolves an app id to an icon file path with the same lookup the built-in taskbar uses. `sizePx` is optional. |
+
+The lookup matches `appId` against desktop entries (entry id, then `StartupWMClass`) to find the icon name, then
+resolves it through the host's XDG icon-theme resolver. Input that matches no desktop entry is treated as a raw icon
+name, so themed icons such as `"folder-music"` resolve directly. `sizePx` is the intended on-screen pixel size and
+selects the best-fitting theme size; without it the largest available icon wins.
+
+The returned path plugs straight into a `ui.image` `path` prop. Resolution scans the filesystem on a cache miss, so
+cache results keyed by app id instead of resolving on every `update()`.
+
+## Time, notifications, and clipboard
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `noctalia.formatTime(pattern)` | string | Formats the current local time with the same tokens as Noctalia clock and filename settings. |
+| `noctalia.formatTime(pattern, unixSeconds)` | string | Formats a specific Unix timestamp in local time. |
+| `noctalia.formatTime(pattern, unixSeconds, timezone)` | string | Formats a Unix timestamp in an IANA timezone (for example `"Europe/Berlin"`). Omit or pass `nil` for `unixSeconds` to use now. Invalid zones fall back to local time. Requires <PluginApiBadge feature="format-time-timezone" />. |
+| `noctalia.timeFormat()` | string | Current `[shell].time_format` (for example `"{:%H:%M}"`). Requires <PluginApiBadge feature="format-time-timezone" />. |
+| `noctalia.dateFormat()` | string | Current `[shell].date_format` (for example `"%A, %x"`). Requires <PluginApiBadge feature="format-time-timezone" />. |
+| `noctalia.isValidTimezone(name)` | bool | True when `name` is empty (system local) or a known IANA timezone. Requires <PluginApiBadge feature="format-time-timezone" />. |
+| `noctalia.nowMs()` | number | Wall-clock milliseconds since the Unix epoch. Requires <PluginApiBadge feature="system-stats" />. |
+| `noctalia.notify(title, body)` | nothing | Shows an informational notification. `body` is optional. |
+| `noctalia.notifyError(title, body)` | nothing | Shows an error notification. `body` is optional. |
+| `noctalia.copyToClipboard(text, mime)` | bool | Copies text to the clipboard with an explicit MIME type, for example `"text/plain"` or `"text/uri-list"`. |
+| `noctalia.clipboardText()` | string or `nil` | Latest text clipboard content (`nil` when empty or non-text). |
+
+`%s` in `formatTime()` expands to Unix epoch seconds.
+
+`formatTime()` and Luau's own `os.time()` are both whole-second. `nowMs()` is the only way to see sub-second time, for
+example to phase an entry's updates onto a second boundary.
+
+## System stats
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `noctalia.systemStats()` | table or `nil` | Snapshot of the host's system monitor. `nil` when `[system.monitor]` is disabled. Requires <PluginApiBadge feature="system-stats" />. |
+| `noctalia.cpuCores()` | array or `nil` | Per-core CPU usage percentages. `nil` when the monitor is disabled or no sample is ready yet. Requires <PluginApiBadge feature="system-stats" />. |
+| `noctalia.diskMounts()` | array | Physical block-device-backed filesystems available to `diskStats()`. Requires <PluginApiBadge feature="extended-system-stats" />. |
+| `noctalia.diskStats(path)` | table or `nil` | Latest disk usage snapshot for an absolute or `~/` path. `nil` when the monitor or path is unavailable. Requires <PluginApiBadge feature="extended-system-stats" />. |
+
+`systemStats()` returns a copy of the host's most recent sample. Its first call opts the plugin into the optional CPU
+temperature and GPU probes represented in the snapshot; those probes are released when the plugin unloads.
+
+```lua
+local stats = noctalia.systemStats()
+if stats ~= nil then
+  noctalia.log(string.format("cpu %.0f%% ram %.0f%%", stats.cpu.usagePercent, stats.ram.usagePercent))
+end
+```
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `sampledAtMs` | number | Unix epoch milliseconds for the latest aggregate sample. Absent until the first sample. Requires <PluginApiBadge feature="extended-system-stats" />. |
+| `cpu.usagePercent` | number | Aggregate CPU busy percentage, 0-100. |
+| `cpu.tempC` | number | Absent when no CPU temperature sensor was found. |
+| `cpu.freqMhz` | number | Average current CPU frequency in MHz. Absent when CPU frequency data is unavailable. |
+| `cpu.maxFreqMhz` | number | Highest detected CPU frequency ceiling in MHz. Absent when unavailable. |
+| `ram.usagePercent`, `ram.usedMb`, `ram.totalMb` | number | |
+| `swap.usedMb`, `swap.totalMb` | number | |
+| `gpu.tempC`, `gpu.usagePercent`, `gpu.vramUsedBytes`, `gpu.vramTotalBytes` | number | Each is absent when that GPU probe is unavailable. |
+| `net.rxBytesPerSec`, `net.txBytesPerSec` | number | Totalled across interfaces. |
+| `net.interfaces` | table | Receive/transmit rates keyed by interface name. Requires <PluginApiBadge feature="extended-system-stats" />. |
+| `loadAvg` | array | The 1, 5, and 15 minute load averages. |
+
+Absent sensors are `nil` rather than `0`, so a plugin can tell "no probe" from "idle". Test with
+`if stats.gpu.tempC ~= nil then` before using an optional field. A newly enabled probe may remain `nil` until its first
+configured poll.
+
+Values refresh on the poll intervals configured in [`[system.monitor]`](/noctalia/services/system-monitor/), CPU every 2
+seconds by default, not on every call. Calling `systemStats()` more often than that returns the same sample again.
+
+### Disk usage
+
+```lua
+for _, mount in ipairs(noctalia.diskMounts()) do
+  local disk = noctalia.diskStats(mount.path)
+  if disk ~= nil then
+    noctalia.log(string.format("%s %.0f%% used", mount.path, disk.usagePercent))
+  end
+end
+```
+
+`diskMounts()` returns `{ path, source, filesystem }` for physical block-device-backed filesystems,
+deduplicated by source and sorted by mount path. Pseudo filesystems, loop and squashfs mounts, and boot mounts are
+excluded.
+
+`diskStats()` accepts an absolute path or a path beginning with `~/`. The first call for each valid path opts that path
+into disk sampling until the plugin unloads. The result contains `usagePercent`, `totalBytes`, `freeBytes`, and
+`availableBytes`. It does not expose sample history.
+
+### Per-core CPU usage
+
+```lua
+local cores = noctalia.cpuCores()
+if cores ~= nil then
+  for i, usage in ipairs(cores) do
+    noctalia.log(string.format("core %d: %.0f%%", i, usage))
+  end
+end
+```
+
+The first call opts the plugin into per-core sampling, which costs one extra `/proc/stat` read per second for as long as
+the plugin stays loaded. `systemStats()` does not enable per-core sampling, so only call `cpuCores()` if you actually
+draw per-core data. Sampling runs on a fixed 1 second cadence, independent of `cpu_poll_seconds`.
+
+Two reads are needed to produce the first result, so expect `nil` for up to a second after the first call. Treat `nil`
+as "not ready yet" rather than "this machine has no cores".
+
+Cores are in `/proc/stat` order. Offline cores are absent from that file, so the array length can change between calls,
+and an entry's position is not necessarily its core id.
+
+## Subprocesses and environment
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `noctalia.runAsync(cmdOrArgv)` | bool | Starts a detached process and returns whether it launched. No output is captured. |
+| `noctalia.runAsync(cmdOrArgv, cb)` | bool | Runs a process with output capture, then calls `cb(result)`. |
+| `noctalia.runStream(cmd, onLine)` | bool | Runs a long-lived shell command and calls `onLine(line)` for each stdout line. |
+| `noctalia.runInTerminal(cmd)` | bool | Starts a shell command in a terminal. Uses `$TERMINAL` when set (no `-e` in the value), otherwise discovers a terminal on `PATH`. See [Shell settings](/noctalia/configuration/shell/#shell-settings). |
+| `noctalia.commandExists(name)` | bool | Checks whether an executable is available on `PATH`. |
+| `noctalia.processMatches(cb, ...needles)` | bool | Asynchronously checks running processes; `cb(matched)` receives a boolean. |
+| `noctalia.flatpakAppInstalled(id)` | bool | Checks whether a Flatpak app id is installed. |
+| `noctalia.portalAvailable()` | bool | Checks whether the desktop portal is available. |
+| `noctalia.getenv(name)` | string or `nil` | Reads an environment variable. |
+| `noctalia.expandPath(path)` | string | Expands a path such as `~/Pictures` to an absolute user path. |
+
+`runAsync()` accepts either a shell command string or an argument array. The argument-array form requires
+<PluginApiBadge feature="direct-argv" />. A string runs
+through `/bin/sh -c`. An argument array executes the program directly and passes every later value as one argument,
+without shell parsing. Use the argument-array form whenever settings, user input, paths, URLs, or other dynamic values
+are involved:
+
+```lua
+noctalia.runAsync({ "git", "-C", checkoutDir, "fetch", "origin", branch }, function(result)
+  if result.exitCode ~= 0 then
+    noctalia.log(result.stderr)
+  end
+end)
+```
+
+Shell operators such as pipes, redirections, variable expansion, and command substitution work only in the string form.
+Values concatenated into a shell command must be shell-quoted; an argument array avoids that requirement.
+
+`runAsync(cmdOrArgv, cb)` calls `cb(result)` once with:
+
+```lua
+{
+  exitCode = 0,
+  stdout = "...",
+  stderr = "...",
+  timedOut = false,
+  stdoutTruncated = false,
+  stderrTruncated = false,
+}
+```
+
+`runStream()` is meant for long-running processes. The runtime terminates active streams when the script reloads, the
+entry is removed, or Noctalia stops the plugin.
+
+## Filesystem
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `noctalia.readFile(path)` | string, or `nil, err` | Reads a file as bytes. |
+| `noctalia.readFileAsync(path, cb)` | bool | Queues a read and calls `cb(contents, nil)` or `cb(nil, err)`. Returns `false` if the bounded queue is full. Requires plugin API 23. |
+| `noctalia.writeFile(path, content)` | bool, optional error | Writes a file, replacing existing contents. |
+| `noctalia.mkdirAll(path)` | bool, optional error | Creates a directory and any missing parents (an existing directory is success). |
+| `noctalia.removeFile(path)` | bool, optional error | Deletes a file. Refuses directories. |
+| `noctalia.renameFile(from, to)` | bool, optional error | Renames or moves a file. |
+| `noctalia.fileExists(path)` | bool | Checks whether a path exists. |
+| `noctalia.fileInfo(path)` | table, or `nil, err` | `{ size, mtime, isDir }`, size in bytes, mtime in unix seconds. |
+| `noctalia.listDir(path)` | array, or `nil, err` | Lists filenames in a directory. |
+| `noctalia.pluginDir()` | string or `nil` | Returns this plugin's runtime directory. |
+| `noctalia.pluginDataDir()` | string, or `nil, err` | Returns this plugin's persistent data directory, creating it on demand. |
+| `noctalia.loadFont(path)` | string, or `nil, err` | Registers a font file and returns its family name. |
+
+Filesystem paths resolve as follows: `~` expands to `$HOME`, absolute paths are used as-is, and relative paths resolve
+against the plugin's own directory. Plugins are trusted code, so these helpers are not sandboxed.
+
+`readFileAsync()` is intended for sysfs, procfs, and small local files that should not consume a plugin VM worker while
+the kernel supplies their contents. Reads are limited to 4 MiB, with at most four outstanding reads per plugin runtime.
+Reloaded or stopped runtimes discard late completions. Use synchronous `readFile()` only when the file is known to be
+immediately available.
+
+### Persisting data across restarts
+
+`noctalia.state` (below) lives only in memory - it is cleared when the plugin stops. To keep data across restarts, write
+it to a file. Do **not** persist inside `noctalia.pluginDir()`: for git-installed plugins that directory is a runtime copy
+that Noctalia rewrites on update, so anything you save there is lost.
+
+Use `noctalia.pluginDataDir()` instead. It returns a per-plugin folder that survives updates, is scoped to your plugin id,
+follows Noctalia's `NOCTALIA_STATE_HOME` override, and is created for you on first call.
+
+```lua
+local dir = noctalia.pluginDataDir()
+local path = dir .. "/data.json"
+
+-- save
+noctalia.writeFile(path, noctalia.json.encode(myTable))
+
+-- restore on load
+local raw = noctalia.readFile(path)
+if raw then myTable = noctalia.json.decode(raw) end
+```
+
+## Sound
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `noctalia.sound.load(name: string, path: string, onLoaded: (ok: boolean, error: string?) -> ())` | boolean | Accepts an asynchronous sound load and calls `onLoaded` after decoding. Requires <PluginApiBadge feature="sound" />. |
+| `noctalia.sound.play(name: string)` | nothing | Plays a loaded sound from this runtime's sound bank. Requires <PluginApiBadge feature="sound" />. |
+
+Define the completion callback before requesting the load, and play only after it reports success:
+
+```lua
+local function onClickLoaded(ok, err)
+  if not ok then
+    noctalia.notifyError("Could not load click sound", err)
+    return
+  end
+  noctalia.sound.play("click")
+end
+
+local accepted = noctalia.sound.load("click", "sounds/click.ogg", onClickLoaded)
+if not accepted then
+  noctalia.notifyError("Could not queue click sound")
+end
+```
+
+Sound paths resolve like filesystem paths. Bundled relative assets such as `sounds/click.ogg` need no manifest
+declaration. A `true` return means the request was accepted, not that the file decoded; a decode failure calls the
+callback with `false` and a non-empty error. At most eight loads may be pending in one runtime, and requesting a name
+that already has a pending load returns `false`.
+
+Sound names are scoped to one runtime instance. Reloading or stopping it cancels pending callbacks and releases its
+cached names, while a sound already playing finishes safely. Playback honors `[audio].enable_sounds` and
+`[audio].sound_volume`. Triggering the same loaded sound while it is still playing is suppressed.
+
+## HTTP and downloads
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `noctalia.http(request, cb)` | bool | Starts an async HTTP request and calls `cb(response)`. |
+| `noctalia.httpStream(request, onLine, onClose)` | handle or `nil` | Starts a long-lived streaming request (e.g. SSE) and delivers each line to `onLine`. |
+| `noctalia.download(url, dest, cb)` | bool | Downloads a URL to a file and calls `cb(ok)` with a boolean. |
+
+`request` is a table:
+
+```lua
+{
+  url = "https://example.com",
+  method = "GET",
+  body = "",
+  headers = { "Accept: application/json" },
+  basic_username = "user",
+  basic_password = "pass",
+  follow_redirects = false,
+  allow_insecure_tls = false,
+}
+```
+
+`allow_insecure_tls` requires <PluginApiBadge feature="allow-insecure-tls" />. When true, it disables certificate-chain and hostname verification for
+the request, including any HTTPS redirects. Keep it false unless the endpoint is explicitly trusted and cannot use a
+publicly trusted certificate. The option applies to both `http()` and `httpStream()` and does not disable HTTPS proxy
+certificate verification.
+
+Only `url` is required. `http()` calls `cb(response)` once with:
+
+```lua
+{
+  ok = true,
+  status = 200,
+  body = "...",
+}
+```
+
+`download()` resolves `dest` like other filesystem paths, so a relative destination writes inside the plugin directory.
+
+### Streaming requests
+
+`httpStream()` (<PluginApiBadge feature="http-stream" />) keeps the connection open and delivers the response body incrementally - use it for
+server-sent events or any line-oriented streaming endpoint. Because headers travel through the native HTTP client,
+credentials such as an `Authorization: Bearer ...` header never appear in a process command line, unlike a spawned
+`curl`.
+
+```lua
+local stream = noctalia.httpStream({
+  url = "http://homeassistant.local:8123/api/stream",
+  headers = { "Accept: text/event-stream", "Authorization: Bearer " .. token },
+}, function(line)
+  -- one call per received line, CR trimmed
+end, function(result)
+  -- fires exactly once when the transfer ends: { ok = false, status = 0 }
+  if not result.ok then reconnect() end
+end)
+
+stream.stop() -- cancel; idempotent, suppresses onClose
+```
+
+It returns a handle with a `stop()` function, or `nil` when the stream could not be started. `onClose` fires exactly
+once when the transfer ends - server close, network error, or an HTTP error response fully read - unless the stream was
+stopped. Non-2xx responses are not special-cased: their body streams to `onLine` and the status arrives in `onClose`
+(`ok = true, status = 401` for a rejected token). There is no overall transfer timeout; reconnecting after `onClose` is
+the caller's job. Active streams are cancelled when the script reloads, the entry is removed, or Noctalia stops the
+plugin. With `[shell] offline_mode = true` the stream never connects and `onClose` fires with `ok = false`.
+
+## Translations and data helpers
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `noctalia.tr(key)` | string | Looks up a translated string from `translations/<lang>.json`, falling back to the key. |
+| `noctalia.tr(key, subst)` | string | Looks up a string and replaces `{name}` placeholders from a table. |
+| `noctalia.trp(key, count)` | string | Plural translation helper; prefers `<key>.one` or `<key>.other`, then the bare key. |
+| `noctalia.trp(key, count, subst)` | string | Plural translation helper with substitutions. `count` is also available as `{count}`. |
+| `noctalia.json.decode(str)` | value, or `nil, err` | Parses JSON into Luau values. |
+| `noctalia.json.encode(value)` | string, or `nil, err` | Encodes a Luau value as compact JSON. |
+| `noctalia.json.encode(value, true)` | string, or `nil, err` | Encodes a Luau value as pretty JSON. |
+| `noctalia.string.trim(str)` | string | Trims leading and trailing whitespace. |
+| `noctalia.string.urlEncode(str)` | string | Percent-encodes a string for use in URLs. |
+| `noctalia.string.urlDecode(str)` | string | Decodes percent-encoded URL text. |
+| `noctalia.fuzzyScore(pattern, text)` | number or `nil` | Scores a fuzzy match with Noctalia's native matcher. `nil` means no match. |
+
+`json.*` and `string.*` are synchronous pure transforms. Prefer `string.urlEncode()` when building query strings for
+`http()` or `download()`.
+
+## Sharing state across entries
+
+Entries are isolated VMs - they don't share Lua memory. Instead they exchange **plain values** through a per-plugin
+state channel:
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `noctalia.state.set(key, value)` | nothing | Publishes a plain value for other entries in the same plugin. |
+| `noctalia.state.get(key)` | value or `nil` | Reads the latest value for a key. |
+| `noctalia.state.watch(key, fn)` | nothing | Calls `fn(value)` whenever the key changes. |
+
+Values are **copied** across entries, so they must be plain data - strings, numbers, booleans, and tables of those (not
+functions). A typical pattern is a `[[service]]` publishing data that the widget and shortcut watch.
+
+This channel is **in-memory only** - it is not saved to disk and is cleared when the plugin stops. For data that must
+survive a restart, write it to [`noctalia.pluginDataDir()`](#persisting-data-across-restarts).
+
+```lua
+-- ticker.luau (service)
+local n = 0
+noctalia.setUpdateInterval(1000)
+function update()
+  n = n + 1
+  noctalia.state.set("count", n)
+end
+
+-- widget.luau
+noctalia.state.watch("count", function(value)
+  barWidget.setText(tostring(value))
+end)
+```

@@ -1,0 +1,506 @@
+---
+title: Declarative UI
+description: Render desktop widgets and panels with shared ui.* trees.
+sidebar:
+  label: Declarative UI
+  order: 4
+---
+
+import PluginApiBadge from '../../../../../components/PluginApiBadge.astro';
+
+:::caution[Beta - APIs may still change]
+The plugin system is in **beta**. The manifest format and APIs may still change before v5 is stable, so build with that in mind.
+:::
+
+Desktop widgets, panels, and (optionally) bar widgets do not have to patch a fixed control. They can describe their UI
+as a retained `ui.*` tree; Noctalia diffs each render against the previous tree and updates native controls in place.
+
+## `desktopWidget.*` - declarative desktop widget UI {#desktopwidget--declarative-desktop-widget-ui}
+
+A desktop widget hands its tree to `desktopWidget.render(tree)`. Build trees with the `ui.*` constructors (available in
+every desktop-widget script); each takes a props table and an optional children array:
+
+`render(tree)` · `setWantsSecondTicks(bool)` · `setNeedsFrameTick(bool)`
+
+```lua
+local color = noctalia.getConfig("color")
+
+function update()
+  desktopWidget.setWantsSecondTicks(true) -- tick update() on second boundaries
+  desktopWidget.render(ui.column({ gap = 10, align = "center" }, {
+    ui.label({ text = os.date("%H:%M:%S"), fontSize = 32, fontWeight = "bold", color = color }),
+    ui.row({ gap = 8 }, {
+      ui.button({ text = "Ping", variant = "primary", onClick = "ping" }),
+    }),
+  }))
+end
+
+function ping()
+  noctalia.notify("Desktop widget", "button clicked")
+end
+```
+
+## Shared `ui.*` controls
+
+The available controls and their props (sizes are logical px, scaled with the surface). **Desktop widgets and panels
+share this vocabulary** - panels additionally use the interactive controls below (`ui.input`, `ui.select`, etc.).
+
+`ui.label` and `ui.glyph` inherit the host's text defaults when a prop is unset: in a bar widget they use the bar's
+(or widget's) `font_family`/`font_weight` and the widget `scale`, matching the imperative `barWidget.setText` look.
+An explicit `fontSize`/`size`/`fontWeight`/`fontFamily` prop overrides the default. In bar widgets, `ui.button` renders compact —
+it hugs its content instead of using the taller settings-panel control height (pass `width`/`height` or `controlSize`
+to size it explicitly).
+
+| Constructor | Props |
+|-------------|-------|
+| `ui.column` / `ui.row` | `gap`, `padding`, `paddingH`, `paddingV`, `align` (`start`/`center`/`end`/`stretch`), `justify` (`start`/`center`/`end`/`space_between`), `fill`, `radius`, `border`, `borderWidth`, `minWidth`, `minHeight`, `onClick`, `onHover` |
+| `ui.scroll` | a vertically scrolling container; same layout props as a column plus `fill`, `radius`, `border`, `borderWidth`, `stickToBottom` (bool), `onScroll`, `scrollToBottomRev` (number - see below) |
+| `ui.label` | `text`, `fontSize`, `color`, `fontWeight` (`thin`…`heavy`), `fontFamily` (a family name; load a file with `noctalia.loadFont`), `baseline` (`text`/`textFixedHeight`/`inkCentered`/`pictographic`), `maxWidth`, `maxLines`, `textAlign` |
+| `ui.markdown` | `text` (markdown source - see below), `width`, `height` |
+| `ui.glyph` | `name` (Tabler/Nerd-Font glyph), `size`, `color` |
+| `ui.image` | `path` (plugin-relative, `~`, or absolute), `width`, `height`, `radius`, `fit` (`contain`/`cover`/`stretch`), `border`, `borderWidth`, `onClick`, `onHover` |
+| `ui.box` | `fill`, `radius`, `border`, `borderWidth`, `softness`, `width`, `height`, `onClick`, `onHover` |
+| `ui.separator` | `thickness`, `color`, `spacing`, `orientation` (`auto`/`horizontal`/`vertical`) |
+| `ui.spacer` | flexible filler (use `flexGrow`) |
+| `ui.progress` | `progress` (0–1), `fill`, `track`, `radius`, `width`, `height` |
+| `ui.button` | `text`, `glyph`, `fontSize`, `glyphSize`, `variant` (`default`/`primary`/`secondary`/`destructive`/`outline`/`ghost`), `contentAlign` (`start`/`center`/`end`), `controlSize` (`sm`/`md`/`lg`), `tooltip`, `enabled`, `selected`, `onClick`, `onRightClick`, `onHover` |
+| `ui.graph` | `values` / `values2` (arrays of 0–1 numbers), `color` / `color2`, `lineWidth`, `fillOpacity`, `width`, `height` |
+| `ui.toggle` | `checked` (bool), `enabled`, `onChange` |
+| `ui.slider` | `min`, `max`, `step`, `value`, `controlSize` (`sm`/`md`/`lg`), `enabled`, `onChange`, `onDragEnd` |
+| `ui.select` | `options` (array of strings), `selectedIndex`, `placeholder`, `controlSize` (`sm`/`md`/`lg`), `enabled`, `width`, `height`, `onChange` |
+| `ui.input` | `value` (initial text only - see below), `placeholder`, `fontSize`, `controlSize` (`sm`/`md`/`lg`), `password` (bool), `multiline` (bool), `submitOnEnter` (bool - see below), `frameVisible` (bool - see below), `focus` (bool), `enabled`, `onChange`, `onSubmit` |
+
+Every control also accepts `width`, `height`, `flexGrow`, `opacity`, and `visible`. Colors are a palette role token
+(`primary`, `on_surface`, …), a role token with an alpha suffix (`primary/0.6`, the role at 60% alpha, resolved live
+against the palette so it still tracks the theme), or a hex value (`#rrggbb` / `#rrggbbaa`). An unknown control type or
+prop is logged and skipped - typos surface in the log instead of failing silently.
+
+- **Translucent background, opaque content**: `opacity` is a *group* opacity, it fades a container **and all its
+  children** (text included), like CSS `opacity` on a parent. To make only the background semi-transparent, leave
+  `opacity` alone and give the container a translucent `fill` instead: `ui.column({ fill = "surface_variant/0.6" }, …)`
+  keeps the text fully opaque.
+
+- **Layout default**: `ui.column` / `ui.row` / `ui.scroll` **stretch** their children across the cross axis (a column
+  fills its width, a row fills its height), like CSS flexbox. Override per node with `align` - e.g. a row of
+  vertically-centered items uses `align = "center"`.
+- **Control height**: `controlSize` picks a named height tier - `sm` (32px), `md` (38px, the default), `lg` (44px) -
+  scaled with the surface, so a row of small buttons, selects and inputs lines up without hardcoded pixels. Use it to
+  fit more into a dense panel. For an exact height, use `height` instead; it wins when both are set. (Not to be confused
+  with `ui.glyph`'s numeric `size`, which is a glyph size in px.)
+- **Tooltips**: `ui.button` accepts a `tooltip` string, shown on hover. Dropping the prop on a later render clears it.
+  Tooltips appear for buttons in bar widgets and panels; desktop widgets do not show them.
+- **Callbacks**: a callback prop takes either a **function** (requires <PluginApiBadge feature="ui-callback-closures" />) or the **name of a global
+  function in your script**. `onClick` fires on a button click; `onChange` fires when a toggle/slider/select/input value
+  changes (the value is passed as a string - `"true"`/`"false"` for a toggle, a number for a slider, the text for an
+  input, the index for a select); `onSubmit` fires when the user presses Enter in an input.
+- **Closures**: a function callback captures the surrounding scope, which is the simplest way to tell rows of a list
+  apart - each row's handler already knows which row it belongs to:
+  ```lua
+  for index, task in ipairs(tasks) do
+    table.insert(rows, ui.button({
+      key = task.id,
+      text = task.title,
+      onClick = function() completeTask(index) end,
+    }))
+  end
+  ```
+  Handlers belong to the render that produced them: re-rendering replaces them, and a click on a node the current tree
+  no longer contains does nothing. Give repeated nodes a `key` so their handlers survive a re-render unchanged, the
+  same identity keys already give the reconciler. A function callback receives the same string arguments a named one
+  does, so `onChange = function(value) ... end` still reads `"true"`/`"false"` for a toggle.
+- **Hover**: `onHover = "name"` fires on pointer enter and leave for `ui.row`, `ui.column`, `ui.box`, `ui.image`, and
+  `ui.button`. The handler receives two strings: the state (`"true"` on enter, `"false"` on leave) and the node's `key`
+  (empty when the node has none), so a single named handler can serve a whole keyed list (a closure captures the row it
+  belongs to instead):
+  ```lua
+  -- track which chip is hovered, then re-render the tree
+  function onChipHover(state, key)
+    hovered = (state == "true") and key or nil
+  end
+  ```
+  Only the innermost hovered element reports: if a container with `onHover` contains a button or another interactive
+  child, hovering that child makes *it* the hover target and the container reports `"false"`. Every `"true"` is
+  matched by a `"false"`, including when the hovered node disappears in a later render, so a hover flag never gets
+  stuck on.
+- **Clickable containers**: `onClick` on `ui.row` and `ui.column` makes the whole container a click target while
+  keeping its layout and sizing, so an entire chip (glyph + label) activates as one unit rather than only a bare
+  `ui.box`. The same applies to `ui.image` and `ui.box` (thumbnail grids, placeholder tiles). A clickable container
+  joins the keyboard tab order and activates with Enter or Space. A container that declares only `onHover` and no
+  `onClick` does not swallow clicks: they pass through to an enclosing click target, so a hover cue can wrap something
+  that is already clickable. On these four, an empty `onClick`/`onHover` name counts as unset, so clearing the name
+  drops the target instead of leaving a dead one behind.
+- **Multiline input**: `ui.input` with `multiline = true` becomes a wrapping text area with vertical scrolling,
+  Enter inserts a newline and `onSubmit` fires on **Ctrl+Enter** instead. Give it a `height` or `flexGrow` for the
+  editing area; `multiline` and `password` are mutually exclusive. `submitOnEnter = true` flips the multiline
+  bindings for chat composers: Enter fires `onSubmit`, Shift+Enter inserts the newline, and Ctrl+Enter still
+  submits. Requires <PluginApiBadge feature="plugin-ui-props" />.
+- **Input frame**: `frameVisible = false` hides the input's native background and border while preserving text editing,
+  selection, cursor, scrolling, and focus behavior. Use it when a parent surface provides the visual frame. The frame
+  is visible by default; set `frameVisible = true` explicitly to restore it on a retained keyed input. Requires
+  <PluginApiBadge feature="input-frame-visibility" />.
+- **Markdown**: `ui.markdown` renders its `text` prop (headings, lists, code blocks, tables) as a read-only block.
+  The host re-parses only when `text` or the surface scale changes, so re-rendering a streaming tree with unchanged
+  text is cheap. Requires <PluginApiBadge feature="plugin-ui-props" />.
+- **Follow-scroll**: `ui.scroll` with `stickToBottom = true` stays pinned to the bottom while content grows, until
+  the user scrolls away. `onScroll` receives `(offset, maxOffset)`, both delivered as strings. `scrollToBottomRev`
+  jumps to the bottom on the first render that sees it and again whenever the number changes; the jump lands after
+  the next layout pass, so it reaches content added in the same render. All three require
+  <PluginApiBadge feature="plugin-ui-props" />.
+- **Focus**: `ui.input` with `focus = true` grabs keyboard focus once, when the control is **created**, never on
+  later re-renders, so it won't steal focus while the user interacts elsewhere. To focus again (e.g. a new document
+  in the same editor slot), give the input a fresh `key`. The seeded `value` places the caret at the end.
+- **Controlled vs. uncontrolled**: `toggle`/`slider`/`select` are **value-driven** - pass the current value on every
+  render and update it from the callback. `ui.input` is **uncontrolled**: `value` seeds the field once, then the host
+  owns the text as the user types - re-rendering never overwrites it. Read edits through `onChange`/`onSubmit`, and give
+  the input a stable `key` so it keeps its text across renders.
+- **Identity**: give list children a `key` prop so reordering reuses the same native controls.
+- **Images**: `ui.image` loads **local files only** - download remote previews with `noctalia.download(url, dest, cb)`
+  first, then pass the saved path.
+- **Glyph-only buttons**: when only `glyph` is set, any previous `text` is cleared so retained buttons do not keep
+  stale labels across re-renders.
+- **Ticks**: `setWantsSecondTicks(true)` runs `update()` on second boundaries (clocks/timers).
+  `setNeedsFrameTick(true)` additionally delivers `onFrameTick(deltaMs)` every frame for continuous animation - frames
+  are coalesced, a slow script only ever sees the latest one.
+- **Position is host-owned**: the user places, sizes, and rotates the tile in the desktop-widgets editor; the script
+  only renders content and reads its declared settings.
+
+The reference implementation is the official `noctalia/timer` plugin - a countdown timer with start/pause/reset
+buttons and a progress bar.
+
+## `barWidget.render` - declarative bar widget UI {#barwidgetrender--declarative-bar-widget-ui}
+
+A `[[widget]]` entry can render a `ui.*` tree with `barWidget.render(tree)` instead of the imperative
+`setText`/`setGlyph`/`setImage` patches - use it for composite content (multiple labels, glyph+text combinations,
+inline buttons). Simple widgets should keep the imperative API; both remain available, but once a script calls
+`render()` the tree **replaces** the built-in glyph/text row (later `setText`/`setGlyph` calls have no visible effect
+and log a warning).
+
+```lua
+function update()
+  local container = barWidget.isVertical() and ui.column or ui.row
+  barWidget.render(container({ gap = 6, align = "center" }, {
+    ui.glyph({ name = "cpu", size = 14 }),
+    ui.label({ text = readLoad(), fontWeight = "bold" }),
+    ui.button({ glyph = "refresh", glyphSize = 12, variant = "ghost", onClick = "onRefresh" }),
+  }))
+end
+```
+
+Bar-specific constraints:
+
+- **Cross-axis is the bar thickness**: the widget capsule clips to it, so keep the tree one control tall (row on a
+  horizontal bar, column on a side bar - branch on `barWidget.isVertical()`). Only the main axis grows with content.
+- **No keyboard**: the bar never takes keyboard focus, so `ui.input`, `ui.select`, and `ui.scroll` are skipped with a
+  warning. Pointer controls (`ui.button`, `ui.toggle`, `ui.slider`, `ui.progress`, `ui.graph`, …) work.
+- **Clicks compose**: an inline control consumes its own clicks; the widget-level `onClick`/`onRightClick` still fire
+  for the rest of the capsule (and its padding).
+- Ticks stay on `noctalia.setUpdateInterval` - there is no frame-tick API in the bar.
+
+The `declarative` widget in the official `noctalia/example` plugin is the reference implementation.
+
+## `panel.*` - declarative panel UI {#panel--declarative-panel-ui}
+
+A panel is a pop-up surface that describes its UI as a `ui.*` tree, exactly like a desktop widget - but it is
+**opened by id** rather than placed, and it can hold the **interactive** controls (`ui.input`, `ui.select`,
+`ui.slider`, `ui.toggle`, `ui.scroll`) because it takes keyboard focus while open. Render in `onOpen` (and again from
+any callback that changes state):
+
+`render(tree)` · `close()` · `openContextMenu(request)` · `setWantsSecondTicks(bool)` · `setNeedsFrameTick(bool)`
+
+Panel **size is host-owned**: declare `width` and `height` on the `[[panel]]` entry, so the surface is the
+same size on every open. There is no `setSize` at runtime. Each axis takes a positive number (logical px) or the
+string `"fill"`, which spans the output's available extent on that axis, the compositor subtracts every exclusive
+zone (bars, docks, third-party clients), so a `height = "fill"` panel sits exactly between them. `"fill"` requires
+`placement = "floating"`. Fixed pixel sizes are clamped to the output, so an oversized value degrades to
+full-available rather than a broken surface.
+
+Set `dismiss_on_outside_click = false` for auth-style prompts (password / API key) so a misclick does not discard
+the panel; the default is `true`. Requires <PluginApiBadge feature="dismiss-on-outside-click" />. Escape and an explicit Close / Cancel control still
+dismiss it.
+
+`setWantsSecondTicks(true)` runs `update()` on second boundaries; `setNeedsFrameTick(true)` additionally delivers
+`onFrameTick(deltaMs)` every frame while the panel is open, for animation the script drives itself. Ticks stop on
+close and resume on the next open, and frames are coalesced - a slow script only ever sees the latest one. Requires
+<PluginApiBadge feature="panel-frame-tick" />.
+
+### Context menus
+
+`panel.openContextMenu(request)` opens a native, theme-aware menu at the pointer position that triggered a
+`ui.button`'s `onRightClick` callback. Call it directly from that callback: the host deliberately keeps the Wayland
+coordinates and input serial private, and the function returns `false` when no live direct pointer callback is active.
+Requires <PluginApiBadge feature="panel-context-menu" />.
+
+```lua
+local selectedEntryId = "clip-42"
+
+function openEntryMenu()
+  panel.openContextMenu({
+    items = {
+      { kind = "header", label = "Clipboard" },
+      { id = "copy", label = "Copy" }, -- kind = "item" may be explicit
+      { kind = "item", id = "pin", label = "Pin" },
+      { kind = "separator" },
+      { id = "delete", label = "Delete", enabled = selectedEntryId ~= "" },
+    },
+    onActivate = "onEntryMenuAction",
+    context = selectedEntryId,
+    maxVisible = 12,
+  })
+end
+
+function onEntryMenuAction(actionId, entryId)
+  if actionId == "copy" then
+    copyEntry(entryId)
+  elseif actionId == "pin" then
+    pinEntry(entryId)
+  elseif actionId == "delete" then
+    deleteEntry(entryId)
+  end
+end
+
+panel.render(ui.button({
+  text = "Clipboard entry",
+  onRightClick = "openEntryMenu",
+}))
+```
+
+The request accepts these item shapes:
+
+- an action: `{ id = "copy", label = "Copy", enabled = true }`; `kind = "item"` is optional and `enabled` defaults
+  to `true`
+- a non-interactive heading: `{ kind = "header", label = "Clipboard" }`
+- a separator: `{ kind = "separator" }`
+
+`onActivate` names a global panel callback. It receives the selected action ID and, when supplied, the request's
+optional scalar `context` (`string`, `number`, or `boolean`). Action IDs must be unique. A request must contain at
+least one enabled action and may contain up to 64 items. `maxVisible` defaults to 12 and accepts 1-30; longer menus
+scroll. IDs and callback names are limited to 128 bytes and labels to 512 bytes. Invalid requests raise a descriptive
+Luau argument error.
+
+The menu closes on activation, outside click, Escape, panel close/reload, or plugin disable. Calling `panel.close()`
+and opening a menu in the same callback closes the panel and discards the menu request. Context menus work in both
+regular and persistent plugin panels.
+
+### Keyboard focus
+
+By default a panel takes keyboard focus when the user clicks it (`keyboard_focus = "on_demand"`), and
+`"exclusive"` takes it as soon as the panel opens - what a search or password field needs. Both only decide the
+*initial* focus, and only on compositors without focus-grab support; on the others the panel settles on
+on-demand focus shortly after opening either way.
+
+`keyboard_focus = "none"` is different in kind: the panel **never** takes keyboard focus, not even when clicked,
+so the window the user is typing into keeps it. That is what an on-screen keyboard, a macro pad, or any panel
+that drives another application needs. Because outside-click dismissal works by either covering the screen with a
+click catcher or grabbing focus, and neither is compatible with never touching focus, `keyboard_focus = "none"`
+requires `dismiss_on_outside_click = false`. Requires <PluginApiBadge feature="keyboard-focus" />.
+
+### Persistent panels
+
+Normally the shell keeps one panel open at a time: opening the control center closes yours. A panel with
+`persistent = true` lives outside that slot, so it stays on screen until an explicit toggle, `panel.close()`, or
+`noctalia ipc panel-close <id>` dismisses it. Several persistent panels can be open at once, alongside a normal
+panel. Requires <PluginApiBadge feature="persistent-panel" />.
+
+Persistent panels trade away the features that only make sense for a transient pop-up:
+
+- always floating, so `placement` is neither read nor offered as a setting (`position` still applies)
+- no outside-click dismissal, so `dismiss_on_outside_click = false` is required
+- `keyboard_focus = "exclusive"` is rejected: a surface that is never dismissed would hold the keyboard forever
+- no `ui.select` dropdowns inside the panel yet
+
+**Placement** matches built-in shell panels (`attached` anchors the panel's own surface to the bar edge, while `floating`
+opens detached). The host
+injects three standard settings for every `[[panel]]` entry - you do **not** declare them as `[[panel.setting]]` unless
+you need a custom key. They appear in **Settings → Plugins** (gear on the plugin row) with the same controls as built-in
+panels: a segmented **Attached / Floating** toggle, a **Position** dropdown (only when floating), and **Open Near
+Click**.
+
+| `[[panel]]` manifest key | `plugin_settings` key | Notes |
+|--------------------------|-------------------------|-------|
+| `placement` | `<entry>_placement` | `attached` or `floating` (default `floating`) |
+| `position` | `<entry>_position` | `auto`, `center`, or a screen anchor; only applies when floating |
+| `open_near_click` | `<entry>_open_near_click` | Open near the bar widget that toggled the panel (default `false`) |
+| `dismiss_on_outside_click` | _(none, manifest only)_ | Close when clicking outside (default `true`; requires <PluginApiBadge feature="dismiss-on-outside-click" />) |
+| `keyboard_focus` | _(none, manifest only)_ | `on_demand` (default), `exclusive`, or `none` (requires <PluginApiBadge feature="keyboard-focus" />) |
+| `persistent` | _(none, manifest only)_ | Keep open when another panel opens (requires <PluginApiBadge feature="persistent-panel" />) |
+| `capture_keys` | _(none, manifest only)_ | Key chords the panel handles itself while focused (requires <PluginApiBadge feature="panel-capture-keys" />) |
+
+Declare defaults on the `[[panel]]` table; users override through the plugin settings GUI or
+`[plugin_settings."author/plugin"]`. Position and open-near-click follow the same rules as built-in panels (pinned
+screen positions disable open-near-click).
+
+Official defaults: `noctalia/example:panel` ships `floating` + `center`; `noctalia/wallhaven:browser` ships `attached` +
+`auto`.
+
+### Handling keys directly
+
+A panel that needs raw key presses declares the chords it wants in `capture_keys`. While the panel holds keyboard
+focus, a listed chord is delivered to a global `onKey(chord, pressed)` instead of being handled by the host, and
+`pressed` distinguishes press from release. This is what a stopwatch, a game, or any hold-to-act interaction needs.
+
+```toml
+[[panel]]
+id = "timer"
+entry = "panel.luau"
+capture_keys = ["space", "ctrl+r"]
+```
+
+```lua
+function onKey(chord, pressed)
+  if chord == "space" then
+    if pressed then arm() else start() end
+  elseif chord == "ctrl+r" and pressed then
+    reset()
+  end
+end
+```
+
+`chord` is the exact string from the manifest, so match on what you declared rather than on a key name the host
+invented. Chord syntax is the same as elsewhere in Noctalia (`space`, `ctrl+r`, `shift+Return`).
+
+Constraints worth knowing before designing around it:
+
+- **Declared chords only.** The panel never receives keys it did not list. This keeps a panel from observing everything
+  a user types into its own fields, and keeps the event rate down.
+- **A focused text input wins first.** If a `ui.input` has focus, plain printable keys type into it and never reach
+  `onKey`, so a `capture_keys = ["space"]` panel with a text field still gets spaces typed normally.
+- **Escape always dismisses.** The panel-close action stays with the host and cannot be captured, so a panel can never
+  make itself impossible to close from the keyboard. This tracks the user's own
+  [Cancel keybind](/noctalia/configuration/shell/#keybinds), so rebinding it keeps working.
+- **A captured chord outranks the shell navigation keybinds, inside that panel only.** Capture is checked before the
+  keybind actions in [`[keybinds]`](/noctalia/configuration/shell/#keybinds) are applied, so `capture_keys = ["space"]` means
+  space no longer triggers Validate on a focused control while that panel is up. Cancel is the one exception. Nothing
+  changes for other panels or the rest of the shell.
+- **Capturing is declared, not decided.** The script runs off the main thread, so it cannot answer "did you consume
+  this?" in time. Listing a chord *is* the decision to consume it. A chord you list but do not handle in `onKey` is
+  left to the host rather than swallowed.
+- **`keyboard_focus` must not be `none`.** A panel that never takes focus never receives a key, so the combination is
+  rejected at parse time.
+- **Key repeat is filtered.** Holding a captured chord produces one `onKey(chord, true)` and one
+  `onKey(chord, false)`, not a stream of presses, so hold-to-act works as written.
+- Super chords are rejected: those belong to the compositor.
+
+```toml
+[[panel]]
+id = "settings"
+entry = "panel.luau"
+width = 420
+height = 410
+placement = "floating"
+position = "center"
+open_near_click = false
+```
+
+An on-screen keyboard, which needs every one of the options above:
+
+```toml
+[[panel]]
+id = "keys"
+entry = "keys.luau"
+width = "fill"
+height = 240
+position = "bottom_center"
+keyboard_focus = "none"
+dismiss_on_outside_click = false
+persistent = true
+```
+
+```toml
+[plugin_settings."noctalia/wallhaven"]
+browser_placement = "floating"
+browser_position = "bottom_left"
+```
+
+```lua
+local enabled = true
+
+local function render()
+  panel.render(ui.column({ gap = 16 }, {
+    ui.row({ align = "center", justify = "space_between" }, {
+      ui.label({ text = "My Panel", fontSize = 16, fontWeight = "bold", color = "primary", flexGrow = 1 }),
+      ui.button({ glyph = "close", onClick = "onCloseClicked" }),
+    }),
+    ui.toggle({ checked = enabled, onChange = "onToggle" }),
+  }))
+end
+
+function onOpen(context) render() end   -- context is the optional string from `panel-open <id> [context]`
+function onToggle(value) enabled = value == "true"; render() end
+function onCloseClicked() panel.close() end
+```
+
+From a widget or shortcut script, toggle a panel by its full entry id with `noctalia.togglePanel("author/plugin:panel")`.
+The same panel can also be opened, closed, or toggled externally over IPC:
+
+```sh
+noctalia msg panel-toggle noctalia/example:panel
+```
+
+The reference implementation is the `panel` entry of the official `noctalia/example` plugin - a settings-style panel
+exercising every interactive control. `noctalia/wallhaven:browser` is a network-backed panel (thumbnail grid, filters,
+download + apply via `noctalia.wallpaperDirectory()` and `noctalia.setWallpaper()`).
+
+## Drag and drop (panels only) {#drag-and-drop-panels-only}
+
+Panels can offer pointer drag and drop for reorderable lists, kanban-style groups, and cross-container moves
+(requires <PluginApiBadge feature="drag-and-drop" />). The host owns the whole interaction - pointer capture, hit testing, the drag ghost,
+target highlighting, and cursor changes - and the plugin receives **one callback after a completed drop**. The plugin
+owns its data: mutate the model in the callback and re-render. Nothing moves by itself.
+
+`ui.dragSource` marks a subtree (usually a grip glyph, or a whole row) as draggable. `ui.dropZone` is a flex
+container that accepts drops. Both take the common layout props of a column/row plus:
+
+| Constructor | Props |
+|-------------|-------|
+| `ui.dragSource` | `dragType` (**required** string, matched against `accepts`), `payload` (**required** opaque string, first callback argument), `enabled`, `tooltip`, `previewAncestor` (int 0-8: how many parent levels the ghost shows; `1` previews the row around a grip), `liftFromLayout` (bool: remove the previewed row from layout while dragging - pair with `expandOnDrag` insertion zones) |
+| `ui.dropZone` | `accepts` (**required** array of drag types; `{}` accepts nothing), `value` (**required** opaque string, second callback argument), `onDrop` (**required** callback), `direction` (`column`/`row`), `enabled`, `expandOnDrag` (bool: a fixed-height zone animates to the dragged row's height while targeted), `hitSlop` (number: extra drag-only hit distance around the zone, without changing layout or normal clicks) |
+
+A press becomes a drag only after a small movement threshold, so clicks on controls inside a dragged row still work.
+While dragging, the source dims (or lifts out of layout), a ghost of the previewed subtree follows the pointer, and
+the accepted target under the pointer highlights with the primary color. Releasing over an accepted zone calls
+`onDrop(payload, value)`; releasing anywhere else cancels silently. Nested zones resolve to the deepest accepting
+zone; zones with `hitSlop` are considered first, closest wins.
+
+```lua
+local items = { "alpha", "beta", "gamma" }
+
+local function row(id)
+  return ui.row({ key = "row-" .. id, gap = 8, align = "center" }, {
+    ui.dragSource({
+      key = "grip-" .. id, dragType = "item", payload = id,
+      previewAncestor = 1, liftFromLayout = true,
+      width = 24, height = 24,
+    }, { ui.glyph({ name = "menu-2", size = 14 }) }),
+    ui.label({ text = id, flexGrow = 1 }),
+  })
+end
+
+local function gap(anchor, place) -- thin insertion zone between rows
+  return ui.dropZone({
+    key = "gap-" .. place .. "-" .. anchor,
+    accepts = { "item" }, value = place .. "|" .. anchor, onDrop = "onReorder",
+    height = 3, expandOnDrag = true, hitSlop = 48,
+  })
+end
+
+function onReorder(id, target)
+  local place, anchor = string.match(target, "^([^|]+)|(.+)$")
+  moveItem(id, anchor, place) -- plugin-owned mutation
+  render()                    -- re-render so the drop lands without a flash
+end
+```
+
+- **Sortable lists**: place a thin `expandOnDrag` + `hitSlop` insertion zone before every row and one after the last;
+  with `liftFromLayout` on the source the list shows exactly one open gap that follows the pointer. Encode the
+  insertion point in `value` (`"before:<id>"`, `"end"`, ...) - the callback never receives coordinates.
+- **Cross-container moves**: use the same `dragType` in every compatible container and a different `value` per
+  container. Keep a container-level `ui.dropZone` around each list so an empty list stays a valid target.
+- **Validation is strict**: a missing, mistyped, empty, or over-limit required prop logs and disables that control for
+  the render - it never silently reuses the previous value. Limits: `payload` 16 KiB; `dragType`, `value`, `onDrop`,
+  and each `accepts` entry 256 bytes; at most 16 `accepts` entries.
+- **Update the model before slow persistence**: mutate + `render()` first, then save; keep a snapshot to roll back on
+  failure. `enabled = false` on sources/zones is useful while a save is in flight.
+- **Scope and limits**: panels only (the constructors are rejected with a log message on other surfaces); drags stay
+  inside one panel; only the left button drags; there is no OS/Wayland drag and drop, no keyboard drag (keep a
+  non-drag alternative such as a move-to selector for keyboard users), and the mouse wheel cannot scroll the panel
+  while a drag is active.

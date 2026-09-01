@@ -1,0 +1,64 @@
+---
+title: Plugin Development
+description: Build a Noctalia plugin with a plugin.toml manifest and isolated Luau entry scripts.
+sidebar:
+  label: Overview
+  order: 1
+---
+
+:::caution[Beta - APIs may still change]
+The plugin system is in **beta**. The manifest format and APIs may still change before v5 is stable, so build with that in mind.
+:::
+
+A plugin is a directory with a static `plugin.toml` manifest and one or more [Luau](https://luau.org) entry scripts.
+Each entry runs in its own isolated Luau VM, off the UI thread, with per-call time budgets - a slow or crashing script
+never stalls the shell. Plugins are trusted code: installing one is equivalent to running a user-owned script.
+
+```
+my-plugin/
+  plugin.toml          # manifest: identity + entries + settings schema
+  widget.luau          # an entry script
+  translations/en.json # optional i18n bundle (flattened, dotted keys)
+  data.txt             # any files your scripts read at runtime
+```
+
+The fastest way to learn the shape is the
+[official-plugins repo](https://github.com/noctalia-dev/official-plugins): the `example` plugin shows a widget, a
+service, and a shortcut sharing state, and `screen_recorder` is a full real-world plugin.
+
+## Development reference
+
+| Page | Use it for |
+|------|------------|
+| [Manifest & Settings](/noctalia/plugins/development/manifest/) | `plugin.toml`, entry declarations, and typed settings schemas |
+| [Entry Scripts](/noctalia/plugins/development/entries/) | Luau lifecycle functions and APIs for widgets, shortcuts, and launcher providers |
+| [Declarative UI](/noctalia/plugins/development/declarative-ui/) | `desktopWidget.*`, `panel.*`, and the shared `ui.*` control vocabulary |
+| [Runtime API](/noctalia/plugins/development/runtime-api/) | `noctalia.*` host capabilities and shared plugin state |
+| [Plugin API Versions](/noctalia/plugins/development/plugin-api/) | Compatibility levels and the capabilities introduced by each version |
+| [Workflow & Publishing](/noctalia/plugins/development/workflow/) | Local development, IPC testing, source repos, and catalog metadata |
+
+## Minimal widget
+
+```toml
+id         = "me/hello"
+name       = "Hello"
+version    = "1.0.0"
+plugin_api = 3
+author     = "me"
+
+[[widget]]
+id    = "hello"
+entry = "widget.luau"
+```
+
+```lua
+function update()
+  noctalia.setUpdateInterval(1000)
+  barWidget.setGlyph("puzzle")
+  barWidget.setText("Hello")
+end
+
+function onClick()
+  noctalia.notify("Hello", "you clicked me")
+end
+```

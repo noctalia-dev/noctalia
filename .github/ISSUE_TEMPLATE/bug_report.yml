@@ -59,6 +59,11 @@ body:
       description: |
         Paste any relevant logs, terminal output, or stack traces here.
 
+        If Noctalia crashed, include the complete output from the terminal where it was started, if available. Do not
+        paste only `Segmentation fault`; that does not include the useful diagnostic output.
+
+        If a maintainer asks for an ASan report, follow the [ASan crash-report instructions](https://github.com/noctalia-dev/noctalia/blob/main/CONTRIBUTING.md#asan-crash-reports).
+
         Examples:
         - journalctl output
         - terminal errors

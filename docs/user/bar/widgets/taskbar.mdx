@@ -1,0 +1,80 @@
+---
+title: taskbar
+description: Shows running and pinned applications, optionally grouped by workspace.
+sidebar:
+  order: 25
+---
+
+Icon-only running application list, with optional pinned apps on the flat strip. By default it follows the bar’s monitor (only windows the compositor associates with that monitor). Enable **Show all monitors** when you use one bar for everything but still want to see and focus apps on other monitors.
+
+Application icons use global `[shell.app_icon_colorize]` when enabled (see [Shell → App icon colorization](/noctalia/configuration/shell/#app-icon-colorization)).
+
+Left-click an icon to focus that window (or launch a pinned app that is not running). Middle-click an icon to close that window (the active window when a grouped or pinned multi-window tile represents several). Middle-click in the gaps between icons still opens the taskbar widget settings. The active window shows a small primary dot under the icon.
+When grouped app collapsing is enabled, multi-window app tiles also show compact right-edge dots over the icon. Pinned apps with multiple windows use the same dots and left-click cycles their windows.
+
+**Pinned apps** (`pinned`) keep desktop entries on the taskbar when they are not running. Matching uses the same desktop-entry rules as the [dock](/noctalia/dock/#pinned-matching). Pinned apps appear first (in list order), collapsed to one icon per app; other running windows follow as usual. Right-click an icon and choose **Pin** / **Unpin** to update the list. Non-running pins are dimmed by `pinned_opacity` (default `0.5`). Pins are only used on the flat strip — when `group_by_workspace` is on they are ignored (settings hide the list, and pin menu actions are unavailable).
+
+**Only active workspace** limits the list to windows the shell can place on a workspace that is currently active on its monitor (same idea as the v4 taskbar option). It works with or without `group_by_workspace`; with grouping, inactive workspace capsules are omitted.
+
+**Workspace grouping** (`group_by_workspace` and related options) needs per-window workspace assignment from the compositor, not just a workspace list. Without it, the taskbar stays flat and those settings are hidden in the GUI (config keys are accepted but ignored). LabWC is a common example ([discussion #2924](https://github.com/labwc/labwc/discussions/2924)); use the **workspaces** widget for switching there.
+
+When `group_by_workspace` is enabled, workspace **disc indicators** (the small numbered/name tags) and optional **group capsules** (the background around each workspace's icon row) use the taskbar widget's resolved `capsule_radius`.
+Set `[widget.taskbar].capsule_radius` for just the taskbar, or `[bar.<name>].capsule_radius` as the bar default.
+Set `show_workspace_label = false` to hide workspace disc indicators (icons only).
+Set `workspace_group_capsule = false` to drop the group background/border while keeping grouping and disc labels.
+With grouping, `workspace_group_content` chooses what each capsule shows for its windows: `icons` (default app tiles), `count` (window count), or `dots` (one dot per window; the focused window uses `active_indicator_color` when `show_active_indicator` is on). Dot mode shows at most five dots and a `+N` overflow when there are more windows. Left-click on count/dots activates that workspace. `group_single_icon_per_app` only applies when content is `icons`.
+
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| `pinned` | array of string | `[]` | Desktop entry IDs to keep on the flat taskbar when not running. Ignored while `group_by_workspace` is on. |
+| `pinned_opacity` | float | `0.5` | Opacity multiplier for pinned apps that are not running. Settings UI shows this only when the pin list is non-empty (and grouping is off). |
+| `group_by_workspace` | bool | `false` | Group icons into workspace capsules when per-window workspace assignment is available. |
+| `show_all_outputs` | bool | `false` | Include windows from all monitors. With `group_by_workspace`, workspaces from every monitor are merged; capsule badges use `tag·n` (workspace tag, middle dot, monitor index in bar monitor order) when there is more than one monitor. |
+| `only_active_workspace` | bool | `false` | Show only windows on the active workspace for each relevant monitor. Depends on compositor workspace data; if a window’s workspace cannot be resolved, it is still shown. |
+| `icon_scale` | float | `1.0` | Scale taskbar application icons relative to their default size. Values from `0.1` to `2.0` are accepted; larger icons remain constrained by the bar thickness. |
+| `item_spacing` | int | `4` | Space between taskbar items in logical pixels when workspace grouping is off. Values from `0` to `48` are accepted. |
+| `show_window_title` | bool | `false` | Show each window title next to its icon on horizontal bars. Available only when workspace grouping is off. |
+| `window_title_max_width` | int | `100` | Maximum width of each window title in pixels when titles are enabled. |
+| `taskbar_max_width` | int | `8192` | Total taskbar width budget in pixels; titles shrink to fit and disappear when space is too narrow. |
+| `show_workspace_label` | bool | `true` | When `group_by_workspace` is on, show the workspace tag pill on each capsule. Set `false` for groups without the label. |
+| `minimal` | bool | `false` | With workspace grouping and labels enabled, draw text-only labels without colored disc backgrounds. |
+| `workspace_label_placement` | string | `corner` | With grouping: `corner`, `centered` (on the pill edge), or `inside` (first tile in the pill). Requires `show_workspace_label`. |
+| `hide_empty_workspaces` | bool | `false` | When `group_by_workspace` is on, do not show capsules for workspaces that have no windows in the taskbar list. |
+| `workspace_group_capsule` | bool | `true` | Draw the background/border capsule around each workspace group. Set `false` for grouped icons and labels only. |
+| `workspace_group_content` | string | `icons` | With grouping: `icons` (app tiles), `count` (window count), or `dots` (up to five dots per group, then `+N` for the rest). |
+| `group_single_icon_per_app` | bool | `false` | With `group_by_workspace` and `workspace_group_content = icons`, collapse multiple windows of the same app into one tile per workspace group. Left-click cycles that app's windows; right-edge overlay dots indicate multiple windows. |
+| `show_active_indicator` | bool | `true` | Show a small dot below the active window icon in the taskbar. With `workspace_group_content = dots`, highlights the focused window's dot instead. |
+| `active_indicator_color` | string | `"primary"` | Color of the active window indicator (dot, title underline, or focused dot in `dots` mode). Accepts a color role or a fixed hex color. Requires `show_active_indicator`. |
+| `active_opacity` | float | `1.0` | Opacity of the icon for the active (focused) window. |
+| `inactive_opacity` | float | `1.0` | Opacity of icons for inactive (unfocused) windows. |
+| `focused_color` | string | `"primary"` | Workspace disc fill when active (same roles as the workspaces widget) |
+| `occupied_color` | string | `"secondary"` | Workspace disc fill when occupied |
+| `empty_color` | string | `"secondary"` | Workspace disc fill when empty (shown at reduced opacity) |
+| `urgent_color` | string | `"error"` | Workspace disc fill when urgent |
+| `focused_output_only` | bool | `false` | Only use the focused color for the active workspace disc on the monitor that has keyboard or pointer focus; other monitors use the occupied color. Applies to the workspace label, so it is only meaningful with `show_workspace_label = true`. |
+
+```toml
+[widget.taskbar]
+pinned = ["firefox", "code", "kitty"]
+pinned_opacity = 0.5
+icon_scale = 1.0
+item_spacing = 4  # Flat taskbar only; ignored when workspace grouping is enabled
+group_by_workspace = true
+show_all_outputs = true
+only_active_workspace = true
+show_workspace_label = true
+workspace_label_placement = "corner"
+hide_empty_workspaces = true
+workspace_group_capsule = true
+workspace_group_content = "icons"
+group_single_icon_per_app = true
+show_active_indicator = true
+active_indicator_color = "primary"
+active_opacity = 1.0
+inactive_opacity = 1.0
+focused_color = "primary"
+occupied_color = "secondary"
+empty_color = "secondary"
+urgent_color = "error"
+focused_output_only = false  # true = only the focused monitor highlights its active workspace
+```

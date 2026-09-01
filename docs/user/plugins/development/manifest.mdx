@@ -1,0 +1,202 @@
+---
+title: Manifest & Settings
+description: Define plugin identity, entries, and settings in plugin.toml.
+sidebar:
+  label: Manifest & Settings
+  order: 2
+---
+
+import PluginApiBadge from '../../../../../components/PluginApiBadge.astro';
+import PluginApiRange from '../../../../../components/PluginApiRange.astro';
+
+:::caution[Beta - APIs may still change]
+The plugin system is in **beta**. The manifest format and APIs may still change before v5 is stable, so build with that in mind.
+:::
+
+## The manifest
+
+```toml
+id           = "me/hello" # "<author>/<plugin>" - globally unique
+name         = "Hello"
+version      = "1.0.0"
+plugin_api   = 3          # mandatory: oldest plugin API level required
+author       = "me"
+license      = "MIT"     # optional; defaults to MIT
+deprecated   = false     # optional; defaults to false
+icon         = "puzzle"  # optional
+description  = "A friendly greeter."
+tags         = ["demo"]  # optional, for catalog search
+dependencies = ["slurp"] # optional, external tools/packages users must install
+```
+
+`id`, `name`, `version`, and `plugin_api` are required - a manifest without any of them is rejected. `version` must use
+exactly `MAJOR.MINOR.PATCH`, with non-negative decimal components and no leading zeros (except `0` itself). Prerelease
+and build suffixes are not accepted.
+
+`plugin_api` is a positive integer and gates enable, the catalog badge, and update safety. API levels are cumulative:
+leave the value unchanged until the plugin adopts a capability introduced by a newer level. Noctalia currently
+supports plugin APIs <PluginApiRange />; see
+[Plugin API Versions](/noctalia/plugins/development/plugin-api/) for the capability introduced by each level.
+
+`license` defaults to `MIT` when omitted. `deprecated = true` marks the plugin as deprecated in plugin listings; it is a
+soft status marker, not a compatibility gate.
+
+`dependencies` is optional metadata for external packages or tools the plugin expects the user to have installed. It is
+shown in plugin listings but does not block enabling the plugin.
+
+## Entries
+
+A plugin ships one or more entries. Each declares an `id` (unique within the plugin), the `entry` `.luau` file, and an
+optional settings schema. The supported entry kinds:
+
+| Table | Kind | Runs |
+|-------|------|------|
+| `[[widget]]` | Bar widget | Placed on a bar; ticks + handles clicks/IPC |
+| `[[shortcut]]` | Control-center tile | A toggle tile in the control center |
+| `[[launcher_provider]]` | Launcher provider | Answers launcher queries with results, behind a prefix |
+| `[[desktop_widget]]` | Desktop widget | A tile on the desktop; declares its UI as a `ui.*` tree |
+| `[[panel]]` | Panel | A pop-up surface; declares its UI as a `ui.*` tree, opened by id |
+| `[[service]]` | Headless service | Background loop, no UI - feeds the plugin's other entries |
+
+An entry is addressed `<author>/<plugin>:<entry-id>` - e.g. a bar widget is configured with
+`type = "me/hello:hello"`.
+
+```toml
+[[widget]]
+id    = "hello"
+entry = "widget.luau"
+
+  [[widget.setting]]
+  key     = "label"
+  type    = "string"
+  label   = "Label"
+  default = "Hello"
+
+[[service]]
+id    = "ticker"
+entry = "ticker.luau"
+```
+
+### Widget gesture defaults
+
+A `[[widget]]` entry can declare what its bar widget does on click and scroll, in a `[widget.actions]`
+table <PluginApiBadge feature="widget-gesture-actions" />. These are defaults: they show up in the
+settings editor as the widget's own, and the user overrides any of them per instance with
+`[widget.<name>.actions]`. See [Widget Actions](/noctalia/bar/actions/) for the gesture keys and the action
+grammar.
+
+```toml
+[[widget]]
+id    = "hello"
+entry = "widget.luau"
+
+  [widget.actions]
+  right = "media toggle"
+  scroll_up = "volume-up"
+```
+
+A binding takes precedence over the script: bind `right` and `onRightClick` stops firing. Gestures you
+do not declare, and the user does not bind, still reach your callbacks.
+
+Middle click is worth knowing about: every widget gets a built-in `middle` binding that opens its
+settings, so `onMiddleClick` does not fire out of the box. Declaring `middle = "none"` frees the button
+for your script - though a declared action is visible in the settings editor where a Luau callback is
+not.
+
+## Settings schema
+
+A setting becomes a typed control in the settings GUI and is read back via `noctalia.getConfig(key)`. Only declared keys
+resolve - reading an undeclared key logs a loud warning and returns `nil` (no silent fallbacks).
+
+Settings come in two scopes:
+
+- **Plugin-level** - a `[[setting]]` block at the **manifest root**. One shared set for the whole plugin, edited under
+  **Settings → Plugins** (the gear on the plugin's row), and seeded into **every** entry - widget, shortcut, panel, and
+  service. Use this for configuration the service or panel needs.
+- **Widget entry settings** - a `[[<entry>.setting]]` block under a `[[widget]]`. These are edited with the bar widget's
+  own settings. Use this for widget presentation tweaks; they are not a second enabled plugin instance.
+- **Panel entry settings** - a `[[panel.setting]]` block under a `[[panel]]`. These also appear in **Settings → Plugins**
+  (the gear on the plugin row) and are read with `noctalia.getConfig(key)` in the panel script.
+
+When both declare the same key, the widget entry value wins for that widget. Both scopes use the same field schema:
+
+```toml
+# Plugin-level: shared by widget + shortcut + service, edited in Settings → Plugins.
+[[setting]]
+key     = "interval"
+type    = "int"
+label_key = "settings.interval.label"
+description_key = "settings.interval.description"
+default = 5
+
+[[widget]]
+id    = "hello"
+entry = "widget.luau"
+
+  # Widget entry setting: this bar widget only.
+  [[widget.setting]]
+  key     = "label"
+  type    = "string"
+  label_key = "settings.label.label"
+  default = "Hello"
+```
+
+You can define multiple named bar widgets with the same plugin entry and different widget settings:
+
+```toml
+[widget.hello-main]
+type  = "me/hello:hello"
+label = "Main"
+
+[widget.hello-short]
+type  = "me/hello:hello"
+label = "Short"
+```
+
+| Field | Notes |
+|-------|-------|
+| `key` | required; the config key |
+| `type` | `string`, `string_list`, `string_map`, `bool`, `int`, `double`, `select`, `file`, `folder`, `glyph`, `color` |
+| `label_key` | required; translation key for the label shown in the settings GUI |
+| `description_key` | optional; translation key for the description |
+| `default` | seeded value (must match the type) |
+| `min` / `max` | for `int` / `double` |
+| `options` | for `select`: array of `{ value, label_key }`; both fields are required |
+| `extensions` | optional array of extensions for `file`, such as `[".toml", ".json"]`; empty allows any file |
+| `visible_when` | `{ key = "other_key", values = ["true"] }` - conditional visibility |
+| `advanced` | hide behind the "show advanced" toggle |
+
+`file` and `folder` store strings but render as a text input with a browse button in each settings editor. Use
+`extensions` to filter a `file` picker; users can still enter a path directly.
+
+`string_map` requires <PluginApiBadge feature="string-map-setting" />. It stores string keys associated with string values and is returned from
+`noctalia.getConfig()` as an associative Luau table. Its default is a TOML table:
+
+```toml
+plugin_api = 6
+
+[[widget.setting]]
+key = "output_glyphs"
+type = "string_map"
+label_key = "settings.output_glyphs.label"
+default = { "eDP-1" = "laptop", "DP-1" = "monitor" }
+```
+
+Configure a widget instance with a subtable:
+
+```toml
+[widget.display-output.output_glyphs]
+"eDP-1" = "laptop"
+"DP-1" = "monitor"
+```
+
+Setting labels and descriptions are always translation keys - literal `label` / `description` fields are rejected. The
+text lives in the same `translations/<lang>.json` files as script strings, so a plugin with settings needs at least a
+`translations/en.json`:
+
+```json
+{
+  "settings.interval.label": "Refresh seconds",
+  "settings.interval.description": "How often the service refreshes data."
+}
+```

@@ -184,6 +184,7 @@
     "audio": {
       "application-volumes": "مستويات صوت التطبيقات",
       "choose-effects-profile": "اختر ملفًا شخصيًا",
+      "default-device": "الجهاز الافتراضي",
       "effects-profile": "التأثيرات",
       "input-device-prefix": "الإدخال",
       "no-application-audio": "لا يوجد صوت للتطبيقات",
@@ -305,6 +306,22 @@
     },
     "power": {
       "battery": "البطارية",
+      "charging": {
+        "configured": "تم التهيئة: {limits}",
+        "display-only": "العرض فقط",
+        "error-denied": "تم رفض التفويض. لم يتم تغيير عتبات الشحن.",
+        "error-failed": "تعذّر تغيير عتبات الشحن.",
+        "externally-managed": "يتم ضبطها بواسطة أداة أخرى. قم بتكوين UPower لإدارة عتبات الشحن.",
+        "firmware-managed": "تتم إدارة عملية الشحن بواسطة البرامج الثابتة للنظام",
+        "full-charge": "يمكن شحنها حتى 100%",
+        "starts": "يبدأ من أقل من {start}%",
+        "starts-stops": "يبدأ من أقل من {start}% · وينتهي عند {end}%",
+        "stops": "يتوقف عند {end}%",
+        "title": "البطارية قيد الشحن",
+        "unreadable": "غير متاح",
+        "unsupported": "عتبات الشحن غير مدعومة",
+        "use-thresholds": "استخدام عتبات الشحن"
+      },
       "design-capacity": "من السعة التصميمية",
       "health": "صحة البطارية",
       "performance-inhibited": "الأداء غير متاح",
@@ -579,6 +596,7 @@
         "grid": "الشبكة"
       },
       "title": "ودجات سطح المكتب",
+      "title-lockscreen": "ودجت شاشة القفل",
       "types": {
         "audio-visualizer": "مؤثر صوتي بصري",
         "button": "زر",
@@ -1376,6 +1394,13 @@
       "panel-position": {
         "auto": "متابعة الشريط"
       },
+      "plugins": {
+        "auto-update": {
+          "all": "جميع المصادر",
+          "none": "لا شيء",
+          "official": "الرسمية فقط"
+        }
+      },
       "screen-position": {
         "bottom-center": "أسفل الوسط",
         "bottom-left": "أسفل اليسار",
@@ -1760,6 +1785,10 @@
         "font-family": {
           "description": "خط ودجت هذا الشريط؛ اتركه فارغاً لوراثة الخط العام.",
           "label": "عائلة الخط"
+        },
+        "font-scale": {
+          "description": "معامل التكبير/التصغير للنص في جميع ودجتات واجهة المستخدم الموجودة على هذا الشريط؛ ويُضرب هذا المعامل في قيمة font_scale الخاصة بكل عنصر على حدة",
+          "label": "مقياس الخط"
         },
         "font-weight": {
           "description": "وزن الخط الافتراضي لتسميات ودجت في هذا الشريط.",
@@ -2984,9 +3013,9 @@
           "label": "نسخ إلى الحافظة"
         },
         "screenshot-directory": {
-          "description": "مجلد حفظ صور لقطات الشاشة؛ اتركه فارغاً لاستخدام ~/Pictures",
+          "description": "مجلد لملفات PNG المحفوظة؛ اتركه فارغًا لاستخدام دليل الصور القياسي XDG",
           "label": "مجلد الإخراج",
-          "placeholder": "~/Pictures"
+          "placeholder": "مجلد صور XDG"
         },
         "screenshot-filename-pattern": {
           "description": "نمط strftime لاسم الملف بدون الامتداد",
@@ -3088,7 +3117,7 @@
           "label": "تضمين المجلدات الفرعية"
         },
         "directory": {
-          "description": "المجلد المحتوي على الخلفيات",
+          "description": "مجلد يحتوي على خلفيات؛ اتركه فارغًا لاستخدام دليل الصور XDG القياسي",
           "label": "مجلد الخلفيات"
         },
         "directory-dark": {
@@ -3458,6 +3487,10 @@
           "description": "خط هذا الودجت؛ اتركه فارغاً لوراثة خط الشريط",
           "label": "عائلة الخط"
         },
+        "font-scale": {
+          "description": "معامل التكبير/التصغير للنص في هذه الودجت، بغض النظر عن مقياس الودجت الإجمالي",
+          "label": "مقياس الخط"
+        },
         "font-weight": {
           "description": "الخيار الافتراضي يرث وزن خط الشريط",
           "label": "وزن الخط"
@@ -3520,6 +3553,10 @@
         "hide-when-full": {
           "description": "إخفاء ودجت البطارية عند اكتمال الشحن",
           "label": "إخفاء عند الامتلاء"
+        },
+        "hide-when-inactive": {
+          "description": "إخفاء ودجت واجهة الميكروفون عند عدم استخدام أي تطبيق للميكروفون.",
+          "label": "الإخفاء عند عدم النشاط"
         },
         "hide-when-no-connected-device": {
           "description": "إخفاء ودجت البلوتوث عند عدم اتصال أي جهاز",
@@ -3755,6 +3792,10 @@
         "show-num-lock": {
           "description": "إظهار حالة قفل الأرقام",
           "label": "إظهار قفل الأرقام"
+        },
+        "show-progress": {
+          "description": "املأ خلفية الودجت لإظهار تقدم التشغيل",
+          "label": "إظهار تقدم التشغيل"
         },
         "show-scroll-lock": {
           "description": "إظهار حالة قفل التمرير",

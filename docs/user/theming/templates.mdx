@@ -1,0 +1,683 @@
+---
+title: Template Reference
+description: Template syntax, color tokens, filters, TOML entries, hooks, and CLI rendering.
+sidebar:
+  order: 11
+---
+
+`TemplateEngine` renders text and files from a theme token map. It supports inline expressions, block syntax for loops and conditionals, color formatting, filter pipelines, and TOML-driven batch processing.
+
+This document describes the supported template syntax and data model.
+
+## Scope
+
+`TemplateEngine` is responsible for:
+
+- Rendering template strings and files
+- Reading values from theme token maps
+- Applying color and string filters
+- Executing loops and conditionals
+- Processing TOML template configs
+- Computing custom colors and `closest_color`
+
+It is not responsible for image loading or palette extraction.
+
+## Syntax
+
+### Expressions
+
+Inline expressions use:
+
+```text
+{{ ... }}
+```
+
+Examples:
+
+```text
+{{ colors.primary.default.hex }}
+{{ colors.surface.dark.rgb }}
+{{ mode }}
+{{ image }}
+```
+
+### Blocks
+
+Control blocks use:
+
+```text
+<* ... *>
+```
+
+Supported block tags:
+
+- `for`
+- `if`
+- `else`
+- `endif`
+- `endfor`
+
+Examples:
+
+```text
+<* for name, value in colors *>
+{{ name }}={{ value.default.hex }}
+<* endfor *>
+```
+
+```text
+<* if {{ loop.first }} *>
+first
+<* else *>
+not first
+<* endif *>
+```
+
+### Standalone Block Trimming
+
+If a block tag appears alone on a line, with only whitespace around it, that whole line is removed from the rendered output. This matters for whitespace-sensitive templates.
+
+## Data Model
+
+### Palette Colors
+
+Colors are accessed with:
+
+```text
+{{ colors.<name>.<mode>.<format> }}
+```
+
+Examples:
+
+```text
+{{ colors.primary.default.hex }}
+{{ colors.surface.light.hsl }}
+{{ colors.terminal_foreground.default.hex_stripped }}
+```
+
+### Available Color Tokens
+
+The built-in Material color tokens are:
+
+| Group | Tokens |
+|-------|--------|
+| Primary | `primary`, `on_primary`, `primary_container`, `on_primary_container`, `primary_fixed`, `primary_fixed_dim`, `on_primary_fixed`, `on_primary_fixed_variant` |
+| Secondary | `secondary`, `on_secondary`, `secondary_container`, `on_secondary_container`, `secondary_fixed`, `secondary_fixed_dim`, `on_secondary_fixed`, `on_secondary_fixed_variant` |
+| Tertiary | `tertiary`, `on_tertiary`, `tertiary_container`, `on_tertiary_container`, `tertiary_fixed`, `tertiary_fixed_dim`, `on_tertiary_fixed`, `on_tertiary_fixed_variant` |
+| Error | `error`, `on_error`, `error_container`, `on_error_container` |
+| Surface | `surface`, `on_surface`, `surface_variant`, `on_surface_variant`, `surface_dim`, `surface_bright`, `surface_container_lowest`, `surface_container_low`, `surface_container`, `surface_container_high`, `surface_container_highest` |
+| Outline and utility | `outline`, `outline_variant`, `shadow`, `scrim` |
+| Inverse | `inverse_surface`, `inverse_on_surface`, `inverse_primary` |
+| Background | `background`, `on_background` |
+
+This list covers the 48 Material color tokens exposed through `colors`. Terminal tokens are listed in [Terminal Tokens](#terminal-tokens). Custom colors add their generated token names at render time; see [Custom Colors](#custom-colors).
+
+### Modes
+
+Supported modes:
+
+- `dark`
+- `light`
+- `default`
+
+`default` resolves to the configured default mode.
+
+### Special Values
+
+The following values are available directly:
+
+- `mode`
+- `image`
+- `closest_color`
+
+`mode` is the current default mode.
+
+`image` is the source image path when rendering from an image-driven theme.
+
+`closest_color` is populated during config-driven rendering when `compare_to` and `colors_to_compare` are used.
+
+### Color Aliases
+
+Supported aliases:
+
+- `hover` -> `surface_container_high`
+- `on_hover` -> `on_surface`
+
+## Formats
+
+Supported output formats:
+
+- `hex`
+- `hex_stripped`
+- `rgb`
+- `rgb_csv`
+- `rgba`
+- `hsl`
+- `hsla`
+- `red`
+- `green`
+- `blue`
+- `alpha`
+- `hue`
+- `saturation`
+- `lightness`
+
+Format behavior:
+
+- `hex`: `#rrggbb`
+- `hex_stripped`: `rrggbb`
+- `rgb`: `rgb(r, g, b)`
+- `rgb_csv`: `r,g,b`
+- `rgba`: `rgba(r, g, b, a)`
+- `hsl`: `hsl(h, s%, l%)`
+- `hsla`: `hsla(h, s%, l%, a)`
+- `red`, `green`, `blue`: integer channels
+- `alpha`: floating-point alpha
+- `hue`: integer hue
+- `saturation`, `lightness`: integer percentages
+
+## Filters
+
+Filters are chained with pipe syntax:
+
+```text
+{{ colors.primary.default.hex | grayscale }}
+{{ colors.primary.default.hex | set_alpha 0.5 }}
+{{ colors.primary.default.hex | blend: "#ff0000", 0.5 }}
+```
+
+Supported syntaxes:
+
+- `| filter`
+- `| filter arg`
+- `| filter: arg`
+
+Numeric filter arguments are locale-invariant and use `.` as the decimal separator, for example `set_alpha 0.5`.
+
+### Color Filters
+
+These operate on colors:
+
+- `grayscale` - no argument; converts to gray using luminance weighting
+- `invert` - no argument; inverts each RGB channel
+- `set_alpha` - alpha `0`–`1`, e.g. `set_alpha 0.5`
+- `set_lightness` - sets HSL lightness, `0`–`100`
+- `set_hue` - sets absolute hue in degrees, `0`–`360`
+- `rotate_hue` - rotates hue by a relative amount in degrees, e.g. `rotate_hue 30`
+- `set_saturation` - sets HSL saturation, `0`–`100`
+- `set_red` - sets the red channel, `0`–`255`
+- `set_green` - sets the green channel, `0`–`255`
+- `set_blue` - sets the blue channel, `0`–`255`
+- `lighten` - adds to lightness in percentage points, e.g. `lighten 10`
+- `darken` - subtracts from lightness in percentage points, e.g. `darken 10`
+- `saturate` - adds to saturation in percentage points, e.g. `saturate 10`
+- `desaturate` - subtracts from saturation in percentage points, e.g. `desaturate 10`
+- `auto_lightness` - shifts lightness by the given percentage points away from mid (lightens dark colors, darkens light ones)
+
+### Color-Argument Filters
+
+These accept another color:
+
+- `blend` - interpolates hue toward the given color by an amount `0`–`1` (default `1`), e.g. `blend: "#ff0000", 0.5`
+- `harmonize` - nudges hue toward the given color, capped at 15°
+- `to_color` - reinterprets a string value as a color so color filters can follow
+
+Examples:
+
+```text
+{{ colors.primary.default.hex | blend: "#ff0000", 0.5 }}
+{{ colors.primary.default.hex | harmonize: "#00ff88" }}
+{{ "#ffaa00" | to_color | darken 10 }}
+```
+
+### String Filters
+
+These operate on strings:
+
+- `replace`
+- `lower_case`
+- `camel_case`
+- `pascal_case`
+- `snake_case`
+- `kebab_case`
+
+Examples:
+
+```text
+{{ mode | replace: "dark", "night" }}
+{{ "surface container high" | snake_case }}
+```
+
+## Control Flow
+
+### For Loops
+
+Supported forms:
+
+```text
+<* for item in iterable *>
+...
+<* endfor *>
+```
+
+```text
+<* for key, value in colors *>
+...
+<* endfor *>
+```
+
+### Conditionals
+
+Supported forms:
+
+```text
+<* if {{ expr }} *>
+...
+<* endif *>
+```
+
+```text
+<* if not {{ expr }} *>
+...
+<* else *>
+...
+<* endif *>
+```
+
+Truthiness rules:
+
+- `false` is false
+- numeric `0` is false
+- empty strings are false
+- case-insensitive `"false"`, `"0"`, and `"none"` are false
+- empty arrays and maps are false
+- everything else is true
+
+## Iterables
+
+Supported iterable expressions:
+
+- `colors` — all palette color tokens
+- `palettes.primary`, `palettes.secondary`, `palettes.tertiary`, `palettes.error`, `palettes.neutral`, `palettes.neutral_variant` — tonal palette steps
+- numeric ranges like `0..10` and `-5..5` (end-exclusive)
+- arrays and maps from the current scope (e.g. TOML data bound via `[config]`)
+
+:::note
+Noctalia uses `<* *>` for block tags and `{{ }}` for expressions. This is different from matugen, which uses Tera syntax (`{% %}` / `{{ }}`). The two are not interchangeable — a matugen template must be adapted to use `<* *>` blocks.
+:::
+
+### `colors`
+
+`colors` iterates all available token names and their mode maps. Use two loop variables for key-value destructuring:
+
+```text
+<* for name, value in colors *>
+{{ name }}={{ value.default.hex }}
+<* endfor *>
+```
+
+With a single variable, only the name is bound:
+
+```text
+<* for name in colors *>
+{{ name }}
+<* endfor *>
+```
+
+### `palettes.*`
+
+Palette tones can be accessed directly or iterated.
+
+#### Direct access
+
+```text
+{{ palettes.<family>.<tone>.<format> }}
+```
+
+The tone can be a plain integer or underscore-prefixed (for matugen compatibility):
+
+```text
+bg0 = '{{ palettes.primary.0.hex }}'
+bg40 = '{{ palettes.primary.40.hex }}'
+bg99 = '{{ palettes.primary._99.hex }}'
+fg = '{{ palettes.neutral.90.rgb }}'
+```
+
+Any integer tone from 0 to 100 is accepted, not just the 18 standard steps. All [color formats](#formats) and [filters](#filters) work on palette tones.
+
+#### Iteration
+
+As an iterable, `palettes.*` yields the 18 standard tone steps (0, 5, 10, 15, 20, 25, 30, 35, 40, 50, 60, 70, 80, 90, 95, 98, 99, 100). Each entry has `.default`, `.dark`, and `.light` accessors that return hex strings.
+
+```text
+<* for tone in palettes.primary *>
+primary-tone-{{ loop.index }}={{ tone.default }}
+<* endfor *>
+```
+
+Supported families: `primary`, `secondary`, `tertiary`, `error`, `neutral`, `neutral_variant`.
+
+### Numeric ranges
+
+`start..end` generates integers from `start` up to (but not including) `end`. Negative values are supported.
+
+```text
+<* for i in 0..16 *>
+color{{ i }}=...
+<* endfor *>
+```
+
+```text
+<* for i in -2..3 *>
+offset={{ i }}
+<* endfor *>
+```
+
+### Scope arrays and maps
+
+Any array or map in the current variable scope can be iterated. This includes data from TOML config sections or values set in a parent loop. Maps are iterated as key-value pairs, just like `colors`.
+
+## Loop Metadata
+
+Inside `for` loops, the `loop` object provides:
+
+- `loop.index` — zero-based position
+- `loop.first` — `true` on the first iteration
+- `loop.last` — `true` on the last iteration
+
+```text
+<* for name, value in colors *>
+<* if not {{ loop.first }} *>
+,
+<* endif *>
+"{{ name }}": "{{ value.default.hex }}"
+<* endfor *>
+```
+
+## File Rendering
+
+When rendering files, `TemplateEngine`:
+
+- reads the template file
+- renders the output
+- creates parent directories when needed
+- skips rewriting unchanged files
+- reports render failures through the file render result
+
+Skipping unchanged output avoids unnecessary timestamp updates.
+
+## Config Processing
+
+`TemplateEngine` supports TOML-driven template processing.
+
+Top-level sections:
+
+- `[config]`
+- `[templates]`
+
+### Custom Colors
+
+`[config.custom_colors]` defines named colors that are expanded into Material 3-style roles before templates render. It supports both forms:
+
+```toml
+[config.custom_colors]
+warning = "#f97316"
+```
+
+```toml
+[config.custom_colors.warning]
+color = "#f97316"
+blend = true
+```
+
+Use the generated roles through `colors.<role>.<mode>.<format>` just like built-in palette colors:
+
+```css
+.warning-banner {
+  color: {{ colors.on_warning.default.hex }};
+  background: {{ colors.warning_container.default.hex }};
+  border-color: {{ colors.warning.default.hex }};
+}
+```
+
+In Noctalia's main config, put the same custom color definitions under `[theme.templates.custom_colors]` and reference them from any enabled user template:
+
+```toml
+[theme.templates.custom_colors]
+warning = "#f97316"
+
+[theme.templates.user.my_app]
+input_path  = "$XDG_CONFIG_HOME/noctalia/templates/my-app.css"
+output_path = "$XDG_CONFIG_HOME/my-app/theme.css"
+```
+
+`blend` defaults to `true`, which harmonizes the custom color with the active palette. Set `blend = false` in the table form when the generated roles should keep the source hue as closely as possible.
+
+#### Separate dark and light colors
+
+The table form also accepts `color_dark` and `color_light` to use a different source hue per mode, instead of deriving the non-active mode from a single `color`:
+
+```toml
+[config.custom_colors.warning]
+color_dark  = "#f97316"
+color_light = "#c2410c"
+blend       = true
+```
+
+Each mode resolves its source hue with this precedence: its own `color_dark` / `color_light` if set, otherwise the shared `color`, otherwise the other mode's value. So:
+
+- `color` only: both modes use `color` (default behavior).
+- `color_dark` only (or `color_light` only): that single value is used for both modes.
+- `color_dark` + `color_light`: each mode uses its own value.
+- `color` + one of `color_dark` / `color_light`: the override applies to its mode, `color` applies to the other.
+
+`{name}_source` and `{name}_value` reflect the per-mode source, so `{{ colors.warning_source.dark.hex }}` and `{{ colors.warning_source.light.hex }}` return the dark and light source hues respectively.
+
+Generated tokens per mode:
+
+- `{name}_source`
+- `{name}_value`
+- `{name}`
+- `on_{name}`
+- `{name}_container`
+- `on_{name}_container`
+
+### Template Entries
+
+Each template entry supports:
+
+- `input_path`
+- `output_path`
+- `output_path_dynamic`
+- `colors_to_compare`
+- `compare_to`
+- `pre_hook`
+- `post_hook`
+- `post_action`
+- `input_path_modes`
+- `index`
+- `hook_async`
+- `requires_path`
+
+`output_path` accepts either a single string or an array of strings:
+
+```toml
+[templates.qt]
+input_path = "./qtct.conf"
+output_path = [
+  "$XDG_CONFIG_HOME/qt5ct/colors/noctalia.conf",
+  "$XDG_CONFIG_HOME/qt6ct/colors/noctalia.conf",
+]
+```
+
+`output_path_dynamic` is optional. It is a shell command string (same templating as hooks: `{{ config_dir }}`, `{{ mode }}`, etc.). After rendering, the shell runs it; on exit status `0`, each non-empty line of stdout is appended as an output path (after `resolveConfigPath`). Lines starting with `#` are ignored. Use this when destinations depend on the machine (for example Emacs config layout) without hard-coding app-specific logic in the engine. Static `output_path` entries, if any, are kept; dynamic lines are added after them.
+
+`input_path_modes` selects a different template input for dark and light mode:
+
+```toml
+[templates.foo]
+input_path_modes = { dark = "./dark.css", light = "./light.css" }
+output_path = "$XDG_CONFIG_HOME/foo/theme.css"
+```
+
+Relative `input_path` and `output_path` values are resolved from the config file directory.
+
+A leading `$XDG_CONFIG_HOME`, `$XDG_DATA_HOME`, `$XDG_STATE_HOME`, or `$XDG_CACHE_HOME` token in
+`input_path`/`output_path` is expanded per the [XDG Base Directory spec](https://specifications.freedesktop.org/basedir/latest/):
+the environment variable when it is set, otherwise the spec default (`~/.config`, `~/.local/share`,
+`~/.local/state`, `~/.cache`). Prefer these tokens over a hardcoded `~/.config` so output lands in the right
+place when a config/data/cache home is relocated. A leading `~` still expands to `$HOME` only.
+
+`index` controls processing order and defaults to `0`. Entries are processed in ascending index order.
+
+`hook_async` controls how this entry's `post_hook` runs and defaults to `true`. A background hook lets the remaining
+templates render without waiting for it, which is what makes a slow hook (a browser or player patcher, a full
+application restart) stop holding up everything behind it.
+
+Set `hook_async = false` when the hook must not overlap with another one. Such a hook runs inline, after every
+background hook started earlier in the same run has finished, and nothing else starts until it returns. Use it when
+two entries drive the same script or touch the same files, or when a later template depends on the hook's result.
+
+```toml
+[theme.templates.user.my_app]
+input_path  = "$XDG_CONFIG_HOME/noctalia/templates/my-app.css"
+output_path = "$XDG_CONFIG_HOME/my-app/theme.css"
+post_hook   = "my-app --reload-theme"
+hook_async  = false
+```
+
+`requires_path` is optional. When set, the entry is skipped unless that path already exists on disk. Use it for explicit install checks (for example a Flatpak data directory).
+
+When several entries share the same `input_path` but write to different client config roots (for example Discord forks or VS Code vs VSCodium), the engine infers each output's client root and skips outputs whose root is missing. Single-app templates (one entry per input) still create missing directories as before.
+
+### Closest Color
+
+`compare_to` and `colors_to_compare` can be used to compute `closest_color`.
+
+Behavior:
+
+- `compare_to` is rendered first
+- `colors_to_compare` provides named comparison candidates
+- the closest candidate becomes available as `{{ closest_color }}`
+
+### Hooks
+
+Supported hooks:
+
+- `pre_hook`
+- `post_hook`
+
+Behavior:
+
+- hook commands are rendered through the template engine first
+- `pre_hook` runs before any output files are written, and always runs synchronously
+- `post_hook` runs after a template is processed successfully, even when rendered output was unchanged
+- `closest_color` is available inside hooks
+
+By default `post_hook` commands from different entries run in the background: they can overlap and finish in any order,
+and at most four run at a time. Set `hook_async = false` on an entry whose hook must not overlap with another one, for
+example when two entries restart or reconfigure the same application.
+
+A theme change always waits for the hooks it started before reporting the theme as applied, and hooks left over from a
+superseded theme change are dropped or awaited before the next one is applied.
+
+`post_action` selects a Noctalia-owned native operation that runs after all outputs are written successfully. The
+canonical `kde-color-scheme` action requires exactly one output, merges that generated KDE color scheme into
+`$XDG_CONFIG_HOME/kdeglobals`, and notifies running KDE applications over the session bus. Unknown action names fail
+the template entry.
+
+Additional variables available inside hooks and templates:
+
+- `{{ mode }}`
+- `{{ image }}`
+- `{{ closest_color }}`
+- `{{ config_dir }}`
+- `{{ config_file }}`
+
+## Terminal Tokens
+
+Every resolved theme exposes flattened terminal tokens. Built-in and community palettes provide curated terminal
+colors, while wallpaper-derived themes synthesize terminal colors from the generated palette.
+
+- `terminal_foreground`
+- `terminal_background`
+- `terminal_cursor`
+- `terminal_cursor_text`
+- `terminal_selection_fg`
+- `terminal_selection_bg`
+- `terminal_normal_black`
+- `terminal_normal_red`
+- `terminal_normal_green`
+- `terminal_normal_yellow`
+- `terminal_normal_blue`
+- `terminal_normal_magenta`
+- `terminal_normal_cyan`
+- `terminal_normal_white`
+- `terminal_bright_black`
+- `terminal_bright_red`
+- `terminal_bright_green`
+- `terminal_bright_yellow`
+- `terminal_bright_blue`
+- `terminal_bright_magenta`
+- `terminal_bright_cyan`
+- `terminal_bright_white`
+
+These are accessed like any other color token:
+
+```text
+{{ colors.terminal_background.default.hex }}
+{{ colors.terminal_normal_red.default.rgb }}
+```
+
+## CLI Usage
+
+Template rendering is available through `noctalia theme`.
+
+Render one file:
+
+```sh
+noctalia theme <image> -r input.txt:output.txt
+```
+
+Process a TOML config:
+
+```sh
+noctalia theme <image> -c templates.toml
+```
+
+List available templates:
+
+```sh
+noctalia theme --list-templates
+```
+
+Pass `-c <file>` with `--list-templates` to include entries from a standalone template TOML config.
+
+Process the shipped built-in template catalog:
+
+```sh
+noctalia theme <image> --builtin-config
+```
+
+The shipped built-in catalog lives at `assets/templates/builtin.toml`.
+
+Render from a precomputed theme JSON:
+
+```sh
+noctalia theme --theme-json theme.json -r input.txt:output.txt
+```
+
+Combine both: `-c` and `-r` can be used in the same command. The config's
+`[config.custom_colors]` are loaded first, so the `-r` templates can reference them:
+
+```sh
+noctalia theme <image> -c templates.toml -r input.txt:output.txt
+```
+
+The `-r` files are rendered first, then the templates declared in the config.
+
+Set the default template mode:
+
+```sh
+noctalia theme <image> --default-mode light -r input.txt:output.txt
+```

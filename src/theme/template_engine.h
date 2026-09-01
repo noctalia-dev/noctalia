@@ -2,6 +2,7 @@
 
 #include "core/toml.h" // IWYU pragma: keep
 
+#include <cstdint>
 #include <filesystem>
 #include <functional>
 #include <string>
@@ -23,6 +24,8 @@ namespace noctalia::theme {
     int errorCount = 0;
   };
 
+  class HookRunner;
+
   class TemplateEngine {
   public:
     using ModeMap = std::unordered_map<std::string, std::string>;
@@ -39,6 +42,8 @@ namespace noctalia::theme {
       std::string schemeType = "content";
       bool verbose = true;
       std::shared_ptr<const toml::table> configTable;
+      HookRunner* hookRunner = nullptr;
+      std::uint64_t generation = 0;
     };
 
     explicit TemplateEngine(ThemeData themeData);

@@ -1,0 +1,81 @@
+---
+title: Idle
+description: Idle behaviors, native actions, and pre-action fade.
+sidebar:
+  order: 5
+---
+
+Idle behaviors are named entries under `[idle.behavior.*]`. When the resolved config does not define idle behaviors, Noctalia seeds built-in Lock and Monitor off behaviors, both disabled by default.
+
+Optional top-level **`[idle]`** keys apply before any behavior’s `command` runs:
+
+```toml
+[idle]
+# Canonical evaluation order for named behaviors. Names not listed are appended.
+behavior_order = ["lock", "screen-off", "suspend"]
+# Seconds to fade a fullscreen surface-tint overlay, then run the idle command.
+# 0 disables the overlay (the command runs as soon as the compositor reports idle).
+# Parsed between 0 and 120; the in-app Settings stepper uses whole seconds 0–30.
+pre_action_fade_seconds = 2.0
+```
+
+`behavior_order` controls the order named behaviors are evaluated and emitted by Settings. Names not listed are appended
+after the listed entries; unknown names are ignored.
+
+While a fade is in progress, the overlay is click-through so pointer/keyboard activity still reaches the compositor; if the session becomes active again during that window, the pending command is cancelled. The dim is a layer-shell **overlay** that covers the full monitor (including the bar).
+
+Each behavior picks an **`action`**. The built-in actions are native - they need no `command`. Use `action = "command"` only when you want to run something Noctalia doesn't have a native action for. Command fields are normal shell commands; use `noctalia msg ...` when a shell command needs to call Noctalia IPC.
+
+```toml
+[idle.behavior.lock]
+timeout = 600
+action = "lock"
+enabled = false             # explicitly disabled in the default config
+
+[idle.behavior.screen-off]
+timeout = 660
+action = "screen_off"       # turns monitors off, and back on when you return
+enabled = false             # explicitly disabled in the default config
+
+[idle.behavior.suspend]
+timeout = 900
+action = "lock_and_suspend" # or action = "suspend" with lock_before_suspend = false
+
+[idle.behavior.custom]
+timeout = 48
+action = "command"
+command = "notify-send 'Idle' 'Going idle'"
+resume_command = "notify-send 'Idle' 'Back from idle'"
+```
+
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| `action` | string | `"command"` | What the behavior does: `lock`, `screen_off`, `suspend`, `lock_and_suspend`, or `command` |
+| `enabled` | bool | `true` | Enable or disable this behavior |
+| `timeout` | number | `0` | Seconds before the behavior triggers; fractional values are allowed (e.g. `0.3`); `0` disables this behavior |
+| `command` | string | `""` | Only for `action = "command"`: a shell command to run when idle |
+| `resume_command` | string | `""` | Optional shell command to run when activity resumes |
+| `lock_before_suspend` | bool | `true` | For `action = "suspend"`, lock the session first (equivalent to `action = "lock_and_suspend"`). Set `false` to suspend without locking. |
+
+`action = "screen_off"` turns the monitors off on idle and **back on automatically** when you return. If `resume_command` is set, Noctalia restores monitor power first and then runs the command. The command still runs if monitor power restoration reports a failure.
+
+For a fully custom power action, use the canonical IPC CLI as part of a shell command:
+
+```toml
+[idle.behavior.custom-power]
+timeout = 660
+action = "command"
+command = "noctalia msg dpms-off"
+resume_command = "noctalia msg dpms-on && some_shell_command"
+```
+
+Idle behavior uses the Wayland `ext_idle_notifier_v1` protocol and respects active idle inhibitors.
+
+## Related IPC
+
+Custom commands can use the canonical IPC references:
+
+- [System Controls](/noctalia/ipc/system-controls/) for caffeine and monitor power (`dpms-on` / `dpms-off`)
+- [Surfaces → Panels](/noctalia/ipc/surfaces/#panels) for launcher, clipboard, wallpaper, and control center
+- [Media & UI → Media](/noctalia/ipc/media-and-ui/#media) for media playback commands
+- [Shell → Session](/noctalia/ipc/shell/#session) for lock, suspend, and logout actions

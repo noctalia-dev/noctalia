@@ -1,0 +1,147 @@
+---
+title: Hooks
+description: Advanced event hooks for running shell commands and Noctalia IPC commands.
+sidebar:
+  order: 0
+---
+
+Hooks are advanced automation entries under `[hooks]` in the Noctalia config stack. For hand-written hooks, put them in
+any `*.toml` file under `~/.config/noctalia/`. They run extra commands when specific Noctalia events happen.
+
+Each event is a shell command string or an array of shell command strings that run in order. Use `noctalia msg ...` when
+a hook needs to call Noctalia IPC.
+
+Hooks do not replace Noctalia's built-in behavior. For example, external or IPC-initiated Wi-Fi, Bluetooth, and power
+profile changes show an OSD. `notify-send` can be useful while testing that a hook fires, but it is not required for
+Noctalia's own feedback.
+
+| Key | When it fires |
+|-----|---------------|
+| `started` | Once after Noctalia finishes startup (IPC ready). |
+| `wallpaper_changed` | After a persisted wallpaper path change is applied. Sets `NOCTALIA_WALLPAPER_PATH` and `NOCTALIA_WALLPAPER_CONNECTOR` (for example `DP-1`; empty when the change is not tied to a live connector). |
+| `colors_changed` | After the theme palette is resolved and terminal templates are updated. |
+| `theme_mode_changed` | After theme templates are applied, when the resolved theme mode changes between `light` and `dark`. Sets `NOCTALIA_THEME_MODE`, `NOCTALIA_THEME_MODE_PREVIOUS`, and `NOCTALIA_THEME_MODE_CONFIGURED` (`dark`, `light`, or `auto`). |
+| `session_locked` | When the compositor confirms the session lock. |
+| `session_unlocked` | When the session leaves the locked state. |
+| `logging_out` | Immediately before the session panel runs the logout sequence. |
+| `rebooting` | Immediately before the session panel runs reboot. |
+| `shutting_down` | Immediately before the session panel runs shutdown. |
+| `wifi_enabled` / `wifi_disabled` | When NetworkManager's Wi-Fi radio toggles (not on first snapshot). |
+| `bluetooth_enabled` / `bluetooth_disabled` | When the default adapter's powered state toggles (not on first snapshot). |
+| `battery_charging` | When the battery enters charging after the previous tracked battery hook state was not charging. Intermediate UPower states do not retrigger it. |
+| `battery_discharging` | When the battery enters discharging after the previous tracked battery hook state was not discharging. Intermediate UPower states do not retrigger it. |
+| `battery_plugged` | When the battery enters fully charged or pending charge after the previous tracked battery hook state was not plugged. Intermediate UPower states do not retrigger it. |
+| `battery_percentage_changed` | When the normalized whole battery percentage changes. Sets `NOCTALIA_BATTERY_STATE` (`charging`, `discharging`, `empty`, `fully_charged`, `pending_charge`, `pending_discharge`, or `unknown`) and `NOCTALIA_BATTERY_PERCENT`. |
+| `power_profile_changed` | When the active UPower power profile changes (for example `performance`, `balanced`, or `power-saver`). Sets `NOCTALIA_POWER_PROFILE`, `NOCTALIA_POWER_PROFILE_PREVIOUS`, and `NOCTALIA_POWER_PROFILE_ORIGIN` (`noctalia` or `external`). |
+
+## Battery hooks
+
+Battery hook values are exposed as environment variables, not positional arguments. For example:
+
+```toml
+[hooks]
+battery_percentage_changed = "notify-send 'Battery' \"$NOCTALIA_BATTERY_PERCENT% ($NOCTALIA_BATTERY_STATE)\""
+```
+
+To run an action only when the battery is discharging and has just crossed below a threshold, store the previous
+percentage in a small script:
+
+```toml
+[hooks]
+battery_percentage_changed = "NOCTALIA_BATTERY_THRESHOLD=20 ~/.config/noctalia/hooks/battery-threshold.sh"
+```
+
+```bash title="~/.config/noctalia/hooks/battery-threshold.sh"
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Use the threshold from the hook command, or fall back to 20%.
+threshold="${NOCTALIA_BATTERY_THRESHOLD:-20}"
+
+# Keep a tiny state file so the script can compare this event with the last one.
+state_dir="${XDG_STATE_HOME:-$HOME/.local/state}/noctalia"
+state_file="$state_dir/battery-percent"
+
+# Noctalia provides these values whenever battery_percentage_changed fires.
+percent="${NOCTALIA_BATTERY_PERCENT:-}"
+battery_state="${NOCTALIA_BATTERY_STATE:-unknown}"
+
+# Ignore the event if the percentage is missing or not a whole number.
+[[ "$percent" =~ ^[0-9]+$ ]] || exit 0
+
+mkdir -p "$state_dir"
+
+# Read the previous percentage, then save the current percentage for next time.
+previous=""
+[[ -r "$state_file" ]] && previous="$(<"$state_file")"
+printf '%s\n' "$percent" > "$state_file"
+
+# Only warn while discharging, and only after we have a previous value to compare.
+[[ "$battery_state" == "discharging" ]] || exit 0
+[[ "$previous" =~ ^[0-9]+$ ]] || exit 0
+
+# Fire once when crossing below the threshold, not every time the battery changes below it.
+if (( previous >= threshold && percent < threshold )); then
+  notify-send -u critical "Battery low" "Battery is ${percent}%."
+  # Or run any other command, for example:
+  # systemctl --user start low-battery.target
+fi
+```
+
+## Wallpaper hooks
+
+Wallpaper hook values are exposed as environment variables, not positional arguments. `NOCTALIA_WALLPAPER_PATH` is the
+applied path, and `NOCTALIA_WALLPAPER_CONNECTOR` is the output connector for that wallpaper change.
+When multiple outputs change, the hook runs once per changed connector.
+
+```toml
+[hooks]
+wallpaper_changed = "logger -t noctalia-hooks \"Wallpaper on $NOCTALIA_WALLPAPER_CONNECTOR: $NOCTALIA_WALLPAPER_PATH\""
+```
+
+## Examples
+
+```toml
+[hooks]
+# Start a user unit after Noctalia IPC is ready.
+started = "systemctl --user start noctalia-ready.target"
+
+# Log wallpaper changes with the connector-specific payload.
+wallpaper_changed = "logger -t noctalia-hooks \"wallpaper: $NOCTALIA_WALLPAPER_CONNECTOR $NOCTALIA_WALLPAPER_PATH\""
+colors_changed = [
+  "systemctl --user reload foot-server.service",
+  "logger -t noctalia-hooks 'palette colors changed'",
+]
+theme_mode_changed = "logger -t noctalia-hooks \"mode: $NOCTALIA_THEME_MODE\""
+
+# Combine normal shell commands with Noctalia IPC commands.
+session_locked = [
+  "playerctl pause",
+  "noctalia msg bar-hide",
+]
+session_unlocked = [
+  "noctalia msg bar-show",
+  "noctalia msg dpms-on && notify-send 'Session resumed'",
+]
+
+logging_out   = "logger -t noctalia-hooks 'logout requested'"
+rebooting     = "systemctl --user stop backup-sync.service"
+shutting_down = "systemctl --user stop backup-sync.service"
+
+# External or IPC-initiated Wi-Fi, Bluetooth, and power profile changes use OSD.
+# Use hooks only for extra side effects.
+wifi_enabled  = "logger -t noctalia-hooks 'Wi-Fi radio enabled'"
+wifi_disabled = "logger -t noctalia-hooks 'Wi-Fi radio disabled'"
+
+bluetooth_enabled  = "logger -t noctalia-hooks 'Bluetooth powered on'"
+bluetooth_disabled = "logger -t noctalia-hooks 'Bluetooth powered off'"
+
+battery_charging           = "logger -t noctalia-hooks 'Battery charging'"
+battery_discharging        = "logger -t noctalia-hooks 'Battery discharging'"
+battery_plugged            = "logger -t noctalia-hooks 'Battery plugged'"
+battery_percentage_changed = "logger -t noctalia-hooks \"Battery: $NOCTALIA_BATTERY_STATE $NOCTALIA_BATTERY_PERCENT%\""
+power_profile_changed   = "logger -t noctalia-hooks \"Power profile: $NOCTALIA_POWER_PROFILE_PREVIOUS -> $NOCTALIA_POWER_PROFILE ($NOCTALIA_POWER_PROFILE_ORIGIN)\""
+
+# Quick test while developing a hook; not needed for Noctalia's own notifications.
+# started = "notify-send 'Noctalia hook' 'started fired'"
+```

@@ -1,0 +1,270 @@
+---
+title: Niri
+description: Configure Niri for the best experience with Noctalia.
+sidebar:
+  order: 4
+---
+
+import ImageLightbox from '../../../../components/ImageLightbox.astro';
+import option1 from '../../assets/niri-overview/option1-v5.png';
+import option2 from '../../assets/niri-overview/option2-v5.png';
+import option3 from '../../assets/niri-overview/option3-v5.png';
+
+Add the following settings to your Niri configuration file (usually located at `~/.config/niri/config.kdl`).
+
+## Autostart Noctalia
+
+```kdl
+spawn-at-startup "noctalia"
+```
+
+## Compositor Settings
+
+These settings are for general window appearance and functionality.
+
+```kdl
+window-rule {
+  // Rounded corners for a modern look.
+  geometry-corner-radius 20
+
+  // Clips window contents to the rounded corner boundaries.
+  clip-to-geometry true
+}
+
+// Floating Noctalia settings window.
+window-rule {
+  match app-id="dev.noctalia.Noctalia"
+  open-floating true
+  default-column-width { fixed 1080; }
+  default-window-height { fixed 920; }
+}
+
+debug {
+  // Allows notification actions and window activation from Noctalia.
+  honor-xdg-activation-with-invalid-serial
+}
+```
+
+## IPC Keybinds
+
+Both `spawn-sh` and `spawn` are usable to run Noctalia keybinds.
+
+Add these binds to your `~/.config/niri/config.kdl`:
+
+```kdl
+binds {
+    // Core Noctalia binds
+    Mod+Space { spawn-sh "noctalia msg panel-toggle launcher"; }
+    Mod+S { spawn-sh "noctalia msg panel-toggle control-center"; }
+    Mod+Comma { spawn-sh "noctalia msg settings-toggle"; }
+    Alt+Tab { spawn-sh "noctalia msg window-switcher"; }
+    // Niri has a built-in window switcher you might want to try it to see which one you prefer.
+
+    // Audio & Brightness
+    XF86AudioRaiseVolume { spawn-sh "noctalia msg volume-up"; }
+    XF86AudioLowerVolume { spawn-sh "noctalia msg volume-down"; }
+    XF86AudioMute { spawn-sh "noctalia msg volume-mute"; }
+    XF86MonBrightnessUp { spawn-sh "noctalia msg brightness-up"; }
+    XF86MonBrightnessDown { spawn-sh "noctalia msg brightness-down"; }
+}
+```
+
+## Optional Type to Launch
+
+Noctalia can open its launcher when you start typing in niri's overview. This is disabled by default because it requires a tiny keyboard-focus layer surface while overview is open, which means some niri overview-only keyboard state, such as the app focus ring, may not behave exactly like native overview navigation.
+
+```toml
+[shell]
+niri_overview_type_to_launch_enabled = true
+```
+
+You can also enable this from **Settings → Niri → Overview**.
+
+## Wallpapers setup
+
+Next, choose one of the following options for your wallpaper and overview setup.
+
+:::note
+The "backdrop" in Niri is a layer behind all workspaces that is visible when you trigger the overview mode.
+:::
+
+### Option 1: Blurred Overview Wallpaper
+
+This configuration places Noctalia's dedicated backdrop layer (a blurred and tinted copy of the wallpaper) within Niri's overview backdrop.
+
+<ImageLightbox src={option1} alt="Blurred Overview Wallpaper" />
+
+```kdl
+layer-rule {
+  match namespace="^noctalia-backdrop"
+  place-within-backdrop true
+}
+```
+
+:::note
+Option 1 requires the `[niri/backdrop]` section to be enabled in your Noctalia configuration. See [Wallpaper and backdrop](/noctalia/desktop/wallpaper/) for the relevant options.
+:::
+
+### Option 2: Stationary Wallpaper
+
+If you prefer a stationary wallpaper that is visible at all times and does not scroll when switching workspaces, use the following configuration.
+
+<ImageLightbox src={option2} alt="Stationary Wallpaper" />
+
+```kdl
+// Place the regular wallpaper on the backdrop.
+layer-rule {
+  match namespace="^noctalia-wallpaper"
+  place-within-backdrop true
+}
+
+// Set transparent workspace background color so the backdrop is visible at all times.
+layout {
+  background-color "transparent"
+}
+
+// Optionally, disable workspace shadows in the overview.
+overview {
+  workspace-shadow {
+    off
+  }
+}
+```
+
+:::note
+Option 2 should be used with the `[niri/backdrop]` section disabled in your Noctalia configuration.
+:::
+
+### Option 3: Flat Colored Overview
+
+If you prefer a more productivity-oriented look, use this minimal configuration.
+
+<ImageLightbox src={option3} alt="Flat colored overview" />
+
+```kdl
+overview {
+  // Choose your favorite color.
+  backdrop-color "#26233a"
+}
+```
+
+:::note
+Option 3 should be used with the `[backdrop]` section disabled in your Noctalia configuration.
+:::
+
+## Blur
+
+:::caution
+Blur support was introduced in Niri version 26.04. Adding these rules to earlier versions of Niri will result in configuration errors.
+:::
+
+You can enable blur behind windows and Noctalia's bar, panels, dock, and notifications.
+
+```kdl
+/* Apps: blur them all without xray so it looks more realistic. */
+window-rule {
+  background-effect {
+    blur true
+    xray false
+  }
+}
+
+/*
+  Noctalia
+  Disable xray on all our surfaces so it looks more realistic.
+  Noctalia publishes blur regions automatically when ext-background-effects is available.
+*/
+layer-rule {
+  match namespace="^noctalia-(bar-[^\"]+|notification|dock|panel|attached-panel|osd)$"
+  background-effect {
+    xray false
+    // blur false
+  }
+}
+
+/* Enable blur on noctalia's window switcher and disable xray. */
+layer-rule {
+    match namespace="noctalia-window-switcher"
+    background-effect {
+        blur true
+        xray false
+    }
+}
+
+/* You can also fine-tune the blur effect globally. */
+blur {
+  passes 2        // more passes = stronger blur (default: 3)
+  offset 3.0      // sample distance per pass (default: 3.0)
+  noise 0.03      // grain overlay (default: 0.02)
+  saturation 1.0  // color saturation boost (default: 1.5)
+}
+```
+
+:::tip[Turning blur off]
+When Noctalia detects `ext-background-effects`, it automatically publishes blur regions for its layer surfaces. This means bars, panels, dock, notifications, and OSD can still blur even if you do not declare any Noctalia `layer-rule` in your Niri config.
+
+With Niri's default xray behavior, that blur samples the wallpaper. On contrasting wallpapers, it can show through the anti-aliased edges of rounded surfaces as faint, wallpaper-colored corner pixels.
+
+- To keep blur but use the windows and content behind Noctalia, set `xray false` as shown above.
+- To disable blur entirely, use `blur false`. A broad namespace match also covers future Noctalia layer surfaces:
+
+```kdl
+layer-rule {
+  match namespace="^noctalia-"
+  background-effect {
+    blur false
+  }
+}
+```
+
+Omitting the Noctalia `layer-rule` is not enough to disable its client-requested blur.
+:::
+
+## Per-widget desktop layer rules
+
+Each desktop widget lives on its own layer-shell surface with a unique namespace, so you can target an individual widget with a `layer-rule`. The namespace is:
+
+```
+noctalia-desktop-widget-<type>-<id>
+```
+
+where `<type>` is the widget kind (`clock`, `weather`, `sysmon`, …) and `<id>` is the widget's stable id. Run `niri msg layers` to list all layer surfaces and see the exact namespaces on your setup:
+
+```text
+Bottom layer:
+  Surface:
+    Namespace: "noctalia-desktop-widget-clock-000000000000000a"
+  Surface:
+    Namespace: "noctalia-desktop-widget-weather-000000000000000b"
+```
+
+Match on `^noctalia-desktop-widget-` to target every desktop widget at once, or narrow the pattern by type or full id for a single widget. For example, to match just the weather widget:
+
+```kdl
+layer-rule {
+  match namespace="^noctalia-desktop-widget-weather-"
+}
+```
+
+## Laptop
+
+With the lock screen enabled, Noctalia locks before sleep by default (`[lockscreen].lock_before_suspend = true`), including lid-close suspend handled by logind. Set `lock_before_suspend = false` if you want lid close / `systemctl suspend` without locking.
+
+To lock and suspend yourself from Niri (for example when logind lid handling is ignored), add:
+
+``` kdl
+switch-events {
+    lid-close { spawn "noctalia" "msg" "session" "lock-and-suspend"; }
+}
+```
+
+You may also need to edit your `logind.conf` to set:
+```
+HandleLidSwitch=ignore
+HandleLidSwitchExternalPower=ignore
+```
+
+:::note
+This file is usually located in `/etc/systemd/logind.conf` or `/etc/elogind/logind.conf` if you don't use systemd.
+If you can't find it, use this command: `find / -name "logind.conf" 2>/dev/null`.
+:::

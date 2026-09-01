@@ -88,7 +88,7 @@ Runtime asset lookup order:
 5. the compiled install path from Meson (`<prefix>/<datadir>/noctalia/assets`)
 6. the source-tree `assets/` directory as a development fallback
 
-An asset root is only accepted if it contains the expected shipped files such as `emoji.json`, `fonts/tabler.ttf`,
+An asset root is only accepted if it contains the expected shipped files such as `emoji.json`, `fonts/noctalia-tabler.ttf`,
 `templates/builtin.toml`, and `translations/en.json`.
 
 ## Code Style
@@ -218,7 +218,7 @@ src/
   wayland/          Wayland connection, seats, surfaces, clipboard, toplevels, text input
     hyprland/       Hyprland-specific Wayland protocol helpers
 assets/
-  fonts/            Bundled Tabler and UI fonts
+  fonts/            Bundled Noctalia Tabler and UI fonts
   sounds/           Notification and UI sounds
   templates/        Built-in theme templates
   translations/     Exported translation catalogs
@@ -232,6 +232,7 @@ third_party/
   luau/           Plugin scripting runtime (vendored)
   material_color_utilities/ Material Design color generation (vendored)
 ```
+
 
 ## Debugging
 
@@ -250,3 +251,37 @@ gdbus call --session --dest dev.noctalia.Debug --object-path /dev/noctalia/Debug
 # Emit an internal notification (app_name, summary, body, timeout_ms, urgency 0-2)
 gdbus call --session --dest dev.noctalia.Debug --object-path /dev/noctalia/Debug --method dev.noctalia.Debug.EmitInternalNotification "Noctalia" "Test" "Hello from debug" 5000 1
 ```
+
+### Crash output
+
+When reporting a crash, include the complete terminal output from the process if it is available. Do not paste only
+`Segmentation fault`; that line does not contain a useful stack trace or the error context.
+
+### ASan crash reports
+
+AddressSanitizer (ASan) can find memory errors that a normal build reports only as a crash. It requires a temporary
+source build; it does not replace the Noctalia package you already use.
+
+Install the source-build dependencies for your distribution using the commands in
+[BUILDING.md](BUILDING.md#dependencies), then clone the repository:
+
+```sh
+git clone https://github.com/noctalia-dev/noctalia.git
+cd noctalia
+```
+
+Stop the Noctalia instance started by your compositor, then configure and build ASan:
+
+```sh
+just configure asan && just build asan
+```
+
+Start the ASan binary in the foreground and save its output:
+
+```sh
+ASAN_OPTIONS=log_path=/tmp/noctalia-asan ./build-asan/noctalia 2>&1 | tee noctalia-asan-terminal.log
+```
+
+Reproduce the crash once. If Noctalia does not exit, press `Ctrl+C`. Attach both `noctalia-asan-terminal.log` and every
+`/tmp/noctalia-asan.*` file to the GitHub issue. The files in `/tmp` preserve the ASan report if the crash takes down
+the terminal. If the build or startup fails, attach that complete output instead.
