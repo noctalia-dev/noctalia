@@ -522,6 +522,8 @@ bool WaylandConnection::hasFreshPointerOutput(std::chrono::milliseconds maxAge) 
   return std::chrono::steady_clock::now() - m_lastPointerOutputAt <= maxAge;
 }
 
+std::uint32_t WaylandConnection::keyboardModifiers() const noexcept { return m_seatHandler.modifiers(); }
+
 wl_output* WaylandConnection::outputForSurface(wl_surface* surface) const noexcept {
   if (surface == nullptr) {
     return nullptr;

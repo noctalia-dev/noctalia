@@ -80,6 +80,12 @@ FileEntryRow::FileEntryRow(float scale) : m_scale(scale), m_rowHeight(std::ceil(
   });
   m_row = static_cast<Flex*>(addChild(std::move(row)));
 
+  auto check = ui::glyph({
+      .glyphSize = Style::fontSizeBody * scale,
+  });
+  m_check = static_cast<Glyph*>(m_row->addChild(std::move(check)));
+  m_check->setVisible(false);
+
   auto icon = ui::glyph({
       .glyphSize = Style::fontSizeBody * scale,
   });
@@ -107,6 +113,22 @@ FileEntryRow::FileEntryRow(float scale) : m_scale(scale), m_rowHeight(std::ceil(
   m_date = static_cast<Label*>(m_row->addChild(std::move(date)));
 
   setVisible(false);
+}
+
+void FileEntryRow::setMultiSelect(bool enabled) {
+  if (m_multiSelect == enabled) {
+    return;
+  }
+  m_multiSelect = enabled;
+  if (m_check != nullptr) {
+    m_check->setVisible(enabled);
+  }
+  applyVisualState();
+}
+
+float FileEntryRow::checkboxZoneWidth(float scale) {
+  // Row padding + the glyph + the gap before the file icon.
+  return (Style::spaceSm * scale) + (Style::fontSizeBody * scale) + (Style::spaceSm * scale);
 }
 
 void FileEntryRow::setCallbacks(
@@ -173,6 +195,12 @@ void FileEntryRow::applyVisualState() {
   const float alpha = m_disabled ? 0.55F : 1.0F;
 
   m_background->setFill(bg);
+  if (m_check != nullptr && m_multiSelect) {
+    // Tabler names; the ticked box has to read as "chosen" against the selected
+    // row's Primary fill, hence the same fg role as the rest of the row.
+    m_check->setGlyph(m_selected ? "checkbox" : "square");
+    m_check->setColor(withAlpha(fg, alpha));
+  }
   m_icon->setColor(withAlpha(fg, alpha));
   m_name->setColor(withAlpha(fg, alpha));
   m_size->setColor(withAlpha(sub, alpha));

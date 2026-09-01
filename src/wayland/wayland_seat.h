@@ -85,6 +85,11 @@ public:
   void forgetSurface(wl_surface* surface) noexcept;
   void cleanup();
 
+  /// Modifiers held right now, as a KeyMod bitmask.
+  ///
+  /// Keyboard events carry their own snapshot, but pointer events do not, so a
+  /// click handler wanting ctrl/shift has nowhere else to read it from.
+  [[nodiscard]] std::uint32_t modifiers() const noexcept;
   [[nodiscard]] std::uint32_t lastSerial() const noexcept { return m_lastSerial; }
   [[nodiscard]] wl_seat* seat() const noexcept { return m_seat; }
 

@@ -31,6 +31,15 @@ public:
   virtual void focusArea(InputArea* area) = 0;
   [[nodiscard]] virtual InputArea* focusedArea() const = 0;
   virtual void accept(std::optional<std::filesystem::path> result) = 0;
+  /// Multi-selection result. Defaulted so hosts that can only ever produce one
+  /// path -- the settings modal -- need no change; they collapse to the first.
+  /// Modifiers held right now. Pointer events carry none, so a click handler
+  /// has no other way to tell ctrl+click from a plain click. Defaulted to "none"
+  /// so a host without a seat behaves exactly as before.
+  [[nodiscard]] virtual std::uint32_t currentModifiers() const { return 0; }
+  virtual void acceptMultiple(std::vector<std::filesystem::path> results) {
+    accept(results.empty() ? std::nullopt : std::optional{std::move(results.front())});
+  }
   virtual void cancel() = 0;
 };
 
@@ -99,8 +108,16 @@ private:
   void syncGridSelection();
   [[nodiscard]] std::size_t firstSelectableIndex() const;
   [[nodiscard]] bool isSelectableIndex(std::size_t index) const;
+  [[nodiscard]] bool multiEnabled() const;
+  [[nodiscard]] bool isIndexSelected(std::size_t index) const;
+  void toggleIndex(std::size_t index);
+  /// Shift+click: select the run between the cursor and `index`.
+  void extendSelectionTo(std::size_t index);
   [[nodiscard]] bool isTextInputFocused() const;
   [[nodiscard]] std::filesystem::path selectedPath() const;
+  /// Every selected path. One entry in single-selection mode, so callers need
+  /// not know which mode the dialog is in.
+  [[nodiscard]] std::vector<std::filesystem::path> selectedPaths() const;
   [[nodiscard]] std::filesystem::path homeDirectory() const;
   [[nodiscard]] std::filesystem::path resolveStartDirectory(const std::filesystem::path& preferred) const;
   void requestUpdateOnly();
@@ -109,6 +126,7 @@ private:
   void focusHostArea(InputArea* area);
   [[nodiscard]] InputArea* hostFocusedArea() const;
   void acceptDialog(std::optional<std::filesystem::path> result);
+  void acceptDialogMultiple(std::vector<std::filesystem::path> results);
   void cancelDialog();
 
   // Guard token for deferred callbacks that run on the next main-loop tick.
@@ -155,7 +173,16 @@ private:
   ViewMode m_viewMode = ViewMode::List;
   FileDialogSortField m_sortField = FileDialogSortField::Name;
   FileDialogSortOrder m_sortOrder = FileDialogSortOrder::Ascending;
+  /// Cursor / anchor. Stays meaningful in multi mode: it is what the keyboard
+  /// moves and what Shift extends from.
   std::size_t m_selectedIndex = static_cast<std::size_t>(-1);
+  /// Additional selected indices, multi mode only. Indices are per-directory,
+  /// so this is cleared whenever the listing is rebuilt.
+  std::vector<std::size_t> m_multiSelected;
+  /// Whether the cursor landed somewhere because the user put it there. A freshly
+  /// listed directory parks it on the first entry, which must not read as a
+  /// selection in multi mode -- the dialog would open claiming a file is chosen.
+  bool m_cursorExplicit = false;
   std::size_t m_gridColumns = 1;
   float m_listRowHeight = 0.0F;
   float m_gridCellSize = 0.0F;

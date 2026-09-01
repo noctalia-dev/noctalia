@@ -678,15 +678,7 @@ void WaylandSeat::handleKeyboardKey(
   auto sym = static_cast<std::uint32_t>(xkb_state_key_get_one_sym(self->m_xkbState, xkbKeycode));
   auto utf32 = static_cast<std::uint32_t>(xkb_state_key_get_utf32(self->m_xkbState, xkbKeycode));
 
-  std::uint32_t mods = 0;
-  if (xkb_state_mod_name_is_active(self->m_xkbState, XKB_MOD_NAME_SHIFT, XKB_STATE_MODS_EFFECTIVE) > 0)
-    mods |= KeyMod::Shift;
-  if (xkb_state_mod_name_is_active(self->m_xkbState, XKB_MOD_NAME_CTRL, XKB_STATE_MODS_EFFECTIVE) > 0)
-    mods |= KeyMod::Ctrl;
-  if (xkb_state_mod_name_is_active(self->m_xkbState, XKB_MOD_NAME_ALT, XKB_STATE_MODS_EFFECTIVE) > 0)
-    mods |= KeyMod::Alt;
-  if (xkb_state_mod_name_is_active(self->m_xkbState, XKB_MOD_NAME_LOGO, XKB_STATE_MODS_EFFECTIVE) > 0)
-    mods |= KeyMod::Super;
+  const std::uint32_t mods = self->modifiers();
 
   const bool pressed = (state == WL_KEYBOARD_KEY_STATE_PRESSED);
 
@@ -801,6 +793,26 @@ int WaylandSeat::repeatPollTimeoutMs() const {
   }
   const auto ms = std::chrono::ceil<std::chrono::milliseconds>(m_repeatNextFire - now).count();
   return static_cast<int>(std::min<long long>(ms, std::numeric_limits<int>::max()));
+}
+
+std::uint32_t WaylandSeat::modifiers() const noexcept {
+  if (m_xkbState == nullptr) {
+    return 0;
+  }
+  std::uint32_t mods = 0;
+  if (xkb_state_mod_name_is_active(m_xkbState, XKB_MOD_NAME_SHIFT, XKB_STATE_MODS_EFFECTIVE) > 0) {
+    mods |= KeyMod::Shift;
+  }
+  if (xkb_state_mod_name_is_active(m_xkbState, XKB_MOD_NAME_CTRL, XKB_STATE_MODS_EFFECTIVE) > 0) {
+    mods |= KeyMod::Ctrl;
+  }
+  if (xkb_state_mod_name_is_active(m_xkbState, XKB_MOD_NAME_ALT, XKB_STATE_MODS_EFFECTIVE) > 0) {
+    mods |= KeyMod::Alt;
+  }
+  if (xkb_state_mod_name_is_active(m_xkbState, XKB_MOD_NAME_LOGO, XKB_STATE_MODS_EFFECTIVE) > 0) {
+    mods |= KeyMod::Super;
+  }
+  return mods;
 }
 
 void WaylandSeat::stopKeyRepeat() { m_repeatActive = false; }

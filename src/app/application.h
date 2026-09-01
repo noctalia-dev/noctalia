@@ -102,6 +102,7 @@ namespace sdbus {
   class IProxy;
 }
 
+class FileDialogPanel;
 class LauncherPanel;
 class AccountsService;
 class BluetoothAgent;
@@ -128,6 +129,7 @@ class PolkitPollSource;
 class PowerProfilesService;
 class ScreenSaverPollSource;
 class ScreenSaverService;
+class FileChooserPortal;
 class SessionBus;
 class SessionBusPollSource;
 class SoundPlayer;
@@ -245,6 +247,7 @@ private:
   NotificationManager m_notificationManager;
   CalendarService m_calendarService;
   std::unique_ptr<SessionBus> m_bus;
+  std::unique_ptr<FileChooserPortal> m_fileChooserPortal;
   std::unique_ptr<SystemBus> m_systemBus;
   std::unique_ptr<LogindService> m_logindService;
   // Set on PrepareForSleep(true); cleared when the session lock engages (or the lock aborts).
@@ -317,6 +320,7 @@ private:
   LockscreenWidgetsController m_lockscreenWidgetsController;
   SessionActionRunner m_sessionActionRunner{m_compositorPlatform, m_lockScreen};
   PanelManager m_panelManager;
+  FileDialogPanel* m_fileDialogPanel = nullptr;
   // Owned by m_panelManager; kept raw so plugin launcher providers can be re-applied.
   LauncherPanel* m_launcherPanel = nullptr;
   // Ids of plugin-backed panels currently registered with m_panelManager, so a

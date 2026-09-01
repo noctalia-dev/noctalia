@@ -28,6 +28,7 @@
 #include "dbus/polkit/polkit_agent.h"
 #include "dbus/polkit/polkit_poll_source.h"
 #include "dbus/polkit/polkit_session_support.h"
+#include "dbus/portal/file_chooser_portal.h"
 #include "dbus/power/power_profiles_service.h"
 #include "dbus/session_bus.h"
 #include "dbus/session_bus_poll_source.h"

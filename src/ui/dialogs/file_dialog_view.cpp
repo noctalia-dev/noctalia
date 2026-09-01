@@ -4,6 +4,7 @@
 #include "core/input/key_modifiers.h"
 #include "core/input/key_symbols.h"
 #include "core/input/keybind_matcher.h"
+#include "core/log.h"
 #include "i18n/i18n.h"
 #include "render/core/renderer.h"
 #include "render/core/thumbnail_service.h"
@@ -28,6 +29,7 @@
 #include <xkbcommon/xkbcommon-keysyms.h>
 
 namespace {
+  constexpr Logger kLog("filedialog");
 
   constexpr std::size_t kListRowOverscan = 3;
   constexpr std::size_t kGridRowOverscan = 1;
@@ -43,6 +45,28 @@ public:
   void setEntries(const std::vector<FileEntry>* entries) { m_entries = entries; }
   void setSelectableFn(std::function<bool(std::size_t)> fn) { m_isSelectable = std::move(fn); }
   void setOnActivate(std::function<void(std::size_t)> fn) { m_onActivate = std::move(fn); }
+  /// VirtualGridView tracks one selected index, which is all its API can carry.
+  /// Multi-selection therefore cannot come from the grid: the view supplies the
+  /// predicate and the adapter paints from that instead.
+  void setIsSelectedFn(std::function<bool(std::size_t)> fn) { m_isSelected = std::move(fn); }
+  void setMultiSelectFn(std::function<bool()> fn) { m_multiSelect = std::move(fn); }
+  void setOnToggleFn(std::function<void(std::size_t)> fn) { m_onToggle = std::move(fn); }
+
+  /// The grid offers this hook for overlays that want a press before the normal
+  /// activation. Returning true stops the click from also becoming a selection,
+  /// so ticking a box never doubles as "pick only this one".
+  bool onPointerPress(
+      std::size_t index, float cellLocalX, float /*cellLocalY*/, float /*cellWidth*/, float /*cellHeight*/
+  ) override {
+    if (!m_multiSelect || !m_multiSelect() || !m_onToggle) {
+      return false;
+    }
+    if (cellLocalX > FileEntryRow::checkboxZoneWidth(m_scale)) {
+      return false;
+    }
+    m_onToggle(index);
+    return true;
+  }
 
   [[nodiscard]] std::size_t itemCount() const override { return m_entries == nullptr ? 0 : m_entries->size(); }
 
@@ -54,7 +78,9 @@ public:
     }
     auto* row = static_cast<FileEntryRow*>(&tile);
     const bool disabled = m_isSelectable && !m_isSelectable(index);
-    row->bind(*m_renderer, (*m_entries)[index], index, row->width(), selected, hovered && !selected, disabled);
+    const bool isSel = m_isSelected ? m_isSelected(index) : selected;
+    row->setMultiSelect(m_multiSelect && m_multiSelect());
+    row->bind(*m_renderer, (*m_entries)[index], index, row->width(), isSel, hovered && !isSel, disabled);
   }
 
   void onActivate(std::size_t index) override {
@@ -68,7 +94,10 @@ private:
   Renderer* m_renderer = nullptr;
   const std::vector<FileEntry>* m_entries = nullptr;
   std::function<bool(std::size_t)> m_isSelectable;
+  std::function<bool(std::size_t)> m_isSelected;
   std::function<void(std::size_t)> m_onActivate;
+  std::function<bool()> m_multiSelect;
+  std::function<void(std::size_t)> m_onToggle;
 };
 
 class FileGridAdapter final : public VirtualGridAdapter {
@@ -79,6 +108,10 @@ public:
   void setEntries(const std::vector<FileEntry>* entries) { m_entries = entries; }
   void setSelectableFn(std::function<bool(std::size_t)> fn) { m_isSelectable = std::move(fn); }
   void setOnActivate(std::function<void(std::size_t)> fn) { m_onActivate = std::move(fn); }
+  /// VirtualGridView tracks one selected index, which is all its API can carry.
+  /// Multi-selection therefore cannot come from the grid: the view supplies the
+  /// predicate and the adapter paints from that instead.
+  void setIsSelectedFn(std::function<bool(std::size_t)> fn) { m_isSelected = std::move(fn); }
 
   [[nodiscard]] std::size_t itemCount() const override { return m_entries == nullptr ? 0 : m_entries->size(); }
 
@@ -95,8 +128,9 @@ public:
     // FileEntryTile::bind detects same-thumbnailPath rebinds and skips acquire/release,
     // so per-frame rebinds that VirtualGridView's row-modulo recycling already filters
     // out remain free of thumbnail churn.
+    const bool isSel = m_isSelected ? m_isSelected(index) : selected;
     file->bind(
-        *m_renderer, (*m_entries)[index], index, file->width(), file->height(), selected, hovered && !selected, disabled
+        *m_renderer, (*m_entries)[index], index, file->width(), file->height(), isSel, hovered && !isSel, disabled
     );
   }
 
@@ -112,6 +146,7 @@ private:
   Renderer* m_renderer = nullptr;
   const std::vector<FileEntry>* m_entries = nullptr;
   std::function<bool(std::size_t)> m_isSelectable;
+  std::function<bool(std::size_t)> m_isSelected;
   std::function<void(std::size_t)> m_onActivate;
 };
 
@@ -340,6 +375,9 @@ void FileDialogView::create() {
   m_listAdapter = std::make_unique<FileListAdapter>(scale);
   m_listAdapter->setEntries(&m_visibleEntries);
   m_listAdapter->setSelectableFn([this](std::size_t idx) { return isSelectableIndex(idx); });
+  m_listAdapter->setIsSelectedFn([this](std::size_t idx) { return isIndexSelected(idx); });
+  m_listAdapter->setMultiSelectFn([this]() { return multiEnabled(); });
+  m_listAdapter->setOnToggleFn([this](std::size_t idx) { toggleIndex(idx); });
   m_listAdapter->setOnActivate([this](std::size_t idx) {
     const std::weak_ptr<void> aliveGuard = m_aliveGuard;
     DeferredCall::callLater([this, aliveGuard, idx]() {
@@ -389,6 +427,7 @@ void FileDialogView::create() {
   m_gridAdapter = std::make_unique<FileGridAdapter>(scale, m_thumbnails);
   m_gridAdapter->setEntries(&m_visibleEntries);
   m_gridAdapter->setSelectableFn([this](std::size_t idx) { return isSelectableIndex(idx); });
+  m_gridAdapter->setIsSelectedFn([this](std::size_t idx) { return isIndexSelected(idx); });
   m_gridAdapter->setOnActivate([this](std::size_t idx) {
     const std::weak_ptr<void> aliveGuard = m_aliveGuard;
     DeferredCall::callLater([this, aliveGuard, idx]() {
@@ -735,6 +774,8 @@ void FileDialogView::applyFilter(bool resetScroll) {
   }
 
   m_selectedIndex = static_cast<std::size_t>(-1);
+  // Indices address the visible listing, so a rebuild invalidates them.
+  m_multiSelected.clear();
   if (!preserved.empty()) {
     for (std::size_t i = 0; i < m_visibleEntries.size(); ++i) {
       if (m_visibleEntries[i].absPath == preserved && isSelectableIndex(i)) {
@@ -746,6 +787,7 @@ void FileDialogView::applyFilter(bool resetScroll) {
   if (m_selectedIndex == static_cast<std::size_t>(-1)) {
     m_selectedIndex = firstSelectableIndex();
   }
+  m_cursorExplicit = false;
 
   if (resetScroll) {
     if (m_listGrid != nullptr) {
@@ -1025,10 +1067,33 @@ void FileDialogView::selectIndex(std::size_t index) {
     return;
   }
   m_selectedIndex = index;
+  m_cursorExplicit = true;
   syncGridSelection();
   updateFilenameFieldFromSelection();
   updateControls();
   focusList();
+  ensureSelectionVisible();
+  requestRedraw();
+}
+
+void FileDialogView::extendSelectionTo(std::size_t index) {
+  if (!multiEnabled() || index >= m_visibleEntries.size()) {
+    return;
+  }
+  // Anchor at the cursor and take everything between, which is what Shift does
+  // everywhere else.
+  const std::size_t anchor = m_selectedIndex < m_visibleEntries.size() ? m_selectedIndex : index;
+  const std::size_t from = std::min(anchor, index);
+  const std::size_t to = std::max(anchor, index);
+  m_multiSelected.clear();
+  for (std::size_t i = from; i <= to; ++i) {
+    if (isSelectableIndex(i)) {
+      m_multiSelected.push_back(i);
+    }
+  }
+  m_selectedIndex = index;
+  syncGridSelection();
+  updateControls();
   ensureSelectionVisible();
   requestRedraw();
 }
@@ -1055,6 +1120,34 @@ void FileDialogView::handleEntryClick(std::size_t index) {
 
   if (!isSelectableIndex(index)) {
     syncGridSelection();
+    return;
+  }
+
+  if (multiEnabled()) {
+    // Three gestures, in priority order. Checkbox presses never reach here: the
+    // adapter consumes them in onPointerPress, so this is always a row click.
+    const std::uint32_t mods = m_host != nullptr ? m_host->currentModifiers() : 0U;
+    if ((mods & KeyMod::Shift) != 0U) {
+      extendSelectionTo(index);
+      return;
+    }
+    if ((mods & KeyMod::Ctrl) != 0U) {
+      toggleIndex(index);
+      m_selectedIndex = index; // the cursor follows, so a later Shift anchors here
+      syncGridSelection();
+      updateControls();
+      ensureSelectionVisible();
+      requestRedraw();
+      return;
+    }
+    // Unmodified row click picks exactly one, matching single-selection mode;
+    // the checkbox is the discoverable way to build a set without the keyboard.
+    if (m_multiSelected.size() == 1 && m_multiSelected.front() == index) {
+      submitDialog(); // second click on the sole selection, as in single mode
+      return;
+    }
+    m_multiSelected.clear();
+    toggleIndex(index);
     return;
   }
 
@@ -1095,6 +1188,18 @@ void FileDialogView::activateSelection() {
 
 void FileDialogView::submitDialog() {
   if (m_options.mode == FileDialogMode::Open) {
+    if (multiEnabled()) {
+      auto paths = selectedPaths();
+      std::erase_if(paths, [](const std::filesystem::path& p) {
+        std::error_code ec;
+        return std::filesystem::is_directory(p, ec);
+      });
+      if (paths.empty()) {
+        return;
+      }
+      acceptDialogMultiple(std::move(paths));
+      return;
+    }
     if (m_selectedIndex >= m_visibleEntries.size() || m_visibleEntries[m_selectedIndex].isDir) {
       return;
     }
@@ -1212,6 +1317,19 @@ void FileDialogView::syncGridSelection() {
   if (m_gridGrid != nullptr) {
     m_gridGrid->setSelectedIndex(selection);
   }
+
+  // The grid repaints the cell it knows changed, but in multi mode the rows paint
+  // from isIndexSelected(), so a click that clears or extends a set changes rows
+  // the grid has no idea about. Without this they keep their last painted state
+  // until something else forces a rebind -- hovering them, typically.
+  if (multiEnabled()) {
+    if (m_listGrid != nullptr) {
+      m_listGrid->notifyDataChanged();
+    }
+    if (m_gridGrid != nullptr) {
+      m_gridGrid->notifyDataChanged();
+    }
+  }
 }
 
 std::size_t FileDialogView::firstSelectableIndex() const {
@@ -1221,6 +1339,62 @@ std::size_t FileDialogView::firstSelectableIndex() const {
     }
   }
   return static_cast<std::size_t>(-1);
+}
+
+bool FileDialogView::multiEnabled() const {
+  // Save names one file and SelectFolder names one directory; only Open has a
+  // meaning for a set.
+  return m_options.allowMultiple && m_options.mode == FileDialogMode::Open;
+}
+
+bool FileDialogView::isIndexSelected(std::size_t index) const {
+  if (!multiEnabled()) {
+    return index == m_selectedIndex;
+  }
+  // Only once the user has actually moved the cursor. On open it sits on the
+  // first entry, and painting that would show a selection nobody made.
+  if (m_multiSelected.empty()) {
+    return m_cursorExplicit && index == m_selectedIndex;
+  }
+  return std::ranges::find(m_multiSelected, index) != m_multiSelected.end();
+}
+
+void FileDialogView::toggleIndex(std::size_t index) {
+  if (!isSelectableIndex(index)) {
+    return;
+  }
+  const auto it = std::ranges::find(m_multiSelected, index);
+  if (it != m_multiSelected.end()) {
+    m_multiSelected.erase(it);
+  } else {
+    m_multiSelected.push_back(index);
+  }
+  m_selectedIndex = index;
+  syncGridSelection();
+  updateControls();
+  focusList();
+  ensureSelectionVisible();
+  requestRedraw();
+}
+
+std::vector<std::filesystem::path> FileDialogView::selectedPaths() const {
+  std::vector<std::filesystem::path> paths;
+  if (multiEnabled() && !m_multiSelected.empty()) {
+    // Report in listing order rather than click order: callers that write the
+    // set somewhere should not depend on how the user happened to pick.
+    std::vector<std::size_t> ordered = m_multiSelected;
+    std::ranges::sort(ordered);
+    for (const std::size_t index : ordered) {
+      if (index < m_visibleEntries.size()) {
+        paths.push_back(m_visibleEntries[index].absPath);
+      }
+    }
+    return paths;
+  }
+  if (auto single = selectedPath(); !single.empty()) {
+    paths.push_back(std::move(single));
+  }
+  return paths;
 }
 
 bool FileDialogView::isSelectableIndex(std::size_t index) const {
@@ -1304,6 +1478,12 @@ InputArea* FileDialogView::hostFocusedArea() const { return m_host != nullptr ? 
 void FileDialogView::acceptDialog(std::optional<std::filesystem::path> result) {
   if (m_host != nullptr) {
     m_host->accept(std::move(result));
+  }
+}
+
+void FileDialogView::acceptDialogMultiple(std::vector<std::filesystem::path> results) {
+  if (m_host != nullptr) {
+    m_host->acceptMultiple(std::move(results));
   }
 }
 

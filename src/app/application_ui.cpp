@@ -86,6 +86,7 @@
 #include "ui/controls/input.h"
 #include "ui/dialogs/color_picker_dialog.h"
 #include "ui/dialogs/file_dialog.h"
+#include "ui/dialogs/file_dialog_panel.h"
 #include "ui/dialogs/glyph_picker_dialog.h"
 #include "ui/style.h"
 #include "util/file_utils.h"
@@ -937,7 +938,13 @@ void Application::initBarDockAndLayout() {
   );
   ColorPickerDialog::setPresenter(m_settingsWindow.colorPickerDialogPresenter());
   GlyphPickerDialog::setPresenter(m_settingsWindow.glyphPickerDialogPresenter());
-  FileDialog::setPresenter(m_settingsWindow.fileDialogPresenter());
+  // The portal's dialog gets its own layer surface; anything raised from settings
+  // stays the attached modal. The panel routes between them.
+  auto fileDialogPanel = std::make_unique<FileDialogPanel>(&m_thumbnailService, &m_wayland);
+  m_fileDialogPanel = fileDialogPanel.get();
+  m_fileDialogPanel->setAttachedPresenter(m_settingsWindow.fileDialogPresenter());
+  m_panelManager.registerPanel(FileDialogPanel::kPanelId, std::move(fileDialogPanel));
+  FileDialog::setPresenter(m_fileDialogPanel);
 }
 
 void Application::initWidgetControllersAndCallbacks() {

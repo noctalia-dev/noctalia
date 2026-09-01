@@ -1081,6 +1081,11 @@ struct ShellConfig {
   bool setupWizardEnabled = true;
   bool niriOverviewTypeToLaunchEnabled = false;
   bool polkitAgent = false;
+  /// Register as the org.freedesktop.impl.portal.FileChooser backend, so every
+  /// application's file dialog is Noctalia's rather than GTK's. Off by default:
+  /// claiming the role replaces the file dialog of every app on the session, so
+  /// it has to be asked for.
+  bool portalFileChooser = false;
   PasswordMaskStyle passwordMaskStyle = PasswordMaskStyle::CircleFilled;
   AnimationConfig animation;
   std::string avatarPath;

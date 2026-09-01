@@ -1,11 +1,21 @@
 #include "ui/dialogs/file_dialog_popup.h"
 
+#include "ui/dialogs/file_dialog.h"
+
+namespace {}
+
+#include "core/log.h"
 #include "render/render_context.h"
 #include "render/scene/input_dispatcher.h"
 #include "render/scene/node.h"
+#include "wayland/wayland_connection.h"
 #include "wayland/wayland_seat.h"
 
 #include <utility>
+
+namespace {
+  constexpr Logger kLog("filedialog");
+} // namespace
 
 FileDialogPopup::~FileDialogPopup() { destroyPopup(); }
 
@@ -104,4 +114,15 @@ InputArea* FileDialogPopup::focusedArea() const {
 void FileDialogPopup::accept(std::optional<std::filesystem::path> result) {
   closeAfterAccept();
   FileDialog::complete(std::move(result));
+}
+
+std::uint32_t FileDialogPopup::currentModifiers() const {
+  const auto* connection = wayland();
+  const std::uint32_t mods = connection != nullptr ? connection->keyboardModifiers() : 0U;
+  return mods;
+}
+
+void FileDialogPopup::acceptMultiple(std::vector<std::filesystem::path> results) {
+  closeAfterAccept();
+  FileDialog::completeMultiple(std::move(results));
 }

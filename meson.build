@@ -476,6 +476,7 @@ _noctalia_sources = files(
   'src/dbus/network/network_secret_agent.cpp',
   'src/dbus/network/wpa_supplicant_service.cpp',
   'src/dbus/polkit/polkit_agent.cpp',
+  'src/dbus/portal/file_chooser_portal.cpp',
   'src/dbus/polkit/polkit_session_support.cpp',
   'src/dbus/notification/kde_notification_client.cpp',
   'src/dbus/notification/notification_poll_source.cpp',
@@ -650,6 +651,7 @@ _noctalia_sources = files(
   'src/ui/dialogs/color_picker_dialog_popup.cpp',
   'src/ui/dialogs/dialog_popup_host.cpp',
   'src/ui/dialogs/file_dialog.cpp',
+  'src/ui/dialogs/file_dialog_panel.cpp',
   'src/ui/dialogs/file_dialog_popup.cpp',
   'src/ui/dialogs/file_dialog_view.cpp',
   'src/ui/dialogs/file_entry_row.cpp',
@@ -1108,12 +1110,20 @@ noctalia_exe = executable('noctalia',
 
 install_subdir('assets',
   install_dir: get_option('datadir') / 'noctalia',
-  exclude_files: ['dev.noctalia.Noctalia.desktop'],
+  exclude_files: ['dev.noctalia.Noctalia.desktop', 'noctalia.portal'],
 )
 
 install_data(
   'assets/dev.noctalia.Noctalia.desktop',
   install_dir: get_option('datadir') / 'applications',
+)
+
+# Declares the FileChooser backend to xdg-desktop-portal. Installing it is
+# harmless on its own: the frontend only routes here when the bus name is
+# actually owned, which happens only if shell.portal_file_chooser is enabled.
+install_data(
+  'assets/noctalia.portal',
+  install_dir: get_option('datadir') / 'xdg-desktop-portal' / 'portals',
 )
 
 install_data(

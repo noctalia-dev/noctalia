@@ -3,6 +3,7 @@
 #include "config/config_service.h"
 #include "core/deferred_call.h"
 #include "core/input/key_symbols.h"
+#include "core/log.h"
 #include "core/ui_phase.h"
 #include "render/render_context.h"
 #include "render/scene/node.h"
@@ -11,9 +12,11 @@
 #include "ui/popup_chrome.h"
 #include "ui/popup_parent.h"
 #include "ui/style.h"
+#include "wayland/layer_surface.h"
 #include "wayland/popup_surface.h"
 #include "wayland/wayland_connection.h"
 #include "wayland/wayland_seat.h"
+#include "wlr-layer-shell-unstable-v1-client-protocol.h"
 #include "xdg-shell-client-protocol.h"
 
 #include <algorithm>

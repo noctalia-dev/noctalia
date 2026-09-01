@@ -3,11 +3,13 @@
 #include "i18n/i18n.h"
 
 #include <utility>
+#include <vector>
 
 namespace {
 
   FileDialogOptions s_options;
   FileDialog::CompletionCallback s_callback;
+  FileDialog::MultiCompletionCallback s_multiCallback;
   FileDialogPresenter* s_presenter = nullptr;
   bool s_hasPendingCallback = false;
 
@@ -23,33 +25,72 @@ namespace {
     return i18n::tr("ui.dialogs.file.title.default");
   }
 
+  /// The one place a dialog finishes. Both entry points funnel here so a
+  /// single-path caller and a multi-path caller cannot drift apart: an empty
+  /// vector is a cancel either way, and a single-path caller handed several
+  /// paths takes the first rather than silently dropping the answer.
+  void finishWith(std::vector<std::filesystem::path> paths) {
+    auto single = std::move(s_callback);
+    auto multi = std::move(s_multiCallback);
+    s_callback = {};
+    s_multiCallback = {};
+    s_hasPendingCallback = false;
+    s_options = {};
+
+    if (multi) {
+      multi(std::move(paths));
+      return;
+    }
+    if (single) {
+      single(paths.empty() ? std::nullopt : std::optional{std::move(paths.front())});
+    }
+  }
+
 } // namespace
 
 void FileDialog::setPresenter(FileDialogPresenter* presenter) noexcept { s_presenter = presenter; }
 
-bool FileDialog::open(FileDialogOptions options, CompletionCallback callback) {
-  if (s_hasPendingCallback && s_callback) {
-    auto previous = std::move(s_callback);
-    s_hasPendingCallback = false;
-    previous(std::nullopt);
+namespace {
+  /// Shared prologue: answer whatever is still pending, then install the new
+  /// request. Leaving an old callback in place would strand its caller.
+  void beginRequest(FileDialogOptions& options) {
+    if (s_hasPendingCallback) {
+      finishWith({});
+    }
+    if (options.title.empty()) {
+      options.title = defaultTitle(options.mode);
+    }
   }
+} // namespace
 
-  if (options.title.empty()) {
-    options.title = defaultTitle(options.mode);
-  }
+bool FileDialog::open(FileDialogOptions options, CompletionCallback callback) {
+  beginRequest(options);
 
   s_options = std::move(options);
   s_callback = std::move(callback);
+  s_multiCallback = {};
   s_hasPendingCallback = static_cast<bool>(s_callback);
 
   if (s_presenter == nullptr || !s_presenter->openFileDialog()) {
-    auto pending = std::move(s_callback);
-    s_callback = {};
-    s_hasPendingCallback = false;
-    s_options = {};
-    if (pending) {
-      pending(std::nullopt);
-    }
+    finishWith({});
+    return false;
+  }
+
+  return true;
+}
+
+bool FileDialog::openMultiple(FileDialogOptions options, MultiCompletionCallback callback) {
+  // Only Open has a meaning for a set; the other modes ignore the flag.
+  options.allowMultiple = options.mode == FileDialogMode::Open;
+  beginRequest(options);
+
+  s_options = std::move(options);
+  s_multiCallback = std::move(callback);
+  s_callback = {};
+  s_hasPendingCallback = static_cast<bool>(s_multiCallback);
+
+  if (s_presenter == nullptr || !s_presenter->openFileDialog()) {
+    finishWith({});
     return false;
   }
 
@@ -57,26 +98,20 @@ bool FileDialog::open(FileDialogOptions options, CompletionCallback callback) {
 }
 
 void FileDialog::complete(std::optional<std::filesystem::path> result) {
-  auto callback = std::move(s_callback);
-  s_callback = {};
-  s_hasPendingCallback = false;
-  s_options = {};
-  if (callback) {
-    callback(std::move(result));
+  std::vector<std::filesystem::path> paths;
+  if (result.has_value()) {
+    paths.push_back(std::move(*result));
   }
+  finishWith(std::move(paths));
 }
+
+void FileDialog::completeMultiple(std::vector<std::filesystem::path> results) { finishWith(std::move(results)); }
 
 void FileDialog::cancelIfPending() {
   if (!s_hasPendingCallback) {
     return;
   }
-  auto callback = std::move(s_callback);
-  s_callback = {};
-  s_hasPendingCallback = false;
-  s_options = {};
-  if (callback) {
-    callback(std::nullopt);
-  }
+  finishWith({});
 }
 
 const FileDialogOptions& FileDialog::currentOptions() { return s_options; }

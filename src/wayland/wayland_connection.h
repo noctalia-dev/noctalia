@@ -244,6 +244,8 @@ public:
   [[nodiscard]] double lastPointerX() const noexcept;
   [[nodiscard]] double lastPointerY() const noexcept;
   [[nodiscard]] WaylandSeat::InputSource lastInputSource() const noexcept;
+  /// Modifiers held right now (KeyMod bitmask); 0 when no keyboard is bound.
+  [[nodiscard]] std::uint32_t keyboardModifiers() const noexcept;
   [[nodiscard]] std::string currentKeyboardLayoutName() const;
   [[nodiscard]] std::vector<std::string> keyboardLayoutNames() const;
   [[nodiscard]] WaylandSeat::LockKeysState keyboardLockKeysState() const;

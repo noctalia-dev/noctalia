@@ -29,6 +29,7 @@
 #include "dbus/polkit/polkit_agent.h"
 #include "dbus/polkit/polkit_poll_source.h"
 #include "dbus/polkit/polkit_session_support.h"
+#include "dbus/portal/file_chooser_portal.h"
 #include "dbus/power/power_profiles_service.h"
 #include "dbus/session_bus.h"
 #include "dbus/session_bus_poll_source.h"
@@ -1459,6 +1460,17 @@ void Application::initSessionBusServices() {
   }
 
   if (m_bus != nullptr) {
+    // Opt-in: claiming the FileChooser role takes over the file dialog of every
+    // app on the session, so it is only registered when explicitly enabled.
+    if (m_configService.config().shell.portalFileChooser) {
+      try {
+        m_fileChooserPortal = std::make_unique<FileChooserPortal>(*m_bus);
+      } catch (const std::exception& e) {
+        kLog.warn("file chooser portal disabled: {}", e.what());
+        m_fileChooserPortal.reset();
+      }
+    }
+
     try {
       m_debugService = std::make_unique<DebugService>(*m_bus, m_notificationManager);
       kLog.info("debug service active on dev.noctalia.Debug");
