@@ -2089,17 +2089,11 @@ void NotificationToast::ensureSurfaces() {
       prepareFrame(*instPtr, needsUpdate, needsLayout);
     });
     inst->surface->setFrameTickCallback([this, instPtr](float /*deltaMs*/) {
-      // Cards animate horizontally during entry/exit slides; the input and blur regions
-      // must follow the visible position or the rounded right edge bleeds.
-      // Unconditional on purpose: the tick that COMPLETES an animation must also
-      // refresh the regions. After a frame-callback stall (session locked, monitor
-      // off, output temporarily gone) the first post-stall tick advances every
-      // animation to its end in a single huge-delta jump, and hasActive() is already
-      // false by the time this callback runs — guarding on it would leave the
-      // reveal-0 region latched on a fully drawn card. A freshly added card is
-      // zero-width at reveal 0, so that stale region is empty: the toast renders
-      // but never takes pointer input (close button, action buttons, hover) and
-      // every click falls through to the windows underneath.
+      // Cards animate horizontally during entry/exit slides, so the input and blur regions
+      // must follow the visible position. Runs after the animation tick, so the tick that
+      // completes a slide already reports hasActive() == false: refresh unconditionally or
+      // a finished reveal keeps the region it had at reveal 0 (zero-width card, empty
+      // region, click-through toast).
       updateInputRegion(*instPtr);
     });
     inst->surface->setAnimationManager(&inst->animations);
