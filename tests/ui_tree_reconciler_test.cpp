@@ -1706,14 +1706,12 @@ int main() {
 
       if (proxy != nullptr) {
         const auto previewBounds = [proxy]() {
-          const float left = proxy->x() + proxy->transformOriginX() * (1.0f - proxy->scaleX());
-          const float top = proxy->y() + proxy->transformOriginY() * (1.0f - proxy->scaleY());
-          return LayoutRect{
-              .x = left,
-              .y = top,
-              .width = proxy->width() * proxy->scaleX(),
-              .height = proxy->height() * proxy->scaleY(),
-          };
+          float left = 0.0f;
+          float top = 0.0f;
+          float right = 0.0f;
+          float bottom = 0.0f;
+          Node::transformedBounds(proxy, left, top, right, bottom);
+          return LayoutRect{.x = left, .y = top, .width = right - left, .height = bottom - top};
         };
 
         source->inputArea()->dispatchMotion(-100.0f, -100.0f);
@@ -1746,6 +1744,30 @@ int main() {
                  "drag preview keeps moving horizontally along a clamped bottom edge"
              )
             && ok;
+
+        // A preview larger than the overlay cannot fit inside it. It covers the
+        // overlay instead, and keeps tracking the pointer within that range.
+        overlay.setSize(60.0f, 20.0f);
+        source->inputArea()->dispatchMotion(0.0f, 0.0f);
+        bounds = previewBounds();
+        const float coveringX = proxy->x();
+        ok = expect(
+                 bounds.x <= 0.001f
+                     && bounds.y <= 0.001f
+                     && bounds.x + bounds.width >= overlay.width() - 0.001f
+                     && bounds.y + bounds.height >= overlay.height() - 0.001f,
+                 "an oversized drag preview keeps covering the overlay"
+             )
+            && ok;
+
+        source->inputArea()->dispatchMotion(-30.0f, 0.0f);
+        bounds = previewBounds();
+        ok = expect(
+                 proxy->x() < coveringX && bounds.x + bounds.width >= overlay.width() - 0.001f,
+                 "an oversized drag preview still follows the pointer while covering the overlay"
+             )
+            && ok;
+        overlay.setSize(400.0f, 160.0f);
       }
 
       source->inputArea()->dispatchPress(localX, localY, BTN_LEFT, false);
