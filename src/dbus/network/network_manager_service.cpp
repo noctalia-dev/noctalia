@@ -810,10 +810,9 @@ void NetworkManagerService::setWirelessEnabled(bool enabled, WirelessEnabledComp
   if (enabled) {
     const RfkillSwitchResult rfkillResult = setRfkillSoftBlocked(RfkillDeviceType::Wlan, false);
     if (rfkillResult.hardBlocked) {
-      // A vendor soft block can also appear as a PHY hard block. Let NM clear
-      // the platform switch; the kernel still enforces genuine hardware blocks.
-      kLog.warn("setWirelessEnabled: wlan rfkill hard block reported, trying NetworkManager anyway");
-    } else if (!rfkillResult.success) {
+      kLog.warn("setWirelessEnabled: wlan rfkill reports a hard block");
+    }
+    if (!rfkillResult.success) {
       kLog.warn("setWirelessEnabled: rfkill unblock failed ({}), trying NetworkManager anyway", rfkillResult.detail);
     }
   }

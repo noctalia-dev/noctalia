@@ -132,7 +132,6 @@ namespace {
 
   void applyRfkillState(BluetoothState& out) {
     out.rfkillSoftBlocked = isRfkillSoftBlocked(RfkillDeviceType::Bluetooth);
-    out.rfkillHardBlocked = isRfkillHardBlocked(RfkillDeviceType::Bluetooth);
   }
 
   void readAdapterProps(const InterfaceProps& props, BluetoothState& out) {
@@ -489,9 +488,6 @@ void BluetoothService::registerIpc(IpcService& ipc, StateFeedbackCallback stateF
     if (!state().adapterPresent) {
       return "error: bluetooth adapter unavailable\n";
     }
-    if (enabled && state().rfkillHardBlocked) {
-      return "error: bluetooth adapter is rfkill hard-blocked\n";
-    }
     if (state().powered == enabled) {
       return "ok\n";
     }
@@ -577,10 +573,9 @@ void BluetoothService::setPowered(bool enabled) {
   if (enabled) {
     const RfkillSwitchResult rfkillResult = setRfkillSoftBlocked(RfkillDeviceType::Bluetooth, false);
     if (rfkillResult.hardBlocked) {
-      // Platform rfkill state can be stale; let BlueZ attempt activation while
-      // the kernel continues to enforce genuine hardware blocks.
-      kLog.warn("setPowered: bluetooth rfkill hard block reported, trying BlueZ Powered anyway");
-    } else if (!rfkillResult.success) {
+      kLog.warn("setPowered: bluetooth rfkill reports a hard block");
+    }
+    if (!rfkillResult.success) {
       kLog.warn("setPowered: rfkill unblock failed ({}), trying BlueZ Powered anyway", rfkillResult.detail);
     }
     const bool wasSoftBlocked = m_state.rfkillSoftBlocked;
@@ -812,7 +807,7 @@ BluetoothStateChangeOrigin BluetoothService::consumePoweredChangeOrigin(bool pow
 }
 
 void BluetoothService::scheduleAutoReconnect() {
-  if (!m_state.powered || m_state.rfkillHardBlocked) {
+  if (!m_state.powered) {
     return;
   }
   m_autoReconnectAttempt = 0;
@@ -831,7 +826,7 @@ void BluetoothService::armAutoReconnect() {
 }
 
 void BluetoothService::runAutoReconnectPass() {
-  if (!m_state.powered || m_state.rfkillHardBlocked) {
+  if (!m_state.powered) {
     return;
   }
   std::vector<std::string> pending;

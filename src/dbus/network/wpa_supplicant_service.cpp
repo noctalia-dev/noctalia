@@ -305,7 +305,6 @@ void WpaSupplicantService::disconnect() {
 void WpaSupplicantService::setWirelessEnabled(bool enabled, WirelessEnabledCompletion onComplete) {
   const bool softBlocked = !enabled;
   bool rfkillDone = false;
-  bool hardBlocked = false;
   for (const auto& [ifacePath, proxy] : m_interfaces) {
     (void)ifacePath;
     const auto ifname = getPropertyOr<std::string>(*proxy, kWpaIfaceInterface, "Ifname", "");
@@ -314,10 +313,7 @@ void WpaSupplicantService::setWirelessEnabled(bool enabled, WirelessEnabledCompl
     }
     const RfkillSwitchResult result = setRfkillSoftBlockedForNetInterface(ifname, softBlocked);
     if (result.hardBlocked) {
-      kLog.warn("setWirelessEnabled: rfkill hard block on {}", ifname);
-      hardBlocked = enabled;
-      rfkillDone = !enabled;
-      break;
+      kLog.warn("setWirelessEnabled: rfkill reports a hard block on {}", ifname);
     }
     if (result.success) {
       rfkillDone = true;
@@ -328,10 +324,9 @@ void WpaSupplicantService::setWirelessEnabled(bool enabled, WirelessEnabledCompl
   if (!rfkillDone) {
     const RfkillSwitchResult fallback = setRfkillSoftBlocked(RfkillDeviceType::Wlan, softBlocked);
     if (fallback.hardBlocked) {
-      kLog.warn("setWirelessEnabled: wlan rfkill hard block is active");
-      hardBlocked = enabled;
-      rfkillDone = !enabled;
-    } else if (fallback.success) {
+      kLog.warn("setWirelessEnabled: wlan rfkill reports a hard block");
+    }
+    if (fallback.success) {
       rfkillDone = true;
     } else if (!fallback.detail.empty()) {
       kLog.debug("setWirelessEnabled: wlan rfkill fallback: {}", fallback.detail);
@@ -355,7 +350,7 @@ void WpaSupplicantService::setWirelessEnabled(bool enabled, WirelessEnabledCompl
     }
   }
 
-  const bool success = !hardBlocked && (rfkillDone || fallbackCommandSucceeded);
+  const bool success = rfkillDone || fallbackCommandSucceeded;
   if (success) {
     m_wirelessEnabledOverride = enabled;
   }
