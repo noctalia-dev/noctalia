@@ -1,0 +1,176 @@
+---
+title: Control Center
+description: Control Center tabs, sidebar behavior, and IPC tab contexts.
+sidebar:
+  order: 3
+---
+
+The Control Center is Noctalia's panel for session controls, system status, media, notifications, weather, and service-specific tools. Open it from the control-center bar widget, by right-clicking empty space on a bar, or with IPC:
+
+```sh
+noctalia msg panel-toggle control-center
+```
+
+Pass a context to jump straight to a tab:
+
+```sh
+noctalia msg panel-toggle control-center audio
+noctalia msg panel-open control-center system
+```
+
+## Sidebar
+
+Set `sidebar` under `[control_center]` for tab navigation when Control Center opens on **Home** (control center widget, bar background click, or `noctalia msg panel-toggle control-center` with no tab name).
+Use `"full"` for icons and labels, `"compact"` for icon-only tabs, or `"none"` to hide the sidebar.
+
+Set `sidebar_section` for opens that jump straight to a tab (volume, network, and media bar widgets, or `noctalia msg panel-toggle control-center audio`).
+
+Keyboard navigation uses the global [`[keybinds]`](/noctalia/configuration/shell/#keybinds) actions: `tab_next` / `tab_previous` switch between the sidebar and the active tab body; arrow keys move within the focused pane.
+
+```toml
+[control_center]
+sidebar = "compact"
+# sidebar_section = "compact"  # optional; defaults to the same as sidebar
+# width = 700  # full-sidebar width in pixels (600–1200)
+# show_shortcut_labels = true  # text under Home shortcut icons
+# show_session_button = true   # session-actions button in the Home header
+# hidden_tabs = ["monitor", "weather"]  # hide tabs you never use
+```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `sidebar` | string | `"compact"` | Sidebar on Home / general open: `"full"`, `"compact"`, or `"none"` |
+| `sidebar_section` | string | `"compact"` | Sidebar when opening straight to a tab: `"full"`, `"compact"`, or `"none"` |
+| `width` | int | `700` | Control Center width in pixels (`600`–`1200`). This is the full-sidebar width; the compact and no-sidebar modes scale down from it. |
+| `show_shortcut_labels` | bool | `true` | Show text labels under Home shortcut icons. When `false`, shortcuts are icon-only and glyphs scale with cell size. |
+| `show_session_button` | bool | `true` | Show the session-actions button in the Home tab header. |
+| `hidden_tabs` | array | `[]` | Tab [context IDs](#sidebar-tabs) to hide from the Control Center. Empty shows every available tab. Editable from **Settings → Control Center**. The Home tab cannot be hidden. |
+
+### Sidebar Tabs
+
+Use these context IDs with `noctalia msg panel-toggle control-center <context>` or
+`noctalia msg panel-open control-center <context>` to open a specific tab.
+
+| Context | Tab | What it shows |
+|---------|-----|---------------|
+| `home` | Home | User card, media summary, date/time, weather summary, and shortcut buttons |
+| `media` | Media | MPRIS players, playback controls, queue-style player switching, and artwork |
+| `audio` | Audio | Output/input volume, mute controls, devices, streams, and media-related audio controls |
+| `monitor` | Monitor | Brightness controls for displays that expose writable backlight devices |
+| `system` | System | Distro/kernel, hardware summary, uptime, CPU/RAM/GPU/network graphs, and resource details |
+| `network` | Network | Wi-Fi state, connection status, known wireless controls, and NetworkManager-backed actions |
+| `bluetooth` | Bluetooth | Adapter power, discoverability, paired devices, connection controls, and pairing flows |
+| `weather` | Weather | Current conditions, forecast, location status, and weather service diagnostics |
+| `calendar` | Calendar | Month view and configured calendar account events |
+| `notifications` | Notifications | Notification history, Do Not Disturb, and notification cleanup controls |
+| `screen-time` | Screen Time | Foreground app usage totals and charts for today, three days, or fourteen days |
+| `power` | Power | Battery charge and status, power profiles, battery health, and connected-device battery levels |
+
+`weather`, `system`, and `screen-time` open only when their corresponding services are enabled; `power` opens only when UPower or `power-profiles-daemon` is available. Otherwise Noctalia falls back to the first visible tab.
+
+Any tab except Home can also be hidden manually with [`hidden_tabs`](#sidebar) (use the context ID, e.g. `"monitor"` for the brightness tab). Hidden tabs drop from both the sidebar and keyboard navigation.
+
+## Home
+
+The Home tab is the default Control Center landing view. It combines frequently checked status with a compact shortcut grid.
+
+Click the avatar in the user card to pick a custom image. Noctalia saves the selected path as `[shell].avatar_path`.
+
+When AccountsService is available, Noctalia also writes the selected avatar to `org.freedesktop.Accounts` as your user's `IconFile`. That is what Noctalia Greeter reads for the login user list. On distros where this is not enabled by default, install and enable **accountsservice** (usually the `accounts-daemon` service) if you want the same avatar in both the shell and the greeter.
+
+The shortcut buttons are configured separately; see [Control Center shortcuts](/noctalia/control-center/shortcuts/).
+
+Set `show_session_button = false` under `[control_center]` to hide the session-actions button in the Home tab header. This does not affect Home shortcuts configured with `type = "session"` or session widgets on the bar.
+
+## Media
+
+The Media tab shows active MPRIS players and exposes playback controls independent of any bar media widget. It is useful when multiple players are running or when artwork and track metadata need more room than a bar capsule can provide.
+
+## Audio
+
+The Audio tab groups PipeWire output, input, device, and stream controls. Use it for volume changes, muting, selecting devices, and inspecting application streams without opening an external mixer.
+
+## Monitor
+
+The Monitor tab exposes brightness controls when Noctalia has a controllable backlight for the display. If no writable brightness device is available, the tab remains available but has no write controls to expose.
+
+## System
+
+The System tab summarizes the machine and live resource usage. It shows distribution/kernel details, board/CPU/GPU information, uptime, install age, load averages, memory and swap, and graphs driven by the shared system monitor service.
+
+System monitor sampling is configured globally under `[system.monitor]`; see [System monitor](/noctalia/services/system-monitor/).
+
+## Network
+
+The Network tab uses the configured network backend to show wireless state and connection details. It is the destination for Wi-Fi shortcuts and network-related right-click actions.
+
+The current connection line lists the IPv4 address, signal strength, radio band, and external IP. The band (`2.4 GHz`, `5 GHz`, `6 GHz`, or `60 GHz`) is shown only when the backend reports the connection frequency — NetworkManager and wpa_supplicant do, iwd does not.
+
+## Bluetooth
+
+The Bluetooth tab shows adapter power state, paired devices, and connection controls. It is backed by Noctalia's Bluetooth service and agent.
+
+## Weather
+
+The Weather tab expands the Home weather summary into current conditions, forecast detail, and location/status information. It is hidden when `[weather].enabled = false`.
+
+Weather configuration is documented under [Weather](/noctalia/services/weather/).
+
+## Calendar
+
+The Calendar tab shows the month view and events from configured calendar accounts. Calendar accounts and sync behavior are documented under [Calendar](/noctalia/services/calendar/).
+
+Right-click a day to launch the application registered for the `text/calendar` MIME type. The Calendar panel closes
+after a successful launch.
+
+`[control_center.calendar]` holds how the tab is drawn; `[calendar]` holds whether events are synced at all.
+
+```toml
+[control_center.calendar]
+show_events_card  = true
+show_week_numbers = false       # ISO 8601 week numbers in the month grid
+event_date_format = "%A %e %B"  # date heading above the event list
+event_time_format = "%H:%M"     # per-event start time
+```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `show_events_card` | bool | `true` | Show the event list beside the month grid. Also toggled from the calendar button in the tab header. |
+| `show_week_numbers` | bool | `false` | Show a column of ISO 8601 week numbers to the left of the month grid, separated from it by a divider. Each row is numbered by the week its Thursday falls in. |
+| `event_date_format` | string | `"%A %e %B"` | strftime format for the date heading above the event list. |
+| `event_time_format` | string | `"%H:%M"` | strftime format for each event's start time. All-day events show an "All day" label instead. |
+
+Week numbers are a decoration of the month grid, so they work with `[calendar].enabled = false` and no accounts configured. The other three options only have visible effect once events are syncing.
+
+## Notifications
+
+The Notifications tab shows notification history and notification actions, including Do Not Disturb. Notification daemon and history behavior are documented under [Notifications](/noctalia/services/notifications/).
+
+## Screen Time
+
+The Screen Time tab shows how long each application was in the foreground today. Noctalia tracks focus using the active `zwlr_foreign_toplevel` window, pauses tracking while its session lock is active, and stores daily totals under `$XDG_STATE_HOME/noctalia/screen_time.json` (about 14 days retained).
+
+- **Range** toggle: today (hourly chart), last 3 days, or last 14 days (daily bars)
+- **Total** time for the selected range, with a stacked bar chart (hourly or per-day)
+- **Chart legend** as a horizontal row under the chart (chart colors only; app list uses neutral bars)
+- **Most used** apps with icons, usage bars, and duration for the selected range
+
+Open it from the control center sidebar (`screen-time` context) or add a Home shortcut with `type = "screen_time"`.
+
+Reset stored history from **Settings → System → Screen Time → Reset Screen Time Data** (clears `screen_time.json` while Noctalia is running).
+
+## Power
+
+The Power tab consolidates battery and power-management status, backed by UPower and `power-profiles-daemon`:
+
+- **Battery** - charge percentage, charging/discharging state, time remaining (or time until full), and current draw in watts
+- **Power Profile** - a selector for the profiles your machine exposes (power-saver, balanced, performance); switching here is equivalent to the Home shortcut and bar widget
+- **Battery Health** - current full-charge capacity as a percentage of the original design capacity
+- **Connected Devices** - battery levels for peripherals such as Bluetooth mice, keyboards, and headsets
+
+Sections appear only when their data is available: the battery and health sections require a system battery, the profile selector requires `power-profiles-daemon`, and the connected-devices section appears when peripherals report a battery. The tab itself is hidden on systems where neither UPower nor `power-profiles-daemon` is running.
+
+## Related IPC
+
+For opening Control Center from scripts or keybinds, see
+[Surfaces -> Panels](/noctalia/ipc/surfaces/#panels).

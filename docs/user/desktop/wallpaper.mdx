@@ -1,0 +1,134 @@
+---
+title: Wallpaper & Backdrop
+description: Wallpaper fill modes, automation, per-monitor directories, and niri's backdrop.
+sidebar:
+  order: 9
+---
+
+```toml
+[wallpaper]
+enabled             = true
+fill_mode           = "crop"    # center | crop | fit | stretch | repeat | span
+fill_color          = "#111111" # optional fallback/fill color; image wallpapers take priority
+transition          = ["fade", "wipe", "disc", "stripes", "zoom", "honeycomb"]
+                                # array of effects picked at random each transition
+                                # omit to use all effects
+transition_duration = 1500      # milliseconds
+edge_smoothness     = 0.3       # 0.0 – 1.0
+transition_on_startup = false   # animate the first wallpaper at shell startup (v4-style)
+
+# Directory browsed by the wallpaper picker panel. Leave empty to use the
+# standard XDG Pictures directory (from `XDG_PICTURES_DIR` or `user-dirs.dirs`).
+directory           = ""
+# Theme-aware directories (used when theme mode is Light/Dark; Auto falls back to directory)
+directory_light     = "/home/user/Wallpapers/Light"
+directory_dark      = "/home/user/Wallpapers/Dark"
+# Enable per-monitor directory overrides (default: false)
+per_monitor_directories = false
+
+[wallpaper.default]
+path = "/home/user/Wallpapers/default.png"
+
+[wallpaper.automation]
+enabled                      = false
+interval_seconds             = 1800
+order                        = "random" # random | alphabetical
+recursive                    = true     # scan subdirectories when selecting random wallpapers
+
+# Per-monitor overrides - same match rules as bar monitor overrides
+# Only active when per_monitor_directories = true
+[wallpaper.monitor.DP-2]
+enabled         = false
+fill_color      = "#202020"
+directory       = "/home/user/Wallpapers/Vertical"
+directory_light = "/home/user/Wallpapers/Vertical/Light"
+directory_dark  = "/home/user/Wallpapers/Vertical/Dark"
+```
+
+### Fill modes
+
+`fill_mode` controls how each wallpaper is framed on its output:
+
+- **center** - the image at its native size, centered; `fill_color` shows around it.
+- **crop** - scaled to cover the whole output, cropping any overflow (default).
+- **fit** - scaled to fit entirely within the output; `fill_color` fills the letterbox.
+- **stretch** - scaled to the output's exact dimensions, ignoring aspect ratio.
+- **repeat** - tiled at native size across the output.
+- **span** - a single image stretched across the whole multi-monitor desktop, so each output shows the slice that matches its position in the compositor layout. The monitors are treated as one continuous canvas, honoring each output's logical position and the offset between them, so a wide wallpaper flows across screens instead of repeating the same framing on each. Single-monitor setups behave like `crop`, and the slices refresh automatically when a monitor is moved, added, or removed.
+
+`wallpaper.default.path` sets the initial/default wallpaper for every output. It can be declared in `~/.config/noctalia/*.toml`; choosing a wallpaper through the UI or IPC writes the same key to `settings.toml`, which loads last and overrides the declarative value.
+
+An empty global `wallpaper.directory` resolves to the standard XDG Pictures directory, using `XDG_PICTURES_DIR` or the `user-dirs.dirs` configuration file, and falls back to `~/Pictures`. This keeps the picker, launcher provider, and automatic rotation aligned without requiring a separate wallpaper folder.
+
+The wallpaper picker panel lists images from the resolved browse folder as a grid of thumbnails and highlights the
+wallpaper currently applied to the selected monitor. In the **ALL** monitor view, the highlight follows the default
+wallpaper path. Theme-aware directories (`directory_light` / `directory_dark`) are used when the shell is in Light or
+Dark mode; **Auto** mode falls back to `directory`. Missing per-mode paths fall back to `directory`.
+
+When `per_monitor_directories` is **true**, each connected monitor can define its own `directory` / `directory_light` / `directory_dark` under `[wallpaper.monitor.<name>]`. The picker and automatic rotation resolve the folder per-monitor, so selecting a monitor in the panel toolbar switches to that monitor's override (falling back to the global folder if unset). When **false**, all monitors share the global directories regardless of which monitor is selected in the panel.
+
+Selecting a monitor in the panel toolbar switches to that monitor's resolved directory (falling back to the global browse folder). Clicking a tile writes the path to `settings.toml` and applies it immediately. Picking a wallpaper while **ALL** is selected applies it to every connected monitor. Picking a solid color stores it as a wallpaper source path such as `color:#FF00FF`, so it uses the same transition shader pipeline as image wallpapers.
+
+The launcher's wallpaper provider and **automatic rotation** use the same browse-folder resolution so they stay aligned with the picker. When automation runs with `per_monitor_directories = true`, each monitor picks independently from its own resolved folder.
+
+Prefer a color role such as `surface` or `primary` for `fill_color` so wallpaper fallback colors follow the active palette. Fixed hex colors (`#RGB`, `#RGBA`, `#RRGGBB`, `#RRGGBBAA`) are supported when a non-palette fill is intentional. It is used behind image wallpapers and in uncovered areas for `center`/`fit`. Invalid role names or malformed hex colors are treated as config errors.
+
+Monitor overrides may also set `fill_color`.
+
+By default, the first wallpaper on each output appears immediately with no transition. Set `transition_on_startup = true` to fade (or wipe, etc.) in from a black screen at shell startup, matching v4 behavior. Later wallpaper changes always use the configured transition pool.
+
+When automation is enabled, Noctalia picks one image from the resolved browse folder at shell startup, then keeps picking on the configured interval and applies it to all connected outputs in sync.
+`order = "random"` chooses a random image each cycle.
+`order = "alphabetical"` sorts paths case-insensitively and advances to the next image each cycle (wrapping at the end).
+
+## Favorites
+
+There is no separate Settings page for favorites. The wallpaper panel manages image favorites through tile stars, and advanced users can also declare favorites with `[[wallpaper.favorite]]` in Noctalia config.
+
+Starred wallpapers appear at the **top of the browse grid** at the wallpaper root (before folders and images from that folder). Inside a subfolder, only favorites whose files live in that folder (or under it when **Flatten** is on) are pinned at the top. Solid `color:#RRGGBB` favorites can be declared in config and only appear at the root. The panel can display and remove those declarative color favorites, but it does not create them from the color picker because colors are applied through a dialog, not selected from the grid. Star an image tile to bookmark it; star again to remove it. The monitor selector (**ALL** vs one output) works the same for favorites and browse entries.
+
+Declare favorites with `[[wallpaper.favorite]]`:
+
+```toml
+[[wallpaper.favorite]]
+path = "/home/user/Wallpapers/sunset.jpg"
+theme_mode = "auto"              # auto, light, or dark
+palette_source = "wallpaper"     # optional: builtin, wallpaper, community, or custom
+wallpaper_scheme = "m3-content"  # when palette_source = wallpaper
+
+[[wallpaper.favorite]]
+path = "color:#1a1a2e"
+theme_mode = "dark"
+palette_source = "builtin"
+builtin_palette = "Noctalia"
+```
+
+The **Theme** and **Colors** row is always available under the toolbar. When no favorited image is selected, those controls persist a live global theme override, the same as changing theme mode or palette source in Settings. When the selected image is already a favorite, adjusting the controls also saves the favorite preset and re-applies that wallpaper with the updated settings.
+
+Starring an image wallpaper bookmarks the path only, except when that image is the wallpaper currently applied to the selected monitor: the favorite is saved with the active `theme_mode`, `palette_source`, and palette selection so re-applying it restores the look you already have. Declarative `color:#RRGGBB` favorites use the same stored theme fields when present. Clicking a favorite applies the wallpaper together with its stored theme settings.
+
+---
+
+# Backdrop
+
+Renders a blurred and tinted copy of the current wallpaper as a layer-shell backdrop for compositor overview/backdrop modes (e.g. niri's overview). Disabled by default.
+
+To make the surface visible during niri overview, add a layer-rule to your niri config:
+
+```kdl
+layer-rule {
+    match namespace="^noctalia-backdrop"
+    place-within-backdrop true
+}
+```
+
+```toml
+[backdrop]
+enabled        = false
+blur_intensity = 0.5    # 0.0 = no blur, 1.0 = maximum blur
+tint_intensity = 0.3    # 0.0 = no tint, 1.0 = fully opaque tint
+```
+
+When `enabled` on a supported compositor, backdrop layer surfaces and wallpaper textures stay loaded in GPU memory for the lifetime of the shell. Noctalia renders the blurred/tinted backdrop at startup and reuses the cached result until the wallpaper, scale, or backdrop styling changes.
+
+The tint color is `palette.surface` and is not currently configurable.

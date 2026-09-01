@@ -109,6 +109,9 @@ public:
   void setColumnGap(float gap);
   void setRowGap(float gap);
   void setOverscanRows(std::size_t rows);
+  // Content scale, used for the pointer travel threshold that separates a click
+  // from a drag on an adapter-consumed press.
+  void setScale(float scale) { m_scale = scale; }
 
   void scrollToIndex(std::size_t index);
   void setSelectedIndex(std::optional<std::size_t> index);
@@ -168,6 +171,7 @@ private:
   float m_columnGap = 4.0F;
   float m_rowGap = 4.0F;
   std::size_t m_overscanRows = 2;
+  float m_scale = 1.0F;
 
   std::optional<std::size_t> m_selectedIndex;
   std::optional<std::size_t> m_hoveredIndex;
@@ -186,4 +190,10 @@ private:
   bool m_pendingScrollToIndex = false;
   std::size_t m_pendingScrollIndex = 0;
   bool m_adapterPointerCapture = false;
+  // Press point of the captured press, and whether the pointer has travelled
+  // far enough since for the gesture to count as a drag. Only meaningful while
+  // m_adapterPointerCapture holds, and both are set when capture begins.
+  float m_pressLocalX = 0.0F;
+  float m_pressLocalY = 0.0F;
+  bool m_dragThresholdPassed = false;
 };

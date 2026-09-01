@@ -1,0 +1,18 @@
+---
+title: bluetooth
+description: Shows Bluetooth adapter state and the connected device.
+sidebar:
+  order: 4
+---
+
+Shows the Bluetooth adapter state and connected device. Left-click opens the Bluetooth tab in the control center. Right-click toggles adapter power.
+
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| `show_label` | bool | `false` | Show the connected device name next to the icon |
+| `hide_when_no_connected_device` | bool | `false` | Hide the widget when no Bluetooth device is connected. |
+
+```toml
+[widget.bluetooth]
+show_label = true
+```

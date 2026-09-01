@@ -184,6 +184,7 @@
     "audio": {
       "application-volumes": "Anwendungslautstärken",
       "choose-effects-profile": "Wähle ein Profil",
+      "default-device": "Standardgerät",
       "effects-profile": "Effekte",
       "input-device-prefix": "Eingabe",
       "no-application-audio": "Kein Anwendungsaudio",
@@ -305,6 +306,22 @@
     },
     "power": {
       "battery": "Akku",
+      "charging": {
+        "configured": "Konfiguriert: {limits}",
+        "display-only": "Nur anzeigen",
+        "error-denied": "Autorisierung wurde verweigert. Ladeschwellenwerte wurden nicht geändert.",
+        "error-failed": "Ladeschwellenwerte konnten nicht geändert werden.",
+        "externally-managed": "Von einem anderen Tool festgelegt. Konfiguriere UPower zur Verwaltung der Ladeschwellenwerte.",
+        "firmware-managed": "Laden wird von der System-Firmware verwaltet",
+        "full-charge": "Kann bis 100% laden",
+        "starts": "Startet unter {start}%",
+        "starts-stops": "Startet unter {start}% · Stoppt bei {end}%",
+        "stops": "Stoppt bei {end}%",
+        "title": "Akkuladung",
+        "unreadable": "Nicht verfügbar",
+        "unsupported": "Ladeschwellenwerte werden nicht unterstützt",
+        "use-thresholds": "Ladeschwellenwerte verwenden"
+      },
       "design-capacity": "Der Nennkapazität",
       "health": "Akkuzustand",
       "performance-inhibited": "Leistung nicht verfügbar",
@@ -1377,6 +1394,13 @@
       "panel-position": {
         "auto": "Leiste folgen"
       },
+      "plugins": {
+        "auto-update": {
+          "all": "Alle Quellen",
+          "none": "Keine",
+          "official": "Nur offizielle"
+        }
+      },
       "screen-position": {
         "bottom-center": "Unten mittig",
         "bottom-left": "Unten links",
@@ -1761,6 +1785,10 @@
         "font-family": {
           "description": "Schriftart für die Widgets dieser Leiste; leer lassen, um die globale Schriftart zu übernehmen (eine widget-spezifische Schriftart überschreibt dies)",
           "label": "Schriftart"
+        },
+        "font-scale": {
+          "description": "Skalierungsfaktor für Text aller Widgets auf dieser Leiste; wird mit dem font_scale des jeweiligen Widgets multipliziert",
+          "label": "Schriftskalierung"
         },
         "font-weight": {
           "description": "Standard-Schriftstärke für Widget-Beschriftungen auf dieser Leiste",
@@ -2985,9 +3013,9 @@
           "label": "In Zwischenablage kopieren"
         },
         "screenshot-directory": {
-          "description": "Ordner für gespeicherte PNG-Dateien; leer lassen, um ~/Pictures zu verwenden",
+          "description": "Ordner für gespeicherte PNG-Dateien; leer lassen, um das Standard-XDG-Bilderverzeichnis zu verwenden",
           "label": "Ausgabeverzeichnis",
-          "placeholder": "~/Pictures"
+          "placeholder": "XDG-Bilderverzeichnis"
         },
         "screenshot-filename-pattern": {
           "description": "strftime-Muster ohne Dateiendung (.png wird hinzugefügt); verwende %s für Unix-Epoche",
@@ -3089,7 +3117,7 @@
           "label": "Unterordner einschließen"
         },
         "directory": {
-          "description": "Ordner mit Hintergrundbildern",
+          "description": "Ordner mit Hintergrundbildern; leer lassen, um das Standard-XDG-Bilderverzeichnis zu verwenden",
           "label": "Hintergrundbildverzeichnis"
         },
         "directory-dark": {
@@ -3459,6 +3487,10 @@
           "description": "Schriftart für dieses Widget; leer lassen, um die Schriftart der Leiste zu übernehmen",
           "label": "Schriftart"
         },
+        "font-scale": {
+          "description": "Skalierungsmultiplikator für Text in diesem Widget, unabhängig von der Gesamtskalierung des Widgets",
+          "label": "Schriftskalierung"
+        },
         "font-weight": {
           "description": "Standard übernimmt die Schriftstärke der Leiste",
           "label": "Schriftstärke"
@@ -3760,6 +3792,10 @@
         "show-num-lock": {
           "description": "Zeige den Num-Lock-Status an",
           "label": "Num Lock anzeigen"
+        },
+        "show-progress": {
+          "description": "Fülle den Widget-Hintergrund, um den Wiedergabefortschritt anzuzeigen",
+          "label": "Wiedergabefortschritt anzeigen"
         },
         "show-scroll-lock": {
           "description": "Zeige den Scroll-Lock-Status an",

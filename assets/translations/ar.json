@@ -184,6 +184,7 @@
     "audio": {
       "application-volumes": "مستويات صوت التطبيقات",
       "choose-effects-profile": "اختر ملفًا شخصيًا",
+      "default-device": "الجهاز الافتراضي",
       "effects-profile": "التأثيرات",
       "input-device-prefix": "الإدخال",
       "no-application-audio": "لا يوجد صوت للتطبيقات",
@@ -3012,9 +3013,9 @@
           "label": "نسخ إلى الحافظة"
         },
         "screenshot-directory": {
-          "description": "مجلد حفظ صور لقطات الشاشة؛ اتركه فارغاً لاستخدام ~/Pictures",
+          "description": "مجلد لملفات PNG المحفوظة؛ اتركه فارغًا لاستخدام دليل الصور القياسي XDG",
           "label": "مجلد الإخراج",
-          "placeholder": "~/Pictures"
+          "placeholder": "مجلد صور XDG"
         },
         "screenshot-filename-pattern": {
           "description": "نمط strftime لاسم الملف بدون الامتداد",
@@ -3116,7 +3117,7 @@
           "label": "تضمين المجلدات الفرعية"
         },
         "directory": {
-          "description": "المجلد المحتوي على الخلفيات",
+          "description": "مجلد يحتوي على خلفيات؛ اتركه فارغًا لاستخدام دليل الصور XDG القياسي",
           "label": "مجلد الخلفيات"
         },
         "directory-dark": {
@@ -3791,6 +3792,10 @@
         "show-num-lock": {
           "description": "إظهار حالة قفل الأرقام",
           "label": "إظهار قفل الأرقام"
+        },
+        "show-progress": {
+          "description": "املأ خلفية الودجت لإظهار تقدم التشغيل",
+          "label": "إظهار تقدم التشغيل"
         },
         "show-scroll-lock": {
           "description": "إظهار حالة قفل التمرير",

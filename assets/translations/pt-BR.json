@@ -184,6 +184,7 @@
     "audio": {
       "application-volumes": "Volume de Aplicativos",
       "choose-effects-profile": "Escolha um perfil",
+      "default-device": "Dispositivo padrão",
       "effects-profile": "Efeitos",
       "input-device-prefix": "Entrada",
       "no-application-audio": "Sem Áudio de Aplicativos",
@@ -3012,9 +3013,9 @@
           "label": "Copiar para a Área de Transferência"
         },
         "screenshot-directory": {
-          "description": "Pasta para salvar arquivos PNG; deixe vazia para usar ~/Imagens",
+          "description": "Pasta para arquivos PNG salvos; deixe vazia para usar o padrão XDG do diretório Imagens",
           "label": "Diretório de Saída",
-          "placeholder": "~/Imagens"
+          "placeholder": "Diretório Imagens XDG"
         },
         "screenshot-filename-pattern": {
           "description": "Padrão strftime sem extensão (.png é adicionado); use %s para a unix epoch.",
@@ -3791,6 +3792,10 @@
         "show-num-lock": {
           "description": "Exibe estado do Num Lock",
           "label": "Exibir Num Lock"
+        },
+        "show-progress": {
+          "description": "Preencha o fundo do widget para mostrar o progresso da reprodução",
+          "label": "Mostrar Progresso da Reprodução"
         },
         "show-scroll-lock": {
           "description": "Exibe estado do Scroll Lock",

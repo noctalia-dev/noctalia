@@ -184,6 +184,7 @@
     "audio": {
       "application-volumes": "앱 볼륨",
       "choose-effects-profile": "프로필 선택",
+      "default-device": "기본 기기",
       "effects-profile": "효과",
       "input-device-prefix": "입력",
       "no-application-audio": "앱 오디오 없음",
@@ -305,6 +306,21 @@
     },
     "power": {
       "battery": "배터리",
+      "charging": {
+        "configured": "구성됨: {limits}",
+        "display-only": "디스플레이 전용",
+        "error-denied": "인증이 거부되어 충전 임계값이 변경되지 않았습니다.",
+        "error-failed": "충전 임계값이 변경되지 않았습니다.",
+        "firmware-managed": "시스템 펌웨어에서 충전이 관리됨",
+        "full-charge": "100%까지 충전할 수 있음",
+        "starts": "{start}% 미만에서 시작",
+        "starts-stops": "{start}% 미만에서 시작 · {end}%에서 종료",
+        "stops": "{end}%에서 종료됨",
+        "title": "배터리 충전 중",
+        "unreadable": "사용할 수 없음",
+        "unsupported": "충전 임계값이 지원하지 않습니다",
+        "use-thresholds": "충전 임계값 사용"
+      },
       "design-capacity": "설계 용량 대비",
       "health": "배터리 성능",
       "performance-inhibited": "성능 사용 불가",
@@ -538,6 +554,7 @@
         "show-unlock-hint": "잠금 해제 힌트",
         "show-vpn-label": "VPN 레이블 표시",
         "show-weather": "날씨",
+        "show-week-numbers": "주차 표시",
         "show-when-idle": "유휴 시 표시",
         "stat": "통계",
         "stat-cpu-freq": "CPU 주파수",
@@ -1747,6 +1764,9 @@
         "font-family": {
           "description": "이 바의 위젯에 사용할 글꼴. 비워 두면 전역 글꼴을 상속합니다 (위젯별 글꼴 패밀리 설정이 이를 재정의합니다)",
           "label": "글꼴 패밀리"
+        },
+        "font-scale": {
+          "label": "폰트 크기"
         },
         "font-weight": {
           "description": "이 바의 위젯 레이블 기본 두께.",
@@ -3221,6 +3241,7 @@
         "gpu-temp": "GPU 온도",
         "gpu-usage": "GPU 사용률",
         "gpu-vram": "GPU VRAM",
+        "gpu-vram-used": "GPU VRAM 사용량",
         "graph": "그래프",
         "graphic": "그래픽",
         "hidden": "숨겨짐",
@@ -3413,6 +3434,9 @@
           "description": "이 위젯의 글꼴. 비워 두면 바 글꼴을 상속합니다",
           "label": "글꼴 패밀리"
         },
+        "font-scale": {
+          "label": "폰트 크기"
+        },
         "font-weight": {
           "description": "기본값은 바 글꼴 두께를 상속합니다",
           "label": "글꼴 두께"
@@ -3471,6 +3495,9 @@
         "hide-when-full": {
           "description": "완전히 충전되었을 때 배터리 위젯 숨기기",
           "label": "가득 찼을 때 숨기기"
+        },
+        "hide-when-inactive": {
+          "label": "비활성 상태일 때 숨김"
         },
         "hide-when-no-connected-device": {
           "description": "연결된 장치가 없을 때 Bluetooth 위젯 숨기기",
@@ -3539,6 +3566,9 @@
         "interface": {
           "description": "모니터링할 네트워크 인터페이스. 비워 두면 모든 인터페이스의 합계를 사용합니다",
           "label": "인터페이스"
+        },
+        "item-spacing": {
+          "label": "항목 간격"
         },
         "label": {
           "description": "이 버튼에 표시되는 선택적 정적 텍스트",
@@ -3663,6 +3693,7 @@
           "label": "모든 모니터 표시"
         },
         "show-all-workspaces": {
+          "description": "모든 모니터의 워크스페이스를 이 위젯에 표시",
           "label": "모든 모니터 보기"
         },
         "show-caps-lock": {
@@ -3692,6 +3723,9 @@
         "show-num-lock": {
           "description": "Num Lock 상태 표시",
           "label": "Num Lock 표시"
+        },
+        "show-progress": {
+          "label": "재생 진행률 표시"
         },
         "show-scroll-lock": {
           "description": "Scroll Lock 상태 표시",

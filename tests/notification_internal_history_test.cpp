@@ -128,6 +128,8 @@ int main() {
 
   // Dismissal is the only way a timeout-0 reminder can close, so it must not take the history entry
   // with it — otherwise opting into history buys nothing for exactly the notifications that need it.
+  // Dismissal keeps history for every notification now (see notification_history_dismiss_test), so this
+  // guards the retention path specifically for an entry that is only in history because of the flag.
   {
     const auto stickyId = manager.addOrReplace(
         NotificationRequest{
@@ -141,12 +143,10 @@ int main() {
     ok = check(manager.close(stickyId, CloseReason::Dismissed), "a persistent reminder could not be dismissed") && ok;
     ok = check(historyContains(manager, "dismissed-reminder"), "dismissing a persistent reminder erased its history")
         && ok;
-
-    // Everything else still loses its entry on dismissal — the pre-existing behavior.
-    const auto plainId =
-        manager.addOrReplace(NotificationRequest{.appName = "other-app", .summary = "dismissed-external"});
-    ok = check(manager.close(plainId, CloseReason::Dismissed), "an external notification could not be dismissed") && ok;
-    ok = check(!historyContains(manager, "dismissed-external"), "dismissing an external notification kept its history")
+    ok = check(
+             !historyEntry(manager, stickyId)->active,
+             "a dismissed reminder was still marked active in history"
+         )
         && ok;
   }
 

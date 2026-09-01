@@ -184,6 +184,7 @@
     "audio": {
       "application-volumes": "应用音量",
       "choose-effects-profile": "选择音效预设",
+      "default-device": "默认设备",
       "effects-profile": "音效",
       "input-device-prefix": "输入",
       "no-application-audio": "暂无应用音频",
@@ -3012,9 +3013,9 @@
           "label": "复制到剪贴板"
         },
         "screenshot-directory": {
-          "description": "保存 PNG 文件的文件夹；留空时使用 ~/Pictures",
+          "description": "保存 PNG 文件的文件夹；留空时使用标准 XDG_PICTURES_DIR",
           "label": "输出目录",
-          "placeholder": "~/Pictures"
+          "placeholder": "XDG_PICTURES_DIR"
         },
         "screenshot-filename-pattern": {
           "description": "使用不含扩展名的 strftime 格式（自动添加 .png）；可使用 %s 表示 Unix 时间戳",
@@ -3116,7 +3117,7 @@
           "label": "包含子文件夹"
         },
         "directory": {
-          "description": "包含壁纸的文件夹",
+          "description": "包含壁纸的文件夹；留空时使用标准 XDG_PICTURES_DIR",
           "label": "壁纸目录"
         },
         "directory-dark": {
@@ -3791,6 +3792,10 @@
         "show-num-lock": {
           "description": "显示数字锁定状态",
           "label": "显示数字锁定"
+        },
+        "show-progress": {
+          "description": "填充小组件背景以显示播放进度",
+          "label": "显示播放进度"
         },
         "show-scroll-lock": {
           "description": "显示滚动锁定状态",

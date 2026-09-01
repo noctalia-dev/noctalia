@@ -1,0 +1,544 @@
+---
+title: Desktop widgets
+description: On-desktop widgets, declarative layout, edit mode, and per-type settings.
+sidebar:
+  order: 5
+---
+
+# Desktop Widgets
+
+Desktop widgets are configured through the normal Noctalia config stack. Declare layouts in `~/.config/noctalia/*.toml`;
+the interactive editor writes its layout overrides to `settings.toml`.
+
+- Declarative config: `[desktop_widgets]` in `~/.config/noctalia/*.toml`
+- GUI/editor overrides: `$NOCTALIA_STATE_HOME/noctalia/settings.toml`, `$XDG_STATE_HOME/noctalia/settings.toml`, or `~/.local/state/noctalia/settings.toml`
+
+```toml
+[desktop_widgets]
+enabled = true
+
+[desktop_widgets.widget.clock_main]
+type     = "clock"
+output   = "DP-1"
+cx       = 960.0
+cy       = 540.0
+box_width  = 0.0
+box_height = 0.0
+rotation = 0.0
+flip_x   = false
+flip_y   = false
+
+[desktop_widgets.widget.clock_main.settings]
+format = "{:%H:%M}"
+```
+
+When enabled, Noctalia renders each desktop widget as its own tightly-sized layer-shell surface on the `Bottom` layer. The current implementation ships `button`, `calendar`, `clock`, `label`, `audio_visualizer`, `fancy_audio_visualizer`, `sticker`, `weather`, `media_player`, `volume`, and `sysmon` widget types plus an interactive edit mode.
+
+---
+
+## Edit mode
+
+### IPC
+
+```sh
+noctalia msg desktop-widgets-edit
+noctalia msg desktop-widgets-exit
+noctalia msg desktop-widgets-toggle-edit
+```
+
+You can also turn edit mode on from **Settings → Desktop → Toggle Editor**. Noctalia shows a short internal notification and you should switch to an **empty workspace** (no windows covering the desktop) so the editor overlay is visible.
+
+Widget previews are non-interactive in edit mode. Clicking anywhere within a widget selects or moves it instead of activating its buttons or other controls; normal widget interaction resumes after you exit the editor.
+
+### Controls
+
+| Action | Effect |
+|--------|--------|
+| Drag widget body | Move (moves the whole multi-selection together) |
+| Drag empty desktop | Lasso-select widgets whose bounds intersect the rectangle |
+| `Ctrl` + click widget | Add/remove that widget from the selection |
+| `Ctrl` + lasso | Add intersecting widgets to the current selection |
+| Drag outer selection ring | Rotate (rotates and orbits the whole multi-selection) |
+| Drag corner handles | Resize (scales the whole multi-selection about the resize anchor) |
+| Drag toolbar handle | Reposition the editor toolbar on that output |
+| `G` | Toggle snap grid |
+| `Shift` + drag | Temporarily disable snapping |
+| `Delete` / `Backspace` | Remove selected widgets |
+| `Ctrl`+`C` / `Ctrl`+`V` | Copy / paste selection |
+| Settings inspector → **Reset to Defaults** | Restore all settings for the selected widget to built-in defaults |
+| `Escape` / click `Done` | Exit edit mode |
+
+When the snap grid is active, moving a widget snaps the nearest outer edge or center line to the grid, screen edges, and
+nearby widgets. Resizing keeps the opposite edge anchored and snaps the dragged edge to the same guides, with a horizontal
+bias for corner drags so matching widget widths is easier.
+
+Primary-colored center guides are always shown in edit mode. Dragging a widget snaps its center to the monitor center
+when nearby, even if the snap grid is hidden or temporarily disabled with `Shift`.
+
+---
+
+## Config Format
+
+Widget definitions are named tables under `[desktop_widgets.widget.<id>]`. This makes them friendly to split config
+files and deep-merge overrides. Edit mode writes the same schema into `settings.toml`; use Settings -> Export Config... -> Merged User Config to promote
+GUI-edited layouts back into declarative config.
+When `widget_order` is present, it is the authoritative widget list and order; unlisted widget tables are ignored.
+
+```toml
+[desktop_widgets]
+enabled = true
+schema_version = 2
+widget_order = ["clock_main"]
+
+[desktop_widgets.grid]
+visible               = true
+cell_size             = 16
+major_interval        = 4
+
+[desktop_widgets.widget.clock_main]
+type     = "clock"
+output   = "DP-1"
+cx       = 960.0
+cy       = 540.0
+box_width  = 0.0
+box_height = 0.0
+rotation = 0.0
+
+[desktop_widgets.widget.clock_main.settings]
+format = "{:%H:%M}"
+```
+
+### Per-widget fields
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| Table key | string | (required) | Unique widget identifier (`clock_main` in `[desktop_widgets.widget.clock_main]`) |
+| `type` | string | (required) | Widget type (`clock`, `weather`, `media_player`, etc.) |
+| `output` | string | - | Monitor name (e.g. `"DP-1"`) |
+| `cx`, `cy` | float | - | Center position in logical pixels |
+| `box_width` | float | `0.0` | Widget box width in logical pixels; `0.0` auto-fits the content |
+| `box_height` | float | `0.0` | Widget box height in logical pixels; `0.0` auto-fits the content |
+| `rotation` | float | `0.0` | Rotation in radians |
+| `flip_x` | bool | `false` | Mirror the widget horizontally around its center |
+| `flip_y` | bool | `false` | Mirror the widget vertically around its center |
+| `enabled` | bool | `true` | Set to `false` to temporarily hide a widget without removing it |
+
+```toml
+[desktop_widgets.widget.clock_main]
+type    = "clock"
+enabled = false   # hidden, but preserved
+```
+
+### Common settings
+
+All desktop widget types support an optional rounded background rectangle:
+
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| `background` | bool | `true` (`false` for `fancy_audio_visualizer`) | Show a filled rounded rectangle behind the widget |
+| `background_color` | string | `"surface"` | Background fill color role; fixed hex colors are also supported |
+| `background_opacity` | float | `0.8` | Background fill opacity from `0.0` to `1.0` |
+| `background_radius` | float | `12.0` | Corner radius in logical pixels |
+| `background_padding` | float | `10.0` | Padding between content and background edge |
+
+Prefer color role names so desktop widgets follow the active palette. Fixed hex colors (`#RGB`, `#RGBA`, `#RRGGBB`, `#RRGGBBAA`) are supported when a non-palette color is intentional. Invalid role names or malformed hex colors are treated as config errors.
+
+```toml
+[desktop_widgets.widget.clock_main.settings]
+background       = true
+background_color = "surface"
+```
+
+The `clock`, `weather`, `media_player`, `label`, and `sysmon` widget types additionally support text styling:
+
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| `color` | string | *(type default)* | Text/glyph color role; fixed hex colors are also supported |
+| `font_family` | string | `""` | Typeface for this widget; empty inherits the global shell font |
+| `shadow` | bool | `true` | Draw a drop shadow behind text and glyphs for readability on wallpapers |
+
+The `button` and `volume` types also accept `font_family`; their remaining visual settings are listed in their
+type-specific sections below.
+
+```toml
+[desktop_widgets.widget.clock_main.settings]
+color  = "primary"
+shadow = true
+```
+
+---
+
+### clock
+
+```toml
+[desktop_widgets.widget.clock_main]
+type     = "clock"
+output   = "DP-1"
+cx       = 960.0
+cy       = 540.0
+box_width  = 0.0
+box_height = 0.0
+rotation = 0.0
+
+[desktop_widgets.widget.clock_main.settings]
+clock_style = "digital"
+format = "{:%H:%M}"
+color  = "on_surface"
+shadow = true
+center_text = false
+circle = true
+```
+
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| `clock_style` | string | `"digital"` | `"digital"` renders a formatted text clock; `"analog"` renders a circular clock with hour, minute, and second hands. |
+| `format` | string | `"{:%H:%M}"` | Digital clock format string. Ignored when `clock_style = "analog"`. Supports the same syntax and tokens as the bar clock `format`; see [Date format tokens](/noctalia/configuration/date-format-tokens/). |
+| `center_text` | bool | `false` | Digital only. Center-aligns the formatted time inside the clock box. When `false`, the clock keeps the leading edge stable as digits change width. |
+| `circle` | bool | `true` | Analog only. Shows the outer ring and minute tick marks around the dial. When disabled, only the hands are drawn. |
+| `timezone` | string | `""` | Optional timezone identifier (e.g. `Europe/Berlin`, `UTC`) to use for this clock. If empty, uses the system's local time. |
+
+---
+
+### calendar
+
+The calendar widget uses the configured [calendar service](/noctalia/services/calendar/) accounts. It shows event indicators
+in the month grid and can show the selected day's events beside the grid.
+
+```toml
+[desktop_widgets.widget.calendar_main]
+type   = "calendar"
+output = "DP-1"
+cx     = 480.0
+cy     = 360.0
+
+[desktop_widgets.widget.calendar_main.settings]
+show_events       = true
+show_week_numbers = false
+font_family       = ""
+```
+
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| `show_events` | bool | `true` | Show the selected day's event list beside the month grid |
+| `show_week_numbers` | bool | `false` | Show ISO week numbers beside the month grid |
+| `font_family` | string | `""` | Typeface for calendar text; empty inherits the global shell font |
+
+Use the arrow buttons or vertical scrolling to change months. Select a day to update the event list; selecting a day
+from the preceding or following month also navigates to that month. Select the date or month heading to return to today.
+
+Right-click a day to launch the application registered for the `text/calendar` MIME type.
+
+---
+
+### audio_visualizer
+
+Desktop audio visualizers fill their widget box: the spectrum spans the full box width and the bars use the full box height. `box_width` and `box_height` set the box size - resize the box to change the visualizer's shape; leave both `0.0` to start from the default footprint. They also accept optional `mirrored`, `centered`, `show_when_idle`, `color_1`, and `color_2` settings; both colors default to `primary`.
+
+```toml
+[desktop_widgets.widget.audio_main]
+type     = "audio_visualizer"
+output   = "DP-1"
+cx       = 1040.0
+cy       = 620.0
+box_width  = 0.0
+box_height = 0.0
+rotation = 0.0
+
+[desktop_widgets.widget.audio_main.settings]
+bands        = 32
+mirrored     = true
+centered     = true
+show_when_idle = true
+color_1      = "primary"
+color_2      = "secondary"
+```
+
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| `bands` | int | `32` | Number of frequency bands |
+| `mirrored` | bool | `true` | Mirror the spectrum horizontally |
+| `centered` | bool | `true` | Center bars vertically instead of aligning them to the bottom edge |
+| `show_when_idle` | bool | `true` | Keep the widget visible even when no media is playing |
+| `color_1` | string | `"primary"` | First gradient color role; fixed hex colors are also supported |
+| `color_2` | string | `"primary"` | Second gradient color role; fixed hex colors are also supported |
+
+---
+
+### fancy_audio_visualizer
+
+Fancy audio visualizers render circular bars, waves, and rings. `box_width` and `box_height` control the fitted widget box size; leave both `0.0` to auto-fit the content. `fade_when_idle` is enabled by default so the widget fades out completely when no audio is active and fades back in when sound returns.
+
+```toml
+[desktop_widgets.widget.fancy_audio_main]
+type     = "fancy_audio_visualizer"
+output   = "DP-1"
+cx       = 960.0
+cy       = 540.0
+box_width  = 0.0
+box_height = 0.0
+rotation = 0.0
+
+[desktop_widgets.widget.fancy_audio_main.settings]
+visualization_mode = "bars_rings"
+sensitivity        = 1.5
+rotation_speed     = 0.5
+bar_width          = 0.6
+ring_opacity       = 0.8
+inner_diameter     = 0.7
+bloom_intensity    = 0.5
+fade_when_idle     = true
+primary_color      = "primary"
+secondary_color    = "secondary"
+```
+
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| `visualization_mode` | string | `"bars_rings"` | One of `"bars"`, `"wave"`, `"rings"`, `"bars_rings"`, `"wave_rings"`, or `"all"` |
+| `sensitivity` | float | `1.5` | Multiplier for bar and wave response |
+| `rotation_speed` | float | `0.5` | Rotation speed for animated elements |
+| `bar_width` | float | `0.6` | Width of radial bars |
+| `wave_thickness` | float | `1.0` | Thickness of the wave fill and edge |
+| `ring_opacity` | float | `0.8` | Opacity multiplier for ring elements |
+| `inner_diameter` | float | `0.7` | Diameter of the inner circular area |
+| `bloom_intensity` | float | `0.5` | Glow intensity around active bars, waves, and rings |
+| `fade_when_idle` | bool | `true` | Fade the widget out when no audio is active |
+| `primary_color` | string | `"primary"` | Primary color role; fixed hex colors are also supported |
+| `secondary_color` | string | `"secondary"` | Secondary color role; fixed hex colors are also supported |
+
+---
+
+### weather
+
+Draws the current weather glyph alongside the temperature and short condition, driven by the shared `WeatherService`. Requires `[weather] enabled = true` in `config.toml` (see [Services - Weather](/noctalia/services/weather/)) - the widget will render a placeholder otherwise.
+
+```toml
+[desktop_widgets.widget.weather_main]
+type     = "weather"
+output   = "DP-1"
+cx       = 320.0
+cy       = 200.0
+box_width  = 0.0
+box_height = 0.0
+rotation = 0.0
+
+[desktop_widgets.widget.weather_main.settings]
+color          = "on_surface"
+shadow         = true
+show_forecast  = false
+forecast_days  = 3
+```
+
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| `show_forecast` | bool | `false` | Show upcoming daily forecast rows below the current conditions |
+| `forecast_days` | int | `3` | Number of forecast days to show (1–6; only applies when `show_forecast` is enabled) |
+
+---
+
+### media_player
+
+MPRIS media player showing album art, track title, artist, and playback controls (prev, play/pause, next). Requires an active MPRIS player.
+
+```toml
+[desktop_widgets.widget.media_main]
+type     = "media_player"
+output   = "DP-1"
+cx       = 500.0
+cy       = 700.0
+box_width  = 0.0
+box_height = 0.0
+rotation = 0.0
+
+[desktop_widgets.widget.media_main.settings]
+layout = "horizontal"
+color  = "on_surface"
+shadow = true
+hide_when_no_media = true
+```
+
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| `layout` | string | `"horizontal"` | `"horizontal"` (cover on left) or `"vertical"` (cover on top) |
+| `hide_when_no_media` | bool | `false` | Hide the widget when no MPRIS player is active |
+
+---
+
+### button
+
+Clickable button with an optional glyph and label. Runs a shell command on left click. Size auto-fits the content when `box_width` and `box_height` are `0.0`; when a box is set, the button stretches to fill it and scales its text and glyph to match.
+
+```toml
+[desktop_widgets.widget.launcher_main]
+type     = "button"
+output   = "DP-1"
+cx       = 960.0
+cy       = 540.0
+box_width  = 0.0
+box_height = 0.0
+rotation = 0.0
+
+[desktop_widgets.widget.launcher_main.settings]
+glyph            = "terminal"
+label            = "Terminal"
+command          = "alacritty"
+variant          = "default"
+hover_background = "hover"
+background       = true
+```
+
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| `glyph` | string | `""` | Tabler glyph name shown before the label; omit for text-only |
+| `label` | string | `""` | Button text; omit for glyph-only |
+| `command` | string | `""` | Shell command run on left click |
+| `background` | bool | `true` | Show the button's own fill and border; when `false`, only the label and glyph are drawn |
+| `variant` | string | `"default"` | Button style: `default`, `primary`, `secondary`, `outline`, `ghost`, `destructive` |
+| `color` | string | *(variant default)* | Label and glyph color role or fixed hex; omit to use the variant's default foreground |
+| `hover_background` | string | `"hover"` | Background color role on hover; fixed hex colors are also supported |
+
+---
+
+### sticker
+
+Displays an image file on the desktop. PNG, JPEG, WebP, SVG, and GIF are supported; animated GIFs play at their encoded per-frame durations and loop forever.
+
+```toml
+[desktop_widgets.widget.sticker_main]
+type     = "sticker"
+output   = "DP-1"
+cx       = 800.0
+cy       = 400.0
+box_width  = 0.0
+box_height = 0.0
+rotation = 0.0
+
+[desktop_widgets.widget.sticker_main.settings]
+image_path = "/path/to/image.png"
+opacity    = 1.0
+```
+
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| `image_path` | string | - | Absolute path to the image file (PNG, JPEG, WebP, SVG, or GIF) |
+| `opacity` | float | `1.0` | Sticker image opacity from `0.0` to `1.0` |
+
+---
+
+### label
+
+Static title and description text block. The title uses a larger bold line; the description wraps below it and is hidden when empty.
+
+```toml
+[desktop_widgets.widget.note_main]
+type     = "label"
+output   = "DP-1"
+cx       = 400.0
+cy       = 300.0
+box_width  = 0.0
+box_height = 0.0
+rotation = 0.0
+
+[desktop_widgets.widget.note_main.settings]
+title       = "Welcome"
+description = "Edit this in the widget inspector or settings.toml."
+color       = "on_surface"
+opacity     = 1.0
+shadow      = true
+background  = true
+```
+
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| `title` | string | `"Title"` | Primary heading text |
+| `description` | string | `""` | Body text under the title (omitted from layout when empty) |
+| `color` | string | `"on_surface"` | Text color role for both lines; fixed hex colors are also supported |
+| `opacity` | float | `1.0` | Text opacity from `0.0` to `1.0` |
+| `shadow` | bool | `true` | Drop shadow on the text |
+
+---
+
+### volume
+
+Default-sink or default-source volume tile with a large glyph that fills bottom-up by volume percent. Left side shows the percentage, a Volume/Mic/Muted status line, and optionally the device name. Click the glyph to toggle mute; scroll anywhere on the widget to change volume (respects `[audio].enable_overdrive`). Requires PipeWire.
+
+```toml
+[desktop_widgets.widget.volume_main]
+type     = "volume"
+output   = "DP-1"
+cx       = 400.0
+cy       = 800.0
+box_width  = 0.0
+box_height = 0.0
+rotation = 0.0
+
+[desktop_widgets.widget.volume_main.settings]
+device       = "output"
+glyph        = ""
+fill_color   = "primary"
+track_color  = "on_surface_variant"
+show_device  = true
+scroll_step  = 5
+shadow       = true
+background   = true
+```
+
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| `device` | string | `"output"` | `"output"` for the default sink, `"input"` for the default source (mic). Same key as the bar volume widget. |
+| `glyph` | string | `""` | Optional glyph override. Empty uses the same dynamic volume/mic glyphs as the bar. |
+| `fill_color` | string | `"primary"` | Accent color for the percentage and the filled portion of the glyph |
+| `track_color` | string | `"on_surface_variant"` | Dim base glyph color (shown at reduced opacity) |
+| `show_device` | bool | `true` | Show the default sink/source name under the status line |
+| `scroll_step` | int | `5` | Percent change per scroll step |
+| `shadow` | bool | `true` | Drop shadow on text and the track glyph |
+
+---
+
+### sysmon
+
+System monitor widget with graph or pill-gauge display modes. Uses the shared `SystemMonitorService`. Poll intervals are configured globally under [`[system.monitor]`](/noctalia/services/system-monitor/), not in the widget settings below.
+
+```toml
+[desktop_widgets.widget.sysmon_main]
+type     = "sysmon"
+output   = "DP-1"
+cx       = 200.0
+cy       = 800.0
+box_width  = 0.0
+box_height = 0.0
+rotation = 0.0
+
+[desktop_widgets.widget.sysmon_main.settings]
+display        = "graph"
+stat           = "cpu_usage"
+stat2          = "cpu_temp"
+interface      = ""
+color          = "primary"
+color2         = "secondary"
+show_label     = true
+shadow         = true
+background     = true
+
+# Gauge mode example:
+# display         = "gauge"
+# gauge_layout    = "horizontal"   # icon | vertical pill | value (row)
+# highlight_color = "error"
+# label_min_width = 0
+```
+
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| `display` | string | `"graph"` | `"graph"` shows a scrolling history chart; `"gauge"` shows a compact pill gauge like the bar sysmon widget |
+| `stat` | string | `"cpu_usage"` | Primary stat. See [Available stats](/noctalia/services/system-monitor/#available-stats) |
+| `stat2` | string | - | Graph mode only. Optional secondary stat (same values as `stat`). Omit for single curve. |
+| `gauge_layout` | string | `"horizontal"` | Gauge mode only. `"horizontal"` lays out icon, vertical pill gauge, and value in a row; `"vertical"` stacks icon, horizontal pill gauge, and value |
+| `interface` | string | `""` | Network interface to monitor for `net_rx`/`net_tx`; empty uses the total across all non-loopback interfaces |
+| `network_speed_unit` | string | `"auto"` | Unit for `net_rx`/`net_tx`: `"auto"` (scales between B/s, kB/s, MB/s, GB/s), `"kb"` (always kB/s), or `"mb"` (always MB/s) |
+| `network_speed_compact` | bool | `false` | Use short unit suffixes such as `1.2M` instead of `1.2 MB/s` for `net_rx`/`net_tx` |
+| `color` | string | `"primary"` | Primary color role (graph line or gauge fill); fixed hex colors are also supported |
+| `color2` | string | `"secondary"` | Graph mode only. Secondary line color role when `stat2` is set |
+| `highlight_color` | string | `"error"` | Gauge mode only. Color role used when the stat crosses activity/critical thresholds from `[system.monitor]` |
+| `show_label` | bool | `true` | Show the current value as text |
+| `label_min_width` | int | `0` | Gauge mode only. Minimum width for the value label in logical pixels (`0` = auto) |
+
+The stats a `sysmon` widget can show, what each one displays, and where the values come from are listed under [Available stats](/noctalia/services/system-monitor/#available-stats). Desktop widgets support CPU frequency and every other stat except `ram_used` and the four disk stats.

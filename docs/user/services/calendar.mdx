@@ -1,0 +1,201 @@
+---
+title: Calendar
+description: Calendar account setup for CalDAV, iCloud, Google Calendar, and ICS.
+sidebar:
+  order: 4
+---
+
+The calendar service syncs events from your online accounts and shows them in the control center calendar. CalDAV providers (Nextcloud, iCloud, Fastmail, Radicale, mailbox.org, …) are talked to directly; Google Calendar is connected through a browser authorization flow. Events are read-only.
+
+`[calendar]` covers accounts and sync only. How the Calendar tab is drawn, including event date and time formats and the ISO week number column, lives under [`[control_center.calendar]`](/noctalia/control-center/#calendar).
+
+## Settings setup
+
+The simplest path is **Settings → Services → Calendar → Add Account**.
+
+- **iCloud**: choose iCloud, enter a local account id such as `personal_icloud`, your Apple Account email, and an Apple app-specific password.
+- **CalDAV**: choose CalDAV, enter a local account id such as `home_nextcloud`, the provider's CalDAV discovery root, your username, and a provider app password.
+- **Google**: choose Google, enter a local account id such as `work_google`, then press **Save and Connect**. A browser opens for Google authorization.
+- **ICS**: choose ICS URL, enter a local account id such as `subscription`, then press **Save**.
+
+Saving an account enables `[calendar]` automatically. The GUI writes account config to `settings.toml` using named tables like `[calendar.account.personal_icloud]`. CalDAV passwords use the account's explicit credential source: Secret Service by default, or one configured password file. Google refresh tokens are stored in Secret Service. Short-lived Google access tokens remain in memory only.
+
+The last successfully synced events are cached in encrypted form. Their key is derived from the shared Noctalia
+storage master key configured by top-level `[storage]`.
+
+Account ids are local Noctalia identifiers. Use lowercase letters, digits, and underscores only. The GUI keeps an account id fixed after creation so existing config and credential keys are not removed or renamed.
+
+Existing accounts can be edited from **Settings → Services → Calendar**. Google accounts expose the same name/color editor and include **Save** plus **Save and Connect** actions; both save the current editor values, and **Save and Connect** then opens browser authorization. The delete action is shown only for accounts created in `settings.toml`; accounts declared in `~/.config/noctalia/*.toml` are never removed by the GUI.
+
+## Manual setup
+
+```toml
+[calendar]
+enabled         = true
+refresh_minutes = 15
+
+# iCloud CalDAV. The table name is the local account id.
+[calendar.account.personal_icloud]
+type     = "caldav"
+name     = "Personal iCloud"
+provider = "icloud"
+username = "you@example.com"
+color    = "primary"        # optional color role or hex color
+calendars = []              # empty = all discovered calendars
+
+# Generic CalDAV discovery root (Nextcloud, Fastmail, Radicale, mailbox.org, …)
+[calendar.account.home_nextcloud]
+type       = "caldav"
+name       = "Home"
+provider   = "custom"
+server_url = "https://cloud.example.com/remote.php/dav/"
+username   = "me"
+calendars  = ["personal"]   # optional discovered collection ids; empty = all
+credential_source = "file"
+password_file = "/run/agenix/noctalia-caldav"
+
+# Google Calendar (authorized via Settings → Services → Calendar → Connect)
+[calendar.account.work_google]
+type = "google"
+name = "Work"
+
+# Example ICS configuration
+[calendar.account.holidays]
+name = "Canadian Holidays"
+server_url = "https://canada-holidays.ca/ics?cd=true"
+type = "ics"
+color = "#FF0000"
+```
+
+**Credentials are never stored in your config.** The `password_file` setting contains only a path; the file contents hold the CalDAV password.
+
+## Credential storage
+
+Each CalDAV account has exactly one credential source:
+
+- `credential_source = "secret-service"` is the default. Enter the password through Settings. It requires a provider in the login session, such as GNOME Keyring, KWallet, or KeePassXC. `libsecret` is the client library; installing it alone does not start or configure a provider.
+- `credential_source = "file"` requires an absolute `password_file` path. Noctalia reads that regular file for every sync and never reads or writes a Secret Service password for the account. One trailing LF or CRLF is ignored. Empty files, embedded NUL bytes, non-regular files, and files larger than 64 KiB are rejected.
+
+File-backed credentials work with agenix, sops-nix, and systemd credentials. Configure the secret manager to make the decrypted file readable by the user running Noctalia; Noctalia never edits or deletes the file. Google refresh tokens remain writable credentials and always require Secret Service.
+
+The two CalDAV modes are strict. `password_file` is rejected unless `credential_source = "file"`, and file mode is rejected without an absolute `password_file`. Noctalia does not try one source and then fall back to the other.
+
+Noctalia follows the Secret Service standard and writes credentials to the provider's `default` collection. The default
+is an alias selected by the provider or user; Noctalia does not force a provider-specific collection or change that
+system-wide alias. For credentials to work after login, the selected default collection must be unlocked automatically
+or remain available for the provider to unlock on demand.
+
+With GNOME Keyring, PAM automatically unlocks the **Login** keyring using the login password, but Login is not guaranteed
+to be the default when multiple keyrings exist. If calendar credentials become locked after every reboot, open
+**Passwords and Keys** (Seahorse), make **Login** the default keyring, reconnect the affected Google account once, and
+reboot to verify it. Alternatively, configure the currently selected default keyring to unlock automatically. Noctalia
+cannot supply a keyring password after login and does not move credentials between keyrings.
+
+If Secret Service contains a matching credential but it remains locked after an unlock attempt, Noctalia sends one
+notification and marks the affected Google account as locked. Unlock the keyring and use **Retry**; do not reconnect the
+Google account unless Settings specifically reports that authorization is missing. If a configured Google account has
+no refresh token, its account row shows **Reconnect**. The encrypted event-cache master key is separate from account
+credentials, so a cache-key warning does not by itself mean the Google authorization was lost.
+
+Secret Service protects durable credentials in copied home directories and offline storage while the keyring is locked. It is not a security boundary against arbitrary programs already running as your user after the keyring is unlocked.
+
+## Event cache encryption
+
+Calendar titles, locations, names, and times are written only to the encrypted
+`$XDG_CACHE_HOME/noctalia/calendar/events.enc` cache. Noctalia derives a calendar-specific key from the shared storage
+master key, separate from the derived clipboard-history key.
+
+The default `[storage].key_source = "secret-service"` stores the master key in Secret Service. To use agenix, sops-nix,
+or another provisioner without a keyring, configure one authoritative file:
+
+```toml
+[storage]
+key_source = "file"
+key_file = "/run/agenix/noctalia-storage-key"
+```
+
+The file format and generation instructions are documented under
+[Encrypted storage master key](/noctalia/configuration/shell/#encrypted-storage-master-key). When no storage key is available,
+live calendar sync continues but events are not read from or written to disk. Missing or incorrect keys preserve the
+encrypted cache and surface a retry action in Settings.
+If the original key cannot be restored, or the cache is damaged, **Recover Private Storage** provides a confirmed
+reset. Because clipboard and calendar storage share one master key, this reset also removes saved clipboard history.
+A configured storage key file is never modified.
+
+## CalDAV setup
+
+Noctalia discovers CalDAV calendars from an account/server root, then syncs each selected calendar collection. You do
+not need to find the provider's final calendar collection URL yourself.
+
+The account id is the last segment of the named table. For `[calendar.account.personal_icloud]`, the id is
+`personal_icloud`. Use short ids with lowercase letters, digits, and underscores only. The id is local to Noctalia; it
+does not need to match your email address or provider account name.
+
+For manual CalDAV setup with Secret Service, declare the account table first, then open **Settings → Services → Calendar**, edit that account, enter its app password, and press **Save**. To use agenix or another file provisioner instead, set `credential_source = "file"` and `password_file` in the account table. There is no plaintext TOML credential key.
+
+For providers with two-factor authentication, create an app-specific password in the provider's account security
+settings and use that value here. Your normal account password will usually fail.
+
+Provider rules:
+
+- `provider = "icloud"` uses Apple's built-in CalDAV discovery URL. Do not set `server_url`.
+- `provider = "custom"` requires `server_url`, which should be the provider's CalDAV discovery root, not a specific
+  calendar collection.
+- `calendars = []` syncs every discovered calendar that supports events.
+- `calendars = ["id"]` syncs only discovered collection ids. Collection ids are the decoded final path segment of the
+  discovered calendar URL. Leave this empty first, then narrow it manually after confirming discovery.
+
+## iCloud
+
+iCloud needs an Apple app-specific password. Use your Apple Account email as `username`.
+
+In Settings, choose **iCloud** and use your Apple app-specific password in the **App Password** field. For manual TOML, use `provider = "icloud"` and do not set `server_url`; Noctalia uses Apple's CalDAV discovery URL automatically.
+
+```toml
+[calendar.account.icloud_personal]
+type     = "caldav"
+name     = "Personal iCloud"
+provider = "icloud"
+username = "me@example.com"
+calendars = []
+
+[calendar.account.icloud_family]
+type     = "caldav"
+name     = "Family iCloud"
+provider = "icloud"
+username = "family@example.com"
+calendars = []
+```
+
+Do not use a public `.ics` sharing URL or your normal iCloud password. Noctalia connects to your private iCloud CalDAV account with the app-specific password.
+
+Common iCloud failures:
+
+- `401` or repeated auth failures: regenerate an Apple app-specific password, edit the account in Settings, and save
+  the replacement password.
+- No events from one calendar: leave `calendars = []` first to verify discovery, then select collection ids only after
+  confirming what was discovered.
+- Shared calendars may have their own collection ids; leave `calendars = []` to include them all.
+
+## Google setup
+
+In Settings, choose **Google**, then press **Save and Connect**. For manual TOML, add a named account table with `type = "google"`, enable the calendar service, then open **Settings → Services → Calendar**, edit the account, and press **Save and Connect**. A browser tab opens for Google's consent screen; approve it and the tab confirms completion. Tokens are obtained through the noctalia OAuth broker (`api.noctalia.dev`) - no Google Cloud project or client secret is required on your side. Access is `calendar.readonly`.
+
+:::note
+The account id is the last segment of the named table. For `[calendar.account.work_google]`, the id is `work_google`. It must **not** be your Google email address. The signed-in Google account is chosen during browser authorization, not from the table name.
+:::
+
+If a Google account later shows as disconnected (revoked or expired), edit the account and press **Save and Connect** again to reauthorize.
+
+If Settings reports that Secret Service is unavailable, confirm that a compatible provider is running in the same login session, then use the retry action. A provider that starts moments after Noctalia is handled automatically: Noctalia watches for it claiming `org.freedesktop.secrets` and reopens calendar credentials and encrypted storage without a manual retry. If access is locked or denied, unlock the provider and retry. A cancelled prompt is not treated as a missing credential; start the operation again when you are ready.
+
+`[shell].offline_mode = true` disables all calendar network traffic; the last successfully synced events remain available from the encrypted on-disk cache when the storage key is available.
+
+## ICS setup
+
+In Settings, choose **ICS URL**, paste in a URL that leads to a file in the [iCalendar format](https://en.wikipedia.org/wiki/ICalendar). For manual TOML, add a named account table with `type = ics` and set `server_url` to the URL. You do not need to set any other fields.
+
+For the URL, `webcal://` and `webcals://` are supported as aliases to `https://`; Noctalia normalizes all three schemes before fetching data, so using any of them in `server_url` produces identical behavior.
+
+However you must make sure that it is a public URL, and does not lead to some login page, 404 error, etc. Noctalia should not need any credentials to fetch the data. If the URL does not return iCalendar data once, Noctalia will temporarily fall back to the event cache until it does.
+

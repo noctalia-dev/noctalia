@@ -1,0 +1,241 @@
+---
+title: Launcher
+description: Searching applications, calculating expressions, and picking emojis or wallpapers.
+sidebar:
+  order: 5
+---
+
+The Noctalia launcher is a centralized search interface that provides quick access to your applications, system actions, and utility providers.
+
+## How search works
+
+As you type, Noctalia queries all active **Launcher Providers**. Providers can either be "global" (always searching) or "prefixed" (triggered by a specific keyword).
+
+- **Global providers** (like Applications and Calculator) results are merged and sorted by a relevance score.
+- **Prefixed providers** (like Emoji and Wallpaper) take over the search results when their prefix is detected at the start of your query.
+
+Type `/` by itself to show a lightweight overview of available prefixed providers. Activating one inserts its prefix into the launcher input.
+
+### Usage-based boosting
+
+The launcher tracks how often you activate specific results (applications and wallpapers). Frequently used items receive a score boost, surfacing them at the top of the results list even with partial queries.
+
+### Category filters
+
+When category filters are enabled, the launcher shows compact filter buttons for providers that expose categories.
+
+- **Applications** can be filtered by desktop-entry categories such as Internet, Development, Games, Office, System, and Utilities.
+- **Emoji** can be filtered by emoji categories such as people, animals, food, travel, objects, symbols, and flags.
+- **All** leaves the active result set unfiltered.
+
+Press `F6` while the launcher is open to reveal hidden filters without changing the active filter. Once the filters are visible, use `F6` to move to the next filter and `Shift+F6` to move to the previous filter.
+
+:::note[Application options]
+
+Right-click an application result to open its menu of additional per-app options. The same menu opens with **Shift + Validate** (default: `Shift+Return`).
+
+:::
+
+---
+
+## Providers
+
+### Applications
+
+The primary provider for finding and launching your installed apps.
+
+When `shell.launcher.app_grid` is enabled and every visible result is an application, results switch from the default list to a multi-column icon grid with the app name underneath. Mixed searches (calculator hits, emoji, session actions, prefixed providers, and so on) keep the list layout. Left/right keybinds move between columns in grid mode; up/down move by row.
+
+- **Source**: Reads `.desktop` entries from standard XDG directories (e.g., `/usr/share/applications`, `~/.local/share/applications`).
+- **Package origins**: Results identify Flatpak, Snap, Nix, and AppImage applications when their desktop entries or executable metadata provide that information. AppImages are recognized from their AppImage desktop-entry metadata or executable signature, including extensionless files managed by AppImageLauncher.
+- **Search**: Matches against the application name, generic name, keywords, and categories.
+- **Desktop actions**: Set `shell.launcher.show_app_actions = true` to search and launch `.desktop` actions directly alongside applications. This is disabled by default; actions remain available from an application's right-click menu.
+- **Scoring**: Uses fuzzy matching with weights. Activation count boosts the score.
+- **Pinned apps**: Drag a pinned app onto another pinned app to reorder them. Pin markers appear in both the list and app-grid views.
+- **Terminal apps**: Entries with `Terminal=true` run inside a terminal. Prefer `export TERMINAL=wezterm` (or another emulator on `PATH`); do not put `-e` in `$TERMINAL`. See [Shell: launching apps](/noctalia/configuration/shell/#shell-settings) for discovery order and how this differs from `launch_apps_custom_command`.
+
+### Calculator
+
+A built-in expression evaluator powered by [`libqalculate`](https://qalculate.github.io/).
+
+- **Prefix**: `/calc ` (also available globally).
+- **Trigger**: Automatically activates in global search when the query contains a digit. The explicit `/calc` prefix
+  also accepts digit-free expressions such as `/calc EUR`.
+- **Functionality**: Standard arithmetic and functions (`sin`, `cos`, `sqrt`, `pi`, `e`, …), plus
+  unit conversion (`10 cm to in`, `100 km/h to mph`), number bases (`0xff`), and currency conversion
+  (`10 USD to EUR`). Decimal and thousands separators follow the system numeric locale
+  (for example `10000,50+2000,25` under `pt_BR`). Pressing **Enter** copies the result to your clipboard.
+- **Currency rates**: Exchange rates are cached locally and refreshed in the background from libqalculate's
+  ECB/global providers when `shell.launcher.fetch_exchange_rates` is enabled (the default). Refresh is also
+  skipped when `[shell].offline_mode` is enabled; in either case the last cached rates are used.
+
+### Emoji
+
+A quick way to find and copy emojis.
+
+- **Prefix**: `/emo `
+- **Functionality**: Searches `emoji.json` by name, category, and keywords. Activating a result copies the emoji character directly to your clipboard.
+
+Example: `/emo heart`
+
+### Wallpaper
+
+Quickly browse and apply wallpapers from your configured directories.
+
+- **Prefix**: `/wall `
+- **Source**: Searches the directories defined in your `[wallpaper]` config.
+- **Functionality**: Filters by filename and parent directory name. Activating a result immediately applies the wallpaper to all monitors and updates your theme if using `wallpaper` as the theme source.
+- **Scoring**: Activation count boosts the score.
+
+### Session
+
+Run enabled session menu actions from the launcher.
+
+- **Prefix**: `/session `
+- **Source**: Uses the configured `shell.session.actions` entries, including custom labels, icons, and commands.
+- **Functionality**: Activating a result runs the same action path as the session panel, including logout, suspend, reboot, shutdown, lock, custom command entries, and configured hooks.
+
+### Windows
+
+Find and focus any currently open window.
+
+- **Prefix**: `/win `
+- **Source**: Lists the windows reported by your compositor across every monitor and workspace.
+- **Functionality**: Fuzzy-matches against the window title and app id. Activating a result focuses the window, switching to its workspace if needed.
+
+---
+
+## Dmenu mode
+
+`noctalia dmenu` is a stdin/stdout picker for scripts that already produce newline-separated choices:
+
+```sh
+printf 'alpha\nbeta\ngamma\n' | noctalia dmenu -p "Pick"
+```
+
+It opens the launcher scoped to those candidates, prints the selected line to stdout, and exits `0`. Closing the launcher
+or pressing Escape prints nothing and exits `1`. `-p` / `--prompt` sets the launcher input placeholder for that picker.
+A tab inside a candidate splits the display into title and description, but the full original line is still returned. If
+the current filter has no candidate match, pressing Enter returns the typed text.
+
+The command talks to the running Noctalia instance on the same `XDG_RUNTIME_DIR` and `WAYLAND_DISPLAY`; start Noctalia
+first, then call `noctalia dmenu` from scripts or compositor commands.
+
+### Persistent dmenu entries
+
+You can also add persistent dmenu-style launcher providers from config. These are useful for custom command palettes,
+small script menus, SSH host lists, package-maintenance commands, and other actions you want to run from the launcher
+without writing a plugin.
+
+Each entry lives under `[shell.launcher.dmenu.entry.<id>]`, where `<id>` is the provider's stable config id:
+
+```toml
+[shell.launcher.dmenu.entry.commands]
+command = "printf 'Open Config\nShow Date\n'"
+label = "Commands"
+prefix = "/cmd"
+glyph = "terminal"
+global = false
+exec = "case \"{selection}\" in Open*) xdg-open ~/.config/noctalia ;; Show*) notify-send \"$(date)\" ;; esac"
+```
+
+Open the launcher, type `/cmd`, then select one of the listed results. `command` is run to produce newline-separated
+candidates. A tab in a candidate splits the display into title and description:
+
+```toml
+[shell.launcher.dmenu.entry.commands]
+command = "printf 'DNF Upgrade\tRun dnf upgrade --refresh\n'"
+label = "Commands"
+prefix = "/cmd"
+glyph = "terminal"
+global = false
+exec = "foot -e bash -lc 'pkexec dnf upgrade --refresh; read -rp \"Press Enter to close...\"'"
+```
+
+Fields:
+
+| Key | Description |
+| --- | --- |
+| `command` | Shell command run through `/bin/sh -lc`; each stdout line becomes a launcher result |
+| `exec` | Optional shell command run when a result is activated; `{selection}` is the selected raw line, `{query}` is the typed text after the prefix |
+| `prefix` | Optional launcher prefix such as `/cmd`; if this is empty, set `global = true` or the entry is unreachable |
+| `label` | Provider title shown in the launcher provider overview; defaults to the entry id |
+| `glyph` | Tabler glyph name for results; defaults to `terminal` |
+| `global` | Whether results participate in normal non-prefixed launcher search |
+| `freeform` | Whether non-empty typed text can become an activatable result |
+
+Noctalia runs `exec` as a detached command; it does not automatically open a terminal. For interactive commands such as
+`dnf upgrade`, launch your terminal emulator explicitly (`foot -e ...`, `kitty -e ...`, `alacritty -e ...`, etc.).
+That is different from Application results with `Terminal=true`, which use `$TERMINAL` / terminal discovery
+(see [Shell settings](/noctalia/configuration/shell/#shell-settings)).
+
+Set `freeform = true` when the typed text itself should be activatable. The typed text after the prefix is available as
+`{query}`:
+
+```toml
+[shell.launcher.dmenu.entry.notify]
+label = "Notify"
+prefix = "/notify"
+glyph = "bell"
+global = false
+freeform = true
+exec = "notify-send \"{query}\""
+```
+
+Typing `/notify Build finished` shows `Build finished` as a result. Activating it runs
+`notify-send "Build finished"`. `command` is optional for freeform entries; add one only when you also want suggested
+results.
+
+---
+
+## Text editing shortcuts
+
+While the launcher input is focused, readline-style shortcuts are available:
+
+| Shortcut | Action |
+|---|---|
+| `Ctrl+A` | Move caret to start of line |
+| `Ctrl+E` | Move caret to end of line |
+| `Ctrl+B` / `Ctrl+F` | Move caret back / forward one character |
+| `Alt+B` | Move caret to start of previous word |
+| `Alt+F` | Move caret to end of next word |
+| `Ctrl+W` | Delete previous word |
+| `Ctrl+U` | Clear backward to start of line |
+| `Ctrl+K` | Delete from caret to end of line |
+| `Alt+D` | Delete next word |
+
+## Configuration
+
+The launcher itself is mostly automatic, but its behavior is influenced by other sections of your config:
+
+- **[Keybinds](/noctalia/configuration/shell/#keybinds)**: Customize navigation (`up`, `down`) and activation (`validate`, `cancel`).
+- **[Shell](/noctalia/configuration/shell/#shell-settings)**: `ui_scale` and `font_family` affect the launcher's appearance. `shell.launcher.categories` controls the category filters. `show_icons`, `show_app_origin_indicator`, `compact`, `app_grid`, `show_app_actions`, `sort_by_usage`, `pinned`, `fetch_exchange_rates`, and `auto_paste` adjust result layout, origin overlays, action search, ordering, pinning, currency rate refresh, and paste-after-copy (Settings → Launcher). `[shell.launcher.dmenu.entry.<id>]` adds custom dmenu-style providers backed by a shell command.
+- **[Wallpaper](/noctalia/desktop/wallpaper/)**: Defines the search paths for the Wallpaper provider.
+- **[Session actions](/noctalia/configuration/shell/#session-panel)**: Defines the actions shown by the Session provider.
+
+### Provider prefixes
+
+Every prefixed provider — built-in, dmenu, or plugin — is triggered the same way: a shared prefix character followed by a per-provider **trigger word**.
+
+- `shell.launcher.provider_prefix` sets the common character (default `/`).
+- Each provider supplies a bare trigger word, which is concatenated onto `provider_prefix`.
+
+So `provider_prefix = "/"` with a trigger word of `emo` gives `/emo`. Changing `provider_prefix` to `.` makes every provider trigger on `.emo`, `.ssh`, and so on. An empty trigger word leaves a provider reachable only through the un-prefixed (global) search. Trigger words are always bare — write `ssh`, not `/ssh`.
+
+Each provider type gets its trigger word from a different place:
+
+- **Built-in providers** (Calculator, Emoji, Session, Wallpaper, Windows) — `[shell.launcher.providers.<name>]`.
+- **Dmenu providers** — the `prefix`/`global` keys on the entry's `[shell.launcher.dmenu.entry.<id>]` table.
+- **Plugin providers** — the `[[launcher_provider]]` manifest `prefix`, optionally overridden per-user via `[shell.launcher.providers."<pluginId>:<entry>"]`.
+
+See [Shell: Launcher settings](/noctalia/configuration/shell/#shell-settings) for the full key reference, defaults, and examples.
+
+### From the Settings UI
+
+The built-in providers can be configured without editing your config, under **Settings → Panels → Launcher → Providers**:
+
+- **Common Prefix Character** — the shared `provider_prefix` (defaults to `/`).
+- **&lt;Provider&gt; Prefix** — the trigger word for each built-in provider (Calculator, Emoji, Session, Wallpaper, Windows). Leave blank to fall back to the built-in default.
+- **&lt;Provider&gt; in Global Search** — toggles whether that provider also contributes results to the un-prefixed search.
+
+Dmenu and plugin provider prefixes are configured only through their config tables (see the reference linked above); they do not appear in the Settings UI.

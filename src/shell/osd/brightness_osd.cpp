@@ -43,13 +43,29 @@ void BrightnessOsd::primeFromService(const BrightnessService& service) {
   }
 }
 
-void BrightnessOsd::suppressFor(std::chrono::milliseconds duration) {
-  m_suppressUntil = std::chrono::steady_clock::now() + duration;
+void BrightnessOsd::beginBatch() {
+  if (m_batchDepth == 0) {
+    m_batchBrightness.reset();
+  }
+  ++m_batchDepth;
+}
+
+void BrightnessOsd::endBatch() {
+  if (m_batchDepth == 0) {
+    return;
+  }
+  --m_batchDepth;
+  if (m_batchDepth != 0 || !m_batchBrightness.has_value()) {
+    return;
+  }
+
+  const float brightness = *m_batchBrightness;
+  m_batchBrightness.reset();
+  showValue(brightness);
 }
 
 void BrightnessOsd::onBrightnessChanged(const BrightnessService& service) {
   const auto& displays = service.displays();
-  const auto now = std::chrono::steady_clock::now();
 
   // Find the display whose brightness actually changed
   const BrightnessDisplay* changed = nullptr;
@@ -78,7 +94,12 @@ void BrightnessOsd::onBrightnessChanged(const BrightnessService& service) {
     }
   }
 
-  if (changed == nullptr || now < m_suppressUntil) {
+  if (changed == nullptr) {
+    return;
+  }
+
+  if (m_batchDepth != 0) {
+    m_batchBrightness = changed->brightness;
     return;
   }
 

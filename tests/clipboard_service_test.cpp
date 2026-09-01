@@ -5,6 +5,7 @@
 
 #include "security/secret_store.h"
 #include "security/storage_key_provider.h"
+#include "wayland/clipboard_poll_source.h"
 #include "wayland/clipboard_service.h"
 
 #include <algorithm>
@@ -340,6 +341,27 @@ int main() {
           "handoff history kept the previous selection"
       );
     }
+  }
+
+  {
+    // The adoption queued by a NULL selection has to survive a main loop that
+    // dispatches a source only on a ready fd or an advertised timeout: with no
+    // transfer in flight the clipboard has no fd to be woken on.
+    Harness harness;
+    ClipboardPollSource source(harness.clipboard);
+    fake.claims = 0;
+    simulateCopy(harness.clipboard, &offerIds[2], "text/plain;charset=utf-8", bytesOf("orphan"));
+    expect(source.pollTimeoutMs() < 0, "poll source asked for a timed wake with nothing pending");
+
+    harness.clipboard.handleSelection(nullptr);
+    std::vector<pollfd> fds;
+    const std::size_t start = source.addPollFds(fds);
+    expect(fds.empty(), "clipboard held a poll fd with no transfer in flight");
+    expect(source.pollTimeoutMs() == 0, "poll source did not request an immediate wake for a queued adoption");
+
+    source.dispatch(fds, start);
+    expect(fake.claims == 1, "the queued adoption was never flushed");
+    expect(source.pollTimeoutMs() < 0, "poll source kept requesting immediate wakes after adopting");
   }
 
   {

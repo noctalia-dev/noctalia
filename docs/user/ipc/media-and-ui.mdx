@@ -1,0 +1,123 @@
+---
+title: Media & UI
+description: IPC commands for notifications, clipboard, media, wallpaper, theme, and screenshots.
+sidebar:
+  order: 3
+---
+
+import IpcCommand from '../../../../components/IpcCommand.astro';
+
+These commands control user-facing shell features that are not tied to one persistent surface.
+
+## Notifications
+
+| Action | Command | Description |
+|--------|---------|-------------|
+| Enable Do Not Disturb | <IpcCommand command="notification-dnd-set on" /> | Hide current notification toasts and suppress new ones. Notification history still fills. |
+| Disable Do Not Disturb | <IpcCommand command="notification-dnd-set off" /> | Allow new notification toasts; hidden or suppressed toasts are not replayed. |
+| Toggle Do Not Disturb | <IpcCommand command="notification-dnd-toggle" /> | Toggle notification toast suppression. Notification history still fills. |
+| Show Do Not Disturb status | <IpcCommand command="notification-dnd-status" /> | Print the current Do Not Disturb state. |
+| Send internal notification | <IpcCommand command="notification-show <summary>" /> | Create a Noctalia-origin notification with the provided summary text. |
+| Invoke latest notification | <IpcCommand command="notification-invoke-latest" /> | Invoke the default action of the most recent active notification (raises/focuses the source app), mirroring a toast left-click. |
+| Clear active notifications | <IpcCommand command="notification-clear-active" /> | Dismiss all currently visible active notifications. Dismissed notifications stay in control-center history. |
+| Clear notification history | <IpcCommand command="notification-clear-history" /> | Remove all entries from notification history. |
+
+DND enable/disable IPC commands show a short OSD for the new state.
+
+`notification-show` accepts a summary, and CLI usage can pass body as a second argument:
+
+```sh
+noctalia msg notification-show "Build finished"
+noctalia msg notification-show "Build finished" "All tests passed"
+```
+
+When a body argument is passed, the CLI forwards it as structured payload (`summary` + `body`) to the IPC handler.
+
+For full control, pass a JSON payload object:
+
+```sh
+noctalia msg notification-show '{"app_name":"Noctalia","summary":"Build finished","body":"All tests passed","urgency":"low","timeout_ms":4000,"icon":"circle-check"}'
+```
+
+Supported JSON fields:
+
+- `app_name` (string): application label shown for the notification (default `Noctalia`)
+- `summary` (string, required for JSON mode): notification title text
+- `body` (string): body text
+- `urgency` (string): one of `low`, `normal`, `critical`
+- `timeout_ms` (integer): auto-dismiss timeout in milliseconds (`0` keeps it persistent)
+- `icon` (string): icon hint. Plain names are treated as Noctalia glyphs (for example `circle-check`), while paths and URLs are treated as image icons.
+- `category` (string): freedesktop category
+- `desktop_entry` (string): desktop entry id
+
+## Clipboard
+
+| Action | Command | Description |
+|--------|---------|-------------|
+| Clear clipboard history | <IpcCommand command="clipboard-clear" /> | Clear clipboard history without opening the panel. Pinned entries survive, so with nothing pinned this clears everything. Does not ask for confirmation. The live selection is untouched — pasting still works until something else is copied. |
+| Copy text to clipboard | <IpcCommand command="clipboard-copy <text>" /> | Set the clipboard selection to `<text>`. Everything after the verb is the payload, so spaces and newlines are kept verbatim. Payloads are capped at 64 KiB by the IPC transport. |
+| Print clipboard text | <IpcCommand command="clipboard-text" /> | Print the most recent clipboard text on stdout with no trailing newline. Pinned entries and images are skipped, so this matches what pasting into a Noctalia input would insert. Prints nothing when the history holds no text. |
+
+## Media
+
+| Action | Command | Description |
+|--------|---------|-------------|
+| Previous track | <IpcCommand command="media previous" /> | Ask the active MPRIS player to go to the previous item. |
+| Next track | <IpcCommand command="media next" /> | Ask the active MPRIS player to go to the next item. |
+| Play/pause toggle | <IpcCommand command="media toggle" /> | Toggle play/pause on the active MPRIS player. |
+| Play | <IpcCommand command="media play" /> | Resume playback on the active MPRIS player. |
+| Pause | <IpcCommand command="media pause" /> | Pause the active MPRIS player. No-op when nothing is playing. |
+| Stop playback | <IpcCommand command="media stop" /> | Send the MPRIS `Stop` command to the active player and dismiss it: the player is hidden from the media widget until it starts playing again or is explicitly selected with `next-player`/`previous-player`. Use `media pause` to pause without dismissing. |
+| Previous player | <IpcCommand command="media previous-player" /> | Switch the active player to the previous available MPRIS player and pin it. |
+| Next player | <IpcCommand command="media next-player" /> | Switch the active player to the next available MPRIS player and pin it. |
+
+## Wallpaper
+
+| Action | Command | Description |
+|--------|---------|-------------|
+| Random wallpaper now | <IpcCommand command="wallpaper-random" /> | Switch to a random wallpaper immediately on all monitors. |
+| Random wallpaper (one monitor) | <IpcCommand command="wallpaper-random <connector>" /> | Switch to a random wallpaper on the monitor named by **connector** (e.g. `DP-1`). Other monitors are unchanged. Respects per-monitor directory configuration and theme mode. |
+| Next wallpaper | <IpcCommand command="wallpaper-next" /> | Advance to the next wallpaper in order immediately on all monitors. |
+| Next wallpaper (one monitor) | <IpcCommand command="wallpaper-next <connector>" /> | Advance to the next wallpaper on the monitor named by **connector** (e.g. `DP-1`). Other monitors are unchanged. Respects per-monitor directory configuration and theme mode. |
+| Previous wallpaper | <IpcCommand command="wallpaper-previous" /> | Go back to the previous wallpaper in order immediately on all monitors. |
+| Previous wallpaper (one monitor) | <IpcCommand command="wallpaper-previous <connector>" /> | Go back to the previous wallpaper on the monitor named by **connector** (e.g. `DP-1`). Other monitors are unchanged. Respects per-monitor directory configuration and theme mode. |
+| Get wallpaper | <IpcCommand command="wallpaper-get" /> | Print the default wallpaper path persisted in `settings.toml`. |
+| Get wallpaper (one monitor) | <IpcCommand command="wallpaper-get <connector>" /> | Print the effective wallpaper path for the monitor named by **connector** (e.g. `DP-1`). |
+| Set wallpaper (all monitors) | <IpcCommand command="wallpaper-set <path>" /> | Set every connected monitor and the default wallpaper, persisted to `settings.toml` (per-monitor entries plus `wallpaper.default.path`). |
+| Set wallpaper (one monitor) | <IpcCommand command="wallpaper-set <connector> <path>" /> | Set only the monitor named by **connector** (e.g. `DP-1`). Remaining tokens are joined as the path. Other monitors are unchanged. |
+
+Wallpaper paths accept an image path (`~` expanded) or `color:#RRGGBB` / `color:#RRGGBBAA`. Non-color paths must exist at call time.
+
+The CLI forwards everything after the command as one string (`noctalia msg wallpaper-set ...`), so `noctalia msg wallpaper-set DP-1 /home/you/My Pictures/wall.jpg` still yields a correct path when the shell passes separate arguments after the command.
+
+## Theme
+
+| Action | Command | Description |
+|--------|---------|-------------|
+| Get theme mode | <IpcCommand command="theme-mode-get" /> | Print the current resolved theme mode: `dark` or `light` (from `[theme].mode` or from the `[location]` schedule when mode is `auto`). |
+| Toggle theme mode | <IpcCommand command="theme-mode-toggle" /> | Switch between dark and light theme mode (same as the bar control when `[theme].mode` is not `auto`). |
+| Set theme mode | <IpcCommand command="theme-mode-set dark" /> | Persist `[theme].mode` in `settings.toml` and reload. Pass `dark`, `light`, or `auto` (example shows `dark`). |
+| Get color scheme | <IpcCommand command="color-scheme-get" /> | Print the active palette selection as two tokens: `builtin Noctalia`, `wallpaper m3-content`, `community Oxocarbon`, or `custom MyScheme`. |
+| Set color scheme | <IpcCommand command="color-scheme-set builtin Noctalia" /> | Persist `[theme].source` and the palette for that source, then reload. |
+| Apply templates | <IpcCommand command="templates-apply" /> | Rerender the enabled configured theme templates for the current palette without changing theme mode or firing shell palette hooks. |
+
+`color-scheme-set` accepts these source kinds:
+
+- **builtin** - built-in palette name, such as `Noctalia`
+- **wallpaper** - generator scheme, such as `m3-tonal-spot`, `m3-content`, `m3-fruit-salad`, `m3-rainbow`, `m3-monochrome`, `vibrant`, `faithful`, `soft`, `dysfunctional`, or `muted`
+- **community** - community palette id
+- **custom** - palette file name without `.json` under `~/.config/noctalia/palettes/`
+
+## Screenshots
+
+Requires compositor support for `wlr-screencopy-unstable-v1`. Uses the global `[shell.screenshot]` output policy (directory, filename pattern, freeze, save to file, clipboard, pipe command). See [Shell settings](/noctalia/configuration/shell/#shell-settings).
+
+| Action | Command | Description |
+|--------|---------|-------------|
+| Region screenshot | <IpcCommand command="screenshot-region" /> | Start interactive region capture (drag to select; press **`[keybinds].cancel`** to dismiss). |
+| Fullscreen screenshot | <IpcCommand command="screenshot-fullscreen" /> | Capture the focused monitor (compositor-selected output, active toplevel, keyboard focus, or recent pointer). |
+| Fullscreen (pick monitor) | <IpcCommand command="screenshot-fullscreen pick" /> | Open the display picker on multi-monitor setups. On a single monitor, captures immediately. |
+| Fullscreen (specific output) | <IpcCommand command="screenshot-fullscreen DP-2" /> | Capture one output without the picker. Pass the Wayland connector name (e.g. `DP-1`, `HDMI-A-1`) or a word-boundary match in the output description. |
+| Fullscreen (all monitors) | <IpcCommand command="screenshot-fullscreen all" /> | One combined desktop PNG spanning every monitor. |
+
+In picker mode, choose a connector from the top bar on any screen, or click the desktop to capture the monitor under the cursor. Errors list available connector names when the selector is unknown.

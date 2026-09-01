@@ -1,0 +1,21 @@
+---
+title: network
+description: Shows Wi-Fi, wired, and VPN status through NetworkManager.
+sidebar:
+  order: 15
+---
+
+Shows the current network connection (Wi-Fi SSID and signal, or wired) via NetworkManager. Disconnected and disabled states use the appropriate status glyph without dimming the widget. Left-click opens the Network tab in the control center; right-click disables or reconnects the active Wi-Fi or wired connection.
+
+Hovering the widget shows a tooltip with the network name, signal strength, radio band, and interface. The band row (`2.4 GHz`, `5 GHz`, `6 GHz`, or `60 GHz`) appears only when the backend reports the connection frequency — NetworkManager and wpa_supplicant do, iwd does not.
+
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| `show_label` | bool | `true` | Show the SSID or interface name next to the glyph |
+| `vpn_status` | string | `"replace"` | VPN indicator mode: `"replace"` swaps the network glyph for a shield, `"both"` shows both glyphs, and `"hidden"` disables the indicator. |
+| `show_vpn_label` | bool | `false` | Show the VPN name when `vpn_status` is `"replace"` or `"both"` and labels are enabled. |
+
+```toml
+[widget.network]
+show_label = false
+```

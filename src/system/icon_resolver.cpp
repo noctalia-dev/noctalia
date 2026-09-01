@@ -1,19 +1,21 @@
 #include "system/icon_resolver.h"
 
 #include "core/log.h"
+#include "system/freedesktop_key_file.h"
 #include "util/string_utils.h"
 
 #include <algorithm>
 #include <chrono> // IWYU pragma: keep
 #include <cstdlib>
 #include <filesystem>
-#include <fstream>
+#include <format>
 #include <gio/gio.h>
 #include <memory>
 #include <mutex>
 #include <optional>
 #include <set>
 #include <string_view>
+#include <system_error>
 #include <unordered_set>
 #include <utility>
 
@@ -89,7 +91,7 @@ namespace {
   bool pathIsDirectory(const fs::path& path) {
     std::error_code ec;
     const bool isDirectory = fs::is_directory(path, ec);
-    if (ec) {
+    if (ec == std::errc::permission_denied || ec == std::errc::operation_not_permitted) {
       static std::mutex logMutex;
       static std::unordered_set<std::string> loggedPaths;
       std::scoped_lock lock(logMutex);
@@ -253,22 +255,23 @@ namespace {
     const char* home = std::getenv("HOME");
     if (home != nullptr) {
       for (const char* cfg : {"/.config/gtk-3.0/settings.ini", "/.config/gtk-4.0/settings.ini"}) {
-        std::ifstream file(std::string(home) + cfg);
-        if (!file.is_open()) {
+        const fs::path path = std::string(home) + cfg;
+        const auto parsed = freedesktop::parseKeyFile(path);
+        if (!parsed) {
+          if (parsed.error().reason != freedesktop::ParseFailure::NOT_FOUND) {
+            kLog.warn("failed to parse GTK settings '{}': {}", path.string(), parsed.error().message);
+          }
           continue;
         }
-        std::string line;
-        while (std::getline(file, line)) {
-          if (!line.starts_with("gtk-icon-theme-name")) {
-            continue;
-          }
-          auto eq = line.find('=');
-          if (eq == std::string::npos) {
-            continue;
-          }
-          std::string value = trimAndUnquote(std::string_view(line.data() + eq + 1, line.size() - eq - 1));
-          if (!value.empty()) {
-            candidates.emplace_back(std::move(value));
+        for (const auto& diagnostic : parsed->diagnostics) {
+          kLog.debug(
+              "ignoring malformed GTK settings entry '{}:{}: {}'", path.string(), diagnostic.line, diagnostic.message
+          );
+        }
+        if (const auto value = parsed->file.value("Settings", "gtk-icon-theme-name"); value.has_value()) {
+          const std::string theme = trimAndUnquote(*value);
+          if (!theme.empty()) {
+            candidates.emplace_back(theme);
           }
         }
       }
@@ -280,9 +283,18 @@ namespace {
   // Parse index.theme and return (subdir paths sorted by preference, parent theme names).
   // Preference: scalable/large dirs first so we get crisp icons at any size.
   std::pair<std::vector<IconSearchDir>, std::vector<std::string>> parseIndexTheme(const std::string& themeRoot) {
-    std::ifstream file(themeRoot + "/index.theme");
-    if (!file.is_open()) {
+    const fs::path indexPath = fs::path(themeRoot) / "index.theme";
+    const auto parsed = freedesktop::parseKeyFile(indexPath);
+    if (!parsed) {
+      if (parsed.error().reason != freedesktop::ParseFailure::NOT_FOUND) {
+        kLog.warn("failed to parse icon theme metadata '{}': {}", indexPath.string(), parsed.error().message);
+      }
       return {};
+    }
+    for (const auto& diagnostic : parsed->diagnostics) {
+      kLog.debug(
+          "ignoring malformed index.theme entry '{}:{}: {}'", indexPath.string(), diagnostic.line, diagnostic.message
+      );
     }
 
     struct DirEntry {
@@ -296,52 +308,38 @@ namespace {
     std::vector<std::string> inherits;
     std::unordered_map<std::string, DirEntry> dirMap;
 
-    std::string currentSection;
-    std::string line;
-    while (std::getline(file, line)) {
-      while (!line.empty() && (line.back() == '\r' || line.back() == ' ')) {
-        line.pop_back();
+    if (const auto directories = parsed->file.value("Icon Theme", "Directories"); directories.has_value()) {
+      for (auto name : splitList(*directories, ',')) {
+        dirNames.emplace_back(name);
+        dirMap[std::move(name)].path = dirNames.back();
       }
-      if (line.empty() || line[0] == '#') {
-        continue;
+    }
+    if (const auto inherited = parsed->file.value("Icon Theme", "Inherits"); inherited.has_value()) {
+      for (auto name : splitList(*inherited, ',')) {
+        inherits.emplace_back(std::move(name));
       }
-      if (line[0] == '[') {
-        currentSection = line.substr(1, line.size() - 2);
-        continue;
-      }
-      auto eq = line.find('=');
-      if (eq == std::string::npos) {
-        continue;
-      }
-      std::string_view key(line.data(), eq);
-      std::string_view value(line.data() + eq + 1, line.size() - eq - 1);
+    }
 
-      if (currentSection == "Icon Theme") {
-        if (key == "Directories") {
-          for (auto name : splitList(value, ',')) {
-            dirNames.emplace_back(name);
-            dirMap[std::move(name)].path = dirNames.back();
-          }
-        } else if (key == "Inherits") {
-          for (auto name : splitList(value, ',')) {
-            inherits.emplace_back(std::move(name));
-          }
+    for (const auto& name : dirNames) {
+      const auto* section = parsed->file.section(name);
+      if (section == nullptr) {
+        continue;
+      }
+      auto& entry = dirMap[name];
+      if (const auto it = section->find("Size"); it != section->end()) {
+        try {
+          entry.size = std::stoi(it->second);
+        } catch (...) {
         }
-      } else if (!currentSection.empty() && dirMap.contains(currentSection)) {
-        auto& entry = dirMap[currentSection];
-        if (key == "Size") {
-          try {
-            entry.size = std::stoi(std::string(value));
-          } catch (...) {
-          }
-        } else if (key == "Type") {
-          entry.scalable = (value == "Scalable" || value == "Threshold");
-        } else if (key == "MaxSize") {
-          // For threshold/scalable dirs, MaxSize gives a better sense of actual size
-          try {
-            entry.maxSize = std::stoi(std::string(value));
-          } catch (...) {
-          }
+      }
+      if (const auto it = section->find("Type"); it != section->end()) {
+        entry.scalable = (it->second == "Scalable" || it->second == "Threshold");
+      }
+      if (const auto it = section->find("MaxSize"); it != section->end()) {
+        // For threshold/scalable dirs, MaxSize gives a better sense of actual size
+        try {
+          entry.maxSize = std::stoi(it->second);
+        } catch (...) {
         }
       }
     }

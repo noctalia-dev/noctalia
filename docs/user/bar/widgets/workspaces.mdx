@@ -1,0 +1,54 @@
+---
+title: workspaces
+description: Switches workspaces with regular, minimal, or Focus Hint styles.
+sidebar:
+  order: 32
+---
+
+Workspace switcher with three styles: regular animated pills, minimal labels without pill backgrounds, or Focus Hint (small dots for inactive workspaces and an expanded active pill with the focused app icon).
+
+Labels are controlled by two independent settings: `show_labels` turns them on or off, and `label_source` picks what they say.
+With `show_labels = false`, regular draws unlabeled pills and Focus Hint shows just the focused app icon. Minimal draws no pill backgrounds at all, so its workspaces become blank slots.
+
+Workspace pills use the workspaces widget's resolved `capsule_radius`.
+Set `[widget.workspaces].capsule_radius` for just the workspace switcher, or `[bar.<name>].capsule_radius` as the bar default.
+Pill styling and `capsule_radius` apply only when `style = "regular"`.
+
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| `style` | string | `"regular"` | Pill style: `"regular"` (animated pills), `"minimal"` (labels drawn without pill backgrounds), or `"focus_hint"` (inactive dots + expanded active pill with focused app icon). |
+| `show_labels` | bool | `true` | Draw text labels on workspaces. Minimal renders labels and nothing else, so turning them off leaves its workspaces as empty slots. |
+| `label_source` | string | `"id"` | What labels show: `"id"` (workspace number, falling back to its name when no numeric identity exists) or `"name"` (workspace name). |
+| `max_label_chars` | int | `1` | Maximum characters for non-numeric workspace labels, including names used as the `"id"` fallback. Numeric labels such as `10` and `11` are never truncated. |
+| `pill_scale` | float | `1.0` | Scale workspace pill thickness (cross-axis size; regular style only). |
+| `active_pill_size` | float | `2.2` | Minimum active pill length along the bar, as a multiple of pill thickness. Labels may expand beyond this. |
+| `inactive_pill_size` | float | `1.0` | Minimum inactive pill length along the bar, as a multiple of pill thickness. Labels may expand beyond this. |
+| `focused_color` | string | `"primary"` | Color role or hex color for the focused workspace pill |
+| `occupied_color` | string | `"secondary"` | Color role or hex color for occupied (non-focused) workspace pills |
+| `empty_color` | string | `"secondary"` | Color role or hex color for empty workspace pills |
+| `urgent_color` | string | `"error"` | Color role or hex color for urgent workspace pills |
+| `change_color_on_hover` | bool | `true` | Change a workspace's fill and label colors while the pointer hovers over it. Set to `false` to preserve each workspace's configured color while hovering. |
+| `focused_output_only` | bool | `false` | Only highlight the active workspace on the monitor that has keyboard or pointer focus; other monitors show their active workspace in the occupied color. |
+| `labels_only_when_occupied` | bool | `false` | Show labels on workspaces with open windows and on the active workspace even when empty; other empty tags stay unlabeled. Requires `show_labels = true`, and does not apply to `focus_hint`, which only ever labels the focused workspace. |
+| `hide_when_empty` | bool | `false` | Hide workspace pills with no open windows. |
+| `show_all_outputs` | bool | `false` | Show workspaces from every monitor. The bar's own monitor is listed first. |
+
+```toml
+[widget.workspaces]
+style = "regular"       # regular | minimal | focus_hint
+show_labels = true      # false = unlabeled pills (Focus Hint: app icon only)
+label_source = "id"     # id | name
+max_label_chars = 2     # truncate long workspace names (e.g. "VESKTOP" → "VE")
+labels_only_when_occupied = true  # (1) (2*) ( ) (4) - occupied tags and the active tag show labels (*active but empty)
+hide_when_empty = true
+show_all_outputs = false  # true = include workspaces from every monitor; this bar's monitor comes first
+pill_scale = 1.0
+active_pill_size = 2.2
+inactive_pill_size = 1.0
+focused_color = "primary"
+occupied_color = "secondary"
+empty_color = "surface_variant"
+urgent_color = "error"
+change_color_on_hover = true  # false = keep configured workspace colors while hovering
+focused_output_only = false  # true = only the focused monitor highlights its active workspace
+```

@@ -100,10 +100,12 @@ namespace {
     const fs::path executable = root / "PortableApp";
     const fs::path bin = root / "bin";
     const fs::path workingDirectory = root / "cwd";
+    const fs::path inaccessibleApplications = applications / "inaccessible";
     fs::create_directories(applications);
     fs::create_directories(systemApplications);
     fs::create_directories(bin);
     fs::create_directories(workingDirectory);
+    fs::create_directories(inaccessibleApplications);
     {
       std::ofstream binary(executable, std::ios::binary);
       binary.write(
@@ -148,6 +150,11 @@ namespace {
       std::ofstream entry(systemApplications / "shadowed-native.desktop");
       entry << "[Desktop Entry]\nType=Application\nName=Shadowed Native App\nExec=shadowed-native\n";
     }
+    {
+      std::ofstream entry(inaccessibleApplications / "inaccessible.desktop");
+      entry << "[Desktop Entry]\nType=Application\nName=Inaccessible App\nExec=inaccessible-app\n";
+    }
+    chmod(inaccessibleApplications.c_str(), 0000);
 
     const char* oldDataHome = std::getenv("XDG_DATA_HOME");
     const char* oldDataDirs = std::getenv("XDG_DATA_DIRS");
@@ -176,6 +183,7 @@ namespace {
     TEST_CHECK(findOrigin("path") == DesktopEntryOrigin::AppImage);
     TEST_CHECK(findOrigin("shadowed-native") == DesktopEntryOrigin::System);
 
+    chmod(inaccessibleApplications.c_str(), 0700);
     fs::current_path(savedWorkingDirectory);
 
     if (savedDataHome.has_value()) {

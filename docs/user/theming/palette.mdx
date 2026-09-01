@@ -1,0 +1,183 @@
+---
+title: Palette
+description: Color roles, custom palette files, and terminal colors.
+sidebar:
+  order: 9
+---
+
+A palette is the set of colors selected by [`[theme]`](/noctalia/theming/). The theme config chooses the source and mode; the palette provides the actual color values used by bars, panels, widgets, templates, and other theme-aware UI.
+
+## Color Roles
+
+User-facing color settings reference these 16 roles with lowercase `snake_case` names. Prefer role names so UI colors follow the active palette. Fixed hex colors (`#RGB`, `#RGBA`, `#RRGGBB`, `#RRGGBBAA`) are supported where a deliberately non-palette color is needed.
+
+| Role | Palette field | Description |
+|------|---------------|-------------|
+| `primary` | `mPrimary` | Primary accent for buttons, links, highlights, and active states. |
+| `on_primary` | `mOnPrimary` | Text and icons placed on primary surfaces. |
+| `secondary` | `mSecondary` | Secondary accent color. |
+| `on_secondary` | `mOnSecondary` | Text and icons placed on secondary surfaces. |
+| `tertiary` | `mTertiary` | Tertiary accent color. |
+| `on_tertiary` | `mOnTertiary` | Text and icons placed on tertiary surfaces. |
+| `error` | `mError` | Error and destructive-action color. |
+| `on_error` | `mOnError` | Text and icons placed on error surfaces. |
+| `surface` | `mSurface` | Main shell background color. |
+| `on_surface` | `mOnSurface` | Primary text and icon color on shell surfaces. |
+| `surface_variant` | `mSurfaceVariant` | Secondary background for cards, panels, and lower-emphasis surfaces. |
+| `on_surface_variant` | `mOnSurfaceVariant` | Secondary text and icon color on variant surfaces. |
+| `outline` | `mOutline` | Borders, separators, and subtle outlines. |
+| `shadow` | `mShadow` | Shadow color. |
+| `hover` | `mHover` | Hover and interactive highlight background. |
+| `on_hover` | `mOnHover` | Text and icons placed on hover surfaces. |
+
+Settings role pickers expose these role names first. Template files access these roles and the full Material token set through the [Template Reference](/noctalia/theming/templates/#available-color-tokens).
+
+## Custom Palette Files
+
+When `source = "custom"`, `custom_palette` names a JSON file in the Noctalia config directory's `palettes/` folder:
+
+```toml
+[theme]
+source         = "custom"
+custom_palette = "MyPalette"
+```
+
+With the default config location, that loads:
+
+```text
+~/.config/noctalia/palettes/MyPalette.json
+```
+
+The palette JSON format is the same format v4 called a color scheme. For v5, the concept is called a palette, the file lives under `palettes/`, and it is selected by `custom_palette`; v4 used `colorschemes/`.
+
+If you are migrating a v4 color scheme, copy the JSON payload to the v5 palette location:
+
+```text
+~/.config/noctalia/colorschemes/MyScheme/MyScheme.json
+-> ~/.config/noctalia/palettes/MyScheme.json
+```
+
+## Palette JSON
+
+Each palette can provide `dark` and `light` variants. If `light` is omitted, Noctalia uses the dark variant for both modes.
+
+```json
+{
+  "dark": {
+    "mPrimary": "#a6e22e",
+    "mOnPrimary": "#272822",
+    "mSecondary": "#66d9ef",
+    "mOnSecondary": "#272822",
+    "mTertiary": "#f92672",
+    "mOnTertiary": "#272822",
+    "mError": "#f92672",
+    "mOnError": "#272822",
+    "mSurface": "#272822",
+    "mOnSurface": "#f8f8f2",
+    "mSurfaceVariant": "#3e3d32",
+    "mOnSurfaceVariant": "#a6e22e",
+    "mOutline": "#75715e",
+    "mShadow": "#272822",
+    "mHover": "#3a3a32",
+    "mOnHover": "#f8f8f2",
+    "terminal": {
+      "background": "#272822",
+      "foreground": "#f8f8f2",
+      "cursor": "#f8f8f2",
+      "cursorText": "#272822",
+      "selectionBg": "#f8f8f2",
+      "selectionFg": "#272822",
+      "normal": {
+        "black": "#272822",
+        "red": "#f92672",
+        "green": "#a6e22e",
+        "yellow": "#f4bf75",
+        "blue": "#66d9ef",
+        "magenta": "#ae81ff",
+        "cyan": "#a1efe4",
+        "white": "#f8f8f2"
+      },
+      "bright": {
+        "black": "#75715e",
+        "red": "#f92672",
+        "green": "#a6e22e",
+        "yellow": "#f4bf75",
+        "blue": "#66d9ef",
+        "magenta": "#ae81ff",
+        "cyan": "#a1efe4",
+        "white": "#f9f8f5"
+      }
+    }
+  },
+  "light": {
+    "mPrimary": "#a6e22e",
+    "mOnPrimary": "#f8f8f2",
+    "mSecondary": "#66d9ef",
+    "mOnSecondary": "#f8f8f2",
+    "mTertiary": "#f92672",
+    "mOnTertiary": "#f8f8f2",
+    "mError": "#f92672",
+    "mOnError": "#f8f8f2",
+    "mSurface": "#f8f8f2",
+    "mOnSurface": "#272822",
+    "mSurfaceVariant": "#e6e1dc",
+    "mOnSurfaceVariant": "#272822",
+    "mOutline": "#a6e22e",
+    "mShadow": "#d8d8d8",
+    "mHover": "#e6e1dc",
+    "mOnHover": "#272822",
+    "terminal": {
+      "background": "#f8f8f2",
+      "foreground": "#272822",
+      "cursor": "#272822",
+      "cursorText": "#f8f8f2",
+      "selectionBg": "#272822",
+      "selectionFg": "#f8f8f2",
+      "normal": {
+        "black": "#f8f8f2",
+        "red": "#f92672",
+        "green": "#a6e22e",
+        "yellow": "#f4bf75",
+        "blue": "#66d9ef",
+        "magenta": "#ae81ff",
+        "cyan": "#a1efe4",
+        "white": "#272822"
+      },
+      "bright": {
+        "black": "#d8d8d2",
+        "red": "#f92672",
+        "green": "#a6e22e",
+        "yellow": "#f4bf75",
+        "blue": "#66d9ef",
+        "magenta": "#ae81ff",
+        "cyan": "#a1efe4",
+        "white": "#1e1e19"
+      }
+    }
+  }
+}
+```
+
+## Terminal Colors
+
+The `terminal` object provides colors for terminal templates:
+
+| Field | Description |
+|-------|-------------|
+| `background` | Terminal background. |
+| `foreground` | Default text color. |
+| `cursor` | Cursor color. |
+| `cursorText` | Text under the cursor. |
+| `selectionBg` | Selection background. |
+| `selectionFg` | Selection foreground. |
+| `normal` | Normal ANSI colors. |
+| `bright` | Bright ANSI colors. |
+
+Good terminal colors are important for syntax highlighting. Test both dark and light variants with code, prompts, selections, and diffs.
+
+## Tips
+
+- Start with a few core colors, then map them to roles.
+- Keep `on_*` colors readable on their matching surface or accent.
+- Test both modes; a good dark palette does not automatically make a good light palette.
+- Use a contrast checker for text-heavy surfaces such as `surface` / `on_surface`.

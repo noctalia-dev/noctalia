@@ -1,0 +1,557 @@
+---
+title: Shell
+description: Global shell settings, animation, shadow, MPRIS filtering, OSD, lock screen, and keybinds in Noctalia.
+sidebar:
+  order: 1
+---
+
+- [Shell settings](#shell-settings)
+- [Privacy capture filters](#privacy-capture-filters)
+- [Accessibility](#accessibility)
+- [OSD](#osd)
+- [Lock screen](#lock-screen)
+- [Keybinds](#keybinds)
+
+---
+
+## Shell settings
+
+Global UI settings that apply across all shell surfaces.
+
+```toml
+[storage]
+key_source = "secret-service" # secret-service | file
+key_file   = ""               # absolute path; required only when key_source = "file"
+
+[shell]
+corner_radius_scale   = 1.0             # 0 = square, 1 = default, 2 = extra rounded
+button_borders        = true            # draw outlines around buttons throughout the shell
+input_borders         = true            # draw outlines around text fields and other inputs
+popup_borders         = true            # draw outlines around popups and dropdowns (dialogs always have outlines)
+card_borders          = true            # draw outlines around section cards inside panels and settings
+popup_shadows         = true            # draw drop shadows behind popups and dropdowns
+font_family           = "sans-serif"    # Pango family string; Fontconfig handles fallback
+lang                  = ""              # empty = auto-detect; otherwise BCP-47 or POSIX locale
+time_format           = "{:%H:%M}"      # default time format for shell UI without its own setting
+date_format           = "%A, %x"        # default date format for shell UI without its own setting
+offline_mode          = false           # block all outgoing HTTP requests
+# panel_anchor_bar   = "main"           # bar panels attach to without a source bar; omit = first enabled bar
+external_ip_enabled   = false           # resolve the WAN IP for the Control Center network tab and network widget tooltip
+telemetry_enabled     = false           # anonymous startup ping
+setup_wizard_enabled = true              # open first-run wizard while the marker is missing
+niri_overview_type_to_launch_enabled = false # niri-only type-to-launch from overview
+polkit_agent          = false           # register Noctalia's native polkit authentication agent
+password_style        = "default"       # default | random
+avatar_path           = "~/Pictures/avatar.png"
+settings_show_advanced = true           # show advanced settings by default in Settings
+settings_window_translucent = false     # translucent Settings window background
+show_location         = true            # show weather location text in shell UI
+launch_apps_as_systemd_services = false # launch apps as transient systemd services (needs Noctalia to be a user unit)
+launch_apps_custom_command = ""         # wrap launched apps; $CMD is replaced with the app command
+screen_time_enabled   = false           # track per-app usage time for the Control Center screen-time view
+app_icon_colorize     = false           # recolor application icons across the shell
+app_icon_color        = "on_surface"    # ColorSpec when colorize is enabled; see App icon colorization below
+clipboard_enabled     = true            # false disables clipboard history/panel (basic copy & paste still work)
+clipboard_keep_from_closed_apps = true  # keep the live selection after its source application closes
+clipboard_history_max_entries = 100     # unpinned history cap (10–10000); pinned entries are exempt
+clipboard_confirm_clear_history = true  # confirm before clear history / delete unpinned entries
+clipboard_auto_paste  = "auto"          # off | auto | ctrl_v | ctrl_shift_v | shift_insert
+clipboard_image_action_command = ""     # image clipboard action; e.g. "gimp {path}" or "satty -f -"
+shared_gl_context     = true            # startup-only; share GPU textures across surfaces
+disable_mipmaps       = false           # startup-only; disable texture mipmaps if downscaled icons/wallpaper show GPU artifacts
+
+[shell.keyboard_layout.custom_labels]
+"German (Neo 2)" = "Neo2"
+"English (US)" = "EN"
+
+[shell.animation]
+enabled = true
+speed   = 1.0   # 1.0 = normal, 0.5 = 2× slower, 2.0 = 2× faster
+
+[shell.shadow]
+direction = "down"  # center, up, down, left, right, up_left, up_right, down_left, down_right
+alpha     = 0.55    # multiplied by each component's background opacity
+
+[shell.panel]
+transparency_mode     = "solid"  # solid | soft | glass; controls floating panel opacity and card translucency
+borders               = true   # outline on floating panel surfaces
+shadow                = true   # cast the global [shell.shadow] from panel surfaces
+list_item_background  = false  # filled rounded background behind launcher and clipboard list items
+floating_layer         = "overlay" # overlay | top; applies to floating interactive panels
+launcher_placement       = "floating" # attached | floating
+clipboard_placement      = "floating" # attached | floating
+control_center_placement = "attached" # attached | floating
+wallpaper_placement      = "attached" # attached | floating
+session_placement        = "attached" # attached | floating
+polkit_placement         = "floating" # attached | floating
+launcher_position        = "center"   # auto | center | top_left | … (floating only)
+clipboard_position       = "center"   # auto | center | top_left | … (floating only)
+polkit_position          = "center"   # auto | center | top_left | … (floating only)
+floating_offset          = 8           # px gap between a floating panel and the bar edge
+open_near_click_control_center = false  # attached/floating: follow the bar click instead of bar-center
+open_near_click_launcher       = false  # attached/floating: follow the bar click instead of bar-center
+open_near_click_clipboard      = false  # attached/floating: follow the bar click instead of bar-center
+open_near_click_wallpaper      = false  # attached/floating: follow the bar click instead of bar-center
+open_near_click_session        = false  # attached/floating: follow the bar click instead of bar-center
+
+[shell.launcher]
+categories      = true   # show launcher category filters; Tab toggles them while open
+show_icons      = true   # show application icons in launcher results
+show_app_origin_indicator = true # show package origin indicators on application results
+compact         = false  # smaller icons and tighter rows; hides subtitles
+app_grid        = false  # icon grid with labels underneath when results are apps only
+show_app_actions = false  # include searchable .desktop actions alongside applications
+sort_by_usage   = true   # boost frequently used apps and show Recently Used filter
+pinned          = []     # desktop entry IDs shown first when the launcher opens
+fetch_exchange_rates = true  # refresh currency rates from third-party online sources
+provider_prefix = "/"    # common prefix character for provider trigger words (e.g. "/" or ".")
+auto_paste      = "auto" # off | auto | ctrl_v | ctrl_shift_v | shift_insert (after copy activations)
+
+[shell.launcher.providers.calculator]
+prefix = "calc"          # trigger word for calculator expressions (e.g. "/calc")
+global = true            # also show calculator results in un-prefixed search
+
+[shell.launcher.providers.emoji]
+prefix = "emo"           # trigger word (triggers on provider_prefix + trigger, e.g. "/emo")
+
+[shell.launcher.providers.session]
+prefix = "session"       # trigger word for session actions (e.g. "/session")
+global = false           # set true to also include session actions in un-prefixed search
+
+[shell.launcher.providers.wallpaper]
+prefix = "wall"          # trigger word for wallpaper selector (e.g. "/wall")
+
+[shell.launcher.providers.windows]
+prefix = "win"           # trigger word for windows (e.g. "/win")
+
+# Dmenu-style providers: a command emits newline-separated candidates that show up
+# in the launcher. A tab in a line splits it into title \t description. On activate,
+# `exec` runs with {selection} substituted; without `exec` the line is copied instead.
+[shell.launcher.dmenu.entry.ssh]
+command = "awk '/^Host /{print $2}' ~/.ssh/config"  # one candidate per stdout line
+exec    = "foot ssh {selection}"   # {selection} = the chosen line; run detached
+prefix  = "ssh"                    # trigger word (composed with provider_prefix -> "/ssh"); empty = global only
+glyph   = "server"                 # optional Tabler glyph shared by every result
+global  = false                    # true = also surface in unprefixed search
+
+# Plugin launcher providers default to the prefix/global set in their manifest.
+# Override either from config, keyed by the plugin's fully-qualified "<pluginId>:<entry>".
+[shell.launcher.providers."author/my-plugin:search"]
+prefix = "mp"            # overrides the manifest prefix (triggers on "/mp")
+global = true            # overrides the manifest include_in_global_search
+
+[shell.screen_corners]
+enabled = false    # overlay black rounded corners on each screen
+size    = 32       # corner radius in logical pixels (1–100)
+
+[hot_corners]
+enabled = false    # trigger actions by pushing the mouse pointer into screen corners
+delay_ms = 0       # hold time before triggering (0 = immediate; raise to avoid accidental hits)
+
+# Configure each corner independently. Available actions:
+# none | launcher | window-switcher | control-center | command
+[hot_corners.top_left]
+action = "none"
+
+[hot_corners.bottom_right]
+action = "command"
+command = "swaylock -f"
+
+
+[shell.mpris]
+blacklist = []           # optional list of players to hide from media widgets/control-center
+
+[shell.privacy]
+mic_filter_regex    = "" # ignore matching microphone application names
+cam_filter_regex    = "" # ignore matching camera process names
+screen_filter_regex = "" # ignore matching screen-share application names
+
+[shell.screenshot]
+save_to_file         = true                       # write captures as PNG to the output directory
+directory            = ""                          # output folder; empty = XDG_PICTURES_DIR or ~/Pictures
+filename_pattern     = ""                          # empty = screenshot_%Y%m%d_%H%M%S
+copy_to_clipboard    = true                        # also place the PNG on the clipboard
+freeze_screen        = true                        # freeze the desktop before region selection
+confirm_region       = false                       # confirm region captures with Enter or Space
+remember_last_region = false                       # pre-select the last region (also after cancel)
+show_cursor          = false                       # include the mouse pointer in captures
+pipe_to_command      = false                       # pipe the PNG to a shell command on stdin
+pipe_command         = ""                          # annotator/uploader, e.g. "swappy -f -" or "satty -f -"
+```
+
+Notes:
+- `avatar_path` controls the avatar Noctalia shows in shell UI such as the Control Center Home tab. When AccountsService is reachable, Noctalia also updates your user's `IconFile` there so other consumers such as Noctalia Greeter can reuse the same avatar. If **accountsservice** is missing or disabled, the shell still uses `avatar_path`, but login greeters that depend on AccountsService will not see that image.
+- `font_family` sets the primary Pango family for all shell text. Can be a concrete family like `Inter` or a generic like `sans-serif`.
+- `time_format` and `date_format` are fallbacks for shell-owned displays such as the home tab, calendar tab, and lock screen. Widget-specific clock formats still use their own widget settings. See [Date format tokens](/noctalia/configuration/date-format-tokens/).
+- `shell.keyboard_layout.custom_labels` maps exact compositor layout names to aliases used consistently by keyboard-layout widgets, the keyboard-layout OSD, the lock screen, and the Control Center shortcut. Unmatched or empty aliases use each surface's normal compact or full label. Configure under **Settings → Shell → Keyboard Layout**.
+- `offline_mode` prevents the shell from making any outgoing HTTP requests (weather, community palettes, community templates, album art, remote notification icons, currency exchange rates). Distro packagers can default to `true` to comply with policies requiring explicit user consent for network access.
+- `panel_anchor_bar` names the bar that panels attach to when opened without a source bar (IPC, shortcuts, dock). Leave unset (default) to keep per-source behavior: the opening widget's bar, or the first enabled bar on the output. An unknown or disabled bar name fails loudly. Configure under **Settings → Panels → General**.
+- `external_ip_enabled`: when `true`, Noctalia resolves the connection's public WAN IP via `api.noctalia.dev/ip` and shows it in the Control Center network tab (next to the local address) and in the network widget tooltip. Resolution runs in the background while connected and re-resolves automatically after connection or VPN changes. Honors `offline_mode`.
+- `telemetry_enabled` sends a single anonymous POST to `api.noctalia.dev/ping` on each startup containing: a random instance ID, shell version, compositor name, OS name, RAM, monitor resolutions, and UI scale. No personal data is collected. The instance ID is a random UUID stored in `~/.local/state/noctalia/instance.id`.
+- `setup_wizard_enabled`: when `false`, Noctalia does not auto-open the setup wizard on startup even if `.setup-complete` is missing. Use this for declarative or preseeded deployments; the marker remains the normal completion state for interactive runs.
+- `niri_overview_type_to_launch_enabled` is opt-in. When `true` on niri, Noctalia keeps a tiny keyboard-focus layer surface while overview is open so typing a letter or number opens the launcher with that initial query. This gives up niri's exact native handling for some overview-only keyboard state, such as the app focus ring.
+- `polkit_agent` controls registration on `org.freedesktop.PolicyKit1`. Keep disabled if another desktop agent handles auth prompts. When enabled, `shell.panel.polkit_placement` and `polkit_position` control whether the auth prompt attaches to the bar or floats (default: `polkit_placement = "floating"` with `polkit_position = "center"`).
+- Notification daemon ownership moved out of `[shell]`: use `[notification].enable_daemon` in [Services](/noctalia/services/notifications/).
+- `password_style`: `default` uses `circle-filled`; `random` cycles through multiple filled glyph shapes on polkit and lock screen inputs.
+- `settings_show_advanced`: when `true`, Settings opens with advanced entries visible.
+- `settings_window_translucent`: when `true`, the Settings window background is drawn translucent. Compositor blur or other effects can be applied via compositor window rules.
+- `show_location`: when `false`, weather location text/coordinates are hidden in shell surfaces.
+- `app_icon_colorize` and `app_icon_color`: global application icon tinting for the dock, system tray (bar and drawer), taskbar, active-window widget, and launcher panel results. See [App icon colorization](#app-icon-colorization). Bar `launcher` / `control-center` widgets can optionally tint `custom_image` via `custom_image_colorize` using the widget **Color** setting (Presentation group in the widget editor).
+- `lang`: empty follows `$LC_ALL`, `$LC_MESSAGES`, then `$LANG`. Values may be BCP-47 tags (`pt-BR`, `zh-Hans`) or POSIX locale names (`pt_BR.UTF-8`, `zh_CN.UTF-8`). Chinese region locales infer script before matching catalogs, so `zh_CN` and `zh_SG` match `zh-Hans`, while `zh_TW`, `zh_HK`, and `zh_MO` match `zh-Hant`. When a right-to-left catalog is loaded, Noctalia mirrors text, controls, grids, scrollbars, and directional icons automatically. Bar `start`/`center`/`end` lanes and dock item order remain on their configured physical sides. If no matching catalog loads and Noctalia falls back to English, the UI remains left-to-right.
+- `clipboard_enabled`: when `false`, disables clipboard **history** only - the history is no longer recorded or persisted, and the clipboard panel and bar/control-center shortcuts are unavailable. The live clipboard transport stays active, so basic copy/cut/paste in text fields and launcher math/emoji copy-to-clipboard actions keep working.
+- `clipboard_keep_from_closed_apps`: when `true` (default), Noctalia takes ownership of the live selection after the
+  application that supplied it closes, keeping the last copied value pasteable. This is independent of clipboard
+  history retention.
+- Clipboard history is encrypted at rest with a purpose-specific key derived from the Noctalia storage master key. The default `secret-service` source stores the master key through Secret Service. If the provider is unavailable or locked, history still works for the current session but is not read from or written to disk; unlock or start the provider and use **Settings → Shell → Clipboard → Retry**. When a provider starts after Noctalia — a common race when the keyring is launched by the same session startup script — Noctalia notices it claiming `org.freedesktop.secrets` and reopens encrypted storage on its own, so no manual retry is needed for that case. Existing plaintext history is migrated only after the encrypted replacement is complete, and encrypted files are preserved if their key is missing.
+- `clipboard_history_max_entries`: caps how many **unpinned** clipboard history rows Noctalia keeps (default `100`, range `10`–`10000`). Pinned entries stay outside this limit. Lowering the value trims older unpinned rows on reload.
+- `clipboard_confirm_clear_history`: when `true` (default), the clipboard panel asks before **Clear history** and before deleting an **unpinned** entry (trash in the preview, or double-click a row). When `false`, those actions apply immediately: sidebar clear removes unpinned rows and keeps pins when any exist, or clears everything when nothing is pinned; unpinned single deletes are immediate. **Pinned** entries still require confirmation before delete. With confirmation enabled, the clear dialog only offers **Keep pinned** when both pinned and unpinned rows exist; if history is all pinned or all unpinned, the description matches that case. Toggle in **Settings → Shell → Clipboard**.
+- `clipboard_auto_paste`: `auto` = image entries use `Ctrl+V`, text entries use `Ctrl+Shift+V`; `off` = copy only, no automatic paste.
+- `clipboard_image_action_command`: when non-empty, image clipboard previews show an action button. Use `{path}` to receive a private plaintext export of the encrypted payload. Use `{stdin}` (expanded to `-`) or omit `{path}` to receive the image bytes on stdin, matching the v4 annotation tool behavior (`satty -f -`, `gradia`, etc.).
+- `corner_radius_scale` scales rounded corners across shell surfaces: `0` = square, `1` = default, `2` = extra rounded.
+- `button_borders`: when `true` (default), buttons use the outline defined by their built-in or custom style. Set it to `false` for borderless buttons throughout the shell. Other controls, cards, panels, and explicitly configured raw borders are unaffected. Toggle in **Settings → Appearance → Borders**.
+- `input_borders`: when `true` (default), text fields and select/dropdown triggers draw a resting outline. Set it to `false` to drop the resting border; the focus ring still appears while an input is focused. Toggle in **Settings → Appearance → Borders**.
+- `popup_borders`: when `true` (default), popups and dropdowns (context menus, select dropdowns, and tray/dock menus) draw a subtle outline that separates them from the surface they float over. Set it to `false` for borderless popups. Centered dialogs always retain their outline because they use the same background color as their parent surface. Toggle in **Settings → Appearance → Borders**.
+- `card_borders`: when `true` (default), section cards draw an outline wherever they render - control center tabs, launcher and clipboard preview panes, setup wizard steps, and the settings window. Set it to `false` for flat, borderless cards. A panel's own outline is controlled by `shell.panel.borders`. Toggle in **Settings → Appearance → Borders**.
+- `popup_shadows`: when `true` (default), popups and dropdowns cast the global `[shell.shadow]` drop shadow. Set it to `false` to disable popup shadows only; other surfaces keep their own `shadow` toggles. Toggle in **Settings → Appearance → Effects**.
+- `launch_apps_as_systemd_services`: when `true`, apps launched from the launcher, dock, and taskbar run as transient systemd services (`systemd-run --user`, unit `app-<desktop-id>@<uuid>.service`) so they survive a shell restart and get their own cgroup. This only applies when Noctalia itself runs under the systemd user manager - as a user unit, or started through uwsm. If it was started as a plain child of the compositor session, the option is ignored (apps launch directly, a warning is logged, and the toggle is disabled in **Settings → Shell → General**); launching apps into the user manager from a session-scoped shell would move them out of the login session and can break them.
+- `launch_apps_custom_command`: when non-empty, wraps every app launched from the launcher, dock, and taskbar. The literal `$CMD` is replaced with the app's own command - e.g. `uwsm-app -- $CMD` or `gamemoderun $CMD`. Mutually exclusive with `launch_apps_as_systemd_services`; when both are set and the systemd launcher is in effect, the systemd service wins and the custom command is ignored. When the systemd launcher is ignored for the reason above, the custom command applies as usual. This is the v5 replacement for the old Launcher **custom launch prefix**; it is not a terminal-only setting.
+- **Terminal apps** (`Terminal=true` in a `.desktop` file): Noctalia wraps the command in a terminal emulator automatically. It uses `$TERMINAL` when set (executable name or path only - do **not** include `-e`; Noctalia adds `-e`, or `--` for gnome-terminal / kgx / ptyxis). If `$TERMINAL` is unset or not on `PATH`, it tries `x-terminal-emulator`, then common emulators including Ghostty, Kitty, Alacritty, WezTerm, Foot, Konsole, and others. The same discovery is used by `noctalia.runInTerminal()` in plugins. This is separate from `launch_apps_custom_command` and from dmenu `exec` lines, which do not open a terminal unless you write one into the command yourself.
+- `screen_time_enabled`: when `true`, Noctalia tracks per-app usage time for the Control Center screen-time view and its shortcut. Disabled by default; no usage is recorded while off.
+- `shared_gl_context`: when `true` (default), all rendering surfaces share a single EGL context group so wallpaper and icon textures are uploaded once in VRAM and reused across monitors. Set to `false` if you see corrupted textures (e.g. vertical stripe artifacts) on older GPUs with buggy cross-context texture sharing. Each surface then creates its own standalone context, which uses more VRAM on multi-monitor setups. Restart required.
+- `disable_mipmaps`: when `true`, Noctalia skips mipmap generation for textures. Startup-only - try it if downscaled application icons or wallpapers look blurry or show GPU mipmap artifacts.
+- `shell.animation.enabled` disables all animated transitions globally. `speed` scales durations globally.
+- `shell.shadow` defines the shared shadow style for shell surfaces and xdg-popup chrome such as panels, menus, pickers, and select dropdowns. `direction` controls which way the shadow is cast; blur is fixed at 12 px. Components such as panels, bars, and the dock only opt in/out with `shadow = true|false`; popups and dropdowns opt in/out with the global `popup_shadows` toggle above.
+- `shell.panel.transparency_mode` controls panel glass styling. `solid` keeps cards opaque and floating panels solid, `soft` makes floating panels lightly translucent and cards subtly translucent, and `glass` makes both visibly translucent while clamping card opacity high enough for readable text. Attached panels keep their own layer surface and use the attached-placement panel styling.
+- `shell.panel.borders` draws an outline on floating panel surfaces. Attached panels stay borderless on the bar edge. Default is `true`; set to `false` for a flatter look. Section cards inside panels are controlled by `[shell].card_borders`.
+- `shell.panel.shadow` toggles the rendered drop shadow on attached and floating panels. Shadow direction and alpha come from `[shell.shadow]`.
+- `shell.panel.list_item_background` draws a filled rounded background behind each item in the launcher results (list and app-grid views) and the clipboard history list. The fill uses the same rounded shape as the hover highlight and follows the panel transparency mode; hover and keyboard-selection colors are unchanged. Default is `false`. Toggle in **Settings → Panels → Effects**.
+- `shell.panel.floating_layer` selects the layer-shell layer for floating Launcher, Clipboard, Control Center, Wallpaper, Session, and Setup Wizard panels. `overlay` is the default and keeps these panels above fullscreen content. Use `top` when a compositor places input-method candidate popups below the Overlay layer. Attached panels continue to use their bar's configured layer; system overlays such as the polkit prompt and plugin panels keep their own layer policy. Change it in **Settings → Panels → General**.
+- `shell.panel.launcher_placement`, `clipboard_placement`, `control_center_placement`, `wallpaper_placement`, `session_placement`, and `polkit_placement` accept only `attached` or `floating`. An attached panel keeps its own layer surface and anchors it to the host bar's inward edge; floating placement opens it detached. `center` is a floating `*_position`, not a third placement. Defaults are floating at the center position for Launcher, Clipboard, and the polkit auth prompt; Control Center, Wallpaper, and Session default to attached.
+- Per-panel `*_position` keys (`launcher_position`, `clipboard_position`, `control_center_position`, `wallpaper_position`, `session_position`, `polkit_position`) apply when placement is `floating`. `auto` keeps the panel bar-relative; `center` and the edge/corner tokens anchor on screen (same vocabulary as notification/OSD position).
+- `shell.panel.floating_offset` sets the gap in pixels a floating panel keeps from the bar edge, or from the screen edge when it is pinned with a `*_position` (default `8`). It also spaces panels using the reserved edge area when multiple bars share an edge. `attached` panels ignore it.
+- When multiple enabled bars resolve to the same edge on one monitor, exact source-bar attachment is ambiguous. In that case attached/floating panels use the compositor's reserved edge area and open outside the bar stack instead of anchoring to one bar. Prefer setting `shell.panel_anchor_bar` when you have more than one bar and open panels via IPC or shortcuts.
+- `shell.panel.open_near_click_control_center`, `open_near_click_launcher`, `open_near_click_clipboard`, `open_near_click_wallpaper`, and `open_near_click_session` position attached or floating panels near the click location on the bar instead of centering them along the bar. They are ignored when a panel is `floating` with a `*_position` other than `auto`, since it is then pinned to a fixed screen position.
+- `shell.launcher.categories` shows compact category filters in the launcher for providers that expose categories, currently Applications and Emoji. **All** leaves results unfiltered. With a prefixed provider such as `/emo`, the filters come from that provider. Press `Tab` while the launcher is open to hide/show the filters; the left/right keybind actions move between filters.
+- `shell.launcher.show_icons` toggles application icons in launcher result rows. Prefixed-provider rows (for example emoji) still show their leading character when icons are hidden.
+- `shell.launcher.show_app_origin_indicator` toggles the package-origin overlays on application results, such as Flatpak, Snap, Nix, and AppImage.
+- `shell.launcher.compact` uses smaller icons, tighter padding, and single-line rows (subtitles hidden).
+- `shell.launcher.app_grid` switches to a multi-column icon grid with labels underneath when every visible result is an application. Mixed results (global search, prefixed providers, session actions, and so on) stay in the default list layout.
+- `shell.launcher.show_app_actions` includes searchable `.desktop` actions alongside application results. Action rows show the action name with the parent application underneath and launch that action directly. Disabled by default; application actions remain available from an application's right-click menu.
+- `shell.launcher.sort_by_usage` boosts frequently launched apps toward the top of results and exposes a **Recently Used** category filter. Disable it for strictly alphabetical ordering within each provider.
+- `shell.launcher.pinned` is an ordered list of desktop entry IDs shown first when the launcher opens without a query. Launcher pins are independent from `dock.pinned` and each taskbar widget's `pinned` list.
+- `shell.launcher.fetch_exchange_rates` refreshes currency exchange rates in the background from libqalculate's third-party online sources (enabled by default). Disable it to opt out of those requests; the last cached rates are still used for conversion. Refresh is also skipped when `[shell].offline_mode` is enabled.
+- `shell.launcher.auto_paste` controls virtual-keyboard paste after copy-style activations (calculator, emoji, copy-mode dmenu). Providers that copy opt in with `supportsAutoPaste`. Same values as `shell.clipboard_auto_paste` (`off` | `auto` | `ctrl_v` | `ctrl_shift_v` | `shift_insert`). Default `auto`.
+- Reset stored launcher usage data from **Settings → Panels → Launcher → Reset Usage Data** (clears `usage_counts.json` and `recently_used.json` while Noctalia is running).
+- `shell.launcher.provider_prefix` sets the common prefix character used to trigger all provider prefixes (default `"/"`). See [Launcher: Provider prefixes](/noctalia/launcher/#provider-prefixes) for how prefixes, trigger words, and global search fit together.
+- `shell.launcher.providers.<name>.prefix` sets the trigger word for a specific built-in provider (`calculator`, `emoji`, `session`, `wallpaper`, `windows`; keys are matched case-insensitively). The provider is activated when typing the `provider_prefix` followed by this trigger word (e.g. `/calc`, `/session`, or `/emo`). Setting the prefix to an empty string (`""`) falls back to the provider's built-in default trigger — it does **not** make the provider global. The Applications provider cannot be prefixed and is always queryable globally.
+- `shell.launcher.providers.<name>.global` includes a prefixed provider in the un-prefixed (global) search in addition to its prefix. Unset keeps the provider's built-in default (`true` for `calculator`, `false` for the others). This replaces the removed `session_search` option.
+- `shell.launcher.dmenu.entry.<id>` defines a dmenu-style provider. Each entry runs `command` (a shell string via `/bin/sh -lc`) once per launcher session and presents its stdout lines as candidates; a tab in a line splits it into title and description. `prefix` sets the entry's trigger word, combined with `provider_prefix` like the built-in providers (e.g. `ssh` triggers on `/ssh`) — write it bare, without the prefix character. With no prefix, set `global = true` or the entry is unreachable. On activate, `exec` runs detached with `{selection}` substituted by the chosen line - when `exec` is omitted the line is copied to the clipboard instead. Entries hot-reload with the config.
+- `shell.launcher.providers."<pluginId>:<entry>"` overrides a plugin launcher provider's `prefix` and/or `global` without editing the plugin. Key the table by the plugin's fully-qualified entry id (e.g. `"author/my-plugin:search"`); the referenced plugin must be enabled. When unset, each field falls back to the value declared in the plugin's `[[launcher_provider]]` manifest entry. Unknown provider names, disabled plugins, and two providers resolving to the same prefix are reported as config warnings.
+- `shell.mpris.blacklist` excludes matching MPRIS players from Noctalia media UI and active-player selection. Entries are case-insensitive and match player bus name, identity, desktop entry, or a bus-name substring token (for example `"spotify"`).
+- `shell.screenshot` holds the global output policy for all screenshot captures (region, fullscreen), shared by the screenshot bar widget and the `screenshot-region` / `screenshot-fullscreen` IPC commands. At least one of `save_to_file`, `copy_to_clipboard`, or `pipe_to_command` must be enabled or the capture reports "No screenshot output enabled". An empty `directory` uses the standard XDG Pictures directory (from `XDG_PICTURES_DIR` or `user-dirs.dirs`) and falls back to `~/Pictures`; explicit directories accept `~`. `filename_pattern` is a [strftime](/noctalia/configuration/date-format-tokens/) pattern (the `.png` extension is appended). `copy_to_clipboard` requires clipboard integration (`clipboard_enabled = true`). `pipe_command` runs via `/bin/sh -lc` with the PNG written to its stdin - use it for annotators or uploaders (`swappy -f -`, `satty -f -`); for plain clipboard copies use `copy_to_clipboard`.
+
+- When `pipe_to_command` runs, `NOCTALIA_SCREENSHOT_PATH` is set to the generated PNG path for that capture. If `save_to_file = true`, Noctalia writes the original PNG there before launching the command; if it is false, the path is still available for commands that need an output target, such as `satty -f - -o "$NOCTALIA_SCREENSHOT_PATH"`.
+- **Window switcher** is an Alt+Tab-style overlay with no `[shell]` settings yet. Bind your compositor shortcut to `noctalia msg window-switcher` (see [Shell → Window switcher](/noctalia/ipc/shell/#window-switcher)). While open, windows appear in a centered grid (up to five columns) with application icons, titles, and a per-window close control. Tab / Shift+Tab cycle selection; arrow keys move within the grid; releasing Alt or Enter confirms; Escape cancels. The list updates live when windows open, close, or retitle while the overlay stays open.
+- **Hot corners** let you trigger actions by pushing your mouse pointer into one of the four screen corners. When `[hot_corners].enabled = true`, the shell places invisible hit areas in each corner. `delay_ms` (default `0`) is how long the pointer must stay in the corner before the action runs — raise it to reduce accidental triggers. Each corner (`top_left`, `top_right`, `bottom_left`, `bottom_right`) takes an `action`. If `action` is `"command"`, provide a shell `command` to execute. Configure under **Settings → Desktop → Hot Corners**.
+
+### Encrypted storage master key
+
+`storage.key_source = "file"` makes the configured `key_file` authoritative. Noctalia does not look up, create, edit,
+or delete a Secret Service storage key in this mode. The path must be absolute and resolve to a regular file containing
+exactly 64 lowercase hexadecimal characters (32 random bytes), with an optional final LF. This works with agenix,
+sops-nix, and systemd credentials as long as the decrypted file is readable by the user running Noctalia.
+
+Generate the key once, then encrypt that file with your provisioner:
+
+```sh
+umask 077
+head -c 32 /dev/urandom | xxd -p -c 64 > noctalia-storage-key
+```
+
+Noctalia derives independent clipboard-history and calendar-event keys from this master key. Keep it stable. Replacing
+it does not rotate existing data: authentication fails, Settings reports storage errors, and Noctalia preserves the
+encrypted files. Restore the original key to reopen them. If the configured file is missing or invalid, clipboard
+history and the calendar event cache remain session-only; after provisioning the correct file, use the relevant Retry
+action in Settings.
+
+When the original key cannot be restored, or saved data is damaged, Settings also offers **Recover Private Storage**.
+The first click arms a confirmation and the second permanently removes both saved clipboard history and the calendar
+event cache. With `key_source = "secret-service"`, Noctalia then replaces the shared master key. With
+`key_source = "file"`, the configured file remains authoritative and is never edited or deleted; recovery simply
+reopens storage using its current contents. Retry with the correct key before resetting if the saved data is still
+needed.
+
+### App icon colorization
+
+When `app_icon_colorize = true`, Noctalia recolors **application bitmap icons** (desktop/tray pixmaps and file-backed icons) so they follow the active palette:
+
+- **Dock** pinned and running app icons
+- **Tray** inline icons and the tray drawer panel
+- **Taskbar** window icons
+- **Active window** widget icon
+- **Launcher panel** search result app icons (same bake as taskbar)
+
+Glyphs, symbolic tray icons, media album art, and other non-app-bitmap images are unchanged. Launcher panel result icons use the same app-icon bake as the taskbar.
+
+`app_icon_color` is a [color role](/noctalia/theming/palette/#color-roles) or fixed hex color (`#RGB`, `#RGBA`, `#RRGGBB`, `#RRGGBBAA`), using the same picker as bar capsule colors. When omitted while colorize is enabled, Noctalia picks a theme-aware default: `on_surface` in light mode and `on_surface_variant` in dark mode.
+
+Icons are desaturated on the CPU, contrast-normalized, then tinted. Changes apply immediately when you edit the setting in **Settings → Appearance → Interface**, switch light/dark mode, or change the palette.
+
+Per-widget `colorize_icons` / `icon_colorization` keys on the dock or tray are no longer used - configure this only under `[shell]`.
+
+## Privacy capture filters
+
+`[shell.privacy]` filters apply globally to the privacy bar widget, OSD, and other capture indicators. Each value is a
+regular expression; matching capture clients are ignored for that capture type. Leave a value empty to report every
+capture. An invalid expression logs a warning and filters nothing.
+
+---
+
+## Accessibility
+
+Global accessibility settings.
+
+```toml
+[accessibility]
+ui_scale              = 1.0             # content scale for panels and non-bar shell UI
+high_contrast         = false           # enable high contrast mode for visually impaired
+```
+
+- `ui_scale` is completely separate from `bar.scale` and `[widget.*].scale`: bar scale settings only affect bar widget content; `ui_scale` covers the control center, launcher, clipboard, and other non-bar surfaces. Neither changes Wayland output / HiDPI buffer scale.
+- `high_contrast` increases visibility and contrast by ensuring pure black backgrounds and high visibility borders for visually impaired users. It forces the `pure_black_dark` override under the hood for dark themes.
+
+---
+
+## OSD
+
+```toml
+[osd]
+position = "top_center"  # top_right | top_left | top_center | bottom_right | bottom_left | bottom_center | center_right | center_left
+position_vertical = "top_center"  # same options; used when orientation = "vertical"
+orientation = "horizontal" # horizontal | vertical (volume/brightness sliders only)
+scale = 1.0              # OSD size multiplier on top of shell.ui_scale
+background_opacity = 0.97 # background opacity of OSD popups
+border = true            # outline around OSD popup cards; set false for a borderless look
+offset_x = 20            # absolute horizontal margin from the screen edge
+offset_y = 8             # absolute vertical margin from the screen edge
+# monitors = ["DP-1"]    # connector names; omit or leave empty for all monitors
+
+[osd.kinds]
+volume = true            # master volume OSD toggle
+volume_output = true     # output (speaker) volume; requires volume = true
+volume_input = true      # input (microphone) volume; requires volume = true
+brightness = true        # display brightness
+wifi = true              # Wi-Fi toggle
+bluetooth = true         # Bluetooth toggle
+power_profile = true     # power profile changes
+caffeine = true          # idle inhibitor toggle
+nightlight = true        # night light toggle
+dnd = true               # Do Not Disturb toggle
+lock_keys = true         # Caps/Num/Scroll Lock popups
+keyboard_layout = true   # input keyboard layout changes
+media = true             # MPRIS playback, track changes, and per-player volume changes
+privacy = true           # microphone/camera/screen share capture changes
+keyboard_backlight = true # keyboard backlight level
+```
+
+The OSD powers volume, brightness, DND, caffeine, lock-key, keyboard-layout, privacy, external/IPC Wi-Fi, external/IPC Bluetooth,
+and external/IPC power-profile popups, and defaults to `top_center` with a horizontal layout. Set
+`orientation = "vertical"` for a taller vertical gauge on volume, display brightness, and keyboard-backlight sliders; text-only popups (media, lock
+keys, keyboard layout, privacy, and similar) always use horizontal layout for readability. `position` controls placement
+for horizontal popups; `position_vertical` controls placement when slider orientation is vertical. `scale` multiplies the
+effective OSD size on top of
+`shell.ui_scale` (for example `1.25` makes volume, brightness, and lock-key popups 25% larger than the default).
+`monitors` limits OSD popups to the listed connector names (same matching rules as notification toasts and the dock);
+leave it empty to show on every connected output. If none of the configured monitors are connected, OSD falls back to all
+outputs until one reconnects. `background_opacity` sets popup background opacity, `border` draws the card outline (default
+`true`; set `false` for a borderless look), and `offset_x` / `offset_y` are the
+absolute margins from the screen edge for the chosen `position`.
+Each popup kind can be toggled independently under `[osd.kinds]`. The volume master toggle enables both output and input
+OSDs by default; set `volume_output` or `volume_input` to `false` to disable one side only. `media = false` disables
+MPRIS playback, track-change, and player-volume popups, and `keyboard_backlight = false` disables keyboard-backlight
+level popups.
+`lock_keys = false` disables Caps/Num/Scroll Lock popups; when no `lock_keys` bar widget is configured, this also stops
+lock-key state polling. `keyboard_layout = false` disables layout-change popups. `privacy = false` disables popups shown
+when microphone, camera, or screen share capture starts or stops.
+
+---
+
+## Lock screen
+
+Set **`[lockscreen].enabled = false`** to turn off session lock entirely: no `ext-session-lock-v1` engagement, no logind lock/unlock integration, and lock actions are hidden or no-op (idle lock, session panel, launcher, and `noctalia msg session lock`). **`lock-and-suspend`** falls back to suspend-only while the lock screen is disabled.
+
+When the lock screen is enabled, **`lock_before_suspend`** (default `true`) locks the session on logind `PrepareForSleep` before suspend or hibernate — including lid-close sleep — so you do not need a separate idle daemon for lock-before-sleep. Set it `false` if you want external suspend without locking.
+
+When enabled and `wlr-screencopy` is available, Noctalia can capture the desktop **before** the session lock engages and use that snapshot as the lock screen background instead of the wallpaper. Desktop capture is disabled by default.
+
+Configure under **`[lockscreen]`** in TOML, or use **Settings → Security → Lock Screen**. The **Desktop capture** toggle appears only when your compositor supports screencopy. Use **Wallpaper** to pick a custom lock screen image (empty uses the desktop wallpaper per output).
+
+```toml
+[lockscreen]
+enabled               = true      # master switch for session lock
+lock_before_suspend   = true      # lock on PrepareForSleep (lid close / systemctl suspend)
+fingerprint           = true      # allow fingerprint (PAM) authentication on the lock screen
+allow_empty_password  = false     # submit Enter with an empty password (security-key PAM stacks)
+blurred_desktop       = false     # use a desktop snapshot as the lock screen background
+blur_intensity        = 0.5       # background blur (0.0 = none, 1.0 = maximum)
+tint_intensity        = 0.3       # surface-color tint over the background (0.0 = none, 1.0 = opaque)
+wallpaper             = ""        # optional image path; empty uses the desktop wallpaper per output
+monitors              = []        # connectors that show the lock screen; empty = all outputs, others stay black
+```
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `enabled` | bool | `true` | Master switch for session lock, logind integration, and lock actions. |
+| `lock_before_suspend` | bool | `true` | When `true`, hold a logind sleep-delay inhibitor and lock on `PrepareForSleep` before suspend/hibernate (including lid-close sleep). Set `false` to allow external suspend without locking; explicit **Lock and Suspend** actions still lock first. |
+| `fingerprint` | bool | `true` | When `true`, fingerprint (PAM) authentication is offered on the lock screen alongside the password field. Set `false` to require password entry only. |
+| `allow_empty_password` | bool | `false` | When `true`, Enter can submit an empty password (needed for some security-key PAM stacks). When `false`, empty submits are ignored to avoid accidental `pam_faillock` lockouts from wake keys. |
+| `blurred_desktop` | bool | `false` | Capture each output before lock and use it as the lock screen background. |
+| `blur_intensity` | float | `0.5` | Blur strength for the active lock screen background (`0.0`–`1.0`). |
+| `tint_intensity` | float | `0.3` | Surface-color tint over the active lock screen background (`0.0`–`1.0`). |
+| `wallpaper` | string | `""` | Optional image path for the lock screen. When empty, each output uses its desktop wallpaper. Ignored when desktop capture is active. |
+| `monitors` | array | `[]` | Connector names that show the lock screen. Empty shows it on all outputs; listed-only mode leaves other outputs black. |
+
+If capture fails (missing protocol, permission denied, etc.), the lock screen falls back to the normal per-output wallpaper. The snapshot lives in memory only until unlock. Blur and tint sliders can be adjusted live from Settings while the session is locked.
+
+---
+
+## Keybinds
+
+Centralized keyboard actions for shell panels (`launcher`, `session`, `clipboard`, `wallpaper`), panel close/cancel, dismissing interactive region screenshot selection (including while `freeze_screen` pre-capture is in progress), and keyboard navigation inside Noctalia surfaces such as **Settings**, **Control Center**, and the **session panel**.
+
+```toml
+[keybinds]
+validate = ["return", "kp_enter"]
+cancel   = ["escape"]
+left     = ["left"]
+right    = ["right"]
+up       = ["up"]
+down     = ["down"]
+tab_next = ["tab"]
+tab_previous = ["shift+tab", "iso_left_tab"]
+copy     = ["ctrl+c"]
+save     = ["ctrl+s"]
+delete   = ["del"]
+```
+
+Each action accepts a single string chord or an array of chords.
+
+**Chord format:** `key`, `modifier+key`, or `modifier+modifier+key`
+
+**Supported modifiers:** `ctrl`, `shift`, `alt`
+
+**`super` bindings are rejected** (`super`, `win`, `windows`, `logo`, `meta`, `mod4`) and produce a config parse error.
+
+**Supported actions:** `validate`, `cancel`, `left`, `right`, `up`, `down`, `tab_next`, `tab_previous`, `copy`, `save`, `delete`
+
+| Action | Default role |
+|--------|----------------|
+| `validate` | Activate the focused control (open a select, toggle a switch, press a button, submit an input). |
+| `cancel` | Close a popup/panel or dismiss the current operation. |
+| `left` / `right` / `up` / `down` | Move within the focused region (list rows, launcher grid columns, slider nudge on left/right, and similar). |
+| `tab_next` / `tab_previous` | Move between major panes in split layouts (for example Settings sidebar ↔ content, or Control Center sidebar ↔ tab body). |
+| `copy` | Copy the selected region or item to the clipboard (for example, forcing a screenshot region to copy). |
+| `save` | Save the selected region or item to a file (for example, forcing a screenshot region to save). |
+| `delete` | Delete the selected item after confirmation (for example, a clipboard history entry). |
+
+On split-pane surfaces (**Settings** and **Control Center**), `tab_next` / `tab_previous` switch between the sidebar and the main content area. Arrow keys stay inside the active pane: the sidebar uses roving focus, and the content area moves between controls on up/down while leaving left/right to control-native behavior (such as slider nudge). The session panel uses arrow keys to move between actions once focus has entered the button list; it does not pre-select an action on open.
+
+### Recording from the GUI
+
+Open **Settings → Shell → Keybinds** to bind chords interactively. Actions are shown in a three-column grid. Each cell lists the current chord(s) for that action plus a trailing *"Click to add keybind"* slot. When you have not overridden an action in `settings.toml`, the GUI still shows the built-in defaults (the same chords Noctalia uses at runtime).
+
+- Click a slot (or focus it and press a `validate` chord) to start recording, then press the key combination. The recorder previews held modifiers (e.g. `Ctrl + Shift + …`) and commits as soon as a non-modifier key is pressed.
+- Press a modifier-only chord (no regular key) and click away to abort the recording without changing the binding.
+- Pressing **Super / Windows** - either alone or as a modifier - cancels the recording and surfaces a transient toast explaining that compositor-reserved keys cannot be bound. Click the slot again to retry with a different chord.
+- Use the **×** next to a row to remove that specific binding. Removing every binding clears the GUI override and restores the built-in default for that action.
+- After you change a binding, **Override** and **Reset** appear below that action's list so the title and description keep the full column width.
+
+Chords recorded in the GUI are serialized as `ctrl+shift+Return`-style strings under `[keybinds]` in `~/.local/state/noctalia/settings.toml` and follow the same parsing rules as hand-written config.
+
+---
+
+## Session panel
+
+The session (power) menu opened from the bar **Session** widget or Control Center lists **Lock**, **Log out**, **Lock & Suspend**, **Reboot**, and **Shut down** by default. The launcher also exposes the same enabled entries under `/session`. `noctalia msg session <action>` uses the same configured entries (including per-row `command` overrides and disabled actions). Log out uses compositor-native exits where available, including LabWC's `labwc --exit`, unless a row-level `command` is set. You can change which buttons appear, their order, whether each is enabled, and optionally replace the implementation with a **shell command** (still run after `logging_out` / `rebooting` / `shutting_down` [hooks](/noctalia/automation/hooks/) when the action is one of those three).
+
+Built-in suspend/reboot/shutdown actions resolve from prioritized backend lists (systemd/logind first, then distro/runtime fallbacks) and cache the working backend in-memory for the current session. Override each built-in action globally under `[shell.session.power]` when auto-detection is not enough:
+
+```toml
+[shell.session.power]
+suspend = "sudo -n zzz"
+reboot = "sudo -n reboot"
+shutdown = "sudo -n poweroff"
+```
+
+When an override is set, Noctalia runs that command for the built-in suspend/reboot/shutdown actions (session panel, launcher, IPC, idle, and greeter sync). Per-row `command` still overrides a single menu button when you need one-off behavior (including logout via `noctalia msg session logout`).
+
+Configure under **`[shell.session]`** in TOML, or use **Settings → Power → Session panel**: entries, reorder, and **Show** are listed inline; use the **settings** (cog) control on a row for behavior, label, command, icon, shortcut, countdown, and style. **Add action** appends a custom-command entry by default. The default five actions are assigned keyboard shortcuts **1**–**5**; pressing the key while the panel is open triggers the action (or starts its countdown when configured). **Grid Layout** and its **Columns** stepper control how the buttons are arranged; with grid off, the panel fits the actions on one row (wrapping to a second row past five). Arrow keys follow the resulting rows and columns.
+
+Panel-level settings under `[shell.session]`:
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `grid` | bool | `false` | When `true`, lays the session actions out over multiple rows of `grid_columns` instead of fitting them on a single row. |
+| `grid_columns` | number | `3` | Actions per row when `grid` is `true` (1-5). Ignored when `grid` is `false`. |
+| `show_shortcuts` | bool | `true` | When `true`, shows the keyboard shortcut for each session action at the top right corner. |
+
+Each entry in the `[[shell.session.actions]]` array takes:
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `action` | string | *required* | `lock`, `logout`, `suspend`, `lock_and_suspend`, `reboot`, `shutdown`, or `command` (custom entry). |
+| `enabled` | bool | `true` | When `false`, the button is hidden. |
+| `command` | string | *unset* | Optional. If set, the string is run with `/bin/sh -c` instead of the built-in handler. For `action = "command"`, this field is required. |
+| `label` | string | *unset* | Optional button label (otherwise translated defaults). |
+| `glyph` | string | *unset* | Optional bar-style icon id (otherwise defaults per action). Under **Session panel** in Settings → Power, open a row’s settings (cog) editor and use the icon preview to pick a glyph. |
+| `shortcut` | string | `"1"`–`"5"` | Optional keyboard shortcut that triggers the action while the session panel is open. Any XKB key name (e.g. `1`, `F1`, `Escape`) or modifier combo (`Ctrl+1`). Clear to disable. |
+| `countdown_seconds` | number | `0` | When greater than zero, the first activation starts a per-entry countdown (shown on the button badge). Activate the same entry again to run immediately, or wait for the timer. **Escape** or moving to another entry cancels. `0` runs immediately. |
+| `variant` | string | `"default"` | Button style: `default`, `primary`, `secondary`, `destructive` (warning), or `outline`. |
+
+Omitting `[[shell.session.actions]]` entirely keeps the default five actions. To define your own list, declare one or more tables. An explicit empty array hides all session buttons:
+
+```toml
+[shell.session]
+grid = false
+grid_columns = 3
+actions = []
+
+# Example: reorder, disable reboot, custom suspend, override lock
+[[shell.session.actions]]
+action = "lock"
+command = "swaylock -f"
+
+[[shell.session.actions]]
+action = "logout"
+enabled = true
+
+[[shell.session.actions]]
+action = "command"
+label = "Sleep"
+glyph = "bedtime"
+command = "systemctl suspend"
+
+[[shell.session.actions]]
+action = "shutdown"
+variant = "destructive"
+countdown_seconds = 5
+```
+
+### Greeter sync
+
+Requires [Noctalia Greeter](/greeter/) and `noctalia-greeter-apply-appearance` on `PATH`. When those are missing, auto-sync stays off, Security settings for greeter sync are hidden, and the `greeter-sync` IPC command is not registered.
+
+**Settings → Security → Auto-Sync Greeter** and **Settings → Security → Greeter Sync Privilege Command**, or in TOML:
+
+```toml
+[shell.greeter_sync]
+auto_sync = true
+privilege_command = "ghostty -e pkexec"
+```
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `auto_sync` | `bool` | `false` | Automatically sync the greeter whenever wallpaper, colors, theme mode, or shell font change. Ignored when the greeter is not installed. |
+| `privilege_command` | `string` | `""` | Replaces the default `pkexec` or `run0` prefix for **Sync Now**. Noctalia appends the `noctalia-greeter-apply-appearance` path and staging directory. Leave empty for the default escalator. |
+
+See [Noctalia Greeter](/greeter/) for seatd and polkit notes.

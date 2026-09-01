@@ -1,0 +1,92 @@
+---
+title: App Theming
+description: Built-in, community, and user templates for applying Noctalia colors to other apps.
+sidebar:
+  order: 10
+---
+
+Noctalia can render the resolved theme colors into external app config files whenever the palette changes. This lets terminals, editors, browsers, launchers, and other apps follow the same colors as the shell.
+
+To rerender enabled templates for the current palette without changing the theme, use
+[Media & UI → Theme](/noctalia/ipc/media-and-ui/#theme).
+
+## Built-in Templates
+
+Built-in templates ship with Noctalia. Enable the built-in catalog, then opt in to the template IDs you want:
+
+```toml
+[theme.templates]
+enable_builtin_templates = true
+builtin_ids              = []        # opt-in; run: noctalia theme --list-templates
+```
+
+`builtin_ids` selects which shipped templates run. An empty array means no built-in templates are applied.
+
+Disabling a built-in template removes its generated Noctalia theme file and undoes any Noctalia-owned include or theme
+selection that the template added to the application's config. Disabling `enable_builtin_templates` performs the same
+cleanup for every selected built-in template.
+
+Application configs must be writable for Noctalia to remove those integrations. For declaratively managed configs such
+as Home Manager symlinks into the Nix store, remove the Noctalia include or theme selection from the declarative source.
+
+List available built-in and configured template IDs:
+
+```sh
+noctalia theme --list-templates
+```
+
+## Community Templates
+
+Community templates are fetched from `https://api.noctalia.dev/templates` and cached locally:
+
+```toml
+[theme.templates]
+enable_community_templates = true
+community_ids              = []        # opt-in; fetched from api.noctalia.dev/templates
+```
+
+`community_ids` selects which community templates run. In **Settings → Templates**, enable community templates and use **Browse Templates** to search and filter the catalog (by category or enabled-only). Metadata and files are stored in `~/.local/state/noctalia/community-templates/` (honoring `NOCTALIA_STATE_HOME`, then `XDG_STATE_HOME`).
+
+Cached community template files are treated as editable local copies. Sync updates files only while their content still matches the last Noctalia-written md5; local edits are preserved until you delete the edited cached file.
+
+Community template discovery and updates require network access unless the selected template is already cached. [`shell.offline_mode`](/noctalia/configuration/shell/#shell-settings) prevents outgoing HTTP requests, including community template requests.
+
+## User Templates
+
+User templates are declared directly in Noctalia config:
+
+```toml
+[theme.templates.user.my_app]
+input_path  = "$XDG_CONFIG_HOME/noctalia/templates/my-app.css"
+output_path = "$XDG_CONFIG_HOME/my-app/theme.css"
+post_hook   = "my-app --reload-theme"
+```
+
+Defining `[theme.templates.user.<id>]` enables that user template. Set `enabled = false` on an entry to keep it available but inactive.
+
+Relative paths resolve from the Noctalia config directory. A leading `$XDG_CONFIG_HOME`, `$XDG_DATA_HOME`, `$XDG_STATE_HOME`, or `$XDG_CACHE_HOME` token is expanded using the XDG base directory defaults when the matching environment variable is not set.
+
+User template entries support the same fields documented in [Template Entries](/noctalia/theming/templates/#template-entries), including `input_path_modes`, `output_path_dynamic`, `colors_to_compare`, `compare_to`, `pre_hook`, `post_hook`, `post_action`, and `index`.
+
+## Config Location
+
+Put dotfile-managed templates in `~/.config/noctalia/*.toml`:
+
+```toml
+# ~/.config/noctalia/templates.toml
+[theme.templates]
+enable_builtin_templates   = true
+enable_community_templates = true
+builtin_ids                = []
+community_ids              = []
+
+[theme.templates.user.my_app]
+input_path  = "$XDG_CONFIG_HOME/noctalia/templates/my-app.css"
+output_path = "$XDG_CONFIG_HOME/my-app/theme.css"
+```
+
+The same tables are valid in `settings.toml` because it is the final config overlay, but that file is managed by the GUI and runtime actions. Use `~/.config/noctalia/` for templates you want to keep in dotfiles.
+
+## Template Reference
+
+For template syntax, color tokens, filters, hooks, dynamic output paths, and CLI rendering, see the [Template Reference](/noctalia/theming/templates/).

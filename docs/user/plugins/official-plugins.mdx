@@ -1,0 +1,208 @@
+---
+title: Official plugins
+description: The plugins shipped by the official source, and the IPC commands each one accepts.
+sidebar:
+  label: Official plugins
+  order: 3
+---
+
+import IpcCommand from '../../../../components/IpcCommand.astro';
+import PluginMeta from '../../../../components/PluginMeta.astro';
+import PluginApiBadge from '../../../../components/PluginApiBadge.astro';
+
+:::caution[Beta - APIs may still change]
+The plugin system is in **beta**. The manifest format and APIs may still change before v5 is stable, so build with that in mind.
+:::
+
+These ship from the default **official** source
+([`github.com/noctalia-dev/official-plugins`](https://github.com/noctalia-dev/official-plugins)). Each is installed and
+enabled like any other plugin - see [Using Plugins](/noctalia/plugins/). Once enabled, an entry can be driven over IPC:
+
+```sh
+noctalia msg plugin <author/plugin:entry> <target> <event> [payload]
+```
+
+`<target>` selects which live instances receive the event:
+
+- **`focused`** - the entry on the focused output (bar widgets)
+- **`<connector>`** or **`<connector>:<bar-name>`** - a specific output / bar
+- **`all`** - every instance; **also how you address a `[[service]]`**, since a service is a singleton with no output
+
+---
+
+## Example {#example}
+
+<PluginMeta icon="puzzle" id="noctalia/example" />
+
+A reference plugin that exercises every entry kind: a bar **widget**, a headless **service** (ticks once a second and
+publishes to the plugin's state channel), a control-center **shortcut**, a **launcher provider** behind the `/ex`
+prefix, and a **panel** of interactive controls (toggle, slider, text input, select). The panel defaults to
+**floating** at **center**; change placement under **Settings → Plugins**. Good starting point for reading
+real code.
+
+| Command | Effect |
+|---------|--------|
+| <IpcCommand command='plugin noctalia/example:hello focused set "New label"' /> | set the widget's text |
+| <IpcCommand command='plugin noctalia/example:hello focused fetch "https://example.com"' /> | async HTTP GET; notifies with the status + body size |
+| <IpcCommand command='panel-toggle noctalia/example:panel' /> | open / close the example panel |
+
+---
+
+## Screen Recorder {#screen_recorder}
+
+<PluginMeta icon="video" id="noctalia/screen_recorder" />
+
+Screen recording and a replay buffer via [`gpu-screen-recorder`](https://git.dec05eba.com/gpu-screen-recorder/) (must
+be installed, natively or as the Flatpak). The recording logic lives in a headless **service** that runs for the whole
+session, so it works with **no bar widget placed** - the widget and control-center shortcut are thin clients. Options
+(codec, quality, output folder, replay buffer, …) are plugin-level settings, edited under **Settings → Plugins**.
+
+The service is a singleton, so address it with **`all`**:
+
+| Command | Effect |
+|---------|--------|
+| <IpcCommand command="plugin noctalia/screen_recorder:service all start" /> | start recording |
+| <IpcCommand command="plugin noctalia/screen_recorder:service all stop" /> | stop recording |
+| <IpcCommand command="plugin noctalia/screen_recorder:service all toggle" /> | start/stop recording |
+| <IpcCommand command="plugin noctalia/screen_recorder:service all replay-start" /> | start the replay buffer |
+| <IpcCommand command="plugin noctalia/screen_recorder:service all replay-stop" /> | stop the replay buffer |
+| <IpcCommand command="plugin noctalia/screen_recorder:service all replay-toggle" /> | start/stop the replay buffer |
+| <IpcCommand command="plugin noctalia/screen_recorder:service all replay-save" /> | save the last buffered seconds |
+
+`start` and `replay-start` take an optional payload - `focused`, `portal`, or `region` - that overrides the
+`video_source` setting for that capture (any other value falls back to the configured source). The target (`all`) and
+the capture source are separate fields:
+
+| Command | Effect |
+|---------|--------|
+| <IpcCommand command="plugin noctalia/screen_recorder:service all start focused" /> | record the focused output |
+| <IpcCommand command="plugin noctalia/screen_recorder:service all replay-start region" /> | start the replay buffer in region mode |
+
+---
+
+## Translator {#translator}
+
+<PluginMeta icon="language" id="noctalia/translator" />
+
+Translate text straight from the launcher via Google Translate. A **launcher provider** behind the `/tr` prefix - type
+`/tr <lang> <text>` (e.g. `/tr es hello world`) and press **Enter** on a result to copy the translation. If the first
+word isn't a language, the whole query is translated to the **default target language** (a plugin setting, default
+`en`). Language can be a code (`fr`) or a name (`french`, `français`).
+
+---
+
+## Timer {#timer}
+
+<PluginMeta icon="clock" id="noctalia/timer" />
+
+A countdown timer **desktop widget** with start/pause and reset buttons and a progress bar. Add it from the
+desktop-widgets editor (it appears in the type picker once the plugin is enabled). Also the reference implementation
+for the declarative `ui.*` desktop-widget API - see
+[Declarative UI](/noctalia/plugins/development/declarative-ui/#desktopwidget--declarative-desktop-widget-ui).
+
+Settings: countdown duration, accent color, and progress-bar visibility.
+
+---
+
+## Bongo Cat {#bongocat}
+
+<PluginMeta icon="cat" id="noctalia/bongocat" />
+
+A bar cat that taps along to input events (via `evtest`) or to the audio spectrum. Single bar **widget**.
+
+For input reactivity, set `input_devices` to one or more evdev paths or glob patterns. Prefer stable symlinks such as
+`/dev/input/by-id/*-event-*` or `/dev/input/by-path/*-event-*`; `/dev/input/eventN` paths can change after kernel or
+device updates.
+
+| Command | Effect |
+|---------|--------|
+| <IpcCommand command="plugin noctalia/bongocat:cat focused pause" /> | freeze the cat |
+| <IpcCommand command="plugin noctalia/bongocat:cat focused resume" /> | resume tapping |
+| <IpcCommand command="plugin noctalia/bongocat:cat focused toggle" /> | pause/resume |
+
+---
+
+## Wallhaven {#wallhaven}
+
+<PluginMeta icon="photo" id="noctalia/wallhaven" />
+
+Browse [Wallhaven](https://wallhaven.cc), download a wallpaper into your configured wallpaper directory, and apply it
+to all monitors. A **panel** browser (`browser`) with tag search, category/purity/sort filters, and a thumbnail grid,
+plus a bar **widget** (`wallhaven`) that toggles the panel. The browser panel defaults to **attached** at the bar;
+placement is configurable under **Settings → Plugins** (floating + screen position, open-near-click, etc.).
+
+Requires network access (`[shell].offline_mode` must be off). NSFW results require a Wallhaven API key (plugin setting).
+
+| Command | Effect |
+|---------|--------|
+| <IpcCommand command="panel-toggle noctalia/wallhaven:browser" /> | open or close the Wallhaven browser |
+
+---
+
+## Wallpaper Depth {#wallpaper_depth}
+
+<PluginMeta icon="layers-subtract" id="noctalia/wallpaper_depth" />
+
+Place desktop widgets behind foreground scenery in a static wallpaper. A headless **service** runs
+[Depth Anything V2 Small](https://github.com/DepthAnything/Depth-Anything-V2) locally, caches one normalized depth map
+per wallpaper, and generates source-aligned grayscale masks for every output. Threshold or feather changes reuse the
+cached depth map; wallpaper changes clear the old mask before new inference starts.
+
+Requires <PluginApiBadge feature="wallpaper-mask" />.
+
+The first setup is explicit: open the **manager panel** and choose **Install model**. This creates a private Python 3.13
+environment and downloads the 99 MB Apache-2.0
+[ONNX model](https://huggingface.co/onnx-community/depth-anything-v2-small) from Hugging Face. Setup requires `python3`,
+`uv`, network access, and `[shell].offline_mode = false`. Wallpapers stay local. The panel reports setup, generation,
+cache, and per-output state; threshold, feather, and automatic generation are plugin settings.
+
+| Command | Effect |
+|---------|--------|
+| <IpcCommand command="panel-toggle noctalia/wallpaper_depth:manager" /> | open or close the manager panel |
+| <IpcCommand command="plugin noctalia/wallpaper_depth:service all setup" /> | install and verify the runtime and model |
+| <IpcCommand command="plugin noctalia/wallpaper_depth:service all generate" /> | regenerate every connected output mask |
+| <IpcCommand command="plugin noctalia/wallpaper_depth:service all clear-cache" /> | clear cached depth maps and masks |
+
+---
+
+## Video Wallpaper {#mpvpaper}
+
+<PluginMeta icon="movie" id="noctalia/mpvpaper" />
+
+Animated and video wallpapers via [mpvpaper](https://github.com/GhostNaN/mpvpaper). A headless **service**
+supervises one `mpvpaper` instance per output; a **panel** (`picker`) browses your video directory as a thumbnail
+grid and applies a video per output (or to all); a bar **widget** (`mpvpaper`) toggles the panel. When a video is
+assigned to an output, Noctalia drops its own wallpaper surface there so the video shows through - the bar and dock
+still draw above it. Assignments persist across restarts.
+
+Requires the external `mpvpaper` command (which pulls in `mpv`; `mpv` also renders the picker thumbnails). Works on
+`wlr-layer-shell` compositors (Niri, Hyprland, Sway, Mango). Supported files: `mp4`, `webm`, `mkv`, `mov`, `gif`.
+
+| Command | Effect |
+|---------|--------|
+| <IpcCommand command="panel-toggle noctalia/mpvpaper:picker" /> | open or close the video picker |
+
+---
+
+## World Clock {#world_clock}
+
+<PluginMeta icon="world" id="noctalia/world_clock" />
+
+Track multiple IANA timezones in an attached **panel**. A headless **service** owns the zone list and publishes live
+times; a bar **widget** (`bar`) shows a world glyph and opens the panel on click. Zones persist under the plugin data
+directory across updates.
+
+On first run the list is seeded with `UTC`, `America/New_York`, `Europe/Berlin`, and `Asia/Tokyo`. Add further zones by
+IANA name (for example `Europe/London`); remove with the trash control (confirm with the check). Drag the grip on a row
+to reorder.
+
+Requires plugin API 19 (`formatTime` timezone support, `timeFormat()` / `isValidTimezone()`). Times use
+`[shell].time_format`.
+
+| Command | Effect |
+|---------|--------|
+| <IpcCommand command="panel-toggle noctalia/world_clock:panel" /> | open or close the world-clock panel |
+| <IpcCommand command='plugin noctalia/world_clock:service all add "America/Los_Angeles"' /> | add a timezone |
+| <IpcCommand command='plugin noctalia/world_clock:service all remove "UTC"' /> | remove a timezone |
+| <IpcCommand command="plugin noctalia/world_clock:service all list" /> | notify with the configured zones |
+| <IpcCommand command="plugin noctalia/world_clock:service all clear" /> | remove every timezone |

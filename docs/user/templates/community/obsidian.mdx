@@ -1,0 +1,58 @@
+---
+title: Obsidian
+description: Theming Obsidian with Noctalia
+sidebar:
+  order: 10
+---
+Applies Noctalia's generated color palette to [Obsidian](https://obsidian.md/) as a CSS snippet. Both dark and light mode variants are generated, and Obsidian will use whichever matches its current appearance setting.
+## Requirements:
+
+- `obsidian.css` provided [here](https://github.com/noctalia-dev/community-templates/blob/main/obsidian/obsidian.css)
+
+## Setup:
+1. **Download `obsidian.css` from the Obsidian community-templates [Github](https://github.com/noctalia-dev/community-templates/blob/main/obsidian/obsidian.css) page.**
+
+2. **Enable User Templates in Noctalia:**
+	- **Settings → Templates → Toggle Enable User Templates ON → Toggle obsidian (editor) ON**
+
+3. **Set up Obsidian files**
+	- Open a terminal and navigate to `.config/noctalia`. Create a file named `obsidian.toml`
+	```shell 
+	cd ~/.config/noctalia 
+	touch obsidian.toml
+	```
+	- While we're inside `/.config/noctalia`, create a new folder named 'Obsidian', then open the folder we just created and paste the `obsidian.css` file that we downloaded in Step 1. 
+	```shell
+	mkdir Obsidian
+	cd Obsidian
+	cp ~/Downloads/obsidian.css ~/.config/noctalia/Obsidian
+	```
+
+4. **Set up Noctalia files**
+	- Navigate to wherever your Obsidian Vault is located, and create a folder called `snippets`. Create a file inside the `/snippets` folder named `noctalia.css`. The command `touch` creates empty files, `mkdir` makes folders.
+	```shell 
+	mkdir ~/Documents/vault/.obsidian/snippets
+	cd snippets
+	touch noctalia.css
+	```
+
+5. **Open the `obsidian.toml` file that we created in Step 3. Copy and paste the following, substituting your local paths:**
+	```toml
+	[theme.templates.user.obsidian_extra]
+	input_path = "/home/$USER/.config/noctalia/Obsidian/obsidian.css"
+	output_path = "/home/$USER/Documents/vault/.obsidian/snippets/noctalia.css"
+	```
+	- `input_path` should point to the `obsidian.css` file that we downloaded earlier which should be in `.config/noctalia/Obsidian`, and `output_path` should point to the `noctalia.css` file we made previously in your vault folder. The `obsidian.css` file tells `noctalia.css` what colors to generate when Obsidian hot-reloads.
+
+6. **Enable CSS snippet in Obsidian**
+	- Open `Settings → Appearance`
+		- Ensure "Base Color Scheme" is set to "Adapt to system"
+		- Toggle "CSS Snippets" should now populate a button, toggle it **ON**
+
+## How it works:
+This template renders a CSS snippet (`noctalia.css`) into your Obsidian vault's `snippets/` directory. The snippet overrides Obsidian's CSS custom properties to match Noctalia's active palette — backgrounds, text, accents, headings, links, tags, graph view, and more. 
+
+## Notes:
+- The snippet layers on top of any installed Obsidian theme - it overrides color variables without removing your base theme.
+- Obsidian hot-reloads CSS snippets from disk on most platforms. If colors don't update after a wallpaper change, toggle the snippet off/on in Obsidian's `Settings → Appearance → CSS Snippets`
+- 'How it works' section and general description pulled from the original community template [README](https://github.com/noctalia-dev/community-templates/blob/main/obsidian/README.md).

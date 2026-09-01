@@ -766,9 +766,7 @@ public:
     if (!m_dragSourceIndex.has_value()) {
       return false;
     }
-    if (!m_dragging) {
-      m_dragging = true;
-    }
+    m_dragging = true;
 
     const std::optional<std::size_t> nextTarget =
         index.has_value() && *index != *m_dragSourceIndex && isReorderable(*index) ? index : std::nullopt;
@@ -1247,6 +1245,7 @@ void LauncherPanel::syncLauncherViewLayout(Renderer* renderer) {
   const bool useGrid = shouldUseAppGrid();
   const float scale = contentScale();
   const LauncherListStyle style = launcherListStyleFrom(m_config, scale, panelCardOpacity());
+  m_grid->setScale(scale);
   m_listAdapter->setListStyle(style);
   m_gridAdapter->setListStyle(style);
   const bool reorderEnabled = m_query.empty() && m_scopedProviderId.empty() && m_activeCategoryType == All;

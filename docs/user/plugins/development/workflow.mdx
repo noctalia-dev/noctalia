@@ -1,0 +1,104 @@
+---
+title: Workflow & Publishing
+description: Develop plugins locally, test entries over IPC, and publish source repositories.
+sidebar:
+  label: Workflow & Publishing
+  order: 7
+---
+
+:::caution[Beta - APIs may still change]
+The plugin system is in **beta**. The manifest format and APIs may still change before v5 is stable, so build with that in mind.
+:::
+
+## Local development
+
+Drop your plugin under `$XDG_DATA_HOME/noctalia/plugins/<plugin>/` (or add a `path` source pointing at your dev
+directory), then enable it once. Edits to `.luau` files hot-reload automatically; manifest changes are picked up on the
+next config reload. Drive an entry's `onIpc` handler from the shell to test:
+
+:::tip[Source precedence]
+A plugin id is canonical - only one copy of a given `author/plugin` ever loads. When the same id ships from more than
+one source, the **highest-precedence** copy wins: the local data dir overrides everything, a later-added source
+overrides an earlier one, and user sources override the built-in `official`/`community` sources. So you can clone the
+official or community repo, add it as a source, and edit plugins in place to override the built-in copies - no need to
+rename ids. (Working on a single plugin? The data-dir drop-in above is simplest and outranks all sources.)
+:::
+
+```sh
+# A bar widget - target a specific output (focused / connector / a-bar-name) or all:
+noctalia msg plugin me/hello:hello focused greet "hi there"
+
+# A service - it is a singleton with no output, so address it with the `all` target:
+noctalia msg plugin me/hello:ticker all refresh
+
+# A panel - toggle by full entry id:
+noctalia msg panel-toggle me/hello:panel
+```
+
+The target picks which live instances receive the event: `focused` (the focused output), a connector or
+`<connector>:<bar-name>`, or `all`. Services and other non-bar entries have no output, so they only match `all`.
+
+## Publishing
+
+Plugins are distributed from **source repos** - one repo holds many plugins, each in its own subdirectory matching the
+part of the id after the `/` (so `me/hello` lives at `hello/`). Add a `catalog.toml` at the repo root indexing every
+plugin so it can be listed and compat-checked without a full clone:
+
+```toml
+[[plugin]]
+id           = "me/hello"
+name         = "Hello"
+version      = "1.0.0"
+author       = "me"
+license      = "MIT"
+icon         = "puzzle"
+description  = "A friendly greeter."
+deprecated   = false
+plugin_api   = 3
+tags         = ["demo"]
+dependencies = ["slurp"]
+```
+
+Catalog rows require `id`, `name`, and a positive integer `plugin_api`; rows without them are ignored.
+
+### Keeping older Noctalia versions supported
+
+When you raise a plugin's `plugin_api`, every Noctalia below that level loses the plugin - unless the catalog names an
+older revision they can still run. Add a `[[plugin.release]]` row for each API level your history supports, newest
+first:
+
+```toml
+[[plugin]]
+id         = "me/hello"
+version    = "2.0.0"
+plugin_api = 9
+# ...
+
+[[plugin.release]]
+plugin_api = 3
+version    = "1.4.0"
+rev        = "5082ed5f85e795513b8485e4cedc66d5a2c816ff"
+```
+
+A host picks the newest release its API range allows and exports that exact commit, so a user on an older Noctalia gets
+`v1.4.0` instead of nothing, and moves up to `v2.0.0` on their next update after upgrading. The store labels the row so
+the older version is never installed silently.
+
+Each row needs `plugin_api`, `version`, and a full 40-character `rev`; rows that are malformed, or that sit at or above
+the tip's own level, are dropped. Generate them by walking `git log -- <subdir>/plugin.toml` newest-first and keeping
+each revision that lowers the API level - the `update-catalog.py` script in the official and community repos does this
+for you, and it needs full history (`fetch-depth: 0` in CI). Release rows apply to `git` sources only; a `path` source
+has no revisions to export.
+
+Users add your repo with `noctalia msg plugins source add <name> git <url>`, then enable plugins from it.
+
+## Sharing your plugin
+
+To get your plugin into the plugin store every Noctalia user already has, open a PR against
+[community-plugins](https://github.com/noctalia-dev/community-plugins) - its README has the submission rules. Your
+plugin ships a `plugin.toml`, its entry scripts, a `README.md`, a `thumbnail.webp`, and `translations/en.json`; CI
+validates all of it and regenerates the catalog on merge. Directory names are first-come in that repo, so a plugin
+named `weather` can only exist once there.
+
+[official-plugins](https://github.com/noctalia-dev/official-plugins) is maintained by the core team and does not take
+third-party plugins.

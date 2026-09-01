@@ -1,0 +1,38 @@
+---
+title: Running Noctalia
+description: This page gives you a basic example on how to run the shell.
+sidebar:
+  order: 3
+---
+
+:::tip[Method]
+Use compositor autostart as the primary method.
+:::
+### Autostart by your Wayland compositor
+This is the recommended method for launching noctalia, as it integrates with your window manager.
+
+For the *Niri* compositor, add the following line to the end of your configuration file, typically located at `~/.config/niri/config.kdl`
+```ini
+spawn-at-startup "noctalia"
+```
+
+For the *Hyprland* compositor, append this to your existing `hyprland.start` event hook in your Lua configuration file, typically located at `~/.config/hypr/hyprland.lua`
+```lua
+hl.on("hyprland.start", function()
+  hl.exec_cmd("noctalia")
+end)
+```
+
+If your compositor expects startup commands to return after the shell has initialized, run Noctalia in daemon mode:
+```bash
+noctalia --daemon
+```
+Daemon mode returns after the shell has initialized. The optional polkit authentication agent starts asynchronously after the UI is up.
+
+---
+
+### Manual Launch for Debugging
+The most direct way to run Noctalia for testing or debugging. Open a terminal and execute:
+```bash
+noctalia
+```

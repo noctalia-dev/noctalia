@@ -1,0 +1,356 @@
+---
+title: Entry Scripts
+description: Define Luau lifecycle functions and entry-specific behavior.
+sidebar:
+  label: Entry Scripts
+  order: 3
+---
+
+import PluginApiBadge from '../../../../../components/PluginApiBadge.astro';
+
+:::caution[Beta - APIs may still change]
+The plugin system is in **beta**. The manifest format and APIs may still change before v5 is stable, so build with that in mind.
+:::
+
+A script defines **global functions** that Noctalia calls, and drives the UI through the API namespaces. Which globals
+apply depends on the entry kind:
+
+| Function | Widget | Shortcut | Launcher | Desktop | Panel | Service | When |
+|----------|:------:|:--------:|:--------:|:-------:|:-----:|:-------:|------|
+| `update()` | ✓ | | | ✓ | ✓ | ✓ | every update interval |
+| `onClick()` / `onRightClick()` | ✓ | ✓ | | | | | pointer press |
+| `onMiddleClick()` | ✓ | | | | | | middle press |
+| `onScroll(axis, steps, startsGesture)` | ✓ | | | | | | wheel or touchpad scroll over the widget (see below) |
+| `onQuery(text)` | | | ✓ | | | | launcher text changed (behind the prefix) |
+| `onActivate(id)` | | | ✓ | | | | a launcher result was selected |
+| `onEnable()` | | | | | | ✓ | the plugin was explicitly enabled successfully (see below) |
+| `onOpen(context)` / `onClose()` | | | | | ✓ | | the panel is opened / closed |
+| `onKey(chord, pressed)` | | | | | ✓ | | a `capture_keys` chord while the panel is focused ([details](/noctalia/plugins/development/declarative-ui/#handling-keys-directly)) |
+| `onFrameTick(deltaMs)` | | | | ✓ | ✓ | | every frame, after `desktopWidget.setNeedsFrameTick(true)` / `panel.setNeedsFrameTick(true)` |
+| `onIpc(event, payload)` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | `noctalia msg plugin …` |
+| `onConfigChanged()` | | | | | | ✓ | a plugin setting changed (see below) |
+| `onExit(signal, reason)` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | the entry runtime is about to be destroyed (see below) |
+
+The top level of the script runs once at load - set up state and register `noctalia.state.watch` handlers there.
+
+### Modules
+
+Entry scripts can split shared logic into relative `.luau` modules with
+<PluginApiBadge feature="module-require" />:
+
+```lua
+local format = require("./lib/format.luau")
+```
+
+The argument must be a string starting with `./` or `../` and ending in `.luau`. Any other value fails with
+`require path must be relative and end in .luau`. Paths are lexical: each `require()` resolves relative to the file
+that contains the call, even if the call runs later from a function that module returned.
+
+```lua
+-- entry.luau
+local tools = require("./lib/tools.luau")
+tools.loadTheme()
+
+-- lib/tools.luau
+local M = {}
+
+function M.loadTheme()
+  -- Resolves from lib/, not from entry.luau.
+  return require("../shared/theme.luau")
+end
+
+return M
+```
+
+There are no package search paths, implicit extensions, `init.luau` alternatives, or path containment checks. `../`
+can leave the plugin directory, just like the rest of the trusted-plugin filesystem API.
+
+A module must return exactly one non-`nil` value. It runs in the entry's VM, but gets its own global environment:
+`noctalia.*`, `ui.*`, and the other sandboxed globals are visible, while globals assigned by the module stay private to
+that module. Inside a module, `_G` is the module environment, not the entry's `_G`.
+
+Each entry keeps its own module cache. Requiring the same canonical path returns the cached value without re-running the
+module; symlinks resolve to the same cache identity. A different widget, panel, or service entry gets a separate module
+instance. Circular imports fail with the full import chain.
+
+Editing a successfully loaded module hot-reloads the owning entry, including a module first required inside a callback.
+A module that failed to load is not cached or watched, so creating a previously missing module does not reload anything
+by itself. Touch the entry script, or another successfully loaded file, to retry it.
+
+### Pointer callbacks are overridable
+
+On a bar widget, what a click or scroll does is user configuration. A binding in
+`[widget.<name>.actions]` takes precedence over your script, so a user who binds `right` stops
+`onRightClick` from firing for that instance. Gestures nobody has bound still reach your callbacks.
+
+You can declare your own defaults in the manifest - see
+[widget gesture defaults](/noctalia/plugins/development/manifest/#widget-gesture-defaults) - and
+[Widget Actions](/noctalia/bar/actions/) for the full gesture and action vocabulary.
+
+`onMiddleClick` is the exception worth planning for: every widget gets a built-in `middle` binding
+that opens its settings, so the callback does not fire unless a `middle = "none"` binding frees the
+button, either in your manifest or in the user's config.
+
+### Reacting to scroll
+
+Define `onScroll(axis, steps, startsGesture)` on a bar widget to handle mouse-wheel and touchpad scrolling over it.
+`axis` is `"vertical"` or `"horizontal"`, and `steps` is a number of whole wheel detents: negative scrolls up or left,
+positive scrolls down or right. A mouse wheel reports one step per notch; a touchpad accumulates its finer movement and
+reports a step once a full detent's worth has built up, so one gesture means the same thing on both devices.
+
+```lua
+local volume = 50
+
+function onScroll(axis, steps)
+  if axis ~= "vertical" then
+    return
+  end
+  volume = math.clamp(volume - steps * 5, 0, 100)
+  barWidget.setText(tostring(volume) .. "%")
+end
+```
+
+`startsGesture` is `true` only on the first step of a scroll gesture in a given direction: the wheel or the finger had
+stopped, or the scroll just reversed. Ramping a value, as above, ignores it and takes every step. Stepping through a
+list wants the opposite - an eager wheel flick emits several notches that the user means as one move - so act on
+`startsGesture` and let the rest of the burst fall through:
+
+```lua
+local entries = { "one", "two", "three" }
+local index = 1
+
+function onScroll(axis, steps, startsGesture)
+  if axis ~= "vertical" or not startsGesture then
+    return
+  end
+  index = math.clamp(index + (steps > 0 and 1 or -1), 1, #entries)
+  barWidget.setText(entries[index])
+end
+```
+
+Scroll events the widget does not define `onScroll` for are left for the bar underneath to handle.
+Host setting `enable_scroll` (default `true`) on the bar widget instance gates wheel and touchpad delivery to
+`onScroll`; set it to `false` to disable scroll actions without removing the handler. It is independent of any
+scroll binding: a bound `scroll_up` runs its action instead of calling `onScroll`, while `enable_scroll = false`
+silences the callback outright.
+
+### Cleaning up when an entry exits
+
+Define `onExit(signal, reason)` to release resources owned by an entry before its Luau runtime is destroyed. It runs when
+Noctalia exits normally, when a plugin or entry is disabled or removed, and before a runtime is restarted or reloaded.
+The first argument remains the process signal: `2` for graceful `SIGINT`, `15` for `SIGTERM`, and `0` for every other
+teardown. The optional second argument requires <PluginApiBadge feature="service-lifecycle" /> and describes why the
+runtime is exiting:
+
+| Reason | Meaning |
+|--------|---------|
+| `"disable"` | The enabled plugin is being explicitly disabled. |
+| `"uninstall"` | The enabled plugin is being explicitly uninstalled. |
+| `"reload"` | The entry is being reloaded, restarted, or otherwise replaced without a process shutdown. |
+| `"shutdown"` | Noctalia is shutting down after `SIGINT` or `SIGTERM`. |
+
+Existing handlers that accept only `signal` remain compatible; Luau ignores the additional argument:
+
+```lua
+function onExit(_signal, reason)
+  if reason == "disable" then
+    noctalia.runAsync("systemctl --user stop my-plugin.service")
+  elseif reason == "uninstall" then
+    noctalia.runAsync("systemctl --user disable --now my-plugin.service")
+  end
+end
+```
+
+Keep cleanup short: `onExit` has the normal callback time budget. It cannot run after `SIGKILL`, a process crash, or
+another abrupt termination that prevents Noctalia from shutting down gracefully. If cleanup must continue after the
+entry VM is destroyed, call `noctalia.runAsync(command)` without a result callback; the detached command outlives the
+runtime. An uninstall command must use an installed helper or otherwise avoid plugin-directory files, which may be
+removed as soon as the hook returns. A detached command cannot report its eventual result back to the destroyed
+runtime, so make cleanup idempotent and expose a way for the user to retry it.
+
+### Reacting to plugin lifecycle changes in a service
+
+Every entry can use the extended `onExit(signal, reason)`, while service entries can additionally define `onEnable()`.
+Both capabilities require <PluginApiBadge feature="service-lifecycle" />. `onEnable()` runs after an explicit enable
+succeeds and after the service runtime has loaded; it also runs when the user re-enables a disabled plugin:
+
+```lua
+function onEnable()
+  noctalia.runAsync("systemctl --user start my-plugin.service")
+end
+
+function onExit(_signal, reason)
+  if reason == "disable" then
+    noctalia.runAsync("systemctl --user stop my-plugin.service")
+  elseif reason == "uninstall" then
+    noctalia.runAsync("systemctl --user disable --now my-plugin.service")
+  end
+end
+```
+
+`onEnable()` describes an explicit plugin-manager action, not every service start. It does not run during ordinary
+Noctalia startup, a source update, a script reload, or a settings-driven service restart. Use top-level initialization
+for normal service startup.
+
+Lifecycle hooks can only run while an entry runtime exists. Removing a plugin that was already disabled cannot invoke
+`onExit(0, "uninstall")` because none of its entries are loaded. Cleanup that must also cover that sequence should
+therefore be idempotent and available through the plugin's normal controls.
+
+### Reacting to settings changes in a service
+
+When a user edits a plugin setting, the change reaches each entry differently:
+
+- **Widgets, desktop widgets, panels** are rebuilt, so their next `noctalia.getConfig(...)` reads the new value
+  automatically.
+- **Services** are long-lived. If a service defines **`onConfigChanged()`**, the host updates its settings in place and
+  calls that function , `noctalia.getConfig(...)` returns the new values, and the service keeps all its in-memory state
+  (timers, caches, connections). If a service does **not** define `onConfigChanged()`, the host instead **restarts the
+  service runtime** (the top-level chunk re-runs with the new settings).
+
+Either way, `noctalia.state` is **process-lifetime** and survives a service restart, so any cache you store there must be
+keyed by the config it depends on , otherwise a service will keep serving data fetched for the old settings. For example,
+store the location alongside cached results and re-fetch when it differs:
+
+```lua
+function onConfigChanged()
+  local loc = noctalia.getConfig("city") .. "|" .. noctalia.getConfig("country")
+  if loc ~= noctalia.state.get("location") then
+    noctalia.state.set("location", loc)
+    refetch()   -- location changed; invalidate and reload
+  end
+end
+```
+
+Desktop widgets and panels use declarative `ui.*` trees. See [Declarative UI](/noctalia/plugins/development/declarative-ui/)
+for their rendering APIs and controls.
+
+## `barWidget.*` - widget presentation
+
+`setText` · `setGlyph` · `setImage` · `setTooltip` · `clearTooltip` · `setFont` · `setColor` · `setGlyphColor` ·
+`setVisible` · `isVertical` · `outputName` · `render`
+
+A bar widget can either patch the built-in glyph/text row with the imperative setters below, or describe composite
+content as a `ui.*` tree with `barWidget.render(tree)` - see
+[Declarative UI](/noctalia/plugins/development/declarative-ui/#barwidgetrender--declarative-bar-widget-ui).
+
+`outputName()` returns the connector name of the monitor this widget instance's bar is on (or `nil` when unknown).
+Each placement of the widget gets its own value, so a widget on two bars can scope its content per monitor - unlike
+`noctalia.focusedOutputName()`, which returns the same globally focused output everywhere. Cross-reference
+[`noctalia.outputs()`](/noctalia/plugins/development/runtime-api/#outputs-wallpaper-and-panels) by name when you need
+geometry.
+
+```lua
+local label = noctalia.getConfig("label")
+
+function update()
+  noctalia.setUpdateInterval(1000)
+  barWidget.setGlyph("puzzle")
+  barWidget.setText(label)
+end
+
+function onClick()
+  noctalia.notify("Hello", "you clicked me")
+end
+```
+
+### Custom fonts
+
+Register a font file with [`noctalia.loadFont(path)`](/noctalia/plugins/development/runtime-api/#filesystem), then pass the
+returned family name to `setFont`. The font becomes usable anywhere text is drawn - `setFont` and a `ui.*` label's
+`fontFamily` prop - and stays available across every surface once loaded.
+
+`setFont(family, baseline?)` takes a font family name and an optional baseline mode:
+
+| Baseline | Use |
+|----------|-----|
+| `"text"` *(default)* | Normal text, cap-band centered. |
+| `"textFixedHeight"` | Text whose row height is locked to the font metrics (steady height in lists). |
+| `"inkCentered"` | Centers the glyph's ink. |
+| `"pictographic"` | Art/icon fonts anchored at the ink top (keeps pose art steady, e.g. bongocat). |
+
+```lua
+local font = noctalia.loadFont("fonts/bongocat.otf")
+if font then
+  barWidget.setFont(font, "pictographic")
+end
+```
+
+## `shortcut.*` - control-center tile
+
+`setLabel(text)` · `setIcon(on [, off])` · `setActive(bool)` · `setEnabled(bool)`
+
+```lua
+local on = noctalia.state.get("toggled") == true
+
+local function render()
+  shortcut.setLabel(on and "On" or "Off")
+  shortcut.setIcon("bulb")
+  shortcut.setActive(on)
+end
+render()
+
+function onClick()
+  on = not on
+  noctalia.state.set("toggled", on)
+  render()
+end
+```
+
+## `launcher.*` - launcher provider
+
+A launcher provider answers queries behind a **prefix** declared in the manifest. The user types the prefix, and
+everything after it is passed to `onQuery(text)`; the provider replies with `launcher.setResults(query, results)`.
+`onActivate(id)` runs when a result is selected (the `id` is whatever you set on that result).
+
+Manifest fields on a `[[launcher_provider]]` entry: `prefix` (the trigger word - a bare word combined with the
+launcher's common prefix character like the built-in providers, e.g. `tr` -> `/tr`, and shown in the launcher's `/`
+overview; do not include the prefix character yourself), `glyph` (default result icon), `include_in_global_search`
+(also answer the un-prefixed search; default `false`), and `debounce_ms` (wait this long after the last keystroke
+before running `onQuery` - set it for network-backed providers so you aren't called on every character; default `0`).
+
+`setResults(query, results)` · `setQuery(query)`
+
+- `query` **must echo** the `text` from `onQuery`, so late results map back to the query they answer - the latest one
+  wins. Calling it with an empty list clears the provider's results.
+- Each result is a table: `{ id, title, subtitle?, glyph?, icon?, badge?, query?, score? }`. `id` is passed back to
+  `onActivate` unless `query` is set. Results are ordered by `score` (descending), then insertion order.
+- `glyph` (a Tabler/Nerd-Font name) or `icon` (a themed icon name) is the row's leading visual. `badge` is a short
+  string (e.g. an emoji or `=`) drawn *in place of* the icon - setting it hides `glyph`/`icon`. Use the `subtitle` for
+  secondary text.
+- `setQuery(query)` replaces the open launcher's raw input text. Call it from `onActivate` to treat a result as a
+  drill-in step: the launcher rewrites the input and **stays open** instead of closing, then re-runs `onQuery` with the
+  new text. A result-level `query` field does the same declaratively - when that result is selected the launcher
+  replaces the input with it and stays open, no `onActivate` needed. Either way, include your prefix to stay routed to
+  the same provider, e.g. `"/tr french "`. (An `onActivate` that does *not* call `setQuery` closes the launcher as
+  usual.)
+
+Use `noctalia.fuzzyScore(pattern, text)` to rank local lists with Noctalia's native fuzzy matcher. It returns a numeric
+score, or `nil` when `pattern` does not match `text`.
+
+Queries run off the UI thread, so a result can arrive after `onQuery` returns - publish a placeholder synchronously,
+then call `setResults` again from an async callback (HTTP, subprocess) when the real answer lands.
+
+```toml
+[[launcher_provider]]
+id     = "translate"
+entry  = "translator.luau"
+prefix = "tr"
+glyph  = "language"
+```
+
+```lua
+function onQuery(text)
+  if text == "" then
+    launcher.setResults(text, { { id = "hint", title = "Type something to translate" } })
+    return
+  end
+  launcher.setResults(text, { { id = "loading", title = "Translating…", glyph = "loader" } })
+  noctalia.http({ url = endpoint(text) }, function(res)
+    launcher.setResults(text, { { id = res.body, title = res.body, glyph = "language" } })
+  end)
+end
+
+function onActivate(id)
+  noctalia.copyToClipboard(id, "text/plain")
+end
+```

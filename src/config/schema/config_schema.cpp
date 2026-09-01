@@ -1154,6 +1154,7 @@ namespace noctalia::config::schema {
           field(&UserTemplate::postHook, "post_hook"),
           field(&UserTemplate::postAction, "post_action"),
           field(&UserTemplate::index, "index"),
+          field(&UserTemplate::hookAsync, "hook_async"),
       };
       return s;
     }

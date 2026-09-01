@@ -1,0 +1,4156 @@
+{
+  "auth": {
+    "fingerprint": {
+      "disconnected": "קורא טביעת אצבע נותק",
+      "error": "שגיאת אימות טביעת אצבע",
+      "no-match": "טביעת אצבע לא תואמת",
+      "not-centered": "הנח את קורא טביעת האצבע במרכז ונסה שוב",
+      "present": "קורא טביעת אצבע…",
+      "ready": "הנח את האצבע על הקורא",
+      "remove-and-retry": "הסר את האצבע ונסה שוב",
+      "retry": "אנא סרוק את טביעת האצבע שלך שוב",
+      "swipe-too-short": "ההחלקה הייתה קצרה מדי, נסה שוב",
+      "too-many-attempts": "טביעת אצבע הושבתה (יותר מדי ניסיונות)"
+    },
+    "pam": {
+      "authentication-failed": "האימות נכשל",
+      "start-failed": "הפעלת PAM נכשלה",
+      "user-unavailable": "לא ניתן לזהות את המשתמש הנוכחי"
+    },
+    "polkit": {
+      "authenticate": "אמת",
+      "authenticating": "מאמת…",
+      "default-message": "נדרש אימות",
+      "invalid-password": "סיסמה שגויה",
+      "password-placeholder": "סיסמה",
+      "title": "נדרש אימות"
+    }
+  },
+  "bar": {
+    "screenshot": {
+      "choose-display": "בחר תצוגה",
+      "confirm-region": "{copy} להעתקה · {save} לשמירה · Enter או Space לברירת מחדל · {cancel} לביטול · גרור לבחירה מחדש",
+      "fullscreen": "מסך מלא",
+      "overlay-alloc-failed": "לא ניתן להציג את שכבת צילום המסך (נגמר הזיכרון בכרטיס מסך?)",
+      "region": "בחר אזור"
+    },
+    "widgets": {
+      "active-window": {
+        "no-active-window": "אין חלון פעיל"
+      },
+      "bluetooth": {
+        "connected": "מחובר"
+      },
+      "brightness": {
+        "brightness": "בהירות",
+        "display": "תצוגה"
+      },
+      "lock-keys": {
+        "caps": "Caps",
+        "caps-short": "C",
+        "num": "Num",
+        "num-short": "N",
+        "scroll": "Scroll",
+        "scroll-short": "S"
+      },
+      "media": {
+        "nothing-playing": "שום דבר לא מתנגן",
+        "playing": "מתנגן"
+      },
+      "network": {
+        "active": "פעיל",
+        "band": "תדר",
+        "connected": "מחובר",
+        "connecting": "מתחבר",
+        "download": "הורדה",
+        "interface": "ממשק",
+        "ip": "IP",
+        "network": "רשת",
+        "networks": "רשתות",
+        "networks-count": "רשת {count}",
+        "networks-count-plural": "{count} רשתות",
+        "no": "לא",
+        "not-connected": "לא מחובר",
+        "off": "כבוי",
+        "on": "פעיל",
+        "scanning": "סורק",
+        "signal": "אות",
+        "upload": "העלאה",
+        "vpn": "VPN",
+        "wan-ip": "WAN IP",
+        "wifi": "Wi-Fi",
+        "wired": "קווי",
+        "yes": "כן"
+      },
+      "privacy": {
+        "camera": "מצלמה",
+        "microphone": "מיקרופון",
+        "screen-sharing": "שיתוף מסך"
+      },
+      "scripted": {
+        "reload-failed": "טעינת סקריפט מחדש נכשלה",
+        "reloaded": "סקריפט נטען מחדש"
+      },
+      "sysmon": {
+        "cpu": "CPU",
+        "cpu-freq": "תדר CPU",
+        "cpu-temp": "טמפ' CPU",
+        "disk": "כונן",
+        "disk-free": "כונן פנוי",
+        "disk-free-pct": "% כונן פנוי",
+        "disk-used": "כונן בשימוש",
+        "disk-used-pct": "% כונן בשימוש",
+        "download": "הורדה",
+        "gpu-temp": "טמפ' GPU",
+        "gpu-usage": "שימוש ב-GPU",
+        "gpu-vram": "VRAM ב-GPU",
+        "ram": "RAM",
+        "swap": "Swap",
+        "system": "מערכת",
+        "upload": "העלאה"
+      },
+      "volume": {
+        "device": "התקן",
+        "mic": "מיקרופון",
+        "volume": "עוצמת שמע"
+      },
+      "weather": {
+        "default": "מזג אוויר",
+        "error": "שגיאת מזג אוויר",
+        "loading": "מזג אוויר…",
+        "no-location": "אין מיקום",
+        "off": "מזג אוויר כבוי",
+        "tooltip": {
+          "condition": "מצב",
+          "high": "גבוה",
+          "humidity": "לחות",
+          "low": "נמוך",
+          "sunrise": "זריחה",
+          "sunset": "שקיעה",
+          "temperature": "טמפרטורה",
+          "uv": "אינדקס UV",
+          "wind": "רוח"
+        }
+      }
+    }
+  },
+  "clipboard": {
+    "actions": {
+      "clear-all": "נקה הכל",
+      "delete-item": "מחק פריט",
+      "keep-pinned": "השאר נעוץ"
+    },
+    "confirm": {
+      "clear-desc": "בחר האם לשמור פריטים נעוצים.",
+      "clear-desc-all-pinned": "כל רשומה נעוצה. השתמש ב'נקה הכל' כדי להסיר את כולן.",
+      "clear-desc-no-pinned": "פעולה זו מסירה כל רשומה מהיסטוריית הלוח.",
+      "clear-title": "לנקות את היסטוריית הלוח?",
+      "delete-desc": "פעולה זו מסירה את הפריט שנבחר מהיסטוריית הלוח.",
+      "delete-title": "למחוק פריט מהלוח?"
+    },
+    "empty": {
+      "history-message": "אין רשומות בהיסטוריית הלוח.",
+      "history-title": "היסטוריית הלוח ריקה",
+      "no-matches-message": "אין רשומות שתואמות למסנן הנוכחי.",
+      "no-matches-title": "אין רשומות תואמות"
+    },
+    "entry": {
+      "image": "תמונה",
+      "title": "רשומת לוח"
+    },
+    "filter-placeholder": "סנן לוח…",
+    "preview": {
+      "empty-text-payload": "(תוכן טקסט ריק)",
+      "image-title": "רשומת תמונה בלוח",
+      "loading": "טוען תצוגה מקדימה…",
+      "text-title": "רשומת טקסט בלוח",
+      "truncated": "… קוצץ"
+    },
+    "title": "לוח"
+  },
+  "common": {
+    "actions": {
+      "apply": "החל",
+      "cancel": "ביטול"
+    },
+    "states": {
+      "auto": "אוטומטי",
+      "custom": "מותאם אישית",
+      "inherit": "ירושה",
+      "off": "כבוי"
+    }
+  },
+  "control-center": {
+    "audio": {
+      "application-volumes": "עוצמת שמע של יישומים",
+      "choose-effects-profile": "בחר פרופיל",
+      "default-device": "התקן ברירת מחדל",
+      "effects-profile": "אפקטים",
+      "input-device-prefix": "קלט",
+      "no-application-audio": "אין שמע מיישומים",
+      "no-application-audio-body": "אין כרגע זרמי שמע של יישומים זמינים.",
+      "no-input-devices": "אין התקני קלט",
+      "no-input-devices-body": "אין כרגע מקורות הקלטה זמינים.",
+      "no-input-selected": "לא נבחר התקן קלט",
+      "no-output-devices": "אין התקני פלט",
+      "no-output-devices-body": "אין כרגע יעדי השמעה זמינים.",
+      "no-output-selected": "לא נבחר התקן פלט",
+      "output-device-prefix": "פלט",
+      "unavailable-body": "Pipewire אינו פעיל.",
+      "unavailable-title": "שמע לא זמין"
+    },
+    "bluetooth": {
+      "accept": "קבל",
+      "address": "כתובת",
+      "auto-reconnect": "התחברות אוטומטית",
+      "bluetooth": "Bluetooth",
+      "enter-code": "הזן קוד",
+      "no-devices": "לא נמצאו התקנים. התחל לסרוק כדי לגלות התקני Bluetooth קרובים.",
+      "off": "Bluetooth כבוי",
+      "pair-title": "צמד {device}",
+      "pairing-detail": {
+        "authorize": "לאשר את בקשת הצימוד הנכנסת?",
+        "authorize-service": "לאפשר גישה לשירות {uuid}?",
+        "confirm": "אשר שקוד זה תואם לקוד המוצג על ההתקן:",
+        "display-passkey": "הזן קוד זה בהתקן:",
+        "display-pin": "הזן PIN זה בהתקן:",
+        "passkey": "הזן את הקוד המוצג על ההתקן:",
+        "pin-code": "הזן את ה-PIN המוצג על ההתקן:"
+      },
+      "reject": "דחה",
+      "rfkill-blocked": "Bluetooth חסום על ידי המערכת. הפעל אותו כדי להסיר את החסימה.",
+      "sections": {
+        "available": "זמין",
+        "connected": "מחובר",
+        "paired": "מצומד"
+      },
+      "unavailable": "שירות Bluetooth לא זמין",
+      "unknown-device": "התקן לא ידוע",
+      "visible": "ניתן לגילוי על ידי התקנים קרובים"
+    },
+    "calendar": {
+      "all-day": "כל היום",
+      "events": "אירועים",
+      "no-events": "אין אירועים.",
+      "today": "היום",
+      "toggle-events-card": "הצג/הסתר כרטיס אירועים"
+    },
+    "display": {
+      "disabled": "מושבת",
+      "no-displays": "אין צגים זמינים",
+      "unknown-resolution": "רזולוציה לא ידועה"
+    },
+    "home": {
+      "avatar-error-title": "הסמל האישי לא עודכן",
+      "media": {
+        "idle": "בהמתנה",
+        "no-active-player": "אין נגן פעיל",
+        "nothing-playing": "שום דבר לא מתנגן",
+        "paused": "מושהה",
+        "playback-unavailable": "השמעה לא זמינה",
+        "playing": "מתנגן",
+        "unavailable": "לא זמין",
+        "unknown-artist": "אמן לא ידוע",
+        "unknown-track": "רצועה לא ידועה"
+      },
+      "select-avatar": "בחר סמל אישי",
+      "unknown": "לא ידוע",
+      "uptime": "זמן פעולה – {uptime}",
+      "weather": {
+        "data-unavailable": "נתוני מזג אוויר לא זמינים.",
+        "disabled": "מזג אוויר מושבת בהגדרות.",
+        "fetching": "מאחזר תחזית…"
+      }
+    },
+    "media": {
+      "active-player": "נגן פעיל",
+      "nothing-playing": "שום דבר לא מתנגן",
+      "now-playing": "מתנגן כעת",
+      "start-playback": "התחל השמעה ביישום MPRIS"
+    },
+    "network": {
+      "available": "זמין",
+      "connect": "התחבר",
+      "current-connection": "חיבור נוכחי",
+      "external-ip": "WAN {ip}",
+      "no-networks": "אין רשתות בטווח",
+      "not-connected": "לא מחובר",
+      "password": "סיסמה",
+      "password-prompt": "הזן סיסמה",
+      "password-prompt-for": "הזן סיסמה עבור {ssid}",
+      "saved": "שמור",
+      "unavailable-detail": "התקן והפעל את NetworkManager, wpa_supplicant או iwd כדי לנהל רשתות מכאן.",
+      "unavailable-title": "שירות רשת לא זמין",
+      "vpns": "VPNs",
+      "wi-fi": "Wi-Fi",
+      "wifi": "Wi-Fi",
+      "wifi-off": "Wi-Fi כבוי",
+      "wifi-on": "Wi-Fi מופעל",
+      "wired-connection": "חיבור חוטי"
+    },
+    "notifications": {
+      "clear-all": "נקה את כל ההתראות",
+      "dnd-off": "כבה 'נא לא להפריע'",
+      "dnd-on": "הפעל 'נא לא להפריע'",
+      "empty-body": "התראות אחרונות יופיעו כאן.",
+      "empty-title": "אין התראות",
+      "filter": {
+        "all": "הכל",
+        "older": "ישן יותר",
+        "today": "היום",
+        "yesterday": "אתמול"
+      },
+      "filter-empty-body": "אין התראות שתואמות למסנן זה.",
+      "filter-empty-title": "אין כאן כלום",
+      "untitled": "התראה ללא שם"
+    },
+    "power": {
+      "battery": "סוללה",
+      "charging": {
+        "configured": "מוגדר: {limits}",
+        "display-only": "תצוגה בלבד",
+        "error-denied": "ההרשאה נדחתה. ספי הטעינה לא שונו.",
+        "error-failed": "לא ניתן לשנות את ספי הטעינה.",
+        "externally-managed": "מוגדר על ידי כלי אחר. הגדר את UPower לניהול ספי טעינה.",
+        "firmware-managed": "הטעינה מנוהלת על ידי קושחת המערכת",
+        "full-charge": "יכול לטעון עד 100%",
+        "starts": "מתחיל מתחת ל-{start}%",
+        "starts-stops": "מתחיל מתחת ל-{start}% · עוצר ב-{end}%",
+        "stops": "עוצר ב-{end}%",
+        "title": "טעינת סוללה",
+        "unreadable": "לא זמין",
+        "unsupported": "ספי טעינה אינם נתמכים",
+        "use-thresholds": "השתמש בספי טעינה"
+      },
+      "design-capacity": "מקיבולת התכנון",
+      "health": "בריאות סוללה",
+      "performance-inhibited": "ביצועים לא זמינים",
+      "peripherals": "התקנים מחוברים",
+      "power-profile": "פרופיל צריכת חשמל",
+      "time-to-empty": "נותרו {time}",
+      "time-to-full": "{time} עד לטעינה מלאה",
+      "unknown-device": "התקן לא ידוע"
+    },
+    "screen-time": {
+      "back": "חזור",
+      "disabled": "מעקב זמן מסך כבוי. הפעל אותו בהגדרות כדי להקליט שימוש לפי יישום.",
+      "empty": "עדיין לא הוקלט שימוש ביישומים. מקד חלון כדי להתחיל במעקב.",
+      "hour-0": "12 AM",
+      "hour-12": "12 PM",
+      "hour-18": "6 PM",
+      "hour-6": "6 AM",
+      "most-used": "בשימוש הרב ביותר",
+      "range": {
+        "14-days": "14 ימים",
+        "3-days": "3 ימים",
+        "today": "היום"
+      },
+      "view-day": "הצג פרטי יום"
+    },
+    "shortcuts": {
+      "audio": "שמע",
+      "bluetooth": "Bluetooth",
+      "caffeine": "Caffeine",
+      "clipboard": "לוח",
+      "dark-mode": {
+        "auto": "מצב אוטומטי",
+        "dark": "מצב כהה",
+        "light": "מצב בהיר"
+      },
+      "keyboard-layout": "פריסת מקלדת",
+      "media": "מדיה",
+      "mic-mute": "מיקרופון",
+      "nightlight": "תאורת לילה",
+      "nightlight-states": {
+        "forced": "פועל תמיד",
+        "off": "תאורת לילה",
+        "scheduled-day": "מתוזמן",
+        "scheduled-night": "פועל"
+      },
+      "notification": "DND",
+      "power-profile": "צריכת חשמל",
+      "screen-time": "זמן מסך",
+      "session": "הפעלה",
+      "system": "מערכת",
+      "wallpaper": "רקע",
+      "weather": "מזג אוויר",
+      "wifi": "Wi-Fi"
+    },
+    "system": {
+      "labels": {
+        "load": "עומס CPU",
+        "ram": "RAM",
+        "swap": "Swap"
+      },
+      "titles": {
+        "cpu": "CPU",
+        "gpu": "GPU",
+        "memory": "זיכרון",
+        "network": "רשת",
+        "resources": "משאבים",
+        "system": "מערכת"
+      },
+      "tooltips": {
+        "load": "עומס ממוצע לאורך 1 / 5 / 15 דקות"
+      },
+      "unknown": "לא ידוע",
+      "uptime-prefix": "פועל {uptime} · {osAge}"
+    },
+    "tabs": {
+      "audio": "שמע",
+      "bluetooth": "Bluetooth",
+      "calendar": "לוח שנה",
+      "home": "בית",
+      "media": "מדיה",
+      "monitor": "צג",
+      "network": "רשת",
+      "notifications": "התראות",
+      "power": "חשמל",
+      "screen-time": "זמן מסך",
+      "system": "מערכת",
+      "weather": "מזג אוויר"
+    },
+    "weather": {
+      "daily": {
+        "tooltip": {
+          "condition": "מצב",
+          "high": "גבוה",
+          "low": "נמוך",
+          "sunrise": "זריחה",
+          "sunset": "שקיעה"
+        }
+      },
+      "data-unavailable": "נתוני מזג אוויר לא זמינים",
+      "details": {
+        "elevation": "גובה",
+        "sunrise": "זריחה",
+        "sunset": "שקיעה",
+        "temp-max": "טמפרטורה מקסימלית",
+        "temp-min": "טמפרטורה מינימלית",
+        "timezone": "אזור זמן",
+        "uv-index": "אינדקס UV",
+        "wind": "רוח"
+      },
+      "disabled": "הפעל את [weather] ב-config.toml",
+      "fetching": "מאחזר תחזית…",
+      "forecast-placeholder": {
+        "day": "ראשון",
+        "description": "מזג אוויר",
+        "temperature": "10 / 4°C"
+      },
+      "forecast-view": {
+        "daily": "יומי",
+        "hourly": "שעתי"
+      },
+      "hourly": {
+        "summary": "{condition} / גשם {precip}%",
+        "tooltip": {
+          "condition": "מצב",
+          "humidity": "לחות",
+          "rain": "גשם",
+          "wind": "רוח"
+        }
+      },
+      "location-unavailable": "מיקום לא זמין",
+      "no-location-body": "הוסף את הכתובת שלך או הפעל איתור אוטומטי בהגדרות מיקום.",
+      "no-location-title": "לא הוגדר מיקום",
+      "refreshing": "מרענן מזג אוויר…",
+      "waiting": "ממתין לנתוני מזג אוויר"
+    }
+  },
+  "desktop-widgets": {
+    "editor": {
+      "actions": {
+        "add": "הוסף",
+        "clone": "שכפל (Ctrl+C, Ctrl+V להעתקה/הדבקה)",
+        "done": "סיום",
+        "flip-horizontal": "הפוך אופקית",
+        "flip-vertical": "הפוך אנכית",
+        "hide": "הסתר",
+        "settings": "הגדרות",
+        "show": "הצג",
+        "stack-back": "העבר לאחור",
+        "stack-front": "העבר לחזית",
+        "trash": "מחק"
+      },
+      "dialogs": {
+        "select-sticker-image": "בחר תמונת מדבקה"
+      },
+      "settings": {
+        "aspect-ratio": "יחס גובה-רוחב",
+        "background": "רקע",
+        "background-color": "צבע",
+        "background-opacity": "אטימות",
+        "background-padding": "ריווח פנימי (Padding)",
+        "background-radius": "רדיוס",
+        "background-section": "רקע",
+        "bands": "רצועות",
+        "bar-width": "רוחב סרגל",
+        "bloom-intensity": "Bloom",
+        "center-password-text": "מרכז טקסט סיסמה",
+        "center-text": "מרכז טקסט",
+        "centered": "ממורכז",
+        "change-image": "שנה…",
+        "circle": "מעגל",
+        "clock-style": "סגנון שעון",
+        "clock-style-analog": "אנלוגי",
+        "clock-style-digital": "דיגיטלי",
+        "color": "צבע",
+        "color-1": "צבע 1",
+        "color-2": "צבע 2",
+        "color2": "צבע 2",
+        "command": "פקודה",
+        "custom-color": "מותאם אישית",
+        "description": "תיאור",
+        "device": "התקן",
+        "display": "תצוגה",
+        "display-gauge": "Gauge",
+        "display-graph": "גרף",
+        "fade-when-idle": "עמעם בעת חוסר פעילות",
+        "fill-color": "צבע מילוי",
+        "font-family": "גופן",
+        "font-family-default": "ברירת מחדל של המערכת",
+        "forecast-days": "ימי תחזית",
+        "format": "פורמט",
+        "gauge-layout": "פריסת Gauge",
+        "glyph": "סמל (Glyph)",
+        "hide-when-no-media": "הסתר כשאין מדיה",
+        "highlight-color": "צבע הדגשה",
+        "horizontal": "אופקי",
+        "hover-background": "רקע בריחוף",
+        "hover-foreground": "חזית בריחוף",
+        "image-path": "תמונה",
+        "inner-diameter": "קוטר פנימי",
+        "input-opacity": "אטימות קלט",
+        "input-radius": "רדיוס קלט",
+        "interface": "ממשק",
+        "label": "תווית",
+        "label-min-width": "רוחב תווית מינימלי",
+        "layout": "פריסה",
+        "mirrored": "משוקף",
+        "network-speed-compact": "מהירות רשת קומפקטית",
+        "network-speed-unit": "יחידת מהירות רשת",
+        "network-speed-unit-auto": "אוטומטי",
+        "network-speed-unit-kilobytes": "kB/s",
+        "network-speed-unit-megabytes": "MB/s",
+        "opacity": "אטימות",
+        "primary-color": "צבע ראשי",
+        "reset-defaults": "שחזר לברירות מחדל",
+        "reversed": "הפוך",
+        "ring-opacity": "אטימות טבעת",
+        "rotation-speed": "מהירות סיבוב",
+        "scroll-step": "שלב גלילה",
+        "secondary-color": "צבע משני",
+        "sensitivity": "רגישות",
+        "shadow": "צל",
+        "show-caps-lock": "אזהרת Caps Lock",
+        "show-device": "הצג התקן",
+        "show-events": "הצג אירועים",
+        "show-forecast": "הצג תחזית",
+        "show-keyboard-layout": "פריסת מקלדת",
+        "show-label": "הצג תווית",
+        "show-login-button": "כפתור התחברות",
+        "show-media": "מדיה",
+        "show-password-hint": "רמז סיסמה",
+        "show-session-buttons": "כפתורי הפעלה",
+        "show-unlock-hint": "רמז שחרור נעילה",
+        "show-vpn-label": "הצג תווית VPN",
+        "show-weather": "מזג אוויר",
+        "show-week-numbers": "הצג מספרי שבועות",
+        "show-when-idle": "הצג בזמן חוסר פעילות",
+        "stat": "סטטיסטיקה",
+        "stat-cpu-freq": "תדר CPU",
+        "stat-cpu-temp": "טמפ' CPU",
+        "stat-cpu-usage": "שימוש ב-CPU",
+        "stat-gpu-temp": "טמפ' GPU",
+        "stat-gpu-usage": "שימוש ב-GPU",
+        "stat-gpu-vram": "VRAM ב-GPU",
+        "stat-gpu-vram-used": "VRAM משומש ב-GPU",
+        "stat-net-rx": "קבלה ברשת (Rx)",
+        "stat-net-tx": "שליחה ברשת (Tx)",
+        "stat-none": "ללא",
+        "stat-ram-pct": "% RAM",
+        "stat-swap-pct": "% Swap",
+        "stat2": "סטטיסטיקה 2",
+        "title": "כותרת",
+        "track-color": "צבע מסלול",
+        "variant": "סגנון",
+        "variant-default": "ברירת מחדל",
+        "variant-destructive": "הרסני",
+        "variant-ghost": "Ghost",
+        "variant-outline": "Outline",
+        "variant-primary": "ראשי",
+        "variant-secondary": "משני",
+        "vertical": "אנכי",
+        "visualization-mode": "מצב",
+        "visualization-mode-all": "הכל",
+        "visualization-mode-bars": "פסים",
+        "visualization-mode-bars-rings": "פסים + טבעות",
+        "visualization-mode-rings": "טבעות",
+        "visualization-mode-wave": "גל",
+        "visualization-mode-wave-rings": "גל + טבעות",
+        "wave-thickness": "עובי גל",
+        "widget-section": "יישומון"
+      },
+      "state": {
+        "grid": "רשת"
+      },
+      "title": "יישומוני שולחן עבודה",
+      "title-lockscreen": "יישומוני מסך נעילה",
+      "types": {
+        "audio-visualizer": "ויזואליזציה של שמע",
+        "button": "כפתור",
+        "calendar": "לוח שנה",
+        "clock": "שעון",
+        "fancy-audio-visualizer": "ויזואליזציה מתקדמת של שמע",
+        "label": "תווית",
+        "login-box": "תיבת התחברות",
+        "media-player": "נגן מדיה",
+        "sticker": "מדבקה",
+        "system-monitor": "צג מערכת",
+        "volume": "עוצמת שמע",
+        "weather": "מזג אוויר"
+      }
+    },
+    "media": {
+      "nothing-playing": "שום דבר לא מתנגן"
+    },
+    "volume": {
+      "mic": "מיקרופון",
+      "muted": "מושתק",
+      "volume": "עוצמת שמע"
+    },
+    "weather": {
+      "error": "שגיאה",
+      "loading": "טוען…",
+      "no-location": "אין מיקום",
+      "off": "מזג אוויר כבוי"
+    }
+  },
+  "dock": {
+    "actions": {
+      "close": "סגור",
+      "close-all": "סגור הכל"
+    },
+    "launcher": "משגר"
+  },
+  "internal-apps": {
+    "settings": {
+      "display-name": "הגדרות"
+    }
+  },
+  "launcher": {
+    "categories": {
+      "all": "הכל",
+      "applications": {
+        "development": "פיתוח",
+        "education": "חינוך",
+        "games": "משחקים",
+        "graphics": "גרפיקה",
+        "internet": "אינטרנט",
+        "multimedia": "מולטימדיה",
+        "office": "משרד",
+        "system": "מערכת",
+        "utilities": "כלי עזר"
+      },
+      "emoji": {
+        "activity": "פעילות",
+        "animals": "בעלי חיים",
+        "flags": "דגלים",
+        "food": "אוכל",
+        "nature": "טבע",
+        "objects": "אובייקטים",
+        "people": "אנשים",
+        "symbols": "סמלים",
+        "travel": "נסיעה"
+      },
+      "recently-used": "בשימוש לאחרונה"
+    },
+    "context-menu": {
+      "open": "פתח",
+      "pin": "הצמד למפעיל",
+      "pin-to-dock": "הצמד למעגן",
+      "unpin": "הסר נעיצה מהמשגר",
+      "unpin-from-dock": "בטל הצמדה מה-Dock"
+    },
+    "empty": {
+      "no-results": "לא נמצאו תוצאות",
+      "type-to-search": "הקלד לחיפוש…"
+    },
+    "origins": {
+      "appimage": "AppImage",
+      "flatpak": "Flatpak",
+      "nix": "Nix",
+      "snap": "הצמד",
+      "system": "מערכת",
+      "user": "משתמש"
+    },
+    "providers": {
+      "applications": {
+        "title": "יישומים"
+      },
+      "calculator": {
+        "title": "מחשבון"
+      },
+      "emoji": {
+        "title": "אימוג'י"
+      },
+      "session": {
+        "action-subtitle": "הפעל פעולת סשן",
+        "command-subtitle": "הפעל את הפקודה שהוגדרה",
+        "title": "הפעלה"
+      },
+      "wallpaper": {
+        "title": "טפט"
+      },
+      "window": {
+        "title": "ווינדוס"
+      }
+    },
+    "search-placeholder": "חיפוש יישומים…"
+  },
+  "location": {
+    "errors": {
+      "address-lookup-failed": "בדיקת הכתובת נכשלה",
+      "ip-geolocation-failed": "איכון IP נכשל",
+      "parse-geocode": "לא ניתן היה לפענח את תגובת ה-geocode.",
+      "parse-ip-geolocation": "לא ניתן היה לפענח את תגובת המיקום הגיאוגרפי של ה-IP"
+    },
+    "locations": {
+      "current": "מיקום נוכחי"
+    },
+    "source": {
+      "address": "כתובת",
+      "auto": "אוטומטי",
+      "manual": "ידני"
+    }
+  },
+  "lockscreen": {
+    "authenticating": "מאמת…",
+    "authentication-failed": "האימות נכשל",
+    "caps-lock-on": "Caps Lock מופעל",
+    "password-cleared": "הסיסמה נוקתה",
+    "password-placeholder": "סיסמה",
+    "ready": "הקלידו את הסיסמה והקישו Enter.",
+    "unlocked": "פתוח",
+    "waiting": "ממתין לאישור נעילה…"
+  },
+  "notifications": {
+    "actions": {
+      "fallback": "פעולה",
+      "open": "פתח"
+    },
+    "inline-reply": {
+      "button": "הגב",
+      "placeholder": "הקלד תגובה…"
+    },
+    "internal": {
+      "battery": "סוללה",
+      "battery-critical-body": "{device}: {percent}% – המחשב שלך ייכבה בקרוב",
+      "battery-critical-title": "סוללה נמוכה באופן קריטי",
+      "battery-device": "התקן סוללה",
+      "battery-low-body": "{device}: נותרו {percent}%",
+      "battery-low-title": "סוללה נמוכה",
+      "calendar": "לוח שנה",
+      "calendar-credential-locked-body": "יש לפתוח את הנעילה של צרור המפתחות המשמש את Secret Service, ולאחר מכן לנסות שוב בהגדרות. ב־GNOME Keyring, יש להגדיר צרור מפתחות שנפתח אוטומטית, כמו Login, כברירת מחדל.",
+      "calendar-credential-locked-title": "צרור המפתחות של היומן נעול",
+      "calendar-google-connect-browser-failed": "לא ניתן היה להפעיל את הדפדפן לצורך אימות Google. יש לבדוק את דפדפן ברירת המחדל או את הגדרות xdg-open.",
+      "calendar-google-connect-credential-store-failed": "ההרשאה הושלמה, אך לא ניתן היה לשמור את ה-refresh token. יש לבטל את הנעילה או להפעיל את Secret Service, ולאחר מכן להתחבר שוב.",
+      "calendar-google-connect-expired": "ההרשאה מ-Google פגה לפני שההתחברות הסתיימה. יש להתחיל את החיבור מחדש.",
+      "calendar-google-connect-failed-title": "החיבור ליומן גוגל נכשל",
+      "calendar-google-connect-missing-account": "חשבון יומן Google שהוגדר לא תאם ל-\"{account}\".",
+      "calendar-google-connect-rate-limited": "ההרשאה מול גוגל מוגבלת זמנית. המתינו מעט ונסו שוב.",
+      "calendar-google-connect-result-failed": "לא ניתן היה להשלים את ההרשאה מול Google. יש להתחיל את החיבור מחדש.",
+      "calendar-google-connect-start-failed": "לא ניתן היה להתחיל את אימות Google. נא לבדוק את חיבור הרשת ולנסות שוב.",
+      "calendar-google-connect-start-http": "לא ניתן להתחיל את אימות Google. מתווך ה-OAuth החזיר HTTP {status}.",
+      "calendar-google-connect-timeout": "פג תוקף האישור של Google. התחל את החיבור מחדש כשתהיה מוכן להתחבר.",
+      "config-migration-body": "יש לעדכן את {path} בקובץ המקור. Noctalia מיישמת החלפה זו באופן זמני בלבד. יש להריץ את noctalia config validate כדי להציג רשימה של כל השינויים הנדרשים.",
+      "config-migration-title": "נדרש עדכון תצורה",
+      "dbus-disabled": "התראות DBus מושבתות",
+      "desktop-widgets-editor": "עורך וידג'טים",
+      "desktop-widgets-editor-enabled": "עורך הווידג'טים של שולחן העבודה מופעל. מומלץ לעבור לסביבת עבודה ריקה כדי שחלונות פתוחים לא יסתירו את העורך.",
+      "greeter-sync": "מקבל הפנים של Noctalia",
+      "greeter-sync-pending": "ממתין לאישור מנהל כדי לכתוב ל-greeter.",
+      "greeter-sync-pending-console": "ממתין לאישור מנהל. יש לאשר את בקשת ה־polkit ב־Noctalia, ב־TTY או במסוף, או להריץ את pkexec באופן ידני.",
+      "greeter-sync-pending-manual": "הקבצים מוכנים. הריצו במסוף: pkexec noctalia-greeter-apply-appearance \"$XDG_RUNTIME_DIR/noctalia-greeter-sync\". או הגדירו את shell.greeter_sync.privilege_command (לדוגמה ghostty -e pkexec) וסנכרנו שוב.",
+      "greeter-sync-success": "המראה סונכרן. השינויים יחולו במסך הכניסה הבא.",
+      "greeter-sync-timeout": "סנכרון ה-Greeter עדיין ממתין לאישור מנהל. בדוק ב-TTY או בקונסולה להנחיית polkit, הפעל את סוכן ה-polkit ב'הגדרות אבטחה', או הרץ את pkexec באופן ידני.",
+      "greeter-sync-timeout-manual": "סנכרון ה-Greeter עדיין דורש אישור מנהל. הרץ בטרמינל: pkexec noctalia-greeter-apply-appearance \"$XDG_RUNTIME_DIR/noctalia-greeter-sync\"",
+      "keybind-app": "Noctalia",
+      "keybind-invalid-modifier": "קיצור דרך זה מקבל מקש בודד ללא מקשי צירוף.",
+      "keybind-invalid-printable": "מקשים הניתנים להדפסה (אותיות, מספרים, סמלים) דורשים מקש שינוי כגון Ctrl או Alt.",
+      "keybind-invalid-super": "לא ניתן להשתמש במקש Super/Windows בקיצורי המקשים של המעטפת.",
+      "keybind-invalid-title": "קיצור מקשים לא מורשה",
+      "launcher-usage-reset": "משגר",
+      "launcher-usage-reset-success": "נתוני השימוש נוקו.",
+      "lockscreen-widgets-editor": "עורך וידג'טים למסך הנעילה",
+      "lockscreen-widgets-editor-blocked-locked": "יש לפתוח את נעילת ההפעלה לפני עריכת וידג'טים של מסך הנעילה.",
+      "lockscreen-widgets-editor-enabled": "עורך הווידג'טים של מסך הנעילה פעיל. יש לעבור לסביבת עבודה ריקה כדי שחלונות פתוחים לא יכסו את העורך.",
+      "mpris-disabled": "MPRIS מושבת",
+      "polkit-agent": "סוכן Polkit",
+      "polkit-no-session": "סוכן Polkit דורש את logind,‏ elogind, או XDG_SESSION_ID. בהתקנות המבוססות על seatd בלבד, הוא אינו יכול להירשם להנחיות גרפיות. השתמש ב-pkexec דרך הטרמינל לסנכרון ה-greeter, או התקן את elogind לאימות בתוך הסשן.",
+      "screen-time-reset": "זמן מסך",
+      "screen-time-reset-success": "היסטוריית השימוש נוקתה.",
+      "session-bus-unavailable": "אפיק ההפעלה לא זמין",
+      "wallpaper-palette-export": "פלטת צבעים מותאמת אישית",
+      "wallpaper-palette-export-success": "\"{name}\" נשמר ומקור הפלטה שונה למותאם אישית."
+    }
+  },
+  "osd": {
+    "bluetooth": {
+      "off": "Bluetooth כבוי",
+      "on": "Bluetooth מופעל"
+    },
+    "caffeine": {
+      "off": "קפאין כבוי",
+      "on": "Caffeine מופעל"
+    },
+    "dnd": {
+      "off": "DND כבוי",
+      "on": "נא לא להפריע מופעל"
+    },
+    "effects": {
+      "input": "אפקטי קלט",
+      "output": "אפקטי פלט"
+    },
+    "lock-keys": {
+      "caps-off": "Caps Lock כבוי",
+      "caps-on": "Caps Lock מופעל",
+      "num-off": "Num Lock כבוי",
+      "num-on": "Num Lock מופעל",
+      "scroll-off": "Scroll Lock כבוי",
+      "scroll-on": "Scroll Lock מופעל"
+    },
+    "nightlight": {
+      "forced": "פעיל תמיד",
+      "off": "תאורת לילה כבויה",
+      "running": "רץ",
+      "scheduled": "מתוזמן"
+    },
+    "privacy": {
+      "camera-off": "המצלמה הופסקה",
+      "camera-on": "מצלמה פעילה",
+      "mic-off": "המיקרופון הופסק",
+      "mic-on": "מיקרופון פעיל",
+      "screen-off": "שיתוף המסך הופסק",
+      "screen-on": "שיתוף מסך פעיל"
+    },
+    "wifi": {
+      "off": "Wi-Fi כבוי",
+      "on": "Wi-Fi פועל"
+    }
+  },
+  "plugins": {
+    "auto-disabled": {
+      "body-errors": "{plugin} נתקל ביותר מדי שגיאות והושבת. טען אותו מחדש לאחר תיקון הבעיה.",
+      "body-timeouts": "{plugin} הפסיק להגיב והושבת. יש לטעון אותו מחדש לאחר תיקון הבעיה.",
+      "title": "תוסף מושבת"
+    },
+    "enable-failed": {
+      "body-error": "{plugin}: {error}",
+      "body-incompatible": "{plugin} מכוון ל-API גרסה {version}; ‏Noctalia תומך בגרסאות API ‏{oldest}–{current}.",
+      "body-timeout": "ההתקנה של {plugin} ארכה יותר מדי זמן.",
+      "title": "התוסף אינו מופעל"
+    }
+  },
+  "power": {
+    "battery": {
+      "states": {
+        "battery": "סוללה",
+        "charging": "בטעינה",
+        "discharging": "מתרוקנת",
+        "empty": "ריק",
+        "pending-discharge": "פריקה בהמתנה",
+        "plugged-in": "מחובר לחשמל"
+      },
+      "tooltip": {
+        "device": "סוללה",
+        "device-numbered": "סוללה {index}",
+        "health": "בריאות",
+        "rate": "קצב",
+        "status": "מצב",
+        "time-left": "זמן שנותר",
+        "time-to-full": "זמן לטעינה מלאה",
+        "unknown-device": "התקן לא ידוע"
+      }
+    },
+    "profiles": {
+      "balanced": "מאוזן",
+      "performance": "ביצועים",
+      "power-saver": "חיסכון בחשמל"
+    }
+  },
+  "session": {
+    "actions": {
+      "custom": "מותאם אישית",
+      "lock": "נעילה",
+      "lock-and-suspend": "נעילה והשהיה",
+      "logout": "התנתקות",
+      "reboot": "הפעלה מחדש",
+      "shutdown": "כיבוי",
+      "suspend": "השהיה"
+    },
+    "errors": {
+      "lock-body": "פרוטוקול נעילת ההפעלה אינו זמין.",
+      "lock-title": "הנעילה אינה זמינה"
+    }
+  },
+  "settings": {
+    "actions": {
+      "confirm-reset": "אישור איפוס",
+      "reset": "איפוס"
+    },
+    "badges": {
+      "advanced": "מתקדם",
+      "community": "קהילה",
+      "deprecated": "יצא משימוש",
+      "inherited": "נורש",
+      "monitor": "מסך",
+      "official": "רשמי",
+      "override": "דריסה"
+    },
+    "calendar-accounts": {
+      "add-title": "הוספת חשבון לוח שנה",
+      "calendars-label": "לוחות שנה",
+      "color-label": "צבע",
+      "credential-source-file": "קובץ סיסמה",
+      "credential-source-keyring": "צרור מפתחות",
+      "credential-source-label": "אחסון אישורים",
+      "delete-error": "לא ניתן היה למחוק את חשבון לוח השנה.",
+      "edit-title": "עריכת חשבון לוח שנה",
+      "ics-url-label": "כתובת ICS",
+      "id-label": "מזהה חשבון",
+      "invalid": "נא לבדוק את השדות המודגשים בחשבון לוח השנה.",
+      "name-label": "שם תצוגה",
+      "name-placeholder": "לוח שנה אישי",
+      "password-file-error": "לא ניתן לקרוא את קובץ הסיסמה שהוגדר. יש לוודא שהקובץ קיים, שהוא קובץ רגיל וקריא, ושהוא מכיל סיסמה.",
+      "password-file-label": "קובץ סיסמה",
+      "password-keep-placeholder": "יש להשאיר ריק כדי לשמור על הסיסמה הנוכחית",
+      "password-label": "סיסמת אפליקציה",
+      "password-placeholder": "סיסמה ספציפית לאפליקציה",
+      "password-save-error": "לא ניתן היה לשמור את סיסמת חשבון לוח השנה.",
+      "provider": {
+        "custom": "CalDAV",
+        "google": "גוגל",
+        "icloud": "iCloud",
+        "ics": "כתובת ICS"
+      },
+      "provider-label": "ספק",
+      "save": "שמור",
+      "save-connect": "שמור והתחבר",
+      "save-error": "לא ניתן היה לשמור את חשבון לוח השנה.",
+      "secret-cleanup-error": "לא ניתן היה לשמור את החשבון, וכן לא ניתן היה לשחזר או לנקות את פרטי ההזדהות שלו ממחזיק המפתחות. נסה שוב לאחר שחרור הנעילה של Secret Service.",
+      "secret-service-cancelled": "ההנחיה של Secret Service בוטלה. נסה שוב כשתהיה מוכן לבטל את הנעילה.",
+      "secret-service-error": "לא ניתן היה לגשת לאישורי לוח השנה ב-Secret Service. יש לנסות את הפעולה שוב.",
+      "secret-service-locked": "אישורי לוח השנה נעולים או שהגישה נדחתה. יש לשחרר את נעילת Secret Service ולנסות שוב.",
+      "secret-service-unavailable": "אין ספק Secret Service זמין. יש להפעיל ספק תואם ולנסות שוב.",
+      "server-url-label": "כתובת URL של השרת",
+      "username-label": "שם משתמש",
+      "username-placeholder": "name@example.com"
+    },
+    "controls": {
+      "keybind": {
+        "add": "לחץ להוספת קיצור מקשים",
+        "recording-placeholder": "הקישו צירוף מקשים…",
+        "unset-placeholder": "לחץ להקצאה…"
+      },
+      "list": {
+        "add-entry-placeholder": "הוסף רשומה…"
+      },
+      "path-browse": {
+        "file-title": "בחר קובץ",
+        "folder-title": "בחירת תיקייה"
+      },
+      "select": {
+        "unknown-value": "לא ידוע: {value}"
+      }
+    },
+    "dialogs": {
+      "color-picker": {
+        "title": "בחר צבע"
+      }
+    },
+    "entities": {
+      "bar": {
+        "create": "יצירה",
+        "delete": "מחק",
+        "delete-confirm-desc": "הסרגל שנוצר דרך הממשק הגרפי יוסר מ-settings.toml.",
+        "delete-confirm-title": "למחוק את \"{name}\"?",
+        "id-placeholder": "מזהה סרגל",
+        "label": "סרגל: {name}",
+        "management": "סרגל",
+        "move-down": "הזז למטה",
+        "move-up": "הזז למעלה",
+        "new": "סרגל חדש",
+        "rename": "שנה שם",
+        "rename-save": "שמור"
+      },
+      "monitor-override": {
+        "create": "יצירה",
+        "delete": "מחק",
+        "delete-confirm-desc": "דריסת הצג שנוצרה דרך הממשק הגרפי תוסר מ-settings.toml.",
+        "delete-confirm-title": "למחוק את \"{name}\"?",
+        "label": "מסך: {name}",
+        "management": "עקיפת מוניטור",
+        "match-placeholder": "התאמה למסך",
+        "new": "עקיפת מוניטור",
+        "rename": "שנה שם",
+        "rename-save": "שמור"
+      },
+      "widget": {
+        "add": "הוסף וידג'ט",
+        "detail": {
+          "custom": "וידג'ט מותאם אישית"
+        },
+        "editor": {
+          "description": "סידור וידג'טים בין נתיבי הסרגל",
+          "title": "יישומוני סרגל"
+        },
+        "group": {
+          "accordion": "אקורדיון",
+          "accordion-description": "הצג רק את הווידג'ט הראשון; ריחוף מעל הקפסולה חושף את השאר",
+          "accordion-direction": "כיוון חשיפה",
+          "accordion-direction-description": "הצד של הווידג'ט הראשון שבו נפתחים הווידג'טים המוסתרים",
+          "action": "קבוצה",
+          "border": "גבול",
+          "border-description": "תפקיד צבע קו המתאר של הקפסולה; יש להשאיר על ברירת מחדל ללא קו מתאר",
+          "clear": "נקה",
+          "deselect": "בטל בחירה",
+          "drag": "סדר מחדש",
+          "drawer-columns": "עמודות המגירה",
+          "drawer-columns-description": "מספר הווידג'טים בשורה בפאנל המגירה",
+          "drawer-detached": "פאנל מנותק",
+          "drawer-detached-description": "פתח את המגירה כפאנל צף עם רקע משלו במקום להתמזג עם הסרגל",
+          "drawer-enabled": "מגירה",
+          "drawer-enabled-description": "העברת קבוצות וידג'טים לפאנל מגירה הנשלט על ידי כפתור",
+          "drawer-glyph-closed": "אייקון סגור",
+          "drawer-glyph-closed-description": "הסמל המוצג על כפתור המגירה כאשר החלונית סגורה",
+          "drawer-glyph-opened": "אייקון פתוח",
+          "drawer-glyph-opened-description": "הסמל שמוצג על כפתור המגירה כשהחלונית פתוחה",
+          "edit": "עריכת סגנון",
+          "fill": "רקע",
+          "fill-description": "תפקיד צבע הרקע של הקפסולה; נתמכים גם צבעי hex קבועים",
+          "foreground": "קדמי",
+          "foreground-description": "תפקיד הצבע של הסמל והתווית לווידג'טים בקבוצה זו",
+          "hide": "הסתר את הקבוצה הזו",
+          "hide-widget": "הסתר את הווידג'ט הזה",
+          "hint": "חלק מקבוצת קפסולה",
+          "members": "{count} וידג'טים",
+          "opacity": "אטימות",
+          "opacity-description": "אטימות רקע הקפסולה",
+          "orphan": "קבוצה לא ידועה",
+          "padding": "ריפוד",
+          "padding-description": "ריפוד פנימי בין קצה הקפסולה לווידג'טים שלה, בפיקסלים",
+          "radius": "רדיוס",
+          "radius-description": "רדיוס פינות הקפסולה בפיקסלים; 'אוטומטי' יורש את רדיוס הקפסולה של הסרגל",
+          "remove-from-group": "הסר מהקבוצה",
+          "remove-orphan": "הסר קבוצה לא ידועה",
+          "remove-widget": "הסר מהסרגל",
+          "select": "בחרו לקיבוץ",
+          "selected": "{count} נבחרו",
+          "settings-widget": "הגדרות ווידג'ט",
+          "show": "הצג את הקבוצה הזו",
+          "show-widget": "הצג את הווידג'ט הזה",
+          "style": "סגנון",
+          "title": "קבוצת קפסולה",
+          "ungroup": "בטל קיבוץ",
+          "widget-spacing": "ריווח",
+          "widget-spacing-description": "ריווח בין הווידג'טים בקבוצה זו, בפיקסלים; אוטומטי יורש את ריווח הווידג'טים של הסרגל"
+        },
+        "inspector": {
+          "add-instance-title": "הוסף וידג'ט {widget} חדש עם שם ל-{lane}",
+          "add-title": "הוסף וידג'ט ל-{lane}",
+          "move-to-lane": "העבר ל-{lane}",
+          "reset-defaults": "איפוס לברירות מחדל"
+        },
+        "instance": {
+          "create-save": "יצירה",
+          "delete": "מחק",
+          "delete-confirm-desc": "הווידג'ט שצוין יוסר מכל סרגל והגדרותיו יימחקו.",
+          "delete-confirm-title": "למחוק את \"{name}\"?",
+          "id-description": "יש להשתמש באותיות, מספרים, קווים תחתונים או מקפים בלבד. ללא רווחים; חייב להיות ייחודי.",
+          "id-placeholder": "מזהה ווידג'ט",
+          "rename": "שנה שם",
+          "rename-save": "שמור"
+        },
+        "lanes": {
+          "center": "מרכז",
+          "customize": "התאמה אישית",
+          "empty": "אין וידג'טים",
+          "empty-hint": "הוסף וידג'ט כדי לאכלס את הנתיב הזה.",
+          "end": "סוף",
+          "start": "התחל"
+        },
+        "picker": {
+          "empty": "לא נמצאו וידג׳טים",
+          "instance-description": "וידג'ט בעל שם מסוג \"{type}\"",
+          "instance-toggle": "וידג'ט בעל שם",
+          "placeholder": "חיפוש וידג'טים…"
+        },
+        "raw": {
+          "delete": "מחק",
+          "description": "מפתחות לא נתמכים נשמרו מתצורת הווידג'ט הזו.",
+          "title": "הגדרות גולמיות"
+        },
+        "settings": {
+          "empty": "אין הגדרות התואמות למסננים הנוכחיים.",
+          "groups": {
+            "actions": "פעולות",
+            "behavior": "התנהגות",
+            "grouping": "קיבוץ",
+            "presentation": "מצגת",
+            "runtime": "זמן ריצה",
+            "taskbar": {
+              "grouping": "קיבוץ",
+              "windows": "חלונות",
+              "workspace-labels": "תוויות סביבת עבודה"
+            },
+            "widget": "וידג'ט",
+            "workspaces": {
+              "colors": "צבעים",
+              "list": "סביבות עבודה",
+              "pills": "סגנון גלולה"
+            }
+          }
+        }
+      }
+    },
+    "errors": {
+      "avatar-accounts": "לא ניתן היה לעדכן את תמונת חשבון המערכת.",
+      "avatar-invalid-path": "נתיב האווטאר שנבחר אינו קובץ תמונה קריא.",
+      "avatar-load": "לא ניתן לטעון את התמונה שנבחרה. יש להשתמש ב-PNG, JPEG, WebP, GIF, BMP, או SVG.",
+      "avatar-write": "לא ניתן היה להכין את תמונת הפרופיל לשמירה.",
+      "bar": {
+        "create": "לא ניתן היה ליצור את הסרגל.",
+        "delete": "לא ניתן למחוק את הסרגל.",
+        "move": "לא ניתן היה להזיז את הסרגל.",
+        "rename": "לא ניתן היה לשנות את שם הסרגל."
+      },
+      "batch-write": "לא ניתן היה לשמור חלק מההגדרות.",
+      "custom-schedule-times": "לוח זמנים מותאם אישית דורש גם שעת זריחה וגם שעת שקיעה בפורמט HH:MM.",
+      "export-config": "שמירת ייצוא התצורה נכשלה.",
+      "export-wallpaper-palette": "לא ניתן היה לשמור את פלטת הטפט כפלטה מותאמת אישית.",
+      "monitor-override": {
+        "create": "לא ניתן ליצור עקיפת צג.",
+        "delete": "לא ניתן למחוק את עקיפת הצג.",
+        "rename": "לא ניתן היה לשנות את שם עקיפת הצג."
+      },
+      "reset-page": "איפוס חלק מההגדרות נכשל.",
+      "support-report": "שמירת דוח התמיכה נכשלה.",
+      "sync-greeter": "לא ניתן היה לסנכרן את המראה עם Noctalia Greeter.",
+      "sync-greeter-timeout": "סנכרון Greeter עדיין ממתין לאישור מנהל. יש לבדוק ב־TTY או בקונסולה אם מופיעה בקשת polkit, להפעיל את סוכן ה־polkit בהגדרות האבטחה, או להריץ את pkexec באופן ידני.",
+      "sync-greeter-timeout-manual": "סנכרון ה-Greeter עדיין דורש אישור מנהל. יש להריץ בטרמינל: pkexec noctalia-greeter-apply-appearance \"$XDG_RUNTIME_DIR/noctalia-greeter-sync\"",
+      "widget": {
+        "rename": "לא ניתן היה לשנות את שם הווידג'ט."
+      },
+      "write": "שגיאה בשמירת ההגדרות."
+    },
+    "export-config": {
+      "export": "ייצוא",
+      "full-effective-description": "מייצא את כל ההגדרות הפעילות, כולל ברירות המחדל המובנות. שימושי לבדיקה או לשיתוף תמונת מצב, אך מקבע את ברירות המחדל הנוכחיות באופן מפורש.",
+      "full-effective-save-title": "שמור את התצורה האפקטיבית המלאה",
+      "full-effective-title": "התצורה המלאה בפועל",
+      "merged-user-description": "מאחד קבצי תצורה והגדרות מהממשק הגרפי לקובץ TOML אחד. ברירות המחדל המובנות נשארות משתמעות.",
+      "merged-user-save-title": "שמור את תצורת המשתמש הממוזגת",
+      "merged-user-title": "תצורת משתמש מאוחדת (מומלץ)",
+      "title": "ייצוא תצורה"
+    },
+    "idle": {
+      "behavior": {
+        "add": "הוספת התנהגות",
+        "command-label": "פקודת בטלה",
+        "command-placeholder": "notify-send \"Idle\"",
+        "kind": {
+          "custom": "מותאם אישית",
+          "lock": "נעילה",
+          "lock-and-suspend": "נעילה והשעיה",
+          "screen-off": "כיבוי מסך",
+          "suspend": "השהיה"
+        },
+        "kind-section-label": "פעולה",
+        "locked-timeout-label": "פסק זמן במצב נעול (שניות, 0 = כבוי)",
+        "name-label": "שם",
+        "name-placeholder": "התנהגות בזמן מנוחה",
+        "resume-command-label": "פקודת המשך",
+        "resume-command-placeholder": "notify-send 'Back from idle'",
+        "summary": "{name} · {seconds}ש",
+        "summary-disabled-timeout": "{name} · פסק זמן מושבת",
+        "timeout-label": "פסק זמן (שניות)",
+        "unnamed": "התנהגות ללא שם"
+      },
+      "live-status": {
+        "active": "פעיל",
+        "idle-for-one": "לא פעיל למשך שנייה אחת",
+        "idle-for-seconds": "לא פעיל {seconds} שניות"
+      }
+    },
+    "navigation": {
+      "groups": {
+        "accessibility": "נגישות",
+        "audio": "שמע",
+        "authentication": "אימות",
+        "automation": "אוטומציה",
+        "backdrop": "רקע",
+        "background": "רקע",
+        "battery": "סוללה",
+        "behavior": "התנהגות",
+        "borders": "גבולות",
+        "brightness": "בהירות",
+        "built-in": "מובנה",
+        "calendar": "לוח שנה",
+        "capsules": "קפסולות",
+        "clipboard": "לוח גזירים",
+        "community": "קהילה",
+        "control-center": "מרכז הבקרה",
+        "dead-zone": "אזור מת",
+        "directories": "ספריות",
+        "display": "תצוגה",
+        "effects": "אפקטים",
+        "filtering": "סינון",
+        "focus-styling": "עיצוב מיקוד",
+        "formats": "פורמטים",
+        "general": "כללי",
+        "greeter": "ברכה",
+        "grouping": "קיבוץ",
+        "history": "היסטוריה",
+        "home": "בית",
+        "hot-corners": "פינות חמות",
+        "idle": "לא פעיל",
+        "interface": "ממשק",
+        "keybinds": "קיצורי מקשים",
+        "keyboard-layout": "פריסת מקלדת",
+        "kinds": "סוגים",
+        "launcher": "מפעיל",
+        "layout": "פריסה",
+        "lifecycle": "מחזור חיים",
+        "location": "מיקום",
+        "lock-screen": "מסך נעילה",
+        "media": "מדיה",
+        "monitor": "מוניטור המערכת",
+        "monitor-polling": "מרווחי בדיקה",
+        "monitor-thresholds": "ספי הדגשה",
+        "monitors": "מסכים",
+        "motion": "תנועה",
+        "navigation": "ניווט",
+        "network": "רשת",
+        "night-light": "אור לילה",
+        "notifications": "התראות",
+        "osd": "OSD",
+        "overview": "סקירה כללית",
+        "pinned-apps": "אפליקציות נעוצות",
+        "polkit": "Polkit",
+        "power": "חשמל",
+        "privacy": "פרטיות",
+        "profile": "פרופיל",
+        "providers": "ספקים",
+        "screen-corners": "פינות המסך",
+        "screen-time": "זמן מסך",
+        "screenshot": "צילום מסך",
+        "security": "אבטחה",
+        "session-panel": "חלונית הפעלה",
+        "shape": "צורה",
+        "system": "מערכת",
+        "theme": "ערכת נושא",
+        "toasts": "טוסטים",
+        "transition": "מעבר",
+        "user": "משתמש",
+        "wallpaper": "טפט",
+        "weather": "מזג אוויר",
+        "widget-list": "רשימת וידג'טים",
+        "widgets": "ווידג'טים"
+      },
+      "sections": {
+        "accessibility": "נגישות",
+        "appearance": "מראה",
+        "backdrop": "רקע",
+        "bar": "סרגל",
+        "control-center": "מרכז הבקרה",
+        "desktop": "שולחן עבודה",
+        "dock": "דוק",
+        "hooks": "Hooks",
+        "keybinds": "קיצורי מקשים",
+        "launcher": "משגר",
+        "location": "מיקום",
+        "niri": "Niri",
+        "notifications": "התראות",
+        "osd": "OSD",
+        "panels": "חלוניות",
+        "plugins": "תוספים",
+        "popups": "חלונות קופצים",
+        "power": "חשמל",
+        "security": "אבטחה",
+        "services": "שירותים",
+        "shell": "מעטפת",
+        "system": "מערכת",
+        "templates": "תבניות",
+        "wallpaper": "טפט"
+      }
+    },
+    "notifications": {
+      "filter": {
+        "add": "הוסף מסנן",
+        "add-title": "הוסף מסנן התראות",
+        "allow-permanent": "אפשר לצמיתות",
+        "allowed-urgencies-label": "דחיפויות מותרות",
+        "bypass-dnd": "עקיפת 'נא לא להפריע'",
+        "flag": {
+          "dnd-bypass": "עקיפת DND",
+          "history": "היסטוריה",
+          "permanent": "קבוע",
+          "sound": "שמע",
+          "toast": "התראה קופצת"
+        },
+        "flags-label": "בעת התאמה",
+        "match-content-label": "רג'קס תוכן",
+        "match-content-placeholder": "תבנית Regex להתאמת תקציר או גוף…",
+        "match-label": "יישום",
+        "match-placeholder": "שם אפליקציה, desktop entry, או קטגוריה…",
+        "override-duration": "משך העקיפה",
+        "play-sound": "השמע צליל",
+        "save-history": "שמור בהיסטוריה",
+        "show-toast": "הצג Toast",
+        "summary": "{match} · {flags}",
+        "summary-blocked": "{match} · חסום",
+        "summary-disabled": "{match} · מושבת",
+        "unnamed": "מסנן ללא שם"
+      }
+    },
+    "options": {
+      "accordion-direction": {
+        "end": "אחרי הוידג'ט הראשון",
+        "start": "לפני הווידג'ט הראשון"
+      },
+      "bar": {
+        "auto-hide": {
+          "off": "כבוי",
+          "on": "מופעל",
+          "smart": "חכם"
+        }
+      },
+      "clipboard": {
+        "auto-paste": {
+          "ctrl-shift-v": "Ctrl+Shift+V",
+          "ctrl-v": "Ctrl+V",
+          "shift-insert": "Shift+Insert"
+        }
+      },
+      "control-center": {
+        "sidebar": {
+          "compact": "קומפקטי",
+          "full": "מלא",
+          "none": "אין"
+        }
+      },
+      "dock-launcher-position": {
+        "end": "סוף",
+        "none": "ללא",
+        "start": "התחל"
+      },
+      "edge": {
+        "bottom": "תחתון",
+        "left": "שמאל",
+        "right": "ימין",
+        "top": "עליון"
+      },
+      "font-weight": {
+        "bold": "מודגש",
+        "book": "ספר",
+        "default": "ברירת מחדל (סרגל)",
+        "heavy": "כבד",
+        "light": "בהיר",
+        "medium": "בינוני",
+        "regular": "רגיל",
+        "semi-bold": "מודגש למחצה",
+        "semi-light": "בהיר למחצה",
+        "thin": "דק",
+        "ultra-bold": "מודגש במיוחד",
+        "ultra-heavy": "אולטרה כבד",
+        "ultra-light": "אולטרה בהיר"
+      },
+      "hot-corners": {
+        "command": "הרץ פקודה",
+        "control-center": "מרכז הבקרה",
+        "launcher": "משגר",
+        "none": "אין",
+        "window-switcher": "מחליף חלונות"
+      },
+      "layer": {
+        "overlay": "Overlay",
+        "top": "עליון"
+      },
+      "notification-urgency": {
+        "critical": "קריטי",
+        "low": "נמוך",
+        "normal": "רגיל"
+      },
+      "orientation": {
+        "horizontal": "אופקי",
+        "vertical": "אנכי"
+      },
+      "panel-bar-alignment": {
+        "centered": "ממורכז",
+        "near-trigger": "טריגר קרבה"
+      },
+      "panel-position": {
+        "auto": "עקוב אחר הסרגל"
+      },
+      "plugins": {
+        "auto-update": {
+          "all": "כל המקורות",
+          "none": "ללא",
+          "official": "רשמי בלבד"
+        }
+      },
+      "screen-position": {
+        "bottom-center": "מרכז תחתון",
+        "bottom-left": "שמאל תחתון",
+        "bottom-right": "ימין תחתון",
+        "center": "מרכז",
+        "center-left": "מרכז שמאל",
+        "center-right": "מרכז ימין",
+        "top-center": "מרכז עליון",
+        "top-left": "שמאל למעלה",
+        "top-right": "ימין למעלה"
+      },
+      "shell": {
+        "panel-placement": {
+          "attached": "צמוד",
+          "floating": "צף"
+        },
+        "panel-transparency": {
+          "glass": "זכוכית",
+          "soft": "רך",
+          "solid": "אחיד"
+        },
+        "password-style": {
+          "filled-circles": "עיגולים מלאים",
+          "random-icons": "סמלים אקראיים"
+        },
+        "shadow-direction": {
+          "center": "מרכז",
+          "down": "למטה",
+          "down-left": "שמאל למטה",
+          "down-right": "למטה ימין",
+          "left": "שמאל",
+          "right": "ימין",
+          "up": "פעיל",
+          "up-left": "למעלה שמאל",
+          "up-right": "ימין עליון"
+        }
+      },
+      "theme": {
+        "mode": {
+          "dark": "כהה",
+          "light": "בהיר"
+        },
+        "source": {
+          "built-in": "מובנה",
+          "community": "קהילה",
+          "custom": "מותאם אישית",
+          "wallpaper": "טפט"
+        }
+      },
+      "theme-role": {
+        "custom": "מותאם אישית",
+        "default": "ברירת מחדל"
+      },
+      "wallpaper": {
+        "fill": {
+          "center": "מרכז",
+          "crop": "חיתוך",
+          "fit": "התאם",
+          "repeat": "חזרה",
+          "span": "טווח",
+          "stretch": "מתיחה"
+        },
+        "order": {
+          "alphabetical": "אלפביתי",
+          "random": "אקראי"
+        },
+        "transition": {
+          "disc": "דיסק",
+          "fade": "דעיכה",
+          "honeycomb": "חלת דבש",
+          "stripes": "פסים",
+          "wipe": "מחק",
+          "zoom": "זום"
+        }
+      },
+      "weather": {
+        "unit": {
+          "imperial": "אימפריאלי",
+          "metric": "מטרי"
+        }
+      }
+    },
+    "plugins": {
+      "browse-store": "עיון בתוספים",
+      "panels": {
+        "open-near-click": {
+          "description": "היכן הפאנל ממוקם כאשר הוא נפתח בלחיצה על הווידג'ט בסרגל",
+          "label": "לאורך הסרגל"
+        },
+        "placement": {
+          "description": "הצמד את הפאנל לסרגל או הצף אותו ליד קצה הסרגל",
+          "label": "מיקום"
+        },
+        "position": {
+          "description": "מיקום על המסך כשהפאנל צף",
+          "label": "מיקום"
+        }
+      },
+      "plugins": {
+        "configure": "הגדר",
+        "delete": "מחק",
+        "delete-confirm-desc": "התוסף יוסר מהתקנה ויימחק מהדיסק.",
+        "delete-confirm-title": "למחוק את \"{name}\"?",
+        "deprecated": "מיושן",
+        "empty": "אין תוספים מאופשרים.",
+        "held-back": "גרסה ישנה יותר",
+        "held-back-hint": "v{version} דורש plugin API {required}; Noctalia תומך רק עד {current}. שדרג את Noctalia כדי לקבל תמיכה.",
+        "incompatible-plugin-api": "API לא תואם של תוסף",
+        "remove": "הסר תוסף",
+        "requires": "דרוש: {dependencies}",
+        "title": "תוספים",
+        "update-all": "עדכן הכל ({count})",
+        "update-available": "עדכון זמין",
+        "update-to": "עדכון ל־{version}"
+      },
+      "settings": {
+        "empty": "אין הגדרות זמינות."
+      },
+      "sources": {
+        "add": "הוסף מקור",
+        "add-title": "הוסף מקור תוספים",
+        "auto-update": "עדכון תוספים אוטומטי",
+        "auto-update-desc": "בדיקת מקורות מופעלים לגרסאות חדשות ברקע ושמירה על עדכניות התוספים המותקנים",
+        "edit": "עריכת מקור",
+        "edit-title": "עריכת מקור התוסף",
+        "empty": "לא הוגדרו מקורות.",
+        "errors": {
+          "duplicate-name": "מקור עם ID זה כבר קיים.",
+          "invalid-name": "מזהה המקור חייב להתחיל באות או ספרה ולהכיל רק אותיות, ספרות, '.', '_' או '-'.",
+          "location-required": "נדרש מיקום מקור."
+        },
+        "kind": {
+          "git": "Git",
+          "path": "נתיב"
+        },
+        "kind-label": "סוג",
+        "location-label": "מיקום",
+        "location-placeholder-git": "https://github.com/me/noctalia-plugins",
+        "location-placeholder-path": "~/dev/noctalia-plugins",
+        "name-label": "מזהה מקור",
+        "name-placeholder": "הפלאגינים שלי",
+        "precedence-hint": "מקורות נמוכים יותר דורסים את הגבוהים יותר כאשר הם מציעים את אותו התוסף.",
+        "remove": "הסר מקור",
+        "save": "שמור",
+        "title": "מקורות",
+        "update": "עדכן מקור"
+      },
+      "store": {
+        "add": "הוסף ל-Noctalia",
+        "back-to-catalog": "חזרה לקטלוג התוספים",
+        "categories": "קטגוריות",
+        "category-all": "הכל",
+        "empty": "לא נמצאו תוספים",
+        "held-back": "גרסה ישנה יותר",
+        "held-back-hint": "מתקין את גרסה v{version} עבור plugin API {resolved}. הגרסה החדשה ביותר v{latest} דורשת plugin API {latestRequired}, ו־Noctalia זו תומכת עד {current}.",
+        "incompatible": "לא תואם",
+        "incompatible-hint": "נדרש API תוספים {required}; ‏Noctalia תומך ב־{oldest}–{current}.",
+        "loading": "טוען קטלוג…",
+        "no-readme": "אין תיאור זמין.",
+        "open-page": "פתח את דף התוסף ב-noctalia.dev",
+        "open-source": "פתח את מאגר המקור של התוסף",
+        "results-count": "{count} תוספים",
+        "search-placeholder": "חיפוש תוספים…",
+        "sort-added-at-asc": "מיין לפי תאריך הוספה (הישן ביותר קודם)",
+        "sort-added-at-desc": "מיין לפי תאריך הוספה (החדשים תחילה)",
+        "sort-name-asc": "מיון לפי שם (א-ת)",
+        "sort-name-desc": "מיון לפי שם (ת-א)",
+        "sort-updated-at-asc": "מיין לפי תאריך עדכון (הישן ביותר תחילה)",
+        "sort-updated-at-desc": "מיין לפי תאריך עדכון (החדש ביותר תחילה)",
+        "source-all": "כל המקורות",
+        "title": "חנות תוספים"
+      }
+    },
+    "schema": {
+      "accessibility": {
+        "high-contrast": {
+          "description": "מגביר את הניגודיות על ידי דחיפת צבעי המשטח והרקע לערכים קיצוניים",
+          "label": "ניגודיות גבוהה"
+        }
+      },
+      "appearance": {
+        "animation-speed": {
+          "description": "מכפיל מהירות לכל האנימציות",
+          "label": "מהירות אנימציה"
+        },
+        "animations": {
+          "description": "אפשר או השבת אנימציות בממשק המשתמש",
+          "label": "אנימציות"
+        },
+        "app-icon-color": {
+          "description": "צבע מהפלטה המשמש לצביעת סמלי יישומים",
+          "label": "צבע סמל האפליקציה"
+        },
+        "app-icon-colorize": {
+          "description": "צביעה מחדש של סמלי יישומים במעטפת להתאמה לפלטה הפעילה",
+          "label": "צביעת סמלי אפליקציות"
+        },
+        "builtin-palette": {
+          "description": "בחר פלטה מהקטלוג המצורף",
+          "label": "פלטה מובנית"
+        },
+        "button-borders": {
+          "description": "שרטט קווי מתאר סביב כפתורים בכל המעטפת",
+          "label": "גבולות כפתורים"
+        },
+        "card-borders": {
+          "description": "שרטט קווי מתאר סביב כרטיסיות מקטע בתוך פאנלים וחלון ההגדרות",
+          "label": "מסגרות כרטיסים"
+        },
+        "community-palette": {
+          "description": "בחרו פלטה מקטלוג הקהילה",
+          "label": "פלטת קהילה",
+          "search-placeholder": "חיפוש פלטות…"
+        },
+        "corner-roundness": {
+          "description": "קנה מידה לרדיוס הפינות בכל רכיבי הממשק של המעטפת",
+          "label": "עיגול פינות"
+        },
+        "custom-palette": {
+          "description": "בחר פלטה מ-~/.config/noctalia/palettes/",
+          "label": "פלטת צבעים מותאמת אישית",
+          "search-placeholder": "חיפוש פלטות מותאמות אישית…"
+        },
+        "export-wallpaper-palette": {
+          "button": "שמור כפלטה מותאמת אישית",
+          "description": "שמירת הפלטה הנוכחית שנוצרה מהטפט כקובץ פלטה מותאם אישית לשימוש חוזר",
+          "label": "ייצוא פלטת הטפט"
+        },
+        "font-family": {
+          "description": "משפחת גופנים לממשק המעטפת",
+          "label": "משפחת גופן"
+        },
+        "global-shadow-alpha": {
+          "description": "אטימות צל כללית למשטחים"
+        },
+        "global-shadow-direction": {
+          "description": "כיוון הטלת הצל ממשטחים"
+        },
+        "input-borders": {
+          "description": "שרטוט קווי מתאר סביב שדות טקסט וקלטים אחרים ברחבי המעטפת",
+          "label": "גבולות קלט"
+        },
+        "language": {
+          "description": "דריסת זיהוי אזור אוטומטי",
+          "label": "שפה"
+        },
+        "palette-source": {
+          "description": "מאיפה להפיק את פלטת הצבעים",
+          "label": "מקור הפלטה"
+        },
+        "popup-borders": {
+          "description": "צייר קווי מתאר סביב חלונות קופצים ותפריטים נפתחים",
+          "label": "גבולות פופאפ"
+        },
+        "popup-shadows": {
+          "description": "הצג צלליות מאחורי חלונות קופצים ותפריטים נפתחים",
+          "label": "צלליות קופצים"
+        },
+        "pure-black-dark": {
+          "description": "עיגון משטחים כהים לשחור מוחלט למניעת פסי צבע במסכי OLED (מצב כהה בלבד)",
+          "label": "שחור טהור"
+        },
+        "theme-mode": {
+          "description": "בחר בין מצב כהה, בהיר או אוטומטי לפי שעות היום",
+          "label": "מצב ערכת נושא"
+        },
+        "ui-scale": {
+          "description": "הגדלה או הקטנה של הממשק כולו",
+          "label": "קנה מידת ממשק"
+        },
+        "wallpaper-generation-scheme": {
+          "description": "בחר כיצד צבעי הטפט יומרו לפלטת צבעים",
+          "label": "סכמת יצירת טפטים"
+        }
+      },
+      "backdrop": {
+        "blur-intensity": {
+          "description": "עוצמת טשטוש הרקע",
+          "label": "עוצמת טשטוש"
+        },
+        "enabled": {
+          "description": "הפעל את הרקע"
+        },
+        "tint-intensity": {
+          "description": "עוצמת הגוון של הרקע",
+          "label": "עוצמת הגוון"
+        }
+      },
+      "bar": {
+        "auto-hide": {
+          "description": "כבוי משאיר את הסרגל גלוי; מופעל מסתיר אותו עד שמזיזים את הסמן לקצה המסך; חכם מציג את הסרגל בסביבת עבודה ריקה ומסתיר אותו כשיש חלונות פתוחים"
+        },
+        "background-opacity": {
+          "description": "אטימות הרקע של הסרגל"
+        },
+        "border": {
+          "description": "תפקיד צבע עבור קו המתאר של הסרגל; ישנה תמיכה גם בצבעי hex קבועים",
+          "label": "מסגרת"
+        },
+        "border-width": {
+          "description": "עובי קו המתאר הפנימי של הסרגל",
+          "label": "רוחב מסגרת"
+        },
+        "capsule-border": {
+          "description": "תפקיד צבע ברירת המחדל של מתאר הקפסולה; נתמכים גם צבעי hex קבועים",
+          "label": "מסגרת קפסולה"
+        },
+        "capsule-fill": {
+          "description": "תפקיד צבע הרקע של הקפסולה כברירת מחדל; נתמכים גם צבעי hex קבועים",
+          "label": "מילוי קפסולה"
+        },
+        "capsule-foreground": {
+          "description": "תפקיד צבע ברירת המחדל לאייקונים ותוויות בתוך קפסולות; נתמכים גם צבעי hex קבועים.",
+          "label": "חזית הקפסולה"
+        },
+        "capsule-opacity": {
+          "description": "שקיפות הרקע של קפסולות הווידג'טים",
+          "label": "אטימות הקפסולה"
+        },
+        "capsule-padding": {
+          "description": "ריפוד פנימי לקפסולות וידג'ט",
+          "label": "ריפוד קפסולה"
+        },
+        "capsule-radius": {
+          "description": "רדיוס פינה ברירת מחדל עבור קפסולות וידג'טים, גלולות סביבת עבודה וקבוצות סביבת עבודה בשורת המשימות; יש להשאיר ריק לקבלת צורת גלולה אוטומטית, או להגדיר 0 לקבלת פינות מרובעות",
+          "label": "רדיוס קפסולה"
+        },
+        "capsule-thickness": {
+          "description": "גודל הקפסולה לרוחב הסרגל כשבר מעובי הסרגל (1.0 ממלא את הסרגל)",
+          "label": "עובי הקפסולה"
+        },
+        "center-widgets": {
+          "description": "וידג'טים במרכז הסרגל",
+          "label": "וידג'טים מרכזיים"
+        },
+        "concave-edge-corners": {
+          "description": "חריטת שקעים קעורים בשתיים מפינות הסרגל (דורש ש־Edge Margin יהיה 0); כאשר Ends Margin הוא 0, הפינות בקצה הפנימי של הסרגל נחרטות, אחרת הפינות הנוגעות בקצה המסך נחרטות",
+          "label": "פינות קצה קעורות"
+        },
+        "contact-shadow": {
+          "description": "מעבר צבע כהה בין חלונית צמודה לסרגל ליצירת תחושת עומק בקו החיבור"
+        },
+        "content-padding": {
+          "description": "ריפוד באזור התוכן של הסרגל",
+          "label": "ריפוד תוכן"
+        },
+        "content-scale": {
+          "description": "מקדם קנה מידה לתוכן הסרגל",
+          "label": "קנה מידת תוכן"
+        },
+        "corner-bottom-left": {
+          "description": "רדיוס הפינה השמאלית התחתונה של הסרגל"
+        },
+        "corner-bottom-right": {
+          "description": "רדיוס פינה ימנית תחתונה לסרגל"
+        },
+        "corner-radius": {
+          "description": "רדיוס פינות הסרגל"
+        },
+        "corner-top-left": {
+          "description": "רדיוס פינה שמאלית עליונה לסרגל"
+        },
+        "corner-top-right": {
+          "description": "רדיוס פינה ימנית עליונה לסרגל"
+        },
+        "dead-zone-action": {
+          "description": "פעולה שתרוץ על אזורים ריקים בסרגל"
+        },
+        "edge-margin": {
+          "description": "הרווח בין הסרגל לקצה המסך שאליו הוא צמוד; הגדר ל־0 פיקסלים כדי שיישב צמוד לקצה"
+        },
+        "enabled": {
+          "description": "הצג או הסתר את הסרגל הזה"
+        },
+        "end-widgets": {
+          "description": "וידג'טים בצד הסיום (ימין/תחתון) של הסרגל",
+          "label": "וידג'טים בסוף"
+        },
+        "ends-margin": {
+          "description": "מקצר את הפס משני צדדיו לאורכו; הגדר ל-0 px לקבלת פס ברוחב מלא או בגובה מלא"
+        },
+        "font-family": {
+          "description": "גופן עבור הווידג'טים של סרגל זה; השאר ריק כדי לרשת את הגופן הכללי (הגדרת Font Family פר-ווידג'ט גוברת על הגדרה זו)",
+          "label": "משפחת גופן"
+        },
+        "font-scale": {
+          "description": "מקדם גודל לטקסט בכל הווידג'טים בסרגל זה; הגדרת font_scale לכל וידג'ט מוכפלת בערך זה",
+          "label": "קנה מידת גופן"
+        },
+        "font-weight": {
+          "description": "משקל ברירת מחדל לתוויות הווידג'טים בסרגל הזה.",
+          "label": "משקל גופן"
+        },
+        "hover-highlight": {
+          "description": "צובע בעדינות את הווידג'ט תחת סמן העכבר בצבע החזית שלו",
+          "label": "הדגשה בריחוף"
+        },
+        "layer": {
+          "description": "השתמש ב-Overlay להצגת הסרגל מעל יישומים במסך מלא; חלוניות מוצמדות עוקבות אחר הסרגל",
+          "label": "שכבת Wayland"
+        },
+        "opposite-edge-margin": {
+          "description": "שטח שמור נוסף בצד הפנימי של הסרגל, הרחק מקצה המסך; יש להשתמש כאשר חלונות מוגדלים מתעלמים מ־struts."
+        },
+        "panel-overlap": {
+          "description": "מספר הפיקסלים שפאנל צמוד חופף את קצה הסרגל כדי להסתיר את קו החיבור (יש לשנות אם רואים קו או רווח)",
+          "label": "חפיפת חלונית"
+        },
+        "position": {
+          "description": "באיזה קצה של המסך הסרגל יוצג"
+        },
+        "reserve-space": {
+          "description": "דחיית חלונות מקצה הסרגל"
+        },
+        "shadow": {
+          "description": "הטל צל גלובלי מהסרגל"
+        },
+        "show-on-workspace-switch": {
+          "description": "חשיפה קצרה של הסרגל בעת החלפת סביבת עבודה",
+          "label": "הצג בהחלפת סביבת עבודה"
+        },
+        "start-widgets": {
+          "description": "וידג'טים בצד ההתחלתי (שמאל/למעלה) של הסרגל",
+          "label": "וידג'טים בהתחלה"
+        },
+        "thickness": {
+          "description": "עובי הסרגל בפיקסלים",
+          "label": "עובי"
+        },
+        "widget-capsules": {
+          "description": "עטיפת וידג'טים בקפסולות",
+          "label": "קפסולות וידג'טים"
+        },
+        "widget-color": {
+          "description": "תפקיד צבע ברירת המחדל לסמלים ולתוויות בווידג'טים בסרגל זה; נתמכים גם צבעי hex קבועים",
+          "label": "צבע הוידג'ט"
+        },
+        "widget-icon-color": {
+          "description": "דורס את צבע הווידג'ט עבור הסמלים בסרגל זה; קיימת גם תמיכה בצבעי hex קבועים.",
+          "label": "צבע סמל הווידג'ט"
+        },
+        "widget-spacing": {
+          "description": "מרווח בין ווידג'טים בסרגל",
+          "label": "ריווח וידג'טים"
+        }
+      },
+      "desktop": {
+        "hot-corners-bottom-left": {
+          "description": "פעולה כשהסמן מגיע לפינה השמאלית התחתונה",
+          "label": "פינה שמאלית תחתונה"
+        },
+        "hot-corners-bottom-left-command": {
+          "description": "פקודת Shell להרצה בהגעה לפינה השמאלית התחתונה",
+          "label": "פקודה"
+        },
+        "hot-corners-bottom-right": {
+          "description": "פעולה כאשר הסמן מגיע לפינה הימנית התחתונה",
+          "label": "פינה ימנית תחתונה"
+        },
+        "hot-corners-bottom-right-command": {
+          "description": "פקודת Shell להרצה בהגעה לפינה הימנית התחתונה",
+          "label": "פקודה"
+        },
+        "hot-corners-delay-ms": {
+          "description": "משך הזמן שהמצביע צריך להישאר בפינה לפני שהפעולה תתבצע (0 = מיידי)",
+          "label": "השהיית הפעלה"
+        },
+        "hot-corners-enabled": {
+          "description": "הפעלת פעולות על ידי הזזת סמן העכבר לפינות המסך",
+          "label": "פינות חמות"
+        },
+        "hot-corners-top-left": {
+          "description": "פעולה כאשר הסמן מגיע לפינה השמאלית העליונה",
+          "label": "פינה שמאלית עליונה"
+        },
+        "hot-corners-top-left-command": {
+          "description": "פקודת Shell להרצה בעת הגעה לפינה השמאלית העליונה",
+          "label": "פקודה"
+        },
+        "hot-corners-top-right": {
+          "description": "פעולה כאשר הסמן פוגע בפינה הימנית העליונה",
+          "label": "פינה ימנית עליונה"
+        },
+        "hot-corners-top-right-command": {
+          "description": "פקודת Shell להרצה בהגעה לפינה הימנית העליונה",
+          "label": "פקודה"
+        },
+        "screen-corners-enabled": {
+          "description": "עגל את פינות המסך עם שכבת כיסוי שחורה",
+          "label": "פינות המסך"
+        },
+        "screen-corners-size": {
+          "description": "רדיוס עיגול פינות המסך בפיקסלים",
+          "label": "גודל פינה"
+        },
+        "widgets": {
+          "description": "הצג וידג'טים על שולחן העבודה",
+          "label": "ווידג'טים לשולחן העבודה"
+        },
+        "widgets-editor": {
+          "button": "החלף מצב עורך",
+          "description": "הוספה, הזזה ושינוי גודל של וידג'טים בשולחן העבודה",
+          "label": "עורך וידג'טים"
+        }
+      },
+      "dock": {
+        "active-icon-opacity": {
+          "description": "שקיפות אייקון ה-Dock הממוקד",
+          "label": "אטימות סמל פעיל"
+        },
+        "active-icon-scale": {
+          "description": "קנה מידה של אייקון ה-Dock הממוקד",
+          "label": "קנה מידת אייקון פעיל"
+        },
+        "active-monitor-only": {
+          "description": "הצג רק יישומים הפועלים על הצג הפעיל",
+          "label": "בצג הפעיל בלבד"
+        },
+        "auto-hide": {
+          "description": "כבוי משאיר את ה־Dock גלוי; פועל מסתיר אותו עד שתזיז את הסמן לקצה המסך; חכם מציג את ה־Dock בסביבת עבודה ריקה ומסתיר אותו כשיש חלונות פתוחים"
+        },
+        "background-opacity": {
+          "description": "שקיפות הרקע של ה-Dock"
+        },
+        "border": {
+          "description": "תפקיד הצבע לקו המתאר של הדוק; נתמכים גם צבעי hex קבועים.",
+          "label": "גבול"
+        },
+        "border-width": {
+          "description": "רוחב קו מתאר פנימי ל-Dock",
+          "label": "רוחב מסגרת"
+        },
+        "concave-edge-corners": {
+          "description": "עיגול פנימי של פינות בצד הנוגע בקצה המסך; דורש שהשוליים לקצה המסך יהיו 0",
+          "label": "פינות קצה קעורות"
+        },
+        "corner-bottom-left": {
+          "description": "רדיוס פינה שמאלית תחתונה ל-Dock"
+        },
+        "corner-bottom-right": {
+          "description": "רדיוס פינה ימנית תחתונה ל-Dock"
+        },
+        "corner-radius": {
+          "description": "רדיוס פינות המעגן"
+        },
+        "corner-top-left": {
+          "description": "רדיוס פינה שמאלית עליונה עבור ה-Dock"
+        },
+        "corner-top-right": {
+          "description": "רדיוס הפינה הימנית העליונה של הדוק"
+        },
+        "cross-axis-padding": {
+          "description": "ריפוד פנימי לאורך הציר הרוחבי של ה-Dock (בין האייקונים לקצה המסך)"
+        },
+        "edge-margin": {
+          "description": "מרחק מקצה המסך הקרוב ביותר; ערכים חיוביים מרחיקים את ה-Dock ממנו"
+        },
+        "enabled": {
+          "description": "הצג או הסתר את ה-Dock"
+        },
+        "ends-margin": {
+          "description": "מרווח פנימי מכל קצה של ה-dock לאורך צירו הראשי"
+        },
+        "icon-size": {
+          "description": "גודל אייקוני ה-Dock בפיקסלים",
+          "label": "גודל סמל"
+        },
+        "inactive-icon-opacity": {
+          "description": "שקיפות אייקוני Dock לא ממוקדים",
+          "label": "אטימות סמל לא פעיל"
+        },
+        "inactive-icon-scale": {
+          "description": "קנה מידה של אייקוני Dock לא ממוקדים",
+          "label": "קנה מידה של סמלים לא פעילים"
+        },
+        "item-spacing": {
+          "description": "מרווח בין פריטים ב-Dock",
+          "label": "מרווח בין פריטים"
+        },
+        "launcher-custom-image": {
+          "description": "השתמש בתמונה על כפתור הלאנצ'ר ב-Dock במקום בסמל",
+          "label": "תמונת משגר מותאמת אישית",
+          "placeholder": "נתיב לתמונה"
+        },
+        "launcher-custom-image-colorize": {
+          "description": "צביעת התמונה המותאמת אישית בצבע הסמל",
+          "label": "צביעת תמונה אישית"
+        },
+        "launcher-icon": {
+          "description": "סמל Tabler המוצג על כפתור ה-launcher ב-dock",
+          "label": "אייקון המפעיל"
+        },
+        "launcher-position": {
+          "description": "הצג כפתור מפעיל בתחילת ה-Dock או בסופו",
+          "label": "כפתור משגר"
+        },
+        "layer": {
+          "description": "השתמש ב-Overlay כדי להציג את ה-Dock מעל אפליקציות במסך מלא",
+          "label": "שכבת Wayland"
+        },
+        "magnification": {
+          "description": "הגדלת אייקוני ה-Dock בקרבת הסמן, בסגנון macOS",
+          "label": "הגדלה"
+        },
+        "magnification-scale": {
+          "description": "מכפיל קנה המידה המקסימלי של הסמל במרכז הסמן (1.0 מבטל את ההגדלה)",
+          "label": "קנה מידת הגדלה"
+        },
+        "main-axis-padding": {
+          "description": "ריפוד פנימי בקצוות של שורת הסמלים (לפני הסמל הראשון ואחרי הסמל האחרון)"
+        },
+        "monitors": {
+          "description": "בחר באילו צגים יוצג ה-dock (השאר ריק עבור כולם); סינון לפי צג פעיל יחול רק על הצגים שנבחרו",
+          "label": "מסכים"
+        },
+        "pinned-apps": {
+          "description": "מזהי desktop entry של יישומים המוצמדים ל-dock",
+          "label": "יישומים מוצמדים"
+        },
+        "position": {
+          "description": "באיזה צד של המסך ימוקם ה-Dock"
+        },
+        "reserve-space": {
+          "description": "דחיית חלונות מקצה ה-Dock"
+        },
+        "shadow": {
+          "description": "הטלת צל כללי מה-Dock"
+        },
+        "show-dots": {
+          "description": "הצג נקודות לחלונות רצים מתחת לסמלי ה-Dock",
+          "label": "הצג נקודות"
+        },
+        "show-instance-count": {
+          "description": "הצג תגית עם מספר המופעים הפתוחים",
+          "label": "הצג ספירת מופעים"
+        },
+        "show-running": {
+          "description": "הצג יישומים רצים שאינם נעוצים",
+          "label": "הצג פעילים"
+        }
+      },
+      "hooks": {
+        "command-placeholder": "פקודת shell או נתיב סקריפט",
+        "events": {
+          "battery-charging": {
+            "description": "פקודה להרצה כשהסוללה מתחילה להיטען",
+            "label": "בעת טעינת סוללה"
+          },
+          "battery-discharging": {
+            "description": "פקודה להרצה כשהסוללה מתחילה להתרוקן",
+            "label": "בפריקת סוללה"
+          },
+          "battery-percentage-changed": {
+            "description": "פקודה להרצה כאשר אחוז הסוללה משתנה",
+            "label": "בעת שינוי אחוז הסוללה"
+          },
+          "battery-plugged": {
+            "description": "פקודה להרצה כשהסוללה טעונה במלואה או שהטעינה ממתינה",
+            "label": "בחיבור לחשמל"
+          },
+          "bluetooth-disabled": {
+            "description": "פקודה להרצה כאשר Bluetooth מושבת",
+            "label": "בעת כיבוי Bluetooth"
+          },
+          "bluetooth-enabled": {
+            "description": "פקודה להרצה כאשר Bluetooth מופעל",
+            "label": "בהפעלת Bluetooth"
+          },
+          "colors-changed": {
+            "description": "פקודה להרצה כאשר פלטת הצבעים הפעילה משתנה",
+            "label": "בעת שינוי צבעים"
+          },
+          "logging-out": {
+            "description": "פקודה להרצה לפני התנתקות",
+            "label": "בהתנתקות"
+          },
+          "power-profile-changed": {
+            "description": "פקודה להרצה כאשר פרופיל צריכת החשמל הפעיל של UPower/PPD משתנה",
+            "label": "בעת שינוי פרופיל צריכת חשמל"
+          },
+          "rebooting": {
+            "description": "פקודה להרצה לפני אתחול",
+            "label": "בעת אתחול"
+          },
+          "session-locked": {
+            "description": "פקודה להרצה בעת נעילת ההפעלה",
+            "label": "בעת נעילת הפעלה"
+          },
+          "session-unlocked": {
+            "description": "פקודה להרצה לאחר ביטול נעילת הסשן",
+            "label": "בעת פתיחת נעילת ההפעלה"
+          },
+          "shutting-down": {
+            "description": "פקודה להרצה לפני כיבוי",
+            "label": "בכיבוי"
+          },
+          "started": {
+            "description": "פקודה להרצה לאחר ש-Noctalia מתחיל",
+            "label": "בהפעלה"
+          },
+          "theme-mode-changed": {
+            "description": "פקודה להרצה כאשר מצב ערכת הנושא משתנה בין בהיר לכהה",
+            "label": "בעת שינוי מצב העיצוב"
+          },
+          "wallpaper-changed": {
+            "description": "פקודה להרצה בעת שינוי הרקע; מספקת את המשתנים NOCTALIA_WALLPAPER_PATH ו־NOCTALIA_WALLPAPER_CONNECTOR",
+            "label": "בעת שינוי טפט"
+          },
+          "wifi-disabled": {
+            "description": "פקודה להרצה כאשר ה-Wi-Fi מושבת",
+            "label": "בעת השבתת Wi-Fi"
+          },
+          "wifi-enabled": {
+            "description": "פקודה להרצה כאשר Wi-Fi מופעל",
+            "label": "בהפעלת Wi-Fi"
+          }
+        }
+      },
+      "idle": {
+        "behaviors": {
+          "description": "פעולות בטלה עם שם, עם הגדרות מוכנות מראש (נעילה, כיבוי מסך, השהיה) או פקודות מותאמות אישית, זמנים קצובים, צימוד עם פעולות חזרה, וסדר ביצוע.",
+          "label": "התנהגויות"
+        },
+        "pre-action-fade": {
+          "description": "שניות של עמעום במסך מלא לפני פקודת חוסר הפעילות (0 לביטול)",
+          "label": "עמעום סרק"
+        }
+      },
+      "keybinds": {
+        "cancel": {
+          "description": "סגור חלונות קופצים, בטל חלוניות, או הפסק את הפעולה הנוכחית",
+          "label": "ביטול"
+        },
+        "copy": {
+          "description": "העתק את הבחירה או הפריט הנוכחי",
+          "label": "העתק"
+        },
+        "delete": {
+          "description": "מחק את הפריט הנבחר",
+          "label": "מחק"
+        },
+        "down": {
+          "description": "הזז את המיקוד או הבחירה שורה אחת למטה",
+          "label": "נווט למטה"
+        },
+        "left": {
+          "description": "העבר את המיקוד או הבחירה שמאלה",
+          "label": "נווט שמאלה"
+        },
+        "right": {
+          "description": "העבר את המיקוד או את הבחירה ימינה",
+          "label": "נווט ימינה"
+        },
+        "save": {
+          "description": "שמור את הבחירה או הפריט הנוכחי",
+          "label": "שמור"
+        },
+        "tab-next": {
+          "description": "העבר את המיקוד לפקד הבא",
+          "label": "מיקוד הבא"
+        },
+        "tab-previous": {
+          "description": "העבר את המיקוד לפקד הקודם",
+          "label": "התמקד בקודם"
+        },
+        "up": {
+          "description": "הזז את המיקוד או הבחירה שורה אחת למעלה",
+          "label": "נווט למעלה"
+        },
+        "validate": {
+          "description": "לאשר בחירות, לשלוח קלט או להפעיל את הפריט הממוקד",
+          "label": "אישור"
+        }
+      },
+      "lockscreen": {
+        "allow-empty-password": {
+          "description": "אפשר ל-Enter לשלוח סיסמה ריקה (הפעל עבור מפתחות אבטחה או מחסניות PAM אחרות ללא סיסמה; השאר כבוי כדי למנוע נעילות מקריות בעת הערת המסך)",
+          "label": "הגשת סיסמה ריקה"
+        },
+        "blur-intensity": {
+          "description": "מידת הטשטוש של רקע מסך הנעילה",
+          "label": "עוצמת הטשטוש"
+        },
+        "blurred-desktop": {
+          "description": "השתמש בתמונת מצב של שולחן העבודה כרקע למסך הנעילה",
+          "label": "לכידת שולחן עבודה"
+        },
+        "enabled": {
+          "description": "הפעלת נעילת הסשן, אינטגרציה עם logind ופעולות נעילה",
+          "label": "מסך נעילה"
+        },
+        "fingerprint": {
+          "description": "פתיחת נעילה באמצעות קורא טביעות אצבע דרך fprintd, לצד הזנת סיסמה",
+          "label": "פתיחה בטביעת אצבע"
+        },
+        "lock-before-suspend": {
+          "description": "נעל את ההפעלה לפני שינה (סגירת מכסה, systemctl suspend, hibernate); פעולות נעילה והשהיה עדיין ינעלו קודם",
+          "label": "נעילה לפני השעיה"
+        },
+        "monitors": {
+          "description": "בחר אילו מסכים יציגו את מסך הנעילה; השאר ריק להצגה בכל המסכים",
+          "label": "מסכים"
+        },
+        "tint-intensity": {
+          "description": "גוון בצבע המשטח מעל רקע מסך הנעילה",
+          "label": "עוצמת הגוון"
+        },
+        "wallpaper": {
+          "description": "תמונה מותאמת אישית לרקע מסך הנעילה; יש להשאיר ריק כדי להשתמש בטפט של שולחן העבודה",
+          "label": "טפט",
+          "placeholder": "השתמש בטפט שולחן העבודה"
+        },
+        "widgets": {
+          "description": "הצג וידג'טים ניתנים להגדרה במסך הנעילה",
+          "label": "וידג'טים של מסך הנעילה"
+        },
+        "widgets-editor": {
+          "button": "החלף מצב עורך",
+          "description": "הוספה, הזזה ושינוי גודל של וידג'טים במסך הנעילה",
+          "label": "עורך הווידג'טים של מסך הנעילה"
+        }
+      },
+      "notifications": {
+        "allowed-urgencies": {
+          "description": "הצג התראות חיצוניות רק ברמות הדחיפות שנבחרו",
+          "label": "רמות דחיפות מותרות"
+        },
+        "blacklist": {
+          "description": "הסתר שולחים תואמים (שם אפליקציה, רשומת שולחן עבודה או קטגוריה)",
+          "label": "רשימה שחורה של התראות"
+        },
+        "blacklist-allow-critical": {
+          "description": "להציג התראות קריטיות גם משולחים ברשימה השחורה"
+        },
+        "border": {
+          "description": "צייר קו מתאר סביב התראות Toast",
+          "label": "גבול"
+        },
+        "collapse-on-dismiss": {
+          "description": "החלק את ההתראות הקופצות הנותרות לסגירת רווחים בעת סגירה",
+          "label": "כווץ בסגירה"
+        },
+        "daemon": {
+          "description": "הפעל את דמון ההתראות המובנה",
+          "label": "דימון התראות"
+        },
+        "filters": {
+          "description": "כללים לפי שולח עבור התראות קופצות, היסטוריה וצלילים; המסנן המופעל הראשון שתואם גובר",
+          "label": "מסנני התראות"
+        },
+        "history-retention-hours": {
+          "description": "הסר אוטומטית רשומות מהיסטוריית ההתראות שישנות יותר ממספר השעות שצוין (0 כדי לשמור לתמיד)",
+          "label": "תקופת שמירה"
+        },
+        "layer": {
+          "description": "השתמש ב-Overlay כדי להציג התראות Toast מעל אפליקציות במסך מלא",
+          "label": "שכבת Wayland"
+        },
+        "max-visible": {
+          "description": "מספר מרבי של הודעות Toast גלויות בו-זמנית על המסך (0 למילוי כל השטח הפנוי)",
+          "label": "מקסימום התראות גלויות"
+        },
+        "monitors": {
+          "description": "בחר באילו צגים יוצגו הודעות קופצות; השאר ריק כדי להציג בכל הצגים",
+          "label": "מסכים"
+        },
+        "offset-x": {
+          "description": "מרווח אופקי מוחלט מקצה המסך או הסרגל",
+          "label": "שוליים אופקיים"
+        },
+        "offset-y": {
+          "description": "מרווח אנכי מוחלט מקצה המסך או הסרגל",
+          "label": "שוליים אנכיים"
+        },
+        "position": {
+          "description": "מיקום על המסך להתראות קופצות",
+          "label": "מיקום על המסך"
+        },
+        "scale": {
+          "description": "קנה מידה של התראות toast בהתאם לממשק המעטפת",
+          "label": "גודל"
+        },
+        "show-actions": {
+          "description": "הצגת כפתורי פעולה בהתראות toast; כאשר אפשרות זו כבויה, לחיצה על ה־toast תפעיל את פעולת ברירת המחדל שלו",
+          "label": "הצג כפתורי פעולה"
+        },
+        "show-app-name": {
+          "description": "הצג את שם האפליקציה השולחת בהתראות Toast",
+          "label": "הצג שם אפליקציה"
+        },
+        "toast-opacity": {
+          "description": "אטימות רקע להתראות קופצות",
+          "label": "אטימות רקע"
+        }
+      },
+      "panels": {
+        "borders": {
+          "description": "צייר קו מתאר על חלוניות צפות",
+          "label": "גבולות"
+        },
+        "control-center-sidebar": {
+          "description": "בחר כיצד להציג את סרגל הצד",
+          "label": "סרגל צד"
+        },
+        "control-center-sidebar-section": {
+          "description": "בעת פתיחת לשונית ספציפית (עוצמה, מדיה וכו׳)",
+          "label": "סרגל צד בפתיחת כרטיסייה"
+        },
+        "control-center-tabs": {
+          "description": "בחרו אילו לשוניות יופיעו במרכז הבקרה; לשוניות שאינן מסומנות יוסתרו",
+          "label": "לשוניות מרכז הבקרה"
+        },
+        "control-center-width": {
+          "description": "רוחב חלונית מרכז הבקרה בפיקסלים (מצבי קומפקטי וללא סרגל צד מוקטנים ביחס לערך זה)",
+          "label": "רוחב מרכז הבקרה"
+        },
+        "floating-layer": {
+          "description": "השתמש ב-Top אם חלונות המועמדים של שיטת הקלט מוסתרים מאחורי פאנלים צפים; Overlay שומר על הפאנלים מעל תוכן במסך מלא",
+          "label": "שכבת פאנלים צפים"
+        },
+        "floating-offset": {
+          "description": "המרווח בפיקסלים בין חלונית צפה או מנותקת לקצה הסרגל",
+          "label": "היסט צף"
+        },
+        "home-session-button": {
+          "description": "הצגת כפתור פעולות ההפעלה בכותרת לשונית הבית",
+          "label": "הצג כפתור הפעלה בכותרת"
+        },
+        "home-shortcuts": {
+          "description": "בחרו עד שישה כפתורי קיצור דרך ללשונית הבית",
+          "label": "קיצורי דרך בבית"
+        },
+        "home-shortcuts-show-labels": {
+          "description": "הצג תוויות טקסט מתחת לסמלי קיצורי דרך בלשונית הבית",
+          "label": "הצג תוויות קיצורי דרך"
+        },
+        "launcher-app-actions": {
+          "description": "הצג פעולות של יישומים לצד היישומים בתוצאות",
+          "label": "הצג פעולות של אפליקציות"
+        },
+        "launcher-app-grid": {
+          "description": "הצג סמלי יישומים ברשת עם תוויות מתחת, כאשר התוצאות הן יישומים בלבד",
+          "label": "תצוגת רשת אפליקציות"
+        },
+        "launcher-app-origin-indicator": {
+          "description": "הצג סמני מקור חבילה בתוצאות היישומים",
+          "label": "הצג מחווני מקור של אפליקציות"
+        },
+        "launcher-auto-paste": {
+          "description": "לאחר הפעלת מחשבון, אימוג'י ופעולות העתקה אחרות, התוכן יודבק בחלון הממוקד (באמצעות אותם קיצורים כמו הדבקה אוטומטית מלוח הגזירים)",
+          "label": "הדבקה אוטומטית"
+        },
+        "launcher-categories": {
+          "description": "הצג מסנני קטגוריות ב־launcher; חשיפה עם F6, ודיפדוף עם F6 ו־Shift+F6",
+          "label": "הצג קטגוריות"
+        },
+        "launcher-compact": {
+          "description": "השתמש בסמלים קטנים יותר ובשורות תוצאה צפופות יותר",
+          "label": "שורות צפופות"
+        },
+        "launcher-currency-exchange": {
+          "description": "קבלת שערים ממקורות צד שלישי מקוונים",
+          "label": "המרת מטבע"
+        },
+        "launcher-global-calculator": {
+          "description": "הצג גם תוצאות מחשבון בחיפוש ללא קידומת",
+          "label": "מחשבון בחיפוש הכללי"
+        },
+        "launcher-global-emoji": {
+          "description": "הצג גם תוצאות אימוג'י בחיפוש ללא קידומת",
+          "label": "אימוג'ים בחיפוש הגלובלי"
+        },
+        "launcher-global-session": {
+          "description": "הצג גם פעולות הפעלה בחיפוש ללא קידומת",
+          "label": "הפעלה בחיפוש הכללי"
+        },
+        "launcher-global-wallpaper": {
+          "description": "הצג טפטים גם בחיפוש ללא קידומת",
+          "label": "טפט בחיפוש הגלובלי"
+        },
+        "launcher-global-windows": {
+          "description": "הצג גם חלונות פתוחים בחיפוש ללא קידומת",
+          "label": "חלונות בחיפוש הגלובלי"
+        },
+        "launcher-pinned-apps": {
+          "description": "מזהי Desktop entry של יישומים שנעוצים למפעיל; הם מופיעים ראשונים עם פתיחת המפעיל.",
+          "label": "אפליקציות נעוצות"
+        },
+        "launcher-prefix-calculator": {
+          "description": "קידומת להפעלת חישובים",
+          "label": "קידומת מחשבון"
+        },
+        "launcher-prefix-character": {
+          "description": "תו קידומת משותף המשמש להפעלת כל קידומות הספקים (לדוגמה: /)",
+          "label": "תו קידומת משותף"
+        },
+        "launcher-prefix-emoji": {
+          "description": "קידומת להפעלת חיפוש אימוג'י",
+          "label": "קידומת אימוג'י"
+        },
+        "launcher-prefix-session": {
+          "description": "קידומת הפעלה לפעולות הפעלה של הסשן",
+          "label": "קידומת הפעלה"
+        },
+        "launcher-prefix-wallpaper": {
+          "description": "קידומת הפעלה לבורר טפטים",
+          "label": "קידומת טפט"
+        },
+        "launcher-prefix-windows": {
+          "description": "קידומת הפעלה לחיפוש חלונות",
+          "label": "קידומת חלונות"
+        },
+        "launcher-reset-usage": {
+          "button": "איפוס",
+          "description": "ניקוי ספירות הפעלה והיסטוריית שימוש אחרון המשמשים למיון במפעיל",
+          "label": "איפוס נתוני שימוש"
+        },
+        "launcher-session-search": {
+          "description": "כלול פעולות הפעלה (נעילה, השהיה, הפעלה מחדש, כיבוי, יציאה) בחיפושים כלליים במפעיל, לא רק תחת הקידומת /session",
+          "label": "אפשר חיפוש הפעלה"
+        },
+        "launcher-show-icons": {
+          "description": "הצג סמלי יישומים בתוצאות המפעיל",
+          "label": "הצג סמלי יישומים"
+        },
+        "launcher-sort-by-usage": {
+          "description": "הקפץ יישומים בשימוש תדיר לראש הרשימה והצג קטגוריית סינון של יישומים שנעשה בהם שימוש לאחרונה",
+          "label": "מיין לפי שימוש"
+        },
+        "list-item-background": {
+          "description": "צייר רקע מעוגל מאחורי כל פריט ברשימת המשגר ובלוח הגזירים",
+          "label": "רקע פריט רשימה"
+        },
+        "open-near-click-clipboard": {
+          "description": "היכן יוצג לוח הגזירים בעת פתיחתו על ידי לחיצה על הווידג׳ט שבסרגל",
+          "label": "לאורך הסרגל"
+        },
+        "open-near-click-control-center": {
+          "description": "היכן יוצב מרכז הבקרה בעת פתיחתו על ידי לחיצה על הווידג'ט בסרגל",
+          "label": "לאורך הסרגל"
+        },
+        "open-near-click-launcher": {
+          "description": "היכן יוצג המשגר בעת פתיחתו על ידי לחיצה על הווידג'ט שבסרגל",
+          "label": "לאורך הסרגל"
+        },
+        "open-near-click-session": {
+          "description": "היכן יוצב חלון ההפעלה בעת פתיחתו על ידי לחיצה על הווידג'ט שבסרגל",
+          "label": "לאורך הסרגל"
+        },
+        "open-near-click-wallpaper": {
+          "description": "היכן יוצב בורר הטפטים בעת פתיחתו על ידי לחיצה על הווידג'ט בסרגל",
+          "label": "לאורך הסרגל"
+        },
+        "panel-anchor-bar": {
+          "description": "הסרגל שאליו לוחות יצמדו בעת פתיחתם; יש להשאיר ריק כדי לעקוב אחר הווידג'ט, קיצור הדרך או ה־dock שפתחו אותם",
+          "label": "סרגל עוגן"
+        },
+        "placement-clipboard": {
+          "description": "יש לבחור אם לוח העריכה יוצמד לסרגל או יצוף במיקום נבחר על המסך",
+          "label": "מיקום"
+        },
+        "placement-control-center": {
+          "description": "יש לבחור אם מרכז הבקרה יוצמד לסרגל או יצוף במיקום נבחר על המסך",
+          "label": "מיקום"
+        },
+        "placement-launcher": {
+          "description": "יש לבחור אם המשגר ייצמד לסרגל או יצוף במיקום נבחר על המסך",
+          "label": "מיקום"
+        },
+        "placement-polkit": {
+          "description": "יש לבחור אם חלונית ה־polkit תוצמד לסרגל או תצוף במיקום נבחר על המסך",
+          "label": "מיקום"
+        },
+        "placement-session": {
+          "description": "יש לבחור אם חלונית ההפעלה תוצמד לסרגל או תצוף במיקום נבחר על המסך",
+          "label": "מיקום"
+        },
+        "placement-wallpaper": {
+          "description": "יש לבחור אם בורר הטפטים יוצמד לסרגל או יצוף במיקום נבחר על המסך",
+          "label": "מיקום"
+        },
+        "position-clipboard": {
+          "description": "היכן שהלוח צף על המסך; 'עקוב אחר הסרגל' משאיר אותו קרוב לסרגל",
+          "label": "מיקום"
+        },
+        "position-control-center": {
+          "description": "היכן שמרכז הבקרה צף על המסך; 'עקוב אחר הסרגל' משאיר אותו קרוב לסרגל",
+          "label": "מיקום"
+        },
+        "position-launcher": {
+          "description": "היכן שה-Launcher צף על המסך; 'עקוב אחר ה-Bar' משאיר אותו קרוב ל-Bar",
+          "label": "מיקום"
+        },
+        "position-polkit": {
+          "description": "היכן שחלון ה-polkit צף על המסך; 'עקוב אחר הסרגל' משאיר אותו קרוב לסרגל",
+          "label": "מיקום"
+        },
+        "position-session": {
+          "description": "היכן שהפאנל של הסשן צף על המסך; 'עקוב אחרי הבר' משאיר אותו קרוב לבר",
+          "label": "מיקום"
+        },
+        "position-wallpaper": {
+          "description": "היכן בוחר הטפטים צף על המסך; 'עקוב אחר הסרגל' משאיר אותו קרוב לסרגל",
+          "label": "מיקום"
+        },
+        "shadow": {
+          "description": "הטל צל משטח גלובלי ממשטחי לוח"
+        },
+        "transparency-mode": {
+          "description": "סגנון זכוכית של חלונית, כולל אטימות חלונית צפה ושקיפות כרטיס",
+          "label": "שקיפות"
+        }
+      },
+      "power": {
+        "session-actions": {
+          "description": "פריטי לוח הפעלה, סדר, פקודות מותאמות אישית וסמלים",
+          "label": "רשומות"
+        },
+        "session-grid": {
+          "description": "הצג פעולות פאנל הפעלה בפריסת רשת",
+          "label": "פריסת רשת"
+        },
+        "session-grid-columns": {
+          "description": "מספר העמודות לפריסת הרשת",
+          "label": "עמודות"
+        },
+        "session-show-shortcuts": {
+          "description": "הצג או הסתר את רמזי הקיצורים",
+          "label": "הצג קיצורי דרך"
+        }
+      },
+      "services": {
+        "audio-overdrive": {
+          "description": "אפשר עוצמת קול מעל 100%",
+          "label": "הגברת שמע"
+        },
+        "calendar": {
+          "description": "הצג אירועים מחשבונות לוח השנה המקוונים שלך",
+          "label": "יומן"
+        },
+        "calendar-add": {
+          "button": "הוסף חשבון",
+          "description": "הוסף חשבונות iCloud, CalDAV, Google או כתובת URL של ICS",
+          "label": "חשבונות יומן"
+        },
+        "calendar-credentials": {
+          "button": "נסה שוב",
+          "description-cancelled": "הנחיית ה-Secret Service בוטלה; נסה שוב כשתהיה מוכן",
+          "description-error": "לא ניתן היה לגשת לאישורי היומן דרך ה-Secret Service",
+          "description-locked": "אישורי היומן נעולים או שהגישה נדחתה; בטל את נעילת ה-Secret Service ונסה שוב",
+          "description-migration": "אישורי יומן בטקסט פשוט ממתינים להעברה ל-Secret Service; הם אינם בשימוש עבור סנכרון יומן",
+          "description-opening": "אישורי היומן נפתחים דרך ה-Secret Service",
+          "description-unavailable": "לא נמצא ספק Secret Service זמין בסשן הזה",
+          "label": "אחסון אישורי יומן"
+        },
+        "calendar-edit": {
+          "button": "עריכה",
+          "button-reconnect": "התחבר מחדש",
+          "button-retry": "נסה שוב",
+          "description": "עדכן את חשבון היומן הזה",
+          "description-locked": "אסימון הרענון נמצא בתוך מחזיק מפתחות נעול; בטל את נעילת מחזיק המפתחות ונסה שוב",
+          "description-reconnect": "אימות Google חסר; התחבר מחדש לחשבון זה"
+        },
+        "calendar-event-date-format": {
+          "description": "פורמט התאריך המוצג בכרטיס האירוע עבור התאריך הנבחר",
+          "label": "פורמט תאריך אירוע"
+        },
+        "calendar-event-time-format": {
+          "description": "פורמט הזמן המוצג עבור אירועי לוח שנה",
+          "label": "פורמט זמן אירוע"
+        },
+        "calendar-refresh-interval": {
+          "description": "באיזו תדירות לסנכרן אירועי יומן (בדקות)",
+          "label": "מרווח רענון"
+        },
+        "calendar-storage": {
+          "button": "נסה שוב",
+          "description-cancelled": "הנחיית האחסון המוצפן בוטלה; אירועי היומן יישארו זמינים להפעלה זו בלבד",
+          "description-error": "לא ניתן היה לפתוח או לשמור את מטמון אירועי היומן המוצפן",
+          "description-locked": "אחסון מוצפן נעול או שהגישה נדחתה; תקן את הגישה ונסה שוב",
+          "description-migration": "מטמון אירועי היומן בטקסט פשוט ממתין להצפנה; הוא נשמר עד להשלמת ההגירה בהצלחה",
+          "description-missing-key": "מפתח המטמון של אירוע היומן חסר; אישורי החשבון משתמשים באחסון נפרד (קבצי המטמון הקיימים נשמרו)",
+          "description-opening": "מטמון אירועי היומן המוצפן נפתח כעת",
+          "description-recovery": "לא ניתן היה לאמת את מטמון אירועי היומן או שהוא פגום; נסה שוב לאחר שחזור המפתח הנכון, או אפס את האחסון הפרטי",
+          "description-unavailable": "אין ספק שירות זמין; אירועי יומן יישארו זמינים עבור סשן זה בלבד",
+          "label": "אחסון אירועי יומן"
+        },
+        "calendar-week-numbers": {
+          "description": "הצג מספרי שבוע בתקן ISO 8601 לצד רשת לוח השנה",
+          "label": "מספרי שבועות"
+        },
+        "custom-schedule": {
+          "description": "השתמש בזמני זריחה/שקיעה ידניים במקום לחשב אותם לפי קואורדינטות",
+          "label": "לוח זמנים מותאם אישית"
+        },
+        "day-temperature": {
+          "description": "טמפרטורת צבע במהלך היום (קלווין)",
+          "label": "טמפרטורת היום"
+        },
+        "ddcutil": {
+          "description": "שליטה בבהירות צג חיצוני באמצעות DDC/CI",
+          "label": "DDC/CI (ddcutil)",
+          "requires-ddcutil": "התקן את ddcutil כדי לאפשר שליטה בבהירות באמצעות DDC/CI"
+        },
+        "force-night-light": {
+          "description": "החל תמיד את Night Light ללא קשר לשעה",
+          "label": "כפה Night Light"
+        },
+        "latitude": {
+          "description": "קו רוחב ידני עבור לוח הזמנים של זריחה/שקיעה, בשימוש כאשר איתור אוטומטי וכתובת כבויים",
+          "label": "קו רוחב"
+        },
+        "location-address": {
+          "description": "עיר או כתובת למיקום, בשימוש כאשר איתור אוטומטי כבוי",
+          "label": "כתובת",
+          "placeholder": "עיר, מדינה"
+        },
+        "location-auto-locate": {
+          "description": "זיהוי המיקום שלך באופן אוטומטי מכתובת ה-IP שלך דרך noctalia.dev",
+          "label": "איתור אוטומטי (IP)"
+        },
+        "longitude": {
+          "description": "קו אורך ידני עבור לוח הזמנים של זריחה/שקיעה, בשימוש כאשר איתור אוטומטי וכתובת כבויים",
+          "label": "קו אורך"
+        },
+        "minimum-brightness": {
+          "description": "מנע מהמסך להחשיך לחלוטין",
+          "label": "בהירות מינימלית"
+        },
+        "mpris-blacklist": {
+          "description": "נגנים להתעלמות עבור בקרות מדיה ו-Now Playing",
+          "label": "רשימה שחורה של נגני MPRIS"
+        },
+        "night-light": {
+          "description": "הפוך את צבעי המסך לחמים יותר בלילה",
+          "label": "Night Light",
+          "requires-gamma-control": "ה-Compositor אינו תומך בבקרת גמא"
+        },
+        "night-temperature": {
+          "description": "טמפרטורת צבע בלילה (Kelvin)",
+          "label": "טמפרטורת לילה"
+        },
+        "notification-sound": {
+          "description": "קובץ קול המשמש למשוב התראות",
+          "label": "צליל התראה",
+          "placeholder": "/path/to/sound.wav"
+        },
+        "shell-sounds": {
+          "description": "השמע אפקטים קוליים עבור אירועי המעטפת",
+          "label": "צלילי המעטפת"
+        },
+        "sound-volume": {
+          "description": "עוצמת קול עבור אפקטים קוליים של המעטפת",
+          "label": "עוצמת שמע"
+        },
+        "sunrise": {
+          "description": "זמן זריחה ידני בפורמט HH:MM, בשימוש כאשר לא מוגדר מיקום",
+          "label": "זריחה"
+        },
+        "sunset": {
+          "description": "זמן שקיעה ידני בפורמט HH:MM, בשימוש כאשר לא מוגדר מיקום",
+          "label": "שקיעה"
+        },
+        "sync-monitor-brightness": {
+          "description": "סנכרן את בהירות כל הצגים",
+          "label": "סנכרון בהירות המסך"
+        },
+        "system-monitor": {
+          "cpu-poll": {
+            "description": "שניות בין דגימות של ניצול CPU, טמפרטורת CPU וממוצע עומס (0 לביטול)",
+            "label": "מרווח דגימת CPU"
+          },
+          "description": "נתונים סטטיסטיים לדוגמה עבור CPU, זיכרון, רשת, עומס, טמפרטורה ודיסק",
+          "disk-poll": {
+            "description": "שניות בין דגימות של שימוש בדיסק ושימוש ב-swap (0 משבית)",
+            "label": "מרווח סריקת דיסק"
+          },
+          "gpu-poll": {
+            "description": "שניות בין דגימות טמפרטורת GPU, ניצול ו-VRAM; ה-GPU נדגם רק כאשר מוצג נתון GPU כלשהו, כך שמכונה במצב המתנה לעולם לא תתעורר (0 משבית לחלוטין)",
+            "label": "מרווח דגימת GPU"
+          },
+          "label": "צג מערכת",
+          "memory-poll": {
+            "description": "שניות בין דגימות השימוש ב-RAM (0 לביטול)",
+            "label": "מרווח דגימת זיכרון"
+          },
+          "network-poll": {
+            "description": "שניות בין דגימות תפוקת רשת (0 לביטול)",
+            "label": "מרווח דגימת רשת"
+          },
+          "stats": {
+            "cpu-freq": "תדר CPU",
+            "cpu-temp": "טמפרטורת CPU",
+            "cpu-usage": "ניצול CPU",
+            "disk-free": "שטח דיסק פנוי",
+            "disk-free-pct": "אחוז שטח דיסק פנוי",
+            "disk-usage": "ניצול דיסק",
+            "disk-used": "דיסק בשימוש",
+            "disk-used-pct": "אחוז שימוש בדיסק",
+            "gpu-temp": "טמפרטורת GPU",
+            "gpu-usage": "ניצול GPU",
+            "gpu-vram": "VRAM של ה-GPU",
+            "network-rx": "הורדה",
+            "network-tx": "העלאה",
+            "ram-usage": "צריכת RAM",
+            "swap-usage": "שימוש ב-Swap"
+          },
+          "threshold": {
+            "description": "סף פעילות (שמאל) וסף קריטי (ימין)",
+            "label": "{stat}"
+          }
+        },
+        "volume-change-sound": {
+          "description": "קובץ קול המשמש למשוב עוצמת שמע",
+          "label": "צליל שינוי עוצמת קול",
+          "placeholder": "/path/to/sound.wav"
+        },
+        "weather": {
+          "description": "הפעל את שירות מזג האוויר דרך open-meteo.com",
+          "label": "מזג אוויר"
+        },
+        "weather-effects": {
+          "description": "הצג אפקטים ויזואליים של מזג אוויר",
+          "label": "אפקטי מזג אוויר"
+        },
+        "weather-refresh-interval": {
+          "description": "באיזו תדירות לרענן את נתוני מזג האוויר (בדקות)",
+          "label": "מרווח רענון"
+        },
+        "weather-unit": {
+          "description": "יחידות מידה לתצוגת מזג האוויר",
+          "label": "יחידות"
+        }
+      },
+      "shared": {
+        "auto-hide": {
+          "label": "הסתרה אוטומטית"
+        },
+        "background-opacity": {
+          "label": "אטימות הרקע"
+        },
+        "contact-shadow": {
+          "label": "צל מגע"
+        },
+        "corner-bottom-left": {
+          "label": "רדיוס פינה שמאלית תחתונה"
+        },
+        "corner-bottom-right": {
+          "label": "רדיוס פינה ימנית תחתונה"
+        },
+        "corner-radius": {
+          "label": "רדיוס פינה"
+        },
+        "corner-top-left": {
+          "label": "רדיוס פינה שמאלית עליונה"
+        },
+        "corner-top-right": {
+          "label": "רדיוס פינה ימנית עליונה"
+        },
+        "cross-axis-padding": {
+          "label": "ריפוד ציר רוחבי"
+        },
+        "edge-margin": {
+          "label": "שולי קצה"
+        },
+        "enabled": {
+          "label": "מופעל"
+        },
+        "ends-margin": {
+          "label": "שולי סיום"
+        },
+        "main-axis-padding": {
+          "label": "ריווח ציר ראשי"
+        },
+        "opposite-edge-margin": {
+          "label": "שוליים בצד הנגדי"
+        },
+        "position": {
+          "label": "מיקום"
+        },
+        "reserve-space": {
+          "label": "שמור מקום"
+        },
+        "shadow": {
+          "label": "צל"
+        },
+        "shadow-alpha": {
+          "label": "אטימות הצל"
+        },
+        "shadow-direction": {
+          "label": "כיוון הצל"
+        }
+      },
+      "shell": {
+        "avatar-path": {
+          "description": "נתיב לתמונת אווטאר מותאמת אישית; תמונות גדולות נחתכות ומותאמות בגודלן באופן אוטומטי",
+          "label": "נתיב לאוואטר",
+          "placeholder": "/path/to/avatar.png"
+        },
+        "clipboard-auto-paste": {
+          "description": "הדבק אוטומטית בחירות מהלוח",
+          "label": "הדבקה אוטומטית מהלוח"
+        },
+        "clipboard-confirm-clear-history": {
+          "description": "שאל לפני ניקוי היסטוריית הלוח או מחיקת רשומה שאינה מוצמדת מה-panel; כאשר כבוי, פעולות אלו יבוצעו באופן מיידי (רשומות מוצמדות עדיין ידרשו אישור לפני מחיקה)",
+          "label": "אישור ניקוי היסטוריה"
+        },
+        "clipboard-enabled": {
+          "description": "הפעל את היסטוריית הלוח, את ה-panel של הלוח ואת האינטגרציה של העתק/הדבק",
+          "label": "לוח גזירים"
+        },
+        "clipboard-history-max-entries": {
+          "description": "מספר מרבי של פריטים שלא הוצמדו לשמירה בהיסטוריית הלוח",
+          "label": "גודל היסטוריה"
+        },
+        "clipboard-image-action": {
+          "description": "פקודה להרצה עבור רשומות לוח גזירים של תמונות; השתמש ב-{path} עבור נתיב הקובץ, ב-{stdin} כדי לסמן את מיקום ה-stdin, או השמט את {path} כדי להזרים (pipe) באופן אוטומטי",
+          "label": "פקודת פעולת תמונה",
+          "placeholder": "gimp {path} או satty -f -"
+        },
+        "clipboard-keep-from-closed-apps": {
+          "description": "שמור את הפריט האחרון שהועתק זמין להדבקה גם לאחר סגירת היישום שממנו העתקת אותו",
+          "label": "שמור את הלוח מהיישומים שנסגרו"
+        },
+        "clipboard-storage": {
+          "button": "נסה שוב",
+          "description-cancelled": "הנחיית ה-Secret Service בוטלה; היסטוריית הלוח נשארת זמינה להפעלה זו בלבד",
+          "description-error": "לא ניתן היה לפתוח או לשמור את היסטוריית הלוח המוצפנת",
+          "description-locked": "אחסון מפתח הלוח נעול או שהגישה נדחתה; תקן את הגישה ונסה שוב",
+          "description-migration": "היסטוריית הלוח בטקסט פשוט ממתינה להצפנה; קבצים קיימים נשמרים עד להצלחת ההגירה",
+          "description-missing-key": "מפתח האחסון המוצפן שהוגדר חסר; קובצי היסטוריית הלוח הקיימים נשמרו",
+          "description-opening": "היסטוריית הלוח המוצפנת נפתחת",
+          "description-recovery": "לא ניתן היה לאמת את היסטוריית הלוח או שהיא פגומה; נסה שוב לאחר שחזור המפתח הנכון, או אפס את האחסון הפרטי",
+          "description-unavailable": "ספק Secret Service אינו זמין; היסטוריית הלוח תישאר זמינה עבור הפעלה זו בלבד",
+          "label": "אחסון היסטוריית לוח הגזירים"
+        },
+        "date-format": {
+          "description": "פורמט תאריך ברירת מחדל עבור ממשק ה-shell ללא הגדרה משלו",
+          "label": "פורמט תאריך"
+        },
+        "external-ip": {
+          "description": "בצע רזולוציה לכתובת ה-WAN הציבורית של החיבור (דרך api.noctalia.dev) והצג אותה בלשונית הרשת של ה-Control Center",
+          "label": "הצג כתובת WAN IP"
+        },
+        "greeter-sync-auto": {
+          "description": "סנכרן אוטומטית את מסך הכניסה בכל פעם שהטפט, הצבעים או מצב העיצוב משתנים",
+          "label": "סנכרון אוטומטי של מסך הכניסה"
+        },
+        "greeter-sync-privilege-command": {
+          "description": "החלף את pkexec/run0 עבור ה-greeter ב-Sync Now; נתיב עזר ההחלה וספריית ה-staging מתווספים אוטומטית (דוגמה: ghostty -e pkexec)",
+          "label": "פקודת הרשאת סנכרון של ה-Greeter"
+        },
+        "keyboard-layout-custom-labels": {
+          "description": "מפה שמות של פריסות מקלדת לתוויות המשמשות ברחבי ה-shell",
+          "label": "תוויות פריסת מקלדת"
+        },
+        "launch-apps-as-systemd-services": {
+          "description": "מפעיל יישומים בשירותי systemd נפרדים כדי שלא ישתפו את ה-cgroup של Noctalia",
+          "label": "הפעל אפליקציות כשירותי systemd",
+          "requires-systemd-session": "דורש מ-Noctalia לרוץ כשירות משתמש של systemd (uwsm או יחידת משתמש של systemd)"
+        },
+        "launch-apps-custom-command": {
+          "description": "עוטף אפליקציות שהופעלו מה-Launcher, מה-Dock ומה-Taskbar; מחליף את $CMD בפקודה המקורית",
+          "label": "פקודת הפעלה מותאמת אישית ליישום",
+          "placeholder": "$CMD"
+        },
+        "niri-overview-type-to-launch": {
+          "description": "פתח את ה-launcher בעת הקלדה ב-overview של Niri; משתמש במשטח מיקוד מקלדת קטן בזמן שה-overview פתוח",
+          "label": "הקלד כדי להפעיל"
+        },
+        "offline-mode": {
+          "description": "חסום את כל בקשות הרשת היוצאות",
+          "label": "מצב לא מקוון"
+        },
+        "osd-background-opacity": {
+          "description": "אטימות הרקע של חלוניות OSD",
+          "label": "אטימות הרקע"
+        },
+        "osd-border": {
+          "description": "צייר קווי מתאר סביב חלוניות OSD",
+          "label": "גבול"
+        },
+        "osd-enabled": {
+          "description": "מתג ראשי עבור כל ה-OSD; כאשר כבוי, לא יוצג OSD",
+          "label": "הפעל OSD"
+        },
+        "osd-kinds-bluetooth": {
+          "description": "הצג חלונית OSD בעת הפעלה או כיבוי של Bluetooth",
+          "label": "Bluetooth"
+        },
+        "osd-kinds-brightness": {
+          "description": "הצג חלונית OSD כאשר בהירות התצוגה משתנה",
+          "label": "בהירות"
+        },
+        "osd-kinds-caffeine": {
+          "description": "הצג חלונית OSD כאשר מצב ה-Caffeine (מונע שינה) משתנה",
+          "label": "קפאין"
+        },
+        "osd-kinds-dnd": {
+          "description": "הצג חלונית OSD כאשר מצב נא לא להפריע מופעל",
+          "label": "נא לא להפריע"
+        },
+        "osd-kinds-keyboard-backlight": {
+          "description": "הצג חלונית OSD כאשר רמת תאורת המקלדת משתנה",
+          "label": "תאורת מקלדת"
+        },
+        "osd-kinds-keyboard-layout": {
+          "description": "הצג חלונית OSD כאשר פריסת המקלדת משתנה",
+          "label": "פריסת מקלדת"
+        },
+        "osd-kinds-lock-keys": {
+          "description": "הצג התראות OSD עבור שינויים ב-Caps Lock, Num Lock ו-Scroll Lock",
+          "label": "מקשי נעילה"
+        },
+        "osd-kinds-media": {
+          "description": "הצג OSD קופץ כאשר מתחיל להתנגן שיר חדש",
+          "label": "מתנגן כעת"
+        },
+        "osd-kinds-nightlight": {
+          "description": "הצג חלונית OSD בעת הפעלת או כיבוי של Night Light",
+          "label": "Night Light"
+        },
+        "osd-kinds-power-profile": {
+          "description": "הצג חלונית OSD כאשר פרופיל החשמל משתנה",
+          "label": "פרופיל צריכת חשמל"
+        },
+        "osd-kinds-privacy": {
+          "description": "הצג חלונית OSD כאשר הקלטה של מיקרופון, מצלמה או שיתוף מסך מתחילה או נעצרת",
+          "label": "פרטיות"
+        },
+        "osd-kinds-volume": {
+          "description": "הצג התראות OSD בעת שינוי עוצמת הקול; השתמש בהגדרות מתקדמות כדי לשלוט בנפרד בפלט ובקלט",
+          "label": "עוצמת שמע"
+        },
+        "osd-kinds-volume-input": {
+          "description": "הצג חלונית OSD כאשר עוצמת הקלט (מיקרופון) משתנה",
+          "label": "עוצמת קלט"
+        },
+        "osd-kinds-volume-output": {
+          "description": "הצג חלונית OSD כאשר עוצמת השמע של הפלט (רמקול) משתנה",
+          "label": "עוצמת שמע ביציאה"
+        },
+        "osd-kinds-wifi": {
+          "description": "הצג חלונית OSD בעת הפעלת או כיבוי ה-Wi-Fi",
+          "label": "Wi-Fi"
+        },
+        "osd-monitors": {
+          "description": "בחר באילו צגים להציג התראות OSD; השאר ריק כדי להציג בכל הצגים",
+          "label": "צגים"
+        },
+        "osd-offset-x": {
+          "description": "מרווח אופקי מוחלט מקצה המסך",
+          "label": "מרווח אופקי"
+        },
+        "osd-offset-y": {
+          "description": "שוליים אנכיים מוחלטים מקצה המסך",
+          "label": "מרווח אנכי"
+        },
+        "osd-orientation": {
+          "description": "כיוון פריסה עבור קופצות OSD",
+          "label": "כיוון"
+        },
+        "osd-position": {
+          "description": "מיקום על המסך עבור קופצות OSD",
+          "label": "מיקום על המסך"
+        },
+        "osd-position-vertical": {
+          "description": "מיקום המסך כאשר כיוון המחוון הוא אנכי",
+          "label": "מיקום אנכי"
+        },
+        "osd-scale": {
+          "description": "שנה את קנה המידה של קופצות OSD ביחס לקנה המידה של ממשק ה-shell (1.0 שומר על הגודל המקורי)",
+          "label": "קנה מידה"
+        },
+        "password-style": {
+          "description": "סגנון חזותי להסתרת קלט סיסמה",
+          "label": "סגנון סיסמה"
+        },
+        "polkit-agent": {
+          "description": "הפעל את סוכן האימות המובנה",
+          "label": "סוכן Polkit"
+        },
+        "privacy-cam-filter-regex": {
+          "description": "ביטוי רגולרי (Regex) עבור אפליקציות מצלמה שיש להתעלם מהן במחווני פרטיות וב-OSDs",
+          "label": "ביטוי רגולרי למסנן מצלמה"
+        },
+        "privacy-mic-filter-regex": {
+          "description": "ביטוי רגולרי (Regex) עבור אפליקציות מיקרופון להתעלמות במחווני פרטיות וב-OSD",
+          "label": "ביטוי רגולרי לסינון מיקרופון"
+        },
+        "privacy-screen-filter-regex": {
+          "description": "ביטוי רגולרי (Regex) עבור אפליקציות שיתוף מסך להתעלמות במחווני פרטיות וב-OSD",
+          "label": "ביטוי רגולרי לסינון שיתוף מסך"
+        },
+        "screen-time-enabled": {
+          "description": "עקוב אחר השימוש לפי אפליקציה והצג אותו ב-Control Center",
+          "label": "זמן מסך"
+        },
+        "screen-time-reset": {
+          "button": "איפוס",
+          "description": "נקה את היסטוריית השימוש בחזית של אפליקציות שנשמרה",
+          "label": "איפוס נתוני זמן מסך"
+        },
+        "screenshot-confirm-region": {
+          "description": "לאחר בחירת אזור, השאר את ה-overlay פתוח עד שתאשר באמצעות Enter או Space",
+          "label": "אשר אזור"
+        },
+        "screenshot-copy-to-clipboard": {
+          "description": "הצב את קובץ ה-PNG שצולם בבחירת הלוח",
+          "label": "העתק ללוח"
+        },
+        "screenshot-directory": {
+          "description": "תיקייה לשמירת קבצי PNG; השאר ריק כדי להשתמש בספריית התמונות הסטנדרטית של XDG",
+          "label": "ספריית פלט",
+          "placeholder": "תיקיית התמונות של XDG"
+        },
+        "screenshot-filename-pattern": {
+          "description": "תבנית strftime ללא סיומת (png. מתווספת); השתמש ב-%s עבור unix epoch",
+          "label": "תבנית שם קובץ"
+        },
+        "screenshot-freeze-screen": {
+          "description": "צלם את שולחן העבודה לפני בחירת האזור כדי שתוכן נע יישאר במקומו",
+          "label": "הקפאת מסך"
+        },
+        "screenshot-pipe-command": {
+          "description": "הפקודה מורצת כ-/bin/sh -lc עם ה-PNG ב-stdin; עבור כלי הערה או העלאה (לדוגמה: swappy -f - או satty -f -)",
+          "label": "פקודת צינור",
+          "placeholder": "swappy -f -"
+        },
+        "screenshot-pipe-to-command": {
+          "description": "שלח את ה-PNG שצולם לפקודת shell דרך stdin",
+          "label": "העבר לפקודה"
+        },
+        "screenshot-remember-last-region": {
+          "description": "בחר מראש את האזור האחרון (כולל לאחר ביטול) בצילום המסך הבא של האזור",
+          "label": "זכור את האזור האחרון"
+        },
+        "screenshot-save-to-file": {
+          "description": "שמור צילומי מסך כקבצי PNG בספריית הפלט",
+          "label": "שמור לקובץ"
+        },
+        "screenshot-show-cursor": {
+          "description": "כלול את סמן העכבר בצילומי מסך",
+          "label": "הצג סמן"
+        },
+        "settings-window-translucent": {
+          "description": "הפוך את הרקע של ההגדרות לשקוף עבור אפקטים של ה-compositor",
+          "label": "רקע שקוף להגדרות"
+        },
+        "show-location": {
+          "description": "הצג את שם המיקום בווידג'טים של מזג האוויר",
+          "label": "הצג מיקום"
+        },
+        "sync-greeter": {
+          "button": "סנכרן כעת",
+          "description": "העתק את הטפט והצבעים הנוכחיים ל-Noctalia Greeter (נדרש אישור מנהל)",
+          "label": "Noctalia Greeter"
+        },
+        "telemetry": {
+          "description": "שולח פינג אנונימי קטן בעת ההפעלה עם הגרסה, מערכת ההפעלה, ה-compositor, רזולוציות המסך, ה-RAM וקנה המידה של ממשק המשתמש",
+          "label": "פינג הפעלה אנונימי"
+        },
+        "time-format": {
+          "description": "פורמט זמן ברירת מחדל עבור ממשק ה-shell ללא הגדרה משלו",
+          "label": "פורמט זמן"
+        }
+      },
+      "system": {
+        "battery-device-warning-threshold": {
+          "description": "עקוף את סף התראת הסוללה עבור התקן זה (0 משבית התראות עבור התקן זה)",
+          "label": "סף אזהרה עבור {device}"
+        },
+        "battery-warning-threshold": {
+          "description": "אחוז סוללת המערכת שמתחתיו או בו המעטפת שולחת התראה על סוללה חלשה ויישומוני הסוללה משתמשים בצבע האזהרה שלהם (0 לביטול)",
+          "label": "סף התראה לסוללה"
+        }
+      },
+      "templates": {
+        "builtin-ids": {
+          "description": "הפעל תבניות אפליקציות כלולות לעיבוד בכל שינוי ערכת נושא",
+          "empty": "אין תבניות מובנות זמינות.",
+          "label": "תבניות מובנות"
+        },
+        "community-ids": {
+          "description": "עיין והפעל תבניות קהילה שיוחלו בכל שינוי ערכת נושא",
+          "empty": "עדיין אין תבניות קהילה זמינות. הפעל תבניות קהילה ורענן את הקטלוג תחילה.",
+          "label": "תבניות קהילה"
+        },
+        "dynamic-output": "נתיב הפלט מיושב כאשר התבנית מוחלת",
+        "enable-builtins": {
+          "description": "השתמש בקטלוג תבניות העיצוב המצורף עבור אפליקציות",
+          "label": "הפעל תבניות מובנות"
+        },
+        "enable-community-templates": {
+          "description": "הורד והחל תבניות מקטלוג הקהילה",
+          "label": "הפעל תבניות קהילה"
+        }
+      },
+      "wallpaper": {
+        "automation": {
+          "description": "החלף טפטים באופן אוטומטי לפי טיימר",
+          "label": "סיבוב אוטומטי"
+        },
+        "automation-interval": {
+          "description": "שניות בין החלפת טפטים",
+          "label": "מרווח סיבוב"
+        },
+        "automation-order": {
+          "description": "בחר טפטים באקראי או לפי סדר אלפביתי",
+          "label": "סדר"
+        },
+        "automation-recursive": {
+          "description": "חפש טפטים בתיקיות מקוננות",
+          "label": "כלול תיקיות משנה"
+        },
+        "directory": {
+          "description": "תיקייה המכילה טפטים; השאר ריק כדי להשתמש בספריית התמונות הסטנדרטית של XDG",
+          "label": "תיקיית טפטים"
+        },
+        "directory-dark": {
+          "description": "תיקיית טפטים בשימוש במצב Dark Mode",
+          "label": "ספריית Dark Mode",
+          "placeholder": "~/Pictures/Wallpapers"
+        },
+        "directory-light": {
+          "description": "תיקיית טפטים בשימוש במצב Light Mode",
+          "label": "ספריית Light Mode",
+          "placeholder": "~/Pictures/Wallpapers"
+        },
+        "edge-smoothness": {
+          "description": "ריכוך קצוות המעבר בין טפטים",
+          "label": "חלקות קצוות"
+        },
+        "enabled": {
+          "description": "הפעל את שירות הטפטים"
+        },
+        "fill-color": {
+          "description": "צבע אחיד המוצג מאחורי התמונה באזורים לא מכוסים",
+          "label": "צבע מילוי"
+        },
+        "fill-mode": {
+          "description": "כיצד טפטים מותאמים למסך",
+          "label": "מצב מילוי"
+        },
+        "monitor-directory": {
+          "label": "ספריית טפטים"
+        },
+        "monitor-directory-dark": {
+          "label": "ספריית Dark Mode",
+          "placeholder": "~/Pictures/Wallpapers"
+        },
+        "monitor-directory-light": {
+          "label": "ספריית Light Mode",
+          "placeholder": "~/Pictures/Wallpapers"
+        },
+        "panel": {
+          "button": "פתח פאנל",
+          "description": "פתח את לוח בחירת הטפטים",
+          "label": "לוח טפטים"
+        },
+        "per-monitor-directories": {
+          "description": "השתמש בתיקיות טפטים נפרדות עבור כל צג",
+          "label": "ספריות לכל צג"
+        },
+        "transition-duration": {
+          "description": "משך האנימציה של החלפת הטפט במילי-שניות",
+          "label": "משך המעבר"
+        },
+        "transition-on-startup": {
+          "description": "הפעל מעבר כאשר ה-shell מציג טפט בפעם הראשונה",
+          "label": "הנפשה בעת ההפעלה"
+        },
+        "transitions": {
+          "description": "אפקטים זמינים בעת החלפת טפט (אחד נבחר באקראי בכל החלפה)",
+          "label": "אפקטי מעבר"
+        }
+      }
+    },
+    "session-actions": {
+      "add": "הוסף פעולה",
+      "clear-glyph": "נקה",
+      "command-label": "פקודת Shell",
+      "command-placeholder": "פקודת bash אופציונלית, השאר ריק עבור התנהגות מובנית",
+      "command-required-placeholder": "פקודת Shell להרצה",
+      "countdown-seconds-description": "המתן מספר שניות זה לפני ההרצה. הפעל שוב כדי לאשר באופן מיידי. 0 מריץ בבת אחת.",
+      "countdown-seconds-label": "ספירה לאחור (שניות)",
+      "glyph-label": "גליף",
+      "glyph-picker-title": "גליף פעולה",
+      "kind-section-label": "התנהגות",
+      "label-field": "תווית",
+      "label-placeholder": "טקסט כפתור אופציונלי",
+      "shortcut-label": "קיצור דרך",
+      "variant": {
+        "default": "ברירת מחדל",
+        "destructive": "הרסני",
+        "ghost": "Ghost",
+        "outline": "קו מתאר",
+        "primary": "ראשי",
+        "secondary": "משני"
+      },
+      "variant-label": "סגנון כפתור"
+    },
+    "storage-recovery": {
+      "button": "איפוס אחסון פרטי",
+      "button-confirm": "אשר איפוס אחסון",
+      "description": "מחק לצמיתות את היסטוריית הלוח השמורה ואת מטמון אירועי היומן, ולאחר מכן פתח מחדש את האחסון הפרטי (קובץ מפתח מוגדר לעולם לא ישונה)",
+      "error-delete": "לא ניתן היה למחוק כמה קבצי אחסון פרטיים. מפתח האחסון נשמר.",
+      "error-key": "קבצי האחסון הפרטיים נמחקו, אך לא ניתן היה לפתוח מחדש את האחסון המאובטח. תקן את הגישה ונסה שוב.",
+      "label": "שחזור אחסון פרטי",
+      "success": "האחסון הפרטי אופס בהצלחה."
+    },
+    "templates": {
+      "store": {
+        "browse": "עיון בתבניות",
+        "categories": "קטגוריות",
+        "category-all": "הכל",
+        "empty": "אף תבנית לא תואמת למסננים שלך",
+        "enabled-count": "{count} מופעלים",
+        "filter-all": "הכל",
+        "filter-enabled": "מופעל",
+        "results-count": "{count} תבניות",
+        "search-placeholder": "חפש תבניות…",
+        "sort-category-asc": "מיין לפי קטגוריה (א-ת)",
+        "sort-category-desc": "מיין לפי קטגוריה (ת-א)",
+        "sort-name-asc": "מיין לפי שם (א-ת)",
+        "sort-name-desc": "מיין לפי שם (ת-א)",
+        "title": "תבניות קהילה"
+      }
+    },
+    "widgets": {
+      "actions": {
+        "command-placeholder": "פקודת Shell",
+        "default": "ברירת מחדל",
+        "disabled": "מושבת",
+        "run-command": "הרץ פקודה…",
+        "unset": "לא מוגדר"
+      },
+      "gestures": {
+        "back": "לחצן חזרה",
+        "forward": "לחצן קדימה",
+        "left": "לחיצה שמאלית",
+        "middle": "לחיצה אמצעית",
+        "right": "קליק ימני",
+        "scroll-down": "גלול למטה",
+        "scroll-left": "גלול שמאלה",
+        "scroll-right": "גלול ימינה",
+        "scroll-up": "גלול למעלה"
+      },
+      "instances": {
+        "cpu": "CPU",
+        "date": "תאריך",
+        "input-volume": "עוצמת קלט",
+        "network-rx": "קליטת רשת",
+        "network-tx": "שידור רשת",
+        "output-volume": "עוצמת שמע ביציאה",
+        "ram": "RAM",
+        "temp": "טמפרטורה"
+      },
+      "map-placeholders": {
+        "effects-profile-name": "שם פרופיל",
+        "glyph-name": "שם הגליף",
+        "key": "מפתח",
+        "label": "תווית",
+        "layout-name": "שם הפריסה",
+        "value": "ערך"
+      },
+      "options": {
+        "after": "אחרי",
+        "always": "תמיד",
+        "auto": "אוטומטי",
+        "before": "לפני",
+        "both": "שניהם",
+        "compact": "קומפקטי",
+        "count": "מונה",
+        "cpu-freq": "תדר CPU",
+        "cpu-temp": "טמפרטורת CPU",
+        "cpu-usage": "ניצול CPU",
+        "disk-free": "שטח דיסק פנוי",
+        "disk-free-percent": "שטח דיסק פנוי %",
+        "disk-used": "דיסק בשימוש",
+        "disk-used-percent": "אחוז שימוש בדיסק",
+        "dots": "נקודות",
+        "focus-hint": "רמז מיקוד",
+        "full": "מלא",
+        "gauge": "Gauge",
+        "glyph": "גליף",
+        "gpu-temp": "טמפרטורת GPU",
+        "gpu-usage": "שימוש ב-GPU",
+        "gpu-vram": "GPU VRAM",
+        "gpu-vram-used": "זיכרון VRAM של ה-GPU בשימוש",
+        "graph": "גרף",
+        "graphic": "גרפיקה",
+        "hidden": "מוסתר",
+        "icon-and-text": "סמל וטקסט",
+        "icon-only": "סמל בלבד",
+        "icons": "סמלים",
+        "id": "מזהה",
+        "input": "קלט",
+        "instance": "לפי מיקום",
+        "kilobytes": "ק״ב/שנייה",
+        "megabytes": "MB/s",
+        "minimal": "מינימלי",
+        "name": "שם",
+        "net-rx": "קליטת רשת",
+        "net-tx": "שידור רשת",
+        "none": "ללא",
+        "on-hover": "בעת ריחוף",
+        "output": "פלט",
+        "percent": "אחוז",
+        "ram-percent": "RAM %",
+        "ram-used": "RAM בשימוש",
+        "rate": "דרג",
+        "regular": "רגיל",
+        "replace": "החלף",
+        "scroll-gesture": "פעם אחת לכל מחווה",
+        "scroll-steps": "כל צעד",
+        "shared": "משותף",
+        "short": "קצר",
+        "swap-percent": "אחוז Swap",
+        "text": "טקסט",
+        "text-only": "טקסט בלבד",
+        "time": "זמן",
+        "workspace-label-centered": "במרכז",
+        "workspace-label-corner": "פינה",
+        "workspace-label-inside": "בתוך הקפסולה"
+      },
+      "settings": {
+        "actions": {
+          "description": "מה כל מחוות עכבר עושה בווידג'ט הזה; בחר פקודה, הרץ פקודת shell, או השבת אותה",
+          "label": "פעולות מחוות"
+        },
+        "active-color": {
+          "description": "צבע המשמש למחווני פרטיות פעילים; צבעי hex קבועים נתמכים גם כן",
+          "label": "צבע פעיל"
+        },
+        "active-indicator-color": {
+          "description": "הצבע של המחוון מתחת לאייקון החלון הפעיל",
+          "label": "צבע מחוון פעיל"
+        },
+        "active-opacity": {
+          "description": "רמת השקיפות של האייקון עבור החלון הפעיל (בפוקוס)",
+          "label": "אטימות סמל פעיל"
+        },
+        "active-pill-size": {
+          "description": "אורך מינימלי של גלולת סביבת עבודה פעילה לאורך ה-Bar, כמכפלה של עובי הגלולה",
+          "label": "גודל כדורית פעילה",
+          "workspaces-description": "אורך מינימלי של כדורית סביבת עבודה פעילה לאורך ה-Bar, כמכפלה של עובי הכדורית; תוויות עשויות להתרחב מעבר לכך"
+        },
+        "album-art-only": {
+          "description": "הצג רק את עטיפת האלבום העגולה ללא שם השיר",
+          "label": "עטיפת אלבום בלבד"
+        },
+        "anchor": {
+          "description": "הצמד את הווידג'ט הזה כעוגן היישור המרכזי",
+          "label": "עוגן"
+        },
+        "art-size": {
+          "description": "גודל עטיפת המדיה בפיקסלים",
+          "label": "גודל אמנות"
+        },
+        "artist-first": {
+          "description": "הצג את האמן לפני שם השיר (אמן - כותרת)",
+          "label": "האמן תחילה"
+        },
+        "bands": {
+          "description": "מספר פסי הוויזואליזציה",
+          "label": "להקות"
+        },
+        "cam-filter-regex": {
+          "description": "ביטוי רגולרי עבור שמות תהליכי מצלמה להתעלמות",
+          "label": "Regex של מסנן מצלמה"
+        },
+        "capsule": {
+          "description": "צייר קפסולה מאחורי הווידג'ט הזה",
+          "label": "קפסולה"
+        },
+        "capsule-border": {
+          "description": "תפקיד צבע עבור קווי המתאר של ה-Capsule; צבעי hex קבועים נתמכים גם כן",
+          "label": "גבול ה-Capsule"
+        },
+        "capsule-fill": {
+          "description": "תפקיד צבע עבור רקע ה-Capsule; צבעי hex קבועים נתמכים גם כן",
+          "label": "מילוי Capsule"
+        },
+        "capsule-foreground": {
+          "description": "תפקיד צבע עבור תוכן בתוך ה-capsule; צבעי hex קבועים נתמכים גם כן",
+          "label": "צבע חזית של ה-Capsule"
+        },
+        "capsule-opacity": {
+          "description": "אטימות רקע ה-capsule",
+          "label": "אטימות ה-Capsule"
+        },
+        "capsule-padding": {
+          "description": "ריפוד פנימי בתוך ה-capsule",
+          "label": "ריפוד Capsule"
+        },
+        "capsule-radius": {
+          "description": "רדיוס פינות עבור קפסולת הווידג'ט הזו; השאר ריק לצורת אליפסה אוטומטית, או הגדר 0 עבור פינות מרובעות",
+          "label": "רדיוס הקפסולה",
+          "taskbar-description": "רדיוס פינה עבור ה-capsule של ה-widget, מחווני ה-workspace disc, ו-capsules של קבוצות workspace; השאר ריק עבור צורת גלולה אוטומטית, או הגדר 0 עבור פינות מרובעות",
+          "workspaces-description": "רדיוס פינות עבור קפסולת הווידג'ט הזו וכדורי סביבות העבודה; השאר ריק לצורת כדור אוטומטית, או הגדר 0 לפינות מרובעות"
+        },
+        "centered": {
+          "description": "מרכז את פסי הוויזואליזציה במקום ליישר אותם לקצה",
+          "label": "ממורכז"
+        },
+        "change-color-on-hover": {
+          "description": "שנה את צבעי המילוי והתווית של סביבת עבודה כאשר הסמן מרחף מעליה",
+          "label": "שנה צבע בעת ריחוף"
+        },
+        "color": {
+          "description": "תפקיד צבע עבור האייקון והתווית של יישומון זה; צבעי hex קבועים נתמכים גם כן",
+          "label": "צבע"
+        },
+        "color-1": {
+          "description": "צבע המעבר הראשון ב-visualizer",
+          "label": "צבע 1"
+        },
+        "color-2": {
+          "description": "צבע הדרגתי שני ב-visualizer",
+          "label": "צבע 2"
+        },
+        "custom-image": {
+          "description": "נתיב לתמונה מותאמת אישית; השאר ריק כדי להשתמש בסימן הגליף של האייקון",
+          "dialog-title": "בחר תמונה מותאמת אישית",
+          "label": "תמונה מותאמת אישית"
+        },
+        "custom-image-colorize": {
+          "description": "צבע את התמונה המותאמת אישית בעזרת הגדרת צבע האייקון של ה-Widget",
+          "label": "צבע תמונה מותאמת אישית"
+        },
+        "detached-panel": {
+          "description": "פתח את המגירה כ-floating panel במקום לעגן אותה לקצה ה-bar",
+          "label": "לוח מנותק"
+        },
+        "device": {
+          "description": "התקן לניטור או לשליטה",
+          "label": "התקן"
+        },
+        "display": {
+          "active-window-description": "סמל, כותרת, או שניהם בסרגלים אופקיים; סרגלים אנכיים נשארים עם סמלים בלבד",
+          "description": "מצב תצוגה עבור יישומון זה",
+          "label": "תצוגה"
+        },
+        "display-mode": {
+          "description": "הצג את הסוללה כצורה גרפית, כסמל Tabler, או כתווית בלבד",
+          "label": "מצב תצוגה"
+        },
+        "drawer": {
+          "description": "הצג כפתור מגש ב-Bar ופתח פריטים ב-Panel",
+          "label": "השתמש בלוח מגירה"
+        },
+        "drawer-columns": {
+          "description": "מספר סמלילי Tray בשורה בלוח המגירה",
+          "label": "עמודות המגירה"
+        },
+        "drawer-item-size": {
+          "description": "גודל סמלי ה-Tray בתוך לוח המגירה בפיקסלים",
+          "label": "גודל סמל המגירה"
+        },
+        "effects-profile-glyphs": {
+          "description": "מיפוי שמות פרופילים של EasyEffects לסימני אייקונים",
+          "label": "פרופילי אפקטים של גליפים"
+        },
+        "empty-color": {
+          "description": "תפקיד צבע המשמש עבור סביבות עבודה ריקות; ניתן להשתמש גם בערכי hex קבועים",
+          "label": "צבע ריק"
+        },
+        "enable-scroll": {
+          "description": "אפשר פעולות גלילה של גלגלת עכבר ומשטח מגע בווידג'ט זה",
+          "label": "הפעל גלילה"
+        },
+        "focused-color": {
+          "description": "תפקיד צבע המשמש עבור ה-workspace הממוקד; צבעי hex קבועים נתמכים גם כן",
+          "label": "צבע ממוקד"
+        },
+        "focused-output-only": {
+          "description": "הדגש רק את ה-workspace הפעיל בצג הממוקד",
+          "label": "הדגש רק את הצג הממוקד",
+          "taskbar-description": "השתמש בצבע הממוקד עבור ה-workspace הפעיל רק בצג שבו נמצא המיקוד של המקלדת או הסמן; בצגים אחרים נעשה שימוש בצבע המציין תפוס",
+          "workspaces-description": "הדגש את סביבת העבודה הפעילה רק בצג שבו נמצא המיקוד של המקלדת או הסמן; בצגים אחרים, סביבת העבודה הפעילה תוצג כתפוסה במקום זאת"
+        },
+        "font-family": {
+          "description": "גופן עבור יישומון זה; השאר ריק כדי לרשת את גופן ה-Bar",
+          "label": "משפחת גופנים"
+        },
+        "font-scale": {
+          "description": "מכפיל קנה מידה לטקסט בווידג'ט זה, ללא תלות בקנה המידה הכולל של הווידג'ט",
+          "label": "קנה מידה של גופן"
+        },
+        "font-weight": {
+          "description": "ברירת המחדל יורשת את משקל הגופן של ה-Bar",
+          "label": "משקל גופן"
+        },
+        "format": {
+          "description": "מחרוזת פורמט זמן",
+          "label": "פורמט"
+        },
+        "glyph": {
+          "description": "שם גליף האייקון",
+          "label": "גליף",
+          "sysmon-description": "גליף סמל מותאם אישית; השאר ריק כדי להשתמש בסמל עבור הנתון הנבחר",
+          "volume-description": "גליף סמל מותאם אישית; השאר ריק כדי להשתמש בסמלים הדינמיים המובנים"
+        },
+        "glyph-position": {
+          "description": "באיזה סדר להציג את הגליף ביחס לטקסט/גרף/מד",
+          "label": "מיקום גליף"
+        },
+        "group-by-workspace": {
+          "description": "קבץ סמלי taskbar לתוך capsules של workspace כאשר נתוני ה-compositor זמינים",
+          "label": "קבץ לפי Workspace"
+        },
+        "group-single-icon-per-app": {
+          "description": "בעת קיבוץ לפי Workspace עם סמלים, כווץ חלונות מרובים מאותה אפליקציה לסמל אחד עם תג מונה",
+          "label": "סמל אחד לכל אפליקציה"
+        },
+        "height": {
+          "description": "גובה ה-Widget בפיקסלים",
+          "label": "גובה"
+        },
+        "hidden": {
+          "description": "מזהי פריטי Tray להסתרה",
+          "label": "פריטים מוסתרים"
+        },
+        "hide-album-art": {
+          "description": "הסתר את עטיפת האלבום",
+          "label": "הסתר את עטיפת האלבום"
+        },
+        "hide-artist": {
+          "description": "הסתר את שם האמן והצג רק את כותרת השיר",
+          "label": "הסתר אמן"
+        },
+        "hide-empty-workspaces": {
+          "description": "בעת קיבוץ לפי Workspace, השמט capsules שאין בהם חלונות פעילים ברשימת ה-taskbar.",
+          "label": "הסתר סביבות עבודה ריקות"
+        },
+        "hide-inactive": {
+          "description": "הסתר סמלי פרטיות לא פעילים והסתר את ה-widget כאשר שום דבר אינו פעיל",
+          "label": "הסתר לא פעילים"
+        },
+        "hide-passive": {
+          "description": "הסתר פריטי Tray שהסטטוס שלהם ב-StatusNotifierItem הוא Passive",
+          "label": "הסתר פריטים פסיביים"
+        },
+        "hide-when-empty": {
+          "description": "הסתר את כדורי ה-workspace כאשר אין חלונות פתוחים",
+          "label": "הסתר כאשר ריק",
+          "workspaces-description": "הסתר גלולות workspace שאין בהן חלונות פתוחים"
+        },
+        "hide-when-full": {
+          "description": "הסתר את ה-widget של הסוללה כשהיא טעונה במלואה",
+          "label": "הסתר כשהוא מלא"
+        },
+        "hide-when-inactive": {
+          "description": "הסתר את ה-widget של המיקרופון כאשר אף יישום לא מקליט אודיו",
+          "label": "הסתר בעת חוסר פעילות"
+        },
+        "hide-when-no-connected-device": {
+          "description": "הסתר את ה-widget של Bluetooth כאשר אין התקן מחובר",
+          "label": "הסתר כשאין התקן מחובר"
+        },
+        "hide-when-no-media": {
+          "description": "הסתר את ה-widget של המדיה כאשר אין נגן MPRIS פעיל",
+          "label": "הסתר כשאין מדיה"
+        },
+        "hide-when-no-unread": {
+          "description": "הסתר את ה-widget של ההתראות כאשר אין התראות שלא נקראו",
+          "label": "הסתר כשאין חדשות"
+        },
+        "hide-when-off": {
+          "description": "הסתר את מחוון מקש הנעילה כאשר אינו פעיל",
+          "label": "הסתר כשהוא כבוי"
+        },
+        "hide-when-plugged": {
+          "description": "הסתר את יישומון הסוללה בעת חיבור לחשמל",
+          "label": "הסתר כאשר מחובר לחשמל"
+        },
+        "hide-when-single-layout": {
+          "description": "הסתר את הווידג'ט של פריסת המקלדת אלא אם הוגדרה יותר מפריסה אחת",
+          "label": "הסתר כאשר יש פריסה אחת"
+        },
+        "highlight-color": {
+          "description": "צבע שהגיע לסף הקריטי או עבר אותו",
+          "label": "צבע הדגשה"
+        },
+        "hot-reload": {
+          "description": "טען מחדש את ה-widget המתוסרט כאשר המקור שלו משתנה",
+          "label": "Hot Reload"
+        },
+        "icon-color": {
+          "description": "דורס את צבע ה-widget עבור סמלים בלבד; צבעי hex קבועים נתמכים גם כן",
+          "label": "צבע סמל"
+        },
+        "icon-scale": {
+          "description": "קנה המידה של סמלי היישומים בשורת המשימות ביחס לגודל ברירת המחדל שלהם",
+          "label": "קנה מידה של אייקונים"
+        },
+        "icon-size": {
+          "description": "גודל אייקון בפיקסלים",
+          "label": "גודל אייקון"
+        },
+        "icon-spacing": {
+          "description": "מרווח בפיקסלים בין סמלי חיווי הפרטיות",
+          "label": "מרווח אייקונים"
+        },
+        "inactive-color": {
+          "description": "צבע המשמש למחווני פרטיות לא פעילים; ניתן להשתמש גם בערכי hex קבועים",
+          "label": "צבע לא פעיל"
+        },
+        "inactive-opacity": {
+          "description": "שקיפות סמלים עבור חלונות לא פעילים (שאינם במיקוד)",
+          "label": "אטימות סמל לא פעיל"
+        },
+        "inactive-pill-size": {
+          "description": "אורך מינימלי של גלולת סביבת עבודה לא פעילה לאורך ה-Bar, כמכפלה של עובי הגלולה",
+          "label": "גודל Pill לא פעיל",
+          "workspaces-description": "אורך מינימלי של גלולת סביבת עבודה לא פעילה לאורך ה-Bar, כמכפלה של עובי הגלולה; תוויות עשויות להתרחב מעבר לזה"
+        },
+        "interactive": {
+          "description": "אפשר ריחוף מצביע, לחיצות, גלילה וטיפים עבור יישומון זה",
+          "label": "אינטראקטיבי"
+        },
+        "interface": {
+          "description": "ממשק רשת לניטור; השאר ריק כדי להשתמש בסך הכל של כל הממשקים",
+          "label": "ממשק"
+        },
+        "item-spacing": {
+          "description": "מרווח בין פריטי ה-taskbar כאשר קיבוץ ה-workspace כבוי",
+          "label": "מרווח בין פריטים"
+        },
+        "label": {
+          "description": "טקסט סטטי אופציונלי שמוצג על כפתור זה",
+          "label": "תווית"
+        },
+        "label-content": {
+          "description": "מה שתווית הסוללה מציגה: אחוז טעינה, זמן שנותר, או צריכת חשמל",
+          "label": "תוכן התווית"
+        },
+        "label-min-width": {
+          "description": "רוחב תווית מינימלי בפיקסלים למניעת שינוי גודל",
+          "label": "רוחב מינימלי לתווית"
+        },
+        "label-show-units": {
+          "description": "הצג יחידות כמו אחוז / GiB / °C",
+          "label": "הצג יחידות"
+        },
+        "label-source": {
+          "description": "מה תוויות ה-workspace מציגות",
+          "label": "מקור התווית"
+        },
+        "labels-only-when-occupied": {
+          "description": "הסתר תוויות של סביבות עבודה ריקות ולא פעילות",
+          "label": "הצג תוויות רק כשיש תוכן",
+          "workspaces-description": "הצג תוויות של מזהה או שם סביבת עבודה על סביבות עבודה עם חלונות פתוחים ועל סביבת העבודה הפעילה גם כשהיא ריקה; תגיות ריקות אחרות יישארו ללא תווית"
+        },
+        "length": {
+          "description": "אורך המרווח בפיקסלים",
+          "label": "אורך"
+        },
+        "match-adjacent-spacing": {
+          "description": "הגדל את המרווחים בין סמלי ה-Tray בשורה כדי להתאים למרווחים החזותיים של יישומוני ה-Bar הסמוכים (כולל ריפוד ה-Capsule)",
+          "label": "התאם מרווח בין ווידג'טים סמוכים"
+        },
+        "max-label-chars": {
+          "description": "מספר תווים מקסימלי להצגה עבור שמות סביבות עבודה",
+          "label": "מספר תווים מרבי לתווית",
+          "workspaces-description": "מספר תווים מקסימלי עבור תוויות Workspace לא מספריות"
+        },
+        "max-length": {
+          "description": "אורך הווידג'ט המקסימלי בפיקסלים",
+          "label": "אורך מקסימלי"
+        },
+        "mic-filter-regex": {
+          "description": "ביטוי רגולרי עבור שמות יישומי מיקרופון להתעלמות",
+          "label": "ביטוי רגולרי למסנן מיקרופון"
+        },
+        "min-length": {
+          "description": "אורך מינימלי של Widget בפיקסלים",
+          "label": "אורך מינימלי"
+        },
+        "minimal": {
+          "description": "הצג תוויות של מזהה או שם סביבת עבודה בלבד, ללא בועות מונפשות",
+          "label": "סגנון מינימלי",
+          "taskbar-description": "תוויות workspace מבוססות טקסט בלבד ללא רקע דיסק צבעוני"
+        },
+        "mirrored": {
+          "description": "שקף את ה-visualizer סביב המרכז שלו",
+          "label": "משוקף"
+        },
+        "mute-color": {
+          "description": "תפקיד צבע המשמש עבור האייקון והתווית כאשר הם מושתקים; צבעי hex קבועים נתמכים גם כן",
+          "label": "צבע השתקה"
+        },
+        "mute-glyph": {
+          "description": "גליף סמל המשמש כאשר עוצמת הקול מושתקת או ב-0%; השאר ריק כדי להשתמש בסמל ההשתקה המובנה",
+          "label": "סמל השתקה"
+        },
+        "network-speed-compact": {
+          "description": "השתמש בסיומות יחידה קצרות כמו 1.2M במקום 1.2 MB/s",
+          "label": "מהירות רשת קומפקטית"
+        },
+        "network-speed-unit": {
+          "description": "יחידה המשמשת למהירויות קבלה ושידור ברשת; מעבר אוטומטי בין B/s, kB/s, MB/s ו-GB/s",
+          "label": "יחידת מהירות רשת"
+        },
+        "occupied-color": {
+          "description": "תפקיד צבע המשמש עבור סביבות עבודה תפוסות; צבעי hex קבועים נתמכים גם כן",
+          "label": "צבע תפוס"
+        },
+        "only-active-workspace": {
+          "description": "הסתר חלונות בסביבות עבודה לא פעילות",
+          "label": "סביבת עבודה פעילה בלבד"
+        },
+        "path": {
+          "description": "הנתיב המשמש לסטטיסטיקות דיסק",
+          "label": "נתיב"
+        },
+        "pill-scale": {
+          "description": "כוונן את קנה המידה של כדורי ה-workspace",
+          "label": "קנה מידה של קפסולה",
+          "workspaces-description": "כוונן את קנה המידה של כדורי ה-workspace"
+        },
+        "pinned": {
+          "description": "מזהי פריטי Tray שנשארים גלויים ב-Bar כאשר מצב מגירה מופעל",
+          "label": "פריטים מוצמדים",
+          "taskbar-description": "יישומי שולחן עבודה שנשארים ב-taskbar גם כשאינם פועלים; מתעלמים מהגדרה זו כאשר Group by Workspace מופעל",
+          "taskbar-label": "אפליקציות מוצמדות"
+        },
+        "pinned-opacity": {
+          "description": "רמת השקיפות של אפליקציות מוצמדות שאינן רצות כרגע",
+          "label": "אטימות אפליקציות מוצמדות"
+        },
+        "reversed": {
+          "description": "הפוך את סדר התדרים מהנמוך לגבוה של ה-Bars",
+          "label": "הפוך"
+        },
+        "scale": {
+          "description": "שנה את קנה המידה של יישומון זה ביחס לקנה המידה של תוכן ה-Bar",
+          "label": "קנה מידה"
+        },
+        "scope": {
+          "description": "הרץ סקריפט אחד בזמן ריצה עבור כל מיקום של widget פעיל, או שתף זמן ריצה אחד בין סרגלים עם אותו מזהה widget",
+          "label": "טווח זמן ריצה"
+        },
+        "script": {
+          "description": "נתיב לסקריפט ה-lua",
+          "label": "סקריפט"
+        },
+        "scroll-repeat": {
+          "description": "בחר אם פעולות גלילה יפעלו לפי סמנטיקת פקודות, ירוצו פעם אחת לכל מחווה, או יחזרו על עצמן בכל שלב גלילה",
+          "label": "חזרה על גלילה"
+        },
+        "show-active-indicator": {
+          "description": "הצג נקודה קטנה מתחת לאייקון החלון הפעיל ב-taskbar",
+          "label": "מחוון חלון פעיל"
+        },
+        "show-all-outputs": {
+          "description": "כלול חלונות מכל המסכים בווידג'ט זה",
+          "label": "הצג את כל המסכים"
+        },
+        "show-all-workspaces": {
+          "description": "הצג סביבות עבודה מכל צג בווידג'ט זה",
+          "label": "הצג את כל הצגים"
+        },
+        "show-caps-lock": {
+          "description": "הצג את מצב ה-Caps Lock",
+          "label": "הצג Caps Lock"
+        },
+        "show-condition": {
+          "description": "הצג את טקסט מצב מזג האוויר",
+          "label": "הצג תנאי"
+        },
+        "show-empty-label": {
+          "description": "הצג טקסט מציין מיקום כאשר אין חלון ממוקד במקום להסתיר את ה-Widget",
+          "label": "הצג תווית ריקה"
+        },
+        "show-glyph": {
+          "description": "הצג את הגליף של ה-Widget או תמונה מותאמת אישית",
+          "label": "הצג גליף"
+        },
+        "show-label": {
+          "description": "הצג את תווית הטקסט של ה-widget",
+          "label": "הצג תווית"
+        },
+        "show-labels": {
+          "description": "הצג תוויות טקסט על סביבות עבודה",
+          "label": "הצג תוויות"
+        },
+        "show-num-lock": {
+          "description": "הצג את מצב ה-Num Lock",
+          "label": "הצג Num Lock"
+        },
+        "show-progress": {
+          "description": "מלא את רקע ה-widget כדי להציג את התקדמות הניגון",
+          "label": "הצג את התקדמות הניגון"
+        },
+        "show-scroll-lock": {
+          "description": "הצג את מצב ה-Scroll Lock",
+          "label": "הצג Scroll Lock"
+        },
+        "show-temperature": {
+          "description": "הצג את טקסט הטמפרטורה הנוכחי",
+          "label": "הצג טמפרטורה"
+        },
+        "show-unlock-hint": {
+          "description": "הצג את כרטיס הסטטוס מעל תיבת ההתחברות עבור רמזי פתיחה והנחיות אימות; שגיאות ואזהרות Caps Lock עדיין יופיעו כאשר אפשרות זו כבויה",
+          "label": "רמז לפתיחה"
+        },
+        "show-value": {
+          "description": "הצג את הערך הנוכחי לצד הוויזואליזציה",
+          "label": "הצג ערך"
+        },
+        "show-vpn-label": {
+          "description": "מחליף את תווית הרשת בתווית VPN במצב Replace; מוסיף תווית VPN לצד סמל ה-VPN במצב Both",
+          "label": "הצג תווית VPN"
+        },
+        "show-when-idle": {
+          "description": "השאר את ה-visualizer גלוי גם כשלא מתנגנת מדיה",
+          "label": "הצג בעת המתנה"
+        },
+        "show-window-title": {
+          "description": "הצג את כותרת החלון לצד האייקון שלו (רק בסרגלים אופקיים)",
+          "label": "הצג את כותרת החלון"
+        },
+        "show-workspace-label": {
+          "description": "הצג את תגית סביבת העבודה הקטנה על קפסולות שורת המשימות המקובצות; כבה עבור קבוצות של סמלים בלבד",
+          "label": "תווית קפסולת סביבת עבודה"
+        },
+        "stat": {
+          "description": "נתוני מערכת להצגה",
+          "label": "סטטיסטיקה"
+        },
+        "style": {
+          "description": "מראה מחליף סביבות העבודה",
+          "label": "סגנון",
+          "workspaces-description": "מצב Regular מציג כדורים מונפשים; מצב Minimal מציג תוויות טקסט בלבד; מצב Focus Hint משתמש בנקודות עבור Workspace לא פעילים ובכדור מורחב עבור ה-Workspace הפעיל עם סמל האפליקציה הממוקדת"
+        },
+        "taskbar-max-width": {
+          "description": "תקציב רוחב כולל בפיקסלים; כותרות חלונות יתכווצו כדי להתאים ויוסתרו כאשר הן צרות מדי",
+          "label": "רוחב מקסימלי של ה-Taskbar"
+        },
+        "text": {
+          "description": "טקסט שמוצג על ה-Bar",
+          "label": "טקסט"
+        },
+        "timezone": {
+          "description": "מזהה אזור זמן (למשל Europe/Berlin) לשימוש עבור שעון זה; השאר ריק כדי להשתמש בזמן המקומי של המערכת",
+          "label": "אזור זמן"
+        },
+        "title-scroll": {
+          "description": "מתי כותרת ה-widget צריכה להיגלל",
+          "label": "גלילת כותרת"
+        },
+        "tooltip": {
+          "description": "תיאור שמוצג בעת ריחוף מעל כפתור זה",
+          "label": "תיאור כלי"
+        },
+        "tooltip-format": {
+          "description": "פורמט אופציונלי עבור ה-tooltip",
+          "label": "פורמט תיאור כלי"
+        },
+        "type": {
+          "description": "סוג ווידג'ט מובנה עבור ווידג'ט בעל שם זה",
+          "label": "סוג"
+        },
+        "urgent-color": {
+          "description": "תפקיד צבע המשמש עבור סביבות עבודה דחופות; צבעי hex קבועים נתמכים גם כן",
+          "label": "צבע דחוף"
+        },
+        "vertical-format": {
+          "description": "פורמט אופציונלי המשמש בסרגלים אנכיים",
+          "label": "תבנית אנכית"
+        },
+        "visualization": {
+          "description": "Gauge, גרף, או ללא ויזואליזציה של נתונים",
+          "label": "ויזואליזציה"
+        },
+        "vpn-status": {
+          "description": "כיצד להציג את מצב ה-VPN: החלפה (Replace) מחליפה את סמל הרשת במגן VPN, שניהם (Both) מציגים אותם זה לצד זה, מוסתר (Hidden) משבית את מחוון ה-VPN",
+          "label": "סטטוס VPN"
+        },
+        "warning-color": {
+          "description": "הצבע שיוחל כאשר הטעינה נמצאת ברף התראת הסוללה של המערכת או מתחתיו",
+          "label": "צבע אזהרה"
+        },
+        "width": {
+          "description": "רוחב ה-Widget בפיקסלים",
+          "label": "רוחב"
+        },
+        "window-title-max-width": {
+          "description": "רוחב מקסימלי בפיקסלים עבור כותרות חלונות",
+          "label": "רוחב מקסימלי לכותרת חלון"
+        },
+        "workspace-group-capsule": {
+          "description": "צייר את הרקע והגבול סביב כל סביבת עבודה מקובצת. כבה כדי להשאיר רק את קיבוץ האייקונים ותוויות הדיסק של סביבת העבודה.",
+          "label": "קפסולת קבוצת סביבות עבודה"
+        },
+        "workspace-group-content": {
+          "description": "מה כל קבוצת סביבות עבודה מציגה: סמלי אפליקציות, מספר חלונות, או נקודות (עד חמש, לאחר מכן +N עבור השאר)",
+          "label": "קבץ תוכן"
+        },
+        "workspace-label-placement": {
+          "description": "פינה, ממורכז על הקצה, או בתוך ה-pill",
+          "label": "מיקום תווית סביבת עבודה"
+        }
+      },
+      "types": {
+        "active-window": "חלון פעיל",
+        "audio-visualizer": "מציג ויזואלי של אודיו",
+        "battery": "סוללה",
+        "bluetooth": "Bluetooth",
+        "brightness": "בהירות",
+        "caffeine": "קפאין",
+        "clipboard": "לוח גזירים",
+        "clock": "שעון",
+        "control-center": "מרכז בקרה",
+        "custom-button": "כפתור מותאם אישית",
+        "keyboard-layout": "פריסת מקלדת",
+        "launcher": "משגר",
+        "lock-keys": "מקשי נעילה",
+        "media": "מדיה",
+        "network": "רשת",
+        "nightlight": "Night Light",
+        "notifications": "התראות",
+        "power-profile": "פרופיל צריכת חשמל",
+        "privacy": "מחוון פרטיות",
+        "screenshot": "צילום מסך",
+        "scripted": "בסקריפט",
+        "session": "הפעלה",
+        "settings": "הגדרות",
+        "spacer": "מרווח",
+        "sysmon": "צג מערכת",
+        "taskbar": "שורת משימות",
+        "test": "בדיקה",
+        "text": "טקסט",
+        "theme-mode": "מצב ערכת נושא",
+        "tray": "מגש",
+        "volume": "עוצמת שמע",
+        "wallpaper": "טפט",
+        "weather": "מזג אוויר",
+        "workspaces": "סביבות עבודה"
+      }
+    },
+    "window": {
+      "export-config": "ייצוא הגדרה…",
+      "export-config-saved": "ייצוא ה-Config נשמר.",
+      "filter-overridden": "עוקף",
+      "legacy-config-warning": "הגדרה מיושנת: {issue}. ערוך את רשומת המקור הזו; Noctalia מחילה את ההחלפה באופן זמני בלבד. הרץ noctalia config validate כדי להציג את כל השינויים הנדרשים.",
+      "native-title": "הגדרות Noctalia",
+      "no-results": "לא נמצאו הגדרות",
+      "no-results-hint": "נסה שם הגדרה או מפתח תצורה אחר.",
+      "offline-mode-notice": {
+        "appearance": "הורדות פלטת צבעים מהקהילה לא יעבדו.",
+        "calendar-account": "גילוי וסנכרון יומן לא יעבדו.",
+        "disable-hint": "בטל את מצב לא מקוון במקטע האבטחה.",
+        "launcher": "קבלת שער החליפין לא תעבוד.",
+        "location": "חיפושי מזג אוויר ומיקום לא יעבדו.",
+        "plugin-store": "קטלוג התוספים המרוחק ובקשות הורדה לא יעבדו.",
+        "plugins": "בקשות HTTP של תוספים לא יעבדו. מקורות Git עדיין יכולים להתעדכן.",
+        "security": "בדיקת IP חיצוני וטלמטריה לא יעבדו.",
+        "services": "סנכרון חשבון היומן לא יעבוד.",
+        "template-store": "הורדות תבניות מהקהילה לא יעבדו.",
+        "templates": "הורדות ועדכונים של תבניות מהקהילה לא יעבדו.",
+        "title": "מצב לא מקוון"
+      },
+      "reset-page": "איפוס דף",
+      "reset-page-confirm": "אישור איפוס",
+      "search-placeholder": "חיפוש בהגדרות…",
+      "search-truncated": "מציג את {count} התוצאות הראשונות. דייק את החיפוש כדי לצמצם את התוצאות.",
+      "support-report": "דוח תמיכה",
+      "support-report-saved": "דוח התמיכה נשמר.",
+      "support-report-title": "שמור דוח תמיכה",
+      "title": "הגדרות"
+    }
+  },
+  "setup-wizard": {
+    "browse": "עיון",
+    "builtin-palette": "פלטה מובנית",
+    "footer-note": "תוכל לשנות זאת מאוחר יותר בהגדרות.",
+    "get-started": "בואו נתחיל",
+    "mode": "מצב",
+    "no-wallpaper-selected": "לא נבחר טפט",
+    "select-wallpaper": "בחר טפט",
+    "subtitle": "כמה אפשרויות מהירות כדי להתחיל.",
+    "title": "ברוך הבא ל-Noctalia",
+    "wallpaper": "טפט",
+    "wallpaper-scheme": "ערכת טפט"
+  },
+  "system": {
+    "hardware": {
+      "unknown": "לא ידוע",
+      "unknown-cpu": "CPU לא ידוע",
+      "unknown-distro": "הפצה לא ידועה",
+      "unknown-gpu": "GPU לא ידוע"
+    }
+  },
+  "theme": {
+    "scheme": {
+      "dysfunctional": "לא תקין",
+      "faithful": "נאמן",
+      "m3-content": "תוכן M3",
+      "m3-fruit-salad": "סלט פירות M3",
+      "m3-monochrome": "M3 Monochrome",
+      "m3-rainbow": "M3 Rainbow",
+      "m3-tonal-spot": "נקודת גוון M3",
+      "muted": "מושתק",
+      "soft": "רך",
+      "vibrant": "תוסס"
+    }
+  },
+  "time": {
+    "duration": {
+      "less-than-day": "פחות מיום אחד",
+      "less-than-minute": "<1דקה",
+      "three-parts": "{first} {second} {third}",
+      "two-parts": "{first} {second}"
+    },
+    "file": {
+      "unknown": "לא ידוע"
+    },
+    "relative": {
+      "days-ago": "לפני {count} ימים",
+      "days-ago-plural": "לפני {count} ימים",
+      "hours-ago": "לפני {count} שעות",
+      "hours-ago-plural": "לפני {count} שעות",
+      "just-now": "ממש עכשיו",
+      "minutes-ago": "לפני {count} דקות",
+      "minutes-ago-plural": "לפני {count} דקות"
+    },
+    "units": {
+      "day": "{count} יום",
+      "day-plural": "{count} ימים",
+      "hour": "{count} שעות",
+      "hour-compact": "{count}שעות",
+      "hour-plural": "{count} שעות",
+      "minute": "{count} דקות",
+      "minute-compact": "{count}ד",
+      "minute-plural": "{count} דקות",
+      "month": "{count} חודשים",
+      "month-plural": "{count} חודשים",
+      "year": "{count} שנה",
+      "year-plural": "{count} שנים"
+    }
+  },
+  "tray": {
+    "menu": {
+      "empty": "אין פריטי תפריט…",
+      "pin": "הצמד",
+      "unpin": "בטל הצמדה"
+    }
+  },
+  "ui": {
+    "controls": {
+      "search-picker": {
+        "empty": "אין תוצאות",
+        "placeholder": "חיפוש…"
+      },
+      "select": {
+        "placeholder": "בחר אפשרות"
+      }
+    },
+    "dialogs": {
+      "color-picker": {
+        "title": "צבע"
+      },
+      "file": {
+        "actions": {
+          "open": "פתח",
+          "save": "שמור",
+          "select-folder": "בחר תיקייה"
+        },
+        "empty-filtered": "אין קבצים התואמים למסנן הנוכחי",
+        "entry": {
+          "folder": "תיקייה"
+        },
+        "filename-placeholder": "שם קובץ",
+        "filter-placeholder": "סינון…",
+        "sort": {
+          "ascending": "↑",
+          "date": "תאריך",
+          "descending": "↓",
+          "name": "שם",
+          "size": "גודל"
+        },
+        "title": {
+          "default": "תיבת דו-שיח של קבצים",
+          "open": "פתח קובץ",
+          "save": "שמור קובץ",
+          "select-folder": "בחר תיקייה"
+        }
+      },
+      "glyph-picker": {
+        "all-categories": "הכל",
+        "search-placeholder": "חיפוש גליפים…",
+        "title": "בחר גליף"
+      }
+    }
+  },
+  "wallpaper": {
+    "panel": {
+      "all-monitors": "הכל",
+      "color-title": "צבע טפט",
+      "filter-placeholder": "סנן…",
+      "flatten": "שטוח",
+      "loading": "טוען טפטים…",
+      "sort-date-asc": "מיין לפי תאריך (הישן ביותר תחילה)",
+      "sort-date-desc": "מיון לפי תאריך (החדש ביותר ראשון)",
+      "sort-name-asc": "מיין לפי שם (א-ת)",
+      "sort-name-desc": "מיין לפי שם (ת-א)",
+      "sort-random": "מיין באקראי (ערבוב)",
+      "title": "טפט"
+    }
+  },
+  "weather": {
+    "conditions": {
+      "full": {
+        "clear-sky": "שמיים בהירים",
+        "drizzle": "גשם קל",
+        "fog": "ערפל",
+        "mainly-clear": "בהיר בעיקרו",
+        "overcast": "מעונן",
+        "partly-cloudy": "מעונן חלקית",
+        "rain-showers": "גשמים",
+        "snow": "שלג",
+        "snow-showers": "ממטרים של שלג",
+        "thunderstorm": "סופת רעמים",
+        "unknown": "לא ידוע"
+      },
+      "short": {
+        "clear": "נקה",
+        "cloudy": "מעונן",
+        "drizzle": "טפטוף",
+        "fog": "ערפל",
+        "mostly-clear": "בהיר ברובו",
+        "overcast": "מעונן",
+        "showers": "ממטרים",
+        "snow": "שלג",
+        "snow-showers": "ממטרים של שלג",
+        "storm": "סערה",
+        "weather": "מזג אוויר"
+      }
+    },
+    "errors": {
+      "fetch-failed": "משיכת נתוני מזג האוויר נכשלה",
+      "parse-weather": "לא ניתן היה לנתח את תגובת מזג האוויר"
+    }
+  },
+  "window-switcher": {
+    "empty": "אין חלונות פתוחים",
+    "hint": "Tab · Shift+Tab · מקשי חצים · שחרר את Alt כדי להחליף · Esc לביטול",
+    "title": "Windows"
+  }
+}

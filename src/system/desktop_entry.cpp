@@ -707,25 +707,31 @@ std::vector<DesktopEntry> scanDesktopEntries(std::string_view language) {
 
   for (const auto& dataDir : xdgDataDirs()) {
     fs::path appDir = fs::path(dataDir) / "applications";
-    if (!fs::is_directory(appDir)) {
+    std::error_code ec;
+    if (!fs::is_directory(appDir, ec)) {
       continue;
     }
 
-    std::error_code ec;
-    for (const auto& dirEntry : fs::recursive_directory_iterator(appDir, ec)) {
-      if (!dirEntry.is_regular_file()) {
+    constexpr auto options = fs::directory_options::skip_permission_denied;
+    for (fs::recursive_directory_iterator it(appDir, options, ec), end; it != end; it.increment(ec)) {
+      if (ec) {
+        ec.clear();
         continue;
       }
-      if (dirEntry.path().extension() != ".desktop") {
+      if (!it->is_regular_file(ec)) {
+        ec.clear();
+        continue;
+      }
+      if (it->path().extension() != ".desktop") {
         continue;
       }
 
-      std::string id = dirEntry.path().stem().string();
+      std::string id = it->path().stem().string();
       if (!seenIds.insert(id).second) {
         continue;
       }
 
-      parseDesktopFile(dirEntry.path(), language, entries);
+      parseDesktopFile(it->path(), language, entries);
     }
   }
 

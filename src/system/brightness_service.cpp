@@ -1532,7 +1532,7 @@ void BrightnessService::reload(const BrightnessConfig& config) { m_impl->reload(
 
 void BrightnessService::onOutputsChanged() { m_impl->onOutputsChanged(); }
 
-void BrightnessService::registerIpc(IpcService& ipc, std::function<void()> onBatchChange) {
+void BrightnessService::registerIpc(IpcService& ipc, std::function<void(BatchChangePhase)> onBatchChange) {
   auto resolveTargets = [this,
                          &ipc](std::string_view token, std::vector<std::string>& ids, std::string& error) -> bool {
     if (!available()) {
@@ -1620,8 +1620,9 @@ void BrightnessService::registerIpc(IpcService& ipc, std::function<void()> onBat
       return error;
     }
 
-    if (ids.size() > 1 && onBatchChange) {
-      onBatchChange();
+    const bool isBatch = ids.size() > 1 && onBatchChange;
+    if (isBatch) {
+      onBatchChange(BatchChangePhase::Begin);
     }
 
     for (const auto& id : ids) {
@@ -1630,6 +1631,10 @@ void BrightnessService::registerIpc(IpcService& ipc, std::function<void()> onBat
         continue;
       }
       apply(*display);
+    }
+
+    if (isBatch) {
+      onBatchChange(BatchChangePhase::End);
     }
     return "ok\n";
   };

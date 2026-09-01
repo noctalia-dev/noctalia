@@ -1,0 +1,19 @@
+---
+title: spacer
+description: Adds empty space or an optional interactive hot zone.
+sidebar:
+  order: 23
+---
+
+Empty space between widgets.
+
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| `length` | number | `8` | Spacer length in screen pixels |
+| `interactive` | bool | `false` | Spacers are click-through by default. Set `true` to enable hover/clicks/scrolls (for example as a hidden hot zone with `[widget.spacer.actions]`). |
+
+```toml
+[widget.gap]
+type   = "spacer"
+length = 24
+```

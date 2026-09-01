@@ -1,0 +1,479 @@
+---
+title: Installation
+description: Start here to set up and use Noctalia.
+sidebar:
+  order: 1
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+Noctalia is available on the following distributions. Choose your platform below, or use the manual installation method on another Linux distribution.
+
+- [Arch Linux](#arch)
+- [NixOS](/noctalia/getting-started/nixos/)
+- [Fedora](#fedora)
+- [openSUSE](#opensuse)
+- [Gentoo](#gentoo)
+- [Void Linux](#void)
+- [GNU Guix](#guix)
+- [Debian](#debian) (including Ubuntu)
+
+You can also [install manually](#manual-install) on any other Linux distribution.
+
+:::note[Package ownership]
+The Noctalia team maintains the **manual installation method**. Official distribution packages are maintained through their distributions' own packaging processes; other repositories listed here are community-maintained. Review a third-party repository before installing from it.
+:::
+
+<details>
+  <summary>Already using Noctalia Shell v4?</summary>
+
+  Noctalia v5 is a fresh install, not an automatic upgrade from the Quickshell-based v4 implementation. Its package and configuration files are separate, so both versions can be installed at the same time on most distributions, but v4 settings are not migrated.
+
+  Only your **compositor keybinds** need attention. Update any bindings that launch the Noctalia launcher, panels, settings UI, or other commands when switching between versions.
+</details>
+
+## Arch Linux {#arch}
+
+Noctalia is available in the [extra] repository.
+
+```bash
+sudo pacman -S noctalia
+```
+---
+
+## Fedora {#fedora}
+
+Noctalia is available from the default repos for Fedora 44 and up.
+
+**Step 1**: Install noctalia
+
+```bash
+sudo dnf install noctalia
+```
+
+An alternate version using git snapshots is available from the [LionHeartP Copr](https://copr.fedorainfracloud.org/coprs/lionheartp/Hyprland/) repository.
+
+**Step 1**: Enable the repository
+
+```bash
+sudo dnf copr enable lionheartp/Hyprland 
+```
+
+**Step 2**: Install noctalia
+
+```bash
+sudo dnf install noctalia-git
+```
+
+---
+
+## openSUSE {#opensuse}
+
+Noctalia is available via [home:neifua:Noctalia](https://build.opensuse.org/package/show/home:neifua:Noctalia/noctalia-git) repository on the openSUSE Build Service.
+
+**Step 1**: Add the OBS repository
+
+<Tabs>
+  <TabItem label="Tumbleweed">
+    ```bash
+	sudo zypper addrepo --refresh --name noctalia-v5 https://download.opensuse.org/repositories/home:neifua:Noctalia/openSUSE_Tumbleweed/home:neifua:Noctalia.repo
+    ```
+  </TabItem>
+  <TabItem label="Slowroll">
+    ```bash
+	sudo zypper addrepo --refresh --name noctalia-v5 https://download.opensuse.org/repositories/home:neifua:Noctalia/openSUSE_Slowroll/home:neifua:Noctalia.repo
+    ```
+  </TabItem>
+</Tabs>
+
+
+**Step 2**: Refresh and install noctalia:
+
+<Tabs>
+	<TabItem label="Stable (recommended)">
+	```bash
+	sudo zypper refresh
+	sudo zypper install noctalia
+	```
+	</TabItem>
+	<TabItem label="Unstable">
+	```bash
+	sudo zypper refresh
+	sudo zypper install noctalia-git
+	```
+	</TabItem>
+</Tabs>
+
+:::note
+v5 will only be available for **Tumbleweed** and **Slowroll**. **Leap 16.0** is unable to build because *sdbus-c++* is still on v1.6.0 while v5 requires >= v2.x.x
+
+- **[Stable version](https://build.opensuse.org/package/show/home:neifua:Noctalia/noctalia)**: Updated when a new release is tagged
+- **[Unstable version](https://build.opensuse.org/package/show/home:neifua:Noctalia/noctalia-git)**: Automatically rebuilt on OBS whenever a new commit is pushed
+:::
+
+---
+
+## Gentoo {#gentoo}
+
+Noctalia is available in the [GURU](https://wiki.gentoo.org/wiki/Project:GURU) overlay.
+
+:::note[Gentoo exception]
+Gentoo packaging does not provide [SLOTs](https://wiki.gentoo.org/wiki/SLOT) for v4 and v5 as v4 will be dropped eventually, therefore they cannot be installed simultaneously.
+
+Snapshots have been dropped in favor of official releases, so`=gui-apps/noctalia-5.0.0_pre99999999` is now superseded by `=gui-apps/noctalia-9999`.
+
+:::
+
+**Step 1**: Enable and sync the overlay as read in [Project:GURU/Information_for_End_Users](https://wiki.gentoo.org/wiki/Project:GURU/Information_for_End_Users).
+
+**Step 2**: [Unmask](https://wiki.gentoo.org/wiki/Live_ebuilds#Unmasking_live_ebuilds) the `gui-apps/noctalia` package:
+
+```
+gui-apps/noctalia **
+```
+
+**Step 3**: (Optional) [Mask](https://wiki.gentoo.org/wiki/Knowledge_Base:Masking_a_package#Masking_a_specific_package_version) the live ebuild to use versioned releases
+
+```
+<=gui-apps/noctalia-9999
+```
+
+**Step 4**: Emerge the package:
+
+```bash
+emerge --ask gui-apps/noctalia
+```
+
+---
+
+## Void Linux {#void}
+
+Noctalia is available through a custom XBPS repository.
+
+**Step 1**: Add the repository source
+
+```bash
+echo "repository=https://repo.voiders.dev" | sudo tee /etc/xbps.d/10-voiders-community.conf
+```
+
+**Step 2**: Sync and install Noctalia
+
+```bash
+sudo xbps-install -S
+sudo xbps-install noctalia
+```
+
+:::note
+If Noctalia fails to run, install the `sdbus-c++` package.
+:::
+
+### Alternative: Build from source using xbps-src
+
+```
+# Install git, wget
+sudo xbps-install git wget
+
+# Set up the Void packages tree
+git clone --depth 1 https://github.com/void-linux/void-packages.git
+cd void-packages
+./xbps-src binary-bootstrap
+
+# Copy Noctalia build templates
+mkdir srcpkgs/noctalia
+wget https://git.voiders.dev/voiders-community/repository/raw/branch/main/pkgs/noctalia/template -P srcpkgs/noctalia/
+
+# Build the packages
+./xbps-src pkg noctalia
+
+# Install the built packages
+sudo xbps-install --repository=hostdir/binpkgs noctalia
+```
+
+---
+
+## GNU Guix {#guix}
+
+The Git repository of Noctalia is also available as a [Guix channel](https://guix.gnu.org/manual/devel/en/html_node/Channels.html).  It provides a `(noctalia)` [module](https://guix.gnu.org/manual/devel/en/html_node/Package-Modules.html) with the `noctalia-git` package.
+
+```scheme
+(channel
+  (name 'noctalia)
+  (url "https://github.com/noctalia-dev/noctalia")
+  (branch "main"))
+```
+
+To use this channel, add it into your `~/.config/guix/channels.scm`.  For example:
+
+```scheme
+(list (channel
+        (name 'noctalia)
+        (url "https://github.com/noctalia-dev/noctalia")
+        (branch "main"))
+      %default-guix-channel)
+```
+
+After updating channels via [`guix pull`](https://guix.gnu.org/manual/devel/en/html_node/Invoking-guix-pull.html), Noctalia will be available to your Guix installation.  Then you're free to do what you want with the `noctalia-git` package ;-)
+
+For example, spawn one-off software environment via [`guix shell`](https://guix.gnu.org/manual/devel/en/html_node/Invoking-guix-shell.html):
+
+```bash
+guix shell noctalia-git
+```
+
+install it into your user profile via [`guix package`](https://guix.gnu.org/manual/devel/en/html_node/Invoking-guix-package.html):
+
+```bash
+guix install noctalia-git
+```
+
+declare it in your [home environment](https://guix.gnu.org/manual/devel/en/html_node/Home-Configuration.html) (`...`s are placeholders for your existing configuration):
+
+```scheme
+(use-modules (noctalia)
+             ...)
+
+(home-environment
+  (packages
+   (list noctalia-git
+         ...))
+  ...)
+```
+
+or [whole-system configuration](https://guix.gnu.org/manual/devel/en/html_node/System-Configuration.html):
+
+```scheme
+(use-modules (noctalia)
+             ...)
+
+(operating-system
+  (packages
+   (list noctalia-git
+         ...))
+  ...)
+```
+
+---
+
+## Debian {#debian}
+
+Noctalia provides an APT repository for Debian-based distributions.
+
+**Step 1**: Install the repository signing key
+
+```bash
+wget https://pkg.noctalia.dev/deb/nickh-archive-keyring.deb && sudo dpkg -i nickh-archive-keyring.deb
+```
+
+**Step 2**: Add the repository
+
+<Tabs>
+  <TabItem label="Debian Trixie">
+    ```bash
+    sudo wget -O /etc/apt/sources.list.d/noctalia-trixie.sources https://pkg.noctalia.dev/deb/noctalia-trixie.sources
+    ```
+  </TabItem>
+  <TabItem label="Debian Sid">
+    ```bash
+    sudo wget -O /etc/apt/sources.list.d/noctalia-unstable.sources https://pkg.noctalia.dev/deb/noctalia-unstable.sources
+    ```
+  </TabItem>
+  <TabItem label="Ubuntu 26.04">
+    ```bash
+    sudo wget -O /etc/apt/sources.list.d/noctalia-resolute.sources https://pkg.noctalia.dev/deb/noctalia-resolute.sources
+    ```
+  </TabItem>
+</Tabs>
+
+**Step 3**: Install noctalia
+
+```bash
+sudo apt update
+sudo apt install noctalia
+```
+
+You can also install the `noctalia-greeter`, `umbriel`, and `xdg-desktop-portal-umbriel` packages.
+
+:::note
+The APT repository provides `amd64` and `arm64` packages only.
+:::
+
+
+***Configuring `noctalia-greeter`***
+<ol>
+<li>
+If already using `greetd`, no configuration is required. Just restart greetd with:
+
+```bash
+sudo systemctl restart greetd
+```
+</li>
+<li>
+If not currently using `greetd`
+
+First stop and disable your current display manager. Eg:
+
+```bash
+sudo systmectl disable --now gdm3
+```
+Then enable and start `greetd`. Eg:
+
+```bash
+sudo systmectl enable --now greetd
+```
+</li>
+</ol>
+---
+
+## Manual Installation {#manual-install}
+
+:::caution[Not Recommended]
+Manual installation has **no easy upgrade path**. You will need to manually download and replace files for each update. We strongly recommend using a package manager ([Arch](#arch), [Fedora](#fedora)) whenever possible.
+:::
+
+If you prefer to install Noctalia locally or want more control over the installation process, you can install it manually to your user configuration directory. This method works on any Linux distribution.
+
+**Step 1**: Sync and install dependencies
+
+<Tabs>
+  <TabItem label="Arch">
+    ```bash
+    sudo pacman -S meson gcc just \
+      wayland wayland-protocols \
+      libglvnd freetype2 fontconfig \
+      cairo pango harfbuzz \
+      libxkbcommon glib2 \
+      libsecret libsodium \
+      sdbus-cpp libpipewire wireplumber polkit \
+      pam curl libwebp libjxl libsndfile librsvg \
+      libqalculate libxml2 \
+      md4c tomlplusplus \
+      nlohmann-json stb \
+      jemalloc
+    ```
+  </TabItem>
+  <TabItem label="Fedora">
+    ```bash
+    sudo dnf install meson gcc-c++ just \
+      wayland-devel wayland-protocols-devel \
+      libEGL-devel mesa-libGLES-devel \
+      freetype-devel fontconfig-devel \
+      cairo-devel pango-devel harfbuzz-devel \
+      libxkbcommon-devel glib2-devel \
+      libsecret-devel libsodium-devel \
+      sdbus-cpp-devel pipewire-devel wireplumber-devel \
+      pam-devel polkit-devel libcurl-devel libwebp-devel libjxl-devel libsndfile-devel librsvg2-devel \
+      libqalculate-devel libxml2-devel \
+      md4c-devel tomlplusplus-devel \
+      json-devel stb_image_resize2-devel stb_image_write-devel \
+      jemalloc-devel
+    ```
+  </TabItem>
+  <TabItem label="Debian/Ubuntu">
+    ```bash
+    sudo apt install just meson libwayland-dev \
+      wayland-protocols libfreetype-dev libfontconfig-dev \
+      libcairo2-dev libpango1.0-dev librsvg2-dev libxkbcommon-dev \
+      libepoxy-dev libgles-dev libwebp-dev libcurl4-gnutls-dev \
+      libmd4c-dev nlohmann-json3-dev libsdbus-c++-dev libsecret-1-dev \
+      libsodium-dev libstb-dev libtomlplusplus-dev \
+      libpipewire-0.3-dev libpam0g-dev libpolkit-agent-1-dev \
+      libpolkit-gobject-1-dev libqalculate-dev libwireplumber-0.5-dev \
+      libxml2-dev libjemalloc-dev git
+
+    ```
+  </TabItem>
+</Tabs>
+
+Vendored dependencies, with no system package needed: `Wuffs`,
+`Luau`, `fzy`, and Material Color Utilities.
+
+System packages required beyond the Wayland/GL stack: `libwebp` handles WebP decoding and thumbnail encoding. Wuffs
+handles the other supported raster image formats.
+
+
+Polkit agent support requires development files that provide the `polkit-agent-1` and `polkit-gobject-1` pkg-config
+modules. Some distros ship these in the runtime `polkit` package, while split-package distros use names such as
+`polkit-devel`, `polkit-dev`, or `libpolkit-agent-1-dev` / `libpolkit-gobject-1-dev`.
+
+**Optional:** installing `jemalloc` (Fedora: `jemalloc-devel`, Arch: `jemalloc`, Debian/Ubuntu: `libjemalloc-dev`, Void:
+`jemalloc`) reduces memory fragmentation in long-running sessions. On glibc systems it is used automatically when
+detected. Use Meson's `-Djemalloc=enabled` or `-Djemalloc=disabled` option to require or disable it explicitly.
+
+Sanitizer runtime packages are only needed for ASan/UBSan builds configured with `just configure asan`.
+
+**Step 2**: Prepare directory
+
+```bash
+git clone https://github.com/noctalia-dev/noctalia --branch main
+cd noctalia
+```
+
+**Step 3**: Building and installing Noctalia
+
+Requires [just](https://github.com/casey/just) and [meson](https://mesonbuild.com/).
+
+<Tabs>
+  <TabItem label="Release Mode">
+		```bash
+	# Optimized release build in build-release/
+	just configure release
+	just build release
+
+	# Install the selected build mode. This does not build or reconfigure.
+	sudo just install release
+		```
+
+	Pass a prefix to `configure` to install somewhere other than `/usr/local`:
+
+	```bash
+	just configure release "$HOME/.local"
+	just build release
+	just install release
+	```
+
+	To remove files installed from a build directory, run `just uninstall release`.
+  </TabItem>
+  <TabItem label="Debug Mode">
+		```bash
+	# Debug build in build-debug/ for local development and troubleshooting.
+	just configure
+	just build
+
+	# Test your local debug build with 
+	just run
+		```
+  </TabItem>
+</Tabs>
+
+Meson installs the binary and shipped assets using the normal prefix layout:
+
+```text
+/usr/local/bin/noctalia
+/usr/local/share/noctalia/assets/...
+```
+
+Noctalia needs the shipped `assets/` tree at runtime. Copying only the `noctalia` binary is not enough.
+
+Portable bundle layouts are also supported:
+
+```text
+bundle/
+  noctalia
+  assets/
+```
+
+```text
+bundle/
+  bin/noctalia
+  share/noctalia/assets/
+```
+
+See [CONTRIBUTING.md](https://github.com/noctalia-dev/noctalia/blob/main/CONTRIBUTING.md#runtime-assets) for the full runtime asset lookup order.
+
+## Getting Help
+
+If you encounter issues during installation:
+
+- Check our [FAQ](/noctalia-shell-legacy/getting-started/faq/) for common problems
+- Visit our [GitHub Issues](https://github.com/noctalia-dev/noctalia/issues) page
+- Join our community on [Discord](https://discord.noctalia.dev) for real-time support
