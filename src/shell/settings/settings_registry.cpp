@@ -38,6 +38,23 @@ namespace settings {
     constexpr int kBarMarginMax = 4096;
     constexpr float kBarCornerRadiusMax = 80.0F;
 
+    // Launcher providers that expose a configurable prefix, keyed by the config name
+    // (the lowercased provider id). Placeholders and global-search defaults mirror the
+    // provider's own defaultPrefix()/defaultIncludeInGlobalSearch().
+    struct LauncherProviderSettingSpec {
+      std::string_view name;
+      std::string_view prefixPlaceholder;
+      bool globalByDefault = false;
+    };
+
+    constexpr auto kLauncherProviderSettings = std::to_array<LauncherProviderSettingSpec>({
+        {.name = "calculator", .prefixPlaceholder = "calc", .globalByDefault = true},
+        {.name = "emoji", .prefixPlaceholder = "emo"},
+        {.name = "session", .prefixPlaceholder = "session"},
+        {.name = "wallpaper", .prefixPlaceholder = "wall"},
+        {.name = "windows", .prefixPlaceholder = "win"},
+    });
+
     [[nodiscard]] SliderSetting barCornerSlider(std::int32_t value) {
       SliderSetting s{value, 0.0F, kBarCornerRadiusMax, 1.0F, true};
       return s;
@@ -1267,48 +1284,28 @@ namespace settings {
         tr("settings.schema.panels.launcher-prefix-character.description"), {"shell", "launcher", "provider_prefix"},
         TextSetting{.value = cfg.shell.launcher.providerPrefix, .placeholder = "/"}, "launcher common prefix character"
     ));
-    {
-      struct LauncherProviderSettingSpec {
-        std::string_view name;
-        std::string_view prefixPlaceholder;
-        bool globalByDefault = false;
-      };
+    for (const auto& provider : kLauncherProviderSettings) {
+      const auto it = std::ranges::find(cfg.shell.launcher.providers, provider.name, &LauncherProviderConfig::name);
+      const LauncherProviderConfig* stored = it != cfg.shell.launcher.providers.end() ? &*it : nullptr;
 
-      static constexpr auto kProviderSettings = std::to_array<LauncherProviderSettingSpec>({
-          {.name = "calculator", .prefixPlaceholder = "calc", .globalByDefault = true},
-          {.name = "emoji", .prefixPlaceholder = "emo"},
-          {.name = "session", .prefixPlaceholder = "session"},
-          {.name = "wallpaper", .prefixPlaceholder = "wall"},
-          {.name = "windows", .prefixPlaceholder = "win"},
-      });
+      const std::string prefix = stored != nullptr ? stored->prefix : std::string();
+      const bool global =
+          stored != nullptr ? stored->global.value_or(provider.globalByDefault) : provider.globalByDefault;
 
-      for (const auto& provider : kProviderSettings) {
-        const auto configured =
-            std::ranges::find(cfg.shell.launcher.providers, provider.name, &LauncherProviderConfig::name);
+      const std::string prefixKey = std::format("settings.schema.panels.launcher-prefix-{}", provider.name);
+      const std::string globalKey = std::format("settings.schema.panels.launcher-global-{}", provider.name);
 
-        const std::string prefix =
-            configured != cfg.shell.launcher.providers.end() ? configured->prefix : std::string();
-
-        const bool global = configured != cfg.shell.launcher.providers.end()
-            ? configured->global.value_or(provider.globalByDefault)
-            : provider.globalByDefault;
-
-        const std::string prefixKey = std::format("settings.schema.panels.launcher-prefix-{}", provider.name);
-        const std::string globalKey = std::format("settings.schema.panels.launcher-global-{}", provider.name);
-
-        entries.push_back(makeEntry(
-            SettingsSection::Launcher, "providers", tr(prefixKey + ".label"), tr(prefixKey + ".description"),
-            {"shell", "launcher", "providers", std::string(provider.name), "prefix"},
-            TextSetting{.value = prefix, .placeholder = std::string(provider.prefixPlaceholder)},
-            std::format("launcher {} prefix trigger", provider.name)
-        ));
-
-        entries.push_back(makeEntry(
-            SettingsSection::Launcher, "providers", tr(globalKey + ".label"), tr(globalKey + ".description"),
-            {"shell", "launcher", "providers", std::string(provider.name), "global"}, ToggleSetting{global},
-            std::format("launcher {} global search unprefixed", provider.name)
-        ));
-      }
+      entries.push_back(makeEntry(
+          SettingsSection::Launcher, "providers", tr(prefixKey + ".label"), tr(prefixKey + ".description"),
+          {"shell", "launcher", "providers", std::string(provider.name), "prefix"},
+          TextSetting{.value = prefix, .placeholder = std::string(provider.prefixPlaceholder)},
+          std::format("launcher {} prefix trigger", provider.name)
+      ));
+      entries.push_back(makeEntry(
+          SettingsSection::Launcher, "providers", tr(globalKey + ".label"), tr(globalKey + ".description"),
+          {"shell", "launcher", "providers", std::string(provider.name), "global"}, ToggleSetting{global},
+          std::format("launcher {} global search unprefixed", provider.name)
+      ));
     }
     entries.push_back(makeEntry(
         SettingsSection::Panels, "clipboard", tr("settings.schema.panels.placement-clipboard.label"),
