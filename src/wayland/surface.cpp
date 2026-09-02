@@ -713,7 +713,11 @@ void Surface::setBlurRegion(const std::vector<InputRect>& rects) {
       wl_region_add(region, r.x, r.y, r.width, r.height);
     }
   }
-  traceBlurRegionEvent(*this, hasVisibleRegion ? "blur-set" : "blur-set-empty", rects);
+  const char* traceLabel = "blur-set";
+  if (!hasVisibleRegion) {
+    traceLabel = rects.empty() ? "blur-set-empty" : "blur-set-offsurface";
+  }
+  traceBlurRegionEvent(*this, traceLabel, rects);
   ext_background_effect_surface_v1_set_blur_region(m_backgroundEffect, region);
   if (region != nullptr) {
     wl_region_destroy(region);
