@@ -1,5 +1,6 @@
 #include "calendar/calendar_discovery_state.h"
 #include "calendar/calendar_service.h"
+#include "calendar/vdir_reader.h"
 #include "config/atomic_file.h"
 #include "config/config_service.h"
 #include "config/config_types.h"
@@ -1029,8 +1030,7 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
         || (account->type != "caldav"
             && account->type != "google"
             && account->type != "ics"
-            && account->type != "vdir"
-            && account->type != "local")) {
+            && account->type != "vdir")) {
       return;
     }
     draft->creating = false;
@@ -1046,7 +1046,7 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
       draft->provider = CalendarAccountProvider::Google;
     } else if (account->type == "ics") {
       draft->provider = CalendarAccountProvider::IcsFileURL;
-    } else if (account->type == "vdir" || account->type == "local") {
+    } else if (account->type == "vdir") {
       draft->provider = CalendarAccountProvider::Vdir;
       draft->path = account->path;
       const std::string rawDiscovery =
@@ -1493,6 +1493,14 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
           && (draft->passwordFile.empty() || !std::filesystem::path(draft->passwordFile).is_absolute())) {
         draft->passwordFileInvalid = true;
       }
+      if (vdir) {
+        const std::filesystem::path checkPath =
+            draft->path.empty() ? calendar::defaultVdirPath() : std::filesystem::path(draft->path);
+        std::error_code ec;
+        if (!std::filesystem::exists(checkPath, ec) || !std::filesystem::is_directory(checkPath, ec)) {
+          draft->pathInvalid = true;
+        }
+      }
       if (draft->idInvalid
           || draft->usernameInvalid
           || draft->passwordInvalid
@@ -1541,6 +1549,25 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
         overrides.push_back({{base[0], base[1], base[2], "path"}, draft->path});
       }
 
+      if (!draft->creating) {
+        std::vector<std::vector<std::string>> staleKeys;
+        if (!caldav) {
+          staleKeys.push_back({base[0], base[1], base[2], "provider"});
+          staleKeys.push_back({base[0], base[1], base[2], "username"});
+          staleKeys.push_back({base[0], base[1], base[2], "credential_source"});
+          staleKeys.push_back({base[0], base[1], base[2], "password_file"});
+        }
+        if (draft->provider != CalendarAccountProvider::CustomCalDav && !ics) {
+          staleKeys.push_back({base[0], base[1], base[2], "server_url"});
+        }
+        if (!vdir) {
+          staleKeys.push_back({base[0], base[1], base[2], "path"});
+        }
+        if (!staleKeys.empty()) {
+          (void)m_config->clearOverrides(staleKeys, nullptr);
+        }
+      }
+
       std::string connectActivationToken;
       if (connectAfter) {
         if (m_wayland != nullptr && m_surface != nullptr) {
@@ -1552,9 +1579,6 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
         if (!m_config->setOverrides(std::move(overrides))) {
           markSettingsWriteError(i18n::tr("settings.calendar-accounts.save-error"));
           return;
-        }
-        if (m_calendarService != nullptr) {
-          m_calendarService->requestRefresh();
         }
         markSettingsWriteSuccess(closeAfter);
         if (connectAfter && m_calendarService != nullptr) {

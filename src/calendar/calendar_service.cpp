@@ -572,7 +572,7 @@ void CalendarService::startRefresh() {
       fetchGoogle(account);
     } else if (account.type == "ics") {
       fetchIcs(account);
-    } else if (account.type == "vdir" || account.type == "local") {
+    } else if (account.type == "vdir") {
       fetchVdir(account);
     } else {
       kLog.warn("unknown calendar account type '{}' for id {}", account.type, account.id);
@@ -833,7 +833,7 @@ void CalendarService::updateVdirWatches() {
   std::unordered_set<std::string> desired;
   if (m_activeConfig.enabled) {
     for (const CalendarConfig::Account& account : m_activeConfig.accounts) {
-      if (account.type != "vdir" && account.type != "local") {
+      if (account.type != "vdir") {
         continue;
       }
       const std::filesystem::path rootPath =

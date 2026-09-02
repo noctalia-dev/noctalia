@@ -615,7 +615,7 @@ namespace noctalia::config::schema {
           pathStringField(&CalendarConfig::Account::path, "path"),
           finalize<CalendarConfig::Account>([](CalendarConfig::Account& out, std::string_view parentPath,
                                                Diagnostics& diag) {
-            if (out.type == "vdir" || out.type == "local") {
+            if (out.type == "vdir") {
               if (out.credentialSource != CalendarCredentialSource::SecretService) {
                 diag.error(joinPath(parentPath, "credential_source"), "credential_source is only valid for caldav");
               }

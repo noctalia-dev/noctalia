@@ -939,7 +939,6 @@
         "vdir": "Local (vdir)"
       },
       "provider-label": "Provider",
-      "vdir-path-label": "Directory Path",
       "save": "Save",
       "save-connect": "Save and Connect",
       "save-error": "Could not save calendar account.",
@@ -950,7 +949,8 @@
       "secret-service-unavailable": "No Secret Service provider is available. Start a compatible provider and retry.",
       "server-url-label": "Server URL",
       "username-label": "Username",
-      "username-placeholder": "name@example.com"
+      "username-placeholder": "name@example.com",
+      "vdir-path-label": "Directory Path"
     },
     "controls": {
       "keybind": {

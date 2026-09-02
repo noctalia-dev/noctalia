@@ -1881,11 +1881,7 @@ void SettingsWindow::refreshSettingsRegistry(const Config& cfg) {
     ++it;
 
     for (const CalendarConfig::Account& account : cfg.calendar.accounts) {
-      if (account.type != "google"
-          && account.type != "caldav"
-          && account.type != "ics"
-          && account.type != "vdir"
-          && account.type != "local") {
+      if (account.type != "google" && account.type != "caldav" && account.type != "ics" && account.type != "vdir") {
         continue;
       }
       const bool credentialLocked = account.type == "google"
