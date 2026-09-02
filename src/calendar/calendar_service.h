@@ -191,7 +191,8 @@ private:
   ConnectFlow m_connect;
   calendar::CalDavClient m_caldav;
   Inotify m_vdirInotify;
-  std::set<std::filesystem::path> m_watchedVdirPaths;
+  std::map<std::filesystem::path, int> m_watchedVdirPaths;
+  std::map<int, std::filesystem::path> m_watchedVdirWds;
   std::chrono::steady_clock::time_point m_vdirDebounceUntil;
   bool m_vdirDebouncePending = false;
   struct VdirWorker;

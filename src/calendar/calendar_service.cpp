@@ -528,11 +528,18 @@ void CalendarService::addPollFds(std::vector<pollfd>& fds) {
 void CalendarService::dispatchPoll(const std::vector<pollfd>& fds, std::size_t startIdx) {
   if (m_vdirInotify.fd() >= 0 && startIdx < fds.size() && (fds[startIdx].revents & POLLIN) != 0) {
     bool changed = false;
-    m_vdirInotify.drain([&](const inotify_event* /*event*/) { changed = true; });
+    m_vdirInotify.drain([&](const inotify_event* event) {
+      changed = true;
+      if ((event->mask & (IN_DELETE_SELF | IN_MOVE_SELF | IN_IGNORED)) != 0) {
+        if (auto it = m_watchedVdirWds.find(event->wd); it != m_watchedVdirWds.end()) {
+          m_watchedVdirPaths.erase(it->second);
+          m_watchedVdirWds.erase(it);
+        }
+      }
+    });
     if (changed) {
       m_vdirDebouncePending = true;
       m_vdirDebounceUntil = std::chrono::steady_clock::now() + std::chrono::milliseconds{300};
-      notifyChanged();
     }
   }
   tick();
@@ -819,37 +826,59 @@ void CalendarService::fetchIcs(const CalendarConfig::Account& account) {
 }
 
 void CalendarService::updateVdirWatches() {
-  if (!m_activeConfig.enabled) {
+  if (m_vdirInotify.fd() < 0) {
     return;
   }
 
-  std::set<std::filesystem::path> targetPaths;
-  for (const CalendarConfig::Account& account : m_activeConfig.accounts) {
-    if (account.type != "vdir" && account.type != "local") {
-      continue;
-    }
-    const std::filesystem::path rootPath =
-        account.path.empty() ? calendar::defaultVdirPath() : std::filesystem::path(account.path);
-    std::error_code ec;
-    if (!std::filesystem::exists(rootPath, ec) || !std::filesystem::is_directory(rootPath, ec)) {
-      continue;
-    }
+  std::unordered_set<std::string> desired;
+  if (m_activeConfig.enabled) {
+    for (const CalendarConfig::Account& account : m_activeConfig.accounts) {
+      if (account.type != "vdir" && account.type != "local") {
+        continue;
+      }
+      const std::filesystem::path rootPath =
+          account.path.empty() ? calendar::defaultVdirPath() : std::filesystem::path(account.path);
+      std::error_code ec;
+      if (!std::filesystem::exists(rootPath, ec) || !std::filesystem::is_directory(rootPath, ec)) {
+        continue;
+      }
 
-    targetPaths.insert(rootPath);
-    if (auto it = m_discoveredVdirPathsByAccount.find(account.id); it != m_discoveredVdirPathsByAccount.end()) {
-      for (const auto& p : it->second) {
-        targetPaths.insert(p);
+      desired.insert(rootPath.lexically_normal().string());
+      if (auto it = m_discoveredVdirPathsByAccount.find(account.id); it != m_discoveredVdirPathsByAccount.end()) {
+        for (const auto& p : it->second) {
+          if (std::filesystem::is_directory(p, ec)) {
+            desired.insert(p.lexically_normal().string());
+          }
+        }
       }
     }
   }
 
-  constexpr std::uint32_t mask = IN_CREATE | IN_DELETE | IN_MODIFY | IN_MOVED_TO | IN_MOVED_FROM | IN_CLOSE_WRITE;
-  for (const auto& path : targetPaths) {
-    if (!m_watchedVdirPaths.contains(path)) {
-      if (m_vdirInotify.watch(path, mask).has_value()) {
-        m_watchedVdirPaths.insert(path);
-      }
+  // Drop watches no longer desired
+  for (auto it = m_watchedVdirPaths.begin(); it != m_watchedVdirPaths.end();) {
+    if (!desired.contains(it->first.string())) {
+      m_vdirInotify.unwatch(it->second);
+      m_watchedVdirWds.erase(it->second);
+      it = m_watchedVdirPaths.erase(it);
+    } else {
+      ++it;
     }
+  }
+
+  // Add newly desired watches
+  constexpr std::uint32_t mask =
+      IN_CREATE | IN_DELETE | IN_MODIFY | IN_MOVED_TO | IN_MOVED_FROM | IN_CLOSE_WRITE | IN_DELETE_SELF | IN_MOVE_SELF;
+  for (const auto& pathStr : desired) {
+    const std::filesystem::path path(pathStr);
+    if (m_watchedVdirPaths.contains(path)) {
+      continue;
+    }
+    const auto wd = m_vdirInotify.watch(path, mask);
+    if (!wd.has_value()) {
+      continue;
+    }
+    m_watchedVdirPaths.emplace(path, *wd);
+    m_watchedVdirWds.emplace(*wd, path);
   }
 }
 
