@@ -3547,7 +3547,7 @@
         },
         "hide-when-adapter-off": {
           "description": "Hide the Bluetooth widget when adapter is powered off",
-          "label": "Hide When Off"
+          "label": "Hide When Adapter Off"
         },
         "hide-when-empty": {
           "description": "Hide workspace pills when there are no open windows",
