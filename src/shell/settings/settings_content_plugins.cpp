@@ -754,7 +754,7 @@ namespace settings {
       return s.kind == PluginSourceKind::Git && s.enabled;
     });
     if (hasGitSource && ctx.setAutoUpdate) {
-      // Separate from the source list so the dropdown doesn't read as another source.
+      // Separate from the source list so the mode row doesn't read as another source.
       section->addChild(ui::separator({.spacing = Style::spaceSm * scale}));
       auto autoRow = ui::row({.align = FlexAlign::Center, .gap = Style::spaceSm * scale, .fillWidth = true});
       auto autoInfo = ui::column({.align = FlexAlign::Start, .gap = 2.0F * scale, .flexGrow = 1.0F});
@@ -766,21 +766,22 @@ namespace settings {
           i18n::tr("settings.plugins.sources.auto-update-desc"), Style::fontSizeCaption * scale,
           ColorRole::OnSurfaceVariant
       ));
-      std::vector<SelectOption> modeOptions;
+      std::vector<ui::SegmentedOption> modeOptions;
       modeOptions.reserve(std::size(kPluginAutoUpdateModes));
+      std::optional<std::size_t> selectedModeIndex;
       for (const auto& opt : kPluginAutoUpdateModes) {
-        modeOptions.push_back(SelectOption{std::string(opt.key), i18n::tr(opt.labelKey)});
+        if (opt.value == ctx.autoUpdateMode) {
+          selectedModeIndex = modeOptions.size();
+        }
+        modeOptions.push_back(ui::SegmentedOption{.label = i18n::tr(opt.labelKey)});
       }
-      const auto selectedModeIndex = optionIndex(modeOptions, enumToKey(kPluginAutoUpdateModes, ctx.autoUpdateMode));
       autoRow->addChild(std::move(autoInfo));
       autoRow->addChild(
-          ui::select({
-              .options = optionLabels(modeOptions),
+          ui::segmented({
+              .options = std::move(modeOptions),
               .selectedIndex = selectedModeIndex,
-              .fontSize = Style::fontSizeBody * scale,
-              .controlHeight = Style::controlHeight * scale,
-              .glyphSize = Style::fontSizeBody * scale,
-              .onSelectionChanged = [cb = ctx.setAutoUpdate](std::size_t index, std::string_view /*label*/) {
+              .scale = scale,
+              .onChange = [cb = ctx.setAutoUpdate](std::size_t index) {
                 if (cb && index < std::size(kPluginAutoUpdateModes)) {
                   cb(kPluginAutoUpdateModes[index].value);
                 }

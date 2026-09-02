@@ -6,6 +6,7 @@
 #include "core/input/key_symbols.h"
 #include "core/input/keybind_matcher.h"
 #include "core/ui_phase.h"
+#include "cursor-shape-v1-client-protocol.h"
 #include "i18n/i18n.h"
 #include "launcher/app_provider.h"
 #include "render/core/async_texture_cache.h"
@@ -1142,6 +1143,7 @@ void LauncherPanel::create() {
           .columnGap = 0.0F,
           .rowGap = Style::spaceXs * scale,
           .overscanRows = kRowOverscan,
+          .itemCursorShape = WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_POINTER,
           .adapter = m_listAdapter.get(),
           .flexGrow = 1.0F,
           .onSelectionChanged =

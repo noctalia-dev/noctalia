@@ -1197,7 +1197,7 @@ widget_spacing = 8
     for (const SectionSpec& spec : sections()) {
       const std::string name(spec.name);
       if (spec.sectionEqual(probe, defaults)) {
-        fail(name + ": makeProbe leaves this section at its defaults — populate it, or the round-trip is vacuous");
+        fail(name + ": makeProbe leaves this section at its defaults; populate it, or the round-trip is vacuous");
         continue;
       }
       const auto* sectionTbl = serialized[spec.name].as_table();

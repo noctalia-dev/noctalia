@@ -746,7 +746,7 @@
     },
     "internal": {
       "battery": "Bateria",
-      "battery-critical-body": "\"{device}: {percent}% — seu computador irá desligar em breve",
+      "battery-critical-body": "{device}: {percent}%; seu computador irá desligar em breve",
       "battery-critical-title": "Bateria criticamente baixa",
       "battery-device": "Dispositivo de bateria",
       "battery-low-body": "{device}: {percent}% restantes",
@@ -2483,11 +2483,11 @@
           "label": "Posicionamento"
         },
         "position-clipboard": {
-          "description": "Onde a área de transferência fica na tela — Seguir Barra a mantém próxima à barra",
+          "description": "Onde a área de transferência fica na tela; Seguir Barra a mantém próxima à barra",
           "label": "Posição"
         },
         "position-control-center": {
-          "description": "Onde a Central de Controle fica na tela — Seguir Barra a mantém próximo à barra",
+          "description": "Onde a Central de Controle fica na tela; Seguir Barra a mantém próximo à barra",
           "label": "Posição"
         },
         "position-launcher": {
@@ -2499,11 +2499,11 @@
           "label": "Posição"
         },
         "position-session": {
-          "description": "Onde o menu de sessão fica na tela — Seguir Barra mantém-no próximo à barra",
+          "description": "Onde o menu de sessão fica na tela; Seguir Barra mantém-no próximo à barra",
           "label": "Posição"
         },
         "position-wallpaper": {
-          "description": "Onde o seletor de papel de parede fica na tela — Seguir Barra mantém-no próximo à barra",
+          "description": "Onde o seletor de papel de parede fica na tela; Seguir Barra mantém-no próximo à barra",
           "label": "Posição"
         },
         "shadow": {

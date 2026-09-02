@@ -6,11 +6,6 @@ config_dir="${XDG_CONFIG_HOME:-$HOME/.config}/ghostty"
 theme_file="$config_dir/themes/noctalia"
 changed=0
 
-if [ -e "$theme_file" ] || [ -L "$theme_file" ]; then
-    rm -f -- "$theme_file"
-    changed=1
-fi
-
 for config_file in "$config_dir/config" "$config_dir/config.ghostty"; do
     [ -f "$config_file" ] || continue
     tmp_file="$(mktemp "${config_file}.tmp.XXXXXX")"
@@ -23,6 +18,11 @@ for config_file in "$config_dir/config" "$config_dir/config.ghostty"; do
     rm -f "$tmp_file"
     trap - EXIT
 done
+
+if [ -e "$theme_file" ] || [ -L "$theme_file" ]; then
+    rm -f -- "$theme_file"
+    changed=1
+fi
 
 # Reload only when this run actually removed the theme; an unsolicited reload of an
 # unrelated Ghostty startup is what breaks its systemd user service.

@@ -39,13 +39,6 @@ namespace {
     return minimal ? Style::fontSizeBody : Style::fontSizeMini;
   }
 
-  [[nodiscard]] FontWeight workspaceFontWeight(FontWeight baseWeight, bool minimal, bool active) {
-    if (minimal && active) {
-      return static_cast<FontWeight>(static_cast<int>(baseWeight) + 200);
-    }
-    return baseWeight;
-  }
-
   // Numeric workspace IDs ("10", "11") must not be truncated like word labels.
   [[nodiscard]] bool isNumericLabel(std::string_view label) {
     return !label.empty()
@@ -451,6 +444,8 @@ void WorkspacesWidget::rebuild(Renderer& renderer) {
   const float gap = kWorkspaceGap * m_contentScale;
   const float labelFontSize = workspaceLabelFontSize(isMinimal()) * fontScale();
   const float pillHeight = std::round(kWorkspacePillDefaultHeight * m_contentScale * m_pillScale);
+  // Active and inactive labels share the configured weight: a heavier weight selects a different
+  // face whose digits sit at a different height.
   const FontWeight configuredFontWeight = labelFontWeight();
 
   // Measure text and compute per-slot widths along the bar main axis.
@@ -468,8 +463,7 @@ void WorkspacesWidget::rebuild(Renderer& renderer) {
     const auto& entry = entries[i];
 
     if (entry.showLabel) {
-      const FontWeight slotFontWeight = workspaceFontWeight(configuredFontWeight, isMinimal(), entry.workspace.active);
-      const TextMetrics tm = renderer.measureText(entry.label, labelFontSize, slotFontWeight);
+      const TextMetrics tm = renderer.measureText(entry.label, labelFontSize, configuredFontWeight);
       slot.textWidth = std::max(tm.right - tm.left, tm.inkRight - tm.inkLeft);
       slot.textHeight = tm.bottom - tm.top;
     }
@@ -500,9 +494,7 @@ void WorkspacesWidget::rebuild(Renderer& renderer) {
         slot.activeWidth = slot.inactiveWidth;
       }
       if (entry.showLabel) {
-        const FontWeight slotFontWeight =
-            workspaceFontWeight(configuredFontWeight, isMinimal(), entry.workspace.active);
-        const TextMetrics tm = renderer.measureText(entry.label, labelFontSize, slotFontWeight);
+        const TextMetrics tm = renderer.measureText(entry.label, labelFontSize, configuredFontWeight);
         maxLabelHeight = std::max(maxLabelHeight, tm.bottom - tm.top);
       }
       continue;
@@ -590,7 +582,7 @@ void WorkspacesWidget::rebuild(Renderer& renderer) {
           ui::label({
               .text = entry.label,
               .fontSize = labelFontSize,
-              .fontWeight = workspaceFontWeight(configuredFontWeight, isMinimal(), ws.active),
+              .fontWeight = configuredFontWeight,
               .fontFamily = labelFontFamily(),
               .color = workspaceTextColor(ws),
               .baselineMode = LabelBaselineMode::Text,
@@ -827,7 +819,7 @@ void WorkspacesWidget::ensureItemLabel(Renderer& renderer, Item& item, const Wor
       ui::label({
           .text = item.label,
           .fontSize = labelFontSize,
-          .fontWeight = workspaceFontWeight(labelFontWeight(), isMinimal(), workspace.active),
+          .fontWeight = labelFontWeight(),
           .fontFamily = labelFontFamily(),
           .color = workspaceTextColor(workspace),
           .baselineMode = LabelBaselineMode::Text,
@@ -861,8 +853,7 @@ void WorkspacesWidget::recalculateItemMetrics(
   float textWidth = 0.0F;
   float textHeight = 0.0F;
   if (item.showLabel) {
-    const FontWeight slotFontWeight = workspaceFontWeight(configuredFontWeight, isMinimal(), workspace.active);
-    const TextMetrics tm = renderer.measureText(label, labelFontSize, slotFontWeight);
+    const TextMetrics tm = renderer.measureText(label, labelFontSize, configuredFontWeight);
     textWidth = std::max(tm.right - tm.left, tm.inkRight - tm.inkLeft);
     textHeight = tm.bottom - tm.top;
   }
@@ -918,9 +909,7 @@ void WorkspacesWidget::recalculateItemMetrics(
     item.text->setVisible(item.showLabel);
     if (item.showLabel) {
       item.text->setText(label);
-      item.text->setFontWeight(
-          workspaceFontWeight(configuredFontWeight, isMinimal() && !isFocusHint(), workspace.active)
-      );
+      item.text->setFontWeight(configuredFontWeight);
       item.text->setColor(workspaceTextColor(workspace));
       item.text->measure(renderer);
     }

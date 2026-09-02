@@ -732,7 +732,7 @@
     },
     "internal": {
       "battery": "Batterie",
-      "battery-critical-body": "{device} : {percent}% — votre ordinateur va bientôt s’éteindre",
+      "battery-critical-body": "{device} : {percent}%, votre ordinateur va bientôt s’éteindre",
       "battery-critical-title": "Batterie critique",
       "battery-device": "Batterie",
       "battery-low-body": "{device} : {percent} % restant",
@@ -2278,27 +2278,27 @@
           "label": "Positionnement"
         },
         "position-clipboard": {
-          "description": "Position du clipboard à l'écran lorsqu'il flotte — Suivre la Bar le garde près de la Bar",
+          "description": "Position du clipboard à l'écran lorsqu'il flotte; Suivre la Bar le garde près de la Bar",
           "label": "Position"
         },
         "position-control-center": {
-          "description": "Position du Centre de contrôle à l'écran lorsqu'il flotte — Suivre la Bar le garde près de la Bar",
+          "description": "Position du Centre de contrôle à l'écran lorsqu'il flotte; Suivre la Bar le garde près de la Bar",
           "label": "Position"
         },
         "position-launcher": {
-          "description": "Position du Launcher à l'écran lorsqu'il flotte — Suivre la Bar le garde près de la Bar",
+          "description": "Position du Launcher à l'écran lorsqu'il flotte; Suivre la Bar le garde près de la Bar",
           "label": "Position"
         },
         "position-polkit": {
-          "description": "Position de la demande polkit à l'écran lorsqu'elle flotte — Suivre la Bar la garde près de la Bar",
+          "description": "Position de la demande polkit à l'écran lorsqu'elle flotte; Suivre la Bar la garde près de la Bar",
           "label": "Position"
         },
         "position-session": {
-          "description": "Position du menu de session à l'écran lorsqu'il flotte — Suivre la Bar le garde près de la Bar",
+          "description": "Position du menu de session à l'écran lorsqu'il flotte; Suivre la Bar le garde près de la Bar",
           "label": "Position"
         },
         "position-wallpaper": {
-          "description": "Position du sélecteur de fond d'écran à l'écran lorsqu'il flotte — Suivre la Bar le garde près de la Bar",
+          "description": "Position du sélecteur de fond d'écran à l'écran lorsqu'il flotte; Suivre la Bar le garde près de la Bar",
           "label": "Position"
         },
         "shadow": {

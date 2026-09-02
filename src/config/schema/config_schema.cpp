@@ -1374,6 +1374,13 @@ namespace noctalia::config::schema {
       return s;
     }
 
+    const Schema<ShellConfig::WindowSwitcherConfig>& shellWindowSwitcherSchema() {
+      static const Schema<ShellConfig::WindowSwitcherConfig> s = {
+          field(&ShellConfig::WindowSwitcherConfig::mru, "mru"),
+      };
+      return s;
+    }
+
     const Schema<ShellConfig::ScreenCornersConfig>& shellScreenCornersSchema() {
       static const Schema<ShellConfig::ScreenCornersConfig> s = {
           field(&ShellConfig::ScreenCornersConfig::enabled, "enabled"),
@@ -1563,6 +1570,7 @@ namespace noctalia::config::schema {
         subTable(&ShellConfig::panel, "panel", shellPanelSchema()),
         subTable(&ShellConfig::launcher, "launcher", shellLauncherSchema()),
         subTable(&ShellConfig::keyboardLayout, "keyboard_layout", shellKeyboardLayoutSchema()),
+        subTable(&ShellConfig::windowSwitcher, "window_switcher", shellWindowSwitcherSchema()),
         subTable(&ShellConfig::screenCorners, "screen_corners", shellScreenCornersSchema()),
         subTable(&ShellConfig::mpris, "mpris", shellMprisSchema()),
         subTable(&ShellConfig::screenshot, "screenshot", shellScreenshotSchema()),

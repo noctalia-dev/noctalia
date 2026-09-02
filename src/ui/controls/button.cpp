@@ -695,19 +695,33 @@ void Button::applyVisualState() {
   markPaintDirty();
 }
 
-void Button::applyLabelMaxWidth() {
+void Button::applyLabelMaxWidth(bool honorAssignedBox) {
   if (m_label == nullptr) {
     return;
   }
-  const float maxBtnWidth = maxWidth();
-  if (maxBtnWidth > 0.0F) {
-    const float padding = paddingLeft() + paddingRight();
-    const float glyphW = (m_glyph != nullptr && m_glyph->visible()) ? m_glyph->width() + gap() : 0.0F;
-    m_label->setMaxWidth(std::max(0.0F, maxBtnWidth - padding - glyphW));
-    m_label->setEllipsize(TextEllipsize::End);
-  } else {
-    m_label->setMaxWidth(0.0F);
+  // Equal-width segmented buttons never call setMaxWidth, so their labels only learn their
+  // budget from the box a parent assigned.
+  float maxBtnWidth = maxWidth();
+  if (honorAssignedBox && width() > 0.0F && (arrangingByLayout() || sizeAssignedByLayout())) {
+    maxBtnWidth = maxBtnWidth > 0.0F ? std::min(maxBtnWidth, width()) : width();
   }
+  if (maxBtnWidth <= 0.0F) {
+    m_label->setMaxWidth(0.0F);
+    return;
+  }
+
+  const float padding = paddingLeft() + paddingRight();
+  // A glyph only eats into the label's width when it sits beside it; stacked above (vertical
+  // buttons such as the control-center tiles) the label owns the full inner width.
+  const bool glyphSharesRow = m_glyph != nullptr && m_glyph->visible() && direction() == FlexDirection::Horizontal;
+  const float glyphW = glyphSharesRow ? m_glyph->width() + gap() : 0.0F;
+  // Ceil: Label ceils its own box, so a cap derived back out of that box can land a fraction
+  // under the text it already fits and ellipsize a label that does not overflow.
+  m_label->setMaxWidth(std::ceil(std::max(0.0F, maxBtnWidth - padding - glyphW)));
+  // A budget without a line limit wraps instead of ellipsizing: Pango only draws the ellipsis
+  // once the content exceeds an explicit line budget.
+  m_label->setMaxLines(1);
+  m_label->setEllipsize(TextEllipsize::End);
 }
 
 void Button::doLayout(Renderer& renderer) {
@@ -717,12 +731,13 @@ void Button::doLayout(Renderer& renderer) {
   const bool hasVisibleLabel = m_label != nullptr && m_label->visible();
   const bool glyphOnly = m_glyph != nullptr && !hasVisibleLabel;
 
-  if (m_label != nullptr) {
-    applyLabelMaxWidth();
-    m_label->measure(renderer);
-  }
+  // The label's budget subtracts the glyph's measured width, so the glyph measures first.
   if (m_glyph != nullptr) {
     m_glyph->measure(renderer);
+  }
+  if (m_label != nullptr) {
+    applyLabelMaxWidth(/*honorAssignedBox=*/true);
+    m_label->measure(renderer);
   }
 
   Flex::doLayout(renderer);
@@ -821,7 +836,8 @@ void Button::doLayout(Renderer& renderer) {
 }
 
 LayoutSize Button::doMeasure(Renderer& renderer, const LayoutConstraints& constraints) {
-  applyLabelMaxWidth();
+  // Measuring reports intrinsic size; the assigned box is last pass's and would cap it.
+  applyLabelMaxWidth(/*honorAssignedBox=*/false);
   return measureByLayout(renderer, constraints);
 }
 

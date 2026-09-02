@@ -1,4 +1,4 @@
-# Noctalia configuration — all settings at their defaults.
+# Noctalia configuration: all settings at their defaults.
 # Copy to ~/.config/noctalia/config.toml and edit what you need.
 # Most changes are hot-reloaded via inotify; startup-only settings are noted inline.
 
@@ -103,6 +103,9 @@ prefix = "win"
 
 [shell.mpris]
 blacklist = []                      # ignore MPRIS players by bus/identity/desktop entry token
+
+[shell.window_switcher]
+mru = false                         # order windows by most recently used (Alt+Tab) instead of workspace layout
 
 # ── Wallpaper ─────────────────────────────────────────────────────────────────
 
@@ -306,13 +309,13 @@ address          = ""                # e.g. "Toronto, ON"; geocoded when auto_lo
 # latitude       = 52.5200           # manual coordinates, used when auto_locate and address are off
 # longitude      = 13.4050
 # custom_schedule = true    # schedule day/night from the times below instead of coordinates
-# sunset         = "20:30"           # HH:MM — night start
-# sunrise        = "07:30"           # HH:MM — day start
+# sunset         = "20:30"           # HH:MM, night start
+# sunrise        = "07:30"           # HH:MM, day start
 
 # ── Idle ──────────────────────────────────────────────────────────────────────
 
 # Optional `[idle]` keys:
-#   pre_action_fade_seconds — fade a fullscreen surface-color overlay in over this many seconds, then run `command`.
+#   pre_action_fade_seconds: fade a fullscreen surface-color overlay in over this many seconds, then run `command`.
 #                             Use 0 for immediate commands with no overlay. Input during the fade cancels.
 # [idle]
 # pre_action_fade_seconds = 2.0
@@ -376,7 +379,7 @@ end    = ["media", "tray", "notifications", "clipboard", "network", "bluetooth",
 # scroll_up = "none"
 # scroll_down = "none"
 
-# Per-monitor override example — only the fields you list are overridden:
+# Per-monitor override example; only the fields you list are overridden:
 # [bar.main.monitor.dp1]
 # match     = "DP-1"
 # thickness = 44

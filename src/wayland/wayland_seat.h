@@ -176,6 +176,8 @@ private:
   std::array<std::uint32_t, 2> m_axisGestureSerial{};
   wl_surface* m_lastPointerSurface = nullptr;
   std::uint32_t m_pointerEnterSerial = 0;
+  std::uint32_t m_lastCursorShape = 0;
+  std::uint32_t m_lastCursorShapeSerial = 0;
   double m_lastPointerX = 0.0;
   double m_lastPointerY = 0.0;
   bool m_hasPointerPosition = false;

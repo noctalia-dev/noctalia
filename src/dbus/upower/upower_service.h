@@ -120,6 +120,9 @@ struct UPowerDeviceInfo {
   bool operator==(const UPowerDeviceInfo&) const = default;
 
   [[nodiscard]] bool isLaptopBattery() const { return type == UPowerDeviceType::Battery && powerSupply; }
+  // Percent of design capacity, clamped to [0, 100]: a re-learned EnergyFull can exceed the
+  // vendor design value. Empty when the device reports no usable capacity pair.
+  [[nodiscard]] std::optional<double> healthPercent() const;
   [[nodiscard]] bool sameCatalogEntry(const UPowerDeviceInfo& other) const;
 };
 

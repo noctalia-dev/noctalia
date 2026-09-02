@@ -1061,6 +1061,12 @@ struct ShellConfig {
     bool operator==(const PrivacyConfig&) const = default;
   };
 
+  struct WindowSwitcherConfig {
+    bool mru = false;
+
+    bool operator==(const WindowSwitcherConfig&) const = default;
+  };
+
   float cornerRadiusScale = 1.0F;
   bool buttonBorders = true;
   bool inputBorders = true;
@@ -1109,6 +1115,7 @@ struct ShellConfig {
   ShadowConfig shadow;
   PanelConfig panel;
   LauncherConfig launcher;
+  WindowSwitcherConfig windowSwitcher;
   KeyboardLayoutConfig keyboardLayout;
   ScreenCornersConfig screenCorners;
   MprisConfig mpris;

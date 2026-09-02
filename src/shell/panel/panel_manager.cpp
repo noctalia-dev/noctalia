@@ -634,12 +634,18 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
     return static_cast<std::int32_t>(std::clamp(desired, static_cast<float>(padding), static_cast<float>(maxValue)));
   };
 
-  PanelPlacement activePlacement = m_activePanel->panelPlacement();
-  const bool fillWidth = m_activePanel->fillsWidth();
-  const bool fillHeight = m_activePanel->fillsHeight();
-  if ((fillWidth || fillHeight) && activePlacement != PanelPlacement::Floating) {
-    kLog.warn("panel manager: \"{}\" uses fill sizing, which requires floating placement — opening floating", panelId);
-    activePlacement = PanelPlacement::Floating;
+  const PanelPlacement activePlacement = m_activePanel->panelPlacement();
+  // Fill sizing is floating-only (see Panel::fillsWidth): every other placement sizes the
+  // surface from the panel's preferred extent.
+  const bool floatingPlacement = activePlacement == PanelPlacement::Floating;
+  const bool fillWidth = m_activePanel->fillsWidth() && floatingPlacement;
+  const bool fillHeight = m_activePanel->fillsHeight() && floatingPlacement;
+  if (!floatingPlacement && (m_activePanel->fillsWidth() || m_activePanel->fillsHeight())) {
+    kLog.warn(
+        "panel manager: \"{}\" uses fill sizing, which only applies to floating placement; opening at its preferred "
+        "size",
+        panelId
+    );
   }
   m_panelFillWidth = fillWidth;
   m_panelFillHeight = fillHeight;

@@ -184,6 +184,7 @@
     "audio": {
       "application-volumes": "Volume applicazioni",
       "choose-effects-profile": "Scegli un profilo",
+      "default-device": "Dispositivo predefinito",
       "effects-profile": "Effetti",
       "input-device-prefix": "Input",
       "no-application-audio": "Nessuna applicazione audio",
@@ -3012,9 +3013,9 @@
           "label": "Copia negli appunti"
         },
         "screenshot-directory": {
-          "description": "Cartella per i file PNG salvati; lascia vuoto per usare ~/Pictures",
+          "description": "Cartella per i file PNG salvati; lasciare vuota per utilizzare la directory XDG standard per le immagini.",
           "label": "Directory output",
-          "placeholder": "~/Pictures"
+          "placeholder": "Directory XDG per le immagini"
         },
         "screenshot-filename-pattern": {
           "description": "Pattern strftime senza estensione (viene aggiunto .png); usa %s per l'epoch unix",
@@ -3116,7 +3117,7 @@
           "label": "Includi sottocartelle"
         },
         "directory": {
-          "description": "Cartella contenente gli sfondi",
+          "description": "Cartella contenente gli sfondi; lasciare vuota per utilizzare la directory XDG standard per le immagini.",
           "label": "Directory sfondi"
         },
         "directory-dark": {
@@ -3791,6 +3792,10 @@
         "show-num-lock": {
           "description": "Mostra stato Num Lock",
           "label": "Mostra Num Lock"
+        },
+        "show-progress": {
+          "description": "Riempi lo sfondo del widget per mostrare l'avanzamento della riproduzione",
+          "label": "Mostra l'avanzamento della riproduzione"
         },
         "show-scroll-lock": {
           "description": "Mostra stato Scroll Lock",

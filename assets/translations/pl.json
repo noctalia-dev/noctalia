@@ -267,15 +267,18 @@
       "start-playback": "Uruchom odtwarzanie w aplikacji MPRIS"
     },
     "network": {
+      "available": "Dostępne",
       "connect": "Połącz",
       "current-connection": "Bieżące połączenie",
+      "external-ip": "WAN {ip}",
       "no-networks": "Brak sieci w zasięgu",
       "not-connected": "Nie połączono",
       "password": "Hasło",
       "password-prompt": "Wprowadź hasło",
       "password-prompt-for": "Wprowadź hasło dla {ssid}",
-      "unavailable-detail": "Zainstaluj i włącz NetworkManager, aby zarządzać sieciami stąd.",
-      "unavailable-title": "NetworkManager niedostępny",
+      "saved": "Zapisane",
+      "unavailable-detail": "Zainstaluj i włącz NetworkManager, wpa_supplicant lub iwd, aby zarządzać sieciami stąd.",
+      "unavailable-title": "Usługa sieci niedostępna",
       "vpns": "Sieci VPN",
       "wi-fi": "Wi-Fi",
       "wifi": "Wi-Fi",
@@ -284,6 +287,9 @@
       "wired-connection": "Połączenie przewodowe"
     },
     "notifications": {
+      "clear-all": "Wyczyść wszystkie powiadomienia",
+      "dnd-off": "Wyłącz tryb Nie Przeszkadzać",
+      "dnd-on": "Włącz tryb Nie Przeszkadzać",
       "empty-body": "Ostatnie powiadomienia będą tutaj wyświetlane.",
       "empty-title": "Brak powiadomień",
       "filter": {
@@ -299,9 +305,12 @@
     "power": {
       "battery": "Bateria",
       "charging": {
-        "title": "Naładowanie baterii"
+        "configured": "Skonfigurowano: {limits}",
+        "title": "Naładowanie baterii",
+        "unreadable": "Niedostępne"
       },
       "health": "Życie baterii",
+      "peripherals": "Połączone Urządzenia",
       "unknown-device": "Nieznane urządzenie"
     },
     "screen-time": {
@@ -333,7 +342,7 @@
       "mic-mute": "Mikrofon",
       "nightlight": "Night Light",
       "nightlight-states": {
-        "forced": "Zawsze włączone",
+        "forced": "Zawsze Włączone",
         "off": "Night Light",
         "scheduled-day": "Zaplanowane",
         "scheduled-night": "Aktywne"
@@ -348,6 +357,10 @@
       "wifi": "Wi-Fi"
     },
     "system": {
+      "labels": {
+        "load": "Użycie CPU",
+        "ram": "RAM"
+      },
       "titles": {
         "cpu": "CPU",
         "gpu": "GPU",
@@ -390,7 +403,15 @@
         "description": "Pogoda",
         "temperature": "10 / 4°C"
       },
+      "hourly": {
+        "tooltip": {
+          "humidity": "Wilgotność",
+          "rain": "Deszcz",
+          "wind": "Wiatr"
+        }
+      },
       "location-unavailable": "Lokalizacja niedostępna",
+      "no-location-title": "Nie wybrano lokalizacji",
       "refreshing": "Odświeżanie prognozy pogody…",
       "waiting": "Oczekiwanie na dane pogody"
     }
@@ -398,7 +419,12 @@
   "desktop-widgets": {
     "editor": {
       "actions": {
-        "done": "Gotowe"
+        "add": "Dodaj",
+        "done": "Gotowe",
+        "hide": "Ukryj",
+        "settings": "Ustawienia",
+        "show": "Pokaż",
+        "trash": "Usuń"
       },
       "dialogs": {
         "select-sticker-image": "Wybierz obraz naklejki"
@@ -422,7 +448,7 @@
         "clock-style-digital": "Cyfrowy",
         "color": "Kolor",
         "color2": "Kolor 2",
-        "custom-color": "Niestandardowy…",
+        "custom-color": "Niestandardowy",
         "description": "Opis",
         "fade-when-idle": "Zanik w bezczynności",
         "font-family": "Czcionka",
@@ -474,6 +500,7 @@
       "title": "Widgety pulpitu",
       "types": {
         "audio-visualizer": "Wizualizator audio",
+        "button": "Przycisk",
         "clock": "Zegar",
         "fancy-audio-visualizer": "Fantazyjny wizualizator audio",
         "label": "Etykieta",
@@ -486,9 +513,13 @@
     "media": {
       "nothing-playing": "Nic nie jest odtwarzane"
     },
+    "volume": {
+      "mic": "Mikrofon",
+      "muted": "Wyciszony"
+    },
     "weather": {
       "error": "Błąd",
-      "loading": "Ładowanie",
+      "loading": "Ładowanie...",
       "no-location": "Brak lokalizacji",
       "off": "Pogoda wyłączona"
     }
@@ -539,7 +570,15 @@
     },
     "empty": {
       "no-results": "Nie znaleziono wyników",
-      "type-to-search": "Wpisz szukane..."
+      "type-to-search": "Wpisz aby wyszukać..."
+    },
+    "origins": {
+      "appimage": "AppImage",
+      "flatpak": "Flatpak",
+      "nix": "Nix",
+      "snap": "Snap",
+      "system": "Systemowe",
+      "user": "Użytkownika"
     },
     "providers": {
       "applications": {
@@ -583,6 +622,7 @@
   "lockscreen": {
     "authenticating": "Uwierzytelnianie...",
     "authentication-failed": "Uwierzytelnianie nie powiodło się",
+    "caps-lock-on": "Caps Lock włączony",
     "password-cleared": "Hasło wyczyszczone",
     "password-placeholder": "Hasło",
     "ready": "Wpisz hasło i naciśnij Enter.",
@@ -617,7 +657,7 @@
       "calendar-google-connect-timeout": "Autoryzacja Google upłynęła. Ponownie rozpocznij połączenie, gdy będziesz gotów do logowania.",
       "dbus-disabled": "Powiadomienia DBus wyłączone",
       "desktop-widgets-editor": "Edytor widżetów",
-      "desktop-widgets-editor-enabled": "Edytor widżetów pulpitu jest włączony. Przejdź na pusty obszar roboczy, aby zobaczyć Overlay edytora.",
+      "desktop-widgets-editor-enabled": "Edytor widżetów pulpitu jest włączony. Przejdź na pusty obszar roboczy, aby otwarte okna nie zasłaniały edytora.",
       "greeter-sync": "Powitanie Noctalia",
       "greeter-sync-success": "Wygląd zsynchronizowany. Zmiany będą obowiązywać na następnym ekranie logowania.",
       "keybind-app": "Noctalia",
@@ -654,6 +694,9 @@
       "num-on": "Num Lock włączony",
       "scroll-off": "Scroll Lock wyłączony",
       "scroll-on": "Scroll Lock włączony"
+    },
+    "nightlight": {
+      "scheduled": "Zaplanowane"
     },
     "wifi": {
       "off": "Wi-Fi wyłączona",
@@ -763,7 +806,7 @@
         "delete": "Usuń",
         "delete-confirm-desc": "Ten pasek utworzony w GUI zostanie usunięty z settings.toml.",
         "delete-confirm-title": "Usunąć „{name}”?",
-        "id-placeholder": "ID paska",
+        "id-placeholder": "ID Paska",
         "label": "Pasek: {name}",
         "management": "Pasek",
         "move-down": "Przenieś w dół",
@@ -785,7 +828,7 @@
         "rename-save": "Zapisz"
       },
       "widget": {
-        "add": "Dodaj widżet",
+        "add": "Dodaj Widżet",
         "detail": {
           "custom": "widżet niestandardowy"
         },
@@ -819,7 +862,7 @@
         },
         "inspector": {
           "add-instance-title": "Dodaj nowy nazwany widżet {widget} do {lane}",
-          "add-title": "Dodaj widżet do {lane}",
+          "add-title": "Dodaj Widżet do {lane}",
           "move-to-lane": "Przenieś do {lane}"
         },
         "instance": {
@@ -828,7 +871,7 @@
           "delete-confirm-desc": "Ten nazwany widżet zostanie usunięty ze wszystkich pasków, a jego ustawienia zostaną odrzucone.",
           "delete-confirm-title": "Usunąć „{name}”?",
           "id-description": "Używaj tylko liter, liczb, podkreśleń lub myślników. Bez spacji; musi być unikatowy",
-          "id-placeholder": "Identyfikator widżetu",
+          "id-placeholder": "ID Widżetu",
           "rename": "Zmień nazwę",
           "rename-save": "Zapisz"
         },
@@ -897,7 +940,7 @@
     },
     "idle": {
       "behavior": {
-        "add": "Dodaj zachowanie",
+        "add": "Dodaj Zachowanie",
         "command-label": "Polecenie bezczynności",
         "command-placeholder": "notify-send \"Idle\"",
         "kind": {
@@ -973,7 +1016,7 @@
         "screen-time": "czas ekranu",
         "screenshot": "zrzut ekranu",
         "security": "bezpieczeństwo",
-        "session-panel": "sesja",
+        "session-panel": "Panel Sesji",
         "shape": "kształt",
         "system": "system",
         "theme": "motyw",
@@ -1111,7 +1154,7 @@
         }
       },
       "theme-role": {
-        "custom": "Niestandardowy…",
+        "custom": "Niestandardowy",
         "default": "Domyślny"
       },
       "wallpaper": {
@@ -1145,19 +1188,19 @@
     "plugins": {
       "plugins": {
         "configure": "Skonfiguruj",
-        "empty": "Nie znaleziono wtyczek. Dodaj źródło, albo sprawdź swoją sieć.",
+        "empty": "Brak włączonych wtyczek.",
         "title": "Wtyczki"
       },
       "settings": {
         "empty": "Brak dostępnych ustawień."
       },
       "sources": {
-        "add": "Dodaj źródło",
-        "add-title": "Dodaj źródło wtyczek",
+        "add": "Dodaj Źródło",
+        "add-title": "Dodaj Źródło Wtyczek",
         "empty": "Źródło nie skonfigurowane.",
         "errors": {
-          "duplicate-name": "Źródło z tą nazwą już istnieje.",
-          "invalid-name": "Źródło musi zawierać litery, cyfry, '.', '_' albo '-', zaczynając od litery albo cyfry.",
+          "duplicate-name": "Źródło z tym ID już istnieje.",
+          "invalid-name": "ID Źródła musi zawierać litery, cyfry, '.', '_' albo '-', zaczynając od litery lub cyfry.",
           "location-required": "Lokalizacja źródła jest wymagana."
         },
         "kind": {
@@ -1168,7 +1211,7 @@
         "location-label": "Lokalizacja",
         "location-placeholder-git": "https://github.com/me/noctalia-plugins",
         "location-placeholder-path": "~/dev/noctalia-plugins",
-        "name-label": "Nazwa",
+        "name-label": "ID Źródła",
         "name-placeholder": "moje-wtyczki",
         "remove": "Usuń źródło",
         "title": "Źródła",
@@ -1315,19 +1358,19 @@
           "label": "Skala zawartości"
         },
         "corner-bottom-left": {
-          "description": "Promień narożnika dolnego lewego dla paska"
+          "description": "Promień dolnego lewego narożnika paska"
         },
         "corner-bottom-right": {
-          "description": "Promień narożnika dolnego prawego dla paska"
+          "description": "Promień dolnego prawego narożnika paska"
         },
         "corner-radius": {
           "description": "Promień narożnika paska"
         },
         "corner-top-left": {
-          "description": "Promień narożnika górnego lewego dla paska"
+          "description": "Promień górnego lewego narożnika paska"
         },
         "corner-top-right": {
-          "description": "Promień narożnika górnego prawego dla paska"
+          "description": "Promień górnego prawego narożnika paska"
         },
         "edge-margin": {
           "description": "Odległość od najbliższej krawędzi ekranu; wartości dodatnie oddzielają pasek od niej"
@@ -1347,7 +1390,7 @@
           "label": "Grubość czcionki"
         },
         "layer": {
-          "description": "Użyj Overlay, aby pokazać pasek powyżej aplikacji pełnoekranowych; dołączone panele podążają za paskiem",
+          "description": "Użyj Nakładki, aby wyświetlać pasek nad aplikacjami pełnoekranowymi; przyczepione panele podążają za paskiem",
           "label": "Warstwa Wayland"
         },
         "panel-overlap": {
@@ -1496,7 +1539,7 @@
           "description": "na której krawędzi ekranu znajduje się dock"
         },
         "reserve-space": {
-          "description": "zarezerwuj miejsce na ekranie dla docka"
+          "description": "Odpychaj okna od krawędzi paska"
         },
         "shadow": {
           "description": "rzuć globalny cień powierzchni z docka"
@@ -1578,7 +1621,7 @@
             "label": "Przy zmianie motywu"
           },
           "wallpaper-changed": {
-            "description": "Polecenie do uruchomienia gdy zmienia się tapeta",
+            "description": "Polecenie do uruchomienia gdy zmienia się tapeta; dostarcza NOCTALIA_WALLPAPER_PATH oraz NOCTALIA_WALLPAPER_CONNECTOR",
             "label": "Przy zmianie tapety"
           },
           "wifi-disabled": {
@@ -1597,7 +1640,7 @@
           "label": "Zachowania"
         },
         "pre-action-fade": {
-          "description": "Sekund pełnoekranowego przyciemnienia przed poleceniem bezczynności; użyj 0 by wyłączyć",
+          "description": "Sekundy pełnoekranowego przyciemnienia przed poleceniem bezczynności (0 wyłącza)",
           "label": "Przyciemnianie przy bezczynności"
         }
       },
@@ -1645,7 +1688,7 @@
           "label": "Intensywność odcienia"
         },
         "wallpaper": {
-          "description": "Niestandardowy obraz do tła ekranu blokady. Pozostaw puste by użyć tapety pulpitu",
+          "description": "Niestandardowy obraz tła ekranu blokady; pozostaw puste by użyć tapety pulpitu",
           "label": "Tapeta",
           "placeholder": "Użyj tapety pulpitu"
         },
@@ -1680,7 +1723,7 @@
           "label": "Demon powiadomień"
         },
         "layer": {
-          "description": "Użyj Overlay by wyświetlać Toast-y ponad pełnoekranowymi aplikacjami",
+          "description": "Użyj Nakładki by wyświetlać wyskakujące powiadomienia nad pełnoekranowymi aplikacjami",
           "label": "Warstwa Wayland"
         },
         "monitors": {
@@ -1718,11 +1761,11 @@
       },
       "panels": {
         "borders": {
-          "description": "Rysuj obramowanie na panelach i kartach sekcji wewnątrz paneli",
+          "description": "Rysuj obramowanie na pływających panelach",
           "label": "Obramowania"
         },
         "control-center-sidebar": {
-          "description": "Na karcie głównej i przy ogólnym otwieraniu",
+          "description": "Wybierz sposób wyświetlania paska bocznego",
           "label": "Pasek boczny"
         },
         "control-center-sidebar-section": {
@@ -1747,55 +1790,55 @@
         },
         "open-near-click-clipboard": {
           "description": "Umieść panel schowka blisko kliknięcia na pasku zamiast wyśrodkowywać go wzdłuż paska",
-          "label": "Otwórz blisko kliknięcia"
+          "label": "Wzdłuż Paska"
         },
         "open-near-click-control-center": {
           "description": "Umieść panel Centrum sterowania blisko kliknięcia na pasku zamiast wyśrodkowywać go wzdłuż paska",
-          "label": "Otwórz blisko kliknięcia"
+          "label": "Wzdłuż Paska"
         },
         "open-near-click-launcher": {
           "description": "Umieść panel launchera blisko kliknięcia na pasku zamiast wyśrodkowywać go wzdłuż paska",
-          "label": "Otwórz blisko kliknięcia"
+          "label": "Wzdłuż Paska"
         },
         "open-near-click-session": {
           "description": "Umieść panel menu sesji blisko kliknięcia na pasku zamiast wyśrodkowywać go wzdłuż paska",
-          "label": "Otwórz blisko kliknięcia"
+          "label": "Wzdłuż Paska"
         },
         "open-near-click-wallpaper": {
           "description": "Umieść panel wyboru tapety blisko kliknięcia na pasku zamiast wyśrodkowywać go wzdłuż paska",
-          "label": "Otwórz blisko kliknięcia"
+          "label": "Wzdłuż Paska"
         },
         "placement-clipboard": {
-          "description": "Wybierz, czy schowek dołącza się do paska, pływa blisko niego, czy otwiera się wyśrodkowany",
+          "description": "Zdecyduj czy schowek przyczepia się do paska, czy unosi się w wybranej pozycji na ekranie",
           "label": "Umiejscowienie"
         },
         "placement-control-center": {
-          "description": "Wybierz, czy Centrum sterowania dołącza się do paska, pływa blisko niego, czy otwiera się wyśrodkowane",
+          "description": "Zdecyduj czy Centrum Sterowania przyczepia się do paska, czy unosi się w wybranej pozycji na ekranie",
           "label": "Umiejscowienie"
         },
         "placement-launcher": {
-          "description": "Wybierz, czy launcher dołącza się do paska, pływa blisko niego, czy otwiera się wyśrodkowany",
+          "description": "Zdecyduj czy program uruchamiający przyczepia się do paska, czy unosi się w wybranej pozycji na ekranie",
           "label": "Umiejscowienie"
         },
         "placement-session": {
-          "description": "Wybierz, czy menu sesji dołącza się do paska, pływa blisko niego, czy otwiera się wyśrodkowane",
+          "description": "Zdecyduj czy panel sesji przyczepia się do paska, czy unosi się w wybranej pozycji na ekranie",
           "label": "Umiejscowienie"
         },
         "placement-wallpaper": {
-          "description": "Wybierz, czy wybór tapety dołącza się do paska, pływa blisko niego, czy otwiera się wyśrodkowany",
+          "description": "Zdecyduj czy narzędzie do wyboru tapet przyczepia się do paska, czy unosi się w wybranej pozycji na ekranie",
           "label": "Umiejscowienie"
         },
         "shadow": {
           "description": "Rzuć globalny cień powierzchni z powierzchni paneli"
         },
         "transparency-mode": {
-          "description": "Styl szkła panelu, uwzględniający krycie panelu pływającego/wyśrodkowanego i przezroczystość karty",
+          "description": "Styl szkła panelu, uwzględniający krycie panelu pływającego i przezroczystość karty",
           "label": "Przezroczystość"
         }
       },
       "power": {
         "session-actions": {
-          "description": "Wpisy menu zasilania, kolejność, niestandardowe polecenia i ikony",
+          "description": "Wpisy panelu sesji, kolejność, niestandardowe polecenia i ikony",
           "label": "Wpisy"
         }
       },
@@ -1844,7 +1887,7 @@
           "placeholder": "Miasto, Kraj"
         },
         "location-auto-locate": {
-          "description": "Wykryj swoją lokalizację automatycznie na podstawie twojego adresu IP",
+          "description": "Wykryj swoją lokalizację automatycznie na podstawie twojego adresu IP za pomocą serwisu noctalia.dev",
           "label": "Auto-lokalizacja (IP)"
         },
         "longitude": {
@@ -1931,7 +1974,7 @@
           "placeholder": "/ścieżka/do/dźwięku.wav"
         },
         "weather": {
-          "description": "Włącz usługę pogody",
+          "description": "Włącz usługę pogody za pośrednictwem open-meteo.com",
           "label": "Pogoda"
         },
         "weather-effects": {
@@ -2005,7 +2048,7 @@
       },
       "shell": {
         "avatar-path": {
-          "description": "Ścieżka do niestandardowego obrazu awatara",
+          "description": "Ścieżka do niestandardowego obrazu awatara; duże obrazy są automatycznie przycięte i skalowane",
           "label": "Ścieżka awatara",
           "placeholder": "/path/to/avatar.png"
         },
@@ -2180,7 +2223,7 @@
       },
       "system": {
         "battery-device-warning-threshold": {
-          "description": "Przesłoń próg ostrzeżenia baterii dla tego urządzenia. Ustaw 0, aby wyłączyć ostrzeżenia dla tego urządzenia",
+          "description": "Zmień próg ostrzegania o stanie baterii dla tego urządzenia (0 wyłącza ostrzeżenia dla tego urządzenia)",
           "label": "Próg ostrzeżenia {device}"
         },
         "battery-warning-threshold": {
@@ -2195,7 +2238,7 @@
           "label": "Wbudowane szablony"
         },
         "community-ids": {
-          "description": "Przełącz buforowane szablony społeczności do renderowania przy każdej zmianie motywu",
+          "description": "Przeglądaj i wybieraj szablony społeczności stosowane przy każdej zmianie motywu",
           "empty": "Brak dostępnych szablonów społeczności. Najpierw włącz szablony społeczności i odśwież katalog.",
           "label": "Szablony społeczności"
         },
@@ -2289,7 +2332,7 @@
       }
     },
     "session-actions": {
-      "add": "Dodaj akcję",
+      "add": "Dodaj Akcję",
       "clear-glyph": "Wyczyść",
       "command-label": "Polecenie shell",
       "command-placeholder": "Opcjonalne polecenie bash, pozostaw puste dla domyślnego zachowania",
@@ -2357,7 +2400,7 @@
       },
       "settings": {
         "active-opacity": {
-          "description": "Krycie ikony dla aktywnego (skupionego) okna; wybiera pojawiającą się ikonę na pasku",
+          "description": "Przejrzystość ikony aktywnego (skupionego) okna",
           "label": "Krycie aktywnej ikony"
         },
         "anchor": {
@@ -2411,16 +2454,16 @@
           "label": "Kolor"
         },
         "custom-image": {
-          "description": "Ścieżka do niestandardowego obrazu. Pozostaw puste, aby użyć glify ikony",
+          "description": "Ścieżka do niestandardowego obrazu; pozostaw puste, aby użyć glifów ikony",
           "dialog-title": "Wybierz obraz niestandardowy",
           "label": "Obraz niestandardowy"
         },
         "custom-image-colorize": {
-          "description": "Zabarw obraz niestandardowy za pomocą ustawienia Kolor widżetu",
+          "description": "Zastosuj odcień do obrazu niestandardowego za pomocą ustawienia widżetu Kolor Ikony",
           "label": "Zabarw obraz niestandardowy"
         },
         "detached-panel": {
-          "description": "Otwórz szufladę jako pływający panel z własnym tłem zamiast łączenia się z paskiem",
+          "description": "Otwórz szufladę jako pływający panel zamiast łączyć ją z paskiem",
           "label": "Odłączony panel"
         },
         "device": {
@@ -2428,7 +2471,7 @@
           "label": "Urządzenie"
         },
         "display": {
-          "active-window-description": "Ikona, tytuł lub obydwa na paskach poziomych. Paski pionowe pozostają tylko ikoną",
+          "active-window-description": "Ikona, tytuł lub obydwa na paskach poziomych; paski pionowe pozostają tylko w formie ikony",
           "description": "Tryb wyświetlania tego widżetu",
           "label": "Wyświetlanie"
         },
@@ -2530,7 +2573,7 @@
           "label": "Rozmiar ikon"
         },
         "inactive-opacity": {
-          "description": "Krycie ikon dla nieaktywnych (nieskupowanych) okien",
+          "description": "Przejrzystość ikon nieaktywnych (nieskupionych) okien",
           "label": "Krycie nieaktywnych ikon"
         },
         "label": {
@@ -2625,7 +2668,7 @@
           "label": "Pokaż warunek"
         },
         "show-label": {
-          "description": "Pokaż tekst obok ikony",
+          "description": "Pokaż etykietę tekstową widżetu",
           "label": "Pokaż etykietę"
         },
         "show-num-lock": {

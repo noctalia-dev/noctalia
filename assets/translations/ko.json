@@ -750,6 +750,7 @@
       "battery-low-body": "{device}: {percent}% 남음",
       "battery-low-title": "배터리 부족",
       "calendar": "캘린더",
+      "calendar-credential-locked-body": "시크릿 서비스에서 사용하는 키링을 잠금 해제한 후 설정에서 다시 시도합니다. GNOME Keyring을 사용하는 경우 로그인과 같이 자동으로 잠금 해제되는 키링을 기본값으로 사용하세요.",
       "calendar-credential-locked-title": "캘린더 키링이 잠겨있습니다",
       "calendar-google-connect-browser-failed": "Google 인증을 위한 브라우저를 실행할 수 없습니다. 기본 브라우저 또는 xdg-open 설정을 확인하세요.",
       "calendar-google-connect-credential-store-failed": "갱신 토큰을 저장할 수 없습니다. Secret Service를 잠금 해제하거나 시작한 후 다시 시도하세요.",
@@ -761,7 +762,7 @@
       "calendar-google-connect-start-failed": "Google 인증을 시작할 수 없습니다. 네트워크 연결을 확인하고 다시 시도하세요.",
       "calendar-google-connect-start-http": "Google 인증을 시작할 수 없습니다. OAuth 브로커가 HTTP {status}를 반환했습니다.",
       "calendar-google-connect-timeout": "Google 인증 시간이 초과되었습니다. 다시 시도하세요.",
-      "config-migration-body": "{path}을(를) 포함한 레거시 설정이 메모리에서 마이그레이션 중입니다. 소스 설정을 업데이트하세요. 설정 및 noctalia config validate에서 필요한 교체 항목을 확인할 수 있습니다.",
+      "config-migration-body": "소스 파일에서 {path}를 업데이트하세요.  Noctalia는 변경 사항을 일시적으로 적용하고 있습니다. noctalia config validate를 실행하여 필요한 변경 사항을 확인하세요",
       "config-migration-title": "설정 업데이트 필요",
       "dbus-disabled": "DBus 알림 비활성화됨",
       "desktop-widgets-editor": "위젯 편집기",
@@ -1161,6 +1162,7 @@
           "suspend": "절전"
         },
         "kind-section-label": "작업",
+        "locked-timeout-label": "잠김 상태에서 시간 초과 (초 단위, 0 = 꺼짐)",
         "name-label": "이름",
         "name-placeholder": "idle-behavior",
         "resume-command-label": "재개 명령어",
@@ -1223,6 +1225,7 @@
         "monitor-thresholds": "강조 임계값",
         "monitors": "모니터",
         "motion": "모션",
+        "navigation": "네비게이션",
         "network": "네트워크",
         "night-light": "야간 조명",
         "notifications": "알림",
@@ -1307,6 +1310,10 @@
       }
     },
     "options": {
+      "accordion-direction": {
+        "end": "첫 번째 위젯 뒤",
+        "start": "첫 번째 위젯 전"
+      },
       "bar": {
         "auto-hide": {
           "off": "꺼짐",
@@ -1380,6 +1387,13 @@
       },
       "panel-position": {
         "auto": "바 따르기"
+      },
+      "plugins": {
+        "auto-update": {
+          "all": "모든 소스",
+          "none": "없음",
+          "official": "공식 전용"
+        }
       },
       "screen-position": {
         "bottom-center": "하단 중앙",
@@ -1467,7 +1481,7 @@
       "browse-store": "플러그인 찾아보기",
       "panels": {
         "open-near-click": {
-          "description": "패널을 연 바 위젯 근처에 패널을 위치시킵니다. 바 트리거 없이 열리는 경우에는 가운데에 위치합니다",
+          "description": "바 위젯을 클릭하여 패널이 배치되는 위치",
           "label": "바를 따라"
         },
         "placement": {
@@ -1530,6 +1544,7 @@
       },
       "store": {
         "add": "Noctalia에 추가",
+        "back-to-catalog": "플러그인 목록으로 돌아가기",
         "categories": "카테고리",
         "category-all": "모두",
         "empty": "플러그인을 찾을 수 없음",
@@ -2226,12 +2241,15 @@
           "label": "알림 필터"
         },
         "history-retention-hours": {
-          "description": "이 시간보다 오래된 알림 기록 항목을 자동으로 삭제 (0은 영구 보관)",
+          "description": "지정된 시간보다 오래된 알림 기록 항목을 자동으로 삭제 (0은 영구 보관)",
           "label": "기록 보관 기간"
         },
         "layer": {
           "description": "오버레이를 사용하면 전체 화면 앱 위에 알림 토스트를 표시합니다",
           "label": "Wayland 레이어"
+        },
+        "max-visible": {
+          "label": "최대 표시 토스트 수"
         },
         "monitors": {
           "description": "알림 토스트를 표시할 모니터 선택. 비워 두면 모든 모니터에 표시",
@@ -2295,6 +2313,9 @@
           "description": "플로팅 또는 분리된 패널과 바 가장자리 사이의 픽셀 간격",
           "label": "플로팅 오프셋"
         },
+        "home-session-button": {
+          "label": "헤더 세션 버튼 표시"
+        },
         "home-shortcuts": {
           "description": "홈 탭의 단축키 버튼 최대 6개 선택",
           "label": "홈 단축키"
@@ -2302,6 +2323,9 @@
         "home-shortcuts-show-labels": {
           "description": "홈 탭의 바로가기 아이콘 아래에 텍스트 레이블 표시",
           "label": "바로가기 레이블 보이기"
+        },
+        "launcher-app-actions": {
+          "label": "앱 작업 표시"
         },
         "launcher-app-grid": {
           "description": "결과가 앱만 있을 때 레이블이 있는 앱 아이콘 그리드 표시",
@@ -2538,7 +2562,7 @@
           "description-error": "암호화된 캘린더 이벤트 캐시를 열거나 저장할 수 없습니다.",
           "description-locked": "암호화된 저장소가 잠겨 있거나 접근이 거부되었습니다. 접근을 수정하고 다시 시도하세요.",
           "description-migration": "평문 캘린더 이벤트 캐시가 암호화 대기 중입니다. 마이그레이션이 성공할 때까지 보존됩니다.",
-          "description-missing-key": "설정된 암호화 저장소 키가 없습니다. 기존 캘린더 캐시 파일은 보존되었습니다.",
+          "description-missing-key": "캘린더 이벤트 캐시 키가 없습니다. 계정 자격 증명은 별도로 보관됩니다. (기존 캐시 파일은 보관됨)",
           "description-opening": "암호화된 캘린더 이벤트 캐시를 여는 중입니다",
           "description-recovery": "캘린더 이벤트 캐시를 인증할 수 없거나 손상되었습니다. 올바른 키를 복원한 후 다시 시도하거나 개인 저장소를 초기화하세요.",
           "description-unavailable": "사용 가능한 Secret Service 제공자가 없습니다. 캘린더 이벤트는 이 세션에서만 사용 가능합니다.",
@@ -2809,6 +2833,9 @@
           "description": "Greeter 지금 동기화에서 pkexec/run0을 교체합니다. apply 도우미 경로 및 스테이징 디렉토리는 자동으로 추가됩니다 (예: ghostty -e pkexec)",
           "label": "Greeter 동기화 권한 명령어"
         },
+        "keyboard-layout-custom-labels": {
+          "label": "키보드 레이아웃 라벨"
+        },
         "launch-apps-as-systemd-services": {
           "description": "앱을 별도의 systemd 서비스에서 실행하여 Noctalia의 cgroup을 공유하지 않도록 합니다",
           "label": "앱을 systemd 서비스로 실행",
@@ -2965,9 +2992,9 @@
           "label": "클립보드에 복사"
         },
         "screenshot-directory": {
-          "description": "저장된 PNG 파일의 폴더. 비워 두면 ~/Pictures를 사용합니다",
+          "description": "저장된 PNG 파일의 폴더. 비워 두면 표준 XDG 사진 디렉토리를 사용합니다",
           "label": "출력 디렉토리",
-          "placeholder": "~/Pictures"
+          "placeholder": "XDG 사진 디렉토리"
         },
         "screenshot-filename-pattern": {
           "description": "확장자 없는 strftime 패턴 (.png가 추가됨). Unix epoch에는 %s를 사용하세요",
@@ -3068,7 +3095,7 @@
           "label": "하위 폴더 포함"
         },
         "directory": {
-          "description": "배경 화면이 들어 있는 폴더",
+          "description": "배경 화면이 들어 있는 폴더. 비워 두면 표준 XDG 사진 디렉토리를 사용합니다",
           "label": "배경 화면 디렉토리"
         },
         "directory-dark": {
@@ -3586,6 +3613,9 @@
           "description": "퍼센트 / GiB / °C와 같은 단위 표시",
           "label": "단위 표시"
         },
+        "label-source": {
+          "description": "라벨을 표시할 워크스페이스"
+        },
         "labels-only-when-occupied": {
           "description": "비어 있고 비활성인 작업 공간의 레이블 숨기기",
           "label": "점유 시에만 레이블",
@@ -3744,7 +3774,7 @@
           "label": "값 표시"
         },
         "show-vpn-label": {
-          "description": "VPN 이름 표시: 교체 모드에서는 네트워크 레이블을 대체하고, 둘 다 모드에서는 VPN 아이콘 옆에 레이블 추가",
+          "description": "교체 모드에서는 네트워크 라벨을 VPN 라벨로 대체하고, 둘 다 모드에서는 경우 VPN 아이콘 옆에 라벨을 추가합니다.",
           "label": "VPN 레이블 표시"
         },
         "show-when-idle": {
@@ -3878,7 +3908,7 @@
       "export-config": "설정 내보내기…",
       "export-config-saved": "설정 내보내기가 저장되었습니다.",
       "filter-overridden": "재정의됨",
-      "legacy-config-warning": "레거시 설정이 메모리에서 마이그레이션 중입니다: {issue}. 필요한 모든 변경 사항은 noctalia config validate를 실행하세요.",
+      "legacy-config-warning": "레거시 설정: {issue}. 소스 항목을 수정하세요. Noctalia는 변경 사항을 일시적으로 적용하고 있습니다. noctalia config validate를 실행하여 필요한 변경 사항을 확인하세요.",
       "native-title": "Noctalia 설정",
       "no-results": "설정을 찾을 수 없음",
       "no-results-hint": "다른 설정 이름이나 설정 키를 시도해 보세요.",

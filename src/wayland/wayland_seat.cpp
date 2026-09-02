@@ -103,6 +103,13 @@ void WaylandSeat::setCursorShape(std::uint32_t serial, std::uint32_t shape) {
   if (effectiveSerial == 0) {
     return;
   }
+  // Repeated set_shape on the same enter serial makes Hyprland bounce pointer
+  // enter/leave, which blinks settings hover/focus (#4005).
+  if (effectiveSerial == m_lastCursorShapeSerial && shape == m_lastCursorShape) {
+    return;
+  }
+  m_lastCursorShapeSerial = effectiveSerial;
+  m_lastCursorShape = shape;
   wp_cursor_shape_device_v1_set_shape(m_cursorShapeDevice, effectiveSerial, shape);
 }
 
@@ -118,6 +125,8 @@ void WaylandSeat::forgetSurface(wl_surface* surface) noexcept {
     }
     m_lastPointerSurface = nullptr;
     m_pointerEnterSerial = 0;
+    m_lastCursorShape = 0;
+    m_lastCursorShapeSerial = 0;
     m_hasPointerPosition = false;
   }
   if (m_lastKeyboardSurface == surface) {
@@ -270,6 +279,8 @@ void WaylandSeat::handlePointerLeave(void* data, wl_pointer* /*pointer*/, std::u
   self->m_lastInputSource = InputSource::Pointer;
   self->m_lastPointerSurface = surface;
   self->m_pointerEnterSerial = 0;
+  self->m_lastCursorShape = 0;
+  self->m_lastCursorShapeSerial = 0;
   self->m_hasPointerPosition = false;
   self->m_pendingPointerEvents.push_back(
       PointerEvent{

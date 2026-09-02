@@ -4,6 +4,7 @@
 #include "core/input/key_modifiers.h"
 #include "core/input/key_symbols.h"
 #include "core/input/keybind_matcher.h"
+#include "cursor-shape-v1-client-protocol.h"
 #include "i18n/i18n.h"
 #include "render/core/renderer.h"
 #include "render/core/thumbnail_service.h"
@@ -359,6 +360,7 @@ void FileDialogView::create() {
           .columnGap = 0.0F,
           .rowGap = 0.0F,
           .overscanRows = kListRowOverscan,
+          .itemCursorShape = WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_POINTER,
           .scrollbarVisible = true,
           .adapter = m_listAdapter.get(),
           .flexGrow = 1.0F,
@@ -408,6 +410,7 @@ void FileDialogView::create() {
           .columnGap = Style::spaceSm * scale,
           .rowGap = Style::spaceSm * scale,
           .overscanRows = kGridRowOverscan,
+          .itemCursorShape = WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_POINTER,
           .scrollbarVisible = true,
           .scrollCardStyleScale = scale,
           .adapter = m_gridAdapter.get(),

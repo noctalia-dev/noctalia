@@ -7,7 +7,7 @@ sidebar:
 
 Bars are defined as named subtables under `[bar.*]`. Each bar is spawned on every connected monitor, then per-monitor overrides are applied.
 
-Widget hover tooltips open on the side of the bar facing into the screen — below a top bar, above a bottom bar, and beside a left or right bar — so they do not cover other bar widgets.
+Widget hover tooltips open on the side of the bar facing into the screen (below a top bar, above a bottom bar, and beside a left or right bar), so they do not cover other bar widgets.
 
 ```toml
 [bar]
@@ -233,7 +233,7 @@ Set under `[widget.<name>]`:
 | `capsule_border` | string | *(from bar)* | Color role for the capsule border; fixed hex colors are also supported. Omit to inherit bar policy. Present but empty/whitespace-only = no border. |
 | `color` | string | *(unset)* | Icon + label color role with or without capsule; fixed hex colors are also supported. Resolution order: `color` → `capsule_foreground` → built-in defaults. |
 | `icon_color` | string | *(unset)* | Overrides `color` for icons only. Resolution order for icons: `icon_color` → `color` → `capsule_foreground` → built-in defaults. Labels always use `color`. |
-| `interactive` | bool | `true` (spacers: `false`) | Set `false` to make the widget passive: hover highlight and tooltips are disabled, pointer events (clicks, scrolls) pass through to the bar underneath, and the **Actions** settings section is hidden. The widget is still drawn — use `enabled = false` to hide it entirely. Spacers default to non-interactive so they stay click-through layout gaps. |
+| `interactive` | bool | `true` (spacers: `false`) | Set `false` to make the widget passive: hover highlight and tooltips are disabled, pointer events (clicks, scrolls) pass through to the bar underneath, and the **Actions** settings section is hidden. The widget is still drawn; use `enabled = false` to hide it entirely. Spacers default to non-interactive so they stay click-through layout gaps. |
 | `scroll_repeat` | string | `auto` | Scroll action repetition: `auto` uses once-per-gesture for cycle commands and every-step for ramp commands; `gesture` always runs once per gesture; `steps` always runs for every quantized step. |
 | `enabled` | bool | `true` | Show or hide this widget on the bar. Disabled widgets are not created and consume no resources. |
 

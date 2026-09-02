@@ -38,7 +38,6 @@ namespace {
 } // namespace
 
 WeatherTab::WeatherTab(WeatherService* weather, ConfigService* config) : m_weather(weather), m_config(config) {
-  m_detailRows.fill(nullptr);
   m_forecastRows.fill(nullptr);
   m_forecastSeparators.fill(nullptr);
   m_forecastIconSlots.fill(nullptr);
@@ -204,26 +203,23 @@ std::unique_ptr<Flex> WeatherTab::create() {
       .gap = 0.0F,
       .configure = [scale, opacity = panelCardOpacity()](Flex& card) {
         applySectionCardStyle(card, scale, opacity);
-        card.setPadding(Style::spaceMd * scale, Style::spaceMd * scale, Style::spaceLg * scale, Style::spaceMd * scale);
+        card.setPadding(Style::spaceMd * scale);
         card.setGap(0.0F);
       },
   });
   const float detailKeyWidth = Style::controlHeightLg * 2.0F * scale;
+  // Detail rows are label/value pairs, not touch targets: they size to the text plus a small
+  // margin around the row glyph, not to a control height.
+  const float detailRowHeight = (Style::fontSizeBody + Style::spaceMd) * scale;
 
-  std::size_t detailRowIndex = 0;
   auto addDetailRow = [&](std::string_view iconName, std::string_view key, Label*& valueOut) -> Flex* {
     auto row = ui::row({
         .align = FlexAlign::Center,
         .gap = (Style::spaceSm + Style::spaceXs) * scale,
-        .minHeight = Style::controlHeightSm * scale,
+        .minHeight = detailRowHeight,
         .flexGrow = 0.0F,
     });
     Flex* rowPtr = row.get();
-    if (detailRowIndex < kDetailRowCount) {
-      m_detailRows[detailRowIndex] = rowPtr;
-    }
-    ++detailRowIndex;
-
     row->addChild(
         ui::glyph({
             .glyph = std::string(iconName),
@@ -254,6 +250,7 @@ std::unique_ptr<Flex> WeatherTab::create() {
     return rowPtr;
   };
 
+  addDetailRow("thermometer", i18n::tr("control-center.weather.details.feels-like"), m_feelsLikeLabel);
   addDetailRow("temperature", i18n::tr("control-center.weather.details.temp-min"), m_tempMinLabel);
   addDetailRow("temperature-sun", i18n::tr("control-center.weather.details.temp-max"), m_tempMaxLabel);
   addDetailRow("wind", i18n::tr("control-center.weather.details.wind"), m_windLabel);
@@ -523,8 +520,8 @@ void WeatherTab::doLayout(Renderer& renderer, float contentWidth, float bodyHeig
     m_statusLabel->setMaxWidth(leftColumnWidth);
   }
   for (auto* label :
-       {m_windLabel, m_sunriseLabel, m_sunsetLabel, m_tempMinLabel, m_tempMaxLabel, m_elevationLabel, m_uvIndexLabel,
-        m_timeZoneLabel}) {
+       {m_feelsLikeLabel, m_tempMinLabel, m_tempMaxLabel, m_windLabel, m_sunriseLabel, m_sunsetLabel, m_elevationLabel,
+        m_uvIndexLabel, m_timeZoneLabel}) {
     if (label != nullptr) {
       label->setMaxWidth(leftColumnWidth);
     }
@@ -544,16 +541,6 @@ void WeatherTab::doLayout(Renderer& renderer, float contentWidth, float bodyHeig
     const float desiredGlyph =
         std::max(Style::controlHeightLg * 1.8F * scale, std::min(kCurrentGlyphSize * scale, cardInnerHeight * 0.8F));
     m_currentGlyph->setGlyphSize(desiredGlyph);
-  }
-
-  if (m_detailsCard != nullptr) {
-    const float rowMinHeight = Style::controlHeightSm * scale;
-    for (auto* row : m_detailRows) {
-      if (row != nullptr) {
-        row->setMinHeight(row->visible() ? rowMinHeight : 0.0F);
-        row->setFlexGrow(0.0F);
-      }
-    }
   }
 
   std::size_t visibleForecastDays = 0;
@@ -728,11 +715,11 @@ void WeatherTab::onClose() {
   m_sunsetLabel = nullptr;
   m_tempMaxLabel = nullptr;
   m_tempMinLabel = nullptr;
+  m_feelsLikeLabel = nullptr;
   m_elevationLabel = nullptr;
   m_uvIndexLabel = nullptr;
   m_timeZoneLabel = nullptr;
   m_timeZoneRow = nullptr;
-  m_detailRows.fill(nullptr);
   m_forecastRows.fill(nullptr);
   m_forecastSeparators.fill(nullptr);
   m_forecastIconSlots.fill(nullptr);
@@ -791,6 +778,9 @@ void WeatherTab::sync(Renderer& renderer) {
     if (m_tempMinLabel != nullptr) {
       m_tempMinLabel->setText("--");
     }
+    if (m_feelsLikeLabel != nullptr) {
+      m_feelsLikeLabel->setText("--");
+    }
     if (m_elevationLabel != nullptr) {
       m_elevationLabel->setText("--");
     }
@@ -821,6 +811,9 @@ void WeatherTab::sync(Renderer& renderer) {
     }
     if (m_tempMinLabel != nullptr) {
       m_tempMinLabel->setText("--");
+    }
+    if (m_feelsLikeLabel != nullptr) {
+      m_feelsLikeLabel->setText("--");
     }
     if (m_elevationLabel != nullptr) {
       m_elevationLabel->setText("--");
@@ -867,6 +860,9 @@ void WeatherTab::sync(Renderer& renderer) {
     }
     if (m_tempMinLabel != nullptr) {
       m_tempMinLabel->setText("--");
+    }
+    if (m_feelsLikeLabel != nullptr) {
+      m_feelsLikeLabel->setText("--");
     }
     if (m_elevationLabel != nullptr) {
       m_elevationLabel->setText("--");
@@ -947,14 +943,13 @@ void WeatherTab::sync(Renderer& renderer) {
     );
   }
   auto unit = m_weather->displayTemperatureUnit();
-  if (m_tempMaxLabel != nullptr) {
-    if (!snapshot.forecastDays.empty()) {
-      const int temp =
-          static_cast<int>(std::lround(m_weather->displayTemperature(snapshot.forecastDays.front().temperatureMaxC)));
-      m_tempMaxLabel->setText(std::format("{}{}", temp, unit));
-    } else {
-      m_tempMaxLabel->setText("--");
-    }
+  if (m_feelsLikeLabel != nullptr) {
+    const auto& apparent = snapshot.current.apparentTemperatureC;
+    m_feelsLikeLabel->setText(
+        apparent.has_value()
+            ? std::format("{}{}", static_cast<int>(std::lround(m_weather->displayTemperature(*apparent))), unit)
+            : std::string("--")
+    );
   }
   if (m_tempMinLabel != nullptr) {
     if (!snapshot.forecastDays.empty()) {
@@ -963,6 +958,15 @@ void WeatherTab::sync(Renderer& renderer) {
       m_tempMinLabel->setText(std::format("{}{}", temp, unit));
     } else {
       m_tempMinLabel->setText("--");
+    }
+  }
+  if (m_tempMaxLabel != nullptr) {
+    if (!snapshot.forecastDays.empty()) {
+      const int temp =
+          static_cast<int>(std::lround(m_weather->displayTemperature(snapshot.forecastDays.front().temperatureMaxC)));
+      m_tempMaxLabel->setText(std::format("{}{}", temp, unit));
+    } else {
+      m_tempMaxLabel->setText("--");
     }
   }
   if (m_elevationLabel != nullptr) {

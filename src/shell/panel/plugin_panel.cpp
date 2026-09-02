@@ -233,6 +233,7 @@ void PluginPanel::onOpen(std::string_view context) {
   closeContextMenu();
   ++m_openGeneration;
   m_open = true;
+  m_openContext = std::string(context);
   if (m_runtime != nullptr) {
     (void)m_runtime->enqueueCallStrings("onOpen", std::string(context), {}, makeScriptSnapshot());
   }
@@ -242,9 +243,12 @@ void PluginPanel::onOpen(std::string_view context) {
   }
 }
 
+bool PluginPanel::isContextActive(std::string_view context) const { return m_open && m_openContext == context; }
+
 void PluginPanel::onClose() {
   ++m_openGeneration;
   m_open = false;
+  m_openContext.clear();
   closeContextMenu();
   m_tickTimer.stop();
   releaseCapturedKeys();

@@ -433,6 +433,7 @@ namespace ui {
     std::optional<float> columnGap = std::nullopt;
     std::optional<float> rowGap = std::nullopt;
     std::optional<std::size_t> overscanRows = std::nullopt;
+    std::optional<std::uint32_t> itemCursorShape = std::nullopt;
     std::optional<bool> scrollbarVisible = std::nullopt;
     std::optional<float> scrollCardStyleScale = std::nullopt;
     VirtualGridAdapter* adapter = nullptr;

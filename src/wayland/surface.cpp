@@ -676,13 +676,34 @@ bool Surface::prepareBlurEffect() {
   return true;
 }
 
+bool Surface::regionIntersectsBounds(const std::vector<InputRect>& rects, std::uint32_t width, std::uint32_t height) {
+  if (width == 0 || height == 0) {
+    return false;
+  }
+  for (const auto& r : rects) {
+    const std::int64_t right = static_cast<std::int64_t>(r.x) + r.width;
+    const std::int64_t bottom = static_cast<std::int64_t>(r.y) + r.height;
+    if (r.width > 0
+        && r.height > 0
+        && right > 0
+        && bottom > 0
+        && static_cast<std::int64_t>(r.x) < width
+        && static_cast<std::int64_t>(r.y) < height) {
+      return true;
+    }
+  }
+  return false;
+}
+
 void Surface::setBlurRegion(const std::vector<InputRect>& rects) {
   if (!prepareBlurEffect()) {
     return;
   }
 
+  // Hyprland renders a fully off-surface non-empty blur region as full-surface blur, so send null instead.
+  const bool hasVisibleRegion = regionIntersectsBounds(rects, m_width, m_height);
   wl_region* region = nullptr;
-  if (!rects.empty()) {
+  if (hasVisibleRegion) {
     region = wl_compositor_create_region(m_connection.compositor());
     if (region == nullptr) {
       traceSurfaceEvent(*this, "blur-set-skip-region-failed");
@@ -692,7 +713,11 @@ void Surface::setBlurRegion(const std::vector<InputRect>& rects) {
       wl_region_add(region, r.x, r.y, r.width, r.height);
     }
   }
-  traceBlurRegionEvent(*this, rects.empty() ? "blur-set-empty" : "blur-set", rects);
+  const char* traceLabel = "blur-set";
+  if (!hasVisibleRegion) {
+    traceLabel = rects.empty() ? "blur-set-empty" : "blur-set-offsurface";
+  }
+  traceBlurRegionEvent(*this, traceLabel, rects);
   ext_background_effect_surface_v1_set_blur_region(m_backgroundEffect, region);
   if (region != nullptr) {
     wl_region_destroy(region);

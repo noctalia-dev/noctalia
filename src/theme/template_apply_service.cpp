@@ -181,40 +181,53 @@ namespace noctalia::theme {
     }
   }
 
-  void TemplateApplyService::setAfterApplyCallback(std::function<void()> callback) const {
+  void TemplateApplyService::setAfterApplyCallback(
+      std::function<void(std::string_view appliedMode, bool paletteChanged)> callback
+  ) const {
     std::scoped_lock lock(m_mutex);
     m_afterApplyCallback = std::move(callback);
   }
 
-  void TemplateApplyService::apply(const GeneratedPalette& palette, std::string_view defaultMode, bool force) const {
+  void TemplateApplyService::apply(
+      const GeneratedPalette& palette, std::string_view defaultMode, bool force, bool paletteChanged
+  ) const {
     ApplyRequest request = makeRequest(palette, defaultMode);
-    std::function<void()> afterApplyCallback;
+    bool queued = false;
+    std::function<void()> undeliverable;
     {
       std::scoped_lock lock(m_mutex);
+      m_paletteChangedOwed = m_paletteChangedOwed || paletteChanged;
+
       // Skip rendering and hooks when palette and template inputs are unchanged. Config values
       // are captured only when an application is queued; forced IPC re-application bypasses
       // this deduplication.
       if (!force && m_lastAppliedRequest.has_value() && sameInputs(request, *m_lastAppliedRequest)) {
-        // A queued request has not been applied yet; it fires the callback when it lands.
-        if (m_afterApplyCallback && !m_inFlight && !m_pendingRequest.has_value()) {
-          afterApplyCallback = m_afterApplyCallback;
-        }
-        if (!afterApplyCallback) {
-          return;
+        // The applied mode already matches, so only an owed palette change is still worth
+        // reporting. It rides on the application queued or in flight; with neither, no worker
+        // pass is left to carry it.
+        if (m_paletteChangedOwed && !m_inFlight && !m_pendingRequest.has_value()) {
+          m_paletteChangedOwed = false;
+          if (m_afterApplyCallback) {
+            undeliverable = [callback = m_afterApplyCallback, mode = request.defaultMode]() {
+              callback(mode, /*paletteChanged=*/true);
+            };
+          }
         }
       } else {
         request.undoBuiltinIds = syncAppliedBuiltinIds(request.templates);
         request.generation = ++m_nextGeneration;
         m_lastAppliedRequest = request;
         m_pendingRequest = std::move(request);
+        queued = true;
       }
     }
 
-    if (afterApplyCallback) {
-      DeferredCall::callLater(std::move(afterApplyCallback));
-      return;
+    if (undeliverable) {
+      DeferredCall::callLater(std::move(undeliverable));
     }
-    m_cv.notify_one();
+    if (queued) {
+      m_cv.notify_one();
+    }
   }
 
   bool TemplateApplyService::reapplyLast() const {
@@ -229,7 +242,8 @@ namespace noctalia::theme {
       defaultMode = m_lastAppliedRequest->defaultMode;
     }
 
-    apply(palette, defaultMode, /*force=*/true);
+    // A forced re-render rewrites every template, so consumers hear about it as a colour change.
+    apply(palette, defaultMode, /*force=*/true, /*paletteChanged=*/true);
     return true;
   }
 
@@ -501,8 +515,13 @@ namespace noctalia::theme {
       {
         std::scoped_lock lock(m_mutex);
         m_inFlight = false;
-        if (!m_shutdown && request.generation == m_nextGeneration) {
-          afterApplyCallback = m_afterApplyCallback;
+        // A superseded generation reports nothing and leaves an owed palette change to the
+        // generation that replaced it.
+        if (!m_shutdown && request.generation == m_nextGeneration && m_afterApplyCallback) {
+          const bool paletteChanged = std::exchange(m_paletteChangedOwed, false);
+          afterApplyCallback = [callback = m_afterApplyCallback, mode = request.defaultMode, paletteChanged]() {
+            callback(mode, paletteChanged);
+          };
         }
       }
       if (afterApplyCallback) {

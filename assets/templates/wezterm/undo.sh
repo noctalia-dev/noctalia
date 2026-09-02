@@ -6,11 +6,6 @@ config_file="$config_dir/wezterm.lua"
 theme_file="$config_dir/colors/Noctalia.toml"
 changed=0
 
-if [ -e "$theme_file" ] || [ -L "$theme_file" ]; then
-    rm -f -- "$theme_file"
-    changed=1
-fi
-
 if [ -f "$config_file" ]; then
     tmp_file="$(mktemp "${config_file}.tmp.XXXXXX")"
     trap 'rm -f "$tmp_file"' EXIT
@@ -19,8 +14,13 @@ if [ -f "$config_file" ]; then
         cat "$tmp_file" >"$config_file"
         changed=1
     fi
-    # wezterm reloads on config mtime; only nudge it after a real change.
-    if [ "$changed" -eq 1 ]; then
-        touch "$config_file"
-    fi
+fi
+
+if [ -e "$theme_file" ] || [ -L "$theme_file" ]; then
+    rm -f -- "$theme_file"
+    changed=1
+fi
+
+if [ "$changed" -eq 1 ] && [ -f "$config_file" ]; then
+    touch "$config_file"
 fi

@@ -5,6 +5,7 @@
 #include "core/log.h"
 #include "core/random.h"
 #include "core/ui_phase.h"
+#include "cursor-shape-v1-client-protocol.h"
 #include "i18n/i18n.h"
 #include "render/core/renderer.h"
 #include "render/core/thumbnail_service.h"
@@ -719,6 +720,7 @@ void WallpaperPanel::create() {
           .columnGap = Style::spaceMd * scale,
           .rowGap = Style::spaceMd * scale,
           .overscanRows = 2,
+          .itemCursorShape = WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_POINTER,
           .adapter = m_adapter.get(),
           .flexGrow = 1.0F,
           .onSelectionChanged =

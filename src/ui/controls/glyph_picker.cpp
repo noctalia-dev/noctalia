@@ -1,5 +1,6 @@
 #include "ui/controls/glyph_picker.h"
 
+#include "cursor-shape-v1-client-protocol.h"
 #include "i18n/i18n.h"
 #include "render/text/glyph_registry.h"
 #include "ui/builders.h"
@@ -224,6 +225,7 @@ GlyphPicker::GlyphPicker(float chromeScale) : m_chromeScale(std::max(0.1F, chrom
           .columnGap = Style::spaceXs * m_chromeScale,
           .rowGap = Style::spaceXs * m_chromeScale,
           .overscanRows = 2,
+          .itemCursorShape = WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_POINTER,
           .adapter = m_adapter.get(),
           .flexGrow = 1.0F,
           .onSelectionChanged = [this](std::optional<std::size_t>) { applySelectionToButton(); },

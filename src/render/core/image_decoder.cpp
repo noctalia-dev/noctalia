@@ -13,6 +13,7 @@
 #include <utility>
 #include <vector>
 #include <webp/decode.h>
+#include <webp/demux.h>
 
 #define WUFFS_IMPLEMENTATION
 #include "wuffs-v0.4.c"
@@ -217,7 +218,48 @@ namespace {
     return decoded;
   }
 
+  // libwebp's still decoder rejects an animated bitstream outright, so animated cover art is
+  // shown as its first frame.
+  std::expected<DecodedRasterImage, std::string> decodeWebPFirstFrame(const std::uint8_t* data, std::size_t size) {
+    WebPAnimDecoderOptions options;
+    if (!WebPAnimDecoderOptionsInit(&options)) {
+      return std::unexpected("libwebp: failed to init animation decoder");
+    }
+    options.color_mode = MODE_RGBA;
+
+    const WebPData webpData{.bytes = data, .size = size};
+    WebPAnimDecoder* decoder = WebPAnimDecoderNew(&webpData, &options);
+    if (decoder == nullptr) {
+      return std::unexpected("libwebp: failed to open WebP animation");
+    }
+
+    WebPAnimInfo info;
+    std::uint8_t* frame = nullptr;
+    int timestamp = 0;
+    if (!WebPAnimDecoderGetInfo(decoder, &info) || !WebPAnimDecoderGetNext(decoder, &frame, &timestamp)) {
+      WebPAnimDecoderDelete(decoder);
+      return std::unexpected("libwebp: failed to decode first WebP animation frame");
+    }
+
+    // The frame buffer belongs to the decoder and holds one tightly packed RGBA canvas.
+    DecodedRasterImage decoded;
+    decoded.width = static_cast<int>(info.canvas_width);
+    decoded.height = static_cast<int>(info.canvas_height);
+    const std::size_t bytes = static_cast<std::size_t>(info.canvas_width) * info.canvas_height * 4;
+    decoded.pixels.assign(frame, frame + bytes);
+    WebPAnimDecoderDelete(decoder);
+    return decoded;
+  }
+
   std::expected<DecodedRasterImage, std::string> decodeWebP(const std::uint8_t* data, std::size_t size) {
+    WebPBitstreamFeatures features;
+    if (WebPGetFeatures(data, size, &features) != VP8_STATUS_OK) {
+      return std::unexpected("libwebp: failed to read WebP header");
+    }
+    if (features.has_animation) {
+      return decodeWebPFirstFrame(data, size);
+    }
+
     int width = 0, height = 0;
     std::uint8_t* rgba = WebPDecodeRGBA(data, size, &width, &height);
     if (rgba == nullptr) {
@@ -227,7 +269,7 @@ namespace {
     DecodedRasterImage decoded;
     decoded.width = width;
     decoded.height = height;
-    std::size_t bytes = static_cast<std::size_t>(width) * static_cast<std::size_t>(height) * 4;
+    const std::size_t bytes = static_cast<std::size_t>(width) * static_cast<std::size_t>(height) * 4;
     decoded.pixels.resize(bytes);
     std::memcpy(decoded.pixels.data(), rgba, bytes);
     WebPFree(rgba);

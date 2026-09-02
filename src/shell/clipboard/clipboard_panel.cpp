@@ -7,6 +7,7 @@
 #include "core/log.h"
 #include "core/process/process.h"
 #include "core/ui_phase.h"
+#include "cursor-shape-v1-client-protocol.h"
 #include "i18n/i18n.h"
 #include "render/core/async_texture_cache.h"
 #include "render/core/color.h"
@@ -673,6 +674,7 @@ void ClipboardPanel::create() {
           .columnGap = 0.0F,
           .rowGap = Style::spaceXs * scale,
           .overscanRows = kListOverscanRows,
+          .itemCursorShape = WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_POINTER,
           .scrollbarVisible = true,
           .adapter = m_listAdapter.get(),
           .flexGrow = 1.0F,

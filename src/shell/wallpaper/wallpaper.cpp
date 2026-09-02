@@ -814,14 +814,14 @@ void Wallpaper::syncInstances() {
     // Check if a monitor override now disables this output
     if (const auto* ovr = wallpaper::findWallpaperMonitorOverride(m_config->config().wallpaper, *output);
         ovr != nullptr && ovr->enabled && !*ovr->enabled) {
-      kLog.info("removing instance for {} — disabled by monitor override", output->connectorName);
+      kLog.info("removing instance for {}: disabled by monitor override", output->connectorName);
       releaseInstanceTextures(*inst);
       return true;
     }
 
     // An external wallpaper source (e.g. mpvpaper plugin) now owns this output
     if (m_externallyManagedOutputs.contains(output->connectorName)) {
-      kLog.info("removing instance for {} — managed by external source", output->connectorName);
+      kLog.info("removing instance for {}: managed by external source", output->connectorName);
       releaseInstanceTextures(*inst);
       return true;
     }
@@ -847,11 +847,11 @@ void Wallpaper::syncInstances() {
       enabled = *ovr->enabled;
     }
     if (!enabled) {
-      kLog.info("skipping {} ({}) — disabled by monitor override", output.connectorName, output.description);
+      kLog.info("skipping {} ({}): disabled by monitor override", output.connectorName, output.description);
       continue;
     }
     if (m_externallyManagedOutputs.contains(output.connectorName)) {
-      kLog.info("skipping {} ({}) — managed by external source", output.connectorName, output.description);
+      kLog.info("skipping {} ({}): managed by external source", output.connectorName, output.description);
       continue;
     }
 

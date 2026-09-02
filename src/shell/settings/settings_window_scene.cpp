@@ -46,6 +46,7 @@
 #include <chrono>
 #include <cmath>
 #include <cstdint>
+#include <format>
 #include <memory>
 #include <optional>
 #include <string>
@@ -61,6 +62,12 @@ namespace {
   constexpr auto kSearchDebounceInterval = std::chrono::milliseconds(120);
 
   bool useLightPalettePreview(ThemeMode mode) { return mode == ThemeMode::Light; }
+
+  // The IPC command set is closed (IpcService::bind takes a static cli::Command), so a missing key
+  // means en.json drifted from the schema; tr() surfaces that as !!key!! instead of hiding it.
+  std::string translatedIpcActionField(std::string_view command, std::string_view field) {
+    return i18n::tr(std::format("settings.widgets.actions.commands.{}.{}", command, field));
+  }
 
   ColorSwatchPreview palettePreviewFromMetadata(const noctalia::theme::AvailablePalette::PreviewMode& metadata) {
     ColorSwatchPreview preview;
@@ -847,9 +854,8 @@ std::vector<settings::GestureActionOption> SettingsWindow::gestureActionCatalog(
             .option =
                 settings::SelectOption{
                     .value = std::string(handler.command),
-                    // The verb is the label: it is what goes in the config and what errors name.
-                    .label = std::string(handler.command),
-                    .description = std::string(handler.description),
+                    .label = translatedIpcActionField(handler.command, "label"),
+                    .description = translatedIpcActionField(handler.command, "description"),
                 },
             .argsSpec = std::string(handler.args),
         }

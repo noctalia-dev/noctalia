@@ -2371,27 +2371,27 @@
           "label": "Vị trí"
         },
         "position-clipboard": {
-          "description": "Vị trí nổi của bảng nhớ tạm trên màn hình — Chế độ Theo thanh sẽ đặt nó gần thanh",
+          "description": "Vị trí nổi của bảng nhớ tạm trên màn hình; Chế độ Theo thanh sẽ đặt nó gần thanh",
           "label": "Vị trí"
         },
         "position-control-center": {
-          "description": "Vị trí nổi của Trung tâm điều khiển trên màn hình — Chế độ Theo thanh sẽ đặt nó gần thanh",
+          "description": "Vị trí nổi của Trung tâm điều khiển trên màn hình; Chế độ Theo thanh sẽ đặt nó gần thanh",
           "label": "Vị trí"
         },
         "position-launcher": {
-          "description": "Vị trí nổi của trình khởi chạy trên màn hình — Chế độ Theo thanh sẽ đặt nó gần thanh",
+          "description": "Vị trí nổi của trình khởi chạy trên màn hình; Chế độ Theo thanh sẽ đặt nó gần thanh",
           "label": "Vị trí"
         },
         "position-polkit": {
-          "description": "Vị trí nổi của hộp thoại polkit trên màn hình — Chế độ Theo thanh sẽ đặt nó gần thanh",
+          "description": "Vị trí nổi của hộp thoại polkit trên màn hình; Chế độ Theo thanh sẽ đặt nó gần thanh",
           "label": "Vị trí"
         },
         "position-session": {
-          "description": "Vị trí nổi của session menu trên màn hình — Tùy chọn Theo thanh sẽ giữ nó gần thanh",
+          "description": "Vị trí nổi của session menu trên màn hình; Tùy chọn Theo thanh sẽ giữ nó gần thanh",
           "label": "Vị trí"
         },
         "position-wallpaper": {
-          "description": "Vị trí nổi của trình chọn hình nền trên màn hình — Tùy chọn Theo thanh sẽ giữ nó gần thanh",
+          "description": "Vị trí nổi của trình chọn hình nền trên màn hình; Tùy chọn Theo thanh sẽ giữ nó gần thanh",
           "label": "Vị trí"
         },
         "shadow": {

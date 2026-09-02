@@ -175,6 +175,18 @@ void VirtualGridView::setOverscanRows(std::size_t rows) {
   markLayoutDirty();
 }
 
+void VirtualGridView::setItemCursorShape(std::uint32_t shape) {
+  if (m_itemCursorShape == shape) {
+    return;
+  }
+  m_itemCursorShape = shape;
+  for (InputArea* area : m_poolTooltipAreas) {
+    if (area != nullptr) {
+      area->setCursorShape(shape);
+    }
+  }
+}
+
 void VirtualGridView::scrollToIndex(std::size_t index) {
   m_pendingScrollToIndex = true;
   m_pendingScrollIndex = index;
@@ -349,9 +361,11 @@ void VirtualGridView::doLayout(Renderer& renderer) {
     m_slotBoundHovered.push_back(false);
     m_slotBoundOverlayHovered.push_back(false);
 
+    // Per-cell overlay: carries the item tooltip and the item cursor shape.
     auto tooltipArea = std::make_unique<InputArea>();
     tooltipArea->setVisible(false);
     tooltipArea->setAcceptedButtons(0);
+    tooltipArea->setCursorShape(m_itemCursorShape);
     tooltipArea->setOnEnter([this, slot](const InputArea::PointerData& data) {
       onPoolTooltipMotion(slot, data.localX, data.localY);
     });

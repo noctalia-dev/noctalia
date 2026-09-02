@@ -254,6 +254,13 @@ namespace {
 
 } // namespace
 
+std::optional<double> UPowerDeviceInfo::healthPercent() const {
+  if (energyFullDesign <= 0.0 || energyFull <= 0.0) {
+    return std::nullopt;
+  }
+  return std::clamp(energyFull / energyFullDesign * 100.0, 0.0, 100.0);
+}
+
 bool UPowerDeviceInfo::sameCatalogEntry(const UPowerDeviceInfo& other) const {
   return path == other.path
       && nativePath == other.nativePath

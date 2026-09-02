@@ -27,7 +27,7 @@ sanitize = get_option('b_sanitize') != 'none'
 
 # Hardened standard-library assertions in debug builds only. A std::clamp(v, lo, hi)
 # with hi < lo aborts here (distro packagers enable this in release, so users see
-# the same abort) — surfacing inverted-bound bugs loudly during development so they
+# the same abort), surfacing inverted-bound bugs loudly during development so they
 # can be routed through util::clampOrdered. Release stays unhardened on purpose: a
 # not-yet-converted raw std::clamp there should degrade to a wrong-but-non-fatal
 # value rather than abort a user's session (converted sites log and return lo via
@@ -195,8 +195,9 @@ if not cc.has_header('stb/stb_image_write.h')
   error('stb/stb_image_write.h not found')
 endif
 
-# ── System: libwebp (WebP decode and thumbnail encode) ───────────────────────
-libwebp_dep = dependency('libwebp', required: true)
+# ── System: libwebp (WebP decode and thumbnail encode; demux for animations) ─
+libwebp_dep       = dependency('libwebp', required: true)
+libwebpdemux_dep  = dependency('libwebpdemux', required: true)
 
 # ── System: libjxl (JPEG XL decode) ───────────────────────────────────────────
 libjxl_dep          = dependency('libjxl', required: true)
@@ -308,13 +309,13 @@ wayland_scanner    = find_program('wayland-scanner')
 wayland_protos_dir = wayland_protos_dep.get_variable('pkgdatadir')
 
 # Generates a (header, source) pair from a protocol XML path/target.
-# Returns [h_target, c_target] — add c_target to sources.
+# Returns [h_target, c_target]: add c_target to sources.
 # The c_target has an order-only dep on h_target so the header exists when
 # the generated .c is compiled (it does #include "foo-client-protocol.h").
 _protocol_sources = []
 _protocol_headers = []
 
-# Helper macro via foreach — each entry: [name, xml_input]
+# Helper macro via foreach; each entry: [name, xml_input]
 # xml_input can be a string (path) or a custom_target.
 
 foreach _p : [
@@ -1054,6 +1055,7 @@ _noctalia_system_dependencies = [
   tomlplusplus_dep,
   md4c_dep,
   libwebp_dep,
+  libwebpdemux_dep,
   libjxl_dep,
   libjxl_threads_dep,
   sndfile_dep,
@@ -1129,14 +1131,12 @@ if build_tests
     'app_identity',
     'audio_glyphs',
     'audio_route_selection',
+    'battery_health',
     'battery_hook_state',
     'button_layout',
     'cairo_text_renderer',
-    'calendar_cache_permissions',
-    'cli_help',
-    'cli_parse',
-    'cli_schema',
     'caldav_client',
+    'calendar_cache_permissions',
     'calendar_credential_store',
     'calendar_discovery_state',
     'calendar_reminder_monitor',
@@ -1144,6 +1144,9 @@ if build_tests
     'calendar_view_passed_event',
     'capsule_group_lane_override',
     'capsule_group_reconcile',
+    'cli_help',
+    'cli_parse',
+    'cli_schema',
     'clipboard_service',
     'clipboard_storage_permissions',
     'config_migration',
@@ -1157,12 +1160,14 @@ if build_tests
     'desktop_entry_launch',
     'desktop_entry_localization',
     'disk_mounts',
+    'dock_edge_overlap',
     'dock_pinned_apps',
     'event_link',
     'fcitx_status',
     'freedesktop_key_file',
     'google_client_calendar_list',
     'google_client_reminders',
+    'grid_item_cursor',
     'hook_manager',
     'hyprland_workspace_backend',
     'i18n_language_tag',
@@ -1172,34 +1177,35 @@ if build_tests
     'icon_resolver',
     'image_file_loader_data_uri',
     'image_source_log',
+    'inotify',
     'input_area',
     'input_dispatcher',
-    'input_readline_shortcuts',
     'input_password_mode',
-    'inotify',
+    'input_readline_shortcuts',
     'ipc_service',
     'jxl_decoder',
-    'keyboard_layout_label',
     'kde_color_scheme',
-    'log',
+    'keyboard_layout_label',
+    'lane_selection_token',
     'location_service',
+    'log',
     'math_provider',
     'monitor_selector',
     'network_manager_security',
+    'niri_workspace_backend',
     'notification_dnd',
     'notification_filter',
     'notification_history_dismiss',
     'notification_history_utf8',
     'notification_internal_history',
-    'niri_workspace_backend',
     'path_browse',
     'plugin_bindings',
     'plugin_catalog',
     'plugin_git_export',
     'plugin_i18n',
     'plugin_lifecycle',
-    'plugin_process',
     'plugin_manifest',
+    'plugin_process',
     'plugin_source_locks',
     'plugin_source_paths',
     'process',
@@ -1208,8 +1214,10 @@ if build_tests
     'security_primitives',
     'state_store',
     'string_utils',
+    'surface_blur_region',
     'system_monitor_service',
     'taskbar_widget',
+    'template_apply_notify',
     'template_hook_async',
     'template_hook_runner',
     'time_format',
@@ -1219,11 +1227,12 @@ if build_tests
     'upower_charge_limit',
     'upower_device_catalog',
     'virtual_grid_view_gesture',
+    'wallpaper_shuffle_state',
     'wayland_output_scale',
     'wayland_toplevels_identity',
+    'webp_decoder',
     'widget_action',
     'widget_definition',
-    'wallpaper_shuffle_state',
     'workspace_alert_service',
   ]
 

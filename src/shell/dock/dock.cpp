@@ -784,6 +784,7 @@ void Dock::createInstance(const WaylandOutput& output) {
   instance->outputName = output.name;
   instance->output = output.output;
   instance->scale = output.scale;
+  instance->fractionalScale = (output.configuredScaleNumerator % wayland::kScaleNumeratorBase) != 0;
   instance->outputLogicalX = output.logicalX;
   instance->outputLogicalY = output.logicalY;
   instance->outputLogicalWidth = output.effectiveLogicalWidth();
@@ -791,7 +792,7 @@ void Dock::createInstance(const WaylandOutput& output) {
 
   const auto& shadowConfig = m_config->config().shell.shadow;
   LayerSurfaceConfig lsCfg = shell::dock::makeLayerSurfaceConfig(
-      cfg, shadowConfig, cfg.pinned.size() + shell::dock::dockLauncherButtonCount(cfg)
+      cfg, shadowConfig, cfg.pinned.size() + shell::dock::dockLauncherButtonCount(cfg), instance->fractionalScale
   );
 
   instance->surface = std::make_unique<LayerSurface>(m_platform->wayland(), std::move(lsCfg));

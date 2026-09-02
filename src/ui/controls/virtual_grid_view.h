@@ -5,6 +5,7 @@
 #include "ui/controls/flex.h"
 
 #include <cstddef>
+#include <cstdint>
 #include <functional>
 #include <memory>
 #include <optional>
@@ -109,6 +110,8 @@ public:
   void setColumnGap(float gap);
   void setRowGap(float gap);
   void setOverscanRows(std::size_t rows);
+  // wp_cursor_shape value applied while the pointer is over a cell (0 = inherit).
+  void setItemCursorShape(std::uint32_t shape);
   // Content scale, used for the pointer travel threshold that separates a click
   // from a drag on an adapter-consumed press.
   void setScale(float scale) { m_scale = scale; }
@@ -171,6 +174,7 @@ private:
   float m_columnGap = 4.0F;
   float m_rowGap = 4.0F;
   std::size_t m_overscanRows = 2;
+  std::uint32_t m_itemCursorShape = 0;
   float m_scale = 1.0F;
 
   std::optional<std::size_t> m_selectedIndex;

@@ -54,7 +54,7 @@ Supported JSON fields:
 
 | Action | Command | Description |
 |--------|---------|-------------|
-| Clear clipboard history | <IpcCommand command="clipboard-clear" /> | Clear clipboard history without opening the panel. Pinned entries survive, so with nothing pinned this clears everything. Does not ask for confirmation. The live selection is untouched — pasting still works until something else is copied. |
+| Clear clipboard history | <IpcCommand command="clipboard-clear" /> | Clear clipboard history without opening the panel. Pinned entries survive, so with nothing pinned this clears everything. Does not ask for confirmation. The live selection is untouched; pasting still works until something else is copied. |
 | Copy text to clipboard | <IpcCommand command="clipboard-copy <text>" /> | Set the clipboard selection to `<text>`. Everything after the verb is the payload, so spaces and newlines are kept verbatim. Payloads are capped at 64 KiB by the IPC transport. |
 | Print clipboard text | <IpcCommand command="clipboard-text" /> | Print the most recent clipboard text on stdout with no trailing newline. Pinned entries and images are skipped, so this matches what pasting into a Noctalia input would insert. Prints nothing when the history holds no text. |
 

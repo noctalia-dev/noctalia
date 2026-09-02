@@ -103,6 +103,9 @@ to use.
 The repo also includes `lefthook.yml`. Run `lefthook install` to install the pre-commit hook; it runs `just format`
 before commits and refreshes the git index for tracked formatting changes.
 
+Do not use em dashes (—) or double hyphens (--) as sentence punctuation, in code, comments, documentation, or commit
+messages. Use a comma, colon, semicolon, or parentheses instead.
+
 ### Naming Conventions
 
 | | Convention | Example |

@@ -27,6 +27,8 @@ namespace shell::dock {
     std::uint32_t outputName = 0;
     wl_output* output = nullptr;
     std::int32_t scale = 1;
+    // Output scale is not an integer, so a flush dock has to overlap the screen edge.
+    bool fractionalScale = false;
     std::int32_t outputLogicalX = 0;
     std::int32_t outputLogicalY = 0;
     std::int32_t outputLogicalWidth = 0;

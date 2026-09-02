@@ -1,0 +1,576 @@
+{
+  "auth": {
+    "fingerprint": {
+      "disconnected": "指紋識別器已斷開連接",
+      "error": "指紋辨識錯誤",
+      "no-match": "指紋辨識不相符",
+      "not-centered": "請將手指放在感應區後重試",
+      "present": "正在辨識指紋...",
+      "ready": "請將手指放在指紋辨識器上",
+      "remove-and-retry": "請移開手指後再試一次",
+      "retry": "請重新掃描指紋",
+      "swipe-too-short": "移動距離過短，請再試一次",
+      "too-many-attempts": "指紋辨識已停用（辨識錯誤次數過多）"
+    },
+    "pam": {
+      "authentication-failed": "驗證身份失敗",
+      "start-failed": "PAM 啟動失敗",
+      "user-unavailable": "無法擷取目前用戶資料"
+    },
+    "polkit": {
+      "authenticate": "身份驗證",
+      "authenticating": "正在驗證身份...",
+      "default-message": "需要驗證身份",
+      "invalid-password": "密碼無效",
+      "password-placeholder": "密碼",
+      "title": "需要身分驗證"
+    }
+  },
+  "bar": {
+    "screenshot": {
+      "choose-display": "選擇顯示器",
+      "confirm-region": "{copy} 複製 · {save} 儲存 · Enter 或 Space 預設值 · {cancel} 取消 · 拖曳重新選擇",
+      "fullscreen": "全螢幕",
+      "overlay-alloc-failed": "無法顯示截圖疊加層 ( GPU 記憶體不足? )",
+      "region": "選擇區域"
+    },
+    "widgets": {
+      "active-window": {
+        "no-active-window": "無活動視窗"
+      },
+      "bluetooth": {
+        "connected": "已連接"
+      },
+      "brightness": {
+        "brightness": "亮度",
+        "display": "螢幕"
+      },
+      "lock-keys": {
+        "caps": "大寫鍵",
+        "caps-short": "C",
+        "num": "數字鍵",
+        "num-short": "N",
+        "scroll": "捲動",
+        "scroll-short": "S"
+      },
+      "media": {
+        "nothing-playing": "目前無播放內容",
+        "playing": "現正播放"
+      },
+      "network": {
+        "active": "活動",
+        "band": "頻段",
+        "connected": "已連結",
+        "connecting": "正在連結",
+        "download": "下載",
+        "interface": "介面",
+        "ip": "IP",
+        "network": "網路",
+        "networks": "網路",
+        "networks-count": "{count} 個網路",
+        "networks-count-plural": "{count} 個網路",
+        "no": "否",
+        "not-connected": "未連結",
+        "off": "關閉",
+        "on": "開啟",
+        "scanning": "正在掃描",
+        "signal": "訊號",
+        "upload": "上傳",
+        "vpn": "VPN",
+        "wan-ip": "WAN IP",
+        "wifi": "Wi-Fi",
+        "wired": "實體網路",
+        "yes": "是"
+      },
+      "privacy": {
+        "camera": "攝影機",
+        "microphone": "麥克風",
+        "screen-sharing": "螢幕分享"
+      },
+      "scripted": {
+        "reload-failed": "重新載入腳本失敗",
+        "reloaded": "已重新載入腳本"
+      },
+      "sysmon": {
+        "cpu": "CPU",
+        "cpu-freq": "CPU 頻率",
+        "cpu-temp": "CPU 溫度",
+        "disk": "磁碟",
+        "disk-free": "磁碟可用空間",
+        "disk-free-pct": "磁碟可用率 %",
+        "disk-used": "磁碟已使用空間",
+        "disk-used-pct": "磁碟使用率 %",
+        "download": "下載",
+        "gpu-temp": "GPU 溫度",
+        "gpu-usage": "GPU 使用率",
+        "gpu-vram": "GPU 記憶體",
+        "ram": "記憶體",
+        "swap": "Swap",
+        "system": "系統",
+        "upload": "上傳"
+      },
+      "volume": {
+        "device": "裝置",
+        "mic": "麥克風",
+        "volume": "音量"
+      },
+      "weather": {
+        "default": "氣象",
+        "error": "天氣資料錯誤",
+        "loading": "正在載入天氣資料...",
+        "no-location": "無當前位置資料",
+        "off": "天氣服務已關閉",
+        "tooltip": {
+          "condition": "天氣",
+          "high": "最高",
+          "humidity": "濕度",
+          "low": "最低",
+          "sunrise": "日出",
+          "sunset": "日落",
+          "temperature": "溫度",
+          "uv": "紫外線指數",
+          "wind": "風速"
+        }
+      }
+    }
+  },
+  "clipboard": {
+    "actions": {
+      "clear-all": "清除全部",
+      "delete-item": "刪除項目",
+      "keep-pinned": "保留釘選項目"
+    },
+    "confirm": {
+      "clear-desc": "選擇是否保留已釘選項目。",
+      "clear-desc-all-pinned": "所有項目均已釘選。可使用“全部清除”移除。",
+      "clear-desc-no-pinned": "從剪貼簿歷史紀錄中移除所有項目。",
+      "clear-title": "確認清除剪貼簿中歷史紀錄？",
+      "delete-desc": "從剪貼簿歷史紀錄中移除所選項目。",
+      "delete-title": "確認刪除剪貼簿項目？"
+    },
+    "empty": {
+      "history-message": "剪貼簿歷史紀錄中沒有項目。",
+      "history-title": "剪貼簿歷史紀錄為空",
+      "no-matches-message": "沒有符合當前篩選條件的項目。",
+      "no-matches-title": "沒有匹配的項目"
+    },
+    "entry": {
+      "image": "圖片",
+      "title": "剪貼簿項目"
+    },
+    "filter-placeholder": "歷史紀錄搜尋...",
+    "preview": {
+      "loading": "正在載入預覽..."
+    },
+    "title": "剪貼簿"
+  },
+  "common": {
+    "actions": {
+      "apply": "應用",
+      "cancel": "取消"
+    },
+    "states": {
+      "auto": "自動",
+      "custom": "自訂",
+      "off": "關閉"
+    }
+  },
+  "control-center": {
+    "audio": {
+      "application-volumes": "應用程式音量",
+      "choose-effects-profile": "選擇預設音效",
+      "default-device": "預設裝置",
+      "effects-profile": "音效",
+      "input-device-prefix": "輸入裝置",
+      "no-application-audio": "無應用程式音訊",
+      "no-application-audio-body": "沒有應用程式正在播放音訊。",
+      "no-input-devices": "無可輸入裝置",
+      "no-input-devices-body": "目前沒有可用的音訊輸入裝置。",
+      "no-input-selected": "未選擇輸入裝置",
+      "no-output-devices": "無輸出裝置",
+      "no-output-devices-body": "目前沒有可用的音效輸出裝置。",
+      "no-output-selected": "未選擇輸出裝置",
+      "output-device-prefix": "輸出裝置",
+      "unavailable-body": "PipeWire 程式未執行",
+      "unavailable-title": "音效不可用"
+    },
+    "bluetooth": {
+      "accept": "接受",
+      "address": "地址",
+      "auto-reconnect": "自動重新連接",
+      "bluetooth": "藍牙",
+      "enter-code": "輸入配對碼",
+      "no-devices": "尚未找到配對裝置。點擊開始掃描附近藍牙裝置。",
+      "off": "藍牙已關閉",
+      "pair-title": "配對 {device}",
+      "pairing-detail": {
+        "authorize": "是否接受外來的配對要求?",
+        "authorize-service": "是否允許訪問服務 {uuid} ?",
+        "confirm": "請確認配對碼與裝置上顯示的一致：",
+        "display-passkey": "請在裝置上輸入配對碼：",
+        "display-pin": "請在裝置上輸入 PIN 碼：",
+        "passkey": "請輸入裝置上顯示的配對碼：",
+        "pin-code": "請輸入裝置上顯示的 PIN 碼："
+      },
+      "reject": "拒絕",
+      "rfkill-blocked": "藍牙裝置已停用，請開啟裝置後再試一次。",
+      "sections": {
+        "available": "可用裝置",
+        "connected": "已連接",
+        "paired": "已配對"
+      },
+      "unavailable": "藍牙服務不可用",
+      "unknown-device": "未知裝置",
+      "visible": "可被附近裝置發現"
+    },
+    "calendar": {
+      "all-day": "全天",
+      "events": "事件",
+      "no-events": "無事件。",
+      "today": "今天",
+      "toggle-events-card": "切換事件卡片"
+    },
+    "display": {
+      "disabled": "已禁用",
+      "no-displays": "無可用顯示器",
+      "unknown-resolution": "未知分辨率"
+    },
+    "home": {
+      "avatar-error-title": "頭像更新失敗",
+      "media": {
+        "idle": "閒置",
+        "no-active-player": "暫無活動播放器",
+        "nothing-playing": "目前無播放內容",
+        "paused": "已暫停",
+        "playback-unavailable": "無法播放",
+        "playing": "現正播放",
+        "unavailable": "不可用",
+        "unknown-artist": "未知表演者",
+        "unknown-track": "未知曲目"
+      },
+      "select-avatar": "選擇頭像",
+      "unknown": "未知",
+      "uptime": "運作時間 – {uptime}",
+      "weather": {
+        "data-unavailable": "無天氣資料。",
+        "disabled": "天氣資料已停用。",
+        "fetching": "正在擷取天氣資料…"
+      }
+    },
+    "media": {
+      "active-player": "當前播放器",
+      "nothing-playing": "目前無播放內容",
+      "now-playing": "現正播放",
+      "start-playback": "在 MPRIS 中開始播放"
+    },
+    "network": {
+      "available": "可用",
+      "connect": "連結",
+      "current-connection": "已連線",
+      "external-ip": "WAN {ip}",
+      "no-networks": "沒有可用網路",
+      "not-connected": "未連結",
+      "password": "密碼",
+      "password-prompt": "請輸入密碼",
+      "password-prompt-for": "請輸入 {ssid} 的密碼",
+      "saved": "已儲存",
+      "unavailable-detail": "請安裝 NetworkManager、wpa_supplicant 或 iwd 來管理網路。",
+      "unavailable-title": "網路服務無法使用",
+      "vpns": "VPNs",
+      "wi-fi": "Wi-Fi",
+      "wifi": "Wi-Fi",
+      "wifi-off": "Wi-Fi 已關閉",
+      "wifi-on": "Wi-Fi 已開啟",
+      "wired-connection": "實體網路連結"
+    },
+    "notifications": {
+      "clear-all": "清除所有通知",
+      "dnd-off": "關閉勿擾模式",
+      "dnd-on": "開啟勿擾模式",
+      "empty-body": "最近的通知會顯示在這裡。",
+      "empty-title": "暫無通知",
+      "filter": {
+        "all": "全部",
+        "older": "先前",
+        "today": "今天",
+        "yesterday": "昨天"
+      },
+      "filter-empty-body": "沒有符合當前篩選條件的通知",
+      "filter-empty-title": "暫無內容",
+      "untitled": "無標題通知"
+    },
+    "power": {
+      "battery": "電池",
+      "design-capacity": "額定設計容量",
+      "health": "電池健康度",
+      "performance-inhibited": "效能模式不可用",
+      "peripherals": "已連接的裝置",
+      "power-profile": "電源配置",
+      "time-to-empty": "剩餘電力 {time}",
+      "time-to-full": "充飽所需時間 {time}",
+      "unknown-device": "未知裝置"
+    },
+    "screen-time": {
+      "back": "返回",
+      "hour-0": "12 AM",
+      "hour-12": "12 PM",
+      "hour-18": "6 PM",
+      "hour-6": "6 AM",
+      "most-used": "最常使用",
+      "range": {
+        "14-days": "14 天",
+        "3-days": "3 天",
+        "today": "今天"
+      },
+      "view-day": "查看當天詳情"
+    },
+    "shortcuts": {
+      "audio": "音效",
+      "bluetooth": "藍牙",
+      "caffeine": "保持喚醒",
+      "clipboard": "剪貼簿",
+      "dark-mode": {
+        "auto": "自動切換",
+        "dark": "深色模式",
+        "light": "淺色模式"
+      },
+      "keyboard-layout": "鍵盤佈局",
+      "media": "媒體",
+      "mic-mute": "麥克風",
+      "nightlight": "夜間模式",
+      "nightlight-states": {
+        "forced": "始終開啟",
+        "off": "夜間模式",
+        "scheduled-day": "已開啟",
+        "scheduled-night": "已開啟"
+      },
+      "notification": "勿擾模式",
+      "power-profile": "電源配置",
+      "screen-time": "螢幕時間",
+      "session": "會話",
+      "system": "系統",
+      "wallpaper": "桌布",
+      "weather": "天氣",
+      "wifi": "Wi-Fi"
+    },
+    "system": {
+      "labels": {
+        "load": "CPU 負載",
+        "ram": "記憶體",
+        "swap": "Swap"
+      },
+      "titles": {
+        "cpu": "CPU",
+        "gpu": "GPU",
+        "memory": "記憶體",
+        "network": "網路",
+        "resources": "系統資源",
+        "system": "系統配備"
+      },
+      "tooltips": {
+        "load": "1/5/15 分鐘內的平均負載"
+      },
+      "unknown": "未知",
+      "uptime-prefix": "運作時間 {uptime} · {osAge}"
+    },
+    "tabs": {
+      "audio": "音效",
+      "bluetooth": "藍牙",
+      "calendar": "行事曆",
+      "home": "概覽",
+      "media": "媒體",
+      "monitor": "螢幕",
+      "network": "網路",
+      "notifications": "通知",
+      "power": "電源",
+      "screen-time": "螢幕時間",
+      "system": "系統",
+      "weather": "氣象"
+    },
+    "weather": {
+      "daily": {
+        "tooltip": {
+          "condition": "天氣",
+          "high": "最高",
+          "low": "最低",
+          "sunrise": "日出",
+          "sunset": "日落"
+        }
+      },
+      "data-unavailable": "天氣資料無法使用",
+      "details": {
+        "elevation": "海拔",
+        "sunrise": "日出",
+        "sunset": "日落",
+        "temp-max": "最高氣溫",
+        "temp-min": "最低氣溫",
+        "timezone": "時區",
+        "uv-index": "紫外線指數",
+        "wind": "風速"
+      },
+      "disabled": "請在 config.toml 中啟用 [weather]",
+      "fetching": "正在擷取天氣資料...",
+      "forecast-placeholder": {
+        "day": "星期日",
+        "description": "天氣",
+        "temperature": "10 / 4°C"
+      },
+      "forecast-view": {
+        "daily": "每日",
+        "hourly": "每小時"
+      },
+      "hourly": {
+        "summary": "{condition} / 降雨機率 {precip}%",
+        "tooltip": {
+          "condition": "天氣",
+          "humidity": "濕度",
+          "rain": "降雨",
+          "wind": "風速"
+        }
+      },
+      "location-unavailable": "未設定當前位置",
+      "no-location-body": "請設定當前位置或改用自動定位。",
+      "no-location-title": "未設定當前位置",
+      "refreshing": "正在更新天氣…",
+      "waiting": "等待天氣資料"
+    }
+  },
+  "desktop-widgets": {
+    "editor": {
+      "actions": {
+        "add": "增加",
+        "done": "完成",
+        "flip-horizontal": "左右翻轉",
+        "flip-vertical": "上下翻轉",
+        "hide": "隱藏",
+        "settings": "設置",
+        "show": "顯示",
+        "stack-back": "置於底層",
+        "stack-front": "置於頂層",
+        "trash": "刪除"
+      },
+      "dialogs": {
+        "select-sticker-image": "選擇貼紙圖片"
+      },
+      "settings": {
+        "aspect-ratio": "長寬比",
+        "background": "背景",
+        "background-color": "背景顏色",
+        "background-opacity": "不透明度",
+        "background-padding": "內邊距",
+        "background-radius": "圓角",
+        "background-section": "背景",
+        "bands": "頻段",
+        "bloom-intensity": "泛光",
+        "center-password-text": "密碼置中",
+        "center-text": "文字置中",
+        "centered": "置中",
+        "change-image": "更改…",
+        "circle": "圓形",
+        "clock-style": "時鐘樣式",
+        "clock-style-analog": "類比",
+        "clock-style-digital": "數位",
+        "color": "顏色",
+        "color-1": "顏色 1",
+        "color-2": "顏色 2",
+        "color2": "顏色 2",
+        "command": "指令",
+        "custom-color": "自訂顏色",
+        "description": "描述",
+        "device": "裝置",
+        "display": "顯示器",
+        "display-gauge": "儀表",
+        "display-graph": "圖表",
+        "fade-when-idle": "閒置時淡出",
+        "fill-color": "填充顏色",
+        "font-family": "字體",
+        "font-family-default": "系統預設字體",
+        "forecast-days": "預報天數",
+        "format": "格式",
+        "gauge-layout": "儀表佈局",
+        "hide-when-no-media": "無媒體時隱藏",
+        "horizontal": "水平",
+        "image-path": "圖片",
+        "inner-diameter": "內徑",
+        "input-opacity": "輸入框不透明度",
+        "input-radius": "輸入框圓角",
+        "interface": "介面",
+        "label": "標籤",
+        "label-min-width": "最小標籤寬度",
+        "layout": "佈局",
+        "mirrored": "鏡像",
+        "network-speed-compact": "緊湊網路速度",
+        "network-speed-unit": "網路速度單位",
+        "network-speed-unit-auto": "自動",
+        "network-speed-unit-kilobytes": "kB/s",
+        "network-speed-unit-megabytes": "MB/s",
+        "opacity": "不透明度",
+        "primary-color": "主要顏色",
+        "reset-defaults": "回復預設值",
+        "reversed": "反轉",
+        "ring-opacity": "圓環不透明度",
+        "rotation-speed": "旋轉速度",
+        "secondary-color": "輔助色",
+        "sensitivity": "靈敏度",
+        "shadow": "陰影",
+        "show-caps-lock": "大寫鍵啟用提示",
+        "show-device": "顯示裝置",
+        "show-events": "顯示事件",
+        "show-forecast": "顯示天氣預報",
+        "show-keyboard-layout": "顯示鍵盤佈局",
+        "show-label": "顯示標籤",
+        "show-login-button": "顯示登入按鈕",
+        "show-media": "顯示媒體",
+        "show-password-hint": "顯示密碼提示",
+        "show-session-buttons": "顯示會話按鈕",
+        "show-unlock-hint": "顯示解鎖提示",
+        "show-vpn-label": "顯示 VPN 標籤",
+        "show-weather": "顯示天氣",
+        "show-week-numbers": "顯示星期幾",
+        "show-when-idle": "閒置時顯示",
+        "stat": "統計項",
+        "stat-cpu-freq": "CPU 頻率",
+        "stat-cpu-temp": "CPU 溫度",
+        "stat-cpu-usage": "CPU 使用率",
+        "stat-gpu-temp": "GPU 溫度",
+        "stat-gpu-usage": "GPU 使用率",
+        "stat-gpu-vram": "GPU 記憶體",
+        "stat-gpu-vram-used": "GPU 已使用記憶體",
+        "stat-net-rx": "下載",
+        "stat-net-tx": "上傳",
+        "stat-none": "無",
+        "stat-ram-pct": "記憶體 %",
+        "stat-swap-pct": "Swap %",
+        "stat2": "統計項 2",
+        "title": "標題",
+        "track-color": "軌道顏色",
+        "variant": "樣式",
+        "variant-default": "預設",
+        "vertical": "垂直",
+        "visualization-mode": "模式",
+        "visualization-mode-all": "全部",
+        "visualization-mode-bars": "條狀",
+        "visualization-mode-bars-rings": "條狀 + 環狀",
+        "visualization-mode-rings": "環形",
+        "visualization-mode-wave": "波浪",
+        "visualization-mode-wave-rings": "波浪 + 環狀",
+        "wave-thickness": "波浪厚度",
+        "widget-section": "小工具"
+      },
+      "state": {
+        "grid": "網格"
+      },
+      "title": "桌面小工具",
+      "title-lockscreen": "螢幕鎖定小工具",
+      "types": {
+        "audio-visualizer": "音訊視覺化效果",
+        "button": "按鈕",
+        "calendar": "行事曆",
+        "clock": "時鐘",
+        "fancy-audio-visualizer": "進階音訊視覺化效果",
+        "label": "標籤",
+        "login-box": "登入對話框"
+      }
+    }
+  }
+}

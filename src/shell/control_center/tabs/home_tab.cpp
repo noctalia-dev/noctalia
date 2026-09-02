@@ -423,24 +423,32 @@ std::unique_ptr<Flex> HomeTab::create() {
               .text = "...",
               .fontSize = Style::fontSizeBody * 0.95F * scale,
               .color = colorSpecFromRole(ColorRole::OnSurface),
+              .maxLines = 1,
+              .ellipsize = TextEllipsize::End,
           }),
           ui::label({
               .out = &m_mediaArtist,
               .text = i18n::tr("control-center.home.media.no-active-player"),
               .fontSize = Style::fontSizeCaption * scale,
               .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+              .maxLines = 1,
+              .ellipsize = TextEllipsize::End,
           }),
           ui::label({
               .out = &m_mediaStatus,
               .text = i18n::tr("control-center.home.media.idle"),
               .fontSize = Style::fontSizeCaption * scale,
               .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+              .maxLines = 1,
+              .ellipsize = TextEllipsize::End,
           }),
           ui::label({
               .out = &m_mediaProgress,
               .text = " ",
               .fontSize = Style::fontSizeCaption * scale,
               .color = colorSpecFromRole(ColorRole::Secondary),
+              .maxLines = 1,
+              .ellipsize = TextEllipsize::End,
               .visible = false,
           })
       )
@@ -798,14 +806,16 @@ void HomeTab::doLayout(Renderer& renderer, float contentWidth, float bodyHeight)
   // height, so this runs again after that final layout pass below.
   resizeMediaArtToCard();
 
-  // Labels auto-wrap to mediaText's assigned width via Flex stretch propagation.
-  for (Label* label : {m_mediaArtist, m_mediaStatus, m_mediaProgress}) {
+  // Keep the media card height stable: one ellipsized line each, capped to the
+  // text column width. Wrapping a long title used to grow this card and stretch
+  // the adjacent shortcut buttons (same bottom-row height).
+  const float mediaTextWrap = m_mediaText != nullptr ? innerWidth(m_mediaText) : 1.0F;
+  for (Label* label : {m_mediaTrack, m_mediaArtist, m_mediaStatus, m_mediaProgress}) {
     if (label != nullptr) {
+      label->setMaxWidth(mediaTextWrap);
       label->setMaxLines(1);
+      label->setEllipsize(TextEllipsize::End);
     }
-  }
-  if (m_mediaTrack != nullptr) {
-    m_mediaTrack->setMaxLines(2);
   }
 
   if (m_userCard != nullptr) {
@@ -877,9 +887,9 @@ void HomeTab::doLayout(Renderer& renderer, float contentWidth, float bodyHeight)
       const float dateH = std::max(0.0F, avail - mediaH);
 
       m_mediaCard->setMinHeight(mediaH);
-      m_mediaCard->setMaxHeight(0.0F);
+      m_mediaCard->setMaxHeight(mediaH);
       m_dateTimeCard->setMinHeight(dateH);
-      m_dateTimeCard->setMaxHeight(0.0F);
+      m_dateTimeCard->setMaxHeight(dateH);
     }
   }
 

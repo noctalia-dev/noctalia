@@ -113,7 +113,9 @@ private:
   void applyColors(const Color& bg, const Color& border, const Color& label);
 
   // Constrain the label to the button's max width (minus padding/glyph) and ellipsize on overflow.
-  void applyLabelMaxWidth();
+  // `honorAssignedBox` also caps against the box a parent assigned, which equal-width segmented
+  // buttons rely on; measuring must not, or the label reports the previous pass's width.
+  void applyLabelMaxWidth(bool honorAssignedBox);
 
   void ensureBadge();
 

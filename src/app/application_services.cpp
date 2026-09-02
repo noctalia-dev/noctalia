@@ -635,6 +635,15 @@ void Application::initStyleThemeAndWayland() {
     }
   });
 
+  // Runs once per applied generation: the gsettings color-scheme write has to land after the
+  // gtk-theme templates, and colors_changed only concerns a palette that actually changed.
+  m_templateApplyService.setAfterApplyCallback([this](std::string_view appliedMode, bool paletteChanged) {
+    syncGSettingsColorScheme(appliedMode);
+    if (paletteChanged) {
+      m_hookManager.fire(HookKind::ColorsChanged);
+    }
+  });
+
   m_themeService.setResolvedCallback([this, lastResolvedThemeMode = std::optional<std::string>{},
                                       lastGeneratedPalette = std::optional<noctalia::theme::GeneratedPalette>{},
                                       syncScriptApiWallpaperDirectory](
@@ -648,10 +657,7 @@ void Application::initStyleThemeAndWayland() {
     lastResolvedThemeMode = resolvedMode;
     const bool colorsChanged = !lastGeneratedPalette.has_value() || *lastGeneratedPalette != generated;
     lastGeneratedPalette = generated;
-    if (colorsChanged) {
-      m_templateApplyService.setAfterApplyCallback([this]() { m_hookManager.fire(HookKind::ColorsChanged); });
-    }
-    m_templateApplyService.apply(generated, mode);
+    m_templateApplyService.apply(generated, mode, /*force=*/false, /*paletteChanged=*/colorsChanged);
     if (previousMode.has_value() && *previousMode != resolvedMode) {
       m_hookManager.fire(
           HookKind::ThemeModeChanged,
@@ -660,7 +666,6 @@ void Application::initStyleThemeAndWayland() {
            {"NOCTALIA_THEME_MODE_CONFIGURED", configuredMode}}
       );
     }
-    syncGSettingsColorScheme(resolvedMode);
   });
   m_themeService.apply();
   syncGSettingsColorScheme(m_themeService.resolvedMode());

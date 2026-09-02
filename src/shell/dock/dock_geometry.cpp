@@ -11,6 +11,10 @@ namespace shell::dock {
 
     constexpr std::int32_t kCellPad = 6;
     constexpr std::int32_t kAutoHideTriggerPx = 2;
+    // A non-integer output scale can round the flush edge a device pixel short of the output and
+    // leave a visible gap. One logical pixel of overlap covers it. At integer scales the edge
+    // lands exactly, and the same overlap would only clip the panel's own bottom row.
+    constexpr std::int32_t kScreenEdgeOverlapPx = 1;
     constexpr float kAutoHideSlideExtraPx = 16.0F;
     // Keep in sync with dock_items instance-count badge geometry.
     constexpr float kBadgeSizeRatio = 0.30F;
@@ -23,6 +27,11 @@ namespace shell::dock {
         return 0;
       }
       return cfg.marginEdge;
+    }
+
+    [[nodiscard]] std::int32_t dockScreenEdgeOverlap(const DockConfig& cfg, bool fractionalScale) noexcept {
+      const bool flush = cfg.marginEdge <= 0 && dockAutoHideEdgeGutter(cfg) == 0;
+      return flush && fractionalScale ? kScreenEdgeOverlapPx : 0;
     }
 
     [[nodiscard]] float dockHoverZoomPeakScale(const DockConfig& cfg) noexcept {
@@ -174,8 +183,9 @@ namespace shell::dock {
 
   std::size_t dockLauncherButtonCount(const DockConfig& cfg) { return dockLauncherButtonCount(cfg.launcherPosition); }
 
-  DockSurfaceGeometry
-  computeSurfaceGeometry(const DockConfig& cfg, const ShellConfig::ShadowConfig& shadow, std::size_t itemCount) {
+  DockSurfaceGeometry computeSurfaceGeometry(
+      const DockConfig& cfg, const ShellConfig::ShadowConfig& shadow, std::size_t itemCount, bool fractionalScale
+  ) {
     const DockEdge edge = cfg.position;
     const bool vertical = isVerticalEdge(edge);
     const auto sb = shell::surface_shadow::bleed(cfg.shadow, shadow);
@@ -193,6 +203,7 @@ namespace shell::dock {
     const bool isRight = edge == DockEdge::Right;
     const std::int32_t mEdge = cfg.marginEdge;
     const int edgeGutter = dockAutoHideEdgeGutter(cfg);
+    const std::int32_t edgeOverlap = dockScreenEdgeOverlap(cfg, fractionalScale);
 
     DockSurfaceGeometry geometry;
     if (!vertical) {
@@ -203,7 +214,7 @@ namespace shell::dock {
         if (edgeGutter > 0) {
           geometry.surfaceH = static_cast<std::uint32_t>(sb.up + panelH + edgeGutter + zoomPad);
         } else {
-          geometry.marginBottom = std::max(0, mEdge - sb.down);
+          geometry.marginBottom = mEdge <= 0 ? -edgeOverlap : std::max(0, mEdge - sb.down);
           geometry.surfaceH = static_cast<std::uint32_t>(sb.up + panelH + std::min(mEdge, sb.down) + zoomPad);
         }
         geometry.exclusiveZone = cfg.reserveSpace ? (panelH + std::min(mEdge, sb.down)) : 0;
@@ -211,7 +222,7 @@ namespace shell::dock {
         if (edgeGutter > 0) {
           geometry.surfaceH = static_cast<std::uint32_t>(edgeBadgePad + sb.down + panelH + edgeGutter + zoomPad);
         } else {
-          geometry.marginTop = std::max(0, mEdge - sb.up);
+          geometry.marginTop = mEdge <= 0 ? -edgeOverlap : std::max(0, mEdge - sb.up);
           geometry.surfaceH =
               static_cast<std::uint32_t>(edgeBadgePad + std::min(mEdge, sb.up) + panelH + sb.down + zoomPad);
         }
@@ -227,7 +238,7 @@ namespace shell::dock {
       if (edgeGutter > 0) {
         geometry.surfaceW = static_cast<std::uint32_t>(sb.left + panelH + edgeGutter + zoomPad);
       } else {
-        geometry.marginRight = std::max(0, mEdge - sb.right);
+        geometry.marginRight = mEdge <= 0 ? -edgeOverlap : std::max(0, mEdge - sb.right);
         geometry.surfaceW = static_cast<std::uint32_t>(sb.left + panelH + std::min(mEdge, sb.right) + zoomPad);
       }
       geometry.exclusiveZone = cfg.reserveSpace ? (panelH + std::min(mEdge, sb.right)) : 0;
@@ -235,7 +246,7 @@ namespace shell::dock {
       if (edgeGutter > 0) {
         geometry.surfaceW = static_cast<std::uint32_t>(sb.right + panelH + edgeGutter + zoomPad);
       } else {
-        geometry.marginLeft = std::max(0, mEdge - sb.left);
+        geometry.marginLeft = mEdge <= 0 ? -edgeOverlap : std::max(0, mEdge - sb.left);
         geometry.surfaceW = static_cast<std::uint32_t>(std::min(mEdge, sb.left) + panelH + sb.right + zoomPad);
       }
       geometry.exclusiveZone = cfg.reserveSpace ? (std::min(mEdge, sb.left) + panelH) : 0;
@@ -243,9 +254,10 @@ namespace shell::dock {
     return geometry;
   }
 
-  LayerSurfaceConfig
-  makeLayerSurfaceConfig(const DockConfig& cfg, const ShellConfig::ShadowConfig& shadow, std::size_t itemCount) {
-    const auto geometry = computeSurfaceGeometry(cfg, shadow, itemCount);
+  LayerSurfaceConfig makeLayerSurfaceConfig(
+      const DockConfig& cfg, const ShellConfig::ShadowConfig& shadow, std::size_t itemCount, bool fractionalScale
+  ) {
+    const auto geometry = computeSurfaceGeometry(cfg, shadow, itemCount, fractionalScale);
     return LayerSurfaceConfig{
         .nameSpace = "noctalia-dock",
         .layer = layerShellLayerFromConfig(cfg.layer),
@@ -347,20 +359,25 @@ namespace shell::dock {
     return {-(contentRight + kAutoHideSlideExtraPx), 0.0F};
   }
 
-  std::vector<InputRect>
-  computeInputRegion(const DockConfig& cfg, const DockPanelGeometry& panel, int surfaceW, int surfaceH, bool hidden) {
+  std::vector<InputRect> computeInputRegion(
+      const DockConfig& cfg, const DockPanelGeometry& panel, int surfaceW, int surfaceH, bool hidden,
+      bool fractionalScale
+  ) {
     if (hidden) {
       const DockEdge edge = cfg.position;
+      // The part of the surface pushed past the output edge cannot be hovered, so the trigger
+      // strip grows by the overlap to keep its on-screen thickness.
+      const int trigger = kAutoHideTriggerPx + dockScreenEdgeOverlap(cfg, fractionalScale);
       if (edge == DockEdge::Bottom) {
-        return {InputRect{0, surfaceH - kAutoHideTriggerPx, surfaceW, kAutoHideTriggerPx}};
+        return {InputRect{0, surfaceH - trigger, surfaceW, trigger}};
       }
       if (edge == DockEdge::Left) {
-        return {InputRect{0, 0, kAutoHideTriggerPx, surfaceH}};
+        return {InputRect{0, 0, trigger, surfaceH}};
       }
       if (edge == DockEdge::Right) {
-        return {InputRect{surfaceW - kAutoHideTriggerPx, 0, kAutoHideTriggerPx, surfaceH}};
+        return {InputRect{surfaceW - trigger, 0, trigger, surfaceH}};
       }
-      return {InputRect{0, 0, surfaceW, kAutoHideTriggerPx}};
+      return {InputRect{0, 0, surfaceW, trigger}};
     }
 
     return {InputRect{

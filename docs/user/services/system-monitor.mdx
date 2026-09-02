@@ -114,7 +114,7 @@ On AMD, ROCm SMI is used instead of sysfs when the ROCm runtime is installed. On
 
 Intel is the odd one out: it publishes no device-wide busy counter, so usage is summed from the per-client statistics the kernel exposes for each process using the GPU. Three consequences follow. Work done by *other users'* processes is not counted, which is invisible on a normal single-user desktop. Usage needs two samples before it can report anything, so the first value appears one `gpu_poll_seconds` interval after startup. Noctalia currently counts Intel render and compute engines, but not media/video engines; hardware-accelerated video playback can therefore show `0%` while a per-engine monitor that includes video decoding reports activity. This difference does not mean the integrated GPU is unsupported.
 
-Intel VRAM is reported only for discrete cards such as Intel Arc, and **requires Linux 6.18 or newer** — earlier kernels release the used-memory figure only to privileged processes, so Noctalia reports VRAM as unavailable rather than showing a permanent zero. Integrated Intel GPUs have no dedicated video memory and never report VRAM.
+Intel VRAM is reported only for discrete cards such as Intel Arc, and **requires Linux 6.18 or newer**: earlier kernels release the used-memory figure only to privileged processes, so Noctalia reports VRAM as unavailable rather than showing a permanent zero. Integrated Intel GPUs have no dedicated video memory and never report VRAM.
 
 ## Value highlighting
 

@@ -47,6 +47,12 @@ Adjust these values to match your preferred appearance. The full list of options
 Use a `window_rule` to configure Noctalia's settings window as floating with a predictable size. Umbriel combines matching rules in file order, so add this to your existing rules or to a dedicated included file:
 
 ```toml
+# Blur all windows
+[[window_rule]]
+blur = true
+blur_optimized = true
+
+# Float Noctalia's settings window
 [[window_rule]]
 match.app_id = "^dev.noctalia.Noctalia$"
 default_floating = true

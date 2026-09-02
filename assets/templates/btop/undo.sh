@@ -6,11 +6,6 @@ config_file="$config_dir/btop.conf"
 theme_file="$config_dir/themes/noctalia.theme"
 changed=0
 
-if [ -e "$theme_file" ] || [ -L "$theme_file" ]; then
-    rm -f -- "$theme_file"
-    changed=1
-fi
-
 if [ -f "$config_file" ]; then
     tmp_file="$(mktemp "${config_file}.tmp.XXXXXX")"
     trap 'rm -f "$tmp_file"' EXIT
@@ -19,6 +14,11 @@ if [ -f "$config_file" ]; then
         cat "$tmp_file" >"$config_file"
         changed=1
     fi
+fi
+
+if [ -e "$theme_file" ] || [ -L "$theme_file" ]; then
+    rm -f -- "$theme_file"
+    changed=1
 fi
 
 # A reload signal delivered to a starting process kills it, so signal only when this
