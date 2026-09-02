@@ -1,5 +1,6 @@
 #include "calendar/vdir_reader.h"
 
+#include <atomic>
 #include <chrono>
 #include <filesystem>
 #include <fstream>
@@ -22,6 +23,15 @@ namespace {
     std::filesystem::create_directories(path.parent_path());
     std::ofstream out(path, std::ios::binary);
     out << content;
+  }
+
+  std::filesystem::path createUniqueTempDir(std::string_view prefix) {
+    static std::atomic<std::uint64_t> counter{0};
+    const auto now = std::chrono::steady_clock::now().time_since_epoch().count();
+    const auto path = std::filesystem::temp_directory_path()
+        / (std::string(prefix) + "_" + std::to_string(now) + "_" + std::to_string(++counter));
+    std::filesystem::create_directories(path);
+    return path;
   }
 
   constexpr std::string_view kSampleIcs1 = "BEGIN:VCALENDAR\r\n"
@@ -50,9 +60,7 @@ namespace {
                                            "END:VCALENDAR\r\n";
 
   bool testNestedDiscovery() {
-    const auto tempDir = std::filesystem::temp_directory_path() / "noctalia_vdir_test_nested";
-    std::filesystem::remove_all(tempDir);
-    std::filesystem::create_directories(tempDir);
+    const auto tempDir = createUniqueTempDir("noctalia_vdir_test_nested");
 
     // Create structure:
     // tempDir/
@@ -96,9 +104,8 @@ namespace {
       ok &= expect(col2.order == 1, "col2 read order file");
 
       // Test loading events from col2
-      calendar::ICalParseControl control;
       const auto now = system_clock::now();
-      auto events = calendar::loadVdirCollectionEvents(col2, now - hours{24 * 365}, now + hours{24 * 365}, control);
+      auto events = calendar::loadVdirCollectionEvents(col2, now - hours{24 * 365}, now + hours{24 * 365});
       ok &= expect(events.size() == 1, "col2 loaded 1 event");
       if (!events.empty()) {
         ok &= expect(events[0].id == "evt-2@example.com", "event id matches");
@@ -113,9 +120,7 @@ namespace {
   }
 
   bool testDirectCollectionDiscovery() {
-    const auto tempDir = std::filesystem::temp_directory_path() / "noctalia_vdir_test_direct";
-    std::filesystem::remove_all(tempDir);
-    std::filesystem::create_directories(tempDir);
+    const auto tempDir = createUniqueTempDir("noctalia_vdir_test_direct");
 
     writeFile(tempDir / "displayname", "Single Calendar\n");
     writeFile(tempDir / "color", "#FF5500\n");
@@ -135,12 +140,50 @@ namespace {
     return ok;
   }
 
+  bool testTrailingSlashRootDiscovery() {
+    const auto tempDir = createUniqueTempDir("noctalia_vdir_test_slash");
+    writeFile(tempDir / "subcal" / "event.ics", kSampleIcs1);
+
+    const std::filesystem::path rootWithSlash = tempDir.string() + "/";
+    auto collections = calendar::discoverVdirCollections(rootWithSlash);
+
+    bool ok = true;
+    ok &= expect(collections.size() == 1, "Expected 1 collection with trailing slash root");
+    if (!collections.empty()) {
+      ok &= expect(!collections[0].id.empty(), "Collection ID must not be empty with trailing slash root");
+      ok &= expect(collections[0].id == "subcal", "Collection ID matches subfolder name");
+    }
+
+    std::filesystem::remove_all(tempDir);
+    return ok;
+  }
+
+  bool testPerFileBudgetIsolation() {
+    const auto tempDir = createUniqueTempDir("noctalia_vdir_test_budget");
+    writeFile(tempDir / "cal" / "evt1.ics", kSampleIcs1);
+    writeFile(tempDir / "cal" / "evt2.ics", kSampleIcs2);
+
+    auto collections = calendar::discoverVdirCollections(tempDir);
+    bool ok = true;
+    ok &= expect(collections.size() == 1, "Discovered collection for budget test");
+    if (!collections.empty()) {
+      const auto now = system_clock::now();
+      auto events = calendar::loadVdirCollectionEvents(collections[0], now - hours{24 * 365}, now + hours{24 * 365});
+      ok &= expect(events.size() == 2, "Loaded all events with per-file budget isolation");
+    }
+
+    std::filesystem::remove_all(tempDir);
+    return ok;
+  }
+
 } // namespace
 
 int main() {
   bool ok = true;
   ok &= testNestedDiscovery();
   ok &= testDirectCollectionDiscovery();
+  ok &= testTrailingSlashRootDiscovery();
+  ok &= testPerFileBudgetIsolation();
 
   if (ok) {
     std::println("vdir_reader_test passed");

@@ -742,7 +742,7 @@ void CalendarService::fetchVdir(const CalendarConfig::Account& account) {
     if (!account.color.empty()) {
       col.colorHex = account.color;
     }
-    auto events = calendar::loadVdirCollectionEvents(col, windowStart, windowEnd, control);
+    auto events = calendar::loadVdirCollectionEvents(col, windowStart, windowEnd);
     allEvents.insert(allEvents.end(), std::make_move_iterator(events.begin()), std::make_move_iterator(events.end()));
   }
 

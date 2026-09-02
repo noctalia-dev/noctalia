@@ -30,7 +30,7 @@ namespace calendar {
   // Reads all *.ics files in the collection and parses them within the given time window.
   [[nodiscard]] std::vector<CalendarEvent> loadVdirCollectionEvents(
       const VdirCollection& collection, std::chrono::system_clock::time_point windowStart,
-      std::chrono::system_clock::time_point windowEnd, ICalParseControl& control
+      std::chrono::system_clock::time_point windowEnd, std::stop_token stopToken = {}
   );
 
 } // namespace calendar

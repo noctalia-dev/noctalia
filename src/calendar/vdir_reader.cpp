@@ -5,6 +5,8 @@
 #include "util/string_utils.h"
 
 #include <algorithm>
+#include <cctype>
+#include <charconv>
 #include <cstdlib>
 #include <fstream>
 #include <sstream>
@@ -83,22 +85,43 @@ namespace calendar {
       return path.extension() == ".ics";
     }
 
-    bool hasIcsFiles(const std::filesystem::path& dirPath) {
+    struct DirScanResult {
+      bool hasIcs = false;
+      std::filesystem::path firstIcsFile;
+    };
+
+    DirScanResult scanIcsDirectory(const std::filesystem::path& dirPath) {
+      DirScanResult res;
       std::error_code ec;
       if (!std::filesystem::is_directory(dirPath, ec)) {
-        return false;
+        return res;
       }
       for (const auto& entry : std::filesystem::directory_iterator(
                dirPath, std::filesystem::directory_options::skip_permission_denied, ec
            )) {
         if (entry.is_regular_file(ec) && isIcsFile(entry.path())) {
-          return true;
+          res.hasIcs = true;
+          if (res.firstIcsFile.empty()) {
+            res.firstIcsFile = entry.path();
+          }
         }
       }
-      return false;
+      return res;
     }
 
-    VdirCollection buildCollection(const std::filesystem::path& rootPath, const std::filesystem::path& dirPath) {
+    std::filesystem::path normalizeRootPath(const std::filesystem::path& path) {
+      auto norm = path.lexically_normal();
+      std::string s = norm.string();
+      while (s.size() > 1 && (s.back() == '/' || s.back() == '\\')) {
+        s.pop_back();
+      }
+      return std::filesystem::path(s);
+    }
+
+    VdirCollection buildCollection(
+        const std::filesystem::path& rootPath, const std::filesystem::path& dirPath,
+        const std::filesystem::path& firstIcsPath
+    ) {
       VdirCollection col;
       col.path = dirPath;
 
@@ -108,35 +131,32 @@ namespace calendar {
       } else {
         col.id = std::filesystem::relative(dirPath, rootPath, ec).generic_string();
       }
-      if (col.id.empty()) {
+      if (col.id.empty() || col.id == ".") {
         col.id = dirPath.filename().string();
+      }
+      if (col.id.empty()) {
+        col.id = "calendar";
       }
 
       // Read displayname file
       std::string displayName = readTrimmedFile(dirPath / "displayname");
-      if (displayName.empty()) {
+      if (displayName.empty() && !firstIcsPath.empty()) {
         // Try reading X-WR-CALNAME from the first .ics file
-        for (const auto& entry : std::filesystem::directory_iterator(
-                 dirPath, std::filesystem::directory_options::skip_permission_denied, ec
-             )) {
-          if (entry.is_regular_file(ec) && isIcsFile(entry.path())) {
-            std::ifstream icsFile(entry.path(), std::ios::binary);
-            if (icsFile) {
-              std::string header;
-              header.resize(4096);
-              icsFile.read(header.data(), static_cast<std::streamsize>(header.size()));
-              header.resize(static_cast<std::size_t>(icsFile.gcount()));
-              displayName = extractCalNameFromIcs(header);
-              if (!displayName.empty()) {
-                break;
-              }
-            }
-          }
+        std::ifstream icsFile(firstIcsPath, std::ios::binary);
+        if (icsFile) {
+          std::string header;
+          header.resize(4096);
+          icsFile.read(header.data(), static_cast<std::streamsize>(header.size()));
+          header.resize(static_cast<std::size_t>(icsFile.gcount()));
+          displayName = extractCalNameFromIcs(header);
         }
       }
 
       if (displayName.empty()) {
         col.name = dirPath.filename().string();
+        if (col.name.empty()) {
+          col.name = "Calendar";
+        }
       } else {
         col.name = std::move(displayName);
       }
@@ -150,10 +170,10 @@ namespace calendar {
       // Read order file
       std::string orderStr = readTrimmedFile(dirPath / "order");
       if (!orderStr.empty()) {
-        try {
-          col.order = std::stoi(orderStr);
-        } catch (...) {
-          col.order = 0;
+        int orderVal = 0;
+        const auto [ptr, parseEc] = std::from_chars(orderStr.data(), orderStr.data() + orderStr.size(), orderVal);
+        if (parseEc == std::errc{}) {
+          col.order = orderVal;
         }
       }
 
@@ -175,22 +195,23 @@ namespace calendar {
     std::vector<VdirCollection> collections;
     std::error_code ec;
 
-    if (!std::filesystem::exists(rootPath, ec) || !std::filesystem::is_directory(rootPath, ec)) {
+    const std::filesystem::path normRoot = normalizeRootPath(rootPath);
+    if (!std::filesystem::exists(normRoot, ec) || !std::filesystem::is_directory(normRoot, ec)) {
       return collections;
     }
 
     // Direct collection check
-    if (hasIcsFiles(rootPath)) {
-      collections.push_back(buildCollection(rootPath, rootPath));
+    const auto rootScan = scanIcsDirectory(normRoot);
+    if (rootScan.hasIcs) {
+      collections.push_back(buildCollection(normRoot, normRoot, rootScan.firstIcsFile));
       return collections;
     }
 
     auto opts = std::filesystem::directory_options::skip_permission_denied;
-    for (auto it = std::filesystem::recursive_directory_iterator(rootPath, opts, ec);
+    for (auto it = std::filesystem::recursive_directory_iterator(normRoot, opts, ec);
          it != std::filesystem::recursive_directory_iterator();) {
-      if (it.depth() > maxDepth) {
-        it.pop();
-        continue;
+      if (it.depth() >= maxDepth) {
+        it.disable_recursion_pending();
       }
 
       const auto& entry = *it;
@@ -202,8 +223,9 @@ namespace calendar {
           continue;
         }
 
-        if (hasIcsFiles(entry.path())) {
-          collections.push_back(buildCollection(rootPath, entry.path()));
+        const auto scan = scanIcsDirectory(entry.path());
+        if (scan.hasIcs) {
+          collections.push_back(buildCollection(normRoot, entry.path(), scan.firstIcsFile));
           it.disable_recursion_pending();
         }
       }
@@ -223,7 +245,7 @@ namespace calendar {
 
   std::vector<CalendarEvent> loadVdirCollectionEvents(
       const VdirCollection& collection, std::chrono::system_clock::time_point windowStart,
-      std::chrono::system_clock::time_point windowEnd, ICalParseControl& control
+      std::chrono::system_clock::time_point windowEnd, std::stop_token stopToken
   ) {
     std::vector<CalendarEvent> events;
     std::error_code ec;
@@ -235,6 +257,9 @@ namespace calendar {
     for (const auto& entry : std::filesystem::directory_iterator(
              collection.path, std::filesystem::directory_options::skip_permission_denied, ec
          )) {
+      if (stopToken.stop_requested()) {
+        return events;
+      }
       if (!entry.is_regular_file(ec) || !isIcsFile(entry.path())) {
         continue;
       }
@@ -250,7 +275,14 @@ namespace calendar {
         continue;
       }
 
-      auto result = parseICalEvents(content, windowStart, windowEnd, control);
+      ICalParseControl fileControl{.stopToken = stopToken};
+      auto result = parseICalEvents(content, windowStart, windowEnd, fileControl);
+      if (result.status == ICalParseStatus::WorkBudgetExceeded) {
+        kLog.warn("iCalendar recurrence expansion exceeded the work limit for {}", entry.path().string());
+      } else if (result.status == ICalParseStatus::InvalidCalendar) {
+        kLog.warn("The file {} contains an invalid ICS calendar", entry.path().string());
+      }
+
       for (auto& ev : result.events) {
         if (ev.calendarName.empty()) {
           ev.calendarName = collection.name;
