@@ -34,6 +34,8 @@
 
 #include <algorithm>
 #include <cmath>
+#include <deque>
+#include <limits>
 #include <linux/input-event-codes.h>
 #include <memory>
 #include <unordered_map>
@@ -225,13 +227,11 @@ namespace {
   }
 
   [[nodiscard]] std::string currentFocusedWindowKey(const CompositorPlatform& platform) {
-    if (const auto focusedId = platform.focusedCompositorWindowId(); focusedId.has_value() && !focusedId->empty()) {
-      return canonicalWindowId(*focusedId);
+    const auto focusedId = platform.focusedCompositorWindowId();
+    if (!focusedId.has_value()) {
+      return {};
     }
-    if (const auto active = platform.activeToplevel(); active.has_value() && active->handle != nullptr) {
-      return "handle:" + std::to_string(reinterpret_cast<std::uintptr_t>(active->handle));
-    }
-    return {};
+    return canonicalWindowId(*focusedId);
   }
 
   [[nodiscard]] std::uintptr_t resolveCloseHandle(
@@ -284,7 +284,7 @@ namespace {
     std::int32_t sortX = 0;
     std::int32_t sortY = 0;
     std::uint64_t toplevelOrder = 0;
-    // Initialize to max so non-MRU items gracefully fall to the back
+    // Windows with no MRU rank sort after every ranked window.
     std::size_t mruIndex = std::numeric_limits<std::size_t>::max();
   };
 
@@ -339,10 +339,29 @@ namespace {
     }
   }
 
+  // Identity keys of every window the switcher can list right now. Compositors reuse
+  // window ids (Hyprland reuses addresses), so MRU ranks must expire with the window.
+  [[nodiscard]] std::unordered_set<std::string> liveWindowKeys(const CompositorPlatform& platform) {
+    std::unordered_set<std::string> keys;
+    keys.reserve(32);
+    for (const auto& assignment : platform.workspaceWindowAssignments()) {
+      if (std::string key = canonicalWindowId(assignment.windowId); !key.empty()) {
+        keys.insert(std::move(key));
+      }
+    }
+
+    std::unordered_map<std::string, ToplevelInfo> liveToplevelById;
+    indexLiveToplevelsByWindowId(platform, liveToplevelById);
+    for (const auto& live : liveToplevelById) {
+      keys.insert(live.first);
+    }
+    return keys;
+  }
+
   void buildWindowEntries(
       const CompositorPlatform& platform, IconResolver& iconResolver, int iconSize,
-      std::vector<WindowSwitcherEntry>& out, const std::optional<std::string>& focusedId, bool useMru = false,
-      const std::deque<std::string>& mruKeys = {}
+      std::vector<WindowSwitcherEntry>& out, const std::optional<std::string>& focusedId,
+      const std::deque<std::string>* mruKeys
   ) {
     std::unordered_map<std::string, WorkspaceWindowAssignment> assignmentById;
     assignmentById.reserve(32);
@@ -364,11 +383,12 @@ namespace {
     std::vector<WindowSwitcherCandidate> candidates;
     candidates.reserve(assignmentById.size() + liveToplevelById.size());
 
+    // Empty while MRU ordering is off, which leaves every candidate at rank max.
     std::unordered_map<std::string_view, std::size_t> mruRanks;
-    if (useMru) {
-      mruRanks.reserve(mruKeys.size());
-      for (std::size_t i = 0; i < mruKeys.size(); ++i) {
-        mruRanks.try_emplace(mruKeys[i], i);
+    if (mruKeys != nullptr) {
+      mruRanks.reserve(mruKeys->size());
+      for (std::size_t i = 0; i < mruKeys->size(); ++i) {
+        mruRanks.try_emplace((*mruKeys)[i], i);
       }
     }
 
@@ -377,12 +397,8 @@ namespace {
         return;
       }
       seenKeys.insert(key);
-
-      if (useMru) {
-        const std::string idKey = identityKeyForEntry(candidate.entry);
-        if (auto it = mruRanks.find(idKey); it != mruRanks.end()) {
-          candidate.mruIndex = it->second;
-        }
+      if (const auto rank = mruRanks.find(key); rank != mruRanks.end()) {
+        candidate.mruIndex = rank->second;
       }
       candidates.push_back(std::move(candidate));
     };
@@ -419,19 +435,6 @@ namespace {
       addCandidate(std::move(candidate), key);
     }
 
-    std::optional<std::string> focusedKey;
-    if (focusedId.has_value()) {
-      focusedKey = canonicalWindowId(*focusedId);
-      if (focusedKey->empty()) {
-        focusedKey = *focusedId;
-      }
-    }
-    if (!focusedKey.has_value()) {
-      if (const auto active = platform.activeToplevel(); active.has_value() && active->handle != nullptr) {
-        focusedKey = "handle:" + std::to_string(reinterpret_cast<std::uintptr_t>(active->handle));
-      }
-    }
-
     std::ranges::stable_sort(candidates, [](const WindowSwitcherCandidate& a, const WindowSwitcherCandidate& b) {
       if (a.mruIndex != b.mruIndex) {
         return a.mruIndex < b.mruIndex;
@@ -455,6 +458,14 @@ namespace {
 
     out.clear();
     out.reserve(candidates.size());
+
+    std::optional<std::string> focusedKey;
+    if (focusedId.has_value()) {
+      focusedKey = canonicalWindowId(*focusedId);
+      if (focusedKey->empty()) {
+        focusedKey = *focusedId;
+      }
+    }
 
     if (focusedKey.has_value()) {
       for (auto it = candidates.begin(); it != candidates.end(); ++it) {
@@ -613,27 +624,30 @@ void WindowSwitcher::onOutputChange() {
   }
 }
 
+bool WindowSwitcher::mruEnabled() const { return m_config != nullptr && m_config->config().shell.windowSwitcher.mru; }
+
 void WindowSwitcher::recordFocusedWindow() {
-  if (m_platform == nullptr) {
+  if (m_platform == nullptr || !mruEnabled()) {
     return;
   }
-  const bool useMru = (m_config != nullptr) ? m_config->config().shell.windowSwitcher.mru : false;
-  if (useMru) {
-    promoteMruKey(currentFocusedWindowKey(*m_platform));
-  }
+  promoteMruKey(currentFocusedWindowKey(*m_platform));
 }
 
 void WindowSwitcher::promoteMruKey(const std::string& key) {
-  if (key.empty()) {
+  if (key.empty() || m_platform == nullptr) {
     return;
   }
+
+  const std::unordered_set<std::string> live = liveWindowKeys(*m_platform);
+  std::erase_if(m_mruKeys, [&](const std::string& existing) { return existing != key && !live.contains(existing); });
+
   auto it = std::ranges::find(m_mruKeys, key);
-  if (it != m_mruKeys.end()) {
-    if (it != m_mruKeys.begin()) {
-      std::rotate(m_mruKeys.begin(), it, it + 1);
-    }
-  } else {
+  if (it == m_mruKeys.end()) {
     m_mruKeys.insert(m_mruKeys.begin(), key);
+    return;
+  }
+  if (it != m_mruKeys.begin()) {
+    std::rotate(m_mruKeys.begin(), it, it + 1);
   }
 }
 
@@ -704,25 +718,12 @@ void WindowSwitcher::refreshWindows() {
     }
   }
 
-  const bool useMru = (m_config != nullptr) ? m_config->config().shell.windowSwitcher.mru : false;
-
   IconResolver iconResolver;
   const int iconSize = 96;
   buildWindowEntries(
-      *m_platform, iconResolver, iconSize, m_windows, m_platform->focusedCompositorWindowId(), useMru, m_mruKeys
+      *m_platform, iconResolver, iconSize, m_windows, m_platform->focusedCompositorWindowId(),
+      mruEnabled() ? &m_mruKeys : nullptr
   );
-
-  if (useMru) {
-    std::unordered_set<std::string> currentKeys;
-    currentKeys.reserve(m_windows.size());
-    for (const auto& entry : m_windows) {
-      const std::string k = identityKeyForEntry(entry);
-      if (!k.empty()) {
-        currentKeys.insert(k);
-      }
-    }
-    std::erase_if(m_mruKeys, [&](const std::string& k) { return !currentKeys.contains(k); });
-  }
 
   if (selectedKey.has_value()) {
     for (std::size_t i = 0; i < m_windows.size(); ++i) {
@@ -785,7 +786,9 @@ void WindowSwitcher::activateSelected() {
     return;
   }
   const WindowSwitcherEntry entry = m_windows[m_selectedIndex];
-  promoteMruKey(identityKeyForEntry(entry));
+  if (mruEnabled()) {
+    promoteMruKey(identityKeyForEntry(entry));
+  }
   // Hyprland ignores zwlr_foreign_toplevel_handle_v1.activate while an exclusive
   // keyboard layer-shell surface is mapped (hyprwm/Hyprland#4829). Snapshot the
   // selection, tear the overlay down, then activate on the next loop tick.

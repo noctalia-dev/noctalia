@@ -56,6 +56,7 @@ private:
   void buildScene(Instance& instance, std::uint32_t width, std::uint32_t height);
   void positionGrid(Instance& instance, float screenW, float screenH);
   void syncGridSelection();
+  [[nodiscard]] bool mruEnabled() const;
   void recordFocusedWindow();
   void promoteMruKey(const std::string& key);
 
