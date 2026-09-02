@@ -762,6 +762,11 @@ int main() {
     );
     scripting::PluginManager manager(config);
     manager.refresh();
+    // The plugin store reads install state straight off disk, so a plugin whose files
+    // never landed must not report as materialized.
+    ok = expect(manager.isMaterialized("test/plugin"), "path-source plugin on disk should report materialized") && ok;
+    ok = expect(!manager.isMaterialized("test/absent"), "missing plugin should not report materialized") && ok;
+    ok = expect(!manager.isMaterialized("not-an-id"), "invalid plugin id should not report materialized") && ok;
     config.addReloadCallback([&]() { manager.refresh(); });
     scripting::PluginServiceHost host(api, nullptr, nullptr, nullptr);
     host.start(config.config().plugins.pluginSettings);

@@ -77,7 +77,6 @@ namespace settings {
       void setContent(PluginStoreContent* content) { m_content = content; }
       void setFilteredIndices(const std::vector<std::size_t>* indices) { m_indices = indices; }
       void setCatalog(const std::vector<StoreCatalogEntry>* catalog) { m_catalog = catalog; }
-      void setOnDiskIds(const std::unordered_set<std::string>* ids) { m_onDiskIds = ids; }
       void setCallbacks(const PluginStoreCallbacks* callbacks) { m_callbacks = callbacks; }
       void setThumbnailPaths(const std::unordered_map<std::string, std::string>* paths) { m_thumbnailPaths = paths; }
       void setRenderer(Renderer* r) { m_renderer = r; }
@@ -93,7 +92,8 @@ namespace settings {
         }
         auto* t = static_cast<PluginStoreTile*>(&tile);
         const auto& storeEntry = (*m_catalog)[(*m_indices)[index]];
-        const bool onDisk = m_onDiskIds != nullptr && m_onDiskIds->contains(storeEntry.entry.id);
+        const bool onDisk =
+            m_callbacks != nullptr && m_callbacks->isInstalled && m_callbacks->isInstalled(storeEntry.entry.id);
         std::string thumbPath;
         if (m_thumbnailPaths != nullptr) {
           auto it = m_thumbnailPaths->find(storeEntry.entry.id);
@@ -115,7 +115,6 @@ namespace settings {
       PluginStoreContent* m_content = nullptr;
       const std::vector<std::size_t>* m_indices = nullptr;
       const std::vector<StoreCatalogEntry>* m_catalog = nullptr;
-      const std::unordered_set<std::string>* m_onDiskIds = nullptr;
       const PluginStoreCallbacks* m_callbacks = nullptr;
       const std::unordered_map<std::string, std::string>* m_thumbnailPaths = nullptr;
       Renderer* m_renderer = nullptr;
@@ -125,11 +124,11 @@ namespace settings {
   } // namespace
 
   PluginStoreContent::PluginStoreContent(
-      std::vector<StoreCatalogEntry> catalog, ConfigService* config, std::unordered_set<std::string> onDiskIds,
-      PluginStoreCallbacks callbacks, scripting::PluginFileCache* fileCache, ScrollViewState* scrollState
+      std::vector<StoreCatalogEntry> catalog, ConfigService* config, PluginStoreCallbacks callbacks,
+      scripting::PluginFileCache* fileCache, ScrollViewState* scrollState
   )
-      : m_catalog(std::move(catalog)), m_config(config), m_onDiskIds(std::move(onDiskIds)),
-        m_callbacks(std::move(callbacks)), m_fileCache(fileCache), m_scrollState(scrollState) {
+      : m_catalog(std::move(catalog)), m_config(config), m_callbacks(std::move(callbacks)), m_fileCache(fileCache),
+        m_scrollState(scrollState) {
     if (m_config != nullptr) {
       if (const std::optional<std::string> sort = m_config->stateString("plugin_store", "sort")) {
         m_sortMode = sortModeFromState(*sort);
@@ -411,6 +410,7 @@ namespace settings {
 
     body.addChild(
         ui::input({
+            .value = m_searchQuery,
             .placeholder = i18n::tr("settings.plugins.store.search-placeholder"),
             .fontSize = Style::fontSizeBody * scale,
             .onChange = [this](const std::string& text) {
@@ -566,7 +566,6 @@ namespace settings {
     adapterPtr->setContent(this);
     adapterPtr->setFilteredIndices(&m_filteredIndices);
     adapterPtr->setCatalog(&m_catalog);
-    adapterPtr->setOnDiskIds(&m_onDiskIds);
     adapterPtr->setCallbacks(&m_callbacks);
     adapterPtr->setThumbnailPaths(&m_thumbnailPaths);
     adapterPtr->setRenderer(&renderer);
@@ -618,7 +617,7 @@ namespace settings {
     const auto& storeEntry = m_catalog[m_filteredIndices[*m_detailIndex]];
     const auto& entry = storeEntry.entry;
     const float scale = m_callbacks.scale;
-    const bool onDisk = m_onDiskIds.contains(entry.id);
+    const bool onDisk = m_callbacks.isInstalled && m_callbacks.isInstalled(entry.id);
     const bool enabling = m_callbacks.isEnabling && m_callbacks.isEnabling(entry.id);
 
     // The sheet hosts the store without an outer ScrollView, so the detail view scrolls its own
@@ -831,17 +830,28 @@ namespace settings {
               .text = i18n::tr("settings.plugins.store.add"),
               .fontSize = Style::fontSizeCaption * scale,
               .variant = ButtonVariant::Primary,
-              .onClick = [this, id = entry.id]() { installFromStore(id); },
+              .onClick = [this, id = entry.id]() {
+                if (m_callbacks.setEnabled) {
+                  m_callbacks.setEnabled(id, true);
+                }
+              },
           })
       );
     } else {
       info->addChild(
-          ui::button({
-              .glyph = "check",
-              .glyphSize = Style::fontSizeCaption * scale,
-              .enabled = false,
-              .variant = ButtonVariant::Default,
-          })
+          ui::row(
+              {.align = FlexAlign::Center, .gap = Style::spaceXs * scale},
+              ui::glyph({
+                  .glyph = "check",
+                  .glyphSize = Style::fontSizeCaption * scale,
+                  .color = colorSpecFromRole(ColorRole::Primary),
+              }),
+              ui::label({
+                  .text = i18n::tr("settings.plugins.store.installed"),
+                  .fontSize = Style::fontSizeCaption * scale,
+                  .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+              })
+          )
       );
     }
     header->addChild(std::move(info));
@@ -973,7 +983,7 @@ namespace settings {
     }
     const auto& storeEntry = m_catalog[m_filteredIndices[*m_detailIndex]];
     const auto& entry = storeEntry.entry;
-    if (!entry.compatible || m_onDiskIds.contains(entry.id)) {
+    if (!entry.compatible || (m_callbacks.isInstalled && m_callbacks.isInstalled(entry.id))) {
       return false;
     }
     if (m_callbacks.isEnabling && m_callbacks.isEnabling(entry.id)) {
@@ -982,16 +992,8 @@ namespace settings {
     if (!m_callbacks.setEnabled) {
       return false;
     }
-    installFromStore(entry.id);
+    m_callbacks.setEnabled(entry.id, true);
     return true;
-  }
-
-  void PluginStoreContent::installFromStore(const std::string& id) {
-    // Installed immediately, a failed export self-heals on store reopen.
-    m_onDiskIds.insert(id);
-    if (m_callbacks.setEnabled) {
-      m_callbacks.setEnabled(id, true);
-    }
   }
 
   bool PluginStoreContent::handleKeyEvent(
@@ -1050,13 +1052,6 @@ namespace settings {
       return activateSelection();
     }
     return false;
-  }
-
-  void PluginStoreContent::updateOnDiskIds(std::unordered_set<std::string> ids) {
-    m_onDiskIds = std::move(ids);
-    if (m_grid != nullptr && !isDetailView()) {
-      m_grid->notifyDataChanged();
-    }
   }
 
   void

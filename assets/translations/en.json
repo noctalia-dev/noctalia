@@ -1561,6 +1561,7 @@
         "held-back-hint": "Installs v{version} for plugin API {resolved}. The newest v{latest} needs plugin API {latestRequired}; this Noctalia supports up to {current}.",
         "incompatible": "Incompatible",
         "incompatible-hint": "Needs plugin API {required}; this Noctalia supports {oldest}–{current}.",
+        "installed": "Installed",
         "loading": "Loading catalog…",
         "no-readme": "No description available.",
         "open-page": "Open plugin page on noctalia.dev",
