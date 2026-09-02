@@ -455,6 +455,7 @@ void WallpaperPanel::create() {
           .glyph = "arrow-big-up",
           .glyphSize = Style::fontSizeBody * scale,
           .variant = ButtonVariant::Secondary,
+          .tooltip = i18n::tr("wallpaper.panel.navigate-up"),
           .minWidth = Style::controlHeightSm * scale,
           .minHeight = Style::controlHeightSm * scale,
           .padding = Style::spaceXs * scale,
@@ -521,6 +522,7 @@ void WallpaperPanel::create() {
           .glyph = "color-picker",
           .glyphSize = Style::fontSizeBody * scale,
           .variant = ButtonVariant::Default,
+          .tooltip = i18n::tr("wallpaper.panel.choose-color"),
           .minWidth = Style::controlHeightSm * scale,
           .minHeight = Style::controlHeightSm * scale,
           .padding = Style::spaceXs * scale,
@@ -535,6 +537,7 @@ void WallpaperPanel::create() {
           .glyph = std::string(sortModeGlyph(m_sortMode)),
           .glyphSize = Style::fontSizeBody * scale,
           .variant = ButtonVariant::Default,
+          .tooltip = i18n::tr(sortModeTooltipKey(m_sortMode)),
           .minWidth = Style::controlHeightSm * scale,
           .minHeight = Style::controlHeightSm * scale,
           .padding = Style::spaceXs * scale,
@@ -549,6 +552,7 @@ void WallpaperPanel::create() {
           .glyph = "refresh",
           .glyphSize = Style::fontSizeBody * scale,
           .variant = ButtonVariant::Default,
+          .tooltip = i18n::tr("wallpaper.panel.refresh"),
           .minWidth = Style::controlHeightSm * scale,
           .minHeight = Style::controlHeightSm * scale,
           .padding = Style::spaceXs * scale,
@@ -572,6 +576,7 @@ void WallpaperPanel::create() {
           .out = &m_closeButton,
           .glyph = "close",
           .glyphSize = Style::fontSizeBody * scale,
+          .tooltip = i18n::tr("wallpaper.panel.close"),
           .minWidth = Style::controlHeightSm * scale,
           .minHeight = Style::controlHeightSm * scale,
           .padding = Style::spaceXs * scale,
@@ -670,6 +675,7 @@ void WallpaperPanel::create() {
           .glyph = "star",
           .glyphSize = Style::fontSizeBody * scale,
           .variant = ButtonVariant::Default,
+          .tooltip = i18n::tr("wallpaper.panel.favorite-current"),
           .minWidth = Style::controlHeightSm * scale,
           .minHeight = Style::controlHeightSm * scale,
           .padding = Style::spaceXs * scale,
@@ -677,9 +683,6 @@ void WallpaperPanel::create() {
           .onClick = [this]() { toggleFavoriteForPath(currentWallpaperPathForSelection()); },
       })
   );
-  if (m_favoriteCurrentButton != nullptr) {
-    m_favoriteCurrentButton->setTooltip(i18n::tr("wallpaper.panel.favorite-current"));
-  }
 
   favoritesOptions->addChild(ui::spacer());
 
@@ -1107,8 +1110,12 @@ void WallpaperPanel::syncBrowseChrome() {
   }
   if (m_favoriteCurrentButton != nullptr && m_config != nullptr) {
     const std::string current = currentWallpaperPathForSelection();
+    const bool favorite = !current.empty() && m_config->isWallpaperFavorite(current);
     m_favoriteCurrentButton->setEnabled(!current.empty());
-    m_favoriteCurrentButton->setGlyph(m_config->isWallpaperFavorite(current) ? "star-filled" : "star");
+    m_favoriteCurrentButton->setGlyph(favorite ? "star-filled" : "star");
+    m_favoriteCurrentButton->setTooltip(
+        i18n::tr(favorite ? "wallpaper.panel.unfavorite-current" : "wallpaper.panel.favorite-current")
+    );
   }
   syncThemeControls();
 }
