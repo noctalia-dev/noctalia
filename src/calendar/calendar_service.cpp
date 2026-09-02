@@ -8,6 +8,7 @@
 #include "calendar/ical_parser.h"
 #include "calendar/vdir_reader.h"
 #include "config/config_service.h"
+#include "core/deferred_call.h"
 #include "core/log.h"
 #include "i18n/i18n.h"
 #include "net/http_client.h"
@@ -17,11 +18,15 @@
 
 #include <algorithm>
 #include <cctype>
+#include <condition_variable>
 #include <cstdlib>
+#include <deque>
 #include <iterator>
 #include <memory>
+#include <mutex>
 #include <nlohmann/json.hpp>
 #include <sodium.h>
+#include <thread>
 #include <unordered_set>
 
 namespace {
@@ -90,13 +95,163 @@ namespace {
   }
 } // namespace
 
+struct CalendarService::VdirWorker : std::enable_shared_from_this<CalendarService::VdirWorker> {
+  struct Request {
+    std::string accountId;
+    std::string displayName;
+    std::string color;
+    std::vector<std::string> configuredCalendars;
+    std::filesystem::path rootPath;
+    std::chrono::system_clock::time_point windowStart;
+    std::chrono::system_clock::time_point windowEnd;
+    std::function<void(
+        bool ok, std::vector<CalendarSource> sources, std::vector<std::filesystem::path> watchedPaths,
+        std::vector<CalendarEvent> events
+    )>
+        callback;
+  };
+
+  VdirWorker() : worker([this](std::stop_token stopToken) { workerLoop(stopToken); }) {}
+  ~VdirWorker() { stop(); }
+
+  bool enqueue(Request request) {
+    {
+      std::scoped_lock lock(mutex);
+      if (stopping) {
+        return false;
+      }
+      requests.push_back(std::move(request));
+    }
+    cv.notify_one();
+    return true;
+  }
+
+  void deliver(
+      Request request, bool ok, std::vector<CalendarSource> sources, std::vector<std::filesystem::path> watchedPaths,
+      std::vector<CalendarEvent> events
+  ) {
+    const std::weak_ptr<VdirWorker> weak = weak_from_this();
+    DeferredCall::callLater([weak, cb = std::move(request.callback), ok, sources = std::move(sources),
+                             watchedPaths = std::move(watchedPaths), events = std::move(events)]() mutable {
+      const auto state = weak.lock();
+      if (!state || !state->accepting()) {
+        return;
+      }
+      cb(ok, std::move(sources), std::move(watchedPaths), std::move(events));
+    });
+  }
+
+  void stop() {
+    worker.request_stop();
+    {
+      std::scoped_lock lock(mutex);
+      stopping = true;
+      requests.clear();
+    }
+    cv.notify_one();
+    if (worker.joinable()) {
+      worker.join();
+    }
+  }
+
+private:
+  [[nodiscard]] bool accepting() const {
+    std::scoped_lock lock(mutex);
+    return !stopping;
+  }
+
+  void workerLoop(std::stop_token stopToken) {
+    while (true) {
+      Request request;
+      {
+        std::unique_lock lock(mutex);
+        cv.wait(lock, [this, &stopToken]() { return stopping || stopToken.stop_requested() || !requests.empty(); });
+        if (stopping || stopToken.stop_requested()) {
+          return;
+        }
+        request = std::move(requests.front());
+        requests.pop_front();
+      }
+
+      std::error_code ec;
+      if (!std::filesystem::exists(request.rootPath, ec) || !std::filesystem::is_directory(request.rootPath, ec)) {
+        kLog.warn(
+            "vdir account {} path does not exist or is not a directory: {}", request.accountId,
+            request.rootPath.string()
+        );
+        deliver(std::move(request), false, {}, {}, {});
+        continue;
+      }
+
+      auto collections = calendar::discoverVdirCollections(request.rootPath);
+      if (collections.empty()) {
+        kLog.warn("vdir account {} found no calendar collections in {}", request.accountId, request.rootPath.string());
+        const auto rootPath = request.rootPath;
+        deliver(std::move(request), false, {}, {rootPath}, {});
+        continue;
+      }
+
+      std::vector<CalendarSource> sources;
+      sources.reserve(collections.size());
+      std::vector<std::filesystem::path> watchedPaths;
+      watchedPaths.reserve(collections.size() + 1);
+      watchedPaths.push_back(request.rootPath);
+
+      for (const auto& col : collections) {
+        sources.push_back({
+            .id = col.id,
+            .name = col.name,
+        });
+        watchedPaths.push_back(col.path);
+      }
+
+      const std::vector<std::string> selectedIds =
+          calendar::selectedCalendarSourceIds(sources, request.configuredCalendars);
+      std::erase_if(collections, [&](const calendar::VdirCollection& col) {
+        return !std::ranges::contains(selectedIds, col.id);
+      });
+
+      std::vector<CalendarEvent> allEvents;
+      for (auto& col : collections) {
+        if (stopToken.stop_requested()) {
+          return;
+        }
+        if (!request.displayName.empty() && collections.size() == 1) {
+          col.name = request.displayName;
+        }
+        if (!request.color.empty()) {
+          col.colorHex = request.color;
+        }
+        auto events = calendar::loadVdirCollectionEvents(col, request.windowStart, request.windowEnd, stopToken);
+        allEvents.insert(
+            allEvents.end(), std::make_move_iterator(events.begin()), std::make_move_iterator(events.end())
+        );
+      }
+
+      if (stopToken.stop_requested()) {
+        return;
+      }
+
+      deliver(std::move(request), true, std::move(sources), std::move(watchedPaths), std::move(allEvents));
+    }
+  }
+
+  mutable std::mutex mutex;
+  std::condition_variable cv;
+  std::deque<Request> requests;
+  bool stopping = false;
+  std::jthread worker;
+};
+
 CalendarService::CalendarService(
     ConfigService& configService, HttpClient& httpClient, security::SecretStore& secretStore,
     security::StorageKeyProvider& storageKeyProvider, NotificationManager* notifications
 )
     : m_configService(configService), m_httpClient(httpClient), m_notifications(notifications), m_oauth(httpClient),
-      m_google(httpClient), m_credentials(secretStore), m_storageKeyProvider(storageKeyProvider), m_caldav(httpClient) {
-}
+      m_google(httpClient), m_credentials(secretStore), m_storageKeyProvider(storageKeyProvider), m_caldav(httpClient),
+      m_vdirWorker(std::make_shared<VdirWorker>()) {}
+
+CalendarService::~CalendarService() = default;
 
 void CalendarService::initialize() {
   m_activeConfig = m_configService.config().calendar;
@@ -442,6 +597,11 @@ void CalendarService::rebuildSnapshot() {
         std::ranges::contains(m_activeConfig.accounts, it->first, &CalendarConfig::Account::id);
     it = stillConfigured ? std::next(it) : m_eventsByAccount.erase(it);
   }
+  for (auto it = m_discoveredVdirPathsByAccount.begin(); it != m_discoveredVdirPathsByAccount.end();) {
+    const bool stillConfigured =
+        std::ranges::contains(m_activeConfig.accounts, it->first, &CalendarConfig::Account::id);
+    it = stillConfigured ? std::next(it) : m_discoveredVdirPathsByAccount.erase(it);
+  }
 
   std::vector<CalendarEvent> merged;
   for (const auto& [accountId, events] : m_eventsByAccount) {
@@ -676,9 +836,10 @@ void CalendarService::updateVdirWatches() {
     }
 
     targetPaths.insert(rootPath);
-    auto collections = calendar::discoverVdirCollections(rootPath);
-    for (const auto& col : collections) {
-      targetPaths.insert(col.path);
+    if (auto it = m_discoveredVdirPathsByAccount.find(account.id); it != m_discoveredVdirPathsByAccount.end()) {
+      for (const auto& p : it->second) {
+        targetPaths.insert(p);
+      }
     }
   }
 
@@ -695,58 +856,39 @@ void CalendarService::updateVdirWatches() {
 void CalendarService::fetchVdir(const CalendarConfig::Account& account) {
   const std::filesystem::path rootPath =
       account.path.empty() ? calendar::defaultVdirPath() : std::filesystem::path(account.path);
-  std::error_code ec;
-  if (!std::filesystem::exists(rootPath, ec) || !std::filesystem::is_directory(rootPath, ec)) {
-    kLog.warn("vdir account {} path does not exist or is not a directory: {}", account.id, rootPath.string());
-    accountDone(account.id, false, {});
-    return;
-  }
-
-  auto collections = calendar::discoverVdirCollections(rootPath);
-  if (collections.empty()) {
-    kLog.warn("vdir account {} found no calendar collections in {}", account.id, rootPath.string());
-    accountDone(account.id, false, {});
-    return;
-  }
-
-  updateVdirWatches();
-
-  std::vector<CalendarSource> sources;
-  sources.reserve(collections.size());
-  for (const auto& col : collections) {
-    sources.push_back({
-        .id = col.id,
-        .name = col.name,
-    });
-  }
-  (void)m_configService.setStateString(
-      kCalendarDiscoveryOwner, account.id + "_calendars", calendar::serializeCalendarSources(sources)
-  );
-
-  const std::vector<std::string> selectedIds = calendar::selectedCalendarSourceIds(sources, account.calendars);
-  std::erase_if(collections, [&](const calendar::VdirCollection& col) {
-    return !std::ranges::contains(selectedIds, col.id);
-  });
 
   const auto now = std::chrono::system_clock::now();
   const auto windowStart = now - kWindowBefore;
   const auto windowEnd = now + kWindowAfter;
 
-  std::vector<CalendarEvent> allEvents;
-  calendar::ICalParseControl control{};
+  const std::string accountId = account.id;
 
-  for (auto& col : collections) {
-    if (!account.displayName.empty() && collections.size() == 1) {
-      col.name = account.displayName;
-    }
-    if (!account.color.empty()) {
-      col.colorHex = account.color;
-    }
-    auto events = calendar::loadVdirCollectionEvents(col, windowStart, windowEnd);
-    allEvents.insert(allEvents.end(), std::make_move_iterator(events.begin()), std::make_move_iterator(events.end()));
+  VdirWorker::Request request{
+      .accountId = account.id,
+      .displayName = account.displayName,
+      .color = account.color,
+      .configuredCalendars = account.calendars,
+      .rootPath = rootPath,
+      .windowStart = windowStart,
+      .windowEnd = windowEnd,
+      .callback = [this, accountId](
+                      bool ok, std::vector<CalendarSource> sources, std::vector<std::filesystem::path> watchedPaths,
+                      std::vector<CalendarEvent> events
+                  ) {
+        if (ok) {
+          (void)m_configService.setStateString(
+              kCalendarDiscoveryOwner, accountId + "_calendars", calendar::serializeCalendarSources(sources)
+          );
+        }
+        m_discoveredVdirPathsByAccount[accountId] = std::move(watchedPaths);
+        updateVdirWatches();
+        accountDone(accountId, ok, std::move(events));
+      },
+  };
+
+  if (!m_vdirWorker || !m_vdirWorker->enqueue(std::move(request))) {
+    accountDone(account.id, false, {});
   }
-
-  accountDone(account.id, true, std::move(allEvents));
 }
 
 void CalendarService::refreshGoogleToken(const std::string& accountId, std::function<void(bool, std::string)> cb) {

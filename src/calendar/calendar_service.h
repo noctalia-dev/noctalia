@@ -66,6 +66,7 @@ public:
       ConfigService& configService, HttpClient& httpClient, security::SecretStore& secretStore,
       security::StorageKeyProvider& storageKeyProvider, NotificationManager* notifications = nullptr
   );
+  ~CalendarService();
 
   void initialize();
   [[nodiscard]] ChangeCallbackId addChangeCallback(ChangeCallback callback);
@@ -193,4 +194,7 @@ private:
   std::set<std::filesystem::path> m_watchedVdirPaths;
   std::chrono::steady_clock::time_point m_vdirDebounceUntil;
   bool m_vdirDebouncePending = false;
+  struct VdirWorker;
+  std::shared_ptr<VdirWorker> m_vdirWorker;
+  std::map<std::string, std::vector<std::filesystem::path>> m_discoveredVdirPathsByAccount;
 };
