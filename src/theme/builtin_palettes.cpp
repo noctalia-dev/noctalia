@@ -60,7 +60,7 @@ namespace noctalia::theme {
                                             .white = hex("#ffffff"),
                                         },
                                     .foreground = hex("#D1D1C7"),
-                                    .background = hex("#1f2430"),
+                                    .background = hex("#0b0e14"),
                                     .selectionFg = hex("#1f2430"),
                                     .selectionBg = hex("#409fff"),
                                     .cursorText = hex("#1f2430"),
