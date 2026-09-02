@@ -18,6 +18,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <string>
 
 namespace {
 
@@ -201,7 +202,6 @@ void TooltipManager::forceDestroy() {
   m_showTimer.stop();
   m_refreshTimer.stop();
   m_pendingArea = nullptr;
-  m_suppressedArea = nullptr;
   m_pendingContent = {};
   m_pendingLayerParent = nullptr;
   m_pendingXdgParent = nullptr;
@@ -219,17 +219,14 @@ void TooltipManager::forceDestroy() {
 
 void TooltipManager::shutdown() {
   forceDestroy();
+  m_suppressedBarTooltipPanels.clear();
   m_wayland = nullptr;
   m_config = nullptr;
   m_renderContext = nullptr;
 }
 
 void TooltipManager::onHoverChange(InputArea* area, zwlr_layer_surface_v1* parentLayerSurface, wl_output* output) {
-  if (area != nullptr
-      && area != m_suppressedArea
-      && area->hasTooltip()
-      && parentLayerSurface != nullptr
-      && output != nullptr) {
+  if (area != nullptr && area->hasTooltip() && parentLayerSurface != nullptr && output != nullptr) {
     m_pendingContent = area->tooltipContent();
     m_pendingLayerParent = parentLayerSurface;
     m_pendingXdgParent = nullptr;
@@ -242,11 +239,7 @@ void TooltipManager::onHoverChange(InputArea* area, zwlr_layer_surface_v1* paren
 }
 
 void TooltipManager::onHoverChange(InputArea* area, xdg_surface* parentXdgSurface, wl_output* output) {
-  if (area != nullptr
-      && area != m_suppressedArea
-      && area->hasTooltip()
-      && parentXdgSurface != nullptr
-      && output != nullptr) {
+  if (area != nullptr && area->hasTooltip() && parentXdgSurface != nullptr && output != nullptr) {
     m_pendingContent = area->tooltipContent();
     m_pendingLayerParent = nullptr;
     m_pendingXdgParent = parentXdgSurface;
@@ -258,15 +251,23 @@ void TooltipManager::onHoverChange(InputArea* area, xdg_surface* parentXdgSurfac
   dismissPopup();
 }
 
-void TooltipManager::setSuppressedArea(InputArea* area) {
-  m_suppressedArea = area;
-  if (area == nullptr) {
+void TooltipManager::onBarHoverChange(InputArea* area, zwlr_layer_surface_v1* parentLayerSurface, wl_output* output) {
+  if (!m_suppressedBarTooltipPanels.empty()) {
+    dismissPopup();
     return;
   }
-  // Dismiss anything already showing (or drop a pending show) for the area.
-  if (m_pendingArea == area || m_state != State::Idle) {
-    dismissPopup();
+  onHoverChange(area, parentLayerSurface, output);
+}
+
+void TooltipManager::suppressBarTooltipsForPanel(std::string_view panelId) {
+  if (panelId.empty() || !m_suppressedBarTooltipPanels.emplace(panelId).second) {
+    return;
   }
+  dismissPopup();
+}
+
+void TooltipManager::restoreBarTooltipsForPanel(std::string_view panelId) {
+  m_suppressedBarTooltipPanels.erase(std::string(panelId));
 }
 
 void TooltipManager::handleHoverChange(InputArea* area) {
@@ -538,7 +539,7 @@ void TooltipManager::destroyPopup() {
 }
 
 void TooltipManager::refreshFromArea(InputArea* area) {
-  if (area == nullptr || area != m_pendingArea || !area->hovered() || area == m_suppressedArea) {
+  if (area == nullptr || area != m_pendingArea || !area->hovered()) {
     return;
   }
 
