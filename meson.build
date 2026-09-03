@@ -1215,6 +1215,7 @@ if build_tests
     'template_apply_notify',
     'template_hook_async',
     'template_hook_runner',
+    'theme_shell_mode',
     'time_format',
     'tray_identifier',
     'triad_workspace_backend',
