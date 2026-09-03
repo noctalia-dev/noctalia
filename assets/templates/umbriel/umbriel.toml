@@ -18,3 +18,5 @@ outer = "#{{colors.terminal_background.default.hex_stripped}}FF"
 
 [colors.overview]
 background_tint = "#{{colors.surface.default.hex_stripped}}88"
+badge = "#{{colors.primary.default.hex_stripped}}FF"
+workspace_bacground = "#{{colors.surface.default.hex_stripped}}FF"
