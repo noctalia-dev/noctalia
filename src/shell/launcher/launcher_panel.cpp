@@ -6,6 +6,7 @@
 #include "core/input/key_symbols.h"
 #include "core/input/keybind_matcher.h"
 #include "core/ui_phase.h"
+#include "cursor-shape-v1-client-protocol.h"
 #include "i18n/i18n.h"
 #include "launcher/app_provider.h"
 #include "render/core/async_texture_cache.h"
@@ -766,9 +767,7 @@ public:
     if (!m_dragSourceIndex.has_value()) {
       return false;
     }
-    if (!m_dragging) {
-      m_dragging = true;
-    }
+    m_dragging = true;
 
     const std::optional<std::size_t> nextTarget =
         index.has_value() && *index != *m_dragSourceIndex && isReorderable(*index) ? index : std::nullopt;
@@ -1144,6 +1143,7 @@ void LauncherPanel::create() {
           .columnGap = 0.0F,
           .rowGap = Style::spaceXs * scale,
           .overscanRows = kRowOverscan,
+          .itemCursorShape = WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_POINTER,
           .adapter = m_listAdapter.get(),
           .flexGrow = 1.0F,
           .onSelectionChanged =
@@ -1158,6 +1158,7 @@ void LauncherPanel::create() {
 
   auto detailScroll = ui::scrollView({
       .out = &m_detailScroll,
+      .contentScale = scale,
       .scrollbarVisible = true,
       .viewportPaddingH = Style::spaceSm * scale,
       .viewportPaddingV = Style::spaceSm * scale,
@@ -1247,6 +1248,7 @@ void LauncherPanel::syncLauncherViewLayout(Renderer* renderer) {
   const bool useGrid = shouldUseAppGrid();
   const float scale = contentScale();
   const LauncherListStyle style = launcherListStyleFrom(m_config, scale, panelCardOpacity());
+  m_grid->setScale(scale);
   m_listAdapter->setListStyle(style);
   m_gridAdapter->setListStyle(style);
   const bool reorderEnabled = m_query.empty() && m_scopedProviderId.empty() && m_activeCategoryType == All;

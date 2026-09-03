@@ -59,6 +59,7 @@
       },
       "network": {
         "active": "Aktív",
+        "band": "Sáv",
         "connected": "Csatlakoztatva",
         "connecting": "Csatlakozás",
         "download": "Letöltés",
@@ -72,7 +73,7 @@
         "not-connected": "Nincs csatlakoztatva",
         "off": "Kikapcsolva",
         "on": "Bekapcsolva",
-        "scanning": "Beolvasás",
+        "scanning": "Beolvasás…",
         "signal": "Jel",
         "upload": "Feltöltés",
         "vpn": "VPN",
@@ -92,6 +93,7 @@
       },
       "sysmon": {
         "cpu": "CPU",
+        "cpu-freq": "CPU-frekvencia",
         "cpu-temp": "CPU-hőmérséklet",
         "disk": "Lemez",
         "disk-free": "Szabad lemezterület",
@@ -117,7 +119,14 @@
         "error": "Időjárási hiba",
         "loading": "Időjárás…",
         "no-location": "Nincs hely",
-        "off": "Időjárás kikapcsolva"
+        "off": "Időjárás kikapcsolva",
+        "tooltip": {
+          "sunrise": "Napkelte",
+          "sunset": "Napnyugta",
+          "temperature": "Hőmérséklet",
+          "uv": "UV-index",
+          "wind": "Szél"
+        }
       }
     }
   },
@@ -323,7 +332,7 @@
         "dark": "Sötét mód",
         "light": "Világos mód"
       },
-      "keyboard-layout": "Elrendezés",
+      "keyboard-layout": "Billentyűzetkiosztás",
       "media": "Média",
       "mic-mute": "Mikrofon",
       "nightlight": "Éjszakai fény",
@@ -2372,7 +2381,7 @@
         },
         "calendar-add": {
           "button": "Fiók hozzáadása",
-          "description": "iCloud-, CalDAV- vagy Google-fiókok felvétele",
+          "description": "iCloud-, CalDAV-, Google-fiókok vagy ICS-URL hozzáadása",
           "label": "Naptárfiókok"
         },
         "calendar-credentials": {
@@ -2824,7 +2833,7 @@
         "screenshot-directory": {
           "description": "Mappa a mentett PNG fájloknak; hagyd üresen, hogy a ~/Pictures-t használd",
           "label": "Kimeneti könyvtár",
-          "placeholder": "~/Pictures"
+          "placeholder": "XDG Képek könyvtár"
         },
         "screenshot-filename-pattern": {
           "description": "strftime minta kiterjesztés nélkül (.png hozzáadódik); használd a %s-t a unix epoch-hoz",
@@ -3033,9 +3042,9 @@
         "cpu-temp": "CPU-hőmérséklet",
         "cpu-usage": "CPU-használat",
         "disk-free": "Szabad lemezterület",
-        "disk-free-percent": "Szabad lemez - százalék",
+        "disk-free-percent": "Szabad lemezterület %",
         "disk-used": "Használt lemezterület",
-        "disk-used-percent": "Használt lemez - százalék",
+        "disk-used-percent": "Felhasznált lemezterület %",
         "dots": "Pontok",
         "focus-hint": "Fókusz-tipp",
         "full": "Teljes",
@@ -3063,13 +3072,13 @@
         "on-hover": "Rámutatásra",
         "output": "Kimenet",
         "percent": "Százalék",
-        "ram-percent": "RAM Százalék",
+        "ram-percent": "RAM %",
         "ram-used": "RAM Használat",
         "regular": "Normál",
         "replace": "Cserél",
         "shared": "Közös",
         "short": "Rövid",
-        "swap-percent": "Cserehely-százalék",
+        "swap-percent": "Cserehely %",
         "text": "Szöveg",
         "text-only": "Csak szöveg",
         "time": "Idő",
@@ -3464,7 +3473,7 @@
           "label": "Aktív ablak jelző"
         },
         "show-all-outputs": {
-          "description": "Ablakok megjelenítése minden kijelzőről ezen a widgeten.",
+          "description": "Ablakok megjelenítése minden monitorról ezen a widgeten.",
           "label": "Összes Monitor Megjelenítése"
         },
         "show-caps-lock": {

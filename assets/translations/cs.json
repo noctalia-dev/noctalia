@@ -2083,27 +2083,27 @@
           "label": "Umístění"
         },
         "position-clipboard": {
-          "description": "Kde se schránka na obrazovce vznáší — Sledovat lištu ji udrží poblíž lišty",
+          "description": "Kde se schránka na obrazovce vznáší; Sledovat lištu ji udrží poblíž lišty",
           "label": "Pozice"
         },
         "position-control-center": {
-          "description": "Kde se Ovládací centrum na obrazovce vznáší — Sledovat lištu ho udrží poblíž lišty",
+          "description": "Kde se Ovládací centrum na obrazovce vznáší; Sledovat lištu ho udrží poblíž lišty",
           "label": "Pozice"
         },
         "position-launcher": {
-          "description": "Kde se spouštěč na obrazovce vznáší — Sledovat lištu ho udrží poblíž lišty",
+          "description": "Kde se spouštěč na obrazovce vznáší; Sledovat lištu ho udrží poblíž lišty",
           "label": "Pozice"
         },
         "position-polkit": {
-          "description": "Kde se výzva polkit na obrazovce vznáší — Sledovat lištu ji udrží poblíž lišty",
+          "description": "Kde se výzva polkit na obrazovce vznáší; Sledovat lištu ji udrží poblíž lišty",
           "label": "Pozice"
         },
         "position-session": {
-          "description": "Kde se nabídka relace na obrazovce vznáší — Sledovat lištu ji udrží poblíž lišty",
+          "description": "Kde se nabídka relace na obrazovce vznáší; Sledovat lištu ji udrží poblíž lišty",
           "label": "Pozice"
         },
         "position-wallpaper": {
-          "description": "Kde se výběr tapety na obrazovce vznáší — Sledovat lištu ho udrží poblíž lišty",
+          "description": "Kde se výběr tapety na obrazovce vznáší; Sledovat lištu ho udrží poblíž lišty",
           "label": "Pozice"
         },
         "shadow": {

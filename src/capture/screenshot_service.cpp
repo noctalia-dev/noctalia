@@ -846,11 +846,9 @@ void ScreenshotService::ensureRegionOverlay() {
         if (action == capture::ConfirmAction::ForceClipboard) {
           options.copyToClipboard = true;
           options.saveToFile = false;
-          options.pipeToCommand = false;
         } else if (action == capture::ConfirmAction::ForceSave) {
           options.copyToClipboard = false;
           options.saveToFile = true;
-          options.pipeToCommand = false;
         }
 
         if (options.freezeScreen && m_regionOverlay != nullptr) {

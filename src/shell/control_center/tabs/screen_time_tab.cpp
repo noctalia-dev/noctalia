@@ -187,6 +187,7 @@ std::unique_ptr<Flex> ScreenTimeTab::create() {
 
   auto scroll = ui::scrollView({
       .out = &m_scroll,
+      .contentScale = scale,
       .scrollbarVisible = true,
       .flexGrow = 1.0F,
       .configure = [](ScrollView& scrollView) {

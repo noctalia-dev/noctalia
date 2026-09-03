@@ -136,6 +136,7 @@ private:
   Select* m_favoritePaletteDetailSelect = nullptr;
   Select* m_monitorSelect = nullptr;
   Input* m_filterInput = nullptr;
+  Button* m_favoriteCurrentButton = nullptr;
   Toggle* m_flattenToggle = nullptr;
   Label* m_flattenLabel = nullptr;
   Button* m_sortButton = nullptr;

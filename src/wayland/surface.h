@@ -113,6 +113,9 @@ public:
   static std::vector<InputRect> tessellateRotatedRoundedRect(
       float centerX, float centerY, float width, float height, float radius, float rotationRad, int stripPx = 1
   );
+  // True when any rect covers at least one pixel of a `width` x `height` surface.
+  // Rects are surface-local, so they may legitimately sit partly or fully outside.
+  static bool regionIntersectsBounds(const std::vector<InputRect>& rects, std::uint32_t width, std::uint32_t height);
   void requestUpdate();
   void requestUpdateOnly();
   void requestLayout();

@@ -13,6 +13,8 @@ source_dir="$repo_root/docs/user"
 dest_dir="$site_root/src/content/docs/noctalia"
 asset_source="$repo_root/docs/assets"
 asset_dest="$site_root/src/assets"
+plugin_api_source="$repo_root/docs/plugin-api.json"
+plugin_api_dest="$site_root/src/data/plugin-api.json"
 
 [[ -d "$source_dir" ]] || {
     printf 'sync-docs: source directory does not exist: %s\n' "$source_dir" >&2
@@ -26,8 +28,12 @@ asset_dest="$site_root/src/assets"
     printf 'sync-docs: asset directory does not exist: %s\n' "$asset_source" >&2
     exit 1
 }
+[[ -f "$plugin_api_source" ]] || {
+    printf 'sync-docs: plugin API metadata does not exist: %s\n' "$plugin_api_source" >&2
+    exit 1
+}
 
-mkdir -p "$dest_dir" "$asset_dest"
+mkdir -p "$dest_dir" "$asset_dest" "$(dirname "$plugin_api_dest")"
 
 declare -A expected_mdx=()
 source_count=0
@@ -55,6 +61,9 @@ if (( source_count == 0 )); then
 fi
 
 cp -a "$asset_source"/. "$asset_dest"/
+
+cp "$plugin_api_source" "$plugin_api_dest.tmp"
+mv "$plugin_api_dest.tmp" "$plugin_api_dest"
 
 while IFS= read -r -d '' mdx; do
     if [[ -n "${expected_mdx["$mdx"]+present}" ]]; then

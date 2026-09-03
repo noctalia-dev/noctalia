@@ -15,16 +15,21 @@ namespace scripting {
   // layer-shell keyboard interactivity mode by the panel host.
   inline constexpr std::array<std::string_view, 3> kPanelKeyboardFocusModes = {"on_demand", "exclusive", "none"};
 
+  // Vocabulary for the injected floating-layer setting and optional `[[panel]]`
+  // default. An attached panel always sits at its host bar's layer.
+  inline constexpr std::array<std::string_view, 2> kPanelLayers = {"top", "overlay"};
+
   struct PluginPanelShellConfig {
     PanelPlacement placement = PanelPlacement::Floating;
     std::string position = "auto";
     bool openNearClick = false;
+    std::string layer = "top";
   };
 
   [[nodiscard]] std::string panelShellSettingKey(std::string_view entryId, std::string_view suffix);
 
-  // Seeds standard placement/position/open-near-click settings on a [[panel]] entry
-  // when the plugin manifest does not declare them explicitly.
+  // Seeds standard placement, position, open-near-click, and layer settings on
+  // a [[panel]] entry when the plugin manifest does not declare them explicitly.
   void injectStandardPanelShellSettings(PluginEntry& entry);
 
   [[nodiscard]] PluginPanelShellConfig resolvePluginPanelShellConfig(
@@ -34,6 +39,7 @@ namespace scripting {
   [[nodiscard]] PanelPlacement panelPlacementFromString(std::string_view value, PanelPlacement fallback) noexcept;
   [[nodiscard]] bool isValidPanelPosition(std::string_view value) noexcept;
   [[nodiscard]] bool isValidPanelKeyboardFocus(std::string_view value) noexcept;
+  [[nodiscard]] bool isValidPanelLayer(std::string_view value) noexcept;
   [[nodiscard]] bool isPanelShellSettingKey(std::string_view entryId, std::string_view key) noexcept;
 
 } // namespace scripting

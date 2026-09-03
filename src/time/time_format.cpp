@@ -63,6 +63,8 @@ namespace {
 
 namespace {
 
+  bool isBlankClockFormat(std::string_view fmt) noexcept { return fmt.empty(); }
+
   std::string normalizeFormatEscapes(std::string_view fmt) {
     std::string out;
     out.reserve(fmt.size());
@@ -81,13 +83,42 @@ namespace {
     return fmt.contains("%-") || (fmt.contains('%') && (!fmt.contains('{') || fmt.contains("{:")));
   }
 
+  // musl's strftime resolves %Z from its own timezone state and ignores tm_zone, so the
+  // abbreviation is interpolated into the spec before strftime ever sees it.
+  std::string substituteTzAbbrev(std::string_view fmt, const char* abbrev) {
+    if (!fmt.contains("%Z") || abbrev == nullptr) {
+      return std::string{fmt};
+    }
+    std::string out;
+    out.reserve(fmt.size());
+    for (std::size_t i = 0; i < fmt.size();) {
+      if (fmt[i] != '%' || i + 1 >= fmt.size()) {
+        out.push_back(fmt[i++]);
+      } else if (fmt[i + 1] == '%') {
+        out.append("%%");
+        i += 2;
+      } else if (fmt[i + 1] == 'Z') {
+        // The abbreviation becomes part of a strftime spec, so its own '%' must stay literal.
+        for (const char* c = abbrev; *c != '\0'; ++c) {
+          if (*c == '%') {
+            out.push_back('%');
+          }
+          out.push_back(*c);
+        }
+        i += 2;
+      } else {
+        out.push_back(fmt[i++]);
+      }
+    }
+    return out;
+  }
+
   std::string formatStrftimeRaw(std::string_view fmt, const std::tm& tm) {
-    std::string spec(fmt);
+    const std::string spec = substituteTzAbbrev(fmt, tm.tm_zone);
     std::size_t size = std::max<std::size_t>(64, spec.size() * 4 + 16);
     for (int attempt = 0; attempt < 6; ++attempt) {
       std::string buffer(size, '\0');
-      std::tm copy = tm;
-      const std::size_t written = std::strftime(buffer.data(), buffer.size(), spec.c_str(), &copy);
+      const std::size_t written = std::strftime(buffer.data(), buffer.size(), spec.c_str(), &tm);
       if (written > 0 || spec.empty()) {
         buffer.resize(written);
         return buffer;
@@ -194,6 +225,9 @@ namespace {
 
 std::string formatLocalTime(const char* fmt) {
   using namespace std::chrono;
+  if (fmt == nullptr || isBlankClockFormat(fmt)) {
+    return {};
+  }
   const std::string normalizedFmt = normalizeFormatEscapes(fmt);
   const auto now = floor<seconds>(system_clock::now());
   const auto unixSeconds = duration_cast<seconds>(now.time_since_epoch()).count();
@@ -204,7 +238,7 @@ std::string formatLocalTime(const char* fmt) {
     return *compat;
   }
 
-  const auto local = current_zone()->to_local(now);
+  const auto local = local_seconds{seconds{raw + localTm.tm_gmtoff}};
   try {
     return std::vformat(std::locale(""), normalizedFmt, std::make_format_args(local));
   } catch (...) {
@@ -241,6 +275,9 @@ std::string formatTimezoneUnixTime(std::int64_t unixSeconds, std::string_view fm
   }
 
   const std::string normalizedFmt = normalizeFormatEscapes(fmt);
+  if (isBlankClockFormat(normalizedFmt)) {
+    return {};
+  }
   const auto tp = sys_seconds{seconds{unixSeconds}};
   const auto local = tz->to_local(tp);
   const auto zoneInfo = tz->get_info(tp);
@@ -258,10 +295,8 @@ std::string formatTimezoneUnixTime(std::int64_t unixSeconds, std::string_view fm
   tm.tm_wday = weekday(localDays).c_encoding();
   tm.tm_yday = static_cast<int>((localDays - local_days{ymd.year() / January / 1}).count());
   tm.tm_isdst = zoneInfo.save != minutes::zero();
-#if defined(__linux__) || defined(__APPLE__) || defined(__FreeBSD__) || defined(__NetBSD__) || defined(__OpenBSD__)
   tm.tm_gmtoff = static_cast<long>(zoneInfo.offset.count());
   tm.tm_zone = zoneInfo.abbrev.c_str();
-#endif
 
   if (auto compat = formatStrftimeCompat(normalizedFmt, tm, unixSeconds)) {
     return *compat;
@@ -276,6 +311,9 @@ std::string formatTimezoneUnixTime(std::int64_t unixSeconds, std::string_view fm
 
 std::string formatTimezoneTime(const char* fmt, std::string_view tzName) {
   using namespace std::chrono;
+  if (fmt == nullptr || isBlankClockFormat(fmt)) {
+    return {};
+  }
   const auto now = floor<seconds>(system_clock::now());
   const auto unixSeconds = duration_cast<seconds>(now.time_since_epoch()).count();
   return formatTimezoneUnixTime(unixSeconds, fmt, tzName);
@@ -283,6 +321,9 @@ std::string formatTimezoneTime(const char* fmt, std::string_view tzName) {
 
 std::string formatLocalUnixTime(std::int64_t unixSeconds, std::string_view fmt) {
   using namespace std::chrono;
+  if (isBlankClockFormat(fmt)) {
+    return {};
+  }
   const std::string normalizedFmt = normalizeFormatEscapes(fmt);
   const auto tp = sys_seconds{seconds{unixSeconds}};
   const std::time_t raw = system_clock::to_time_t(tp);
@@ -292,7 +333,7 @@ std::string formatLocalUnixTime(std::int64_t unixSeconds, std::string_view fmt) 
     return *compat;
   }
 
-  const auto local = current_zone()->to_local(tp);
+  const auto local = local_seconds{seconds{raw + localTm.tm_gmtoff}};
   try {
     return std::vformat(std::locale(""), normalizedFmt, std::make_format_args(local));
   } catch (...) {

@@ -20,7 +20,7 @@ Noctalia's own feedback.
 | `started` | Once after Noctalia finishes startup (IPC ready). |
 | `wallpaper_changed` | After a persisted wallpaper path change is applied. Sets `NOCTALIA_WALLPAPER_PATH` and `NOCTALIA_WALLPAPER_CONNECTOR` (for example `DP-1`; empty when the change is not tied to a live connector). |
 | `colors_changed` | After the theme palette is resolved and terminal templates are updated. |
-| `theme_mode_changed` | After theme templates are applied, when the resolved theme mode changes between `light` and `dark`. Sets `NOCTALIA_THEME_MODE`, `NOCTALIA_THEME_MODE_PREVIOUS`, and `NOCTALIA_THEME_MODE_CONFIGURED` (`dark`, `light`, or `auto`). |
+| `theme_mode_changed` | After theme templates are applied, when the resolved [`[theme].mode`](/noctalia/theming/#mode) changes between `light` and `dark`. This is the app-facing mode, so it ignores [`shell_mode`](/noctalia/theming/#shell_mode). Sets `NOCTALIA_THEME_MODE`, `NOCTALIA_THEME_MODE_PREVIOUS`, and `NOCTALIA_THEME_MODE_CONFIGURED` (`dark`, `light`, or `auto`). |
 | `session_locked` | When the compositor confirms the session lock. |
 | `session_unlocked` | When the session leaves the locked state. |
 | `logging_out` | Immediately before the session panel runs the logout sequence. |

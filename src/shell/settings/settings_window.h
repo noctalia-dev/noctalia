@@ -237,6 +237,9 @@ private:
   bool m_pluginListDirty = true;
   bool m_pluginListRefreshInFlight = false;
   std::uint64_t m_pluginListRefreshGeneration = 0;
+  // The plugin store sheet is the sheet currently on screen, so plugin events may rebuild
+  // the sheet body; any other editor sheet must be left alone.
+  bool m_pluginStoreSheetOpen = false;
   // Plugin catalog scroll state outlives both the store sheet and its async file callbacks.
   ScrollViewState m_pluginStoreScrollState;
   scripting::PluginFileCache m_pluginFileCache;

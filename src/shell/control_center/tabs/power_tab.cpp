@@ -14,6 +14,7 @@
 #include <cstdint>
 #include <format>
 #include <memory>
+#include <optional>
 #include <string>
 
 using namespace control_center;
@@ -129,6 +130,7 @@ std::unique_ptr<Flex> PowerTab::create() {
   });
 
   auto scroll = ui::scrollView({
+      .contentScale = scale,
       .scrollbarVisible = true,
       .flexGrow = 1.0F,
       .configure = [](ScrollView& scrollView) {
@@ -710,19 +712,18 @@ void PowerTab::syncBatteryHealth() {
   }
 
   const UPowerDeviceInfo* battery = m_upower->defaultSystemBattery();
-  const bool hasHealth = battery != nullptr && battery->energyFullDesign > 0.0 && battery->energyFull > 0.0;
-  m_healthCard->setVisible(hasHealth);
-  if (!hasHealth) {
+  const std::optional<double> health = battery != nullptr ? battery->healthPercent() : std::nullopt;
+  m_healthCard->setVisible(health.has_value());
+  if (!health) {
     return;
   }
 
-  const double health = std::clamp(battery->energyFull / battery->energyFullDesign * 100.0, 0.0, 100.0);
   if (m_healthLabel != nullptr) {
-    m_healthLabel->setText(std::format("{:.0F}%", health));
+    m_healthLabel->setText(std::format("{:.0F}%", *health));
   }
   if (m_healthBar != nullptr) {
-    m_healthBar->setProgress(static_cast<float>(health / 100.0));
-    m_healthBar->setFill(colorSpecFromRole(healthRole(health)));
+    m_healthBar->setProgress(static_cast<float>(*health / 100.0));
+    m_healthBar->setFill(colorSpecFromRole(healthRole(*health)));
   }
 }
 

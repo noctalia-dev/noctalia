@@ -28,16 +28,16 @@ Once coordinates are known, sunrise and sunset are computed astronomically for y
 
 ## Custom schedule
 
-Set `custom_schedule = true` to drive day and night from `sunset`/`sunrise` instead — useful if you want night light and a dark theme on a fixed routine rather than on the actual sun.
+Set `custom_schedule = true` to drive day and night from `sunset`/`sunrise` instead, which is useful if you want night light and a dark theme on a fixed routine rather than on the actual sun.
 
 A custom schedule **overrides coordinates**: when it is on and both times are valid `HH:MM` values, the computed sunrise and sunset are not used. Coordinates are still resolved for Weather, which always needs a real position.
 
-`sunset` and `sunrise` do nothing unless `custom_schedule = true`. They are not a fallback for "coordinates failed to resolve" — if no coordinates are available and no custom schedule is set, Night Light and Theme `auto` simply have no schedule to follow, and Noctalia says so in its log and in a notification.
+`sunset` and `sunrise` do nothing unless `custom_schedule = true`. They are not a fallback for "coordinates failed to resolve": if no coordinates are available and no custom schedule is set, Night Light and Theme `auto` simply have no schedule to follow, and Noctalia says so in its log and in a notification.
 
 Turning on `custom_schedule` without a valid `sunset` **and** `sunrise` is a configuration error: Noctalia reports it (`noctalia config validate` flags it, Settings shows a banner) rather than silently falling back to coordinates.
 
 :::note[Upgrading from an earlier version]
-`sunset`/`sunrise` used to schedule day and night on their own whenever coordinates were unavailable. They now require `custom_schedule = true`. Noctalia migrates existing configs that relied on the old behavior — times set and no coordinate source — by turning `custom_schedule` on for you, and tells you to add the key to your own config file.
+`sunset`/`sunrise` used to schedule day and night on their own whenever coordinates were unavailable. They now require `custom_schedule = true`. Noctalia migrates existing configs that relied on the old behavior (times set and no coordinate source) by turning `custom_schedule` on for you, and tells you to add the key to your own config file.
 :::
 
 When `auto_locate = true`, location lookup goes through `noctalia.dev` to resolve approximate coordinates from your IP address. See the [Noctalia privacy policy](https://noctalia.dev/privacy) for how this service is handled.

@@ -39,13 +39,6 @@ namespace {
     return minimal ? Style::fontSizeBody : Style::fontSizeMini;
   }
 
-  [[nodiscard]] FontWeight workspaceFontWeight(FontWeight baseWeight, bool minimal, bool active) {
-    if (minimal && active) {
-      return static_cast<FontWeight>(static_cast<int>(baseWeight) + 200);
-    }
-    return baseWeight;
-  }
-
   // Numeric workspace IDs ("10", "11") must not be truncated like word labels.
   [[nodiscard]] bool isNumericLabel(std::string_view label) {
     return !label.empty()
@@ -80,8 +73,8 @@ WorkspacesWidget::WorkspacesWidget(
 )
     : m_platform(platform), m_configService(config), m_output(output), m_labelSource(options.labelSource),
       m_showLabels(options.showLabels), m_maxLabelChars(options.maxLabelChars),
-      m_labelsOnlyWhenOccupied(options.labelsOnlyWhenOccupied), m_hideWhenEmpty(options.hideWhenEmpty),
-      m_showAllOutputs(options.showAllOutputs), m_pillScale(options.pillScale),
+      m_labelsOnlyWhenOccupied(options.labelsOnlyWhenOccupied), m_showIcons(options.showIcons),
+      m_hideWhenEmpty(options.hideWhenEmpty), m_showAllOutputs(options.showAllOutputs), m_pillScale(options.pillScale),
       m_activePillSize(std::clamp(options.activePillSize, 0.25F, 8.0F)),
       m_inactivePillSize(std::clamp(options.inactivePillSize, 0.25F, 8.0F)), m_style(options.style),
       m_focusedOutputOnly(options.focusedOutputOnly), m_changeColorOnHover(options.changeColorOnHover),
@@ -93,12 +86,13 @@ WorkspacesWidget::WorkspacesWidget(
 // Precedence: the master switch wins everywhere, then the style's own annotation
 // rule, then label content, then the occupied filter. FocusHint annotates only the
 // focused workspace, so the occupied filter never applies to it.
+// An empty label still annotates when the focused app icon fills the pill.
 bool WorkspacesWidget::shouldShowWorkspaceLabel(const Workspace& workspace, std::string_view label) const noexcept {
   if (!m_showLabels) {
     return false;
   }
   if (isFocusHint()) {
-    return workspace.active && (!label.empty() || !activeWindowAppId().empty());
+    return workspace.active && (!label.empty() || (m_showIcons && !activeWindowAppId().empty()));
   }
   if (label.empty()) {
     return false;
@@ -118,10 +112,12 @@ void WorkspacesWidget::create() {
   m_container = container.get();
   setRoot(std::move(container));
 
-  m_appIconColorizeConn = shellAppIconColorizationChanged().connect([this]() {
-    m_iconColorizeRefreshPending = true;
-    requestUpdate();
-  });
+  if (showsActiveIcon()) {
+    m_appIconColorizeConn = shellAppIconColorizationChanged().connect([this]() {
+      m_iconColorizeRefreshPending = true;
+      requestUpdate();
+    });
+  }
 }
 
 void WorkspacesWidget::doLayout(Renderer& renderer, float containerWidth, float containerHeight) {
@@ -188,7 +184,7 @@ bool WorkspacesWidget::releaseHeldVisualStyles() {
 }
 
 void WorkspacesWidget::doUpdate(Renderer& renderer) {
-  if (m_iconColorizeRefreshPending && isFocusHint()) {
+  if (m_iconColorizeRefreshPending && showsActiveIcon()) {
     for (auto& item : m_items) {
       syncActiveWindowIcon(renderer, item);
     }
@@ -268,7 +264,7 @@ void WorkspacesWidget::doUpdate(Renderer& renderer) {
   bool structuralChange = current.size() != m_cachedState.size();
   bool activeChange = false;
   bool hideWhenEmptyTransition = false;
-  if (isFocusHint()) {
+  if (showsActiveIcon()) {
     const auto desktopVersion = desktopEntriesVersion();
     if (desktopVersion != m_desktopEntriesVersion) {
       buildDesktopIconIndex();
@@ -451,6 +447,8 @@ void WorkspacesWidget::rebuild(Renderer& renderer) {
   const float gap = kWorkspaceGap * m_contentScale;
   const float labelFontSize = workspaceLabelFontSize(isMinimal()) * fontScale();
   const float pillHeight = std::round(kWorkspacePillDefaultHeight * m_contentScale * m_pillScale);
+  // Active and inactive labels share the configured weight: a heavier weight selects a different
+  // face whose digits sit at a different height.
   const FontWeight configuredFontWeight = labelFontWeight();
 
   // Measure text and compute per-slot widths along the bar main axis.
@@ -468,8 +466,7 @@ void WorkspacesWidget::rebuild(Renderer& renderer) {
     const auto& entry = entries[i];
 
     if (entry.showLabel) {
-      const FontWeight slotFontWeight = workspaceFontWeight(configuredFontWeight, isMinimal(), entry.workspace.active);
-      const TextMetrics tm = renderer.measureText(entry.label, labelFontSize, slotFontWeight);
+      const TextMetrics tm = renderer.measureText(entry.label, labelFontSize, configuredFontWeight);
       slot.textWidth = std::max(tm.right - tm.left, tm.inkRight - tm.inkLeft);
       slot.textHeight = tm.bottom - tm.top;
     }
@@ -500,9 +497,7 @@ void WorkspacesWidget::rebuild(Renderer& renderer) {
         slot.activeWidth = slot.inactiveWidth;
       }
       if (entry.showLabel) {
-        const FontWeight slotFontWeight =
-            workspaceFontWeight(configuredFontWeight, isMinimal(), entry.workspace.active);
-        const TextMetrics tm = renderer.measureText(entry.label, labelFontSize, slotFontWeight);
+        const TextMetrics tm = renderer.measureText(entry.label, labelFontSize, configuredFontWeight);
         maxLabelHeight = std::max(maxLabelHeight, tm.bottom - tm.top);
       }
       continue;
@@ -510,7 +505,7 @@ void WorkspacesWidget::rebuild(Renderer& renderer) {
 
     if (isFocusHint()) {
       const float dotSize = focusedPillDotSize();
-      const bool hasIcon = entry.workspace.active && !activeWindowAppId().empty();
+      const bool hasIcon = m_showIcons && entry.workspace.active && !activeWindowAppId().empty();
       if (!entry.workspace.active) {
         slot.inactiveWidth = dotSize;
         slot.activeWidth = dotSize;
@@ -590,7 +585,7 @@ void WorkspacesWidget::rebuild(Renderer& renderer) {
           ui::label({
               .text = entry.label,
               .fontSize = labelFontSize,
-              .fontWeight = workspaceFontWeight(configuredFontWeight, isMinimal(), ws.active),
+              .fontWeight = configuredFontWeight,
               .fontFamily = labelFontFamily(),
               .color = workspaceTextColor(ws),
               .baselineMode = LabelBaselineMode::Text,
@@ -599,7 +594,7 @@ void WorkspacesWidget::rebuild(Renderer& renderer) {
       item.text->measure(renderer);
     }
 
-    if (isFocusHint() && ws.active) {
+    if (showsActiveIcon() && ws.active) {
       item.showIcon = true;
       item.icon = static_cast<Image*>(area->addChild(
           ui::image({
@@ -827,7 +822,7 @@ void WorkspacesWidget::ensureItemLabel(Renderer& renderer, Item& item, const Wor
       ui::label({
           .text = item.label,
           .fontSize = labelFontSize,
-          .fontWeight = workspaceFontWeight(labelFontWeight(), isMinimal(), workspace.active),
+          .fontWeight = labelFontWeight(),
           .fontFamily = labelFontFamily(),
           .color = workspaceTextColor(workspace),
           .baselineMode = LabelBaselineMode::Text,
@@ -861,8 +856,7 @@ void WorkspacesWidget::recalculateItemMetrics(
   float textWidth = 0.0F;
   float textHeight = 0.0F;
   if (item.showLabel) {
-    const FontWeight slotFontWeight = workspaceFontWeight(configuredFontWeight, isMinimal(), workspace.active);
-    const TextMetrics tm = renderer.measureText(label, labelFontSize, slotFontWeight);
+    const TextMetrics tm = renderer.measureText(label, labelFontSize, configuredFontWeight);
     textWidth = std::max(tm.right - tm.left, tm.inkRight - tm.inkLeft);
     textHeight = tm.bottom - tm.top;
   }
@@ -879,7 +873,7 @@ void WorkspacesWidget::recalculateItemMetrics(
     }
   } else if (isFocusHint()) {
     const float dotSize = focusedPillDotSize();
-    const bool hasIcon = workspace.active && !activeWindowAppId().empty();
+    const bool hasIcon = m_showIcons && workspace.active && !activeWindowAppId().empty();
     if (!workspace.active) {
       item.inactiveWidth = dotSize;
       item.activeWidth = dotSize;
@@ -902,7 +896,7 @@ void WorkspacesWidget::recalculateItemMetrics(
   }
 
   ensureItemLabel(renderer, item, workspace);
-  if (isFocusHint() && workspace.active && item.icon == nullptr && item.area != nullptr) {
+  if (showsActiveIcon() && workspace.active && item.icon == nullptr && item.area != nullptr) {
     item.showIcon = true;
     item.icon = static_cast<Image*>(item.area->addChild(
         ui::image({
@@ -918,9 +912,7 @@ void WorkspacesWidget::recalculateItemMetrics(
     item.text->setVisible(item.showLabel);
     if (item.showLabel) {
       item.text->setText(label);
-      item.text->setFontWeight(
-          workspaceFontWeight(configuredFontWeight, isMinimal() && !isFocusHint(), workspace.active)
-      );
+      item.text->setFontWeight(configuredFontWeight);
       item.text->setColor(workspaceTextColor(workspace));
       item.text->measure(renderer);
     }
@@ -1145,7 +1137,7 @@ void WorkspacesWidget::applyItemLayout(Item& it) {
       && it.currentWidth + 0.5F >= it.inactiveWidth
       && (!isFocusHint() || it.workspace.active);
   const bool showIcon =
-      isFocusHint() && it.workspace.active && it.showIcon && it.icon != nullptr && it.icon->hasImage();
+      showsActiveIcon() && it.workspace.active && it.showIcon && it.icon != nullptr && it.icon->hasImage();
   if (it.text != nullptr) {
     it.text->setVisible(showText);
   }
@@ -1381,7 +1373,7 @@ std::string WorkspacesWidget::resolveIconPath(const std::string& appId) {
 }
 
 void WorkspacesWidget::syncActiveWindowIcon(Renderer& renderer, Item& item) {
-  if (!isFocusHint() || item.icon == nullptr) {
+  if (!showsActiveIcon() || item.icon == nullptr) {
     return;
   }
 

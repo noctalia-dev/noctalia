@@ -6,10 +6,6 @@ sidebar:
   order: 1
 ---
 
-:::caution[Beta - APIs may still change]
-The plugin system is in **beta**. The manifest format and APIs may still change before v5 is stable, so build with that in mind.
-:::
-
 A plugin is a directory with a static `plugin.toml` manifest and one or more [Luau](https://luau.org) entry scripts.
 Each entry runs in its own isolated Luau VM, off the UI thread, with per-call time budgets - a slow or crashing script
 never stalls the shell. Plugins are trusted code: installing one is equivalent to running a user-owned script.

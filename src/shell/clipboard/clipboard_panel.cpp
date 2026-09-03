@@ -7,6 +7,7 @@
 #include "core/log.h"
 #include "core/process/process.h"
 #include "core/ui_phase.h"
+#include "cursor-shape-v1-client-protocol.h"
 #include "i18n/i18n.h"
 #include "render/core/async_texture_cache.h"
 #include "render/core/color.h"
@@ -667,12 +668,14 @@ void ClipboardPanel::create() {
   sidebar->addChild(
       ui::virtualGridView({
           .out = &m_listGrid,
+          .contentScale = scale,
           .columns = 1,
           .cellHeight = kRowHeightEstimate * scale,
           .squareCells = false,
           .columnGap = 0.0F,
           .rowGap = Style::spaceXs * scale,
           .overscanRows = kListOverscanRows,
+          .itemCursorShape = WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_POINTER,
           .scrollbarVisible = true,
           .adapter = m_listAdapter.get(),
           .flexGrow = 1.0F,
@@ -779,6 +782,7 @@ void ClipboardPanel::create() {
 
   auto previewScroll = ui::scrollView({
       .out = &m_previewScrollView,
+      .contentScale = scale,
       .scrollbarVisible = true,
       .flexGrow = 1.0F,
       .configure = [scale, opacity = panelCardOpacity()](ScrollView& scrollView) {

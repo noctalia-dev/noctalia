@@ -43,6 +43,7 @@ play_sound      = true
 - If none of the configured monitors are currently connected (e.g. an external display was undocked), Noctalia falls back to showing toasts on all available monitors so notifications never disappear silently. Targeting is restored automatically when a configured monitor reconnects.
 - Selector matching follows monitor override rules: exact connector name (`eDP-1`) or a word-boundary token in the monitor description.
 - Internal Noctalia notifications (shell and plugins) are toast-only and are never stored in notification history.
+- Dismissing a toast (right-click, close button, or `noctalia msg notification-clear-active`) only hides it. The entry stays in control-center history and still counts as unread until the notifications tab is opened. History entries are removed only by the per-entry delete button, **Clear all**, `noctalia msg notification-clear-history`, or `history_retention_hours`.
 - `history_retention_hours` removes stored external notifications older than the configured number of hours. The default
   `0` retains history indefinitely; accepted values are `0`–`8760`.
 - `collapse_on_dismiss = true` (default) causes remaining toasts to slide into a compact stack when one is dismissed. Set to `false` for stable-slot behavior where toasts keep their original positions.

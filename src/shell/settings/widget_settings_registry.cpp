@@ -851,6 +851,7 @@ namespace settings {
     const std::string placementKey = scripting::panelShellSettingKey(entry.id, "placement");
     const std::string positionKey = scripting::panelShellSettingKey(entry.id, "position");
     const std::string openNearClickKey = scripting::panelShellSettingKey(entry.id, "open_near_click");
+    const std::string layerKey = scripting::panelShellSettingKey(entry.id, "layer");
     const std::string entryTitle = entry.id;
     const auto entryPrefix = [&](std::string_view suffix) {
       std::string label = entryTitle;
@@ -907,6 +908,27 @@ namespace settings {
       return spec;
     };
 
+    auto layerSpec = [&](const scripting::ManifestField* field) {
+      WidgetSettingSpec spec;
+      spec.schema.key = layerKey;
+      spec.literalLabel = entryPrefix(tr("settings.plugins.panels.layer.label"));
+      spec.literalDescription = tr("settings.plugins.panels.layer.description");
+      spec.control = WidgetControlKind::Select;
+      spec.segmented = true;
+      spec.literalLabels = true;
+      spec.schema.defaultValue = field != nullptr ? field->defaultValue() : entry.panelLayerDefault;
+      spec.options = {
+          {"top", tr("settings.options.layer.top")},
+          {"overlay", tr("settings.options.layer.overlay")},
+      };
+      for (const auto& option : spec.options) {
+        spec.schema.enumValues.push_back(option.value);
+      }
+      spec.schema.type = schemaTypeForControl(spec.control);
+      spec.visibleWhen = WidgetSettingVisibility{placementKey, {"floating"}};
+      return spec;
+    };
+
     auto openNearClickSpec = [&](const scripting::ManifestField* field) {
       WidgetSettingSpec spec;
       spec.schema.key = openNearClickKey;
@@ -931,6 +953,7 @@ namespace settings {
     const scripting::ManifestField* placementField = nullptr;
     const scripting::ManifestField* positionField = nullptr;
     const scripting::ManifestField* openNearClickField = nullptr;
+    const scripting::ManifestField* layerField = nullptr;
     for (const auto& field : entry.settings) {
       if (field.key == placementKey) {
         placementField = &field;
@@ -938,12 +961,15 @@ namespace settings {
         positionField = &field;
       } else if (field.key == openNearClickKey) {
         openNearClickField = &field;
+      } else if (field.key == layerKey) {
+        layerField = &field;
       }
     }
 
     return {
         placementSpec(placementField),
         positionSpec(positionField),
+        layerSpec(layerField),
         openNearClickSpec(openNearClickField),
     };
   }

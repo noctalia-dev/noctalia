@@ -548,6 +548,7 @@ std::unique_ptr<Flex> NetworkTab::create() {
 
   auto listScroll = ui::scrollView({
       .out = &m_listScroll,
+      .contentScale = contentScale(),
       .scrollbarVisible = true,
       .viewportPaddingH = 0.0F,
       .viewportPaddingV = 0.0F,

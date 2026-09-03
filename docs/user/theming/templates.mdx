@@ -297,13 +297,13 @@ Truthiness rules:
 
 Supported iterable expressions:
 
-- `colors` — all palette color tokens
-- `palettes.primary`, `palettes.secondary`, `palettes.tertiary`, `palettes.error`, `palettes.neutral`, `palettes.neutral_variant` — tonal palette steps
+- `colors`: all palette color tokens
+- `palettes.primary`, `palettes.secondary`, `palettes.tertiary`, `palettes.error`, `palettes.neutral`, `palettes.neutral_variant`: tonal palette steps
 - numeric ranges like `0..10` and `-5..5` (end-exclusive)
 - arrays and maps from the current scope (e.g. TOML data bound via `[config]`)
 
 :::note
-Noctalia uses `<* *>` for block tags and `{{ }}` for expressions. This is different from matugen, which uses Tera syntax (`{% %}` / `{{ }}`). The two are not interchangeable — a matugen template must be adapted to use `<* *>` blocks.
+Noctalia uses `<* *>` for block tags and `{{ }}` for expressions. This is different from matugen, which uses Tera syntax (`{% %}` / `{{ }}`). The two are not interchangeable: a matugen template must be adapted to use `<* *>` blocks.
 :::
 
 ### `colors`
@@ -381,9 +381,9 @@ Any array or map in the current variable scope can be iterated. This includes da
 
 Inside `for` loops, the `loop` object provides:
 
-- `loop.index` — zero-based position
-- `loop.first` — `true` on the first iteration
-- `loop.last` — `true` on the last iteration
+- `loop.index`: zero-based position
+- `loop.first`: `true` on the first iteration
+- `loop.last`: `true` on the last iteration
 
 ```text
 <* for name, value in colors *>

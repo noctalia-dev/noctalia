@@ -10,6 +10,7 @@
 #include "ui/style.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cstdio>
 #include <memory>
 #include <string>
@@ -21,6 +22,9 @@ using namespace control_center;
 namespace {
 
   constexpr float kRowMinHeight = Style::controlHeightLg;
+
+  // Bounds an explicit Rescan: BlueZ discovery is stopped again when this window elapses.
+  constexpr auto kDiscoveryTimeout = std::chrono::seconds(10);
 
   const char* glyphFor(BluetoothDeviceKind kind) {
     switch (kind) {
@@ -444,6 +448,10 @@ std::unique_ptr<Flex> BluetoothTab::create() {
                     }
                   }
                   break;
+                case BluetoothPairingKind::DisplayPasskey:
+                  // Informational only: the code is typed on the device, and there is no
+                  // Agent1 reply to send. Do not fall through to the canceling default.
+                  break;
                 default:
                   m_agent->cancelPending();
                   break;
@@ -469,6 +477,7 @@ std::unique_ptr<Flex> BluetoothTab::create() {
 
   auto listScroll = ui::scrollView({
       .out = &m_listScroll,
+      .contentScale = contentScale(),
       .scrollbarVisible = true,
       .viewportPaddingH = 0.0F,
       .viewportPaddingV = 0.0F,
@@ -503,6 +512,7 @@ void BluetoothTab::doLayout(Renderer& renderer, float contentWidth, float bodyHe
 }
 
 void BluetoothTab::doUpdate(Renderer& renderer) {
+  syncDiscoveryLease();
   syncPairingCard();
   rebuildDeviceList(renderer);
   // A metric pill's text changes its width, so the list has to be laid out again.
@@ -513,12 +523,13 @@ void BluetoothTab::doUpdate(Renderer& renderer) {
 }
 
 void BluetoothTab::setActive(bool active) {
-  if (!active && m_service != nullptr && m_service->state().discovering) {
-    m_service->stopDiscovery();
+  if (!active) {
+    stopRequestedDiscovery();
   }
 }
 
 void BluetoothTab::onClose() {
+  stopRequestedDiscovery();
   m_rootLayout = nullptr;
   m_pairingCard = nullptr;
   m_pairingTitle = nullptr;
@@ -538,6 +549,46 @@ void BluetoothTab::onClose() {
   m_deviceRows.clear();
   m_lastStructureKey.clear();
   m_lastListWidth = -1.0F;
+}
+
+void BluetoothTab::syncDiscoveryLease() {
+  if (m_discoveryLease == DiscoveryLease::None || m_service == nullptr) {
+    return;
+  }
+
+  const BluetoothState& s = m_service->state();
+  if (!s.adapterPresent || !s.powered) {
+    // A powered-down adapter cannot be discovering, so BlueZ already dropped the session.
+    releaseDiscoveryLease();
+    return;
+  }
+  if (m_discoveryLease == DiscoveryLease::Pending) {
+    // StartDiscovery is async; the lease is only confirmed once BlueZ reports Discovering.
+    if (s.discovering) {
+      m_discoveryLease = DiscoveryLease::Active;
+    }
+    return;
+  }
+  if (!s.discovering) {
+    // Discovery ended outside the tab: drop the lease so the next Rescan starts a new one.
+    releaseDiscoveryLease();
+  }
+}
+
+void BluetoothTab::releaseDiscoveryLease() {
+  m_discoveryLease = DiscoveryLease::None;
+  m_discoveryTimer.stop();
+}
+
+void BluetoothTab::stopRequestedDiscovery() {
+  if (m_discoveryLease == DiscoveryLease::None) {
+    return;
+  }
+
+  releaseDiscoveryLease();
+  if (m_service != nullptr) {
+    m_service->stopDiscovery();
+  }
 }
 
 void BluetoothTab::syncHeader() {
@@ -636,6 +687,11 @@ void BluetoothTab::syncPairingCard() {
   }
   if (m_pairingInputRow != nullptr) {
     m_pairingInputRow->setVisible(needsInput);
+  }
+  if (m_pairingAccept != nullptr) {
+    // DisplayPasskey has nothing to accept: the code is entered on the device and there
+    // is no Agent1 reply. Show only the Reject action so Accept cannot clear the card.
+    m_pairingAccept->setVisible(req.kind != BluetoothPairingKind::DisplayPasskey);
   }
 }
 
@@ -787,8 +843,12 @@ void BluetoothTab::rebuildDeviceList(Renderer& renderer) {
               if (m_service == nullptr) {
                 return;
               }
-              m_service->stopDiscovery();
-              m_service->startDiscovery();
+              // Repeated clicks renew the scan window instead of restarting discovery.
+              if (m_discoveryLease == DiscoveryLease::None) {
+                m_discoveryLease = DiscoveryLease::Pending;
+                m_service->startDiscovery();
+              }
+              m_discoveryTimer.start(kDiscoveryTimeout, [this]() { stopRequestedDiscovery(); });
             },
         })
     );

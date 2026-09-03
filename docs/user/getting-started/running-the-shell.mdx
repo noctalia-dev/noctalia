@@ -36,3 +36,9 @@ The most direct way to run Noctalia for testing or debugging. Open a terminal an
 ```bash
 noctalia
 ```
+
+### Logs
+Noctalia writes its main log to `$XDG_CACHE_HOME/noctalia/noctalia.log`. If
+`XDG_CACHE_HOME` is unset, the fallback path is
+`~/.cache/noctalia/noctalia.log`. The previous file is retained as
+`noctalia.log.1` when the current log reaches 1 MiB.

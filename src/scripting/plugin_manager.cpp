@@ -593,6 +593,26 @@ namespace scripting {
 
   bool PluginManager::isEnabling(std::string_view pluginId) const { return m_enabling.contains(std::string(pluginId)); }
 
+  bool PluginManager::isMaterialized(std::string_view pluginId) const {
+    const auto subdir = pluginSubdirFromId(pluginId);
+    if (!subdir.has_value()) {
+      return false;
+    }
+    std::error_code ec;
+    const auto hasManifest = [&](const std::filesystem::path& root) {
+      return !root.empty() && std::filesystem::exists(root / *subdir / "plugin.toml", ec);
+    };
+    for (const auto& source : m_config.config().plugins.sources) {
+      if (!source.enabled) {
+        continue;
+      }
+      if (hasManifest(sourceRootFor(source))) {
+        return true;
+      }
+    }
+    return hasManifest(plugin_paths::localSourceRoot());
+  }
+
   void PluginManager::disable(std::string_view pluginId) {
     kLog.info("disabling plugin '{}'", pluginId);
     const bool wasEnabled = std::ranges::contains(m_config.config().plugins.enabled, pluginId);

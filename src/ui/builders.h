@@ -402,6 +402,7 @@ namespace ui {
   struct ScrollViewProps {
     ScrollView** out = nullptr;
     ScrollViewState* state = nullptr;
+    std::optional<float> contentScale = std::nullopt;
     std::optional<ScrollOrientation> orientation = std::nullopt;
     std::optional<bool> scrollbarVisible = std::nullopt;
     std::optional<float> viewportPaddingH = std::nullopt;
@@ -426,6 +427,7 @@ namespace ui {
   struct VirtualGridViewProps {
     VirtualGridView** out = nullptr;
     ScrollViewState* state = nullptr;
+    std::optional<float> contentScale = std::nullopt;
     std::optional<std::size_t> columns = std::nullopt;
     std::optional<float> minCellWidth = std::nullopt;
     std::optional<float> cellHeight = std::nullopt;
@@ -433,6 +435,7 @@ namespace ui {
     std::optional<float> columnGap = std::nullopt;
     std::optional<float> rowGap = std::nullopt;
     std::optional<std::size_t> overscanRows = std::nullopt;
+    std::optional<std::uint32_t> itemCursorShape = std::nullopt;
     std::optional<bool> scrollbarVisible = std::nullopt;
     std::optional<float> scrollCardStyleScale = std::nullopt;
     VirtualGridAdapter* adapter = nullptr;
@@ -449,6 +452,7 @@ namespace ui {
   struct VirtualListViewProps {
     VirtualListView** out = nullptr;
     ScrollViewState* state = nullptr;
+    std::optional<float> contentScale = std::nullopt;
     std::optional<float> itemGap = std::nullopt;
     std::optional<std::size_t> overscanItems = std::nullopt;
     VirtualListAdapter* adapter = nullptr;

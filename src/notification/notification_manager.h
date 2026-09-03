@@ -151,6 +151,7 @@ public:
 private:
   void cleanupOldHistoryEntries();
   void upsertHistory(const Notification& notification, bool active, std::optional<CloseReason> closeReason);
+  void markHistoryClosed(uint32_t id, CloseReason reason);
   void rebuildHistoryIndex();
   void schedulePersistHistory();
   void persistHistoryToDisk();

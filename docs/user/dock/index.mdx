@@ -35,7 +35,7 @@ show_running        = true       # also show running apps not in the pinned list
 auto_hide           = false      # slide out when pointer leaves; reveal from edge trigger strip
 smart_auto_hide     = false      # show when the active workspace is empty; hide when it has windows
 reserve_space       = true       # reserve compositor exclusive zone / push windows away
-layer               = "top"      # top | overlay — overlay keeps the dock above fullscreen apps
+layer               = "top"      # top | overlay (overlay keeps the dock above fullscreen apps)
 
 active_scale        = 1.0        # icon scale for the focused app (clamped 0.1–1.75)
 inactive_scale      = 0.85       # icon scale for non-focused apps (clamped 0.1–1.0)
@@ -120,9 +120,9 @@ Leaving the dock surface while dragging cancels the reorder. Tooltips are hidden
 
 Dock settings expose **Off**, **On**, and **Smart** as one control. In config they map to `auto_hide` and `smart_auto_hide`:
 
-- **Off** — `auto_hide = false`, `smart_auto_hide = false`
-- **On** — pointer auto-hide (`auto_hide = true`)
-- **Smart** — workspace-based hide (`smart_auto_hide = true`, `auto_hide = false`)
+- **Off**: `auto_hide = false`, `smart_auto_hide = false`
+- **On**: pointer auto-hide (`auto_hide = true`)
+- **Smart**: workspace-based hide (`smart_auto_hide = true`, `auto_hide = false`)
 
 When `auto_hide = true`, the dock slides out after the pointer leaves and slides back in when the pointer reaches the matching screen edge trigger strip.
 
@@ -136,7 +136,7 @@ Set auto-hide to **Smart** in dock settings (or `smart_auto_hide = true` with `a
 
 `reserve_space` controls whether the dock keeps a compositor exclusive zone. With both auto-hide modes off, `reserve_space = true` keeps windows pushed away; `reserve_space = false` overlays the dock on top of full-screen clients. With pointer or smart auto-hide active, `reserve_space = false` retracts the dock as an overlay (no gap); `reserve_space = true` keeps the gap while the dock slides out of view.
 
-`layer` selects the Wayland layer-shell stacking layer (`top` or `overlay`). Use `overlay` so the dock stays reachable above fullscreen apps — same idea as the bar's Wayland Layer setting.
+`layer` selects the Wayland layer-shell stacking layer (`top` or `overlay`). Use `overlay` so the dock stays reachable above fullscreen apps, the same idea as the bar's Wayland Layer setting.
 
 ---
 

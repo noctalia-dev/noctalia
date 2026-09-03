@@ -60,6 +60,7 @@ public:
   void onOpen(std::string_view context) override;
   void onClose() override;
   void onFrameTick(float deltaMs) override;
+  [[nodiscard]] bool isContextActive(std::string_view context) const override;
 
   [[nodiscard]] float preferredWidth() const override { return scaled(m_preferredWidth); }
   [[nodiscard]] float preferredHeight() const override { return scaled(m_preferredHeight); }
@@ -67,6 +68,7 @@ public:
   [[nodiscard]] bool fillsHeight() const noexcept override { return m_heightFill; }
   [[nodiscard]] bool dismissOnOutsideClick() const override { return m_dismissOnOutsideClick; }
   [[nodiscard]] LayerShellKeyboard keyboardMode() const override { return m_keyboardMode; }
+  [[nodiscard]] LayerShellLayer layer() const override { return m_layer; }
   [[nodiscard]] bool isPersistent() const noexcept override { return m_persistent; }
   [[nodiscard]] PanelPlacement panelPlacement() const noexcept override { return m_shellConfig.placement; }
   [[nodiscard]] std::string panelScreenPosition() const override { return m_shellConfig.position; }
@@ -135,6 +137,7 @@ private:
   bool m_wantsSecondTicks = false;
   bool m_needsFrameTick = false;
   bool m_open = false;
+  std::string m_openContext;
   std::uint64_t m_openGeneration = 0;
   bool m_hasOnIpc = false;
   bool m_hasOnIpcKnown = false;
@@ -144,6 +147,7 @@ private:
   bool m_heightFill = false;
   bool m_dismissOnOutsideClick = true;
   LayerShellKeyboard m_keyboardMode = LayerShellKeyboard::OnDemand;
+  LayerShellLayer m_layer = LayerShellLayer::Top;
   bool m_persistent = false;
   scripting::PluginPanelShellConfig m_shellConfig;
   std::shared_ptr<bool> m_alive = std::make_shared<bool>(true);

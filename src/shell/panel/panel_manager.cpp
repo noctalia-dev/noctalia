@@ -367,6 +367,7 @@ namespace {
 PanelManager::PanelManager() { s_instance = this; }
 
 PanelManager::~PanelManager() {
+  m_persistentHost.setPanelClosedCallback(nullptr);
   if (s_instance == this) {
     s_instance = nullptr;
   }
@@ -466,6 +467,11 @@ void PanelManager::setFocusGrabBarSurfacesProvider(std::function<std::vector<wl_
 
 void PanelManager::setPanelClosedCallback(std::function<void()> callback) {
   m_panelClosedCallback = std::move(callback);
+  m_persistentHost.setPanelClosedCallback([this]() {
+    if (m_panelClosedCallback) {
+      m_panelClosedCallback();
+    }
+  });
 }
 
 void PanelManager::setPanelOpenedCallback(std::function<void()> callback) {
@@ -660,12 +666,18 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
     return static_cast<std::int32_t>(std::clamp(desired, static_cast<float>(padding), static_cast<float>(maxValue)));
   };
 
-  PanelPlacement activePlacement = m_activePanel->panelPlacement();
-  const bool fillWidth = m_activePanel->fillsWidth();
-  const bool fillHeight = m_activePanel->fillsHeight();
-  if ((fillWidth || fillHeight) && activePlacement != PanelPlacement::Floating) {
-    kLog.warn("panel manager: \"{}\" uses fill sizing, which requires floating placement — opening floating", panelId);
-    activePlacement = PanelPlacement::Floating;
+  const PanelPlacement activePlacement = m_activePanel->panelPlacement();
+  // Fill sizing is floating-only (see Panel::fillsWidth): every other placement sizes the
+  // surface from the panel's preferred extent.
+  const bool floatingPlacement = activePlacement == PanelPlacement::Floating;
+  const bool fillWidth = m_activePanel->fillsWidth() && floatingPlacement;
+  const bool fillHeight = m_activePanel->fillsHeight() && floatingPlacement;
+  if (!floatingPlacement && (m_activePanel->fillsWidth() || m_activePanel->fillsHeight())) {
+    kLog.warn(
+        "panel manager: \"{}\" uses fill sizing, which only applies to floating placement; opening at its preferred "
+        "size",
+        panelId
+    );
   }
   m_panelFillWidth = fillWidth;
   m_panelFillHeight = fillHeight;
@@ -1420,6 +1432,7 @@ void PanelManager::destroyPanel() {
   m_inputDispatcher.setSceneRoot(nullptr);
   // Hover leave only fades tooltips asynchronously. Destroy them (and any
   // open context menu) before the layer surface — xdg_popup must die first.
+  TooltipManager::instance().restoreBarTooltipsForPanel(m_activePanelId);
   TooltipManager::instance().forceDestroy();
   if (m_activePopup != nullptr) {
     m_activePopup->close();

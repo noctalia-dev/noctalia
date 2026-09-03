@@ -1,0 +1,36 @@
+name: Enforce Pull Request Template
+
+on:
+  pull_request_target:
+    types:
+      - opened
+      - edited
+      - reopened
+      - ready_for_review
+
+concurrency:
+  group: enforce-pr-template-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  enforce:
+    if: ${{ github.repository == 'noctalia-dev/noctalia' }}
+    runs-on: ubuntu-latest
+    permissions:
+      # GitHub's GraphQL draft mutation requires both write permissions.
+      contents: write
+      issues: write
+      pull-requests: write
+    steps:
+      # pull_request_target has write access. Only execute this trusted script from
+      # the default branch; never check out or run code from the pull request head.
+      - name: Check out trusted enforcement code
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+
+      - name: Validate pull request description
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 .github/workflows/scripts/enforce-pr-template.py "$GITHUB_EVENT_PATH"

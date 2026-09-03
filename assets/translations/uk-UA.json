@@ -303,6 +303,12 @@
     },
     "power": {
       "battery": "Акумулятор",
+      "charging": {
+        "configured": "Налаштовано: {limits}",
+        "firmware-managed": "Заряджанням керує системна мікропрограма",
+        "full-charge": "Заряджати до 100%",
+        "starts": "Починати, коли менше {start}%"
+      },
       "design-capacity": "Залишок розрахункової місткості",
       "health": "Роботоздатність акумулятора",
       "performance-inhibited": "Потужність недоступна",
@@ -690,12 +696,12 @@
       "placeholder": "Введіть відповідь..."
     },
     "internal": {
-      "battery": "Батарея",
+      "battery": "Акумулятор",
       "battery-critical-body": "{device}: {percent}% — комп'ютер скоро вимкнеться",
       "battery-critical-title": "Критично низький заряд акумулятора",
-      "battery-device": "Пристрій батареї",
+      "battery-device": "Пристрій акумулятора",
       "battery-low-body": "{device}: залишилося {percent}%",
-      "battery-low-title": "Низький заряд батареї",
+      "battery-low-title": "Низький заряд акумулятора",
       "calendar": "Календар",
       "calendar-google-connect-browser-failed": "Не вдалося запустити браузер для авторизації Google. Перевірте свій типовий браузер або налаштування xdg-open.",
       "calendar-google-connect-expired": "Термін дії авторизації Google вичерпався до виконання входу. Спробуйте з'єднатися знову.",
@@ -907,7 +913,7 @@
         "label": "Монітор: {name}",
         "management": "Змінити на моніторі",
         "match-placeholder": "Введіть монітор",
-        "new": "Зміни для окремого монітора",
+        "new": "Зміни для монітора",
         "rename": "Перейменувати",
         "rename-save": "Зберегти"
       },
@@ -952,9 +958,9 @@
           "ungroup": "Розгрупувати"
         },
         "inspector": {
-          "add-instance-title": "Додати новий іменований віджет {widget} до {lane}",
-          "add-title": "Додати widget до {lane}",
-          "move-to-lane": "Перемістити до {lane}"
+          "add-instance-title": "Додати новий іменований віджет «{widget}» на {lane}",
+          "add-title": "Додати віджет на {lane}",
+          "move-to-lane": "Перенести на {lane}"
         },
         "instance": {
           "create-save": "Створити",
@@ -967,12 +973,12 @@
           "rename-save": "Зберегти"
         },
         "lanes": {
-          "center": "Центр",
+          "center": "центр",
           "customize": "Налаштувати",
           "empty": "Немає віджетів",
           "empty-hint": "Додайте віджет, щоб заповнити цю смугу.",
-          "end": "Кінець",
-          "start": "Почати"
+          "end": "кінець",
+          "start": "початок"
         },
         "picker": {
           "empty": "Віджетів не знайдено",
@@ -1080,7 +1086,7 @@
         "automation": "Автоматизація",
         "backdrop": "Фон",
         "background": "Фон",
-        "battery": "Батарея",
+        "battery": "Акумулятор",
         "behavior": "Поведінка",
         "borders": "Контури",
         "brightness": "Яскравість",
@@ -1561,6 +1567,9 @@
         "corner-top-right": {
           "description": "Радіус верхнього правого кута для панелі"
         },
+        "dead-zone-action": {
+          "description": "Дія, яку виконує клацання на вільному місці на панелі."
+        },
         "edge-margin": {
           "description": "Відстань від найближчого краю екрана; позитивні значення віддаляють Bar від нього"
         },
@@ -1573,6 +1582,9 @@
         },
         "ends-margin": {
           "description": "Відступ від кожного кінця панелі вздовж її головної осі"
+        },
+        "font-family": {
+          "description": "Шрифт для віджетів на цій панелі. Залиште це поле пустим, щоб застосувати загальний шрифт оболонки. Визначений для окремого віджета шрифт має приорітет перед цим параметром."
         },
         "font-weight": {
           "description": "Стандартна вага для міток віджетів на цій панелі.",
@@ -3003,7 +3015,7 @@
       "types": {
         "active-window": "Активне вікно",
         "audio-visualizer": "Аудіовізуалізатор",
-        "battery": "Батарея",
+        "battery": "Акумулятор",
         "bluetooth": "Bluetooth",
         "brightness": "Яскравість",
         "caffeine": "Присипляння",
