@@ -104,6 +104,8 @@ internal shell/plugin toasts.
 This affects new notifications only. Use `noctalia msg notification-clear-history` to remove entries already stored in
 history.
 
+Shell notifications are toast-only and are not kept in history, with one exception: [calendar reminders](/noctalia/services/calendar/#reminders) are retained, because a reminder missed while you were away has no other place to surface. They appear under the app name `Calendar`, so a filter matching that name controls their toast, sound, and history like any other notification.
+
 ## Related IPC
 
 For Do Not Disturb status/toggle commands and notification clear actions, see
