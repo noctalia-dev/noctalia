@@ -1150,6 +1150,7 @@ if build_tests
     'config_override_mutation',
     'config_path_resolution',
     'config_schema_roundtrip',
+    'config_wallpaper_precedence',
     'config_widget',
     'context_menu_popup',
     'cpu_freq',

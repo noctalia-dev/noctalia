@@ -1976,7 +1976,6 @@ bool ConfigService::commitOverrideTable(toml::table next, bool* changed) {
   if (changed != nullptr) {
     *changed = true;
   }
-  extractWallpaperFromOverrides();
   loadAll();
   fireReloadCallbacks();
   return true;
@@ -2128,7 +2127,6 @@ bool ConfigService::renameOverrideTable(
   }
 
   m_ownOverridesWritePending = true;
-  extractWallpaperFromOverrides();
   loadAll();
   fireReloadCallbacks();
   return true;
