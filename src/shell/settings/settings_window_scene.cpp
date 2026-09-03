@@ -751,7 +751,7 @@ settings::RegistryEnvironment SettingsWindow::buildRegistryEnvironment() const {
   env.gammaControlAvailable = (m_wayland != nullptr && m_wayland->hasGammaControl());
   env.greeterSyncAvailable =
       m_config != nullptr && greeter::appearanceSyncAvailable(m_config->config().shell.greeterSync);
-  const ThemeMode previewMode = m_config != nullptr ? m_config->config().theme.mode : ThemeMode::Dark;
+  const ThemeMode previewMode = m_config != nullptr ? shellThemeMode(m_config->config().theme) : ThemeMode::Dark;
   for (const auto& paletteInfo : noctalia::theme::availableCommunityPalettes()) {
     env.communityPalettes.push_back(
         settings::SelectOption{

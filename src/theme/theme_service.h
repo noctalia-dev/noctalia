@@ -21,7 +21,9 @@ namespace noctalia::theme {
   class ThemeService {
   public:
     using ChangeCallback = std::function<void()>;
-    using ResolvedCallback = std::function<void(const GeneratedPalette&, std::string_view, std::string_view)>;
+    // Carries the resolved [theme].mode: the app-facing mode templates and the GTK color
+    // scheme run in. Shell-facing consumers read resolvedShellMode()/isLightMode().
+    using ResolvedCallback = std::function<void(const GeneratedPalette&, std::string_view)>;
 
     ThemeService(ConfigService& config, HttpClient& httpClient);
 
@@ -36,9 +38,11 @@ namespace noctalia::theme {
     void toggleLightDark();
     void cycleMode();
     [[nodiscard]] ThemeMode configuredMode() const noexcept;
+    // Noctalia's own resolved mode ([theme].shell_mode, or [theme].mode when it follows).
     [[nodiscard]] bool isLightMode() const noexcept;
+    [[nodiscard]] std::string_view resolvedShellMode() const noexcept;
+    // The resolved [theme].mode, which drives apps.
     [[nodiscard]] std::string_view resolvedMode() const noexcept;
-    [[nodiscard]] std::string_view resolvedAppMode() const noexcept;
 
     void setChangeCallback(ChangeCallback callback);
     void setResolvedCallback(ResolvedCallback callback);
@@ -54,7 +58,7 @@ namespace noctalia::theme {
     // Decodes + generates the wallpaper palette, memoized on (path, mtime, scheme)
     // so repeated resolves for an unchanged wallpaper skip the ~100ms image decode.
     std::optional<GeneratedPalette> resolveWallpaperGenerated(const ThemeConfig& cfg, const std::string& wallpaperPath);
-    void queueResolvedCallback(const GeneratedPalette& generated, std::string_view mode, std::string_view appMode);
+    void queueResolvedCallback(const GeneratedPalette& generated, std::string_view mode);
     void flushResolvedCallback(bool defer);
     void startTransition(const Palette& target);
     void finishTransition(bool deferResolvedCallback);
@@ -80,7 +84,6 @@ namespace noctalia::theme {
     // applied, and deferred callbacks must be able to drop stale resolves.
     std::optional<GeneratedPalette> m_pendingResolvedPalette;
     std::string m_pendingResolvedMode;
-    std::string m_pendingResolvedAppMode;
     std::uint64_t m_resolvedCallbackGeneration = 0;
 
     AnimationManager m_animations;
@@ -89,8 +92,8 @@ namespace noctalia::theme {
     Palette m_targetPalette{};
     AnimationManager::Id m_transitionAnimId = 0;
     bool m_transitionResolvedCallbackFlushed = false;
+    bool m_isShellLightMode = false;
     bool m_isLightMode = false;
-    bool m_isAppLightMode = false;
     std::optional<double> m_autoLatitude;
     std::optional<double> m_autoLongitude;
     Timer m_autoTimer;

@@ -1446,6 +1446,9 @@
           "dark": "Dark",
           "light": "Light"
         },
+        "shell-mode": {
+          "follow": "Follow"
+        },
         "source": {
           "built-in": "Built-In",
           "community": "Community",
@@ -1602,9 +1605,6 @@
           "description": "Recolor application icons across the shell to match the active palette",
           "label": "Colorize App Icons"
         },
-        "app-theme-mode": {
-          "label": "App Theme Mode"
-        },
         "builtin-palette": {
           "description": "Choose a palette from the bundled catalog",
           "label": "Built-In Palette"
@@ -1670,12 +1670,12 @@
           "description": "Anchor dark surfaces to true black, preventing banding on OLED panels (dark mode only)",
           "label": "Pure Black"
         },
-        "separate-theme-mode-for-apps": {
-          "description": "Apps use a separate theme mode from Noctalia",
-          "label": "Separate Theme Mode For Apps"
+        "shell-theme-mode": {
+          "description": "Pin Noctalia's own light or dark mode; Follow keeps it in sync with Theme Mode",
+          "label": "Shell Theme Mode"
         },
         "theme-mode": {
-          "description": "Choose Dark, Light, or Auto based on time of day",
+          "description": "Choose Dark, Light, or Auto based on time of day; also applies to apps through templates",
           "label": "Theme Mode"
         },
         "ui-scale": {

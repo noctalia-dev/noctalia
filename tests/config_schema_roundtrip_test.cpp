@@ -525,6 +525,7 @@ location = "https://example.invalid/bad"
     c.theme.source = PaletteSource::Wallpaper;
     c.theme.builtinPalette = "Tokyo";
     c.theme.mode = ThemeMode::Light;
+    c.theme.shellMode = ShellThemeMode::Auto;
     c.theme.templates.enableBuiltinTemplates = false;
     c.theme.templates.builtinIds = {"a", "b"};
     c.theme.templates.customColors = {

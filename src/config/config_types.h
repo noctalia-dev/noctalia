@@ -1441,6 +1441,22 @@ constexpr EnumOption<ThemeMode> kThemeModes[] = {
     {ThemeMode::Auto, "auto", "common.states.auto"},
 };
 
+// Noctalia's own light/dark mode. `follow` tracks [theme].mode, which always drives apps
+// (templates and the GTK color scheme); the other values pin the shell independently.
+enum class ShellThemeMode : std::uint8_t {
+  Follow = 0,
+  Dark = 1,
+  Light = 2,
+  Auto = 3,
+};
+
+constexpr EnumOption<ShellThemeMode> kShellThemeModes[] = {
+    {ShellThemeMode::Follow, "follow", "settings.options.theme.shell-mode.follow"},
+    {ShellThemeMode::Dark, "dark", "settings.options.theme.mode.dark"},
+    {ShellThemeMode::Light, "light", "settings.options.theme.mode.light"},
+    {ShellThemeMode::Auto, "auto", "common.states.auto"},
+};
+
 struct WallpaperFavorite {
   std::string path;
   ThemeMode themeMode = ThemeMode::Auto;
@@ -1526,13 +1542,28 @@ struct ThemeConfig {
   std::string customPalette;
   std::string wallpaperScheme = "m3-content";
   ThemeMode mode = ThemeMode::Dark;
-  bool separateThemeModeForApps = false;
-  ThemeMode appMode = ThemeMode::Dark;
+  ShellThemeMode shellMode = ShellThemeMode::Follow;
   bool pureBlackDark = false;
   TemplatesConfig templates;
 
   bool operator==(const ThemeConfig&) const = default;
 };
+
+// The theme mode Noctalia's own surfaces run in, still expressed as a ThemeMode so `auto`
+// keeps resolving against the day/night schedule.
+[[nodiscard]] constexpr ThemeMode shellThemeMode(const ThemeConfig& theme) noexcept {
+  switch (theme.shellMode) {
+  case ShellThemeMode::Dark:
+    return ThemeMode::Dark;
+  case ShellThemeMode::Light:
+    return ThemeMode::Light;
+  case ShellThemeMode::Auto:
+    return ThemeMode::Auto;
+  case ShellThemeMode::Follow:
+    break;
+  }
+  return theme.mode;
+}
 
 struct ControlCenterConfig {
   static constexpr std::int32_t kDefaultWidth = 700;

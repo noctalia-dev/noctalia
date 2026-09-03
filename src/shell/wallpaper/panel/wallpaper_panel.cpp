@@ -55,7 +55,7 @@ namespace {
   constexpr float kMonitorSelectMinWidth = 136.0F;
   constexpr float kFavoriteSelectMinWidth = 168.0F;
   constexpr float kFavoritesMetaRowGap = Style::spaceSm;
-  constexpr float kTileAspect = 0.78F; // height / width — leaves room for label under widescreen thumb
+  constexpr float kTileAspect = 0.78F; // height / width, leaves room for label under widescreen thumb
 
   [[nodiscard]] std::size_t themeModeSegmentIndex(ThemeMode mode) {
     switch (mode) {
@@ -598,7 +598,7 @@ void WallpaperPanel::create() {
       .fillWidth = true,
   });
 
-  // Only offer palette sources that actually have palettes — Community/Custom are empty
+  // Only offer palette sources that actually have palettes; Community/Custom are empty
   // when nothing is fetched/installed, and selecting them would do nothing.
   m_paletteSourceOrder.clear();
   std::vector<ui::SegmentedOption> paletteSourceOptions;
@@ -1020,7 +1020,7 @@ std::filesystem::path WallpaperPanel::rootDirectoryForSelection() const {
     return {};
   }
   const auto& wp = m_config->config().wallpaper;
-  const ThemeMode configured = m_config->config().theme.mode;
+  const ThemeMode configured = shellThemeMode(m_config->config().theme);
   const bool isLight = m_themeService != nullptr ? m_themeService->isLightMode() : configured == ThemeMode::Light;
   const ThemeMode mode = wallpaper::effectiveThemeMode(configured, isLight);
 
@@ -1274,7 +1274,7 @@ void WallpaperPanel::applyThemeFromControls() {
     return;
   }
 
-  // No favorite target — behave like the Settings window: change the global theme only.
+  // No favorite target, so behave like the Settings window and change the global theme only.
   m_config->setThemeMode(theme.themeMode);
   if (theme.paletteSource.has_value()) {
     (void)m_config->setThemeColorScheme(*theme.paletteSource, paletteSelectionValue(theme));
@@ -1308,7 +1308,7 @@ void WallpaperPanel::refreshScan() {
     m_scanPending = false;
     return;
   }
-  // requestScan() returns false when a worker scan was queued — the entries
+  // requestScan() returns false when a worker scan was queued; the entries
   // arrive later via onScanComplete(). A cached/fresh dir returns true.
   m_scanPending = !m_scanner->requestScan(dir, m_flatten);
 }

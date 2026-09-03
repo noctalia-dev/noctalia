@@ -7,6 +7,9 @@ sidebar:
 
 Noctalia can render the resolved theme colors into external app config files whenever the palette changes. This lets terminals, editors, browsers, launchers, and other apps follow the same colors as the shell.
 
+Templates always render the variant selected by [`[theme].mode`](/noctalia/theming/#mode), never
+[`shell_mode`](/noctalia/theming/#shell_mode), so pinning Noctalia to dark keeps your apps on whatever `mode` resolves to.
+
 To rerender enabled templates for the current palette without changing the theme, use
 [Media & UI → Theme](/noctalia/ipc/media-and-ui/#theme).
 

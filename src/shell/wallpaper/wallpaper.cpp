@@ -452,7 +452,7 @@ void Wallpaper::reload() {
   if (!nowEnabled) {
     resetAutomationState();
     m_wallpaperEnabled = false;
-    // Wallpaper disabled — full teardown
+    // Wallpaper disabled, full teardown
     for (auto& inst : m_instances) {
       releaseInstanceTextures(*inst);
     }
@@ -467,7 +467,7 @@ void Wallpaper::reload() {
   m_wallpaperEnabled = true;
   m_lastWallpaperConfig = wallpaperConfig;
 
-  // Wallpaper remains (or becomes) enabled — sync instances without teardown
+  // Wallpaper remains (or becomes) enabled, sync instances without teardown
   // to avoid flickering. syncInstances handles monitor override changes
   // (adds/removes instances) without disturbing existing surfaces.
   syncInstances();
@@ -880,7 +880,7 @@ void Wallpaper::setAutomationGate(std::function<bool()> gate) { m_automationGate
 bool Wallpaper::automationAllowed() const noexcept { return !m_automationGate || m_automationGate(); }
 
 ThemeMode Wallpaper::directoryThemeMode() const noexcept {
-  const ThemeMode configured = m_config != nullptr ? m_config->config().theme.mode : ThemeMode::Dark;
+  const ThemeMode configured = m_config != nullptr ? shellThemeMode(m_config->config().theme) : ThemeMode::Dark;
   const bool isLight = m_themeService != nullptr ? m_themeService->isLightMode() : configured == ThemeMode::Light;
   return wallpaper::effectiveThemeMode(configured, isLight);
 }

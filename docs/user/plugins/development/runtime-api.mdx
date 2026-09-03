@@ -21,7 +21,7 @@ boolean immediately to say whether the work was accepted, then deliver results t
 |--------|---------|-------------|
 | `noctalia.setUpdateInterval(ms)` | nothing | Sets how often this entry's `update()` function runs. Values below 16 ms are clamped. |
 | `noctalia.log(msg)` | nothing | Writes a message to Noctalia's log with this plugin's script context. |
-| `noctalia.isDarkMode()` | bool | Returns whether the active theme mode is dark. |
+| `noctalia.isDarkMode()` | bool | Returns whether the palette Noctalia renders with is dark, so it tracks [`[theme].shell_mode`](/noctalia/theming/#shell_mode) when that is pinned. |
 | `noctalia.getSetting(path)` | config value or `nil` | Reads any effective shell config value by TOML dotted path. Tables and arrays become Luau tables; array indices in paths are zero-based. Missing paths log a warning and return `nil`. Requires <PluginApiBadge feature="get-setting" />. |
 | `noctalia.focusedOutputName()` | string or `nil` | Returns the focused output's connector name, falling back to the preferred interactive output when needed. |
 | `noctalia.getConfig(key)` | setting value or `nil` | Reads a declared plugin or entry setting. Undeclared keys log a warning and return `nil`. |
