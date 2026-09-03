@@ -69,6 +69,7 @@ private:
   Input* m_pairingInput = nullptr;
   Flex* m_pairingButtonRow = nullptr;
   Button* m_pairingAccept = nullptr;
+  Button* m_pairingAlwaysAllow = nullptr;
   Button* m_pairingReject = nullptr;
 
   ScrollView* m_listScroll = nullptr;

@@ -203,6 +203,7 @@
     "bluetooth": {
       "accept": "Accept",
       "address": "Address",
+      "always-allow": "Always allow",
       "auto-reconnect": "Auto-reconnect",
       "bluetooth": "Bluetooth",
       "enter-code": "Enter code",
