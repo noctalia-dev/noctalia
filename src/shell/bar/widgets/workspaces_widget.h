@@ -93,6 +93,8 @@ private:
   [[nodiscard]] bool shouldShowWorkspaceLabel(const Workspace& workspace, std::string_view label) const noexcept;
   [[nodiscard]] bool isMinimal() const noexcept { return m_style == WorkspacesStyle::Minimal; }
   [[nodiscard]] bool isFocusHint() const noexcept { return m_style == WorkspacesStyle::FocusHint; }
+  // FocusHint is the only style that draws the focused app icon.
+  [[nodiscard]] bool showsActiveIcon() const noexcept { return isFocusHint() && m_showIcons; }
   [[nodiscard]] bool isWorkspaceHidden(const Workspace& workspace) const noexcept;
   void syncWidgetVisibility(bool showWidget);
   void recalculateItemMetrics(Renderer& renderer, Item& item, const Workspace& workspace, std::size_t displayIndex);

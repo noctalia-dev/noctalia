@@ -86,12 +86,13 @@ WorkspacesWidget::WorkspacesWidget(
 // Precedence: the master switch wins everywhere, then the style's own annotation
 // rule, then label content, then the occupied filter. FocusHint annotates only the
 // focused workspace, so the occupied filter never applies to it.
+// An empty label still annotates when the focused app icon fills the pill.
 bool WorkspacesWidget::shouldShowWorkspaceLabel(const Workspace& workspace, std::string_view label) const noexcept {
   if (!m_showLabels) {
     return false;
   }
   if (isFocusHint()) {
-    return workspace.active && (!label.empty() || !activeWindowAppId().empty());
+    return workspace.active && (!label.empty() || (m_showIcons && !activeWindowAppId().empty()));
   }
   if (label.empty()) {
     return false;
@@ -111,10 +112,12 @@ void WorkspacesWidget::create() {
   m_container = container.get();
   setRoot(std::move(container));
 
-  m_appIconColorizeConn = shellAppIconColorizationChanged().connect([this]() {
-    m_iconColorizeRefreshPending = true;
-    requestUpdate();
-  });
+  if (showsActiveIcon()) {
+    m_appIconColorizeConn = shellAppIconColorizationChanged().connect([this]() {
+      m_iconColorizeRefreshPending = true;
+      requestUpdate();
+    });
+  }
 }
 
 void WorkspacesWidget::doLayout(Renderer& renderer, float containerWidth, float containerHeight) {
@@ -181,7 +184,7 @@ bool WorkspacesWidget::releaseHeldVisualStyles() {
 }
 
 void WorkspacesWidget::doUpdate(Renderer& renderer) {
-  if (m_iconColorizeRefreshPending && isFocusHint() && m_showIcons) {
+  if (m_iconColorizeRefreshPending && showsActiveIcon()) {
     for (auto& item : m_items) {
       syncActiveWindowIcon(renderer, item);
     }
@@ -261,7 +264,7 @@ void WorkspacesWidget::doUpdate(Renderer& renderer) {
   bool structuralChange = current.size() != m_cachedState.size();
   bool activeChange = false;
   bool hideWhenEmptyTransition = false;
-  if (isFocusHint() && m_showIcons) {
+  if (showsActiveIcon()) {
     const auto desktopVersion = desktopEntriesVersion();
     if (desktopVersion != m_desktopEntriesVersion) {
       buildDesktopIconIndex();
@@ -591,7 +594,7 @@ void WorkspacesWidget::rebuild(Renderer& renderer) {
       item.text->measure(renderer);
     }
 
-    if (isFocusHint() && m_showIcons && ws.active) {
+    if (showsActiveIcon() && ws.active) {
       item.showIcon = true;
       item.icon = static_cast<Image*>(area->addChild(
           ui::image({
@@ -893,7 +896,7 @@ void WorkspacesWidget::recalculateItemMetrics(
   }
 
   ensureItemLabel(renderer, item, workspace);
-  if (isFocusHint() && m_showIcons && workspace.active && item.icon == nullptr && item.area != nullptr) {
+  if (showsActiveIcon() && workspace.active && item.icon == nullptr && item.area != nullptr) {
     item.showIcon = true;
     item.icon = static_cast<Image*>(item.area->addChild(
         ui::image({
@@ -1134,7 +1137,7 @@ void WorkspacesWidget::applyItemLayout(Item& it) {
       && it.currentWidth + 0.5F >= it.inactiveWidth
       && (!isFocusHint() || it.workspace.active);
   const bool showIcon =
-      isFocusHint() && m_showIcons && it.workspace.active && it.showIcon && it.icon != nullptr && it.icon->hasImage();
+      showsActiveIcon() && it.workspace.active && it.showIcon && it.icon != nullptr && it.icon->hasImage();
   if (it.text != nullptr) {
     it.text->setVisible(showText);
   }
@@ -1370,7 +1373,7 @@ std::string WorkspacesWidget::resolveIconPath(const std::string& appId) {
 }
 
 void WorkspacesWidget::syncActiveWindowIcon(Renderer& renderer, Item& item) {
-  if (!isFocusHint() || !m_showIcons || item.icon == nullptr) {
+  if (!showsActiveIcon() || item.icon == nullptr) {
     return;
   }
 
