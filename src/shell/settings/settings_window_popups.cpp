@@ -1549,8 +1549,10 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
         overrides.push_back({{base[0], base[1], base[2], "path"}, draft->path});
       }
 
+      // Keys the target provider does not own. They ship in the same commit as the new values: a
+      // separate clear would publish an account that is neither the old shape nor the new one.
+      std::vector<std::vector<std::string>> staleKeys;
       if (!draft->creating) {
-        std::vector<std::vector<std::string>> staleKeys;
         if (!caldav) {
           staleKeys.push_back({base[0], base[1], base[2], "provider"});
           staleKeys.push_back({base[0], base[1], base[2], "username"});
@@ -1563,9 +1565,6 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
         if (!vdir) {
           staleKeys.push_back({base[0], base[1], base[2], "path"});
         }
-        if (!staleKeys.empty()) {
-          (void)m_config->clearOverrides(staleKeys, nullptr);
-        }
       }
 
       std::string connectActivationToken;
@@ -1576,7 +1575,7 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
       }
 
       if (!caldav) {
-        if (!m_config->setOverrides(std::move(overrides))) {
+        if (!m_config->mutateOverrides(overrides, staleKeys, nullptr)) {
           markSettingsWriteError(i18n::tr("settings.calendar-accounts.save-error"));
           return;
         }
@@ -1604,7 +1603,9 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
       draft->credentialOperationInFlight = true;
       m_calendarService->saveCalDavAccount(
           draft->id, draft->credentialSource, draft->passwordFile, std::move(password),
-          [this, overrides = std::move(overrides)]() mutable { return m_config->setOverrides(std::move(overrides)); },
+          [this, overrides = std::move(overrides), staleKeys = std::move(staleKeys)]() mutable {
+            return m_config->mutateOverrides(overrides, staleKeys, nullptr);
+          },
           [this, draft, closeAfter](CalendarService::CredentialOperationResult result) {
             draft->credentialOperationInFlight = false;
             if (result == CalendarService::CredentialOperationResult::MissingCredential) {

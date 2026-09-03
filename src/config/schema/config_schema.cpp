@@ -104,7 +104,7 @@ namespace noctalia::config::schema {
 
   namespace {
     // Poll-second floats are stored verbatim here; the [1,120]/disabled clamping
-    // happens at consumption, not at parse time — so no Range is attached.
+    // happens at consumption, not at parse time; so no Range is attached.
     const Schema<SystemConfig::MonitorConfig>& systemMonitorSchema() {
       static const Schema<SystemConfig::MonitorConfig> s = {
           field(&SystemConfig::MonitorConfig::enabled, "enabled"),
@@ -1811,7 +1811,7 @@ namespace noctalia::config::schema {
       return true;
     }
 
-    // [plugin_settings."author/plugin"].<key> — open schema; keys validate against
+    // [plugin_settings."author/plugin"].<key>, open schema; keys validate against
     // the manifest in config_validate's validatePluginSettings, not here.
     if (section == "plugin_settings") {
       return path.size() <= 3;
@@ -1829,7 +1829,7 @@ namespace noctalia::config::schema {
 
   namespace {
     // Clamp ranges shared by the concrete BarConfig fields and the parallel
-    // optional BarMonitorOverride fields — declared once so the two schemas can't
+    // optional BarMonitorOverride fields, declared once so the two schemas can't
     // drift apart.
     constexpr Range<std::int64_t> kBarThicknessRange{10, 300};
     constexpr Range<std::int64_t> kBarRadiusRange{0, 500};
@@ -1941,7 +1941,7 @@ namespace noctalia::config::schema {
 
   namespace {
     // optional<ColorSpec>, emitted only when set, read when present. Unlike
-    // colorSpecField it does NOT treat an empty string as nullopt — it matches the
+    // colorSpecField it does NOT treat an empty string as nullopt; it matches the
     // legacy bar/capsule_group reads (which parse whatever string is present).
     template <typename Struct>
     Field<Struct> optionalColorField(std::optional<ColorSpec> Struct::* member, std::string_view key) {

@@ -4,7 +4,9 @@
 #include "calendar/ical_parser.h"
 
 #include <chrono>
+#include <cstddef>
 #include <filesystem>
+#include <stop_token>
 #include <string>
 #include <vector>
 
@@ -28,9 +30,11 @@ namespace calendar {
   discoverVdirCollections(const std::filesystem::path& rootPath, int maxDepth = 5);
 
   // Reads all *.ics files in the collection and parses them within the given time window.
+  // remainingEvents bounds how many events the caller is still willing to accept; it is decremented
+  // as events are produced and reaching zero stops the read and logs the truncation.
   [[nodiscard]] std::vector<CalendarEvent> loadVdirCollectionEvents(
       const VdirCollection& collection, std::chrono::system_clock::time_point windowStart,
-      std::chrono::system_clock::time_point windowEnd, std::stop_token stopToken = {}
+      std::chrono::system_clock::time_point windowEnd, std::size_t& remainingEvents, std::stop_token stopToken = {}
   );
 
 } // namespace calendar

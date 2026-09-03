@@ -41,6 +41,9 @@ namespace {
   constexpr auto kWindowBefore = std::chrono::hours{24 * 365};
   constexpr auto kWindowAfter = std::chrono::hours{24 * 365};
   constexpr std::size_t kMaxCacheBytes = 32U * 1024U * 1024U;
+  // Ceiling on the events one vdir account may contribute. A vdir tree is arbitrary user data with no
+  // server-side bound, so the read stops here rather than growing the snapshot without limit.
+  constexpr std::size_t kMaxVdirEventsPerAccount = 100'000;
 
   std::int64_t toUnix(std::chrono::system_clock::time_point tp) {
     return std::chrono::duration_cast<std::chrono::seconds>(tp.time_since_epoch()).count();
@@ -212,6 +215,7 @@ private:
       });
 
       std::vector<CalendarEvent> allEvents;
+      std::size_t remainingEvents = kMaxVdirEventsPerAccount;
       for (auto& col : collections) {
         if (stopToken.stop_requested()) {
           return;
@@ -222,7 +226,8 @@ private:
         if (!request.color.empty()) {
           col.colorHex = request.color;
         }
-        auto events = calendar::loadVdirCollectionEvents(col, request.windowStart, request.windowEnd, stopToken);
+        auto events =
+            calendar::loadVdirCollectionEvents(col, request.windowStart, request.windowEnd, remainingEvents, stopToken);
         allEvents.insert(
             allEvents.end(), std::make_move_iterator(events.begin()), std::make_move_iterator(events.end())
         );

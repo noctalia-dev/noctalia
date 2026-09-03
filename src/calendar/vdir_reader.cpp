@@ -155,7 +155,7 @@ namespace calendar {
       if (displayName.empty()) {
         col.name = dirPath.filename().string();
         if (col.name.empty()) {
-          col.name = "Calendar";
+          col.name = col.id;
         }
       } else {
         col.name = std::move(displayName);
@@ -245,7 +245,7 @@ namespace calendar {
 
   std::vector<CalendarEvent> loadVdirCollectionEvents(
       const VdirCollection& collection, std::chrono::system_clock::time_point windowStart,
-      std::chrono::system_clock::time_point windowEnd, std::stop_token stopToken
+      std::chrono::system_clock::time_point windowEnd, std::size_t& remainingEvents, std::stop_token stopToken
   ) {
     std::vector<CalendarEvent> events;
     std::error_code ec;
@@ -257,7 +257,7 @@ namespace calendar {
     for (const auto& entry : std::filesystem::directory_iterator(
              collection.path, std::filesystem::directory_options::skip_permission_denied, ec
          )) {
-      if (stopToken.stop_requested()) {
+      if (stopToken.stop_requested() || remainingEvents == 0) {
         return events;
       }
       if (!entry.is_regular_file(ec) || !isIcsFile(entry.path())) {
@@ -282,6 +282,15 @@ namespace calendar {
       } else if (result.status == ICalParseStatus::InvalidCalendar) {
         kLog.warn("The file {} contains an invalid ICS calendar", entry.path().string());
       }
+
+      if (result.events.size() > remainingEvents) {
+        kLog.warn(
+            "vdir collection {} exceeded the per-account event limit; dropping events from {} onward", collection.id,
+            entry.path().string()
+        );
+        result.events.resize(remainingEvents);
+      }
+      remainingEvents -= result.events.size();
 
       for (auto& ev : result.events) {
         if (ev.calendarName.empty()) {

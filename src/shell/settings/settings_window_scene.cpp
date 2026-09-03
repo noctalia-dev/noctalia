@@ -1875,7 +1875,7 @@ void SettingsWindow::refreshSettingsRegistry(const Config& cfg) {
                 .action = [this]() { openCalendarAccountEditor(std::nullopt); },
                 .glyph = "plus",
             },
-        .searchText = "calendar add account icloud caldav google ics ical subscription",
+        .searchText = "calendar add account icloud caldav google ics ical subscription vdir vdirsyncer local",
     };
     it = m_settingsRegistry.insert(it, std::move(addBtn));
     ++it;

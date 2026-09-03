@@ -3,7 +3,9 @@
 #include <atomic>
 #include <chrono>
 #include <filesystem>
+#include <format>
 #include <fstream>
+#include <limits>
 #include <print>
 #include <string>
 #include <vector>
@@ -105,8 +107,10 @@ namespace {
 
       // Test loading events from col2
       const auto now = system_clock::now();
-      auto events = calendar::loadVdirCollectionEvents(col2, now - hours{24 * 365}, now + hours{24 * 365});
+      std::size_t budget = 1000;
+      auto events = calendar::loadVdirCollectionEvents(col2, now - hours{24 * 365}, now + hours{24 * 365}, budget);
       ok &= expect(events.size() == 1, "col2 loaded 1 event");
+      ok &= expect(budget == 999, "col2 consumed one event from the budget");
       if (!events.empty()) {
         ok &= expect(events[0].id == "evt-2@example.com", "event id matches");
         ok &= expect(events[0].title == "Meeting 2", "event title matches");
@@ -158,18 +162,79 @@ namespace {
     return ok;
   }
 
-  bool testPerFileBudgetIsolation() {
-    const auto tempDir = createUniqueTempDir("noctalia_vdir_test_budget");
-    writeFile(tempDir / "cal" / "evt1.ics", kSampleIcs1);
-    writeFile(tempDir / "cal" / "evt2.ics", kSampleIcs2);
+  // A bounded RRULE keeps the parser from fast-forwarding to the window start, so each file's expansion
+  // walks day by day from 2000 up to the window end: roughly ten thousand recurrence-work units for the
+  // ~730 events that land inside the window. Sixteen such files cost more than the parser's 100k
+  // per-parse budget, so a budget shared across the collection would silently truncate the later files.
+  std::string recurringIcs(int index) {
+    return std::format(
+        "BEGIN:VCALENDAR\r\n"
+        "VERSION:2.0\r\n"
+        "BEGIN:VEVENT\r\n"
+        "UID:recur-{}@example.com\r\n"
+        "DTSTAMP:20000101T000000Z\r\n"
+        "DTSTART:20000101T100000Z\r\n"
+        "DTEND:20000101T110000Z\r\n"
+        "RRULE:FREQ=DAILY;COUNT=100000\r\n"
+        "SUMMARY:Recurring {}\r\n"
+        "END:VEVENT\r\n"
+        "END:VCALENDAR\r\n",
+        index, index
+    );
+  }
+
+  bool testPerFileRecurrenceBudgetIsolation() {
+    constexpr int kFileCount = 16;
+    const auto oneDir = createUniqueTempDir("noctalia_vdir_test_budget_one");
+    const auto manyDir = createUniqueTempDir("noctalia_vdir_test_budget_many");
+    writeFile(oneDir / "cal" / "0.ics", recurringIcs(0));
+    for (int i = 0; i < kFileCount; ++i) {
+      writeFile(manyDir / "cal" / std::format("{}.ics", i), recurringIcs(i));
+    }
+
+    auto oneCollections = calendar::discoverVdirCollections(oneDir);
+    auto manyCollections = calendar::discoverVdirCollections(manyDir);
+
+    bool ok = true;
+    ok &= expect(oneCollections.size() == 1 && manyCollections.size() == 1, "Discovered both budget collections");
+    if (oneCollections.size() == 1 && manyCollections.size() == 1) {
+      // One window for both loads so the expansions are bit-for-bit comparable.
+      const auto now = system_clock::now();
+      const auto windowStart = now - hours{24 * 365};
+      const auto windowEnd = now + hours{24 * 365};
+
+      std::size_t oneBudget = std::numeric_limits<std::size_t>::max();
+      const auto oneEvents =
+          calendar::loadVdirCollectionEvents(oneCollections[0], windowStart, windowEnd, oneBudget).size();
+      std::size_t manyBudget = std::numeric_limits<std::size_t>::max();
+      const auto manyEvents =
+          calendar::loadVdirCollectionEvents(manyCollections[0], windowStart, windowEnd, manyBudget).size();
+
+      ok &= expect(oneEvents > 0, "Recurring fixture expands to at least one event");
+      ok &=
+          expect(manyEvents == oneEvents * kFileCount, "Every file expands fully; the recurrence budget is not shared");
+    }
+
+    std::filesystem::remove_all(oneDir);
+    std::filesystem::remove_all(manyDir);
+    return ok;
+  }
+
+  bool testEventBudgetStopsRead() {
+    const auto tempDir = createUniqueTempDir("noctalia_vdir_test_cap");
+    writeFile(tempDir / "cal" / "0.ics", recurringIcs(0));
+    writeFile(tempDir / "cal" / "1.ics", recurringIcs(1));
 
     auto collections = calendar::discoverVdirCollections(tempDir);
     bool ok = true;
-    ok &= expect(collections.size() == 1, "Discovered collection for budget test");
-    if (!collections.empty()) {
+    ok &= expect(collections.size() == 1, "Discovered collection for event cap test");
+    if (collections.size() == 1) {
       const auto now = system_clock::now();
-      auto events = calendar::loadVdirCollectionEvents(collections[0], now - hours{24 * 365}, now + hours{24 * 365});
-      ok &= expect(events.size() == 2, "Loaded all events with per-file budget isolation");
+      std::size_t budget = 10;
+      const auto events =
+          calendar::loadVdirCollectionEvents(collections[0], now - hours{24 * 365}, now + hours{24 * 365}, budget);
+      ok &= expect(events.size() == 10, "Event budget caps the returned events");
+      ok &= expect(budget == 0, "Event budget is fully consumed");
     }
 
     std::filesystem::remove_all(tempDir);
@@ -183,7 +248,8 @@ int main() {
   ok &= testNestedDiscovery();
   ok &= testDirectCollectionDiscovery();
   ok &= testTrailingSlashRootDiscovery();
-  ok &= testPerFileBudgetIsolation();
+  ok &= testPerFileRecurrenceBudgetIsolation();
+  ok &= testEventBudgetStopsRead();
 
   if (ok) {
     std::println("vdir_reader_test passed");

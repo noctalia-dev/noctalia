@@ -137,7 +137,7 @@ struct BarConfig {
 
   [[nodiscard]] constexpr bool isAutoHideEnabled() const noexcept { return autoHide || smartAutoHide; }
   bool reserveSpace = true;  // reserve compositor exclusive zone; applies with or without auto_hide
-  std::string layer = "top"; // top | overlay — attached panels use the same layer
+  std::string layer = "top"; // top | overlay; attached panels use the same layer
   std::int32_t thickness = Style::barThicknessDefault;
   float backgroundOpacity = 1.0F;
   // Inside outline for the bar background; attached panels inherit the resolved values.
@@ -1153,7 +1153,7 @@ struct CalendarConfig {
   // are not stored here. id must be [a-z0-9_] because it identifies durable credential records.
   struct Account {
     std::string id;
-    std::string type; // "google" | "caldav" | "ics"
+    std::string type; // "google" | "caldav" | "ics" | "vdir"
     std::string displayName;
     std::string color;                  // optional "#rrggbb" override
     std::string provider;               // "icloud" | "custom" (caldav only)
