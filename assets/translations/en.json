@@ -944,7 +944,8 @@
         "custom": "CalDAV",
         "google": "Google",
         "icloud": "iCloud",
-        "ics": "ICS URL"
+        "ics": "ICS URL",
+        "vdir": "Local (vdir)"
       },
       "provider-label": "Provider",
       "save": "Save",
@@ -957,7 +958,8 @@
       "secret-service-unavailable": "No Secret Service provider is available. Start a compatible provider and retry.",
       "server-url-label": "Server URL",
       "username-label": "Username",
-      "username-placeholder": "name@example.com"
+      "username-placeholder": "name@example.com",
+      "vdir-path-label": "Directory Path"
     },
     "controls": {
       "keybind": {
@@ -1455,6 +1457,9 @@
           "dark": "Dark",
           "light": "Light"
         },
+        "shell-mode": {
+          "follow": "Follow"
+        },
         "source": {
           "built-in": "Built-In",
           "community": "Community",
@@ -1498,6 +1503,10 @@
     "plugins": {
       "browse-store": "Browse Plugins",
       "panels": {
+        "layer": {
+          "description": "Layer-shell layer used when the panel is floating",
+          "label": "Layer"
+        },
         "open-near-click": {
           "description": "Where the panel is positioned when opened by clicking on the bar widget",
           "label": "Along Bar"
@@ -1570,6 +1579,7 @@
         "held-back-hint": "Installs v{version} for plugin API {resolved}. The newest v{latest} needs plugin API {latestRequired}; this Noctalia supports up to {current}.",
         "incompatible": "Incompatible",
         "incompatible-hint": "Needs plugin API {required}; this Noctalia supports {oldest}–{current}.",
+        "installed": "Installed",
         "loading": "Loading catalog…",
         "no-readme": "No description available.",
         "open-page": "Open plugin page on noctalia.dev",
@@ -1675,8 +1685,12 @@
           "description": "Anchor dark surfaces to true black, preventing banding on OLED panels (dark mode only)",
           "label": "Pure Black"
         },
+        "shell-theme-mode": {
+          "description": "Pin Noctalia's own light or dark mode; Follow keeps it in sync with Theme Mode",
+          "label": "Shell Theme Mode"
+        },
         "theme-mode": {
-          "description": "Choose Dark, Light, or Auto based on time of day",
+          "description": "Choose Dark, Light, or Auto based on time of day; also applies to apps through templates",
           "label": "Theme Mode"
         },
         "ui-scale": {
@@ -2581,11 +2595,11 @@
           "description-reconnect": "Google authorization is missing; reconnect this account"
         },
         "calendar-event-date-format": {
-          "description": "The date format shown in the event card for the selected date",
+          "description": "The date format shown above the event list in calendar views",
           "label": "Event Date Format"
         },
         "calendar-event-time-format": {
-          "description": "The time format shown for calendar events",
+          "description": "The time format shown for calendar events in calendar views",
           "label": "Event Time Format"
         },
         "calendar-refresh-interval": {
@@ -4267,6 +4281,10 @@
           "description": "Show the widget glyph or custom image",
           "label": "Show Glyph"
         },
+        "show-icons": {
+          "description": "Show the focused app icon on the active pill",
+          "label": "Show Icons"
+        },
         "show-label": {
           "description": "Show the widget's text label",
           "label": "Show Label"
@@ -4588,16 +4606,22 @@
   "wallpaper": {
     "panel": {
       "all-monitors": "ALL",
+      "choose-color": "Choose wallpaper color",
+      "close": "Close wallpaper panel",
       "color-title": "Wallpaper color",
+      "favorite-current": "Add current wallpaper to favorites",
       "filter-placeholder": "Filter…",
       "flatten": "Flatten",
       "loading": "Loading wallpapers…",
+      "navigate-up": "Go to parent folder",
+      "refresh": "Refresh wallpapers",
       "sort-date-asc": "Sort by date (oldest first)",
       "sort-date-desc": "Sort by date (newest first)",
       "sort-name-asc": "Sort by name (A-Z)",
       "sort-name-desc": "Sort by name (Z-A)",
       "sort-random": "Sort by random (shuffle)",
-      "title": "Wallpaper"
+      "title": "Wallpaper",
+      "unfavorite-current": "Remove current wallpaper from favorites"
     }
   },
   "weather": {

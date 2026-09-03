@@ -5,11 +5,12 @@ sidebar:
   order: 8
 ---
 
-Controls the active palette source and dark/light mode used across the shell.
+Controls the active palette source and the dark/light modes used by Noctalia and by your apps.
 
 ```toml
 [theme]
 mode              = "dark"        # dark | light | auto
+shell_mode        = "follow"      # follow | dark | light | auto
 source            = "builtin"     # builtin | wallpaper | community | custom
 builtin           = "Noctalia"    # bundled palette name
 community_palette = "Oxocarbon"   # community palette name when source = "community"
@@ -30,6 +31,25 @@ sunset computed from your coordinates, or your own `sunset` / `sunrise` times wh
 [`custom_schedule = true`](/noctalia/services/location/#custom-schedule). Night light does not need to be enabled for theme
 auto to follow the schedule. When the schedule cannot be resolved, `auto` uses the light (day) palette until a valid
 schedule is available.
+
+This is the mode your apps run in: it selects the palette variant written by
+[templates](/noctalia/theming/templates/), the GNOME `color-scheme` preference, and the mode reported to
+[`theme_mode_changed`](/noctalia/automation/hooks/) hooks. `theme-mode-toggle`, `theme-mode-set`, the control center
+shortcut, and the theme mode bar widget all act on this key.
+
+## `shell_mode`
+
+Noctalia's own mode: bars, panels, the launcher, wallpaper directory selection, and the greeter appearance.
+
+| Value | Description |
+|-------|-------------|
+| `follow` | Track `mode`, so Noctalia and your apps switch together (default). |
+| `dark` / `light` | Pin Noctalia to that variant while `mode` keeps driving apps. |
+| `auto` | Switch Noctalia on the `[location]` schedule, independently of `mode`. |
+
+Pinning it gives combinations such as a permanently dark bar with light apps, or a dark bar while apps follow the
+day/night schedule. Templates and the GNOME `color-scheme` preference never follow `shell_mode`; a `shell_mode`-only
+change repaints Noctalia without rewriting a single template.
 
 ## `pure_black_dark`
 

@@ -103,6 +103,11 @@ namespace scripting {
     // Whether a git-source plugin's background export is currently in flight.
     [[nodiscard]] bool isEnabling(std::string_view pluginId) const;
 
+    // Whether the plugin's files are present on disk under one of the enabled sources
+    // (a git source's export root or a path source's tree). Filesystem-only, no network,
+    // so UI can query it per frame; false while a git export is still in flight.
+    [[nodiscard]] bool isMaterialized(std::string_view pluginId) const;
+
     // Disable a plugin by id and persist. Code stays on disk; settings are retained.
     void disable(std::string_view pluginId);
 

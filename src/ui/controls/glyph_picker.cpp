@@ -220,6 +220,7 @@ GlyphPicker::GlyphPicker(float chromeScale) : m_chromeScale(std::max(0.1F, chrom
   addChild(
       ui::virtualGridView({
           .out = &m_grid,
+          .contentScale = m_chromeScale,
           .minCellWidth = 56.0F * m_chromeScale,
           .squareCells = true,
           .columnGap = Style::spaceXs * m_chromeScale,

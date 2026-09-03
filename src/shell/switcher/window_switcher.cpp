@@ -1206,6 +1206,7 @@ void WindowSwitcher::buildScene(Instance& instance, std::uint32_t width, std::ui
   input->addChild(
       ui::virtualGridView({
           .out = &instance.grid,
+          .contentScale = scale,
           .columns = metrics.columns,
           .cellHeight = metrics.cellH,
           .squareCells = false,

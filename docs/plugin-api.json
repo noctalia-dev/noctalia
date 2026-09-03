@@ -1,0 +1,170 @@
+[
+  {
+    "level": 3,
+    "noctaliaVersion": "v5.0.0-beta.3",
+    "feature": "api-declaration",
+    "introduced": "Mandatory `plugin_api` compatibility declaration, replacing `min_noctalia`."
+  },
+  {
+    "level": 4,
+    "noctaliaVersion": "v5.0.0-beta.4",
+    "feature": "http-stream",
+    "introduced": "`noctalia.httpStream()` for streaming HTTP responses."
+  },
+  {
+    "level": 5,
+    "noctaliaVersion": "v5.0.0-beta.4",
+    "feature": "drag-and-drop",
+    "introduced": "`ui.dragSource()` and `ui.dropZone()` for declarative panel drag and drop."
+  },
+  {
+    "level": 6,
+    "noctaliaVersion": "v5.0.0-beta.4",
+    "feature": "string-map-setting",
+    "introduced": "The `string_map` plugin setting type."
+  },
+  {
+    "level": 7,
+    "noctaliaVersion": "v5.0.0-beta.4",
+    "feature": "allow-insecure-tls",
+    "introduced": "The `allow_insecure_tls` HTTP request option."
+  },
+  {
+    "level": 8,
+    "noctaliaVersion": "v5.0.0-beta.4",
+    "feature": "dismiss-on-outside-click",
+    "introduced": "The `dismiss_on_outside_click` panel entry option."
+  },
+  {
+    "level": 9,
+    "noctaliaVersion": "v5.0.0-beta.5",
+    "feature": "ui-callback-closures",
+    "introduced": "Luau closures directly in UI tree callback props."
+  },
+  {
+    "level": 10,
+    "noctaliaVersion": "v5.0.0-beta.5",
+    "feature": "keyboard-focus",
+    "introduced": "The `keyboard_focus` panel entry option."
+  },
+  {
+    "level": 11,
+    "noctaliaVersion": "v5.0.0-beta.5",
+    "feature": "persistent-panel",
+    "introduced": "The `persistent` panel entry option."
+  },
+  {
+    "level": 12,
+    "noctaliaVersion": "v5.0.0-beta.5",
+    "feature": "system-stats",
+    "introduced": "`noctalia.systemStats()`, `noctalia.cpuCores()`, and `noctalia.nowMs()`."
+  },
+  {
+    "level": 13,
+    "noctaliaVersion": "v5.0.0-beta.5",
+    "feature": "panel-capture-keys",
+    "introduced": "The `capture_keys` panel entry option and the `onKey` callback."
+  },
+  {
+    "level": 14,
+    "noctaliaVersion": "v5.0.0-beta.5",
+    "feature": "widget-gesture-actions",
+    "introduced": "The `[widget.actions]` entry table, declaring bar gesture defaults."
+  },
+  {
+    "level": 15,
+    "noctaliaVersion": "v5.0.0-beta.6",
+    "feature": "open-settings",
+    "introduced": "`noctalia.openSettings()`, opening the settings window at the plugin's own settings."
+  },
+  {
+    "level": 16,
+    "noctaliaVersion": "v5.0.0-beta.6",
+    "feature": "extended-system-stats",
+    "introduced": "Per-interface network rates, sample timestamps, and disk mount/stat APIs."
+  },
+  {
+    "level": 17,
+    "noctaliaVersion": "v5.0.0-beta.7",
+    "feature": "service-lifecycle",
+    "introduced": "Service entries start when the plugin is enabled instead of only at launch, and `onExit(signal, reason)` reports `reload`, `disable`, `uninstall`, or `shutdown`."
+  },
+  {
+    "level": 18,
+    "noctaliaVersion": "v5.0.0-beta.7",
+    "feature": "panel-frame-tick",
+    "introduced": "`panel.setNeedsFrameTick(bool)`, delivering `onFrameTick(deltaMs)` to an open panel."
+  },
+  {
+    "level": 19,
+    "noctaliaVersion": "v5.0.0-beta.7",
+    "feature": "format-time-timezone",
+    "introduced": "Timezone support on `noctalia.formatTime`, `noctalia.isValidTimezone(name)`, and `noctalia.timeFormat()` / `noctalia.dateFormat()` mirroring `[shell].time_format` / `date_format`."
+  },
+  {
+    "level": 20,
+    "noctaliaVersion": "v5.0.0-beta.7",
+    "feature": "sound",
+    "introduced": "`noctalia.sound.load()` and `noctalia.sound.play()` for plugin audio."
+  },
+  {
+    "level": 21,
+    "noctaliaVersion": "v5.0.0-beta.8",
+    "feature": "plugin-ui-props",
+    "introduced": "The `ui.markdown` node, `submitOnEnter` on `ui.input`, and `stickToBottom` / `onScroll` / `scrollToBottomRev` on `ui.scroll`."
+  },
+  {
+    "level": 22,
+    "noctaliaVersion": "v5.0.0-beta.8",
+    "feature": "module-require",
+    "introduced": "`require(\"./path.luau\")` loads relative `.luau` modules with entry-local caches and hot reload for loaded modules."
+  },
+  {
+    "level": 23,
+    "noctaliaVersion": "v5.0.0-beta.8",
+    "feature": "async-file-read",
+    "introduced": "`noctalia.readFileAsync(path, callback)` for bounded filesystem reads outside plugin VM workers."
+  },
+  {
+    "level": 24,
+    "noctaliaVersion": "v5.0.0-beta.9",
+    "feature": "direct-argv",
+    "introduced": "Argument-array form of `noctalia.runAsync()` for direct process execution without shell parsing."
+  },
+  {
+    "level": 25,
+    "noctaliaVersion": "v5.0.0-beta.9",
+    "feature": "wallpaper-mask",
+    "introduced": "`noctalia.wallpaperPath(connector)` and `noctalia.setWallpaperMask(connector, mask)` for source-aligned desktop-widget occlusion masks."
+  },
+  {
+    "level": 26,
+    "noctaliaVersion": "v5.0.0-beta.9",
+    "feature": "get-setting",
+    "introduced": "`noctalia.getSetting(path)` for reading any effective shell config value by TOML dotted path."
+  },
+  {
+    "level": 27,
+    "noctaliaVersion": "v5.0.0-beta.9",
+    "feature": "input-frame-visibility",
+    "introduced": "`frameVisible` on `ui.input` for hiding the native input background and border."
+  },
+  {
+    "level": 28,
+    "noctaliaVersion": "v5.0.0-beta.9",
+    "feature": "panel-context-menu",
+    "introduced": "`panel.openContextMenu(request)` for native context menus in regular and persistent plugin panels."
+  },
+  {
+    "level": 29,
+    "noctaliaVersion": null,
+    "feature": "graph-pointer-tracking",
+    "introduced": "`onPointerMove` and `onPointerLeave` callbacks on `ui.graph` nodes."
+  },
+  {
+    "level": 30,
+    "noctaliaVersion": null,
+    "feature": "panel-layer",
+    "introduced": "The `layer` panel entry option for choosing the layer-shell layer of a floating plugin panel."
+  }
+]

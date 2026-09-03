@@ -27,6 +27,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
+#include <format>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -36,6 +37,23 @@ namespace settings {
 
     constexpr int kBarMarginMax = 4096;
     constexpr float kBarCornerRadiusMax = 80.0F;
+
+    // Launcher providers that expose a configurable prefix, keyed by the config name
+    // (the lowercased provider id). Placeholders and global-search defaults mirror the
+    // provider's own defaultPrefix()/defaultIncludeInGlobalSearch().
+    struct LauncherProviderSettingSpec {
+      std::string_view name;
+      std::string_view prefixPlaceholder;
+      bool globalByDefault = false;
+    };
+
+    constexpr auto kLauncherProviderSettings = std::to_array<LauncherProviderSettingSpec>({
+        {.name = "calculator", .prefixPlaceholder = "calc", .globalByDefault = true},
+        {.name = "emoji", .prefixPlaceholder = "emo"},
+        {.name = "session", .prefixPlaceholder = "session"},
+        {.name = "wallpaper", .prefixPlaceholder = "wall"},
+        {.name = "windows", .prefixPlaceholder = "win"},
+    });
 
     [[nodiscard]] SliderSetting barCornerSlider(std::int32_t value) {
       SliderSetting s{value, 0.0F, kBarCornerRadiusMax, 1.0F, true};
@@ -97,8 +115,8 @@ namespace settings {
       return *it;
     }
 
-    // Builds a slider whose bounds come from the shared schema Range — the same
-    // constant the parser clamps with — so the UI range and the config clamp are
+    // Builds a slider whose bounds come from the shared schema Range, the same
+    // constant the parser clamps with. This keeps the UI range and the config clamp
     // one source. `integerValue` (write as int64) stays explicit: it is a UI/write
     // choice, not implied by the range's numeric type (e.g. transition_duration).
     template <typename V, typename T>
@@ -449,6 +467,12 @@ namespace settings {
         asSegmented(enumSelect(kThemeModes, cfg.theme.mode)), "dark light auto colors"
     ));
     entries.push_back(makeEntry(
+        SettingsSection::Appearance, "theme", tr("settings.schema.appearance.shell-theme-mode.label"),
+        tr("settings.schema.appearance.shell-theme-mode.description"), {"theme", "shell_mode"},
+        asSegmented(enumSelect(kShellThemeModes, cfg.theme.shellMode)),
+        "dark light auto follow shell apps templates colors"
+    ));
+    entries.push_back(makeEntry(
         SettingsSection::Appearance, "theme", tr("settings.schema.appearance.palette-source.label"),
         tr("settings.schema.appearance.palette-source.description"), {"theme", "source"},
         asSegmented(enumSelect(kPaletteSources, cfg.theme.source)), "palette colors"
@@ -457,7 +481,7 @@ namespace settings {
       entries.push_back(makeEntry(
           SettingsSection::Appearance, "theme", tr("settings.schema.appearance.builtin-palette.label"),
           tr("settings.schema.appearance.builtin-palette.description"), {"theme", "builtin"},
-          builtinPaletteSelect(cfg.theme.builtinPalette, cfg.theme.mode), "builtin palette colors"
+          builtinPaletteSelect(cfg.theme.builtinPalette, shellThemeMode(cfg.theme)), "builtin palette colors"
       ));
     } else if (cfg.theme.source == PaletteSource::Wallpaper) {
       entries.push_back(makeEntry(
@@ -1266,74 +1290,27 @@ namespace settings {
         tr("settings.schema.panels.launcher-prefix-character.description"), {"shell", "launcher", "provider_prefix"},
         TextSetting{.value = cfg.shell.launcher.providerPrefix, .placeholder = "/"}, "launcher common prefix character"
     ));
-    {
-      auto storedPrefix = [&](std::string_view name) -> std::string {
-        auto it = std::ranges::find(cfg.shell.launcher.providers, name, &LauncherProviderConfig::name);
-        return it != cfg.shell.launcher.providers.end() ? it->prefix : std::string();
-      };
-      auto storedGlobal = [&](std::string_view name, bool defaultValue) -> bool {
-        auto it = std::ranges::find(cfg.shell.launcher.providers, name, &LauncherProviderConfig::name);
-        return it != cfg.shell.launcher.providers.end() ? it->global.value_or(defaultValue) : defaultValue;
-      };
+    for (const auto& provider : kLauncherProviderSettings) {
+      const auto it = std::ranges::find(cfg.shell.launcher.providers, provider.name, &LauncherProviderConfig::name);
+      const LauncherProviderConfig* stored = it != cfg.shell.launcher.providers.end() ? &*it : nullptr;
+
+      const std::string prefix = stored != nullptr ? stored->prefix : std::string();
+      const bool global =
+          stored != nullptr ? stored->global.value_or(provider.globalByDefault) : provider.globalByDefault;
+
+      const std::string prefixKey = std::format("settings.schema.panels.launcher-prefix-{}", provider.name);
+      const std::string globalKey = std::format("settings.schema.panels.launcher-global-{}", provider.name);
+
       entries.push_back(makeEntry(
-          SettingsSection::Launcher, "providers", tr("settings.schema.panels.launcher-prefix-calculator.label"),
-          tr("settings.schema.panels.launcher-prefix-calculator.description"),
-          {"shell", "launcher", "providers", "calculator", "prefix"},
-          TextSetting{.value = storedPrefix("calculator"), .placeholder = "calc"}, "launcher calculator prefix trigger"
+          SettingsSection::Launcher, "providers", tr(prefixKey + ".label"), tr(prefixKey + ".description"),
+          {"shell", "launcher", "providers", std::string(provider.name), "prefix"},
+          TextSetting{.value = prefix, .placeholder = std::string(provider.prefixPlaceholder)},
+          std::format("launcher {} prefix trigger", provider.name)
       ));
       entries.push_back(makeEntry(
-          SettingsSection::Launcher, "providers", tr("settings.schema.panels.launcher-global-calculator.label"),
-          tr("settings.schema.panels.launcher-global-calculator.description"),
-          {"shell", "launcher", "providers", "calculator", "global"}, ToggleSetting{storedGlobal("calculator", true)},
-          "launcher calculator global search unprefixed"
-      ));
-      entries.push_back(makeEntry(
-          SettingsSection::Launcher, "providers", tr("settings.schema.panels.launcher-prefix-emoji.label"),
-          tr("settings.schema.panels.launcher-prefix-emoji.description"),
-          {"shell", "launcher", "providers", "emoji", "prefix"},
-          TextSetting{.value = storedPrefix("emoji"), .placeholder = "emo"}, "launcher emoji prefix trigger"
-      ));
-      entries.push_back(makeEntry(
-          SettingsSection::Launcher, "providers", tr("settings.schema.panels.launcher-global-emoji.label"),
-          tr("settings.schema.panels.launcher-global-emoji.description"),
-          {"shell", "launcher", "providers", "emoji", "global"}, ToggleSetting{storedGlobal("emoji", false)},
-          "launcher emoji global search unprefixed"
-      ));
-      entries.push_back(makeEntry(
-          SettingsSection::Launcher, "providers", tr("settings.schema.panels.launcher-prefix-session.label"),
-          tr("settings.schema.panels.launcher-prefix-session.description"),
-          {"shell", "launcher", "providers", "session", "prefix"},
-          TextSetting{.value = storedPrefix("session"), .placeholder = "session"}, "launcher session prefix trigger"
-      ));
-      entries.push_back(makeEntry(
-          SettingsSection::Launcher, "providers", tr("settings.schema.panels.launcher-global-session.label"),
-          tr("settings.schema.panels.launcher-global-session.description"),
-          {"shell", "launcher", "providers", "session", "global"}, ToggleSetting{storedGlobal("session", false)},
-          "launcher session global search unprefixed"
-      ));
-      entries.push_back(makeEntry(
-          SettingsSection::Launcher, "providers", tr("settings.schema.panels.launcher-prefix-wallpaper.label"),
-          tr("settings.schema.panels.launcher-prefix-wallpaper.description"),
-          {"shell", "launcher", "providers", "wallpaper", "prefix"},
-          TextSetting{.value = storedPrefix("wallpaper"), .placeholder = "wall"}, "launcher wallpaper prefix trigger"
-      ));
-      entries.push_back(makeEntry(
-          SettingsSection::Launcher, "providers", tr("settings.schema.panels.launcher-global-wallpaper.label"),
-          tr("settings.schema.panels.launcher-global-wallpaper.description"),
-          {"shell", "launcher", "providers", "wallpaper", "global"}, ToggleSetting{storedGlobal("wallpaper", false)},
-          "launcher wallpaper global search unprefixed"
-      ));
-      entries.push_back(makeEntry(
-          SettingsSection::Launcher, "providers", tr("settings.schema.panels.launcher-prefix-windows.label"),
-          tr("settings.schema.panels.launcher-prefix-windows.description"),
-          {"shell", "launcher", "providers", "windows", "prefix"},
-          TextSetting{.value = storedPrefix("windows"), .placeholder = "win"}, "launcher windows prefix trigger"
-      ));
-      entries.push_back(makeEntry(
-          SettingsSection::Launcher, "providers", tr("settings.schema.panels.launcher-global-windows.label"),
-          tr("settings.schema.panels.launcher-global-windows.description"),
-          {"shell", "launcher", "providers", "windows", "global"}, ToggleSetting{storedGlobal("windows", false)},
-          "launcher windows global search unprefixed"
+          SettingsSection::Launcher, "providers", tr(globalKey + ".label"), tr(globalKey + ".description"),
+          {"shell", "launcher", "providers", std::string(provider.name), "global"}, ToggleSetting{global},
+          std::format("launcher {} global search unprefixed", provider.name)
       ));
     }
     entries.push_back(makeEntry(
@@ -1641,7 +1618,10 @@ namespace settings {
               .browseMode = TextSettingBrowseMode::OpenFile,
               .browseFileExtensions = DirectoryScanner::imageExtensionFilter(true),
               .browseFallbackDirectory = wallpaper::resolveGlobalWallpaperDirectory(
-                  cfg.wallpaper, wallpaper::effectiveThemeMode(cfg.theme.mode, cfg.theme.mode == ThemeMode::Light)
+                  cfg.wallpaper,
+                  wallpaper::effectiveThemeMode(
+                      shellThemeMode(cfg.theme), shellThemeMode(cfg.theme) == ThemeMode::Light
+                  )
               ),
           },
           "lock screen background image custom"
@@ -2387,7 +2367,7 @@ namespace settings {
       );
     }
 
-    // Location — single source of "where am I"; shared by weather, night light, and theme auto mode.
+    // Location: single source of "where am I"; shared by weather, night light, and theme auto mode.
     entries.push_back(makeEntry(
         SettingsSection::Location, "location", tr("settings.schema.services.location-auto-locate.label"),
         tr("settings.schema.services.location-auto-locate.description"), {"location", "auto_locate"},
@@ -2434,7 +2414,7 @@ namespace settings {
       entries.push_back(std::move(e));
     }
 
-    // Custom scheduling — explicit sunrise/sunset times for night light and theme auto mode.
+    // Custom scheduling: explicit sunrise/sunset times for night light and theme auto mode.
     {
       auto e = makeEntry(
           SettingsSection::Location, "location", tr("settings.schema.services.custom-schedule.label"),
@@ -2463,7 +2443,7 @@ namespace settings {
       entries.push_back(std::move(e));
     }
 
-    // Weather — consumes the resolved location.
+    // Weather: consumes the resolved location.
     entries.push_back(makeEntry(
         SettingsSection::Location, "weather", tr("settings.schema.services.weather.label"),
         tr("settings.schema.services.weather.description"), {"weather", "enabled"}, ToggleSetting{cfg.weather.enabled},
@@ -2618,13 +2598,8 @@ namespace settings {
     {
       auto e = makeEntry(
           SettingsSection::Services, "calendar", tr("settings.schema.services.calendar-event-date-format.label"),
-          tr("settings.schema.services.calendar-event-date-format.description"),
-          {"control_center", "calendar", "event_date_format"},
-          TextSetting{
-              .value = cfg.controlCenter.calendarTab.eventDateFormat,
-              .placeholder = "%A %e %B",
-              .browseFileExtensions = {}
-          },
+          tr("settings.schema.services.calendar-event-date-format.description"), {"calendar", "event_date_format"},
+          TextSetting{.value = cfg.calendar.eventDateFormat, .placeholder = "%A %e %B", .browseFileExtensions = {}},
           "calendar date format strftime chrono"
       );
       e.visibleWhen = calendarOn;
@@ -2633,11 +2608,8 @@ namespace settings {
     {
       auto e = makeEntry(
           SettingsSection::Services, "calendar", tr("settings.schema.services.calendar-event-time-format.label"),
-          tr("settings.schema.services.calendar-event-time-format.description"),
-          {"control_center", "calendar", "event_time_format"},
-          TextSetting{
-              .value = cfg.controlCenter.calendarTab.eventTimeFormat, .placeholder = "%H:%M", .browseFileExtensions = {}
-          },
+          tr("settings.schema.services.calendar-event-time-format.description"), {"calendar", "event_time_format"},
+          TextSetting{.value = cfg.calendar.eventTimeFormat, .placeholder = "%H:%M", .browseFileExtensions = {}},
           "calendar time format strftime chrono"
       );
       e.visibleWhen = calendarOn;
@@ -3028,7 +3000,7 @@ namespace settings {
         "urgency"
     ));
 
-    // Bar — register every configured bar so global search can surface settings from all of them.
+    // Bar: register every configured bar so global search can surface settings from all of them.
     for (const auto& bar : cfg.bars) {
       constexpr SettingsSection section = SettingsSection::Bar;
       const std::vector<std::string> root = {"bar", bar.name};

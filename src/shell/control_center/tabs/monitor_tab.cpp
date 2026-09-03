@@ -79,6 +79,7 @@ std::unique_ptr<Flex> MonitorTab::create() {
 
   auto cardsScroll = ui::scrollView({
       .out = &m_cardsScroll,
+      .contentScale = scale,
       .scrollbarVisible = true,
       .viewportPaddingH = 0.0F,
       .viewportPaddingV = 0.0F,

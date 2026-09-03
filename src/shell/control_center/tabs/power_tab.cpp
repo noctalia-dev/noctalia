@@ -130,6 +130,7 @@ std::unique_ptr<Flex> PowerTab::create() {
   });
 
   auto scroll = ui::scrollView({
+      .contentScale = scale,
       .scrollbarVisible = true,
       .flexGrow = 1.0F,
       .configure = [](ScrollView& scrollView) {

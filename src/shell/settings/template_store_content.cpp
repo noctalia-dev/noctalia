@@ -471,6 +471,7 @@ namespace settings {
     const float minCardHeight = (Style::controlHeightSm + Style::spaceSm * 2.0F) * scale;
     auto grid = ui::virtualGridView({
         .out = &m_grid,
+        .contentScale = scale,
         .minCellWidth = 152.0F * scale,
         .cellHeight = std::max(cardHeight, minCardHeight),
         .squareCells = false,

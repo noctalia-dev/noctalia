@@ -297,6 +297,11 @@ namespace {
         || pointInsideNode(instance.sceneRoot.get(), sceneX, sceneY);
   }
 
+  // Bar tooltips stay suppressed while any panel opened from the bar is alive.
+  void suppressTooltipForOpenPanel(std::string_view panelId) {
+    TooltipManager::instance().suppressBarTooltipsForPanel(panelId);
+  }
+
   // The dead zone has no widget to anchor to, so a panel action anchors at the pointer instead.
   void openPanelAtBarPointer(
       BarInstance& instance, float sx, float sy, CompositorPlatform* platform, std::string_view sourceBarName,
@@ -1698,7 +1703,8 @@ void Bar::reevaluateSmartAutoHide() {
         needsRedraw = true;
       }
     } else if (!instance->pointerInside && instance->attachedPopupCount == 0 && !suppressAutoHide) {
-      if ((instance->hideOpacity > 0.0F || pinnedChanged) && !isWorkspacePeekActive()) {
+      if ((instance->hideOpacity > 0.0F || pinnedChanged)
+          && (!instance->barConfig.showOnWorkspaceSwitch || !isWorkspacePeekActive())) {
         startHideFadeOut(*instance);
         needsRedraw = true;
       }
@@ -1815,6 +1821,21 @@ void Bar::reevaluateAutoHide() {
     }
     startHideFadeOut(*instance);
   }
+}
+
+void Bar::rearmTooltipForHoveredWidget() {
+  if (m_hoveredInstance == nullptr || !m_hoveredInstance->pointerInside) {
+    return;
+  }
+  auto* hovered = m_hoveredInstance->inputDispatcher.hoveredArea();
+  if (hovered == nullptr || m_hoveredInstance->surface == nullptr) {
+    return;
+  }
+  // Same path a real hover takes, so the usual show delay still applies — the
+  // tooltip must not blink into existence the instant the panel disappears.
+  TooltipManager::instance().onBarHoverChange(
+      hovered, m_hoveredInstance->surface->layerSurface(), m_hoveredInstance->output
+  );
 }
 
 void Bar::reevaluateAutoHideAfterPopup() {
@@ -2644,6 +2665,9 @@ void Bar::attachWidgetsToSections(BarInstance& instance) {
         } else {
           PanelManager::instance().togglePanel(std::string(panelId), request);
         }
+        if (PanelManager::instance().isOpenPanel(panelId)) {
+          suppressTooltipForOpenPanel(panelId);
+        }
       });
       if (auto* tray = dynamic_cast<TrayWidget*>(widget.get())) {
         tray->setHoverOverlayParent(instance.hoverUnderlay);
@@ -3309,7 +3333,7 @@ void Bar::buildScene(BarInstance& instance, std::uint32_t width, std::uint32_t h
       if (next != nullptr) {
         next->setTooltipPlacement(tooltipPlacementAwayFromEdge(inst->barConfig.position));
       }
-      TooltipManager::instance().onHoverChange(next, inst->surface->layerSurface(), inst->output);
+      TooltipManager::instance().onBarHoverChange(next, inst->surface->layerSurface(), inst->output);
       updateWidgetHoverHighlight(*inst, next);
       updateAccordionExpansion(*inst, next);
     });

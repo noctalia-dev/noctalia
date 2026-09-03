@@ -354,6 +354,7 @@ void FileDialogView::create() {
   listCard->addChild(
       ui::virtualGridView({
           .out = &m_listGrid,
+          .contentScale = scale,
           .columns = 1,
           .cellHeight = m_listRowHeight,
           .squareCells = false,
@@ -404,6 +405,7 @@ void FileDialogView::create() {
   gridContainer->addChild(
       ui::virtualGridView({
           .out = &m_gridGrid,
+          .contentScale = scale,
           .columns = 0,
           .minCellWidth = m_gridCellSize,
           .squareCells = true,

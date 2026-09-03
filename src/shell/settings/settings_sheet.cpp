@@ -134,6 +134,7 @@ namespace settings {
       auto scroll = ui::scrollView({
           .out = &m_scrollView,
           .state = &m_scrollState,
+          .contentScale = m_scale,
           .scrollbarVisible = true,
           .viewportPaddingH = 0.0F,
           .viewportPaddingV = 0.0F,

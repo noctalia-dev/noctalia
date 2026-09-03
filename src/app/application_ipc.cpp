@@ -762,7 +762,7 @@ void Application::initIpc() {
   m_dock.registerIpc(m_ipcService);
   m_wallpaper.registerIpc(m_ipcService);
   greeter::registerIpc(
-      m_ipcService, m_configService, [this]() { return m_themeService.resolvedMode(); }, &m_compositorPlatform,
+      m_ipcService, m_configService, [this]() { return m_themeService.resolvedShellMode(); }, &m_compositorPlatform,
       [this]() { return m_logindService != nullptr; }
   );
   if (m_mprisService) {

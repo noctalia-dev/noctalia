@@ -21,6 +21,8 @@ namespace noctalia::theme {
   class ThemeService {
   public:
     using ChangeCallback = std::function<void()>;
+    // Carries the resolved [theme].mode: the app-facing mode templates and the GTK color
+    // scheme run in. Shell-facing consumers read resolvedShellMode()/isLightMode().
     using ResolvedCallback = std::function<void(const GeneratedPalette&, std::string_view)>;
 
     ThemeService(ConfigService& config, HttpClient& httpClient);
@@ -36,7 +38,10 @@ namespace noctalia::theme {
     void toggleLightDark();
     void cycleMode();
     [[nodiscard]] ThemeMode configuredMode() const noexcept;
+    // Noctalia's own resolved mode ([theme].shell_mode, or [theme].mode when it follows).
     [[nodiscard]] bool isLightMode() const noexcept;
+    [[nodiscard]] std::string_view resolvedShellMode() const noexcept;
+    // The resolved [theme].mode, which drives apps.
     [[nodiscard]] std::string_view resolvedMode() const noexcept;
 
     void setChangeCallback(ChangeCallback callback);
@@ -60,6 +65,7 @@ namespace noctalia::theme {
     void tickTransition();
     void startCommunityDownload(const std::string& name);
     void rescheduleAutoTimer();
+    [[nodiscard]] bool hasAutoMode() const noexcept;
 
     ConfigService& m_config;
     HttpClient& m_httpClient;
@@ -86,6 +92,7 @@ namespace noctalia::theme {
     Palette m_targetPalette{};
     AnimationManager::Id m_transitionAnimId = 0;
     bool m_transitionResolvedCallbackFlushed = false;
+    bool m_isShellLightMode = false;
     bool m_isLightMode = false;
     std::optional<double> m_autoLatitude;
     std::optional<double> m_autoLongitude;

@@ -751,7 +751,7 @@ settings::RegistryEnvironment SettingsWindow::buildRegistryEnvironment() const {
   env.gammaControlAvailable = (m_wayland != nullptr && m_wayland->hasGammaControl());
   env.greeterSyncAvailable =
       m_config != nullptr && greeter::appearanceSyncAvailable(m_config->config().shell.greeterSync);
-  const ThemeMode previewMode = m_config != nullptr ? m_config->config().theme.mode : ThemeMode::Dark;
+  const ThemeMode previewMode = m_config != nullptr ? shellThemeMode(m_config->config().theme) : ThemeMode::Dark;
   for (const auto& paletteInfo : noctalia::theme::availableCommunityPalettes()) {
     env.communityPalettes.push_back(
         settings::SelectOption{
@@ -1401,6 +1401,7 @@ std::unique_ptr<Flex> SettingsWindow::buildBody(
   auto scroll = ui::scrollView({
       .out = &m_contentScrollView,
       .state = &m_contentScrollState,
+      .contentScale = scale,
       .scrollbarVisible = true,
       .viewportPaddingH = 0.0F,
       .viewportPaddingV = Style::spaceSm * scale,
@@ -1875,13 +1876,13 @@ void SettingsWindow::refreshSettingsRegistry(const Config& cfg) {
                 .action = [this]() { openCalendarAccountEditor(std::nullopt); },
                 .glyph = "plus",
             },
-        .searchText = "calendar add account icloud caldav google ics ical subscription",
+        .searchText = "calendar add account icloud caldav google ics ical subscription vdir vdirsyncer local",
     };
     it = m_settingsRegistry.insert(it, std::move(addBtn));
     ++it;
 
     for (const CalendarConfig::Account& account : cfg.calendar.accounts) {
-      if (account.type != "google" && account.type != "caldav" && account.type != "ics") {
+      if (account.type != "google" && account.type != "caldav" && account.type != "ics" && account.type != "vdir") {
         continue;
       }
       const bool credentialLocked = account.type == "google"
@@ -1919,7 +1920,8 @@ void SettingsWindow::refreshSettingsRegistry(const Config& cfg) {
                                             : "edit",
                   .variant = credentialLocked ? ButtonVariant::Secondary : ButtonVariant::Default,
               },
-          .searchText = "calendar account edit connect authorize caldav icloud google password ics ical subscription "
+          .searchText =
+              "calendar account edit connect authorize caldav icloud google password ics ical subscription vdir local "
               + account.id,
           .visibleWhen = calendarOn,
       };

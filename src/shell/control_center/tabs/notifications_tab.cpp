@@ -696,6 +696,7 @@ std::unique_ptr<Flex> NotificationsTab::create() {
   tab->addChild(
       ui::virtualListView({
           .out = &m_list,
+          .contentScale = scale,
           .itemGap = Style::spaceMd * scale,
           .overscanItems = 3,
           .adapter = m_adapter.get(),

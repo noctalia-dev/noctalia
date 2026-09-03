@@ -9,7 +9,6 @@
 #include <optional>
 #include <string>
 #include <unordered_map>
-#include <unordered_set>
 #include <vector>
 
 class ConfigService;
@@ -47,14 +46,17 @@ namespace settings {
   struct PluginStoreCallbacks {
     std::function<void(std::string id, bool enable)> setEnabled;
     std::function<bool(const std::string& id)> isEnabling;
+    // Whether the plugin's files are on disk right now. Queried per build so a failed
+    // install keeps offering the add action instead of claiming the plugin is there.
+    std::function<bool(const std::string& id)> isInstalled;
     float scale = 1.0F;
   };
 
   class PluginStoreContent {
   public:
     PluginStoreContent(
-        std::vector<StoreCatalogEntry> catalog, ConfigService* config, std::unordered_set<std::string> onDiskIds,
-        PluginStoreCallbacks callbacks, scripting::PluginFileCache* fileCache, ScrollViewState* scrollState
+        std::vector<StoreCatalogEntry> catalog, ConfigService* config, PluginStoreCallbacks callbacks,
+        scripting::PluginFileCache* fileCache, ScrollViewState* scrollState
     );
     ~PluginStoreContent();
 
@@ -63,7 +65,6 @@ namespace settings {
 
     void populateBody(Flex& body, Renderer& renderer, AsyncTextureCache* textureCache);
 
-    void updateOnDiskIds(std::unordered_set<std::string> ids);
     void onFileReady(const std::string& pluginId, const std::string& filename, const std::string& path);
 
     void setOnRebuildNeeded(std::function<void()> cb);
@@ -110,7 +111,6 @@ namespace settings {
     std::vector<StoreCatalogEntry> m_catalog;
     ConfigService* m_config = nullptr;
     std::vector<std::size_t> m_filteredIndices;
-    std::unordered_set<std::string> m_onDiskIds;
     std::vector<std::string> m_sources;
     bool m_tagFiltersCollapsed = true;
     std::vector<std::string> m_allTags;

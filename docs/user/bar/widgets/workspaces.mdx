@@ -9,6 +9,7 @@ Workspace switcher with three styles: regular animated pills, minimal labels wit
 
 Labels are controlled by two independent settings: `show_labels` turns them on or off, and `label_source` picks what they say.
 With `show_labels = false`, regular draws unlabeled pills and Focus Hint shows just the focused app icon. Minimal draws no pill backgrounds at all, so its workspaces become blank slots.
+Focus Hint's app icon has its own switch, `show_icons`; turning both off leaves an empty expanded pill for the active workspace.
 
 Workspace pills use the workspaces widget's resolved `capsule_radius`.
 Set `[widget.workspaces].capsule_radius` for just the workspace switcher, or `[bar.<name>].capsule_radius` as the bar default.
@@ -18,6 +19,7 @@ Pill styling and `capsule_radius` apply only when `style = "regular"`.
 |---------|------|---------|-------------|
 | `style` | string | `"regular"` | Pill style: `"regular"` (animated pills), `"minimal"` (labels drawn without pill backgrounds), or `"focus_hint"` (inactive dots + expanded active pill with focused app icon). |
 | `show_labels` | bool | `true` | Draw text labels on workspaces. Minimal renders labels and nothing else, so turning them off leaves its workspaces as empty slots. |
+| `show_icons` | bool | `true` | Draw the focused app icon on the active pill. Focus Hint only; the other styles never draw app icons. |
 | `label_source` | string | `"id"` | What labels show: `"id"` (workspace number, falling back to its name when no numeric identity exists) or `"name"` (workspace name). |
 | `max_label_chars` | int | `1` | Maximum characters for non-numeric workspace labels, including names used as the `"id"` fallback. Numeric labels such as `10` and `11` are never truncated. |
 | `pill_scale` | float | `1.0` | Scale workspace pill thickness (cross-axis size; regular style only). |
@@ -37,6 +39,7 @@ Pill styling and `capsule_radius` apply only when `style = "regular"`.
 [widget.workspaces]
 style = "regular"       # regular | minimal | focus_hint
 show_labels = true      # false = unlabeled pills (Focus Hint: app icon only)
+show_icons = true       # focus_hint only; false = active pill without the focused app icon
 label_source = "id"     # id | name
 max_label_chars = 2     # truncate long workspace names (e.g. "VESKTOP" → "VE")
 labels_only_when_occupied = true  # (1) (2*) ( ) (4) - occupied tags and the active tag show labels (*active but empty)

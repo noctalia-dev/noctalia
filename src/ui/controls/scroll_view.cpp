@@ -325,6 +325,18 @@ void ScrollView::requestScrollToBottom() {
   markLayoutDirty();
 }
 
+void ScrollView::setContentScale(float scale) {
+  const float clamped = std::max(0.1F, scale);
+  if (m_contentScale == clamped) {
+    return;
+  }
+  m_contentScale = clamped;
+  if (m_scrollbar != nullptr) {
+    m_scrollbar->setContentScale(clamped);
+  }
+  markLayoutDirty();
+}
+
 void ScrollView::setViewportPaddingH(float padding) {
   m_viewportPaddingH = padding;
   markLayoutDirty();
@@ -335,17 +347,19 @@ void ScrollView::setViewportPaddingV(float padding) {
   markLayoutDirty();
 }
 
+float ScrollView::scrollbarGutter() const noexcept {
+  return (Style::scrollbarWidth + Style::scrollbarGap) * m_contentScale;
+}
+
 float ScrollView::contentViewportWidth(bool reserveScrollbarGutter) const noexcept {
   const float gutter = m_orientation == ScrollOrientation::Vertical && (m_scrollbarShown || reserveScrollbarGutter)
-      ? (Style::scrollbarWidth + Style::scrollbarGap)
+      ? scrollbarGutter()
       : 0.0F;
   return std::max(0.0F, width() - m_viewportPaddingH * 2.0F - gutter);
 }
 
 float ScrollView::contentViewportHeight() const noexcept {
-  const float gutter = m_orientation == ScrollOrientation::Horizontal && m_scrollbarShown
-      ? (Style::scrollbarWidth + Style::scrollbarGap)
-      : 0.0F;
+  const float gutter = m_orientation == ScrollOrientation::Horizontal && m_scrollbarShown ? scrollbarGutter() : 0.0F;
   return std::max(0.0F, height() - m_viewportPaddingV * 2.0F - gutter);
 }
 
@@ -383,7 +397,7 @@ void ScrollView::doLayout(Renderer& renderer) {
   if (m_orientation == ScrollOrientation::Horizontal) {
     LayoutSize contentSize = m_content->measure(renderer, {});
     m_scrollbarShown = m_showScrollbar && contentSize.width > availableW + 0.5F;
-    const float gutter = m_scrollbarShown ? (Style::scrollbarWidth + Style::scrollbarGap) : 0.0F;
+    const float gutter = m_scrollbarShown ? scrollbarGutter() : 0.0F;
     const float contentWidth = std::max(availableW, contentSize.width);
 
     LayoutConstraints contentConstraints;
@@ -405,7 +419,7 @@ void ScrollView::doLayout(Renderer& renderer) {
 
     m_maxScrollOffset = std::max(0.0F, contentWidth - availableW);
     updateTouchScrollAxis();
-    m_scrollbar->setPosition(viewportX, viewportY + viewportH + Style::scrollbarGap);
+    m_scrollbar->setPosition(viewportX, viewportY + viewportH + Style::scrollbarGap * m_contentScale);
     m_scrollbar->setVisible(m_showScrollbar);
     m_scrollbar->update(availableW, contentWidth, m_scrollOffset);
   } else {
@@ -427,7 +441,7 @@ void ScrollView::doLayout(Renderer& renderer) {
     m_viewportArea->setFrameSize(availableW, viewportH);
 
     m_scrollbarShown = m_showScrollbar && m_content->height() > viewportH + 0.5F;
-    const float gutter = m_scrollbarShown ? (Style::scrollbarWidth + Style::scrollbarGap) : 0.0F;
+    const float gutter = m_scrollbarShown ? scrollbarGutter() : 0.0F;
     const float contentWidth = std::max(0.0F, availableW - gutter);
     if (std::abs(m_content->width() - contentWidth) >= 0.5F) {
       contentConstraints = {};
@@ -442,7 +456,7 @@ void ScrollView::doLayout(Renderer& renderer) {
     m_maxScrollOffset = std::max(0.0F, contentHeight - viewportH);
     updateTouchScrollAxis();
     const float scrollbarX =
-        Style::rtl() ? m_viewportPaddingH : m_viewportPaddingH + m_viewportWidth - Style::scrollbarWidth;
+        Style::rtl() ? m_viewportPaddingH : m_viewportPaddingH + m_viewportWidth - m_scrollbar->reservedThickness();
     m_scrollbar->setPosition(scrollbarX, m_viewportPaddingV);
     m_scrollbar->setVisible(m_showScrollbar);
     m_scrollbar->update(viewportH, contentHeight, m_scrollOffset);
@@ -494,7 +508,7 @@ void ScrollView::applyScrollOffset() {
     if (m_orientation == ScrollOrientation::Horizontal) {
       m_content->setPosition(-m_scrollOffset, 0.0F);
     } else {
-      const float gutter = Style::rtl() && m_scrollbarShown ? Style::scrollbarWidth + Style::scrollbarGap : 0.0F;
+      const float gutter = Style::rtl() && m_scrollbarShown ? scrollbarGutter() : 0.0F;
       m_content->setPosition(gutter, -m_scrollOffset);
     }
   }

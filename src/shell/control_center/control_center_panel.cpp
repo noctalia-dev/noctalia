@@ -143,6 +143,7 @@ void ControlCenterPanel::create() {
     auto sidebarScroll = ui::scrollView({
         .out = &m_sidebarScrollView,
         .state = &m_sidebarScrollState,
+        .contentScale = scale,
         .scrollbarVisible = true,
         .viewportPaddingH = 0.0F,
         .viewportPaddingV = 0.0F,
@@ -884,7 +885,7 @@ void ControlCenterPanel::layoutFullSidebarWidth(Renderer& renderer) {
     navConstraints.setExactWidth(contentWidth);
     const float navHeight = m_sidebarNav->measure(renderer, navConstraints).height;
     if (navHeight > scrollHeight + 0.5F) {
-      targetWidth = contentWidth + Style::scrollbarWidth + Style::scrollbarGap;
+      targetWidth = contentWidth + m_sidebarScrollView->scrollbarGutter();
     }
   }
 

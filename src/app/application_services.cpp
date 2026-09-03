@@ -559,7 +559,8 @@ void Application::initStyleThemeAndWayland() {
 
   // Apply theme before any UI constructs palette-dependent scene nodes.
   auto syncScriptApiWallpaperDirectory = [this]() {
-    const ThemeMode mode = m_themeService.resolvedMode() == "light" ? ThemeMode::Light : ThemeMode::Dark;
+    // Wallpapers are a shell surface, so they follow Noctalia's own mode.
+    const ThemeMode mode = m_themeService.isLightMode() ? ThemeMode::Light : ThemeMode::Dark;
     m_scriptApi.setWallpaperDirectory(
         wallpaper::resolveGlobalWallpaperDirectory(m_configService.config().wallpaper, mode)
     );
@@ -651,7 +652,7 @@ void Application::initStyleThemeAndWayland() {
                                      ) mutable {
     const std::string resolvedMode(mode);
     const std::string configuredMode(enumToKey(kThemeModes, m_themeService.configuredMode()));
-    m_scriptApi.setDarkMode(resolvedMode != "light");
+    m_scriptApi.setDarkMode(!m_themeService.isLightMode());
     syncScriptApiWallpaperDirectory();
     const std::optional<std::string> previousMode = lastResolvedThemeMode;
     lastResolvedThemeMode = resolvedMode;
@@ -1007,7 +1008,7 @@ void Application::initSystemBusServices() {
             // Screen time must not accumulate across suspend even when lock-before-suspend is off.
             m_screenTimeService.setSuspendPaused(true);
             // Delay inhibit (when lock_before_suspend is on) holds sleep until we lock.
-            // Do not use runAfterSessionLocked here — that slot belongs to lock-and-suspend.
+            // Do not use runAfterSessionLocked here: that slot belongs to lock-and-suspend.
             if (m_skipLockOnNextSleep) {
               // Noctalia-initiated suspend: skip lock-before-sleep (plain Suspend or already locked).
               m_skipLockOnNextSleep = false;

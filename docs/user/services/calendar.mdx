@@ -1,13 +1,13 @@
 ---
 title: Calendar
-description: Calendar account setup for CalDAV, iCloud, Google Calendar, and ICS.
+description: Calendar account setup for CalDAV, iCloud, Google Calendar, ICS, and local vdir directories.
 sidebar:
   order: 4
 ---
 
-The calendar service syncs events from your online accounts and shows them in the control center calendar. CalDAV providers (Nextcloud, iCloud, Fastmail, Radicale, mailbox.org, …) are talked to directly; Google Calendar is connected through a browser authorization flow. Events are read-only.
+The calendar service syncs events from your online accounts or local calendar directories (such as vdirsyncer) and shows them in the control center calendar. CalDAV providers (Nextcloud, iCloud, Fastmail, Radicale, mailbox.org, …) are talked to directly; Google Calendar is connected through a browser authorization flow; local vdir directories are watched with inotify. Events are read-only.
 
-`[calendar]` covers accounts and sync only. How the Calendar tab is drawn, including event date and time formats and the ISO week number column, lives under [`[control_center.calendar]`](/noctalia/control-center/#calendar).
+`[calendar]` covers account sync and shared event date and time formats. Calendar-tab-only presentation options, such as the events card and ISO week number column, live under [`[control_center.calendar]`](/noctalia/control-center/#calendar).
 
 ## Settings setup
 
@@ -16,6 +16,7 @@ The simplest path is **Settings → Services → Calendar → Add Account**.
 - **iCloud**: choose iCloud, enter a local account id such as `personal_icloud`, your Apple Account email, and an Apple app-specific password.
 - **CalDAV**: choose CalDAV, enter a local account id such as `home_nextcloud`, the provider's CalDAV discovery root, your username, and a provider app password.
 - **Google**: choose Google, enter a local account id such as `work_google`, then press **Save and Connect**. A browser opens for Google authorization.
+- **Local (vdir)**: choose Local (vdir), enter a local account id such as `local_vdir`, and the directory path (e.g. `~/.local/share/calendars`), then press **Save**.
 - **ICS**: choose ICS URL, enter a local account id such as `subscription`, then press **Save**.
 
 Saving an account enables `[calendar]` automatically. The GUI writes account config to `settings.toml` using named tables like `[calendar.account.personal_icloud]`. CalDAV passwords use the account's explicit credential source: Secret Service by default, or one configured password file. Google refresh tokens are stored in Secret Service. Short-lived Google access tokens remain in memory only.
@@ -31,8 +32,10 @@ Existing accounts can be edited from **Settings → Services → Calendar**. Goo
 
 ```toml
 [calendar]
-enabled         = true
-refresh_minutes = 15
+enabled             = true
+refresh_minutes     = 15
+event_date_format   = "%A %e %B"
+event_time_format   = "%H:%M"
 
 # iCloud CalDAV. The table name is the local account id.
 [calendar.account.personal_icloud]
@@ -58,6 +61,13 @@ password_file = "/run/agenix/noctalia-caldav"
 [calendar.account.work_google]
 type = "google"
 name = "Work"
+
+# Local vdir directory (vdirsyncer / khal)
+[calendar.account.local_vdir]
+type = "vdir"
+name = "Local Calendars"
+path = "~/.local/share/calendars"
+calendars = []
 
 # Example ICS configuration
 [calendar.account.holidays]
@@ -198,4 +208,26 @@ In Settings, choose **ICS URL**, paste in a URL that leads to a file in the [iCa
 For the URL, `webcal://` and `webcals://` are supported as aliases to `https://`; Noctalia normalizes all three schemes before fetching data, so using any of them in `server_url` produces identical behavior.
 
 However you must make sure that it is a public URL, and does not lead to some login page, 404 error, etc. Noctalia should not need any credentials to fetch the data. If the URL does not return iCalendar data once, Noctalia will temporarily fall back to the event cache until it does.
+
+## Local directory (vdir / vdirsyncer)
+
+In Settings, choose **Local (vdir)**, enter a local account id, and specify the path to your calendar folder. Both tilde (`~/...`) and absolute paths are supported.
+
+For manual TOML, add a named account table with `type = "vdir"` and set `path`:
+
+```toml
+[calendar.account.local_vdir]
+type      = "vdir"
+name      = "Local Calendars"
+path      = "~/.local/share/calendars"
+calendars = [] # empty = all discovered collections
+```
+
+Noctalia automatically explores the directory tree (up to 5 levels deep) to discover calendar collections. For each collection, it reads standard metadata:
+- **Display name**: extracted from the `displayname` file, the `X-WR-CALNAME` header inside `.ics` files, or falls back to the directory name.
+- **Color**: extracted from the `color` file (standard hex format).
+- **Order**: integer sorting priority extracted from the `order` file.
+
+Discovered collection directories are monitored via `inotify`. When external synchronization tools (like `vdirsyncer`) add, modify, or remove `.ics` event files, Noctalia automatically reloads the calendar without requiring a manual refresh.
+
 

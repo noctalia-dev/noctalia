@@ -122,6 +122,7 @@
         "off": "天气已关闭",
         "tooltip": {
           "condition": "天气",
+          "feels-like": "体感温度",
           "high": "最高",
           "humidity": "湿度",
           "low": "最低",
@@ -423,6 +424,7 @@
       "data-unavailable": "天气数据不可用",
       "details": {
         "elevation": "海拔",
+        "feels-like": "体感温度",
         "sunrise": "日出",
         "sunset": "日落",
         "temp-max": "最高气温",
@@ -746,7 +748,7 @@
     },
     "internal": {
       "battery": "电池",
-      "battery-critical-body": "{device}：{percent}% – 即将关机",
+      "battery-critical-body": "{device}：{percent}%；即将关机",
       "battery-critical-title": "电量严重不足",
       "battery-device": "电池设备",
       "battery-low-body": "{device}：剩余 {percent}%",
@@ -1257,7 +1259,8 @@
         "wallpaper": "壁纸",
         "weather": "天气",
         "widget-list": "小组件列表",
-        "widgets": "小组件"
+        "widgets": "小组件",
+        "window-switcher": "窗口切换器"
       },
       "sections": {
         "accessibility": "辅助功能",
@@ -1558,6 +1561,7 @@
         "held-back-hint": "当前兼容版本为 v{version}（插件 API {resolved}）。最新版本 v{latest} 需要插件 API {latestRequired}；当前 Noctalia 最高仅支持 API {current}。",
         "incompatible": "不兼容",
         "incompatible-hint": "需要插件 API {required}；当前 Noctalia 仅支持 API {oldest}–{current}。",
+        "installed": "已安装",
         "loading": "正在加载目录…",
         "no-readme": "没有可用的描述。",
         "open-page": "在 noctalia.dev 上打开插件页面",
@@ -2102,7 +2106,7 @@
             "label": "启动时"
           },
           "theme-mode-changed": {
-            "description": "主题模式在浅色与深色之间切换时执行的命令",
+            "description": "在浅色和深色主题模式之间切换时执行的命令",
             "label": "主题模式切换时"
           },
           "wallpaper-changed": {
@@ -3066,6 +3070,10 @@
         "time-format": {
           "description": "Shell UI 的默认时间格式",
           "label": "时间格式"
+        },
+        "window-switcher-mru": {
+          "description": "按最近使用顺序排列窗口，而非按工作区和屏幕布局排列",
+          "label": "最近使用顺序"
         }
       },
       "system": {
@@ -3233,6 +3241,436 @@
     "widgets": {
       "actions": {
         "command-placeholder": "Shell 命令",
+        "commands": {
+          "bar-auto-hide-set": {
+            "description": "设置状态栏的自动隐藏状态",
+            "label": "设置状态栏自动隐藏"
+          },
+          "bar-hide": {
+            "description": "隐藏一个或所有状态栏，并释放其预留空间",
+            "label": "隐藏状态栏"
+          },
+          "bar-layer-set": {
+            "description": "设置一个或所有状态栏的层级",
+            "label": "设置状态栏层级"
+          },
+          "bar-reserve-toggle": {
+            "description": "切换一个或所有状态栏的预留空间状态",
+            "label": "切换状态栏预留空间"
+          },
+          "bar-show": {
+            "description": "显示一个或所有状态栏",
+            "label": "显示状态栏"
+          },
+          "bar-toggle": {
+            "description": "切换一个或所有状态栏的可见性",
+            "label": "切换状态栏"
+          },
+          "bluetooth-disable": {
+            "description": "禁用蓝牙",
+            "label": "禁用蓝牙"
+          },
+          "bluetooth-enable": {
+            "description": "启用蓝牙",
+            "label": "启用蓝牙"
+          },
+          "bluetooth-status": {
+            "description": "输出蓝牙状态",
+            "label": "蓝牙状态"
+          },
+          "bluetooth-toggle": {
+            "description": "切换蓝牙",
+            "label": "切换蓝牙"
+          },
+          "brightness-down": {
+            "description": "降低亮度（默认为当前显示器）",
+            "label": "降低亮度"
+          },
+          "brightness-list-backlight-devices": {
+            "description": "列出可用的 sysfs 背光设备名称",
+            "label": "列出背光设备"
+          },
+          "brightness-osd": {
+            "description": "显示亮度 OSD，但不更改亮度",
+            "label": "显示亮度 OSD"
+          },
+          "brightness-set": {
+            "description": "设置亮度（默认为当前显示器）",
+            "label": "设置亮度"
+          },
+          "brightness-up": {
+            "description": "提高亮度（默认为当前显示器）",
+            "label": "提高亮度"
+          },
+          "caffeine-disable": {
+            "description": "禁用保持唤醒",
+            "label": "禁用保持唤醒"
+          },
+          "caffeine-enable": {
+            "description": "启用保持唤醒",
+            "label": "启用保持唤醒"
+          },
+          "caffeine-toggle": {
+            "description": "切换保持唤醒",
+            "label": "切换保持唤醒"
+          },
+          "clipboard-clear": {
+            "description": "清除剪贴板历史记录",
+            "label": "清除剪贴板历史记录"
+          },
+          "clipboard-copy": {
+            "description": "将文本复制到剪贴板",
+            "label": "复制到剪贴板"
+          },
+          "clipboard-text": {
+            "description": "输出最近的剪贴板文本（选区不含文本时为空）",
+            "label": "输出剪贴板文本"
+          },
+          "color-scheme-get": {
+            "description": "输出当前配色方案：<来源> <名称>（来源为 builtin、wallpaper、community 或 custom）",
+            "label": "获取配色方案"
+          },
+          "color-scheme-set": {
+            "description": "在 settings.toml 中设置配色来源及选项（内置名称、壁纸生成方案、社区 ID 或自定义方案文件夹名称）",
+            "label": "设置配色方案"
+          },
+          "config-reload": {
+            "description": "重新加载配置文件",
+            "label": "重新加载配置"
+          },
+          "desktop-widgets-edit": {
+            "description": "打开桌面小组件编辑器",
+            "label": "编辑桌面小组件"
+          },
+          "desktop-widgets-exit": {
+            "description": "关闭桌面小组件编辑器",
+            "label": "退出桌面小组件编辑器"
+          },
+          "desktop-widgets-hide": {
+            "description": "立即隐藏桌面小组件（仅当前运行时生效，不更改已保存设置）",
+            "label": "隐藏桌面小组件"
+          },
+          "desktop-widgets-show": {
+            "description": "立即显示桌面小组件（仅当前运行时生效，不更改已保存设置）",
+            "label": "显示桌面小组件"
+          },
+          "desktop-widgets-toggle": {
+            "description": "切换桌面小组件可见性（仅当前运行时生效，不更改已保存设置）",
+            "label": "切换桌面小组件"
+          },
+          "desktop-widgets-toggle-edit": {
+            "description": "切换桌面小组件编辑模式",
+            "label": "切换桌面小组件编辑器"
+          },
+          "dock-hide": {
+            "description": "隐藏 Dock（保留覆盖设置）",
+            "label": "隐藏 Dock"
+          },
+          "dock-reload": {
+            "description": "重新加载 Dock 配置",
+            "label": "重新加载 Dock"
+          },
+          "dock-show": {
+            "description": "显示 Dock（保留覆盖设置）",
+            "label": "显示 Dock"
+          },
+          "dock-toggle": {
+            "description": "切换 Dock 可见性（保留覆盖设置）",
+            "label": "切换 Dock"
+          },
+          "dpms-off": {
+            "description": "关闭屏幕",
+            "label": "关闭屏幕"
+          },
+          "dpms-on": {
+            "description": "开启屏幕",
+            "label": "开启屏幕"
+          },
+          "effects-profile-set": {
+            "description": "设置 EasyEffects 输出或输入配置文件",
+            "label": "设置 EasyEffects 配置文件"
+          },
+          "greeter-sync": {
+            "description": "将壁纸、配色和屏幕布局同步到 Noctalia Greeter",
+            "label": "同步 Greeter 外观"
+          },
+          "keyboard-backlight-down": {
+            "description": "将所有键盘背光降低一级",
+            "label": "降低键盘背光"
+          },
+          "keyboard-backlight-osd": {
+            "description": "显示键盘背光 OSD，但不更改亮度",
+            "label": "显示键盘背光 OSD"
+          },
+          "keyboard-backlight-set": {
+            "description": "设置所有键盘背光（0-100%）",
+            "label": "设置键盘背光"
+          },
+          "keyboard-backlight-toggle": {
+            "description": "切换所有键盘背光的开关状态",
+            "label": "切换键盘背光"
+          },
+          "keyboard-backlight-up": {
+            "description": "将所有键盘背光提高一级",
+            "label": "提高键盘背光"
+          },
+          "keyboard-layout-cycle": {
+            "description": "切换到下一个键盘布局",
+            "label": "循环切换键盘布局"
+          },
+          "lockscreen-widgets-edit": {
+            "description": "打开锁屏小组件编辑器",
+            "label": "编辑锁屏小组件"
+          },
+          "lockscreen-widgets-exit": {
+            "description": "关闭锁屏小组件编辑器",
+            "label": "退出锁屏小组件编辑器"
+          },
+          "lockscreen-widgets-toggle-edit": {
+            "description": "切换锁屏小组件编辑模式",
+            "label": "切换锁屏小组件编辑器"
+          },
+          "log-level-set": {
+            "description": "设置控制台日志级别",
+            "label": "设置日志级别"
+          },
+          "log-level-status": {
+            "description": "输出当前控制台日志级别",
+            "label": "输出日志级别"
+          },
+          "media": {
+            "description": "控制当前媒体播放",
+            "label": "媒体控制"
+          },
+          "mic-mute": {
+            "description": "切换麦克风静音",
+            "label": "切换麦克风静音"
+          },
+          "mic-volume-down": {
+            "description": "降低麦克风音量",
+            "label": "降低麦克风音量"
+          },
+          "mic-volume-osd": {
+            "description": "显示麦克风音量 OSD，但不更改音量（默认为当前音量）",
+            "label": "显示麦克风 OSD"
+          },
+          "mic-volume-set": {
+            "description": "设置麦克风音量",
+            "label": "设置麦克风音量"
+          },
+          "mic-volume-up": {
+            "description": "提高麦克风音量",
+            "label": "提高麦克风音量"
+          },
+          "network-toggle": {
+            "description": "断开或重新连接当前网络",
+            "label": "切换网络连接"
+          },
+          "nightlight-disable": {
+            "description": "关闭夜间模式计划",
+            "label": "关闭夜间模式"
+          },
+          "nightlight-enable": {
+            "description": "启用夜间模式计划",
+            "label": "启用夜间模式"
+          },
+          "nightlight-force-toggle": {
+            "description": "切换强制夜间模式",
+            "label": "切换强制夜间模式"
+          },
+          "nightlight-toggle": {
+            "description": "切换夜间模式计划",
+            "label": "切换夜间模式"
+          },
+          "notification-clear-active": {
+            "description": "关闭所有新通知",
+            "label": "关闭新通知"
+          },
+          "notification-clear-history": {
+            "description": "清除通知历史记录",
+            "label": "清除通知历史记录"
+          },
+          "notification-dnd-set": {
+            "description": "设置通知勿扰模式",
+            "label": "设置勿扰模式"
+          },
+          "notification-dnd-status": {
+            "description": "输出通知勿扰模式状态",
+            "label": "勿扰模式状态"
+          },
+          "notification-dnd-toggle": {
+            "description": "切换通知勿扰模式",
+            "label": "切换勿扰模式"
+          },
+          "notification-invoke-latest": {
+            "description": "执行最近一条新通知的默认操作",
+            "label": "执行最新通知操作"
+          },
+          "notification-show": {
+            "description": "显示 Noctalia 内部通知",
+            "label": "显示通知"
+          },
+          "osd-disable": {
+            "description": "禁用 OSD 弹窗",
+            "label": "禁用 OSD"
+          },
+          "osd-enable": {
+            "description": "启用 OSD 弹窗",
+            "label": "启用 OSD"
+          },
+          "osd-toggle": {
+            "description": "切换 OSD 弹窗",
+            "label": "切换 OSD"
+          },
+          "panel-close": {
+            "description": "关闭当前面板，或在指定面板打开时将其关闭",
+            "label": "关闭面板"
+          },
+          "panel-open": {
+            "description": "按 ID 打开指定面板，可附带上下文（如 launcher /emo、control-center audio）",
+            "label": "打开面板"
+          },
+          "panel-toggle": {
+            "description": "按 ID 切换指定面板，可附带上下文（如 launcher /emo、control-center audio）",
+            "label": "切换面板"
+          },
+          "plugin": {
+            "description": "向插件入口分发事件",
+            "label": "发送插件事件"
+          },
+          "plugins": {
+            "description": "管理插件和源（列出/启用/禁用/更新插件，列出/添加/移除源）",
+            "label": "管理插件"
+          },
+          "power-cycle": {
+            "description": "依次切换 UPower 配置列表，默认向前循环",
+            "label": "循环切换电源配置"
+          },
+          "power-set": {
+            "description": "设置 UPower 电源配置（如 performance、balanced、power-saver）",
+            "label": "设置电源配置"
+          },
+          "screenshot-fullscreen": {
+            "description": "默认截取前聚焦屏幕；使用 pick 交互选择，或使用 all 截取所有输出",
+            "label": "全屏截图"
+          },
+          "screenshot-region": {
+            "description": "开始交互式区域截图",
+            "label": "区域截图"
+          },
+          "session": {
+            "description": "执行内置会话操作",
+            "label": "会话操作"
+          },
+          "settings-close": {
+            "description": "关闭设置窗口",
+            "label": "关闭设置"
+          },
+          "settings-open": {
+            "description": "打开设置窗口；若已打开则聚焦，可选择跳转到指定设置项",
+            "label": "切换设置"
+          },
+          "settings-open-plugin": {
+            "description": "打开设置窗口并显示插件设置（如 noctalia/notes）",
+            "label": "打开插件设置"
+          },
+          "settings-open-widget": {
+            "description": "打开设置窗口并显示状态栏小组件设置；从小组件操作触发时，显示对应小组件设置",
+            "label": "打开小组件设置"
+          },
+          "settings-toggle": {
+            "description": "切换设置窗口，可选择跳转到指定设置项",
+            "label": "切换设置"
+          },
+          "status": {
+            "description": "以 JSON 输出当前状态",
+            "label": "输出状态"
+          },
+          "taskbar-cycle": {
+            "description": "切换到当前任务栏中的相邻任务或工作区分组",
+            "label": "循环切换任务栏"
+          },
+          "templates-apply": {
+            "description": "应用当前配色方案配置的主题模板",
+            "label": "应用主题模板"
+          },
+          "theme-mode-get": {
+            "description": "输出当前主题模式",
+            "label": "获取主题模式"
+          },
+          "theme-mode-set": {
+            "description": "设置主题模式并保存到 settings.toml",
+            "label": "设置主题模式"
+          },
+          "theme-mode-toggle": {
+            "description": "在深色和浅色主题模式之间切换",
+            "label": "切换主题模式"
+          },
+          "volume-down": {
+            "description": "降低扬声器音量",
+            "label": "降低音量"
+          },
+          "volume-mute": {
+            "description": "切换扬声器静音",
+            "label": "切换静音"
+          },
+          "volume-osd": {
+            "description": "显示音量 OSD，但不更改音量（默认为当前音量）",
+            "label": "显示音量 OSD"
+          },
+          "volume-set": {
+            "description": "设置扬声器音量",
+            "label": "设置音量"
+          },
+          "volume-up": {
+            "description": "提高扬声器音量",
+            "label": "提高音量"
+          },
+          "wallpaper-get": {
+            "description": "输出默认壁纸路径，或指定屏幕的壁纸路径",
+            "label": "获取壁纸"
+          },
+          "wallpaper-next": {
+            "description": "立即切换到下一张壁纸",
+            "label": "下一张壁纸"
+          },
+          "wallpaper-previous": {
+            "description": "立即切换到上一张壁纸",
+            "label": "上一张壁纸"
+          },
+          "wallpaper-random": {
+            "description": "立即切换到随机壁纸",
+            "label": "随机壁纸"
+          },
+          "wallpaper-set": {
+            "description": "为所有或指定屏幕设置壁纸（持久保存）",
+            "label": "设置壁纸"
+          },
+          "wifi-disable": {
+            "description": "禁用 Wi-Fi",
+            "label": "禁用 Wi-Fi"
+          },
+          "wifi-enable": {
+            "description": "启用 Wi-Fi",
+            "label": "启用 Wi-Fi"
+          },
+          "wifi-status": {
+            "description": "输出 Wi-Fi 状态",
+            "label": "Wi-Fi 状态"
+          },
+          "wifi-toggle": {
+            "description": "切换 Wi-Fi",
+            "label": "切换 Wi-Fi"
+          },
+          "window-switcher": {
+            "description": "打开或关闭窗口切换器",
+            "label": "窗口切换器"
+          },
+          "workspace-switch": {
+            "description": "切换到指定屏幕上的相邻工作区（到达两端时停止）",
+            "label": "切换工作区"
+          }
+        },
         "default": "默认",
         "disabled": "禁用",
         "run-command": "运行命令…",
@@ -3544,6 +3982,10 @@
         "hide-passive": {
           "description": "隐藏 StatusNotifierItem 状态为 Passive 的托盘项",
           "label": "隐藏非活动项"
+        },
+        "hide-when-adapter-off": {
+          "description": "蓝牙适配器关闭时隐藏小组件",
+          "label": "适配器关闭时隐藏"
         },
         "hide-when-empty": {
           "description": "隐藏无窗口的工作区胶囊",
@@ -4102,16 +4544,22 @@
   "wallpaper": {
     "panel": {
       "all-monitors": "全部",
+      "choose-color": "选择壁纸颜色",
+      "close": "关闭壁纸面板",
       "color-title": "壁纸颜色",
+      "favorite-current": "将当前壁纸添加到收藏",
       "filter-placeholder": "筛选…",
       "flatten": "展开嵌套",
       "loading": "正在加载壁纸…",
+      "navigate-up": "返回上级文件夹",
+      "refresh": "刷新壁纸",
       "sort-date-asc": "按日期排序（最旧优先）",
       "sort-date-desc": "按日期排序（最新优先）",
       "sort-name-asc": "按名称排序（A-Z）",
       "sort-name-desc": "按名称排序（Z-A）",
       "sort-random": "随机排序",
-      "title": "壁纸"
+      "title": "壁纸",
+      "unfavorite-current": "将当前壁纸从收藏中移除"
     }
   },
   "weather": {

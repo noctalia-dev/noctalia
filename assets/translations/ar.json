@@ -122,6 +122,7 @@
         "off": "الطقس متوقف",
         "tooltip": {
           "condition": "الحالة",
+          "feels-like": "يبدو كأنه",
           "high": "عالي",
           "humidity": "الرطوبة",
           "low": "الأدنى",
@@ -423,6 +424,7 @@
       "data-unavailable": "بيانات الطقس غير متاحة",
       "details": {
         "elevation": "الارتفاع",
+        "feels-like": "يبدو كأنه",
         "sunrise": "الشروق",
         "sunset": "الغروب",
         "temp-max": "الدرجة القصوى",
@@ -746,7 +748,7 @@
     },
     "internal": {
       "battery": "البطارية",
-      "battery-critical-body": "{device}: {percent}% - سيتوقف جهازك عن العمل قريباً",
+      "battery-critical-body": "{device}: {percent}%; سيتوقف جهازك عن العمل قريباً",
       "battery-critical-title": "البطارية منخفضة جداً",
       "battery-device": "جهاز البطارية",
       "battery-low-body": "{device}: متبقي {percent}%",
@@ -1257,7 +1259,8 @@
         "wallpaper": "خلفية الشاشة",
         "weather": "الطقس",
         "widget-list": "قائمة ودجت",
-        "widgets": "ودجت"
+        "widgets": "ودجت",
+        "window-switcher": "مبدل النوافذ"
       },
       "sections": {
         "accessibility": "إمكانية الوصول",
@@ -1396,9 +1399,9 @@
       },
       "plugins": {
         "auto-update": {
-          "all": "جميع المصادر",
+          "all": "الكل",
           "none": "لا شيء",
-          "official": "الرسمية فقط"
+          "official": "الرسمية"
         }
       },
       "screen-position": {
@@ -1558,6 +1561,7 @@
         "held-back-hint": "يثبّت v{version} لواجهة API للإضافات {resolved}. يتطلب أحدث إصدار v{latest} واجهة API للإضافات {latestRequired}؛ ويدعم هذا الإصدار من Noctalia حتى {current}.",
         "incompatible": "غير متوافق",
         "incompatible-hint": "يتطلب واجهة API للإضافات {required}؛ ويدعم هذا الإصدار من Noctalia من {oldest} إلى {current}.",
+        "installed": "مثبت",
         "loading": "جاري تحميل الكتالوج...",
         "no-readme": "لا يوجد وصف متاح.",
         "open-page": "فتح صفحة الإضافة على noctalia.dev",
@@ -2565,11 +2569,11 @@
           "description-reconnect": "مصادقة Google مفقودة؛ أعد الاتصال بهذا الحساب"
         },
         "calendar-event-date-format": {
-          "description": "تنسيق التاريخ المعروض في بطاقة الحدث للتاريخ المحدد",
+          "description": "تنسيق التاريخ الذي يظهر أعلى قائمة الأحداث في طرق عرض التقويم",
           "label": "تنسيق تاريخ الحدث"
         },
         "calendar-event-time-format": {
-          "description": "تنسيق الوقت المعروض لأحداث التقويم",
+          "description": "تنسيق الوقت المعروض لأحداث التقويم في طرق عرض التقويم",
           "label": "تنسيق وقت الحدث"
         },
         "calendar-refresh-interval": {
@@ -3066,6 +3070,10 @@
         "time-format": {
           "description": "صيغة الوقت الافتراضية لواجهة الغلاف",
           "label": "صيغة الوقت"
+        },
+        "window-switcher-mru": {
+          "description": "ترتيب النوافذ في أداة التبديل حسب آخر استخدام لها بدلاً من مساحة العمل وتخطيط الشاشة",
+          "label": "أحدث الطلبات المستخدمة"
         }
       },
       "system": {
@@ -3233,6 +3241,27 @@
     "widgets": {
       "actions": {
         "command-placeholder": "أمر واجهة الأوامر",
+        "commands": {
+          "bar-auto-hide-set": {
+            "description": "تعيين حالة الإخفاء التلقائي لشريط ما",
+            "label": "ضبط الإخفاء التلقائي للشريط"
+          },
+          "bar-hide": {
+            "description": "إخفاء شريط واحد أو جميع الأشرطة وإزالة الفراغات بينها",
+            "label": "إخفاء الشريط"
+          },
+          "bar-layer-set": {
+            "description": "تحديد طبقة واحدة أو جميع طبقات الشريط",
+            "label": "تعيين طبقة الشريط"
+          },
+          "bar-reserve-toggle": {
+            "description": "تبديل تخصيص مساحة احتياطية لشريط واحد أو لجميع الأشرطة"
+          },
+          "mic-mute": {
+            "description": "تبديل وضع كتم صوت الميكروفون",
+            "label": "تبديل وضع كتم صوت الميكروفون"
+          }
+        },
         "default": "افتراضي",
         "disabled": "معطل",
         "run-command": "تشغيل أمر…",

@@ -23,7 +23,6 @@
 #include <chrono>
 #include <cmath>
 #include <memory>
-#include <string_view>
 #include <wayland-client-protocol.h>
 
 namespace {
@@ -203,6 +202,7 @@ std::unique_ptr<Flex> CalendarTab::create() {
       }),
       ui::scrollView({
           .out = &m_eventsScroll,
+          .contentScale = scale,
           .fillWidth = true,
           .fillHeight = true,
           .flexGrow = 1.0F,
@@ -597,23 +597,18 @@ void CalendarTab::rebuild() {
 }
 
 void CalendarTab::rebuildEventList(float scale) {
-  if (m_eventsScroll == nullptr) {
+  if (m_eventsScroll == nullptr || m_config == nullptr) {
     return;
   }
-  std::string_view eventDateFormat = "%A %e %B";
-  std::string_view eventTimeFormat = "%H:%M";
-  if (m_config != nullptr) {
-    eventDateFormat = m_config->config().controlCenter.calendarTab.eventDateFormat;
-    eventTimeFormat = m_config->config().controlCenter.calendarTab.eventTimeFormat;
-  }
+  const auto& calendarConfig = m_config->config().calendar;
   calendar_view::rebuildEventList({
       .scroll = *m_eventsScroll,
       .title = m_eventsTitle,
       .snapshot = m_calendar != nullptr ? &m_calendar->snapshot() : nullptr,
       .selected = {.year = m_selectedYear, .month = m_selectedMonth, .day = m_selectedDay},
       .scale = scale,
-      .dateFormat = eventDateFormat,
-      .timeFormat = eventTimeFormat,
+      .dateFormat = calendarConfig.eventDateFormat,
+      .timeFormat = calendarConfig.eventTimeFormat,
       .state = &m_eventListState,
       .requestRedraw = []() { PanelManager::instance().requestRedraw(); },
   });

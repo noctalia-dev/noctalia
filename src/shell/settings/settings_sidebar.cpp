@@ -161,6 +161,7 @@ namespace settings {
 
     auto sidebarScroll = ui::scrollView({
         .state = &ctx.sidebarScrollState,
+        .contentScale = scale,
         .scrollbarVisible = true,
         .viewportPaddingH = 0.0F,
         .viewportPaddingV = 0.0F,

@@ -668,6 +668,7 @@ void ClipboardPanel::create() {
   sidebar->addChild(
       ui::virtualGridView({
           .out = &m_listGrid,
+          .contentScale = scale,
           .columns = 1,
           .cellHeight = kRowHeightEstimate * scale,
           .squareCells = false,
@@ -781,6 +782,7 @@ void ClipboardPanel::create() {
 
   auto previewScroll = ui::scrollView({
       .out = &m_previewScrollView,
+      .contentScale = scale,
       .scrollbarVisible = true,
       .flexGrow = 1.0F,
       .configure = [scale, opacity = panelCardOpacity()](ScrollView& scrollView) {

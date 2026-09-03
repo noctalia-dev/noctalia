@@ -223,6 +223,9 @@ font_family       = ""
 | `show_week_numbers` | bool | `false` | Show ISO week numbers beside the month grid |
 | `font_family` | string | `""` | Typeface for calendar text; empty inherits the global shell font |
 
+The event list uses the shared `event_date_format` and `event_time_format` from [`[calendar]`](/noctalia/services/calendar/),
+so the desktop widget and control center use the same event formatting.
+
 Use the arrow buttons or vertical scrolling to change months. Select a day to update the event list; selecting a day
 from the preceding or following month also navigates to that month. Select the date or month heading to return to today.
 

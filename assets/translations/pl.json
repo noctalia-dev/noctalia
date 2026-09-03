@@ -640,7 +640,7 @@
     },
     "internal": {
       "battery": "Bateria",
-      "battery-critical-body": "{device}: {precent}% - twój komputer się zaraz wyłączy",
+      "battery-critical-body": "{device}: {precent}% - Twój komputer się zaraz wyłączy",
       "battery-critical-title": "Naładowanie baterii krytycznie niskie",
       "battery-device": "Urządzenie zasilane baterią",
       "battery-low-body": "{device}: pozostało {percent}%",

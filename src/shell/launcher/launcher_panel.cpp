@@ -1158,6 +1158,7 @@ void LauncherPanel::create() {
 
   auto detailScroll = ui::scrollView({
       .out = &m_detailScroll,
+      .contentScale = scale,
       .scrollbarVisible = true,
       .viewportPaddingH = Style::spaceSm * scale,
       .viewportPaddingV = Style::spaceSm * scale,

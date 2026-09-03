@@ -3774,7 +3774,7 @@
           "label": "값 표시"
         },
         "show-vpn-label": {
-          "description": "교체 모드에서는 네트워크 라벨을 VPN 라벨로 대체하고, 둘 다 모드에서는 경우 VPN 아이콘 옆에 라벨을 추가합니다.",
+          "description": "교체 모드에서는 네트워크 라벨을 VPN 라벨로 대체하고, 둘 다 모드에서는 VPN 아이콘 옆에 라벨을 추가합니다.",
           "label": "VPN 레이블 표시"
         },
         "show-when-idle": {

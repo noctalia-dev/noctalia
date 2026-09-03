@@ -1915,6 +1915,7 @@ std::unique_ptr<Flex> AudioTab::create() {
 
   auto programScroll = ui::scrollView({
       .out = &m_programScroll,
+      .contentScale = scale,
       .scrollbarVisible = true,
       .viewportPaddingH = 0.0F,
       .viewportPaddingV = 0.0F,

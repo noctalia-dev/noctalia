@@ -746,7 +746,7 @@
     },
     "internal": {
       "battery": "Batteria",
-      "battery-critical-body": "{device}: {percent}% – il tuo sistema presto si spegnerà",
+      "battery-critical-body": "{device}: {percent}%; il tuo sistema presto si spegnerà",
       "battery-critical-title": "Batteria quasi scarica",
       "battery-device": "Dispositivo batteria",
       "battery-low-body": "{device}: {percent}% rimanente",
@@ -1396,9 +1396,9 @@
       },
       "plugins": {
         "auto-update": {
-          "all": "Tutte le sorgenti",
+          "all": "Tutti",
           "none": "Nessuno",
-          "official": "Solo ufficiali"
+          "official": "Ufficiali"
         }
       },
       "screen-position": {

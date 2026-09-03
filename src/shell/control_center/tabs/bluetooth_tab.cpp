@@ -448,6 +448,10 @@ std::unique_ptr<Flex> BluetoothTab::create() {
                     }
                   }
                   break;
+                case BluetoothPairingKind::DisplayPasskey:
+                  // Informational only: the code is typed on the device, and there is no
+                  // Agent1 reply to send. Do not fall through to the canceling default.
+                  break;
                 default:
                   m_agent->cancelPending();
                   break;
@@ -473,6 +477,7 @@ std::unique_ptr<Flex> BluetoothTab::create() {
 
   auto listScroll = ui::scrollView({
       .out = &m_listScroll,
+      .contentScale = contentScale(),
       .scrollbarVisible = true,
       .viewportPaddingH = 0.0F,
       .viewportPaddingV = 0.0F,
@@ -682,6 +687,11 @@ void BluetoothTab::syncPairingCard() {
   }
   if (m_pairingInputRow != nullptr) {
     m_pairingInputRow->setVisible(needsInput);
+  }
+  if (m_pairingAccept != nullptr) {
+    // DisplayPasskey has nothing to accept: the code is entered on the device and there
+    // is no Agent1 reply. Show only the Reject action so Accept cannot clear the card.
+    m_pairingAccept->setVisible(req.kind != BluetoothPairingKind::DisplayPasskey);
   }
 }
 

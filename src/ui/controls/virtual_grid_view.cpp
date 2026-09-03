@@ -175,6 +175,13 @@ void VirtualGridView::setOverscanRows(std::size_t rows) {
   markLayoutDirty();
 }
 
+void VirtualGridView::setScale(float scale) {
+  m_scale = std::max(0.1F, scale);
+  if (m_scroll != nullptr) {
+    m_scroll->setContentScale(m_scale);
+  }
+}
+
 void VirtualGridView::setItemCursorShape(std::uint32_t shape) {
   if (m_itemCursorShape == shape) {
     return;
@@ -248,7 +255,7 @@ void VirtualGridView::doLayout(Renderer& renderer) {
   const float padV = m_scroll->viewportPaddingV();
   const float innerW = std::max(0.0F, ourW - 2.0F * padH);
   const float viewportH = std::max(0.0F, ourH - 2.0F * padV);
-  const float scrollbarGutter = Style::scrollbarWidth + Style::scrollbarGap;
+  const float scrollbarGutter = m_scroll->scrollbarGutter();
 
   m_itemCount = m_adapter->itemCount();
 

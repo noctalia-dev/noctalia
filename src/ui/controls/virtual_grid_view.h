@@ -112,9 +112,9 @@ public:
   void setOverscanRows(std::size_t rows);
   // wp_cursor_shape value applied while the pointer is over a cell (0 = inherit).
   void setItemCursorShape(std::uint32_t shape);
-  // Content scale, used for the pointer travel threshold that separates a click
-  // from a drag on an adapter-consumed press.
-  void setScale(float scale) { m_scale = scale; }
+  // Content scale of the hosting surface: sets the scrollbar geometry scale and the pointer
+  // travel threshold that separates a click from a drag on an adapter-consumed press.
+  void setScale(float scale);
 
   void scrollToIndex(std::size_t index);
   void setSelectedIndex(std::optional<std::size_t> index);

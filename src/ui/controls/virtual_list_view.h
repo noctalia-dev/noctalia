@@ -48,6 +48,8 @@ public:
 
   void setItemGap(float gap);
   void setOverscanItems(std::size_t items);
+  // Content scale of the hosting surface; scales the scrollbar geometry.
+  void setContentScale(float scale);
   void scrollToIndex(std::size_t index);
 
   [[nodiscard]] ScrollView& scrollView() noexcept { return *m_scroll; }

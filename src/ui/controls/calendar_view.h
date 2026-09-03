@@ -75,8 +75,8 @@ namespace calendar_view {
     const CalendarSnapshot* snapshot = nullptr;
     Date selected;
     float scale = 1.0F;
-    std::string_view dateFormat = "%A %e %B";
-    std::string_view timeFormat = "%H:%M";
+    std::string_view dateFormat;
+    std::string_view timeFormat;
     std::string fontFamily;
     EventListState* state = nullptr;
     std::function<void()> requestRedraw;

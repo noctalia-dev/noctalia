@@ -363,6 +363,7 @@ namespace {
 PanelManager::PanelManager() { s_instance = this; }
 
 PanelManager::~PanelManager() {
+  m_persistentHost.setPanelClosedCallback(nullptr);
   if (s_instance == this) {
     s_instance = nullptr;
   }
@@ -462,6 +463,11 @@ void PanelManager::setFocusGrabBarSurfacesProvider(std::function<std::vector<wl_
 
 void PanelManager::setPanelClosedCallback(std::function<void()> callback) {
   m_panelClosedCallback = std::move(callback);
+  m_persistentHost.setPanelClosedCallback([this]() {
+    if (m_panelClosedCallback) {
+      m_panelClosedCallback();
+    }
+  });
 }
 
 void PanelManager::setPanelOpenedCallback(std::function<void()> callback) {
@@ -1388,6 +1394,7 @@ void PanelManager::destroyPanel() {
   m_inputDispatcher.setSceneRoot(nullptr);
   // Hover leave only fades tooltips asynchronously. Destroy them (and any
   // open context menu) before the layer surface — xdg_popup must die first.
+  TooltipManager::instance().restoreBarTooltipsForPanel(m_activePanelId);
   TooltipManager::instance().forceDestroy();
   if (m_activePopup != nullptr) {
     m_activePopup->close();

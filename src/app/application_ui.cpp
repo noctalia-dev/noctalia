@@ -234,7 +234,7 @@ void Application::performGreeterSync(bool quiet) {
     m_polkitAgent->markNextRequestInternal();
   }
   const auto launch = greeter::syncAppearanceToGreeterAsync(
-      m_configService, m_themeService.resolvedMode(), complete, &m_compositorPlatform, m_logindService != nullptr
+      m_configService, m_themeService.resolvedShellMode(), complete, &m_compositorPlatform, m_logindService != nullptr
   );
   if (launch == greeter::GreeterSyncLaunch::Failed) {
     if (quiet) {
@@ -447,7 +447,7 @@ void Application::initInputDispatch() {
       m_lockScreen.onKeyboardEvent(event);
       return;
     }
-    // Grab popups are modal — while one is open it owns the keyboard and ESC
+    // Grab popups are modal: while one is open it owns the keyboard and ESC
     // dismisses it before anything behind can react.
     if (ContextMenuPopup::dispatchKeyboardEvent(event)) {
       return;
@@ -680,6 +680,7 @@ void Application::initPanelManagerAndPanels() {
   });
   m_panelManager.setPanelClosedCallback([this]() {
     m_overviewLauncherCapture.sync();
+    m_bar.rearmTooltipForHoveredWidget();
     m_bar.reevaluateAutoHide();
     // Widgets that stay visible while their panel is open re-evaluate on the next update.
     m_bar.refresh();

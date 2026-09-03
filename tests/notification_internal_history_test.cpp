@@ -143,10 +143,7 @@ int main() {
     ok = check(manager.close(stickyId, CloseReason::Dismissed), "a persistent reminder could not be dismissed") && ok;
     ok = check(historyContains(manager, "dismissed-reminder"), "dismissing a persistent reminder erased its history")
         && ok;
-    ok = check(
-             !historyEntry(manager, stickyId)->active,
-             "a dismissed reminder was still marked active in history"
-         )
+    ok = check(!historyEntry(manager, stickyId)->active, "a dismissed reminder was still marked active in history")
         && ok;
   }
 

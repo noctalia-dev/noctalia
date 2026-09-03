@@ -1207,7 +1207,11 @@ void SettingsWindow::onExternalOptionsChanged() { requestSceneRebuild(); }
 void SettingsWindow::onPluginsChanged() {
   markPluginListDirty();
   if (isOpen() && m_selectedSection == "plugins") {
-    requestContentRebuild();
+    // The plugin store's body shows install progress, so it needs the rebuild; any other
+    // editor sheet would just lose its focus for an unrelated plugin event.
+    requestContentRebuild(
+        /*refreshRegistry=*/false, /*refreshFilterRow=*/false, /*rebuildEditorSheet=*/m_pluginStoreSheetOpen
+    );
   }
 }
 

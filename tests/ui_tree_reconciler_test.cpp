@@ -8,6 +8,7 @@
 #include "ui/controls/drag_source.h"
 #include "ui/controls/drop_zone.h"
 #include "ui/controls/flex.h"
+#include "ui/controls/graph.h"
 #include "ui/controls/input.h"
 #include "ui/controls/label.h"
 #include "ui/controls/scroll_view.h"
@@ -2312,6 +2313,355 @@ int main() {
             20.0f, 20.0f, WL_POINTER_AXIS_HORIZONTAL_SCROLL, WL_POINTER_AXIS_SOURCE_WHEEL, 15.0, 1, 120, 3.0f
         );
     ok = expect(!horizontalAxisConsumed, "non-scrollable horizontal view does not consume wheel input") && ok;
+  }
+
+  // Graph: no pointer callback declared -> plain Graph, no InputArea wrapper
+  // (existing values/size behaviour is unaffected by the new capability).
+  {
+    ui::UiTreeReconciler reconciler;
+    Flex host;
+
+    ui::UiTreeNode tree = makeNode("graph");
+    tree.props.emplace("values", std::vector<double>{0.0, 0.5, 1.0, 0.5});
+    tree.props.emplace("width", 100.0);
+    tree.props.emplace("height", 50.0);
+    (void)reconciler.reconcile(host, tree, renderer);
+
+    auto* graph = dynamic_cast<Graph*>(host.children().front().get());
+    ok = expect(graph != nullptr, "callback-less graph is a bare Graph") && ok;
+    ok = expect(
+             dynamic_cast<InputArea*>(host.children().front().get()) == nullptr,
+             "callback-less graph has no InputArea wrapper"
+         )
+        && ok;
+    ok = expect(graph != nullptr && graph->width() == 100.0f && graph->height() == 50.0f, "graph size applied") && ok;
+  }
+
+  // Graph: onPointerMove wraps the control in a hover-only InputArea (no
+  // clicks accepted, not focusable) that forwards its size to the graph.
+  {
+    ui::UiTreeReconciler reconciler;
+    Flex host;
+
+    ui::UiTreeNode tree = makeNode("graph");
+    tree.props.emplace("values", std::vector<double>{0.0, 1.0});
+    tree.props.emplace("width", 100.0);
+    tree.props.emplace("height", 50.0);
+    tree.props.emplace("onPointerMove", std::string("track"));
+    (void)reconciler.reconcile(host, tree, renderer);
+
+    auto* area = dynamic_cast<InputArea*>(host.children().front().get());
+    ok = expect(
+             area != nullptr && area->acceptedButtons() == 0 && !area->focusable(),
+             "onPointerMove wraps the graph in a hover-only InputArea"
+         )
+        && ok;
+    auto* graph =
+        area != nullptr && !area->children().empty() ? dynamic_cast<Graph*>(area->children().front().get()) : nullptr;
+    ok = expect(graph != nullptr, "wrapped graph control is reachable through the InputArea") && ok;
+    ok = expect(
+             area != nullptr && area->width() == 100.0f && area->height() == 50.0f,
+             "wrapper mirrors the graph's explicit size"
+         )
+        && ok;
+  }
+
+  // Graph: pointer motion reports coordinates normalized to the graph's own
+  // content area [0,1], coalesced so a fast pointer never floods the plugin
+  // queue; onEnter reports the same way as onMotion for the first position.
+  {
+    ui::UiTreeReconciler reconciler;
+    std::vector<ui::UiTreeReconciler::ControlCallback> fired;
+    reconciler.setCallbackSink([&fired](const ui::UiTreeReconciler::ControlCallback& cb) { fired.push_back(cb); });
+    Flex host;
+
+    ui::UiTreeNode tree = makeNode("graph");
+    tree.props.emplace("width", 100.0);
+    tree.props.emplace("height", 50.0);
+    tree.props.emplace("onPointerMove", std::string("track"));
+    (void)reconciler.reconcile(host, tree, renderer);
+    auto* area = dynamic_cast<InputArea*>(host.children().front().get());
+
+    if (area != nullptr) {
+      area->dispatchEnter(25.0f, 10.0f);
+    }
+    ok = expect(
+             fired.size() == 1
+                 && fired[0].fn == "track"
+                 && fired[0].arg1 == "0.2500"
+                 && fired[0].arg2 == "0.2000"
+                 && fired[0].coalesce,
+             "enter reports normalized coordinates through the coalesced sink"
+         )
+        && ok;
+
+    fired.clear();
+    if (area != nullptr) {
+      area->dispatchMotion(90.0f, 45.0f);
+    }
+    ok = expect(
+             fired.size() == 1 && fired[0].fn == "track" && fired[0].arg1 == "0.9000" && fired[0].arg2 == "0.9000",
+             "motion reports updated normalized coordinates"
+         )
+        && ok;
+
+    // Coordinates outside the control clamp to [0,1] instead of going
+    // negative or past 1 (the dispatcher only delivers points inside the
+    // hit area in practice, but the callback must never leak raw pixels).
+    fired.clear();
+    if (area != nullptr) {
+      area->dispatchMotion(-5.0f, 200.0f);
+    }
+    ok = expect(
+             fired.size() == 1 && fired[0].arg1 == "0.0000" && fired[0].arg2 == "1.0000",
+             "out-of-bounds pixels clamp to the [0,1] normalized range"
+         )
+        && ok;
+  }
+
+  // Graph: onPointerLeave is wired independently of onPointerMove and fires
+  // with no arguments.
+  {
+    ui::UiTreeReconciler reconciler;
+    std::vector<ui::UiTreeReconciler::ControlCallback> fired;
+    reconciler.setCallbackSink([&fired](const ui::UiTreeReconciler::ControlCallback& cb) { fired.push_back(cb); });
+    Flex host;
+
+    ui::UiTreeNode tree = makeNode("graph");
+    tree.props.emplace("width", 100.0);
+    tree.props.emplace("height", 50.0);
+    tree.props.emplace("onPointerMove", std::string("track"));
+    tree.props.emplace("onPointerLeave", std::string("gone"));
+    (void)reconciler.reconcile(host, tree, renderer);
+    auto* area = dynamic_cast<InputArea*>(host.children().front().get());
+
+    if (area != nullptr) {
+      area->dispatchEnter(10.0f, 10.0f);
+    }
+    fired.clear();
+    if (area != nullptr) {
+      area->dispatchLeave();
+    }
+    ok = expect(fired.size() == 1 && fired[0].fn == "gone" && fired[0].arg1.empty(), "leave fires its own callback")
+        && ok;
+  }
+
+  // Graph: resizing changes the normalization basis for the same raw pixel.
+  {
+    ui::UiTreeReconciler reconciler;
+    std::vector<ui::UiTreeReconciler::ControlCallback> fired;
+    reconciler.setCallbackSink([&fired](const ui::UiTreeReconciler::ControlCallback& cb) { fired.push_back(cb); });
+    Flex host;
+
+    ui::UiTreeNode tree = makeNode("graph");
+    tree.props.emplace("width", 100.0);
+    tree.props.emplace("height", 50.0);
+    tree.props.emplace("onPointerMove", std::string("track"));
+    (void)reconciler.reconcile(host, tree, renderer);
+    auto* area = dynamic_cast<InputArea*>(host.children().front().get());
+    if (area != nullptr) {
+      area->dispatchMotion(50.0f, 25.0f);
+    }
+    ok = expect(fired.size() == 1 && fired[0].arg1 == "0.5000", "midpoint at 100px wide reports 0.5") && ok;
+
+    fired.clear();
+    tree.props["width"] = 200.0;
+    (void)reconciler.reconcile(host, tree, renderer);
+    if (area != nullptr) {
+      area->dispatchMotion(50.0f, 25.0f);
+    }
+    ok = expect(
+             fired.size() == 1 && fired[0].arg1 == "0.2500", "the same raw pixel renormalizes after a resize to 200px"
+         )
+        && ok;
+  }
+
+  // Graph: removing the callback prop tears down wiring on the retained
+  // wrapper instead of leaving a stale handler.
+  {
+    ui::UiTreeReconciler reconciler;
+    std::vector<ui::UiTreeReconciler::ControlCallback> fired;
+    reconciler.setCallbackSink([&fired](const ui::UiTreeReconciler::ControlCallback& cb) { fired.push_back(cb); });
+    Flex host;
+
+    ui::UiTreeNode tree = makeNode("graph");
+    tree.props.emplace("width", 100.0);
+    tree.props.emplace("height", 50.0);
+    tree.props.emplace("onPointerMove", std::string("track"));
+    (void)reconciler.reconcile(host, tree, renderer);
+    Node* wrapperBefore = host.children().front().get();
+
+    tree.props.erase("onPointerMove");
+    (void)reconciler.reconcile(host, tree, renderer);
+    ok = expect(
+             dynamic_cast<InputArea*>(host.children().front().get()) == nullptr,
+             "dropping the callback rebuilds the graph unwrapped"
+         )
+        && ok;
+    ok = expect(host.children().front().get() != wrapperBefore, "the InputArea wrapper is torn down") && ok;
+  }
+
+  // Graph: onPointerLeave alone still wraps the graph and reports the exit.
+  {
+    ui::UiTreeReconciler reconciler;
+    std::vector<ui::UiTreeReconciler::ControlCallback> fired;
+    reconciler.setCallbackSink([&fired](const ui::UiTreeReconciler::ControlCallback& cb) { fired.push_back(cb); });
+    Flex host;
+
+    ui::UiTreeNode tree = makeNode("graph");
+    tree.props.emplace("width", 100.0);
+    tree.props.emplace("height", 50.0);
+    tree.props.emplace("onPointerLeave", std::string("gone"));
+    (void)reconciler.reconcile(host, tree, renderer);
+    auto* area = dynamic_cast<InputArea*>(host.children().front().get());
+    ok = expect(area != nullptr, "a leave-only graph is still wrapped") && ok;
+
+    if (area != nullptr) {
+      area->dispatchEnter(10.0f, 10.0f);
+    }
+    ok = expect(fired.empty(), "a leave-only graph reports nothing on enter") && ok;
+    if (area != nullptr) {
+      area->dispatchLeave();
+    }
+    ok = expect(fired.size() == 1 && fired[0].fn == "gone", "a leave-only graph reports its exit") && ok;
+  }
+
+  // Graph: a pointer session the plugin is mirroring is closed by the
+  // reconciler when the graph leaves the tree, is rebuilt unwrapped, or is
+  // reset away. The dispatcher never delivers leave for a node it no longer
+  // sees, so without this the plugin's hover state would stick on.
+  {
+    const auto enteredGraphTree = []() {
+      ui::UiTreeNode tree = makeNode("graph");
+      tree.props.emplace("width", 100.0);
+      tree.props.emplace("height", 50.0);
+      tree.props.emplace("onPointerMove", std::string("track"));
+      tree.props.emplace("onPointerLeave", std::string("gone"));
+      return tree;
+    };
+
+    {
+      ui::UiTreeReconciler reconciler;
+      std::vector<ui::UiTreeReconciler::ControlCallback> fired;
+      reconciler.setCallbackSink([&fired](const ui::UiTreeReconciler::ControlCallback& cb) { fired.push_back(cb); });
+      Flex host;
+      ui::UiTreeNode tree = enteredGraphTree();
+      (void)reconciler.reconcile(host, tree, renderer);
+      if (auto* area = dynamic_cast<InputArea*>(host.children().front().get())) {
+        area->dispatchEnter(10.0f, 10.0f);
+      }
+      fired.clear();
+      ui::UiTreeNode replacement = makeNode("label");
+      (void)reconciler.reconcile(host, replacement, renderer);
+      ok = expect(fired.size() == 1 && fired[0].fn == "gone", "a hovered graph dropped from the tree reports its leave")
+          && ok;
+    }
+
+    {
+      ui::UiTreeReconciler reconciler;
+      std::vector<ui::UiTreeReconciler::ControlCallback> fired;
+      reconciler.setCallbackSink([&fired](const ui::UiTreeReconciler::ControlCallback& cb) { fired.push_back(cb); });
+      Flex host;
+      ui::UiTreeNode tree = enteredGraphTree();
+      (void)reconciler.reconcile(host, tree, renderer);
+      if (auto* area = dynamic_cast<InputArea*>(host.children().front().get())) {
+        area->dispatchEnter(10.0f, 10.0f);
+      }
+      fired.clear();
+      tree.props.erase("onPointerMove");
+      tree.props.erase("onPointerLeave");
+      (void)reconciler.reconcile(host, tree, renderer);
+      ok = expect(fired.size() == 1 && fired[0].fn == "gone", "a hovered graph rebuilt unwrapped reports its leave")
+          && ok;
+    }
+
+    {
+      ui::UiTreeReconciler reconciler;
+      std::vector<ui::UiTreeReconciler::ControlCallback> fired;
+      reconciler.setCallbackSink([&fired](const ui::UiTreeReconciler::ControlCallback& cb) { fired.push_back(cb); });
+      Flex host;
+      ui::UiTreeNode tree = enteredGraphTree();
+      (void)reconciler.reconcile(host, tree, renderer);
+      if (auto* area = dynamic_cast<InputArea*>(host.children().front().get())) {
+        area->dispatchEnter(10.0f, 10.0f);
+      }
+      fired.clear();
+      tree.props["onPointerLeave"] = std::string("goneRenamed");
+      (void)reconciler.reconcile(host, tree, renderer);
+      ok = expect(fired.size() == 1 && fired[0].fn == "gone", "rewiring a hovered graph closes the old session first")
+          && ok;
+    }
+
+    {
+      ui::UiTreeReconciler reconciler;
+      std::vector<ui::UiTreeReconciler::ControlCallback> fired;
+      reconciler.setCallbackSink([&fired](const ui::UiTreeReconciler::ControlCallback& cb) { fired.push_back(cb); });
+      Flex host;
+      ui::UiTreeNode tree = enteredGraphTree();
+      (void)reconciler.reconcile(host, tree, renderer);
+      if (auto* area = dynamic_cast<InputArea*>(host.children().front().get())) {
+        area->dispatchEnter(10.0f, 10.0f);
+      }
+      fired.clear();
+      reconciler.reset();
+      ok = expect(fired.size() == 1 && fired[0].fn == "gone", "reset closes an open pointer session") && ok;
+    }
+  }
+
+  // Graph: a graph's position and leave share one coalescing stream, so the
+  // newest of the two always wins in the script queue, and two graphs never
+  // supersede each other even when they name the same handler.
+  {
+    ui::UiTreeReconciler reconciler;
+    std::vector<ui::UiTreeReconciler::ControlCallback> fired;
+    reconciler.setCallbackSink([&fired](const ui::UiTreeReconciler::ControlCallback& cb) { fired.push_back(cb); });
+    Flex host;
+
+    ui::UiTreeNode first = makeNode("graph");
+    first.key = "a";
+    first.props.emplace("width", 100.0);
+    first.props.emplace("height", 50.0);
+    first.props.emplace("onPointerMove", std::string("track"));
+    first.props.emplace("onPointerLeave", std::string("gone"));
+    ui::UiTreeNode second = first;
+    second.key = "b";
+    ui::UiTreeNode row = makeNode("row");
+    row.children.push_back(first);
+    row.children.push_back(second);
+    (void)reconciler.reconcile(host, row, renderer);
+
+    auto* rowNode = dynamic_cast<Flex*>(host.children().front().get());
+    auto* areaA = rowNode != nullptr ? dynamic_cast<InputArea*>(rowNode->children()[0].get()) : nullptr;
+    auto* areaB = rowNode != nullptr ? dynamic_cast<InputArea*>(rowNode->children()[1].get()) : nullptr;
+    if (areaA != nullptr && areaB != nullptr) {
+      areaA->dispatchEnter(50.0f, 25.0f);
+      areaA->dispatchLeave();
+      areaB->dispatchEnter(50.0f, 25.0f);
+    }
+    ok = expect(fired.size() == 3, "both graphs report through the same handler names") && ok;
+    if (fired.size() == 3) {
+      ok = expect(
+               !fired[0].coalesceKey.empty() && fired[0].coalesceKey == fired[1].coalesceKey,
+               "a graph's move and leave share one coalescing stream"
+           )
+          && ok;
+      ok = expect(fired[2].coalesceKey != fired[0].coalesceKey, "sibling graphs get their own coalescing stream") && ok;
+      ok = expect(fired[1].fn == "gone" && fired[1].coalesce, "leave coalesces on the graph's stream") && ok;
+    }
+
+    // A re-render that leaves the callback names alone keeps the stream, so a
+    // pending position is not stranded behind a fresh key every frame.
+    const std::string streamBefore = fired.empty() ? std::string{} : fired[0].coalesceKey;
+    fired.clear();
+    (void)reconciler.reconcile(host, row, renderer);
+    if (areaA != nullptr) {
+      areaA->dispatchMotion(50.0f, 25.0f);
+    }
+    ok = expect(
+             fired.size() == 1 && fired[0].coalesceKey == streamBefore,
+             "an unchanged re-render keeps the graph's coalescing stream"
+         )
+        && ok;
   }
 
   return ok ? 0 : 1;

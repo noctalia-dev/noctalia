@@ -123,24 +123,21 @@ The Calendar tab shows the month view and events from configured calendar accoun
 Right-click a day to launch the application registered for the `text/calendar` MIME type. The Calendar panel closes
 after a successful launch.
 
-`[control_center.calendar]` holds how the tab is drawn; `[calendar]` holds whether events are synced at all.
+`[control_center.calendar]` holds how the tab is drawn; `[calendar]` holds whether events are synced and the shared event date and time formats.
 
 ```toml
 [control_center.calendar]
 show_events_card  = true
 show_week_numbers = false       # ISO 8601 week numbers in the month grid
-event_date_format = "%A %e %B"  # date heading above the event list
-event_time_format = "%H:%M"     # per-event start time
 ```
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `show_events_card` | bool | `true` | Show the event list beside the month grid. Also toggled from the calendar button in the tab header. |
 | `show_week_numbers` | bool | `false` | Show a column of ISO 8601 week numbers to the left of the month grid, separated from it by a divider. Each row is numbered by the week its Thursday falls in. |
-| `event_date_format` | string | `"%A %e %B"` | strftime format for the date heading above the event list. |
-| `event_time_format` | string | `"%H:%M"` | strftime format for each event's start time. All-day events show an "All day" label instead. |
 
-Week numbers are a decoration of the month grid, so they work with `[calendar].enabled = false` and no accounts configured. The other three options only have visible effect once events are syncing.
+The shared `event_date_format` and `event_time_format` options are documented under [Calendar](/noctalia/services/calendar/).
+Week numbers are a decoration of the month grid, so they work with `[calendar].enabled = false` and no accounts configured.
 
 ## Notifications
 

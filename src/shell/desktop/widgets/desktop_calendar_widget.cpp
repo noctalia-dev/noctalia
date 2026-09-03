@@ -18,7 +18,6 @@
 #include <algorithm>
 #include <memory>
 #include <string>
-#include <string_view>
 #include <utility>
 #include <wayland-client-protocol.h>
 
@@ -35,8 +34,6 @@ namespace {
   constexpr float kDayButtonSize = 34.0F;
   constexpr float kDotDiameter = 4.0F;
   constexpr float kWeekColumnWidth = 24.0F;
-  constexpr std::string_view kEventDateFormat = "%A %e %B";
-  constexpr std::string_view kEventTimeFormat = "%H:%M";
 
 } // namespace
 
@@ -155,6 +152,7 @@ void DesktopCalendarWidget::create() {
   eventsColumn->addChild(
       ui::scrollView({
           .out = &m_eventsScroll,
+          .contentScale = contentScale(),
           .fillWidth = true,
           .fillHeight = true,
           .flexGrow = 1.0F,
@@ -358,9 +356,10 @@ void DesktopCalendarWidget::rebuildCalendar() {
 }
 
 void DesktopCalendarWidget::rebuildEventList() {
-  if (m_eventsScroll == nullptr) {
+  if (m_eventsScroll == nullptr || m_config == nullptr) {
     return;
   }
+  const auto& calendarConfig = m_config->config().calendar;
   calendar_view::rebuildEventList({
       .scroll = *m_eventsScroll,
       .reserveScrollbarGutter = true,
@@ -368,8 +367,8 @@ void DesktopCalendarWidget::rebuildEventList() {
       .snapshot = m_calendar != nullptr ? &m_calendar->snapshot() : nullptr,
       .selected = {.year = m_selectedYear, .month = m_selectedMonth, .day = m_selectedDay},
       .scale = contentScale(),
-      .dateFormat = kEventDateFormat,
-      .timeFormat = kEventTimeFormat,
+      .dateFormat = calendarConfig.eventDateFormat,
+      .timeFormat = calendarConfig.eventTimeFormat,
       .fontFamily = m_fontFamily,
       .state = &m_eventListState,
       .requestRedraw = [this]() { requestRedraw(); },

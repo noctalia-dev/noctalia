@@ -11,6 +11,7 @@
 #include "ui/controls/context_menu_popup.h"
 #include "ui/controls/flex.h"
 #include "ui/style.h"
+#include "wayland/layer_surface.h"
 
 #include <algorithm>
 #include <cmath>
@@ -65,7 +66,8 @@ PluginPanel::PluginPanel(scripting::PluginRuntimeContext context, PluginPanelOpt
       m_preferredHeight(options.height > 0.0 ? static_cast<float>(options.height) : kDefaultPanelHeight),
       m_widthFill(options.widthFill), m_heightFill(options.heightFill),
       m_dismissOnOutsideClick(options.dismissOnOutsideClick),
-      m_keyboardMode(keyboardModeFromManifest(options.keyboardFocus)), m_persistent(options.persistent),
+      m_keyboardMode(keyboardModeFromManifest(options.keyboardFocus)),
+      m_layer(layerShellLayerFromConfig(options.shellConfig.layer)), m_persistent(options.persistent),
       m_shellConfig(options.shellConfig) {
   // The manifest parser already validated every spec, so a parse failure here means the two
   // drifted apart. Skip the entry rather than capture a chord nobody can describe.
@@ -181,7 +183,7 @@ void PluginPanel::create() {
         };
       }
       (void)m_runtime->enqueueCallStrings(
-          callback.fn, callback.arg1, callback.arg2, std::move(snapshot), callback.coalesce
+          callback.fn, callback.arg1, callback.arg2, std::move(snapshot), callback.coalesce, callback.coalesceKey
       );
     }
   });
