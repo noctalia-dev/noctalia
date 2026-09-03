@@ -123,6 +123,8 @@ lib.warnIf cudaSupport
 
   mesonBuildType = "release";
 
+  mesonFlags = [ "-Dtests=disabled" ];
+
   ninjaFlags = [ "-v" ];
 
   meta = with lib; {
