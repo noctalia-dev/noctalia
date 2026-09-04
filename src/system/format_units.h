@@ -6,6 +6,9 @@
 
 namespace FormatUnits {
 
+  inline constexpr int kMinCompactByteRateDecimalPlaces = 0;
+  inline constexpr int kMaxCompactByteRateDecimalPlaces = 3;
+
   enum class DecimalByteRateUnit {
     Auto,
     Kilobytes,

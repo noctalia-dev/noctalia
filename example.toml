@@ -506,14 +506,14 @@ enabled = false
 # hide_when_no_unread = true
 
 # [widget.network_rx]
-# network_speed_unit = "mb"          # auto | kb | mb
-# network_speed_compact = true       # show "1.2M" instead of "1.2 MB/s"
-# network_speed_decimal_places = 2   # compact precision from 0 to 3
+# network_speed_unit           = "mb" # auto | kb | mb
+# network_speed_compact        = true # show "1.2M" instead of "1.2 MB/s"
+# network_speed_decimal_places = 2    # compact precision from 0 to 3
 #
 # [widget.network_tx]
-# network_speed_unit = "mb"          # auto | kb | mb
-# network_speed_compact = true       # show "1.2M" instead of "1.2 MB/s"
-# network_speed_decimal_places = 2   # compact precision from 0 to 3
+# network_speed_unit           = "mb" # auto | kb | mb
+# network_speed_compact        = true # show "1.2M" instead of "1.2 MB/s"
+# network_speed_decimal_places = 2    # compact precision from 0 to 3
 
 # [widget.network]
 # vpn_status     = "replace"         # replace | both | hidden

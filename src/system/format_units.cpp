@@ -1,5 +1,6 @@
 #include "system/format_units.h"
 
+#include <algorithm>
 #include <format>
 
 namespace FormatUnits {
@@ -76,6 +77,9 @@ namespace FormatUnits {
   std::string formatDecimalBytesPerSecond(
       double bytesPerSec, DecimalByteRateUnit unit, ByteRateLabelStyle labelStyle, int compactDecimalPlaces
   ) {
+    compactDecimalPlaces =
+        std::clamp(compactDecimalPlaces, kMinCompactByteRateDecimalPlaces, kMaxCompactByteRateDecimalPlaces);
+
     switch (unit) {
     case DecimalByteRateUnit::Kilobytes:
       return formatByteRateValue(bytesPerSec / kBytesPerKb, "kB/s", "k", labelStyle, compactDecimalPlaces);

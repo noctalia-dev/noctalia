@@ -11,6 +11,8 @@ const noctalia::bar::WidgetDefinition<SysmonWidget::Options, SysmonWidgetDefinit
   static const settings::WidgetSettingVisibility hasVisualization{"visualization", {"gauge", "graph"}};
   static const settings::WidgetSettingVisibility showValue{"show_value", {"true"}};
   static const settings::WidgetSettingVisibility showGlyph{"show_glyph", {"true"}};
+  settings::WidgetSettingVisibility compactNetworkStat = networkStat;
+  compactNetworkStat.all = {{"network_speed_compact", {"true"}}};
   settings::WidgetSettingVisibility glyphPosition;
   glyphPosition.any = {
       hasVisualization.any[0],
@@ -157,12 +159,12 @@ const noctalia::bar::WidgetDefinition<SysmonWidget::Options, SysmonWidgetDefinit
           }),
           field<&Options::networkSpeedDecimalPlaces>({
               .key = "network_speed_decimal_places",
-              .minValue = 0,
-              .maxValue = 3,
+              .minValue = FormatUnits::kMinCompactByteRateDecimalPlaces,
+              .maxValue = FormatUnits::kMaxCompactByteRateDecimalPlaces,
               .step = 1,
               .presentation =
                   settings::WidgetSettingPresentation{
-                      .visibleWhen = networkStat,
+                      .visibleWhen = compactNetworkStat,
                   },
           }),
           field<&Options::visualization>({

@@ -292,7 +292,11 @@ bool DesktopSysmonWidget::applySetting(
   }
   if (key == "network_speed_decimal_places") {
     if (const auto* v = std::get_if<std::int64_t>(&value)) {
-      m_networkSpeedDecimalPlaces = std::clamp(static_cast<int>(*v), 0, 3);
+      const auto decimalPlaces = std::clamp(
+          *v, static_cast<std::int64_t>(FormatUnits::kMinCompactByteRateDecimalPlaces),
+          static_cast<std::int64_t>(FormatUnits::kMaxCompactByteRateDecimalPlaces)
+      );
+      m_networkSpeedDecimalPlaces = static_cast<int>(decimalPlaces);
       syncLabel();
       requestRedraw();
       return true;

@@ -44,6 +44,20 @@ int main() {
       && ok;
   ok = expectEqual(
            FormatUnits::formatDecimalBytesPerSecond(
+               20300.0, DecimalByteRateUnit::Kilobytes, ByteRateLabelStyle::Compact, -1
+           ),
+           "20k", "clamps compact precision below the supported range"
+       )
+      && ok;
+  ok = expectEqual(
+           FormatUnits::formatDecimalBytesPerSecond(
+               20300.0, DecimalByteRateUnit::Kilobytes, ByteRateLabelStyle::Compact, 4
+           ),
+           "20.300k", "clamps compact precision above the supported range"
+       )
+      && ok;
+  ok = expectEqual(
+           FormatUnits::formatDecimalBytesPerSecond(
                20600.0, DecimalByteRateUnit::Kilobytes, ByteRateLabelStyle::Compact, 0
            ),
            "21k", "rounds compact kilobytes"
