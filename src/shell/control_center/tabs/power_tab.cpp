@@ -61,7 +61,7 @@ namespace {
   }
 
   bool hasRestrictiveThreshold(const UPowerChargeLimitState& state) {
-    return (state.effectiveStart.has_value() && *state.effectiveStart > 0U)
+    return (state.effectiveStart.has_value() && (*state.effectiveStart > 0U && *state.effectiveStart < 100U))
         || (state.effectiveEnd.has_value() && *state.effectiveEnd < 100U);
   }
 
