@@ -243,6 +243,7 @@ namespace settings {
     case SettingsSection::Power:
     case SettingsSection::Hooks:
     case SettingsSection::Niri:
+    case SettingsSection::Umbriel:
     case SettingsSection::Bar:
     case SettingsSection::Plugins:
       return false;
@@ -277,6 +278,7 @@ namespace settings {
     case SettingsSection::Power:
     case SettingsSection::Hooks:
     case SettingsSection::Niri:
+    case SettingsSection::Umbriel:
     case SettingsSection::Bar:
     case SettingsSection::Plugins:
       return {};

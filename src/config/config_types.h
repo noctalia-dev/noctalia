@@ -1086,6 +1086,7 @@ struct ShellConfig {
   bool telemetryEnabled = false;
   bool setupWizardEnabled = true;
   bool niriOverviewTypeToLaunchEnabled = false;
+  bool umbrielOverviewTypeToLaunchEnabled = false;
   bool polkitAgent = false;
   PasswordMaskStyle passwordMaskStyle = PasswordMaskStyle::CircleFilled;
   AnimationConfig animation;

@@ -655,6 +655,7 @@ void Application::initPanelManagerAndPanels() {
   reloadPluginPanels();
   m_overviewLauncherCapture.initialize(m_wayland, &m_renderContext, m_compositorPlatform, m_panelManager);
   m_overviewLauncherCapture.setEnabled(m_configService.config().shell.niriOverviewTypeToLaunchEnabled);
+  m_overviewLauncherCapture.setEnabled(m_configService.config().shell.umbrielOverviewTypeToLaunchEnabled);
   m_overviewLauncherCapture.setOpenLauncherCallback(
       [this](std::string_view initialQuery, wl_output* output, std::string_view sourceBarName) {
         if (m_panelManager.isOpenPanel("launcher")) {
@@ -687,6 +688,7 @@ void Application::initPanelManagerAndPanels() {
   });
   m_configService.addReloadCallback([this]() {
     m_overviewLauncherCapture.setEnabled(m_configService.config().shell.niriOverviewTypeToLaunchEnabled);
+    m_overviewLauncherCapture.setEnabled(m_configService.config().shell.umbrielOverviewTypeToLaunchEnabled);
   });
   m_overviewLauncherCapture.sync();
   m_panelManager.registerPanel(
