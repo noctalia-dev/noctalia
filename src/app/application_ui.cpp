@@ -715,6 +715,11 @@ void Application::initNotificationAndOsd() {
   auto applyHistoryRetention = [this]() {
     m_notificationManager.setHistoryRetentionHours(m_configService.config().notification.historyRetentionHours);
   };
+  auto applyDismissedHistory = [this]() {
+    m_notificationManager.setKeepDismissedInHistory(m_configService.config().notification.keepDismissedInHistory);
+  };
+  applyDismissedHistory();
+  m_configService.addReloadCallback(applyDismissedHistory);
   applyHistoryRetention();
   m_configService.addReloadCallback(applyHistoryRetention);
   applyNotificationFilterConfig();

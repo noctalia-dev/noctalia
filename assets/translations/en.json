@@ -2272,6 +2272,10 @@
           "description": "Automatically remove notification history entries older than the specified number of hours (0 to keep forever)",
           "label": "Retention Period"
         },
+        "keep-dismissed-in-history": {
+          "description": "Keep notifications in history after their toasts are dismissed",
+          "label": "Keep Dismissed Notifications"
+        },
         "layer": {
           "description": "Use Overlay to show notification toasts above fullscreen apps",
           "label": "Wayland Layer"

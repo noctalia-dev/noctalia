@@ -2932,6 +2932,12 @@ namespace settings {
         "monitor output display screen"
     ));
     entries.push_back(makeEntry(
+        SettingsSection::Notifications, "history", tr("settings.schema.notifications.keep-dismissed-in-history.label"),
+        tr("settings.schema.notifications.keep-dismissed-in-history.description"),
+        {"notification", "keep_dismissed_in_history"}, ToggleSetting{cfg.notification.keepDismissedInHistory},
+        "history dismissed toast remove keep"
+    ));
+    entries.push_back(makeEntry(
         SettingsSection::Notifications, "history", tr("settings.schema.notifications.history-retention-hours.label"),
         tr("settings.schema.notifications.history-retention-hours.description"),
         {"notification", "history_retention_hours"},
