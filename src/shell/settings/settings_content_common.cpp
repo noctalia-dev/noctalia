@@ -5,6 +5,7 @@
 #include "i18n/i18n.h"
 #include "shell/settings/settings_content.h"
 #include "ui/builders.h"
+#include "ui/controls/collapsible.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 #include "util/string_utils.h"
@@ -15,6 +16,13 @@
 #include <utility>
 
 namespace settings {
+
+  namespace {
+    // Cards sit on the Surface window background and hold controls that fill SurfaceVariant at full
+    // opacity, so a full-strength card fill would match them. Mixing the theme's own elevated tone
+    // partway toward Surface keeps the palette hue and still reads distinct from those controls.
+    constexpr float kCardFillOpacity = 0.4F;
+  } // namespace
 
   bool isMonitorOverrideSettingPath(const std::vector<std::string>& path) {
     return path.size() >= 5 && path[0] == "bar" && path[2] == "monitor";
@@ -168,6 +176,86 @@ namespace settings {
         .fontWeight = fontWeight,
         .color = color,
     });
+  }
+
+  Flex* addSettingsCard(Flex& parent, std::string_view title, float scale) {
+    Flex* bodyRaw = nullptr;
+    auto card = ui::column(
+        {
+            .align = FlexAlign::Stretch,
+            .gap = Style::spaceSm * scale,
+            .configure =
+                [scale](Flex& container) {
+                  container.setPadding(Style::spaceSm * scale, Style::spaceMd * scale);
+                  container.setCardStyle(scale, kCardFillOpacity);
+                },
+        },
+        makeLabel(title, Style::fontSizeTitle * scale, colorSpecFromRole(ColorRole::OnSurface), FontWeight::Bold),
+        ui::column({
+            .out = &bodyRaw,
+            .align = FlexAlign::Stretch,
+            .gap = Style::spaceSm * scale,
+        })
+    );
+    parent.addChild(std::move(card));
+    return bodyRaw;
+  }
+
+  Flex* addSettingsGroupCard(SettingsGroupCardProps props) {
+    auto card = ui::column({.align = FlexAlign::Stretch, .configure = [scale = props.scale](Flex& container) {
+                              container.setPadding(Style::spaceSm * scale, Style::spaceMd * scale);
+                              container.setCardStyle(scale, kCardFillOpacity);
+                            }});
+    auto body = ui::column({
+        .align = FlexAlign::Stretch,
+        .gap = Style::spaceSm * props.scale,
+        .configure = [scale = props.scale](Flex& container) {
+          container.setPadding(Style::spaceSm * scale, 0.0F, 0.0F, 0.0F);
+        },
+    });
+    Flex* bodyRaw = body.get();
+    auto collapsible = std::make_unique<Collapsible>();
+    collapsible->setScale(props.scale);
+    collapsible->setHeaderPadding(Style::spaceXs, 0.0F);
+    collapsible->setHeader(makeLabel(
+        props.title, Style::fontSizeTitle * props.scale, colorSpecFromRole(ColorRole::OnSurface), FontWeight::Bold
+    ));
+    collapsible->setBody(std::move(body));
+    collapsible->setExpandedImmediate(props.expandedGroups.contains(props.group));
+
+    Collapsible* collapsibleRaw = collapsible.get();
+    std::unordered_set<std::string>* expandedGroups = &props.expandedGroups;
+    const std::string group = std::move(props.group);
+    if (props.pill != nullptr) {
+      props.pill->setOnClick([expandedGroups, group, pill = props.pill, collapsibleRaw,
+                              scrollToTop = props.scrollToTop]() {
+        if (expandedGroups->contains(group)) {
+          expandedGroups->erase(group);
+          pill->setVariant(ButtonVariant::Default);
+          collapsibleRaw->setExpanded(false);
+          return;
+        }
+        expandedGroups->insert(group);
+        pill->setVariant(ButtonVariant::Primary);
+        collapsibleRaw->setExpandedImmediate(true);
+        if (scrollToTop) {
+          scrollToTop(*collapsibleRaw);
+        }
+      });
+    }
+    collapsible->setOnToggle([expandedGroups, group, pill = props.pill](bool expanded) {
+      if (expanded) {
+        expandedGroups->insert(group);
+      } else {
+        expandedGroups->erase(group);
+      }
+      if (pill != nullptr) {
+        pill->setVariant(expanded ? ButtonVariant::Primary : ButtonVariant::Default);
+      }
+    });
+    card->addChild(std::move(collapsible));
+    props.parent.addChild(std::move(card));
+    return bodyRaw;
   }
 
   void updateSettingsStatusBanner(Flex& banner, Label& message, std::string_view text, bool error) {

@@ -25,6 +25,8 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -265,6 +267,8 @@ private:
   Node* m_filterRow = nullptr;
   Button* m_actionsMenuButton = nullptr;
   Flex* m_contentContainer = nullptr;
+  Flex* m_pageTitleRow = nullptr;
+  Flex* m_groupJumpRow = nullptr;
   ScrollView* m_contentScrollView = nullptr;
   ScrollView* m_sidebarScrollView = nullptr;
   RovingListNavHost* m_sidebarNav = nullptr;
@@ -324,6 +328,9 @@ private:
   // plain flag so the group survives the rebuild an edit triggers, but starts folded on every
   // other widget.
   std::string m_actionsExpandedFor;
+  // Expanded setting groups per page, keyed by content section key (pageScopeKey).
+  // A page gets its default first-group expansion when first rendered this session.
+  std::unordered_map<std::string, std::unordered_set<std::string>> m_expandedSettingGroups;
   std::string m_creatingBarName;
   std::string m_renamingBarName;
   std::string m_pendingDeleteBarName;

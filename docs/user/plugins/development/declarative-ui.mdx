@@ -8,10 +8,6 @@ sidebar:
 
 import PluginApiBadge from '../../../../../components/PluginApiBadge.astro';
 
-:::caution[Beta - APIs may still change]
-The plugin system is in **beta**. The manifest format and APIs may still change before v5 is stable, so build with that in mind.
-:::
-
 Desktop widgets, panels, and (optionally) bar widgets do not have to patch a fixed control. They can describe their UI
 as a retained `ui.*` tree; Noctalia diffs each render against the previous tree and updates native controls in place.
 

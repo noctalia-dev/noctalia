@@ -907,11 +907,20 @@ settings::SettingsContentContext SettingsWindow::makeContentContext(
       .pendingGestureKey = m_pendingGestureKey,
       .pendingGestureVerb = m_pendingGestureVerb,
       .actionsExpandedFor = m_actionsExpandedFor,
+      .expandedGroupsByPage = m_expandedSettingGroups,
+      .pageTitleRow = m_pageTitleRow,
+      .groupJumpRow = m_groupJumpRow,
       .actionCatalog = gestureActionCatalog(),
       .requestRebuild = requestRebuild,
       .requestContentRebuild = requestContent,
       .resetContentScroll = [this]() { m_contentScrollState.offset = 0.0F; },
       .setScrollTarget = [this](Node* target) { m_pendingContentScrollTarget = target; },
+      .scrollContentToTop =
+          [this](const Node& target) {
+            if (m_contentScrollView != nullptr) {
+              scrollNodeToScrollViewTop(*m_contentScrollView, target, Style::spaceMd * uiScale());
+            }
+          },
       .focusArea = [this](InputArea* area) { m_inputDispatcher.setFocus(area); },
       .openBarWidgetAddPopup = [this](const std::vector<std::string>& lanePath) { openBarWidgetAddPopup(lanePath); },
       .openSearchPickerPopup =
@@ -990,6 +999,16 @@ void SettingsWindow::rebuildSettingsContent() {
   while (!m_contentContainer->children().empty()) {
     m_contentContainer->removeChild(m_contentContainer->children().back().get());
   }
+  if (m_pageTitleRow != nullptr) {
+    while (!m_pageTitleRow->children().empty()) {
+      m_pageTitleRow->removeChild(m_pageTitleRow->children().back().get());
+    }
+  }
+  if (m_groupJumpRow != nullptr) {
+    while (!m_groupJumpRow->children().empty()) {
+      m_groupJumpRow->removeChild(m_groupJumpRow->children().back().get());
+    }
+  }
   logSettingsProfile("rebuildContent clear", phaseProfileWatch);
   phaseProfileWatch.reset();
 
@@ -1044,6 +1063,7 @@ void SettingsWindow::rebuildSettingsContent() {
   const std::size_t visibleEntries = settings::addSettingsContentSections(
       *m_contentContainer, m_settingsRegistry, makeContentContext(cfg, selectedBar, selectedMonitorOverride)
   );
+
   logSettingsProfile("rebuildContent sections", phaseProfileWatch);
   phaseProfileWatch.reset();
 
@@ -1056,6 +1076,16 @@ void SettingsWindow::rebuildSettingsContent() {
             .selectedSection = m_selectedSection,
             .plugins = m_pluginList,
             .sources = cfg.plugins.sources,
+            .searchActive = !m_searchQuery.empty(),
+            .pageTitleRow = m_pageTitleRow,
+            .groupJumpRow = m_groupJumpRow,
+            .scrollContentToTop =
+                [this](const Node& target) {
+                  if (m_contentScrollView != nullptr) {
+                    scrollNodeToScrollViewTop(*m_contentScrollView, target, Style::spaceMd * uiScale());
+                  }
+                },
+            .expandedGroupsByPage = m_expandedSettingGroups,
             .pluginsLoading = m_pluginListDirty || m_pluginListRefreshInFlight,
             .setEnabled =
                 [this](std::string id, bool enable) {
@@ -1116,6 +1146,17 @@ void SettingsWindow::rebuildSettingsContent() {
                 },
         }
     );
+  }
+
+  if (m_pageTitleRow != nullptr) {
+    const bool hasPageTitle = !m_pageTitleRow->children().empty();
+    m_pageTitleRow->setVisible(hasPageTitle);
+    m_pageTitleRow->setParticipatesInLayout(hasPageTitle);
+  }
+  if (m_groupJumpRow != nullptr) {
+    const bool hasJumpRow = !m_groupJumpRow->children().empty();
+    m_groupJumpRow->setVisible(hasJumpRow);
+    m_groupJumpRow->setParticipatesInLayout(hasJumpRow);
   }
   logSettingsProfile("rebuildContent plugins", phaseProfileWatch);
   logSettingsProfile("rebuildContent total", totalProfileWatch);
@@ -1398,6 +1439,30 @@ std::unique_ptr<Flex> SettingsWindow::buildBody(
   body->addChild(std::move(sidebar));
   body->addChild(ui::separator());
 
+  auto contentColumn = ui::column({.align = FlexAlign::Stretch, .gap = Style::spaceSm * scale, .flexGrow = 1.0F});
+  contentColumn->addChild(
+      ui::row({
+          .out = &m_pageTitleRow,
+          .align = FlexAlign::Center,
+          .fillWidth = true,
+          .configure = [scale](Flex& flex) {
+            flex.setPadding(Style::spaceMd * scale, Style::spaceLg * scale, 0.0F, Style::spaceLg * scale);
+          },
+      })
+  );
+  contentColumn->addChild(
+      ui::row({
+          .out = &m_groupJumpRow,
+          .align = FlexAlign::Center,
+          .wrap = true,
+          .gap = Style::spaceXs * scale,
+          .fillWidth = true,
+          .configure = [scale](Flex& flex) {
+            flex.setPadding(Style::spaceSm * scale, Style::spaceLg * scale, 0.0F, Style::spaceLg * scale);
+          },
+      })
+  );
+
   auto scroll = ui::scrollView({
       .out = &m_contentScrollView,
       .state = &m_contentScrollState,
@@ -1421,7 +1486,8 @@ std::unique_ptr<Flex> SettingsWindow::buildBody(
   content->setGap(Style::spaceMd * scale);
   rebuildSettingsContent();
 
-  body->addChild(std::move(scroll));
+  contentColumn->addChild(std::move(scroll));
+  body->addChild(std::move(contentColumn));
   return body;
 }
 
@@ -2028,6 +2094,8 @@ void SettingsWindow::buildScene(std::uint32_t width, std::uint32_t height) {
   const auto h = static_cast<float>(height);
   const float scale = uiScale();
   m_actionsMenuButton = nullptr;
+  m_pageTitleRow = nullptr;
+  m_groupJumpRow = nullptr;
   m_contentScrollView = nullptr;
   m_sidebarScrollView = nullptr;
   m_sidebarNav = nullptr;
@@ -2090,7 +2158,7 @@ void SettingsWindow::buildScene(std::uint32_t width, std::uint32_t height) {
     m_sceneRoot->setPopupContext(m_selectPopup.get());
   }
 
-  const float bgOpacity = cfg.shell.settingsWindowTranslucent ? 0.75F : 1.0F;
+  const float bgOpacity = cfg.shell.settingsWindowTranslucent ? 0.8F : 1.0F;
 
   auto bg = ui::box({
       .width = w,
