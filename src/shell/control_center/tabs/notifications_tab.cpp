@@ -665,7 +665,7 @@ std::unique_ptr<Flex> NotificationsTab::create() {
                   {.label = i18n::tr("control-center.notifications.filter.older")},
               },
           .selectedIndex = m_filterIndex,
-          .fontSize = Style::fontSizeCaption * scale,
+          .fontSize = Style::fontSizeCaption,
           .scale = scale,
           .surfaceOpacity = panelCardOpacity(),
           .equalSegmentWidths = true,

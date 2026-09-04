@@ -145,7 +145,7 @@ std::unique_ptr<Flex> ScreenTimeTab::create() {
                   {.label = i18n::tr("control-center.screen-time.range.14-days")},
               },
           .selectedIndex = 0,
-          .fontSize = Style::fontSizeCaption * scale,
+          .fontSize = Style::fontSizeCaption,
           .scale = scale,
           .surfaceOpacity = panelCardOpacity(),
           .equalSegmentWidths = true,

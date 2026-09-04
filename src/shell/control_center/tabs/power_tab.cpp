@@ -298,7 +298,7 @@ void PowerTab::buildProfilesCard(Flex& root, float scale) {
       ui::segmented({
           .out = &m_profiles,
           .options = std::move(options),
-          .fontSize = Style::fontSizeCaption * scale,
+          .fontSize = Style::fontSizeCaption,
           .scale = scale,
           .surfaceOpacity = panelCardOpacity(),
           .surfaceRole = ColorRole::Surface,
