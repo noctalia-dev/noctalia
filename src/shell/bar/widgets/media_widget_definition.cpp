@@ -18,6 +18,13 @@ const noctalia::bar::WidgetDefinition<MediaWidget::Options>& mediaWidgetDefiniti
                       .horizontalBarOnly = true,
                   },
           }),
+          field<&Options::rotateAlbumArt>({
+              .key = "rotate_album_art",
+              .presentation =
+                  settings::WidgetSettingPresentation{
+                      .visibleWhen = notHideAlbumArt,
+                  },
+          }),
           field<&Options::hideAlbumArt>({
               .key = "hide_album_art",
               .presentation =
