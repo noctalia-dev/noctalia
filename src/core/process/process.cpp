@@ -834,14 +834,14 @@ namespace process {
     if (command.empty()) {
       return false;
     }
-    return runAsync(std::vector<std::string>{"/bin/sh", "-lc", command});
+    return runAsync(std::vector<std::string>{"/bin/sh", "-c", command});
   }
 
   bool runAsync(const std::string& command, RunCallbacks callbacks, RunOptions options) {
     if (command.empty()) {
       return false;
     }
-    return runAsync(std::vector<std::string>{"/bin/sh", "-lc", command}, std::move(callbacks), options);
+    return runAsync(std::vector<std::string>{"/bin/sh", "-c", command}, std::move(callbacks), options);
   }
 
   std::optional<int> launchDetachedTracked(const std::vector<std::string>& args) {
@@ -954,7 +954,7 @@ namespace process {
   RunResult runSync(const std::string& command) {
     if (command.empty())
       return {-1, {}, {}};
-    return runSync(std::vector<std::string>{"/bin/sh", "-lc", command});
+    return runSync(std::vector<std::string>{"/bin/sh", "-c", command});
   }
 
   bool launchFirstAvailable(std::initializer_list<std::initializer_list<const char*>> commandVariants) {
