@@ -653,9 +653,17 @@ void Application::initPanelManagerAndPanels() {
   reloadPluginLauncherProviders();
   reloadDmenuProviders();
   reloadPluginPanels();
+  const auto overviewTypeToLaunchEnabled = [this]() {
+    if (compositors::isUmbriel()) {
+      return m_configService.config().shell.umbrielOverviewTypeToLaunchEnabled;
+    }
+    if (compositors::isNiri()) {
+      return m_configService.config().shell.niriOverviewTypeToLaunchEnabled;
+    }
+    return false;
+  };
   m_overviewLauncherCapture.initialize(m_wayland, &m_renderContext, m_compositorPlatform, m_panelManager);
-  m_overviewLauncherCapture.setEnabled(m_configService.config().shell.niriOverviewTypeToLaunchEnabled);
-  m_overviewLauncherCapture.setEnabled(m_configService.config().shell.umbrielOverviewTypeToLaunchEnabled);
+  m_overviewLauncherCapture.setEnabled(overviewTypeToLaunchEnabled());
   m_overviewLauncherCapture.setOpenLauncherCallback(
       [this](std::string_view initialQuery, wl_output* output, std::string_view sourceBarName) {
         if (m_panelManager.isOpenPanel("launcher")) {
@@ -686,9 +694,8 @@ void Application::initPanelManagerAndPanels() {
     // Widgets that stay visible while their panel is open re-evaluate on the next update.
     m_bar.refresh();
   });
-  m_configService.addReloadCallback([this]() {
-    m_overviewLauncherCapture.setEnabled(m_configService.config().shell.niriOverviewTypeToLaunchEnabled);
-    m_overviewLauncherCapture.setEnabled(m_configService.config().shell.umbrielOverviewTypeToLaunchEnabled);
+  m_configService.addReloadCallback([this, &overviewTypeToLaunchEnabled]() {
+    m_overviewLauncherCapture.setEnabled(overviewTypeToLaunchEnabled());
   });
   m_overviewLauncherCapture.sync();
   m_panelManager.registerPanel(
