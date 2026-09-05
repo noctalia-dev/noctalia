@@ -2,8 +2,8 @@
 
 #include "core/timer_manager.h"
 #include "dbus/mpris/mpris_service.h"
-#include "shell/control_center/tab.h"
 #include "render/core/blur_cache.h"
+#include "shell/control_center/tab.h"
 
 #include <chrono>
 #include <cstdint>
@@ -82,7 +82,6 @@ private:
   Button* m_nextButton = nullptr;
   Button* m_repeatButton = nullptr;
   Button* m_shuffleButton = nullptr;
-
 
   std::string m_lastArtPath;
   std::string m_lastBusName;

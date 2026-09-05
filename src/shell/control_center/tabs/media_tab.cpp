@@ -26,7 +26,6 @@
 #include <string_view>
 #include <vector>
 
-
 using namespace control_center;
 using namespace mpris;
 
@@ -111,7 +110,7 @@ void MediaTab::openPlayerMenu() {
     );
   }
 
- Flex* anchor = m_playerMenuButton;
+  Flex* anchor = m_playerMenuButton;
   if (anchor == nullptr) {
     return;
   }
@@ -235,25 +234,26 @@ std::unique_ptr<Flex> MediaTab::create() {
   });
 
   auto artworkRow = ui::row(
-    {.out = &m_artworkRow, .align = FlexAlign::Center, .justify = FlexJustify::Center, .gap = 0.0F, .flexGrow = 1.0F},
-ui::image({
-    .out = &m_artworkBackground,
-    .fit = ImageFit::Cover,
-    .participatesInLayout = false,
-    .configure = [](Image& image) {
-        image.setZIndex(-1);
-        image.setOpacity(0.80F);
-    },
-}),
-    ui::image({
-        .out = &m_artwork,
-        .fit = ImageFit::Cover,
-        .radius = Style::scaledRadiusXl(scale),
-        .width = kArtworkSize * scale,
-        .height = kArtworkSize * scale,
-        .configure = [](Image& image) { image.setZIndex(1); },
-    })
-);
+      {.out = &m_artworkRow, .align = FlexAlign::Center, .justify = FlexJustify::Center, .gap = 0.0F, .flexGrow = 1.0F},
+      ui::image({
+          .out = &m_artworkBackground,
+          .fit = ImageFit::Cover,
+          .participatesInLayout = false,
+          .configure =
+              [](Image& image) {
+                image.setZIndex(-1);
+                image.setOpacity(0.80F);
+              },
+      }),
+      ui::image({
+          .out = &m_artwork,
+          .fit = ImageFit::Cover,
+          .radius = Style::scaledRadiusXl(scale),
+          .width = kArtworkSize * scale,
+          .height = kArtworkSize * scale,
+          .configure = [](Image& image) { image.setZIndex(1); },
+      })
+  );
   mediaStack->addChild(std::move(artworkRow));
 
   mediaStack->addChild(
@@ -450,7 +450,6 @@ ui::image({
 
   tab->addChild(std::move(mediaColumn));
 
-
   if (m_wayland != nullptr && m_renderContext != nullptr) {
     m_playerMenuPopup = std::make_unique<ContextMenuPopup>(*m_wayland, *m_renderContext);
     m_playerMenuPopup->setOnActivate([this](const ContextMenuControlEntry& entry) {
@@ -536,31 +535,31 @@ void MediaTab::doLayout(Renderer& renderer, float contentWidth, float bodyHeight
   m_mediaStack->layout(renderer);
 
   if (m_artwork != nullptr && m_artworkRow != nullptr) {
-  const float artWidth =
-      std::max(1.0F, m_artworkRow->width() - (m_artworkRow->paddingLeft() + m_artworkRow->paddingRight()));
-  const float artHeight = std::max(
-      kMediaArtworkMinHeight * scale,
-      m_artworkRow->height() - (m_artworkRow->paddingTop() + m_artworkRow->paddingBottom())
-  );
+    const float artWidth =
+        std::max(1.0F, m_artworkRow->width() - (m_artworkRow->paddingLeft() + m_artworkRow->paddingRight()));
+    const float artHeight = std::max(
+        kMediaArtworkMinHeight * scale,
+        m_artworkRow->height() - (m_artworkRow->paddingTop() + m_artworkRow->paddingBottom())
+    );
 
-  // Media art is always presented as a square (album-art convention).
-  const float side = std::min(artWidth, artHeight) * 0.75F;
+    // Media art is always presented as a square (album-art convention).
+    const float side = std::min(artWidth, artHeight) * 0.75F;
 
-  m_artwork->setSize(side, side);
-  m_artwork->setRadius(side * 0.5F);
+    m_artwork->setSize(side, side);
+    m_artwork->setRadius(side * 0.5F);
 
-  if (m_artworkBackground != nullptr) {
-    const float backgroundSide = side * 1.35F;
+    if (m_artworkBackground != nullptr) {
+      const float backgroundSide = side * 1.35F;
 
-    m_artworkBackground->setSize(backgroundSide, backgroundSide);
-    m_artworkBackground->setRadius(backgroundSide * 0.5F);
+      m_artworkBackground->setSize(backgroundSide, backgroundSide);
+      m_artworkBackground->setRadius(backgroundSide * 0.5F);
 
-    // Keep the blurred artwork centered behind the main artwork.
-    const float backgroundX = (artWidth - backgroundSide) * 0.5F;
-    const float backgroundY = (artHeight - backgroundSide) * 0.5F;
+      // Keep the blurred artwork centered behind the main artwork.
+      const float backgroundX = (artWidth - backgroundSide) * 0.5F;
+      const float backgroundY = (artHeight - backgroundSide) * 0.5F;
 
-    m_artworkBackground->setPosition(backgroundX, backgroundY);
-  }
+      m_artworkBackground->setPosition(backgroundX, backgroundY);
+    }
   }
 }
 
@@ -569,7 +568,6 @@ void MediaTab::doUpdate(Renderer& renderer) {
     m_progressTimer.stop();
     return;
   }
-
 
   const auto active = m_mpris != nullptr ? m_mpris->activePlayer() : std::nullopt;
   const auto now = std::chrono::steady_clock::now();
@@ -603,33 +601,33 @@ void MediaTab::onFrameTick(float deltaMs) {
     return;
   }
 
- // Continuous rotation
-constexpr float rotationSpeed = 0.0005F;
-m_artwork->setRotation(m_artwork->rotation() + deltaMs * rotationSpeed);
+  // Continuous rotation
+  constexpr float rotationSpeed = 0.0005F;
+  m_artwork->setRotation(m_artwork->rotation() + deltaMs * rotationSpeed);
 
-// Smooth, bass-driven pulse
-if (m_spectrum != nullptr && m_spectrumListenerId != 0) {
-  const auto values = m_spectrum->values(m_spectrumListenerId);
+  // Smooth, bass-driven pulse
+  if (m_spectrum != nullptr && m_spectrumListenerId != 0) {
+    const auto values = m_spectrum->values(m_spectrumListenerId);
 
-  if (!values.empty()) {
-    const std::size_t bassBands = std::min<std::size_t>(4, values.size());
+    if (!values.empty()) {
+      const std::size_t bassBands = std::min<std::size_t>(4, values.size());
 
-    float bass = 0.0F;
-    for (std::size_t i = 0; i < bassBands; ++i) {
-      bass += values[i];
+      float bass = 0.0F;
+      for (std::size_t i = 0; i < bassBands; ++i) {
+        bass += values[i];
+      }
+
+      bass /= static_cast<float>(bassBands);
+
+      // The low frequency defines the target of the pulse.
+      const float targetPulse = std::clamp(bass * 0.20F, 0.0F, 0.20F);
+
+      // Faster attack, smoother return.
+      const float smoothing = targetPulse > m_artworkPulse ? 0.16F : 0.055F;
+      m_artworkPulse += (targetPulse - m_artworkPulse) * smoothing;
+
+      m_artwork->setScale(1.0F + m_artworkPulse);
     }
-
-    bass /= static_cast<float>(bassBands);
-
-    // The low frequency defines the target of the pulse.
-    const float targetPulse = std::clamp(bass * 0.20F, 0.0F, 0.20F);
-
-    // Faster attack, smoother return.
-    const float smoothing = targetPulse > m_artworkPulse ? 0.16F : 0.055F;
-    m_artworkPulse += (targetPulse - m_artworkPulse) * smoothing;
-
-    m_artwork->setScale(1.0F + m_artworkPulse);
-  }
   }
 }
 
@@ -670,7 +668,6 @@ void MediaTab::setActive(bool active) {
     m_positionSampleAt = {};
   }
 }
-
 
 void MediaTab::onClose() {
   m_progressTimer.stop();
@@ -741,7 +738,6 @@ void MediaTab::clearArt(Renderer& renderer) {
 
   m_artworkBlurCache.invalidate();
 }
-
 
 void MediaTab::commitPendingSeek(double valueSeconds) {
   if (m_mpris == nullptr) {
@@ -900,9 +896,7 @@ void MediaTab::refresh(Renderer& renderer) {
     }
 
     m_trackTitle->setText(player.title.empty() ? player.identity : player.title);
-    m_trackArtist->setText(
-        joinArtists(player.artists).empty() ? player.identity : joinArtists(player.artists)
-    );
+    m_trackArtist->setText(joinArtists(player.artists).empty() ? player.identity : joinArtists(player.artists));
 
     const std::string resolvedArtUrl = effectiveArtUrl(player);
     const std::string artPath = resolveArtworkSource(
@@ -942,19 +936,11 @@ void MediaTab::refresh(Renderer& renderer) {
         if (artworkTexture.valid()) {
           m_renderContext->backend().makeCurrentNoSurface();
 
-          const std::uint32_t blurWidth =
-             std::max(1U, static_cast<std::uint32_t>(artworkTexture.width / 2));
-          const std::uint32_t blurHeight =
-             std::max(1U, static_cast<std::uint32_t>(artworkTexture.height / 2));
+          const std::uint32_t blurWidth = std::max(1U, static_cast<std::uint32_t>(artworkTexture.width / 2));
+          const std::uint32_t blurHeight = std::max(1U, static_cast<std::uint32_t>(artworkTexture.height / 2));
 
-          const auto blurredTexture = m_artworkBlurCache.get(
-              m_renderContext->backend(),
-              artworkTexture,
-              blurWidth,
-              blurHeight,
-              8.0F,
-              1
-          );
+          const auto blurredTexture =
+              m_artworkBlurCache.get(m_renderContext->backend(), artworkTexture, blurWidth, blurHeight, 8.0F, 1);
 
           if (blurredTexture.valid()) {
             m_artworkBackground->setExternalTexture(renderer, blurredTexture);
@@ -978,29 +964,23 @@ void MediaTab::refresh(Renderer& renderer) {
       trackLengthUs = m_lastTrackLengthUs;
     }
 
-   auto formatTime = [](std::int64_t microseconds) -> std::string {
-     const auto totalSeconds = std::max<std::int64_t>(0, microseconds / 1000000);
-     const auto minutes = totalSeconds / 60;
-     const auto seconds = totalSeconds % 60;
+    auto formatTime = [](std::int64_t microseconds) -> std::string {
+      const auto totalSeconds = std::max<std::int64_t>(0, microseconds / 1000000);
+      const auto minutes = totalSeconds / 60;
+      const auto seconds = totalSeconds % 60;
 
-    return std::format("{:02}:{:02}", minutes, seconds);
-   };
+      return std::format("{:02}:{:02}", minutes, seconds);
+    };
 
-   if (m_trackAlbum != nullptr) {
-    if (trackLengthUs > 0) {
-      m_trackAlbum->setText(
-         std::format(
-             "{} / {}",
-             formatTime(displayPositionUs),
-             formatTime(trackLengthUs)
-         )
-      );
-       m_trackAlbum->setVisible(true);
-     } else {
-      m_trackAlbum->setText("");
-      m_trackAlbum->setVisible(false);
-     }
-   }
+    if (m_trackAlbum != nullptr) {
+      if (trackLengthUs > 0) {
+        m_trackAlbum->setText(std::format("{} / {}", formatTime(displayPositionUs), formatTime(trackLengthUs)));
+        m_trackAlbum->setVisible(true);
+      } else {
+        m_trackAlbum->setText("");
+        m_trackAlbum->setVisible(false);
+      }
+    }
 
     const bool progressInteracting = m_progressSlider->dragging() || seekPending || withinProgressSettle;
     const bool progressEnabled = player.canSeek && (trackLengthUs > 0 || progressInteracting);
