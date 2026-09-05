@@ -3222,6 +3222,7 @@
       "label-field": "Label",
       "label-placeholder": "Optional button text",
       "shortcut-label": "Shortcut",
+      "hide-on-lock-screen-label": "Hide on Lock Screen",
       "variant": {
         "default": "Default",
         "destructive": "Destructive",

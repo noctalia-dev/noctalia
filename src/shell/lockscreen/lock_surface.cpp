@@ -34,6 +34,7 @@
 #include <ctime>
 #include <format>
 #include <memory>
+#include <optional>
 #include <string_view>
 #include <tuple>
 #include <wayland-client-core.h>
@@ -1313,6 +1314,9 @@ std::vector<SessionPanelActionConfig> LockSurface::resolveSessionActions() const
       continue;
     }
     if (row.action == "lock" || row.action == "lock_and_suspend") {
+      continue;
+    }
+    if (row.hideOnLockScreen.value_or(false)) {
       continue;
     }
     if (row.action == "command" && (!row.command.has_value() || StringUtils::trim(*row.command).empty())) {
