@@ -1695,7 +1695,7 @@ namespace settings {
               .placeholder = "pkexec",
               .browseFileExtensions = {},
           },
-          "greeter sync pkexec run0 ghostty terminal sudo"
+          "greeter sync pkexec run0 ghostty terminal sudo polkit wrapper"
       ));
     }
     // Shell
@@ -2930,6 +2930,12 @@ namespace settings {
         tr("settings.schema.notifications.monitors.description"), {"notification", "monitors"},
         ListSetting{.items = cfg.notification.monitors, .suggestedOptions = env.availableOutputs},
         "monitor output display screen"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Notifications, "history", tr("settings.schema.notifications.keep-dismissed-in-history.label"),
+        tr("settings.schema.notifications.keep-dismissed-in-history.description"),
+        {"notification", "keep_dismissed_in_history"}, ToggleSetting{cfg.notification.keepDismissedInHistory},
+        "history dismissed toast remove keep"
     ));
     entries.push_back(makeEntry(
         SettingsSection::Notifications, "history", tr("settings.schema.notifications.history-retention-hours.label"),

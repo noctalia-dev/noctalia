@@ -42,7 +42,7 @@ namespace {
     TextMetrics measureText(
         std::string_view text, float fontSize, FontWeight, float, int, TextAlign, std::string_view, TextEllipsize, bool
     ) override {
-      return TextMetrics{.width = static_cast<float>(text.size()) * fontSize * 0.5f, .bottom = fontSize};
+      return TextMetrics{.width = static_cast<float>(text.size()) * fontSize * 0.5F, .bottom = fontSize};
     }
     TextMetrics measureFont(float fontSize, FontWeight) override { return TextMetrics{.bottom = fontSize}; }
     void measureTextCursorStops(
@@ -52,13 +52,13 @@ namespace {
         std::string_view, float fontSize, const std::vector<std::size_t>& byteOffsets, float,
         std::vector<TextCursorStop>& outStops, FontWeight
     ) override {
-      outStops.assign(byteOffsets.size(), TextCursorStop{0.0f, 0.0f, fontSize});
+      outStops.assign(byteOffsets.size(), TextCursorStop{0.0F, 0.0F, fontSize});
     }
     TextMetrics measureGlyph(char32_t, float fontSize) override {
       return TextMetrics{.width = fontSize, .bottom = fontSize};
     }
     TextureManager& textureManager() override { std::abort(); }
-    [[nodiscard]] float renderScale() const noexcept override { return 1.0f; }
+    [[nodiscard]] float renderScale() const noexcept override { return 1.0F; }
   };
 
   bool expect(bool condition, const char* message) {
@@ -108,7 +108,7 @@ namespace {
   }
 
   void layoutDragTree(Flex& host, DragSource* source, StubRenderer& renderer) {
-    host.setSize(400.0f, 120.0f);
+    host.setSize(400.0F, 120.0F);
     host.layout(renderer);
     (void)source;
   }
@@ -116,14 +116,14 @@ namespace {
   void sourceLocalPointAt(
       const DragSource& source, const Node& target, float targetX, float targetY, float& localX, float& localY
   ) {
-    float sceneX = 0.0f;
-    float sceneY = 0.0f;
+    float sceneX = 0.0F;
+    float sceneY = 0.0F;
     Node::mapToScene(&target, targetX, targetY, sceneX, sceneY);
     (void)Node::mapFromScene(source.inputArea(), sceneX, sceneY, localX, localY);
   }
 
   void sourceLocalPointFor(const DragSource& source, const Node& target, float& localX, float& localY) {
-    sourceLocalPointAt(source, target, target.width() * 0.5f, target.height() * 0.5f, localX, localY);
+    sourceLocalPointAt(source, target, target.width() * 0.5F, target.height() * 0.5F, localX, localY);
   }
 
   template <typename T> T* findFirst(Node& node) {
@@ -163,7 +163,7 @@ int main() {
     auto* column = dynamic_cast<Flex*>(host.children().front().get());
     ok = expect(column != nullptr, "root child is a Flex") && ok;
     if (column != nullptr) {
-      ok = expect(column->gap() == 8.0f, "gap applied") && ok;
+      ok = expect(column->gap() == 8.0F, "gap applied") && ok;
       ok = expect(column->align() == FlexAlign::Stretch, "ui column defaults to stretch") && ok;
       ok = expect(column->children().size() == 3, "column has three children") && ok;
       auto* label = dynamic_cast<Label*>(column->children()[0].get());
@@ -178,7 +178,7 @@ int main() {
     tree.children[0].props["text"] = std::string("World");
     ok = expect(!reconciler.reconcile(host, tree, renderer), "prop-only reconcile reports no structure change") && ok;
     if (column != nullptr) {
-      ok = expect(column->gap() == 4.0f, "gap updated in place") && ok;
+      ok = expect(column->gap() == 4.0F, "gap updated in place") && ok;
       ok = expect(column->children()[0].get() == labelBefore, "label instance reused") && ok;
       auto* label = dynamic_cast<Label*>(column->children()[0].get());
       ok = expect(label != nullptr && label->text() == "World", "label text updated") && ok;
@@ -252,8 +252,8 @@ int main() {
   // Content scale affects every size-like prop; font scale affects text only.
   {
     ui::UiTreeReconciler reconciler;
-    reconciler.setScale(2.0f);
-    reconciler.setFontScale(1.5f);
+    reconciler.setScale(2.0F);
+    reconciler.setFontScale(1.5F);
     Flex host;
 
     ui::UiTreeNode tree = makeNode("column");
@@ -265,8 +265,8 @@ int main() {
 
     auto* column = dynamic_cast<Flex*>(host.children().front().get());
     auto* scaled = column != nullptr ? dynamic_cast<Label*>(column->children()[0].get()) : nullptr;
-    ok = expect(scaled != nullptr && scaled->fontSize() == 30.0f, "fontSize includes the text-only scale") && ok;
-    ok = expect(column != nullptr && column->gap() == 8.0f, "font scale does not affect spacing") && ok;
+    ok = expect(scaled != nullptr && scaled->fontSize() == 30.0F, "fontSize includes the text-only scale") && ok;
+    ok = expect(column != nullptr && column->gap() == 8.0F, "font scale does not affect spacing") && ok;
   }
 
   // Button onClick routes through the callback sink.
@@ -337,21 +337,21 @@ int main() {
           return background->style().borderWidth;
         }
       }
-      return -1.0f;
+      return -1.0F;
     };
 
     ok = expect(backgroundBorderWidth() == Style::borderWidth, "button border enabled by default") && ok;
 
     Button::ButtonPalette custom = Button::defaultPalette(ButtonVariant::Default);
-    custom.borderWidth = 4.0f;
+    custom.borderWidth = 4.0F;
     button.setCustomPalette(custom);
-    ok = expect(backgroundBorderWidth() == 4.0f, "custom button border width applied") && ok;
+    ok = expect(backgroundBorderWidth() == 4.0F, "custom button border width applied") && ok;
 
     Style::setButtonBordersEnabled(false);
-    ok = expect(backgroundBorderWidth() == 0.0f, "button border removed by global style") && ok;
+    ok = expect(backgroundBorderWidth() == 0.0F, "button border removed by global style") && ok;
 
     Style::setButtonBordersEnabled(true);
-    ok = expect(backgroundBorderWidth() == 4.0f, "custom button border width restored") && ok;
+    ok = expect(backgroundBorderWidth() == 4.0F, "custom button border width restored") && ok;
   }
 
   // Toggling a box's onClick across reconciles rebuilds it: a clickable box is
@@ -410,8 +410,8 @@ int main() {
       ok = expect(
                innerSize.width == wrappedSize.width
                    && innerSize.height == wrappedSize.height
-                   && innerSize.width > 0.0f
-                   && innerSize.height > 0.0f,
+                   && innerSize.width > 0.0F
+                   && innerSize.height > 0.0F,
                "clickable container forwards content measurement"
            )
           && ok;
@@ -437,12 +437,12 @@ int main() {
       }
       ok = expect(
                inner != nullptr
-                   && inner->minWidth() == 120.0f
-                   && inner->maxWidth() == 120.0f
-                   && inner->minHeight() == 36.0f
-                   && inner->maxHeight() == 36.0f
-                   && measured.width == 120.0f
-                   && measured.height == 36.0f,
+                   && inner->minWidth() == 120.0F
+                   && inner->maxWidth() == 120.0F
+                   && inner->minHeight() == 36.0F
+                   && inner->maxHeight() == 36.0F
+                   && measured.width == 120.0F
+                   && measured.height == 36.0F,
                "clickable container preserves explicit size"
            )
           && ok;
@@ -501,8 +501,8 @@ int main() {
       auto* area = dynamic_cast<InputArea*>(host.children().front().get());
       if (area != nullptr) {
         (void)area->measure(renderer, LayoutConstraints::unconstrained());
-        area->dispatchPress(5.0f, 5.0f, BTN_LEFT, true);
-        area->dispatchPress(5.0f, 5.0f, BTN_LEFT, false);
+        area->dispatchPress(5.0F, 5.0F, BTN_LEFT, true);
+        area->dispatchPress(5.0F, 5.0F, BTN_LEFT, false);
       }
       ok = expect(fired == "first", "click dispatch reaches the first container callback") && ok;
 
@@ -510,8 +510,8 @@ int main() {
       (void)reconciler.reconcile(host, tree, renderer);
       fired.clear();
       if (area != nullptr) {
-        area->dispatchPress(5.0f, 5.0f, BTN_LEFT, true);
-        area->dispatchPress(5.0f, 5.0f, BTN_LEFT, false);
+        area->dispatchPress(5.0F, 5.0F, BTN_LEFT, true);
+        area->dispatchPress(5.0F, 5.0F, BTN_LEFT, false);
       }
       ok = expect(fired == "second", "reconciled container callback replaces the old click callback") && ok;
 
@@ -524,8 +524,8 @@ int main() {
       (void)reconciler.reconcile(host, tree, renderer);
       fired.clear();
       if (area != nullptr) {
-        area->dispatchPress(5.0f, 5.0f, BTN_LEFT, true);
-        area->dispatchPress(5.0f, 5.0f, BTN_LEFT, false);
+        area->dispatchPress(5.0F, 5.0F, BTN_LEFT, true);
+        area->dispatchPress(5.0F, 5.0F, BTN_LEFT, false);
       }
       ok = expect(
                fired.empty()
@@ -572,7 +572,7 @@ int main() {
       (void)reconciler.reconcile(host, tree, renderer);
       auto* area = dynamic_cast<InputArea*>(host.children().front().get());
       if (area != nullptr) {
-        area->dispatchEnter(0.0f, 0.0f);
+        area->dispatchEnter(0.0F, 0.0F);
         ok = expect(
                  callbackName == "hover" && callbackArg == "true" && callbackKey == "chip-3",
                  "container hover enter reaches the sink with the node key"
@@ -637,7 +637,7 @@ int main() {
         : nullptr;
     ok = expect(chipArea != nullptr, "hovered-drop fixture built a wrapped box") && ok;
     if (chipArea != nullptr) {
-      chipArea->dispatchEnter(0.0f, 0.0f);
+      chipArea->dispatchEnter(0.0F, 0.0F);
     }
     ok = expect(fired.size() == 1 && fired.front().second == "true", "hover enter reported before the drop") && ok;
 
@@ -672,7 +672,7 @@ int main() {
     auto* area = dynamic_cast<InputArea*>(host.children().front().get());
     ok = expect(area != nullptr, "rewire fixture built a wrapped box") && ok;
     if (area != nullptr) {
-      area->dispatchEnter(0.0f, 0.0f);
+      area->dispatchEnter(0.0F, 0.0F);
     }
     fired.clear();
 
@@ -688,7 +688,7 @@ int main() {
 
     fired.clear();
     if (area != nullptr) {
-      area->dispatchEnter(0.0f, 0.0f);
+      area->dispatchEnter(0.0F, 0.0F);
     }
     ok = expect(fired.size() == 1 && fired.front().first == "second", "the rewired callback opens on re-enter") && ok;
 
@@ -732,7 +732,7 @@ int main() {
         : nullptr;
     ok = expect(first != nullptr, "shared-name fixture built two wrapped boxes") && ok;
     if (first != nullptr) {
-      first->dispatchEnter(0.0f, 0.0f);
+      first->dispatchEnter(0.0F, 0.0F);
     }
     ok = expect(fired.size() == 1 && fired.front().second == "a", "hover opens against the keyed node") && ok;
 
@@ -774,7 +774,7 @@ int main() {
     auto* area = control != nullptr ? control->inputArea() : nullptr;
     ok = expect(area != nullptr, "hover button built") && ok;
     if (area != nullptr) {
-      area->dispatchEnter(0.0f, 0.0f);
+      area->dispatchEnter(0.0F, 0.0F);
       ok = expect(fired == "hover/true", "button onHover enter reaches the sink") && ok;
       area->dispatchLeave();
       ok = expect(fired == "hover/false", "button onHover leave reaches the sink") && ok;
@@ -782,13 +782,13 @@ int main() {
       tree.children[0].props.erase("onHover");
       (void)reconciler.reconcile(host, tree, renderer);
       fired.clear();
-      area->dispatchEnter(0.0f, 0.0f);
+      area->dispatchEnter(0.0F, 0.0F);
       area->dispatchLeave();
       ok = expect(fired.empty(), "dropped button onHover stops firing") && ok;
 
       tree.children[0].props.emplace("onHover", std::string());
       (void)reconciler.reconcile(host, tree, renderer);
-      area->dispatchEnter(0.0f, 0.0f);
+      area->dispatchEnter(0.0F, 0.0F);
       area->dispatchLeave();
       ok = expect(fired.empty(), "an empty button onHover name wires nothing") && ok;
     }
@@ -1008,7 +1008,7 @@ int main() {
   // The `size` tier pins the control height, scaled by the content scale.
   {
     ui::UiTreeReconciler reconciler;
-    reconciler.setScale(2.0f);
+    reconciler.setScale(2.0F);
     Flex host;
 
     ui::UiTreeNode tree = makeNode("column");
@@ -1020,7 +1020,7 @@ int main() {
 
     auto* column = dynamic_cast<Flex*>(host.children().front().get());
     auto* control = column != nullptr ? dynamic_cast<Button*>(column->children()[0].get()) : nullptr;
-    const float expected = Style::controlHeightSm * 2.0f;
+    const float expected = Style::controlHeightSm * 2.0F;
     ok = expect(
              control != nullptr && control->minHeight() == expected && control->maxHeight() == expected,
              "button controlSize 'sm' pins the scaled small control height"
@@ -1094,7 +1094,7 @@ int main() {
       auto* numericButton = dynamic_cast<Button*>(column->children()[2].get());
       auto* plainButton = dynamic_cast<Button*>(column->children()[3].get());
       ok = expect(
-               pinnedButton != nullptr && pinnedButton->minHeight() == 50.0f && pinnedButton->maxHeight() == 50.0f,
+               pinnedButton != nullptr && pinnedButton->minHeight() == 50.0F && pinnedButton->maxHeight() == 50.0F,
                "explicit height wins over the controlSize tier"
            )
           && ok;
@@ -1190,7 +1190,7 @@ int main() {
         && ok;
     if (zone != nullptr) {
       const float previousCornerScale = Style::cornerRadiusScale();
-      Style::setCornerRadiusScale(1.5f);
+      Style::setCornerRadiusScale(1.5F);
       (void)reconciler.reconcile(host, tree, renderer);
       zone->setDragOver(true);
       const auto background = std::ranges::find_if(zone->children(), [](const auto& child) {
@@ -1199,7 +1199,7 @@ int main() {
       const auto* rect =
           background != zone->children().end() ? dynamic_cast<const RectNode*>(background->get()) : nullptr;
       ok = expect(
-               rect != nullptr && rect->style().radius == Style::scaledRadius(8.0f),
+               rect != nullptr && rect->style().radius == Style::scaledRadius(8.0F),
                "DropZone radius follows Noctalia corner roundness"
            )
           && ok;
@@ -1390,26 +1390,26 @@ int main() {
       ok = expect(
                area->width() == source->width()
                    && area->height() == source->height()
-                   && area->width() > 0.0f
-                   && area->height() > 0.0f,
+                   && area->width() > 0.0F
+                   && area->height() > 0.0F,
                "DragSource input overlay follows measure/arrange bounds without a manual layout pass"
            )
           && ok;
 
-      area->dispatchPress(2.0f, 2.0f, BTN_LEFT, true);
+      area->dispatchPress(2.0F, 2.0F, BTN_LEFT, true);
       ok = expect(controller->state() == DragDropController::State::Armed, "source press arms drag") && ok;
-      area->dispatchMotion(2.0f + Style::dragStartThreshold - 0.5f, 2.0f);
+      area->dispatchMotion(2.0F + Style::dragStartThreshold - 0.5F, 2.0F);
       ok = expect(controller->state() == DragDropController::State::Armed, "motion below threshold stays armed") && ok;
       ok = expect(!source->dragging() && callbacks.empty(), "below-threshold motion has no drag visual or callback")
           && ok;
-      area->dispatchPress(2.0f + Style::dragStartThreshold - 0.5f, 2.0f, BTN_LEFT, false);
+      area->dispatchPress(2.0F + Style::dragStartThreshold - 0.5F, 2.0F, BTN_LEFT, false);
       ok = expect(controller->state() == DragDropController::State::Idle, "below-threshold release returns idle") && ok;
       ok = expect(callbacks.empty(), "below-threshold release is a no-op") && ok;
 
-      float acceptedX = 0.0f;
-      float acceptedY = 0.0f;
+      float acceptedX = 0.0F;
+      float acceptedY = 0.0F;
       sourceLocalPointFor(*source, *accepted, acceptedX, acceptedY);
-      area->dispatchPress(2.0f, 2.0f, BTN_LEFT, true);
+      area->dispatchPress(2.0F, 2.0F, BTN_LEFT, true);
       area->dispatchMotion(acceptedX, acceptedY);
       ok = expect(controller->state() == DragDropController::State::Dragging, "threshold crossing starts dragging")
           && ok;
@@ -1429,10 +1429,10 @@ int main() {
 
       callbacks.clear();
       callbackSawCleanState = false;
-      float rejectedX = 0.0f;
-      float rejectedY = 0.0f;
+      float rejectedX = 0.0F;
+      float rejectedY = 0.0F;
       sourceLocalPointFor(*source, *rejected, rejectedX, rejectedY);
-      area->dispatchPress(2.0f, 2.0f, BTN_LEFT, true);
+      area->dispatchPress(2.0F, 2.0F, BTN_LEFT, true);
       area->dispatchMotion(rejectedX, rejectedY);
       ok = expect(controller->state() == DragDropController::State::Dragging, "rejected target still crosses threshold")
           && ok;
@@ -1478,7 +1478,7 @@ int main() {
     tree.children.push_back(std::move(insertion));
     tree.children.push_back(std::move(followingRow));
     (void)reconciler.reconcile(host, tree, renderer);
-    host.setSize(100.0f, 100.0f);
+    host.setSize(100.0F, 100.0F);
     host.layout(renderer);
 
     auto* column = dynamic_cast<DropZone*>(host.children().front().get());
@@ -1494,13 +1494,13 @@ int main() {
         }
       }
     }
-    const float expectedRadius = Style::scaledRadius(9.0f, 1.0f);
+    const float expectedRadius = Style::scaledRadius(9.0F, 1.0F);
     ok = expect(
              source != nullptr
                  && zone != nullptr
                  && controller != nullptr
-                 && zone->height() == 3.0f
-                 && zone->hitSlop() == 14.0f,
+                 && zone->height() == 3.0F
+                 && zone->hitSlop() == 14.0F,
              "drop hitSlop preserves the thin insertion marker layout"
          )
         && ok;
@@ -1511,10 +1511,10 @@ int main() {
         && ok;
 
     if (source != nullptr && zone != nullptr && controller != nullptr && source->inputArea() != nullptr) {
-      float localX = 0.0f;
-      float localY = 0.0f;
-      sourceLocalPointAt(*source, *zone, zone->width() - 2.0f, -10.0f, localX, localY);
-      source->inputArea()->dispatchPress(2.0f, 2.0f, BTN_LEFT, true);
+      float localX = 0.0F;
+      float localY = 0.0F;
+      sourceLocalPointAt(*source, *zone, zone->width() - 2.0F, -10.0F, localX, localY);
+      source->inputArea()->dispatchPress(2.0F, 2.0F, BTN_LEFT, true);
       source->inputArea()->dispatchMotion(localX, localY);
       ok = expect(
                controller->currentTarget() == zone && zone->dragOver(),
@@ -1539,7 +1539,7 @@ int main() {
     ui::UiTreeReconciler reconciler;
     reconciler.setDragDropEnabled(true);
     Node overlay;
-    overlay.setSize(200.0f, 200.0f);
+    overlay.setSize(200.0F, 200.0F);
     overlay.setHitTestVisible(false);
     reconciler.setDragDropOverlayRoot(&overlay);
     Flex host;
@@ -1576,7 +1576,7 @@ int main() {
     tree.children.push_back(insertionNode("gap-after", "after:middle"));
     tree.children.push_back(std::move(lastRow));
     (void)reconciler.reconcile(host, tree, renderer);
-    host.setSize(160.0f, 200.0f);
+    host.setSize(160.0F, 200.0F);
     host.layout(renderer);
 
     auto* category = dynamic_cast<DropZone*>(host.children().front().get());
@@ -1598,25 +1598,25 @@ int main() {
         && after != nullptr
         && controller != nullptr
         && source->inputArea() != nullptr) {
-      float localX = 0.0f;
-      float localY = 0.0f;
-      sourceLocalPointAt(*source, *middle, middle->width() * 0.5f, middle->height() * 0.25f, localX, localY);
-      source->inputArea()->dispatchPress(2.0f, 2.0f, BTN_LEFT, true);
+      float localX = 0.0F;
+      float localY = 0.0F;
+      sourceLocalPointAt(*source, *middle, middle->width() * 0.5F, middle->height() * 0.25F, localX, localY);
+      source->inputArea()->dispatchPress(2.0F, 2.0F, BTN_LEFT, true);
       source->inputArea()->dispatchMotion(localX, localY);
       host.layout(renderer);
       ok = expect(
                controller->currentTarget() == before
                    && before->minHeight() == liftedRow->height()
-                   && after->minHeight() == 3.0f,
+                   && after->minHeight() == 3.0F,
                "upper row half keeps exactly the preceding full-height placeholder"
            )
           && ok;
 
-      sourceLocalPointAt(*source, *middle, middle->width() * 0.5f, middle->height() * 0.75f, localX, localY);
+      sourceLocalPointAt(*source, *middle, middle->width() * 0.5F, middle->height() * 0.75F, localX, localY);
       source->inputArea()->dispatchMotion(localX, localY);
       ok = expect(
                controller->currentTarget() == after
-                   && before->minHeight() == 3.0f
+                   && before->minHeight() == 3.0F
                    && after->minHeight() == liftedRow->height(),
                "crossing row midpoint transfers the full-height placeholder"
            )
@@ -1633,7 +1633,7 @@ int main() {
     ui::UiTreeReconciler reconciler;
     reconciler.setDragDropEnabled(true);
     Node overlay;
-    overlay.setSize(400.0f, 160.0f);
+    overlay.setSize(400.0F, 160.0F);
     overlay.setHitTestVisible(false);
     reconciler.setDragDropOverlayRoot(&overlay);
     Flex host;
@@ -1656,7 +1656,7 @@ int main() {
     previewZone.props.emplace("expandOnDrag", true);
     tree.children.push_back(std::move(previewZone));
     (void)reconciler.reconcile(host, tree, renderer);
-    host.setSize(400.0f, 160.0f);
+    host.setSize(400.0F, 160.0F);
     host.layout(renderer);
 
     auto* rootRow = dynamic_cast<Flex*>(host.children().front().get());
@@ -1675,12 +1675,12 @@ int main() {
         && zone != nullptr
         && controller != nullptr
         && source->inputArea() != nullptr) {
-      float localX = 0.0f;
-      float localY = 0.0f;
+      float localX = 0.0F;
+      float localY = 0.0F;
       sourceLocalPointFor(*source, *zone, localX, localY);
       const float originalOpacity = row->opacity();
-      source->inputArea()->dispatchPress(2.0f, 2.0f, BTN_LEFT, true);
-      source->inputArea()->dispatchMotion(2.0f + Style::dragStartThreshold - 0.5f, 2.0f);
+      source->inputArea()->dispatchPress(2.0F, 2.0F, BTN_LEFT, true);
+      source->inputArea()->dispatchMotion(2.0F + Style::dragStartThreshold - 0.5F, 2.0F);
       ok = expect(overlay.children().empty(), "preview is absent below drag threshold") && ok;
 
       source->inputArea()->dispatchMotion(localX, localY);
@@ -1692,7 +1692,7 @@ int main() {
            )
           && ok;
       ok = expect(
-               row->opacity() == 0.0f && !row->participatesInLayout(),
+               row->opacity() == 0.0F && !row->participatesInLayout(),
                "liftFromLayout removes and hides the original row"
            )
           && ok;
@@ -1702,7 +1702,7 @@ int main() {
            )
           && ok;
       ok = expect(
-               Node::hitTest(&overlay, proxy != nullptr ? proxy->x() : 0.0f, proxy != nullptr ? proxy->y() : 0.0f)
+               Node::hitTest(&overlay, proxy != nullptr ? proxy->x() : 0.0F, proxy != nullptr ? proxy->y() : 0.0F)
                    == nullptr,
                "drag preview overlay is excluded from hit testing"
            )
@@ -1710,39 +1710,39 @@ int main() {
 
       if (proxy != nullptr) {
         const auto previewBounds = [proxy]() {
-          float left = 0.0f;
-          float top = 0.0f;
-          float right = 0.0f;
-          float bottom = 0.0f;
+          float left = 0.0F;
+          float top = 0.0F;
+          float right = 0.0F;
+          float bottom = 0.0F;
           Node::transformedBounds(proxy, left, top, right, bottom);
           return LayoutRect{.x = left, .y = top, .width = right - left, .height = bottom - top};
         };
 
-        source->inputArea()->dispatchMotion(-100.0f, -100.0f);
+        source->inputArea()->dispatchMotion(-100.0F, -100.0F);
         auto bounds = previewBounds();
-        ok = expect(bounds.x >= -0.001f && bounds.y >= -0.001f, "drag preview stays inside the top-left edge") && ok;
+        ok = expect(bounds.x >= -0.001F && bounds.y >= -0.001F, "drag preview stays inside the top-left edge") && ok;
 
         const float leftEdgeX = proxy->x();
         const float topEdgeY = proxy->y();
-        source->inputArea()->dispatchMotion(-100.0f, 80.0f);
+        source->inputArea()->dispatchMotion(-100.0F, 80.0F);
         ok = expect(
                  proxy->x() == leftEdgeX && proxy->y() > topEdgeY,
                  "drag preview keeps moving vertically along a clamped left edge"
              )
             && ok;
 
-        source->inputArea()->dispatchMotion(overlay.width() + 100.0f, overlay.height() + 100.0f);
+        source->inputArea()->dispatchMotion(overlay.width() + 100.0F, overlay.height() + 100.0F);
         bounds = previewBounds();
         ok = expect(
-                 bounds.x + bounds.width <= overlay.width() + 0.001f
-                     && bounds.y + bounds.height <= overlay.height() + 0.001f,
+                 bounds.x + bounds.width <= overlay.width() + 0.001F
+                     && bounds.y + bounds.height <= overlay.height() + 0.001F,
                  "drag preview stays inside the bottom-right edge"
              )
             && ok;
 
         const float rightEdgeX = proxy->x();
         const float bottomEdgeY = proxy->y();
-        source->inputArea()->dispatchMotion(80.0f, overlay.height() + 100.0f);
+        source->inputArea()->dispatchMotion(80.0F, overlay.height() + 100.0F);
         ok = expect(
                  proxy->x() < rightEdgeX && proxy->y() == bottomEdgeY,
                  "drag preview keeps moving horizontally along a clamped bottom edge"
@@ -1751,27 +1751,27 @@ int main() {
 
         // A preview larger than the overlay cannot fit inside it. It covers the
         // overlay instead, and keeps tracking the pointer within that range.
-        overlay.setSize(60.0f, 20.0f);
-        source->inputArea()->dispatchMotion(0.0f, 0.0f);
+        overlay.setSize(60.0F, 20.0F);
+        source->inputArea()->dispatchMotion(0.0F, 0.0F);
         bounds = previewBounds();
         const float coveringX = proxy->x();
         ok = expect(
-                 bounds.x <= 0.001f
-                     && bounds.y <= 0.001f
-                     && bounds.x + bounds.width >= overlay.width() - 0.001f
-                     && bounds.y + bounds.height >= overlay.height() - 0.001f,
+                 bounds.x <= 0.001F
+                     && bounds.y <= 0.001F
+                     && bounds.x + bounds.width >= overlay.width() - 0.001F
+                     && bounds.y + bounds.height >= overlay.height() - 0.001F,
                  "an oversized drag preview keeps covering the overlay"
              )
             && ok;
 
-        source->inputArea()->dispatchMotion(-30.0f, 0.0f);
+        source->inputArea()->dispatchMotion(-30.0F, 0.0F);
         bounds = previewBounds();
         ok = expect(
-                 proxy->x() < coveringX && bounds.x + bounds.width >= overlay.width() - 0.001f,
+                 proxy->x() < coveringX && bounds.x + bounds.width >= overlay.width() - 0.001F,
                  "an oversized drag preview still follows the pointer while covering the overlay"
              )
             && ok;
-        overlay.setSize(400.0f, 160.0f);
+        overlay.setSize(400.0F, 160.0F);
       }
 
       source->inputArea()->dispatchPress(localX, localY, BTN_LEFT, false);
@@ -1781,7 +1781,7 @@ int main() {
                "drop restores the exact original row layout and opacity"
            )
           && ok;
-      ok = expect(zone->minHeight() == 3.0f && zone->maxHeight() == 3.0f, "drop collapses insertion zone") && ok;
+      ok = expect(zone->minHeight() == 3.0F && zone->maxHeight() == 3.0F, "drop collapses insertion zone") && ok;
     }
   }
 
@@ -1794,12 +1794,12 @@ int main() {
     reconciler.setDragDropEnabled(true);
 
     Node panelRoot;
-    panelRoot.setSize(400.0f, 160.0f);
+    panelRoot.setSize(400.0F, 160.0F);
     auto content = std::make_unique<Flex>();
     auto* contentHost = static_cast<Flex*>(panelRoot.addChild(std::move(content)));
-    contentHost->setSize(400.0f, 160.0f);
+    contentHost->setSize(400.0F, 160.0F);
     auto overlay = std::make_unique<Node>();
-    overlay->setSize(400.0f, 160.0f);
+    overlay->setSize(400.0F, 160.0F);
     overlay->setHitTestVisible(false);
     auto* overlayRoot = panelRoot.addChild(std::move(overlay));
     reconciler.setDragDropOverlayRoot(overlayRoot);
@@ -1818,8 +1818,8 @@ int main() {
     ok = expect(source != nullptr && controller != nullptr, "bounded preview fixture built") && ok;
 
     if (source != nullptr && controller != nullptr && source->inputArea() != nullptr) {
-      source->inputArea()->dispatchPress(2.0f, 2.0f, BTN_LEFT, true);
-      source->inputArea()->dispatchMotion(2.0f + Style::dragStartThreshold + 1.0f, 2.0f);
+      source->inputArea()->dispatchPress(2.0F, 2.0F, BTN_LEFT, true);
+      source->inputArea()->dispatchMotion(2.0F + Style::dragStartThreshold + 1.0F, 2.0F);
       auto* proxy = overlayRoot->children().empty()
           ? nullptr
           : dynamic_cast<RenderProxyNode*>(overlayRoot->children().front().get());
@@ -1895,10 +1895,10 @@ int main() {
         && controller != nullptr
         && source->inputArea() != nullptr) {
       InputArea* area = source->inputArea();
-      float localX = 0.0f;
-      float localY = 0.0f;
+      float localX = 0.0F;
+      float localY = 0.0F;
       sourceLocalPointFor(*source, *innerA, localX, localY);
-      area->dispatchPress(2.0f, 2.0f, BTN_LEFT, true);
+      area->dispatchPress(2.0F, 2.0F, BTN_LEFT, true);
       area->dispatchMotion(localX, localY);
       ok = expect(
                controller->currentTarget() == innerA && innerA->dragOver() && !outerZone->dragOver(),
@@ -1911,8 +1911,8 @@ int main() {
       const float gapTop = innerA->y() + innerA->height();
       const float gapBottom = innerB->y();
       ok = expect(gapBottom > gapTop, "nested fixture has real flex gap") && ok;
-      sourceLocalPointAt(*source, *outerZone, outerZone->width() * 0.5f, (gapTop + gapBottom) * 0.5f, localX, localY);
-      area->dispatchPress(2.0f, 2.0f, BTN_LEFT, true);
+      sourceLocalPointAt(*source, *outerZone, outerZone->width() * 0.5F, (gapTop + gapBottom) * 0.5F, localX, localY);
+      area->dispatchPress(2.0F, 2.0F, BTN_LEFT, true);
       area->dispatchMotion(localX, localY);
       ok = expect(
                controller->currentTarget() == outerZone
@@ -1952,10 +1952,10 @@ int main() {
 
     if (source != nullptr && disabledZone != nullptr && controller != nullptr && source->inputArea() != nullptr) {
       InputArea* area = source->inputArea();
-      float localX = 0.0f;
-      float localY = 0.0f;
+      float localX = 0.0F;
+      float localY = 0.0F;
       sourceLocalPointFor(*source, *disabledZone, localX, localY);
-      area->dispatchPress(2.0f, 2.0f, BTN_LEFT, true);
+      area->dispatchPress(2.0F, 2.0F, BTN_LEFT, true);
       area->dispatchMotion(localX, localY);
       ok = expect(
                controller->state() == DragDropController::State::Dragging
@@ -1967,8 +1967,8 @@ int main() {
       area->dispatchPress(localX, localY, BTN_LEFT, false);
       ok = expect(callbackCount == 0, "release on disabled zone fires no callback") && ok;
 
-      sourceLocalPointAt(*source, host, host.width() - 2.0f, host.height() - 2.0f, localX, localY);
-      area->dispatchPress(2.0f, 2.0f, BTN_LEFT, true);
+      sourceLocalPointAt(*source, host, host.width() - 2.0F, host.height() - 2.0F, localX, localY);
+      area->dispatchPress(2.0F, 2.0F, BTN_LEFT, true);
       area->dispatchMotion(localX, localY);
       ok = expect(
                controller->state() == DragDropController::State::Dragging && controller->currentTarget() == nullptr,
@@ -2020,23 +2020,23 @@ int main() {
     auto* controller = source != nullptr ? source->controller() : nullptr;
     layoutDragTree(host, source, renderer);
     if (scrollView != nullptr) {
-      scrollView->setSize(100.0f, 40.0f);
+      scrollView->setSize(100.0F, 40.0F);
       scrollView->layout(renderer);
     }
 
     if (source != nullptr && zone != nullptr && controller != nullptr && source->inputArea() != nullptr) {
       InputArea* area = source->inputArea();
-      float localX = 0.0f;
-      float localY = 0.0f;
-      sourceLocalPointAt(*source, *zone, 10.0f, 10.0f, localX, localY);
-      area->dispatchPress(2.0f, 2.0f, BTN_LEFT, true);
+      float localX = 0.0F;
+      float localY = 0.0F;
+      sourceLocalPointAt(*source, *zone, 10.0F, 10.0F, localX, localY);
+      area->dispatchPress(2.0F, 2.0F, BTN_LEFT, true);
       area->dispatchMotion(localX, localY);
       ok = expect(controller->currentTarget() == zone, "visible part of zone inside scroll viewport is target") && ok;
       area->dispatchPress(localX, localY, BTN_LEFT, false);
       ok = expect(callbackCount == 1, "visible part of clipped zone accepts drop") && ok;
 
-      sourceLocalPointAt(*source, *zone, 10.0f, 80.0f, localX, localY);
-      area->dispatchPress(2.0f, 2.0f, BTN_LEFT, true);
+      sourceLocalPointAt(*source, *zone, 10.0F, 80.0F, localX, localY);
+      area->dispatchPress(2.0F, 2.0F, BTN_LEFT, true);
       area->dispatchMotion(localX, localY);
       ok = expect(controller->currentTarget() == nullptr, "zone portion outside scroll clip is not target") && ok;
       area->dispatchPress(localX, localY, BTN_LEFT, false);
@@ -2045,10 +2045,10 @@ int main() {
       tree.children[1].children[0].props.emplace("visible", false);
       (void)reconciler.reconcile(host, tree, renderer);
       layoutDragTree(host, source, renderer);
-      scrollView->setSize(100.0f, 40.0f);
+      scrollView->setSize(100.0F, 40.0F);
       scrollView->layout(renderer);
-      sourceLocalPointAt(*source, *zone, 10.0f, 10.0f, localX, localY);
-      area->dispatchPress(2.0f, 2.0f, BTN_LEFT, true);
+      sourceLocalPointAt(*source, *zone, 10.0F, 10.0F, localX, localY);
+      area->dispatchPress(2.0F, 2.0F, BTN_LEFT, true);
       area->dispatchMotion(localX, localY);
       ok = expect(
                controller->currentTarget() == nullptr,
@@ -2098,11 +2098,11 @@ int main() {
     });
 
     if (source != nullptr && zone != nullptr && controller != nullptr && source->inputArea() != nullptr) {
-      float localX = 0.0f;
-      float localY = 0.0f;
+      float localX = 0.0F;
+      float localY = 0.0F;
       sourceLocalPointFor(*source, *zone, localX, localY);
       InputArea* area = source->inputArea();
-      area->dispatchPress(2.0f, 2.0f, BTN_LEFT, true);
+      area->dispatchPress(2.0F, 2.0F, BTN_LEFT, true);
       area->dispatchMotion(localX, localY);
       area->dispatchPress(localX, localY, BTN_LEFT, false);
 
@@ -2146,10 +2146,10 @@ int main() {
     layoutDragTree(host, source, renderer);
 
     if (source != nullptr && zone != nullptr && controller != nullptr && source->inputArea() != nullptr) {
-      float targetX = 0.0f;
-      float targetY = 0.0f;
+      float targetX = 0.0F;
+      float targetY = 0.0F;
       sourceLocalPointFor(*source, *zone, targetX, targetY);
-      source->inputArea()->dispatchPress(2.0f, 2.0f, BTN_LEFT, true);
+      source->inputArea()->dispatchPress(2.0F, 2.0F, BTN_LEFT, true);
       source->inputArea()->dispatchMotion(targetX, targetY);
       ok = expect(controller->currentTarget() == zone && zone->dragOver(), "removal test starts over target") && ok;
 
@@ -2176,7 +2176,7 @@ int main() {
           && ok;
       layoutDragTree(host, source, renderer);
       sourceLocalPointFor(*source, *zone, targetX, targetY);
-      source->inputArea()->dispatchPress(2.0f, 2.0f, BTN_LEFT, true);
+      source->inputArea()->dispatchPress(2.0F, 2.0F, BTN_LEFT, true);
       source->inputArea()->dispatchMotion(targetX, targetY);
 
       tree.children[0].props.erase("payload");
@@ -2203,7 +2203,7 @@ int main() {
           && ok;
       layoutDragTree(host, source, renderer);
       sourceLocalPointFor(*source, *zone, targetX, targetY);
-      source->inputArea()->dispatchPress(2.0f, 2.0f, BTN_LEFT, true);
+      source->inputArea()->dispatchPress(2.0F, 2.0F, BTN_LEFT, true);
       source->inputArea()->dispatchMotion(targetX, targetY);
       ok = expect(controller->currentTarget() == zone && zone->dragOver(), "removal test restarts over target") && ok;
 
@@ -2245,10 +2245,10 @@ int main() {
     layoutDragTree(host, source, renderer);
 
     if (source != nullptr && zone != nullptr && controller != nullptr && source->inputArea() != nullptr) {
-      float targetX = 0.0f;
-      float targetY = 0.0f;
+      float targetX = 0.0F;
+      float targetY = 0.0F;
       sourceLocalPointFor(*source, *zone, targetX, targetY);
-      source->inputArea()->dispatchPress(2.0f, 2.0f, BTN_LEFT, true);
+      source->inputArea()->dispatchPress(2.0F, 2.0F, BTN_LEFT, true);
       source->inputArea()->dispatchMotion(targetX, targetY);
       ok = expect(
                controller->state() == DragDropController::State::Dragging && zone->dragOver(), "reset test starts drag"
@@ -2272,13 +2272,13 @@ int main() {
   {
     ScrollView scrollView;
     scrollView.setOrientation(ScrollOrientation::Horizontal);
-    scrollView.setViewportPaddingH(0.0f);
-    scrollView.setViewportPaddingV(0.0f);
-    scrollView.setSize(200.0f, 60.0f);
-    scrollView.content()->setMinWidth(420.0f);
+    scrollView.setViewportPaddingH(0.0F);
+    scrollView.setViewportPaddingV(0.0F);
+    scrollView.setSize(200.0F, 60.0F);
+    scrollView.content()->setMinWidth(420.0F);
     scrollView.layout(renderer);
 
-    ok = expect(scrollView.maxScrollOffset() == 220.0f, "horizontal scroll range follows content width") && ok;
+    ok = expect(scrollView.maxScrollOffset() == 220.0F, "horizontal scroll range follows content width") && ok;
     ok = expect(
              scrollView.contentViewportHeight() < scrollView.height(),
              "horizontal scrollbar reserves vertical viewport space"
@@ -2288,29 +2288,29 @@ int main() {
     auto* viewport = findFirst<InputArea>(scrollView);
     const bool verticalAxisConsumed = viewport != nullptr
         && viewport->dispatchAxis(
-            20.0f, 20.0f, WL_POINTER_AXIS_VERTICAL_SCROLL, WL_POINTER_AXIS_SOURCE_WHEEL, 15.0, 1, 120, 3.0f
+            20.0F, 20.0F, WL_POINTER_AXIS_VERTICAL_SCROLL, WL_POINTER_AXIS_SOURCE_WHEEL, 15.0, 1, 120, 3.0F
         );
     ok = expect(!verticalAxisConsumed, "horizontal scroll passes vertical wheel input to its parent") && ok;
 
-    scrollView.scrollBy(45.0f);
-    ok = expect(scrollView.scrollOffset() == 45.0f, "horizontal scroll updates its offset") && ok;
-    ok = expect(scrollView.content()->x() == -45.0f, "horizontal scroll translates content on the x axis") && ok;
-    ok = expect(scrollView.content()->y() == 0.0f, "horizontal scroll leaves the y axis unchanged") && ok;
+    scrollView.scrollBy(45.0F);
+    ok = expect(scrollView.scrollOffset() == 45.0F, "horizontal scroll updates its offset") && ok;
+    ok = expect(scrollView.content()->x() == -45.0F, "horizontal scroll translates content on the x axis") && ok;
+    ok = expect(scrollView.content()->y() == 0.0F, "horizontal scroll leaves the y axis unchanged") && ok;
   }
 
   {
     ScrollView scrollView;
     scrollView.setOrientation(ScrollOrientation::Horizontal);
-    scrollView.setViewportPaddingH(0.0f);
-    scrollView.setViewportPaddingV(0.0f);
-    scrollView.setSize(200.0f, 60.0f);
-    scrollView.content()->setMinWidth(100.0f);
+    scrollView.setViewportPaddingH(0.0F);
+    scrollView.setViewportPaddingV(0.0F);
+    scrollView.setSize(200.0F, 60.0F);
+    scrollView.content()->setMinWidth(100.0F);
     scrollView.layout(renderer);
 
     auto* viewport = findFirst<InputArea>(scrollView);
     const bool horizontalAxisConsumed = viewport != nullptr
         && viewport->dispatchAxis(
-            20.0f, 20.0f, WL_POINTER_AXIS_HORIZONTAL_SCROLL, WL_POINTER_AXIS_SOURCE_WHEEL, 15.0, 1, 120, 3.0f
+            20.0F, 20.0F, WL_POINTER_AXIS_HORIZONTAL_SCROLL, WL_POINTER_AXIS_SOURCE_WHEEL, 15.0, 1, 120, 3.0F
         );
     ok = expect(!horizontalAxisConsumed, "non-scrollable horizontal view does not consume wheel input") && ok;
   }
@@ -2334,7 +2334,7 @@ int main() {
              "callback-less graph has no InputArea wrapper"
          )
         && ok;
-    ok = expect(graph != nullptr && graph->width() == 100.0f && graph->height() == 50.0f, "graph size applied") && ok;
+    ok = expect(graph != nullptr && graph->width() == 100.0F && graph->height() == 50.0F, "graph size applied") && ok;
   }
 
   // Graph: onPointerMove wraps the control in a hover-only InputArea (no
@@ -2360,7 +2360,7 @@ int main() {
         area != nullptr && !area->children().empty() ? dynamic_cast<Graph*>(area->children().front().get()) : nullptr;
     ok = expect(graph != nullptr, "wrapped graph control is reachable through the InputArea") && ok;
     ok = expect(
-             area != nullptr && area->width() == 100.0f && area->height() == 50.0f,
+             area != nullptr && area->width() == 100.0F && area->height() == 50.0F,
              "wrapper mirrors the graph's explicit size"
          )
         && ok;
@@ -2383,7 +2383,7 @@ int main() {
     auto* area = dynamic_cast<InputArea*>(host.children().front().get());
 
     if (area != nullptr) {
-      area->dispatchEnter(25.0f, 10.0f);
+      area->dispatchEnter(25.0F, 10.0F);
     }
     ok = expect(
              fired.size() == 1
@@ -2397,7 +2397,7 @@ int main() {
 
     fired.clear();
     if (area != nullptr) {
-      area->dispatchMotion(90.0f, 45.0f);
+      area->dispatchMotion(90.0F, 45.0F);
     }
     ok = expect(
              fired.size() == 1 && fired[0].fn == "track" && fired[0].arg1 == "0.9000" && fired[0].arg2 == "0.9000",
@@ -2410,7 +2410,7 @@ int main() {
     // hit area in practice, but the callback must never leak raw pixels).
     fired.clear();
     if (area != nullptr) {
-      area->dispatchMotion(-5.0f, 200.0f);
+      area->dispatchMotion(-5.0F, 200.0F);
     }
     ok = expect(
              fired.size() == 1 && fired[0].arg1 == "0.0000" && fired[0].arg2 == "1.0000",
@@ -2436,7 +2436,7 @@ int main() {
     auto* area = dynamic_cast<InputArea*>(host.children().front().get());
 
     if (area != nullptr) {
-      area->dispatchEnter(10.0f, 10.0f);
+      area->dispatchEnter(10.0F, 10.0F);
     }
     fired.clear();
     if (area != nullptr) {
@@ -2460,7 +2460,7 @@ int main() {
     (void)reconciler.reconcile(host, tree, renderer);
     auto* area = dynamic_cast<InputArea*>(host.children().front().get());
     if (area != nullptr) {
-      area->dispatchMotion(50.0f, 25.0f);
+      area->dispatchMotion(50.0F, 25.0F);
     }
     ok = expect(fired.size() == 1 && fired[0].arg1 == "0.5000", "midpoint at 100px wide reports 0.5") && ok;
 
@@ -2468,7 +2468,7 @@ int main() {
     tree.props["width"] = 200.0;
     (void)reconciler.reconcile(host, tree, renderer);
     if (area != nullptr) {
-      area->dispatchMotion(50.0f, 25.0f);
+      area->dispatchMotion(50.0F, 25.0F);
     }
     ok = expect(
              fired.size() == 1 && fired[0].arg1 == "0.2500", "the same raw pixel renormalizes after a resize to 200px"
@@ -2517,7 +2517,7 @@ int main() {
     ok = expect(area != nullptr, "a leave-only graph is still wrapped") && ok;
 
     if (area != nullptr) {
-      area->dispatchEnter(10.0f, 10.0f);
+      area->dispatchEnter(10.0F, 10.0F);
     }
     ok = expect(fired.empty(), "a leave-only graph reports nothing on enter") && ok;
     if (area != nullptr) {
@@ -2548,7 +2548,7 @@ int main() {
       ui::UiTreeNode tree = enteredGraphTree();
       (void)reconciler.reconcile(host, tree, renderer);
       if (auto* area = dynamic_cast<InputArea*>(host.children().front().get())) {
-        area->dispatchEnter(10.0f, 10.0f);
+        area->dispatchEnter(10.0F, 10.0F);
       }
       fired.clear();
       ui::UiTreeNode replacement = makeNode("label");
@@ -2565,7 +2565,7 @@ int main() {
       ui::UiTreeNode tree = enteredGraphTree();
       (void)reconciler.reconcile(host, tree, renderer);
       if (auto* area = dynamic_cast<InputArea*>(host.children().front().get())) {
-        area->dispatchEnter(10.0f, 10.0f);
+        area->dispatchEnter(10.0F, 10.0F);
       }
       fired.clear();
       tree.props.erase("onPointerMove");
@@ -2583,7 +2583,7 @@ int main() {
       ui::UiTreeNode tree = enteredGraphTree();
       (void)reconciler.reconcile(host, tree, renderer);
       if (auto* area = dynamic_cast<InputArea*>(host.children().front().get())) {
-        area->dispatchEnter(10.0f, 10.0f);
+        area->dispatchEnter(10.0F, 10.0F);
       }
       fired.clear();
       tree.props["onPointerLeave"] = std::string("goneRenamed");
@@ -2600,7 +2600,7 @@ int main() {
       ui::UiTreeNode tree = enteredGraphTree();
       (void)reconciler.reconcile(host, tree, renderer);
       if (auto* area = dynamic_cast<InputArea*>(host.children().front().get())) {
-        area->dispatchEnter(10.0f, 10.0f);
+        area->dispatchEnter(10.0F, 10.0F);
       }
       fired.clear();
       reconciler.reset();
@@ -2634,9 +2634,9 @@ int main() {
     auto* areaA = rowNode != nullptr ? dynamic_cast<InputArea*>(rowNode->children()[0].get()) : nullptr;
     auto* areaB = rowNode != nullptr ? dynamic_cast<InputArea*>(rowNode->children()[1].get()) : nullptr;
     if (areaA != nullptr && areaB != nullptr) {
-      areaA->dispatchEnter(50.0f, 25.0f);
+      areaA->dispatchEnter(50.0F, 25.0F);
       areaA->dispatchLeave();
-      areaB->dispatchEnter(50.0f, 25.0f);
+      areaB->dispatchEnter(50.0F, 25.0F);
     }
     ok = expect(fired.size() == 3, "both graphs report through the same handler names") && ok;
     if (fired.size() == 3) {
@@ -2655,7 +2655,7 @@ int main() {
     fired.clear();
     (void)reconciler.reconcile(host, row, renderer);
     if (areaA != nullptr) {
-      areaA->dispatchMotion(50.0f, 25.0f);
+      areaA->dispatchMotion(50.0F, 25.0F);
     }
     ok = expect(
              fired.size() == 1 && fired[0].coalesceKey == streamBefore,

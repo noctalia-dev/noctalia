@@ -1167,6 +1167,7 @@ if build_tests
     'format_units',
     'freedesktop_key_file',
     'google_client_calendar_list',
+    'greeter_appearance_sync',
     'grid_item_cursor',
     'hook_manager',
     'hyprland_workspace_backend',
@@ -1239,6 +1240,9 @@ if build_tests
   ]
 
   foreach test_name : _cpp_test_names
+    if test_name == 'plugin_git_export' and not git_program.found()
+      continue
+    endif
     test_exe = executable(test_name + '_test',
       sources: files('tests' / (test_name + '_test.cpp')),
       dependencies: noctalia_core_dep,

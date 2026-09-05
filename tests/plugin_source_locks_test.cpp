@@ -4,13 +4,14 @@
 #include <cstdio>
 #include <future>
 #include <memory>
+#include <print>
 #include <thread>
 
 namespace {
 
   bool expect(bool condition, const char* message) {
     if (!condition) {
-      std::fprintf(stderr, "plugin_source_locks_test: %s\n", message);
+      std::println(stderr, "plugin_source_locks_test: {}", message);
     }
     return condition;
   }

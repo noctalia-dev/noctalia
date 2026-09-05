@@ -1097,7 +1097,14 @@
         "session-panel": "會話面板",
         "shape": "形狀",
         "system": "系統",
-        "theme": "佈景主題"
+        "theme": "佈景主題",
+        "toasts": "Toast 通知",
+        "transition": "轉換",
+        "user": "使用者",
+        "wallpaper": "桌布",
+        "weather": "天氣",
+        "widget-list": "小工具列表",
+        "widgets": "小工具"
       }
     }
   }

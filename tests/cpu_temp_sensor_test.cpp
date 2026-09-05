@@ -5,6 +5,7 @@
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <print>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -14,7 +15,7 @@ namespace {
   int g_failures = 0;
 
   void fail(const std::string& message) {
-    std::fprintf(stderr, "cpu_temp_sensor_test: FAIL: %s\n", message.c_str());
+    std::println(stderr, "cpu_temp_sensor_test: FAIL: {}", message);
     ++g_failures;
   }
 
@@ -93,8 +94,7 @@ namespace {
     const auto result = readFixture(root);
     expectTemp(result, 58.0, "AMD k10temp should prefer Tctl");
     expect(
-        result.reading.has_value() && result.reading->source.find("Tctl") != std::string::npos,
-        "AMD k10temp source should name Tctl"
+        result.reading.has_value() && result.reading->source.contains("Tctl"), "AMD k10temp source should name Tctl"
     );
     std::error_code ec;
     std::filesystem::remove_all(root, ec);
@@ -107,10 +107,7 @@ namespace {
 
     const auto result = readFixture(root);
     expectTemp(result, 58.0, "known CPU hwmon should beat motherboard CPU-labeled sensor");
-    expect(
-        result.reading.has_value() && result.reading->source.find("k10temp") != std::string::npos,
-        "source should be k10temp"
-    );
+    expect(result.reading.has_value() && result.reading->source.contains("k10temp"), "source should be k10temp");
     std::error_code ec;
     std::filesystem::remove_all(root, ec);
   }
@@ -122,7 +119,7 @@ namespace {
     const auto result = readFixture(root);
     expectTemp(result, 66.0, "Intel coretemp should prefer package sensor");
     expect(
-        result.reading.has_value() && result.reading->source.find("Package id 0") != std::string::npos,
+        result.reading.has_value() && result.reading->source.contains("Package id 0"),
         "Intel source should name package label"
     );
     std::error_code ec;
@@ -137,7 +134,7 @@ namespace {
     const auto result = readFixture(root, (manual / "temp2_input").string());
     expectTemp(result, 42.0, "configured sensor path should win over auto detection");
     expect(
-        result.reading.has_value() && result.reading->source.find("configured") != std::string::npos,
+        result.reading.has_value() && result.reading->source.contains("configured"),
         "manual source should be marked configured"
     );
     std::error_code ec;
@@ -150,7 +147,7 @@ namespace {
 
     const auto result = readFixture(root, (root / "hwmon" / "hwmon2" / "missing_input").string());
     expect(!result.reading.has_value(), "invalid configured sensor should not fall back to auto");
-    expect(result.error.find("temp*_input") != std::string::npos, "invalid configured path should explain filename");
+    expect(result.error.contains("temp*_input"), "invalid configured path should explain filename");
     std::error_code ec;
     std::filesystem::remove_all(root, ec);
   }
@@ -162,8 +159,7 @@ namespace {
     const auto result = readFixture(root);
     expectTemp(result, 48.0, "zero auto candidate should be skipped when a non-zero known CPU sensor exists");
     expect(
-        result.reading.has_value() && result.reading->source.find("Tccd1") != std::string::npos,
-        "non-zero source should be selected"
+        result.reading.has_value() && result.reading->source.contains("Tccd1"), "non-zero source should be selected"
     );
     std::error_code ec;
     std::filesystem::remove_all(root, ec);
@@ -177,7 +173,7 @@ namespace {
     const auto result = readFixture(root);
     expectTemp(result, 61.0, "known thermal zone should be used when no known CPU hwmon is available");
     expect(
-        result.reading.has_value() && result.reading->source.find("x86_pkg_temp") != std::string::npos,
+        result.reading.has_value() && result.reading->source.contains("x86_pkg_temp"),
         "thermal fallback source should name zone type"
     );
     std::error_code ec;
@@ -199,6 +195,6 @@ int main() {
     std::puts("cpu_temp_sensor_test: all checks passed");
     return 0;
   }
-  std::fprintf(stderr, "cpu_temp_sensor_test: %d failure(s)\n", g_failures);
+  std::println(stderr, "cpu_temp_sensor_test: {} failure(s)", g_failures);
   return 1;
 }

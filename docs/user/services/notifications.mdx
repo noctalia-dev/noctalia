@@ -19,6 +19,7 @@ offset_x                 = 20          # absolute horizontal margin from the scr
 offset_y                 = 8           # absolute vertical margin from the screen edge
 monitors                 = []          # empty = all monitors; otherwise connector/description selectors (e.g. ["eDP-1", "DP-1"])
 collapse_on_dismiss      = true        # slide remaining toasts to close gaps when one is dismissed
+keep_dismissed_in_history = true       # keep history entries when their toasts are dismissed
 max_visible              = 0           # maximum on-screen toasts; 0 = fill available space (all visible)
 history_retention_hours  = 0           # delete stored history older than this; 0 keeps it indefinitely
 
@@ -43,7 +44,7 @@ play_sound      = true
 - If none of the configured monitors are currently connected (e.g. an external display was undocked), Noctalia falls back to showing toasts on all available monitors so notifications never disappear silently. Targeting is restored automatically when a configured monitor reconnects.
 - Selector matching follows monitor override rules: exact connector name (`eDP-1`) or a word-boundary token in the monitor description.
 - Internal Noctalia notifications (shell and plugins) are toast-only and are never stored in notification history.
-- Dismissing a toast (right-click, close button, or `noctalia msg notification-clear-active`) only hides it. The entry stays in control-center history and still counts as unread until the notifications tab is opened. History entries are removed only by the per-entry delete button, **Clear all**, `noctalia msg notification-clear-history`, or `history_retention_hours`.
+- By default, dismissing a toast (right-click, close button, or `noctalia msg notification-clear-active`) only hides it. The entry stays in control-center history and still counts as unread until the notifications tab is opened. Set `keep_dismissed_in_history = false` to remove the history entry when its toast is dismissed. Timed-out notifications remain in history.
 - `history_retention_hours` removes stored external notifications older than the configured number of hours. The default
   `0` retains history indefinitely; accepted values are `0`–`8760`.
 - `collapse_on_dismiss = true` (default) causes remaining toasts to slide into a compact stack when one is dismissed. Set to `false` for stable-slot behavior where toasts keep their original positions.

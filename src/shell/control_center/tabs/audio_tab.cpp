@@ -44,8 +44,12 @@ namespace {
   constexpr float kVolumeSyncEpsilon = 0.005F; // 0.5%
   constexpr auto kVolumeCommitInterval = std::chrono::milliseconds(16);
 
-  // Used to resolve application icons in AudioTab.
-  IconResolver g_iconResolver;
+  // Application icons for AudioTab rows. Must stay function-local: at TU scope
+  // its icon-theme walk runs before main(), on every CLI invocation.
+  [[nodiscard]] IconResolver& audioTabIconResolver() {
+    static IconResolver resolver;
+    return resolver;
+  }
 
   bool isGenericAudioLabel(std::string_view value) {
     if (value.empty()) {
@@ -1147,7 +1151,7 @@ namespace {
           bool loaded = false;
           const int targetPx = static_cast<int>(std::round(m_iconSize));
           for (const std::string& candidate : m_iconCandidates) {
-            const auto& resolved = g_iconResolver.resolve(candidate, targetPx);
+            const auto& resolved = audioTabIconResolver().resolve(candidate, targetPx);
             if (!resolved.empty()) {
               if (!m_lastIconPath.empty() && resolved == m_lastIconPath) {
                 loaded = true;

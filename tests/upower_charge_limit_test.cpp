@@ -172,6 +172,14 @@ int main() {
   assert(PowerTabTestAccess::mode(state) == Mode::UPowerDisabled);
   assert(PowerTabTestAccess::control(state) == std::tuple(true, false, false));
 
+  // Apple Silicon reports an unrestricted charge limit as 100/100; that is not a
+  // restriction and must not be classified as externally managed.
+  state = supportedState(false);
+  state.effectiveStart = 100U;
+  state.effectiveEnd = 100U;
+  assert(!state.hasRestrictiveThreshold());
+  assert(PowerTabTestAccess::mode(state) == Mode::UPowerDisabled);
+
   state = supportedState(true);
   state.supportedSettings = 4U;
   assert(PowerTabTestAccess::mode(state) == Mode::FirmwareManaged);

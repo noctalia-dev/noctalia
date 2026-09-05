@@ -128,13 +128,8 @@ namespace {
     }
   }
 
-  bool chargeLimitIsRestrictive(const UPowerChargeLimitState& state) {
-    return (state.effectiveStart.has_value() && *state.effectiveStart > 0U)
-        || (state.effectiveEnd.has_value() && *state.effectiveEnd < 100U);
-  }
-
   bool chargeLimitIsExternallyManaged(const UPowerChargeLimitState& state) {
-    return state.enabledAvailable && !state.enabled && chargeLimitIsRestrictive(state);
+    return state.enabledAvailable && !state.enabled && state.hasRestrictiveThreshold();
   }
 
   bool sameDeviceInfoExceptChargeLimit(const UPowerDeviceInfo& lhs, const UPowerDeviceInfo& rhs) {
@@ -259,6 +254,11 @@ std::optional<double> UPowerDeviceInfo::healthPercent() const {
     return std::nullopt;
   }
   return std::clamp(energyFull / energyFullDesign * 100.0, 0.0, 100.0);
+}
+
+bool UPowerChargeLimitState::hasRestrictiveThreshold() const {
+  return (effectiveStart.has_value() && *effectiveStart > 0U && *effectiveStart < 100U)
+      || (effectiveEnd.has_value() && *effectiveEnd < 100U);
 }
 
 bool UPowerDeviceInfo::sameCatalogEntry(const UPowerDeviceInfo& other) const {

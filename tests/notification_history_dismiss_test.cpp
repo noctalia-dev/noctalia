@@ -86,5 +86,32 @@ int main() {
   TEST_CHECK(manager.close(filteredId, CloseReason::Dismissed));
   TEST_CHECK(manager.history().empty());
 
+  // Opting out removes dismissed notifications, including their unread state, but does not affect expirations.
+  NotificationManager discardManager;
+  std::vector<std::pair<uint32_t, CloseReason>> discardCloses;
+  int unreadStateChanges = 0;
+  discardManager.setKeepDismissedInHistory(false);
+  discardManager.setCloseCallback([&discardCloses](uint32_t id, CloseReason reason) {
+    discardCloses.emplace_back(id, reason);
+  });
+  discardManager.setStateCallback([&unreadStateChanges]() { ++unreadStateChanges; });
+
+  const uint32_t discardedId = addExternal(discardManager, "discarded");
+  TEST_CHECK(discardManager.history().size() == 1);
+  TEST_CHECK(discardManager.hasUnreadNotificationHistory());
+  TEST_CHECK(discardManager.close(discardedId, CloseReason::Dismissed));
+  TEST_CHECK(discardManager.all().empty());
+  TEST_CHECK(discardManager.history().empty());
+  TEST_CHECK(!discardManager.hasUnreadNotificationHistory());
+  TEST_CHECK(discardCloses.size() == 1);
+  TEST_CHECK(discardCloses.front().first == discardedId);
+  TEST_CHECK(discardCloses.front().second == CloseReason::Dismissed);
+  TEST_CHECK(unreadStateChanges == 2);
+
+  const uint32_t expiredId = addExternal(discardManager, "expired");
+  TEST_CHECK(discardManager.close(expiredId, CloseReason::Expired));
+  TEST_CHECK(discardManager.history().size() == 1);
+  TEST_CHECK(findEntry(discardManager, expiredId) != nullptr);
+  TEST_CHECK(findEntry(discardManager, expiredId)->closeReason == CloseReason::Expired);
   return 0;
 }
