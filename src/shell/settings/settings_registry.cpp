@@ -2864,6 +2864,12 @@ namespace settings {
         ToggleSetting{cfg.notification.collapseOnDismiss}, "reorder stack slide"
     ));
     entries.push_back(makeEntry(
+        SettingsSection::Notifications, "toasts", tr("settings.schema.notifications.enable-drag-to-dismiss.label"),
+        tr("settings.schema.notifications.enable-drag-to-dismiss.description"),
+        {"notification", "enable_drag_to_dismiss"}, ToggleSetting{cfg.notification.enableDragToDismiss},
+        "drag to dismiss mouse gesture"
+    ));
+    entries.push_back(makeEntry(
         SettingsSection::Notifications, "toasts", tr("settings.schema.notifications.layer.label"),
         tr("settings.schema.notifications.layer.description"), {"notification", "layer"},
         asSegmented(plainSelect(

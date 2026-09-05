@@ -2268,6 +2268,10 @@
           "description": "Enable the built-in notification daemon",
           "label": "Notification Daemon"
         },
+        "enable-drag-to-dismiss": {
+          "description": "Allow dragging notification toasts toward the nearest screen edge to dismiss them",
+          "label": "Drag to Dismiss"
+        },
         "filters": {
           "description": "Per-sender rules for toasts, history, and sounds; first matching enabled filter wins",
           "label": "Notification Filters"

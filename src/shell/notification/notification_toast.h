@@ -112,7 +112,12 @@ private:
       AnimationManager::Id entryAnimId = 0;
       AnimationManager::Id slideAnimId = 0;
       AnimationManager::Id exitAnimId = 0;
+      AnimationManager::Id snapBackAnimId = 0;
       bool replyMode = false;
+      bool dragging = false;
+      float dragStartX = 0.0F;
+      float dragStartY = 0.0F;
+      float currentDragOffset = 0.0F;
     };
     std::vector<CardState> cards;
     float lastPointerX = 0.0F;

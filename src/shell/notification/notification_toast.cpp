@@ -44,7 +44,7 @@ namespace {
   constexpr float kGap = Style::spaceSm;
   constexpr float kPaddingX = Style::spaceMd;
   constexpr float kPaddingTop = 0.0F;
-  constexpr float kPaddingBottom = Style::spaceMd;
+  constexpr float kPaddingBottom = 0.0F;
   constexpr int kFallbackVisibleCards = 5;
   constexpr float kQueuedY = -1.0F;
   constexpr float kCardInnerPad = Style::spaceMd;
@@ -126,11 +126,17 @@ namespace {
 
   [[nodiscard]] float cardWidth(float scale) { return static_cast<float>(kCardWidth) * scale; }
 
-  [[nodiscard]] float paddingTop(float scale) { return kPaddingTop * scale; }
+  [[nodiscard]] float paddingTop(float scale, const ConfigService* config) {
+    const int offY = config != nullptr ? std::max(0, config->config().notification.offsetY) : 0;
+    return static_cast<float>(offY) + (kPaddingTop * scale);
+  }
 
   [[nodiscard]] float paddingX(float scale) { return kPaddingX * scale; }
 
-  [[nodiscard]] float paddingBottom(float scale) { return kPaddingBottom * scale; }
+  [[nodiscard]] float paddingBottom(float scale, const ConfigService* config) {
+    const int offY = config != nullptr ? std::max(0, config->config().notification.offsetY) : 0;
+    return static_cast<float>(offY) + (kPaddingBottom * scale);
+  }
 
   [[nodiscard]] float cardInnerPad(float scale) { return kCardInnerPad * scale; }
 
@@ -166,10 +172,10 @@ namespace {
     return static_cast<std::uint32_t>(std::max(1, static_cast<int>(std::ceil(cardWidth(scale) + innerPadX * 2.0F))));
   }
 
-  [[nodiscard]] std::uint32_t fallbackSurfaceHeight(float scale) {
+  [[nodiscard]] std::uint32_t fallbackSurfaceHeight(float scale, const ConfigService* config = nullptr) {
     const float totalHeight = maxToastCardHeight(scale) * kFallbackVisibleCards
         + (kGap * scale) * (kFallbackVisibleCards - 1)
-        + paddingBottom(scale);
+        + paddingBottom(scale, config);
     return static_cast<std::uint32_t>(std::max(1, static_cast<int>(std::ceil(totalHeight))));
   }
 
@@ -210,6 +216,49 @@ namespace {
     if (position.starts_with("bottom_"))
       return NotificationToast::RevealDirection::FromBottom;
     return NotificationToast::RevealDirection::FromTop;
+  }
+
+  float computeDismissOffset(NotificationToast::RevealDirection direction, float deltaX, float deltaY) {
+    switch (direction) {
+    case NotificationToast::RevealDirection::FromRight:
+      return deltaX;
+    case NotificationToast::RevealDirection::FromLeft:
+      return -deltaX;
+    case NotificationToast::RevealDirection::FromTop:
+      return -deltaY;
+    case NotificationToast::RevealDirection::FromBottom:
+      return deltaY;
+    }
+    return 0.0F;
+  }
+
+  void applySolidBlockPosition(
+      Node* cardNode, Node* cardContent, Node* cardForeground, float dragOffset, float y,
+      NotificationToast::RevealDirection direction, float cardWidth, float cardHeight, float edgePadX
+  ) {
+    if (cardNode == nullptr || cardContent == nullptr || cardForeground == nullptr) {
+      return;
+    }
+
+    cardNode->setFrameSize(cardWidth, cardHeight);
+    cardContent->setPosition(0.0F, 0.0F);
+    cardForeground->setPosition(0.0F, 0.0F);
+    cardForeground->setOpacity(1.0F);
+
+    switch (direction) {
+    case NotificationToast::RevealDirection::FromRight:
+      cardNode->setPosition(edgePadX + dragOffset, y);
+      break;
+    case NotificationToast::RevealDirection::FromLeft:
+      cardNode->setPosition(edgePadX - dragOffset, y);
+      break;
+    case NotificationToast::RevealDirection::FromTop:
+      cardNode->setPosition(edgePadX, y - dragOffset);
+      break;
+    case NotificationToast::RevealDirection::FromBottom:
+      cardNode->setPosition(edgePadX, y + dragOffset);
+      break;
+    }
   }
 
   void applyCardRevealNodes(
@@ -476,20 +525,14 @@ namespace {
     std::int32_t left = 0;
   };
 
-  ToastSurfaceMargins toastSurfaceMargins(std::string_view position, int offsetX, int offsetY, float scale) {
-    const auto sideMargin = shell::surface_edge_inset::resolve(offsetX, paddingX(scale)).layerMargin;
-    const auto verticalMargin = static_cast<std::int32_t>(offsetY);
-    ToastSurfaceMargins margins{
-        .top = verticalMargin,
-        .right = sideMargin,
-        .bottom = verticalMargin,
-        .left = sideMargin,
+  ToastSurfaceMargins
+  toastSurfaceMargins(std::string_view /*position*/, int /*offsetX*/, int /*offsetY*/, float /*scale*/) {
+    return ToastSurfaceMargins{
+        .top = 0,
+        .right = 0,
+        .bottom = 0,
+        .left = 0,
     };
-    if (position.ends_with("_center")) {
-      margins.right = 0;
-      margins.left = 0;
-    }
-    return margins;
   }
 
   std::filesystem::path remoteIconCachePath(std::string_view url) {
@@ -526,7 +569,8 @@ void NotificationToast::initialize(
 
 float NotificationToast::horizontalInnerPad(float scale) const {
   const int offX = m_config != nullptr ? std::max(0, m_config->config().notification.offsetX) : 0;
-  return shell::surface_edge_inset::resolve(offX, paddingX(scale)).innerPadding;
+  const auto inset = shell::surface_edge_inset::resolve(offX, paddingX(scale));
+  return static_cast<float>(inset.layerMargin) + inset.innerPadding;
 }
 
 void NotificationToast::onConfigReload() {
@@ -1089,6 +1133,167 @@ void NotificationToast::addCardToInstance(Instance& inst, std::size_t entryIndex
     endPopupHover(notificationId, totalDuration, progressBarPtr);
   });
 
+  card->setOnPress([this, &inst, notificationId, totalDuration, progressBarPtr](const InputArea::PointerData& data) {
+    if (m_config != nullptr && !m_config->config().notification.enableDragToDismiss) {
+      return;
+    }
+    auto* cardState = findCardState(inst, notificationId);
+    if (cardState == nullptr) {
+      return;
+    }
+
+    if (data.pressed && data.button == BTN_LEFT) {
+      cardState->dragStartX = inst.lastPointerX;
+      cardState->dragStartY = inst.lastPointerY;
+      cardState->currentDragOffset = 0.0F;
+      cardState->dragging = false;
+      if (cardState->snapBackAnimId != 0) {
+        inst.animations.cancel(cardState->snapBackAnimId);
+        cardState->snapBackAnimId = 0;
+      }
+      pauseCountdowns(notificationId);
+    } else if (!data.pressed && data.button == BTN_LEFT) {
+      if (!cardState->dragging) {
+        endPopupHover(notificationId, totalDuration, progressBarPtr);
+        return;
+      }
+
+      cardState->dragging = false;
+      const float scale = notificationUiScale(m_config);
+      const float cardHeight = cardState->clipHeight > 0.0F ? cardState->clipHeight : cardState->cardNode->height();
+      const float cWidth = cardWidth(scale);
+      const float dimension =
+          (revealDirection() == RevealDirection::FromLeft || revealDirection() == RevealDirection::FromRight)
+          ? cWidth
+          : cardHeight;
+      const float dismissThreshold = dimension * 0.4F;
+
+      std::size_t entryIdx = 0;
+      for (std::size_t i = 0; i < inst.cards.size() && i < m_entries.size(); ++i) {
+        if (m_entries[i].notificationId == notificationId) {
+          entryIdx = i;
+          break;
+        }
+      }
+      const float restingY = cardSurfaceY(inst, entryIdx);
+      const float edgePad = horizontalInnerPad(scale);
+      const bool animationsEnabled = m_config == nullptr || m_config->config().shell.animation.enabled;
+
+      if (cardState->currentDragOffset >= dismissThreshold) {
+        const float targetDismissOffset = dimension + edgePad + 20.0F;
+        const float startOffset = cardState->currentDragOffset;
+
+        if (animationsEnabled && Style::animNormal > 0) {
+          cardState->snapBackAnimId = inst.animations.animate(
+              startOffset, targetDismissOffset, Style::animFast, Easing::EaseOutCubic,
+              [this, node = cardState->cardNode, content = cardState->cardContent, fg = cardState->cardForeground,
+               restingY, cardHeight, cWidth, edgePad](float offset) {
+                applySolidBlockPosition(
+                    node, content, fg, offset, restingY, revealDirection(), cWidth, cardHeight, edgePad
+                );
+              },
+              [this, &inst, notificationId, targetDismissOffset]() {
+                if (auto* state = findCardState(inst, notificationId); state != nullptr) {
+                  state->snapBackAnimId = 0;
+                  state->currentDragOffset = targetDismissOffset;
+                }
+                requestClose(notificationId, CloseReason::Dismissed);
+              },
+              cardState->cardNode
+          );
+        } else {
+          cardState->currentDragOffset = targetDismissOffset;
+          applySolidBlockPosition(
+              cardState->cardNode, cardState->cardContent, cardState->cardForeground, targetDismissOffset, restingY,
+              revealDirection(), cWidth, cardHeight, edgePad
+          );
+          requestClose(notificationId, CloseReason::Dismissed);
+        }
+      } else {
+        const float startOffset = cardState->currentDragOffset;
+        if (animationsEnabled && Style::animNormal > 0) {
+          cardState->snapBackAnimId = inst.animations.animate(
+              startOffset, 0.0F, Style::animFast, Easing::EaseOutCubic,
+              [this, node = cardState->cardNode, content = cardState->cardContent, fg = cardState->cardForeground,
+               restingY, cardHeight, cWidth, edgePad](float offset) {
+                applySolidBlockPosition(
+                    node, content, fg, offset, restingY, revealDirection(), cWidth, cardHeight, edgePad
+                );
+              },
+              [this, &inst, notificationId]() {
+                if (auto* state = findCardState(inst, notificationId); state != nullptr) {
+                  state->snapBackAnimId = 0;
+                  state->currentDragOffset = 0.0F;
+                }
+              },
+              cardState->cardNode
+          );
+        } else {
+          cardState->currentDragOffset = 0.0F;
+          applySolidBlockPosition(
+              cardState->cardNode, cardState->cardContent, cardState->cardForeground, 0.0F, restingY, revealDirection(),
+              cWidth, cardHeight, edgePad
+          );
+        }
+        endPopupHover(notificationId, totalDuration, progressBarPtr);
+      }
+    }
+  });
+
+  card->setOnMotion([this, &inst, notificationId, cardInput](const InputArea::PointerData&) {
+    if (m_config != nullptr && !m_config->config().notification.enableDragToDismiss) {
+      return;
+    }
+    auto* cardState = findCardState(inst, notificationId);
+    if (cardState == nullptr || !cardInput->pressed()) {
+      return;
+    }
+    if (cardInput->pressedButton() != BTN_LEFT) {
+      return;
+    }
+
+    const float deltaX = inst.lastPointerX - cardState->dragStartX;
+    const float deltaY = inst.lastPointerY - cardState->dragStartY;
+    const float dismissOffset = computeDismissOffset(revealDirection(), deltaX, deltaY);
+
+    constexpr float kDragActivationThreshold = 12.0F;
+    if (dismissOffset > kDragActivationThreshold || cardState->dragging) {
+      cardState->dragging = true;
+      cardState->currentDragOffset = std::max(0.0F, dismissOffset);
+
+      if (cardState->entryAnimId != 0) {
+        inst.animations.cancel(cardState->entryAnimId);
+        cardState->entryAnimId = 0;
+      }
+      if (cardState->slideAnimId != 0) {
+        inst.animations.cancel(cardState->slideAnimId);
+        cardState->slideAnimId = 0;
+      }
+      if (cardState->snapBackAnimId != 0) {
+        inst.animations.cancel(cardState->snapBackAnimId);
+        cardState->snapBackAnimId = 0;
+      }
+
+      const float scale = notificationUiScale(m_config);
+      const float cardHeight = cardState->clipHeight > 0.0F ? cardState->clipHeight : cardState->cardNode->height();
+      const float cWidth = cardWidth(scale);
+
+      std::size_t entryIdx = 0;
+      for (std::size_t i = 0; i < inst.cards.size() && i < m_entries.size(); ++i) {
+        if (m_entries[i].notificationId == notificationId) {
+          entryIdx = i;
+          break;
+        }
+      }
+      const float restingY = cardSurfaceY(inst, entryIdx);
+      applySolidBlockPosition(
+          cardState->cardNode, cardState->cardContent, cardState->cardForeground, cardState->currentDragOffset,
+          restingY, revealDirection(), cWidth, cardHeight, horizontalInnerPad(scale)
+      );
+      inst.surface->requestRedraw();
+    }
+  });
+
   updateInputRegion(inst);
   if (inst.pointerInside) {
     inst.inputDispatcher.pointerMotion(inst.lastPointerX, inst.lastPointerY, 0);
@@ -1117,6 +1322,10 @@ void NotificationToast::removeCardFromInstance(Instance& inst, std::size_t entry
   if (cs.exitAnimId != 0) {
     inst.animations.cancel(cs.exitAnimId);
     cs.exitAnimId = 0;
+  }
+  if (cs.snapBackAnimId != 0) {
+    inst.animations.cancel(cs.snapBackAnimId);
+    cs.snapBackAnimId = 0;
   }
   if (cs.cardNode == nullptr) {
     return;
@@ -1215,22 +1424,40 @@ void NotificationToast::dismissCardFromInstance(Instance& inst, std::size_t entr
     inst.animations.cancel(cs.exitAnimId);
     cs.exitAnimId = 0;
   }
+  if (cs.snapBackAnimId != 0) {
+    inst.animations.cancel(cs.snapBackAnimId);
+    cs.snapBackAnimId = 0;
+  }
   if (cs.cardNode == nullptr) {
+    return;
+  }
+
+  const uint32_t removingId = (entryIndex < m_entries.size()) ? m_entries[entryIndex].notificationId : 0;
+  const float scale = notificationUiScale(m_config);
+  const float cardHeight = cs.clipHeight > 0.0F ? cs.clipHeight : cs.cardNode->height();
+  const float cWidth = cardWidth(scale);
+  const float dimension =
+      (revealDirection() == RevealDirection::FromLeft || revealDirection() == RevealDirection::FromRight) ? cWidth
+                                                                                                          : cardHeight;
+  const float dismissThreshold = dimension * 0.4F;
+
+  if (cs.currentDragOffset >= dismissThreshold) {
+    removeCardFromInstance(inst, entryIndex);
+    if (removingId != 0) {
+      DeferredCall::callLater([this, removingId]() { finishRemoval(removingId); });
+    }
     return;
   }
 
   Node* card = cs.cardNode;
   Node* content = cs.cardContent;
   Node* foreground = cs.cardForeground;
-  const float cardHeight = cs.clipHeight > 0.0F ? cs.clipHeight : card->height();
   const float startReveal = cardReveal(cs, cardHeight);
   const float targetY = card->y();
-  const uint32_t removingId = (entryIndex < m_entries.size()) ? m_entries[entryIndex].notificationId : 0;
 
   cs.exitAnimId = inst.animations.animate(
       startReveal, 0.0F, Style::animNormal, Easing::EaseInOutQuad,
-      [this, card, content, foreground, targetY, cardHeight, scale = notificationUiScale(m_config),
-       edgePad = horizontalInnerPad(notificationUiScale(m_config))](float v) {
+      [this, card, content, foreground, targetY, cardHeight, scale, edgePad = horizontalInnerPad(scale)](float v) {
         applyCardRevealNodes(card, content, foreground, v, targetY, revealDirection(), cardHeight, scale, edgePad);
       },
       [this, &inst, removingId]() {
@@ -1656,8 +1883,8 @@ void NotificationToast::refreshEntryGeometry(PopupEntry& entry) const {
 
 float NotificationToast::layoutBottomForSurfaceHeight(float surfaceHeight) const {
   const float scale = notificationUiScale(m_config);
-  const float edgePadding = isBottomStacking() ? 0.0F : paddingBottom(scale);
-  return std::max(paddingTop(scale), surfaceHeight - edgePadding);
+  const float edgePadding = paddingBottom(scale, m_config);
+  return std::max(paddingTop(scale, m_config), surfaceHeight - edgePadding);
 }
 
 float NotificationToast::entryOffsetFromPlacementBottom(const PopupEntry& entry) const {
@@ -1697,7 +1924,7 @@ float NotificationToast::cardSurfaceY(const Instance& inst, std::size_t entryInd
     items.push_back({i, primary, entry.height});
   }
   if (items.empty()) {
-    return bottom ? layoutBottom : paddingTop(scale);
+    return bottom ? layoutBottom : paddingTop(scale, m_config);
   }
   std::ranges::sort(items, {}, &Item::primary);
 
@@ -1768,7 +1995,7 @@ void NotificationToast::alignBottomStackToPlacementBottom() {
   }
 
   const float scale = notificationUiScale(m_config);
-  const float topPadding = paddingTop(scale);
+  const float topPadding = paddingTop(scale, m_config);
   const float delta = maxPlacementBottom() - stackBottom;
   if (std::abs(delta) <= 0.5F) {
     return;
@@ -1791,7 +2018,7 @@ void NotificationToast::alignBottomStackToPlacementBottom() {
 void NotificationToast::collapseStack() {
   const float scale = notificationUiScale(m_config);
   const float layoutGap = kGap * scale;
-  const float topPad = paddingTop(scale);
+  const float topPad = paddingTop(scale, m_config);
   const float placementBottom = maxPlacementBottom();
 
   struct PlacedEntry {
@@ -1930,7 +2157,7 @@ NotificationToast::findPlacementY(float candidateHeight, std::optional<uint32_t>
   const float bottom = maxPlacementBottom();
   const float scale = notificationUiScale(m_config);
   const float layoutGap = kGap * scale;
-  const float topPadding = paddingTop(scale);
+  const float topPadding = paddingTop(scale, m_config);
   if (isBottomStacking()) {
     std::ranges::sort(occupied, std::ranges::greater{}, &Interval::bottom);
     float cursorBottom = bottom;
@@ -1968,16 +2195,12 @@ uint32_t NotificationToast::surfaceHeightForOutput(wl_output* output) const {
     if (const auto* wlOutput = m_wayland->findOutputByWl(output); wlOutput != nullptr) {
       const std::int32_t logicalHeight = outputLogicalHeight(*wlOutput);
       if (logicalHeight > 0) {
-        const auto offsetY = m_config != nullptr
-            ? static_cast<std::int32_t>(std::max(0, m_config->config().notification.offsetY))
-            : std::int32_t{8};
-        const std::int32_t available = logicalHeight - (offsetY * 2);
-        return static_cast<uint32_t>(std::max(1, available));
+        return static_cast<uint32_t>(logicalHeight);
       }
     }
   }
 
-  return fallbackSurfaceHeight(notificationUiScale(m_config));
+  return fallbackSurfaceHeight(notificationUiScale(m_config), m_config);
 }
 
 // --- Surface lifecycle ---
@@ -2288,14 +2511,21 @@ InputArea* NotificationToast::buildCard(
   viewport->setOnClick([this, id = entry.notificationId, sourceSurface,
                         hasDefaultAction =
                             hasNotificationAction(entry.actions, "default")](const InputArea::PointerData& data) {
+    for (const auto& inst : m_instances) {
+      if (auto* state = findCardState(*inst, id); state != nullptr && state->dragging) {
+        return;
+      }
+    }
     if (data.button == BTN_RIGHT) {
       requestClose(id, CloseReason::Dismissed);
-    } else if (data.button == BTN_LEFT && hasDefaultAction) {
+    } else if (data.button == BTN_LEFT) {
       if (m_notifications != nullptr) {
         const std::string activationToken =
             m_wayland != nullptr ? m_wayland->requestActivationToken(sourceSurface) : std::string{};
         if (!m_notifications->invokeAction(id, "default", activationToken, true)) {
-          kLog.warn("notification toast: failed to invoke default action for #{}", id);
+          if (hasDefaultAction) {
+            kLog.warn("notification toast: failed to invoke default action for #{}", id);
+          }
         }
       }
     }

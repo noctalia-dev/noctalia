@@ -172,6 +172,7 @@ public:
   // Auto-tracked state (read-only)
   [[nodiscard]] bool hovered() const noexcept { return m_hovered; }
   [[nodiscard]] bool pressed() const noexcept { return m_pressed; }
+  [[nodiscard]] std::uint32_t pressedButton() const noexcept { return m_pressedButton; }
 
   // Called by InputDispatcher to get notified when this area is destroyed
   void setDestroyCallback(DestroyCallback callback);
