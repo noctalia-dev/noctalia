@@ -3798,6 +3798,9 @@
         "scroll-steps": "Every Step",
         "shared": "Shared",
         "short": "Short",
+        "monitor-focus-behavior-ignored": "All",
+        "monitor-focus-behavior-focused": "Focused",
+        "monitor-focus-behavior-unfocused": "Unfocused",
         "swap-percent": "Swap %",
         "text": "Text",
         "text-only": "Text Only",
@@ -4303,6 +4306,10 @@
         "show-vpn-label": {
           "description": "Replaces network label with VPN label in Replace mode; adds VPN label next to VPN icon in Both mode",
           "label": "Show VPN Label"
+        },
+        "monitor-focus-behavior": {
+          "description": "Hide this widget depending on monitor focus state",
+          "label": "Show On Certain Monitors"
         },
         "show-when-idle": {
           "description": "Keep the visualizer visible even when no media is playing",
