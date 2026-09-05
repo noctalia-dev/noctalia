@@ -811,6 +811,7 @@ void Application::initWaylandCallbacks() {
     m_bar.refresh();
     m_dock.refresh();
     m_windowSwitcher.onToplevelChange();
+    m_notificationToast.onToplevelChange();
   });
   if constexpr (kLockKeysEnabled) {
     if (lockKeysConsumersEnabled(m_configService.config())) {

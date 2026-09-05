@@ -754,6 +754,7 @@ struct NotificationConfig {
   int offsetX = 20;                // absolute horizontal margin from the screen edge
   int offsetY = 8;                 // absolute vertical margin from the screen edge
   std::vector<std::string> monitors;
+  bool routeToSourceOutput = false;
   bool collapseOnDismiss = true;
   int historyRetentionHours = 0;
   int maxVisible = 0; // 0 = unlimited (space-based only)

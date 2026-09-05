@@ -12,6 +12,7 @@
 #include <vector>
 
 class ConfigService;
+class CompositorPlatform;
 class HttpClient;
 class Input;
 class InputArea;
@@ -40,10 +41,11 @@ public:
 
   void initialize(
       WaylandConnection& wayland, ConfigService* config, NotificationManager* notifications,
-      RenderContext* renderContext, HttpClient* httpClient = nullptr
+      RenderContext* renderContext, CompositorPlatform* platform, HttpClient* httpClient = nullptr
   );
   void onConfigReload();
   void onOutputChange();
+  void onToplevelChange();
   void hideDndSuppressed();
   void requestLayout();
   void requestRedraw();
@@ -57,6 +59,7 @@ private:
   // Per-notification visual state (shared across all instances)
   struct PopupEntry {
     uint32_t notificationId = 0;
+    wl_output* targetOutput = nullptr;
     std::string appName;
     std::string summary;
     std::string body;
@@ -189,6 +192,8 @@ private:
   [[nodiscard]] std::optional<float>
   findPlacementY(float entryHeight, std::optional<uint32_t> ignoreNotificationId = std::nullopt) const;
   [[nodiscard]] uint32_t surfaceHeightForOutput(wl_output* output) const;
+  [[nodiscard]] wl_output* resolveNotificationOutput(const Notification& notification) const;
+  void refreshNotificationOutputs();
   // Configured render scale of a notification output, for pre-surface sizing.
   [[nodiscard]] float notificationScale() const;
   [[nodiscard]] std::string resolveNotificationIconPath(const PopupEntry& entry);
@@ -197,6 +202,7 @@ private:
   ConfigService* m_config = nullptr;
   NotificationManager* m_notifications = nullptr;
   RenderContext* m_renderContext = nullptr;
+  CompositorPlatform* m_platform = nullptr;
   HttpClient* m_httpClient = nullptr;
 
   std::vector<PopupEntry> m_entries;
