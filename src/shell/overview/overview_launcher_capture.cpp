@@ -218,12 +218,12 @@ bool OverviewLauncherCapture::handleOverviewKey(const KeyboardEvent& event) cons
     return true;
   }
   if (KeySymbol::isUp(event.sym)) {
-    const auto* action = isUmbriel ? "workspace-previous" : "FocusWorkspaceUp";
+    const auto* action = isUmbriel ? "window-focus-or-workspace-up" : "FocusWorkspaceUp";
     (void)sendOverviewAction(action);
     return true;
   }
   if (KeySymbol::isDown(event.sym)) {
-    const auto* action = isUmbriel ? "workspace-next" : "FocusWorkspaceDown";
+    const auto* action = isUmbriel ? "window-focus-or-workspace-down" : "FocusWorkspaceDown";
     (void)sendOverviewAction(action);
     return true;
   }
