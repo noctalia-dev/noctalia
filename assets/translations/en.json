@@ -4216,6 +4216,10 @@
           "description": "Reverse the low-to-high frequency order of the bars",
           "label": "Reversed"
         },
+        "rotate-album-art": {
+          "description": "Rotate the circular album artwork while media is playing",
+          "label": "Rotate Album Art"
+        },
         "scale": {
           "description": "Scale this widget relative to the bar content scale",
           "label": "Scale"
