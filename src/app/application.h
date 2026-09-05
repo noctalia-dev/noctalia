@@ -69,6 +69,7 @@
 #include "system/lock_keys_poll_source.h"
 #include "system/lock_keys_service.h"
 #include "system/screen_time_service.h"
+#include "system/process_service.h"
 #include "system/telemetry_service.h"
 #include "system/weather_poll_source.h"
 #include "system/weather_service.h"
@@ -255,6 +256,7 @@ private:
   std::unique_ptr<ScreenSaverService> m_screenSaverService;
   std::unique_ptr<ScreenSaverPollSource> m_screenSaverPollSource;
   std::unique_ptr<SystemMonitorService> m_systemMonitor;
+  std::unique_ptr<ProcessService> m_processService;
   std::unique_ptr<DebugService> m_debugService;
   IdleInhibitor m_idleInhibitor;
   IdleManager m_idleManager;

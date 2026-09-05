@@ -78,7 +78,7 @@ namespace noctalia::bar {
         {{Gesture::ScrollUp, "workspace-switch prev"}, {Gesture::ScrollDown, "workspace-switch next"}}
     };
     constexpr std::array<GestureBinding, 1> kSettings{{{Gesture::Left, "settings-open"}}};
-    constexpr std::array<GestureBinding, 1> kSysmon{{{Gesture::Left, "panel-toggle control-center system"}}};
+    constexpr std::array<GestureBinding, 1> kSysmon{{{Gesture::Left, "panel-toggle process-list"}}};
     constexpr std::array<GestureBinding, 1> kWallpaper{{{Gesture::Left, "panel-toggle wallpaper"}}};
     constexpr std::array<GestureBinding, 1> kThemeMode{{{Gesture::Left, "theme-mode-toggle"}}};
     constexpr std::array<GestureBinding, 4> kVolumeOutput{

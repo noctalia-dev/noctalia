@@ -973,6 +973,7 @@ void Application::initAuxServicesAndHooks() {
     m_scriptApi.setSystemMonitor(nullptr);
     m_systemMonitor.reset();
   }
+  m_processService = std::make_unique<ProcessService>();
 }
 
 void Application::releaseSleepDelayInhibitIfPending() {
