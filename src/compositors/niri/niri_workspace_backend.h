@@ -45,6 +45,7 @@ public:
   [[nodiscard]] std::optional<std::string> focusedWindowId() const override;
   bool focusWindowById(const std::string& windowId, bool warpPointer = false) override;
   bool closeWindowById(const std::string& windowId) override;
+  [[nodiscard]] bool moveWorkspaceToIndex(const Workspace& workspace, std::size_t newIndex);
   void cleanup() override;
 
 private:

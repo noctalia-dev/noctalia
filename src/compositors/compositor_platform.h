@@ -141,6 +141,8 @@ public:
   void activateWorkspace(const std::string& id);
   void activateWorkspace(wl_output* output, const std::string& id);
   void activateWorkspace(wl_output* output, const Workspace& workspace);
+  [[nodiscard]] bool moveWorkspaceToIndex(wl_output* output, const Workspace& workspace, std::size_t newIndex);
+  [[nodiscard]] bool canMoveWorkspaceToIndex() const noexcept;
   std::size_t addWorkspacePollFds(std::vector<pollfd>& fds) const;
   [[nodiscard]] int workspacePollTimeoutMs() const noexcept;
   void dispatchWorkspacePoll(const std::vector<pollfd>& fds, std::size_t startIdx);

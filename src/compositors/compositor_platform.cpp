@@ -1175,6 +1175,23 @@ void CompositorPlatform::activateWorkspace(wl_output* output, const Workspace& w
   }
 }
 
+bool CompositorPlatform::moveWorkspaceToIndex(wl_output* output, const Workspace& workspace, std::size_t newIndex) {
+  (void)output;
+  if (m_workspaceMetadataBackend != nullptr) {
+    if (auto* niri = dynamic_cast<NiriWorkspaceBackend*>(m_workspaceMetadataBackend.get()); niri != nullptr) {
+      return niri->moveWorkspaceToIndex(workspace, newIndex);
+    }
+  }
+  return false;
+}
+
+bool CompositorPlatform::canMoveWorkspaceToIndex() const noexcept {
+  if (m_workspaceMetadataBackend == nullptr) {
+    return false;
+  }
+  return dynamic_cast<NiriWorkspaceBackend*>(m_workspaceMetadataBackend.get()) != nullptr;
+}
+
 std::size_t CompositorPlatform::addWorkspacePollFds(std::vector<pollfd>& fds) const {
   const auto start = fds.size();
   if (m_workspaces != nullptr && m_workspaces->pollFd() >= 0) {

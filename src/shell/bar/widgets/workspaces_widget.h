@@ -1,6 +1,7 @@
 #pragma once
 
 #include "compositors/compositor_platform.h"
+#include "core/timer_manager.h"
 #include "render/animation/animation_manager.h"
 #include "shell/bar/widget.h"
 #include "system/icon_resolver.h"
@@ -8,6 +9,7 @@
 #include "ui/signal.h"
 
 #include <cstdint>
+#include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -74,6 +76,30 @@ private:
   void finishAnimation();
   void applyItemLayout(Item& item);
   void applyItemLayouts();
+
+  struct DragState {
+    bool active = false;
+    bool armed = false;
+    std::size_t sourceIndex = 0;
+    std::size_t targetIndex = 0;
+    float startMain = 0.0F;
+    float currentMain = 0.0F;
+    InputArea* area = nullptr;
+    float restMain = 0.0F;
+    float restCross = 0.0F;
+    Timer holdTimer;
+  };
+
+  [[nodiscard]] bool reorderEnabled() const noexcept;
+  [[nodiscard]] float pointerMainOnStrip(const InputArea& area, float localX, float localY) const noexcept;
+  [[nodiscard]] std::size_t computeDragTargetIndex() const;
+  [[nodiscard]] bool commitDragReorder();
+  void beginDrag();
+  void updateDragTarget();
+  void moveDragTile();
+  void endDrag(bool commit);
+  void applyDragLayout();
+  void requestDragLayout();
   void snapshotItemsForRebuild();
   void scheduleRebuildFromSnapshot();
   [[nodiscard]] float workspacePillRadius(float width, float height) const noexcept;
@@ -193,6 +219,13 @@ private:
   float m_hoverProgress = 0.0F;
   InputArea* m_hoveredArea = nullptr;
   bool m_isVertical = false;
+
+  DragState m_drag;
+  InputArea* m_dragFloatTile = nullptr;
+  Box* m_dragSpacer = nullptr;
+  bool m_dragParked = false;
+  bool m_suppressClick = false;
+  std::shared_ptr<void> m_aliveGuard = std::make_shared<int>(0);
 
   AnimationManager::Id m_animId = 0;
   ColorSpec m_focusedColor = colorSpecFromRole(ColorRole::Primary);

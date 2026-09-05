@@ -2,6 +2,7 @@
 
 #include "compositors/workspace_backend.h"
 #include "config/config_service.h"
+#include "core/deferred_call.h"
 #include "core/ui_phase.h"
 #include "render/animation/animation.h"
 #include "render/animation/animation_manager.h"
@@ -34,6 +35,8 @@ namespace {
   constexpr float kWorkspaceGap = Style::spaceXs;
   constexpr float kWorkspacePillDefaultHeight = Style::baseGlyphSize;
   constexpr float kWorkspaceAnimDurationMs = static_cast<float>(Style::animNormal);
+  constexpr auto kDragHoldDelay = std::chrono::milliseconds(300);
+  constexpr std::int32_t kDragTileZIndex = 200;
 
   [[nodiscard]] constexpr float workspaceLabelFontSize(bool minimal) {
     return minimal ? Style::fontSizeBody : Style::fontSizeMini;
@@ -136,6 +139,7 @@ void WorkspacesWidget::doLayout(Renderer& renderer, float containerWidth, float 
     rebuild(renderer);
     m_rebuildPending = false;
   }
+  applyDragLayout();
 }
 
 void WorkspacesWidget::syncWidgetVisibility(bool showWidget) {
@@ -147,10 +151,169 @@ void WorkspacesWidget::syncWidgetVisibility(bool showWidget) {
 
 void WorkspacesWidget::setWorkspaceClickHandler(InputArea& area, wl_output* output, const Workspace& workspace) {
   area.setOnClick([this, output, workspace](const InputArea::PointerData& data) {
+    if (m_drag.active || m_drag.armed) {
+      return;
+    }
+    if (m_suppressClick) {
+      m_suppressClick = false;
+      return;
+    }
     if (data.button == BTN_LEFT) {
       m_platform.activateWorkspace(output, workspace);
     }
   });
+}
+
+bool WorkspacesWidget::reorderEnabled() const noexcept {
+  if (m_items.size() < 2) {
+    return false;
+  }
+  return m_platform.canMoveWorkspaceToIndex();
+}
+
+float WorkspacesWidget::pointerMainOnStrip(const InputArea& area, float localX, float localY) const noexcept {
+  return m_isVertical ? area.y() + localY : area.x() + localX;
+}
+
+std::size_t WorkspacesWidget::computeDragTargetIndex() const {
+  if (m_items.empty() || m_drag.area == nullptr) {
+    return m_drag.sourceIndex;
+  }
+  const float pointer = m_drag.currentMain;
+  // Count how many other pills have center < pointer; that count is insertion position among filtered list
+  std::size_t count = 0;
+  for (std::size_t i = 0; i < m_items.size(); ++i) {
+    if (i == m_drag.sourceIndex) continue;
+    if (m_items[i].exiting || isWorkspaceHidden(m_items[i].workspace)) continue;
+    const float center = m_items[i].targetX + m_items[i].targetWidth * 0.5F;
+    if (pointer > center) ++count;
+  }
+  // count is insertion index among filtered (0..filtered.size())
+  // Map directly to full index 0..n-1 (same as count, since filtered size = n-1)
+  std::size_t target = count;
+  if (target >= m_items.size()) target = m_items.size() - 1;
+  return target;
+}
+
+bool WorkspacesWidget::commitDragReorder() {
+  if (m_drag.sourceIndex >= m_items.size() || m_drag.targetIndex >= m_items.size()
+      || m_drag.sourceIndex == m_drag.targetIndex) {
+    return false;
+  }
+  const Workspace ws = m_items[m_drag.sourceIndex].workspace;
+  wl_output* out = m_items[m_drag.sourceIndex].output;
+  const std::size_t newIndex = m_drag.targetIndex;
+  // Defer so we don't mutate compositor state inside input dispatch
+  DeferredCall::callLater([this, ws, out, newIndex, alive = std::weak_ptr<void>(m_aliveGuard)]() {
+    if (alive.expired()) return;
+    (void)m_platform.moveWorkspaceToIndex(out, ws, newIndex);
+  });
+  return true;
+}
+
+void WorkspacesWidget::requestDragLayout() {
+  if (Node* container = root(); container != nullptr) {
+    container->markLayoutDirty();
+  }
+  requestUpdate();
+}
+
+void WorkspacesWidget::beginDrag() {
+  if (m_drag.area == nullptr) return;
+  m_drag.active = true;
+  m_drag.restMain = m_isVertical ? m_drag.area->y() : m_drag.area->x();
+  m_drag.restCross = m_isVertical ? m_drag.area->x() : m_drag.area->y();
+  requestDragLayout();
+}
+
+void WorkspacesWidget::updateDragTarget() {
+  const std::size_t target = computeDragTargetIndex();
+  if (target != m_drag.targetIndex) {
+    m_drag.targetIndex = target;
+    // Highlight target pill via hover overlay
+    if (target < m_items.size() && m_items[target].area != nullptr) {
+      m_hoveredArea = m_items[target].area;
+      updateHoverOverlay();
+    }
+    requestRedraw();
+  }
+}
+
+void WorkspacesWidget::moveDragTile() {
+  if (m_drag.area == nullptr || !m_drag.active) return;
+  // Clamp travel to first/last slot to avoid wandering off-strip
+  float minMain = 0.0F;
+  float maxMain = 0.0F;
+  {
+    float first = std::numeric_limits<float>::max();
+    float last = std::numeric_limits<float>::lowest();
+    for (const auto& it : m_items) {
+      if (it.exiting || isWorkspaceHidden(it.workspace)) continue;
+      first = std::min(first, it.targetX);
+      last = std::max(last, it.targetX + it.targetWidth);
+    }
+    if (first < std::numeric_limits<float>::max()) {
+      const float w = m_items[m_drag.sourceIndex].targetWidth;
+      minMain = first;
+      maxMain = last - w;
+    }
+  }
+  const float travelled = m_drag.restMain + (m_drag.currentMain - m_drag.startMain);
+  const float main = std::clamp(travelled, minMain, maxMain);
+  if (m_isVertical) {
+    m_drag.area->setPosition(m_drag.restCross, main);
+  } else {
+    m_drag.area->setPosition(main, m_drag.restCross);
+  }
+  requestRedraw();
+}
+
+void WorkspacesWidget::endDrag(bool commit) {
+  m_drag.holdTimer.stop();
+  const bool wasActive = m_drag.active;
+  if (wasActive || m_drag.armed) {
+    m_suppressClick = true;
+  }
+  const bool reordered = wasActive && commit && commitDragReorder();
+  if (reordered && m_drag.area != nullptr && m_dragSpacer != nullptr) {
+    m_drag.area->setPosition(m_dragSpacer->x(), m_dragSpacer->y());
+  }
+  // Preserve floatTile/spacer for applyDragLayout to clean
+  m_drag.active = false;
+  m_drag.armed = false;
+  m_drag.area = nullptr;
+  if (!wasActive) {
+    return;
+  }
+  if (!reordered) {
+    requestDragLayout();
+    return;
+  }
+  m_dragParked = true;
+  DeferredCall::callLater([this, alive = std::weak_ptr<void>(m_aliveGuard)]() {
+    if (alive.expired()) return;
+    m_dragParked = false;
+    requestDragLayout();
+  });
+}
+
+void WorkspacesWidget::applyDragLayout() {
+  if (m_container == nullptr) return;
+  if (m_dragParked) return;
+  InputArea* const floatTile = (m_drag.active && m_drag.area != nullptr) ? m_drag.area : nullptr;
+  if (m_dragFloatTile != nullptr && m_dragFloatTile != floatTile) {
+    m_dragFloatTile->setZIndex(0);
+    m_dragFloatTile->setParticipatesInLayout(true);
+    m_dragFloatTile = nullptr;
+  }
+  if (m_dragSpacer != nullptr) {
+    m_container->removeChild(m_dragSpacer);
+    m_dragSpacer = nullptr;
+  }
+  if (floatTile == nullptr) return;
+  m_dragFloatTile = floatTile;
+  floatTile->setParticipatesInLayout(false);
+  floatTile->setZIndex(kDragTileZIndex);
 }
 
 void WorkspacesWidget::applyItemVisualStyle(Item& item) {
@@ -345,6 +508,12 @@ void WorkspacesWidget::rebuild(Renderer& renderer) {
   m_hoveredArea = nullptr;
   m_hoverOverlay = nullptr;
   m_hoverProgress = 0.0F;
+  // Clear drag state whose nodes are about to be destroyed
+  m_drag.holdTimer.stop();
+  m_drag = {};
+  m_dragFloatTile = nullptr;
+  m_dragSpacer = nullptr;
+  m_dragParked = false;
   while (!m_container->children().empty()) {
     m_container->removeChild(m_container->children().back().get());
   }
@@ -610,6 +779,57 @@ void WorkspacesWidget::rebuild(Renderer& renderer) {
     InputArea* areaPtr = area.get();
     if (!entry.exiting) {
       setWorkspaceClickHandler(*area, entry.output, ws);
+      // Drag-to-reorder: niri supports MoveWorkspaceToIndex, reuse taskbar gesture pattern
+      InputArea* dragArea = area.get();
+      const std::size_t tileIndex = m_items.size();
+      area->setAcceptedButtons(InputArea::buttonMask({BTN_LEFT, BTN_RIGHT, BTN_MIDDLE}));
+      area->setOnPress([this, dragArea, tileIndex](const InputArea::PointerData& data) {
+        const bool owns = m_drag.area == dragArea;
+        if (!data.pressed) {
+          if (data.button != BTN_LEFT || !owns) return;
+          const bool shouldCommit = m_drag.sourceIndex != m_drag.targetIndex;
+          endDrag(shouldCommit);
+          return;
+        }
+        if (data.button != BTN_LEFT) {
+          if (!m_drag.active && !m_drag.armed) m_suppressClick = false;
+          return;
+        }
+        endDrag(false);
+        m_suppressClick = false;
+        if (!reorderEnabled()) return;
+        if (tileIndex >= m_items.size() + 1) return;
+        std::size_t actual = tileIndex;
+        auto it = std::ranges::find(m_items, dragArea, &Item::area);
+        if (it != m_items.end()) actual = static_cast<std::size_t>(std::distance(m_items.begin(), it));
+        m_drag.sourceIndex = actual;
+        m_drag.targetIndex = actual;
+        m_drag.startMain = pointerMainOnStrip(*dragArea, data.localX, data.localY);
+        m_drag.currentMain = m_drag.startMain;
+        m_drag.area = dragArea;
+        m_drag.holdTimer.start(kDragHoldDelay, [this, dragArea]() {
+          if (m_drag.area == dragArea && !m_drag.active) m_drag.armed = true;
+        });
+      });
+      area->setOnMotion([this, dragArea](const InputArea::PointerData& data) {
+        if (m_drag.area != dragArea) return;
+        if (m_drag.area == nullptr) { endDrag(false); return; }
+        const float main = pointerMainOnStrip(*dragArea, data.localX, data.localY);
+        if (!m_drag.active) {
+          const bool travelled = std::abs(main - m_drag.startMain) >= Style::dragStartThreshold * m_contentScale;
+          if (!m_drag.armed && !travelled) return;
+          m_drag.holdTimer.stop();
+          m_drag.armed = true;
+          beginDrag();
+        }
+        m_drag.currentMain = main;
+        updateDragTarget();
+        moveDragTile();
+      });
+      area->setOnCancel([this, dragArea]() {
+        if (m_drag.area != dragArea) return;
+        endDrag(false);
+      });
 
       area->setOnEnter([this, areaPtr](const InputArea::PointerData&) {
         if (!m_changeColorOnHover) {
@@ -1249,6 +1469,7 @@ WorkspacesWidget::~WorkspacesWidget() {
   if (m_animations != nullptr) {
     m_animations->cancelForOwner(&m_hoverProgress);
   }
+  m_drag.holdTimer.stop();
 }
 
 std::string WorkspacesWidget::activeWindowAppId() const {

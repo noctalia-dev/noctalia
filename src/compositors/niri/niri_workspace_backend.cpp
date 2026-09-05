@@ -330,6 +330,33 @@ bool NiriWorkspaceBackend::closeWindowById(const std::string& windowId) {
   );
 }
 
+bool NiriWorkspaceBackend::moveWorkspaceToIndex(const Workspace& workspace, std::size_t newIndex) {
+  // niri 26.04 MoveWorkspaceToIndex expects 1-based target and reference by Index/Name (Id is not supported in this version).
+  // Try Index first (most reliable for unnamed workspaces), then Name, then Id as fallback for future versions.
+  const std::size_t target = newIndex + 1; // caller is 0-based
+  if (workspace.index > 0) {
+    const nlohmann::json ref = nlohmann::json{{"Index", workspace.index}};
+    if (m_runtime.requestAction(nlohmann::json{{"MoveWorkspaceToIndex", nlohmann::json{{"index", target}, {"reference", ref}}}})) {
+      return true;
+    }
+  }
+  if (!workspace.name.empty()) {
+    const nlohmann::json ref = nlohmann::json{{"Name", workspace.name}};
+    if (m_runtime.requestAction(nlohmann::json{{"MoveWorkspaceToIndex", nlohmann::json{{"index", target}, {"reference", ref}}}})) {
+      return true;
+    }
+  }
+  if (!workspace.id.empty()) {
+    if (const auto id = parseUnsigned(workspace.id); id.has_value()) {
+      if (m_runtime.requestAction(nlohmann::json{{"MoveWorkspaceToIndex", nlohmann::json{{"index", target}, {"reference", nlohmann::json{{"Id", *id}}}}}})) {
+        return true;
+      }
+    }
+  }
+  // Fallback: move focused workspace
+  return m_runtime.requestAction(nlohmann::json{{"MoveWorkspaceToIndex", nlohmann::json{{"index", target}}}});
+}
+
 void NiriWorkspaceBackend::cleanup() { m_runtime.cleanup(); }
 
 void NiriWorkspaceBackend::handleStreamReset() {
