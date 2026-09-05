@@ -114,8 +114,15 @@ namespace desktop_widgets {
         if (output == nullptr) {
           continue;
         }
-        widget.placementWidth = outputLogicalWidth(*output);
-        widget.placementHeight = outputLogicalHeight(*output);
+        const float width = outputLogicalWidth(*output);
+        const float height = outputLogicalHeight(*output);
+        if (widget.placementWidth > 0.0F && widget.placementHeight > 0.0F
+            && (widget.placementWidth != width || widget.placementHeight != height)) {
+          widget.cx *= width / widget.placementWidth;
+          widget.cy *= height / widget.placementHeight;
+        }
+        widget.placementWidth = width;
+        widget.placementHeight = height;
       }
     }
   };
