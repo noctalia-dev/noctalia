@@ -1170,6 +1170,8 @@ struct CalendarConfig {
   };
 
   bool enabled = false;
+  bool dedupeEvents = false; // collapse an occurrence that appears in more than one calendar, across accounts too
+  std::vector<std::string> dedupeIgnorePatterns; // regexes stripped from a title before two events are compared
   std::int32_t refreshMinutes = 15;
   std::string eventDateFormat = "%A %e %B";
   std::string eventTimeFormat = "%H:%M";

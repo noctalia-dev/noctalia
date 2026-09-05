@@ -1674,6 +1674,8 @@ namespace noctalia::config::schema {
   const Schema<CalendarConfig>& calendarSchema() {
     static const Schema<CalendarConfig> s = {
         field(&CalendarConfig::enabled, "enabled"),
+        field(&CalendarConfig::dedupeEvents, "dedupe_events"),
+        field(&CalendarConfig::dedupeIgnorePatterns, "dedupe_ignore_patterns"),
         field(&CalendarConfig::refreshMinutes, "refresh_minutes", kRefreshMinutesRange),
         field(&CalendarConfig::eventDateFormat, "event_date_format"),
         field(&CalendarConfig::eventTimeFormat, "event_time_format"),

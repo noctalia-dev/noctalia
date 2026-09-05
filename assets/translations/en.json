@@ -2577,6 +2577,14 @@
           "description-unavailable": "No Secret Service provider is available in this session",
           "label": "Calendar Credential Storage"
         },
+        "calendar-dedupe-events": {
+          "description": "Collapse an event that appears in more than one of your calendars into a single entry",
+          "label": "Merge Duplicate Events"
+        },
+        "calendar-dedupe-ignore-patterns": {
+          "description": "Regular expressions removed from an event title before it is compared, so titles that differ only by a matched part still merge",
+          "label": "Ignore in Title When Merging"
+        },
         "calendar-edit": {
           "button": "Edit",
           "button-reconnect": "Reconnect",

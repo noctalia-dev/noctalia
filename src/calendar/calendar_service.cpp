@@ -5,6 +5,7 @@
 #include "calendar/calendar_cache.h"
 #include "calendar/calendar_discovery_state.h"
 #include "calendar/event_link.h"
+#include "calendar/event_merge.h"
 #include "calendar/ical_parser.h"
 #include "calendar/vdir_reader.h"
 #include "config/config_service.h"
@@ -615,12 +616,9 @@ void CalendarService::rebuildSnapshot() {
     it = stillConfigured ? std::next(it) : m_discoveredVdirPathsByAccount.erase(it);
   }
 
-  std::vector<CalendarEvent> merged;
-  for (const auto& [accountId, events] : m_eventsByAccount) {
-    merged.insert(merged.end(), events.begin(), events.end());
-  }
-  std::ranges::sort(merged, {}, &CalendarEvent::start);
-  m_snapshot.events = std::move(merged);
+  m_snapshot.events = calendar::mergeCalendarEvents(
+      m_eventsByAccount, m_activeConfig.dedupeEvents, m_activeConfig.dedupeIgnorePatterns
+  );
   m_snapshot.valid = true;
 }
 

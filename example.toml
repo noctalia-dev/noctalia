@@ -240,6 +240,8 @@ disk_poll_seconds = 10.0            # disk usage and swap usage; graph widgets u
 
 [calendar]
 enabled                     = false
+dedupe_events               = false         # merge an event that appears in more than one calendar into one entry
+dedupe_ignore_patterns      = []             # regexes stripped from a title before events are compared, e.g. ['\s*\(.*\)$']
 refresh_minutes             = 15
 event_date_format           = "%A %e %B"    # date format used for events
 event_time_format           = "%H:%M"       # time format used for events
