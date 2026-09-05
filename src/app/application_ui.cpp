@@ -200,26 +200,23 @@ void Application::performGreeterSync(bool quiet) {
     return;
   }
 
-  const std::uint64_t generation = ++m_greeterSyncGeneration;
-  m_greeterSyncTimeoutTimer.stop();
+  const std::uint64_t generation = m_greeterSyncGeneration + 1;
 
   const auto complete = [this, generation, quiet](bool success) {
-    if (generation != m_greeterSyncGeneration) {
-      return;
-    }
-    m_greeterSyncTimeoutTimer.stop();
-    if (success) {
-      if (!quiet) {
-        DeferredCall::callLater([this]() {
+    DeferredCall::callLater([this, generation, quiet, success]() {
+      if (generation != m_greeterSyncGeneration) {
+        return;
+      }
+      m_greeterSyncTimeoutTimer.stop();
+      if (success) {
+        if (!quiet) {
           notify::info(
               "Noctalia", i18n::tr("notifications.internal.greeter-sync"),
               i18n::tr("notifications.internal.greeter-sync-success")
           );
-        });
+        }
+        return;
       }
-      return;
-    }
-    DeferredCall::callLater([this, quiet]() {
       if (quiet) {
         notify::error(
             "Noctalia", i18n::tr("notifications.internal.greeter-sync"), i18n::tr("settings.errors.sync-greeter")
@@ -230,12 +227,15 @@ void Application::performGreeterSync(bool quiet) {
     });
   };
 
-  if (m_configService.config().shell.polkitAgent && m_polkitAgent != nullptr) {
-    m_polkitAgent->markNextRequestInternal();
-  }
   const auto launch = greeter::syncAppearanceToGreeterAsync(
       m_configService, m_themeService.resolvedShellMode(), complete, &m_compositorPlatform, m_logindService != nullptr
   );
+  if (launch == greeter::GreeterSyncLaunch::Busy) {
+    return;
+  }
+
+  m_greeterSyncGeneration = generation;
+  m_greeterSyncTimeoutTimer.stop();
   if (launch == greeter::GreeterSyncLaunch::Failed) {
     if (quiet) {
       notify::error(
@@ -259,16 +259,17 @@ void Application::performGreeterSync(bool quiet) {
     }
     return;
   }
-
+  const bool legacySync = launch == greeter::GreeterSyncLaunch::LaunchedLegacy;
   if (!quiet) {
     const bool customPrivilege =
         !StringUtils::trim(m_configService.config().shell.greeterSync.privilegeCommand).empty();
     const bool polkitAgentActive = m_configService.config().shell.polkitAgent && m_polkitAgent != nullptr;
     const bool inSessionPolkit = likelySupportsInSessionPolkit();
-    const char* pendingBodyKey = "notifications.internal.greeter-sync-pending";
-    if (!customPrivilege && !polkitAgentActive && !inSessionPolkit) {
-      pendingBodyKey = "notifications.internal.greeter-sync-pending-manual";
-    } else if (!customPrivilege && !polkitAgentActive) {
+    const char* pendingBodyKey = legacySync ? "notifications.internal.greeter-sync-pending-legacy"
+                                            : "notifications.internal.greeter-sync-pending";
+    if (!legacySync && !customPrivilege && !polkitAgentActive && !inSessionPolkit) {
+      pendingBodyKey = "notifications.internal.greeter-sync-pending-manual-pkexec";
+    } else if (!legacySync && !customPrivilege && !polkitAgentActive) {
       pendingBodyKey = "notifications.internal.greeter-sync-pending-console";
     }
     notify::info("Noctalia", i18n::tr("notifications.internal.greeter-sync"), i18n::tr(pendingBodyKey));
@@ -276,21 +277,27 @@ void Application::performGreeterSync(bool quiet) {
 
   if (!quiet) {
     const bool inSessionPolkit = likelySupportsInSessionPolkit();
-    m_greeterSyncTimeoutTimer.start(std::chrono::seconds(90), [this, generation, inSessionPolkit]() {
+    m_greeterSyncTimeoutTimer.start(std::chrono::seconds(90), [this, generation, inSessionPolkit, legacySync]() {
       if (generation != m_greeterSyncGeneration) {
         return;
       }
-      DeferredCall::callLater([this, inSessionPolkit]() {
+      DeferredCall::callLater([this, generation, inSessionPolkit, legacySync]() {
+        if (generation != m_greeterSyncGeneration) {
+          return;
+        }
         notify::error(
             "Noctalia", i18n::tr("notifications.internal.greeter-sync"),
             i18n::tr(
-                inSessionPolkit ? "notifications.internal.greeter-sync-timeout"
-                                : "notifications.internal.greeter-sync-timeout-manual"
+                inSessionPolkit  ? "notifications.internal.greeter-sync-timeout"
+                    : legacySync ? "notifications.internal.greeter-sync-timeout-manual"
+                                 : "notifications.internal.greeter-sync-timeout-manual-pkexec"
             )
         );
         m_settingsWindow.markSettingsWriteError(
             i18n::tr(
-                inSessionPolkit ? "settings.errors.sync-greeter-timeout" : "settings.errors.sync-greeter-timeout-manual"
+                inSessionPolkit  ? "settings.errors.sync-greeter-timeout"
+                    : legacySync ? "settings.errors.sync-greeter-timeout-manual"
+                                 : "settings.errors.sync-greeter-timeout-manual-pkexec"
             )
         );
       });

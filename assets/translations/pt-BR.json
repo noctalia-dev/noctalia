@@ -935,7 +935,8 @@
         "custom": "CalDAV",
         "google": "Google",
         "icloud": "ICloud",
-        "ics": "URL ICS"
+        "ics": "URL ICS",
+        "vdir": "Local (vdir)"
       },
       "provider-label": "Provedor",
       "save": "Salvar",
@@ -948,7 +949,8 @@
       "secret-service-unavailable": "Não há nenhum provedor de Secret Service disponível. Inicie um provedor compatível e tente novamente.",
       "server-url-label": "URL do servidor",
       "username-label": "Nome de usuário",
-      "username-placeholder": "nome@exemplo.com"
+      "username-placeholder": "nome@exemplo.com",
+      "vdir-path-label": "Caminho do Diretório"
     },
     "controls": {
       "keybind": {
@@ -1446,6 +1448,9 @@
           "dark": "Escuro",
           "light": "Claro"
         },
+        "shell-mode": {
+          "follow": "Seguir"
+        },
         "source": {
           "built-in": "Integradas",
           "community": "Comunidade",
@@ -1489,6 +1494,10 @@
     "plugins": {
       "browse-store": "Navegar Plugins",
       "panels": {
+        "layer": {
+          "description": "Camada layer-shell usada quando o painel está flutuando",
+          "label": "Camada"
+        },
         "open-near-click": {
           "description": "Onde o painel é posicionado quando aberto ao clicar no widget da barra",
           "label": "Abrir Próximo ao Clique"
@@ -1667,8 +1676,12 @@
           "description": "Ajustar as superfícies escuras para o preto verdadeiro, evitando o efeito de faixas nos painéis OLED (somente no modo escuro)",
           "label": "Preto Puro"
         },
+        "shell-theme-mode": {
+          "description": "Fixar modo Claro ou Escuro do Noctalia; Seguir mantém em sincronia com o Modo do Tema",
+          "label": "Modo do Tema do Shell"
+        },
         "theme-mode": {
-          "description": "Escolha o modo escuro, claro ou automático com base na hora do dia",
+          "description": "Escolha o modo Escuro, Claro ou Automático baseado na hora do dia; também aplica em apps através de modelos",
           "label": "Modo do Tema"
         },
         "ui-scale": {
@@ -2569,7 +2582,7 @@
           "description-reconnect": "Autorização do Google está ausente; reconecte esta conta."
         },
         "calendar-event-date-format": {
-          "description": "O formato de date mostrado acima da lista de eventos nas visões do calendário",
+          "description": "O formato de data mostrado acima da lista de eventos nas visões do calendário",
           "label": "Formato de Data do Evento"
         },
         "calendar-event-time-format": {
@@ -4110,7 +4123,7 @@
           "label": "Mostrar Unidades"
         },
         "label-source": {
-          "description": "What workspace labels show*",
+          "description": "O que os rótulos de espaço de trabalho mostram*",
           "label": "Fonte do Rótulo*"
         },
         "labels-only-when-occupied": {

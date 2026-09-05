@@ -1695,7 +1695,7 @@ namespace settings {
               .placeholder = "pkexec",
               .browseFileExtensions = {},
           },
-          "greeter sync pkexec run0 ghostty terminal sudo"
+          "greeter sync pkexec run0 ghostty terminal sudo polkit wrapper"
       ));
     }
     // Shell

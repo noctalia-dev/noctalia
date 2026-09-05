@@ -486,7 +486,7 @@ reboot = "sudo -n reboot"
 shutdown = "sudo -n poweroff"
 ```
 
-When an override is set, Noctalia runs that command for the built-in suspend/reboot/shutdown actions (session panel, launcher, IPC, idle, and greeter sync). Per-row `command` still overrides a single menu button when you need one-off behavior (including logout via `noctalia msg session logout`).
+When an override is set, Noctalia runs that command for the built-in suspend/reboot/shutdown actions (session panel, launcher, IPC, and idle). Per-row `command` still overrides a single menu button when you need one-off behavior (including logout via `noctalia msg session logout`).
 
 Configure under **`[shell.session]`** in TOML, or use **Settings → Power → Session panel**: entries, reorder, and **Show** are listed inline; use the **settings** (cog) control on a row for behavior, label, command, icon, shortcut, countdown, and style. **Add action** appends a custom-command entry by default. The default five actions are assigned keyboard shortcuts **1**–**5**; pressing the key while the panel is open triggers the action (or starts its countdown when configured). **Grid Layout** and its **Columns** stepper control how the buttons are arranged; with grid off, the panel fits the actions on one row (wrapping to a second row past five). Arrow keys follow the resulting rows and columns.
 
@@ -542,7 +542,60 @@ countdown_seconds = 5
 
 ### Greeter sync
 
-Requires [Noctalia Greeter](/greeter/) and `noctalia-greeter-apply-appearance` on `PATH`. When those are missing, auto-sync stays off, Security settings for greeter sync are hidden, and the `greeter-sync` IPC command is not registered.
+Requires [Noctalia Greeter](/greeter/), `noctalia-greeter-apply-appearance`, and an administrator privilege tool. When those are missing, auto-sync stays off, Security settings for greeter sync are hidden, and the `greeter-sync` IPC command is not registered.
+
+::::caution[Passwordless version requirement]
+Passwordless sync requires **Noctalia Greeter 1.4.0 or newer** together with
+**the next Noctalia release after 5.0.1**. Current `-git` packages or current
+manual builds from `main` also work when both components are up to date.
+
+If either component is older, Noctalia keeps the administrator-authenticated
+legacy sync path. It does not grant passwordless access to that path.
+::::
+
+Noctalia only elevates a helper installed as a root-owned regular executable through a root-owned, non-user-writable directory chain. This requirement applies to both authenticated and passwordless sync. Helpers in user checkouts or build directories are rejected. On a conventional distribution, install a manual build with `--prefix=/usr` when using passwordless sync so its Polkit action is placed in the standard action directory.
+
+Passwordless authorization is optional. Without a site-local passwordless rule,
+the constrained 1.4.0 protocol still works and asks for administrator approval
+on every sync. This authenticated workflow remains supported; users are never
+required to grant persistent passwordless access.
+
+On a conventional packaged distribution, enable the constrained passwordless
+rule for your login user with the greeter's administrator command:
+
+```sh
+sudo noctalia-greeter passwordless-sync enable "$USER"
+```
+
+Inspect or undo only the authorization managed by that command with:
+
+```sh
+noctalia-greeter passwordless-sync status "$USER"
+sudo noctalia-greeter passwordless-sync disable "$USER"
+```
+
+Rerun `status` with `sudo` only if your distribution restricts reads of the
+Polkit rules directory. Disabling removes this command's authorization; another
+administrator-authored allow rule can still authorize the same user.
+
+The command validates the installed helper and packaged Polkit action before it
+writes a dedicated rule. NixOS users should instead configure this
+declaratively: use `programs.noctalia-greeter.passwordless-sync-users` with the
+project module, or an equivalent `security.polkit.extraConfig` rule with the
+nixpkgs module. The complete setup guides for packaged distributions, NixOS,
+and a hand-written Polkit rule are in [Noctalia Greeter's sync documentation](/greeter/sync/).
+
+Noctalia probes the installed helper before staging or requesting authorization. A 1.4.0-or-newer helper selects constrained sync; a recognized older helper selects the legacy path. An unrecognized response stops the operation. A failed or cancelled constrained sync is never retried through the legacy path.
+
+Constrained sync resolves the helper to its canonical executable path, stages under `/run/user/$(id -u)/noctalia-greeter-sync`, then invokes `pkexec <helper-path> --sync <staging-directory>`. This exact runtime path matches the helper's caller validation; an alternate or symlinked `XDG_RUNTIME_DIR` is intentionally not used. The staged payload contains appearance, wallpaper, and output settings only; it never carries session actions or commands. The staging directory is restricted to mode `0700`, and every staged file to `0600`.
+
+The canonical path lets the greeter's dedicated Polkit action grant selected active local users passwordless access to that one constrained command. Leave `privilege_command` empty for the normal action-specific policy. Custom greeter state directories use the authenticated legacy path because constrained sync deliberately targets `/var/lib/noctalia-greeter` only. The custom directory must be absolute; Noctalia forwards it explicitly across the legacy privilege boundary.
+
+The compatibility path invokes the positional helper syntax through the normal administrator-authenticated `pkexec` or `run0` flow. Its payload retains session actions and power commands because older greeters expect them. Greeter 1.4.0 keeps this entry point for mixed-version and custom-state installations, but its passwordless policy never covers it.
+
+Only one greeter sync runs at a time. Additional Settings or auto-sync requests leave the active operation untouched; an overlapping `greeter-sync` IPC request reports that a sync is already in progress.
+
+`privilege_command` wraps or replaces the detected privilege tool. With constrained sync it must ultimately launch `pkexec`, such as `ghostty -e pkexec`, because the helper verifies `PKEXEC_UID`. In legacy mode, the path retains support for administrator-authenticated alternatives such as `run0` or a terminal-wrapped `sudo`.
 
 **Settings → Security → Auto-Sync Greeter** and **Settings → Security → Greeter Sync Privilege Command**, or in TOML:
 
@@ -555,6 +608,8 @@ privilege_command = "ghostty -e pkexec"
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `auto_sync` | `bool` | `false` | Automatically sync the greeter whenever wallpaper, colors, theme mode, or shell font change. Ignored when the greeter is not installed. |
-| `privilege_command` | `string` | `""` | Replaces the default `pkexec` or `run0` prefix for **Sync Now**. Noctalia appends the `noctalia-greeter-apply-appearance` path and staging directory. Leave empty for the default escalator. |
+| `privilege_command` | `string` | `""` | Optional privilege prefix for **Sync Now**. Noctalia appends the helper path and staging directory, plus `--sync` in constrained mode. Constrained sync must ultimately use `pkexec`; legacy mode retains its administrator-authenticated escalators. Leave empty to use the protocol's default. |
 
-See [Noctalia Greeter](/greeter/) for seatd and polkit notes.
+Auto-Sync controls when Noctalia starts a sync; it does not change how Polkit
+authorizes that sync. See [Noctalia Greeter's sync guide](/greeter/sync/) for
+passwordless setup, the permanent authenticated workflow, and seatd notes.

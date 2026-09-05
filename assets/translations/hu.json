@@ -29,7 +29,7 @@
   "bar": {
     "screenshot": {
       "choose-display": "Kijelző kiválasztása",
-      "confirm-region": "Enter vagy Szóköz a rögzítéshez · Esc a művelet megszakításához · Húzás (egérrel) az újra kijelöléshez",
+      "confirm-region": "{copy} a másoláshoz · {save} a mentéshez · Enter vagy Space az alapértelmezéshez · {cancel} a megszakításhoz · Húzás az újra kijelöléshez",
       "fullscreen": "Teljes képernyő",
       "overlay-alloc-failed": "Nem sikerült megjeleníteni a képernyőkép-átfedést (elfogyott a videómemória?)",
       "region": "Terület kiválasztása"
@@ -121,6 +121,11 @@
         "no-location": "Nincs hely",
         "off": "Időjárás kikapcsolva",
         "tooltip": {
+          "condition": "Körülmények",
+          "feels-like": "Hőérzet",
+          "high": "Magas",
+          "humidity": "Páratartalom",
+          "low": "Alacsony",
           "sunrise": "Napkelte",
           "sunset": "Napnyugta",
           "temperature": "Hőmérséklet",
@@ -180,6 +185,7 @@
     "audio": {
       "application-volumes": "Alkalmazások hangereje",
       "choose-effects-profile": "Válassz egy profilt",
+      "default-device": "Alapértelmezett eszköz",
       "effects-profile": "Effektek",
       "input-device-prefix": "Bemenet",
       "no-application-audio": "Nincs alkalmazáshang",
@@ -219,7 +225,7 @@
         "connected": "Csatlakoztatva",
         "paired": "Párosítva"
       },
-      "unavailable": "Bluetooth szolgáltatás nem elérhető",
+      "unavailable": "A Bluetooth-szolgáltatás nem elérhető",
       "unknown-device": "Ismeretlen eszköz",
       "visible": "Felfedezhető a közeli eszközök számára"
     },
@@ -264,6 +270,7 @@
       "start-playback": "Indítsd el a lejátszást egy MPRIS-alkalmazásban"
     },
     "network": {
+      "available": "Elérhető",
       "connect": "Csatlakozás",
       "current-connection": "Jelenlegi kapcsolat",
       "external-ip": "WAN {ip}",
@@ -271,7 +278,8 @@
       "not-connected": "Nincs csatlakozva",
       "password": "Jelszó",
       "password-prompt": "Jelszó megadása",
-      "password-prompt-for": "Add meg a jelszót a {ssid} hálózathoz",
+      "password-prompt-for": "Add meg a jelszót a(z) {ssid} hálózathoz",
+      "saved": "Mentett",
       "unavailable-detail": "Telepítsd és aktiváld a NetworkManager, a wpa_supplicant vagy az iwd programot a hálózatok kezeléséhez innen.",
       "unavailable-title": "A hálózati szolgáltatás nem érhető el",
       "vpns": "VPN-ek",
@@ -299,6 +307,11 @@
     },
     "power": {
       "battery": "Akkumulátor",
+      "charging": {
+        "configured": "Beállítva: {limits}",
+        "unreadable": "Nem elérhető",
+        "use-thresholds": "Töltési küszöb használata"
+      },
       "design-capacity": "Üzemi kapacitás",
       "health": "Akkumulátor állapot",
       "performance-inhibited": "Teljesítmény nem elérhető",
@@ -309,6 +322,7 @@
       "unknown-device": "Ismeretlen eszköz"
     },
     "screen-time": {
+      "back": "Vissza",
       "disabled": "A képernyőidő-követés ki van kapcsolva. Engedélyezd a Beállításokban az alkalmazásonkénti használat rögzítéséhez.",
       "empty": "Még nincs rögzített alkalmazáshasználat. Aktiválj egy ablakot a mérés indításához",
       "hour-0": "12:00",
@@ -398,6 +412,7 @@
       "data-unavailable": "Az időjárási adatok nem érhetők el",
       "details": {
         "elevation": "Emelkedés",
+        "feels-like": "Hőérzet",
         "sunrise": "Napkelte",
         "sunset": "Napnyugta",
         "temp-max": "Maximális hőmérséklet",
@@ -526,6 +541,7 @@
         "show-vpn-label": "VPN-címke megjelenítése",
         "show-when-idle": "Megjelenítés tétlenség esetén",
         "stat": "Statisztika",
+        "stat-cpu-freq": "CPU-frekvencia",
         "stat-cpu-temp": "CPU-hőmérséklet",
         "stat-cpu-usage": "CPU-használat",
         "stat-gpu-temp": "GPU-hőmérséklet",
@@ -563,6 +579,7 @@
       "types": {
         "audio-visualizer": "Hangvizualizáló",
         "button": "Gomb",
+        "calendar": "Naptár",
         "clock": "Óra",
         "fancy-audio-visualizer": "Látványos hangvizualizáló",
         "label": "Címke",
@@ -636,6 +653,12 @@
     "empty": {
       "no-results": "Nincs találat",
       "type-to-search": "Gépelj a kereséshez…"
+    },
+    "origins": {
+      "appimage": "AppImage",
+      "flatpak": "Flatpak",
+      "nix": "Nix",
+      "snap": "Snap"
     },
     "providers": {
       "applications": {
@@ -866,6 +889,7 @@
       "credential-source-label": "Hitelesítő adatok tárhelye",
       "delete-error": "Nem sikerült törölni a naptárfiókot.",
       "edit-title": "Naptárfiók szerkesztése",
+      "ics-url-label": "ICS URL",
       "id-label": "Fiókazonosító",
       "invalid": "Ellenőrizd a kiemelt naptárfiók mezőket.",
       "name-label": "Megjelenített név",
@@ -879,7 +903,8 @@
       "provider": {
         "custom": "CalDAV",
         "google": "Google",
-        "icloud": "iCloud"
+        "icloud": "iCloud",
+        "ics": "ICS URL"
       },
       "provider-label": "Szolgáltató",
       "save": "Mentés",
@@ -957,6 +982,8 @@
           "border": "Szegély",
           "border-description": "A kapszula körvonalának színszerepe; hagyd alapértelmezetten, ha nem szeretnél körvonalat",
           "clear": "Törlés",
+          "deselect": "Kijelölés megszüntetése",
+          "drag": "Újrarendezés",
           "drawer-columns": "Fiók Oszlopok",
           "drawer-columns-description": "A fiókpanelen soronként megjelenő widgetek száma",
           "drawer-detached": "Különálló panel",
@@ -983,6 +1010,9 @@
           "padding-description": "A kapszula széle és a widgetjei közötti belső margó, képpontban megadva",
           "radius": "Rádiusz",
           "radius-description": "A kapszula sarokkerekítése képpontban; az „Automatikus” beállítás örökli a sáv kapszulasugarát",
+          "remove-from-group": "Eltávolítás a csoportból",
+          "remove-orphan": "Ismeretlen csoport eltávolítása",
+          "remove-widget": "Eltávolítás a sávról",
           "selected": "{count} kiválasztva",
           "show": "Csoport mutatása",
           "show-widget": "Widget mutatása",
@@ -1313,6 +1343,13 @@
       },
       "panel-position": {
         "auto": "Sáv követése"
+      },
+      "plugins": {
+        "auto-update": {
+          "all": "Összes",
+          "none": "Nincs",
+          "official": "Hivatalos"
+        }
       },
       "screen-position": {
         "bottom-center": "Alul középen",
@@ -2020,6 +2057,10 @@
           "description": "Felugró ablakok bezárása, panelek bezárása, vagy az aktuális művelet megszakítása",
           "label": "Mégse"
         },
+        "delete": {
+          "description": "Kijelölt elem törlése",
+          "label": "Törlés"
+        },
         "down": {
           "description": "Fókusz vagy kijelölés mozgatása egy sorral lefelé",
           "label": "Navigálás lefelé"
@@ -2031,6 +2072,9 @@
         "right": {
           "description": "Fókusz vagy kijelölés mozgatása jobbra",
           "label": "Navigálás jobbra"
+        },
+        "save": {
+          "label": "Mentés"
         },
         "tab-next": {
           "description": "Fókusz áthelyezése a következő vezérlőre",
@@ -2160,7 +2204,7 @@
       },
       "panels": {
         "borders": {
-          "description": "Körvonalat rajzol a panelekre és a panelekben lévő szekciókártyákra",
+          "description": "Körvonalat rajzol a lebegő panelekre",
           "label": "Szegélyek"
         },
         "control-center-sidebar": {
@@ -2226,6 +2270,9 @@
         "launcher-global-windows": {
           "description": "Az előtag nélküli keresés során a nyitott ablakokat is mutassa",
           "label": "Ablakok a Globális keresésben"
+        },
+        "launcher-pinned-apps": {
+          "label": "Rögzített alkalmazások"
         },
         "launcher-prefix-calculator": {
           "description": "A számológépes számításokhoz használt indító előtag",
@@ -2396,6 +2443,8 @@
         },
         "calendar-edit": {
           "button": "Szerkesztés",
+          "button-reconnect": "Újracsatlakozás",
+          "button-retry": "Újra",
           "description": "Frissítsd ezt a naptárfiókot"
         },
         "calendar-event-date-format": {
@@ -2420,6 +2469,9 @@
           "description-opening": "A titkosított naptári események gyorsítótárának megnyitása folyamatban van.",
           "description-unavailable": "Nincs elérhető Secret Service-szolgáltató. A naptári események kizárólag ebben a munkamenetben maradnak elérhetőek.",
           "label": "Naptári események tárhely"
+        },
+        "calendar-week-numbers": {
+          "label": "Hét napjai"
         },
         "custom-schedule": {
           "description": "A koordinátákból történő kiszámítás helyett használja a napkelte/napnyugta manuálisan bevitt értékeit",
@@ -2521,6 +2573,7 @@
             "label": "Hálózati lekérdezési időköz"
           },
           "stats": {
+            "cpu-freq": "CPU-frekvencia",
             "cpu-temp": "CPU-hőmérséklet",
             "cpu-usage": "CPU-használat",
             "disk-free": "Szabad lemezterület",
@@ -3012,6 +3065,15 @@
         "secondary": "Másodlagos"
       },
       "variant-label": "Gombstílus"
+    },
+    "templates": {
+      "store": {
+        "browse": "Sablonok böngészése",
+        "categories": "Kategóriák",
+        "category-all": "Összes",
+        "filter-all": "Összes",
+        "filter-enabled": "Engedélyezve"
+      }
     },
     "widgets": {
       "instances": {

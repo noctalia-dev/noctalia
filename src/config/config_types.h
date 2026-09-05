@@ -252,8 +252,10 @@ struct ShellSessionConfig {
 };
 
 struct ShellGreeterSyncConfig {
-  // Shell prefix that replaces the default pkexec/run0 escalator before the apply helper
-  // path and staging directory. Empty = pkexec or run0. Example: "ghostty -e pkexec"
+  // Optional shell prefix before the apply helper and staging directory. Legacy
+  // sync accepts the configured escalator directly. Secure sync also appends
+  // --sync, so that prefix must ultimately invoke pkexec to provide PKEXEC_UID.
+  // Empty selects the protocol's default escalator.
   std::string privilegeCommand;
   bool autoSync = false;
 

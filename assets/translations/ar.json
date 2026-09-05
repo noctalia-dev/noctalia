@@ -935,7 +935,8 @@
         "custom": "CalDAV",
         "google": "Google",
         "icloud": "iCloud",
-        "ics": "رابط ICS"
+        "ics": "رابط ICS",
+        "vdir": "محلي (vdir)"
       },
       "provider-label": "المزود",
       "save": "حفظ",
@@ -948,7 +949,8 @@
       "secret-service-unavailable": "لا يتوفر موفر خدمة الأسرار. شغّل موفراً متوافقاً وأعد المحاولة.",
       "server-url-label": "رابط الخادم",
       "username-label": "اسم المستخدم",
-      "username-placeholder": "name@example.com"
+      "username-placeholder": "name@example.com",
+      "vdir-path-label": "مسار المجلد"
     },
     "controls": {
       "keybind": {
@@ -1446,6 +1448,9 @@
           "dark": "داكن",
           "light": "فاتح"
         },
+        "shell-mode": {
+          "follow": "تابع"
+        },
         "source": {
           "built-in": "مدمج",
           "community": "المجتمع",
@@ -1489,6 +1494,10 @@
     "plugins": {
       "browse-store": "تصفح الإضافات",
       "panels": {
+        "layer": {
+          "description": "طبقة الغلاف المستخدمة عندما تكون اللوحة عائمة",
+          "label": "طبقة"
+        },
         "open-near-click": {
           "description": "فتح اللوحة بالقرب من ودجت الذي أنشطها",
           "label": "الفتح بالقرب من النقر"
@@ -1667,8 +1676,12 @@
           "description": "تثبيت الأسطح الداكنة على الأسود الخالص لمنع التدرج غير المتجانس على شاشات OLED (الوضع الداكن فقط)",
           "label": "أسود خالص"
         },
+        "shell-theme-mode": {
+          "description": "قم بتثبيت الوضع الفاتح أو الداكن الخاص بـ noctalia ؛ وتطبيق المتابعة يحافظ على تزامنه مع وضع السمة",
+          "label": "Shell Theme Mode"
+        },
         "theme-mode": {
-          "description": "اختر الوضع الداكن، الفاتح، أو التلقائي حسب الوقت",
+          "description": "اختر «داكن» أو «فاتح» أو «تلقائي» حسب الوقت من اليوم؛ وينطبق ذلك أيضًا على التطبيقات من خلال القوالب",
           "label": "وضع السمة"
         },
         "ui-scale": {
@@ -3255,7 +3268,76 @@
             "label": "تعيين طبقة الشريط"
           },
           "bar-reserve-toggle": {
-            "description": "تبديل تخصيص مساحة احتياطية لشريط واحد أو لجميع الأشرطة"
+            "description": "تبديل تخصيص مساحة احتياطية لشريط واحد أو لجميع الأشرطة",
+            "label": "التبديل بين تخصيص مساحة  للشريط او عدمه"
+          },
+          "bar-show": {
+            "description": "إظهار شريط واحد أو جميع الأشرطة",
+            "label": "عرض الشريط"
+          },
+          "bar-toggle": {
+            "description": "إظهار / اخفاء شريط واحد أو جميع الأشرطة",
+            "label": "إظهار / اخفاء الشريط"
+          },
+          "bluetooth-disable": {
+            "description": "تعطيل البلوتوث",
+            "label": "تعطيل البلوتوث"
+          },
+          "bluetooth-enable": {
+            "description": "تشغيل البلوتوث",
+            "label": "تشغيل البلوتوث"
+          },
+          "bluetooth-status": {
+            "description": "طباعة حالة البلوتوث",
+            "label": "حالة البلوتوث"
+          },
+          "bluetooth-toggle": {
+            "description": "تشغيل/ تعطيل البلوتوث",
+            "label": "تشغيل/ تعطيل البلوتوث"
+          },
+          "brightness-down": {
+            "description": "تقليل السطوع (القيمة الافتراضية هي إعدادات الشاشة الحالية)",
+            "label": "تقليل السطوع"
+          },
+          "brightness-list-backlight-devices": {
+            "description": "سرد أسماء أجهزة الإضاءة الخلفية المتوفرة في sysfs",
+            "label": "عرض أجهزة الإضاءة الخلفية"
+          },
+          "brightness-osd": {
+            "description": "عرض قائمة OSD الخاصة بالسطوع دون تغيير السطوع",
+            "label": "عرض قائمة OSD الخاصة بالسطوع "
+          },
+          "brightness-set": {
+            "description": "ضبط السطوع (القيمة الافتراضية هي إعدادات الشاشة الحالية)",
+            "label": "ضبط السطوع"
+          },
+          "brightness-up": {
+            "description": "زيادة السطوع (القيمة الافتراضية هي إعدادات الشاشة الحالية)",
+            "label": "زيادة السطوع"
+          },
+          "caffeine-disable": {
+            "description": "تعطيل الكافيين (منع الخمول)",
+            "label": "تعطيل الكافيين"
+          },
+          "caffeine-enable": {
+            "description": "تمكين الكافيين (منع الخمول)",
+            "label": "تمكين الكافيين"
+          },
+          "caffeine-toggle": {
+            "description": "تمكين/تعطيل الكافيين (منع الخمول)",
+            "label": "تمكين/تعطيل الكافيين"
+          },
+          "clipboard-clear": {
+            "description": "مسح سجل الحافظة",
+            "label": "مسح سجل الحافظة"
+          },
+          "clipboard-copy": {
+            "description": "نسخ النص إلى الحافظة",
+            "label": "نسخ إلى الحافظة"
+          },
+          "clipboard-text": {
+            "description": "طباعة أحدث نص موجود في الحافظة (يكون فارغًا إذا لم يكن التحديد يحتوي على أي نص)",
+            "label": "طباعة نص الحافظة"
           },
           "mic-mute": {
             "description": "تبديل وضع كتم صوت الميكروفون",
