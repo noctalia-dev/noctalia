@@ -35,7 +35,20 @@ namespace {
 
   constexpr auto kWirelessSettingName = "802-11-wireless";
   constexpr auto kWirelessSecuritySettingName = "802-11-wireless-security";
+  constexpr auto kVpnSettingName = "vpn";
+  constexpr auto kVpnSecretsSettingName = "vpn-secrets";
+  constexpr auto kConnectionSettingName = "connection";
   constexpr auto kPskKey = "psk";
+  constexpr auto kPasswordKey = "password";
+  constexpr auto kVpnFallbackLabel = "VPN";
+
+  bool isVpnSecretSetting(const std::string& settingName) {
+    return settingName == kVpnSettingName || settingName == kVpnSecretsSettingName;
+  }
+
+  bool isSupportedSecretSetting(const std::string& settingName) {
+    return settingName == kWirelessSecuritySettingName || isVpnSecretSetting(settingName);
+  }
 
   std::string extractSsid(const SecretsDict& connection) {
     auto wifiIt = connection.find(kWirelessSettingName);
@@ -54,6 +67,34 @@ namespace {
     }
   }
 
+  std::string extractConnectionId(const SecretsDict& connection) {
+    auto connIt = connection.find(kConnectionSettingName);
+    if (connIt == connection.end()) {
+      return {};
+    }
+    auto idIt = connIt->second.find("id");
+    if (idIt == connIt->second.end()) {
+      return {};
+    }
+    try {
+      return idIt->second.get<std::string>();
+    } catch (const sdbus::Error&) {
+      return {};
+    }
+  }
+
+  std::string secretKeyFor(const std::string& settingName, const std::vector<std::string>& hints) {
+    if (settingName == kWirelessSecuritySettingName) {
+      return kPskKey;
+    }
+    for (const auto& hint : hints) {
+      if (!hint.empty()) {
+        return hint;
+      }
+    }
+    return kPasswordKey;
+  }
+
 } // namespace
 
 struct NetworkSecretAgent::Impl {
@@ -62,12 +103,13 @@ struct NetworkSecretAgent::Impl {
   RequestCallback requestCallback;
   std::optional<sdbus::Result<SecretsDict>> pendingResult;
   std::string pendingSettingName;
+  std::string pendingSecretKey;
 
   explicit Impl(SystemBus& b) : bus(b) {}
 
   void onGetSecrets(
       sdbus::Result<SecretsDict>&& result, SecretsDict connection, sdbus::ObjectPath connectionPath,
-      std::string settingName, std::vector<std::string> /*hints*/, std::uint32_t flags
+      std::string settingName, std::vector<std::string> hints, std::uint32_t flags
   ) {
     if ((flags & kNmSecretAgentGetSecretsFlagAllowInteraction) == 0U) {
       kLog.debug("GetSecrets without ALLOW_INTERACTION -> NoSecrets");
@@ -79,7 +121,7 @@ struct NetworkSecretAgent::Impl {
       );
       return;
     }
-    if (settingName != kWirelessSecuritySettingName) {
+    if (!isSupportedSecretSetting(settingName)) {
       kLog.debug("GetSecrets for unsupported setting \"{}\" -> NoSecrets", settingName);
       result.returnError(
           sdbus::Error{
@@ -100,12 +142,22 @@ struct NetworkSecretAgent::Impl {
     }
 
     SecretRequest request;
-    request.ssid = extractSsid(connection);
+    if (isVpnSecretSetting(settingName)) {
+      request.ssid = extractConnectionId(connection);
+      if (request.ssid.empty()) {
+        request.ssid = kVpnFallbackLabel;
+      }
+    } else {
+      request.ssid = extractSsid(connection);
+    }
     request.settingName = settingName;
-    kLog.info("GetSecrets prompt ssid=\"{}\" path={}", request.ssid, std::string(connectionPath));
+    kLog.info(
+        "GetSecrets prompt label=\"{}\" setting={} path={}", request.ssid, settingName, std::string(connectionPath)
+    );
 
     pendingResult = std::move(result);
     pendingSettingName = settingName;
+    pendingSecretKey = secretKeyFor(settingName, hints);
 
     if (requestCallback) {
       requestCallback(request);
@@ -124,6 +176,7 @@ struct NetworkSecretAgent::Impl {
     );
     pendingResult.reset();
     pendingSettingName.clear();
+    pendingSecretKey.clear();
   }
 
   void submitPending(const std::string& psk) {
@@ -131,10 +184,12 @@ struct NetworkSecretAgent::Impl {
       return;
     }
     SecretsDict secrets;
-    secrets[pendingSettingName][kPskKey] = sdbus::Variant{psk};
+    const std::string key = pendingSecretKey.empty() ? std::string(kPskKey) : pendingSecretKey;
+    secrets[pendingSettingName][key] = sdbus::Variant{psk};
     pendingResult->returnResults(secrets);
     pendingResult.reset();
     pendingSettingName.clear();
+    pendingSecretKey.clear();
   }
 };
 

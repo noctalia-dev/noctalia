@@ -7,7 +7,7 @@
 class SystemBus;
 
 // NetworkManager secret agent. Registers with org.freedesktop.NetworkManager.AgentManager
-// on the system bus and answers GetSecrets requests for new Wi-Fi PSK connections.
+// on the system bus and answers GetSecrets for Wi-Fi PSK and interactive VPN secrets.
 //
 // The agent is single-slot: one in-flight prompt at a time. Additional GetSecrets
 // calls while a prompt is open are rejected with NoSecrets, letting NM fall back
@@ -20,8 +20,8 @@ class SystemBus;
 class NetworkSecretAgent {
 public:
   struct SecretRequest {
-    std::string ssid;
-    std::string settingName; // e.g. "802-11-wireless-security"
+    std::string ssid;        // Wi-Fi SSID, or VPN connection.id for the prompt label
+    std::string settingName; // e.g. "802-11-wireless-security" or "vpn"
   };
 
   using RequestCallback = std::function<void(const SecretRequest&)>;
