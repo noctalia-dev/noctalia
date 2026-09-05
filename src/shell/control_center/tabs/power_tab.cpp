@@ -60,15 +60,10 @@ namespace {
     return state.configuredStart == state.effectiveStart && state.configuredEnd == state.effectiveEnd;
   }
 
-  bool hasRestrictiveThreshold(const UPowerChargeLimitState& state) {
-    return (state.effectiveStart.has_value() && (*state.effectiveStart > 0U && *state.effectiveStart < 100U))
-        || (state.effectiveEnd.has_value() && *state.effectiveEnd < 100U);
-  }
-
 } // namespace
 
 PowerTab::ChargeLimitMode PowerTab::classifyChargeLimit(const UPowerChargeLimitState& state) noexcept {
-  if (!state.requestPending && state.enabledAvailable && !state.enabled && hasRestrictiveThreshold(state)) {
+  if (!state.requestPending && state.enabledAvailable && !state.enabled && state.hasRestrictiveThreshold()) {
     return ChargeLimitMode::ExternallyManaged;
   }
 
@@ -562,7 +557,7 @@ void PowerTab::rebuildChargeLimits() {
     const auto& state = batteries[i].chargeLimit;
     auto& row = m_chargeLimitRows[i];
     const ChargeLimitMode mode = classifyChargeLimit(state);
-    const bool permitsFullCharge = (state.enabledAvailable && !state.enabled && !hasRestrictiveThreshold(state))
+    const bool permitsFullCharge = (state.enabledAvailable && !state.enabled && !state.hasRestrictiveThreshold())
         || (state.effectiveEnd == 100U && (!state.effectiveStart.has_value() || state.effectiveStart == 0U));
     if (row.nameLabel != nullptr) {
       row.nameLabel->setText(deviceDisplayName(batteries[i]));

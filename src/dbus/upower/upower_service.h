@@ -79,6 +79,11 @@ struct UPowerChargeLimitState {
   std::optional<bool> requestedEnabled;
   ChargeLimitOperationError operationError = ChargeLimitOperationError::None;
 
+  // True when the effective thresholds actually hold charge below full: a start
+  // threshold that delays resuming below full (0 < start < 100), or an end
+  // threshold that caps below full (end < 100). A start of 0 or 100 is not a limit.
+  [[nodiscard]] bool hasRestrictiveThreshold() const;
+
   bool operator==(const UPowerChargeLimitState&) const = default;
 };
 
