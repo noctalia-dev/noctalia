@@ -26,6 +26,10 @@ namespace settings {
   struct SettingsPluginsContext {
     float scale = 1.0F;
     std::string_view selectedSection;
+    // In page search query and empty means no filtering. Owned copy so the context
+    // never views a string that a debounced rebuild could observe mid mutation.
+    std::string searchQuery;
+    std::function<void(std::string)> setSearchQuery;
     std::vector<scripting::PluginStatus> plugins;
     std::vector<PluginSourceConfig> sources;
     bool searchActive = false;

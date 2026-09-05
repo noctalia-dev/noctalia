@@ -492,6 +492,7 @@ void SettingsWindow::openToBarWidget(std::string barName, std::string widgetName
   clearTransientSettingsState();
   clearStatusMessage();
   m_searchQuery.clear();
+  m_pluginSearchQuery.clear();
   m_selectedSection = "bar";
   m_selectedBarName = std::move(barName);
   m_selectedMonitorOverride.clear();
@@ -515,6 +516,7 @@ bool SettingsWindow::openToPlugin(std::string pluginId) {
   clearTransientSettingsState();
   clearStatusMessage();
   m_searchQuery.clear();
+  m_pluginSearchQuery.clear();
   m_selectedSection = "plugins";
   m_pendingOpenPluginSettingsId = std::move(pluginId);
   m_contentScrollState.offset = 0.0F;
@@ -624,6 +626,8 @@ void SettingsWindow::destroyWindow() {
   m_pendingResetPageScope.clear();
   m_pendingResetSettingPaths.clear();
   m_searchQuery.clear();
+  m_pluginSearchQuery.clear();
+  m_pluginSearchDebounceTimer.stop();
   m_selectedSection.clear();
   m_selectedBarName.clear();
   m_selectedMonitorOverride.clear();

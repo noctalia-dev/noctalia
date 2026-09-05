@@ -1527,6 +1527,8 @@
         "incompatible-plugin-api": "incompatible plugin API",
         "remove": "Remove plugin",
         "requires": "Requires: {dependencies}",
+        "search-empty": "No plugins match \"{query}\".",
+        "search-placeholder": "Search installed plugins",
         "title": "Plugins",
         "update-all": "Update all ({count})",
         "update-available": "update available",
