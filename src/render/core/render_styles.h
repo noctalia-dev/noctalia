@@ -175,6 +175,7 @@ struct AudioSpectrumStyle {
   bool mirrored = false;
   bool reversed = false;
   bool centered = false;
+  bool wave = false;
 };
 
 constexpr bool operator==(const AudioSpectrumStyle& lhs, const AudioSpectrumStyle& rhs) noexcept {
@@ -183,7 +184,8 @@ constexpr bool operator==(const AudioSpectrumStyle& lhs, const AudioSpectrumStyl
       && lhs.orientation == rhs.orientation
       && lhs.mirrored == rhs.mirrored
       && lhs.reversed == rhs.reversed
-      && lhs.centered == rhs.centered;
+      && lhs.centered == rhs.centered
+      && lhs.wave == rhs.wave;
 }
 
 enum class FancyAudioVisualizerMode : std::uint8_t {

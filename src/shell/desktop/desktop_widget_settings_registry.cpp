@@ -275,10 +275,15 @@ namespace desktop_settings {
       circle.visibleWhen = analogOnly;
       add(std::move(circle));
     } else if (type == "audio_visualizer") {
-      add(intSpec("bands", 32, 4.0, 128.0, 4.0));
+      auto bands = intSpec("bands", 32, 4.0, 128.0, 4.0);
+      bands.visibleWhen = WidgetSettingVisibility{"show_wave", {"false"}};
+      add(std::move(bands));
       add(boolSpec("mirrored", true));
       add(boolSpec("reversed", false));
-      add(boolSpec("centered", true));
+      auto centered = boolSpec("centered", true);
+      centered.visibleWhen = WidgetSettingVisibility{"show_wave", {"false"}};
+      add(std::move(centered));
+      add(boolSpec("show_wave", false));
       add(boolSpec("show_when_idle", true));
       add(colorSpec("color_1", "primary"));
       add(colorSpec("color_2", "primary"));

@@ -94,6 +94,12 @@ void AudioVisualizer::setCentered(bool centered) {
   setStyle(next);
 }
 
+void AudioVisualizer::setWave(bool wave) {
+  auto next = style();
+  next.wave = wave;
+  setStyle(next);
+}
+
 void AudioVisualizer::syncPalette() {
   auto next = style();
   next.color1 = resolveColorSpec(m_color1);

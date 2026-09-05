@@ -558,6 +558,7 @@
         "show-unlock-hint": "Unlock Hint",
         "show-vpn-label": "Show VPN Label",
         "show-weather": "Weather",
+        "show-wave": "Show Wave",
         "show-week-numbers": "Show Week Numbers",
         "show-when-idle": "Show When Idle",
         "stat": "Stat",
@@ -4303,6 +4304,10 @@
         "show-when-idle": {
           "description": "Keep the visualizer visible even when no media is playing",
           "label": "Show When Idle"
+        },
+        "show-wave": {
+          "description": "Display as a filled-area wave instead of discrete bars",
+          "label": "Show Wave"
         },
         "show-window-title": {
           "description": "Show the window title next to its icon (only on horizontal bars)",
