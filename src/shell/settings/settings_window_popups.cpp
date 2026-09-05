@@ -31,6 +31,7 @@
 #include "ui/controls/segmented.h"
 #include "ui/dialogs/file_dialog.h"
 #include "ui/popup_parent.h"
+#include "util/file_utils.h"
 #include "util/string_utils.h"
 #include "wayland/toplevel_surface.h"
 #include "wayland/wayland_connection.h"
@@ -1495,7 +1496,7 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
       }
       if (vdir) {
         const std::filesystem::path checkPath =
-            draft->path.empty() ? calendar::defaultVdirPath() : std::filesystem::path(draft->path);
+            draft->path.empty() ? calendar::defaultVdirPath() : FileUtils::expandUserPath(draft->path);
         std::error_code ec;
         if (!std::filesystem::exists(checkPath, ec) || !std::filesystem::is_directory(checkPath, ec)) {
           draft->pathInvalid = true;

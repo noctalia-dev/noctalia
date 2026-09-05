@@ -169,6 +169,7 @@ tint_intensity         = 0.3        # 0.0 = no tint, 1.0 = opaque
 enable_daemon      = true
 show_app_name      = true
 show_actions       = true           # show action buttons; when false, clicking a toast triggers its default action
+keep_dismissed_in_history = true    # set false to remove history entries when their toasts are dismissed
 layer              = "top"          # top | overlay
 scale              = 1.0            # notification size multiplier applied on top of accessibility.ui_scale
 background_opacity = 0.97

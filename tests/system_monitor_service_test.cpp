@@ -28,7 +28,7 @@ namespace {
       expect(disk->totalBytes > 0, "disk total should be populated");
       expect(disk->freeBytes <= disk->totalBytes, "disk free bytes should not exceed the total");
       expect(disk->availableBytes <= disk->freeBytes, "available bytes should not exceed free bytes");
-      expect(disk->usagePercent >= 0.0f && disk->usagePercent <= 100.0f, "disk usage should be a percentage");
+      expect(disk->usagePercent >= 0.0F && disk->usagePercent <= 100.0F, "disk usage should be a percentage");
     }
     monitor.releaseDiskPath(path);
 
@@ -57,11 +57,11 @@ namespace {
 
 int main() {
   SystemConfig::MonitorConfig config;
-  config.cpuPollSeconds = 1.0f;
-  config.gpuPollSeconds = 0.0f;
-  config.memoryPollSeconds = 0.0f;
-  config.networkPollSeconds = 0.0f;
-  config.diskPollSeconds = 1.0f;
+  config.cpuPollSeconds = 1.0F;
+  config.gpuPollSeconds = 0.0F;
+  config.memoryPollSeconds = 0.0F;
+  config.networkPollSeconds = 0.0F;
+  config.diskPollSeconds = 1.0F;
 
   SystemMonitorService monitor(config);
   testDiskSnapshot(monitor);

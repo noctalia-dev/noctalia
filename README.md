@@ -8,9 +8,6 @@ wallpaper, lock screen, session actions, clipboard history, OSDs, tray integrati
 built directly on Wayland and OpenGL ES with no Qt or GTK dependency, so the UI, rendering, configuration, and IPC model
 are designed as one cohesive shell instead of a collection of unrelated panels and scripts.
 
-> [!IMPORTANT]
-> Noctalia v5 is currently in Beta. While the core features and architecture are stabilizing, you may still encounter occasional configuration or behavior adjustments as we prepare for the final release.
-
 <p><br/></p>
 
 <p align="center">

@@ -6,9 +6,12 @@
 #include <functional>
 #include <string>
 #include <string_view>
+#include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 class Flex;
+class Node;
 
 namespace scripting {
   struct PluginManifest;
@@ -25,6 +28,11 @@ namespace settings {
     std::string_view selectedSection;
     std::vector<scripting::PluginStatus> plugins;
     std::vector<PluginSourceConfig> sources;
+    bool searchActive = false;
+    Flex* pageTitleRow = nullptr;
+    Flex* groupJumpRow = nullptr;
+    std::function<void(const Node&)> scrollContentToTop;
+    std::unordered_map<std::string, std::unordered_set<std::string>>& expandedGroupsByPage;
     bool pluginsLoading = false;
 
     std::function<void(std::string id, bool enable)> setEnabled;

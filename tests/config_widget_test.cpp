@@ -143,7 +143,7 @@ int main() {
   const WidgetBarCapsuleSpec automaticCapsule = resolveWidgetBarCapsuleSpec(bar, &launcher);
   ok = expect(automaticCapsule.enabled, "launcher capsule is enabled with an automatic radius") && ok;
   ok = expect(
-           automaticCapsule.radius.has_value() && *automaticCapsule.radius == 12.0f,
+           automaticCapsule.radius.has_value() && *automaticCapsule.radius == 12.0F,
            "automatic widget capsule radius keeps the bar radius"
        )
       && ok;
@@ -151,7 +151,7 @@ int main() {
   launcher.settings["capsule_radius"] = 7.0;
   const WidgetBarCapsuleSpec explicitCapsule = resolveWidgetBarCapsuleSpec(bar, &launcher);
   ok = expect(
-           explicitCapsule.radius.has_value() && *explicitCapsule.radius == 7.0f,
+           explicitCapsule.radius.has_value() && *explicitCapsule.radius == 7.0F,
            "numeric widget capsule radius overrides the bar radius"
        )
       && ok;

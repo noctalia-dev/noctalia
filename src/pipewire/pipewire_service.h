@@ -13,6 +13,7 @@
 
 struct pw_context;
 struct pw_core;
+struct pw_core_info;
 struct pw_loop;
 struct pw_registry;
 struct spa_hook;
@@ -102,6 +103,7 @@ public:
   void dispatch();
   [[nodiscard]] pw_core* coreHandle() const noexcept { return m_core; }
   [[nodiscard]] pw_loop* loop() const noexcept { return m_loop; }
+  [[nodiscard]] bool serverSupportsPassiveFollow() const noexcept { return m_serverSupportsPassiveFollow; }
 
   // State
   [[nodiscard]] const AudioState& state() const noexcept { return m_state; }
@@ -205,6 +207,8 @@ public:
     std::uint32_t outputNodeId = 0;
     std::uint32_t inputNodeId = 0;
   };
+  void onCoreInfo(const struct pw_core_info* info);
+  void onCoreDone(std::uint32_t id, int sequence);
   void onRegistryGlobal(std::uint32_t id, const char* type, std::uint32_t version, const struct spa_dict* props);
   void onRegistryGlobalRemove(std::uint32_t id);
   void onClientInfo(std::uint32_t id, const struct pw_client_info* info);
@@ -267,6 +271,11 @@ private:
   // Listener hooks (must outlive the objects they listen to)
   spa_hook* m_coreListener = nullptr;
   spa_hook* m_registryListener = nullptr;
+
+  std::string m_serverVersion;
+  bool m_serverSupportsPassiveFollow = false;
+  int m_initialSyncSequence = -1;
+  bool m_initialSyncPending = false;
 
   std::unordered_map<std::uint32_t, std::unique_ptr<NodeData>> m_nodes;
   std::unordered_map<std::uint32_t, ClientData> m_clients;

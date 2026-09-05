@@ -2,14 +2,15 @@
 
 #include <cstdio>
 #include <nlohmann/json.hpp>
+#include <print>
 
 namespace {
 
   bool expectSelected(const nlohmann::json& item, bool expected, const char* message) {
     const bool actual = calendar::detail::googleCalendarListItemSelected(item);
     if (actual != expected) {
-      std::fprintf(
-          stderr, "google_client_calendar_list_test: %s: expected %s, got %s\n", message,
+      std::println(
+          stderr, "google_client_calendar_list_test: {}: expected {}, got {}", message,
           expected ? "selected" : "unselected", actual ? "selected" : "unselected"
       );
       return false;

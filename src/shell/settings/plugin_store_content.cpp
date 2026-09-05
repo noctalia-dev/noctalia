@@ -453,7 +453,8 @@ namespace settings {
           ui::segmented({
               .options = allSources,
               .selectedIndex = selectedSourceIndex,
-              .fontSize = Style::fontSizeCaption * scale,
+              .fontSize = Style::fontSizeCaption,
+              .scale = scale,
               .compact = true,
               .onChange = [this](std::size_t i) {
                 m_selectedSource = i == 0 ? std::string{} : m_sources[i - 1];

@@ -6,6 +6,7 @@
 #include "config/schema/config_schema.h"
 
 #include <cstdio>
+#include <print>
 #include <string>
 #include <vector>
 
@@ -24,14 +25,14 @@ namespace {
 
   void expectKnown(const std::vector<std::string>& path) {
     if (!isKnownConfigPath(path)) {
-      std::fprintf(stderr, "config_path_resolution: FAIL: expected known: %s\n", join(path).c_str());
+      std::println(stderr, "config_path_resolution: FAIL: expected known: {}", join(path));
       ++g_failures;
     }
   }
 
   void expectUnknown(const std::vector<std::string>& path) {
     if (isKnownConfigPath(path)) {
-      std::fprintf(stderr, "config_path_resolution: FAIL: expected unknown: %s\n", join(path).c_str());
+      std::println(stderr, "config_path_resolution: FAIL: expected unknown: {}", join(path));
       ++g_failures;
     }
   }
@@ -95,6 +96,6 @@ int main() {
     std::puts("config_path_resolution: all checks passed");
     return 0;
   }
-  std::fprintf(stderr, "config_path_resolution: %d failure(s)\n", g_failures);
+  std::println(stderr, "config_path_resolution: {} failure(s)", g_failures);
   return 1;
 }

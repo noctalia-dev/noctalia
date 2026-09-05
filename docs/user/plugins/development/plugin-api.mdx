@@ -9,10 +9,6 @@ sidebar:
 import PluginApiTable from '../../../../../components/PluginApiTable.astro';
 import PluginApiRange from '../../../../../components/PluginApiRange.astro';
 
-:::caution[Beta - APIs may still change]
-The plugin system is in **beta**. The manifest format and APIs may still change before v5 is stable, so build with that in mind.
-:::
-
 Every plugin declares the oldest API level it requires with `plugin_api` in `plugin.toml`. API levels are cumulative:
 use the oldest level that includes every capability your plugin needs to keep it compatible with as many Noctalia
 versions as possible.

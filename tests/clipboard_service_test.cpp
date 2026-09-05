@@ -412,7 +412,8 @@ int main() {
 
     for (int i = 0; i < 3; ++i) {
       simulateCopy(
-          harness.clipboard, &offerIds[i], "text/plain;charset=utf-8", bytesOf(std::string("entry ") + char('a' + i))
+          harness.clipboard, &offerIds[i], "text/plain;charset=utf-8",
+          bytesOf(std::string("entry ") + static_cast<char>('a' + i))
       );
     }
     expect(harness.clipboard.history().size() == 3, "three distinct copies did not produce three entries");
@@ -423,7 +424,7 @@ int main() {
     for (int i = 0; i < 3; ++i) {
       simulateCopy(
           harness.clipboard, &offerIds[3 + i], "text/plain;charset=utf-8",
-          bytesOf(std::string("entry ") + char('x' + i))
+          bytesOf(std::string("entry ") + static_cast<char>('x' + i))
       );
     }
     // Newest first, so "entry z" sits at the front.
