@@ -1182,6 +1182,7 @@ if build_tests
     'input_password_mode',
     'input_readline_shortcuts',
     'ipc_service',
+    'iwd_diagnostics',
     'jxl_decoder',
     'kde_color_scheme',
     'keyboard_layout_label',
