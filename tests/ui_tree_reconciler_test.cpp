@@ -2316,7 +2316,7 @@ int main() {
   }
 
   // Graph: no pointer callback declared -> plain Graph, no InputArea wrapper
-  // (existing values/size behaviour is unaffected by the new capability).
+  // (existing values/size behavior is unaffected by the new capability).
   {
     ui::UiTreeReconciler reconciler;
     Flex host;

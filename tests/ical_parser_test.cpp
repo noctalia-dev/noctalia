@@ -494,7 +494,7 @@ int main() {
   // All-day (VALUE=DATE) MONTHLY on the 1st, over a one-year window, is exactly 12 - one per month.
   // The old code derived the day-of-month from floor<days> of the UTC instant, which for a zone east
   // of UTC rolls back to the previous civil day (the 31st of Dec), so months without a 31st were
-  // dropped. Correct behaviour is zone-independent. Window is padded ±half-month so each local-midnight
+  // dropped. Correct behavior is zone-independent. Window is padded ±half-month so each local-midnight
   // occurrence lands inside regardless of the running zone's UTC offset.
   {
     const std::string ics = "BEGIN:VEVENT\r\nUID:ad\r\nSUMMARY:s\r\nDTSTART;VALUE=DATE:20240101\r\n"

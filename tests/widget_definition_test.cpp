@@ -46,7 +46,7 @@
 #include <string_view>
 
 // The battery definition's finalize hook reaches into the warning-threshold helper, which would drag
-// UPower, notifications and i18n into a test about definition well-formedness. Threshold behaviour is
+// UPower, notifications and i18n into a test about definition well-formedness. Threshold behavior is
 // not under test here, so stand the helper in rather than link that tree.
 int batteryWarningThresholdForSelector(
     const BatteryConfig& /*config*/, const UPowerService* /*upower*/, std::string_view /*selector*/

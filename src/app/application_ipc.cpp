@@ -231,7 +231,7 @@ void Application::initIpc() {
   });
 
   m_ipcService.bind(noctalia::cli::msg::notificationInvokeLatest, [this](const std::string&) -> std::string {
-    // Mirror the toast left-click behaviour for the most recent active notification:
+    // Mirror the toast left-click behavior for the most recent active notification:
     // invoke its "default" action so the source application raises/focuses its window.
     // all() stores notifications oldest-first (push_back), so iterate in reverse for newest.
     const auto& notifications = m_notificationManager.all();
