@@ -2217,6 +2217,10 @@
           "description": "Unlock with a fingerprint reader via fprintd, alongside password entry",
           "label": "Fingerprint Unlock"
         },
+        "grace-period": {
+          "description": "Allow passwordless unlock for this many seconds after locking; any keypress or mouse movement unlocks. Set to 0 to always require the password",
+          "label": "Grace Period"
+        },
         "lock-before-suspend": {
           "description": "Lock the session before sleep (lid close, systemctl suspend, hibernate); Lock & Suspend actions still lock first",
           "label": "Lock Before Suspend"

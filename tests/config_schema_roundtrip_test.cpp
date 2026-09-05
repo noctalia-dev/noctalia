@@ -347,6 +347,7 @@ location = "https://example.invalid/bad"
     c.backdrop = BackdropConfig{true, 0.8f, 0.2f};
     c.lockscreen = LockscreenConfig{
         .lockBeforeSuspend = false,
+        .gracePeriodSeconds = 3,
         .blurredDesktop = true,
         .blurIntensity = 0.6f,
         .tintIntensity = 0.25f,

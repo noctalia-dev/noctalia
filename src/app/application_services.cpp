@@ -1069,6 +1069,7 @@ void Application::initSystemBusServices() {
           // callback and force an immediate repaint of the lock surfaces.
           if (m_lockScreen.isActive()) {
             m_lockScreen.forceRepaintAfterResume();
+            m_lockScreen.onSystemResumed();
           }
           m_weatherService.requestRefresh();
           m_gammaService.reevaluateSchedule();

@@ -218,6 +218,7 @@ privacy = true                      # microphone/camera/screen-share capture cha
 
 [lockscreen]
 enabled                 = true
+grace_period_seconds    = 5           # unlock without a password on any keypress or mouse movement for this long after locking (0 = off)
 blurred_desktop         = false       # use a desktop snapshot as the lock screen background (requires wlr-screencopy)
 blur_intensity          = 0.5         # lock screen background blur (0.0 = none, 1.0 = maximum)
 tint_intensity          = 0.3         # surface-color tint over the lock screen background
