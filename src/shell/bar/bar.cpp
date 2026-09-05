@@ -2,6 +2,7 @@
 
 #include "compositors/compositor_platform.h"
 #include "config/config_service.h"
+#include "config/config_types.h"
 #include "core/deferred_call.h"
 #include "core/log.h"
 #include "core/process/process.h"
@@ -964,7 +965,8 @@ namespace {
   }
 
   void layoutBarSections(
-      BarInstance& instance, Renderer& renderer, float barAreaW, float barAreaH, float padding, bool isVertical
+      BarInstance& instance, Renderer& renderer, float barAreaW, float barAreaH, float padding, bool isVertical,
+      CompositorPlatform* platform
   ) {
     const float slotCross = isVertical ? barAreaW : barAreaH;
 
@@ -985,6 +987,33 @@ namespace {
     layoutWidgets(instance.startWidgets);
     layoutWidgets(instance.centerWidgets);
     layoutWidgets(instance.endWidgets);
+
+    // Determine whether a widget should be hidden depending on monitorFocusBehavior
+    const bool barMonitorFocused =
+        platform != nullptr ? platform->preferredInteractiveOutput() == instance.output : false;
+    auto gateWidget = [barMonitorFocused](const Widget& widget) {
+      const auto behavior = widget.monitorFocusBehavior();
+      return (
+          behavior == MonitorFocusBehavior::Ignored
+          || (behavior == MonitorFocusBehavior::OnlyFocused && barMonitorFocused)
+          || (behavior == MonitorFocusBehavior::OnlyUnfocused && !barMonitorFocused)
+      );
+    };
+
+    // Hide widgets before capsule layout depending on gateWidget
+    auto gateWidgets = [&gateWidget](std::vector<std::unique_ptr<Widget>>& widgets) {
+      for (auto& widget : widgets) {
+        if (widget != nullptr
+            && widget->outerNode() != nullptr
+            && widget->outerNode()->visible()
+            && !gateWidget(*widget)) {
+          widget->outerNode()->setVisible(false);
+        }
+      }
+    };
+    gateWidgets(instance.startWidgets);
+    gateWidgets(instance.centerWidgets);
+    gateWidgets(instance.endWidgets);
 
     auto finalizeCapsules = [isVertical, capsuleCross, widgetHoverPadding = instance.barConfig.widgetCapsulePadding,
                              &renderer](std::vector<BarCapsuleRun>& runs) {
@@ -1144,6 +1173,24 @@ namespace {
     finalizeCapsules(instance.startCapsuleRuns);
     finalizeCapsules(instance.centerCapsuleRuns);
     finalizeCapsules(instance.endCapsuleRuns);
+
+    // Hide empty capsules created by gateWidgets
+    auto hideEmptyCapsules = [](std::vector<BarCapsuleRun>& runs) {
+      for (auto& run : runs) {
+        if (run.shell == nullptr || !run.shell->visible()) {
+          continue;
+        }
+        bool anyVisible = std::ranges::any_of(run.widgets, [](const Widget* widget) {
+          return widget != nullptr && widget->outerNode() != nullptr && widget->outerNode()->visible();
+        });
+        if (!anyVisible) {
+          run.shell->setVisible(false);
+        }
+      }
+    };
+    hideEmptyCapsules(instance.startCapsuleRuns);
+    hideEmptyCapsules(instance.centerCapsuleRuns);
+    hideEmptyCapsules(instance.endCapsuleRuns);
 
     // When bar touches screen edge, put the padding inside the sections, and extend the hit targets of
     // the first/last widgets to cover the area. So clicking on the screen edge still triggers the widget.
@@ -3400,7 +3447,7 @@ void Bar::buildScene(BarInstance& instance, std::uint32_t width, std::uint32_t h
 
   applyBarShadowStyle(instance, shadowConfig, w, h);
 
-  layoutBarSections(instance, renderer, barAreaW, barAreaH, padding, isVertical);
+  layoutBarSections(instance, renderer, barAreaW, barAreaH, padding, isVertical, m_platform);
 
   float contentLeft = barAreaX;
   float contentTop = barAreaY;
@@ -3460,7 +3507,7 @@ void Bar::updateWidgets(BarInstance& instance) {
   updateSection(instance.startWidgets);
   updateSection(instance.centerWidgets);
   updateSection(instance.endWidgets);
-  layoutBarSections(instance, renderer, barAreaW, barAreaH, padding, isVertical);
+  layoutBarSections(instance, renderer, barAreaW, barAreaH, padding, isVertical, m_platform);
 }
 
 void Bar::prepareFrame(BarInstance& instance, bool needsUpdate, bool needsLayout) {
@@ -3502,7 +3549,7 @@ void Bar::prepareFrame(BarInstance& instance, bool needsUpdate, bool needsLayout
     for (auto& widget : instance.endWidgets) {
       widget->layout(renderer, barAreaW, barAreaH);
     }
-    layoutBarSections(instance, renderer, barAreaW, barAreaH, padding, isVertical);
+    layoutBarSections(instance, renderer, barAreaW, barAreaH, padding, isVertical, m_platform);
   }
 }
 
