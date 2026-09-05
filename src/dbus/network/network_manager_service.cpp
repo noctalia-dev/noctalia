@@ -810,11 +810,7 @@ void NetworkManagerService::setWirelessEnabled(bool enabled, WirelessEnabledComp
   if (enabled) {
     const RfkillSwitchResult rfkillResult = setRfkillSoftBlocked(RfkillDeviceType::Wlan, false);
     if (rfkillResult.hardBlocked) {
-      kLog.warn("setWirelessEnabled: wlan rfkill hard block is active");
-      if (onComplete) {
-        onComplete(false);
-      }
-      return;
+      kLog.warn("setWirelessEnabled: wlan rfkill reports a hard block");
     }
     if (!rfkillResult.success) {
       kLog.warn("setWirelessEnabled: rfkill unblock failed ({}), trying NetworkManager anyway", rfkillResult.detail);
