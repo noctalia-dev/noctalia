@@ -1045,6 +1045,19 @@ void PipeWireService::onRegistryGlobal(std::uint32_t id, const char* type, std::
     if (stored.mediaClass == "Audio/Sink" || stored.mediaClass == "Audio/Source") {
       m_pendingDefaultAudioDevicePropsEnum = true;
       rebuildState();
+      // Late-appearing device nodes (e.g. Bluetooth earbuds) miss the one-shot sweep at
+      // mixer activation and would sit at volume 1.0 until the first external change.
+      // Proactively fetch their authoritative volume/mute from mixer-api if it is ready.
+      if (m_wpMixer != nullptr && m_wpMixer->ready()) {
+        m_wpMixer->refreshVolume(id);
+        // Schedule a second attempt on the next dispatch: the WirePlumber object manager
+        // may not have the new BlueZ node yet when we run synchronously inside the
+        // registry callback. The "changed" signal will backstop any remaining case.
+        // We trigger it via a pending prop enum that also pumps the mixer context.
+        if (stored.name.starts_with("bluez_") || stored.name.contains("bluez")) {
+          kLog.info("bluetooth node appeared id={} name=\"{}\" — fetching volume", id, stored.name);
+        }
+      }
     } else if (stored.mediaClass != "Stream/Output/Audio") {
       rebuildState();
     }
@@ -1517,6 +1530,13 @@ void PipeWireService::onMixerVolumeChanged(std::uint32_t id, float volume, bool 
   const bool before = nd.muted;
   recomputeEffectiveMute(nd);
   if (changed || before != nd.muted) {
+    const bool isBluez = nd.name.starts_with("bluez_") || nd.name.contains("bluez");
+    if (isBluez && (changed || before != nd.muted)) {
+      kLog.info(
+          "bluetooth volume update id={} \"{}\" vol={:.0F}% swMute={} effectiveMuted={} (routeMuted={})",
+          id, nd.name, clamped * 100.0F, muted, nd.muted, nd.nodeRouteMute
+      );
+    }
     rebuildState();
   }
 }
@@ -1720,6 +1740,46 @@ void PipeWireService::rebuildState() {
     return;
   }
 
+  // Reset the relative-adjust gesture accumulator when the default sink/source changes
+  // (e.g. switching to Bluetooth earbuds). Otherwise a held volume key accumulates
+  // from the old sink's target and rubber-bands on the new device.
+  const bool sinkChanged = next.defaultSinkId != m_state.defaultSinkId;
+  const bool sourceChanged = next.defaultSourceId != m_state.defaultSourceId;
+  if (sinkChanged || sourceChanged) {
+    m_relativeAdjust = {};
+    if (sinkChanged && next.defaultSinkId != 0) {
+      const auto sinkIt = std::ranges::find(next.sinks, next.defaultSinkId, &AudioNode::id);
+      if (sinkIt != next.sinks.end()) {
+        const bool isBluez = sinkIt->name.starts_with("bluez_") || sinkIt->name.contains("bluez");
+        kLog.info(
+            "default sink changed {} -> {} \"{}\"{} vol={:.0F}%{}",
+            m_state.defaultSinkId, next.defaultSinkId, sinkIt->name, isBluez ? " [bluetooth]" : "",
+            sinkIt->volume * 100.0F, sinkIt->muted ? " [muted]" : ""
+        );
+        // Proactively refresh the new default's volume in case the earlier node-appeared
+        // refresh raced with the object manager.
+        if (m_wpMixer != nullptr && m_wpMixer->ready()) {
+          m_wpMixer->refreshVolume(next.defaultSinkId);
+        }
+      } else {
+        kLog.info("default sink changed {} -> {} (unknown)", m_state.defaultSinkId, next.defaultSinkId);
+      }
+    }
+    if (sourceChanged && next.defaultSourceId != 0) {
+      const auto srcIt = std::ranges::find(next.sources, next.defaultSourceId, &AudioNode::id);
+      if (srcIt != next.sources.end()) {
+        kLog.info(
+            "default source changed {} -> {} \"{}\" vol={:.0F}%{}",
+            m_state.defaultSourceId, next.defaultSourceId, srcIt->name, srcIt->volume * 100.0F,
+            srcIt->muted ? " [muted]" : ""
+        );
+        if (m_wpMixer != nullptr && m_wpMixer->ready()) {
+          m_wpMixer->refreshVolume(next.defaultSourceId);
+        }
+      }
+    }
+  }
+
   m_state = std::move(next);
   m_privacyState = std::move(nextPrivacy);
   ++m_changeSerial;
@@ -1770,7 +1830,19 @@ void PipeWireService::recomputeEffectiveMute(NodeData& nd) {
   }
 
   const bool deviceRouteMuted = deviceRoute != nullptr && deviceRoute->muted;
-  nd.muted = nd.swMute || routeMuted || deviceRouteMuted;
+  const bool newMuted = nd.swMute || routeMuted || deviceRouteMuted;
+  // Diagnostic for Bluetooth: route/device mute can silently mute the earbud while the slider
+  // still shows unmuted. Log once when it becomes the effective mute source.
+  if (newMuted != nd.muted || (newMuted && !nd.swMute && (routeMuted || deviceRouteMuted))) {
+    const bool isBluez = nd.name.starts_with("bluez_") || nd.name.contains("bluez");
+    if (isBluez && newMuted && !nd.swMute) {
+      kLog.info(
+          "bluetooth effective mute id={} \"{}\" swMute={} routeMuted={} deviceRouteMuted={} -> muted={}",
+          nd.id, nd.name, nd.swMute, routeMuted, deviceRouteMuted, newMuted
+      );
+    }
+  }
+  nd.muted = newMuted;
 }
 
 void PipeWireService::applyVolumePropsFromDict(NodeData& nd, const spa_dict* props, bool applyMixerFieldsFromDict) {

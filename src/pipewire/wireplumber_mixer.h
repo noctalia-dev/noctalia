@@ -28,6 +28,10 @@ public:
   void setVolume(std::uint32_t id, float volume);
   void setMuted(std::uint32_t id, bool muted);
 
+  // Proactively fetch the current volume/mute for a single device node that appeared
+  // after mixer activation (e.g. Bluetooth earbuds). No-ops if not ready.
+  void refreshVolume(std::uint32_t id);
+
   // Authoritative read side: fires with a node's current perceptual volume + mute whenever mixer-api
   // reports a change (including our own writes and external changes from pavucontrol/pulse), plus once
   // per device node right after activation. This is the single source of truth for device volume/mute.

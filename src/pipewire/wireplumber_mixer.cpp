@@ -205,14 +205,67 @@ struct WirePlumberMixer::Impl {
     return true;
   }
 
-  void pushVolume(std::uint32_t id) {
+  // Returns true if the volume was successfully read and pushed.
+  bool tryPushVolume(std::uint32_t id) {
     if (!changeCb) {
-      return;
+      return false;
     }
     float volume = 0.0F;
     bool muted = false;
     if (readVolume(id, volume, muted)) {
       changeCb(id, volume, muted);
+      return true;
+    }
+    return false;
+  }
+
+  void pushVolume(std::uint32_t id) { (void)tryPushVolume(id); }
+
+  struct DeferredRefresh {
+    std::uint32_t id;
+    Impl* self;
+  };
+
+  static gboolean onDeferredRefresh(gpointer data) noexcept {
+    auto* d = static_cast<DeferredRefresh*>(data);
+    const bool ok = d->self->tryPushVolume(d->id);
+    // Second retry after a longer interval if still not tracked — covers BlueZ
+    // nodes that take a beat to appear in mixer-api after the PipeWire registry.
+    if (!ok) {
+      auto* d2 = new DeferredRefresh{d->id, d->self};
+      GSource* s2 = g_timeout_source_new(400);
+      g_source_set_callback(s2, &Impl::onDeferredRefresh2, d2, [](gpointer p) { delete static_cast<DeferredRefresh*>(p); });
+      g_source_attach(s2, d->self->context);
+      g_source_unref(s2);
+    }
+    delete d;
+    return G_SOURCE_REMOVE;
+  }
+
+  static gboolean onDeferredRefresh2(gpointer data) noexcept {
+    auto* d = static_cast<DeferredRefresh*>(data);
+    d->self->pushVolume(d->id);
+    delete d;
+    return G_SOURCE_REMOVE;
+  }
+
+  void refreshVolume(std::uint32_t id) {
+    if (!ready) {
+      return;
+    }
+    // Try immediately; if mixer hasn't tracked the node yet (common for just-connected
+    // Bluetooth), schedule retries after the object-manager catches up.
+    const bool ok = tryPushVolume(id);
+    if (nodesOm != nullptr) {
+      g_main_context_wakeup(context);
+    }
+    if (!ok) {
+      auto* d = new DeferredRefresh{id, this};
+      GSource* s = g_timeout_source_new(120);
+      g_source_set_callback(s, &Impl::onDeferredRefresh, d, [](gpointer p) { delete static_cast<DeferredRefresh*>(p); });
+      g_source_attach(s, context);
+      g_source_unref(s);
+      g_main_context_wakeup(context);
     }
   }
 
@@ -423,6 +476,8 @@ bool WirePlumberMixer::ready() const noexcept { return m_impl->ready; }
 void WirePlumberMixer::setVolume(std::uint32_t id, float volume) { m_impl->requestVolume(id, volume); }
 
 void WirePlumberMixer::setMuted(std::uint32_t id, bool muted) { m_impl->requestMute(id, muted); }
+
+void WirePlumberMixer::refreshVolume(std::uint32_t id) { m_impl->refreshVolume(id); }
 
 void WirePlumberMixer::setDefaultNode(std::uint32_t id) { m_impl->requestDefault(id); }
 
