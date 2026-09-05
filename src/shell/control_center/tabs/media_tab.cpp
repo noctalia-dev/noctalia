@@ -928,25 +928,33 @@ void MediaTab::refresh(Renderer& renderer) {
         loaded = true;
       }
 
+      // The foreground artwork changed, so force the blurred background
+      // to be regenerated from the new artwork texture.
+      if (loaded) {
+        m_artworkBlurCache.invalidate();
+      }
+
       // Only lock this URL once we actually have an image.
       // Otherwise keep retrying while metadata/download catches up.
-            if (loaded && m_artworkBackground != nullptr && m_renderContext != nullptr) {
+      if (loaded && m_artworkBackground != nullptr && m_renderContext != nullptr) {
         const auto artworkTexture = m_artwork->textureHandle();
 
         if (artworkTexture.valid()) {
           m_renderContext->backend().makeCurrentNoSurface();
 
-          const std::uint32_t blurWidth = static_cast<std::uint32_t>(artworkTexture.width);
-          const std::uint32_t blurHeight = static_cast<std::uint32_t>(artworkTexture.height);
+          const std::uint32_t blurWidth =
+             std::max(1U, static_cast<std::uint32_t>(artworkTexture.width / 2));
+          const std::uint32_t blurHeight =
+             std::max(1U, static_cast<std::uint32_t>(artworkTexture.height / 2));
 
-         const auto blurredTexture = m_artworkBlurCache.get(
-             m_renderContext->backend(),
-             artworkTexture,
-             blurWidth,
-             blurHeight,
-             8.0F,
-             1
-         );
+          const auto blurredTexture = m_artworkBlurCache.get(
+              m_renderContext->backend(),
+              artworkTexture,
+              blurWidth,
+              blurHeight,
+              8.0F,
+              1
+          );
 
           if (blurredTexture.valid()) {
             m_artworkBackground->setExternalTexture(renderer, blurredTexture);
