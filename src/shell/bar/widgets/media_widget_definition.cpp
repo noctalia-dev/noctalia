@@ -42,6 +42,13 @@ const noctalia::bar::WidgetDefinition<MediaWidget::Options>& mediaWidgetDefiniti
                       .horizontalBarOnly = true,
                   },
           }),
+          field<&Options::showControls>({
+              .key = "show_controls",
+              .presentation =
+                  settings::WidgetSettingPresentation{
+                      .horizontalBarOnly = true,
+                  },
+          }),
           field<&Options::minWidth>({
               .key = "min_length",
               .minValue = 0.0,

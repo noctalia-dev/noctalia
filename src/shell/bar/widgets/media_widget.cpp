@@ -1,5 +1,6 @@
 #include "shell/bar/widgets/media_widget.h"
 
+#include "core/deferred_call.h"
 #include "core/log.h"
 #include "dbus/mpris/mpris_art.h"
 #include "dbus/mpris/mpris_service.h"
@@ -8,6 +9,7 @@
 #include "render/core/renderer.h"
 #include "render/scene/input_area.h"
 #include "ui/builders.h"
+#include "ui/controls/button.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 
@@ -29,7 +31,7 @@ MediaWidget::MediaWidget(MprisService* mpris, HttpClient* httpClient, wl_output*
       m_minWidth(static_cast<float>(options.minWidth)), m_artSize(static_cast<float>(options.artSize)),
       m_titleScrollMode(options.titleScrollMode), m_hideWhenNoMedia(options.hideWhenNoMedia),
       m_albumArtOnly(options.albumArtOnly), m_hideAlbumArt(options.hideAlbumArt), m_hideArtist(options.hideArtist),
-      m_artistFirst(options.artistFirst), m_showProgress(options.showProgress) {}
+      m_artistFirst(options.artistFirst), m_showProgress(options.showProgress), m_showControls(options.showControls) {}
 
 void MediaWidget::create() {
   auto area = ui::inputArea({});
@@ -90,6 +92,57 @@ void MediaWidget::create() {
       })
   );
 
+  if (m_showControls) {
+    const float glyphSize = Style::baseGlyphSize * m_contentScale;
+    const float padding = Style::spaceXs * m_contentScale;
+
+    auto controlClick = [this](auto action) {
+      return [this, action]() {
+        const std::weak_ptr<void> aliveGuard = m_aliveGuard;
+        DeferredCall::callLater([this, aliveGuard, action]() {
+          if (aliveGuard.expired() || m_mpris == nullptr) {
+            return;
+          }
+          action(*m_mpris);
+          requestUpdate();
+        });
+      };
+    };
+
+    area->addChild(
+        ui::button({
+            .out = &m_prevButton,
+            .glyph = "media-prev",
+            .glyphSize = glyphSize,
+            .variant = ButtonVariant::Ghost,
+            .padding = padding,
+            .onClick = controlClick([](MprisService& mpris) { (void)mpris.previousActive(); }),
+        })
+    );
+
+    area->addChild(
+        ui::button({
+            .out = &m_playPauseButton,
+            .glyph = "media-play",
+            .glyphSize = glyphSize,
+            .variant = ButtonVariant::Ghost,
+            .padding = padding,
+            .onClick = controlClick([](MprisService& mpris) { (void)mpris.playPauseActive(); }),
+        })
+    );
+
+    area->addChild(
+        ui::button({
+            .out = &m_nextButton,
+            .glyph = "media-next",
+            .glyphSize = glyphSize,
+            .variant = ButtonVariant::Ghost,
+            .padding = padding,
+            .onClick = controlClick([](MprisService& mpris) { (void)mpris.nextActive(); }),
+        })
+    );
+  }
+
   setRoot(std::move(area));
 }
 
@@ -145,10 +198,24 @@ void MediaWidget::doLayout(Renderer& renderer, float containerWidth, float conta
   m_emptyGlyph->setVisible(showEmptyGlyph);
   const bool showLabel = m_label->visible();
   applyTitleScrollMode(showLabel);
+  syncControls(artOnly, m_hasActive);
 
   const float leadingWidth = showArtSlot ? artSize : (showEmptyGlyph ? m_emptyGlyph->width() : 0.0F);
   const float spacing = showLabel && leadingWidth > 0.0F ? Style::spaceXs : 0.0F;
-  const float labelMaxWidth = showLabel ? std::max(0.0F, maxLength - leadingWidth - spacing) : 0.0F;
+  const bool showControls = m_showControls && !artOnly && m_hasActive && m_prevButton != nullptr
+      && m_playPauseButton != nullptr && m_nextButton != nullptr;
+
+  // Measure control buttons up front so the label can yield width to them.
+  float controlsWidth = 0.0F;
+  if (showControls) {
+    for (auto* button : {m_prevButton, m_playPauseButton, m_nextButton}) {
+      button->measure(renderer, {});
+    }
+    const float gap = Style::spaceXs * m_contentScale;
+    controlsWidth = m_prevButton->width() + gap + m_playPauseButton->width() + gap + m_nextButton->width();
+  }
+
+  const float labelMaxWidth = showLabel ? std::max(0.0F, maxLength - leadingWidth - spacing - controlsWidth) : 0.0F;
   m_label->setMaxWidth(labelMaxWidth);
   m_label->measure(renderer);
 
@@ -188,7 +255,16 @@ void MediaWidget::doLayout(Renderer& renderer, float containerWidth, float conta
     }
     const float contentWidth = showLabel ? m_label->x() + m_label->width()
                                          : (showArtSlot ? artSize : (showEmptyGlyph ? m_emptyGlyph->width() : 0.0F));
-    rootNode->setSize(std::clamp(contentWidth, minLength, maxLength), contentHeight);
+    float controlsCursor = contentWidth;
+    if (showControls) {
+      const float gap = Style::spaceXs * m_contentScale;
+      for (auto* button : {m_prevButton, m_playPauseButton, m_nextButton}) {
+        controlsCursor += gap;
+        button->setPosition(controlsCursor, std::round((contentHeight - button->height()) * 0.5F));
+        controlsCursor += button->width();
+      }
+    }
+    rootNode->setSize(std::clamp(controlsCursor, minLength, maxLength), contentHeight);
   }
   m_progressBar->setVisible(showProgressFill);
   if (showProgressFill) {
@@ -223,6 +299,20 @@ void MediaWidget::applyTitleScrollMode(bool titleVisible) {
           || (m_titleScrollMode == MediaTitleScrollMode::OnHover && m_area != nullptr && m_area->hovered()));
   m_label->setAutoScroll(shouldScroll);
   m_label->setAutoScrollOnlyWhenHovered(false);
+}
+
+void MediaWidget::syncControls(bool artOnly, bool hasActive) {
+  const bool visible = m_showControls && !artOnly && hasActive;
+  for (auto* button : {m_prevButton, m_playPauseButton, m_nextButton}) {
+    if (button == nullptr) {
+      continue;
+    }
+    if (button->visible() != visible || button->participatesInLayout() != visible) {
+      button->setVisible(visible);
+      button->setParticipatesInLayout(visible);
+      requestUpdate();
+    }
+  }
 }
 
 void MediaWidget::syncWidgetVisibility(bool hasMedia) {
@@ -280,6 +370,10 @@ void MediaWidget::syncState(Renderer& renderer, const std::optional<MprisPlayerI
   }
 
   syncWidgetVisibility(active.has_value());
+  if (m_hasActive != active.has_value()) {
+    m_hasActive = active.has_value();
+    requestUpdate();
+  }
   if (m_hideWhenNoMedia && !active.has_value()) {
     applyTitleScrollMode(false);
     return;
@@ -309,6 +403,9 @@ void MediaWidget::syncState(Renderer& renderer, const std::optional<MprisPlayerI
         m_lastPlaybackStatus == "Playing" ? widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface))
                                           : colorSpecFromRole(ColorRole::OnSurfaceVariant)
     );
+    if (m_playPauseButton != nullptr && m_playPauseButton->visible()) {
+      m_playPauseButton->setGlyph(m_lastPlaybackStatus == "Playing" ? "media-pause" : "media-play");
+    }
     requestRedraw();
     return;
   }
@@ -316,6 +413,10 @@ void MediaWidget::syncState(Renderer& renderer, const std::optional<MprisPlayerI
   m_lastText = displayText;
   m_lastArtUrl = artUrl;
   m_lastPlaybackStatus = playbackStatus;
+
+  if (m_playPauseButton != nullptr) {
+    m_playPauseButton->setGlyph(m_lastPlaybackStatus == "Playing" ? "media-pause" : "media-play");
+  }
 
   if (textChanged) {
     m_label->setText(m_lastText);
