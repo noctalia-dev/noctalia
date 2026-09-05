@@ -194,6 +194,36 @@ int main() {
        )
       && ok;
 
+  // clone.defaultRemoteName≠origin must still create/fetch `origin` (#4122).
+  ::setenv("GIT_CONFIG_COUNT", "1", 1);
+  ::setenv("GIT_CONFIG_KEY_0", "clone.defaultRemoteName", 1);
+  ::setenv("GIT_CONFIG_VALUE_0", "up", 1);
+  const auto destUp = root / "repo-up";
+  const auto clonedUp = scripting::plugin_git::cloneBlobless(source.string(), destUp);
+  ok = expect(static_cast<bool>(clonedUp), "cloneBlobless with defaultRemoteName=up failed") && ok;
+  const auto remoteUp = process::runSync({"git", "-C", destUp.string(), "remote"});
+  ok = expect(static_cast<bool>(remoteUp), "git remote failed on defaultRemoteName clone") && ok;
+  ok = expect(remoteUp.out == "origin\n" || remoteUp.out == "origin", "cloneBlobless did not pin remote name origin")
+      && ok;
+  ok = expect(
+           static_cast<bool>(scripting::plugin_git::fetch(destUp, source.string())),
+           "fetch failed after defaultRemoteName=up clone"
+       )
+      && ok;
+
+  const auto destLegacy = root / "repo-legacy-up";
+  ok = runGit({"git", "clone", "--filter=blob:none", "--no-checkout", source.string(), destLegacy.string()}) && ok;
+  const auto remoteLegacy = process::runSync({"git", "-C", destLegacy.string(), "remote"});
+  ok = expect(remoteLegacy.out == "up\n" || remoteLegacy.out == "up", "legacy clone remote was not up") && ok;
+  ok = expect(
+           static_cast<bool>(scripting::plugin_git::fetch(destLegacy, source.string())),
+           "fetch did not recover a non-origin remote"
+       )
+      && ok;
+  ::unsetenv("GIT_CONFIG_COUNT");
+  ::unsetenv("GIT_CONFIG_KEY_0");
+  ::unsetenv("GIT_CONFIG_VALUE_0");
+
   std::error_code ec;
   std::filesystem::remove_all(root, ec);
   return ok ? 0 : 1;

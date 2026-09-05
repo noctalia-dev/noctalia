@@ -106,8 +106,11 @@ namespace scripting::plugin_git {
     // Blobless but NOT shallow: full commit/tree history (still tiny — no file
     // blobs until needed), so later fetches can inspect history normally. A `--depth 1`
     // shallow clone grafts fetched commits as disjoint roots ("unrelated histories").
+    // Pin the remote name: clone.defaultRemoteName (and checkout.defaultRemote) otherwise
+    // name it something other than origin, and fetch/set-url origin fail (#4122).
     return run(
-        {"git", "clone", "--filter=blob:none", "--no-checkout", url, dest.string()}, kNetworkTimeout, kProgressCap
+        {"git", "clone", "--filter=blob:none", "--no-checkout", "-o", "origin", url, dest.string()}, kNetworkTimeout,
+        kProgressCap
     );
   }
 
@@ -145,8 +148,15 @@ namespace scripting::plugin_git {
   }
 
   GitResult setOrigin(const std::filesystem::path& dest, std::string_view sourceLocation) {
+    auto updated =
+        run({"git", "-C", dest.string(), "remote", "set-url", "origin", std::string(sourceLocation)}, kLocalTimeout,
+            kProgressCap);
+    if (updated) {
+      return updated;
+    }
+    // Existing caches cloned under clone.defaultRemoteName≠origin have no `origin` remote.
     return run(
-        {"git", "-C", dest.string(), "remote", "set-url", "origin", std::string(sourceLocation)}, kLocalTimeout,
+        {"git", "-C", dest.string(), "remote", "add", "origin", std::string(sourceLocation)}, kLocalTimeout,
         kProgressCap
     );
   }
