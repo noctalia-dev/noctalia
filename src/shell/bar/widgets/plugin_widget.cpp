@@ -337,6 +337,8 @@ void PluginWidget::doLayout(Renderer& renderer, float containerWidth, float cont
     m_reconciler.setScale(contentScale());
     m_reconciler.setFontScale(fontScaleMultiplier());
     m_reconciler.setTextDefaults(labelFontFamily(), labelFontWeight());
+    const ColorSpec fallback = colorSpecFromRole(ColorRole::OnSurface);
+    m_reconciler.setColorDefaults(widgetForegroundOr(fallback), widgetIconColorOr(fallback));
     (void)m_reconciler.reconcile(*m_uiHost, *m_tree, renderer);
     m_uiHost->layout(renderer);
     if (m_area)
@@ -344,7 +346,8 @@ void PluginWidget::doLayout(Renderer& renderer, float containerWidth, float cont
     return;
   }
 
-  m_label->setColor(resolveScriptColor(m_textColor));
+  const ColorSpec fallback = colorSpecFromRole(ColorRole::OnSurface);
+  m_label->setColor(resolveScriptColor(m_textColor, widgetForegroundOr(fallback)));
   m_label->setFontWeight(labelFontWeight());
   m_label->setVisible(!m_label->text().empty());
   if (m_label->visible()) {
@@ -352,7 +355,7 @@ void PluginWidget::doLayout(Renderer& renderer, float containerWidth, float cont
   }
 
   if (m_glyphVisible) {
-    m_glyph->setColor(resolveScriptColor(m_glyphColor));
+    m_glyph->setColor(resolveScriptColor(m_glyphColor, widgetIconColorOr(fallback)));
     m_glyph->measure(renderer);
   }
 
@@ -534,17 +537,16 @@ PluginWidget::dispatchIpc(std::string_view event, std::string_view payload, cons
   return DispatchResult::Handled;
 }
 
-ColorSpec PluginWidget::resolveScriptColor(const ScriptColorState& state) const noexcept {
-  const ColorSpec fallback = colorSpecFromRole(ColorRole::OnSurface);
+ColorSpec PluginWidget::resolveScriptColor(const ScriptColorState& state, const ColorSpec& defaultColor) noexcept {
   if (!state.color.has_value()) {
-    return widgetForegroundOr(fallback);
+    return defaultColor;
   }
   if (!state.color->role.has_value()
       || state.mode == ScriptColorMode::Script
       || *state.color->role != ColorRole::OnSurface) {
     return *state.color;
   }
-  return widgetForegroundOr(fallback);
+  return defaultColor;
 }
 
 PluginWidget::ScriptColorMode PluginWidget::scriptColorModeFromToken(std::string_view token) noexcept {

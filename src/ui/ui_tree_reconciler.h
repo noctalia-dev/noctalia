@@ -1,5 +1,7 @@
 #pragma once
 
+#include "ui/palette.h"
+
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -86,6 +88,11 @@ namespace ui {
       m_defaultFontFamily = std::move(fontFamily);
       m_defaultFontWeight = fontWeight;
     }
+    // Host colors for labels and glyphs whose tree nodes leave color unset.
+    void setColorDefaults(ColorSpec labelColor, ColorSpec glyphColor) {
+      m_defaultLabelColor = std::move(labelColor);
+      m_defaultGlyphColor = std::move(glyphColor);
+    }
     // Compact control chrome for space-tight hosts (bar widgets): buttons drop
     // the settings-tier min-height/padding and hug their content instead.
     void setCompactControls(bool compact) { m_compactControls = compact; }
@@ -140,6 +147,8 @@ namespace ui {
     float m_fontScale = 1.0F;
     std::string m_defaultFontFamily;
     FontWeight m_defaultFontWeight; // initialized in the ctor (opaque enum here)
+    ColorSpec m_defaultLabelColor = colorSpecFromRole(ColorRole::OnSurface);
+    ColorSpec m_defaultGlyphColor = colorSpecFromRole(ColorRole::OnSurface);
     bool m_compactControls = false;
     bool m_dragDropEnabled = false;
     // The node currently reporting hover, with the callback and key it opened
