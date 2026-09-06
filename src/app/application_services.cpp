@@ -695,7 +695,7 @@ void Application::initStyleThemeAndWayland() {
     throw std::runtime_error("failed to connect to Wayland display");
   }
   m_compositorPlatform.initialize();
-  m_screenTimeService.initialize(&m_wayland);
+  m_screenTimeService.initialize(&m_compositorPlatform);
   syncScreenTimeService();
   m_screenTimeService.setChangeCallback([this]() {
     if (m_panelManager.isOpenPanel("control-center") && m_panelManager.isActivePanelContext("screen-time")) {

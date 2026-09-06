@@ -1580,7 +1580,7 @@ void BrightnessService::registerIpc(IpcService& ipc, std::function<void(BatchCha
         output = context->output;
       }
       if (output == nullptr) {
-        output = m_impl->wayland.activeToplevelOutput();
+        output = m_impl->platform.activeToplevelOutput();
       }
       if (output == nullptr) {
         output = m_impl->platform.preferredInteractiveOutput();
