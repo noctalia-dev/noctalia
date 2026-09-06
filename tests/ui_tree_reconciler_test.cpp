@@ -1,6 +1,7 @@
 #include "render/backend/render_backend.h"
 #include "render/core/renderer.h"
 #include "render/core/texture_manager.h"
+#include "render/scene/glyph_node.h"
 #include "render/scene/input_area.h"
 #include "render/scene/rect_node.h"
 #include "ui/controls/box.h"
@@ -8,6 +9,7 @@
 #include "ui/controls/drag_source.h"
 #include "ui/controls/drop_zone.h"
 #include "ui/controls/flex.h"
+#include "ui/controls/glyph.h"
 #include "ui/controls/graph.h"
 #include "ui/controls/input.h"
 #include "ui/controls/label.h"
@@ -191,6 +193,53 @@ int main() {
       ok = expect(column->children().size() == 1, "children removed") && ok;
       ok = expect(column->children()[0].get() == labelBefore, "surviving child reused on removal") && ok;
     }
+  }
+
+  // Host label/glyph colors apply only while the tree leaves color unset.
+  {
+    ui::UiTreeReconciler reconciler;
+    Flex host;
+    const Color labelDefault = rgbHex(0x112233);
+    const Color glyphDefault = rgbHex(0x445566);
+    reconciler.setColorDefaults(fixedColorSpec(labelDefault), fixedColorSpec(glyphDefault));
+
+    ui::UiTreeNode tree = makeNode("row");
+    tree.children.push_back(makeLabel("Default"));
+    ui::UiTreeNode glyphNode = makeNode("glyph");
+    glyphNode.props.emplace("name", std::string("cpu"));
+    tree.children.push_back(std::move(glyphNode));
+    (void)reconciler.reconcile(host, tree, renderer);
+
+    auto* row = dynamic_cast<Flex*>(host.children().front().get());
+    auto* label = row != nullptr ? dynamic_cast<Label*>(row->children()[0].get()) : nullptr;
+    auto* glyph = row != nullptr ? dynamic_cast<Glyph*>(row->children()[1].get()) : nullptr;
+    auto* renderedGlyph = glyph != nullptr ? findFirst<GlyphNode>(*glyph) : nullptr;
+    ok = expect(label != nullptr && label->color() == labelDefault, "label inherits host color") && ok;
+    ok = expect(renderedGlyph != nullptr && renderedGlyph->color() == glyphDefault, "glyph inherits host color") && ok;
+
+    const Color explicitLabel = rgbHex(0x778899);
+    const Color explicitGlyph = rgbHex(0xAABBCC);
+    tree.children[0].props["color"] = std::string("#778899");
+    tree.children[1].props["color"] = std::string("#aabbcc");
+    (void)reconciler.reconcile(host, tree, renderer);
+    ok = expect(label != nullptr && label->color() == explicitLabel, "explicit label color overrides host color") && ok;
+    ok = expect(
+             renderedGlyph != nullptr && renderedGlyph->color() == explicitGlyph,
+             "explicit glyph color overrides host color"
+         )
+        && ok;
+
+    const Color nextLabelDefault = rgbHex(0x102030);
+    const Color nextGlyphDefault = rgbHex(0x405060);
+    reconciler.setColorDefaults(fixedColorSpec(nextLabelDefault), fixedColorSpec(nextGlyphDefault));
+    tree.children[0].props.erase("color");
+    tree.children[1].props.erase("color");
+    (void)reconciler.reconcile(host, tree, renderer);
+    ok = expect(label != nullptr && label->color() == nextLabelDefault, "label restores changed host color") && ok;
+    ok = expect(
+             renderedGlyph != nullptr && renderedGlyph->color() == nextGlyphDefault, "glyph restores changed host color"
+         )
+        && ok;
   }
 
   // Keyed reorder reuses control instances.
