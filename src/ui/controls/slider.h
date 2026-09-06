@@ -3,6 +3,7 @@
 #include "ui/controls/flex.h"
 #include "ui/style.h"
 
+#include <cstdint>
 #include <functional>
 
 class InputArea;
@@ -21,6 +22,7 @@ public:
   void setControlHeight(float height);
   void setWheelAdjustEnabled(bool enabled);
   void setOnValueChanged(std::function<void(double)> callback);
+  void setPlayingEffect(bool enabled);
   void setOnDragEnd(std::function<void()> callback);
 
   [[nodiscard]] double value() const noexcept { return m_value; }
@@ -57,4 +59,7 @@ private:
   float m_trackHeight = Style::sliderTrackHeight;
   float m_thumbSizePx = Style::sliderThumbSize;
   float m_controlHeightPx = Style::controlHeight;
+  bool m_playingEffect = false;
+  float m_playingPulse = 0.0F;
+  std::uint64_t m_playingAnimId = 0;
 };

@@ -3,6 +3,8 @@
 #include "core/input/key_symbols.h"
 #include "core/input/keybind_matcher.h"
 #include "cursor-shape-v1-client-protocol.h"
+#include "render/animation/animation.h"
+#include "render/animation/animation_manager.h"
 #include "render/core/render_styles.h"
 #include "render/scene/input_area.h"
 #include "render/scene/rect_node.h"
@@ -226,6 +228,49 @@ void Slider::setWheelAdjustEnabled(bool enabled) { m_wheelAdjustEnabled = enable
 void Slider::setOnValueChanged(std::function<void(double)> callback) { m_onValueChanged = std::move(callback); }
 
 void Slider::setOnDragEnd(std::function<void()> callback) { m_onDragEnd = std::move(callback); }
+void Slider::setPlayingEffect(bool enabled) {
+  if (m_playingEffect == enabled) {
+    return;
+  }
+
+  m_playingEffect = enabled;
+
+  if (!enabled) {
+    if (animationManager() != nullptr && m_playingAnimId != 0) {
+      animationManager()->cancel(m_playingAnimId);
+    }
+
+    m_playingAnimId = 0;
+    m_playingPulse = 0.0F;
+    applyVisualState();
+    markPaintDirty();
+    return;
+  }
+
+  if (animationManager() == nullptr) {
+    return;
+  }
+
+  m_playingAnimId = animationManager()->animate(
+      0.0F, 1.0F, 1400.0F, Easing::EaseInOutCubic,
+      [this](float t) {
+        m_playingPulse = t;
+        applyVisualState();
+        markPaintDirty();
+      },
+      [this]() {
+        m_playingAnimId = 0;
+
+        if (m_playingEffect) {
+          setPlayingEffect(false);
+          setPlayingEffect(true);
+        }
+      },
+      this
+  );
+
+  markPaintDirty();
+}
 
 bool Slider::dragging() const noexcept { return m_inputArea != nullptr && m_inputArea->pressed(); }
 
@@ -305,6 +350,19 @@ void Slider::applyVisualState() {
     thumbBorder = resolved(ColorRole::Hover);
   }
 
+  if (m_playingEffect && m_enabled && !pressing) {
+    const float pulse =
+        0.5F
+        - 0.5F * std::cos(m_playingPulse * 2.0F * 3.14159265358979323846F);
+
+    fillColor = brighten(fillColor, 1.0F + pulse * 0.18F);
+
+    thumbBorder = brighten(
+        resolved(ColorRole::Primary),
+        1.0F + pulse * 0.35F
+    );
+  }
+
   auto trackStyle = solidStyle(trackColor, m_trackHeight * 0.5F);
   m_track->setStyle(trackStyle);
 
@@ -313,7 +371,18 @@ void Slider::applyVisualState() {
 
   auto thumbStyle = solidStyle(thumbColor, m_thumbSizePx * 0.5F);
   thumbStyle.border = thumbBorder;
-  thumbStyle.borderWidth = focused ? Style::focusRingWidth : Style::borderWidth;
+
+  if (m_playingEffect && m_enabled && !pressing) {
+    const float pulse =
+        0.5F
+        - 0.5F * std::cos(m_playingPulse * 2.0F * 3.14159265358979323846F);
+
+    thumbStyle.borderWidth =
+        Style::borderWidth + pulse * Style::borderWidth * 1.5F;
+  } else {
+    thumbStyle.borderWidth = focused ? Style::focusRingWidth : Style::borderWidth;
+  }
+
   m_thumb->setStyle(thumbStyle);
 }
 

@@ -76,6 +76,8 @@ private:
   Label* m_trackTitle = nullptr;
   Label* m_trackArtist = nullptr;
   Label* m_trackAlbum = nullptr;
+  Label* m_progressCurrentTime = nullptr;
+  Label* m_progressTotalTime = nullptr;
   Slider* m_progressSlider = nullptr;
   Button* m_prevButton = nullptr;
   Button* m_playPauseButton = nullptr;
