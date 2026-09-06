@@ -49,6 +49,7 @@
 #include "launcher/wallpaper_provider.h"
 #include "launcher/window_provider.h"
 #include "notification/notifications.h"
+#include "password/systemd_password_agent.h"
 #include "pipewire/pipewire_poll_source.h"
 #include "pipewire/pipewire_service.h"
 #include "pipewire/pipewire_spectrum.h"
@@ -65,13 +66,13 @@
 #include "scripting/plugin_registry.h"
 #include "scripting/plugin_runtime_context.h"
 #include "scripting/script_runtime.h"
+#include "shell/auth/auth_source.h"
 #include "shell/clipboard/clipboard_panel.h"
 #include "shell/clipboard/clipboard_paste.h"
 #include "shell/control_center/control_center_panel.h"
 #include "shell/greeter/greeter_appearance_sync.h"
 #include "shell/launcher/launcher_panel.h"
 #include "shell/panel/plugin_panel.h"
-#include "shell/polkit/polkit_panel.h"
 #include "shell/session/session_ipc.h"
 #include "shell/session/session_panel.h"
 #include "shell/setup_wizard/setup_wizard_panel.h"
@@ -100,6 +101,7 @@
 #include <cmath>
 #include <csignal>
 #include <cstdint>
+#include <cstdlib>
 #include <filesystem>
 #include <limits>
 #include <malloc.h>
@@ -108,11 +110,13 @@
 #include <string_view>
 #include <unordered_map>
 #include <utility>
+#include <vector>
 
 namespace {
   constexpr Logger kLog("app");
   constexpr std::string_view kPolkitAuthorityBusName = "org.freedesktop.PolicyKit1";
   constexpr std::string_view kSecretServiceBusName = "org.freedesktop.secrets";
+  constexpr std::string_view kSystemdAskPasswordDir = "/run/systemd/ask-password";
 
   void signal_handler(int signum) {
     if (signum == SIGTERM || signum == SIGINT) {
@@ -312,11 +316,49 @@ bool Application::likelySupportsInSessionPolkit() const noexcept {
   return polkit_session::likelySupportsInSessionPolkitAgent(m_logindService != nullptr);
 }
 
+void Application::ensureAuthSources() {
+  if (m_polkitAuthSource == nullptr) {
+    m_polkitAuthSource = std::make_unique<PolkitAuthSource>([this]() { return m_polkitAgent.get(); });
+  }
+  if (m_systemdAuthSource == nullptr) {
+    m_systemdAuthSource = std::make_unique<SystemdAuthSource>([this]() { return m_systemdPasswordAgent.get(); });
+  }
+}
+
+AuthSource* Application::activeAuthSource() const noexcept {
+  return selectActiveAuthSource(m_polkitAuthSource.get(), m_systemdAuthSource.get());
+}
+
+void Application::updateAuthPanel() {
+  ensureAuthSources();
+  const AuthSource* active = activeAuthSource();
+  if (active == nullptr) {
+    // Defer close so a follow-up request in the same burst (pkexec → systemd-enable,
+    // ask-password rotation, etc.) can reuse the panel instead of racing teardown.
+    if (m_panelManager.isOpenPanel("auth")) {
+      m_authIdleCloseTimer.start(std::chrono::milliseconds(150), [this]() {
+        if (activeAuthSource() == nullptr && m_panelManager.isOpenPanel("auth")) {
+          m_panelManager.close();
+        }
+      });
+    }
+    return;
+  }
+  m_authIdleCloseTimer.stop();
+  if (!m_panelManager.isOpenPanel("auth")) {
+    wl_output* output = m_compositorPlatform.preferredInteractiveOutput(std::chrono::milliseconds(1200));
+    m_panelManager.openPanel("auth", PanelOpenRequest{.output = output});
+  } else {
+    m_panelManager.refresh();
+  }
+}
+
 void Application::syncPolkitAgent() {
-  m_polkitIdleCloseTimer.stop();
+  m_authIdleCloseTimer.stop();
   if (m_systemBus == nullptr) {
     m_polkitPollSource.reset();
     m_polkitAgent.reset();
+    updateAuthPanel();
     return;
   }
 
@@ -326,6 +368,7 @@ void Application::syncPolkitAgent() {
     }
     m_polkitPollSource.reset();
     m_polkitAgent.reset();
+    updateAuthPanel();
     return;
   }
 
@@ -338,12 +381,14 @@ void Application::syncPolkitAgent() {
       kLog.warn("polkit agent disabled: {} is not running", kPolkitAuthorityBusName);
       m_polkitPollSource.reset();
       m_polkitAgent.reset();
+      updateAuthPanel();
       return;
     }
   } catch (const std::exception& e) {
     kLog.warn("polkit agent disabled: failed to query {} owner: {}", kPolkitAuthorityBusName, e.what());
     m_polkitPollSource.reset();
     m_polkitAgent.reset();
+    updateAuthPanel();
     return;
   }
 
@@ -360,43 +405,44 @@ void Application::syncPolkitAgent() {
         }
         m_polkitPollSource.reset();
         m_polkitAgent.reset();
+        updateAuthPanel();
       });
       return;
     }
     kLog.info("polkit authentication agent active");
   });
-  m_polkitAgent->setStateCallback([this]() {
-    if (m_polkitAgent == nullptr) {
-      return;
-    }
-    if (!m_polkitAgent->hasPendingRequest()) {
-      // Defer close so a follow-up BeginAuthentication in the same burst
-      // (pkexec → systemd-enable, etc.) can reuse the panel instead of racing
-      // teardown.
-      if (m_panelManager.isOpenPanel("polkit")) {
-        m_polkitIdleCloseTimer.start(std::chrono::milliseconds(150), [this]() {
-          if (m_polkitAgent != nullptr && !m_polkitAgent->hasPendingRequest() && m_panelManager.isOpenPanel("polkit")) {
-            m_panelManager.close();
-          }
-        });
-      }
-      return;
-    }
-    m_polkitIdleCloseTimer.stop();
-    // BeginAuthentication alone has no prompt yet; show-info and request both do.
-    const bool hasContent = m_polkitAgent->isResponseRequired() || !m_polkitAgent->supplementaryMessage().empty();
-    if (!hasContent && !m_panelManager.isOpenPanel("polkit")) {
-      return;
-    }
-    if (!m_panelManager.isOpenPanel("polkit")) {
-      wl_output* output = m_compositorPlatform.preferredInteractiveOutput(std::chrono::milliseconds(1200));
-      m_panelManager.openPanel("polkit", PanelOpenRequest{.output = output});
-    } else {
-      m_panelManager.refresh();
-    }
-  });
+  ensureAuthSources();
+  m_polkitAgent->setStateCallback([this]() { updateAuthPanel(); });
   m_polkitPollSource = std::make_unique<PolkitPollSource>(*m_polkitAgent);
   m_polkitAgent->start();
+}
+
+void Application::syncSystemdPasswordAgent() {
+  m_authIdleCloseTimer.stop();
+  if (!m_configService.config().shell.systemdPasswordAgent) {
+    if (m_systemdPasswordAgent != nullptr) {
+      kLog.info("systemd password agent disabled by config");
+    }
+    m_systemdPasswordPollSource.reset();
+    m_systemdPasswordAgent.reset();
+    updateAuthPanel();
+    return;
+  }
+
+  if (m_systemdPasswordAgent != nullptr) {
+    return;
+  }
+
+  std::vector<std::filesystem::path> askPasswordDirs{std::filesystem::path(kSystemdAskPasswordDir)};
+  if (const char* runtimeDir = std::getenv("XDG_RUNTIME_DIR"); runtimeDir != nullptr && runtimeDir[0] != '\0') {
+    askPasswordDirs.emplace_back(std::filesystem::path(runtimeDir) / "systemd" / "ask-password");
+  }
+  m_systemdPasswordAgent = std::make_unique<SystemdPasswordAgent>(std::move(askPasswordDirs));
+  ensureAuthSources();
+  m_systemdPasswordAgent->setStateCallback([this]() { updateAuthPanel(); });
+  m_systemdPasswordPollSource = std::make_unique<SystemdPasswordAgentPollSource>(*m_systemdPasswordAgent);
+  m_systemdPasswordAgent->start();
+  kLog.info("systemd password agent active");
 }
 
 void Application::syncScreenTimeService() {
@@ -1322,6 +1368,7 @@ void Application::initSystemBusServices() {
     }
 
     m_configService.addReloadCallback([this]() { syncPolkitAgent(); });
+    m_configService.addReloadCallback([this]() { syncSystemdPasswordAgent(); });
   }
 }
 

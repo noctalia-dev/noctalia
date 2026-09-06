@@ -291,8 +291,8 @@ namespace {
     if (panelId == "session") {
       return pc.sessionPosition;
     }
-    if (panelId == "polkit") {
-      return pc.polkitPosition;
+    if (panelId == "auth") {
+      return pc.authPosition;
     }
     return "auto";
   }

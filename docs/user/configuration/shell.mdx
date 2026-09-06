@@ -41,6 +41,7 @@ telemetry_enabled     = false           # anonymous startup ping
 setup_wizard_enabled = true              # open first-run wizard while the marker is missing
 niri_overview_type_to_launch_enabled = false # niri-only type-to-launch from overview
 polkit_agent          = false           # register Noctalia's native polkit authentication agent
+systemd_password_agent = false           # answer systemd ask-password queries with a password prompt
 password_style        = "default"       # default | random
 avatar_path           = "~/Pictures/avatar.png"
 settings_show_advanced = true           # show advanced settings by default in Settings
@@ -83,10 +84,10 @@ clipboard_placement      = "floating" # attached | floating
 control_center_placement = "attached" # attached | floating
 wallpaper_placement      = "attached" # attached | floating
 session_placement        = "attached" # attached | floating
-polkit_placement         = "floating" # attached | floating
+auth_placement           = "floating" # attached | floating
 launcher_position        = "center"   # auto | center | top_left | … (floating only)
 clipboard_position       = "center"   # auto | center | top_left | … (floating only)
-polkit_position          = "center"   # auto | center | top_left | … (floating only)
+auth_position            = "center"   # auto | center | top_left | … (floating only)
 floating_offset          = 8           # px gap between a floating panel and the bar edge
 open_near_click_control_center = false  # attached/floating: follow the bar click instead of bar-center
 open_near_click_launcher       = false  # attached/floating: follow the bar click instead of bar-center
@@ -194,9 +195,11 @@ Notes:
 - `telemetry_enabled` sends a single anonymous POST to `api.noctalia.dev/ping` on each startup containing: a random instance ID, shell version, compositor name, OS name, RAM, monitor resolutions, and UI scale. No personal data is collected. The instance ID is a random UUID stored in `~/.local/state/noctalia/instance.id`.
 - `setup_wizard_enabled`: when `false`, Noctalia does not auto-open the setup wizard on startup even if `.setup-complete` is missing. Use this for declarative or preseeded deployments; the marker remains the normal completion state for interactive runs.
 - `niri_overview_type_to_launch_enabled` is opt-in. When `true` on niri, Noctalia keeps a tiny keyboard-focus layer surface while overview is open so typing a letter or number opens the launcher with that initial query. This gives up niri's exact native handling for some overview-only keyboard state, such as the app focus ring.
-- `polkit_agent` controls registration on `org.freedesktop.PolicyKit1`. Keep disabled if another desktop agent handles auth prompts. When enabled, `shell.panel.polkit_placement` and `polkit_position` control whether the auth prompt attaches to the bar or floats (default: `polkit_placement = "floating"` with `polkit_position = "center"`).
+- `polkit_agent` controls registration on `org.freedesktop.PolicyKit1`. Keep disabled if another desktop agent handles auth prompts.
+- `systemd_password_agent` answers systemd ask-password queries with a password prompt. Disable it if another agent handles those prompts.
+- The unified `auth` panel shows polkit requests first, then systemd password requests. `shell.panel.auth_placement` and `auth_position` control whether the auth prompt attaches to the bar or floats (default: `auth_placement = "floating"` with `auth_position = "center"`).
 - Notification daemon ownership moved out of `[shell]`: use `[notification].enable_daemon` in [Services](/noctalia/services/notifications/).
-- `password_style`: `default` uses `circle-filled`; `random` cycles through multiple filled glyph shapes on polkit and lock screen inputs.
+- `password_style`: `default` uses `circle-filled`; `random` cycles through multiple filled glyph shapes on polkit, systemd password, and lock screen inputs.
 - `settings_show_advanced`: when `true`, Settings opens with advanced entries visible.
 - `settings_window_translucent`: when `true`, the Settings window background is drawn translucent. Compositor blur or other effects can be applied via compositor window rules.
 - `show_location`: when `false`, weather location text/coordinates are hidden in shell surfaces.
@@ -229,9 +232,9 @@ Notes:
 - `shell.panel.borders` draws an outline on floating panel surfaces. Attached panels stay borderless on the bar edge. Default is `true`; set to `false` for a flatter look. Section cards inside panels are controlled by `[shell].card_borders`.
 - `shell.panel.shadow` toggles the rendered drop shadow on attached and floating panels. Shadow direction and alpha come from `[shell.shadow]`.
 - `shell.panel.list_item_background` draws a filled rounded background behind each item in the launcher results (list and app-grid views) and the clipboard history list. The fill uses the same rounded shape as the hover highlight and follows the panel transparency mode; hover and keyboard-selection colors are unchanged. Default is `false`. Toggle in **Settings → Panels → Effects**.
-- `shell.panel.floating_layer` selects the layer-shell layer for floating Launcher, Clipboard, Control Center, Wallpaper, Session, and Setup Wizard panels. `overlay` is the default and keeps these panels above fullscreen content. Use `top` when a compositor places input-method candidate popups below the Overlay layer. Attached panels continue to use their bar's configured layer; system overlays such as the polkit prompt keep their own layer policy. Plugin panels expose a separate per-entry **Layer** setting under **Settings → Plugins**. Change the built-in panel setting in **Settings → Panels → General**.
-- `shell.panel.launcher_placement`, `clipboard_placement`, `control_center_placement`, `wallpaper_placement`, `session_placement`, and `polkit_placement` accept only `attached` or `floating`. An attached panel keeps its own layer surface and anchors it to the host bar's inward edge; floating placement opens it detached. `center` is a floating `*_position`, not a third placement. Defaults are floating at the center position for Launcher, Clipboard, and the polkit auth prompt; Control Center, Wallpaper, and Session default to attached.
-- Per-panel `*_position` keys (`launcher_position`, `clipboard_position`, `control_center_position`, `wallpaper_position`, `session_position`, `polkit_position`) apply when placement is `floating`. `auto` keeps the panel bar-relative; `center` and the edge/corner tokens anchor on screen (same vocabulary as notification/OSD position).
+- `shell.panel.floating_layer` selects the layer-shell layer for floating Launcher, Clipboard, Control Center, Wallpaper, Session, and Setup Wizard panels. `overlay` is the default and keeps these panels above fullscreen content. Use `top` when a compositor places input-method candidate popups below the Overlay layer. Attached panels continue to use their bar's configured layer; system overlays such as the auth prompt keep their own layer policy. Plugin panels expose a separate per-entry **Layer** setting under **Settings → Plugins**. Change the built-in panel setting in **Settings → Panels → General**.
+- `shell.panel.launcher_placement`, `clipboard_placement`, `control_center_placement`, `wallpaper_placement`, `session_placement`, and `auth_placement` accept only `attached` or `floating`. An attached panel keeps its own layer surface and anchors it to the host bar's inward edge; floating placement opens it detached. `center` is a floating `*_position`, not a third placement. Defaults are floating at the center position for Launcher, Clipboard, and the auth prompt; Control Center, Wallpaper, and Session default to attached.
+- Per-panel `*_position` keys (`launcher_position`, `clipboard_position`, `control_center_position`, `wallpaper_position`, `session_position`, `auth_position`) apply when placement is `floating`. `auto` keeps the panel bar-relative; `center` and the edge/corner tokens anchor on screen (same vocabulary as notification/OSD position).
 - `shell.panel.floating_offset` sets the gap in pixels a floating panel keeps from the bar edge, or from the screen edge when it is pinned with a `*_position` (default `8`). It also spaces panels using the reserved edge area when multiple bars share an edge. `attached` panels ignore it.
 - When multiple enabled bars resolve to the same edge on one monitor, exact source-bar attachment is ambiguous. In that case attached/floating panels use the compositor's reserved edge area and open outside the bar stack instead of anchoring to one bar. Prefer setting `shell.panel_anchor_bar` when you have more than one bar and open panels via IPC or shortcuts.
 - `shell.panel.open_near_click_control_center`, `open_near_click_launcher`, `open_near_click_clipboard`, `open_near_click_wallpaper`, and `open_near_click_session` position attached or floating panels near the click location on the bar instead of centering them along the bar. They are ignored when a panel is `floating` with a `*_position` other than `auto`, since it is then pinned to a fixed screen position.

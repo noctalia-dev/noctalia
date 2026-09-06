@@ -5,6 +5,7 @@
 #include "dbus/polkit/polkit_poll_source.h"
 #include "dbus/session_bus_poll_source.h"
 #include "dbus/system_bus_poll_source.h"
+#include "password/systemd_password_agent.h"
 #include "pipewire/pipewire_poll_source.h"
 #include "pipewire/pipewire_spectrum_poll_source.h"
 #include "pipewire/wireplumber_mixer.h"
@@ -51,6 +52,9 @@ std::vector<PollSource*> Application::currentPollSources() {
   }
   if (m_polkitPollSource != nullptr) {
     sources.push_back(m_polkitPollSource.get());
+  }
+  if (m_systemdPasswordPollSource != nullptr) {
+    sources.push_back(m_systemdPasswordPollSource.get());
   }
   if (m_brightnessPollSource != nullptr) {
     sources.push_back(m_brightnessPollSource.get());

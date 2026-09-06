@@ -973,7 +973,7 @@ struct ShellConfig {
     PanelPlacement controlCenterPlacement = PanelPlacement::Attached;
     PanelPlacement wallpaperPlacement = PanelPlacement::Attached;
     PanelPlacement sessionPlacement = PanelPlacement::Attached;
-    PanelPlacement polkitPlacement = PanelPlacement::Floating;
+    PanelPlacement authPlacement = PanelPlacement::Floating;
     // Floating screen position per panel (one of kPanelPositions). "auto" = bar-relative.
     // Launcher/clipboard default to "center" (the historical center-screen behavior).
     std::string launcherPosition = "center";
@@ -981,7 +981,7 @@ struct ShellConfig {
     std::string controlCenterPosition = "auto";
     std::string wallpaperPosition = "auto";
     std::string sessionPosition = "auto";
-    std::string polkitPosition = "center";
+    std::string authPosition = "center";
     std::int32_t floatingOffset = 8; // logical px gap between a floating/detached panel and the bar edge
     bool openNearClickControlCenter = false;
     bool openNearClickLauncher = false;
@@ -1091,6 +1091,7 @@ struct ShellConfig {
   bool setupWizardEnabled = true;
   bool niriOverviewTypeToLaunchEnabled = false;
   bool polkitAgent = false;
+  bool systemdPasswordAgent = false;
   PasswordMaskStyle passwordMaskStyle = PasswordMaskStyle::CircleFilled;
   AnimationConfig animation;
   std::string avatarPath;

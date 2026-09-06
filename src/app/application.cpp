@@ -48,6 +48,7 @@
 #include "launcher/wallpaper_provider.h"
 #include "launcher/window_provider.h"
 #include "notification/notifications.h"
+#include "password/systemd_password_agent.h"
 #include "pipewire/pipewire_poll_source.h"
 #include "pipewire/pipewire_service.h"
 #include "pipewire/pipewire_spectrum.h"
@@ -69,7 +70,6 @@
 #include "shell/greeter/greeter_appearance_sync.h"
 #include "shell/launcher/launcher_panel.h"
 #include "shell/panel/plugin_panel.h"
-#include "shell/polkit/polkit_panel.h"
 #include "shell/session/session_ipc.h"
 #include "shell/session/session_panel.h"
 #include "shell/setup_wizard/setup_wizard_panel.h"
@@ -276,6 +276,7 @@ void Application::run(std::function<void()> startupReadyCallback) {
 #endif
 
   m_trayInitTimer.start(std::chrono::milliseconds(500), [this]() { startTrayService(); });
+  m_systemdPasswordInitTimer.start(std::chrono::milliseconds(750), [this]() { syncSystemdPasswordAgent(); });
   m_polkitInitTimer.start(std::chrono::milliseconds(1000), [this]() { syncPolkitAgent(); });
 
   m_mainLoop = std::make_unique<MainLoop>(m_wayland, m_bar, [this]() { return currentPollSources(); });
