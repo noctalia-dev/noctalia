@@ -3008,7 +3008,10 @@ namespace settings {
           section, "general", tr("settings.schema.bar.layer.label"), tr("settings.schema.bar.layer.description"),
           path("layer"),
           asSegmented(plainSelect(
-              {{"top", "settings.options.layer.top"}, {"overlay", "settings.options.layer.overlay"}}, bar.layer
+              {{"top", "settings.options.layer.top"},
+               {"overlay", "settings.options.layer.overlay"},
+               {"smart", "settings.options.layer.smart"}},
+              bar.layer
           )),
           "layer shell z-order"
       ));
@@ -3331,7 +3334,9 @@ namespace settings {
             section, "general", tr("settings.schema.bar.layer.label"), tr("settings.schema.bar.layer.description"),
             monitorPath("layer"),
             asSegmented(plainSelect(
-                {{"top", "settings.options.layer.top"}, {"overlay", "settings.options.layer.overlay"}},
+                {{"top", "settings.options.layer.top"},
+                 {"overlay", "settings.options.layer.overlay"},
+                 {"smart", "settings.options.layer.smart"}},
                 ovr.layer.value_or(bar.layer)
             )),
             "layer shell z-order"

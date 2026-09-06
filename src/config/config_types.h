@@ -69,7 +69,7 @@ struct BarMonitorOverride {
   std::optional<bool> smartAutoHide;
   std::optional<bool> showOnWorkspaceSwitch;
   std::optional<bool> reserveSpace;
-  std::optional<std::string> layer; // top | overlay
+  std::optional<std::string> layer; // top | overlay | smart
   std::optional<std::int32_t> thickness;
   std::optional<float> backgroundOpacity;
   std::optional<ColorSpec> border;
@@ -137,7 +137,7 @@ struct BarConfig {
 
   [[nodiscard]] constexpr bool isAutoHideEnabled() const noexcept { return autoHide || smartAutoHide; }
   bool reserveSpace = true;  // reserve compositor exclusive zone; applies with or without auto_hide
-  std::string layer = "top"; // top | overlay; attached panels use the same layer
+  std::string layer = "top"; // top | overlay | smart — smart promotes while an attached panel is open
   std::int32_t thickness = Style::barThicknessDefault;
   float backgroundOpacity = 1.0F;
   // Inside outline for the bar background; attached panels inherit the resolved values.

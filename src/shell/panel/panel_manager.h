@@ -88,9 +88,12 @@ public:
   void setPanelOpenedCallback(std::function<void()> callback);
   void setAttachedPanelAvailabilityCallback(std::function<bool(wl_output*, std::string_view)> callback);
   void setAttachedPanelLayerProvider(std::function<std::optional<std::string>(wl_output*, std::string_view)> provider);
+  void setAttachedPanelStateCallback(std::function<void(wl_output*, std::string_view, bool)> callback);
   void setAttachedPanelBarSettledCallback(std::function<bool(wl_output*, std::string_view)> callback);
   // Called when an auto-hide bar finishes revealing for an attached panel open.
   void onAttachedBarRevealSettled(wl_output* output, std::string_view barName);
+  // Keeps an open attached panel in sync with a runtime bar-layer-set change.
+  void onAttachedBarLayerChanged(wl_output* output, std::string_view barName, std::string_view layerPolicy);
 
   void registerPanel(const std::string& id, std::unique_ptr<Panel> content);
   // Drops a previously registered panel, closing it first if it is open. Used to
@@ -215,6 +218,7 @@ private:
   std::function<void()> m_panelOpenedCallback;
   std::function<bool(wl_output*, std::string_view)> m_attachedPanelAvailabilityCallback;
   std::function<std::optional<std::string>(wl_output*, std::string_view)> m_attachedPanelLayerProvider;
+  std::function<void(wl_output*, std::string_view, bool)> m_attachedPanelStateCallback;
   std::function<bool(wl_output*, std::string_view)> m_attachedPanelBarSettledCallback;
   PanelClickShield m_clickShield;
   PersistentPanelHost m_persistentHost;

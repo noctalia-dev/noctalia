@@ -1425,6 +1425,7 @@
       },
       "layer": {
         "overlay": "Overlay",
+        "smart": "Smart",
         "top": "Top"
       },
       "notification-urgency": {
@@ -1860,7 +1861,7 @@
           "label": "Hover Highlight"
         },
         "layer": {
-          "description": "Use Overlay to show the bar above fullscreen apps; attached panels follow the bar",
+          "description": "Top stays below fullscreen apps, Overlay stays above them, and Smart moves above only while an attached panel is open",
           "label": "Wayland Layer"
         },
         "opposite-edge-margin": {
