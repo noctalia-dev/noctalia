@@ -424,6 +424,7 @@ _noctalia_sources = files(
   'src/app/application_ui.cpp',
   'src/app/main_loop.cpp',
   'src/app/single_instance_lock.cpp',
+  'src/auth/face_authenticator.cpp',
   'src/auth/fingerprint_authenticator.cpp',
   'src/auth/pam_authenticator.cpp',
   'src/calendar/caldav_client.cpp',

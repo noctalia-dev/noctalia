@@ -1,5 +1,6 @@
 #include "shell/lockscreen/lock_screen.h"
 
+#include "auth/face_authenticator.h"
 #include "auth/fingerprint_authenticator.h"
 #include "capture/screencopy_util.h"
 #include "compositors/compositor_platform.h"
@@ -83,6 +84,18 @@ bool LockScreen::initialize(
     m_fingerprint->setStatusCallback([this](const std::string& message, bool isError) {
       handleFingerprintStatus(message, isError);
     });
+
+    m_faceAuth = std::make_unique<FaceAuthenticator>(*m_systemBus);
+    m_faceAuth->setAuthenticatedCallback([this]() {
+      m_faceVerified = true;
+      clearSensitiveString(m_password);
+      m_status = i18n::tr("auth.face.confirm-unlock");
+      m_statusIsError = false;
+      updatePromptOnSurfaces();
+    });
+    m_faceAuth->setStatusCallback([this](const std::string& message, bool isError) {
+      handleFaceAuthStatus(message, isError);
+    });
   }
   return true;
 }
@@ -157,6 +170,7 @@ bool LockScreen::lock() {
   m_lockPending = true;
   m_locked = false;
   clearSensitiveString(m_password);
+  m_faceVerified = false;
   m_status = i18n::tr("lockscreen.waiting");
   m_statusIsError = false;
   syncInstances();
@@ -180,6 +194,7 @@ void LockScreen::unlock() {
   m_suspendTimeoutTimer.stop();
   invalidatePendingAuthentication();
   stopFingerprint();
+  stopFaceAuth();
 
   const bool wasLockedInteractive = m_locked;
 
@@ -196,6 +211,7 @@ void LockScreen::unlock() {
 
   m_lockPending = false;
   m_locked = false;
+  m_faceVerified = false;
   clearSensitiveString(m_password);
   m_status.clear();
   m_statusIsError = false;
@@ -233,6 +249,7 @@ void LockScreen::requestUpdate() {
 }
 
 void LockScreen::forceRepaintAfterResume() {
+  m_faceVerified = false;
   for (auto& inst : m_instances) {
     if (inst.surface != nullptr) {
       inst.surface->discardPendingFrameCallback();
@@ -328,6 +345,10 @@ void LockScreen::onPointerEvent(const PointerEvent& event) {
     return;
   }
 
+  if (event.type == PointerEvent::Type::Button || event.type == PointerEvent::Type::Axis) {
+    restartFaceAuthIfExhausted();
+  }
+
   if (event.type == PointerEvent::Type::Enter && event.surface != nullptr) {
     m_pointerSurface = event.surface;
   } else if (event.type == PointerEvent::Type::Leave && event.surface == m_pointerSurface) {
@@ -362,6 +383,8 @@ void LockScreen::onKeyboardEvent(const KeyboardEvent& event) {
     return;
   }
 
+  restartFaceAuthIfExhausted();
+
   // The password field always owns plain printable keys; Space is a Validate
   // chord but must type a space, not submit (passwords may contain spaces).
   if (!isPlainPrintableKey(event.utf32, event.modifiers, event.preedit)
@@ -371,6 +394,7 @@ void LockScreen::onKeyboardEvent(const KeyboardEvent& event) {
   }
 
   if (KeybindMatcher::matches(KeybindAction::Cancel, event.sym, event.modifiers)) {
+    m_faceVerified = false;
     clearSensitiveString(m_password);
     m_status = i18n::tr("lockscreen.password-cleared");
     m_statusIsError = false;
@@ -472,6 +496,7 @@ void LockScreen::handleLocked(void* data, ext_session_lock_v1* /*lock*/) {
   self->updatePromptOnSurfaces();
   self->updateIndicatorsOnSurfaces();
   self->startFingerprint();
+  self->startFaceAuth();
   kLog.info("session is locked");
   if (self->m_onSessionLocked) {
     self->m_onSessionLocked();
@@ -486,6 +511,7 @@ void LockScreen::handleFinished(void* data, ext_session_lock_v1* /*lock*/) {
   self->m_pendingAfterLocked = {};
   self->invalidatePendingAuthentication();
   self->stopFingerprint();
+  self->stopFaceAuth();
 
   if (self->m_lock != nullptr) {
     if (self->m_locked) {
@@ -822,6 +848,7 @@ void LockScreen::onKeyboardLayoutChanged() {
 void LockScreen::invalidatePendingAuthentication() {
   ++m_authGeneration;
   m_authenticating = false;
+  m_faceVerified = false;
 }
 
 void LockScreen::handlePasswordEdited(const std::string& value) {
@@ -830,6 +857,7 @@ void LockScreen::handlePasswordEdited(const std::string& value) {
     updatePromptOnSurfaces();
     return;
   }
+  m_faceVerified = false;
   if (m_password == value && m_status.empty() && !m_statusIsError) {
     return;
   }
@@ -843,6 +871,16 @@ void LockScreen::tryAuthenticate() {
   if (m_authenticating || !m_locked) {
     return;
   }
+
+  if (m_faceVerified) {
+    m_faceVerified = false;
+    m_status = i18n::tr("lockscreen.unlocked");
+    m_statusIsError = false;
+    updatePromptOnSurfaces();
+    unlock();
+    return;
+  }
+
   if (m_password.empty()) {
     const bool allowEmptyPassword =
         m_configService != nullptr && m_configService->config().lockscreen.allowEmptyPassword;
@@ -852,6 +890,7 @@ void LockScreen::tryAuthenticate() {
   }
 
   stopFingerprint();
+  stopFaceAuth();
   if (m_wayland != nullptr) {
     m_wayland->stopKeyRepeat();
   }
@@ -896,6 +935,7 @@ void LockScreen::handleAuthResult(std::uint64_t generation, PamAuthenticator::Re
   m_statusIsError = true;
   updatePromptOnSurfaces();
   startFingerprint();
+  startFaceAuth();
 }
 
 void LockScreen::startFingerprint() {
@@ -923,6 +963,45 @@ void LockScreen::handleFingerprintStatus(const std::string& message, bool isErro
     return;
   }
   // Empty message means verification disarmed; fall back to the idle prompt (rendered by the surface).
+  m_status = message.empty() ? std::string{} : message;
+  m_statusIsError = isError;
+  updatePromptOnSurfaces();
+}
+
+void LockScreen::startFaceAuth() {
+  if (m_faceAuth == nullptr) {
+    return;
+  }
+  if (m_configService != nullptr && !m_configService->config().lockscreen.faceAuth) {
+    return;
+  }
+  m_faceAuth->start();
+}
+
+void LockScreen::stopFaceAuth() {
+  if (m_faceAuth != nullptr) {
+    m_faceAuth->stop();
+  }
+}
+
+void LockScreen::restartFaceAuthIfExhausted() {
+  if (m_faceAuth == nullptr || m_authenticating) {
+    return;
+  }
+  if (!m_faceAuth->isExhausted()) {
+    return;
+  }
+  m_faceAuth->stop();
+  startFaceAuth();
+}
+
+void LockScreen::handleFaceAuthStatus(const std::string& message, bool isError) {
+  if (!isActive()) {
+    return;
+  }
+  if (!m_password.empty()) {
+    return;
+  }
   m_status = message.empty() ? std::string{} : message;
   m_statusIsError = isError;
   updatePromptOnSurfaces();

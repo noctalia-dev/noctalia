@@ -24,6 +24,19 @@
       "invalid-password": "Invalid password",
       "password-placeholder": "Password",
       "title": "Authentication Required"
+    },
+    "face": {
+      "ready": "Look at the camera",
+      "scanning": "Scanning face…",
+      "no-match": "Face not recognized",
+      "too-dark": "Too dark for camera",
+      "no-face": "No face detected",
+      "too-close": "Move back from camera",
+      "too-far": "Move closer to camera",
+      "too-many-attempts": "Face unlock disabled (too many attempts)",
+      "recognized": "Face recognized",
+      "confirm-unlock": "Face recognized — press Enter to unlock",
+      "confirm-action": "Face recognized — press Enter to confirm"
     }
   },
   "bar": {
@@ -2282,6 +2295,10 @@
           "button": "Toggle Editor",
           "description": "Add, move, and resize widgets on the lock screen",
           "label": "Lockscreen Widget Editor"
+        },
+        "face-auth": {
+          "label": "Face Unlock",
+          "description": "Unlock with facial recognition via Gaze, alongside password entry"
         }
       },
       "notifications": {
