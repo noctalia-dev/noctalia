@@ -131,8 +131,8 @@ struct BarConfig {
   std::string name = "default";
   std::string position = "top";
   bool enabled = true;
-  bool autoHide = false;             // slide out when the pointer leaves; reveal on edge approach
-  bool smartAutoHide = false;        // hide while the active workspace has windows; show when it is empty
+  bool autoHide = false;      // slide out when the pointer leaves; reveal on edge approach
+  bool smartAutoHide = false; // hide while the active workspace has visible windows; show when empty or all minimized
   bool showOnWorkspaceSwitch = true; // with auto_hide: briefly reveal when the active workspace changes
 
   [[nodiscard]] constexpr bool isAutoHideEnabled() const noexcept { return autoHide || smartAutoHide; }
@@ -636,8 +636,8 @@ struct DockConfig {
   bool shadow = true;                  // use the global shell shadow
   bool showRunning = true;             // also show running apps not in pinned list
   bool autoHide = false;               // slide out when not hovered (overlay mode)
-  bool smartAutoHide = false;          // hide while the active workspace has windows; show when it is empty
-  std::string layer = "top";           // top | overlay
+  bool smartAutoHide = false; // hide while the active workspace has visible windows; show when empty or all minimized
+  std::string layer = "top";  // top | overlay
 
   [[nodiscard]] constexpr bool isAutoHideEnabled() const noexcept { return autoHide || smartAutoHide; }
   bool reserveSpace = true;         // reserve compositor exclusive zone; applies with or without auto_hide

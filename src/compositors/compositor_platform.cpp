@@ -27,6 +27,7 @@
 #include "compositors/umbriel/umbriel_runtime.h"
 #include "compositors/umbriel/umbriel_workspace_backend.h"
 #include "compositors/workspace_alert_service.h"
+#include "compositors/workspace_visibility.h"
 #include "core/log.h"
 #include "core/process/process.h"
 #include "wayland/output_probe.h"
@@ -506,6 +507,7 @@ namespace {
                   .title = window.title,
                   .x = window.x,
                   .y = window.y,
+                  .minimized = window.minimized,
               }
           );
           continue;
@@ -519,6 +521,7 @@ namespace {
                   .title = window.title,
                   .x = window.x,
                   .y = window.y,
+                  .minimized = window.minimized,
               }
           );
         }
@@ -533,6 +536,7 @@ namespace {
               .title = window.title,
               .x = window.x,
               .y = window.y,
+              .minimized = window.minimized,
           }
       );
     }
@@ -1381,10 +1385,22 @@ std::vector<WorkspaceWindowAssignment> CompositorPlatform::workspaceWindowAssign
             .title = window.title,
             .x = window.x,
             .y = window.y,
+            .minimized = window.minimized,
         }
     );
   }
+  std::vector<WlrToplevelSnapshot> minimizedToplevels;
+  m_wayland.visitWlrToplevels([&](const WlrToplevelSnapshot& toplevel) {
+    if (toplevel.minimized) {
+      minimizedToplevels.push_back(toplevel);
+    }
+  });
+  compositors::enrichAssignmentsWithMinimizedState(result, minimizedToplevels);
   return result;
+}
+
+bool CompositorPlatform::activeWorkspaceHasVisibleWindows(wl_output* output) const {
+  return compositors::activeWorkspaceHasVisibleWindows(workspaces(output), workspaceWindowAssignments(output));
 }
 
 TaskbarAssignmentMode CompositorPlatform::taskbarAssignmentMode() const noexcept {
