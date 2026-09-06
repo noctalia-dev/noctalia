@@ -1231,6 +1231,7 @@ if build_tests
     'ui_tree_reconciler',
     'upower_charge_limit',
     'upower_device_catalog',
+    'uri',
     'vdir_reader',
     'virtual_grid_view_gesture',
     'wallpaper_shuffle_state',
