@@ -1151,6 +1151,11 @@ void Application::initSystemBusServices() {
           return;
         }
         onUpowerStateChangedForHooks();
+        const bool onBattery = m_upowerService->state().onBattery;
+        if (!m_lastIdlePowerSource.has_value() || *m_lastIdlePowerSource != onBattery) {
+          reloadIdleBehaviors();
+        }
+        m_lastIdlePowerSource = onBattery;
         m_batteryWarningMonitor.evaluate(m_configService.config().battery, *m_upowerService, m_notificationManager);
         if (m_bluetoothService != nullptr) {
           m_bluetoothService->refreshBatteryFromUPower();

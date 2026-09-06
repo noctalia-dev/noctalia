@@ -38,6 +38,7 @@ namespace settings {
     normalizeIdleBehaviorAction(norm);
     const bool showCustomCommands = (norm.action == "command");
     const bool showLockedTimeout = (norm.action == "screen_off");
+    Flex* suspendBehaviorRaw = nullptr;
 
     auto body = ui::column({
         .align = FlexAlign::Stretch,
@@ -124,8 +125,8 @@ namespace settings {
         .controlHeight = Style::controlHeight * scale,
         .glyphSize = Style::fontSizeBody * scale,
         .onSelectionChanged =
-            [&row, persist, idleActionOptions, customCommandsRaw,
-             nameBlockRaw](std::size_t index, std::string_view /*label*/) {
+            [&row, persist, idleActionOptions, customCommandsRaw, nameBlockRaw,
+             suspendBehaviorRaw](std::size_t index, std::string_view /*label*/) {
               if (index < idleActionOptions.size()) {
                 row.action = idleActionOptions[index].value;
                 if (row.action != "command") {
@@ -139,6 +140,7 @@ namespace settings {
               normalizeIdleBehaviorAction(n);
               customCommandsRaw->setVisible(n.action == "command");
               nameBlockRaw->setVisible(n.action == "command");
+              suspendBehaviorRaw->setVisible(n.action == "suspend" || n.action == "lock_and_suspend");
               persist();
             },
         .configure = [](Select& select) { select.setFillWidth(true); },
@@ -244,6 +246,42 @@ namespace settings {
       lockedTimeoutBlock->addChild(std::move(lockedTimeoutIn));
       body->addChild(std::move(lockedTimeoutBlock));
     }
+
+    const bool showSuspendBehavior = (norm.action == "suspend" || norm.action == "lock_and_suspend");
+    auto suspendBehaviorGrp = ui::column(
+        {.out = &suspendBehaviorRaw,
+         .align = FlexAlign::Stretch,
+         .gap = Style::spaceXs * scale,
+         .visible = showSuspendBehavior},
+        makeLabel(
+            i18n::tr("settings.idle.behavior.suspend-behavior-label"), Style::fontSizeCaption * scale,
+            colorSpecFromRole(ColorRole::OnSurfaceVariant), FontWeight::Normal
+        )
+    );
+    const std::vector<SelectOption> suspendBehaviorOptions = {
+        {"suspend", i18n::tr("settings.options.idle-suspend-behavior.suspend"), {}},
+        {"hibernate", i18n::tr("settings.options.idle-suspend-behavior.hibernate"), {}},
+        {"suspend-then-hibernate", i18n::tr("settings.options.idle-suspend-behavior.suspend-then-hibernate"), {}},
+    };
+    const auto suspendIndex = optionIndex(suspendBehaviorOptions, row.suspendBehavior);
+    auto suspendSelect = ui::select({
+        .options = optionLabels(suspendBehaviorOptions),
+        .selectedIndex = suspendIndex,
+        .clearSelection = !suspendIndex.has_value(),
+        .fontSize = Style::fontSizeBody * scale,
+        .controlHeight = Style::controlHeight * scale,
+        .glyphSize = Style::fontSizeBody * scale,
+        .onSelectionChanged =
+            [&row, persist, suspendBehaviorOptions](std::size_t index, std::string_view /*label*/) {
+              if (index < suspendBehaviorOptions.size()) {
+                row.suspendBehavior = suspendBehaviorOptions[index].value;
+              }
+              persist();
+            },
+        .configure = [](Select& select) { select.setFillWidth(true); },
+    });
+    suspendBehaviorGrp->addChild(std::move(suspendSelect));
+    body->addChild(std::move(suspendBehaviorGrp));
 
     body->addChild(std::move(customCommandsGrp));
     body->addChild(std::move(resumeCommandGrp));

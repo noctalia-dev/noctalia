@@ -239,15 +239,19 @@ ResolvedIdleBehavior resolveIdleBehaviorActions(const IdleBehaviorConfig& behavi
     };
   }
   if (act == "suspend") {
+    IdleActionRequest request = idleAction(IdleActionKind::Suspend);
+    request.suspendBehavior = tmp.suspendBehavior;
     return {
-        .idleAction = idleAction(IdleActionKind::Suspend),
+        .idleAction = std::move(request),
         .resumeAction = {},
         .resumeCommand = tmp.resumeCommand,
     };
   }
   if (act == "lock_and_suspend") {
+    IdleActionRequest request = idleAction(IdleActionKind::LockAndSuspend);
+    request.suspendBehavior = tmp.suspendBehavior;
     return {
-        .idleAction = idleAction(IdleActionKind::LockAndSuspend),
+        .idleAction = std::move(request),
         .resumeAction = {},
         .resumeCommand = tmp.resumeCommand,
     };
