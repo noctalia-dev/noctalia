@@ -2972,6 +2972,11 @@ namespace settings {
           path("enabled"), ToggleSetting{bar.enabled}, "visible"
       ));
       entries.push_back(makeEntry(
+          section, "general", tr("settings.schema.bar.monitors.label"), tr("settings.schema.bar.monitors.description"),
+          path("monitors"), ListSetting{.items = bar.monitors, .suggestedOptions = env.availableOutputs},
+          "monitor output display screen"
+      ));
+      entries.push_back(makeEntry(
           section, "general", tr("settings.schema.shared.position.label"),
           tr("settings.schema.bar.position.description"), path("position"), positionSelect(bar.position), "edge"
       ));

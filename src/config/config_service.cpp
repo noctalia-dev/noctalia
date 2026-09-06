@@ -1036,6 +1036,15 @@ BarConfig ConfigService::resolveForOutput(const BarConfig& base, const WaylandOu
     break; // first match wins
   }
 
+  // Bar-level monitor allowlist: when non-empty, the bar only exists on matching outputs.
+  // Applied as a final gate (after overrides) so "show only on these monitors" always wins.
+  // Empty (default) means no gating, preserving behavior for setups that only use overrides.
+  if (!base.monitors.empty() && std::ranges::none_of(base.monitors, [&output](const std::string& m) {
+        return outputMatchesSelector(m, output);
+      })) {
+    resolved.enabled = false;
+  }
+
   return resolved;
 }
 
