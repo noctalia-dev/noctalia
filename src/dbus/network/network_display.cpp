@@ -2,16 +2,91 @@
 
 #include "dbus/network/network_types.h"
 
+#include <cmath>
+
 namespace network_display {
 
   const char* glyphForState(const NetworkState& state) noexcept {
     if (state.kind == NetworkConnectivity::Wired) {
       return state.connected ? "ethernet" : "ethernet-off";
     }
+    if (state.kind == NetworkConnectivity::Cellular) {
+      return cellularGlyphForState(state);
+    }
     return wifiGlyphForState(state);
   }
 
   const char* vpnGlyph() noexcept { return "shield-check"; }
+
+  const char* cellularGlyphForState(const NetworkState& state) noexcept {
+    if (!state.cellularEnabled) {
+      return "antenna-bars-off";
+    }
+    if (state.kind == NetworkConnectivity::Cellular && state.connected) {
+      return cellularGlyphForSignal(state.cellularSignalStrength);
+    }
+    if (state.resolving) {
+      return "antenna-bars-1";
+    }
+    return "antenna";
+  }
+
+  const char* cellularGlyphForSignal(std::uint8_t signal) noexcept {
+    switch (wifiSignalBand(signal)) {
+    case 4:
+      return "antenna-bars-5";
+    case 3:
+      return "antenna-bars-4";
+    case 2:
+      return "antenna-bars-3";
+    case 1:
+      return "antenna-bars-2";
+    default:
+      return "antenna-bars-1";
+    }
+  }
+
+  bool shouldShowCellularSignal(const CellularConnectionInfo& connection, const NetworkState& state) noexcept {
+    return connection.active && !connection.devicePath.empty() && connection.devicePath == state.cellularDevicePath;
+  }
+
+  std::uint8_t cellularSignalPercentFromRsrp(double rsrpDbm) noexcept {
+    if (!std::isfinite(rsrpDbm) || rsrpDbm <= -110.0) {
+      return 0;
+    }
+    if (rsrpDbm >= -60.0) {
+      return 100;
+    }
+    return static_cast<std::uint8_t>((rsrpDbm + 110.0) * 2.0);
+  }
+
+  const char* cellularAccessTechnologyLabel(std::uint32_t technologies) noexcept {
+    if ((technologies & (1U << 15U)) != 0U) {
+      return "5G NR";
+    }
+    if ((technologies & (1U << 14U)) != 0U) {
+      return "LTE";
+    }
+    if ((technologies & (1U << 9U)) != 0U) {
+      return "HSPA+";
+    }
+    if ((technologies & (1U << 8U)) != 0U) {
+      return "HSPA";
+    }
+    if ((technologies & (1U << 5U)) != 0U) {
+      return "UMTS";
+    }
+    if ((technologies & (1U << 4U)) != 0U) {
+      return "EDGE";
+    }
+    if ((technologies & (1U << 3U)) != 0U) {
+      return "GPRS";
+    }
+    if ((technologies & (1U << 1U)) != 0U) {
+      return "GSM";
+    }
+    return nullptr;
+  }
 
   const char* wifiGlyphForState(const NetworkState& state) noexcept {
     if (!state.wirelessEnabled) {

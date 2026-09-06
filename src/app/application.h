@@ -276,6 +276,7 @@ private:
   std::unique_ptr<BluetoothService> m_bluetoothService;
   std::unique_ptr<BluetoothAgent> m_bluetoothAgent;
   Timer m_bluetoothResumeTimer;
+  Timer m_networkResumeTimer;
   std::unique_ptr<PolkitAgent> m_polkitAgent;
   std::optional<bool> m_notificationDaemonEnabled;
   bool m_notificationDaemonInitFailed = false;

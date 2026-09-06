@@ -310,8 +310,12 @@
       "start-playback": "Start playback in an MPRIS app"
     },
     "network": {
+      "add-cellular": "Add mobile connection",
+      "apn": "Access point name (APN)",
       "available": "Available",
+      "cellular": "Mobile broadband",
       "connect": "Connect",
+      "connection-name": "Connection name",
       "current-connection": "Current Connection",
       "external-ip": "WAN {ip}",
       "no-networks": "No networks in range",
@@ -320,6 +324,9 @@
       "password-prompt": "Enter password",
       "password-prompt-for": "Enter password for {ssid}",
       "saved": "Saved",
+      "sim-pin": "SIM PIN",
+      "sim-pin-prompt": "Enter SIM PIN",
+      "sim-pin-prompt-for": "Enter SIM PIN for {connection}",
       "unavailable-detail": "Install and enable NetworkManager, wpa_supplicant, or iwd to manage networks from here.",
       "unavailable-title": "Network service unavailable",
       "vpns": "VPNs",

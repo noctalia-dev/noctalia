@@ -27,6 +27,9 @@ namespace {
     if (s.kind == NetworkConnectivity::Wired && s.connected) {
       return s.interfaceName.empty() ? i18n::tr("bar.widgets.network.wired") : s.interfaceName;
     }
+    if (s.kind == NetworkConnectivity::Cellular && s.connected) {
+      return s.connectionName.empty() ? i18n::tr("control-center.network.cellular") : s.connectionName;
+    }
     return {};
   }
 
@@ -226,8 +229,8 @@ void NetworkWidget::doLayout(Renderer& renderer, float containerWidth, float con
         m_vpnLabel->setPosition(x + Style::spaceXs, std::round((h - m_vpnLabel->height()) * 0.5F));
         x += Style::spaceXs + m_vpnLabel->width();
       }
+      x += Style::spaceXs;
     }
-    x += gap;
     icon->setPosition(x, std::round((h - icon->height()) * 0.5F));
     x += icon->width();
     if (networkLabelVisible) {
@@ -252,7 +255,8 @@ void NetworkWidget::syncState(Renderer& renderer) {
   m_haveLastState = true;
   m_lastVertical = m_isVertical;
 
-  const bool showSpinner = s.kind == NetworkConnectivity::Wired && s.resolving;
+  const bool showSpinner =
+      (s.kind == NetworkConnectivity::Wired || s.kind == NetworkConnectivity::Cellular) && s.resolving;
 
   // VPN glyph (both mode): show shield icon next to network icon
   if (m_vpnGlyph != nullptr) {
@@ -354,6 +358,15 @@ std::vector<TooltipRow> NetworkWidget::buildTooltipRows() const {
       if (!s.interfaceName.empty()) {
         rows.push_back({i18n::tr("bar.widgets.network.interface"), s.interfaceName});
       }
+    } else if (s.kind == NetworkConnectivity::Cellular) {
+      rows.push_back(
+          {i18n::tr("bar.widgets.network.network"),
+           s.connectionName.empty() ? i18n::tr("control-center.network.cellular") : s.connectionName}
+      );
+      rows.push_back({i18n::tr("bar.widgets.network.signal"), std::to_string(s.cellularSignalStrength) + "%"});
+      if (!s.interfaceName.empty()) {
+        rows.push_back({i18n::tr("bar.widgets.network.interface"), s.interfaceName});
+      }
     } else {
       rows.push_back({i18n::tr("bar.widgets.network.network"), i18n::tr("bar.widgets.network.connected")});
     }
@@ -400,6 +413,7 @@ std::vector<TooltipRow> NetworkWidget::buildTooltipRows() const {
 
   rows.push_back({i18n::tr("bar.widgets.network.network"), disconnectedText(s.resolving)});
   rows.push_back({i18n::tr("bar.widgets.network.wifi"), onOffText(s.wirelessEnabled)});
+  rows.push_back({i18n::tr("control-center.network.cellular"), onOffText(s.cellularEnabled)});
   if (s.scanning) {
     rows.push_back({i18n::tr("bar.widgets.network.scanning"), yesNoText(s.scanning)});
   }

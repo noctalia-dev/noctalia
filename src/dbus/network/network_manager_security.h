@@ -15,4 +15,14 @@ namespace network_manager_security {
     return supportsSae ? "sae" : "wpa-psk";
   }
 
+  [[nodiscard]] constexpr bool shouldRestartCellularAuthentication(
+      std::string_view connectionType, std::uint32_t activeConnectionState, std::uint32_t deviceState
+  ) noexcept {
+    constexpr std::uint32_t kActiveConnectionStateActivating = 1;
+    constexpr std::uint32_t kDeviceStateNeedAuth = 60;
+    return connectionType == "gsm"
+        && activeConnectionState == kActiveConnectionStateActivating
+        && deviceState == kDeviceStateNeedAuth;
+  }
+
 } // namespace network_manager_security

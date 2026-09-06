@@ -58,7 +58,7 @@ Use these context IDs with `noctalia msg panel-toggle control-center <context>` 
 | `audio` | Audio | Output/input volume, mute controls, devices, streams, and media-related audio controls |
 | `monitor` | Monitor | Brightness controls for displays that expose writable backlight devices |
 | `system` | System | Distro/kernel, hardware summary, uptime, CPU/RAM/GPU/network graphs, and resource details |
-| `network` | Network | Wi-Fi state, connection status, known wireless controls, and NetworkManager-backed actions |
+| `network` | Network | Wi-Fi, cellular, connection status, saved profiles, and NetworkManager-backed actions |
 | `bluetooth` | Bluetooth | Adapter power, discoverability, paired devices, connection controls, and pairing flows |
 | `weather` | Weather | Current conditions, forecast, location status, and weather service diagnostics |
 | `calendar` | Calendar | Month view and configured calendar account events |
@@ -102,9 +102,9 @@ System monitor sampling is configured globally under `[system.monitor]`; see [Sy
 
 ## Network
 
-The Network tab uses the configured network backend to show wireless state and connection details. It is the destination for Wi-Fi shortcuts and network-related right-click actions.
+The Network tab uses the configured network backend to show Wi-Fi, wired, VPN, and cellular connection details. With NetworkManager, it can toggle mobile broadband, activate or remove saved cellular profiles, create profiles from a name and APN, and prompt for a SIM PIN.
 
-The current connection line lists the IPv4 address, signal strength, radio band, and external IP. The band (`2.4 GHz`, `5 GHz`, `6 GHz`, or `60 GHz`) is shown only when the backend reports the connection frequency: NetworkManager and wpa_supplicant do, iwd does not.
+The current connection line lists the IPv4 address, signal strength, radio details, and external IP. Wi-Fi shows its band (`2.4 GHz`, `5 GHz`, `6 GHz`, or `60 GHz`) when the backend reports the connection frequency. Cellular connections show their access technology, such as LTE. Cellular controls require NetworkManager and supported modem hardware.
 
 ## Bluetooth
 

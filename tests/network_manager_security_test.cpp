@@ -11,6 +11,11 @@ int main() {
   TEST_CHECK(network_manager_security::keyManagement(false) == "wpa-psk");
   TEST_CHECK(network_manager_security::keyManagement(true) == "sae");
 
+  TEST_CHECK(network_manager_security::shouldRestartCellularAuthentication("gsm", 1U, 60U));
+  TEST_CHECK(!network_manager_security::shouldRestartCellularAuthentication("vpn", 1U, 60U));
+  TEST_CHECK(!network_manager_security::shouldRestartCellularAuthentication("gsm", 2U, 60U));
+  TEST_CHECK(!network_manager_security::shouldRestartCellularAuthentication("gsm", 1U, 30U));
+
   const AccessPointInfo accessPoint;
   TEST_CHECK(!accessPoint.supportsSae);
 

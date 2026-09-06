@@ -33,13 +33,22 @@ public:
   [[nodiscard]] const std::vector<VpnConnectionInfo>& vpnConnections() const noexcept override {
     return m_vpnConnections;
   }
+  [[nodiscard]] const std::vector<CellularConnectionInfo>& cellularConnections() const noexcept override {
+    return m_cellularConnections;
+  }
 
   void requestScan() override;
   bool activateAccessPoint(const AccessPointInfo& ap) override;
   bool activateAccessPoint(const AccessPointInfo& ap, const std::string& psk) override;
   bool activateVpnConnection(const VpnConnectionInfo& /*vpn*/) override { return false; }
   bool deactivateVpnConnection(const VpnConnectionInfo& /*vpn*/) override { return false; }
+  bool activateCellularConnection(const CellularConnectionInfo& /*cellular*/) override { return false; }
   void setWirelessEnabled(bool enabled, WirelessEnabledCompletion onComplete = {}) override;
+  void setCellularEnabled(bool /*enabled*/, WirelessEnabledCompletion onComplete = {}) override {
+    if (onComplete) {
+      onComplete(false);
+    }
+  }
   void disconnect() override;
   void forgetSsid(const std::string& ssid) override;
   [[nodiscard]] bool hasSavedConnection(const std::string& ssid) const override;
@@ -56,7 +65,8 @@ private:
   std::unique_ptr<sdbus::IProxy> m_iwd;
   NetworkState m_state;
   std::vector<AccessPointInfo> m_accessPoints;
-  const std::vector<VpnConnectionInfo> m_vpnConnections; // always empty
+  const std::vector<VpnConnectionInfo> m_vpnConnections;           // always empty
+  const std::vector<CellularConnectionInfo> m_cellularConnections; // always empty
   // ssid -> known network object path.
   std::unordered_map<std::string, std::string> m_knownNetworks;
   // station path -> device name.

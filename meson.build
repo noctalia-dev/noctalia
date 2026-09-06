@@ -1196,6 +1196,7 @@ if build_tests
     'math_provider',
     'monitor_selector',
     'network_manager_security',
+    'network_display',
     'niri_workspace_backend',
     'notification_dnd',
     'notification_filter',

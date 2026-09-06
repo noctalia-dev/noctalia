@@ -35,7 +35,10 @@ namespace {
 
   constexpr auto kWirelessSettingName = "802-11-wireless";
   constexpr auto kWirelessSecuritySettingName = "802-11-wireless-security";
+  constexpr auto kConnectionSettingName = "connection";
+  constexpr auto kGsmSettingName = "gsm";
   constexpr auto kPskKey = "psk";
+  constexpr auto kPinKey = "pin";
 
   std::string extractSsid(const SecretsDict& connection) {
     auto wifiIt = connection.find(kWirelessSettingName);
@@ -54,6 +57,22 @@ namespace {
     }
   }
 
+  std::string extractConnectionName(const SecretsDict& connection) {
+    auto connectionIt = connection.find(kConnectionSettingName);
+    if (connectionIt == connection.end()) {
+      return {};
+    }
+    auto idIt = connectionIt->second.find("id");
+    if (idIt == connectionIt->second.end()) {
+      return {};
+    }
+    try {
+      return idIt->second.get<std::string>();
+    } catch (const sdbus::Error&) {
+      return {};
+    }
+  }
+
 } // namespace
 
 struct NetworkSecretAgent::Impl {
@@ -62,6 +81,7 @@ struct NetworkSecretAgent::Impl {
   RequestCallback requestCallback;
   std::optional<sdbus::Result<SecretsDict>> pendingResult;
   std::string pendingSettingName;
+  std::string pendingSecretKey;
 
   explicit Impl(SystemBus& b) : bus(b) {}
 
@@ -79,7 +99,9 @@ struct NetworkSecretAgent::Impl {
       );
       return;
     }
-    if (settingName != kWirelessSecuritySettingName) {
+    const bool wifiPsk = settingName == kWirelessSecuritySettingName;
+    const bool simPin = settingName == kGsmSettingName;
+    if (!wifiPsk && !simPin) {
       kLog.debug("GetSecrets for unsupported setting \"{}\" -> NoSecrets", settingName);
       result.returnError(
           sdbus::Error{
@@ -100,12 +122,17 @@ struct NetworkSecretAgent::Impl {
     }
 
     SecretRequest request;
-    request.ssid = extractSsid(connection);
-    request.settingName = settingName;
-    kLog.info("GetSecrets prompt ssid=\"{}\" path={}", request.ssid, std::string(connectionPath));
+    request.kind = simPin ? SecretKind::SimPin : SecretKind::WifiPsk;
+    request.connectionName = simPin ? extractConnectionName(connection) : extractSsid(connection);
+    request.connectionPath = std::string(connectionPath);
+    kLog.info(
+        "GetSecrets prompt type={} connection=\"{}\" path={}", simPin ? "sim-pin" : "wifi-psk", request.connectionName,
+        std::string(connectionPath)
+    );
 
     pendingResult = std::move(result);
     pendingSettingName = settingName;
+    pendingSecretKey = simPin ? kPinKey : kPskKey;
 
     if (requestCallback) {
       requestCallback(request);
@@ -124,17 +151,19 @@ struct NetworkSecretAgent::Impl {
     );
     pendingResult.reset();
     pendingSettingName.clear();
+    pendingSecretKey.clear();
   }
 
-  void submitPending(const std::string& psk) {
+  void submitPending(const std::string& secret) {
     if (!pendingResult.has_value()) {
       return;
     }
     SecretsDict secrets;
-    secrets[pendingSettingName][kPskKey] = sdbus::Variant{psk};
+    secrets[pendingSettingName][pendingSecretKey] = sdbus::Variant{secret};
     pendingResult->returnResults(secrets);
     pendingResult.reset();
     pendingSettingName.clear();
+    pendingSecretKey.clear();
   }
 };
 
@@ -201,9 +230,9 @@ void NetworkSecretAgent::setRequestCallback(RequestCallback callback) {
   }
 }
 
-void NetworkSecretAgent::submitSecret(const std::string& psk) {
+void NetworkSecretAgent::submitSecret(const std::string& secret) {
   if (m_impl != nullptr) {
-    m_impl->submitPending(psk);
+    m_impl->submitPending(secret);
   }
 }
 

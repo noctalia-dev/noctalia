@@ -7,7 +7,7 @@
 class SystemBus;
 
 // NetworkManager secret agent. Registers with org.freedesktop.NetworkManager.AgentManager
-// on the system bus and answers GetSecrets requests for new Wi-Fi PSK connections.
+// on the system bus and answers GetSecrets requests for Wi-Fi PSKs and SIM PINs.
 //
 // The agent is single-slot: one in-flight prompt at a time. Additional GetSecrets
 // calls while a prompt is open are rejected with NoSecrets, letting NM fall back
@@ -19,9 +19,15 @@ class SystemBus;
 //   3. Deferred sdbus::Result replies to NM
 class NetworkSecretAgent {
 public:
+  enum class SecretKind {
+    WifiPsk,
+    SimPin,
+  };
+
   struct SecretRequest {
-    std::string ssid;
-    std::string settingName; // e.g. "802-11-wireless-security"
+    SecretKind kind = SecretKind::WifiPsk;
+    std::string connectionName;
+    std::string connectionPath;
   };
 
   using RequestCallback = std::function<void(const SecretRequest&)>;
@@ -35,7 +41,7 @@ public:
   void setRequestCallback(RequestCallback callback);
 
   // Reply paths for the pending request. Safe no-ops if nothing is pending.
-  void submitSecret(const std::string& psk);
+  void submitSecret(const std::string& secret);
   void cancelSecret();
 
   [[nodiscard]] bool hasPendingRequest() const noexcept;

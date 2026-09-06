@@ -1,11 +1,11 @@
 ---
 title: network
-description: Shows Wi-Fi, wired, and VPN status through NetworkManager.
+description: Shows Wi-Fi, wired, cellular, and VPN status through NetworkManager.
 sidebar:
   order: 15
 ---
 
-Shows the current network connection (Wi-Fi SSID and signal, or wired) via NetworkManager. Disconnected and disabled states use the appropriate status glyph without dimming the widget. Left-click opens the Network tab in the control center; right-click disables or reconnects the active Wi-Fi or wired connection.
+Shows the current network connection (Wi-Fi SSID and signal, wired interface, or cellular profile and signal) via NetworkManager. Disconnected and disabled states use the appropriate status glyph without dimming the widget. Left-click opens the Network tab in the control center; right-click disconnects or reconnects the active physical connection.
 
 Hovering the widget shows a tooltip with the network name, signal strength, radio band, and interface. The band row (`2.4 GHz`, `5 GHz`, `6 GHz`, or `60 GHz`) appears only when the backend reports the connection frequency: NetworkManager and wpa_supplicant do, iwd does not.
 

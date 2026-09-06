@@ -25,6 +25,14 @@ namespace {
 
   constexpr float kRowMinHeight = Style::controlHeightLg;
 
+  bool isValidSimPin(std::string_view value) {
+    return value.size() >= 4
+        && value.size() <= 8
+        && std::ranges::all_of(value, [](char digit) { return digit >= '0' && digit <= '9'; });
+  }
+
+  std::string percentText(std::uint8_t percent) { return std::to_string(static_cast<int>(percent)) + "%"; }
+
   std::string currentTitle(const NetworkState& s) {
     if (s.kind == NetworkConnectivity::Wireless && s.connected && !s.ssid.empty()) {
       return s.ssid;
@@ -32,13 +40,15 @@ namespace {
     if (s.kind == NetworkConnectivity::Wired && s.connected) {
       return s.interfaceName.empty() ? i18n::tr("control-center.network.wired-connection") : s.interfaceName;
     }
+    if (s.kind == NetworkConnectivity::Cellular && s.connected) {
+      return s.connectionName.empty() ? i18n::tr("control-center.network.cellular") : s.connectionName;
+    }
     return i18n::tr("control-center.network.not-connected");
   }
 
   std::string currentDetail(const NetworkState& s, const std::string& externalIp) {
     if (!s.connected) {
-      return s.wirelessEnabled ? i18n::tr("control-center.network.wifi-on")
-                               : i18n::tr("control-center.network.wifi-off");
+      return {};
     }
     std::string out;
     const auto append = [&out](std::string_view part) {
@@ -57,14 +67,17 @@ namespace {
       if (const char* band = network_display::wifiFrequencyBandLabel(s.frequencyMhz); band != nullptr) {
         append(band);
       }
+    } else if (s.kind == NetworkConnectivity::Cellular) {
+      append(std::to_string(static_cast<int>(s.cellularSignalStrength)) + "%");
+      if (!s.cellularAccessTechnology.empty()) {
+        append(s.cellularAccessTechnology);
+      }
     }
     if (!externalIp.empty()) {
       append(i18n::tr("control-center.network.external-ip", "ip", externalIp));
     }
     return out;
   }
-
-  std::string percentText(std::uint8_t percent) { return std::to_string(static_cast<int>(percent)) + "%"; }
 
   std::unique_ptr<Flex> makeWifiBucketHeaderRow(const std::string& title, float scale) {
     auto row = ui::row({
@@ -277,13 +290,16 @@ private:
 
 namespace {
 
-  class VpnConnectionRow : public Flex {
+  class ConnectionProfileRow : public Flex {
   public:
-    VpnConnectionRow(
-        float scale, VpnConnectionInfo vpn, std::function<void(const VpnConnectionInfo&)> onActivate,
-        std::function<void(const VpnConnectionInfo&)> onDeactivate
+    ConnectionProfileRow(
+        float scale, std::string name, bool active, std::string glyph, std::function<void()> onActivate,
+        std::function<void()> onDeactivate, std::function<void()> onForget = {}, bool connecting = false,
+        std::optional<std::uint8_t> signalStrength = std::nullopt
     )
-        : m_vpn(std::move(vpn)), m_onActivate(std::move(onActivate)), m_onDeactivate(std::move(onDeactivate)) {
+        : m_active(active), m_connecting(connecting), m_savedProfile(static_cast<bool>(onForget)),
+          m_onActivate(std::move(onActivate)), m_onDeactivate(std::move(onDeactivate)),
+          m_onForget(std::move(onForget)) {
       setDirection(FlexDirection::Horizontal);
       setAlign(FlexAlign::Center);
       setGap(Style::spaceSm * scale);
@@ -294,46 +310,89 @@ namespace {
       clearBorder();
 
       addChild(
+          ui::glyph({
+              .out = &m_profileGlyph,
+              .glyph = std::move(glyph),
+              .glyphSize = Style::baseGlyphSize * scale,
+              .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+          })
+      );
+
+      addChild(
           ui::label({
               .out = &m_title,
-              .text = m_vpn.name,
+              .text = std::move(name),
               .fontSize = Style::fontSizeBody * scale,
-              .fontWeight = m_vpn.active ? FontWeight::Bold : FontWeight::Normal,
+              .fontWeight = (m_active || m_connecting) ? FontWeight::Bold : FontWeight::Normal,
               .color = colorSpecFromRole(ColorRole::OnSurface),
               .flexGrow = 1.0F,
           })
       );
 
-      addChild(
-          ui::button({
-              .out = &m_checkButton,
-              .glyph = "check",
-              .glyphSize = Style::baseGlyphSize * scale,
-              .variant = ButtonVariant::Ghost,
-              .padding = Style::spaceXs * scale,
-              .radius = Style::scaledRadiusSm(scale),
-              .opacity = m_vpn.active ? 1.0F : 0.0F,
-          })
-      );
+      if (signalStrength.has_value()) {
+        addChild(
+            ui::label({
+                .out = &m_signalValue,
+                .text = percentText(*signalStrength),
+                .fontSize = Style::fontSizeCaption * scale,
+                .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+            })
+        );
+      }
 
-      addChild(
-          ui::button({
-              .out = &m_actionButton,
-              .glyph = m_vpn.active ? "plug-off" : "plug",
-              .glyphSize = Style::baseGlyphSize * scale,
-              .variant = m_vpn.active ? ButtonVariant::Destructive : ButtonVariant::Default,
-              .padding = Style::spaceXs * scale,
-              .radius = Style::scaledRadiusSm(scale),
-              .onClick = [this]() { triggerAction(); },
-          })
-      );
+      if (!m_savedProfile) {
+        addChild(
+            ui::button({
+                .glyph = "check",
+                .glyphSize = Style::baseGlyphSize * scale,
+                .variant = ButtonVariant::Ghost,
+                .padding = Style::spaceXs * scale,
+                .radius = Style::scaledRadiusSm(scale),
+                .opacity = m_active ? 1.0F : 0.0F,
+            })
+        );
+      }
+
+      if (m_connecting) {
+        addChild(
+            ui::spinner({
+                .color = colorSpecFromRole(ColorRole::Primary),
+                .spinnerSize = Style::baseGlyphSize * scale,
+                .spinning = true,
+            })
+        );
+      } else {
+        auto actionButton = ui::button({
+            .out = &m_actionButton,
+            .glyph = m_savedProfile ? (m_active ? "check" : "trash") : (m_active ? "plug-off" : "plug"),
+            .glyphSize = Style::baseGlyphSize * scale,
+            .variant = m_savedProfile ? ButtonVariant::Ghost
+                                      : (m_active ? ButtonVariant::Destructive : ButtonVariant::Default),
+            .padding = Style::spaceXs * scale,
+            .radius = Style::scaledRadiusSm(scale),
+        });
+        if (!m_savedProfile || !m_active) {
+          actionButton->setOnClick([this]() {
+            if (m_savedProfile) {
+              if (m_onForget) {
+                m_onForget();
+              }
+              return;
+            }
+            triggerAction();
+          });
+        }
+        addChild(std::move(actionButton));
+      }
 
       auto area = ui::inputArea({});
-      area->setPropagateEvents(true);
-      area->setOnEnter([this](const InputArea::PointerData& /*data*/) { applyState(); });
-      area->setOnLeave([this]() { applyState(); });
-      area->setOnPress([this](const InputArea::PointerData& /*data*/) { applyState(); });
-      area->setOnClick([this](const InputArea::PointerData& /*data*/) { triggerAction(); });
+      if (!m_connecting) {
+        area->setPropagateEvents(true);
+        area->setOnEnter([this](const InputArea::PointerData& /*data*/) { applyState(); });
+        area->setOnLeave([this]() { applyState(); });
+        area->setOnPress([this](const InputArea::PointerData& /*data*/) { applyState(); });
+        area->setOnClick([this](const InputArea::PointerData& /*data*/) { triggerAction(); });
+      }
       m_inputArea = static_cast<InputArea*>(addChild(std::move(area)));
 
       applyState();
@@ -362,15 +421,27 @@ namespace {
 
     void doArrange(Renderer& renderer, const LayoutRect& rect) override { arrangeByLayout(renderer, rect); }
 
+    [[nodiscard]] Glyph* profileGlyph() const noexcept { return m_profileGlyph; }
+    [[nodiscard]] Label* signalValue() const noexcept { return m_signalValue; }
+
   private:
     void triggerAction() {
-      if (m_vpn.active) {
+      if (m_connecting) {
+        return;
+      }
+      if (m_savedProfile) {
+        if (!m_active && m_onActivate) {
+          m_onActivate();
+        }
+        return;
+      }
+      if (m_active) {
         if (m_onDeactivate) {
-          m_onDeactivate(m_vpn);
+          m_onDeactivate();
         }
       } else {
         if (m_onActivate) {
-          m_onActivate(m_vpn);
+          m_onActivate();
         }
       }
     }
@@ -397,11 +468,15 @@ namespace {
       }
     }
 
-    VpnConnectionInfo m_vpn;
-    std::function<void(const VpnConnectionInfo&)> m_onActivate;
-    std::function<void(const VpnConnectionInfo&)> m_onDeactivate;
+    bool m_active = false;
+    bool m_connecting = false;
+    bool m_savedProfile = false;
+    std::function<void()> m_onActivate;
+    std::function<void()> m_onDeactivate;
+    std::function<void()> m_onForget;
     Label* m_title = nullptr;
-    Button* m_checkButton = nullptr;
+    Glyph* m_profileGlyph = nullptr;
+    Label* m_signalValue = nullptr;
     Button* m_actionButton = nullptr;
     InputArea* m_inputArea = nullptr;
     Signal<>::ScopedConnection m_paletteConn;
@@ -414,7 +489,16 @@ NetworkTab::NetworkTab(INetworkService* network, NetworkSecretAgent* secrets, Ex
   if (m_secrets != nullptr) {
     m_secrets->setRequestCallback([this](const NetworkSecretAgent::SecretRequest& request) {
       showPasswordPrompt(request);
-      PanelManager::instance().refresh();
+      if (request.kind == NetworkSecretAgent::SecretKind::SimPin) {
+        auto& panelManager = PanelManager::instance();
+        if (panelManager.isOpenPanel("control-center") && panelManager.isActivePanelContext("network")) {
+          panelManager.refresh();
+        } else {
+          panelManager.openPanel("control-center", PanelOpenRequest{.context = "network"});
+        }
+      } else {
+        PanelManager::instance().refresh();
+      }
     });
   }
 }
@@ -466,13 +550,11 @@ std::unique_ptr<Flex> NetworkTab::create() {
             if (m_network == nullptr || m_actionPending) {
               return;
             }
-            const bool wasConnected = m_network->state().connected;
-            if (wasConnected) {
-              m_network->disconnect();
-            } else if (!m_network->activateWiredConnection()) {
+            if (!m_network->state().connected) {
               return;
             }
-            beginPendingAction(wasConnected);
+            m_network->disconnect();
+            beginPendingAction(true);
             PanelManager::instance().refresh();
           },
       })
@@ -530,7 +612,17 @@ std::unique_ptr<Flex> NetworkTab::create() {
                 }
               },
       }),
+      ui::spinner({
+          .out = &m_passwordSubmitSpinner,
+          .color = colorSpecFromRole(ColorRole::Primary),
+          .spinnerSize = Style::baseGlyphSize * scale,
+          .spinning = false,
+          .width = Style::baseGlyphSize * scale,
+          .height = Style::baseGlyphSize * scale,
+          .opacity = 0.0F,
+      }),
       ui::button({
+          .out = &m_passwordSubmitButton,
           .text = i18n::tr("control-center.network.connect"),
           .variant = ButtonVariant::Default,
           .onClick =
@@ -588,6 +680,7 @@ void NetworkTab::doLayout(Renderer& renderer, float contentWidth, float bodyHeig
   syncPasswordCard();
   rebuildApList(renderer);
   syncApRows();
+  syncCellularRows();
   syncCurrentCard();
   m_rootLayout->layout(renderer);
 }
@@ -596,7 +689,9 @@ void NetworkTab::doUpdate(Renderer& renderer) {
   syncPasswordCard();
   rebuildApList(renderer);
   // A signal percent's text changes its width, so the list has to be laid out again.
-  if (syncApRows() && m_list != nullptr) {
+  const bool wifiMetricsChanged = syncApRows();
+  const bool cellularMetricsChanged = syncCellularRows();
+  if ((wifiMetricsChanged || cellularMetricsChanged) && m_list != nullptr) {
     m_list->layout(renderer);
   }
   syncCurrentCard();
@@ -611,18 +706,23 @@ void NetworkTab::onClose() {
   m_passwordTitle = nullptr;
   m_passwordInput = nullptr;
   m_passwordRevealButton = nullptr;
+  m_passwordSubmitButton = nullptr;
+  m_passwordSubmitSpinner = nullptr;
   m_passwordRevealed = false;
   m_listScroll = nullptr;
   m_list = nullptr;
   m_rescanButton = nullptr;
   m_wifiToggle = nullptr;
+  m_cellularToggle = nullptr;
+  m_cellularNameInput = nullptr;
+  m_cellularApnInput = nullptr;
   m_scanSpinner = nullptr;
   m_currentRow = nullptr;
   m_disconnectButton = nullptr;
   m_apRows.clear();
+  m_cellularRows.clear();
   m_lastStructureKey.clear();
   m_lastListWidth = -1.0F;
-  m_pendingAccessPoint.reset();
   m_active = false;
   m_actionPending = false;
   m_actionPendingTimer.stop();
@@ -630,6 +730,13 @@ void NetworkTab::onClose() {
   m_wifiToggleWriteComplete = false;
   m_wifiToggleTargetObserved = false;
   ++m_wifiToggleRequestGeneration;
+  m_cellularTogglePending = false;
+  m_cellularToggleWriteComplete = false;
+  m_cellularToggleTargetObserved = false;
+  ++m_cellularToggleRequestGeneration;
+  m_cellularSetupVisible = false;
+  m_cellularSetupName.clear();
+  m_cellularSetupApn.clear();
 }
 
 void NetworkTab::syncPasswordCard() {
@@ -637,22 +744,56 @@ void NetworkTab::syncPasswordCard() {
     return;
   }
   m_passwordCard->setVisible(m_hasPendingSecret);
+  if (m_passwordSubmitButton != nullptr) {
+    m_passwordSubmitButton->setEnabled(!m_secretSubmitting);
+  }
+  if (m_passwordRevealButton != nullptr) {
+    m_passwordRevealButton->setEnabled(!m_secretSubmitting);
+  }
+  if (m_passwordSubmitSpinner != nullptr) {
+    m_passwordSubmitSpinner->setOpacity(m_secretSubmitting ? 1.0F : 0.0F);
+    if (m_secretSubmitting && !m_passwordSubmitSpinner->spinning()) {
+      m_passwordSubmitSpinner->start();
+    } else if (!m_secretSubmitting && m_passwordSubmitSpinner->spinning()) {
+      m_passwordSubmitSpinner->stop();
+    }
+  }
   if (m_hasPendingSecret && m_passwordTitle != nullptr) {
-    m_passwordTitle->setText(
-        m_pendingSsid.empty() ? i18n::tr("control-center.network.password-prompt")
-                              : i18n::tr("control-center.network.password-prompt-for", "ssid", m_pendingSsid)
-    );
+    const bool simPin = m_pendingSecretKind == NetworkSecretAgent::SecretKind::SimPin;
+    if (simPin) {
+      m_passwordTitle->setText(
+          m_pendingSecretName.empty()
+              ? i18n::tr("control-center.network.sim-pin-prompt")
+              : i18n::tr("control-center.network.sim-pin-prompt-for", "connection", m_pendingSecretName)
+      );
+    } else {
+      m_passwordTitle->setText(
+          m_pendingSecretName.empty()
+              ? i18n::tr("control-center.network.password-prompt")
+              : i18n::tr("control-center.network.password-prompt-for", "ssid", m_pendingSecretName)
+      );
+    }
+    if (m_passwordInput != nullptr) {
+      m_passwordInput->setPlaceholder(
+          i18n::tr(simPin ? "control-center.network.sim-pin" : "control-center.network.password")
+      );
+    }
   }
 }
 
 void NetworkTab::showPasswordPrompt(const NetworkSecretAgent::SecretRequest& request) {
   m_hasPendingSecret = true;
-  m_pendingSsid = request.ssid;
+  m_secretSubmitting = false;
+  m_pendingSecretKind = request.kind;
+  m_pendingSecretName = request.connectionName;
+  m_pendingSecretConnectionPath = request.connectionPath;
+  m_pendingSimPin.clear();
   m_pendingAccessPoint.reset();
   m_passwordRevealed = false;
   if (m_passwordInput != nullptr) {
     m_passwordInput->setValue("");
     m_passwordInput->setPasswordMode(true);
+    m_passwordInput->setEnabled(true);
   }
   if (m_passwordRevealButton != nullptr) {
     m_passwordRevealButton->setGlyph("eye");
@@ -661,7 +802,9 @@ void NetworkTab::showPasswordPrompt(const NetworkSecretAgent::SecretRequest& req
 
 void NetworkTab::showPasswordPrompt(const AccessPointInfo& ap) {
   m_hasPendingSecret = true;
-  m_pendingSsid = ap.ssid;
+  m_secretSubmitting = false;
+  m_pendingSecretKind = NetworkSecretAgent::SecretKind::WifiPsk;
+  m_pendingSecretName = ap.ssid;
   m_pendingAccessPoint = ap;
   m_passwordRevealed = false;
   if (m_passwordInput != nullptr) {
@@ -674,6 +817,15 @@ void NetworkTab::showPasswordPrompt(const AccessPointInfo& ap) {
 }
 
 void NetworkTab::submitPasswordPrompt(const std::string& value) {
+  if (m_secretSubmitting) {
+    return;
+  }
+  if (m_pendingSecretKind == NetworkSecretAgent::SecretKind::SimPin && !isValidSimPin(value)) {
+    if (m_passwordInput != nullptr) {
+      m_passwordInput->setInvalid(true);
+    }
+    return;
+  }
   if (m_pendingAccessPoint.has_value()) {
     if (value.empty()) {
       return;
@@ -682,6 +834,19 @@ void NetworkTab::submitPasswordPrompt(const std::string& value) {
       m_network->activateAccessPoint(*m_pendingAccessPoint, value);
     }
   } else if (m_secrets != nullptr) {
+    if (m_pendingSecretKind == NetworkSecretAgent::SecretKind::SimPin) {
+      m_secretSubmitting = true;
+      m_secretSubmittingSince = std::chrono::steady_clock::now();
+      m_pendingSimPin =
+          security::SecureBuffer(std::span(reinterpret_cast<const std::uint8_t*>(value.data()), value.size()));
+      if (m_passwordInput != nullptr) {
+        m_passwordInput->setEnabled(false);
+      }
+      m_secrets->submitSecret(value);
+      PanelManager::instance().requestUpdateOnly();
+      PanelManager::instance().requestRedraw();
+      return;
+    }
     m_secrets->submitSecret(value);
   }
   clearPasswordPrompt();
@@ -698,12 +863,18 @@ void NetworkTab::cancelPasswordPrompt() {
 
 void NetworkTab::clearPasswordPrompt() {
   m_hasPendingSecret = false;
-  m_pendingSsid.clear();
+  m_secretSubmitting = false;
+  m_pendingSecretKind = NetworkSecretAgent::SecretKind::WifiPsk;
+  m_pendingSecretName.clear();
+  m_pendingSecretConnectionPath.clear();
+  m_pendingSimPin.clear();
   m_pendingAccessPoint.reset();
   m_passwordRevealed = false;
   if (m_passwordInput != nullptr) {
     m_passwordInput->setValue("");
     m_passwordInput->setPasswordMode(true);
+    m_passwordInput->setEnabled(true);
+    m_passwordInput->setInvalid(false);
   }
   if (m_passwordRevealButton != nullptr) {
     m_passwordRevealButton->setGlyph("eye");
@@ -723,6 +894,20 @@ void NetworkTab::syncCurrentCard() {
     return;
   }
   const NetworkState& s = m_network->state();
+  if (m_secretSubmitting && m_pendingSecretKind == NetworkSecretAgent::SecretKind::SimPin) {
+    const auto& cellularConnections = m_network->cellularConnections();
+    const auto connected = std::ranges::find_if(cellularConnections, [this](const CellularConnectionInfo& connection) {
+      return connection.path == m_pendingSecretConnectionPath && connection.connected;
+    });
+    if (connected != cellularConnections.end()) {
+      const auto pinBytes = m_pendingSimPin.bytes();
+      const std::string pin(reinterpret_cast<const char*>(pinBytes.data()), pinBytes.size());
+      m_network->saveCellularPin(connected->path, pin);
+      clearPasswordPrompt();
+    } else if (std::chrono::steady_clock::now() - m_secretSubmittingSince > kSecretSubmittingTimeout) {
+      clearPasswordPrompt();
+    }
+  }
   if (m_actionPending) {
     const bool flipped = s.connected != m_actionPendingConnected;
     const bool timedOut = std::chrono::steady_clock::now() - m_actionPendingSince > kActionPendingTimeout;
@@ -741,20 +926,33 @@ void NetworkTab::syncCurrentCard() {
       m_wifiToggleTargetObserved = false;
     }
   }
+  if (m_cellularTogglePending) {
+    if (s.cellularEnabled == m_cellularToggleTarget) {
+      m_cellularToggleTargetObserved = true;
+    }
+    if (m_cellularToggleWriteComplete && m_cellularToggleTargetObserved) {
+      m_cellularTogglePending = false;
+      m_cellularToggleWriteComplete = false;
+      m_cellularToggleTargetObserved = false;
+    }
+  }
   static const std::string kNoExternalIp;
   const std::string& externalIp = m_externalIpService != nullptr ? m_externalIpService->externalIp() : kNoExternalIp;
   m_currentTitle->setText(currentTitle(s));
   m_currentDetail->setText(currentDetail(s, externalIp));
   if (m_disconnectButton != nullptr) {
-    const bool canReconnectWired = !s.connected && m_network->canActivateWiredConnection();
-    m_disconnectButton->setVisible(s.connected || canReconnectWired || m_actionPending);
-    m_disconnectButton->setGlyph(s.connected ? "plug-off" : "plug");
-    m_disconnectButton->setVariant(s.connected ? ButtonVariant::Destructive : ButtonVariant::Default);
+    m_disconnectButton->setVisible(s.connected || m_actionPending);
+    m_disconnectButton->setGlyph("plug-off");
+    m_disconnectButton->setVariant(ButtonVariant::Destructive);
     m_disconnectButton->setEnabled(!m_actionPending);
   }
   if (m_wifiToggle != nullptr) {
     m_wifiToggle->setChecked(m_wifiTogglePending ? m_wifiToggleTarget : s.wirelessEnabled);
     m_wifiToggle->setEnabled(!m_wifiTogglePending);
+  }
+  if (m_cellularToggle != nullptr) {
+    m_cellularToggle->setChecked(m_cellularTogglePending ? m_cellularToggleTarget : s.cellularEnabled);
+    m_cellularToggle->setEnabled(!m_cellularTogglePending);
   }
   if (m_scanSpinner != nullptr) {
     m_scanSpinner->setVisible(s.scanning);
@@ -810,12 +1008,45 @@ void NetworkTab::handleWirelessEnabledCompletion(std::uint64_t generation, bool 
   PanelManager::instance().requestRedraw();
 }
 
+void NetworkTab::requestCellularEnabled(bool enabled) {
+  m_cellularTogglePending = true;
+  m_cellularToggleTarget = enabled;
+  m_cellularToggleWriteComplete = false;
+  m_cellularToggleTargetObserved = false;
+  const std::uint64_t generation = ++m_cellularToggleRequestGeneration;
+  if (m_cellularToggle != nullptr) {
+    m_cellularToggle->setEnabled(false);
+  }
+  if (m_network == nullptr) {
+    handleCellularEnabledCompletion(generation, false);
+    return;
+  }
+  m_network->setCellularEnabled(enabled, [this, generation](bool success) {
+    handleCellularEnabledCompletion(generation, success);
+  });
+}
+
+void NetworkTab::handleCellularEnabledCompletion(std::uint64_t generation, bool success) {
+  if (!m_cellularTogglePending || generation != m_cellularToggleRequestGeneration) {
+    return;
+  }
+  m_cellularToggleWriteComplete = success;
+  if (!success) {
+    m_cellularTogglePending = false;
+    m_cellularToggleTargetObserved = false;
+  }
+  PanelManager::instance().requestUpdateOnly();
+  PanelManager::instance().requestRedraw();
+}
+
 // Identity of the built list: which rows exist, in which order, which controls
 // each carries, and how each activates. The signal strength is absent by design —
 // it refreshes in place through syncApRows(), so a scan update no longer tears the
 // list down. Access points arrive sorted, so a change in row order changes the key.
-std::string
-NetworkTab::structureKey(const std::vector<AccessPointInfo>& aps, const std::vector<VpnConnectionInfo>& vpns) const {
+std::string NetworkTab::structureKey(
+    const std::vector<AccessPointInfo>& aps, const std::vector<VpnConnectionInfo>& vpns,
+    const std::vector<CellularConnectionInfo>& cellular
+) const {
   std::string key;
   for (const auto& ap : aps) {
     key += ap.ssid;
@@ -838,14 +1069,26 @@ NetworkTab::structureKey(const std::vector<AccessPointInfo>& aps, const std::vec
     key += vpn.active ? '1' : '0';
     key.push_back('\n');
   }
+  key += "---\n";
+  for (const auto& connection : cellular) {
+    key += connection.path;
+    key.push_back(':');
+    key += connection.name;
+    key.push_back(':');
+    key += connection.active ? '1' : '0';
+    key.push_back(':');
+    key += connection.connected ? '1' : '0';
+    key.push_back('\n');
+  }
   const bool wirelessEnabled = m_network != nullptr && m_network->state().wirelessEnabled;
-  const bool scanning = m_network != nullptr && m_network->state().scanning;
   key += "vis:";
   key += m_vpnVisible ? '1' : '0';
   key += "\nwifi:";
   key += wirelessEnabled ? '1' : '0';
-  key += "\nscan:";
-  key += scanning ? '1' : '0';
+  key += "\ncellular-enabled:";
+  key += (m_network != nullptr && m_network->state().cellularEnabled) ? '1' : '0';
+  key += "\ncellular-setup:";
+  key += m_cellularSetupVisible ? '1' : '0';
   return key;
 }
 
@@ -864,7 +1107,9 @@ void NetworkTab::rebuildApList(Renderer& renderer) {
     aps = sortedAccessPoints(m_network->accessPoints());
   }
   const auto& vpns = m_network != nullptr ? m_network->vpnConnections() : std::vector<VpnConnectionInfo>{};
-  const std::string nextStructure = structureKey(aps, vpns);
+  const auto& cellular =
+      m_network != nullptr ? m_network->cellularConnections() : std::vector<CellularConnectionInfo>{};
+  const std::string nextStructure = structureKey(aps, vpns, cellular);
   if (listWidth == m_lastListWidth && nextStructure == m_lastStructureKey) {
     return;
   }
@@ -958,9 +1203,13 @@ void NetworkTab::rebuildApList(Renderer& renderer) {
   };
 
   m_wifiToggle = nullptr;
+  m_cellularToggle = nullptr;
+  m_cellularNameInput = nullptr;
+  m_cellularApnInput = nullptr;
   m_scanSpinner = nullptr;
   m_rescanButton = nullptr;
   m_apRows.clear();
+  m_cellularRows.clear();
 
   while (!m_list->children().empty()) {
     m_list->removeChild(m_list->children().front().get());
@@ -976,6 +1225,118 @@ void NetworkTab::rebuildApList(Renderer& renderer) {
     );
   } else {
     const float opacity = panelCardOpacity();
+    std::unique_ptr<Flex> cellularCardForList;
+    std::unique_ptr<Flex> vpnCardForList;
+
+    if (m_network->supportsCellular()) {
+      auto cellularCard = ui::column({
+          .configure = [scale, opacity](Flex& card) { applySectionCardStyle(card, scale, opacity); },
+      });
+      auto cellularHeader = makeCardHeaderRow(i18n::tr("control-center.network.cellular"), scale);
+      cellularHeader->addChild(
+          ui::button({
+              .glyph = m_cellularSetupVisible ? "x" : "plus",
+              .glyphSize = Style::baseGlyphSize * scale,
+              .variant = ButtonVariant::Ghost,
+              .tooltip =
+                  i18n::tr(m_cellularSetupVisible ? "common.actions.cancel" : "control-center.network.add-cellular"),
+              .padding = Style::spaceXs * scale,
+              .radius = Style::scaledRadiusSm(scale),
+              .onClick = [this]() {
+                if (m_cellularSetupVisible) {
+                  closeCellularSetup();
+                } else {
+                  m_cellularSetupVisible = true;
+                  m_lastStructureKey.clear();
+                  PanelManager::instance().refresh();
+                }
+              },
+          })
+      );
+      cellularHeader->addChild(
+          ui::toggle({
+              .out = &m_cellularToggle,
+              .checkedImmediate = m_network->state().cellularEnabled,
+              .toggleSize = ToggleSize::Medium,
+              .scale = scale,
+              .onChange = [this](bool checked) { requestCellularEnabled(checked); },
+          })
+      );
+      cellularCard->addChild(std::move(cellularHeader));
+
+      if (m_cellularSetupVisible) {
+        auto setup = ui::column({
+            .align = FlexAlign::Stretch,
+            .gap = Style::spaceSm * scale,
+        });
+        setup->addChild(
+            ui::input({
+                .out = &m_cellularNameInput,
+                .value = m_cellularSetupName,
+                .placeholder = i18n::tr("control-center.network.connection-name"),
+                .surfaceOpacity = opacity,
+                .onChange = [this](const std::string& value) { m_cellularSetupName = value; },
+                .onSubmit = [this](const std::string& /*value*/) { submitCellularSetup(); },
+            })
+        );
+        setup->addChild(
+            ui::input({
+                .out = &m_cellularApnInput,
+                .value = m_cellularSetupApn,
+                .placeholder = i18n::tr("control-center.network.apn"),
+                .surfaceOpacity = opacity,
+                .onChange = [this](const std::string& value) { m_cellularSetupApn = value; },
+                .onSubmit = [this](const std::string& /*value*/) { submitCellularSetup(); },
+            })
+        );
+        setup->addChild(
+            ui::row(
+                {.align = FlexAlign::Center, .gap = Style::spaceSm * scale},
+                ui::button({
+                    .text = i18n::tr("control-center.network.add-cellular"),
+                    .variant = ButtonVariant::Default,
+                    .onClick = [this]() { submitCellularSetup(); },
+                }),
+                ui::button({
+                    .text = i18n::tr("common.actions.cancel"),
+                    .variant = ButtonVariant::Ghost,
+                    .onClick = [this]() { closeCellularSetup(); },
+                })
+            )
+        );
+        cellularCard->addChild(std::move(setup));
+      }
+
+      if (m_network->state().cellularEnabled) {
+        for (const auto& connection : cellular) {
+          const auto signalStrength = network_display::shouldShowCellularSignal(connection, m_network->state())
+              ? std::optional<std::uint8_t>{m_network->state().cellularSignalStrength}
+              : std::nullopt;
+          auto row = std::make_unique<ConnectionProfileRow>(
+              scale, connection.name, connection.connected,
+              signalStrength.has_value() ? network_display::cellularGlyphForSignal(*signalStrength) : "antenna",
+              [this, connection]() {
+                if (m_network != nullptr) {
+                  m_network->activateCellularConnection(connection);
+                }
+              },
+              std::function<void()>{},
+              [this, connection]() {
+                if (m_network != nullptr) {
+                  m_network->forgetCellularConnection(connection);
+                }
+              },
+              connection.active && !connection.connected, signalStrength
+          );
+          if (signalStrength.has_value()) {
+            m_cellularRows.push_back(CellularRowMetrics{.glyph = row->profileGlyph(), .value = row->signalValue()});
+          }
+          cellularCard->addChild(std::move(row));
+        }
+      }
+
+      cellularCardForList = std::move(cellularCard);
+    }
 
     if (!vpns.empty()) {
       auto vpnCard = ui::column({
@@ -1005,17 +1366,17 @@ void NetworkTab::rebuildApList(Renderer& renderer) {
 
       if (m_vpnVisible) {
         for (const auto& vpn : vpns) {
-          auto row = std::make_unique<VpnConnectionRow>(
-              scale, vpn,
-              [this](const VpnConnectionInfo& clicked) {
+          auto row = std::make_unique<ConnectionProfileRow>(
+              scale, vpn.name, vpn.active, "shield-lock",
+              [this, vpn]() {
                 if (m_network != nullptr) {
-                  m_network->activateVpnConnection(clicked);
+                  m_network->activateVpnConnection(vpn);
                 }
                 PanelManager::instance().refresh();
               },
-              [this](const VpnConnectionInfo& clicked) {
+              [this, vpn]() {
                 if (m_network != nullptr) {
-                  m_network->deactivateVpnConnection(clicked);
+                  m_network->deactivateVpnConnection(vpn);
                 }
                 PanelManager::instance().refresh();
               }
@@ -1024,7 +1385,7 @@ void NetworkTab::rebuildApList(Renderer& renderer) {
         }
       }
 
-      m_list->addChild(std::move(vpnCard));
+      vpnCardForList = std::move(vpnCard);
     }
 
     {
@@ -1071,6 +1432,12 @@ void NetworkTab::rebuildApList(Renderer& renderer) {
 
       wifiCard->addChild(buildApRows());
 
+      if (vpnCardForList != nullptr) {
+        m_list->addChild(std::move(vpnCardForList));
+      }
+      if (cellularCardForList != nullptr) {
+        m_list->addChild(std::move(cellularCardForList));
+      }
       m_list->addChild(std::move(wifiCard));
 
       // Live state (spinner visibility/animation, toggle checked) is owned by
@@ -1095,8 +1462,56 @@ bool NetworkTab::syncApRows() {
   return changed;
 }
 
+bool NetworkTab::syncCellularRows() {
+  if (m_network == nullptr || m_cellularRows.empty()) {
+    return false;
+  }
+  bool changed = false;
+  const std::uint8_t signalStrength = m_network->state().cellularSignalStrength;
+  for (const auto& metrics : m_cellularRows) {
+    if (metrics.glyph != nullptr && metrics.glyph->setGlyph(network_display::cellularGlyphForSignal(signalStrength))) {
+      changed = true;
+    }
+    if (metrics.value != nullptr && metrics.value->setText(percentText(signalStrength))) {
+      changed = true;
+    }
+  }
+  return changed;
+}
+
+void NetworkTab::submitCellularSetup() {
+  const bool nameValid = !m_cellularSetupName.empty();
+  const bool apnValid = !m_cellularSetupApn.empty();
+  if (m_cellularNameInput != nullptr) {
+    m_cellularNameInput->setInvalid(!nameValid);
+  }
+  if (m_cellularApnInput != nullptr) {
+    m_cellularApnInput->setInvalid(!apnValid);
+  }
+  if (!nameValid || !apnValid || m_network == nullptr) {
+    return;
+  }
+  if (m_network->addCellularConnection(m_cellularSetupName, m_cellularSetupApn)) {
+    closeCellularSetup();
+  }
+}
+
+void NetworkTab::closeCellularSetup() {
+  m_cellularSetupVisible = false;
+  m_cellularSetupName.clear();
+  m_cellularSetupApn.clear();
+  m_lastStructureKey.clear();
+  PanelManager::instance().refresh();
+}
+
 void NetworkTab::onPanelCardOpacityChanged(float opacity) {
   if (m_passwordInput != nullptr) {
     m_passwordInput->setSurfaceOpacity(opacity);
+  }
+  if (m_cellularNameInput != nullptr) {
+    m_cellularNameInput->setSurfaceOpacity(opacity);
+  }
+  if (m_cellularApnInput != nullptr) {
+    m_cellularApnInput->setSurfaceOpacity(opacity);
   }
 }

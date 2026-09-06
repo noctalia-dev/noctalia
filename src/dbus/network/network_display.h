@@ -2,12 +2,19 @@
 
 #include <cstdint>
 
+struct CellularConnectionInfo;
 struct NetworkState;
 
 namespace network_display {
 
   [[nodiscard]] const char* glyphForState(const NetworkState& state) noexcept;
   [[nodiscard]] const char* vpnGlyph() noexcept;
+  [[nodiscard]] const char* cellularGlyphForState(const NetworkState& state) noexcept;
+  [[nodiscard]] const char* cellularGlyphForSignal(std::uint8_t signal) noexcept;
+  [[nodiscard]] bool
+  shouldShowCellularSignal(const CellularConnectionInfo& connection, const NetworkState& state) noexcept;
+  [[nodiscard]] std::uint8_t cellularSignalPercentFromRsrp(double rsrpDbm) noexcept;
+  [[nodiscard]] const char* cellularAccessTechnologyLabel(std::uint32_t technologies) noexcept;
   [[nodiscard]] const char* wifiGlyphForState(const NetworkState& state) noexcept;
   [[nodiscard]] const char* wifiGlyphForSignal(std::uint8_t signal) noexcept;
   // Signal band 0 (weakest) .. 4 (strongest) — the bands the wifi glyph draws.

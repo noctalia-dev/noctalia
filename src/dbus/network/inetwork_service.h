@@ -25,18 +25,27 @@ public:
   [[nodiscard]] virtual bool hasStateSnapshot() const noexcept = 0;
   [[nodiscard]] virtual const std::vector<AccessPointInfo>& accessPoints() const noexcept = 0;
   [[nodiscard]] virtual const std::vector<VpnConnectionInfo>& vpnConnections() const noexcept = 0;
+  [[nodiscard]] virtual const std::vector<CellularConnectionInfo>& cellularConnections() const noexcept = 0;
 
   virtual void requestScan() = 0;
   virtual bool activateAccessPoint(const AccessPointInfo& ap) = 0;
   virtual bool activateAccessPoint(const AccessPointInfo& ap, const std::string& psk) = 0;
   virtual bool activateVpnConnection(const VpnConnectionInfo& vpn) = 0;
   virtual bool deactivateVpnConnection(const VpnConnectionInfo& vpn) = 0;
+  virtual bool activateCellularConnection(const CellularConnectionInfo& cellular) = 0;
+  virtual bool addCellularConnection(const std::string& /*name*/, const std::string& /*apn*/) { return false; }
+  virtual bool saveCellularPin(const std::string& /*connectionPath*/, const std::string& /*pin*/) { return false; }
+  virtual bool forgetCellularConnection(const CellularConnectionInfo& /*cellular*/) { return false; }
   [[nodiscard]] virtual bool canActivateWiredConnection() const noexcept { return false; }
   virtual bool activateWiredConnection() { return false; }
   virtual void setWirelessEnabled(bool enabled, WirelessEnabledCompletion onComplete = {}) = 0;
+  virtual void setCellularEnabled(bool enabled, WirelessEnabledCompletion onComplete = {}) = 0;
   virtual void disconnect() = 0;
   virtual void forgetSsid(const std::string& ssid) = 0;
   [[nodiscard]] virtual bool hasSavedConnection(const std::string& ssid) const = 0;
   [[nodiscard]] virtual bool supportsSecretAgent() const noexcept { return false; }
+  virtual void onSecretAgentReady() {}
+  virtual void onResume() { refresh(); }
+  [[nodiscard]] virtual bool supportsCellular() const noexcept { return false; }
   void registerIpc(IpcService& ipc, WirelessFeedbackCallback wirelessFeedback = {});
 };

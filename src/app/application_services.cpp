@@ -1086,6 +1086,14 @@ void Application::initSystemBusServices() {
               }
             });
           }
+          if (m_networkService != nullptr) {
+            m_networkService->onResume();
+            m_networkResumeTimer.start(std::chrono::seconds(3), [this]() {
+              if (m_networkService != nullptr) {
+                m_networkService->onResume();
+              }
+            });
+          }
           requestAllSurfacesRedraw();
         });
         kLog.info("logind sleep monitor active");
@@ -1263,6 +1271,7 @@ void Application::initSystemBusServices() {
     if (m_networkService != nullptr && m_networkService->supportsSecretAgent()) {
       try {
         m_networkSecretAgent = std::make_unique<NetworkSecretAgent>(*m_systemBus);
+        m_networkService->onSecretAgentReady();
       } catch (const std::exception& e) {
         kLog.warn("network secret agent disabled: {}", e.what());
         m_networkSecretAgent.reset();
