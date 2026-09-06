@@ -1171,10 +1171,25 @@ struct CalendarConfig {
     bool operator==(const Account&) const = default;
   };
 
+  // Event reminder notifications. Gated by CalendarConfig::enabled.
+  struct Reminders {
+    bool enabled = true;
+    // Honor per-event reminders (VALARM triggers, Google reminder overrides). When false, every
+    // event uses defaultLeadMinutes instead.
+    bool useEventReminders = true;
+    // Fallback lead for events that carry no reminder of their own. 0 = notify at event start.
+    std::int32_t defaultLeadMinutes = 10;
+    // "HH:MM" local time for the once-a-day all-day event digest; empty disables it.
+    std::string allDayDigestTime = "09:00";
+
+    bool operator==(const Reminders&) const = default;
+  };
+
   bool enabled = false;
   std::int32_t refreshMinutes = 15;
   std::string eventDateFormat = "%A %e %B";
   std::string eventTimeFormat = "%H:%M";
+  Reminders reminders;
   std::vector<Account> accounts;
 
   bool operator==(const CalendarConfig&) const = default;

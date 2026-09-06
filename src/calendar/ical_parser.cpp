@@ -1,5 +1,6 @@
 #include "calendar/ical_parser.h"
 
+#include "calendar/calendar_reminders.h"
 #include "calendar/event_link.h"
 #include "core/log.h"
 #include "render/core/color.h"
@@ -7,6 +8,7 @@
 #include <algorithm>
 #include <cctype>
 #include <chrono>
+#include <cstdint>
 #include <ctime>
 #include <libical/ical.h>
 #include <memory>
@@ -193,6 +195,82 @@ namespace calendar {
       return std::ranges::contains(exclusions, occurrence);
     }
 
+    // VALARM ACTION policy: DISPLAY and AUDIO both mean "alert the user on this device" and map onto
+    // a toast. EMAIL is server-side delivery (honoring it would double-notify), PROCEDURE asks us to
+    // run a script, and NONE/X are not actionable. ACTION is mandatory per RFC 5545, but a feed that
+    // omits it still means "alert me".
+    bool alarmActionIsNotifiable(icalcomponent* alarm) {
+      icalproperty* action = icalcomponent_get_first_property(alarm, ICAL_ACTION_PROPERTY);
+      if (action == nullptr) {
+        return true;
+      }
+      switch (icalproperty_get_action(action)) {
+      case ICAL_ACTION_DISPLAY:
+      case ICAL_ACTION_AUDIO:
+        return true;
+      default:
+        return false;
+      }
+    }
+
+    // Reminder lead times of `component`, in seconds before DTSTART. REPEAT/DURATION inside a VALARM
+    // are deliberately ignored: they describe a snooze ladder ("re-alert N more times"), and without
+    // dismissal semantics honoring it would just multiply toasts.
+    std::vector<std::int32_t> alarmLeadSeconds(icalcomponent* component, const CalendarEvent& event, bool recurring) {
+      std::vector<std::int32_t> leads;
+      const auto eventDuration = event.end > event.start
+          ? std::chrono::duration_cast<std::chrono::seconds>(event.end - event.start).count()
+          : 0;
+
+      for (icalcomponent* alarm = icalcomponent_get_first_component(component, ICAL_VALARM_COMPONENT); alarm != nullptr;
+           alarm = icalcomponent_get_next_component(component, ICAL_VALARM_COMPONENT)) {
+        if (!alarmActionIsNotifiable(alarm)) {
+          continue;
+        }
+        icalproperty* trigger = icalcomponent_get_first_property(alarm, ICAL_TRIGGER_PROPERTY);
+        if (trigger == nullptr) {
+          continue;
+        }
+        const struct icaltriggertype value = icalproperty_get_trigger(trigger);
+        // Gate on is_bad_trigger only: is_null_trigger is also true for the valid TRIGGER:PT0S
+        // ("alert at start"), which must survive as lead 0.
+        if (icaltriggertype_is_bad_trigger(value)) {
+          continue;
+        }
+
+        std::int64_t lead = 0;
+        if (icaltime_is_null_time(value.time)) {
+          // RFC 5545: a negative duration means "before" the anchor.
+          lead = -static_cast<std::int64_t>(durationSeconds(value.duration));
+          const icalparameter* related = icalproperty_get_first_parameter(trigger, ICAL_RELATED_PARAMETER);
+          if (related != nullptr && icalparameter_get_related(related) == ICAL_RELATED_END) {
+            // Anchored to DTEND: fire at end + duration, so the lead before DTSTART shrinks by the
+            // event's own length. Short triggers on long events land after the start and are dropped.
+            lead -= eventDuration;
+          }
+        } else {
+          // An absolute trigger fires once for the whole series (RFC 5545 3.8.6.3), so its computed
+          // offset must not be replicated onto every expanded occurrence.
+          if (recurring) {
+            continue;
+          }
+          const auto triggerTime = timePointFromICal(value.time);
+          if (triggerTime == std::chrono::system_clock::time_point{}) {
+            continue;
+          }
+          lead = std::chrono::duration_cast<std::chrono::seconds>(event.start - triggerTime).count();
+        }
+
+        if (lead < 0 || lead > calendar::kMaxLeadSeconds) {
+          continue;
+        }
+        leads.push_back(static_cast<std::int32_t>(lead));
+      }
+
+      calendar::normalizeReminderLeads(leads);
+      return leads;
+    }
+
     std::string extractComponentColor(icalcomponent* component) {
       if (component == nullptr) {
         return {};
@@ -265,6 +343,8 @@ namespace calendar {
       event.start = timePointFromICal(start);
       event.end = timePointFromICal(end);
       event.allDay = icaltime_is_date(start) != 0;
+      const bool recurring = hasProperty(component, ICAL_RRULE_PROPERTY) || hasProperty(component, ICAL_RDATE_PROPERTY);
+      event.reminderLeadSeconds = alarmLeadSeconds(component, event, recurring);
       event.colorHex = extractComponentColor(component);
       return event;
     }
@@ -477,10 +557,10 @@ namespace calendar {
       if (control.stopToken.stop_requested()) {
         return {.status = ICalParseStatus::Cancelled};
       }
-      const CalendarEvent event = baseEventFromComponent(component);
+      const char* uid = icalcomponent_get_uid(component);
       const bool cancelledWithoutStart = isCancelled(component) && !hasProperty(component, ICAL_DTSTART_PROPERTY);
       if (auto id = recurrenceId(component); id && (hasValidStart(component) || cancelledWithoutStart)) {
-        overrides[event.id].push_back(*id);
+        overrides[uid != nullptr ? std::string(uid) : std::string{}].push_back(*id);
       }
     }
 

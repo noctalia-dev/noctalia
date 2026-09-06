@@ -1529,6 +1529,23 @@ void Application::initSessionBusServices() {
   m_weatherService.initialize();
   m_calendarService.initialize();
 
+  // Load the persisted fired set before the first evaluation, or a restart would re-notify.
+  m_calendarReminderMonitor.initialize();
+  (void)m_calendarService.addChangeCallback([this]() {
+    m_calendarReminderMonitor.onSnapshotChanged(m_calendarService.snapshot());
+  });
+  // initialize() already loaded the encrypted cache, so the snapshot can be valid before the first
+  // network sync — seed from it so missed reminders fire at startup rather than after a refresh.
+  m_calendarReminderMonitor.onSnapshotChanged(m_calendarService.snapshot());
+  m_configService.addReloadCallback(
+      [this]() {
+        if (m_configService.lastChange().calendar) {
+          m_calendarReminderMonitor.onConfigReload();
+        }
+      },
+      "calendar-reminders"
+  );
+
   // LocationService is the single source of "where am I": push its resolved coordinates to the
   // weather service, night light, and theme auto mode. Manual latitude/longitude and fixed
   // sunrise/sunset live in [location] and reach night light/theme through their config reloads.

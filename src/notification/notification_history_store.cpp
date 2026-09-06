@@ -433,6 +433,7 @@ namespace {
     nlohmann::json j;
     j["id"] = n.id;
     j["origin"] = std::string(originStr(n.origin));
+    j["persist_in_history"] = n.persistInHistory;
     j["app_name"] = n.appName;
     j["summary"] = n.summary;
     j["body"] = n.body;
@@ -468,6 +469,7 @@ namespace {
     Notification n{};
     n.id = j.value("id", 0U);
     n.origin = originFrom(j.value("origin", std::string(kOriginExternal)));
+    n.persistInHistory = j.value("persist_in_history", false);
     n.appName = j.value("app_name", std::string());
     n.summary = j.value("summary", std::string());
     n.body = j.value("body", std::string());

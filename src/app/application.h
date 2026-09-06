@@ -3,6 +3,8 @@
 #include "app/deferred_call_poll_source.h"
 #include "app/timer_poll_source.h"
 #include "calendar/calendar_poll_source.h"
+#include "calendar/calendar_reminder_monitor.h"
+#include "calendar/calendar_reminder_poll_source.h"
 #include "calendar/calendar_service.h"
 #include "capture/screenshot_service.h"
 #include "compositors/compositor_platform.h"
@@ -244,6 +246,7 @@ private:
   LockKeysService m_lockKeysService;
   NotificationManager m_notificationManager;
   CalendarService m_calendarService;
+  CalendarReminderMonitor m_calendarReminderMonitor{m_configService, m_notificationManager};
   std::unique_ptr<SessionBus> m_bus;
   std::unique_ptr<SystemBus> m_systemBus;
   std::unique_ptr<LogindService> m_logindService;
@@ -374,6 +377,7 @@ private:
   LocationPollSource m_locationPollSource{m_locationService};
   WeatherPollSource m_weatherPollSource{m_weatherService};
   CalendarPollSource m_calendarPollSource{m_calendarService};
+  CalendarReminderPollSource m_calendarReminderPollSource{m_calendarReminderMonitor};
   Timer m_trayInitTimer;
   Timer m_polkitInitTimer;
   Timer m_polkitIdleCloseTimer;

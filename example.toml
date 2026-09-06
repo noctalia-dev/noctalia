@@ -245,6 +245,14 @@ refresh_minutes             = 15
 event_date_format           = "%A %e %B"    # date format used for events
 event_time_format           = "%H:%M"       # time format used for events
 
+# Notifications for upcoming events.
+
+[calendar.reminders]
+enabled              = true
+use_event_reminders  = true     # honor per-event reminders; off = always use the default lead below
+default_lead_minutes = 10       # used for events with no reminder of their own; 0 = at event start
+all_day_digest_time  = "09:00"  # one notification listing today's all-day events; "" disables it
+
 # Calendar tab of the control center.
 
 [control_center.calendar]

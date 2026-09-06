@@ -1,13 +1,13 @@
 ---
 title: Calendar
-description: Calendar account setup for CalDAV, iCloud, Google Calendar, ICS, and local vdir directories.
+description: Calendar account setup for CalDAV, iCloud, Google Calendar, ICS, and local vdir directories, plus event reminders.
 sidebar:
   order: 4
 ---
 
 The calendar service syncs events from your online accounts or local calendar directories (such as vdirsyncer) and shows them in the control center calendar. CalDAV providers (Nextcloud, iCloud, Fastmail, Radicale, mailbox.org, …) are talked to directly; Google Calendar is connected through a browser authorization flow; local vdir directories are watched with inotify. Events are read-only.
 
-`[calendar]` covers account sync and shared event date and time formats. Calendar-tab-only presentation options, such as the events card and ISO week number column, live under [`[control_center.calendar]`](/noctalia/control-center/#calendar).
+`[calendar]` covers account sync, shared event date and time formats, and [event reminders](#reminders). Calendar-tab-only presentation options, such as the events card and ISO week number column, live under [`[control_center.calendar]`](/noctalia/control-center/#calendar).
 
 ## Settings setup
 
@@ -78,6 +78,30 @@ color = "#FF0000"
 ```
 
 **Credentials are never stored in your config.** The `password_file` setting contains only a path; the file contents hold the CalDAV password.
+
+## Reminders
+
+Noctalia can notify you before an event starts. Reminders are read from the calendar itself — `VALARM` triggers on CalDAV, ICS, and local vdir events, and reminder overrides or calendar defaults on Google — with a configurable fallback for events that carry none.
+
+```toml
+[calendar.reminders]
+enabled              = true
+use_event_reminders  = true     # honor per-event reminders; off = always use the default lead below
+default_lead_minutes = 10       # used for events with no reminder of their own; 0 = at event start
+all_day_digest_time  = "09:00"  # one notification listing today's all-day events; "" disables it
+```
+
+The same four options are in **Settings → Services → Calendar**. Reminders require `[calendar]` itself to be enabled.
+
+The notification body counts down while the event approaches and settles on "Starts now" when it begins. Clicking a reminder opens the event's link when it has one.
+
+All-day events do not notify individually. They are collected into one digest at `all_day_digest_time` local time, listing today's all-day events. The digest fires once per day; starting the shell after that time still shows the day's digest, and a calendar that syncs later in the morning is not skipped.
+
+A reminder whose time passed while the shell was not running still notifies at startup, as long as the event has not started yet. Reminders for events that already began are dropped rather than shown late.
+
+Reminders are kept in notification history, so one missed while you were away is still in the control center. They follow your Do Not Disturb setting.
+
+Reminder times come from the encrypted event cache, so they work offline and across restarts without a sync.
 
 ## Credential storage
 

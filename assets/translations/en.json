@@ -796,6 +796,8 @@
       "calendar": "Calendar",
       "calendar-credential-locked-body": "Unlock the keyring used by Secret Service, then retry in Settings. With GNOME Keyring, make an automatically unlocked keyring such as Login the default.",
       "calendar-credential-locked-title": "Calendar keyring is locked",
+      "calendar-digest-more": "+{count} more",
+      "calendar-digest-title": "All-day today",
       "calendar-google-connect-browser-failed": "No browser opener could be launched for Google authorization. Check your default browser or xdg-open setup.",
       "calendar-google-connect-credential-store-failed": "Authorization completed, but the refresh token could not be saved. Unlock or start Secret Service, then connect again.",
       "calendar-google-connect-expired": "Google authorization expired before sign-in finished. Start the connection again.",
@@ -806,6 +808,13 @@
       "calendar-google-connect-start-failed": "Could not start Google authorization. Check your network connection and try again.",
       "calendar-google-connect-start-http": "Could not start Google authorization. The OAuth broker returned HTTP {status}.",
       "calendar-google-connect-timeout": "Google authorization timed out. Start the connection again when you are ready to sign in.",
+      "calendar-reminder-catchup-body": "{count} more events are starting soon.",
+      "calendar-reminder-catchup-title": "More upcoming events",
+      "calendar-reminder-in": "Starts in {minutes} min · {time}",
+      "calendar-reminder-now": "Starts now · {time}",
+      "calendar-reminder-open": "Open",
+      "calendar-reminder-untitled": "Untitled event",
+      "calendar-reminder-with-location": "{when}\n{location}",
       "config-migration-body": "Update {path} in the source file. Noctalia is applying this replacement only temporarily. Run noctalia config validate to list every required change.",
       "config-migration-title": "Configuration update needed",
       "dbus-disabled": "DBus notifications disabled",
@@ -2621,6 +2630,10 @@
           "description-unavailable": "No Secret Service provider is available in this session",
           "label": "Calendar Credential Storage"
         },
+        "calendar-digest-time": {
+          "description": "Time of day for a single notification listing all-day events. Leave empty to disable.",
+          "label": "All-day digest time"
+        },
         "calendar-edit": {
           "button": "Edit",
           "button-reconnect": "Reconnect",
@@ -2640,6 +2653,18 @@
         "calendar-refresh-interval": {
           "description": "How often to sync calendar events (minutes)",
           "label": "Refresh Interval"
+        },
+        "calendar-reminder-lead": {
+          "description": "How far ahead to notify for events that set no reminder of their own.",
+          "label": "Default reminder lead"
+        },
+        "calendar-reminder-use-event": {
+          "description": "Honor the reminder set on each event. When off, every event uses the default lead time.",
+          "label": "Use event reminders"
+        },
+        "calendar-reminders": {
+          "description": "Notify before an event starts.",
+          "label": "Event reminders"
         },
         "calendar-storage": {
           "button": "Retry",

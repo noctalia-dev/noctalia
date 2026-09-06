@@ -55,6 +55,9 @@ struct NotificationRequest {
   NotificationOrigin origin = NotificationOrigin::External;
   NotificationDndPolicy dndPolicy = NotificationDndPolicy::Respect;
   bool transient = false;
+  // Internal notifications are toast-only by default; set this for one-shot alerts (calendar
+  // reminders) whose whole value is lost if the toast is missed.
+  bool persistInHistory = false;
   std::vector<std::string> actions;
   std::optional<std::string> icon = std::nullopt;
   std::optional<NotificationImageData> imageData = std::nullopt;
@@ -91,7 +94,17 @@ public:
       NotificationDndPolicy dndPolicy = NotificationDndPolicy::Respect
   );
 
+  // Rewrites the body text of a live notification in place. Unlike addOrReplace it leaves the expiry,
+  // the filter verdict, and the history entry's position and seen flag untouched, so text that is
+  // refreshed repeatedly — a calendar reminder counting down to its event — does not keep shoving
+  // itself back to the top of the notification list or reset its own age. Returns false once the
+  // notification is no longer live, which is how such a caller learns to stop.
+  bool updateBody(uint32_t id, std::string body);
+
   void setActionInvokeCallback(ActionInvokeCallback callback);
+  // Actions on internally generated notifications are handled in-process: there is no D-Bus client
+  // to receive ActionInvoked, so routing them to the external callback would signal into the void.
+  void setInternalActionCallback(ActionInvokeCallback callback);
   void setCloseCallback(CloseCallback callback);
   [[nodiscard]] bool hasPendingDBusClose(uint32_t id) const noexcept;
   [[nodiscard]] bool invokeAction(uint32_t id, const std::string& actionKey, bool closeAfterInvoke = true);
@@ -170,7 +183,8 @@ private:
   };
   [[nodiscard]] ExternalNotificationDispatch evaluateExternalDispatch(
       NotificationOrigin origin, Urgency urgency, std::string_view appName, const std::optional<std::string>& category,
-      const std::optional<std::string>& desktopEntry, std::string_view summary, std::string_view body, bool transient
+      const std::optional<std::string>& desktopEntry, std::string_view summary, std::string_view body, bool transient,
+      bool persistInHistory
   ) const;
   uint32_t suppressExternal(std::string_view appName, Urgency urgency);
 
@@ -189,6 +203,7 @@ private:
   std::unordered_map<uint32_t, size_t> m_historyIndex;
   std::vector<std::pair<int, EventCallback>> m_eventCallbacks;
   ActionInvokeCallback m_actionInvokeCallback;
+  ActionInvokeCallback m_internalActionCallback;
   CloseCallback m_closeCallback;
   StateCallback m_stateCallback;
   int m_nextCallbackToken{0};
