@@ -1,5 +1,6 @@
 #pragma once
 
+#include "dbus/network/enterprise_credentials.h"
 #include "dbus/network/network_types.h"
 
 #include <functional>
@@ -29,6 +30,15 @@ public:
   virtual void requestScan() = 0;
   virtual bool activateAccessPoint(const AccessPointInfo& ap) = 0;
   virtual bool activateAccessPoint(const AccessPointInfo& ap, const std::string& psk) = 0;
+
+  // 802.1X association. Backends that cannot build an EAP profile keep the
+  // defaults, and the UI offers the enterprise form only where it is supported.
+  [[nodiscard]] virtual bool supportsEnterprise() const noexcept { return false; }
+  virtual bool activateEnterpriseAccessPoint(
+      const AccessPointInfo& /*ap*/, const network_enterprise::EnterpriseCredentials& /*credentials*/
+  ) {
+    return false;
+  }
   virtual bool activateVpnConnection(const VpnConnectionInfo& vpn) = 0;
   virtual bool deactivateVpnConnection(const VpnConnectionInfo& vpn) = 0;
   [[nodiscard]] virtual bool canActivateWiredConnection() const noexcept { return false; }

@@ -381,19 +381,75 @@ bool NetworkManagerService::activateAccessPoint(const AccessPointInfo& ap, const
   if (ap.secured && psk.empty()) {
     return false;
   }
+  // An 802.1X AP has no pre-shared key to accept. Falling through would build a
+  // wpa-eap profile carrying a "psk", which NM rejects and which reads to the
+  // user as a wrong password.
+  if (ap.isEnterprise()) {
+    kLog.warn("ssid={} needs 802.1X credentials, not a pre-shared key", ap.ssid);
+    return false;
+  }
   return addAndActivateAccessPoint(ap, psk);
 }
 
+bool NetworkManagerService::activateEnterpriseAccessPoint(
+    const AccessPointInfo& ap, const network_enterprise::EnterpriseCredentials& credentials
+) {
+  if (ap.devicePath.empty() || ap.path.empty()) {
+    return false;
+  }
+  if (ap.active) {
+    return true;
+  }
+  if (!ap.isEnterprise()) {
+    kLog.warn("enterprise activation requested for non-802.1X ssid={}", ap.ssid);
+    return false;
+  }
+  if (!network_enterprise::passwordAuthUsable(ap.keyManagement)) {
+    kLog.warn("ssid={} requires certificate-based EAP (WPA3-Enterprise 192-bit); not supported yet", ap.ssid);
+    return false;
+  }
+  const auto problem = network_enterprise::validate(credentials);
+  if (problem != network_enterprise::Validation::Ok) {
+    kLog.warn("enterprise credentials rejected for ssid={} reason={}", ap.ssid, static_cast<std::uint32_t>(problem));
+    return false;
+  }
+  return addAndActivateAccessPoint(ap, std::nullopt, credentials);
+}
+
 bool NetworkManagerService::addAndActivateAccessPoint(
-    const AccessPointInfo& ap, const std::optional<std::string>& psk
+    const AccessPointInfo& ap, const std::optional<std::string>& psk,
+    const std::optional<network_enterprise::EnterpriseCredentials>& credentials
 ) {
   ConnectionSettings settings;
   if (ap.secured) {
     // Minimal secured-wifi settings — NM fills in ssid from the specific_object.
     settings["802-11-wireless-security"]["key-mgmt"] =
-        sdbus::Variant{std::string(network_manager_security::keyManagement(ap.supportsSae))};
+        sdbus::Variant{std::string(network_manager_security::keyManagementName(ap.keyManagement))};
     if (psk.has_value()) {
       settings["802-11-wireless-security"]["psk"] = sdbus::Variant{*psk};
+    }
+    if (credentials.has_value()) {
+      // PMF is left to NM: it negotiates what the AP requires, and pinning a value
+      // here would only be a guess about the other end.
+      const auto eap = network_enterprise::buildEapSetting(*credentials);
+      auto& eapSettings = settings["802-1x"];
+      eapSettings["eap"] = sdbus::Variant{eap.eap};
+      eapSettings["identity"] = sdbus::Variant{eap.identity};
+      eapSettings["phase2-auth"] = sdbus::Variant{eap.phase2Auth};
+      eapSettings["password"] = sdbus::Variant{eap.password};
+      if (!eap.anonymousIdentity.empty()) {
+        eapSettings["anonymous-identity"] = sdbus::Variant{eap.anonymousIdentity};
+      }
+      // The two trust anchors are mutually exclusive: a pinned file replaces the
+      // system store rather than adding to it.
+      if (eap.systemCaCerts) {
+        eapSettings["system-ca-certs"] = sdbus::Variant{true};
+      } else {
+        eapSettings["ca-cert"] = sdbus::Variant{eap.caCert};
+      }
+      if (!eap.domainSuffixMatch.empty()) {
+        eapSettings["domain-suffix-match"] = sdbus::Variant{eap.domainSuffixMatch};
+      }
     }
   }
   const sdbus::ObjectPath devicePath{ap.devicePath};
@@ -1695,7 +1751,7 @@ void NetworkManagerService::refreshAccessPoints(std::function<void()> onComplete
                                           }();
                                           info.secured =
                                               (wpaFlags != k_nm80211ApSecNone) || (rsnFlags != k_nm80211ApSecNone);
-                                          info.supportsSae = network_manager_security::supportsSae(rsnFlags);
+                                          info.keyManagement = network_manager_security::keyManagementFor(rsnFlags);
                                           if (!info.ssid.empty()) {
                                             apState->aps.push_back(std::move(info));
                                           }
@@ -1777,7 +1833,7 @@ void NetworkManagerService::finishRefreshAccessPoints(
       it->path = ap.path;
       it->devicePath = ap.devicePath;
       it->secured = ap.secured;
-      it->supportsSae = ap.supportsSae;
+      it->keyManagement = ap.keyManagement;
     }
   }
   std::ranges::sort(deduped, [](const AccessPointInfo& a, const AccessPointInfo& b) {

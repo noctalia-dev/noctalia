@@ -1166,6 +1166,7 @@ if build_tests
     'disk_mounts',
     'dock_edge_overlap',
     'dock_pinned_apps',
+    'enterprise_credentials',
     'event_link',
     'fcitx_status',
     'freedesktop_key_file',

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core/timer_manager.h"
+#include "dbus/network/enterprise_credentials.h"
 #include "dbus/network/network_secret_agent.h"
 #include "dbus/network/network_types.h"
 #include "shell/control_center/tab.h"
@@ -20,6 +21,7 @@ class Flex;
 class Input;
 class Label;
 class ScrollView;
+class Select;
 class Spinner;
 class Toggle;
 class INetworkService;
@@ -52,6 +54,12 @@ private:
   void submitPasswordPrompt(const std::string& value);
   void cancelPasswordPrompt();
   void clearPasswordPrompt();
+  // Reads the enterprise form back out. Password comes from the shared field.
+  [[nodiscard]] network_enterprise::EnterpriseCredentials
+  collectEnterpriseCredentials(const std::string& password) const;
+  // Shows a message inside the credential card; empty hides the row. The prompt
+  // stays open so the user can correct what is wrong.
+  void setCredentialError(const std::string& message);
   [[nodiscard]] std::string
   structureKey(const std::vector<AccessPointInfo>& aps, const std::vector<VpnConnectionInfo>& vpns) const;
 
@@ -68,6 +76,16 @@ private:
   Input* m_passwordInput = nullptr;
   Button* m_passwordRevealButton = nullptr;
   bool m_passwordRevealed = false;
+  // 802.1X form. Hidden for pre-shared-key networks, which keep the single
+  // password field below it.
+  Flex* m_enterpriseFields = nullptr;
+  Select* m_eapSelect = nullptr;
+  Select* m_phase2Select = nullptr;
+  Input* m_identityInput = nullptr;
+  Input* m_anonymousIdentityInput = nullptr;
+  Input* m_caCertInput = nullptr;
+  Input* m_domainMatchInput = nullptr;
+  Label* m_credentialError = nullptr;
   ScrollView* m_listScroll = nullptr;
   Flex* m_list = nullptr;
 
@@ -84,6 +102,14 @@ private:
   float m_lastListWidth = -1.0F;
 
   bool m_hasPendingSecret = false;
+  bool m_pendingEnterprise = false;
+  // doUpdate() runs every frame but only doLayout() re-lays-out the root, and
+  // that is driven by panel resizes. Showing or hiding the credential form
+  // changes the card's height, so the reflow has to be requested explicitly or
+  // the card is drawn over the list below it.
+  bool m_promptLayoutDirty = false;
+  bool m_lastCardVisible = false;
+  bool m_lastFormVisible = false;
   std::string m_pendingSsid;
   std::optional<AccessPointInfo> m_pendingAccessPoint;
   bool m_active = false;
