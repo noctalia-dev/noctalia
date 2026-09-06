@@ -1456,6 +1456,9 @@ void ConfigService::loadAll() {
 
   // Apply the app-writable overrides overlay last; sidecar wins. Compatibility
   // normalization must see the final effective values to preserve overlay intent.
+  // Placement keys that the sidecar shadows are warned about before it wins.
+  schema::Diagnostics shadowedOverrideDiag;
+  noctalia::config::collectShadowedPlacementOverrides(merged, effectiveOverrides, shadowedOverrideDiag);
   deepMerge(merged, effectiveOverrides);
   merged.erase(noctalia::config::kConfigVersionKey);
   noctalia::config::LegacyConfigIssues legacyIssues;
@@ -1490,6 +1493,9 @@ void ConfigService::loadAll() {
   if (semanticError.empty()) {
     try {
       diagnostics = noctalia::config::validateMergedConfig(merged, origins);
+      diagnostics.entries.insert(
+          diagnostics.entries.end(), shadowedOverrideDiag.entries.begin(), shadowedOverrideDiag.entries.end()
+      );
       std::size_t errorCount = 0;
       for (const auto& entry : diagnostics.entries) {
         if (entry.severity == schema::Diagnostics::Severity::Error) {

@@ -65,6 +65,9 @@ namespace noctalia::config {
             const int appliedVersion = applyPendingConfigMigrations(sidecar, *version, diag);
             sidecar.insert_or_assign(kConfigVersionKey, static_cast<std::int64_t>(appliedVersion));
           }
+          // Warn before the overlay wins so hand-authored placement values
+          // that settings.toml shadows are visible in `noctalia config validate`.
+          collectShadowedPlacementOverrides(merged, sidecar, diag);
           ConfigService::deepMerge(merged, sidecar);
         } catch (const toml::parse_error& e) {
           diag.fatalAt(parseErrorOrigin(e, settingsFile), "syntax", std::string(e.description()), "config.syntax");
