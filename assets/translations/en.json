@@ -2322,6 +2322,30 @@
         }
       },
       "panels": {
+        "anchor-bar-clipboard": {
+          "description": "Bar this panel attaches to when opened by a keybind, CLI or IPC call, which carry no source bar. Leave empty to keep the current behaviour. A bar widget that opens the panel still wins, and shell.panel_anchor_bar still overrides everything.",
+          "label": "Anchor Bar"
+        },
+        "anchor-bar-control-center": {
+          "description": "Bar this panel attaches to when opened by a keybind, CLI or IPC call, which carry no source bar. Leave empty to keep the current behaviour. A bar widget that opens the panel still wins, and shell.panel_anchor_bar still overrides everything.",
+          "label": "Anchor Bar"
+        },
+        "anchor-bar-launcher": {
+          "description": "Bar this panel attaches to when opened by a keybind, CLI or IPC call, which carry no source bar. Leave empty to keep the current behaviour. A bar widget that opens the panel still wins, and shell.panel_anchor_bar still overrides everything.",
+          "label": "Anchor Bar"
+        },
+        "anchor-bar-polkit": {
+          "description": "Bar this panel attaches to when opened by a keybind, CLI or IPC call, which carry no source bar. Leave empty to keep the current behaviour. A bar widget that opens the panel still wins, and shell.panel_anchor_bar still overrides everything.",
+          "label": "Anchor Bar"
+        },
+        "anchor-bar-session": {
+          "description": "Bar this panel attaches to when opened by a keybind, CLI or IPC call, which carry no source bar. Leave empty to keep the current behaviour. A bar widget that opens the panel still wins, and shell.panel_anchor_bar still overrides everything.",
+          "label": "Anchor Bar"
+        },
+        "anchor-bar-wallpaper": {
+          "description": "Bar this panel attaches to when opened by a keybind, CLI or IPC call, which carry no source bar. Leave empty to keep the current behaviour. A bar widget that opens the panel still wins, and shell.panel_anchor_bar still overrides everything.",
+          "label": "Anchor Bar"
+        },
         "borders": {
           "description": "Draw an outline on floating panels",
           "label": "Borders"
