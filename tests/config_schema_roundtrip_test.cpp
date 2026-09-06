@@ -263,6 +263,10 @@ location = "https://example.invalid/bad"
     group.accordionDirection = BarAccordionDirection::Start;
     group.widgetSpacing = 10;
     bar.widgetCapsuleGroups = {group};
+    // Bar-level monitor allowlist. Serializes on the base bar, but must be stripped
+    // from every resolved monitor-override sub-table (config_export erases "monitors"),
+    // so the golden override table below stays free of it.
+    bar.monitors = {"DP-1", "DP-2"};
 
     BarMonitorOverride ovr;
     ovr.match = "DP-1";
@@ -1012,6 +1016,7 @@ layer = "overlay"
 margin_edge = 5
 margin_ends = 100
 margin_opposite_edge = 12
+monitors = [ "DP-1", "DP-2" ]
 padding = 12
 panel_overlap = 2
 position = "bottom"

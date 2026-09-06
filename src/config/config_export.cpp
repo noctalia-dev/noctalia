@@ -247,6 +247,10 @@ namespace config_export {
             continue;
           }
           toml::table monitor = schema::writeTable(applyMonitorOverride(bar, ovr), schema::barFieldsSchema());
+          // `monitors` is a bar-level allowlist; it has no meaning inside a per-monitor
+          // override table and is not part of barMonitorOverrideSchema(), so drop it to
+          // avoid emitting an unknown key under [[bar.<name>.monitor.<match>]].
+          monitor.erase("monitors");
           monitor.insert_or_assign("match", ovr.match);
           if (ovr.position) {
             monitor.insert_or_assign("position", *ovr.position);

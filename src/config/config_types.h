@@ -195,6 +195,7 @@ struct BarConfig {
   // Soft tint of a widget's foreground color over the widget under the pointer (per member in capsule groups).
   bool hoverHighlight = true;
   BarDeadZoneConfig deadZone;
+  std::vector<std::string> monitors; // connector names to show on; empty = all outputs
   std::vector<BarMonitorOverride> monitorOverrides;
 
   bool operator==(const BarConfig&) const = default;

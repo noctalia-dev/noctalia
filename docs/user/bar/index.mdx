@@ -5,7 +5,7 @@ sidebar:
   order: 2
 ---
 
-Bars are defined as named subtables under `[bar.*]`. Each bar is spawned on every connected monitor, then per-monitor overrides are applied.
+Bars are defined as named subtables under `[bar.*]`. Each bar is spawned on every connected monitor (or only those listed in its `monitors` allowlist), then per-monitor overrides are applied.
 
 Widget hover tooltips open on the side of the bar facing into the screen (below a top bar, above a bottom bar, and beside a left or right bar), so they do not cover other bar widgets.
 
@@ -16,6 +16,7 @@ order = ["main"]              # layer-shell creation order
 [bar.default]
 position           = "top"       # top | bottom | left | right
 enabled            = true
+monitors           = []          # connector names to show this bar on; empty = all monitors
 auto_hide          = false       # slide out after pointer leaves; reveal from edge trigger strip
 smart_auto_hide    = false       # show when the active workspace is empty; hide when it has windows
 show_on_workspace_switch = true  # with auto_hide: briefly reveal when the active workspace changes
@@ -106,6 +107,20 @@ All nine gestures are available, and an action is an IPC command, `exec <command
 Right-click opens Control Center unless you bind `right` to something else. While an attached panel is open, right-click anywhere on the bar still toggles Control Center unless the click lands in the dead zone and `right` is bound.
 
 Per-monitor overrides can carry their own `[bar.<name>.monitor.<match>.dead_zone.actions]` table, which replaces the bar's rather than merging with it.
+
+---
+
+## Monitors
+
+`monitors` is an allowlist of connector names (or description substrings, matched like a per-monitor `match`) where this bar appears. Leave it empty (the default) to show the bar on every connected monitor. In the Settings GUI it lives under **Bar → General → Monitors**, with a dropdown of detected outputs.
+
+`monitors` and per-monitor overrides are independent gates that compose:
+
+- With `monitors` empty, nothing is filtered and overrides behave exactly as before.
+- A monitor **not** in `monitors` never shows the bar, even if an override sets `enabled = true` for it (the allowlist is applied last, so it always wins for exclusion).
+- A monitor **in** `monitors` still obeys its override, so an override can disable or restyle the bar there.
+
+Use `monitors` for the simple "which monitors" choice, and per-monitor overrides for deeper per-monitor tweaks.
 
 ---
 

@@ -1863,6 +1863,10 @@
           "description": "Use Overlay to show the bar above fullscreen apps; attached panels follow the bar",
           "label": "Wayland Layer"
         },
+        "monitors": {
+          "description": "Choose which monitors show this bar (leave empty for all)",
+          "label": "Monitors"
+        },
         "opposite-edge-margin": {
           "description": "Extra reserved space on the inward side of the bar, away from the screen edge; use when maximized windows ignore struts"
         },

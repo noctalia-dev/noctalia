@@ -2208,6 +2208,7 @@ namespace noctalia::config::schema {
   const Schema<BarConfig>& barFieldsSchema() {
     static const Schema<BarConfig> s = {
         field(&BarConfig::enabled, "enabled"),
+        field(&BarConfig::monitors, "monitors"),
         field(&BarConfig::autoHide, "auto_hide"),
         field(&BarConfig::smartAutoHide, "smart_auto_hide"),
         field(&BarConfig::showOnWorkspaceSwitch, "show_on_workspace_switch"),
