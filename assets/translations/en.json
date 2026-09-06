@@ -2390,6 +2390,10 @@
           "description": "Fetch rates from third party online sources",
           "label": "Currency Exchange Conversion"
         },
+        "launcher-readline-enabled": {
+          "description": "Use GNU Readline-style shortcuts in the launcher (e.g. Ctrl+A moves the cursor to the start of the line)",
+          "label": "Readline shortcuts"
+        },
         "launcher-global-calculator": {
           "description": "Also show calculator results in unprefixed search",
           "label": "Calculator in Global Search"
