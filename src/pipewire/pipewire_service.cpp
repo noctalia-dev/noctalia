@@ -2014,9 +2014,9 @@ void PipeWireService::setNodeMuted(std::uint32_t id, bool muted) {
     return;
   }
 
-  // Device nodes go through WirePlumber's mixer-api to keep pipewire-pulse / pavucontrol in sync. The
-  // committed mute echoes back through onMixerVolumeChanged; swMute is set optimistically for
-  // immediate UI feedback.
+  // Device nodes with a hardware route go through WirePlumber's mixer-api to keep pipewire-pulse /
+  // pavucontrol in sync. Route-less virtual sources also need the direct SPA node mute below: the mixer
+  // write can update the optimistic UI state without stopping capture in the virtual filter graph.
   const bool isDeviceNode = nd.mediaClass == "Audio/Sink" || nd.mediaClass == "Audio/Source";
   if (isDeviceNode && m_wpMixer != nullptr) {
     m_wpMixer->setMuted(id, muted);
@@ -2031,7 +2031,9 @@ void PipeWireService::setNodeMuted(std::uint32_t id, bool muted) {
       }
       rebuildState();
     }
-    return;
+    if (nd.hasRoute) {
+      return;
+    }
   }
 
   // Program streams, and device nodes for immediate local/UI consistency.
