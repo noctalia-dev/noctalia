@@ -224,6 +224,8 @@ blur_intensity          = 0.5         # lock screen background blur (0.0 = none,
 tint_intensity          = 0.3         # surface-color tint over the lock screen background
 # wallpaper             = ""          # optional image path for the lock screen; empty uses the desktop wallpaper
 # monitors              = ["DP-1"]    # connectors that show the lock screen; empty shows all monitors, others stay black
+# pam_service            = "login"     # PAM service to authenticate against; override when the distro's login
+                                       # stack blocks on modules a lock screen can't satisfy (e.g. pam_fprintd)
 
 # ── System Monitor ────────────────────────────────────────────────────────────
 

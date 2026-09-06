@@ -540,6 +540,10 @@ struct LockscreenConfig {
   bool lockBeforeSuspend = true;
   bool fingerprint = true;
   bool allowEmptyPassword = false;
+  // PAM service (under /etc/pam.d/) the lock screen authenticates against.
+  // "login" suits most distros; a custom service avoids distro stacks that
+  // block on modules the lock screen cannot satisfy (e.g. pam_fprintd).
+  std::string pamService = "login";
   bool blurredDesktop = false;
   float blurIntensity = 0.5F;
   float tintIntensity = 0.3F;

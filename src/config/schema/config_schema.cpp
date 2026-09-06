@@ -93,6 +93,7 @@ namespace noctalia::config::schema {
         field(&LockscreenConfig::lockBeforeSuspend, "lock_before_suspend"),
         field(&LockscreenConfig::fingerprint, "fingerprint"),
         field(&LockscreenConfig::allowEmptyPassword, "allow_empty_password"),
+        field(&LockscreenConfig::pamService, "pam_service"),
         field(&LockscreenConfig::blurredDesktop, "blurred_desktop"),
         field(&LockscreenConfig::blurIntensity, "blur_intensity", kUnitRange),
         field(&LockscreenConfig::tintIntensity, "tint_intensity", kUnitRange),
