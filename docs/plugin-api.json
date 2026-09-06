@@ -166,5 +166,11 @@
     "noctaliaVersion": null,
     "feature": "panel-layer",
     "introduced": "The `layer` panel entry option for choosing the layer-shell layer of a floating plugin panel."
+  },
+  {
+    "level": 31,
+    "noctaliaVersion": null,
+    "feature": "button-color",
+    "introduced": "The `color` prop on `ui.button`, recoloring the label or glyph of the normal and disabled states."
   }
 ]

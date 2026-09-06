@@ -59,7 +59,7 @@ to size it explicitly).
 | `ui.separator` | `thickness`, `color`, `spacing`, `orientation` (`auto`/`horizontal`/`vertical`) |
 | `ui.spacer` | flexible filler (use `flexGrow`) |
 | `ui.progress` | `progress` (0–1), `fill`, `track`, `radius`, `width`, `height` |
-| `ui.button` | `text`, `glyph`, `fontSize`, `glyphSize`, `variant` (`default`/`primary`/`secondary`/`destructive`/`outline`/`ghost`), `contentAlign` (`start`/`center`/`end`), `controlSize` (`sm`/`md`/`lg`), `tooltip`, `enabled`, `selected`, `onClick`, `onRightClick`, `onHover` |
+| `ui.button` | `text`, `glyph`, `fontSize`, `glyphSize`, `variant` (`default`/`primary`/`secondary`/`destructive`/`outline`/`ghost`), `color` (label/glyph color for the normal and disabled states), `contentAlign` (`start`/`center`/`end`), `controlSize` (`sm`/`md`/`lg`), `tooltip`, `enabled`, `selected`, `onClick`, `onRightClick`, `onHover` |
 | `ui.graph` | `values` / `values2` (arrays of 0–1 numbers), `color` / `color2`, `lineWidth`, `fillOpacity`, `width`, `height`, `onPointerMove`, `onPointerLeave` |
 | `ui.toggle` | `checked` (bool), `enabled`, `onChange` |
 | `ui.slider` | `min`, `max`, `step`, `value`, `controlSize` (`sm`/`md`/`lg`), `enabled`, `onChange`, `onDragEnd` |
@@ -85,6 +85,9 @@ prop is logged and skipped - typos surface in the log instead of failing silentl
   with `ui.glyph`'s numeric `size`, which is a glyph size in px.)
 - **Tooltips**: `ui.button` accepts a `tooltip` string, shown on hover. Dropping the prop on a later render clears it.
   Tooltips appear for buttons in bar widgets and panels; desktop widgets do not show them.
+- **Button color**: `color` on `ui.button` recolors the label or glyph of the normal state and, at 55% of its alpha,
+  of the disabled state; hover, pressed, and selected keep the variant's colors. A dropped or invalid `color` restores
+  the variant's palette on a retained button. Requires <PluginApiBadge feature="button-color" />.
 - **Callbacks**: a callback prop takes either a **function** (requires <PluginApiBadge feature="ui-callback-closures" />) or the **name of a global
   function in your script**. `onClick` fires on a button click; `onChange` fires when a toggle/slider/select/input value
   changes (the value is passed as a string - `"true"`/`"false"` for a toggle, a number for a slider, the text for an
