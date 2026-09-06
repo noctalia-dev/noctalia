@@ -1321,6 +1321,7 @@
         "launcher": "Launcher",
         "location": "Location",
         "niri": "Niri",
+        "umbriel": "Umbriel",
         "notifications": "Notifications",
         "osd": "OSD",
         "panels": "Panels",
@@ -2934,6 +2935,10 @@
         },
         "niri-overview-type-to-launch": {
           "description": "Open the launcher when typing in niri overview; uses a tiny keyboard-focus surface while overview is open",
+          "label": "Type to Launch"
+        },
+        "umbriel-overview-type-to-launch": {
+          "description": "Open the launcher when typing in umbriel overview; uses a tiny keyboard-focus surface while overview is open",
           "label": "Type to Launch"
         },
         "offline-mode": {
