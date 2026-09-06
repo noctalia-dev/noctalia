@@ -115,6 +115,7 @@ class INetworkService;
 class IwdSecretAgent;
 class LogindService;
 class MainLoop;
+class ModemManagerService;
 class MprisService;
 class NetworkSecretAgent;
 class NotificationDBusHost;
@@ -275,6 +276,7 @@ private:
   std::unique_ptr<UPowerService> m_upowerService;
   std::unique_ptr<BluetoothService> m_bluetoothService;
   std::unique_ptr<BluetoothAgent> m_bluetoothAgent;
+  std::unique_ptr<ModemManagerService> m_modemManagerService;
   Timer m_bluetoothResumeTimer;
   std::unique_ptr<PolkitAgent> m_polkitAgent;
   std::optional<bool> m_notificationDaemonEnabled;

@@ -28,6 +28,7 @@ enum class NetworkConnectivity {
   None = 1,
   Wired = 2,
   Wireless = 3,
+  Cellular = 4,
 };
 
 struct NetworkState {
@@ -38,6 +39,7 @@ struct NetworkState {
   bool scanning = false;
   bool vpnActive = false;          // a VPN connection is active or activating
   bool vpnConnected = false;       // a VPN tunnel is fully activated (routes applied)
+  bool cellularActive = false;     // a cellular (gsm) connection is active or activating, primary or not
   std::string ssid;                // Wi-Fi only
   std::string ipv4;                // dotted-quad of first address; empty if none
   std::string interfaceName;       // e.g. "wlan0", "eth0"
