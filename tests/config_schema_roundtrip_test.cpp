@@ -199,6 +199,7 @@ location = "https://example.invalid/bad"
     bar.enabled = false;
     bar.autoHide = true;
     bar.smartAutoHide = false;
+    bar.autoHideReserveSpace = false;
     bar.showOnWorkspaceSwitch = true;
     bar.reserveSpace = false;
     bar.layer = "overlay";
@@ -270,6 +271,7 @@ location = "https://example.invalid/bad"
     ovr.enabled = true;
     ovr.autoHide = false;
     ovr.smartAutoHide = false;
+    ovr.autoHideReserveSpace = false;
     ovr.showOnWorkspaceSwitch = true;
     ovr.reserveSpace = true;
     ovr.layer = "top";
@@ -986,6 +988,7 @@ int main() {
 
 [default]
 auto_hide = true
+auto_hide_reserve_space = false
 background_opacity = 0.85000002384185791
 border = "#123456"
 border_width = 2.0
@@ -1044,6 +1047,7 @@ widget_spacing = 8
 
     [default.monitor.DP-1]
     auto_hide = false
+    auto_hide_reserve_space = false
     background_opacity = 0.69999998807907104
     border = "#A1A2A3"
     border_width = 3.0

@@ -141,6 +141,8 @@ namespace config_export {
         resolved.autoHide = *ovr.autoHide;
       if (ovr.smartAutoHide)
         resolved.smartAutoHide = *ovr.smartAutoHide;
+      if (ovr.autoHideReserveSpace)
+        resolved.autoHideReserveSpace = *ovr.autoHideReserveSpace;
       if (ovr.showOnWorkspaceSwitch)
         resolved.showOnWorkspaceSwitch = *ovr.showOnWorkspaceSwitch;
       if (ovr.reserveSpace)

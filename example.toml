@@ -352,6 +352,7 @@ font_scale         = 1.0            # text-only scale multiplier across widgets
 shadow             = true
 auto_hide          = false
 # smart_auto_hide    = false       # show when the active workspace is empty; hide when it has windows
+# auto_hide_reserve_space = false  # with auto_hide/smart_auto_hide: reserve layout only while the bar is visible
 # show_on_workspace_switch = true   # with auto_hide: briefly reveal when the active workspace changes
 reserve_space      = true
 capsule            = false

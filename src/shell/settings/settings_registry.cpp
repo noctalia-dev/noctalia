@@ -2999,6 +2999,19 @@ namespace settings {
           tr("settings.schema.bar.reserve-space.description"), path("reserve_space"), ToggleSetting{bar.reserveSpace},
           "exclusive zone"
       ));
+      const SettingVisibility reserveSpaceOn = [barName = bar.name](const Config& c) {
+        const BarConfig* b = findBar(c, barName);
+        return b != nullptr && b->reserveSpace;
+      };
+      {
+        auto e = makeEntry(
+            section, "general", tr("settings.schema.bar.auto-hide-reserve-space.label"),
+            tr("settings.schema.bar.auto-hide-reserve-space.description"), path("auto_hide_reserve_space"),
+            ToggleSetting{bar.autoHideReserveSpace}, "autohide immersive exclusive zone"
+        );
+        e.visibleWhen = reserveSpaceOn;
+        entries.push_back(std::move(e));
+      }
       entries.push_back(makeEntry(
           section, "general", tr("settings.schema.bar.layer.label"), tr("settings.schema.bar.layer.description"),
           path("layer"),
@@ -3322,6 +3335,24 @@ namespace settings {
             tr("settings.schema.bar.reserve-space.description"), monitorPath("reserve_space"),
             ToggleSetting{ovr.reserveSpace.value_or(bar.reserveSpace)}, "exclusive zone"
         ));
+        const SettingVisibility monitorReserveSpaceOn = [barName = bar.name, match = ovr.match](const Config& c) {
+          const BarConfig* b = findBar(c, barName);
+          if (b == nullptr) {
+            return false;
+          }
+          const BarMonitorOverride* o = findMonitorOverride(*b, match);
+          return o != nullptr ? o->reserveSpace.value_or(b->reserveSpace) : b->reserveSpace;
+        };
+        {
+          auto e = makeEntry(
+              section, "general", tr("settings.schema.bar.auto-hide-reserve-space.label"),
+              tr("settings.schema.bar.auto-hide-reserve-space.description"), monitorPath("auto_hide_reserve_space"),
+              ToggleSetting{ovr.autoHideReserveSpace.value_or(bar.autoHideReserveSpace)},
+              "autohide immersive exclusive zone"
+          );
+          e.visibleWhen = monitorReserveSpaceOn;
+          entries.push_back(std::move(e));
+        }
         entries.push_back(makeEntry(
             section, "general", tr("settings.schema.bar.layer.label"), tr("settings.schema.bar.layer.description"),
             monitorPath("layer"),
