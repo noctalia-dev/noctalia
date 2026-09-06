@@ -586,13 +586,17 @@ void MprisService::applyPositionSample(const std::string& busName, int64_t rawPo
       m_pendingPositionCandidateUs[busName] = normalizedUs;
       m_pendingPositionCandidateMatches[busName] = 0;
       m_pendingPositionCandidateAt[busName] = now;
+
       if (playerIt->second.playbackStatus == "Playing" && shouldRetryPropertiesRefresh(busName)) {
         schedulePositionRefreshRetry(busName, kPositionCandidateRetryInterval, false);
       }
+
       return;
     }
 
-    if (guardingRecentTrackChange && playerIt->second.playbackStatus == "Playing") {
+    if (guardingRecentTrackChange
+        && playerIt->second.playbackStatus == "Playing"
+        && elapsedSinceTrackChangeUs < 250'000) {
       int& matchCount = m_pendingPositionCandidateMatches[busName];
       ++matchCount;
       if (matchCount < 2) {
@@ -648,7 +652,14 @@ std::int64_t MprisService::projectedPositionUs(const MprisPlayerInfo& player) co
       m_hasAuthoritativePositionSample.contains(player.busName) && m_hasAuthoritativePositionSample.at(player.busName);
   std::int64_t projectedUs = std::max<std::int64_t>(0, player.positionUs);
   if (!hasAuthoritativeSample && player.playbackStatus == "Playing") {
-    projectedUs = 0;
+    if (const auto it = m_lastPositionSampleAt.find(player.busName); it != m_lastPositionSampleAt.end()) {
+      const auto elapsedUs =
+          std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - it->second).count();
+
+      if (elapsedUs > 0) {
+        projectedUs += elapsedUs;
+      }
+    }
   }
 
   if (player.playbackStatus == "Playing" && hasAuthoritativeSample) {
@@ -656,7 +667,8 @@ std::int64_t MprisService::projectedPositionUs(const MprisPlayerInfo& player) co
       const auto trackChangeIt = m_lastLogicalTrackChangeAt.find(player.busName);
       const bool inInitialTrackWindow = trackChangeIt != m_lastLogicalTrackChangeAt.end()
           && std::chrono::steady_clock::now() - trackChangeIt->second <= kRecentTrackChangeGuardWindow;
-      const bool suppressInitialProjection = inInitialTrackWindow
+      const bool suppressInitialProjection = hasAuthoritativeSample
+          && inInitialTrackWindow
           && projectedUs <= kInitialPositionProjectionGraceCeilingUs
           && std::chrono::steady_clock::now() - it->second <= kInitialPositionProjectionGraceWindow;
       if (suppressInitialProjection) {
@@ -2105,13 +2117,11 @@ void MprisService::applyPlayerSnapshot(
         || previous_info.canSeek != merged.canSeek;
 
     if (trackChanged || previous_info.playbackStatus != merged.playbackStatus) {
-      const std::weak_ptr<void> aliveGuard = m_aliveGuard;
-      DeferredCall::callLater([this, aliveGuard, busName]() {
-        if (aliveGuard.expired()) {
-          return;
-        }
+      auto& timerId = m_positionResyncTimers[busName];
+      timerId = TimerManager::instance().start(timerId, kPositionCandidateRetryInterval, [this, busName]() {
         refreshPlayerPosition(busName, true);
       });
+
       if (shouldRetryPropertiesRefresh(busName)) {
         schedulePositionRefreshRetry(busName, kPositionRetryInterval, true);
       }
