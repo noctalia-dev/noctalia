@@ -287,6 +287,7 @@ private:
   std::optional<bool> m_prevBluetoothPoweredForEvents;
   std::optional<std::string> m_prevPowerProfileActiveForEvents;
   std::string m_appliedIdlePowerProfile;
+  std::optional<bool> m_lastIdlePowerSource;
   std::unique_ptr<BrightnessService> m_brightnessService;
   std::unique_ptr<KeyboardBacklightService> m_keyboardBacklightService;
   std::unique_ptr<TrayService> m_trayService;
