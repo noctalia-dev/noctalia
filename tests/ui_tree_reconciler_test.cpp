@@ -1,4 +1,5 @@
 #include "render/backend/render_backend.h"
+#include "render/core/color.h"
 #include "render/core/renderer.h"
 #include "render/core/texture_manager.h"
 #include "render/scene/input_area.h"
@@ -17,10 +18,12 @@
 #include "ui/controls/spacer.h"
 #include "ui/controls/toggle.h"
 #include "ui/drag_drop_controller.h"
+#include "ui/palette.h"
 #include "ui/style.h"
 #include "ui/ui_tree.h"
 #include "ui/ui_tree_reconciler.h"
 
+#include <cmath>
 #include <cstdlib>
 #include <optional>
 #include <print>
@@ -791,6 +794,83 @@ int main() {
       area->dispatchEnter(0.0F, 0.0F);
       area->dispatchLeave();
       ok = expect(fired.empty(), "an empty button onHover name wires nothing") && ok;
+    }
+  }
+
+  // `color` recolors the normal and disabled labels on top of the variant's
+  // palette. It is applied unconditionally, so dropping it or passing an
+  // invalid color restores the variant's palette on a retained button, and a
+  // variant change in the same render carries the color onto the new variant.
+  {
+    ui::UiTreeReconciler reconciler;
+    Flex host;
+    ui::UiTreeNode tree = makeNode("column");
+    ui::UiTreeNode button = makeNode("button");
+    button.key = "reset";
+    button.props.emplace("glyph", std::string("restore"));
+    button.props.emplace("variant", std::string("ghost"));
+    button.props.emplace("color", std::string("primary/0.2"));
+    tree.children.push_back(button);
+    (void)reconciler.reconcile(host, tree, renderer);
+
+    auto* column = dynamic_cast<Flex*>(host.children().front().get());
+    auto* control = column != nullptr ? dynamic_cast<Button*>(column->children()[0].get()) : nullptr;
+    ok = expect(control != nullptr, "colored button built") && ok;
+    if (control != nullptr) {
+      const Button::ButtonPalette ghost = Button::defaultPalette(ButtonVariant::Ghost);
+      const ColorSpec primary = colorSpecFromRole(ColorRole::Primary, 0.2F);
+      ok = expect(control->palette().normal.label == primary, "color sets the normal label") && ok;
+      ok = expect(
+               control->palette().disabled.label.role == ColorRole::Primary
+                   && std::abs(control->palette().disabled.label.alpha - 0.2F * 0.55F) < 0.001F,
+               "disabled label keeps the color at the multiplied alpha"
+           )
+          && ok;
+      ok = expect(
+               control->palette().hover == ghost.hover
+                   && control->palette().pressed == ghost.pressed
+                   && control->palette().selected == ghost.selected,
+               "hover, pressed and selected stay the variant's"
+           )
+          && ok;
+
+      tree.children[0].props.erase("color");
+      (void)reconciler.reconcile(host, tree, renderer);
+      ok = expect(column->children()[0].get() == control, "dropping color retains the button") && ok;
+      ok = expect(control->palette() == ghost, "dropping color restores the variant palette") && ok;
+
+      // A stale custom palette can only be caught from a colored state, so
+      // restore a valid color before replacing it with an invalid one.
+      tree.children[0].props.emplace("color", std::string("primary"));
+      (void)reconciler.reconcile(host, tree, renderer);
+      ok = expect(
+               control->palette().normal.label == colorSpecFromRole(ColorRole::Primary),
+               "a valid color applies again after removal"
+           )
+          && ok;
+      tree.children[0].props["color"] = std::string("not-a-color");
+      (void)reconciler.reconcile(host, tree, renderer);
+      ok = expect(control->palette() == ghost, "an invalid color restores the variant palette") && ok;
+
+      tree.children[0].props["color"] = std::string("#ff8800");
+      tree.children[0].props["variant"] = std::string("outline");
+      (void)reconciler.reconcile(host, tree, renderer);
+      const Button::ButtonPalette outline = Button::defaultPalette(ButtonVariant::Outline);
+      Color orange;
+      ok = expect(tryParseHexColor("#ff8800", orange), "fixture hex parses") && ok;
+      ok = expect(
+               control->variant() == ButtonVariant::Outline
+                   && control->palette() == Button::withLabelColor(outline, fixedColorSpec(orange)),
+               "a variant change in the same render carries the color onto the new variant"
+           )
+          && ok;
+      ok = expect(control->palette().normal.label == fixedColorSpec(orange), "a hex color is that fixed label color")
+          && ok;
+      ok = expect(
+               control->palette().disabled.label == scaleAlpha(fixedColorSpec(orange), 0.55F),
+               "the hex color carries into the disabled label at the disabled alpha"
+           )
+          && ok;
     }
   }
 
