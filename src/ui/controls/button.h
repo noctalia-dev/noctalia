@@ -37,6 +37,7 @@ public:
     ColorSpec bg;
     ColorSpec border;
     ColorSpec label;
+    bool operator==(const ButtonStateColors&) const = default;
   };
 
   struct ButtonPalette {
@@ -46,6 +47,7 @@ public:
     ButtonStateColors pressed;
     ButtonStateColors disabled;
     std::optional<ButtonStateColors> selected;
+    bool operator==(const ButtonPalette&) const = default;
   };
 
   Button();
@@ -97,6 +99,12 @@ public:
   [[nodiscard]] ButtonVariant variant() const noexcept { return m_variant; }
 
   [[nodiscard]] static ButtonPalette defaultPalette(ButtonVariant variant);
+  // `base` with the normal-state label recolored to `label` and the
+  // disabled-state label the same color at the disabled alpha (multiplied, so
+  // a translucent color never gets more opaque when disabled). Background,
+  // border, hover, pressed, and selected are untouched.
+  [[nodiscard]] static ButtonPalette withLabelColor(ButtonPalette base, const ColorSpec& label);
+  [[nodiscard]] const ButtonPalette& palette() const noexcept { return m_palette; }
 
 private:
   void refreshInputAreaEnabled();

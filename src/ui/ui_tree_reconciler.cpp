@@ -482,7 +482,7 @@ namespace ui {
                                                               "visible",     "text",    "glyph",        "fontSize",
                                                               "glyphSize",   "variant", "contentAlign", "enabled",
                                                               "selected",    "onClick", "onRightClick", "tooltip",
-                                                              "controlSize", "onHover"};
+                                                              "controlSize", "onHover", "color"};
       static const std::unordered_set<std::string> kGraph = {
           "width", "height", "flexGrow",  "opacity",     "visible",       "values",        "values2",
           "color", "color2", "lineWidth", "fillOpacity", "onPointerMove", "onPointerLeave"
@@ -1444,6 +1444,19 @@ namespace ui {
       }
       if (auto variant = parseButtonVariant(desired)) {
         button->setVariant(*variant);
+      }
+      // Unconditional: setVariant() keeps a custom palette while the variant is
+      // unchanged, so a `color` dropped or invalid on a later render has to
+      // restore the base palette itself. Only the normal and disabled labels
+      // change; hover, pressed, and selected keep the variant's colors.
+      {
+        Button::ButtonPalette target = Button::defaultPalette(button->variant());
+        if (auto color = parseColor(desired, "color")) {
+          target = Button::withLabelColor(target, *color);
+        }
+        if (target != button->palette()) {
+          button->setCustomPalette(target);
+        }
       }
       if (const std::string* contentAlign = strProp(desired, "contentAlign")) {
         if (*contentAlign == "start") {

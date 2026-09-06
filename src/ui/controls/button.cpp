@@ -14,6 +14,8 @@
 
 namespace {
 
+  constexpr float kDisabledAlpha = 0.55F;
+
   Button::ButtonStateColors makeState(ColorSpec bg, ColorSpec border, ColorSpec label) {
     return Button::ButtonStateColors{
         .bg = bg,
@@ -30,7 +32,6 @@ namespace {
   }
 
   Button::ButtonPalette paletteForVariant(ButtonVariant variant) {
-    constexpr float kDisabledAlpha = 0.55F;
     switch (variant) {
     case ButtonVariant::Default:
       return Button::ButtonPalette{
@@ -179,6 +180,12 @@ namespace {
 } // namespace
 
 Button::ButtonPalette Button::defaultPalette(ButtonVariant variant) { return paletteForVariant(variant); }
+
+Button::ButtonPalette Button::withLabelColor(ButtonPalette base, const ColorSpec& label) {
+  base.normal.label = label;
+  base.disabled.label = scaleAlpha(label, kDisabledAlpha);
+  return base;
+}
 
 Button::Button() {
   setAlign(FlexAlign::Center);
