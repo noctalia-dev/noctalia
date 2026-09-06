@@ -538,6 +538,7 @@ background     = true
 | `interface` | string | `""` | Network interface to monitor for `net_rx`/`net_tx`; empty uses the total across all non-loopback interfaces |
 | `network_speed_unit` | string | `"auto"` | Unit for `net_rx`/`net_tx`: `"auto"` (scales between B/s, kB/s, MB/s, GB/s), `"kb"` (always kB/s), or `"mb"` (always MB/s) |
 | `network_speed_compact` | bool | `false` | Use short unit suffixes such as `1.2M` instead of `1.2 MB/s` for `net_rx`/`net_tx` |
+| `network_speed_decimal_places` | int | `1` | Number of decimal places for compact `net_rx`/`net_tx` values, from `0` to `3` |
 | `color` | string | `"primary"` | Primary color role (graph line or gauge fill); fixed hex colors are also supported |
 | `color2` | string | `"secondary"` | Graph mode only. Secondary line color role when `stat2` is set |
 | `highlight_color` | string | `"error"` | Gauge mode only. Color role used when the stat crosses activity/critical thresholds from `[system.monitor]` |

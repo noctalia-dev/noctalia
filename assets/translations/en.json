@@ -571,6 +571,7 @@
         "layout": "Layout",
         "mirrored": "Mirrored",
         "network-speed-compact": "Compact Network Speed",
+        "network-speed-decimal-places": "Network Speed Decimal Places",
         "network-speed-unit": "Network Speed Unit",
         "network-speed-unit-auto": "Auto",
         "network-speed-unit-kilobytes": "kB/s",
@@ -4236,6 +4237,10 @@
         "network-speed-compact": {
           "description": "Use short unit suffixes such as 1.2M instead of 1.2 MB/s",
           "label": "Compact Network Speed"
+        },
+        "network-speed-decimal-places": {
+          "description": "Number of decimal places shown for compact network speeds, from 0 to 3",
+          "label": "Network Speed Decimal Places"
         },
         "network-speed-unit": {
           "description": "Unit used for network receive and transmit speeds; Auto switches between B/s, kB/s, MB/s, and GB/s",
