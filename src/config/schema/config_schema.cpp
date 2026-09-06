@@ -8,7 +8,6 @@
 #include "core/input/key_chord.h"
 #include "notification/notification_filter.h"
 #include "scripting/plugin_id.h"
-#include "util/file_utils.h"
 
 #include <algorithm>
 #include <filesystem>
@@ -823,6 +822,29 @@ namespace noctalia::config::schema {
       return s;
     }
 
+    const Schema<WallpaperThemeSyncMonitorOverride>& wallpaperThemeSyncMonitorSchema() {
+      static const Schema<WallpaperThemeSyncMonitorOverride> s = {
+          field(&WallpaperThemeSyncMonitorOverride::match, "match"),
+          pathStringField(&WallpaperThemeSyncMonitorOverride::pathLight, "path_light"),
+          pathStringField(&WallpaperThemeSyncMonitorOverride::pathDark, "path_dark"),
+      };
+      return s;
+    }
+
+    const Schema<WallpaperThemeSyncConfig>& wallpaperThemeSyncSchema() {
+      static const Schema<WallpaperThemeSyncConfig> s = {
+          field(&WallpaperThemeSyncConfig::enabled, "enabled"),
+          pathStringField(&WallpaperThemeSyncConfig::pathLight, "path_light"),
+          pathStringField(&WallpaperThemeSyncConfig::pathDark, "path_dark"),
+          namedMap<WallpaperThemeSyncConfig, WallpaperThemeSyncMonitorOverride>(
+              &WallpaperThemeSyncConfig::monitorOverrides, "monitor", wallpaperThemeSyncMonitorSchema(),
+              [](WallpaperThemeSyncMonitorOverride& o, std::string_view name) { o.match = std::string(name); },
+              [](const WallpaperThemeSyncMonitorOverride& o) { return o.match; }
+          ),
+      };
+      return s;
+    }
+
     // One keybind action: reads a single chord string or an array of them
     // (warning on an unparseable chord, rethrowing on a hard parse exception);
     // writes the configured chords, or the built-in defaults when none are set.
@@ -1617,6 +1639,7 @@ namespace noctalia::config::schema {
         pathStringField(&WallpaperConfig::directoryDark, "directory_dark"),
         field(&WallpaperConfig::perMonitorDirectories, "per_monitor_directories"),
         subTable(&WallpaperConfig::automation, "automation", wallpaperAutomationSchema()),
+        subTable(&WallpaperConfig::themeSync, "theme_sync", wallpaperThemeSyncSchema()),
         namedMap<WallpaperConfig, WallpaperMonitorOverride>(
             &WallpaperConfig::monitorOverrides, "monitor", wallpaperMonitorSchema(),
             [](WallpaperMonitorOverride& o, std::string_view name) { o.match = std::string(name); },

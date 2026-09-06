@@ -3203,6 +3203,10 @@
           "label": "Light Mode Directory",
           "placeholder": "~/Pictures/Wallpapers"
         },
+        "theme-sync": {
+          "description": "Automatically switch wallpaper when the resolved light or dark theme changes. Enable this, then pick wallpapers under the Dark or Light tab in the wallpaper panel to assign bindings.",
+          "label": "Sync Wallpaper with Theme"
+        },
         "edge-smoothness": {
           "description": "Feathering of transition edges between wallpapers",
           "label": "Edge Smoothness"

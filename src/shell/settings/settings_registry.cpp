@@ -683,6 +683,11 @@ namespace settings {
         "folder path dark theme", true
     ));
     entries.push_back(makeEntry(
+        SettingsSection::Wallpaper, "theme-sync", tr("settings.schema.wallpaper.theme-sync.label"),
+        tr("settings.schema.wallpaper.theme-sync.description"), {"wallpaper", "theme_sync", "enabled"},
+        ToggleSetting{cfg.wallpaper.themeSync.enabled}, "theme wallpaper light dark sync"
+    ));
+    entries.push_back(makeEntry(
         SettingsSection::Wallpaper, "directories", tr("settings.schema.wallpaper.per-monitor-directories.label"),
         tr("settings.schema.wallpaper.per-monitor-directories.description"), {"wallpaper", "per_monitor_directories"},
         ToggleSetting{cfg.wallpaper.perMonitorDirectories}, "per display folder"

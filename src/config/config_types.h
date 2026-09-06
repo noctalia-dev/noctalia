@@ -1,10 +1,10 @@
 #pragma once
 
-#include "config/color_spec.h"
 #include "config/config_limits.h"
 #include "config/widget_setting_value.h"
 #include "core/input/key_chord.h"
 #include "system/sysmon_threshold_profile.h"
+#include "ui/palette.h"
 #include "ui/style.h"
 
 #include <array>
@@ -505,6 +505,23 @@ struct WallpaperAutomationConfig {
   bool operator==(const WallpaperAutomationConfig&) const = default;
 };
 
+struct WallpaperThemeSyncMonitorOverride {
+  std::string match;
+  std::string pathLight;
+  std::string pathDark;
+
+  bool operator==(const WallpaperThemeSyncMonitorOverride&) const = default;
+};
+
+struct WallpaperThemeSyncConfig {
+  bool enabled = false;
+  std::string pathLight;
+  std::string pathDark;
+  std::vector<WallpaperThemeSyncMonitorOverride> monitorOverrides;
+
+  bool operator==(const WallpaperThemeSyncConfig&) const = default;
+};
+
 struct WallpaperConfig {
   bool enabled = true;
   WallpaperFillMode fillMode = WallpaperFillMode::Crop;
@@ -520,6 +537,7 @@ struct WallpaperConfig {
   std::string directoryDark;  // empty = directory
   bool perMonitorDirectories = false;
   WallpaperAutomationConfig automation;
+  WallpaperThemeSyncConfig themeSync;
   std::vector<WallpaperMonitorOverride> monitorOverrides;
 
   bool operator==(const WallpaperConfig&) const = default;

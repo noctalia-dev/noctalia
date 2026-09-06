@@ -1233,12 +1233,13 @@ if build_tests
     'upower_device_catalog',
     'vdir_reader',
     'virtual_grid_view_gesture',
-    'wallpaper_shuffle_state',
     'wayland_output_scale',
     'wayland_toplevels_identity',
     'webp_decoder',
     'widget_action',
     'widget_definition',
+    'wallpaper_shuffle_state',
+    'wallpaper_theme_sync_paths',
     'workspace_alert_service',
   ]
 
