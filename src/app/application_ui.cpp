@@ -843,8 +843,9 @@ void Application::reloadIdleBehaviors() {
     m_idleManager.reload(ac);
   }
   const std::string& profile = onBattery ? idle.powerProfile : idle.ac.powerProfile;
-  if (m_powerProfilesService != nullptr && !profile.empty() && profile != m_powerProfilesService->activeProfile()) {
-    (void)m_powerProfilesService->setActiveProfile(profile);
+  if (profile != m_appliedIdlePowerProfile && m_powerProfilesService != nullptr && !profile.empty()
+      && m_powerProfilesService->setActiveProfile(profile)) {
+    m_appliedIdlePowerProfile = profile;
   }
 }
 

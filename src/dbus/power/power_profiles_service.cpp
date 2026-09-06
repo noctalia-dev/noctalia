@@ -236,12 +236,21 @@ bool PowerProfilesService::setActiveProfile(std::string_view profile) {
     m_proxy->setPropertyAsync("ActiveProfile")
         .onInterface(kPowerProfilesInterface)
         .toValue(requested)
-        .uponReplyInvoke([lifetimeToken, requested](std::optional<sdbus::Error> err) {
-          if (lifetimeToken.expired() || !err.has_value()) {
+        .uponReplyInvoke([this, lifetimeToken, requested](std::optional<sdbus::Error> err) {
+          if (lifetimeToken.expired()) {
             return;
           }
-          // The optimistic update below already reconciles via refresh(); just surface the failure.
-          kLog.warn("power profile change failed profile={} err={}", requested, err->what());
+          if (err.has_value()) {
+            if (m_pendingLocalActiveProfile.has_value() && *m_pendingLocalActiveProfile == requested) {
+              m_pendingLocalActiveProfile.reset();
+            }
+            kLog.warn("power profile change failed profile={} err={}", requested, err->what());
+            return;
+          }
+          PowerProfilesState next = m_state;
+          next.activeProfile = requested;
+          emitChangedIfNeeded(std::move(next), false);
+          refresh();
         });
   } catch (const sdbus::Error& e) {
     if (m_pendingLocalActiveProfile.has_value() && *m_pendingLocalActiveProfile == requested) {
@@ -250,11 +259,6 @@ bool PowerProfilesService::setActiveProfile(std::string_view profile) {
     kLog.warn("power profile change dispatch failed profile={} err={}", requested, e.what());
     return false;
   }
-
-  PowerProfilesState next = m_state;
-  next.activeProfile = requested;
-  emitChangedIfNeeded(std::move(next), false);
-  refresh();
   return true;
 }
 
