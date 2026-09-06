@@ -117,28 +117,15 @@ v5 will only be available for **Tumbleweed** and **Slowroll**. **Leap 16.0** is 
 
 Noctalia is available in the [GURU](https://wiki.gentoo.org/wiki/Project:GURU) overlay.
 
-:::note[Gentoo exception]
-Gentoo packaging does not provide [SLOTs](https://wiki.gentoo.org/wiki/SLOT) for v4 and v5 as v4 will be dropped eventually, therefore they cannot be installed simultaneously.
-
-Snapshots have been dropped in favor of official releases, so`=gui-apps/noctalia-5.0.0_pre99999999` is now superseded by `=gui-apps/noctalia-9999`.
-
-:::
-
 **Step 1**: Enable and sync the overlay as read in [Project:GURU/Information_for_End_Users](https://wiki.gentoo.org/wiki/Project:GURU/Information_for_End_Users).
 
 **Step 2**: [Unmask](https://wiki.gentoo.org/wiki/Live_ebuilds#Unmasking_live_ebuilds) the `gui-apps/noctalia` package:
 
 ```
-gui-apps/noctalia **
+gui-apps/noctalia ~amd64
 ```
 
-**Step 3**: (Optional) [Mask](https://wiki.gentoo.org/wiki/Knowledge_Base:Masking_a_package#Masking_a_specific_package_version) the live ebuild to use versioned releases
-
-```
-<=gui-apps/noctalia-9999
-```
-
-**Step 4**: Emerge the package:
+**Step 3**: Emerge the package:
 
 ```bash
 emerge --ask gui-apps/noctalia
