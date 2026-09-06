@@ -372,7 +372,7 @@ void Label::startMarqueeLoop() {
   stopSnapAnimation();
 
   const float period = m_marqueeLoopPeriod;
-  const float durationMs = (period / m_scrollSpeedPxPerSec) * 1000.0F;
+  const float durationMs = (period / m_scrollSpeedPxPerSec) * 1000.0F * 3.0F;
   // Marquee scroll is content motion at a fixed px/sec rate, not a UI transition:
   // it must keep scrolling (and at its own speed) regardless of the global motion
   // enable/speed settings, so drive it off real elapsed time.

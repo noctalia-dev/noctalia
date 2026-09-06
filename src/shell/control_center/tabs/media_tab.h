@@ -3,6 +3,7 @@
 #include "core/timer_manager.h"
 #include "dbus/mpris/mpris_service.h"
 #include "shell/control_center/tab.h"
+#include "render/core/blur_cache.h"
 
 #include <chrono>
 #include <cstdint>
@@ -21,7 +22,6 @@ class MprisService;
 class PipeWireSpectrum;
 class RenderContext;
 class Slider;
-class AudioVisualizer;
 class ConfigService;
 class WaylandConnection;
 
@@ -61,15 +61,15 @@ private:
   RenderContext* m_renderContext = nullptr;
   std::uint64_t m_spectrumListenerId = 0;
   bool m_active = false;
+  float m_artworkPulse = 0.0F;
 
   Flex* m_rootLayout = nullptr;
   Flex* m_mediaColumn = nullptr;
-  Flex* m_visualizerColumn = nullptr;
-  Flex* m_visualizerBody = nullptr;
-  AudioVisualizer* m_visualizerSpectrum = nullptr;
-  Image* m_artwork = nullptr;
-  Flex* m_artworkRow = nullptr;
   Flex* m_nowCard = nullptr;
+  Image* m_artwork = nullptr;
+  Image* m_artworkBackground = nullptr;
+  BlurCache m_artworkBlurCache;
+  Flex* m_artworkRow = nullptr;
   Flex* m_mediaStack = nullptr;
   Button* m_playerMenuButton = nullptr;
   std::unique_ptr<ContextMenuPopup> m_playerMenuPopup;
@@ -82,6 +82,7 @@ private:
   Button* m_nextButton = nullptr;
   Button* m_repeatButton = nullptr;
   Button* m_shuffleButton = nullptr;
+
 
   std::string m_lastArtPath;
   std::string m_lastBusName;

@@ -52,6 +52,8 @@ void DesktopMediaPlayerWidget::create() {
       .color = m_color,
       .maxLines = 1,
   });
+  m_title->setAutoScroll(true);
+  m_title->setAutoScrollSpeed(1.0F);
   rootNode->addChild(std::move(title));
 
   auto artist = ui::label({
@@ -219,14 +221,19 @@ void DesktopMediaPlayerWidget::layoutHorizontal(Renderer& renderer, float scale)
   const float artH = kArtSize * scale;
   const float spacing = kSpacing * scale;
   const float fontSize = Style::fontSizeBody * scale;
-  const float textWidth = artH * 1.5F;
 
   m_artwork->setSize(artH, artH);
   m_artwork->setRadius(Style::scaledRadiusMd(scale));
   m_artwork->setPosition(0.0F, 0.0F);
 
-  const float textX = artH + spacing;
-  const float totalWidth = textX + textWidth;
+  layoutButtons(renderer, scale);
+
+  const float controlsX = artH + spacing;
+  const float controlsY = std::round((artH - m_controls->height()) * 0.5F);
+  m_controls->setPosition(controlsX, controlsY);
+
+  const float textX = controlsX + m_controls->width() + spacing;
+  const float textWidth = artH * 1.5F;
 
   m_title->setFontSize(fontSize);
   m_title->setMaxWidth(textWidth);
@@ -236,22 +243,17 @@ void DesktopMediaPlayerWidget::layoutHorizontal(Renderer& renderer, float scale)
   m_artist->setMaxWidth(textWidth);
   m_artist->measure(renderer);
 
-  layoutButtons(renderer, scale);
-
   const float titleH = m_title->height();
   const float artistGap = m_artist->visible() ? spacing * 0.5F : 0.0F;
   const float artistH = m_artist->visible() ? m_artist->height() : 0.0F;
-  const float controlsH = m_controls->height();
-  const float textAreaH = std::max(0.0F, artH - controlsH - spacing);
+
   const float textBlockH = titleH + artistGap + artistH;
-  const float textY = std::round(std::max(0.0F, (textAreaH - textBlockH) * 0.5F));
+  const float textY = std::round((artH - textBlockH) * 0.5F);
 
   m_title->setPosition(textX, textY);
   m_artist->setPosition(textX, textY + titleH + artistGap);
 
-  const float controlsY = artH - controlsH;
-  const float controlsX = totalWidth - m_controls->width();
-  m_controls->setPosition(controlsX, controlsY);
+  const float totalWidth = textX + textWidth;
 
   root()->setSize(totalWidth, artH);
 }

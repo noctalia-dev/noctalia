@@ -8,6 +8,7 @@
 #include "render/core/renderer.h"
 #include "render/scene/input_area.h"
 #include "ui/builders.h"
+#include "ui/controls/button.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 
@@ -90,8 +91,45 @@ void MediaWidget::create() {
       })
   );
 
+  area->addChild(
+      ui::button({
+          .out = &m_previousButton,
+          .glyph = "media-prev",
+          .variant = ButtonVariant::Ghost,
+          .onClick = [this]() {
+            if (m_mpris != nullptr)
+              m_mpris->previousActive();
+          },
+      })
+  );
+
+  area->addChild(
+      ui::button({
+          .out = &m_playPauseButton,
+          .glyph = "media-play",
+          .variant = ButtonVariant::Ghost,
+          .onClick = [this]() {
+            if (m_mpris != nullptr)
+              m_mpris->playPauseActive();
+          },
+      })
+  );
+
+  area->addChild(
+      ui::button({
+          .out = &m_nextButton,
+          .glyph = "media-next",
+          .variant = ButtonVariant::Ghost,
+          .onClick = [this]() {
+            if (m_mpris != nullptr)
+              m_mpris->nextActive();
+          },
+      })
+  );
+
   setRoot(std::move(area));
 }
+
 
 void MediaWidget::doLayout(Renderer& renderer, float containerWidth, float containerHeight) {
   auto* rootNode = root();
@@ -190,6 +228,35 @@ void MediaWidget::doLayout(Renderer& renderer, float containerWidth, float conta
                                          : (showArtSlot ? artSize : (showEmptyGlyph ? m_emptyGlyph->width() : 0.0F));
     rootNode->setSize(std::clamp(contentWidth, minLength, maxLength), contentHeight);
   }
+  // Media controls follow the artwork and stay aligned on the bar.
+  const float controlsGap = Style::spaceXs * m_contentScale;
+  const float buttonSize = Style::baseGlyphSize * 1.8F * m_contentScale;
+  const float contentEnd = showLabel
+      ? m_label->x() + m_label->width()
+      : (showArtSlot ? artSize : (showEmptyGlyph ? m_emptyGlyph->width() : 0.0F));
+
+  const float controlsX = contentEnd > 0.0F
+      ? contentEnd + controlsGap
+      : 0.0F;
+  const float controlsY = std::round((contentHeight - buttonSize) * 0.5F);
+
+  if (!artOnly) {
+    const float requiredWidth = controlsX + buttonSize * 3.0F;
+    rootNode->setSize(
+        std::max(rootNode->width(), requiredWidth),
+        rootNode->height()
+    );
+  }
+
+  m_previousButton->setSize(buttonSize, buttonSize);
+  m_previousButton->setPosition(controlsX, controlsY);
+
+  m_playPauseButton->setSize(buttonSize, buttonSize);
+  m_playPauseButton->setPosition(controlsX + buttonSize, controlsY);
+
+  m_nextButton->setSize(buttonSize, buttonSize);
+  m_nextButton->setPosition(controlsX + buttonSize * 2.0F, controlsY);
+
   m_progressBar->setVisible(showProgressFill);
   if (showProgressFill) {
     const float fillWidth = rootNode->width();
@@ -305,6 +372,9 @@ void MediaWidget::syncState(Renderer& renderer, const std::optional<MprisPlayerI
 
   if (playbackChanged && !textChanged && !artChanged && !artAwaitingDecode) {
     m_lastPlaybackStatus = playbackStatus;
+  m_playPauseButton->setGlyph(
+      m_lastPlaybackStatus == "Playing" ? "media-pause" : "media-play"
+  );
     m_label->setColor(
         m_lastPlaybackStatus == "Playing" ? widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface))
                                           : colorSpecFromRole(ColorRole::OnSurfaceVariant)
@@ -316,6 +386,9 @@ void MediaWidget::syncState(Renderer& renderer, const std::optional<MprisPlayerI
   m_lastText = displayText;
   m_lastArtUrl = artUrl;
   m_lastPlaybackStatus = playbackStatus;
+  m_playPauseButton->setGlyph(
+      m_lastPlaybackStatus == "Playing" ? "media-pause" : "media-play"
+  );
 
   if (textChanged) {
     m_label->setText(m_lastText);

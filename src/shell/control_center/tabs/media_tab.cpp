@@ -9,13 +9,13 @@
 #include "net/http_client.h"
 #include "pipewire/pipewire_spectrum.h"
 #include "render/core/renderer.h"
+#include "render/render_context.h"
 #include "render/scene/node.h"
 #include "shell/control_center/tab.h"
 #include "shell/panel/panel_manager.h"
 #include "ui/builders.h"
 #include "ui/controls/context_menu.h"
 #include "ui/controls/context_menu_popup.h"
-#include "ui/visuals/audio_visualizer.h"
 
 #include <algorithm>
 #include <chrono>
@@ -25,6 +25,7 @@
 #include <string>
 #include <string_view>
 #include <vector>
+
 
 using namespace control_center;
 using namespace mpris;
@@ -66,7 +67,6 @@ namespace {
   std::string repeatGlyph(const std::string& loopStatus) { return loopStatus == "Track" ? "repeat-once" : "repeat"; }
 
   ButtonVariant toggleVariant(bool active) { return active ? ButtonVariant::Primary : ButtonVariant::Ghost; }
-  constexpr int kVisualizerBandCount = 32;
 
 } // namespace
 
@@ -111,8 +111,7 @@ void MediaTab::openPlayerMenu() {
     );
   }
 
-  Flex* anchor = m_playerMenuButton->parent() != nullptr ? static_cast<Flex*>(m_playerMenuButton->parent())
-                                                         : static_cast<Flex*>(m_nowCard);
+ Flex* anchor = m_playerMenuButton;
   if (anchor == nullptr) {
     return;
   }
@@ -236,20 +235,30 @@ std::unique_ptr<Flex> MediaTab::create() {
   });
 
   auto artworkRow = ui::row(
-      {.out = &m_artworkRow, .align = FlexAlign::Center, .justify = FlexJustify::Center, .gap = 0.0F, .flexGrow = 1.0F},
-      ui::image({
-          .out = &m_artwork,
-          .fit = ImageFit::Cover,
-          .radius = Style::scaledRadiusXl(scale),
-          .width = kArtworkSize * scale,
-          .height = kArtworkSize * scale,
-      })
-  );
+    {.out = &m_artworkRow, .align = FlexAlign::Center, .justify = FlexJustify::Center, .gap = 0.0F, .flexGrow = 1.0F},
+ui::image({
+    .out = &m_artworkBackground,
+    .fit = ImageFit::Cover,
+    .participatesInLayout = false,
+    .configure = [](Image& image) {
+        image.setZIndex(-1);
+        image.setOpacity(0.80F);
+    },
+}),
+    ui::image({
+        .out = &m_artwork,
+        .fit = ImageFit::Cover,
+        .radius = Style::scaledRadiusXl(scale),
+        .width = kArtworkSize * scale,
+        .height = kArtworkSize * scale,
+        .configure = [](Image& image) { image.setZIndex(1); },
+    })
+);
   mediaStack->addChild(std::move(artworkRow));
 
   mediaStack->addChild(
       ui::column(
-          {.align = FlexAlign::Stretch, .gap = Style::spaceSm * scale},
+          {.align = FlexAlign::Center, .gap = Style::spaceSm * scale},
           ui::label({
               .out = &m_trackTitle,
               .text = i18n::tr("control-center.media.nothing-playing"),
@@ -280,7 +289,7 @@ std::unique_ptr<Flex> MediaTab::create() {
           .maxValue = 100.0F,
           .step = 1.0F,
           .trackHeight = 7.0F * scale,
-          .thumbSize = 16.0F * scale,
+          .thumbSize = 20.0F * scale,
           .controlHeight = (Style::controlHeight + Style::spaceXs) * scale,
           .onValueChanged =
               [this](double value) {
@@ -439,38 +448,8 @@ std::unique_ptr<Flex> MediaTab::create() {
   nowCard->addChild(std::move(mediaStack));
   mediaColumn->addChild(std::move(nowCard));
 
-  auto visualizerColumn = ui::column({
-      .out = &m_visualizerColumn,
-      .align = FlexAlign::Stretch,
-      .gap = Style::spaceMd * scale,
-      .clipChildren = true,
-      .flexGrow = 2.0F,
-      .configure = [scale, opacity = panelCardOpacity()](Flex& column) {
-        applySectionCardStyle(column, scale, opacity);
-      },
-  });
-
-  auto visualizerBody = ui::row({
-      .out = &m_visualizerBody,
-      .align = FlexAlign::Stretch,
-      .justify = FlexJustify::Start,
-      .fillWidth = true,
-      .flexGrow = 1.0F,
-  });
-
-  auto visualizerSpectrum = std::make_unique<AudioVisualizer>();
-  visualizerSpectrum->setGradient(colorForRole(ColorRole::Secondary), colorForRole(ColorRole::Tertiary));
-  visualizerSpectrum->setOrientation(AudioSpectrumOrientation::Vertical);
-  visualizerSpectrum->setMirrored(true);
-  visualizerSpectrum->setCentered(true);
-  visualizerSpectrum->setValues(std::vector<float>(kVisualizerBandCount, 0.0F));
-  visualizerSpectrum->tick(0.0F);
-  visualizerSpectrum->setFlexGrow(1.0F);
-  m_visualizerSpectrum = visualizerSpectrum.get();
-  visualizerBody->addChild(std::move(visualizerSpectrum));
-  visualizerColumn->addChild(std::move(visualizerBody));
   tab->addChild(std::move(mediaColumn));
-  tab->addChild(std::move(visualizerColumn));
+
 
   if (m_wayland != nullptr && m_renderContext != nullptr) {
     m_playerMenuPopup = std::make_unique<ContextMenuPopup>(*m_wayland, *m_renderContext);
@@ -507,7 +486,7 @@ void MediaTab::doLayout(Renderer& renderer, float contentWidth, float bodyHeight
 
   const float cardInnerWidth =
       std::max(0.0F, m_nowCard->width() - (m_nowCard->paddingLeft() + m_nowCard->paddingRight()));
-  const float mediaWidth = std::clamp(cardInnerWidth, 1.0F, kMediaUnit * 11.0F * scale);
+  const float mediaWidth = std::max(1.0F, cardInnerWidth);
   const float mediaStackHeight = m_mediaStack->height();
   m_mediaStack->setSize(mediaWidth, mediaStackHeight);
 
@@ -551,36 +530,37 @@ void MediaTab::doLayout(Renderer& renderer, float contentWidth, float bodyHeight
     m_trackAlbum->setMaxWidth(mediaWidth);
   }
   if (m_progressSlider != nullptr) {
-    m_progressSlider->setSize(mediaWidth, 0.0F);
+    m_progressSlider->setSize(mediaWidth * 0.70F, 0.0F);
   }
 
   m_mediaStack->layout(renderer);
 
   if (m_artwork != nullptr && m_artworkRow != nullptr) {
-    const float artWidth =
-        std::max(1.0F, m_artworkRow->width() - (m_artworkRow->paddingLeft() + m_artworkRow->paddingRight()));
-    const float artHeight = std::max(
-        kMediaArtworkMinHeight * scale,
-        m_artworkRow->height() - (m_artworkRow->paddingTop() + m_artworkRow->paddingBottom())
-    );
-    // Media art is always presented as a square (album-art convention).
-    const float side = std::min(artWidth, artHeight);
-    m_artwork->setSize(side, side);
-    m_artwork->setRadius(Style::scaledRadiusXl(scale));
-    m_mediaStack->layout(renderer);
-  }
+  const float artWidth =
+      std::max(1.0F, m_artworkRow->width() - (m_artworkRow->paddingLeft() + m_artworkRow->paddingRight()));
+  const float artHeight = std::max(
+      kMediaArtworkMinHeight * scale,
+      m_artworkRow->height() - (m_artworkRow->paddingTop() + m_artworkRow->paddingBottom())
+  );
 
-  if (m_visualizerBody != nullptr && m_visualizerSpectrum != nullptr) {
-    const float bodyWidth = std::max(
-        0.0F, m_visualizerBody->width() - (m_visualizerBody->paddingLeft() + m_visualizerBody->paddingRight())
-    );
-    const float bodyHeightAvail = std::max(
-        0.0F, m_visualizerBody->height() - (m_visualizerBody->paddingTop() + m_visualizerBody->paddingBottom())
-    );
-    const float spectrumWidth = std::max(1.0F, bodyWidth);
-    const float spectrumHeight = std::max(1.0F, bodyHeightAvail);
-    m_visualizerSpectrum->setSize(spectrumWidth, spectrumHeight);
-    m_visualizerBody->layout(renderer);
+  // Media art is always presented as a square (album-art convention).
+  const float side = std::min(artWidth, artHeight) * 0.75F;
+
+  m_artwork->setSize(side, side);
+  m_artwork->setRadius(side * 0.5F);
+
+  if (m_artworkBackground != nullptr) {
+    const float backgroundSide = side * 1.35F;
+
+    m_artworkBackground->setSize(backgroundSide, backgroundSide);
+    m_artworkBackground->setRadius(backgroundSide * 0.5F);
+
+    // Keep the blurred artwork centered behind the main artwork.
+    const float backgroundX = (artWidth - backgroundSide) * 0.5F;
+    const float backgroundY = (artHeight - backgroundSide) * 0.5F;
+
+    m_artworkBackground->setPosition(backgroundX, backgroundY);
+  }
   }
 }
 
@@ -589,11 +569,7 @@ void MediaTab::doUpdate(Renderer& renderer) {
     m_progressTimer.stop();
     return;
   }
-  if (m_visualizerSpectrum != nullptr && m_spectrum != nullptr && m_spectrumListenerId != 0) {
-    if (!m_spectrum->idle() || !m_visualizerSpectrum->converged()) {
-      m_visualizerSpectrum->setValues(m_spectrum->values(m_spectrumListenerId));
-    }
-  }
+
 
   const auto active = m_mpris != nullptr ? m_mpris->activePlayer() : std::nullopt;
   const auto now = std::chrono::steady_clock::now();
@@ -623,22 +599,47 @@ void MediaTab::onFrameTick(float deltaMs) {
     return;
   }
 
-  if (m_visualizerSpectrum != nullptr) {
-    if (m_spectrum != nullptr && m_spectrumListenerId != 0) {
-      if (!m_spectrum->idle() || !m_visualizerSpectrum->converged()) {
-        m_visualizerSpectrum->setValues(m_spectrum->values(m_spectrumListenerId));
-      }
+  if (m_artwork == nullptr) {
+    return;
+  }
+
+ // Continuous rotation
+constexpr float rotationSpeed = 0.0005F;
+m_artwork->setRotation(m_artwork->rotation() + deltaMs * rotationSpeed);
+
+// Smooth, bass-driven pulse
+if (m_spectrum != nullptr && m_spectrumListenerId != 0) {
+  const auto values = m_spectrum->values(m_spectrumListenerId);
+
+  if (!values.empty()) {
+    const std::size_t bassBands = std::min<std::size_t>(4, values.size());
+
+    float bass = 0.0F;
+    for (std::size_t i = 0; i < bassBands; ++i) {
+      bass += values[i];
     }
-    m_visualizerSpectrum->tick(deltaMs);
+
+    bass /= static_cast<float>(bassBands);
+
+    // The low frequency defines the target of the pulse.
+    const float targetPulse = std::clamp(bass * 0.20F, 0.0F, 0.20F);
+
+    // Faster attack, smoother return.
+    const float smoothing = targetPulse > m_artworkPulse ? 0.16F : 0.055F;
+    m_artworkPulse += (targetPulse - m_artworkPulse) * smoothing;
+
+    m_artwork->setScale(1.0F + m_artworkPulse);
+  }
   }
 }
 
 void MediaTab::setActive(bool active) {
   const bool becameActive = active && !m_active;
   m_active = active;
+
   if (m_spectrum != nullptr) {
     if (active && m_spectrumListenerId == 0) {
-      m_spectrumListenerId = m_spectrum->addChangeListener(kVisualizerBandCount, [this]() {
+      m_spectrumListenerId = m_spectrum->addChangeListener(4, [this]() {
         if (!m_active || m_spectrum->idle()) {
           return;
         }
@@ -649,7 +650,14 @@ void MediaTab::setActive(bool active) {
       m_spectrumListenerId = 0;
     }
   }
+
   if (!active) {
+    m_artworkPulse = 0.0F;
+
+    if (m_artwork != nullptr) {
+      m_artwork->setScale(1.0F);
+    }
+
     m_progressTimer.stop();
     m_positionSampleAt = {};
     m_positionTrackSignature.clear();
@@ -657,34 +665,37 @@ void MediaTab::setActive(bool active) {
     m_nextRealtimeUpdateAt = {};
     m_lastRealtimeMprisPollAt = {};
   }
+
   if (becameActive && m_mpris != nullptr) {
     m_positionSampleAt = {};
   }
 }
 
+
 void MediaTab::onClose() {
   m_progressTimer.stop();
-  if (m_spectrum != nullptr) {
-    if (m_spectrumListenerId != 0) {
-      m_spectrum->removeChangeListener(m_spectrumListenerId);
-      m_spectrumListenerId = 0;
-    }
+
+  if (m_spectrum != nullptr && m_spectrumListenerId != 0) {
+    m_spectrum->removeChangeListener(m_spectrumListenerId);
+    m_spectrumListenerId = 0;
   }
+
   m_active = false;
+  m_artworkPulse = 0.0F;
+
   m_rootLayout = nullptr;
   m_mediaColumn = nullptr;
-  m_visualizerColumn = nullptr;
-  m_visualizerBody = nullptr;
-  m_visualizerSpectrum = nullptr;
   m_artwork = nullptr;
   m_artworkRow = nullptr;
   m_nowCard = nullptr;
   m_mediaStack = nullptr;
   m_playerMenuButton = nullptr;
+
   if (m_playerMenuPopup != nullptr) {
     PanelManager::instance().clearActivePopup();
     m_playerMenuPopup->close();
   }
+
   m_playerMenuOpen = false;
   m_trackTitle = nullptr;
   m_trackArtist = nullptr;
@@ -695,6 +706,7 @@ void MediaTab::onClose() {
   m_nextButton = nullptr;
   m_repeatButton = nullptr;
   m_shuffleButton = nullptr;
+
   m_lastArtPath.clear();
   m_lastBusName.clear();
   m_lastPlaybackStatus.clear();
@@ -722,7 +734,14 @@ void MediaTab::clearArt(Renderer& renderer) {
   if (m_artwork != nullptr) {
     m_artwork->clear(renderer);
   }
+
+  if (m_artworkBackground != nullptr) {
+    m_artworkBackground->clear(renderer);
+  }
+
+  m_artworkBlurCache.invalidate();
 }
+
 
 void MediaTab::commitPendingSeek(double valueSeconds) {
   if (m_mpris == nullptr) {
@@ -881,11 +900,9 @@ void MediaTab::refresh(Renderer& renderer) {
     }
 
     m_trackTitle->setText(player.title.empty() ? player.identity : player.title);
-    m_trackArtist->setText(joinArtists(player.artists).empty() ? player.identity : joinArtists(player.artists));
-    if (m_trackAlbum != nullptr) {
-      m_trackAlbum->setText(player.album);
-      m_trackAlbum->setVisible(!player.album.empty());
-    }
+    m_trackArtist->setText(
+        joinArtists(player.artists).empty() ? player.identity : joinArtists(player.artists)
+    );
 
     const std::string resolvedArtUrl = effectiveArtUrl(player);
     const std::string artPath = resolveArtworkSource(
@@ -911,8 +928,40 @@ void MediaTab::refresh(Renderer& renderer) {
         loaded = true;
       }
 
+      // The foreground artwork changed, so force the blurred background
+      // to be regenerated from the new artwork texture.
+      if (loaded) {
+        m_artworkBlurCache.invalidate();
+      }
+
       // Only lock this URL once we actually have an image.
       // Otherwise keep retrying while metadata/download catches up.
+      if (loaded && m_artworkBackground != nullptr && m_renderContext != nullptr) {
+        const auto artworkTexture = m_artwork->textureHandle();
+
+        if (artworkTexture.valid()) {
+          m_renderContext->backend().makeCurrentNoSurface();
+
+          const std::uint32_t blurWidth =
+             std::max(1U, static_cast<std::uint32_t>(artworkTexture.width / 2));
+          const std::uint32_t blurHeight =
+             std::max(1U, static_cast<std::uint32_t>(artworkTexture.height / 2));
+
+          const auto blurredTexture = m_artworkBlurCache.get(
+              m_renderContext->backend(),
+              artworkTexture,
+              blurWidth,
+              blurHeight,
+              8.0F,
+              1
+          );
+
+          if (blurredTexture.valid()) {
+            m_artworkBackground->setExternalTexture(renderer, blurredTexture);
+          }
+        }
+      }
+
       m_lastArtPath = loaded ? resolvedArtUrl : std::string{};
       if (loaded) {
         PanelManager::instance().requestLayout();
@@ -928,6 +977,31 @@ void MediaTab::refresh(Renderer& renderer) {
     } else if (m_lastTrackLengthUs > 0 && samePlayerAsDisplayed) {
       trackLengthUs = m_lastTrackLengthUs;
     }
+
+   auto formatTime = [](std::int64_t microseconds) -> std::string {
+     const auto totalSeconds = std::max<std::int64_t>(0, microseconds / 1000000);
+     const auto minutes = totalSeconds / 60;
+     const auto seconds = totalSeconds % 60;
+
+    return std::format("{:02}:{:02}", minutes, seconds);
+   };
+
+   if (m_trackAlbum != nullptr) {
+    if (trackLengthUs > 0) {
+      m_trackAlbum->setText(
+         std::format(
+             "{} / {}",
+             formatTime(displayPositionUs),
+             formatTime(trackLengthUs)
+         )
+      );
+       m_trackAlbum->setVisible(true);
+     } else {
+      m_trackAlbum->setText("");
+      m_trackAlbum->setVisible(false);
+     }
+   }
+
     const bool progressInteracting = m_progressSlider->dragging() || seekPending || withinProgressSettle;
     const bool progressEnabled = player.canSeek && (trackLengthUs > 0 || progressInteracting);
 
