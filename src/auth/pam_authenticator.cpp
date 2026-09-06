@@ -32,6 +32,7 @@ namespace {
 
   struct PamConversationData {
     const char* password = nullptr;
+    bool passwordSent = false;
   };
 
   struct PamHandle {
@@ -68,7 +69,17 @@ namespace {
 
       switch (msg[i]->msg_style) {
       case PAM_PROMPT_ECHO_OFF:
+        if (data->passwordSent) {
+          for (int j = 0; j < i; ++j) {
+            if (replies[j].resp != nullptr) {
+              std::free(replies[j].resp);
+            }
+          }
+          std::free(replies);
+          return PAM_CONV_ERR;
+        }
         replies[i].resp = ::strdup(data->password != nullptr ? data->password : "");
+        data->passwordSent = true;
         break;
       case PAM_PROMPT_ECHO_ON:
         replies[i].resp = ::strdup("");
