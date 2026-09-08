@@ -685,7 +685,8 @@ namespace {
     // limits or env vars.
     // 2. See the app's output and exit code (if it fails) in `systemctl status`.
     if (!appName.empty()) {
-      const std::string uuid = StringUtils::generateUuid();
+      std::string uuid = StringUtils::generateUuid();
+      std::erase(uuid, '-');
       if (!uuid.empty()) {
         systemdArgs.push_back(std::format("--unit=app-{}@{}.service", escapeSystemdUnitName(appName), uuid));
       }
