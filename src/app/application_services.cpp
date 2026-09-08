@@ -1261,13 +1261,11 @@ void Application::initSystemBusServices() {
     }
     m_configService.addReloadCallback([this]() { m_externalIpService.onConfigReload(); });
 
-    if (m_networkService != nullptr && m_networkService->supportsSecretAgent()) {
-      try {
-        m_networkSecretAgent = std::make_unique<NetworkSecretAgent>(*m_systemBus);
-      } catch (const std::exception& e) {
-        kLog.warn("network secret agent disabled: {}", e.what());
-        m_networkSecretAgent.reset();
-      }
+    try {
+      m_networkSecretAgent = std::make_unique<NetworkSecretAgent>(*m_systemBus);
+    } catch (const std::exception& e) {
+      kLog.warn("network secret agent disabled: {}", e.what());
+      m_networkSecretAgent.reset();
     }
 
     // Initialize iwd secret agent if iwd is the active network service
