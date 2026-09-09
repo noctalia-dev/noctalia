@@ -434,6 +434,14 @@ std::vector<WorkspaceWindow> SwayWorkspaceBackend::workspaceWindows(wl_output* o
   return filtered;
 }
 
+void SwayWorkspaceBackend::focusWindow(const std::string& windowId) {
+  if (m_socketFd < 0 || windowId.empty()) {
+    return;
+  }
+
+  sendMessage(kIpcRunCommand, "[con_id=" + windowId + "] focus");
+}
+
 void SwayWorkspaceBackend::cleanup() {
   if (m_socketFd >= 0) {
     ::close(m_socketFd);
