@@ -23,6 +23,10 @@ namespace app_identity {
 
   [[nodiscard]] bool desktopEntryMatchesLower(const DesktopEntry& entry, std::string_view valueLower);
 
+  // True when another non-hidden desktop entry uses the same StartupWMClass.
+  // Dock window lookup must not use a shared class. That steals focus across origins.
+  [[nodiscard]] bool startupWmClassShared(const DesktopEntry& entry, std::span<const DesktopEntry> allEntries);
+
   // Best-effort lookup by app id / StartupWMClass. Operates on the parsed desktop-entry list,
   // which already excludes hidden/NoDisplay/wrong-desktop entries.
   [[nodiscard]] std::optional<DesktopEntry> findDesktopEntry(

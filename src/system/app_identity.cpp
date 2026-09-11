@@ -131,6 +131,26 @@ namespace app_identity {
     );
   }
 
+  bool startupWmClassShared(const DesktopEntry& entry, std::span<const DesktopEntry> allEntries) {
+    const std::string wm = StringUtils::toLower(entry.startupWmClass);
+    if (wm.empty()) {
+      return false;
+    }
+    const std::string idLower = StringUtils::toLower(entry.id);
+    for (const auto& other : allEntries) {
+      if (other.hidden || other.noDisplay) {
+        continue;
+      }
+      if (StringUtils::toLower(other.id) == idLower) {
+        continue;
+      }
+      if (StringUtils::toLower(other.startupWmClass) == wm) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   std::optional<DesktopEntry> findDesktopEntry(
       std::string_view appKey, std::span<const DesktopEntry> allEntries, std::span<const DesktopEntry> priorityEntries
   ) {
@@ -139,6 +159,20 @@ namespace app_identity {
     }
 
     const std::string appLower = StringUtils::toLower(std::string(appKey));
+
+    // Exact desktop id wins over pinned fuzzy matching. A pinned Flatpak/AppImage
+    // must not claim a running distro window that has its own desktop file.
+    for (const auto& entry : allEntries) {
+      if (StringUtils::toLower(entry.id) == appLower) {
+        return entry;
+      }
+    }
+    for (const auto& entry : priorityEntries) {
+      if (StringUtils::toLower(entry.id) == appLower) {
+        return entry;
+      }
+    }
+
     for (const auto& entry : priorityEntries) {
       if (desktopEntryMatchesLower(entry, appLower)) {
         return entry;

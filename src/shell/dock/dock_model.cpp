@@ -128,6 +128,9 @@ namespace shell::dock {
         dockItem.windowLookupIdLower = dockItem.idLower;
         dockItem.windowLookupWmClassLower = taskbarStyleWmClassLower(entry.startupWmClass, dockItem.idLower);
       }
+      if (app_identity::startupWmClassShared(entry, desktopEntries())) {
+        dockItem.windowLookupWmClassLower.clear();
+      }
 
       dockItem.active = !snapshot.activeAppIdLower.empty() && snapshot.activeAppIdLower == dockItem.idLower;
       if (deps.config.showDots || deps.config.showInstanceCount) {
