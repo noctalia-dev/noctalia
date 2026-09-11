@@ -743,12 +743,15 @@ struct OsdConfig {
 };
 
 struct NotificationConfig {
+  static constexpr std::int32_t kDefaultWidth = 360;
+
   bool enableDaemon = true;
   bool showAppName = true;
   bool showActions = true;
   std::string position = "top_right";
   std::string layer = "top"; // top | overlay
   float scale = 1.0F;
+  std::int32_t width = kDefaultWidth;
   float backgroundOpacity = 0.97F; // toast card background alpha (0.0–1.0)
   bool border = true;              // outline around toast cards
   int offsetX = 20;                // absolute horizontal margin from the screen edge
