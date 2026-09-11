@@ -4,12 +4,15 @@
 #include "theme/builtin_palettes.h"
 #include "util/string_utils.h"
 
+#include <mutex>
 #include <string>
 
 Palette palette = noctalia::theme::findBuiltinPalette("Noctalia")->dark.palette;
 bool g_resolvedThemeLight = false;
 
 namespace {
+
+  std::mutex g_paletteMutex;
 
   std::string normalizedRoleToken(std::string_view token) {
     std::string normalized = StringUtils::trim(token);
@@ -109,11 +112,19 @@ Signal<>& paletteChanged() {
 }
 
 void setPalette(const Palette& p) {
-  if (palette == p) {
-    return;
+  {
+    std::scoped_lock lock(g_paletteMutex);
+    if (palette == p) {
+      return;
+    }
+    palette = p;
   }
-  palette = p;
   paletteChanged().emit();
+}
+
+Color colorForRoleSnapshot(ColorRole role) {
+  std::scoped_lock lock(g_paletteMutex);
+  return colorForRole(role);
 }
 
 Palette lerpPalette(const Palette& a, const Palette& b, float t) {
