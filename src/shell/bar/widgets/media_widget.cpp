@@ -116,7 +116,7 @@ void MediaWidget::doLayout(Renderer& renderer, float containerWidth, float conta
       m_lastPlaybackStatus == "Playing" ? widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface))
                                         : colorSpecFromRole(ColorRole::OnSurfaceVariant)
   );
-  m_emptyGlyph->setGlyph(m_lastPlaybackStatus.empty() ? "disc-filled" : "music-off");
+  m_emptyGlyph->setGlyph(m_lastPlaybackStatus.empty() ? "music-off" : "disc");
   m_emptyGlyph->setGlyphSize(Style::baseGlyphSize * m_contentScale);
   m_emptyGlyph->setColor(colorSpecFromRole(ColorRole::OnSurfaceVariant));
   m_emptyGlyph->measure(renderer);

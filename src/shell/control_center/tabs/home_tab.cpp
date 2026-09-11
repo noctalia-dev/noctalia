@@ -402,7 +402,7 @@ std::unique_ptr<Flex> HomeTab::create() {
            .height = artSize},
           ui::glyph({
               .out = &m_mediaArtFallback,
-              .glyph = "disc-filled",
+              .glyph = "disc",
               .glyphSize = artSize * 0.55F,
               .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
           }),

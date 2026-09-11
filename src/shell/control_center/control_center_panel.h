@@ -123,7 +123,7 @@ private:
   static constexpr std::size_t kTabCount = static_cast<std::size_t>(TabId::Count);
   static constexpr std::array<TabMeta, kTabCount> kTabs{{
       {TabId::Home, "home", "control-center.tabs.home", "home"},
-      {TabId::Media, "media", "control-center.tabs.media", "disc-filled"},
+      {TabId::Media, "media", "control-center.tabs.media", "disc"},
       {TabId::Audio, "audio", "control-center.tabs.audio", "volume"},
       {TabId::Monitor, "monitor", "control-center.tabs.monitor", "device-desktop"},
       {TabId::System, "system", "control-center.tabs.system", "activity-heartbeat"},
