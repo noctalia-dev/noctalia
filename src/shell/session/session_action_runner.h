@@ -26,14 +26,18 @@ public:
   void setPowerConfig(const ShellSessionConfig::ShellSessionPowerConfig& power);
   void invoke(const SessionPanelActionConfig& cfg) const;
   [[nodiscard]] bool lock() const;
-  [[nodiscard]] bool requestSuspendDetached() const;
+  /// `behavior`: `suspend` | `hibernate` | `suspend-then-hibernate`.
+  [[nodiscard]] bool requestSuspendDetached(std::string_view behavior = "suspend") const;
   [[nodiscard]] bool requestRebootDetached() const;
   [[nodiscard]] bool requestShutdownDetached() const;
-  [[nodiscard]] bool lockThenSuspendDetached() const;
+  /// `behavior`: `suspend` | `hibernate` | `suspend-then-hibernate`.
+  [[nodiscard]] bool lockThenSuspendDetached(std::string_view behavior = "suspend") const;
 
 private:
   [[nodiscard]] std::function<bool()> hookFor(std::string_view action) const;
-  [[nodiscard]] bool suspendBlocking() const;
+  // Per-behavior auto-detection cache for the suspend command variant scan.
+  [[nodiscard]] std::optional<std::size_t>& suspendCacheFor(std::string_view behavior) const;
+  [[nodiscard]] bool suspendBlocking(std::string_view behavior = "suspend") const;
   [[nodiscard]] bool rebootBlocking() const;
   [[nodiscard]] bool shutdownBlocking() const;
 
@@ -50,6 +54,8 @@ private:
 
   // Auto-detection cache: where to start scanning fallback variants next time.
   mutable std::optional<std::size_t> m_cachedSuspendAutoStartIdx;
+  mutable std::optional<std::size_t> m_cachedHibernateAutoStartIdx;
+  mutable std::optional<std::size_t> m_cachedSuspendThenHibernateAutoStartIdx;
   mutable std::optional<std::size_t> m_cachedRebootAutoStartIdx;
   mutable std::optional<std::size_t> m_cachedShutdownAutoStartIdx;
 };

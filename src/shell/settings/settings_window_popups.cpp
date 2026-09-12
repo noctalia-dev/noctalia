@@ -821,6 +821,190 @@ void SettingsWindow::openIdleBehaviorCreateEditor() {
   );
 }
 
+void SettingsWindow::openAcIdleBehaviorEntryEditor(std::size_t index) {
+  if (m_wayland == nullptr
+      || m_renderContext == nullptr
+      || m_surface == nullptr
+      || m_surface->xdgSurface() == nullptr
+      || m_config == nullptr) {
+    return;
+  }
+
+  if (m_editorSheetModal != nullptr && m_editorSheetModal->isOpen()) {
+    m_editorSheetModal->close();
+  }
+
+  const Config& cfg = m_config->config();
+  if (index >= cfg.idle.ac.behaviors.size()) {
+    return;
+  }
+
+  if (m_widgetAddPopup != nullptr && m_widgetAddPopup->isOpen()) {
+    m_widgetAddPopup->close();
+  }
+  if (m_searchPickerPopup != nullptr && m_searchPickerPopup->isOpen()) {
+    m_searchPickerPopup->close();
+  }
+
+  if (m_editorSheetModal == nullptr) {
+    m_editorSheetModal = std::make_unique<settings::SettingsSheetModal>();
+    m_editorSheetModal->initialize(m_modalHost, [this]() { dismissOpenSelectDropdown(); });
+  }
+  const float scale = uiScale();
+  const BarConfig* selectedBar = settings::findBar(cfg, m_selectedBarName);
+  const BarMonitorOverride* selectedMonitorOverride = nullptr;
+  if (selectedBar != nullptr && !m_selectedMonitorOverride.empty()) {
+    selectedMonitorOverride = settings::findMonitorOverride(*selectedBar, m_selectedMonitorOverride);
+  }
+
+  auto rowState = std::make_shared<IdleBehaviorConfig>(cfg.idle.ac.behaviors[index]);
+  auto rowKey = std::make_shared<std::string>(rowState->name);
+  normalizeIdleBehaviorAction(*rowState);
+
+  const auto persist = [this, rowState, rowKey, index]() {
+    if (m_config == nullptr) {
+      return;
+    }
+    normalizeIdleBehaviorAction(*rowState);
+    auto next = m_config->config().idle.ac.behaviors;
+    auto target = std::ranges::find(next, *rowKey, &IdleBehaviorConfig::name);
+    if (target == next.end() && index < next.size()) {
+      target = next.begin() + static_cast<std::ptrdiff_t>(index);
+    }
+    if (target == next.end()) {
+      return;
+    }
+    const auto targetIndex = static_cast<std::size_t>(std::distance(next.begin(), target));
+    next[targetIndex] = *rowState;
+    normalizeIdleBehaviorNames(next);
+    *rowState = next[targetIndex];
+    *rowKey = rowState->name;
+    setSettingOverride({"idle", "ac", "behavior"}, next);
+    requestContentRebuild();
+    if (m_editorSheetModal != nullptr && m_editorSheetModal->isOpen()) {
+      m_editorSheetModal->requestLayout();
+    }
+  };
+
+  const auto removeRow = [this, index]() {
+    if (m_config == nullptr) {
+      return;
+    }
+    auto next = m_config->config().idle.ac.behaviors;
+    if (index >= next.size()) {
+      return;
+    }
+    next.erase(next.begin() + static_cast<std::ptrdiff_t>(index));
+    normalizeIdleBehaviorNames(next);
+    setSettingOverride({"idle", "ac", "behavior"}, next);
+    if (m_editorSheetModal != nullptr) {
+      m_editorSheetModal->close();
+    }
+    requestContentRebuild();
+  };
+
+  auto ctx = makeContentContext(cfg, selectedBar, selectedMonitorOverride);
+  ctx.openSessionActionEntryEditor = {};
+  ctx.openAcIdleBehaviorEntryEditor = {};
+  ctx.closeHostedEditor = [this]() {
+    if (m_editorSheetModal != nullptr) {
+      m_editorSheetModal->close();
+    }
+  };
+
+  m_editorSheetModal->open(
+      settings::SettingsSheetRequest{
+          .sheetTitle = idleBehaviorTitle(*rowState),
+          .removeAction = removeRow,
+          .populateSheetBody =
+              [ctx, rowState, persist](Flex& body) mutable {
+                settings::buildIdleBehaviorEntryDetailContent(body, ctx, *rowState, persist);
+              },
+          .scale = scale,
+      }
+  );
+}
+
+void SettingsWindow::openAcIdleBehaviorCreateEditor() {
+  if (m_wayland == nullptr
+      || m_renderContext == nullptr
+      || m_surface == nullptr
+      || m_surface->xdgSurface() == nullptr
+      || m_config == nullptr) {
+    return;
+  }
+
+  if (m_editorSheetModal != nullptr && m_editorSheetModal->isOpen()) {
+    m_editorSheetModal->close();
+  }
+  if (m_widgetAddPopup != nullptr && m_widgetAddPopup->isOpen()) {
+    m_widgetAddPopup->close();
+  }
+  if (m_searchPickerPopup != nullptr && m_searchPickerPopup->isOpen()) {
+    m_searchPickerPopup->close();
+  }
+
+  if (m_editorSheetModal == nullptr) {
+    m_editorSheetModal = std::make_unique<settings::SettingsSheetModal>();
+    m_editorSheetModal->initialize(m_modalHost, [this]() { dismissOpenSelectDropdown(); });
+  }
+
+  const Config& cfg = m_config->config();
+  const float scale = uiScale();
+  const BarConfig* selectedBar = settings::findBar(cfg, m_selectedBarName);
+  const BarMonitorOverride* selectedMonitorOverride = nullptr;
+  if (selectedBar != nullptr && !m_selectedMonitorOverride.empty()) {
+    selectedMonitorOverride = settings::findMonitorOverride(*selectedBar, m_selectedMonitorOverride);
+  }
+
+  auto rowState = std::make_shared<IdleBehaviorConfig>(IdleBehaviorConfig{
+      .name = "idle-behavior",
+      .enabled = false,
+      .timeoutSeconds = 600,
+      .action = "command",
+      .command = "",
+      .resumeCommand = "",
+  });
+
+  const auto persistDraft = [this]() {
+    if (m_editorSheetModal != nullptr && m_editorSheetModal->isOpen()) {
+      m_editorSheetModal->requestLayout();
+    }
+  };
+
+  auto ctx = makeContentContext(cfg, selectedBar, selectedMonitorOverride);
+  ctx.openSessionActionEntryEditor = {};
+  ctx.openAcIdleBehaviorEntryEditor = {};
+  ctx.afterIdleBehaviorApply = [this, rowState]() {
+    if (m_config == nullptr) {
+      return;
+    }
+    normalizeIdleBehaviorAction(*rowState);
+    auto next = m_config->config().idle.ac.behaviors;
+    next.push_back(*rowState);
+    normalizeIdleBehaviorNames(next);
+    setSettingOverride({"idle", "ac", "behavior"}, next);
+    requestContentRebuild();
+  };
+  ctx.closeHostedEditor = [this]() {
+    if (m_editorSheetModal != nullptr) {
+      m_editorSheetModal->close();
+    }
+  };
+
+  m_editorSheetModal->open(
+      settings::SettingsSheetRequest{
+          .sheetTitle = idleBehaviorTitle(*rowState),
+          .removeAction = nullptr,
+          .populateSheetBody =
+              [ctx, rowState, persistDraft](Flex& body) mutable {
+                settings::buildIdleBehaviorEntryDetailContent(body, ctx, *rowState, persistDraft);
+              },
+          .scale = scale,
+      }
+  );
+}
+
 void SettingsWindow::openNotificationFilterEntryEditor(std::size_t index) {
   if (m_wayland == nullptr
       || m_renderContext == nullptr

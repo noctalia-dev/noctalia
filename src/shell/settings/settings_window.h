@@ -190,6 +190,8 @@ private:
   void syncSessionActionInlineSummary(std::size_t index, const SessionPanelActionConfig& row);
   void openIdleBehaviorEntryEditor(std::size_t index);
   void openIdleBehaviorCreateEditor();
+  void openAcIdleBehaviorEntryEditor(std::size_t index);
+  void openAcIdleBehaviorCreateEditor();
   void openNotificationFilterEntryEditor(std::size_t index);
   void openNotificationFilterCreateEditor();
   void openCalendarAccountEditor(std::optional<std::string> accountId);

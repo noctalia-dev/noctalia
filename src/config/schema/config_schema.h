@@ -29,6 +29,7 @@ namespace noctalia::config::schema {
   const Schema<KeybindsConfig>& keybindsSchema();
   const Schema<HooksConfig>& hooksSchema();
   const Schema<IdleConfig>& idleSchema();
+  const Schema<AcIdleConfig>& acIdleSchema();
   const Schema<WallpaperConfig>& wallpaperSchema();
   const Schema<ThemeConfig>& themeSchema();
   // Parses a name-keyed [custom_colors] map (bare string or { color, color_dark,
