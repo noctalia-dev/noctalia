@@ -2,6 +2,9 @@
 
 #include "compositors/compositor_platform.h"
 #include "i18n/i18n.h"
+#include "system/app_identity.h"
+#include "system/desktop_entry.h"
+#include "system/internal_app_metadata.h"
 #include "util/fuzzy_match.h"
 #include "util/string_utils.h"
 
@@ -21,6 +24,28 @@ namespace {
     std::string title;
     std::string searchable;
   };
+
+  // Mirror the taskbar / dock / active window / window switcher icon lookup: a
+  // Wayland app id (e.g. "dev.zed.Zed") is rarely a valid icon theme name, so
+  // resolve it to a desktop entry and use its Icon key, then fall back to the
+  // raw app id. Without this the launcher shows the generic window glyph for
+  // apps whose app id and icon name differ.
+  void assignWindowIcon(LauncherResult& result, const std::string& appId) {
+    if (appId.empty()) {
+      return;
+    }
+    if (const auto internal = internal_apps::metadataForAppId(appId);
+        internal.has_value() && !internal->iconPath.empty()) {
+      result.iconPath = internal->iconPath;
+      return;
+    }
+    if (const auto entry = app_identity::findDesktopEntry(appId, desktopEntries());
+        entry.has_value() && !entry->icon.empty()) {
+      result.iconName = entry->icon;
+      return;
+    }
+    result.iconName = appId;
+  }
 
   [[nodiscard]] std::vector<WindowCandidate> collectWindows(const CompositorPlatform* platform) {
     std::vector<WindowCandidate> candidates;
@@ -65,7 +90,7 @@ std::vector<LauncherResult> WindowProvider::query(std::string_view text) const {
     result.id = candidate.window.windowId;
     result.title = candidate.title;
     result.subtitle = candidate.window.appId;
-    result.iconName = candidate.window.appId;
+    assignWindowIcon(result, candidate.window.appId);
     result.glyphName = "app-window";
     result.score = score;
     return result;
