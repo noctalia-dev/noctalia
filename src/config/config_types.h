@@ -224,6 +224,7 @@ struct SessionPanelActionConfig {
   std::optional<std::string> glyph = std::nullopt;
   SessionActionButtonVariant variant = SessionActionButtonVariant::Default;
   std::optional<KeyChord> shortcut = std::nullopt;
+  std::optional<bool> hideOnLockScreen = std::nullopt;
   /// When > 0, the action arms a countdown (seconds) before running; activate again to confirm immediately.
   double countdownSeconds = 0.0;
 
