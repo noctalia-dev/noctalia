@@ -8,6 +8,7 @@
 #include "render/core/texture_manager.h"
 #include "render/scene/input_dispatcher.h"
 #include "render/scene/node.h"
+#include "shell/lockscreen/animated_webp_background.h"
 #include "shell/lockscreen/lockscreen_login_box.h"
 #include "wayland/surface.h"
 
@@ -104,6 +105,10 @@ private:
 
   void prepareFrame(bool needsUpdate, bool needsLayout);
   void applyWallpaperTexture();
+  [[nodiscard]] bool applyAnimatedWallpaper();
+  void onAnimatedBackgroundFrame();
+  void onAnimatedBackgroundFailed();
+  [[nodiscard]] static bool pathLooksLikeWebp(const std::string& path);
   void applyBlurredDesktopTexture();
   void releaseWallpaperTextureRef(const std::string& path);
   void releaseCaptureTextures();
@@ -170,6 +175,10 @@ private:
   bool m_captureDirty = true;
   std::string m_wallpaperPath;
   std::string m_textureWallpaperPath;
+  AnimatedWebpBackground m_animatedBackground;
+  // Path already ruled out as a still (non-animated) WebP, so applyWallpaperTexture
+  // does not re-probe the file every frame before falling back to the static path.
+  std::string m_animatedBackgroundRuledOut;
   WallpaperFillMode m_wallpaperFillMode = WallpaperFillMode::Crop;
   Color m_wallpaperFillColor = rgba(0.0F, 0.0F, 0.0F, 0.0F);
   bool m_wallpaperDirty = false;

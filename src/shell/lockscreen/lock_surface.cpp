@@ -547,6 +547,7 @@ LockSurface::LockSurface(WaylandConnection& connection, ConfigService* config) :
 
 LockSurface::~LockSurface() {
   m_aliveGuard.reset();
+  m_animatedBackground.stop(); // release the streaming texture while the render context is still valid
   releaseCaptureTextures();
   if (m_wallpaperTexture.id != 0) {
     releaseWallpaperTextureRef(m_textureWallpaperPath);
@@ -761,6 +762,9 @@ void LockSurface::setBlackout(bool blackout) {
   m_blackout = blackout;
   if (m_blackout) {
     m_inputDispatcher.setFocus(nullptr);
+    m_animatedBackground.pause(); // stop decoding while the output is blanked (DPMS)
+  } else {
+    m_animatedBackground.resume();
   }
   requestLayout();
 }
@@ -1636,15 +1640,109 @@ void LockSurface::releaseWallpaperTextureRef(const std::string& path) {
   }
 }
 
+bool LockSurface::pathLooksLikeWebp(const std::string& path) { return StringUtils::toLower(path).ends_with(".webp"); }
+
+// Streams the wallpaper as an animated WebP when the configured path is one.
+// Returns true when the animated background owns the wallpaper node; false tells
+// the caller to fall through to the static image/color path.
+bool LockSurface::applyAnimatedWallpaper() {
+  const bool wantAnimated = pathLooksLikeWebp(m_wallpaperPath);
+
+  // Navigated away from a running clip (to a different path or a still image):
+  // tear the player down and clear the node so the static path can take over.
+  if (m_animatedBackground.active() && (!wantAnimated || m_animatedBackground.path() != m_wallpaperPath)) {
+    m_animatedBackground.stop();
+    if (m_wallpaper != nullptr) {
+      m_wallpaper->setTextures({}, {}, 0.0F, 0.0F, 0.0F, 0.0F);
+    }
+  }
+
+  if (!wantAnimated || renderContext() == nullptr) {
+    return false;
+  }
+  if (m_animatedBackground.active() && m_animatedBackground.path() == m_wallpaperPath) {
+    return true; // already streaming this clip
+  }
+  if (m_animatedBackgroundRuledOut == m_wallpaperPath) {
+    return false; // known still WebP -> static path
+  }
+
+  // Release any static wallpaper textures before switching the node to streaming.
+  renderContext()->backend().makeCurrentNoSurface();
+  if (m_wallpaperTexture.id != 0) {
+    releaseWallpaperTextureRef(m_textureWallpaperPath); // also zeroes m_wallpaperTexture + clears the path
+  }
+  if (m_blurredWallpaperTexture.id != 0) {
+    renderContext()->textureManager().unload(m_blurredWallpaperTexture);
+    m_blurredWallpaperTexture = {};
+  }
+
+  switch (m_animatedBackground.start(
+      *renderContext(), m_wallpaperPath, [this] { onAnimatedBackgroundFrame(); },
+      [this] { onAnimatedBackgroundFailed(); }
+  )) {
+  case AnimatedWebpBackground::StartResult::Started:
+    m_animatedBackgroundRuledOut.clear();
+    // Apply the node's fill/transition once, now that the first frame is bound;
+    // these are CPU-side node fields that survive later in-place texture updates.
+    m_wallpaper->setTransition(WallpaperTransition::Fade, 0.0F, TransitionParams{});
+    m_wallpaper->setFillMode(m_wallpaperFillMode);
+    m_wallpaper->setFillColor(m_wallpaperFillColor);
+    return true;
+  case AnimatedWebpBackground::StartResult::NotAnimated:
+    // A still/broken/oversized WebP: remember it so we don't re-probe every frame,
+    // and let the static image path take over.
+    m_animatedBackgroundRuledOut = m_wallpaperPath;
+    return false;
+  case AnimatedWebpBackground::StartResult::TransientFailure:
+    // Readable but not ready (e.g. mid graphics-reset); leave m_wallpaperDirty so
+    // the next frame retries, and do NOT rule the path out.
+    return false;
+  }
+  return false;
+}
+
+// Invoked after each streamed frame is uploaded. Rebinding is idempotent:
+// WallpaperNode::setSources no-ops when the texture id/size are unchanged, and a
+// texture recreated after a GPU reset has a new id, so it rebinds naturally.
+void LockSurface::onAnimatedBackgroundFrame() {
+  if (m_wallpaper != nullptr) {
+    const TextureHandle texture = m_animatedBackground.texture();
+    m_wallpaper->setTextures(
+        texture.id, {}, static_cast<float>(texture.width), static_cast<float>(texture.height), 0.0F, 0.0F
+    );
+  }
+  requestRedraw();
+}
+
+// Invoked once if streaming stops on a mid-clip decode error. The streaming
+// texture is already gone, so drop the node's now-stale reference (a freed GL
+// name can be recycled to another shell texture and leak on screen behind the
+// lock) and fall back to the static first-frame path.
+void LockSurface::onAnimatedBackgroundFailed() {
+  if (m_wallpaper != nullptr) {
+    m_wallpaper->setTextures({}, {}, 0.0F, 0.0F, 0.0F, 0.0F);
+  }
+  m_animatedBackgroundRuledOut = m_wallpaperPath; // corrupt stream -> don't restart-thrash
+  m_wallpaperDirty = true;
+  requestLayout();
+}
+
 void LockSurface::applyWallpaperTexture() {
   if (m_desktopCapture.has_value() && !m_desktopCapture->rgba.empty()) {
     applyBlurredDesktopTexture();
     if (m_blurredDesktopTexture.id != 0) {
+      m_animatedBackground.stop(); // the blurred-desktop capture owns the node now
       return;
     }
   }
 
   if (!m_wallpaperDirty) {
+    return;
+  }
+
+  if (applyAnimatedWallpaper()) {
+    m_wallpaperDirty = false;
     return;
   }
 
@@ -1812,7 +1910,11 @@ void LockSurface::applyBlurredDesktopTexture() {
 void LockSurface::onGpuResourcesInvalidated() {
   releaseCaptureTextures();
 
-  if (!m_wallpaperPath.empty() && m_textureCache != nullptr) {
+  if (m_animatedBackground.active()) {
+    // Recreate the streaming texture and re-upload the current frame; the rebind
+    // is picked up via consumeRebind() in onAnimatedBackgroundFrame().
+    m_animatedBackground.kick();
+  } else if (!m_wallpaperPath.empty() && m_textureCache != nullptr) {
     if (m_textureCache->shared()) {
       m_wallpaperTexture = m_textureCache->peek(m_wallpaperPath);
     } else if (renderContext() != nullptr) {
@@ -1829,6 +1931,7 @@ void LockSurface::onGpuResourcesInvalidated() {
 }
 
 void LockSurface::prepareForGraphicsReset() noexcept {
+  m_animatedBackground.invalidateGpu();
   m_blurCache.abandon();
   m_wallpaperBlurCache.abandon();
   m_wallpaperTexture = {};
