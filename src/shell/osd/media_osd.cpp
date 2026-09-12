@@ -23,7 +23,7 @@ namespace {
     const std::string artist = joinedArtists(player.artists);
     return OsdContent{
         .kind = OsdKind::Media,
-        .icon = "disc-filled",
+        .icon = "disc",
         .value = artist.empty() ? player.title : player.title + " — " + artist,
         .showProgress = false,
     };
@@ -36,7 +36,7 @@ namespace {
     const std::string level = std::to_string(percent) + "%";
     return OsdContent{
         .kind = OsdKind::Media,
-        .icon = "disc-filled",
+        .icon = "disc",
         .value = playerName.empty() ? level : playerName + " — " + level,
         .showProgress = false,
         .overLimit = percent > 100,
