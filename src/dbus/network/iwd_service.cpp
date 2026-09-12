@@ -343,7 +343,6 @@ bool IwdService::activateAccessPoint(const AccessPointInfo& ap, const std::strin
 void IwdService::setWirelessEnabled(bool enabled, WirelessEnabledCompletion onComplete) {
   const bool softBlocked = !enabled;
   bool rfkillDone = false;
-  bool hardBlocked = false;
   for (const auto& [stationPath, ifname] : m_deviceNames) {
     (void)stationPath;
     if (ifname.empty()) {
@@ -351,10 +350,7 @@ void IwdService::setWirelessEnabled(bool enabled, WirelessEnabledCompletion onCo
     }
     const RfkillSwitchResult result = setRfkillSoftBlockedForNetInterface(ifname, softBlocked);
     if (result.hardBlocked) {
-      kLog.warn("setWirelessEnabled: rfkill hard block on {}", ifname);
-      hardBlocked = enabled;
-      rfkillDone = !enabled;
-      break;
+      kLog.warn("setWirelessEnabled: rfkill reports a hard block on {}", ifname);
     }
     if (result.success) {
       rfkillDone = true;
@@ -365,10 +361,9 @@ void IwdService::setWirelessEnabled(bool enabled, WirelessEnabledCompletion onCo
   if (!rfkillDone) {
     const RfkillSwitchResult fallback = setRfkillSoftBlocked(RfkillDeviceType::Wlan, softBlocked);
     if (fallback.hardBlocked) {
-      kLog.warn("setWirelessEnabled: wlan rfkill hard block is active");
-      hardBlocked = enabled;
-      rfkillDone = !enabled;
-    } else if (fallback.success) {
+      kLog.warn("setWirelessEnabled: wlan rfkill reports a hard block");
+    }
+    if (fallback.success) {
       rfkillDone = true;
     } else if (!fallback.detail.empty()) {
       kLog.debug("setWirelessEnabled: wlan rfkill fallback: {}", fallback.detail);
@@ -389,7 +384,7 @@ void IwdService::setWirelessEnabled(bool enabled, WirelessEnabledCompletion onCo
 
   refresh();
   if (onComplete) {
-    onComplete(!hardBlocked && (rfkillDone || poweredUpdated));
+    onComplete(rfkillDone || poweredUpdated);
   }
 }
 

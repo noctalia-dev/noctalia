@@ -58,7 +58,6 @@ struct BluetoothState {
   bool powered = false;
   /// rfkill soft block (e.g. GDM/GNOME login screen) prevents powering on until cleared.
   bool rfkillSoftBlocked = false;
-  bool rfkillHardBlocked = false;
   bool discoverable = false;
   bool pairable = false;
   bool discovering = false;
