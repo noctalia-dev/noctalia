@@ -286,6 +286,7 @@ struct PolkitAgent::Impl {
 
   bool responseRequired = false;
   bool responseVisible = false;
+  bool faceConfirmationPending = false;
   std::string inputPrompt;
   std::string supplementaryMessage;
   bool supplementaryError = false;
@@ -481,6 +482,7 @@ struct PolkitAgent::Impl {
   void clearConversationState() {
     responseRequired = false;
     responseVisible = false;
+    faceConfirmationPending = false;
     inputPrompt.clear();
     supplementaryMessage.clear();
     supplementaryError = false;
@@ -580,6 +582,18 @@ struct PolkitAgent::Impl {
   }
 
   void handleRequest(const std::string& prompt, bool echoOn) {
+    static constexpr auto kGazeConfirmationPrompt = "GAZE_CONFIRMATION_REQUEST";
+    if (prompt == kGazeConfirmationPrompt && session != nullptr) {
+      kLog.info("face authentication verified; awaiting user confirmation");
+      faceConfirmationPending = true;
+      responseRequired = true;
+      inputPrompt = i18n::tr("auth.face.confirm-action");
+      supplementaryMessage.clear();
+      supplementaryError = false;
+      emitStateChanged();
+      return;
+    }
+    faceConfirmationPending = false;
     inputPrompt = prompt.empty() ? i18n::tr("auth.polkit.default-message") : prompt;
     responseVisible = echoOn;
     responseRequired = true;
@@ -617,6 +631,7 @@ struct PolkitAgent::Impl {
 
     responseRequired = false;
     responseVisible = false;
+    faceConfirmationPending = false;
     inputPrompt.clear();
     supplementaryMessage = i18n::tr("auth.polkit.invalid-password");
     supplementaryError = true;
@@ -638,6 +653,20 @@ struct PolkitAgent::Impl {
 
   void submitResponse(const std::string& response) {
     if (pending == nullptr || session == nullptr || !responseRequired) {
+      return;
+    }
+    if (faceConfirmationPending) {
+      kLog.info("user confirmed face authentication");
+      polkit_agent_session_response(session, "CONFIRM");
+      faceConfirmationPending = false;
+      responseRequired = false;
+      inputPrompt.clear();
+      supplementaryMessage = i18n::tr("auth.polkit.authenticating");
+      supplementaryError = false;
+      emitStateChanged();
+      while (g_main_context_pending(context)) {
+        g_main_context_iteration(context, FALSE);
+      }
       return;
     }
     // Empty responses make pam_unix report "conversation failed" / "auth could not identify password".
@@ -815,3 +844,7 @@ std::string PolkitAgent::supplementaryMessage() const {
 }
 
 bool PolkitAgent::supplementaryIsError() const noexcept { return m_impl != nullptr && m_impl->supplementaryError; }
+
+bool PolkitAgent::isFaceConfirmationPending() const noexcept {
+  return m_impl != nullptr && m_impl->faceConfirmationPending;
+}
