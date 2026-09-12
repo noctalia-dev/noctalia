@@ -51,6 +51,8 @@ void DesktopMediaPlayerWidget::create() {
       .fontWeight = FontWeight::Bold,
       .color = m_color,
       .maxLines = 1,
+      .autoScroll = true,
+      .autoScrollSpeed = 15.0F,
   });
   rootNode->addChild(std::move(title));
 
