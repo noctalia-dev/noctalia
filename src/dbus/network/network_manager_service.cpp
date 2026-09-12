@@ -362,7 +362,7 @@ bool NetworkManagerService::activateAccessPoint(const AccessPointInfo& ap) {
             }
             if (err.has_value()) {
               kLog.debug("ActivateConnection(/) failed for ssid={}: {}; trying AddAndActivate", ap.ssid, err->what());
-              if (!ap.secured) {
+              if (!ap.requiresPsk()) {
                 addAndActivateAccessPoint(ap, std::nullopt);
               } else {
                 m_emitOnNextRefresh = true;
@@ -380,7 +380,7 @@ bool NetworkManagerService::activateAccessPoint(const AccessPointInfo& ap) {
     }
   }
 
-  if (ap.secured) {
+  if (ap.requiresPsk()) {
     return false;
   }
   return addAndActivateAccessPoint(ap, std::nullopt);
@@ -393,7 +393,7 @@ bool NetworkManagerService::activateAccessPoint(const AccessPointInfo& ap, const
   if (ap.active) {
     return true;
   }
-  if (ap.secured && psk.empty()) {
+  if (ap.requiresPsk() && psk.empty()) {
     return false;
   }
   // An 802.1X AP has no pre-shared key to accept. Falling through would build a
@@ -438,9 +438,10 @@ bool NetworkManagerService::addAndActivateAccessPoint(
   ConnectionSettings settings;
   if (ap.secured) {
     // Minimal secured-wifi settings — NM fills in ssid from the specific_object.
+    // OWE uses key-mgmt owe with no psk (Enhanced Open is passwordless).
     settings["802-11-wireless-security"]["key-mgmt"] =
         sdbus::Variant{std::string(network_manager_security::keyManagementName(ap.keyManagement))};
-    if (psk.has_value()) {
+    if (psk.has_value() && ap.keyManagement != network_manager_security::KeyManagement::Owe) {
       settings["802-11-wireless-security"]["psk"] = sdbus::Variant{*psk};
     }
     if (credentials.has_value()) {
