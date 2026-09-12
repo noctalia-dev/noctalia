@@ -67,6 +67,7 @@ struct BarMonitorOverride {
   std::optional<bool> enabled;
   std::optional<bool> autoHide;
   std::optional<bool> smartAutoHide;
+  std::optional<bool> autoHideReserveSpace;
   std::optional<bool> showOnWorkspaceSwitch;
   std::optional<bool> reserveSpace;
   std::optional<std::string> layer; // top | overlay
@@ -133,6 +134,7 @@ struct BarConfig {
   bool enabled = true;
   bool autoHide = false;             // slide out when the pointer leaves; reveal on edge approach
   bool smartAutoHide = false;        // hide while the active workspace has windows; show when it is empty
+  bool autoHideReserveSpace = false; // with auto_hide/smart_auto_hide: reserve layout only while the bar is visible
   bool showOnWorkspaceSwitch = true; // with auto_hide: briefly reveal when the active workspace changes
 
   [[nodiscard]] constexpr bool isAutoHideEnabled() const noexcept { return autoHide || smartAutoHide; }
