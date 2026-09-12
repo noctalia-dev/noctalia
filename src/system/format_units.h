@@ -6,6 +6,9 @@
 
 namespace FormatUnits {
 
+  inline constexpr int kMinCompactByteRateDecimalPlaces = 0;
+  inline constexpr int kMaxCompactByteRateDecimalPlaces = 3;
+
   enum class DecimalByteRateUnit {
     Auto,
     Kilobytes,
@@ -25,7 +28,7 @@ namespace FormatUnits {
   [[nodiscard]] DecimalByteRateUnit decimalByteRateUnitFromString(std::string_view value);
   [[nodiscard]] std::string formatDecimalBytesPerSecond(
       double bytesPerSec, DecimalByteRateUnit unit = DecimalByteRateUnit::Auto,
-      ByteRateLabelStyle labelStyle = ByteRateLabelStyle::Full
+      ByteRateLabelStyle labelStyle = ByteRateLabelStyle::Full, int compactDecimalPlaces = 1
   );
 
 } // namespace FormatUnits

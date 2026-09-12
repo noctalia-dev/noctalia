@@ -59,6 +59,7 @@ public:
     std::string networkInterface;
     FormatUnits::DecimalByteRateUnit networkSpeedUnit = FormatUnits::DecimalByteRateUnit::Auto;
     bool networkSpeedCompact = false;
+    int networkSpeedDecimalPlaces = 1;
     SysmonVisualization visualization = SysmonVisualization::Gauge;
     ColorSpec highlightColor = colorSpecFromRole(ColorRole::Error);
     bool showGlyph = true;
@@ -115,6 +116,7 @@ private:
   std::string m_networkInterface;
   FormatUnits::DecimalByteRateUnit m_networkSpeedUnit = FormatUnits::DecimalByteRateUnit::Auto;
   FormatUnits::ByteRateLabelStyle m_networkSpeedLabelStyle = FormatUnits::ByteRateLabelStyle::Full;
+  int m_networkSpeedDecimalPlaces = 1;
   std::string m_glyphOverride;
   WidgetCustomImage m_customImage;
   bool m_showUnits;
