@@ -1372,6 +1372,7 @@ namespace noctalia::config::schema {
           field(&ShellConfig::LauncherConfig::sortByUsage, "sort_by_usage"),
           field(&ShellConfig::LauncherConfig::pinned, "pinned"),
           field(&ShellConfig::LauncherConfig::fetchExchangeRates, "fetch_exchange_rates"),
+          field(&ShellConfig::LauncherConfig::lineEditing, "line_editing"),
           field(&ShellConfig::LauncherConfig::providerPrefix, "provider_prefix"),
           enumField(&ShellConfig::LauncherConfig::autoPaste, "auto_paste", kClipboardAutoPasteModes),
           subTable(&ShellConfig::LauncherConfig::dmenu, "dmenu", shellLauncherDmenuSchema()),
