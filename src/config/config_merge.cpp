@@ -7,7 +7,9 @@
 #include <algorithm>
 #include <format>
 #include <set>
+#include <sstream>
 #include <system_error>
+#include <type_traits>
 #include <utility>
 
 namespace noctalia::config {
@@ -144,6 +146,72 @@ namespace noctalia::config {
       return expandFile(path, parsed, visited, out);
     }
 
+    // Canonical textual form of a scalar/array leaf, used only for equality
+    // comparison between the two merge layers (formatting quirks do not matter
+    // as long as both sides go through the same serializer).
+    void appendLeafValue(const toml::node& node, std::string& out) {
+      node.visit([&out](const auto& value) {
+        using Value = std::decay_t<decltype(value)>;
+        if constexpr (std::is_same_v<Value, toml::table>) {
+          out += "<table>";
+        } else if constexpr (std::is_same_v<Value, toml::array>) {
+          out += '[';
+          bool first = true;
+          for (const auto& element : value) {
+            if (!first) {
+              out += ',';
+            }
+            first = false;
+            appendLeafValue(element, out);
+          }
+          out += ']';
+        } else {
+          std::ostringstream stream;
+          stream << value;
+          out += stream.str();
+        }
+      });
+    }
+
+    [[nodiscard]] bool leafValuesDiffer(const toml::node& base, const toml::node& overlay) {
+      std::string baseValue;
+      std::string overlayValue;
+      appendLeafValue(base, baseValue);
+      appendLeafValue(overlay, overlayValue);
+      return baseValue != overlayValue;
+    }
+
+    // Dotted paths of every key that exists in both tables (recursively) where
+    // the overlay entry replaces the base entry with a different value. A
+    // table-vs-scalar kind change replaces the whole subtree, so it counts as
+    // one shadowed key at that path. Keys present only in `overlay` are
+    // intentional overrides and are skipped.
+    void collectShadowedKeys(
+        const toml::table& base, const toml::table& overlay, std::string& path, std::vector<std::string>& out
+    ) {
+      for (const auto& [key, overlayNode] : overlay) {
+        const toml::node* baseNode = base.get(key);
+        if (baseNode == nullptr) {
+          continue;
+        }
+        const std::size_t pathLength = path.size();
+        if (!path.empty()) {
+          path += '.';
+        }
+        path += key.str();
+        if (const auto* overlayTable = overlayNode.as_table(); overlayTable != nullptr) {
+          if (const auto* baseTable = baseNode->as_table(); baseTable != nullptr) {
+            collectShadowedKeys(*baseTable, *overlayTable, path, out);
+          } else {
+            out.push_back(path);
+          }
+        } else if (baseNode->is_table() || leafValuesDiffer(*baseNode, overlayNode)) {
+          out.push_back(path);
+        }
+        path.resize(pathLength);
+      }
+    }
+
   } // namespace
 
   MergeResult mergeConfigWithIncludes(std::string_view configDir) {
@@ -189,6 +257,41 @@ namespace noctalia::config {
     }
 
     return out;
+  }
+
+  void
+  collectShadowedPlacementOverrides(const toml::table& base, const toml::table& overlay, schema::Diagnostics& diag) {
+    constexpr std::size_t kMaxWarnings = 24;
+    constexpr std::string_view kMessage =
+        "overridden by state-dir settings.toml (where the widget editor and placement remaps save state); "
+        "the value in the config directory is ignored";
+
+    std::vector<std::string> shadowed;
+    for (std::string_view section : {"desktop_widgets", "lockscreen_widgets"}) {
+      const auto* overlaySection = overlay.get(section);
+      const auto* baseSection = base.get(section);
+      if (overlaySection == nullptr || baseSection == nullptr) {
+        continue;
+      }
+      const auto* overlaySectionTable = overlaySection->as_table();
+      const auto* baseSectionTable = baseSection->as_table();
+      if (overlaySectionTable == nullptr || baseSectionTable == nullptr) {
+        continue;
+      }
+      std::string path{section};
+      collectShadowedKeys(*baseSectionTable, *overlaySectionTable, path, shadowed);
+    }
+    const std::size_t reported = std::min(shadowed.size(), kMaxWarnings);
+    for (std::size_t i = 0; i < reported; ++i) {
+      diag.warn(std::move(shadowed[i]), std::string{kMessage}, "config.shadowed-override");
+    }
+    if (shadowed.size() > kMaxWarnings) {
+      diag.warn(
+          "desktop_widgets",
+          std::format("+{} more keys overridden by state-dir settings.toml", shadowed.size() - kMaxWarnings),
+          "config.shadowed-override"
+      );
+    }
   }
 
 } // namespace noctalia::config
