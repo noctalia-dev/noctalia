@@ -33,6 +33,9 @@ namespace noctalia::theme {
     // first request of the burst.
     constexpr auto kRequestQuietWindow = std::chrono::milliseconds(100);
     constexpr auto kMaxRequestDeferral = std::chrono::milliseconds(500);
+    // How long a synchronous hook may keep running after shutdown is requested before it is
+    // terminated. Long enough for a normal hook to finish writing an application's config.
+    constexpr auto kShutdownHookGrace = std::chrono::seconds(5);
 
     std::filesystem::path builtinTemplateConfigPath() { return paths::assetPath("templates/builtin.toml"); }
 
@@ -163,19 +166,32 @@ namespace noctalia::theme {
 
   TemplateApplyService::TemplateApplyService(ConfigService& config)
       : m_config(config), m_hookRunner(std::make_unique<HookRunner>()) {
-    m_worker = std::thread([this]() { workerLoop(); });
+    m_worker = std::thread([this]() {
+      workerLoop();
+      {
+        std::scoped_lock lock(m_mutex);
+        m_workerDone = true;
+      }
+      m_cv.notify_all();
+    });
   }
 
   TemplateApplyService::~TemplateApplyService() {
-    {
-      std::scoped_lock lock(m_mutex);
-      m_shutdown = true;
-      m_pendingRequest.reset();
-    }
-    m_cv.notify_one();
     // The worker may be draining hooks; drop the backlog so shutdown waits only for
     // the hooks already running.
     m_hookRunner->requestShutdown();
+    {
+      std::unique_lock lock(m_mutex);
+      m_shutdown = true;
+      m_pendingRequest.reset();
+      m_cv.notify_all();
+      // A synchronous hook is not interruptible and has no timeout, so join() alone would
+      // hang the quit for as long as the hook runs. Give it a grace period, then kill it.
+      if (!m_cv.wait_for(lock, kShutdownHookGrace, [this]() { return m_workerDone; })) {
+        kLog.warn("a template hook is still running after {}s; terminating it", kShutdownHookGrace.count());
+        m_hookCancel->store(true);
+      }
+    }
     if (m_worker.joinable()) {
       m_worker.join();
     }
@@ -300,6 +316,7 @@ namespace noctalia::theme {
     options.configTable = request.configTable;
     options.hookRunner = &hookRunner;
     options.generation = request.generation;
+    options.hookCancel = m_hookCancel;
 
     TemplateEngine engine(TemplateEngine::makeThemeData(request.palette), options);
 

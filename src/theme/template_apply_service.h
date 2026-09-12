@@ -4,6 +4,7 @@
 #include "core/toml.h" // IWYU pragma: keep
 #include "theme/palette.h"
 
+#include <atomic>
 #include <condition_variable>
 #include <cstdint>
 #include <functional>
@@ -85,11 +86,15 @@ namespace noctalia::theme {
     mutable std::thread m_worker;
     mutable std::uint64_t m_nextGeneration = 0;
     mutable bool m_shutdown = false;
+    mutable bool m_workerDone = false;
     mutable bool m_inFlight = false;
     mutable std::function<void(std::string_view appliedMode, bool paletteChanged)> m_afterApplyCallback;
     // A palette change has been reported to apply() and not yet passed on to the handler.
     mutable bool m_paletteChangedOwed = false;
     mutable std::unique_ptr<HookRunner> m_hookRunner;
+    // Raised when a synchronous hook outlives the shutdown grace period, so quitting cannot
+    // be held up forever by a hook that never exits.
+    std::shared_ptr<std::atomic<bool>> m_hookCancel = std::make_shared<std::atomic<bool>>(false);
   };
 
 } // namespace noctalia::theme

@@ -62,6 +62,7 @@ namespace process {
   // that worker. Output chunk views are valid only for the callback call.
   [[nodiscard]] bool runAsync(const std::string& command, RunCallbacks callbacks, RunOptions options = {});
   [[nodiscard]] RunResult runSync(const std::string& command);
+  [[nodiscard]] RunResult runSync(const std::string& command, RunOptions options);
 
   // Arg vector — direct execvp; same detach semantics as runAsync(string). When activationToken is
   // non-empty, the grandchild sets XDG_ACTIVATION_TOKEN and DESKTOP_STARTUP_ID (launcher).

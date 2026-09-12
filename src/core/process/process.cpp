@@ -957,6 +957,12 @@ namespace process {
     return runSync(std::vector<std::string>{"/bin/sh", "-lc", command});
   }
 
+  RunResult runSync(const std::string& command, RunOptions options) {
+    if (command.empty())
+      return {-1, {}, {}};
+    return runSync(std::vector<std::string>{"/bin/sh", "-lc", command}, std::move(options));
+  }
+
   bool launchFirstAvailable(std::initializer_list<std::initializer_list<const char*>> commandVariants) {
     for (const auto& variant : commandVariants) {
       const auto command = makeCommand(variant);
