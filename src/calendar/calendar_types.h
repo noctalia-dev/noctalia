@@ -1,6 +1,7 @@
 #pragma once
 
 #include <chrono>
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -16,6 +17,11 @@ struct CalendarEvent {
   std::chrono::system_clock::time_point start;
   std::chrono::system_clock::time_point end;
   bool allDay = false;
+  // Reminder lead times before `start`, in seconds; sorted ascending, deduplicated, 0 = at start.
+  // Absolute VALARM triggers and RELATED=END triggers are normalized to a start-relative lead at
+  // parse time, so recurrence-expanded instances inherit them unchanged. Empty means the event
+  // carries no explicit reminder and the configured default lead applies instead.
+  std::vector<std::int32_t> reminderLeadSeconds;
 };
 
 struct CalendarSnapshot {

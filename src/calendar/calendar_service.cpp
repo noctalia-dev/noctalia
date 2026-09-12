@@ -4,6 +4,7 @@
 #include "calendar/caldav_discovery.h"
 #include "calendar/calendar_cache.h"
 #include "calendar/calendar_discovery_state.h"
+#include "calendar/calendar_reminders.h"
 #include "calendar/event_link.h"
 #include "calendar/ical_parser.h"
 #include "calendar/vdir_reader.h"
@@ -1438,6 +1439,9 @@ bool CalendarService::parseCache(std::span<const std::uint8_t> contents) {
       event.start = fromUnix(item.value("start", std::int64_t{0}));
       event.end = fromUnix(item.value("end", std::int64_t{0}));
       event.allDay = item.value("all_day", false);
+      event.reminderLeadSeconds = item.value("reminders", std::vector<std::int32_t>{});
+      // Normalize on read so a hand-edited or corrupted cache cannot inflate the fired set.
+      calendar::normalizeReminderLeads(event.reminderLeadSeconds);
       const std::string account = item.value("account", std::string{});
       parsed[account].push_back(std::move(event));
     }
@@ -1471,6 +1475,7 @@ void CalendarService::saveCache() {
           {"start", toUnix(event.start)},
           {"end", toUnix(event.end)},
           {"all_day", event.allDay},
+          {"reminders", event.reminderLeadSeconds},
       });
     }
   }
