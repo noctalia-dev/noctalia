@@ -92,6 +92,10 @@ public:
   // be re-gathered when fresh results land. Synchronous providers ignore it.
   virtual void setResultsChangedCallback(std::function<void()> /*callback*/) {}
 
+  // True while an async provider is still producing results. The launcher uses
+  // it to show a loading state instead of "No results found".
+  [[nodiscard]] virtual bool isLoading() const { return false; }
+
   // Plugin-backed providers can request that the open launcher input be replaced,
   // e.g. to implement autocomplete.
   virtual void setQueryRequestedCallback(std::function<void(std::string)> /*callback*/) {}

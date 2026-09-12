@@ -748,6 +748,7 @@
       "unpin-from-dock": "Unpin from Dock"
     },
     "empty": {
+      "loading": "Loading results...",
       "no-results": "No results found",
       "type-to-search": "Type to search…"
     },
