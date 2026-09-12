@@ -1147,6 +1147,7 @@ if build_tests
     'battery_health',
     'battery_hook_state',
     'button_layout',
+    'button_palette',
     'cairo_text_renderer',
     'caldav_client',
     'calendar_cache_permissions',
