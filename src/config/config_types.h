@@ -982,6 +982,15 @@ struct ShellConfig {
     std::string wallpaperPosition = "auto";
     std::string sessionPosition = "auto";
     std::string polkitPosition = "center";
+    // Bar a panel attaches to when it is opened without a source bar (keybind,
+    // CLI, IPC). Empty falls back to [shell] panel_anchor_bar and then to the
+    // first enabled bar, so existing setups are unaffected.
+    std::string launcherAnchorBar;
+    std::string clipboardAnchorBar;
+    std::string controlCenterAnchorBar;
+    std::string wallpaperAnchorBar;
+    std::string sessionAnchorBar;
+    std::string polkitAnchorBar;
     std::int32_t floatingOffset = 8; // logical px gap between a floating/detached panel and the bar edge
     bool openNearClickControlCenter = false;
     bool openNearClickLauncher = false;
