@@ -23,8 +23,8 @@ namespace {
 
 DesktopAudioVisualizerWidget::DesktopAudioVisualizerWidget(PipeWireSpectrum* spectrum, Options options)
     : m_spectrum(spectrum), m_bands(std::max(1, options.bands)), m_mirrored(options.mirrored),
-      m_reversed(options.reversed), m_centered(options.centered), m_showWhenIdle(options.showWhenIdle),
-      m_color1(options.color1), m_color2(options.color2) {}
+      m_reversed(options.reversed), m_centered(options.centered), m_wave(options.wave),
+      m_showWhenIdle(options.showWhenIdle), m_color1(options.color1), m_color2(options.color2) {}
 
 DesktopAudioVisualizerWidget::~DesktopAudioVisualizerWidget() {
   cancelVisibilityAnimation();
@@ -42,6 +42,7 @@ void DesktopAudioVisualizerWidget::create() {
   visualizer->setCentered(m_centered);
   visualizer->setMirrored(m_mirrored);
   visualizer->setReversed(m_reversed);
+  visualizer->setWave(m_wave);
   visualizer->setGradient(m_color1, m_color2);
   m_visualizer = visualizer.get();
   rootNode->addChild(std::move(visualizer));
@@ -95,6 +96,14 @@ bool DesktopAudioVisualizerWidget::applySetting(
     if (const auto* v = std::get_if<bool>(&value)) {
       m_centered = *v;
       m_visualizer->setCentered(m_centered);
+      return true;
+    }
+    return false;
+  }
+  if (key == "show_wave") {
+    if (const auto* v = std::get_if<bool>(&value)) {
+      m_wave = *v;
+      m_visualizer->setWave(m_wave);
       return true;
     }
     return false;
