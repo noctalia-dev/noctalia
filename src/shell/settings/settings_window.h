@@ -310,7 +310,9 @@ private:
   bool m_deferFocusScrollToLayout = false;
   Node* m_pendingContentScrollTarget = nullptr;
   std::string m_searchQuery;
+  std::string m_pluginSearchQuery;
   Timer m_searchDebounceTimer;
+  Timer m_pluginSearchDebounceTimer;
   // Set by openToBarWidget (e.g. middle-click on a bar widget) / openToPlugin and consumed after
   // the Settings scene is available so the requested editor can be mounted into it.
   std::string m_pendingOpenWidgetInspectorName;
