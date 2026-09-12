@@ -1426,6 +1426,7 @@ namespace noctalia::config::schema {
           field(&ShellConfig::ScreenshotConfig::rememberLastRegion, "remember_last_region"),
           field(&ShellConfig::ScreenshotConfig::showCursor, "show_cursor"),
           field(&ShellConfig::ScreenshotConfig::annotate, "annotate"),
+          field(&ShellConfig::ScreenshotConfig::annotateSkipOnCopySave, "annotate_skip_on_copy_save"),
           field(&ShellConfig::ScreenshotConfig::closeOnCopy, "close_on_copy"),
           field(&ShellConfig::ScreenshotConfig::pipeToCommand, "pipe_to_command"),
           field(&ShellConfig::ScreenshotConfig::pipeCommand, "pipe_command"),

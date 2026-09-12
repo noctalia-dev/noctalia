@@ -41,6 +41,7 @@ shared_gl_context     = true         # startup-only; false isolates GPU contexts
 # avatar_path         = "~/Pictures/avatar.png"
 
 [shell.screenshot]
+annotate_skip_on_copy_save = false  # Ctrl+C / Ctrl+S in the region overlay skip the annotation editor
 close_on_copy = true                # close the annotation editor after Copy or Ctrl+C succeeds
 
 [shell.privacy]

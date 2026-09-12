@@ -1049,6 +1049,7 @@ struct ShellConfig {
     bool rememberLastRegion = false;
     bool showCursor = false;
     bool annotate = false;
+    bool annotateSkipOnCopySave = false;
     bool closeOnCopy = true;
     bool pipeToCommand = false;
     std::string pipeCommand;
