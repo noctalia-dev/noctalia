@@ -319,6 +319,7 @@ namespace settings {
     case SettingsSection::Location:
       return true;
     case SettingsSection::Wallpaper:
+    case SettingsSection::Display:
     case SettingsSection::Desktop:
     case SettingsSection::Dock:
     case SettingsSection::Panels:
@@ -354,6 +355,7 @@ namespace settings {
     case SettingsSection::Location:
       return i18n::tr("settings.window.offline-mode-notice.location");
     case SettingsSection::Wallpaper:
+    case SettingsSection::Display:
     case SettingsSection::Desktop:
     case SettingsSection::Dock:
     case SettingsSection::Panels:

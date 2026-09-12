@@ -1,5 +1,6 @@
 #include "shell/settings/settings_window.h"
 
+#include "compositors/compositor_platform.h"
 #include "config/config_service.h"
 #include "config/config_types.h"
 #include "core/deferred_call.h"
@@ -15,6 +16,11 @@
 #include "render/render_context.h"
 #include "render/text/font_weight_catalog.h"
 #include "scripting/plugin_registry.h"
+#include "shell/settings/display/display_service.h"
+#include "shell/settings/display/edid_dialog_modal.h"
+#include "shell/settings/display/monitor_editor_modal.h"
+#include "shell/settings/display/monitor_identifier_overlay.h"
+#include "shell/settings/display/revert_dialog_modal.h"
 #include "shell/settings/settings_content_plugins.h"
 #include "shell/settings/settings_dialog_presenter.h"
 #include "shell/tooltip/tooltip_manager.h"
@@ -194,6 +200,12 @@ void SettingsWindow::initialize(
         }
       }
   );
+  if (m_platform != nullptr) {
+    m_displayService =
+        std::make_unique<settings::display::DisplayService>(m_platform->createDisplayBackend(), &wayland);
+  }
+  m_monitorIdentifierOverlay = std::make_unique<settings::display::MonitorIdentifierOverlay>();
+  m_monitorIdentifierOverlay->initialize(wayland, renderContext);
 }
 
 void SettingsWindow::initializeDialogPresenter(
@@ -1252,4 +1264,12 @@ void SettingsWindow::onIdleLiveStatusChanged() {
   m_surface->requestRedraw();
 }
 
-void SettingsWindow::onSecondTick() { onIdleLiveStatusChanged(); }
+void SettingsWindow::onSecondTick() {
+  onIdleLiveStatusChanged();
+  if (m_displayService != nullptr) {
+    m_displayService->onSecondTick();
+  }
+  if (m_monitorIdentifierOverlay != nullptr && m_monitorIdentifierOverlay->visible()) {
+    m_monitorIdentifierOverlay->onOutputChange();
+  }
+}

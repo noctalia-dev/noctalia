@@ -1767,6 +1767,22 @@ void SettingsWindow::refreshSettingsRegistry(const Config& cfg) {
     m_settingsRegistry.insert(insertedIt, std::move(toggle));
   }
 
+  settings::SettingEntry monitorConfigButton{
+      .section = settings::SettingsSection::Display,
+      .group = "display",
+      .title = i18n::tr("settings.schema.display.configure.label"),
+      .subtitle = i18n::tr("settings.schema.display.configure.description"),
+      .path = {},
+      .control =
+          settings::ButtonSetting{
+              .label = i18n::tr("settings.schema.display.configure.button"),
+              .action = [this]() { openMonitorEditor(); },
+              .glyph = "device-desktop",
+          },
+      .searchText = "display monitor resolution scale rotation edid output arrangement",
+  };
+  m_settingsRegistry.push_back(std::move(monitorConfigButton));
+
   if (m_resetLauncherUsage) {
     auto it = std::ranges::find_if(m_settingsRegistry, [](const settings::SettingEntry& e) {
       return e.section == settings::SettingsSection::Launcher

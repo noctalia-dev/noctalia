@@ -226,7 +226,17 @@
       "custom": "Custom",
       "inherit": "Inherit",
       "off": "Off"
-    }
+    },
+    "enable-display": "Enable display",
+    "keep": "Keep",
+    "monitor": "Monitor",
+    "normal": "Normal",
+    "position": "Position",
+    "resolution": "Resolution",
+    "revert": "Revert",
+    "scale": "Scale",
+    "copied-to-clipboard": "Copied to clipboard",
+    "unknown": "Unknown"
   },
   "control-center": {
     "audio": {
@@ -1350,6 +1360,7 @@
         "bar": "Bar",
         "control-center": "Control Center",
         "desktop": "Desktop",
+        "display": "Display",
         "dock": "Dock",
         "hooks": "Hooks",
         "keybinds": "Keybinds",
@@ -3293,6 +3304,13 @@
           "description": "Effects available when changing wallpaper (one is picked at random per change)",
           "label": "Transition Effects"
         }
+      },
+      "display": {
+        "configure": {
+          "label": "Monitor Configuration",
+          "description": "Arrange displays and change resolution, scale, orientation, and refresh rate",
+          "button": "Open Monitor Configuration"
+        }
       }
     },
     "session-actions": {
@@ -4556,6 +4574,40 @@
       "support-report-saved": "Support report saved.",
       "support-report-title": "Save Support Report",
       "title": "Settings"
+    },
+    "display": {
+      "title": "Monitor Configuration",
+      "monitor-layout": "Display Arrangement",
+      "monitor-drag-info": "Drag to match your physical display arrangement",
+      "monitor-settings": "Monitor Settings",
+      "keep-changes": "Keep these display settings?",
+      "reverting-in-seconds": "Reverting automatically in {seconds}s",
+      "hw-control-unavailable": "Advanced Display Settings Unavailable (Read-only)",
+      "hw-control-unavailable-desc": "Noctalia could not establish a configuration channel with your compositor. In read-only mode you can only view monitor information and cannot apply changes.",
+      "logical-size": "Logical Resolution",
+      "rotation": "Orientation",
+      "flipped": "Flipped",
+      "flipped-angle": "Flipped {angle}",
+      "refresh-rate": "Refresh rate",
+      "vrr": "Variable Refresh Rate",
+      "read-edid": "Read EDID",
+      "copy-edid": "Copy details",
+      "edid-title": "EDID - {output}",
+      "edid-description": "EDID parsed from the DRM sysfs entry for this output.",
+      "edid-empty": "No EDID data available.",
+      "edid-copy-failed": "Failed to copy EDID details.",
+      "edid-field-monitor-name": "Monitor Name: {value}",
+      "edid-field-manufacturer-id": "Manufacturer ID: {value}",
+      "edid-field-product-code": "Product Code: {value}",
+      "edid-field-serial-number": "Serial Number: {value}",
+      "edid-field-version": "EDID Version: {value}",
+      "edid-field-manufactured": "Manufactured: week {week}, {year}",
+      "edid-field-input-type": "Input Type: {value}",
+      "edid-field-physical-size": "Physical Size: {value}",
+      "edid-field-preferred-mode": "Preferred Mode: {value}",
+      "edid-size-cm": "{width} x {height} cm",
+      "edid-view-original": "Original",
+      "hdr": "HDR"
     }
   },
   "setup-wizard": {

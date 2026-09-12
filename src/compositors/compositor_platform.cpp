@@ -2,6 +2,7 @@
 
 #include "compositors/compositor_detect.h"
 #include "compositors/compositor_runtime.h"
+#include "compositors/display_backend.h"
 #include "compositors/ext_workspace/ext_workspace_output_backend.h"
 #include "compositors/hyprland/hyprland_keyboard_backend.h"
 #include "compositors/hyprland/hyprland_output_backend.h"
@@ -1589,6 +1590,10 @@ bool CompositorPlatform::setOutputPower(bool on) const {
     m_lastRequestedOutputPowerState = on;
   }
   return m_outputPowerBackend->setOutputPower(m_wayland, on);
+}
+
+std::unique_ptr<compositors::display::DisplayBackend> CompositorPlatform::createDisplayBackend() {
+  return compositors::display::createDisplayBackend(*m_runtimeRegistry);
 }
 
 bool CompositorPlatform::tracksOverviewState() const noexcept {

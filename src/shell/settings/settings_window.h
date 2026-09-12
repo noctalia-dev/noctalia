@@ -59,6 +59,12 @@ struct wl_surface;
 namespace settings {
   class SettingsDialogPresenter;
   struct SettingsContentContext;
+  namespace display {
+    class DisplayService;
+    class EdidDialogModal;
+    class MonitorEditorModal;
+    class MonitorIdentifierOverlay;
+  } // namespace display
 } // namespace settings
 
 // Standalone xdg-toplevel settings UI (same binary as the shell; shares RenderContext).
@@ -128,6 +134,7 @@ public:
   [[nodiscard]] FileDialogPresenter* fileDialogPresenter() noexcept;
 
   void onSecondTick();
+  void openMonitorEditor();
   void onIdleLiveStatusChanged();
   void markSettingsWriteSuccess(bool requestRebuild = true);
   void markSettingsWriteError(std::string message);
@@ -252,6 +259,10 @@ private:
   CalendarService* m_calendarService = nullptr;
   ClipboardService* m_clipboardService = nullptr;
   IpcService* m_ipcService = nullptr;
+  std::unique_ptr<settings::display::DisplayService> m_displayService;
+  std::unique_ptr<settings::display::MonitorEditorModal> m_monitorEditor;
+  std::unique_ptr<settings::display::EdidDialogModal> m_edidDialog;
+  std::unique_ptr<settings::display::MonitorIdentifierOverlay> m_monitorIdentifierOverlay;
   AsyncTextureCache* m_asyncTextures = nullptr;
   Label* m_idleLiveStatusLabel = nullptr;
   std::vector<Label*> m_sessionActionSummaryLabels;

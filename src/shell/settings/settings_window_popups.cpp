@@ -14,6 +14,11 @@
 #include "scripting/plugin_registry.h"
 #include "shell/settings/bar_widget_editor.h"
 #include "shell/settings/color_spec_picker.h"
+#include "shell/settings/display/display_service.h"
+#include "shell/settings/display/edid_dialog_modal.h"
+#include "shell/settings/display/monitor_editor_modal.h"
+#include "shell/settings/display/monitor_identifier_overlay.h"
+#include "shell/settings/display/revert_dialog_modal.h"
 #include "shell/settings/plugin_store_content.h"
 #include "shell/settings/settings_content.h"
 #include "shell/settings/settings_content_common.h"
@@ -382,6 +387,58 @@ void SettingsWindow::openActionsMenu() {
           },
       }
   );
+}
+
+void SettingsWindow::openMonitorEditor() {
+  if (m_surface == nullptr || m_displayService == nullptr) {
+    return;
+  }
+  if (m_monitorEditor == nullptr) {
+    m_monitorEditor = std::make_unique<settings::display::MonitorEditorModal>();
+    m_monitorEditor->initialize(m_modalHost, [this]() { dismissOpenSelectDropdown(); });
+  }
+  if (m_edidDialog == nullptr) {
+    m_edidDialog = std::make_unique<settings::display::EdidDialogModal>();
+    m_edidDialog->initialize(m_modalHost, [this]() { dismissOpenSelectDropdown(); });
+  }
+  m_displayService->setOnStateChanged([this]() {
+    if (m_monitorEditor != nullptr) {
+      m_monitorEditor->markDirty();
+    }
+    if (m_edidDialog != nullptr) {
+      m_edidDialog->markDirty();
+    }
+  });
+  m_monitorEditor->open(
+      settings::display::MonitorEditorRequest{
+          .scale = uiScale(),
+          .display = m_displayService.get(),
+          .onOpenEdid =
+              [this](const std::string& outputName) {
+                if (m_edidDialog != nullptr) {
+                  m_edidDialog->open(
+                      settings::display::EdidDialogRequest{
+                          .scale = uiScale(),
+                          .outputName = outputName,
+                          .display = m_displayService.get(),
+                          .clipboard = m_clipboardService,
+                      }
+                  );
+                  m_displayService->readEdid(outputName);
+                }
+              },
+          .onClosed =
+              [this]() {
+                if (m_monitorIdentifierOverlay != nullptr) {
+                  m_monitorIdentifierOverlay->hide();
+                }
+              },
+      }
+  );
+  if (m_monitorIdentifierOverlay != nullptr) {
+    m_monitorIdentifierOverlay->show();
+  }
+  m_displayService->fetchAsync();
 }
 
 void SettingsWindow::openConfigExportDialog() {

@@ -1,0 +1,43 @@
+---
+title: Display
+description: Arrange displays and change resolution, scale, orientation, and refresh rate.
+sidebar:
+  order: 3
+---
+
+Noctalia can arrange your displays and change their settings from **Settings → Display → Monitor Configuration**. The dialog shows a scaled-down preview of the physical arrangement and one card per connected display.
+
+## Arrangement
+
+Drag displays in the preview to rearrange them. Displays snap to the edges and centers of their neighbors so they stay flush; a click selects a display without moving it. The selected display is highlighted both in the preview and in its card.
+
+While the dialog is open, a small badge (`1 eDP-1`, `2 DP-2`, ...) is shown on each physical display so the preview names match the real screens.
+
+## Per-display settings
+
+Each display card shows its position, logical resolution, scale, and orientation, and lets you change:
+
+- **Resolution** and **Refresh rate** - the mode list is read from the compositor; the preferred rate is marked with `*`.
+- **Scale** - percentage, in 5% steps.
+- **Orientation** - normal, 90/180/270 degrees, and flipped variants.
+- **Variable refresh rate (VRR)** - where the compositor supports it.
+- **HDR** - only shown when the compositor can control it and the connected display advertises HDR in its EDID.
+- **Enable** - the last enabled display cannot be disabled.
+
+## Keep or revert
+
+Changes apply immediately. A confirmation dialog with a 15-second countdown then appears; choose **Keep** to accept the changes or **Revert** to restore the previous arrangement. If you close the dialog without confirming, the changes revert automatically when the countdown ends.
+
+## Compositor support
+
+Noctalia configures displays through the running compositor:
+
+| Compositor | Control | Notes |
+| --- | --- | --- |
+| Hyprland | `hyprctl` | Full control including HDR (`bitdepth`) |
+| Niri | `niri msg output` | Full control |
+| Sway | `swaymsg`/`scrollmsg` | Full control |
+| Other wlroots compositors | `wlr-randr` | Full control when `wlr-randr` is installed |
+| Mango | per-compositor output config | Noctalia writes its own output config and reloads Mango |
+
+When no control channel is available, the dialog opens read-only: display information is shown, but no changes can be applied.

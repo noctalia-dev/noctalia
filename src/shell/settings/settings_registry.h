@@ -26,6 +26,7 @@ namespace settings {
   enum class SettingsSection : std::uint8_t {
     Appearance,
     Wallpaper,
+    Display,
     Templates,
     Desktop,
     Dock,

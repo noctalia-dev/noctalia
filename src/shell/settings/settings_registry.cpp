@@ -86,6 +86,7 @@ namespace settings {
     constexpr std::array<SettingsSectionDescriptor, 22> kSettingsSections{{
         {SettingsSection::Appearance, "appearance", "adjustments-horizontal"},
         {SettingsSection::Wallpaper, "wallpaper", "paint"},
+        {SettingsSection::Display, "display", "device-desktop"},
         {SettingsSection::Templates, "templates", "color-swatch"},
         {SettingsSection::Desktop, "desktop", "layout-board"},
         {SettingsSection::Dock, "dock", "layout-bottombar-inactive"},

@@ -39,6 +39,9 @@ namespace compositors {
   class CompositorRuntimeRegistry;
   class FocusedOutputBackend;
   class OutputPowerBackend;
+  namespace display {
+    class DisplayBackend;
+  }
   namespace niri {
     class NiriRuntime;
   }
@@ -177,6 +180,7 @@ public:
 
   [[nodiscard]] bool requestSessionExit() const;
   [[nodiscard]] bool setOutputPower(bool on) const;
+  [[nodiscard]] std::unique_ptr<compositors::display::DisplayBackend> createDisplayBackend();
 
   [[nodiscard]] bool tracksOverviewState() const noexcept;
   [[nodiscard]] bool hasOverviewState() const noexcept;
