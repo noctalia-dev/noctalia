@@ -849,6 +849,10 @@ void HomeTab::doLayout(Renderer& renderer, float contentWidth, float bodyHeight)
     const float innerGridW = std::max(1.0F, gridW - m_shortcutsGrid->paddingLeft() - m_shortcutsGrid->paddingRight());
     const std::size_t cols = std::max<std::size_t>(1, std::min(m_shortcutsGrid->columns(), m_shortcutPads.size()));
     const std::size_t rows = (m_shortcutPads.size() + cols - 1) / cols;
+    // A single shortcut is one row, which would collapse the whole bottom row (and with it the
+    // media/weather cards, whose height is derived from gridH below) to one tile tall. Reserve at
+    // least two rows of height so one shortcut looks the same as two. Tile sizing is unaffected.
+    const std::size_t heightRows = std::max<std::size_t>(rows, 2);
     const float cellWidth = std::max(
         1.0F, (innerGridW - static_cast<float>(cols - 1) * m_shortcutsGrid->columnGap()) / static_cast<float>(cols)
     );
@@ -869,8 +873,8 @@ void HomeTab::doLayout(Renderer& renderer, float contentWidth, float bodyHeight)
     }
 
     const float gridH = std::round(
-        static_cast<float>(rows) * cellSide
-        + static_cast<float>(rows > 0 ? rows - 1 : 0) * m_shortcutsGrid->rowGap()
+        static_cast<float>(heightRows) * cellSide
+        + static_cast<float>(heightRows - 1) * m_shortcutsGrid->rowGap()
         + m_shortcutsGrid->paddingTop()
         + m_shortcutsGrid->paddingBottom()
     );
