@@ -112,6 +112,7 @@ public:
   [[nodiscard]] bool hasExactWindowIdentity() const noexcept;
   [[nodiscard]] bool containsWlrToplevelHandle(zwlr_foreign_toplevel_handle_v1* handle) const;
   void activateToplevel(zwlr_foreign_toplevel_handle_v1* handle);
+  void activateToplevelForAppId(std::string_view appId);
   void activateToplevelInfo(const ToplevelInfo& window);
   void closeToplevel(zwlr_foreign_toplevel_handle_v1* handle);
   void closeToplevelInfo(const ToplevelInfo& window);
