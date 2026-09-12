@@ -30,7 +30,10 @@ public:
   void stop();
 
 private:
+  friend class FingerprintAuthenticatorTestAccess;
+
   bool createDeviceProxy();
+  bool scheduleAuthorizationRetry(bool claiming, bool isRetry);
   void claimDevice();
   void startVerify(bool isRetry);
   void stopVerify();
@@ -54,4 +57,5 @@ private:
   bool m_abort = false;
   bool m_reclaimAttempted = false;
   int m_retries = 0;
+  int m_authorizationRetries = 0;
 };

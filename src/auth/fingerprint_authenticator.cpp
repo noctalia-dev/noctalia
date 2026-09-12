@@ -29,6 +29,9 @@ namespace {
 
   constexpr int kMaxRetries = 3;
   constexpr auto kRetryDelay = std::chrono::milliseconds(250);
+  // logind may announce resume before the user's session becomes active. Give polkit
+  // time to authorize it, but do not poll indefinitely if access really is denied.
+  constexpr int kMaxAuthorizationRetries = 20;
 
   enum class MatchResult {
     Invalid,
@@ -58,8 +61,8 @@ namespace {
   }
 
   bool isRecoverableVerifyStartError(const sdbus::Error& error) {
-    // Suspend/resume can drop the claim while the proxy survives; only that case is worth
-    // recreating+reclaiming. Other VerifyStart failures are permanent for this lock attempt.
+    // Suspend/resume can drop the claim while the proxy survives; only that case needs
+    // recreating+reclaiming. PermissionDenied is retried separately without dropping ownership.
     return error.getName() == sdbus::Error::Name{"net.reactivated.Fprint.Error.ClaimDevice"};
   }
 } // namespace
@@ -79,6 +82,7 @@ FingerprintAuthenticator::FingerprintAuthenticator(SystemBus& bus) : m_bus(bus) 
         m_retryTimer.stop();
         m_verifying = false;
       } else if (m_active && !m_abort) {
+        m_authorizationRetries = 0;
         startVerify(false);
       }
     });
@@ -104,6 +108,7 @@ void FingerprintAuthenticator::start() {
   m_active = true;
   m_abort = false;
   m_retries = 0;
+  m_authorizationRetries = 0;
   m_reclaimAttempted = false;
   if (m_sleeping) {
     return;
@@ -184,13 +189,39 @@ void FingerprintAuthenticator::claimDevice() {
         if (e.has_value()) {
           kLog.info("could not claim fingerprint device: {}", e->what());
           m_verifying = false;
+          if (e->getName() == sdbus::Error::Name{"net.reactivated.Fprint.Error.PermissionDenied"}
+              && scheduleAuthorizationRetry(true, false)) {
+            return;
+          }
+          emitStatus({}, false);
           return;
         }
         kLog.info("claimed fingerprint device");
-        if (m_active && !m_sleeping) {
+        if (m_active && !m_sleeping && !m_abort) {
           startVerify(false);
         }
       });
+}
+
+bool FingerprintAuthenticator::scheduleAuthorizationRetry(bool claiming, bool isRetry) {
+  if (!m_active || m_sleeping || m_abort || m_authorizationRetries >= kMaxAuthorizationRetries) {
+    return false;
+  }
+  ++m_authorizationRetries;
+  // Reuse the proxy: a denied Claim must be retried as Claim, while a denied
+  // VerifyStart does not mean we lost ownership of the device. Defer all calls
+  // until after the async reply handler returns.
+  m_retryTimer.start(kRetryDelay, [this, claiming, isRetry]() {
+    if (!m_active || m_sleeping || m_abort) {
+      return;
+    }
+    if (claiming) {
+      claimDevice();
+    } else {
+      startVerify(isRetry);
+    }
+  });
+  return true;
 }
 
 void FingerprintAuthenticator::startVerify(bool isRetry) {
@@ -220,6 +251,10 @@ void FingerprintAuthenticator::startVerify(bool isRetry) {
         if (e.has_value()) {
           kLog.info("could not start fingerprint verification: {}", e->what());
           m_verifying = false;
+          if (e->getName() == sdbus::Error::Name{"net.reactivated.Fprint.Error.PermissionDenied"}
+              && scheduleAuthorizationRetry(false, isRetry)) {
+            return;
+          }
           // A claim dropped across suspend/resume makes VerifyStart fail with ClaimDevice; drop the
           // stale proxy and recreate+reclaim once. Destroying the proxy here would use-after-free
           // the async reply handler, so defer the reset until after it returns.

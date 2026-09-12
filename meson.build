@@ -1278,6 +1278,21 @@ if build_tests
   )
   dbus_run_session = find_program('dbus-run-session', required: false)
   if dbus_run_session.found()
+    fingerprint_integration_exe = executable('fingerprint_authenticator_integration_test',
+      sources: files('tests/fingerprint_authenticator_integration_test.cpp'),
+      dependencies: noctalia_core_dep,
+      override_options: ['b_ndebug=false'],
+    )
+    test('fingerprint_authenticator_integration',
+      dbus_run_session,
+      args: [
+        '--', 'sh', '-c',
+        'export DBUS_SYSTEM_BUS_ADDRESS="$DBUS_SESSION_BUS_ADDRESS"; exec "$1"',
+        'sh', fingerprint_integration_exe.full_path(),
+      ],
+      depends: fingerprint_integration_exe,
+      timeout: 60,
+    )
     test('upower_charge_limit_integration',
       dbus_run_session,
       args: [
