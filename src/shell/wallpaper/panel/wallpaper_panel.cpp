@@ -27,7 +27,6 @@
 #include "wayland/wayland_connection.h"
 
 #include <algorithm>
-#include <cctype>
 #include <chrono>
 #include <filesystem>
 #include <memory>
@@ -252,6 +251,7 @@ public:
   void setEntries(const std::vector<WallpaperEntry>* entries) { m_entries = entries; }
   void setRenderer(Renderer* renderer) { m_renderer = renderer; }
   void setConfig(ConfigService* config) { m_config = config; }
+  void setMonitorConnector(std::optional<std::string> connector) { m_monitorConnector = std::move(connector); }
   void setCurrentWallpaperPath(std::string path) { m_currentWallpaperPath = std::move(path); }
   void setThumbnailService(ThumbnailService* service) {
     m_thumbnails = service;
@@ -294,9 +294,11 @@ public:
       wt->setEntry(entry, *m_renderer);
       if (m_config != nullptr && !entry.isDir) {
         const std::string path = entry.absPath.string();
-        wt->setFavoriteState(
-            m_config->isWallpaperFavorite(path), favoriteThemeBadge(m_config->wallpaperFavorite(path))
-        );
+        std::optional<ThemeMode> badge = favoriteThemeBadge(m_config->wallpaperFavorite(path));
+        if (!badge.has_value() && m_config->config().wallpaper.themeSync.enabled) {
+          badge = wallpaper::themeSyncModeForPath(m_config->config().wallpaper, path, m_monitorConnector);
+        }
+        wt->setFavoriteState(m_config->isWallpaperFavorite(path), badge);
       } else {
         wt->setFavoriteState(false, std::nullopt);
       }
@@ -359,6 +361,7 @@ private:
   Renderer* m_renderer = nullptr;
   ThumbnailService* m_thumbnails = nullptr;
   ConfigService* m_config = nullptr;
+  std::optional<std::string> m_monitorConnector;
 
   std::vector<WallpaperTile*> m_pool;
   ActivateCallback m_onActivate;
@@ -705,7 +708,7 @@ void WallpaperPanel::create() {
               return;
             }
             applyThemeFromControls();
-            rebindGrid();
+            refreshBrowseDirectory();
             m_dirty = true;
             PanelManager::instance().refresh();
           },
@@ -1013,6 +1016,19 @@ void WallpaperPanel::populateMonitorChoices() {
     m_monitorSelect->setOptions(std::move(labels));
     m_monitorSelect->setSelectedIndex(m_selectedMonitorIndex);
   }
+}
+
+ThemeMode WallpaperPanel::browseThemeMode() const {
+  if (m_favoriteThemeSegmented != nullptr) {
+    const ThemeMode selected = themeModeFromSegmentIndex(m_favoriteThemeSegmented->selectedIndex());
+    if (selected != ThemeMode::Auto) {
+      return selected;
+    }
+  }
+
+  const ThemeMode configured = m_config != nullptr ? m_config->config().theme.mode : ThemeMode::Dark;
+  const bool isLight = m_themeService != nullptr ? m_themeService->isLightMode() : configured == ThemeMode::Light;
+  return wallpaper::effectiveThemeMode(configured, isLight);
 }
 
 std::filesystem::path WallpaperPanel::rootDirectoryForSelection() const {
@@ -1391,6 +1407,7 @@ void WallpaperPanel::rebindGrid(bool resetScroll) {
     return;
   }
   if (m_adapter != nullptr) {
+    m_adapter->setMonitorConnector(selectedMonitorConnector());
     m_adapter->setCurrentWallpaperPath(currentWallpaperPathForSelection());
   }
   m_grid->notifyDataChanged();
@@ -1440,8 +1457,33 @@ void WallpaperPanel::applyWallpaperPath(const std::string& path, const Wallpaper
   const auto& choice = m_monitorChoices[m_selectedMonitorIndex];
   const std::optional<std::string> connector =
       choice.connector.empty() ? std::optional<std::string>{} : std::optional<std::string>{choice.connector};
+
+  if (!path.empty() && !path.starts_with("color:")) {
+    wallpaper::setThemeSyncBinding(*m_config, connector, browseThemeMode(), path, allMonitorConnectors());
+  }
+
   m_config->applyWallpaperSelection(connector, path, applyTheme, allMonitorConnectors());
   rebindGrid();
+  syncBrowseChrome();
+}
+
+std::optional<std::string> WallpaperPanel::selectedMonitorConnector() const {
+  if (m_selectedMonitorIndex >= m_monitorChoices.size()) {
+    return std::nullopt;
+  }
+  const auto& choice = m_monitorChoices[m_selectedMonitorIndex];
+  if (choice.connector.empty()) {
+    return std::nullopt;
+  }
+  return choice.connector;
+}
+
+void WallpaperPanel::refreshBrowseDirectory() {
+  m_navStack.clear();
+  refreshVisibleEntries();
+  resetSelection();
+  rebindGrid();
+  syncBackButton();
   syncBrowseChrome();
 }
 
