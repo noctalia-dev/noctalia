@@ -3915,6 +3915,10 @@ std::string Bar::toggleBarIpc(std::string_view args) {
 }
 
 std::string Bar::toggleBarReserveSpaceIpc(std::string_view args) {
+  if (m_config == nullptr) {
+    return "error: config service not initialized\n";
+  }
+
   std::optional<std::string> barName;
   std::optional<std::string> monitorSelector;
   if (const auto parseError = parseBarVisibilityIpcArgs("bar-reserve-toggle", args, barName, monitorSelector)) {
@@ -3926,11 +3930,21 @@ std::string Bar::toggleBarReserveSpaceIpc(std::string_view args) {
     return *collectError;
   }
 
+  std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>> overrides;
+  std::unordered_set<std::string> persistedNames;
   for (BarInstance* instance : targets) {
-    if (instance != nullptr) {
-      instance->barConfig.reserveSpace = !instance->barConfig.reserveSpace;
-      syncBarExclusiveZone(*instance);
+    if (instance == nullptr) {
+      continue;
     }
+    const bool next = !instance->barConfig.reserveSpace;
+    instance->barConfig.reserveSpace = next;
+    syncBarExclusiveZone(*instance);
+    if (persistedNames.insert(instance->barConfig.name).second) {
+      overrides.emplace_back(std::vector<std::string>{"bar", instance->barConfig.name, "reserve_space"}, next);
+    }
+  }
+  if (!overrides.empty() && !m_config->setOverrides(std::move(overrides))) {
+    return "error: failed to persist reserve_space\n";
   }
   return "ok\n";
 }

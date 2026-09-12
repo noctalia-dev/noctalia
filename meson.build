@@ -1144,6 +1144,7 @@ if build_tests
     'app_identity',
     'audio_glyphs',
     'audio_route_selection',
+    'bar_reserve_toggle_persist',
     'battery_health',
     'battery_hook_state',
     'button_layout',
@@ -1268,6 +1269,8 @@ if build_tests
       test_args = [meson.project_source_root() / 'assets']
     elif test_name == 'i18n_supported_languages'
       test_args = [meson.project_source_root() / 'assets' / 'translations']
+    elif test_name == 'bar_reserve_toggle_persist'
+      test_args = [meson.project_source_root() / 'src' / 'shell' / 'bar' / 'bar.cpp']
     endif
     test(test_name, test_exe, args: test_args)
   endforeach
