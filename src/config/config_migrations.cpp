@@ -27,6 +27,7 @@ namespace noctalia::config {
     constexpr int kKeyboardLayoutCustomLabelsMigrationVersion = 12;
     constexpr int kPluginAutoUpdateModeMigrationVersion = 13;
     constexpr int kCalendarEventFormatsMigrationVersion = 14;
+    constexpr int kAuthPanelMigrationVersion = 15;
     constexpr std::int64_t kMaxBarRadius = 500;
     constexpr std::array<std::string_view, 5> kBarRadiusKeys = {
         "radius", "radius_top_left", "radius_top_right", "radius_bottom_left", "radius_bottom_right",
@@ -714,6 +715,37 @@ namespace noctalia::config {
       });
     }
 
+    template <typename OnChanged> void migrateAuthPanel(toml::table& root, OnChanged&& onChanged) {
+      auto* shell = root["shell"].as_table();
+      if (shell == nullptr) {
+        return;
+      }
+      auto* panel = (*shell)["panel"].as_table();
+      if (panel == nullptr) {
+        return;
+      }
+      const auto moveKey = [&onChanged](toml::table& table, std::string_view from, std::string_view to) {
+        toml::node* node = table.get(from);
+        if (node == nullptr) {
+          return;
+        }
+        const std::string fromPath = "shell.panel." + std::string(from);
+        if (!table.contains(to)) {
+          table.insert_or_assign(to, *node);
+        }
+        table.erase(from);
+        onChanged(fromPath);
+      };
+      moveKey(*panel, "polkit_placement", "auth_placement");
+      moveKey(*panel, "polkit_position", "auth_position");
+    }
+
+    void migrateAuthPanelSidecar(toml::table& root, schema::Diagnostics& diag) {
+      migrateAuthPanel(root, [&diag](const std::string& path) {
+        diag.warn(path, "polkit prompts merged into the unified auth panel; moved to auth_*");
+      });
+    }
+
     std::uint64_t stableIssueHash(int migrationVersion, std::string_view path) {
       constexpr std::uint64_t kOffset = 14695981039346656037ULL;
       constexpr std::uint64_t kPrime = 1099511628211ULL;
@@ -820,6 +852,11 @@ namespace noctalia::config {
             .toVersion = kCalendarEventFormatsMigrationVersion,
             .summary = "calendar: move event formats to calendar configuration",
             .apply = migrateCalendarEventFormatsSidecar,
+        },
+        {
+            .toVersion = kAuthPanelMigrationVersion,
+            .summary = "panel: merge polkit placements into auth",
+            .apply = migrateAuthPanelSidecar,
         },
     };
     return migrations;
@@ -974,6 +1011,13 @@ namespace noctalia::config {
           .message = keptCanonical
               ? "event format is deprecated; move it to [calendar] and keep the existing canonical value"
               : "event format is deprecated; move it to [calendar]",
+      });
+    });
+    migrateAuthPanel(root, [&issues](const std::string& path) {
+      issues.push_back({
+          .migrationVersion = kAuthPanelMigrationVersion,
+          .path = path,
+          .message = "polkit prompts merged into the unified auth panel; use shell.panel.auth_*",
       });
     });
   }
