@@ -30,7 +30,8 @@ namespace scripting {
   inline constexpr std::uint32_t kPanelContextMenuPluginApiVersion = 28;
   inline constexpr std::uint32_t kGraphPointerTrackingPluginApiVersion = 29;
   inline constexpr std::uint32_t kPanelLayerPluginApiVersion = 30;
-  inline constexpr std::uint32_t kCurrentPluginApiVersion = kPanelLayerPluginApiVersion;
+  inline constexpr std::uint32_t kGetColorPluginApiVersion = 31;
+  inline constexpr std::uint32_t kCurrentPluginApiVersion = kGetColorPluginApiVersion;
 
   static_assert(kOldestSupportedPluginApiVersion <= kCurrentPluginApiVersion);
 

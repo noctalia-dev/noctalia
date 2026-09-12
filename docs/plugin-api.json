@@ -166,5 +166,11 @@
     "noctaliaVersion": null,
     "feature": "panel-layer",
     "introduced": "The `layer` panel entry option for choosing the layer-shell layer of a floating plugin panel."
+  },
+  {
+    "level": 31,
+    "noctaliaVersion": null,
+    "feature": "get-color",
+    "introduced": "`noctalia.getColor(role)` for reading colors from the active theme palette."
   }
 ]
