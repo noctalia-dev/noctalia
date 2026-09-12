@@ -796,7 +796,6 @@ void TaskbarWidget::rebuild(Renderer& renderer) {
   if (m_taskStrip == nullptr) {
     return;
   }
-  m_activeUsesFocusedColor = !m_focusedOutputOnly || isFocusedOutput();
   m_taskTiles.clear();
   m_taskTiles.reserve(m_tasks.size());
   // The strip's children are about to be destroyed; drop the gesture and its visuals so nothing
@@ -1288,8 +1287,8 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
 
     auto createWorkspaceBadge = [&](const WorkspaceModel& ws, const WorkspaceDiscSize& disc, bool hover) {
       Button::ButtonPalette badgePalette{};
-      const ColorSpec fill = m_minimal ? clearColorSpec() : workspaceFillColor(ws.workspace);
-      const ColorSpec text = workspaceTextColor(ws.workspace);
+      const ColorSpec fill = m_minimal ? clearColorSpec() : workspaceFillColor(ws);
+      const ColorSpec text = workspaceTextColor(ws);
       badgePalette.normal = Button::ButtonStateColors{fill, clearColorSpec(), text};
       badgePalette.hover = badgePalette.normal;
       badgePalette.pressed = badgePalette.normal;
@@ -1544,8 +1543,11 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
       }
 
       const bool emptyWorkspace = tasks.empty();
-      const auto surfaceFill = colorSpecFromRole(ColorRole::SurfaceVariant, ws.workspace.active ? 0.52F : 0.18F);
-      const auto borderColor = colorSpecFromRole(ColorRole::Primary, ws.workspace.active ? 0.65F : 0.16F);
+      const bool focusedWorkspace = workspaceUsesFocusedStyle(ws);
+
+      const auto surfaceFill = colorSpecFromRole(ColorRole::SurfaceVariant, focusedWorkspace ? 0.52F : 0.18F);
+
+      const auto borderColor = colorSpecFromRole(ColorRole::Primary, focusedWorkspace ? 0.65F : 0.16F);
 
       const float crossSize = std::round(tileSize + groupPad * 2.0F);
 
@@ -3416,19 +3418,26 @@ wl_output* TaskbarWidget::workspaceHostOutput(const WorkspaceModel& model) const
   return model.hostOutput != nullptr ? model.hostOutput : m_output;
 }
 
-ColorSpec TaskbarWidget::workspaceFillColor(const Workspace& workspace) const {
+bool TaskbarWidget::workspaceUsesFocusedStyle(const WorkspaceModel& model) const noexcept {
+  return model.workspace.active
+      && (!m_focusedOutputOnly || m_platform.preferredInteractiveOutput() == workspaceHostOutput(model));
+}
+
+ColorSpec TaskbarWidget::workspaceFillColor(const WorkspaceModel& model) const {
+  const Workspace& workspace = model.workspace;
+
   if (workspace.active) {
-    if (m_activeUsesFocusedColor) {
-      return m_focusedColor;
-    }
-    return m_occupiedColor;
+    return workspaceUsesFocusedStyle(model) ? m_focusedColor : m_occupiedColor;
   }
+
   if (workspace.urgent) {
     return m_urgentColor;
   }
+
   if (workspace.occupied) {
     return m_occupiedColor;
   }
+
   ColorSpec color = m_emptyColor;
   color.alpha *= 0.55F;
   return color;
@@ -3436,22 +3445,25 @@ ColorSpec TaskbarWidget::workspaceFillColor(const Workspace& workspace) const {
 
 bool TaskbarWidget::isFocusedOutput() const { return m_platform.preferredInteractiveOutput() == m_output; }
 
-ColorSpec TaskbarWidget::workspaceTextColor(const Workspace& workspace) const {
+ColorSpec TaskbarWidget::workspaceTextColor(const WorkspaceModel& model) const {
+  const Workspace& workspace = model.workspace;
+
   if (workspace.urgent) {
     return m_minimal ? m_urgentColor : readableColorForFill(m_urgentColor);
   }
+
   if (!m_minimal) {
-    return readableColorForFill(workspaceFillColor(workspace));
+    return readableColorForFill(workspaceFillColor(model));
   }
+
   if (workspace.active) {
-    if (m_activeUsesFocusedColor) {
-      return m_focusedColor;
-    }
-    return m_occupiedColor;
+    return workspaceUsesFocusedStyle(model) ? m_focusedColor : m_occupiedColor;
   }
+
   if (workspace.occupied) {
     return m_occupiedColor;
   }
+
   ColorSpec color = widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurfaceVariant));
   color.alpha *= 0.55F;
   return color;
