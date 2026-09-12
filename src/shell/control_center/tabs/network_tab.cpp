@@ -940,6 +940,12 @@ void NetworkTab::onClose() {
 }
 
 void NetworkTab::syncPasswordCard() {
+  if (m_hasPendingSecret
+      && !m_pendingAccessPoint.has_value()
+      && m_secrets != nullptr
+      && !m_secrets->hasPendingRequest()) {
+    clearPasswordPrompt();
+  }
   if (m_passwordCard == nullptr) {
     return;
   }
