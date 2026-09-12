@@ -385,7 +385,8 @@ namespace {
       if (dirs.empty()) {
         // No index.theme — fall back to common paths so the theme isn't silently skipped
         for (const char* path :
-             {"/scalable/apps/", "/256x256/apps/", "/128x128/apps/", "/64x64/apps/", "/48x48/apps/", "/32x32/apps/"}) {
+             {"/scalable/apps/", "/512x512/apps/", "/256x256/apps/", "/128x128/apps/", "/64x64/apps/", "/48x48/apps/",
+              "/32x32/apps/", "/"}) {
           const std::string_view name(path);
           pushUniqueDir(
               searchDirs,
