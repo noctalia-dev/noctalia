@@ -775,6 +775,16 @@ namespace noctalia::cli {
         {},
         false
     };
+    inline constexpr Command wallpaperPrefetch{
+        "wallpaper-prefetch",
+        "Prefetch wallpaper into cache",
+        {},
+        {},
+        {},
+        kMsgWallpaperSetPositionals,
+        {},
+        false
+    };
     inline constexpr Command wifiDisable{"wifi-disable", "Disable Wi-Fi", {}, {}, {}, {}, {}, false};
     inline constexpr Command wifiEnable{"wifi-enable", "Enable Wi-Fi", {}, {}, {}, {}, {}, false};
     inline constexpr Command wifiStatus{"wifi-status", "Print Wi-Fi state", {}, {}, {}, {}, {}, false};
@@ -932,6 +942,7 @@ namespace noctalia::cli {
       msg::wallpaperPrevious,
       msg::wallpaperRandom,
       msg::wallpaperSet,
+      msg::wallpaperPrefetch,
       msg::wifiDisable,
       msg::wifiEnable,
       msg::wifiStatus,

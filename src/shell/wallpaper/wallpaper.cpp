@@ -785,6 +785,35 @@ void Wallpaper::registerIpc(IpcService& ipc) {
         return "ok\n";
       }
   );
+  ipc.bind(
+      noctalia::cli::Command{"wallpaper-prefetch", "Prefetch wallpaper into cache", {}, {}, {}, {}, {}, false},
+      [this, &ipc](const std::string& args) -> std::string {
+        if (m_config == nullptr || m_textureCache == nullptr) {
+          return "error: wallpaper service not initialized\n";
+        }
+        const auto tokens = StringUtils::splitWhitespace(StringUtils::trim(args));
+        if (tokens.empty()) {
+          return "error: path required\n";
+        }
+        const std::optional<std::string_view> callerCwd =
+            ipc.callerCwd().has_value() ? std::optional<std::string_view>{*ipc.callerCwd()} : std::nullopt;
+        std::string pathStr = StringUtils::join(tokens, " ");
+        auto resolved = resolveWallpaperPath(pathStr, callerCwd);
+        if (!resolved.has_value()) {
+          return "error: path does not exist or is not a regular file\n";
+        }
+        if (m_textureCache->peek(*resolved).id != 0) {
+          kLog.info("prefetch hit (already cached) {}", *resolved);
+          return "ok\n";
+        }
+        auto handle = m_textureCache->acquire(*resolved);
+        if (handle.id == 0) {
+          return "error: failed to prefetch (decode failed)\n";
+        }
+        kLog.info("prefetched {}", *resolved);
+        return "ok\n";
+      }
+  );
 }
 
 void Wallpaper::syncInstances() {
