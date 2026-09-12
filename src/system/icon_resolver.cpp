@@ -511,7 +511,10 @@ const std::string& IconResolver::resolve(const std::string& iconName, int target
   const std::string key = iconName + '\x1F' + std::to_string(std::max(0, targetSize));
   auto it = m_cache.find(key);
   if (it != m_cache.end()) {
-    return it->second;
+    if (iconName.front() != '/' || pathExists(it->second)) {
+      return it->second;
+    }
+    m_cache.erase(it);
   }
   const bool canCacheMissing = m_cacheMissing && iconName.front() != '/';
   if (canCacheMissing && m_missingCache.contains(key)) {

@@ -719,10 +719,9 @@ void WindowSwitcher::refreshWindows() {
     }
   }
 
-  IconResolver iconResolver;
   const int iconSize = 96;
   buildWindowEntries(
-      *m_platform, iconResolver, iconSize, m_windows, m_platform->focusedCompositorWindowId(),
+      *m_platform, m_iconResolver, iconSize, m_windows, m_platform->focusedCompositorWindowId(),
       mruEnabled() ? &m_mruKeys : nullptr
   );
 
