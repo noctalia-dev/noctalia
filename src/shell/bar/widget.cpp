@@ -193,6 +193,7 @@ void Widget::applyCommonOptions(
 ) {
   setAnchor(options.anchor);
   setNonInteractive(!options.interactive);
+  setMonitorFocusBehavior(options.monitorFocusBehavior);
   m_labelFontWeight =
       options.labelFontWeight.has_value() ? static_cast<FontWeight>(*options.labelFontWeight) : barFontWeight;
   std::string labelFontFamily = StringUtils::trim(options.labelFontFamily);

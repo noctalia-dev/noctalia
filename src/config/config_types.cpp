@@ -588,6 +588,9 @@ CommonWidgetOptions resolveCommonWidgetOptions(
   options.labelFontFamily = widget->getString("font_family");
   options.scrollRepeat = widget->getString("scroll_repeat", "auto");
   options.enableScroll = widget->getBool("enable_scroll", true);
+  if (const auto parsed = enumFromKey(kMonitorFocusBehaviors, widget->getString("monitor_focus_behavior"))) {
+    options.monitorFocusBehavior = *parsed;
+  }
   return options;
 }
 

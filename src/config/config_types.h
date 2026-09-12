@@ -24,6 +24,8 @@ struct WaylandOutput;
 // bar lane's main axis.
 enum class BarAccordionDirection : std::uint8_t { End = 0, Start = 1 };
 
+enum class MonitorFocusBehavior : std::uint8_t { Ignored = 0, OnlyFocused = 1, OnlyUnfocused = 2 };
+
 // A capsule group: an ordered set of member widgets sharing one capsule + style. `id` is opaque and
 // auto-generated. A group appears in a bar lane as a single token (see makeCapsuleGroupToken); its
 // members live inside the group, not loose in the lane.
@@ -402,6 +404,7 @@ struct CommonWidgetOptions {
   WidgetBarCapsuleSpec capsule;
   std::string scrollRepeat = "auto";
   bool enableScroll = true;
+  MonitorFocusBehavior monitorFocusBehavior = MonitorFocusBehavior::Ignored;
 };
 
 struct WidgetConfig {
@@ -585,6 +588,12 @@ template <typename T, std::size_t N> constexpr std::string_view enumToKey(const 
 constexpr EnumOption<BarAccordionDirection> kBarAccordionDirections[] = {
     {BarAccordionDirection::End, "end", "settings.options.accordion-direction.end"},
     {BarAccordionDirection::Start, "start", "settings.options.accordion-direction.start"},
+};
+
+constexpr EnumOption<MonitorFocusBehavior> kMonitorFocusBehaviors[] = {
+    {MonitorFocusBehavior::Ignored, "ignored", "settings.widgets.options.monitor-focus-behavior-ignored"},
+    {MonitorFocusBehavior::OnlyFocused, "focused", "settings.widgets.options.monitor-focus-behavior-focused"},
+    {MonitorFocusBehavior::OnlyUnfocused, "unfocused", "settings.widgets.options.monitor-focus-behavior-unfocused"},
 };
 
 enum class DockEdge : std::uint8_t {
