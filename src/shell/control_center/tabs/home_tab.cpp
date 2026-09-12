@@ -799,7 +799,8 @@ void HomeTab::doLayout(Renderer& renderer, float contentWidth, float bodyHeight)
             - Style::spaceXs * contentScale()
     );
     m_weatherLine->setMaxWidth(weatherTextWrap);
-    m_weatherLine->setMaxLines(2);
+    m_weatherLine->setMaxLines(1);
+    m_weatherLine->setEllipsize(TextEllipsize::End);
   }
   // Grow the album art square to fill the media card height so the row feels balanced
   // when the card flex-grows. A later bottom-row min-height pass can change the card

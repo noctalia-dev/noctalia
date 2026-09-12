@@ -1183,6 +1183,7 @@ if build_tests
     'greeter_appearance_sync',
     'grid_item_cursor',
     'hook_manager',
+    'home_weather_line_wrap',
     'hyprland_workspace_backend',
     'i18n_language_tag',
     'i18n_supported_languages',
@@ -1268,6 +1269,8 @@ if build_tests
       test_args = [meson.project_source_root() / 'assets']
     elif test_name == 'i18n_supported_languages'
       test_args = [meson.project_source_root() / 'assets' / 'translations']
+    elif test_name == 'home_weather_line_wrap'
+      test_args = [meson.project_source_root() / 'src' / 'shell' / 'control_center' / 'tabs' / 'home_tab.cpp']
     endif
     test(test_name, test_exe, args: test_args)
   endforeach
