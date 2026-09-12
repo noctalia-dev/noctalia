@@ -20,12 +20,19 @@
 #include "wayland/wayland_seat.h"
 
 #include <algorithm>
+#include <chrono>
+#include <cmath>
 #include <string>
 #include <thread>
 
 namespace {
 
   constexpr Logger kLog("lockscreen");
+
+  std::int64_t wallClockMillis() {
+    return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch())
+        .count();
+  }
 
   Color resolveWallpaperFillColor(const WallpaperConfig& config) {
     // The lockscreen is an ext-session-lock surface: any transparency lets the
@@ -120,6 +127,9 @@ bool LockScreen::lock() {
   if (isActive()) {
     return true;
   }
+  m_lockedAtMillis = wallClockMillis();
+  m_graceAllowed = true;
+  kLog.debug("lock requested, grace starts at {}", m_lockedAtMillis);
   if (!m_wayland->hasSessionLockManager()) {
     kLog.warn("session lock protocol unavailable");
     return false;
@@ -176,6 +186,7 @@ void LockScreen::unlock() {
     return;
   }
 
+  resetGracePeriod();
   m_pendingAfterLocked = {};
   m_suspendTimeoutTimer.stop();
   invalidatePendingAuthentication();
@@ -330,12 +341,23 @@ void LockScreen::onPointerEvent(const PointerEvent& event) {
 
   if (event.type == PointerEvent::Type::Enter && event.surface != nullptr) {
     m_pointerSurface = event.surface;
+    m_pointerEnterX = event.sx;
+    m_pointerEnterY = event.sy;
   } else if (event.type == PointerEvent::Type::Leave && event.surface == m_pointerSurface) {
     m_pointerSurface = nullptr;
   } else if (
       (event.type == PointerEvent::Type::Button || event.type == PointerEvent::Type::Axis) && event.surface != nullptr
   ) {
     m_pointerSurface = event.surface;
+  }
+
+  if (event.type == PointerEvent::Type::Motion && isInGracePeriod()) {
+    const double dx = event.sx - m_pointerEnterX;
+    const double dy = event.sy - m_pointerEnterY;
+    if (std::sqrt(dx * dx + dy * dy) > 5.0) {
+      tryGraceUnlock();
+      return;
+    }
   }
 
   wl_surface* target = event.surface != nullptr ? event.surface : m_pointerSurface;
@@ -359,6 +381,11 @@ void LockScreen::onKeyboardEvent(const KeyboardEvent& event) {
     return;
   }
   if (!event.pressed) {
+    return;
+  }
+
+  if (isInGracePeriod()) {
+    tryGraceUnlock();
     return;
   }
 
@@ -403,6 +430,40 @@ void LockScreen::onKeyboardEvent(const KeyboardEvent& event) {
 }
 
 bool LockScreen::isActive() const noexcept { return m_lockPending || m_locked; }
+
+bool LockScreen::isInGracePeriod() const noexcept {
+  if (!m_graceAllowed || !m_locked || m_lockedAtMillis <= 0) {
+    return false;
+  }
+  if (m_configService == nullptr || m_configService->config().lockscreen.gracePeriodSeconds <= 0) {
+    return false;
+  }
+  // Wall-clock comparison, evaluated fresh on every interaction: a cached
+  // timestamp would keep the grace window alive indefinitely.
+  const std::int64_t windowMillis =
+      static_cast<std::int64_t>(m_configService->config().lockscreen.gracePeriodSeconds) * 1000;
+  return wallClockMillis() < m_lockedAtMillis + windowMillis;
+}
+
+void LockScreen::tryGraceUnlock() {
+  if (!isInGracePeriod()) {
+    return;
+  }
+  kLog.info("unlocking within grace period (lockedAt={})", m_lockedAtMillis);
+  unlock();
+}
+
+void LockScreen::resetGracePeriod() {
+  m_lockedAtMillis = 0;
+  m_graceAllowed = false;
+}
+
+void LockScreen::onSystemResumed() {
+  if (m_graceAllowed) {
+    kLog.info("system resumed; revoking passwordless grace period");
+  }
+  resetGracePeriod();
+}
 
 bool LockScreen::isSessionLocked() const noexcept { return m_locked; }
 
@@ -483,6 +544,7 @@ void LockScreen::handleFinished(void* data, ext_session_lock_v1* /*lock*/) {
   auto* self = static_cast<LockScreen*>(data);
   kLog.info("session lock finished by compositor");
   const bool wasLockedInteractive = self->m_locked;
+  self->resetGracePeriod();
   self->m_pendingAfterLocked = {};
   self->invalidatePendingAuthentication();
   self->stopFingerprint();
@@ -751,6 +813,7 @@ void LockScreen::resetLockState() {
   m_pendingAfterLocked = {};
   m_suspendTimeoutTimer.stop();
   m_lockDeferred = false;
+  resetGracePeriod();
   if (m_lock == nullptr) {
     m_lockPending = false;
     m_locked = false;

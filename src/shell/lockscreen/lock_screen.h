@@ -67,6 +67,9 @@ public:
   /// After suspend/resume, discard pending callbacks on active lock surfaces
   /// while preserving queued work, then request an immediate redraw.
   void forceRepaintAfterResume();
+  /// After suspend/resume, revoke the passwordless grace period as a safety net;
+  /// the wall-clock expiry check alone would also have expired it by then.
+  void onSystemResumed();
   void onPointerEvent(const PointerEvent& event);
   void onKeyboardEvent(const KeyboardEvent& event);
   [[nodiscard]] bool isActive() const noexcept;
@@ -121,6 +124,11 @@ private:
   void stopFingerprint();
   void handleFingerprintStatus(const std::string& message, bool isError);
   static void clearSensitiveString(std::string& value);
+  /// Grace period: any keypress or mouse movement beyond 5px unlocks without a
+  /// password within the configured window after locking (matches hyprlock).
+  [[nodiscard]] bool isInGracePeriod() const noexcept;
+  void tryGraceUnlock();
+  void resetGracePeriod();
 
   WaylandConnection* m_wayland = nullptr;
   RenderContext* m_renderContext = nullptr;
@@ -153,4 +161,9 @@ private:
   const WeatherService* m_weather = nullptr;
   HttpClient* m_httpClient = nullptr;
   Timer m_suspendTimeoutTimer;
+  // Wall-clock millis when the lock flow started; grace expires gracePeriodSeconds after it.
+  std::int64_t m_lockedAtMillis = 0;
+  bool m_graceAllowed = false;
+  double m_pointerEnterX = 0.0;
+  double m_pointerEnterY = 0.0;
 };
