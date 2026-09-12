@@ -615,8 +615,6 @@ void SettingsWindow::destroyWindow() {
   m_creatingBarName.clear();
   m_renamingBarName.clear();
   m_pendingDeleteBarName.clear();
-  m_creatingMonitorOverrideBarName.clear();
-  m_creatingMonitorOverrideMatch.clear();
   m_renamingMonitorOverrideBarName.clear();
   m_renamingMonitorOverrideMatch.clear();
   m_pendingDeleteMonitorOverrideBarName.clear();
@@ -898,8 +896,6 @@ void SettingsWindow::clearTransientSettingsState() {
   m_creatingBarName.clear();
   m_renamingBarName.clear();
   m_pendingDeleteBarName.clear();
-  m_creatingMonitorOverrideBarName.clear();
-  m_creatingMonitorOverrideMatch.clear();
   m_renamingMonitorOverrideBarName.clear();
   m_renamingMonitorOverrideMatch.clear();
   m_pendingDeleteMonitorOverrideBarName.clear();
@@ -1089,7 +1085,6 @@ void SettingsWindow::onKeyboardEvent(const KeyboardEvent& event) {
         || !m_creatingBarName.empty()
         || !m_renamingBarName.empty()
         || !m_pendingDeleteBarName.empty()
-        || !m_creatingMonitorOverrideBarName.empty()
         || !m_renamingMonitorOverrideBarName.empty()
         || !m_pendingDeleteMonitorOverrideBarName.empty()) {
       m_editingWidgetName.clear();
@@ -1101,8 +1096,6 @@ void SettingsWindow::onKeyboardEvent(const KeyboardEvent& event) {
       m_creatingBarName.clear();
       m_renamingBarName.clear();
       m_pendingDeleteBarName.clear();
-      m_creatingMonitorOverrideBarName.clear();
-      m_creatingMonitorOverrideMatch.clear();
       m_renamingMonitorOverrideBarName.clear();
       m_renamingMonitorOverrideMatch.clear();
       m_pendingDeleteMonitorOverrideBarName.clear();

@@ -19,6 +19,7 @@
 #include "shell/settings/settings_content_common.h"
 #include "shell/settings/settings_content_plugins.h"
 #include "shell/settings/settings_control_factory.h"
+#include "shell/settings/settings_registry.h"
 #include "shell/settings/settings_window.h"
 #include "shell/settings/template_store_content.h"
 #include "shell/settings/widget_settings_registry.h"
@@ -28,6 +29,7 @@
 #include "ui/controls/context_menu.h"
 #include "ui/controls/context_menu_popup.h"
 #include "ui/controls/flex.h"
+#include "ui/controls/input.h"
 #include "ui/controls/segmented.h"
 #include "ui/dialogs/file_dialog.h"
 #include "ui/popup_parent.h"
@@ -537,6 +539,193 @@ void SettingsWindow::openSearchPickerPopup(settings::SearchPickerOpenRequest req
           .placeholder = std::move(request.placeholder),
           .emptyText = std::move(request.emptyText),
           .scale = uiScale(),
+      }
+  );
+}
+
+void SettingsWindow::openMonitorOverrideCreateDialog(std::string barName) {
+  if (m_wayland == nullptr
+      || m_renderContext == nullptr
+      || m_surface == nullptr
+      || m_surface->xdgSurface() == nullptr
+      || m_config == nullptr) {
+    return;
+  }
+
+  if (m_editorSheetModal != nullptr && m_editorSheetModal->isOpen()) {
+    m_editorSheetModal->close();
+  }
+  if (m_widgetAddPopup != nullptr && m_widgetAddPopup->isOpen()) {
+    m_widgetAddPopup->close();
+  }
+  if (m_searchPickerPopup != nullptr && m_searchPickerPopup->isOpen()) {
+    m_searchPickerPopup->close();
+  }
+
+  const Config& cfg = m_config->config();
+  const BarConfig* bar = settings::findBar(cfg, barName);
+  if (bar == nullptr) {
+    return;
+  }
+
+  if (m_editorSheetModal == nullptr) {
+    m_editorSheetModal = std::make_unique<settings::SettingsSheetModal>();
+    m_editorSheetModal->initialize(m_modalHost, [this]() { dismissOpenSelectDropdown(); });
+  }
+
+  const float scale = uiScale();
+  const std::vector<settings::SelectOption> outputs = availableOutputs();
+
+  std::vector<std::string> existingMatches;
+  existingMatches.reserve(bar->monitorOverrides.size());
+  for (const auto& monitorOverride : bar->monitorOverrides) {
+    existingMatches.push_back(monitorOverride.match);
+  }
+
+  // Transient value of the pending match, shared between the segmented picker, the free-text input,
+  // and the create action. Held here (not on SettingsWindow) so it lives and dies with this dialog.
+  auto matchState = std::make_shared<std::string>();
+
+  auto populate = [this, scale, outputs, existingMatches, barName, matchState](Flex& body) {
+    // Derive the selected segment and whether the free-text input is shown from the current value.
+    // A detected connector match selects its segment and hides the input; anything else (including
+    // the initial empty value) selects the trailing "Custom" segment and shows the input.
+    std::size_t selectedOutput = outputs.size();
+    for (std::size_t i = 0; i < outputs.size(); ++i) {
+      if (outputs[i].value == *matchState) {
+        selectedOutput = i;
+        break;
+      }
+    }
+    const bool customSelected = outputs.empty() || selectedOutput == outputs.size();
+
+    Input* inputPtr = nullptr;
+    auto input = ui::input({
+        .out = &inputPtr,
+        .value = *matchState,
+        .placeholder = i18n::tr("settings.entities.monitor-override.match-placeholder"),
+        .fontSize = Style::fontSizeBody * scale,
+        .controlHeight = Style::controlHeight * scale,
+        .horizontalPadding = Style::spaceSm * scale,
+        .width = 280.0F * scale,
+        .height = Style::controlHeight * scale,
+        .visible = customSelected ? std::nullopt : std::optional<bool>{false},
+        .participatesInLayout = customSelected ? std::nullopt : std::optional<bool>{false},
+    });
+    inputPtr->setOnChange([this, matchState, inputPtr](const std::string& value) {
+      *matchState = value;
+      inputPtr->setInvalid(false);
+      if (m_editorSheetModal != nullptr) {
+        m_editorSheetModal->clearStatusMessage();
+      }
+    });
+
+    auto doCreate = [this, existingMatches, barName, matchState, inputPtr]() {
+      const std::string match = StringUtils::trim(*matchState);
+      if (match.empty()) {
+        inputPtr->setInvalid(true);
+        return;
+      }
+      if (std::ranges::contains(existingMatches, match)) {
+        inputPtr->setInvalid(true);
+        if (m_editorSheetModal != nullptr) {
+          m_editorSheetModal->setStatusMessage(i18n::tr("settings.entities.monitor-override.exists"), true);
+        }
+        return;
+      }
+      createMonitorOverride(barName, match);
+      if (m_editorSheetModal != nullptr) {
+        m_editorSheetModal->close();
+      }
+    };
+    inputPtr->setOnSubmit([doCreate](const std::string& /*text*/) mutable { doCreate(); });
+
+    if (!outputs.empty()) {
+      std::vector<ui::SegmentedOption> segmentOptions;
+      segmentOptions.reserve(outputs.size() + 1);
+      for (const auto& output : outputs) {
+        // Connector name only (e.g. "DP-1"); the fuller "DP-1 (description)" label is kept for the
+        // free-text case and would make the segments too wide.
+        segmentOptions.push_back({.label = output.value, .tooltip = output.label});
+      }
+      segmentOptions.push_back({.label = i18n::tr("settings.entities.monitor-override.custom")});
+
+      // Wrap in a start-aligned row so the segmented shrinks to its content instead of stretching to
+      // the sheet width, which would trail its surface background past the last segment.
+      body.addChild(
+          ui::row(
+              {
+                  .align = FlexAlign::Center,
+              },
+              ui::segmented({
+                  .options = std::move(segmentOptions),
+                  .selectedIndex = customSelected ? outputs.size() : selectedOutput,
+                  .fontSize = Style::fontSizeBody * scale,
+                  .scale = scale,
+                  .onChange =
+                      [this, outputs, matchState](std::size_t index) {
+                        // Connector segment: commit its name. "Custom" (trailing): clear so the free-text
+                        // input takes over. Rebuild re-derives the selection and input visibility.
+                        if (index < outputs.size()) {
+                          *matchState = outputs[index].value;
+                        } else {
+                          matchState->clear();
+                        }
+                        if (m_editorSheetModal != nullptr) {
+                          m_editorSheetModal->clearStatusMessage();
+                          m_editorSheetModal->rebuildBody();
+                        }
+                      },
+                  // Break onto the next line when the outputs overflow the dialog width, so many-monitor
+                  // setups stay readable instead of shrinking the segments.
+                  .configure = [](Segmented& segmented) { segmented.setWrap(true); },
+              })
+          )
+      );
+    }
+
+    body.addChild(std::move(input));
+    body.addChild(
+        ui::row(
+            {
+                .align = FlexAlign::Center,
+                .justify = FlexJustify::End,
+                .gap = Style::spaceSm * scale,
+            },
+            ui::button({
+                .text = i18n::tr("common.actions.cancel"),
+                .fontSize = Style::fontSizeBody * scale,
+                .variant = ButtonVariant::Ghost,
+                .minHeight = Style::controlHeight * scale,
+                .paddingV = Style::spaceXs * scale,
+                .paddingH = Style::spaceMd * scale,
+                .radius = Style::scaledRadiusMd(scale),
+                .onClick =
+                    [this]() {
+                      if (m_editorSheetModal != nullptr) {
+                        m_editorSheetModal->close();
+                      }
+                    },
+            }),
+            ui::button({
+                .text = i18n::tr("settings.entities.monitor-override.create"),
+                .fontSize = Style::fontSizeBody * scale,
+                .variant = ButtonVariant::Primary,
+                .minHeight = Style::controlHeight * scale,
+                .paddingV = Style::spaceXs * scale,
+                .paddingH = Style::spaceMd * scale,
+                .radius = Style::scaledRadiusMd(scale),
+                .onClick = doCreate,
+            })
+        )
+    );
+  };
+
+  m_editorSheetModal->open(
+      settings::SettingsSheetRequest{
+          .sheetTitle = i18n::tr("settings.entities.monitor-override.new"),
+          .populateSheetBody = std::move(populate),
+          .scale = scale,
       }
   );
 }

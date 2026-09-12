@@ -802,6 +802,12 @@ settings::RegistryEnvironment SettingsWindow::buildRegistryEnvironment() const {
     }
   }
   env.keyboardLayoutNames = m_wayland != nullptr ? m_wayland->keyboardLayoutNames() : std::vector<std::string>{};
+  env.availableOutputs = availableOutputs();
+  return env;
+}
+
+std::vector<settings::SelectOption> SettingsWindow::availableOutputs() const {
+  std::vector<settings::SelectOption> outputs;
   if (m_wayland != nullptr) {
     for (const auto& output : m_wayland->outputs()) {
       if (output.output == nullptr || output.connectorName.empty()) {
@@ -811,10 +817,10 @@ settings::RegistryEnvironment SettingsWindow::buildRegistryEnvironment() const {
       if (!output.description.empty()) {
         label += " (" + output.description + ")";
       }
-      env.availableOutputs.push_back(settings::SelectOption{output.connectorName, std::move(label)});
+      outputs.push_back(settings::SelectOption{output.connectorName, std::move(label)});
     }
   }
-  return env;
+  return outputs;
 }
 
 void SettingsWindow::syncSelectedBarState(const Config& cfg, const std::vector<std::string>& availableBars) {
@@ -1399,8 +1405,8 @@ std::unique_ptr<Flex> SettingsWindow::buildBody(
 ) {
   const auto requestRebuild = [this]() { requestSceneRebuild(); };
   const auto createBar = [this](std::string name) { this->createBar(std::move(name)); };
-  const auto createMonitorOverride = [this](std::string barName, std::string match) {
-    this->createMonitorOverride(std::move(barName), std::move(match));
+  const auto openMonitorOverrideCreate = [this](std::string barName) {
+    openMonitorOverrideCreateDialog(std::move(barName));
   };
   const auto clearTransientSettingsState = [this]() { this->clearTransientSettingsState(); };
   const auto clearSearchQuery = [this]() { m_searchQuery.clear(); };
@@ -1423,13 +1429,11 @@ std::unique_ptr<Flex> SettingsWindow::buildBody(
           .selectedBarName = m_selectedBarName,
           .selectedMonitorOverride = m_selectedMonitorOverride,
           .creatingBarName = m_creatingBarName,
-          .creatingMonitorOverrideBarName = m_creatingMonitorOverrideBarName,
-          .creatingMonitorOverrideMatch = m_creatingMonitorOverrideMatch,
           .clearTransientState = clearTransientSettingsState,
           .clearSearchQuery = clearSearchQuery,
           .requestRebuild = requestRebuild,
           .createBar = createBar,
-          .createMonitorOverride = createMonitorOverride,
+          .openMonitorOverrideCreate = openMonitorOverrideCreate,
           .scrollSidebarNodeIntoView = [this](const Node* node) { scrollSidebarNodeIntoView(node); },
           .outNav = &m_sidebarNav,
       }
