@@ -104,6 +104,7 @@ namespace settings {
         {SettingsSection::Power, "power", "bolt"},
         {SettingsSection::Hooks, "hooks", "link"},
         {SettingsSection::Niri, "niri", "niri"},
+        {SettingsSection::Umbriel, "umbriel", "umbriel"},
         {SettingsSection::Bar, "bar", "crop-3-2", false},
         {SettingsSection::Plugins, "plugins", "puzzle", true, true},
     }};
@@ -2209,6 +2210,17 @@ namespace settings {
             sliderFor(cfg.backdrop.tintIntensity, noctalia::config::schema::kUnitRange, false), "wallpaper"
         ));
       }
+    }
+
+    // Umbriel-specific integrations
+    if (env.umbrielOverviewTypeToLaunchSupported) {
+      entries.push_back(makeEntry(
+          SettingsSection::Umbriel, "overview", tr("settings.schema.shell.umbriel-overview-type-to-launch.label"),
+          tr("settings.schema.shell.umbriel-overview-type-to-launch.description"),
+          {"shell", "umbriel_overview_type_to_launch_enabled"},
+          ToggleSetting{cfg.shell.umbrielOverviewTypeToLaunchEnabled},
+          "umbriel overview type launch launcher search keyboard focus"
+      ));
     }
 
     // System

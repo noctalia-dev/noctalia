@@ -673,6 +673,14 @@ const compositors::niri::NiriRuntime& CompositorPlatform::niriRuntime() const no
   return m_runtimeRegistry->niri();
 }
 
+compositors::umbriel::UmbrielRuntime& CompositorPlatform::umbrielRuntime() noexcept {
+  return m_runtimeRegistry->umbriel();
+}
+
+const compositors::umbriel::UmbrielRuntime& CompositorPlatform::umbrielRuntime() const noexcept {
+  return m_runtimeRegistry->umbriel();
+}
+
 bool CompositorPlatform::hasXdgShell() const noexcept { return m_wayland.hasXdgShell(); }
 
 bool CompositorPlatform::hasXdgActivation() const noexcept { return m_wayland.hasXdgActivation(); }

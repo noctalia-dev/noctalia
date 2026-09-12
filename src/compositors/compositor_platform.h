@@ -42,6 +42,9 @@ namespace compositors {
   namespace niri {
     class NiriRuntime;
   }
+  namespace umbriel {
+    class UmbrielRuntime;
+  }
 } // namespace compositors
 
 class WorkspaceAlertService;
@@ -184,6 +187,9 @@ public:
 
   [[nodiscard]] compositors::niri::NiriRuntime& niriRuntime() noexcept;
   [[nodiscard]] const compositors::niri::NiriRuntime& niriRuntime() const noexcept;
+
+  [[nodiscard]] compositors::umbriel::UmbrielRuntime& umbrielRuntime() noexcept;
+  [[nodiscard]] const compositors::umbriel::UmbrielRuntime& umbrielRuntime() const noexcept;
 
 private:
   struct WorkspaceModelSnapshot {
