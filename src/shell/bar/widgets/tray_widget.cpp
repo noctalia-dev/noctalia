@@ -21,11 +21,14 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdlib>
 #include <filesystem>
 #include <linux/input-event-codes.h>
 #include <memory>
 #include <optional>
+#include <ranges>
 #include <string>
+#include <vector>
 
 namespace {
 
@@ -34,6 +37,45 @@ namespace {
   constexpr Logger kLog("tray");
 
   using tray::identifierVariants;
+
+  // A themed icon lives at most at <root>/<size>/<context>/<name>.png; anything
+  // deeper is not part of the lookup, and cursor themes carry no icons at all.
+  constexpr int kTrayThemePathMaxDepth = 3;
+  constexpr std::size_t kTrayThemePathMaxEntries = 20000;
+
+  // An SNI IconThemePath is meant to name an app-private icon directory. Some apps
+  // publish a system icon root instead, and indexing one of those walks every icon
+  // and cursor theme installed on the machine. IconResolver already covers those
+  // roots properly via index.theme and Inherits, so skip them here.
+  bool isSystemIconRoot(const fs::path& path) {
+    std::error_code ec;
+    const fs::path canonical = fs::weakly_canonical(path, ec);
+    const fs::path& probe = ec ? path : canonical;
+
+    std::vector<std::string> dataDirs;
+    if (const char* env = std::getenv("XDG_DATA_HOME"); env != nullptr && env[0] != '\0') {
+      dataDirs.emplace_back(env);
+    } else if (const char* home = std::getenv("HOME"); home != nullptr && home[0] != '\0') {
+      dataDirs.emplace_back(std::string(home) + "/.local/share");
+    }
+    const char* env = std::getenv("XDG_DATA_DIRS");
+    const std::string dirs = (env != nullptr && env[0] != '\0') ? env : "/usr/local/share:/usr/share";
+    for (const auto part : std::views::split(dirs, ':')) {
+      if (std::string dir(part.begin(), part.end()); !dir.empty()) {
+        dataDirs.push_back(std::move(dir));
+      }
+    }
+
+    for (const auto& dataDir : dataDirs) {
+      for (const char* leaf : {"/icons", "/pixmaps"}) {
+        const fs::path root = fs::weakly_canonical(fs::path(dataDir + leaf), ec);
+        if (!ec && root == probe) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
 
   void addIconAlias(std::unordered_map<std::string, std::string>& index, std::string_view key, std::string_view icon) {
     if (key.empty() || icon.empty()) {
@@ -202,10 +244,32 @@ std::string TrayWidget::resolveFromTrayThemePath(std::string_view themePath, std
       return {};
     }
 
+    if (isSystemIconRoot(themePathKey)) {
+      kLog.debug("ignoring tray icon theme path '{}': it is a system icon root", themePathKey);
+      return {};
+    }
+
     auto& iconIndex = cacheIt->second;
+    std::size_t scanned = 0;
     for (fs::recursive_directory_iterator it(themePathKey, fs::directory_options::skip_permission_denied, ec), end;
          !ec && it != end; it.increment(ec)) {
-      if (ec || !it->is_regular_file()) {
+      if (ec) {
+        continue;
+      }
+      if (++scanned > kTrayThemePathMaxEntries) {
+        kLog.warn("tray icon theme path '{}' is too large to index; stopping the scan", themePathKey);
+        break;
+      }
+
+      std::error_code dirEc;
+      if (it->is_directory(dirEc) && !dirEc) {
+        const std::string name = StringUtils::toLower(it->path().filename().string());
+        if (it.depth() >= kTrayThemePathMaxDepth || name.contains("cursor")) {
+          it.disable_recursion_pending();
+        }
+        continue;
+      }
+      if (!it->is_regular_file()) {
         continue;
       }
 
