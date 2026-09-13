@@ -243,6 +243,23 @@ namespace {
     );
   }
 
+  // A killed grandchild is reparented to pid 1, and an init that never reaps it (a CI
+  // container) leaves it a zombie, for which kill(pid, 0) keeps succeeding. Read the state
+  // field so a process that is dead but unreaped does not read as still running.
+  bool processIsRunning(int pid) {
+    std::ifstream stat("/proc/" + std::to_string(pid) + "/stat");
+    std::string line;
+    if (!std::getline(stat, line)) {
+      return false;
+    }
+    // The comm field is parenthesised and may itself contain spaces: state follows the last ')'.
+    const auto commEnd = line.rfind(')');
+    if (commEnd == std::string::npos || commEnd + 2 >= line.size()) {
+      return false;
+    }
+    return line[commEnd + 2] != 'Z';
+  }
+
   // A cancelled run must escalate to SIGKILL: both the shell and the child it spawned ignore
   // SIGTERM, so only the escalation can end the run.
   bool cancelKillsProcessGroupIgnoringSigterm() {
@@ -281,10 +298,10 @@ namespace {
     ok = expect(childPid > 0, "the spawned child should have reported its pid") && ok;
     if (childPid > 0) {
       const auto gone = std::chrono::steady_clock::now() + std::chrono::seconds(5);
-      while (::kill(childPid, 0) == 0 && std::chrono::steady_clock::now() < gone) {
+      while (processIsRunning(childPid) && std::chrono::steady_clock::now() < gone) {
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
       }
-      ok = expect(::kill(childPid, 0) != 0, "the whole process group must be killed, not just the shell") && ok;
+      ok = expect(!processIsRunning(childPid), "the whole process group must be killed, not just the shell") && ok;
     }
     std::filesystem::remove(pidFile);
     return ok;
