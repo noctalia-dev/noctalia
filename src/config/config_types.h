@@ -1264,8 +1264,7 @@ struct AudioConfig {
   bool enableOverdrive = false;
   bool enableSounds = false;
   float soundVolume = 0.5F;
-  std::string volumeChangeSound;
-  std::string notificationSound;
+  std::string soundTheme = "freedesktop";
 
   bool operator==(const AudioConfig&) const = default;
 };

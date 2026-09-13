@@ -6,7 +6,6 @@
 #include "config/config_types.h"
 #include "core/build_info.h"
 #include "core/deferred_call.h"
-#include "core/files/resource_paths.h"
 #include "core/input/keybind_matcher.h"
 #include "core/log.h"
 #include "core/process/process.h"
@@ -1462,44 +1461,14 @@ void Application::initBrightnessAndPipewire() {
     m_pipewireSpectrum = std::make_unique<PipeWireSpectrum>(*m_pipewireService);
     m_soundPlayer = std::make_shared<SoundPlayer>(m_pipewireService->loop());
 
-    struct LoadedSoundPaths {
-      std::filesystem::path volumeChange;
-      std::filesystem::path notification;
-    };
-    auto loadedSoundPaths = std::make_shared<LoadedSoundPaths>();
-
-    auto applySoundConfig = [this, loadedSoundPaths]() {
+    auto applySoundConfig = [this]() {
       if (m_soundPlayer == nullptr) {
         return;
       }
 
       const auto& audio = m_configService.config().audio;
       m_soundPlayer->setVolume(audio.enableSounds ? audio.soundVolume : 0.0F);
-
-      auto resolveSoundPath = [](const std::string& configured, std::string_view bundledRelative) {
-        if (configured.empty()) {
-          return paths::assetPath(bundledRelative);
-        }
-        const std::filesystem::path expanded = FileUtils::expandUserPath(configured);
-        if (expanded.is_absolute()) {
-          return expanded;
-        }
-        return paths::assetPath(expanded.string());
-      };
-
-      const auto volumeChangePath = resolveSoundPath(audio.volumeChangeSound, "sounds/volume-change.wav");
-      if (loadedSoundPaths->volumeChange != volumeChangePath) {
-        if (m_soundPlayer->load("volume-change", volumeChangePath)) {
-          loadedSoundPaths->volumeChange = volumeChangePath;
-        }
-      }
-
-      const auto notificationPath = resolveSoundPath(audio.notificationSound, "sounds/notification.wav");
-      if (loadedSoundPaths->notification != notificationPath) {
-        if (m_soundPlayer->load("notification", notificationPath)) {
-          loadedSoundPaths->notification = notificationPath;
-        }
-      }
+      m_soundPlayer->setTheme(audio.soundTheme.empty() ? "freedesktop" : audio.soundTheme);
     };
     applySoundConfig();
     m_configService.addReloadCallback(

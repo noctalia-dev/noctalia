@@ -2751,11 +2751,6 @@
           "description": "Color temperature at night (Kelvin)",
           "label": "Night Temperature"
         },
-        "notification-sound": {
-          "description": "Sound file used for notification feedback",
-          "label": "Notification Sound",
-          "placeholder": "/path/to/sound.wav"
-        },
         "shell-sounds": {
           "description": "Play sound effects for shell events",
           "label": "Shell Sounds"
@@ -2763,6 +2758,10 @@
         "sound-volume": {
           "description": "Volume for shell sound effects",
           "label": "Sound Volume"
+        },
+        "sound-theme": {
+          "description": "Sound theme used for shell sound effects",
+          "label": "Sound Theme"
         },
         "sunrise": {
           "description": "Manual sunrise time in HH:MM, used when no location is set",
@@ -2820,11 +2819,6 @@
             "description": "Activity threshold (left) and critical threshold (right)",
             "label": "{stat}"
           }
-        },
-        "volume-change-sound": {
-          "description": "Sound file used for volume feedback",
-          "label": "Volume Change Sound",
-          "placeholder": "/path/to/sound.wav"
         },
         "weather": {
           "description": "Enable the weather service via open-meteo.com",

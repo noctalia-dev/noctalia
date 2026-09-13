@@ -332,7 +332,7 @@ location = "https://example.invalid/bad"
   // checks exercise real serialization rather than all-defaults.
   Config makeProbe() {
     Config c;
-    c.audio = AudioConfig{true, true, 0.73F, "change.ogg", "notify.ogg"};
+    c.audio = AudioConfig{true, true, 0.73F, "freedesktop"};
     c.weather = WeatherConfig{false, false, 17, "imperial"};
     c.osd.position = "bottom_left";
     c.osd.positionVertical = "top_right";
