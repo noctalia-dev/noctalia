@@ -270,8 +270,8 @@ namespace security {
       lookup(const SecretStoreAttributes& attributes, SecretStoreCancellation& cancellation) override {
         return withCancellable(cancellation, [&attributes](GCancellable* cancellable) {
           auto table = makeAttributes(attributes);
-          const auto loadUnlocked = [](const SecretItemListPtr& items,
-                                       bool& lockedItemFound) -> std::optional<SecretStoreBackendResult> {
+          const auto loadUnlocked = [cancellable](const SecretItemListPtr& items,
+                                                  bool& lockedItemFound) -> std::optional<SecretStoreBackendResult> {
             for (GList* node = items.get(); node != nullptr; node = node->next) {
               auto* item = SECRET_ITEM(node->data);
               if (secret_item_get_locked(item) != 0) {
@@ -279,6 +279,15 @@ namespace security {
                 continue;
               }
 
+              GError* rawError = nullptr;
+              if (secret_item_load_secret_sync(item, cancellable, &rawError) == 0) {
+                ErrorPtr error(rawError, &g_error_free);
+                return error != nullptr ? resultFromError(error.get())
+                                        : SecretStoreBackendResult{
+                                              .status = SecretStoreStatus::BackendError,
+                                              .errorCategory = SecretStoreErrorCategory::Protocol,
+                                          };
+              }
               SecretValue* value = secret_item_get_secret(item);
               if (value == nullptr) {
                 return SecretStoreBackendResult{
@@ -305,11 +314,22 @@ namespace security {
           };
 
           GError* rawError = nullptr;
-          const auto inspectFlags = static_cast<SecretSearchFlags>(SECRET_SEARCH_ALL | SECRET_SEARCH_LOAD_SECRETS);
-          SecretItemListPtr items(
-              secret_service_search_sync(nullptr, &schema(), table.get(), inspectFlags, cancellable, &rawError)
-          );
+          SecretService* rawService = secret_service_get_sync(SECRET_SERVICE_OPEN_SESSION, cancellable, &rawError);
           ErrorPtr error(rawError, &g_error_free);
+          if (rawService == nullptr) {
+            return withDefaultCollectionState(resultFromError(error.get()), cancellable);
+          }
+          const auto service =
+              std::unique_ptr<SecretService, void (*)(SecretService*)>(rawService, [](SecretService* value) {
+                g_object_unref(value);
+              });
+
+          rawError = nullptr;
+          const auto inspectFlags = static_cast<SecretSearchFlags>(SECRET_SEARCH_ALL);
+          SecretItemListPtr items(
+              secret_service_search_sync(service.get(), &schema(), table.get(), inspectFlags, cancellable, &rawError)
+          );
+          error.reset(rawError);
           if (error != nullptr) {
             return withDefaultCollectionState(resultFromError(error.get()), cancellable);
           }
@@ -329,10 +349,9 @@ namespace security {
           }
 
           rawError = nullptr;
-          const auto unlockFlags =
-              static_cast<SecretSearchFlags>(SECRET_SEARCH_ALL | SECRET_SEARCH_UNLOCK | SECRET_SEARCH_LOAD_SECRETS);
+          const auto unlockFlags = static_cast<SecretSearchFlags>(SECRET_SEARCH_ALL | SECRET_SEARCH_UNLOCK);
           SecretItemListPtr unlockedItems(
-              secret_service_search_sync(nullptr, &schema(), table.get(), unlockFlags, cancellable, &rawError)
+              secret_service_search_sync(service.get(), &schema(), table.get(), unlockFlags, cancellable, &rawError)
           );
           error.reset(rawError);
           if (error == nullptr) {
