@@ -3113,6 +3113,10 @@
           "description": "Close after a successful copy from the editor, including when opened directly",
           "label": "Close Editor After Copying"
         },
+        "screenshot-close-on-save": {
+          "description": "Close after a successful save from the editor, including when opened directly",
+          "label": "Close Editor After Saving"
+        },
         "screenshot-confirm-region": {
           "description": "After drawing a region, keep the overlay open until you confirm with Enter or Space",
           "label": "Confirm Region"

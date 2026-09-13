@@ -1050,6 +1050,7 @@ struct ShellConfig {
     bool showCursor = false;
     bool annotate = false;
     bool closeOnCopy = true;
+    bool closeOnSave = true;
     bool pipeToCommand = false;
     std::string pipeCommand;
     std::string directory;       // empty = XDG Pictures directory

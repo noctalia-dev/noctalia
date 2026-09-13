@@ -41,7 +41,8 @@ shared_gl_context     = true         # startup-only; false isolates GPU contexts
 # avatar_path         = "~/Pictures/avatar.png"
 
 [shell.screenshot]
-close_on_copy = true                # close the annotation editor after Copy or Ctrl+C succeeds
+close_on_copy = true                 # close the annotation editor after Copy or Ctrl+C succeeds
+close_on_save = true                 # close the annotation editor after Save or Ctrl+S succeeds
 
 [shell.privacy]
 mic_filter_regex = ""                # microphone app names to ignore in privacy indicators and OSD
