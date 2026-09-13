@@ -1,5 +1,7 @@
 #pragma once
 
+#include <atomic>
+#include <chrono>
 #include <condition_variable>
 #include <cstddef>
 #include <cstdint>
@@ -16,8 +18,14 @@ namespace noctalia::theme {
   class HookRunner {
   public:
     static constexpr std::size_t kDefaultMaxConcurrent = 4;
+    // How long destruction waits for a running hook before cancelling it, and again before
+    // giving up on it. Long enough for a normal hook to finish writing an application's config.
+    static constexpr auto kDefaultShutdownGrace = std::chrono::seconds(5);
 
-    explicit HookRunner(std::size_t maxConcurrent = kDefaultMaxConcurrent);
+    explicit HookRunner(
+        std::size_t maxConcurrent = kDefaultMaxConcurrent,
+        std::chrono::milliseconds shutdownGrace = kDefaultShutdownGrace
+    );
     ~HookRunner();
 
     HookRunner(const HookRunner&) = delete;
@@ -50,12 +58,15 @@ namespace noctalia::theme {
       std::size_t maxConcurrent = kDefaultMaxConcurrent;
       std::uint64_t currentGeneration = 0;
       bool shutdown = false;
+      // Raised when a running hook outlives the shutdown grace, so it cannot hold up the quit.
+      std::shared_ptr<std::atomic<bool>> cancel = std::make_shared<std::atomic<bool>>(false);
     };
 
     static void pump(const std::shared_ptr<State>& state);
     [[nodiscard]] static bool launch(const std::shared_ptr<State>& state, const std::string& command);
 
     std::shared_ptr<State> m_state;
+    std::chrono::milliseconds m_shutdownGrace;
   };
 
 } // namespace noctalia::theme

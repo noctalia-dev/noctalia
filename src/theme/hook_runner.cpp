@@ -13,7 +13,8 @@ namespace noctalia::theme {
     constexpr std::size_t kMaxHookOutputBytes = 8 * 1024;
   } // namespace
 
-  HookRunner::HookRunner(std::size_t maxConcurrent) : m_state(std::make_shared<State>()) {
+  HookRunner::HookRunner(std::size_t maxConcurrent, std::chrono::milliseconds shutdownGrace)
+      : m_state(std::make_shared<State>()), m_shutdownGrace(shutdownGrace) {
     m_state->maxConcurrent = maxConcurrent > 0 ? maxConcurrent : kDefaultMaxConcurrent;
   }
 
@@ -22,7 +23,17 @@ namespace noctalia::theme {
     std::unique_lock lock(m_state->mutex);
     // Hooks that already started own the shared state; wait them out instead of
     // killing a command halfway through rewriting an application's config.
-    m_state->idleCv.wait(lock, [this]() { return m_state->running == 0; });
+    const auto idle = [this]() { return m_state->running == 0; };
+    if (m_state->idleCv.wait_for(lock, m_shutdownGrace, idle)) {
+      return;
+    }
+    kLog.warn("{} hook(s) still running after {}ms; terminating them", m_state->running, m_shutdownGrace.count());
+    m_state->cancel->store(true);
+    if (m_state->idleCv.wait_for(lock, m_shutdownGrace, idle)) {
+      return;
+    }
+    // Giving up is safe: the running hooks hold the state through their own callbacks.
+    kLog.warn("{} hook(s) did not stop; leaving them behind", m_state->running);
   }
 
   void HookRunner::requestShutdown() {
@@ -118,6 +129,7 @@ namespace noctalia::theme {
 
     process::RunOptions options;
     options.maxOutputBytes = kMaxHookOutputBytes;
+    options.cancel = state->cancel;
     if (process::runAsync(command, std::move(callbacks), options)) {
       return true;
     }

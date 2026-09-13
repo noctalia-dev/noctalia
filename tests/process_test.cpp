@@ -1,7 +1,9 @@
 #include "core/process/process.h"
 
+#include <atomic>
 #include <chrono>
 #include <condition_variable>
+#include <csignal>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
@@ -241,6 +243,52 @@ namespace {
     );
   }
 
+  // A cancelled run must escalate to SIGKILL: both the shell and the child it spawned ignore
+  // SIGTERM, so only the escalation can end the run.
+  bool cancelKillsProcessGroupIgnoringSigterm() {
+    const auto pidFile =
+        std::filesystem::temp_directory_path() / ("noctalia_process_cancel_" + std::to_string(::getpid()));
+    std::filesystem::remove(pidFile);
+
+    process::RunOptions options;
+    options.cancel = std::make_shared<std::atomic<bool>>(false);
+
+    const std::string command =
+        "trap '' TERM; sh -c 'trap \"\" TERM; echo $$ > " + shellQuote(pidFile.string()) + "; sleep 30' & wait";
+
+    std::thread canceller([&]() {
+      const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+      while (std::chrono::steady_clock::now() < deadline && !std::filesystem::exists(pidFile)) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+      }
+      std::this_thread::sleep_for(std::chrono::milliseconds(50));
+      options.cancel->store(true);
+    });
+
+    const auto start = std::chrono::steady_clock::now();
+    const process::RunResult result = process::runSync(command, options);
+    const auto elapsed = std::chrono::steady_clock::now() - start;
+    canceller.join();
+
+    bool ok = expect(elapsed < std::chrono::seconds(10), "a cancelled run must not wait out a 30s sleep");
+    ok = expect(result.timedOut, "a cancelled run must report as terminated") && ok;
+    ok = expect(result.exitCode == 128 + SIGKILL, "an uncooperative child must be reaped after SIGKILL") && ok;
+
+    std::ifstream in(pidFile);
+    int childPid = 0;
+    in >> childPid;
+    ok = expect(childPid > 0, "the spawned child should have reported its pid") && ok;
+    if (childPid > 0) {
+      const auto gone = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+      while (::kill(childPid, 0) == 0 && std::chrono::steady_clock::now() < gone) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+      }
+      ok = expect(::kill(childPid, 0) != 0, "the whole process group must be killed, not just the shell") && ok;
+    }
+    std::filesystem::remove(pidFile);
+    return ok;
+  }
+
 } // namespace
 
 int main() {
@@ -254,5 +302,6 @@ int main() {
   ok = detachedMissingBinaryReturnsFalse() && ok;
   ok = commandExistsRejectsDirectories() && ok;
   ok = cgroupDetectsSystemdUserManager() && ok;
+  ok = cancelKillsProcessGroupIgnoringSigterm() && ok;
   return ok ? 0 : 1;
 }

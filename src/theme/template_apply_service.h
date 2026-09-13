@@ -5,6 +5,7 @@
 #include "theme/palette.h"
 
 #include <atomic>
+#include <chrono>
 #include <condition_variable>
 #include <cstdint>
 #include <functional>
@@ -26,7 +27,12 @@ namespace noctalia::theme {
 
   class TemplateApplyService {
   public:
-    explicit TemplateApplyService(ConfigService& config);
+    // How long the destructor waits for a running hook before terminating it, and again
+    // before giving up on the worker. Long enough for a normal hook to finish writing an
+    // application's config.
+    static constexpr auto kShutdownGrace = std::chrono::seconds(5);
+
+    explicit TemplateApplyService(ConfigService& config, std::chrono::milliseconds shutdownGrace = kShutdownGrace);
     ~TemplateApplyService();
 
     TemplateApplyService(const TemplateApplyService&) = delete;
@@ -57,6 +63,27 @@ namespace noctalia::theme {
       std::uint64_t generation = 0;
     };
 
+    // Everything the worker touches. Held by shared_ptr because a worker that cannot be
+    // stopped within the shutdown bounds is detached and must outlive the service.
+    struct Shared {
+      std::mutex mutex;
+      std::condition_variable cv;
+      std::optional<ApplyRequest> pendingRequest;
+      std::uint64_t nextGeneration = 0;
+      bool shutdown = false;
+      bool workerDone = false;
+      bool inFlight = false;
+      // A palette change has been reported to apply() and not yet passed on to the handler.
+      bool paletteChangedOwed = false;
+      std::function<void(std::string_view appliedMode, bool paletteChanged)> afterApplyCallback;
+      std::unique_ptr<HookRunner> hookRunner;
+      // Raised when a synchronous hook outlives the shutdown grace period, so quitting cannot
+      // be held up forever by a hook that never exits.
+      std::shared_ptr<std::atomic<bool>> hookCancel = std::make_shared<std::atomic<bool>>(false);
+      // Cleared by the destructor: a detached worker must not reach back into the service.
+      TemplateApplyService* owner = nullptr;
+    };
+
     [[nodiscard]] bool reapplyLast() const;
     [[nodiscard]] ApplyRequest makeRequest(const GeneratedPalette& palette, std::string_view defaultMode) const;
     [[nodiscard]] static bool sameInputs(const ApplyRequest& a, const ApplyRequest& b);
@@ -67,15 +94,14 @@ namespace noctalia::theme {
     void forgetAppliedBuiltinIds(const std::vector<std::string>& ids) const;
     void persistAppliedBuiltinIds() const;
     // Runs the undo hooks of request.undoBuiltinIds and returns the ids it resolved.
-    [[nodiscard]] std::vector<std::string> undoBuiltinTemplates(const ApplyRequest& request) const;
-    void applyRequest(const ApplyRequest& request) const;
-    void workerLoop();
-    [[nodiscard]] bool requestSuperseded(std::uint64_t generation) const;
+    [[nodiscard]] static std::vector<std::string>
+    undoBuiltinTemplates(const std::shared_ptr<Shared>& state, const ApplyRequest& request);
+    static void applyRequest(const std::shared_ptr<Shared>& state, const ApplyRequest& request);
+    static void workerLoop(const std::shared_ptr<Shared>& state);
+    [[nodiscard]] static bool requestSuperseded(const std::shared_ptr<Shared>& state, std::uint64_t generation);
 
     ConfigService& m_config;
-    mutable std::mutex m_mutex;
-    mutable std::condition_variable m_cv;
-    mutable std::optional<ApplyRequest> m_pendingRequest;
+    std::shared_ptr<Shared> m_shared;
     mutable std::optional<ApplyRequest> m_lastAppliedRequest;
     // Built-in template ids whose output is on disk: the enabled ones plus the ones still
     // owing an undo. Mirrors [theme_templates].applied_builtin_ids in state.toml, so a
@@ -84,17 +110,7 @@ namespace noctalia::theme {
     mutable std::set<std::string> m_owedUndoBuiltinIds;
     mutable bool m_appliedBuiltinIdsLoaded = false;
     mutable std::thread m_worker;
-    mutable std::uint64_t m_nextGeneration = 0;
-    mutable bool m_shutdown = false;
-    mutable bool m_workerDone = false;
-    mutable bool m_inFlight = false;
-    mutable std::function<void(std::string_view appliedMode, bool paletteChanged)> m_afterApplyCallback;
-    // A palette change has been reported to apply() and not yet passed on to the handler.
-    mutable bool m_paletteChangedOwed = false;
-    mutable std::unique_ptr<HookRunner> m_hookRunner;
-    // Raised when a synchronous hook outlives the shutdown grace period, so quitting cannot
-    // be held up forever by a hook that never exits.
-    std::shared_ptr<std::atomic<bool>> m_hookCancel = std::make_shared<std::atomic<bool>>(false);
+    std::chrono::milliseconds m_shutdownGrace;
   };
 
 } // namespace noctalia::theme
