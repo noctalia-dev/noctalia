@@ -3,6 +3,7 @@
 #include "scripting/plugin_panel_shell.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
@@ -569,7 +570,8 @@ int main() {
       ok = expect(setting.numberDefault == 0.5, "double default should parse") && ok;
       ok = expect(setting.minValue == 0.0, "double min should parse") && ok;
       ok = expect(setting.maxValue == 1.0, "double max should parse") && ok;
-      ok = expect(setting.step == 0.05, "double step should parse") && ok;
+      ok = expect(std::abs(setting.step - 0.05) <= std::numeric_limits<double>::epsilon(), "double step should parse")
+          && ok;
     }
   }
 

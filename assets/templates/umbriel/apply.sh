@@ -35,14 +35,37 @@ awk '
         added = 1
     }
 
+    # Offset of the first ch at or after start that is real array syntax: not
+    # inside a quoted string and not inside a # comment. Strings and comments
+    # end at a newline. Returns 0 when the buffer has no such character.
+    # Entries are TOML basic strings, matching the rest of this script.
+    function find_syntax(s, start, ch,   i, c, in_str, in_comment) {
+        for (i = start; i <= length(s); i++) {
+            c = substr(s, i, 1)
+            if (c == "\n") { in_str = 0; in_comment = 0; continue }
+            if (in_comment) continue
+            if (in_str) {
+                if (c == "\\") { i++; continue }
+                if (c == "\"") in_str = 0
+                continue
+            }
+            if (c == "\"") { in_str = 1; continue }
+            if (c == "#") { in_comment = 1; continue }
+            if (c == ch) return i
+        }
+        return 0
+    }
+
+    function has_array_close(s) {
+        return find_syntax(s, 1, "]") > 0
+    }
+
     # Rebuild a complete "files = [ ... ]" statement (buf may span lines),
     # dropping any existing noctalia.toml entry and appending it last so it
     # overrides earlier includes. Handles single-line and multi-line arrays.
-    function build(buf,   open, endp, i, head, inner, tail, test, multiline, indent) {
-        open = index(buf, "[")
-        endp = 0
-        for (i = length(buf); i >= 1; i--)
-            if (substr(buf, i, 1) == "]") { endp = i; break }
+    function build(buf,   open, endp, head, inner, tail, test, multiline, indent) {
+        open = find_syntax(buf, 1, "[")
+        endp = find_syntax(buf, open + 1, "]")
         if (open == 0 || endp == 0 || endp < open) {
             print "error: include.files must be an array" > "/dev/stderr"
             exit 2
@@ -79,7 +102,7 @@ awk '
 
     collecting {
         buf = buf "\n" $0
-        if (index($0, "]") > 0) {
+        if (has_array_close($0)) {
             print build(buf)
             collecting = 0
             added = 1
@@ -102,12 +125,12 @@ awk '
 
     in_include && /^[[:space:]]*files[[:space:]]*=/ {
         saw_files = 1
-        if (index($0, "[") == 0) {
+        if (find_syntax($0, 1, "[") == 0) {
             print "error: include.files must be an array" > "/dev/stderr"
             exit 2
         }
         buf = $0
-        if (index($0, "]") > 0) {
+        if (has_array_close($0)) {
             print build(buf)
             added = 1
         } else {

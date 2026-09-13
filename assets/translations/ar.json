@@ -27,6 +27,17 @@
     }
   },
   "bar": {
+    "annotate": {
+      "close": "إغلاق دون إرسال (Esc)",
+      "color-black": "أسود",
+      "color-blue": "أزرق",
+      "color-green": "أخضر",
+      "color-orange": "برتقالي",
+      "color-purple": "أرجواني",
+      "color-red": "أحمر",
+      "color-white": "أبيض",
+      "color-yellow": "أصفر"
+    },
     "screenshot": {
       "choose-display": "اختر الشاشة",
       "confirm-region": "{نسخ} للنسخ · {حفظ} للحفظ · أدخل أو مسافة للإعدادات الافتراضية · {إلغاء} للإلغاء · اسحب لإعادة التحديد",
@@ -772,12 +783,15 @@
       "desktop-widgets-editor": "محرر ودجت",
       "desktop-widgets-editor-enabled": "محرر ودجات سطح المكتب مفعّل. انتقل إلى مساحة عمل فارغة حتى لا تغطي النوافذ المفتوحة المحرر.",
       "greeter-sync": "مزامنة شاشة الدخول",
-      "greeter-sync-pending": "في انتظار موافقة المسؤول للكتابة على الشاشة الرئيسية.",
-      "greeter-sync-pending-console": "في انتظار موافقة المسؤول. وافق على طلب Polkit في Noctalia أو عبر وحدة التحكم، أو شغّل pkexec يدويًا.",
-      "greeter-sync-pending-manual": "الملفات جاهزة. نفّذ في الطرفية: pkexec noctalia-greeter-apply-appearance \"$XDG_RUNTIME_DIR/noctalia-greeter-sync\". أو اضبط الأمر في الإعدادات ثم حاول مرة أخرى.",
+      "greeter-sync-pending": "مزامنة المظهر مع شاشة الترحيب. إذا ظهرت مطالبة من المسؤول، فقم بالموافقة عليها؛ حيث تتبع عملية المصادقة بدون كلمة مرور سياسة النظام.",
+      "greeter-sync-pending-console": "مزامنة الهوية مع برنامج الترحيب. إذا كانت هناك حاجة إلى تفويض، فقم بالموافقة على موجه polkit في Noctalia أو على TTY أو على وحدة التحكم.",
+      "greeter-sync-pending-legacy": "المزامنة من خلال أداة المساعدة القديمة التي تتطلب المصادقة. يلزم الحصول على موافقة المسؤول.",
+      "greeter-sync-pending-manual": "يتم تجهيز الملفات للمزامنة القديمة التي تتطلب المصادقة. قم بتشغيل الأداة المساعدة «apply» في محطة طرفية، مع الحفاظ على NOCTALIA_GREETER_STATE_DIR إذا كنت تستخدم مسارًا مخصصًا، أو قم بتكوين shell.greeter_sync.privilege_command ثم أعد المزامنة.",
+      "greeter-sync-pending-manual-pkexec": "مزامنة المظهر مع شاشة الترحيب. إذا كانت هناك حاجة إلى تفويض من المسؤول ولم تظهر أي مطالبة، فقم بتشغيل الأمر التالي في محطة طرفية: pkexec noctalia-greeter-apply-appearance --sync ”/run/user/$(id -u)/noctalia-greeter-sync“.",
       "greeter-sync-success": "تمت مزامنة المظهر. ستطبق التغييرات في شاشة الدخول القادمة.",
-      "greeter-sync-timeout": "لا تزال مزامنة شاشة الدخول في انتظار موافقة المسؤول. تحقق من الطرفية لطلب Polkit، أو فعّل وكيل Polkit من إعدادات الأمان، أو شغّل pkexec يدويًا.",
-      "greeter-sync-timeout-manual": "تحتاج مزامنة شاشة الدخول إلى موافقة المسؤول. شغّل في الطرفية: pkexec noctalia-greeter-apply-appearance \"$XDG_RUNTIME_DIR/noctalia-greeter-sync\"",
+      "greeter-sync-timeout": "لا تزال عملية مزامنة Greeter في انتظار الحصول على التفويض. تحقق من وجود موجه polkit على جهاز TTY أو وحدة التحكم، أو قم بتمكين وكيل polkit في إعدادات الأمان، أو قم بتشغيل pkexec يدويًّا.",
+      "greeter-sync-timeout-manual": "لا تزال عملية المزامنة القديمة المصادق عليها تتطلب موافقة المسؤول. قم بتشغيل أداة المساعدة «positional apply» في نافذة الأوامر واحتفظ بـ NOCTALIA_GREETER_STATE_DIR إذا كنت تستخدم مسارًا مخصصًا.",
+      "greeter-sync-timeout-manual-pkexec": "لا تزال عملية مزامنة Greeter بحاجة إلى ترخيص. قم بتشغيل الأمر التالي في محطة الأوامر: pkexec noctalia-greeter-apply-appearance --sync ”/run/user/$(id -u)/noctalia-greeter-sync“",
       "keybind-app": "Noctalia",
       "keybind-invalid-modifier": "يقبل هذا الاختصار مفتاحاً واحداً بدون معدّلات.",
       "keybind-invalid-printable": "المفاتيح القابلة للطباعة (أحرف، أرقام، رموز) تتطلب معدّلاً مثل Ctrl أو Alt.",
@@ -935,7 +949,8 @@
         "custom": "CalDAV",
         "google": "Google",
         "icloud": "iCloud",
-        "ics": "رابط ICS"
+        "ics": "رابط ICS",
+        "vdir": "محلي (vdir)"
       },
       "provider-label": "المزود",
       "save": "حفظ",
@@ -948,7 +963,8 @@
       "secret-service-unavailable": "لا يتوفر موفر خدمة الأسرار. شغّل موفراً متوافقاً وأعد المحاولة.",
       "server-url-label": "رابط الخادم",
       "username-label": "اسم المستخدم",
-      "username-placeholder": "name@example.com"
+      "username-placeholder": "name@example.com",
+      "vdir-path-label": "مسار المجلد"
     },
     "controls": {
       "keybind": {
@@ -1140,8 +1156,8 @@
       "reset-page": "فشل إعادة ضبط بعض الإعدادات.",
       "support-report": "فشل حفظ تقرير الدعم.",
       "sync-greeter": "تعذرت مزامنة المظهر مع Noctalia Greeter.",
-      "sync-greeter-timeout": "لا تزال المزامنة تنتظر موافقة المسؤول. تحقق من الطرفية لطلب polkit، أو فعّل وكيل polkit من الأمان، أو شغل pkexec يدوياً.",
-      "sync-greeter-timeout-manual": "تطلب المزامنة موافقة المسؤول. نفذ في الطرفية: pkexec noctalia-greeter-apply-appearance \"$XDG_RUNTIME_DIR/noctalia-greeter-sync\"",
+      "sync-greeter-timeout": "لا تزال عملية مزامنة Greeter في انتظار الحصول على التفويض. تحقق من وجود موجه polkit على جهاز TTY أو وحدة التحكم، أو قم بتمكين وكيل polkit في إعدادات الأمان، أو قم بتشغيل pkexec يدويًّا.",
+      "sync-greeter-timeout-manual": "لا تزال عملية المزامنة القديمة المصادق عليها تتطلب موافقة المسؤول. قم بتشغيل أداة المساعدة «positional apply» في نافذة الأوامر واحتفظ بـ NOCTALIA_GREETER_STATE_DIR إذا كنت تستخدم مسارًا مخصصًا.",
       "widget": {
         "rename": "تعذر إعادة تسمية الودجت المسمّاة."
       },
@@ -1446,6 +1462,9 @@
           "dark": "داكن",
           "light": "فاتح"
         },
+        "shell-mode": {
+          "follow": "تابع"
+        },
         "source": {
           "built-in": "مدمج",
           "community": "المجتمع",
@@ -1489,6 +1508,10 @@
     "plugins": {
       "browse-store": "تصفح الإضافات",
       "panels": {
+        "layer": {
+          "description": "طبقة الغلاف المستخدمة عندما تكون اللوحة عائمة",
+          "label": "طبقة"
+        },
         "open-near-click": {
           "description": "فتح اللوحة بالقرب من ودجت الذي أنشطها",
           "label": "الفتح بالقرب من النقر"
@@ -1667,8 +1690,12 @@
           "description": "تثبيت الأسطح الداكنة على الأسود الخالص لمنع التدرج غير المتجانس على شاشات OLED (الوضع الداكن فقط)",
           "label": "أسود خالص"
         },
+        "shell-theme-mode": {
+          "description": "قم بتثبيت الوضع الفاتح أو الداكن الخاص بـ noctalia ؛ وتطبيق المتابعة يحافظ على تزامنه مع وضع السمة",
+          "label": "Shell Theme Mode"
+        },
         "theme-mode": {
-          "description": "اختر الوضع الداكن، الفاتح، أو التلقائي حسب الوقت",
+          "description": "اختر «داكن» أو «فاتح» أو «تلقائي» حسب الوقت من اليوم؛ وينطبق ذلك أيضًا على التطبيقات من خلال القوالب",
           "label": "وضع السمة"
         },
         "ui-scale": {
@@ -2850,11 +2877,11 @@
           "label": "إظهار عنوان WAN"
         },
         "greeter-sync-auto": {
-          "description": "مزامنة المستقبل تلقائياً عند تغيير الخلفية، الألوان، أو وضع السمة",
+          "description": "تتم مزامنة شاشة الترحيب تلقائيًا عند تغيير الخلفية أو الألوان أو وضع السمة أو خط واجهة المستخدم. ولا تزال عملية التفويض تخضع لسياسة النظام؛ ولا يتيح هذا الإعداد المزامنة بدون كلمة مرور.",
           "label": "مزامنة تلقائية للمستقبل"
         },
         "greeter-sync-privilege-command": {
-          "description": "استبدال pkexec/run0 لأمر المزامنة الآن للمستقبل.",
+          "description": "تجاوز امتياز التشغيل لبرنامج الترحيب «Sync Now». يقبل الوضع القديم (مساعد أقدم أو دليل حالات مخصص لبرنامج الترحيب) أداة أخرى لرفع صلاحيات المسؤول. تضيف المزامنة المقيدة الخيار --sync وتتطلب البادئة لتشغيل pkexec في النهاية (مثال: ghostty -e pkexec)",
           "label": "أمر امتيازات مزامنة المستقبل"
         },
         "keyboard-layout-custom-labels": {
@@ -3060,7 +3087,7 @@
         },
         "sync-greeter": {
           "button": "مزامنة الآن",
-          "description": "نسخ الخلفية والألوان الحالية إلى Noctalia Greeter (يتطلب موافقة المسؤول)",
+          "description": "انسخ المظهر الحالي وترتيب الشاشات إلى «Noctalia Greeter». يلزم الحصول على موافقة المسؤول ما لم تسمح سياسة النظام بالمزامنة بدون كلمة مرور لمستخدمك.",
           "label": "Noctalia Greeter"
         },
         "telemetry": {
@@ -3255,7 +3282,76 @@
             "label": "تعيين طبقة الشريط"
           },
           "bar-reserve-toggle": {
-            "description": "تبديل تخصيص مساحة احتياطية لشريط واحد أو لجميع الأشرطة"
+            "description": "تبديل تخصيص مساحة احتياطية لشريط واحد أو لجميع الأشرطة",
+            "label": "التبديل بين تخصيص مساحة  للشريط او عدمه"
+          },
+          "bar-show": {
+            "description": "إظهار شريط واحد أو جميع الأشرطة",
+            "label": "عرض الشريط"
+          },
+          "bar-toggle": {
+            "description": "إظهار / اخفاء شريط واحد أو جميع الأشرطة",
+            "label": "إظهار / اخفاء الشريط"
+          },
+          "bluetooth-disable": {
+            "description": "تعطيل البلوتوث",
+            "label": "تعطيل البلوتوث"
+          },
+          "bluetooth-enable": {
+            "description": "تشغيل البلوتوث",
+            "label": "تشغيل البلوتوث"
+          },
+          "bluetooth-status": {
+            "description": "طباعة حالة البلوتوث",
+            "label": "حالة البلوتوث"
+          },
+          "bluetooth-toggle": {
+            "description": "تشغيل/ تعطيل البلوتوث",
+            "label": "تشغيل/ تعطيل البلوتوث"
+          },
+          "brightness-down": {
+            "description": "تقليل السطوع (القيمة الافتراضية هي إعدادات الشاشة الحالية)",
+            "label": "تقليل السطوع"
+          },
+          "brightness-list-backlight-devices": {
+            "description": "سرد أسماء أجهزة الإضاءة الخلفية المتوفرة في sysfs",
+            "label": "عرض أجهزة الإضاءة الخلفية"
+          },
+          "brightness-osd": {
+            "description": "عرض قائمة OSD الخاصة بالسطوع دون تغيير السطوع",
+            "label": "عرض قائمة OSD الخاصة بالسطوع "
+          },
+          "brightness-set": {
+            "description": "ضبط السطوع (القيمة الافتراضية هي إعدادات الشاشة الحالية)",
+            "label": "ضبط السطوع"
+          },
+          "brightness-up": {
+            "description": "زيادة السطوع (القيمة الافتراضية هي إعدادات الشاشة الحالية)",
+            "label": "زيادة السطوع"
+          },
+          "caffeine-disable": {
+            "description": "تعطيل الكافيين (منع الخمول)",
+            "label": "تعطيل الكافيين"
+          },
+          "caffeine-enable": {
+            "description": "تمكين الكافيين (منع الخمول)",
+            "label": "تمكين الكافيين"
+          },
+          "caffeine-toggle": {
+            "description": "تمكين/تعطيل الكافيين (منع الخمول)",
+            "label": "تمكين/تعطيل الكافيين"
+          },
+          "clipboard-clear": {
+            "description": "مسح سجل الحافظة",
+            "label": "مسح سجل الحافظة"
+          },
+          "clipboard-copy": {
+            "description": "نسخ النص إلى الحافظة",
+            "label": "نسخ إلى الحافظة"
+          },
+          "clipboard-text": {
+            "description": "طباعة أحدث نص موجود في الحافظة (يكون فارغًا إذا لم يكن التحديد يحتوي على أي نص)",
+            "label": "طباعة نص الحافظة"
           },
           "mic-mute": {
             "description": "تبديل وضع كتم صوت الميكروفون",

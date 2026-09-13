@@ -171,10 +171,11 @@ namespace scripting {
     bool materializeEnabledFromRepo(
         const PluginSourceConfig& source, const std::filesystem::path& repoRoot, const std::vector<std::string>& enabled
     ) const;
-    // Worker thread: optionally re-clone the source repo, then materialize its enabled
-    // plugins, rebuilding the bar via m_onChanged once an export lands.
+    // Worker thread: prepare the source cache (clone / repair / rebind origin), then
+    // materialize its enabled plugins, rebuilding the bar via m_onChanged once an
+    // export lands.
     void spawnMaterializeEnabled(
-        PluginSourceConfig source, std::filesystem::path repoRoot, std::vector<std::string> enabled, bool cloneFirst
+        PluginSourceConfig source, std::filesystem::path repoRoot, std::vector<std::string> enabled
     ) const;
 
     ConfigService& m_config;

@@ -32,5 +32,5 @@ jobs:
 
       - name: Validate pull request description
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.PR_ENFORCER_TOKEN }}
         run: python3 .github/workflows/scripts/enforce-pr-template.py "$GITHUB_EVENT_PATH"

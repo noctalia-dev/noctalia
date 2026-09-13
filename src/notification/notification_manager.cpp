@@ -555,7 +555,11 @@ bool NotificationManager::close(uint32_t id, CloseReason reason) {
   if (it == m_idToIndex.end()) {
     if (m_pendingDBusClose.contains(id)) {
       emitPendingDBusClose(id, reason);
-      markHistoryClosed(id, reason);
+      if (reason == CloseReason::Dismissed && !m_keepDismissedInHistory) {
+        removeHistoryEntry(id);
+      } else {
+        markHistoryClosed(id, reason);
+      }
       return true;
     }
     return false;
@@ -564,12 +568,17 @@ bool NotificationManager::close(uint32_t id, CloseReason reason) {
   const size_t index = it->second;
   const Notification closed = m_notifications[index];
   const bool hadUnreadBefore = computeHasUnreadNotificationHistory();
+  const bool saveHistory = shouldSaveNotificationToHistory(m_filters, closed);
+  const bool removeDismissedHistory = reason == CloseReason::Dismissed && !m_keepDismissedInHistory;
+  const bool historyHandledUnreadChange = saveHistory && removeDismissedHistory && m_historyIndex.contains(id);
   const char* reasonStr = (reason == CloseReason::Expired) ? "expired"
       : (reason == CloseReason::Dismissed)                 ? "dismissed"
                                                            : "closed";
   kLog.debug("notification {} #{}", reasonStr, id);
-  if (shouldSaveNotificationToHistory(m_filters, closed)) {
-    if (m_historyIndex.contains(id)) {
+  if (saveHistory) {
+    if (removeDismissedHistory) {
+      removeHistoryEntry(id, reason);
+    } else if (m_historyIndex.contains(id)) {
       markHistoryClosed(id, reason);
     } else {
       upsertHistory(closed, false, reason);
@@ -594,7 +603,9 @@ bool NotificationManager::close(uint32_t id, CloseReason reason) {
     m_closeCallback(id, reason);
   }
 
-  notifyUnreadStateChangedIfNeeded(hadUnreadBefore);
+  if (!historyHandledUnreadChange) {
+    notifyUnreadStateChangedIfNeeded(hadUnreadBefore);
+  }
 
   return true;
 }
@@ -669,6 +680,8 @@ void NotificationManager::processExpired() {
     close(id, CloseReason::Expired);
   }
 }
+
+void NotificationManager::setKeepDismissedInHistory(bool keep) { m_keepDismissedInHistory = keep; }
 
 void NotificationManager::pauseExpiry(uint32_t id) {
   const auto it = m_idToIndex.find(id);

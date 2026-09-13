@@ -1,6 +1,6 @@
 #pragma once
 
-#include "capture/screencopy_capture.h"
+#include "capture/screenshot_image.h"
 
 #include <functional>
 #include <memory>
@@ -27,11 +27,6 @@ namespace capture {
     BottomLeftCorner,
     BottomRightCorner,
     Move
-  };
-
-  struct FrozenScreenshot {
-    wl_output* output = nullptr;
-    ScreencopyImage image;
   };
 
   class ScreenshotRegionOverlay {

@@ -1,0 +1,556 @@
+{
+  "auth": {
+    "fingerprint": {
+      "disconnected": "指紋認証センサーが切断されました",
+      "error": "指紋認証センサーにエラーが発生しました",
+      "no-match": "指紋が一致しませんでした",
+      "not-centered": "指をセンサーの中心で再度行ってください",
+      "present": "指紋認証中…",
+      "ready": "指をセンサーに当ててください",
+      "remove-and-retry": "指を離して再度行ってください",
+      "retry": "再度指紋認証を行ってください",
+      "swipe-too-short": "指の移動距離が小さすぎます、再度行ってください",
+      "too-many-attempts": "指紋認証が無効化されました（試行回数超過）"
+    },
+    "pam": {
+      "authentication-failed": "認証に失敗しました",
+      "start-failed": "PAMの起動に失敗しました",
+      "user-unavailable": "現在のユーザーが特定できません"
+    },
+    "polkit": {
+      "authenticate": "認証",
+      "authenticating": "認証中",
+      "default-message": "認証が必要です",
+      "invalid-password": "パスワードが違います",
+      "password-placeholder": "パスワード",
+      "title": "パスワードが必要です"
+    }
+  },
+  "bar": {
+    "annotate": {
+      "close": "送信せず閉じる (Esc)",
+      "color-black": "黒",
+      "color-blue": "青",
+      "color-green": "緑",
+      "color-orange": "オレンジ",
+      "color-purple": "紫",
+      "color-red": "赤",
+      "color-white": "白",
+      "color-yellow": "黄色",
+      "copy": "注釈付きの画像をコピーする（Ctrl+C）",
+      "cursor": "ポインターが写っている画面を映す（p）",
+      "done": "スクリーンショットの設定を適応（Enter）"
+    },
+    "widgets": {
+      "network": {
+        "active": "アクティブ",
+        "band": "バンド",
+        "cellular": "モバイル通信",
+        "connected": "接続済み",
+        "connecting": "接続中",
+        "download": "ダウンロード",
+        "interface": "インタフェース",
+        "ip": "IP",
+        "network": "ネットワーク",
+        "networks": "ネットワーク",
+        "networks-count": "ネットワーク　{count}",
+        "networks-count-plural": "ネットワーク　{count}",
+        "no": "いいえ",
+        "not-connected": "接続していません",
+        "off": "オフ",
+        "on": "オン",
+        "operator": "通信事業者",
+        "scanning": "スキャン中",
+        "signal": "電波強度",
+        "technology": "通信方式",
+        "upload": "アップロード",
+        "vpn": "VPN",
+        "wan-ip": "WAN IP",
+        "wifi": "Wi-Fi",
+        "wired": "有線",
+        "yes": "はい"
+      },
+      "weather": {
+        "default": "天気",
+        "error": "天気：エラー",
+        "loading": "天気…",
+        "no-location": "現在地無し",
+        "off": "天気オフ",
+        "tooltip": {
+          "condition": "状態",
+          "feels-like": "体感温度",
+          "high": "最高",
+          "humidity": "湿度",
+          "low": "最低",
+          "sunrise": "日の出",
+          "sunset": "日の入り",
+          "temperature": "気温",
+          "uv": "UV指数",
+          "wind": "風"
+        }
+      }
+    }
+  },
+  "common": {
+    "actions": {
+      "apply": "適用",
+      "cancel": "破棄"
+    },
+    "states": {
+      "auto": "自動",
+      "custom": "カスタム",
+      "off": "オフ"
+    }
+  },
+  "control-center": {
+    "home": {
+      "media": {
+        "nothing-playing": "何も再生していません",
+        "playing": "再生中"
+      },
+      "uptime": "起動時間　–　{uptime}",
+      "weather": {
+        "data-unavailable": "天気のデーターは無効化されています",
+        "disabled": "天気はコンフィグから無効化されています",
+        "fetching": "天気予報を取得中…"
+      }
+    },
+    "media": {
+      "nothing-playing": "何も再生していません",
+      "now-playing": "再生中"
+    },
+    "network": {
+      "available": "利用可能",
+      "cellular": "モバイル通信",
+      "cellular-connected": "接続済み",
+      "cellular-connecting": "接続中…",
+      "cellular-connection": "モバイル通信接続",
+      "cellular-enabling": "起動中…",
+      "cellular-failed": "失敗",
+      "cellular-locked": "SIMロック中",
+      "cellular-no-service": "圏外",
+      "cellular-off": "オフ",
+      "cellular-registered": "登録済み",
+      "cellular-searching": "検索中…",
+      "connect": "接続",
+      "current-connection": "現在の接続",
+      "external-ip": "WAN {ip}",
+      "no-networks": "利用可能なネットワークがありません",
+      "not-connected": "接続されていません",
+      "password": "パスワード",
+      "password-prompt": "パスワードを入力してください",
+      "password-prompt-for": "{ssid} のパスワードを入力してください",
+      "saved": "保存済み",
+      "unavailable-detail": "ここからネットワークを管理するには、NetworkManager、wpa_supplicant、または iwd をインストールして有効にしてください。",
+      "unavailable-title": "ネットワークサービスが利用できません",
+      "vpns": "VPN",
+      "wi-fi": "Wi-Fi",
+      "wifi": "Wi-Fi",
+      "wifi-off": "Wi-Fiはオフです",
+      "wifi-on": "Wi-FIはオンです",
+      "wired-connection": "有線"
+    },
+    "notifications": {
+      "dnd-off": "マナーモードをオフにする"
+    },
+    "power": {
+      "time-to-empty": "残り{time}",
+      "time-to-full": "満充電まで{time}"
+    },
+    "screen-time": {
+      "back": "戻る",
+      "disabled": "スクリーンタイムの記録がオフです。アプリごとの使用状況を記録するには、設定で有効にしてください。",
+      "empty": "アプリの使用状況はまだ記録されていません。ウィンドウにフォーカスすると、記録が開始されます。",
+      "hour-0": "０時",
+      "hour-12": "２４時",
+      "hour-18": "１８時",
+      "hour-6": "６時",
+      "most-used": "使用量が多いソフト",
+      "range": {
+        "14-days": "過去１４日間",
+        "3-days": "過去３日間",
+        "today": "今日"
+      },
+      "view-day": "日別の詳細を表示"
+    },
+    "shortcuts": {
+      "media": "メディア",
+      "screen-time": "スクリーンタイム",
+      "wallpaper": "壁紙",
+      "weather": "天気"
+    },
+    "system": {
+      "titles": {
+        "network": "ネットワーク"
+      },
+      "uptime-prefix": "稼働 {uptime} · {osAge}"
+    },
+    "tabs": {
+      "media": "メディア",
+      "network": "ネットワーク",
+      "screen-time": "スクリーンタイム",
+      "weather": "天気"
+    },
+    "weather": {
+      "daily": {
+        "tooltip": {
+          "condition": "状態",
+          "high": "最高",
+          "low": "最低",
+          "sunrise": "日の出",
+          "sunset": "日の入り"
+        }
+      },
+      "data-unavailable": "気象の情報が使用できません",
+      "details": {
+        "elevation": "高度",
+        "feels-like": "体感温度",
+        "sunrise": "日の出",
+        "sunset": "日の入",
+        "temp-max": "最高気温",
+        "temp-min": "最低気温",
+        "timezone": "タイムゾーン",
+        "uv-index": "UV指数",
+        "wind": "風"
+      },
+      "disabled": "[weather] をconfig.tomlで有効化してください",
+      "fetching": "天気予報を習得中…",
+      "forecast-placeholder": {
+        "day": "日曜日",
+        "description": "天気",
+        "temperature": "10　/　4°C"
+      },
+      "forecast-view": {
+        "daily": "日別",
+        "hourly": "時間別"
+      },
+      "hourly": {
+        "summary": "{condition} / 降水確率 {precip}%",
+        "tooltip": {
+          "condition": "状態",
+          "humidity": "湿度",
+          "rain": "雨",
+          "wind": "風"
+        }
+      },
+      "location-unavailable": "現在地が使用できません",
+      "no-location-body": "住所を入力するか、もしくは「位置情報」設定で自動位置検出を有効にしてください。",
+      "no-location-title": "現在地が指定されていません",
+      "refreshing": "気象データーを更新中",
+      "waiting": "気象データーを待機中"
+    }
+  },
+  "desktop-widgets": {
+    "editor": {
+      "settings": {
+        "hide-when-no-media": "メディアが無い時には非表示",
+        "network-speed-compact": "コンパクトなネットワーク速度",
+        "network-speed-unit": "ネットワーク速度の単位",
+        "network-speed-unit-auto": "自動",
+        "network-speed-unit-kilobytes": "kB/s",
+        "network-speed-unit-megabytes": "MB/s",
+        "show-weather": "天気",
+        "stat-cpu-usage": "CPU使用率",
+        "stat-gpu-usage": "GPU使用率",
+        "stat-gpu-vram-used": "GPU　VRAM使用率"
+      },
+      "types": {
+        "media-player": "メディアプレイヤー",
+        "weather": "天気"
+      }
+    },
+    "weather": {
+      "error": "エラー",
+      "loading": "読込み中…",
+      "no-location": "現在地なし",
+      "off": "天気オフ"
+    }
+  },
+  "dock": {
+    "actions": {
+      "close": "閉じる",
+      "close-all": "全て閉じる"
+    }
+  },
+  "launcher": {
+    "categories": {
+      "applications": {
+        "multimedia": "マルチメディア"
+      }
+    },
+    "providers": {
+      "wallpaper": {
+        "title": "壁紙"
+      }
+    }
+  },
+  "notifications": {
+    "internal": {
+      "calendar-google-connect-start-failed": "Google の認証を開始できませんでした。ネットワーク接続を確認して、もう一度お試しください。",
+      "calendar-google-connect-timeout": "Google の認証がタイムアウトしました。サインインする準備ができたら、もう一度接続を開始してください。",
+      "greeter-sync-pending-manual": "認証済みのレガシー同期用にファイルを準備しました。ターミナルで位置指定の適用ヘルパーを実行してください。カスタムパスを使用する場合は 「NOCTALIA_GREETER_STATE_DIR」 を維持するか、「shell.greeter_sync.privilege_command」 を設定してから、もう一度同期してください。",
+      "wallpaper-palette-export": "カスタム配色",
+      "wallpaper-palette-export-success": "「{name}」を保存し、カスタム配色に切り替えました。"
+    }
+  },
+  "settings": {
+    "entities": {
+      "widget": {
+        "group": {
+          "drawer-columns": "ドロワーの列数"
+        }
+      }
+    },
+    "errors": {
+      "export-wallpaper-palette": "壁紙の配色をカスタム配色として保存できませんでした。"
+    },
+    "navigation": {
+      "groups": {
+        "network": "ネットワーク",
+        "wallpaper": "壁紙",
+        "weather": "天気",
+        "window-switcher": "ウィンドウ・スイッチャー"
+      },
+      "sections": {
+        "wallpaper": "壁紙"
+      }
+    },
+    "options": {
+      "hot-corners": {
+        "window-switcher": "ウィンドウ・スイッチャー"
+      },
+      "theme": {
+        "source": {
+          "wallpaper": "壁紙"
+        }
+      },
+      "wallpaper": {
+        "fill": {
+          "center": "中央",
+          "crop": "トリミング",
+          "fit": "全体表示",
+          "repeat": "繰り返し",
+          "span": "画面全体に表示",
+          "stretch": "引き伸ばし"
+        },
+        "order": {
+          "alphabetical": "名前",
+          "random": "ランダム"
+        },
+        "transition": {
+          "disc": "ディスク",
+          "fade": "フェード",
+          "honeycomb": "ハニカム",
+          "stripes": "ストライプ",
+          "wipe": "ワイプ",
+          "zoom": "ズーム"
+        }
+      },
+      "weather": {
+        "unit": {
+          "imperial": "華氏",
+          "metric": "摂氏"
+        }
+      }
+    },
+    "schema": {
+      "appearance": {
+        "export-wallpaper-palette": {
+          "button": "カスタム配色として保存",
+          "description": "現在の壁紙から、再利用可能な配色ファイルとして保存",
+          "label": "壁紙の配色をエクスポート"
+        },
+        "wallpaper-generation-scheme": {
+          "description": "壁紙の色を配色に変換する方法を選択"
+        }
+      },
+      "lockscreen": {
+        "wallpaper": {
+          "label": "壁紙",
+          "placeholder": "デスクトップの壁紙を使用する"
+        }
+      },
+      "panels": {
+        "launcher-prefix-character": {
+          "description": "全てのプロバイダーのプレフィックスに使用する共通の記号（例：/）",
+          "label": "共通プレフィックス文字"
+        }
+      },
+      "services": {
+        "system-monitor": {
+          "description": "CPU、メモリ、ネットワーク、負荷、温度、ディスクの統計情報を取得",
+          "network-poll": {
+            "description": "ネットワーク通信速度を取得する間隔（秒、0で無効）",
+            "label": "ネットワーク取得間隔"
+          },
+          "stats": {
+            "network-rx": "下り速度",
+            "network-tx": "上り速度"
+          }
+        },
+        "weather": {
+          "description": "open-meteo.com を通じて天気予報サービスを有効にします",
+          "label": "天気"
+        },
+        "weather-effects": {
+          "description": "天気のエフェクトを表示する",
+          "label": "天気のエフェクト"
+        },
+        "weather-refresh-interval": {
+          "description": "気象データの更新頻度（分）",
+          "label": "更新間隔"
+        },
+        "weather-unit": {
+          "description": "気象表示の単位",
+          "label": "単位"
+        }
+      },
+      "shell": {
+        "external-ip": {
+          "description": "接続のパブリックWAN IPアドレスを（api.noctalia.dev経由で）取得し、コントロールセンターのネットワークタブに表示します"
+        },
+        "offline-mode": {
+          "description": "すべての送信ネットワーク通信をブロック"
+        },
+        "show-location": {
+          "description": "天気予報に地名を表示する"
+        },
+        "window-switcher-mru": {
+          "description": "スイッチャー内のウィンドウを、ワークスペースや画面レイアウトではなく、直近の使用順に並べ替えます",
+          "label": "最近使用した順番"
+        }
+      },
+      "wallpaper": {
+        "monitor-directory-dark": {
+          "label": "ダークモード用ディレクトリ",
+          "placeholder": "~/Pictures/Wallpapers"
+        },
+        "monitor-directory-light": {
+          "label": "ライトモード用ディレクトリ",
+          "placeholder": "~/Pictures/Wallpapers"
+        }
+      }
+    },
+    "widgets": {
+      "actions": {
+        "commands": {
+          "network-toggle": {
+            "description": "接続中のネットワークを切断し、接続されていない場合は再接続",
+            "label": "ネットワーク接続を切り替え"
+          },
+          "window-switcher": {
+            "description": "ウィンドウ・スイッチャーのオーバーレイを開きます、もしくは閉じます",
+            "label": "ウィンドウ・スイッチャー"
+          }
+        }
+      },
+      "instances": {
+        "network-rx": "ネットワーク下り",
+        "network-tx": "ネットワーク上り"
+      },
+      "options": {
+        "net-rx": "ネットワーク下り",
+        "net-tx": "ネットワーク上り"
+      },
+      "settings": {
+        "drawer": {
+          "description": "バーにトレイボタンを表示し、項目をパネルで開きます"
+        },
+        "drawer-columns": {
+          "description": "1行あたりのトレイアイコン数"
+        },
+        "drawer-item-size": {
+          "description": "ドロワーパネル内のトレイアイコンのサイズ（ピクセル）"
+        },
+        "hidden": {
+          "description": "非表示にするトレイアイテムのID"
+        },
+        "hide-passive": {
+          "description": "ステータスがPassiveのトレイ項目を非表示"
+        },
+        "interface": {
+          "description": "監視するネットワークインターフェースです。空欄にすると、すべてのインターフェースの合計を使用します。"
+        },
+        "match-adjacent-spacing": {
+          "description": "トレイアイコン間の間隔を広げ、隣接するバーウィジェットと揃えます（カプセルのパディングを含みます）"
+        },
+        "network-speed-compact": {
+          "description": "1.2 MB/sではなく、1.2Mのように短い単位表記を使用",
+          "label": "コンパクトなネットワーク速度"
+        },
+        "network-speed-unit": {
+          "description": "ネットワークの下り・上り速度に使用する単位。自動では B/s、kB/s、MB/s、GB/s を切り替えます",
+          "label": "ネットワーク速度の単位"
+        },
+        "pinned": {
+          "description": "ドロワーモード有効時もバーに表示するトレイ項目のID"
+        },
+        "show-condition": {
+          "description": "天気情報のテキストを表示する"
+        },
+        "show-vpn-label": {
+          "description": "Replaceモードではネットワーク名をVPN名に置き換え、BothモードではVPNアイコンの横にVPN名を表示します"
+        },
+        "vpn-status": {
+          "description": "VPNの状態表示方法。ReplaceではネットワークアイコンをVPNシールドに置き換え、Bothでは両方を並べて表示し、HiddenではVPNインジケーターを非表示にします"
+        }
+      },
+      "types": {
+        "network": "ネットワーク",
+        "tray": "トレイ",
+        "weather": "天気"
+      }
+    },
+    "window": {
+      "offline-mode-notice": {
+        "location": "天気や場所の検索は機能しません。"
+      }
+    }
+  },
+  "tray": {
+    "menu": {
+      "empty": "メニュー項目なし…",
+      "pin": "ピン留め",
+      "unpin": "ピン留めを外す"
+    }
+  },
+  "weather": {
+    "conditions": {
+      "full": {
+        "clear-sky": "快晴",
+        "drizzle": "霧雨",
+        "fog": "霧",
+        "mainly-clear": "晴れ",
+        "overcast": "曇り",
+        "partly-cloudy": "晴れ時々曇り",
+        "rain-showers": "雨",
+        "snow": "雪",
+        "snow-showers": "にわか雪",
+        "thunderstorm": "雷雨",
+        "unknown": "不明"
+      },
+      "short": {
+        "clear": "快晴",
+        "cloudy": "晴れ時々曇り",
+        "drizzle": "霧雨",
+        "fog": "霧",
+        "mostly-clear": "晴れ",
+        "overcast": "曇り",
+        "showers": "にわか雨",
+        "snow": "雪",
+        "snow-showers": "にわか雪",
+        "storm": "嵐",
+        "weather": "天気"
+      }
+    },
+    "errors": {
+      "fetch-failed": "気象データの習得失敗",
+      "parse-weather": "天気情報のレスポンスを解析できませんでした"
+    }
+  },
+  "window-switcher": {
+    "empty": "ウィンドウが開いていません",
+    "hint": "Tab · Shift+Tab · 矢印キー · Alt キーを離すと切り替わります · Esc キーでキャンセル",
+    "title": "ウィンドウズ"
+  }
+}

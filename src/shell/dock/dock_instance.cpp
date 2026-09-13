@@ -152,9 +152,7 @@ namespace shell::dock {
       return;
     }
 
-    const bool fullSurface = instance.pointerInside
-        || instance.hideOpacity > 0.5F
-        || (cfg.smartAutoHide && instance.smartAutoHidePinnedVisible);
+    const bool fullSurface = instance.pointerInside || (cfg.smartAutoHide && instance.smartAutoHidePinnedVisible);
     if (fullSurface) {
       instance.surface->setInputRegion({InputRect{0, 0, surfW, surfH}});
       return;
@@ -426,14 +424,9 @@ namespace shell::dock {
           syncDockSlideLayerTransform(inst, cfg);
           applyDockCompositorBlur(inst, cfg);
         },
-        [&inst, &config]() {
-          inst.hideAnimId = 0;
-          if (inst.surface == nullptr) {
-            return;
-          }
-          syncDockAutoHideInputRegion(inst, config.config().dock, DockPanelGeometry{});
-        }
+        [&inst]() { inst.hideAnimId = 0; }
     );
+    syncDockAutoHideInputRegion(inst, config.config().dock, DockPanelGeometry{});
     if (inst.surface) {
       inst.surface->requestRedraw();
     }

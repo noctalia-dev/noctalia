@@ -7,6 +7,7 @@
 #include <cstring>
 #include <sys/mman.h>
 #include <unistd.h>
+#include <utility>
 #include <vector>
 
 namespace {
@@ -389,6 +390,10 @@ void ScreencopyCapture::capture(
   } else {
     m_pending->frame = zwlr_screencopy_manager_v1_capture_output(manager, overlayCursor ? 1 : 0, output);
   }
+  if (m_pending->frame == nullptr) {
+    fail("failed to create screencopy frame");
+    return;
+  }
 
   zwlr_screencopy_frame_v1_add_listener(m_pending->frame, &kFrameListener, m_pending.get());
   wl_display_flush(wayland().display());
@@ -403,18 +408,18 @@ void ScreencopyCapture::cancelInFlight() {
 void ScreencopyCapture::fail(std::string message) {
   destroyPending();
   m_busy = false;
-  if (m_onComplete) {
-    m_onComplete(std::nullopt, std::move(message));
-    m_onComplete = {};
+  auto onComplete = std::exchange(m_onComplete, {});
+  if (onComplete) {
+    onComplete(std::nullopt, std::move(message));
   }
 }
 
 void ScreencopyCapture::finish(ScreencopyImage image) {
   destroyPending();
   m_busy = false;
-  if (m_onComplete) {
-    m_onComplete(std::move(image), {});
-    m_onComplete = {};
+  auto onComplete = std::exchange(m_onComplete, {});
+  if (onComplete) {
+    onComplete(std::move(image), {});
   }
 }
 

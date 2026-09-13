@@ -27,7 +27,27 @@
     }
   },
   "bar": {
+    "annotate": {
+      "color-black": "Noir",
+      "color-blue": "Bleu",
+      "color-green": "Vert",
+      "color-orange": "Orange",
+      "color-purple": "Violet",
+      "color-red": "Rouge",
+      "color-white": "Blanc",
+      "color-yellow": "Jaune",
+      "redo": "Annuler (Ctrl+Shift+Z)",
+      "size-large": "Grand",
+      "size-medium": "Moyen",
+      "size-small": "Petit",
+      "tool-blur": "Flouter une région (u)",
+      "tool-brush": "Pinceau (b)",
+      "tool-eraser": "Gomme (e)",
+      "tool-text": "Texte (t)",
+      "undo": "Annuler (Ctrl+Z)"
+    },
     "screenshot": {
+      "annotate-export-failed": "Échec de la création de l'image annotée",
       "choose-display": "Choisir un écran",
       "confirm-region": "{copy} pour copier · {save} pour sauvegarder · Entrée ou Espace pour les actions par défaut · {cancel} pour annuler · Cliquer et faire glisser pour resélectionner",
       "fullscreen": "Plein écran",
@@ -60,6 +80,7 @@
       "network": {
         "active": "Actif",
         "band": "Bande",
+        "cellular": "Cellulaire  ",
         "connected": "Connecté",
         "connecting": "Connexion",
         "download": "Téléchargement",
@@ -73,8 +94,10 @@
         "not-connected": "Non connecté",
         "off": "Désactivé",
         "on": "Activé",
+        "operator": "Opérateur",
         "scanning": "Recherche en cours",
         "signal": "Signal",
+        "technology": "Technologie",
         "upload": "Envoi",
         "vpn": "VPN",
         "wan-ip": "Adresse IP WAN",
@@ -122,6 +145,7 @@
         "off": "Météo désactivée",
         "tooltip": {
           "condition": "Condition",
+          "feels-like": "Ressenti ",
           "high": "Élevé",
           "humidity": "Humidité",
           "low": "Faible",
@@ -270,6 +294,15 @@
     },
     "network": {
       "available": "Disponible",
+      "cellular": "Cellulaire",
+      "cellular-connected": "Connecté",
+      "cellular-connecting": "En cours de connection...",
+      "cellular-connection": "Connection cellulaire",
+      "cellular-failed": "Échoué",
+      "cellular-locked": "SIM bloqué",
+      "cellular-no-service": "Aucun service",
+      "cellular-off": "Éteint",
+      "cellular-registered": "Enregistré",
       "connect": "Se connecter",
       "current-connection": "Connexion actuelle",
       "external-ip": "WAN {ip}",
@@ -330,6 +363,7 @@
       "unknown-device": "Appareil inconnu"
     },
     "screen-time": {
+      "back": "Retour",
       "disabled": "Le suivi du temps d’écran est désactivé. Activez-le dans les paramètres pour enregistrer l’utilisation par application.",
       "empty": "Aucune utilisation d’application enregistrée. Passez une fenêtre au premier plan pour commencer le suivi.",
       "hour-0": "0 h",
@@ -420,6 +454,7 @@
       "data-unavailable": "Données météo indisponibles.",
       "details": {
         "elevation": "Élevation",
+        "feels-like": "Ressenti",
         "sunrise": "Lever de Soleil",
         "sunset": "Coucher de Soleil",
         "temp-max": "Température Max",
@@ -798,8 +833,8 @@
     "lock-keys": {
       "caps-off": "Verr. Maj. désactivé",
       "caps-on": "Verr. Maj. activé",
-      "num-off": "Verr. num. désactivé",
-      "num-on": "Verr. num. activé",
+      "num-off": "Verr. Num. désactivé",
+      "num-on": "Verr. Num. activé",
       "scroll-off": "Arrêt défilement désactivé",
       "scroll-on": "Arrêt défilement activé"
     },
@@ -896,6 +931,7 @@
       "calendars-label": "Calendriers",
       "color-label": "Couleur",
       "credential-source-file": "Fichier de mots de passe",
+      "credential-source-keyring": "Keyring",
       "delete-error": "Impossible de supprimer le compte de calendrier.",
       "edit-title": "Modifier le compte de calendrier",
       "ics-url-label": "URL ICS",
@@ -903,6 +939,7 @@
       "invalid": "Vérifiez les champs surlignés du compte de calendrier.",
       "name-label": "Nom d’affichage",
       "name-placeholder": "Calendrier personnel",
+      "password-file-error": "Impossible de lire le fichier de mot de passe configuré. Vérifiez qu'il existe, qu'il s'agit d'un fichier normal lisible et qu'il contient un mot de passe.",
       "password-file-label": "Ficher de mots de passe",
       "password-keep-placeholder": "Laissez vide pour conserver le mot de passe actuel",
       "password-label": "Mot de passe de l'application",
@@ -912,12 +949,17 @@
         "custom": "CalDAV",
         "google": "Google",
         "icloud": "iCloud",
-        "ics": "URL ICS"
+        "ics": "URL ICS",
+        "vdir": "Local (vdir)"
       },
       "provider-label": "Fournisseur",
       "save": "Sauvegarder",
       "save-connect": "Sauvegarder et se connecter",
       "save-error": "Impossible d’enregistrer le compte de calendrier.",
+      "secret-service-cancelled": "La demande Secret Service a été annulée. Réessayez lorsque vous serez prêt à la déverrouiller.",
+      "secret-service-error": "Impossible d'accéder aux identifiants du calendrier dans Secret Service. Réessayez l'opération.",
+      "secret-service-locked": "Les identifiants du calendrier sont verrouillés ou l'accès a été refusé. Déverrouillez Secret Service et réessayez.",
+      "secret-service-unavailable": "Aucun fournisseur Secret Service n'est disponible. Démarrez un fournisseur compatible et réessayez.",
       "server-url-label": "URL du serveur",
       "username-label": "Nom d'utilisateur",
       "username-placeholder": "nom@exemple.com"
@@ -981,6 +1023,10 @@
           "title": "Widgets de barre"
         },
         "group": {
+          "accordion": "Accordéon",
+          "accordion-description": "Affiche seulement le premier widget ; survolez la capsule pour voir les autres",
+          "accordion-direction": "Révéler la direction",
+          "accordion-direction-description": "Côté du premier widget où les widgets masqués se déploient",
           "action": "Groupe",
           "border": "Contour",
           "border-description": "Rôle de couleur du contour de capsule ; laissez sur Défaut pour aucun contour",
@@ -1081,6 +1127,7 @@
         "rename": "Impossible de renommer la barre."
       },
       "batch-write": "Certains paramètres pourraient ne pas être sauvegardés",
+      "custom-schedule-times": "Les horaires personnalisés doivent inclure à la fois une heure de lever et de coucher du soleil au format HH:MM. ",
       "export-config": "Échec de l’export de la configuration.",
       "export-wallpaper-palette": "Impossible d’enregistrer la palette du fond d’écran comme palette personnalisée.",
       "monitor-override": {
@@ -1121,10 +1168,11 @@
           "suspend": "Mettre en veille"
         },
         "kind-section-label": "Action",
+        "locked-timeout-label": "Délai d'inactivité tant que verrouillé (secondes, 0 = off) ",
         "name-label": "Nom",
         "name-placeholder": "Comportement en inactivité",
         "resume-command-label": "Commande de reprise",
-        "resume-command-placeholder": "",
+        "resume-command-placeholder": "notify-send 'De l'idle'",
         "summary": "{name} · {seconds}s",
         "summary-disabled-timeout": "{name} · délai désactivé",
         "timeout-label": "Délai d’inactivité (secondes)",
@@ -1182,6 +1230,7 @@
         "monitor-thresholds": "Seuils de mise en évidence",
         "monitors": "Écrans",
         "motion": "Mouvement",
+        "navigation": "Navigation",
         "network": "Réseau",
         "night-light": "Lumière nocturne",
         "notifications": "Notifications",
@@ -1192,6 +1241,7 @@
         "power": "Alimentation",
         "privacy": "Confidentialité",
         "profile": "Profil",
+        "providers": "Fournisseurs",
         "screen-corners": "Coins d’écran",
         "screen-time": "Temps d’écran",
         "screenshot": "Capture d'écran",
@@ -1241,7 +1291,9 @@
         "add-title": "Ajouter un filtre de notifications",
         "allow-permanent": "Autoriser les notifications permanentes",
         "allowed-urgencies-label": "Niveaux d’urgence autorisés",
+        "bypass-dnd": "Contourner Ne pas déranger",
         "flag": {
+          "dnd-bypass": "Contourner NPD",
           "history": "Historique",
           "permanent": "permanentes",
           "sound": "Son",
@@ -1250,6 +1302,7 @@
         "flags-label": "En cas de correspondance",
         "match-label": "Application",
         "match-placeholder": "Nom d’application, entrée Desktop ou catégorie…",
+        "override-duration": "Durée d'outrepassement",
         "play-sound": "Jouer un son",
         "save-history": "Enregistrer dans l’historique",
         "show-toast": "Afficher une notification éphémère",
@@ -1438,6 +1491,8 @@
         "delete-confirm-title": "Supprimer \"{name}\"?",
         "deprecated": "Déprécié",
         "empty": "Aucun plugin activé.",
+        "held-back": "ancienne version  ",
+        "held-back-hint": "v{version} nécessite l'API de plugins {required} ; cette version de Noctalia ne prend en charge que jusqu'à {current}. Mettez Noctalia à jour pour l'obtenir.",
         "incompatible-plugin-api": "API du plugin incompatible",
         "remove": "Enlever le plugin",
         "requires": "A besoins de : {dependencies}",
@@ -2109,6 +2164,9 @@
         "blacklist-allow-critical": {
           "description": "Affiche toujours les notifications critiques des expéditeurs sur liste noire"
         },
+        "border": {
+          "label": "Bordure"
+        },
         "collapse-on-dismiss": {
           "description": "Fait glisser les toasts restants pour combler le vide lorsqu'un élément est masqué",
           "label": "Réduire la liste après fermeture"
@@ -2202,6 +2260,9 @@
         "launcher-compact": {
           "description": "Utilise des icônes plus petites et des lignes de résultats plus compactes",
           "label": "Lignes compactes"
+        },
+        "launcher-global-calculator": {
+          "description": "Afficher aussi les résultats de la calculatrice dans la recherche sans préfixe"
         },
         "launcher-prefix-calculator": {
           "label": "Préfixe de la calculatrice"
@@ -2341,7 +2402,11 @@
           "label": "Comptes de calendrier"
         },
         "calendar-credentials": {
-          "button": "Réessayer"
+          "button": "Réessayer",
+          "description-cancelled": "La demande Secret Service a été annulée ; réessayez lorsque vous serez prêt.",
+          "description-error": "Les identifiants du calendrier n'ont pas pu être accédés via Secret Service",
+          "description-locked": "Les identifiants du calendrier sont verrouillés ou l'accès a été refusé ; déverrouillez Secret Service et réessayez",
+          "description-unavailable": "Aucun fournisseur Secret Service n'est disponible dans cette session"
         },
         "calendar-edit": {
           "button": "Modifier",
@@ -2616,10 +2681,11 @@
           "label": "Mode hors ligne"
         },
         "osd-background-opacity": {
-          "description": "Opacité de l’arrière-plan des notifications OSD",
+          "description": "Opacité de l’arrière-plan des popups OSD",
           "label": "Opacité de l'arrière-plan"
         },
         "osd-border": {
+          "description": "Affiche un contour autour des popups OSD",
           "label": "Bordure"
         },
         "osd-enabled": {
@@ -2769,11 +2835,16 @@
           "description": "Transmet l’image PNG capturée à une commande shell via l’entrée standard",
           "label": "Transmettre à une commande"
         },
+        "screenshot-remember-last-region": {
+          "description": "Pré-sélectionne la dernière région (dont la dernière après annulation) sur la prochaine capture région",
+          "label": "Se souvenir de la dernière région"
+        },
         "screenshot-save-to-file": {
           "description": "Enregistre les captures d’écran au format PNG dans le dossier de destination",
           "label": "Enregistrer en tant que fichier"
         },
         "screenshot-show-cursor": {
+          "description": "Inclue le curseur dans les captures d'écran",
           "label": "Afficher le curseur"
         },
         "show-location": {
@@ -2782,7 +2853,7 @@
         },
         "sync-greeter": {
           "button": "Synchroniser maintenant",
-          "description": "Copie le fond d’écran actuel et la palette de couleurs vers Noctalia Greeter (nécessite une autorisation administrateur)",
+          "description": "Copie l'apparence actuelle et la disposition des écrans dans Noctalia Greeter. L'approbation administrateur est requit, sauf si la politique système autorise la synchronisation sans mot de passe pour votre utilisateur.",
           "label": "Noctalia Greeter"
         },
         "telemetry": {
@@ -2928,8 +2999,25 @@
       },
       "variant-label": "Style du bouton"
     },
+    "storage-recovery": {
+      "button": "Réinitialiser le stockage privé",
+      "description": "Supprime de manière permanente l'historique sauvegardé du papier-press et le cache des événements du calendrier, puis rouvre le stockage privé (un fichier clé configuré ne sera jamais modifié)"
+    },
     "widgets": {
       "actions": {
+        "commands": {
+          "osd-disable": {
+            "label": "Désactiver l'OSD"
+          },
+          "osd-enable": {
+            "description": "Activer les popups OSD",
+            "label": "Activer l'OSD"
+          },
+          "volume-osd": {
+            "description": "Afficher le volume OSD sans changer le volume (par défaut le volume actuel) ",
+            "label": "Afficher le volume OSD"
+          }
+        },
         "run-command": "Exécuter une commande..."
       },
       "gestures": {
@@ -3127,6 +3215,9 @@
         "icon-spacing": {
           "description": "Espacement entre les icônes des indicateurs de confidentialité en pixels",
           "label": "Éspacement des icons"
+        },
+        "inactive-color": {
+          "description": "Couleur utilisée pour les indicateurs de confidentialité inactifs ; les couleurs hexadécimales fixes sont également prises en charge"
         },
         "interactive": {
           "description": "Autoriser le survol du pointeur, les clics, les défilements et les info-bulles pour ce widget",

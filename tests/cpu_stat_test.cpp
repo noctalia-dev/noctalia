@@ -9,6 +9,7 @@
 #include <filesystem>
 #include <fstream>
 #include <optional>
+#include <print>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -22,7 +23,7 @@ namespace {
 
   bool expect(bool condition, const std::string& message) {
     if (!condition) {
-      std::fprintf(stderr, "cpu_stat_test: FAIL: %s\n", message.c_str());
+      std::println(stderr, "cpu_stat_test: FAIL: {}", message);
       ++g_failures;
       return false;
     }
@@ -31,13 +32,13 @@ namespace {
 
   bool expectNear(std::optional<double> actual, double expected, const std::string& message) {
     if (!actual.has_value()) {
-      std::fprintf(stderr, "cpu_stat_test: FAIL: %s: no value\n", message.c_str());
+      std::println(stderr, "cpu_stat_test: FAIL: {}: no value", message);
       ++g_failures;
       return false;
     }
     const double diff = *actual > expected ? *actual - expected : expected - *actual;
     if (diff > 0.001) {
-      std::fprintf(stderr, "cpu_stat_test: FAIL: %s: expected %f, got %f\n", message.c_str(), expected, *actual);
+      std::println(stderr, "cpu_stat_test: FAIL: {}: expected {:f}, got {:f}", message, expected, *actual);
       ++g_failures;
       return false;
     }
@@ -198,7 +199,7 @@ namespace {
 int main() {
   const auto dir = makeTempDir();
   if (dir.empty()) {
-    std::fprintf(stderr, "cpu_stat_test: FAIL: could not create temp dir\n");
+    std::println(stderr, "cpu_stat_test: FAIL: could not create temp dir");
     return 1;
   }
 
@@ -211,7 +212,7 @@ int main() {
   std::filesystem::remove_all(dir, ec);
 
   if (g_failures > 0) {
-    std::fprintf(stderr, "cpu_stat_test: %d failure(s)\n", g_failures);
+    std::println(stderr, "cpu_stat_test: {} failure(s)", g_failures);
     return 1;
   }
   return 0;

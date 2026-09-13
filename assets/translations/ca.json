@@ -753,12 +753,12 @@
       "desktop-widgets-editor": "Editor de widgets",
       "desktop-widgets-editor-enabled": "L'editor de ginys d'escriptori està activat. Canvia a un espai de treball buit perquè les finestres obertes no cobreixin l'editor.",
       "greeter-sync": "Noctalia Greeter",
-      "greeter-sync-pending": "Esperant l'aprovació de l'administrador per escriure al greeter.",
-      "greeter-sync-pending-console": "Esperant l'aprovació de l'administrador. Aprova la sol·licitud de polkit a Noctalia, en una TTY o consola, o executa pkexec manualment.",
-      "greeter-sync-pending-manual": "Els fitxers estan preparats. Executa en un terminal: pkexec noctalia-greeter-apply-appearance \"$XDG_RUNTIME_DIR/noctalia-greeter-sync\". O bé configura shell.greeter_sync.privilege_command (per exemple ghostty -e pkexec) i torna a sincronitzar.",
+      "greeter-sync-pending": "Sincronitzant l'aparença amb el greeter. Si apareix una sol·licitud de l'administrador, aprova-la; l'autorització sense contrasenya segueix la política del sistema.",
+      "greeter-sync-pending-console": "Sincronitzant l'aparença amb el greeter. Si es requereix autorització, aprova la sol·licitud de polkit a Noctalia, en una TTY o en una consola.",
+      "greeter-sync-pending-manual": "Els fitxers estan preparats per a la sincronització heretada autenticada. Executa l'assistent d'aplicació posicional en una terminal, conservant NOCTALIA_GREETER_STATE_DIR si fas servir una ruta personalitzada, o configura shell.greeter_sync.privilege_command i torna a sincronitzar.",
       "greeter-sync-success": "Aparença sincronitzada. Els canvis s'apliquen a la següent pantalla d'inici de sessió.",
-      "greeter-sync-timeout": "La sincronització del greeter encara espera l'aprovació de l'administrador. Comprova si hi ha una sol·licitud de polkit en una TTY o consola, activa l'agent de polkit a Configuració de seguretat, o executa pkexec manualment.",
-      "greeter-sync-timeout-manual": "La sincronització del greeter encara necessita l'aprovació de l'administrador. Executa en un terminal: pkexec noctalia-greeter-apply-appearance \"$XDG_RUNTIME_DIR/noctalia-greeter-sync\"",
+      "greeter-sync-timeout": "La sincronització amb el greeter continua a l'espera d'autorització. Busca una sol·licitud de polkit en una TTY o consola, activa l'agent de polkit als ajustos de Seguretat, o executa pkexec manualment.",
+      "greeter-sync-timeout-manual": "La sincronització heretada autenticada encara necessita l'aprovació de l'administrador. Executa l'assistent d'aplicació posicional en una terminal i conserva NOCTALIA_GREETER_STATE_DIR si fas servir una ruta personalitzada.",
       "keybind-app": "Noctalia",
       "keybind-invalid-modifier": "Aquesta drecera accepta una sola tecla sense modificadors.",
       "keybind-invalid-printable": "Les tecles imprimibles (lletres, números, símbols) requereixen un modificador com Ctrl o Alt.",
@@ -1121,8 +1121,8 @@
       "reset-page": "No s'han pogut restablir alguns paràmetres.",
       "support-report": "No s'ha pogut desar l'informe d'assistència.",
       "sync-greeter": "No s'ha pogut sincronitzar l'aparença amb el Noctalia Greeter.",
-      "sync-greeter-timeout": "La sincronització del greeter encara espera l'aprovació de l'administrador. Comprova si hi ha una sol·licitud de polkit en una TTY o consola, activa l'agent de polkit a Configuració de seguretat, o executa pkexec manualment.",
-      "sync-greeter-timeout-manual": "La sincronització del greeter encara necessita l'aprovació de l'administrador. Executa en un terminal: pkexec noctalia-greeter-apply-appearance \"$XDG_RUNTIME_DIR/noctalia-greeter-sync\"",
+      "sync-greeter-timeout": "La sincronització amb el greeter continua a l'espera d'autorització. Busca una sol·licitud de polkit en una TTY o consola, activa l'agent de polkit als ajustos de Seguretat, o executa pkexec manualment.",
+      "sync-greeter-timeout-manual": "La sincronització heretada autenticada encara necessita l'aprovació de l'administrador. Executa l'assistent d'aplicació posicional en una terminal i conserva NOCTALIA_GREETER_STATE_DIR si fas servir una ruta personalitzada.",
       "widget": {
         "rename": "No s'ha pogut canviar el nom del widget."
       },
@@ -1640,7 +1640,7 @@
           "label": "Negre pur"
         },
         "theme-mode": {
-          "description": "Tria fosc, clar o automàtic segons l'hora del dia",
+          "description": "Tria Fosc, Clar o Automàtic segons l'hora del dia; també s'aplica a les aplicacions mitjançant plantilles.",
           "label": "Mode del tema"
         },
         "ui-scale": {
@@ -2818,11 +2818,11 @@
           "label": "Mostra la IP WAN"
         },
         "greeter-sync-auto": {
-          "description": "Sincronitza automàticament el greeter quan canviï el fons de pantalla, els colors o el mode de tema",
+          "description": "Sincronitza automàticament el greeter sempre que canviïn el fons de pantalla, els colors, el mode de tema o la font del shell. L'autorització continua seguint la política del sistema; aquest ajust no activa la sincronització sense contrasenya.",
           "label": "Sincronització automàtica del greeter"
         },
         "greeter-sync-privilege-command": {
-          "description": "Substitueix pkexec/run0 per a «Sincronitza ara» del greeter; el camí de l'ajudant d'aplicació i el directori de preparació s'afegeixen automàticament (exemple: ghostty -e pkexec)",
+          "description": "Anul·la el llançament amb privilegis per al Sync Now del greeter. El mode heretat (un assistent antic o un directori d'estat del greeter personalitzat) accepta un altre escalador de privilegis. La sincronització restringida afegeix --sync i requereix que el prefix llanci pkexec en última instància (exemple: ghostty -e pkexec).",
           "label": "Ordre de privilegis de sincronització del greeter"
         },
         "keyboard-layout-custom-labels": {
@@ -3028,7 +3028,7 @@
         },
         "sync-greeter": {
           "button": "Sincronitza ara",
-          "description": "Copia el fons de pantalla i els colors actuals al Noctalia Greeter (requereix aprovació d'administrador)",
+          "description": "Copia l'aparença actual i la disposició de monitors al Greeter de Noctalia. Es demana l'aprovació de l'administrador llevat que la política del sistema autoritzi la sincronització sense contrasenya per al teu usuari.",
           "label": "Noctalia Greeter"
         },
         "telemetry": {

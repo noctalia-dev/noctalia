@@ -381,11 +381,12 @@ namespace {
       return std::make_unique<FocusedOutputAdapter<SwayOutputBackend>>(runtimeRegistry.sway());
     case compositors::CompositorKind::Triad:
       return std::make_unique<FocusedOutputAdapter<TriadOutputBackend>>(runtimeRegistry.triad());
+    case compositors::CompositorKind::Umbriel:
+      return std::make_unique<FocusedOutputAdapter<UmbrielOutputBackend>>(runtimeRegistry.umbriel());
     case compositors::CompositorKind::Dwl:
     case compositors::CompositorKind::Labwc:
     case compositors::CompositorKind::Kde:
     case compositors::CompositorKind::Mango:
-    case compositors::CompositorKind::Umbriel:
     case compositors::CompositorKind::Unknown:
       break;
     }
@@ -671,6 +672,14 @@ compositors::niri::NiriRuntime& CompositorPlatform::niriRuntime() noexcept { ret
 
 const compositors::niri::NiriRuntime& CompositorPlatform::niriRuntime() const noexcept {
   return m_runtimeRegistry->niri();
+}
+
+compositors::umbriel::UmbrielRuntime& CompositorPlatform::umbrielRuntime() noexcept {
+  return m_runtimeRegistry->umbriel();
+}
+
+const compositors::umbriel::UmbrielRuntime& CompositorPlatform::umbrielRuntime() const noexcept {
+  return m_runtimeRegistry->umbriel();
 }
 
 bool CompositorPlatform::hasXdgShell() const noexcept { return m_wayland.hasXdgShell(); }

@@ -134,8 +134,22 @@ int main() {
            "absolute icon misses should not be cached"
        )
       && ok;
-
+  ok = expect(
+           resolver.resolve(absoluteIcon.string(), 32) == absoluteIcon.string(),
+           "absolute icon should be cached while present"
+       )
+      && ok;
   std::error_code ec;
+  fs::remove(absoluteIcon, ec);
+  ok =
+      expect(resolver.resolve(absoluteIcon.string(), 32).empty(), "deleted absolute icon should not stay cached") && ok;
+  std::ofstream(absoluteIcon) << "<svg/>";
+  ok = expect(
+           resolver.resolve(absoluteIcon.string(), 32) == absoluteIcon.string(),
+           "recreated absolute icon should resolve after cache eviction"
+       )
+      && ok;
+
   fs::remove_all(root, ec);
   return ok ? 0 : 1;
 }

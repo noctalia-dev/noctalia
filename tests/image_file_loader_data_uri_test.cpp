@@ -1,13 +1,14 @@
 #include "render/core/image_file_loader.h"
 
 #include <cstdio>
+#include <print>
 #include <string>
 
 namespace {
 
   bool check(bool condition, const char* message) {
     if (!condition) {
-      std::fprintf(stderr, "image_file_loader_data_uri_test: %s\n", message);
+      std::println(stderr, "image_file_loader_data_uri_test: {}", message);
     }
     return condition;
   }
@@ -48,14 +49,14 @@ int main() {
   image = loadImageFile("data:image/png;base64,not_base64!");
   ok = check(!image, "invalid base64 data URI should fail") && ok;
   if (!image) {
-    const bool mentionsBase64 = image.error().find("base64") != std::string::npos;
+    const bool mentionsBase64 = image.error().contains("base64");
     ok = check(mentionsBase64, "invalid base64 failure should explain the data issue") && ok;
   }
 
   image = loadImageFile("data:image/png;base64");
   ok = check(!image, "data URI without comma should fail") && ok;
   if (!image) {
-    const bool mentionsSeparator = image.error().find("separator") != std::string::npos;
+    const bool mentionsSeparator = image.error().contains("separator");
     ok = check(mentionsSeparator, "missing comma failure should mention separator") && ok;
   }
 

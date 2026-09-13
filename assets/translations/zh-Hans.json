@@ -27,7 +27,47 @@
     }
   },
   "bar": {
+    "annotate": {
+      "close": "关闭而不发送（Esc）",
+      "color-black": "黑色",
+      "color-blue": "蓝色",
+      "color-green": "绿色",
+      "color-orange": "橙色",
+      "color-purple": "紫色",
+      "color-red": "红色",
+      "color-white": "白色",
+      "color-yellow": "黄色",
+      "copy": "复制已标注的图像（Ctrl+C）",
+      "cursor": "显示随屏幕捕获的指针（p）",
+      "done": "应用截图设置（Enter）",
+      "fill-off": "形状填充：关闭",
+      "fill-on": "形状填充：开启",
+      "freeze": "冻结墨迹下方的屏幕（f）",
+      "move-toolbar": "拖动以移动工具栏",
+      "redo": "重做（Ctrl+Shift+Z）",
+      "save": "保存已标注的图像（Ctrl+S）",
+      "size-advanced": "微调尺寸",
+      "size-decrease": "变细（[）",
+      "size-increase": "变粗（]）",
+      "size-large": "大",
+      "size-medium": "中",
+      "size-small": "小",
+      "tool-arrow": "箭头（a）·按住 Shift 键以调整角度",
+      "tool-blur": "模糊区域（u）",
+      "tool-brush": "画笔（b）",
+      "tool-circle": "椭圆（o）·按住 Shift 键绘制正圆",
+      "tool-crop": "裁剪导出图像（c）",
+      "tool-eraser": "橡皮擦（e）",
+      "tool-highlighter": "荧光笔（h）",
+      "tool-line": "直线（l）·按住 Shift 键以调整角度",
+      "tool-move": "移动标注（m）",
+      "tool-numbering": "编号标记（n）",
+      "tool-rectangle": "矩形（s）·按住 Shift 键绘制正方形",
+      "tool-text": "文本（t）",
+      "undo": "撤销（Ctrl+Z）"
+    },
     "screenshot": {
+      "annotate-export-failed": "无法生成已标注图像",
       "choose-display": "选择屏幕",
       "confirm-region": "{copy} 复制 · {save} 保存 · Enter 或 Space 默认操作 · {cancel} 取消 · 拖动重选",
       "fullscreen": "全屏",
@@ -60,6 +100,7 @@
       "network": {
         "active": "活动",
         "band": "频段",
+        "cellular": "蜂窝网络",
         "connected": "已连接",
         "connecting": "正在连接",
         "download": "下载",
@@ -73,8 +114,10 @@
         "not-connected": "未连接",
         "off": "关闭",
         "on": "开启",
+        "operator": "运营商",
         "scanning": "正在扫描",
         "signal": "信号",
+        "technology": "网络制式",
         "upload": "上传",
         "vpn": "VPN",
         "wan-ip": "WAN IP",
@@ -271,6 +314,17 @@
     },
     "network": {
       "available": "可用",
+      "cellular": "蜂窝网络",
+      "cellular-connected": "已连接",
+      "cellular-connecting": "正在连接…",
+      "cellular-connection": "蜂窝网络连接",
+      "cellular-enabling": "正在开启…",
+      "cellular-failed": "失败",
+      "cellular-locked": "SIM 卡已锁定",
+      "cellular-no-service": "无服务",
+      "cellular-off": "关闭",
+      "cellular-registered": "已注册",
+      "cellular-searching": "正在搜索…",
       "connect": "连接",
       "current-connection": "当前连接",
       "external-ip": "WAN {ip}",
@@ -772,12 +826,15 @@
       "desktop-widgets-editor": "桌面小组件编辑器",
       "desktop-widgets-editor-enabled": "桌面小组件编辑器已开启。请切换至空工作区，避免打开的窗口遮挡编辑器。",
       "greeter-sync": "Noctalia Greeter",
-      "greeter-sync-pending": "正在等待管理员授权以写入 Greeter 配置。",
-      "greeter-sync-pending-console": "正在等待管理员授权。请在 Noctalia 的 Polkit 弹窗、TTY 或控制台中确认，或手动执行 pkexec。",
-      "greeter-sync-pending-manual": "同步文件已准备就绪。请在终端执行：pkexec noctalia-greeter-apply-appearance \"$XDG_RUNTIME_DIR/noctalia-greeter-sync\" 或设置 shell.greeter_sync.privilege_command（例如 ghostty -e pkexec）后重新同步。",
+      "greeter-sync-pending": "正在将外观同步到 Greeter。如果出现管理员授权提示，请予以确认；免密码授权由系统策略决定。",
+      "greeter-sync-pending-console": "正在将外观同步到 Greeter。如果需要授权，请在 Noctalia、TTY 或控制台中确认 polkit 提示。",
+      "greeter-sync-pending-legacy": "正在通过需要身份验证的旧版辅助程序同步。需要管理员授权。",
+      "greeter-sync-pending-manual": "同步文件已暂存，等待通过身份验证的旧版同步。请在终端运行接受位置参数的同步辅助程序；如果使用自定义路径，请保留 NOCTALIA_GREETER_STATE_DIR，或配置 shell.greeter_sync.privilege_command 后重新同步。",
+      "greeter-sync-pending-manual-pkexec": "正在将外观同步到 Greeter。如果需要管理员授权但未出现提示，请在终端运行：pkexec noctalia-greeter-apply-appearance --sync \"/run/user/$(id -u)/noctalia-greeter-sync\"。",
       "greeter-sync-success": "外观已同步。更改将在下次登录时生效。",
-      "greeter-sync-timeout": "Greeter 同步仍在等待管理员授权。请检查 TTY 或控制台中的 Polkit 提示，在“安全”设置中启用 Polkit 代理，或手动执行 pkexec。",
-      "greeter-sync-timeout-manual": "Greeter 同步仍需要管理员授权。请在终端执行：pkexec noctalia-greeter-apply-appearance \"$XDG_RUNTIME_DIR/noctalia-greeter-sync\"",
+      "greeter-sync-timeout": "Greeter 同步仍在等待授权。请检查 TTY 或控制台中的 polkit 提示，在“安全”设置中启用 polkit 代理，或手动运行 pkexec。",
+      "greeter-sync-timeout-manual": "通过身份验证的旧版同步仍需要管理员授权。请在终端运行接受位置参数的同步辅助程序；如果使用自定义路径，请保留 NOCTALIA_GREETER_STATE_DIR。",
+      "greeter-sync-timeout-manual-pkexec": "Greeter 同步仍需要授权。请在终端运行：pkexec noctalia-greeter-apply-appearance --sync \"/run/user/$(id -u)/noctalia-greeter-sync\"",
       "keybind-app": "Noctalia",
       "keybind-invalid-modifier": "该快捷键仅接受不带修饰键的单键。",
       "keybind-invalid-printable": "字母、数字和符号键需要配合 Ctrl 或 Alt 等修饰键使用。",
@@ -935,7 +992,8 @@
         "custom": "CalDAV",
         "google": "Google",
         "icloud": "iCloud",
-        "ics": "ICS URL"
+        "ics": "ICS URL",
+        "vdir": "本地（vdir）"
       },
       "provider-label": "提供方",
       "save": "保存",
@@ -948,7 +1006,8 @@
       "secret-service-unavailable": "没有可用的 Secret Service 提供程序。请启动兼容的提供程序后重试。",
       "server-url-label": "服务器 URL",
       "username-label": "用户名",
-      "username-placeholder": "name@example.com"
+      "username-placeholder": "name@example.com",
+      "vdir-path-label": "目录路径"
     },
     "controls": {
       "keybind": {
@@ -1140,8 +1199,9 @@
       "reset-page": "部分设置重置失败。",
       "support-report": "诊断报告保存失败。",
       "sync-greeter": "无法将外观同步至 Noctalia Greeter。",
-      "sync-greeter-timeout": "Greeter 同步仍在等待管理员授权。请检查 TTY 或控制台中的 Polkit 提示，在“安全”设置中启用 Polkit 代理，或手动执行 pkexec。",
-      "sync-greeter-timeout-manual": "Greeter 同步仍需要管理员授权。请在终端执行：pkexec noctalia-greeter-apply-appearance \"$XDG_RUNTIME_DIR/noctalia-greeter-sync\"",
+      "sync-greeter-timeout": "Greeter 同步仍在等待授权。请检查 TTY 或控制台中的 polkit 提示，在“安全”设置中启用 polkit 代理，或手动运行 pkexec。",
+      "sync-greeter-timeout-manual": "通过身份验证的旧版同步仍需要管理员授权。请在终端运行接受位置参数的同步辅助程序；如果使用自定义路径，请保留 NOCTALIA_GREETER_STATE_DIR。",
+      "sync-greeter-timeout-manual-pkexec": "Greeter 同步仍需要授权。请在终端运行：pkexec noctalia-greeter-apply-appearance --sync \"/run/user/$(id -u)/noctalia-greeter-sync\"",
       "widget": {
         "rename": "无法重命名此具名小组件。"
       },
@@ -1244,7 +1304,7 @@
         "power": "电源",
         "privacy": "隐私",
         "profile": "个人资料",
-        "providers": "提供者",
+        "providers": "搜索源",
         "screen-corners": "屏幕圆角",
         "screen-time": "屏幕时间",
         "screenshot": "截图",
@@ -1446,6 +1506,9 @@
           "dark": "深色",
           "light": "浅色"
         },
+        "shell-mode": {
+          "follow": "跟随"
+        },
         "source": {
           "built-in": "内置",
           "community": "社区",
@@ -1489,6 +1552,10 @@
     "plugins": {
       "browse-store": "浏览插件",
       "panels": {
+        "layer": {
+          "description": "面板处于浮动模式时使用的 layer-shell 层级",
+          "label": "层级"
+        },
         "open-near-click": {
           "description": "面板相对于状态栏的显示位置",
           "label": "沿状态栏打开"
@@ -1667,8 +1734,12 @@
           "description": "将深色界面固定为纯黑色，避免 OLED 屏幕出现色带（仅限深色模式）",
           "label": "纯黑"
         },
+        "shell-theme-mode": {
+          "description": "固定 Noctalia 的浅色或深色模式；选择“跟随”则与主题模式保持同步",
+          "label": "Shell 主题模式"
+        },
         "theme-mode": {
-          "description": "选择深色、浅色，或根据时段自动切换",
+          "description": "选择深色、浅色，或根据时段自动切换；应用主题也会通过模板同步",
           "label": "主题模式"
         },
         "ui-scale": {
@@ -2259,6 +2330,10 @@
           "description": "自动移除超过指定小时的通知历史记录条目（设为 0 时永久保留）",
           "label": "保留时长"
         },
+        "keep-dismissed-in-history": {
+          "description": "Toast 通知关闭后，仍将其保留在通知历史记录中",
+          "label": "保留已关闭通知"
+        },
         "layer": {
           "description": "使用 Overlay 可使 Toast 通知显示在全屏应用上方，Top 则在全屏时被覆盖",
           "label": "Wayland 层级"
@@ -2398,7 +2473,7 @@
           "label": "计算器前缀"
         },
         "launcher-prefix-character": {
-          "description": "用于触发所有提供者前缀的通用前缀字符（例如 /）",
+          "description": "用于触发所有搜索源前缀的通用前缀字符（例如 /）",
           "label": "通用前缀字符"
         },
         "launcher-prefix-emoji": {
@@ -2569,11 +2644,11 @@
           "description-reconnect": "未找到 Google 授权信息；请重新连接此账户"
         },
         "calendar-event-date-format": {
-          "description": "事件卡片中所选日期的显示格式",
+          "description": "日历视图中事件列表上方显示的日期格式",
           "label": "事件日期格式"
         },
         "calendar-event-time-format": {
-          "description": "日历事件时间的显示格式",
+          "description": "日历视图中日历事件的时间显示格式",
           "label": "事件时间格式"
         },
         "calendar-refresh-interval": {
@@ -2850,11 +2925,11 @@
           "label": "显示 WAN IP"
         },
         "greeter-sync-auto": {
-          "description": "每当壁纸、配色或主题模式改变时，自动同步 Greeter",
+          "description": "每当壁纸、配色、主题模式或 Shell 字体改变时，自动同步 Greeter。授权仍由系统策略决定；此设置不会启用免密码同步。",
           "label": "自动同步 Greeter"
         },
         "greeter-sync-privilege-command": {
-          "description": "用于替换 Greeter 同步提权的 pkexec/run0 命令；同步辅助程序和暂存目录将自动追加（例如：ghostty -e pkexec）",
+          "description": "自定义 Greeter 同步使用的提权启动命令。旧版模式（使用旧版辅助程序或自定义 Greeter 状态目录）支持其他管理员提权工具。受限同步会追加 --sync，并要求命令前缀最终启动 pkexec（例如：ghostty -e pkexec）",
           "label": "Greeter 同步提权命令"
         },
         "keyboard-layout-custom-labels": {
@@ -3008,6 +3083,10 @@
           "description": "清除已保存的应用前台使用记录",
           "label": "重置屏幕时间数据"
         },
+        "screenshot-annotate": {
+          "description": "每次截图时打开标注编辑器；“应用截图设置”会应用保存、剪贴板和管道输出设置",
+          "label": "发送前标注"
+        },
         "screenshot-confirm-region": {
           "description": "绘制区域后，保持 Overlay 开启，直到按下 Enter 或 Space 键确认",
           "label": "确认区域"
@@ -3060,7 +3139,7 @@
         },
         "sync-greeter": {
           "button": "立即同步",
-          "description": "将当前壁纸和配色同步至 Noctalia Greeter（需要管理员授权）",
+          "description": "将当前外观和屏幕布局同步到 Noctalia Greeter。除非系统策略允许当前用户免密码同步，否则需要管理员授权。",
           "label": "Noctalia Greeter"
         },
         "telemetry": {
@@ -3242,6 +3321,10 @@
       "actions": {
         "command-placeholder": "Shell 命令",
         "commands": {
+          "annotate": {
+            "description": "在运行的应用上方进行屏幕标注；按 F 键或点击冻结按钮以捕获背景",
+            "label": "标注屏幕"
+          },
           "bar-auto-hide-set": {
             "description": "设置状态栏的自动隐藏状态",
             "label": "设置状态栏自动隐藏"
@@ -3550,8 +3633,12 @@
             "description": "设置 UPower 电源配置（如 performance、balanced、power-saver）",
             "label": "设置电源配置"
           },
+          "screenshot-annotate": {
+            "description": "冻结屏幕并进行标注，然后复制或保存",
+            "label": "标注截图"
+          },
           "screenshot-fullscreen": {
-            "description": "默认截取前聚焦屏幕；使用 pick 交互选择，或使用 all 截取所有输出",
+            "description": "默认截取当前聚焦屏幕；使用 pick 交互选择，或使用 all 截取所有显示输出",
             "label": "全屏截图"
           },
           "screenshot-region": {
@@ -3665,6 +3752,26 @@
           "window-switcher": {
             "description": "打开或关闭窗口切换器",
             "label": "窗口切换器"
+          },
+          "workspace-alert-add": {
+            "description": "添加工作区提醒（按编号、名称或 ID）",
+            "label": "添加工作区提醒"
+          },
+          "workspace-alert-add-window": {
+            "description": "为窗口添加工作区提醒",
+            "label": "添加窗口工作区提醒"
+          },
+          "workspace-alert-clear": {
+            "description": "清除工作区提醒",
+            "label": "清除工作区提醒"
+          },
+          "workspace-alert-clear-all": {
+            "description": "清除所有工作区提醒",
+            "label": "清除所有工作区提醒"
+          },
+          "workspace-alert-status": {
+            "description": "输出工作区提醒",
+            "label": "工作区提醒状态"
           },
           "workspace-switch": {
             "description": "切换到指定屏幕上的相邻工作区（到达两端时停止）",
@@ -4221,6 +4328,10 @@
         },
         "show-glyph": {
           "description": "显示小组件图标或自定义图片",
+          "label": "显示图标"
+        },
+        "show-icons": {
+          "description": "在当前活动胶囊上显示焦点应用的图标",
           "label": "显示图标"
         },
         "show-label": {

@@ -133,7 +133,7 @@ Each entry lives under `[shell.launcher.dmenu.entry.<id>]`, where `<id>` is the 
 [shell.launcher.dmenu.entry.commands]
 command = "printf 'Open Config\nShow Date\n'"
 label = "Commands"
-prefix = "/cmd"
+prefix = "cmd"
 glyph = "terminal"
 global = false
 exec = "case \"{selection}\" in Open*) xdg-open ~/.config/noctalia ;; Show*) notify-send \"$(date)\" ;; esac"
@@ -146,7 +146,7 @@ candidates. A tab in a candidate splits the display into title and description:
 [shell.launcher.dmenu.entry.commands]
 command = "printf 'DNF Upgrade\tRun dnf upgrade --refresh\n'"
 label = "Commands"
-prefix = "/cmd"
+prefix = "cmd"
 glyph = "terminal"
 global = false
 exec = "foot -e bash -lc 'pkexec dnf upgrade --refresh; read -rp \"Press Enter to close...\"'"
@@ -158,7 +158,7 @@ Fields:
 | --- | --- |
 | `command` | Shell command run through `/bin/sh -lc`; each stdout line becomes a launcher result |
 | `exec` | Optional shell command run when a result is activated; `{selection}` is the selected raw line, `{query}` is the typed text after the prefix |
-| `prefix` | Optional launcher prefix such as `/cmd`; if this is empty, set `global = true` or the entry is unreachable |
+| `prefix` | Optional launcher prefix such as `cmd` (without prefix symbol like `/`, which is configured by `provider_prefix`); if this is empty, set `global = true` or the entry is unreachable |
 | `label` | Provider title shown in the launcher provider overview; defaults to the entry id |
 | `glyph` | Tabler glyph name for results; defaults to `terminal` |
 | `global` | Whether results participate in normal non-prefixed launcher search |
@@ -175,7 +175,7 @@ Set `freeform = true` when the typed text itself should be activatable. The type
 ```toml
 [shell.launcher.dmenu.entry.notify]
 label = "Notify"
-prefix = "/notify"
+prefix = "notify"
 glyph = "bell"
 global = false
 freeform = true

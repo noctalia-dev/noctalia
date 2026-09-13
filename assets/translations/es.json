@@ -27,6 +27,38 @@
     }
   },
   "bar": {
+    "annotate": {
+      "close": "Cerrar sin entregar (Esc)",
+      "color-black": "Negro",
+      "color-blue": "Azul",
+      "color-green": "Verde",
+      "color-orange": "Naranja",
+      "color-purple": "Púrpura",
+      "color-red": "Rojo",
+      "color-white": "Blanco",
+      "color-yellow": "Amarillo",
+      "cursor": "Mostrar el puntero capturado con la pantalla (p)",
+      "fill-off": "Relleno forma: off",
+      "fill-on": "Relleno forma: on",
+      "move-toolbar": "Arrastra para mover la barra de herramientas",
+      "redo": "Rehacer (Ctrl+Shift+Z)",
+      "save": "Guardar la imagen anotada (Ctrl+S)",
+      "size-advanced": "Ajuste fino de tamaño",
+      "size-decrease": "Más fino ([)",
+      "size-increase": "Más grueso (])",
+      "size-large": "Grande",
+      "size-medium": "Medio",
+      "size-small": "Pequeño",
+      "tool-arrow": "Flecha (a)  · mantén Shift para ajustar el ángulo",
+      "tool-blur": "Desenfocar una región (u)",
+      "tool-brush": "Pincel (b)",
+      "tool-circle": "Elipse (o) · mantén Shift para círculo",
+      "tool-eraser": "Borrador (e)",
+      "tool-highlighter": "Subrayador (h)",
+      "tool-rectangle": "Rectángulo (s) · mantén Shift para cuadrado",
+      "tool-text": "Texto (t)",
+      "undo": "Deshacer (Ctrl+Z)"
+    },
     "screenshot": {
       "choose-display": "Elige el monitor",
       "confirm-region": "Intro o Espacio para capturar · Esc para cancelar · arrastra para volver a seleccionar",
@@ -60,6 +92,7 @@
       "network": {
         "active": "Activo",
         "band": "Banda",
+        "cellular": "Celular",
         "connected": "Conectado",
         "connecting": "Conectando",
         "download": "Descarga",
@@ -73,8 +106,10 @@
         "not-connected": "No conectado",
         "off": "Desactivado",
         "on": "Activado",
+        "operator": "Operadora",
         "scanning": "Escaneando",
         "signal": "Señal",
+        "technology": "Tecnología",
         "upload": "Subida",
         "vpn": "VPN",
         "wan-ip": "IP WAN",
@@ -122,6 +157,7 @@
         "off": "Clima apagado",
         "tooltip": {
           "condition": "Condición",
+          "feels-like": "Sensación",
           "high": "Alto",
           "humidity": "Humedad",
           "low": "Bajo",
@@ -270,6 +306,10 @@
     },
     "network": {
       "available": "Disponible",
+      "cellular": "Celular ",
+      "cellular-connected": "Conectado",
+      "cellular-connecting": "Conectando...",
+      "cellular-connection": "Conexión móvil",
       "connect": "Conectar",
       "current-connection": "Conexión actual",
       "external-ip": "WAN {ip}",
@@ -768,12 +808,12 @@
       "desktop-widgets-editor": "Editor de Widget",
       "desktop-widgets-editor-enabled": "El editor de widgets del escritorio está activado. Cambia a un espacio de trabajo vacío para ver el panel del editor.",
       "greeter-sync": "Noctalia Greeter",
-      "greeter-sync-pending": "Esperando la aprobación del administrador para escribir en la pantalla de inicio.",
-      "greeter-sync-pending-console": "Esperando la aprobación del administrador. Aprueba el aviso de polkit en Noctalia, en una TTY o consola, o ejecuta pkexec manualmente.",
-      "greeter-sync-pending-manual": "Los archivos están preparados. Ejecuta en una terminal: pkexec noctalia-greeter-apply-appearance \"$XDG_RUNTIME_DIR/noctalia-greeter-sync\". O configura shell.greeter_sync.privilege_command (por ejemplo ghostty -e pkexec) y sincroniza de nuevo.",
+      "greeter-sync-pending": "Sincronizando la apariencia con el greeter. Si aparece una solicitud del administrador, acéptala; la autorización sin contraseña sigue la política del sistema.",
+      "greeter-sync-pending-console": "Sincronizando la apariencia con el greeter. Si se requiere autorización, aprueba la solicitud de polkit en Noctalia, en una TTY o en una consola.",
+      "greeter-sync-pending-manual": "Los archivos están preparados para la sincronización heredada autenticada. Ejecuta el asistente de aplicación posicional en una terminal, conservando NOCTALIA_GREETER_STATE_DIR si usas una ruta personalizada, o configura shell.greeter_sync.privilege_command y sincroniza de nuevo.",
       "greeter-sync-success": "Apariencia sincronizada. Los cambios se aplicarán en la siguiente pantalla de inicio de sesión.",
-      "greeter-sync-timeout": "La sincronización de la pantalla de inicio sigue esperando la aprobación del administrador. Revisa una TTY o consola en busca de un aviso de polkit, activa el agente de polkit en la configuración de seguridad, o ejecuta pkexec manualmente.",
-      "greeter-sync-timeout-manual": "La sincronización de la pantalla de inicio aún necesita la aprobación del administrador. Ejecuta en una terminal: pkexec noctalia-greeter-apply-appearance \"$XDG_RUNTIME_DIR/noctalia-greeter-sync\"",
+      "greeter-sync-timeout": "La sincronización con el greeter sigue a la espera de autorización. Busca una solicitud de polkit en una TTY o consola, activa el agente de polkit en los ajustes de Seguridad, o ejecuta pkexec manualmente.",
+      "greeter-sync-timeout-manual": "La sincronización heredada autenticada todavía necesita la aprobación del administrador. Ejecuta el asistente de aplicación posicional en una terminal y conserva NOCTALIA_GREETER_STATE_DIR si usas una ruta personalizada.",
       "keybind-app": "Noctalia",
       "keybind-invalid-modifier": "Este atajo acepta una sola tecla sin modificadores.",
       "keybind-invalid-printable": "Las teclas imprimibles (letras, números, símbolos) requieren un modificador como Ctrl o Alt.",
@@ -1121,8 +1161,8 @@
       "reset-page": "No se pudieron restablecer algunas configuraciones.",
       "support-report": "No se pudo guardar el informe de soporte.",
       "sync-greeter": "No se pudo sincronizar la apariencia con Noctalia Greeter.",
-      "sync-greeter-timeout": "La sincronización de la pantalla de inicio sigue esperando la aprobación del administrador. Revisa una TTY o consola en busca de un aviso de polkit, activa el agente de polkit en la configuración de seguridad, o ejecuta pkexec manualmente.",
-      "sync-greeter-timeout-manual": "La sincronización de la pantalla de inicio aún necesita la aprobación del administrador. Ejecuta en una terminal: pkexec noctalia-greeter-apply-appearance \"$XDG_RUNTIME_DIR/noctalia-greeter-sync\"",
+      "sync-greeter-timeout": "La sincronización con el greeter sigue a la espera de autorización. Busca una solicitud de polkit en una TTY o consola, activa el agente de polkit en los ajustes de Seguridad, o ejecuta pkexec manualmente.",
+      "sync-greeter-timeout-manual": "La sincronización heredada autenticada todavía necesita la aprobación del administrador. Ejecuta el asistente de aplicación posicional en una terminal y conserva NOCTALIA_GREETER_STATE_DIR si usas una ruta personalizada.",
       "widget": {
         "rename": "No se pudo renombrar el widget con nombre."
       },
@@ -1596,7 +1636,7 @@
           "label": "Negro puro"
         },
         "theme-mode": {
-          "description": "Elige oscuro, claro o automático según la hora del día",
+          "description": "Elige Oscuro, Claro o Automático según la hora del día; también se aplica a las aplicaciones mediante plantillas.",
           "label": "Modo de tema"
         },
         "ui-scale": {
@@ -2655,11 +2695,11 @@
           "label": "Mostrar IP WAN"
         },
         "greeter-sync-auto": {
-          "description": "Sincronizar automáticamente la pantalla de inicio cuando cambien el fondo de pantalla, los colores o el modo de tema",
+          "description": "Sincroniza automáticamente el greeter siempre que cambien el fondo de pantalla, los colores, el modo de tema o la fuente del shell. La autorización sigue la política del sistema; este ajuste no activa la sincronización sin contraseña.",
           "label": "Sincronizar pantalla de inicio automáticamente"
         },
         "greeter-sync-privilege-command": {
-          "description": "Reemplazar pkexec/run0 para Sincronizar ahora de la pantalla de inicio. La ruta del ayudante de aplicación y el directorio de preparación se añaden automáticamente. Ejemplo: ghostty -e pkexec",
+          "description": "Anular el lanzamiento con privilegios para Sync Now del greeter. El modo heredado (un asistente antiguo o un directorio de estado del greeter personalizado) acepta otro escalador de privilegios. La sincronización restringida añade --sync y requiere que el prefijo lance pkexec en última instancia (ejemplo: ghostty -e pkexec).",
           "label": "Comando de privilegios para sincronizar pantalla de inicio"
         },
         "launch-apps-as-systemd-services": {
@@ -2845,7 +2885,7 @@
         },
         "sync-greeter": {
           "button": "Sincronizar ahora",
-          "description": "Copiar el fondo de pantalla y los colores actuales a Noctalia Greeter (requiere aprobación de administrador)",
+          "description": "Copiar la apariencia actual y la disposición de monitores al Greeter de Noctalia. Se solicita la aprobación del administrador a menos que la política del sistema autorice la sincronización sin contraseña para tu usuario.",
           "label": "Noctalia Greeter"
         },
         "telemetry": {

@@ -198,6 +198,8 @@ namespace {
 
 namespace screencopy {
 
+  void transformCapture(ScreencopyImage& image, std::int32_t transform) { applyOutputTransform(image, transform); }
+
   bool captureOutputBlocking(
       ScreencopyCapture& capture, WaylandConnection& wayland, wl_output* output, ScreencopyImage& out,
       std::string& error, bool overlayCursor

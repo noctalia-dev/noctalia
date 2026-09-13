@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <string>
 
 struct wl_output;
@@ -15,5 +16,7 @@ namespace screencopy {
   );
 
   [[nodiscard]] bool orientCaptureNative(ScreencopyImage& image, const WaylandConnection& wayland, wl_output* output);
+
+  void transformCapture(ScreencopyImage& image, std::int32_t transform);
 
 } // namespace screencopy

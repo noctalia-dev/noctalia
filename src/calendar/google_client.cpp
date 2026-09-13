@@ -108,7 +108,10 @@ namespace calendar {
         event.id = item.value("id", std::string{});
         event.title = item.value("summary", std::string{});
         event.location = item.value("location", std::string{});
-        event.url = resolveEventLink(event.location, item.value("hangoutLink", std::string{}));
+        event.url = resolveEventLink(event.location, item.value("hangoutLink", std::string{}), {});
+        if (event.url.empty()) {
+          event.url = resolveEventLink({}, item.value("description", std::string{}), {});
+        }
         event.calendarName = meta.name;
         const std::string colorId = item.value("colorId", std::string{});
         if (!colorId.empty()) {

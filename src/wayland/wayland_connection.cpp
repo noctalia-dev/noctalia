@@ -9,6 +9,8 @@
 #include "ext-data-control-v1-client-protocol.h"
 #include "ext-foreign-toplevel-list-v1-client-protocol.h"
 #include "ext-idle-notify-v1-client-protocol.h"
+#include "ext-image-capture-source-v1-client-protocol.h"
+#include "ext-image-copy-capture-v1-client-protocol.h"
 #include "ext-session-lock-v1-client-protocol.h"
 #include "ext-workspace-v1-client-protocol.h"
 #include "fractional-scale-v1-client-protocol.h"
@@ -74,6 +76,8 @@ namespace {
   constexpr std::uint32_t kVirtualKeyboardManagerVersion = 1;
   constexpr std::uint32_t kGammaControlManagerVersion = 1;
   constexpr std::uint32_t kScreencopyManagerVersion = 3;
+  constexpr std::uint32_t kImageCopyCaptureManagerVersion = 1;
+  constexpr std::uint32_t kOutputImageCaptureSourceManagerVersion = 1;
   constexpr std::uint32_t kOutputManagerVersion = 4;
   constexpr std::uint32_t kOutputManagerMinVersion = 3;
 
@@ -507,6 +511,7 @@ void WaylandConnection::notifyOutputReady(wl_output* output) {
 wl_output* WaylandConnection::lastPointerOutput() const noexcept { return m_lastPointerOutput; }
 wl_surface* WaylandConnection::lastPointerSurface() const noexcept { return m_seatHandler.lastPointerSurface(); }
 wl_surface* WaylandConnection::lastKeyboardSurface() const noexcept { return m_seatHandler.lastKeyboardSurface(); }
+std::uint32_t WaylandConnection::keyboardModifiers() const noexcept { return m_seatHandler.keyboardModifiers(); }
 bool WaylandConnection::hasPointerPosition() const noexcept { return m_seatHandler.hasPointerPosition(); }
 double WaylandConnection::lastPointerX() const noexcept { return m_seatHandler.lastPointerX(); }
 double WaylandConnection::lastPointerY() const noexcept { return m_seatHandler.lastPointerY(); }
@@ -667,6 +672,14 @@ zwlr_gamma_control_manager_v1* WaylandConnection::gammaControlManager() const no
 
 zwlr_screencopy_manager_v1* WaylandConnection::screencopyManager() const noexcept { return m_screencopyManager; }
 
+ext_image_copy_capture_manager_v1* WaylandConnection::imageCopyCaptureManager() const noexcept {
+  return m_imageCopyCaptureManager;
+}
+
+ext_output_image_capture_source_manager_v1* WaylandConnection::outputImageCaptureSourceManager() const noexcept {
+  return m_outputImageCaptureSourceManager;
+}
+
 std::string WaylandConnection::requestActivationToken(wl_surface* surface) const {
   if (m_xdgActivation == nullptr || m_display == nullptr) {
     return {};
@@ -753,6 +766,8 @@ std::string WaylandConnection::describeDisplayError(int operationErrno) const {
 wl_compositor* WaylandConnection::compositor() const noexcept { return m_compositor; }
 
 wl_seat* WaylandConnection::seat() const noexcept { return m_seatHandler.seat(); }
+
+wl_pointer* WaylandConnection::pointer() const noexcept { return m_seatHandler.pointer(); }
 
 wl_shm* WaylandConnection::shm() const noexcept { return m_shm; }
 
@@ -1236,6 +1251,22 @@ void WaylandConnection::bindGlobal(
     return;
   }
 
+  if (interfaceName == ext_image_copy_capture_manager_v1_interface.name) {
+    const auto bindVersion = std::min(version, kImageCopyCaptureManagerVersion);
+    m_imageCopyCaptureManager = static_cast<ext_image_copy_capture_manager_v1*>(
+        wl_registry_bind(registry, name, &ext_image_copy_capture_manager_v1_interface, bindVersion)
+    );
+    return;
+  }
+
+  if (interfaceName == ext_output_image_capture_source_manager_v1_interface.name) {
+    const auto bindVersion = std::min(version, kOutputImageCaptureSourceManagerVersion);
+    m_outputImageCaptureSourceManager = static_cast<ext_output_image_capture_source_manager_v1*>(
+        wl_registry_bind(registry, name, &ext_output_image_capture_source_manager_v1_interface, bindVersion)
+    );
+    return;
+  }
+
   if (interfaceName == zwlr_output_manager_v1_interface.name) {
     // head/mode release requests need v3; nothing useful to bind below that anyway.
     if (version < kOutputManagerMinVersion) {
@@ -1383,6 +1414,14 @@ void WaylandConnection::cleanup() {
   if (m_screencopyManager != nullptr) {
     zwlr_screencopy_manager_v1_destroy(m_screencopyManager);
     m_screencopyManager = nullptr;
+  }
+  if (m_imageCopyCaptureManager != nullptr) {
+    ext_image_copy_capture_manager_v1_destroy(m_imageCopyCaptureManager);
+    m_imageCopyCaptureManager = nullptr;
+  }
+  if (m_outputImageCaptureSourceManager != nullptr) {
+    ext_output_image_capture_source_manager_v1_destroy(m_outputImageCaptureSourceManager);
+    m_outputImageCaptureSourceManager = nullptr;
   }
 
   for (auto* mode : m_outputModes) {

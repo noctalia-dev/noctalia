@@ -870,8 +870,11 @@ void LockScreen::tryAuthenticate() {
   // pam_fprintd from it: noctalia drives the reader itself over D-Bus and the
   // two can't share the sensor. See docs/fingerprint.md.
   const std::string pamService = "login";
-  std::thread([this, generation, password = std::move(password), authenticator, pamService]() mutable {
-    const auto result = authenticator.authenticateCurrentUser(password, pamService);
+  const std::string pamLanguage(i18n::Service::instance().language());
+  const std::string pamStartFailure = i18n::tr("auth.pam.start-failed");
+  std::thread([this, generation, password = std::move(password), authenticator, pamService, pamLanguage,
+               pamStartFailure]() mutable {
+    const auto result = authenticator.authenticateCurrentUser(password, pamService, pamLanguage, pamStartFailure);
     clearSensitiveString(password);
     DeferredCall::callLater([this, generation, result]() { handleAuthResult(generation, result); });
   }).detach();

@@ -58,7 +58,7 @@ Use these context IDs with `noctalia msg panel-toggle control-center <context>` 
 | `audio` | Audio | Output/input volume, mute controls, devices, streams, and media-related audio controls |
 | `monitor` | Monitor | Brightness controls for displays that expose writable backlight devices |
 | `system` | System | Distro/kernel, hardware summary, uptime, CPU/RAM/GPU/network graphs, and resource details |
-| `network` | Network | Wi-Fi state, connection status, known wireless controls, and NetworkManager-backed actions |
+| `network` | Network | Wi-Fi state, connection status, cellular controls, known wireless controls, and NetworkManager-backed actions |
 | `bluetooth` | Bluetooth | Adapter power, discoverability, paired devices, connection controls, and pairing flows |
 | `weather` | Weather | Current conditions, forecast, location status, and weather service diagnostics |
 | `calendar` | Calendar | Month view and configured calendar account events |
@@ -105,6 +105,22 @@ System monitor sampling is configured globally under `[system.monitor]`; see [Sy
 The Network tab uses the configured network backend to show wireless state and connection details. It is the destination for Wi-Fi shortcuts and network-related right-click actions.
 
 The current connection line lists the IPv4 address, signal strength, radio band, and external IP. The band (`2.4 GHz`, `5 GHz`, `6 GHz`, or `60 GHz`) is shown only when the backend reports the connection frequency: NetworkManager and wpa_supplicant do, iwd does not.
+
+### Enterprise Wi-Fi (802.1X)
+
+Clicking a WPA2/WPA3-Enterprise network opens a credential form instead of the pre-shared-key field: EAP method (PEAP or TTLS), inner authentication, identity, anonymous identity, server domain suffix, and CA certificate path. The password field below the form is the one used for the EAP login.
+
+PEAP accepts MSCHAPv2 only, so the inner dropdown is pinned and disabled while PEAP is selected; TTLS also allows PAP, MSCHAP, and CHAP. Leaving the CA certificate path empty trusts the system CA store; a path must be absolute and pins that file instead of the system store. The server domain suffix is the RADIUS server name suffix your organization publishes, and is optional.
+
+Enterprise networks are recognized on the NetworkManager backend only; the wpa_supplicant and iwd backends still show the pre-shared-key prompt for them, which an 802.1X network cannot accept. Certificate-based EAP-TLS, including WPA3-Enterprise 192-bit, is not supported: the form says so instead of writing a profile NetworkManager would reject. Use `nmcli` or another NetworkManager front end for those networks.
+
+### Cellular
+
+When ModemManager reports a modem, the Network tab adds a **Cellular** card with a mobile-data switch and one row per modem showing its operator (or hardware name), state, access technology (`5G`, `LTE`, `HSPA+`, ...), and signal percentage. The card disappears again when ModemManager stops or the modem is unplugged.
+
+The switch follows GNOME's mobile-data semantics: with a saved NetworkManager `gsm` profile it turns the data connection on and off and leaves the modem registered on the network; with no such profile it powers the modem radio itself. Turning it on can take several seconds while the modem enables, searches, and registers, and the switch holds the requested position until the change lands.
+
+Cellular needs ModemManager running (`org.freedesktop.ModemManager1`) and, for mobile data, a `gsm` connection profile created with `nmcli` or another NetworkManager front end. Noctalia does not create or edit cellular profiles.
 
 ## Bluetooth
 

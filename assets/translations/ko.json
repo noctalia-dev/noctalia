@@ -3211,6 +3211,14 @@
     "widgets": {
       "actions": {
         "command-placeholder": "쉘 명령어",
+        "commands": {
+          "screenshot-fullscreen": {
+            "description": "기본적으로 현재 활성화된 모니터를 캡처합니다. pick을 사용하여 캡처할 모니터를 직접 선택하거나, all로 모든 모니터를 캡처할 수 있습니다."
+          },
+          "screenshot-region": {
+            "description": "영역을 선택하여 스크린샷 캡처 시작"
+          }
+        },
         "default": "기본값",
         "disabled": "비활성화됨",
         "run-command": "명령어 실행...",
@@ -3588,7 +3596,7 @@
         },
         "interactive": {
           "description": "이 위젯의 포인터 마우스 오버, 클릭, 스크롤, 툴팁 허용",
-          "label": "인터랙티브"
+          "label": "상호작용"
         },
         "interface": {
           "description": "모니터링할 네트워크 인터페이스. 비워 두면 모든 인터페이스의 합계를 사용합니다",

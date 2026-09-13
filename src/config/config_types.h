@@ -252,8 +252,10 @@ struct ShellSessionConfig {
 };
 
 struct ShellGreeterSyncConfig {
-  // Shell prefix that replaces the default pkexec/run0 escalator before the apply helper
-  // path and staging directory. Empty = pkexec or run0. Example: "ghostty -e pkexec"
+  // Optional shell prefix before the apply helper and staging directory. Legacy
+  // sync accepts the configured escalator directly. Secure sync also appends
+  // --sync, so that prefix must ultimately invoke pkexec to provide PKEXEC_UID.
+  // Empty selects the protocol's default escalator.
   std::string privilegeCommand;
   bool autoSync = false;
 
@@ -753,6 +755,7 @@ struct NotificationConfig {
   int offsetY = 8;                 // absolute vertical margin from the screen edge
   std::vector<std::string> monitors;
   bool collapseOnDismiss = true;
+  bool keepDismissedInHistory = true;
   int historyRetentionHours = 0;
   int maxVisible = 0; // 0 = unlimited (space-based only)
 
@@ -1045,6 +1048,8 @@ struct ShellConfig {
     bool confirmRegion = false;
     bool rememberLastRegion = false;
     bool showCursor = false;
+    bool annotate = false;
+    bool closeOnCopy = true;
     bool pipeToCommand = false;
     std::string pipeCommand;
     std::string directory;       // empty = XDG Pictures directory
@@ -1086,6 +1091,7 @@ struct ShellConfig {
   bool telemetryEnabled = false;
   bool setupWizardEnabled = true;
   bool niriOverviewTypeToLaunchEnabled = false;
+  bool umbrielOverviewTypeToLaunchEnabled = false;
   bool polkitAgent = false;
   PasswordMaskStyle passwordMaskStyle = PasswordMaskStyle::CircleFilled;
   AnimationConfig animation;
