@@ -12,6 +12,7 @@
 #include "render/text/glyph_registry.h"
 #include "shell/panel/panel_manager.h"
 #include "shell/tray/tray_identifier.h"
+#include "shell/tray/tray_theme_path_index.h"
 #include "system/desktop_entry.h"
 #include "ui/app_icon_colorization.h"
 #include "ui/builders.h"
@@ -21,61 +22,17 @@
 
 #include <algorithm>
 #include <cmath>
-#include <cstdlib>
-#include <filesystem>
 #include <linux/input-event-codes.h>
 #include <memory>
 #include <optional>
-#include <ranges>
 #include <string>
 #include <vector>
 
 namespace {
 
-  namespace fs = std::filesystem;
-
   constexpr Logger kLog("tray");
 
   using tray::identifierVariants;
-
-  // A themed icon lives at most at <root>/<size>/<context>/<name>.png; anything
-  // deeper is not part of the lookup, and cursor themes carry no icons at all.
-  constexpr int kTrayThemePathMaxDepth = 3;
-  constexpr std::size_t kTrayThemePathMaxEntries = 20000;
-
-  // An SNI IconThemePath is meant to name an app-private icon directory. Some apps
-  // publish a system icon root instead, and indexing one of those walks every icon
-  // and cursor theme installed on the machine. IconResolver already covers those
-  // roots properly via index.theme and Inherits, so skip them here.
-  bool isSystemIconRoot(const fs::path& path) {
-    std::error_code ec;
-    const fs::path canonical = fs::weakly_canonical(path, ec);
-    const fs::path& probe = ec ? path : canonical;
-
-    std::vector<std::string> dataDirs;
-    if (const char* env = std::getenv("XDG_DATA_HOME"); env != nullptr && env[0] != '\0') {
-      dataDirs.emplace_back(env);
-    } else if (const char* home = std::getenv("HOME"); home != nullptr && home[0] != '\0') {
-      dataDirs.emplace_back(std::string(home) + "/.local/share");
-    }
-    const char* env = std::getenv("XDG_DATA_DIRS");
-    const std::string dirs = (env != nullptr && env[0] != '\0') ? env : "/usr/local/share:/usr/share";
-    for (const auto part : std::views::split(dirs, ':')) {
-      if (std::string dir(part.begin(), part.end()); !dir.empty()) {
-        dataDirs.push_back(std::move(dir));
-      }
-    }
-
-    for (const auto& dataDir : dataDirs) {
-      for (const char* leaf : {"/icons", "/pixmaps"}) {
-        const fs::path root = fs::weakly_canonical(fs::path(dataDir + leaf), ec);
-        if (!ec && root == probe) {
-          return true;
-        }
-      }
-    }
-    return false;
-  }
 
   void addIconAlias(std::unordered_map<std::string, std::string>& index, std::string_view key, std::string_view icon) {
     if (key.empty() || icon.empty()) {
@@ -229,71 +186,14 @@ TrayWidget::TrayWidget(ConfigService& config, TrayService* tray, Options options
   normalizeTokens(m_hiddenItems);
   normalizeTokens(m_pinnedItems);
   buildDesktopIconIndex();
+  m_themePathIndexListener = tray::ThemePathIconStore::instance().addListener([this]() {
+    m_rebuildPending = true;
+    requestUpdate();
+  });
 }
 
 std::string TrayWidget::resolveFromTrayThemePath(std::string_view themePath, std::string_view iconName) {
-  if (themePath.empty() || iconName.empty()) {
-    return {};
-  }
-
-  const std::string themePathKey(themePath);
-  auto [cacheIt, inserted] = m_trayThemePathIcons.try_emplace(themePathKey);
-  if (inserted) {
-    std::error_code ec;
-    if (!fs::is_directory(themePathKey, ec)) {
-      return {};
-    }
-
-    if (isSystemIconRoot(themePathKey)) {
-      kLog.debug("ignoring tray icon theme path '{}': it is a system icon root", themePathKey);
-      return {};
-    }
-
-    auto& iconIndex = cacheIt->second;
-    std::size_t scanned = 0;
-    for (fs::recursive_directory_iterator it(themePathKey, fs::directory_options::skip_permission_denied, ec), end;
-         !ec && it != end; it.increment(ec)) {
-      if (ec) {
-        continue;
-      }
-      if (++scanned > kTrayThemePathMaxEntries) {
-        kLog.warn("tray icon theme path '{}' is too large to index; stopping the scan", themePathKey);
-        break;
-      }
-
-      std::error_code dirEc;
-      if (it->is_directory(dirEc) && !dirEc) {
-        const std::string name = StringUtils::toLower(it->path().filename().string());
-        if (it.depth() >= kTrayThemePathMaxDepth || name.contains("cursor")) {
-          it.disable_recursion_pending();
-        }
-        continue;
-      }
-      if (!it->is_regular_file()) {
-        continue;
-      }
-
-      const fs::path path = it->path();
-      const auto extension = StringUtils::toLower(path.extension().string());
-      if (extension != ".svg" && extension != ".png") {
-        continue;
-      }
-
-      const std::string stem = path.stem().string();
-      for (const auto& variant : identifierVariants(stem)) {
-        iconIndex.try_emplace(variant, path.string());
-      }
-    }
-  }
-
-  const auto& iconIndex = cacheIt->second;
-  for (const auto& variant : identifierVariants(iconName)) {
-    if (const auto it = iconIndex.find(variant); it != iconIndex.end()) {
-      return it->second;
-    }
-  }
-
-  return {};
+  return tray::ThemePathIconStore::instance().resolve(themePath, iconName);
 }
 
 float TrayWidget::resolvedInlineEntryGap() const {
@@ -1152,7 +1052,7 @@ void TrayWidget::layoutHoverOverlays() {
 // wiped by `attachWidgetsToSections` before the next widget batch), and the entries' `area`
 // pointers are inside our own scene subtree, which the bar destroys *before* clearing the widget
 // vector. Touching either from the destructor is redundant at best and a use-after-free at worst.
-TrayWidget::~TrayWidget() = default;
+TrayWidget::~TrayWidget() { tray::ThemePathIconStore::instance().removeListener(m_themePathIndexListener); }
 
 void TrayWidget::clearHoverOverlays() {
   if (m_hoverOverlayParent != nullptr) {

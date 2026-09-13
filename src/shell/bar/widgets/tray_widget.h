@@ -80,8 +80,8 @@ private:
   IconResolver m_iconResolver;
   std::unordered_map<std::string, std::string> m_appIcons;
   std::unordered_map<std::string, std::string> m_preferredIconPaths;
-  std::unordered_map<std::string, std::unordered_map<std::string, std::string>> m_trayThemePathIcons;
   std::uint64_t m_desktopEntriesVersion = 0;
+  std::uint64_t m_themePathIndexListener = 0;
   std::vector<TrayItemInfo> m_items;
   std::vector<std::string> m_hiddenItems;
   std::vector<std::string> m_pinnedItems;
