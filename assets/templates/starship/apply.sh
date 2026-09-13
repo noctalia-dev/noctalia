@@ -8,7 +8,9 @@ marker_end="# <<< NOCTALIA STARSHIP PALETTE <<<"
 expand_tilde() {
     case "$1" in
         "~") printf '%s' "$HOME" ;;
-        "~/"*) printf '%s' "$HOME/${1#~/}" ;;
+        # The pattern must stay quoted: bash tilde-expands an unquoted one inside ${1#...},
+        # which turns it into $HOME/ and strips nothing.
+        "~/"*) printf '%s' "$HOME/${1#"~/"}" ;;
         *) printf '%s' "$1" ;;
     esac
 }
