@@ -12,6 +12,9 @@ bool g_resolvedThemeLight = false;
 
 namespace {
 
+  // Serializes setPalette() writes against colorForRoleSnapshot() reads from the
+  // script runtime thread. All other palette reads (colorForRole, rendering) stay
+  // on the main thread, so this holds only while setPalette() is main-thread-only.
   std::mutex g_paletteMutex;
 
   std::string normalizedRoleToken(std::string_view token) {
