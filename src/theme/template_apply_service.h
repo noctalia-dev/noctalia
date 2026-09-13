@@ -2,6 +2,7 @@
 
 #include "config/config_types.h"
 #include "core/toml.h" // IWYU pragma: keep
+#include "theme/hook_runner.h"
 #include "theme/palette.h"
 
 #include <atomic>
@@ -23,16 +24,11 @@ class IpcService;
 
 namespace noctalia::theme {
 
-  class HookRunner;
-
   class TemplateApplyService {
   public:
-    // How long the destructor waits for a running hook before terminating it, and again
-    // before giving up on the worker. Long enough for a normal hook to finish writing an
-    // application's config.
-    static constexpr auto kShutdownGrace = std::chrono::seconds(5);
-
-    explicit TemplateApplyService(ConfigService& config, std::chrono::milliseconds shutdownGrace = kShutdownGrace);
+    explicit TemplateApplyService(
+        ConfigService& config, std::chrono::milliseconds shutdownGrace = HookRunner::kDefaultShutdownGrace
+    );
     ~TemplateApplyService();
 
     TemplateApplyService(const TemplateApplyService&) = delete;
@@ -77,8 +73,9 @@ namespace noctalia::theme {
       bool paletteChangedOwed = false;
       std::function<void(std::string_view appliedMode, bool paletteChanged)> afterApplyCallback;
       std::unique_ptr<HookRunner> hookRunner;
-      // Raised when a synchronous hook outlives the shutdown grace period, so quitting cannot
-      // be held up forever by a hook that never exits.
+      // Raised when a hook outlives the shutdown grace period, so quitting cannot be held up
+      // forever by a hook that never exits. Shared with hookRunner: one cancellation covers
+      // both the synchronous and the asynchronous hook paths.
       std::shared_ptr<std::atomic<bool>> hookCancel = std::make_shared<std::atomic<bool>>(false);
       // Cleared by the destructor: a detached worker must not reach back into the service.
       TemplateApplyService* owner = nullptr;

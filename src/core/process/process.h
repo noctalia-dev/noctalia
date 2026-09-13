@@ -21,8 +21,10 @@ namespace process {
     bool timedOut = false;
     bool outTruncated = false;
     bool errTruncated = false;
+    // The run was stopped through RunOptions::cancel rather than by its own timeout.
+    bool cancelled = false;
 
-    operator bool() const { return exitCode == 0 && !timedOut; }
+    operator bool() const { return exitCode == 0 && !timedOut && !cancelled; }
   };
 
   struct EnvOverride {

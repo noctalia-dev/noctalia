@@ -7,6 +7,7 @@
 #include <memory>
 #include <string>
 #include <thread>
+#include <unistd.h>
 
 namespace {
 
@@ -97,7 +98,9 @@ namespace {
   }
 
   void test_shutdown_does_not_wait_out_a_stuck_hook() {
-    const auto started = sentinelPath("stuck_started");
+    // Namespaced by pid so concurrent test runs cannot fight over the sentinel.
+    const auto started =
+        std::filesystem::temp_directory_path() / ("noctalia_hook_runner_stuck_started_" + std::to_string(::getpid()));
     std::filesystem::remove(started);
 
     auto runner = std::make_unique<noctalia::theme::HookRunner>(1, std::chrono::milliseconds(100));

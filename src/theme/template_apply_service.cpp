@@ -163,7 +163,8 @@ namespace noctalia::theme {
 
   TemplateApplyService::TemplateApplyService(ConfigService& config, std::chrono::milliseconds shutdownGrace)
       : m_config(config), m_shared(std::make_shared<Shared>()), m_shutdownGrace(shutdownGrace) {
-    m_shared->hookRunner = std::make_unique<HookRunner>(HookRunner::kDefaultMaxConcurrent, shutdownGrace);
+    m_shared->hookRunner =
+        std::make_unique<HookRunner>(HookRunner::kDefaultMaxConcurrent, shutdownGrace, m_shared->hookCancel);
     m_shared->owner = this;
     m_worker = std::thread([state = m_shared]() {
       workerLoop(state);
@@ -179,21 +180,29 @@ namespace noctalia::theme {
     // The worker may be draining hooks; drop the backlog so shutdown waits only for
     // the hooks already running.
     m_shared->hookRunner->requestShutdown();
+    // One budget for the whole teardown. The runner is destroyed with m_shared once this
+    // ladder ends, so it inherits the deadline rather than spending a grace period of its own.
+    const auto deadline = std::chrono::steady_clock::now() + m_shutdownGrace;
+    m_shared->hookRunner->setShutdownDeadline(deadline);
     bool workerDone = false;
     {
       std::unique_lock lock(m_shared->mutex);
       m_shared->shutdown = true;
       m_shared->pendingRequest.reset();
       m_shared->owner = nullptr;
+      m_shared->afterApplyCallback = nullptr;
       m_shared->cv.notify_all();
       const auto done = [this]() { return m_shared->workerDone; };
       // A synchronous hook is not interruptible and has no timeout, so join() alone would
       // hang the quit for as long as the hook runs. Give it a grace period, then kill it.
-      workerDone = m_shared->cv.wait_for(lock, m_shutdownGrace, done);
+      workerDone = m_shared->cv.wait_until(lock, deadline, done);
       if (!workerDone) {
-        kLog.warn("a template hook is still running after {}ms; terminating it", m_shutdownGrace.count());
+        kLog.warn(
+            "a template hook is still running after {}s; terminating it",
+            std::chrono::duration<double>(m_shutdownGrace).count()
+        );
         m_shared->hookCancel->store(true);
-        workerDone = m_shared->cv.wait_for(lock, m_shutdownGrace, done);
+        workerDone = m_shared->cv.wait_until(lock, deadline + HookRunner::kTerminateGrace, done);
       }
     }
     if (workerDone) {

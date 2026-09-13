@@ -271,7 +271,8 @@ namespace {
     canceller.join();
 
     bool ok = expect(elapsed < std::chrono::seconds(10), "a cancelled run must not wait out a 30s sleep");
-    ok = expect(result.timedOut, "a cancelled run must report as terminated") && ok;
+    ok = expect(result.cancelled, "a cancelled run must report as cancelled") && ok;
+    ok = expect(!result.timedOut, "a cancelled run must not be reported as a timeout") && ok;
     ok = expect(result.exitCode == 128 + SIGKILL, "an uncooperative child must be reaped after SIGKILL") && ok;
 
     std::ifstream in(pidFile);
