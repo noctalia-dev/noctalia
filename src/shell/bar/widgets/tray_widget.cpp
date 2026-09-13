@@ -192,10 +192,6 @@ TrayWidget::TrayWidget(ConfigService& config, TrayService* tray, Options options
   });
 }
 
-std::string TrayWidget::resolveFromTrayThemePath(std::string_view themePath, std::string_view iconName) {
-  return tray::ThemePathIconStore::instance().resolve(themePath, iconName);
-}
-
 float TrayWidget::resolvedInlineEntryGap() const {
   if (!m_matchAdjacentSpacing) {
     return m_inlineEntryGap;
@@ -658,7 +654,8 @@ void TrayWidget::rebuild(Renderer& renderer) {
         if (overlayName.empty()) {
           return {};
         }
-        if (const auto themed = resolveFromTrayThemePath(item.iconThemePath, overlayName); !themed.empty()) {
+        if (const auto themed = tray::ThemePathIconStore::instance().resolve(item.iconThemePath, overlayName);
+            !themed.empty()) {
           return themed;
         }
         if (const auto direct = m_iconResolver.resolve(overlayName, iconRequestSize); !direct.empty()) {
@@ -887,7 +884,8 @@ std::string TrayWidget::resolveIconPath(const TrayItemInfo& item) {
   } else {
     preferred = item.iconName;
   }
-  if (const auto themed = resolveFromTrayThemePath(item.iconThemePath, preferred); !themed.empty()) {
+  if (const auto themed = tray::ThemePathIconStore::instance().resolve(item.iconThemePath, preferred);
+      !themed.empty()) {
     m_preferredIconPaths[item.id] = themed;
     return themed;
   }

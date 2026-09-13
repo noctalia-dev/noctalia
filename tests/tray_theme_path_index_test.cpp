@@ -36,8 +36,15 @@ int main() {
   TEST_CHECK(tray::isSystemIconRoot(root / "share/icons/"));
   TEST_CHECK(tray::isSystemIconRoot(root / "share/./icons/../icons"));
   TEST_CHECK(tray::isSystemIconRoot(root / "twin-icons"));
+  // A theme inside a system icon root is still system-installed: issue #4338 is apps
+  // advertising <datadir>/icons/hicolor.
+  TEST_CHECK(tray::isSystemIconRoot(root / "share/icons/hicolor"));
+  TEST_CHECK(tray::isSystemIconRoot(root / "share/icons/hicolor/48x48/apps"));
+  TEST_CHECK(tray::isSystemIconRoot(root / "share/pixmaps/vendor"));
+  // An app-private tree that merely happens to be named "icons" must still be indexed.
   TEST_CHECK(!tray::isSystemIconRoot(root / "app/icons"));
-  TEST_CHECK(!tray::isSystemIconRoot(root / "share/icons/hicolor"));
+  TEST_CHECK(!tray::isSystemIconRoot(root / "app/icons/hicolor"));
+  TEST_CHECK(!tray::isSystemIconRoot(root / "share/iconsets"));
 
   // A data dir that cannot be canonicalized must still match by its raw form.
   fs::permissions(root / "sealed", fs::perms::none);
@@ -99,13 +106,17 @@ int main() {
     }
   }
   TEST_CHECK(resolved == (appTheme / "48x48/apps/shallow-icon.png").string());
-  TEST_CHECK(store.scansPerformed() == 1);
 
-  // A second bar's TrayWidget shares the index instead of re-walking the tree.
+  // A second bar's TrayWidget shares the index instead of re-walking the tree: a file
+  // added after the scan stays invisible, so no second walk happened.
+  std::ofstream(appTheme / "48x48/apps/late-icon.png") << "x";
   TEST_CHECK(
       store.resolve(appTheme.string(), "deep-icon") == (appTheme / "hicolor/48x48/apps/symbolic/deep-icon.png").string()
   );
-  TEST_CHECK(store.scansPerformed() == 1);
+  for (int i = 0; i < 20; ++i) {
+    TEST_CHECK(store.resolve(appTheme.string(), "late-icon").empty());
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  }
 
   for (int i = 0; i < 500 && notified == 0; ++i) {
     for (const auto& pending : DeferredCall::takePending()) {
@@ -126,6 +137,35 @@ int main() {
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
   }
   TEST_CHECK(notified == 1);
+
+  // A listener that removes another one must stop that one from firing in the same
+  // batch: its owner may already be destroyed by the time the batch reaches it.
+  int firedA = 0;
+  int firedB = 0;
+  std::uint64_t idA = 0;
+  std::uint64_t idB = 0;
+  idA = store.addListener([&]() {
+    ++firedA;
+    store.removeListener(idB);
+  });
+  idB = store.addListener([&]() {
+    ++firedB;
+    store.removeListener(idA);
+  });
+
+  TEST_CHECK(store.resolve((root / "app/second").string(), "shallow-icon").empty());
+  for (int i = 0; i < 500 && firedA + firedB == 0; ++i) {
+    for (const auto& pending : DeferredCall::takePending()) {
+      pending();
+    }
+    if (firedA + firedB == 0) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+  }
+  TEST_CHECK(firedA + firedB == 1);
+
+  store.removeListener(idA);
+  store.removeListener(idB);
 
   fs::remove_all(root);
 }

@@ -61,14 +61,23 @@ namespace {
     return {.canonical = std::move(canonical), .lexical = stripTrailingSlash(path)};
   }
 
-  bool sameRoot(const PathForms& a, const PathForms& b) {
-    if (!a.canonical.empty() && !b.canonical.empty() && a.canonical == b.canonical) {
+  bool isAtOrUnder(const fs::path& child, const fs::path& parent) {
+    if (child.empty() || parent.empty()) {
+      return false;
+    }
+    const fs::path relative = child.lexically_relative(parent);
+    return !relative.empty() && *relative.begin() != "..";
+  }
+
+  bool coveredByRoot(const PathForms& probe, const PathForms& root) {
+    if (!probe.canonical.empty() && !root.canonical.empty() && isAtOrUnder(probe.canonical, root.canonical)) {
       return true;
     }
-    if (a.lexical == b.lexical) {
+    if (isAtOrUnder(probe.lexical, root.lexical)) {
       return true;
     }
-    return (!a.canonical.empty() && a.canonical == b.lexical) || (!b.canonical.empty() && b.canonical == a.lexical);
+    return (!probe.canonical.empty() && isAtOrUnder(probe.canonical, root.lexical))
+        || (!root.canonical.empty() && isAtOrUnder(probe.lexical, root.canonical));
   }
 
 } // namespace
@@ -78,7 +87,7 @@ bool tray::isSystemIconRoot(const fs::path& path) {
 
   for (const auto& dataDir : xdgDataDirs()) {
     for (const char* leaf : {"/icons", "/pixmaps"}) {
-      if (sameRoot(probe, pathForms(fs::path(dataDir + leaf)))) {
+      if (coveredByRoot(probe, pathForms(fs::path(dataDir + leaf)))) {
         return true;
       }
     }
@@ -94,7 +103,7 @@ tray::ThemePathIndex tray::buildThemePathIndex(const fs::path& root) {
     return index;
   }
   if (isSystemIconRoot(root)) {
-    kLog.debug("ignoring tray icon theme path '{}': it is a system icon root", root.string());
+    kLog.debug("ignoring tray icon theme path '{}': it is at or below a system icon root", root.string());
     return index;
   }
 
@@ -140,7 +149,7 @@ tray::ThemePathIconStore& tray::ThemePathIconStore::instance() {
   return store;
 }
 
-tray::ThemePathIconStore::ThemePathIconStore() : m_worker([this]() { workerLoop(); }) {}
+tray::ThemePathIconStore::ThemePathIconStore() = default;
 
 tray::ThemePathIconStore::~ThemePathIconStore() {
   {
@@ -159,6 +168,7 @@ std::string tray::ThemePathIconStore::resolve(std::string_view themePath, std::s
   }
 
   std::string key(themePath);
+  bool startWorker = false;
   {
     std::scoped_lock lock(m_mutex);
     if (const auto it = m_indexes.find(key); it != m_indexes.end()) {
@@ -173,6 +183,10 @@ std::string tray::ThemePathIconStore::resolve(std::string_view themePath, std::s
       return {};
     }
     m_queue.push_back(std::move(key));
+    startWorker = !std::exchange(m_workerStarted, true);
+  }
+  if (startWorker) {
+    m_worker = std::thread([this]() { workerLoop(); });
   }
   m_cv.notify_one();
   return {};
@@ -190,21 +204,25 @@ void tray::ThemePathIconStore::removeListener(std::uint64_t id) {
   m_listeners.erase(id);
 }
 
-std::size_t tray::ThemePathIconStore::scansPerformed() const {
-  std::scoped_lock lock(m_mutex);
-  return m_scans;
-}
-
 void tray::ThemePathIconStore::notifyListeners() {
-  std::vector<std::function<void()>> callbacks;
+  std::vector<std::pair<std::uint64_t, std::function<void()>>> callbacks;
   {
     std::scoped_lock lock(m_mutex);
     callbacks.reserve(m_listeners.size());
     for (const auto& [id, callback] : m_listeners) {
-      callbacks.push_back(callback);
+      callbacks.emplace_back(id, callback);
     }
   }
-  for (const auto& callback : callbacks) {
+
+  // One listener can destroy another's owner, so re-check membership before each
+  // call, and never hold the lock across a call, since listeners may remove themselves.
+  for (const auto& [id, callback] : callbacks) {
+    {
+      std::scoped_lock lock(m_mutex);
+      if (!m_listeners.contains(id)) {
+        continue;
+      }
+    }
     callback();
   }
 }
@@ -227,7 +245,6 @@ void tray::ThemePathIconStore::workerLoop() {
       std::scoped_lock lock(m_mutex);
       m_pending.erase(path);
       m_indexes.insert_or_assign(std::move(path), std::move(index));
-      ++m_scans;
     }
     DeferredCall::callLater([]() { instance().notifyListeners(); });
   }

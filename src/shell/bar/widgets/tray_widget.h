@@ -59,7 +59,6 @@ private:
   void doUpdate(Renderer& renderer) override;
   void buildDesktopIconIndex();
   [[nodiscard]] std::string resolveIconPath(const TrayItemInfo& item);
-  [[nodiscard]] std::string resolveFromTrayThemePath(std::string_view themePath, std::string_view iconName);
   void syncState(Renderer& renderer);
   void rebuild(Renderer& renderer);
   [[nodiscard]] std::string iconForItem(const TrayItemInfo& item) const;
