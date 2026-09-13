@@ -231,6 +231,8 @@ void NetworkManagerService::refresh() {
   pending->capturedCellular = m_savedCellularConnectionPaths;
   pending->pendingOps = 3;
 
+  // Must stay local: `pending` must not own a callback that captures `pending`, or the refresh
+  // state cannot be freed when the completion path is skipped (e.g. lifetime expiry).
   auto onAllComplete = [this, pending, lifetimeToken]() {
     if (lifetimeToken.expired()) {
       return;
