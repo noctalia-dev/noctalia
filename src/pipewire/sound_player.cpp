@@ -1,21 +1,137 @@
 #include "pipewire/sound_player.h"
 
 #include "core/log.h"
+#include "system/freedesktop_key_file.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstring>
+#include <map>
 #include <pipewire/pipewire.h>
+#include <ranges>
+#include <set>
 #include <sndfile.h>
 #include <spa/param/audio/raw-utils.h>
 #include <spa/param/param.h>
 #include <spa/pod/builder.h>
 #include <spa/utils/result.h>
+#include <string_view>
 
 namespace {
 
   constexpr Logger kLog("sound");
   constexpr float kUiSoundGamma = 2.2F;
+
+  namespace fs = std::filesystem;
+  constexpr std::array<std::string_view, 4> kExtensions = {".disabled", ".oga", ".ogg", ".wav"};
+
+  std::vector<std::string> splitList(std::string_view value) {
+    std::vector<std::string> result;
+    // Spec says "All lists are comma-separated", but its own example and
+    // COSMIC's sound theme use space
+    for (auto part1 : value | std::views::split(' ')) {
+      for (auto part2 : std::string_view(part1) | std::views::split(',')) {
+        std::string_view token(part2);
+        if (!token.empty())
+          result.emplace_back(token);
+      }
+    }
+    return result;
+  }
+
+  std::vector<fs::path> soundBaseDirs() {
+    std::vector<fs::path> dataDirs;
+    if (const char* dataHome = std::getenv("XDG_DATA_HOME"); dataHome != nullptr && *dataHome != '\0') {
+      dataDirs.emplace_back(fs::path(dataHome) / "sounds");
+    } else if (const char* userHome = std::getenv("HOME"); userHome != nullptr && *userHome != '\0') {
+      dataDirs.emplace_back(fs::path(userHome) / ".local/share/sounds");
+    }
+    if (const char* dataDirsEnv = std::getenv("XDG_DATA_DIRS"); dataDirsEnv != nullptr && *dataDirsEnv != '\0') {
+      for (const auto directory : std::string_view(dataDirsEnv) | std::views::split(':')) {
+        std::string_view piece(directory);
+        if (!piece.empty()) {
+          dataDirs.emplace_back(fs::path(piece) / "sounds");
+        }
+      }
+    } else {
+      dataDirs.emplace_back("/usr/local/share/sounds");
+      dataDirs.emplace_back("/usr/share/sounds");
+    }
+    return dataDirs;
+  }
+
+  std::optional<fs::path>
+  findThemeSound(std::string_view event, std::string_view theme, std::set<std::string>& visited) {
+    if (!visited.insert(std::string(theme)).second) {
+      // prevent infinite recursion when themes inherit cyclically
+      return std::nullopt;
+    }
+
+    std::vector<std::string> parents;
+    const auto baseDirs = soundBaseDirs();
+
+    // find index.theme
+    std::optional<freedesktop::ParseResult> parsed;
+    for (const auto& baseDir : baseDirs) {
+      const fs::path root = baseDir / theme;
+      const fs::path indexPath = root / "index.theme";
+      if (!fs::is_regular_file(indexPath)) {
+        continue;
+      }
+      const auto parsedFile = freedesktop::parseKeyFile(indexPath);
+      if (!parsedFile) {
+        // parse failure
+        return std::nullopt;
+      }
+      parsed = *parsedFile;
+      break;
+    }
+    if (!parsed.has_value()) {
+      // index.theme doesn't exist for this theme
+      return std::nullopt;
+    }
+
+    // find sounds
+    std::vector<std::string> directories{"stereo"};
+    if (const auto listed = parsed->file.value("Sound Theme", "Directories"); listed.has_value()) {
+      directories = splitList(*listed);
+    }
+    for (const auto& baseDir : baseDirs) {
+      const fs::path root = baseDir / theme;
+      if (!fs::is_directory(root)) {
+        continue;
+      }
+      for (const auto& directory : directories) {
+        if (parsed->file.value(directory, "OutputProfile").value_or("stereo") != "stereo") {
+          continue;
+        }
+        for (const auto extension : kExtensions) {
+          const fs::path path = root / directory / (std::string(event) + std::string(extension));
+          if (fs::is_regular_file(path)) {
+            if (extension == ".disabled") {
+              return std::nullopt;
+            }
+            return path;
+          }
+        }
+      }
+    }
+
+    if (const auto inherits = parsed->file.value("Sound Theme", "Inherits"); inherits.has_value()) {
+      parents = splitList(*inherits);
+    }
+
+    if (std::ranges::find(parents, "freedesktop") == parents.end()) {
+      parents.emplace_back("freedesktop");
+    }
+    for (const auto& parent : parents) {
+      if (const auto path = findThemeSound(event, parent, visited); path.has_value()) {
+        return path;
+      }
+    }
+    return std::nullopt;
+  }
 
   const pw_stream_events kStreamEvents = [] {
     pw_stream_events events{};
@@ -28,7 +144,46 @@ namespace {
 
 } // namespace
 
-SoundPlayer::SoundPlayer(pw_loop* loop) : m_loop(loop) {}
+SoundPlayer::SoundPlayer(pw_loop* loop) : m_loop(loop) { setTheme("freedesktop"); }
+
+std::vector<std::pair<std::string, std::string>> SoundPlayer::availableThemes() {
+  std::map<std::string, std::string> themes;
+  for (const auto& baseDir : soundBaseDirs()) {
+    std::error_code error;
+    for (const auto& entry : fs::directory_iterator(baseDir, error)) {
+      if (error or !entry.is_directory(error)) {
+        continue;
+      }
+      const auto parsed = freedesktop::parseKeyFile(entry.path() / "index.theme");
+      if (!parsed) {
+        continue;
+      }
+      if (parsed->file.value("Sound Theme", "Hidden").value_or("false") == "true") {
+        continue;
+      }
+      themes.emplace(
+          entry.path().filename().string(),
+          std::string(parsed->file.value("Sound Theme", "Name").value_or(entry.path().filename().string()))
+      );
+    }
+  }
+  return {themes.begin(), themes.end()};
+}
+
+void SoundPlayer::setTheme(std::string theme) {
+  m_buffers.clear();
+  for (const std::string_view event : {"message", "audio-volume-change"}) {
+    std::set<std::string> visited;
+    const auto path = findThemeSound(event, theme, visited);
+    if (!path.has_value()) {
+      // we should never hit this, because fallback to freedesktop should find the sounds
+      kLog.error("sound theme '{}' is missing sound '{}'", theme, event);
+      continue;
+    }
+    kLog.info("sound theme '{}': loaded {} for event '{}'", theme, path->c_str(), event);
+    load(std::string(event), *path);
+  }
+}
 
 SoundPlayer::~SoundPlayer() {
   for (auto& active : m_active) {
@@ -46,7 +201,7 @@ SoundPlayer::~SoundPlayer() {
   m_active.clear();
 }
 
-std::optional<std::string> SoundPlayer::decode(const std::filesystem::path& path, SoundBuffer& out) {
+std::optional<std::string> SoundPlayer::decode(const fs::path& path, SoundBuffer& out) {
   SF_INFO info{};
   SNDFILE* file = sf_open(path.string().c_str(), SFM_READ, &info);
   if (file == nullptr) {
@@ -72,7 +227,7 @@ std::optional<std::string> SoundPlayer::decode(const std::filesystem::path& path
   return std::nullopt;
 }
 
-bool SoundPlayer::load(const std::string& name, const std::filesystem::path& path) {
+bool SoundPlayer::load(const std::string& name, const fs::path& path) {
   if (name.empty() || path.empty()) {
     return false;
   }
@@ -89,7 +244,7 @@ bool SoundPlayer::load(const std::string& name, const std::filesystem::path& pat
 }
 
 std::optional<std::string>
-SoundPlayer::loadPluginSound(std::uint64_t ownerId, const std::string& name, const std::filesystem::path& path) {
+SoundPlayer::loadPluginSound(std::uint64_t ownerId, const std::string& name, const fs::path& path) {
   SoundBuffer buffer;
   if (const auto error = decode(path, buffer)) {
     kLog.warn("failed to load plugin sound \"{}\" from {}: {}", name, path.string(), *error);

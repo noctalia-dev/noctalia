@@ -24,8 +24,7 @@ namespace noctalia::config::schema {
         field(&AudioConfig::enableOverdrive, "enable_overdrive"),
         field(&AudioConfig::enableSounds, "enable_sounds"),
         field(&AudioConfig::soundVolume, "sound_volume", kUnitRange),
-        field(&AudioConfig::volumeChangeSound, "volume_change_sound"),
-        field(&AudioConfig::notificationSound, "notification_sound"),
+        field(&AudioConfig::soundTheme, "sound_theme"),
     };
     return s;
   }
