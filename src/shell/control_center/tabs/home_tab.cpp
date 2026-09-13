@@ -134,7 +134,7 @@ namespace {
   }
 
   // The whole home cards are clickable; on hover swap the card outline to the hover colour. No fill
-  // change — the user card's fill sits behind the wallpaper, so a thin hover border is the one hover
+  // change: the user card's fill sits behind the wallpaper, so a thin hover border is the one hover
   // signal that reads consistently across all three cards.
   void applyHomeCardHover(Flex& card, bool hovered) {
     if (hovered) {
@@ -500,7 +500,7 @@ std::unique_ptr<Flex> HomeTab::create() {
               }),
               ui::label({
                   .out = &m_weatherLine,
-                  .text = "—",
+                  .text = "--",
                   .fontSize = Style::fontSizeCaption * scale,
                   .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
               })
@@ -1160,7 +1160,7 @@ void HomeTab::syncWallpaperBackground(Renderer& renderer) {
   if (m_crispNeedsFade) {
     startCrispFade();
   } else {
-    // Ready on the first look (cached) — snap in without a crossfade.
+    // Ready on the first look (cached), so snap in without a crossfade.
     cancelCrispFade();
     m_wallpaperBg->setOpacity(1.0F);
     m_crispOpaque = true;

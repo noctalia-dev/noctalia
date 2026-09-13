@@ -24,7 +24,7 @@ namespace {
     return OsdContent{
         .kind = OsdKind::Media,
         .icon = "disc",
-        .value = artist.empty() ? player.title : player.title + " — " + artist,
+        .value = artist.empty() ? player.title : player.title + " - " + artist,
         .showProgress = false,
     };
   }
@@ -37,7 +37,7 @@ namespace {
     return OsdContent{
         .kind = OsdKind::Media,
         .icon = "disc",
-        .value = playerName.empty() ? level : playerName + " — " + level,
+        .value = playerName.empty() ? level : playerName + " - " + level,
         .showProgress = false,
         .overLimit = percent > 100,
     };
