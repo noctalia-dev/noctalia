@@ -2322,6 +2322,10 @@
         }
       },
       "notifications": {
+        "active-monitor-only": {
+          "description": "Show notification toasts only on the currently focused monitor; this overrides the monitor list",
+          "label": "Focused Monitor Only"
+        },
         "allowed-urgencies": {
           "description": "Only show external notifications at the selected urgency levels",
           "label": "Allowed Urgencies"
@@ -2901,6 +2905,10 @@
           "description": "Path to a custom avatar image; large images are cropped and resized automatically",
           "label": "Avatar Path",
           "placeholder": "/path/to/avatar.png"
+        },
+        "osd-active-monitor-only": {
+          "description": "Show OSD popups only on the currently focused monitor; this overrides the monitor list",
+          "label": "Focused Monitor Only"
         },
         "clipboard-auto-paste": {
           "description": "Automatically paste clipboard selections",

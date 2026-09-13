@@ -10,6 +10,7 @@
 #include <vector>
 
 class ConfigService;
+class CompositorPlatform;
 class IpcService;
 class Box;
 class Flex;
@@ -56,7 +57,9 @@ public:
   OsdOverlay(const OsdOverlay&) = delete;
   OsdOverlay& operator=(const OsdOverlay&) = delete;
 
-  void initialize(WaylandConnection& wayland, ConfigService* config, RenderContext* renderContext);
+  void initialize(
+      WaylandConnection& wayland, CompositorPlatform& platform, ConfigService* config, RenderContext* renderContext
+  );
   void registerIpc(IpcService& ipc);
   void onOutputChange();
   void onConfigReload();
@@ -118,6 +121,7 @@ private:
   void animateInstance(Instance& inst);
 
   WaylandConnection* m_wayland = nullptr;
+  CompositorPlatform* m_platform = nullptr;
   ConfigService* m_config = nullptr;
   RenderContext* m_renderContext = nullptr;
   OsdContent m_content;
@@ -127,6 +131,7 @@ private:
   float m_lastLayoutScale = 1.0F;
   float m_lastCornerRadiusScale = 1.0F;
   std::vector<std::string> m_lastMonitorSelectors;
+  wl_output* m_activeOutput = nullptr;
   std::optional<bool> m_runtimeEnabledOverride;
   bool m_lastConfiguredEnabled = true;
   std::vector<std::unique_ptr<Instance>> m_instances;
