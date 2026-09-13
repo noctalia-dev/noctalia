@@ -25,11 +25,9 @@ namespace {
     std::string searchable;
   };
 
-  // Mirror the taskbar / dock / active window / window switcher icon lookup: a
-  // Wayland app id (e.g. "dev.zed.Zed") is rarely a valid icon theme name, so
-  // resolve it to a desktop entry and use its Icon key, then fall back to the
-  // raw app id. Without this the launcher shows the generic window glyph for
-  // apps whose app id and icon name differ.
+  // A Wayland app id (e.g. "dev.zed.Zed") is rarely a valid icon theme name;
+  // resolve it to a desktop entry's Icon key like the other window surfaces do,
+  // then fall back to the raw app id.
   void assignWindowIcon(LauncherResult& result, const std::string& appId) {
     if (appId.empty()) {
       return;
