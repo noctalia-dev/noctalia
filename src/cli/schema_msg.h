@@ -337,6 +337,9 @@ namespace noctalia::cli {
         {},
         false
     };
+    inline constexpr Command calendarSync{
+        "calendar-sync", "Force an immediate calendar sync of all enabled accounts", {}, {}, {}, {}, {}, false
+    };
     inline constexpr Command caffeineDisable{
         "caffeine-disable", "Disable caffeine (idle inhibitor)", {}, {}, {}, {}, {}, false
     };
@@ -848,6 +851,7 @@ namespace noctalia::cli {
       msg::caffeineDisable,
       msg::caffeineEnable,
       msg::caffeineToggle,
+      msg::calendarSync,
       msg::clipboardClear,
       msg::clipboardCopy,
       msg::clipboardText,

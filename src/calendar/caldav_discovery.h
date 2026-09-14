@@ -1,5 +1,6 @@
 #pragma once
 
+#include "net/http_client.h"
 #include "security/secure_buffer.h"
 
 #include <functional>
@@ -18,10 +19,14 @@ namespace calendar {
     std::string color;
   };
 
+  // Discover the calendar collections of a CalDAV account via
+  // current-user-principal -> calendar-home-set -> collection PROPFINDs.
+  // tls may carry mTLS client-certificate material; pass nullptr when the
+  // server does not require a client certificate.
   void discoverCalDavCollections(
       HttpClient& http, const std::string& serverUrl, const std::string& username,
       std::shared_ptr<const security::SecureBuffer> password, bool allowRedirectAuth,
-      std::function<void(bool ok, std::vector<CalDavCollection>)> cb
+      std::shared_ptr<const HttpTlsClientCert> tls, std::function<void(bool ok, std::vector<CalDavCollection>)> cb
   );
 
 } // namespace calendar
