@@ -505,6 +505,7 @@ location = "https://example.invalid/bad"
     c.shell.mpris.blacklist = {"firefox"};
     c.shell.screenshot.directory = "/shots";
     c.shell.screenshot.pipeToCommand = true;
+    c.shell.screenshot.closeOnSave = false; // non-default (default is true) so the round-trip exercises it
     c.shell.session.actions = {
         SessionPanelActionConfig{
             "lock",
