@@ -620,6 +620,7 @@ _noctalia_sources = files(
   'src/shell/desktop/editor/desktop_widgets_editor_types.cpp',
   'src/shell/desktop/editor/desktop_widgets_editor_settings.cpp',
   'src/shell/desktop/desktop_widgets_host.cpp',
+  'src/shell/lockscreen/animated_webp_background.cpp',
   'src/shell/lockscreen/lockscreen_login_box.cpp',
   'src/shell/lockscreen/lockscreen_widgets_controller.cpp',
   'src/shell/lockscreen/lockscreen_widgets_host.cpp',

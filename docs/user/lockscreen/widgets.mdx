@@ -102,3 +102,22 @@ background_radius = 16.0
 input_opacity = 0.9
 input_radius = 8.0
 ```
+
+---
+## Animated background
+
+The lockscreen background (the `[lockscreen]` `wallpaper` key) accepts an **animated WebP** in addition to still images. When the configured wallpaper is an animated WebP, Noctalia streams it frame by frame and loops it for as long as the session is locked. A still image (or a still WebP) keeps using the static path unchanged.
+
+Only a single frame is held in video memory at a time, so clip length does not increase GPU usage, and decoding pauses while the display is blanked (DPMS).
+
+```toml
+[lockscreen]
+wallpaper = "/path/to/background.webp"
+```
+
+To produce an animated WebP from a video with ffmpeg:
+
+```sh
+ffmpeg -i input.mp4 -vf "fps=24,scale=1920:1080:flags=lanczos" \
+  -c:v libwebp_anim -loop 0 -an -q:v 80 -compression_level 6 output.webp
+```
