@@ -28,6 +28,7 @@
   },
   "bar": {
     "annotate": {
+      "capture-new-region": "Cattura nuova regione (scarta l'edit corrente)",
       "close": "Chiudi senza finalizzare (Esc)",
       "color-black": "Nero",
       "color-blue": "Blu",
@@ -39,6 +40,9 @@
       "color-yellow": "Giallo",
       "copy": "Copia l'immagine annotata (Ctrl+C)",
       "cursor": "Mostra il puntatore catturato con lo schermo (p)",
+      "cursor-capture-failed": "Attiva/disattiva puntatore non disponibile: il compositor non è riuscito a fornire un puntatore separato",
+      "cursor-live": "Blocca prima lo schermo per modificare il puntatore catturato (F)",
+      "cursor-not-captured": "Attiva/disattiva puntatore non disponibile: il compositor non supporta la cattura separata del puntatore",
       "done": "Applica le impostazioni dello screenshot (Invio)",
       "fill-off": "Riempimento forma: disattivato",
       "fill-on": "Riempimento forma: attivo",
@@ -282,6 +286,7 @@
     "display": {
       "disabled": "Disabilitato",
       "no-displays": "Nessun monitor disponibile",
+      "rescan": "Ri-scansiona DDC/CI monitors",
       "unknown-resolution": "Risoluzione sconosciuta"
     },
     "home": {
@@ -313,7 +318,9 @@
       "start-playback": "Avvia la riproduzione in un'app MPRIS"
     },
     "network": {
+      "anonymous-identity": "Identità anonima (opzionale)",
       "available": "Disponibili",
+      "ca-certificate": "Percorso CA certificate (opzionale)",
       "cellular": "Cellulare",
       "cellular-connected": "Connesso",
       "cellular-connecting": "Connessione...",
@@ -327,12 +334,23 @@
       "cellular-searching": "Ricerca in corso…",
       "connect": "Connetti",
       "current-connection": "Connessione corrente",
+      "domain-suffix-match": "Suffisso del domain server",
+      "eap-method": "Metodo EAP",
+      "enterprise-prompt-for": "Accedi a {ssid}",
+      "error-ca-not-absolute": "Il percorso del certificato deve essere assoluto, iniziando con /.",
+      "error-certificate-required": "Questa rete richiede autenticazione certificata (EAP-TLS), non ancora supportata.",
+      "error-enterprise-unsupported": "Il backend di rete attivo non può configurare reti 802.1X.",
+      "error-missing-identity": "Immetti l'identità che la tua organizzazione ti ha assegnato.",
+      "error-missing-password": "Immetti la tua password.",
+      "error-unsupported-phase2": "PEAP richiede autenticazione interna MSCHAPv2.",
       "external-ip": "WAN {ip}",
+      "identity": "Identità",
       "no-networks": "Nessuna rete nel raggio d'azione",
       "not-connected": "Non connesso",
       "password": "Password",
       "password-prompt": "Inserisci password",
       "password-prompt-for": "Inserisci password per {ssid}",
+      "phase2-auth": "Autenticazione interna",
       "saved": "Salvate",
       "unavailable-detail": "Installa e abilita NetworkManager, wpa_supplicant o iwd per gestire le reti da qui.",
       "unavailable-title": "Servizio di rete non disponibile",
@@ -1308,6 +1326,9 @@
         "screen-corners": "Angoli schermo",
         "screen-time": "Tempo schermo",
         "screenshot": "Cattura schermo",
+        "screenshot-annotation": "Annotazione",
+        "screenshot-capture": "Cattura",
+        "screenshot-output": "Output",
         "security": "Sicurezza",
         "session-panel": "Sessione",
         "shape": "Forma",
@@ -1341,6 +1362,7 @@
         "plugins": "Plugin",
         "popups": "Popup",
         "power": "Energia",
+        "screenshot": "Screenshot",
         "security": "Sicurezza",
         "services": "Servizi",
         "shell": "Shell",
@@ -3087,6 +3109,10 @@
           "description": "Apri l'editor di annotazioni su ogni screenshot; Fatto applica le impostazioni di salvataggio, appunti e pipe",
           "label": "Annota prima della finalizzazione"
         },
+        "screenshot-close-on-copy": {
+          "description": "Chiudi dopo una copia  riuscita dall'editor, anche quando aperto direttamente.",
+          "label": "Chiudi l'Editor dopo aver Copiato"
+        },
         "screenshot-confirm-region": {
           "description": "Dopo aver selezionato un'area, mantieni aperta l'overlay finché non confermi con Invio o Spazio",
           "label": "Conferma area selezionata"
@@ -3107,6 +3133,9 @@
         "screenshot-freeze-screen": {
           "description": "Prima della cattura congela lo schermo per bloccare il contenuto",
           "label": "Congela schermo"
+        },
+        "screenshot-output": {
+          "description": "Azioni applicate dopo la cattura, o quando scegli \"Fine\" nell'editor annotazioni."
         },
         "screenshot-pipe-command": {
           "description": "Comando eseguito come /bin/sh -lc con il PNG su stdin; per annotatori o uploader (per esempio: swappy -f - o satty -f -)",

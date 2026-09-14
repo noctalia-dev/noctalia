@@ -28,7 +28,8 @@
   },
   "bar": {
     "annotate": {
-      "close": "关闭而不发送（Esc）",
+      "capture-new-region": "重新框选（放弃当前编辑）",
+      "close": "关闭（Esc）",
       "color-black": "黑色",
       "color-blue": "蓝色",
       "color-green": "绿色",
@@ -37,41 +38,44 @@
       "color-red": "红色",
       "color-white": "白色",
       "color-yellow": "黄色",
-      "copy": "复制已标注的图像（Ctrl+C）",
-      "cursor": "显示随屏幕捕获的指针（p）",
-      "done": "应用截图设置（Enter）",
-      "fill-off": "形状填充：关闭",
-      "fill-on": "形状填充：开启",
-      "freeze": "冻结墨迹下方的屏幕（f）",
-      "move-toolbar": "拖动以移动工具栏",
+      "copy": "复制（Ctrl+C）",
+      "cursor": "显示鼠标指针（P）",
+      "cursor-capture-failed": "无法切换鼠标指针：当前合成器未能提供独立光标图像",
+      "cursor-live": "请先冻结画面，再切换鼠标指针 (F)",
+      "cursor-not-captured": "无法切换鼠标指针：当前合成器不支持独立捕获光标",
+      "done": "完成（Enter）",
+      "fill-off": "填充：关闭",
+      "fill-on": "填充：开启",
+      "freeze": "冻结画面（F）",
+      "move-toolbar": "拖动工具栏",
       "redo": "重做（Ctrl+Shift+Z）",
-      "save": "保存已标注的图像（Ctrl+S）",
-      "size-advanced": "微调尺寸",
-      "size-decrease": "变细（[）",
-      "size-increase": "变粗（]）",
+      "save": "保存（Ctrl+S）",
+      "size-advanced": "精细调整",
+      "size-decrease": "调细（[）",
+      "size-increase": "调粗（]）",
       "size-large": "大",
       "size-medium": "中",
       "size-small": "小",
-      "tool-arrow": "箭头（a）·按住 Shift 键以调整角度",
-      "tool-blur": "模糊区域（u）",
-      "tool-brush": "画笔（b）",
-      "tool-circle": "椭圆（o）·按住 Shift 键绘制正圆",
-      "tool-crop": "裁剪导出图像（c）",
-      "tool-eraser": "橡皮擦（e）",
-      "tool-highlighter": "荧光笔（h）",
-      "tool-line": "直线（l）·按住 Shift 键以调整角度",
-      "tool-move": "移动标注（m）",
-      "tool-numbering": "编号标记（n）",
-      "tool-rectangle": "矩形（s）·按住 Shift 键绘制正方形",
-      "tool-text": "文本（t）",
+      "tool-arrow": "箭头（A）· 按住 Shift 吸附角度",
+      "tool-blur": "模糊（U）",
+      "tool-brush": "画笔（B）",
+      "tool-circle": "椭圆（O）· 按住 Shift 绘制正圆",
+      "tool-crop": "裁剪（C）",
+      "tool-eraser": "橡皮擦（E）",
+      "tool-highlighter": "荧光笔（H）",
+      "tool-line": "直线（l）· 按住 Shift 键以调整角度",
+      "tool-move": "移动标注（M）",
+      "tool-numbering": "编号标记（N）",
+      "tool-rectangle": "矩形（S）· 按住 Shift 绘制正方形",
+      "tool-text": "文本（T）",
       "undo": "撤销（Ctrl+Z）"
     },
     "screenshot": {
-      "annotate-export-failed": "无法生成已标注图像",
+      "annotate-export-failed": "无法生成标注后的图像",
       "choose-display": "选择屏幕",
-      "confirm-region": "{copy} 复制 · {save} 保存 · Enter 或 Space 默认操作 · {cancel} 取消 · 拖动重选",
+      "confirm-region": "{copy} 复制 · {save} 保存 · Enter/Space 默认操作 · {cancel} 取消 · 拖动重新框选",
       "fullscreen": "全屏",
-      "overlay-alloc-failed": "无法显示截图覆盖层（GPU 显存不足？）",
+      "overlay-alloc-failed": "无法显示截图界面（GPU 显存不足？）",
       "region": "选择区域"
     },
     "widgets": {
@@ -282,6 +286,7 @@
     "display": {
       "disabled": "已禁用",
       "no-displays": "无可用屏幕",
+      "rescan": "重新扫描 DDC/CI 显示器",
       "unknown-resolution": "未知分辨率"
     },
     "home": {
@@ -313,7 +318,9 @@
       "start-playback": "在 MPRIS 应用中开始播放"
     },
     "network": {
+      "anonymous-identity": "匿名身份（可选）",
       "available": "可用",
+      "ca-certificate": "CA 证书路径（可选）",
       "cellular": "蜂窝网络",
       "cellular-connected": "已连接",
       "cellular-connecting": "正在连接…",
@@ -327,12 +334,23 @@
       "cellular-searching": "正在搜索…",
       "connect": "连接",
       "current-connection": "当前连接",
+      "domain-suffix-match": "服务器域名后缀",
+      "eap-method": "EAP 方法",
+      "enterprise-prompt-for": "登录 {ssid}",
+      "error-ca-not-absolute": "证书路径必须为绝对路径，并以 / 开头。",
+      "error-certificate-required": "该网络要求使用基于证书的身份验证（EAP-TLS），目前尚不支持。",
+      "error-enterprise-unsupported": "当前网络后端无法配置 802.1X 网络。",
+      "error-missing-identity": "请输入由组织分配的身份标识。",
+      "error-missing-password": "请输入密码。",
+      "error-unsupported-phase2": "PEAP 要求使用 MSCHAPv2 进行内部身份验证。",
       "external-ip": "WAN {ip}",
+      "identity": "身份标识",
       "no-networks": "附近没有可用网络",
       "not-connected": "未连接",
       "password": "密码",
       "password-prompt": "输入密码",
       "password-prompt-for": "输入 {ssid} 的密码",
+      "phase2-auth": "内部身份验证",
       "saved": "已保存",
       "unavailable-detail": "请安装并启用 NetworkManager、wpa_supplicant 或 iwd 以在此管理网络。",
       "unavailable-title": "网络服务不可用",
@@ -1308,6 +1326,9 @@
         "screen-corners": "屏幕圆角",
         "screen-time": "屏幕时间",
         "screenshot": "截图",
+        "screenshot-annotation": "标注",
+        "screenshot-capture": "截图",
+        "screenshot-output": "输出",
         "security": "安全",
         "session-panel": "会话面板",
         "shape": "形状",
@@ -1341,6 +1362,7 @@
         "plugins": "插件",
         "popups": "弹窗",
         "power": "电源",
+        "screenshot": "截图",
         "security": "安全",
         "services": "服务",
         "shell": "Shell",
@@ -1674,11 +1696,11 @@
           "label": "内置配色方案"
         },
         "button-borders": {
-          "description": "为 Shell 的所有按钮绘制轮廓",
+          "description": "为 Shell 的按钮绘制轮廓",
           "label": "按钮边框"
         },
         "card-borders": {
-          "description": "为面板和设置窗口中的分区卡片绘制轮廓",
+          "description": "为面板和设置窗口的分区卡片绘制轮廓",
           "label": "卡片边框"
         },
         "community-palette": {
@@ -1711,7 +1733,7 @@
           "description": "表面投射阴影的方向"
         },
         "input-borders": {
-          "description": "为 Shell 的文本框和其他输入控件绘制轮廓",
+          "description": "为 Shell 的文本框等输入控件绘制轮廓",
           "label": "输入框边框"
         },
         "language": {
@@ -3084,32 +3106,39 @@
           "label": "重置屏幕时间数据"
         },
         "screenshot-annotate": {
-          "description": "每次截图时打开标注编辑器；“应用截图设置”会应用保存、剪贴板和管道输出设置",
-          "label": "发送前标注"
+          "description": "每次截图后打开标注编辑器；点击“完成”后按设置保存、复制或通过管道输出",
+          "label": "输出前标注"
+        },
+        "screenshot-close-on-copy": {
+          "description": "从编辑器复制成功后自动关闭；直接打开编辑器时同样适用",
+          "label": "复制后关闭编辑器"
         },
         "screenshot-confirm-region": {
-          "description": "绘制区域后，保持 Overlay 开启，直到按下 Enter 或 Space 键确认",
-          "label": "确认区域"
+          "description": "框选区域后保持截图界面打开，直到按下 Enter 或 Space 键确认",
+          "label": "确认选区"
         },
         "screenshot-copy-to-clipboard": {
           "description": "将截取的 PNG 图片复制到剪贴板",
           "label": "复制到剪贴板"
         },
         "screenshot-directory": {
-          "description": "保存 PNG 文件的文件夹；留空时使用标准 XDG_PICTURES_DIR",
+          "description": "保存 PNG 文件的文件夹；留空时使用 XDG_PICTURES_DIR 目录",
           "label": "输出目录",
           "placeholder": "XDG_PICTURES_DIR"
         },
         "screenshot-filename-pattern": {
-          "description": "使用不含扩展名的 strftime 格式（自动添加 .png）；可使用 %s 表示 Unix 时间戳",
-          "label": "文件名模式"
+          "description": "strftime 格式，不含扩展名（自动添加 .png）；可使用 %s 表示 Unix 时间戳",
+          "label": "文件名格式"
         },
         "screenshot-freeze-screen": {
-          "description": "在选择截图区域前先冻结画面，使动态内容保持静止",
-          "label": "冻结屏幕"
+          "description": "框选区域前冻结画面，使动态内容保持静止",
+          "label": "冻结画面"
+        },
+        "screenshot-output": {
+          "description": "在截图后，或在标注编辑器中点击“完成”时执行的操作"
         },
         "screenshot-pipe-command": {
-          "description": "通过 /bin/sh -lc 执行命令，并将 PNG 图片通过 stdin 传入；适用于截图标注或上传工具（例如：swappy -f - 或 satty -f -）",
+          "description": "使用 /bin/sh -lc 执行命令，并通过 stdin 传入 PNG 图片；适用于标注或上传工具（例如：swappy -f - 或 satty -f -）",
           "label": "管道命令",
           "placeholder": "swappy -f -"
         },
@@ -3118,7 +3147,7 @@
           "label": "通过管道传递给命令"
         },
         "screenshot-remember-last-region": {
-          "description": "下次区域截图时，自动选中上次划定的区域（取消截图后仍会保留）",
+          "description": "下次区域截图时自动选中上次的选区（即使上次已取消）",
           "label": "记住上次选区"
         },
         "screenshot-save-to-file": {
@@ -3127,7 +3156,7 @@
         },
         "screenshot-show-cursor": {
           "description": "在截图中包含鼠标指针",
-          "label": "显示光标"
+          "label": "显示鼠标指针"
         },
         "settings-window-translucent": {
           "description": "将设置窗口背景设为半透明，以增强合成器效果",
@@ -3322,8 +3351,8 @@
         "command-placeholder": "Shell 命令",
         "commands": {
           "annotate": {
-            "description": "在运行的应用上方进行屏幕标注；按 F 键或点击冻结按钮以捕获背景",
-            "label": "标注屏幕"
+            "description": "在屏幕上标注；按下 F 键或点击“冻结”按钮截取当前画面作为背景",
+            "label": "屏幕标注"
           },
           "bar-auto-hide-set": {
             "description": "设置状态栏的自动隐藏状态",
@@ -3634,7 +3663,7 @@
             "label": "设置电源配置"
           },
           "screenshot-annotate": {
-            "description": "冻结屏幕并进行标注，然后复制或保存",
+            "description": "冻结画面并标注，然后复制或保存",
             "label": "标注截图"
           },
           "screenshot-fullscreen": {
@@ -3642,7 +3671,7 @@
             "label": "全屏截图"
           },
           "screenshot-region": {
-            "description": "开始交互式区域截图",
+            "description": "交互选择区域并截图",
             "label": "区域截图"
           },
           "session": {

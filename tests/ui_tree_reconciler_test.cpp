@@ -1054,6 +1054,56 @@ int main() {
     }
   }
 
+  // A tooltip on a plain container wraps it in a hover-only InputArea; dropping
+  // the only wrapper-requiring prop unwraps it. Alongside onClick, dropping just
+  // the tooltip keeps the wrapper and clears the tooltip on the retained node.
+  {
+    ui::UiTreeReconciler reconciler;
+    Flex host;
+
+    ui::UiTreeNode tree = makeNode("column");
+    ui::UiTreeNode box = makeNode("box");
+    box.props.emplace("tooltip", std::string("More info"));
+    tree.children.push_back(box);
+    (void)reconciler.reconcile(host, tree, renderer);
+
+    auto* column = dynamic_cast<Flex*>(host.children().front().get());
+    auto* area = column != nullptr && !column->children().empty()
+        ? dynamic_cast<InputArea*>(column->children()[0].get())
+        : nullptr;
+    ok = expect(area != nullptr, "tooltip-only box is wrapped in an InputArea") && ok;
+    if (area != nullptr) {
+      ok = expect(area->hasTooltip(), "container tooltip applied") && ok;
+      ok = expect(
+               area->acceptedButtons() == 0 && !area->focusable(),
+               "tooltip-only wrapper does not accept clicks or take focus"
+           )
+          && ok;
+    }
+
+    tree.children[0].props.erase("tooltip");
+    (void)reconciler.reconcile(host, tree, renderer);
+    Node* unwrapped = column != nullptr && !column->children().empty() ? column->children()[0].get() : nullptr;
+    ok = expect(dynamic_cast<Box*>(unwrapped) != nullptr, "box unwrapped after tooltip removed") && ok;
+
+    tree.children[0].props.emplace("onClick", std::string("activate"));
+    tree.children[0].props.emplace("tooltip", std::string("More info"));
+    (void)reconciler.reconcile(host, tree, renderer);
+    auto* clickable = column != nullptr && !column->children().empty()
+        ? dynamic_cast<InputArea*>(column->children()[0].get())
+        : nullptr;
+    ok = expect(clickable != nullptr && clickable->hasTooltip(), "clickable box carries a tooltip") && ok;
+    if (clickable != nullptr) {
+      tree.children[0].props.erase("tooltip");
+      (void)reconciler.reconcile(host, tree, renderer);
+      ok = expect(
+               dynamic_cast<InputArea*>(column->children()[0].get()) == clickable && !clickable->hasTooltip(),
+               "dropping tooltip keeps the click wrapper but clears the tooltip"
+           )
+          && ok;
+    }
+  }
+
   // The `size` tier pins the control height, scaled by the content scale.
   {
     ui::UiTreeReconciler reconciler;

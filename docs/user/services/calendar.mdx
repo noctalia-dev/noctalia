@@ -94,24 +94,16 @@ File-backed credentials work with agenix, sops-nix, and systemd credentials. Con
 
 The two CalDAV modes are strict. `password_file` is rejected unless `credential_source = "file"`, and file mode is rejected without an absolute `password_file`. Noctalia does not try one source and then fall back to the other.
 
-Noctalia follows the Secret Service standard and writes credentials to the provider's `default` collection. The default
-is an alias selected by the provider or user; Noctalia does not force a provider-specific collection or change that
-system-wide alias. For credentials to work after login, the selected default collection must be unlocked automatically
-or remain available for the provider to unlock on demand.
-
-With GNOME Keyring, PAM automatically unlocks the **Login** keyring using the login password, but Login is not guaranteed
-to be the default when multiple keyrings exist. If calendar credentials become locked after every reboot, open
-**Passwords and Keys** (Seahorse), make **Login** the default keyring, reconnect the affected Google account once, and
-reboot to verify it. Alternatively, configure the currently selected default keyring to unlock automatically. Noctalia
-cannot supply a keyring password after login and does not move credentials between keyrings.
+CalDAV passwords and Google refresh tokens are written to the Secret Service `default` collection. That collection must
+be unlocked at login, which is the usual cause of credentials being locked after every reboot when multiple GNOME Keyring
+keyrings exist. See [Secret Service & keyrings](/noctalia/configuration/secret-service/) for how the `default` alias
+works, the multiple-keyrings fix, and automatic recovery.
 
 If Secret Service contains a matching credential but it remains locked after an unlock attempt, Noctalia sends one
 notification and marks the affected Google account as locked. Unlock the keyring and use **Retry**; do not reconnect the
 Google account unless Settings specifically reports that authorization is missing. If a configured Google account has
 no refresh token, its account row shows **Reconnect**. The encrypted event-cache master key is separate from account
 credentials, so a cache-key warning does not by itself mean the Google authorization was lost.
-
-Secret Service protects durable credentials in copied home directories and offline storage while the keyring is locked. It is not a security boundary against arbitrary programs already running as your user after the keyring is unlocked.
 
 ## Event cache encryption
 
@@ -201,7 +193,7 @@ The account id is the last segment of the named table. For `[calendar.account.wo
 
 If a Google account later shows as disconnected (revoked or expired), edit the account and press **Save and Connect** again to reauthorize.
 
-If Settings reports that Secret Service is unavailable, confirm that a compatible provider is running in the same login session, then use the retry action. A provider that starts moments after Noctalia is handled automatically: Noctalia watches for it claiming `org.freedesktop.secrets` and reopens calendar credentials and encrypted storage without a manual retry. If access is locked or denied, unlock the provider and retry. A cancelled prompt is not treated as a missing credential; start the operation again when you are ready.
+If Settings reports that Secret Service is unavailable, confirm that a compatible provider is running in the same login session, then use the retry action. Noctalia also reopens calendar credentials and encrypted storage on its own once the provider appears or its keyring unlocks; see [Secret Service & keyrings](/noctalia/configuration/secret-service/) for how automatic recovery works and the multiple-keyrings caveat. If access is locked or denied, unlock the provider and retry. A cancelled prompt is not treated as a missing credential; start the operation again when you are ready.
 
 `[shell].offline_mode = true` disables all calendar network traffic; the last successfully synced events remain available from the encrypted on-disk cache when the storage key is available.
 

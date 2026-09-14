@@ -180,6 +180,26 @@ int main() {
   assert(!state.hasRestrictiveThreshold());
   assert(PowerTabTestAccess::mode(state) == Mode::UPowerDisabled);
 
+  // Huawei-WMI EC "off" / full charge is start=95 end=100, not 0/100.
+  state = supportedState(false);
+  state.effectiveStart = 95U;
+  state.effectiveEnd = 100U;
+  assert(!state.hasRestrictiveThreshold());
+  assert(PowerTabTestAccess::mode(state) == Mode::UPowerDisabled);
+  assert(PowerTabTestAccess::control(state) == std::tuple(true, false, true));
+
+  // Nearby restrictive pairs stay ExternallyManaged when the toggle is off.
+  state.effectiveStart = 95U;
+  state.effectiveEnd = 99U;
+  assert(state.hasRestrictiveThreshold());
+  assert(PowerTabTestAccess::mode(state) == Mode::ExternallyManaged);
+  assert(PowerTabTestAccess::control(state) == std::tuple(true, true, false));
+
+  state.effectiveStart = 75U;
+  state.effectiveEnd = 80U;
+  assert(state.hasRestrictiveThreshold());
+  assert(PowerTabTestAccess::mode(state) == Mode::ExternallyManaged);
+
   state = supportedState(true);
   state.supportedSettings = 4U;
   assert(PowerTabTestAccess::mode(state) == Mode::FirmwareManaged);

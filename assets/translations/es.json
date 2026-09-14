@@ -28,6 +28,7 @@
   },
   "bar": {
     "annotate": {
+      "capture-new-region": "Capturar nueva región (descarta la edición actual)",
       "close": "Cerrar sin entregar (Esc)",
       "color-black": "Negro",
       "color-blue": "Azul",
@@ -37,9 +38,15 @@
       "color-red": "Rojo",
       "color-white": "Blanco",
       "color-yellow": "Amarillo",
+      "copy": "Copia la imagen anotada (Ctrl+C)",
       "cursor": "Mostrar el puntero capturado con la pantalla (p)",
+      "cursor-capture-failed": "Cambio de puntero no disponible: el compositor no pudo proporcionar una imagen de cursor separada.",
+      "cursor-live": "Congele primero la pantalla para cambiar el puntero capturado (F).",
+      "cursor-not-captured": "Alternado del puntero no disponible: este compositor no admite la captura separada del cursor.",
+      "done": "Aplicar la configuración de captura de pantalla (Enter)",
       "fill-off": "Relleno forma: off",
       "fill-on": "Relleno forma: on",
+      "freeze": "Congelar la pantalla bajo la tinta (f)",
       "move-toolbar": "Arrastra para mover la barra de herramientas",
       "redo": "Rehacer (Ctrl+Shift+Z)",
       "save": "Guardar la imagen anotada (Ctrl+S)",
@@ -53,13 +60,18 @@
       "tool-blur": "Desenfocar una región (u)",
       "tool-brush": "Pincel (b)",
       "tool-circle": "Elipse (o) · mantén Shift para círculo",
+      "tool-crop": "Recortar la exportación (c)",
       "tool-eraser": "Borrador (e)",
       "tool-highlighter": "Subrayador (h)",
+      "tool-line": "Línea (l) · mantén pulsado Shift para ajustar el ángulo",
+      "tool-move": "Mover una anotación (m)",
+      "tool-numbering": "Marcador numerado (n)",
       "tool-rectangle": "Rectángulo (s) · mantén Shift para cuadrado",
       "tool-text": "Texto (t)",
       "undo": "Deshacer (Ctrl+Z)"
     },
     "screenshot": {
+      "annotate-export-failed": "No se pudo generar la imagen anotada",
       "choose-display": "Elige el monitor",
       "confirm-region": "Intro o Espacio para capturar · Esc para cancelar · arrastra para volver a seleccionar",
       "fullscreen": "Pantalla completa",
@@ -223,7 +235,7 @@
       "default-device": "Dispositivo predeterminado",
       "effects-profile": "Efectos",
       "input-device-prefix": "Entrada",
-      "no-application-audio": "Sin aplicacion de audio",
+      "no-application-audio": "Sin audio de aplicaciones",
       "no-application-audio-body": "Ninguna aplicación está reproduciendo audio en este momento.",
       "no-input-devices": "No hay dispositivos de entrada",
       "no-input-devices-body": "No hay ningún dispositivo de grabación disponible en este momento.",
@@ -274,6 +286,7 @@
     "display": {
       "disabled": "Deshabilitado",
       "no-displays": "No hay monitores disponibles",
+      "rescan": "Volver a escanear los monitores DDC/CI",
       "unknown-resolution": "Resolución desconocida"
     },
     "home": {
@@ -281,7 +294,7 @@
       "media": {
         "idle": "Inactivo",
         "no-active-player": "No hay ningún reproductor activo",
-        "nothing-playing": "No hay nada reproduciéndose",
+        "nothing-playing": "No se está reproduciendo nada",
         "paused": "Pausado",
         "playback-unavailable": "Reproducción no disponible",
         "playing": "Reproduciendo",
@@ -300,18 +313,36 @@
     },
     "media": {
       "active-player": "Reproductor activo",
-      "nothing-playing": "Nada reproduciéndose",
+      "nothing-playing": "No se está reproduciendo nada",
       "now-playing": "Ahora sonando",
       "start-playback": "Comienza reproducción en una aplicación MPRIS"
     },
     "network": {
+      "anonymous-identity": "Identidad anónima (opcional)",
       "available": "Disponible",
+      "ca-certificate": "Ruta del certificado de CA (opcional)",
       "cellular": "Celular ",
       "cellular-connected": "Conectado",
       "cellular-connecting": "Conectando...",
       "cellular-connection": "Conexión móvil",
+      "cellular-enabling": "Encendiendo…",
+      "cellular-failed": "Fallido",
+      "cellular-locked": "SIM bloqueado",
+      "cellular-no-service": "Sin servicio",
+      "cellular-off": "Apagado",
+      "cellular-registered": "Registrado",
+      "cellular-searching": "Buscando…",
       "connect": "Conectar",
       "current-connection": "Conexión actual",
+      "domain-suffix-match": "Sufijo de dominio del servidor",
+      "eap-method": "Método EAP",
+      "enterprise-prompt-for": "Iniciar sesión en {ssid}",
+      "error-ca-not-absolute": "La ruta del certificado debe ser absoluta y comenzar con /.",
+      "error-certificate-required": "Esta red requiere autenticación basada en certificados (EAP-TLS), la cual aún no es soportada.",
+      "error-enterprise-unsupported": "El backend de red activo no puede configurar redes 802.1X.",
+      "error-missing-identity": "Ingrese la identidad que su organización le asignó.",
+      "error-missing-password": "Introduce tu contraseña.",
+      "error-unsupported-phase2": "PEAP requiere autenticación interna MSCHAPv2.",
       "external-ip": "WAN {ip}",
       "no-networks": "No hay redes disponibles cerca",
       "not-connected": "No conectado",
@@ -653,7 +684,7 @@
       }
     },
     "media": {
-      "nothing-playing": "Nada reproduciéndose"
+      "nothing-playing": "No se está reproduciendo nada"
     },
     "volume": {
       "mic": "Mic",
@@ -709,9 +740,9 @@
     "context-menu": {
       "open": "Abrir",
       "pin": "Fijar al lanzador",
-      "pin-to-dock": "Fijar al dock",
+      "pin-to-dock": "Anclar al Dock",
       "unpin": "Desfijar del lanzador",
-      "unpin-from-dock": "Desfijar del dock"
+      "unpin-from-dock": "Desanclar del Dock"
     },
     "empty": {
       "no-results": "No se han encontrado resultados.",
@@ -786,12 +817,14 @@
     },
     "internal": {
       "battery": "Bateria",
-      "battery-critical-body": "{device}: {percent}% - tu equipo se apagará pronto",
+      "battery-critical-body": "{device}: {percent}%; el equipo se apagará en breve",
       "battery-critical-title": "Batería críticamente baja",
       "battery-device": "Batería del dispositivo",
       "battery-low-body": "{device}: {percent}% restante",
       "battery-low-title": "Batería baja",
       "calendar": "Calendario",
+      "calendar-credential-locked-body": "Desbloquea el keyring utilizado por el Servicio Secreto y, a continuación, vuelve a intentarlo en la configuración. En GNOME Keyring, establece como predeterminado un llavero que se desbloquee automáticamente, como el de «Inicio de sesión» (Login).",
+      "calendar-credential-locked-title": "El keyring del calendario está bloqueado",
       "calendar-google-connect-browser-failed": "No se pudo iniciar ningún navegador para la autorización de Google. Compruebe su navegador predeterminado o la configuración de xdg-open.",
       "calendar-google-connect-credential-store-failed": "Autorizacion completada, pero el nuevo token no se puede guardar. Desbloquea o inicia el Almacen de Credenciales, y luego conecta de nuevo.",
       "calendar-google-connect-expired": "La autorización de Google caducó antes de que finalizara el inicio de sesión. Vuelva a iniciar la conexión.",
@@ -802,7 +835,7 @@
       "calendar-google-connect-start-failed": "No se pudo iniciar la autorización de Google. Comprueba tu conexión a internet e inténtalo de nuevo.",
       "calendar-google-connect-start-http": "No se pudo iniciar la autorización de Google. El intermediario de OAuth devolvió HTTP {status}.",
       "calendar-google-connect-timeout": "La autorización de Google expiró. Inicie la conexión nuevamente cuando esté listo para iniciar sesión.",
-      "config-migration-body": "La configuración heredada se está migrando en memoria, incluyendo {path}. Actualice la configuración de origen; Settings y noctalia config validate muestran el reemplazo necesario.",
+      "config-migration-body": "Actualiza {path} en el archivo de origen. Noctalia está aplicando este reemplazo solo temporalmente. Ejecuta noctalia config validate para listar todos los cambios necesarios.",
       "config-migration-title": "Se necesita actualizar configuracion",
       "dbus-disabled": "Notificaciones DBus deshabilitada",
       "desktop-widgets-editor": "Editor de Widget",
@@ -810,10 +843,13 @@
       "greeter-sync": "Noctalia Greeter",
       "greeter-sync-pending": "Sincronizando la apariencia con el greeter. Si aparece una solicitud del administrador, acéptala; la autorización sin contraseña sigue la política del sistema.",
       "greeter-sync-pending-console": "Sincronizando la apariencia con el greeter. Si se requiere autorización, aprueba la solicitud de polkit en Noctalia, en una TTY o en una consola.",
+      "greeter-sync-pending-legacy": "Sincronizando a través del asistente autenticado auxiliar antiguo. Se requiere la aprobación del administrador.",
       "greeter-sync-pending-manual": "Los archivos están preparados para la sincronización heredada autenticada. Ejecuta el asistente de aplicación posicional en una terminal, conservando NOCTALIA_GREETER_STATE_DIR si usas una ruta personalizada, o configura shell.greeter_sync.privilege_command y sincroniza de nuevo.",
+      "greeter-sync-pending-manual-pkexec": "Sincronizando la apariencia con el greeter. Si se requiere autorización de administrador y no aparece ninguna solicitud, ejecute lo siguiente en una terminal: pkexec noctalia-greeter-apply-appearance --sync \"/run/user/$(id -u)/noctalia-greeter-sync\".",
       "greeter-sync-success": "Apariencia sincronizada. Los cambios se aplicarán en la siguiente pantalla de inicio de sesión.",
       "greeter-sync-timeout": "La sincronización con el greeter sigue a la espera de autorización. Busca una solicitud de polkit en una TTY o consola, activa el agente de polkit en los ajustes de Seguridad, o ejecuta pkexec manualmente.",
       "greeter-sync-timeout-manual": "La sincronización heredada autenticada todavía necesita la aprobación del administrador. Ejecuta el asistente de aplicación posicional en una terminal y conserva NOCTALIA_GREETER_STATE_DIR si usas una ruta personalizada.",
+      "greeter-sync-timeout-manual-pkexec": "La sincronización del greeter aún requiere autorización. Ejecute lo siguiente en una terminal: pkexec noctalia-greeter-apply-appearance --sync \"/run/user/$(id -u)/noctalia-greeter-sync\"",
       "keybind-app": "Noctalia",
       "keybind-invalid-modifier": "Este atajo acepta una sola tecla sin modificadores.",
       "keybind-invalid-printable": "Las teclas imprimibles (letras, números, símbolos) requieren un modificador como Ctrl o Alt.",
@@ -956,6 +992,7 @@
       "credential-source-label": "Almacen de credenciales",
       "delete-error": "No se pudo eliminar la cuenta de calendario.",
       "edit-title": "Modificar Cuenta de Calendario",
+      "ics-url-label": "URL de ICS",
       "id-label": "ID de la Cuenta",
       "invalid": "Revisa los campos resaltados de la cuenta del calendario.",
       "name-label": "Nombre mostrado",
@@ -969,7 +1006,9 @@
       "provider": {
         "custom": "CalDAV",
         "google": "Google",
-        "icloud": "iCloud"
+        "icloud": "iCloud",
+        "ics": "URL de ICS",
+        "vdir": "Local (vdir)"
       },
       "provider-label": "Proveedor",
       "save": "Guardar",
@@ -982,7 +1021,8 @@
       "secret-service-unavailable": "No hay Almacen de Credenciales disponible. Inicia / instala Gnome-keyring, kwallet o keepassXC para reintentarlo",
       "server-url-label": "URL del Servidor",
       "username-label": "Nombre de Usuario",
-      "username-placeholder": "nombre@ejemplo.com"
+      "username-placeholder": "nombre@ejemplo.com",
+      "vdir-path-label": "Ruta del directorio"
     },
     "controls": {
       "keybind": {
@@ -1046,15 +1086,23 @@
           "accordion": "Acordeón",
           "accordion-description": "Mostrar solo el primer widget; al pasar el cursor sobre la cápsula se revela el resto",
           "accordion-direction": "Dirección de revelado",
+          "accordion-direction-description": "Lado del primer widget por donde se despliegan los widgets ocultos",
           "action": "Grupo",
           "border": "Borde",
           "border-description": "Rol de color del contorno de la cápsula; deja en Predeterminado para no tener contorno",
           "clear": "Eliminar",
           "deselect": "Deseleccionar",
           "drag": "Reordenar",
+          "drawer-columns": "Columnas de cajones",
+          "drawer-columns-description": "Número de widgets por fila en el panel del cajón",
           "drawer-detached": "Panel Desacoplado",
+          "drawer-detached-description": "Abre el panel lateral como un panel flotante con su propio fondo, en lugar de fusionarse con la barra",
+          "drawer-enabled": "Cajón",
+          "drawer-enabled-description": "Mover los widgets agrupados a un panel desplegable que se activa mediante un botón",
           "drawer-glyph-closed": "Icono cuando Cerrado",
+          "drawer-glyph-closed-description": "Icono que se muestra en el botón de alternancia del panel deslizante cuando el panel está cerrado",
           "drawer-glyph-opened": "Icono cuando Abierto",
+          "drawer-glyph-opened-description": "Icono que se muestra en el botón de alternancia del panel lateral cuando este está abierto",
           "edit": "Eliminar estilo",
           "fill": "Fondo",
           "fill-description": "Rol de color de fondo de la cápsula; también se admiten colores hexadecimales fijos",
@@ -1082,12 +1130,14 @@
           "style": "Estilo",
           "title": "Grupo de cápsulas",
           "ungroup": "Desagrupar",
-          "widget-spacing": "Separacion"
+          "widget-spacing": "Separacion",
+          "widget-spacing-description": "Espacio entre los widgets de este grupo, en píxeles; «Auto» hereda el espaciado de widgets de la barra"
         },
         "inspector": {
           "add-instance-title": "Añadir nuevo widget con nombre {widget} a {lane}",
           "add-title": "Añadir widget a {lane}",
-          "move-to-lane": "Mover a {lane}"
+          "move-to-lane": "Mover a {lane}",
+          "reset-defaults": "Restablecer valores predeterminados"
         },
         "instance": {
           "create-save": "Crear",
@@ -1122,6 +1172,7 @@
           "empty": "Ninguna configuración coincide con los filtros actuales.",
           "groups": {
             "actions": "Acciones",
+            "behavior": "Comportamiento",
             "grouping": "Agrupación",
             "presentation": "Presentación",
             "runtime": "Runtime",
@@ -1133,7 +1184,8 @@
             "widget": "Widget",
             "workspaces": {
               "colors": "Colores",
-              "list": "Espacios de trabajo"
+              "list": "Espacios de trabajo",
+              "pills": "Estilo de pastilla"
             }
           }
         }
@@ -1151,6 +1203,7 @@
         "rename": "No se pudo renombar la barra."
       },
       "batch-write": "Algunas configuraciones no se pudieron guardar.",
+      "custom-schedule-times": "Una programación personalizada requiere tanto la hora de salida del sol como la de puesta del sol en formato HH:MM.",
       "export-config": "No se pudo guardar la exportación de configuración.",
       "export-wallpaper-palette": "No se pudo guardar la paleta del fondo de pantalla como paleta personalizada.",
       "monitor-override": {
@@ -2421,7 +2474,7 @@
         },
         "calendar-add": {
           "button": "Añadir cuenta",
-          "description": "Añadir cuentas de iCloud, CalDAV o Google",
+          "description": "Añade cuentas de iCloud, CalDAV o Google, o una URL ICS",
           "label": "Cuentas del calendario"
         },
         "calendar-credentials": {
@@ -2440,11 +2493,11 @@
           "description-reconnect": "Se ha perdido la autorizacion de Google. Reconecte esta cuenta."
         },
         "calendar-event-date-format": {
-          "description": "El formato de la fecha mostrada en el panel de los eventos para la fecha seleccionada",
+          "description": "El formato de fecha que se muestra para los eventos del calendario en las vistas de calendario",
           "label": "Formato fecha Eventos"
         },
         "calendar-event-time-format": {
-          "description": "El formato de la hora mostrado para eventos del calendario",
+          "description": "El formato de hora que se muestra para los eventos del calendario en las vistas de calendario",
           "label": "Formato Hora para Eventos"
         },
         "calendar-refresh-interval": {
@@ -2851,9 +2904,9 @@
           "label": "Copiar al portapapeles"
         },
         "screenshot-directory": {
-          "description": "Carpeta para los archivos PNG guardados; deja vacío para usar ~/Pictures",
+          "description": "Carpeta para los archivos PNG guardados; déjala vacía para usar el directorio estándar de Imágenes de XDG",
           "label": "Directorio de salida",
-          "placeholder": "~/Pictures"
+          "placeholder": "Carpeta de Imágenes XDG"
         },
         "screenshot-filename-pattern": {
           "description": "patrón strftime sin extensión (se añade .png); usa %s para el epoch unix",
@@ -2946,7 +2999,7 @@
           "label": "Incluir subcarpetas"
         },
         "directory": {
-          "description": "Carpeta que contiene fondos de pantalla",
+          "description": "Carpeta que contiene los fondos de pantalla; déjala vacía para usar el directorio estándar de Imágenes de XDG",
           "label": "Directorio de fondos de pantalla"
         },
         "directory-dark": {
@@ -3364,7 +3417,7 @@
         "max-label-chars": {
           "description": "Número máximo de caracteres a mostrar para los nombres de espacio de trabajo",
           "label": "Caracteres máximos de etiqueta",
-          "workspaces-description": "Caracteres máximos para las etiquetas de nombre de espacio de trabajo"
+          "workspaces-description": "Caracteres máximos para las etiquetas de espacio de trabajo no numéricas"
         },
         "max-length": {
           "description": "Longitud máxima del widget en píxeles",
@@ -3440,7 +3493,7 @@
           "label": "Indicador de ventana activa"
         },
         "show-all-outputs": {
-          "description": "Incluir ventanas de todas las pantallas en este widget.",
+          "description": "Incluir ventanas de cualquier monitor en este widget",
           "label": "Mostrar todos los monitores"
         },
         "show-caps-lock": {

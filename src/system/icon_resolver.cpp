@@ -385,7 +385,8 @@ namespace {
       if (dirs.empty()) {
         // No index.theme — fall back to common paths so the theme isn't silently skipped
         for (const char* path :
-             {"/scalable/apps/", "/256x256/apps/", "/128x128/apps/", "/64x64/apps/", "/48x48/apps/", "/32x32/apps/"}) {
+             {"/scalable/apps/", "/512x512/apps/", "/256x256/apps/", "/128x128/apps/", "/64x64/apps/", "/48x48/apps/",
+              "/32x32/apps/", "/"}) {
           const std::string_view name(path);
           pushUniqueDir(
               searchDirs,
@@ -511,7 +512,10 @@ const std::string& IconResolver::resolve(const std::string& iconName, int target
   const std::string key = iconName + '\x1F' + std::to_string(std::max(0, targetSize));
   auto it = m_cache.find(key);
   if (it != m_cache.end()) {
-    return it->second;
+    if (iconName.front() != '/' || pathExists(it->second)) {
+      return it->second;
+    }
+    m_cache.erase(it);
   }
   const bool canCacheMissing = m_cacheMissing && iconName.front() != '/';
   if (canCacheMissing && m_missingCache.contains(key)) {

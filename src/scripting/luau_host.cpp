@@ -25,6 +25,7 @@
 #include "system/terminal_launch.h"
 #include "time/time_format.h"
 #include "ui/dialogs/color_picker_dialog.h"
+#include "ui/palette.h"
 #include "util/file_utils.h"
 #include "util/fuzzy_match.h"
 #include "util/string_utils.h"
@@ -733,6 +734,22 @@ namespace {
   int luau_isDarkMode(lua_State* L) {
     auto* host = hostForState(L);
     lua_pushboolean(L, host != nullptr && host->api().isDarkMode() ? 1 : 0);
+    return 1;
+  }
+
+  // getColor(role) -> "#RRGGBB" or nil.
+  // Resolves a color role (e.g. "primary", "surface", "on_surface") against the
+  // active theme palette. Returns nil for unknown role names.
+  int luau_getColor(lua_State* L) {
+    size_t len = 0;
+    const char* role = luaL_checklstring(L, 1, &len);
+    const auto colorRole = colorRoleFromToken(std::string_view(role, len));
+    if (!colorRole.has_value()) {
+      lua_pushnil(L);
+      return 1;
+    }
+    const std::string hex = formatRgbHex(colorForRoleSnapshot(*colorRole));
+    lua_pushlstring(L, hex.data(), hex.size());
     return 1;
   }
 
@@ -1762,6 +1779,7 @@ namespace {
       {"togglePanel", luau_togglePanel},
       {"openSettings", luau_openSettings},
       {"isDarkMode", luau_isDarkMode},
+      {"getColor", luau_getColor},
       {"wallpaperDirectory", luau_wallpaperDirectory},
       {"notify", luau_notify},
       {"notifyError", luau_notifyError},

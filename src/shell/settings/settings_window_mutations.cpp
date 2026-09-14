@@ -271,8 +271,6 @@ void SettingsWindow::createBar(std::string name) {
       m_creatingBarName.clear();
       m_renamingBarName.clear();
       m_pendingDeleteBarName.clear();
-      m_creatingMonitorOverrideBarName.clear();
-      m_creatingMonitorOverrideMatch.clear();
       m_renamingMonitorOverrideBarName.clear();
       m_renamingMonitorOverrideMatch.clear();
       m_pendingDeleteMonitorOverrideBarName.clear();
@@ -297,8 +295,6 @@ void SettingsWindow::renameBar(std::string oldName, std::string newName) {
       m_selectedMonitorOverride.clear();
       m_renamingBarName.clear();
       m_pendingDeleteBarName.clear();
-      m_creatingMonitorOverrideBarName.clear();
-      m_creatingMonitorOverrideMatch.clear();
       m_renamingMonitorOverrideBarName.clear();
       m_renamingMonitorOverrideMatch.clear();
       m_pendingDeleteMonitorOverrideBarName.clear();
@@ -324,8 +320,6 @@ void SettingsWindow::deleteBar(std::string name) {
       }
       m_renamingBarName.clear();
       m_pendingDeleteBarName.clear();
-      m_creatingMonitorOverrideBarName.clear();
-      m_creatingMonitorOverrideMatch.clear();
       m_renamingMonitorOverrideBarName.clear();
       m_renamingMonitorOverrideMatch.clear();
       m_pendingDeleteMonitorOverrideBarName.clear();
@@ -359,8 +353,6 @@ void SettingsWindow::createMonitorOverride(std::string barName, std::string matc
       m_selectedSection = "bar";
       m_selectedBarName = barName;
       m_selectedMonitorOverride = match;
-      m_creatingMonitorOverrideBarName.clear();
-      m_creatingMonitorOverrideMatch.clear();
       m_renamingMonitorOverrideBarName.clear();
       m_renamingMonitorOverrideMatch.clear();
       m_pendingDeleteMonitorOverrideBarName.clear();

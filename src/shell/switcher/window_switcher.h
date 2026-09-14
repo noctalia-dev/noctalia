@@ -1,6 +1,7 @@
 #pragma once
 
 #include "shell/switcher/window_switcher_tile.h"
+#include "system/icon_resolver.h"
 #include "wayland/wayland_seat.h"
 
 #include <cstddef>
@@ -67,6 +68,7 @@ private:
   AsyncTextureCache* m_asyncTextures = nullptr;
 
   Instance* m_instance = nullptr;
+  IconResolver m_iconResolver;
   std::vector<WindowSwitcherEntry> m_windows;
   std::deque<std::string> m_mruKeys;
   std::size_t m_selectedIndex = 0;

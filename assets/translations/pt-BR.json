@@ -28,6 +28,7 @@
   },
   "bar": {
     "annotate": {
+      "capture-new-region": "Capturar nova região (descarta a edição atual)",
       "close": "Fechar sem aplicar (Esc)",
       "color-black": "Preto",
       "color-blue": "Azul",
@@ -39,6 +40,9 @@
       "color-yellow": "Amarelo",
       "copy": "Copiar a imagem anotada (Ctrl+C)",
       "cursor": "Mostrar o ponteiro capturado com a tela (p)",
+      "cursor-capture-failed": "Alternação de ponteiro não disponível: o compositor não pôde prover uma imagem de cursor separada.",
+      "cursor-live": "Congelar a tela primeiro para mudar o ponteiro capturado (F)",
+      "cursor-not-captured": "Alternação de ponteiro não disponível: este compositor não suporta captura separada de cursor.",
       "done": "Aplicar as configurações da captura de tela (Enter)",
       "fill-off": "Preenchimento da forma: desligado",
       "fill-on": "Preenchimento da forma: ligado",
@@ -282,6 +286,7 @@
     "display": {
       "disabled": "Desabilitado",
       "no-displays": "Nenhum monitor disponível",
+      "rescan": "Verificar monitores DDC/CI novamente",
       "unknown-resolution": "Resolução desconhecida"
     },
     "home": {
@@ -313,7 +318,9 @@
       "start-playback": "Iniciar reprodução em um aplicativo MPRIS"
     },
     "network": {
+      "anonymous-identity": "Identidade anônima (opcional)",
       "available": "Disponível",
+      "ca-certificate": "Caminho do certificado CA (opcional)",
       "cellular": "Celular",
       "cellular-connected": "Conectado",
       "cellular-connecting": "Conectando...",
@@ -327,12 +334,23 @@
       "cellular-searching": "Buscando...",
       "connect": "Conectar",
       "current-connection": "Conexão atual",
+      "domain-suffix-match": "Sufixo de domínio do servidor",
+      "eap-method": "Método EAP",
+      "enterprise-prompt-for": "Fazer login em {ssid}",
+      "error-ca-not-absolute": "O caminho do certificado precisa ser absoluto, começando com /.",
+      "error-certificate-required": "Esta rede requer autenticação baseada em certificados (EAP-TLS), que não é suportada ainda.",
+      "error-enterprise-unsupported": "O backend da rede ativa não pode configurar redes 802.1X",
+      "error-missing-identity": "Entre com a identidade que sua organização lhe forneceu.",
+      "error-missing-password": "Entre sua senha.",
+      "error-unsupported-phase2": "PEAP requer autenticação interna MSCHAPv2",
       "external-ip": "WAN {ip}",
+      "identity": "Identidade",
       "no-networks": "Nenhuma conexão ao alcance",
       "not-connected": "Não conectado",
       "password": "Senha",
       "password-prompt": "Digitar a senha",
       "password-prompt-for": "Digite a senha para {ssid}",
+      "phase2-auth": "Autenticação interna",
       "saved": "Salvo",
       "unavailable-detail": "Instale e ative o NetworkManager, wpa_supplicant ou iwd para gerenciar redes a partir daqui.",
       "unavailable-title": "Serviço de rede indisponível",
@@ -936,7 +954,7 @@
     "profiles": {
       "balanced": "Equilibrado",
       "performance": "Performance",
-      "power-saver": "Economizador de Energia"
+      "power-saver": "Econômico"
     }
   },
   "session": {
@@ -1308,6 +1326,9 @@
         "screen-corners": "Cantos da Tela",
         "screen-time": "Tempo de Tela",
         "screenshot": "Captura de Tela",
+        "screenshot-annotation": "Anotação",
+        "screenshot-capture": "Captura",
+        "screenshot-output": "Saída",
         "security": "Segurança",
         "session-panel": "Sessão",
         "shape": "Forma",
@@ -1341,6 +1362,7 @@
         "plugins": "Plugins",
         "popups": "Popups",
         "power": "Energia",
+        "screenshot": "Captura de tela",
         "security": "Segurança",
         "services": "Serviços",
         "shell": "Shell",
@@ -3087,6 +3109,10 @@
           "description": "Abrir o editor de anotações em cada captura de tela; Concluir aplica as configurações de salvar, área de transferência e pipe",
           "label": "Anotar Antes de Entregar"
         },
+        "screenshot-close-on-copy": {
+          "description": "Fechar depois de uma cópia bem sucedida do editor, incluindo quando for aberto diretamente",
+          "label": "Fechar Editor Depois da Cópia"
+        },
         "screenshot-confirm-region": {
           "description": "Depois de desenhar uma região, manter o overlay aberto até confirmar com Enter ou Espaço",
           "label": "Confirmar Região"
@@ -3107,6 +3133,9 @@
         "screenshot-freeze-screen": {
           "description": "Captura a área de trabalho antes de selecionar a região para que o conteúdo em movimento permaneça estático",
           "label": "Congelar Tela"
+        },
+        "screenshot-output": {
+          "description": "Ações aplicadas após a captura ou quando você escolher Feito no editor de anotações."
         },
         "screenshot-pipe-command": {
           "description": "Comando executado como /bin/sh -lc com o PNG na stdin; para anotadores ou uploaders (exemplo: swappy -f - ou satty -f -)",
@@ -4016,7 +4045,7 @@
         },
         "enable-scroll": {
           "description": "Permitir ações de roda do mouse e rolagem de trackpad neste widget",
-          "label": "Avitar Rolagem"
+          "label": "Ativar Rolagem"
         },
         "focused-color": {
           "description": "Função de cor usada para a área de trabalho em foco; cores hexadecimais fixas também são suportadas",
@@ -4560,7 +4589,7 @@
       "m3-rainbow": "M3 Rainbow",
       "m3-tonal-spot": "M3 Tonal Spot",
       "muted": "Muted",
-      "soft": "Macio",
+      "soft": "Suave",
       "vibrant": "Vibrante"
     }
   },

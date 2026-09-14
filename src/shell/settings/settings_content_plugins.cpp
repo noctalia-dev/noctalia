@@ -849,7 +849,28 @@ namespace settings {
             .scrollToTop = ctx.scrollContentToTop,
         }
     );
-
+    std::vector<scripting::PluginStatus> plugins;
+    plugins.reserve(ctx.plugins.size());
+    for (const auto& plugin : ctx.plugins) {
+      if (plugin.materialized || plugin.enabled) {
+        plugins.push_back(plugin);
+      }
+    }
+    // The update action covers every installed plugin, so count the badge before filtering.
+    const int updatesAvailable =
+        static_cast<int>(std::ranges::count_if(plugins, &scripting::PluginStatus::updateAvailable));
+    const bool hasInstalledPlugins = !plugins.empty();
+    // In page search narrows the list and empty query keeps every plugin.
+    if (!ctx.searchQuery.empty()) {
+      std::erase_if(plugins, [&](const scripting::PluginStatus& plugin) {
+        return !(
+            StringUtils::containsInsensitive(pluginDisplayName(plugin), ctx.searchQuery)
+            || StringUtils::containsInsensitive(plugin.id, ctx.searchQuery)
+            || StringUtils::containsInsensitive(plugin.description, ctx.searchQuery)
+            || StringUtils::containsInsensitive(plugin.source, ctx.searchQuery)
+        );
+      });
+    }
     Flex* pluginsHeader = nullptr;
     auto pluginsHeaderNode = ui::row({
         .out = &pluginsHeader,
@@ -865,10 +886,29 @@ namespace settings {
           })
       );
     }
-    pluginsHeader->addChild(ui::spacer());
-    const int updatesAvailable = static_cast<int>(
-        std::ranges::count_if(ctx.plugins, [](const scripting::PluginStatus& p) { return p.updateAvailable; })
+    // Only shows the installed plugins.
+    Input* pluginSearchInput = nullptr;
+    pluginsHeader->addChild(
+        ui::input({
+            .out = &pluginSearchInput,
+            .value = ctx.searchQuery,
+            .placeholder = i18n::tr("settings.plugins.plugins.search-placeholder"),
+            .fontSize = Style::fontSizeBody * scale,
+            .controlHeight = Style::controlHeight * scale,
+            .horizontalPadding = Style::spaceSm * scale,
+            .clearButtonEnabled = true,
+            .width = 300.0F * scale,
+            .onChange = [cb = ctx.setSearchQuery](const std::string& text) {
+              if (cb) {
+                cb(text);
+              }
+            },
+        })
     );
+    if (pluginSearchInput != nullptr && pluginSearchInput->inputArea() != nullptr) {
+      pluginSearchInput->inputArea()->setTabFocusKey("settings.plugins.search");
+    }
+    pluginsHeader->addChild(ui::spacer());
     if (updatesAvailable > 0 && ctx.updateAll) {
       pluginsHeader->addChild(
           ui::button({
@@ -907,18 +947,13 @@ namespace settings {
           i18n::tr("settings.plugins.plugins.empty"), Style::fontSizeCaption * scale, ColorRole::OnSurfaceVariant
       ));
     }
-    std::vector<scripting::PluginStatus> plugins;
-    plugins.reserve(ctx.plugins.size());
-    for (const auto& plugin : ctx.plugins) {
-      if (plugin.materialized || plugin.enabled) {
-        plugins.push_back(plugin);
-      }
-    }
     std::ranges::sort(plugins, [&](const auto& a, const auto& b) {
       const std::string_view aName = pluginDisplayName(a);
       const std::string_view bName = pluginDisplayName(b);
-      if (aName != bName) {
-        return aName < bName;
+      if (!StringUtils::equalsInsensitive(aName, bName)) {
+        return std::ranges::lexicographical_compare(aName, bName, [](char x, char y) {
+          return std::tolower(static_cast<unsigned char>(x)) < std::tolower(static_cast<unsigned char>(y));
+        });
       }
       if (a.source != b.source) {
         return pluginSourceLess(a.source, b.source);
@@ -930,6 +965,12 @@ namespace settings {
       if (!ctx.pendingDeletePluginId.empty() && ctx.pendingDeletePluginId == plugin.id) {
         pluginsBody->addChild(pluginDeleteConfirmPanel(plugin, ctx, scale));
       }
+    }
+    if (!ctx.pluginsLoading && hasInstalledPlugins && plugins.empty() && !ctx.searchQuery.empty()) {
+      section->addChild(makeLabel(
+          i18n::tr("settings.plugins.plugins.search-empty", "query", ctx.searchQuery), Style::fontSizeCaption * scale,
+          ColorRole::OnSurfaceVariant
+      ));
     }
   }
 

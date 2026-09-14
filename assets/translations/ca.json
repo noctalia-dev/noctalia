@@ -729,7 +729,7 @@
     },
     "internal": {
       "battery": "Bateria",
-      "battery-critical-body": "{device}: {percent}% – el teu ordinador s'apagarà en breu",
+      "battery-critical-body": "{device}: {percent}%; l'ordinador s'apagarà aviat",
       "battery-critical-title": "Bateria críticament baixa",
       "battery-device": "Dispositiu de bateria",
       "battery-low-body": "{device}: {percent}% restant",
@@ -2537,11 +2537,11 @@
           "description-reconnect": "Falta l'autorització de Google; torna a connectar aquest compte"
         },
         "calendar-event-date-format": {
-          "description": "El format de data mostrat a la targeta de l'esdeveniment per a la data seleccionada",
+          "description": "El format de data que es mostra per als esdeveniments del calendari a les vistes de calendari",
           "label": "Format de data de l'esdeveniment"
         },
         "calendar-event-time-format": {
-          "description": "El format d'hora mostrat per als esdeveniments del calendari",
+          "description": "El format d'hora que es mostra per als esdeveniments del calendari a les vistes de calendari",
           "label": "Format d'hora de l'esdeveniment"
         },
         "calendar-refresh-interval": {
@@ -2985,9 +2985,9 @@
           "label": "Copia al porta-retalls"
         },
         "screenshot-directory": {
-          "description": "Carpeta per als fitxers PNG desats; deixa buit per utilitzar ~/Imatges",
+          "description": "Carpeta per als fitxers PNG desats; deixa-la buida per fer servir el directori estàndard d'Imatges de XDG",
           "label": "Directori de sortida",
-          "placeholder": "~/Imatges"
+          "placeholder": "Carpeta d'Imatges XDG"
         },
         "screenshot-filename-pattern": {
           "description": "Patró strftime sense extensió (s'afegeix .png); utilitza %s per a l'època unix",
@@ -3089,7 +3089,7 @@
           "label": "Inclou subcarpetes"
         },
         "directory": {
-          "description": "Carpeta que conté fons de pantalla",
+          "description": "Carpeta que conté els fons de pantalla; deixa-la buida per fer servir el directori estàndard d'Imatges de XDG",
           "label": "Directori de fons de pantalla"
         },
         "directory-dark": {

@@ -972,6 +972,10 @@ void ScreenshotService::ensureRegionOverlay() {
         }
 
         OutputOptions options = m_regionOutputOptions;
+        if (action != capture::ConfirmAction::None
+            && m_configService.config().shell.screenshot.skipAnnotateOnCopySave) {
+          options.annotate = false;
+        }
         if (action == capture::ConfirmAction::ForceClipboard) {
           options.copyToClipboard = true;
           options.saveToFile = false;

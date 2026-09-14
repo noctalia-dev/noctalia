@@ -257,6 +257,10 @@ std::optional<double> UPowerDeviceInfo::healthPercent() const {
 }
 
 bool UPowerChargeLimitState::hasRestrictiveThreshold() const {
+  // Huawei-WMI EC expresses "no limit / full charge" as start=95 end=100 rather than 0/100.
+  if (effectiveStart == 95U && effectiveEnd == 100U) {
+    return false;
+  }
   return (effectiveStart.has_value() && *effectiveStart > 0U && *effectiveStart < 100U)
       || (effectiveEnd.has_value() && *effectiveEnd < 100U);
 }

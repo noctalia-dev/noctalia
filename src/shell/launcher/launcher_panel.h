@@ -117,6 +117,7 @@ private:
   Label* m_detailSubtitle = nullptr;
   Label* m_detailBody = nullptr;
   Label* m_emptyLabel = nullptr;
+  bool m_anyProviderLoading = false;
   std::unique_ptr<LauncherResultAdapter> m_listAdapter;
   std::unique_ptr<LauncherAppGridAdapter> m_gridAdapter;
 

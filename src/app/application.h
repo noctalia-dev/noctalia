@@ -199,6 +199,13 @@ private:
   // so the first credential lookups report "no provider". Watch the bus name and re-drive the
   // consumers that gave up once an owner appears.
   void installSecretServiceNameWatch();
+  // The provider may be present but its collection still locked at startup (PAM holds the password
+  // but only opens the store on first request; or a fingerprint/autologin session unlocks it a few
+  // seconds later). Watch the collection set and re-drive consumers once the default collection is
+  // actually unlocked, so a lookup that lost the startup race recovers without restarting Noctalia.
+  void installSecretServiceCollectionWatch();
+  void onSecretServiceCollectionChanged();
+  [[nodiscard]] bool defaultSecretCollectionUnlocked();
   void retrySecretServiceConsumers();
   void scheduleNotificationShellRefresh();
   void syncPolkitAgent();
@@ -295,6 +302,8 @@ private:
   bool m_notificationBusNameWatchInstalled = false;
   std::unique_ptr<sdbus::IProxy> m_secretServiceNameWatchProxy;
   bool m_secretServiceNameWatchInstalled = false;
+  std::unique_ptr<sdbus::IProxy> m_secretServiceCollectionWatchProxy;
+  bool m_secretServiceCollectionWatchInstalled = false;
   bool m_secretServiceOwned = false;
   bool m_storageKeyAutoRetried = false;
   bool m_calendarCredentialAutoRetried = false;

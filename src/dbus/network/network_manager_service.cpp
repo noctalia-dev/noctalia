@@ -88,7 +88,6 @@ namespace {
     std::vector<std::string> capturedWired;
     std::vector<std::string> capturedCellular;
     int pendingOps = 0;
-    std::function<void()> onAllComplete;
   };
 
   struct SavedConnectionsState {
@@ -232,7 +231,9 @@ void NetworkManagerService::refresh() {
   pending->capturedCellular = m_savedCellularConnectionPaths;
   pending->pendingOps = 3;
 
-  pending->onAllComplete = [this, pending, lifetimeToken]() {
+  // Must stay local: `pending` must not own a callback that captures `pending`, or the refresh
+  // state cannot be freed when the completion path is skipped (e.g. lifetime expiry).
+  auto onAllComplete = [this, pending, lifetimeToken]() {
     if (lifetimeToken.expired()) {
       return;
     }
@@ -268,8 +269,6 @@ void NetworkManagerService::refresh() {
           && m_changeCallback) {
         m_changeCallback(m_state, origin);
       }
-      // Break the self-reference cycle: pending->onAllComplete captures pending.
-      pending->onAllComplete = {};
       // Async reply context: safe to drop retired activation proxies here.
       m_retiredApActivations.clear();
 
@@ -281,12 +280,12 @@ void NetworkManagerService::refresh() {
     });
   };
 
-  auto onOpComplete = [pending, lifetimeToken]() {
+  auto onOpComplete = [pending, lifetimeToken, onAllComplete]() {
     if (lifetimeToken.expired()) {
       return;
     }
     if (--pending->pendingOps == 0) {
-      pending->onAllComplete();
+      onAllComplete();
     }
   };
 

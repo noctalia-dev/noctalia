@@ -39,7 +39,7 @@ int main() {
   fs::create_directories(bitmapIconDir);
   std::ofstream(iconThemeRoot / "index.theme") << "[Icon Theme]\n"
                                                   "Directories = 48x48/apps, scalable/apps\n"
-                                                  "Inherits = Adwaita\n"
+                                                  "Inherits = noctalia-bare-test\n"
                                                   "[48x48/apps]\n"
                                                   "Size = 48\n"
                                                   "Type = Fixed\n"
@@ -47,6 +47,16 @@ int main() {
                                                   "Size = 64\n"
                                                   "Type = Scalable\n"
                                                   "MaxSize = 128\n";
+
+  // An inherited theme with no index.theme exercises the fallback search paths
+  // (theme root and 512x512/apps) that only apply to index-less themes.
+  const fs::path bareThemeRoot = root / "icons/noctalia-bare-test";
+  const fs::path bareBitmapDir = bareThemeRoot / "512x512/apps";
+  fs::create_directories(bareBitmapDir);
+  const fs::path bareSizedIcon = bareBitmapDir / "bare-sized-icon.png";
+  const fs::path bareRootIcon = bareThemeRoot / "bare-root-icon.png";
+  std::ofstream(bareSizedIcon) << "png";
+  std::ofstream(bareRootIcon) << "png";
   fs::create_directories(deniedDataHome);
   std::ofstream(deniedIcon) << "<svg/>";
   fs::permissions(deniedDataHome, fs::perms::none);
@@ -134,8 +144,33 @@ int main() {
            "absolute icon misses should not be cached"
        )
       && ok;
-
+  ok = expect(
+           resolver.resolve(absoluteIcon.string(), 32) == absoluteIcon.string(),
+           "absolute icon should be cached while present"
+       )
+      && ok;
   std::error_code ec;
+  fs::remove(absoluteIcon, ec);
+  ok =
+      expect(resolver.resolve(absoluteIcon.string(), 32).empty(), "deleted absolute icon should not stay cached") && ok;
+  std::ofstream(absoluteIcon) << "<svg/>";
+  ok = expect(
+           resolver.resolve(absoluteIcon.string(), 32) == absoluteIcon.string(),
+           "recreated absolute icon should resolve after cache eviction"
+       )
+      && ok;
+
+  ok = expect(
+           resolver.resolve("bare-sized-icon", 32) == bareSizedIcon.string(),
+           "index-less inherited theme should resolve icons under 512x512/apps"
+       )
+      && ok;
+  ok = expect(
+           resolver.resolve("bare-root-icon", 32) == bareRootIcon.string(),
+           "index-less inherited theme should resolve icons at the theme root"
+       )
+      && ok;
+
   fs::remove_all(root, ec);
   return ok ? 0 : 1;
 }

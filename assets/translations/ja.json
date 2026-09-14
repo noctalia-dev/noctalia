@@ -4,12 +4,12 @@
       "disconnected": "指紋認証センサーが切断されました",
       "error": "指紋認証センサーにエラーが発生しました",
       "no-match": "指紋が一致しませんでした",
-      "not-centered": "指をセンサーの中心で再度行ってください",
+      "not-centered": "指をセンサーの中央に置いて、もう一度お試しください",
       "present": "指紋認証中…",
       "ready": "指をセンサーに当ててください",
       "remove-and-retry": "指を離して再度行ってください",
       "retry": "再度指紋認証を行ってください",
-      "swipe-too-short": "指の移動距離が小さすぎます、再度行ってください",
+      "swipe-too-short": "スワイプが短すぎます。もう一度お試しください",
       "too-many-attempts": "指紋認証が無効化されました（試行回数超過）"
     },
     "pam": {
@@ -39,7 +39,7 @@
       "color-yellow": "黄色",
       "copy": "注釈付きの画像をコピーする（Ctrl+C）",
       "cursor": "ポインターが写っている画面を映す（p）",
-      "done": "スクリーンショットの設定を適応（Enter）"
+      "done": "スクリーンショットの設定を適用（Enter）"
     },
     "widgets": {
       "network": {
@@ -49,7 +49,7 @@
         "connected": "接続済み",
         "connecting": "接続中",
         "download": "ダウンロード",
-        "interface": "インタフェース",
+        "interface": "インターフェース",
         "ip": "IP",
         "network": "ネットワーク",
         "networks": "ネットワーク",
@@ -94,7 +94,7 @@
   "common": {
     "actions": {
       "apply": "適用",
-      "cancel": "破棄"
+      "cancel": "キャンセル"
     },
     "states": {
       "auto": "自動",
@@ -110,8 +110,8 @@
       },
       "uptime": "起動時間　–　{uptime}",
       "weather": {
-        "data-unavailable": "天気のデーターは無効化されています",
-        "disabled": "天気はコンフィグから無効化されています",
+        "data-unavailable": "天気のデータは無効化されています",
+        "disabled": "天気は設定から無効化されています",
         "fetching": "天気予報を取得中…"
       }
     },
@@ -147,25 +147,48 @@
       "wi-fi": "Wi-Fi",
       "wifi": "Wi-Fi",
       "wifi-off": "Wi-Fiはオフです",
-      "wifi-on": "Wi-FIはオンです",
+      "wifi-on": "Wi-Fiはオンです",
       "wired-connection": "有線"
     },
     "notifications": {
       "dnd-off": "マナーモードをオフにする"
     },
     "power": {
+      "battery": "電池",
+      "charging": {
+        "configured": "設定済み：{limits}",
+        "display-only": "表示のみ",
+        "error-denied": "認証が拒否されました。充電上限は変更されていません。",
+        "error-failed": "充電上限を変更できませんでした。",
+        "externally-managed": "別のツールによって設定されています。充電上限を管理するには、UPowerを設定してください。",
+        "firmware-managed": "充電はシステムファームウェアによって管理されています。",
+        "full-charge": "100%まで充電可能",
+        "starts": "{start}%以下から開始",
+        "starts-stops": "{start}%以下から開始し、{end}%で終了",
+        "stops": "{end}%で終了",
+        "title": "充電中",
+        "unreadable": "利用できません",
+        "unsupported": "充電上限には対応していません",
+        "use-thresholds": "充電上限を使用します"
+      },
+      "design-capacity": "設計容量に対して",
+      "health": "電池の状態",
+      "performance-inhibited": "パフォーマンス情報を利用できません",
+      "peripherals": "接続済みデバイス",
+      "power-profile": "電源プロファイル",
       "time-to-empty": "残り{time}",
-      "time-to-full": "満充電まで{time}"
+      "time-to-full": "満充電まで{time}",
+      "unknown-device": "不明なデバイス"
     },
     "screen-time": {
       "back": "戻る",
       "disabled": "スクリーンタイムの記録がオフです。アプリごとの使用状況を記録するには、設定で有効にしてください。",
       "empty": "アプリの使用状況はまだ記録されていません。ウィンドウにフォーカスすると、記録が開始されます。",
       "hour-0": "０時",
-      "hour-12": "２４時",
+      "hour-12": "１２時",
       "hour-18": "１８時",
       "hour-6": "６時",
-      "most-used": "使用量が多いソフト",
+      "most-used": "使用時間の長いアプリ",
       "range": {
         "14-days": "過去１４日間",
         "3-days": "過去３日間",
@@ -175,6 +198,7 @@
     },
     "shortcuts": {
       "media": "メディア",
+      "power-profile": "電源",
       "screen-time": "スクリーンタイム",
       "wallpaper": "壁紙",
       "weather": "天気"
@@ -188,6 +212,7 @@
     "tabs": {
       "media": "メディア",
       "network": "ネットワーク",
+      "power": "電源",
       "screen-time": "スクリーンタイム",
       "weather": "天気"
     },
@@ -206,7 +231,7 @@
         "elevation": "高度",
         "feels-like": "体感温度",
         "sunrise": "日の出",
-        "sunset": "日の入",
+        "sunset": "日の入り",
         "temp-max": "最高気温",
         "temp-min": "最低気温",
         "timezone": "タイムゾーン",
@@ -214,7 +239,7 @@
         "wind": "風"
       },
       "disabled": "[weather] をconfig.tomlで有効化してください",
-      "fetching": "天気予報を習得中…",
+      "fetching": "天気予報を取得中…",
       "forecast-placeholder": {
         "day": "日曜日",
         "description": "天気",
@@ -236,8 +261,8 @@
       "location-unavailable": "現在地が使用できません",
       "no-location-body": "住所を入力するか、もしくは「位置情報」設定で自動位置検出を有効にしてください。",
       "no-location-title": "現在地が指定されていません",
-      "refreshing": "気象データーを更新中",
-      "waiting": "気象データーを待機中"
+      "refreshing": "気象データを更新中",
+      "waiting": "気象データを待機中"
     }
   },
   "desktop-widgets": {
@@ -270,27 +295,133 @@
     "actions": {
       "close": "閉じる",
       "close-all": "全て閉じる"
+    },
+    "launcher": "ランチャー"
+  },
+  "internal-apps": {
+    "settings": {
+      "display-name": "設定"
     }
   },
   "launcher": {
     "categories": {
+      "all": "全て",
       "applications": {
-        "multimedia": "マルチメディア"
-      }
+        "development": "開発",
+        "education": "教育",
+        "games": "ゲーム",
+        "graphics": "グラフィックス",
+        "internet": "インターネット",
+        "multimedia": "マルチメディア",
+        "office": "オフィス",
+        "system": "システム",
+        "utilities": "ユーティリティ"
+      },
+      "emoji": {
+        "activity": "活動",
+        "animals": "動物",
+        "flags": "旗",
+        "food": "食べ物",
+        "nature": "自然",
+        "objects": "物",
+        "people": "人",
+        "symbols": "記号",
+        "travel": "旅行"
+      },
+      "recently-used": "最近使用した項目"
+    },
+    "context-menu": {
+      "open": "開く",
+      "pin": "ランチャーに固定",
+      "pin-to-dock": "ドックに固定",
+      "unpin": "ランチャーから固定解除",
+      "unpin-from-dock": "ドックから固定解除"
+    },
+    "empty": {
+      "no-results": "結果が見つかりません",
+      "type-to-search": "入力して検索…"
+    },
+    "origins": {
+      "appimage": "AppImage",
+      "flatpak": "Flatpak",
+      "nix": "Nix",
+      "snap": "Snap",
+      "system": "システム",
+      "user": "ユーザー"
     },
     "providers": {
+      "applications": {
+        "title": "アプリ"
+      },
+      "calculator": {
+        "title": "電卓"
+      },
+      "emoji": {
+        "title": "絵文字"
+      },
+      "session": {
+        "action-subtitle": "セッション操作を実行",
+        "command-subtitle": "設定済みコマンドを実行",
+        "title": "セッション"
+      },
       "wallpaper": {
         "title": "壁紙"
+      },
+      "window": {
+        "title": "ウィンドウ"
       }
-    }
+    },
+    "search-placeholder": "アプリを検索…"
   },
   "notifications": {
     "internal": {
       "calendar-google-connect-start-failed": "Google の認証を開始できませんでした。ネットワーク接続を確認して、もう一度お試しください。",
       "calendar-google-connect-timeout": "Google の認証がタイムアウトしました。サインインする準備ができたら、もう一度接続を開始してください。",
-      "greeter-sync-pending-manual": "認証済みのレガシー同期用にファイルを準備しました。ターミナルで位置指定の適用ヘルパーを実行してください。カスタムパスを使用する場合は 「NOCTALIA_GREETER_STATE_DIR」 を維持するか、「shell.greeter_sync.privilege_command」 を設定してから、もう一度同期してください。",
+      "greeter-sync-pending-manual": "認証済みの従来方式の同期用ファイルを準備しました。ターミナルで位置引数形式の適用ヘルパーを実行してください。独自の保存先を使用している場合は NOCTALIA_GREETER_STATE_DIR を引き継ぐか、shell.greeter_sync.privilege_command を設定してから、もう一度同期してください。",
+      "greeter-sync-timeout": "グリーターの同期は、まだ認証待ちです。TTY またはコンソールで polkit の認証要求を確認するか、セキュリティ設定で polkit エージェントを有効にするか、pkexec を手動で実行してください。",
+      "greeter-sync-timeout-manual": "認証済みの従来方式の同期には、引き続き管理者の承認が必要です。ターミナルで位置引数形式の適用ヘルパーを実行し、独自の保存先を使用している場合は NOCTALIA_GREETER_STATE_DIR を引き継いでください",
+      "greeter-sync-timeout-manual-pkexec": "グリーターの同期には、まだ認証が必要です。ターミナルで次のコマンドを実行してください：pkexec noctalia-greeter-apply-appearance --sync \"/run/user/$(id -u)/noctalia-greeter-sync\"",
+      "launcher-usage-reset": "ランチャー",
+      "launcher-usage-reset-success": "使用データを消去しました。",
+      "screen-time-reset": "スクリーンタイム",
+      "screen-time-reset-success": "使用履歴を消去しました。",
       "wallpaper-palette-export": "カスタム配色",
       "wallpaper-palette-export-success": "「{name}」を保存し、カスタム配色に切り替えました。"
+    }
+  },
+  "plugins": {
+    "auto-disabled": {
+      "body-timeouts": "{plugin} が応答しなくなったため、無効化されました。問題を修正した後、再読み込みしてください。"
+    },
+    "enable-failed": {
+      "body-timeout": "{plugin} のインストールに時間がかかりすぎました。"
+    }
+  },
+  "power": {
+    "battery": {
+      "states": {
+        "battery": "電池",
+        "charging": "充電中",
+        "discharging": "放電中",
+        "empty": "空",
+        "pending-discharge": "放電待ち",
+        "plugged-in": "電源接続中"
+      },
+      "tooltip": {
+        "device": "電池",
+        "device-numbered": "電池 {index}",
+        "health": "状態",
+        "rate": "速度",
+        "status": "ステータス",
+        "time-left": "残り時間",
+        "time-to-full": "満充電までの時間",
+        "unknown-device": "不明なデバイス"
+      }
+    },
+    "profiles": {
+      "balanced": "バランス",
+      "performance": "パフォーマンス",
+      "power-saver": "省電力"
     }
   },
   "settings": {
@@ -298,31 +429,74 @@
       "widget": {
         "group": {
           "drawer-columns": "ドロワーの列数"
+        },
+        "settings": {
+          "groups": {
+            "runtime": "実行環境"
+          }
         }
       }
     },
     "errors": {
-      "export-wallpaper-palette": "壁紙の配色をカスタム配色として保存できませんでした。"
+      "custom-schedule-times": "独自のスケジュールには、日の出と日の入りの時刻をどちらも HH:MM 形式で指定する必要があります。",
+      "export-wallpaper-palette": "壁紙の配色をカスタム配色として保存できませんでした。",
+      "sync-greeter-timeout": "グリーターの同期は、まだ認証待ちです。TTY またはコンソールで polkit の認証要求を確認するか、セキュリティ設定で polkit エージェントを有効にするか、pkexec を手動で実行してください。",
+      "sync-greeter-timeout-manual": "認証済みの従来方式の同期には、引き続き管理者の承認が必要です。ターミナルで位置引数形式の適用ヘルパーを実行し、独自の保存先を使用している場合は NOCTALIA_GREETER_STATE_DIR を引き継いでください",
+      "sync-greeter-timeout-manual-pkexec": "グリーターの同期には、まだ認証が必要です。ターミナルで次のコマンドを実行してください：pkexec noctalia-greeter-apply-appearance --sync \"/run/user/$(id -u)/noctalia-greeter-sync\""
+    },
+    "idle": {
+      "behavior": {
+        "locked-timeout-label": "ロック中のタイムアウト時間（秒、0 で無効）",
+        "summary-disabled-timeout": "{name} · タイムアウト無効",
+        "timeout-label": "タイムアウト（秒）"
+      }
     },
     "navigation": {
       "groups": {
+        "launcher": "ランチャー",
+        "media": "メディア",
         "network": "ネットワーク",
+        "power": "電源",
+        "screen-time": "スクリーンタイム",
+        "theme": "テーマ",
         "wallpaper": "壁紙",
         "weather": "天気",
         "window-switcher": "ウィンドウ・スイッチャー"
       },
       "sections": {
+        "launcher": "ランチャー",
+        "power": "電源",
         "wallpaper": "壁紙"
       }
     },
     "options": {
+      "dock-launcher-position": {
+        "end": "末端",
+        "none": "無し",
+        "start": "先頭"
+      },
       "hot-corners": {
+        "launcher": "ランチャー",
         "window-switcher": "ウィンドウ・スイッチャー"
       },
       "theme": {
+        "mode": {
+          "dark": "ダーク",
+          "light": "ライト"
+        },
+        "shell-mode": {
+          "follow": "追従"
+        },
         "source": {
+          "built-in": "内蔵",
+          "community": "コミュニティー",
+          "custom": "カスタム",
           "wallpaper": "壁紙"
         }
+      },
+      "theme-role": {
+        "custom": "カスタム",
+        "default": "既定"
       },
       "wallpaper": {
         "fill": {
@@ -360,8 +534,56 @@
           "description": "現在の壁紙から、再利用可能な配色ファイルとして保存",
           "label": "壁紙の配色をエクスポート"
         },
+        "shell-theme-mode": {
+          "description": "Noctalia 独自のライトまたはダークモードに固定します。「追従」ではテーマモードと同期します",
+          "label": "シェルのテーマモード"
+        },
+        "theme-mode": {
+          "description": "ダーク、ライト、または時間帯に応じて自動で切り替えるモードを選択します",
+          "label": "テーマモード"
+        },
         "wallpaper-generation-scheme": {
-          "description": "壁紙の色を配色に変換する方法を選択"
+          "description": "壁紙の色を配色に変換する方法を選択",
+          "label": "壁紙からの配色生成方式"
+        }
+      },
+      "dock": {
+        "launcher-custom-image": {
+          "description": "ドックのランチャーボタンに、アイコンの代わりに画像を表示",
+          "label": "ランチャーのカスタム画像",
+          "placeholder": "画像のパス"
+        },
+        "launcher-custom-image-colorize": {
+          "description": "カスタム画像をアイコン色で着色",
+          "label": "カスタム画像の色を付ける"
+        },
+        "launcher-icon": {
+          "description": "ドックのランチャーボタンに表示する Tabler アイコン",
+          "label": "ランチャーアイコン"
+        },
+        "launcher-position": {
+          "description": "ドックの先頭または末尾にランチャーボタンを表示",
+          "label": "ランチャーボタン"
+        }
+      },
+      "hooks": {
+        "events": {
+          "power-profile-changed": {
+            "description": "有効な UPower/PPD 電源プロファイルが変更されたときに実行するコマンド",
+            "label": "電源プロファイル変更時"
+          },
+          "theme-mode-changed": {
+            "description": "確定したテーマモードがライトとダークの間で切り替わったときに実行するコマンドです",
+            "label": "テーマモード変更時"
+          },
+          "wallpaper-changed": {
+            "description": "壁紙変更時に実行するコマンド。NOCTALIA_WALLPAPER_PATH と NOCTALIA_WALLPAPER_CONNECTOR が利用できます。"
+          }
+        }
+      },
+      "idle": {
+        "behaviors": {
+          "description": "名前付きのアイドル操作を、プリセット（ロック、画面オフ、サスペンド）または独自のコマンドとして設定できます。タイムアウト、復帰時の連動、実行順序にも対応します"
         }
       },
       "lockscreen": {
@@ -371,12 +593,104 @@
         }
       },
       "panels": {
+        "control-center-sidebar-section": {
+          "description": "特定のタブ（音量、メディアなど）を開いたとき"
+        },
+        "launcher-app-actions": {
+          "description": "検索結果でアプリと並べてアプリ操作項目を表示",
+          "label": "アプリの操作を表示"
+        },
+        "launcher-app-grid": {
+          "description": "検索結果がアプリのみの場合、ラベル付きのアプリアイコンを格子状に表示",
+          "label": "アプリ一覧を格子表示"
+        },
+        "launcher-app-origin-indicator": {
+          "description": "アプリの検索結果にパッケージ配布元の表示を追加",
+          "label": "アプリ配布元を表示"
+        },
+        "launcher-auto-paste": {
+          "description": "電卓、絵文字、その他のコピー操作後に、フォーカス中のウィンドウへ貼り付け（クリップボードの自動貼り付けと同じショートカットを使用）",
+          "label": "自動貼り付け"
+        },
+        "launcher-categories": {
+          "description": "ランチャーにカテゴリ絞り込みを表示。F6 で表示し、F6 と Shift+F6 で順番に切替",
+          "label": "カテゴリを表示"
+        },
+        "launcher-compact": {
+          "description": "小さいアイコンと詰めた検索結果行を使用する",
+          "label": "コンパクト表示"
+        },
+        "launcher-currency-exchange": {
+          "description": "外部のオンライン情報源から為替レートを取得",
+          "label": "通貨換算"
+        },
+        "launcher-global-calculator": {
+          "description": "電卓の結果をプレフィックスなしの検索にも表示",
+          "label": "全体検索で電卓を使用"
+        },
+        "launcher-global-emoji": {
+          "description": "絵文字の結果をプレフィックスなしの検索にも表示",
+          "label": "全体検索で絵文字を使用"
+        },
+        "launcher-global-session": {
+          "description": "セッション操作をプレフィックスなしの検索にも表示",
+          "label": "全体検索でセッション操作を使用"
+        },
+        "launcher-global-wallpaper": {
+          "description": "壁紙の結果をプレフィックスなしの検索にも表示",
+          "label": "全体検索で壁紙操作を使用"
+        },
+        "launcher-global-windows": {
+          "description": "開いているウィンドウをプレフィックスなしの検索にも表示",
+          "label": "全体検索でウィンドウを使用"
+        },
         "launcher-prefix-character": {
           "description": "全てのプロバイダーのプレフィックスに使用する共通の記号（例：/）",
           "label": "共通プレフィックス文字"
+        },
+        "launcher-prefix-session": {
+          "description": "セッション電源アクションのトリガープレフィックス"
+        }
+      },
+      "power": {
+        "session-actions": {
+          "description": "セッションパネルの項目、順序、カスタムコマンド、アイコン",
+          "label": "項目"
+        },
+        "session-grid": {
+          "description": "セッションパネルの操作を格子状に表示",
+          "label": "格子表示"
+        },
+        "session-grid-columns": {
+          "description": "格子表示の列数",
+          "label": "列数"
+        },
+        "session-show-shortcuts": {
+          "description": "ショートカットのヒントを表示または非表示",
+          "label": "ショートカットを表示"
         }
       },
       "services": {
+        "calendar-event-time-format": {
+          "description": "カレンダー表示で予定の時刻に使用する形式",
+          "label": "予定時刻の形式"
+        },
+        "custom-schedule": {
+          "description": "座標から計算せず、日の出と日の入りの時刻を手動で指定します",
+          "label": "手動スケジュール"
+        },
+        "force-night-light": {
+          "description": "時刻に関係なく、常に夜間照明を適用します"
+        },
+        "mpris-blacklist": {
+          "description": "メディア操作と「再生中」で除外するプレーヤー"
+        },
+        "sunrise": {
+          "description": "位置情報未設定時に使用する日の出時刻（HH:MM 形式）"
+        },
+        "sunset": {
+          "description": "位置情報未設定時に使用する日の入り時刻（HH:MM 形式）"
+        },
         "system-monitor": {
           "description": "CPU、メモリ、ネットワーク、負荷、温度、ディスクの統計情報を取得",
           "network-poll": {
@@ -409,18 +723,61 @@
         "external-ip": {
           "description": "接続のパブリックWAN IPアドレスを（api.noctalia.dev経由で）取得し、コントロールセンターのネットワークタブに表示します"
         },
+        "greeter-sync-auto": {
+          "description": "壁紙、配色、テーマモード、またはシェルフォントの変更時に、グリーターを自動同期します。認証は引き続きシステムの方針に従います。この設定でパスワードなしの同期が有効になることはありません。"
+        },
         "offline-mode": {
           "description": "すべての送信ネットワーク通信をブロック"
         },
+        "osd-kinds-power-profile": {
+          "description": "電源プロファイル変更時に画面表示を表示します",
+          "label": "電源プロファイル"
+        },
+        "screen-time-enabled": {
+          "description": "アプリごとの使用時間を記録し、コントロールセンターに表示します",
+          "label": "スクリーンタイム"
+        },
+        "screen-time-reset": {
+          "button": "リセット",
+          "description": "保存されているアプリごとの前面使用履歴を消去します",
+          "label": "スクリーンタイムのデータを消去"
+        },
+        "screenshot-filename-pattern": {
+          "description": "拡張子を除いた strftime 形式（.png は自動的に追加されます）。UNIX 時刻には %s を使用してください。"
+        },
         "show-location": {
           "description": "天気予報に地名を表示する"
+        },
+        "time-format": {
+          "description": "個別設定のないシェル UI で使用する既定時刻形式",
+          "label": "時刻形式"
         },
         "window-switcher-mru": {
           "description": "スイッチャー内のウィンドウを、ワークスペースや画面レイアウトではなく、直近の使用順に並べ替えます",
           "label": "最近使用した順番"
         }
       },
+      "templates": {
+        "builtin-ids": {
+          "description": "テーマ変更ごとに反映する内蔵アプリ用テンプレートを切り替えます"
+        },
+        "community-ids": {
+          "description": "テーマ変更時に適用するコミュニティテンプレートを参照して有効化します"
+        },
+        "enable-builtins": {
+          "description": "アプリ用テーマテンプレートの同梱カタログを使用します"
+        }
+      },
       "wallpaper": {
+        "automation": {
+          "description": "一定時間ごとに壁紙を自動切替"
+        },
+        "directory-dark": {
+          "description": "ダークテーマ用の壁紙フォルダー"
+        },
+        "directory-light": {
+          "description": "ライトテーマ用の壁紙フォルダー"
+        },
         "monitor-directory-dark": {
           "label": "ダークモード用ディレクトリ",
           "placeholder": "~/Pictures/Wallpapers"
@@ -434,9 +791,46 @@
     "widgets": {
       "actions": {
         "commands": {
+          "desktop-widgets-hide": {
+            "description": "デスクトップウィジェットを一時的に非表示（実行中のみ。保存設定は変更しません）"
+          },
+          "desktop-widgets-show": {
+            "description": "デスクトップウィジェットを一時的に表示（実行中のみ。保存設定は変更しません）"
+          },
+          "desktop-widgets-toggle": {
+            "description": "デスクトップウィジェットの表示・非表示を切替（実行中のみ。保存設定は変更しません）\n"
+          },
+          "media": {
+            "description": "再生中のメディアを操作",
+            "label": "メディア操作"
+          },
           "network-toggle": {
             "description": "接続中のネットワークを切断し、接続されていない場合は再接続",
             "label": "ネットワーク接続を切り替え"
+          },
+          "power-cycle": {
+            "description": "UPower のプロファイル一覧を順に切り替えます。既定では順方向に進み、末尾まで行くと先頭に戻ります。",
+            "label": "電源プロファイルを切り替える"
+          },
+          "power-set": {
+            "description": "UPower の電源プロファイルを設定します（例：パフォーマンス、バランス、省電力）",
+            "label": "電源プロファイルを設定"
+          },
+          "templates-apply": {
+            "description": "現在の配色に設定済みのテーマテンプレートを適用",
+            "label": "テーマテンプレートを適用"
+          },
+          "theme-mode-get": {
+            "description": "現在確定しているテーマモードを表示",
+            "label": "現在のテーマモードを取得"
+          },
+          "theme-mode-set": {
+            "description": "テーマモードを設定し、更にsettings.toml に保存",
+            "label": "テーマモードを設定"
+          },
+          "theme-mode-toggle": {
+            "description": "ダーク／ライト間でテーマモードを切替",
+            "label": "テーマモードを切り替える"
           },
           "window-switcher": {
             "description": "ウィンドウ・スイッチャーのオーバーレイを開きます、もしくは閉じます",
@@ -450,9 +844,13 @@
       },
       "options": {
         "net-rx": "ネットワーク下り",
-        "net-tx": "ネットワーク上り"
+        "net-tx": "ネットワーク上り",
+        "time": "時刻"
       },
       "settings": {
+        "art-size": {
+          "description": "メディアアートワークの大きさ（ピクセル）"
+        },
         "drawer": {
           "description": "バーにトレイボタンを表示し、項目をパネルで開きます"
         },
@@ -462,14 +860,30 @@
         "drawer-item-size": {
           "description": "ドロワーパネル内のトレイアイコンのサイズ（ピクセル）"
         },
+        "format": {
+          "description": "時刻形式の文字列"
+        },
         "hidden": {
           "description": "非表示にするトレイアイテムのID"
         },
         "hide-passive": {
           "description": "ステータスがPassiveのトレイ項目を非表示"
         },
+        "hide-when-adapter-off": {
+          "description": "Bluetooth アダプターの電源が切れているときはウィジェットを非表示にする"
+        },
+        "hide-when-no-media": {
+          "description": "有効な MPRIS プレーヤーがない場合は、メディアウィジェットを非表示にします",
+          "label": "メディアがない場合は非表示"
+        },
+        "hide-when-plugged": {
+          "description": "電源接続中は電池ウィジェットを非表示にする"
+        },
         "interface": {
           "description": "監視するネットワークインターフェースです。空欄にすると、すべてのインターフェースの合計を使用します。"
+        },
+        "label-content": {
+          "description": "電池表示に表示する内容：充電率、残り時間、または消費電力"
         },
         "match-adjacent-spacing": {
           "description": "トレイアイコン間の間隔を広げ、隣接するバーウィジェットと揃えます（カプセルのパディングを含みます）"
@@ -485,18 +899,32 @@
         "pinned": {
           "description": "ドロワーモード有効時もバーに表示するトレイ項目のID"
         },
+        "scope": {
+          "description": "各ウィジェット配置ごとに個別のスクリプト実行環境を使用するか、同じウィジェット ID を持つ複数のバーで実行環境を共有します",
+          "label": "実行環境の範囲"
+        },
         "show-condition": {
           "description": "天気情報のテキストを表示する"
         },
         "show-vpn-label": {
           "description": "Replaceモードではネットワーク名をVPN名に置き換え、BothモードではVPNアイコンの横にVPN名を表示します"
         },
+        "show-when-idle": {
+          "description": "メディアを再生していない場合でも、ビジュアライザーを表示したままにします"
+        },
+        "timezone": {
+          "description": "この時計で使用するタイムゾーン識別子（例：Europe/Berlin）。空欄の場合はシステムの現地時刻を使用します",
+          "label": "タイムゾーン"
+        },
         "vpn-status": {
           "description": "VPNの状態表示方法。ReplaceではネットワークアイコンをVPNシールドに置き換え、Bothでは両方を並べて表示し、HiddenではVPNインジケーターを非表示にします"
         }
       },
       "types": {
+        "media": "メディア",
         "network": "ネットワーク",
+        "power-profile": "電源プロファイル",
+        "theme-mode": "テーマモード",
         "tray": "トレイ",
         "weather": "天気"
       }
@@ -505,6 +933,54 @@
       "offline-mode-notice": {
         "location": "天気や場所の検索は機能しません。"
       }
+    }
+  },
+  "theme": {
+    "scheme": {
+      "dysfunctional": "ディスファンクショナル（Dysfunctional）",
+      "faithful": "フェイスフル（Faithful）",
+      "m3-content": "M3 コンテンツ（M3 Context）",
+      "m3-fruit-salad": "M3 フルーツサラダ（M3 Fruit Salad）",
+      "m3-monochrome": "M3 モノクローム（M3 Monochrome）",
+      "m3-rainbow": "M3 レインボー（M3 Rainbow）",
+      "m3-tonal-spot": "M3 トーナルスポット（M3 Tonal Spot）",
+      "muted": "控えめ",
+      "soft": "柔らか",
+      "vibrant": "鮮やか"
+    }
+  },
+  "time": {
+    "duration": {
+      "less-than-day": "1日未満",
+      "less-than-minute": "1分未満",
+      "three-parts": "{first} {second} {third}",
+      "two-parts": "{first} {second}"
+    },
+    "file": {
+      "unknown": "不明"
+    },
+    "relative": {
+      "days-ago": "{count}日前",
+      "days-ago-plural": "{count}日前",
+      "hours-ago": "{count}時間前",
+      "hours-ago-plural": "{count}時間前",
+      "just-now": "たった今",
+      "minutes-ago": "{count}分前",
+      "minutes-ago-plural": "{count}分前"
+    },
+    "units": {
+      "day": "{count}日",
+      "day-plural": "{count}日",
+      "hour": "{count}時間",
+      "hour-compact": "{count}時間",
+      "hour-plural": "{count}時間",
+      "minute": "{count}分",
+      "minute-compact": "{count}分",
+      "minute-plural": "{count}分",
+      "month": "{count}月",
+      "month-plural": "{count}月",
+      "year": "{count}年",
+      "year-plural": "{count}年"
     }
   },
   "tray": {
@@ -521,8 +997,8 @@
         "drizzle": "霧雨",
         "fog": "霧",
         "mainly-clear": "晴れ",
-        "overcast": "曇り",
-        "partly-cloudy": "晴れ時々曇り",
+        "overcast": "曇天",
+        "partly-cloudy": "一部曇り",
         "rain-showers": "雨",
         "snow": "雪",
         "snow-showers": "にわか雪",
@@ -531,7 +1007,7 @@
       },
       "short": {
         "clear": "快晴",
-        "cloudy": "晴れ時々曇り",
+        "cloudy": "曇り",
         "drizzle": "霧雨",
         "fog": "霧",
         "mostly-clear": "晴れ",
@@ -544,13 +1020,13 @@
       }
     },
     "errors": {
-      "fetch-failed": "気象データの習得失敗",
+      "fetch-failed": "気象データの取得失敗",
       "parse-weather": "天気情報のレスポンスを解析できませんでした"
     }
   },
   "window-switcher": {
     "empty": "ウィンドウが開いていません",
     "hint": "Tab · Shift+Tab · 矢印キー · Alt キーを離すと切り替わります · Esc キーでキャンセル",
-    "title": "ウィンドウズ"
+    "title": "ウィンドウ"
   }
 }
