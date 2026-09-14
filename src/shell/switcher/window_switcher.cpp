@@ -1250,6 +1250,34 @@ bool WindowSwitcher::isModifierRelease(const KeyboardEvent& event) const noexcep
   return !event.pressed && (KeySymbol::modifierMask(event.sym) & m_shortcutModifiers) != 0;
 }
 
+// The compositor keybind that opens the overlay runs out of process, so a quick
+// tap can release the shortcut modifier before this surface gains keyboard focus;
+// that release is never delivered here and the overlay would wait forever.
+// wl_keyboard.enter reports what is still held: if no shortcut modifier is, the
+// release already happened, so behave as the release would have and activate the
+// preselected (previous) window. A modifier that is still held is picked up by
+// onKeyboardEvent when it is released.
+void WindowSwitcher::onKeyboardEnter(
+    wl_surface* surface, std::uint32_t modifiers, const std::vector<std::uint32_t>& heldKeysyms
+) {
+  if (!m_active
+      || !m_shortcutSession
+      || m_instance == nullptr
+      || m_instance->surface == nullptr
+      || surface != m_instance->surface->wlSurface()) {
+    return;
+  }
+  std::uint32_t held = modifiers & kShortcutModifierMask;
+  for (const std::uint32_t sym : heldKeysyms) {
+    held |= KeySymbol::modifierMask(sym) & kShortcutModifierMask;
+  }
+  if (held != 0) {
+    return;
+  }
+  activateSelected();
+  hide();
+}
+
 bool WindowSwitcher::onKeyboardEvent(const KeyboardEvent& event) {
   if (m_active && m_instance == nullptr) {
     hide();
