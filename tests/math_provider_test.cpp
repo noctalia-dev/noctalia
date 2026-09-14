@@ -44,5 +44,20 @@ int main() {
   ok = expect(!provider.queryPrefixed("EUR").empty(), "digit-free prefixed query should be evaluated") && ok;
   ok = expect(!provider.query("2 + 2").empty(), "numeric global query should be evaluated") && ok;
 
+  const auto firstTitle = [&provider](std::string_view query) {
+    const auto results = provider.query(query);
+    return results.empty() ? std::string{} : results.front().title;
+  };
+
+  ok = expect(firstTitle("2 + 2") == "= 4", "addition should evaluate") && ok;
+  ok = expect(firstTitle("2^10") == "= 1024", "exponentiation should evaluate") && ok;
+  ok = expect(firstTitle("250 * 20%") == "= 50", "percent multiplication should evaluate") && ok;
+  ok = expect(firstTitle("20% OF 250") == "= 50", "uppercase percent-of phrasing should evaluate") && ok;
+  ok = expect(firstTitle("20% of 250") == "= 50", "percent-of phrasing should evaluate to the part of the whole") && ok;
+  ok = expect(firstTitle("100% of 7") == "= 7", "whole-value percent-of should evaluate") && ok;
+  ok = expect(firstTitle("20 percent of 250") == "= 50", "percent keyword phrasing should evaluate") && ok;
+  ok = expect(firstTitle("50% of 200 cm") == "= 1 m", "percent-of should keep and normalise units") && ok;
+  ok = expect(provider.query("5 / 0").empty(), "division by zero should stay silent") && ok;
+
   return ok ? 0 : 1;
 }
