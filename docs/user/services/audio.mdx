@@ -10,17 +10,17 @@ sidebar:
 enable_overdrive     = false  # allow volume sliders above 100% (up to 150%)
 enable_sounds        = false  # master toggle for UI sounds
 sound_volume         = 0.5    # global sound volume (0.0 - 1.0)
-volume_change_sound  = ""     # empty = bundled default sounds/volume-change.wav
-notification_sound   = ""     # empty = bundled default sounds/notification.wav
+sound_theme          = "freedesktop"
 ```
 
 - `enable_overdrive = false` clamps Control Center output/microphone sliders to 100%; `true` allows up to 150%.
 - `enable_sounds = false` disables all UI sound playback.
 - `sound_volume` controls all UI sounds. A value of `1.0` plays the source at unity gain; lower values follow a
   perceptual volume curve.
-- `volume_change_sound` and `notification_sound` accept absolute paths, `~`-prefixed home paths, or asset-relative paths.
   Files are decoded through `libsndfile`; common supported formats include WAV, FLAC, Ogg/Vorbis, Opus, MP3, and AIFF.
   Exact format support depends on the distribution's libsndfile build.
+- `sound_theme` selects an installed sound theme. Themes inherit from their declared parents and fall back
+  to `freedesktop`; shell sounds are loaded from each theme's `stereo` directory.
 
 ## Related IPC
 

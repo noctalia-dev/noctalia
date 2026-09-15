@@ -17,11 +17,14 @@ public:
   explicit SoundPlayer(pw_loop* loop);
   ~SoundPlayer();
 
+  [[nodiscard]] static std::vector<std::pair<std::string, std::string>> availableThemes();
+
   SoundPlayer(const SoundPlayer&) = delete;
   SoundPlayer& operator=(const SoundPlayer&) = delete;
 
   bool load(const std::string& name, const std::filesystem::path& path);
   void play(const std::string& name);
+  void setTheme(std::string theme);
   void setVolume(float volume);
 
   [[nodiscard]] std::optional<std::string>
