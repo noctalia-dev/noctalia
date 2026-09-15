@@ -2,6 +2,7 @@
 
 #include "core/toml.h" // IWYU pragma: keep
 
+#include <atomic>
 #include <cstdint>
 #include <filesystem>
 #include <functional>
@@ -44,6 +45,8 @@ namespace noctalia::theme {
       std::shared_ptr<const toml::table> configTable;
       HookRunner* hookRunner = nullptr;
       std::uint64_t generation = 0;
+      // Set at shutdown to terminate a synchronous hook that would otherwise hold up the quit.
+      std::shared_ptr<std::atomic<bool>> hookCancel;
     };
 
     explicit TemplateEngine(ThemeData themeData);

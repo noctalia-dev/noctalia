@@ -1662,7 +1662,9 @@ namespace noctalia::theme {
         if (async && renderOptions.hookRunner != nullptr) {
           renderOptions.hookRunner->enqueue(hookRendered.text, renderOptions.generation);
         } else {
-          [[maybe_unused]] const bool hookOk = process::runSync(hookRendered.text);
+          process::RunOptions hookOptions;
+          hookOptions.cancel = renderOptions.hookCancel;
+          [[maybe_unused]] const bool hookOk = process::runSync(hookRendered.text, hookOptions);
         }
       };
 

@@ -13,16 +13,45 @@ namespace noctalia::theme {
     constexpr std::size_t kMaxHookOutputBytes = 8 * 1024;
   } // namespace
 
-  HookRunner::HookRunner(std::size_t maxConcurrent) : m_state(std::make_shared<State>()) {
+  HookRunner::HookRunner(
+      std::size_t maxConcurrent, std::chrono::milliseconds shutdownGrace, std::shared_ptr<std::atomic<bool>> cancel
+  )
+      : m_state(std::make_shared<State>()), m_shutdownGrace(shutdownGrace) {
     m_state->maxConcurrent = maxConcurrent > 0 ? maxConcurrent : kDefaultMaxConcurrent;
+    if (cancel) {
+      m_state->cancel = std::move(cancel);
+    }
   }
 
   HookRunner::~HookRunner() {
     requestShutdown();
     std::unique_lock lock(m_state->mutex);
+    // An owner that already spent part of the grace hands its deadline down; on its own the
+    // runner starts the budget here.
+    const auto deadline = m_state->shutdownDeadline.value_or(std::chrono::steady_clock::now() + m_shutdownGrace);
     // Hooks that already started own the shared state; wait them out instead of
     // killing a command halfway through rewriting an application's config.
-    m_state->idleCv.wait(lock, [this]() { return m_state->running == 0; });
+    const auto idle = [this]() { return m_state->running == 0; };
+    if (m_state->idleCv.wait_until(lock, deadline, idle)) {
+      return;
+    }
+    if (!m_state->cancel->exchange(true)) {
+      kLog.warn(
+          "{} hook(s) still running after {}s; terminating them", m_state->running,
+          std::chrono::duration<double>(m_shutdownGrace).count()
+      );
+    }
+    if (m_state->idleCv.wait_until(lock, deadline + kTerminateGrace, idle)) {
+      return;
+    }
+    // Giving up is safe: the running hooks hold the state through their own callbacks.
+    // A hook that called setsid escapes the process group and is orphaned rather than killed.
+    kLog.warn("{} hook(s) did not stop; leaving them behind", m_state->running);
+  }
+
+  void HookRunner::setShutdownDeadline(std::chrono::steady_clock::time_point deadline) {
+    std::scoped_lock lock(m_state->mutex);
+    m_state->shutdownDeadline = deadline;
   }
 
   void HookRunner::requestShutdown() {
@@ -118,6 +147,7 @@ namespace noctalia::theme {
 
     process::RunOptions options;
     options.maxOutputBytes = kMaxHookOutputBytes;
+    options.cancel = state->cancel;
     if (process::runAsync(command, std::move(callbacks), options)) {
       return true;
     }
