@@ -59,7 +59,7 @@ namespace shell::dock {
     // Auto-hide: tracks visibility [0,1] driven by hover.
     float hideOpacity = 1.0F;
     AnimationManager::Id hideAnimId = 0;
-    // smart_auto_hide: active workspace empty (or overview open) — keep the dock visible.
+    // smart_auto_hide: active workspace empty, all windows minimized, or overview open — keep the dock visible.
     bool smartAutoHidePinnedVisible = false;
     Signal<>::ScopedConnection paletteConn;
     bool suppressItemClick = false; // set on press-release when a hold/drag consumed the gesture
