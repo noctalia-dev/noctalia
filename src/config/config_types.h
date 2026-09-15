@@ -1373,6 +1373,7 @@ struct LocationConfig {
 enum class HookKind : std::uint8_t {
   Started = 0,
   WallpaperChanged,
+  LockscreenWallpaperChanged,
   ColorsChanged,
   ThemeModeChanged,
   SessionLocked,
@@ -1395,6 +1396,7 @@ enum class HookKind : std::uint8_t {
 constexpr EnumOption<HookKind> kHookKinds[] = {
     {HookKind::Started, "started", ""},
     {HookKind::WallpaperChanged, "wallpaper_changed", ""},
+    {HookKind::LockscreenWallpaperChanged, "lockscreen_wallpaper_changed", ""},
     {HookKind::ColorsChanged, "colors_changed", ""},
     {HookKind::ThemeModeChanged, "theme_mode_changed", ""},
     {HookKind::SessionLocked, "session_locked", ""},

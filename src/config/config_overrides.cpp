@@ -2206,6 +2206,20 @@ void ConfigService::setWallpaperChangeCallback(ChangeCallback callback) {
   m_wallpaperChangeCallback = std::move(callback);
 }
 
+std::string ConfigService::getLockscreenWallpaperPath(const std::string& connectorName) const {
+  const std::string& custom = m_config.lockscreen.wallpaper;
+  if (!custom.empty()) {
+    return custom;
+  }
+  return getWallpaperPath(connectorName);
+}
+
+void ConfigService::setLockscreenWallpaperPath(const std::string& path) {
+  setOverride({"lockscreen", "wallpaper"}, path);
+}
+
+void ConfigService::clearLockscreenWallpaperPath() { clearOverride({"lockscreen", "wallpaper"}); }
+
 void ConfigService::setWallpaperPath(const std::optional<std::string>& connectorName, const std::string& path) {
   if (m_overridesPath.empty()) {
     return;

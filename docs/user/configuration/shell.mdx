@@ -430,7 +430,7 @@ monitors              = []        # connectors that show the lock screen; empty 
 | `blurred_desktop` | bool | `false` | Capture each output before lock and use it as the lock screen background. |
 | `blur_intensity` | float | `0.5` | Blur strength for the active lock screen background (`0.0`–`1.0`). |
 | `tint_intensity` | float | `0.3` | Surface-color tint over the active lock screen background (`0.0`–`1.0`). |
-| `wallpaper` | string | `""` | Optional image path for the lock screen. When empty, each output uses its desktop wallpaper. Ignored when desktop capture is active. |
+| `wallpaper` | string | `""` | Optional image path for the lock screen. When empty, each output uses its desktop wallpaper. Ignored when desktop capture is active. Also readable/settable over [IPC](/noctalia/ipc/media-and-ui/#lock-screen-wallpaper) and the [plugin API](/noctalia/plugins/development/runtime-api/), and changes fire the [`lockscreen_wallpaper_changed`](/noctalia/automation/hooks/) hook. |
 | `monitors` | array | `[]` | Connector names that show the lock screen. Empty shows it on all outputs; listed-only mode leaves other outputs black. |
 
 If capture fails (missing protocol, permission denied, etc.), the lock screen falls back to the normal per-output wallpaper. The snapshot lives in memory only until unlock. Blur and tint sliders can be adjusted live from Settings while the session is locked.
