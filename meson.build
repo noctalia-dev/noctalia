@@ -1157,6 +1157,7 @@ if build_tests
     'capsule_group_reconcile',
     'cli_help',
     'cli_parse',
+    'config_shadowed_override',
     'cli_schema',
     'clipboard_service',
     'clipboard_storage_permissions',
