@@ -73,6 +73,11 @@ public:
   using PointerEventCallback = std::function<void(const PointerEvent&)>;
   using KeyboardEventCallback = std::function<void(const KeyboardEvent&)>;
   using KeyboardFocusCallback = std::function<void(wl_surface* surface, bool entered)>;
+  // Fired once per keyboard focus gain, after the wl_keyboard.modifiers event that follows
+  // wl_keyboard.enter, with the modifier mask in effect and the keysyms of every key the
+  // compositor reports as still held on entry.
+  using KeyboardEnterCallback =
+      std::function<void(wl_surface* surface, std::uint32_t modifiers, const std::vector<std::uint32_t>& heldKeysyms)>;
   using LockKeysChangeCallback = std::function<void()>;
 
   void bind(wl_seat* seat);
@@ -80,6 +85,7 @@ public:
   void setPointerEventCallback(PointerEventCallback callback);
   void setKeyboardEventCallback(KeyboardEventCallback callback);
   void setKeyboardFocusCallback(KeyboardFocusCallback callback);
+  void setKeyboardEnterCallback(KeyboardEnterCallback callback);
   void setLockKeysChangeCallback(LockKeysChangeCallback callback);
   void setCursorShape(std::uint32_t serial, std::uint32_t shape);
   void forgetSurface(wl_surface* surface) noexcept;
@@ -206,7 +212,12 @@ private:
   xkb_compose_state* m_composeState = nullptr;
   KeyboardEventCallback m_keyboardEventCallback;
   KeyboardFocusCallback m_keyboardFocusCallback;
+  KeyboardEnterCallback m_keyboardEnterCallback;
   LockKeysChangeCallback m_lockKeysChangeCallback;
+  // Keys held at the last wl_keyboard.enter, reported through m_keyboardEnterCallback once
+  // the trailing modifiers event has updated the xkb state.
+  wl_surface* m_pendingEnterSurface = nullptr;
+  std::vector<std::uint32_t> m_pendingEnterKeycodes;
   LockKeysState m_lastLockKeysState;
 
   // Key repeat
