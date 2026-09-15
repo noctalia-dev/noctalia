@@ -17,6 +17,7 @@ class Label;
 class MprisService;
 class Renderer;
 class ProgressBar;
+class Button;
 struct MprisPlayerInfo;
 struct wl_output;
 
@@ -78,6 +79,9 @@ private:
   Glyph* m_emptyGlyph = nullptr;
   Label* m_label = nullptr;
   ProgressBar* m_progressBar = nullptr;
+  Button* m_previousButton = nullptr;
+  Button* m_playPauseButton = nullptr;
+  Button* m_nextButton = nullptr;
 
   std::string m_lastText;
   std::string m_lastArtUrl;
