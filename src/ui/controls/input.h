@@ -232,7 +232,7 @@ private:
   bool m_clearButtonEnabled = false;
   bool m_passwordMode = false;
   bool m_multiline = false;
-  bool m_lineEditing = false;
+  bool m_lineEditing = true;
   bool m_invalid = false;
   bool m_frameVisible = true;
   bool m_embeddedOnSolidPrimary = false;
