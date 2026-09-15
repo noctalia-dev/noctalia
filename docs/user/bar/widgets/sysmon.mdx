@@ -14,6 +14,7 @@ System resource monitor. Shows a configurable combination of a glyph, visualizat
 | `interface` | string | `""` | Network interface to monitor for `net_rx`/`net_tx`; empty uses the total across all non-loopback interfaces |
 | `network_speed_unit` | string | `"auto"` | Unit for `net_rx`/`net_tx`: `"auto"` (scales between B/s, kB/s, MB/s, GB/s), `"kb"` (always kB/s), or `"mb"` (always MB/s) |
 | `network_speed_compact` | bool | `false` | Use short unit suffixes such as `1.2M` instead of `1.2 MB/s` for `net_rx`/`net_tx` |
+| `network_speed_decimal_places` | int | `1` | Number of decimal places for compact `net_rx`/`net_tx` values, from `0` to `3` |
 | `visualization` | string | `"gauge"` | Data visualization: `"gauge"`, `"graph"`, or `"none"` |
 | `show_value` | bool | `true` | Show the current text value |
 | `label_show_units` | bool | `true` | Include units such as `%`, `GiB`, or `°C` in the text value |
@@ -57,8 +58,9 @@ stat      = "net_rx"
 interface = "wlan0"
 
 [widget.wifi-upload]
-type                  = "sysmon"
-stat                  = "net_tx"
-network_speed_unit    = "mb"      # auto | kb | mb
-network_speed_compact = true      # show "1.2M" instead of "1.2 MB/s"
+type                         = "sysmon"
+stat                         = "net_tx"
+network_speed_unit           = "mb" # auto | kb | mb
+network_speed_compact        = true # show "1.2M" instead of "1.2 MB/s"
+network_speed_decimal_places = 2    # show values such as "1.23M"
 ```

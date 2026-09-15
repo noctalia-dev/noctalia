@@ -1,5 +1,6 @@
 #include "system/format_units.h"
 
+#include <algorithm>
 #include <format>
 
 namespace FormatUnits {
@@ -13,10 +14,11 @@ namespace FormatUnits {
     constexpr double kBytesPerTb = 1000.0 * 1000.0 * 1000.0 * 1000.0;
 
     [[nodiscard]] std::string formatByteRateValue(
-        double value, std::string_view fullSuffix, std::string_view compactSuffix, ByteRateLabelStyle labelStyle
+        double value, std::string_view fullSuffix, std::string_view compactSuffix, ByteRateLabelStyle labelStyle,
+        int compactDecimalPlaces
     ) {
       if (labelStyle == ByteRateLabelStyle::Compact) {
-        return std::format("{:.1F}{}", value, compactSuffix);
+        return std::format("{:.{}F}{}", value, compactDecimalPlaces, compactSuffix);
       }
       return std::format("{:.1F} {}", value, fullSuffix);
     }
@@ -72,24 +74,29 @@ namespace FormatUnits {
     return DecimalByteRateUnit::Auto;
   }
 
-  std::string formatDecimalBytesPerSecond(double bytesPerSec, DecimalByteRateUnit unit, ByteRateLabelStyle labelStyle) {
+  std::string formatDecimalBytesPerSecond(
+      double bytesPerSec, DecimalByteRateUnit unit, ByteRateLabelStyle labelStyle, int compactDecimalPlaces
+  ) {
+    compactDecimalPlaces =
+        std::clamp(compactDecimalPlaces, kMinCompactByteRateDecimalPlaces, kMaxCompactByteRateDecimalPlaces);
+
     switch (unit) {
     case DecimalByteRateUnit::Kilobytes:
-      return formatByteRateValue(bytesPerSec / kBytesPerKb, "kB/s", "k", labelStyle);
+      return formatByteRateValue(bytesPerSec / kBytesPerKb, "kB/s", "k", labelStyle, compactDecimalPlaces);
     case DecimalByteRateUnit::Megabytes:
-      return formatByteRateValue(bytesPerSec / kBytesPerMb, "MB/s", "M", labelStyle);
+      return formatByteRateValue(bytesPerSec / kBytesPerMb, "MB/s", "M", labelStyle, compactDecimalPlaces);
     case DecimalByteRateUnit::Auto:
       break;
     }
 
     if (bytesPerSec >= kBytesPerGb) {
-      return formatByteRateValue(bytesPerSec / kBytesPerGb, "GB/s", "G", labelStyle);
+      return formatByteRateValue(bytesPerSec / kBytesPerGb, "GB/s", "G", labelStyle, compactDecimalPlaces);
     }
     if (bytesPerSec >= kBytesPerMb) {
-      return formatByteRateValue(bytesPerSec / kBytesPerMb, "MB/s", "M", labelStyle);
+      return formatByteRateValue(bytesPerSec / kBytesPerMb, "MB/s", "M", labelStyle, compactDecimalPlaces);
     }
     if (bytesPerSec >= kBytesPerKb) {
-      return formatByteRateValue(bytesPerSec / kBytesPerKb, "kB/s", "k", labelStyle);
+      return formatByteRateValue(bytesPerSec / kBytesPerKb, "kB/s", "k", labelStyle, compactDecimalPlaces);
     }
     return formatByteRateBytes(bytesPerSec, labelStyle);
   }
