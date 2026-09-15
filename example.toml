@@ -180,6 +180,8 @@ scale              = 1.0            # notification size multiplier applied on to
 background_opacity = 0.97
 offset_x           = 20             # absolute horizontal margin from the screen edge
 offset_y           = 8              # absolute vertical margin from the screen edge
+active_monitor_only = false          # show toasts only on the currently focused monitor
+# monitors = ["DP-1"]                # connector names; ignored when active_monitor_only is true
 # [notification.filter.rhythmbox]
 # enabled         = true
 # match           = "rhythmbox"
@@ -203,7 +205,8 @@ scale = 1.0                         # OSD size multiplier applied on top of acce
 background_opacity = 0.97           # background opacity of OSD popups
 offset_x = 20                       # absolute horizontal margin from the screen edge
 offset_y = 8                        # absolute vertical margin from the screen edge
-# monitors = ["DP-1"]               # connector names; omit or leave empty for all monitors
+active_monitor_only = false         # show popups only on the currently focused monitor
+# monitors = ["DP-1"]               # connector names; ignored when active_monitor_only is true
 
 [osd.kinds]
 volume = true                       # master volume OSD toggle

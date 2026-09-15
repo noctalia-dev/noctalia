@@ -3,6 +3,7 @@
 #include "wayland/wayland_connection.h"
 
 #include <string>
+#include <vector>
 
 namespace {
 
@@ -84,6 +85,28 @@ int main() {
   {
     const auto output = makeOutput("DP-7", "Acme UltraDisplay", "Acme", "UltraDisplay", "SN00004");
     TEST_CHECK(!outputMatchesSelector("", output));
+  }
+
+  // Focused-output mode overrides static selectors and selects exactly one output.
+  {
+    auto focused = makeOutput("DP-1", "Focused");
+    auto other = makeOutput("DP-2", "Other");
+    focused.output = reinterpret_cast<wl_output*>(1);
+    other.output = reinterpret_cast<wl_output*>(2);
+    const std::vector<std::string> selectors = {"DP-2"};
+    TEST_CHECK(outputMatchesMonitorSelection(focused, selectors, true, focused.output));
+    TEST_CHECK(!outputMatchesMonitorSelection(other, selectors, true, focused.output));
+    TEST_CHECK(outputMatchesMonitorSelection(other, selectors, true, nullptr));
+    TEST_CHECK(outputMatchesMonitorSelection(other, {}, true, nullptr));
+  }
+
+  // Static selection and empty-list behavior remain unchanged when focus following is disabled.
+  {
+    auto output = makeOutput("DP-2", "Other");
+    output.output = reinterpret_cast<wl_output*>(2);
+    TEST_CHECK(outputMatchesMonitorSelection(output, {"DP-2"}, false, nullptr));
+    TEST_CHECK(!outputMatchesMonitorSelection(output, {"DP-1"}, false, nullptr));
+    TEST_CHECK(outputMatchesMonitorSelection(output, {}, false, nullptr));
   }
 
   return 0;

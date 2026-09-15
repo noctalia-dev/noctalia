@@ -19,6 +19,7 @@
 #include <vector>
 
 struct WaylandOutput;
+struct wl_output;
 
 // Direction hidden accordion members unfold relative to the always-visible first member, along the
 // bar lane's main axis.
@@ -461,6 +462,10 @@ resolveWidgetFontScale(float barScale, const WidgetConfig* widget, std::string_v
 // Shared output selector matching used by monitor-scoped config and IPC selectors.
 // Matches connector name exactly, or a word-boundary token within output description.
 [[nodiscard]] bool outputMatchesSelector(const std::string& match, const WaylandOutput& output);
+[[nodiscard]] bool outputMatchesMonitorSelection(
+    const WaylandOutput& output, const std::vector<std::string>& selectors, bool activeMonitorOnly,
+    wl_output* activeOutput
+);
 
 enum class WallpaperFillMode : std::uint8_t {
   Center = 0,
@@ -736,6 +741,7 @@ struct OsdConfig {
   bool border = true; // outline around OSD popup cards
   int offsetX = 20;
   int offsetY = 8;
+  bool activeMonitorOnly = false;
   std::vector<std::string> monitors;
   OsdKindsConfig kinds;
 
@@ -753,6 +759,7 @@ struct NotificationConfig {
   bool border = true;              // outline around toast cards
   int offsetX = 20;                // absolute horizontal margin from the screen edge
   int offsetY = 8;                 // absolute vertical margin from the screen edge
+  bool activeMonitorOnly = false;  // render only on the preferred focused output
   std::vector<std::string> monitors;
   bool collapseOnDismiss = true;
   bool keepDismissedInHistory = true;

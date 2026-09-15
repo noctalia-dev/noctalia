@@ -642,3 +642,15 @@ bool outputMatchesSelector(const std::string& match, const WaylandOutput& output
   }
   return false;
 }
+
+bool outputMatchesMonitorSelection(
+    const WaylandOutput& output, const std::vector<std::string>& selectors, bool activeMonitorOnly,
+    wl_output* activeOutput
+) {
+  if (activeMonitorOnly && activeOutput != nullptr) {
+    return output.output == activeOutput;
+  }
+  return selectors.empty() || std::ranges::any_of(selectors, [&output](const std::string& selector) {
+           return outputMatchesSelector(selector, output);
+         });
+}
