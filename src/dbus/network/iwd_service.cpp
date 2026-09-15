@@ -24,6 +24,7 @@ namespace {
   const sdbus::ObjectPath kRootPath{"/"};
   constexpr auto kDeviceInterface = "net.connman.iwd.Device";
   constexpr auto kStationInterface = "net.connman.iwd.Station";
+  constexpr auto kStationDiagnosticInterface = "net.connman.iwd.StationDiagnostic";
   constexpr auto kNetworkInterface = "net.connman.iwd.Network";
   constexpr auto kKnownNetworkInterface = "net.connman.iwd.KnownNetwork";
   constexpr auto kObjectManagerInterface = "org.freedesktop.DBus.ObjectManager";
@@ -54,6 +55,48 @@ namespace {
   }
 
   std::uint8_t signalFromIwdStrength(std::int16_t centiDbm) { return signalToPercent(centiDbm / 100); }
+
+  std::optional<std::uint32_t> frequencyMhzProp(const VariantMap& props) {
+    const auto it = props.find("Frequency");
+    if (it == props.end()) {
+      return std::nullopt;
+    }
+    if (const auto u32 = variantGet<std::uint32_t>(it->second); u32.has_value() && *u32 > 0) {
+      return u32;
+    }
+    if (const auto u16 = variantGet<std::uint16_t>(it->second); u16.has_value() && *u16 > 0) {
+      return static_cast<std::uint32_t>(*u16);
+    }
+    if (const auto i32 = variantGet<std::int32_t>(it->second); i32.has_value() && *i32 > 0) {
+      return static_cast<std::uint32_t>(*i32);
+    }
+    return std::nullopt;
+  }
+
+  std::optional<std::int16_t> rssiDbmProp(const VariantMap& props) {
+    const auto it = props.find("RSSI");
+    if (it == props.end()) {
+      return std::nullopt;
+    }
+    if (const auto i16 = variantGet<std::int16_t>(it->second)) {
+      return i16;
+    }
+    if (const auto i32 = variantGet<std::int32_t>(it->second)) {
+      return static_cast<std::int16_t>(*i32);
+    }
+    return std::nullopt;
+  }
+
+  void applyStationDiagnostics(NetworkState& next, const VariantMap& diagnostics) {
+    if (const auto freq = frequencyMhzProp(diagnostics); freq.has_value()) {
+      next.frequencyMhz = *freq;
+    }
+    if (next.signalStrength == 0) {
+      if (const auto rssi = rssiDbmProp(diagnostics); rssi.has_value()) {
+        next.signalStrength = signalToPercent(*rssi);
+      }
+    }
+  }
 
   std::optional<std::string> stringProp(const VariantMap& props, std::string_view name) {
     const auto it = props.find(std::string{name});
@@ -270,6 +313,16 @@ void IwdService::refresh() {
       if (active) {
         next.ssid = ssid;
         next.signalStrength = std::max(next.signalStrength, strength);
+      }
+    }
+
+    if (connected) {
+      try {
+        VariantMap diagnostics;
+        stationProxy->callMethod("GetDiagnostics").onInterface(kStationDiagnosticInterface).storeResultsTo(diagnostics);
+        applyStationDiagnostics(next, diagnostics);
+      } catch (const sdbus::Error& e) {
+        kLog.debug("GetDiagnostics failed on {}: {}", std::string(stationPath), e.what());
       }
     }
   }
