@@ -538,6 +538,9 @@ struct LockscreenConfig {
   // Lock on PrepareForSleep (lid close / systemctl suspend) via logind sleep-delay inhibit.
   // Distinct from idle/session lock_and_suspend actions.
   bool lockBeforeSuspend = true;
+  // Allow passwordless unlock for this many seconds after locking on any keypress
+  // or mouse movement beyond 5px (0 disables the grace period).
+  int gracePeriodSeconds = 5;
   bool fingerprint = true;
   bool allowEmptyPassword = false;
   bool blurredDesktop = false;
