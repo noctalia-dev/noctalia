@@ -532,6 +532,18 @@ std::vector<ControlCenterPanel::TabCatalogEntry> ControlCenterPanel::hideableTab
   return out;
 }
 
+std::vector<ControlCenterPanel::LauncherTabEntry> ControlCenterPanel::visibleTabsForLauncher() const {
+  std::vector<LauncherTabEntry> out;
+  out.reserve(kTabCount - 1);
+  for (const auto& meta : kTabs) {
+    if (meta.id == TabId::Home || !isTabVisible(meta.id)) {
+      continue;
+    }
+    out.push_back({.key = meta.key, .titleKey = meta.titleKey, .glyph = meta.glyph});
+  }
+  return out;
+}
+
 std::string_view ControlCenterPanel::tabKey(TabId tab) {
   for (const auto& meta : kTabs) {
     if (meta.id == tab) {

@@ -1361,6 +1361,13 @@ namespace noctalia::config::schema {
       return s;
     }
 
+    const Schema<ShellConfig::LauncherConfig::PanelsConfig>& shellLauncherPanelsSchema() {
+      static const Schema<ShellConfig::LauncherConfig::PanelsConfig> s = {
+          field(&ShellConfig::LauncherConfig::PanelsConfig::ignored, "ignored"),
+      };
+      return s;
+    }
+
     const Schema<ShellConfig::LauncherConfig>& shellLauncherSchema() {
       static const Schema<ShellConfig::LauncherConfig> s = {
           field(&ShellConfig::LauncherConfig::categories, "categories"),
@@ -1375,6 +1382,7 @@ namespace noctalia::config::schema {
           field(&ShellConfig::LauncherConfig::providerPrefix, "provider_prefix"),
           enumField(&ShellConfig::LauncherConfig::autoPaste, "auto_paste", kClipboardAutoPasteModes),
           subTable(&ShellConfig::LauncherConfig::dmenu, "dmenu", shellLauncherDmenuSchema()),
+          subTable(&ShellConfig::LauncherConfig::panels, "panels", shellLauncherPanelsSchema()),
           namedMap<ShellConfig::LauncherConfig, LauncherProviderConfig>(
               &ShellConfig::LauncherConfig::providers, "providers", launcherProviderSchema(),
               [](LauncherProviderConfig& elem, std::string_view name) {

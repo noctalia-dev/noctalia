@@ -770,6 +770,20 @@
       "emoji": {
         "title": "Emoji"
       },
+      "panel": {
+        "builtin": {
+          "clipboard": "Clipboard",
+          "control-center": "Control Center",
+          "launcher": "Launcher",
+          "polkit": "Authentication Prompt",
+          "session": "Session",
+          "setup-wizard": "Setup Wizard",
+          "test": "Test Panel",
+          "tray-drawer": "Tray Drawer",
+          "wallpaper": "Wallpaper"
+        },
+        "title": "Panels"
+      },
       "session": {
         "action-subtitle": "Run session action",
         "command-subtitle": "Run configured command",
@@ -2481,6 +2495,10 @@
           "description": "Also show emoji results in unprefixed search",
           "label": "Emoji in Global Search"
         },
+        "launcher-global-panels": {
+          "description": "Also show panels in unprefixed search",
+          "label": "Panels in Global Search"
+        },
         "launcher-global-session": {
           "description": "Also show session actions in unprefixed search",
           "label": "Session in Global Search"
@@ -2492,6 +2510,10 @@
         "launcher-global-windows": {
           "description": "Also show open windows in unprefixed search",
           "label": "Windows in Global Search"
+        },
+        "launcher-ignored-panels": {
+          "description": "Panels the panel provider never lists (e.g. authentication prompts, the setup wizard)",
+          "label": "Panels Ignored"
         },
         "launcher-pinned-apps": {
           "description": "Desktop entry IDs of apps pinned to the launcher; they appear first when the launcher opens",
@@ -2508,6 +2530,10 @@
         "launcher-prefix-emoji": {
           "description": "Trigger prefix for emoji search",
           "label": "Emoji Prefix"
+        },
+        "launcher-prefix-panels": {
+          "description": "Trigger prefix for panel search",
+          "label": "Panels Prefix"
         },
         "launcher-prefix-session": {
           "description": "Trigger prefix for session power actions",

@@ -8,10 +8,9 @@
 #include <vector>
 
 namespace launcher {
-  inline constexpr std::array kBuiltinProviders = {
-      std::string_view("calculator"), std::string_view("emoji"), std::string_view("session"),
-      std::string_view("wallpaper"), std::string_view("windows")
-  };
+  inline constexpr std::array kBuiltinProviders = {std::string_view("calculator"), std::string_view("emoji"),
+                                                   std::string_view("panels"),     std::string_view("session"),
+                                                   std::string_view("wallpaper"),  std::string_view("windows")};
 } // namespace launcher
 
 struct LauncherCategory {

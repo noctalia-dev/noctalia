@@ -2813,6 +2813,16 @@ void PanelManager::prepareFrame(bool needsUpdate, bool needsLayout) {
   }
 }
 
+std::vector<std::string> PanelManager::availablePanelIds() const {
+  std::vector<std::string> ids;
+  ids.reserve(m_panels.size());
+  for (const auto& entry : m_panels) {
+    ids.push_back(entry.first);
+  }
+  m_persistentHost.appendPanelIds(ids);
+  return ids;
+}
+
 void PanelManager::registerIpc(IpcService& ipc) {
   auto parseOpenArgs = [](std::string_view rawArgs, std::string_view command, std::string& panelId,
                           std::string& context) -> std::optional<std::string> {
@@ -2836,12 +2846,7 @@ void PanelManager::registerIpc(IpcService& ipc) {
   };
 
   auto unknownPanelError = [this](std::string_view panelId) -> std::string {
-    std::vector<std::string> ids;
-    ids.reserve(m_panels.size());
-    for (const auto& entry : m_panels) {
-      ids.push_back(entry.first);
-    }
-    m_persistentHost.appendPanelIds(ids);
+    std::vector<std::string> ids = availablePanelIds();
     std::ranges::sort(ids);
 
     std::string error = "error: unknown panel \"" + std::string(panelId) + "\"";

@@ -68,7 +68,9 @@ Use these context IDs with `noctalia msg panel-toggle control-center <context>` 
 
 `weather`, `system`, and `screen-time` open only when their corresponding services are enabled; `power` opens only when UPower or `power-profiles-daemon` is available. Otherwise Noctalia falls back to the first visible tab.
 
-Any tab except Home can also be hidden manually with [`hidden_tabs`](#sidebar) (use the context ID, e.g. `"monitor"` for the brightness tab). Hidden tabs drop from both the sidebar and keyboard navigation.
+Any tab except Home can also be hidden manually with [`hidden_tabs`](#sidebar) (use the context ID, e.g. `"monitor"` for the brightness tab). Hidden tabs drop from both the sidebar and keyboard navigation, and from the launcher's [Panels provider](/noctalia/launcher/#panels).
+
+Every tab that isn't hidden also gets its own row in the launcher's [Panels provider](/noctalia/launcher/#panels) (`/pan`), so you can jump straight to, say, Bluetooth without landing on whichever tab Control Center last had open.
 
 ## Home
 

@@ -115,6 +115,12 @@ global = true            # also show calculator results in un-prefixed search
 [shell.launcher.providers.emoji]
 prefix = "emo"           # trigger word (triggers on provider_prefix + trigger, e.g. "/emo")
 
+[shell.launcher.providers.panels]
+prefix = "pan"           # trigger word for panel search (e.g. "/pan")
+
+[shell.launcher.panels]
+ignored = ["polkit", "setup-wizard", "test", "launcher"]  # panel ids the panels provider never lists (default shown)
+
 [shell.launcher.providers.session]
 prefix = "session"       # trigger word for session actions (e.g. "/session")
 global = false           # set true to also include session actions in un-prefixed search
@@ -251,8 +257,9 @@ Notes:
 - `shell.launcher.auto_paste` controls virtual-keyboard paste after copy-style activations (calculator, emoji, copy-mode dmenu). Providers that copy opt in with `supportsAutoPaste`. Same values as `shell.clipboard_auto_paste` (`off` | `auto` | `ctrl_v` | `ctrl_shift_v` | `shift_insert`). Default `auto`.
 - Reset stored launcher usage data from **Settings → Panels → Launcher → Reset Usage Data** (clears `usage_counts.json` and `recently_used.json` while Noctalia is running).
 - `shell.launcher.provider_prefix` sets the common prefix character used to trigger all provider prefixes (default `"/"`). See [Launcher: Provider prefixes](/noctalia/launcher/#provider-prefixes) for how prefixes, trigger words, and global search fit together.
-- `shell.launcher.providers.<name>.prefix` sets the trigger word for a specific built-in provider (`calculator`, `emoji`, `session`, `wallpaper`, `windows`; keys are matched case-insensitively). The provider is activated when typing the `provider_prefix` followed by this trigger word (e.g. `/calc`, `/session`, or `/emo`). Setting the prefix to an empty string (`""`) falls back to the provider's built-in default trigger; it does **not** make the provider global. The Applications provider cannot be prefixed and is always queryable globally.
+- `shell.launcher.providers.<name>.prefix` sets the trigger word for a specific built-in provider (`calculator`, `emoji`, `panels`, `session`, `wallpaper`, `windows`; keys are matched case-insensitively). The provider is activated when typing the `provider_prefix` followed by this trigger word (e.g. `/calc`, `/session`, or `/emo`). Setting the prefix to an empty string (`""`) falls back to the provider's built-in default trigger; it does **not** make the provider global. The Applications provider cannot be prefixed and is always queryable globally.
 - `shell.launcher.providers.<name>.global` includes a prefixed provider in the un-prefixed (global) search in addition to its prefix. Unset keeps the provider's built-in default (`true` for `calculator`, `false` for the others). This replaces the removed `session_search` option.
+- `shell.launcher.panels.ignored` excludes specific panel ids from the Panels provider's results. Defaults to `["polkit", "setup-wizard", "test", "launcher"]` - panels that aren't meant to be opened on demand, or (for `launcher`) redundant to toggle from within the launcher itself. Setting it replaces the default outright, like every other list config. Editable under **Settings → Panels → Launcher → Providers**, which offers a picker of every panel id not already ignored.
 - `shell.launcher.dmenu.entry.<id>` defines a dmenu-style provider. Each entry runs `command` (a shell string via `/bin/sh -lc`) once per launcher session and presents its stdout lines as candidates; a tab in a line splits it into title and description. `prefix` sets the entry's trigger word, combined with `provider_prefix` like the built-in providers (e.g. `ssh` triggers on `/ssh`); write it bare, without the prefix character. With no prefix, set `global = true` or the entry is unreachable. On activate, `exec` runs detached with `{selection}` substituted by the chosen line - when `exec` is omitted the line is copied to the clipboard instead. Entries hot-reload with the config.
 - `shell.launcher.providers."<pluginId>:<entry>"` overrides a plugin launcher provider's `prefix` and/or `global` without editing the plugin. Key the table by the plugin's fully-qualified entry id (e.g. `"author/my-plugin:search"`); the referenced plugin must be enabled. When unset, each field falls back to the value declared in the plugin's `[[launcher_provider]]` manifest entry. Unknown provider names, disabled plugins, and two providers resolving to the same prefix are reported as config warnings.
 - `shell.mpris.blacklist` excludes matching MPRIS players from Noctalia media UI and active-player selection. Entries are case-insensitive and match player bus name, identity, desktop entry, or a bus-name substring token (for example `"spotify"`).

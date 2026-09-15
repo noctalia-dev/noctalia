@@ -98,6 +98,8 @@ public:
   // Drops a previously registered panel, closing it first if it is open. Used to
   // retire plugin-backed panels on a plugin enable/disable/reload.
   void unregisterPanel(const std::string& id);
+  // Every currently registered panel id (regular and persistent), unsorted.
+  [[nodiscard]] std::vector<std::string> availablePanelIds() const;
 
   void openPanel(const std::string& panelId, PanelOpenRequest request = {});
   void closePanel(bool animateClose = true);
