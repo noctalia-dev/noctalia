@@ -23,6 +23,7 @@ struct wl_output;
 class ConfigService;
 
 class CompositorPlatform;
+class FaceAuthenticator;
 class FingerprintAuthenticator;
 class HttpClient;
 class LockSurface;
@@ -120,6 +121,10 @@ private:
   void startFingerprint();
   void stopFingerprint();
   void handleFingerprintStatus(const std::string& message, bool isError);
+  void startFaceAuth();
+  void stopFaceAuth();
+  void restartFaceAuthIfExhausted();
+  void handleFaceAuthStatus(const std::string& message, bool isError);
   static void clearSensitiveString(std::string& value);
 
   WaylandConnection* m_wayland = nullptr;
@@ -133,12 +138,14 @@ private:
   std::unordered_map<wl_output*, ScreencopyImage> m_desktopCaptures;
   PamAuthenticator m_authenticator;
   std::unique_ptr<FingerprintAuthenticator> m_fingerprint;
+  std::unique_ptr<FaceAuthenticator> m_faceAuth;
   std::string m_user;
   std::string m_password;
   std::string m_status;
   wl_surface* m_pointerSurface = nullptr;
   bool m_statusIsError = false;
   bool m_authenticating = false;
+  bool m_faceVerified = false;
   std::uint64_t m_authGeneration = 0;
   bool m_lockPending = false;
   bool m_locked = false;
