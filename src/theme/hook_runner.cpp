@@ -13,16 +13,37 @@ namespace noctalia::theme {
     constexpr std::size_t kMaxHookOutputBytes = 8 * 1024;
   } // namespace
 
-  HookRunner::HookRunner(std::size_t maxConcurrent) : m_state(std::make_shared<State>()) {
+  HookRunner::HookRunner(
+      std::size_t maxConcurrent, std::chrono::milliseconds shutdownGrace,
+      std::shared_ptr<std::atomic<bool>> shutdownCancel
+  )
+      : m_state(std::make_shared<State>()) {
     m_state->maxConcurrent = maxConcurrent > 0 ? maxConcurrent : kDefaultMaxConcurrent;
+    m_state->shutdownGrace = shutdownGrace;
+    if (shutdownCancel) {
+      m_state->cancel = std::move(shutdownCancel);
+    }
   }
 
   HookRunner::~HookRunner() {
     requestShutdown();
     std::unique_lock lock(m_state->mutex);
-    // Hooks that already started own the shared state; wait them out instead of
-    // killing a command halfway through rewriting an application's config.
-    m_state->idleCv.wait(lock, [this]() { return m_state->running == 0; });
+    // Hooks that already started own the shared state; wait them out so a command
+    // rewriting an application's config is not killed halfway. But a hook that never
+    // exits must not hold shutdown forever: after a grace period, terminate the
+    // process group of everything still running and then wait for the reap.
+    const bool drained =
+        m_state->idleCv.wait_for(lock, m_state->shutdownGrace, [this]() { return m_state->running == 0; });
+    if (!drained) {
+      // An owner sharing the flag may have raised it already and logged the reason.
+      if (!m_state->cancel->exchange(true)) {
+        kLog.warn(
+            "a template hook is still running after {}s; terminating it",
+            std::chrono::duration_cast<std::chrono::duration<double>>(m_state->shutdownGrace).count()
+        );
+      }
+      m_state->idleCv.wait(lock, [this]() { return m_state->running == 0; });
+    }
   }
 
   void HookRunner::requestShutdown() {
@@ -118,6 +139,8 @@ namespace noctalia::theme {
 
     process::RunOptions options;
     options.maxOutputBytes = kMaxHookOutputBytes;
+    // Let the destructor's grace-period cancel reach an already-running hook.
+    options.cancel = state->cancel;
     if (process::runAsync(command, std::move(callbacks), options)) {
       return true;
     }

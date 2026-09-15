@@ -1623,11 +1623,15 @@ namespace noctalia::theme {
       renderOptions.configDir = configPath.has_parent_path() ? configPath.parent_path().string() : "";
       renderOptions.configFile = configPath.string();
 
+      // Dynamic path commands are user commands too, so the shutdown flag bounds them like hooks.
+      process::RunOptions pathCommandOptions;
+      pathCommandOptions.cancel = renderOptions.hookCancel;
+
       std::string effectiveInput = entry.inputPath;
       if (!entry.inputPathDynamic.empty()) {
         const auto cmdRendered = EngineImpl(m_themeData, renderOptions).render(entry.inputPathDynamic);
         if (cmdRendered.errorCount == 0 && !cmdRendered.text.empty()) {
-          const auto dynResult = process::runSync(cmdRendered.text);
+          const auto dynResult = process::runSync(cmdRendered.text, pathCommandOptions);
           if (dynResult.exitCode == 0) {
             std::vector<std::string> dynamicInputs;
             appendPathsFromDynamicStdout(configPath, dynamicInputs, dynResult.out);
@@ -1642,7 +1646,7 @@ namespace noctalia::theme {
       if (!entry.outputPathDynamic.empty()) {
         const auto cmdRendered = EngineImpl(m_themeData, renderOptions).render(entry.outputPathDynamic);
         if (cmdRendered.errorCount == 0 && !cmdRendered.text.empty()) {
-          const auto dynResult = process::runSync(cmdRendered.text);
+          const auto dynResult = process::runSync(cmdRendered.text, pathCommandOptions);
           if (dynResult.exitCode == 0) {
             appendPathsFromDynamicStdout(configPath, effectiveOutputs, dynResult.out);
           }
@@ -1662,7 +1666,12 @@ namespace noctalia::theme {
         if (async && renderOptions.hookRunner != nullptr) {
           renderOptions.hookRunner->enqueue(hookRendered.text, renderOptions.generation);
         } else {
-          [[maybe_unused]] const bool hookOk = process::runSync(hookRendered.text);
+          // A started hook is allowed to finish (a supersede waits it out; killing
+          // mid-write could corrupt an app's config). Only the shutdown flag, raised
+          // after the caller's grace period, terminates its process group.
+          process::RunOptions opts;
+          opts.cancel = renderOptions.hookCancel;
+          [[maybe_unused]] const bool hookOk = process::runSync(hookRendered.text, opts);
         }
       };
 
