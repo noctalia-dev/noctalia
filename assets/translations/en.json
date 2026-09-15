@@ -990,6 +990,8 @@
     "calendar-accounts": {
       "add-title": "Add Calendar Account",
       "calendars-label": "Calendars",
+      "client-cert-label": "Client Certificate (PEM)",
+      "client-key-label": "Client Key (PEM)",
       "color-label": "Color",
       "credential-source-file": "Password file",
       "credential-source-keyring": "Keyring",
@@ -999,6 +1001,7 @@
       "ics-url-label": "ICS URL",
       "id-label": "Account ID",
       "invalid": "Check the highlighted calendar account fields.",
+      "key-password-label": "Key Passphrase File",
       "name-label": "Display Name",
       "name-placeholder": "Personal Calendar",
       "password-file-error": "Could not read the configured password file. Check that it exists, is a readable regular file, and contains a password.",
@@ -2669,6 +2672,7 @@
           "button-reconnect": "Reconnect",
           "button-retry": "Retry",
           "description": "Update this calendar account",
+          "description-disabled": "Disabled — this account no longer syncs; restore it by removing the enabled override",
           "description-locked": "The refresh token is in a locked keyring; unlock the keyring and retry",
           "description-reconnect": "Google authorization is missing; reconnect this account"
         },

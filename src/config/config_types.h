@@ -1169,8 +1169,13 @@ struct CalendarConfig {
     std::string username;               // CalDAV login (caldav only)
     std::vector<std::string> calendars; // discovered collection ids; empty = all
     CalendarCredentialSource credentialSource = CalendarCredentialSource::SecretService; // CalDAV only
-    std::string passwordFile; // required for file-backed CalDAV credentials
-    std::string path;         // directory path for vdir/local accounts
+    std::string passwordFile;    // required for file-backed CalDAV credentials
+    std::string clientCertFile;  // optional mTLS client certificate, PEM (caldav only)
+    std::string clientKeyFile;   // optional mTLS client key, PEM (caldav only)
+    std::string keyPasswordFile; // optional passphrase for clientKeyFile (caldav only)
+    std::string path;            // directory path for vdir/local accounts
+    bool enabled = true;         // false removes the account from sync; lets the UI "delete" a
+                                 // hand-authored config-file account (the UI never edits config files)
 
     bool operator==(const Account&) const = default;
   };
