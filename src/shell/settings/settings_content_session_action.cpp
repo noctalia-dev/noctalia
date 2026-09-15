@@ -302,6 +302,29 @@ namespace settings {
     variantBlock->addChild(std::move(variantSelect));
     fields->addChild(std::move(variantBlock));
 
+    auto hideOnLockScreenBlock = ui::row(
+        {.align = FlexAlign::Center, .gap = Style::spaceXs * scale, .flexGrow = 1.0F},
+        makeLabel(
+            i18n::tr("settings.session-actions.hide-on-lock-screen-label"), Style::fontSizeCaption * scale,
+            colorSpecFromRole(ColorRole::OnSurfaceVariant), FontWeight::Normal
+        )
+    );
+
+    auto hideOnLockScreenToggle = ui::toggle({
+        .checked = row.hideOnLockScreen,
+        .scale = scale,
+        .onChange = [&row, variantOptions, persist](bool value) {
+          row.hideOnLockScreen = value;
+          persist();
+        },
+    });
+
+    hideOnLockScreenBlock->addChild(std::move(hideOnLockScreenToggle));
+
+    if (row.action != "lock" && row.action != "lock_and_suspend") {
+      fields->addChild(std::move(hideOnLockScreenBlock));
+    }
+
     auto shortcutBlock = ui::row(
         {.align = FlexAlign::Center, .gap = Style::spaceXs * scale, .flexGrow = 1.0F},
         makeLabel(
