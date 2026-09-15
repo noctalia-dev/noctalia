@@ -833,6 +833,7 @@ void ScreenshotService::captureFullscreen(const OutputOptions& options, wl_outpu
     notifyError("No outputs available");
     return;
   }
+  m_soundPlayer->play("screen-capture");
   captureOutput(output, std::nullopt, "screenshot", options);
 }
 
@@ -962,6 +963,7 @@ void ScreenshotService::ensureRegionOverlay() {
           if (m_regionOutputOptions.freezeScreen && m_regionOverlay != nullptr) {
             m_frozenScreenshots = m_regionOverlay->takeFrozenScreenshots();
           }
+          m_soundPlayer->play("screen-capture");
           completeFullscreenSelection(output, m_regionOutputOptions);
           m_regionFullscreenPick = false;
           return;
@@ -988,9 +990,11 @@ void ScreenshotService::ensureRegionOverlay() {
           m_frozenScreenshots = m_regionOverlay->takeFrozenScreenshots();
         }
         if (options.freezeScreen && !m_frozenScreenshots.empty()) {
+          m_soundPlayer->play("screen-capture");
           deliverFrozenGlobalRegion(*region, options);
           return;
         }
+        m_soundPlayer->play("screen-capture");
         captureGlobalRegion(*region, options);
       }
   );
@@ -1860,3 +1864,5 @@ void ScreenshotService::notifySaved(const std::filesystem::path& path) {
 void ScreenshotService::notifyError(const std::string& message) {
   m_notifications.addInternal("Noctalia", "Screenshot failed", message, Urgency::Critical);
 }
+
+void ScreenshotService::setSoundPlayer(std::shared_ptr<SoundPlayer> soundPlayer) { m_soundPlayer = soundPlayer; }

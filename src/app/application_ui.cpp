@@ -821,6 +821,7 @@ void Application::initNotificationAndOsd() {
   );
   m_audioOsd.bindOverlay(m_osdOverlay);
   m_audioOsd.setSoundPlayer(m_soundPlayer.get());
+  m_screenshotService.setSoundPlayer(m_soundPlayer);
   if (m_pipewireService != nullptr) {
     m_audioOsd.primeFromService(*m_pipewireService);
   }
