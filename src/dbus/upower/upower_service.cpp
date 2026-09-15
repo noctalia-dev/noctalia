@@ -48,6 +48,22 @@ std::string batteryStateLabel(BatteryState state) {
   }
 }
 
+std::optional<bool> batteryStatePlugged(BatteryState state) {
+  switch (state) {
+  case BatteryState::Charging:
+  case BatteryState::FullyCharged:
+  case BatteryState::PendingCharge:
+    return true;
+  case BatteryState::Discharging:
+  case BatteryState::PendingDischarge:
+    return false;
+  case BatteryState::Unknown:
+  case BatteryState::Empty:
+    return std::nullopt;
+  }
+  return std::nullopt;
+}
+
 const char* batteryGlyphName(double percentage, BatteryState state) {
   if (state == BatteryState::Charging) {
     return "battery-charging";

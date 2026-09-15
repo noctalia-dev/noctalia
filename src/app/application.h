@@ -290,6 +290,7 @@ private:
   bool m_notificationDaemonInitFailed = false;
   bool m_notificationShellRefreshScheduled = false;
   BatteryHookState m_batteryHookState;
+  std::optional<bool> m_prevBatteryPluggedForHooks;
   BatteryWarningMonitor m_batteryWarningMonitor;
   std::optional<bool> m_prevWirelessEnabledForEvents;
   std::optional<bool> m_prevBluetoothPoweredForEvents;
