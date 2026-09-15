@@ -29,7 +29,10 @@ namespace {
   void collectFlat(const std::filesystem::path& dir, std::vector<WallpaperEntry>& out) {
     std::error_code ec;
     for (auto it = std::filesystem::recursive_directory_iterator(
-             dir, std::filesystem::directory_options::skip_permission_denied, ec
+             dir,
+             std::filesystem::directory_options::skip_permission_denied
+                 | std::filesystem::directory_options::follow_directory_symlink,
+             ec
          );
          !ec && it != std::filesystem::end(it); it.increment(ec)) {
       if (ec) {
