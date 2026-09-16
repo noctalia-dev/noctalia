@@ -1660,7 +1660,8 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
 
       const auto surfaceFill = colorSpecFromRole(ColorRole::SurfaceContainer, focusedWorkspace ? 0.52F : 0.18F);
 
-      const auto borderColor = colorSpecFromRole(ColorRole::Primary, focusedWorkspace ? 0.65F : 0.16F);
+      const auto borderColor = focusedWorkspace ? m_configOptions.workspaceGroupActiveBorder
+                                                : m_configOptions.workspaceGroupInactiveBorder;
 
       const float crossSize = std::round(tileSize + groupPad * 2.0F);
 
