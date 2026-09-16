@@ -1166,6 +1166,11 @@ namespace settings {
               .defaultValue = true,
           }
       );
+      // Generic bar-widget settings (scale, color, anchor, capsule_*, gestures, ...) are applied to
+      // plugin widgets at runtime too, so keep this schema in sync with widgetSettingSpecs().
+      for (const auto& spec : commonWidgetSettingSpecs("sans-serif", false)) {
+        out.push_back(spec.schema);
+      }
       return out;
     }
     if (auto fields = typedWidgetSettingSchema(type)) {

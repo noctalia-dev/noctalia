@@ -1252,6 +1252,7 @@ if build_tests
     'webp_decoder',
     'widget_action',
     'widget_definition',
+    'widget_settings_schema',
     'workspace_alert_service',
   ]
 
