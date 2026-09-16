@@ -274,6 +274,67 @@ int main() {
   TEST_CHECK(kdeResolved.name == "Easy Effects");
   TEST_CHECK(kdeResolved.icon == "easyeffects");
 
+  DesktopEntry braveFlatpak;
+  braveFlatpak.id = "com.brave.Browser";
+  braveFlatpak.origin = DesktopEntryOrigin::Flatpak;
+  braveFlatpak.name = "Brave";
+  braveFlatpak.nameLower = "brave";
+  braveFlatpak.startupWmClass = "brave-browser";
+  braveFlatpak.startupWmClassLower = "brave-browser";
+  braveFlatpak.exec = "flatpak run com.brave.Browser";
+  braveFlatpak.icon = "com.brave.Browser";
+
+  DesktopEntry braveDistro;
+  braveDistro.id = "brave-browser";
+  braveDistro.origin = DesktopEntryOrigin::System;
+  braveDistro.name = "Brave";
+  braveDistro.nameLower = "brave";
+  braveDistro.startupWmClass = "brave-browser";
+  braveDistro.startupWmClassLower = "brave-browser";
+  braveDistro.exec = "/usr/bin/brave-browser";
+  braveDistro.icon = "brave-browser";
+
+  const std::vector<DesktopEntry> braveOrigins = {braveFlatpak, braveDistro};
+  const auto pinnedFlatpakSteals =
+      app_identity::findDesktopEntry("brave-browser", braveOrigins, std::array<DesktopEntry, 1>{braveFlatpak});
+  TEST_CHECK(pinnedFlatpakSteals.has_value());
+  TEST_CHECK(pinnedFlatpakSteals->id == "brave-browser");
+  TEST_CHECK(pinnedFlatpakSteals->origin == DesktopEntryOrigin::System);
+
+  const auto pinnedDistroKeeps =
+      app_identity::findDesktopEntry("brave-browser", braveOrigins, std::array<DesktopEntry, 1>{braveDistro});
+  TEST_CHECK(pinnedDistroKeeps.has_value());
+  TEST_CHECK(pinnedDistroKeeps->id == "brave-browser");
+
+  const auto pinnedFlatpakOwnId =
+      app_identity::findDesktopEntry("com.brave.Browser", braveOrigins, std::array<DesktopEntry, 1>{braveFlatpak});
+  TEST_CHECK(pinnedFlatpakOwnId.has_value());
+  TEST_CHECK(pinnedFlatpakOwnId->id == "com.brave.Browser");
+
+  const auto braveRunning = app_identity::resolveRunningApps(
+      std::array<std::string, 1>{"brave-browser"}, braveOrigins, std::array<DesktopEntry, 1>{braveFlatpak}
+  );
+  TEST_CHECK(braveRunning.size() == 1);
+  TEST_CHECK(braveRunning[0].entry.id == "brave-browser");
+
+  const auto braveBothRunning = app_identity::resolveRunningApps(
+      std::array<std::string, 2>{"brave-browser", "com.brave.Browser"}, braveOrigins,
+      std::array<DesktopEntry, 1>{braveFlatpak}
+  );
+  TEST_CHECK(braveBothRunning.size() == 2);
+  TEST_CHECK(braveBothRunning[0].entry.id == "brave-browser");
+  TEST_CHECK(braveBothRunning[1].entry.id == "com.brave.Browser");
+
+  TEST_CHECK(app_identity::startupWmClassShared(braveFlatpak, braveOrigins));
+  TEST_CHECK(app_identity::startupWmClassShared(braveDistro, braveOrigins));
+  TEST_CHECK(!app_identity::startupWmClassShared(easyEffects, std::array<DesktopEntry, 1>{easyEffects}));
+
+  const auto easyEffectsPinned = app_identity::findDesktopEntry(
+      "org.kde.easyeffects", std::array<DesktopEntry, 1>{easyEffects}, std::array<DesktopEntry, 1>{easyEffects}
+  );
+  TEST_CHECK(easyEffectsPinned.has_value());
+  TEST_CHECK(easyEffectsPinned->id == "com.github.wwmm.easyeffects");
+
   const std::vector<DesktopEntry> ambiguousTail = {
       duplicateTailEntry("com.foo.easyeffects", "foo-easyeffects"),
       duplicateTailEntry("com.bar.easyeffects", "bar-easyeffects"),
