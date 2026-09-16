@@ -1620,7 +1620,35 @@ void Application::initSessionBusServices() {
 
   m_locationService.initialize();
   m_weatherService.initialize();
+
+  // Mirror the calendar snapshot into the script API so plugins can read it through
+  // noctalia.calendarEvents(). Same pattern as the clipboard text mirror: converted once per sync on
+  // the main thread, then read race-free from plugin states. Registered before initialize() so the
+  // first sync is not missed.
+  auto pushCalendar = [this]() {
+    const CalendarSnapshot& snapshot = m_calendarService.snapshot();
+    std::vector<scripting::ScriptCalendarEvent> events;
+    events.reserve(snapshot.events.size());
+    for (const CalendarEvent& event : snapshot.events) {
+      events.push_back(
+          scripting::ScriptCalendarEvent{
+              .id = event.id,
+              .title = event.title,
+              .calendarName = event.calendarName,
+              .colorHex = event.colorHex,
+              .location = event.location,
+              .url = event.url,
+              .startMs = std::chrono::duration<double, std::milli>(event.start.time_since_epoch()).count(),
+              .endMs = std::chrono::duration<double, std::milli>(event.end.time_since_epoch()).count(),
+              .allDay = event.allDay,
+          }
+      );
+    }
+    m_scriptApi.setCalendarEvents(snapshot.valid, std::move(events));
+  };
+  (void)m_calendarService.addChangeCallback(pushCalendar);
   m_calendarService.initialize();
+  pushCalendar();
 
   // LocationService is the single source of "where am I": push its resolved coordinates to the
   // weather service, night light, and theme auto mode. Manual latitude/longitude and fixed
