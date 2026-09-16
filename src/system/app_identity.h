@@ -23,6 +23,9 @@ namespace app_identity {
 
   [[nodiscard]] bool desktopEntryMatchesLower(const DesktopEntry& entry, std::string_view valueLower);
 
+  // Last reverse-DNS segment of an app id / desktop-entry id: "org.keepassxc.KeePassXC" -> "KeePassXC".
+  [[nodiscard]] std::string_view appIdTail(std::string_view appKey);
+
   // Best-effort lookup by app id / StartupWMClass. Operates on the parsed desktop-entry list,
   // which already excludes hidden/NoDisplay/wrong-desktop entries.
   [[nodiscard]] std::optional<DesktopEntry> findDesktopEntry(

@@ -29,17 +29,6 @@ namespace app_identity {
       return valueKey == identityKey(candidate);
     }
 
-    std::string_view appIdTail(std::string_view appKey) {
-      std::string_view tail = appKey;
-      if (const auto slash = tail.find_last_of('/'); slash != std::string_view::npos && slash + 1 < tail.size()) {
-        tail = tail.substr(slash + 1);
-      }
-      if (const auto dot = tail.find_last_of('.'); dot != std::string_view::npos && dot + 1 < tail.size()) {
-        tail = tail.substr(dot + 1);
-      }
-      return tail;
-    }
-
     std::optional<DesktopEntry>
     findDesktopEntryByIdTail(std::string_view appKey, std::span<const DesktopEntry> allEntries) {
       const std::string appLower = StringUtils::toLower(std::string(appKey));
@@ -109,6 +98,17 @@ namespace app_identity {
     }
 
   } // namespace
+
+  std::string_view appIdTail(std::string_view appKey) {
+    std::string_view tail = appKey;
+    if (const auto slash = tail.find_last_of('/'); slash != std::string_view::npos && slash + 1 < tail.size()) {
+      tail = tail.substr(slash + 1);
+    }
+    if (const auto dot = tail.find_last_of('.'); dot != std::string_view::npos && dot + 1 < tail.size()) {
+      tail = tail.substr(dot + 1);
+    }
+    return tail;
+  }
 
   bool matchesLower(
       std::string_view valueLower, std::string_view idLower, std::string_view startupWmClassLower,

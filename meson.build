@@ -1239,6 +1239,7 @@ if build_tests
     'theme_shell_mode',
     'time_format',
     'tray_identifier',
+    'tray_window_match',
     'triad_workspace_backend',
     'ui_tree_reconciler',
     'upower_charge_limit',
@@ -1252,6 +1253,8 @@ if build_tests
     'webp_decoder',
     'widget_action',
     'widget_definition',
+    'wallpaper_shuffle_state',
+    'window_activation',
     'workspace_alert_service',
   ]
 
