@@ -240,6 +240,14 @@ const noctalia::bar::WidgetDefinition<SysmonWidget::Options, SysmonWidgetDefinit
                       .visibleWhen = showGlyph,
                   },
           }),
+          field<&Options::customLabel>({
+              .key = "custom_label",
+              .presentation =
+                  settings::WidgetSettingPresentation{
+                      .group = "presentation",
+                      .visibleWhen = showGlyph,
+                  },
+          }),
           field<&Options::glyphPosition>({
               .key = "glyph_position",
               .choices =

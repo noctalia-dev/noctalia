@@ -55,6 +55,7 @@ public:
     std::string diskPath = "/";
     std::string glyph;
     std::string customImage;
+    std::string customLabel;
     bool customImageColorize = false;
     std::string networkInterface;
     FormatUnits::DecimalByteRateUnit networkSpeedUnit = FormatUnits::DecimalByteRateUnit::Auto;
@@ -116,6 +117,7 @@ private:
   FormatUnits::DecimalByteRateUnit m_networkSpeedUnit = FormatUnits::DecimalByteRateUnit::Auto;
   FormatUnits::ByteRateLabelStyle m_networkSpeedLabelStyle = FormatUnits::ByteRateLabelStyle::Full;
   std::string m_glyphOverride;
+  std::string m_customLabelText;
   WidgetCustomImage m_customImage;
   bool m_showUnits;
   SysmonGlyphPosition m_glyphPosition;
@@ -126,6 +128,7 @@ private:
   Glyph* m_glyph = nullptr;
   Image* m_image = nullptr;
   Label* m_label = nullptr;
+  Label* m_customLabel = nullptr;
   Flex* m_containerRow = nullptr;
 
   static constexpr int kHistorySamples = 30;

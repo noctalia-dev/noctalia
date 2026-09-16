@@ -189,7 +189,7 @@ SysmonWidget::SysmonWidget(SystemMonitorService* monitor, ConfigService& configS
       m_networkSpeedLabelStyle(
           options.networkSpeedCompact ? FormatUnits::ByteRateLabelStyle::Compact : FormatUnits::ByteRateLabelStyle::Full
       ),
-      m_glyphOverride(std::move(options.glyph)),
+      m_glyphOverride(std::move(options.glyph)), m_customLabelText(std::move(options.customLabel)),
       m_customImage(widget_custom_image::fromConfig(options.customImage, options.customImageColorize)),
       m_showUnits(options.showUnits), m_glyphPosition(options.glyphPosition) {
   if (m_monitor != nullptr) {
@@ -237,6 +237,15 @@ void SysmonWidget::create() {
   if (m_showGlyph) {
     if (m_customImage.enabled()) {
       glyphNode = ui::image({.out = &m_image, .fit = ImageFit::Contain});
+    } else if (!m_customLabelText.empty()) {
+      glyphNode = ui::label({
+          .out = &m_customLabel,
+          .text = m_customLabelText,
+          .fontSize = Style::fontSizeBody * fontScale(),
+          .fontWeight = labelFontWeight(),
+          .fontFamily = labelFontFamily(),
+          .color = widgetIconColorOr(colorSpecFromRole(ColorRole::OnSurface)),
+      });
     } else {
       glyphNode = ui::glyph({
           .out = &m_glyph,
@@ -340,6 +349,10 @@ void SysmonWidget::syncValueColor() {
     const Color iconColor = m_widgetIconColor.has_value() ? resolveColorSpec(m_widgetIconColor.value()) : valueColor;
     widget_custom_image::syncTint(*m_image, m_customImage, fixedColorSpec(iconColor));
   }
+  if (m_customLabel != nullptr) {
+    const Color iconColor = m_widgetIconColor.has_value() ? resolveColorSpec(m_widgetIconColor.value()) : valueColor;
+    m_customLabel->setColor(iconColor);
+  }
   if (m_label != nullptr) {
     m_label->setColor(valueColor);
   }
@@ -370,11 +383,18 @@ void SysmonWidget::syncIcon(Renderer& renderer) {
     m_glyph->setGlyphSize(Style::baseGlyphSize * m_contentScale);
     m_glyph->measure(renderer);
   }
+  if (m_customLabel != nullptr) {
+    m_customLabel->setFontSize(Style::fontSizeBody * fontScale());
+    m_customLabel->measure(renderer);
+  }
 }
 
 float SysmonWidget::iconWidth() const {
   if (m_image != nullptr) {
     return m_image->width();
+  }
+  if (m_customLabel != nullptr) {
+    return m_customLabel->width();
   }
   return m_glyph != nullptr ? m_glyph->width() : 0.0F;
 }
@@ -383,12 +403,19 @@ float SysmonWidget::iconHeight() const {
   if (m_image != nullptr) {
     return m_image->height();
   }
+  if (m_customLabel != nullptr) {
+    return m_customLabel->height();
+  }
   return m_glyph != nullptr ? m_glyph->height() : 0.0F;
 }
 
 void SysmonWidget::setIconPosition(float x, float y) {
   if (m_image != nullptr) {
     m_image->setPosition(x, y);
+    return;
+  }
+  if (m_customLabel != nullptr) {
+    m_customLabel->setPosition(x, y);
     return;
   }
   if (m_glyph != nullptr) {
@@ -513,7 +540,7 @@ void SysmonWidget::syncGaugeProgress(double normalized) {
 
 void SysmonWidget::doLayout(Renderer& renderer, float containerWidth, float containerHeight) {
   auto* rootNode = root();
-  if ((m_showGlyph && m_glyph == nullptr && m_image == nullptr) || rootNode == nullptr) {
+  if ((m_showGlyph && m_glyph == nullptr && m_image == nullptr && m_customLabel == nullptr) || rootNode == nullptr) {
     return;
   }
   const bool isVerticalBar = containerHeight > containerWidth;
@@ -650,7 +677,7 @@ void SysmonWidget::doLayout(Renderer& renderer, float containerWidth, float cont
 }
 
 void SysmonWidget::doUpdate(Renderer& renderer) {
-  if (m_showGlyph && m_glyph == nullptr && m_image == nullptr) {
+  if (m_showGlyph && m_glyph == nullptr && m_image == nullptr && m_customLabel == nullptr) {
     return;
   }
 

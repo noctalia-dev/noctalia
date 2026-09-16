@@ -4021,6 +4021,10 @@
           "dialog-title": "Select Custom Image",
           "label": "Custom Image"
         },
+        "custom-label": {
+            "description": "Custom text label shown instead of the icon; leave empty to use the icon glyph",
+            "label": "Custom Label"
+        },
         "custom-image-colorize": {
           "description": "Tint the custom image with the widget Icon Color setting",
           "label": "Colorize Custom Image"
