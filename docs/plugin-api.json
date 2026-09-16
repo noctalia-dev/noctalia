@@ -202,5 +202,11 @@
     "noctaliaVersion": null,
     "feature": "layer-entry",
     "introduced": "`[[layer]]` entries for plugin-owned layer-shell surfaces, with `layer.*` and `noctalia.layer.show`, `hide`, and `configure`."
+  },
+  {
+    "level": 37,
+    "noctaliaVersion": null,
+    "feature": "calendar-events",
+    "introduced": "`noctalia.calendarEvents()` for reading the shell's synced calendar events."
   }
 ]

@@ -1288,6 +1288,7 @@ if build_tests
     'process',
     'scheme',
     'screenshot_region_badge',
+    'script_api_calendar',
     'scrollbar_geometry',
     'secret_store',
     'security_primitives',
