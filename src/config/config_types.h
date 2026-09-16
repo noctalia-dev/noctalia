@@ -35,6 +35,8 @@ struct BarCapsuleGroupStyle {
   // True when `border` is explicitly present (empty value = no outline); mirrors bar/widget border semantics.
   bool borderSpecified = false;
   std::optional<ColorSpec> border;
+  // Outline thickness in logical pixels before content-scale; only drawn when `border` is set.
+  float borderWidth = Style::borderWidth;
   std::optional<ColorSpec> foreground;
   float padding = Style::barCapsulePadding;
   std::optional<float> radius;
@@ -106,6 +108,7 @@ struct BarMonitorOverride {
   std::optional<double> widgetCapsulePadding;
   std::optional<double> widgetCapsuleRadius;
   std::optional<double> widgetCapsuleOpacity;
+  std::optional<double> widgetCapsuleBorderWidth;
   std::optional<bool> hoverHighlight;
   BarDeadZoneOverride deadZone;
 
@@ -192,6 +195,8 @@ struct BarConfig {
   // True when `capsule_border` appears under `[bar.*]` (empty value = no outline for widgets that inherit border).
   bool widgetCapsuleBorderSpecified = false;
   std::optional<ColorSpec> widgetCapsuleBorder;
+  // Capsule outline thickness in logical pixels before content-scale; only drawn when a border color is set.
+  float widgetCapsuleBorderWidth = Style::borderWidth;
   // Soft tint of a widget's foreground color over the widget under the pointer (per member in capsule groups).
   bool hoverHighlight = true;
   BarDeadZoneConfig deadZone;
@@ -362,7 +367,7 @@ using ConfigOverrideValue = std::variant<
     std::vector<KeyChord>, std::vector<BarCapsuleGroupStyle>>;
 
 // Optional rounded “capsule” behind a bar widget (see `[widget.*] capsule_*` in CONFIG.md).
-// Corner shape, border width, and edge softness are fixed in the shell code; padding/radius are configurable.
+// Corner shape and edge softness are fixed in the shell code; padding, radius, and border width are configurable.
 struct WidgetBarCapsuleSpec {
   bool enabled = false;
   ColorSpec fill = colorSpecFromRole(ColorRole::SurfaceVariant);
@@ -371,6 +376,8 @@ struct WidgetBarCapsuleSpec {
   std::string group;
   // Set only when `capsule_border` is present and non-empty in config; otherwise no outline.
   std::optional<ColorSpec> border;
+  // Outline thickness in logical pixels before content-scale (see `capsule_border_width` / bar default).
+  float borderWidth = Style::borderWidth;
   // Icon + primary label color when the capsule is visible; unset = widget defaults.
   std::optional<ColorSpec> foreground;
   // Inner padding in logical pixels before content-scale (see `capsule_padding` / bar default).

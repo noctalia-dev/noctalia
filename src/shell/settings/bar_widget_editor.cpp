@@ -622,6 +622,7 @@ namespace settings {
       group.borderSpecified = bar->widgetCapsuleBorderSpecified;
       group.border = bar->widgetCapsuleBorder;
       group.foreground = bar->widgetCapsuleForeground;
+      group.borderWidth = bar->widgetCapsuleBorderWidth;
       group.padding = bar->widgetCapsulePadding;
       if (bar->widgetCapsuleRadius.has_value()) {
         group.radius = static_cast<float>(*bar->widgetCapsuleRadius);
@@ -641,6 +642,9 @@ namespace settings {
       }
       if (ovr->widgetCapsuleForeground.has_value()) {
         group.foreground = *ovr->widgetCapsuleForeground;
+      }
+      if (ovr->widgetCapsuleBorderWidth.has_value()) {
+        group.borderWidth = std::clamp(static_cast<float>(*ovr->widgetCapsuleBorderWidth), 0.0F, 8.0F);
       }
       if (ovr->widgetCapsulePadding.has_value()) {
         group.padding = std::clamp(static_cast<float>(*ovr->widgetCapsulePadding), 0.0F, 48.0F);
@@ -2304,6 +2308,14 @@ namespace settings {
           makeGroupColorControl(
               ctx, optionalColorSpecConfigValue(style.foreground), true, [mutateGroup](std::optional<ColorSpec> c) {
                 mutateGroup([&](BarCapsuleGroupStyle& g) { g.foreground = c; });
+              }
+          )
+      );
+      ctx.makeRow(
+          *panelPtr, groupEntry("border-width"),
+          makeGroupSliderControl(
+              ctx, static_cast<double>(style.borderWidth), 0.0, 8.0, 0.5, false, [mutateGroup](double v) {
+                mutateGroup([&](BarCapsuleGroupStyle& g) { g.borderWidth = static_cast<float>(v); });
               }
           )
       );

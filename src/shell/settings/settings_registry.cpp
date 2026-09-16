@@ -3263,6 +3263,15 @@ namespace settings {
       }
       {
         auto e = makeEntry(
+            section, "capsules", tr("settings.schema.bar.capsule-border-width.label"),
+            tr("settings.schema.bar.capsule-border-width.description"), path("capsule_border_width"),
+            SliderSetting{bar.widgetCapsuleBorderWidth, 0.0F, 8.0F, 0.5F, false}, "pill outline width", true
+        );
+        e.visibleWhen = capsuleOn;
+        entries.push_back(std::move(e));
+      }
+      {
+        auto e = makeEntry(
             section, "capsules", tr("settings.schema.bar.capsule-padding.label"),
             tr("settings.schema.bar.capsule-padding.description"), path("capsule_padding"),
             SliderSetting{bar.widgetCapsulePadding, 0.0F, 48.0F, 1.0F, false}, "pill inset", true
@@ -3576,6 +3585,18 @@ namespace settings {
                   tr("common.states.inherit")
               ),
               "color pill outline", true
+          );
+          e.visibleWhen = monitorCapsuleOn;
+          entries.push_back(std::move(e));
+        }
+        {
+          auto e = makeEntry(
+              section, "capsules", tr("settings.schema.bar.capsule-border-width.label"),
+              tr("settings.schema.bar.capsule-border-width.description"), monitorPath("capsule_border_width"),
+              SliderSetting{
+                  ovr.widgetCapsuleBorderWidth.value_or(bar.widgetCapsuleBorderWidth), 0.0F, 8.0F, 0.5F, false
+              },
+              "pill outline width", true
           );
           e.visibleWhen = monitorCapsuleOn;
           entries.push_back(std::move(e));

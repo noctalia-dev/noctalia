@@ -364,6 +364,7 @@ capsule            = false
 # capsule_radius   = 8.0            # omit/blank in Settings for automatic pill radius; 0.0 = square
 # capsule_opacity  = 1.0
 # capsule_border   = "outline"      # uncomment for a border on all widgets
+# capsule_border_width = 1.0        # outline thickness in pixels (0-8); needs capsule_border
 
 start  = ["launcher", "wallpaper", "workspaces"]
 center = ["clock"]
