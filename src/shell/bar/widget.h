@@ -114,6 +114,8 @@ public:
   void setWidgetIconColor(std::optional<ColorSpec> color) noexcept { m_widgetIconColor = color; }
   void setNonInteractive(bool nonInteractive) noexcept;
   [[nodiscard]] bool nonInteractive() const noexcept { return m_nonInteractive; }
+  void setMonitorFocusBehavior(MonitorFocusBehavior behavior) noexcept { m_monitorFocusBehavior = behavior; }
+  [[nodiscard]] MonitorFocusBehavior monitorFocusBehavior() const noexcept { return m_monitorFocusBehavior; }
   // Bar-owned: blocks all pointer input while the member is clipped out of a collapsed accordion.
   void setBarPointerSuppressed(bool suppressed) noexcept;
   [[nodiscard]] bool barPointerSuppressed() const noexcept { return m_barPointerSuppressed; }
@@ -182,6 +184,7 @@ protected:
   std::optional<ColorSpec> m_widgetIconColor;
   bool m_nonInteractive = false;
   bool m_barPointerSuppressed = false;
+  MonitorFocusBehavior m_monitorFocusBehavior = MonitorFocusBehavior::Ignored;
   Node* m_capsuleShell = nullptr;
   Box* m_capsuleBox = nullptr;
   Box* m_hoverBox = nullptr;
