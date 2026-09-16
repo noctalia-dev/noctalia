@@ -1,0 +1,19 @@
+---
+title: brightness
+description: Shows and adjusts the current monitor brightness.
+sidebar:
+  order: 5
+---
+
+Shows the current monitor brightness level and adjusts it via scroll wheel. Hides itself when no controllable monitor is found. Click opens the display tab in the control center.
+
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| `show_label` | bool | `true` | Show the brightness percentage next to the glyph (horizontal and vertical bars) |
+
+```toml
+[widget.brightness]
+show_label = false
+```
+
+See [`[brightness]`](/noctalia/services/brightness/) for backend configuration.

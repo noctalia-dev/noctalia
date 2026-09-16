@@ -891,7 +891,7 @@ namespace settings {
         .submitOnFocusLoss = true,
     });
     input->setOnChange([inputPtr](const std::string& /*text*/) { inputPtr->setInvalid(false); });
-    input->setOnSubmit([configService = ctx.configService, setOverride = ctx.setOverride, path,
+    input->setOnSubmit([configService = ctx.configService, setOverride = ctx.setOverride, path, effectiveValue = value,
                         inputPtr](const std::string& text) {
       if (configService != nullptr && !configService->validateOverride(path, ConfigOverrideValue{text})) {
         inputPtr->setInvalid(true);
@@ -901,6 +901,9 @@ namespace settings {
         return;
       }
       inputPtr->setInvalid(false);
+      if (text == effectiveValue) {
+        return;
+      }
       setOverride(path, text);
     });
     return input;

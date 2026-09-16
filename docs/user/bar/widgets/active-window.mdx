@@ -1,0 +1,27 @@
+---
+title: active_window
+description: Shows the active window icon and title for the current output.
+sidebar:
+  order: 1
+---
+
+Shows the active window icon and title for the current output. The window icon uses global `[shell.app_icon_colorize]` when enabled (see [Shell → App icon colorization](/noctalia/configuration/shell/#app-icon-colorization)).
+
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| `min_length` | number | `80` | Minimum widget length in pixels |
+| `max_length` | number | `260` | Maximum widget length in pixels |
+| `icon_size` | number | `14` | Icon size in pixels |
+| `title_scroll` | string | `"none"` | Title scrolling mode: `"none"`, `"always"`, or `"on_hover"` |
+| `display` | string | `"icon_and_text"` | Content mode on horizontal bars: `"icon_and_text"`, `"icon_only"`, or `"text_only"`. Vertical bars show the icon only when a window is focused. |
+| `show_empty_label` | bool | `false` | When enabled, show "No active window" instead of hiding the widget when no window is focused |
+
+```toml
+[widget.active_window]
+min_length = 80
+max_length = 260
+icon_size = 14
+title_scroll = "on_hover"
+display = "icon_and_text"
+show_empty_label = true
+```

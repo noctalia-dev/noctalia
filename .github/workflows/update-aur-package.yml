@@ -51,8 +51,8 @@ jobs:
           TAG_NAME: ${{ github.ref_name }}
         run: |
           set -euo pipefail
-          # Git tag: v5.0.0-beta1. GitHub archive dir + tag use hyphens; makepkg
-          # forbids hyphens in pkgver, so pkgver substitutes '-' with '_'.
+          # GitHub archive tags may contain hyphens; makepkg forbids them in
+          # pkgver, so substitute '-' with '_'.
           TAGVER="${TAG_NAME#v}"
           PKGVER="${TAGVER//-/_}"
           echo "tagver=$TAGVER" >> "$GITHUB_OUTPUT"

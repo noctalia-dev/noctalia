@@ -996,6 +996,8 @@ BarConfig ConfigService::resolveForOutput(const BarConfig& base, const WaylandOu
       resolved.endWidgets = *ovr.endWidgets;
     if (ovr.scale)
       resolved.scale = *ovr.scale;
+    if (ovr.fontScale)
+      resolved.fontScale = *ovr.fontScale;
     if (ovr.widgetCapsuleDefault)
       resolved.widgetCapsuleDefault = *ovr.widgetCapsuleDefault;
     if (ovr.widgetCapsuleFill)
@@ -1537,7 +1539,6 @@ void ConfigService::loadAll() {
       m_overridesTable = std::move(effectiveOverrides);
       if (writeOverridesToFile()) {
         m_ownOverridesWritePending = m_inotify.fd() >= 0 && m_overridesWatchWd >= 0;
-        extractWallpaperFromOverrides();
       } else {
         kLog.warn("failed to persist migrated config overrides to {}", m_overridesPath);
         m_overridesTable = std::move(previousOverrides);

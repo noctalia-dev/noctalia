@@ -1,0 +1,32 @@
+---
+title: tray
+description: Shows StatusNotifierItem system tray icons.
+sidebar:
+  order: 28
+---
+
+System tray (StatusNotifierItem). Tray icons use the global `[shell.app_icon_colorize]` / `[shell.app_icon_color]` settings when enabled (see [Shell → App icon colorization](/noctalia/configuration/shell/#app-icon-colorization)); `[shell.app_icon_colorize]` does not recolor symbolic tray icons. Symbolic/monochrome tray glyphs, the drawer chevron, and letter fallbacks follow the widget's `color` / `icon_color` (items needing attention stay in the error color).
+
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| `hidden` | array of string | `[]` | Tray items to hide by id/name/bus/path token |
+| `pinned` | array of string | `[]` | Tray items that always stay visible in the bar when `drawer = true` |
+| `hide_passive` | bool | `true` | Hide items whose StatusNotifierItem status is `Passive`; set to `false` for applications that always report Passive |
+| `match_adjacent_spacing` | bool | `false` | Widen inline tray icon gaps to match the visual spacing of neighboring bar widgets (adds capsule padding on top of `widget_spacing`) |
+| `drawer` | bool | `false` | Replace inline tray icons with a tray button that opens a tray drawer panel |
+| `drawer_columns` | number | `3` | Number of tray icons per row in the drawer panel (`1` to `5`) |
+| `drawer_item_size` | number | *inherit* | Size of tray icons inside the drawer panel in pixels (`8` to `64`) |
+| `detached_panel` | bool | `false` | Open the drawer as a floating panel instead of anchoring it to the bar edge. |
+
+```toml
+[widget.tray]
+hidden = ["nm-applet", "blueman", "org.kde.StatusNotifierItem-1-1"]
+pinned = ["nm-applet"]
+hide_passive = true
+drawer = true
+drawer_columns = 3
+drawer_item_size = 20
+detached_panel = false
+```
+
+Tip: right-click a tray item and use `Pin` / `Unpin` in the item menu to update `pinned` without editing config manually.

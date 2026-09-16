@@ -1,5 +1,7 @@
 #pragma once
 
+#include "ui/palette.h"
+
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -34,7 +36,9 @@ namespace ui {
     // callbacks like button clicks. onHover sends state in `arg1` and the node's
     // `key` in `arg2`, so one handler can serve a whole keyed list. `coalesce`
     // is set for high-frequency streams (slider drag, input typing) where only
-    // the latest value matters.
+    // the latest value matters; `coalesceKey` groups callbacks that must
+    // supersede one another in order (a graph's pointer move and pointer
+    // leave), and defaults to `fn` when empty.
     struct ControlCallback {
       struct PointerContext {
         float x = 0.0F;
@@ -44,14 +48,17 @@ namespace ui {
       };
 
       explicit ControlCallback(
-          std::string fnName, std::string firstArg = {}, std::string secondArg = {}, bool coalesceStream = false
+          std::string fnName, std::string firstArg = {}, std::string secondArg = {}, bool coalesceStream = false,
+          std::string coalesceStreamKey = {}
       )
-          : fn(std::move(fnName)), arg1(std::move(firstArg)), arg2(std::move(secondArg)), coalesce(coalesceStream) {}
+          : fn(std::move(fnName)), arg1(std::move(firstArg)), arg2(std::move(secondArg)), coalesce(coalesceStream),
+            coalesceKey(std::move(coalesceStreamKey)) {}
 
       std::string fn;
       std::string arg1;
       std::string arg2;
       bool coalesce = false;
+      std::string coalesceKey;
       std::optional<PointerContext> pointerContext;
     };
     using CallbackSink = std::function<void(const ControlCallback& callback)>;
@@ -70,14 +77,21 @@ namespace ui {
     void setCallbackSink(CallbackSink sink) { m_sink = std::move(sink); }
     void setPathResolver(PathResolver resolver) { m_resolver = std::move(resolver); }
     void setFocusRequestSink(FocusRequestSink sink) { m_focusSink = std::move(sink); }
-    // Content scale multiplied into size-like props (fonts, gaps, sizes, radii).
+    // Content scale multiplied into size-like props (gaps, sizes, radii).
     void setScale(float scale);
+    // Additional multiplier applied only to text sizes.
+    void setFontScale(float scale);
     // Host text defaults for label/glyph props the tree leaves unset, so
     // declarative text matches the host's imperative text (e.g. the bar's
     // per-widget font family/weight). Empty family = renderer-global font.
     void setTextDefaults(std::string fontFamily, FontWeight fontWeight) {
       m_defaultFontFamily = std::move(fontFamily);
       m_defaultFontWeight = fontWeight;
+    }
+    // Host colors for labels and glyphs whose tree nodes leave color unset.
+    void setColorDefaults(const ColorSpec& labelColor, const ColorSpec& glyphColor) {
+      m_defaultLabelColor = labelColor;
+      m_defaultGlyphColor = glyphColor;
     }
     // Compact control chrome for space-tight hosts (bar widgets): buttons drop
     // the settings-tier min-height/padding and hug their content instead.
@@ -113,14 +127,28 @@ namespace ui {
     void closeHover();
     void releaseHover(const Node* owner);
     [[nodiscard]] bool subtreeOwnsHover(const Slot& slot) const;
+    // Graph pointer tracking (onPointerMove/onPointerLeave) wiring, wired as one
+    // unit so both edges of a graph's pointer session share a coalescing stream.
+    void syncGraphPointerCallbacks(Slot& slot, const UiTreeNode& desired, Node* node);
+    // A pointer session is state the plugin mirrors, so every entered graph owes
+    // a leave. Same reason as hover: the dispatcher only delivers leave to areas
+    // still in the scene, so the reconciler ends the session itself when the
+    // graph is dropped, rewired, or reset away.
+    void openPointer(const Node* owner, std::string leaveCallback, std::string streamKey);
+    void closePointer();
+    void releasePointer(const Node* owner);
+    [[nodiscard]] bool subtreeOwnsPointer(const Slot& slot) const;
     [[nodiscard]] std::unique_ptr<Node> createControl(const UiTreeNode& desired);
 
     CallbackSink m_sink;
     PathResolver m_resolver;
     FocusRequestSink m_focusSink;
     float m_scale = 1.0F;
+    float m_fontScale = 1.0F;
     std::string m_defaultFontFamily;
     FontWeight m_defaultFontWeight; // initialized in the ctor (opaque enum here)
+    ColorSpec m_defaultLabelColor = colorSpecFromRole(ColorRole::OnSurface);
+    ColorSpec m_defaultGlyphColor = colorSpecFromRole(ColorRole::OnSurface);
     bool m_compactControls = false;
     bool m_dragDropEnabled = false;
     // The node currently reporting hover, with the callback and key it opened
@@ -129,6 +157,14 @@ namespace ui {
     std::string m_hoveredCallback;
     std::string m_hoveredKey;
     const Node* m_hoveredOwner = nullptr;
+    // The graph reporting pointer position, with the leave callback and
+    // coalescing stream its wiring opened with. Compared, never dereferenced.
+    std::string m_pointerLeaveCallback;
+    std::string m_pointerStreamKey;
+    const Node* m_pointerOwner = nullptr;
+    // Source of per-graph coalescing stream keys. Monotonic so a rebuilt or
+    // rewired graph never inherits a stream that still has an event queued.
+    std::uint64_t m_pointerStreamSeq = 0;
     std::unique_ptr<DragDropController> m_dragDropController;
     std::vector<Slot> m_rootSlots;
   };

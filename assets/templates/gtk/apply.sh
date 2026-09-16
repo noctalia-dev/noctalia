@@ -83,23 +83,23 @@ sync_system_appearance() {
         local schemas
         schemas=$(gsettings list-schemas 2>/dev/null || true)
         if [[ "$schemas" == *"org.gnome.desktop.interface"* ]]; then
-            gsettings set org.gnome.desktop.interface color-scheme "prefer-$mode" \
-                || echo "Error running gsettings set color-scheme" >&2
             if [ "$theme_available" = "true" ]; then
                 gsettings set org.gnome.desktop.interface gtk-theme "$target_theme" \
                     || echo "Error running gsettings set gtk-theme" >&2
             fi
+            gsettings set org.gnome.desktop.interface color-scheme "prefer-$mode" \
+                || echo "Error running gsettings set color-scheme" >&2
             return
         fi
     fi
 
     if [ -n "$has_dconf" ]; then
-        dconf write /org/gnome/desktop/interface/color-scheme "'prefer-$mode'" \
-            || echo "Error running dconf write color-scheme" >&2
         if [ "$theme_available" = "true" ]; then
             dconf write /org/gnome/desktop/interface/gtk-theme "'$target_theme'" \
                 || echo "Error running dconf write gtk-theme" >&2
         fi
+        dconf write /org/gnome/desktop/interface/color-scheme "'prefer-$mode'" \
+            || echo "Error running dconf write color-scheme" >&2
     fi
 }
 

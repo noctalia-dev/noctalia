@@ -79,6 +79,13 @@ struct UPowerChargeLimitState {
   std::optional<bool> requestedEnabled;
   ChargeLimitOperationError operationError = ChargeLimitOperationError::None;
 
+  // True when the effective thresholds actually hold charge below full: a start
+  // threshold that delays resuming below full (0 < start < 100), or an end
+  // threshold that caps below full (end < 100). A start of 0 or 100 is not a
+  // limit. Huawei-WMI EC "full charge" defaults (start=95, end=100) are also
+  // treated as unrestricted.
+  [[nodiscard]] bool hasRestrictiveThreshold() const;
+
   bool operator==(const UPowerChargeLimitState&) const = default;
 };
 
@@ -120,6 +127,9 @@ struct UPowerDeviceInfo {
   bool operator==(const UPowerDeviceInfo&) const = default;
 
   [[nodiscard]] bool isLaptopBattery() const { return type == UPowerDeviceType::Battery && powerSupply; }
+  // Percent of design capacity, clamped to [0, 100]: a re-learned EnergyFull can exceed the
+  // vendor design value. Empty when the device reports no usable capacity pair.
+  [[nodiscard]] std::optional<double> healthPercent() const;
   [[nodiscard]] bool sameCatalogEntry(const UPowerDeviceInfo& other) const;
 };
 

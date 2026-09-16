@@ -13,6 +13,7 @@
 #include "system/icon_resolver.h"
 #include "theme/color.h"
 #include "theme/firefox_theme/firefox_theme.h"
+#include "theme/hook_runner.h"
 #include "theme/kde_color_scheme.h"
 #include "theme/palette.h"
 #include "util/file_utils.h"
@@ -199,6 +200,9 @@ namespace noctalia::theme {
       // When true, skip each output whose inferred client config root is missing.
       bool gateOutputsByClientRoot = false;
       int index = 0;
+      // False runs post_hook inline, after every background hook started so far has
+      // finished. For entries whose hook must not overlap with another one.
+      bool hookAsync = true;
     };
 
     std::optional<std::filesystem::path> inferClientConfigRoot(const std::filesystem::path& outputPath) {
@@ -1451,6 +1455,8 @@ namespace noctalia::theme {
         entry.requiresPath = resolveConfigPath(configPath, requiresPath->get()).string();
       if (const auto index = tpl.get_as<int64_t>("index"))
         entry.index = static_cast<int>(index->get());
+      if (const auto hookAsync = tpl.get_as<bool>("hook_async"))
+        entry.hookAsync = hookAsync->get();
       return entry;
     }
 
@@ -1643,11 +1649,20 @@ namespace noctalia::theme {
         }
       }
 
-      auto runHook = [&](const std::string& hook) {
-        if (!hook.empty() && !cancelRequested()) {
-          const auto hookRendered = EngineImpl(m_themeData, renderOptions).render(hook);
-          if (hookRendered.errorCount == 0 && !hookRendered.text.empty()) [[maybe_unused]]
-            const bool hookOk = process::runSync(hookRendered.text);
+      auto runHook = [&](const std::string& hook, bool async) {
+        if (hook.empty() || cancelRequested()) {
+          return;
+        }
+
+        const auto hookRendered = EngineImpl(m_themeData, renderOptions).render(hook);
+        if (hookRendered.errorCount != 0 || hookRendered.text.empty()) {
+          return;
+        }
+
+        if (async && renderOptions.hookRunner != nullptr) {
+          renderOptions.hookRunner->enqueue(hookRendered.text, renderOptions.generation);
+        } else {
+          [[maybe_unused]] const bool hookOk = process::runSync(hookRendered.text);
         }
       };
 
@@ -1692,7 +1707,7 @@ namespace noctalia::theme {
 
       const bool hasOutputs = !effectiveOutputs.empty();
       if (hasOutputs)
-        runHook(entry.preHook);
+        runHook(entry.preHook, /*async=*/false);
 
       bool outputsOk = true;
       for (const std::string& outputPath : effectiveOutputs) {
@@ -1729,7 +1744,12 @@ namespace noctalia::theme {
         if (!runPostAction()) {
           ok = false;
         }
-        runHook(entry.postHook);
+        // An inline post_hook is a barrier: it must not overlap with a background hook
+        // started earlier in this run.
+        if (!entry.hookAsync && !entry.postHook.empty() && renderOptions.hookRunner != nullptr) {
+          renderOptions.hookRunner->waitIdle();
+        }
+        runHook(entry.postHook, /*async=*/entry.hookAsync);
       }
     }
 

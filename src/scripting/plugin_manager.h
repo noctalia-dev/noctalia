@@ -103,6 +103,11 @@ namespace scripting {
     // Whether a git-source plugin's background export is currently in flight.
     [[nodiscard]] bool isEnabling(std::string_view pluginId) const;
 
+    // Whether the plugin's files are present on disk under one of the enabled sources
+    // (a git source's export root or a path source's tree). Filesystem-only, no network,
+    // so UI can query it per frame; false while a git export is still in flight.
+    [[nodiscard]] bool isMaterialized(std::string_view pluginId) const;
+
     // Disable a plugin by id and persist. Code stays on disk; settings are retained.
     void disable(std::string_view pluginId);
 
@@ -166,10 +171,11 @@ namespace scripting {
     bool materializeEnabledFromRepo(
         const PluginSourceConfig& source, const std::filesystem::path& repoRoot, const std::vector<std::string>& enabled
     ) const;
-    // Worker thread: optionally re-clone the source repo, then materialize its enabled
-    // plugins, rebuilding the bar via m_onChanged once an export lands.
+    // Worker thread: prepare the source cache (clone / repair / rebind origin), then
+    // materialize its enabled plugins, rebuilding the bar via m_onChanged once an
+    // export lands.
     void spawnMaterializeEnabled(
-        PluginSourceConfig source, std::filesystem::path repoRoot, std::vector<std::string> enabled, bool cloneFirst
+        PluginSourceConfig source, std::filesystem::path repoRoot, std::vector<std::string> enabled
     ) const;
 
     ConfigService& m_config;

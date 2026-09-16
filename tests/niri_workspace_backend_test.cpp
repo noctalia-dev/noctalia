@@ -122,7 +122,10 @@ int main() {
     }
     request.assign(buffer, static_cast<std::size_t>(size));
     constexpr std::string_view response = "{\"Ok\":null}\n";
-    (void)::write(client, response.data(), response.size());
+    const ssize_t written = ::write(client, response.data(), response.size());
+    if (written != static_cast<ssize_t>(response.size())) {
+      serverError = 3;
+    }
     ::close(client);
   });
 

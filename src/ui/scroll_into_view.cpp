@@ -45,6 +45,24 @@ void scrollNodeIntoScrollView(ScrollView& scrollView, ScrollViewState* state, co
   }
 }
 
+void scrollNodeToScrollViewTop(ScrollView& scrollView, const Node& target, float margin) {
+  Flex* content = scrollView.content();
+  if (content == nullptr) {
+    return;
+  }
+
+  float targetX = 0.0F;
+  float targetY = 0.0F;
+  float contentX = 0.0F;
+  float contentY = 0.0F;
+  Node::absolutePosition(&target, targetX, targetY);
+  Node::absolutePosition(content, contentX, contentY);
+  (void)targetX;
+  (void)contentX;
+
+  scrollView.requestScrollToOffset(std::max(0.0F, targetY - contentY - margin));
+}
+
 ScrollView* findEnclosingScrollView(Node* node) {
   for (Node* current = node; current != nullptr; current = current->parent()) {
     Node* parent = current->parent();

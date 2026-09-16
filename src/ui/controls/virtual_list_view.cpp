@@ -94,6 +94,8 @@ VirtualListView::VirtualListView() {
   m_canvas = static_cast<Canvas*>(m_scroll->content()->addChild(std::move(canvas)));
 }
 
+void VirtualListView::bindScrollState(ScrollViewState* state) { m_scroll->bindState(state); }
+
 void VirtualListView::setAdapter(VirtualListAdapter* adapter) {
   if (m_adapter == adapter) {
     return;
@@ -154,6 +156,12 @@ void VirtualListView::setOverscanItems(std::size_t items) {
   markLayoutDirty();
 }
 
+void VirtualListView::setContentScale(float scale) {
+  if (m_scroll != nullptr) {
+    m_scroll->setContentScale(scale);
+  }
+}
+
 void VirtualListView::scrollToIndex(std::size_t index) {
   m_pendingScrollToIndex = true;
   m_pendingScrollIndex = index;
@@ -172,7 +180,7 @@ void VirtualListView::doLayout(Renderer& renderer) {
   const float padV = m_scroll->viewportPaddingV();
   const float innerW = std::max(0.0F, ourW - 2.0F * padH);
   const float viewportH = std::max(0.0F, ourH - 2.0F * padV);
-  const float scrollbarGutter = Style::scrollbarWidth + Style::scrollbarGap;
+  const float scrollbarGutter = m_scroll->scrollbarGutter();
 
   // Match ScrollView: only reserve the scrollbar gutter when content overflows vertically.
   recomputeMetrics(renderer, innerW);
@@ -186,7 +194,7 @@ void VirtualListView::doLayout(Renderer& renderer) {
   if (m_pendingScrollToIndex) {
     m_pendingScrollToIndex = false;
     if (m_pendingScrollIndex < m_itemCount && m_pendingScrollIndex < m_itemOffsets.size()) {
-      m_scroll->setScrollOffset(m_itemOffsets[m_pendingScrollIndex]);
+      m_scroll->requestScrollToOffset(m_itemOffsets[m_pendingScrollIndex]);
     }
   }
 

@@ -1,0 +1,99 @@
+---
+title: Date format tokens
+description: Time and date format tokens used by clock widgets and other date-format settings.
+sidebar:
+  order: 2
+---
+
+Noctalia date and time settings render the current local time. Clock widgets, `shell.time_format`, `shell.date_format`, and other date-format settings use the same token set when they need user-configurable date or time output.
+
+You can write either a bare `strftime` pattern such as `%H:%M`, or wrap the same pattern in a C++ chrono field such as `{:%H:%M}`. Literal text is copied through, `\n` becomes a line break, `%%` prints a literal percent sign, and `{{` / `}}` print literal braces when a format uses brace fields.
+
+Percent tokens use Noctalia's strftime-compatible formatter, so localized names and locale-preferred formats follow `LC_TIME`, and timezone values follow the local system timezone. `%s` is handled by Noctalia as Unix epoch seconds so it does not depend on platform-specific `strftime(3)` extensions.
+
+For example, if the current local time is Monday, May 4, 2026 at 09:05:07:
+
+| Format | Example output |
+|--------|----------------|
+| `%H:%M` | `09:05` |
+| `{:%H:%M}` | `09:05` |
+| `{:%-I:%M %p}` | `9:05 AM` |
+| `{:%A}\n{:%Y-%m-%d}` | `Monday` then `2026-05-04` on the next line |
+
+## Time
+
+| Token | Meaning |
+|-------|---------|
+| `%H` | Hour on a 24-hour clock, `00` to `23` |
+| `%k` | Hour on a 24-hour clock, space-padded ` 0` to `23` (glibc) |
+| `%I` | Hour on a 12-hour clock, `01` to `12` |
+| `%l` | Hour on a 12-hour clock, space-padded ` 1` to `12` (glibc) |
+| `%M` | Minute, `00` to `59` |
+| `%S` | Second, `00` to `60` |
+| `%p` | Locale AM/PM marker |
+| `%P` | Locale lowercase am/pm marker (glibc) |
+| `%R` | 24-hour time, equivalent to `%H:%M` |
+| `%T` | 24-hour time with seconds, equivalent to `%H:%M:%S` |
+| `%r` | Locale 12-hour time, commonly `%I:%M:%S %p` |
+| `%X` | Locale time representation |
+| `%z` | Numeric timezone offset, such as `-0400` |
+| `%Z` | Timezone name or abbreviation |
+| `%s` | Seconds since the Unix epoch (timezone extension) |
+
+## Date
+
+| Token | Meaning |
+|-------|---------|
+| `%Y` | Year with century, such as `2026` |
+| `%y` | Year without century, `00` to `99` |
+| `%C` | Century number, year divided by 100 |
+| `%m` | Month number, `01` to `12` |
+| `%B` | Full localized month name |
+| `%b` | Abbreviated localized month name |
+| `%h` | Same as `%b` |
+| `%d` | Day of month, `01` to `31` |
+| `%e` | Day of month, space-padded ` 1` to `31` |
+| `%F` | ISO date, equivalent to `%Y-%m-%d` |
+| `%D` | Date, equivalent to `%m/%d/%y` |
+| `%x` | Locale date representation |
+| `%c` | Locale date and time representation |
+
+## Week And Day
+
+| Token | Meaning |
+|-------|---------|
+| `%A` | Full localized weekday name |
+| `%a` | Abbreviated localized weekday name |
+| `%u` | ISO weekday number, `1` Monday through `7` Sunday |
+| `%w` | Weekday number, `0` Sunday through `6` Saturday |
+| `%j` | Day of year, `001` to `366` |
+| `%U` | Week number, `00` to `53`, Sunday as first day of week |
+| `%W` | Week number, `00` to `53`, Monday as first day of week |
+| `%V` | ISO week number, `01` to `53` |
+| `%G` | ISO week-based year with century |
+| `%g` | ISO week-based year without century |
+
+## Literals And Whitespace
+
+| Token | Meaning |
+|-------|---------|
+| `%%` | Literal `%` |
+| `%n` | Newline |
+| `%t` | Tab |
+
+## Modifiers
+
+Modifiers go between `%` and the token letter. They are handled by the system `strftime(3)` implementation.
+
+| Modifier | Example | Meaning |
+|----------|---------|---------|
+| `-` | `%-d`, `%-I` | No padding for numeric output |
+| `_` | `%_d` | Space padding for numeric output |
+| `0` | `%0e` | Zero padding for numeric output |
+| `^` | `%^B` | Uppercase alphabetic output |
+| `#` | `%#Z` | Swap case where supported |
+| width | `%5m`, `%_5m` | Minimum field width |
+| `E` | `%Ec`, `%EC`, `%Ex`, `%EX`, `%Ey`, `%EY` | Locale alternative era-based form |
+| `O` | `%Od`, `%Oe`, `%OH`, `%OI`, `%Om`, `%OM`, `%OS`, `%Ou`, `%OU`, `%OV`, `%Ow`, `%OW`, `%Oy` | Locale alternative numeric symbols |
+
+Locale alternatives fall back to the unmodified token when the active locale does not define an alternative. The glibc man page lists `%+`, but glibc does not support it; use an explicit pattern instead.

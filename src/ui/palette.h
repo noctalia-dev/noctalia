@@ -4,6 +4,7 @@
 #include "ui/signal.h"
 #include "ui/style.h"
 
+#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <optional>
@@ -68,6 +69,15 @@ constexpr bool operator==(const ColorSpec& a, const ColorSpec& b) noexcept {
   return ColorSpec{.role = std::nullopt, .fixed = clearColor(), .alpha = 1.0F};
 }
 
+// Multiplies a spec's alpha, keeping any color role intact so theme switches still resolve.
+// Distinct from withAlpha(Color, float) in render/core/color.h, which replaces the alpha of an
+// already-resolved color and therefore cannot preserve the role.
+[[nodiscard]] constexpr ColorSpec scaleAlpha(const ColorSpec& color, float factor) noexcept {
+  ColorSpec out = color;
+  out.alpha = std::clamp(out.alpha * std::clamp(factor, 0.0F, 1.0F), 0.0F, 1.0F);
+  return out;
+}
+
 struct Palette {
   Color primary;
   Color onPrimary;
@@ -121,6 +131,9 @@ extern Palette palette;
 void setResolvedThemeLight(bool light) noexcept;
 
 void setPalette(const Palette& p);
+
+// Snapshot accessor safe to call from non-main threads (e.g. plugin script workers).
+[[nodiscard]] Color colorForRoleSnapshot(ColorRole role);
 
 [[nodiscard]] inline ColorSpec scrollbarTrackColor() noexcept {
   return colorSpecFromRole(ColorRole::Outline, Style::disabledOutlineAlpha);

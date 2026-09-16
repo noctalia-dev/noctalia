@@ -1,4 +1,4 @@
-# Noctalia configuration — all settings at their defaults.
+# Noctalia configuration: all settings at their defaults.
 # Copy to ~/.config/noctalia/config.toml and edit what you need.
 # Most changes are hot-reloaded via inotify; startup-only settings are noted inline.
 
@@ -39,6 +39,11 @@ clipboard_image_action_command = ""  # image preview action: gimp {path}, or sat
 shared_gl_context     = true         # startup-only; false isolates GPU contexts for broken drivers
 # lang                = "en"
 # avatar_path         = "~/Pictures/avatar.png"
+
+[shell.screenshot]
+skip_annotate_on_copy_save = false  # Ctrl+C / Ctrl+S in the region overlay skip the annotation editor
+close_on_copy = true                # close the annotation editor after Copy or Ctrl+C succeeds
+close_on_save = true                # close the annotation editor after Save or Ctrl+S succeeds
 
 [shell.privacy]
 mic_filter_regex = ""                # microphone app names to ignore in privacy indicators and OSD
@@ -104,6 +109,9 @@ prefix = "win"
 [shell.mpris]
 blacklist = []                      # ignore MPRIS players by bus/identity/desktop entry token
 
+[shell.window_switcher]
+mru = false                         # order windows by most recently used (Alt+Tab) instead of workspace layout
+
 # ── Wallpaper ─────────────────────────────────────────────────────────────────
 
 [wallpaper]
@@ -114,7 +122,7 @@ transition          = ["fade", "wipe", "disc", "stripes", "zoom", "honeycomb"]
 transition_duration = 1500          # milliseconds
 edge_smoothness     = 0.3
 transition_on_startup = false       # animate the first wallpaper at shell startup (v4-style)
-directory           = "~/Pictures/Wallpapers"
+directory           = ""              # empty = XDG Pictures directory
 directory_light     = ""            # optional day-mode directory
 directory_dark      = ""            # optional night-mode directory
 
@@ -166,6 +174,7 @@ tint_intensity         = 0.3        # 0.0 = no tint, 1.0 = opaque
 enable_daemon      = true
 show_app_name      = true
 show_actions       = true           # show action buttons; when false, clicking a toast triggers its default action
+keep_dismissed_in_history = true    # set false to remove history entries when their toasts are dismissed
 layer              = "top"          # top | overlay
 scale              = 1.0            # notification size multiplier applied on top of accessibility.ui_scale
 background_opacity = 0.97
@@ -238,14 +247,14 @@ disk_poll_seconds = 10.0            # disk usage and swap usage; graph widgets u
 [calendar]
 enabled                     = false
 refresh_minutes             = 15
+event_date_format           = "%A %e %B"    # date format used for events
+event_time_format           = "%H:%M"       # time format used for events
 
 # Calendar tab of the control center.
 
 [control_center.calendar]
 show_events_card            = true
 show_week_numbers           = false         # ISO 8601 week numbers in the month grid
-event_date_format           = "%A %e %B"    # date format used for events
-event_time_format           = "%H:%M"       # time format used for events
 
 # ── Weather ───────────────────────────────────────────────────────────────────
 
@@ -278,6 +287,8 @@ enable_ddcutil = false
 # backlight_device = "intel_backlight"  # explicit sysfs device name or path; run: noctalia msg brightness-list-backlight-devices
 # [brightness.monitor.DP-1]
 # backend = "ddcutil"
+# [brightness.monitor.DP-2]
+# ddc_bus = 6                       # pin the I2C bus when monitors share an EDID
 
 # ── Night Light ───────────────────────────────────────────────────────────────
 
@@ -296,13 +307,13 @@ address          = ""                # e.g. "Toronto, ON"; geocoded when auto_lo
 # latitude       = 52.5200           # manual coordinates, used when auto_locate and address are off
 # longitude      = 13.4050
 # custom_schedule = true    # schedule day/night from the times below instead of coordinates
-# sunset         = "20:30"           # HH:MM — night start
-# sunrise        = "07:30"           # HH:MM — day start
+# sunset         = "20:30"           # HH:MM, night start
+# sunrise        = "07:30"           # HH:MM, day start
 
 # ── Idle ──────────────────────────────────────────────────────────────────────
 
 # Optional `[idle]` keys:
-#   pre_action_fade_seconds — fade a fullscreen surface-color overlay in over this many seconds, then run `command`.
+#   pre_action_fade_seconds: fade a fullscreen surface-color overlay in over this many seconds, then run `command`.
 #                             Use 0 for immediate commands with no overlay. Input during the fade cancels.
 # [idle]
 # pre_action_fade_seconds = 2.0
@@ -342,6 +353,7 @@ margin_edge        = 10
 padding            = 14
 widget_spacing     = 6
 scale              = 1.0
+font_scale         = 1.0            # text-only scale multiplier across widgets
 shadow             = true
 auto_hide          = false
 # smart_auto_hide    = false       # show when the active workspace is empty; hide when it has windows
@@ -365,7 +377,7 @@ end    = ["media", "tray", "notifications", "clipboard", "network", "bluetooth",
 # scroll_up = "none"
 # scroll_down = "none"
 
-# Per-monitor override example — only the fields you list are overridden:
+# Per-monitor override example; only the fields you list are overridden:
 # [bar.main.monitor.dp1]
 # match     = "DP-1"
 # thickness = 44
@@ -540,5 +552,6 @@ enabled = false
 # vertical_format = "{:%H\n%M}"
 # tooltip_format = "{:%A, %B %d, %Y}"
 # scale = 1.0                         # multiplies the bar scale for this widget only
+# font_scale = 1.0                    # multiplies text size for this widget only
 # font_weight = 700
 # interactive = false                 # pass clicks/scrolls through to the bar and disable hover/tooltips

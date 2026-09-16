@@ -28,6 +28,10 @@ struct BrightnessDisplay {
 class BrightnessService {
 public:
   using ChangeCallback = std::function<void()>;
+  enum class BatchChangePhase {
+    Begin,
+    End,
+  };
 
   BrightnessService(SystemBus* bus, CompositorPlatform& platform, const BrightnessConfig& config);
   ~BrightnessService();
@@ -43,9 +47,10 @@ public:
   void setAllBrightness(float value);
   void setBrightness(const std::string& displayId, float value);
   void requestDdcRefresh();
+  void requestDdcRescan();
   void reload(const BrightnessConfig& config);
   void onOutputsChanged();
-  void registerIpc(IpcService& ipc, std::function<void()> onBatchChange = {});
+  void registerIpc(IpcService& ipc, std::function<void(BatchChangePhase)> onBatchChange = {});
 
   void setChangeCallback(ChangeCallback callback);
 

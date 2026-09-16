@@ -2181,27 +2181,27 @@
           "label": "Colocación"
         },
         "position-clipboard": {
-          "description": "Onde flota o portapapeis na pantalla — Seguir a barra manteno preto da barra",
+          "description": "Onde flota o portapapeis na pantalla; Seguir a barra manteno preto da barra",
           "label": "Posición"
         },
         "position-control-center": {
-          "description": "Onde flota o Centro de control na pantalla — Seguir a barra manteno preto da barra",
+          "description": "Onde flota o Centro de control na pantalla; Seguir a barra manteno preto da barra",
           "label": "Posición"
         },
         "position-launcher": {
-          "description": "Onde flota o Launcher na pantalla — Seguir a barra manteno preto da barra",
+          "description": "Onde flota o Launcher na pantalla; Seguir a barra manteno preto da barra",
           "label": "Posición"
         },
         "position-polkit": {
-          "description": "Onde flota a solicitude de polkit na pantalla — Seguir a barra mantena preto da barra",
+          "description": "Onde flota a solicitude de polkit na pantalla; Seguir a barra mantena preto da barra",
           "label": "Posición"
         },
         "position-session": {
-          "description": "Onde flota o menú de sesión na pantalla — Seguir a barra manteno preto da barra",
+          "description": "Onde flota o menú de sesión na pantalla; Seguir a barra manteno preto da barra",
           "label": "Posición"
         },
         "position-wallpaper": {
-          "description": "Onde flota o selector de fondo de pantalla na pantalla — Seguir a barra manteno preto da barra",
+          "description": "Onde flota o selector de fondo de pantalla na pantalla; Seguir a barra manteno preto da barra",
           "label": "Posición"
         },
         "shadow": {

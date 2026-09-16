@@ -277,14 +277,6 @@ namespace {
     return normalized;
   }
 
-  std::string logicalTrackSignature(const MprisPlayerInfo& info) {
-    const std::string canonicalSourceUrl = canonicalTrackSourceUrl(info.sourceUrl);
-    if (!canonicalSourceUrl.empty()) {
-      return std::format("{}\n{}", info.trackId, canonicalSourceUrl);
-    }
-    return std::format("{}\n{}\n{}\n{}", info.trackId, info.title, joinedArtists(info.artists), info.album);
-  }
-
   std::map<std::string, sdbus::Variant> to_dbus_player(const MprisPlayerInfo& info) {
     std::map<std::string, sdbus::Variant> player;
     player["bus_name"] = sdbus::Variant(info.busName);
@@ -353,6 +345,14 @@ namespace {
   std::string normalizeFilterToken(std::string_view value) { return StringUtils::toLower(StringUtils::trim(value)); }
 
 } // namespace
+
+std::string logicalTrackSignature(const MprisPlayerInfo& info) {
+  const std::string canonicalSourceUrl = canonicalTrackSourceUrl(info.sourceUrl);
+  if (!canonicalSourceUrl.empty()) {
+    return std::format("{}\n{}", info.trackId, canonicalSourceUrl);
+  }
+  return std::format("{}\n{}\n{}\n{}", info.trackId, info.title, joinedArtists(info.artists), info.album);
+}
 
 MprisService::MprisService(SessionBus& bus)
     : m_bus(bus), m_dbusProxy(sdbus::createProxy(bus.connection(), kDbusName, kDbusPath)) {
@@ -1652,6 +1652,21 @@ void MprisService::addOrRefreshPlayer(const std::string& busName) {
 
             const auto last_it = m_lastPropertiesUpdate.find(busName);
             if (last_it != m_lastPropertiesUpdate.end() && now - last_it->second < kPropertiesDebounceWindow) {
+              // Debounce bursts to one trailing refresh at the window end.
+              auto& timerId = m_propertiesRefreshTimers[busName];
+              if (!TimerManager::instance().active(timerId)) {
+                const std::weak_ptr<void> aliveGuard = m_aliveGuard;
+                const auto remaining =
+                    std::chrono::ceil<std::chrono::milliseconds>(kPropertiesDebounceWindow - (now - last_it->second));
+                timerId = TimerManager::instance().start(timerId, remaining, [this, aliveGuard, busName]() {
+                  if (aliveGuard.expired()) {
+                    return;
+                  }
+                  m_propertiesRefreshTimers.erase(busName);
+                  m_lastPropertiesUpdate[busName] = std::chrono::steady_clock::now();
+                  addOrRefreshPlayer(busName);
+                });
+              }
               return;
             }
             m_lastPropertiesUpdate[busName] = now;
@@ -2080,6 +2095,7 @@ void MprisService::applyPlayerSnapshot(
     const bool significantChanged = trackChanged
         || previous_info.identity != merged.identity
         || previous_info.playbackStatus != merged.playbackStatus
+        || previous_info.volume != merged.volume
         || previous_info.loopStatus != merged.loopStatus
         || previous_info.shuffle != merged.shuffle
         || previous_info.canGoPrevious != merged.canGoPrevious
@@ -2136,6 +2152,10 @@ void MprisService::clearPlayerState(const std::string& busName) {
   if (auto it = m_positionResyncTimers.find(busName); it != m_positionResyncTimers.end()) {
     TimerManager::instance().cancel(it->second);
     m_positionResyncTimers.erase(it);
+  }
+  if (auto it = m_propertiesRefreshTimers.find(busName); it != m_propertiesRefreshTimers.end()) {
+    TimerManager::instance().cancel(it->second);
+    m_propertiesRefreshTimers.erase(it);
   }
   m_pendingPositionSignalRefresh.erase(busName);
   m_hasAuthoritativePositionSample.erase(busName);

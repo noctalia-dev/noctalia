@@ -1,0 +1,25 @@
+---
+title: privacy
+description: Shows microphone, camera, and screen capture activity.
+sidebar:
+  order: 19
+---
+
+Shows when your microphone, camera, or screen is being captured, based on PipeWire stream links. Each input type has its own icon that switches between an "off" glyph (idle) and an active glyph (in use). Hovering the widget lists the applications currently using each device.
+
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| `hide_inactive` | bool | `false` | Hide idle icons, and hide the whole widget when nothing is being captured |
+| `icon_spacing` | number | `4` | Spacing between the indicator icons in pixels (0–48) |
+| `active_color` | string | `"primary"` | Color role (or fixed hex) for an icon while that device is in use |
+| `inactive_color` | string | `"outline"` | Color role (or fixed hex) for an idle icon (when `hide_inactive` is off) |
+
+Global microphone, camera, and screen-share filters live under
+[`[shell.privacy]`](/noctalia/configuration/shell/#privacy-capture-filters).
+
+```toml
+[widget.privacy]
+type           = "privacy"
+hide_inactive  = true
+icon_spacing   = 6
+```

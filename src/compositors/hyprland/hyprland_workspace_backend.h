@@ -5,6 +5,7 @@
 
 #include <cstdint>
 #include <functional>
+#include <nlohmann/json_fwd.hpp>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -53,8 +54,36 @@ public:
   void dispatchPoll(short revents) override;
 
 private:
+  enum class IpcSchema {
+    Unknown,
+    // TODO: Remove LegacyId after Noctalia drops support for Hyprland v0.56.2 and older.
+    LegacyId,
+    StableIdentity,
+  };
+
+  enum class WorkspaceKind {
+    Numbered,
+    Named,
+    Special,
+  };
+
+  enum class WorkspaceRefreshResult {
+    Invalid,
+    Unchanged,
+    Changed,
+  };
+
+  struct WorkspaceIdentity {
+    std::string key;
+    std::string selector;
+    std::string address;
+    WorkspaceKind kind = WorkspaceKind::Named;
+    std::optional<std::uint32_t> number;
+    std::optional<int> legacyId;
+  };
+
   struct WorkspaceState {
-    int id = -1;
+    WorkspaceIdentity identity;
     std::string name;
     std::string monitor;
     bool active = false;
@@ -64,7 +93,7 @@ private:
   };
 
   struct ToplevelState {
-    int workspaceId;
+    std::string workspaceKey;
     std::string appId;
     std::string title;
     bool urgent = false;
@@ -73,34 +102,41 @@ private:
   };
 
   void refreshSnapshot();
-  [[nodiscard]] bool refreshWorkspaces();
+  [[nodiscard]] WorkspaceRefreshResult refreshWorkspaces();
   void refreshMonitors();
   void refreshClients();
   void recomputeWorkspaceFlags();
   void ensureSnapshotFresh() const;
-  void applyWorkspaceIdChange(int oldId, int newId, std::string_view newName);
+  void applyWorkspaceIdChange(std::uint32_t oldId, std::uint32_t newId, std::string_view newName);
 
   void handleEvent(std::string_view event, std::string_view data) override;
-  void handleFocusedMonitor(std::string_view monitorName, int workspaceId);
-  void handleWorkspaceActivated(int workspaceId);
-  void clearUrgentForWorkspace(int workspaceId);
-  void moveToplevel(std::uint64_t address, int workspaceId);
+  void handleFocusedMonitor(std::string_view monitorName, std::string_view workspaceKey);
+  void handleWorkspaceActivated(std::string_view workspaceKey);
+  void clearUrgentForWorkspace(std::string_view workspaceKey);
+  void moveToplevel(std::uint64_t address, std::string_view workspaceKey);
 
-  [[nodiscard]] WorkspaceState* findWorkspaceById(int id);
+  [[nodiscard]] WorkspaceState* findWorkspaceByKey(std::string_view key);
   [[nodiscard]] WorkspaceState* findWorkspaceByName(std::string_view name);
+  [[nodiscard]] static std::optional<IpcSchema> detectIpcSchema(const nlohmann::json& workspaces);
+  [[nodiscard]] static std::optional<WorkspaceIdentity>
+  parseJsonWorkspaceIdentity(const nlohmann::json& json, IpcSchema schema);
+  [[nodiscard]] std::optional<WorkspaceIdentity>
+  parseEventWorkspaceIdentity(std::string_view selector, std::string_view displayName = {}) const;
   [[nodiscard]] static std::optional<std::uint64_t> parseHexAddress(std::string_view value);
   [[nodiscard]] static std::optional<int> parseInt(std::string_view value);
+  [[nodiscard]] static std::optional<std::uint32_t> parseUnsigned(std::string_view value);
   [[nodiscard]] static std::vector<std::string_view> parseEventArgs(std::string_view data, std::size_t count);
   [[nodiscard]] static bool isSpecial(const WorkspaceState& state);
   [[nodiscard]] static bool workspaceOrderLess(const WorkspaceState* a, const WorkspaceState* b);
   [[nodiscard]] static Workspace toWorkspace(const WorkspaceState& state);
-  [[nodiscard]] std::string workspaceKeyForId(int workspaceId) const;
+  [[nodiscard]] std::string assignmentKeyFor(std::string_view workspaceKey) const;
 
   OutputNameResolver m_outputNameResolver;
   std::vector<WorkspaceState> m_workspaces;
   std::unordered_map<std::uint64_t, ToplevelState> m_toplevels;
-  std::unordered_map<std::string, int> m_activeWorkspaceByMonitor;
+  std::unordered_map<std::string, std::string> m_activeWorkspaceByMonitor;
   std::string m_focusedWindowId;
   std::size_t m_nextOrdinal = 0;
+  IpcSchema m_ipcSchema = IpcSchema::Unknown;
   ChangeCallback m_changeCallback;
 };

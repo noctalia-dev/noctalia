@@ -34,6 +34,9 @@ namespace settings {
     std::function<bool()> onCloseRequested;
     // Optional keyboard pre-dispatch (e.g. plugin-store grid navigation). Return true to consume.
     std::function<bool(const KeyboardEvent&)> preDispatchKeyboard;
+    // Fired when the sheet actually closes (its hosting modal popped), before the sheet body nodes
+    // are destroyed. Use it to capture state that outlives the sheet, e.g. scroll position.
+    std::function<void()> onClosed;
   };
 
   // Surface-independent retained content for a Settings editor sheet. Hosts own the surrounding
@@ -46,6 +49,7 @@ namespace settings {
     void clear();
 
     void requestClose();
+    void notifyClosed();
     void setTitle(std::string title);
     void setStatusMessage(std::string message, bool error);
     void clearStatusMessage();
@@ -71,6 +75,7 @@ namespace settings {
     bool m_scrollableBody = true;
     std::function<bool()> m_onCloseRequested;
     std::function<bool(const KeyboardEvent&)> m_preDispatchKeyboard;
+    std::function<void()> m_onClosed;
     std::string m_title;
     Label* m_titleLabel = nullptr;
     std::string m_statusMessage;

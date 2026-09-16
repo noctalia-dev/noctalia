@@ -738,6 +738,7 @@ void Dock::createInstance(const WaylandOutput& output) {
   instance->outputName = output.name;
   instance->output = output.output;
   instance->scale = output.scale;
+  instance->fractionalScale = (output.configuredScaleNumerator % wayland::kScaleNumeratorBase) != 0;
   instance->outputLogicalX = output.logicalX;
   instance->outputLogicalY = output.logicalY;
   instance->outputLogicalWidth = output.effectiveLogicalWidth();
@@ -745,7 +746,7 @@ void Dock::createInstance(const WaylandOutput& output) {
 
   const auto& shadowConfig = m_config->config().shell.shadow;
   LayerSurfaceConfig lsCfg = shell::dock::makeLayerSurfaceConfig(
-      cfg, shadowConfig, cfg.pinned.size() + shell::dock::dockLauncherButtonCount(cfg)
+      cfg, shadowConfig, cfg.pinned.size() + shell::dock::dockLauncherButtonCount(cfg), instance->fractionalScale
   );
 
   instance->surface = std::make_unique<LayerSurface>(m_platform->wayland(), std::move(lsCfg));
@@ -1077,17 +1078,21 @@ void Dock::tryFulfillPendingLaunchFocus() {
 
   auto windowsOnTarget =
       shell::dock::windowsForDockItem(*m_platform, pending.idLower, pending.wmClassLower, pending.targetOutput);
-  const ToplevelInfo* window = shell::lastActivatableWindow(windowsOnTarget);
-  if (window == nullptr) {
+  std::optional<ToplevelInfo> window;
+  if (const ToplevelInfo* candidate = newestActivatableWindow(windowsOnTarget); candidate != nullptr) {
+    window = *candidate;
+  }
+  if (!window.has_value()) {
     auto windows =
         shell::dock::windowsForDockItem(*m_platform, pending.idLower, pending.wmClassLower, pending.outputFilter);
     if (windows.empty() && pending.outputFilter != nullptr) {
       windows = shell::dock::windowsForDockItem(*m_platform, pending.idLower, pending.wmClassLower, nullptr);
     }
-    window = shell::lastActivatableWindow(windows);
-    if (window == nullptr) {
+    const ToplevelInfo* candidate = newestActivatableWindow(windows);
+    if (candidate == nullptr) {
       return;
     }
+    window = *candidate;
     // Landed off the launch monitor; relocate before activate.
     if (pending.targetOutput != nullptr) {
       m_platform->moveToplevelToOutput(*window, pending.targetOutput);

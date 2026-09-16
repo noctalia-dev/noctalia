@@ -2,7 +2,10 @@
 #include "render/core/texture_manager.h"
 #include "ui/controls/button.h"
 #include "ui/controls/glyph.h"
+#include "ui/controls/label.h"
+#include "ui/style.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdlib>
 #include <print>
@@ -13,10 +16,30 @@ namespace {
 
   class StubRenderer final : public Renderer {
   public:
+    // Fixed-advance shaping, so a wrap budget maps to an exact character count and the
+    // resulting line count is predictable.
     TextMetrics measureText(
-        std::string_view, float fontSize, FontWeight, float, int, TextAlign, std::string_view, TextEllipsize, bool
+        std::string_view text, float fontSize, FontWeight, float maxWidth, int maxLines, TextAlign, std::string_view,
+        TextEllipsize, bool
     ) override {
-      return TextMetrics{.bottom = fontSize};
+      constexpr float kAdvance = 10.0F;
+      const float natural = static_cast<float>(text.size()) * kAdvance;
+      float width = natural;
+      int lineCount = text.empty() ? 0 : 1;
+      if (maxWidth > 0.0F && natural > maxWidth) {
+        const float perLine = std::floor(maxWidth / kAdvance) * kAdvance;
+        lineCount = perLine > 0.0F ? static_cast<int>(std::ceil(natural / perLine)) : 1;
+        if (maxLines > 0) {
+          lineCount = std::min(lineCount, maxLines);
+        }
+        width = maxWidth;
+      }
+      return TextMetrics{
+          .width = width,
+          .right = width,
+          .bottom = fontSize * static_cast<float>(lineCount),
+          .lineCount = lineCount,
+      };
     }
 
     TextMetrics measureFont(float fontSize, FontWeight) override { return TextMetrics{.bottom = fontSize}; }
@@ -84,6 +107,83 @@ int main() {
     std::println(
         stderr, "button_layout_test: expected a 21px glyph in a 32px button at (5.5, 5.5), got ({}, {})", glyph->x(),
         glyph->y()
+    );
+    return 1;
+  }
+
+  // A button stretched narrower than its text keeps the label on one line and hands it a
+  // budget derived from the assigned box, rather than wrapping inside a fixed-height row.
+  Button stretched;
+  stretched.setText("a segmented label");
+  stretched.setPadding(6.0F);
+  stretched.arrange(renderer, LayoutRect{.x = 0.0F, .y = 0.0F, .width = 90.0F, .height = 30.0F});
+
+  const Label* stretchedLabel = stretched.label();
+  if (stretchedLabel == nullptr) {
+    std::println(stderr, "button_layout_test: stretched button has no label");
+    return 1;
+  }
+  if (!near(stretchedLabel->maxWidth(), 78.0F)) {
+    std::println(
+        stderr, "button_layout_test: expected a 78px label budget in a 90px button, got {}", stretchedLabel->maxWidth()
+    );
+    return 1;
+  }
+  if (stretchedLabel->ellipsize() != TextEllipsize::End) {
+    std::println(stderr, "button_layout_test: stretched label does not ellipsize");
+    return 1;
+  }
+  if (stretchedLabel->height() > Style::fontSizeBody * 1.5F) {
+    std::println(
+        stderr, "button_layout_test: stretched label wrapped instead of ellipsizing (height {})",
+        stretchedLabel->height()
+    );
+    return 1;
+  }
+
+  // An unconstrained button must not inherit a budget and must not clip its own text.
+  Button intrinsic;
+  intrinsic.setText("fits");
+  intrinsic.setPadding(6.0F);
+  intrinsic.layout(renderer);
+  const Label* intrinsicLabel = intrinsic.label();
+  if (intrinsicLabel == nullptr || !near(intrinsicLabel->maxWidth(), 0.0F)) {
+    std::println(stderr, "button_layout_test: unconstrained button capped its label");
+    return 1;
+  }
+
+  // A glyph stacked above the label (control-center tiles) leaves the full inner width to the
+  // label; only a glyph beside it takes a share.
+  Button stacked;
+  stacked.setGlyph("home");
+  stacked.setGlyphSize(21.0F);
+  stacked.setText("Bluetooth");
+  stacked.setPadding(6.0F);
+  stacked.setDirection(FlexDirection::Vertical);
+  stacked.arrange(renderer, LayoutRect{.x = 0.0F, .y = 0.0F, .width = 90.0F, .height = 60.0F});
+  if (stacked.label() == nullptr || !near(stacked.label()->maxWidth(), 78.0F)) {
+    std::println(
+        stderr, "button_layout_test: stacked glyph stole label width, budget {}",
+        stacked.label() == nullptr ? -1.0F : stacked.label()->maxWidth()
+    );
+    return 1;
+  }
+
+  Button beside;
+  beside.setGlyph("home");
+  beside.setGlyphSize(21.0F);
+  beside.setText("Bluetooth");
+  beside.setPadding(6.0F);
+  beside.arrange(renderer, LayoutRect{.x = 0.0F, .y = 0.0F, .width = 90.0F, .height = 30.0F});
+  if (beside.label() == nullptr || beside.glyph() == nullptr) {
+    std::println(stderr, "button_layout_test: row button missing label or glyph");
+    return 1;
+  }
+  const float besideExpected = std::ceil(78.0F - (beside.glyph()->width() + beside.gap()));
+  if (!near(beside.label()->maxWidth(), besideExpected)) {
+    std::println(
+        stderr, "button_layout_test: expected a {}px budget beside a glyph, got {}", besideExpected,
+        beside.label()->maxWidth()
     );
     return 1;
   }

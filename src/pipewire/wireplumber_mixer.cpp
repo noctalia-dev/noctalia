@@ -125,7 +125,7 @@ struct WirePlumberMixer::Impl {
     if (!self->ready || !self->defaultNodesReady) {
       kLog.warn(
           "device volume control unavailable after 5s (mixer-api {}, default-nodes-api {}); volume/mute "
-          "changes are being ignored — WirePlumber modules did not load or activate",
+          "changes are being ignored; WirePlumber modules did not load or activate",
           self->ready ? "ready" : "not ready", self->defaultNodesReady ? "ready" : "not ready"
       );
     }

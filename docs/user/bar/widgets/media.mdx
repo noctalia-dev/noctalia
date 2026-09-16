@@ -1,0 +1,29 @@
+---
+title: media
+description: Shows artwork and track details from the active MPRIS player.
+sidebar:
+  order: 14
+---
+
+Shows the current media artwork and track title from MPRIS. On vertical bars (`left` / `right`), only the artwork is shown. On horizontal bars, enable `album_art_only` for the same compact look.
+
+Left-click opens the Media tab in the control center; right-click toggles play/pause. The mouse side buttons (back / forward) skip to the previous and next track. Every action targets the active player shown on the widget.
+
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| `album_art_only` | bool | `false` | Show only circular album artwork (horizontal bars; hidden in Settings on vertical bars) |
+| `hide_album_art` | bool | `false` | Hide the album artwork (horizontal bars). Also hides the fallback icon |
+| `hide_artist` | bool | `false` | Hide the artist and show only the track title (horizontal bars; ignored when `album_art_only` is enabled) |
+| `artist_first` | bool | `false` | Show `Artist - Title` instead of `Title - Artist` (horizontal bars; ignored when `hide_artist` or `album_art_only` is enabled) |
+| `min_length` | number | `80` | Minimum widget length in pixels (hidden when `album_art_only` is enabled) |
+| `max_length` | number | `220` | Maximum widget length in pixels (hidden when `album_art_only` is enabled) |
+| `art_size` | number | `16` | Artwork size in pixels before scale |
+| `title_scroll` | string | `"none"` | Media title scrolling mode: `"none"`, `"always"`, or `"on_hover"` (hidden when `album_art_only` is enabled) |
+| `hide_when_no_media` | bool | `false` | Hide the widget when no MPRIS player is active |
+
+```toml
+[widget.media]
+artist_first = true
+art_size     = 24
+hide_when_no_media = true
+```

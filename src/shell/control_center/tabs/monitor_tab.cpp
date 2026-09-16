@@ -3,6 +3,7 @@
 #include "config/config_service.h"
 #include "i18n/i18n.h"
 #include "render/core/renderer.h"
+#include "shell/panel/panel_button_style.h"
 #include "system/brightness_service.h"
 #include "ui/builders.h"
 #include "ui/controls/scroll_view.h"
@@ -79,6 +80,7 @@ std::unique_ptr<Flex> MonitorTab::create() {
 
   auto cardsScroll = ui::scrollView({
       .out = &m_cardsScroll,
+      .contentScale = scale,
       .scrollbarVisible = true,
       .viewportPaddingH = 0.0F,
       .viewportPaddingV = 0.0F,
@@ -112,6 +114,34 @@ std::unique_ptr<Flex> MonitorTab::create() {
   return tab;
 }
 
+std::unique_ptr<Flex> MonitorTab::createHeaderActions() {
+  const float scale = contentScale();
+  auto row = ui::row(
+      {.align = FlexAlign::Center, .gap = Style::spaceSm * scale},
+      ui::button({
+          .out = &m_rescanButton,
+          .glyph = "refresh",
+          .tooltip = i18n::tr("control-center.display.rescan"),
+          .onClick =
+              [this]() {
+                if (m_brightness != nullptr) {
+                  m_brightness->requestDdcRescan();
+                }
+              },
+          .configure = [scale](Button& button) { panel_button_style::configureHeaderIconButton(button, scale); },
+      })
+  );
+  syncHeaderActions();
+  return row;
+}
+
+// The rescan only re-runs ddcutil detect, so it is meaningless without DDC/CI.
+void MonitorTab::syncHeaderActions() {
+  if (m_rescanButton != nullptr) {
+    m_rescanButton->setVisible(m_configService != nullptr && m_configService->config().brightness.enableDdcutil);
+  }
+}
+
 void MonitorTab::setActive(bool active) {
   const bool becameActive = active && !m_active;
   m_active = active;
@@ -127,6 +157,7 @@ void MonitorTab::onClose() {
   m_emptyState = nullptr;
   m_cardsScroll = nullptr;
   m_cardsLayout = nullptr;
+  m_rescanButton = nullptr;
   m_cards.clear();
   m_lastDisplayListKey.clear();
 }
@@ -175,6 +206,8 @@ void MonitorTab::doLayout(Renderer& renderer, float contentWidth, float bodyHeig
 
 void MonitorTab::doUpdate(Renderer& renderer) {
   rebuildCards(renderer);
+
+  syncHeaderActions();
 
   if (m_brightness == nullptr) {
     return;

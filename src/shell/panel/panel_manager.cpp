@@ -363,6 +363,7 @@ namespace {
 PanelManager::PanelManager() { s_instance = this; }
 
 PanelManager::~PanelManager() {
+  m_persistentHost.setPanelClosedCallback(nullptr);
   if (s_instance == this) {
     s_instance = nullptr;
   }
@@ -462,6 +463,11 @@ void PanelManager::setFocusGrabBarSurfacesProvider(std::function<std::vector<wl_
 
 void PanelManager::setPanelClosedCallback(std::function<void()> callback) {
   m_panelClosedCallback = std::move(callback);
+  m_persistentHost.setPanelClosedCallback([this]() {
+    if (m_panelClosedCallback) {
+      m_panelClosedCallback();
+    }
+  });
 }
 
 void PanelManager::setPanelOpenedCallback(std::function<void()> callback) {
@@ -634,12 +640,18 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
     return static_cast<std::int32_t>(std::clamp(desired, static_cast<float>(padding), static_cast<float>(maxValue)));
   };
 
-  PanelPlacement activePlacement = m_activePanel->panelPlacement();
-  const bool fillWidth = m_activePanel->fillsWidth();
-  const bool fillHeight = m_activePanel->fillsHeight();
-  if ((fillWidth || fillHeight) && activePlacement != PanelPlacement::Floating) {
-    kLog.warn("panel manager: \"{}\" uses fill sizing, which requires floating placement — opening floating", panelId);
-    activePlacement = PanelPlacement::Floating;
+  const PanelPlacement activePlacement = m_activePanel->panelPlacement();
+  // Fill sizing is floating-only (see Panel::fillsWidth): every other placement sizes the
+  // surface from the panel's preferred extent.
+  const bool floatingPlacement = activePlacement == PanelPlacement::Floating;
+  const bool fillWidth = m_activePanel->fillsWidth() && floatingPlacement;
+  const bool fillHeight = m_activePanel->fillsHeight() && floatingPlacement;
+  if (!floatingPlacement && (m_activePanel->fillsWidth() || m_activePanel->fillsHeight())) {
+    kLog.warn(
+        "panel manager: \"{}\" uses fill sizing, which only applies to floating placement; opening at its preferred "
+        "size",
+        panelId
+    );
   }
   m_panelFillWidth = fillWidth;
   m_panelFillHeight = fillHeight;
@@ -1156,7 +1168,7 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
           if (m_destroyGeneration != gen || !isAttachedOpen() || m_layerSurface == nullptr || m_closing) {
             return;
           }
-          m_layerSurface->setKeyboardInteractivity(relaxed);
+          applyKeyboardRelaxation(relaxed);
         });
       }
       kLog.debug("panel manager: opened \"{}\" as attached layer-shell", panelId);
@@ -1246,7 +1258,7 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
       if (m_destroyGeneration != gen || m_layerSurface == nullptr || m_closing) {
         return;
       }
-      m_layerSurface->setKeyboardInteractivity(relaxed);
+      applyKeyboardRelaxation(relaxed);
     });
   }
   kLog.debug("panel manager: opened \"{}\"", panelId);
@@ -1283,8 +1295,9 @@ void PanelManager::activateFocusGrab() {
   if (grabService == nullptr || !grabService->available()) {
     return;
   }
-  // Whitelist the panel and every bar surface. Clicks on whitelisted surfaces
-  // pass through normally. Clicks anywhere else clear the grab and close the panel.
+  // Whitelist the panel, bars, and panel-owned popups. Clicks on whitelisted
+  // surfaces pass through normally. Clicks anywhere else clear the grab and
+  // close the panel.
   m_focusGrab = grabService->createGrab();
   if (m_focusGrab == nullptr) {
     return;
@@ -1295,14 +1308,94 @@ void PanelManager::activateFocusGrab() {
     }
   });
   grabService->setPopupGrabHost(this);
+
+  // Start with the panel as the sole surface so the compositor cannot choose a
+  // bar as the initial keyboard target.
   m_focusGrab->addSurface(m_wlSurface);
+  m_focusGrab->commit();
+  addFocusGrabWhitelistSurfaces(*m_focusGrab, m_wlSurface);
+  m_focusGrab->commit();
+}
+
+void PanelManager::applyKeyboardRelaxation(LayerShellKeyboard mode) {
+  if (m_layerSurface == nullptr) {
+    return;
+  }
+  if (m_focusGrab == nullptr) {
+    m_layerSurface->setKeyboardInteractivity(mode);
+    return;
+  }
+  if (m_platform == nullptr || m_wlSurface == nullptr) {
+    return;
+  }
+
+  auto* grabService = m_platform->focusGrabService();
+  if (grabService == nullptr || !grabService->available()) {
+    return;
+  }
+
+  auto replacement = grabService->createGrab();
+  if (replacement == nullptr) {
+    return;
+  }
+  replacement->setOnCleared([this]() {
+    if (isOpen() && !m_closing) {
+      closePanel();
+    }
+  });
+
+  wl_surface* focusSurface = m_wlSurface;
+  if (wl_surface* current = m_platform->lastKeyboardSurface(); isFocusGrabWhitelistSurface(current)) {
+    focusSurface = current;
+  }
+  replacement->addSurface(focusSurface);
+
+  // A fresh grab must start after the layer commit so its keyboard refocus wins
+  // over compositors applying follow-mouse focus during Exclusive -> OnDemand.
+  m_focusGrab.reset();
+  m_layerSurface->setKeyboardInteractivity(mode);
+  m_focusGrab = std::move(replacement);
+  grabService->setPopupGrabHost(this);
+
+  // Keep the first commit limited to the previous focus surface. The
+  // compositor may choose any surface when a grab first becomes active.
+  m_focusGrab->commit();
+
+  addFocusGrabWhitelistSurfaces(*m_focusGrab, focusSurface);
+  m_focusGrab->commit();
+}
+
+void PanelManager::addFocusGrabWhitelistSurfaces(FocusGrab& grab, wl_surface* excludedSurface) {
+  const auto addSurface = [&grab, excludedSurface](wl_surface* surface) {
+    if (surface != nullptr && surface != excludedSurface) {
+      grab.addSurface(surface);
+    }
+  };
+
+  addSurface(m_wlSurface);
   if (m_focusGrabBarSurfacesProvider) {
     auto bars = m_focusGrabBarSurfacesProvider();
     for (auto* surface : bars) {
-      m_focusGrab->addSurface(surface);
+      addSurface(surface);
     }
   }
-  m_focusGrab->commit();
+  for (auto* surface : m_focusGrabPopupSurfaces) {
+    addSurface(surface);
+  }
+}
+
+bool PanelManager::isFocusGrabWhitelistSurface(wl_surface* surface) const {
+  if (surface == nullptr) {
+    return false;
+  }
+  if (surface == m_wlSurface || m_focusGrabPopupSurfaces.contains(surface)) {
+    return true;
+  }
+  if (m_focusGrabBarSurfacesProvider == nullptr) {
+    return false;
+  }
+  const auto bars = m_focusGrabBarSurfacesProvider();
+  return std::ranges::find(bars, surface) != bars.end();
 }
 
 void PanelManager::deactivateOutsideClickHandlers() {
@@ -1313,6 +1406,7 @@ void PanelManager::deactivateOutsideClickHandlers() {
     }
   }
   m_focusGrab.reset();
+  m_focusGrabPopupSurfaces.clear();
 }
 
 void PanelManager::closePanel(bool animateClose) {
@@ -1382,6 +1476,7 @@ void PanelManager::destroyPanel() {
   m_inputDispatcher.setSceneRoot(nullptr);
   // Hover leave only fades tooltips asynchronously. Destroy them (and any
   // open context menu) before the layer surface — xdg_popup must die first.
+  TooltipManager::instance().restoreBarTooltipsForPanel(m_activePanelId);
   TooltipManager::instance().forceDestroy();
   if (m_activePopup != nullptr) {
     m_activePopup->close();
@@ -1827,7 +1922,11 @@ void PanelManager::setActivePopup(ContextMenuPopup* popup) {
 void PanelManager::clearActivePopup() { m_activePopup = nullptr; }
 
 void PanelManager::registerPopupSurface(wl_surface* surface) {
-  if (m_focusGrab == nullptr || surface == nullptr) {
+  if (surface == nullptr) {
+    return;
+  }
+  const bool inserted = m_focusGrabPopupSurfaces.insert(surface).second;
+  if (!inserted || m_focusGrab == nullptr) {
     return;
   }
   m_focusGrab->addSurface(surface);
@@ -1835,7 +1934,11 @@ void PanelManager::registerPopupSurface(wl_surface* surface) {
 }
 
 void PanelManager::unregisterPopupSurface(wl_surface* surface) {
-  if (m_focusGrab == nullptr || surface == nullptr) {
+  if (surface == nullptr) {
+    return;
+  }
+  const bool removed = m_focusGrabPopupSurfaces.erase(surface) != 0;
+  if (!removed || m_focusGrab == nullptr) {
     return;
   }
   m_focusGrab->removeSurface(surface);

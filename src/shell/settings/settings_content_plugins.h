@@ -6,9 +6,12 @@
 #include <functional>
 #include <string>
 #include <string_view>
+#include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 class Flex;
+class Node;
 
 namespace scripting {
   struct PluginManifest;
@@ -23,8 +26,17 @@ namespace settings {
   struct SettingsPluginsContext {
     float scale = 1.0F;
     std::string_view selectedSection;
+    // In page search query and empty means no filtering. Owned copy so the context
+    // never views a string that a debounced rebuild could observe mid mutation.
+    std::string searchQuery;
+    std::function<void(std::string)> setSearchQuery;
     std::vector<scripting::PluginStatus> plugins;
     std::vector<PluginSourceConfig> sources;
+    bool searchActive = false;
+    Flex* pageTitleRow = nullptr;
+    Flex* groupJumpRow = nullptr;
+    std::function<void(const Node&)> scrollContentToTop;
+    std::unordered_map<std::string, std::unordered_set<std::string>>& expandedGroupsByPage;
     bool pluginsLoading = false;
 
     std::function<void(std::string id, bool enable)> setEnabled;

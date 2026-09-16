@@ -1,0 +1,109 @@
+---
+title: Terminal sequences
+description: Theming the terminal with universal terminal sequences, useful for foot terminal live reloading.
+sidebar:
+  order: 11
+---
+
+The foot terminal does not support live config reload, you need terminal sequences to achieve that. You can also use the sequences in any terminal (Kitty, Wezterm, Foot, Alacritty, Gnome terminal, Konsole, etc...).
+
+## Setup
+
+#### You can either run this script :
+
+``` sh
+#!/usr/bin/env bash
+
+CONFIG_PATH=~/.config/noctalia
+TEMPLATE_PATH=$CONFIG_PATH/templates/terminal-sequences
+
+mkdir -p $CONFIG_PATH/templates
+
+cat >> $CONFIG_PATH/config.toml <<'EOF'
+[theme.templates.user.terminal-sequences]
+input_path = '~/.config/noctalia/templates/terminal-sequences'
+output_path = '~/.cache/terminal-sequences'
+post_hook = 'tee /dev/pts/[0-9]* < ~/.cache/terminal-sequences'
+EOF
+
+{
+    printf '\033]10;{{colors.terminal_foreground.default.hex}}\007'
+    printf '\033]11;{{colors.terminal_background.default.hex}}\007'
+
+    printf '\033]4;0;{{colors.terminal_normal_black.default.hex}}\007'
+    printf '\033]4;1;{{colors.terminal_normal_red.default.hex}}\007'
+    printf '\033]4;2;{{colors.terminal_normal_green.default.hex}}\007'
+    printf '\033]4;3;{{colors.terminal_normal_yellow.default.hex}}\007'
+    printf '\033]4;4;{{colors.terminal_normal_blue.default.hex}}\007'
+    printf '\033]4;5;{{colors.terminal_normal_magenta.default.hex}}\007'
+    printf '\033]4;6;{{colors.terminal_normal_cyan.default.hex}}\007'
+    printf '\033]4;7;{{colors.terminal_normal_white.default.hex}}\007'
+
+    printf '\033]4;8;{{colors.terminal_bright_black.default.hex}}\007'
+    printf '\033]4;9;{{colors.terminal_bright_red.default.hex}}\007'
+    printf '\033]4;10;{{colors.terminal_bright_green.default.hex}}\007'
+    printf '\033]4;11;{{colors.terminal_bright_yellow.default.hex}}\007'
+    printf '\033]4;12;{{colors.terminal_bright_blue.default.hex}}\007'
+    printf '\033]4;13;{{colors.terminal_bright_magenta.default.hex}}\007'
+    printf '\033]4;14;{{colors.terminal_bright_cyan.default.hex}}\007'
+    printf '\033]4;15;{{colors.terminal_bright_white.default.hex}}\007'
+
+    printf '\033]19;{{colors.terminal_selection_fg.default.hex}}\007'
+    printf '\033]17;{{colors.terminal_selection_bg.default.hex}}\007'
+    printf '\033]12;{{colors.terminal_cursor.default.hex}}\007'
+} > "$TEMPLATE_PATH"
+```
+
+#### or step by step :
+
+1. Add this to your `~/.config/noctalia/config.toml` (create it if you don't have one) :
+    ``` toml
+    [theme.templates.user.terminal-sequences]
+    input_path = '~/.config/noctalia/templates/terminal-sequences'
+    output_path = '~/.cache/terminal-sequences'
+    post_hook = 'tee /dev/pts/[0-9]* < ~/.cache/terminal-sequences'
+    ```
+
+2. Generate the template with this script:
+    ``` sh
+    #!/usr/bin/env bash
+
+    TEMPLATE_PATH=~/.config/noctalia/templates/terminal-sequences
+
+    mkdir -p ~/.config/noctalia/templates
+
+    {
+        printf '\033]10;{{colors.terminal_foreground.default.hex}}\007'
+        printf '\033]11;{{colors.terminal_background.default.hex}}\007'
+
+        printf '\033]4;0;{{colors.terminal_normal_black.default.hex}}\007'
+        printf '\033]4;1;{{colors.terminal_normal_red.default.hex}}\007'
+        printf '\033]4;2;{{colors.terminal_normal_green.default.hex}}\007'
+        printf '\033]4;3;{{colors.terminal_normal_yellow.default.hex}}\007'
+        printf '\033]4;4;{{colors.terminal_normal_blue.default.hex}}\007'
+        printf '\033]4;5;{{colors.terminal_normal_magenta.default.hex}}\007'
+        printf '\033]4;6;{{colors.terminal_normal_cyan.default.hex}}\007'
+        printf '\033]4;7;{{colors.terminal_normal_white.default.hex}}\007'
+
+        printf '\033]4;8;{{colors.terminal_bright_black.default.hex}}\007'
+        printf '\033]4;9;{{colors.terminal_bright_red.default.hex}}\007'
+        printf '\033]4;10;{{colors.terminal_bright_green.default.hex}}\007'
+        printf '\033]4;11;{{colors.terminal_bright_yellow.default.hex}}\007'
+        printf '\033]4;12;{{colors.terminal_bright_blue.default.hex}}\007'
+        printf '\033]4;13;{{colors.terminal_bright_magenta.default.hex}}\007'
+        printf '\033]4;14;{{colors.terminal_bright_cyan.default.hex}}\007'
+        printf '\033]4;15;{{colors.terminal_bright_white.default.hex}}\007'
+
+        printf '\033]19;{{colors.terminal_selection_fg.default.hex}}\007'
+        printf '\033]17;{{colors.terminal_selection_bg.default.hex}}\007'
+        printf '\033]12;{{colors.terminal_cursor.default.hex}}\007'
+    } > "$TEMPLATE_PATH"
+    ```
+
+## Troobleshooting
+
+This is meant to be used with the built-in foot template, if you don't want to you can add `[[ -f ~/.cache/terminal-sequences ]] && cat ~/.cache/terminal-sequences` in your `~/.bashrc`. This will load the theme at terminal startup.
+
+## Notes
+
+The template is based on the built-in foot one so if you use both you will have the same colors.

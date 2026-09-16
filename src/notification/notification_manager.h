@@ -131,6 +131,7 @@ public:
   void clearHistory();
   void setFilters(std::vector<NotificationFilterConfig> filters);
   [[nodiscard]] const std::vector<NotificationFilterConfig>& filters() const noexcept;
+  void setKeepDismissedInHistory(bool keep);
   void setHistoryRetentionHours(int hours);
   void setDoNotDisturb(bool enabled);
   [[nodiscard]] bool doNotDisturb() const noexcept;
@@ -151,6 +152,7 @@ public:
 private:
   void cleanupOldHistoryEntries();
   void upsertHistory(const Notification& notification, bool active, std::optional<CloseReason> closeReason);
+  void markHistoryClosed(uint32_t id, CloseReason reason);
   void rebuildHistoryIndex();
   void schedulePersistHistory();
   void persistHistoryToDisk();
@@ -173,6 +175,7 @@ private:
   uint32_t suppressExternal(std::string_view appName, Urgency urgency);
 
   int m_historyRetentionHours = 0;
+  bool m_keepDismissedInHistory = true;
   bool m_persistScheduled = false;
   Timer m_historyRetentionTimer;
 

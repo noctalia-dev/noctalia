@@ -363,17 +363,29 @@ namespace ui {
       return name != nullptr && !name->empty() ? name : nullptr;
     }
 
-    // Box/image and row/column get an InputArea wrapper only when clickable (see
-    // createControl). If a reconcile flips that need, the existing node can't
-    // be reused — its structure no longer matches — so it must be rebuilt like
-    // a type change.
+    // Only these types can carry an InputArea wrapper (see createControl).
+    bool wrappableType(const std::string& type) {
+      return type == "box" || type == "image" || type == "row" || type == "column" || type == "graph";
+    }
+
+    // The props that make a wrappable type need its InputArea: pointer tracking
+    // for a graph, click/hover for the rest.
+    bool wantsInputAreaWrapper(const UiTreeNode& want) {
+      if (want.type == "graph") {
+        return callbackProp(want, "onPointerMove") != nullptr || callbackProp(want, "onPointerLeave") != nullptr;
+      }
+      return callbackProp(want, "onClick") != nullptr
+          || callbackProp(want, "onHover") != nullptr
+          || strProp(want, "tooltip") != nullptr;
+    }
+
+    // If a reconcile flips that need, the existing node cannot be reused (its
+    // structure no longer matches), so it is rebuilt like a type change.
     bool clickableWrapMismatch(const UiTreeNode& want, Node* node) {
-      if (want.type != "box" && want.type != "image" && want.type != "row" && want.type != "column") {
+      if (!wrappableType(want.type)) {
         return false;
       }
-      const bool wantsWrapper = callbackProp(want, "onClick") != nullptr || callbackProp(want, "onHover") != nullptr;
-      const bool hasWrapper = inputAreaFromSlot(node) != nullptr;
-      return wantsWrapper != hasWrapper;
+      return wantsInputAreaWrapper(want) != (inputAreaFromSlot(node) != nullptr);
     }
 
     // InputArea never self-sizes; box/image mirror explicit sizes, but a
@@ -450,19 +462,19 @@ namespace ui {
                                                             "visible",   "gap",     "padding",     "paddingH",
                                                             "paddingV",  "align",   "justify",     "fill",
                                                             "radius",    "border",  "borderWidth", "minWidth",
-                                                            "minHeight", "onClick", "onHover"};
-      static const std::unordered_set<std::string> kBox = {"width",       "height",   "flexGrow", "opacity",
-                                                           "visible",     "fill",     "radius",   "border",
-                                                           "borderWidth", "softness", "onClick",  "onHover"};
+                                                            "minHeight", "onClick", "onHover",     "tooltip"};
+      static const std::unordered_set<std::string> kBox = {"width",   "height",  "flexGrow", "opacity",     "visible",
+                                                           "fill",    "radius",  "border",   "borderWidth", "softness",
+                                                           "onClick", "onHover", "tooltip"};
       static const std::unordered_set<std::string> kLabel = {"width",      "height",   "flexGrow", "opacity",
                                                              "visible",    "text",     "fontSize", "color",
                                                              "fontWeight", "maxWidth", "maxLines", "textAlign",
                                                              "fontFamily", "baseline"};
       static const std::unordered_set<std::string> kGlyph = {"width",   "height", "flexGrow", "opacity",
                                                              "visible", "name",   "size",     "color"};
-      static const std::unordered_set<std::string> kImage = {"width",   "height",      "flexGrow", "opacity",
-                                                             "visible", "path",        "radius",   "fit",
-                                                             "border",  "borderWidth", "onClick",  "onHover"};
+      static const std::unordered_set<std::string> kImage = {"width",   "height",  "flexGrow", "opacity", "visible",
+                                                             "path",    "radius",  "fit",      "border",  "borderWidth",
+                                                             "onClick", "onHover", "tooltip"};
       static const std::unordered_set<std::string> kSeparator = {"width",   "height",  "flexGrow",
                                                                  "opacity", "visible", "thickness",
                                                                  "color",   "spacing", "orientation"};
@@ -473,9 +485,10 @@ namespace ui {
                                                               "glyphSize",   "variant", "contentAlign", "enabled",
                                                               "selected",    "onClick", "onRightClick", "tooltip",
                                                               "controlSize", "onHover"};
-      static const std::unordered_set<std::string> kGraph = {"width",   "height",    "flexGrow",   "opacity",
-                                                             "visible", "values",    "values2",    "color",
-                                                             "color2",  "lineWidth", "fillOpacity"};
+      static const std::unordered_set<std::string> kGraph = {
+          "width", "height", "flexGrow",  "opacity",     "visible",       "values",        "values2",
+          "color", "color2", "lineWidth", "fillOpacity", "onPointerMove", "onPointerLeave"
+      };
       static const std::unordered_set<std::string> kInput = {"width",       "height",   "flexGrow",    "opacity",
                                                              "visible",     "value",    "placeholder", "fontSize",
                                                              "enabled",     "password", "multiline",   "focus",
@@ -569,14 +582,18 @@ namespace ui {
     std::string type;
     std::string key;
     Node* node = nullptr;
-    std::string callbackName;        // last-wired button onClick / control onChange target
-    std::string rightCallbackName;   // last-wired button onRightClick target
-    std::string hoverCallbackName;   // last-wired onHover target (button/box/image/row/column)
-    std::string submitCallbackName;  // last-wired input onSubmit target
-    std::string dragEndCallbackName; // last-wired slider onDragEnd target
-    std::string imagePath;           // last-applied resolved image source
-    std::string lastText;            // markdown source cache - setMarkdown re-parses, only call on change
-    float lastMarkdownScale = 0.0F;  // scale baked into the parsed markdown; a rescale must re-call setMarkdown
+    std::string callbackName;             // last-wired button onClick / control onChange target
+    std::string rightCallbackName;        // last-wired button onRightClick target
+    std::string hoverCallbackName;        // last-wired onHover target (button/box/image/row/column)
+    std::string submitCallbackName;       // last-wired input onSubmit target
+    std::string dragEndCallbackName;      // last-wired slider onDragEnd target
+    std::string pointerMoveCallbackName;  // last-wired graph onPointerMove target
+    std::string pointerLeaveCallbackName; // last-wired graph onPointerLeave target
+    std::string pointerStreamKey;         // coalescing stream shared by this graph's pointer callbacks
+    std::string imagePath;                // last-applied resolved image source
+    std::string lastText;                 // markdown source cache - setMarkdown re-parses, only call on change
+    float lastMarkdownScale = 0.0F;       // content scale baked into the parsed markdown
+    float lastMarkdownFontScale = 0.0F;   // text-only multiplier baked into the parsed markdown
     float imageTargetSize = 0.0F;
     // Controlled-with-change-detection: a value-driven control (toggle/slider/
     // select) only re-applies its declared value when it differs from the last
@@ -602,6 +619,8 @@ namespace ui {
     m_dragDropController->setScale(scale);
   }
 
+  void UiTreeReconciler::setFontScale(float scale) { m_fontScale = scale; }
+
   void UiTreeReconciler::setDragDropEnabled(bool enabled) {
     if (m_dragDropEnabled == enabled) {
       return;
@@ -622,9 +641,11 @@ namespace ui {
 
   void UiTreeReconciler::reset() {
     m_dragDropController->cancel();
-    // The host tree is gone, so any hover it was reporting has ended. The slots
-    // still name it; the Nodes they point at are already freed.
+    // The host tree is gone, so any hover or graph pointer session it was
+    // reporting has ended. The slots still name it; the Nodes they point at are
+    // already freed.
     closeHover();
+    closePointer();
     m_rootSlots.clear();
   }
 
@@ -641,7 +662,7 @@ namespace ui {
       auto flex = std::make_unique<Flex>();
       flex->setDirection(FlexDirection::Vertical);
       flex->setAlign(FlexAlign::Stretch);
-      if (callbackProp(desired, "onClick") != nullptr || callbackProp(desired, "onHover") != nullptr) {
+      if (wantsInputAreaWrapper(desired)) {
         return wrapClickable(std::move(flex), callbackProp(desired, "onClick") != nullptr);
       }
       return flex;
@@ -650,7 +671,7 @@ namespace ui {
       auto flex = std::make_unique<Flex>();
       flex->setDirection(FlexDirection::Horizontal);
       flex->setAlign(FlexAlign::Stretch);
-      if (callbackProp(desired, "onClick") != nullptr || callbackProp(desired, "onHover") != nullptr) {
+      if (wantsInputAreaWrapper(desired)) {
         return wrapClickable(std::move(flex), callbackProp(desired, "onClick") != nullptr);
       }
       return flex;
@@ -668,7 +689,7 @@ namespace ui {
       return zone;
     }
     if (desired.type == "box") {
-      if (callbackProp(desired, "onClick") != nullptr || callbackProp(desired, "onHover") != nullptr) {
+      if (wantsInputAreaWrapper(desired)) {
         return wrapClickable(std::make_unique<Box>(), callbackProp(desired, "onClick") != nullptr);
       }
       return std::make_unique<Box>();
@@ -680,7 +701,7 @@ namespace ui {
       return std::make_unique<Glyph>();
     }
     if (desired.type == "image") {
-      if (callbackProp(desired, "onClick") != nullptr || callbackProp(desired, "onHover") != nullptr) {
+      if (wantsInputAreaWrapper(desired)) {
         return wrapClickable(std::make_unique<Image>(), callbackProp(desired, "onClick") != nullptr);
       }
       return std::make_unique<Image>();
@@ -698,6 +719,9 @@ namespace ui {
       return std::make_unique<Button>();
     }
     if (desired.type == "graph") {
+      if (wantsInputAreaWrapper(desired)) {
+        return wrapClickable(std::make_unique<Graph>(), /*acceptClicks=*/false);
+      }
       return std::make_unique<Graph>();
     }
     if (desired.type == "input") {
@@ -717,6 +741,7 @@ namespace ui {
     }
     if (desired.type == "scroll") {
       auto scroll = std::make_unique<ScrollView>();
+      scroll->setContentScale(m_scale);
       scroll->content()->setAlign(FlexAlign::Stretch); // match the ui.* column/row default
       return scroll;
     }
@@ -797,9 +822,14 @@ namespace ui {
       }
 
       for (const auto& leftover : detached) {
-        if (!leftover.used && subtreeOwnsHover(leftover.slot)) {
+        if (leftover.used) {
+          continue;
+        }
+        if (subtreeOwnsHover(leftover.slot)) {
           closeHover();
-          break;
+        }
+        if (subtreeOwnsPointer(leftover.slot)) {
+          closePointer();
         }
       }
     }
@@ -867,6 +897,16 @@ namespace ui {
         clearWrapperHover(inputArea);
       }
     }
+    // Tooltip on wrappable containers, unconditional so a dropped tooltip
+    // clears on the retained InputArea. Empty routes to clearTooltip().
+    if (inputArea != nullptr) {
+      const std::string* tooltip = strProp(desired, "tooltip");
+      if (tooltip != nullptr && !tooltip->empty()) {
+        inputArea->setTooltip(*tooltip);
+      } else {
+        inputArea->clearTooltip();
+      }
+    }
   }
 
   // Hover is state the plugin mirrors, so every "true" owes a "false". Exactly
@@ -922,6 +962,99 @@ namespace ui {
     return false;
   }
 
+  // Both edges of a graph's pointer session are wired together: the enter/motion
+  // reporter and the leave share one coalescing stream key, so the script queue
+  // holds a single pending event per graph and the newest one always wins. A
+  // fresh key per rewire keeps a superseded stream from swallowing the leave the
+  // old wiring owes.
+  void UiTreeReconciler::syncGraphPointerCallbacks(Slot& slot, const UiTreeNode& desired, Node* node) {
+    const std::string* move = callbackProp(desired, "onPointerMove");
+    const std::string* leave = callbackProp(desired, "onPointerLeave");
+    const std::string moveName = move != nullptr ? *move : std::string{};
+    const std::string leaveName = leave != nullptr ? *leave : std::string{};
+    if (moveName == slot.pointerMoveCallbackName && leaveName == slot.pointerLeaveCallbackName) {
+      return;
+    }
+    releasePointer(node);
+    slot.pointerMoveCallbackName = moveName;
+    slot.pointerLeaveCallbackName = leaveName;
+
+    InputArea* inputArea = inputAreaFromSlot(node);
+    if (inputArea == nullptr) {
+      return; // no wrapper: clickableWrapMismatch rebuilds instead of rewiring
+    }
+    if (moveName.empty() && leaveName.empty()) {
+      slot.pointerStreamKey.clear();
+      inputArea->setOnEnter(nullptr);
+      inputArea->setOnMotion(nullptr);
+      inputArea->setOnLeave(nullptr);
+      return;
+    }
+    slot.pointerStreamKey = std::format("graph-pointer:{}", ++m_pointerStreamSeq);
+
+    // Position is normalized to [0,1] over the graph's content area, which fills
+    // the whole control (Graph::setSize puts the render node at 0,0, no inset).
+    auto report = [this, name = moveName, key = slot.pointerStreamKey,
+                   inputArea](const InputArea::PointerData& pointer) {
+      if (!m_sink || name.empty() || inputArea->width() <= 0.0F || inputArea->height() <= 0.0F) {
+        return;
+      }
+      const float normX = std::clamp(pointer.localX / inputArea->width(), 0.0F, 1.0F);
+      const float normY = std::clamp(pointer.localY / inputArea->height(), 0.0F, 1.0F);
+      m_sink(ControlCallback{name, std::format("{:.4F}", normX), std::format("{:.4F}", normY), true, key});
+    };
+    inputArea->setOnEnter([this, node, leaveName, key = slot.pointerStreamKey,
+                           report](const InputArea::PointerData& pointer) {
+      openPointer(node, leaveName, key);
+      report(pointer);
+    });
+    inputArea->setOnMotion(report);
+    inputArea->setOnLeave([this, node]() { releasePointer(node); });
+  }
+
+  void UiTreeReconciler::openPointer(const Node* owner, std::string leaveCallback, std::string streamKey) {
+    if (m_pointerOwner == owner) {
+      return;
+    }
+    closePointer();
+    m_pointerLeaveCallback = std::move(leaveCallback);
+    m_pointerStreamKey = std::move(streamKey);
+    m_pointerOwner = owner;
+  }
+
+  void UiTreeReconciler::closePointer() {
+    if (m_pointerOwner == nullptr) {
+      return;
+    }
+    const std::string name = std::exchange(m_pointerLeaveCallback, std::string{});
+    const std::string key = std::exchange(m_pointerStreamKey, std::string{});
+    m_pointerOwner = nullptr;
+    if (m_sink && !name.empty()) {
+      m_sink(ControlCallback{name, {}, {}, true, key});
+    }
+  }
+
+  void UiTreeReconciler::releasePointer(const Node* owner) {
+    if (owner != nullptr && owner == m_pointerOwner) {
+      closePointer();
+    }
+  }
+
+  bool UiTreeReconciler::subtreeOwnsPointer(const Slot& slot) const {
+    if (m_pointerOwner == nullptr) {
+      return false;
+    }
+    if (slot.node == m_pointerOwner) {
+      return true;
+    }
+    for (const Slot& child : slot.children) {
+      if (subtreeOwnsPointer(child)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   void UiTreeReconciler::applyProps(Slot& slot, const UiTreeNode& desired, Renderer& renderer) {
     Node* node = slot.node;
     if (node == nullptr) {
@@ -937,6 +1070,7 @@ namespace ui {
     }
 
     const auto scaled = [this](double v) { return static_cast<float>(v) * m_scale; };
+    const auto scaledFont = [this](double v) { return static_cast<float>(v) * m_scale * m_fontScale; };
 
     // Common node props.
     if (const bool* visible = boolProp(desired, "visible")) {
@@ -1165,12 +1299,14 @@ namespace ui {
         label->setText(*text);
       }
       if (const double* fontSize = numProp(desired, "fontSize")) {
-        label->setFontSize(scaled(*fontSize));
+        label->setFontSize(scaledFont(*fontSize));
       } else {
-        label->setFontSize(Style::fontSizeBody * m_scale);
+        label->setFontSize(Style::fontSizeBody * m_scale * m_fontScale);
       }
       if (auto color = parseColor(desired, "color")) {
         label->setColor(*color);
+      } else {
+        label->setColor(m_defaultLabelColor);
       }
       if (auto weight = parseFontWeight(desired)) {
         label->setFontWeight(*weight);
@@ -1201,6 +1337,8 @@ namespace ui {
       }
       if (auto color = parseColor(desired, "color")) {
         glyph->setColor(*color);
+      } else {
+        glyph->setColor(m_defaultGlyphColor);
       }
       return;
     }
@@ -1309,11 +1447,11 @@ namespace ui {
         button->setText("");
       }
       if (const double* fontSize = numProp(desired, "fontSize")) {
-        button->setFontSize(scaled(*fontSize));
+        button->setFontSize(scaledFont(*fontSize));
       } else if (text != nullptr && !text->empty()) {
         // Guarded on non-empty text: setFontSize creates the label, which
         // would flip a glyph-only button to the taller text chrome tier.
-        button->setFontSize(Style::fontSizeBody * m_scale);
+        button->setFontSize(Style::fontSizeBody * m_scale * m_fontScale);
       }
       if (const double* glyphSize = numProp(desired, "glyphSize")) {
         button->setGlyphSize(scaled(*glyphSize));
@@ -1409,7 +1547,10 @@ namespace ui {
     }
 
     if (desired.type == "graph") {
-      auto* graph = static_cast<Graph*>(node);
+      auto* graph = controlFromSlot<Graph>(node);
+      if (graph == nullptr) {
+        return;
+      }
       if (const std::vector<double>* values = arrayProp(desired, "values")) {
         graph->setValues(toFloatSeries(*values));
       }
@@ -1428,9 +1569,14 @@ namespace ui {
       if (const double* fillOpacity = numProp(desired, "fillOpacity")) {
         graph->setFillOpacity(std::clamp(static_cast<float>(*fillOpacity), 0.0F, 1.0F));
       }
-      graph->setSize(
-          width != nullptr ? scaled(*width) : node->width(), height != nullptr ? scaled(*height) : node->height()
-      );
+      const float graphWidth = width != nullptr ? scaled(*width) : graph->width();
+      const float graphHeight = height != nullptr ? scaled(*height) : graph->height();
+      graph->setSize(graphWidth, graphHeight);
+      InputArea* inputArea = inputAreaFromSlot(node);
+      if (inputArea != nullptr) {
+        inputArea->setSize(graphWidth, graphHeight);
+      }
+      syncGraphPointerCallbacks(slot, desired, node);
       return;
     }
 
@@ -1521,6 +1667,7 @@ namespace ui {
       if (const std::string* placeholder = strProp(desired, "placeholder")) {
         select->setPlaceholder(*placeholder);
       }
+      select->setFontSize(Style::fontSizeBody * m_scale * m_fontScale);
       if (onChangeProp != nullptr && *onChangeProp != slot.callbackName) {
         slot.callbackName = *onChangeProp;
         select->setOnSelectionChanged([this, name = slot.callbackName](std::size_t idx, std::string_view text) {
@@ -1565,7 +1712,9 @@ namespace ui {
         input->setPlaceholder(*placeholder);
       }
       if (const double* fontSize = numProp(desired, "fontSize")) {
-        input->setFontSize(scaled(*fontSize));
+        input->setFontSize(scaledFont(*fontSize));
+      } else {
+        input->setFontSize(Style::fontSizeBody * m_scale * m_fontScale);
       }
       // Multiline before password: they are mutually exclusive and multiline wins.
       if (const bool* multiline = boolProp(desired, "multiline")) {
@@ -1618,12 +1767,15 @@ namespace ui {
       // The scale check sits outside the text-presence gate: a render that
       // omits text (retained-prop convention) must still pick up a rescale.
       const std::string* text = strProp(desired, "text");
-      if ((text != nullptr && *text != slot.lastText) || m_scale != slot.lastMarkdownScale) {
+      if ((text != nullptr && *text != slot.lastText)
+          || m_scale != slot.lastMarkdownScale
+          || m_fontScale != slot.lastMarkdownFontScale) {
         if (text != nullptr) {
           slot.lastText = *text;
         }
         slot.lastMarkdownScale = m_scale;
-        md->setMarkdown(slot.lastText, m_scale);
+        slot.lastMarkdownFontScale = m_fontScale;
+        md->setMarkdown(slot.lastText, m_scale, m_fontScale);
       }
       if (width != nullptr) {
         md->setMinWidth(scaled(*width));

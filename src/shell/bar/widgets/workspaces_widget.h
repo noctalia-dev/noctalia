@@ -37,6 +37,7 @@ public:
     WorkspacesStyle style = WorkspacesStyle::Regular;
     WorkspacesLabelSource labelSource = WorkspacesLabelSource::Id;
     bool showLabels = true;
+    bool showIcons = true;
     ColorSpec focusedColor = colorSpecFromRole(ColorRole::Primary);
     ColorSpec occupiedColor = colorSpecFromRole(ColorRole::Secondary);
     ColorSpec emptyColor = colorSpecFromRole(ColorRole::Secondary);
@@ -92,6 +93,8 @@ private:
   [[nodiscard]] bool shouldShowWorkspaceLabel(const Workspace& workspace, std::string_view label) const noexcept;
   [[nodiscard]] bool isMinimal() const noexcept { return m_style == WorkspacesStyle::Minimal; }
   [[nodiscard]] bool isFocusHint() const noexcept { return m_style == WorkspacesStyle::FocusHint; }
+  // FocusHint is the only style that draws the focused app icon.
+  [[nodiscard]] bool showsActiveIcon() const noexcept { return isFocusHint() && m_showIcons; }
   [[nodiscard]] bool isWorkspaceHidden(const Workspace& workspace) const noexcept;
   void syncWidgetVisibility(bool showWidget);
   void recalculateItemMetrics(Renderer& renderer, Item& item, const Workspace& workspace, std::size_t displayIndex);
@@ -160,6 +163,7 @@ private:
   bool m_showLabels = true;
   std::size_t m_maxLabelChars = 1;
   bool m_labelsOnlyWhenOccupied = false;
+  bool m_showIcons = true;
   bool m_hideWhenEmpty = false;
   bool m_showAllOutputs = false;
   float m_pillScale = 1.0F;

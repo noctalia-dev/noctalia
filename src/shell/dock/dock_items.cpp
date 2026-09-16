@@ -859,7 +859,7 @@ namespace shell::dock {
           Box* dotNode = item.dotIndicators[dotIndex];
           const bool visible = dotIndex < dotCount;
           dotNode->setVisible(visible);
-          dotNode->setFill(colorSpecFromRole(ColorRole::Secondary));
+          dotNode->setFill(colorSpecFromRole(model.active ? ColorRole::Primary : ColorRole::Secondary));
           if (visible) {
             const float main = groupStart + static_cast<float>(dotIndex) * (dot + kDotGap);
             if (verticalDots) {

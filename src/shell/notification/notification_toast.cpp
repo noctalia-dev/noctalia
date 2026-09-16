@@ -2089,11 +2089,12 @@ void NotificationToast::ensureSurfaces() {
       prepareFrame(*instPtr, needsUpdate, needsLayout);
     });
     inst->surface->setFrameTickCallback([this, instPtr](float /*deltaMs*/) {
-      // Cards animate horizontally during entry/exit slides; the input and blur regions
-      // must follow the visible position or the rounded right edge bleeds.
-      if (instPtr->animations.hasActive()) {
-        updateInputRegion(*instPtr);
-      }
+      // Cards animate horizontally during entry/exit slides, so the input and blur regions
+      // must follow the visible position. Runs after the animation tick, so the tick that
+      // completes a slide already reports hasActive() == false: refresh unconditionally or
+      // a finished reveal keeps the region it had at reveal 0 (zero-width card, empty
+      // region, click-through toast).
+      updateInputRegion(*instPtr);
     });
     inst->surface->setAnimationManager(&inst->animations);
 

@@ -27,11 +27,55 @@
     }
   },
   "bar": {
+    "annotate": {
+      "capture-new-region": "重新框选（放弃当前编辑）",
+      "close": "关闭（Esc）",
+      "color-black": "黑色",
+      "color-blue": "蓝色",
+      "color-green": "绿色",
+      "color-orange": "橙色",
+      "color-purple": "紫色",
+      "color-red": "红色",
+      "color-white": "白色",
+      "color-yellow": "黄色",
+      "copy": "复制（Ctrl+C）",
+      "cursor": "显示鼠标指针（P）",
+      "cursor-capture-failed": "无法切换鼠标指针：当前合成器未能提供独立光标图像",
+      "cursor-live": "请先冻结画面，再切换鼠标指针 (F)",
+      "cursor-not-captured": "无法切换鼠标指针：当前合成器不支持独立捕获光标",
+      "done": "完成（Enter）",
+      "fill-off": "填充：关闭",
+      "fill-on": "填充：开启",
+      "freeze": "冻结画面（F）",
+      "move-toolbar": "拖动工具栏",
+      "redo": "重做（Ctrl+Shift+Z）",
+      "save": "保存（Ctrl+S）",
+      "size-advanced": "精细调整",
+      "size-decrease": "调细（[）",
+      "size-increase": "调粗（]）",
+      "size-large": "大",
+      "size-medium": "中",
+      "size-small": "小",
+      "tool-arrow": "箭头（A）· 按住 Shift 吸附角度",
+      "tool-blur": "模糊（U）",
+      "tool-brush": "画笔（B）",
+      "tool-circle": "椭圆（O）· 按住 Shift 绘制正圆",
+      "tool-crop": "裁剪（C）",
+      "tool-eraser": "橡皮擦（E）",
+      "tool-highlighter": "荧光笔（H）",
+      "tool-line": "直线（l）· 按住 Shift 键以调整角度",
+      "tool-move": "移动标注（M）",
+      "tool-numbering": "编号标记（N）",
+      "tool-rectangle": "矩形（S）· 按住 Shift 绘制正方形",
+      "tool-text": "文本（T）",
+      "undo": "撤销（Ctrl+Z）"
+    },
     "screenshot": {
+      "annotate-export-failed": "无法生成标注后的图像",
       "choose-display": "选择屏幕",
-      "confirm-region": "{copy} 复制 · {save} 保存 · Enter 或 Space 默认操作 · {cancel} 取消 · 拖动重选",
+      "confirm-region": "{copy} 复制 · {save} 保存 · Enter/Space 默认操作 · {cancel} 取消 · 拖动重新框选",
       "fullscreen": "全屏",
-      "overlay-alloc-failed": "无法显示截图覆盖层（GPU 显存不足？）",
+      "overlay-alloc-failed": "无法显示截图界面（GPU 显存不足？）",
       "region": "选择区域"
     },
     "widgets": {
@@ -60,6 +104,7 @@
       "network": {
         "active": "活动",
         "band": "频段",
+        "cellular": "蜂窝网络",
         "connected": "已连接",
         "connecting": "正在连接",
         "download": "下载",
@@ -73,8 +118,10 @@
         "not-connected": "未连接",
         "off": "关闭",
         "on": "开启",
+        "operator": "运营商",
         "scanning": "正在扫描",
         "signal": "信号",
+        "technology": "网络制式",
         "upload": "上传",
         "vpn": "VPN",
         "wan-ip": "WAN IP",
@@ -122,6 +169,7 @@
         "off": "天气已关闭",
         "tooltip": {
           "condition": "天气",
+          "feels-like": "体感温度",
           "high": "最高",
           "humidity": "湿度",
           "low": "最低",
@@ -184,6 +232,7 @@
     "audio": {
       "application-volumes": "应用音量",
       "choose-effects-profile": "选择音效预设",
+      "default-device": "默认设备",
       "effects-profile": "音效",
       "input-device-prefix": "输入",
       "no-application-audio": "暂无应用音频",
@@ -237,6 +286,7 @@
     "display": {
       "disabled": "已禁用",
       "no-displays": "无可用屏幕",
+      "rescan": "重新扫描 DDC/CI 显示器",
       "unknown-resolution": "未知分辨率"
     },
     "home": {
@@ -268,15 +318,39 @@
       "start-playback": "在 MPRIS 应用中开始播放"
     },
     "network": {
+      "anonymous-identity": "匿名身份（可选）",
       "available": "可用",
+      "ca-certificate": "CA 证书路径（可选）",
+      "cellular": "蜂窝网络",
+      "cellular-connected": "已连接",
+      "cellular-connecting": "正在连接…",
+      "cellular-connection": "蜂窝网络连接",
+      "cellular-enabling": "正在开启…",
+      "cellular-failed": "失败",
+      "cellular-locked": "SIM 卡已锁定",
+      "cellular-no-service": "无服务",
+      "cellular-off": "关闭",
+      "cellular-registered": "已注册",
+      "cellular-searching": "正在搜索…",
       "connect": "连接",
       "current-connection": "当前连接",
+      "domain-suffix-match": "服务器域名后缀",
+      "eap-method": "EAP 方法",
+      "enterprise-prompt-for": "登录 {ssid}",
+      "error-ca-not-absolute": "证书路径必须为绝对路径，并以 / 开头。",
+      "error-certificate-required": "该网络要求使用基于证书的身份验证（EAP-TLS），目前尚不支持。",
+      "error-enterprise-unsupported": "当前网络后端无法配置 802.1X 网络。",
+      "error-missing-identity": "请输入由组织分配的身份标识。",
+      "error-missing-password": "请输入密码。",
+      "error-unsupported-phase2": "PEAP 要求使用 MSCHAPv2 进行内部身份验证。",
       "external-ip": "WAN {ip}",
+      "identity": "身份标识",
       "no-networks": "附近没有可用网络",
       "not-connected": "未连接",
       "password": "密码",
       "password-prompt": "输入密码",
       "password-prompt-for": "输入 {ssid} 的密码",
+      "phase2-auth": "内部身份验证",
       "saved": "已保存",
       "unavailable-detail": "请安装并启用 NetworkManager、wpa_supplicant 或 iwd 以在此管理网络。",
       "unavailable-title": "网络服务不可用",
@@ -305,6 +379,22 @@
     },
     "power": {
       "battery": "电池",
+      "charging": {
+        "configured": "已配置：{limits}",
+        "display-only": "仅供查看",
+        "error-denied": "授权被拒绝。充电阈值未更改。",
+        "error-failed": "无法更改充电阈值。",
+        "externally-managed": "已由其他工具设置。请配置 UPower 以管理充电阈值。",
+        "firmware-managed": "充电由系统固件管理",
+        "full-charge": "可充电至 100%",
+        "starts": "低于 {start}% 时开始",
+        "starts-stops": "低于 {start}% 时开始 · 达到 {end}% 时停止",
+        "stops": "达到 {end}% 时停止",
+        "title": "电池充电",
+        "unreadable": "不可用",
+        "unsupported": "不支持充电阈值",
+        "use-thresholds": "使用充电阈值"
+      },
       "design-capacity": "相对于设计容量",
       "health": "电池健康度",
       "performance-inhibited": "性能模式不可用",
@@ -406,6 +496,7 @@
       "data-unavailable": "天气数据不可用",
       "details": {
         "elevation": "海拔",
+        "feels-like": "体感温度",
         "sunrise": "日出",
         "sunset": "日落",
         "temp-max": "最高气温",
@@ -579,6 +670,7 @@
         "grid": "网格"
       },
       "title": "桌面小组件",
+      "title-lockscreen": "锁屏小组件",
       "types": {
         "audio-visualizer": "音频可视化",
         "button": "按钮",
@@ -728,7 +820,7 @@
     },
     "internal": {
       "battery": "电池",
-      "battery-critical-body": "{device}：{percent}% – 即将关机",
+      "battery-critical-body": "{device}：{percent}%；即将关机",
       "battery-critical-title": "电量严重不足",
       "battery-device": "电池设备",
       "battery-low-body": "{device}：剩余 {percent}%",
@@ -752,12 +844,15 @@
       "desktop-widgets-editor": "桌面小组件编辑器",
       "desktop-widgets-editor-enabled": "桌面小组件编辑器已开启。请切换至空工作区，避免打开的窗口遮挡编辑器。",
       "greeter-sync": "Noctalia Greeter",
-      "greeter-sync-pending": "正在等待管理员授权以写入 Greeter 配置。",
-      "greeter-sync-pending-console": "正在等待管理员授权。请在 Noctalia 的 Polkit 弹窗、TTY 或控制台中确认，或手动执行 pkexec。",
-      "greeter-sync-pending-manual": "同步文件已准备就绪。请在终端执行：pkexec noctalia-greeter-apply-appearance \"$XDG_RUNTIME_DIR/noctalia-greeter-sync\" 或设置 shell.greeter_sync.privilege_command（例如 ghostty -e pkexec）后重新同步。",
+      "greeter-sync-pending": "正在将外观同步到 Greeter。如果出现管理员授权提示，请予以确认；免密码授权由系统策略决定。",
+      "greeter-sync-pending-console": "正在将外观同步到 Greeter。如果需要授权，请在 Noctalia、TTY 或控制台中确认 polkit 提示。",
+      "greeter-sync-pending-legacy": "正在通过需要身份验证的旧版辅助程序同步。需要管理员授权。",
+      "greeter-sync-pending-manual": "同步文件已暂存，等待通过身份验证的旧版同步。请在终端运行接受位置参数的同步辅助程序；如果使用自定义路径，请保留 NOCTALIA_GREETER_STATE_DIR，或配置 shell.greeter_sync.privilege_command 后重新同步。",
+      "greeter-sync-pending-manual-pkexec": "正在将外观同步到 Greeter。如果需要管理员授权但未出现提示，请在终端运行：pkexec noctalia-greeter-apply-appearance --sync \"/run/user/$(id -u)/noctalia-greeter-sync\"。",
       "greeter-sync-success": "外观已同步。更改将在下次登录时生效。",
-      "greeter-sync-timeout": "Greeter 同步仍在等待管理员授权。请检查 TTY 或控制台中的 Polkit 提示，在“安全”设置中启用 Polkit 代理，或手动执行 pkexec。",
-      "greeter-sync-timeout-manual": "Greeter 同步仍需要管理员授权。请在终端执行：pkexec noctalia-greeter-apply-appearance \"$XDG_RUNTIME_DIR/noctalia-greeter-sync\"",
+      "greeter-sync-timeout": "Greeter 同步仍在等待授权。请检查 TTY 或控制台中的 polkit 提示，在“安全”设置中启用 polkit 代理，或手动运行 pkexec。",
+      "greeter-sync-timeout-manual": "通过身份验证的旧版同步仍需要管理员授权。请在终端运行接受位置参数的同步辅助程序；如果使用自定义路径，请保留 NOCTALIA_GREETER_STATE_DIR。",
+      "greeter-sync-timeout-manual-pkexec": "Greeter 同步仍需要授权。请在终端运行：pkexec noctalia-greeter-apply-appearance --sync \"/run/user/$(id -u)/noctalia-greeter-sync\"",
       "keybind-app": "Noctalia",
       "keybind-invalid-modifier": "该快捷键仅接受不带修饰键的单键。",
       "keybind-invalid-printable": "字母、数字和符号键需要配合 Ctrl 或 Alt 等修饰键使用。",
@@ -915,7 +1010,8 @@
         "custom": "CalDAV",
         "google": "Google",
         "icloud": "iCloud",
-        "ics": "ICS URL"
+        "ics": "ICS URL",
+        "vdir": "本地（vdir）"
       },
       "provider-label": "提供方",
       "save": "保存",
@@ -928,7 +1024,8 @@
       "secret-service-unavailable": "没有可用的 Secret Service 提供程序。请启动兼容的提供程序后重试。",
       "server-url-label": "服务器 URL",
       "username-label": "用户名",
-      "username-placeholder": "name@example.com"
+      "username-placeholder": "name@example.com",
+      "vdir-path-label": "目录路径"
     },
     "controls": {
       "keybind": {
@@ -1120,8 +1217,9 @@
       "reset-page": "部分设置重置失败。",
       "support-report": "诊断报告保存失败。",
       "sync-greeter": "无法将外观同步至 Noctalia Greeter。",
-      "sync-greeter-timeout": "Greeter 同步仍在等待管理员授权。请检查 TTY 或控制台中的 Polkit 提示，在“安全”设置中启用 Polkit 代理，或手动执行 pkexec。",
-      "sync-greeter-timeout-manual": "Greeter 同步仍需要管理员授权。请在终端执行：pkexec noctalia-greeter-apply-appearance \"$XDG_RUNTIME_DIR/noctalia-greeter-sync\"",
+      "sync-greeter-timeout": "Greeter 同步仍在等待授权。请检查 TTY 或控制台中的 polkit 提示，在“安全”设置中启用 polkit 代理，或手动运行 pkexec。",
+      "sync-greeter-timeout-manual": "通过身份验证的旧版同步仍需要管理员授权。请在终端运行接受位置参数的同步辅助程序；如果使用自定义路径，请保留 NOCTALIA_GREETER_STATE_DIR。",
+      "sync-greeter-timeout-manual-pkexec": "Greeter 同步仍需要授权。请在终端运行：pkexec noctalia-greeter-apply-appearance --sync \"/run/user/$(id -u)/noctalia-greeter-sync\"",
       "widget": {
         "rename": "无法重命名此具名小组件。"
       },
@@ -1224,10 +1322,13 @@
         "power": "电源",
         "privacy": "隐私",
         "profile": "个人资料",
-        "providers": "提供者",
+        "providers": "搜索源",
         "screen-corners": "屏幕圆角",
         "screen-time": "屏幕时间",
         "screenshot": "截图",
+        "screenshot-annotation": "标注",
+        "screenshot-capture": "截图",
+        "screenshot-output": "输出",
         "security": "安全",
         "session-panel": "会话面板",
         "shape": "形状",
@@ -1239,7 +1340,8 @@
         "wallpaper": "壁纸",
         "weather": "天气",
         "widget-list": "小组件列表",
-        "widgets": "小组件"
+        "widgets": "小组件",
+        "window-switcher": "窗口切换器"
       },
       "sections": {
         "accessibility": "辅助功能",
@@ -1260,6 +1362,7 @@
         "plugins": "插件",
         "popups": "弹窗",
         "power": "电源",
+        "screenshot": "截图",
         "security": "安全",
         "services": "服务",
         "shell": "Shell",
@@ -1376,6 +1479,13 @@
       "panel-position": {
         "auto": "跟随状态栏"
       },
+      "plugins": {
+        "auto-update": {
+          "all": "所有源",
+          "none": "无",
+          "official": "仅官方源"
+        }
+      },
       "screen-position": {
         "bottom-center": "底部居中",
         "bottom-left": "左下角",
@@ -1417,6 +1527,9 @@
         "mode": {
           "dark": "深色",
           "light": "浅色"
+        },
+        "shell-mode": {
+          "follow": "跟随"
         },
         "source": {
           "built-in": "内置",
@@ -1461,6 +1574,10 @@
     "plugins": {
       "browse-store": "浏览插件",
       "panels": {
+        "layer": {
+          "description": "面板处于浮动模式时使用的 layer-shell 层级",
+          "label": "层级"
+        },
         "open-near-click": {
           "description": "面板相对于状态栏的显示位置",
           "label": "沿状态栏打开"
@@ -1533,6 +1650,7 @@
         "held-back-hint": "当前兼容版本为 v{version}（插件 API {resolved}）。最新版本 v{latest} 需要插件 API {latestRequired}；当前 Noctalia 最高仅支持 API {current}。",
         "incompatible": "不兼容",
         "incompatible-hint": "需要插件 API {required}；当前 Noctalia 仅支持 API {oldest}–{current}。",
+        "installed": "已安装",
         "loading": "正在加载目录…",
         "no-readme": "没有可用的描述。",
         "open-page": "在 noctalia.dev 上打开插件页面",
@@ -1578,11 +1696,11 @@
           "label": "内置配色方案"
         },
         "button-borders": {
-          "description": "为 Shell 的所有按钮绘制轮廓",
+          "description": "为 Shell 的按钮绘制轮廓",
           "label": "按钮边框"
         },
         "card-borders": {
-          "description": "为面板和设置窗口中的分区卡片绘制轮廓",
+          "description": "为面板和设置窗口的分区卡片绘制轮廓",
           "label": "卡片边框"
         },
         "community-palette": {
@@ -1615,7 +1733,7 @@
           "description": "表面投射阴影的方向"
         },
         "input-borders": {
-          "description": "为 Shell 的文本框和其他输入控件绘制轮廓",
+          "description": "为 Shell 的文本框等输入控件绘制轮廓",
           "label": "输入框边框"
         },
         "language": {
@@ -1638,8 +1756,12 @@
           "description": "将深色界面固定为纯黑色，避免 OLED 屏幕出现色带（仅限深色模式）",
           "label": "纯黑"
         },
+        "shell-theme-mode": {
+          "description": "固定 Noctalia 的浅色或深色模式；选择“跟随”则与主题模式保持同步",
+          "label": "Shell 主题模式"
+        },
         "theme-mode": {
-          "description": "选择深色、浅色，或根据时段自动切换",
+          "description": "选择深色、浅色，或根据时段自动切换；应用主题也会通过模板同步",
           "label": "主题模式"
         },
         "ui-scale": {
@@ -1760,6 +1882,10 @@
         "font-family": {
           "description": "状态栏上小组件的字体；留空时继承全局字体（单独设置的小组件字体将覆盖此项）",
           "label": "字体"
+        },
+        "font-scale": {
+          "description": "状态栏上小组件文本的缩放比例；各小组件的字体缩放会在此基础上叠加",
+          "label": "字体缩放"
         },
         "font-weight": {
           "description": "状态栏上小组件标签的默认字重。",
@@ -2073,7 +2199,7 @@
             "label": "启动时"
           },
           "theme-mode-changed": {
-            "description": "主题模式在浅色与深色之间切换时执行的命令",
+            "description": "在浅色和深色主题模式之间切换时执行的命令",
             "label": "主题模式切换时"
           },
           "wallpaper-changed": {
@@ -2226,6 +2352,10 @@
           "description": "自动移除超过指定小时的通知历史记录条目（设为 0 时永久保留）",
           "label": "保留时长"
         },
+        "keep-dismissed-in-history": {
+          "description": "Toast 通知关闭后，仍将其保留在通知历史记录中",
+          "label": "保留已关闭通知"
+        },
         "layer": {
           "description": "使用 Overlay 可使 Toast 通知显示在全屏应用上方，Top 则在全屏时被覆盖",
           "label": "Wayland 层级"
@@ -2316,6 +2446,10 @@
           "description": "当搜索结果仅包含应用时，以网格形式显示应用图标，并在图标下方显示名称",
           "label": "应用网格视图"
         },
+        "launcher-app-origin-indicator": {
+          "description": "在应用搜索结果中显示软件包来源标识",
+          "label": "显示应用来源标识"
+        },
         "launcher-auto-paste": {
           "description": "选择计算结果、表情符号等可复制项后，自动粘贴到焦点窗口（快捷键选项与剪贴板自动粘贴相同）",
           "label": "自动粘贴"
@@ -2361,7 +2495,7 @@
           "label": "计算器前缀"
         },
         "launcher-prefix-character": {
-          "description": "用于触发所有提供者前缀的通用前缀字符（例如 /）",
+          "description": "用于触发所有搜索源前缀的通用前缀字符（例如 /）",
           "label": "通用前缀字符"
         },
         "launcher-prefix-emoji": {
@@ -2532,11 +2666,11 @@
           "description-reconnect": "未找到 Google 授权信息；请重新连接此账户"
         },
         "calendar-event-date-format": {
-          "description": "事件卡片中所选日期的显示格式",
+          "description": "日历视图中事件列表上方显示的日期格式",
           "label": "事件日期格式"
         },
         "calendar-event-time-format": {
-          "description": "日历事件时间的显示格式",
+          "description": "日历视图中日历事件的时间显示格式",
           "label": "事件时间格式"
         },
         "calendar-refresh-interval": {
@@ -2813,11 +2947,11 @@
           "label": "显示 WAN IP"
         },
         "greeter-sync-auto": {
-          "description": "每当壁纸、配色或主题模式改变时，自动同步 Greeter",
+          "description": "每当壁纸、配色、主题模式或 Shell 字体改变时，自动同步 Greeter。授权仍由系统策略决定；此设置不会启用免密码同步。",
           "label": "自动同步 Greeter"
         },
         "greeter-sync-privilege-command": {
-          "description": "用于替换 Greeter 同步提权的 pkexec/run0 命令；同步辅助程序和暂存目录将自动追加（例如：ghostty -e pkexec）",
+          "description": "自定义 Greeter 同步使用的提权启动命令。旧版模式（使用旧版辅助程序或自定义 Greeter 状态目录）支持其他管理员提权工具。受限同步会追加 --sync，并要求命令前缀最终启动 pkexec（例如：ghostty -e pkexec）",
           "label": "Greeter 同步提权命令"
         },
         "keyboard-layout-custom-labels": {
@@ -2971,29 +3105,40 @@
           "description": "清除已保存的应用前台使用记录",
           "label": "重置屏幕时间数据"
         },
+        "screenshot-annotate": {
+          "description": "每次截图后打开标注编辑器；点击“完成”后按设置保存、复制或通过管道输出",
+          "label": "输出前标注"
+        },
+        "screenshot-close-on-copy": {
+          "description": "从编辑器复制成功后自动关闭；直接打开编辑器时同样适用",
+          "label": "复制后关闭编辑器"
+        },
         "screenshot-confirm-region": {
-          "description": "绘制区域后，保持 Overlay 开启，直到按下 Enter 或 Space 键确认",
-          "label": "确认区域"
+          "description": "框选区域后保持截图界面打开，直到按下 Enter 或 Space 键确认",
+          "label": "确认选区"
         },
         "screenshot-copy-to-clipboard": {
           "description": "将截取的 PNG 图片复制到剪贴板",
           "label": "复制到剪贴板"
         },
         "screenshot-directory": {
-          "description": "保存 PNG 文件的文件夹；留空时使用 ~/Pictures",
+          "description": "保存 PNG 文件的文件夹；留空时使用 XDG_PICTURES_DIR 目录",
           "label": "输出目录",
-          "placeholder": "~/Pictures"
+          "placeholder": "XDG_PICTURES_DIR"
         },
         "screenshot-filename-pattern": {
-          "description": "使用不含扩展名的 strftime 格式（自动添加 .png）；可使用 %s 表示 Unix 时间戳",
-          "label": "文件名模式"
+          "description": "strftime 格式，不含扩展名（自动添加 .png）；可使用 %s 表示 Unix 时间戳",
+          "label": "文件名格式"
         },
         "screenshot-freeze-screen": {
-          "description": "在选择截图区域前先冻结画面，使动态内容保持静止",
-          "label": "冻结屏幕"
+          "description": "框选区域前冻结画面，使动态内容保持静止",
+          "label": "冻结画面"
+        },
+        "screenshot-output": {
+          "description": "在截图后，或在标注编辑器中点击“完成”时执行的操作"
         },
         "screenshot-pipe-command": {
-          "description": "通过 /bin/sh -lc 执行命令，并将 PNG 图片通过 stdin 传入；适用于截图标注或上传工具（例如：swappy -f - 或 satty -f -）",
+          "description": "使用 /bin/sh -lc 执行命令，并通过 stdin 传入 PNG 图片；适用于标注或上传工具（例如：swappy -f - 或 satty -f -）",
           "label": "管道命令",
           "placeholder": "swappy -f -"
         },
@@ -3002,7 +3147,7 @@
           "label": "通过管道传递给命令"
         },
         "screenshot-remember-last-region": {
-          "description": "下次区域截图时，自动选中上次划定的区域（取消截图后仍会保留）",
+          "description": "下次区域截图时自动选中上次的选区（即使上次已取消）",
           "label": "记住上次选区"
         },
         "screenshot-save-to-file": {
@@ -3011,7 +3156,7 @@
         },
         "screenshot-show-cursor": {
           "description": "在截图中包含鼠标指针",
-          "label": "显示光标"
+          "label": "显示鼠标指针"
         },
         "settings-window-translucent": {
           "description": "将设置窗口背景设为半透明，以增强合成器效果",
@@ -3023,7 +3168,7 @@
         },
         "sync-greeter": {
           "button": "立即同步",
-          "description": "将当前壁纸和配色同步至 Noctalia Greeter（需要管理员授权）",
+          "description": "将当前外观和屏幕布局同步到 Noctalia Greeter。除非系统策略允许当前用户免密码同步，否则需要管理员授权。",
           "label": "Noctalia Greeter"
         },
         "telemetry": {
@@ -3033,6 +3178,10 @@
         "time-format": {
           "description": "Shell UI 的默认时间格式",
           "label": "时间格式"
+        },
+        "window-switcher-mru": {
+          "description": "按最近使用顺序排列窗口，而非按工作区和屏幕布局排列",
+          "label": "最近使用顺序"
         }
       },
       "system": {
@@ -3084,7 +3233,7 @@
           "label": "包含子文件夹"
         },
         "directory": {
-          "description": "包含壁纸的文件夹",
+          "description": "包含壁纸的文件夹；留空时使用标准 XDG_PICTURES_DIR",
           "label": "壁纸目录"
         },
         "directory-dark": {
@@ -3200,6 +3349,464 @@
     "widgets": {
       "actions": {
         "command-placeholder": "Shell 命令",
+        "commands": {
+          "annotate": {
+            "description": "在屏幕上标注；按下 F 键或点击“冻结”按钮截取当前画面作为背景",
+            "label": "屏幕标注"
+          },
+          "bar-auto-hide-set": {
+            "description": "设置状态栏的自动隐藏状态",
+            "label": "设置状态栏自动隐藏"
+          },
+          "bar-hide": {
+            "description": "隐藏一个或所有状态栏，并释放其预留空间",
+            "label": "隐藏状态栏"
+          },
+          "bar-layer-set": {
+            "description": "设置一个或所有状态栏的层级",
+            "label": "设置状态栏层级"
+          },
+          "bar-reserve-toggle": {
+            "description": "切换一个或所有状态栏的预留空间状态",
+            "label": "切换状态栏预留空间"
+          },
+          "bar-show": {
+            "description": "显示一个或所有状态栏",
+            "label": "显示状态栏"
+          },
+          "bar-toggle": {
+            "description": "切换一个或所有状态栏的可见性",
+            "label": "切换状态栏"
+          },
+          "bluetooth-disable": {
+            "description": "禁用蓝牙",
+            "label": "禁用蓝牙"
+          },
+          "bluetooth-enable": {
+            "description": "启用蓝牙",
+            "label": "启用蓝牙"
+          },
+          "bluetooth-status": {
+            "description": "输出蓝牙状态",
+            "label": "蓝牙状态"
+          },
+          "bluetooth-toggle": {
+            "description": "切换蓝牙",
+            "label": "切换蓝牙"
+          },
+          "brightness-down": {
+            "description": "降低亮度（默认为当前显示器）",
+            "label": "降低亮度"
+          },
+          "brightness-list-backlight-devices": {
+            "description": "列出可用的 sysfs 背光设备名称",
+            "label": "列出背光设备"
+          },
+          "brightness-osd": {
+            "description": "显示亮度 OSD，但不更改亮度",
+            "label": "显示亮度 OSD"
+          },
+          "brightness-set": {
+            "description": "设置亮度（默认为当前显示器）",
+            "label": "设置亮度"
+          },
+          "brightness-up": {
+            "description": "提高亮度（默认为当前显示器）",
+            "label": "提高亮度"
+          },
+          "caffeine-disable": {
+            "description": "禁用保持唤醒",
+            "label": "禁用保持唤醒"
+          },
+          "caffeine-enable": {
+            "description": "启用保持唤醒",
+            "label": "启用保持唤醒"
+          },
+          "caffeine-toggle": {
+            "description": "切换保持唤醒",
+            "label": "切换保持唤醒"
+          },
+          "clipboard-clear": {
+            "description": "清除剪贴板历史记录",
+            "label": "清除剪贴板历史记录"
+          },
+          "clipboard-copy": {
+            "description": "将文本复制到剪贴板",
+            "label": "复制到剪贴板"
+          },
+          "clipboard-text": {
+            "description": "输出最近的剪贴板文本（选区不含文本时为空）",
+            "label": "输出剪贴板文本"
+          },
+          "color-scheme-get": {
+            "description": "输出当前配色方案：<来源> <名称>（来源为 builtin、wallpaper、community 或 custom）",
+            "label": "获取配色方案"
+          },
+          "color-scheme-set": {
+            "description": "在 settings.toml 中设置配色来源及选项（内置名称、壁纸生成方案、社区 ID 或自定义方案文件夹名称）",
+            "label": "设置配色方案"
+          },
+          "config-reload": {
+            "description": "重新加载配置文件",
+            "label": "重新加载配置"
+          },
+          "desktop-widgets-edit": {
+            "description": "打开桌面小组件编辑器",
+            "label": "编辑桌面小组件"
+          },
+          "desktop-widgets-exit": {
+            "description": "关闭桌面小组件编辑器",
+            "label": "退出桌面小组件编辑器"
+          },
+          "desktop-widgets-hide": {
+            "description": "立即隐藏桌面小组件（仅当前运行时生效，不更改已保存设置）",
+            "label": "隐藏桌面小组件"
+          },
+          "desktop-widgets-show": {
+            "description": "立即显示桌面小组件（仅当前运行时生效，不更改已保存设置）",
+            "label": "显示桌面小组件"
+          },
+          "desktop-widgets-toggle": {
+            "description": "切换桌面小组件可见性（仅当前运行时生效，不更改已保存设置）",
+            "label": "切换桌面小组件"
+          },
+          "desktop-widgets-toggle-edit": {
+            "description": "切换桌面小组件编辑模式",
+            "label": "切换桌面小组件编辑器"
+          },
+          "dock-hide": {
+            "description": "隐藏 Dock（保留覆盖设置）",
+            "label": "隐藏 Dock"
+          },
+          "dock-reload": {
+            "description": "重新加载 Dock 配置",
+            "label": "重新加载 Dock"
+          },
+          "dock-show": {
+            "description": "显示 Dock（保留覆盖设置）",
+            "label": "显示 Dock"
+          },
+          "dock-toggle": {
+            "description": "切换 Dock 可见性（保留覆盖设置）",
+            "label": "切换 Dock"
+          },
+          "dpms-off": {
+            "description": "关闭屏幕",
+            "label": "关闭屏幕"
+          },
+          "dpms-on": {
+            "description": "开启屏幕",
+            "label": "开启屏幕"
+          },
+          "effects-profile-set": {
+            "description": "设置 EasyEffects 输出或输入配置文件",
+            "label": "设置 EasyEffects 配置文件"
+          },
+          "greeter-sync": {
+            "description": "将壁纸、配色和屏幕布局同步到 Noctalia Greeter",
+            "label": "同步 Greeter 外观"
+          },
+          "keyboard-backlight-down": {
+            "description": "将所有键盘背光降低一级",
+            "label": "降低键盘背光"
+          },
+          "keyboard-backlight-osd": {
+            "description": "显示键盘背光 OSD，但不更改亮度",
+            "label": "显示键盘背光 OSD"
+          },
+          "keyboard-backlight-set": {
+            "description": "设置所有键盘背光（0-100%）",
+            "label": "设置键盘背光"
+          },
+          "keyboard-backlight-toggle": {
+            "description": "切换所有键盘背光的开关状态",
+            "label": "切换键盘背光"
+          },
+          "keyboard-backlight-up": {
+            "description": "将所有键盘背光提高一级",
+            "label": "提高键盘背光"
+          },
+          "keyboard-layout-cycle": {
+            "description": "切换到下一个键盘布局",
+            "label": "循环切换键盘布局"
+          },
+          "lockscreen-widgets-edit": {
+            "description": "打开锁屏小组件编辑器",
+            "label": "编辑锁屏小组件"
+          },
+          "lockscreen-widgets-exit": {
+            "description": "关闭锁屏小组件编辑器",
+            "label": "退出锁屏小组件编辑器"
+          },
+          "lockscreen-widgets-toggle-edit": {
+            "description": "切换锁屏小组件编辑模式",
+            "label": "切换锁屏小组件编辑器"
+          },
+          "log-level-set": {
+            "description": "设置控制台日志级别",
+            "label": "设置日志级别"
+          },
+          "log-level-status": {
+            "description": "输出当前控制台日志级别",
+            "label": "输出日志级别"
+          },
+          "media": {
+            "description": "控制当前媒体播放",
+            "label": "媒体控制"
+          },
+          "mic-mute": {
+            "description": "切换麦克风静音",
+            "label": "切换麦克风静音"
+          },
+          "mic-volume-down": {
+            "description": "降低麦克风音量",
+            "label": "降低麦克风音量"
+          },
+          "mic-volume-osd": {
+            "description": "显示麦克风音量 OSD，但不更改音量（默认为当前音量）",
+            "label": "显示麦克风 OSD"
+          },
+          "mic-volume-set": {
+            "description": "设置麦克风音量",
+            "label": "设置麦克风音量"
+          },
+          "mic-volume-up": {
+            "description": "提高麦克风音量",
+            "label": "提高麦克风音量"
+          },
+          "network-toggle": {
+            "description": "断开或重新连接当前网络",
+            "label": "切换网络连接"
+          },
+          "nightlight-disable": {
+            "description": "关闭夜间模式计划",
+            "label": "关闭夜间模式"
+          },
+          "nightlight-enable": {
+            "description": "启用夜间模式计划",
+            "label": "启用夜间模式"
+          },
+          "nightlight-force-toggle": {
+            "description": "切换强制夜间模式",
+            "label": "切换强制夜间模式"
+          },
+          "nightlight-toggle": {
+            "description": "切换夜间模式计划",
+            "label": "切换夜间模式"
+          },
+          "notification-clear-active": {
+            "description": "关闭所有新通知",
+            "label": "关闭新通知"
+          },
+          "notification-clear-history": {
+            "description": "清除通知历史记录",
+            "label": "清除通知历史记录"
+          },
+          "notification-dnd-set": {
+            "description": "设置通知勿扰模式",
+            "label": "设置勿扰模式"
+          },
+          "notification-dnd-status": {
+            "description": "输出通知勿扰模式状态",
+            "label": "勿扰模式状态"
+          },
+          "notification-dnd-toggle": {
+            "description": "切换通知勿扰模式",
+            "label": "切换勿扰模式"
+          },
+          "notification-invoke-latest": {
+            "description": "执行最近一条新通知的默认操作",
+            "label": "执行最新通知操作"
+          },
+          "notification-show": {
+            "description": "显示 Noctalia 内部通知",
+            "label": "显示通知"
+          },
+          "osd-disable": {
+            "description": "禁用 OSD 弹窗",
+            "label": "禁用 OSD"
+          },
+          "osd-enable": {
+            "description": "启用 OSD 弹窗",
+            "label": "启用 OSD"
+          },
+          "osd-toggle": {
+            "description": "切换 OSD 弹窗",
+            "label": "切换 OSD"
+          },
+          "panel-close": {
+            "description": "关闭当前面板，或在指定面板打开时将其关闭",
+            "label": "关闭面板"
+          },
+          "panel-open": {
+            "description": "按 ID 打开指定面板，可附带上下文（如 launcher /emo、control-center audio）",
+            "label": "打开面板"
+          },
+          "panel-toggle": {
+            "description": "按 ID 切换指定面板，可附带上下文（如 launcher /emo、control-center audio）",
+            "label": "切换面板"
+          },
+          "plugin": {
+            "description": "向插件入口分发事件",
+            "label": "发送插件事件"
+          },
+          "plugins": {
+            "description": "管理插件和源（列出/启用/禁用/更新插件，列出/添加/移除源）",
+            "label": "管理插件"
+          },
+          "power-cycle": {
+            "description": "依次切换 UPower 配置列表，默认向前循环",
+            "label": "循环切换电源配置"
+          },
+          "power-set": {
+            "description": "设置 UPower 电源配置（如 performance、balanced、power-saver）",
+            "label": "设置电源配置"
+          },
+          "screenshot-annotate": {
+            "description": "冻结画面并标注，然后复制或保存",
+            "label": "标注截图"
+          },
+          "screenshot-fullscreen": {
+            "description": "默认截取当前聚焦屏幕；使用 pick 交互选择，或使用 all 截取所有显示输出",
+            "label": "全屏截图"
+          },
+          "screenshot-region": {
+            "description": "交互选择区域并截图",
+            "label": "区域截图"
+          },
+          "session": {
+            "description": "执行内置会话操作",
+            "label": "会话操作"
+          },
+          "settings-close": {
+            "description": "关闭设置窗口",
+            "label": "关闭设置"
+          },
+          "settings-open": {
+            "description": "打开设置窗口；若已打开则聚焦，可选择跳转到指定设置项",
+            "label": "切换设置"
+          },
+          "settings-open-plugin": {
+            "description": "打开设置窗口并显示插件设置（如 noctalia/notes）",
+            "label": "打开插件设置"
+          },
+          "settings-open-widget": {
+            "description": "打开设置窗口并显示状态栏小组件设置；从小组件操作触发时，显示对应小组件设置",
+            "label": "打开小组件设置"
+          },
+          "settings-toggle": {
+            "description": "切换设置窗口，可选择跳转到指定设置项",
+            "label": "切换设置"
+          },
+          "status": {
+            "description": "以 JSON 输出当前状态",
+            "label": "输出状态"
+          },
+          "taskbar-cycle": {
+            "description": "切换到当前任务栏中的相邻任务或工作区分组",
+            "label": "循环切换任务栏"
+          },
+          "templates-apply": {
+            "description": "应用当前配色方案配置的主题模板",
+            "label": "应用主题模板"
+          },
+          "theme-mode-get": {
+            "description": "输出当前主题模式",
+            "label": "获取主题模式"
+          },
+          "theme-mode-set": {
+            "description": "设置主题模式并保存到 settings.toml",
+            "label": "设置主题模式"
+          },
+          "theme-mode-toggle": {
+            "description": "在深色和浅色主题模式之间切换",
+            "label": "切换主题模式"
+          },
+          "volume-down": {
+            "description": "降低扬声器音量",
+            "label": "降低音量"
+          },
+          "volume-mute": {
+            "description": "切换扬声器静音",
+            "label": "切换静音"
+          },
+          "volume-osd": {
+            "description": "显示音量 OSD，但不更改音量（默认为当前音量）",
+            "label": "显示音量 OSD"
+          },
+          "volume-set": {
+            "description": "设置扬声器音量",
+            "label": "设置音量"
+          },
+          "volume-up": {
+            "description": "提高扬声器音量",
+            "label": "提高音量"
+          },
+          "wallpaper-get": {
+            "description": "输出默认壁纸路径，或指定屏幕的壁纸路径",
+            "label": "获取壁纸"
+          },
+          "wallpaper-next": {
+            "description": "立即切换到下一张壁纸",
+            "label": "下一张壁纸"
+          },
+          "wallpaper-previous": {
+            "description": "立即切换到上一张壁纸",
+            "label": "上一张壁纸"
+          },
+          "wallpaper-random": {
+            "description": "立即切换到随机壁纸",
+            "label": "随机壁纸"
+          },
+          "wallpaper-set": {
+            "description": "为所有或指定屏幕设置壁纸（持久保存）",
+            "label": "设置壁纸"
+          },
+          "wifi-disable": {
+            "description": "禁用 Wi-Fi",
+            "label": "禁用 Wi-Fi"
+          },
+          "wifi-enable": {
+            "description": "启用 Wi-Fi",
+            "label": "启用 Wi-Fi"
+          },
+          "wifi-status": {
+            "description": "输出 Wi-Fi 状态",
+            "label": "Wi-Fi 状态"
+          },
+          "wifi-toggle": {
+            "description": "切换 Wi-Fi",
+            "label": "切换 Wi-Fi"
+          },
+          "window-switcher": {
+            "description": "打开或关闭窗口切换器",
+            "label": "窗口切换器"
+          },
+          "workspace-alert-add": {
+            "description": "添加工作区提醒（按编号、名称或 ID）",
+            "label": "添加工作区提醒"
+          },
+          "workspace-alert-add-window": {
+            "description": "为窗口添加工作区提醒",
+            "label": "添加窗口工作区提醒"
+          },
+          "workspace-alert-clear": {
+            "description": "清除工作区提醒",
+            "label": "清除工作区提醒"
+          },
+          "workspace-alert-clear-all": {
+            "description": "清除所有工作区提醒",
+            "label": "清除所有工作区提醒"
+          },
+          "workspace-alert-status": {
+            "description": "输出工作区提醒",
+            "label": "工作区提醒状态"
+          },
+          "workspace-switch": {
+            "description": "切换到指定屏幕上的相邻工作区（到达两端时停止）",
+            "label": "切换工作区"
+          }
+        },
         "default": "默认",
         "disabled": "禁用",
         "run-command": "运行命令…",
@@ -3454,6 +4061,10 @@
           "description": "小组件的字体；留空时继承状态栏字体",
           "label": "字体"
         },
+        "font-scale": {
+          "description": "小组件文本的缩放比例，独立于小组件的整体缩放",
+          "label": "字体缩放"
+        },
         "font-weight": {
           "description": "默认继承状态栏字重",
           "label": "字重"
@@ -3505,8 +4116,12 @@
           "label": "隐藏未活动项"
         },
         "hide-passive": {
-          "description": "隐藏 StatusNotifierItem 状态为被动（Passive）的托盘项",
-          "label": "隐藏被动项"
+          "description": "隐藏 StatusNotifierItem 状态为 Passive 的托盘项",
+          "label": "隐藏非活动项"
+        },
+        "hide-when-adapter-off": {
+          "description": "蓝牙适配器关闭时隐藏小组件",
+          "label": "适配器关闭时隐藏"
         },
         "hide-when-empty": {
           "description": "隐藏无窗口的工作区胶囊",
@@ -3516,6 +4131,10 @@
         "hide-when-full": {
           "description": "电池充满时隐藏电池小组件",
           "label": "充满时隐藏"
+        },
+        "hide-when-inactive": {
+          "description": "没有应用正在录音时隐藏麦克风小组件",
+          "label": "未活动时隐藏"
         },
         "hide-when-no-connected-device": {
           "description": "没有已连接的设备时隐藏蓝牙小组件",
@@ -3552,6 +4171,10 @@
         "icon-color": {
           "description": "仅覆盖小组件图标的颜色；支持固定的十六进制颜色值",
           "label": "图标颜色"
+        },
+        "icon-scale": {
+          "description": "任务栏应用图标相对于默认大小的缩放比例",
+          "label": "图标缩放"
         },
         "icon-size": {
           "description": "图标大小（像素）",
@@ -3736,6 +4359,10 @@
           "description": "显示小组件图标或自定义图片",
           "label": "显示图标"
         },
+        "show-icons": {
+          "description": "在当前活动胶囊上显示焦点应用的图标",
+          "label": "显示图标"
+        },
         "show-label": {
           "description": "显示小组件的文本标签",
           "label": "显示标签"
@@ -3747,6 +4374,10 @@
         "show-num-lock": {
           "description": "显示数字锁定状态",
           "label": "显示数字锁定"
+        },
+        "show-progress": {
+          "description": "填充小组件背景以显示播放进度",
+          "label": "显示播放进度"
         },
         "show-scroll-lock": {
           "description": "显示滚动锁定状态",
@@ -4053,16 +4684,22 @@
   "wallpaper": {
     "panel": {
       "all-monitors": "全部",
+      "choose-color": "选择壁纸颜色",
+      "close": "关闭壁纸面板",
       "color-title": "壁纸颜色",
+      "favorite-current": "将当前壁纸添加到收藏",
       "filter-placeholder": "筛选…",
       "flatten": "展开嵌套",
       "loading": "正在加载壁纸…",
+      "navigate-up": "返回上级文件夹",
+      "refresh": "刷新壁纸",
       "sort-date-asc": "按日期排序（最旧优先）",
       "sort-date-desc": "按日期排序（最新优先）",
       "sort-name-asc": "按名称排序（A-Z）",
       "sort-name-desc": "按名称排序（Z-A）",
       "sort-random": "随机排序",
-      "title": "壁纸"
+      "title": "壁纸",
+      "unfavorite-current": "将当前壁纸从收藏中移除"
     }
   },
   "weather": {

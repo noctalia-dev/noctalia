@@ -26,7 +26,7 @@ void DebugIndicatorWidget::create() {
       ui::label({
           .out = &m_label,
           .text = "DEBUG",
-          .fontSize = Style::fontSizeBody * m_contentScale,
+          .fontSize = Style::fontSizeBody * fontScale(),
           .fontWeight = labelFontWeight(),
           .fontFamily = labelFontFamily(),
           .color = colorSpecFromRole(ColorRole::Error),
@@ -47,7 +47,7 @@ void DebugIndicatorWidget::doLayout(Renderer& renderer, float containerWidth, fl
   m_glyph->setColor(colorSpecFromRole(ColorRole::Error));
   m_glyph->measure(renderer);
   m_label->setVisible(!isVertical);
-  m_label->setFontSize(Style::fontSizeBody * m_contentScale);
+  m_label->setFontSize(Style::fontSizeBody * fontScale());
   m_label->setColor(colorSpecFromRole(ColorRole::Error));
   m_label->setFontWeight(labelFontWeight());
 

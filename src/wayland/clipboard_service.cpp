@@ -719,6 +719,8 @@ std::size_t ClipboardService::addPollFds(std::vector<pollfd>& fds) const {
   return fds.size() - start;
 }
 
+bool ClipboardService::hasPendingOrphanAdopt() const noexcept { return m_pendingOrphanAdopt; }
+
 bool ClipboardService::ensureEntryLoaded(std::size_t index) {
   if (index >= m_history.size()) {
     return false;
@@ -1181,10 +1183,15 @@ bool ClipboardService::payloadLooksComplete(std::string_view mimeType, std::span
 }
 
 void ClipboardService::flushPendingOrphanAdopt() {
-  if (!m_pendingOrphanAdopt || m_selectionOffer != nullptr) {
+  if (!m_pendingOrphanAdopt) {
     return;
   }
+  // Cleared before the selection check so the pending state always lasts a
+  // single tick; the poll source keys its immediate timeout on it.
   m_pendingOrphanAdopt = false;
+  if (m_selectionOffer != nullptr) {
+    return;
+  }
   adoptOrphanedSelection();
 }
 

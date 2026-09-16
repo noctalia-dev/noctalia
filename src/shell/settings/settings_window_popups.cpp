@@ -1,5 +1,6 @@
 #include "calendar/calendar_discovery_state.h"
 #include "calendar/calendar_service.h"
+#include "calendar/vdir_reader.h"
 #include "config/atomic_file.h"
 #include "config/config_service.h"
 #include "config/config_types.h"
@@ -18,6 +19,7 @@
 #include "shell/settings/settings_content_common.h"
 #include "shell/settings/settings_content_plugins.h"
 #include "shell/settings/settings_control_factory.h"
+#include "shell/settings/settings_registry.h"
 #include "shell/settings/settings_window.h"
 #include "shell/settings/template_store_content.h"
 #include "shell/settings/widget_settings_registry.h"
@@ -27,9 +29,11 @@
 #include "ui/controls/context_menu.h"
 #include "ui/controls/context_menu_popup.h"
 #include "ui/controls/flex.h"
+#include "ui/controls/input.h"
 #include "ui/controls/segmented.h"
 #include "ui/dialogs/file_dialog.h"
 #include "ui/popup_parent.h"
+#include "util/file_utils.h"
 #include "util/string_utils.h"
 #include "wayland/toplevel_surface.h"
 #include "wayland/wayland_connection.h"
@@ -104,6 +108,7 @@ namespace {
     CustomCalDav,
     Google,
     IcsFileURL,
+    Vdir,
   };
 
   struct CalendarAccountDraft {
@@ -116,6 +121,7 @@ namespace {
     CalendarCredentialSource credentialSource = CalendarCredentialSource::SecretService;
     std::string passwordFile;
     std::string serverUrl;
+    std::string path;
     std::string color;
     std::vector<std::string> calendars;
     std::vector<CalendarSource> discoveredCalendars;
@@ -124,6 +130,7 @@ namespace {
     bool passwordInvalid = false;
     bool passwordFileInvalid = false;
     bool serverUrlInvalid = false;
+    bool pathInvalid = false;
     bool credentialOperationInFlight = false;
   };
 
@@ -161,6 +168,8 @@ namespace {
       return "google";
     case CalendarAccountProvider::IcsFileURL:
       return "ics";
+    case CalendarAccountProvider::Vdir:
+      return "vdir";
     }
     return "icloud";
   }
@@ -175,6 +184,8 @@ namespace {
       return i18n::tr("settings.calendar-accounts.provider.google");
     case CalendarAccountProvider::IcsFileURL:
       return i18n::tr("settings.calendar-accounts.provider.ics");
+    case CalendarAccountProvider::Vdir:
+      return i18n::tr("settings.calendar-accounts.provider.vdir");
     }
     return i18n::tr("settings.calendar-accounts.provider.icloud");
   }
@@ -528,6 +539,211 @@ void SettingsWindow::openSearchPickerPopup(settings::SearchPickerOpenRequest req
           .placeholder = std::move(request.placeholder),
           .emptyText = std::move(request.emptyText),
           .scale = uiScale(),
+      }
+  );
+}
+
+void SettingsWindow::openMonitorOverrideCreateDialog(std::string barName) {
+  if (m_wayland == nullptr
+      || m_renderContext == nullptr
+      || m_surface == nullptr
+      || m_surface->xdgSurface() == nullptr
+      || m_config == nullptr) {
+    return;
+  }
+
+  if (m_editorSheetModal != nullptr && m_editorSheetModal->isOpen()) {
+    m_editorSheetModal->close();
+  }
+  if (m_widgetAddPopup != nullptr && m_widgetAddPopup->isOpen()) {
+    m_widgetAddPopup->close();
+  }
+  if (m_searchPickerPopup != nullptr && m_searchPickerPopup->isOpen()) {
+    m_searchPickerPopup->close();
+  }
+
+  const Config& cfg = m_config->config();
+  const BarConfig* bar = settings::findBar(cfg, barName);
+  if (bar == nullptr) {
+    return;
+  }
+
+  if (m_editorSheetModal == nullptr) {
+    m_editorSheetModal = std::make_unique<settings::SettingsSheetModal>();
+    m_editorSheetModal->initialize(m_modalHost, [this]() { dismissOpenSelectDropdown(); });
+  }
+
+  const float scale = uiScale();
+  const std::vector<settings::SelectOption> outputs = availableOutputs();
+
+  std::vector<std::string> existingMatches;
+  existingMatches.reserve(bar->monitorOverrides.size());
+  for (const auto& monitorOverride : bar->monitorOverrides) {
+    existingMatches.push_back(monitorOverride.match);
+  }
+
+  // Transient value of the pending match, shared between the segmented picker, the free-text input,
+  // and the create action. Held here (not on SettingsWindow) so it lives and dies with this dialog.
+  // Defaults to the first detected output so the common case (pick a connected monitor) is one click;
+  // with no detected outputs it stays empty and the "Custom" free-text field takes over.
+  auto matchState = std::make_shared<std::string>();
+  if (!outputs.empty()) {
+    *matchState = outputs.front().value;
+  }
+
+  auto populate = [this, scale, outputs, existingMatches, barName, matchState](Flex& body) {
+    // Derive the selected segment and whether the free-text input is shown from the current value.
+    // A detected connector match selects its segment and hides the input; anything else (an empty or
+    // free-text value) selects the trailing "Custom" segment and shows the input.
+    std::size_t selectedOutput = outputs.size();
+    for (std::size_t i = 0; i < outputs.size(); ++i) {
+      if (outputs[i].value == *matchState) {
+        selectedOutput = i;
+        break;
+      }
+    }
+    const bool customSelected = outputs.empty() || selectedOutput == outputs.size();
+
+    Input* inputPtr = nullptr;
+    auto input = ui::input({
+        .out = &inputPtr,
+        .value = *matchState,
+        .placeholder = i18n::tr("settings.entities.monitor-override.match-placeholder"),
+        .fontSize = Style::fontSizeBody * scale,
+        .controlHeight = Style::controlHeight * scale,
+        .horizontalPadding = Style::spaceSm * scale,
+        .width = 280.0F * scale,
+        .height = Style::controlHeight * scale,
+        .visible = customSelected ? std::nullopt : std::optional<bool>{false},
+        .participatesInLayout = customSelected ? std::nullopt : std::optional<bool>{false},
+    });
+    inputPtr->setOnChange([this, matchState, inputPtr](const std::string& value) {
+      *matchState = value;
+      inputPtr->setInvalid(false);
+      if (m_editorSheetModal != nullptr) {
+        m_editorSheetModal->clearStatusMessage();
+      }
+    });
+
+    auto doCreate = [this, existingMatches, barName, matchState, inputPtr]() {
+      const std::string match = StringUtils::trim(*matchState);
+      if (match.empty()) {
+        inputPtr->setInvalid(true);
+        return;
+      }
+      if (std::ranges::contains(existingMatches, match)) {
+        inputPtr->setInvalid(true);
+        if (m_editorSheetModal != nullptr) {
+          m_editorSheetModal->setStatusMessage(i18n::tr("settings.entities.monitor-override.exists"), true);
+        }
+        return;
+      }
+      createMonitorOverride(barName, match);
+      if (m_editorSheetModal != nullptr) {
+        m_editorSheetModal->close();
+      }
+    };
+    inputPtr->setOnSubmit([doCreate](const std::string& /*text*/) mutable { doCreate(); });
+
+    if (!outputs.empty()) {
+      // Wrapping, fill-width pill row (same idiom as the settings group-jump pills): one pill per
+      // detected output plus a trailing "Custom" pill. A fill-width wrapping row breaks onto the next
+      // line for many-monitor setups; a single Segmented cannot, since it keeps every segment on one
+      // line (its surface background would trail past the last segment when given room to wrap).
+      Flex* pickerRow = nullptr;
+      body.addChild(
+          ui::row({
+              .out = &pickerRow,
+              .align = FlexAlign::Center,
+              .wrap = true,
+              .gap = Style::spaceXs * scale,
+              .fillWidth = true,
+          })
+      );
+
+      const auto addPill = [&](std::string text, std::string tooltip, bool selected, std::function<void()> onSelect) {
+        pickerRow->addChild(
+            ui::button({
+                .text = std::move(text),
+                .fontSize = Style::fontSizeBody * scale,
+                .variant = selected ? ButtonVariant::Primary : ButtonVariant::Default,
+                .tooltip = tooltip.empty() ? std::nullopt : std::optional<std::string>{std::move(tooltip)},
+                .minHeight = Style::controlHeight * scale,
+                .paddingV = Style::spaceXs * scale,
+                .paddingH = Style::spaceMd * scale,
+                .radius = Style::scaledRadiusMd(scale),
+                .onClick = std::move(onSelect),
+            })
+        );
+      };
+
+      for (std::size_t i = 0; i < outputs.size(); ++i) {
+        // Connector name only on the pill (e.g. "DP-1"); the fuller "DP-1 (description)" label is the
+        // tooltip and would make the pills too wide.
+        addPill(
+            outputs[i].value, outputs[i].label, !customSelected && i == selectedOutput,
+            [this, matchState, value = outputs[i].value]() {
+              *matchState = value;
+              if (m_editorSheetModal != nullptr) {
+                m_editorSheetModal->clearStatusMessage();
+                m_editorSheetModal->rebuildBody();
+              }
+            }
+        );
+      }
+      // Trailing "Custom": clear the match so the free-text input takes over. Rebuild re-derives the
+      // selection and the input's visibility.
+      addPill(i18n::tr("settings.entities.monitor-override.custom"), {}, customSelected, [this, matchState]() {
+        matchState->clear();
+        if (m_editorSheetModal != nullptr) {
+          m_editorSheetModal->clearStatusMessage();
+          m_editorSheetModal->rebuildBody();
+        }
+      });
+    }
+
+    body.addChild(std::move(input));
+    body.addChild(
+        ui::row(
+            {
+                .align = FlexAlign::Center,
+                .justify = FlexJustify::End,
+                .gap = Style::spaceSm * scale,
+            },
+            ui::button({
+                .text = i18n::tr("common.actions.cancel"),
+                .fontSize = Style::fontSizeBody * scale,
+                .variant = ButtonVariant::Ghost,
+                .minHeight = Style::controlHeight * scale,
+                .paddingV = Style::spaceXs * scale,
+                .paddingH = Style::spaceMd * scale,
+                .radius = Style::scaledRadiusMd(scale),
+                .onClick =
+                    [this]() {
+                      if (m_editorSheetModal != nullptr) {
+                        m_editorSheetModal->close();
+                      }
+                    },
+            }),
+            ui::button({
+                .text = i18n::tr("settings.entities.monitor-override.create"),
+                .fontSize = Style::fontSizeBody * scale,
+                .variant = ButtonVariant::Primary,
+                .minHeight = Style::controlHeight * scale,
+                .paddingV = Style::spaceXs * scale,
+                .paddingH = Style::spaceMd * scale,
+                .radius = Style::scaledRadiusMd(scale),
+                .onClick = doCreate,
+            })
+        )
+    );
+  };
+
+  m_editorSheetModal->open(
+      settings::SettingsSheetRequest{
+          .sheetTitle = i18n::tr("settings.entities.monitor-override.new-title"),
+          .populateSheetBody = std::move(populate),
+          .scale = scale,
       }
   );
 }
@@ -1018,7 +1234,11 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
   auto draft = std::make_shared<CalendarAccountDraft>();
   if (accountId.has_value()) {
     const CalendarConfig::Account* account = findCalendarAccount(cfg, *accountId);
-    if (account == nullptr || (account->type != "caldav" && account->type != "google" && account->type != "ics")) {
+    if (account == nullptr
+        || (account->type != "caldav"
+            && account->type != "google"
+            && account->type != "ics"
+            && account->type != "vdir")) {
       return;
     }
     draft->creating = false;
@@ -1034,6 +1254,12 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
       draft->provider = CalendarAccountProvider::Google;
     } else if (account->type == "ics") {
       draft->provider = CalendarAccountProvider::IcsFileURL;
+    } else if (account->type == "vdir") {
+      draft->provider = CalendarAccountProvider::Vdir;
+      draft->path = account->path;
+      const std::string rawDiscovery =
+          m_config->stateString(kCalendarDiscoveryOwner, account->id + "_calendars").value_or(std::string{});
+      draft->discoveredCalendars = calendar::parseCalendarSources(rawDiscovery);
     } else {
       draft->provider =
           account->provider == "custom" ? CalendarAccountProvider::CustomCalDav : CalendarAccountProvider::ICloud;
@@ -1117,6 +1343,8 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
         return 2;
       case CalendarAccountProvider::IcsFileURL:
         return 3;
+      case CalendarAccountProvider::Vdir:
+        return 4;
       }
       return 0;
     };
@@ -1128,7 +1356,8 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
                     {.label = calendarProviderTitle(CalendarAccountProvider::ICloud), .glyph = "brand-apple"},
                     {.label = calendarProviderTitle(CalendarAccountProvider::CustomCalDav), .glyph = "calendar-cog"},
                     {.label = calendarProviderTitle(CalendarAccountProvider::Google), .glyph = "brand-google"},
-                    {.label = calendarProviderTitle(CalendarAccountProvider::IcsFileURL), .glyph = "link"}
+                    {.label = calendarProviderTitle(CalendarAccountProvider::IcsFileURL), .glyph = "link"},
+                    {.label = calendarProviderTitle(CalendarAccountProvider::Vdir), .glyph = "folder"}
                 },
             .selectedIndex = providerIndex(draft->provider),
             .scale = scale,
@@ -1142,10 +1371,12 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
                 provider = CalendarAccountProvider::Google;
               } else if (index == 3) {
                 provider = CalendarAccountProvider::IcsFileURL;
+              } else if (index == 4) {
+                provider = CalendarAccountProvider::Vdir;
               }
 
               draft->provider = provider;
-              if (provider == CalendarAccountProvider::Google) {
+              if (provider == CalendarAccountProvider::Google || provider == CalendarAccountProvider::Vdir) {
                 draft->credentialSource = CalendarCredentialSource::SecretService;
                 draft->passwordFile.clear();
               }
@@ -1153,7 +1384,8 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
                   || draft->id == "personal_icloud"
                   || draft->id == "home_nextcloud"
                   || draft->id == "personal_google"
-                  || draft->id == "subscription";
+                  || draft->id == "subscription"
+                  || draft->id == "local_calendar";
               if (provider == CalendarAccountProvider::Google && isDefaultId) {
                 draft->id = "personal_google";
               } else if (provider == CalendarAccountProvider::CustomCalDav && isDefaultId) {
@@ -1162,6 +1394,8 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
                 draft->id = "personal_icloud";
               } else if (provider == CalendarAccountProvider::IcsFileURL && isDefaultId) {
                 draft->id = "subscription";
+              } else if (provider == CalendarAccountProvider::Vdir && isDefaultId) {
+                draft->id = "local_calendar";
               }
               if (m_editorSheetModal != nullptr) {
                 m_editorSheetModal->rebuildBody();
@@ -1203,7 +1437,10 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
     Input* passwordInput = nullptr;
     Input* passwordFileInput = nullptr;
     Input* serverInput = nullptr;
-    if (draft->provider != CalendarAccountProvider::Google && draft->provider != CalendarAccountProvider::IcsFileURL) {
+    Input* pathInput = nullptr;
+    if (draft->provider != CalendarAccountProvider::Google
+        && draft->provider != CalendarAccountProvider::IcsFileURL
+        && draft->provider != CalendarAccountProvider::Vdir) {
       addField(
           body, i18n::tr("settings.calendar-accounts.credential-source-label"),
           ui::segmented({
@@ -1293,16 +1530,31 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
     if (draft->provider == CalendarAccountProvider::IcsFileURL) {
       addField(
           body, i18n::tr("settings.calendar-accounts.ics-url-label"),
-          ui::input(
-              {.out = &serverInput,
-               .value = draft->serverUrl,
-               .placeholder = "https://example.com/calendar.ics",
-               .invalid = draft->serverUrlInvalid,
-               .onChange = [draft](const std::string& value) {
-                 draft->serverUrl = value;
-                 draft->serverUrlInvalid = false;
-               }}
-          )
+          ui::input({
+              .out = &serverInput,
+              .value = draft->serverUrl,
+              .placeholder = "https://example.com/calendar.ics",
+              .invalid = draft->serverUrlInvalid,
+              .onChange = [draft](const std::string& value) {
+                draft->serverUrl = value;
+                draft->serverUrlInvalid = false;
+              },
+          })
+      );
+    }
+    if (draft->provider == CalendarAccountProvider::Vdir) {
+      addField(
+          body, i18n::tr("settings.calendar-accounts.vdir-path-label"),
+          ui::input({
+              .out = &pathInput,
+              .value = draft->path,
+              .placeholder = "~/.local/share/calendars",
+              .invalid = draft->pathInvalid,
+              .onChange = [draft](const std::string& value) {
+                draft->path = value;
+                draft->pathInvalid = false;
+              },
+          })
       );
     }
 
@@ -1399,7 +1651,7 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
     }
 
     const auto persistAccount = [this, draft, idInput, nameInput, usernameInput, passwordInput, passwordFileInput,
-                                 serverInput](bool closeAfter, bool connectAfter) {
+                                 serverInput, pathInput](bool closeAfter, bool connectAfter) {
       if (m_config == nullptr) {
         return;
       }
@@ -1416,12 +1668,16 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
         draft->passwordFile = trimInput(passwordFileInput);
       }
       draft->serverUrl = trimInput(serverInput);
+      if (pathInput != nullptr) {
+        draft->path = trimInput(pathInput);
+      }
 
       draft->idInvalid = false;
       draft->usernameInvalid = false;
       draft->passwordInvalid = false;
       draft->passwordFileInvalid = false;
       draft->serverUrlInvalid = false;
+      draft->pathInvalid = false;
 
       if (!validCalendarAccountId(draft->id)) {
         draft->idInvalid = true;
@@ -1433,6 +1689,7 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
       const bool caldav = draft->provider == CalendarAccountProvider::ICloud
           || draft->provider == CalendarAccountProvider::CustomCalDav;
       const bool ics = draft->provider == CalendarAccountProvider::IcsFileURL;
+      const bool vdir = draft->provider == CalendarAccountProvider::Vdir;
       if (caldav && draft->username.empty()) {
         draft->usernameInvalid = true;
       }
@@ -1444,11 +1701,20 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
           && (draft->passwordFile.empty() || !std::filesystem::path(draft->passwordFile).is_absolute())) {
         draft->passwordFileInvalid = true;
       }
+      if (vdir) {
+        const std::filesystem::path checkPath =
+            draft->path.empty() ? calendar::defaultVdirPath() : FileUtils::expandUserPath(draft->path);
+        std::error_code ec;
+        if (!std::filesystem::exists(checkPath, ec) || !std::filesystem::is_directory(checkPath, ec)) {
+          draft->pathInvalid = true;
+        }
+      }
       if (draft->idInvalid
           || draft->usernameInvalid
           || draft->passwordInvalid
           || draft->passwordFileInvalid
-          || draft->serverUrlInvalid) {
+          || draft->serverUrlInvalid
+          || draft->pathInvalid) {
         showTransientStatus(i18n::tr("settings.calendar-accounts.invalid"), true);
         return;
       }
@@ -1464,6 +1730,8 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
         type = "google";
       else if (ics)
         type = "ics";
+      else if (vdir)
+        type = "vdir";
 
       overrides.push_back({{base[0], base[1], base[2], "type"}, type});
       overrides.push_back({{base[0], base[1], base[2], "name"}, draft->name});
@@ -1485,6 +1753,27 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
       if (draft->provider == CalendarAccountProvider::CustomCalDav || ics) {
         overrides.push_back({{base[0], base[1], base[2], "server_url"}, draft->serverUrl});
       }
+      if (vdir) {
+        overrides.push_back({{base[0], base[1], base[2], "path"}, draft->path});
+      }
+
+      // Keys the target provider does not own. They ship in the same commit as the new values: a
+      // separate clear would publish an account that is neither the old shape nor the new one.
+      std::vector<std::vector<std::string>> staleKeys;
+      if (!draft->creating) {
+        if (!caldav) {
+          staleKeys.push_back({base[0], base[1], base[2], "provider"});
+          staleKeys.push_back({base[0], base[1], base[2], "username"});
+          staleKeys.push_back({base[0], base[1], base[2], "credential_source"});
+          staleKeys.push_back({base[0], base[1], base[2], "password_file"});
+        }
+        if (draft->provider != CalendarAccountProvider::CustomCalDav && !ics) {
+          staleKeys.push_back({base[0], base[1], base[2], "server_url"});
+        }
+        if (!vdir) {
+          staleKeys.push_back({base[0], base[1], base[2], "path"});
+        }
+      }
 
       std::string connectActivationToken;
       if (connectAfter) {
@@ -1494,7 +1783,7 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
       }
 
       if (!caldav) {
-        if (!m_config->setOverrides(std::move(overrides))) {
+        if (!m_config->mutateOverrides(overrides, staleKeys, nullptr)) {
           markSettingsWriteError(i18n::tr("settings.calendar-accounts.save-error"));
           return;
         }
@@ -1522,7 +1811,9 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
       draft->credentialOperationInFlight = true;
       m_calendarService->saveCalDavAccount(
           draft->id, draft->credentialSource, draft->passwordFile, std::move(password),
-          [this, overrides = std::move(overrides)]() mutable { return m_config->setOverrides(std::move(overrides)); },
+          [this, overrides = std::move(overrides), staleKeys = std::move(staleKeys)]() mutable {
+            return m_config->mutateOverrides(overrides, staleKeys, nullptr);
+          },
           [this, draft, closeAfter](CalendarService::CredentialOperationResult result) {
             draft->credentialOperationInFlight = false;
             if (result == CalendarService::CredentialOperationResult::MissingCredential) {
@@ -2018,20 +2309,13 @@ void SettingsWindow::openPluginStore() {
 
       const float scale = uiScale();
 
-      std::unordered_set<std::string> onDiskIds;
-      for (const auto& p : m_pluginList) {
-        if (p.materialized) {
-          onDiskIds.insert(p.id);
-        }
-      }
-
       auto catalogLookup = std::make_shared<std::unordered_map<std::string, scripting::CatalogEntry>>();
       for (const auto& entry : catalog) {
         catalogLookup->emplace(entry.entry.id, entry.entry);
       }
 
       auto storeContent = std::make_shared<settings::PluginStoreContent>(
-          std::move(catalog), m_config, std::move(onDiskIds),
+          std::move(catalog), m_config,
           settings::PluginStoreCallbacks{
               .setEnabled =
                   [this, catalogLookup](std::string id, bool enable) {
@@ -2040,9 +2324,6 @@ void SettingsWindow::openPluginStore() {
                     }
                     if (enable) {
                       (void)m_pluginManager->enable(id);
-                      if (m_editorSheetModal != nullptr) {
-                        m_editorSheetModal->close();
-                      }
                       ++m_pluginListRefreshGeneration;
                       m_pluginListDirty = false;
                       auto existing = std::ranges::find_if(m_pluginList, [&](const auto& p) { return p.id == id; });
@@ -2062,14 +2343,20 @@ void SettingsWindow::openPluginStore() {
                       m_pluginManager->disable(id);
                       m_pluginListDirty = true;
                     }
-                    requestContentRebuild();
+                    // Keep the store open, rebuild the sheet body so Add swaps to the install spinner.
+                    requestContentRebuild(
+                        /*refreshRegistry=*/false, /*refreshFilterRow=*/false, /*rebuildEditorSheet=*/true
+                    );
                   },
               .isEnabling = [this](
                                 const std::string& id
                             ) { return m_pluginManager != nullptr && m_pluginManager->isEnabling(id); },
+              .isInstalled = [this](
+                                 const std::string& id
+                             ) { return m_pluginManager != nullptr && m_pluginManager->isMaterialized(id); },
               .scale = scale,
           },
-          &m_pluginFileCache
+          &m_pluginFileCache, &m_pluginStoreScrollState
       );
 
       m_pluginFileCache.setOnReady([storeContent](
@@ -2180,8 +2467,15 @@ void SettingsWindow::openPluginStore() {
                         event.sym, event.modifiers, event.pressed, event.preedit, focused
                     );
                   },
+              .onClosed =
+                  [storeContent, this]() {
+                    storeContent->detachGrid();
+                    m_pluginFileCache.setOnReady(nullptr);
+                    m_pluginStoreSheetOpen = false;
+                  },
           }
       );
+      m_pluginStoreSheetOpen = m_editorSheetModal->isOpen();
     });
   }).detach();
 }

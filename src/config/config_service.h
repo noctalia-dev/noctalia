@@ -163,6 +163,13 @@ public:
   );
   bool setOverrides(std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>> overrides);
   bool setOverrides(std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>> overrides, bool* changed);
+  // Sets and clears in one commit. Callers that both write new keys and retire keys the new shape no
+  // longer owns must use this: two separate commits publish an intermediate config that fails schema
+  // validation and raises a config-error notification.
+  bool mutateOverrides(
+      const std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>>& overrides,
+      const std::vector<std::vector<std::string>>& clearPaths, bool* changed
+  );
   bool clearOverride(const std::vector<std::string>& path);
   bool clearOverrides(const std::vector<std::vector<std::string>>& paths, bool* changed);
   bool renameOverrideTable(const std::vector<std::string>& oldPath, const std::vector<std::string>& newPath);

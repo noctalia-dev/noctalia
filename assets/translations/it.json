@@ -27,7 +27,51 @@
     }
   },
   "bar": {
+    "annotate": {
+      "capture-new-region": "Cattura nuova regione (scarta l'edit corrente)",
+      "close": "Chiudi senza finalizzare (Esc)",
+      "color-black": "Nero",
+      "color-blue": "Blu",
+      "color-green": "Verde",
+      "color-orange": "Arancione",
+      "color-purple": "Viola",
+      "color-red": "Rosso",
+      "color-white": "Bianco",
+      "color-yellow": "Giallo",
+      "copy": "Copia l'immagine annotata (Ctrl+C)",
+      "cursor": "Mostra il puntatore catturato con lo schermo (p)",
+      "cursor-capture-failed": "Attiva/disattiva puntatore non disponibile: il compositor non è riuscito a fornire un puntatore separato",
+      "cursor-live": "Blocca prima lo schermo per modificare il puntatore catturato (F)",
+      "cursor-not-captured": "Attiva/disattiva puntatore non disponibile: il compositor non supporta la cattura separata del puntatore",
+      "done": "Applica le impostazioni dello screenshot (Invio)",
+      "fill-off": "Riempimento forma: disattivato",
+      "fill-on": "Riempimento forma: attivo",
+      "freeze": "Congela lo schermo sotto l'inchiostro (f)",
+      "move-toolbar": "Trascina per spostare la barra degli strumenti",
+      "redo": "Ripeti (Ctrl+Maiusc+Z)",
+      "save": "Salva l'immagine annotata (Ctrl+S)",
+      "size-advanced": "Regolazione fine delle dimensioni",
+      "size-decrease": "Più sottile ([)",
+      "size-increase": "Più spesso (])",
+      "size-large": "Grande",
+      "size-medium": "Medio",
+      "size-small": "Piccolo",
+      "tool-arrow": "Freccia (a) · tieni premuto Maiusc per agganciare l'angolo",
+      "tool-blur": "Sfoca una regione (u)",
+      "tool-brush": "Pennello (b)",
+      "tool-circle": "Ellisse (o) · tieni premuto Maiusc per disegnare un cerchio",
+      "tool-crop": "Ritaglia l'esportazione (c)",
+      "tool-eraser": "Gomma (e)",
+      "tool-highlighter": "Evidenziatore (h)",
+      "tool-line": "Linea (l) · tieni premuto Maiusc per allineare l'angolo",
+      "tool-move": "Sposta un'annotazione (m)",
+      "tool-numbering": "Indicatore numerato (n)",
+      "tool-rectangle": "Rettangolo(i) · tieni premuto Maiusc per un quadrato",
+      "tool-text": "Testo (t)",
+      "undo": "Annulla (Ctrl+Z)"
+    },
     "screenshot": {
+      "annotate-export-failed": "Impossibile creare l'immagine annotata",
       "choose-display": "Scegli monitor",
       "confirm-region": "{copy} per copiare · {save} per salvare · Invio o Spazio per le impostazioni predefinite · {cancel} per annullare · Trascina per riselezionare",
       "fullscreen": "Schermo intero",
@@ -60,6 +104,7 @@
       "network": {
         "active": "Attiva",
         "band": "Banda",
+        "cellular": "Cellulare",
         "connected": "Connesso",
         "connecting": "Connessione in corso",
         "download": "Download",
@@ -73,8 +118,10 @@
         "not-connected": "Non connesso",
         "off": "Off",
         "on": "On",
+        "operator": "Operatore",
         "scanning": "Scansione",
         "signal": "Segnale",
+        "technology": "Tecnologia",
         "upload": "Upload",
         "vpn": "VPN",
         "wan-ip": "IP WAN",
@@ -122,6 +169,7 @@
         "off": "Meteo disattivato",
         "tooltip": {
           "condition": "Condizione",
+          "feels-like": "Percepiti",
           "high": "Massima",
           "humidity": "Umidità",
           "low": "Minima",
@@ -184,6 +232,7 @@
     "audio": {
       "application-volumes": "Volume applicazioni",
       "choose-effects-profile": "Scegli un profilo",
+      "default-device": "Dispositivo predefinito",
       "effects-profile": "Effetti",
       "input-device-prefix": "Input",
       "no-application-audio": "Nessuna applicazione audio",
@@ -237,6 +286,7 @@
     "display": {
       "disabled": "Disabilitato",
       "no-displays": "Nessun monitor disponibile",
+      "rescan": "Ri-scansiona DDC/CI monitors",
       "unknown-resolution": "Risoluzione sconosciuta"
     },
     "home": {
@@ -268,15 +318,39 @@
       "start-playback": "Avvia la riproduzione in un'app MPRIS"
     },
     "network": {
+      "anonymous-identity": "Identità anonima (opzionale)",
       "available": "Disponibili",
+      "ca-certificate": "Percorso CA certificate (opzionale)",
+      "cellular": "Cellulare",
+      "cellular-connected": "Connesso",
+      "cellular-connecting": "Connessione...",
+      "cellular-connection": "Connessione cellulare",
+      "cellular-enabling": "Accensione…",
+      "cellular-failed": "Fallito",
+      "cellular-locked": "SIM bloccata",
+      "cellular-no-service": "Nessun servizio",
+      "cellular-off": "Off",
+      "cellular-registered": "Registrato",
+      "cellular-searching": "Ricerca in corso…",
       "connect": "Connetti",
       "current-connection": "Connessione corrente",
+      "domain-suffix-match": "Suffisso del domain server",
+      "eap-method": "Metodo EAP",
+      "enterprise-prompt-for": "Accedi a {ssid}",
+      "error-ca-not-absolute": "Il percorso del certificato deve essere assoluto, iniziando con /.",
+      "error-certificate-required": "Questa rete richiede autenticazione certificata (EAP-TLS), non ancora supportata.",
+      "error-enterprise-unsupported": "Il backend di rete attivo non può configurare reti 802.1X.",
+      "error-missing-identity": "Immetti l'identità che la tua organizzazione ti ha assegnato.",
+      "error-missing-password": "Immetti la tua password.",
+      "error-unsupported-phase2": "PEAP richiede autenticazione interna MSCHAPv2.",
       "external-ip": "WAN {ip}",
+      "identity": "Identità",
       "no-networks": "Nessuna rete nel raggio d'azione",
       "not-connected": "Non connesso",
       "password": "Password",
       "password-prompt": "Inserisci password",
       "password-prompt-for": "Inserisci password per {ssid}",
+      "phase2-auth": "Autenticazione interna",
       "saved": "Salvate",
       "unavailable-detail": "Installa e abilita NetworkManager, wpa_supplicant o iwd per gestire le reti da qui.",
       "unavailable-title": "Servizio di rete non disponibile",
@@ -305,6 +379,22 @@
     },
     "power": {
       "battery": "Batteria",
+      "charging": {
+        "configured": "Configurato: {limits}",
+        "display-only": "Mostra soltanto",
+        "error-denied": "Autorizzazione negata. Le soglie di carica non sono state modificate",
+        "error-failed": "Le soglie di carica non possono essere modificate.",
+        "externally-managed": "Impostato da un altro strumento. Configura UPower per gestire le soglie di carica.",
+        "firmware-managed": "La ricarica è gestita dal firmware di sistema",
+        "full-charge": "Può caricare fino al 100%",
+        "starts": "Inizia sotto il {start}%",
+        "starts-stops": "Inizia sotto il {start}% · Termina al {end}%",
+        "stops": "Termina al {end}%",
+        "title": "In carica",
+        "unreadable": "Non disponibile",
+        "unsupported": "Soglie di carica non supportate",
+        "use-thresholds": "Usa soglie di carica"
+      },
       "design-capacity": "della capacità originale",
       "health": "Stato batteria",
       "performance-inhibited": "Performance non disponibile",
@@ -406,6 +496,7 @@
       "data-unavailable": "Dati meteo non disponibili",
       "details": {
         "elevation": "Altitudine",
+        "feels-like": "Percepiti",
         "sunrise": "Alba",
         "sunset": "Tramonto",
         "temp-max": "Massima",
@@ -579,6 +670,7 @@
         "grid": "Griglia"
       },
       "title": "Widget desktop",
+      "title-lockscreen": "Widget della schermata di blocco",
       "types": {
         "audio-visualizer": "Visualizzatore audio",
         "button": "Pulsante",
@@ -728,7 +820,7 @@
     },
     "internal": {
       "battery": "Batteria",
-      "battery-critical-body": "{device}: {percent}% – il tuo sistema presto si spegnerà",
+      "battery-critical-body": "{device}: {percent}%; il tuo sistema presto si spegnerà",
       "battery-critical-title": "Batteria quasi scarica",
       "battery-device": "Dispositivo batteria",
       "battery-low-body": "{device}: {percent}% rimanente",
@@ -752,12 +844,15 @@
       "desktop-widgets-editor": "Editor widget",
       "desktop-widgets-editor-enabled": "L'editor dei widget desktop è attivo. Passa a un'area di lavoro vuota in modo che le finestre aperte non coprano l'editor.",
       "greeter-sync": "Noctalia Greeter",
-      "greeter-sync-pending": "Attesa dell'approvazione dell'amministratore per salvare sul greeter.",
-      "greeter-sync-pending-console": "Attesa dell'approvazione dell'amministratore. Approva il prompt polkit in Noctalia, su un TTY o una console, oppure esegui pkexec manualmente.",
-      "greeter-sync-pending-manual": "I file vengono messi in ambiente stage. Esegui in un terminale: pkexec noctalia-greeter-apply-appearance \"$XDG_RUNTIME_DIR/noctalia-greeter-sync\". Oppure imposta shell.greeter_sync.privilege_command (ad esempio ghostty -e pkexec) e sincronizza di nuovo.",
+      "greeter-sync-pending": "Sincronizzazione dell'aspetto con il greeter. Se viene visualizzato un prompt amministratore, approvarlo; l'autorizzazione senza password segue le policy di sistema.",
+      "greeter-sync-pending-console": "Sincronizzazione dell'aspetto con il greeter. Se è richiesta l'autorizzazione, approvare la richiesta polkit in Noctalia, su un TTY o su una console.",
+      "greeter-sync-pending-legacy": "Sincronizzazione tramite l'assistente legacy autenticato. È richiesta l'approvazione dell'amministratore.",
+      "greeter-sync-pending-manual": "I file vengono preparati per la sincronizzazione legacy autenticata. Eseguire l'helper di applicazione posizionale in un terminale, mantenendo NOCTALIA_GREETER_STATE_DIR se si utilizza un percorso personalizzato, oppure configurare shell.greeter_sync.privilege_command e sincronizzare di nuovo.",
+      "greeter-sync-pending-manual-pkexec": "Sincronizzazione dell'aspetto con il greeter. Se è richiesta l'autorizzazione dell'amministratore e non viene visualizzato alcun messaggio, eseguire in un terminale: pkexec noctalia-greeter-apply-appearance --sync \"/run/user/$(id -u)/noctalia-greeter-sync\".",
       "greeter-sync-success": "Aspetto sincronizzato. Le modifiche si applicano alla prossima schermata di accesso.",
-      "greeter-sync-timeout": "La sincronizzazione del greeter è ancora in attesa dell'approvazione dell'amministratore. Controlla un TTY o una console per un prompt polkit, abilita l'agente polkit nelle impostazioni di sicurezza o esegui pkexec manualmente.",
-      "greeter-sync-timeout-manual": "La sincronizzazione del greeter necessita ancora dell'approvazione dell'amministratore. Esegui in un terminale: pkexec noctalia-greeter-apply-appearance \"$XDG_RUNTIME_DIR/noctalia-greeter-sync\"",
+      "greeter-sync-timeout": "La sincronizzazione del greeter è ancora in attesa di autorizzazione. Controlla un terminale TTY o una console per visualizzare il prompt del polkit, abilita l'agente polkit nelle impostazioni di sicurezza oppure esegui pkexec manualmente.",
+      "greeter-sync-timeout-manual": "La sincronizzazione legacy autenticata richiede comunque l'approvazione dell'amministratore. Eseguire lo strumento di supporto per l'applicazione posizionale in un terminale e mantenere NOCTALIA_GREETER_STATE_DIR se si utilizza un percorso personalizzato.",
+      "greeter-sync-timeout-manual-pkexec": "La sincronizzazione di Greeter richiede ancora l'autorizzazione. Esegui il comando in un terminale: pkexec noctalia-greeter-apply-appearance --sync \"/run/user/$(id -u)/noctalia-greeter-sync\"",
       "keybind-app": "Noctalia",
       "keybind-invalid-modifier": "Questa scorciatoia accetta un singolo tasto senza modificatori.",
       "keybind-invalid-printable": "I tasti stampabili (lettere, numeri, simboli) richiedono un modificatore come Ctrl o Alt.",
@@ -915,7 +1010,8 @@
         "custom": "CalDAV",
         "google": "Google",
         "icloud": "iCloud",
-        "ics": "ICS URL"
+        "ics": "ICS URL",
+        "vdir": "Locale (vdir)"
       },
       "provider-label": "Provider",
       "save": "Salva",
@@ -928,7 +1024,8 @@
       "secret-service-unavailable": "Nessun provider Secret Service è disponibile. Avvia un provider compatibile e riprova.",
       "server-url-label": "URL server",
       "username-label": "Nome utente",
-      "username-placeholder": "nome@example.com"
+      "username-placeholder": "nome@example.com",
+      "vdir-path-label": "Percorso cartella"
     },
     "controls": {
       "keybind": {
@@ -1120,8 +1217,9 @@
       "reset-page": "Ripristino di alcune impostazioni non riuscito.",
       "support-report": "Salvataggio report di supporto non riuscito.",
       "sync-greeter": "Impossibile sincronizzare l'aspetto con Noctalia Greeter.",
-      "sync-greeter-timeout": "La sincronizzazione del greeter è ancora in attesa dell'approvazione dell'amministratore. Controlla un TTY o una console per un prompt polkit, abilita l'agente polkit nelle impostazioni di sicurezza o esegui pkexec manualmente.",
-      "sync-greeter-timeout-manual": "La sincronizzazione del greeter necessita ancora dell'approvazione dell'amministratore. Esegui in un terminale: pkexec noctalia-greeter-apply-appearance \"$XDG_RUNTIME_DIR/noctalia-greeter-sync\"",
+      "sync-greeter-timeout": "La sincronizzazione del greeter è ancora in attesa di autorizzazione. Controlla un terminale TTY o una console per visualizzare il prompt del polkit, abilita l'agente polkit nelle impostazioni di sicurezza oppure esegui pkexec manualmente.",
+      "sync-greeter-timeout-manual": "La sincronizzazione legacy autenticata richiede comunque l'approvazione dell'amministratore. Eseguire lo strumento di supporto per l'applicazione posizionale in un terminale e mantenere NOCTALIA_GREETER_STATE_DIR se si utilizza un percorso personalizzato.",
+      "sync-greeter-timeout-manual-pkexec": "La sincronizzazione di Greeter richiede ancora l'autorizzazione. Esegui il comando in un terminale: pkexec noctalia-greeter-apply-appearance --sync \"/run/user/$(id -u)/noctalia-greeter-sync\"",
       "widget": {
         "rename": "Impossibile rinominare il widget con nome."
       },
@@ -1210,7 +1308,7 @@
         "media": "Media",
         "monitor": "Monitor di sistema",
         "monitor-polling": "Intervalli campionamento",
-        "monitor-thresholds": "Soglie evidenziazione",
+        "monitor-thresholds": "Soglie di evidenziazione",
         "monitors": "Monitor",
         "motion": "Movimento",
         "navigation": "Navigazione",
@@ -1228,6 +1326,9 @@
         "screen-corners": "Angoli schermo",
         "screen-time": "Tempo schermo",
         "screenshot": "Cattura schermo",
+        "screenshot-annotation": "Annotazione",
+        "screenshot-capture": "Cattura",
+        "screenshot-output": "Output",
         "security": "Sicurezza",
         "session-panel": "Sessione",
         "shape": "Forma",
@@ -1239,7 +1340,8 @@
         "wallpaper": "Sfondo",
         "weather": "Meteo",
         "widget-list": "Elenco widget",
-        "widgets": "Widget"
+        "widgets": "Widget",
+        "window-switcher": "Switcher finestra"
       },
       "sections": {
         "accessibility": "Accessibilità",
@@ -1260,6 +1362,7 @@
         "plugins": "Plugin",
         "popups": "Popup",
         "power": "Energia",
+        "screenshot": "Screenshot",
         "security": "Sicurezza",
         "services": "Servizi",
         "shell": "Shell",
@@ -1376,6 +1479,13 @@
       "panel-position": {
         "auto": "Segui la barra"
       },
+      "plugins": {
+        "auto-update": {
+          "all": "Tutti",
+          "none": "Nessuno",
+          "official": "Ufficiali"
+        }
+      },
       "screen-position": {
         "bottom-center": "Basso centro",
         "bottom-left": "Basso sinistra",
@@ -1417,6 +1527,9 @@
         "mode": {
           "dark": "Scuro",
           "light": "Chiaro"
+        },
+        "shell-mode": {
+          "follow": "Segui"
         },
         "source": {
           "built-in": "Integrata",
@@ -1461,6 +1574,10 @@
     "plugins": {
       "browse-store": "Sfoglia plugin",
       "panels": {
+        "layer": {
+          "description": "Layer-shell utilizzata quando il pannello è flottante",
+          "label": "Layer"
+        },
         "open-near-click": {
           "description": "Dove si posiziona il pannello quando viene aperto cliccando sul widget della barra",
           "label": "Lungo la barra"
@@ -1533,6 +1650,7 @@
         "held-back-hint": "Installa v{version} per plugin API {resolved}. Il più recente v{latest} necessita plugin API {latestRequired}; questo Noctalia supporta fino a {current}.",
         "incompatible": "Incompatibile",
         "incompatible-hint": "Richiede plugin API {richiesto}; questo Noctalia supporta {oldest}–{current}.",
+        "installed": "Installato",
         "loading": "Caricamento catalogo...",
         "no-readme": "Nessuna descrizione disponibile.",
         "open-page": "Apri la pagina plugin su noctalia.dev",
@@ -1638,8 +1756,12 @@
           "description": "Ancora le superfici scure al nero assoluto, prevenendo il banding sui pannelli OLED (solo modalità scura)",
           "label": "Nero puro"
         },
+        "shell-theme-mode": {
+          "description": "Fissa la modalità chiara o scura di Noctalia; Segui la mantiene sincronizzata con la Modalità Tema.",
+          "label": "Modalità tema Shell"
+        },
         "theme-mode": {
-          "description": "Scegli Scuro, Chiaro o Automatico in base all'ora del giorno",
+          "description": "Scegli tra Scuro, Chiaro o Automatico in base all'ora del giorno; questa opzione si applica anche alle app tramite i modelli.",
           "label": "Modalità tema"
         },
         "ui-scale": {
@@ -1760,6 +1882,10 @@
         "font-family": {
           "description": "Font per questo widget nella barra; lascia vuoto per ereditare quello globale (Famiglia font per-widget lo sovrascrive)",
           "label": "Famiglia font"
+        },
+        "font-scale": {
+          "description": "Fattore di scala per il testo su tutti i widget di questa barra; font_scale per widget moltiplica questo fattore",
+          "label": "Scala del font"
         },
         "font-weight": {
           "description": "Peso predefinito per le etichette widget su questa barra.",
@@ -2226,6 +2352,10 @@
           "description": "Rimuovi automaticamente le voci della cronologia delle notifiche più vecchie del numero di ore specificato (0 per conservarle per sempre)",
           "label": "Periodo di conservazione"
         },
+        "keep-dismissed-in-history": {
+          "description": "Mantieni le notifiche nella cronologia dopo che i suoi messaggi vengono ignorati",
+          "label": "Mantieni le notifiche ignorate"
+        },
         "layer": {
           "description": "Usa Overlay per mostrare le notifiche toast sopra le app a schermo intero",
           "label": "Layer Wayland"
@@ -2536,11 +2666,11 @@
           "description-reconnect": "Manca l'autorizzazione di Google; riconnetti questo account"
         },
         "calendar-event-date-format": {
-          "description": "Il formato della data mostrato nella scheda evento per la data selezionata",
+          "description": "Il formato della data mostrato sopra l'elenco degli eventi nelle visualizzazioni del calendario",
           "label": "Formato data evento"
         },
         "calendar-event-time-format": {
-          "description": "Il formato dell'ora mostrato per gli eventi del calendario",
+          "description": "Il formato orario visualizzato per gli eventi nelle viste del calendario",
           "label": "Formato tempo evento"
         },
         "calendar-refresh-interval": {
@@ -2817,11 +2947,11 @@
           "label": "Mostra IP WAN"
         },
         "greeter-sync-auto": {
-          "description": "Sincronizza automaticamente il Greeter ogni volta che cambiano lo sfondo, i colori o la modalità del tema",
+          "description": "Sincronizza automaticamente il greeter ogni volta che cambiano lo sfondo, i colori, la modalità del tema o il carattere della shell. L'autorizzazione segue comunque le policy di sistema; questa impostazione non abilita la sincronizzazione senza password.",
           "label": "Sincronizza Greeter in automatico"
         },
         "greeter-sync-privilege-command": {
-          "description": "Sostituisci pkexec/run0 per la sincronizzazione del greeter; il percorso dell'helper e la directory di staging vengono aggiunti automaticamente (esempio: ghostty -e pkexec)",
+          "description": "Sovrascrivi l'avvio dei privilegi per il greeter Sync Now. La modalità legacy (un helper precedente o una directory di stato del greeter personalizzata) accetta un altro escalation di amministratore. La sincronizzazione vincolata aggiunge --sync e richiede il prefisso per avviare infine pkexec (esempio: ghostty -e pkexec)",
           "label": "Comando privilegiato per il sync del greeter"
         },
         "keyboard-layout-custom-labels": {
@@ -2975,6 +3105,14 @@
           "description": "Cancella la cronologia di utilizzo in primo piano per app",
           "label": "Ripristina i dati del tempo schermo"
         },
+        "screenshot-annotate": {
+          "description": "Apri l'editor di annotazioni su ogni screenshot; Fatto applica le impostazioni di salvataggio, appunti e pipe",
+          "label": "Annota prima della finalizzazione"
+        },
+        "screenshot-close-on-copy": {
+          "description": "Chiudi dopo una copia  riuscita dall'editor, anche quando aperto direttamente.",
+          "label": "Chiudi l'Editor dopo aver Copiato"
+        },
         "screenshot-confirm-region": {
           "description": "Dopo aver selezionato un'area, mantieni aperta l'overlay finché non confermi con Invio o Spazio",
           "label": "Conferma area selezionata"
@@ -2984,9 +3122,9 @@
           "label": "Copia negli appunti"
         },
         "screenshot-directory": {
-          "description": "Cartella per i file PNG salvati; lascia vuoto per usare ~/Pictures",
+          "description": "Cartella per i file PNG salvati; lasciare vuota per utilizzare la directory XDG standard per le immagini.",
           "label": "Directory output",
-          "placeholder": "~/Pictures"
+          "placeholder": "Directory XDG per le immagini"
         },
         "screenshot-filename-pattern": {
           "description": "Pattern strftime senza estensione (viene aggiunto .png); usa %s per l'epoch unix",
@@ -2995,6 +3133,9 @@
         "screenshot-freeze-screen": {
           "description": "Prima della cattura congela lo schermo per bloccare il contenuto",
           "label": "Congela schermo"
+        },
+        "screenshot-output": {
+          "description": "Azioni applicate dopo la cattura, o quando scegli \"Fine\" nell'editor annotazioni."
         },
         "screenshot-pipe-command": {
           "description": "Comando eseguito come /bin/sh -lc con il PNG su stdin; per annotatori o uploader (per esempio: swappy -f - o satty -f -)",
@@ -3027,7 +3168,7 @@
         },
         "sync-greeter": {
           "button": "Sincronizza ora",
-          "description": "Copia sfondo e colori correnti su Noctalia Greeter (richiede approvazione amministratore)",
+          "description": "Copia l'aspetto e la configurazione del monitor attuali in Noctalia Greeter. È richiesta l'approvazione dell'amministratore, a meno che le policy di sistema non autorizzino la sincronizzazione senza password per il tuo utente.",
           "label": "Noctalia Greeter"
         },
         "telemetry": {
@@ -3037,6 +3178,10 @@
         "time-format": {
           "description": "Formato ora predefinito per la shell UI senza impostazione propria",
           "label": "Formato ora"
+        },
+        "window-switcher-mru": {
+          "description": "Nello switcher di finestre queste vengono ordinate in base all'utilizzo più recente, anziché in base all'area di lavoro e al layout dello schermo.",
+          "label": "Ordina per più recenti"
         }
       },
       "system": {
@@ -3088,7 +3233,7 @@
           "label": "Includi sottocartelle"
         },
         "directory": {
-          "description": "Cartella contenente gli sfondi",
+          "description": "Cartella contenente gli sfondi; lasciare vuota per utilizzare la directory XDG standard per le immagini.",
           "label": "Directory sfondi"
         },
         "directory-dark": {
@@ -3204,6 +3349,464 @@
     "widgets": {
       "actions": {
         "command-placeholder": "Comando della shell",
+        "commands": {
+          "annotate": {
+            "description": "Disegna sullo schermo sopra le app in esecuzione; premi F o il pulsante Freeze per catturare lo sfondo",
+            "label": "Annota lo schermo"
+          },
+          "bar-auto-hide-set": {
+            "description": "Imposta auto-nascondi per una barra",
+            "label": "Imposta nascondi automatico barra"
+          },
+          "bar-hide": {
+            "description": "Nascondi una o tutte le barre e rilascia gli spazi vuoti del layout",
+            "label": "Nascondi barra"
+          },
+          "bar-layer-set": {
+            "description": "Imposta uno o tutti i livelli della barra",
+            "label": "Imposta livello barra"
+          },
+          "bar-reserve-toggle": {
+            "description": "Attiva/disattiva la riserva di spazio per una o tutte le barre",
+            "label": "Attiva/disattiva spazio riservato barra"
+          },
+          "bar-show": {
+            "description": "Mostra una o tutte le barre",
+            "label": "Mostra barra"
+          },
+          "bar-toggle": {
+            "description": "Attiva/disattiva la visibilità di una o di tutte le barre.",
+            "label": "Toggle barra"
+          },
+          "bluetooth-disable": {
+            "description": "Disattiva il Bluetooth",
+            "label": "Disattiva Bluetooth"
+          },
+          "bluetooth-enable": {
+            "description": "Attiva il Bluetooth",
+            "label": "Attiva Bluetooth"
+          },
+          "bluetooth-status": {
+            "description": "Stampa lo stato Bluetooth",
+            "label": "Stato Bluetooth"
+          },
+          "bluetooth-toggle": {
+            "description": "Attiva/disattiva Bluetooth",
+            "label": "Attiva/disattiva Bluetooth"
+          },
+          "brightness-down": {
+            "description": "Diminuisci la luminosità (sul monitor corrente)",
+            "label": "Diminuisci luminosità"
+          },
+          "brightness-list-backlight-devices": {
+            "description": "Elenco dei nomi dei dispositivi di retroilluminazione sysfs disponibili",
+            "label": "Elenco dei dispositivi con retroilluminazione"
+          },
+          "brightness-osd": {
+            "description": "Visualizzare OSD della luminosità senza modificarla",
+            "label": "Mostra OSD della luminosità"
+          },
+          "brightness-set": {
+            "description": "Imposta la luminosità (monitor corrente)",
+            "label": "Imposta la luminosità"
+          },
+          "brightness-up": {
+            "description": "Aumenta la luminosità (monitor corrente)",
+            "label": "Aumenta la luminosità"
+          },
+          "caffeine-disable": {
+            "description": "Disattiva caffeine (inibitore idle)",
+            "label": "Disattiva caffeine"
+          },
+          "caffeine-enable": {
+            "description": "Disattiva caffeine (inibitore idle)",
+            "label": "Attiva caffeine"
+          },
+          "caffeine-toggle": {
+            "description": "Attiva/Disattiva caffeine (inibitore idle)",
+            "label": "Attiva/Disattiva caffeine"
+          },
+          "clipboard-clear": {
+            "description": "Cancella la cronologia degli appunti",
+            "label": "Cancella la cronologia degli appunti"
+          },
+          "clipboard-copy": {
+            "description": "Copia il testo negli appunti",
+            "label": "Copia negli appunti"
+          },
+          "clipboard-text": {
+            "description": "Stampa il testo più recente contenuto negli appunti (vuoto quando la selezione non contiene testo).",
+            "label": "Stampa il testo degli appunti"
+          },
+          "color-scheme-get": {
+            "description": "Stampa lo schema di colori attivo: <source> <name> (l'origine può essere integrata, sfondo, community o personalizzata)",
+            "label": "Ottieni la combinazione di colori"
+          },
+          "color-scheme-set": {
+            "description": "Imposta la sorgente e la selezione della tavolozza in settings.toml (nome predefinito, schema del generatore di sfondi, ID della community o nome della cartella dello schema personalizzato).",
+            "label": "Imposta schema colore"
+          },
+          "config-reload": {
+            "description": "Ricarica il file di configurazione",
+            "label": "Ricarica la configurazione"
+          },
+          "desktop-widgets-edit": {
+            "description": "Apri l'editor dei widget del desktop",
+            "label": "Modifica i widget del desktop"
+          },
+          "desktop-widgets-exit": {
+            "description": "Chiudi l'editor dei widget del desktop",
+            "label": "Esci dall'editor dei widget desktop"
+          },
+          "desktop-widgets-hide": {
+            "description": "Nascondi i widget del desktop ora (solo in fase di esecuzione; non modifica l'impostazione salvata)",
+            "label": "Nascondi i widget del desktop"
+          },
+          "desktop-widgets-show": {
+            "description": "Mostra ora i widget del desktop (solo in fase di esecuzione; non modifica l'impostazione salvata)",
+            "label": "Mostra i widget del desktop"
+          },
+          "desktop-widgets-toggle": {
+            "description": "Attiva/disattiva la visibilità dei widget del desktop (solo in fase di esecuzione; non modifica l'impostazione salvata)",
+            "label": "Attiva/disattiva i widget del desktop"
+          },
+          "desktop-widgets-toggle-edit": {
+            "description": "Attiva/disattiva la modalità di modifica dei widget desktop",
+            "label": "Attiva/disattiva l'editor dei widget desktop"
+          },
+          "dock-hide": {
+            "description": "Nascondi il dock (sovrascrivi persistente)",
+            "label": "Nascondi il dock"
+          },
+          "dock-reload": {
+            "description": "Ricarica la configurazione del dock",
+            "label": "Ricarica il dock"
+          },
+          "dock-show": {
+            "description": "Mostra il dock (sovrascrivi persistente)",
+            "label": "Mostra il dock"
+          },
+          "dock-toggle": {
+            "description": "Attiva/disattiva la visibilità del dock (le modifiche vengono mantenute)",
+            "label": "Attiva/disattiva dock"
+          },
+          "dpms-off": {
+            "description": "Spegni i monitor",
+            "label": "Spegni i monitor"
+          },
+          "dpms-on": {
+            "description": "Accendi i monitor",
+            "label": "Accendi i monitor"
+          },
+          "effects-profile-set": {
+            "description": "Imposta il profilo di output o di input di EasyEffects",
+            "label": "Imposta il profilo EasyEffects"
+          },
+          "greeter-sync": {
+            "description": "Sincronizza lo sfondo, i colori e il layout del monitor con Noctalia Greeter.",
+            "label": "Sincronizza l'aspetto del greeter"
+          },
+          "keyboard-backlight-down": {
+            "description": "Riduci di un livello la retroilluminazione della tastiera",
+            "label": "Riduci retroilluminazione tastiera"
+          },
+          "keyboard-backlight-osd": {
+            "description": "Visualizza il menu OSD della retroilluminazione della tastiera senza modificarne la luminosità.",
+            "label": "Mostra OSD della retroilluminazione della tastiera"
+          },
+          "keyboard-backlight-set": {
+            "description": "Imposta la retroilluminazione di tutta la tastiera (0-100 percento)",
+            "label": "Imposta la retroilluminazione della tastiera"
+          },
+          "keyboard-backlight-toggle": {
+            "description": "Attiva/disattiva la retroilluminazione di tutta la tastiera",
+            "label": "Attiva/disattiva la retroilluminazione della tastiera"
+          },
+          "keyboard-backlight-up": {
+            "description": "Aumenta di un livello la retroilluminazione della tastiera",
+            "label": "Aumenta la retroilluminazione della tastiera"
+          },
+          "keyboard-layout-cycle": {
+            "description": "Passa al layout di tastiera successivo",
+            "label": "Ruota tra i layout tastiera"
+          },
+          "lockscreen-widgets-edit": {
+            "description": "Apri l'editor dei widget della schermata di blocco",
+            "label": "Modifica i widget della schermata di blocco"
+          },
+          "lockscreen-widgets-exit": {
+            "description": "Chiudi l'editor dei widget della schermata di blocco",
+            "label": "Esci dall'editor del widget della schermata di blocco"
+          },
+          "lockscreen-widgets-toggle-edit": {
+            "description": "Attiva/disattiva la modalità di modifica dei widget della schermata di blocco",
+            "label": "Attiva/disattiva l'editor del widget della schermata di blocco"
+          },
+          "log-level-set": {
+            "description": "Imposta il livello di log della console",
+            "label": "Imposta il livello di log"
+          },
+          "log-level-status": {
+            "description": "Visualizza il livello di log corrente della console",
+            "label": "Stampa livello log"
+          },
+          "media": {
+            "description": "Controllo riproduzione dei contenuti multimediali",
+            "label": "Controllo multimedia"
+          },
+          "mic-mute": {
+            "description": "Attiva/disattiva il microfono",
+            "label": "Attiva/disattiva il microfono"
+          },
+          "mic-volume-down": {
+            "description": "Diminuisci il volume del microfono",
+            "label": "Diminuisci il volume del microfono"
+          },
+          "mic-volume-osd": {
+            "description": "Mostra il menu OSD del volume del microfono senza modificarne il volume (il valore predefinito è il volume corrente).",
+            "label": "Mostra OSD del microfono"
+          },
+          "mic-volume-set": {
+            "description": "Regola il volume del microfono",
+            "label": "Regola il volume del microfono"
+          },
+          "mic-volume-up": {
+            "description": "Aumenta il volume del microfono",
+            "label": "Aumenta il volume del microfono"
+          },
+          "network-toggle": {
+            "description": "Disconnetti la rete attiva oppure riconnettiti quando non è connessa alcuna rete.",
+            "label": "Attiva/disattiva la connessione di rete"
+          },
+          "nightlight-disable": {
+            "description": "Disattiva la programmazione della luce notturna",
+            "label": "Disattiva la luce notturna"
+          },
+          "nightlight-enable": {
+            "description": "Attiva la programmazione della luce notturna",
+            "label": "Attiva la luce notturna"
+          },
+          "nightlight-force-toggle": {
+            "description": "Attiva/disattiva la modalità luce notturna forzata",
+            "label": "Attiva/disattiva la modalità notturna forzata"
+          },
+          "nightlight-toggle": {
+            "description": "Attiva/disattiva la programmazione della luce notturna",
+            "label": "Attiva/disattiva la luce notturna"
+          },
+          "notification-clear-active": {
+            "description": "Ignora tutte le notifiche attualmente attive",
+            "label": "Ignora le notifiche attive"
+          },
+          "notification-clear-history": {
+            "description": "Cancella la cronologia delle notifiche",
+            "label": "Cancella la cronologia delle notifiche"
+          },
+          "notification-dnd-set": {
+            "description": "Imposta notifica Stato Non disturbare",
+            "label": "Imposta Non disturbare"
+          },
+          "notification-dnd-status": {
+            "description": "Stampa notifica Stato Non disturbare",
+            "label": "Stato Non disturbare"
+          },
+          "notification-dnd-toggle": {
+            "description": "Attiva/disattiva notifica Stato Non disturbare",
+            "label": "Attiva/disattiva la modalità Non disturbare"
+          },
+          "notification-invoke-latest": {
+            "description": "Richiama l'azione predefinita della notifica attiva più recente",
+            "label": "Richiama l'ultima azione di notifica"
+          },
+          "notification-show": {
+            "description": "Mostra una notifica interna di Noctalia",
+            "label": "Mostra una notifica"
+          },
+          "osd-disable": {
+            "description": "Disabilita i popup OSD",
+            "label": "Disabilita OSD"
+          },
+          "osd-enable": {
+            "description": "Abilita i popup OSD",
+            "label": "Abilita OSD"
+          },
+          "osd-toggle": {
+            "description": "Attiva/disattiva i popup OSD",
+            "label": "Attiva/disattiva OSD"
+          },
+          "panel-close": {
+            "description": "Chiudi il pannello attivo oppure chiudi il pannello denominato se è attivo",
+            "label": "Chiudi il pannello"
+          },
+          "panel-open": {
+            "description": "Apri un pannello tramite ID, eventualmente con contesto (ad esempio launcher /emo, centro di controllo audio)",
+            "label": "Apri pannello"
+          },
+          "panel-toggle": {
+            "description": "Attiva/disattiva un pannello tramite ID, eventualmente con contesto (ad esempio, launcher /emo, audio del centro di controllo).",
+            "label": "Attiva/disattiva pannello"
+          },
+          "plugin": {
+            "description": "Invia un evento a una voce del plugin",
+            "label": "Invio evento plugin"
+          },
+          "plugins": {
+            "description": "Gestisci plugin e sorgenti (elenco/abilita/disabilita/aggiorna, elenco sorgenti/aggiungi/rimuovi)",
+            "label": "Gestisci i plugin"
+          },
+          "power-cycle": {
+            "description": "Scorri l'elenco dei profili ordinati di UPower, in avanti per impostazione predefinita (avvolge)",
+            "label": "Ruota tra profili energetici"
+          },
+          "power-set": {
+            "description": "Imposta il profilo di alimentazione UPower (ad esempio, prestazioni, bilanciato, risparmio energetico)",
+            "label": "Imposta il profilo di risparmio energetico"
+          },
+          "screenshot-annotate": {
+            "description": "Ferma lo schermo e annotalo, quindi copialo o salvalo.",
+            "label": "Annota lo screenshot"
+          },
+          "screenshot-fullscreen": {
+            "description": "Cattura il monitor attivo per impostazione predefinita, seleziona in modo interattivo con pick o tutte le uscite con all",
+            "label": "Screenshot schermo intero"
+          },
+          "screenshot-region": {
+            "description": "Avvia uno screenshot interattivo di un'area",
+            "label": "Screenshot area"
+          },
+          "session": {
+            "description": "Eseguire un'azione di sessione integrata",
+            "label": "Azione di sessione"
+          },
+          "settings-close": {
+            "description": "Chiudi la finestra delle impostazioni",
+            "label": "Chiudi impostazioni"
+          },
+          "settings-open": {
+            "description": "Apri la finestra delle impostazioni oppure, se è già aperta, metti a fuoco la finestra e, facoltativamente, seleziona una sezione specifica.",
+            "label": "Apri impostazioni"
+          },
+          "settings-open-plugin": {
+            "description": "Apri la finestra delle impostazioni del plugin (ad esempio, noctalia/notes)",
+            "label": "Apri le impostazioni del plugin"
+          },
+          "settings-open-widget": {
+            "description": "Apri la finestra delle impostazioni in un widget della barra; da un gesto del widget, seleziona quel widget",
+            "label": "Apri le impostazioni del widget"
+          },
+          "settings-toggle": {
+            "description": "Attiva/disattiva la finestra delle impostazioni, eventualmente in una sezione specifica",
+            "label": "Attiva/disattiva impostazioni"
+          },
+          "status": {
+            "description": "Stampa lo stato attuale in formato JSON",
+            "label": "Stampa status"
+          },
+          "taskbar-cycle": {
+            "description": "Passa al gruppo di attività o di aree di lavoro adiacente nella barra delle applicazioni che ha avviato l'applicazione.",
+            "label": "Cicla taskbar"
+          },
+          "templates-apply": {
+            "description": "Applica i modelli di tema configurati per la tavolozza corrente",
+            "label": "Applica i modelli del tema"
+          },
+          "theme-mode-get": {
+            "description": "Stampa la modalità tema corrente",
+            "label": "Ottieni la modalità tema"
+          },
+          "theme-mode-set": {
+            "description": "Imposta la modalità tema e salvala nel file settings.toml",
+            "label": "Imposta la modalità tema"
+          },
+          "theme-mode-toggle": {
+            "description": "Attiva/disattiva la modalità tema tra scura e chiara.",
+            "label": "Attiva/disattiva la modalità tema"
+          },
+          "volume-down": {
+            "description": "Diminuisci il volume degli altoparlanti",
+            "label": "Diminuisci il volume"
+          },
+          "volume-mute": {
+            "description": "Attiva/disattiva l'audio degli altoparlanti",
+            "label": "Attiva/disattiva l'audio"
+          },
+          "volume-osd": {
+            "description": "Mostra l'OSD del volume senza modificarne il livello (per impostazione predefinita viene utilizzato il volume corrente).",
+            "label": "Mostra il volume OSD"
+          },
+          "volume-set": {
+            "description": "Regola il volume degli altoparlanti",
+            "label": "Imposta il volume"
+          },
+          "volume-up": {
+            "description": "Aumenta il volume degli altoparlanti",
+            "label": "Aumenta il volume"
+          },
+          "wallpaper-get": {
+            "description": "Stampa il percorso predefinito dello sfondo o il percorso effettivo per un output",
+            "label": "Ottieni lo sfondo"
+          },
+          "wallpaper-next": {
+            "description": "Passa subito allo sfondo successivo",
+            "label": "Sfondo successivo"
+          },
+          "wallpaper-previous": {
+            "description": "Passa immediatamente allo sfondo precedente",
+            "label": "Sfondo precedente"
+          },
+          "wallpaper-random": {
+            "description": "Passa immediatamente a uno sfondo casuale",
+            "label": "Sfondo casuale"
+          },
+          "wallpaper-set": {
+            "description": "Imposta lo sfondo per tutte le uscite o per una specifica (permanente)",
+            "label": "Imposta sfondo"
+          },
+          "wifi-disable": {
+            "description": "Disattiva Wi-Fi",
+            "label": "Disattiva Wi-Fi"
+          },
+          "wifi-enable": {
+            "description": "Abilita Wi-Fi",
+            "label": "Abilita Wi-Fi"
+          },
+          "wifi-status": {
+            "description": "Stampa lo stato del Wi-Fi",
+            "label": "Stato del Wi-Fi"
+          },
+          "wifi-toggle": {
+            "description": "Attiva/disattiva Wi-Fi",
+            "label": "Attiva/disattiva Wi-Fi"
+          },
+          "window-switcher": {
+            "description": "Apri o chiudi overlay del selettore finestre",
+            "label": "Selettore finestre"
+          },
+          "workspace-alert-add": {
+            "description": "Aggiungi un avviso per l'area di lavoro (tramite numero, nome o ID)",
+            "label": "Aggiungi avviso all'area di lavoro"
+          },
+          "workspace-alert-add-window": {
+            "description": "Aggiungi un avviso di spazio di lavoro per una finestra",
+            "label": "Aggiungi avviso finestra all'area di lavoro"
+          },
+          "workspace-alert-clear": {
+            "description": "Cancella un avviso dell'area di lavoro",
+            "label": "Cancella avviso dell'area di lavoro"
+          },
+          "workspace-alert-clear-all": {
+            "description": "Cancella tutti gli avvisi dell'area di lavoro",
+            "label": "Cancella tutti gli avvisi dell'area di lavoro"
+          },
+          "workspace-alert-status": {
+            "description": "Mostra avvisi area di lavoro",
+            "label": "Stato degli avvisi dell'area di lavoro"
+          },
+          "workspace-switch": {
+            "description": "Passa all'area di lavoro adiacente sul monitor di destinazione (si ferma a entrambe le estremità).",
+            "label": "Cambia area di lavoro"
+          }
+        },
         "default": "Default",
         "disabled": "Disabilitato",
         "run-command": "Esegui un comando...",
@@ -3458,6 +4061,10 @@
           "description": "Font per il widget; lasciare vuoto per editare quello della barra",
           "label": "Famiglia font"
         },
+        "font-scale": {
+          "description": "Moltiplicatore di scala per il testo in questo widget, indipendente dalla scala complessiva del widget.",
+          "label": "Scala del font"
+        },
         "font-weight": {
           "description": "Predefinito eredita il peso carattere della barra",
           "label": "Peso carattere"
@@ -3512,6 +4119,10 @@
           "description": "Nascondi gli elementi del vassoio il cui stato StatusNotifierItem è Passivo",
           "label": "Nascondi elementi passivi"
         },
+        "hide-when-adapter-off": {
+          "description": "Nascondi il widget Bluetooth quando l'adattatore è spento.",
+          "label": "Nascondi quando l'adattatore è spento"
+        },
         "hide-when-empty": {
           "description": "Nasconde le pillole workspace quando non ci sono finestre aperte",
           "label": "Nascondi quando vuoto",
@@ -3520,6 +4131,10 @@
         "hide-when-full": {
           "description": "Nasconde il widget batteria quando è completamente carica",
           "label": "Nascondi quando piena"
+        },
+        "hide-when-inactive": {
+          "description": "Nascondi il widget del microfono quando nessuna applicazione sta catturando l'audio",
+          "label": "Nascondi quando inattivo"
         },
         "hide-when-no-connected-device": {
           "description": "Nasconde il widget Bluetooth quando nessun dispositivo è connesso",
@@ -3744,6 +4359,10 @@
           "description": "Mostra il glifo del widget o l'immagine personalizzata",
           "label": "Mostra glifo"
         },
+        "show-icons": {
+          "description": "Mostra l'icona dell'app in primo piano sulla pillola attiva",
+          "label": "Mostra icone"
+        },
         "show-label": {
           "description": "Mostra l'etichetta di testo del widget",
           "label": "Mostra etichette"
@@ -3755,6 +4374,10 @@
         "show-num-lock": {
           "description": "Mostra stato Num Lock",
           "label": "Mostra Num Lock"
+        },
+        "show-progress": {
+          "description": "Riempi lo sfondo del widget per mostrare l'avanzamento della riproduzione",
+          "label": "Mostra l'avanzamento della riproduzione"
         },
         "show-scroll-lock": {
           "description": "Mostra stato Scroll Lock",
@@ -4061,16 +4684,22 @@
   "wallpaper": {
     "panel": {
       "all-monitors": "TUTTI",
+      "choose-color": "Scegli il colore dello sfondo",
+      "close": "Chiudi il pannello sfondi",
       "color-title": "Colore sfondo",
+      "favorite-current": "Aggiungi lo sfondo corrente ai preferiti",
       "filter-placeholder": "Filtra...",
       "flatten": "Appiattisci",
       "loading": "Caricamento sfondi...",
+      "navigate-up": "Vai alla cartella padre",
+      "refresh": "Aggiorna gli sfondi",
       "sort-date-asc": "Ordina per data (prima i più vecchi)",
       "sort-date-desc": "Ordina per data (prima i più recenti)",
       "sort-name-asc": "Ordina per nome (A-Z)",
       "sort-name-desc": "Ordina per nome (Z-A)",
       "sort-random": "Ordina in modo casuale (shuffle)",
-      "title": "Sfondo"
+      "title": "Sfondo",
+      "unfavorite-current": "Rimuovi lo sfondo corrente dai preferiti"
     }
   },
   "weather": {

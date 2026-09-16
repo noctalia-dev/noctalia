@@ -141,7 +141,7 @@ namespace capture {
     frozenImageForOutput(const std::vector<FrozenScreenshot>& screenshots, wl_output* output) {
       for (const auto& entry : screenshots) {
         if (entry.output == output) {
-          return &entry.image;
+          return &entry.image.image;
         }
       }
       return nullptr;

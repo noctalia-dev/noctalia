@@ -6,6 +6,9 @@
 #include "ui/signal.h"
 
 #include <memory>
+#include <string>
+#include <string_view>
+#include <unordered_set>
 
 class InputArea;
 class Node;
@@ -30,7 +33,11 @@ public:
 
   void onHoverChange(InputArea* area, zwlr_layer_surface_v1* parentLayerSurface, wl_output* output);
   void onHoverChange(InputArea* area, xdg_surface* parentXdgSurface, wl_output* output);
+  void onBarHoverChange(InputArea* area, zwlr_layer_surface_v1* parentLayerSurface, wl_output* output);
   void syncAnchor(InputArea* area);
+
+  void suppressBarTooltipsForPanel(std::string_view panelId);
+  void restoreBarTooltipsForPanel(std::string_view panelId);
 
 private:
   TooltipManager() = default;
@@ -70,6 +77,8 @@ private:
   bool m_showAfterDestroy = false;
   Timer m_showTimer;
   Timer m_refreshTimer;
+
+  std::unordered_set<std::string> m_suppressedBarTooltipPanels;
 
   TooltipContent m_pendingContent;
   zwlr_layer_surface_v1* m_pendingLayerParent = nullptr;

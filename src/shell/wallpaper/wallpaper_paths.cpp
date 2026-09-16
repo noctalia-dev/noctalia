@@ -48,5 +48,5 @@ std::string wallpaper::resolveGlobalWallpaperDirectory(const WallpaperConfig& co
   if (!config.directory.empty()) {
     return config.directory;
   }
-  return FileUtils::expandUserPath(std::string(kDefaultWallpaperDirectory)).string();
+  return FileUtils::defaultPicturesDirectory().string();
 }

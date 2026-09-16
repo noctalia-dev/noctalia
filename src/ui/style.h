@@ -45,9 +45,16 @@ namespace Style {
   // Pointer distance in logical px before an armed drag becomes active.
   inline constexpr float dragStartThreshold = 6.0F;
 
+  // Base scrollbar thickness at rest, and while the pointer is over it. The bar overlays the
+  // content as it expands, so hovering never reflows the scroll view.
   inline constexpr float scrollbarWidth = 6.0F;
+  inline constexpr float scrollbarHoverWidth = 12.0F;
   inline constexpr float scrollbarGap = spaceSm;
-  inline constexpr float scrollbarMinThumbHeight = 24.0F;
+  // Shortest the thumb gets on a long document; it must stay a usable drag target and read as a
+  // bar rather than a lozenge next to the hovered thickness.
+  inline constexpr float scrollbarMinThumbHeight = 32.0F;
+  // Pointer margin on the content side of the bar, so a thin bar stays an easy grab target.
+  inline constexpr float scrollbarHitSlop = 6.0F;
 
   // Growth cap (logical px, before content scale) for menus/dropdowns that size to their content.
   inline constexpr float menuAutoMaxWidth = 420.0F;

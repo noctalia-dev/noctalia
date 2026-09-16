@@ -49,17 +49,24 @@ namespace shell::dock {
   [[nodiscard]] std::int32_t dockHoverZoomMainPad(const DockConfig& cfg);
   [[nodiscard]] std::size_t dockLauncherButtonCount(DockLauncherPosition position);
   [[nodiscard]] std::size_t dockLauncherButtonCount(const DockConfig& cfg);
-  [[nodiscard]] DockSurfaceGeometry
-  computeSurfaceGeometry(const DockConfig& cfg, const ShellConfig::ShadowConfig& shadow, std::size_t itemCount);
-  [[nodiscard]] LayerSurfaceConfig
-  makeLayerSurfaceConfig(const DockConfig& cfg, const ShellConfig::ShadowConfig& shadow, std::size_t itemCount);
+  // `fractionalScale` marks an output whose scale is not an integer: a flush dock overlaps the
+  // screen edge by a logical pixel there, because the compositor can otherwise round the edge a
+  // device pixel short and leave a gap.
+  [[nodiscard]] DockSurfaceGeometry computeSurfaceGeometry(
+      const DockConfig& cfg, const ShellConfig::ShadowConfig& shadow, std::size_t itemCount, bool fractionalScale
+  );
+  [[nodiscard]] LayerSurfaceConfig makeLayerSurfaceConfig(
+      const DockConfig& cfg, const ShellConfig::ShadowConfig& shadow, std::size_t itemCount, bool fractionalScale
+  );
   [[nodiscard]] DockPanelGeometry
   computePanelGeometry(const DockConfig& cfg, const ShellConfig::ShadowConfig& shadow, float surfaceW, float surfaceH);
   [[nodiscard]] std::pair<float, float> computeHiddenSlideDelta(
       const DockConfig& cfg, const ShellConfig::ShadowConfig& shadow, float surfaceW, float surfaceH,
       const DockPanelGeometry& panel
   );
-  [[nodiscard]] std::vector<InputRect>
-  computeInputRegion(const DockConfig& cfg, const DockPanelGeometry& panel, int surfaceW, int surfaceH, bool hidden);
+  [[nodiscard]] std::vector<InputRect> computeInputRegion(
+      const DockConfig& cfg, const DockPanelGeometry& panel, int surfaceW, int surfaceH, bool hidden,
+      bool fractionalScale
+  );
 
 } // namespace shell::dock

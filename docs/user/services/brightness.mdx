@@ -1,0 +1,39 @@
+---
+title: Brightness
+description: Brightness backends and per-monitor overrides.
+sidebar:
+  order: 3
+---
+
+Brightness control uses the kernel backlight interface by default. `ddcutil` support is opt-in for external monitors that expose DDC/CI brightness.
+
+```toml
+[brightness]
+enable_ddcutil     = false
+ignore_mmids       = []     # e.g. ["ACI-ROG_PG279Q-10220"] - skip in all ddcutil commands
+minimum_brightness = 0.0    # never let brightness drop below this floor (0.0 to 1.0)
+sync_all_monitors = false   # if set to true, makes every display have the same brightness
+
+[brightness.monitor.eDP-1]
+backend = "backlight"   # auto | none | backlight | ddcutil
+backlight_device = "intel_backlight"   # explicit sysfs device name or path
+
+[brightness.monitor.DP-1]
+backend = "ddcutil"
+```
+
+Notes:
+- `enable_ddcutil = true` only enables DDC/CI discovery - it does not force every monitor to `ddcutil`.
+- `ignore_mmids` passes `--ignore-mmid` to every `ddcutil` invocation. Run `ddcutil --verbose detect` to find monitor model id strings.
+- `minimum_brightness` is an opt-in floor (default `0.0` = disabled). Any brightness change is clamped to at least this value, and the control center slider cannot go below it - useful to keep the screen from going completely dark.
+- `sync_all_monitors` only syncs the brightnesses when one of the display brightnesses change, it does not actively sync them every now and then
+- Per-monitor overrides use the same connector/description matching rules as bar monitor overrides.
+- `backend = "auto"` prefers kernel backlight when available and falls back to `ddcutil`.
+- `backend = "none"` hides brightness control for the matched monitor.
+- `backlight_device` pins a monitor to a specific sysfs backlight device when a connector exposes more than one - accepts a bare name (`intel_backlight`) or a full path; run `noctalia msg brightness-list-backlight-devices` to list the available device names.
+- `ddcutil` is treated as best-effort - repeated DDC failures cool down that monitor to avoid hammering the bus.
+
+## Related IPC
+
+For brightness commands, targets, accepted value formats, and OSD behavior, see
+[System Controls → Brightness](/noctalia/ipc/system-controls/#brightness).

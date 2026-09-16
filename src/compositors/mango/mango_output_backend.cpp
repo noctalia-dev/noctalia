@@ -20,7 +20,7 @@ namespace compositors::mango {
 
     bool launchedAny = false;
     for (const auto& connector : s_knownConnectors) {
-      if (runtime.dispatch((std::string(on ? "enable_monitor," : "disable_monitor,") + connector))) {
+      if (runtime.dispatch((std::string(on ? "wakeup_monitor," : "sleep_monitor,") + connector))) {
         launchedAny = true;
       }
     }

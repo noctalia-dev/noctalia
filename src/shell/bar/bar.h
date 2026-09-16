@@ -26,11 +26,13 @@ class HttpClient;
 class IdleInhibitor;
 class IpcService;
 class LockKeysService;
+class ModemManagerService;
 class MprisService;
 class BluetoothService;
 class BrightnessService;
 class ClipboardService;
 class EasyEffectsService;
+class ExternalIpService;
 class ScreenshotService;
 class INetworkService;
 class NotificationManager;
@@ -75,6 +77,10 @@ public:
   void setAutoHideSuppressionCallback(std::function<bool(const BarInstance&)> callback);
   // Re-run auto-hide after a panel closes so unrelated bars are not left visible.
   void reevaluateAutoHide();
+  // A panel closed without the pointer moving (key press, etc.). Hover state is
+  // unchanged, so no hover event will re-arm the tooltip for the widget the pointer
+  // is still sitting on — do it here. No-op when the pointer is not on a bar.
+  void rearmTooltipForHoveredWidget();
   // Grabbed popups often swallow Leave; resync pointerInside from the compositor
   // then re-run auto-hide (tray menus, same pattern as dock context menus).
   void reevaluateAutoHideAfterPopup();
@@ -172,6 +178,8 @@ private:
   SystemMonitorService* m_sysmon = nullptr;
   PowerProfilesService* m_powerProfiles = nullptr;
   INetworkService* m_network = nullptr;
+  ModemManagerService* m_modem = nullptr;
+  ExternalIpService* m_externalIp = nullptr;
   IdleInhibitor* m_idleInhibitor = nullptr;
   MprisService* m_mpris = nullptr;
   PipeWireSpectrum* m_audioSpectrum = nullptr;

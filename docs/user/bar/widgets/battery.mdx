@@ -1,0 +1,55 @@
+---
+title: battery
+description: Shows battery charge level and state through UPower.
+sidebar:
+  order: 3
+---
+
+Shows battery charge level and state via UPower. Hides itself when the selected battery is missing or not present.
+
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| `display_mode` | string | `"glyph"` | `"none"` hides the icon, `"glyph"` shows a glyph icon, and `"graphic"` draws a rectangular battery shape with an animated fill level. |
+| `show_label` | bool | `true` | In `glyph` mode: show the label next to the glyph. In `graphic` mode: overlay it on the battery body. |
+| `label_content` | string | `"percent"` | Label value: `"percent"`, `"time"` remaining, or power-draw `"rate"`. Available on horizontal bars when labels are enabled. |
+| `hide_when_plugged` | bool | `false` | Hide the widget while connected to AC power. |
+| `hide_when_full` | bool | `false` | Hide the widget when fully charged. |
+| `device` | string | `"auto"` | UPower device selector. `auto` monitors the system power-supply battery only; explicit selectors can target any present battery-capable UPower device. |
+| `warning_color` | color | `"error"` | Color applied when charge is at or below the matching global/per-device `[battery]` warning threshold. Ignored while charging. |
+
+`device = "auto"` is safe on desktops: it will not use gamepads, mice, headsets, or other peripherals as the default battery widget. Use an explicit selector for those devices.
+
+Selectors can be a full UPower object path, a native path/name, a stable suffix such as `BAT0`, or available device metadata such as model, serial, or vendor.
+
+```toml
+# Default system/laptop battery
+[widget.battery]
+type = "battery"
+device = "auto"
+
+# Graphical battery with percentage overlay
+[widget.battery]
+type = "battery"
+display_mode = "graphic"
+
+# Graphical battery without percentage text
+[widget.battery]
+type = "battery"
+display_mode = "graphic"
+show_label = false
+
+# Internal battery by native name/suffix
+[widget.internal_battery]
+type = "battery"
+device = "BAT0"
+
+# Second battery by full UPower object path
+[widget.second_battery]
+type = "battery"
+device = "/org/freedesktop/UPower/devices/battery_BAT1"
+
+# Explicit peripheral battery
+[widget.gamepad_battery]
+type = "battery"
+device = "/org/freedesktop/UPower/devices/gaming_input_hid_001"
+```

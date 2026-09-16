@@ -27,6 +27,9 @@ namespace noctalia::config::schema {
   };
   inline constexpr Range<std::int64_t> kSessionGridColumnsRange{1, 5, 1};
 
+  // Bar.
+  inline constexpr Range<float> kBarFontScaleRange{0.2F, 2.5F, 0.01F};
+
   // Battery / wallpaper.
   inline constexpr Range<std::int64_t> kBatteryWarningThresholdRange{0, 100, 1};
   inline constexpr Range<float> kWallpaperTransitionDurationRange{100.0F, 30000.0F, 100.0F};

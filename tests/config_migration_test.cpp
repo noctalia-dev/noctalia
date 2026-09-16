@@ -779,6 +779,73 @@ German = "Clock"
     );
   }
 
+  void checkCalendarEventFormatsMigration() {
+    toml::table sidecar = toml::parse(R"(
+config_version = 13
+[control_center.calendar]
+event_date_format = "%Y-%m-%d"
+event_time_format = "%I:%M %p"
+)");
+    noctalia::config::schema::Diagnostics diagnostics;
+    const int applied = noctalia::config::applyPendingConfigMigrations(sidecar, 13, diagnostics);
+    expect(applied == noctalia::config::currentConfigVersion(), "calendar event format migration was not applied");
+    expect(
+        sidecar["calendar"]["event_date_format"].value<std::string_view>()
+            == std::optional<std::string_view>{"%Y-%m-%d"},
+        "calendar event date format was not moved"
+    );
+    expect(
+        sidecar["calendar"]["event_time_format"].value<std::string_view>()
+            == std::optional<std::string_view>{"%I:%M %p"},
+        "calendar event time format was not moved"
+    );
+    const auto* legacyCalendar = sidecar["control_center"]["calendar"].as_table();
+    expect(
+        legacyCalendar != nullptr
+            && legacyCalendar->get("event_date_format") == nullptr
+            && legacyCalendar->get("event_time_format") == nullptr,
+        "legacy calendar event formats were not removed"
+    );
+
+    toml::table legacyConfig = toml::parse(R"(
+[control_center.calendar]
+event_date_format = "%d.%m.%Y"
+event_time_format = "%H:%M"
+)");
+    noctalia::config::LegacyConfigIssues issues;
+    noctalia::config::normalizeLegacyConfig(legacyConfig, issues);
+    expect(
+        legacyConfig["calendar"]["event_date_format"].value<std::string_view>()
+            == std::optional<std::string_view>{"%d.%m.%Y"},
+        "hand-written calendar event date format was not normalized"
+    );
+    expect(
+        issues.size() == 2
+            && hasIssuePath(issues, "control_center.calendar.event_date_format")
+            && hasIssuePath(issues, "control_center.calendar.event_time_format"),
+        "hand-written calendar event formats did not produce migration issues"
+    );
+
+    toml::table conflict = toml::parse(R"(
+config_version = 13
+[calendar]
+event_date_format = "%d"
+[control_center.calendar]
+event_date_format = "%A"
+event_time_format = "%H:%M"
+)");
+    noctalia::config::schema::Diagnostics conflictDiagnostics;
+    (void)noctalia::config::applyPendingConfigMigrations(conflict, 13, conflictDiagnostics);
+    expect(
+        conflict["calendar"]["event_date_format"].value<std::string_view>() == std::optional<std::string_view>{"%d"},
+        "calendar event format migration overwrote the canonical date format"
+    );
+    expect(
+        conflict["calendar"]["event_time_format"].value<std::string_view>() == std::optional<std::string_view>{"%H:%M"},
+        "calendar event format migration did not move a non-conflicting value"
+    );
+  }
+
   void checkVersionGating() {
     toml::table legacy = toml::parse(R"(
 [bar.main]
@@ -924,6 +991,7 @@ int main() {
   checkRemainingWidgetGesturesMigration();
   checkCustomButtonCommandsMigration();
   checkDeadZoneActionsMigration();
+  checkCalendarEventFormatsMigration();
   checkSysmonPresentationMigration();
   checkKeyboardLayoutShowGlyphMigration();
   checkKeyboardLayoutCustomLabelsMigration();

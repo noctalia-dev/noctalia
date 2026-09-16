@@ -1,0 +1,371 @@
+---
+title: NixOS
+description: Start here to set up and use Noctalia.
+sidebar:
+  order: 2
+---
+
+import SettingsReference from '../../../../components/SettingsReference.astro';
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+:::caution
+To make Noctalia's wifi, bluetooth, power-profile, and battery feature available, please ensure the following NixOS options are enabled:
+- `networking.networkmanager.enable`
+- `hardware.bluetooth.enable`
+- `services.power-profiles-daemon.enable` or `services.tuned.enable`
+- `services.upower.enable`
+:::
+
+## Installation
+A Noctalia package is available on [nixpkgs unstable](https://search.nixos.org/packages?channel=unstable&show=noctalia). 
+
+If you'd prefer the latest git version or would like to use one of the modules, you can [add the input](#add-input) using your preferred input-pinning method and optionally use the [binary cache](#binary-cache) to avoid compiling locally.
+
+### Adding the input {#add-input}
+
+<Tabs>
+  <TabItem label="flakes">
+    Add Noctalia to your flake inputs:
+
+    ```nix
+    # flake.nix
+    {
+      inputs = {
+        noctalia = {
+          url = "github:noctalia-dev/noctalia";
+          inputs.nixpkgs.follows = "nixpkgs"; # this line is optional, prevents downloading two versions of nixpkgs but disables cache
+        };
+      };
+    }
+    ```
+
+    :::note
+    For flakes/tack instructions, we assume you are passing in `inputs` through `specialArgs` or equivalent. 
+    :::
+  </TabItem>
+  <TabItem label="tack">
+    Add Noctalia to your tack inputs:
+    ```
+    tack add noctalia github:noctalia-dev/noctalia
+    ```
+
+    If you want to use the cache, make sure to disable any sort of following for Noctalia's nixpkgs input.
+
+    :::note
+    For flakes/tack instructions, we assume you are passing in `inputs` through `specialArgs` or equivalent. 
+    :::
+  </TabItem>
+  <TabItem label="npins">
+    Add Noctalia to your npins sources:
+    ```
+    npins add github noctalia-dev noctalia --branch main
+    ```
+
+    ```nix
+    # configuration.nix
+    { pkgs, ... }:
+    let
+      noctalia = import (import ./npins).noctalia {
+        inherit pkgs; # this line is optional, prevents downloading two versions of nixpkgs but disables cache
+      };
+    in
+      # see installation below
+    ```
+  </TabItem>
+  <TabItem label="tarball">
+    Add Noctalia directly using `builtins.fetchTarball`.
+    With pinning:
+    ```nix
+    # configuration.nix
+    { pkgs, ... }:
+    let
+      noctalia-src = let
+        commit = ""; # replace this with an actual commit id or tag
+      in
+        fetchTarball {
+          url = "https://github.com/noctalia-dev/noctalia/archive/${commit}.tar.gz";
+          sha256 = ""; # replace this with hash from nix build output, or by using `nix-prefetch-url --unpack`
+        };
+      
+      noctalia = import noctalia-src {
+        inherit pkgs; # this line is optional, prevents downloading two versions of nixpkgs but disables cache
+      };
+    in
+      # see installation below
+    ```
+
+    Without pinning (not recommended):
+    ```nix
+    # configuration.nix
+    { pkgs, ... }:
+    let
+      noctalia-src = fetchTarball "https://github.com/noctalia-dev/noctalia/archive/main.tar.gz";
+
+      noctalia = import noctalia-src {
+        inherit pkgs; # this line is optional, prevents downloading two versions of nixpkgs but disables cache
+      };
+    in
+      # see installation below
+    ```
+  </TabItem>
+</Tabs>
+
+### Installing the Package {#install-package}
+
+Note that both the Home Manager and Hjem modules install the package for you, so you can omit this step.
+
+<Tabs>
+  Add the package to your system packages or equivalent:
+  <TabItem label="flakes/tack">
+    ```nix
+    # configuration.nix
+    { inputs, pkgs, ... }:
+    {
+      environment.systemPackages = [
+        inputs.noctalia.packages.${pkgs.stdenv.hostPlatform.system}.default
+      ];
+    }
+    ```
+  </TabItem>
+  <TabItem label="npins/tarball">
+    ```nix
+    # configuration.nix
+    let
+      # see adding the input above
+    in {
+      environment.systemPackages = [
+        noctalia.package
+      ];
+    }
+    ```
+  </TabItem>
+</Tabs>
+
+### Home Manager Module {#home-manager}
+
+The Home Manager module allows you to configure Noctalia's settings [(that you would otherwise put in `~/.config/noctalia/`)](/noctalia/configuration/) using nix instead of toml, or allows you to link an existing toml file. It is optional.
+
+<Tabs>
+  <TabItem label="flakes/tack">
+    ```nix
+    { inputs, ... }:
+    {
+      home-manager.users.drfoobar = {
+        imports = [
+          inputs.noctalia.homeModules.default
+        ];
+
+        programs.noctalia = {
+          enable = true;
+
+          settings = { # This may also be a string or path to a .toml file.
+            theme = {
+              mode = "dark";
+              source = "builtin";
+              builtin = "Catppuccin";
+            };
+
+            wallpaper = {
+              enabled = true;
+              default.path = "/path/to/wallpapers/wallpaper.png";
+            };
+          };
+        };
+      };
+    }
+    ```
+  </TabItem>
+  <TabItem label="npins/tarball">
+    ```nix
+    let
+      # see adding the input above
+    in {
+      home-manager.users.drfoobar = {
+        imports = [
+          noctalia.homeModule
+        ];
+
+        programs.noctalia = {
+          enable = true;
+
+          settings = { # This may also be a string or path to a .toml file.
+            theme = {
+              mode = "dark";
+              source = "builtin";
+              builtin = "Catppuccin";
+            };
+
+            wallpaper = {
+              enabled = true;
+              default.path = "/path/to/wallpapers/wallpaper.png";
+            };
+          };
+        };
+      };
+    }
+    ```
+  </TabItem>
+</Tabs>
+
+### Hjem Module {#hjem}
+
+For those using Hjem instead of Home Manager, a Hjem module is also available.
+
+<Tabs>
+  <TabItem label="flakes/tack">
+    ```nix
+    { inputs, ... }:
+    {
+      hjem = {
+        extraModules = [
+          inputs.noctalia.hjemModules.default
+        ];
+
+        users.drfoobar = {
+          programs.noctalia = {
+            enable = true;
+            
+            settings = { ... };
+          };
+        };
+      };
+    }
+    ```
+  </TabItem>
+  <TabItem label="npins/tarball">
+    ```nix
+    let
+      # see adding the input above
+    in {
+      hjem = {
+        extraModules = [
+          noctalia.hjemModule
+        ];
+
+        users.drfoobar = {
+          programs.noctalia = {
+            enable = true;
+            
+            settings = { ... };
+          };
+        };
+      };
+    }
+    ```
+  </TabItem>
+</Tabs>
+
+
+### NixOS Module {#nixos-module}
+
+The NixOS module installs the package system-wide and can enable some recommended services.
+
+<Tabs>
+  <TabItem label="flakes/tack">
+    ```nix
+    { inputs, ... }:
+    {
+      imports = [
+        inputs.noctalia.nixosModules.default
+      ];
+    
+      programs.noctalia = {
+        enable = true;
+    
+        # Enables NetworkManager, Bluetooth, UPower, and a power profile service.
+        recommendedServices.enable = true;
+      };
+    }
+    ```
+  </TabItem>
+  <TabItem label="npins/tarball">
+    ```nix
+    let
+      # see adding the input above
+    in {
+      imports = [
+        noctalia.nixosModule
+      ];
+      
+      programs.noctalia = {
+        enable = true;
+      
+        # Enables NetworkManager, Bluetooth, UPower, and a power profile service.
+        recommendedServices.enable = true;
+      };
+    }
+    ```
+  </TabItem>
+</Tabs>
+
+### Systemd Service {#systemd}
+
+Each of the above modules includes a systemd user service for Noctalia, which can be enabled by setting `programs.noctalia.systemd.enable = true`.
+
+:::note
+When using the service, it is recommended to enable `launch_apps_as_systemd_services`, otherwise any apps launched by Noctalia will be terminated when the service restarts.
+:::
+
+### Binary Cache {#binary-cache}
+
+Pre-built binaries are available on [Cachix](https://app.cachix.org/cache/noctalia), so you can skip compiling locally.
+
+You can configure the substituter either in your NixOS config, flake, or `/etc/nix/nix.conf`:
+
+:::caution
+To use the binary cache, you have to omit `inputs.nixpkgs.follows` from the Noctalia input with flakes/tack or avoid `inherit pkgs;` with npins/tarball.
+:::
+
+You can add the cache either to your flake, nixos configuration, or `/etc/nix/nix.conf`.
+
+<Tabs>
+  <TabItem label="configuration.nix">
+    ```nix
+    nix.settings = {
+      extra-substituters = [ "https://noctalia.cachix.org" ];
+      extra-trusted-public-keys = [ "noctalia.cachix.org-1:pCOR47nnMEo5thcxNDtzWpOxNFQsBRglJzxWPp3dkU4=" ];
+    };
+    ```
+  </TabItem>
+  <TabItem label="flake.nix">
+    ```nix
+    nixConfig = {
+      extra-substituters = [ "https://noctalia.cachix.org" ];
+      extra-trusted-public-keys = [ "noctalia.cachix.org-1:pCOR47nnMEo5thcxNDtzWpOxNFQsBRglJzxWPp3dkU4=" ];
+    };
+    ```
+  </TabItem>
+  <TabItem label="nix.conf">
+    ```properties
+    extra-substituters = https://noctalia.cachix.org
+    extra-trusted-public-keys = noctalia.cachix.org-1:pCOR47nnMEo5thcxNDtzWpOxNFQsBRglJzxWPp3dkU4=
+    ```
+  </TabItem>
+</Tabs>
+
+Overriding any of Noctalia's inputs (e.g. via `inputs.nixpkgs.follows` with flakes) changes the derivation hash, causing cache misses.
+
+Additionally, tracking `main` directly may pull in a commit that hasn't been cached yet by CI.
+
+To avoid this, the [`cachix`](https://github.com/noctalia-dev/noctalia/tree/cachix) branch always points to the latest cached commit. Pinning to this branch guarantees you always track the latest commit that has already been cached:
+
+<Tabs>
+  <TabItem label="flakes">
+    ```nix
+    noctalia.url = "github:noctalia-dev/noctalia/cachix";
+    ```
+  </TabItem>
+  <TabItem label="tack">
+    ```
+    tack add noctalia github:noctalia-dev/noctalia/cachix
+    ```
+  </TabItem>
+  <TabItem label="npins">
+    ```
+    npins add github noctalia-dev noctalia --branch cachix
+    ```
+  </TabItem>
+  <TabItem label="tarball">
+    Make sure not to update your tarball to a commit earlier than the latest commit on the cachix branch.
+  </TabItem>
+</Tabs>

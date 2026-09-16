@@ -1,0 +1,17 @@
+---
+title: Umbriel
+description: Theme Umbriel window borders and overview colors with Noctalia.
+sidebar:
+  order: 9
+---
+
+The built-in Umbriel template generates colors for regular and scratchpad borders,
+the insertion hint, fullscreen backdrop, and overview tint.
+
+## Setup
+
+Enable **Umbriel** under **Settings → Templates → Compositors**.
+
+Noctalia writes the rendered template to `~/.config/umbriel/noctalia.toml` and adds
+it to the `files` array in the `[include]` section of `config.toml`. Existing include
+entries are preserved. Umbriel reloads both files automatically when they change.

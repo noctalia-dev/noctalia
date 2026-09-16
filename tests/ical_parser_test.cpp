@@ -1,4 +1,5 @@
 #include "calendar/ical_parser.h"
+#include "render/core/color.h"
 
 #include <algorithm>
 #include <chrono>
@@ -214,6 +215,22 @@ int main() {
                             "URL:https://calendar.example/event/2\r\n"
                             "DTSTART:20240101T090000Z\r\nDTEND:20240101T100000Z\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n";
     ok = expectOneEventUrl(ics, start, end, "https://calendar.example/event/2", "url property fallback") && ok;
+  }
+
+  // Outlook places Teams links in DESCRIPTION, often as an HTML anchor, while URL points to an event page.
+  {
+    const std::string ics =
+        "BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nUID:teams\r\nSUMMARY:Standup\r\n"
+        "LOCATION:Microsoft Teams Meeting\r\n"
+        "DESCRIPTION:Join now: <a "
+        "href=\"https://teams.microsoft.com/l/meetup-join/19%3ameeting_abc%40thread.v2/0?context=%7b%7d\">Join</a>\r\n"
+        "URL:https://outlook.office.com/calendar/item/3\r\n"
+        "DTSTART:20240101T090000Z\r\nDTEND:20240101T100000Z\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n";
+    ok = expectOneEventUrl(
+             ics, start, end, "https://teams.microsoft.com/l/meetup-join/19%3ameeting_abc%40thread.v2/0?context=%7b%7d",
+             "Teams description link wins over url property"
+         )
+        && ok;
   }
 
   // An event with neither carries no link.
@@ -493,7 +510,7 @@ int main() {
   // All-day (VALUE=DATE) MONTHLY on the 1st, over a one-year window, is exactly 12 - one per month.
   // The old code derived the day-of-month from floor<days> of the UTC instant, which for a zone east
   // of UTC rolls back to the previous civil day (the 31st of Dec), so months without a 31st were
-  // dropped. Correct behaviour is zone-independent. Window is padded ±half-month so each local-midnight
+  // dropped. Correct behavior is zone-independent. Window is padded ±half-month so each local-midnight
   // occurrence lands inside regardless of the running zone's UTC offset.
   {
     const std::string ics = "BEGIN:VEVENT\r\nUID:ad\r\nSUMMARY:s\r\nDTSTART;VALUE=DATE:20240101\r\n"
@@ -720,6 +737,75 @@ int main() {
     ok = expect(
              steady_clock::now() - beforeCancellation < milliseconds{500},
              "cancelled recurrence expansion did not stop promptly"
+         )
+        && ok;
+  }
+
+  {
+    const std::string icsRfcColor = wrap("COLOR:#336699\r\n");
+    const ICalParseResult res1 = parseEvents(icsRfcColor, start, end);
+    ok = expect(res1.status == ICalParseStatus::Complete, "RFC COLOR parse failed") && ok;
+    ok = expect(!res1.events.empty() && res1.events[0].colorHex == "#336699", "RFC COLOR not extracted") && ok;
+
+    const std::string icsCssColor = wrap("COLOR:blue\r\n");
+    const ICalParseResult res2 = parseEvents(icsCssColor, start, end);
+    ok = expect(res2.status == ICalParseStatus::Complete, "CSS COLOR parse failed") && ok;
+    ok = expect(!res2.events.empty() && res2.events[0].colorHex == "#0000FF", "CSS COLOR not converted to hex") && ok;
+
+    const std::string icsAppleColor = wrap("X-APPLE-CALENDAR-COLOR:#FF5500\r\n");
+    const ICalParseResult res3 = parseEvents(icsAppleColor, start, end);
+    ok = expect(res3.status == ICalParseStatus::Complete, "Apple color parse failed") && ok;
+    ok = expect(!res3.events.empty() && res3.events[0].colorHex == "#FF5500", "Apple color not extracted") && ok;
+
+    const std::string icsAppleMixedCase = wrap("X-Apple-Calendar-Color:#FF5500\r\n");
+    const ICalParseResult res4 = parseEvents(icsAppleMixedCase, start, end);
+    ok = expect(res4.status == ICalParseStatus::Complete, "mixed-case Apple color parse failed") && ok;
+    ok = expect(!res4.events.empty() && res4.events[0].colorHex == "#FF5500", "mixed-case Apple color not extracted")
+        && ok;
+
+    const std::string icsXColor = wrap("X-COLOR:#12AB34\r\n");
+    const ICalParseResult res5 = parseEvents(icsXColor, start, end);
+    ok = expect(res5.status == ICalParseStatus::Complete, "X-COLOR parse failed") && ok;
+    ok = expect(!res5.events.empty() && res5.events[0].colorHex == "#12AB34", "X-COLOR not extracted") && ok;
+
+    const std::string icsOutlookColor = wrap("X-OUTLOOK-COLOR:#A1B2C3\r\n");
+    const ICalParseResult res6 = parseEvents(icsOutlookColor, start, end);
+    ok = expect(res6.status == ICalParseStatus::Complete, "X-OUTLOOK-COLOR parse failed") && ok;
+    ok = expect(!res6.events.empty() && res6.events[0].colorHex == "#A1B2C3", "X-OUTLOOK-COLOR not extracted") && ok;
+
+    const std::string icsPrecedence = wrap("COLOR:blue\r\nX-COLOR:#FF0000\r\n");
+    const ICalParseResult res7 = parseEvents(icsPrecedence, start, end);
+    ok = expect(res7.status == ICalParseStatus::Complete, "color precedence parse failed") && ok;
+    ok = expect(!res7.events.empty() && res7.events[0].colorHex == "#0000FF", "RFC COLOR did not win") && ok;
+
+    const std::string icsInvalidRfcColor = wrap("COLOR:not-a-color\r\nX-COLOR:#0A0B0C\r\n");
+    const ICalParseResult res8 = parseEvents(icsInvalidRfcColor, start, end);
+    ok = expect(res8.status == ICalParseStatus::Complete, "invalid RFC color parse failed") && ok;
+    ok = expect(
+             !res8.events.empty() && res8.events[0].colorHex == "#0A0B0C",
+             "vendor color was not used after invalid RFC COLOR"
+         )
+        && ok;
+
+    const std::string icsModernNamedColor = wrap("COLOR:rebeccapurple\r\n");
+    const ICalParseResult res9 = parseEvents(icsModernNamedColor, start, end);
+    ok = expect(res9.status == ICalParseStatus::Complete, "modern named color parse failed") && ok;
+    ok = expect(!res9.events.empty() && res9.events[0].colorHex == "#663399", "modern named color was not converted")
+        && ok;
+
+    const std::string icsNoColor = wrap("");
+    const ICalParseResult res10 = parseEvents(icsNoColor, start, end);
+    ok = expect(res10.status == ICalParseStatus::Complete, "No-color parse failed") && ok;
+    ok = expect(!res10.events.empty() && res10.events[0].colorHex.empty(), "No-color event has non-empty colorHex")
+        && ok;
+  }
+
+  {
+    Color color;
+    ok = expect(!tryParseCssColor("red", color), "strict CSS parser accepted a named color") && ok;
+    ok = expect(
+             tryParseCssColorWithNamedColors("ReBeccAPurple", color) && color == hex("#663399"),
+             "named CSS parser rejected rebeccapurple"
          )
         && ok;
   }

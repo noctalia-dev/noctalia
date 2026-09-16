@@ -12,9 +12,6 @@ layout {
         urgent-color   "{{colors.error.default.hex}}"
     }
 
-    shadow {
-        color "{{colors.shadow.default.hex}}70"
-    }
 
     tab-indicator {
         active-color   "{{colors.primary.default.hex}}"

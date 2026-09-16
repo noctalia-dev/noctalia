@@ -471,6 +471,21 @@ namespace scripting {
           if (const auto* openNearClick = (*entryTable)["open_near_click"].as_boolean()) {
             entry.panelOpenNearClickDefault = openNearClick->get();
           }
+          if ((*entryTable)["layer"]) {
+            if (manifest.pluginApiVersion < kPanelLayerPluginApiVersion) {
+              error = "panel entry '"
+                  + entry.id
+                  + "': layer requires plugin_api >= "
+                  + std::to_string(kPanelLayerPluginApiVersion);
+              return false;
+            }
+            const auto* layer = (*entryTable)["layer"].as_string();
+            if (layer == nullptr || !isValidPanelLayer(layer->get())) {
+              error = "panel entry '" + entry.id + R"(': layer must be "top" or "overlay")";
+              return false;
+            }
+            entry.panelLayerDefault = layer->get();
+          }
           if ((*entryTable)["dismiss_on_outside_click"]) {
             if (manifest.pluginApiVersion < kPanelDismissOnOutsideClickPluginApiVersion) {
               error = "panel entry '"

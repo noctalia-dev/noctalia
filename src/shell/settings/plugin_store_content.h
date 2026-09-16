@@ -9,7 +9,6 @@
 #include <optional>
 #include <string>
 #include <unordered_map>
-#include <unordered_set>
 #include <vector>
 
 class ConfigService;
@@ -21,6 +20,7 @@ class Button;
 class Renderer;
 class VirtualGridAdapter;
 class VirtualGridView;
+struct ScrollViewState;
 
 namespace scripting {
   class PluginFileCache;
@@ -46,20 +46,25 @@ namespace settings {
   struct PluginStoreCallbacks {
     std::function<void(std::string id, bool enable)> setEnabled;
     std::function<bool(const std::string& id)> isEnabling;
+    // Whether the plugin's files are on disk right now. Queried per build so a failed
+    // install keeps offering the add action instead of claiming the plugin is there.
+    std::function<bool(const std::string& id)> isInstalled;
     float scale = 1.0F;
   };
 
   class PluginStoreContent {
   public:
     PluginStoreContent(
-        std::vector<StoreCatalogEntry> catalog, ConfigService* config, std::unordered_set<std::string> onDiskIds,
-        PluginStoreCallbacks callbacks, scripting::PluginFileCache* fileCache
+        std::vector<StoreCatalogEntry> catalog, ConfigService* config, PluginStoreCallbacks callbacks,
+        scripting::PluginFileCache* fileCache, ScrollViewState* scrollState
     );
     ~PluginStoreContent();
 
+    // Forgets pointers into the hosting sheet before its nodes are destroyed.
+    void detachGrid() noexcept;
+
     void populateBody(Flex& body, Renderer& renderer, AsyncTextureCache* textureCache);
 
-    void updateOnDiskIds(std::unordered_set<std::string> ids);
     void onFileReady(const std::string& pluginId, const std::string& filename, const std::string& path);
 
     void setOnRebuildNeeded(std::function<void()> cb);
@@ -79,8 +84,7 @@ namespace settings {
   private:
     void buildGridView(Flex& body, Renderer& renderer, AsyncTextureCache* textureCache);
     void buildDetailView(Flex& body, Renderer& renderer, AsyncTextureCache* textureCache);
-    void stashScrollOffset();
-    void restoreScrollOffset();
+    void requestRebuild();
     void syncSortButtonGlyph();
     void cycleSortMode();
     void setSortMode(SortMode mode);
@@ -107,7 +111,6 @@ namespace settings {
     std::vector<StoreCatalogEntry> m_catalog;
     ConfigService* m_config = nullptr;
     std::vector<std::size_t> m_filteredIndices;
-    std::unordered_set<std::string> m_onDiskIds;
     std::vector<std::string> m_sources;
     bool m_tagFiltersCollapsed = true;
     std::vector<std::string> m_allTags;
@@ -119,6 +122,7 @@ namespace settings {
     std::string m_selectedSource;
     PluginStoreCallbacks m_callbacks;
     scripting::PluginFileCache* m_fileCache = nullptr;
+    ScrollViewState* m_scrollState = nullptr;
 
     std::optional<std::size_t> m_detailIndex;
     std::string m_detailReadme;
@@ -131,7 +135,6 @@ namespace settings {
     std::function<void()> m_onRebuildNeeded;
 
     std::unordered_map<std::string, std::string> m_thumbnailPaths;
-    std::optional<float> m_pendingRestoreScrollOffset;
 
     Renderer* m_renderer = nullptr;
     AsyncTextureCache* m_textureCache = nullptr;

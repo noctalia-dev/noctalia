@@ -25,6 +25,8 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -139,6 +141,7 @@ private:
   void buildScene(std::uint32_t width, std::uint32_t height);
   void rebuildSettingsContent();
   [[nodiscard]] settings::RegistryEnvironment buildRegistryEnvironment() const;
+  [[nodiscard]] std::vector<settings::SelectOption> availableOutputs() const;
   void refreshSettingsRegistry(const Config& cfg);
   void syncSelectedBarState(const Config& cfg, const std::vector<std::string>& availableBars);
   [[nodiscard]] std::unique_ptr<Flex> buildHeaderRow(float scale);
@@ -184,6 +187,7 @@ private:
   void openBarWidgetAddPopup(const std::vector<std::string>& lanePath);
   // Request is taken by value because opening the popup can close the sheet that owns the forwarding control.
   void openSearchPickerPopup(settings::SearchPickerOpenRequest request);
+  void openMonitorOverrideCreateDialog(std::string barName);
   void openSessionActionEntryEditor(std::size_t index);
   void syncSessionActionInlineSummary(std::size_t index, const SessionPanelActionConfig& row);
   void openIdleBehaviorEntryEditor(std::size_t index);
@@ -237,6 +241,11 @@ private:
   bool m_pluginListDirty = true;
   bool m_pluginListRefreshInFlight = false;
   std::uint64_t m_pluginListRefreshGeneration = 0;
+  // The plugin store sheet is the sheet currently on screen, so plugin events may rebuild
+  // the sheet body; any other editor sheet must be left alone.
+  bool m_pluginStoreSheetOpen = false;
+  // Plugin catalog scroll state outlives both the store sheet and its async file callbacks.
+  ScrollViewState m_pluginStoreScrollState;
   scripting::PluginFileCache m_pluginFileCache;
   RenderContext* m_renderContext = nullptr;
   DependencyService* m_dependencies = nullptr;
@@ -260,6 +269,8 @@ private:
   Node* m_filterRow = nullptr;
   Button* m_actionsMenuButton = nullptr;
   Flex* m_contentContainer = nullptr;
+  Flex* m_pageTitleRow = nullptr;
+  Flex* m_groupJumpRow = nullptr;
   ScrollView* m_contentScrollView = nullptr;
   ScrollView* m_sidebarScrollView = nullptr;
   RovingListNavHost* m_sidebarNav = nullptr;
@@ -301,7 +312,9 @@ private:
   bool m_deferFocusScrollToLayout = false;
   Node* m_pendingContentScrollTarget = nullptr;
   std::string m_searchQuery;
+  std::string m_pluginSearchQuery;
   Timer m_searchDebounceTimer;
+  Timer m_pluginSearchDebounceTimer;
   // Set by openToBarWidget (e.g. middle-click on a bar widget) / openToPlugin and consumed after
   // the Settings scene is available so the requested editor can be mounted into it.
   std::string m_pendingOpenWidgetInspectorName;
@@ -319,11 +332,12 @@ private:
   // plain flag so the group survives the rebuild an edit triggers, but starts folded on every
   // other widget.
   std::string m_actionsExpandedFor;
+  // Expanded setting groups per page, keyed by content section key (pageScopeKey).
+  // A page gets its default first-group expansion when first rendered this session.
+  std::unordered_map<std::string, std::unordered_set<std::string>> m_expandedSettingGroups;
   std::string m_creatingBarName;
   std::string m_renamingBarName;
   std::string m_pendingDeleteBarName;
-  std::string m_creatingMonitorOverrideBarName;
-  std::string m_creatingMonitorOverrideMatch;
   std::string m_renamingMonitorOverrideBarName;
   std::string m_renamingMonitorOverrideMatch;
   std::string m_pendingDeleteMonitorOverrideBarName;

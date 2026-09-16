@@ -87,6 +87,7 @@ public:
 
   [[nodiscard]] std::uint32_t lastSerial() const noexcept { return m_lastSerial; }
   [[nodiscard]] wl_seat* seat() const noexcept { return m_seat; }
+  [[nodiscard]] wl_pointer* pointer() const noexcept { return m_pointer; }
 
   // Key repeat — driven by KeyRepeatPollSource
   [[nodiscard]] int repeatPollTimeoutMs() const;
@@ -149,6 +150,9 @@ public:
   [[nodiscard]] std::vector<std::string> layoutNames() const;
   [[nodiscard]] LockKeysState lockKeysState() const;
   [[nodiscard]] InputSource lastInputSource() const noexcept { return m_lastInputSource; }
+  // Live modifier mask from the xkb state. Unlike KeyboardEvent::modifiers this is readable
+  // when no key event is in flight, which drag-time modifiers (Shift to constrain) need.
+  [[nodiscard]] std::uint32_t keyboardModifiers() const noexcept;
 
   [[nodiscard]] double userIdleSeconds() const noexcept;
 
@@ -176,6 +180,8 @@ private:
   std::array<std::uint32_t, 2> m_axisGestureSerial{};
   wl_surface* m_lastPointerSurface = nullptr;
   std::uint32_t m_pointerEnterSerial = 0;
+  std::uint32_t m_lastCursorShape = 0;
+  std::uint32_t m_lastCursorShapeSerial = 0;
   double m_lastPointerX = 0.0;
   double m_lastPointerY = 0.0;
   bool m_hasPointerPosition = false;

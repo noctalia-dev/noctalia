@@ -140,6 +140,7 @@ void SetupWizardPanel::create() {
   );
 
   auto scroll = ui::scrollView({
+      .contentScale = scale,
       .scrollbarVisible = true,
       .viewportPaddingH = 0.0F,
       .viewportPaddingV = 0.0F,

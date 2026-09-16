@@ -10,22 +10,30 @@
 #include "render/core/color.h"
 #include "shell/session/session_action_meta.h"
 #include "ui/palette.h"
+#include "util/file_utils.h"
 #include "util/string_utils.h"
 
 #include <algorithm>
+#include <atomic>
 #include <cctype>
+#include <chrono>
 #include <cmath>
+#include <cstdint>
 #include <cstdlib>
 #include <filesystem>
 #include <format>
 #include <fstream>
+#include <linux/magic.h>
 #include <memory>
 #include <optional>
 #include <sstream>
 #include <string>
 #include <string_view>
+#include <sys/stat.h>
+#include <sys/vfs.h>
 #include <system_error>
 #include <toml++/toml.hpp>
+#include <unistd.h>
 #include <utility>
 #include <vector>
 #include <wayland-client-protocol.h>
@@ -33,8 +41,34 @@
 namespace {
 
   constexpr Logger kLog("greeter-sync");
+  using greeter::detail::ApplyHelperProtocol;
+  std::atomic<bool> g_greeterSyncInProgress{false};
+
+  void releaseGreeterSync() noexcept { g_greeterSyncInProgress.store(false, std::memory_order_release); }
+
+  class GreeterSyncLease {
+  public:
+    GreeterSyncLease() = default;
+    ~GreeterSyncLease() {
+      if (m_releaseOnDestruction) {
+        releaseGreeterSync();
+      }
+    }
+
+    GreeterSyncLease(const GreeterSyncLease&) = delete;
+    GreeterSyncLease& operator=(const GreeterSyncLease&) = delete;
+
+    void handOffToCompletion() noexcept { m_releaseOnDestruction = false; }
+
+  private:
+    bool m_releaseOnDestruction = true;
+  };
 
   constexpr std::string_view kApplyHelperName = "noctalia-greeter-apply-appearance";
+  constexpr std::string_view kPkexecName = "pkexec";
+  constexpr std::string_view kSyncArgument = "--sync";
+  constexpr std::string_view kCapabilityArgument = "--supports";
+  constexpr std::string_view kSecureSyncCapability = "secure-sync-v1";
   constexpr std::string_view kGreeterName = "noctalia-greeter";
   constexpr std::string_view kGreeterTomlFileName = "greeter.toml";
   constexpr std::string_view kDefaultGreeterStateDir = "/var/lib/noctalia-greeter";
@@ -42,18 +76,103 @@ namespace {
   constexpr std::string_view kStagedOutputLayoutFileName = "output_layout";
   constexpr std::string_view kStagedOutputTransformsFileName = "output_transforms";
   constexpr std::string_view kStagedOutputScalesFileName = "output_scales";
-  // Staged sync.toml fragment (appearance + session); apply helper merges into live sync.toml.
+  // Staged appearance fragment; the apply helper merges it into live sync.toml.
   constexpr std::string_view kStagedSyncTomlFileName = "sync.toml";
+
+  enum class GreeterSyncMode : std::uint8_t {
+    LegacyAuthenticated,
+    Constrained,
+  };
+
+  [[nodiscard]] bool secureStagedFile(const std::filesystem::path& path) {
+    std::error_code ec;
+    if (FileUtils::setPrivateFilePermissions(path, ec)) {
+      return true;
+    }
+    kLog.warn("failed to secure staged file '{}': {}", path.string(), ec.message());
+    return false;
+  }
+
+  [[nodiscard]] bool secureStagingDirectory(const std::filesystem::path& path) {
+    std::error_code ec;
+    if (FileUtils::setPrivateDirectoryPermissions(path, ec)) {
+      return true;
+    }
+    kLog.warn("failed to secure staging directory '{}': {}", path.string(), ec.message());
+    return false;
+  }
+
+  [[nodiscard]] std::string canonicalExecutablePath(const std::filesystem::path& candidate) {
+    if (!process::commandExists(candidate.c_str())) {
+      return {};
+    }
+    std::error_code ec;
+    const auto canonical = std::filesystem::canonical(candidate, ec);
+    return ec ? std::string{} : canonical.string();
+  }
+
+  [[nodiscard]] bool isTrustedPrivilegeExecutable(const std::filesystem::path& executable) {
+    struct stat executableState{};
+    if (::stat(executable.c_str(), &executableState) != 0
+        || !S_ISREG(executableState.st_mode)
+        || executableState.st_uid != 0
+        || (executableState.st_mode & (S_IWGRP | S_IWOTH)) != 0) {
+      return false;
+    }
+
+    struct statfs filesystemState{};
+    if (::statfs(executable.c_str(), &filesystemState) != 0 || filesystemState.f_type == FUSE_SUPER_MAGIC) {
+      return false;
+    }
+
+    for (auto directory = executable.parent_path(); !directory.empty(); directory = directory.parent_path()) {
+      struct stat directoryState{};
+      if (::stat(directory.c_str(), &directoryState) != 0
+          || !S_ISDIR(directoryState.st_mode)
+          || directoryState.st_uid != 0) {
+        return false;
+      }
+      const bool writableByOthers = (directoryState.st_mode & (S_IWGRP | S_IWOTH)) != 0;
+      if (writableByOthers && (directoryState.st_mode & S_ISVTX) == 0) {
+        return false;
+      }
+      if (directory == directory.root_path()) {
+        break;
+      }
+    }
+    return true;
+  }
 
   [[nodiscard]] std::string
   resolveProgramPath(std::string_view name, std::initializer_list<const char*> fallbackPaths) {
-    if (process::commandExists(std::string(name).c_str())) {
-      return std::string(name);
+    if (name.find('/') != std::string_view::npos) { // NOLINT(readability-container-contains): C++20-compatible.
+      return canonicalExecutablePath(std::filesystem::path(name));
     }
+
+    const char* pathEnv = std::getenv("PATH");
+    if (pathEnv == nullptr || pathEnv[0] == '\0') {
+      pathEnv = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin";
+    }
+
+    const std::string programName(name);
+    std::string_view path(pathEnv);
+    std::size_t start = 0;
+    while (start <= path.size()) {
+      const std::size_t end = path.find(':', start);
+      const std::string_view dir = end == std::string_view::npos ? path.substr(start) : path.substr(start, end - start);
+      const auto candidate = (dir.empty() ? std::filesystem::path(".") : std::filesystem::path(dir)) / programName;
+      if (auto resolved = canonicalExecutablePath(candidate); !resolved.empty()) {
+        return resolved;
+      }
+      if (end == std::string_view::npos) {
+        break;
+      }
+      start = end + 1;
+    }
+
     for (const char* candidate : fallbackPaths) {
-      std::error_code ec;
-      if (std::filesystem::exists(candidate, ec) && !ec) {
-        return candidate;
+      if (auto resolved = canonicalExecutablePath(candidate); !resolved.empty()) {
+        return resolved;
       }
     }
     return {};
@@ -74,12 +193,20 @@ namespace {
     palette.insert_or_assign(std::string(key), formatRgbHex(color));
   }
 
-  [[nodiscard]] std::filesystem::path greeterTomlPath() {
+  [[nodiscard]] std::filesystem::path selectedGreeterStateDirectory() {
     const char* stateDir = std::getenv(kGreeterStateDirEnv.data());
     if (stateDir != nullptr && stateDir[0] != '\0') {
-      return std::filesystem::path(stateDir) / kGreeterTomlFileName;
+      return std::filesystem::path(stateDir).lexically_normal();
     }
-    return std::filesystem::path(kDefaultGreeterStateDir) / kGreeterTomlFileName;
+    return std::filesystem::path(kDefaultGreeterStateDir);
+  }
+
+  [[nodiscard]] bool isDefaultGreeterStateDirectory(const std::filesystem::path& stateDirectory) {
+    return stateDirectory == std::filesystem::path(kDefaultGreeterStateDir).lexically_normal();
+  }
+
+  [[nodiscard]] std::filesystem::path greeterTomlPath() {
+    return selectedGreeterStateDirectory() / kGreeterTomlFileName;
   }
 
   [[nodiscard]] std::optional<std::string> readGreeterConfiguredOutput() {
@@ -141,7 +268,7 @@ namespace {
   // Stage every per-monitor wallpaper so the greeter can pick by connector name.
   // File wallpapers are copied as wallpaper-<connector>.*; solid color: specs are
   // kept as sourcePath only (no file) so the wallpapers map can still reference them.
-  [[nodiscard]] std::vector<StagedOutputWallpaper>
+  [[nodiscard]] std::optional<std::vector<StagedOutputWallpaper>>
   stageAllOutputWallpapers(const std::filesystem::path& staging, const ConfigService& configService) {
     std::vector<StagedOutputWallpaper> staged;
     for (const auto& [connector, sourcePath] : configService.monitorWallpaperPaths()) {
@@ -168,6 +295,9 @@ namespace {
         kLog.warn("greeter sync: failed to stage wallpaper for '{}': {}", connector, ec.message());
         continue;
       }
+      if (!secureStagedFile(destination)) {
+        return std::nullopt;
+      }
       kLog.info("greeter sync: staged wallpaper for '{}' -> {}", connector, installedName);
       staged.push_back(StagedOutputWallpaper{connector, installedName, sourcePath});
     }
@@ -179,32 +309,81 @@ namespace {
   }
 
   [[nodiscard]] std::string findApplyHelper() {
-    return resolveProgramPath(
+    std::string helper = resolveProgramPath(
         kApplyHelperName,
         {"/usr/bin/noctalia-greeter-apply-appearance", "/usr/local/bin/noctalia-greeter-apply-appearance"}
     );
+    if (!helper.empty() && !isTrustedPrivilegeExecutable(helper)) {
+      kLog.warn("refusing untrusted greeter sync helper '{}'", helper);
+      helper.clear();
+    }
+    return helper;
   }
 
-  [[nodiscard]] std::filesystem::path makeStagingDirectory() {
-    const char* runtimeDir = std::getenv("XDG_RUNTIME_DIR");
-    const std::filesystem::path base = runtimeDir != nullptr && runtimeDir[0] != '\0'
-        ? std::filesystem::path(runtimeDir)
-        : std::filesystem::temp_directory_path();
-    const auto staging = base / "noctalia-greeter-sync";
+  [[nodiscard]] ApplyHelperProtocol probeApplyHelperProtocol(std::string_view helper) {
+    process::RunOptions options;
+    options.timeout = std::chrono::seconds(1);
+    options.maxOutputBytes = 16U * 1024U;
+    const process::RunResult result = process::runSync(
+        std::vector<std::string>{
+            std::string(helper), std::string(kCapabilityArgument), std::string(kSecureSyncCapability)
+        },
+        std::move(options)
+    );
+    return greeter::detail::classifyApplyHelperProtocol(result);
+  }
+
+  [[nodiscard]] bool defaultStateDirectorySelected() {
+    return isDefaultGreeterStateDirectory(selectedGreeterStateDirectory());
+  }
+
+  [[nodiscard]] GreeterSyncMode chooseSyncMode(const ApplyHelperProtocol protocol) {
+    if (protocol == ApplyHelperProtocol::Legacy || !defaultStateDirectorySelected()) {
+      return GreeterSyncMode::LegacyAuthenticated;
+    }
+    return GreeterSyncMode::Constrained;
+  }
+
+  [[nodiscard]] std::filesystem::path makeStagingDirectory(const GreeterSyncMode mode) {
+    std::filesystem::path runtimeDirectory;
+    if (mode == GreeterSyncMode::Constrained) {
+      // The secure helper accepts only this lexical path, derived from PKEXEC_UID.
+      runtimeDirectory = std::filesystem::path("/run/user") / std::to_string(::getuid());
+    } else {
+      const char* runtimeDir = std::getenv("XDG_RUNTIME_DIR");
+      runtimeDirectory = runtimeDir != nullptr && runtimeDir[0] != '\0' ? std::filesystem::path(runtimeDir)
+                                                                        : std::filesystem::temp_directory_path();
+    }
     std::error_code ec;
+    if (!std::filesystem::is_directory(runtimeDirectory, ec) || ec) {
+      kLog.warn(
+          "required greeter sync runtime directory '{}' is unavailable: {}", runtimeDirectory.string(),
+          ec ? ec.message() : "not a directory"
+      );
+      return {};
+    }
+
+    const auto staging = runtimeDirectory / "noctalia-greeter-sync";
     std::filesystem::remove_all(staging, ec);
+    if (ec) {
+      kLog.warn("failed to clear greeter sync staging directory '{}': {}", staging.string(), ec.message());
+      return {};
+    }
     std::filesystem::create_directories(staging, ec);
     if (ec) {
+      kLog.warn("failed to create greeter sync staging directory '{}': {}", staging.string(), ec.message());
+      return {};
+    }
+    if (!secureStagingDirectory(staging)) {
       return {};
     }
     return staging;
   }
 
   void putOptionalString(toml::table& table, std::string_view key, const std::optional<std::string>& value) {
-    if (!value.has_value() || value->empty()) {
-      return;
+    if (value.has_value() && !value->empty()) {
+      table.insert_or_assign(std::string(key), *value);
     }
-    table.insert_or_assign(std::string(key), *value);
   }
 
   void appendSessionToSyncToml(toml::table& root, const ShellSessionConfig& session) {
@@ -253,11 +432,13 @@ namespace {
     return out.str();
   }
 
-  // Stages a sync.toml fragment (appearance + session) for noctalia-greeter-apply-appearance.
+  // Secure sync stages appearance only. The authenticated legacy helper also expects
+  // the previous session payload and otherwise clears its stored session commands.
   [[nodiscard]] bool writeStagedSyncToml(
       const std::filesystem::path& staging, const Config& config, std::string_view resolvedMode,
       const std::string& wallpaperPath, const std::string& installedWallpaperName,
-      const std::vector<StagedOutputWallpaper>& outputWallpapers
+      const std::vector<StagedOutputWallpaper>& outputWallpapers, const std::filesystem::path& installedStateDirectory,
+      const GreeterSyncMode mode
   ) {
     toml::table root;
     toml::table appearance;
@@ -289,9 +470,7 @@ namespace {
 
     toml::table wallpaper;
     if (!installedWallpaperName.empty()) {
-      wallpaper.insert_or_assign(
-          "path", (std::filesystem::path(kDefaultGreeterStateDir) / installedWallpaperName).string()
-      );
+      wallpaper.insert_or_assign("path", (installedStateDirectory / installedWallpaperName).string());
     } else if (!wallpaperPath.empty()) {
       wallpaper.insert_or_assign("path", wallpaperPath);
     }
@@ -310,9 +489,7 @@ namespace {
       for (const auto& entry : outputWallpapers) {
         toml::table item;
         if (!entry.installedName.empty()) {
-          item.insert_or_assign(
-              "path", (std::filesystem::path(kDefaultGreeterStateDir) / entry.installedName).string()
-          );
+          item.insert_or_assign("path", (installedStateDirectory / entry.installedName).string());
         } else if (!entry.sourcePath.empty()) {
           item.insert_or_assign("path", entry.sourcePath);
         } else {
@@ -330,12 +507,17 @@ namespace {
     }
 
     root.insert("appearance", std::move(appearance));
-    appendSessionToSyncToml(root, config.shell.session);
+    if (mode == GreeterSyncMode::LegacyAuthenticated) {
+      appendSessionToSyncToml(root, config.shell.session);
+    }
 
     const auto syncPath = staging / kStagedSyncTomlFileName;
     std::ofstream out(syncPath);
     if (!out.is_open()) {
       kLog.warn("failed to open staged sync.toml '{}'", syncPath.string());
+      return false;
+    }
+    if (!secureStagedFile(syncPath)) {
       return false;
     }
     out << "# noctalia-greeter staged sync.toml (merged into live sync.toml by apply-appearance)\n\n";
@@ -572,7 +754,14 @@ namespace {
       kLog.warn("failed to open staged output layout '{}'", layoutPath.string());
       return false;
     }
+    if (!secureStagedFile(layoutPath)) {
+      return false;
+    }
     out << layout << '\n';
+    if (!out.good()) {
+      kLog.warn("failed to write staged output layout '{}'", layoutPath.string());
+      return false;
+    }
     return true;
   }
 
@@ -583,7 +772,14 @@ namespace {
       kLog.warn("failed to open staged output transforms '{}'", transformsPath.string());
       return false;
     }
+    if (!secureStagedFile(transformsPath)) {
+      return false;
+    }
     out << transforms << '\n';
+    if (!out.good()) {
+      kLog.warn("failed to write staged output transforms '{}'", transformsPath.string());
+      return false;
+    }
     return true;
   }
 
@@ -594,22 +790,30 @@ namespace {
       kLog.warn("failed to open staged output scales '{}'", scalesPath.string());
       return false;
     }
+    if (!secureStagedFile(scalesPath)) {
+      return false;
+    }
     out << scales << '\n';
+    if (!out.good()) {
+      kLog.warn("failed to write staged output scales '{}'", scalesPath.string());
+      return false;
+    }
     return true;
   }
 
-  [[nodiscard]] std::string stageWallpaper(const std::filesystem::path& staging, std::string_view sourcePath) {
+  [[nodiscard]] std::optional<std::string>
+  stageWallpaper(const std::filesystem::path& staging, std::string_view sourcePath) {
     if (sourcePath.empty()) {
-      return {};
+      return std::string{};
     }
     if (sourcePath.starts_with("color:")) {
-      return {};
+      return std::string{};
     }
 
     std::error_code ec;
     const std::filesystem::path source(sourcePath);
     if (!std::filesystem::is_regular_file(source, ec) || ec) {
-      return {};
+      return std::string{};
     }
 
     const std::string extension = source.extension().string();
@@ -618,7 +822,10 @@ namespace {
     std::filesystem::copy_file(source, destination, std::filesystem::copy_options::overwrite_existing, ec);
     if (ec) {
       kLog.warn("failed to stage wallpaper '{}': {}", source.string(), ec.message());
-      return {};
+      return std::string{};
+    }
+    if (!secureStagedFile(destination)) {
+      return std::nullopt;
     }
     return installedName;
   }
@@ -631,35 +838,116 @@ namespace {
     return StringUtils::trim(greeterSync.privilegeCommand);
   }
 
-  [[nodiscard]] std::string
-  buildPrivilegedApplyCommand(std::string_view privilegePrefix, std::string_view helper, std::string_view staging) {
-    return std::string(privilegePrefix)
-        + " "
-        + StringUtils::shellQuote(helper)
-        + " "
-        + StringUtils::shellQuote(staging);
+  [[nodiscard]] std::string trustedEnvironmentHelper() {
+    for (const char* candidate : {"/usr/bin/env", "/bin/env", "/run/current-system/sw/bin/env"}) {
+      if (auto resolved = canonicalExecutablePath(candidate);
+          !resolved.empty() && isTrustedPrivilegeExecutable(resolved)) {
+        return resolved;
+      }
+    }
+    return {};
+  }
+
+  [[nodiscard]] std::optional<std::string>
+  legacyStateEnvironment(const GreeterSyncMode mode, const std::filesystem::path& stateDirectory) {
+    if (mode != GreeterSyncMode::LegacyAuthenticated || isDefaultGreeterStateDirectory(stateDirectory)) {
+      return std::nullopt;
+    }
+    return std::string(kGreeterStateDirEnv) + '=' + stateDirectory.string();
+  }
+
+  [[nodiscard]] std::string buildPrivilegedApplyCommand(
+      std::string_view privilegePrefix, std::string_view helper, std::string_view staging, const GreeterSyncMode mode,
+      const std::optional<std::string>& stateEnvironment
+  ) {
+    std::string command = std::string(privilegePrefix) + ' ';
+    if (stateEnvironment.has_value()) {
+      const std::string envHelper = trustedEnvironmentHelper();
+      if (envHelper.empty()) {
+        return {};
+      }
+      command += StringUtils::shellQuote(envHelper) + ' ' + StringUtils::shellQuote(*stateEnvironment) + ' ';
+    }
+    command += StringUtils::shellQuote(helper) + ' ';
+    if (mode == GreeterSyncMode::Constrained) {
+      command += std::string(kSyncArgument) + " ";
+    }
+    return command + StringUtils::shellQuote(staging);
   }
 
   [[nodiscard]] bool launchPrivilegedApplyHelper(
       const ShellGreeterSyncConfig& greeterSync, std::string_view helper, const std::filesystem::path& staging,
-      process::RunCallbacks callbacks
+      const std::filesystem::path& stateDirectory, const GreeterSyncMode mode, process::RunCallbacks callbacks
   ) {
+    const auto stateEnvironment = legacyStateEnvironment(mode, stateDirectory);
     if (hasPrivilegeCommandOverride(greeterSync)) {
-      const std::string command =
-          buildPrivilegedApplyCommand(privilegeCommandPrefix(greeterSync), helper, staging.string());
+      const std::string command = buildPrivilegedApplyCommand(
+          privilegeCommandPrefix(greeterSync), helper, staging.string(), mode, stateEnvironment
+      );
+      if (command.empty()) {
+        return false;
+      }
       return process::runAsync(command, std::move(callbacks));
+    }
+
+    if (mode == GreeterSyncMode::Constrained) {
+      if (!process::commandExists(kPkexecName.data())) {
+        return false;
+      }
+      return process::runAsync(
+          std::vector<std::string>{
+              std::string(kPkexecName), std::string(helper), std::string(kSyncArgument), staging.string()
+          },
+          std::move(callbacks)
+      );
     }
 
     const std::string escalator = process::resolvePrivilegeEscalator().value_or(std::string{});
     if (escalator.empty()) {
       return false;
     }
-    return process::runAsync(
-        std::vector<std::string>{escalator, std::string(helper), staging.string()}, std::move(callbacks)
-    );
+    std::vector<std::string> arguments{escalator};
+    if (stateEnvironment.has_value()) {
+      if (escalator == "run0") {
+        arguments.push_back("--setenv=" + *stateEnvironment);
+      } else {
+        const std::string envHelper = trustedEnvironmentHelper();
+        if (envHelper.empty()) {
+          return false;
+        }
+        arguments.push_back(envHelper);
+        arguments.push_back(*stateEnvironment);
+      }
+    }
+    arguments.emplace_back(helper);
+    arguments.push_back(staging.string());
+    return process::runAsync(arguments, std::move(callbacks));
   }
 
 } // namespace
+
+namespace greeter::detail {
+
+  ApplyHelperProtocol classifyApplyHelperProtocol(const process::RunResult& result) {
+    if (result.timedOut || result.outTruncated || result.errTruncated) {
+      return ApplyHelperProtocol::Unknown;
+    }
+    // process::runSync strips trailing line endings from captured output.
+    if (result.exitCode == 0 && result.out == kSecureSyncCapability && result.err.empty()) {
+      return ApplyHelperProtocol::SecureSyncV1;
+    }
+
+    const std::string usage = result.out + '\n' + result.err;
+    const bool knownLegacyUsage = result.exitCode == 2
+        && usage.contains("usage:")
+        && usage.contains("<staging-directory>")
+        && usage.contains("--setup-system")
+        && usage.contains("--print-greeter-user")
+        && !usage.contains("--sync <staging-directory>");
+    return knownLegacyUsage ? ApplyHelperProtocol::Legacy : ApplyHelperProtocol::Unknown;
+  }
+
+} // namespace greeter::detail
 
 namespace greeter {
 
@@ -673,6 +961,15 @@ namespace greeter {
       const ConfigService& configService, std::string_view resolvedThemeMode, SyncCompletion onComplete,
       const CompositorPlatform* platform, const bool logindOnSystemBus
   ) {
+    bool expected = false;
+    if (!g_greeterSyncInProgress.compare_exchange_strong(
+            expected, true, std::memory_order_acquire, std::memory_order_relaxed
+        )) {
+      kLog.info("greeter appearance sync is already in progress");
+      return GreeterSyncLaunch::Busy;
+    }
+    GreeterSyncLease syncLease;
+
     const auto completion = std::make_shared<SyncCompletion>(std::move(onComplete));
     const auto finish = [completion](bool success) {
       if (completion && *completion) {
@@ -683,22 +980,42 @@ namespace greeter {
     const auto helper = findApplyHelper();
     if (helper.empty()) {
       kLog.warn("greeter sync helper is not installed");
-      finish(false);
       return GreeterSyncLaunch::Failed;
+    }
+
+    const ApplyHelperProtocol protocol = probeApplyHelperProtocol(helper);
+    if (protocol == ApplyHelperProtocol::Unknown) {
+      kLog.warn("greeter sync helper returned an unrecognized capability response");
+      return GreeterSyncLaunch::Failed;
+    }
+    const GreeterSyncMode mode = chooseSyncMode(protocol);
+    const std::filesystem::path stateDirectory = mode == GreeterSyncMode::Constrained
+        ? std::filesystem::path(kDefaultGreeterStateDir)
+        : selectedGreeterStateDirectory();
+    if (!stateDirectory.is_absolute()) {
+      kLog.warn("greeter state directory must be absolute for authenticated legacy sync");
+      return GreeterSyncLaunch::Failed;
+    }
+    if (protocol == ApplyHelperProtocol::SecureSyncV1 && mode == GreeterSyncMode::LegacyAuthenticated) {
+      kLog.info("custom greeter state directory requires administrator-authenticated legacy sync");
     }
 
     const Config& config = configService.config();
     const ShellGreeterSyncConfig& greeterSync = config.shell.greeterSync;
-    if (!hasPrivilegeCommandOverride(greeterSync) && !process::resolvePrivilegeEscalator().has_value()) {
-      kLog.warn("no privilege escalator available (pkexec or run0)");
-      finish(false);
-      return GreeterSyncLaunch::Failed;
+    if (!hasPrivilegeCommandOverride(greeterSync)) {
+      if (mode == GreeterSyncMode::Constrained && !process::commandExists(kPkexecName.data())) {
+        kLog.warn("secure greeter sync requires pkexec");
+        return GreeterSyncLaunch::Failed;
+      }
+      if (mode == GreeterSyncMode::LegacyAuthenticated && !process::resolvePrivilegeEscalator().has_value()) {
+        kLog.warn("no privilege escalator is available for legacy greeter sync");
+        return GreeterSyncLaunch::Failed;
+      }
     }
 
-    const auto staging = makeStagingDirectory();
+    const auto staging = makeStagingDirectory(mode);
     if (staging.empty()) {
       kLog.warn("failed to create greeter sync staging directory");
-      finish(false);
       return GreeterSyncLaunch::Failed;
     }
 
@@ -706,19 +1023,16 @@ namespace greeter {
       logOutputLayoutForGreeter(*platform);
       if (const auto layout = buildGreeterOutputLayout(*platform)) {
         if (!stageOutputLayout(staging, *layout)) {
-          finish(false);
           return GreeterSyncLaunch::Failed;
         }
       }
       if (const auto transforms = buildGreeterOutputTransforms(*platform)) {
         if (!stageOutputTransforms(staging, *transforms)) {
-          finish(false);
           return GreeterSyncLaunch::Failed;
         }
       }
       if (const auto scales = buildGreeterOutputScales(*platform)) {
         if (!stageOutputScales(staging, *scales)) {
-          finish(false);
           return GreeterSyncLaunch::Failed;
         }
       }
@@ -727,17 +1041,27 @@ namespace greeter {
     }
 
     const auto outputWallpapers = stageAllOutputWallpapers(staging, configService);
+    if (!outputWallpapers.has_value()) {
+      return GreeterSyncLaunch::Failed;
+    }
     std::string wallpaperPath = resolveSyncWallpaperPath(configService);
-    std::string installedWallpaperName = stageWallpaper(staging, wallpaperPath);
+    const auto stagedWallpaper = stageWallpaper(staging, wallpaperPath);
+    if (!stagedWallpaper.has_value()) {
+      return GreeterSyncLaunch::Failed;
+    }
+    std::string installedWallpaperName = *stagedWallpaper;
+    if (installedWallpaperName.empty() && !wallpaperPath.starts_with("color:")) {
+      wallpaperPath.clear();
+    }
     // Prefer a staged per-output entry for the legacy single wallpaper when needed.
-    if (installedWallpaperName.empty() && !outputWallpapers.empty()) {
+    if (installedWallpaperName.empty() && !outputWallpapers->empty()) {
       auto preferEntry = [&](const StagedOutputWallpaper& entry) {
         wallpaperPath = entry.sourcePath;
         installedWallpaperName = entry.installedName;
       };
       bool pinResolved = false;
       if (const auto pin = readGreeterConfiguredOutput(); pin.has_value() && !pin->empty()) {
-        for (const auto& entry : outputWallpapers) {
+        for (const auto& entry : *outputWallpapers) {
           if (entry.connector == *pin) {
             preferEntry(entry);
             pinResolved = true;
@@ -747,32 +1071,34 @@ namespace greeter {
       }
       // Pin hit (file or color:): keep it. Otherwise pick first staged file, else first entry.
       if (!pinResolved) {
-        for (const auto& entry : outputWallpapers) {
+        for (const auto& entry : *outputWallpapers) {
           if (!entry.installedName.empty()) {
             preferEntry(entry);
             break;
           }
         }
         if (installedWallpaperName.empty() && wallpaperPath.empty()) {
-          preferEntry(outputWallpapers.front());
+          preferEntry(outputWallpapers->front());
         }
       }
     }
     if (!writeStagedSyncToml(
-            staging, config, resolvedThemeMode, wallpaperPath, installedWallpaperName, outputWallpapers
+            staging, config, resolvedThemeMode, wallpaperPath, installedWallpaperName, *outputWallpapers,
+            stateDirectory, mode
         )) {
-      finish(false);
       return GreeterSyncLaunch::Failed;
     }
 
-    if (!hasPrivilegeCommandOverride(greeterSync)
+    if (mode == GreeterSyncMode::LegacyAuthenticated
+        && !hasPrivilegeCommandOverride(greeterSync)
         && !polkit_session::likelySupportsInSessionPolkitAgent(logindOnSystemBus)) {
-      kLog.info("greeter sync: staged; skipping background privilege escalation (no session polkit)");
+      kLog.info("greeter sync: staged legacy payload; skipping background authorization without a login session");
       return GreeterSyncLaunch::StagedOnly;
     }
 
     process::RunCallbacks callbacks;
-    callbacks.onExit = [finish](const process::RunResult& result) {
+    callbacks.onExit = [finish, mode](const process::RunResult& result) {
+      releaseGreeterSync();
       if (!result) {
         if (!result.err.empty()) {
           kLog.warn("greeter sync failed: {}", result.err);
@@ -782,14 +1108,18 @@ namespace greeter {
         finish(false);
         return;
       }
-      kLog.info("synced shell appearance and session actions to greeter");
+      kLog.info(
+          "synced shell {} to greeter",
+          mode == GreeterSyncMode::Constrained ? "appearance" : "appearance and session actions"
+      );
       finish(true);
     };
-    if (!launchPrivilegedApplyHelper(greeterSync, helper, staging, std::move(callbacks))) {
-      finish(false);
+    if (!launchPrivilegedApplyHelper(greeterSync, helper, staging, stateDirectory, mode, std::move(callbacks))) {
       return GreeterSyncLaunch::Failed;
     }
-    return GreeterSyncLaunch::Launched;
+    syncLease.handOffToCompletion();
+    return mode == GreeterSyncMode::Constrained ? GreeterSyncLaunch::LaunchedConstrained
+                                                : GreeterSyncLaunch::LaunchedLegacy;
   }
 
   void registerIpc(
@@ -812,11 +1142,14 @@ namespace greeter {
           const bool logind = logindOnSystemBus != nullptr && logindOnSystemBus();
           const GreeterSyncLaunch launch =
               syncAppearanceToGreeterAsync(config, resolvedThemeMode(), {}, platform, logind);
+          if (launch == GreeterSyncLaunch::Busy) {
+            return "error: greeter appearance sync is already in progress\n";
+          }
           if (launch == GreeterSyncLaunch::Failed) {
             return "error: failed to start greeter appearance sync\n";
           }
           if (launch == GreeterSyncLaunch::StagedOnly) {
-            return "ok: staged (run privilege install manually)\n";
+            return "ok: staged (run legacy privilege install manually)\n";
           }
           return "ok\n";
         },

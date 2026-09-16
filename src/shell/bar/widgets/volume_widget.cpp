@@ -43,7 +43,7 @@ void VolumeWidget::create() {
   area->addChild(
       ui::label({
           .out = &m_label,
-          .fontSize = Style::fontSizeBody * m_contentScale,
+          .fontSize = Style::fontSizeBody * fontScale(),
           .fontWeight = labelFontWeight(),
           .fontFamily = labelFontFamily(),
           .visible = m_showLabel,
@@ -159,7 +159,7 @@ void VolumeWidget::syncState(Renderer& renderer) {
   m_label->setVisible(m_showLabel);
   if (m_showLabel) {
     int pct = static_cast<int>(std::round(volume * 100.0F));
-    m_label->setFontSize((m_isVertical ? Style::fontSizeCaption : Style::fontSizeBody) * m_contentScale);
+    m_label->setFontSize((m_isVertical ? Style::fontSizeCaption : Style::fontSizeBody) * fontScale());
     m_label->setText(m_isVertical ? std::to_string(pct) : std::to_string(pct) + "%");
     m_label->setColor(muted ? m_muteColor : widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface)));
     m_label->measure(renderer);

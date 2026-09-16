@@ -102,8 +102,7 @@ namespace {
   }
 
   bool shouldRetainHistoryEntry(const NotificationHistoryEntry& entry) noexcept {
-    return shouldTrackHistory(entry.notification.origin, entry.notification.urgency, entry.notification.transient)
-        && entry.closeReason != CloseReason::Dismissed;
+    return shouldTrackHistory(entry.notification.origin, entry.notification.urgency, entry.notification.transient);
   }
 
   bool notificationHasInvokableActions(const Notification& notification) {
@@ -187,6 +186,20 @@ void NotificationManager::upsertHistory(
   }
 
   rebuildHistoryIndex();
+  schedulePersistHistory();
+}
+
+void NotificationManager::markHistoryClosed(uint32_t id, CloseReason reason) {
+  // Closing keeps the entry where it was received; only add/replace moves an entry to the newest slot.
+  const auto it = m_historyIndex.find(id);
+  if (it == m_historyIndex.end()) {
+    return;
+  }
+
+  NotificationHistoryEntry& entry = m_history[it->second];
+  entry.active = false;
+  entry.closeReason = reason;
+  entry.eventSerial = ++m_changeSerial;
   schedulePersistHistory();
 }
 
@@ -542,7 +555,11 @@ bool NotificationManager::close(uint32_t id, CloseReason reason) {
   if (it == m_idToIndex.end()) {
     if (m_pendingDBusClose.contains(id)) {
       emitPendingDBusClose(id, reason);
-      removeHistoryEntry(id);
+      if (reason == CloseReason::Dismissed && !m_keepDismissedInHistory) {
+        removeHistoryEntry(id);
+      } else {
+        markHistoryClosed(id, reason);
+      }
       return true;
     }
     return false;
@@ -551,15 +568,18 @@ bool NotificationManager::close(uint32_t id, CloseReason reason) {
   const size_t index = it->second;
   const Notification closed = m_notifications[index];
   const bool hadUnreadBefore = computeHasUnreadNotificationHistory();
-  const bool historyHandledUnreadChange =
-      shouldSaveNotificationToHistory(m_filters, closed) && reason == CloseReason::Dismissed;
+  const bool saveHistory = shouldSaveNotificationToHistory(m_filters, closed);
+  const bool removeDismissedHistory = reason == CloseReason::Dismissed && !m_keepDismissedInHistory;
+  const bool historyHandledUnreadChange = saveHistory && removeDismissedHistory && m_historyIndex.contains(id);
   const char* reasonStr = (reason == CloseReason::Expired) ? "expired"
       : (reason == CloseReason::Dismissed)                 ? "dismissed"
                                                            : "closed";
   kLog.debug("notification {} #{}", reasonStr, id);
-  if (shouldSaveNotificationToHistory(m_filters, closed)) {
-    if (reason == CloseReason::Dismissed) {
+  if (saveHistory) {
+    if (removeDismissedHistory) {
       removeHistoryEntry(id, reason);
+    } else if (m_historyIndex.contains(id)) {
+      markHistoryClosed(id, reason);
     } else {
       upsertHistory(closed, false, reason);
     }
@@ -660,6 +680,8 @@ void NotificationManager::processExpired() {
     close(id, CloseReason::Expired);
   }
 }
+
+void NotificationManager::setKeepDismissedInHistory(bool keep) { m_keepDismissedInHistory = keep; }
 
 void NotificationManager::pauseExpiry(uint32_t id) {
   const auto it = m_idToIndex.find(id);

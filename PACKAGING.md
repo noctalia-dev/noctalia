@@ -214,10 +214,10 @@ Override bases with `NOCTALIA_CONFIG_HOME`, `NOCTALIA_STATE_HOME`,
   [Labwc](https://docs.noctalia.dev/noctalia/compositor-settings/labwc/), and
   [KDE Plasma](https://docs.noctalia.dev/noctalia/compositor-settings/kde/).
 
-## Versioning and beta
+## Versioning
 
-v5 is currently beta. Prefer packaging **tagged releases** rather than random
-`main` snapshots unless you maintain a `-git` / nightly package on purpose.
+Prefer packaging **tagged releases** rather than random `main` snapshots unless
+you maintain a `-git` / nightly package on purpose.
 
 ## Contact
 

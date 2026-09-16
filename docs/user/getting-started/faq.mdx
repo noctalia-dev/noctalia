@@ -1,0 +1,420 @@
+---
+title: FAQ
+description: Frequently asked questions for Noctalia.
+sidebar:
+  order: 99
+---
+
+import FaqItem from '../../../../components/FaqItem.astro';
+
+Find answers to common setup and troubleshooting questions for Noctalia.
+
+## Setup
+
+<FaqItem question="What distributions are supported?">
+
+Noctalia is packaged for Arch Linux, NixOS, Fedora, openSUSE, and Void Linux. You can also install it manually on other Linux distributions if the required build and runtime dependencies are available.
+
+See the [Installation guide](/noctalia/getting-started/installation/) for distro-specific commands and manual install steps.
+
+</FaqItem>
+
+<FaqItem question="Does Noctalia support touchscreen scrolling?">
+
+Yes. Tap controls normally. In a scrollable view, drag vertically over rows, buttons, or other controls to scroll; a fast release continues with a fling. On a vertical page, a horizontal drag remains with an axis-specific control such as a slider.
+
+Touch dragging requires the compositor to send `wl_touch.motion` events. If taps work but dragging never moves content, run `wev` and drag inside its window. A trace containing only `wl_touch.down` and `wl_touch.up` means the compositor or input stack is not forwarding touch motion to clients.
+
+</FaqItem>
+
+<FaqItem question="Will Noctalia v4 automatically upgrade to v5, and can I keep both installed?">
+
+No. Noctalia v5 is a fresh install, not an automatic upgrade from the Quickshell-based v4 line. It ships as a separate package, your package manager will not replace v4 with v5, and v4 settings are not migrated into v5.
+
+On most distributions, you can keep v4 installed while you try v5. The packages do not conflict, so you can install both and run whichever version you want. Their configuration files do not conflict either: v4 config is JSON-only, v5 config is TOML, and their config file names are different. v5 may write separate state files, but its configuration is TOML.
+
+The main thing you need to adjust is your **compositor** keybinds. Keybinds live in your compositor config, not in Noctalia's package, so update the bindings that launch the Noctalia launcher, panels, settings UI, or other commands when switching between v4 and v5.
+
+See the [Installation guide](/noctalia/getting-started/installation/) and [Running Noctalia](/noctalia/getting-started/running-the-shell/) for setup steps.
+
+</FaqItem>
+
+<FaqItem question="Should I use v4 or noctalia-qs instructions with v5?">
+
+No. Noctalia v5 is a native C++ and OpenGL ES shell launched with `noctalia`. The v4 line is Quickshell-based and uses `qs` / `noctalia-qs`, so v4 commands and configuration examples should not be copied into a v5 setup.
+
+If you are using the Quickshell-based version, use the [v4 documentation](/noctalia-shell-legacy/) instead.
+
+</FaqItem>
+
+<FaqItem question="How do I start Noctalia automatically?">
+
+Noctalia does not manage session autostart from its Settings app. Use your compositor's autostart mechanism instead.
+
+Examples for each supported compositor:
+
+:::note[Niri]
+Add to `~/.config/niri/config.kdl`:
+```ini
+spawn-at-startup "noctalia"
+```
+:::
+
+:::note[Hyprland]
+Add to your `hyprland.start` event hook in `~/.config/hypr/hyprland.lua`:
+```lua
+hl.on("hyprland.start", function()
+  hl.exec_cmd("noctalia")
+end)
+```
+:::
+
+:::note[Sway / Scroll]
+Add to `~/.config/sway/config` (or equivalent):
+```bash
+exec noctalia
+```
+:::
+
+:::note[Labwc]
+Add to `~/.config/labwc/autostart`:
+```
+noctalia
+```
+:::
+
+:::note[Mango]
+Add to `~/.config/mango/config.conf`:
+```bash
+exec-once=noctalia
+```
+:::
+
+:::note[KDE Plasma]
+Add `noctalia` under System Settings → Autostart, or see [KDE Plasma](/noctalia/compositor-settings/kde/) for Plasma-specific limits (clipboard, blur, screenshots, and more).
+:::
+
+If your compositor expects startup commands to return after the shell has initialized, use `noctalia --daemon`. See the [Running Noctalia](/noctalia/getting-started/running-the-shell/) page for details.
+
+</FaqItem>
+
+## Configuration
+
+<FaqItem question="Where should I put my config, and why is my setting ignored?">
+
+If you only use Settings, you normally do not need to edit config files. Settings writes your changes to
+`~/.local/state/noctalia/settings.toml`.
+
+If you write config by hand, put it in `~/.config/noctalia/`. Noctalia reads every `*.toml` file in that directory,
+sorted alphabetically, and merges them.
+
+Settings changes load after hand-written config, so they win when both layers define the same setting. If a value in your
+file looks ignored, check Settings first, or inspect `~/.local/state/noctalia/settings.toml`.
+
+See [How configuration works](/noctalia/configuration/) for the full load order and export options.
+
+</FaqItem>
+
+
+<FaqItem question="How does Noctalia resolve application icons?">
+
+Noctalia resolves application icons through GTK's icon-theme support. The dock, taskbar, launcher, and other shell surfaces use the active GTK icon theme; configuring an icon theme only in a Qt control center does not change Noctalia's application icons.
+
+Configure and apply the icon theme through your system's GTK settings, for example with `nwg-look`.
+
+</FaqItem>
+
+<FaqItem question="Why do two copies of the same widget share settings?">
+
+Widget settings are attached to the widget name used in the bar list. If you place the same name twice, both entries use
+the same configuration.
+
+In Settings, open the Add widget selector and turn on the **Named Widget** toggle at the top before choosing the widget
+type. Create one named widget for each copy you want to configure separately. Middle-click a widget to open the Settings
+page for that exact instance.
+
+In text config, give each copy its own name, then set `type` to the widget you want:
+
+```toml
+[bar.default]
+end = ["sysmon-left", "sysmon-right"]
+
+[widget.sysmon-left]
+type = "sysmon"
+# settings for the first sysmon
+
+[widget.sysmon-right]
+type = "sysmon"
+# settings for the second sysmon
+```
+
+See [Widget definitions](/noctalia/bar/widgets/#widget-definitions) for more examples.
+
+</FaqItem>
+
+<FaqItem question="How do I choose Monday or Sunday as the first day of the week?">
+
+This is not a Noctalia setting. There is no Settings toggle or TOML key for it in v5.
+
+Noctalia follows your system locale, so set the first day of the week through your system's `LC_TIME` locale.
+
+This is different from v4, which had a Noctalia-specific override. In v5, calendar and localized date behavior come from
+the active system locale.
+
+</FaqItem>
+
+<FaqItem question="How can I make the UI bigger or smaller?">
+
+Start with compositor output scaling. That is the correct way to handle HiDPI monitors and affects all Wayland clients consistently.
+
+For Noctalia-specific sizing in Settings:
+
+- Use **Appearance → Interface → UI scale** for non-bar shell UI such as panels, launcher, clipboard, and settings.
+- Use **Bar → Layout → Content scale** for bar widget content.
+- Middle-click a bar widget to open widget-specific size settings where available.
+
+In text config, the main keys are `shell.ui_scale`, `[bar.<name>].scale`, and `[widget.<name>].scale`.
+
+See [Shell settings](/noctalia/configuration/shell/#shell-settings) and [Bars](/noctalia/bar/).
+
+</FaqItem>
+
+<FaqItem question="How do I turn off blur behind a transparent bar?">
+
+On Niri, making a bar transparent only changes Noctalia surface opacity. When Niri `ext-background-effects` support is active, Noctalia still publishes blur regions for its layer surfaces, so the compositor can keep blurring behind the bar.
+
+The default xray blur samples the wallpaper, which can also appear as faint wallpaper-colored pixels around rounded corners. Use `xray false` to blur the actual content behind Noctalia, or `blur false` to disable the effect. See [Niri compositor settings: Blur](/noctalia/compositor-settings/niri/?section=blur) for the full rules and explanation.
+
+</FaqItem>
+
+<FaqItem question="How do I tweak the seam between the bar and attached panels?">
+
+Attached panels (like the control center) sit flush against the bar, so the line where they meet, the seam, can show a faint cut, a hairline gap, or a doubled edge depending on your compositor and display scaling. These artifacts mostly show up with a highly transparent bar, where the seam between the two surfaces has nothing opaque to hide behind. If the seam bothers you, the simplest fix is to raise `background_opacity` toward `1.0`; the settings below help when you want to keep the transparency. Three settings control how that seam looks.
+
+**Hide or tune the cut with `panel_overlap`.** This sets how many logical pixels an attached panel is pulled into the bar so the two surfaces share one edge. The default is `1`. If you see a faint seam line, try `0`; if a gap appears, raise it; negative values push the panel away from the bar. The right value depends on the output's fractional scale, so on a mixed-scale multi-monitor setup you can set it per monitor with a `[bar.<name>.monitor.*]` override. In Settings it lives under **Bar → Layout → Advanced**.
+
+**Embrace the cut with `contact_shadow`.** Instead of hiding the seam, this draws a dark gradient where the panel meets the bar, giving the panel a lifted-off-the-bar feel. It is independent of the bar's `shadow` and only affects attached panels; the change applies the next time a panel opens. In Settings it lives under **Bar → Effects**.
+
+**Mind the compositor blur.** The bar and an attached panel are separate Wayland surfaces, so the compositor blurs each one on its own. With a large blur sampling offset the two blur passes don't line up at the seam, and the gap between them becomes visible. How much shows up depends on the compositor: Hyprland handles it well, while Niri tends to reveal the split more. If the seam looks off with blur, lower your compositor's blur size/passes (or its sampling offset) rather than chasing it with `panel_overlap`.
+
+```toml
+[bar.default]
+panel_overlap  = 0      # 1 is default; 0 removes the overlap, negative pushes the panel away
+contact_shadow = true   # dark gradient at the seam for a lifted look
+```
+
+See [Bars](/noctalia/bar/) for the full per-bar and per-monitor field list.
+
+</FaqItem>
+
+<FaqItem question="How can I get Noctalia to display in my language?">
+
+Noctalia follows your system locale by default.
+
+In Settings, use **Appearance → Interface → Language**.
+
+In text config, set `shell.lang`:
+
+```toml
+[shell]
+lang = "fr"
+```
+
+If a translation is not available for that language, untranslated strings fall back to English.
+Language values may use BCP-47 tags such as `pt-BR` and `zh-Hans`, or POSIX locale names such as `pt_BR.UTF-8`.
+For Chinese locales without an explicit script, Noctalia derives the script from the region: for example `zh_CN`
+matches `zh-Hans`.
+
+</FaqItem>
+
+<FaqItem question="How do I use Noctalia colors with an external wallpaper app?">
+
+If you manage wallpapers with another tool such as waypaper, swww, or hyprpaper, let that app draw the wallpaper and let
+Noctalia use the image only for color extraction.
+
+In Settings:
+
+1. Turn off **Wallpaper → General → Enabled**.
+2. Set **Appearance → Theme → Palette source** to **Wallpaper**.
+
+In text config:
+
+```toml
+# Disable Noctalia wallpaper display
+[wallpaper]
+enabled = false
+
+# Generate colors from the current wallpaper path
+[theme]
+source           = "wallpaper"
+wallpaper_scheme = "m3-content"
+```
+
+After your wallpaper app sets a new image, tell Noctalia which file to use for color extraction:
+
+```sh
+noctalia msg wallpaper-set ~/Pictures/Wallpapers/new-wallpaper.png
+```
+
+Noctalia extracts colors from that image, generates a palette with the configured scheme, and cross-fades the shell to the new colors even though it is not displaying the wallpaper itself. The path is persisted across restarts.
+
+</FaqItem>
+
+## Troubleshooting
+
+<FaqItem question="Why aren't my keybinds working?">
+
+Check these points first:
+
+1. Make sure Noctalia is running.
+2. Use v5 IPC commands in the form `noctalia msg ...`.
+3. Verify that your compositor bind syntax is correct.
+4. Test the command in a terminal before putting it in a compositor config.
+
+Noctalia Settings does not create compositor keybinds. Keybinds belong in your compositor's configuration; Noctalia only
+receives the IPC command.
+
+See the [IPC overview](/noctalia/ipc/) and [Shell commands](/noctalia/ipc/shell/).
+
+</FaqItem>
+
+<FaqItem question="Why is my battery widget missing?">
+
+Battery status comes from UPower. Make sure UPower is installed and running.
+
+On NixOS, enable:
+
+```nix
+services.upower.enable = true;
+```
+
+The battery widget defaults to the system battery. If you want to show a peripheral or second battery, middle-click the
+battery widget and choose its **Device** setting. In text config, set the widget's `device` key.
+
+See the [`battery` widget docs](/noctalia/bar/widgets/battery/).
+
+</FaqItem>
+
+<FaqItem question="Why won't an app appear in the launcher or dock?">
+
+Noctalia discovers desktop applications from `.desktop` files in standard application directories. If an app is missing, verify that it installs a desktop entry under a path such as:
+
+- `/usr/share/applications/`
+- `~/.local/share/applications/`
+- `$HOME/.nix-profile/share/applications/`
+- `/etc/profiles/per-user/$USER/share/applications/`
+
+For dock pins, match the desktop entry ID, `StartupWMClass`, display name, or full desktop entry path. See the [Dock](/noctalia/dock/) page for matching rules.
+
+</FaqItem>
+
+<FaqItem question="Why are weather or Night Light not working?">
+
+Weather and Night Light both use **Settings → Location**. Set **Auto locate** or enter an **Address** there first.
+
+For Weather, also enable **Location → Weather**. The bar `weather` widget requires the weather service to be enabled.
+
+For Night Light, also enable **Location → Night Light**. Night Light requires compositor support for the
+`wlr-gamma-control` protocol.
+
+In text config, Weather requires `[weather] enabled = true` plus a resolved `[location]` source such as
+`auto_locate = true` or `address = "..."`.
+
+Weather, Theme `auto`, and Night Light all share the same location source.
+
+See [Location](/noctalia/services/location/), [Theme](/noctalia/theming/#mode), and [Night Light](/noctalia/services/night-light/).
+
+</FaqItem>
+
+<FaqItem question="Why can't I unlock my lock screen?">
+
+Noctalia authenticates through PAM using the `login` service. Make sure `/etc/pam.d/login` exists and is valid for your distribution.
+
+If you changed your PAM stack for fingerprint, security key, or other authentication methods, make sure those changes are present in the `login` PAM service used by Noctalia.
+
+</FaqItem>
+
+<FaqItem question="Does the lock screen engage before suspend?">
+
+By default yes, when the lock screen is enabled. Noctalia holds a logind sleep delay inhibitor and locks the session on `PrepareForSleep` before allowing suspend or hibernate to proceed (including lid-close sleep). You do not need a separate idle daemon for lock-before-sleep.
+
+To suspend without locking (for example lid close or `systemctl suspend`), set `[lockscreen].lock_before_suspend = false` in Settings → Security → Lock Screen, or in TOML. Explicit **Lock and Suspend** session/idle actions still lock first.
+
+</FaqItem>
+
+<FaqItem question="Why can't NetworkManager communicate with wpa_supplicant?" id="wpa-supplicant">
+
+If your wireless management tools (like `NetworkManager` or desktop applets) fail to communicate with `wpa_supplicant`, it is often a matter of missing D-Bus permissions or incorrect service options. The steps below allow users in the `wheel` group to interact with the wpa_supplicant daemon.
+
+**1. Update the D-Bus configuration**
+
+Explicitly allow the `wheel` group to send and receive signals via the `fi.w1.wpa_supplicant1` interface. Open `/etc/dbus-1/system.d/wpa_supplicant.conf` and ensure the `<policy group="wheel">` block is included before the closing `</busconfig>` tag:
+
+```xml title="/etc/dbus-1/system.d/wpa_supplicant.conf" ins={18-22}
+<!DOCTYPE busconfig PUBLIC
+ "-//freedesktop//DTD D-BUS Bus Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
+<busconfig>
+        <policy user="root">
+                <allow own="fi.w1.wpa_supplicant1"/>
+
+                <allow send_destination="fi.w1.wpa_supplicant1"/>
+                <allow send_interface="fi.w1.wpa_supplicant1"/>
+                <allow receive_sender="fi.w1.wpa_supplicant1" receive_type="signal"/>
+        </policy>
+        <policy context="default">
+                <deny own="fi.w1.wpa_supplicant1"/>
+                <deny send_destination="fi.w1.wpa_supplicant1"/>
+                <deny receive_sender="fi.w1.wpa_supplicant1" receive_type="signal"/>
+        </policy>
+
+        <!-- Allow users in the wheel group to interact with wpa_supplicant -->
+        <policy group="wheel">
+                <allow send_destination="fi.w1.wpa_supplicant1"/>
+                <allow receive_sender="fi.w1.wpa_supplicant1" receive_type="signal"/>
+        </policy>
+</busconfig>
+```
+
+**2. Configure the runit service flags**
+
+For D-Bus control to function correctly, `wpa_supplicant` must be started with the `-u` flag. Update (or create) the service configuration file:
+
+```sh title="/etc/sv/wpa_supplicant/conf"
+OPTS="-u -M -c /etc/wpa_supplicant/wpa_supplicant.conf"
+```
+
+**3. Apply the changes**
+
+After saving both files, restart the D-Bus daemon and the wpa_supplicant service:
+
+```sh
+# Reload D-Bus configuration
+sudo pkill -HUP dbus-daemon
+
+# Restart the wpa_supplicant runit service if you hit the service-flags issue
+sudo sv restart wpa_supplicant
+```
+
+</FaqItem>
+
+<FaqItem question="Why can't I connect to my VPN in NetworkManager?">
+
+By default, NetworkManager generates VPN system connections for the current user only. This saves secrets to `nm-applet`. If you have `nm-applet` this should work fine, however if you don't have it you will need to create the system connection for all users. 
+
+To do this
+* Open `nm-connection-editor` (Titled "Advanced Network Configuration")
+* Go to the VPN tab > Authentication > Password
+* On the right side of the box, click the icon to change the password type
+
+```txt title='Example Connection'
+[] Store the password only for this user
+[x] Store the password for all users
+[] Ask for this password every time
+[] The password is not required
+```
+
+Use the option in the example to save the password to the connection or the 'ask everytime' option if you want to be prompted for every connection.
+Be sure to input your password before saving.
+
+</FaqItem>

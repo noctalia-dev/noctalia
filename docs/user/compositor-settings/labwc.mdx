@@ -1,0 +1,70 @@
+---
+title: Labwc
+description: Configure Labwc for the best experience with Noctalia.
+sidebar:
+  order: 8
+---
+
+Add the following compositor settings inside your existing `<labwc_config>` element, located in your Labwc xml configuration file (found at `~/.config/labwc/rc.xml`)
+
+Example config structure:
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<labwc_config>
+  <!-- The config goes here -->
+</labwc_config>
+```
+
+Recommended compositor settings:
+```xml
+  <core>
+    <gap>10</gap>
+  </core>
+  <!-- Thumbnail-based window switcher -->
+  <windowSwitcher preview="no" outlines="yes">
+    <osd style="thumbnail"/>
+  </windowSwitcher>
+```
+
+## Autostart noctalia
+Add the following to the Labwc autostart file `~/.config/labwc/autostart`
+```
+noctalia
+```
+
+## IPC Keybinds
+Add these binds to your `rc.xml`
+```xml
+  <keyboard>
+    <!-- Include the default Labwc keybinds -->
+    <default />
+
+    <!-- Core keys -->
+    <keybind key="W-space"><action name="Execute"><command>noctalia msg panel-toggle launcher</command></action></keybind>
+    <keybind key="W-s"><action name="Execute"><command>noctalia msg panel-toggle control-center</command></action></keybind>
+    <keybind key="W-,"><action name="Execute"><command>noctalia msg settings-toggle</command></action></keybind>
+
+    <!-- Media keys -->
+    <keybind key="XF86AudioRaiseVolume"><action name="Execute"><command>noctalia msg volume-up</command></action></keybind>
+    <keybind key="XF86AudioLowerVolume"><action name="Execute"><command>noctalia msg volume-down</command></action></keybind>
+    <keybind key="XF86AudioMute"><action name="Execute"><command>noctalia msg volume-mute</command></action></keybind>
+    <keybind key="XF86MonBrightnessUp"><action name="Execute"><command>noctalia msg brightness-up</command></action></keybind>
+    <keybind key="XF86MonBrightnessDown"><action name="Execute"><command>noctalia msg brightness-down</command></action></keybind>
+  </keyboard>
+```
+
+## DPMS mode
+Install wlopm from extra repository for Arch Linux
+```
+sudo pacman -S wlopm
+```
+Create a custom command for dpms on and off using wlopm. Add the below commands to the toml config. Pass the Wayland connector name (e.g. DP-1, HDMI-A-1)
+```
+[idle.behavior.screen-off]
+timeout = 600
+command = "wlopm --off [Monitor name]"
+resume_command = "wlopm --on [Monitor name]"
+# for multiple monitors
+# command = "wlopm --off [Monitor name0]; wlopm --off [Monitor name1]; wlopm --off [Monitor name2]"
+# resume_command = "wlopm --on [Monitor name0]; wlopm --on [Monitor name1]; wlopm --on [Monitor name2]"
+```

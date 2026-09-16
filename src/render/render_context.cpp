@@ -123,7 +123,7 @@ void RenderContext::initialize(GlSharedContext& shared) {
   m_backend->textureManager().probeExtensions();
   m_textRenderer.initialize(m_backend.get(), &m_backend->textureManager());
   m_glyphRenderer.initialize(
-      paths::assetPath("fonts/tabler.ttf").string(), m_backend.get(), &m_backend->textureManager()
+      paths::assetPath("fonts/noctalia-tabler.ttf").string(), m_backend.get(), &m_backend->textureManager()
   );
   m_textRenderer.setFontFamily(m_textFontFamily);
   m_textRenderer.setBaseDirection(m_textBaseDirRtl);

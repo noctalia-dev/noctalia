@@ -82,7 +82,8 @@ private:
   void doLayout(Renderer& renderer, float containerWidth, float containerHeight) override;
   void doUpdate(Renderer& renderer) override;
 
-  [[nodiscard]] ColorSpec resolveScriptColor(const ScriptColorState& state) const noexcept;
+  [[nodiscard]] static ColorSpec
+  resolveScriptColor(const ScriptColorState& state, const ColorSpec& defaultColor) noexcept;
   [[nodiscard]] static ScriptColorMode scriptColorModeFromToken(std::string_view token) noexcept;
   [[nodiscard]] static std::optional<ColorSpec> scriptColorFromToken(std::string_view token) noexcept;
   [[nodiscard]] std::filesystem::path resolvePluginPath(std::string_view path) const;

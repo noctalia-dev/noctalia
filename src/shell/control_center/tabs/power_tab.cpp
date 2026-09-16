@@ -14,6 +14,7 @@
 #include <cstdint>
 #include <format>
 #include <memory>
+#include <optional>
 #include <string>
 
 using namespace control_center;
@@ -59,15 +60,10 @@ namespace {
     return state.configuredStart == state.effectiveStart && state.configuredEnd == state.effectiveEnd;
   }
 
-  bool hasRestrictiveThreshold(const UPowerChargeLimitState& state) {
-    return (state.effectiveStart.has_value() && *state.effectiveStart > 0U)
-        || (state.effectiveEnd.has_value() && *state.effectiveEnd < 100U);
-  }
-
 } // namespace
 
 PowerTab::ChargeLimitMode PowerTab::classifyChargeLimit(const UPowerChargeLimitState& state) noexcept {
-  if (!state.requestPending && state.enabledAvailable && !state.enabled && hasRestrictiveThreshold(state)) {
+  if (!state.requestPending && state.enabledAvailable && !state.enabled && state.hasRestrictiveThreshold()) {
     return ChargeLimitMode::ExternallyManaged;
   }
 
@@ -129,6 +125,7 @@ std::unique_ptr<Flex> PowerTab::create() {
   });
 
   auto scroll = ui::scrollView({
+      .contentScale = scale,
       .scrollbarVisible = true,
       .flexGrow = 1.0F,
       .configure = [](ScrollView& scrollView) {
@@ -296,7 +293,7 @@ void PowerTab::buildProfilesCard(Flex& root, float scale) {
       ui::segmented({
           .out = &m_profiles,
           .options = std::move(options),
-          .fontSize = Style::fontSizeCaption * scale,
+          .fontSize = Style::fontSizeCaption,
           .scale = scale,
           .surfaceOpacity = panelCardOpacity(),
           .surfaceRole = ColorRole::Surface,
@@ -560,7 +557,7 @@ void PowerTab::rebuildChargeLimits() {
     const auto& state = batteries[i].chargeLimit;
     auto& row = m_chargeLimitRows[i];
     const ChargeLimitMode mode = classifyChargeLimit(state);
-    const bool permitsFullCharge = (state.enabledAvailable && !state.enabled && !hasRestrictiveThreshold(state))
+    const bool permitsFullCharge = (state.enabledAvailable && !state.enabled && !state.hasRestrictiveThreshold())
         || (state.effectiveEnd == 100U && (!state.effectiveStart.has_value() || state.effectiveStart == 0U));
     if (row.nameLabel != nullptr) {
       row.nameLabel->setText(deviceDisplayName(batteries[i]));
@@ -710,19 +707,18 @@ void PowerTab::syncBatteryHealth() {
   }
 
   const UPowerDeviceInfo* battery = m_upower->defaultSystemBattery();
-  const bool hasHealth = battery != nullptr && battery->energyFullDesign > 0.0 && battery->energyFull > 0.0;
-  m_healthCard->setVisible(hasHealth);
-  if (!hasHealth) {
+  const std::optional<double> health = battery != nullptr ? battery->healthPercent() : std::nullopt;
+  m_healthCard->setVisible(health.has_value());
+  if (!health) {
     return;
   }
 
-  const double health = std::clamp(battery->energyFull / battery->energyFullDesign * 100.0, 0.0, 100.0);
   if (m_healthLabel != nullptr) {
-    m_healthLabel->setText(std::format("{:.0F}%", health));
+    m_healthLabel->setText(std::format("{:.0F}%", *health));
   }
   if (m_healthBar != nullptr) {
-    m_healthBar->setProgress(static_cast<float>(health / 100.0));
-    m_healthBar->setFill(colorSpecFromRole(healthRole(health)));
+    m_healthBar->setProgress(static_cast<float>(*health / 100.0));
+    m_healthBar->setFill(colorSpecFromRole(healthRole(*health)));
   }
 }
 

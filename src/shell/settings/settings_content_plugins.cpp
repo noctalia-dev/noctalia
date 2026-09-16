@@ -693,30 +693,78 @@ namespace settings {
     Flex* section = sectionCol.get();
     content.addChild(std::move(sectionCol));
 
-    section->addChild(
-        ui::row(
-            {.align = FlexAlign::Center, .gap = Style::spaceSm * scale, .fillWidth = true},
-            ui::glyph({
-                .glyph = "puzzle",
-                .glyphSize = Style::fontSizeHeader * scale,
-                .color = colorSpecFromRole(ColorRole::Primary),
-            }),
-            makeLabel(
-                i18n::tr("settings.navigation.sections.plugins"), Style::fontSizeHeader * scale, ColorRole::Primary,
-                FontWeight::Bold
-            )
+    auto titleRow = ui::row(
+        {.align = FlexAlign::Center, .gap = Style::spaceSm * scale, .fillWidth = true},
+        ui::glyph({
+            .glyph = "puzzle",
+            .glyphSize = Style::fontSizeHeader * scale,
+            .color = colorSpecFromRole(ColorRole::Primary),
+        }),
+        makeLabel(
+            i18n::tr("settings.navigation.sections.plugins"), Style::fontSizeHeader * scale, ColorRole::Primary,
+            FontWeight::Bold
         )
     );
+    if (ctx.pageTitleRow != nullptr && !ctx.searchActive && ctx.pageTitleRow->children().empty()) {
+      ctx.pageTitleRow->addChild(std::move(titleRow));
+    } else {
+      section->addChild(std::move(titleRow));
+    }
+
+    const std::string sourcesTitle = i18n::tr("settings.plugins.sources.title");
+    const std::string pluginsTitle = i18n::tr("settings.plugins.plugins.title");
+    auto [pageIt, fresh] = ctx.expandedGroupsByPage.try_emplace("plugins");
+    if (fresh) {
+      pageIt->second.insert("plugins");
+    }
+    auto& expandedGroups = pageIt->second;
+
+    Button* sourcesPill = nullptr;
+    Button* pluginsPill = nullptr;
+    if (ctx.groupJumpRow != nullptr && !ctx.searchActive) {
+      ctx.groupJumpRow->addChild(
+          ui::button({
+              .out = &sourcesPill,
+              .text = sourcesTitle,
+              .fontSize = Style::fontSizeCaption * scale,
+              .variant = expandedGroups.contains("sources") ? ButtonVariant::Primary : ButtonVariant::Default,
+              .radius = Style::scaledRadiusMd(scale),
+          })
+      );
+      ctx.groupJumpRow->addChild(
+          ui::button({
+              .out = &pluginsPill,
+              .text = pluginsTitle,
+              .fontSize = Style::fontSizeCaption * scale,
+              .variant = expandedGroups.contains("plugins") ? ButtonVariant::Primary : ButtonVariant::Default,
+              .radius = Style::scaledRadiusMd(scale),
+          })
+      );
+    }
 
     if (ctx.config != nullptr && ctx.config->shell.offlineMode) {
       section->addChild(makeOfflineModeNotice(scale, i18n::tr("settings.window.offline-mode-notice.plugins")));
     }
 
-    // ── Sources ──────────────────────────────────────────────────────────
-    auto sourcesHeader = ui::row({.align = FlexAlign::Center, .gap = Style::spaceSm * scale, .fillWidth = true});
-    sourcesHeader->addChild(makeLabel(
-        i18n::tr("settings.plugins.sources.title"), Style::fontSizeBody * scale, ColorRole::Secondary, FontWeight::Bold
-    ));
+    Flex* sourcesBody = addSettingsGroupCard(
+        SettingsGroupCardProps{
+            .parent = *section,
+            .group = "sources",
+            .title = sourcesTitle,
+            .scale = scale,
+            .expandedGroups = expandedGroups,
+            .pill = sourcesPill,
+            .scrollToTop = ctx.scrollContentToTop,
+        }
+    );
+
+    Flex* sourcesHeader = nullptr;
+    auto sourcesHeaderNode = ui::row({
+        .out = &sourcesHeader,
+        .align = FlexAlign::Center,
+        .gap = Style::spaceSm * scale,
+        .fillWidth = true,
+    });
     sourcesHeader->addChild(ui::spacer());
     sourcesHeader->addChild(
         ui::button({
@@ -732,13 +780,13 @@ namespace settings {
             },
         })
     );
-    section->addChild(std::move(sourcesHeader));
+    sourcesBody->addChild(std::move(sourcesHeaderNode));
     if (ctx.sources.empty()) {
-      section->addChild(makeLabel(
+      sourcesBody->addChild(makeLabel(
           i18n::tr("settings.plugins.sources.empty"), Style::fontSizeCaption * scale, ColorRole::OnSurfaceVariant
       ));
     } else if (ctx.sources.size() > 1) {
-      section->addChild(makeLabel(
+      sourcesBody->addChild(makeLabel(
           i18n::tr("settings.plugins.sources.precedence-hint"), Style::fontSizeCaption * scale,
           ColorRole::OnSurfaceVariant
       ));
@@ -747,15 +795,13 @@ namespace settings {
     // (the same cascade as the rest of the config), so a source lower in the list
     // overrides the ones above it for a shared plugin id.
     for (const auto& source : ctx.sources) {
-      section->addChild(sourceRow(source, ctx, scale));
+      sourcesBody->addChild(sourceRow(source, ctx, scale));
     }
 
     const bool hasGitSource = std::ranges::any_of(ctx.sources, [](const PluginSourceConfig& s) {
       return s.kind == PluginSourceKind::Git && s.enabled;
     });
     if (hasGitSource && ctx.setAutoUpdate) {
-      // Separate from the source list so the dropdown doesn't read as another source.
-      section->addChild(ui::separator({.spacing = Style::spaceSm * scale}));
       auto autoRow = ui::row({.align = FlexAlign::Center, .gap = Style::spaceSm * scale, .fillWidth = true});
       auto autoInfo = ui::column({.align = FlexAlign::Start, .gap = 2.0F * scale, .flexGrow = 1.0F});
       autoInfo->addChild(makeLabel(
@@ -766,37 +812,72 @@ namespace settings {
           i18n::tr("settings.plugins.sources.auto-update-desc"), Style::fontSizeCaption * scale,
           ColorRole::OnSurfaceVariant
       ));
-      std::vector<SelectOption> modeOptions;
+      std::vector<ui::SegmentedOption> modeOptions;
       modeOptions.reserve(std::size(kPluginAutoUpdateModes));
+      std::optional<std::size_t> selectedModeIndex;
       for (const auto& opt : kPluginAutoUpdateModes) {
-        modeOptions.push_back(SelectOption{std::string(opt.key), i18n::tr(opt.labelKey)});
+        if (opt.value == ctx.autoUpdateMode) {
+          selectedModeIndex = modeOptions.size();
+        }
+        modeOptions.push_back(ui::SegmentedOption{.label = i18n::tr(opt.labelKey)});
       }
-      const auto selectedModeIndex = optionIndex(modeOptions, enumToKey(kPluginAutoUpdateModes, ctx.autoUpdateMode));
       autoRow->addChild(std::move(autoInfo));
       autoRow->addChild(
-          ui::select({
-              .options = optionLabels(modeOptions),
+          ui::segmented({
+              .options = std::move(modeOptions),
               .selectedIndex = selectedModeIndex,
-              .fontSize = Style::fontSizeBody * scale,
-              .controlHeight = Style::controlHeight * scale,
-              .glyphSize = Style::fontSizeBody * scale,
-              .onSelectionChanged = [cb = ctx.setAutoUpdate](std::size_t index, std::string_view /*label*/) {
+              .scale = scale,
+              .onChange = [cb = ctx.setAutoUpdate](std::size_t index) {
                 if (cb && index < std::size(kPluginAutoUpdateModes)) {
                   cb(kPluginAutoUpdateModes[index].value);
                 }
               },
           })
       );
-      section->addChild(std::move(autoRow));
+      sourcesBody->addChild(std::move(autoRow));
     }
 
-    section->addChild(ui::separator({.spacing = Style::spaceSm * scale}));
-
     // ── Plugins ──────────────────────────────────────────────────────────
-    auto pluginsHeader = ui::row({.align = FlexAlign::Center, .gap = Style::spaceSm * scale, .fillWidth = true});
-    pluginsHeader->addChild(makeLabel(
-        i18n::tr("settings.plugins.plugins.title"), Style::fontSizeBody * scale, ColorRole::Secondary, FontWeight::Bold
-    ));
+    Flex* pluginsBody = addSettingsGroupCard(
+        SettingsGroupCardProps{
+            .parent = *section,
+            .group = "plugins",
+            .title = pluginsTitle,
+            .scale = scale,
+            .expandedGroups = expandedGroups,
+            .pill = pluginsPill,
+            .scrollToTop = ctx.scrollContentToTop,
+        }
+    );
+    std::vector<scripting::PluginStatus> plugins;
+    plugins.reserve(ctx.plugins.size());
+    for (const auto& plugin : ctx.plugins) {
+      if (plugin.materialized || plugin.enabled) {
+        plugins.push_back(plugin);
+      }
+    }
+    // The update action covers every installed plugin, so count the badge before filtering.
+    const int updatesAvailable =
+        static_cast<int>(std::ranges::count_if(plugins, &scripting::PluginStatus::updateAvailable));
+    const bool hasInstalledPlugins = !plugins.empty();
+    // In page search narrows the list and empty query keeps every plugin.
+    if (!ctx.searchQuery.empty()) {
+      std::erase_if(plugins, [&](const scripting::PluginStatus& plugin) {
+        return !(
+            StringUtils::containsInsensitive(pluginDisplayName(plugin), ctx.searchQuery)
+            || StringUtils::containsInsensitive(plugin.id, ctx.searchQuery)
+            || StringUtils::containsInsensitive(plugin.description, ctx.searchQuery)
+            || StringUtils::containsInsensitive(plugin.source, ctx.searchQuery)
+        );
+      });
+    }
+    Flex* pluginsHeader = nullptr;
+    auto pluginsHeaderNode = ui::row({
+        .out = &pluginsHeader,
+        .align = FlexAlign::Center,
+        .gap = Style::spaceSm * scale,
+        .fillWidth = true,
+    });
     if (ctx.pluginsLoading) {
       pluginsHeader->addChild(
           ui::spinner({
@@ -805,10 +886,29 @@ namespace settings {
           })
       );
     }
-    pluginsHeader->addChild(ui::spacer());
-    const int updatesAvailable = static_cast<int>(
-        std::ranges::count_if(ctx.plugins, [](const scripting::PluginStatus& p) { return p.updateAvailable; })
+    // Only shows the installed plugins.
+    Input* pluginSearchInput = nullptr;
+    pluginsHeader->addChild(
+        ui::input({
+            .out = &pluginSearchInput,
+            .value = ctx.searchQuery,
+            .placeholder = i18n::tr("settings.plugins.plugins.search-placeholder"),
+            .fontSize = Style::fontSizeBody * scale,
+            .controlHeight = Style::controlHeight * scale,
+            .horizontalPadding = Style::spaceSm * scale,
+            .clearButtonEnabled = true,
+            .width = 300.0F * scale,
+            .onChange = [cb = ctx.setSearchQuery](const std::string& text) {
+              if (cb) {
+                cb(text);
+              }
+            },
+        })
     );
+    if (pluginSearchInput != nullptr && pluginSearchInput->inputArea() != nullptr) {
+      pluginSearchInput->inputArea()->setTabFocusKey("settings.plugins.search");
+    }
+    pluginsHeader->addChild(ui::spacer());
     if (updatesAvailable > 0 && ctx.updateAll) {
       pluginsHeader->addChild(
           ui::button({
@@ -841,24 +941,19 @@ namespace settings {
           })
       );
     }
-    section->addChild(std::move(pluginsHeader));
+    pluginsBody->addChild(std::move(pluginsHeaderNode));
     if (!ctx.pluginsLoading && ctx.plugins.empty()) {
-      section->addChild(makeLabel(
+      pluginsBody->addChild(makeLabel(
           i18n::tr("settings.plugins.plugins.empty"), Style::fontSizeCaption * scale, ColorRole::OnSurfaceVariant
       ));
-    }
-    std::vector<scripting::PluginStatus> plugins;
-    plugins.reserve(ctx.plugins.size());
-    for (const auto& plugin : ctx.plugins) {
-      if (plugin.materialized || plugin.enabled) {
-        plugins.push_back(plugin);
-      }
     }
     std::ranges::sort(plugins, [&](const auto& a, const auto& b) {
       const std::string_view aName = pluginDisplayName(a);
       const std::string_view bName = pluginDisplayName(b);
-      if (aName != bName) {
-        return aName < bName;
+      if (!StringUtils::equalsInsensitive(aName, bName)) {
+        return std::ranges::lexicographical_compare(aName, bName, [](char x, char y) {
+          return std::tolower(static_cast<unsigned char>(x)) < std::tolower(static_cast<unsigned char>(y));
+        });
       }
       if (a.source != b.source) {
         return pluginSourceLess(a.source, b.source);
@@ -866,10 +961,16 @@ namespace settings {
       return a.id < b.id;
     });
     for (const auto& plugin : plugins) {
-      section->addChild(pluginRow(plugin, ctx, scale));
+      pluginsBody->addChild(pluginRow(plugin, ctx, scale));
       if (!ctx.pendingDeletePluginId.empty() && ctx.pendingDeletePluginId == plugin.id) {
-        section->addChild(pluginDeleteConfirmPanel(plugin, ctx, scale));
+        pluginsBody->addChild(pluginDeleteConfirmPanel(plugin, ctx, scale));
       }
+    }
+    if (!ctx.pluginsLoading && hasInstalledPlugins && plugins.empty() && !ctx.searchQuery.empty()) {
+      section->addChild(makeLabel(
+          i18n::tr("settings.plugins.plugins.search-empty", "query", ctx.searchQuery), Style::fontSizeCaption * scale,
+          ColorRole::OnSurfaceVariant
+      ));
     }
   }
 

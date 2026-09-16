@@ -146,18 +146,20 @@ namespace shell::dock {
     }
 
     if (!dockUsesAnyAutoHide(cfg)) {
-      instance.surface->setInputRegion(shell::dock::computeInputRegion(cfg, panelGeometry, surfW, surfH, false));
+      instance.surface->setInputRegion(
+          shell::dock::computeInputRegion(cfg, panelGeometry, surfW, surfH, false, instance.fractionalScale)
+      );
       return;
     }
 
-    const bool fullSurface = instance.pointerInside
-        || instance.hideOpacity > 0.5F
-        || (cfg.smartAutoHide && instance.smartAutoHidePinnedVisible);
+    const bool fullSurface = instance.pointerInside || (cfg.smartAutoHide && instance.smartAutoHidePinnedVisible);
     if (fullSurface) {
       instance.surface->setInputRegion({InputRect{0, 0, surfW, surfH}});
       return;
     }
-    instance.surface->setInputRegion(shell::dock::computeInputRegion(cfg, DockPanelGeometry{}, surfW, surfH, true));
+    instance.surface->setInputRegion(
+        shell::dock::computeInputRegion(cfg, DockPanelGeometry{}, surfW, surfH, true, instance.fractionalScale)
+    );
   }
 
   void applyDockCompositorBlur(DockInstance& instance, const DockConfig& cfg) {
@@ -363,7 +365,7 @@ namespace shell::dock {
     }
 
     const auto surfaceGeometry = shell::dock::computeSurfaceGeometry(
-        cfg, shadowConfig, instance.items.size() + shell::dock::dockLauncherButtonCount(cfg)
+        cfg, shadowConfig, instance.items.size() + shell::dock::dockLauncherButtonCount(cfg), instance.fractionalScale
     );
 
     if (instance.surface->width() != surfaceGeometry.surfaceW
@@ -406,6 +408,9 @@ namespace shell::dock {
   }
 
   void startHideFadeOut(DockInstance& inst, ConfigService& config) {
+    // xdg tooltips are not parent-transformed with the slide; destroy immediately
+    // so they cannot remain pinned after auto-hide starts (#4177).
+    TooltipManager::instance().forceDestroy();
     if (inst.hideAnimId != 0) {
       inst.animations.cancel(inst.hideAnimId);
       inst.hideAnimId = 0;
@@ -419,14 +424,9 @@ namespace shell::dock {
           syncDockSlideLayerTransform(inst, cfg);
           applyDockCompositorBlur(inst, cfg);
         },
-        [&inst, &config]() {
-          inst.hideAnimId = 0;
-          if (inst.surface == nullptr) {
-            return;
-          }
-          syncDockAutoHideInputRegion(inst, config.config().dock, DockPanelGeometry{});
-        }
+        [&inst]() { inst.hideAnimId = 0; }
     );
+    syncDockAutoHideInputRegion(inst, config.config().dock, DockPanelGeometry{});
     if (inst.surface) {
       inst.surface->requestRedraw();
     }

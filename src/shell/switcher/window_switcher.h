@@ -1,9 +1,11 @@
 #pragma once
 
 #include "shell/switcher/window_switcher_tile.h"
+#include "system/icon_resolver.h"
 #include "wayland/wayland_seat.h"
 
 #include <cstddef>
+#include <deque>
 #include <memory>
 #include <optional>
 #include <string>
@@ -55,6 +57,9 @@ private:
   void buildScene(Instance& instance, std::uint32_t width, std::uint32_t height);
   void positionGrid(Instance& instance, float screenW, float screenH);
   void syncGridSelection();
+  [[nodiscard]] bool mruEnabled() const;
+  void recordFocusedWindow();
+  void promoteMruKey(const std::string& key);
 
   WaylandConnection* m_wayland = nullptr;
   RenderContext* m_renderContext = nullptr;
@@ -63,7 +68,9 @@ private:
   AsyncTextureCache* m_asyncTextures = nullptr;
 
   Instance* m_instance = nullptr;
+  IconResolver m_iconResolver;
   std::vector<WindowSwitcherEntry> m_windows;
+  std::deque<std::string> m_mruKeys;
   std::size_t m_selectedIndex = 0;
   std::size_t m_gridColumns = 5;
   wl_output* m_output = nullptr;

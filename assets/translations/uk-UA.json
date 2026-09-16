@@ -1,15 +1,15 @@
 {
   "auth": {
     "fingerprint": {
-      "disconnected": "Втрачено зв'язок із датчиком відбитків пальців.",
-      "error": "Помилка автентифікації за відбиком пальця.",
-      "no-match": "Відбиток пальця не збігається.",
-      "not-centered": "Прикладіть палець до центру датчика і спробуйте знову.",
+      "disconnected": "Втрачено зв'язок із датчиком відбитків пальців",
+      "error": "Помилка автентифікації за відбиком пальця",
+      "no-match": "Відбиток пальця не збігається",
+      "not-centered": "Приклади палець до центру датчика та спробуй знову",
       "present": "Зчитування відбитку пальця…",
-      "ready": "Прикладіть палець до датчика.",
-      "remove-and-retry": "Приберіть палець із датчика та спробуйте знову.",
-      "retry": "Відскануйте відбиток пальця повторно.",
-      "swipe-too-short": "Ви занадто швидко прибрали палець. Спробуйте ще раз.",
+      "ready": "Приклади палець до датчика",
+      "remove-and-retry": "Прибери палець із датчика та спробуй знову",
+      "retry": "Відскануй відбиток пальця ще раз",
+      "swipe-too-short": "Ти занадто швидко прибрав палець, спробуй ще раз",
       "too-many-attempts": "Зчитування відбитків пальців вимкнено (забагато спроб)."
     },
     "pam": {
@@ -20,19 +20,63 @@
     "polkit": {
       "authenticate": "Автентифікувати",
       "authenticating": "Виконання автентифікації…",
-      "default-message": "Пройдіть автентифікацію.",
+      "default-message": "Пройди автентифікацію",
       "invalid-password": "Пароль неправильний.",
       "password-placeholder": "Пароль",
-      "title": "Автентифікуйтеся"
+      "title": "Автентифікуйся"
     }
   },
   "bar": {
+    "annotate": {
+      "capture-new-region": "Захопити нову область (відкидає поточні зміни)",
+      "close": "Закрити не зберігаючи (Esc)",
+      "color-black": "Чорний",
+      "color-blue": "Синій",
+      "color-green": "Зелений",
+      "color-orange": "Жовтогарячий",
+      "color-purple": "Фіолетовий",
+      "color-red": "Червоний",
+      "color-white": "Білий",
+      "color-yellow": "Жовтий",
+      "copy": "Копіювати анотоване зображення (Ctrl+C)",
+      "cursor": "Показувати курсор на захопленному екрані (p)",
+      "cursor-capture-failed": "Ховання/Показування курсора з редактора недоступно; поточний композитор не надав зображення курсору",
+      "cursor-live": "Спочатку заморозь екран щоб сховати/показати курсор",
+      "cursor-not-captured": "Ховання/Показування курсора з редактора недоступно; поточний композитор не може захоплювати курсор окремо",
+      "done": "Застосувати зміни (Enter)",
+      "fill-off": "Заповнення фігур: Вимк.",
+      "fill-on": "Заповнення фігур: Увімк.",
+      "freeze": "Заморозити екран під анотаціями (f)",
+      "move-toolbar": "Потягни щоб перемістити панель інструментів",
+      "redo": "Вернути (Ctrl+Shift+Z)",
+      "save": "Зберегти анотоване зображення (Ctrl+S)",
+      "size-advanced": "Точне налаштування розміру",
+      "size-decrease": "Тонше ( [ )",
+      "size-increase": "Товще ( ] )",
+      "size-large": "Товстий",
+      "size-medium": "Середній",
+      "size-small": "Тонкий",
+      "tool-arrow": "Стрілка (a) · затисни Shift щоб прилипати до куту",
+      "tool-blur": "Розмити область (u)",
+      "tool-brush": "Пензель (b)",
+      "tool-circle": "Еліпс (o) · затисни Shift щоб намалювати коло",
+      "tool-crop": "Обрізати (c)",
+      "tool-eraser": "Гумка (e)",
+      "tool-highlighter": "Маркер (h)",
+      "tool-line": "Лінія (a) · затисни Shift щоб прилипати до куту",
+      "tool-move": "Перемістити елемент (m)",
+      "tool-numbering": "Нумерована мітка (n)",
+      "tool-rectangle": "Прямокутник (s) · затисни Shift щоб намалювати квадрат",
+      "tool-text": "Текст (t)",
+      "undo": "Скасувати (Ctrl+Z)"
+    },
     "screenshot": {
-      "choose-display": "Виберіть дисплей",
-      "confirm-region": "Enter або пробіл: зробити знімок · Esc: скасувати · Протягніть курсор, утримуючи ліву кнопку миші, щоб вибрати область.",
+      "annotate-export-failed": "Не вдалося експортувати анотоване зображення",
+      "choose-display": "Обери дисплей",
+      "confirm-region": "{copy}: скопіювати · {save}: зберегти · Enter або Пробіл: дія за замовчуванням · {cancel}: відмінити · Затисни та протягни щоб обрати область",
       "fullscreen": "Весь екран",
       "overlay-alloc-failed": "Не вдалося показати інтерфейс створення знімку екрана (імовірно, пам'ять відеокарти заповнена вщент?)",
-      "region": "Виберіть область"
+      "region": "Обери область"
     },
     "widgets": {
       "active-window": {
@@ -60,6 +104,7 @@
       "network": {
         "active": "Активна",
         "band": "Діапазон",
+        "cellular": "Стільникова мережа",
         "connected": "Під'єднано",
         "connecting": "Триває під'єднання до мережі…",
         "download": "Вхідна швидкість",
@@ -73,8 +118,10 @@
         "not-connected": "Не під'єднано",
         "off": "Вимк.",
         "on": "Увімк.",
+        "operator": "Оператор",
         "scanning": "Триває сканування…",
         "signal": "Рівень сигналу",
+        "technology": "Технологія",
         "upload": "Вихідна швидкість",
         "vpn": "VPN",
         "wan-ip": "IP-адреса у WAN-мережі",
@@ -93,6 +140,7 @@
       },
       "sysmon": {
         "cpu": "ЦП",
+        "cpu-freq": "Тактова частота ЦП",
         "cpu-temp": "Температура ЦП",
         "disk": "Диск",
         "disk-free": "Вільне місце на диску",
@@ -121,6 +169,7 @@
         "off": "Прогноз погоди вимкнено.",
         "tooltip": {
           "condition": "Умови",
+          "feels-like": "Відчувається як",
           "high": "Найвища температура",
           "humidity": "Вологість повітря",
           "low": "Найвища температура",
@@ -140,7 +189,7 @@
       "keep-pinned": "Залишити закріпленим"
     },
     "confirm": {
-      "clear-desc": "Оберіть, чи зберігати закріплені елементи.",
+      "clear-desc": "Обери, чи зберігати закріплені елементи.",
       "clear-desc-all-pinned": "Кожен запис закріплений. Скористайтеся «Очистити все», щоб видалити їх усі.",
       "clear-desc-no-pinned": "Видаляє всі записи з історії буфера обміну.",
       "clear-title": "Очистити історію буфера обміну?",
@@ -159,6 +208,7 @@
     },
     "filter-placeholder": "Фільтрувати буфер обміну...",
     "preview": {
+      "empty-text-payload": "(нема текстового вмісту. Можливо, файл?)",
       "image-title": "Запис зображення",
       "loading": "Завантаження попереднього перегляду…",
       "text-title": "Запис текстового буфера обміну",
@@ -181,7 +231,8 @@
   "control-center": {
     "audio": {
       "application-volumes": "Гучність застосунків",
-      "choose-effects-profile": "Виберіть профіль",
+      "choose-effects-profile": "Обери профіль",
+      "default-device": "Типовий пристрій",
       "effects-profile": "Ефекти",
       "input-device-prefix": "Ввід",
       "no-application-audio": "Немає звуку застосунку",
@@ -201,29 +252,29 @@
       "address": "Адреса",
       "auto-reconnect": "Автоматично з'єднуватися",
       "bluetooth": "Bluetooth",
-      "enter-code": "Введіть код",
-      "no-devices": "Пристроїв не знайдено. Почніть сканування, щоб знайти пристрої Bluetooth поблизу.",
+      "enter-code": "Введи код",
+      "no-devices": "Перелік доступних пристроїв наразі пустий. Виконайте сканування, щоб виявити пристрої з увімкненим Bluetooth поблизу.",
       "off": "Bluetooth вимкнено",
-      "pair-title": "З'єднати {device}",
+      "pair-title": "Пов'язати {device}",
       "pairing-detail": {
-        "authorize": "Прийняти вхідний запит на з'єднання?",
+        "authorize": "Прийняти вхідний запит на пов'язання?",
         "authorize-service": "Дозволити доступ до служби {uuid}?",
-        "confirm": "Підтвердьте, що цей код відповідає тому, що відображається на пристрої:",
-        "display-passkey": "Введіть цей код на пристрої:",
-        "display-pin": "Введіть цей PIN на пристрої:",
-        "passkey": "Введіть ключ доступу, показаний на пристрої:",
-        "pin-code": "Введіть PIN-код, показаний на пристрої."
+        "confirm": "Підтвердьте, чи відповідає це код тому, який показаний на пристрої:",
+        "display-passkey": "Введи цей код на пристрої:",
+        "display-pin": "Введи цей ПІН-код на пристрої:",
+        "passkey": "Введи ключ доступу, показаний на пристрої:",
+        "pin-code": "Введи ПІН-код, показаний на пристрої:"
       },
       "reject": "Відхилити",
-      "rfkill-blocked": "Bluetooth заблоковано системою. Увімкніть його, щоб зняти блокування.",
+      "rfkill-blocked": "Bluetooth заблоковано системою. Увімкни його, щоб зняти блокування.",
       "sections": {
         "available": "Доступні пристрої",
         "connected": "Підключено",
-        "paired": "З'єднано"
+        "paired": "Пов'язано"
       },
       "unavailable": "Служба Bluetooth недоступна",
       "unknown-device": "Невідомий пристрій",
-      "visible": "Виявлення пристроями поблизу"
+      "visible": "Видимість пристроям поблизу"
     },
     "calendar": {
       "all-day": "Весь день",
@@ -235,6 +286,7 @@
     "display": {
       "disabled": "Вимкнено",
       "no-displays": "Немає доступних моніторів",
+      "rescan": "Пересканувати DDC/CI монітори",
       "unknown-resolution": "Невідома роздільна здатність"
     },
     "home": {
@@ -266,15 +318,39 @@
       "start-playback": "Почати відтворення в застосунку MPRIS"
     },
     "network": {
+      "anonymous-identity": "Анонімний ідентифікатор (необов'язково)",
       "available": "Доступні мережі",
+      "ca-certificate": "Шлях до сертифікату CA (необов'язково)",
+      "cellular": "Стільникова мережа",
+      "cellular-connected": "Під'єднано",
+      "cellular-connecting": "Під'єднання...",
+      "cellular-connection": "Стільникова мережа",
+      "cellular-enabling": "Ввімкнення...",
+      "cellular-failed": "Невдача",
+      "cellular-locked": "SIM Заблокована",
+      "cellular-no-service": "Немає зв'язку",
+      "cellular-off": "Вимкнено",
+      "cellular-registered": "Зареєстровано",
+      "cellular-searching": "Пошук...",
       "connect": "Підключити",
       "current-connection": "Поточне з'єднання",
+      "domain-suffix-match": "Суффікс домену сервера",
+      "eap-method": "Метод EAP",
+      "enterprise-prompt-for": "Увійти до {ssid}",
+      "error-ca-not-absolute": "Шлях до сертифікату має бути абсолютним, починаючись з /.",
+      "error-certificate-required": "Ця мережа використовує автентифікацію по клієнтським сертифікатам (EAP-TLS), що ще не підтримується.",
+      "error-enterprise-unsupported": "Поточний менеджер мереж не підтримує налаштування 802.1X мереж.",
+      "error-missing-identity": "Введи ідентифікатор виданий твоєю організацією.",
+      "error-missing-password": "Введи свій пароль.",
+      "error-unsupported-phase2": "PEAP вимагає MSCHAPv2 як метод внутрішньої автентифікації.",
       "external-ip": "WAN: {ip}",
+      "identity": "Ідентифікатор",
       "no-networks": "Немає мереж в зоні дії",
       "not-connected": "Не підключено",
       "password": "Пароль",
-      "password-prompt": "Введіть пароль",
-      "password-prompt-for": "Введіть пароль для {ssid}",
+      "password-prompt": "Введи пароль",
+      "password-prompt-for": "Введи пароль для {ssid}",
+      "phase2-auth": "Внутрішня автентифікація",
       "saved": "Збережені мережі",
       "unavailable-detail": "Встанови та увімкни NetworkManager, щоб керувати мережами звідси.",
       "unavailable-title": "NetworkManager недоступний",
@@ -303,6 +379,22 @@
     },
     "power": {
       "battery": "Акумулятор",
+      "charging": {
+        "configured": "Налаштовано: {limits}",
+        "display-only": "Тільки показувати",
+        "error-denied": "Помилка авторизації. Пороги заряджання не змінено.",
+        "error-failed": "Не вдалося змінити пороги заряджяння.",
+        "externally-managed": "Визначені іншим засобом. Налаштуйте UPower, щоб визначити пороги тут.",
+        "firmware-managed": "Заряджанням керує системна мікропрограма",
+        "full-charge": "Заряджати до 100%",
+        "starts": "Починати, коли менше {start}%",
+        "starts-stops": "поріг початку: {start}% · поріг зупинки: {end}%",
+        "stops": "Поріг зупинки: {end}%",
+        "title": "Заряджання акумулятора",
+        "unreadable": "Недоступно",
+        "unsupported": "Регулювання порогів заряджання не підтримується.",
+        "use-thresholds": "Застосовувати пороги заряджання"
+      },
       "design-capacity": "Залишок розрахункової місткості",
       "health": "Роботоздатність акумулятора",
       "performance-inhibited": "Потужність недоступна",
@@ -403,6 +495,7 @@
       "data-unavailable": "Дані про погоду недоступні",
       "details": {
         "elevation": "Висота",
+        "feels-like": "Відчувається як",
         "sunrise": "Схід сонця",
         "sunset": "Захід сонця",
         "temp-max": "Максимальна температура",
@@ -432,7 +525,7 @@
         }
       },
       "location-unavailable": "Місцезнаходження недоступне",
-      "no-location-body": "Вкажіть ваше місто чи ввімкніть автоматичне визнечення місцеперебування в параметрах місцеперебування.",
+      "no-location-body": "Вкажи своє місто чи ввімкни автоматичне визнечення місцеперебування в параметрах місцеперебування.",
       "no-location-title": "Місцеперебування не вказане",
       "refreshing": "Оновлення погоди...",
       "waiting": "Очікування даних про погоду"
@@ -458,12 +551,12 @@
       },
       "settings": {
         "aspect-ratio": "Співвідношення сторін",
-        "background": "Фон",
+        "background": "Тло",
         "background-color": "Колір",
         "background-opacity": "Непрозорість",
         "background-padding": "Відступи",
         "background-radius": "Радіус",
-        "background-section": "Фон",
+        "background-section": "Тло",
         "bands": "Смуги",
         "bar-width": "Ширина панелі",
         "bloom-intensity": "Bloom",
@@ -489,6 +582,7 @@
         "fill-color": "Колір заповнення",
         "font-family": "Шрифт",
         "font-family-default": "За замовчуванням системи",
+        "forecast-days": "Кількість днів",
         "format": "Формат",
         "glyph": "Значок",
         "hide-when-no-media": "Приховувати, коли немає медіа",
@@ -512,23 +606,30 @@
         "reset-defaults": "Повернути початкові",
         "ring-opacity": "Непрозорість кільця",
         "rotation-speed": "Швидкість обертання",
+        "scroll-step": "Крок прокручування",
         "secondary-color": "Другорядний колір",
         "sensitivity": "Чутливість",
         "shadow": "Тінь",
+        "show-caps-lock": "Попереджати про Caps Lock",
         "show-device": "Показати пристрій",
+        "show-events": "Показувати події",
         "show-forecast": "Показати прогноз погоди",
         "show-keyboard-layout": "Розкладка клавіатури",
         "show-label": "Показати мітку",
         "show-login-button": "Кнопка підтвердження входу",
+        "show-media": "Що грає",
         "show-session-buttons": "Кнопки керування сеансом",
         "show-weather": "Прогноз погоди",
+        "show-week-numbers": "Номери тижнів",
         "show-when-idle": "Показувати, коли неактивний",
         "stat": "Стан",
+        "stat-cpu-freq": "Тактова частота ЦП",
         "stat-cpu-temp": "Температура CPU",
         "stat-cpu-usage": "Використання CPU",
         "stat-gpu-temp": "Температура GPU",
         "stat-gpu-usage": "Використання GPU",
         "stat-gpu-vram": "GPU VRAM",
+        "stat-gpu-vram-used": "Зайнята пам'ять відеокарти",
         "stat-net-rx": "Вхідна швидкість мережі",
         "stat-net-tx": "Мережа: Вихідна швидкість",
         "stat-none": "Немає",
@@ -537,6 +638,7 @@
         "stat2": "Статистика 2",
         "title": "Заголовок",
         "variant": "Стиль",
+        "variant-default": "Типовий",
         "variant-ghost": "Без контуру й заповнення",
         "variant-outline": "Лише контур",
         "variant-primary": "Основний",
@@ -556,12 +658,15 @@
         "grid": "Сітка"
       },
       "title": "Віджети робочого столу",
+      "title-lockscreen": "Віджети на екрані блокування",
       "types": {
         "audio-visualizer": "Аудіовізуалізатор",
         "button": "Кнопка",
+        "calendar": "Календар",
         "clock": "Годинник",
         "fancy-audio-visualizer": "Ефектний аудіовізуалізатор",
         "label": "Мітка",
+        "login-box": "Поле входу",
         "media-player": "Медіаплеєр",
         "sticker": "Стікер",
         "system-monitor": "Системний монітор",
@@ -574,6 +679,7 @@
     },
     "volume": {
       "mic": "Мікрофон",
+      "muted": "Заглушено",
       "volume": "Гучність"
     },
     "weather": {
@@ -624,12 +730,22 @@
     },
     "context-menu": {
       "open": "Відкрити",
-      "pin-to-dock": "Закріпити до Dock",
-      "unpin-from-dock": "Відкріпити від Dock"
+      "pin": "Закріпити в запускачі",
+      "pin-to-dock": "Закріпити на док-панелі",
+      "unpin": "Відкріпити в запускачі",
+      "unpin-from-dock": "Відкріпити від док-панелі"
     },
     "empty": {
       "no-results": "Нічого не знайдено",
-      "type-to-search": "Введіть для пошуку..."
+      "type-to-search": "Введи для пошуку..."
+    },
+    "origins": {
+      "appimage": "AppImage",
+      "flatpak": "Flatpak",
+      "nix": "Nix",
+      "snap": "Snap",
+      "system": "Системний пакет",
+      "user": "Користувацький"
     },
     "providers": {
       "applications": {
@@ -667,7 +783,8 @@
     },
     "source": {
       "address": "Адреса",
-      "auto": "Авто"
+      "auto": "Авто",
+      "manual": "Вручну"
     }
   },
   "lockscreen": {
@@ -676,7 +793,7 @@
     "caps-lock-on": "Caps Lock увімкнено",
     "password-cleared": "Пароль очищено",
     "password-placeholder": "Пароль",
-    "ready": "Введіть пароль і натисніть клавішу «Enter».",
+    "ready": "Введи пароль і натисни Enter.",
     "unlocked": "Розблоковано",
     "waiting": "Очікування підтвердження блокування..."
   },
@@ -687,16 +804,17 @@
     },
     "inline-reply": {
       "button": "Відповісти",
-      "placeholder": "Введіть відповідь..."
+      "placeholder": "Введи відповідь..."
     },
     "internal": {
-      "battery": "Батарея",
+      "battery": "Акумулятор",
       "battery-critical-body": "{device}: {percent}% — комп'ютер скоро вимкнеться",
       "battery-critical-title": "Критично низький заряд акумулятора",
-      "battery-device": "Пристрій батареї",
+      "battery-device": "Пристрій акумулятора",
       "battery-low-body": "{device}: залишилося {percent}%",
-      "battery-low-title": "Низький заряд батареї",
+      "battery-low-title": "Низький заряд акумулятора",
       "calendar": "Календар",
+      "calendar-credential-locked-title": "Сховище ключів календаря заблоковано",
       "calendar-google-connect-browser-failed": "Не вдалося запустити браузер для авторизації Google. Перевірте свій типовий браузер або налаштування xdg-open.",
       "calendar-google-connect-expired": "Термін дії авторизації Google вичерпався до виконання входу. Спробуйте з'єднатися знову.",
       "calendar-google-connect-failed-title": "З'єднання з Google Календарем не вдалося",
@@ -709,7 +827,7 @@
       "config-migration-title": "Потрібно оновити конфігурацію",
       "dbus-disabled": "Сповіщення DBus вимкнено",
       "desktop-widgets-editor": "Редактор віджетів",
-      "desktop-widgets-editor-enabled": "Редактор віджетів робочого столу увімкнено. Перейдіть на порожній робочий простір, щоб побачити оверлей редактора.",
+      "desktop-widgets-editor-enabled": "Редактор віджетів робочого столу увімкнено. Перейди на порожній робочий простір, щоб побачити оверлей редактора.",
       "greeter-sync": "Noctalia Привітання",
       "greeter-sync-pending": "Адміністратор має схвалити запис налаштувань для вітального екрану",
       "greeter-sync-success": "Оформлення синхронізовано. Зміни будуть застосовані при наступному екрані входу.",
@@ -719,12 +837,14 @@
       "keybind-invalid-super": "Клавіша Super/Windows не може бути використана у прив'язках клавіш оболонки.",
       "keybind-invalid-title": "Прив'язка клавіш не дозволена",
       "launcher-usage-reset": "Запускач",
+      "launcher-usage-reset-success": "Історію видалено.",
       "lockscreen-widgets-editor": "Редактор віджетів екрана блокування",
       "lockscreen-widgets-editor-blocked-locked": "Розблокуйте сеанс, перш ніж редагувати віджети екрана блокування.",
       "lockscreen-widgets-editor-enabled": "Редагування віджетів на екрані блокування розпочато. Розташовуйте віджети на шарі попереднього перегляду, а потім заблокуйте сеанс, щоб перевірити їх розташування.",
       "mpris-disabled": "MPRIS вимкнено",
       "polkit-agent": "Агент Polkit",
       "screen-time-reset": "Екранний час",
+      "screen-time-reset-success": "Історію видалено.",
       "session-bus-unavailable": "Шина сеансу недоступна",
       "wallpaper-palette-export": "Особлива палітра",
       "wallpaper-palette-export-success": "Палітру «{name}» збережено і встановлено як поточну в режимі особливої палітри."
@@ -770,10 +890,13 @@
   },
   "plugins": {
     "auto-disabled": {
+      "body-errors": "Додаток «{plugin}» було вимкнено через завелику кількість помилок у роботі. Усунь їх причину й перезапусти його.",
+      "body-timeouts": "Додаток «{plugin}» не відповідає, тож його було вимкнено. Усунь причину цього й перезапусти його.",
       "title": "Додаток вимкнутий."
     },
     "enable-failed": {
       "body-error": "{plugin}: {error}",
+      "body-incompatible": "{plugin} очікує API {version}; ця версія Noctalia підтримує API {oldest}–{current}.",
       "body-timeout": "Установлення додатку «{plugin}» тривало надто довго.",
       "title": "Додаток не увімкнено."
     }
@@ -828,6 +951,7 @@
     "badges": {
       "advanced": "Додаткові",
       "community": "Спільнота",
+      "deprecated": "Застаріло",
       "inherited": "Успадковано",
       "monitor": "Монітор",
       "official": "Офіційні",
@@ -838,8 +962,10 @@
       "calendars-label": "Календарі",
       "color-label": "Колір",
       "credential-source-file": "Файл із паролями",
+      "credential-source-keyring": "Сховище ключів",
       "delete-error": "Не вдалося видалити обліковий запис календаря.",
       "edit-title": "Редагувати обліковий запис календаря",
+      "ics-url-label": "URL-адреса файла ICS",
       "id-label": "ID облікового запису",
       "invalid": "Перевірте виділені поля облікового запису календаря.",
       "name-label": "Ім'я для відображення",
@@ -852,7 +978,8 @@
       "provider": {
         "custom": "CalDAV",
         "google": "Google",
-        "icloud": "iCloud"
+        "icloud": "iCloud",
+        "ics": "URL-адреса файла ICS"
       },
       "provider-label": "Провайдер",
       "save": "Зберегти",
@@ -860,13 +987,14 @@
       "save-error": "Не вдалося зберегти обліковий запис календаря.",
       "server-url-label": "URL-адреса сервера",
       "username-label": "Ім'я користувача",
-      "username-placeholder": "name@example.com"
+      "username-placeholder": "name@example.com",
+      "vdir-path-label": "Шлях до теки"
     },
     "controls": {
       "keybind": {
-        "add": "Натисніть, щоб додати прив'язку клавіш",
-        "recording-placeholder": "Натисніть комбінацію клавіш…",
-        "unset-placeholder": "Натисніть, щоб прив'язати…"
+        "add": "Натисни, щоб додати гарячу клавішу",
+        "recording-placeholder": "Натисни комбінацію клавіш…",
+        "unset-placeholder": "Натисни, щоб прив'язати…"
       },
       "list": {
         "add-entry-placeholder": "Додати запис…"
@@ -881,7 +1009,7 @@
     },
     "dialogs": {
       "color-picker": {
-        "title": "Виберіть колір"
+        "title": "Обери колір"
       }
     },
     "entities": {
@@ -906,8 +1034,8 @@
         "delete-confirm-title": "Видалити «{name}»?",
         "label": "Монітор: {name}",
         "management": "Змінити на моніторі",
-        "match-placeholder": "Введіть монітор",
-        "new": "Зміни для окремого монітора",
+        "match-placeholder": "Введи монітор",
+        "new": "Зміни для монітора",
         "rename": "Перейменувати",
         "rename-save": "Зберегти"
       },
@@ -921,14 +1049,21 @@
           "title": "Віджети панелі"
         },
         "group": {
+          "accordion-direction": "Напрямок розгортання",
+          "accordion-direction-description": "З якого боку першого віджета будуть розгортатися приховані.",
           "action": "Група",
-          "border": "Рамка",
+          "border": "Контур",
           "border-description": "Роль кольору обведення капсули; залиште за замовчуванням для відсутності обведення",
           "clear": "Очистити",
           "drag": "Змінити порядок",
           "drawer-detached": "Окрема панель",
+          "drawer-enabled-description": "Вкласти згруповані віджети в \"шухляду\" яку можна розкрити кнопкою",
+          "drawer-glyph-closed": "Іконка коли закрито",
+          "drawer-glyph-closed-description": "Іконка на перемикачі \"шухляди\" коли її закрито",
+          "drawer-glyph-opened": "Іконка коли відкрито",
+          "drawer-glyph-opened-description": "Іконка на перемикачі \"шухляди\" коли її відкрито",
           "edit": "Редагувати стиль",
-          "fill": "Фон",
+          "fill": "Тло",
           "fill-description": "Роль кольору тла Капсули; також підтримуються фіксовані шістнадцяткові кольори",
           "foreground": "Передній план",
           "foreground-description": "Роль кольору іконки та підпису для віджетів у цій групі",
@@ -944,17 +1079,24 @@
           "radius": "Радіус",
           "radius-description": "Радіус заокруглення капсули в пікселях; Авто успадковує радіус капсули панелі",
           "remove-from-group": "Вилучити з групи",
+          "remove-orphan": "Прибрати пусті/невідомі групи",
+          "remove-widget": "Прибрати з Bar",
+          "select": "Обрати для групування",
           "selected": "{count} вибрано",
+          "settings-widget": "Параметри віджета",
           "show": "Показувати цю групу",
           "show-widget": "Показувати цей віджет",
           "style": "Стиль",
           "title": "Група капсул",
-          "ungroup": "Розгрупувати"
+          "ungroup": "Розгрупувати",
+          "widget-spacing": "Інтервал",
+          "widget-spacing-description": "Проміжок між віджетами у цій групі. Якщо вибрати «Авто», буде такий, як на решті панелі."
         },
         "inspector": {
-          "add-instance-title": "Додати новий іменований віджет {widget} до {lane}",
-          "add-title": "Додати widget до {lane}",
-          "move-to-lane": "Перемістити до {lane}"
+          "add-instance-title": "Додати новий іменований віджет «{widget}» на {lane}",
+          "add-title": "Додати віджет на {lane}",
+          "move-to-lane": "Перенести на {lane}",
+          "reset-defaults": "Повернути початкові"
         },
         "instance": {
           "create-save": "Створити",
@@ -967,12 +1109,12 @@
           "rename-save": "Зберегти"
         },
         "lanes": {
-          "center": "Центр",
+          "center": "центр",
           "customize": "Налаштувати",
           "empty": "Немає віджетів",
           "empty-hint": "Додайте віджет, щоб заповнити цю смугу.",
-          "end": "Кінець",
-          "start": "Почати"
+          "end": "кінець",
+          "start": "початок"
         },
         "picker": {
           "empty": "Віджетів не знайдено",
@@ -988,6 +1130,7 @@
         "settings": {
           "empty": "Жодні налаштування не відповідають поточним фільтрам.",
           "groups": {
+            "actions": "Дії",
             "behavior": "Поведінка",
             "grouping": "Групування",
             "presentation": "Презентація",
@@ -1019,6 +1162,7 @@
         "rename": "Не вдалося перейменувати панель."
       },
       "batch-write": "Деякі налаштування не вдалося зберегти.",
+      "custom-schedule-times": "Свій розклад потребує обидва часи світанку та сутінок в правильному форматі (ГГ:ХХ:СС)",
       "export-config": "Не вдалося зберегти експорт конфігурації.",
       "export-wallpaper-palette": "Не вдалося зберегти створену на основі кольорів тла палітру.",
       "monitor-override": {
@@ -1029,6 +1173,7 @@
       "reset-page": "Не вдалося скинути деякі налаштування.",
       "support-report": "Не вдалося зберегти звіт підтримки.",
       "sync-greeter": "Не вдалося синхронізувати вигляд з Noctalia Greeter.",
+      "sync-greeter-timeout": "Синхронізація з екраном входу ще чекає на авторизацію. Перевір усі TTY або термінали на запит від Polkit, увімкни агент Polkit в налаштуваннях безпеки, або виконай pkexec вручну.",
       "widget": {
         "rename": "Не вдалося перейменувати іменований віджет."
       },
@@ -1060,7 +1205,7 @@
         "name-label": "Ім'я",
         "name-placeholder": "Поведінка в режимі простою",
         "resume-command-label": "Команда відновлення",
-        "resume-command-placeholder": "",
+        "resume-command-placeholder": "notify-send 'Знов активний'",
         "summary": "{name} · {seconds}с",
         "summary-disabled-timeout": "{name} · таймаут вимкнено",
         "timeout-label": "Таймаут (с)",
@@ -1079,8 +1224,8 @@
         "authentication": "Автентифікація",
         "automation": "Автоматизація",
         "backdrop": "Фон",
-        "background": "Фон",
-        "battery": "Батарея",
+        "background": "Тло",
+        "battery": "Акумулятор",
         "behavior": "Поведінка",
         "borders": "Контури",
         "brightness": "Яскравість",
@@ -1090,6 +1235,7 @@
         "clipboard": "Буфер обміну",
         "community": "Спільнота",
         "control-center": "Центр керування",
+        "dead-zone": "Мертва зона",
         "directories": "Каталоги",
         "display": "Дисплей",
         "effects": "Ефекти",
@@ -1105,6 +1251,7 @@
         "idle": "Неактивний",
         "interface": "Інтерфейс",
         "keybinds": "Гарячі клавіші",
+        "keyboard-layout": "Розкладка клавіатури",
         "kinds": "Види",
         "launcher": "Запускач",
         "layout": "Макет",
@@ -1130,6 +1277,9 @@
         "screen-corners": "Кути екрана",
         "screen-time": "Екранний час",
         "screenshot": "Знімок екрана",
+        "screenshot-annotation": "Анотація",
+        "screenshot-capture": "Захоплення",
+        "screenshot-output": "Вивід",
         "security": "Безпека",
         "session-panel": "Сеанс",
         "shape": "Форма",
@@ -1141,7 +1291,8 @@
         "wallpaper": "Тло екрана",
         "weather": "Погода",
         "widget-list": "Список віджетів",
-        "widgets": "Віджети"
+        "widgets": "Віджети",
+        "window-switcher": "Перемикання вікон"
       },
       "sections": {
         "accessibility": "Доступність",
@@ -1150,7 +1301,7 @@
         "bar": "Панель",
         "control-center": "Центр керування",
         "desktop": "Робочий стіл",
-        "dock": "Dock",
+        "dock": "Док-панель",
         "hooks": "Hooks",
         "keybinds": "Гарячі клавіші",
         "launcher": "Запускач",
@@ -1162,6 +1313,7 @@
         "plugins": "Додатки",
         "popups": "Спливаючі вікна",
         "power": "Живлення",
+        "screenshot": "Знімки екрана",
         "security": "Безпека",
         "services": "Служби",
         "shell": "Оболонка",
@@ -1174,12 +1326,17 @@
       "filter": {
         "add": "Додати фільтр",
         "add-title": "Додавання фільтру сповіщень",
+        "flag": {
+          "dnd-bypass": "Навіть у режимі «Без сповіщень»"
+        },
         "flags-label": "Повна відповідність",
         "match-content-label": "Регулярний вираз",
         "match-label": "Програма",
         "play-sound": "Грати звук",
         "save-history": "Зберегти до історії",
+        "show-toast": "Спливне сповіщення",
         "summary": "{match} · {flags}",
+        "summary-blocked": "{match} · заблоковано",
         "summary-disabled": "{match} · вимкнено",
         "unnamed": "Фільтр без назви"
       }
@@ -1264,14 +1421,14 @@
         "auto": "Біля панелі"
       },
       "screen-position": {
-        "bottom-center": "Знизу по центру",
-        "bottom-left": "Внизу ліворуч",
-        "bottom-right": "Внизу праворуч",
-        "center": "По центру",
-        "center-left": "По центру ліворуч",
-        "center-right": "Праворуч по центру",
-        "top-center": "Зверху по центру",
-        "top-left": "Згори ліворуч",
+        "bottom-center": "Унизу посередині",
+        "bottom-left": "Унизу ліворуч",
+        "bottom-right": "Унизу праворуч",
+        "center": "Посередині екрана",
+        "center-left": "Посередині ліворуч",
+        "center-right": "Посередині праворуч",
+        "top-center": "Угорі посередині",
+        "top-left": "Угорі ліворуч",
         "top-right": "Угорі праворуч"
       },
       "shell": {
@@ -1358,9 +1515,13 @@
         "delete-confirm-title": "Видалити «{name}»?",
         "empty": "Немає ввімкнених додатків.",
         "held-back": "",
+        "held-back-hint": "v{version} вимагає API {required}; ця версія оболонки Noctalia підтримує версії до API {current}. Онови оболонку Noctalia щоб мати змогу встановити цей додаток.",
+        "incompatible-plugin-api": "Несумісний API",
         "remove": "Вилучити додаток",
+        "requires": "Вимагає: {dependencies}",
         "title": "Додатки",
         "update-all": "Оновити всі ({count} шт.)",
+        "update-available": "доступне оновлення",
         "update-to": "Оновити до {version}"
       },
       "settings": {
@@ -1388,21 +1549,36 @@
         "location-placeholder-git": "https://github.com/me/noctalia-plugins",
         "location-placeholder-path": "~/dev/noctalia-plugins",
         "name-label": "Ідентифікатор джерела",
+        "name-placeholder": "my-plugins",
+        "precedence-hint": "Джерела нижче мають вищий приорітет понад джерелами нижче, якщо вони мають той самий додаток.",
+        "remove": "Прибрати джерело",
         "save": "Зберегти",
         "title": "Джерела",
         "update": "Оновити джерело"
       },
       "store": {
         "add": "Додати до Noctalia",
+        "back-to-catalog": "Назад до каталогу додатків",
         "categories": "Категорії",
         "category-all": "Усі",
         "empty": "Додатки не знайдені.",
+        "held-back": "Старіша версія",
+        "held-back-hint": "Встановлює v{version} для API {resolved}. Найновіша v{latest} потребує API {latestRequired}; ця версія оболонки Noctalia підтримує тільки до API {current}.",
+        "incompatible": "Несумісно",
+        "incompatible-hint": "Потребує API {required}; ця версія оболонки Noctalia підтримує {oldest}–{current}.",
+        "installed": "Встановлено",
         "loading": "Триває завантаження каталогу…",
         "no-readme": "Немає доступного опису.",
         "open-page": "Відкрити сторінку додатка на noctalia.dev",
         "open-source": "Відкрити репозиторій із початковим кодом додатка",
         "results-count": "Доступно додатків: {count}",
-        "search-placeholder": "Введіть назву додатка…",
+        "search-placeholder": "Введи назву додатка…",
+        "sort-added-at-asc": "Сортувати по даті додавання (старіші перші)",
+        "sort-added-at-desc": "Сортувати по даті додавання (новіші перші)",
+        "sort-name-asc": "Сортувати по назві (А-Я)",
+        "sort-name-desc": "Сортувати по назві (Я-А)",
+        "sort-updated-at-asc": "Сортувати по даті оновлення (старіші перші)",
+        "sort-updated-at-desc": "Сортувати по даті оновлення (новіші перші)",
         "source-all": "Усі джерела",
         "title": "Крамниця додатків"
       }
@@ -1426,11 +1602,19 @@
           "label": "Розфарбувати іконки програм"
         },
         "builtin-palette": {
-          "description": "Виберіть палітру з вбудованого каталогу",
+          "description": "Обери палітру з вбудованого каталогу",
           "label": "Вбудована палітра"
         },
+        "button-borders": {
+          "description": "Малювати контур коло кнопок по оболонці",
+          "label": "Контури кнопок"
+        },
+        "card-borders": {
+          "description": "Малювати контур коло карток секцій усередині панелей та в налаштуваннях",
+          "label": "Контури карток"
+        },
         "community-palette": {
-          "description": "Виберіть палітру з каталогу спільноти",
+          "description": "Обери палітру з каталогу спільноти",
           "label": "Палітра спільноти",
           "search-placeholder": "Пошук палітр..."
         },
@@ -1439,7 +1623,7 @@
           "label": "Закруглення кутів"
         },
         "custom-palette": {
-          "description": "Виберіть палітру з ~/.config/noctalia/palettes/",
+          "description": "Обери палітру з ~/.config/noctalia/palettes/",
           "label": "Користувацька палітра",
           "search-placeholder": "Пошук власних палітр..."
         },
@@ -1458,6 +1642,9 @@
         "global-shadow-direction": {
           "description": "Напрямок, з якого відкидається тінь від поверхонь"
         },
+        "input-borders": {
+          "description": "Малювати контур коло текстових полей та полей вводу по оболонці"
+        },
         "language": {
           "description": "Перевизначити автоматичне визначення локалі",
           "label": "Мова"
@@ -1467,7 +1654,7 @@
           "label": "Палітра"
         },
         "theme-mode": {
-          "description": "Виберіть темний, світлий або авто, залежно від часу доби",
+          "description": "Обери темний, світлий або авто (перемикається сам залежно від часу доби); також діє на додатки які використовують Шаблони",
           "label": "Режим теми"
         },
         "ui-scale": {
@@ -1528,7 +1715,7 @@
           "label": "Відступ капсули"
         },
         "capsule-radius": {
-          "description": "Радіус заокруглення кутів за замовчуванням для капсул віджетів, пігулок робочих просторів та груп робочих просторів панелі завдань; залиште пустим для автоматичної форми пігулки або встановіть 0 для квадратних кутів",
+          "description": "Радіус заокруглення кутів за замовчуванням для капсул віджетів, пігулок робочих просторів та груп робочих просторів на панелі завдань; залиш пустим для автоматичної форми пігулки або встанови 0 для квадратних кутів",
           "label": "Радіус капсули"
         },
         "center-widgets": {
@@ -1561,6 +1748,9 @@
         "corner-top-right": {
           "description": "Радіус верхнього правого кута для панелі"
         },
+        "dead-zone-action": {
+          "description": "Дія, яку виконує клацання на вільному місці на панелі."
+        },
         "edge-margin": {
           "description": "Відстань від найближчого краю екрана; позитивні значення віддаляють Bar від нього"
         },
@@ -1573,6 +1763,9 @@
         },
         "ends-margin": {
           "description": "Відступ від кожного кінця панелі вздовж її головної осі"
+        },
+        "font-family": {
+          "description": "Шрифт для віджетів на цій панелі. Залиште це поле пустим, щоб застосувати загальний шрифт оболонки. Визначений для окремого віджета шрифт має приорітет перед цим параметром."
         },
         "font-weight": {
           "description": "Стандартна вага для міток віджетів на цій панелі.",
@@ -1717,7 +1910,7 @@
           "description": "Внутрішній відступ уздовж головної осі дока (між іконками та короткими кінцями капсули)"
         },
         "monitors": {
-          "description": "Виберіть, на яких моніторах відображати Dock (залиште порожнім для всіх); фільтрація за активним монітором застосовується в межах цих моніторів",
+          "description": "Обери, на яких моніторах відображати док (залиште порожнім для всіх); фільтрування за активним монітором застосовується в межах цих моніторів",
           "label": "Монітори"
         },
         "pinned-apps": {
@@ -1766,11 +1959,11 @@
             "label": "При підключенні зарядного пристрою"
           },
           "bluetooth-disabled": {
-            "description": "Команда для виконання, коли Bluetooth вимкнено",
+            "description": "Команда яку треба виконати під час вимкнення Bluetooth",
             "label": "При вимкненні Bluetooth"
           },
           "bluetooth-enabled": {
-            "description": "Команда для виконання, коли Bluetooth увімкнено",
+            "description": "Команда яку треба виконати під час ввімкнення Bluetooth",
             "label": "При увімкненні Bluetooth"
           },
           "colors-changed": {
@@ -1790,12 +1983,12 @@
             "label": "При перезавантаженні"
           },
           "session-locked": {
-            "description": "Команда для виконання, коли сесія заблокована",
-            "label": "При заблокованій сесії"
+            "description": "Команда, яку треба виконати під час блокування сеансу",
+            "label": "Блокування сеансу"
           },
           "session-unlocked": {
-            "description": "Команда, що виконується після розблокування сесії",
-            "label": "При розблокуванні сесії"
+            "description": "Команда, яку треба виконати під час розблокування сеансу",
+            "label": "Розблокування сеансу"
           },
           "shutting-down": {
             "description": "Команда для виконання перед вимкненням",
@@ -1868,8 +2061,12 @@
           "description": "Використовувати знімок робочого столу як фон екрана блокування",
           "label": "Захоплення робочого столу"
         },
+        "fingerprint": {
+          "description": "Дозволити розблокування за відбитком пальця через fprintd",
+          "label": "Розблокування за відбитком пальця"
+        },
         "monitors": {
-          "description": "Виберіть, на яких моніторах відображати екран блокування; залиште порожнім, щоб відображати на всіх моніторах",
+          "description": "Обери, на яких моніторах відображати екран блокування; залиш порожнім, щоб відображати на всіх моніторах",
           "label": "Монітори"
         },
         "tint-intensity": {
@@ -1916,7 +2113,7 @@
           "label": "Шар Wayland"
         },
         "monitors": {
-          "description": "Виберіть, на яких моніторах показувати Toast-повідомлення; залиште порожнім, щоб показувати на всіх моніторах",
+          "description": "Обери, на яких моніторах показувати Toast-повідомлення; залиш порожнім, щоб показувати на всіх моніторах",
           "label": "Монітори"
         },
         "offset-x": {
@@ -1928,8 +2125,8 @@
           "label": "Вертикальний відступ"
         },
         "position": {
-          "description": "Позиція на екрані для Toast-сповіщень",
-          "label": "Позиція на екрані"
+          "description": "Розташування спливних сповіщень на екрані",
+          "label": "Розташування на екрані"
         },
         "scale": {
           "description": "Масштабувати Toast-повідомлення відповідно до масштабу інтерфейсу оболонки",
@@ -1968,11 +2165,11 @@
           "label": "Ширина центру керування"
         },
         "home-shortcuts": {
-          "description": "Оберіть до шести кнопок швидкого доступу для вкладки \"Головна\"",
+          "description": "Обери до шести кнопок швидкого доступу для вкладки «Головна»",
           "label": "Головні ярлики"
         },
         "launcher-categories": {
-          "description": "Показати фільтри категорій у Launcher; покажіть їх F6, потім перемикайте F6 і Shift+F6",
+          "description": "Показати фільтри категорій у запускачі; F6 щоб показати, F6 та Shift+F6 щоб перейти вперед/назад",
           "label": "Показати категорії"
         },
         "launcher-compact": {
@@ -2007,28 +2204,32 @@
           "label": "Біля курсора"
         },
         "placement-clipboard": {
-          "description": "Оберіть, чи буфер обміну прикріплюється до панелі, плаває поруч, чи відкривається по центру",
+          "description": "Обери, чи панель буфера обміну прикріплюється до Bar або плаває в зазначеному місці екрану",
           "label": "Розміщення"
         },
         "placement-control-center": {
-          "description": "Оберіть, чи Центр керування прикріплюється до панелі, плаває поруч з нею, чи відкривається по центру",
+          "description": "Обери, чи Центр Керування прикріплюється до Bar або плаває в зазначеному місці екрану",
           "label": "Розміщення"
         },
         "placement-launcher": {
-          "description": "Виберіть, чи Launcher буде прикріплений до панелі, плаватиме поруч із нею, або відкриватиметься по центру",
+          "description": "Обери, чи запускач прикріплюється до Bar або плаває в зазначеному місці екрану",
+          "label": "Розміщення"
+        },
+        "placement-polkit": {
+          "description": "Обери, чи панель автентифікації через Polkit прикріплюється до Bar або плаває в зазначеному місці екрану",
           "label": "Розміщення"
         },
         "placement-session": {
-          "description": "Оберіть, чи меню сесії прикріплюється до бару, плаває поруч з ним, або відкривається по центру.",
+          "description": "Обери, чи меню сесії прикріплюється до Bar або плаває в зазначеному місці екрану",
           "label": "Розміщення"
         },
         "placement-wallpaper": {
-          "description": "Виберіть, чи зливатиметься вікно вибору тла екрана з панеллю чи ні.",
-          "label": "Розташування"
+          "description": "Обери, чи панель вибору тла екрана прикріплюється до Bar або плаває в зазначеному місці екрану",
+          "label": "Розміщення"
         },
         "position-wallpaper": {
-          "description": "Вкажіть, де на екрані відкриватиметься вікно вибору тла екрана. Якщо вибрати «Біля панелі», воно завжди відкриватиметься біля панелі.",
-          "label": "Позиція"
+          "description": "Вкажи, де на екрані відкриватиметься панель вибору тла екрана. Якщо вибрати «Біля Bar», воно завжди відкриватиметься біля Bar.",
+          "label": "Розташування"
         },
         "shadow": {
           "description": "Відкидати глобальну тінь від поверхонь панелей"
@@ -2092,7 +2293,7 @@
         "ddcutil": {
           "description": "Керувати яскравістю зовнішнього монітора через DDC/CI",
           "label": "DDC/CI (ddcutil)",
-          "requires-ddcutil": "Встановіть ddcutil, щоб увімкнути керування яскравістю DDC/CI"
+          "requires-ddcutil": "Встанови ddcutil, щоб увімкнути керування яскравістю через DDC/CI"
         },
         "force-night-light": {
           "description": "Залишати нічний режим увімкнутим незалежно від часу доби.",
@@ -2258,7 +2459,7 @@
           "label": "Відступ по головній осі"
         },
         "position": {
-          "label": "Позиція"
+          "label": "Розташування"
         },
         "reserve-space": {
           "label": "Зарезервувати місце"
@@ -2316,7 +2517,7 @@
         },
         "niri-overview-type-to-launch": {
           "description": "Відкриває Launcher під час введення тексту в Niri Overview; використовує невелику поверхню для фокусування клавіатури, поки Overview відкрито",
-          "label": "Наберіть, щоб запустити"
+          "label": "Набери, щоб запустити"
         },
         "offline-mode": {
           "description": "Блокувати всі вихідні мережеві запити",
@@ -2325,6 +2526,9 @@
         "osd-background-opacity": {
           "description": "Прозорість фону OSD спливаючих вікон",
           "label": "Непрозорість фону"
+        },
+        "osd-border": {
+          "label": "Контур"
         },
         "osd-kinds-bluetooth": {
           "description": "Показувати спливаюче вікно OSD, коли Bluetooth перемикається",
@@ -2395,7 +2599,7 @@
         },
         "osd-position": {
           "description": "Місце на екрані, де з'являтимуться спливних екранних елементів сповіщення",
-          "label": "Позиція на екрані"
+          "label": "Розташування на екрані"
         },
         "osd-scale": {
           "description": "Масштабувати OSD спливаючі вікна відносно масштабу інтерфейсу оболонки (1.0 зберігає розмір за замовчуванням)",
@@ -2413,14 +2617,26 @@
           "description": "Відстежувати використання кожної програми та показувати його в Control Center",
           "label": "Екранний час"
         },
+        "screenshot-annotate": {
+          "description": "Відкривати редактор після кожному знімку; Натискання \"Готово\" застосовує параметри збереження, копіювання в буфер, та передачі в команди",
+          "label": "Анотувати перед збереженням"
+        },
+        "screenshot-close-on-copy": {
+          "description": "Закрити після вдалого копіювання з редактора, також якщо його було відкрито напряму",
+          "label": "Закрити редактор після копіювання"
+        },
+        "screenshot-confirm-region": {
+          "description": "Після вибору області, залишати оверлей з підказками допоки не тиснеш Enter або Пробіл",
+          "label": "Підтвердити область"
+        },
         "screenshot-copy-to-clipboard": {
           "description": "Помістити захоплений PNG у буфер обміну",
           "label": "Копіювати в буфер обміну"
         },
         "screenshot-directory": {
-          "description": "Папка для збережених файлів PNG; залиште порожнім, щоб використовувати ~/Pictures",
-          "label": "Каталог виводу",
-          "placeholder": "~/Pictures"
+          "description": "Тека для збережених файлів PNG; залиш порожнім, щоб використовувати XDG_PICTURES_DIR (Зазвичай ~/Pictures або ~/Картинки)",
+          "label": "Тека виводу",
+          "placeholder": "XDG_PICTURES_DIR (Зазвичай ~/Pictures або ~/Картинки)"
         },
         "screenshot-filename-pattern": {
           "description": "Шаблон strftime без розширення (.png додається); використовуйте %s для unix epoch",
@@ -2430,8 +2646,11 @@
           "description": "Захопити робочий стіл перед вибором області, щоб рухомий вміст залишався нерухомим",
           "label": "Заморозити екран"
         },
+        "screenshot-output": {
+          "description": "Дії, які буде виконано після захоплення або натискання \"Готово\" в редакторі."
+        },
         "screenshot-pipe-command": {
-          "description": "",
+          "description": "Команда виконується як /bin/sh -lc з PNG файлом в stdin; для зовнішніх анотаторів або вивантажувачів (наприклад: swappy -f - або satty -f -)",
           "label": "Команда конвеєра",
           "placeholder": "swappy -f -"
         },
@@ -2439,9 +2658,17 @@
           "description": "Надіслати захоплений PNG команді оболонки через stdin",
           "label": "Передати в команду"
         },
+        "screenshot-remember-last-region": {
+          "description": "Запам'ятати останню вибрану область екрану (навіть якщо було відмінено)",
+          "label": "Запам'ятати останню область"
+        },
         "screenshot-save-to-file": {
           "description": "Зберігати знімки екрана як файли PNG у вихідну теку",
           "label": "Зберегти у файл"
+        },
+        "screenshot-show-cursor": {
+          "description": "Показувати курсор на знімках",
+          "label": "Показувати курсор"
         },
         "show-location": {
           "description": "Показувати ваше місцеперебування на віджетах погоди",
@@ -2467,7 +2694,7 @@
           "label": "{device} Поріг попередження"
         },
         "battery-warning-threshold": {
-          "description": "Відсоток заряду системної батареї, при якому або нижче якого оболонка надсилає сповіщення про низький заряд, а віджети батареї використовують свій попереджувальний колір. Встановіть 0, щоб вимкнути.",
+          "description": "Відсоток заряду акумулятора, при якому або нижче якого оболонка надсилає сповіщення про низький заряд, а віджети батареї використовують свій попереджувальний колір (0 вимикає)",
           "label": "Поріг попередження про батарею"
         }
       },
@@ -2488,7 +2715,7 @@
         },
         "enable-community-templates": {
           "description": "Тут можна завантажити й застосовати шаблони від спільноти.",
-          "label": "Увімкнути спільнотні шаблони"
+          "label": "Увімкнути шаблони від спільноти"
         }
       },
       "wallpaper": {
@@ -2604,6 +2831,22 @@
       }
     },
     "widgets": {
+      "actions": {
+        "commands": {
+          "screenshot-annotate": {
+            "description": "Заморозити екран та анотувати, потім копіювати або зберегти",
+            "label": "Анотувати знімок екрану"
+          },
+          "screenshot-fullscreen": {
+            "description": "Захопити сфокусований екран за замовчуванням, pick щоб обрати вручну, або all щоб обрати усі",
+            "label": "Знімок всього екрану"
+          },
+          "screenshot-region": {
+            "description": "Показати ручний вибір області знімку екрану",
+            "label": "Знімок області екрану"
+          }
+        }
+      },
       "instances": {
         "cpu": "CPU",
         "date": "Дата",
@@ -2675,7 +2918,7 @@
         },
         "capsule-border": {
           "description": "Роль кольору для контуру капсули; також підтримуються фіксовані шістнадцяткові кольори",
-          "label": "Рамка капсули"
+          "label": "Контур капсули"
         },
         "capsule-fill": {
           "description": "Роль кольору для фону капсули; також підтримуються фіксовані шістнадцяткові кольори",
@@ -2877,7 +3120,7 @@
           "label": "Колір зайнятості"
         },
         "only-active-workspace": {
-          "description": "Приховувати вікна на неактивних робочих просторах.",
+          "description": "Приховувати вікна на неактивних робочих просторах",
           "label": "Лише активний робочий стіл"
         },
         "path": {
@@ -3000,7 +3243,7 @@
       "types": {
         "active-window": "Активне вікно",
         "audio-visualizer": "Аудіовізуалізатор",
-        "battery": "Батарея",
+        "battery": "Акумулятор",
         "bluetooth": "Bluetooth",
         "brightness": "Яскравість",
         "caffeine": "Присипляння",
@@ -3016,7 +3259,7 @@
         "nightlight": "Нічний режим",
         "notifications": "Сповіщення",
         "power-profile": "Профіль живлення",
-        "screenshot": "Знімок екрана",
+        "screenshot": "Знімок екрану",
         "scripted": "Скриптовий",
         "session": "Сеанс",
         "settings": "Параметри",
@@ -3044,7 +3287,7 @@
       },
       "reset-page": "Скинути сторінку",
       "reset-page-confirm": "Підтвердити скидання",
-      "search-placeholder": "Пошук налаштувань…",
+      "search-placeholder": "Назва параметра…",
       "support-report": "Звіт підтримки",
       "support-report-saved": "Звіт підтримки збережено.",
       "support-report-title": "Зберегти звіт підтримки",
@@ -3058,7 +3301,7 @@
     "get-started": "Почати",
     "mode": "Режим",
     "no-wallpaper-selected": "Тло екрана не вибрано.",
-    "select-wallpaper": "Виберіть тло екрана.",
+    "select-wallpaper": "Обери тло екрана.",
     "subtitle": "Кілька швидких варіантів для початку.",
     "title": "Ласкаво просимо до Noctalia",
     "wallpaper": "Шпалери",
@@ -3074,15 +3317,16 @@
   },
   "theme": {
     "scheme": {
-      "dysfunctional": "Нефункціональний",
-      "faithful": "Вірний",
-      "m3-content": "Вміст M3",
-      "m3-fruit-salad": "M3 Фруктовий салат",
-      "m3-monochrome": "M3 Монохромний",
-      "m3-rainbow": "M3 веселка",
-      "m3-tonal-spot": "М3 Тональна Пляма",
-      "muted": "Вимкнено звук",
-      "vibrant": "Яскравий"
+      "dysfunctional": "Різнобійна",
+      "faithful": "Відповідна",
+      "m3-content": "M3: уміст",
+      "m3-fruit-salad": "M3: фруктовий салат",
+      "m3-monochrome": "M3: монохромна",
+      "m3-rainbow": "M3: веселка",
+      "m3-tonal-spot": "М3: тональна пляма",
+      "muted": "Приглушена",
+      "soft": "М'яка",
+      "vibrant": "Яскрава"
     }
   },
   "time": {
@@ -3133,7 +3377,7 @@
         "placeholder": "Пошук..."
       },
       "select": {
-        "placeholder": "Виберіть опцію"
+        "placeholder": "Обери опцію"
       }
     },
     "dialogs": {
@@ -3169,7 +3413,7 @@
       "glyph-picker": {
         "all-categories": "Усі",
         "search-placeholder": "Пошук символів…",
-        "title": "Виберіть гліф"
+        "title": "Обери іконку"
       }
     }
   },
@@ -3223,7 +3467,7 @@
   },
   "window-switcher": {
     "empty": "Немає відкритих вікон",
-    "hint": "Tab · Shift+Tab · Клавіші зі стрілками · Відпустіть Alt, щоб перемкнути · Esc, щоб скасувати",
+    "hint": "Tab · Shift+Tab · Клавіші зі стрілками · Відпусти Alt, щоб перемкнути · Esc, щоб скасувати",
     "title": "Windows"
   }
 }

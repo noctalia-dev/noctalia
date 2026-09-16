@@ -238,7 +238,7 @@ namespace settings {
         {.type = "keyboard_layout", .labelKey = "settings.widgets.types.keyboard-layout", .glyph = "keyboard"},
         {.type = "launcher", .labelKey = "settings.widgets.types.launcher", .glyph = "search"},
         {.type = "lock_keys", .labelKey = "settings.widgets.types.lock-keys", .glyph = "lock"},
-        {.type = "media", .labelKey = "settings.widgets.types.media", .glyph = "disc-filled"},
+        {.type = "media", .labelKey = "settings.widgets.types.media", .glyph = "disc"},
         {.type = "network", .labelKey = "settings.widgets.types.network", .glyph = "wifi-off"},
         {.type = "nightlight", .labelKey = "settings.widgets.types.nightlight", .glyph = "nightlight-off"},
         {.type = "notifications", .labelKey = "settings.widgets.types.notifications", .glyph = "bell"},
@@ -595,7 +595,7 @@ namespace settings {
       std::string label = pluginWidgetDisplayLabel(entry);
       // Lead with the entry id so same-plugin widgets stay distinguishable.
       std::string description = appendVersion(entry.manifest->description, entry.manifest->version);
-      description = description.empty() ? entryId : entryId + " — " + description;
+      description = description.empty() ? entryId : entryId + " - " + description;
       entries.push_back(
           WidgetPickerEntry{
               .value = entryId,
@@ -641,6 +641,7 @@ namespace settings {
     auto anchor = withGroup(boolSpec("anchor", false, true), "presentation");
     auto interactive = withGroup(boolSpec("interactive", true), "presentation");
     auto scale = withGroup(doubleSpec("scale", 1.0, 0.2, 2.5, 0.05), "presentation");
+    auto fontScale = withGroup(doubleSpec("font_scale", 1.0, 0.2, 2.5, 0.01), "presentation");
     auto widgetColor = withGroup(colorSpec("color", {}, true), "presentation");
     auto widgetIconColor = withGroup(colorSpec("icon_color", {}, true), "presentation");
     std::vector<WidgetSettingSelectOption> fontWeightOptions;
@@ -702,11 +703,15 @@ namespace settings {
     actions.visibleWhen = WidgetSettingVisibility{"interactive", {"true"}};
 
     return {
-        std::move(enabled),           std::move(anchor),          std::move(interactive),    std::move(scale),
-        std::move(widgetColor),       std::move(widgetIconColor), std::move(fontFamily),     std::move(fontWeight),
-        std::move(capsuleToggle),     std::move(capsuleRadius),   std::move(capsuleFill),    std::move(capsuleBorder),
-        std::move(capsuleForeground), std::move(capsulePadding),  std::move(capsuleOpacity), std::move(scrollRepeat),
-        std::move(actions),
+        std::move(enabled),         std::move(anchor),
+        std::move(interactive),     std::move(scale),
+        std::move(fontScale),       std::move(widgetColor),
+        std::move(widgetIconColor), std::move(fontFamily),
+        std::move(fontWeight),      std::move(capsuleToggle),
+        std::move(capsuleRadius),   std::move(capsuleFill),
+        std::move(capsuleBorder),   std::move(capsuleForeground),
+        std::move(capsulePadding),  std::move(capsuleOpacity),
+        std::move(scrollRepeat),    std::move(actions),
     };
   }
 
@@ -846,6 +851,7 @@ namespace settings {
     const std::string placementKey = scripting::panelShellSettingKey(entry.id, "placement");
     const std::string positionKey = scripting::panelShellSettingKey(entry.id, "position");
     const std::string openNearClickKey = scripting::panelShellSettingKey(entry.id, "open_near_click");
+    const std::string layerKey = scripting::panelShellSettingKey(entry.id, "layer");
     const std::string entryTitle = entry.id;
     const auto entryPrefix = [&](std::string_view suffix) {
       std::string label = entryTitle;
@@ -902,6 +908,27 @@ namespace settings {
       return spec;
     };
 
+    auto layerSpec = [&](const scripting::ManifestField* field) {
+      WidgetSettingSpec spec;
+      spec.schema.key = layerKey;
+      spec.literalLabel = entryPrefix(tr("settings.plugins.panels.layer.label"));
+      spec.literalDescription = tr("settings.plugins.panels.layer.description");
+      spec.control = WidgetControlKind::Select;
+      spec.segmented = true;
+      spec.literalLabels = true;
+      spec.schema.defaultValue = field != nullptr ? field->defaultValue() : entry.panelLayerDefault;
+      spec.options = {
+          {"top", tr("settings.options.layer.top")},
+          {"overlay", tr("settings.options.layer.overlay")},
+      };
+      for (const auto& option : spec.options) {
+        spec.schema.enumValues.push_back(option.value);
+      }
+      spec.schema.type = schemaTypeForControl(spec.control);
+      spec.visibleWhen = WidgetSettingVisibility{placementKey, {"floating"}};
+      return spec;
+    };
+
     auto openNearClickSpec = [&](const scripting::ManifestField* field) {
       WidgetSettingSpec spec;
       spec.schema.key = openNearClickKey;
@@ -926,6 +953,7 @@ namespace settings {
     const scripting::ManifestField* placementField = nullptr;
     const scripting::ManifestField* positionField = nullptr;
     const scripting::ManifestField* openNearClickField = nullptr;
+    const scripting::ManifestField* layerField = nullptr;
     for (const auto& field : entry.settings) {
       if (field.key == placementKey) {
         placementField = &field;
@@ -933,12 +961,15 @@ namespace settings {
         positionField = &field;
       } else if (field.key == openNearClickKey) {
         openNearClickField = &field;
+      } else if (field.key == layerKey) {
+        layerField = &field;
       }
     }
 
     return {
         placementSpec(placementField),
         positionSpec(positionField),
+        layerSpec(layerField),
         openNearClickSpec(openNearClickField),
     };
   }

@@ -16,6 +16,7 @@
 #include <string>
 #include <string_view>
 #include <unordered_map>
+#include <unordered_set>
 
 class ConfigService;
 class CompositorPlatform;
@@ -31,6 +32,7 @@ class RenderContext;
 class Surface;
 class WaylandConnection;
 enum class LayerShellLayer : std::uint32_t;
+enum class LayerShellKeyboard : std::uint32_t;
 struct KeyboardEvent;
 struct PointerEvent;
 struct wl_output;
@@ -186,6 +188,9 @@ private:
   // Called AFTER the panel surface is mapped so the panel wl_surface is
   // available for the whitelist. No-op when focus-grab is unavailable.
   void activateFocusGrab();
+  void applyKeyboardRelaxation(LayerShellKeyboard mode);
+  void addFocusGrabWhitelistSurfaces(FocusGrab& grab, wl_surface* excludedSurface);
+  [[nodiscard]] bool isFocusGrabWhitelistSurface(wl_surface* surface) const;
   void deactivateOutsideClickHandlers();
   void applyAttachedReveal(float progress);
   void applyDetachedReveal(float progress);
@@ -219,6 +224,7 @@ private:
   PanelClickShield m_clickShield;
   PersistentPanelHost m_persistentHost;
   std::unique_ptr<FocusGrab> m_focusGrab;
+  std::unordered_set<wl_surface*> m_focusGrabPopupSurfaces;
 
   std::unique_ptr<Surface> m_surface;
   LayerSurface* m_layerSurface = nullptr;

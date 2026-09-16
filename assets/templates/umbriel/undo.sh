@@ -5,8 +5,6 @@ config_dir="${XDG_CONFIG_HOME:-$HOME/.config}/umbriel"
 config_file="$config_dir/config.toml"
 theme_file="$config_dir/noctalia.toml"
 
-rm -f -- "$theme_file"
-
 if [ -f "$config_file" ]; then
     tmp_file="$(mktemp "${config_file}.tmp.XXXXXX")"
     trap 'rm -f "$tmp_file"' EXIT
@@ -26,3 +24,5 @@ if [ -f "$config_file" ]; then
         cat "$tmp_file" >"$config_file"
     fi
 fi
+
+rm -f -- "$theme_file"

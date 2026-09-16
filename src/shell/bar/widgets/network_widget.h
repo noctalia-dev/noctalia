@@ -10,6 +10,7 @@
 class ExternalIpService;
 class Glyph;
 class Label;
+class ModemManagerService;
 class Spinner;
 class SystemMonitorService;
 struct wl_output;
@@ -29,8 +30,8 @@ public:
   };
 
   NetworkWidget(
-      INetworkService* network, ExternalIpService* externalIp, SystemMonitorService* monitor, wl_output* output,
-      Options options
+      INetworkService* network, ExternalIpService* externalIp, SystemMonitorService* monitor,
+      ModemManagerService* modem, wl_output* output, Options options
   );
 
   void create() override;
@@ -44,6 +45,7 @@ private:
   INetworkService* m_network = nullptr;
   ExternalIpService* m_externalIp = nullptr;
   SystemMonitorService* m_monitor = nullptr;
+  ModemManagerService* m_modem = nullptr;
   bool m_showLabel = true;
   bool m_showVpnLabel = false;
   VpnStatusMode m_vpnStatusMode = VpnStatusMode::Replace;
@@ -54,6 +56,10 @@ private:
   Label* m_vpnLabel = nullptr;
   NetworkState m_lastState;
   bool m_haveLastState = false;
+  bool m_lastCellularPresent = false;
+  bool m_lastCellularEnabled = false;
+  std::uint8_t m_lastCellularSignal = 0;
+  std::string m_lastCellularOperator;
   bool m_isVertical = false;
   bool m_lastVertical = false;
 };

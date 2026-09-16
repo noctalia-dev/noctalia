@@ -9,6 +9,7 @@
 #include <chrono>
 #include <cstdint>
 #include <functional>
+#include <optional>
 
 class InputArea;
 class RectNode;
@@ -28,15 +29,18 @@ public:
   void setScrollOffset(float offset);
   // Keep the view pinned to the bottom while content grows, as long as the user has not scrolled away from the bottom.
   void setStickToBottom(bool enabled);
-  // One-shot jump to the bottom, deferred to the next layout pass: callers
-  // that mutate content in the same frame (e.g. the plugin reconciler) need
-  // the jump to target the new extent, while an immediate setScrollOffset
-  // would clamp against the previous pass's maxScrollOffset().
+  // One-shot absolute jump deferred until the next layout pass, after the
+  // content extent and maxScrollOffset() have been computed.
+  void requestScrollToOffset(float offset);
+  // One-shot jump to the bottom under the same layout-time semantics.
   void requestScrollToBottom();
   void scrollBy(float delta);
   void setScrollbarVisible(bool visible);
   // Vertical clearance at both track ends (e.g. the host card's corner radius).
   void setScrollbarInsetV(float inset);
+  // Layout scale of the surface hosting this view (1.0 = base logical px). Scales the
+  // scrollbar geometry the same way surfaces scale their own padding and radii.
+  void setContentScale(float scale);
   void setViewportPaddingH(float padding);
   void setViewportPaddingV(float padding);
   void setFill(const ColorSpec& fill);
@@ -62,6 +66,9 @@ public:
   [[nodiscard]] float contentViewportHeight() const noexcept;
   [[nodiscard]] float viewportPaddingH() const noexcept { return m_viewportPaddingH; }
   [[nodiscard]] float viewportPaddingV() const noexcept { return m_viewportPaddingV; }
+  // Width reserved for the vertical scrollbar plus its gap, at the current content scale.
+  [[nodiscard]] float scrollbarGutter() const noexcept;
+  [[nodiscard]] float contentScale() const noexcept { return m_contentScale; }
 
 private:
   void doLayout(Renderer& renderer) override;
@@ -84,6 +91,7 @@ private:
   ScrollViewState* m_boundState = nullptr;
   bool m_stickToBottom = false;
   bool m_pendingScrollToBottom = false;
+  std::optional<float> m_pendingScrollOffset;
   std::function<void(float)> m_onScrollChanged;
   ColorSpec m_backgroundFill = clearColorSpec();
   ColorSpec m_backgroundBorder = clearColorSpec();
@@ -94,6 +102,7 @@ private:
   float m_scrollOffset = 0.0F;
   float m_targetScrollOffset = 0.0F;
   float m_maxScrollOffset = 0.0F;
+  float m_contentScale = 1.0F;
   float m_scrollWheelStep = Style::scrollWheelStep;
   float m_dragStartPosition = 0.0F;
   float m_dragStartOffset = 0.0F;
