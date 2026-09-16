@@ -4021,13 +4021,13 @@
           "dialog-title": "Select Custom Image",
           "label": "Custom Image"
         },
-        "custom-label": {
-            "description": "Custom text label shown instead of the icon; leave empty to use the icon glyph",
-            "label": "Custom Label"
-        },
         "custom-image-colorize": {
           "description": "Tint the custom image with the widget Icon Color setting",
           "label": "Colorize Custom Image"
+        },
+        "custom-label": {
+          "description": "Custom text label shown instead of the icon; leave empty to use the icon glyph",
+          "label": "Custom Label"
         },
         "detached-panel": {
           "description": "Open the drawer as a floating panel instead of anchoring it to the bar edge",

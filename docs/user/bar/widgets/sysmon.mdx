@@ -22,6 +22,7 @@ System resource monitor. Shows a configurable combination of a glyph, visualizat
 | `glyph` | string | `""` | Custom bar glyph name (Noctalia alias, Tabler icon name, or `U+` / `0x` codepoint). Leave empty to use the glyph for the selected stat |
 | `custom_image` | string | `""` | Path to a custom image displayed instead of the glyph. Leave empty to use the glyph |
 | `custom_image_colorize` | bool | `false` | When `true`, tint the custom image with the same dynamic color the glyph would use |
+| `custom_label` | string | `""` | Custom text label shown instead of the icon, leave empty to use the glyph. Takes precedence over `glyph` but not over `custom_image` |
 | `glyph_position` | string | `"before"` | Place the glyph before or after the value or visualization |
 | `highlight_color` | string | `"error"` | Color role (or fixed hex) the value tints toward as the stat rises past its activity/critical thresholds. See [System Monitor](/noctalia/services/system-monitor/). |
 

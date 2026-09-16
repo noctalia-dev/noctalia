@@ -341,16 +341,14 @@ void SysmonWidget::syncVisualPalette() {
 
 void SysmonWidget::syncValueColor() {
   const Color valueColor = currentValueColor(widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface)));
+  const Color iconColor = m_widgetIconColor.has_value() ? resolveColorSpec(m_widgetIconColor.value()) : valueColor;
   if (m_glyph != nullptr) {
-    const Color iconColor = m_widgetIconColor.has_value() ? resolveColorSpec(m_widgetIconColor.value()) : valueColor;
     m_glyph->setColor(iconColor);
   }
   if (m_image != nullptr) {
-    const Color iconColor = m_widgetIconColor.has_value() ? resolveColorSpec(m_widgetIconColor.value()) : valueColor;
     widget_custom_image::syncTint(*m_image, m_customImage, fixedColorSpec(iconColor));
   }
   if (m_customLabel != nullptr) {
-    const Color iconColor = m_widgetIconColor.has_value() ? resolveColorSpec(m_widgetIconColor.value()) : valueColor;
     m_customLabel->setColor(iconColor);
   }
   if (m_label != nullptr) {
@@ -384,7 +382,7 @@ void SysmonWidget::syncIcon(Renderer& renderer) {
     m_glyph->measure(renderer);
   }
   if (m_customLabel != nullptr) {
-    m_customLabel->setFontSize(Style::fontSizeBody * fontScale());
+    m_customLabel->setFontSize((m_isVerticalBar ? Style::fontSizeCaption : Style::fontSizeBody) * fontScale());
     m_customLabel->measure(renderer);
   }
 }
