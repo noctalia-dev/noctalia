@@ -2924,6 +2924,35 @@ namespace settings {
         ToggleSetting{cfg.notification.collapseOnDismiss}, "reorder stack slide"
     ));
     entries.push_back(makeEntry(
+        SettingsSection::Notifications, "toasts", tr("settings.schema.notifications.timeout-policy.label"),
+        tr("settings.schema.notifications.timeout-policy.description"), {"notification", "timeout", "mode"},
+        asSegmented(enumSelect(kNotificationTimeoutModes, cfg.notification.timeout.mode)),
+        "toast timeout duration requested urgency"
+    ));
+    const SettingVisibility urgencyTimeoutsVisible = [](const Config& c) {
+      return c.notification.timeout.mode == NotificationTimeoutMode::Urgency;
+    };
+    auto addUrgencyTimeout = [&](std::string key, std::int32_t value) {
+      const std::string translationKey = "settings.schema.notifications.timeout-" + key;
+      auto entry = makeEntry(
+          SettingsSection::Notifications, "toasts", tr(translationKey + ".label"), tr(translationKey + ".description"),
+          {"notification", "timeout", key},
+          StepperSetting{
+              .value = value,
+              .minValue = static_cast<int>(noctalia::config::schema::kNotificationTimeoutMsRange.min.value()),
+              .maxValue = static_cast<int>(noctalia::config::schema::kNotificationTimeoutMsRange.max.value()),
+              .step = static_cast<int>(noctalia::config::schema::kNotificationTimeoutMsRange.step.value()),
+              .valueSuffix = "ms",
+          },
+          "toast timeout duration " + key
+      );
+      entry.visibleWhen = urgencyTimeoutsVisible;
+      entries.push_back(std::move(entry));
+    };
+    addUrgencyTimeout("low", cfg.notification.timeout.low);
+    addUrgencyTimeout("normal", cfg.notification.timeout.normal);
+    addUrgencyTimeout("critical", cfg.notification.timeout.critical);
+    entries.push_back(makeEntry(
         SettingsSection::Notifications, "toasts", tr("settings.schema.notifications.layer.label"),
         tr("settings.schema.notifications.layer.description"), {"notification", "layer"},
         asSegmented(plainSelect(

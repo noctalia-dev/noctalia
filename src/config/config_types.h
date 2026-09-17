@@ -278,6 +278,20 @@ struct IdleBehaviorConfig {
   bool operator==(const IdleBehaviorConfig&) const = default;
 };
 
+enum class NotificationTimeoutMode : std::uint8_t {
+  Requested = 0,
+  Urgency = 1,
+};
+
+struct NotificationTimeoutConfig {
+  NotificationTimeoutMode mode = NotificationTimeoutMode::Requested;
+  std::int32_t low = 2000;
+  std::int32_t normal = 6000;
+  std::int32_t critical = 15000;
+
+  bool operator==(const NotificationTimeoutConfig&) const = default;
+};
+
 struct NotificationFilterConfig {
   std::string name;
   bool enabled = true;
@@ -582,6 +596,11 @@ template <typename T, std::size_t N> constexpr std::string_view enumToKey(const 
   return {};
 }
 
+constexpr EnumOption<NotificationTimeoutMode> kNotificationTimeoutModes[] = {
+    {NotificationTimeoutMode::Requested, "requested", "settings.options.notification-timeout.requested"},
+    {NotificationTimeoutMode::Urgency, "urgency", "settings.options.notification-timeout.urgency"},
+};
+
 constexpr EnumOption<BarAccordionDirection> kBarAccordionDirections[] = {
     {BarAccordionDirection::End, "end", "settings.options.accordion-direction.end"},
     {BarAccordionDirection::Start, "start", "settings.options.accordion-direction.start"},
@@ -746,6 +765,7 @@ struct NotificationConfig {
   bool enableDaemon = true;
   bool showAppName = true;
   bool showActions = true;
+  NotificationTimeoutConfig timeout;
   std::string position = "top_right";
   std::string layer = "top"; // top | overlay
   float scale = 1.0F;

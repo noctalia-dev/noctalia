@@ -401,7 +401,6 @@ namespace notification_dbus {
       const std::string& summary, const std::string& body, const std::vector<std::string>& actions,
       const std::map<std::string, sdbus::Variant>& hints, int32_t expire_timeout
   ) {
-    const int32_t timeout = normalizeNotifyExpireTimeout(expire_timeout);
     const auto sanitizedActions = sanitizeNotifyActions(actions);
 
     return manager.addOrReplace(
@@ -411,7 +410,7 @@ namespace notification_dbus {
             .summary = StringUtils::truncateUtf8(summary, kMaxStringLen),
             .body = StringUtils::sanitizeMarkup(StringUtils::truncateUtf8(body, kMaxStringLen)),
             .urgency = notifyUrgencyFromHints(hints),
-            .timeout = timeout,
+            .timeout = expire_timeout,
             .origin = NotificationOrigin::External,
             .transient = notifyTransientFromHints(hints),
             .actions = sanitizedActions,

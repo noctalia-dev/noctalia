@@ -1215,6 +1215,7 @@ if build_tests
     'notification_filter',
     'notification_history_dismiss',
     'notification_history_utf8',
+    'notification_timeout_policy',
     'path_browse',
     'plugin_bindings',
     'plugin_catalog',

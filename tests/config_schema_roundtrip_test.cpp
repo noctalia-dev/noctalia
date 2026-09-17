@@ -372,6 +372,13 @@ location = "https://example.invalid/bad"
         .enableDaemon = false,
         .showAppName = false,
         .showActions = false,
+        .timeout =
+            NotificationTimeoutConfig{
+                .mode = NotificationTimeoutMode::Urgency,
+                .low = 1800,
+                .normal = 5400,
+                .critical = 14000,
+            },
         .position = "bottom_left",
         .layer = "overlay",
         .scale = 1.3F,
