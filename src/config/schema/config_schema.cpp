@@ -19,6 +19,38 @@
 
 namespace noctalia::config::schema {
 
+  namespace {
+    const Schema<AudioConfig::SpectrumConfig>& audioSpectrumSchema() {
+      static const Schema<AudioConfig::SpectrumConfig> s = {
+          field(&AudioConfig::SpectrumConfig::lowerCutoffHz, "lower_cutoff_hz", kSpectrumFrequencyRange),
+          field(&AudioConfig::SpectrumConfig::upperCutoffHz, "upper_cutoff_hz", kSpectrumFrequencyRange),
+          finalize<AudioConfig::SpectrumConfig>([](AudioConfig::SpectrumConfig& spectrum, std::string_view path,
+                                                   Diagnostics& diag) {
+            if (spectrum.lowerCutoffHz < spectrum.upperCutoffHz) {
+              return;
+            }
+            const std::int64_t originalLower = spectrum.lowerCutoffHz;
+            const std::int64_t originalUpper = spectrum.upperCutoffHz;
+            if (spectrum.lowerCutoffHz >= kSpectrumFrequencyRange.max.value()) {
+              spectrum.lowerCutoffHz = static_cast<std::int32_t>(kSpectrumFrequencyRange.max.value() - 1);
+              spectrum.upperCutoffHz = static_cast<std::int32_t>(kSpectrumFrequencyRange.max.value());
+            } else {
+              spectrum.upperCutoffHz = spectrum.lowerCutoffHz + 1;
+            }
+            diag.warn(
+                std::string(path),
+                std::format(
+                    "lower_cutoff_hz must be below upper_cutoff_hz (lower={} upper={}); adjusted to lower={} "
+                    "upper={}",
+                    originalLower, originalUpper, spectrum.lowerCutoffHz, spectrum.upperCutoffHz
+                )
+            );
+          }),
+      };
+      return s;
+    }
+  } // namespace
+
   const Schema<AudioConfig>& audioSchema() {
     static const Schema<AudioConfig> s = {
         field(&AudioConfig::enableOverdrive, "enable_overdrive"),
@@ -26,6 +58,7 @@ namespace noctalia::config::schema {
         field(&AudioConfig::soundVolume, "sound_volume", kUnitRange),
         field(&AudioConfig::volumeChangeSound, "volume_change_sound"),
         field(&AudioConfig::notificationSound, "notification_sound"),
+        subTable(&AudioConfig::spectrum, "spectrum", audioSpectrumSchema()),
     };
     return s;
   }

@@ -332,7 +332,14 @@ location = "https://example.invalid/bad"
   // checks exercise real serialization rather than all-defaults.
   Config makeProbe() {
     Config c;
-    c.audio = AudioConfig{true, true, 0.73F, "change.ogg", "notify.ogg"};
+    c.audio = AudioConfig{
+        .enableOverdrive = true,
+        .enableSounds = true,
+        .soundVolume = 0.73F,
+        .volumeChangeSound = "change.ogg",
+        .notificationSound = "notify.ogg",
+        .spectrum = {.lowerCutoffHz = 40, .upperCutoffHz = 18000},
+    };
     c.weather = WeatherConfig{false, false, 17, "imperial"};
     c.osd.position = "bottom_left";
     c.osd.positionVertical = "top_right";
@@ -572,6 +579,25 @@ location = "https://example.invalid/bad"
   }
 
   void checkClamps() {
+    {
+      const AudioConfig defaults;
+      if (defaults.spectrum.lowerCutoffHz != 20 || defaults.spectrum.upperCutoffHz != 20000) {
+        fail("audio.spectrum defaults: expected 20 Hz to 20000 Hz");
+      }
+    }
+    {
+      auto t = toml::parse(R"(
+[spectrum]
+lower_cutoff_hz = 12000
+upper_cutoff_hz = 1000
+)");
+      AudioConfig audio;
+      Diagnostics diag;
+      readInto(t, audio, audioSchema(), "audio", diag);
+      if (audio.spectrum.lowerCutoffHz != 12000 || audio.spectrum.upperCutoffHz != 12001) {
+        fail("audio.spectrum ordering: expected upper cutoff to be adjusted above lower cutoff");
+      }
+    }
     // sound_volume above the max clamps to 1.0.
     {
       auto t = toml::parse("sound_volume = 2.5");
