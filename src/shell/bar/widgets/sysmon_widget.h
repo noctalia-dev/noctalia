@@ -88,7 +88,8 @@ private:
   void clearGraph();
   void syncVisualPalette();
   void syncValueColor();
-  void syncIcon(Renderer& renderer);
+  void syncIdentity(Renderer& renderer);
+  [[nodiscard]] LayoutSize layoutIdentityGroup(float gap);
   void updateGraph(Renderer& renderer);
   [[nodiscard]] float iconWidth() const;
   [[nodiscard]] float iconHeight() const;
@@ -129,6 +130,7 @@ private:
   Image* m_image = nullptr;
   Label* m_label = nullptr;
   Label* m_customLabel = nullptr;
+  Box* m_identityGroup = nullptr;
   Flex* m_containerRow = nullptr;
 
   static constexpr int kHistorySamples = 30;
