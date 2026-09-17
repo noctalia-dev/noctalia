@@ -118,6 +118,13 @@ bool PanelProvider::activate(const LauncherResult& result) {
   }
 
   PanelManager* panelManager = m_panelManager;
+  wl_output* output = nullptr;
+  std::string sourceBarName;
+  if (panelManager->isOpenPanel("launcher")) {
+    output = panelManager->attachedPanelOutput();
+    sourceBarName = panelManager->attachedSourceBarName();
+  }
+
   std::string panelId = result.id;
   std::string context;
   if (panelId.starts_with(kControlCenterTabPrefix)) {
@@ -125,14 +132,13 @@ bool PanelProvider::activate(const LauncherResult& result) {
     panelId = "control-center";
   }
 
-  // Defer to the next main-loop iteration so LauncherPanel's own close (right
-  // after activate() returns) doesn't immediately undo this panel's open.
-  DeferredCall::callLater([panelManager, panelId = std::move(panelId), context = std::move(context)]() {
-    if (context.empty()) {
-      panelManager->togglePanel(panelId);
-    } else {
-      panelManager->togglePanel(panelId, PanelOpenRequest{.context = context});
-    }
+  // Preserve the launcher's output and source bar across its close, then defer
+  // the toggle so that close cannot immediately undo the selected panel's open.
+  DeferredCall::callLater([panelManager, panelId = std::move(panelId), context = std::move(context), output,
+                           sourceBarName = std::move(sourceBarName)]() {
+    panelManager->togglePanel(
+        panelId, PanelOpenRequest{.output = output, .context = context, .sourceBarName = sourceBarName}
+    );
   });
   return true;
 }
