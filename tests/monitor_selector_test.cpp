@@ -1,4 +1,5 @@
 #include "config/config_types.h"
+#include "shell/desktop/desktop_widget_output.h"
 #include "tests/test_check.h"
 #include "wayland/wayland_connection.h"
 
@@ -84,6 +85,42 @@ int main() {
   {
     const auto output = makeOutput("DP-7", "Acme UltraDisplay", "Acme", "UltraDisplay", "SN00004");
     TEST_CHECK(!outputMatchesSelector("", output));
+  }
+
+  // A reliable hardware identity survives connector renames.
+  {
+    const auto before = makeOutput("DP-1", "ignored description", "Acme", "UltraDisplay", "SN00005");
+    const auto after = makeOutput("DP-3", "different description", "Acme", "UltraDisplay", "SN00005");
+    const std::string key = desktop_widgets::placementOutputKey(before);
+    TEST_CHECK(key != before.connectorName);
+    TEST_CHECK(desktop_widgets::outputMatchesPlacementKey(key, after));
+    TEST_CHECK(desktop_widgets::connectorNameForOutputApi(after) == "DP-3");
+  }
+
+  // Missing and placeholder serials use the connector to avoid collisions.
+  {
+    const auto missing = makeOutput("DP-1", "Acme UltraDisplay", "Acme", "UltraDisplay", "");
+    const auto unknown = makeOutput("DP-2", "Acme UltraDisplay", "Acme", "UltraDisplay", "Unknown");
+    const auto unavailable = makeOutput("DP-3", "Acme UltraDisplay", "Acme", "UltraDisplay", "N/A");
+    const auto allZeros = makeOutput("DP-4", "Acme UltraDisplay", "Acme", "UltraDisplay", "0000000000");
+    TEST_CHECK(desktop_widgets::placementOutputKey(missing) == "DP-1");
+    TEST_CHECK(desktop_widgets::placementOutputKey(unknown) == "DP-2");
+    TEST_CHECK(desktop_widgets::placementOutputKey(unavailable) == "DP-3");
+    TEST_CHECK(desktop_widgets::placementOutputKey(allZeros) == "DP-4");
+  }
+
+  // Identical models remain distinct when they report reliable serials.
+  {
+    const auto first = makeOutput("DP-1", "Acme UltraDisplay", "Acme", "UltraDisplay", "SN00006");
+    const auto second = makeOutput("DP-2", "Acme UltraDisplay", "Acme", "UltraDisplay", "SN00007");
+    TEST_CHECK(desktop_widgets::placementOutputKey(first) != desktop_widgets::placementOutputKey(second));
+  }
+
+  // Connector keys from existing widget placements remain migration aliases.
+  {
+    const auto output = makeOutput("DP-4", "Acme UltraDisplay DP-9", "Acme", "UltraDisplay", "SN00008");
+    TEST_CHECK(desktop_widgets::outputMatchesPlacementKey("DP-4", output));
+    TEST_CHECK(!desktop_widgets::outputMatchesPlacementKey("DP-9", output));
   }
 
   return 0;

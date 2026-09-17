@@ -46,7 +46,7 @@ public:
 private:
   struct DesktopWidgetInstance {
     DesktopWidgetState state;
-    std::string effectiveOutputName;
+    std::string connectorName;
     wl_output* output = nullptr;
     std::unique_ptr<LayerSurface> surface;
     AnimationManager animations;
