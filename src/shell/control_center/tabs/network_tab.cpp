@@ -1321,7 +1321,7 @@ void NetworkTab::rebuildApList(Renderer& renderer) {
                 if (clicked.active || m_network == nullptr) {
                   return;
                 }
-                if (clicked.secured && !m_network->hasSavedConnection(clicked.ssid)) {
+                if (clicked.requiresPsk() && !m_network->hasSavedConnection(clicked.ssid)) {
                   showPasswordPrompt(clicked);
                   PanelManager::instance().refresh();
                   return;

@@ -13,6 +13,8 @@ namespace {
   constexpr std::uint32_t kWpa3Personal = kCiphers | 0x00000400U;
   constexpr std::uint32_t kWpa2Enterprise = kCiphers | 0x00000200U;
   constexpr std::uint32_t kWpa3Enterprise192 = kCiphers | 0x00000200U | 0x00002000U;
+  constexpr std::uint32_t kOwe = kCiphers | 0x00000800U;
+  constexpr std::uint32_t kOweTm = kCiphers | 0x00001000U;
 
 } // namespace
 
@@ -32,9 +34,21 @@ int main() {
   TEST_CHECK(!network_manager_security::supportsSuiteB192(kWpa2Enterprise));
   TEST_CHECK(network_manager_security::supportsSuiteB192(kWpa3Enterprise192));
 
+  TEST_CHECK(network_manager_security::supportsOwe(kOwe));
+  TEST_CHECK(network_manager_security::supportsOwe(kOweTm));
+  TEST_CHECK(network_manager_security::supportsOwe(kCiphers | 0x00000800U | 0x00001000U));
+  // Mixed OWE + passworded key-mgmt stays passworded.
+  TEST_CHECK(!network_manager_security::supportsOwe(kCiphers | 0x00000800U | 0x00000100U));
+  TEST_CHECK(!network_manager_security::supportsOwe(kCiphers | 0x00000800U | 0x00000400U));
+  TEST_CHECK(!network_manager_security::supportsOwe(kCiphers | 0x00000800U | 0x00000200U));
+  TEST_CHECK(!network_manager_security::supportsOwe(kWpa2Personal));
+  TEST_CHECK(!network_manager_security::supportsOwe(0U));
+
   TEST_CHECK(network_manager_security::keyManagementFor(0U) == KeyManagement::Psk);
   TEST_CHECK(network_manager_security::keyManagementFor(kWpa2Personal) == KeyManagement::Psk);
   TEST_CHECK(network_manager_security::keyManagementFor(kWpa3Personal) == KeyManagement::Sae);
+  TEST_CHECK(network_manager_security::keyManagementFor(kOwe) == KeyManagement::Owe);
+  TEST_CHECK(network_manager_security::keyManagementFor(kOweTm) == KeyManagement::Owe);
   TEST_CHECK(network_manager_security::keyManagementFor(kWpa2Enterprise) == KeyManagement::Enterprise);
   TEST_CHECK(network_manager_security::keyManagementFor(kWpa3Enterprise192) == KeyManagement::EnterpriseSuiteB);
 
@@ -53,27 +67,50 @@ int main() {
       network_manager_security::keyManagementFor(kCiphers | 0x00002000U | 0x00000400U)
       == KeyManagement::EnterpriseSuiteB
   );
+  // Mixed OWE + PSK/SAE/802.1X stays on the passworded path.
+  TEST_CHECK(network_manager_security::keyManagementFor(kCiphers | 0x00000800U | 0x00000100U) == KeyManagement::Psk);
+  TEST_CHECK(network_manager_security::keyManagementFor(kCiphers | 0x00000800U | 0x00000400U) == KeyManagement::Sae);
+  TEST_CHECK(
+      network_manager_security::keyManagementFor(kCiphers | 0x00000800U | 0x00000200U) == KeyManagement::Enterprise
+  );
 
   TEST_CHECK(network_manager_security::keyManagementName(KeyManagement::Psk) == "wpa-psk");
   TEST_CHECK(network_manager_security::keyManagementName(KeyManagement::Sae) == "sae");
+  TEST_CHECK(network_manager_security::keyManagementName(KeyManagement::Owe) == "owe");
   TEST_CHECK(network_manager_security::keyManagementName(KeyManagement::Enterprise) == "wpa-eap");
   TEST_CHECK(network_manager_security::keyManagementName(KeyManagement::EnterpriseSuiteB) == "wpa-eap-suite-b-192");
 
   TEST_CHECK(!network_manager_security::isEnterprise(KeyManagement::Psk));
   TEST_CHECK(!network_manager_security::isEnterprise(KeyManagement::Sae));
+  TEST_CHECK(!network_manager_security::isEnterprise(KeyManagement::Owe));
   TEST_CHECK(network_manager_security::isEnterprise(KeyManagement::Enterprise));
   TEST_CHECK(network_manager_security::isEnterprise(KeyManagement::EnterpriseSuiteB));
+
+  TEST_CHECK(!network_manager_security::requiresPsk(false, KeyManagement::Psk));
+  TEST_CHECK(network_manager_security::requiresPsk(true, KeyManagement::Psk));
+  TEST_CHECK(network_manager_security::requiresPsk(true, KeyManagement::Sae));
+  TEST_CHECK(!network_manager_security::requiresPsk(true, KeyManagement::Owe));
+  TEST_CHECK(network_manager_security::requiresPsk(true, KeyManagement::Enterprise));
 
   // A default-constructed AP stays personal, so nothing starts out asking for
   // EAP credentials before its RSN flags have been read.
   const AccessPointInfo accessPoint;
   TEST_CHECK(accessPoint.keyManagement == KeyManagement::Psk);
   TEST_CHECK(!accessPoint.isEnterprise());
+  TEST_CHECK(!accessPoint.requiresPsk());
 
   AccessPointInfo enterpriseAp;
+  enterpriseAp.secured = true;
   enterpriseAp.keyManagement = network_manager_security::keyManagementFor(kWpa2Enterprise);
   TEST_CHECK(enterpriseAp.isEnterprise());
+  TEST_CHECK(enterpriseAp.requiresPsk());
   TEST_CHECK(enterpriseAp != accessPoint);
+
+  AccessPointInfo oweAp;
+  oweAp.secured = true;
+  oweAp.keyManagement = network_manager_security::keyManagementFor(kOwe);
+  TEST_CHECK(oweAp.keyManagement == KeyManagement::Owe);
+  TEST_CHECK(!oweAp.requiresPsk());
 
   return 0;
 }
