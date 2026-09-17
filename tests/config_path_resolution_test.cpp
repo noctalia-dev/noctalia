@@ -61,6 +61,7 @@ int main() {
   expectKnown({"desktop_widgets", "widget", "clock1", "type"});
   expectKnown({"desktop_widgets", "widget", "clock1", "settings", "format"});
   expectKnown({"osd", "scale"});
+  expectKnown({"osd", "hide_delay_ms"});
   expectKnown({"notification", "background_opacity"});
   expectKnown({"battery", "warning_threshold"});
   expectKnown({"calendar", "refresh_minutes"});
@@ -85,6 +86,7 @@ int main() {
   expectUnknown({"accessibilit", "ui_scale"});                   // section typo
   expectUnknown({"shell"});                                      // bare section
   expectUnknown({"dock", "radius_top_typo"});
+  expectUnknown({"osd", "hide_delay"});
   expectUnknown({"desktop_widgets", "enabeld"});
   expectUnknown({"desktop_widgets", "grid", "cell_szie"});
   expectUnknown({"desktop_widgets", "widget", "clock1", "bogus"});
