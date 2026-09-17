@@ -87,7 +87,8 @@
       },
       "brightness": {
         "brightness": "Brightness",
-        "display": "Display"
+        "display": "Display",
+        "unavailable": "Brightness control unavailable"
       },
       "lock-keys": {
         "caps": "Caps",
@@ -4451,6 +4452,10 @@
         "show-when-idle": {
           "description": "Keep the visualizer visible even when no media is playing",
           "label": "Show When Idle"
+        },
+        "show-when-unavailable": {
+          "description": "Keep the brightness widget visible when this monitor has no brightness control",
+          "label": "Show When Unavailable"
         },
         "show-window-title": {
           "description": "Show the window title next to its icon (only on horizontal bars)",

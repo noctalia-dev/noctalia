@@ -24,7 +24,8 @@ namespace {
 } // namespace
 
 BrightnessWidget::BrightnessWidget(BrightnessService* brightness, wl_output* output, Options options)
-    : m_brightness(brightness), m_output(output), m_showLabel(options.showLabel) {}
+    : m_brightness(brightness), m_output(output), m_showLabel(options.showLabel),
+      m_showWhenUnavailable(options.showWhenUnavailable) {}
 
 void BrightnessWidget::create() {
   auto area = ui::inputArea({});
@@ -88,37 +89,54 @@ void BrightnessWidget::doLayout(Renderer& renderer, float containerWidth, float 
 
 void BrightnessWidget::doUpdate(Renderer& renderer) { syncState(renderer); }
 
+void BrightnessWidget::syncWidgetVisibility(bool showWidget) {
+  if (Node* rootNode = root(); rootNode != nullptr) {
+    if (rootNode->visible() != showWidget || rootNode->participatesInLayout() != showWidget) {
+      rootNode->setVisible(showWidget);
+      rootNode->setParticipatesInLayout(showWidget);
+      requestUpdate();
+    }
+  }
+}
+
 void BrightnessWidget::syncState(Renderer& renderer) {
-  if (m_brightness == nullptr || m_glyph == nullptr || m_label == nullptr) {
+  if (m_glyph == nullptr || m_label == nullptr) {
     return;
   }
 
   auto* rootNode = root();
-  const auto* display = m_brightness->findByOutput(m_output);
-  if (display == nullptr) {
-    m_lastAvailable = false;
-    m_lastBrightness = -1.0F;
-    if (rootNode != nullptr) {
-      rootNode->setVisible(false);
-      rootNode->setParticipatesInLayout(false);
+  const auto* display = m_brightness != nullptr ? m_brightness->findByOutput(m_output) : nullptr;
+  const bool available = display != nullptr && display->controllable;
+  const float brightness = available ? display->brightness : -1.0F;
+  if (m_haveLastState && available == m_lastAvailable) {
+    if (!available || (std::abs(brightness - m_lastBrightness) < 0.001F && m_isVertical == m_lastVertical)) {
+      return;
     }
-    return;
   }
 
-  if (rootNode != nullptr) {
-    rootNode->setVisible(true);
-    rootNode->setParticipatesInLayout(true);
-  }
-
-  const float brightness = display->brightness;
-  const bool becameAvailable = !m_lastAvailable;
-  if (!becameAvailable && std::abs(brightness - m_lastBrightness) < 0.001F && m_isVertical == m_lastVertical) {
-    return;
-  }
-
-  m_lastAvailable = true;
+  m_haveLastState = true;
+  m_lastAvailable = available;
   m_lastBrightness = brightness;
   m_lastVertical = m_isVertical;
+
+  syncWidgetVisibility(available || m_showWhenUnavailable);
+  if (!available) {
+    m_label->setVisible(false);
+    if (rootNode != nullptr) {
+      auto* area = static_cast<InputArea*>(rootNode);
+      if (m_showWhenUnavailable) {
+        m_glyph->setGlyph("brightness-high");
+        m_glyph->setGlyphSize(Style::baseGlyphSize * m_contentScale);
+        m_glyph->setColor(scaleAlpha(widgetIconColorOr(colorSpecFromRole(ColorRole::OnSurfaceVariant)), 0.55F));
+        m_glyph->measure(renderer);
+        area->setTooltip(i18n::tr("bar.widgets.brightness.unavailable"));
+      } else {
+        area->clearTooltip();
+      }
+    }
+    requestRedraw();
+    return;
+  }
 
   m_glyph->setGlyph(brightnessGlyphName(brightness));
   m_glyph->setGlyphSize(Style::baseGlyphSize * m_contentScale);
