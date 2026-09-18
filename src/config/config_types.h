@@ -1007,6 +1007,8 @@ struct ShellConfig {
     std::vector<std::string> pinned;
     /// When true, refresh currency exchange rates from libqalculate's online sources.
     bool fetchExchangeRates = true;
+    // Enables/disables readline-style shortcuts
+    bool lineEditing = true;
     std::string providerPrefix = "/";
     /// Paste shortcut after a copy-style launcher activation (calculator, emoji, …).
     ClipboardAutoPasteMode autoPaste = ClipboardAutoPasteMode::Auto;
