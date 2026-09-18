@@ -99,6 +99,9 @@ private:
     std::string nameLower;
     std::string appIdLower;
     std::string title;
+    // Desktop entry name, or app id when unmatched, shown while the title is blank. Display only;
+    // window and workspace matching stay on title.
+    std::string displayName;
     std::string iconPath;
     std::string workspaceKey;
     std::string workspaceWindowId;
@@ -181,6 +184,7 @@ private:
   void updateModels();
   void syncWorkspaceGroupingCapability();
   [[nodiscard]] static std::string toLower(std::string value);
+  [[nodiscard]] static const std::string& displayTitle(const TaskModel& task) noexcept;
   [[nodiscard]] static std::string workspaceLabel(const Workspace& workspace, std::size_t index);
   [[nodiscard]] static ModelComparison compareModels(
       bool groupByWorkspace, const std::vector<TaskModel>& previousTasks,
