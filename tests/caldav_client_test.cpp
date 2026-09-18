@@ -65,7 +65,9 @@ int main() {
   bool completionOk = false;
   bool completionOnMainThread = false;
   std::size_t eventCount = 0;
-  calendar::CalDavClient client{[&](HttpRequest, calendar::CalDavClient::ResponseCallback callback) {
+  HttpRequest lastRequest;
+  calendar::CalDavClient client{[&](HttpRequest request, calendar::CalDavClient::ResponseCallback callback) {
+    lastRequest = request;
     requestIssued = true;
     callback(HttpResponse{.transportOk = true, .status = 207, .body = normalBody});
   }};
@@ -84,6 +86,39 @@ int main() {
   ok = expect(completionOk, "valid CalDAV response was rejected") && ok;
   ok = expect(completionOnMainThread, "completion was not delivered on the main thread") && ok;
   ok = expect(eventCount == 3, "valid recurrence expansion produced the wrong event count") && ok;
+
+  // Accounts without mTLS material must leave the TLS options untouched.
+  ok = expect(lastRequest.tlsClientCert == nullptr, "request carried TLS material for a cleartext account") && ok;
+
+  // Accounts with mTLS material must propagate cert/key paths into the HTTP request.
+  auto tls = std::make_shared<HttpTlsClientCert>();
+  tls->clientCertPath = "/etc/pki/client.pem";
+  tls->clientKeyPath = "/etc/pki/client.key";
+  tls->keyPassword = "not-a-real-secret";
+  tls->caCertPath = "/etc/pki/ca.pem";
+  account.tls = tls;
+  const std::string mtlsBody = responsePrefix
+      + "BEGIN:VEVENT\r\nUID:mtls\r\nDTSTART:20240101T000000Z\r\n"
+        "DTEND:20240101T000001Z\r\nEND:VEVENT\r\n"
+      + responseSuffix;
+
+  bool mtlsCompleted = false;
+  HttpRequest mtlsRequest;
+  calendar::CalDavClient mtlsClient{[&](HttpRequest request, calendar::CalDavClient::ResponseCallback callback) {
+    mtlsRequest = request;
+    callback(HttpResponse{.transportOk = true, .status = 207, .body = mtlsBody});
+  }};
+  mtlsClient.fetchEvents(account, utc(2024, 1, 1), utc(2024, 2, 1), false, [&](bool completedResult, auto) {
+    if (completedResult) {
+      mtlsCompleted = true;
+    }
+  });
+  ok = expect(drainUntil([&]() { return mtlsCompleted; }), "timed out waiting for mTLS request completion") && ok;
+  ok = expect(mtlsRequest.tlsClientCert != nullptr, "mTLS account request lost its TLS material") && ok;
+  ok = expect(mtlsRequest.tlsClientCert->clientCertPath == "/etc/pki/client.pem", "wrong client cert path") && ok;
+  ok = expect(mtlsRequest.tlsClientCert->clientKeyPath == "/etc/pki/client.key", "wrong client key path") && ok;
+  ok = expect(mtlsRequest.tlsClientCert->caCertPath == "/etc/pki/ca.pem", "wrong CA bundle path") && ok;
+  account.tls = nullptr;
 
   bool expensiveCompleted = false;
   bool expensiveOk = true;

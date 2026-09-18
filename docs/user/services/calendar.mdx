@@ -151,6 +151,41 @@ Provider rules:
 - `calendars = ["id"]` syncs only discovered collection ids. Collection ids are the decoded final path segment of the
   discovered calendar URL. Leave this empty first, then narrow it manually after confirming discovery.
 
+## mTLS (client certificates)
+
+Some CalDAV servers require mutual TLS: instead of a password alone, the client must present a certificate during the
+TLS handshake. Noctalia supports this for `type = "caldav"` accounts with two optional fields:
+
+```toml
+[calendar.account.secure_dav]
+type       = "caldav"
+name       = "mTLS Server"
+provider   = "custom"
+server_url = "https://dav.example.com/"
+username   = "me"
+credential_source = "file"
+password_file    = "/run/agenix/noctalia-caldav"
+client_cert_file = "/etc/pki/noctalia/client.pem"
+client_key_file  = "/etc/pki/noctalia/client.key"
+```
+
+- `client_cert_file` and `client_key_file` must always be set together. Both must point at PEM-encoded files and resolve
+  to absolute paths. Setting only one is a configuration error.
+- `key_password_file` is optional and only valid together with `client_key_file`. It contains the passphrase for
+  encrypted private keys; the file format follows the same rules as `password_file` (one trailing line break is ignored).
+- When either certificate field is set, Noctalia presents the certificate during discovery and every calendar sync.
+  When neither is set, behavior is unchanged.
+- The fields are only valid for caldav accounts; `google`, `ics`, and `vdir` accounts reject them.
+
+CA-issued certificates commonly live in an NSS database (for example `~/.pki/nssdb`, used by Firefox and
+NetworkManager). libcurl's TLS backend cannot read NSS databases directly, so export the pair to PEM first:
+
+```sh
+certutil -d sql:$HOME/.pki/nssdb -L -n "your-cert-nickname" -a > ~/pki/client.pem
+pk12util -o ~/pki/client.p12 -d sql:$HOME/.pki/nssdb -n "your-cert-nickname"
+openssl pkcs12 -in ~/pki/client.p12 -nocerts -nodes -out ~/pki/client.key
+```
+
 ## iCloud
 
 iCloud needs an Apple app-specific password. Use your Apple Account email as `username`.

@@ -22,6 +22,7 @@ namespace calendar {
       std::string username;
       std::shared_ptr<const security::SecureBuffer> password;
       bool allowRedirectAuth = false;
+      std::shared_ptr<const HttpTlsClientCert> tls;
       std::function<void(bool ok, std::vector<CalDavCollection>)> callback;
     };
 
@@ -253,8 +254,8 @@ namespace calendar {
 
     HttpRequest propfindRequest(
         const std::string& url, const std::string& username,
-        const std::shared_ptr<const security::SecureBuffer>& password, bool allowRedirectAuth, std::string body,
-        int depth
+        const std::shared_ptr<const security::SecureBuffer>& password, bool allowRedirectAuth,
+        const std::shared_ptr<const HttpTlsClientCert>& tls, std::string body, int depth
     ) {
       HttpRequest req;
       req.method = "PROPFIND";
@@ -263,6 +264,7 @@ namespace calendar {
       req.followRedirects = true;
       req.allowRedirectAuth = allowRedirectAuth;
       req.basicUsername = username;
+      req.tlsClientCert = tls;
       if (password != nullptr) {
         const auto bytes = password->bytes();
         req.basicPassword = std::string(reinterpret_cast<const char*>(bytes.data()), bytes.size());
@@ -305,7 +307,8 @@ namespace calendar {
     void discoverPrincipal(std::shared_ptr<DiscoveryContext> ctx) {
       ctx->http.request(
           propfindRequest(
-              ctx->serverUrl, ctx->username, ctx->password, ctx->allowRedirectAuth, currentUserPrincipalBody(), 0
+              ctx->serverUrl, ctx->username, ctx->password, ctx->allowRedirectAuth, ctx->tls,
+              currentUserPrincipalBody(), 0
           ),
           [ctx](HttpResponse resp) {
             if (!resp.transportOk || (resp.status != 207 && resp.status != 200)) {
@@ -327,7 +330,9 @@ namespace calendar {
 
     void discoverCalendarHome(std::shared_ptr<DiscoveryContext> ctx, const std::string& principalUrl) {
       ctx->http.request(
-          propfindRequest(principalUrl, ctx->username, ctx->password, ctx->allowRedirectAuth, calendarHomeSetBody(), 0),
+          propfindRequest(
+              principalUrl, ctx->username, ctx->password, ctx->allowRedirectAuth, ctx->tls, calendarHomeSetBody(), 0
+          ),
           [ctx, principalUrl](HttpResponse resp) {
             if (!resp.transportOk || (resp.status != 207 && resp.status != 200)) {
               kLog.warn("calendar-home-set discovery failed http={}", resp.status);
@@ -348,7 +353,7 @@ namespace calendar {
 
     void discoverCollections(std::shared_ptr<DiscoveryContext> ctx, const std::string& homeUrl) {
       ctx->http.request(
-          propfindRequest(homeUrl, ctx->username, ctx->password, ctx->allowRedirectAuth, calendarsBody(), 1),
+          propfindRequest(homeUrl, ctx->username, ctx->password, ctx->allowRedirectAuth, ctx->tls, calendarsBody(), 1),
           [ctx, homeUrl](HttpResponse resp) {
             if (!resp.transportOk || (resp.status != 207 && resp.status != 200)) {
               kLog.warn("calendar collection discovery failed http={}", resp.status);
@@ -370,10 +375,10 @@ namespace calendar {
   void discoverCalDavCollections(
       HttpClient& http, const std::string& serverUrl, const std::string& username,
       std::shared_ptr<const security::SecureBuffer> password, bool allowRedirectAuth,
-      std::function<void(bool ok, std::vector<CalDavCollection>)> cb
+      std::shared_ptr<const HttpTlsClientCert> tls, std::function<void(bool ok, std::vector<CalDavCollection>)> cb
   ) {
     auto ctx = std::make_shared<DiscoveryContext>(DiscoveryContext{
-        http, normalizeBase(serverUrl), username, std::move(password), allowRedirectAuth, std::move(cb)
+        http, normalizeBase(serverUrl), username, std::move(password), allowRedirectAuth, std::move(tls), std::move(cb)
     });
     if (ctx->serverUrl.empty() || ctx->username.empty() || ctx->password == nullptr || ctx->password->empty()) {
       kLog.warn("missing server_url/username/password");
