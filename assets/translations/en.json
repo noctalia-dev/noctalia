@@ -1482,6 +1482,10 @@
         "overlay": "Overlay",
         "top": "Top"
       },
+      "notification-timeout": {
+        "requested": "Requested",
+        "urgency": "By Urgency"
+      },
       "notification-urgency": {
         "critical": "Critical",
         "low": "Low",
@@ -2412,6 +2416,22 @@
         "show-app-name": {
           "description": "Show the sending application's name in notification toasts",
           "label": "Show App Name"
+        },
+        "timeout-critical": {
+          "description": "Display duration for critical external notifications",
+          "label": "Critical Urgency Timeout"
+        },
+        "timeout-low": {
+          "description": "Display duration for low urgency external notifications",
+          "label": "Low Urgency Timeout"
+        },
+        "timeout-normal": {
+          "description": "Display duration for normal urgency external notifications",
+          "label": "Normal Urgency Timeout"
+        },
+        "timeout-policy": {
+          "description": "Use sender requested durations or choose durations by urgency",
+          "label": "Timeout Policy"
         },
         "toast-opacity": {
           "description": "Background opacity of notification toasts",

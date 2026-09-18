@@ -146,7 +146,7 @@ void KdeNotificationClient::onWatcherNotify(
           .summary = summary,
           .body = body,
           .urgency = notification_dbus::notifyUrgencyFromHints(hints),
-          .timeout = normalizeNotifyExpireTimeout(timeout),
+          .timeout = timeout,
           .transient = notification_dbus::notifyTransientFromHints(hints),
           .actions = notification_dbus::sanitizeNotifyActions(actions),
           .icon = notification_dbus::notifyIcon(appName, appIcon, hints),

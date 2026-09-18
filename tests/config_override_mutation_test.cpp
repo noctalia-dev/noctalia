@@ -51,6 +51,8 @@ int main() {
   const std::vector<std::string> typePath{"calendar", "account", "feed", "type"};
   const std::vector<std::string> serverUrlPath{"calendar", "account", "feed", "server_url"};
   const std::vector<std::string> vdirPath{"calendar", "account", "feed", "path"};
+  const std::vector<std::string> timeoutModePath{"notification", "timeout", "mode"};
+  const std::vector<std::string> criticalTimeoutPath{"notification", "timeout", "critical"};
 
   {
     ConfigService config;
@@ -61,6 +63,18 @@ int main() {
     create.emplace_back(serverUrlPath, std::string("https://example.com/calendar.ics"));
     expect(config.setOverrides(std::move(create)), "ics account writes");
     expect(config.hasOverride(serverUrlPath), "server_url stored for the ics account");
+
+    std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>> timeoutOverrides;
+    timeoutOverrides.emplace_back(timeoutModePath, std::string("urgency"));
+    timeoutOverrides.emplace_back(criticalTimeoutPath, std::int64_t{12000});
+    expect(config.setOverrides(std::move(timeoutOverrides)), "notification timeout overrides write");
+    expect(config.hasOverride(timeoutModePath), "notification timeout mode override stored");
+    expect(config.hasOverride(criticalTimeoutPath), "critical timeout override stored");
+    expect(
+        config.config().notification.timeout.mode == NotificationTimeoutMode::Urgency,
+        "notification timeout mode override applied"
+    );
+    expect(config.config().notification.timeout.critical == 12000, "critical timeout override applied");
 
     int reloads = 0;
     config.addReloadCallback([&reloads]() { ++reloads; }, "mutation-test");

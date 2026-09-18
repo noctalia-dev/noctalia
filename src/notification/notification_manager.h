@@ -34,7 +34,7 @@ constexpr int32_t kDefaultNotificationTimeout = 6000;
 constexpr std::size_t kMaxNotificationActions = 6;
 
 // Freedesktop expire_timeout: 0 = persistent, -1 = server default, positive = milliseconds.
-// Normalize once at Notify ingress so manager timers and toast countdowns stay aligned.
+// Normalize at manager ingress so policy, timers, and toast countdowns stay aligned.
 [[nodiscard]] inline int32_t normalizeNotifyExpireTimeout(int32_t expireTimeout) noexcept {
   if (expireTimeout == 0) {
     return 0;
@@ -51,6 +51,7 @@ struct NotificationRequest {
   std::string summary;
   std::string body;
   Urgency urgency = Urgency::Normal;
+  // External requests may carry the raw Freedesktop expire_timeout value.
   int32_t timeout = kDefaultNotificationTimeout;
   NotificationOrigin origin = NotificationOrigin::External;
   NotificationDndPolicy dndPolicy = NotificationDndPolicy::Respect;
@@ -131,6 +132,7 @@ public:
   void clearHistory();
   void setFilters(std::vector<NotificationFilterConfig> filters);
   [[nodiscard]] const std::vector<NotificationFilterConfig>& filters() const noexcept;
+  void setTimeoutPolicy(NotificationTimeoutConfig policy);
   void setKeepDismissedInHistory(bool keep);
   void setHistoryRetentionHours(int hours);
   void setDoNotDisturb(bool enabled);
@@ -183,6 +185,7 @@ private:
   std::unordered_map<uint32_t, size_t> m_idToIndex;
   std::unordered_set<uint32_t> m_suppressedIds;
   std::vector<NotificationFilterConfig> m_filters;
+  NotificationTimeoutConfig m_timeoutPolicy;
   /// Expired notifications with actions: NotificationClosed deferred until dismiss, action, or history removal.
   std::unordered_set<uint32_t> m_pendingDBusClose;
   std::deque<NotificationHistoryEntry> m_history;

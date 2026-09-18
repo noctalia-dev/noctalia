@@ -62,6 +62,8 @@ int main() {
   expectKnown({"desktop_widgets", "widget", "clock1", "settings", "format"});
   expectKnown({"osd", "scale"});
   expectKnown({"notification", "background_opacity"});
+  expectKnown({"notification", "timeout", "mode"});
+  expectKnown({"notification", "timeout", "critical"});
   expectKnown({"battery", "warning_threshold"});
   expectKnown({"calendar", "refresh_minutes"});
   expectKnown({"calendar", "account", "icloud", "provider"});
@@ -88,6 +90,7 @@ int main() {
   expectUnknown({"desktop_widgets", "enabeld"});
   expectUnknown({"desktop_widgets", "grid", "cell_szie"});
   expectUnknown({"desktop_widgets", "widget", "clock1", "bogus"});
+  expectUnknown({"notification", "timeout", "urgent"});
   expectUnknown({"bar", "default", "thicknesss"});
   expectUnknown({"bar", "default", "monitor", "DP-1", "bogus"});
   expectUnknown({});
