@@ -2043,6 +2043,11 @@ namespace settings {
         "outline border"
     ));
     entries.push_back(makeEntry(
+        SettingsSection::Osd, "osd", tr("settings.schema.shell.osd-active-monitor-only.label"),
+        tr("settings.schema.shell.osd-active-monitor-only.description"), {"osd", "active_monitor_only"},
+        ToggleSetting{cfg.osd.activeMonitorOnly}, "monitor output display focus active hud overlay"
+    ));
+    entries.push_back(makeEntry(
         SettingsSection::Osd, "osd", tr("settings.schema.shell.osd-monitors.label"),
         tr("settings.schema.shell.osd-monitors.description"), {"osd", "monitors"},
         ListSetting{.items = cfg.osd.monitors, .suggestedOptions = env.availableOutputs},
@@ -2984,6 +2989,11 @@ namespace settings {
         SettingsSection::Notifications, "toasts", tr("settings.schema.notifications.border.label"),
         tr("settings.schema.notifications.border.description"), {"notification", "border"},
         ToggleSetting{cfg.notification.border}, "outline border"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Notifications, "toasts", tr("settings.schema.notifications.active-monitor-only.label"),
+        tr("settings.schema.notifications.active-monitor-only.description"), {"notification", "active_monitor_only"},
+        ToggleSetting{cfg.notification.activeMonitorOnly}, "monitor output display focus active"
     ));
     entries.push_back(makeEntry(
         SettingsSection::Notifications, "toasts", tr("settings.schema.notifications.monitors.label"),

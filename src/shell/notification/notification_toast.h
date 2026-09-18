@@ -12,6 +12,7 @@
 #include <vector>
 
 class ConfigService;
+class CompositorPlatform;
 class HttpClient;
 class Input;
 class InputArea;
@@ -39,8 +40,8 @@ public:
   NotificationToast& operator=(const NotificationToast&) = delete;
 
   void initialize(
-      WaylandConnection& wayland, ConfigService* config, NotificationManager* notifications,
-      RenderContext* renderContext, HttpClient* httpClient = nullptr
+      WaylandConnection& wayland, CompositorPlatform& platform, ConfigService* config,
+      NotificationManager* notifications, RenderContext* renderContext, HttpClient* httpClient = nullptr
   );
   void onConfigReload();
   void onOutputChange();
@@ -194,6 +195,7 @@ private:
   [[nodiscard]] std::string resolveNotificationIconPath(const PopupEntry& entry);
 
   WaylandConnection* m_wayland = nullptr;
+  CompositorPlatform* m_platform = nullptr;
   ConfigService* m_config = nullptr;
   NotificationManager* m_notifications = nullptr;
   RenderContext* m_renderContext = nullptr;
@@ -211,4 +213,5 @@ private:
   std::string m_lastPosition;
   std::string m_lastLayer;
   std::vector<std::string> m_lastMonitorSelectors;
+  wl_output* m_activeOutput = nullptr;
 };

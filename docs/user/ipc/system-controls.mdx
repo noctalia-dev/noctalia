@@ -46,7 +46,7 @@ Default step is 5% when not specified. Output volume is clamped to 100% unless `
 | Show mic OSD | <IpcCommand command="mic-volume-osd" /> | Show the microphone OSD at the current volume without changing it. |
 | Show mic OSD at value | <IpcCommand command="mic-volume-osd 40%" /> | Show the microphone OSD at the given value without changing volume. |
 
-`volume-osd` and `mic-volume-osd` never change the level. Called with no value they show the current one, which suits a "show me the volume" bind. Called with a value they show that value instead, for scripts that manage volume outside Noctalia such as an MPD volume sync. Both appear on whichever monitors are configured under `[osd].monitors`, and both reflect the real mute state of the device.
+`volume-osd` and `mic-volume-osd` never change the level. Called with no value they show the current one, which suits a "show me the volume" bind. Called with a value they show that value instead, for scripts that manage volume outside Noctalia such as an MPD volume sync. Both appear on the focused monitor when `[osd].active_monitor_only` is enabled, otherwise they use `[osd].monitors`. Both reflect the real mute state of the device.
 
 ## Brightness
 
@@ -62,7 +62,7 @@ Default step is 5% when not specified. Output volume is clamped to 100% unless `
 
 Targets can be `current`, `all`, `*`, a monitor connector name such as `eDP-1` or `DP-1`, or a monitor selector token. Values accept normalized `0.0` to `1.0` or percentage form such as `65`, `65%`, and `5%`.
 
-`brightness-osd` takes a value only - unlike `brightness-set`, it has no monitor target. The OSD appears on whichever monitors are configured under `[osd].monitors`.
+`brightness-osd` takes a value only - unlike `brightness-set`, it has no monitor target. The OSD appears on the focused monitor when `[osd].active_monitor_only` is enabled, otherwise it uses `[osd].monitors`.
 
 ## Night light
 

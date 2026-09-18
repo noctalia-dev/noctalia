@@ -1,5 +1,6 @@
 #include "shell/osd/osd_overlay.h"
 
+#include "compositors/compositor_platform.h"
 #include "config/config_service.h"
 #include "config/config_types.h"
 #include "core/deferred_call.h"
@@ -198,8 +199,11 @@ OsdOverlay::OsdOverlay() = default;
 
 OsdOverlay::~OsdOverlay() = default;
 
-void OsdOverlay::initialize(WaylandConnection& wayland, ConfigService* config, RenderContext* renderContext) {
+void OsdOverlay::initialize(
+    WaylandConnection& wayland, CompositorPlatform& platform, ConfigService* config, RenderContext* renderContext
+) {
   m_wayland = &wayland;
+  m_platform = &platform;
   m_config = config;
   m_renderContext = renderContext;
   m_lastConfiguredEnabled = m_config == nullptr || m_config->config().osd.enabled;
@@ -335,13 +339,8 @@ std::vector<std::string> OsdOverlay::osdMonitors() const {
 }
 
 bool OsdOverlay::shouldRenderOnOutput(const WaylandOutput& output) const {
-  const auto selectedMonitors = osdMonitors();
-  if (selectedMonitors.empty()) {
-    return true;
-  }
-  return std::ranges::any_of(selectedMonitors, [&output](const std::string& match) {
-    return outputMatchesSelector(match, output);
-  });
+  const bool activeMonitorOnly = m_config != nullptr && m_config->config().osd.activeMonitorOnly;
+  return outputMatchesMonitorSelection(output, osdMonitors(), activeMonitorOnly, m_activeOutput);
 }
 
 void OsdOverlay::onOutputChange() {
@@ -384,6 +383,8 @@ void OsdOverlay::ensureSurfaces() {
   const std::string position = effectiveOsdPosition(orientation, horizontalPosition, verticalPosition);
   const float layoutScale = osdUiScale(m_config);
   const auto selectedMonitors = osdMonitors();
+  const bool activeMonitorOnly = m_config != nullptr && m_config->config().osd.activeMonitorOnly;
+  m_activeOutput = activeMonitorOnly && m_platform != nullptr ? m_platform->preferredInteractiveOutput() : nullptr;
 
   if (!m_instances.empty()
       && (position != m_lastPosition

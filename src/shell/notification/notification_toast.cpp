@@ -1,5 +1,6 @@
 #include "shell/notification/notification_toast.h"
 
+#include "compositors/compositor_platform.h"
 #include "config/config_service.h"
 #include "config/config_types.h"
 #include "core/deferred_call.h"
@@ -510,10 +511,11 @@ NotificationToast::~NotificationToast() {
 }
 
 void NotificationToast::initialize(
-    WaylandConnection& wayland, ConfigService* config, NotificationManager* notifications, RenderContext* renderContext,
-    HttpClient* httpClient
+    WaylandConnection& wayland, CompositorPlatform& platform, ConfigService* config, NotificationManager* notifications,
+    RenderContext* renderContext, HttpClient* httpClient
 ) {
   m_wayland = &wayland;
+  m_platform = &platform;
   m_config = config;
   m_notifications = notifications;
   m_renderContext = renderContext;
@@ -1607,13 +1609,8 @@ std::vector<std::string> NotificationToast::notificationMonitors() const {
 }
 
 bool NotificationToast::shouldRenderOnOutput(const WaylandOutput& output) const {
-  const auto selectedMonitors = notificationMonitors();
-  if (selectedMonitors.empty()) {
-    return true;
-  }
-  return std::ranges::any_of(selectedMonitors, [&output](const std::string& match) {
-    return outputMatchesSelector(match, output);
-  });
+  const bool activeMonitorOnly = m_config != nullptr && m_config->config().notification.activeMonitorOnly;
+  return outputMatchesMonitorSelection(output, notificationMonitors(), activeMonitorOnly, m_activeOutput);
 }
 
 bool NotificationToast::isBottomStacking() const { return isBottomPosition(notificationPosition()); }
@@ -1992,6 +1989,8 @@ void NotificationToast::ensureSurfaces() {
   const std::string layer = notificationLayer();
   const auto selectedMonitors = notificationMonitors();
   const auto& notifCfg = m_config->config().notification;
+  m_activeOutput =
+      notifCfg.activeMonitorOnly && m_platform != nullptr ? m_platform->preferredInteractiveOutput() : nullptr;
   const int offX = std::max(0, notifCfg.offsetX);
   const int offY = std::max(0, notifCfg.offsetY);
   const auto surfaceWidth = ::surfaceWidth(scale, horizontalInnerPad(scale));
