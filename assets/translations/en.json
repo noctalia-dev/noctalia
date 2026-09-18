@@ -1273,6 +1273,7 @@
         "resume-command-placeholder": "notify-send 'Back from idle'",
         "summary": "{name} · {seconds}s",
         "summary-disabled-timeout": "{name} · timeout disabled",
+        "suspend-behavior-label": "Suspend behavior",
         "timeout-label": "Timeout seconds",
         "unnamed": "Unnamed behavior"
       },
@@ -1284,6 +1285,7 @@
     },
     "navigation": {
       "groups": {
+        "ac": "AC Power",
         "accessibility": "Accessibility",
         "audio": "Audio",
         "authentication": "Authentication",
@@ -1477,6 +1479,11 @@
         "launcher": "Launcher",
         "none": "None",
         "window-switcher": "Window Switcher"
+      },
+      "idle-suspend-behavior": {
+        "hibernate": "Hibernate",
+        "suspend": "Suspend",
+        "suspend-then-hibernate": "Suspend then hibernate"
       },
       "layer": {
         "overlay": "Overlay",
@@ -2241,6 +2248,10 @@
         "behaviors": {
           "description": "Named idle actions with presets (lock, screen off, suspend) or custom commands, timeouts, resume pairing, and order",
           "label": "Behaviors"
+        },
+        "power-profile": {
+          "label": "Power Profile",
+          "description": "Power profile applied"
         },
         "pre-action-fade": {
           "description": "Seconds of fullscreen dim before the idle command (0 disables)",

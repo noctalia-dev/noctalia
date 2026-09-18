@@ -274,8 +274,32 @@ struct IdleBehaviorConfig {
   bool lockBeforeSuspend = true;
   /// Shorter timeout (seconds) applied only while the session is locked; 0 = always use timeoutSeconds.
   double lockedTimeoutSeconds = 0.0;
+  /// When the action is a suspend action: `suspend` | `hibernate` | `suspend-then-hibernate`.
+  std::string suspendBehavior = "suspend";
 
   bool operator==(const IdleBehaviorConfig&) const = default;
+};
+
+/// Idle behavior applied while running on AC power. On battery the shell uses `IdleConfig::behaviors`
+/// unchanged; on AC power `AcIdleConfig::behaviors` take over instead.
+struct AcIdleConfig {
+  std::vector<IdleBehaviorConfig> behaviors = {
+      IdleBehaviorConfig{
+          .name = "lock", .enabled = false, .timeoutSeconds = 900, .action = "lock", .command = "", .resumeCommand = ""
+      },
+      IdleBehaviorConfig{
+          .name = "screen-off",
+          .enabled = false,
+          .timeoutSeconds = 3600,
+          .action = "screen_off",
+          .command = "",
+          .resumeCommand = ""
+      },
+  };
+  /// Power profile to switch to on AC power (e.g. `balanced`); empty = leave the active profile alone.
+  std::string powerProfile = "balanced";
+
+  bool operator==(const AcIdleConfig&) const = default;
 };
 
 struct NotificationFilterConfig {
@@ -298,11 +322,16 @@ struct NotificationFilterConfig {
 };
 
 struct IdleConfig {
+  /// Behaviors used while on battery (or when upower is unavailable and no AC idle config is set).
   std::vector<IdleBehaviorConfig> behaviors;
   /// When > 0, after the compositor reports idle the shell fades a fullscreen overlay (surface color)
   /// from transparent to opaque over this many seconds, then runs `command`. Compositor activity during
   /// the fade cancels. When 0, the idle command runs immediately with no overlay.
   float preActionFadeSeconds = 2.0F;
+  /// Power profile to switch to on battery (e.g. `balanced`); empty = leave the active profile alone.
+  std::string powerProfile = "balanced";
+  /// AC-power idle behavior. See `AcIdleConfig`.
+  AcIdleConfig ac;
 
   bool operator==(const IdleConfig&) const = default;
 };
@@ -325,6 +354,8 @@ struct IdleActionRequest {
   IdleActionKind kind = IdleActionKind::None;
   std::string command;
   bool lockBeforeSuspend = true;
+  /// `suspend` | `hibernate` | `suspend-then-hibernate` (meaningful for Suspend/LockAndSuspend).
+  std::string suspendBehavior = "suspend";
 
   bool operator==(const IdleActionRequest&) const = default;
 };
