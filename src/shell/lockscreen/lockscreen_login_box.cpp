@@ -90,7 +90,7 @@ namespace lockscreen_login_box {
         if (!output.done || output.output == nullptr || !output.hasUsableGeometry()) {
           continue;
         }
-        if (desktop_widgets::outputKey(output) == outputName) {
+        if (desktop_widgets::outputMatchesPlacementKey(outputName, output)) {
           return desktop_widgets::outputLogicalWidth(output);
         }
       }
@@ -395,6 +395,15 @@ namespace lockscreen_login_box {
   }
 
   void ensureWidgets(std::vector<DesktopWidgetState>& widgets, const WaylandConnection& wayland) {
+    for (auto& widget : widgets) {
+      if (!isLoginBoxWidget(widget)) {
+        continue;
+      }
+      if (const WaylandOutput* output = desktop_widgets::resolveStateOutput(wayland, widget); output != nullptr) {
+        widget.outputName = desktop_widgets::placementOutputKey(*output);
+      }
+    }
+
     std::unordered_set<std::string> outputsWithLoginBox;
     std::erase_if(widgets, [&](const DesktopWidgetState& widget) {
       if (!isLoginBoxWidget(widget)) {
@@ -435,7 +444,7 @@ namespace lockscreen_login_box {
       if (!output.done || output.output == nullptr || !output.hasUsableGeometry()) {
         continue;
       }
-      const std::string outputKey = desktop_widgets::outputKey(output);
+      const std::string outputKey = desktop_widgets::placementOutputKey(output);
       if (outputsWithLoginBox.contains(outputKey)) {
         continue;
       }

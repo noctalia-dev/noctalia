@@ -221,10 +221,10 @@ void DesktopWidgetsHost::syncInstances() {
       continue;
     }
 
-    const std::string effectiveOutputName = desktop_widgets::outputKey(*output);
+    const std::string& connectorName = desktop_widgets::connectorNameForOutputApi(*output);
     const bool widgetDefinitionChanged = existing->state.type != state.type
         || existing->state.settings != state.settings
-        || existing->effectiveOutputName != effectiveOutputName;
+        || existing->connectorName != connectorName;
 
     if (widgetDefinitionChanged) {
       std::erase_if(m_instances, [&state](const auto& instance) { return instance->state.id == state.id; });
@@ -288,7 +288,7 @@ void DesktopWidgetsHost::createInstance(const DesktopWidgetState& state, const W
 
   auto instance = std::make_unique<DesktopWidgetInstance>();
   instance->state = clampedState;
-  instance->effectiveOutputName = desktop_widgets::outputKey(output);
+  instance->connectorName = desktop_widgets::connectorNameForOutputApi(output);
   instance->output = output.output;
   instance->widget = std::move(widget);
   instance->intrinsicWidth = intrinsicWidth;
@@ -340,7 +340,7 @@ void DesktopWidgetsHost::createInstance(const DesktopWidgetState& state, const W
   });
 
   if (!instance->surface->initialize(output.output)) {
-    kLog.warn("desktop widgets host: failed to initialize widget {} on {}", state.id, instance->effectiveOutputName);
+    kLog.warn("desktop widgets host: failed to initialize widget {} on {}", state.id, instance->connectorName);
     return;
   }
 
@@ -383,11 +383,12 @@ void DesktopWidgetsHost::updateWallpaperMask(DesktopWidgetInstance& instance) {
     return;
   }
 
-  const auto maskIt = m_wallpaperMasks.find(instance.effectiveOutputName);
-  const WaylandOutput* output = desktop_widgets::findOutputByKey(*m_wayland, instance.effectiveOutputName);
+  const auto maskIt = m_wallpaperMasks.find(instance.connectorName);
+  const WaylandOutput* output = m_wayland->findOutputByWl(instance.output);
   if (maskIt == m_wallpaperMasks.end()
       || output == nullptr
-      || m_config->getWallpaperPath(instance.effectiveOutputName) != maskIt->second.descriptor.wallpaperPath) {
+      || m_config->getWallpaperPath(desktop_widgets::connectorNameForOutputApi(*output))
+          != maskIt->second.descriptor.wallpaperPath) {
     instance.surface->setWallpaperMask(std::nullopt);
     return;
   }
