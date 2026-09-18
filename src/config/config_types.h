@@ -72,6 +72,7 @@ struct BarMonitorOverride {
   std::optional<std::string> layer; // top | overlay
   std::optional<std::int32_t> thickness;
   std::optional<float> backgroundOpacity;
+  std::optional<bool> compositorBlur;
   std::optional<ColorSpec> border;
   std::optional<float> borderWidth;
   std::optional<std::int32_t> radius;
@@ -140,6 +141,7 @@ struct BarConfig {
   std::string layer = "top"; // top | overlay; attached panels use the same layer
   std::int32_t thickness = Style::barThicknessDefault;
   float backgroundOpacity = 1.0F;
+  bool compositorBlur = true;
   // Inside outline for the bar background; attached panels inherit the resolved values.
   ColorSpec border = colorSpecFromRole(ColorRole::Outline);
   float borderWidth = 0.0F;
