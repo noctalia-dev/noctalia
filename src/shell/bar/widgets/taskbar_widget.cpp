@@ -189,12 +189,12 @@ namespace {
 
   // Inner cross budget for workspace group capsules nested inside a bar widget capsule.
   [[nodiscard]] float taskbarGroupedCrossBudget(
-      float shellCross, bool barCapsuleEnabled, bool workspaceGroupCapsule, bool barCapsuleBorder, float scale
+      float shellCross, bool barCapsuleEnabled, bool workspaceGroupCapsule, float barCapsuleBorderWidth, float scale
   ) {
     if (!barCapsuleEnabled || !workspaceGroupCapsule || shellCross <= 0.0F) {
       return shellCross;
     }
-    const float outerBorder = barCapsuleBorder ? Style::borderWidth * scale : 0.0F;
+    const float outerBorder = barCapsuleBorderWidth * scale;
     const float innerBorder = Style::borderWidth * scale;
     const float nestGap = std::round(std::max(1.0F, Style::spaceXs * 0.25F * scale));
     return std::max(0.0F, shellCross - 2.0F * (outerBorder + innerBorder + nestGap));
@@ -829,8 +829,8 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
   const bool barCapsule = barCapsuleSpec().enabled;
   const float shellCross = taskbarShellCross(barCross, barCapsule, capsuleThickness);
   const float crossExtent = taskbarGroupedCrossBudget(
-      shellCross, barCapsule, m_groupByWorkspace && m_workspaceGroupCapsule, barCapsuleSpec().border.has_value(),
-      m_contentScale
+      shellCross, barCapsule, m_groupByWorkspace && m_workspaceGroupCapsule,
+      barCapsuleSpec().border.has_value() ? barCapsuleSpec().borderWidth : 0.0F, m_contentScale
   );
   const float groupBorderInset = Style::borderWidth * m_contentScale;
   const float groupOutlineInset = m_workspaceGroupCapsule ? groupBorderInset : 0.0F;

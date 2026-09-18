@@ -1111,6 +1111,8 @@
           "action": "Group",
           "border": "Border",
           "border-description": "Capsule outline color role; leave on Default for no outline",
+          "border-width": "Border Width",
+          "border-width-description": "Thickness of the capsule outline in pixels; only drawn when a border color is set",
           "clear": "Clear",
           "deselect": "Deselect",
           "drag": "Reorder",
@@ -1825,6 +1827,10 @@
         "capsule-border": {
           "description": "Default capsule outline color role; fixed hex colors are also supported",
           "label": "Capsule Border"
+        },
+        "capsule-border-width": {
+          "description": "Thickness of the capsule outline in pixels; only drawn when a capsule border color is set",
+          "label": "Capsule Border Width"
         },
         "capsule-fill": {
           "description": "Default capsule background color role; fixed hex colors are also supported",
@@ -3999,6 +4005,10 @@
         "capsule-border": {
           "description": "Color role for the capsule outline; fixed hex colors are also supported",
           "label": "Capsule Border"
+        },
+        "capsule-border-width": {
+          "description": "Thickness of the capsule outline in pixels; only drawn when a capsule border color is set",
+          "label": "Capsule Border Width"
         },
         "capsule-fill": {
           "description": "Color role for the capsule background; fixed hex colors are also supported",
