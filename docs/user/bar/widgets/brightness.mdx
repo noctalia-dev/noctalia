@@ -5,15 +5,19 @@ sidebar:
   order: 5
 ---
 
-Shows the current monitor brightness level and adjusts it via scroll wheel. Hides itself when no controllable monitor is found. Click opens the display tab in the control center.
+Shows the current monitor brightness level and adjusts it via scroll wheel. By default, the widget hides itself when no controllable monitor is found. Click opens the display tab in the control center.
 
 | Setting | Type | Default | Description |
 |---------|------|---------|-------------|
 | `show_label` | bool | `true` | Show the brightness percentage next to the glyph (horizontal and vertical bars) |
+| `show_when_unavailable` | bool | `false` | Keep the widget visible with a subdued glyph when this monitor has no brightness control |
 
 ```toml
 [widget.brightness]
 show_label = false
+show_when_unavailable = true
 ```
+
+When `show_when_unavailable` is enabled and brightness control is unavailable, the percentage is hidden and scrolling has no effect.
 
 See [`[brightness]`](/noctalia/services/brightness/) for backend configuration.
