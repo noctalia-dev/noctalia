@@ -178,5 +178,11 @@
     "noctaliaVersion": null,
     "feature": "container-tooltip",
     "introduced": "The `tooltip` prop on `ui.box`, `ui.row`, `ui.column`, and `ui.image`, shown on hover."
+  },
+  {
+    "level": 33,
+    "noctaliaVersion": null,
+    "feature": "lockscreen-wallpaper",
+    "introduced": "`noctalia.lockscreenWallpaperPath(outputName)`, `noctalia.setLockscreenWallpaper(path)`, and `noctalia.clearLockscreenWallpaper()` for the lock screen wallpaper."
   }
 ]

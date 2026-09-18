@@ -2191,6 +2191,10 @@
             "description": "Command to run when the active color palette changes",
             "label": "On Colors Changed"
           },
+          "lockscreen-wallpaper-changed": {
+            "description": "Command to run when the effective lock screen wallpaper changes; provides NOCTALIA_LOCKSCREEN_WALLPAPER_PATH",
+            "label": "On Lock Screen Wallpaper Changed"
+          },
           "logging-out": {
             "description": "Command to run before logging out",
             "label": "On Logout"

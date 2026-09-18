@@ -695,6 +695,36 @@ namespace {
     return 0;
   }
 
+  int luau_lockscreenWallpaperPath(lua_State* L) {
+    size_t len = 0;
+    const char* outputName = luaL_checklstring(L, 1, &len);
+    auto* host = hostForState(L);
+    const auto path =
+        host != nullptr ? host->api().lockscreenWallpaperPath(std::string(outputName, len)) : std::nullopt;
+    if (!path.has_value() || path->empty()) {
+      lua_pushnil(L);
+      return 1;
+    }
+    lua_pushlstring(L, path->data(), path->size());
+    return 1;
+  }
+
+  int luau_setLockscreenWallpaper(lua_State* L) {
+    size_t len = 0;
+    const char* path = luaL_checklstring(L, 1, &len);
+    if (auto* host = hostForState(L)) {
+      host->scriptSetLockscreenWallpaper(std::string(path, len));
+    }
+    return 0;
+  }
+
+  int luau_clearLockscreenWallpaper(lua_State* L) {
+    if (auto* host = hostForState(L)) {
+      host->scriptClearLockscreenWallpaper();
+    }
+    return 0;
+  }
+
   // Any effective shell config value by dotted path. Array indices in the path are zero-based.
   int luau_getSetting(lua_State* L) {
     size_t len = 0;
@@ -1776,6 +1806,9 @@ namespace {
       {"setWallpaper", luau_setWallpaper},
       {"wallpaperPath", luau_wallpaperPath},
       {"setWallpaperMask", luau_setWallpaperMask},
+      {"lockscreenWallpaperPath", luau_lockscreenWallpaperPath},
+      {"setLockscreenWallpaper", luau_setLockscreenWallpaper},
+      {"clearLockscreenWallpaper", luau_clearLockscreenWallpaper},
       {"togglePanel", luau_togglePanel},
       {"openSettings", luau_openSettings},
       {"isDarkMode", luau_isDarkMode},
@@ -2813,6 +2846,20 @@ void LuauHost::scriptSetWallpaperMask(std::string outputName, std::string path, 
       .extra = std::move(wallpaperPath),
       .hostId = m_hostId,
   });
+}
+
+void LuauHost::scriptSetLockscreenWallpaper(std::string path) {
+  if (m_scriptContext != nullptr) {
+    m_scriptContext->sideEffects.push_back(
+        {.kind = scripting::ScriptSideEffectKind::SetLockscreenWallpaper, .body = std::move(path)}
+    );
+  }
+}
+
+void LuauHost::scriptClearLockscreenWallpaper() {
+  if (m_scriptContext != nullptr) {
+    m_scriptContext->sideEffects.push_back({.kind = scripting::ScriptSideEffectKind::ClearLockscreenWallpaper});
+  }
 }
 
 void LuauHost::scriptTogglePanel(std::string panelId) {

@@ -14,6 +14,8 @@
 
 struct ScreencopyImage;
 
+class IpcService;
+
 struct KeyboardEvent;
 struct PointerEvent;
 struct WaylandOutput;
@@ -49,6 +51,7 @@ public:
   void setLoginBoxServices(
       SessionActionRunner* sessionActions, MprisService* mpris, const WeatherService* weather, HttpClient* httpClient
   );
+  void registerIpc(IpcService& ipc);
   bool lock();
   void primeDesktopCaptures();
   void clearPrimedDesktopCaptures();
