@@ -1301,6 +1301,7 @@
         "community": "Community",
         "control-center": "Control Center",
         "dead-zone": "Dead Zone",
+        "default-apps": "Default Apps",
         "directories": "Directories",
         "display": "Display",
         "effects": "Effects",
@@ -1367,6 +1368,7 @@
         "backdrop": "Backdrop",
         "bar": "Bar",
         "control-center": "Control Center",
+        "default-apps": "Default Apps",
         "desktop": "Desktop",
         "dock": "Dock",
         "hooks": "Hooks",
@@ -1963,6 +1965,37 @@
         "widget-spacing": {
           "description": "Space between bar widgets",
           "label": "Widget Spacing"
+        }
+      },
+      "default-apps": {
+        "document-viewer": {
+          "description": "Application that opens PDF documents",
+          "label": "Document Viewer"
+        },
+        "mail-client": {
+          "description": "Application that handles mailto links",
+          "label": "Email Client"
+        },
+        "music-player": {
+          "description": "Application that plays audio and music files",
+          "label": "Music Player"
+        },
+        "photo-viewer": {
+          "description": "Application that opens photos and images",
+          "label": "Photo Viewer"
+        },
+        "search-placeholder": "Search applications",
+        "text-editor": {
+          "description": "Application that opens plain text files",
+          "label": "Text Editor"
+        },
+        "video-player": {
+          "description": "Application that plays video files",
+          "label": "Video Player"
+        },
+        "web-browser": {
+          "description": "Application that opens web links",
+          "label": "Web Browser"
         }
       },
       "desktop": {

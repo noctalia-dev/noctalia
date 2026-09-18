@@ -173,6 +173,8 @@ namespace ui {
     Button** out = nullptr;
     std::optional<std::string> text = std::nullopt;
     std::optional<std::string> glyph = std::nullopt;
+    std::optional<std::string> leadingIconPath = std::nullopt;
+    std::optional<int> leadingIconSize = std::nullopt;
     std::optional<float> fontSize = std::nullopt;
     std::optional<float> glyphSize = std::nullopt;
     std::optional<float> controlHeight = std::nullopt;

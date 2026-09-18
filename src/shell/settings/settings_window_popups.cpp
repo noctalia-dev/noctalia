@@ -519,6 +519,7 @@ void SettingsWindow::openSearchPickerPopup(settings::SearchPickerOpenRequest req
             .enabled = true,
             .icon = {},
             .preview = opt.preview,
+            .iconPath = opt.iconPath,
         }
     );
   }

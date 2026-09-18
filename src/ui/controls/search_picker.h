@@ -22,6 +22,7 @@ struct SearchPickerOption {
   bool enabled = true;
   std::string icon;
   ColorSwatchPreview preview = {};
+  std::string iconPath;
 };
 
 class SearchPicker : public Flex, private VirtualListAdapter {

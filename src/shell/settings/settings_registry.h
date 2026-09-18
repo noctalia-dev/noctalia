@@ -39,6 +39,7 @@ namespace settings {
     Keybinds,
     Security,
     System,
+    DefaultApps,
     Services,
     Location,
     Power,
@@ -69,6 +70,7 @@ namespace settings {
     std::string description;
     ColorSwatchPreview preview = {};
     std::string tooltip;
+    std::string iconPath;
   };
 
   // A bindable IPC command for the gesture action picker. `argsSpec` is the registry's argument
