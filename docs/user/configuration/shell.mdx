@@ -358,6 +358,7 @@ high_contrast         = false           # enable high contrast mode for visually
 position = "top_center"  # top_right | top_left | top_center | bottom_right | bottom_left | bottom_center | center_right | center_left
 position_vertical = "top_center"  # same options; used when orientation = "vertical"
 orientation = "horizontal" # horizontal | vertical (volume/brightness sliders only)
+hide_delay_ms = 1400     # time before a popup starts hiding; range 250 to 10000 ms
 scale = 1.0              # OSD size multiplier on top of shell.ui_scale
 background_opacity = 0.97 # background opacity of OSD popups
 border = true            # outline around OSD popup cards; set false for a borderless look
@@ -387,10 +388,12 @@ The OSD powers volume, brightness, DND, caffeine, lock-key, keyboard-layout, pri
 and external/IPC power-profile popups, and defaults to `top_center` with a horizontal layout. Set
 `orientation = "vertical"` for a taller vertical gauge on volume, display brightness, and keyboard-backlight sliders; text-only popups (media, lock
 keys, keyboard layout, privacy, and similar) always use horizontal layout for readability. `position` controls placement
-for horizontal popups; `position_vertical` controls placement when slider orientation is vertical. `scale` multiplies the
-effective OSD size on top of
-`shell.ui_scale` (for example `1.25` makes volume, brightness, and lock-key popups 25% larger than the default).
-`monitors` limits OSD popups to the listed connector names (same matching rules as notification toasts and the dock);
+for horizontal popups; `position_vertical` controls placement when slider orientation is vertical. `hide_delay_ms` controls
+how long a popup remains visible after each show or retrigger before its hide animation starts. It accepts 250 to 10000
+milliseconds and defaults to 1400. Reloading the configuration affects the next show or retrigger without changing an
+already running timer. `scale` multiplies the effective OSD size on top of `shell.ui_scale` (for example `1.25` makes
+volume, brightness, and lock-key popups 25% larger than the default). `monitors` limits OSD popups to the listed
+connector names (same matching rules as notification toasts and the dock);
 leave it empty to show on every connected output. If none of the configured monitors are connected, OSD falls back to all
 outputs until one reconnects. `background_opacity` sets popup background opacity, `border` draws the card outline (default
 `true`; set `false` for a borderless look), and `offset_x` / `offset_y` are the

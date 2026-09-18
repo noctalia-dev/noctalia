@@ -24,8 +24,6 @@ namespace {
 
   constexpr Logger kLog("osd");
 
-  constexpr int kHideDelayMs = Style::animSlow * 3 + Style::animFast * 2;
-
   enum class OsdRevealDir { FromLeft, FromRight, FromTop, FromBottom };
 
   [[nodiscard]] float osdContentOpacity(float reveal) {
@@ -867,8 +865,10 @@ void OsdOverlay::animateInstance(Instance& inst) {
     applyReveal(inst, 1.0F);
   }
 
+  const float hideDelayMs =
+      static_cast<float>(m_config != nullptr ? m_config->config().osd.hideDelayMs : OsdConfig{}.hideDelayMs);
   inst.hideAnimId = inst.animations.animateTimer(
-      1.0F, 0.0F, kHideDelayMs, Easing::Linear, [](float /*v*/) {},
+      1.0F, 0.0F, hideDelayMs, Easing::Linear, [](float /*v*/) {},
       [this, &inst]() {
         inst.hideAnimId = inst.animations.animate(
             1.0F, 0.0F, Style::animNormal, Easing::EaseInQuad, [this, &inst](float v) { applyReveal(inst, v); },

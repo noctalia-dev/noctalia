@@ -337,6 +337,7 @@ location = "https://example.invalid/bad"
     c.osd.position = "bottom_left";
     c.osd.positionVertical = "top_right";
     c.osd.orientation = "vertical";
+    c.osd.hideDelayMs = 2750;
     c.osd.scale = 1.4F;
     c.osd.backgroundOpacity = 0.42F;
     c.osd.border = false;
@@ -622,6 +623,40 @@ location = "https://example.invalid/bad"
       readInto(t, s, shellSchema(), "shell", d);
       if (s.clipboardHistoryMaxEntries != 10000) {
         fail("shell.clipboard_history_max_entries clamp: expected 10000");
+      }
+    }
+  }
+
+  void checkOsdHideDelay() {
+    const Config defaults;
+    if (defaults.osd.hideDelayMs != 1400) {
+      fail("osd.hide_delay_ms default: expected 1400");
+    }
+    {
+      auto t = toml::parse("hide_delay_ms = 2750");
+      OsdConfig o{};
+      Diagnostics d;
+      readInto(t, o, osdSchema(), "osd", d);
+      if (o.hideDelayMs != 2750) {
+        fail("osd.hide_delay_ms non-default: expected 2750");
+      }
+    }
+    {
+      auto t = toml::parse("hide_delay_ms = 249");
+      OsdConfig o{};
+      Diagnostics d;
+      readInto(t, o, osdSchema(), "osd", d);
+      if (o.hideDelayMs != 250) {
+        fail("osd.hide_delay_ms lower bound: expected 250");
+      }
+    }
+    {
+      auto t = toml::parse("hide_delay_ms = 10001");
+      OsdConfig o{};
+      Diagnostics d;
+      readInto(t, o, osdSchema(), "osd", d);
+      if (o.hideDelayMs != 10000) {
+        fail("osd.hide_delay_ms upper bound: expected 10000");
       }
     }
   }
@@ -1226,6 +1261,7 @@ widget_spacing = 8
   checkStorageKeySourceValidation();
   checkPanelFloatingLayerValidation();
   checkClamps();
+  checkOsdHideDelay();
   checkMonitorFontScaleChangeSet();
   checkPluginAutoUpdateMode();
   checkAutoUpdateScopeSelection();

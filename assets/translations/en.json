@@ -3021,6 +3021,10 @@
           "description": "Master switch for all OSD popups; when off no OSD is shown",
           "label": "Enable OSD"
         },
+        "osd-hide-delay": {
+          "description": "How long an OSD popup remains visible before hiding",
+          "label": "Hide Delay"
+        },
         "osd-kinds-bluetooth": {
           "description": "Show an OSD popup when Bluetooth is toggled",
           "label": "Bluetooth"

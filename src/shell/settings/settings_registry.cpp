@@ -1973,6 +1973,18 @@ namespace settings {
     ));
     const std::size_t osdGatedStart = entries.size();
     entries.push_back(makeEntry(
+        SettingsSection::Osd, "osd", tr("settings.schema.shell.osd-hide-delay.label"),
+        tr("settings.schema.shell.osd-hide-delay.description"), {"osd", "hide_delay_ms"},
+        StepperSetting{
+            .value = static_cast<int>(cfg.osd.hideDelayMs),
+            .minValue = static_cast<int>(noctalia::config::schema::kOsdHideDelayMsRange.min.value()),
+            .maxValue = static_cast<int>(noctalia::config::schema::kOsdHideDelayMsRange.max.value()),
+            .step = static_cast<int>(noctalia::config::schema::kOsdHideDelayMsRange.step.value()),
+            .valueSuffix = "ms",
+        },
+        "hud overlay popup timeout duration visible"
+    ));
+    entries.push_back(makeEntry(
         SettingsSection::Osd, "osd", tr("settings.schema.shell.osd-orientation.label"),
         tr("settings.schema.shell.osd-orientation.description"), {"osd", "orientation"},
         asSegmented(plainSelect(
