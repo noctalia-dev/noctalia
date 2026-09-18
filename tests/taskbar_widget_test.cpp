@@ -52,6 +52,46 @@ public:
     };
   }
 
+  static TaskbarWidget::TaskModel untitledTask(std::uintptr_t handleKey, std::string appId, std::string displayName) {
+    return {
+        .handleKey = handleKey,
+        .appId = std::move(appId),
+        .displayName = std::move(displayName),
+    };
+  }
+
+  static std::string displayTitle(std::string title, std::string displayName, std::string appId) {
+    const TaskbarWidget::TaskModel task{
+        .appId = std::move(appId),
+        .title = std::move(title),
+        .displayName = std::move(displayName),
+    };
+    return TaskbarWidget::displayTitle(task);
+  }
+
+  // Reads a retained tile's text the way the tooltip provider and title refresh do.
+  static std::optional<std::string> resolvedDisplayTitle(
+      const std::vector<TaskbarWidget::TaskModel>& tasks, std::size_t index, std::uint64_t referenceGeneration,
+      std::uint64_t currentGeneration
+  ) {
+    const auto* current =
+        TaskbarWidget::resolveTask(tasks, {.index = index, .generation = referenceGeneration}, currentGeneration);
+    return current != nullptr ? std::optional<std::string>(TaskbarWidget::displayTitle(*current)) : std::nullopt;
+  }
+
+  static std::pair<bool, bool> compareDisplayNames(std::string previousName, std::string nextName) {
+    const TaskbarWidget::TaskModel previous{
+        .handleKey = 11,
+        .displayName = std::move(previousName),
+    };
+    const TaskbarWidget::TaskModel next{
+        .handleKey = 11,
+        .displayName = std::move(nextName),
+    };
+    const auto comparison = TaskbarWidget::compareModels(false, {previous}, {}, {next}, {});
+    return {comparison.layoutEqual, comparison.titlesChanged};
+  }
+
   static std::string bindingWindowId(std::string workspaceWindowId, std::string exactId) {
     return std::string(
         TaskbarWidget::workspaceBindingWindowId(
@@ -108,6 +148,24 @@ int main() {
   TEST_CHECK(TaskbarWidgetTestAccess::resolvedTitle(tasks, 0, 7, 7) == std::optional<std::string>("retitled"));
   TEST_CHECK(!TaskbarWidgetTestAccess::resolvedTitle(tasks, 2, 7, 7).has_value());
   TEST_CHECK(!TaskbarWidgetTestAccess::resolvedTitle(tasks, 0, 7, 8).has_value());
+
+  // A window with a blank title shows its desktop entry name, or the app id when no entry matches.
+  TEST_CHECK(TaskbarWidgetTestAccess::displayTitle("Document", "Editor", "org.example.editor") == "Document");
+  TEST_CHECK(TaskbarWidgetTestAccess::displayTitle("", "Editor", "org.example.editor") == "Editor");
+  TEST_CHECK(TaskbarWidgetTestAccess::displayTitle(" ", "Editor", "org.example.editor") == "Editor");
+  TEST_CHECK(TaskbarWidgetTestAccess::displayTitle("", "", "org.example.editor") == "org.example.editor");
+  TEST_CHECK(TaskbarWidgetTestAccess::displayTitle("", "", "").empty());
+  // A display name change patches the retained label like a title change.
+  TEST_CHECK(TaskbarWidgetTestAccess::compareDisplayNames("Editor", "Editor (Beta)") == std::pair(true, true));
+  TEST_CHECK(TaskbarWidgetTestAccess::compareDisplayNames("Editor", "Editor") == std::pair(true, false));
+
+  // Retained references to an untitled window read the fallback until a title arrives; the model
+  // title itself stays empty for matching.
+  tasks.push_back(TaskbarWidgetTestAccess::untitledTask(13, "org.example.editor", "Editor"));
+  TEST_CHECK(TaskbarWidgetTestAccess::resolvedTitle(tasks, 2, 7, 7) == std::optional<std::string>(""));
+  TEST_CHECK(TaskbarWidgetTestAccess::resolvedDisplayTitle(tasks, 2, 7, 7) == std::optional<std::string>("Editor"));
+  tasks[2].title = "Document";
+  TEST_CHECK(TaskbarWidgetTestAccess::resolvedDisplayTitle(tasks, 2, 7, 7) == std::optional<std::string>("Document"));
 
   // Workspace placement can be rebound while the authoritative exact identity
   // remains intact for focus/close actions.

@@ -1157,7 +1157,7 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
     Label* titleLabelPtr = nullptr;
     if (showWindowTitle) {
       auto label = ui::label({
-          .text = task.title,
+          .text = displayTitle(task),
           .fontSize = Style::fontSizeCaption * fontScale(),
           .fontWeight = fontWeight,
           .fontFamily = fontFamily,
@@ -1229,8 +1229,11 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
     // rebuild. Empty content measures to nothing, so the popup never shows.
     area->setTooltipProvider([this, taskRef]() -> TooltipContent {
       const TaskModel* current = resolveTask(m_tasks, taskRef, m_taskGeneration);
-      return current != nullptr && !current->title.empty() ? TooltipContent{current->title}
-                                                           : TooltipContent{std::monostate{}};
+      if (current == nullptr) {
+        return TooltipContent{std::monostate{}};
+      }
+      const std::string& text = displayTitle(*current);
+      return !text.empty() ? TooltipContent{text} : TooltipContent{std::monostate{}};
     });
     m_taskTiles.push_back({
         .taskIndex = taskRef.index,
@@ -1837,6 +1840,7 @@ void TaskbarWidget::updateModels() {
       task.nameLower = nameLower;
       task.appIdLower = toLower(task.appId);
       task.title = window.title;
+      task.displayName = !run.entry.name.empty() ? run.entry.name : task.appId;
       task.active = activeHandle != nullptr && activeHandle == window.handle;
       task.firstHandle = window.handle;
       if (window.exactIdentity && !window.identifier.empty()) {
@@ -1912,6 +1916,9 @@ void TaskbarWidget::updateModels() {
       task.workspaceWindowId = assignment.windowId;
       task.workspaceKey = assignment.workspaceKey;
       task.iconPath = resolveIconPath(assignment.appId, {});
+      if (const auto entry = app_identity::findDesktopEntry(assignment.appId, desktopEntries()); entry.has_value()) {
+        task.displayName = entry->name;
+      }
       nextTasks.push_back(std::move(task));
     }
   }
@@ -2777,7 +2784,7 @@ void TaskbarWidget::updateModels() {
         }
         const TaskModel& task = m_tasks[tile.taskIndex];
         if (comparison.titlesChanged) {
-          if (tile.titleLabel != nullptr && tile.titleLabel->setText(task.title)) {
+          if (tile.titleLabel != nullptr && tile.titleLabel->setText(displayTitle(task))) {
             textChanged = true;
           }
           if (tile.area != nullptr) {
@@ -3124,6 +3131,16 @@ void TaskbarWidget::openTaskContextMenu(const TaskModel& task, InputArea& area) 
 
 std::string TaskbarWidget::toLower(std::string value) { return StringUtils::toLower(std::move(value)); }
 
+const std::string& TaskbarWidget::displayTitle(const TaskModel& task) noexcept {
+  if (!StringUtils::trimLeftView(task.title).empty()) {
+    return task.title;
+  }
+  if (!task.displayName.empty()) {
+    return task.displayName;
+  }
+  return task.appId;
+}
+
 std::string TaskbarWidget::workspaceLabel(const Workspace& workspace, std::size_t index) {
   const auto parseLeadingNumber = [](const std::string& value) -> std::optional<std::size_t> {
     if (value.empty() || !std::isdigit(static_cast<unsigned char>(value.front()))) {
@@ -3167,7 +3184,8 @@ TaskbarWidget::ModelComparison TaskbarWidget::compareModels(
   bool titlesChanged = false;
   bool activesChanged = false;
   for (std::size_t i = 0; i < nextTasks.size(); ++i) {
-    const bool titleChanged = nextTasks[i].title != previousTasks[i].title;
+    const bool titleChanged =
+        nextTasks[i].title != previousTasks[i].title || nextTasks[i].displayName != previousTasks[i].displayName;
     const bool activeChanged = nextTasks[i].active != previousTasks[i].active;
     titlesChanged = titlesChanged || titleChanged;
     activesChanged = activesChanged || activeChanged;
