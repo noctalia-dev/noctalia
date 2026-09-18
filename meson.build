@@ -1236,6 +1236,7 @@ if build_tests
     'system_monitor_service',
     'taskbar_widget',
     'template_apply_notify',
+    'template_apply_shutdown',
     'template_hook_async',
     'template_hook_runner',
     'theme_shell_mode',
