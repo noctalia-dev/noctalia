@@ -4525,6 +4525,14 @@
           "description": "Maximum width in pixels for window titles",
           "label": "Window Title Max Width"
         },
+        "workspace-group-active-border": {
+          "description": "Border color for the active workspace",
+          "label": "Active Border Color"
+        },
+        "workspace-group-active-border": {
+          "description": "Border color for inactive workspaces",
+          "label": "Inactive Border Color"
+        },
         "workspace-group-capsule": {
           "description": "Draw the background and border around each grouped workspace. Turn off to keep icon grouping and workspace disc labels only.",
           "label": "Workspace Group Capsule"

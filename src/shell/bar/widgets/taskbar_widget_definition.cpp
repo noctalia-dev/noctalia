@@ -180,6 +180,14 @@ const noctalia::bar::WidgetDefinition<TaskbarWidgetOptions>& taskbarWidgetDefini
                           .presentation = presentation("taskbar.grouping", groupedOnly(), true),
                       }
                   ),
+                  field<&Options::workspaceGroupActiveBorder>({
+                      .key = "workspace_group_active_border",
+                      .presentation = presentation("taskbar.grouping", groupedOnly(), true),
+                  }),
+                  field<&Options::workspaceGroupInactiveBorder>({
+                      .key = "workspace_group_inactive_border",
+                      .presentation = presentation("taskbar.grouping", groupedOnly(), true),
+                  }),
                   field<&Options::groupSingleIconPerApp>(
                       {
                           .key = "group_single_icon_per_app",

@@ -44,6 +44,8 @@ struct TaskbarWidgetOptions {
   bool showWorkspaceLabel = true;
   WorkspaceLabelPlacement workspaceLabelPlacement = WorkspaceLabelPlacement::Corner;
   WorkspaceGroupContent workspaceGroupContent = WorkspaceGroupContent::Icons;
+  ColorSpec workspaceGroupActiveBorder = colorSpecFromRole(ColorRole::Primary, 0.65F);
+  ColorSpec workspaceGroupInactiveBorder = colorSpecFromRole(ColorRole::Primary, 0.16F);
   bool hideEmptyWorkspaces = false;
   bool workspaceGroupCapsule = true;
   bool focusedOutputOnly = false;
