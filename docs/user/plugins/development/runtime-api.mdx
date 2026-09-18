@@ -108,11 +108,52 @@ cache results keyed by app id instead of resolving on every `update()`.
 | `noctalia.notifyError(title, body)` | nothing | Shows an error notification. `body` is optional. |
 | `noctalia.copyToClipboard(text, mime)` | bool | Copies text to the clipboard with an explicit MIME type, for example `"text/plain"` or `"text/uri-list"`. |
 | `noctalia.clipboardText()` | string or `nil` | Latest text clipboard content (`nil` when empty or non-text). |
+| `noctalia.calendarEvents()` | table or `nil` | Synced calendar events, or `nil` before the first successful sync. Requires <PluginApiBadge feature="calendar-events" />. |
 
 `%s` in `formatTime()` expands to Unix epoch seconds.
 
 `formatTime()` and Luau's own `os.time()` are both whole-second. `nowMs()` is the only way to see sub-second time, for
 example to phase an entry's updates onto a second boundary.
+
+## Calendar
+
+`noctalia.calendarEvents()` returns the shell's merged, read-only view of the accounts configured
+under **Settings -> Calendar** (Google, CalDAV, ICS, vdir). It returns `nil` until the first
+successful sync completes, which lets an entry tell "no upcoming events" apart from "not synced
+yet" — treat `nil` as unknown rather than empty.
+
+Each entry is one concrete event instance. Recurring events are expanded by the provider, so a
+weekly meeting appears as separate instances with their own resolved times rather than a rule you
+have to interpret.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | iCal UID / provider event id, stable across syncs. The same meeting on two calendars (for example a shared team calendar and your own) arrives with different ids, so dedupe on `title` + `startMs` when that matters. |
+| `title` | string | Event summary. |
+| `calendarName` | string | Display name of the owning calendar. |
+| `colorHex` | string | Owning calendar's color, for example `"#3367d6"`. Empty when unknown. |
+| `location` | string | Raw `LOCATION`, may be empty. |
+| `url` | string | Resolved http(s) meeting link, or empty. Already scheme-filtered host-side, so it is safe to hand to `xdg-open`. |
+| `startMs` | number | Start in wall-clock milliseconds, same base as `nowMs()`. |
+| `endMs` | number | End in wall-clock milliseconds. |
+| `allDay` | bool | True for all-day events, whose times are midnight-aligned. |
+
+```lua
+local events = noctalia.calendarEvents()
+if events == nil then
+  return -- not synced yet; leave the last known state alone
+end
+
+local now = noctalia.nowMs()
+for _, event in ipairs(events) do
+  if event.startMs > now and not event.allDay then
+    noctalia.log(`{event.title} at {noctalia.formatTime(noctalia.timeFormat(), event.startMs // 1000)}`)
+  end
+end
+```
+
+The view is read-only: an entry observes the shell's calendar but cannot add, edit, or remove
+events, and cannot reach account credentials.
 
 ## System stats
 
