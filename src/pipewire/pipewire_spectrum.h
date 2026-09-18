@@ -2,6 +2,7 @@
 
 #include <chrono>
 #include <complex>
+#include <cstddef>
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -11,6 +12,12 @@
 
 struct AudioNode;
 class PipeWireService;
+class PipeWireSpectrumTestAccess;
+
+namespace noctalia::pipewire {
+  [[nodiscard]] std::vector<float>
+  spectrumFrequencyBins(int lowerCutoffHz, int upperCutoffHz, int sampleRate, int bandCount);
+}
 
 class PipeWireSpectrum {
 public:
@@ -28,6 +35,8 @@ public:
 
   void setTargetNodeId(std::uint32_t id);
   [[nodiscard]] std::uint32_t targetNodeId() const noexcept { return m_targetNodeId; }
+
+  void setFrequencyRange(int lowerCutoffHz, int upperCutoffHz);
 
   void setLowerCutoff(int freq);
   [[nodiscard]] int lowerCutoff() const noexcept { return m_lowerCutoff; }
@@ -49,6 +58,10 @@ public:
   void handleAudioStateChanged();
 
 private:
+  struct TestModeTag {};
+  explicit PipeWireSpectrum(TestModeTag);
+  friend class PipeWireSpectrumTestAccess;
+
   static constexpr int kFrameRateHz = 60;
 
   struct ListenerState {
@@ -84,7 +97,7 @@ private:
   void feedSamples(const float* monoSamples, int count);
   void processFrame();
 
-  PipeWireService& m_service;
+  PipeWireService* m_service = nullptr;
   std::unordered_map<ListenerId, ListenerState> m_listeners;
   ListenerId m_nextListenerId = 1;
 
@@ -98,6 +111,7 @@ private:
   bool m_smoothing = true;
   std::vector<float> m_analysisBands;
   bool m_idle = true;
+  bool m_suppressLayoutNotifications = false;
 
   std::unique_ptr<Stream> m_stream;
   std::chrono::steady_clock::time_point m_nextFrameAt;

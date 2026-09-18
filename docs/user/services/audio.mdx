@@ -12,7 +12,16 @@ enable_sounds        = false  # master toggle for UI sounds
 sound_volume         = 0.5    # global sound volume (0.0 - 1.0)
 volume_change_sound  = ""     # empty = bundled default sounds/volume-change.wav
 notification_sound   = ""     # empty = bundled default sounds/notification.wav
+
+[audio.spectrum]
+lower_cutoff_hz = 20
+upper_cutoff_hz = 20000
 ```
+
+The spectrum settings control the shared PipeWire analyzer used by bar visualizers, desktop visualizers, and plugin
+consumers. Changing either cutoff affects every consumer. Both values accept `1` to `48000` Hz, and
+`lower_cutoff_hz` must be less than `upper_cutoff_hz`. At runtime, the analyzer safely limits the effective range to
+the current stream's Nyquist frequency, so the same configuration works with 44.1, 48, and 96 kHz audio.
 
 - `enable_overdrive = false` clamps Control Center output/microphone sliders to 100%; `true` allows up to 150%.
 - `enable_sounds = false` disables all UI sound playback.

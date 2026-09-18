@@ -1216,6 +1216,7 @@ if build_tests
     'notification_history_dismiss',
     'notification_history_utf8',
     'path_browse',
+    'pipewire_spectrum',
     'plugin_bindings',
     'plugin_catalog',
     'plugin_git_export',

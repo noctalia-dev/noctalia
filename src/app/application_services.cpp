@@ -1468,12 +1468,17 @@ void Application::initBrightnessAndPipewire() {
     };
     auto loadedSoundPaths = std::make_shared<LoadedSoundPaths>();
 
-    auto applySoundConfig = [this, loadedSoundPaths]() {
+    auto applyAudioConfig = [this, loadedSoundPaths]() {
+      const auto& audio = m_configService.config().audio;
+      if (m_pipewireSpectrum != nullptr) {
+        m_pipewireSpectrum->setFrequencyRange(
+            static_cast<int>(audio.spectrum.lowerCutoffHz), static_cast<int>(audio.spectrum.upperCutoffHz)
+        );
+      }
       if (m_soundPlayer == nullptr) {
         return;
       }
 
-      const auto& audio = m_configService.config().audio;
       m_soundPlayer->setVolume(audio.enableSounds ? audio.soundVolume : 0.0F);
 
       auto resolveSoundPath = [](const std::string& configured, std::string_view bundledRelative) {
@@ -1501,14 +1506,14 @@ void Application::initBrightnessAndPipewire() {
         }
       }
     };
-    applySoundConfig();
+    applyAudioConfig();
     m_configService.addReloadCallback(
-        [this, applySoundConfig]() {
+        [this, applyAudioConfig]() {
           if (m_configService.lastChange().audio) {
-            applySoundConfig();
+            applyAudioConfig();
           }
         },
-        "sound"
+        "audio"
     );
   } catch (const std::exception& e) {
     kLog.warn("pipewire disabled: {}", e.what());

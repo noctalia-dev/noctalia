@@ -2699,6 +2699,18 @@ namespace settings {
         ToggleSetting{cfg.audio.enableOverdrive}, "volume"
     ));
     entries.push_back(makeEntry(
+        SettingsSection::Services, "audio", tr("settings.schema.services.spectrum-lower-cutoff.label"),
+        tr("settings.schema.services.spectrum-lower-cutoff.description"), {"audio", "spectrum", "lower_cutoff_hz"},
+        sliderFor(cfg.audio.spectrum.lowerCutoffHz, noctalia::config::schema::kSpectrumFrequencyRange, true),
+        "spectrum analyzer frequency visualizer bar desktop plugin bass"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Services, "audio", tr("settings.schema.services.spectrum-upper-cutoff.label"),
+        tr("settings.schema.services.spectrum-upper-cutoff.description"), {"audio", "spectrum", "upper_cutoff_hz"},
+        sliderFor(cfg.audio.spectrum.upperCutoffHz, noctalia::config::schema::kSpectrumFrequencyRange, true),
+        "spectrum analyzer frequency visualizer bar desktop plugin treble"
+    ));
+    entries.push_back(makeEntry(
         SettingsSection::Services, "audio", tr("settings.schema.services.shell-sounds.label"),
         tr("settings.schema.services.shell-sounds.description"), {"audio", "enable_sounds"},
         ToggleSetting{cfg.audio.enableSounds}, "sound"

@@ -2790,6 +2790,14 @@
           "description": "Volume for shell sound effects",
           "label": "Sound Volume"
         },
+        "spectrum-lower-cutoff": {
+          "description": "Lowest frequency for the shared PipeWire analyzer used by bar, desktop, and plugin visualizers",
+          "label": "Spectrum Lower Cutoff (Hz)"
+        },
+        "spectrum-upper-cutoff": {
+          "description": "Highest frequency for the shared PipeWire analyzer used by bar, desktop, and plugin visualizers",
+          "label": "Spectrum Upper Cutoff (Hz)"
+        },
         "sunrise": {
           "description": "Manual sunrise time in HH:MM, used when no location is set",
           "label": "Sunrise"

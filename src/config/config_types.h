@@ -1269,11 +1269,19 @@ struct SystemConfig {
 };
 
 struct AudioConfig {
+  struct SpectrumConfig {
+    std::int32_t lowerCutoffHz = 20;
+    std::int32_t upperCutoffHz = 20000;
+
+    bool operator==(const SpectrumConfig&) const = default;
+  };
+
   bool enableOverdrive = false;
   bool enableSounds = false;
   float soundVolume = 0.5F;
   std::string volumeChangeSound;
   std::string notificationSound;
+  SpectrumConfig spectrum;
 
   bool operator==(const AudioConfig&) const = default;
 };
