@@ -12,6 +12,7 @@
 #include "render/render_context.h"
 #include "render/scene/wallpaper_node.h"
 #include "shell/lockscreen/lockscreen_login_box.h"
+#include "shell/lockscreen/lockscreen_session_actions.h"
 #include "shell/lockscreen/lockscreen_widgets_host.h"
 #include "shell/session/session_action_meta.h"
 #include "shell/session/session_action_runner.h"
@@ -24,7 +25,6 @@
 #include "ui/palette.h"
 #include "ui/style.h"
 #include "util/clamp.h"
-#include "util/string_utils.h"
 #include "wayland/wayland_connection.h"
 #include "wayland/wayland_seat.h"
 
@@ -1300,35 +1300,9 @@ void LockSurface::updateCopy() {
 }
 
 std::vector<SessionPanelActionConfig> LockSurface::resolveSessionActions() const {
-  std::vector<SessionPanelActionConfig> src =
+  const std::vector<SessionPanelActionConfig> src =
       m_config != nullptr ? m_config->config().shell.session.actions : defaultSessionPanelActions();
-
-  std::vector<SessionPanelActionConfig> out;
-  out.reserve(src.size());
-  for (const auto& row : src) {
-    if (!row.enabled) {
-      continue;
-    }
-    if (!session_action::isKnown(row.action)) {
-      continue;
-    }
-    if (row.action == "lock" || row.action == "lock_and_suspend") {
-      continue;
-    }
-    if (row.action == "command" && (!row.command.has_value() || StringUtils::trim(*row.command).empty())) {
-      continue;
-    }
-    out.push_back(row);
-  }
-  if (out.empty()) {
-    for (const auto& row : defaultSessionPanelActions()) {
-      if (row.action == "lock" || row.action == "lock_and_suspend") {
-        continue;
-      }
-      out.push_back(row);
-    }
-  }
-  return out;
+  return lockscreen::resolveSessionActions(src, defaultSessionPanelActions());
 }
 
 void LockSurface::ensureLayoutChipInPasswordRow() {
@@ -1397,8 +1371,9 @@ void LockSurface::rebuildSessionButtons() {
   }
 
   for (const auto& cfg : actions) {
-    const std::string labelText =
-        cfg.label.has_value() && !cfg.label->empty() ? *cfg.label : i18n::tr(session_action::labelKey(cfg.action));
+    const std::string_view labelKey =
+        cfg.action == "lock_and_suspend" ? session_action::labelKey("suspend") : session_action::labelKey(cfg.action);
+    const std::string labelText = cfg.label.has_value() && !cfg.label->empty() ? *cfg.label : i18n::tr(labelKey);
     auto button = ui::button({
         .out = nullptr,
         .text = labelText,
