@@ -105,9 +105,12 @@ float PolkitPanel::preferredHeight() const {
   int supplementaryLines = 0;
   bool needsInput = false;
 
+  bool faceConfirmation = false;
+
   if (PolkitAgent* agent = m_agentProvider != nullptr ? m_agentProvider() : nullptr;
       agent != nullptr && agent->hasPendingRequest()) {
     needsInput = agent->isResponseRequired();
+    faceConfirmation = agent->isFaceConfirmationPending();
     const PolkitRequest request = agent->pendingRequest();
     const std::string message = wrapLongRuns(request.message.empty() ? request.actionId : request.message);
     messageLines = std::max(1, wrappedLineCount(message, messageChars, 6));
@@ -132,7 +135,7 @@ float PolkitPanel::preferredHeight() const {
 
   const float top = std::max(iconSize, titleLine + static_cast<float>(messageLines) * bodyLine);
   float bottom = static_cast<float>(promptLines) * bodyLine + gapSm;
-  if (needsInput) {
+  if (needsInput && !faceConfirmation) {
     bottom += Style::controlHeight * scale + gapSm;
   }
   if (supplementaryLines > 0) {
@@ -259,6 +262,7 @@ void PolkitPanel::create() {
 
 void PolkitPanel::onOpen(std::string_view /*context*/) {
   m_lastResponseRequired = false;
+  m_lastFaceConfirmation = false;
   m_iconResolved = false;
   m_hasTrackedRequest = false;
   m_trackedRequestCookie.clear();
@@ -284,6 +288,7 @@ void PolkitPanel::onClose() {
   m_hasTrackedRequest = false;
   m_trackedRequestCookie.clear();
   m_lastResponseRequired = false;
+  m_lastFaceConfirmation = false;
   clearReleasedRoot();
 
   m_rootLayout = nullptr;
@@ -308,17 +313,26 @@ void PolkitPanel::cancelAuth() {
 }
 
 bool PolkitPanel::handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool /*preedit*/) {
-  if (!pressed || !KeybindMatcher::matches(KeybindAction::Cancel, sym, modifiers)) {
+  if (!pressed) {
     return false;
   }
-  cancelAuth();
-  PanelManager::instance().close();
-  return true;
+  if (KeybindMatcher::matches(KeybindAction::Cancel, sym, modifiers)) {
+    cancelAuth();
+    PanelManager::instance().close();
+    return true;
+  }
+  PolkitAgent* agent = m_agentProvider != nullptr ? m_agentProvider() : nullptr;
+  if (agent != nullptr && agent->isFaceConfirmationPending()
+      && KeybindMatcher::matches(KeybindAction::Validate, sym, modifiers)) {
+    submit();
+    return true;
+  }
+  return false;
 }
 
 InputArea* PolkitPanel::initialFocusArea() const {
   PolkitAgent* agent = m_agentProvider != nullptr ? m_agentProvider() : nullptr;
-  if (agent != nullptr && !agent->isResponseRequired()) {
+  if (agent != nullptr && (!agent->isResponseRequired() || agent->isFaceConfirmationPending())) {
     return m_focusArea;
   }
   return m_input != nullptr ? m_input->inputArea() : m_focusArea;
@@ -361,6 +375,7 @@ void PolkitPanel::doUpdate(Renderer& renderer) {
     m_hasTrackedRequest = true;
   }
   const bool needsInput = agent->isResponseRequired();
+  const bool faceConfirmation = agent->isFaceConfirmationPending();
   const std::string supplementaryRaw = agent->supplementaryMessage();
   const bool supplementaryError = agent->supplementaryIsError();
   const bool isInvalidPassword = supplementaryError && supplementaryRaw == i18n::tr("auth.polkit.invalid-password");
@@ -384,18 +399,21 @@ void PolkitPanel::doUpdate(Renderer& renderer) {
   m_supplementaryLabel->setText(supplementaryText);
   m_supplementaryLabel->setVisible(!supplementaryText.empty());
   m_supplementaryLabel->setColor(colorSpecFromRole(ColorRole::OnSurfaceVariant));
-  m_input->setVisible(needsInput);
+  m_input->setVisible(needsInput && !faceConfirmation);
   m_submitButton->setVisible(needsInput);
-  m_submitButton->setEnabled(needsInput && !m_input->value().empty());
-  if (needsInput != m_lastResponseRequired) {
+  m_submitButton->setEnabled(needsInput && (faceConfirmation || !m_input->value().empty()));
+  if (needsInput != m_lastResponseRequired || faceConfirmation != m_lastFaceConfirmation) {
     if (auto* manager = PanelManager::current(); manager != nullptr && manager->isOpenPanel("polkit")) {
       manager->relayoutActivePanelPreferredSize();
-      if (needsInput) {
+      if (needsInput && !faceConfirmation) {
         manager->focusArea(m_input->inputArea());
+      } else if (faceConfirmation && m_focusArea != nullptr) {
+        manager->focusArea(m_focusArea);
       }
     }
   }
   m_lastResponseRequired = needsInput;
+  m_lastFaceConfirmation = faceConfirmation;
 
   if (request.iconName != m_lastIconName || !m_iconResolved) {
     m_lastIconName = request.iconName;
@@ -437,7 +455,14 @@ void PolkitPanel::resolveIcon(Renderer& renderer, const PolkitRequest& request) 
 
 void PolkitPanel::submit(std::string_view response) {
   PolkitAgent* agent = m_agentProvider != nullptr ? m_agentProvider() : nullptr;
-  if (agent == nullptr || m_input == nullptr) {
+  if (agent == nullptr) {
+    return;
+  }
+  if (agent->isFaceConfirmationPending()) {
+    agent->submitResponse("");
+    return;
+  }
+  if (m_input == nullptr) {
     return;
   }
   const std::string password = response.empty() ? m_input->value() : std::string(response);

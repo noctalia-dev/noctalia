@@ -539,6 +539,7 @@ struct LockscreenConfig {
   // Distinct from idle/session lock_and_suspend actions.
   bool lockBeforeSuspend = true;
   bool fingerprint = true;
+  bool faceAuth = true;
   bool allowEmptyPassword = false;
   bool blurredDesktop = false;
   float blurIntensity = 0.5F;
