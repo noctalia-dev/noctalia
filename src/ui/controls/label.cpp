@@ -245,6 +245,20 @@ void Label::setAutoScrollSpeed(float pixelsPerSecond) {
   startMarqueeLoop();
 }
 
+void Label::setAutoScrollMode(AutoScrollMode mode) {
+  if (m_autoScrollMode == mode) {
+    return;
+  }
+  m_autoScrollMode = mode;
+  if (!m_autoScroll) {
+    return;
+  }
+  stopScrollAnimations();
+  m_scrollOffset = 0.0F;
+  applyScrollPosition();
+  startMarqueeLoop();
+}
+
 void Label::syncTextNodeConstraints() {
   if (m_autoScroll) {
     m_textNode->setMaxWidth(0.0F);
@@ -373,29 +387,76 @@ void Label::startMarqueeLoop() {
 
   const float period = m_marqueeLoopPeriod;
   const float durationMs = (period / m_scrollSpeedPxPerSec) * 1000.0F;
-  // Marquee scroll is content motion at a fixed px/sec rate, not a UI transition:
-  // it must keep scrolling (and at its own speed) regardless of the global motion
-  // enable/speed settings, so drive it off real elapsed time.
-  m_marqueeAnimId = animationManager()->animateTimer(
-      0.0F, period, durationMs, Easing::Linear,
-      [this](float v) {
-        m_scrollOffset = v;
-        applyScrollPosition();
-      },
-      [this]() {
-        m_marqueeAnimId = 0;
-        m_scrollOffset = 0.0F;
-        applyScrollPosition();
-        const std::weak_ptr<void> aliveGuard = m_aliveGuard;
-        DeferredCall::callLater([this, aliveGuard]() {
+
+  const std::weak_ptr<void> aliveGuard = m_aliveGuard;
+
+  if (m_autoScrollMode == AutoScrollMode::PingPong) {
+    m_marqueeAnimId = animationManager()->animateTimer(
+        0.0F, period, durationMs, Easing::Linear,
+        [this](float v) {
+          m_scrollOffset = v;
+          applyScrollPosition();
+        },
+        [this, period, durationMs, aliveGuard]() {
           if (aliveGuard.expired()) {
+            m_marqueeAnimId = 0;
             return;
           }
-          startMarqueeLoop();
-        });
-      },
-      this
-  );
+
+          m_marqueeAnimId = animationManager()->animateTimer(
+              period, 0.0F, durationMs, Easing::Linear,
+              [this](float v) {
+                m_scrollOffset = v;
+                applyScrollPosition();
+              },
+              [this, aliveGuard]() {
+                if (aliveGuard.expired()) {
+                  m_marqueeAnimId = 0;
+                  return;
+                }
+
+                m_marqueeAnimId = 0;
+
+                DeferredCall::callLater([this, aliveGuard]() {
+                  if (aliveGuard.expired()) {
+                    return;
+                  }
+                  startMarqueeLoop();
+                });
+              },
+              this
+          );
+        },
+        this
+    );
+  } else {
+    m_marqueeAnimId = animationManager()->animateTimer(
+        0.0F, period, durationMs, Easing::Linear,
+        [this](float v) {
+          m_scrollOffset = v;
+          applyScrollPosition();
+        },
+        [this, aliveGuard]() {
+          if (aliveGuard.expired()) {
+            m_marqueeAnimId = 0;
+            return;
+          }
+
+          m_marqueeAnimId = 0;
+          m_scrollOffset = 0.0F;
+          applyScrollPosition();
+
+          DeferredCall::callLater([this, aliveGuard]() {
+            if (aliveGuard.expired()) {
+              return;
+            }
+            startMarqueeLoop();
+          });
+        },
+        this
+    );
+  }
+
   markPaintDirty();
 }
 
