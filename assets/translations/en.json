@@ -3017,6 +3017,14 @@
           "description": "Draw an outline around OSD popups",
           "label": "Border"
         },
+        "osd-border-color": {
+          "description": "OSD popups border color; a color role name such as primary follows the active theme",
+          "label": "Border Color"
+        },
+        "osd-border-width": {
+          "description": "Outline stroke width of OSD popup cards in pixels; 0 hides the outline, up to 6",
+          "label": "Border Width"
+        },
         "osd-enabled": {
           "description": "Master switch for all OSD popups; when off no OSD is shown",
           "label": "Enable OSD"

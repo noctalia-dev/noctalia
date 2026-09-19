@@ -201,6 +201,9 @@ position_vertical = "top_center"    # same options; used when orientation = "ver
 orientation = "horizontal"          # horizontal | vertical (volume/brightness sliders only; text popups stay horizontal)
 scale = 1.0                         # OSD size multiplier applied on top of accessibility.ui_scale
 background_opacity = 0.97           # background opacity of OSD popups
+border = true                       # outline around OSD popup cards, set false for a borderless look
+border_color = "outline"            # outline color: theme color role (e.g. "primary") or hex (e.g. "#a8b185")
+border_width = 1                    # outline stroke width in px; raise for a thicker outline
 offset_x = 20                       # absolute horizontal margin from the screen edge
 offset_y = 8                        # absolute vertical margin from the screen edge
 # monitors = ["DP-1"]               # connector names; omit or leave empty for all monitors
