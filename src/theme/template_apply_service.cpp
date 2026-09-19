@@ -161,31 +161,65 @@ namespace noctalia::theme {
 
   } // namespace
 
-  TemplateApplyService::TemplateApplyService(ConfigService& config)
-      : m_config(config), m_hookRunner(std::make_unique<HookRunner>()) {
-    m_worker = std::thread([this]() { workerLoop(); });
+  TemplateApplyService::TemplateApplyService(ConfigService& config, std::chrono::milliseconds shutdownGrace)
+      : m_config(config), m_shared(std::make_shared<Shared>()), m_shutdownGrace(shutdownGrace) {
+    m_shared->hookRunner =
+        std::make_unique<HookRunner>(HookRunner::kDefaultMaxConcurrent, shutdownGrace, m_shared->hookCancel);
+    m_shared->owner = this;
+    m_worker = std::thread([state = m_shared]() {
+      workerLoop(state);
+      {
+        std::scoped_lock lock(state->mutex);
+        state->workerDone = true;
+      }
+      state->cv.notify_all();
+    });
   }
 
   TemplateApplyService::~TemplateApplyService() {
-    {
-      std::scoped_lock lock(m_mutex);
-      m_shutdown = true;
-      m_pendingRequest.reset();
-    }
-    m_cv.notify_one();
     // The worker may be draining hooks; drop the backlog so shutdown waits only for
     // the hooks already running.
-    m_hookRunner->requestShutdown();
-    if (m_worker.joinable()) {
-      m_worker.join();
+    m_shared->hookRunner->requestShutdown();
+    // One budget for the whole teardown. The runner is destroyed with m_shared once this
+    // ladder ends, so it inherits the deadline rather than spending a grace period of its own.
+    const auto deadline = std::chrono::steady_clock::now() + m_shutdownGrace;
+    m_shared->hookRunner->setShutdownDeadline(deadline);
+    bool workerDone = false;
+    {
+      std::unique_lock lock(m_shared->mutex);
+      m_shared->shutdown = true;
+      m_shared->pendingRequest.reset();
+      m_shared->owner = nullptr;
+      m_shared->afterApplyCallback = nullptr;
+      m_shared->cv.notify_all();
+      const auto done = [this]() { return m_shared->workerDone; };
+      // A synchronous hook is not interruptible and has no timeout, so join() alone would
+      // hang the quit for as long as the hook runs. Give it a grace period, then kill it.
+      workerDone = m_shared->cv.wait_until(lock, deadline, done);
+      if (!workerDone) {
+        kLog.warn(
+            "a template hook is still running after {}s; terminating it",
+            std::chrono::duration<double>(m_shutdownGrace).count()
+        );
+        m_shared->hookCancel->store(true);
+        workerDone = m_shared->cv.wait_until(lock, deadline + HookRunner::kTerminateGrace, done);
+      }
     }
+    if (workerDone) {
+      m_worker.join();
+      return;
+    }
+    // The worker is stuck where the cancel flag cannot reach it. It owns the shared state and
+    // no longer has a way back to this object, so quitting can leave it behind.
+    kLog.warn("the template worker did not stop; leaving it behind");
+    m_worker.detach();
   }
 
   void TemplateApplyService::setAfterApplyCallback(
       std::function<void(std::string_view appliedMode, bool paletteChanged)> callback
   ) const {
-    std::scoped_lock lock(m_mutex);
-    m_afterApplyCallback = std::move(callback);
+    std::scoped_lock lock(m_shared->mutex);
+    m_shared->afterApplyCallback = std::move(callback);
   }
 
   void TemplateApplyService::apply(
@@ -195,8 +229,8 @@ namespace noctalia::theme {
     bool queued = false;
     std::function<void()> undeliverable;
     {
-      std::scoped_lock lock(m_mutex);
-      m_paletteChangedOwed = m_paletteChangedOwed || paletteChanged;
+      std::scoped_lock lock(m_shared->mutex);
+      m_shared->paletteChangedOwed = m_shared->paletteChangedOwed || paletteChanged;
 
       // Skip rendering and hooks when palette and template inputs are unchanged. Config values
       // are captured only when an application is queued; forced IPC re-application bypasses
@@ -205,19 +239,19 @@ namespace noctalia::theme {
         // The applied mode already matches, so only an owed palette change is still worth
         // reporting. It rides on the application queued or in flight; with neither, no worker
         // pass is left to carry it.
-        if (m_paletteChangedOwed && !m_inFlight && !m_pendingRequest.has_value()) {
-          m_paletteChangedOwed = false;
-          if (m_afterApplyCallback) {
-            undeliverable = [callback = m_afterApplyCallback, mode = request.defaultMode]() {
+        if (m_shared->paletteChangedOwed && !m_shared->inFlight && !m_shared->pendingRequest.has_value()) {
+          m_shared->paletteChangedOwed = false;
+          if (m_shared->afterApplyCallback) {
+            undeliverable = [callback = m_shared->afterApplyCallback, mode = request.defaultMode]() {
               callback(mode, /*paletteChanged=*/true);
             };
           }
         }
       } else {
         request.undoBuiltinIds = syncAppliedBuiltinIds(request.templates);
-        request.generation = ++m_nextGeneration;
+        request.generation = ++m_shared->nextGeneration;
         m_lastAppliedRequest = request;
-        m_pendingRequest = std::move(request);
+        m_shared->pendingRequest = std::move(request);
         queued = true;
       }
     }
@@ -226,7 +260,7 @@ namespace noctalia::theme {
       DeferredCall::callLater(std::move(undeliverable));
     }
     if (queued) {
-      m_cv.notify_one();
+      m_shared->cv.notify_one();
     }
   }
 
@@ -234,7 +268,7 @@ namespace noctalia::theme {
     GeneratedPalette palette;
     std::string defaultMode;
     {
-      std::scoped_lock lock(m_mutex);
+      std::scoped_lock lock(m_shared->mutex);
       if (!m_lastAppliedRequest.has_value()) {
         return false;
       }
@@ -281,8 +315,8 @@ namespace noctalia::theme {
     };
   }
 
-  void TemplateApplyService::applyRequest(const ApplyRequest& request) const {
-    HookRunner& hookRunner = *m_hookRunner;
+  void TemplateApplyService::applyRequest(const std::shared_ptr<Shared>& state, const ApplyRequest& request) {
+    HookRunner& hookRunner = *state->hookRunner;
 
     // Hooks from superseded generations must not outlive them: drop the queued ones and
     // wait out the ones already running. A started hook cannot be cancelled safely, so
@@ -296,22 +330,34 @@ namespace noctalia::theme {
     options.imagePath = request.imagePath;
     options.schemeType = request.schemeType;
     options.verbose = true;
-    options.cancelRequested = [this, generation = request.generation]() { return requestSuperseded(generation); };
+    options.cancelRequested = [state, generation = request.generation]() {
+      return requestSuperseded(state, generation);
+    };
     options.configTable = request.configTable;
     options.hookRunner = &hookRunner;
     options.generation = request.generation;
+    options.hookCancel = state->hookCancel;
 
     TemplateEngine engine(TemplateEngine::makeThemeData(request.palette), options);
 
     // The undo hooks ran synchronously; drop their ids from state.toml so the next
     // application does not repeat them. State belongs to the main thread.
-    if (std::vector<std::string> undone = undoBuiltinTemplates(request); !undone.empty()) {
-      DeferredCall::callLater([this, undone = std::move(undone)]() { forgetAppliedBuiltinIds(undone); });
+    if (std::vector<std::string> undone = undoBuiltinTemplates(state, request); !undone.empty()) {
+      DeferredCall::callLater([state, undone = std::move(undone)]() {
+        TemplateApplyService* owner = nullptr;
+        {
+          std::scoped_lock lock(state->mutex);
+          owner = state->owner;
+        }
+        if (owner != nullptr) {
+          owner->forgetAppliedBuiltinIds(undone);
+        }
+      });
     }
 
     if (request.templates.enableBuiltinTemplates
         && !request.templates.builtinIds.empty()
-        && !requestSuperseded(request.generation)) {
+        && !requestSuperseded(state, request.generation)) {
       TemplateEngine::Options builtinOptions = options;
       builtinOptions.enabledTemplates.insert(request.templates.builtinIds.begin(), request.templates.builtinIds.end());
       TemplateEngine builtinEngine(TemplateEngine::makeThemeData(request.palette), std::move(builtinOptions));
@@ -323,9 +369,9 @@ namespace noctalia::theme {
 
     if (request.templates.enableCommunityTemplates
         && !request.templates.communityIds.empty()
-        && !requestSuperseded(request.generation)) {
+        && !requestSuperseded(state, request.generation)) {
       for (const auto& id : request.templates.communityIds) {
-        if (requestSuperseded(request.generation))
+        if (requestSuperseded(state, request.generation))
           return;
         if (!isSafeCommunityTemplateId(id)) {
           kLog.warn("skipping unsafe community template id '{}'", id);
@@ -345,7 +391,7 @@ namespace noctalia::theme {
     }
 
     if ((request.templates.userTemplates.empty() && request.templates.customColors.empty())
-        || requestSuperseded(request.generation)) {
+        || requestSuperseded(state, request.generation)) {
       return;
     }
 
@@ -398,8 +444,9 @@ namespace noctalia::theme {
     );
   }
 
-  std::vector<std::string> TemplateApplyService::undoBuiltinTemplates(const ApplyRequest& request) const {
-    if (request.undoBuiltinIds.empty() || requestSuperseded(request.generation)) {
+  std::vector<std::string>
+  TemplateApplyService::undoBuiltinTemplates(const std::shared_ptr<Shared>& state, const ApplyRequest& request) {
+    if (request.undoBuiltinIds.empty() || requestSuperseded(state, request.generation)) {
       return {};
     }
 
@@ -425,10 +472,11 @@ namespace noctalia::theme {
     hookOptions.configTable = request.configTable;
     hookOptions.configDir = configPath.parent_path().string();
     hookOptions.configFile = configPath.string();
+    hookOptions.hookCancel = state->hookCancel;
     TemplateEngine hookEngine(TemplateEngine::makeThemeData(request.palette), std::move(hookOptions));
     std::vector<std::string> resolved;
     for (const auto& id : request.undoBuiltinIds) {
-      if (requestSuperseded(request.generation)) {
+      if (requestSuperseded(state, request.generation)) {
         return resolved;
       }
       const toml::table* entry = (*templates)[id].as_table();
@@ -450,7 +498,9 @@ namespace noctalia::theme {
         continue;
       }
       // A failed hook stays owed: the next application retries it.
-      const process::RunResult result = process::runSync(rendered.text);
+      process::RunOptions hookRunOptions;
+      hookRunOptions.cancel = state->hookCancel;
+      const process::RunResult result = process::runSync(rendered.text, hookRunOptions);
       if (!result) {
         kLog.warn("undo hook for built-in template '{}' failed with exit code {}: {}", id, result.exitCode, result.err);
         continue;
@@ -460,16 +510,16 @@ namespace noctalia::theme {
     return resolved;
   }
 
-  void TemplateApplyService::workerLoop() {
+  void TemplateApplyService::workerLoop(const std::shared_ptr<Shared>& state) {
     while (true) {
       ApplyRequest request;
       {
-        std::unique_lock lock(m_mutex);
+        std::unique_lock lock(state->mutex);
 
         // Wait for initial request
-        m_cv.wait(lock, [this]() { return m_shutdown || m_pendingRequest.has_value(); });
+        state->cv.wait(lock, [&state]() { return state->shutdown || state->pendingRequest.has_value(); });
 
-        if (m_shutdown) {
+        if (state->shutdown) {
           return;
         }
 
@@ -479,47 +529,47 @@ namespace noctalia::theme {
         const auto burstStart = std::chrono::steady_clock::now();
         const auto deferralLimit = burstStart + kMaxRequestDeferral;
         auto quietUntil = burstStart + kRequestQuietWindow;
-        auto lastGeneration = m_nextGeneration;
+        auto lastGeneration = state->nextGeneration;
 
-        while (!m_shutdown) {
+        while (!state->shutdown) {
           const auto wakeAt = std::min(quietUntil, deferralLimit);
           if (std::chrono::steady_clock::now() >= wakeAt) {
             break;
           }
-          m_cv.wait_until(lock, wakeAt);
-          if (m_nextGeneration != lastGeneration) {
-            lastGeneration = m_nextGeneration;
+          state->cv.wait_until(lock, wakeAt);
+          if (state->nextGeneration != lastGeneration) {
+            lastGeneration = state->nextGeneration;
             quietUntil = std::chrono::steady_clock::now() + kRequestQuietWindow;
           }
         }
 
-        if (m_shutdown) {
+        if (state->shutdown) {
           return;
         }
 
-        request = std::move(*m_pendingRequest);
-        m_pendingRequest.reset();
-        m_inFlight = true;
+        request = std::move(*state->pendingRequest);
+        state->pendingRequest.reset();
+        state->inFlight = true;
       }
 
-      applyRequest(request);
+      applyRequest(state, request);
 
       // Hooks of the current generation must finish before the after-apply callback
       // reports the theme as applied. A superseded generation skips the drain; the next
       // applyRequest() waits its hooks out before touching anything.
-      if (!requestSuperseded(request.generation)) {
-        m_hookRunner->waitIdle();
+      if (!requestSuperseded(state, request.generation)) {
+        state->hookRunner->waitIdle();
       }
 
       std::function<void()> afterApplyCallback;
       {
-        std::scoped_lock lock(m_mutex);
-        m_inFlight = false;
+        std::scoped_lock lock(state->mutex);
+        state->inFlight = false;
         // A superseded generation reports nothing and leaves an owed palette change to the
         // generation that replaced it.
-        if (!m_shutdown && request.generation == m_nextGeneration && m_afterApplyCallback) {
-          const bool paletteChanged = std::exchange(m_paletteChangedOwed, false);
-          afterApplyCallback = [callback = m_afterApplyCallback, mode = request.defaultMode, paletteChanged]() {
+        if (!state->shutdown && request.generation == state->nextGeneration && state->afterApplyCallback) {
+          const bool paletteChanged = std::exchange(state->paletteChangedOwed, false);
+          afterApplyCallback = [callback = state->afterApplyCallback, mode = request.defaultMode, paletteChanged]() {
             callback(mode, paletteChanged);
           };
         }
@@ -530,9 +580,9 @@ namespace noctalia::theme {
     }
   }
 
-  bool TemplateApplyService::requestSuperseded(std::uint64_t generation) const {
-    std::scoped_lock lock(m_mutex);
-    return m_shutdown || generation != m_nextGeneration;
+  bool TemplateApplyService::requestSuperseded(const std::shared_ptr<Shared>& state, std::uint64_t generation) {
+    std::scoped_lock lock(state->mutex);
+    return state->shutdown || generation != state->nextGeneration;
   }
 
 } // namespace noctalia::theme

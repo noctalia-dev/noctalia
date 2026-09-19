@@ -1238,6 +1238,7 @@ if build_tests
     'template_apply_notify',
     'template_hook_async',
     'template_hook_runner',
+    'template_hook_shutdown',
     'theme_shell_mode',
     'time_format',
     'tray_identifier',
