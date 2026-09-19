@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <charconv>
+#include <chrono>
 #include <cmath>
 #include <optional>
 #include <sdbus-c++/IProxy.h>
@@ -27,6 +28,8 @@ namespace {
   constexpr auto kUpowerInterface = "org.freedesktop.UPower";
   constexpr auto kKbdBacklightInterface = "org.freedesktop.UPower.KbdBacklight";
   constexpr std::string_view kKbdBacklightPathPrefix = "/org/freedesktop/UPower/KbdBacklight/";
+  constexpr std::chrono::milliseconds kPollInterval{100};
+  constexpr std::chrono::milliseconds kPollCallTimeout{200};
 
   bool isKbdBacklightPath(const sdbus::ObjectPath& path) {
     return std::string_view{path}.starts_with(kKbdBacklightPathPrefix);
@@ -87,38 +90,10 @@ void KeyboardBacklightService::rescanDevices() {
   devices.reserve(paths.size());
   for (const auto& path : paths) {
     try {
-      auto device = std::make_unique<Device>();
-      device->path = path;
-      device->proxy = sdbus::createProxy(m_bus.connection(), kUpowerBusName, path);
-      device->proxy->callMethod("GetMaxBrightness")
-          .onInterface(kKbdBacklightInterface)
-          .storeResultsTo(device->maxBrightness);
-      device->proxy->callMethod("GetBrightness").onInterface(kKbdBacklightInterface).storeResultsTo(device->brightness);
-      if (device->maxBrightness < 0) {
-        kLog.warn("keyboard backlight {} reported invalid maximum {}", device->path, device->maxBrightness);
-        continue;
+      auto device = makeDevice(path);
+      if (device != nullptr) {
+        devices.push_back(std::move(device));
       }
-      device->brightness = util::clampOrdered(device->brightness, 0, device->maxBrightness);
-
-      const std::string devicePath = device->path;
-      device->proxy->uponSignal("BrightnessChanged")
-          .onInterface(kKbdBacklightInterface)
-          .call([this, devicePath](int32_t value) {
-            const auto it = std::ranges::find_if(m_devices, [&devicePath](const auto& candidate) {
-              return candidate->path == devicePath;
-            });
-            if (it == m_devices.end()) {
-              return;
-            }
-            auto& changed = **it;
-            const int brightness = util::clampOrdered<int>(value, 0, changed.maxBrightness);
-            if (brightness == changed.brightness) {
-              return;
-            }
-            changed.brightness = brightness;
-            publishBrightness(changed);
-          });
-      devices.push_back(std::move(device));
     } catch (const sdbus::Error& e) {
       kLog.warn("failed to initialize keyboard backlight {}: {}", std::string(path), e.what());
     }
@@ -128,13 +103,66 @@ void KeyboardBacklightService::rescanDevices() {
   if (m_devices.empty()) {
     m_brightness = 0;
     m_maxBrightness = 0;
+    m_pollTimer.stop();
     kLog.info("no keyboard backlights available");
     return;
   }
 
   m_brightness = m_devices.front()->brightness;
   m_maxBrightness = m_devices.front()->maxBrightness;
+  m_pollTimer.startRepeating(kPollInterval, [this]() { pollDevices(); });
   kLog.info("keyboard backlight service active ({} device(s))", m_devices.size());
+}
+
+void KeyboardBacklightService::pollDevices() {
+  for (const auto& device : m_devices) {
+    device->proxy->callMethodAsync("GetBrightness")
+        .onInterface(kKbdBacklightInterface)
+        .withTimeout(kPollCallTimeout)
+        .uponReplyInvoke([this, devicePath = device->path](std::optional<sdbus::Error> error, int brightness) {
+          if (!error.has_value()) {
+            handleBrightnessChange(devicePath, brightness);
+          }
+        });
+  }
+}
+
+auto KeyboardBacklightService::makeDevice(const sdbus::ObjectPath& path) -> std::unique_ptr<Device> {
+  auto device = std::make_unique<Device>();
+  device->path = path;
+  device->proxy = sdbus::createProxy(m_bus.connection(), kUpowerBusName, path);
+  device->proxy->callMethod("GetMaxBrightness")
+      .onInterface(kKbdBacklightInterface)
+      .storeResultsTo(device->maxBrightness);
+  device->proxy->callMethod("GetBrightness").onInterface(kKbdBacklightInterface).storeResultsTo(device->brightness);
+  if (device->maxBrightness < 0) {
+    kLog.warn("keyboard backlight {} reported invalid maximum {}", device->path, device->maxBrightness);
+    return nullptr;
+  }
+  device->brightness = util::clampOrdered(device->brightness, 0, device->maxBrightness);
+  connectDeviceSignals(*device);
+  return device;
+}
+
+void KeyboardBacklightService::connectDeviceSignals(Device& device) {
+  const std::string devicePath = device.path;
+  device.proxy->uponSignal("BrightnessChanged")
+      .onInterface(kKbdBacklightInterface)
+      .call([this, devicePath](int32_t value) { handleBrightnessChange(devicePath, value); });
+}
+
+void KeyboardBacklightService::handleBrightnessChange(const std::string& path, int value) {
+  const auto it = std::ranges::find_if(m_devices, [&path](const auto& candidate) { return candidate->path == path; });
+  if (it == m_devices.end()) {
+    return;
+  }
+  auto& device = **it;
+  const int clamped = util::clampOrdered(value, 0, device.maxBrightness);
+  if (clamped == device.brightness) {
+    return;
+  }
+  device.brightness = clamped;
+  publishBrightness(device);
 }
 
 void KeyboardBacklightService::publishBrightness(const Device& device) {
