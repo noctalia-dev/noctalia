@@ -213,14 +213,15 @@ RfkillSwitchResult setRfkillSoftBlocked(RfkillDeviceType type, bool softBlocked)
     kLog.debug("setRfkillSoftBlocked: no rfkill entry for type {}", static_cast<unsigned>(type));
     return {.success = false, .detail = "no rfkill switch found"};
   }
-  if (std::ranges::any_of(entries, &RfkillEntry::hard)) {
-    return {.success = false, .hardBlocked = true, .detail = "rfkill hard block is active"};
-  }
+  // A hard block is reported, not obeyed: the kernel applies the soft-block change regardless and
+  // re-queries hardware state while doing so, which is what clears a stale vendor platform block.
+  const bool hardBlocked = std::ranges::any_of(entries, &RfkillEntry::hard);
   if (std::ranges::all_of(entries, [softBlocked](const RfkillEntry& entry) { return entry.soft == softBlocked; })) {
-    return {.success = true, .detail = {}};
+    return {.success = true, .hardBlocked = hardBlocked, .detail = {}};
   }
 
   RfkillSwitchResult result = setRfkillSoftBlockedByType(*typeId, softBlocked);
+  result.hardBlocked = hardBlocked;
   if (!result.success) {
     kLog.warn("setRfkillSoftBlocked: type {} failed: {}", static_cast<unsigned>(type), result.detail);
   }
@@ -239,13 +240,11 @@ RfkillSwitchResult setRfkillSoftBlockedForNetInterface(std::string_view ifname, 
       if (wantedType.has_value() && entry.type != *wantedType) {
         return {.success = false, .detail = "rfkill switch is not WLAN"};
       }
-      if (entry.hard) {
-        return {.success = false, .hardBlocked = true, .detail = "rfkill hard block is active"};
-      }
       if (entry.soft == softBlocked) {
-        return {.success = true, .detail = {}};
+        return {.success = true, .hardBlocked = entry.hard, .detail = {}};
       }
       RfkillSwitchResult result = setRfkillSoftBlockedByIndex(entry.index, softBlocked);
+      result.hardBlocked = entry.hard;
       if (!result.success) {
         kLog.warn("setRfkillSoftBlockedForNetInterface: index {} failed: {}", entry.index, result.detail);
       }
@@ -258,5 +257,3 @@ RfkillSwitchResult setRfkillSoftBlockedForNetInterface(std::string_view ifname, 
 
 // A radio is blocked when any of its switches blocks it.
 bool isRfkillSoftBlocked(RfkillDeviceType type) { return std::ranges::any_of(findEntries(type), &RfkillEntry::soft); }
-
-bool isRfkillHardBlocked(RfkillDeviceType type) { return std::ranges::any_of(findEntries(type), &RfkillEntry::hard); }
