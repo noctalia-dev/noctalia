@@ -233,6 +233,7 @@ std::unique_ptr<DesktopWidget> DesktopWidgetFactory::create(
             .mirrored = getBoolSetting(settings, "mirrored", true),
             .reversed = getBoolSetting(settings, "reversed", false),
             .centered = getBoolSetting(settings, "centered", true),
+            .wave = getBoolSetting(settings, "show_wave", false),
             .showWhenIdle = getBoolSetting(settings, "show_when_idle", true),
             .color1 = getColorSpecSetting(settings, "color_1", colorSpecFromRole(ColorRole::Primary)),
             .color2 = getColorSpecSetting(settings, "color_2", colorSpecFromRole(ColorRole::Primary)),
