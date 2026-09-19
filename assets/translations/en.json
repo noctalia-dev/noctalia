@@ -4388,9 +4388,9 @@
           "description": "Include windows from every monitor on this widget",
           "label": "Show All Monitors"
         },
-        "show-all-workspaces": {
-          "description": "Show workspaces from every monitor on this widget",
-          "label": "Show All Monitors"
+        "workspace-monitors": {
+          "description": "Choose which monitors' workspaces appear in this widget. Leave empty to show only the workspaces from the monitor hosting the bar",
+          "label": "Workspace Monitors"
         },
         "show-caps-lock": {
           "description": "Show Caps Lock state",
