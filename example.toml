@@ -271,8 +271,7 @@ effects         = true              # visual weather effects
 enable_overdrive = false            # allow volume above 100% (up to 150%)
 enable_sounds = false               # master toggle for UI feedback sounds
 sound_volume = 0.5                  # 0.0 - 1.0
-volume_change_sound = ""            # empty = bundled sounds/volume-change.wav
-notification_sound = ""             # empty = bundled sounds/notification.wav
+sound_theme = "freedesktop"
 
 # ── Brightness ────────────────────────────────────────────────────────────────
 
