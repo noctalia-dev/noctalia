@@ -547,6 +547,14 @@ void Application::initIpc() {
       IpcService::HandlerOptions{.actionEditorVisibility = IpcService::ActionEditorVisibility::Hidden}
   );
 
+  m_ipcService.bind(noctalia::cli::msg::lockScreen, [this](const std::string& args) -> std::string {
+    if (!noctalia::ipc::splitWords(args).empty()) {
+      return "error: lock-screen takes no arguments\n";
+    }
+
+    return m_sessionActionRunner.lock() ? "ok\n" : "error: failed to lock";
+  });
+
   registerSessionIpc(m_ipcService, m_sessionActionRunner, m_lockScreen, m_configService);
 
   if (m_powerProfilesService != nullptr) {

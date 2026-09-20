@@ -3575,6 +3575,10 @@
             "description": "Switch to the next keyboard layout",
             "label": "Cycle keyboard layout"
           },
+          "lock-screen": {
+            "description": "Lock screen",
+            "label": "Lock screen"
+          },
           "lockscreen-widgets-edit": {
             "description": "Open the lockscreen widgets editor",
             "label": "Edit lockscreen widgets"

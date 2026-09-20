@@ -473,6 +473,7 @@ namespace noctalia::cli {
     inline constexpr Command keyboardLayoutCycle{
         "keyboard-layout-cycle", "Switch to the next keyboard layout", {}, {}, {}, {}, {}, false
     };
+    inline constexpr Command lockScreen{"lock-screen", "Lock the screen", {}, {}, {}, {}, {}, false};
     inline constexpr Command lockscreenWidgetsEdit{
         "lockscreen-widgets-edit", "Open the lockscreen widgets editor", {}, {}, {}, {}, {}, false
     };
@@ -874,6 +875,7 @@ namespace noctalia::cli {
       msg::keyboardBacklightToggle,
       msg::keyboardBacklightUp,
       msg::keyboardLayoutCycle,
+      msg::lockScreen,
       msg::lockscreenWidgetsEdit,
       msg::lockscreenWidgetsExit,
       msg::lockscreenWidgetsToggleEdit,
