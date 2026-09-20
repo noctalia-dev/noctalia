@@ -28,6 +28,15 @@ int main() {
   for (std::size_t i = 0; i < palettes.size(); ++i)
     TEST_CHECK(builtin.positionals.front().choices[i] == palettes[i].name);
 
+  const noctalia::cli::Command* barLayerSet = noctalia::cli::findMsgCommand("bar-layer-set");
+  TEST_CHECK(barLayerSet != nullptr);
+  TEST_CHECK(barLayerSet->positionals.size() == 3);
+  const auto layerChoices = barLayerSet->positionals.front().choices;
+  TEST_CHECK(layerChoices.size() == 3);
+  TEST_CHECK(layerChoices[0] == "top");
+  TEST_CHECK(layerChoices[1] == "overlay");
+  TEST_CHECK(layerChoices[2] == "smart");
+
   const auto& wallpaper = child(*colorSchemeSet, "wallpaper");
   TEST_CHECK(wallpaper.positionals.size() == 1);
   TEST_CHECK(wallpaper.positionals.front().choices.size() == noctalia::theme::kSchemeNames.size());
