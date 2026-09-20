@@ -14,6 +14,9 @@ namespace noctalia::config::schema {
   inline constexpr Range<float> kScaleRange{0.5F, 2.5F, 0.05F};         // ui_scale, notification/osd scale
   inline constexpr Range<std::int64_t> kRefreshMinutesRange{5, 240, 5}; // calendar/weather refresh interval
 
+  // Audio.
+  inline constexpr Range<std::int64_t> kSpectrumFrequencyRange{1, 48000, 1};
+
   // Shell.
   inline constexpr Range<float> kAnimationSpeedRange{0.1F, 4.0F, 0.05F};
   inline constexpr Range<float> kCornerRadiusScaleRange{0.0F, 2.0F, 0.05F};

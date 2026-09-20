@@ -7,6 +7,7 @@
 #include <array>
 #include <cmath>
 #include <cstdlib>
+#include <limits>
 #include <numbers>
 #include <pipewire/core.h>
 #include <pipewire/keys.h>
@@ -76,6 +77,28 @@ namespace {
   }
 
 } // namespace
+
+std::vector<float>
+noctalia::pipewire::spectrumFrequencyBins(int lowerCutoffHz, int upperCutoffHz, int sampleRate, int bandCount) {
+  constexpr int kSpectrumFftSize = 4096;
+  const int safeBandCount = std::max(1, bandCount);
+  const float safeSampleRate = static_cast<float>(std::max(1, sampleRate));
+  const float nyquist = safeSampleRate * 0.5F;
+  const float firstBinFrequency = safeSampleRate / static_cast<float>(kSpectrumFftSize);
+  const float effectiveHigh = std::clamp(static_cast<float>(upperCutoffHz), firstBinFrequency, nyquist);
+  const float effectiveLow = std::clamp(static_cast<float>(lowerCutoffHz), firstBinFrequency, effectiveHigh);
+  const float ratio = effectiveHigh / effectiveLow;
+  const float denominator = static_cast<float>(std::max(1, safeBandCount - 1));
+  const auto maxBin = static_cast<float>(kSpectrumFftSize / 2);
+
+  std::vector<float> bins(static_cast<std::size_t>(safeBandCount));
+  for (std::size_t i = 0; i < bins.size(); ++i) {
+    const float t = static_cast<float>(i) / denominator;
+    const float frequency = effectiveLow * std::pow(ratio, t);
+    bins[i] = std::clamp(frequency * static_cast<float>(kSpectrumFftSize) / safeSampleRate, 1.0F, maxBin);
+  }
+  return bins;
+}
 
 const std::vector<float>& PipeWireSpectrum::values(ListenerId id) const noexcept {
   static const std::vector<float> kEmptyValues;
@@ -162,12 +185,15 @@ const pw_stream_events PipeWireSpectrum::Stream::kEvents = [] {
 }();
 
 bool PipeWireSpectrum::Stream::start() {
-  pw_core* core = m_spectrum.m_service.coreHandle();
+  if (m_spectrum.m_service == nullptr) {
+    return false;
+  }
+  pw_core* core = m_spectrum.m_service->coreHandle();
   if (core == nullptr || m_nodeId == 0 || m_targetObject.empty()) {
     return false;
   }
 
-  const char* const passiveMode = m_spectrum.m_service.serverSupportsPassiveFollow() ? "in-follow" : "true";
+  const char* const passiveMode = m_spectrum.m_service->serverSupportsPassiveFollow() ? "in-follow" : "true";
 
   auto* props = pw_properties_new(
       PW_KEY_MEDIA_TYPE, "Audio", PW_KEY_MEDIA_CATEGORY, "Capture", PW_KEY_MEDIA_NAME, "Noctalia Spectrum",
@@ -349,10 +375,12 @@ void PipeWireSpectrum::Stream::handleProcess() {
   }
 }
 
-PipeWireSpectrum::PipeWireSpectrum(PipeWireService& service) : m_service(service) {
+PipeWireSpectrum::PipeWireSpectrum(PipeWireService& service) : m_service(&service) {
   m_diagEnabled = std::getenv("NOCTALIA_SPECTRUM_DEBUG") != nullptr;
   initProcessing();
 }
+
+PipeWireSpectrum::PipeWireSpectrum(TestModeTag) { initProcessing(); }
 
 PipeWireSpectrum::~PipeWireSpectrum() = default;
 
@@ -364,23 +392,42 @@ void PipeWireSpectrum::setTargetNodeId(std::uint32_t id) {
   rebuildStream();
 }
 
-void PipeWireSpectrum::setLowerCutoff(int freq) {
-  freq = std::max(1, freq);
-  if (freq == m_lowerCutoff) {
+void PipeWireSpectrum::setFrequencyRange(int lowerCutoffHz, int upperCutoffHz) {
+  lowerCutoffHz = std::clamp(lowerCutoffHz, 1, std::numeric_limits<int>::max() - 1);
+  upperCutoffHz = std::max(lowerCutoffHz + 1, upperCutoffHz);
+  if (lowerCutoffHz == m_lowerCutoff && upperCutoffHz == m_upperCutoff) {
     return;
   }
-  m_lowerCutoff = freq;
+
+  m_lowerCutoff = lowerCutoffHz;
+  m_upperCutoff = upperCutoffHz;
   computeAnalysisBandBins();
+  std::ranges::fill(m_analysisBands, 0.0F);
+  m_sensitivity = 0.01F;
+  m_sensInit = true;
+
+  std::vector<ListenerId> listeners;
+  listeners.reserve(m_listeners.size());
+  for (auto& [id, state] : m_listeners) {
+    resetListenerState(state, true);
+    listeners.push_back(id);
+  }
+  const bool previouslySuppressingLayoutNotifications = m_suppressLayoutNotifications;
+  m_suppressLayoutNotifications = true;
+  try {
+    for (ListenerId id : listeners) {
+      emitChanged(id);
+    }
+  } catch (...) {
+    m_suppressLayoutNotifications = previouslySuppressingLayoutNotifications;
+    throw;
+  }
+  m_suppressLayoutNotifications = previouslySuppressingLayoutNotifications;
 }
 
-void PipeWireSpectrum::setUpperCutoff(int freq) {
-  freq = std::max(m_lowerCutoff + 1, freq);
-  if (freq == m_upperCutoff) {
-    return;
-  }
-  m_upperCutoff = freq;
-  computeAnalysisBandBins();
-}
+void PipeWireSpectrum::setLowerCutoff(int freq) { setFrequencyRange(freq, m_upperCutoff); }
+
+void PipeWireSpectrum::setUpperCutoff(int freq) { setFrequencyRange(m_lowerCutoff, freq); }
 
 void PipeWireSpectrum::setNoiseReduction(float amount) {
   amount = std::clamp(amount, 0.0F, 1.0F);
@@ -486,8 +533,13 @@ void PipeWireSpectrum::rebuildStream() {
   }
   m_nextFrameAt = std::chrono::steady_clock::now();
   if (m_idle) {
+    std::vector<ListenerId> listeners;
+    listeners.reserve(m_listeners.size());
     for (const auto& [id, state] : m_listeners) {
       (void)state;
+      listeners.push_back(id);
+    }
+    for (ListenerId id : listeners) {
       emitChanged(id);
     }
   }
@@ -497,7 +549,7 @@ std::uint32_t PipeWireSpectrum::resolvedTargetNodeId() const noexcept {
   if (m_targetNodeId != 0) {
     return m_targetNodeId;
   }
-  return m_service.state().defaultSinkId;
+  return m_service != nullptr ? m_service->state().defaultSinkId : 0;
 }
 
 const AudioNode* PipeWireSpectrum::resolvedTargetNode() const noexcept {
@@ -506,7 +558,10 @@ const AudioNode* PipeWireSpectrum::resolvedTargetNode() const noexcept {
     return nullptr;
   }
 
-  const auto& state = m_service.state();
+  if (m_service == nullptr) {
+    return nullptr;
+  }
+  const auto& state = m_service->state();
   auto sink = std::ranges::find(state.sinks, id, &AudioNode::id);
   if (sink != state.sinks.end()) {
     return &*sink;
@@ -546,9 +601,11 @@ void PipeWireSpectrum::clearValues(bool notify) {
 
 void PipeWireSpectrum::emitChanged(ListenerId id) {
   const auto it = m_listeners.find(id);
-  if (it != m_listeners.end() && it->second.callback) {
-    it->second.callback();
+  if (it == m_listeners.end() || !it->second.callback) {
+    return;
   }
+  const ChangeCallback callback = it->second.callback;
+  callback();
 }
 
 void PipeWireSpectrum::initProcessing() {
@@ -584,9 +641,14 @@ void PipeWireSpectrum::reconfigureAnalysisLayout() {
     configureListenerState(state, analysisChanged);
   }
 
-  if (analysisChanged) {
+  if (analysisChanged && !m_suppressLayoutNotifications) {
+    std::vector<ListenerId> listeners;
+    listeners.reserve(m_listeners.size());
     for (const auto& [id, state] : m_listeners) {
       (void)state;
+      listeners.push_back(id);
+    }
+    for (ListenerId id : listeners) {
       emitChanged(id);
     }
   }
@@ -628,22 +690,8 @@ void PipeWireSpectrum::resetListenerState(ListenerState& state, bool clearValues
 }
 
 void PipeWireSpectrum::computeAnalysisBandBins() {
-  const auto analysisBandCountSize = static_cast<std::size_t>(m_analysisBandCount);
-  m_analysisBandBins.resize(analysisBandCountSize);
-
-  const auto fLow = static_cast<float>(m_lowerCutoff);
-  const float fHigh = static_cast<float>(std::min(m_upperCutoff, m_sampleRate / 2));
-  const float ratio = fHigh / fLow;
-  const int fftBins = kFftSize / 2;
-  const auto sampleRate = static_cast<float>(std::max(1, m_sampleRate));
-  const float denominator = static_cast<float>(std::max(1, m_analysisBandCount - 1));
-
-  for (std::size_t i = 0; i < analysisBandCountSize; ++i) {
-    const float t = static_cast<float>(i) / denominator;
-    const float freq = fLow * std::pow(ratio, t);
-    m_analysisBandBins[i] =
-        std::clamp(freq * static_cast<float>(kFftSize) / sampleRate, 1.0F, static_cast<float>(fftBins));
-  }
+  m_analysisBandBins =
+      noctalia::pipewire::spectrumFrequencyBins(m_lowerCutoff, m_upperCutoff, m_sampleRate, m_analysisBandCount);
 }
 
 bool PipeWireSpectrum::processListenerView(ListenerState& state, float nrFactor, double gravityMod) {
