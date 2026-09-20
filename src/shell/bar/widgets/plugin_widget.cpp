@@ -102,14 +102,15 @@ namespace {
 } // namespace
 
 PluginWidget::PluginWidget(
-    scripting::PluginRuntimeContext context, std::string barName, std::string outputName, bool enableScroll
+    scripting::PluginRuntimeContext context, std::string barName, std::string outputName, bool isVertical,
+    bool enableScroll
 )
     : m_entryId(std::move(context.entryId)), m_sourcePath(std::move(context.sourcePath)),
       m_pluginDir(std::move(context.pluginDir)), m_barName(std::move(barName)), m_outputName(std::move(outputName)),
       m_scriptApi(context.scriptApi), m_settings(std::move(context.settings)), m_fileWatcher(context.fileWatcher),
       m_platform(context.platform), m_clipboard(context.clipboard), m_httpClient(context.httpClient),
       m_audioSpectrum(context.audioSpectrum), m_mpris(context.mpris), m_timerPhase(nextTimerPhase()),
-      m_enableScroll(enableScroll) {
+      m_isVertical(isVertical), m_enableScroll(enableScroll) {
   m_audioSpectrumEnabled = settingBool(m_settings, "audio_spectrum", false);
   m_audioSpectrumBands =
       static_cast<int>(std::clamp<std::int64_t>(settingInt(m_settings, "audio_spectrum_bands", 16), 1, 128));
