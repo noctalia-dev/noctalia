@@ -65,17 +65,19 @@ namespace {
     Node* thumb = nullptr;
     InputArea* trackArea = nullptr;
     InputArea* thumbArea = nullptr;
+    InputArea* viewportArea = nullptr;
   };
 
   Harness layoutScrollView(
-      Renderer& renderer, AnimationManager& animations, float contentScale, float viewportHeight, float contentHeight
+      Renderer& renderer, AnimationManager& animations, float contentScale, float viewportHeight, float contentHeight,
+      float padH = 0.0F, float padV = 0.0F
   ) {
     Harness harness;
     harness.view = std::make_unique<ScrollView>();
     harness.view->setAnimationManager(&animations);
     harness.view->setContentScale(contentScale);
-    harness.view->setViewportPaddingH(0.0F);
-    harness.view->setViewportPaddingV(0.0F);
+    harness.view->setViewportPaddingH(padH);
+    harness.view->setViewportPaddingV(padV);
 
     auto content = std::make_unique<Box>();
     content->setSize(10.0F, contentHeight);
@@ -85,19 +87,23 @@ namespace {
     harness.view->layout(renderer);
 
     Node* bar = nullptr;
+    InputArea* area = nullptr;
     for (const auto& child : harness.view->children()) {
       if (dynamic_cast<Scrollbar*>(child.get()) != nullptr) {
         bar = child.get();
+      } else if (auto* inputArea = dynamic_cast<InputArea*>(child.get())) {
+        area = inputArea;
       }
     }
-    if (bar == nullptr || bar->children().size() <= kThumbAreaIndex) {
-      std::println(stderr, "scrollbar_geometry_test: scrollbar children missing");
+    if (bar == nullptr || area == nullptr || bar->children().size() <= kThumbAreaIndex) {
+      std::println(stderr, "scrollbar_geometry_test: scrollbar or viewport children missing");
       std::exit(1);
     }
     harness.track = bar->children()[kTrackIndex].get();
     harness.thumb = bar->children()[kThumbIndex].get();
     harness.trackArea = dynamic_cast<InputArea*>(bar->children()[kTrackAreaIndex].get());
     harness.thumbArea = dynamic_cast<InputArea*>(bar->children()[kThumbAreaIndex].get());
+    harness.viewportArea = area;
     return harness;
   }
 
@@ -141,6 +147,30 @@ int main() {
     expectNear(harness.track->width(), Style::scrollbarWidth * 2.0F, "track thickness at scale 2");
     expectNear(harness.thumb->height(), Style::scrollbarMinThumbHeight * 2.0F, "thumb floor at scale 2");
     expectNear(harness.trackArea->hitTestOutset().left, Style::scrollbarHitSlop * 2.0F, "hit slop at scale 2");
+  }
+
+  // Content clips at the border stroke's inner edge, the padding gutter stays inside the clip.
+  {
+    constexpr float kPadH = 4.0F;
+    constexpr float kPadV = 8.0F;
+    constexpr float kBorder = 5.0F;
+    auto harness = layoutScrollView(renderer, animations, 1.0F, 100.0F, 400.0F, kPadH, kPadV);
+    harness.view->setBorder(Color{.r = 1.0F, .g = 0.0F, .b = 0.0F, .a = 1.0F}, kBorder);
+    harness.view->layout(renderer);
+    if (!harness.viewportArea->clipChildren()) {
+      std::println(stderr, "scrollbar_geometry_test: viewport area does not clip its children");
+      ++gFailures;
+    }
+    expectNear(harness.viewportArea->x(), kBorder, "viewport x");
+    expectNear(harness.viewportArea->y(), kBorder, "viewport y");
+    expectNear(harness.viewportArea->width(), kViewWidth - kBorder * 2.0F, "viewport width");
+    expectNear(harness.viewportArea->height(), 100.0F - kBorder * 2.0F, "viewport height");
+    expectNear(harness.view->content()->x(), kPadH, "content gutter x");
+    expectNear(harness.view->content()->y(), kPadV, "content gutter y");
+    if (harness.view->content()->parent() != harness.viewportArea) {
+      std::println(stderr, "scrollbar_geometry_test: content is not under the clipping viewport");
+      ++gFailures;
+    }
   }
 
   // Hovering expands the bar over the content: the reserved gutter, and therefore the content
