@@ -682,6 +682,9 @@ void WorkspacesWidget::rebuild(Renderer& renderer) {
       });
     }
     item.area = static_cast<InputArea*>(m_container->addChild(std::move(area)));
+    if (!entry.exiting) {
+      syncItemTooltip(item, ws);
+    }
     m_items.push_back(item);
   }
 
@@ -843,6 +846,7 @@ void WorkspacesWidget::recalculateItemMetrics(
 
   item.label = label;
   item.showLabel = shouldShowWorkspaceLabel(workspace, label);
+  syncItemTooltip(item, workspace);
 
   if (isWorkspaceHidden(workspace)) {
     item.inactiveWidth = 0.0F;
@@ -1430,6 +1434,32 @@ std::string WorkspacesWidget::workspaceLabel(const Workspace& workspace, std::si
   }
 
   return label;
+}
+
+std::string
+WorkspacesWidget::workspaceTooltipText(const Workspace& workspace, const std::string& label, bool showLabel) {
+  if (workspace.name.empty() || (showLabel && label == workspace.name)) {
+    return {};
+  }
+  return workspace.name;
+}
+
+void WorkspacesWidget::syncItemTooltip(Item& item, const Workspace& workspace) {
+  if (item.area == nullptr) {
+    return;
+  }
+
+  // retarget() runs on every workspace update; only touch the tooltip when its text changes.
+  std::string tooltip = workspaceTooltipText(workspace, item.label, item.showLabel);
+  if (tooltip == item.tooltip) {
+    return;
+  }
+  item.tooltip = tooltip;
+  if (tooltip.empty()) {
+    item.area->clearTooltip();
+  } else {
+    item.area->setTooltip(std::move(tooltip));
+  }
 }
 
 std::optional<std::size_t> WorkspacesWidget::numericWorkspaceId(const Workspace& workspace) {

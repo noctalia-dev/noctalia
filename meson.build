@@ -1256,6 +1256,7 @@ if build_tests
     'widget_definition',
     'widget_settings_schema',
     'workspace_alert_service',
+    'workspaces_widget',
   ]
 
   foreach test_name : _cpp_test_names

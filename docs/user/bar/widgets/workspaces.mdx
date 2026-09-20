@@ -11,6 +11,8 @@ Labels are controlled by two independent settings: `show_labels` turns them on o
 With `show_labels = false`, regular draws unlabeled pills and Focus Hint shows just the focused app icon. Minimal draws no pill backgrounds at all, so its workspaces become blank slots.
 Focus Hint's app icon has its own switch, `show_icons`; turning both off leaves an empty expanded pill for the active workspace.
 
+Hovering a named workspace shows its full name in a tooltip whenever the pill does not already spell it out: when `max_label_chars` cut it short, when `label_source = "id"` shows a number instead, or when labels are off.
+
 Workspace pills use the workspaces widget's resolved `capsule_radius`.
 Set `[widget.workspaces].capsule_radius` for just the workspace switcher, or `[bar.<name>].capsule_radius` as the bar default.
 Pill styling and `capsule_radius` apply only when `style = "regular"`.
