@@ -1357,6 +1357,7 @@ struct NightLightConfig {
   bool force = false;
   std::int32_t dayTemperature = 6500;
   std::int32_t nightTemperature = 4000;
+  std::int32_t fadeMinutes = 60;
 
   bool operator==(const NightLightConfig&) const = default;
 };

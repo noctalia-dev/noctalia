@@ -159,6 +159,7 @@ namespace noctalia::config::schema {
         field(&NightLightConfig::force, "force"),
         field(&NightLightConfig::dayTemperature, "temperature_day", Range<std::int64_t>{1000, 25000}),
         field(&NightLightConfig::nightTemperature, "temperature_night", Range<std::int64_t>{1000, 25000}),
+        field(&NightLightConfig::fadeMinutes, "fade_minutes", Range<std::int64_t>{0, 120}),
         // Day must lead night by at least the gap; pull night down, bumping day up
         // only if night would fall below the floor.
         finalize<NightLightConfig>([](NightLightConfig& nl, std::string_view path, Diagnostics& diag) {
