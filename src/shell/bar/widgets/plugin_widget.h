@@ -47,6 +47,8 @@ public:
   ~PluginWidget() override;
 
   void create() override;
+  void onFrameTick(float deltaMs) override;
+  [[nodiscard]] bool needsFrameTick() const override { return m_needsFrameTick; }
 
   void luaSetText(std::string_view text);
   void luaSetGlyph(std::string_view name);
@@ -161,6 +163,7 @@ private:
   std::uint64_t m_updateTimerGeneration = 0;
   int m_imageReloadRetries = 0;
   bool m_dirty = false;
+  bool m_needsFrameTick = false;
   bool m_updateDeferred = false;
   bool m_isVertical = false;
   bool m_enableScroll = true;

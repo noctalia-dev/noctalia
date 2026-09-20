@@ -202,6 +202,8 @@ namespace scripting {
     std::string outputName;
     std::string barName;
     std::string focusedOutputName;
+    std::string mediaPlaybackStatus;
+    std::string mediaArtUrl;
     std::optional<ScriptPointerContext> pointerContext;
   };
 
