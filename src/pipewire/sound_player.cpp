@@ -258,22 +258,6 @@ std::optional<std::string> SoundPlayer::decode(const fs::path& path, SoundBuffer
   return std::nullopt;
 }
 
-bool SoundPlayer::load(const std::string& name, const fs::path& path) {
-  if (name.empty() || path.empty()) {
-    return false;
-  }
-
-  SoundBuffer buffer;
-  if (const auto error = decode(path, buffer)) {
-    kLog.warn("failed to load sound \"{}\" from {}: {}", name, path.string(), *error);
-    return false;
-  }
-
-  m_buffers[name] = std::make_shared<const SoundBuffer>(std::move(buffer));
-  kLog.info("loaded sound \"{}\" from {}", name, path.string());
-  return true;
-}
-
 std::optional<std::string>
 SoundPlayer::loadPluginSound(std::uint64_t ownerId, const std::string& name, const fs::path& path) {
   SoundBuffer buffer;

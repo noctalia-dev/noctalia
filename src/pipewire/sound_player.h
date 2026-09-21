@@ -22,7 +22,6 @@ public:
   SoundPlayer(const SoundPlayer&) = delete;
   SoundPlayer& operator=(const SoundPlayer&) = delete;
 
-  bool load(const std::string& name, const std::filesystem::path& path);
   void play(const std::string& name);
   void setTheme(std::string theme);
   void setVolume(float volume);
