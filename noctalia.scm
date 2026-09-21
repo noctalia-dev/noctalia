@@ -14,10 +14,16 @@
 
 (define-module (noctalia)
   ;; Utilities
+  #:use-module (guix channels)
+  #:use-module (guix describe)
   #:use-module (guix gexp)
   #:use-module ((guix licenses) #:prefix license:)
   #:use-module (guix packages)
   #:use-module (guix utils)
+  #:use-module (ice-9 popen)
+  #:use-module (ice-9 rdelim)
+  #:use-module (ice-9 regex)
+  #:use-module (srfi srfi-1)
   ;; Guix origin methods
   #:use-module (guix git-download)
   ;; Guix build systems
@@ -68,10 +74,71 @@
               (or (git-predicate (current-source-directory))
                   (const #t))))
 
+;; Version derived from the checkout
+;; git describe --tags --always --dirty=-dirty --abbrev=12
+(define (git-output . args)
+  (let ((dir (current-source-directory)))
+    (if dir
+        (catch #t
+          (lambda ()
+            (let* ((port (apply open-pipe* OPEN_READ "git" "-C" dir args))
+                   (out (read-line port)))
+              (close-pipe port)
+              (if (eof-object? out) "unknown" out)))
+          (lambda _ "unknown"))
+        "unknown")))
+
+(define %meson-version
+  (let ((dir (current-source-directory)))
+    (or (and dir
+             (catch #t
+               (lambda ()
+                 (call-with-input-file (string-append dir "/meson.build")
+                   (lambda (port)
+                     (let loop ((line (read-line port)))
+                       (cond
+                        ((eof-object? line) #f)
+                        ((string-match "^  version: '([^']*)'," line)
+                         => (lambda (m) (match:substring m 1)))
+                        (else (loop (read-line port))))))))
+               (lambda _ #f)))
+        "5.0.0")))
+
+;; Full commit: the channel commit when used through `guix pull', otherwise
+;; the HEAD of the local checkout.
+(define %commit
+  (or (let ((c (find (lambda (c) (eq? (channel-name c) 'noctalia))
+                     (current-channels))))
+        (and c (channel-commit c)))
+      (let ((h (git-output "rev-parse" "HEAD")))
+        (and (not (string=? h "unknown")) h))
+      "unknown"))
+
+(define (short-commit n)
+  (if (>= (string-length %commit) n)
+      (string-take %commit n)
+      %commit))
+
+;; Same value the upstream `vcs_tag' computes.  Without a .git directory
+;; (channel use) there are no tags to describe, so fall back to
+;; v<version>-g<hash>.
+(define %git-describe
+  (let ((d (git-output "describe" "--tags" "--always" "--dirty=-dirty"
+                       "--abbrev=12")))
+    (if (string=? d "unknown")
+        (string-append "v" %meson-version "-g" (short-commit 12))
+        d)))
+
+(define %pkgver
+  (string-append %meson-version
+                 "-r" (let ((n (git-output "rev-list" "--count" "HEAD")))
+                        (if (string=? n "unknown") "0" n))
+                 ".g" (short-commit 9)))
+
 (define-public noctalia-git
   (package
     (name "noctalia-git")
-    (version "latest")
+    (version %pkgver)
     (source source-checkout)
     (build-system meson-build-system)
     (arguments
@@ -86,7 +153,19 @@
                       (which cmd)))
                    ;; Adjust import paths for STB headers packaged in Guix.
                    (substitute* (find-files "." "\\.cpp$|^meson\\.build$")
-                     (("\\bstb/stb_") "stb_")))))))
+                     (("\\bstb/stb_") "stb_"))))
+               (add-after 'prepare-for-build 'inject-git-revision
+                 (lambda _
+                   (use-modules (ice-9 textual-ports))
+                   (let ((before (call-with-input-file "meson.build" get-string-all)))
+                     (substitute* "meson.build"
+                       (("fallback: 'unknown'")
+                        (string-append "fallback: '" #$%git-describe "'"))
+                       (("set\\('VCS_TAG', 'unknown'\\)")
+                        (string-append "set('VCS_TAG', '" #$%git-describe "')")))
+                     (when (string=? before
+                                     (call-with-input-file "meson.build" get-string-all))
+                       (error "VCS_TAG fallback not found in meson.build"))))))))
     (native-inputs
      (list pkg-config))
     (inputs
