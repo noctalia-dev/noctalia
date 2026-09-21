@@ -59,11 +59,12 @@ namespace {
 } // namespace
 
 int main() {
-  const fs::path root = fs::temp_directory_path()
+  const fs::path tempDir = fs::temp_directory_path()
       / ("noctalia-wallpaper-scan-symlink-"
          + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
+  const fs::path root = tempDir / "root";
   const fs::path local = root / "local";
-  const fs::path external = root / "external";
+  const fs::path external = tempDir / "external";
   fs::create_directories(local);
   fs::create_directories(external / "nested");
 
@@ -92,7 +93,7 @@ int main() {
   }
 
   std::error_code ec;
-  fs::remove_all(root, ec);
+  fs::remove_all(tempDir, ec);
   if (!ok) {
     return 1;
   }
