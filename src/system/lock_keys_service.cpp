@@ -2,7 +2,6 @@
 
 #include "wayland/wayland_connection.h"
 
-#include <chrono>
 #include <fstream>
 #include <optional>
 #include <string>
@@ -12,7 +11,6 @@ namespace {
 
   namespace fs = std::filesystem;
 
-  constexpr auto kRefreshInterval = std::chrono::milliseconds(200);
   constexpr int kSysfsFailureRescanThreshold = 3;
 
   bool readBrightness(const fs::path& path, bool& on) {
@@ -39,35 +37,12 @@ LockKeysService::LockKeysState LockKeysService::state() const noexcept { return 
 
 void LockKeysService::setChangeCallback(ChangeCallback callback) { m_changeCallback = std::move(callback); }
 
-int LockKeysService::pollTimeoutMs() const {
-  if (m_nextRefreshAt == std::chrono::steady_clock::time_point{}) {
-    return 0;
-  }
-
-  const auto now = std::chrono::steady_clock::now();
-  if (m_nextRefreshAt <= now) {
-    return 0;
-  }
-
-  return static_cast<int>(std::chrono::ceil<std::chrono::milliseconds>(m_nextRefreshAt - now).count());
-}
-
-void LockKeysService::dispatchPoll() {
-  if (m_nextRefreshAt != std::chrono::steady_clock::time_point{}
-      && std::chrono::steady_clock::now() < m_nextRefreshAt) {
-    return;
-  }
-
-  refreshNow();
-}
-
 void LockKeysService::refreshNow() {
   const LockKeysState previous = m_state;
   const bool hadState = m_hasState;
 
   m_state = readCurrentState();
   m_hasState = true;
-  m_nextRefreshAt = std::chrono::steady_clock::now() + kRefreshInterval;
 
   if (hadState && previous != m_state && m_changeCallback) {
     m_changeCallback(previous, m_state);
