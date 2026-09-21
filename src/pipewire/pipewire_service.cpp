@@ -11,6 +11,7 @@
 #include <algorithm>
 #include <array>
 #include <cctype>
+#include <cerrno>
 #include <charconv>
 #include <chrono>
 #include <cmath>
@@ -51,6 +52,7 @@ namespace {
   constexpr auto kVolumeWriteGuardDuration = std::chrono::milliseconds(400);
   constexpr auto kVolumeWriteGuardEpsilon = 0.02F;
   constexpr auto kInitialSyncTimeout = std::chrono::seconds(1);
+  constexpr auto kReconnectInterval = std::chrono::seconds(1);
 
   [[nodiscard]] bool pipeWireVersionSupportsPassiveFollow(std::string_view version) {
     const auto majorEnd = version.find('.');
@@ -86,10 +88,15 @@ namespace {
     svc->onCoreDone(id, sequence);
   }
 
+  void onCoreError(void* data, std::uint32_t id, int /*sequence*/, int result, const char* message) {
+    static_cast<PipeWireService*>(data)->onCoreError(id, result, message);
+  }
+
   const pw_core_events kCoreEvents = {
       .version = PW_VERSION_CORE_EVENTS,
       .info = onCoreInfo,
       .done = onCoreDone,
+      .error = onCoreError,
   };
 
   // Registry events.
@@ -778,39 +785,16 @@ PipeWireService::PipeWireService() {
     throw std::runtime_error("pipewire: failed to create context");
   }
 
-  m_core = pw_context_connect(m_context, nullptr, 0);
-  if (m_core == nullptr) {
-    pw_context_destroy(m_context);
-    pw_loop_destroy(m_loop);
-    throw std::runtime_error("pipewire: failed to connect to daemon");
-  }
-
-  m_coreListener = new spa_hook{};
-  spa_zero(*m_coreListener);
-  pw_core_add_listener(m_core, m_coreListener, &kCoreEvents, this);
-
-  m_registry = pw_core_get_registry(m_core, PW_VERSION_REGISTRY, 0);
-  if (m_registry == nullptr) {
-    spa_hook_remove(m_coreListener);
-    delete m_coreListener;
-    pw_core_disconnect(m_core);
-    pw_context_destroy(m_context);
-    pw_loop_destroy(m_loop);
-    throw std::runtime_error("pipewire: failed to get registry");
-  }
-
-  m_registryListener = new spa_hook{};
-  spa_zero(*m_registryListener);
-  pw_registry_add_listener(m_registry, m_registryListener, &kRegistryEvents, this);
-
   pw_loop_enter(m_loop);
+  if (!connect()) {
+    kLog.warn("could not connect to PipeWire; retrying in the background");
+    return;
+  }
 
   // Complete the initial roundtrip before consumers inspect daemon capabilities or discovered objects.
   auto* loop = m_loop;
-  m_initialSyncSequence = pw_core_sync(m_core, PW_ID_CORE, 0);
-  m_initialSyncPending = m_initialSyncSequence >= 0;
   const auto syncDeadline = std::chrono::steady_clock::now() + kInitialSyncTimeout;
-  while (m_initialSyncPending) {
+  while (m_initialSyncPending && !m_connectionLost) {
     const auto remaining =
         std::chrono::duration_cast<std::chrono::milliseconds>(syncDeadline - std::chrono::steady_clock::now());
     if (remaining <= std::chrono::milliseconds::zero()) {
@@ -830,12 +814,18 @@ PipeWireService::PipeWireService() {
   }
   if (m_serverVersion.empty()) {
     kLog.warn("daemon version unavailable; using node.passive=true for the spectrum stream");
-  } else {
-    kLog.info("connected to daemon {} (client library {})", m_serverVersion, pw_get_library_version());
   }
 
+  if (m_connectionLost) {
+    disconnect();
+    return;
+  }
   enumDefaultAudioDeviceParams();
-  while (pw_loop_iterate(loop, 0) > 0) {
+  while (pw_loop_iterate(loop, 0) > 0 && !m_connectionLost) {
+  }
+  if (m_connectionLost) {
+    disconnect();
+    return;
   }
   rebuildState();
 
@@ -845,7 +835,33 @@ PipeWireService::PipeWireService() {
   }
 }
 
-PipeWireService::~PipeWireService() {
+bool PipeWireService::connect() {
+  m_core = pw_context_connect(m_context, nullptr, 0);
+  if (m_core == nullptr) {
+    m_nextReconnect = std::chrono::steady_clock::now() + kReconnectInterval;
+    return false;
+  }
+
+  m_coreListener = new spa_hook{};
+  spa_zero(*m_coreListener);
+  pw_core_add_listener(m_core, m_coreListener, &kCoreEvents, this);
+
+  m_registry = pw_core_get_registry(m_core, PW_VERSION_REGISTRY, 0);
+  if (m_registry == nullptr) {
+    disconnect();
+    return false;
+  }
+
+  m_registryListener = new spa_hook{};
+  spa_zero(*m_registryListener);
+  pw_registry_add_listener(m_registry, m_registryListener, &kRegistryEvents, this);
+
+  m_initialSyncSequence = pw_core_sync(m_core, PW_ID_CORE, 0);
+  m_initialSyncPending = m_initialSyncSequence >= 0;
+  return true;
+}
+
+void PipeWireService::disconnect() {
   // Destroy node proxies and their listeners
   for (auto& [id, nd] : m_nodes) {
     if (nd->listener != nullptr) {
@@ -888,19 +904,45 @@ PipeWireService::~PipeWireService() {
   if (m_coreListener != nullptr) {
     spa_hook_remove(m_coreListener);
     delete m_coreListener;
+    m_coreListener = nullptr;
   }
 
   if (m_registryListener != nullptr) {
     spa_hook_remove(m_registryListener);
     delete m_registryListener;
+    m_registryListener = nullptr;
   }
 
   if (m_registry != nullptr) {
     pw_proxy_destroy(reinterpret_cast<pw_proxy*>(m_registry));
+    m_registry = nullptr;
   }
+  // Publish an empty graph before destroying the core, so spectrum consumers release their streams.
+  m_links.clear();
+  m_metadataTargetObjects.clear();
+  m_defaultMetadata = nullptr;
+  m_defaultSinkName.clear();
+  m_defaultSourceName.clear();
+  m_pendingDefaultAudioDevicePropsEnum = false;
+  m_initialSyncPending = false;
+  m_initialSyncSequence = -1;
+  m_serverVersion.clear();
+  m_serverSupportsPassiveFollow = false;
+  m_relativeAdjust = {};
+  rebuildState();
+
   if (m_core != nullptr) {
     pw_core_disconnect(m_core);
+    m_core = nullptr;
   }
+  m_connectionLost = false;
+  m_nextReconnect = std::chrono::steady_clock::now() + kReconnectInterval;
+}
+
+PipeWireService::~PipeWireService() {
+  m_changeCallback = nullptr;
+  m_volumePreviewCallback = nullptr;
+  disconnect();
   if (m_context != nullptr) {
     pw_context_destroy(m_context);
   }
@@ -917,6 +959,9 @@ void PipeWireService::onCoreInfo(const pw_core_info* info) {
     kLog.warn("received PipeWire core info without a version");
     return;
   }
+  if (m_serverVersion.empty()) {
+    kLog.info("connected to daemon {} (client library {})", info->version, pw_get_library_version());
+  }
   m_serverVersion = info->version;
   m_serverSupportsPassiveFollow = pipeWireVersionSupportsPassiveFollow(m_serverVersion);
 }
@@ -925,6 +970,30 @@ void PipeWireService::onCoreDone(std::uint32_t id, int sequence) {
   if (id == PW_ID_CORE && sequence == m_initialSyncSequence) {
     m_initialSyncPending = false;
   }
+}
+
+void PipeWireService::onCoreError(std::uint32_t id, int result, const char* message) {
+  if (id == PW_ID_CORE && result == -EPIPE) {
+    kLog.warn("PipeWire disconnected: {}; reconnecting", message != nullptr ? message : "connection closed");
+    // Do not destroy proxies while PipeWire is invoking their callbacks.
+    m_connectionLost = true;
+  }
+}
+
+int PipeWireService::pollTimeoutMs() const {
+  if (m_connectionLost) {
+    return 0;
+  }
+  if (m_core != nullptr) {
+    return -1;
+  }
+  return static_cast<int>(
+      std::max(
+          std::chrono::milliseconds::zero(),
+          std::chrono::ceil<std::chrono::milliseconds>(m_nextReconnect - std::chrono::steady_clock::now())
+      )
+          .count()
+  );
 }
 
 int PipeWireService::fd() const noexcept {
@@ -939,14 +1008,31 @@ void PipeWireService::dispatch() {
   if (m_loop == nullptr) {
     return;
   }
+  if (m_connectionLost) {
+    disconnect();
+  }
+  if (m_core == nullptr && std::chrono::steady_clock::now() >= m_nextReconnect) {
+    connect();
+  }
   auto* loop = m_loop;
-  // Process all pending events without blocking
-  while (pw_loop_iterate(loop, 0) > 0) {
+  // Keep the loop alive across reconnects: SoundPlayer also uses it.
+  while (pw_loop_iterate(loop, 0) > 0 && !m_connectionLost) {
+  }
+  if (m_connectionLost) {
+    disconnect();
+    return;
   }
   if (m_pendingDefaultAudioDevicePropsEnum) {
     m_pendingDefaultAudioDevicePropsEnum = false;
     enumDefaultAudioDeviceParams();
-    while (pw_loop_iterate(loop, 0) > 0) {
+    while (pw_loop_iterate(loop, 0) > 0 && !m_connectionLost) {
+    }
+    if (m_connectionLost) {
+      disconnect();
+    } else if (m_wpMixer != nullptr) {
+      // The independent mixer connection may have delivered its initial snapshot before these
+      // nodes existed in our graph. Re-read its cache instead of displaying the default 100%.
+      m_wpMixer->refreshVolumes();
     }
   }
 }
