@@ -27,7 +27,6 @@ namespace {
 
   constexpr Logger kLog("screen-time");
   constexpr int kRetentionDays = 14;
-  constexpr auto kTickInterval = std::chrono::seconds(5);
 
   [[nodiscard]] std::chrono::system_clock::time_point localNow() { return std::chrono::system_clock::now(); }
 
@@ -361,7 +360,7 @@ void ScreenTimeService::resumeTracking() {
     return;
   }
   onFocusChange();
-  m_tickTimer.startRepeating(kTickInterval, [this]() { tick(); });
+  scheduleNextTick();
 }
 
 void ScreenTimeService::onFocusChange() {
@@ -377,6 +376,7 @@ void ScreenTimeService::onFocusChange() {
     flushActiveSession(std::chrono::steady_clock::now());
     m_activeAppKey.clear();
     m_activeSince = {};
+    scheduleNextTick();
     return;
   }
   if (candidate == m_activeAppKey) {
@@ -385,17 +385,33 @@ void ScreenTimeService::onFocusChange() {
   flushActiveSession(std::chrono::steady_clock::now());
   m_activeAppKey = candidate;
   m_activeSince = std::chrono::steady_clock::now();
+  scheduleNextTick();
+}
+
+// Checkpoints once per wall-clock minute while an app is accruing time. Aligning
+// to the minute boundary lets the main loop serve this and the clock in a single
+// wake, and nothing is armed while no app is active.
+void ScreenTimeService::scheduleNextTick() {
+  m_tickTimer.stop();
+  if (!m_enabled || m_sessionLocked || m_suspendPaused || m_activeAppKey.empty()) {
+    return;
+  }
+  using namespace std::chrono;
+  const auto now = system_clock::now();
+  const auto nextCheckpoint = floor<minutes>(now) + minutes{1};
+  const auto delay = std::max(duration_cast<milliseconds>(nextCheckpoint - now), milliseconds{1});
+  m_tickTimer.start(delay, [this]() { tick(); });
 }
 
 void ScreenTimeService::tick() {
   if (!m_enabled || m_sessionLocked || m_suspendPaused) {
     return;
   }
-  const bool wasDirty = m_dirty;
   flushActiveSession(std::chrono::steady_clock::now());
-  if (wasDirty || m_dirty) {
+  if (m_dirty) {
     save();
   }
+  scheduleNextTick();
 }
 
 const ScreenTimeService::DayRecord* ScreenTimeService::dayRecordForKey(const std::string& dayKey) const {
