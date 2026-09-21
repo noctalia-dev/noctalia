@@ -732,6 +732,9 @@ void Application::initNotificationAndOsd() {
   auto applyNotificationFilterConfig = [this]() {
     m_notificationManager.setFilters(m_configService.config().notification.filters);
   };
+  auto applyNotificationTimeoutConfig = [this]() {
+    m_notificationManager.setTimeoutPolicy(m_configService.config().notification.timeout);
+  };
   auto applyHistoryRetention = [this]() {
     m_notificationManager.setHistoryRetentionHours(m_configService.config().notification.historyRetentionHours);
   };
@@ -744,6 +747,8 @@ void Application::initNotificationAndOsd() {
   m_configService.addReloadCallback(applyHistoryRetention);
   applyNotificationFilterConfig();
   m_configService.addReloadCallback(applyNotificationFilterConfig);
+  applyNotificationTimeoutConfig();
+  m_configService.addReloadCallback(applyNotificationTimeoutConfig);
   m_configService.setNotificationManager(&m_notificationManager);
   m_notificationManager.setSoundPlayer(m_soundPlayer.get());
 

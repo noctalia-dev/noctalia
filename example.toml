@@ -180,6 +180,13 @@ scale              = 1.0            # notification size multiplier applied on to
 background_opacity = 0.97
 offset_x           = 20             # absolute horizontal margin from the screen edge
 offset_y           = 8              # absolute vertical margin from the screen edge
+
+[notification.timeout]
+mode     = "requested"              # requested preserves sender timeouts; urgency uses the durations below
+low      = 2000                     # milliseconds for external low urgency notifications
+normal   = 6000                     # milliseconds for external normal urgency notifications
+critical = 15000                    # milliseconds for external critical urgency notifications
+
 # [notification.filter.rhythmbox]
 # enabled         = true
 # match           = "rhythmbox"

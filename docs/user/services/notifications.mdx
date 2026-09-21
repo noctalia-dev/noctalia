@@ -23,6 +23,12 @@ keep_dismissed_in_history = true       # keep history entries when their toasts 
 max_visible              = 0           # maximum on-screen toasts; 0 = fill available space (all visible)
 history_retention_hours  = 0           # delete stored history older than this; 0 keeps it indefinitely
 
+[notification.timeout]
+mode     = "requested" # requested | urgency
+low      = 2000        # milliseconds, used for external low urgency notifications in urgency mode
+normal   = 6000        # milliseconds, used for external normal urgency notifications in urgency mode
+critical = 15000       # milliseconds, used for external critical urgency notifications in urgency mode
+
 [notification.filter.rhythmbox]
 enabled         = true
 match           = "rhythmbox"
@@ -54,6 +60,26 @@ play_sound      = true
 - `border = true` (default) draws an outline around toast cards. Set to `false` for a borderless look.
 - `history_retention_hours = 0` (default) keeps notification history entries forever. Set to a positive integer (1–8760) to automatically remove entries older than that many hours from control-center history. Active on-screen toasts are never removed. Configure in **Settings → Notifications → History**.
 - `max_visible = 0` (default) fills all available vertical screen space with notification toasts. Set to a positive integer (1–20) to limit how many toasts are visible at once; excess toasts are queued off-screen and promoted when slots free up. Configure in **Settings → Notifications → Toasts**.
+
+## Timeout policy
+
+`[notification.timeout]` controls the duration of external Freedesktop notifications. The default `requested` mode
+preserves the sender's `expire_timeout`: `0` is persistent, a positive value is used as milliseconds, and a negative
+value uses the server default of 6000 ms. In `urgency` mode, non-persistent notifications use the configured `low`,
+`normal`, or `critical` duration. An explicit sender timeout of `0` remains persistent and is not replaced by the
+urgency duration. Internal Noctalia notifications are not affected.
+
+Timeout precedence is:
+
+1. A matching filter's `override_duration`.
+2. A matching filter with `allow_permanent = false`, for an otherwise persistent notification.
+3. The sender's explicit persistent timeout of `0`.
+4. The selected timeout policy for other external notifications.
+
+Changing the timeout policy or its durations through config reload affects only notifications received afterward and
+replacements received afterward. Existing notifications keep their current timers.
+
+Configure this in **Settings → Notifications → Toasts**.
 
 ## Filtering
 

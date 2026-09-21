@@ -242,11 +242,24 @@ namespace noctalia::config::schema {
     return s;
   }
 
+  namespace {
+    const Schema<NotificationTimeoutConfig>& notificationTimeoutSchema() {
+      static const Schema<NotificationTimeoutConfig> s = {
+          enumField(&NotificationTimeoutConfig::mode, "mode", kNotificationTimeoutModes),
+          field(&NotificationTimeoutConfig::low, "low", kNotificationTimeoutMsRange),
+          field(&NotificationTimeoutConfig::normal, "normal", kNotificationTimeoutMsRange),
+          field(&NotificationTimeoutConfig::critical, "critical", kNotificationTimeoutMsRange),
+      };
+      return s;
+    }
+  } // namespace
+
   const Schema<NotificationConfig>& notificationSchema() {
     static const Schema<NotificationConfig> s = {
         field(&NotificationConfig::enableDaemon, "enable_daemon"),
         field(&NotificationConfig::showAppName, "show_app_name"),
         field(&NotificationConfig::showActions, "show_actions"),
+        subTable(&NotificationConfig::timeout, "timeout", notificationTimeoutSchema()),
         field(&NotificationConfig::position, "position"),
         field(&NotificationConfig::layer, "layer"),
         field(&NotificationConfig::scale, "scale", kScaleRange),

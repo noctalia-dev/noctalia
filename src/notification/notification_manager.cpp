@@ -51,6 +51,29 @@ namespace {
     return "unknown";
   }
 
+  int32_t resolveNotificationTimeout(
+      const NotificationTimeoutConfig& policy, NotificationOrigin origin, Urgency urgency, int32_t requestedTimeout
+  ) noexcept {
+    if (origin != NotificationOrigin::External) {
+      return requestedTimeout;
+    }
+    if (requestedTimeout == 0) {
+      return 0;
+    }
+    if (policy.mode == NotificationTimeoutMode::Requested) {
+      return normalizeNotifyExpireTimeout(requestedTimeout);
+    }
+    switch (urgency) {
+    case Urgency::Low:
+      return policy.low;
+    case Urgency::Normal:
+      return policy.normal;
+    case Urgency::Critical:
+      return policy.critical;
+    }
+    return policy.normal;
+  }
+
   std::optional<TimePoint> scheduleExpiry(TimePoint now, int32_t timeoutMs) noexcept {
     if (timeoutMs > 0) {
       return now + std::chrono::milliseconds(timeoutMs);
@@ -234,6 +257,7 @@ uint32_t NotificationManager::addOrReplace(NotificationRequest request) {
   const Urgency urgency = request.urgency;
   int32_t timeout = request.timeout;
   const NotificationOrigin origin = request.origin;
+  timeout = resolveNotificationTimeout(m_timeoutPolicy, origin, urgency, timeout);
   NotificationDndPolicy dndPolicy = request.dndPolicy;
   const bool transient = request.transient;
   auto& actions = request.actions;
@@ -723,6 +747,8 @@ void NotificationManager::setFilters(std::vector<NotificationFilterConfig> filte
 }
 
 const std::vector<NotificationFilterConfig>& NotificationManager::filters() const noexcept { return m_filters; }
+
+void NotificationManager::setTimeoutPolicy(NotificationTimeoutConfig policy) { m_timeoutPolicy = policy; }
 
 NotificationManager::ExternalNotificationDispatch NotificationManager::evaluateExternalDispatch(
     NotificationOrigin origin, Urgency urgency, std::string_view appName, const std::optional<std::string>& category,
