@@ -731,6 +731,7 @@ struct OsdConfig {
   std::string position = "top_center";
   std::string positionVertical = "top_center";
   std::string orientation = "horizontal";
+  std::int32_t hideDelayMs = 1400;
   float scale = 1.0F;
   float backgroundOpacity = 0.97F;
   bool border = true; // outline around OSD popup cards

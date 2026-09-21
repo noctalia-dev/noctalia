@@ -66,6 +66,7 @@ namespace noctalia::config::schema {
         field(&OsdConfig::position, "position"),
         field(&OsdConfig::positionVertical, "position_vertical"),
         field(&OsdConfig::orientation, "orientation"),
+        field(&OsdConfig::hideDelayMs, "hide_delay_ms", kOsdHideDelayMsRange),
         field(&OsdConfig::scale, "scale", kScaleRange),
         field(&OsdConfig::backgroundOpacity, "background_opacity", kUnitRange),
         field(&OsdConfig::border, "border"),
