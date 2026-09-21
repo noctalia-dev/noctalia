@@ -1207,14 +1207,12 @@ void Input::handleKey(std::uint32_t sym, std::uint32_t utf32, std::uint32_t modi
       }
     }
   } else if (ctrl && (sym == 'a' || sym == 'A')) {
+    // Select-all, even in line-editing mode: Ctrl+A is a near-universal desktop
+    // convention, unlike the other Emacs bindings below (E/B/F/W/K), which don't
+    // collide with anything a mainstream text field already does with those keys.
     resetUndoCoalescing();
-    if (m_lineEditing) {
-      m_cursorPos = 0;
-      m_selectionAnchor = 0;
-    } else {
-      m_selectionAnchor = 0;
-      m_cursorPos = m_value.size();
-    }
+    m_selectionAnchor = 0;
+    m_cursorPos = m_value.size();
   } else if (lineEditCaretToEnd) {
     resetUndoCoalescing();
     m_cursorPos = m_value.size();
