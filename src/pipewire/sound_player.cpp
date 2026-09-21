@@ -61,17 +61,28 @@ namespace {
     return dataDirs;
   }
 
-  std::optional<fs::path>
-  findThemeSound(std::string_view event, std::string_view theme, std::set<std::string>& visited) {
+  enum class ThemeSoundLookupState {
+    NotFound,
+    Found,
+    Disabled,
+  };
+
+  struct ThemeSoundLookupResult {
+    ThemeSoundLookupState state = ThemeSoundLookupState::NotFound;
+    fs::path path;
+  };
+
+  ThemeSoundLookupResult
+  findThemeSoundInTree(std::string_view event, std::string_view theme, std::set<std::string>& visited) {
     if (!visited.insert(std::string(theme)).second) {
-      // prevent infinite recursion when themes inherit cyclically
-      return std::nullopt;
+      // Prevent infinite recursion when themes inherit cyclically.
+      return {};
     }
 
     std::vector<std::string> parents;
     const auto baseDirs = soundBaseDirs();
 
-    // find index.theme
+    // Find index.theme.
     std::optional<freedesktop::ParseResult> parsed;
     for (const auto& baseDir : baseDirs) {
       const fs::path root = baseDir / theme;
@@ -81,18 +92,16 @@ namespace {
       }
       const auto parsedFile = freedesktop::parseKeyFile(indexPath);
       if (!parsedFile) {
-        // parse failure
-        return std::nullopt;
+        return {};
       }
       parsed = *parsedFile;
       break;
     }
     if (!parsed.has_value()) {
-      // index.theme doesn't exist for this theme
-      return std::nullopt;
+      return {};
     }
 
-    // find sounds
+    // Find sounds.
     std::vector<std::string> directories{"stereo"};
     if (const auto listed = parsed->file.value("Sound Theme", "Directories"); listed.has_value()) {
       directories = splitList(*listed);
@@ -108,12 +117,13 @@ namespace {
         }
         for (const auto extension : kExtensions) {
           const fs::path path = root / directory / (std::string(event) + std::string(extension));
-          if (fs::is_regular_file(path)) {
-            if (extension == ".disabled") {
-              return std::nullopt;
-            }
-            return path;
+          if (!fs::is_regular_file(path)) {
+            continue;
           }
+          if (extension == ".disabled") {
+            return {.state = ThemeSoundLookupState::Disabled};
+          }
+          return {.state = ThemeSoundLookupState::Found, .path = path};
         }
       }
     }
@@ -121,16 +131,22 @@ namespace {
     if (const auto inherits = parsed->file.value("Sound Theme", "Inherits"); inherits.has_value()) {
       parents = splitList(*inherits);
     }
-
-    if (std::ranges::find(parents, "freedesktop") == parents.end()) {
-      parents.emplace_back("freedesktop");
-    }
     for (const auto& parent : parents) {
-      if (const auto path = findThemeSound(event, parent, visited); path.has_value()) {
-        return path;
+      auto result = findThemeSoundInTree(event, parent, visited);
+      if (result.state != ThemeSoundLookupState::NotFound) {
+        return result;
       }
     }
-    return std::nullopt;
+    return {};
+  }
+
+  ThemeSoundLookupResult findThemeSound(std::string_view event, std::string_view theme) {
+    std::set<std::string> visited;
+    auto result = findThemeSoundInTree(event, theme, visited);
+    if (result.state == ThemeSoundLookupState::NotFound && theme != "freedesktop") {
+      result = findThemeSoundInTree(event, "freedesktop", visited);
+    }
+    return result;
   }
 
   const pw_stream_events kStreamEvents = [] {
@@ -173,15 +189,17 @@ std::vector<std::pair<std::string, std::string>> SoundPlayer::availableThemes() 
 void SoundPlayer::setTheme(std::string theme) {
   m_buffers.clear();
   for (const std::string_view event : {"message", "audio-volume-change"}) {
-    std::set<std::string> visited;
-    const auto path = findThemeSound(event, theme, visited);
-    if (!path.has_value()) {
-      // we should never hit this, because fallback to freedesktop should find the sounds
+    const auto result = findThemeSound(event, theme);
+    if (result.state == ThemeSoundLookupState::Disabled) {
+      kLog.info("sound theme '{}': event '{}' is disabled", theme, event);
+      continue;
+    }
+    if (result.state == ThemeSoundLookupState::NotFound) {
       kLog.error("sound theme '{}' is missing sound '{}'", theme, event);
       continue;
     }
-    kLog.info("sound theme '{}': loaded {} for event '{}'", theme, path->c_str(), event);
-    load(std::string(event), *path);
+    kLog.info("sound theme '{}': loaded {} for event '{}'", theme, result.path.c_str(), event);
+    load(std::string(event), result.path);
   }
 }
 
