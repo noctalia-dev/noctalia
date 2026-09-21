@@ -35,6 +35,7 @@
   #:use-module (gnu packages gtk)
   #:use-module (gnu packages image)
   #:use-module (gnu packages jemalloc)
+  #:use-module (gnu packages libcanberra)
   #:use-module (gnu packages linux)
   #:use-module (gnu packages markup)
   #:use-module (gnu packages maths)
@@ -117,6 +118,7 @@
            pipewire
            polkit
            sdbus-c++
+           sound-theme-freedesktop
            stb-image-resize2
            stb-image-write
            tomlplusplus
