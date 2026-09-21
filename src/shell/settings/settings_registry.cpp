@@ -2578,7 +2578,7 @@ namespace settings {
       {
         auto fadeSelect = plainSelect(
             {{"0", "settings.options.night-light-fade.off"},
-             {"15", "settings.options.night-light-fade.15"},
+             {"10", "settings.options.night-light-fade.10"},
              {"30", "settings.options.night-light-fade.30"},
              {"60", "settings.options.night-light-fade.60"},
              {"120", "settings.options.night-light-fade.120"}},
