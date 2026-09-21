@@ -2787,6 +2787,7 @@
         },
         "sound-theme": {
           "description": "Sound theme used for shell sound effects",
+          "default": "Default",
           "label": "Sound Theme"
         },
         "sunrise": {

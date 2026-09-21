@@ -2714,7 +2714,7 @@ namespace settings {
       soundThemeOptions.push_back(SelectOption{value, label});
     }
     if (soundThemeOptions.empty()) {
-      soundThemeOptions.push_back(SelectOption{"freedesktop", "Default"});
+      soundThemeOptions.push_back(SelectOption{"freedesktop", tr("settings.schema.services.sound-theme.default")});
     }
     entries.push_back(makeEntry(
         SettingsSection::Services, "audio", tr("settings.schema.services.sound-theme.label"),
