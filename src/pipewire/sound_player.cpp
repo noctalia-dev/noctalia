@@ -160,7 +160,7 @@ namespace {
 
 } // namespace
 
-SoundPlayer::SoundPlayer(pw_loop* loop) : m_loop(loop) { setTheme("freedesktop"); }
+SoundPlayer::SoundPlayer(pw_loop* loop) : m_loop(loop) {}
 
 std::vector<std::pair<std::string, std::string>> SoundPlayer::availableThemes() {
   std::map<std::string, std::string> themes;
@@ -187,7 +187,11 @@ std::vector<std::pair<std::string, std::string>> SoundPlayer::availableThemes() 
 }
 
 void SoundPlayer::setTheme(std::string theme) {
-  m_buffers.clear();
+  if (theme == m_theme) {
+    return;
+  }
+
+  std::unordered_map<std::string, std::shared_ptr<const SoundBuffer>> buffers;
   for (const std::string_view event : {"message", "audio-volume-change"}) {
     const auto result = findThemeSound(event, theme);
     if (result.state == ThemeSoundLookupState::Disabled) {
@@ -198,9 +202,18 @@ void SoundPlayer::setTheme(std::string theme) {
       kLog.error("sound theme '{}' is missing sound '{}'", theme, event);
       continue;
     }
+
+    SoundBuffer buffer;
+    if (const auto error = decode(result.path, buffer)) {
+      kLog.warn("failed to load sound \"{}\" from {}: {}", event, result.path.string(), *error);
+      continue;
+    }
+    buffers[std::string(event)] = std::make_shared<const SoundBuffer>(std::move(buffer));
     kLog.info("sound theme '{}': loaded {} for event '{}'", theme, result.path.c_str(), event);
-    load(std::string(event), result.path);
   }
+
+  m_buffers = std::move(buffers);
+  m_theme = std::move(theme);
 }
 
 SoundPlayer::~SoundPlayer() {

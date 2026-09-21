@@ -62,6 +62,7 @@ private:
 
   pw_loop* m_loop = nullptr;
   float m_volume = 1.0F;
+  std::string m_theme;
   std::unordered_map<std::string, std::shared_ptr<const SoundBuffer>> m_buffers;
   std::unordered_map<std::uint64_t, std::unordered_map<std::string, std::shared_ptr<const SoundBuffer>>>
       m_pluginBuffers;
