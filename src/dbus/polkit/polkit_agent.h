@@ -57,6 +57,7 @@ public:
   [[nodiscard]] std::string inputPrompt() const;
   [[nodiscard]] std::string supplementaryMessage() const;
   [[nodiscard]] bool supplementaryIsError() const noexcept;
+  [[nodiscard]] bool isFaceConfirmationPending() const noexcept;
 
 private:
   struct Impl;
