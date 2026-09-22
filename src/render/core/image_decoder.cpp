@@ -258,6 +258,14 @@ namespace {
     if (WebPGetFeatures(data, size, &features) != VP8_STATUS_OK) {
       return std::unexpected("libwebp: failed to read WebP header");
     }
+    // A WebP (especially VP8X) can declare a canvas far larger than its file
+    // size; cap it before libwebp allocates the full RGBA canvas to avoid OOM.
+    if (features.width <= 0
+        || features.height <= 0
+        || static_cast<std::uint64_t>(features.width) * static_cast<std::uint64_t>(features.height) * 4
+            > kMaxWebpCanvasBytes) {
+      return std::unexpected("libwebp: WebP canvas exceeds size cap");
+    }
     if (features.has_animation) {
       return decodeWebPFirstFrame(data, size);
     }

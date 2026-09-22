@@ -79,5 +79,18 @@ int main() {
   const auto truncated = decodeRasterImage(kAnimatedRedThenBlue.data(), 48);
   ok = check(!truncated.has_value(), "truncated animated WebP decoded instead of failing") && ok;
 
+  // A tiny file declaring a huge VP8X canvas must be rejected before libwebp
+  // allocates it (out-of-memory guard). Enlarge the animation's canvas to
+  // 8192x8193 (~256 MiB RGBA, over the cap) while leaving the frames intact.
+  auto oversized = kAnimatedRedThenBlue;
+  oversized[24] = 0xFF; // canvas width minus one, low byte  (8191)
+  oversized[25] = 0x1F; // canvas width minus one, mid byte
+  oversized[26] = 0x00; // canvas width minus one, high byte
+  oversized[27] = 0x00; // canvas height minus one, low byte (8192)
+  oversized[28] = 0x20; // canvas height minus one, mid byte
+  oversized[29] = 0x00; // canvas height minus one, high byte
+  const auto capped = decodeRasterImage(oversized.data(), oversized.size());
+  ok = check(!capped.has_value(), "oversized WebP canvas decoded instead of being rejected") && ok;
+
   return ok ? 0 : 1;
 }
