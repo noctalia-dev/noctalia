@@ -174,9 +174,9 @@ namespace {
     const bool hasNodes = nodesIt != node.end() && nodesIt->is_array();
     const bool hasFloating = floatingIt != node.end() && floatingIt->is_array();
     const bool isLeaf = (!hasNodes || nodesIt->empty()) && (!hasFloating || floatingIt->empty());
-    std::string windowId;
+    std::string swayNodeId;
     if (const auto idIt = node.find("id"); idIt != node.end() && idIt->is_number_integer()) {
-      windowId = std::to_string(idIt->get<std::int64_t>());
+      swayNodeId = std::to_string(idIt->get<std::int64_t>());
     }
     std::int32_t x = 0;
     std::int32_t y = 0;
@@ -188,7 +188,7 @@ namespace {
     if (isLeaf && !workspaceName.empty() && !workspaceKey.empty() && !appId.empty()) {
       windows.push_back(
           WorkspaceWindow{
-              .windowId = windowId,
+              .windowId = swayNodeId,
               .workspaceKey = workspaceKey,
               .appId = appId,
               .title = StringUtils::windowTitleSingleLine(jsonStringValue(node, "name")),
