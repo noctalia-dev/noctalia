@@ -54,6 +54,7 @@ struct TaskbarWidgetOptions {
   float activeOpacity = 1.0F;
   float inactiveOpacity = 1.0F;
   float iconScale = 1.0F;
+  bool preferSymbolicIcons = false;
   int itemSpacing = 4;
   std::vector<std::string> pinned;
   float pinnedOpacity = 0.5F;
@@ -99,7 +100,7 @@ private:
     std::string nameLower;
     std::string appIdLower;
     std::string title;
-    std::string iconPath;
+    ResolvedIcon icon;
     std::string workspaceKey;
     std::string workspaceWindowId;
     // Authoritative compositor window identity for focus/close actions.
@@ -188,7 +189,7 @@ private:
       const std::vector<WorkspaceModel>& nextWorkspaces
   );
   void buildDesktopIconIndex();
-  [[nodiscard]] std::string resolveIconPath(const std::string& appId, const std::string& iconNameOrPath);
+  [[nodiscard]] ResolvedIcon resolveIcon(const std::string& appId, const std::string& iconNameOrPath);
   void openTaskContextMenu(const TaskModel& task, InputArea& area);
   void activateAdjacentWorkspace(int direction);
   void activateAdjacentTask(int direction);

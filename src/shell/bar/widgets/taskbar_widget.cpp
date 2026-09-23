@@ -663,7 +663,7 @@ void TaskbarWidget::applyPinnedMerge(std::vector<TaskModel>& tasks) {
     tile.nameLower = entry.nameLower;
     tile.appId = entry.id;
     tile.appIdLower = tile.idLower;
-    tile.iconPath = resolveIconPath(entry.id, entry.icon);
+    tile.icon = resolveIcon(entry.id, entry.icon);
     tile.title = entry.name;
 
     if (matching.empty()) {
@@ -695,8 +695,8 @@ void TaskbarWidget::applyPinnedMerge(std::vector<TaskModel>& tasks) {
     if (tile.startupWmClassLower.empty()) {
       tile.startupWmClassLower = entry.startupWmClassLower;
     }
-    if (tile.iconPath.empty()) {
-      tile.iconPath = resolveIconPath(entry.id, entry.icon);
+    if (tile.icon.path.empty()) {
+      tile.icon = resolveIcon(entry.id, entry.icon);
     }
     merged.push_back(std::move(tile));
     for (const std::size_t index : matching) {
@@ -1127,14 +1127,18 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
         }
     );
 
-    if (!task.iconPath.empty()) {
+    if (!task.icon.path.empty()) {
       auto image = ui::image({
           .fit = ImageFit::Contain,
           .width = iconSize,
           .height = iconSize,
       });
-      image->setAppIconColorization(effectiveShellAppIconColorizationTint(m_configService.config().shell));
-      image->setSourceFile(renderer, task.iconPath, static_cast<int>(std::round(iconSize)), true);
+      if (task.icon.symbolic) {
+        image->setForegroundTint(widgetIconColorOr(colorSpecFromRole(ColorRole::OnSurface)));
+      } else {
+        image->setAppIconColorization(effectiveShellAppIconColorizationTint(m_configService.config().shell));
+      }
+      image->setSourceFile(renderer, task.icon.path, static_cast<int>(std::round(iconSize)), true);
       if (image->hasImage()) {
         content->addChild(std::move(image));
       } else {
@@ -1845,7 +1849,7 @@ void TaskbarWidget::updateModels() {
       } else if (!window.exactIdentity && !window.identifier.empty()) {
         task.workspaceWindowId = window.identifier;
       }
-      task.iconPath = resolveIconPath(run.runningAppId, run.entry.icon);
+      task.icon = resolveIcon(run.runningAppId, run.entry.icon);
       task.workspaceKey = {};
       nextTasks.push_back(std::move(task));
     }
@@ -1872,7 +1876,7 @@ void TaskbarWidget::updateModels() {
       task.workspaceWindowId = window.identifier;
       task.exactWindowId = window.identifier;
     }
-    task.iconPath = resolveIconPath({}, {});
+    task.icon = resolveIcon({}, {});
     nextTasks.push_back(std::move(task));
   }
 
@@ -1911,7 +1915,7 @@ void TaskbarWidget::updateModels() {
       task.title = assignment.title;
       task.workspaceWindowId = assignment.windowId;
       task.workspaceKey = assignment.workspaceKey;
-      task.iconPath = resolveIconPath(assignment.appId, {});
+      task.icon = resolveIcon(assignment.appId, {});
       nextTasks.push_back(std::move(task));
     }
   }
@@ -2095,7 +2099,7 @@ void TaskbarWidget::updateModels() {
           task.nameLower = task.idLower;
           task.appIdLower = task.idLower;
           task.title = assignment.title;
-          task.iconPath = resolveIconPath(task.appId, {});
+          task.icon = resolveIcon(task.appId, {});
           task.workspaceKey = assignment.workspaceKey;
           task.workspaceWindowId = assignment.windowId;
           task.workspaceOrder = i;
@@ -2552,7 +2556,7 @@ void TaskbarWidget::updateModels() {
         task.nameLower = task.idLower;
         task.appIdLower = task.idLower;
         task.title = assignment.title;
-        task.iconPath = resolveIconPath(task.appId, {});
+        task.icon = resolveIcon(task.appId, {});
         task.workspaceKey = assignment.workspaceKey;
         task.workspaceWindowId = assignment.windowId;
         task.workspaceOrder = i;
@@ -2598,7 +2602,7 @@ void TaskbarWidget::updateModels() {
         task.handleKey = handleKey;
         task.order = static_cast<std::uint64_t>(std::numeric_limits<std::int32_t>::max()) + i;
         task.title = assignment.title;
-        task.iconPath = resolveIconPath({}, {});
+        task.icon = resolveIcon({}, {});
         task.workspaceKey = assignment.workspaceKey;
         task.workspaceWindowId = assignment.windowId;
         if (m_platform.hasExactWindowIdentity()) {
@@ -3172,7 +3176,7 @@ TaskbarWidget::ModelComparison TaskbarWidget::compareModels(
     titlesChanged = titlesChanged || titleChanged;
     activesChanged = activesChanged || activeChanged;
     if (nextTasks[i].appId != previousTasks[i].appId
-        || nextTasks[i].iconPath != previousTasks[i].iconPath
+        || nextTasks[i].icon != previousTasks[i].icon
         || nextTasks[i].firstHandle != previousTasks[i].firstHandle
         || (groupByWorkspace
             && (activeChanged
@@ -3226,19 +3230,22 @@ void TaskbarWidget::buildDesktopIconIndex() {
   m_desktopEntriesVersion = desktopEntriesVersion();
 }
 
-std::string TaskbarWidget::resolveIconPath(const std::string& appId, const std::string& iconNameOrPath) {
+ResolvedIcon TaskbarWidget::resolveIcon(const std::string& appId, const std::string& iconNameOrPath) {
   const int iconTargetSize =
       std::max(1, static_cast<int>(std::round(Style::baseGlyphSize * m_configOptions.iconScale * m_contentScale)));
 
-  auto resolveIconName = [this, iconTargetSize](const std::string& name) -> std::string {
+  auto resolveIconName = [this, iconTargetSize](const std::string& name) -> ResolvedIcon {
     if (name.empty()) {
       return {};
     }
-    return m_iconResolver.resolve(name, iconTargetSize);
+    if (m_configOptions.preferSymbolicIcons) {
+      return m_iconResolver.resolveSymbolicPreferred(name, iconTargetSize);
+    }
+    return ResolvedIcon{.path = m_iconResolver.resolve(name, iconTargetSize)};
   };
 
   if (!iconNameOrPath.empty()) {
-    if (const std::string primary = resolveIconName(iconNameOrPath); !primary.empty()) {
+    if (ResolvedIcon primary = resolveIconName(iconNameOrPath); !primary.path.empty()) {
       return primary;
     }
   }
@@ -3246,29 +3253,29 @@ std::string TaskbarWidget::resolveIconPath(const std::string& appId, const std::
   if (appId.starts_with("steam_app_")) {
     if (const auto entry = app_identity::findDesktopEntry(appId, desktopEntries());
         entry.has_value() && !entry->icon.empty()) {
-      if (const std::string steamIcon = resolveIconName(entry->icon); !steamIcon.empty()) {
+      if (ResolvedIcon steamIcon = resolveIconName(entry->icon); !steamIcon.path.empty()) {
         return steamIcon;
       }
     }
   }
 
   if (const auto internal = internal_apps::metadataForAppId(appId); internal.has_value()) {
-    return internal->iconPath;
+    return ResolvedIcon{.path = internal->iconPath};
   }
 
   const std::string appIdLower = toLower(appId);
   const auto it = m_appIconsByLower.find(appIdLower);
   if (it != m_appIconsByLower.end()) {
-    if (const std::string desktopIcon = resolveIconName(it->second); !desktopIcon.empty()) {
+    if (ResolvedIcon desktopIcon = resolveIconName(it->second); !desktopIcon.path.empty()) {
       return desktopIcon;
     }
   }
   if (!appId.empty()) {
-    if (const std::string appIcon = resolveIconName(appId); !appIcon.empty()) {
+    if (ResolvedIcon appIcon = resolveIconName(appId); !appIcon.path.empty()) {
       return appIcon;
     }
   }
-  return m_iconResolver.resolve("application-x-executable", iconTargetSize);
+  return resolveIconName("application-x-executable");
 }
 
 bool TaskbarWidget::activeWorkspaceIndex(std::size_t& index) const {

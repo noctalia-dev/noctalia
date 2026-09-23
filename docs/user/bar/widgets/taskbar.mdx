@@ -7,7 +7,7 @@ sidebar:
 
 Icon-only running application list, with optional pinned apps on the flat strip. By default it follows the bar’s monitor (only windows the compositor associates with that monitor). Enable **Show all monitors** when you use one bar for everything but still want to see and focus apps on other monitors.
 
-Application icons use global `[shell.app_icon_colorize]` when enabled (see [Shell → App icon colorization](/noctalia/configuration/shell/#app-icon-colorization)).
+Set `prefer_symbolic_icons = true` to try an icon theme's `-symbolic` application icon first and fall back to the regular icon when no symbolic variant exists. Symbolic icons inherit the taskbar widget's icon/foreground color. Regular fallback icons keep their normal appearance unless global `[shell.app_icon_colorize]` is enabled, in which case they use the existing app-icon colorization pipeline (see [Shell → App icon colorization](/noctalia/configuration/shell/#app-icon-colorization)).
 
 Left-click an icon to focus that window (or launch a pinned app that is not running). Middle-click an icon to close that window (the active window when a grouped or pinned multi-window tile represents several). Middle-click in the gaps between icons still opens the taskbar widget settings. The active window shows a small primary dot under the icon.
 When grouped app collapsing is enabled, multi-window app tiles also show compact right-edge dots over the icon. Pinned apps with multiple windows use the same dots and left-click cycles their windows.
@@ -32,6 +32,7 @@ With grouping, `workspace_group_content` chooses what each capsule shows for its
 | `show_all_outputs` | bool | `false` | Include windows from all monitors. With `group_by_workspace`, workspaces from every monitor are merged; capsule badges use `tag·n` (workspace tag, middle dot, monitor index in bar monitor order) when there is more than one monitor. |
 | `only_active_workspace` | bool | `false` | Show only windows on the active workspace for each relevant monitor. Depends on compositor workspace data; if a window’s workspace cannot be resolved, it is still shown. |
 | `icon_scale` | float | `1.0` | Scale taskbar application icons relative to their default size. Values from `0.1` to `2.0` are accepted; larger icons remain constrained by the bar thickness. |
+| `prefer_symbolic_icons` | bool | `false` | Prefer `-symbolic` application icons from the active icon theme and fall back to regular icons. Symbolic icons use the taskbar widget icon/foreground color; regular fallbacks still honor global app-icon colorization. |
 | `item_spacing` | int | `4` | Space between taskbar items in logical pixels when workspace grouping is off. Values from `0` to `48` are accepted. |
 | `show_window_title` | bool | `false` | Show each window title next to its icon on horizontal bars. Available only when workspace grouping is off. |
 | `window_title_max_width` | int | `100` | Maximum width of each window title in pixels when titles are enabled. |
@@ -58,6 +59,7 @@ With grouping, `workspace_group_content` chooses what each capsule shows for its
 pinned = ["firefox", "code", "kitty"]
 pinned_opacity = 0.5
 icon_scale = 1.0
+prefer_symbolic_icons = true
 item_spacing = 4  # Flat taskbar only; ignored when workspace grouping is enabled
 group_by_workspace = true
 show_all_outputs = true

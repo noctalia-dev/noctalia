@@ -88,6 +88,17 @@ namespace {
     return fs::exists(path, ec);
   }
 
+  bool isSymbolicIconName(std::string_view name) {
+    if (const auto slash = name.find_last_of('/'); slash != std::string_view::npos) {
+      name.remove_prefix(slash + 1);
+    }
+    return name.ends_with("-symbolic")
+        || name.ends_with("-symbolic.svg")
+        || name.ends_with("-symbolic.SVG")
+        || name.ends_with("-symbolic.png")
+        || name.ends_with("-symbolic.PNG");
+  }
+
   bool pathIsDirectory(const fs::path& path) {
     std::error_code ec;
     const bool isDirectory = fs::is_directory(path, ec);
@@ -494,6 +505,7 @@ void IconResolver::rebuild() {
   m_searchDirs = state.plan.searchDirs;
   m_pixmapDirs = state.plan.pixmapDirs;
   m_cache.clear();
+  m_symbolicPreferredCache.clear();
   m_missingCache.clear();
   m_generation = state.generation;
 }
@@ -532,7 +544,51 @@ const std::string& IconResolver::resolve(const std::string& iconName, int target
   return ins->second;
 }
 
-void IconResolver::invalidateMissingCache() { m_missingCache.clear(); }
+ResolvedIcon IconResolver::resolveSymbolicPreferred(const std::string& iconName, int targetSize) {
+  if (iconName.empty()) {
+    return {};
+  }
+
+  ensureFresh();
+  const int normalizedSize = std::max(0, targetSize);
+  const bool cacheable = iconName.front() != '/';
+  const std::string key = iconName + '\x1F' + std::to_string(normalizedSize);
+  if (cacheable) {
+    if (const auto it = m_symbolicPreferredCache.find(key); it != m_symbolicPreferredCache.end()) {
+      return it->second;
+    }
+  }
+
+  ResolvedIcon result;
+  const bool explicitSymbolic = isSymbolicIconName(iconName);
+  if (!explicitSymbolic && cacheable) {
+    const std::string symbolicName = iconName + "-symbolic";
+    if (const std::string& symbolic = resolve(symbolicName, normalizedSize); !symbolic.empty()) {
+      result = ResolvedIcon{.path = symbolic, .symbolic = true};
+    }
+  }
+
+  if (result.path.empty()) {
+    if (const std::string& resolved = resolve(iconName, normalizedSize); !resolved.empty()) {
+      result = ResolvedIcon{.path = resolved, .symbolic = explicitSymbolic};
+    } else if (explicitSymbolic && cacheable && iconName.ends_with("-symbolic")) {
+      const std::string regularName = iconName.substr(0, iconName.size() - std::string_view("-symbolic").size());
+      if (const std::string& regular = resolve(regularName, normalizedSize); !regular.empty()) {
+        result = ResolvedIcon{.path = regular, .symbolic = false};
+      }
+    }
+  }
+
+  if (cacheable && !result.path.empty()) {
+    m_symbolicPreferredCache.insert_or_assign(key, result);
+  }
+  return result;
+}
+
+void IconResolver::invalidateMissingCache() {
+  m_missingCache.clear();
+  m_symbolicPreferredCache.clear();
+}
 
 std::string IconResolver::findIcon(const std::string& name, int targetSize) const {
   // Absolute path — use directly
