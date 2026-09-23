@@ -413,7 +413,7 @@ std::chrono::milliseconds GammaService::transitionTickInterval() const {
       std::clamp(m_config.nightTemperature, NightLightConfig::kTemperatureMin, NightLightConfig::kTemperatureMax);
   const int swing = std::max(1, dayTemp - nightTemp);
 
-  const auto ramp = std::chrono::duration_cast<std::chrono::milliseconds>(kRampDuration);
+  const auto ramp = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::minutes(m_config.fadeMinutes));
   const int uploads = std::max(1, swing / kTargetStepKelvin);
   const auto tick = ramp / uploads;
   return std::clamp(tick, std::chrono::duration_cast<std::chrono::milliseconds>(kMinTickInterval), ramp / 4);
@@ -423,7 +423,7 @@ void GammaService::ensureTick() {
   if (!m_transitionTimer.active()) {
     const auto interval = transitionTickInterval();
     if (gammaProfiling()) {
-      const float ramp = kRampDurationMs;
+      const float ramp = std::chrono::duration<float, std::milli>(std::chrono::minutes(m_config.fadeMinutes)).count();
       kLog.info(
           "profile: ramp timer armed, ramp={}ms tick={}ms => {} uploads across the window", static_cast<long>(ramp),
           interval.count(), static_cast<long>(ramp) / std::max<long>(1, interval.count())
@@ -495,7 +495,7 @@ GammaService::GammaTarget GammaService::computeTarget() const {
   const auto eval = day_night_schedule::evaluate(m_location, m_resolvedLatitude, m_resolvedLongitude);
   const int currentPhaseTemp = eval.night ? nightTemp : dayTemp;
   const int otherPhaseTemp = eval.night ? dayTemp : nightTemp;
-  const float fade = kRampDurationMs;
+  const float fade = std::chrono::duration<float, std::milli>(std::chrono::minutes(m_config.fadeMinutes)).count();
   const float half = fade / 2.0F;
   const auto since = static_cast<float>(eval.sinceBoundary.count());
   const auto until = static_cast<float>(eval.untilBoundary.count());

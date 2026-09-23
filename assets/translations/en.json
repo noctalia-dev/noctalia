@@ -1482,6 +1482,13 @@
         "overlay": "Overlay",
         "top": "Top"
       },
+      "night-light-fade": {
+        "off": "Off",
+        "10": "10 min",
+        "30": "30 min",
+        "60": "60 min",
+        "120": "2 h"
+      },
       "notification-urgency": {
         "critical": "Critical",
         "low": "Low",
@@ -2772,6 +2779,10 @@
           "description": "Shift screen colors warmer at night",
           "label": "Night Light",
           "requires-gamma-control": "Compositor does not support gamma control"
+        },
+        "night-light-fade": {
+          "description": "How long the transition takes, split evenly before and after sunrise/sunset",
+          "label": "Night Light Fade"
         },
         "night-temperature": {
           "description": "Color temperature at night (Kelvin)",

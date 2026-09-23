@@ -2575,6 +2575,25 @@ namespace settings {
         e.visibleWhen = nightLightOn;
         entries.push_back(std::move(e));
       }
+      {
+        auto fadeSelect = plainSelect(
+            {{"0", "settings.options.night-light-fade.off"},
+             {"10", "settings.options.night-light-fade.10"},
+             {"30", "settings.options.night-light-fade.30"},
+             {"60", "settings.options.night-light-fade.60"},
+             {"120", "settings.options.night-light-fade.120"}},
+            std::to_string(cfg.nightlight.fadeMinutes)
+        );
+        fadeSelect.valueType = SelectValueType::Integer;
+
+        auto e = makeEntry(
+            SettingsSection::Location, "night-light", tr("settings.schema.services.night-light-fade.label"),
+            tr("settings.schema.services.night-light-fade.description"), {"nightlight", "fade_minutes"},
+            asSegmented(fadeSelect), "nightlight"
+        );
+        e.visibleWhen = nightLightOn;
+        entries.push_back(std::move(e));
+      }
       // Both sliders span the same range; the day > night invariant is enforced at commit time
       // via SliderSetting::linkedCommit, which pushes the other temperature when needed.
       const auto tempMin = static_cast<double>(NightLightConfig::kTemperatureMin);
