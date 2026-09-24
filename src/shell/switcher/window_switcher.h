@@ -18,6 +18,7 @@ class IpcService;
 class RenderContext;
 class WaylandConnection;
 struct wl_output;
+struct wl_surface;
 
 // Fullscreen Alt+Tab style window switcher with a centered 5×5 grid.
 class WindowSwitcher {
@@ -37,6 +38,7 @@ public:
   [[nodiscard]] bool isActive() const noexcept { return m_active; }
   [[nodiscard]] bool onPointerEvent(const PointerEvent& event);
   [[nodiscard]] bool onKeyboardEvent(const KeyboardEvent& event);
+  void onKeyboardEnter(wl_surface* surface, std::uint32_t modifiers, const std::vector<std::uint32_t>& heldKeysyms);
 
 private:
   struct Instance;

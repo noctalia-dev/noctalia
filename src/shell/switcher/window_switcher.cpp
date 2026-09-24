@@ -149,6 +149,11 @@ namespace {
 
   [[nodiscard]] bool isAltModifier(std::uint32_t sym) noexcept { return sym == XKB_KEY_Alt_L || sym == XKB_KEY_Alt_R; }
 
+  // Modifiers whose release activates the selection (Alt+Tab / Super+Tab style).
+  [[nodiscard]] bool isTriggerModifier(std::uint32_t sym) noexcept {
+    return isAltModifier(sym) || sym == XKB_KEY_Super_L || sym == XKB_KEY_Super_R;
+  }
+
   [[nodiscard]] const WaylandOutput* findOutput(const WaylandConnection& wayland, wl_output* output) {
     for (const auto& entry : wayland.outputs()) {
       if (entry.output == output) {
@@ -878,7 +883,31 @@ bool WindowSwitcher::matchesTrigger(const KeyboardEvent& event) const noexcept {
 }
 
 bool WindowSwitcher::isModifierRelease(const KeyboardEvent& event) const noexcept {
-  return !event.pressed && (isAltModifier(event.sym) || event.sym == XKB_KEY_Super_L || event.sym == XKB_KEY_Super_R);
+  return !event.pressed && isTriggerModifier(event.sym);
+}
+
+// The compositor keybind that opens the overlay runs out of process, so a quick
+// tap can release the trigger modifier before this surface gains keyboard focus;
+// that release is never delivered here and the overlay would wait forever.
+// wl_keyboard.enter reports what is still held: if neither Alt nor Super is,
+// the release already happened, so behave as the release would have — activate
+// the preselected (previous) window and close, like a quick Alt+Tab.
+void WindowSwitcher::onKeyboardEnter(
+    wl_surface* surface, std::uint32_t modifiers, const std::vector<std::uint32_t>& heldKeysyms
+) {
+  if (!m_active
+      || m_instance == nullptr
+      || m_instance->surface == nullptr
+      || surface != m_instance->surface->wlSurface()) {
+    return;
+  }
+  if ((modifiers & (KeyMod::Alt | KeyMod::Super)) != 0) {
+    return;
+  }
+  if (std::any_of(heldKeysyms.begin(), heldKeysyms.end(), isTriggerModifier)) {
+    return;
+  }
+  activateSelected();
 }
 
 bool WindowSwitcher::onKeyboardEvent(const KeyboardEvent& event) {
