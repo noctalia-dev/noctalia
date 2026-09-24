@@ -1658,6 +1658,7 @@ void ScreenshotService::captureAllOutputs(const OutputOptions& options) {
     notifyError("No outputs available");
     return;
   }
+  playCaptureSound();
   if (targets.size() == 1) {
     captureOutput(targets.front().output, std::nullopt, targets.front().label, options);
     return;
