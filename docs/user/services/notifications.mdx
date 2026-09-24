@@ -42,9 +42,9 @@ play_sound      = true
 - When `monitors` is non-empty, toasts are only created on matching monitors.
 - If none of the configured monitors are currently connected (e.g. an external display was undocked), Noctalia falls back to showing toasts on all available monitors so notifications never disappear silently. Targeting is restored automatically when a configured monitor reconnects.
 - Selector matching follows monitor override rules: exact connector name (`eDP-1`) or a word-boundary token in the monitor description.
-- Internal Noctalia notifications (shell and plugins) are toast-only and are never stored in notification history.
+- Internal Noctalia notifications (shell and plugins) are toast-only and are not stored in notification history, except [calendar reminders](/noctalia/services/calendar/#reminders).
 - Dismissing a toast (right-click, close button, or `noctalia msg notification-clear-active`) only hides it. The entry stays in control-center history and still counts as unread until the notifications tab is opened. History entries are removed only by the per-entry delete button, **Clear all**, `noctalia msg notification-clear-history`, or `history_retention_hours`.
-- `history_retention_hours` removes stored external notifications older than the configured number of hours. The default
+- `history_retention_hours` removes stored notifications older than the configured number of hours. The default
   `0` retains history indefinitely; accepted values are `0`–`8760`.
 - `collapse_on_dismiss = true` (default) causes remaining toasts to slide into a compact stack when one is dismissed. Set to `false` for stable-slot behavior where toasts keep their original positions.
 - `border = true` (default) draws an outline around toast cards. Set to `false` for a borderless look.
@@ -53,14 +53,14 @@ play_sound      = true
 
 ## Filtering
 
-Notifications can be filtered before toasts and sounds. External Freedesktop notifications can also be kept out of control-center history. Internal shell/plugin toasts use the same toast/sound filters, but they are never written to history (the save-history flag does not apply to them).
+Notifications can be filtered before toasts and sounds. External Freedesktop notifications can also be kept out of control-center history. Internal shell/plugin toasts use the same toast/sound filters, but they are not written to history (the save-history flag does not apply to them), except calendar reminders, which honor `save_history` like external notifications.
 
 - `[notification.filter.<name>]` - per-sender rules evaluated in `filter_order` (first matching enabled filter wins). Each filter has:
  - `match` - one case-insensitive token matched against the app name (exact or substring), `desktop-entry`, or `category`.
  - `match_content` - optional regular expression matched against the notification summary or body.
  - `allowed_urgencies` - when non-empty, only listed urgency levels pass this filter. Values: `low`, `normal`, `critical`. Omit or list all three to allow every level.
  - `show_toast` - show a toast popup (default `true`).
- - `save_history` - keep the notification in control-center history (default `true`). External notifications only; internals are never stored.
+ - `save_history` - keep the notification in control-center history (default `true`). Applies to external notifications and calendar reminders; other internal notifications are never stored.
  - `play_sound` - play the notification sound when a toast is shown (default `true`).
  - `bypass_dnd` - allow matching notifications to show while Do Not Disturb is enabled (default `false`). Their sound also bypasses Do Not Disturb when `play_sound = true`.
  - `allow_permanent` - allow this sender to create persistent (0-timeout) toasts (default `true`). When `false`, persistent toasts are forced to the standard expiration timeout.
