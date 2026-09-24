@@ -7,6 +7,8 @@ class PipeWirePollSource final : public PollSource {
 public:
   explicit PipeWirePollSource(PipeWireService& service) : m_service(service) {}
 
+  [[nodiscard]] int pollTimeoutMs() const override { return m_service.pollTimeoutMs(); }
+
   void dispatch(const std::vector<pollfd>& /*fds*/, std::size_t /*startIdx*/) override { m_service.dispatch(); }
 
 protected:

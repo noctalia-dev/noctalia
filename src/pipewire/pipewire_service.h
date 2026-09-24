@@ -101,6 +101,7 @@ public:
   // Poll integration
   [[nodiscard]] int fd() const noexcept;
   void dispatch();
+  [[nodiscard]] int pollTimeoutMs() const;
   [[nodiscard]] pw_core* coreHandle() const noexcept { return m_core; }
   [[nodiscard]] pw_loop* loop() const noexcept { return m_loop; }
   [[nodiscard]] bool serverSupportsPassiveFollow() const noexcept { return m_serverSupportsPassiveFollow; }
@@ -209,6 +210,7 @@ public:
   };
   void onCoreInfo(const struct pw_core_info* info);
   void onCoreDone(std::uint32_t id, int sequence);
+  void onCoreError(std::uint32_t id, int result, const char* message);
   void onRegistryGlobal(std::uint32_t id, const char* type, std::uint32_t version, const struct spa_dict* props);
   void onRegistryGlobalRemove(std::uint32_t id);
   void onClientInfo(std::uint32_t id, const struct pw_client_info* info);
@@ -227,6 +229,11 @@ public:
   void onTargetObjectMetadata(std::uint32_t subject, const std::string& target);
 
 private:
+  bool connect();
+  void disconnect();
+  bool m_connectionLost = false;
+  std::chrono::steady_clock::time_point m_nextReconnect;
+
   bool m_pendingDefaultAudioDevicePropsEnum = false;
   void enumDefaultAudioDeviceParams();
 

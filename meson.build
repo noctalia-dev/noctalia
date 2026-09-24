@@ -1288,6 +1288,17 @@ if build_tests
     test(test_name, test_exe, args: test_args)
   endforeach
 
+  pipewire_program = find_program('pipewire', required: false)
+  if pipewire_program.found()
+    pipewire_reconnect_exe = executable('pipewire_reconnect_test',
+      sources: files('tests/pipewire_reconnect_test.cpp'),
+      dependencies: noctalia_core_dep,
+    )
+    test('pipewire_reconnect', pipewire_reconnect_exe,
+      args: [pipewire_program.full_path()], timeout: 60,
+    )
+  endif
+
   upower_integration_exe = executable('upower_charge_limit_integration_test',
     sources: files('tests/upower_charge_limit_integration_test.cpp'),
     dependencies: noctalia_core_dep,

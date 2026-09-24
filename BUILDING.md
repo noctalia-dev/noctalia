@@ -124,8 +124,8 @@ modules. Some distros ship these in the runtime `polkit` package, while split-pa
 `polkit-devel`, `polkit-dev`, or `libpolkit-agent-1-dev` / `libpolkit-gobject-1-dev`.
 
 Pipewire libraries/headers are sufficient to build Noctalia, but there is also a runtime requirement for the pipewire
-daemon. Noctalia will abort startup if it can't connect to the daemon. If your distro splits the pipewire libraries
-and daemon into separate packages, make sure you have both installed.
+daemon. If the daemon is unavailable or restarts, Noctalia retries the audio connection in the background. If your
+distro splits the pipewire libraries and daemon into separate packages, make sure you have both installed.
 
 `upower` is an optional dependency used for battery and power device integration.
 
