@@ -11,6 +11,7 @@
 #include "ipc/ipc_service.h"
 #include "notification/notification.h"
 #include "notification/notification_manager.h"
+#include "pipewire/sound_player.h"
 #include "render/core/image_encoder.h"
 #include "render/core/image_file_loader.h"
 #include "render/render_context.h"
@@ -833,7 +834,7 @@ void ScreenshotService::captureFullscreen(const OutputOptions& options, wl_outpu
     notifyError("No outputs available");
     return;
   }
-  m_soundPlayer->play("screen-capture");
+  playCaptureSound();
   captureOutput(output, std::nullopt, "screenshot", options);
 }
 
@@ -963,7 +964,7 @@ void ScreenshotService::ensureRegionOverlay() {
           if (m_regionOutputOptions.freezeScreen && m_regionOverlay != nullptr) {
             m_frozenScreenshots = m_regionOverlay->takeFrozenScreenshots();
           }
-          m_soundPlayer->play("screen-capture");
+          playCaptureSound();
           completeFullscreenSelection(output, m_regionOutputOptions);
           m_regionFullscreenPick = false;
           return;
@@ -989,12 +990,11 @@ void ScreenshotService::ensureRegionOverlay() {
         if (options.freezeScreen && m_regionOverlay != nullptr) {
           m_frozenScreenshots = m_regionOverlay->takeFrozenScreenshots();
         }
+        playCaptureSound();
         if (options.freezeScreen && !m_frozenScreenshots.empty()) {
-          m_soundPlayer->play("screen-capture");
           deliverFrozenGlobalRegion(*region, options);
           return;
         }
-        m_soundPlayer->play("screen-capture");
         captureGlobalRegion(*region, options);
       }
   );
@@ -1865,4 +1865,10 @@ void ScreenshotService::notifyError(const std::string& message) {
   m_notifications.addInternal("Noctalia", "Screenshot failed", message, Urgency::Critical);
 }
 
-void ScreenshotService::setSoundPlayer(std::shared_ptr<SoundPlayer> soundPlayer) { m_soundPlayer = soundPlayer; }
+void ScreenshotService::setSoundPlayer(SoundPlayer* soundPlayer) { m_soundPlayer = soundPlayer; }
+
+void ScreenshotService::playCaptureSound() {
+  if (m_soundPlayer != nullptr) {
+    m_soundPlayer->play("screen-capture");
+  }
+}

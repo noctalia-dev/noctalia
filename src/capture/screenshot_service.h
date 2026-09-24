@@ -3,7 +3,6 @@
 #include "capture/annotation_overlay.h"
 #include "capture/screenshot_capture.h"
 #include "capture/screenshot_region_overlay.h"
-#include "pipewire/sound_player.h"
 
 #include <cstdint>
 #include <expected>
@@ -22,6 +21,7 @@ class NotificationManager;
 struct Config;
 class RenderContext;
 class WaylandConnection;
+class SoundPlayer;
 struct KeyboardEvent;
 struct PointerEvent;
 struct wl_output;
@@ -72,7 +72,7 @@ public:
 
   void registerIpc(IpcService& ipc, const ConfigService& configService);
 
-  void setSoundPlayer(std::shared_ptr<SoundPlayer> soundPlayer);
+  void setSoundPlayer(SoundPlayer* soundPlayer);
 
 private:
   struct PendingCapture {
@@ -181,6 +181,7 @@ private:
   void notifyError(const std::string& message);
   void rememberRegion(const LogicalRect& region);
   [[nodiscard]] std::optional<LogicalRect> loadRememberedRegion() const;
+  void playCaptureSound();
 
   WaylandConnection& m_wayland;
   CompositorPlatform& m_platform;
@@ -201,5 +202,5 @@ private:
   std::optional<PendingDelivery> m_pendingDelivery;
   FreezeTarget m_freezeTarget = FreezeTarget::Region;
   bool m_freezeCaptureActive = false;
-  std::shared_ptr<SoundPlayer> m_soundPlayer = nullptr;
+  SoundPlayer* m_soundPlayer = nullptr;
 };
