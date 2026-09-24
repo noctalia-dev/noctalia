@@ -107,13 +107,15 @@ namespace calendar {
     if (!today.has_value() || !startDay.has_value()) {
       return false;
     }
-    // DTEND of an all-day event is exclusive, so a one-day event ends the following midnight.
-    auto endTime = event.end;
+    // All-day bounds are local midnights and DTEND is exclusive, so the last covered date is the one
+    // before the end date. Stepping back by calendar days (not 24 elapsed hours) stays correct across
+    // DST transitions.
+    auto last = *startDay;
     if (event.end > event.start) {
-      endTime -= hours{24};
+      if (const auto endDay = localDayOf(event.end); endDay.has_value()) {
+        last = std::max(last, *endDay - days{1});
+      }
     }
-    const auto endDay = localDayOf(endTime);
-    const auto last = endDay.has_value() ? std::max(*startDay, *endDay) : *startDay;
     return *today >= *startDay && *today <= last;
   }
 

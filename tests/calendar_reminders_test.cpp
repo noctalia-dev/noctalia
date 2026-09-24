@@ -417,5 +417,39 @@ int main() {
     ok = expect(!calendar::countdownNextChange(start, start).has_value(), "a started event still armed a wake") && ok;
   }
 
+  // ---- all-day coverage: the exclusive end date holds across a short (spring-forward) day ----
+  // libstdc++'s current_zone() ignores TZ, so the case uses the host zone's own 2026 transition and
+  // only checks the plain date boundaries on hosts without DST.
+  {
+    const auto* zone = current_zone();
+    const auto midnight = [zone](local_days day) {
+      return time_point_cast<system_clock::duration>(zone->to_sys(day, choose::earliest));
+    };
+    // The last day of an all-day event spanning [firstDay, firstDay + 2): prefer a day that is shorter
+    // than 24 hours, since subtracting elapsed hours from the exclusive end lands on the wrong date.
+    local_days lastDay{2026y / January / 2};
+    for (local_days day{2026y / January / 2}; day < local_days{2027y / January / 1}; day += days{1}) {
+      if (midnight(day + days{1}) - midnight(day) < hours{24}) {
+        lastDay = day;
+        break;
+      }
+    }
+    CalendarEvent allDay;
+    allDay.id = "dst";
+    allDay.allDay = true;
+    allDay.start = midnight(lastDay - days{1});
+    allDay.end = midnight(lastDay + days{1});
+    ok = expect(
+             calendar::allDayEventCoversDate(allDay, midnight(lastDay) + hours{12}),
+             "a two-day all-day event missed its final date across a short day"
+         )
+        && ok;
+    ok = expect(
+             !calendar::allDayEventCoversDate(allDay, midnight(lastDay + days{1}) + hours{12}),
+             "an all-day event covered its exclusive end date"
+         )
+        && ok;
+  }
+
   return ok ? 0 : 1;
 }
