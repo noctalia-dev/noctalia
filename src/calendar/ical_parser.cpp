@@ -348,7 +348,10 @@ namespace calendar {
       event.end = timePointFromICal(end);
       event.allDay = icaltime_is_date(start) != 0;
       const bool recurring = hasProperty(component, ICAL_RRULE_PROPERTY) || hasProperty(component, ICAL_RDATE_PROPERTY);
-      event.reminderLeadSeconds = alarmLeadSeconds(component, event, recurring);
+      // A feed without usable alarms says nothing about reminders, so the default lead applies.
+      if (auto leads = alarmLeadSeconds(component, event, recurring); !leads.empty()) {
+        event.reminderLeadSeconds = std::move(leads);
+      }
       event.colorHex = extractComponentColor(component);
       return event;
     }

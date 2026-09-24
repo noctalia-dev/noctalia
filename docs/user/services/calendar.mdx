@@ -97,6 +97,8 @@ all_day_digest_time  = "09:00"  # one notification listing today's all-day event
 
 The same four options are in **Settings → Services → Calendar**. Reminders require `[calendar]` itself to be enabled.
 
+A Google event whose notifications you removed stays silent. Google events that follow a calendar with no default notifications use `default_lead_minutes`. Set `use_event_reminders = false` to apply `default_lead_minutes` to every event regardless.
+
 The notification body counts down while the event approaches and settles on "Starts now" when it begins. Clicking a reminder opens the event's link when it has one.
 
 All-day events do not notify individually. They are collected into one digest at `all_day_digest_time` local time (24-hour, zero-padded `HH:MM`), listing today's all-day events. The digest fires once per day; starting the shell after that time still shows the day's digest, and a calendar that syncs later in the morning is not skipped.

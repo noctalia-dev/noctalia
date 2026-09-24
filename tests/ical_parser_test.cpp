@@ -748,7 +748,8 @@ int main() {
   const auto leadsOf = [&](const std::string& vevent) {
     const std::string ics = "BEGIN:VCALENDAR\r\nVERSION:2.0\r\n" + vevent + "END:VCALENDAR\r\n";
     const ICalParseResult result = parseEvents(ics, utc(2024, 1, 1), utc(2024, 12, 31));
-    return result.events.empty() ? std::vector<std::int32_t>{} : result.events.front().reminderLeadSeconds;
+    return result.events.empty() ? std::optional<std::vector<std::int32_t>>{}
+                                 : result.events.front().reminderLeadSeconds;
   };
 
   {
@@ -784,7 +785,7 @@ int main() {
         "BEGIN:VEVENT\r\nUID:after\r\nSUMMARY:Late\r\nDTSTART:20240610T090000Z\r\nDTEND:20240610T100000Z\r\n"
         "BEGIN:VALARM\r\nACTION:DISPLAY\r\nTRIGGER;RELATED=END:-PT10M\r\nEND:VALARM\r\nEND:VEVENT\r\n"
     );
-    ok = expect(leads.empty(), "a post-start reminder was not dropped") && ok;
+    ok = expect(!leads.has_value(), "a post-start reminder was not dropped") && ok;
   }
 
   {
@@ -805,7 +806,7 @@ int main() {
     const ICalParseResult result = parseEvents(ics, utc(2024, 1, 1), utc(2024, 12, 31));
     bool allEmpty = !result.events.empty();
     for (const auto& event : result.events) {
-      allEmpty = allEmpty && event.reminderLeadSeconds.empty();
+      allEmpty = allEmpty && !event.reminderLeadSeconds.has_value();
     }
     ok = expect(allEmpty, "absolute trigger on a recurring event was not skipped") && ok;
   }
@@ -829,7 +830,7 @@ int main() {
         "BEGIN:VEVENT\r\nUID:email\r\nSUMMARY:Mail\r\nDTSTART:20240610T090000Z\r\nDTEND:20240610T093000Z\r\n"
         "BEGIN:VALARM\r\nACTION:EMAIL\r\nTRIGGER:-PT30M\r\nEND:VALARM\r\nEND:VEVENT\r\n"
     );
-    ok = expect(leads.empty(), "ACTION:EMAIL alarm was not ignored") && ok;
+    ok = expect(!leads.has_value(), "ACTION:EMAIL alarm was not ignored") && ok;
   }
 
   {
@@ -920,7 +921,11 @@ int main() {
       vevent += "BEGIN:VALARM\r\nACTION:DISPLAY\r\nTRIGGER:-PT" + std::to_string(minutes) + "M\r\nEND:VALARM\r\n";
     }
     vevent += "END:VEVENT\r\n";
-    ok = expect(leadsOf(vevent).size() == calendar::kMaxRemindersPerEvent, "VALARM count was not capped") && ok;
+    ok = expect(
+             leadsOf(vevent).value_or(std::vector<std::int32_t>{}).size() == calendar::kMaxRemindersPerEvent,
+             "VALARM count was not capped"
+         )
+        && ok;
   }
 
   {
@@ -928,7 +933,7 @@ int main() {
         "BEGIN:VEVENT\r\nUID:none\r\nSUMMARY:Quiet\r\nDTSTART:20240610T090000Z\r\nDTEND:20240610T093000Z\r\n"
         "END:VEVENT\r\n"
     );
-    ok = expect(leads.empty(), "event without VALARM reported reminders") && ok;
+    ok = expect(!leads.has_value(), "event without VALARM reported reminders") && ok;
   }
 
   {

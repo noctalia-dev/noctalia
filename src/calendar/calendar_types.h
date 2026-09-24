@@ -2,6 +2,7 @@
 
 #include <chrono>
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -19,9 +20,10 @@ struct CalendarEvent {
   bool allDay = false;
   // Reminder lead times before `start`, in seconds; sorted ascending, deduplicated, 0 = at start.
   // Absolute VALARM triggers and RELATED=END triggers are normalized to a start-relative lead at
-  // parse time, so recurrence-expanded instances inherit them unchanged. Empty means the event
-  // carries no explicit reminder and the configured default lead applies instead.
-  std::vector<std::int32_t> reminderLeadSeconds;
+  // parse time, so recurrence-expanded instances inherit them unchanged. nullopt means the source
+  // says nothing about reminders and the configured default lead applies; an empty list means the
+  // source explicitly has no reminder for this event (e.g. a Google event with notifications removed).
+  std::optional<std::vector<std::int32_t>> reminderLeadSeconds;
 };
 
 struct CalendarSnapshot {

@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <nlohmann/json.hpp>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -48,13 +49,14 @@ namespace calendar::detail {
     return googleReminderMinutes(*node);
   }
 
-  // Per-event resolution: explicit overrides win; useDefault falls back to the calendar defaults.
-  // Anything else yields empty, which downstream means "use the configured default lead".
-  [[nodiscard]] inline std::vector<std::int32_t>
+  // Per-event resolution: explicit overrides win; useDefault takes the calendar defaults, or nullopt
+  // (the configured default lead) when the calendar has none. useDefault = false without usable
+  // overrides means the user removed the event's notifications, which yields an empty list.
+  [[nodiscard]] inline std::optional<std::vector<std::int32_t>>
   googleEventReminders(const nlohmann::json& item, const std::vector<std::int32_t>& calendarDefaults) {
     const auto reminders = item.find("reminders");
     if (reminders == item.end() || !reminders->is_object()) {
-      return {};
+      return std::nullopt;
     }
     if (const auto overrides = reminders->find("overrides"); overrides != reminders->end()) {
       std::vector<std::int32_t> leads = googleReminderMinutes(*overrides);
@@ -62,10 +64,14 @@ namespace calendar::detail {
         return leads;
       }
     }
-    if (reminders->value("useDefault", false)) {
-      return calendarDefaults;
+    const auto useDefault = reminders->find("useDefault");
+    if (useDefault == reminders->end() || !useDefault->is_boolean()) {
+      return std::nullopt;
     }
-    return {};
+    if (useDefault->get<bool>()) {
+      return calendarDefaults.empty() ? std::nullopt : std::optional{calendarDefaults};
+    }
+    return std::vector<std::int32_t>{};
   }
 
 } // namespace calendar::detail

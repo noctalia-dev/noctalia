@@ -21,12 +21,19 @@ namespace {
 
   system_clock::time_point at(std::int64_t unixSeconds) { return system_clock::time_point{seconds{unixSeconds}}; }
 
-  CalendarEvent timedEvent(std::string id, system_clock::time_point start, std::vector<std::int32_t> leads = {}) {
+  // An event whose source says nothing about reminders, so the configured default lead applies.
+  CalendarEvent timedEvent(std::string id, system_clock::time_point start) {
     CalendarEvent event;
     event.id = std::move(id);
     event.title = "Meeting";
     event.start = start;
     event.end = start + hours{1};
+    return event;
+  }
+
+  // An event carrying explicit reminder leads; an empty list means "explicitly no reminder".
+  CalendarEvent timedEvent(std::string id, system_clock::time_point start, std::vector<std::int32_t> leads) {
+    CalendarEvent event = timedEvent(std::move(id), start);
     event.reminderLeadSeconds = std::move(leads);
     return event;
   }
@@ -144,6 +151,23 @@ int main() {
     config.defaultLeadMinutes = 15; // user moves the slider
     const auto second = calendar::planReminders(snapshot, config, fired, std::nullopt, now);
     ok = expect(second.due.empty(), "changing the default lead re-notified an already fired reminder") && ok;
+  }
+
+  // ---- an explicit "no reminder" stays silent, unless event reminders are turned off ----
+  {
+    const auto now = at(1'700'000'000);
+    const auto snapshot = snapshotOf({timedEvent("a", now + minutes{5}, std::vector<std::int32_t>{})});
+    const auto silent = calendar::planReminders(snapshot, defaultConfig(), {}, std::nullopt, now);
+    ok = expect(silent.due.empty() && !silent.nextWake.has_value(), "an explicitly silent event was planned") && ok;
+
+    auto config = defaultConfig();
+    config.useEventReminders = false;
+    const auto forced = calendar::planReminders(snapshot, config, {}, std::nullopt, now);
+    ok = expect(
+             forced.due.size() == 1 && forced.due.front().fromDefaultLead,
+             "use_event_reminders = false did not apply the default lead to an explicitly silent event"
+         )
+        && ok;
   }
 
   // ---- an already fired key is never re-emitted ----

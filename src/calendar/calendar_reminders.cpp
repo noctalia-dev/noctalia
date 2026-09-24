@@ -186,9 +186,10 @@ namespace calendar {
         continue;
       }
 
-      const bool useEventLeads = config.useEventReminders && !event.reminderLeadSeconds.empty();
+      // An explicit empty list (the source says "no reminder") stays silent; nullopt uses the default.
+      const bool useEventLeads = config.useEventReminders && event.reminderLeadSeconds.has_value();
       if (useEventLeads) {
-        for (const std::int32_t lead : event.reminderLeadSeconds) {
+        for (const std::int32_t lead : *event.reminderLeadSeconds) {
           const auto due = event.start - seconds{lead};
           std::string key = reminderKey(event, lead);
           if (fired.contains(key)) {
