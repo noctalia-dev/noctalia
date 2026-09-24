@@ -1535,7 +1535,7 @@ void Application::initSessionBusServices() {
     m_calendarReminderMonitor.onSnapshotChanged(m_calendarService.snapshot());
   });
   // initialize() already loaded the encrypted cache, so the snapshot can be valid before the first
-  // network sync — seed from it so missed reminders fire at startup rather than after a refresh.
+  // network sync; seed from it so missed reminders fire at startup rather than after a refresh.
   m_calendarReminderMonitor.onSnapshotChanged(m_calendarService.snapshot());
   m_configService.addReloadCallback(
       [this]() {

@@ -96,7 +96,7 @@ public:
 
   // Rewrites the body text of a live notification in place. Unlike addOrReplace it leaves the expiry,
   // the filter verdict, and the history entry's position and seen flag untouched, so text that is
-  // refreshed repeatedly — a calendar reminder counting down to its event — does not keep shoving
+  // refreshed repeatedly (a calendar reminder counting down to its event) does not keep shoving
   // itself back to the top of the notification list or reset its own age. Returns false once the
   // notification is no longer live, which is how such a caller learns to stop.
   bool updateBody(uint32_t id, std::string body);

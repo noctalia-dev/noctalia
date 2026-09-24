@@ -47,7 +47,7 @@ int main() {
     );
   };
 
-  // An internal notification stays toast-only by default — the pre-existing behavior.
+  // An internal notification stays toast-only by default, the pre-existing behavior.
   (void)addInternal("transient-alert", false);
   ok = check(!historyContains(manager, "transient-alert"), "an internal notification was persisted without opting in")
       && ok;
@@ -127,7 +127,7 @@ int main() {
   }
 
   // Dismissal is the only way a timeout-0 reminder can close, so it must not take the history entry
-  // with it — otherwise opting into history buys nothing for exactly the notifications that need it.
+  // with it; otherwise opting into history buys nothing for exactly the notifications that need it.
   // Dismissal keeps history for every notification now (see notification_history_dismiss_test), so this
   // guards the retention path specifically for an entry that is only in history because of the flag.
   {

@@ -39,7 +39,7 @@ namespace calendar::detail {
     return leads;
   }
 
-  // Top-level defaultReminders[] of an events.list response — the calendar's own default reminders.
+  // Top-level defaultReminders[] of an events.list response: the calendar's own default reminders.
   [[nodiscard]] inline std::vector<std::int32_t> googleDefaultReminders(const nlohmann::json& listResponse) {
     const auto node = listResponse.find("defaultReminders");
     if (node == listResponse.end()) {

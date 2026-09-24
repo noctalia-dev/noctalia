@@ -161,7 +161,7 @@ namespace calendar {
     };
 
     // Events are sorted by start. The scan reaches back kLateGrace so an event that has just begun is
-    // still considered — its at-start reminder is only due at that moment — and forward only as far
+    // still considered (its at-start reminder is only due at that moment), and forward only as far
     // as the widest lead can reach.
     const auto& events = snapshot.events;
     const auto scanEnd =
@@ -234,7 +234,7 @@ namespace calendar {
     // accurate) and let the caller record the rest as fired silently.
     //
     // Grouping is by (start, title) rather than by event identity so the same meeting subscribed
-    // through two accounts collapses even when the providers disagree on the UID — reminderKey cannot
+    // through two accounts collapses even when the providers disagree on the UID; reminderKey cannot
     // merge those. The cost is that two genuinely different events sharing a title and a start time
     // yield one toast, which is rare and still surfaces the time slot.
     std::optional<std::pair<system_clock::time_point, std::string_view>> shown;
@@ -248,7 +248,7 @@ namespace calendar {
     }
 
     // All-day digest: once per local date, and still fires when the shell starts after the configured
-    // time — the events are relevant for the whole day.
+    // time, since the events are relevant for the whole day.
     if (const auto digestAt = digestInstantFor(now, config.allDayDigestTime); digestAt.has_value()) {
       const std::string today = localDateKey(now);
       const bool alreadyShown = lastDigestDate.has_value() && *lastDigestDate == today;

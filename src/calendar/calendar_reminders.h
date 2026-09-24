@@ -66,7 +66,7 @@ namespace calendar {
   // reminder fires a hair after its due instant. Rounding to nearest fixes that but moves every step
   // to the half minute, so "3 min" would appear 3.5 minutes out and disagree with a glance at the
   // clock for half of each minute. Rounding up anchors every step to a whole minute before the event,
-  // and reaches zero — "starting now" — exactly at the start rather than 30 seconds early.
+  // and reaches zero ("starting now") exactly at the start rather than 30 seconds early.
   [[nodiscard]] std::int64_t
   countdownMinutes(std::chrono::system_clock::time_point start, std::chrono::system_clock::time_point now);
 
@@ -94,7 +94,7 @@ namespace calendar {
     std::optional<std::chrono::system_clock::time_point> nextWake;
   };
 
-  // A reminder fires when it is due, it has not fired before, and it is still relevant — meaning its
+  // A reminder fires when it is due, it has not fired before, and it is still relevant, meaning its
   // event has not started yet, or it came due within kLateGrace. That covers in-session firing,
   // startup catch-up for missed reminders, at-start reminders, and silently dropping reminders for
   // events that began long ago.

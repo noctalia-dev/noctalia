@@ -23,8 +23,8 @@ class NotificationManager;
 // repeat after a restart, which beats silently dropping reminders.
 inline constexpr std::size_t kMaxPersistedFiredKeys = 256;
 
-// Emits notifications for upcoming calendar events. Level-triggered like BatteryWarningMonitor —
-// evaluate() is safe to call on every tick, on snapshot change, and on config reload — but it also
+// Emits notifications for upcoming calendar events. Level-triggered like BatteryWarningMonitor
+// (evaluate() is safe to call on every tick, on snapshot change, and on config reload), but it also
 // advertises its own poll deadline, because reminders are time-triggered rather than state-triggered.
 //
 // Reminders for events carrying a meeting link get a freedesktop "default" action, so clicking the

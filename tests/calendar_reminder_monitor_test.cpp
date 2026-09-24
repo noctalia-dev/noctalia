@@ -1,7 +1,7 @@
 // Drives the real monitor against a real NotificationManager to prove the countdown state machine
 // terminates: a reminder that is counting down arms exactly one poll deadline, and once it settles or
-// is dismissed the monitor advertises no deadline at all. There are no threads or timer objects here
-// — a leak would show up as a poll deadline that never goes away, or one that never moves forward.
+// is dismissed the monitor advertises no deadline at all. There are no threads or timer objects here,
+// so a leak would show up as a poll deadline that never goes away, or one that never moves forward.
 #include "calendar/calendar_reminder_monitor.h"
 #include "calendar/calendar_types.h"
 #include "config/config_service.h"
@@ -118,7 +118,7 @@ int main() {
 
     // An at-start reminder for an event that has just begun: the label reads "starts now" the moment
     // it appears and can never change again.
-    // The snapshot must outlive the call — the monitor keeps a pointer to the one CalendarService owns.
+    // The snapshot must outlive the call: the monitor keeps a pointer to the one CalendarService owns.
     const CalendarSnapshot snapshot = snapshotWithEvent("uid-at-start", system_clock::now() - seconds{10}, 0);
     monitor.onSnapshotChanged(snapshot);
 

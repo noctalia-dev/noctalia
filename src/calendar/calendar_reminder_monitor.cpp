@@ -112,7 +112,7 @@ void CalendarReminderMonitor::persistState() {
     keys.push_back(&key);
   }
   if (keys.size() > kMaxPersistedFiredKeys) {
-    // Keep the reminders whose events start soonest — those are the ones a restart could re-fire.
+    // Keep the reminders whose events start soonest: those are the ones a restart could re-fire.
     std::ranges::nth_element(keys, keys.begin() + kMaxPersistedFiredKeys, {}, [](const std::string* key) {
       return calendar::reminderKeyStart(*key).value_or(std::chrono::system_clock::time_point::max());
     });
@@ -273,7 +273,7 @@ CalendarReminderMonitor::refreshCountdowns(std::chrono::system_clock::time_point
   std::erase_if(m_countdowns, [&](const LiveCountdown& live) {
     const std::int64_t minutes = calendar::countdownMinutes(live.start, now);
     // Beyond the counting window the body still reads as it did when the reminder fired, so it is left
-    // alone — and with it the only chance to notice a dismissal, which the cap above covers instead.
+    // alone, and with it the only chance to notice a dismissal, which the cap above covers instead.
     if (minutes <= calendar::kCountdownWindow.count()
         && !m_notifications.updateBody(live.id, reminderBody(minutes, live.timeText, live.location))) {
       return true; // dismissed; there is nothing left to rewrite
