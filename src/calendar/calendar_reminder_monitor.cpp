@@ -40,13 +40,6 @@ namespace {
   // arming an unbounded number of per-minute rewrites.
   constexpr std::size_t kMaxLiveCountdowns = 16;
 
-  std::string formatEventTime(const CalendarEvent& event) {
-    const std::time_t raw = std::chrono::system_clock::to_time_t(event.start);
-    std::tm local{};
-    localtime_r(&raw, &local);
-    return formatStrftime("%H:%M", local);
-  }
-
   std::string reminderBody(std::int64_t minutes, const std::string& timeText, const std::string& location) {
     std::string when = minutes <= 0
         ? i18n::tr("notifications.internal.calendar-reminder-now", "time", timeText)
@@ -228,7 +221,9 @@ void CalendarReminderMonitor::fireReminder(
     const calendar::DueReminder& due, std::chrono::system_clock::time_point now
 ) {
   const CalendarEvent& event = *due.event;
-  const std::string timeText = formatEventTime(event);
+  const std::string timeText = formatLocalUnixTime(
+      std::chrono::system_clock::to_time_t(event.start), m_configService.config().calendar.eventTimeFormat
+  );
 
   NotificationRequest request;
   // The app name must match the other calendar notifications so notification filters can target them.
