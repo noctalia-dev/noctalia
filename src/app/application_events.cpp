@@ -121,16 +121,16 @@ void Application::onUpowerStateChangedForHooks() {
   const auto& state = m_upowerService->state();
   const auto plugged = state.isPresent ? batteryStatePlugged(state.state) : std::nullopt;
   if (plugged.has_value()) {
-    if (m_prevBatteryPluggedForHooks.has_value()
-        && *m_prevBatteryPluggedForHooks != *plugged
+    if (m_prevBatteryPluggedForEvents.has_value()
+        && *m_prevBatteryPluggedForEvents != *plugged
         && m_soundPlayer != nullptr) {
       m_soundPlayer->play(*plugged ? "power-plug" : "power-unplug");
     }
-    m_prevBatteryPluggedForHooks = plugged;
+    m_prevBatteryPluggedForEvents = plugged;
   } else if (!state.isPresent) {
-    m_prevBatteryPluggedForHooks.reset();
+    m_prevBatteryPluggedForEvents.reset();
   }
-  for (const auto& event : m_batteryHookState.update(m_upowerService->state())) {
+  for (const auto& event : m_batteryHookState.update(state)) {
     if (event.env.empty()) {
       m_hookManager.fire(event.kind);
     } else {
