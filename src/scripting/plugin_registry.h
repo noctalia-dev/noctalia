@@ -78,8 +78,8 @@ namespace scripting {
   };
 
   // True when `fullEntryId` ("author/plugin:entry") resolves to a registered entry of
-  // `kind`. Surfaces that host plugin runtimes use this to decide which instances must
-  // be recreated when plugin settings change.
+  // `kind`. False for entries of plugins that are disabled or gone, so hosts tearing
+  // down instances on a plugin change should match the id syntax instead.
   [[nodiscard]] bool isPluginEntryOfKind(std::string_view fullEntryId, PluginEntryKind kind);
 
 } // namespace scripting
