@@ -348,6 +348,20 @@ int main() {
     ok = expect(!plan.digestDue, "an empty digest was reported as due") && ok;
   }
 
+  // ---- digest: once today's time has passed, tomorrow's digest is armed ----
+  {
+    const auto now = system_clock::now();
+    auto config = defaultConfig();
+    config.allDayDigestTime = "00:00";
+    const auto tomorrow = time_point_cast<system_clock::duration>(
+        current_zone()->to_sys(floor<days>(current_zone()->to_local(now)) + days{1}, choose::earliest)
+    );
+    const auto shown = calendar::planReminders(snapshotOf({}), config, {}, calendar::localDateKey(now), now);
+    ok = expect(shown.nextWake == tomorrow, "a shown digest did not arm the next day's digest") && ok;
+    const auto empty = calendar::planReminders(snapshotOf({}), config, {}, std::nullopt, now);
+    ok = expect(empty.nextWake == tomorrow, "an empty digest day did not arm the next day's digest") && ok;
+  }
+
   // ---- digestInstantFor validates its input ----
   {
     const auto now = system_clock::now();

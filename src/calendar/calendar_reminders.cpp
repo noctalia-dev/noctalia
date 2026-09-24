@@ -36,6 +36,17 @@ namespace calendar {
       }
     }
 
+    // `hhmm` ("HH:MM") local time on `day`, or nullopt when `hhmm` is malformed.
+    std::optional<system_clock::time_point> digestInstantOn(local_days day, std::string_view hhmm) {
+      const auto normalized = day_night_schedule::normalizedClock(hhmm);
+      if (!normalized.has_value()) {
+        return std::nullopt;
+      }
+      const int hour = ((*normalized)[0] - '0') * 10 + ((*normalized)[1] - '0');
+      const int minute = ((*normalized)[3] - '0') * 10 + ((*normalized)[4] - '0');
+      return toSystemLenient(local_seconds{day} + hours{hour} + minutes{minute});
+    }
+
     // Identity for an event instance when the feed supplies no UID.
     std::string fallbackId(const CalendarEvent& event) {
       return std::format("h{:016x}", std::hash<std::string>{}(event.title));
@@ -78,18 +89,11 @@ namespace calendar {
   }
 
   std::optional<system_clock::time_point> digestInstantFor(system_clock::time_point now, std::string_view hhmm) {
-    const auto normalized = day_night_schedule::normalizedClock(hhmm);
-    if (!normalized.has_value()) {
-      return std::nullopt;
-    }
-    const int hour = ((*normalized)[0] - '0') * 10 + ((*normalized)[1] - '0');
-    const int minute = ((*normalized)[3] - '0') * 10 + ((*normalized)[4] - '0');
-
     const auto day = localDayOf(now);
     if (!day.has_value()) {
       return std::nullopt;
     }
-    return toSystemLenient(local_seconds{*day} + hours{hour} + minutes{minute});
+    return digestInstantOn(*day, hhmm);
   }
 
   std::string localDateKey(system_clock::time_point now) {
@@ -250,20 +254,25 @@ namespace calendar {
     }
 
     // All-day digest: once per local date, and still fires when the shell starts after the configured
-    // time, since the events are relevant for the whole day.
-    if (const auto digestAt = digestInstantFor(now, config.allDayDigestTime); digestAt.has_value()) {
-      const std::string today = localDateKey(now);
-      const bool alreadyShown = lastDigestDate.has_value() && *lastDigestDate == today;
-      if (!alreadyShown) {
-        if (now >= *digestAt) {
-          for (const CalendarEvent& event : events) {
-            if (allDayEventCoversDate(event, now)) {
-              plan.digest.push_back(&event);
-            }
-          }
-          plan.digestDue = !plan.digest.empty();
-        } else {
+    // time, since the events are relevant for the whole day. Once today's time has passed, the next
+    // local day's instant is armed so the digest does not wait for a calendar sync.
+    if (const auto day = localDayOf(now); day.has_value()) {
+      if (const auto digestAt = digestInstantOn(*day, config.allDayDigestTime); digestAt.has_value()) {
+        if (now < *digestAt) {
           considerWake(*digestAt);
+        } else {
+          const bool alreadyShown = lastDigestDate.has_value() && *lastDigestDate == localDateKey(now);
+          if (!alreadyShown) {
+            for (const CalendarEvent& event : events) {
+              if (allDayEventCoversDate(event, now)) {
+                plan.digest.push_back(&event);
+              }
+            }
+            plan.digestDue = !plan.digest.empty();
+          }
+          if (const auto next = digestInstantOn(*day + days{1}, config.allDayDigestTime); next.has_value()) {
+            considerWake(*next);
+          }
         }
       }
     }
