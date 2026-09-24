@@ -1,4 +1,5 @@
 #include "config/config_service.h"
+#include "config/config_types.h"
 
 #include <cstdlib>
 #include <filesystem>
@@ -91,11 +92,44 @@ namespace {
     std::filesystem::remove_all(root);
   }
 
+  // Path fields document that ~ and $VARS expand on read (see field.h
+  // pathStringField). Regression guard: wallpaper.directory must expand $VARS.
+  void checkDirectoryExpandsEnvVars() {
+    const std::filesystem::path root =
+        std::filesystem::temp_directory_path() / ("noctalia-wallpaper-envvar-" + std::to_string(::getpid()));
+    std::filesystem::remove_all(root);
+    std::filesystem::create_directories(root / "config" / "noctalia");
+    std::filesystem::create_directories(root / "state" / "noctalia");
+    std::filesystem::create_directories(root / "data");
+    ::setenv("NOCTALIA_CONFIG_HOME", (root / "config").c_str(), 1);
+    ::setenv("NOCTALIA_STATE_HOME", (root / "state").c_str(), 1);
+    ::setenv("NOCTALIA_DATA_HOME", (root / "data").c_str(), 1);
+    ::setenv("NOCTALIA_WP_TEST", "/tmp/wp-root", 1);
+
+    {
+      std::ofstream out(root / "config" / "noctalia" / "config.toml", std::ios::trunc);
+      out << "[wallpaper]\nenabled = true\ndirectory = \"$NOCTALIA_WP_TEST/pics\"\n";
+    }
+
+    ConfigService config;
+    expect(
+        config.config().wallpaper.directory == "/tmp/wp-root/pics",
+        "wallpaper.directory did not expand $NOCTALIA_WP_TEST"
+    );
+
+    ::unsetenv("NOCTALIA_WP_TEST");
+    ::unsetenv("NOCTALIA_CONFIG_HOME");
+    ::unsetenv("NOCTALIA_STATE_HOME");
+    ::unsetenv("NOCTALIA_DATA_HOME");
+    std::filesystem::remove_all(root);
+  }
+
 } // namespace
 
 int main() {
   checkConfigSurvivesFirstSidecarWrite();
   checkSidecarPathOutranksConfigFilePath();
+  checkDirectoryExpandsEnvVars();
 
   if (g_failures == 0) {
     std::println("config_wallpaper_precedence_test: all checks passed");

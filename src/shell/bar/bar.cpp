@@ -1431,6 +1431,8 @@ bool Bar::initialize(const BarServices& services) {
   m_sysmon = services.sysmon;
   m_powerProfiles = services.powerProfiles;
   m_network = services.network;
+  m_modem = services.modem;
+  m_externalIp = services.externalIp;
   m_idleInhibitor = services.idleInhibitor;
   m_mpris = services.mpris;
   m_audioSpectrum = services.audioSpectrum;
@@ -1482,6 +1484,8 @@ BarServices Bar::services() const {
       .sysmon = m_sysmon,
       .powerProfiles = m_powerProfiles,
       .network = m_network,
+      .modem = m_modem,
+      .externalIp = m_externalIp,
       .idleInhibitor = m_idleInhibitor,
       .mpris = m_mpris,
       .audioSpectrum = m_audioSpectrum,
@@ -2123,12 +2127,12 @@ bool Bar::canAttachPanelToBar(wl_output* output, std::string_view barName) const
   return barSupportsSlideBehavior(instance->barConfig) || instanceEffectivelyVisible(*instance);
 }
 
-std::optional<std::string> Bar::layerForBar(wl_output* output, std::string_view barName) const noexcept {
+std::optional<BarConfig> Bar::configForBar(wl_output* output, std::string_view barName) const {
   const BarInstance* instance = instanceForBar(output, barName);
-  if (instance == nullptr || instance->surface == nullptr || !instance->barConfig.enabled) {
+  if (instance == nullptr || !instance->barConfig.enabled) {
     return std::nullopt;
   }
-  return instance->barConfig.layer;
+  return instance->barConfig;
 }
 
 LayerShellLayer Bar::highestLayerForOutput(wl_output* output) const noexcept {

@@ -6,7 +6,6 @@
 #include "config/config_types.h"
 #include "core/build_info.h"
 #include "core/deferred_call.h"
-#include "core/files/resource_paths.h"
 #include "core/input/keybind_matcher.h"
 #include "core/log.h"
 #include "core/process/process.h"
@@ -16,6 +15,7 @@
 #include "dbus/idle/screensaver_poll_source.h"
 #include "dbus/idle/screensaver_service.h"
 #include "dbus/logind/logind_service.h"
+#include "dbus/modem/modem_manager_service.h"
 #include "dbus/mpris/mpris_service.h"
 #include "dbus/network/inetwork_service.h"
 #include "dbus/network/iwd_secret_agent.h"
@@ -113,6 +113,9 @@ namespace {
   constexpr Logger kLog("app");
   constexpr std::string_view kPolkitAuthorityBusName = "org.freedesktop.PolicyKit1";
   constexpr std::string_view kSecretServiceBusName = "org.freedesktop.secrets";
+  constexpr auto kSecretServiceObjectPath = "/org/freedesktop/secrets";
+  constexpr auto kSecretServiceInterface = "org.freedesktop.Secret.Service";
+  constexpr auto kSecretCollectionInterface = "org.freedesktop.Secret.Collection";
 
   void signal_handler(int signum) {
     if (signum == SIGTERM || signum == SIGINT) {
@@ -288,11 +291,85 @@ void Application::installSecretServiceNameWatch() {
   }
 }
 
+void Application::installSecretServiceCollectionWatch() {
+  if (m_secretServiceCollectionWatchInstalled || m_bus == nullptr) {
+    return;
+  }
+  try {
+    m_secretServiceCollectionWatchProxy = sdbus::createProxy(
+        m_bus->connection(), sdbus::ServiceName{std::string{kSecretServiceBusName}},
+        sdbus::ObjectPath{kSecretServiceObjectPath}
+    );
+    // A collection appearing or changing is our cue that the default one may have just unlocked.
+    // Read the state out of the signal callback to avoid a nested synchronous D-Bus call.
+    const auto onCollectionEvent = [this](const sdbus::ObjectPath& /*collection*/) {
+      DeferredCall::callLater([this]() { onSecretServiceCollectionChanged(); });
+    };
+    m_secretServiceCollectionWatchProxy->uponSignal("CollectionChanged")
+        .onInterface(kSecretServiceInterface)
+        .call(onCollectionEvent);
+    m_secretServiceCollectionWatchProxy->uponSignal("CollectionCreated")
+        .onInterface(kSecretServiceInterface)
+        .call(onCollectionEvent);
+    m_secretServiceCollectionWatchInstalled = true;
+    // The collection can unlock during startup before this watch exists (the first lookup then
+    // loses that race), and that transition emits no further signal. Check the current state once
+    // so a consumer that already gave up is re-driven immediately.
+    DeferredCall::callLater([this]() { onSecretServiceCollectionChanged(); });
+  } catch (const sdbus::Error& e) {
+    kLog.debug("secret service collection watch setup failed: {}", e.what());
+    m_secretServiceCollectionWatchProxy.reset();
+  }
+}
+
+void Application::onSecretServiceCollectionChanged() {
+  if (!defaultSecretCollectionUnlocked()) {
+    return;
+  }
+  // Reachable and unlocked now: give every consumer that gave up at startup a fresh attempt. The
+  // follow-up lookup reads the unlocked collection without raising a prompt.
+  m_secretServiceOwned = true;
+  m_storageKeyAutoRetried = false;
+  m_calendarCredentialAutoRetried = false;
+  kLog.info("secret service default collection unlocked; reopening consumers");
+  retrySecretServiceConsumers();
+}
+
+bool Application::defaultSecretCollectionUnlocked() {
+  if (m_bus == nullptr || m_secretServiceCollectionWatchProxy == nullptr) {
+    return false;
+  }
+  try {
+    sdbus::ObjectPath collection;
+    m_secretServiceCollectionWatchProxy->callMethod("ReadAlias")
+        .onInterface(kSecretServiceInterface)
+        .withArguments(std::string{"default"})
+        .storeResultsTo(collection);
+    const std::string collectionPath{collection};
+    if (collectionPath.empty() || collectionPath == "/") {
+      return false;
+    }
+    auto collectionProxy =
+        sdbus::createProxy(m_bus->connection(), sdbus::ServiceName{std::string{kSecretServiceBusName}}, collection);
+    return !collectionProxy->getProperty("Locked").onInterface(kSecretCollectionInterface).get<bool>();
+  } catch (const sdbus::Error& e) {
+    kLog.debug("secret default collection state check failed: {}", e.what());
+    return false;
+  }
+}
+
 void Application::retrySecretServiceConsumers() {
   if (!m_secretServiceOwned) {
     return;
   }
-  if (!m_storageKeyAutoRetried && m_storageKeyProvider.state() == security::StorageKeyState::Unavailable) {
+  // A locked storage key is only worth reopening once the collection is actually unlocked: a lookup
+  // then reads silently, whereas retrying while still locked would raise a second keyring prompt.
+  // The one-shot latch is tested first so the collection probe (two blocking D-Bus calls) is skipped
+  // once a retry is already in flight.
+  const security::StorageKeyState storageKeyState = m_storageKeyProvider.state();
+  if (!m_storageKeyAutoRetried
+      && (storageKeyState == security::StorageKeyState::Unavailable
+          || (storageKeyState == security::StorageKeyState::DeniedOrLocked && defaultSecretCollectionUnlocked()))) {
     m_storageKeyAutoRetried = true;
     kLog.info("secret service is running; reopening encrypted storage");
     DeferredCall::callLater([this]() { m_storageKeyProvider.retry(); });
@@ -1141,7 +1218,9 @@ void Application::initSystemBusServices() {
 
     try {
       m_upowerService = std::make_unique<UPowerService>(*m_systemBus);
-      m_batteryHookState.reset(m_upowerService->state());
+      const auto& initialPower = m_upowerService->state();
+      m_batteryHookState.reset(initialPower);
+      m_prevBatteryPluggedForEvents = initialPower.isPresent ? batteryStatePlugged(initialPower.state) : std::nullopt;
       m_batteryWarningMonitor.evaluate(m_configService.config().battery, *m_upowerService, m_notificationManager);
       m_upowerService->setChangeCallback([this, shouldRefreshControlCenter](const UPowerChange& change) {
         if (change.origin != UPowerService::ChangeOrigin::DeviceState) {
@@ -1321,6 +1400,20 @@ void Application::initSystemBusServices() {
       }
     }
 
+    try {
+      m_modemManagerService = std::make_unique<ModemManagerService>(*m_systemBus);
+      m_modemManagerService->setChangeCallback([this, shouldRefreshControlCenter]() {
+        m_bar.refresh();
+        if (shouldRefreshControlCenter()) {
+          m_panelManager.refresh();
+        }
+      });
+      kLog.info("modem manager service active");
+    } catch (const std::exception& e) {
+      kLog.warn("modem manager service disabled: {}", e.what());
+      m_modemManagerService.reset();
+    }
+
     m_configService.addReloadCallback([this]() { syncPolkitAgent(); });
   }
 }
@@ -1370,44 +1463,14 @@ void Application::initBrightnessAndPipewire() {
     m_pipewireSpectrum = std::make_unique<PipeWireSpectrum>(*m_pipewireService);
     m_soundPlayer = std::make_shared<SoundPlayer>(m_pipewireService->loop());
 
-    struct LoadedSoundPaths {
-      std::filesystem::path volumeChange;
-      std::filesystem::path notification;
-    };
-    auto loadedSoundPaths = std::make_shared<LoadedSoundPaths>();
-
-    auto applySoundConfig = [this, loadedSoundPaths]() {
+    auto applySoundConfig = [this]() {
       if (m_soundPlayer == nullptr) {
         return;
       }
 
       const auto& audio = m_configService.config().audio;
       m_soundPlayer->setVolume(audio.enableSounds ? audio.soundVolume : 0.0F);
-
-      auto resolveSoundPath = [](const std::string& configured, std::string_view bundledRelative) {
-        if (configured.empty()) {
-          return paths::assetPath(bundledRelative);
-        }
-        const std::filesystem::path expanded = FileUtils::expandUserPath(configured);
-        if (expanded.is_absolute()) {
-          return expanded;
-        }
-        return paths::assetPath(expanded.string());
-      };
-
-      const auto volumeChangePath = resolveSoundPath(audio.volumeChangeSound, "sounds/volume-change.wav");
-      if (loadedSoundPaths->volumeChange != volumeChangePath) {
-        if (m_soundPlayer->load("volume-change", volumeChangePath)) {
-          loadedSoundPaths->volumeChange = volumeChangePath;
-        }
-      }
-
-      const auto notificationPath = resolveSoundPath(audio.notificationSound, "sounds/notification.wav");
-      if (loadedSoundPaths->notification != notificationPath) {
-        if (m_soundPlayer->load("notification", notificationPath)) {
-          loadedSoundPaths->notification = notificationPath;
-        }
-      }
+      m_soundPlayer->setTheme(audio.soundTheme.empty() ? "freedesktop" : audio.soundTheme);
     };
     applySoundConfig();
     m_configService.addReloadCallback(
@@ -1509,6 +1572,7 @@ void Application::initSessionBusServices() {
     syncNotificationDaemon();
     m_configService.addReloadCallback([this]() { syncNotificationDaemon(); });
     installSecretServiceNameWatch();
+    installSecretServiceCollectionWatch();
 
     m_compositorPlatform.startKdeActiveWindow(*m_bus);
 

@@ -1,7 +1,9 @@
 #include "core/process/process.h"
 #include "core/toml.h"
+#include "render/core/color.h"
 #include "scripting/luau_host.h"
 #include "scripting/script_api_context.h"
+#include "ui/palette.h"
 
 #include <chrono>
 #include <condition_variable>
@@ -52,6 +54,12 @@ assert(noctalia.runAsync(
 assert(noctalia.getSetting("shell.offline_mode"))
 assert(noctalia.wallpaperPath("DP-1") == "/tmp/wallpaper.png")
 assert(noctalia.wallpaperPath("missing") == nil)
+assert(type(noctalia.getColor("primary")) == "string")
+assert(string.len(noctalia.getColor("primary")) == 7)
+assert(string.sub(noctalia.getColor("primary"), 1, 1) == "#")
+assert(noctalia.getColor("surface") ~= nil)
+assert(noctalia.getColor("on_surface") ~= nil)
+assert(noctalia.getColor("missing_role") == nil)
 noctalia.setWallpaperMask("DP-1", {
   path = "/tmp/mask.png",
   wallpaperPath = "/tmp/wallpaper.png",
@@ -83,5 +91,27 @@ noctalia.setWallpaperMask("DP-1", nil)
            "result callback should receive the completed process"
        )
       && ok;
+
+  // getColor tracks active palette updates and returns nil for unknown roles
+  const Palette originalPalette = palette;
+  Palette testPalette = originalPalette;
+  testPalette.primary = rgba(1.0F, 0.0F, 0.0F, 1.0F);
+  setPalette(testPalette);
+  ok = expect(
+           host.exec("=get-color", "assert(noctalia.getColor('primary') == '#FF0000')\n"),
+           "getColor should return updated color from active palette"
+       )
+      && ok;
+  setPalette(originalPalette);
+  ok = expect(
+           host.exec(
+               "=get-color-restored",
+               "assert(noctalia.getColor('primary') ~= '#FF0000')\n"
+               "assert(noctalia.getColor('invalid_role') == nil)\n"
+           ),
+           "getColor should track restored palette and return nil for invalid roles"
+       )
+      && ok;
+
   return ok ? 0 : 1;
 }

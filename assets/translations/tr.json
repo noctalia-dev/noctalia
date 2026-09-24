@@ -27,6 +27,22 @@
     }
   },
   "bar": {
+    "annotate": {
+      "color-black": "Siyah",
+      "color-blue": "Mavi",
+      "color-green": "Yeşil",
+      "color-orange": "Turuncu",
+      "color-purple": "Mor",
+      "color-red": "Kırmızı",
+      "color-white": "Beyaz",
+      "color-yellow": "Sarı",
+      "redo": "İleri al (Ctrl+Shift+Z)",
+      "size-large": "Büyük",
+      "size-medium": "Orta",
+      "size-small": "Küçük",
+      "tool-text": "Metin (t)",
+      "undo": "Geri al (Ctrl+Z)"
+    },
     "screenshot": {
       "choose-display": "Ekran seçin",
       "confirm-region": "Kopyalamak için {copy} · Kaydetmek için {save} · Varsayılanlar için Enter veya Space · İptal etmek için {cancel} · Tekrar seçmek için sürükle",
@@ -60,6 +76,7 @@
       "network": {
         "active": "Aktif",
         "band": "Şebeke",
+        "cellular": "Hücresel",
         "connected": "Bağlandı",
         "connecting": "Bağlanıyor",
         "download": "İndirme",
@@ -73,8 +90,10 @@
         "not-connected": "Bağlı değil",
         "off": "Kapalı",
         "on": "Açık",
+        "operator": "Operatör",
         "scanning": "Taranıyor",
         "signal": "Sinyal",
+        "technology": "Teknoloji",
         "upload": "Yükleme",
         "vpn": "VPN",
         "wan-ip": "WAN adresi",
@@ -184,9 +203,10 @@
     "audio": {
       "application-volumes": "Uygulama Ses Düzeyleri",
       "choose-effects-profile": "Bir profil seç",
+      "default-device": "Varsayılan Cihaz",
       "effects-profile": "Efektler",
       "input-device-prefix": "Giriş Cihazı",
-      "no-application-audio": "Uygulama sesi yok",
+      "no-application-audio": "Uygulama Sesi Yok",
       "no-application-audio-body": "Şu anda hiçbir uygulama oynatma akışı mevcut değil.",
       "no-input-devices": "Giriş cihazı yok",
       "no-input-devices-body": "Şu anda erişilebilen bir kayıt cihazı yok.",
@@ -263,7 +283,7 @@
     },
     "media": {
       "active-player": "Aktif oynatıcı",
-      "nothing-playing": "Hiçbir şey çalmıyor",
+      "nothing-playing": "Hiçbir Şey Çalmıyor",
       "now-playing": "Şimdi çalıyor",
       "start-playback": "Bir MPRIS uygulamasında oynatmayı başlat"
     },
@@ -651,9 +671,9 @@
     "context-menu": {
       "open": "Aç",
       "pin": "Başlatıcıya Sabitle",
-      "pin-to-dock": "Dock'a sabitle",
+      "pin-to-dock": "Dok'a Sabitle",
       "unpin": "Başlatıcıdan Kaldır",
-      "unpin-from-dock": "Dock'tan çıkar"
+      "unpin-from-dock": "Dok'tan Çıkar"
     },
     "empty": {
       "no-results": "Sonuç bulunamadı",
@@ -1265,6 +1285,7 @@
         "shell": "Kabuk",
         "system": "Sistem",
         "templates": "Şablonlar",
+        "umbriel": "Umbriel",
         "wallpaper": "Duvar Kağıdı"
       }
     },
@@ -1374,6 +1395,13 @@
       "panel-position": {
         "auto": "Çubuğu Takip Et"
       },
+      "plugins": {
+        "auto-update": {
+          "all": "Tümü",
+          "none": "Hiçbiri",
+          "official": "Resmi"
+        }
+      },
       "screen-position": {
         "bottom-center": "Alt Orta",
         "bottom-left": "Alt Sol",
@@ -1415,6 +1443,9 @@
         "mode": {
           "dark": "Koyu",
           "light": "Açık"
+        },
+        "shell-mode": {
+          "follow": "Takip et"
         },
         "source": {
           "built-in": "Dahili",
@@ -1459,6 +1490,9 @@
     "plugins": {
       "browse-store": "Eklentileri Keşfet",
       "panels": {
+        "layer": {
+          "label": "Katman"
+        },
         "open-near-click": {
           "description": "Çubuk bileşenine tıklayarak açıldığında panelin nerede konumlandırılacağı",
           "label": "Çubuk Boyunca"
@@ -1484,6 +1518,8 @@
         "incompatible-plugin-api": "uyumsuz eklenti API'si",
         "remove": "Eklentiyi kaldır",
         "requires": "Gereksinimler: {dependencies}",
+        "search-empty": "\"{query}\" aramasına eşleşen eklenti yok",
+        "search-placeholder": "Yüklü eklentilerde ara",
         "title": "Eklentiler",
         "update-all": "Tümünü güncelle ({count})",
         "update-available": "güncelleme mevcut",
@@ -3198,6 +3234,26 @@
     "widgets": {
       "actions": {
         "command-placeholder": "Kabuk komutu",
+        "commands": {
+          "dock-reload": {
+            "label": "Doku yenile"
+          },
+          "dock-show": {
+            "label": "Doku göster"
+          },
+          "dpms-off": {
+            "description": "Monitörleri kapat"
+          },
+          "log-level-set": {
+            "label": "Günlük seviyesini ayarla"
+          },
+          "settings-close": {
+            "label": "Ayarları kapat"
+          },
+          "settings-open-plugin": {
+            "label": "Eklenti ayarlarını kapat"
+          }
+        },
         "default": "Varsayılan",
         "disabled": "Devre Dışı",
         "run-command": "Bir komut çalıştır…",

@@ -40,6 +40,11 @@ shared_gl_context     = true         # startup-only; false isolates GPU contexts
 # lang                = "en"
 # avatar_path         = "~/Pictures/avatar.png"
 
+[shell.screenshot]
+skip_annotate_on_copy_save = false  # Ctrl+C / Ctrl+S in the region overlay skip the annotation editor
+close_on_copy = true                # close the annotation editor after Copy or Ctrl+C succeeds
+close_on_save = true                # close the annotation editor after Save or Ctrl+S succeeds
+
 [shell.privacy]
 mic_filter_regex = ""                # microphone app names to ignore in privacy indicators and OSD
 cam_filter_regex = ""                # camera app names to ignore in privacy indicators and OSD
@@ -169,6 +174,7 @@ tint_intensity         = 0.3        # 0.0 = no tint, 1.0 = opaque
 enable_daemon      = true
 show_app_name      = true
 show_actions       = true           # show action buttons; when false, clicking a toast triggers its default action
+keep_dismissed_in_history = true    # set false to remove history entries when their toasts are dismissed
 layer              = "top"          # top | overlay
 scale              = 1.0            # notification size multiplier applied on top of accessibility.ui_scale
 background_opacity = 0.97
@@ -219,6 +225,9 @@ privacy = true                      # microphone/camera/screen-share capture cha
 [lockscreen]
 enabled                 = true
 blurred_desktop         = false       # use a desktop snapshot as the lock screen background (requires wlr-screencopy)
+transition              = ["fade", "wipe", "disc", "stripes", "zoom", "honeycomb"] # empty disables lock/unlock animation
+transition_duration     = 1500        # lock/unlock animation length in milliseconds
+edge_smoothness         = 0.3         # transition edge feathering (0.0 = sharp, 1.0 = soft)
 blur_intensity          = 0.5         # lock screen background blur (0.0 = none, 1.0 = maximum)
 tint_intensity          = 0.3         # surface-color tint over the lock screen background
 # wallpaper             = ""          # optional image path for the lock screen; empty uses the desktop wallpaper
@@ -273,8 +282,7 @@ effects         = true              # visual weather effects
 enable_overdrive = false            # allow volume above 100% (up to 150%)
 enable_sounds = false               # master toggle for UI feedback sounds
 sound_volume = 0.5                  # 0.0 - 1.0
-volume_change_sound = ""            # empty = bundled sounds/volume-change.wav
-notification_sound = ""             # empty = bundled sounds/notification.wav
+sound_theme = "freedesktop"
 
 # ── Brightness ────────────────────────────────────────────────────────────────
 

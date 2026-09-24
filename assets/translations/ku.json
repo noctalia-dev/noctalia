@@ -15,6 +15,23 @@
     }
   },
   "bar": {
+    "annotate": {
+      "color-black": "Reş",
+      "color-blue": "Şîn",
+      "color-green": "Kesk",
+      "color-orange": "Pirteqalî",
+      "color-purple": "Mov",
+      "color-red": "Sor",
+      "color-white": "Spî",
+      "color-yellow": "Zer",
+      "size-decrease": "Teniktir ([)",
+      "size-increase": "Qalindtir (])",
+      "size-large": "Mezin",
+      "size-medium": "Navîn",
+      "size-small": "Biçûk",
+      "tool-text": "Nivîs (t)",
+      "undo": "Vegerîne (Ctrl+Z)"
+    },
     "screenshot": {
       "choose-display": "Dîmenderê hilbijêre",
       "fullscreen": "Dîmendera tijî",
@@ -60,8 +77,10 @@
         "on": "Neçalak e",
         "scanning": "Tê dîtin",
         "signal": "Nîşan",
+        "technology": "Teknolojî",
         "upload": "Barkirin",
         "vpn": "VPN",
+        "wan-ip": "WAN IP",
         "wifi": "Wi-Fi",
         "wired": "Bi têl",
         "yes": "Erê"
@@ -97,7 +116,13 @@
         "error": "Şaşetiya rewşa bayê",
         "loading": "Rewşa bayê...",
         "no-location": "Cih tune ye",
-        "off": "Rewşa bayê vemirî ye"
+        "off": "Rewşa bayê vemirî ye",
+        "tooltip": {
+          "high": "Bilind",
+          "low": "Kêm",
+          "temperature": "Germahî",
+          "wind": "Ba"
+        }
       }
     }
   },
@@ -180,6 +205,10 @@
       "start-playback": "Lîstinê di sepana MPRIS de dest pê bike"
     },
     "network": {
+      "cellular-no-service": "Raje tune ye",
+      "cellular-off": "Vemirî ",
+      "cellular-registered": "Tomarkirî",
+      "cellular-searching": "Digere...",
       "connect": "Girê bide",
       "current-connection": "Girêdanên heyî",
       "external-ip": "WAN {ip}",
@@ -231,6 +260,7 @@
         "dark": "Awaya tarî",
         "light": "Awaya ronî"
       },
+      "keyboard-layout": "Şêwaza kilîtdankê",
       "media": "Medya",
       "mic-mute": "Mîkrofon",
       "nightlight": "Ronahiya şevê",
@@ -290,13 +320,16 @@
         "wind": "Ba"
       },
       "forecast-placeholder": {
-        "day": "Yekşem"
+        "day": "Yekşem",
+        "description": "Rewşa bayê",
+        "temperature": "10 / 4°C"
       },
       "forecast-view": {
         "daily": "Rojane",
         "hourly": "Her demjimêr"
       },
       "hourly": {
+        "summary": "{condition} / Baran {precip}%",
         "tooltip": {
           "condition": "Rewş",
           "rain": "Baran",
@@ -348,6 +381,9 @@
         "network-speed-unit-megabytes": "MB/ç",
         "opacity": "Zelalî",
         "shadow": "Sî",
+        "show-login-button": "Bişkokên têketinê",
+        "show-media": "Mediya",
+        "show-weather": "Rewşa bayê",
         "stat": "Amar",
         "stat-cpu-temp": "Germahiya YKN",
         "stat-cpu-usage": "Bikaranîna YKN",
@@ -361,21 +397,32 @@
         "stat-swap-pct": "Swap %",
         "stat2": "Amar 2",
         "title": "Sernav",
+        "variant-primary": "Sereke",
         "visualization-mode": "Awa",
-        "visualization-mode-all": "Hemû"
+        "visualization-mode-all": "Hemû",
+        "widget-section": "Sepanok"
+      },
+      "state": {
+        "grid": "Tor"
       },
       "types": {
         "button": "Bişkok",
-        "system-monitor": "Dîmenerê pergalê"
+        "system-monitor": "Dîmenerê pergalê",
+        "volume": "Deng"
       }
     },
     "media": {
       "nothing-playing": "Tiştek nayê lîstin"
     },
+    "volume": {
+      "mic": "Mîk",
+      "muted": "Bêdengkirî",
+      "volume": "Deng"
+    },
     "weather": {
       "error": "Şaşetî",
       "loading": "Tê barkirin...",
-      "no-location": "Tu cih tune ye",
+      "no-location": "Cih tune ye",
       "off": "Rewşa bayê neçalak e"
     }
   },
@@ -408,16 +455,38 @@
         "flags": "Al",
         "food": "Xwarin",
         "nature": "Xweza",
+        "objects": "Tişt",
         "people": "Kes",
+        "symbols": "Sembol",
         "travel": "Ger"
-      }
+      },
+      "recently-used": "Dawî hatine bikaranîn"
     },
     "context-menu": {
-      "open": "Vekirî"
+      "open": "Vekirî",
+      "pin": "Bo destpêkerê bi dar bixe",
+      "pin-to-dock": "Bo bender bi dar bixe",
+      "unpin": "Bo destpêkerê bi dar nexe",
+      "unpin-from-dock": "Bo bender bi dar nexe"
+    },
+    "empty": {
+      "no-results": "Encam nehatine dît",
+      "type-to-search": "Bê lêgerîne binivîse..."
+    },
+    "origins": {
+      "appimage": "AppImage",
+      "flatpak": "Flatpak",
+      "nix": "Nix",
+      "snap": "Snap",
+      "system": "Pergal",
+      "user": "Bikarhêner"
     },
     "providers": {
       "applications": {
         "title": "Sepan..."
+      },
+      "calculator": {
+        "title": "Jimêrkar"
       },
       "emoji": {
         "title": "Îmojî"
@@ -518,7 +587,7 @@
         "charging": "Tê tijîkirin",
         "discharging": "Tê valakirin",
         "empty": "Vala ye",
-        "pending-discharge": "Li  benda valabûnê ye",
+        "pending-discharge": "Li benda valabûnê ye",
         "plugged-in": "Girêdayî ye"
       },
       "tooltip": {

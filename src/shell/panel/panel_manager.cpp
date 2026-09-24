@@ -166,11 +166,13 @@ namespace {
   // Resolves the bar a panel should attach to / position relative to.
   // `shell.panel_anchor_bar` wins when set; otherwise `barName` is the opening
   // source bar. A named bar that does not exist fails loudly (nullopt).
-  // Prefer an enabled bar on the output; if none is enabled there (e.g. a bar-less
-  // monitor), still return a resolved bar so openPanel can use a center-screen
-  // floating layout via attached-panel availability.
+  // Active bar instances are authoritative because temporary IPC state lives
+  // there. Without an active instance, retain the configured bar so a panel can
+  // use its floating or center-screen placement.
   std::optional<BarConfig> resolvePanelBarConfig(
-      ConfigService* configService, CompositorPlatform* platform, wl_output* output, std::string_view barName = {}
+      ConfigService* configService, CompositorPlatform* platform, wl_output* output,
+      const std::function<std::optional<BarConfig>(wl_output*, std::string_view)>& barConfigProvider,
+      std::string_view barName = {}
   ) {
     if (configService == nullptr || configService->config().bars.empty()) {
       return BarConfig{};
@@ -188,11 +190,20 @@ namespace {
     const auto resolve = [wlOutput](const BarConfig& bar) {
       return wlOutput != nullptr ? ConfigService::resolveForOutput(bar, *wlOutput) : bar;
     };
+    const auto runtimeConfig = [&](std::string_view name) -> std::optional<BarConfig> {
+      if (!barConfigProvider || output == nullptr) {
+        return std::nullopt;
+      }
+      return barConfigProvider(output, name);
+    };
 
     if (!effectiveName.empty()) {
       for (const auto& bar : bars) {
         if (bar.name != effectiveName) {
           continue;
+        }
+        if (auto runtime = runtimeConfig(effectiveName); runtime.has_value()) {
+          return runtime;
         }
         BarConfig resolved = resolve(bar);
         if (!resolved.enabled) {
@@ -204,6 +215,9 @@ namespace {
       return std::nullopt;
     }
 
+    if (auto runtime = runtimeConfig({}); runtime.has_value()) {
+      return runtime;
+    }
     for (const auto& bar : bars) {
       BarConfig resolved = resolve(bar);
       if (resolved.enabled) {
@@ -478,10 +492,10 @@ void PanelManager::setAttachedPanelAvailabilityCallback(std::function<bool(wl_ou
   m_attachedPanelAvailabilityCallback = std::move(callback);
 }
 
-void PanelManager::setAttachedPanelLayerProvider(
-    std::function<std::optional<std::string>(wl_output*, std::string_view)> provider
+void PanelManager::setBarConfigProvider(
+    std::function<std::optional<BarConfig>(wl_output*, std::string_view)> provider
 ) {
-  m_attachedPanelLayerProvider = std::move(provider);
+  m_barConfigProvider = std::move(provider);
 }
 
 void PanelManager::setAttachedPanelBarSettledCallback(std::function<bool(wl_output*, std::string_view)> callback) {
@@ -581,7 +595,8 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
     return;
   }
 
-  auto barConfigOpt = resolvePanelBarConfig(m_config, m_platform, request.output, request.sourceBarName);
+  auto barConfigOpt =
+      resolvePanelBarConfig(m_config, m_platform, request.output, m_barConfigProvider, request.sourceBarName);
   if (!barConfigOpt.has_value()) {
     return;
   }
@@ -596,11 +611,6 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
   auto panelWidth = static_cast<std::uint32_t>(m_activePanel->preferredWidth());
   auto panelHeight = static_cast<std::uint32_t>(m_activePanel->preferredHeight());
   m_sourceBarName = barConfig.name;
-  if (m_attachedPanelLayerProvider != nullptr) {
-    if (auto layer = m_attachedPanelLayerProvider(request.output, m_sourceBarName); layer.has_value()) {
-      barConfig.layer = *layer;
-    }
-  }
   const bool isBottom = barConfig.position == "bottom";
   const bool isLeft = barConfig.position == "left";
   const bool isRight = barConfig.position == "right";
@@ -1168,7 +1178,7 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
           if (m_destroyGeneration != gen || !isAttachedOpen() || m_layerSurface == nullptr || m_closing) {
             return;
           }
-          m_layerSurface->setKeyboardInteractivity(relaxed);
+          applyKeyboardRelaxation(relaxed);
         });
       }
       kLog.debug("panel manager: opened \"{}\" as attached layer-shell", panelId);
@@ -1258,7 +1268,7 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
       if (m_destroyGeneration != gen || m_layerSurface == nullptr || m_closing) {
         return;
       }
-      m_layerSurface->setKeyboardInteractivity(relaxed);
+      applyKeyboardRelaxation(relaxed);
     });
   }
   kLog.debug("panel manager: opened \"{}\"", panelId);
@@ -1295,8 +1305,9 @@ void PanelManager::activateFocusGrab() {
   if (grabService == nullptr || !grabService->available()) {
     return;
   }
-  // Whitelist the panel and every bar surface. Clicks on whitelisted surfaces
-  // pass through normally. Clicks anywhere else clear the grab and close the panel.
+  // Whitelist the panel, bars, and panel-owned popups. Clicks on whitelisted
+  // surfaces pass through normally. Clicks anywhere else clear the grab and
+  // close the panel.
   m_focusGrab = grabService->createGrab();
   if (m_focusGrab == nullptr) {
     return;
@@ -1307,14 +1318,94 @@ void PanelManager::activateFocusGrab() {
     }
   });
   grabService->setPopupGrabHost(this);
+
+  // Start with the panel as the sole surface so the compositor cannot choose a
+  // bar as the initial keyboard target.
   m_focusGrab->addSurface(m_wlSurface);
+  m_focusGrab->commit();
+  addFocusGrabWhitelistSurfaces(*m_focusGrab, m_wlSurface);
+  m_focusGrab->commit();
+}
+
+void PanelManager::applyKeyboardRelaxation(LayerShellKeyboard mode) {
+  if (m_layerSurface == nullptr) {
+    return;
+  }
+  if (m_focusGrab == nullptr) {
+    m_layerSurface->setKeyboardInteractivity(mode);
+    return;
+  }
+  if (m_platform == nullptr || m_wlSurface == nullptr) {
+    return;
+  }
+
+  auto* grabService = m_platform->focusGrabService();
+  if (grabService == nullptr || !grabService->available()) {
+    return;
+  }
+
+  auto replacement = grabService->createGrab();
+  if (replacement == nullptr) {
+    return;
+  }
+  replacement->setOnCleared([this]() {
+    if (isOpen() && !m_closing) {
+      closePanel();
+    }
+  });
+
+  wl_surface* focusSurface = m_wlSurface;
+  if (wl_surface* current = m_platform->lastKeyboardSurface(); isFocusGrabWhitelistSurface(current)) {
+    focusSurface = current;
+  }
+  replacement->addSurface(focusSurface);
+
+  // A fresh grab must start after the layer commit so its keyboard refocus wins
+  // over compositors applying follow-mouse focus during Exclusive -> OnDemand.
+  m_focusGrab.reset();
+  m_layerSurface->setKeyboardInteractivity(mode);
+  m_focusGrab = std::move(replacement);
+  grabService->setPopupGrabHost(this);
+
+  // Keep the first commit limited to the previous focus surface. The
+  // compositor may choose any surface when a grab first becomes active.
+  m_focusGrab->commit();
+
+  addFocusGrabWhitelistSurfaces(*m_focusGrab, focusSurface);
+  m_focusGrab->commit();
+}
+
+void PanelManager::addFocusGrabWhitelistSurfaces(FocusGrab& grab, wl_surface* excludedSurface) {
+  const auto addSurface = [&grab, excludedSurface](wl_surface* surface) {
+    if (surface != nullptr && surface != excludedSurface) {
+      grab.addSurface(surface);
+    }
+  };
+
+  addSurface(m_wlSurface);
   if (m_focusGrabBarSurfacesProvider) {
     auto bars = m_focusGrabBarSurfacesProvider();
     for (auto* surface : bars) {
-      m_focusGrab->addSurface(surface);
+      addSurface(surface);
     }
   }
-  m_focusGrab->commit();
+  for (auto* surface : m_focusGrabPopupSurfaces) {
+    addSurface(surface);
+  }
+}
+
+bool PanelManager::isFocusGrabWhitelistSurface(wl_surface* surface) const {
+  if (surface == nullptr) {
+    return false;
+  }
+  if (surface == m_wlSurface || m_focusGrabPopupSurfaces.contains(surface)) {
+    return true;
+  }
+  if (m_focusGrabBarSurfacesProvider == nullptr) {
+    return false;
+  }
+  const auto bars = m_focusGrabBarSurfacesProvider();
+  return std::ranges::find(bars, surface) != bars.end();
 }
 
 void PanelManager::deactivateOutsideClickHandlers() {
@@ -1325,6 +1416,7 @@ void PanelManager::deactivateOutsideClickHandlers() {
     }
   }
   m_focusGrab.reset();
+  m_focusGrabPopupSurfaces.clear();
 }
 
 void PanelManager::closePanel(bool animateClose) {
@@ -1840,7 +1932,11 @@ void PanelManager::setActivePopup(ContextMenuPopup* popup) {
 void PanelManager::clearActivePopup() { m_activePopup = nullptr; }
 
 void PanelManager::registerPopupSurface(wl_surface* surface) {
-  if (m_focusGrab == nullptr || surface == nullptr) {
+  if (surface == nullptr) {
+    return;
+  }
+  const bool inserted = m_focusGrabPopupSurfaces.insert(surface).second;
+  if (!inserted || m_focusGrab == nullptr) {
     return;
   }
   m_focusGrab->addSurface(surface);
@@ -1848,7 +1944,11 @@ void PanelManager::registerPopupSurface(wl_surface* surface) {
 }
 
 void PanelManager::unregisterPopupSurface(wl_surface* surface) {
-  if (m_focusGrab == nullptr || surface == nullptr) {
+  if (surface == nullptr) {
+    return;
+  }
+  const bool removed = m_focusGrabPopupSurfaces.erase(surface) != 0;
+  if (!removed || m_focusGrab == nullptr) {
     return;
   }
   m_focusGrab->removeSurface(surface);
@@ -2396,7 +2496,7 @@ void PanelManager::onConfigReloaded() {
     return;
   }
 
-  const auto barConfigOpt = resolvePanelBarConfig(m_config, m_platform, m_output, m_sourceBarName);
+  const auto barConfigOpt = resolvePanelBarConfig(m_config, m_platform, m_output, m_barConfigProvider, m_sourceBarName);
   if (!barConfigOpt.has_value()) {
     return;
   }
@@ -2723,6 +2823,16 @@ void PanelManager::prepareFrame(bool needsUpdate, bool needsLayout) {
   }
 }
 
+std::vector<std::string> PanelManager::availablePanelIds() const {
+  std::vector<std::string> ids;
+  ids.reserve(m_panels.size());
+  for (const auto& entry : m_panels) {
+    ids.push_back(entry.first);
+  }
+  m_persistentHost.appendPanelIds(ids);
+  return ids;
+}
+
 void PanelManager::registerIpc(IpcService& ipc) {
   auto parseOpenArgs = [](std::string_view rawArgs, std::string_view command, std::string& panelId,
                           std::string& context) -> std::optional<std::string> {
@@ -2746,12 +2856,7 @@ void PanelManager::registerIpc(IpcService& ipc) {
   };
 
   auto unknownPanelError = [this](std::string_view panelId) -> std::string {
-    std::vector<std::string> ids;
-    ids.reserve(m_panels.size());
-    for (const auto& entry : m_panels) {
-      ids.push_back(entry.first);
-    }
-    m_persistentHost.appendPanelIds(ids);
+    std::vector<std::string> ids = availablePanelIds();
     std::ranges::sort(ids);
 
     std::string error = "error: unknown panel \"" + std::string(panelId) + "\"";

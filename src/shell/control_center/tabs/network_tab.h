@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core/timer_manager.h"
+#include "dbus/network/enterprise_credentials.h"
 #include "dbus/network/network_secret_agent.h"
 #include "dbus/network/network_types.h"
 #include "shell/control_center/tab.h"
@@ -15,18 +16,23 @@
 
 class AccessPointRow;
 class Button;
+class CellularRow;
 class ExternalIpService;
 class Flex;
 class Input;
 class Label;
+class ModemManagerService;
 class ScrollView;
+class Select;
 class Spinner;
 class Toggle;
 class INetworkService;
 
 class NetworkTab : public Tab {
 public:
-  NetworkTab(INetworkService* network, NetworkSecretAgent* secrets, ExternalIpService* externalIp);
+  NetworkTab(
+      INetworkService* network, NetworkSecretAgent* secrets, ExternalIpService* externalIp, ModemManagerService* modem
+  );
   ~NetworkTab() override;
 
   std::unique_ptr<Flex> create() override;
@@ -46,18 +52,34 @@ private:
   void rebuildApList(Renderer& renderer);
   // Pushes live signal values into the existing rows. Returns true if any changed.
   bool syncApRows();
+  // Same for the cellular rows and the cellular toggle. Returns true if any changed.
+  bool syncCellularCard();
+  // GNOME-style mobile-data semantics when the network backend owns a saved gsm
+  // connection (toggle reflects cellularActive); otherwise raw modem power.
+  [[nodiscard]] bool cellularToggleChecked() const;
+  [[nodiscard]] bool cellularToggleDisplayChecked() const;
+  void requestCellularEnabled(bool enabled);
   void syncPasswordCard();
   void showPasswordPrompt(const NetworkSecretAgent::SecretRequest& request);
   void showPasswordPrompt(const AccessPointInfo& ap);
   void submitPasswordPrompt(const std::string& value);
   void cancelPasswordPrompt();
   void clearPasswordPrompt();
+  // Reads the enterprise form back out. Password comes from the shared field.
+  [[nodiscard]] network_enterprise::EnterpriseCredentials
+  collectEnterpriseCredentials(const std::string& password) const;
+  // Shows a message inside the credential card; empty hides the row. The prompt
+  // stays open so the user can correct what is wrong.
+  void setCredentialError(const std::string& message);
+  // Reason this access point cannot be joined with a password, empty when it can.
+  [[nodiscard]] std::string enterpriseBlockReason(const AccessPointInfo& ap) const;
   [[nodiscard]] std::string
   structureKey(const std::vector<AccessPointInfo>& aps, const std::vector<VpnConnectionInfo>& vpns) const;
 
   INetworkService* m_network = nullptr;
   NetworkSecretAgent* m_secrets = nullptr;
   ExternalIpService* m_externalIpService = nullptr;
+  ModemManagerService* m_modem = nullptr;
 
   Flex* m_rootLayout = nullptr;
   Flex* m_currentCard = nullptr;
@@ -68,6 +90,16 @@ private:
   Input* m_passwordInput = nullptr;
   Button* m_passwordRevealButton = nullptr;
   bool m_passwordRevealed = false;
+  // 802.1X form. Hidden for pre-shared-key networks, which keep the single
+  // password field below it.
+  Flex* m_enterpriseFields = nullptr;
+  Select* m_eapSelect = nullptr;
+  Select* m_phase2Select = nullptr;
+  Input* m_identityInput = nullptr;
+  Input* m_anonymousIdentityInput = nullptr;
+  Input* m_caCertInput = nullptr;
+  Input* m_domainMatchInput = nullptr;
+  Label* m_credentialError = nullptr;
   ScrollView* m_listScroll = nullptr;
   Flex* m_list = nullptr;
 
@@ -80,10 +112,14 @@ private:
 
   std::unordered_map<std::string, AccessPointRow*> m_apRows;
 
+  Toggle* m_cellularToggle = nullptr;
+  std::vector<CellularRow*> m_cellularRows;
+
   std::string m_lastStructureKey;
   float m_lastListWidth = -1.0F;
 
   bool m_hasPendingSecret = false;
+  bool m_pendingEnterprise = false;
   std::string m_pendingSsid;
   std::optional<AccessPointInfo> m_pendingAccessPoint;
   bool m_active = false;
@@ -100,7 +136,16 @@ private:
   bool m_wifiToggleTargetObserved = false;
   std::uint64_t m_wifiToggleRequestGeneration = 0;
 
+  // A cellular request is only observable once ModemManager and NM have walked
+  // the modem through enable/registration, so the switch shows the requested
+  // position until then. It stays clickable: a second click just retargets.
+  bool m_cellularTogglePending = false;
+  bool m_cellularToggleTarget = false;
+  std::chrono::steady_clock::time_point m_cellularTogglePendingSince;
+
   Timer m_actionPendingTimer;
+  Timer m_cellularTogglePendingTimer;
 
   static constexpr std::chrono::seconds kActionPendingTimeout = std::chrono::seconds(6);
+  static constexpr std::chrono::seconds kCellularPendingTimeout = std::chrono::seconds(25);
 };

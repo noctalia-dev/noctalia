@@ -4,6 +4,7 @@
 #include "core/log.h"
 #include "dbus/bluetooth/bluetooth_service.h"
 #include "dbus/network/inetwork_service.h"
+#include "pipewire/sound_player.h"
 #include "render/backend/render_backend.h"
 
 #include <algorithm>
@@ -117,7 +118,19 @@ void Application::onUpowerStateChangedForHooks() {
   if (m_upowerService == nullptr) {
     return;
   }
-  for (const auto& event : m_batteryHookState.update(m_upowerService->state())) {
+  const auto& state = m_upowerService->state();
+  const auto plugged = state.isPresent ? batteryStatePlugged(state.state) : std::nullopt;
+  if (plugged.has_value()) {
+    if (m_prevBatteryPluggedForEvents.has_value()
+        && *m_prevBatteryPluggedForEvents != *plugged
+        && m_soundPlayer != nullptr) {
+      m_soundPlayer->play(*plugged ? "power-plug" : "power-unplug");
+    }
+    m_prevBatteryPluggedForEvents = plugged;
+  } else if (!state.isPresent) {
+    m_prevBatteryPluggedForEvents.reset();
+  }
+  for (const auto& event : m_batteryHookState.update(state)) {
     if (event.env.empty()) {
       m_hookManager.fire(event.kind);
     } else {

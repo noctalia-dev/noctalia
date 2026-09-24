@@ -102,14 +102,15 @@ namespace {
 } // namespace
 
 PluginWidget::PluginWidget(
-    scripting::PluginRuntimeContext context, std::string barName, std::string outputName, bool enableScroll
+    scripting::PluginRuntimeContext context, std::string barName, std::string outputName, bool isVertical,
+    bool enableScroll
 )
     : m_entryId(std::move(context.entryId)), m_sourcePath(std::move(context.sourcePath)),
       m_pluginDir(std::move(context.pluginDir)), m_barName(std::move(barName)), m_outputName(std::move(outputName)),
       m_scriptApi(context.scriptApi), m_settings(std::move(context.settings)), m_fileWatcher(context.fileWatcher),
       m_platform(context.platform), m_clipboard(context.clipboard), m_httpClient(context.httpClient),
       m_audioSpectrum(context.audioSpectrum), m_mpris(context.mpris), m_timerPhase(nextTimerPhase()),
-      m_enableScroll(enableScroll) {
+      m_isVertical(isVertical), m_enableScroll(enableScroll) {
   m_audioSpectrumEnabled = settingBool(m_settings, "audio_spectrum", false);
   m_audioSpectrumBands =
       static_cast<int>(std::clamp<std::int64_t>(settingInt(m_settings, "audio_spectrum_bands", 16), 1, 128));
@@ -330,6 +331,8 @@ void PluginWidget::doLayout(Renderer& renderer, float containerWidth, float cont
   if (!m_flex)
     return;
 
+  const ColorSpec fallback = colorSpecFromRole(ColorRole::OnSurface);
+
   m_flex->setDirection(m_isVertical ? FlexDirection::Vertical : FlexDirection::Horizontal);
 
   if (m_tree.has_value() && m_uiHost != nullptr) {
@@ -337,6 +340,7 @@ void PluginWidget::doLayout(Renderer& renderer, float containerWidth, float cont
     m_reconciler.setScale(contentScale());
     m_reconciler.setFontScale(fontScaleMultiplier());
     m_reconciler.setTextDefaults(labelFontFamily(), labelFontWeight());
+    m_reconciler.setColorDefaults(widgetForegroundOr(fallback), widgetIconColorOr(fallback));
     (void)m_reconciler.reconcile(*m_uiHost, *m_tree, renderer);
     m_uiHost->layout(renderer);
     if (m_area)
@@ -344,7 +348,7 @@ void PluginWidget::doLayout(Renderer& renderer, float containerWidth, float cont
     return;
   }
 
-  m_label->setColor(resolveScriptColor(m_textColor));
+  m_label->setColor(resolveScriptColor(m_textColor, widgetForegroundOr(fallback)));
   m_label->setFontWeight(labelFontWeight());
   m_label->setVisible(!m_label->text().empty());
   if (m_label->visible()) {
@@ -352,7 +356,7 @@ void PluginWidget::doLayout(Renderer& renderer, float containerWidth, float cont
   }
 
   if (m_glyphVisible) {
-    m_glyph->setColor(resolveScriptColor(m_glyphColor));
+    m_glyph->setColor(resolveScriptColor(m_glyphColor, widgetIconColorOr(fallback)));
     m_glyph->measure(renderer);
   }
 
@@ -534,17 +538,19 @@ PluginWidget::dispatchIpc(std::string_view event, std::string_view payload, cons
   return DispatchResult::Handled;
 }
 
-ColorSpec PluginWidget::resolveScriptColor(const ScriptColorState& state) const noexcept {
-  const ColorSpec fallback = colorSpecFromRole(ColorRole::OnSurface);
+// `on_surface` from an imperative setColor/setGlyphColor means "host default", so the widget's
+// `color`/`icon_color` still applies; a `script` mode color or any other role is taken literally.
+// The declarative path has no such sentinel: `ui.label{color = "on_surface"}` stays on_surface.
+ColorSpec PluginWidget::resolveScriptColor(const ScriptColorState& state, const ColorSpec& defaultColor) noexcept {
   if (!state.color.has_value()) {
-    return widgetForegroundOr(fallback);
+    return defaultColor;
   }
   if (!state.color->role.has_value()
       || state.mode == ScriptColorMode::Script
       || *state.color->role != ColorRole::OnSurface) {
     return *state.color;
   }
-  return widgetForegroundOr(fallback);
+  return defaultColor;
 }
 
 PluginWidget::ScriptColorMode PluginWidget::scriptColorModeFromToken(std::string_view token) noexcept {

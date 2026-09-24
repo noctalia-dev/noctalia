@@ -15,6 +15,7 @@ class TextureManager;
 struct wl_surface;
 struct WallpaperDrawParams;
 struct WallpaperMaskDrawParams;
+struct LockscreenTransitionDrawParams;
 
 class RenderFramebuffer {
 public:
@@ -170,6 +171,7 @@ public:
   ) = 0;
   virtual void drawWallpaper(const WallpaperDrawParams& params) = 0;
   virtual void drawWallpaperMask(const WallpaperMaskDrawParams& params) = 0;
+  virtual void drawLockscreenTransition(const LockscreenTransitionDrawParams& params) = 0;
   virtual void drawFullscreenTexture(TextureId texture, bool flipY) = 0;
   virtual void drawFullscreenTint(Color color) = 0;
   virtual void drawFramebufferBlur(

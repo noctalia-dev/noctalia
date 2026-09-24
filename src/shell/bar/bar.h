@@ -26,11 +26,13 @@ class HttpClient;
 class IdleInhibitor;
 class IpcService;
 class LockKeysService;
+class ModemManagerService;
 class MprisService;
 class BluetoothService;
 class BrightnessService;
 class ClipboardService;
 class EasyEffectsService;
+class ExternalIpService;
 class ScreenshotService;
 class INetworkService;
 class NotificationManager;
@@ -102,7 +104,7 @@ public:
   void
   setAttachedPanelGeometry(wl_output* output, std::string_view barName, std::optional<AttachedPanelGeometry> geometry);
   [[nodiscard]] bool canAttachPanelToBar(wl_output* output, std::string_view barName) const noexcept;
-  [[nodiscard]] std::optional<std::string> layerForBar(wl_output* output, std::string_view barName) const noexcept;
+  [[nodiscard]] std::optional<BarConfig> configForBar(wl_output* output, std::string_view barName) const;
   // Highest layer-shell layer occupied by any enabled bar on the given output (defaults to Top when no bar is present).
   // Hot corners use this to sit on the highest bar's layer so they are always activable.
   [[nodiscard]] LayerShellLayer highestLayerForOutput(wl_output* output) const noexcept;
@@ -176,6 +178,8 @@ private:
   SystemMonitorService* m_sysmon = nullptr;
   PowerProfilesService* m_powerProfiles = nullptr;
   INetworkService* m_network = nullptr;
+  ModemManagerService* m_modem = nullptr;
+  ExternalIpService* m_externalIp = nullptr;
   IdleInhibitor* m_idleInhibitor = nullptr;
   MprisService* m_mpris = nullptr;
   PipeWireSpectrum* m_audioSpectrum = nullptr;

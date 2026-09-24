@@ -1,5 +1,7 @@
 #pragma once
 
+#include "dbus/network/network_manager_security.h"
+
 #include <cstdint>
 #include <string>
 
@@ -9,8 +11,13 @@ struct AccessPointInfo {
   std::string ssid;
   std::uint8_t strength = 0; // 0..100
   bool secured = false;
-  bool supportsSae = false;
+  // How the AP wants to be authenticated, derived from its RSN flags. Drives both
+  // the credential form the UI shows and the NM key-mgmt value we write. A single
+  // enum rather than parallel bools so contradictory states cannot be built.
+  network_manager_security::KeyManagement keyManagement = network_manager_security::KeyManagement::Psk;
   bool active = false;
+
+  [[nodiscard]] bool isEnterprise() const noexcept { return network_manager_security::isEnterprise(keyManagement); }
 
   bool operator==(const AccessPointInfo&) const = default;
 };
@@ -28,6 +35,7 @@ enum class NetworkConnectivity {
   None = 1,
   Wired = 2,
   Wireless = 3,
+  Cellular = 4,
 };
 
 struct NetworkState {
@@ -38,6 +46,7 @@ struct NetworkState {
   bool scanning = false;
   bool vpnActive = false;          // a VPN connection is active or activating
   bool vpnConnected = false;       // a VPN tunnel is fully activated (routes applied)
+  bool cellularActive = false;     // a cellular (gsm) connection is active or activating, primary or not
   std::string ssid;                // Wi-Fi only
   std::string ipv4;                // dotted-quad of first address; empty if none
   std::string interfaceName;       // e.g. "wlan0", "eth0"

@@ -1389,6 +1389,16 @@ namespace settings {
           if (entry.section == SettingsSection::Power && entry.group == "idle") {
             addIdleLiveStatusPanel(*activeGroupBody, ctx, scale);
           }
+          if (entry.section == SettingsSection::Screenshot && entry.group == "screenshot-output") {
+            activeGroupBody->addChild(
+                ui::label({
+                    .text = i18n::tr("settings.schema.shell.screenshot-output.description"),
+                    .fontSize = Style::fontSizeBody * scale,
+                    .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+                    .maxLines = 0,
+                })
+            );
+          }
         }
         if (!std::holds_alternative<KeybindListSetting>(entry.control)) {
           activeKeybindRow = nullptr;

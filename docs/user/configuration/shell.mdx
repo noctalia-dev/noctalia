@@ -40,6 +40,7 @@ external_ip_enabled   = false           # resolve the WAN IP for the Control Cen
 telemetry_enabled     = false           # anonymous startup ping
 setup_wizard_enabled = true              # open first-run wizard while the marker is missing
 niri_overview_type_to_launch_enabled = false # niri-only type-to-launch from overview
+umbriel_overview_type_to_launch_enabled = false # umbriel-only type-to-launch from overview
 polkit_agent          = false           # register Noctalia's native polkit authentication agent
 password_style        = "default"       # default | random
 avatar_path           = "~/Pictures/avatar.png"
@@ -114,6 +115,12 @@ global = true            # also show calculator results in un-prefixed search
 [shell.launcher.providers.emoji]
 prefix = "emo"           # trigger word (triggers on provider_prefix + trigger, e.g. "/emo")
 
+[shell.launcher.providers.panels]
+prefix = "pan"           # trigger word for panel search (e.g. "/pan")
+
+[shell.launcher.panels]
+ignored = ["polkit", "setup-wizard", "test", "launcher"]  # panel ids the panels provider never lists (default shown)
+
 [shell.launcher.providers.session]
 prefix = "session"       # trigger word for session actions (e.g. "/session")
 global = false           # set true to also include session actions in un-prefixed search
@@ -178,6 +185,10 @@ freeze_screen        = true                        # freeze the desktop before r
 confirm_region       = false                       # confirm region captures with Enter or Space
 remember_last_region = false                       # pre-select the last region (also after cancel)
 show_cursor          = false                       # include the mouse pointer in captures
+annotate             = false                       # open the annotator before saving or copying
+skip_annotate_on_copy_save = false                 # region overlay Copy/Save deliver without the annotator
+close_on_copy        = true                        # close the annotation editor after a successful Copy
+close_on_save        = true                        # close the annotation editor after a successful Save
 pipe_to_command      = false                       # pipe the PNG to a shell command on stdin
 pipe_command         = ""                          # annotator/uploader, e.g. "swappy -f -" or "satty -f -"
 ```
@@ -205,7 +216,7 @@ Notes:
 - `clipboard_keep_from_closed_apps`: when `true` (default), Noctalia takes ownership of the live selection after the
   application that supplied it closes, keeping the last copied value pasteable. This is independent of clipboard
   history retention.
-- Clipboard history is encrypted at rest with a purpose-specific key derived from the Noctalia storage master key. The default `secret-service` source stores the master key through Secret Service. If the provider is unavailable or locked, history still works for the current session but is not read from or written to disk; unlock or start the provider and use **Settings → Shell → Clipboard → Retry**. When a provider starts after Noctalia (a common race when the keyring is launched by the same session startup script), Noctalia notices it claiming `org.freedesktop.secrets` and reopens encrypted storage on its own, so no manual retry is needed for that case. Existing plaintext history is migrated only after the encrypted replacement is complete, and encrypted files are preserved if their key is missing.
+- Clipboard history is encrypted at rest with a purpose-specific key derived from the Noctalia storage master key. The default `secret-service` source stores the master key through Secret Service. If the provider is unavailable or locked, history still works for the current session but is not read from or written to disk; unlock or start the provider and use **Settings → Shell → Clipboard → Retry**. Noctalia also reopens encrypted storage on its own once the provider appears or its keyring unlocks; see [Secret Service & keyrings](/noctalia/configuration/secret-service/) for the unlock requirements and the multiple-keyrings caveat. Existing plaintext history is migrated only after the encrypted replacement is complete, and encrypted files are preserved if their key is missing.
 - `clipboard_history_max_entries`: caps how many **unpinned** clipboard history rows Noctalia keeps (default `100`, range `10`–`10000`). Pinned entries stay outside this limit. Lowering the value trims older unpinned rows on reload.
 - `clipboard_confirm_clear_history`: when `true` (default), the clipboard panel asks before **Clear history** and before deleting an **unpinned** entry (trash in the preview, or double-click a row). When `false`, those actions apply immediately: sidebar clear removes unpinned rows and keeps pins when any exist, or clears everything when nothing is pinned; unpinned single deletes are immediate. **Pinned** entries still require confirmation before delete. With confirmation enabled, the clear dialog only offers **Keep pinned** when both pinned and unpinned rows exist; if history is all pinned or all unpinned, the description matches that case. Toggle in **Settings → Shell → Clipboard**.
 - `clipboard_auto_paste`: `auto` = image entries use `Ctrl+V`, text entries use `Ctrl+Shift+V`; `off` = copy only, no automatic paste.
@@ -246,18 +257,33 @@ Notes:
 - `shell.launcher.auto_paste` controls virtual-keyboard paste after copy-style activations (calculator, emoji, copy-mode dmenu). Providers that copy opt in with `supportsAutoPaste`. Same values as `shell.clipboard_auto_paste` (`off` | `auto` | `ctrl_v` | `ctrl_shift_v` | `shift_insert`). Default `auto`.
 - Reset stored launcher usage data from **Settings → Panels → Launcher → Reset Usage Data** (clears `usage_counts.json` and `recently_used.json` while Noctalia is running).
 - `shell.launcher.provider_prefix` sets the common prefix character used to trigger all provider prefixes (default `"/"`). See [Launcher: Provider prefixes](/noctalia/launcher/#provider-prefixes) for how prefixes, trigger words, and global search fit together.
-- `shell.launcher.providers.<name>.prefix` sets the trigger word for a specific built-in provider (`calculator`, `emoji`, `session`, `wallpaper`, `windows`; keys are matched case-insensitively). The provider is activated when typing the `provider_prefix` followed by this trigger word (e.g. `/calc`, `/session`, or `/emo`). Setting the prefix to an empty string (`""`) falls back to the provider's built-in default trigger; it does **not** make the provider global. The Applications provider cannot be prefixed and is always queryable globally.
+- `shell.launcher.providers.<name>.prefix` sets the trigger word for a specific built-in provider (`calculator`, `emoji`, `panels`, `session`, `wallpaper`, `windows`; keys are matched case-insensitively). The provider is activated when typing the `provider_prefix` followed by this trigger word (e.g. `/calc`, `/session`, or `/emo`). Setting the prefix to an empty string (`""`) falls back to the provider's built-in default trigger; it does **not** make the provider global. The Applications provider cannot be prefixed and is always queryable globally.
 - `shell.launcher.providers.<name>.global` includes a prefixed provider in the un-prefixed (global) search in addition to its prefix. Unset keeps the provider's built-in default (`true` for `calculator`, `false` for the others). This replaces the removed `session_search` option.
+- `shell.launcher.panels.ignored` excludes specific panel ids from the Panels provider's results. Defaults to `["polkit", "setup-wizard", "test", "launcher"]` - panels that aren't meant to be opened on demand, or (for `launcher`) redundant to toggle from within the launcher itself. Setting it replaces the default outright, like every other list config. Editable under **Settings → Panels → Launcher → Providers**, which offers a picker of every panel id not already ignored.
 - `shell.launcher.dmenu.entry.<id>` defines a dmenu-style provider. Each entry runs `command` (a shell string via `/bin/sh -lc`) once per launcher session and presents its stdout lines as candidates; a tab in a line splits it into title and description. `prefix` sets the entry's trigger word, combined with `provider_prefix` like the built-in providers (e.g. `ssh` triggers on `/ssh`); write it bare, without the prefix character. With no prefix, set `global = true` or the entry is unreachable. On activate, `exec` runs detached with `{selection}` substituted by the chosen line - when `exec` is omitted the line is copied to the clipboard instead. Entries hot-reload with the config.
 - `shell.launcher.providers."<pluginId>:<entry>"` overrides a plugin launcher provider's `prefix` and/or `global` without editing the plugin. Key the table by the plugin's fully-qualified entry id (e.g. `"author/my-plugin:search"`); the referenced plugin must be enabled. When unset, each field falls back to the value declared in the plugin's `[[launcher_provider]]` manifest entry. Unknown provider names, disabled plugins, and two providers resolving to the same prefix are reported as config warnings.
 - `shell.mpris.blacklist` excludes matching MPRIS players from Noctalia media UI and active-player selection. Entries are case-insensitive and match player bus name, identity, desktop entry, or a bus-name substring token (for example `"spotify"`).
 - `shell.screenshot` holds the global output policy for all screenshot captures (region, fullscreen), shared by the screenshot bar widget and the `screenshot-region` / `screenshot-fullscreen` IPC commands. At least one of `save_to_file`, `copy_to_clipboard`, or `pipe_to_command` must be enabled or the capture reports "No screenshot output enabled". An empty `directory` uses the standard XDG Pictures directory (from `XDG_PICTURES_DIR` or `user-dirs.dirs`) and falls back to `~/Pictures`; explicit directories accept `~`. `filename_pattern` is a [strftime](/noctalia/configuration/date-format-tokens/) pattern (the `.png` extension is appended). `copy_to_clipboard` requires clipboard integration (`clipboard_enabled = true`). `pipe_command` runs via `/bin/sh -lc` with the PNG written to its stdin - use it for annotators or uploaders (`swappy -f -`, `satty -f -`); for plain clipboard copies use `copy_to_clipboard`.
+  Region captures routed through the annotation editor can also start without an enabled output, so you can choose **Copy** or **Save** in the editor.
+- **Settings → Screenshot** has three groups in workflow order: **Capture**, **Annotation**, and **Output**. Capture controls region selection and pointer inclusion; Annotation controls automatic editing and closing after copying or saving; Output controls the actions applied after capture or when you choose **Done** in the editor. **Filename Pattern** is shown with **Advanced** enabled, and **Command** appears when **Run Command** is on. **Save Folder** and **Filename Pattern** also apply to the editor's explicit **Save** action, so they remain available when automatic saving is off. TOML options remain under `[shell.screenshot]`.
 
 - When `pipe_to_command` runs, `NOCTALIA_SCREENSHOT_PATH` is set to the generated PNG path for that capture. If `save_to_file = true`, Noctalia writes the original PNG there before launching the command; if it is false, the path is still available for commands that need an output target, such as `satty -f - -o "$NOCTALIA_SCREENSHOT_PATH"`.
+- `annotate = true` routes every capture (region and fullscreen, in all their forms) through the built-in annotation editor before delivery. The image opens centered at its native pixel size on the focused output; **Enter** or the **Done** button applies the configured `save_to_file`, `copy_to_clipboard`, and `pipe_to_command` policy to the annotated PNG, and **`[keybinds].cancel`** discards the capture without saving, copying, or reporting an error. **Copy** and **Save** inside the editor deliver immediately with an `-annotated` filename stem. **Copy** and **Save** close the editor by default. The editor is also reachable on its own through `screenshot-annotate` and `annotate` (see [Screenshots IPC](/noctalia/ipc/media-and-ui/#screenshots)).
+- `show_cursor` sets the initial **Include Mouse Pointer** choice. In the annotation editor, the pointer button or **P** changes that choice for region, fullscreen, and frozen-screen captures without changing the setting. It controls the pointer recorded at capture time, not the current mouse position. Noctalia uses `ext-image-copy-capture-v1` with an output capture source to obtain the cursor separately, then composites it over one cursor-free screenshot. Toggling therefore never changes the background. If separate cursor capture is unsupported or fails, the ordinary screenshot keeps the configured pointer choice and the button stays visible but disabled; its tooltip and **P** explain why. An output where the compositor reports no cursor does not prevent toggling in a combined multi-monitor image. Live annotation requires **F** to freeze before toggling.
+- `skip_annotate_on_copy_save` defaults to `false`, so with `annotate = true` every way of confirming a region opens the editor. Set it to `true` to make **`[keybinds].copy`** and **`[keybinds].save`** in the region overlay deliver immediately without the editor, while **Enter** and **Space** keep opening it; no effect while `annotate = false`.
+- `close_on_copy` defaults to `true`: **Copy**, **Ctrl+C**, or **`[keybinds].copy`** closes the annotation editor after successfully placing the image on the clipboard, ready to paste elsewhere. Set it to `false` to keep editing after copying. Failed copies keep the editor open. Configure **Close Editor After Copying** under **Settings → Screenshot → Annotation**. This option also applies when you open the editor directly, so it remains available when **Edit Before Saving or Copying** is off.
+- `close_on_save` defaults to `true`: **Save**, **Ctrl+S**, or **`[keybinds].save`** closes the annotation editor after successfully writing the annotated PNG to disk. Set it to `false` to keep editing after saving. Failed saves keep the editor open. Configure **Close Editor After Saving** under **Settings → Screenshot → Annotation**. This option also applies when you open the editor directly, so it remains available when **Edit Before Saving or Copying** is off.
+- **Capture new region** in the annotation toolbar discards the current edit and starts a fresh region capture of the desktop, without the old ink or toolbar. The selected image opens in the editor even when `annotate = false`, with the same pointer control and remembered tool preferences. It keeps the editor's current pointer choice when starting from a captured image, and uses the current screenshot settings for region selection and delivery; cancelling the picker closes the capture.
+- `noctalia msg annotate <path>` opens an image from disk in the same editor, with no capture involved. `save_to_file`, `copy_to_clipboard`, and `pipe_to_command` apply to **Done** exactly as they do for a capture, and **Save** writes a new PNG into `directory` using `filename_pattern`; the source file is never overwritten.
 - **Window switcher** is an Alt+Tab-style overlay with no `[shell]` settings yet. Bind your compositor shortcut to `noctalia msg window-switcher` (see [Shell → Window switcher](/noctalia/ipc/shell/#window-switcher)). While open, windows appear in a centered grid (up to five columns) with application icons, titles, and a per-window close control. Tab / Shift+Tab cycle selection; arrow keys move within the grid; releasing Alt or Enter confirms; Escape cancels. The list updates live when windows open, close, or retitle while the overlay stays open.
 - **Hot corners** let you trigger actions by pushing your mouse pointer into one of the four screen corners. When `[hot_corners].enabled = true`, the shell places invisible hit areas in each corner. `delay_ms` (default `0`) is how long the pointer must stay in the corner before the action runs; raise it to reduce accidental triggers. Each corner (`top_left`, `top_right`, `bottom_left`, `bottom_right`) takes an `action`. If `action` is `"command"`, provide a shell `command` to execute. Configure under **Settings → Desktop → Hot Corners**.
 
 ### Encrypted storage master key
+
+The default `storage.key_source = "secret-service"` keeps the master key in the desktop Secret Service. Clipboard history
+and the calendar event cache reopen automatically after boot only when the collection holding it is unlocked at login.
+See [Secret Service & keyrings](/noctalia/configuration/secret-service/) for the `default`-collection requirement, the
+GNOME Keyring multiple-keyrings fix (a common cause of "locked after every reboot"), and automatic recovery.
 
 `storage.key_source = "file"` makes the configured `key_file` authoritative. Noctalia does not look up, create, edit,
 or delete a Secret Service storage key in this mode. The path must be absolute and resolve to a regular file containing
@@ -385,9 +411,11 @@ Set **`[lockscreen].enabled = false`** to turn off session lock entirely: no `ex
 
 When the lock screen is enabled, **`lock_before_suspend`** (default `true`) locks the session on logind `PrepareForSleep` before suspend or hibernate (including lid-close sleep), so you do not need a separate idle daemon for lock-before-sleep. Set it `false` if you want external suspend without locking.
 
-When enabled and `wlr-screencopy` is available, Noctalia can capture the desktop **before** the session lock engages and use that snapshot as the lock screen background instead of the wallpaper. Desktop capture is disabled by default.
+When enabled and `wlr-screencopy` is available, Noctalia can capture the desktop **before** the session lock engages and use that snapshot as the lock screen background instead of the wallpaper. Desktop capture is disabled by default. A lock transition also uses a frozen pre-lock capture, but only as a temporary layer drawn by the secure lock surface while the complete lock screen (including its blur and tint) is revealed or concealed.
 
-Configure under **`[lockscreen]`** in TOML, or use **Settings → Security → Lock Screen**. The **Desktop capture** toggle appears only when your compositor supports screencopy. Use **Wallpaper** to pick a custom lock screen image (empty uses the desktop wallpaper per output).
+Configure under **`[lockscreen]`** in TOML, or use **Settings → Security → Lock Screen**. The **Desktop capture** and transition controls appear only when your compositor supports screencopy. Use **Wallpaper** to pick a custom lock screen image (empty uses the desktop wallpaper per output).
+
+Lock screen transitions have their own effect pool, duration, and edge smoothness. They do not read or modify the settings under **`[wallpaper]`**. Set `transition = []` to disable lock and unlock animations.
 
 ```toml
 [lockscreen]
@@ -396,6 +424,9 @@ lock_before_suspend   = true      # lock on PrepareForSleep (lid close / systemc
 fingerprint           = true      # allow fingerprint (PAM) authentication on the lock screen
 allow_empty_password  = false     # submit Enter with an empty password (security-key PAM stacks)
 blurred_desktop       = false     # use a desktop snapshot as the lock screen background
+transition            = ["fade", "wipe", "disc", "stripes", "zoom", "honeycomb"]
+transition_duration   = 1500      # lock/unlock animation length in milliseconds
+edge_smoothness       = 0.3       # transition edge feathering (0.0 = sharp, 1.0 = soft)
 blur_intensity        = 0.5       # background blur (0.0 = none, 1.0 = maximum)
 tint_intensity        = 0.3       # surface-color tint over the background (0.0 = none, 1.0 = opaque)
 wallpaper             = ""        # optional image path; empty uses the desktop wallpaper per output
@@ -409,12 +440,15 @@ monitors              = []        # connectors that show the lock screen; empty 
 | `fingerprint` | bool | `true` | When `true`, fingerprint (PAM) authentication is offered on the lock screen alongside the password field. Set `false` to require password entry only. |
 | `allow_empty_password` | bool | `false` | When `true`, Enter can submit an empty password (needed for some security-key PAM stacks). When `false`, empty submits are ignored to avoid accidental `pam_faillock` lockouts from wake keys. |
 | `blurred_desktop` | bool | `false` | Capture each output before lock and use it as the lock screen background. |
+| `transition` | array | all effects | Pool of lock/unlock effects: `fade`, `wipe`, `disc`, `stripes`, `zoom`, and `honeycomb`. One is selected from the configured pool; an empty array disables transitions. |
+| `transition_duration` | float | `1500` | Lock/unlock animation duration in milliseconds (`100`–`30000`). |
+| `edge_smoothness` | float | `0.3` | Feathering around transition boundaries (`0.0`–`1.0`). |
 | `blur_intensity` | float | `0.5` | Blur strength for the active lock screen background (`0.0`–`1.0`). |
 | `tint_intensity` | float | `0.3` | Surface-color tint over the active lock screen background (`0.0`–`1.0`). |
 | `wallpaper` | string | `""` | Optional image path for the lock screen. When empty, each output uses its desktop wallpaper. Ignored when desktop capture is active. |
 | `monitors` | array | `[]` | Connector names that show the lock screen. Empty shows it on all outputs; listed-only mode leaves other outputs black. |
 
-If capture fails (missing protocol, permission denied, etc.), the lock screen falls back to the normal per-output wallpaper. The snapshot lives in memory only until unlock. Blur and tint sliders can be adjusted live from Settings while the session is locked.
+If capture fails (missing protocol, permission denied, etc.), the transition is skipped and the lock screen falls back to the normal per-output wallpaper when desktop capture was requested. The snapshot lives in memory only until unlock. Blur and tint sliders can be adjusted live from Settings while the session is locked.
 
 ---
 
@@ -545,7 +579,7 @@ countdown_seconds = 5
 Requires [Noctalia Greeter](/greeter/), `noctalia-greeter-apply-appearance`, and an administrator privilege tool. When those are missing, auto-sync stays off, Security settings for greeter sync are hidden, and the `greeter-sync` IPC command is not registered.
 
 ::::caution[Passwordless version requirement]
-Passwordless sync requires **Noctalia Greeter 1.4.0 or newer** together with
+Passwordless sync requires **Noctalia Greeter 1.5.0 or newer** together with
 **the next Noctalia release after 5.0.1**. Current `-git` packages or current
 manual builds from `main` also work when both components are up to date.
 
@@ -556,7 +590,7 @@ legacy sync path. It does not grant passwordless access to that path.
 Noctalia only elevates a helper installed as a root-owned regular executable through a root-owned, non-user-writable directory chain. This requirement applies to both authenticated and passwordless sync. Helpers in user checkouts or build directories are rejected. On a conventional distribution, install a manual build with `--prefix=/usr` when using passwordless sync so its Polkit action is placed in the standard action directory.
 
 Passwordless authorization is optional. Without a site-local passwordless rule,
-the constrained 1.4.0 protocol still works and asks for administrator approval
+the constrained 1.5.0 protocol still works and asks for administrator approval
 on every sync. This authenticated workflow remains supported; users are never
 required to grant persistent passwordless access.
 
@@ -585,13 +619,13 @@ project module, or an equivalent `security.polkit.extraConfig` rule with the
 nixpkgs module. The complete setup guides for packaged distributions, NixOS,
 and a hand-written Polkit rule are in [Noctalia Greeter's sync documentation](/greeter/sync/).
 
-Noctalia probes the installed helper before staging or requesting authorization. A 1.4.0-or-newer helper selects constrained sync; a recognized older helper selects the legacy path. An unrecognized response stops the operation. A failed or cancelled constrained sync is never retried through the legacy path.
+Noctalia probes the installed helper before staging or requesting authorization. A 1.5.0-or-newer helper selects constrained sync; a recognized older helper selects the legacy path. An unrecognized response stops the operation. A failed or cancelled constrained sync is never retried through the legacy path.
 
 Constrained sync resolves the helper to its canonical executable path, stages under `/run/user/$(id -u)/noctalia-greeter-sync`, then invokes `pkexec <helper-path> --sync <staging-directory>`. This exact runtime path matches the helper's caller validation; an alternate or symlinked `XDG_RUNTIME_DIR` is intentionally not used. The staged payload contains appearance, wallpaper, and output settings only; it never carries session actions or commands. The staging directory is restricted to mode `0700`, and every staged file to `0600`.
 
 The canonical path lets the greeter's dedicated Polkit action grant selected active local users passwordless access to that one constrained command. Leave `privilege_command` empty for the normal action-specific policy. Custom greeter state directories use the authenticated legacy path because constrained sync deliberately targets `/var/lib/noctalia-greeter` only. The custom directory must be absolute; Noctalia forwards it explicitly across the legacy privilege boundary.
 
-The compatibility path invokes the positional helper syntax through the normal administrator-authenticated `pkexec` or `run0` flow. Its payload retains session actions and power commands because older greeters expect them. Greeter 1.4.0 keeps this entry point for mixed-version and custom-state installations, but its passwordless policy never covers it.
+The compatibility path invokes the positional helper syntax through the normal administrator-authenticated `pkexec` or `run0` flow. Its payload retains session actions and power commands because older greeters expect them. Greeter 1.5.0 keeps this entry point for mixed-version and custom-state installations, but its passwordless policy never covers it.
 
 Only one greeter sync runs at a time. Additional Settings or auto-sync requests leave the active operation untouched; an overlapping `greeter-sync` IPC request reports that a sync is already in progress.
 

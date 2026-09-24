@@ -1555,6 +1555,8 @@ void BrightnessService::setAllBrightness(float value) { m_impl->setAllBrightness
 
 void BrightnessService::requestDdcRefresh() { m_impl->queueDdcRefreshes(); }
 
+void BrightnessService::requestDdcRescan() { m_impl->scheduleDdcDetect(); }
+
 void BrightnessService::reload(const BrightnessConfig& config) { m_impl->reload(config); }
 
 void BrightnessService::onOutputsChanged() { m_impl->onOutputsChanged(); }

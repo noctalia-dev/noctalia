@@ -30,6 +30,7 @@ namespace scripting {
     [[nodiscard]] bool available();
 
     // Blobless, no-checkout clone of `url` into `dest` (full history, no file blobs).
+    // The remote is always named `origin`, whatever the user's git config says.
     [[nodiscard]] GitResult cloneBlobless(const std::string& url, const std::filesystem::path& dest);
 
     // `git -C dest show <rev>:<repoPath>` — lazily fetches one blob. out = file body.
@@ -48,14 +49,17 @@ namespace scripting {
         const std::filesystem::path& workTree
     );
 
-    // Bind the checkout's canonical `origin` URL to the configured source location.
-    // This is local-only and must precede operations that may lazy-fetch blobs.
-    [[nodiscard]] GitResult setOrigin(const std::filesystem::path& dest, std::string_view sourceLocation);
+    // Bring the cache at `dest` into the shape every other op here expects: a checkout
+    // whose canonical `origin` remote points at `sourceLocation`. Clones when the cache
+    // is absent, re-clones a checkout that has no `origin` (a cache cloned before the
+    // remote name was pinned, or an interrupted clone), and otherwise rebinds `origin`
+    // so a cache retained from an older source configuration cannot fetch a stale
+    // remote. Must precede fetches and any op that may lazy-fetch blobs.
+    [[nodiscard]] GitResult ensureRepo(const std::filesystem::path& dest, std::string_view sourceLocation);
 
-    // Bind `origin` to `sourceLocation`, then fetch it. This prevents a checkout
-    // retained from an older source configuration from fetching its stale remote.
-    // Updates remote-tracking refs + FETCH_HEAD without touching the working tree.
-    [[nodiscard]] GitResult fetch(const std::filesystem::path& dest, std::string_view sourceLocation);
+    // `git -C dest fetch origin` — updates remote-tracking refs + FETCH_HEAD without
+    // touching the working tree. Requires a prior `ensureRepo`.
+    [[nodiscard]] GitResult fetch(const std::filesystem::path& dest);
 
     // `git -C dest rev-parse FETCH_HEAD` — out = the just-fetched revision (trimmed).
     [[nodiscard]] GitResult remoteHead(const std::filesystem::path& dest);

@@ -24,7 +24,6 @@ v5 is already packaged for:
 - openSUSE
 - KaOS
 - Gentoo
-- Void Linux
 - GNU Guix
 - Debian (including Ubuntu)
 
@@ -166,6 +165,7 @@ Each carries its own license file beside the code.
 | `upower` | Optional: battery / power devices |
 | `ddcutil` | Optional: external monitor brightness |
 | Secret Service provider | Optional but recommended for credential / encrypted-state persistence (GNOME Keyring, KWallet, KeePassXC, ...). `libsecret` is only the client library; without a session provider those features cannot persist secrets. |
+| `sound-theme-freedesktop` | Shell sounds |
 
 ## Startup and IPC
 

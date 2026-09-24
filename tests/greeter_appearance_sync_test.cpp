@@ -3,6 +3,7 @@
 #include "tests/test_check.h"
 
 #include <cstdio>
+#include <print>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -86,11 +87,11 @@ int main(const int argc, char* argv[]) {
     const process::RunResult actual =
         process::runSync(std::vector<std::string>{argv[1], "--supports", "secure-sync-v1"}, std::move(options));
     if (classifyApplyHelperProtocol(actual) != expected) {
-      std::fprintf(
+      std::println(
           stderr,
-          "actual helper probe: exit=%d timeout=%d stdout-truncated=%d stderr-truncated=%d stdout=<%s> stderr=<%s>\n",
-          actual.exitCode, actual.timedOut, actual.outTruncated, actual.errTruncated, actual.out.c_str(),
-          actual.err.c_str()
+          "actual helper probe: exit={} timeout={:d} stdout-truncated={:d} stderr-truncated={:d} stdout=<{}> "
+          "stderr=<{}>",
+          actual.exitCode, actual.timedOut, actual.outTruncated, actual.errTruncated, actual.out, actual.err
       );
     }
     TEST_CHECK(classifyApplyHelperProtocol(actual) == expected);

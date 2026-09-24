@@ -12,6 +12,7 @@ class HttpClient;
 class IdleInhibitor;
 class INetworkService;
 class LockKeysService;
+class ModemManagerService;
 class MprisService;
 class NotificationManager;
 class PipeWireService;
@@ -43,6 +44,7 @@ struct BarServices {
   SystemMonitorService* sysmon = nullptr;
   PowerProfilesService* powerProfiles = nullptr;
   INetworkService* network = nullptr;
+  ModemManagerService* modem = nullptr;
   ExternalIpService* externalIp = nullptr;
   IdleInhibitor* idleInhibitor = nullptr;
   MprisService* mpris = nullptr;

@@ -64,6 +64,19 @@ ScreenSaverService::~ScreenSaverService() {
 
 void ScreenSaverService::setChangeCallback(ChangeCallback callback) { m_changeCallback = std::move(callback); }
 
+void ScreenSaverService::emitActiveChanged(bool active) {
+  if (!m_active) {
+    return;
+  }
+  for (const auto& object : m_objects) {
+    try {
+      object->emitSignal("ActiveChanged").onInterface(kInterface).withArguments(active);
+    } catch (const std::exception& e) {
+      kLog.debug("ActiveChanged emit failed: {}", e.what());
+    }
+  }
+}
+
 sdbus::IConnection::PollData ScreenSaverService::getPollData() const {
   if (m_connection == nullptr) {
     return {};
@@ -127,7 +140,8 @@ void ScreenSaverService::registerScreenSaver() {
                   .withInputParamNames("cookie")
                   .implementedAs([this, objectPtr = object.get()](std::uint32_t cookie) {
                     onUninhibit(cookie, objectPtr->getCurrentlyProcessedMessage().getSender());
-                  })
+                  }),
+              sdbus::registerSignal("ActiveChanged").withParameters<bool>("active")
           )
           .forInterface(kInterface);
       m_objects.push_back(std::move(object));

@@ -219,6 +219,22 @@ int main() {
     ok = expectOneEventUrl(ics, start, end, "https://calendar.example/event/2", "url property fallback") && ok;
   }
 
+  // Outlook places Teams links in DESCRIPTION, often as an HTML anchor, while URL points to an event page.
+  {
+    const std::string ics =
+        "BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nUID:teams\r\nSUMMARY:Standup\r\n"
+        "LOCATION:Microsoft Teams Meeting\r\n"
+        "DESCRIPTION:Join now: <a "
+        "href=\"https://teams.microsoft.com/l/meetup-join/19%3ameeting_abc%40thread.v2/0?context=%7b%7d\">Join</a>\r\n"
+        "URL:https://outlook.office.com/calendar/item/3\r\n"
+        "DTSTART:20240101T090000Z\r\nDTEND:20240101T100000Z\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n";
+    ok = expectOneEventUrl(
+             ics, start, end, "https://teams.microsoft.com/l/meetup-join/19%3ameeting_abc%40thread.v2/0?context=%7b%7d",
+             "Teams description link wins over url property"
+         )
+        && ok;
+  }
+
   // An event with neither carries no link.
   {
     const std::string ics = "BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nUID:plain\r\nSUMMARY:Dentist\r\n"
@@ -496,7 +512,7 @@ int main() {
   // All-day (VALUE=DATE) MONTHLY on the 1st, over a one-year window, is exactly 12 - one per month.
   // The old code derived the day-of-month from floor<days> of the UTC instant, which for a zone east
   // of UTC rolls back to the previous civil day (the 31st of Dec), so months without a 31st were
-  // dropped. Correct behaviour is zone-independent. Window is padded ±half-month so each local-midnight
+  // dropped. Correct behavior is zone-independent. Window is padded ±half-month so each local-midnight
   // occurrence lands inside regardless of the running zone's UTC offset.
   {
     const std::string ics = "BEGIN:VEVENT\r\nUID:ad\r\nSUMMARY:s\r\nDTSTART;VALUE=DATE:20240101\r\n"

@@ -1278,7 +1278,7 @@ void SystemMonitorService::samplingLoop() {
     const bool historyEnabled = historyPollSeconds > 0.0F;
     // Per-core is opt-in via retainCpuCores() and runs on a fixed 1s cadence, deliberately
     // independent of cpu_poll_seconds (default 2s): consumers want per-second resolution, and
-    // pinning it here leaves aggregate CPU behaviour untouched whatever the user configures.
+    // pinning it here leaves aggregate CPU behavior untouched whatever the user configures.
     const bool cpuCoresEnabled = m_cpuCoreRefs.load(std::memory_order_relaxed) > 0;
     // Resuming after a pause: the previous sample predates the gap, so a delta against it would
     // cover the whole pause rather than one second. Drop it and seed afresh.

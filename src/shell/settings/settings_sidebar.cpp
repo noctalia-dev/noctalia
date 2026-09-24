@@ -147,14 +147,12 @@ namespace settings {
     auto* selectedBarName = &ctx.selectedBarName;
     auto* selectedMonitorOverride = &ctx.selectedMonitorOverride;
     auto* creatingBarName = &ctx.creatingBarName;
-    auto* creatingMonitorOverrideBarName = &ctx.creatingMonitorOverrideBarName;
-    auto* creatingMonitorOverrideMatch = &ctx.creatingMonitorOverrideMatch;
 
     const auto clearTransientState = std::move(ctx.clearTransientState);
     const auto clearSearchQuery = std::move(ctx.clearSearchQuery);
     const auto requestRebuild = std::move(ctx.requestRebuild);
     const auto createBar = std::move(ctx.createBar);
-    const auto createMonitorOverride = std::move(ctx.createMonitorOverride);
+    const auto openMonitorOverrideCreate = std::move(ctx.openMonitorOverrideCreate);
     const float scale = ctx.scale;
     const bool searchActive = ctx.globalSearchActive;
     const bool showActiveTab = !searchActive;
@@ -275,13 +273,13 @@ namespace settings {
         continue;
       }
 
-      // Secondary sidebar action style: same compact indentation as monitor rows.
-      const auto onNewMonitorClick = [creatingMonitorOverrideBarName, creatingMonitorOverrideMatch, barName,
-                                      clearTransientState, requestRebuild]() {
+      // Secondary sidebar action style: same compact indentation as monitor rows. Opens the create
+      // flow in a modal (wide enough for the output picker) rather than expanding it inline here.
+      const auto onNewMonitorClick = [openMonitorOverrideCreate, barName, clearTransientState]() {
         clearTransientState();
-        *creatingMonitorOverrideBarName = barName;
-        creatingMonitorOverrideMatch->clear();
-        requestRebuild();
+        if (openMonitorOverrideCreate) {
+          openMonitorOverrideCreate(barName);
+        }
       };
       addNavButton(
           *nav,
@@ -304,75 +302,6 @@ namespace settings {
           }),
           onNewMonitorClick
       );
-
-      if (*creatingMonitorOverrideBarName != barName) {
-        continue;
-      }
-
-      auto createPanel = ui::column({
-          .align = FlexAlign::Stretch,
-          .gap = Style::spaceXs * scale,
-          .configure = [scale](Flex& panel) {
-            panel.setPadding(0.0F, Style::spaceXs * scale, 0.0F, Style::spaceLg * scale);
-          },
-      });
-
-      Input* inputPtr = nullptr;
-      auto input = ui::input({
-          .out = &inputPtr,
-          .value = *creatingMonitorOverrideMatch,
-          .placeholder = i18n::tr("settings.entities.monitor-override.match-placeholder"),
-          .fontSize = Style::fontSizeCaption * scale,
-          .controlHeight = Style::controlHeightSm * scale,
-          .horizontalPadding = Style::spaceXs * scale,
-          .width = 112.0F * scale,
-          .height = Style::controlHeightSm * scale,
-      });
-
-      std::vector<std::string> existingMatches;
-      existingMatches.reserve(bar->monitorOverrides.size());
-      for (const auto& monitorOverride : bar->monitorOverrides) {
-        existingMatches.push_back(monitorOverride.match);
-      }
-
-      auto doCreate = [barName, createMonitorOverride, inputPtr,
-                       existingMatches = std::move(existingMatches)](std::string rawMatch) {
-        const std::string match = normalizedConfigId(rawMatch);
-        if (match.empty() || std::ranges::contains(existingMatches, match)) {
-          inputPtr->setInvalid(true);
-          return;
-        }
-        inputPtr->setInvalid(false);
-        createMonitorOverride(barName, match);
-      };
-
-      inputPtr->setOnChange([creatingMonitorOverrideMatch, inputPtr](const std::string& value) {
-        *creatingMonitorOverrideMatch = value;
-        inputPtr->setInvalid(false);
-      });
-      inputPtr->setOnSubmit([doCreate](const std::string& text) mutable { doCreate(text); });
-
-      createPanel->addChild(std::move(input));
-      createPanel->addChild(
-          ui::row(
-              {
-                  .align = FlexAlign::Center,
-                  .gap = Style::spaceXs * scale,
-              },
-              makeCreateButton(
-                  i18n::tr("settings.entities.monitor-override.create"), scale,
-                  [doCreate, inputPtr]() mutable { doCreate(inputPtr->value()); }
-              ),
-              makeCreateCancelButton(
-                  scale, [creatingMonitorOverrideBarName, creatingMonitorOverrideMatch, requestRebuild]() {
-                    creatingMonitorOverrideBarName->clear();
-                    creatingMonitorOverrideMatch->clear();
-                    requestRebuild();
-                  }
-              )
-          )
-      );
-      sidebarNav->addChild(std::move(createPanel));
     }
 
     // Primary sidebar action style: same scale as top-level section rows.

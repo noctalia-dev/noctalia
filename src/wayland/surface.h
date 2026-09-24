@@ -154,6 +154,7 @@ protected:
   virtual bool createWlSurface();
   virtual void onConfigure(std::uint32_t width, std::uint32_t height);
   virtual void render();
+  virtual void onFrameCallbackDone();
   virtual void onScaleChanged();
   bool prepareBlurEffect();
   void initializeSurfaceScaleProtocol();

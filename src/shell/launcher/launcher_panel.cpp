@@ -1550,6 +1550,7 @@ void LauncherPanel::onInputChanged(const std::string& text) {
 
   std::vector<LauncherCategory> newCategories;
   bool hasRecentlyUsed = false;
+  bool anyProviderLoading = false;
 
   if (!m_scopedProviderId.empty()) {
     for (auto& provider : m_providers) {
@@ -1557,6 +1558,7 @@ void LauncherPanel::onInputChanged(const std::string& text) {
         continue;
       }
       m_allResults = provider->query(text);
+      anyProviderLoading = provider->isLoading();
       for (auto& result : m_allResults) {
         result.providerId = provider->id();
       }
@@ -1602,6 +1604,7 @@ void LauncherPanel::onInputChanged(const std::string& text) {
 
     if (activeProvider != nullptr) {
       m_allResults = activeProvider->queryPrefixed(queryText);
+      anyProviderLoading = activeProvider->isLoading();
       if (activeProvider->trackUsage()) {
         applyUsageBoost(m_allResults, *activeProvider);
         if (sortByUsage && m_usageTracker.getRecentlyUsedCount(activeProvider->id()) > 0) {
@@ -1627,6 +1630,9 @@ void LauncherPanel::onInputChanged(const std::string& text) {
           continue;
         }
         auto results = provider->query(queryText);
+        if (provider->isLoading()) {
+          anyProviderLoading = true;
+        }
         if (provider->trackUsage()) {
           applyUsageBoost(results, *provider);
           if (sortByUsage && m_usageTracker.getRecentlyUsedCount(provider->id()) > 0) {
@@ -1692,6 +1698,8 @@ void LauncherPanel::onInputChanged(const std::string& text) {
   if (text.empty() && m_scopedProviderId.empty()) {
     applyPinnedApplicationOrder();
   }
+
+  m_anyProviderLoading = anyProviderLoading;
 
   applyActiveCategory();
 }
@@ -1953,9 +1961,13 @@ void LauncherPanel::applyEmptyState() {
   m_emptyLabel->setVisible(empty);
   m_emptyLabel->setParticipatesInLayout(empty);
   if (empty) {
-    m_emptyLabel->setText(
-        m_query.empty() ? i18n::tr("launcher.empty.type-to-search") : i18n::tr("launcher.empty.no-results")
-    );
+    if (m_anyProviderLoading && !m_query.empty()) {
+      m_emptyLabel->setText(i18n::tr("launcher.empty.loading"));
+    } else {
+      m_emptyLabel->setText(
+          m_query.empty() ? i18n::tr("launcher.empty.type-to-search") : i18n::tr("launcher.empty.no-results")
+      );
+    }
   }
 }
 

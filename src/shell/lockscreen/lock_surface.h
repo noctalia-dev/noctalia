@@ -5,6 +5,7 @@
 #include "render/animation/animation_manager.h"
 #include "render/core/blur_cache.h"
 #include "render/core/color.h"
+#include "render/core/lockscreen_transition_types.h"
 #include "render/core/texture_manager.h"
 #include "render/scene/input_dispatcher.h"
 #include "render/scene/node.h"
@@ -32,6 +33,7 @@ class HttpClient;
 class Image;
 class Input;
 class Label;
+class LockscreenTransitionCover;
 class MprisService;
 class Renderer;
 class SessionActionRunner;
@@ -59,7 +61,15 @@ public:
   void setWallpaperPath(std::string wallpaperPath);
   void setWallpaperFillMode(WallpaperFillMode fillMode);
   void setWallpaperFillColor(Color fillColor);
-  void setDesktopCapture(std::optional<ScreencopyImage> capture);
+  void setDesktopCapture(std::optional<ScreencopyImage> capture, bool useAsBackground);
+  void configureTransition(
+      std::optional<LockscreenTransitionKind> transition, const LockscreenTransitionParams& params, float durationMs
+  );
+  void startEnterTransition();
+  void startExitTransition();
+  [[nodiscard]] bool transitionInputReady() const noexcept;
+  [[nodiscard]] bool exitTransitionComplete() const noexcept;
+  void setTransitionCallback(std::function<void()> callback) { m_transitionCallback = std::move(callback); }
   void setBackgroundStyle(float blurIntensity, float tintIntensity);
   void setBlackout(bool blackout);
   [[nodiscard]] bool isBlackout() const noexcept { return m_blackout; }
@@ -74,11 +84,12 @@ public:
   void onThemeChanged();
   void onGpuResourcesInvalidated();
   void prepareForGraphicsReset() noexcept;
+  void forceRepaintAfterResume();
   void onPointerEvent(const PointerEvent& event);
   void onKeyboardEvent(const KeyboardEvent& event);
   [[nodiscard]] wl_output* output() const noexcept { return m_output; }
   void syncOutputScale(std::int32_t bufferScale, std::uint32_t configuredScaleNumerator);
-  [[nodiscard]] bool hasDesktopCapture() const noexcept;
+  [[nodiscard]] bool usesDesktopCaptureBackground() const noexcept;
   [[nodiscard]] Node* widgetLayer() noexcept { return m_widgetLayer; }
   void setOutputKey(std::string outputKey) { m_outputKey = std::move(outputKey); }
   void setWidgetsHost(LockscreenWidgetsHost* host) noexcept { m_widgetsHost = host; }
@@ -92,7 +103,7 @@ public:
   );
 
 protected:
-  void render() override;
+  void onFrameCallbackDone() override;
 
 private:
   struct ForecastColumn {
@@ -102,7 +113,26 @@ private:
     Label* temps = nullptr;
   };
 
+  enum class TransitionPhase : std::uint8_t {
+    Disabled,
+    Cover,
+    FinalPrime,
+    Ready,
+    Entering,
+    Stable,
+    Exiting,
+    ExitEndpoint,
+    ExitComplete,
+  };
+
   void prepareFrame(bool needsUpdate, bool needsLayout);
+  [[nodiscard]] bool ensureTransitionCaptureTexture();
+  void layoutCoverOnly(std::uint32_t width, std::uint32_t height);
+  void layoutTransitionCover();
+  void syncTransitionCover();
+  void cancelTransitionAnimation();
+  void beginEnterAnimation();
+  void notifyTransitionStateChanged();
   void applyWallpaperTexture();
   void applyBlurredDesktopTexture();
   void releaseWallpaperTextureRef(const std::string& path);
@@ -128,6 +158,7 @@ private:
   Node m_root;
   Node* m_backgroundLayer = nullptr;
   Node* m_widgetLayer = nullptr;
+  LockscreenTransitionCover* m_transitionCover = nullptr;
   WallpaperNode* m_wallpaper = nullptr;
   Box* m_tintOverlay = nullptr;
   Box* m_backdrop = nullptr;
@@ -160,13 +191,22 @@ private:
   TextureHandle m_blurredWallpaperTexture{};
   TextureHandle m_captureSourceTexture{};
   TextureHandle m_blurredDesktopTexture{};
+  TextureHandle m_transitionCaptureTexture{};
   BlurCache m_blurCache;
   BlurCache m_wallpaperBlurCache;
   std::optional<ScreencopyImage> m_desktopCapture;
+  LockscreenTransitionKind m_transition = LockscreenTransitionKind::Fade;
+  LockscreenTransitionParams m_transitionParams;
+  TransitionPhase m_transitionPhase = TransitionPhase::Disabled;
+  AnimationManager::Id m_transitionAnimation = 0;
+  float m_transitionProgress = 1.0F;
+  float m_transitionDurationMs = 1500.0F;
   float m_blurIntensity = 0.5F;
   float m_tintIntensity = 0.3F;
   float m_regularContentScale = 1.0F;
   bool m_blackout = false;
+  bool m_useDesktopCaptureBackground = false;
+  bool m_enterTransitionRequested = false;
   bool m_captureDirty = true;
   std::string m_wallpaperPath;
   std::string m_textureWallpaperPath;
@@ -191,6 +231,7 @@ private:
   LockscreenWidgetsHost* m_widgetsHost = nullptr;
   bool m_firstFrameRendered = false;
   std::function<void()> m_renderCallback;
+  std::function<void()> m_transitionCallback;
 
   SessionActionRunner* m_sessionActions = nullptr;
   MprisService* m_mpris = nullptr;

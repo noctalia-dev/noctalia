@@ -5,11 +5,10 @@
 #include <array>
 #include <cctype>
 #include <cstddef>
-
 namespace calendar {
   namespace {
     constexpr std::size_t kMaxLinkLength = 2048;
-    constexpr std::string_view kWhitespace = " \t\r\n\v\f";
+    constexpr std::string_view kLinkTerminators = " \t\r\n\v\f<>\"'";
 
     bool equalsIgnoreCase(std::string_view a, std::string_view b) {
       if (a.size() != b.size()) {
@@ -86,7 +85,7 @@ namespace calendar {
           continue;
         }
         std::string_view candidate = text.substr(i);
-        if (const std::size_t end = candidate.find_first_of(kWhitespace); end != std::string_view::npos) {
+        if (const std::size_t end = candidate.find_first_of(kLinkTerminators); end != std::string_view::npos) {
           candidate = candidate.substr(0, end);
         }
         candidate = trimTrailingPunctuation(candidate);
@@ -98,9 +97,12 @@ namespace calendar {
     }
   } // namespace
 
-  std::string resolveEventLink(std::string_view location, std::string_view urlProperty) {
-    if (std::string link = extractEmbeddedLink(location); !link.empty()) {
-      return link;
+  std::string
+  resolveEventLink(std::string_view location, std::string_view preferredLink, std::string_view urlProperty) {
+    for (const std::string_view candidate : std::array{location, preferredLink}) {
+      if (std::string link = extractEmbeddedLink(candidate); !link.empty()) {
+        return link;
+      }
     }
     const std::string_view trimmed = StringUtils::trimRightView(StringUtils::trimLeftView(urlProperty));
     return isValidLink(trimmed) ? std::string(trimmed) : std::string{};

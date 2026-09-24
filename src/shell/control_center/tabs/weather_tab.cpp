@@ -286,7 +286,7 @@ std::unique_ptr<Flex> WeatherTab::create() {
                   {.label = i18n::tr("control-center.weather.forecast-view.hourly")},
               },
           .selectedIndex = static_cast<std::size_t>(m_forecastView),
-          .fontSize = Style::fontSizeCaption * scale,
+          .fontSize = Style::fontSizeCaption,
           .scale = scale,
           .compact = true,
           .surfaceOpacity = panelCardOpacity(),

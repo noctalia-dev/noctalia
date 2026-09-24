@@ -15,6 +15,7 @@
 #include "config/schema/config_schema.h"
 #include "config/schema/config_sections.h"
 #include "config/schema/engine.h"
+#include "config/schema/ranges.h"
 #include "core/input/key_chord.h"
 #include "core/toml.h"
 #include "scripting/plugin_id.h"
@@ -202,9 +203,9 @@ location = "https://example.invalid/bad"
     bar.reserveSpace = false;
     bar.layer = "overlay";
     bar.thickness = 44;
-    bar.backgroundOpacity = 0.85f;
+    bar.backgroundOpacity = 0.85F;
     bar.border = colorSpecFromConfigString("#123456");
-    bar.borderWidth = 2.0f;
+    bar.borderWidth = 2.0F;
     bar.radius = 18;
     bar.radiusTopLeft = 4;
     bar.radiusTopRight = 6;
@@ -229,9 +230,9 @@ location = "https://example.invalid/bad"
     bar.shadow = false;
     bar.contactShadow = true;
     bar.panelOverlap = 2;
-    bar.capsuleThickness = 0.5f;
-    bar.scale = 2.0f;
-    bar.fontScale = 1.5f;
+    bar.capsuleThickness = 0.5F;
+    bar.scale = 2.0F;
+    bar.fontScale = 1.5F;
     bar.fontWeight = 600;
     bar.fontFamily = "Inter";
     bar.startWidgets = {"launcher"};
@@ -242,9 +243,9 @@ location = "https://example.invalid/bad"
     bar.widgetCapsuleForeground = colorSpecFromConfigString("#fedcba");
     bar.widgetColor = colorSpecFromConfigString("#0a0b0c");
     bar.widgetIconColor = colorSpecFromConfigString("#0c0b0a");
-    bar.widgetCapsulePadding = 16.0f;
+    bar.widgetCapsulePadding = 16.0F;
     bar.widgetCapsuleRadius = 12.0;
-    bar.widgetCapsuleOpacity = 0.9f;
+    bar.widgetCapsuleOpacity = 0.9F;
     bar.widgetCapsuleBorderSpecified = true;
     bar.widgetCapsuleBorder = colorSpecFromConfigString("#111213");
     bar.hoverHighlight = false;
@@ -255,9 +256,9 @@ location = "https://example.invalid/bad"
     group.borderSpecified = true;
     group.border = colorSpecFromConfigString("#333435");
     group.foreground = colorSpecFromConfigString("#444546");
-    group.padding = 20.0f;
-    group.radius = 14.0f;
-    group.opacity = 0.8f;
+    group.padding = 20.0F;
+    group.radius = 14.0F;
+    group.opacity = 0.8F;
     group.accordion = true;
     group.accordionDirection = BarAccordionDirection::Start;
     group.widgetSpacing = 10;
@@ -273,9 +274,9 @@ location = "https://example.invalid/bad"
     ovr.reserveSpace = true;
     ovr.layer = "top";
     ovr.thickness = 50;
-    ovr.backgroundOpacity = 0.7f;
+    ovr.backgroundOpacity = 0.7F;
     ovr.border = colorSpecFromConfigString("#a1a2a3");
-    ovr.borderWidth = 3.0f;
+    ovr.borderWidth = 3.0F;
     ovr.radius = 22;
     ovr.radiusTopLeft = 1;
     ovr.radiusTopRight = 2;
@@ -294,9 +295,9 @@ location = "https://example.invalid/bad"
     ovr.shadow = true;
     ovr.contactShadow = false;
     ovr.panelOverlap = -1;
-    ovr.capsuleThickness = 0.25f;
-    ovr.scale = 1.5f;
-    ovr.fontScale = 1.5f;
+    ovr.capsuleThickness = 0.25F;
+    ovr.scale = 1.5F;
+    ovr.fontScale = 1.5F;
     ovr.fontFamily = "Fira Sans";
     ovr.startWidgets = std::vector<std::string>{"tray"};
     ovr.centerWidgets = std::vector<std::string>{"media"};
@@ -316,9 +317,9 @@ location = "https://example.invalid/bad"
     ogroup.borderSpecified = true;
     ogroup.border = colorSpecFromConfigString("#0f0e0d");
     ogroup.foreground = colorSpecFromConfigString("#0c0b0a");
-    ogroup.padding = 18.0f;
-    ogroup.radius = 9.0f;
-    ogroup.opacity = 0.6f;
+    ogroup.padding = 18.0F;
+    ogroup.radius = 9.0F;
+    ogroup.opacity = 0.6F;
     ovr.widgetCapsuleGroups = std::vector<BarCapsuleGroupStyle>{ogroup};
     ovr.widgetCapsulePadding = 24.0;
     ovr.widgetCapsuleRadius = 30.0;
@@ -331,34 +332,37 @@ location = "https://example.invalid/bad"
   // checks exercise real serialization rather than all-defaults.
   Config makeProbe() {
     Config c;
-    c.audio = AudioConfig{true, true, 0.73f, "change.ogg", "notify.ogg"};
+    c.audio = AudioConfig{true, true, 0.73F, "freedesktop"};
     c.weather = WeatherConfig{false, false, 17, "imperial"};
     c.osd.position = "bottom_left";
     c.osd.positionVertical = "top_right";
     c.osd.orientation = "vertical";
-    c.osd.scale = 1.4f;
-    c.osd.backgroundOpacity = 0.42f;
+    c.osd.scale = 1.4F;
+    c.osd.backgroundOpacity = 0.42F;
     c.osd.border = false;
     c.osd.offsetX = 33;
     c.osd.offsetY = 11;
     c.osd.monitors = {"DP-1", "HDMI-A-1"};
     c.osd.kinds.lockKeys = false;
     c.osd.kinds.keyboardLayout = false;
-    c.backdrop = BackdropConfig{true, 0.8f, 0.2f};
+    c.backdrop = BackdropConfig{true, 0.8F, 0.2F};
     c.lockscreen = LockscreenConfig{
         .lockBeforeSuspend = false,
         .blurredDesktop = true,
-        .blurIntensity = 0.6f,
-        .tintIntensity = 0.25f,
+        .transitions = {LockscreenTransition::Disc, LockscreenTransition::Zoom},
+        .transitionDurationMs = 900.0F,
+        .edgeSmoothness = 0.7F,
+        .blurIntensity = 0.6F,
+        .tintIntensity = 0.25F,
         .monitors = {"DP-1"}
     };
     c.system.monitor.enabled = false;
     c.system.monitor.cpuTempSensorPath = "/sys/class/hwmon/hwmon3/temp1_input";
-    c.system.monitor.cpuPollSeconds = 5.0f;
-    c.system.monitor.gpuPollSeconds = 4.0f;
-    c.system.monitor.memoryPollSeconds = 6.0f;
-    c.system.monitor.networkPollSeconds = 7.0f;
-    c.system.monitor.diskPollSeconds = 12.0f;
+    c.system.monitor.cpuPollSeconds = 5.0F;
+    c.system.monitor.gpuPollSeconds = 4.0F;
+    c.system.monitor.memoryPollSeconds = 6.0F;
+    c.system.monitor.networkPollSeconds = 7.0F;
+    c.system.monitor.diskPollSeconds = 12.0F;
     c.nightlight = NightLightConfig{true, true, 6000, 3500}; // gap satisfied
     c.location.autoLocate = true;
     c.location.address = "Berlin";
@@ -373,8 +377,8 @@ location = "https://example.invalid/bad"
         .showActions = false,
         .position = "bottom_left",
         .layer = "overlay",
-        .scale = 1.3f,
-        .backgroundOpacity = 0.5f,
+        .scale = 1.3F,
+        .backgroundOpacity = 0.5F,
         .border = false,
         .offsetX = 12,
         .offsetY = 6,
@@ -396,7 +400,7 @@ location = "https://example.invalid/bad"
     c.dock.position = DockEdge::Left;
     c.dock.iconSize = 40;
     c.dock.border = colorSpecFromRole(ColorRole::Primary);
-    c.dock.borderWidth = 1.5f;
+    c.dock.borderWidth = 1.5F;
     c.dock.radius = 20;
     c.dock.radiusTopLeft = 10;
     c.dock.radiusTopRight = 12;
@@ -453,7 +457,7 @@ location = "https://example.invalid/bad"
     c.keybinds.save = defaultKeybindSet(KeybindAction::Save);
     c.hooks.commands[0] = {"notify-send hi"};
     c.hooks.commands[2] = {"cmd-a", "cmd-b"};
-    c.idle.preActionFadeSeconds = 3.0f;
+    c.idle.preActionFadeSeconds = 3.0F;
     // Explicit normalized actions so normalizeIdleBehaviorAction is a no-op on read.
     c.idle.behaviors = {
         {"dim", true, 60, "lock", "", "", true},
@@ -462,8 +466,8 @@ location = "https://example.invalid/bad"
     c.wallpaper.enabled = false;
     c.wallpaper.fillColor = colorSpecFromConfigString("#ff8800");
     c.wallpaper.transitions = {WallpaperTransition::Wipe, WallpaperTransition::Zoom};
-    c.wallpaper.transitionDurationMs = 2000.0f;
-    c.wallpaper.edgeSmoothness = 0.5f;
+    c.wallpaper.transitionDurationMs = 2000.0F;
+    c.wallpaper.edgeSmoothness = 0.5F;
     c.wallpaper.directory = "/srv/wallpapers"; // absolute: expandUserPath leaves it unchanged
     c.wallpaper.automation.enabled = true;
     c.wallpaper.automation.intervalSeconds = 30;
@@ -471,7 +475,7 @@ location = "https://example.invalid/bad"
     c.wallpaper.monitorOverrides = {
         {"DP-1", true, colorSpecFromConfigString("#00ff00"), std::string("/srv/wp1"), std::nullopt, std::nullopt},
     };
-    c.accessibility.uiScale = 1.25f;
+    c.accessibility.uiScale = 1.25F;
     c.shell.buttonBorders = false;
     c.shell.fontFamily = "Inter";
     c.shell.lang = "en_US";
@@ -483,7 +487,7 @@ location = "https://example.invalid/bad"
     c.storage.keyFile = "/run/agenix/noctalia-storage-key";
     c.shell.avatarPath = "/home/u/face.png";
     c.shell.settingsWindowTranslucent = true;
-    c.shell.animation.speed = 1.5f;
+    c.shell.animation.speed = 1.5F;
     c.shell.shadow.direction = ShadowDirection::UpLeft;
     c.shell.panel.transparencyMode = PanelTransparencyMode::Glass;
     c.shell.panel.floatingLayer = "top";
@@ -508,6 +512,8 @@ location = "https://example.invalid/bad"
     c.shell.mpris.blacklist = {"firefox"};
     c.shell.screenshot.directory = "/shots";
     c.shell.screenshot.pipeToCommand = true;
+    c.shell.screenshot.skipAnnotateOnCopySave = true;
+    c.shell.screenshot.closeOnSave = false; // non-default (default is true) so the round-trip exercises it
     c.shell.session.actions = {
         SessionPanelActionConfig{
             "lock",
@@ -551,7 +557,7 @@ location = "https://example.invalid/bad"
             3,
         },
     };
-    c.accessibility.uiScale = 1.25f;
+    c.accessibility.uiScale = 1.25F;
     c.accessibility.highContrast = true;
 
     c.hotCorners.enabled = true;
@@ -589,7 +595,7 @@ location = "https://example.invalid/bad"
       AudioConfig a{};
       Diagnostics d;
       readInto(t, a, audioSchema(), "audio", d);
-      if (a.soundVolume != 1.0f) {
+      if (a.soundVolume != 1.0F) {
         fail("audio.sound_volume clamp: expected 1.0");
       }
     }
@@ -610,7 +616,7 @@ location = "https://example.invalid/bad"
       OsdConfig o{};
       Diagnostics d;
       readInto(t, o, osdSchema(), "osd", d);
-      if (o.scale != 0.5f) {
+      if (o.scale != 0.5F) {
         fail("osd.scale clamp: expected 0.5");
       }
     }
@@ -620,8 +626,42 @@ location = "https://example.invalid/bad"
       BarConfig b{};
       Diagnostics d;
       readInto(t, b, barFieldsSchema(), "bar", d);
-      if (b.fontScale != 0.2f) {
+      if (b.fontScale != *kBarFontScaleRange.min) {
         fail("bar.font_scale clamp: expected 0.2");
+      }
+    }
+    // Lockscreen transitions own their duration range and retain an empty effect
+    // pool as the explicit way to disable animation.
+    {
+      auto t = toml::parse("transition = []\ntransition_duration = 25\nedge_smoothness = 2.0");
+      LockscreenConfig lockscreen{};
+      Diagnostics d;
+      readInto(t, lockscreen, lockscreenSchema(), "lockscreen", d);
+      if (!lockscreen.transitions.empty()) {
+        fail("lockscreen.transition: empty pool did not disable transitions");
+      }
+      if (lockscreen.transitionDurationMs != *kLockscreenTransitionDurationRange.min) {
+        fail("lockscreen.transition_duration clamp: expected 100");
+      }
+      if (lockscreen.edgeSmoothness != 1.0F) {
+        fail("lockscreen.edge_smoothness clamp: expected 1.0");
+      }
+    }
+    // Invalid transition values are surfaced instead of silently changing the
+    // configured effect pool.
+    {
+      auto t = toml::parse(R"(transition = ["fade", "unknown", 3])");
+      LockscreenConfig lockscreen{};
+      Diagnostics d;
+      readInto(t, lockscreen, lockscreenSchema(), "lockscreen", d);
+      if (lockscreen.transitions != std::vector{LockscreenTransition::Fade}) {
+        fail("lockscreen.transition: valid values were not retained");
+      }
+      const auto warnings = std::ranges::count_if(d.entries, [](const Diagnostics::Entry& entry) {
+        return entry.severity == Diagnostics::Severity::Warning && entry.path.starts_with("lockscreen.transition[");
+      });
+      if (warnings != 2) {
+        fail("lockscreen.transition: invalid entries were not reported");
       }
     }
     // Clipboard history count accepts large text-heavy histories but still has

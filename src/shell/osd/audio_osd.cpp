@@ -95,7 +95,7 @@ void AudioOsd::showOutput(std::uint32_t sinkId, float volume, bool muted, bool p
     m_currentKind = OsdKind::Volume;
   }
   if (playFeedback && m_soundPlayer != nullptr && now - m_lastSoundAt >= kVolumeSoundCooldown) {
-    m_soundPlayer->play("volume-change");
+    m_soundPlayer->play("audio-volume-change");
     m_lastSoundAt = now;
   }
   m_lastSinkId = sinkId;
@@ -126,7 +126,7 @@ void AudioOsd::showInput(std::uint32_t sourceId, float volume, bool muted, bool 
     m_currentKind = OsdKind::Microphone;
   }
   if (playFeedback && m_soundPlayer != nullptr && now - m_lastSoundAt >= kVolumeSoundCooldown) {
-    m_soundPlayer->play("volume-change");
+    m_soundPlayer->play("audio-volume-change");
     m_lastSoundAt = now;
   }
   m_lastSourceId = sourceId;

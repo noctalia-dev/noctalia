@@ -27,7 +27,51 @@
     }
   },
   "bar": {
+    "annotate": {
+      "capture-new-region": "Capture new region (discards the current edit)",
+      "close": "Close without delivering (Esc)",
+      "color-black": "Black",
+      "color-blue": "Blue",
+      "color-green": "Green",
+      "color-orange": "Orange",
+      "color-purple": "Purple",
+      "color-red": "Red",
+      "color-white": "White",
+      "color-yellow": "Yellow",
+      "copy": "Copy the annotated image (Ctrl+C)",
+      "cursor": "Show the pointer captured with the screen (p)",
+      "cursor-capture-failed": "Pointer toggle unavailable: the compositor could not provide a separate cursor image",
+      "cursor-live": "Freeze the screen first to change the captured pointer (F)",
+      "cursor-not-captured": "Pointer toggle unavailable: this compositor does not support separate cursor capture",
+      "done": "Apply the screenshot settings (Enter)",
+      "fill-off": "Shape fill: off",
+      "fill-on": "Shape fill: on",
+      "freeze": "Freeze the screen under the ink (f)",
+      "move-toolbar": "Drag to move the toolbar",
+      "redo": "Redo (Ctrl+Shift+Z)",
+      "save": "Save the annotated image (Ctrl+S)",
+      "size-advanced": "Fine size adjustment",
+      "size-decrease": "Thinner ([)",
+      "size-increase": "Thicker (])",
+      "size-large": "Large",
+      "size-medium": "Medium",
+      "size-small": "Small",
+      "tool-arrow": "Arrow (a) · hold Shift to snap the angle",
+      "tool-blur": "Blur a region (u)",
+      "tool-brush": "Brush (b)",
+      "tool-circle": "Ellipse (o) · hold Shift for a circle",
+      "tool-crop": "Crop the export (c)",
+      "tool-eraser": "Eraser (e)",
+      "tool-highlighter": "Highlighter (h)",
+      "tool-line": "Line (l) · hold Shift to snap the angle",
+      "tool-move": "Move an annotation (m)",
+      "tool-numbering": "Numbered marker (n)",
+      "tool-rectangle": "Rectangle (s) · hold Shift for a square",
+      "tool-text": "Text (t)",
+      "undo": "Undo (Ctrl+Z)"
+    },
     "screenshot": {
+      "annotate-export-failed": "Failed to build the annotated image",
       "choose-display": "Choose display",
       "confirm-region": "{copy} to copy · {save} to save · Enter or Space for defaults · {cancel} to cancel · Drag to reselect",
       "fullscreen": "Full screen",
@@ -60,6 +104,7 @@
       "network": {
         "active": "Active",
         "band": "Band",
+        "cellular": "Cellular",
         "connected": "Connected",
         "connecting": "Connecting",
         "download": "Download",
@@ -73,8 +118,10 @@
         "not-connected": "Not connected",
         "off": "Off",
         "on": "On",
+        "operator": "Operator",
         "scanning": "Scanning",
         "signal": "Signal",
+        "technology": "Technology",
         "upload": "Upload",
         "vpn": "VPN",
         "wan-ip": "WAN IP",
@@ -239,6 +286,7 @@
     "display": {
       "disabled": "Disabled",
       "no-displays": "No monitors available",
+      "rescan": "Rescan DDC/CI monitors",
       "unknown-resolution": "Unknown resolution"
     },
     "home": {
@@ -270,15 +318,39 @@
       "start-playback": "Start playback in an MPRIS app"
     },
     "network": {
+      "anonymous-identity": "Anonymous identity (optional)",
       "available": "Available",
+      "ca-certificate": "CA certificate path (optional)",
+      "cellular": "Cellular",
+      "cellular-connected": "Connected",
+      "cellular-connecting": "Connecting…",
+      "cellular-connection": "Cellular connection",
+      "cellular-enabling": "Turning on…",
+      "cellular-failed": "Failed",
+      "cellular-locked": "SIM locked",
+      "cellular-no-service": "No service",
+      "cellular-off": "Off",
+      "cellular-registered": "Registered",
+      "cellular-searching": "Searching…",
       "connect": "Connect",
       "current-connection": "Current Connection",
+      "domain-suffix-match": "Server domain suffix",
+      "eap-method": "EAP method",
+      "enterprise-prompt-for": "Sign in to {ssid}",
+      "error-ca-not-absolute": "The certificate path must be absolute, starting with /.",
+      "error-certificate-required": "This network requires certificate-based authentication (EAP-TLS), which is not supported yet.",
+      "error-enterprise-unsupported": "The active network backend cannot configure 802.1X networks.",
+      "error-missing-identity": "Enter the identity your organization issued you.",
+      "error-missing-password": "Enter your password.",
+      "error-unsupported-phase2": "PEAP requires MSCHAPv2 inner authentication.",
       "external-ip": "WAN {ip}",
+      "identity": "Identity",
       "no-networks": "No networks in range",
       "not-connected": "Not connected",
       "password": "Password",
       "password-prompt": "Enter password",
       "password-prompt-for": "Enter password for {ssid}",
+      "phase2-auth": "Inner authentication",
       "saved": "Saved",
       "unavailable-detail": "Install and enable NetworkManager, wpa_supplicant, or iwd to manage networks from here.",
       "unavailable-title": "Network service unavailable",
@@ -676,6 +748,7 @@
       "unpin-from-dock": "Unpin from Dock"
     },
     "empty": {
+      "loading": "Loading results...",
       "no-results": "No results found",
       "type-to-search": "Type to search…"
     },
@@ -696,6 +769,20 @@
       },
       "emoji": {
         "title": "Emoji"
+      },
+      "panel": {
+        "builtin": {
+          "clipboard": "Clipboard",
+          "control-center": "Control Center",
+          "launcher": "Launcher",
+          "polkit": "Authentication Prompt",
+          "session": "Session",
+          "setup-wizard": "Setup Wizard",
+          "test": "Test Panel",
+          "tray-drawer": "Tray Drawer",
+          "wallpaper": "Wallpaper"
+        },
+        "title": "Panels"
       },
       "session": {
         "action-subtitle": "Run session action",
@@ -1003,13 +1090,16 @@
       },
       "monitor-override": {
         "create": "Create",
+        "custom": "Custom",
         "delete": "Delete",
         "delete-confirm-desc": "This GUI-created monitor override will be removed from settings.toml.",
         "delete-confirm-title": "Delete \"{name}\"?",
+        "exists": "An override for this monitor already exists.",
         "label": "Monitor: {name}",
         "management": "Monitor Override",
         "match-placeholder": "Monitor match",
         "new": "Monitor Override",
+        "new-title": "New Monitor Override",
         "rename": "Rename",
         "rename-save": "Save"
       },
@@ -1263,6 +1353,9 @@
         "screen-corners": "Screen Corners",
         "screen-time": "Screen Time",
         "screenshot": "Screenshot",
+        "screenshot-annotation": "Annotation",
+        "screenshot-capture": "Capture",
+        "screenshot-output": "Output",
         "security": "Security",
         "session-panel": "Session Panel",
         "shape": "Shape",
@@ -1296,11 +1389,13 @@
         "plugins": "Plugins",
         "popups": "Popups",
         "power": "Power",
+        "screenshot": "Screenshot",
         "security": "Security",
         "services": "Services",
         "shell": "Shell",
         "system": "System",
         "templates": "Templates",
+        "umbriel": "Umbriel",
         "wallpaper": "Wallpaper"
       }
     },
@@ -1395,6 +1490,16 @@
       "layer": {
         "overlay": "Overlay",
         "top": "Top"
+      },
+      "lockscreen": {
+        "transition": {
+          "disc": "Disc",
+          "fade": "Fade",
+          "honeycomb": "Honeycomb",
+          "stripes": "Stripes",
+          "wipe": "Wipe",
+          "zoom": "Zoom"
+        }
       },
       "notification-urgency": {
         "critical": "Critical",
@@ -1536,6 +1641,8 @@
         "incompatible-plugin-api": "incompatible plugin API",
         "remove": "Remove plugin",
         "requires": "Requires: {dependencies}",
+        "search-empty": "No plugins match \"{query}\".",
+        "search-placeholder": "Search installed plugins",
         "title": "Plugins",
         "update-all": "Update all ({count})",
         "update-available": "update available",
@@ -2218,6 +2325,10 @@
           "description": "Use a snapshot of the desktop as the lock screen background",
           "label": "Desktop Capture"
         },
+        "edge-smoothness": {
+          "description": "Feathering of the lock screen transition edges",
+          "label": "Transition Edge Smoothness"
+        },
         "enabled": {
           "description": "Enable session lock, logind integration, and lock actions",
           "label": "Lock Screen"
@@ -2237,6 +2348,14 @@
         "tint-intensity": {
           "description": "Surface-color tint over the lock screen background",
           "label": "Tint Intensity"
+        },
+        "transition-duration": {
+          "description": "Length of the lock and unlock animations in milliseconds",
+          "label": "Transition Duration"
+        },
+        "transitions": {
+          "description": "Effects available when locking and unlocking (one is picked at random)",
+          "label": "Transition Effects"
         },
         "wallpaper": {
           "description": "Custom image for the lock screen background; leave empty to use the desktop wallpaper",
@@ -2284,6 +2403,10 @@
         "history-retention-hours": {
           "description": "Automatically remove notification history entries older than the specified number of hours (0 to keep forever)",
           "label": "Retention Period"
+        },
+        "keep-dismissed-in-history": {
+          "description": "Keep notifications in history after their toasts are dismissed",
+          "label": "Keep Dismissed Notifications"
         },
         "layer": {
           "description": "Use Overlay to show notification toasts above fullscreen apps",
@@ -2403,6 +2526,10 @@
           "description": "Also show emoji results in unprefixed search",
           "label": "Emoji in Global Search"
         },
+        "launcher-global-panels": {
+          "description": "Also show panels in unprefixed search",
+          "label": "Panels in Global Search"
+        },
         "launcher-global-session": {
           "description": "Also show session actions in unprefixed search",
           "label": "Session in Global Search"
@@ -2414,6 +2541,10 @@
         "launcher-global-windows": {
           "description": "Also show open windows in unprefixed search",
           "label": "Windows in Global Search"
+        },
+        "launcher-ignored-panels": {
+          "description": "Panels the panel provider never lists (e.g. authentication prompts, the setup wizard)",
+          "label": "Panels Ignored"
         },
         "launcher-pinned-apps": {
           "description": "Desktop entry IDs of apps pinned to the launcher; they appear first when the launcher opens",
@@ -2430,6 +2561,10 @@
         "launcher-prefix-emoji": {
           "description": "Trigger prefix for emoji search",
           "label": "Emoji Prefix"
+        },
+        "launcher-prefix-panels": {
+          "description": "Trigger prefix for panel search",
+          "label": "Panels Prefix"
         },
         "launcher-prefix-session": {
           "description": "Trigger prefix for session power actions",
@@ -2697,6 +2832,11 @@
         "shell-sounds": {
           "description": "Play sound effects for shell events",
           "label": "Shell Sounds"
+        },
+        "sound-theme": {
+          "default": "Default",
+          "description": "Sound theme used for shell sound effects",
+          "label": "Sound Theme"
         },
         "sound-volume": {
           "description": "Volume for shell sound effects",
@@ -3050,6 +3190,18 @@
           "description": "Clear stored per-app foreground usage history",
           "label": "Reset Screen Time Data"
         },
+        "screenshot-annotate": {
+          "description": "Open the annotation editor on every screenshot; Done applies the save, clipboard, and pipe settings",
+          "label": "Annotate Before Delivering"
+        },
+        "screenshot-close-on-copy": {
+          "description": "Close after a successful copy from the editor, including when opened directly",
+          "label": "Close Editor After Copying"
+        },
+        "screenshot-close-on-save": {
+          "description": "Close after a successful save from the editor, including when opened directly",
+          "label": "Close Editor After Saving"
+        },
         "screenshot-confirm-region": {
           "description": "After drawing a region, keep the overlay open until you confirm with Enter or Space",
           "label": "Confirm Region"
@@ -3070,6 +3222,9 @@
         "screenshot-freeze-screen": {
           "description": "Capture the desktop before region selection so moving content stays still",
           "label": "Freeze Screen"
+        },
+        "screenshot-output": {
+          "description": "Actions applied after capture, or when you choose Done in the annotation editor."
         },
         "screenshot-pipe-command": {
           "description": "Command run as /bin/sh -lc with the PNG on stdin; for annotators or uploaders (for example: swappy -f - or satty -f -)",
@@ -3092,6 +3247,10 @@
           "description": "Include the mouse pointer in screenshots",
           "label": "Show Cursor"
         },
+        "screenshot-skip-annotate-on-copy-save": {
+          "description": "Copy and Save in the region overlay deliver immediately; Enter and Space still open the editor",
+          "label": "Skip Editor on Copy or Save"
+        },
         "settings-window-translucent": {
           "description": "Make the Settings background translucent for compositor effects",
           "label": "Settings Translucent Background"
@@ -3112,6 +3271,10 @@
         "time-format": {
           "description": "Default time format for shell UI without its own setting",
           "label": "Time Format"
+        },
+        "umbriel-overview-type-to-launch": {
+          "description": "Open the launcher when typing in umbriel overview; uses a tiny keyboard-focus surface while overview is open",
+          "label": "Type to Launch"
         },
         "window-switcher-mru": {
           "description": "Order windows in the switcher by most recently used rather than workspace and screen layout",
@@ -3284,6 +3447,10 @@
       "actions": {
         "command-placeholder": "Shell command",
         "commands": {
+          "annotate": {
+            "description": "Draw on the screen over running apps; press F or the Freeze button to capture the background",
+            "label": "Annotate screen"
+          },
           "bar-auto-hide-set": {
             "description": "Set auto-hide state for a bar",
             "label": "Set bar auto-hide"
@@ -3591,6 +3758,10 @@
           "power-set": {
             "description": "Set the UPower power profile (e.g. performance, balanced, power-saver)",
             "label": "Set power profile"
+          },
+          "screenshot-annotate": {
+            "description": "Freeze the screen and annotate it, then copy or save",
+            "label": "Annotate screenshot"
           },
           "screenshot-fullscreen": {
             "description": "Capture the focused monitor by default, pick interactively with pick, or all outputs with all",
@@ -3932,6 +4103,10 @@
           "description": "Tint the custom image with the widget Icon Color setting",
           "label": "Colorize Custom Image"
         },
+        "custom-label": {
+          "description": "Custom text shown beside the glyph or custom image; remains visible when Show Glyph is disabled",
+          "label": "Custom Label"
+        },
         "detached-panel": {
           "description": "Open the drawer as a floating panel instead of anchoring it to the bar edge",
           "label": "Detached Panel"
@@ -4006,7 +4181,7 @@
           "volume-description": "Custom icon glyph; leave empty to use the built-in dynamic icons"
         },
         "glyph-position": {
-          "description": "In which order to display the glyph in relation to the text/graph/gauge",
+          "description": "Place the glyph or custom image and custom label relative to the value or visualization",
           "label": "Glyph Position"
         },
         "group-by-workspace": {

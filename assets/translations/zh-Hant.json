@@ -1104,7 +1104,49 @@
         "wallpaper": "桌布",
         "weather": "天氣",
         "widget-list": "小工具列表",
-        "widgets": "小工具"
+        "widgets": "小工具",
+        "window-switcher": "視窗切換器"
+      },
+      "sections": {
+        "accessibility": "輔助功能",
+        "appearance": "外觀",
+        "backdrop": "背景圖片",
+        "bar": "狀態列",
+        "control-center": "控制中心",
+        "desktop": "桌面",
+        "dock": "Dock",
+        "hooks": "Hooks",
+        "keybinds": "快捷鍵",
+        "launcher": "啟動器",
+        "location": "位置",
+        "niri": "Niri",
+        "notifications": "通知",
+        "osd": "螢幕顯示",
+        "panels": "面板",
+        "plugins": "擴充套件",
+        "popups": "彈出式視窗",
+        "power": "電源",
+        "security": "安全",
+        "services": "服務",
+        "shell": "Shell",
+        "system": "系統",
+        "templates": "範本",
+        "wallpaper": "桌布"
+      }
+    },
+    "notifications": {
+      "filter": {
+        "add": "增加過濾器",
+        "add-title": "增加通知過濾器",
+        "allow-permanent": "允許常駐通知",
+        "allowed-urgencies-label": "允許通知級別",
+        "flag": {
+          "history": "歷史紀錄",
+          "permanent": "常駐",
+          "sound": "提示音",
+          "toast": "Toast 通知"
+        },
+        "flags-label": "當配對時"
       }
     }
   }

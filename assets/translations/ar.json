@@ -27,6 +27,17 @@
     }
   },
   "bar": {
+    "annotate": {
+      "close": "إغلاق دون إرسال (Esc)",
+      "color-black": "أسود",
+      "color-blue": "أزرق",
+      "color-green": "أخضر",
+      "color-orange": "برتقالي",
+      "color-purple": "أرجواني",
+      "color-red": "أحمر",
+      "color-white": "أبيض",
+      "color-yellow": "أصفر"
+    },
     "screenshot": {
       "choose-display": "اختر الشاشة",
       "confirm-region": "{نسخ} للنسخ · {حفظ} للحفظ · أدخل أو مسافة للإعدادات الافتراضية · {إلغاء} للإلغاء · اسحب لإعادة التحديد",
@@ -772,12 +783,15 @@
       "desktop-widgets-editor": "محرر ودجت",
       "desktop-widgets-editor-enabled": "محرر ودجات سطح المكتب مفعّل. انتقل إلى مساحة عمل فارغة حتى لا تغطي النوافذ المفتوحة المحرر.",
       "greeter-sync": "مزامنة شاشة الدخول",
-      "greeter-sync-pending": "في انتظار موافقة المسؤول للكتابة على الشاشة الرئيسية.",
-      "greeter-sync-pending-console": "في انتظار موافقة المسؤول. وافق على طلب Polkit في Noctalia أو عبر وحدة التحكم، أو شغّل pkexec يدويًا.",
-      "greeter-sync-pending-manual": "الملفات جاهزة. نفّذ في الطرفية: pkexec noctalia-greeter-apply-appearance \"$XDG_RUNTIME_DIR/noctalia-greeter-sync\". أو اضبط الأمر في الإعدادات ثم حاول مرة أخرى.",
+      "greeter-sync-pending": "مزامنة المظهر مع شاشة الترحيب. إذا ظهرت مطالبة من المسؤول، فقم بالموافقة عليها؛ حيث تتبع عملية المصادقة بدون كلمة مرور سياسة النظام.",
+      "greeter-sync-pending-console": "مزامنة الهوية مع برنامج الترحيب. إذا كانت هناك حاجة إلى تفويض، فقم بالموافقة على موجه polkit في Noctalia أو على TTY أو على وحدة التحكم.",
+      "greeter-sync-pending-legacy": "المزامنة من خلال أداة المساعدة القديمة التي تتطلب المصادقة. يلزم الحصول على موافقة المسؤول.",
+      "greeter-sync-pending-manual": "يتم تجهيز الملفات للمزامنة القديمة التي تتطلب المصادقة. قم بتشغيل الأداة المساعدة «apply» في محطة طرفية، مع الحفاظ على NOCTALIA_GREETER_STATE_DIR إذا كنت تستخدم مسارًا مخصصًا، أو قم بتكوين shell.greeter_sync.privilege_command ثم أعد المزامنة.",
+      "greeter-sync-pending-manual-pkexec": "مزامنة المظهر مع شاشة الترحيب. إذا كانت هناك حاجة إلى تفويض من المسؤول ولم تظهر أي مطالبة، فقم بتشغيل الأمر التالي في محطة طرفية: pkexec noctalia-greeter-apply-appearance --sync ”/run/user/$(id -u)/noctalia-greeter-sync“.",
       "greeter-sync-success": "تمت مزامنة المظهر. ستطبق التغييرات في شاشة الدخول القادمة.",
-      "greeter-sync-timeout": "لا تزال مزامنة شاشة الدخول في انتظار موافقة المسؤول. تحقق من الطرفية لطلب Polkit، أو فعّل وكيل Polkit من إعدادات الأمان، أو شغّل pkexec يدويًا.",
-      "greeter-sync-timeout-manual": "تحتاج مزامنة شاشة الدخول إلى موافقة المسؤول. شغّل في الطرفية: pkexec noctalia-greeter-apply-appearance \"$XDG_RUNTIME_DIR/noctalia-greeter-sync\"",
+      "greeter-sync-timeout": "لا تزال عملية مزامنة Greeter في انتظار الحصول على التفويض. تحقق من وجود موجه polkit على جهاز TTY أو وحدة التحكم، أو قم بتمكين وكيل polkit في إعدادات الأمان، أو قم بتشغيل pkexec يدويًّا.",
+      "greeter-sync-timeout-manual": "لا تزال عملية المزامنة القديمة المصادق عليها تتطلب موافقة المسؤول. قم بتشغيل أداة المساعدة «positional apply» في نافذة الأوامر واحتفظ بـ NOCTALIA_GREETER_STATE_DIR إذا كنت تستخدم مسارًا مخصصًا.",
+      "greeter-sync-timeout-manual-pkexec": "لا تزال عملية مزامنة Greeter بحاجة إلى ترخيص. قم بتشغيل الأمر التالي في محطة الأوامر: pkexec noctalia-greeter-apply-appearance --sync ”/run/user/$(id -u)/noctalia-greeter-sync“",
       "keybind-app": "Noctalia",
       "keybind-invalid-modifier": "يقبل هذا الاختصار مفتاحاً واحداً بدون معدّلات.",
       "keybind-invalid-printable": "المفاتيح القابلة للطباعة (أحرف، أرقام، رموز) تتطلب معدّلاً مثل Ctrl أو Alt.",
@@ -1142,8 +1156,8 @@
       "reset-page": "فشل إعادة ضبط بعض الإعدادات.",
       "support-report": "فشل حفظ تقرير الدعم.",
       "sync-greeter": "تعذرت مزامنة المظهر مع Noctalia Greeter.",
-      "sync-greeter-timeout": "لا تزال المزامنة تنتظر موافقة المسؤول. تحقق من الطرفية لطلب polkit، أو فعّل وكيل polkit من الأمان، أو شغل pkexec يدوياً.",
-      "sync-greeter-timeout-manual": "تطلب المزامنة موافقة المسؤول. نفذ في الطرفية: pkexec noctalia-greeter-apply-appearance \"$XDG_RUNTIME_DIR/noctalia-greeter-sync\"",
+      "sync-greeter-timeout": "لا تزال عملية مزامنة Greeter في انتظار الحصول على التفويض. تحقق من وجود موجه polkit على جهاز TTY أو وحدة التحكم، أو قم بتمكين وكيل polkit في إعدادات الأمان، أو قم بتشغيل pkexec يدويًّا.",
+      "sync-greeter-timeout-manual": "لا تزال عملية المزامنة القديمة المصادق عليها تتطلب موافقة المسؤول. قم بتشغيل أداة المساعدة «positional apply» في نافذة الأوامر واحتفظ بـ NOCTALIA_GREETER_STATE_DIR إذا كنت تستخدم مسارًا مخصصًا.",
       "widget": {
         "rename": "تعذر إعادة تسمية الودجت المسمّاة."
       },
@@ -2863,11 +2877,11 @@
           "label": "إظهار عنوان WAN"
         },
         "greeter-sync-auto": {
-          "description": "مزامنة المستقبل تلقائياً عند تغيير الخلفية، الألوان، أو وضع السمة",
+          "description": "تتم مزامنة شاشة الترحيب تلقائيًا عند تغيير الخلفية أو الألوان أو وضع السمة أو خط واجهة المستخدم. ولا تزال عملية التفويض تخضع لسياسة النظام؛ ولا يتيح هذا الإعداد المزامنة بدون كلمة مرور.",
           "label": "مزامنة تلقائية للمستقبل"
         },
         "greeter-sync-privilege-command": {
-          "description": "استبدال pkexec/run0 لأمر المزامنة الآن للمستقبل.",
+          "description": "تجاوز امتياز التشغيل لبرنامج الترحيب «Sync Now». يقبل الوضع القديم (مساعد أقدم أو دليل حالات مخصص لبرنامج الترحيب) أداة أخرى لرفع صلاحيات المسؤول. تضيف المزامنة المقيدة الخيار --sync وتتطلب البادئة لتشغيل pkexec في النهاية (مثال: ghostty -e pkexec)",
           "label": "أمر امتيازات مزامنة المستقبل"
         },
         "keyboard-layout-custom-labels": {
@@ -3073,7 +3087,7 @@
         },
         "sync-greeter": {
           "button": "مزامنة الآن",
-          "description": "نسخ الخلفية والألوان الحالية إلى Noctalia Greeter (يتطلب موافقة المسؤول)",
+          "description": "انسخ المظهر الحالي وترتيب الشاشات إلى «Noctalia Greeter». يلزم الحصول على موافقة المسؤول ما لم تسمح سياسة النظام بالمزامنة بدون كلمة مرور لمستخدمك.",
           "label": "Noctalia Greeter"
         },
         "telemetry": {
@@ -3617,7 +3631,7 @@
           "volume-description": "رمز أيقونة مخصص. اتركه فارغاً لاستخدام الأيقونات الديناميكية المدمجة."
         },
         "glyph-position": {
-          "description": "ترتيب عرض الرمز بالنسبة إلى النص/الرسم البياني/المقياس",
+          "description": "ضع الرمز أو الصورة المخصصة والتسمية المخصصة بحيث تكون مرتبطة بالقيمة أو العنصر المرئي",
           "label": "موضع الرمز"
         },
         "group-by-workspace": {

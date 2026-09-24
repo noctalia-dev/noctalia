@@ -27,7 +27,23 @@
     }
   },
   "bar": {
+    "annotate": {
+      "color-black": "검정",
+      "color-blue": "파랑",
+      "color-green": "초록",
+      "color-orange": "주황",
+      "color-purple": "보라",
+      "color-red": "빨강",
+      "color-white": "하양",
+      "color-yellow": "노랑",
+      "size-large": "큼",
+      "size-medium": "중간",
+      "size-small": "작음",
+      "tool-text": "텍스트 (t)",
+      "undo": "되돌리기 (Ctrl+Z)"
+    },
     "screenshot": {
+      "annotate-export-failed": "주석이 추가된 이미지를 생성하지 못했습니다",
       "choose-display": "디스플레이 선택",
       "confirm-region": "{copy}로 복사 · {save}로 저장 · Enter 또는 Space 기본값 · {cancel}로 취소 · 드래그로 재선택",
       "fullscreen": "전체 화면",
@@ -60,6 +76,7 @@
       "network": {
         "active": "활성",
         "band": "밴드",
+        "cellular": "셀룰러",
         "connected": "연결됨",
         "connecting": "연결 중",
         "download": "다운로드",
@@ -73,8 +90,10 @@
         "not-connected": "연결되지 않음",
         "off": "꺼짐",
         "on": "켜짐",
+        "operator": "네트워크 제공업체",
         "scanning": "검색 중",
         "signal": "신호",
+        "technology": "네트워크 방식",
         "upload": "업로드",
         "vpn": "VPN",
         "wan-ip": "WAN IP",
@@ -270,8 +289,21 @@
     },
     "network": {
       "available": "사용 가능",
+      "cellular": "셀룰러",
+      "cellular-connected": "연결됨",
+      "cellular-connecting": "연결중...",
+      "cellular-connection": "셀룰러 연결",
+      "cellular-enabling": "켜기...",
+      "cellular-failed": "실패",
+      "cellular-locked": "SIM 잠김",
+      "cellular-no-service": "서비스 없음",
+      "cellular-off": "꺼짐",
+      "cellular-registered": "등록됨",
+      "cellular-searching": "검색중...",
       "connect": "연결",
       "current-connection": "현재 연결",
+      "eap-method": "EAP 메서드",
+      "error-missing-password": "비밀번호를 입력하세요.",
       "external-ip": "WAN {ip}",
       "no-networks": "범위 내에 네트워크 없음",
       "not-connected": "연결되지 않음",
@@ -744,7 +776,7 @@
     },
     "internal": {
       "battery": "배터리",
-      "battery-critical-body": "{device}: {percent}% – 컴퓨터가 곧 종료됩니다",
+      "battery-critical-body": "{device}: {percent}%, 컴퓨터가 곧 종료됩니다",
       "battery-critical-title": "배터리 매우 부족",
       "battery-device": "배터리 장치",
       "battery-low-body": "{device}: {percent}% 남음",
@@ -944,7 +976,8 @@
       "secret-service-unavailable": "사용 가능한 Secret Service 제공자가 없습니다. 호환 가능한 제공자를 시작하고 다시 시도하세요.",
       "server-url-label": "서버 URL",
       "username-label": "사용자 이름",
-      "username-placeholder": "name@example.com"
+      "username-placeholder": "name@example.com",
+      "vdir-path-label": "디렉토리 경로"
     },
     "controls": {
       "keybind": {
@@ -985,6 +1018,7 @@
       },
       "monitor-override": {
         "create": "생성",
+        "custom": "사용자 지정",
         "delete": "삭제",
         "delete-confirm-desc": "GUI로 생성된 이 모니터 재정의가 settings.toml에서 제거됩니다.",
         "delete-confirm-title": "\"{name}\"을(를) 삭제하시겠습니까?",
@@ -1240,6 +1274,8 @@
         "screen-corners": "화면 모서리",
         "screen-time": "스크린 타임",
         "screenshot": "스크린샷",
+        "screenshot-capture": "캡처",
+        "screenshot-output": "출력",
         "security": "보안",
         "session-panel": "세션 패널",
         "shape": "모양",
@@ -1251,7 +1287,8 @@
         "wallpaper": "배경 화면",
         "weather": "날씨",
         "widget-list": "위젯 목록",
-        "widgets": "위젯"
+        "widgets": "위젯",
+        "window-switcher": "창 전환기"
       },
       "sections": {
         "accessibility": "접근성",
@@ -1272,6 +1309,7 @@
         "plugins": "플러그인",
         "popups": "팝업",
         "power": "전원",
+        "screenshot": "스크린샷",
         "security": "보안",
         "services": "서비스",
         "shell": "쉘",
@@ -1390,9 +1428,9 @@
       },
       "plugins": {
         "auto-update": {
-          "all": "모든 소스",
+          "all": "모두",
           "none": "없음",
-          "official": "공식 전용"
+          "official": "공식"
         }
       },
       "screen-position": {
@@ -1480,6 +1518,9 @@
     "plugins": {
       "browse-store": "플러그인 찾아보기",
       "panels": {
+        "layer": {
+          "label": "레이어"
+        },
         "open-near-click": {
           "description": "바 위젯을 클릭하여 패널이 배치되는 위치",
           "label": "바를 따라"
@@ -1505,6 +1546,7 @@
         "incompatible-plugin-api": "호환되지 않는 플러그인 API",
         "remove": "플러그인 제거",
         "requires": "필요: {dependencies}",
+        "search-placeholder": "설치된 플러그인 검색",
         "title": "플러그인",
         "update-all": "모두 업데이트 ({count})",
         "update-available": "업데이트 가능",
@@ -1552,6 +1594,7 @@
         "held-back-hint": "플러그인 API {resolved}(으)로 v{version}을(를) 설치합니다. 가장 최신 버전인 v{latest}에는 플러그인 API {latestRequired}이(가) 필요하지만, 현재 이 Noctalia는 최대 {current}까지 지원합니다.",
         "incompatible": "호환되지 않음",
         "incompatible-hint": "필수 플러그인 API 버전이 누락되었습니다. 이 Noctalia 버전은 {oldest}부터 {current}까지 지원합니다.",
+        "installed": "설치됨",
         "loading": "카탈로그 불러오는 중…",
         "no-readme": "설명 없음.",
         "open-page": "noctalia.dev에서 플러그인 페이지 열기",
@@ -1656,6 +1699,9 @@
         "pure-black-dark": {
           "description": "OLED 패널에서 밴딩을 방지하기 위해 어두운 부분을 짙은 검은색으로 고정 (다크 모드에만 해당)",
           "label": "OLED 블랙"
+        },
+        "shell-theme-mode": {
+          "label": "셸 테마 모드"
         },
         "theme-mode": {
           "description": "시간에 따라 어두움, 밝음 또는 자동 선택",
@@ -2560,7 +2606,7 @@
           "button": "다시 시도",
           "description-cancelled": "암호화된 저장소 프롬프트가 취소되었습니다. 캘린더 이벤트는 이 세션에서만 사용 가능합니다.",
           "description-error": "암호화된 캘린더 이벤트 캐시를 열거나 저장할 수 없습니다.",
-          "description-locked": "암호화된 저장소가 잠겨 있거나 접근이 거부되었습니다. 접근을 수정하고 다시 시도하세요.",
+          "description-locked": "암호화된 저장소가 잠겨 있거나 접근이 거부되었습니다, 접근을 수정하고 다시 시도하세요.",
           "description-migration": "평문 캘린더 이벤트 캐시가 암호화 대기 중입니다. 마이그레이션이 성공할 때까지 보존됩니다.",
           "description-missing-key": "캘린더 이벤트 캐시 키가 없습니다. 계정 자격 증명은 별도로 보관됩니다. (기존 캐시 파일은 보관됨)",
           "description-opening": "암호화된 캘린더 이벤트 캐시를 여는 중입니다",
@@ -3211,6 +3257,73 @@
     "widgets": {
       "actions": {
         "command-placeholder": "쉘 명령어",
+        "commands": {
+          "bar-auto-hide-set": {
+            "label": "바 자동 숨기기 설정"
+          },
+          "bar-hide": {
+            "label": "바 숨기기"
+          },
+          "bar-layer-set": {
+            "label": "바 레이어 설정"
+          },
+          "bar-show": {
+            "label": "바 보이기"
+          },
+          "bluetooth-disable": {
+            "description": "블루투스 비활성화",
+            "label": "블루투스 비활성화"
+          },
+          "bluetooth-enable": {
+            "description": "블루투스 활성화",
+            "label": "블루투스 활성화"
+          },
+          "bluetooth-status": {
+            "label": "블루투스 상태"
+          },
+          "brightness-down": {
+            "label": "밝기 낮추기"
+          },
+          "brightness-set": {
+            "label": "밝기 설정"
+          },
+          "brightness-up": {
+            "label": "밝기 올리기"
+          },
+          "caffeine-disable": {
+            "label": "카페인 비활성화"
+          },
+          "caffeine-enable": {
+            "label": "카페인 활성화"
+          },
+          "clipboard-clear": {
+            "description": "클립보드 기록 지우기",
+            "label": "클립보드 기록 지우기"
+          },
+          "clipboard-copy": {
+            "description": "클립보드에 텍스트 복사",
+            "label": "클립보드에 복사"
+          },
+          "clipboard-text": {
+            "label": "클립보드 텍스트 인쇄"
+          },
+          "desktop-widgets-edit": {
+            "label": "데스크탑 위젯 수정"
+          },
+          "desktop-widgets-exit": {
+            "description": "데스크탑 위젯 수정기 닫기",
+            "label": "데스크탑 위젯 수정기 나가기"
+          },
+          "desktop-widgets-hide": {
+            "label": "데스크탑 위젯 숨기기"
+          },
+          "screenshot-fullscreen": {
+            "description": "기본적으로 현재 활성화된 모니터를 캡처합니다. pick을 사용하여 캡처할 모니터를 직접 선택하거나, all로 모든 모니터를 캡처할 수 있습니다."
+          },
+          "screenshot-region": {
+            "description": "영역을 선택하여 스크린샷 캡처 시작"
+          }
+        },
         "default": "기본값",
         "disabled": "비활성화됨",
         "run-command": "명령어 실행...",
@@ -3588,7 +3701,7 @@
         },
         "interactive": {
           "description": "이 위젯의 포인터 마우스 오버, 클릭, 스크롤, 툴팁 허용",
-          "label": "인터랙티브"
+          "label": "상호작용"
         },
         "interface": {
           "description": "모니터링할 네트워크 인터페이스. 비워 두면 모든 인터페이스의 합계를 사용합니다",

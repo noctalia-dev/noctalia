@@ -82,6 +82,9 @@ namespace noctalia::cli {
   inline constexpr std::array<std::string_view, 3> kMsgThemeModeSetModeChoices{"dark", "light", "auto"};
   inline constexpr std::array<std::string_view, 2> kMsgWorkspaceSwitchDirectionChoices{"next", "prev"};
 
+  inline constexpr std::array kMsgAnnotatePositionals{
+      Positional{"path", "Image file to annotate instead of the live screen", {}, false, false, false},
+  };
   inline constexpr std::array kMsgBarAutoHideSetPositionals{
       Positional{"state", {}, kMsgBarAutoHideSetStateChoices, true, false, false},
       Positional{"bar-name", {}, {}, false, false, false},
@@ -254,6 +257,17 @@ namespace noctalia::cli {
   };
 
   namespace msg {
+    inline constexpr Command annotate{
+        "annotate",
+        "Draw on the screen over running apps, or annotate an image file; press F or the Freeze button to capture the "
+        "background",
+        {},
+        {},
+        {},
+        kMsgAnnotatePositionals,
+        {},
+        false
+    };
     inline constexpr Command barAutoHideSet{
         "bar-auto-hide-set", "Set auto-hide state for a bar", {}, {}, {}, kMsgBarAutoHideSetPositionals, {}, false
     };
@@ -266,7 +280,7 @@ namespace noctalia::cli {
     };
     inline constexpr Command barReserveToggle{
         "bar-reserve-toggle",
-        "Toggle reserve space for one or all bars",
+        "Temporarily toggle reserve space for one or all bars",
         {},
         {},
         {},
@@ -614,6 +628,9 @@ namespace noctalia::cli {
         {},          kMsgPowerSetPositionals,
         {},          false
     };
+    inline constexpr Command screenshotAnnotate{
+        "screenshot-annotate", "Freeze the screen and annotate it, then copy or save", {}, {}, {}, {}, {}, false
+    };
     inline constexpr Command screenshotFullscreen{
         "screenshot-fullscreen",
         "Capture the focused monitor by default, pick interactively with pick, or all outputs with all",
@@ -812,6 +829,7 @@ namespace noctalia::cli {
   } // namespace msg
 
   inline constexpr std::array kMsgSubcommands{
+      msg::annotate,
       msg::barAutoHideSet,
       msg::barHide,
       msg::barLayerSet,
@@ -889,6 +907,7 @@ namespace noctalia::cli {
       msg::plugins,
       msg::powerCycle,
       msg::powerSet,
+      msg::screenshotAnnotate,
       msg::screenshotFullscreen,
       msg::screenshotRegion,
       msg::session,

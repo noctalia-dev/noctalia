@@ -325,12 +325,14 @@ namespace settings {
     case SettingsSection::ControlCenter:
     case SettingsSection::Notifications:
     case SettingsSection::Osd:
+    case SettingsSection::Screenshot:
     case SettingsSection::Shell:
     case SettingsSection::Keybinds:
     case SettingsSection::System:
     case SettingsSection::Power:
     case SettingsSection::Hooks:
     case SettingsSection::Niri:
+    case SettingsSection::Umbriel:
     case SettingsSection::Bar:
     case SettingsSection::Plugins:
       return false;
@@ -359,12 +361,14 @@ namespace settings {
     case SettingsSection::ControlCenter:
     case SettingsSection::Notifications:
     case SettingsSection::Osd:
+    case SettingsSection::Screenshot:
     case SettingsSection::Shell:
     case SettingsSection::Keybinds:
     case SettingsSection::System:
     case SettingsSection::Power:
     case SettingsSection::Hooks:
     case SettingsSection::Niri:
+    case SettingsSection::Umbriel:
     case SettingsSection::Bar:
     case SettingsSection::Plugins:
       return {};

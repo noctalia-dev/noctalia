@@ -4,11 +4,16 @@
 #include "wayland/wayland_connection.h"
 
 #include <algorithm>
+#include <cerrno>
+#include <chrono>
 #include <cstring>
+#include <poll.h>
 #include <wayland-client-core.h>
 #include <wayland-client-protocol.h>
 
 namespace {
+
+  constexpr auto kBlockingCaptureTimeout = std::chrono::milliseconds(500);
 
   [[nodiscard]] const WaylandOutput* findOutput(const WaylandConnection& wayland, wl_output* output) {
     for (const auto& entry : wayland.outputs()) {
@@ -185,18 +190,24 @@ namespace {
   }
 
   void orientCaptureToLogical(ScreencopyImage& image, const WaylandOutput& output) {
-    if (captureNeedsOutputTransform(image, output)) {
-      applyOutputTransform(image, output.transform);
-    }
-    if (image.yInvert) {
-      flipRgbaVertical(image);
-      image.yInvert = false;
-    }
+    const std::int32_t transform =
+        captureNeedsOutputTransform(image, output) ? output.transform : WL_OUTPUT_TRANSFORM_NORMAL;
+    screencopy::orientCaptureForTransform(image, transform);
   }
 
 } // namespace
 
 namespace screencopy {
+
+  void orientCaptureForTransform(ScreencopyImage& image, std::int32_t transform) {
+    if (image.yInvert) {
+      flipRgbaVertical(image);
+      image.yInvert = false;
+    }
+    applyOutputTransform(image, transform);
+  }
+
+  void transformCapture(ScreencopyImage& image, std::int32_t transform) { applyOutputTransform(image, transform); }
 
   bool captureOutputBlocking(
       ScreencopyCapture& capture, WaylandConnection& wayland, wl_output* output, ScreencopyImage& out,
@@ -219,10 +230,79 @@ namespace screencopy {
       return false;
     }
 
+    wl_display* display = wayland.display();
+    const auto deadline = std::chrono::steady_clock::now() + kBlockingCaptureTimeout;
     while (!finished && capture.busy()) {
-      if (wl_display_roundtrip(wayland.display()) < 0) {
-        error = "Wayland roundtrip failed";
+      if (wl_display_dispatch_pending(display) < 0) {
+        capture.cancelInFlight();
+        error = "Wayland dispatch failed";
         return false;
+      }
+      if (finished || !capture.busy()) {
+        break;
+      }
+
+      while (wl_display_prepare_read(display) != 0) {
+        if (wl_display_dispatch_pending(display) < 0) {
+          capture.cancelInFlight();
+          error = "Wayland dispatch failed";
+          return false;
+        }
+        if (finished || !capture.busy()) {
+          break;
+        }
+      }
+      if (finished || !capture.busy()) {
+        break;
+      }
+
+      const int flushResult = wl_display_flush(display);
+      if (flushResult < 0 && errno != EAGAIN) {
+        wl_display_cancel_read(display);
+        capture.cancelInFlight();
+        error = "Wayland flush failed";
+        return false;
+      }
+
+      pollfd fd{
+          .fd = wl_display_get_fd(display),
+          .events = static_cast<short>(POLLIN | (flushResult < 0 ? POLLOUT : 0)),
+          .revents = 0,
+      };
+      int ready = 0;
+      while (true) {
+        const auto now = std::chrono::steady_clock::now();
+        if (now >= deadline) {
+          ready = 0;
+          break;
+        }
+        const auto remaining = std::chrono::duration_cast<std::chrono::milliseconds>(deadline - now);
+        ready = poll(&fd, 1, std::max(1, static_cast<int>(remaining.count())));
+        if (ready >= 0 || errno != EINTR) {
+          break;
+        }
+      }
+
+      if (ready <= 0) {
+        wl_display_cancel_read(display);
+        capture.cancelInFlight();
+        error = ready == 0 ? "screencopy capture timed out" : "Wayland poll failed";
+        return false;
+      }
+      if ((fd.revents & (POLLERR | POLLHUP | POLLNVAL)) != 0) {
+        wl_display_cancel_read(display);
+        capture.cancelInFlight();
+        error = "Wayland connection failed during screencopy";
+        return false;
+      }
+      if ((fd.revents & POLLIN) != 0) {
+        if (wl_display_read_events(display) < 0) {
+          capture.cancelInFlight();
+          error = "Wayland event read failed";
+          return false;
+        }
+      } else {
+        wl_display_cancel_read(display);
       }
     }
 

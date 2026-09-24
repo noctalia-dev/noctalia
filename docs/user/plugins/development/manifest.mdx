@@ -63,10 +63,10 @@ id    = "hello"
 entry = "widget.luau"
 
   [[widget.setting]]
-  key     = "label"
-  type    = "string"
-  label   = "Label"
-  default = "Hello"
+  key       = "label"
+  type      = "string"
+  label_key = "settings.label.label"
+  default   = "Hello"
 
 [[service]]
 id    = "ticker"
@@ -137,17 +137,9 @@ entry = "widget.luau"
   default = "Hello"
 ```
 
-You can define multiple named bar widgets with the same plugin entry and different widget settings:
-
-```toml
-[widget.hello-main]
-type  = "me/hello:hello"
-label = "Main"
-
-[widget.hello-short]
-type  = "me/hello:hello"
-label = "Short"
-```
+The manifest only declares an entry's settings schema. Named widget instances, their configured values, and bar
+placement belong in the user's Noctalia configuration. See [Plugin widgets](/noctalia/bar/widgets/#plugin-widgets) for
+that configuration.
 
 | Field | Notes |
 |-------|-------|

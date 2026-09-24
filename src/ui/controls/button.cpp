@@ -437,6 +437,7 @@ void Button::ensureBadge() {
   m_badgeLabel = static_cast<Label*>(badge->addChild(std::move(label)));
 
   m_badge = static_cast<Flex*>(addChild(std::move(badge)));
+  applyColors(m_targetBg, m_targetBorder, m_targetLabel);
 }
 
 void Button::updateInputArea() {

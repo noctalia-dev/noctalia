@@ -43,19 +43,21 @@ share this vocabulary** - panels additionally use the interactive controls below
 
 `ui.label` and `ui.glyph` inherit the host's text defaults when a prop is unset: in a bar widget they use the bar's
 (or widget's) `font_family`/`font_weight` and the widget `scale`, matching the imperative `barWidget.setText` look.
-An explicit `fontSize`/`size`/`fontWeight`/`fontFamily` prop overrides the default. In bar widgets, `ui.button` renders compact:
-it hugs its content instead of using the taller settings-panel control height (pass `width`/`height` or `controlSize`
-to size it explicitly).
+There, labels without `color` also use the widget foreground and glyphs without `color` use the widget icon color;
+in panels and desktop widgets an unset `color` stays `on_surface`. An explicit
+`fontSize`/`size`/`fontWeight`/`fontFamily`/`color` prop overrides the default. In bar widgets, `ui.button` renders
+compact: it hugs its content instead of using the taller settings-panel control height (pass `width`/`height` or
+`controlSize` to size it explicitly).
 
 | Constructor | Props |
 |-------------|-------|
-| `ui.column` / `ui.row` | `gap`, `padding`, `paddingH`, `paddingV`, `align` (`start`/`center`/`end`/`stretch`), `justify` (`start`/`center`/`end`/`space_between`), `fill`, `radius`, `border`, `borderWidth`, `minWidth`, `minHeight`, `onClick`, `onHover` |
+| `ui.column` / `ui.row` | `gap`, `padding`, `paddingH`, `paddingV`, `align` (`start`/`center`/`end`/`stretch`), `justify` (`start`/`center`/`end`/`space_between`), `fill`, `radius`, `border`, `borderWidth`, `minWidth`, `minHeight`, `onClick`, `onHover`, `tooltip` |
 | `ui.scroll` | a vertically scrolling container; same layout props as a column plus `fill`, `radius`, `border`, `borderWidth`, `stickToBottom` (bool), `onScroll`, `scrollToBottomRev` (number - see below) |
 | `ui.label` | `text`, `fontSize`, `color`, `fontWeight` (`thin`…`heavy`), `fontFamily` (a family name; load a file with `noctalia.loadFont`), `baseline` (`text`/`textFixedHeight`/`inkCentered`/`pictographic`), `maxWidth`, `maxLines`, `textAlign` |
 | `ui.markdown` | `text` (markdown source - see below), `width`, `height` |
 | `ui.glyph` | `name` (Tabler/Nerd-Font glyph), `size`, `color` |
-| `ui.image` | `path` (plugin-relative, `~`, or absolute), `width`, `height`, `radius`, `fit` (`contain`/`cover`/`stretch`), `border`, `borderWidth`, `onClick`, `onHover` |
-| `ui.box` | `fill`, `radius`, `border`, `borderWidth`, `softness`, `width`, `height`, `onClick`, `onHover` |
+| `ui.image` | `path` (plugin-relative, `~`, or absolute), `width`, `height`, `radius`, `fit` (`contain`/`cover`/`stretch`), `border`, `borderWidth`, `onClick`, `onHover`, `tooltip` |
+| `ui.box` | `fill`, `radius`, `border`, `borderWidth`, `softness`, `width`, `height`, `onClick`, `onHover`, `tooltip` |
 | `ui.separator` | `thickness`, `color`, `spacing`, `orientation` (`auto`/`horizontal`/`vertical`) |
 | `ui.spacer` | flexible filler (use `flexGrow`) |
 | `ui.progress` | `progress` (0–1), `fill`, `track`, `radius`, `width`, `height` |
@@ -83,8 +85,10 @@ prop is logged and skipped - typos surface in the log instead of failing silentl
   scaled with the surface, so a row of small buttons, selects and inputs lines up without hardcoded pixels. Use it to
   fit more into a dense panel. For an exact height, use `height` instead; it wins when both are set. (Not to be confused
   with `ui.glyph`'s numeric `size`, which is a glyph size in px.)
-- **Tooltips**: `ui.button` accepts a `tooltip` string, shown on hover. Dropping the prop on a later render clears it.
-  Tooltips appear for buttons in bar widgets and panels; desktop widgets do not show them.
+- **Tooltips**: `ui.button` accepts a `tooltip` string, shown on hover. `ui.box`, `ui.row`, `ui.column`, and `ui.image`
+  also accept `tooltip` (requires <PluginApiBadge feature="container-tooltip" />), which wraps the node in a hover
+  target so a plain container or glyph can carry one. Dropping the prop on a later render clears it. Tooltips appear in
+  bar widgets and panels; desktop widgets do not show them.
 - **Callbacks**: a callback prop takes either a **function** (requires <PluginApiBadge feature="ui-callback-closures" />) or the **name of a global
   function in your script**. `onClick` fires on a button click; `onChange` fires when a toggle/slider/select/input value
   changes (the value is passed as a string - `"true"`/`"false"` for a toggle, a number for a slider, the text for an

@@ -47,6 +47,7 @@ public:
   void setAllBrightness(float value);
   void setBrightness(const std::string& displayId, float value);
   void requestDdcRefresh();
+  void requestDdcRescan();
   void reload(const BrightnessConfig& config);
   void onOutputsChanged();
   void registerIpc(IpcService& ipc, std::function<void(BatchChangePhase)> onBatchChange = {});

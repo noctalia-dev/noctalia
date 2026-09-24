@@ -29,6 +29,9 @@ public:
   void processPendingEvents();
   void setChangeCallback(ChangeCallback callback);
 
+  /// Emits ActiveChanged on each registered org.freedesktop.ScreenSaver object.
+  void emitActiveChanged(bool active);
+
 private:
   struct InhibitCookie {
     std::uint32_t cookie = 0;

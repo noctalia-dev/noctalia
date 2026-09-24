@@ -47,8 +47,7 @@
   cudaSupport ? config.cudaSupport,
 }:
 let
-  inherit (builtins) head match readFile;
-  version = head (match ".*version: '([0-9][^']+)'.*" (readFile ../meson.build));
+  version = lib.fileContents ../VERSION;
   stb' = stb.overrideAttrs (_: {
     version = "unstable-2025-10-26";
     src = fetchFromGitHub {

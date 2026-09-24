@@ -3,6 +3,7 @@
 #include "auth/pam_authenticator.h"
 #include "capture/screencopy_capture.h"
 #include "core/timer_manager.h"
+#include "render/core/lockscreen_transition_types.h"
 
 #include <cstdint>
 #include <functional>
@@ -33,6 +34,7 @@ class SharedTextureCache;
 class SystemBus;
 class WaylandConnection;
 class WeatherService;
+enum class LockscreenTransition : std::uint8_t;
 
 class LockScreen {
 public:
@@ -96,8 +98,9 @@ private:
   };
 
   void syncInstances();
-  void captureDesktopSnapshots();
-  [[nodiscard]] bool shouldUseBlurredDesktop() const;
+  [[nodiscard]] bool captureDesktopSnapshots();
+  void invalidateDesktopCaptures();
+  [[nodiscard]] bool shouldCaptureDesktop() const;
   [[nodiscard]] bool allSurfacesReady() const;
   bool tryFlushPendingAfterLocked();
   void dispatchPendingAfterLocked();
@@ -107,6 +110,11 @@ private:
   [[nodiscard]] bool isInteractiveOutput(const WaylandOutput& output) const;
   [[nodiscard]] std::string wallpaperPathForOutput(const std::string& connectorName) const;
   void createInstance(const WaylandOutput& output);
+  void chooseTransition();
+  void handleTransitionStateChanged();
+  void tryFinishAnimatedUnlock();
+  void finishUnlock();
+  void notifyLockAborted();
   void resetLockState();
   void clearInstances();
   void updatePromptOnSurfaces();
@@ -142,8 +150,15 @@ private:
   std::uint64_t m_authGeneration = 0;
   bool m_lockPending = false;
   bool m_locked = false;
+  bool m_lockStarting = false;
   bool m_desktopCapturesPrimed = false;
+  std::uint64_t m_desktopCaptureGeneration = 0;
   bool m_lockDeferred = false;
+  bool m_unlocking = false;
+  bool m_unlockFinishQueued = false;
+  std::optional<LockscreenTransition> m_activeTransition;
+  LockscreenTransitionParams m_transitionParams;
+  float m_transitionDurationMs = 1500.0F;
   std::function<void()> m_pendingAfterLocked;
   std::function<void()> m_onSessionLocked;
   std::function<void()> m_onSessionUnlocked;
@@ -153,4 +168,5 @@ private:
   const WeatherService* m_weather = nullptr;
   HttpClient* m_httpClient = nullptr;
   Timer m_suspendTimeoutTimer;
+  Timer m_unlockTransitionTimer;
 };

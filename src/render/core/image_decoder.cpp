@@ -1,5 +1,7 @@
 #include "render/core/image_decoder.h"
 
+#include "render/core/image_orientation.h"
+
 #include <algorithm>
 #include <cstdio>
 #include <cstdlib>
@@ -343,6 +345,27 @@ namespace {
     }
   }
 
+  std::expected<DecodedRasterImage, std::string> decodeWuffs(const std::uint8_t* data, std::size_t size) {
+    auto input = wuffs_aux::sync_io::MemoryInput(data, size);
+    auto callbacks = RgbaDecodeCallbacks();
+    auto result = wuffs_aux::DecodeImage(callbacks, input);
+    if (!result.error_message.empty()) {
+      return std::unexpected(result.error_message);
+    }
+
+    auto plane = result.pixbuf.plane(0);
+    if ((plane.ptr == nullptr) || (plane.width == 0) || (plane.height == 0)) {
+      return std::unexpected("decoded image has no pixel data");
+    }
+
+    DecodedRasterImage decoded;
+    decoded.width = static_cast<int>(result.pixbuf.pixcfg.width());
+    decoded.height = static_cast<int>(result.pixbuf.pixcfg.height());
+    decoded.pixels.resize(plane.width * plane.height);
+    std::memcpy(decoded.pixels.data(), plane.ptr, decoded.pixels.size());
+    return decoded;
+  }
+
 } // namespace
 
 std::expected<DecodedRasterImage, std::string> decodeRasterImage(const std::uint8_t* data, std::size_t size) {
@@ -350,32 +373,20 @@ std::expected<DecodedRasterImage, std::string> decodeRasterImage(const std::uint
     return std::unexpected("empty image buffer");
   }
 
-  if (isWebP(data, size))
-    return decodeWebP(data, size);
-
-  if (isIco(data, size))
-    return decodeIco(data, size);
-
-  if (isJxl(data, size))
+  // libjxl resolves the codestream orientation itself; the other decoders never see the
+  // container's EXIF block, so it is applied to their pixels here.
+  if (isJxl(data, size)) {
     return decodeJxl(data, size);
-
-  auto input = wuffs_aux::sync_io::MemoryInput(data, size);
-  auto callbacks = RgbaDecodeCallbacks();
-  auto result = wuffs_aux::DecodeImage(callbacks, input);
-  if (!result.error_message.empty()) {
-    return std::unexpected(result.error_message);
   }
 
-  auto plane = result.pixbuf.plane(0);
-  if ((plane.ptr == nullptr) || (plane.width == 0) || (plane.height == 0)) {
-    return std::unexpected("decoded image has no pixel data");
+  auto decoded = isWebP(data, size) ? decodeWebP(data, size)
+      : isIco(data, size)           ? decodeIco(data, size)
+                                    : decodeWuffs(data, size);
+  if (!decoded) {
+    return decoded;
   }
 
-  DecodedRasterImage decoded;
-  decoded.width = static_cast<int>(result.pixbuf.pixcfg.width());
-  decoded.height = static_cast<int>(result.pixbuf.pixcfg.height());
-  decoded.pixels.resize(plane.width * plane.height);
-  std::memcpy(decoded.pixels.data(), plane.ptr, decoded.pixels.size());
+  applyImageOrientation(decoded->pixels, decoded->width, decoded->height, exifOrientation(data, size));
   return decoded;
 }
 

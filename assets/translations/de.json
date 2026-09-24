@@ -907,7 +907,7 @@
       "inherited": "Geerbt",
       "monitor": "Monitor",
       "official": "Offiziell",
-      "override": "Überschrieben"
+      "override": "Überschreiben"
     },
     "calendar-accounts": {
       "add-title": "Kalenderkonto hinzufügen",
@@ -3947,7 +3947,7 @@
     "window": {
       "export-config": "Konfiguration exportieren…",
       "export-config-saved": "Konfigurationsexport gespeichert.",
-      "filter-overridden": "Überschrieben",
+      "filter-overridden": "Überschreiben",
       "legacy-config-warning": "Veraltete Einstellung: {issue}. Bearbeite diesen Quelleintrag; Noctalia wendet den Ersatz nur vorübergehend an. Führe noctalia config validate aus, um alle erforderlichen Änderungen aufzulisten.",
       "native-title": "Noctalia-Einstellungen",
       "no-results": "Keine Einstellungen gefunden",

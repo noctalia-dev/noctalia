@@ -27,7 +27,51 @@
     }
   },
   "bar": {
+    "annotate": {
+      "capture-new-region": "Capturar nova região (descarta a edição atual)",
+      "close": "Fechar sem aplicar (Esc)",
+      "color-black": "Preto",
+      "color-blue": "Azul",
+      "color-green": "Verde",
+      "color-orange": "Laranja",
+      "color-purple": "Roxo",
+      "color-red": "Vermelho",
+      "color-white": "Branco",
+      "color-yellow": "Amarelo",
+      "copy": "Copiar a imagem anotada (Ctrl+C)",
+      "cursor": "Mostrar o ponteiro capturado com a tela (p)",
+      "cursor-capture-failed": "Alternação de ponteiro não disponível: o compositor não pôde prover uma imagem de cursor separada.",
+      "cursor-live": "Congelar a tela primeiro para mudar o ponteiro capturado (F)",
+      "cursor-not-captured": "Alternação de ponteiro não disponível: este compositor não suporta captura separada de cursor.",
+      "done": "Aplicar as configurações da captura de tela (Enter)",
+      "fill-off": "Preenchimento da forma: desligado",
+      "fill-on": "Preenchimento da forma: ligado",
+      "freeze": "Congelar a tela sob a tinta (f)",
+      "move-toolbar": "Arraste para mover a barra de ferramentas",
+      "redo": "Refazer (Ctrl+Shift+Z)",
+      "save": "Salvar a imagem anotada (Ctrl+S)",
+      "size-advanced": "Ajuste fino de tamanho",
+      "size-decrease": "Mais fino ([)",
+      "size-increase": "Mais grosso (])",
+      "size-large": "Grande",
+      "size-medium": "Médio",
+      "size-small": "Pequeno",
+      "tool-arrow": "Seta (a) · segure Shift para ajustar o ângulo",
+      "tool-blur": "Borrar uma região (u)",
+      "tool-brush": "Pincel (b)",
+      "tool-circle": "Elipse (o) · segure Shift para um círculo",
+      "tool-crop": "Cortar a exportação (c)",
+      "tool-eraser": "Borracha (e)",
+      "tool-highlighter": "Marca-texto (h)",
+      "tool-line": "\"Linha (l) · segure Shift para ajustar o ângulo",
+      "tool-move": "Mover uma anotação (m)",
+      "tool-numbering": "Marcador numerado (n)",
+      "tool-rectangle": "Retângulo (s) · segure Shift para um quadrado",
+      "tool-text": "Texto (t)",
+      "undo": "Desfazer (Ctrl+Z)"
+    },
     "screenshot": {
+      "annotate-export-failed": "Falha ao construir a imagem anotada",
       "choose-display": "Escolha o monitor",
       "confirm-region": "{copy} para copiar · {save} para salvar · Enter ou Espaço para padrões · {cancel} para cancelar · Arraste para reselecionar",
       "fullscreen": "Tela cheia",
@@ -60,6 +104,7 @@
       "network": {
         "active": "Ativo",
         "band": "Banda",
+        "cellular": "Celular",
         "connected": "Conectado",
         "connecting": "Conectando",
         "download": "Download",
@@ -73,8 +118,10 @@
         "not-connected": "Não conectado",
         "off": "Desligado",
         "on": "Ligado",
+        "operator": "Operadora",
         "scanning": "Escaneando",
         "signal": "Sinal",
+        "technology": "Tecnologia",
         "upload": "Upload",
         "vpn": "VPN",
         "wan-ip": "IP Público",
@@ -239,6 +286,7 @@
     "display": {
       "disabled": "Desabilitado",
       "no-displays": "Nenhum monitor disponível",
+      "rescan": "Verificar monitores DDC/CI novamente",
       "unknown-resolution": "Resolução desconhecida"
     },
     "home": {
@@ -270,15 +318,39 @@
       "start-playback": "Iniciar reprodução em um aplicativo MPRIS"
     },
     "network": {
+      "anonymous-identity": "Identidade anônima (opcional)",
       "available": "Disponível",
+      "ca-certificate": "Caminho do certificado CA (opcional)",
+      "cellular": "Celular",
+      "cellular-connected": "Conectado",
+      "cellular-connecting": "Conectando...",
+      "cellular-connection": "Conexão do celular",
+      "cellular-enabling": "Ativando...",
+      "cellular-failed": "Falhou",
+      "cellular-locked": "SIM bloqueado",
+      "cellular-no-service": "Sem serviço",
+      "cellular-off": "Desligado",
+      "cellular-registered": "Registrado",
+      "cellular-searching": "Buscando...",
       "connect": "Conectar",
       "current-connection": "Conexão atual",
+      "domain-suffix-match": "Sufixo de domínio do servidor",
+      "eap-method": "Método EAP",
+      "enterprise-prompt-for": "Fazer login em {ssid}",
+      "error-ca-not-absolute": "O caminho do certificado precisa ser absoluto, começando com /.",
+      "error-certificate-required": "Esta rede requer autenticação baseada em certificados (EAP-TLS), que não é suportada ainda.",
+      "error-enterprise-unsupported": "O backend da rede ativa não pode configurar redes 802.1X",
+      "error-missing-identity": "Entre com a identidade que sua organização lhe forneceu.",
+      "error-missing-password": "Entre sua senha.",
+      "error-unsupported-phase2": "PEAP requer autenticação interna MSCHAPv2",
       "external-ip": "WAN {ip}",
+      "identity": "Identidade",
       "no-networks": "Nenhuma conexão ao alcance",
       "not-connected": "Não conectado",
       "password": "Senha",
       "password-prompt": "Digitar a senha",
       "password-prompt-for": "Digite a senha para {ssid}",
+      "phase2-auth": "Autenticação interna",
       "saved": "Salvo",
       "unavailable-detail": "Instale e ative o NetworkManager, wpa_supplicant ou iwd para gerenciar redes a partir daqui.",
       "unavailable-title": "Serviço de rede indisponível",
@@ -454,7 +526,7 @@
         }
       },
       "location-unavailable": "Localização indisponível",
-      "no-location-body": "Adicione seu endereço ou ative a localização automática nas configurações de localização.",
+      "no-location-body": "Adicione seu endereço ou ative a autolocalização  nas Configurações de Localização.",
       "no-location-title": "Localização não definida",
       "refreshing": "Atualizando o clima...",
       "waiting": "Aguardando dados do clima"
@@ -676,8 +748,9 @@
       "unpin-from-dock": "Desfixar do Dock"
     },
     "empty": {
+      "loading": "Carregando resultados...",
       "no-results": "Nenhum resultado encontrado",
-      "type-to-search": "Digite para pesquisar..."
+      "type-to-search": "Digite para buscar..."
     },
     "origins": {
       "appimage": "AppImage",
@@ -697,6 +770,20 @@
       "emoji": {
         "title": "Emoji"
       },
+      "panel": {
+        "builtin": {
+          "clipboard": "Área de Transferência",
+          "control-center": "Central de Controle",
+          "launcher": "Launcher",
+          "polkit": "Caixa de Diálogo de Autenticação",
+          "session": "Sessão",
+          "setup-wizard": "Assistente de Configuração",
+          "test": "Painel de Teste",
+          "tray-drawer": "Gaveta da Bandeja",
+          "wallpaper": "Papel de Parede"
+        },
+        "title": "Painéis"
+      },
       "session": {
         "action-subtitle": "Executar ação de sessão",
         "command-subtitle": "Executar comando configurado",
@@ -709,7 +796,7 @@
         "title": "Janelas"
       }
     },
-    "search-placeholder": "Pesquisar por aplicativos..."
+    "search-placeholder": "Busque por aplicativos..."
   },
   "location": {
     "errors": {
@@ -772,12 +859,15 @@
       "desktop-widgets-editor": "Editor de Widget",
       "desktop-widgets-editor-enabled": "O editor de widgets da área de trabalho está ligado. Mude para um espaço de trabalho vazio para que as janelas abertas não cubram o editor.",
       "greeter-sync": "Noctalia Greeter",
-      "greeter-sync-pending": "Aguardando aprovação do administrador para gravar no greeter.",
-      "greeter-sync-pending-console": "Aguardando aprovação do administrador. Aprove o prompt do polkit no Noctalia, em um TTY ou console, ou execute o pkexec manualmente.",
-      "greeter-sync-pending-manual": "Os arquivos estão preparados. Execute no terminal: pkexec noctalia-greeter-apply-appearance \"$XDG_RUNTIME_DIR/noctalia-greeter-sync\". Ou defina shell.greeter_sync.privilege_command (por exemplo, ghostty -e pkexec) e sincronize novamente.",
+      "greeter-sync-pending": "Sincronizando aparência para o greeter. Se uma caixa de diálogo de autorização aparecer, aprove-o; autorização sem senha segue políticas do sistema.",
+      "greeter-sync-pending-console": "Sincronizando aparência para o greeter. Se autorização é necessária, aprove a caixa de diálogo do polkit no Noctalia, em um TTY ou em um console.",
+      "greeter-sync-pending-legacy": "Sincronizando através do utilitário legado. Aprovação do administrador é necessária.",
+      "greeter-sync-pending-manual": "Os arquivos estão preparados para a sincronização legada autenticada. Execute o auxiliar de aplicação posicional em um terminal, mantendo o NOCTALIA_GREETER_STATE_DIR caso utilize um caminho personalizado, ou configure o shell.greeter_sync.privilege_command e sincronize novamente.",
+      "greeter-sync-pending-manual-pkexec": "Sincronizando aparência para o greeter. Se autorização de administrador for necessária e não for apresentada uma caixa de diálogo, execute em um terminal: pkexec noctalia-greeter-apply-appearance --sync \"/run/user/$(id -u)/noctalia-greeter-sync\".",
       "greeter-sync-success": "Aparência sincronizada. As alterações serão aplicadas na próxima tela de login.",
-      "greeter-sync-timeout": "A sincronização do Greeter ainda está aguardando a aprovação do administrador. Verifique se há um prompt do polkit em um TTY ou console, habilite o agente polkit nas configurações de Segurança ou execute o pkexec manualmente.",
-      "greeter-sync-timeout-manual": "A sincronização do Greeter ainda precisa da aprovação do administrador. Execute no terminal: pkexec noctalia-greeter-apply-appearance \"$XDG_RUNTIME_DIR/noctalia-greeter-sync\"",
+      "greeter-sync-timeout": "A sincronização do Greeter ainda está aguardando autorização. Verifique se há uma caixa de diálogo do polkit em um TTY ou console, habilite o agente polkit nas configurações de Segurança ou execute o pkexec manualmente.",
+      "greeter-sync-timeout-manual": "A sincronização legada do Greeter ainda precisa da autorização. Execute o auxiliar de aplicação posicional em um terminal e preserve NOCTALIA_GREETER_STATE_DIR se você utiliza um caminho personalizado.",
+      "greeter-sync-timeout-manual-pkexec": "Sincronização com o greeter continua necessitando autorização. Execute em um terminal: pkexec noctalia-greeter-apply-appearance --sync \"/run/user/$(id -u)/noctalia-greeter-sync\"",
       "keybind-app": "Noctalia",
       "keybind-invalid-modifier": "Este atalho aceita uma única tecla sem modificadores.",
       "keybind-invalid-printable": "Teclas imprimíveis (letras, números, símbolos) requerem uma tecla modificadora como Ctrl ou Alt.",
@@ -879,7 +969,7 @@
     "profiles": {
       "balanced": "Equilibrado",
       "performance": "Performance",
-      "power-saver": "Economizador de Energia"
+      "power-saver": "Econômico"
     }
   },
   "session": {
@@ -943,7 +1033,7 @@
       "save-connect": "Salvar e Conectar",
       "save-error": "Não foi possível salvar a conta de calendário.",
       "secret-cleanup-error": "Não foi possível salvar a conta, e as credenciais do chaveiro não puderam ser restauradas ou removidas. Tente novamente após desbloquear o Secret Service.",
-      "secret-service-cancelled": "A solicitação do Secret Service foi cancelada. Tente novamente quando estiver pronto para desbloqueá-la.",
+      "secret-service-cancelled": "A caixa de diálogo do Secret Service foi cancelada. Tente novamente quando estiver pronto para desbloqueá-la.",
       "secret-service-error": "Não foi possível acessar as credenciais do calendário no Secret Service. Tente novamente a operação.",
       "secret-service-locked": "As credenciais do calendário estão bloqueadas ou o acesso foi negado. Desbloqueie o Secret Service e tente novamente.",
       "secret-service-unavailable": "Não há nenhum provedor de Secret Service disponível. Inicie um provedor compatível e tente novamente.",
@@ -991,13 +1081,16 @@
       },
       "monitor-override": {
         "create": "Criar",
+        "custom": "Personalizado",
         "delete": "Deletar",
         "delete-confirm-desc": "Essa configuração de monitor criada pela interface gráfica será removida do arquivo settings.toml.",
         "delete-confirm-title": "Deletar \"{name}\"?",
+        "exists": "Uma substituição para este monitor já existe.",
         "label": "Monitor: {name}",
         "management": "Soprebosição de Monitor",
         "match-placeholder": "Monitor correspondente",
         "new": "Sobreposição de Monitor",
+        "new-title": "Nova Substituição de Monitor",
         "rename": "Renomear",
         "rename-save": "Salvar"
       },
@@ -1021,7 +1114,7 @@
           "clear": "Apagar",
           "deselect": "Desmarcar",
           "drag": "Reordenar",
-          "drawer-columns": "Número de ícones do tray por linha no painel do drawer.",
+          "drawer-columns": "Colunas da Gaveta",
           "drawer-columns-description": "Número de widgets por linha no painel gaveta",
           "drawer-detached": "Painel Destacado",
           "drawer-detached-description": "Abrir a gaveta como um painel flutuante com seu próprio fundo ao invés de mesclar com a barra",
@@ -1142,8 +1235,9 @@
       "reset-page": "Falha ao redefinir algumas configurações.",
       "support-report": "Falha em salvar o relatório de suporte.",
       "sync-greeter": "Não foi possível sincronizar a aparência com o Noctalia Greeter.",
-      "sync-greeter-timeout": "A sincronização do Greeter ainda está aguardando a aprovação do administrador. Verifique se há um prompt do polkit em um TTY ou console, habilite o agente polkit nas configurações de Segurança ou execute o pkexec manualmente.",
-      "sync-greeter-timeout-manual": "A sincronização do Greeter ainda precisa da aprovação do administrador. Execute no terminal: pkexec noctalia-greeter-apply-appearance \"$XDG_RUNTIME_DIR/noctalia-greeter-sync\"",
+      "sync-greeter-timeout": "A sincronização do Greeter ainda está aguardando a autorização. Verifique se há uma caixa de diálogo do polkit em um TTY ou console, habilite o agente polkit nas configurações de Segurança ou execute o pkexec manualmente.",
+      "sync-greeter-timeout-manual": "A sincronização legada do Greeter ainda precisa da autorização do administrador. Execute o auxiliar de aplicação posicional em um terminal e preserve NOCTALIA_GREETER_STATE_DIR se você utiliza um caminho personalizado.",
+      "sync-greeter-timeout-manual-pkexec": "Sincronização com o greeter continua necessitando autorização. Execute em um terminal: pkexec noctalia-greeter-apply-appearance --sync \"/run/user/$(id -u)/noctalia-greeter-sync\"",
       "widget": {
         "rename": "Não foi possível renomar o widget nomeado."
       },
@@ -1250,6 +1344,9 @@
         "screen-corners": "Cantos da Tela",
         "screen-time": "Tempo de Tela",
         "screenshot": "Captura de Tela",
+        "screenshot-annotation": "Anotação",
+        "screenshot-capture": "Captura",
+        "screenshot-output": "Saída",
         "security": "Segurança",
         "session-panel": "Sessão",
         "shape": "Forma",
@@ -1283,11 +1380,13 @@
         "plugins": "Plugins",
         "popups": "Popups",
         "power": "Energia",
+        "screenshot": "Captura de tela",
         "security": "Segurança",
         "services": "Serviços",
         "shell": "Shell",
         "system": "Sistema",
         "templates": "Modelos",
+        "umbriel": "Umbriel",
         "wallpaper": "Papel de Parede"
       }
     },
@@ -1523,6 +1622,8 @@
         "incompatible-plugin-api": "APi de plugin incoompatível",
         "remove": "Remover plugin",
         "requires": "Requer: {dependencies}",
+        "search-empty": "Não há plugins que correspondam \"{query}\".",
+        "search-placeholder": "Buscar por plugins instalados",
         "title": "Plugins",
         "update-all": "Atualizar todos({count})",
         "update-available": "atualização disponível",
@@ -1576,7 +1677,7 @@
         "open-page": "Abrir página de plugin em noctalia.dev",
         "open-source": "Abrir repositório fonte de plugin",
         "results-count": "{count} plugins",
-        "search-placeholder": "Pesquisar plugins...",
+        "search-placeholder": "Busque plugins...",
         "sort-added-at-asc": "Ordenar por data (mais antigos primeiro)",
         "sort-added-at-desc": "Ordenar por data (mais recentes primeiro)",
         "sort-name-asc": "Ordenar por nome (A-Z)",
@@ -1626,7 +1727,7 @@
         "community-palette": {
           "description": "Escolha uma paleta de cores do catálogo da comunidade",
           "label": "Paleta da Comunidade",
-          "search-placeholder": "Procurar paletas..."
+          "search-placeholder": "Busque paletas..."
         },
         "corner-roundness": {
           "description": "Dimensionar o raio dos cantos em contêineres e controles da interface do usuário do shell",
@@ -1635,7 +1736,7 @@
         "custom-palette": {
           "description": "Escolha uma paleta em ~/.config/noctalia/palettes/",
           "label": "Paleta Personalizada",
-          "search-placeholder": "Procurar paletas personalizadas..."
+          "search-placeholder": "Busque paletas personalizadas..."
         },
         "export-wallpaper-palette": {
           "button": "Salvar Paleta Customizada",
@@ -2272,6 +2373,10 @@
           "description": "Automaticamente remover histórico de notificações se existir por mais que esta quantidade de horas (0 para manter para sempre)",
           "label": "Período de Retenção"
         },
+        "keep-dismissed-in-history": {
+          "description": "Manter notificações no histórico depois que suas lâminas foram dispensadas",
+          "label": "Manter Notificações Dispensadas"
+        },
         "layer": {
           "description": "Use Overlay para mostrar lâminas de notificação acima de apps em tela cheia",
           "label": "Camada Wayland"
@@ -2390,6 +2495,10 @@
           "description": "Também mostrar resultados de emoji em busca sem prefixo",
           "label": "Emoji na Busca Global"
         },
+        "launcher-global-panels": {
+          "description": "Também mostrar painéis em busca sem prefixo",
+          "label": "Painéis na Busca Global"
+        },
         "launcher-global-session": {
           "description": "Também mostrar ações de sessão na busca sem prefixo",
           "label": "Sessão na Busca Global"
@@ -2402,12 +2511,16 @@
           "description": "Também mostrar janelas abertas na busca sem prefixo",
           "label": "Janelas na Busca Global"
         },
+        "launcher-ignored-panels": {
+          "description": "Painéis que o provedor de painéis nunca lista (ex. caixas de diálogo, o assistente de configuração)",
+          "label": "Painéis Ignorados"
+        },
         "launcher-pinned-apps": {
           "description": "IDs de entradas na área de trabalho dos aplicativos fixados no iniciador; eles aparecem em primeiro lugar quando o iniciador é aberto",
           "label": "Apps Fixados"
         },
         "launcher-prefix-calculator": {
-          "description": "Acionar prefixo cálculos",
+          "description": "Acionar prefixo para cálculos da calculadora",
           "label": "Prefixo para Calculadora"
         },
         "launcher-prefix-character": {
@@ -2417,6 +2530,10 @@
         "launcher-prefix-emoji": {
           "description": "Aciona prefixo para busca de emoji",
           "label": "Prefixo para Emoji"
+        },
+        "launcher-prefix-panels": {
+          "description": "Aciona",
+          "label": "Prefixos para Painéis"
         },
         "launcher-prefix-session": {
           "description": "Aciona prefixo para ações de energia da sessão",
@@ -2437,7 +2554,7 @@
         },
         "launcher-session-search": {
           "description": "Incluir ações de sessão (bloquear, suspender, reiniciar, desligar, sair) nas buscas gerais do launcher, não apenas atrás do prefixo /session",
-          "label": "Habilitar Pesquisa na Sessão"
+          "label": "Habilitar Busca na Sessão"
         },
         "launcher-show-icons": {
           "description": "Exibir ícones dos aplicativos nos resultados do launcher",
@@ -2488,7 +2605,7 @@
           "label": "Posicionamento"
         },
         "placement-polkit": {
-          "description": "Escolha se o prompt do polkit fica acoplado à barra ou flutua em uma posição escolhida na tela",
+          "description": "Escolha se a caixa de diálogo do polkit fica acoplada à barra ou flutua em uma posição escolhida na tela",
           "label": "Posicionamento"
         },
         "placement-session": {
@@ -2512,7 +2629,7 @@
           "label": "Posição"
         },
         "position-polkit": {
-          "description": "Onde o prompt do polkit aparece na tela; 'Seguir a Barra' o mantém perto da barra",
+          "description": "Onde a caixa de diálogo do polkit aparece na tela; 'Seguir a Barra' o mantém perto da barra",
           "label": "Posição"
         },
         "position-session": {
@@ -2565,7 +2682,7 @@
         },
         "calendar-credentials": {
           "button": "Tentar Novamente",
-          "description-cancelled": "A solicitação do Secret Service foi cancelada; tente novamente quando estiver pronto",
+          "description-cancelled": "A caixa de diálogo do Secret Service foi cancelada; tente novamente quando estiver pronto",
           "description-error": "Não foi possível acessar as credenciais do calendário por meio do Secret Service",
           "description-locked": "Credenciais do calendário estão bloqueadas ou o acesso foi negado; desbloqueie o Secret Service e tente novamente",
           "description-migration": "As credenciais do calendário em texto puro estão aguardando para serem movidas para o Secret Service; elas não são usadas para a sincronização",
@@ -2595,7 +2712,7 @@
         },
         "calendar-storage": {
           "button": "Tentar Novamente",
-          "description-cancelled": "O prompt de armazenamento criptografado foi cancelado; eventos do calendário permanecerão disponíveis apenas nesta sessão",
+          "description-cancelled": "A caixa de diálogo de armazenamento criptografado foi cancelada; eventos do calendário permanecerão disponíveis apenas nesta sessão",
           "description-error": "Não foi possível abrir ou salvar o cache criptografado de eventos do calendário",
           "description-locked": "Armazenamento criptografado está bloqueado ou o acesso foi negado; corrija o acesso e tente novamente",
           "description-migration": "O cache de eventos do calendário em texto puro está aguardando criptografia; ele será preservado até que a migração seja bem sucedida",
@@ -2631,16 +2748,16 @@
           "label": "Latitude"
         },
         "location-address": {
-          "description": "Cidade ou endereço para localizar, usado quando auto-localizar está desabilitado",
+          "description": "Cidade ou endereço para localizar, usado quando autolocalizar está desabilitado",
           "label": "Endereço",
           "placeholder": "Cidade, País"
         },
         "location-auto-locate": {
           "description": "Detectar sua localização automaticamente a partir do seu endereço IP",
-          "label": "Localização Automática (IP)"
+          "label": "Autolocalização (IP)"
         },
         "longitude": {
-          "description": "Longitude manual para a programação de nascer/pôr do sol, usada quando auto-localizar e endereço estão desabilitados",
+          "description": "Longitude manual para a programação de nascer/pôr do sol, usada quando autolocalizar e endereço estão desabilitados",
           "label": "Longitude"
         },
         "minimum-brightness": {
@@ -2844,7 +2961,7 @@
         },
         "clipboard-storage": {
           "button": "Tentar Novamente",
-          "description-cancelled": "O prompt do Secret Service foi cancelado; histórico da área de transferência permanecerá disponível apenas nesta sessão",
+          "description-cancelled": "A caixa de diálogo do Secret Service foi cancelada; histórico da área de transferência permanecerá disponível apenas nesta sessão",
           "description-error": "Não foi possível abrir ou salvar o histórico criptografado da área de transferência",
           "description-locked": "Armazenamento da chave da área de transferência está bloqueado ou o acesso foi negado; corrija o acesso e tente novamente",
           "description-migration": "Histórico da área de transferência em texto simples está aguardando criptografia; Os arquivos existentes serão preservados até que a migração seja  bem sucedida",
@@ -2863,11 +2980,11 @@
           "label": "Mostrar IP da WAN"
         },
         "greeter-sync-auto": {
-          "description": "Automaticamente sincronizar o greeter quando um papel de parede, cor ou tema for alterado",
+          "description": "Automaticamente sincronizar o greeter quando um papel de parede, cores ou modo do tema ou mudanças de fonte do shell forem feitas. Autorização ainda segue a política do sistema; esta configuração não ativa sincronização sem senha.",
           "label": "Autossincronizar Greeter"
         },
         "greeter-sync-privilege-command": {
-          "description": "Substituir o pkexec/run0 pelo greeter Sync Now; o caminho do auxiliar de aplicação e o diretório de preparação são acrescentados automaticamente (exemplo: ghostty -e pkexec)",
+          "description": "Substitir a execução com privilégios do greeter “Sync Now”. O modo legado (um auxiliar mais antigo ou um diretório de estado personalizado do greeter) aceita outro programa de elevação de privilégios de administrador. A sincronização restrita acrescenta --sync e requer o prefixo para, por fim, iniciar o pkexec (exemplo: ghostty -e pkexec)",
           "label": "Comando Privilegiado de Sincronização de Greeter"
         },
         "keyboard-layout-custom-labels": {
@@ -3021,6 +3138,18 @@
           "description": "Apagar o histórico de uso por app em primeiro plano",
           "label": "Redefinir Dados de Tempo de Tela"
         },
+        "screenshot-annotate": {
+          "description": "Abrir o editor de anotações em cada captura de tela; Concluir aplica as configurações de salvar, área de transferência e pipe",
+          "label": "Anotar Antes de Entregar"
+        },
+        "screenshot-close-on-copy": {
+          "description": "Fechar depois de uma cópia bem sucedida do editor, incluindo quando for aberto diretamente",
+          "label": "Fechar Editor Depois da Cópia"
+        },
+        "screenshot-close-on-save": {
+          "description": "Fechar depois de salvar com sucesso à partir do editor, incluindo quando aberto diretamente",
+          "label": "Fecha Editor Depois de Salvar"
+        },
         "screenshot-confirm-region": {
           "description": "Depois de desenhar uma região, manter o overlay aberto até confirmar com Enter ou Espaço",
           "label": "Confirmar Região"
@@ -3041,6 +3170,9 @@
         "screenshot-freeze-screen": {
           "description": "Captura a área de trabalho antes de selecionar a região para que o conteúdo em movimento permaneça estático",
           "label": "Congelar Tela"
+        },
+        "screenshot-output": {
+          "description": "Ações aplicadas após a captura ou quando você escolher Feito no editor de anotações."
         },
         "screenshot-pipe-command": {
           "description": "Comando executado como /bin/sh -lc com o PNG na stdin; para anotadores ou uploaders (exemplo: swappy -f - ou satty -f -)",
@@ -3063,6 +3195,10 @@
           "description": "Incluir o ponteiro do mouse nas capturas de tela",
           "label": "Mostrar Cursor"
         },
+        "screenshot-skip-annotate-on-copy-save": {
+          "description": "Copia e Salva na região do overlay é entregue imediatamente; Enter ou Espaço continuam abrindo o editor",
+          "label": "Ignora o Editor ao Copiar ou Salvar"
+        },
         "settings-window-translucent": {
           "description": "Torne o fundo das Configurações transparente para efeitos dos compositores",
           "label": "Fundo Transparente das Configurações"
@@ -3073,7 +3209,7 @@
         },
         "sync-greeter": {
           "button": "Sincronizar Agora",
-          "description": "Copia o papel de parede e as cores atuais para o Noctalia Greeter (requer aprovação do administrador)",
+          "description": "Copiar a aparência atual e arranjo de monitores para o Noctalia Greeter. Aprovação de administrador é necessária a não ser que políticas de sistema autorizem sincronização sem senha para seu usuário.",
           "label": "Noctalia Greeter"
         },
         "telemetry": {
@@ -3083,6 +3219,10 @@
         "time-format": {
           "description": "Formato de hora padrão para a interface do usuário do shell sem configuração própria",
           "label": "Formato da Hora"
+        },
+        "umbriel-overview-type-to-launch": {
+          "description": "Abrir o Launcher enquanto digite na Overveiw do Umbriel; utiliza uma pequena superfície de foco de teclado enquanto a Overview está aberta",
+          "label": "Digitar para Abrir Launcher"
         },
         "window-switcher-mru": {
           "description": "Organizar janelas no alternador por mais recentemente usadas ao invés de espaço de trabalho e layout de tela",
@@ -3134,7 +3274,7 @@
           "label": "Ordem"
         },
         "automation-recursive": {
-          "description": "Procura papéis de parede em subpastas",
+          "description": "Busca papéis de parede em subpastas",
           "label": "Incluir Subpastas"
         },
         "directory": {
@@ -3243,7 +3383,7 @@
         "filter-all": "Todos",
         "filter-enabled": "Habilitado",
         "results-count": "{count} modelos",
-        "search-placeholder": "Buscar modelos...",
+        "search-placeholder": "Busque modelos...",
         "sort-category-asc": "Ordenar por categoria (A-Z)",
         "sort-category-desc": "Ordenar por categoria (Z-A)",
         "sort-name-asc": "Ordenar por nome (A-Z)",
@@ -3255,6 +3395,10 @@
       "actions": {
         "command-placeholder": "Comando do shell",
         "commands": {
+          "annotate": {
+            "description": "Desenhar na tela sobre os aplicativos em execução; pressione F ou o botão Congelar para capturar o fundo",
+            "label": "Anotar tela"
+          },
           "bar-auto-hide-set": {
             "description": "Definir estado de auto-ocultar para uma barra",
             "label": "Definir auto-ocultar para a barra"
@@ -3562,6 +3706,10 @@
           "power-set": {
             "description": "Definir o perfil de energia UPower (ex.: desempenho, equilibrado, economia de energia)",
             "label": "Definir perfil de energia"
+          },
+          "screenshot-annotate": {
+            "description": "Congelar a tela e anotá-la, depois copiar ou salvar",
+            "label": "Anotar captura de tela"
           },
           "screenshot-fullscreen": {
             "description": "Capturar o monitor focado por padrão, pegar interativamente com pick ou todas saídas com Todos",
@@ -3903,8 +4051,12 @@
           "description": "Colorir a imagem personalizada com a configuração de Cor do Ícone do widget",
           "label": "Colorir Imagem Personalizada"
         },
+        "custom-label": {
+          "description": "Texto personalizado mostrado ao lado do símbolo ou imagem personalizada; permanece visível quando Mostrar Símbolo estiver desativada",
+          "label": "Rótulo Personalizado"
+        },
         "detached-panel": {
-          "description": "Abre o drawer como um painel flutuante ao invés de ancorá-lo à extremidade da barra",
+          "description": "Abre a gaveta como um painel flutuante ao invés de ancorá-lo à extremidade da barra",
           "label": "Painel Descolado"
         },
         "device": {
@@ -3921,12 +4073,12 @@
           "label": "Modo de Exibição"
         },
         "drawer": {
-          "description": "Exibir um botão de tray na barra e abrir itens em um painel",
-          "label": "Utilizar o Painel do Drawer"
+          "description": "Exibir um botão de bandeja na barra e abrir itens em um painel",
+          "label": "Utilizar o Painel da Gaveta"
         },
         "drawer-columns": {
-          "description": "Número de ícones do tray por linha no painel do drawer.",
-          "label": "Colunas do Drawer"
+          "description": "Número de ícones da bandeja por linha no painel da gaveta",
+          "label": "Colunas da Gaveta"
         },
         "drawer-item-size": {
           "description": "Tamanho dos ícones da bandeja da gaveta em pixels",
@@ -3942,7 +4094,7 @@
         },
         "enable-scroll": {
           "description": "Permitir ações de roda do mouse e rolagem de trackpad neste widget",
-          "label": "Avitar Rolagem"
+          "label": "Ativar Rolagem"
         },
         "focused-color": {
           "description": "Função de cor usada para a área de trabalho em foco; cores hexadecimais fixas também são suportadas",
@@ -3977,7 +4129,7 @@
           "volume-description": "Símbolo de ícone personalizado; Deixe em branco para usar os ícones dinâmicos integrados"
         },
         "glyph-position": {
-          "description": "Em qual ordem mostrar o símbolo em relação ao texto/gráfico/medidor",
+          "description": "Posicione o símbolo ou imagem personalizada e rótulo personalizado relativo ao valor ou visualização",
           "label": "Posição do Símbolo"
         },
         "group-by-workspace": {
@@ -3993,7 +4145,7 @@
           "label": "Altura"
         },
         "hidden": {
-          "description": "IDs de itens do Tray para ocultar",
+          "description": "IDs de itens da bandeja para ocultar",
           "label": "Ocultar Itens"
         },
         "hide-album-art": {
@@ -4013,7 +4165,7 @@
           "label": "Ocultar Inativo"
         },
         "hide-passive": {
-          "description": "Ocultar itens do tray cujo status do StatusNotifierItem seja \"Passive\"",
+          "description": "Ocultar itens da bandeja cujo status do StatusNotifierItem seja \"Passive\"",
           "label": "Ocultar Itens Passivos"
         },
         "hide-when-adapter-off": {
@@ -4136,7 +4288,7 @@
           "label": "Comprimento"
         },
         "match-adjacent-spacing": {
-          "description": "Aumentar o espaçamento entre os ícones do tray para alinhar com o espaçamento dos widgets adjacentes da barra (inclui o espaçamento interno da cápsula)",
+          "description": "Aumentar o espaçamento entre os ícones da bandeja para alinhar com o espaçamento dos widgets adjacentes da barra (inclui o espaçamento interno da cápsula)",
           "label": "Combinar o Espaçamento Entre Widgets Adjacentes"
         },
         "max-label-chars": {
@@ -4199,7 +4351,7 @@
           "workspaces-description": "Ajuste a escala das pílulas do espaço de trabalho"
         },
         "pinned": {
-          "description": "IDs dos itens do tray que permanecem visíveis na barra com o modo drawer habilitado",
+          "description": "IDs dos itens da bandeja que permanecem visíveis na barra com o modo gaveta habilitado",
           "label": "Itens Fixados",
           "taskbar-description": "Apps de área de trabalho que permanecem na barra de tarefas quando não estão em execução; Ignorados quando Agrupar por Espaço de Trabalho está ativada",
           "taskbar-label": "Apps Fixados"
@@ -4285,7 +4437,7 @@
           "label": "Exibir Temperatura"
         },
         "show-unlock-hint": {
-          "description": "Exibir o cartão de status acima da caixa de login para dicas de desbloqueio e prompts de autenticação; Erros e avisos de Caps Lock ainda aparecem quando isto está desligado",
+          "description": "Exibir o cartão de status acima da caixa de login para dicas de desbloqueio e caixas de diálogo de autenticação; Erros e avisos de Caps Lock ainda aparecem quando isto está desligado",
           "label": "Dica de Desbloqueio"
         },
         "show-value": {
@@ -4416,7 +4568,7 @@
         "test": "Teste",
         "text": "Texto",
         "theme-mode": "Modo do Tema",
-        "tray": "Tray",
+        "tray": "Bandeja",
         "volume": "Volume",
         "wallpaper": "Papel de parede",
         "weather": "Clima",
@@ -4447,7 +4599,7 @@
       },
       "reset-page": "Redefinir Página",
       "reset-page-confirm": "Confirmar Reinício",
-      "search-placeholder": "Pesquisar configurações...",
+      "search-placeholder": "Busque configurações...",
       "search-truncated": "Exibindo as primeiras {count} correspondências. Refine sua busca para restringir os resultados.",
       "support-report": "Relatório de suporte",
       "support-report-saved": "Relatório de suporte salvo.",
@@ -4486,7 +4638,7 @@
       "m3-rainbow": "M3 Rainbow",
       "m3-tonal-spot": "M3 Tonal Spot",
       "muted": "Muted",
-      "soft": "Macio",
+      "soft": "Suave",
       "vibrant": "Vibrante"
     }
   },
@@ -4535,7 +4687,7 @@
     "controls": {
       "search-picker": {
         "empty": "Sem resultados",
-        "placeholder": "Procurar..."
+        "placeholder": "Buscar..."
       },
       "select": {
         "placeholder": "Selecione uma opção"
@@ -4573,7 +4725,7 @@
       },
       "glyph-picker": {
         "all-categories": "Todos",
-        "search-placeholder": "Procurar símbolos",
+        "search-placeholder": "Busque símbolos...",
         "title": "Selecione um símbolo"
       }
     }
