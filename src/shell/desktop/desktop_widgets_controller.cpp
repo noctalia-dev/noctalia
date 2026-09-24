@@ -284,6 +284,18 @@ void DesktopWidgetsController::onSecondTick() {
   }
 }
 
+bool DesktopWidgetsController::wantsSecondTicks() const {
+  if (!m_initialized) {
+    return false;
+  }
+  // The editor owns the surfaces while it is open, and it mirrors the live
+  // widget values, so keep second precision for its duration.
+  if (isEditing()) {
+    return true;
+  }
+  return m_host != nullptr && m_host->wantsSecondTicks();
+}
+
 void DesktopWidgetsController::requestUpdate() {
   if (!m_initialized) {
     return;

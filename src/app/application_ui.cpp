@@ -1097,7 +1097,7 @@ void Application::initWidgetControllersAndCallbacks() {
       "shell-language-direction"
   );
 
-  m_timeService.setTickSecondCallback([this]() {
+  m_timeService.setTickCallback([this]() {
     m_wallpaper.onSecondTick();
     if (m_lockScreen.isActive()) {
       m_lockscreenWidgetsController.onSecondTick();
@@ -1112,6 +1112,7 @@ void Application::initWidgetControllersAndCallbacks() {
     }
     m_idleManager.onSecondTick();
   });
+  m_timeService.setPrecisionProvider([this]() { return timePrecisionNeeded(); });
 
   if (m_pipewireService != nullptr) {
     m_audioOsd.suppressFor(std::chrono::milliseconds(2000));
@@ -1152,4 +1153,18 @@ void Application::initWidgetControllersAndCallbacks() {
   // never occluded by shell chrome on their shared layer.
   m_screenCorners.initialize(m_wayland, &m_configService, &m_renderContext);
   m_hotCorners.initialize(m_wayland, &m_configService, &m_renderContext);
+}
+
+TimeService::Precision Application::timePrecisionNeeded() const {
+  // Only a visible clock that renders seconds needs the finer boundary. The
+  // bar, desktop, and lockscreen hosts each report only their live widgets.
+  if (m_bar.wantsSecondTicks()
+      || m_desktopWidgetsController.wantsSecondTicks()
+      || m_lockscreenWidgetsController.wantsSecondTicks()
+      || m_settingsWindow.wantsSecondTicks()) {
+    return TimeService::Precision::Second;
+  }
+  // Minute is the idle floor: the tick also advances wallpaper automation,
+  // settles minute-aligned clocks, and refreshes the idle-live status text.
+  return TimeService::Precision::Minute;
 }

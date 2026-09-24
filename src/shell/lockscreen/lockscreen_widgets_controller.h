@@ -45,6 +45,8 @@ public:
   void onLockStateChanged();
   void onOutputChange();
   void onSecondTick();
+  // True when a visible widget renders a value that changes every second.
+  [[nodiscard]] bool wantsSecondTicks() const;
   void requestLayout();
   void requestRedraw();
 

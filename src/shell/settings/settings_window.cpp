@@ -1250,3 +1250,7 @@ void SettingsWindow::onIdleLiveStatusChanged() {
 }
 
 void SettingsWindow::onSecondTick() { onIdleLiveStatusChanged(); }
+
+bool SettingsWindow::wantsSecondTicks() const noexcept {
+  return m_idleLiveStatusLabel != nullptr && m_surface != nullptr;
+}

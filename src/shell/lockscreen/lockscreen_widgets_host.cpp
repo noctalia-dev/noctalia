@@ -110,6 +110,18 @@ void LockscreenWidgetsHost::onSecondTick() {
   }
 }
 
+bool LockscreenWidgetsHost::wantsSecondTicks() const {
+  if (!m_visible) {
+    return false;
+  }
+  for (const auto& instance : m_instances) {
+    if (instance->widget != nullptr && instance->widget->wantsSecondTicks()) {
+      return true;
+    }
+  }
+  return false;
+}
+
 LockscreenWidgetsHost::WidgetInstance* LockscreenWidgetsHost::findInstance(const std::string& id) {
   for (auto& instance : m_instances) {
     if (instance->state.id == id) {

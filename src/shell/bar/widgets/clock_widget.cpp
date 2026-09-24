@@ -24,11 +24,19 @@ namespace {
     }
     return {text.substr(0, newline), text.substr(newline + 1)};
   }
+
+  bool formatShowsSeconds(const std::string& format) {
+    return format.contains("%S") || format.contains("%T") || format.contains("%X");
+  }
 } // namespace
 
 ClockWidget::ClockWidget(wl_output* /*output*/, Options options)
     : m_format(std::move(options.format)), m_verticalFormat(std::move(options.verticalFormat)),
       m_tooltipFormat(std::move(options.tooltipFormat)), m_timezone(std::move(options.timezone)) {}
+
+bool ClockWidget::wantsSecondTicks() const {
+  return formatShowsSeconds(m_format) || formatShowsSeconds(m_verticalFormat);
+}
 
 std::string ClockWidget::formatTimeText() const {
   if (!m_isVertical) {

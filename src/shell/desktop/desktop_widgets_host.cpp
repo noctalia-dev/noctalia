@@ -160,6 +160,18 @@ void DesktopWidgetsHost::onSecondTick() {
   }
 }
 
+bool DesktopWidgetsHost::wantsSecondTicks() const {
+  if (!m_visible) {
+    return false;
+  }
+  for (const auto& instance : m_instances) {
+    if (instance->widget != nullptr && instance->widget->wantsSecondTicks()) {
+      return true;
+    }
+  }
+  return false;
+}
+
 void DesktopWidgetsHost::requestUpdate() {
   for (auto& instance : m_instances) {
     if (instance->surface != nullptr) {

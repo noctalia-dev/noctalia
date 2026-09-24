@@ -37,6 +37,8 @@ public:
   void reloadPluginWidgets();
   void onOutputChange();
   void onSecondTick();
+  // True when a live widget renders a value that changes every second.
+  [[nodiscard]] bool wantsSecondTicks() const;
   void requestUpdate();
   void requestLayout();
   void requestRedraw();

@@ -218,6 +218,9 @@ private:
   bool runShellCommandBlocking(const std::string& command);
   bool runIdleAction(const IdleActionRequest& action);
   void onIconThemeChanged();
+  // Finest time boundary the currently visible shell UI needs. Drives the time
+  // poll source so it can park between boundaries instead of waking every second.
+  [[nodiscard]] TimeService::Precision timePrecisionNeeded() const;
   void onGraphicsReset(RenderGraphicsResetStatus status);
   void recoverGraphicsAfterReset();
   void requestAllSurfacesRedraw();

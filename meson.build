@@ -1245,6 +1245,7 @@ if build_tests
     'template_hook_runner',
     'theme_shell_mode',
     'time_format',
+    'time_service',
     'tray_identifier',
     'triad_workspace_backend',
     'ui_tree_reconciler',

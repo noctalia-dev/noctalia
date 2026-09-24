@@ -54,6 +54,9 @@ public:
   }
   virtual void onFrameTick(float deltaMs) { (void)deltaMs; }
   [[nodiscard]] virtual bool needsFrameTick() const { return false; }
+  // True when the widget renders a value that changes every second. The bar uses
+  // this to decide whether it needs second-precision time ticks at all.
+  [[nodiscard]] virtual bool wantsSecondTicks() const { return false; }
   [[nodiscard]] virtual bool onPointerEvent(const PointerEvent& event) {
     (void)event;
     return false;
