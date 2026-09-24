@@ -1940,7 +1940,7 @@ void SettingsWindow::refreshSettingsRegistry(const Config& cfg) {
   if (m_config != nullptr) {
     auto it = std::ranges::find_if(m_settingsRegistry, [](const settings::SettingEntry& e) {
       return e.section == settings::SettingsSection::Services
-          && e.group == "calendar"
+          && e.group == "calendar-accounts"
           && e.path == std::vector<std::string>{"calendar", "refresh_minutes"};
     });
     if (it != m_settingsRegistry.end()) {
@@ -1949,7 +1949,7 @@ void SettingsWindow::refreshSettingsRegistry(const Config& cfg) {
     const settings::SettingVisibility calendarOn = [](const Config& c) { return c.calendar.enabled; };
     settings::SettingEntry addBtn{
         .section = settings::SettingsSection::Services,
-        .group = "calendar",
+        .group = "calendar-accounts",
         .title = i18n::tr("settings.schema.services.calendar-add.label"),
         .subtitle = i18n::tr("settings.schema.services.calendar-add.description"),
         .path = {},
@@ -1983,7 +1983,7 @@ void SettingsWindow::refreshSettingsRegistry(const Config& cfg) {
                                                           : "settings.schema.services.calendar-edit.button";
       settings::SettingEntry btn{
           .section = settings::SettingsSection::Services,
-          .group = "calendar",
+          .group = "calendar-accounts",
           .title = account.displayName.empty() ? account.id : account.displayName,
           .subtitle = i18n::tr(descriptionKey),
           .path = {},

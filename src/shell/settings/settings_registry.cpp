@@ -2720,19 +2720,9 @@ namespace settings {
         {"control_center", "calendar", "show_week_numbers"},
         ToggleSetting{cfg.controlCenter.calendarTab.showWeekNumbers}, "calendar week numbers iso"
     ));
-    // Sync cadence belongs with the accounts it drives; the account rows are injected right after it.
     {
       auto e = makeEntry(
-          SettingsSection::Services, "calendar", tr("settings.schema.services.calendar-refresh-interval.label"),
-          tr("settings.schema.services.calendar-refresh-interval.description"), {"calendar", "refresh_minutes"},
-          sliderFor(cfg.calendar.refreshMinutes, noctalia::config::schema::kRefreshMinutesRange, true), "calendar sync"
-      );
-      e.visibleWhen = calendarOn;
-      entries.push_back(std::move(e));
-    }
-    {
-      auto e = makeEntry(
-          SettingsSection::Services, "calendar", tr("settings.schema.services.calendar-reminders.label"),
+          SettingsSection::Services, "calendar-reminders", tr("settings.schema.services.calendar-reminders.label"),
           tr("settings.schema.services.calendar-reminders.description"), {"calendar", "reminders", "enabled"},
           ToggleSetting{cfg.calendar.reminders.enabled}, "calendar reminder notification alarm upcoming"
       );
@@ -2744,7 +2734,8 @@ namespace settings {
     };
     {
       auto e = makeEntry(
-          SettingsSection::Services, "calendar", tr("settings.schema.services.calendar-reminder-use-event.label"),
+          SettingsSection::Services, "calendar-reminders",
+          tr("settings.schema.services.calendar-reminder-use-event.label"),
           tr("settings.schema.services.calendar-reminder-use-event.description"),
           {"calendar", "reminders", "use_event_reminders"}, ToggleSetting{cfg.calendar.reminders.useEventReminders},
           "calendar reminder valarm override event"
@@ -2754,7 +2745,7 @@ namespace settings {
     }
     {
       auto e = makeEntry(
-          SettingsSection::Services, "calendar", tr("settings.schema.services.calendar-reminder-lead.label"),
+          SettingsSection::Services, "calendar-reminders", tr("settings.schema.services.calendar-reminder-lead.label"),
           tr("settings.schema.services.calendar-reminder-lead.description"),
           {"calendar", "reminders", "default_lead_minutes"},
           sliderFor(
@@ -2767,7 +2758,7 @@ namespace settings {
     }
     {
       auto e = makeEntry(
-          SettingsSection::Services, "calendar", tr("settings.schema.services.calendar-digest-time.label"),
+          SettingsSection::Services, "calendar-reminders", tr("settings.schema.services.calendar-digest-time.label"),
           tr("settings.schema.services.calendar-digest-time.description"),
           {"calendar", "reminders", "all_day_digest_time"},
           TextSetting{
@@ -2776,6 +2767,17 @@ namespace settings {
           "calendar all day digest time morning"
       );
       e.visibleWhen = remindersOn;
+      entries.push_back(std::move(e));
+    }
+    // Sync cadence belongs with the accounts it drives; the account rows are injected right after it.
+    {
+      auto e = makeEntry(
+          SettingsSection::Services, "calendar-accounts",
+          tr("settings.schema.services.calendar-refresh-interval.label"),
+          tr("settings.schema.services.calendar-refresh-interval.description"), {"calendar", "refresh_minutes"},
+          sliderFor(cfg.calendar.refreshMinutes, noctalia::config::schema::kRefreshMinutesRange, true), "calendar sync"
+      );
+      e.visibleWhen = calendarOn;
       entries.push_back(std::move(e));
     }
 

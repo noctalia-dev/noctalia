@@ -15,7 +15,7 @@ generic event URL.
 
 ## Settings setup
 
-The simplest path is **Settings → Services → Calendar → Add Account**.
+The simplest path is **Settings → Services → Calendar Accounts → Add Account**.
 
 - **iCloud**: choose iCloud, enter a local account id such as `personal_icloud`, your Apple Account email, and an Apple app-specific password.
 - **CalDAV**: choose CalDAV, enter a local account id such as `home_nextcloud`, the provider's CalDAV discovery root, your username, and a provider app password.
@@ -30,7 +30,7 @@ storage master key configured by top-level `[storage]`.
 
 Account ids are local Noctalia identifiers. Use lowercase letters, digits, and underscores only. The GUI keeps an account id fixed after creation so existing config and credential keys are not removed or renamed.
 
-Existing accounts can be edited from **Settings → Services → Calendar**. Google accounts expose the same name/color editor and include **Save** plus **Save and Connect** actions; both save the current editor values, and **Save and Connect** then opens browser authorization. The delete action is shown only for accounts created in `settings.toml`; accounts declared in `~/.config/noctalia/*.toml` are never removed by the GUI.
+Existing accounts can be edited from **Settings → Services → Calendar Accounts**. Google accounts expose the same name/color editor and include **Save** plus **Save and Connect** actions; both save the current editor values, and **Save and Connect** then opens browser authorization. The delete action is shown only for accounts created in `settings.toml`; accounts declared in `~/.config/noctalia/*.toml` are never removed by the GUI.
 
 ## Manual setup
 
@@ -61,7 +61,7 @@ calendars  = ["personal"]   # optional discovered collection ids; empty = all
 credential_source = "file"
 password_file = "/run/agenix/noctalia-caldav"
 
-# Google Calendar (authorized via Settings → Services → Calendar → Connect)
+# Google Calendar (authorized via Settings → Services → Calendar Accounts → Connect)
 [calendar.account.work_google]
 type = "google"
 name = "Work"
@@ -95,7 +95,7 @@ default_lead_minutes = 10       # used for events with no reminder of their own;
 all_day_digest_time  = "09:00"  # one notification listing today's all-day events; "" disables it
 ```
 
-The same four options are in **Settings → Services → Calendar**. Reminders require `[calendar]` itself to be enabled.
+The same four options are in **Settings → Services → Calendar Reminders**. Reminders require `[calendar]` itself to be enabled.
 
 A Google event whose notifications you removed stays silent. Google events that follow a calendar with no default notifications use `default_lead_minutes`. Set `use_event_reminders = false` to apply `default_lead_minutes` to every event regardless.
 
@@ -163,7 +163,7 @@ The account id is the last segment of the named table. For `[calendar.account.pe
 `personal_icloud`. Use short ids with lowercase letters, digits, and underscores only. The id is local to Noctalia; it
 does not need to match your email address or provider account name.
 
-For manual CalDAV setup with Secret Service, declare the account table first, then open **Settings → Services → Calendar**, edit that account, enter its app password, and press **Save**. To use agenix or another file provisioner instead, set `credential_source = "file"` and `password_file` in the account table. There is no plaintext TOML credential key.
+For manual CalDAV setup with Secret Service, declare the account table first, then open **Settings → Services → Calendar Accounts**, edit that account, enter its app password, and press **Save**. To use agenix or another file provisioner instead, set `credential_source = "file"` and `password_file` in the account table. There is no plaintext TOML credential key.
 
 For providers with two-factor authentication, create an app-specific password in the provider's account security
 settings and use that value here. Your normal account password will usually fail.
@@ -211,7 +211,7 @@ Common iCloud failures:
 
 ## Google setup
 
-In Settings, choose **Google**, then press **Save and Connect**. For manual TOML, add a named account table with `type = "google"`, enable the calendar service, then open **Settings → Services → Calendar**, edit the account, and press **Save and Connect**. A browser tab opens for Google's consent screen; approve it and the tab confirms completion. Tokens are obtained through the noctalia OAuth broker (`api.noctalia.dev`) - no Google Cloud project or client secret is required on your side. Access is `calendar.readonly`.
+In Settings, choose **Google**, then press **Save and Connect**. For manual TOML, add a named account table with `type = "google"`, enable the calendar service, then open **Settings → Services → Calendar Accounts**, edit the account, and press **Save and Connect**. A browser tab opens for Google's consent screen; approve it and the tab confirms completion. Tokens are obtained through the noctalia OAuth broker (`api.noctalia.dev`) - no Google Cloud project or client secret is required on your side. Access is `calendar.readonly`.
 
 :::note
 The account id is the last segment of the named table. For `[calendar.account.work_google]`, the id is `work_google`. It must **not** be your Google email address. The signed-in Google account is chosen during browser authorization, not from the table name.

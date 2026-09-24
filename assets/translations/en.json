@@ -1305,6 +1305,8 @@
         "brightness": "Brightness",
         "built-in": "Built-In",
         "calendar": "Calendar",
+        "calendar-accounts": "Calendar Accounts",
+        "calendar-reminders": "Calendar Reminders",
         "capsules": "Capsules",
         "clipboard": "Clipboard",
         "community": "Community",
@@ -2723,7 +2725,7 @@
         },
         "calendar-digest-time": {
           "description": "Time of day for a single notification listing all-day events. Leave empty to disable.",
-          "label": "All-day digest time"
+          "label": "All-Day Digest Time"
         },
         "calendar-edit": {
           "button": "Edit",
@@ -2747,15 +2749,15 @@
         },
         "calendar-reminder-lead": {
           "description": "How far ahead to notify for events that set no reminder of their own.",
-          "label": "Default reminder lead"
+          "label": "Default Reminder Lead"
         },
         "calendar-reminder-use-event": {
           "description": "Honor the reminder set on each event. When off, every event uses the default lead time.",
-          "label": "Use event reminders"
+          "label": "Use Event Reminders"
         },
         "calendar-reminders": {
           "description": "Notify before an event starts.",
-          "label": "Event reminders"
+          "label": "Calendar Reminders"
         },
         "calendar-storage": {
           "button": "Retry",
