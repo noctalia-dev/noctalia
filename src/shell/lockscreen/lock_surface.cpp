@@ -1252,6 +1252,9 @@ void LockSurface::layoutScene(std::uint32_t width, std::uint32_t height) {
 
   const bool showControls = m_mediaControls != nullptr && m_mediaControls->visible();
   const float controlsGap = 2.0F * contentScale;
+  if (m_mediaControls != nullptr) {
+    m_mediaControls->setGap(controlsGap);
+  }
   const float controlsWidth = showControls ? (3.0F * mediaButtonSize + 2.0F * controlsGap + Style::spaceSm) : 0.0F;
   const float mediaTextMax = std::max(48.0F, mediaBudget - mediaArtSize - Style::spaceSm - controlsWidth);
   if (m_mediaTitle != nullptr) {
@@ -1632,7 +1635,7 @@ void LockSurface::syncRegularExtras(Renderer& renderer) {
         m_mediaNextButton->setEnabled(active->canGoNext);
       }
       if (m_mediaPlayPauseButton != nullptr) {
-        m_mediaPlayPauseButton->setEnabled(active->canPlay || active->canPause || active->canControl);
+        m_mediaPlayPauseButton->setEnabled(active->canPlay || active->canPause);
         m_mediaPlayPauseButton->setGlyph(active->playbackStatus == "Playing" ? "media-pause" : "media-play");
       }
     }

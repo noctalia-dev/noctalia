@@ -448,6 +448,14 @@ namespace desktop_settings {
       auto showMedia = boolSpec("show_media", true);
       showMedia.visibleWhen = regularOnly;
       add(std::move(showMedia));
+      auto showMediaControls = boolSpec("show_media_controls", true);
+      WidgetSettingVisibility showMediaControlsVis;
+      showMediaControlsVis.all = {
+          WidgetSettingVisibilityCondition{"layout", {"regular"}},
+          WidgetSettingVisibilityCondition{"show_media", {"true"}},
+      };
+      showMediaControls.visibleWhen = showMediaControlsVis;
+      add(std::move(showMediaControls));
       auto showWeather = boolSpec("show_weather", true);
       showWeather.visibleWhen = regularOnly;
       add(std::move(showWeather));
