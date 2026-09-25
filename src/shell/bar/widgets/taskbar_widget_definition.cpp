@@ -289,6 +289,6 @@ const noctalia::bar::WidgetDefinition<TaskbarWidgetOptions>& taskbarWidgetDefini
                   },
               },
           },
-      };
+  };
   return definition;
 }
