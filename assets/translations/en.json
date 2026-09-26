@@ -3063,6 +3063,10 @@
           "description": "Open the launcher when typing in niri overview; uses a tiny keyboard-focus surface while overview is open",
           "label": "Type to Launch"
         },
+        "niri-overview-close-on-launch": {
+          "description": "Close the overview when an app launches from the launcher while the niri overview is open.",
+          "label": "Close on Launch"
+        },
         "offline-mode": {
           "description": "Block all outgoing network requests",
           "label": "Offline Mode"
@@ -3281,6 +3285,10 @@
         "umbriel-overview-type-to-launch": {
           "description": "Open the launcher when typing in umbriel overview; uses a tiny keyboard-focus surface while overview is open",
           "label": "Type to Launch"
+        },
+        "umbriel-overview-close-on-launch": {
+          "description": "Close the overview when an app launches from the launcher while the umbriel overview is open.",
+          "label": "Close on Launch"
         },
         "window-switcher-mru": {
           "description": "Order windows in the switcher by most recently used rather than workspace and screen layout",

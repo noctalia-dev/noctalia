@@ -116,6 +116,15 @@ namespace {
     }
     return false;
   }
+
+  [[nodiscard]] bool overviewCloseOnLaunchEnabled(const ConfigService& configService) {
+    if (compositors::isUmbriel()) {
+      return configService.config().shell.umbrielOverviewCloseOnLaunchEnabled;
+    } else if (compositors::isNiri()) {
+      return configService.config().shell.niriOverviewCloseOnLaunchEnabled;
+    }
+    return false;
+  }
 } // namespace
 
 void Application::initUi() {
@@ -648,6 +657,12 @@ void Application::initPanelManagerAndPanels() {
           (void)clipboard_paste::pasteEntry(false, activeMode, m_virtualKeyboardService);
         });
       });
+    });
+    launcherPanel->setOnAppLaunchCallback([this]() {
+      if (!overviewCloseOnLaunchEnabled(m_configService)) {
+        return;
+      }
+      (void)m_compositorPlatform.closeOverview();
     });
     m_launcherPanel = launcherPanel.get();
     m_panelManager.registerPanel("launcher", std::move(launcherPanel));

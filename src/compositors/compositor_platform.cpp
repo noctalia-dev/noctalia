@@ -1615,6 +1615,19 @@ bool CompositorPlatform::isOverviewOpen() const noexcept {
   return m_workspaceMetadataBackend->isOverviewOpen();
 }
 
+bool CompositorPlatform::closeOverview() const {
+  if (!tracksOverviewState() || !hasOverviewState() || !isOverviewOpen()) {
+    return false;
+  }
+  if (compositors::isUmbriel()) {
+    return umbrielRuntime().requestAction("overview-toggle");
+  }
+  if (compositors::isNiri()) {
+    return niriRuntime().requestAction(nlohmann::json{{"ToggleOverview", nlohmann::json::object()}});
+  }
+  return false;
+}
+
 void CompositorPlatform::bindExtWorkspace(ext_workspace_manager_v1* manager) {
   if (m_workspaces != nullptr) {
     m_workspaces->bindExtWorkspace(manager);
