@@ -14,9 +14,11 @@
 #include <format>
 #include <limits>
 #include <map>
+#include <optional>
 #include <sdbus-c++/IObject.h>
 #include <sdbus-c++/IProxy.h>
 #include <sdbus-c++/Types.h>
+#include <string>
 #include <string_view>
 #include <tuple>
 #include <unordered_set>
@@ -41,6 +43,12 @@ namespace {
   constexpr auto kMprisPlayerInterface = "org.mpris.MediaPlayer2.Player";
   constexpr auto kNoctaliaMprisInterface = "dev.noctalia.Mpris";
   constexpr auto kPropertiesDebounceWindow = std::chrono::milliseconds{120};
+  constexpr double kMediaVolumeStepDefault = 0.05;
+  constexpr auto kMediaVolumeStepError =
+      "error: invalid volume step (use percent like 5 or 5%, or normalized like 0.05)\n";
+  constexpr auto kMediaVolumeValueError =
+      "error: invalid volume value (use percent like 65 or 65%, or normalized like 0.65)\n";
+  constexpr auto kMediaVolumeUnsupportedOrNoActive = "error: no active player or volume unsupported\n";
   constexpr auto kMetadataStabilizeWindow = std::chrono::milliseconds{900};
   const sdbus::ServiceName kDbusName{"org.freedesktop.DBus"};
   const sdbus::ObjectPath kDbusPath{"/org/freedesktop/DBus"};
@@ -688,12 +696,43 @@ void MprisService::refreshPlayers() {
 void MprisService::registerIpc(IpcService& ipc) {
   ipc.bindCycle(noctalia::cli::msg::media, [this](const std::string& args) -> std::string {
     const auto parts = noctalia::ipc::splitWords(args);
-    if (parts.size() != 1) {
-      return "error: media requires exactly one action "
-             "<next|previous|toggle|play|pause|stop|next-player|previous-player>\n";
+    if (parts.empty() || parts.size() > 2) {
+      return "error: media requires an action "
+             "<next|previous|toggle|play|pause|stop|next-player|previous-player|volume-up|volume-down|volume-set>\n";
     }
 
     const std::string& action = parts[0];
+    if (action == "volume-set") {
+      if (parts.size() != 2) {
+        return "error: media volume-set requires <value>\n";
+      }
+      const auto amount = noctalia::ipc::parseNormalizedOrPercent(parts[1]);
+      if (!amount.has_value()) {
+        return kMediaVolumeValueError;
+      }
+      return setVolumeActive(std::clamp(*amount, 0.0F, 100.0F)) ? "ok\n"
+                                                                : "error: no active player or volume unsupported\n";
+    }
+    if (action == "volume-up" || action == "volume-down") {
+      const auto step = parts.size() == 1 ? std::optional<float>(static_cast<float>(kMediaVolumeStepDefault))
+                                          : noctalia::ipc::parseNormalizedOrPercent(parts[1]);
+      if (!step.has_value()) {
+        return kMediaVolumeStepError;
+      }
+
+      const auto current = volumeActive();
+      if (!current.has_value()) {
+        return kMediaVolumeUnsupportedOrNoActive;
+      }
+
+      const double direction = action == "volume-up" ? 1.0 : -1.0;
+      const double newVolume = *current + static_cast<double>(*step) * direction;
+      return setVolumeActive(std::clamp(newVolume, 0.0, 100.0)) ? "ok\n" : kMediaVolumeUnsupportedOrNoActive;
+    }
+    if (parts.size() != 1) {
+      return "error: media requires exactly one action "
+             "<next|previous|toggle|play|pause|stop|next-player|previous-player|volume-up|volume-down|volume-set>\n";
+    }
     if (action == "next") {
       return nextActive() ? "ok\n" : "error: no active player or Next unsupported\n";
     }
@@ -720,7 +759,7 @@ void MprisService::registerIpc(IpcService& ipc) {
     }
 
     return "error: invalid media action (use next, previous, toggle, play, pause, stop, next-player, "
-           "previous-player)\n";
+           "previous-player, volume-up, volume-down, volume-set)\n";
   });
 }
 
