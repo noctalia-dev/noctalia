@@ -170,12 +170,13 @@ command = "swaylock -f"
 blacklist = []           # optional list of players to hide from media widgets/control-center
 
 [shell.window_switcher]
-style = "carousel"       # "carousel" (freestanding depth layout) or "compact" (boxed strip)
-mru = false              # order windows by most recently used (Alt+Tab) instead of workspace layout
-show_caption = true      # show window titles and application names below previews
-show_count = true        # show the current and total window count above the previews
-show_app_icon = true     # show application icons over window previews
-show_all_outputs = true  # list windows from every monitor; false = only the monitor showing the switcher
+style = "carousel"              # "carousel" (freestanding depth layout) or "compact" (boxed strip)
+mru = false                     # order windows by most recently used (Alt+Tab) instead of workspace layout
+show_caption = true             # show window titles and application names below previews
+show_count = true               # show the current and total window count above the previews
+show_app_icon = true            # show application icons over window previews
+show_all_outputs = true         # list windows from every monitor; false = only the monitor showing the switcher
+current_workspace_only = false  # list only the windows of the workspace shown on each monitor; false = windows from every workspace
 
 [shell.privacy]
 mic_filter_regex    = "" # ignore matching microphone application names

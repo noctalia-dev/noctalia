@@ -1435,6 +1435,7 @@ namespace noctalia::config::schema {
           field(&ShellConfig::WindowSwitcherConfig::showCount, "show_count"),
           field(&ShellConfig::WindowSwitcherConfig::showAppIcon, "show_app_icon"),
           field(&ShellConfig::WindowSwitcherConfig::showAllOutputs, "show_all_outputs"),
+          field(&ShellConfig::WindowSwitcherConfig::currentWorkspaceOnly, "current_workspace_only"),
       };
       return s;
     }

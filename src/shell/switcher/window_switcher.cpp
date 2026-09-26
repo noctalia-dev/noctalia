@@ -22,6 +22,7 @@
 #include "shell/surface/shadow.h"
 #include "shell/switcher/window_switcher_carousel_style.h"
 #include "shell/switcher/window_switcher_compact_style.h"
+#include "shell/switcher/window_switcher_membership.h"
 #include "shell/switcher/window_switcher_tile.h"
 #include "system/app_identity.h"
 #include "system/desktop_entry.h"
@@ -41,6 +42,8 @@
 #include <limits>
 #include <linux/input-event-codes.h>
 #include <memory>
+#include <optional>
+#include <string_view>
 #include <unordered_map>
 #include <unordered_set>
 #include <xkbcommon/xkbcommon-keysyms.h>
@@ -355,22 +358,100 @@ namespace {
     return keys;
   }
 
+  [[nodiscard]] std::optional<std::string>
+  focusedWindowAssignmentKey(const CompositorPlatform& platform, wl_output* output) {
+    const auto focusedId = platform.focusedCompositorWindowId();
+    if (!focusedId.has_value() || focusedId->empty()) {
+      return std::nullopt;
+    }
+    const std::string focusedKey = canonicalWindowId(*focusedId);
+    const std::string focusedRaw = focusedKey.empty() ? *focusedId : focusedKey;
+    for (const auto& assignment : platform.workspaceWindowAssignments(output)) {
+      if (assignment.workspaceKey.empty() || assignment.windowId.empty()) {
+        continue;
+      }
+      const std::string key = canonicalWindowId(assignment.windowId);
+      if (key == focusedRaw || (compositors::isHyprland() && compositors::hyprland::windowIdsEqual(key, focusedRaw))) {
+        return assignment.workspaceKey;
+      }
+    }
+    return std::nullopt;
+  }
+
+  [[nodiscard]] switcher_membership::OutputMembership
+  buildOutputMembership(const CompositorPlatform& platform, wl_output* output) {
+    switcher_membership::OutputMembership membership;
+    membership.workspaces = platform.workspaces(output);
+    membership.overlayKeys = platform.openOverlayWorkspaceKeys(output);
+    membership.assignments = platform.workspaceWindowAssignments(output);
+    const bool hasActive =
+        std::ranges::any_of(membership.workspaces, [](const Workspace& workspace) { return workspace.active; });
+    // Without an active workspace the focus is the only hint of what the user sees.
+    if (!hasActive) {
+      membership.focusedKey = focusedWindowAssignmentKey(platform, output).value_or(std::string{});
+    }
+    return membership;
+  }
+
+  [[nodiscard]] std::vector<switcher_membership::OutputMembership> collectOutputMemberships(
+      const CompositorPlatform& platform, const WaylandConnection& wayland, wl_output* outputFilter
+  ) {
+    std::vector<switcher_membership::OutputMembership> memberships;
+    const auto appendForOutput = [&](wl_output* output) {
+      if (output != nullptr) {
+        memberships.push_back(buildOutputMembership(platform, output));
+      }
+    };
+
+    if (outputFilter != nullptr) {
+      appendForOutput(outputFilter);
+      return memberships;
+    }
+    memberships.reserve(wayland.outputs().size());
+    for (const auto& output : wayland.outputs()) {
+      appendForOutput(output.output);
+    }
+    return memberships;
+  }
+
+  [[nodiscard]] std::vector<WorkspaceWindowAssignment> collectSwitcherAssignments(
+      const CompositorPlatform& platform, const WaylandConnection& wayland, wl_output* outputFilter,
+      bool currentWorkspaceOnly, bool& membershipFilterApplied
+  ) {
+    membershipFilterApplied = false;
+    if (!currentWorkspaceOnly) {
+      return platform.workspaceWindowAssignments(outputFilter);
+    }
+
+    const std::vector<switcher_membership::OutputMembership> memberships =
+        collectOutputMemberships(platform, wayland, outputFilter);
+    // No output reports assignments: turning the filter on would then hide every window,
+    // since the switcher drops the toplevels it has no assignment for. Better unfiltered.
+    if (!switcher_membership::hasWorkspaceMembershipData(memberships)) {
+      return platform.workspaceWindowAssignments(outputFilter);
+    }
+
+    membershipFilterApplied = true;
+    return switcher_membership::assignmentsOnVisibleWorkspaces(memberships);
+  }
+
   void buildWindowEntries(
       const CompositorPlatform& platform, const WaylandConnection& wayland, IconResolver& iconResolver, int iconSize,
       wl_output* outputFilter, std::vector<WindowSwitcherEntry>& out, const std::optional<std::string>& focusedId,
-      const std::deque<std::string>* mruKeys
+      const std::deque<std::string>* mruKeys, bool currentWorkspaceOnly
   ) {
+    bool membershipFilterApplied = false;
+    const std::vector<WorkspaceWindowAssignment> assignments =
+        collectSwitcherAssignments(platform, wayland, outputFilter, currentWorkspaceOnly, membershipFilterApplied);
+
     std::unordered_map<std::string, WorkspaceWindowAssignment> assignmentById;
-    assignmentById.reserve(32);
-    for (const auto& assignment : platform.workspaceWindowAssignments(outputFilter)) {
-      if (assignment.windowId.empty()) {
-        continue;
-      }
+    assignmentById.reserve(assignments.size());
+    for (const auto& assignment : assignments) {
       const std::string key = canonicalWindowId(assignment.windowId);
       if (key.empty()) {
         continue;
       }
-      assignmentById[key] = assignment;
+      assignmentById.try_emplace(key, assignment);
     }
 
     std::unordered_map<std::string, ToplevelInfo> liveToplevelById;
@@ -421,6 +502,9 @@ namespace {
 
     for (const auto& [key, info] : liveToplevelById) {
       if (seenKeys.contains(key)) {
+        continue;
+      }
+      if (membershipFilterApplied) {
         continue;
       }
       WindowSwitcherCandidate candidate;
@@ -629,12 +713,21 @@ void WindowSwitcher::show(wl_output* output) {
     recordFocusedWindow();
   }
   m_output = output;
+  const auto focusedId = m_platform->focusedCompositorWindowId();
   refreshWindows();
 
   if (wasActive) {
     cycleSelection(1);
   } else {
-    m_selectedIndex = m_windows.size() > 1 ? 1 : 0;
+    bool focusedListedFirst = false;
+    if (focusedId.has_value() && !m_windows.empty()) {
+      const std::string frontKey = identityKeyForEntry(m_windows.front());
+      const std::string focusedKey = canonicalWindowId(*focusedId);
+      const std::string focusedCompare = focusedKey.empty() ? *focusedId : focusedKey;
+      focusedListedFirst = frontKey == focusedCompare
+          || (compositors::isHyprland() && compositors::hyprland::windowIdsEqual(frontKey, focusedCompare));
+    }
+    m_selectedIndex = (m_windows.size() > 1 && focusedListedFirst) ? 1 : 0;
   }
   m_active = true;
 
@@ -687,9 +780,10 @@ void WindowSwitcher::refreshWindows() {
 
   const int iconSize = static_cast<int>(std::round((Style::controlHeightLg + Style::spaceLg) * shellUiScale(m_config)));
   const bool allOutputs = m_config == nullptr || m_config->config().shell.windowSwitcher.showAllOutputs;
+  const bool currentWorkspaceOnly = m_config != nullptr && m_config->config().shell.windowSwitcher.currentWorkspaceOnly;
   buildWindowEntries(
       *m_platform, *m_wayland, m_iconResolver, iconSize, allOutputs ? nullptr : m_output, m_windows,
-      m_platform->focusedCompositorWindowId(), mruEnabled() ? &m_mruKeys : nullptr
+      m_platform->focusedCompositorWindowId(), mruEnabled() ? &m_mruKeys : nullptr, currentWorkspaceOnly
   );
 
   for (auto& entry : m_windows) {

@@ -677,6 +677,7 @@ Workspace SwayWorkspaceBackend::toWorkspace(const SwayWorkspace& workspace) {
       .id = workspace.name,
       .name = workspace.name,
       .coordinates = {coord},
+      .index = workspace.num > 0 ? static_cast<std::uint32_t>(workspace.num) : 0,
       .active = workspace.visible,
       .urgent = workspace.urgent,
       .occupied = workspace.occupied,

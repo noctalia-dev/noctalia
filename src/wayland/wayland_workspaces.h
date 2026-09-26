@@ -46,6 +46,7 @@ public:
   [[nodiscard]] std::unordered_map<std::uintptr_t, WorkspaceWindow>
   assignTaskbarWindows(const std::vector<TaskbarWindowCandidate>& windows, wl_output* output) const;
   [[nodiscard]] std::vector<WorkspaceWindow> workspaceWindows(wl_output* output) const;
+  [[nodiscard]] std::vector<std::string> openOverlayWorkspaceKeys(wl_output* output) const;
   void focusWindow(const std::string& windowId) const;
 
   [[nodiscard]] std::vector<Workspace> all() const;

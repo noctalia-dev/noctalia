@@ -1276,6 +1276,7 @@ if build_tests
     'widget_action',
     'widget_definition',
     'widget_settings_schema',
+    'window_switcher_membership',
     'workspace_alert_service',
     'workspaces_widget',
   ]

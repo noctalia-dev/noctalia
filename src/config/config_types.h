@@ -1116,6 +1116,7 @@ struct ShellConfig {
     bool showCount = true;
     bool showAppIcon = true;
     bool showAllOutputs = true;
+    bool currentWorkspaceOnly = false;
 
     bool operator==(const WindowSwitcherConfig&) const = default;
   };

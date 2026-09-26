@@ -79,6 +79,11 @@ public:
     return {};
   }
   [[nodiscard]] virtual std::vector<WorkspaceWindow> workspaceWindows(wl_output* /*output*/) const { return {}; }
+  // Workspace keys of the overlay workspaces currently open on `output` (nullptr = every
+  // output), such as Hyprland special workspaces, which backends hide from all()/forOutput().
+  // Non-empty means the overlay supersedes the reported active workspace. Keys use the
+  // WorkspaceWindow::workspaceKey namespace.
+  [[nodiscard]] virtual std::vector<std::string> openOverlayWorkspaceKeys(wl_output* /*output*/) const { return {}; }
   virtual void focusWindow(const std::string& /*windowId*/) {}
   virtual void cleanup() = 0;
 

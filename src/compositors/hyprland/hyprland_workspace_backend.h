@@ -40,6 +40,7 @@ public:
   [[nodiscard]] std::unordered_map<std::string, std::vector<std::string>>
   appIdsByWorkspace(wl_output* output) const override;
   [[nodiscard]] std::vector<WorkspaceWindow> workspaceWindows(wl_output* output) const override;
+  [[nodiscard]] std::vector<std::string> openOverlayWorkspaceKeys(wl_output* output) const override;
   [[nodiscard]] std::optional<std::string> focusedWindowId() const;
   void focusWindow(const std::string& windowId) override;
   void cleanup() override;
@@ -137,6 +138,8 @@ private:
   std::vector<WorkspaceState> m_workspaces;
   std::unordered_map<std::uint64_t, ToplevelState> m_toplevels;
   std::unordered_map<std::string, std::string> m_activeWorkspaceByMonitor;
+  // Special workspace open on each monitor, absent when it shows its regular workspace.
+  std::unordered_map<std::string, std::string> m_openSpecialWorkspaceByMonitor;
   std::string m_focusedWindowId;
   std::size_t m_nextOrdinal = 0;
   IpcSchema m_ipcSchema = IpcSchema::Unknown;
