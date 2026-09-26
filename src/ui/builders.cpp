@@ -309,6 +309,9 @@ namespace ui {
     if (props.glyphSize.has_value()) {
       control->setGlyphSize(*props.glyphSize);
     }
+    if (props.leadingIconPath.has_value()) {
+      control->setLeadingIcon(*props.leadingIconPath, props.leadingIconSize.value_or(16));
+    }
     if (props.controlHeight.has_value()) {
       control->setControlHeight(*props.controlHeight);
     }

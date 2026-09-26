@@ -4,6 +4,7 @@
 #include "i18n/i18n.h"
 #include "ui/builders.h"
 #include "ui/controls/color_swatch_preview.h"
+#include "ui/controls/image.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 #include "util/fuzzy_match.h"
@@ -44,6 +45,16 @@ namespace {
           })
       );
 
+      addChild(
+          ui::image({
+              .out = &m_image,
+              .width = Style::baseGlyphSize,
+              .height = Style::baseGlyphSize,
+              .visible = false,
+              .participatesInLayout = false,
+          })
+      );
+
       auto text = ui::column({
           .out = &m_text,
           .align = FlexAlign::Stretch,
@@ -67,10 +78,11 @@ namespace {
       addChild(std::move(text));
     }
 
-    void bind(const SearchPickerOption& option, bool highlighted, bool selected, bool hovered) {
+    void bind(Renderer& renderer, const SearchPickerOption& option, bool highlighted, bool selected, bool hovered) {
       const bool hasDetail = !option.description.empty();
       const bool hasIcon = !option.icon.empty();
       const bool hasPreview = !option.preview.empty();
+      const bool hasImageIcon = !option.iconPath.empty();
 
       if (highlighted) {
         setFill(colorSpecFromRole(ColorRole::Primary));
@@ -99,13 +111,22 @@ namespace {
         m_preview->setVisible(hasPreview);
         m_preview->setParticipatesInLayout(hasPreview);
       }
+      const bool showIcon = hasIcon && !hasPreview;
+      const bool showImageIcon = hasImageIcon && !hasPreview;
+      if (m_image != nullptr) {
+        if (showImageIcon) {
+          m_image->setSourceFile(renderer, option.iconPath, static_cast<int>(Style::baseGlyphSize), /*mipmap=*/true);
+        }
+        m_image->setVisible(showImageIcon);
+        m_image->setParticipatesInLayout(showImageIcon);
+      }
       if (m_icon != nullptr) {
-        if (hasIcon && !hasPreview) {
+        if (showIcon && !showImageIcon) {
           m_icon->setGlyph(option.icon);
           m_icon->setColor(foreground);
         }
-        m_icon->setVisible(hasIcon && !hasPreview);
-        m_icon->setParticipatesInLayout(hasIcon && !hasPreview);
+        m_icon->setVisible(showIcon && !showImageIcon);
+        m_icon->setParticipatesInLayout(showIcon && !showImageIcon);
       }
       if (m_title != nullptr) {
         m_title->setText(option.label);
@@ -123,6 +144,7 @@ namespace {
   private:
     ColorSwatchPreviewStrip* m_preview = nullptr;
     Glyph* m_icon = nullptr;
+    Image* m_image = nullptr;
     Flex* m_text = nullptr;
     Label* m_title = nullptr;
     Label* m_detail = nullptr;
@@ -304,7 +326,7 @@ float SearchPicker::measureItem(Renderer& /*renderer*/, std::size_t index, float
 
 std::unique_ptr<Node> SearchPicker::createItem() { return std::make_unique<SearchPickerRow>(); }
 
-void SearchPicker::bindItem(Renderer& /*renderer*/, Node& item, std::size_t index, float /*width*/, bool hovered) {
+void SearchPicker::bindItem(Renderer& renderer, Node& item, std::size_t index, float /*width*/, bool hovered) {
   auto* row = dynamic_cast<SearchPickerRow*>(&item);
   if (row == nullptr || index >= m_visible.size()) {
     return;
@@ -317,7 +339,7 @@ void SearchPicker::bindItem(Renderer& /*renderer*/, Node& item, std::size_t inde
   const auto& option = m_options[sourceIndex];
   const bool highlighted = index == m_highlightedVisibleIndex;
   const bool selected = option.value == m_selectedValue;
-  row->bind(option, highlighted, selected, hovered);
+  row->bind(renderer, option, highlighted, selected, hovered);
 }
 
 void SearchPicker::onActivate(std::size_t index) {

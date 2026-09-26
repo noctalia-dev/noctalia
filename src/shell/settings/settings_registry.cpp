@@ -102,6 +102,7 @@ namespace settings {
         {SettingsSection::Keybinds, "keybinds", "keyboard"},
         {SettingsSection::Security, "security", "shield-lock"},
         {SettingsSection::System, "system", "activity-heartbeat"},
+        {SettingsSection::DefaultApps, "default-apps", "apps"},
         {SettingsSection::Services, "services", "stack-2"},
         {SettingsSection::Location, "location", "map-pin"},
         {SettingsSection::Calendar, "calendar", "calendar"},

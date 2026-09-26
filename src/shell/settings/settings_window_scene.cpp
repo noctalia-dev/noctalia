@@ -26,7 +26,9 @@
 #include "shell/settings/settings_window.h"
 #include "shell/tooltip/tooltip_manager.h"
 #include "system/battery_warning_monitor.h"
+#include "system/default_apps.h"
 #include "system/dependency_service.h"
+#include "system/icon_resolver.h"
 #include "theme/builtin_templates.h"
 #include "theme/community_palettes.h"
 #include "theme/community_templates.h"
@@ -43,6 +45,7 @@
 #include "wayland/wayland_connection.h"
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cmath>
 #include <cstdint>
@@ -60,6 +63,11 @@ namespace {
   constexpr Logger kLog("settings");
 
   constexpr auto kSearchDebounceInterval = std::chrono::milliseconds(120);
+
+  IconResolver& settingsIconResolver() {
+    static IconResolver resolver;
+    return resolver;
+  }
 
   bool useLightPalettePreview(ThemeMode mode) { return mode == ThemeMode::Light; }
 
@@ -1634,6 +1642,95 @@ void SettingsWindow::refreshSettingsRegistry(const Config& cfg) {
         .visibleWhen = [](const Config& config) { return config.calendar.enabled; },
     };
     m_settingsRegistry.insert(it, std::move(retry));
+  }
+
+  {
+    struct RoleSpec {
+      default_apps::Role role;
+      std::string_view labelKey;
+      std::string_view descriptionKey;
+      std::string_view searchTags;
+    };
+    constexpr std::array kDefaultAppRoles{
+        RoleSpec{
+            default_apps::Role::WebBrowser, "settings.schema.default-apps.web-browser.label",
+            "settings.schema.default-apps.web-browser.description", "browser http https links open web"
+        },
+        RoleSpec{
+            default_apps::Role::DocumentViewer, "settings.schema.default-apps.document-viewer.label",
+            "settings.schema.default-apps.document-viewer.description", "pdf documents open reader viewer"
+        },
+        RoleSpec{
+            default_apps::Role::TextEditor, "settings.schema.default-apps.text-editor.label",
+            "settings.schema.default-apps.text-editor.description", "text plain files open editor"
+        },
+        RoleSpec{
+            default_apps::Role::MailClient, "settings.schema.default-apps.mail-client.label",
+            "settings.schema.default-apps.mail-client.description", "mail mailto email open client"
+        },
+        RoleSpec{
+            default_apps::Role::MusicPlayer, "settings.schema.default-apps.music-player.label",
+            "settings.schema.default-apps.music-player.description", "music audio songs mp3 flac ogg wav open player"
+        },
+        RoleSpec{
+            default_apps::Role::VideoPlayer, "settings.schema.default-apps.video-player.label",
+            "settings.schema.default-apps.video-player.description", "video movies films mp4 webm open player"
+        },
+        RoleSpec{
+            default_apps::Role::PhotoViewer, "settings.schema.default-apps.photo-viewer.label",
+            "settings.schema.default-apps.photo-viewer.description", "photos images pictures jpg png open viewer"
+        },
+    };
+
+    for (const auto& roleSpec : kDefaultAppRoles) {
+      std::vector<settings::SelectOption> options;
+      for (const auto& app : default_apps::candidates(roleSpec.role)) {
+        const std::string iconPath =
+            app.iconName.empty() ? std::string{} : settingsIconResolver().resolve(app.iconName, 24);
+        options.push_back(
+            settings::SelectOption{
+                .value = app.id,
+                .label = app.name,
+                .description = app.description,
+                .iconPath = iconPath,
+            }
+        );
+      }
+      std::string selected = default_apps::currentDefault(roleSpec.role).value_or("");
+      // A system default that is not one of our candidates would leave the picker with a
+      // selected value matching no row, so drop it and show no selection instead.
+      if (!selected.empty() && !std::ranges::any_of(options, [&selected](const settings::SelectOption& option) {
+            return option.value == selected;
+          })) {
+        selected.clear();
+      }
+      m_settingsRegistry.push_back(
+          settings::SettingEntry{
+              .section = settings::SettingsSection::DefaultApps,
+              .group = "default-apps",
+              .title = i18n::tr(roleSpec.labelKey),
+              .subtitle = i18n::tr(roleSpec.descriptionKey),
+              .path = {},
+              .control =
+                  settings::SearchPickerSetting{
+                      .options = std::move(options),
+                      .selectedValue = selected,
+                      .placeholder = i18n::tr("settings.schema.default-apps.search-placeholder"),
+                      .emptyText = i18n::tr("ui.controls.search-picker.empty"),
+                      .onSelect =
+                          [this, selected, role = roleSpec.role](const std::string& value) {
+                            if (value == selected) {
+                              return;
+                            }
+                            if (default_apps::setDefault(role, value)) {
+                              requestContentRebuild(/*refreshRegistry=*/true);
+                            }
+                          },
+                  },
+              .searchText = std::string(roleSpec.searchTags),
+          }
+      );
+    }
   }
 
   if (m_clipboardService != nullptr
