@@ -35,11 +35,6 @@ std::vector<PollSource*> Application::currentPollSources() {
   sources.push_back(&m_keyRepeatPollSource);
   sources.push_back(&m_workspacePollSource);
   sources.push_back(&m_keyboardLayoutPollSource);
-  if constexpr (kLockKeysEnabled) {
-    if (lockKeysConsumersEnabled(m_configService.config())) {
-      sources.push_back(&m_lockKeysPollSource);
-    }
-  }
   if (m_pipewirePollSource != nullptr) {
     sources.push_back(m_pipewirePollSource.get());
   }

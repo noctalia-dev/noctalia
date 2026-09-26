@@ -461,6 +461,11 @@ void Application::initInputDispatch() {
   });
 
   m_wayland.setLockKeysChangeCallback([this]() {
+    if constexpr (kLockKeysEnabled) {
+      if (lockKeysConsumersEnabled(m_configService.config())) {
+        m_lockKeysService.refreshNow();
+      }
+    }
     if (m_lockScreen.isActive()) {
       m_lockScreen.onLockKeysChanged();
     }
