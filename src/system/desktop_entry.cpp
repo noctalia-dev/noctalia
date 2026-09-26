@@ -573,14 +573,15 @@ namespace {
         return;
       }
 
+      m_sourceSignature = computeSourceSignature();
+
       auto scanned = std::make_shared<const std::vector<DesktopEntry>>(scanDesktopEntries(m_language));
       {
         std::scoped_lock lock(m_entriesMutex);
         m_entries = std::move(scanned);
       }
       rebuildWatches();
-      m_sourceSignature = computeSourceSignature();
-      m_dirty = false;
+      m_dirty = computeSourceSignature() != m_sourceSignature;
       ++m_version;
       kLog.debug("refreshed desktop entries: {} apps (version {})", m_entries->size(), m_version);
     }
