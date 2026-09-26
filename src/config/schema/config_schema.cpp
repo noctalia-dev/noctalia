@@ -1535,6 +1535,7 @@ namespace noctalia::config::schema {
               }
           ),
           field(&SessionPanelActionConfig::countdownSeconds, "countdown_seconds"),
+          optionalBoolField(&SessionPanelActionConfig::hideOnLockScreen, "hide_on_lock_screen"),
       };
       return s;
     }
