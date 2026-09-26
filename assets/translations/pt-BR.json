@@ -4006,6 +4006,22 @@
           "description": "Tamanho da arte da mídia em pixels",
           "label": "Tamanho da Arte"
         },
+	        "media-hide-album-art": {
+          "description": "Ocultar a arte do álbum",
+          "label": "Ocultar Arte de Álbum"
+        },
+        "media-hide-artist": {
+          "description": "Ocultar o nome do artista",
+          "label": "Ocultar Artista"
+        },
+        "media-hide-controls": {
+          "description": "Ocultar os controles de reprodução",
+          "label": "Ocultar Controles"
+        },
+        "media-hide-title": {
+          "description": "Ocultar o título da faixa",
+          "label": "Ocultar Título"
+        },
         "artist-first": {
           "description": "Mostra o artista antes do título da faixa (Artista - Título)",
           "label": "Artista Primeiro"

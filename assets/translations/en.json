@@ -4058,6 +4058,22 @@
           "description": "Media artwork size in pixels",
           "label": "Art Size"
         },
+	        "media-hide-album-art": {
+          "description": "Hide the album artwork",
+          "label": "Hide Album Art"
+        },
+        "media-hide-artist": {
+          "description": "Hide the artist name",
+          "label": "Hide Artist"
+        },
+        "media-hide-controls": {
+          "description": "Hide the playback controls",
+          "label": "Hide Controls"
+        },
+        "media-hide-title": {
+          "description": "Hide the track title",
+          "label": "Hide Title"
+        },
         "artist-first": {
           "description": "Show the artist before the track title (Artist - Title)",
           "label": "Artist First"
