@@ -125,7 +125,7 @@ void BrightnessWidget::syncState(Renderer& renderer) {
     if (rootNode != nullptr) {
       auto* area = static_cast<InputArea*>(rootNode);
       if (m_showWhenUnavailable) {
-        m_glyph->setGlyph("brightness-high");
+        m_glyph->setGlyph("sun-off");
         m_glyph->setGlyphSize(Style::baseGlyphSize * m_contentScale);
         m_glyph->setColor(colorSpecFromRole(ColorRole::OnSurfaceVariant));
         m_glyph->measure(renderer);
