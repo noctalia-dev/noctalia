@@ -748,6 +748,8 @@ struct OsdConfig {
   float scale = 1.0F;
   float backgroundOpacity = 0.97F;
   bool border = true; // outline around OSD popup cards
+  ColorSpec borderColor = colorSpecFromRole(ColorRole::Outline);
+  float borderWidth = Style::borderWidth;
   int offsetX = 20;
   int offsetY = 8;
   std::vector<std::string> monitors;

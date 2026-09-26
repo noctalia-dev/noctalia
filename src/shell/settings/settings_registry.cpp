@@ -2111,6 +2111,17 @@ namespace settings {
         "outline border"
     ));
     entries.push_back(makeEntry(
+        SettingsSection::Osd, "osd", tr("settings.schema.shell.osd-border-color.label"),
+        tr("settings.schema.shell.osd-border-color.description"), {"osd", "border_color"},
+        colorSpecPicker(cfg.osd.borderColor), "outline border color theme accent"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Osd, "osd", tr("settings.schema.shell.osd-border-width.label"),
+        tr("settings.schema.shell.osd-border-width.description"), {"osd", "border_width"},
+        sliderFor(cfg.osd.borderWidth, noctalia::config::schema::kOsdBorderWidthRange, false),
+        "outline border width thickness"
+    ));
+    entries.push_back(makeEntry(
         SettingsSection::Osd, "osd", tr("settings.schema.shell.osd-monitors.label"),
         tr("settings.schema.shell.osd-monitors.description"), {"osd", "monitors"},
         ListSetting{.items = cfg.osd.monitors, .suggestedOptions = env.availableOutputs},
