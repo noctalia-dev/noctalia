@@ -79,6 +79,7 @@ namespace noctalia::config::schema {
         field(&OsdConfig::border, "border"),
         field(&OsdConfig::offsetX, "offset_x", Range<std::int64_t>{0, std::nullopt}),
         field(&OsdConfig::offsetY, "offset_y", Range<std::int64_t>{0, std::nullopt}),
+        field(&OsdConfig::activeMonitorOnly, "active_monitor_only"),
         field(&OsdConfig::monitors, "monitors"),
         subTable(&OsdConfig::kinds, "kinds", osdKindsSchema()),
     };
@@ -267,6 +268,7 @@ namespace noctalia::config::schema {
         field(&NotificationConfig::border, "border"),
         field(&NotificationConfig::offsetX, "offset_x"),
         field(&NotificationConfig::offsetY, "offset_y"),
+        field(&NotificationConfig::activeMonitorOnly, "active_monitor_only"),
         field(&NotificationConfig::monitors, "monitors"),
         field(&NotificationConfig::collapseOnDismiss, "collapse_on_dismiss"),
         field(&NotificationConfig::keepDismissedInHistory, "keep_dismissed_in_history"),
