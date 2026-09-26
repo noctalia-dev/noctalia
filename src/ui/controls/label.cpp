@@ -18,7 +18,7 @@ namespace {
   constexpr Logger kLog("label");
 
   constexpr const char kMarqueeGapChar = ' ';
-  constexpr const float kMarqueeGapMaxWidth = 100.0f;
+  constexpr const float kMarqueeGapMaxWidth = 100.0F;
 
 } // namespace
 
