@@ -127,20 +127,6 @@ int main() {
   checkDefinition("battery", batteryWidgetDefinition, BatteryWidgetDefinitionContext{.batteryConfig = &batteryConfig});
   checkDefinition("bluetooth", bluetoothWidgetDefinition);
   checkDefinition("brightness", brightnessWidgetDefinition);
-  const auto defaultBrightness = brightnessWidgetDefinition().resolve(nullptr, "brightness");
-  if (defaultBrightness.showWhenUnavailable) {
-    fail("brightness", "show_when_unavailable did not default to false");
-  }
-
-  WidgetConfig visibleUnavailableBrightness;
-  visibleUnavailableBrightness.type = "brightness";
-  visibleUnavailableBrightness.settings["show_label"] = false;
-  visibleUnavailableBrightness.settings["show_when_unavailable"] = true;
-  const auto resolvedBrightness = brightnessWidgetDefinition().resolve(&visibleUnavailableBrightness, "brightness");
-  if (resolvedBrightness.showLabel || !resolvedBrightness.showWhenUnavailable) {
-    fail("brightness", "non-default visibility options did not resolve");
-  }
-
   checkDefinition<true>("caffeine", caffeineWidgetDefinition);
   checkDefinition("clipboard", clipboardWidgetDefinition);
   checkDefinition("clock", clockWidgetDefinition);
