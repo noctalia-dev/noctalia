@@ -255,6 +255,9 @@ namespace noctalia::theme {
       const auto onSurfaceVariant = loadHexColor(src, "mOnSurfaceVariant");
       const auto outlineRaw = loadHexColor(src, "mOutline");
       const auto shadow = loadHexColor(src, "mShadow").value_or(surface.value_or(Color{}));
+      // Fall back to tertiary for older palette JSON files with no mHover/mOnHover.
+      const auto hover = loadHexColor(src, "mHover").value_or(tertiary.value_or(Color{}));
+      const auto onHover = loadHexColor(src, "mOnHover").value_or(onTertiary.value_or(Color{}));
 
       if (!primary
           || !onPrimary
@@ -287,8 +290,8 @@ namespace noctalia::theme {
           .onSurfaceVariant = rgbHex(onSurfaceVariant->toArgb() & 0x00FFFFFFU),
           .outline = rgbHex(outlineRaw->toArgb() & 0x00FFFFFFU),
           .shadow = rgbHex(shadow.toArgb() & 0x00FFFFFFU),
-          .hover = rgbHex(tertiary->toArgb() & 0x00FFFFFFU),
-          .onHover = rgbHex(onTertiary->toArgb() & 0x00FFFFFFU),
+          .hover = rgbHex(hover.toArgb() & 0x00FFFFFFU),
+          .onHover = rgbHex(onHover.toArgb() & 0x00FFFFFFU),
       };
     }
 

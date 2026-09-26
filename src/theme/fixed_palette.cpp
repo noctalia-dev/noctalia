@@ -21,6 +21,13 @@ namespace noctalia::theme {
       return rgbHex(it->second & 0x00FFFFFFU);
     }
 
+    // Falls back to fallbackKey for token maps saved before "hover"/"on_hover" existed.
+    ::Color tokenToColorOr(const TokenMap& tokens, std::string_view key, std::string_view fallbackKey) {
+      if (tokens.contains(std::string(key)))
+        return tokenToColor(tokens, key);
+      return tokenToColor(tokens, fallbackKey);
+    }
+
     Color toUiColor(const ::Color& color) {
       auto toByte = [](float value) { return static_cast<int>(std::clamp(value, 0.0F, 1.0F) * 255.0F + 0.5F); };
       return Color(toByte(color.r), toByte(color.g), toByte(color.b));
@@ -228,6 +235,8 @@ namespace noctalia::theme {
     const Color onSurfaceVariant = toUiColor(palette.onSurfaceVariant);
     const Color outlineRaw = toUiColor(palette.outline);
     const Color shadow = toUiColor(palette.shadow);
+    const Color hover = toUiColor(palette.hover);
+    const Color onHover = toUiColor(palette.onHover);
 
     auto makeContainerDark = [](const Color& base) {
       auto [h, s, l] = base.toHsl();
@@ -367,6 +376,8 @@ namespace noctalia::theme {
     setToken(result, "outline", outline);
     setToken(result, "outline_variant", outlineVariant);
     setToken(result, "shadow", shadow);
+    setToken(result, "hover", hover);
+    setToken(result, "on_hover", onHover);
     setToken(result, "scrim", scrim);
     setToken(result, "inverse_surface", inverseSurface);
     setToken(result, "inverse_on_surface", inverseOnSurface);
@@ -399,8 +410,8 @@ namespace noctalia::theme {
         .onSurfaceVariant = tokenToColor(t, "on_surface_variant"),
         .outline = tokenToColor(t, "outline_variant"),
         .shadow = tokenToColor(t, "shadow"),
-        .hover = tokenToColor(t, "tertiary"),
-        .onHover = tokenToColor(t, "on_tertiary"),
+        .hover = tokenToColorOr(t, "hover", "tertiary"),
+        .onHover = tokenToColorOr(t, "on_hover", "on_tertiary"),
     };
   }
 
