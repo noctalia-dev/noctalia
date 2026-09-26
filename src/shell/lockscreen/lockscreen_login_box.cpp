@@ -322,6 +322,7 @@ namespace lockscreen_login_box {
     style.showKeyboardLayout = readBool(settings, kShowKeyboardLayoutKey, style.showKeyboardLayout);
     style.showSessionButtons = readBool(settings, kShowSessionButtonsKey, style.showSessionButtons);
     style.showMedia = readBool(settings, kShowMediaKey, style.showMedia);
+    style.showMediaControls = readBool(settings, kShowMediaControlsKey, style.showMediaControls);
     style.showWeather = readBool(settings, kShowWeatherKey, style.showWeather);
     style.showUnlockHint = readBool(settings, kShowUnlockHintKey, style.showUnlockHint);
     return style;
@@ -334,6 +335,7 @@ namespace lockscreen_login_box {
       settings.insert_or_assign(std::string(kLayoutKey), std::string(kLayoutRegular));
       settings.insert_or_assign(std::string(kShowSessionButtonsKey), true);
       settings.insert_or_assign(std::string(kShowMediaKey), true);
+      settings.insert_or_assign(std::string(kShowMediaControlsKey), true);
       settings.insert_or_assign(std::string(kShowWeatherKey), true);
       settings.insert_or_assign(std::string(kShowLoginButtonKey), true);
       settings.insert_or_assign(std::string(kShowCapsLockKey), true);
@@ -369,6 +371,9 @@ namespace lockscreen_login_box {
     }
     if (!settings.contains(std::string(kShowMediaKey))) {
       settings.insert_or_assign(std::string(kShowMediaKey), true);
+    }
+    if (!settings.contains(std::string(kShowMediaControlsKey))) {
+      settings.insert_or_assign(std::string(kShowMediaControlsKey), true);
     }
     if (!settings.contains(std::string(kShowWeatherKey))) {
       settings.insert_or_assign(std::string(kShowWeatherKey), true);
