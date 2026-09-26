@@ -765,8 +765,10 @@ struct NotificationConfig {
   float scale = 1.0F;
   float backgroundOpacity = 0.97F; // toast card background alpha (0.0–1.0)
   bool border = true;              // outline around toast cards
-  int offsetX = 20;                // absolute horizontal margin from the screen edge
-  int offsetY = 8;                 // absolute vertical margin from the screen edge
+  ColorSpec borderColor = colorSpecFromRole(ColorRole::Outline);
+  float borderWidth = Style::borderWidth;
+  int offsetX = 20; // absolute horizontal margin from the screen edge
+  int offsetY = 8;  // absolute vertical margin from the screen edge
   std::vector<std::string> monitors;
   bool collapseOnDismiss = true;
   bool keepDismissedInHistory = true;

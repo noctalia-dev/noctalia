@@ -15,6 +15,8 @@ layer                    = "top"       # top | overlay; overlay appears above fu
 scale                    = 1.0         # toast size multiplier on top of shell.ui_scale
 background_opacity       = 0.97        # toast card background alpha; lower values let compositor blur show through
 border                   = true        # outline around toast cards; set false for a borderless look
+border_color             = "outline"   # outline color: theme color role (e.g. "primary") or hex (e.g. "#a8b185")
+border_width             = 1           # outline stroke width in px; raise for a thicker outline
 offset_x                 = 20          # absolute horizontal margin from the screen edge
 offset_y                 = 8           # absolute vertical margin from the screen edge
 monitors                 = []          # empty = all monitors; otherwise connector/description selectors (e.g. ["eDP-1", "DP-1"])
@@ -52,6 +54,8 @@ play_sound      = true
   `0` retains history indefinitely; accepted values are `0`–`8760`.
 - `collapse_on_dismiss = true` (default) causes remaining toasts to slide into a compact stack when one is dismissed. Set to `false` for stable-slot behavior where toasts keep their original positions.
 - `border = true` (default) draws an outline around toast cards. Set to `false` for a borderless look.
+- `border_color` sets the toast outline color: a theme color role name (e.g. `primary`) or a hex value (e.g. `#a8b185`). Defaults to the theme `outline` role and applies to normal and low urgency toasts; critical toasts keep their red urgency outline. Configure in **Settings → Notifications → Toasts**.
+- `border_width` sets the toast outline stroke width in px, 0 to 6 in 0.5 steps; 0 hides the outline. Defaults to 1 px and applies to normal and low urgency toasts; critical toasts keep the emphasized 3 px width. Configure in **Settings → Notifications → Toasts**.
 - `history_retention_hours = 0` (default) keeps notification history entries forever. Set to a positive integer (1–8760) to automatically remove entries older than that many hours from control-center history. Active on-screen toasts are never removed. Configure in **Settings → Notifications → History**.
 - `max_visible = 0` (default) fills all available vertical screen space with notification toasts. Set to a positive integer (1–20) to limit how many toasts are visible at once; excess toasts are queued off-screen and promoted when slots free up. Configure in **Settings → Notifications → Toasts**.
 

@@ -3094,6 +3094,17 @@ namespace settings {
         ToggleSetting{cfg.notification.border}, "outline border"
     ));
     entries.push_back(makeEntry(
+        SettingsSection::Notifications, "toasts", tr("settings.schema.notifications.border-color.label"),
+        tr("settings.schema.notifications.border-color.description"), {"notification", "border_color"},
+        colorSpecPicker(cfg.notification.borderColor), "outline border color theme accent"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Notifications, "toasts", tr("settings.schema.notifications.border-width.label"),
+        tr("settings.schema.notifications.border-width.description"), {"notification", "border_width"},
+        sliderFor(cfg.notification.borderWidth, noctalia::config::schema::kNotificationToastBorderWidthRange, false),
+        "outline border width thickness"
+    ));
+    entries.push_back(makeEntry(
         SettingsSection::Notifications, "toasts", tr("settings.schema.notifications.monitors.label"),
         tr("settings.schema.notifications.monitors.description"), {"notification", "monitors"},
         ListSetting{.items = cfg.notification.monitors, .suggestedOptions = env.availableOutputs},
