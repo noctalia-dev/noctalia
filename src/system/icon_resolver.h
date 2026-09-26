@@ -10,6 +10,7 @@
 // size-aware selection. size == 0 means the nominal size is unknown.
 struct IconSearchDir {
   std::string path;
+  std::string themeRoot;
   int size = 0;
   bool scalable = false;
 };
@@ -25,6 +26,9 @@ public:
   // gently instead of crushing a 1024px PNG. targetSize == 0 keeps the legacy
   // "prefer scalable, then largest" behavior for callers that have no size.
   const std::string& resolve(const std::string& iconName, int targetSize = 0);
+  // Select a size-specific vector from the first theme that provides this
+  // status icon. Returns empty for ordinary application icons and bitmaps.
+  std::string resolveStatusVector(const std::string& iconName, int targetSize);
   void invalidateMissingCache();
 
   static bool checkThemeChanged();

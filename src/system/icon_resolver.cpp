@@ -391,7 +391,10 @@ namespace {
           pushUniqueDir(
               searchDirs,
               IconSearchDir{
-                  .path = themeRoot + path, .size = sizeFromDirName(name), .scalable = name.contains("scalable")
+                  .path = themeRoot + path,
+                  .themeRoot = themeRoot,
+                  .size = sizeFromDirName(name),
+                  .scalable = name.contains("scalable")
               }
           );
         }
@@ -399,7 +402,12 @@ namespace {
         for (const auto& dir : dirs) {
           pushUniqueDir(
               searchDirs,
-              IconSearchDir{.path = themeRoot + "/" + dir.path + "/", .size = dir.size, .scalable = dir.scalable}
+              IconSearchDir{
+                  .path = themeRoot + "/" + dir.path + "/",
+                  .themeRoot = themeRoot,
+                  .size = dir.size,
+                  .scalable = dir.scalable
+              }
           );
         }
       }
@@ -530,6 +538,49 @@ const std::string& IconResolver::resolve(const std::string& iconName, int target
   }
   auto [ins, _] = m_cache.emplace(key, icon);
   return ins->second;
+}
+
+std::string IconResolver::resolveStatusVector(const std::string& iconName, int targetSize) {
+  if (iconName.empty()) {
+    return {};
+  }
+  ensureFresh();
+
+  const auto isStatusVector = [](std::string_view path) {
+    // Application icons can also have a -symbolic suffix.
+    return path.contains("/status/") || path.contains("/panel/");
+  };
+  if (iconName.front() == '/') {
+    return isStatusVector(iconName) && pathExists(iconName) ? iconName : std::string{};
+  }
+
+  std::string firstThemeRoot;
+  std::string best;
+  int bestDistance = 0;
+  bool bestScalable = true;
+  for (const auto& dir : m_searchDirs) {
+    if (!firstThemeRoot.empty() && dir.themeRoot != firstThemeRoot) {
+      break;
+    }
+    const std::string path = dir.path + iconName + ".svg";
+    if (!isStatusVector(path) || !pathExists(path)) {
+      continue;
+    }
+    if (firstThemeRoot.empty()) {
+      firstThemeRoot = dir.themeRoot;
+    }
+
+    const bool scalable = dir.scalable || dir.size <= 0;
+    const int distance = std::abs(dir.size - targetSize);
+    if (best.empty()
+        || (bestScalable && !scalable)
+        || (bestScalable == scalable && !scalable && distance < bestDistance)) {
+      best = path;
+      bestDistance = distance;
+      bestScalable = scalable;
+    }
+  }
+  return best;
 }
 
 void IconResolver::invalidateMissingCache() { m_missingCache.clear(); }

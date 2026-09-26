@@ -932,25 +932,30 @@ std::string TrayWidget::resolveIconPath(const TrayItemInfo& item) {
     preferred.clear();
   }
 
-  // Match the on-screen request size used when the icon is loaded (see rebuild).
-  const int iconTargetSize = std::max(
-      32, static_cast<int>(std::round(m_customItemSize.value_or(Style::baseGlyphSize) * m_contentScale * 2.0F))
-  );
+  const float logicalSize = m_customItemSize.value_or(Style::baseGlyphSize) * m_contentScale;
+  const int iconSize = std::max(1, static_cast<int>(std::round(logicalSize)));
+  const int rasterSize = std::max(32, static_cast<int>(std::round(logicalSize * 2.0F)));
+  auto resolveThemed = [this, iconSize, rasterSize](const std::string& name) {
+    if (const auto vector = m_iconResolver.resolveStatusVector(name, iconSize); !vector.empty()) {
+      return vector;
+    }
+    return m_iconResolver.resolve(name, rasterSize);
+  };
 
-  auto resolveMapped = [this, iconTargetSize](const std::string& name) -> std::string {
+  auto resolveMapped = [this, &resolveThemed](const std::string& name) -> std::string {
     if (name.empty()) {
       return {};
     }
 
     if (const auto it = m_appIcons.find(name); it != m_appIcons.end()) {
-      if (const auto mapped = m_iconResolver.resolve(it->second, iconTargetSize); !mapped.empty()) {
+      if (const auto mapped = resolveThemed(it->second); !mapped.empty()) {
         return mapped;
       }
     }
 
     const std::string lower = StringUtils::toLower(name);
     if (const auto it = m_appIcons.find(lower); it != m_appIcons.end()) {
-      if (const auto mapped = m_iconResolver.resolve(it->second, iconTargetSize); !mapped.empty()) {
+      if (const auto mapped = resolveThemed(it->second); !mapped.empty()) {
         return mapped;
       }
     }
@@ -958,13 +963,13 @@ std::string TrayWidget::resolveIconPath(const TrayItemInfo& item) {
     if (const auto dot = name.rfind('.'); dot != std::string::npos && dot + 1 < name.size()) {
       const auto tail = name.substr(dot + 1);
       if (const auto it = m_appIcons.find(tail); it != m_appIcons.end()) {
-        if (const auto mapped = m_iconResolver.resolve(it->second, iconTargetSize); !mapped.empty()) {
+        if (const auto mapped = resolveThemed(it->second); !mapped.empty()) {
           return mapped;
         }
       }
       const std::string tailLower = StringUtils::toLower(tail);
       if (const auto it = m_appIcons.find(tailLower); it != m_appIcons.end()) {
-        if (const auto mapped = m_iconResolver.resolve(it->second, iconTargetSize); !mapped.empty()) {
+        if (const auto mapped = resolveThemed(it->second); !mapped.empty()) {
           return mapped;
         }
       }
@@ -973,11 +978,11 @@ std::string TrayWidget::resolveIconPath(const TrayItemInfo& item) {
     return {};
   };
 
-  auto resolveDirect = [this, iconTargetSize](const std::string& name) -> std::string {
+  auto resolveDirect = [&resolveThemed](const std::string& name) -> std::string {
     if (name.empty()) {
       return {};
     }
-    return m_iconResolver.resolve(name, iconTargetSize);
+    return resolveThemed(name);
   };
 
   std::string symbolicFallback;
