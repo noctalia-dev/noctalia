@@ -10,6 +10,7 @@ namespace {
   FileDialog::CompletionCallback s_callback;
   FileDialogPresenter* s_presenter = nullptr;
   bool s_hasPendingCallback = false;
+  std::filesystem::path s_lastBrowsedDirectory;
 
   std::string defaultTitle(FileDialogMode mode) {
     switch (mode) {
@@ -36,6 +37,9 @@ bool FileDialog::open(FileDialogOptions options, CompletionCallback callback) {
 
   if (options.title.empty()) {
     options.title = defaultTitle(options.mode);
+  }
+  if (options.startDirectory.empty()) {
+    options.startDirectory = s_lastBrowsedDirectory;
   }
 
   s_options = std::move(options);
@@ -79,4 +83,7 @@ void FileDialog::cancelIfPending() {
   }
 }
 
+void FileDialog::setLastBrowsedDirectory(std::filesystem::path directory) noexcept {
+  s_lastBrowsedDirectory = std::move(directory);
+}
 const FileDialogOptions& FileDialog::currentOptions() { return s_options; }

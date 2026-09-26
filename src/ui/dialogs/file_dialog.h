@@ -49,6 +49,7 @@ public:
   [[nodiscard]] static bool open(FileDialogOptions options, CompletionCallback callback);
   static void complete(std::optional<std::filesystem::path> result);
   static void cancelIfPending();
+  static void setLastBrowsedDirectory(std::filesystem::path directory) noexcept;
 
   [[nodiscard]] static const FileDialogOptions& currentOptions();
 };

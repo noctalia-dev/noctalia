@@ -653,7 +653,8 @@ bool FileDialogView::handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers,
     return true;
   }
 
-  if (KeySymbol::isBackspace(sym) && !isTextInputFocused()) {
+  const bool emptySearchFocused = hostFocusedArea() == m_searchInput->inputArea() && m_searchInput->value().empty();
+  if (KeySymbol::isBackspace(sym) && (!isTextInputFocused() || emptySearchFocused)) {
     navigateUp();
     return true;
   }
@@ -1009,6 +1010,11 @@ void FileDialogView::navigateInto(const std::filesystem::path& path) {
     return;
   }
   m_currentDirectory = path;
+  m_filterQuery.clear();
+  if (m_searchInput != nullptr) {
+    m_searchInput->setValue("");
+  }
+  FileDialog::setLastBrowsedDirectory(path);
   refreshDirectory();
 }
 
