@@ -1840,7 +1840,7 @@ void TaskbarWidget::updateModels() {
       task.nameLower = nameLower;
       task.appIdLower = toLower(task.appId);
       task.title = window.title;
-      task.displayName = !run.entry.name.empty() ? run.entry.name : task.appId;
+      task.displayName = run.entry.name;
       task.active = activeHandle != nullptr && activeHandle == window.handle;
       task.firstHandle = window.handle;
       if (window.exactIdentity && !window.identifier.empty()) {

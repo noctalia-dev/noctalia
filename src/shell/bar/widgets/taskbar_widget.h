@@ -99,8 +99,8 @@ private:
     std::string nameLower;
     std::string appIdLower;
     std::string title;
-    // Desktop entry name, or app id when unmatched, shown while the title is blank. Display only;
-    // window and workspace matching stay on title.
+    // Desktop entry name, shown while the title is blank. Display only; window and workspace
+    // matching stay on title.
     std::string displayName;
     std::string iconPath;
     std::string workspaceKey;
