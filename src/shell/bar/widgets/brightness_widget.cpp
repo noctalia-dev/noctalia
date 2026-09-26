@@ -127,7 +127,7 @@ void BrightnessWidget::syncState(Renderer& renderer) {
       if (m_showWhenUnavailable) {
         m_glyph->setGlyph("brightness-high");
         m_glyph->setGlyphSize(Style::baseGlyphSize * m_contentScale);
-        m_glyph->setColor(scaleAlpha(widgetIconColorOr(colorSpecFromRole(ColorRole::OnSurfaceVariant)), 0.55F));
+        m_glyph->setColor(colorSpecFromRole(ColorRole::OnSurfaceVariant));
         m_glyph->measure(renderer);
         area->setTooltip(i18n::tr("bar.widgets.brightness.unavailable"));
       } else {
