@@ -481,7 +481,7 @@ namespace scripting {
             }
             const auto* layer = (*entryTable)["layer"].as_string();
             if (layer == nullptr || !isValidPanelLayer(layer->get())) {
-              error = "panel entry '" + entry.id + R"(': layer must be "top" or "overlay")";
+              error = "panel entry '" + entry.id + R"(': layer must be "follow", "top" or "overlay")";
               return false;
             }
             entry.panelLayerDefault = layer->get();

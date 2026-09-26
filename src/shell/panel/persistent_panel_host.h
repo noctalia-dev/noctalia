@@ -94,6 +94,7 @@ private:
   void buildScene(Instance& instance, std::uint32_t width, std::uint32_t height);
   void prepareFrame(Instance& instance, bool needsUpdate, bool needsLayout);
   void layoutScene(Instance& instance, std::uint32_t width, std::uint32_t height);
+  [[nodiscard]] LayerShellLayer resolveLayer(const Panel& panel) const;
   [[nodiscard]] Instance* findInstance(std::string_view id) noexcept;
   [[nodiscard]] Instance* findInstanceForSurface(wl_surface* surface) noexcept;
   void destroyInstance(std::vector<std::unique_ptr<Instance>>::iterator it);

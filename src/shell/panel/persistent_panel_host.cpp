@@ -6,6 +6,7 @@
 #include "core/ui_phase.h"
 #include "render/render_context.h"
 #include "render/scene/node.h"
+#include "scripting/plugin_panel_shell.h"
 #include "shell/panel/panel.h"
 #include "shell/panel/panel_surface_style.h"
 #include "shell/screen_position.h"
@@ -90,6 +91,13 @@ std::optional<LayerPopupParentContext> PersistentPanelHost::popupParentContext(s
     return std::nullopt;
   }
   return context;
+}
+
+LayerShellLayer PersistentPanelHost::resolveLayer(const Panel& panel) const {
+  if (m_config != nullptr && scripting::panelLayerFollowsFloating(panel.panelLayerToken())) {
+    return layerShellLayerFromConfig(m_config->config().shell.panel.floatingLayer);
+  }
+  return panel.layer();
 }
 
 PersistentPanelHost::Instance* PersistentPanelHost::findInstance(std::string_view id) noexcept {
@@ -218,7 +226,7 @@ void PersistentPanelHost::open(const std::string& id, wl_output* output, std::st
 
   auto surfaceConfig = LayerSurfaceConfig{
       .nameSpace = "noctalia-panel",
-      .layer = panel->layer(),
+      .layer = resolveLayer(*panel),
       .anchor = anchor,
       .width = requestedWidth,
       .height = requestedHeight,
@@ -625,6 +633,7 @@ void PersistentPanelHost::onConfigReloaded() {
       }
     }
     if (instance->surface != nullptr) {
+      instance->surface->setLayer(resolveLayer(*instance->panel));
       instance->surface->requestLayout();
     }
   }

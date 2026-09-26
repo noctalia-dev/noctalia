@@ -918,6 +918,7 @@ namespace settings {
       spec.literalLabels = true;
       spec.schema.defaultValue = field != nullptr ? field->defaultValue() : entry.panelLayerDefault;
       spec.options = {
+          {"follow", tr("settings.options.layer.follow")},
           {"top", tr("settings.options.layer.top")},
           {"overlay", tr("settings.options.layer.overlay")},
       };

@@ -17,13 +17,17 @@ namespace scripting {
 
   // Vocabulary for the injected floating-layer setting and optional `[[panel]]`
   // default. An attached panel always sits at its host bar's layer.
-  inline constexpr std::array<std::string_view, 2> kPanelLayers = {"top", "overlay"};
+  inline constexpr std::array<std::string_view, 3> kPanelLayers = {"follow", "top", "overlay"};
+
+  // Tracks [shell.panel] floating_layer, so a plugin panel defaults to the same
+  // layer as the built-in ones.
+  inline constexpr std::string_view kPanelLayerFollow = "follow";
 
   struct PluginPanelShellConfig {
     PanelPlacement placement = PanelPlacement::Floating;
     std::string position = "auto";
     bool openNearClick = false;
-    std::string layer = "top";
+    std::string layer = "follow";
   };
 
   [[nodiscard]] std::string panelShellSettingKey(std::string_view entryId, std::string_view suffix);
@@ -40,6 +44,8 @@ namespace scripting {
   [[nodiscard]] bool isValidPanelPosition(std::string_view value) noexcept;
   [[nodiscard]] bool isValidPanelKeyboardFocus(std::string_view value) noexcept;
   [[nodiscard]] bool isValidPanelLayer(std::string_view value) noexcept;
+  // True when the panel defers to [shell.panel] floating_layer instead of pinning a layer.
+  [[nodiscard]] bool panelLayerFollowsFloating(std::string_view value) noexcept;
   [[nodiscard]] bool isPanelShellSettingKey(std::string_view entryId, std::string_view key) noexcept;
 
 } // namespace scripting

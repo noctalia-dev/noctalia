@@ -69,6 +69,7 @@ public:
   [[nodiscard]] bool dismissOnOutsideClick() const override { return m_dismissOnOutsideClick; }
   [[nodiscard]] LayerShellKeyboard keyboardMode() const override { return m_keyboardMode; }
   [[nodiscard]] LayerShellLayer layer() const override { return m_layer; }
+  [[nodiscard]] std::string_view panelLayerToken() const override { return m_shellConfig.layer; }
   [[nodiscard]] bool isPersistent() const noexcept override { return m_persistent; }
   [[nodiscard]] PanelPlacement panelPlacement() const noexcept override { return m_shellConfig.placement; }
   [[nodiscard]] std::string panelScreenPosition() const override { return m_shellConfig.position; }

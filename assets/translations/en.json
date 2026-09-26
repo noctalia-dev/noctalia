@@ -1490,6 +1490,7 @@
         "window-switcher": "Window Switcher"
       },
       "layer": {
+        "follow": "Follow",
         "overlay": "Overlay",
         "top": "Top"
       },
@@ -1619,7 +1620,7 @@
       "browse-store": "Browse Plugins",
       "panels": {
         "layer": {
-          "description": "Layer-shell layer used when the panel is floating",
+          "description": "Layer-shell layer used when the panel is floating; Follow uses the shell's floating panel layer",
           "label": "Layer"
         },
         "open-near-click": {

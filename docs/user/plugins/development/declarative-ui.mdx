@@ -348,16 +348,16 @@ panels: a segmented **Attached / Floating** toggle, **Position** and **Layer** d
 | `keyboard_focus` | _(none, manifest only)_ | `on_demand` (default), `exclusive`, or `none` (requires <PluginApiBadge feature="keyboard-focus" />) |
 | `persistent` | _(none, manifest only)_ | Keep open when another panel opens (requires <PluginApiBadge feature="persistent-panel" />) |
 | `capture_keys` | _(none, manifest only)_ | Key chords the panel handles itself while focused (requires <PluginApiBadge feature="panel-capture-keys" />) |
-| `layer` | `<entry>_layer` | `top` (default) or `overlay`; only applies when floating (optional manifest default requires <PluginApiBadge feature="panel-layer" />) |
+| `layer` | `<entry>_layer` | `follow` (default), `top` or `overlay`; only applies when floating (optional manifest default requires <PluginApiBadge feature="panel-layer" />) |
 
 Declare defaults on the `[[panel]]` table; users override through the plugin settings GUI or
 `[plugin_settings."author/plugin"]`. The host supplies every standard setting even when the manifest declares no
 default, so plugin maintainers do not need to add anything for users to choose a layer. Position and open-near-click
 follow the same rules as built-in panels (pinned screen positions disable open-near-click).
 
-**Layer** controls the floating surface's layer-shell layer. `top` keeps the panel under fullscreen windows; `overlay`
-keeps it above them, which is what an on-screen keyboard or heads-up panel needs. An attached panel ignores this
-setting and sits at its host bar's configured layer.
+**Layer** controls the floating surface's layer-shell layer. `follow` uses the shell's floating panel layer,
+`top` keeps the panel under fullscreen windows; `overlay` keeps it above them, which is what an on-screen keyboard
+or heads-up panel needs. An attached panel ignores this setting and sits at its host bar's configured layer.
 
 Official defaults: `noctalia/example:panel` ships `floating` + `center`; `noctalia/wallhaven:browser` ships `attached` +
 `auto`.
