@@ -75,6 +75,10 @@ const noctalia::bar::WidgetDefinition<TaskbarWidgetOptions>& taskbarWidgetDefini
                       .step = 0.05,
                       .presentation = presentation("taskbar.windows"),
                   }),
+                  field<&Options::preferSymbolicIcons>({
+                      .key = "prefer_symbolic_icons",
+                      .presentation = presentation("taskbar.windows"),
+                  }),
                   field<&Options::itemSpacing>({
                       .key = "item_spacing",
                       .minValue = 0.0,

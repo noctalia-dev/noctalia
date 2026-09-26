@@ -4438,6 +4438,10 @@
           "description": "Opacity of pinned apps that are not currently running",
           "label": "Pinned App Opacity"
         },
+        "prefer-symbolic-icons": {
+          "description": "Prefer -symbolic variants from the active icon theme when available, falling back to regular application icons",
+          "label": "Prefer Symbolic Icons"
+        },
         "reversed": {
           "description": "Reverse the low-to-high frequency order of the bars",
           "label": "Reversed"

@@ -37,6 +37,12 @@ int main() {
   const fs::path deniedIcon = deniedDataHome / "private-icon.svg";
   fs::create_directories(iconDir);
   fs::create_directories(bitmapIconDir);
+  const fs::path regularPairIcon = iconDir / "symbolic-pair.svg";
+  const fs::path symbolicPairIcon = iconDir / "symbolic-pair-symbolic.svg";
+  const fs::path regularOnlyIcon = iconDir / "regular-only.svg";
+  std::ofstream(regularPairIcon) << "<svg/>";
+  std::ofstream(symbolicPairIcon) << "<svg/>";
+  std::ofstream(regularOnlyIcon) << "<svg/>";
   std::ofstream(iconThemeRoot / "index.theme") << "[Icon Theme]\n"
                                                   "Directories = 48x48/apps, scalable/apps\n"
                                                   "Inherits = noctalia-bare-test\n"
@@ -133,6 +139,41 @@ int main() {
   ok = expect(
            resolver.resolve("polled-icon", 32) == polledIcon.string(),
            "theme generation change should invalidate cached misses"
+       )
+      && ok;
+
+  ok = expect(
+           resolver.resolve("symbolic-pair", 32) == regularPairIcon.string(),
+           "normal resolution should keep the regular icon"
+       )
+      && ok;
+  const ResolvedIcon preferred = resolver.resolveSymbolicPreferred("symbolic-pair", 32);
+  ok = expect(
+           preferred.path == symbolicPairIcon.string() && preferred.symbolic,
+           "symbolic-preferred resolution should select the -symbolic variant"
+       )
+      && ok;
+
+  const ResolvedIcon fallback = resolver.resolveSymbolicPreferred("regular-only", 32);
+  ok = expect(
+           fallback.path == regularOnlyIcon.string() && !fallback.symbolic,
+           "symbolic-preferred resolution should fall back to the regular icon"
+       )
+      && ok;
+
+  const fs::path lateSymbolicIcon = iconDir / "regular-only-symbolic.svg";
+  std::ofstream(lateSymbolicIcon) << "<svg/>";
+  const ResolvedIcon cachedFallback = resolver.resolveSymbolicPreferred("regular-only", 32);
+  ok = expect(
+           cachedFallback.path == regularOnlyIcon.string() && !cachedFallback.symbolic,
+           "preferred resolution should cache a successful regular fallback"
+       )
+      && ok;
+  resolver.invalidateMissingCache();
+  const ResolvedIcon refreshedPreferred = resolver.resolveSymbolicPreferred("regular-only", 32);
+  ok = expect(
+           refreshedPreferred.path == lateSymbolicIcon.string() && refreshedPreferred.symbolic,
+           "invalidating misses should also refresh symbolic preference results"
        )
       && ok;
 
