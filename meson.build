@@ -1314,6 +1314,23 @@ if build_tests
     )
   endif
 
+  bluetooth_property_integration_exe = executable('bluetooth_property_integration_test',
+    sources: files('tests/bluetooth_property_integration_test.cpp'),
+    dependencies: noctalia_core_dep,
+    override_options: ['b_ndebug=false'],
+  )
+  if dbus_run_session.found()
+    test('bluetooth_property_integration',
+      dbus_run_session,
+      args: [
+        '--', 'sh', '-c',
+        'export DBUS_SYSTEM_BUS_ADDRESS="$DBUS_SESSION_BUS_ADDRESS"; exec "$1"',
+        'sh', bluetooth_property_integration_exe.full_path(),
+      ],
+      depends: bluetooth_property_integration_exe,
+    )
+  endif
+
   config_validate_env = environment()
   config_validate_env.set('NOCTALIA_CONFIG_HOME', meson.current_source_dir() / 'tests/config_validate/config-home')
   config_validate_env.set('NOCTALIA_STATE_HOME', meson.current_source_dir() / 'tests/config_validate/state-home')
