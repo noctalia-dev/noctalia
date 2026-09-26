@@ -425,6 +425,7 @@ namespace {
     std::string err;
     bool exited = false;
     bool timedOut = false;
+    bool cancelled = false;
     bool outTruncated = false;
     bool errTruncated = false;
     int exitCode = -1;
@@ -455,13 +456,14 @@ namespace {
         terminateAndWait(pid, exitCode);
       }
 
-      // Cancellation: terminate the child and reuse the timed-out drain+break path.
+      // Cancellation: terminate the child and reuse the timed-out drain+break path. Reported
+      // separately from timedOut so a caller can tell a teardown apart from a real timeout.
       if (!timedOut && options.cancel && options.cancel->load(std::memory_order_relaxed)) {
         terminateAndWait(pid, exitCode);
-        timedOut = true;
+        cancelled = true;
       }
 
-      if (timedOut) {
+      if (timedOut || cancelled) {
         drainAvailable(outPipe[0], out, options.maxOutputBytes, &outTruncated, stdOutCallback);
         drainAvailable(errPipe[0], err, options.maxOutputBytes, &errTruncated, stdErrCallback);
         closeFd(outPipe[0]);
@@ -501,7 +503,7 @@ namespace {
     closeFd(errPipe[0]);
     trimTrailingLineEndings(out);
     trimTrailingLineEndings(err);
-    return {exitCode, std::move(out), std::move(err), timedOut, outTruncated, errTruncated};
+    return {exitCode, std::move(out), std::move(err), timedOut, outTruncated, errTruncated, cancelled};
   }
 
   [[nodiscard]] bool hasAnyCallback(const process::RunCallbacks& callbacks) {
@@ -957,6 +959,12 @@ namespace process {
     if (command.empty())
       return {-1, {}, {}};
     return runSync(std::vector<std::string>{"/bin/sh", "-lc", command});
+  }
+
+  RunResult runSync(const std::string& command, RunOptions options) {
+    if (command.empty())
+      return {-1, {}, {}};
+    return runSync(std::vector<std::string>{"/bin/sh", "-lc", command}, std::move(options));
   }
 
   bool launchFirstAvailable(std::initializer_list<std::initializer_list<const char*>> commandVariants) {
