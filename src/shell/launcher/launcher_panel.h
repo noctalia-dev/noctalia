@@ -95,6 +95,7 @@ private:
   void syncLauncherListStyle();
   void syncLauncherViewLayout(Renderer* renderer = nullptr);
   [[nodiscard]] bool shouldUseAppGrid() const;
+  [[nodiscard]] bool shouldUseLineEditing() const;
   void refreshLauncherAppIconColorization();
   void updateLauncherGridMetrics(Renderer& renderer);
   void updatePinnedApplicationState();
