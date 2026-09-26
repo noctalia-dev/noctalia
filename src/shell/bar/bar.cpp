@@ -13,6 +13,7 @@
 #include "ipc/ipc_service.h"
 #include "render/render_context.h"
 #include "render/scene/input_area.h"
+#include "shell/bar/bar_blur_policy.h"
 #include "shell/bar/bar_corner_shape.h"
 #include "shell/bar/bar_reserved_zone.h"
 #include "shell/bar/widget.h"
@@ -2403,6 +2404,7 @@ void Bar::createInstance(const WaylandOutput& output, std::size_t barIndex, cons
       .marginBottom = surfaceSpec.marginBottom,
       .marginLeft = surfaceSpec.marginLeft,
       .defaultHeight = surfaceSpec.surfaceHeight,
+      .prewarmBlur = noctalia::bar::shouldPrewarmCompositorBlur(barConfig),
   };
 
   instance->surface = std::make_unique<LayerSurface>(m_platform->wayland(), std::move(surfaceConfig));
@@ -3169,7 +3171,7 @@ void Bar::applyBarCompositorBlur(BarInstance& instance) const {
   if (instance.surface == nullptr) {
     return;
   }
-  if (!barContentVisuallyShown(instance)) {
+  if (!noctalia::bar::shouldPublishCompositorBlur(instance.barConfig, barContentVisuallyShown(instance))) {
     instance.surface->clearBlurRegion();
     return;
   }

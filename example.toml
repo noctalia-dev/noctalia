@@ -361,6 +361,7 @@ delete   = ["del"]
 position           = "top"          # top | bottom | left | right
 thickness          = 34
 background_opacity = 1.0
+compositor_blur    = true          # false stops compositor blur for this bar
 radius             = 12
 margin_ends        = 180
 margin_edge        = 10
@@ -393,8 +394,9 @@ end    = ["media", "tray", "notifications", "clipboard", "network", "bluetooth",
 
 # Per-monitor override example; only the fields you list are overridden:
 # [bar.main.monitor.dp1]
-# match     = "DP-1"
-# thickness = 44
+# match           = "DP-1"
+# thickness       = 44
+# compositor_blur = false
 # [bar.main.monitor.dp1.dead_zone.actions]
 # left = "panel-toggle launcher"
 
