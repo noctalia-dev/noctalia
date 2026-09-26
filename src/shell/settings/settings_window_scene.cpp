@@ -1977,6 +1977,7 @@ void SettingsWindow::refreshSettingsRegistry(const Config& cfg) {
       const std::string_view descriptionKey = credentialLocked
           ? "settings.schema.services.calendar-edit.description-locked"
           : reconnectRequired ? "settings.schema.services.calendar-edit.description-reconnect"
+          : !account.enabled  ? "settings.schema.services.calendar-edit.description-disabled"
                               : "settings.schema.services.calendar-edit.description";
       const std::string_view buttonKey = credentialLocked ? "settings.schema.services.calendar-edit.button-retry"
           : reconnectRequired                             ? "settings.schema.services.calendar-edit.button-reconnect"

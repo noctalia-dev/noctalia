@@ -565,24 +565,31 @@ void CalendarService::requestRefresh() {
 }
 
 void CalendarService::startRefresh() {
-  if (m_activeConfig.accounts.empty()) {
+  std::vector<const CalendarConfig::Account*> accounts;
+  accounts.reserve(m_activeConfig.accounts.size());
+  for (const CalendarConfig::Account& account : m_activeConfig.accounts) {
+    if (account.enabled) {
+      accounts.push_back(&account);
+    }
+  }
+  if (accounts.empty()) {
     scheduleNextRefresh();
     return;
   }
   m_refreshing = true;
-  m_pendingAccounts = m_activeConfig.accounts.size();
-  for (const CalendarConfig::Account& account : m_activeConfig.accounts) {
-    if (account.type == "caldav") {
-      fetchCalDav(account);
-    } else if (account.type == "google") {
-      fetchGoogle(account);
-    } else if (account.type == "ics") {
-      fetchIcs(account);
-    } else if (account.type == "vdir") {
-      fetchVdir(account);
+  m_pendingAccounts = accounts.size();
+  for (const CalendarConfig::Account* account : accounts) {
+    if (account->type == "caldav") {
+      fetchCalDav(*account);
+    } else if (account->type == "google") {
+      fetchGoogle(*account);
+    } else if (account->type == "ics") {
+      fetchIcs(*account);
+    } else if (account->type == "vdir") {
+      fetchVdir(*account);
     } else {
-      kLog.warn("unknown calendar account type '{}' for id {}", account.type, account.id);
-      accountDone(account.id, false, {});
+      kLog.warn("unknown calendar account type '{}' for id {}", account->type, account->id);
+      accountDone(account->id, false, {});
     }
   }
 }
@@ -604,16 +611,16 @@ void CalendarService::accountDone(const std::string& accountId, bool ok, std::ve
 }
 
 void CalendarService::rebuildSnapshot() {
-  // Drop cached events for accounts no longer configured.
+  // Drop cached events for accounts no longer configured or disabled.
   for (auto it = m_eventsByAccount.begin(); it != m_eventsByAccount.end();) {
-    const bool stillConfigured =
-        std::ranges::contains(m_activeConfig.accounts, it->first, &CalendarConfig::Account::id);
-    it = stillConfigured ? std::next(it) : m_eventsByAccount.erase(it);
+    const auto accountIt = std::ranges::find(m_activeConfig.accounts, it->first, &CalendarConfig::Account::id);
+    const bool stillSynced = accountIt != m_activeConfig.accounts.end() && accountIt->enabled;
+    it = stillSynced ? std::next(it) : m_eventsByAccount.erase(it);
   }
   for (auto it = m_discoveredVdirPathsByAccount.begin(); it != m_discoveredVdirPathsByAccount.end();) {
-    const bool stillConfigured =
-        std::ranges::contains(m_activeConfig.accounts, it->first, &CalendarConfig::Account::id);
-    it = stillConfigured ? std::next(it) : m_discoveredVdirPathsByAccount.erase(it);
+    const auto accountIt = std::ranges::find(m_activeConfig.accounts, it->first, &CalendarConfig::Account::id);
+    const bool stillSynced = accountIt != m_activeConfig.accounts.end() && accountIt->enabled;
+    it = stillSynced ? std::next(it) : m_discoveredVdirPathsByAccount.erase(it);
   }
 
   std::vector<CalendarEvent> merged;
@@ -626,7 +633,7 @@ void CalendarService::rebuildSnapshot() {
 }
 
 void CalendarService::fetchCalDav(const CalendarConfig::Account& account) {
-  const std::string serverUrl = caldavServerUrl(account);
+  std::string serverUrl = caldavServerUrl(account);
   const std::string username = account.username;
   if (serverUrl.empty() || username.empty()) {
     kLog.warn("caldav account {} is missing server_url/username", account.id);
@@ -634,10 +641,39 @@ void CalendarService::fetchCalDav(const CalendarConfig::Account& account) {
     return;
   }
 
+  std::shared_ptr<const HttpTlsClientCert> tls;
+  if (!account.clientCertFile.empty() || !account.clientKeyFile.empty()) {
+    // libcurl presents an empty client-certificate chain when it follows an
+    // http:// to https:// redirect, so an mTLS server behind such a redirect
+    // rejects the handshake. Ask https:// upfront instead of relying on the
+    // redirect; a plaintext hop cannot carry the certificate anyway.
+    if (serverUrl.starts_with("http://")) {
+      serverUrl = "https://" + serverUrl.substr(7);
+      kLog.info(
+          "caldav account {}: server_url uses http://, upgraded to https:// for client-certificate TLS", account.id
+      );
+    }
+    auto material = std::make_shared<HttpTlsClientCert>();
+    material->clientCertPath = account.clientCertFile;
+    material->clientKeyPath = account.clientKeyFile;
+    if (!account.keyPasswordFile.empty()) {
+      calendar::CredentialFileResult keyPassword = calendar::readCredentialFile(account.keyPasswordFile);
+      if (keyPassword.status != calendar::CredentialFileStatus::Success) {
+        kLog.warn("caldav account {} key_password_file is unreadable or invalid", account.id);
+        accountDone(account.id, false, {});
+        return;
+      }
+      const auto keyPasswordBytes = keyPassword.value.bytes();
+      material->keyPassword.assign(reinterpret_cast<const char*>(keyPasswordBytes.data()), keyPasswordBytes.size());
+      sodium_memzero(const_cast<std::uint8_t*>(keyPasswordBytes.data()), keyPasswordBytes.size());
+    }
+    tls = std::move(material);
+  }
+
   lookupCalDavPassword(
       account,
-      [this, account, serverUrl,
-       username](security::SecretStoreStatus status, calendar::CalendarCredentialStore::Secret password) mutable {
+      [this, account, serverUrl, username,
+       tls](security::SecretStoreStatus status, calendar::CalendarCredentialStore::Secret password) mutable {
         if (status != security::SecretStoreStatus::Success || !password || password->empty()) {
           if (status == security::SecretStoreStatus::NotFound) {
             kLog.warn("caldav account {} has no stored password", account.id);
@@ -653,8 +689,8 @@ void CalendarService::fetchCalDav(const CalendarConfig::Account& account) {
         const bool allowRedirectAuth = account.provider == "icloud";
 
         calendar::discoverCalDavCollections(
-            m_httpClient, serverUrl, username, password, allowRedirectAuth,
-            [this, accountId, username, password, accountColor, selectedCalendars, allowRedirectAuth,
+            m_httpClient, serverUrl, username, password, allowRedirectAuth, tls,
+            [this, accountId, username, password, accountColor, selectedCalendars, allowRedirectAuth, tls,
              now](bool discovered, std::vector<calendar::CalDavCollection> collections) {
               if (!discovered) {
                 accountDone(accountId, false, {});
@@ -698,6 +734,7 @@ void CalendarService::fetchCalDav(const CalendarConfig::Account& account) {
                 caldav.password = password;
                 caldav.calendarName = collection.name;
                 caldav.color = accountColor.empty() ? collection.color : accountColor;
+                caldav.tls = tls;
 
                 m_caldav.fetchEvents(
                     caldav, now - kWindowBefore, now + kWindowAfter, allowRedirectAuth,

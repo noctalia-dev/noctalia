@@ -12,6 +12,19 @@
 #include <unordered_map>
 #include <vector>
 
+// Optional mTLS material, all file paths used directly by curl. A copy must be
+// kept alive for the duration of the transfer (curl does not copy these strings).
+struct HttpTlsClientCert {
+  std::string clientCertPath; // PEM certificate -> CURLOPT_SSLCERT
+  std::string clientKeyPath;  // PEM private key -> CURLOPT_SSLKEY
+  std::string keyPassword;    // passphrase for clientKeyPath -> CURLOPT_SSLKEYPASSWD
+  std::string caCertPath;     // extra CA bundle -> CURLOPT_CAINFO
+
+  [[nodiscard]] bool empty() const {
+    return clientCertPath.empty() && clientKeyPath.empty() && keyPassword.empty() && caCertPath.empty();
+  }
+};
+
 struct HttpRequest {
   std::string method = "GET"; // GET/POST/PUT/PROPFIND/REPORT/… -> CURLOPT_CUSTOMREQUEST
   std::string url;
@@ -25,6 +38,7 @@ struct HttpRequest {
                                   // keep-alive connection answers via the old path
   std::string basicUsername;
   std::string basicPassword;
+  std::shared_ptr<const HttpTlsClientCert> tlsClientCert; // non-null enables client-certificate TLS
 };
 
 struct HttpResponse {
@@ -122,6 +136,7 @@ private:
     std::string url;
     std::string basicUsername;
     std::string basicPassword;
+    std::shared_ptr<const HttpTlsClientCert> tlsClientCert;
     std::string response;
     std::array<char, CURL_ERROR_SIZE> errorBuffer{};
   };
@@ -135,6 +150,7 @@ private:
     std::string body;
     std::string basicUsername;
     std::string basicPassword;
+    std::shared_ptr<const HttpTlsClientCert> tlsClientCert;
     std::array<char, CURL_ERROR_SIZE> errorBuffer{};
   };
 
@@ -154,6 +170,8 @@ private:
   // Applies the options every transfer shares, including the non-blocking abandonment of a
   // stuck DNS lookup. Call before the request-specific options.
   static void applyCommonOptions(CURL* easy);
+  // Applies the client-certificate material of cert (no-op when it is null or empty).
+  static void applyTlsClientCert(CURL* easy, const std::shared_ptr<const HttpTlsClientCert>& cert);
   [[nodiscard]] bool hasActiveTransfers() const;
 
   CURLM* m_multi = nullptr;
