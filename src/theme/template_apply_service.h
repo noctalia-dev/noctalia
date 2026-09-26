@@ -4,6 +4,8 @@
 #include "core/toml.h" // IWYU pragma: keep
 #include "theme/palette.h"
 
+#include <atomic>
+#include <chrono>
 #include <condition_variable>
 #include <cstdint>
 #include <functional>
@@ -25,7 +27,12 @@ namespace noctalia::theme {
 
   class TemplateApplyService {
   public:
-    explicit TemplateApplyService(ConfigService& config);
+    // How long teardown lets running template hooks finish before terminating them.
+    static constexpr std::chrono::milliseconds kDefaultHookShutdownGrace{5000};
+
+    explicit TemplateApplyService(
+        ConfigService& config, std::chrono::milliseconds hookShutdownGrace = kDefaultHookShutdownGrace
+    );
     ~TemplateApplyService();
 
     TemplateApplyService(const TemplateApplyService&) = delete;
@@ -89,6 +96,11 @@ namespace noctalia::theme {
     mutable std::function<void(std::string_view appliedMode, bool paletteChanged)> m_afterApplyCallback;
     // A palette change has been reported to apply() and not yet passed on to the handler.
     mutable bool m_paletteChangedOwed = false;
+    // Raised once the shutdown grace elapses. Synchronous hooks and m_hookRunner share it, so
+    // one deadline terminates every hook still running and teardown cannot hang on any of them.
+    // Declared before m_hookRunner, which is constructed with it.
+    std::shared_ptr<std::atomic<bool>> m_hookCancel = std::make_shared<std::atomic<bool>>(false);
+    std::chrono::milliseconds m_hookShutdownGrace;
     mutable std::unique_ptr<HookRunner> m_hookRunner;
   };
 
