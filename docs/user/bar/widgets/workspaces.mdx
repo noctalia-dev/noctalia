@@ -33,7 +33,7 @@ Pill styling and `capsule_radius` apply only when `style = "regular"`.
 | `focused_output_only` | bool | `false` | Only highlight the active workspace on the monitor that has keyboard or pointer focus; other monitors show their active workspace in the occupied color. |
 | `labels_only_when_occupied` | bool | `false` | Show labels on workspaces with open windows and on the active workspace even when empty; other empty tags stay unlabeled. Requires `show_labels = true`, and does not apply to `focus_hint`, which only ever labels the focused workspace. |
 | `hide_when_empty` | bool | `false` | Hide workspace pills with no open windows. |
-| `show_all_outputs` | bool | `false` | Show workspaces from every monitor. The bar's own monitor is listed first. |
+| `monitors` | list of strings | `[]` | Connector names whose workspaces are shown. Leave empty or omit to show workspaces only from the monitor hosting this bar. |
 
 ```toml
 [widget.workspaces]
@@ -44,7 +44,7 @@ label_source = "id"     # id | name
 max_label_chars = 2     # truncate long workspace names (e.g. "VESKTOP" → "VE")
 labels_only_when_occupied = true  # (1) (2*) ( ) (4) - occupied tags and the active tag show labels (*active but empty)
 hide_when_empty = true
-show_all_outputs = false  # true = include workspaces from every monitor; this bar's monitor comes first
+monitors = []           # connector names whose workspaces are shown, e.g. "DP-1"
 pill_scale = 1.0
 active_pill_size = 2.2
 inactive_pill_size = 1.0

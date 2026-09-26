@@ -46,7 +46,7 @@ public:
     std::size_t maxLabelChars = 1;
     bool labelsOnlyWhenOccupied = false;
     bool hideWhenEmpty = false;
-    bool showAllOutputs = false;
+    std::vector<std::string> monitors;
     float pillScale = 1.0F;
     float activePillSize = 2.2F;
     float inactivePillSize = 1.0F;
@@ -165,7 +165,7 @@ private:
   bool m_labelsOnlyWhenOccupied = false;
   bool m_showIcons = true;
   bool m_hideWhenEmpty = false;
-  bool m_showAllOutputs = false;
+  std::vector<std::string> m_monitors;
   float m_pillScale = 1.0F;
   float m_activePillSize = 2.2F;
   float m_inactivePillSize = 1.0F;

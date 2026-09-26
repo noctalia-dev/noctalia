@@ -1,0 +1,9 @@
+[widget.workspaces]
+show_all_outputs = true
+
+[widget.named-workspaces]
+type = "workspaces"
+show_all_outputs = false
+
+[widget.taskbar]
+show_all_outputs = true
