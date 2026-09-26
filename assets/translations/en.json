@@ -4603,6 +4603,22 @@
           "description": "Maximum width in pixels for window titles",
           "label": "Window Title Max Width"
         },
+        "workspace-group-active-border-color": {
+          "description": "Border color for the active workspace",
+          "label": "Active Border Color"
+        },
+        "workspace-group-active-border-opacity": {
+          "description": "Border opacity for the active workspace",
+          "label": "Active Border Opacity"
+        },
+        "workspace-group-inactive-border-color": {
+          "description": "Border color for inactive workspaces",
+          "label": "Inactive Border Color"
+        },
+        "workspace-group-inactive-border-opacity": {
+          "description": "Border opacity for inactive workspaces",
+          "label": "Inactive Border Opacity"
+        },
         "workspace-group-capsule": {
           "description": "Draw the background and border around each grouped workspace. Turn off to keep icon grouping and workspace disc labels only.",
           "label": "Workspace Group Capsule"

@@ -207,8 +207,15 @@ TaskbarWidget::TaskbarWidget(
     TaskbarWidgetContext context
 )
     : m_platform(platform), m_configService(config), m_output(output), m_configOptions(std::move(options)),
-      m_showAllOutputs(m_configOptions.showAllOutputs), m_focusedOutputOnly(m_configOptions.focusedOutputOnly),
-      m_minimal(m_configOptions.minimal), m_showActiveIndicator(m_configOptions.showActiveIndicator),
+      m_showAllOutputs(m_configOptions.showAllOutputs),
+      m_workspaceGroupActiveBorder(
+          scaleAlpha(m_configOptions.workspaceGroupActiveBorderColor, m_configOptions.workspaceGroupActiveBorderOpacity)
+      ),
+      m_workspaceGroupInactiveBorder(scaleAlpha(
+          m_configOptions.workspaceGroupInactiveBorderColor, m_configOptions.workspaceGroupInactiveBorderOpacity
+      )),
+      m_focusedOutputOnly(m_configOptions.focusedOutputOnly), m_minimal(m_configOptions.minimal),
+      m_showActiveIndicator(m_configOptions.showActiveIndicator),
       m_activeIndicatorColor(m_configOptions.activeIndicatorColor), m_activeOpacity(m_configOptions.activeOpacity),
       m_inactiveOpacity(m_configOptions.inactiveOpacity), m_pinnedOpacity(m_configOptions.pinnedOpacity),
       m_focusedColor(m_configOptions.focusedColor), m_occupiedColor(m_configOptions.occupiedColor),
@@ -1547,7 +1554,8 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
 
       const bool emptyWorkspace = tasks.empty();
       const auto surfaceFill = colorSpecFromRole(ColorRole::SurfaceVariant, ws.workspace.active ? 0.52F : 0.18F);
-      const auto borderColor = colorSpecFromRole(ColorRole::Primary, ws.workspace.active ? 0.65F : 0.16F);
+      const auto borderColor =
+          ws.workspace.active ? this->m_workspaceGroupActiveBorder : this->m_workspaceGroupInactiveBorder;
 
       const float crossSize = std::round(tileSize + groupPad * 2.0F);
 
