@@ -445,7 +445,10 @@ void MainLoop::run() {
         it->second = std::min(it->second, requested);
       }
 
-      const auto remaining = std::chrono::duration_cast<std::chrono::milliseconds>(it->second - nowBeforePoll).count();
+      // Round up: a retained deadline that is less than a millisecond away must
+      // still sleep until it passes. Truncating to 0 would return from poll
+      // before the deadline, dispatch nothing, and spin until it arrives.
+      const auto remaining = std::chrono::ceil<std::chrono::milliseconds>(it->second - nowBeforePoll).count();
       const int remainingMs =
           remaining < 0 ? 0 : static_cast<int>(std::min<std::int64_t>(remaining, std::numeric_limits<int>::max()));
       if (pollTimeout < 0 || remainingMs < pollTimeout) {
