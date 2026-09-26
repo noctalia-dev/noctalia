@@ -2460,6 +2460,14 @@
           "description": "Draw an outline on floating panels",
           "label": "Borders"
         },
+        "border-color": {
+          "description": "Outline color for floating panels; a theme role name follows the active theme, or pick a custom color",
+          "label": "Border Color"
+        },
+        "border-width": {
+          "description": "Outline width for floating panels in pixels, 0 hides the stroke",
+          "label": "Border Width"
+        },
         "control-center-sidebar": {
           "description": "Choose how to display the sidebar",
           "label": "Sidebar"

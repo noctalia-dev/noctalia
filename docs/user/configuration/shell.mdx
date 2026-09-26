@@ -76,6 +76,8 @@ alpha     = 0.55    # multiplied by each component's background opacity
 [shell.panel]
 transparency_mode     = "solid"  # solid | soft | glass; controls floating panel opacity and card translucency
 borders               = true   # outline on floating panel surfaces
+border_color          = "outline"   # floating panel outline color: theme role token or #RRGGBB
+border_width          = 1.0         # floating panel outline width in px, 0 hides the stroke
 shadow                = true   # cast the global [shell.shadow] from panel surfaces
 list_item_background  = false  # filled rounded background behind launcher and clipboard list items
 floating_layer         = "overlay" # overlay | top; applies to floating interactive panels
@@ -242,6 +244,8 @@ Notes:
 - `shell.shadow` defines the shared shadow style for shell surfaces and xdg-popup chrome such as panels, menus, pickers, and select dropdowns. `direction` controls which way the shadow is cast; blur is fixed at 12 px. Components such as panels, bars, and the dock only opt in/out with `shadow = true|false`; popups and dropdowns opt in/out with the global `popup_shadows` toggle above.
 - `shell.panel.transparency_mode` controls panel glass styling. `solid` keeps cards opaque and floating panels solid, `soft` makes floating panels lightly translucent and cards subtly translucent, and `glass` makes both visibly translucent while clamping card opacity high enough for readable text. Attached panels keep their own layer surface and use the attached-placement panel styling.
 - `shell.panel.borders` draws an outline on floating panel surfaces. Attached panels stay borderless on the bar edge. Default is `true`; set to `false` for a flatter look. Section cards inside panels are controlled by `[shell].card_borders`.
+- `shell.panel.border_color` sets the floating panel outline color: a theme role token (for example `outline`, `primary`) or a fixed hex color (`#RRGGBB` / `#RRGGBBAA`). The alpha is multiplied by the panel background opacity from `shell.panel.transparency_mode`.
+- `shell.panel.border_width` sets the floating panel outline width in logical pixels (default `1.0`, range `0` to `20`). Ignored when `shell.panel.borders` is `false`.
 - `shell.panel.shadow` toggles the rendered drop shadow on attached and floating panels. Shadow direction and alpha come from `[shell.shadow]`.
 - `shell.panel.list_item_background` draws a filled rounded background behind each item in the launcher results (list and app-grid views) and the clipboard history list. The fill uses the same rounded shape as the hover highlight and follows the panel transparency mode; hover and keyboard-selection colors are unchanged. Default is `false`. Toggle in **Settings → Panels → Effects**.
 - `shell.panel.floating_layer` selects the layer-shell layer for floating Launcher, Clipboard, Control Center, Wallpaper, Session, and Setup Wizard panels. `overlay` is the default and keeps these panels above fullscreen content. Use `top` when a compositor places input-method candidate popups below the Overlay layer. Attached panels continue to use their bar's configured layer; system overlays such as the polkit prompt keep their own layer policy. Plugin panels expose a separate per-entry **Layer** setting under **Settings → Plugins**. Change the built-in panel setting in **Settings → Panels → General**.

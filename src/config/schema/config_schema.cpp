@@ -68,6 +68,30 @@ namespace noctalia::config::schema {
     return s;
   }
 
+  namespace {
+    // Concrete ColorSpec stored as a config string; always emitted. A present
+    // non-string value is a hard error (mirrors colorStringValue).
+    // Define before all the schema, so colorField can be use when needs.
+    template <typename Struct> Field<Struct> colorField(ColorSpec Struct::* member, std::string_view key) {
+      return custom<Struct>(
+          key,
+          [member, key](const toml::table& tbl, Struct& out, std::string_view parentPath, Diagnostics&) {
+            if (!tbl.contains(key)) {
+              return;
+            }
+            auto v = tbl[key].value<std::string>();
+            if (!v) {
+              throw std::runtime_error(joinPath(parentPath, key) + ": expected string ColorSpec");
+            }
+            out.*member = colorSpecFromConfigString(*v, joinPath(parentPath, key));
+          },
+          [member, key](toml::table& tbl, const Struct& in) {
+            tbl.insert_or_assign(key, colorSpecToConfigString(in.*member));
+          }
+      );
+    }
+  } // namespace
+
   const Schema<OsdConfig>& osdSchema() {
     static const Schema<OsdConfig> s = {
         field(&OsdConfig::enabled, "enabled"),
@@ -1339,6 +1363,8 @@ namespace noctalia::config::schema {
       static const Schema<ShellConfig::PanelConfig> s = {
           enumField(&ShellConfig::PanelConfig::transparencyMode, "transparency_mode", kPanelTransparencyModes),
           field(&ShellConfig::PanelConfig::borders, "borders"),
+          colorField(&ShellConfig::PanelConfig::borderColor, "border_color"),
+          field(&ShellConfig::PanelConfig::borderWidth, "border_width", kPanelBorderWidthRange),
           field(&ShellConfig::PanelConfig::shadow, "shadow"),
           field(&ShellConfig::PanelConfig::listItemBackground, "list_item_background"),
           custom<ShellConfig::PanelConfig>(
@@ -1900,27 +1926,6 @@ namespace noctalia::config::schema {
     constexpr Range<double> kBarCapsulePaddingRangeD{0.0, 48.0};
     constexpr Range<double> kBarCapsuleRadiusRangeD{0.0, 80.0};
     constexpr Range<double> kBarCapsuleOpacityRangeD{0.0, 1.0};
-
-    // Concrete ColorSpec stored as a config string; always emitted. A present
-    // non-string value is a hard error (mirrors colorStringValue).
-    template <typename Struct> Field<Struct> colorField(ColorSpec Struct::* member, std::string_view key) {
-      return custom<Struct>(
-          key,
-          [member, key](const toml::table& tbl, Struct& out, std::string_view parentPath, Diagnostics&) {
-            if (!tbl.contains(key)) {
-              return;
-            }
-            auto v = tbl[key].value<std::string>();
-            if (!v) {
-              throw std::runtime_error(joinPath(parentPath, key) + ": expected string ColorSpec");
-            }
-            out.*member = colorSpecFromConfigString(*v, joinPath(parentPath, key));
-          },
-          [member, key](toml::table& tbl, const Struct& in) {
-            tbl.insert_or_assign(key, colorSpecToConfigString(in.*member));
-          }
-      );
-    }
   } // namespace
 
   const Schema<DockConfig>& dockSchema() {

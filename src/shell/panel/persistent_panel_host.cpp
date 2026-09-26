@@ -340,7 +340,9 @@ void PersistentPanelHost::buildScene(Instance& instance, std::uint32_t width, st
     bg->setPanelStyle(m_config->config().shell.panel.borders);
     bg->setFill(colorSpecFromRole(ColorRole::Surface, backgroundOpacity));
     if (m_config->config().shell.panel.borders) {
-      bg->setBorder(colorSpecFromRole(ColorRole::Outline, backgroundOpacity), Style::borderWidth);
+      bg->setBorder(
+          shell::panel_surface::borderColor(m_config, backgroundOpacity), shell::panel_surface::borderWidth(m_config)
+      );
     }
     instance.bgNode = static_cast<Box*>(instance.sceneRoot->addChild(std::move(bg)));
   }
@@ -621,7 +623,9 @@ void PersistentPanelHost::onConfigReloaded() {
       instance->bgNode->setPanelStyle(m_config->config().shell.panel.borders);
       instance->bgNode->setFill(colorSpecFromRole(ColorRole::Surface, backgroundOpacity));
       if (m_config->config().shell.panel.borders) {
-        instance->bgNode->setBorder(colorSpecFromRole(ColorRole::Outline, backgroundOpacity), Style::borderWidth);
+        instance->bgNode->setBorder(
+            shell::panel_surface::borderColor(m_config, backgroundOpacity), shell::panel_surface::borderWidth(m_config)
+        );
       }
     }
     if (instance->surface != nullptr) {
