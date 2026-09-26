@@ -491,7 +491,7 @@ std::unique_ptr<Flex> HomeTab::create() {
               .color = colorSpecFromRole(ColorRole::OnSurface),
           }),
           ui::row(
-              {.align = FlexAlign::Center, .gap = Style::spaceXs * scale},
+              {.out = &m_weatherRow, .align = FlexAlign::Center, .gap = Style::spaceXs * scale},
               ui::glyph({
                   .out = &m_weatherGlyph,
                   .glyph = "weather-cloud-sun",
@@ -508,8 +508,10 @@ std::unique_ptr<Flex> HomeTab::create() {
       )
   );
 
-  // Clicking anywhere on the clock/weather card opens the weather tab.
-  m_dateTimeCardArea = addCardOverlay(*m_dateTimeCard, []() { openControlCenterTab("weather"); });
+  // A date card remains useful when weather is deliberately disabled.
+  m_dateTimeCardArea = addCardOverlay(*m_dateTimeCard, [this]() {
+    openControlCenterTab(m_weather != nullptr && m_weather->enabled() ? "weather" : "calendar");
+  });
 
   leftColumn->addChild(std::move(mediaCard));
   leftColumn->addChild(std::move(dateTimeCard));
@@ -1304,6 +1306,7 @@ void HomeTab::onClose() {
   m_userAvatar = nullptr;
   m_timeLabel = nullptr;
   m_dateLabel = nullptr;
+  m_weatherRow = nullptr;
   m_weatherGlyph = nullptr;
   m_weatherLine = nullptr;
   m_userHost = nullptr;
@@ -1444,12 +1447,13 @@ void HomeTab::sync(Renderer& renderer) {
     m_userVersion->setText(noctaliaVersionLine());
   }
 
-  if (m_weatherGlyph != nullptr && m_weatherLine != nullptr) {
-    if (m_weather == nullptr || !m_weather->enabled()) {
-      m_weatherGlyph->setGlyph("weather-cloud-off");
-      m_weatherGlyph->setColor(colorSpecFromRole(ColorRole::OnSurfaceVariant));
-      m_weatherLine->setText(i18n::tr("control-center.home.weather.disabled"));
-    } else if (!m_weather->locationConfigured()) {
+  const bool weatherEnabled = m_weather != nullptr && m_weather->enabled();
+  if (m_weatherRow != nullptr) {
+    m_weatherRow->setVisible(weatherEnabled);
+    m_weatherRow->setParticipatesInLayout(weatherEnabled);
+  }
+  if (weatherEnabled && m_weatherGlyph != nullptr && m_weatherLine != nullptr) {
+    if (!m_weather->locationConfigured()) {
       m_weatherGlyph->setGlyph("weather-cloud");
       m_weatherGlyph->setColor(colorSpecFromRole(ColorRole::OnSurfaceVariant));
       m_weatherLine->setText(i18n::tr("control-center.weather.no-location-title"));
