@@ -1,9 +1,9 @@
 #pragma once
 
 #include <memory>
-#include <span>
 #include <string>
 #include <string_view>
+#include <vector>
 
 class Shortcut {
 public:
@@ -39,12 +39,15 @@ struct Config;
 class ShortcutRegistry {
 public:
   struct CatalogEntry {
-    std::string_view type;
-    std::string_view labelKey;
+    std::string type;
+    std::string labelKey;
     bool literalLabel = false; // when true, labelKey holds a literal display name, not an i18n key
   };
 
-  [[nodiscard]] static std::span<const CatalogEntry> catalog();
+  // Rebuilt on every call so newly installed/removed plugin [[shortcut]] entries show up
+  // without a restart; this is only called while building the Settings shortcut dropdown,
+  // not on a hot path.
+  [[nodiscard]] static std::vector<CatalogEntry> catalog();
   // Whether a built-in shortcut's backing feature is enabled. Drives both the
   // Settings GUI add-list and create(); disabled features cannot be added.
   [[nodiscard]] static bool isAvailable(std::string_view type, const Config& config);
