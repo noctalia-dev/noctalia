@@ -362,7 +362,7 @@ bool NetworkManagerService::activateAccessPoint(const AccessPointInfo& ap) {
             }
             if (err.has_value()) {
               kLog.debug("ActivateConnection(/) failed for ssid={}: {}; trying AddAndActivate", ap.ssid, err->what());
-              if (!ap.requiresPsk()) {
+              if (!ap.requiresCredentials()) {
                 addAndActivateAccessPoint(ap, std::nullopt);
               } else {
                 m_emitOnNextRefresh = true;
@@ -380,7 +380,7 @@ bool NetworkManagerService::activateAccessPoint(const AccessPointInfo& ap) {
     }
   }
 
-  if (ap.requiresPsk()) {
+  if (ap.requiresCredentials()) {
     return false;
   }
   return addAndActivateAccessPoint(ap, std::nullopt);
@@ -393,7 +393,7 @@ bool NetworkManagerService::activateAccessPoint(const AccessPointInfo& ap, const
   if (ap.active) {
     return true;
   }
-  if (ap.requiresPsk() && psk.empty()) {
+  if (ap.requiresCredentials() && psk.empty()) {
     return false;
   }
   // An 802.1X AP has no pre-shared key to accept. Falling through would build a

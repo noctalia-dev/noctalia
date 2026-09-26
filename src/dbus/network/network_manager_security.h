@@ -90,7 +90,7 @@ namespace network_manager_security {
 
   // Secured APs that still need a password / EAP prompt. OWE is encrypted but
   // passwordless, so it is excluded.
-  [[nodiscard]] constexpr bool requiresPsk(bool secured, KeyManagement kind) noexcept {
+  [[nodiscard]] constexpr bool requiresCredentials(bool secured, KeyManagement kind) noexcept {
     return secured && kind != KeyManagement::Owe;
   }
 

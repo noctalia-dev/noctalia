@@ -86,31 +86,31 @@ int main() {
   TEST_CHECK(network_manager_security::isEnterprise(KeyManagement::Enterprise));
   TEST_CHECK(network_manager_security::isEnterprise(KeyManagement::EnterpriseSuiteB));
 
-  TEST_CHECK(!network_manager_security::requiresPsk(false, KeyManagement::Psk));
-  TEST_CHECK(network_manager_security::requiresPsk(true, KeyManagement::Psk));
-  TEST_CHECK(network_manager_security::requiresPsk(true, KeyManagement::Sae));
-  TEST_CHECK(!network_manager_security::requiresPsk(true, KeyManagement::Owe));
-  TEST_CHECK(network_manager_security::requiresPsk(true, KeyManagement::Enterprise));
+  TEST_CHECK(!network_manager_security::requiresCredentials(false, KeyManagement::Psk));
+  TEST_CHECK(network_manager_security::requiresCredentials(true, KeyManagement::Psk));
+  TEST_CHECK(network_manager_security::requiresCredentials(true, KeyManagement::Sae));
+  TEST_CHECK(!network_manager_security::requiresCredentials(true, KeyManagement::Owe));
+  TEST_CHECK(network_manager_security::requiresCredentials(true, KeyManagement::Enterprise));
 
   // A default-constructed AP stays personal, so nothing starts out asking for
   // EAP credentials before its RSN flags have been read.
   const AccessPointInfo accessPoint;
   TEST_CHECK(accessPoint.keyManagement == KeyManagement::Psk);
   TEST_CHECK(!accessPoint.isEnterprise());
-  TEST_CHECK(!accessPoint.requiresPsk());
+  TEST_CHECK(!accessPoint.requiresCredentials());
 
   AccessPointInfo enterpriseAp;
   enterpriseAp.secured = true;
   enterpriseAp.keyManagement = network_manager_security::keyManagementFor(kWpa2Enterprise);
   TEST_CHECK(enterpriseAp.isEnterprise());
-  TEST_CHECK(enterpriseAp.requiresPsk());
+  TEST_CHECK(enterpriseAp.requiresCredentials());
   TEST_CHECK(enterpriseAp != accessPoint);
 
   AccessPointInfo oweAp;
   oweAp.secured = true;
   oweAp.keyManagement = network_manager_security::keyManagementFor(kOwe);
   TEST_CHECK(oweAp.keyManagement == KeyManagement::Owe);
-  TEST_CHECK(!oweAp.requiresPsk());
+  TEST_CHECK(!oweAp.requiresCredentials());
 
   return 0;
 }

@@ -21,8 +21,8 @@ struct AccessPointInfo {
 
   // True when the UI should collect credentials before connecting. OWE stays
   // secured (lock icon) but has no password to ask for.
-  [[nodiscard]] bool requiresPsk() const noexcept {
-    return network_manager_security::requiresPsk(secured, keyManagement);
+  [[nodiscard]] bool requiresCredentials() const noexcept {
+    return network_manager_security::requiresCredentials(secured, keyManagement);
   }
 
   bool operator==(const AccessPointInfo&) const = default;
