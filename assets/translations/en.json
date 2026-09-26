@@ -2453,6 +2453,10 @@
         "toast-opacity": {
           "description": "Background opacity of notification toasts",
           "label": "Background Opacity"
+        },
+        "width": {
+          "description": "Toast width in pixels before scaling",
+          "label": "Width"
         }
       },
       "panels": {
