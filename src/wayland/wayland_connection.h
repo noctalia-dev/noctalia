@@ -75,6 +75,8 @@ struct WaylandOutput {
   std::int32_t scale = 1;
   std::int32_t width = 0;
   std::int32_t height = 0;
+  // Current mode refresh rate in mHz from the wl_output.mode CURRENT event (0 == not reported).
+  std::int32_t refreshMHz = 0;
   std::int32_t logicalWidth = 0;
   std::int32_t logicalHeight = 0;
   std::int32_t logicalX = 0;

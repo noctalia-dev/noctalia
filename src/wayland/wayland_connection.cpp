@@ -134,7 +134,7 @@ namespace {
     }
   }
 
-  void outputMode(void* data, wl_output* wlOut, uint32_t flags, int32_t w, int32_t h, int32_t /*refresh*/) {
+  void outputMode(void* data, wl_output* wlOut, uint32_t flags, int32_t w, int32_t h, int32_t refresh) {
     if ((flags & WL_OUTPUT_MODE_CURRENT) == 0) {
       return;
     }
@@ -143,6 +143,9 @@ namespace {
     if (out != nullptr) {
       out->width = w;
       out->height = h;
+      if (refresh > 0) {
+        out->refreshMHz = refresh;
+      }
       self->recomputeConfiguredScale(*out);
     }
   }
