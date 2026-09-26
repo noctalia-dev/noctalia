@@ -53,6 +53,7 @@ capsule_thickness  = 0.76          # capsule size across the bar as a fraction o
 capsule_radius     = 8.0            # omit for automatic pill radius
 capsule_opacity    = 1.0
 # capsule_border   = "outline"   # omit this key for no border by default
+capsule_border_width = 1.0          # outline thickness in logical pixels (0-8), drawn only with capsule_border
 
 start  = ["launcher", "wallpaper", "workspaces"]
 center = ["clock"]
@@ -211,6 +212,7 @@ Set under `[bar.<name>]` or `[bar.<name>.monitor.*]`:
 | `capsule_padding` | number | `6` | Inner padding in logical pixels before `scale` is applied (clamped 0–48). |
 | `capsule_opacity` | number | `1.0` | Capsule background opacity (0.0–1.0). |
 | `capsule_border` | string | *(omitted)* | Color role for the capsule border; fixed hex colors are also supported. If omitted, no border by default. If present as `""`, no border. |
+| `capsule_border_width` | number | `1` | Capsule outline thickness in logical pixels before `scale` is applied (clamped 0-8). Only drawn when `capsule_border` resolves to a color. |
 | `hover_highlight` | bool | `true` | Softly tint the widget under the mouse pointer with its own foreground color. Works with and without capsules; inside a capsule group only the hovered member lights up. The highlight never changes widget layout or spacing. Set `false` to disable the effect on this bar. |
 
 ### Per-widget overrides
@@ -231,6 +233,7 @@ Set under `[widget.<name>]`:
 | `capsule_padding` | number | *(from bar)* | Per-widget inner padding (0–48). |
 | `capsule_opacity` | number | *(from bar)* | Per-widget capsule background opacity. |
 | `capsule_border` | string | *(from bar)* | Color role for the capsule border; fixed hex colors are also supported. Omit to inherit bar policy. Present but empty/whitespace-only = no border. |
+| `capsule_border_width` | number | *(from bar)* | Per-widget capsule outline thickness (0-8). Omit to inherit the bar value. |
 | `color` | string | *(unset)* | Icon + label color role with or without capsule; fixed hex colors are also supported. Resolution order: `color` → `capsule_foreground` → built-in defaults. |
 | `icon_color` | string | *(unset)* | Overrides `color` for icons only. Resolution order for icons: `icon_color` → `color` → `capsule_foreground` → built-in defaults. Labels always use `color`. |
 | `interactive` | bool | `true` (spacers: `false`) | Set `false` to make the widget passive: hover highlight and tooltips are disabled, pointer events (clicks, scrolls) pass through to the bar underneath, and the **Actions** settings section is hidden. The widget is still drawn; use `enabled = false` to hide it entirely. Spacers default to non-interactive so they stay click-through layout gaps. |
@@ -320,6 +323,7 @@ widget_spacing = 10                      # optional: gap between this group's wi
 | `enabled` | bool | `true` | Show or hide the entire group on the bar. Disabled groups are not populated and their widgets consume no resources. |
 | `fill` | string | `surface_variant` | Background color role for the shared capsule; fixed hex colors are also supported. |
 | `border` | string | *(omitted)* | Color role for the capsule border; fixed hex colors are also supported. Omit for no outline; present but empty (`""`) also means no outline. |
+| `border_width` | number | `1` | Capsule outline thickness in logical pixels (clamped 0-8). Only drawn when `border` resolves to a color. |
 | `foreground` | string | *(unset)* | Icon + label color role for all widgets inside this group; fixed hex colors are also supported. |
 | `padding` | number | `6` | Inner padding between the capsule edge and its widgets, in logical pixels (clamped 0–48). |
 | `radius` | number | *(auto pill)* | Capsule corner radius in logical pixels (0–80). Omit for automatic pill radius. |

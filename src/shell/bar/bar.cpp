@@ -2713,7 +2713,7 @@ void Bar::attachWidgetsToSections(BarInstance& instance) {
           .fill = scaleAlpha(cap.fill, cap.opacity),
           .configure = [&cap, scale](Box& bg) {
             if (cap.border.has_value()) {
-              bg.setBorder(*cap.border, Style::borderWidth * scale);
+              bg.setBorder(*cap.border, cap.borderWidth * scale);
             } else {
               bg.clearBorder();
             }
@@ -2804,7 +2804,7 @@ void Bar::attachWidgetsToSections(BarInstance& instance) {
           .fill = scaleAlpha(cap.fill, cap.opacity),
           .configure = [&cap, scale](Box& bg) {
             if (cap.border.has_value()) {
-              bg.setBorder(*cap.border, Style::borderWidth * scale);
+              bg.setBorder(*cap.border, cap.borderWidth * scale);
             } else {
               bg.clearBorder();
             }

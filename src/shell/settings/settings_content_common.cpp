@@ -122,6 +122,9 @@ namespace settings {
     if (key == "capsule_border") {
       return override->widgetCapsuleBorderSpecified;
     }
+    if (key == "capsule_border_width") {
+      return override->widgetCapsuleBorderWidth.has_value();
+    }
     if (key == "capsule_foreground") {
       return override->widgetCapsuleForeground.has_value();
     }

@@ -1027,6 +1027,9 @@ BarConfig ConfigService::resolveForOutput(const BarConfig& base, const WaylandOu
     if (ovr.widgetCapsuleOpacity) {
       resolved.widgetCapsuleOpacity = std::clamp(static_cast<float>(*ovr.widgetCapsuleOpacity), 0.0F, 1.0F);
     }
+    if (ovr.widgetCapsuleBorderWidth) {
+      resolved.widgetCapsuleBorderWidth = std::clamp(static_cast<float>(*ovr.widgetCapsuleBorderWidth), 0.0F, 8.0F);
+    }
     if (ovr.hoverHighlight) {
       resolved.hoverHighlight = *ovr.hoverHighlight;
     }
