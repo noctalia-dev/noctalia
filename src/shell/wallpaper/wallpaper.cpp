@@ -107,22 +107,6 @@ namespace {
     return params;
   }
 
-  [[nodiscard]] std::optional<std::string>
-  resolveWallpaperPath(std::string_view path, std::optional<std::string_view> callerCwd = std::nullopt) {
-    if (path.empty()) {
-      return std::nullopt;
-    }
-    if (path.starts_with("color:")) {
-      return std::string(path);
-    }
-    const std::filesystem::path resolved = FileUtils::resolvePath(path, callerCwd);
-    std::error_code ec;
-    if (std::filesystem::is_regular_file(resolved, ec)) {
-      return resolved.string();
-    }
-    return std::nullopt;
-  }
-
   struct WallpaperSetParsed {
     std::optional<std::string> connector;
     std::string path;
@@ -137,7 +121,7 @@ namespace {
     }
 
     const std::string allJoined = StringUtils::join(tokens, " ");
-    if (resolveWallpaperPath(allJoined, callerCwd).has_value()) {
+    if (wallpaper::resolveWallpaperImagePath(allJoined, callerCwd).has_value()) {
       return {.connector = std::nullopt, .path = allJoined};
     }
 
@@ -658,7 +642,7 @@ bool Wallpaper::applyWallpaperImage(const std::optional<std::string>& connector,
   if (connector.has_value() && !isConnectorKnown(*connector)) {
     return false;
   }
-  const auto resolved = resolveWallpaperPath(path);
+  const auto resolved = wallpaper::resolveWallpaperImagePath(path);
   if (!resolved.has_value()) {
     return false;
   }
@@ -770,7 +754,7 @@ void Wallpaper::registerIpc(IpcService& ipc) {
 
         std::optional<std::string> outputConnector = parsed.connector;
         std::string resolved;
-        if (const auto path = resolveWallpaperPath(parsed.path, callerCwd); path.has_value()) {
+        if (const auto path = wallpaper::resolveWallpaperImagePath(parsed.path, callerCwd); path.has_value()) {
           resolved = *path;
         } else {
           return "error: path does not exist or is not a regular file\n";

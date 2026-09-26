@@ -12,11 +12,14 @@
 #include "core/random.h"
 #include "ext-session-lock-v1-client-protocol.h"
 #include "i18n/i18n.h"
+#include "ipc/ipc_service.h"
 #include "render/render_context.h"
 #include "shell/desktop/desktop_widget_layout.h"
 #include "shell/keyboard_layout_label.h"
 #include "shell/lockscreen/lock_surface.h"
+#include "shell/wallpaper/wallpaper_paths.h"
 #include "ui/palette.h"
+#include "util/string_utils.h"
 #include "wayland/wayland_connection.h"
 #include "wayland/wayland_seat.h"
 
@@ -128,6 +131,63 @@ void LockScreen::setLoginBoxServices(
       instance.surface->setLoginBoxServices(m_sessionActions, m_mpris, m_weather, m_httpClient);
     }
   }
+}
+
+void LockScreen::registerIpc(IpcService& ipc) {
+  const auto validateConnector = [this](std::string_view connector) -> std::string {
+    if (connector.empty() || m_wayland == nullptr) {
+      return {};
+    }
+    const bool known = std::ranges::any_of(m_wayland->outputs(), [&](const WaylandOutput& out) {
+      return !out.connectorName.empty() && out.connectorName == connector;
+    });
+    return known ? std::string() : "error: unknown output \"" + std::string(connector) + "\"\n";
+  };
+
+  ipc.bind(
+      noctalia::cli::msg::lockscreenWallpaperGet,
+      [this, validateConnector](const std::string& args) -> std::string {
+        if (m_configService == nullptr) {
+          return "error: lock screen not initialized\n";
+        }
+        const auto tokens = StringUtils::splitWhitespace(StringUtils::trim(args));
+        if (tokens.size() > 1) {
+          return "error: lockscreen-wallpaper-get accepts at most <connector>\n";
+        }
+        const std::string connector = tokens.empty() ? std::string() : tokens[0];
+        if (const std::string error = validateConnector(connector); !error.empty()) {
+          return error;
+        }
+        std::string out = m_configService->getLockscreenWallpaperPath(connector);
+        out.push_back('\n');
+        return out;
+      },
+      IpcService::HandlerOptions{.actionEditorVisibility = IpcService::ActionEditorVisibility::Hidden}
+  );
+  ipc.bind(noctalia::cli::msg::lockscreenWallpaperSet, [this, &ipc](const std::string& args) -> std::string {
+    if (m_configService == nullptr) {
+      return "error: lock screen not initialized\n";
+    }
+    const std::string trimmed = StringUtils::trim(args);
+    if (trimmed.empty()) {
+      return "error: path required (lockscreen-wallpaper-set <path>)\n";
+    }
+    const std::optional<std::string_view> callerCwd =
+        ipc.callerCwd().has_value() ? std::optional<std::string_view>{*ipc.callerCwd()} : std::nullopt;
+    const auto resolved = wallpaper::resolveWallpaperImagePath(trimmed, callerCwd);
+    if (!resolved.has_value()) {
+      return "error: path does not exist or is not a regular file\n";
+    }
+    m_configService->setLockscreenWallpaperPath(*resolved);
+    return "ok\n";
+  });
+  ipc.bind(noctalia::cli::msg::lockscreenWallpaperClear, [this](const std::string&) -> std::string {
+    if (m_configService == nullptr) {
+      return "error: lock screen not initialized\n";
+    }
+    m_configService->clearLockscreenWallpaperPath();
+    return "ok\n";
+  });
 }
 
 bool LockScreen::lock() {
@@ -896,11 +956,7 @@ std::string LockScreen::wallpaperPathForOutput(const std::string& connectorName)
   if (m_configService == nullptr) {
     return {};
   }
-  const std::string& customWallpaper = m_configService->config().lockscreen.wallpaper;
-  if (!customWallpaper.empty()) {
-    return customWallpaper;
-  }
-  return m_configService->getWallpaperPath(connectorName);
+  return m_configService->getLockscreenWallpaperPath(connectorName);
 }
 
 void LockScreen::applyWallpaperStyleToSurfaces() {

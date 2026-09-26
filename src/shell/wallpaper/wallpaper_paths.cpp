@@ -3,6 +3,25 @@
 #include "config/config_types.h"
 #include "util/file_utils.h"
 
+#include <filesystem>
+#include <system_error>
+
+std::optional<std::string>
+wallpaper::resolveWallpaperImagePath(std::string_view path, std::optional<std::string_view> callerCwd) {
+  if (path.empty()) {
+    return std::nullopt;
+  }
+  if (path.starts_with("color:")) {
+    return std::string(path);
+  }
+  const std::filesystem::path resolved = FileUtils::resolvePath(path, callerCwd);
+  std::error_code ec;
+  if (std::filesystem::is_regular_file(resolved, ec)) {
+    return resolved.string();
+  }
+  return std::nullopt;
+}
+
 ThemeMode wallpaper::effectiveThemeMode(ThemeMode mode, bool isLight) noexcept {
   if (mode == ThemeMode::Auto) {
     return isLight ? ThemeMode::Light : ThemeMode::Dark;

@@ -63,6 +63,19 @@ namespace scripting {
       return it != m_wallpaperPaths.end() ? std::optional<std::string>{it->second} : std::nullopt;
     }
 
+    // Effective lock screen wallpaper per output (the override, or the inherited desktop
+    // wallpaper). Refreshed alongside m_wallpaperPaths; same worker-thread read pattern.
+    void setLockscreenWallpaperPaths(std::unordered_map<std::string, std::string> paths) {
+      std::scoped_lock lock(m_mutex);
+      m_lockscreenWallpaperPaths = std::move(paths);
+    }
+
+    [[nodiscard]] std::optional<std::string> lockscreenWallpaperPath(const std::string& outputName) const {
+      std::scoped_lock lock(m_mutex);
+      const auto it = m_lockscreenWallpaperPaths.find(outputName);
+      return it != m_lockscreenWallpaperPaths.end() ? std::optional<std::string>{it->second} : std::nullopt;
+    }
+
     // Output snapshot — refreshed on the main thread, copied out under lock so that
     // script bindings (which run on a worker thread) read it race-free.
     void setOutputs(std::vector<ScriptOutputInfo> outputs) {
@@ -159,6 +172,30 @@ namespace scripting {
 
     [[nodiscard]] ClearWallpaperMasksHook clearWallpaperMasksHook() const { return m_clearWallpaperMasksHook; }
 
+    // Sets the lock screen wallpaper override. Wired to ConfigService in Application;
+    // invoked only on the main thread.
+    void setLockscreenWallpaperHook(std::function<void(const std::string&)> hook) {
+      m_lockscreenWallpaperHook = std::move(hook);
+    }
+
+    void invokeSetLockscreenWallpaper(const std::string& path) const {
+      if (m_lockscreenWallpaperHook) {
+        m_lockscreenWallpaperHook(path);
+      }
+    }
+
+    // Clears the lock screen wallpaper override (reverts to inheriting the desktop
+    // wallpaper). Wired to ConfigService in Application; invoked only on the main thread.
+    void setClearLockscreenWallpaperHook(std::function<void()> hook) {
+      m_clearLockscreenWallpaperHook = std::move(hook);
+    }
+
+    void invokeClearLockscreenWallpaper() const {
+      if (m_clearLockscreenWallpaperHook) {
+        m_clearLockscreenWallpaperHook();
+      }
+    }
+
     // The live system monitor, or nullptr when it is unavailable. Unlike the hooks around it this
     // is read straight from a script worker thread: SystemMonitorService::latest() is mutex-guarded
     // and returns a copy, so no main-thread marshalling is needed. The pointer itself is atomic
@@ -224,11 +261,14 @@ namespace scripting {
     std::string m_dateFormat;
     std::vector<ScriptOutputInfo> m_outputs;
     std::unordered_map<std::string, std::string> m_wallpaperPaths;
+    std::unordered_map<std::string, std::string> m_lockscreenWallpaperPaths;
     std::optional<std::string> m_clipboardText;
     std::function<void(const std::string&, bool)> m_wallpaperEnabledHook;
     std::function<void(const std::string&, const std::string&)> m_wallpaperHook;
     SetWallpaperMaskHook m_wallpaperMaskHook;
     ClearWallpaperMasksHook m_clearWallpaperMasksHook;
+    std::function<void(const std::string&)> m_lockscreenWallpaperHook;
+    std::function<void()> m_clearLockscreenWallpaperHook;
     std::function<void(const std::string&)> m_togglePanelHook;
     std::function<void(const std::string&)> m_openPluginSettingsHook;
     LoadSoundHook m_loadSoundHook;

@@ -139,6 +139,12 @@ namespace noctalia::cli {
   inline constexpr std::array kMsgKeyboardBacklightSetPositionals{
       Positional{"value", {}, {}, true, false, false},
   };
+  inline constexpr std::array kMsgLockscreenWallpaperGetPositionals{
+      Positional{"connector", {}, {}, false, false, false},
+  };
+  inline constexpr std::array kMsgLockscreenWallpaperSetPositionals{
+      Positional{"path", {}, {}, true, false, false},
+  };
   inline constexpr std::array kMsgLogLevelSetPositionals{
       Positional{"level", {}, kMsgLogLevelSetLevelChoices, true, false, false},
   };
@@ -472,6 +478,36 @@ namespace noctalia::cli {
     };
     inline constexpr Command keyboardLayoutCycle{
         "keyboard-layout-cycle", "Switch to the next keyboard layout", {}, {}, {}, {}, {}, false
+    };
+    inline constexpr Command lockscreenWallpaperClear{
+        "lockscreen-wallpaper-clear",
+        "Clear the lock screen wallpaper override (inherit the desktop wallpaper)",
+        {},
+        {},
+        {},
+        {},
+        {},
+        false
+    };
+    inline constexpr Command lockscreenWallpaperGet{
+        "lockscreen-wallpaper-get",
+        "Print the effective lock screen wallpaper path",
+        {},
+        {},
+        {},
+        kMsgLockscreenWallpaperGetPositionals,
+        {},
+        false
+    };
+    inline constexpr Command lockscreenWallpaperSet{
+        "lockscreen-wallpaper-set",
+        "Set the lock screen wallpaper override (persisted)",
+        {},
+        {},
+        {},
+        kMsgLockscreenWallpaperSetPositionals,
+        {},
+        false
     };
     inline constexpr Command lockscreenWidgetsEdit{
         "lockscreen-widgets-edit", "Open the lockscreen widgets editor", {}, {}, {}, {}, {}, false
@@ -874,6 +910,9 @@ namespace noctalia::cli {
       msg::keyboardBacklightToggle,
       msg::keyboardBacklightUp,
       msg::keyboardLayoutCycle,
+      msg::lockscreenWallpaperClear,
+      msg::lockscreenWallpaperGet,
+      msg::lockscreenWallpaperSet,
       msg::lockscreenWidgetsEdit,
       msg::lockscreenWidgetsExit,
       msg::lockscreenWidgetsToggleEdit,

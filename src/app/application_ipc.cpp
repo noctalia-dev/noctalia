@@ -761,6 +761,7 @@ void Application::initIpc() {
   m_templateApplyService.registerIpc(m_ipcService);
   m_dock.registerIpc(m_ipcService);
   m_wallpaper.registerIpc(m_ipcService);
+  m_lockScreen.registerIpc(m_ipcService);
   greeter::registerIpc(
       m_ipcService, m_configService, [this]() { return m_themeService.resolvedShellMode(); }, &m_compositorPlatform,
       [this]() { return m_logindService != nullptr; }

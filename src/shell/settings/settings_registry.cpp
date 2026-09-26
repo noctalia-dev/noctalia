@@ -2941,6 +2941,7 @@ namespace settings {
       case HookKind::ShuttingDown:
         return "lifecycle";
       case HookKind::WallpaperChanged:
+      case HookKind::LockscreenWallpaperChanged:
       case HookKind::ColorsChanged:
       case HookKind::ThemeModeChanged:
         return "theme";
@@ -2972,8 +2973,14 @@ namespace settings {
       if (kind == HookKind::PowerProfileChanged) {
         tags += " power profile performance balanced saver";
       }
-      if (kind == HookKind::WallpaperChanged || kind == HookKind::ColorsChanged || kind == HookKind::ThemeModeChanged) {
+      if (kind == HookKind::WallpaperChanged
+          || kind == HookKind::LockscreenWallpaperChanged
+          || kind == HookKind::ColorsChanged
+          || kind == HookKind::ThemeModeChanged) {
         tags += " wallpaper colors theme mode light dark auto";
+      }
+      if (kind == HookKind::LockscreenWallpaperChanged) {
+        tags += " lockscreen lock screen";
       }
       if (kind == HookKind::WifiEnabled
           || kind == HookKind::WifiDisabled
