@@ -1246,6 +1246,7 @@ if build_tests
     'plugin_source_paths',
     'process',
     'scheme',
+    'script_api_calendar',
     'scrollbar_geometry',
     'secret_store',
     'security_primitives',

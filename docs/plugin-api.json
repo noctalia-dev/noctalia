@@ -178,5 +178,11 @@
     "noctaliaVersion": null,
     "feature": "container-tooltip",
     "introduced": "The `tooltip` prop on `ui.box`, `ui.row`, `ui.column`, and `ui.image`, shown on hover."
+  },
+  {
+    "level": 33,
+    "noctaliaVersion": null,
+    "feature": "calendar-events",
+    "introduced": "`noctalia.calendarEvents()` for reading the shell's synced calendar events."
   }
 ]

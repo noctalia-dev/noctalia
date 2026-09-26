@@ -836,6 +836,43 @@ namespace {
     return 1;
   }
 
+  // calendarEvents() -> the merged, read-only snapshot of synced calendar events, or nil when the
+  // calendar has never completed a sync (no accounts, sync still pending, or every account failing).
+  //
+  //   { { id, title, calendarName, colorHex, location, url, startMs, endMs, allDay }, ... }
+  //
+  // Recurring events arrive already expanded by the provider, so every entry is one concrete
+  // instance with its own resolved startMs/endMs (wall-clock milliseconds, same base as nowMs()).
+  // `url` is the resolved http(s) meeting link and is empty when the event has none; it is already
+  // scheme-filtered host-side, so a plugin can hand it to xdg-open. Read-only by design: plugins
+  // observe the shell's calendar, they do not mutate it.
+  int luau_calendarEvents(lua_State* L) {
+    auto* host = hostForState(L);
+    if (host == nullptr || !host->api().calendarValid()) {
+      lua_pushnil(L);
+      return 1;
+    }
+
+    const auto events = host->api().calendarEvents();
+    lua_createtable(L, static_cast<int>(events.size()), 0);
+    int index = 1;
+    for (const auto& event : events) {
+      lua_createtable(L, 0, 9);
+      setTableString(L, "id", event.id);
+      setTableString(L, "title", event.title);
+      setTableString(L, "calendarName", event.calendarName);
+      setTableString(L, "colorHex", event.colorHex);
+      setTableString(L, "location", event.location);
+      setTableString(L, "url", event.url);
+      setTableNumber(L, "startMs", event.startMs);
+      setTableNumber(L, "endMs", event.endMs);
+      setTableBool(L, "allDay", event.allDay);
+      lua_rawseti(L, -2, index);
+      ++index;
+    }
+    return 1;
+  }
+
   int luau_clipboardText(lua_State* L) {
     auto* host = hostForState(L);
     if (host == nullptr) {
@@ -1785,6 +1822,7 @@ namespace {
       {"notifyError", luau_notifyError},
       {"copyToClipboard", luau_copyToClipboard},
       {"clipboardText", luau_clipboardText},
+      {"calendarEvents", luau_calendarEvents},
       {"getenv", luau_getenv},
       {"expandPath", luau_expandPath},
       {"formatTime", luau_formatTime},
