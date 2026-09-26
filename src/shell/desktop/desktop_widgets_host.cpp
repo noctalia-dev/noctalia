@@ -6,7 +6,7 @@
 #include "render/render_context.h"
 #include "render/render_target.h"
 #include "render/scene/node.h"
-#include "scripting/plugin_registry.h"
+#include "scripting/plugin_id.h"
 #include "shell/desktop/desktop_widget_layout.h"
 #include "shell/desktop/widget_transform.h"
 #include "shell/wallpaper/wallpaper_geometry.h"
@@ -125,9 +125,11 @@ void DesktopWidgetsHost::reloadPluginWidgets() {
   if (!m_visible) {
     return;
   }
+  // Match on the id syntax, not the registry: a plugin disabled by this reload has
+  // already left the registry, and its instances must go down with it.
   const auto before = m_instances.size();
   std::erase_if(m_instances, [](const auto& instance) {
-    return scripting::isPluginEntryOfKind(instance->state.type, scripting::PluginEntryKind::DesktopWidget);
+    return scripting::isValidPluginEntryId(instance->state.type);
   });
   if (m_instances.size() == before) {
     return;
