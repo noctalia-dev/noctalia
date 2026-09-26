@@ -146,7 +146,9 @@ void LockscreenWidgetsController::onOutputChange() {
     return;
   }
   bool placementChanged = m_placementMapper.remapForOutputChange(*m_wayland, m_snapshot.widgets);
+  const auto widgetsBeforeNormalization = m_snapshot.widgets;
   normalizeSnapshot();
+  placementChanged |= m_snapshot.widgets != widgetsBeforeNormalization;
   placementChanged |= m_placementMapper.remapForOutputChange(*m_wayland, m_snapshot.widgets);
   if (placementChanged) {
     saveSnapshotToConfig();
@@ -309,10 +311,11 @@ void LockscreenWidgetsController::loadSnapshotFromConfig() {
   // The login box clamps its position while normalizing. Rebase persisted coordinates first so
   // that clamp operates in the current output's logical coordinate space.
   bool placementChanged = m_placementMapper.remapForOutputChange(*m_wayland, m_snapshot.widgets);
-  const std::size_t widgetCountBefore = m_snapshot.widgets.size();
+  const auto widgetsBeforeNormalization = m_snapshot.widgets;
   normalizeSnapshot();
+  placementChanged |= m_snapshot.widgets != widgetsBeforeNormalization;
   placementChanged |= m_placementMapper.remapForOutputChange(*m_wayland, m_snapshot.widgets);
-  if (placementChanged || m_snapshot.widgets.size() > widgetCountBefore) {
+  if (placementChanged) {
     saveSnapshotToConfig();
   }
 }
@@ -421,14 +424,14 @@ void LockscreenWidgetsController::normalizeSnapshot() {
     if (widget.outputName.empty()) {
       const WaylandOutput* output = desktop_widgets::resolveEffectiveOutput(*m_wayland, widget.outputName);
       if (output != nullptr) {
-        widget.outputName = desktop_widgets::outputKey(*output);
+        widget.outputName = desktop_widgets::placementOutputKey(*output);
       }
       continue;
     }
 
-    if (const WaylandOutput* exact = desktop_widgets::findOutputByKey(*m_wayland, widget.outputName);
+    if (const WaylandOutput* exact = desktop_widgets::findOutputByPlacementKey(*m_wayland, widget.outputName);
         exact != nullptr) {
-      widget.outputName = desktop_widgets::outputKey(*exact);
+      widget.outputName = desktop_widgets::placementOutputKey(*exact);
     }
   }
 }

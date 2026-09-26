@@ -928,7 +928,7 @@ void LockScreen::createInstance(const WaylandOutput& output) {
   surface->setTextureCache(m_textureCache);
   surface->setLockedState(m_locked);
   applyLockscreenStyle(*surface);
-  surface->setOutputKey(desktop_widgets::outputKey(output));
+  surface->setOutputKey(desktop_widgets::placementOutputKey(output));
   if (m_configService != nullptr) {
     surface->setWallpaperPath(wallpaperPathForOutput(output.connectorName));
     surface->setWallpaperFillMode(m_configService->config().wallpaper.fillMode);

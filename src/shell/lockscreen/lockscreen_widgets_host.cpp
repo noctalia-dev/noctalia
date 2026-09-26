@@ -129,7 +129,7 @@ LockSurface* LockscreenWidgetsHost::findSurfaceForOutput(LockScreen& lockScreen,
     if (output == nullptr) {
       return;
     }
-    if (desktop_widgets::outputKey(*output) == outputKey) {
+    if (desktop_widgets::placementOutputKey(*output) == outputKey) {
       found = &surface;
     }
   });
@@ -167,7 +167,7 @@ void LockscreenWidgetsHost::syncSurfaces(LockScreen& lockScreen) {
       continue;
     }
 
-    const std::string outputKey = desktop_widgets::outputKey(*output);
+    const std::string outputKey = desktop_widgets::placementOutputKey(*output);
     LockSurface* surface = findSurfaceForOutput(lockScreen, outputKey);
     if (surface == nullptr) {
       std::erase_if(m_instances, [this, &state](std::unique_ptr<WidgetInstance>& instance) {
