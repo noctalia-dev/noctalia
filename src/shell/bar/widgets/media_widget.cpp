@@ -14,6 +14,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <numbers>
 #include <wayland-client-protocol.h>
 
 using namespace mpris;
@@ -28,8 +29,9 @@ MediaWidget::MediaWidget(MprisService* mpris, HttpClient* httpClient, wl_output*
     : m_mpris(mpris), m_httpClient(httpClient), m_maxWidth(static_cast<float>(options.maxWidth)),
       m_minWidth(static_cast<float>(options.minWidth)), m_artSize(static_cast<float>(options.artSize)),
       m_titleScrollMode(options.titleScrollMode), m_hideWhenNoMedia(options.hideWhenNoMedia),
-      m_albumArtOnly(options.albumArtOnly), m_hideAlbumArt(options.hideAlbumArt), m_hideArtist(options.hideArtist),
-      m_artistFirst(options.artistFirst), m_showProgress(options.showProgress) {}
+      m_rotateAlbumArt(options.rotateAlbumArt), m_albumArtOnly(options.albumArtOnly),
+      m_hideAlbumArt(options.hideAlbumArt), m_hideArtist(options.hideArtist), m_artistFirst(options.artistFirst),
+      m_showProgress(options.showProgress) {}
 
 void MediaWidget::create() {
   auto area = ui::inputArea({});
@@ -213,6 +215,28 @@ void MediaWidget::doUpdate(Renderer& renderer) {
   syncProgress(active);
 }
 
+bool MediaWidget::needsFrameTick() const {
+  return m_rotateAlbumArt
+      && m_lastPlaybackStatus == "Playing"
+      && m_art != nullptr
+      && m_art->hasImage()
+      && m_art->visible();
+}
+
+void MediaWidget::onFrameTick(float deltaMs) {
+  constexpr float kRotationsPerSecond = 0.1F;
+  constexpr float kTwoPi = 2.0F * std::numbers::pi_v<float>;
+
+  m_artRotation += (kTwoPi * kRotationsPerSecond) * (deltaMs / 1000.0F);
+  if (m_artRotation >= kTwoPi) {
+    m_artRotation -= kTwoPi;
+  }
+  if (m_art != nullptr) {
+    m_art->setRotation(m_artRotation);
+    requestRedraw();
+  }
+}
+
 void MediaWidget::applyTitleScrollMode(bool titleVisible) {
   if (m_label == nullptr) {
     return;
@@ -309,6 +333,9 @@ void MediaWidget::syncState(Renderer& renderer, const std::optional<MprisPlayerI
         m_lastPlaybackStatus == "Playing" ? widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface))
                                           : colorSpecFromRole(ColorRole::OnSurfaceVariant)
     );
+    if (needsFrameTick()) {
+      requestFrameTick();
+    }
     requestRedraw();
     return;
   }
@@ -327,6 +354,8 @@ void MediaWidget::syncState(Renderer& renderer, const std::optional<MprisPlayerI
 
   const int artDecodePx = static_cast<int>(std::round(64.0F * m_contentScale));
   if (artChanged) {
+    m_artRotation = 0.0F;
+    m_art->setRotation(0.0F);
     if (m_hideAlbumArt) {
       m_art->clear(renderer);
     } else {
@@ -354,6 +383,10 @@ void MediaWidget::syncState(Renderer& renderer, const std::optional<MprisPlayerI
         requestRedraw();
       }
     }
+  }
+
+  if (needsFrameTick()) {
+    requestFrameTick();
   }
 
   if (textChanged || artChanged) {
