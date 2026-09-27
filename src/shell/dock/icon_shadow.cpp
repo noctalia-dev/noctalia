@@ -18,8 +18,8 @@ namespace shell::dock {
     const int pad = kIconShadowPadding * density;
     const int width = size + pad * 2;
     const float sigma = 2.0F * static_cast<float>(density);
-    const float sourceWidth = static_cast<float>(source.width);
-    const float sourceHeight = static_cast<float>(source.height);
+    const auto sourceWidth = static_cast<float>(source.width);
+    const auto sourceHeight = static_cast<float>(source.height);
     const float scale = static_cast<float>(size) / std::max(sourceWidth, sourceHeight);
     const float left = (static_cast<float>(size) - sourceWidth * scale) * 0.5F;
     const float top = (static_cast<float>(size) - sourceHeight * scale) * 0.5F;

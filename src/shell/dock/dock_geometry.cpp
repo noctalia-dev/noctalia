@@ -36,15 +36,15 @@ namespace shell::dock {
       );
       const float halfGrowth = static_cast<float>(cfg.iconSize) * (peak - 1.0F) * 0.5F;
       const bool vertical = isVerticalEdge(cfg.position);
-      const float padX = static_cast<float>(kCellPad + (vertical ? cfg.crossAxisPadding : cfg.mainAxisPadding));
-      const float padY = static_cast<float>(kCellPad + (vertical ? cfg.mainAxisPadding : cfg.crossAxisPadding));
+      const auto padX = static_cast<float>(kCellPad + (vertical ? cfg.crossAxisPadding : cfg.mainAxisPadding));
+      const auto padY = static_cast<float>(kCellPad + (vertical ? cfg.mainAxisPadding : cfg.crossAxisPadding));
       float left = halfGrowth + kIconShadowPadding * peak - padX;
       float right = left;
       float up = halfGrowth + (kIconShadowPadding - kIconShadowOffsetY) * peak - padY;
       float down = halfGrowth + (kIconShadowPadding + kIconShadowOffsetY) * peak - padY;
       if (cfg.magnification) {
-        const float mainPad = static_cast<float>(dockHoverZoomMainPad(cfg));
-        const float crossPad = static_cast<float>(dockHoverZoomCrossPad(cfg));
+        const auto mainPad = static_cast<float>(dockHoverZoomMainPad(cfg));
+        const auto crossPad = static_cast<float>(dockHoverZoomCrossPad(cfg));
         if (vertical) {
           up -= mainPad;
           down -= mainPad;
