@@ -1307,6 +1307,7 @@ if build_tests
     'jxl_decoder',
     'kde_color_scheme',
     'keyboard_layout_label',
+    'labwc_occupancy',
     'lane_selection_token',
     'launcher_category_state',
     'location_service',
