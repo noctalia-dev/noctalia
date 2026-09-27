@@ -1997,6 +1997,7 @@ namespace noctalia::config::schema {
         field(&DockConfig::magnificationScale, "magnification_scale", kDockMagnificationScaleRange),
         field(&DockConfig::activeOpacity, "active_opacity", kUnitRange),
         field(&DockConfig::inactiveOpacity, "inactive_opacity", kUnitRange),
+        field(&DockConfig::iconSaturation, "icon_saturation", kUnitRange),
         field(&DockConfig::showDots, "show_dots"),
         field(&DockConfig::showInstanceCount, "show_instance_count"),
         enumField(&DockConfig::launcherPosition, "launcher_position", kDockLauncherPositions),
