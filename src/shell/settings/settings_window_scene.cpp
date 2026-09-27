@@ -745,8 +745,10 @@ settings::RegistryEnvironment SettingsWindow::buildRegistryEnvironment() const {
   }
   env.niriBackdropSupported = (m_wayland != nullptr && compositors::isNiri());
   env.screencopySupported = m_wayland != nullptr && m_wayland->hasScreencopy();
-  env.niriOverviewTypeToLaunchSupported = (m_wayland != nullptr && compositors::isNiri());
-  env.umbrielOverviewTypeToLaunchSupported = (m_wayland != nullptr && compositors::isUmbriel());
+  env.niriOverviewSupported =
+      (m_wayland != nullptr && compositors::isNiri()) && m_platform != nullptr && m_platform->tracksOverviewState();
+  env.umbrielOverviewSupported =
+      (m_wayland != nullptr && compositors::isUmbriel()) && m_platform != nullptr && m_platform->tracksOverviewState();
   env.ddcutilAvailable = (m_dependencies != nullptr && m_dependencies->hasDdcutil());
   env.systemdUserManaged = process::runningUnderSystemdUserManager();
   env.gammaControlAvailable = (m_wayland != nullptr && m_wayland->hasGammaControl());

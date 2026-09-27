@@ -299,9 +299,9 @@ namespace settings {
 
   // Runtime conditions that gate optional sections (e.g. compositor-specific features).
   struct RegistryEnvironment {
-    bool niriBackdropSupported = false;             // hide niri backdrop entries when false
-    bool niriOverviewTypeToLaunchSupported = false; // show niri-only type-to-launch integration
-    bool umbrielOverviewTypeToLaunchSupported = false;
+    bool niriBackdropSupported = false; // hide niri backdrop entries when false
+    bool niriOverviewSupported = false;
+    bool umbrielOverviewSupported = false;
     bool screencopySupported = false;           // lockscreen blurred desktop + screenshot features
     bool ddcutilAvailable = false;              // disable ddcutil toggle when ddcutil is not on PATH
     bool systemdUserManaged = false;            // disable systemd app launching when the shell is not a user unit
