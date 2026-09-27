@@ -15,6 +15,7 @@ active_monitor_only = false      # when true, only show apps/windows from the ac
 monitors            = []         # connector names to show on; empty = all outputs
 
 icon_size           = 48
+icon_shadow         = false
 main_axis_padding   = 16          # inner padding along the icon row (main axis)
 cross_axis_padding  = 8           # inner padding perpendicular to the icon row
 item_spacing        = 6          # gap between items in pixels
@@ -61,7 +62,7 @@ pinned = ["firefox", "code", "kitty"]
 
 `border_width` draws an inside outline using `border`.
 
-Shadow blur, offset, and alpha are global under `[shell.shadow]`. The dock only exposes `shadow = true|false`.
+Panel shadow blur, offset, and alpha are global under `[shell.shadow]`. The dock enables that shadow with `shadow = true|false`.
 
 ---
 
@@ -144,3 +145,7 @@ Set auto-hide to **Smart** in dock settings (or `smart_auto_hide = true` with `a
 
 For dock visibility and reload commands, see
 [Surfaces → Dock](/noctalia/ipc/surfaces/#dock).
+
+`icon_shadow` adds a soft shadow following each application image's alpha mask.
+It uses the palette shadow color at one-third opacity, a 2px Gaussian sigma and
+a 2px downward offset. It is disabled by default and does not affect glyph fallbacks.

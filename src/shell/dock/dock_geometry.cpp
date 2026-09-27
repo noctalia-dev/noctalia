@@ -1,5 +1,6 @@
 #include "shell/dock/dock_geometry.h"
 
+#include "shell/dock/icon_shadow.h"
 #include "shell/surface/shadow.h"
 #include "wayland/layer_surface.h"
 
@@ -21,6 +22,47 @@ namespace shell::dock {
     constexpr float kBadgeMinSize = 16.0F;
     // Badge hangs past the icon's top and right by this fraction of badge diameter.
     constexpr float kBadgeCornerOverhang = 0.45F;
+
+    [[nodiscard]] shell::surface_shadow::Bleed
+    dockVisualBleed(const DockConfig& cfg, const ShellConfig::ShadowConfig& shadow) {
+      auto bleed = shell::surface_shadow::bleed(cfg.shadow, shadow);
+      if (!cfg.iconShadow) {
+        return bleed;
+      }
+      const float peak = std::max(
+          1.0F,
+          std::max(cfg.activeScale, cfg.inactiveScale)
+              * (cfg.magnification ? std::max(1.0F, cfg.magnificationScale) : 1.0F)
+      );
+      const float halfGrowth = static_cast<float>(cfg.iconSize) * (peak - 1.0F) * 0.5F;
+      const bool vertical = isVerticalEdge(cfg.position);
+      const float padX = static_cast<float>(kCellPad + (vertical ? cfg.crossAxisPadding : cfg.mainAxisPadding));
+      const float padY = static_cast<float>(kCellPad + (vertical ? cfg.mainAxisPadding : cfg.crossAxisPadding));
+      float left = halfGrowth + kIconShadowPadding * peak - padX;
+      float right = left;
+      float up = halfGrowth + (kIconShadowPadding - kIconShadowOffsetY) * peak - padY;
+      float down = halfGrowth + (kIconShadowPadding + kIconShadowOffsetY) * peak - padY;
+      if (cfg.magnification) {
+        const float mainPad = static_cast<float>(dockHoverZoomMainPad(cfg));
+        const float crossPad = static_cast<float>(dockHoverZoomCrossPad(cfg));
+        if (vertical) {
+          up -= mainPad;
+          down -= mainPad;
+          left += cfg.position == DockEdge::Right ? halfGrowth - crossPad : -halfGrowth;
+          right += cfg.position == DockEdge::Left ? halfGrowth - crossPad : -halfGrowth;
+        } else {
+          left -= mainPad;
+          right -= mainPad;
+          up += cfg.position == DockEdge::Bottom ? halfGrowth - crossPad : -halfGrowth;
+          down += cfg.position == DockEdge::Top ? halfGrowth - crossPad : -halfGrowth;
+        }
+      }
+      bleed.left = std::max(bleed.left, static_cast<int>(std::ceil(left)));
+      bleed.right = std::max(bleed.right, static_cast<int>(std::ceil(right)));
+      bleed.up = std::max(bleed.up, static_cast<int>(std::ceil(up)));
+      bleed.down = std::max(bleed.down, static_cast<int>(std::ceil(down)));
+      return bleed;
+    }
 
     [[nodiscard]] int dockAutoHideEdgeGutter(const DockConfig& cfg) noexcept {
       if ((!cfg.autoHide && !cfg.smartAutoHide) || cfg.marginEdge <= 0) {
@@ -207,7 +249,7 @@ namespace shell::dock {
   ) {
     const DockEdge edge = cfg.position;
     const bool vertical = isVerticalEdge(edge);
-    const auto sb = shell::surface_shadow::bleed(cfg.shadow, shadow);
+    const auto sb = dockVisualBleed(cfg, shadow);
     const auto concave = dockConcaveShape(cfg);
     const int insetL = static_cast<int>(concave.logicalInset.left);
     const int insetT = static_cast<int>(concave.logicalInset.top);
@@ -224,6 +266,7 @@ namespace shell::dock {
     const int edgeGutter = dockAutoHideEdgeGutter(cfg);
     const std::int32_t edgeOverlap = dockScreenEdgeOverlap(cfg, fractionalScale);
 
+    const auto panelBleed = shell::surface_shadow::bleed(cfg.shadow, shadow);
     DockSurfaceGeometry geometry;
     if (!vertical) {
       geometry.surfaceW = static_cast<std::uint32_t>(panelW + sb.left + sb.right + insetL + insetR + mainPad * 2);
@@ -236,7 +279,7 @@ namespace shell::dock {
           geometry.marginBottom = mEdge <= 0 ? -edgeOverlap : std::max(0, mEdge - sb.down);
           geometry.surfaceH = static_cast<std::uint32_t>(sb.up + panelH + std::min(mEdge, sb.down) + zoomPad);
         }
-        geometry.exclusiveZone = cfg.reserveSpace ? (panelH + std::min(mEdge, sb.down)) : 0;
+        geometry.exclusiveZone = cfg.reserveSpace ? (panelH + std::min(mEdge, panelBleed.down)) : 0;
       } else {
         if (edgeGutter > 0) {
           geometry.surfaceH = static_cast<std::uint32_t>(edgeBadgePad + sb.down + panelH + edgeGutter + zoomPad);
@@ -245,7 +288,7 @@ namespace shell::dock {
           geometry.surfaceH =
               static_cast<std::uint32_t>(edgeBadgePad + std::min(mEdge, sb.up) + panelH + sb.down + zoomPad);
         }
-        geometry.exclusiveZone = cfg.reserveSpace ? (std::min(mEdge, sb.up) + panelH) : 0;
+        geometry.exclusiveZone = cfg.reserveSpace ? (std::min(mEdge, panelBleed.up) + panelH) : 0;
       }
       constrainMainAxisToOutput(geometry, cfg, outputLogicalWidth, outputLogicalHeight);
       return geometry;
@@ -261,7 +304,7 @@ namespace shell::dock {
         geometry.marginRight = mEdge <= 0 ? -edgeOverlap : std::max(0, mEdge - sb.right);
         geometry.surfaceW = static_cast<std::uint32_t>(sb.left + panelH + std::min(mEdge, sb.right) + zoomPad);
       }
-      geometry.exclusiveZone = cfg.reserveSpace ? (panelH + std::min(mEdge, sb.right)) : 0;
+      geometry.exclusiveZone = cfg.reserveSpace ? (panelH + std::min(mEdge, panelBleed.right)) : 0;
     } else {
       if (edgeGutter > 0) {
         geometry.surfaceW = static_cast<std::uint32_t>(sb.right + panelH + edgeGutter + zoomPad);
@@ -269,7 +312,7 @@ namespace shell::dock {
         geometry.marginLeft = mEdge <= 0 ? -edgeOverlap : std::max(0, mEdge - sb.left);
         geometry.surfaceW = static_cast<std::uint32_t>(std::min(mEdge, sb.left) + panelH + sb.right + zoomPad);
       }
-      geometry.exclusiveZone = cfg.reserveSpace ? (std::min(mEdge, sb.left) + panelH) : 0;
+      geometry.exclusiveZone = cfg.reserveSpace ? (std::min(mEdge, panelBleed.left) + panelH) : 0;
     }
     constrainMainAxisToOutput(geometry, cfg, outputLogicalWidth, outputLogicalHeight);
     return geometry;
@@ -301,7 +344,7 @@ namespace shell::dock {
   computePanelGeometry(const DockConfig& cfg, const ShellConfig::ShadowConfig& shadow, float surfaceW, float surfaceH) {
     const DockEdge edge = cfg.position;
     const bool vertical = isVerticalEdge(edge);
-    const auto sb = shell::surface_shadow::bleed(cfg.shadow, shadow);
+    const auto sb = dockVisualBleed(cfg, shadow);
     const auto concave = dockConcaveShape(cfg);
     const float insetL = concave.logicalInset.left;
     const float insetT = concave.logicalInset.top;
@@ -355,10 +398,10 @@ namespace shell::dock {
       const DockConfig& cfg, const ShellConfig::ShadowConfig& shadow, float surfaceW, float surfaceH,
       const DockPanelGeometry& panel
   ) {
-    float contentLeft = panel.panelX;
-    float contentTop = panel.panelY;
-    float contentRight = panel.panelX + panel.panelW;
-    float contentBottom = panel.panelY + panel.panelH;
+    float contentLeft = cfg.iconShadow ? 0.0F : panel.panelX;
+    float contentTop = cfg.iconShadow ? 0.0F : panel.panelY;
+    float contentRight = cfg.iconShadow ? surfaceW : panel.panelX + panel.panelW;
+    float contentBottom = cfg.iconShadow ? surfaceH : panel.panelY + panel.panelH;
     if (shell::surface_shadow::enabled(cfg.shadow, shadow)) {
       const auto offset = shadowDirectionOffset(shadow.direction);
       const float sx = panel.panelX + static_cast<float>(offset.x);

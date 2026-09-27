@@ -409,6 +409,7 @@ location = "https://example.invalid/bad"
     c.dock.enabled = true;
     c.dock.position = DockEdge::Left;
     c.dock.iconSize = 40;
+    c.dock.iconShadow = true;
     c.dock.border = colorSpecFromRole(ColorRole::Primary);
     c.dock.borderWidth = 1.5F;
     c.dock.radius = 20;
