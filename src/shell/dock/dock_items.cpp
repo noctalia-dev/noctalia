@@ -569,18 +569,13 @@ namespace shell::dock {
       if (iconPath.empty()) {
         iconPath = deps.iconResolver.resolve("application-x-executable", iconDecodeTarget);
       }
-      const int density = std::max(
-          1,
-          static_cast<int>(
-              std::ceil(static_cast<float>(iconDecodeTarget) * std::max(1.0F, renderer.renderScale()) / iSize)
-          )
+      const int density = static_cast<int>(
+          std::ceil(static_cast<float>(iconDecodeTarget) * std::max(1.0F, renderer.renderScale()) / iSize)
       );
       std::optional<LoadedImageFile> source;
       if (cfg.iconShadow && !iconPath.empty()) {
-        const int target = std::max(
-            1,
-            static_cast<int>(std::round(static_cast<float>(iconDecodeTarget) * std::max(1.0F, renderer.renderScale())))
-        );
+        const int target =
+            static_cast<int>(std::round(static_cast<float>(iconDecodeTarget) * std::max(1.0F, renderer.renderScale())));
         if (auto loaded = loadImageFile(iconPath, target); loaded) {
           source = std::move(*loaded);
         }
