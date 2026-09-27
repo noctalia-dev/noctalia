@@ -59,6 +59,7 @@ public:
 
 private:
   friend class ScaledRenderer;
+  friend class RenderContextTestAccess;
 
   // Scale-parameterized measurement/text ops. ScaledRenderer forwards here with
   // an explicit scale; no call mutates any shared render scale.
