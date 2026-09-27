@@ -120,6 +120,9 @@ namespace shell::dock {
       }
     }
 
+    needsModelRebuild |= deps.config.config().dock.iconShadow
+        && instance.iconRenderScale != instance.surface->renderTarget().renderer().renderScale();
+
     const bool needsSceneBuild = instance.sceneRoot == nullptr
         || static_cast<std::uint32_t>(std::round(instance.sceneRoot->width())) != width
         || static_cast<std::uint32_t>(std::round(instance.sceneRoot->height())) != height;
