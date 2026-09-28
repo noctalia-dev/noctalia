@@ -1277,6 +1277,7 @@ if build_tests
     'widget_definition',
     'widget_settings_schema',
     'window_switcher_membership',
+    'wpa_supplicant_utils',
     'workspace_alert_service',
     'workspaces_widget',
   ]
