@@ -37,7 +37,8 @@ enum class OsdKind : std::uint8_t {
   KeyboardLayout,
   Media,
   Privacy,
-  KeyboardBacklight
+  KeyboardBacklight,
+  Custom
 };
 
 struct OsdContent {

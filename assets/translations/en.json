@@ -3332,6 +3332,10 @@
           "description": "Show an OSD popup when the caffeine (idle inhibitor) state changes",
           "label": "Caffeine"
         },
+        "osd-kinds-custom": {
+          "description": "Show custom OSD popups sent by plugins or scripts",
+          "label": "Custom"
+        },
         "osd-kinds-dnd": {
           "description": "Show an OSD popup when Do Not Disturb is toggled",
           "label": "Do Not Disturb"
