@@ -25,7 +25,7 @@ namespace compositors::umbriel {
     constexpr auto kReconnectMax = std::chrono::seconds(30);
     constexpr std::size_t kReadBufferMaxBytes = 1024U * 1024U;
     constexpr std::string_view kEventStreamRequest =
-        R"({"cmd":"subscribe","events":["windows","overview","keyboard_layout"]})";
+        R"({"cmd":"subscribe","events":["windows","overview","keyboard_layout","workspaces"]})";
 
     [[nodiscard]] bool writeAll(int fd, std::string_view data) {
       std::size_t offset = 0;

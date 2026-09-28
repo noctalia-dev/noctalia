@@ -1539,7 +1539,6 @@ void ConfigService::loadAll() {
       m_overridesTable = std::move(effectiveOverrides);
       if (writeOverridesToFile()) {
         m_ownOverridesWritePending = m_inotify.fd() >= 0 && m_overridesWatchWd >= 0;
-        extractWallpaperFromOverrides();
       } else {
         kLog.warn("failed to persist migrated config overrides to {}", m_overridesPath);
         m_overridesTable = std::move(previousOverrides);

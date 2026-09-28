@@ -137,7 +137,7 @@ struct BarConfig {
 
   [[nodiscard]] constexpr bool isAutoHideEnabled() const noexcept { return autoHide || smartAutoHide; }
   bool reserveSpace = true;  // reserve compositor exclusive zone; applies with or without auto_hide
-  std::string layer = "top"; // top | overlay — attached panels use the same layer
+  std::string layer = "top"; // top | overlay; attached panels use the same layer
   std::int32_t thickness = Style::barThicknessDefault;
   float backgroundOpacity = 1.0F;
   // Inside outline for the bar background; attached panels inherit the resolved values.
@@ -252,8 +252,10 @@ struct ShellSessionConfig {
 };
 
 struct ShellGreeterSyncConfig {
-  // Shell prefix that replaces the default pkexec/run0 escalator before the apply helper
-  // path and staging directory. Empty = pkexec or run0. Example: "ghostty -e pkexec"
+  // Optional shell prefix before the apply helper and staging directory. Legacy
+  // sync accepts the configured escalator directly. Secure sync also appends
+  // --sync, so that prefix must ultimately invoke pkexec to provide PKEXEC_UID.
+  // Empty selects the protocol's default escalator.
   std::string privilegeCommand;
   bool autoSync = false;
 
@@ -478,6 +480,15 @@ enum class WallpaperTransition : std::uint8_t {
   Honeycomb = 5,
 };
 
+enum class LockscreenTransition : std::uint8_t {
+  Fade = 0,
+  Wipe = 1,
+  Disc = 2,
+  Stripes = 3,
+  Zoom = 4,
+  Honeycomb = 5,
+};
+
 struct WallpaperMonitorOverride {
   std::string match;
   std::optional<bool> enabled;
@@ -498,7 +509,7 @@ struct WallpaperAutomationConfig {
   bool enabled = false;
   std::int32_t intervalSeconds = 1800;
   Order order = Order::Random;
-  bool recursive = true;
+  bool recursive = false;
 
   bool operator==(const WallpaperAutomationConfig&) const = default;
 };
@@ -539,6 +550,11 @@ struct LockscreenConfig {
   bool fingerprint = true;
   bool allowEmptyPassword = false;
   bool blurredDesktop = false;
+  std::vector<LockscreenTransition> transitions = {LockscreenTransition::Fade, LockscreenTransition::Wipe,
+                                                   LockscreenTransition::Disc, LockscreenTransition::Stripes,
+                                                   LockscreenTransition::Zoom, LockscreenTransition::Honeycomb};
+  float transitionDurationMs = 1500.0F;
+  float edgeSmoothness = 0.3F;
   float blurIntensity = 0.5F;
   float tintIntensity = 0.3F;
   std::string wallpaper;
@@ -753,6 +769,7 @@ struct NotificationConfig {
   int offsetY = 8;                 // absolute vertical margin from the screen edge
   std::vector<std::string> monitors;
   bool collapseOnDismiss = true;
+  bool keepDismissedInHistory = true;
   int historyRetentionHours = 0;
   int maxVisible = 0; // 0 = unlimited (space-based only)
 
@@ -911,6 +928,15 @@ constexpr EnumOption<WallpaperTransition> kWallpaperTransitions[] = {
     {WallpaperTransition::Zoom, "zoom", "settings.options.wallpaper.transition.zoom"},
 };
 
+constexpr EnumOption<LockscreenTransition> kLockscreenTransitions[] = {
+    {LockscreenTransition::Disc, "disc", "settings.options.lockscreen.transition.disc"},
+    {LockscreenTransition::Fade, "fade", "settings.options.lockscreen.transition.fade"},
+    {LockscreenTransition::Honeycomb, "honeycomb", "settings.options.lockscreen.transition.honeycomb"},
+    {LockscreenTransition::Stripes, "stripes", "settings.options.lockscreen.transition.stripes"},
+    {LockscreenTransition::Wipe, "wipe", "settings.options.lockscreen.transition.wipe"},
+    {LockscreenTransition::Zoom, "zoom", "settings.options.lockscreen.transition.zoom"},
+};
+
 // One config-driven dmenu-style launcher entry. The provider runs `command`, splits
 // its stdout into newline-separated candidates, and on activation either runs `exec`
 // (with {selection}/{query} substituted) or copies the selection to the clipboard.
@@ -1014,6 +1040,14 @@ struct ShellConfig {
       bool operator==(const DmenuConfig&) const = default;
     } dmenu;
 
+    struct PanelsConfig {
+      // Panel ids the panel provider never lists. Setting this in config.toml
+      // replaces the default outright, same as every other list config here.
+      std::vector<std::string> ignored{"polkit", "setup-wizard", "test", "launcher"};
+
+      bool operator==(const PanelsConfig&) const = default;
+    } panels;
+
     std::vector<LauncherProviderConfig> providers;
 
     bool operator==(const LauncherConfig&) const = default;
@@ -1045,6 +1079,10 @@ struct ShellConfig {
     bool confirmRegion = false;
     bool rememberLastRegion = false;
     bool showCursor = false;
+    bool annotate = false;
+    bool skipAnnotateOnCopySave = false;
+    bool closeOnCopy = true;
+    bool closeOnSave = true;
     bool pipeToCommand = false;
     std::string pipeCommand;
     std::string directory;       // empty = XDG Pictures directory
@@ -1059,6 +1097,28 @@ struct ShellConfig {
     std::string screenFilterRegex;
 
     bool operator==(const PrivacyConfig&) const = default;
+  };
+
+  enum class WindowSwitcherStyle : std::uint8_t {
+    Carousel = 0,
+    Compact = 1,
+  };
+
+  static constexpr EnumOption<WindowSwitcherStyle> kWindowSwitcherStyles[] = {
+      {WindowSwitcherStyle::Carousel, "carousel", "settings.options.shell.window-switcher-style.carousel"},
+      {WindowSwitcherStyle::Compact, "compact", "settings.options.shell.window-switcher-style.compact"},
+  };
+
+  struct WindowSwitcherConfig {
+    WindowSwitcherStyle style = WindowSwitcherStyle::Carousel;
+    bool mru = false;
+    bool showCaption = true;
+    bool showCount = true;
+    bool showAppIcon = true;
+    bool showAllOutputs = true;
+    bool currentWorkspaceOnly = false;
+
+    bool operator==(const WindowSwitcherConfig&) const = default;
   };
 
   float cornerRadiusScale = 1.0F;
@@ -1080,11 +1140,13 @@ struct ShellConfig {
   bool telemetryEnabled = false;
   bool setupWizardEnabled = true;
   bool niriOverviewTypeToLaunchEnabled = false;
+  bool umbrielOverviewTypeToLaunchEnabled = false;
   bool polkitAgent = false;
   PasswordMaskStyle passwordMaskStyle = PasswordMaskStyle::CircleFilled;
   AnimationConfig animation;
   std::string avatarPath;
   bool settingsShowAdvanced = true;
+  bool settingsExpandAllGroups = false;
   bool settingsWindowTranslucent = false;
   bool showLocation = true;
   bool appIconColorize = false;
@@ -1109,6 +1171,7 @@ struct ShellConfig {
   ShadowConfig shadow;
   PanelConfig panel;
   LauncherConfig launcher;
+  WindowSwitcherConfig windowSwitcher;
   KeyboardLayoutConfig keyboardLayout;
   ScreenCornersConfig screenCorners;
   MprisConfig mpris;
@@ -1146,7 +1209,7 @@ struct CalendarConfig {
   // are not stored here. id must be [a-z0-9_] because it identifies durable credential records.
   struct Account {
     std::string id;
-    std::string type; // "google" | "caldav" | "ics"
+    std::string type; // "google" | "caldav" | "ics" | "vdir"
     std::string displayName;
     std::string color;                  // optional "#rrggbb" override
     std::string provider;               // "icloud" | "custom" (caldav only)
@@ -1155,12 +1218,30 @@ struct CalendarConfig {
     std::vector<std::string> calendars; // discovered collection ids; empty = all
     CalendarCredentialSource credentialSource = CalendarCredentialSource::SecretService; // CalDAV only
     std::string passwordFile; // required for file-backed CalDAV credentials
+    std::string path;         // directory path for vdir/local accounts
 
     bool operator==(const Account&) const = default;
   };
 
+  // Event reminder notifications. Gated by CalendarConfig::enabled.
+  struct Reminders {
+    bool enabled = true;
+    // Honor per-event reminders (VALARM triggers, Google reminder overrides). When false, every
+    // event uses defaultLeadMinutes instead.
+    bool useEventReminders = true;
+    // Fallback lead for events that carry no reminder of their own. 0 = notify at event start.
+    std::int32_t defaultLeadMinutes = 10;
+    // "HH:MM" local time for the once-a-day all-day event digest; empty disables it.
+    std::string allDayDigestTime = "09:00";
+
+    bool operator==(const Reminders&) const = default;
+  };
+
   bool enabled = false;
   std::int32_t refreshMinutes = 15;
+  std::string eventDateFormat = "%A %e %B";
+  std::string eventTimeFormat = "%H:%M";
+  Reminders reminders;
   std::vector<Account> accounts;
 
   bool operator==(const CalendarConfig&) const = default;
@@ -1244,10 +1325,9 @@ struct SystemConfig {
 
 struct AudioConfig {
   bool enableOverdrive = false;
-  bool enableSounds = false;
+  bool enableSounds = true;
   float soundVolume = 0.5F;
-  std::string volumeChangeSound;
-  std::string notificationSound;
+  std::string soundTheme = "freedesktop";
 
   bool operator==(const AudioConfig&) const = default;
 };
@@ -1432,9 +1512,25 @@ constexpr EnumOption<ThemeMode> kThemeModes[] = {
     {ThemeMode::Auto, "auto", "common.states.auto"},
 };
 
+// Noctalia's own light/dark mode. `follow` tracks [theme].mode, which always drives apps
+// (templates and the GTK color scheme); the other values pin the shell independently.
+enum class ShellThemeMode : std::uint8_t {
+  Follow = 0,
+  Dark = 1,
+  Light = 2,
+  Auto = 3,
+};
+
+constexpr EnumOption<ShellThemeMode> kShellThemeModes[] = {
+    {ShellThemeMode::Follow, "follow", "settings.options.theme.shell-mode.follow"},
+    {ShellThemeMode::Dark, "dark", "settings.options.theme.mode.dark"},
+    {ShellThemeMode::Light, "light", "settings.options.theme.mode.light"},
+    {ShellThemeMode::Auto, "auto", "common.states.auto"},
+};
+
 struct WallpaperFavorite {
   std::string path;
-  ThemeMode themeMode = ThemeMode::Auto;
+  std::optional<ThemeMode> themeMode;
   std::optional<PaletteSource> paletteSource;
   std::string builtinPalette;
   std::string communityPalette;
@@ -1494,6 +1590,8 @@ struct ThemeConfig {
     std::string postHook;
     std::string postAction;
     int index = 0;
+    // False runs post_hook inline, serialized against other hooks of the same run.
+    bool hookAsync = true;
 
     bool operator==(const UserTemplateConfig&) const = default;
   };
@@ -1515,11 +1613,28 @@ struct ThemeConfig {
   std::string customPalette;
   std::string wallpaperScheme = "m3-content";
   ThemeMode mode = ThemeMode::Dark;
+  ShellThemeMode shellMode = ShellThemeMode::Follow;
   bool pureBlackDark = false;
   TemplatesConfig templates;
 
   bool operator==(const ThemeConfig&) const = default;
 };
+
+// The theme mode Noctalia's own surfaces run in, still expressed as a ThemeMode so `auto`
+// keeps resolving against the day/night schedule.
+[[nodiscard]] constexpr ThemeMode shellThemeMode(const ThemeConfig& theme) noexcept {
+  switch (theme.shellMode) {
+  case ShellThemeMode::Dark:
+    return ThemeMode::Dark;
+  case ShellThemeMode::Light:
+    return ThemeMode::Light;
+  case ShellThemeMode::Auto:
+    return ThemeMode::Auto;
+  case ShellThemeMode::Follow:
+    break;
+  }
+  return theme.mode;
+}
 
 struct ControlCenterConfig {
   static constexpr std::int32_t kDefaultWidth = 700;
@@ -1527,8 +1642,6 @@ struct ControlCenterConfig {
   struct CalendarTabConfig {
     bool showEventsCard = true;
     bool showWeekNumbers = false;
-    std::string eventDateFormat = "%A %e %B";
-    std::string eventTimeFormat = "%H:%M";
     bool operator==(const CalendarTabConfig&) const = default;
   };
 

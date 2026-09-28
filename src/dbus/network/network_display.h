@@ -20,4 +20,8 @@ namespace network_display {
   // falls outside those bands — 802.11y 3.6 GHz and S1G 900 MHz have no label here.
   [[nodiscard]] const char* wifiFrequencyBandLabel(std::uint32_t frequencyMhz) noexcept;
 
+  // Cellular (ModemManager) glyphs, banded the same way as wifi.
+  [[nodiscard]] const char* cellularGlyphForSignal(std::uint8_t signal) noexcept;
+  [[nodiscard]] const char* cellularOffGlyph() noexcept;
+
 } // namespace network_display

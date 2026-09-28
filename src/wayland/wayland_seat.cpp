@@ -103,6 +103,13 @@ void WaylandSeat::setCursorShape(std::uint32_t serial, std::uint32_t shape) {
   if (effectiveSerial == 0) {
     return;
   }
+  // Repeated set_shape on the same enter serial makes Hyprland bounce pointer
+  // enter/leave, which blinks settings hover/focus (#4005).
+  if (effectiveSerial == m_lastCursorShapeSerial && shape == m_lastCursorShape) {
+    return;
+  }
+  m_lastCursorShapeSerial = effectiveSerial;
+  m_lastCursorShape = shape;
   wp_cursor_shape_device_v1_set_shape(m_cursorShapeDevice, effectiveSerial, shape);
 }
 
@@ -118,6 +125,8 @@ void WaylandSeat::forgetSurface(wl_surface* surface) noexcept {
     }
     m_lastPointerSurface = nullptr;
     m_pointerEnterSerial = 0;
+    m_lastCursorShape = 0;
+    m_lastCursorShapeSerial = 0;
     m_hasPointerPosition = false;
   }
   if (m_lastKeyboardSurface == surface) {
@@ -167,6 +176,7 @@ void WaylandSeat::cleanup() {
     xkb_keymap_unref(m_xkbKeymap);
     m_xkbKeymap = nullptr;
   }
+  m_xkbKeymapData.clear();
   if (m_xkbContext != nullptr) {
     xkb_context_unref(m_xkbContext);
     m_xkbContext = nullptr;
@@ -270,6 +280,8 @@ void WaylandSeat::handlePointerLeave(void* data, wl_pointer* /*pointer*/, std::u
   self->m_lastInputSource = InputSource::Pointer;
   self->m_lastPointerSurface = surface;
   self->m_pointerEnterSerial = 0;
+  self->m_lastCursorShape = 0;
+  self->m_lastCursorShapeSerial = 0;
   self->m_hasPointerPosition = false;
   self->m_pendingPointerEvents.push_back(
       PointerEvent{
@@ -595,6 +607,12 @@ void WaylandSeat::handleKeyboardKeymap(
     return;
   }
 
+  if (size == self->m_xkbKeymapData.size() && std::memcmp(buf, self->m_xkbKeymapData.data(), size) == 0) {
+    munmap(buf, size);
+    return;
+  }
+  std::string keymapData(static_cast<const char*>(buf), size);
+
   auto* keymap = xkb_keymap_new_from_string(
       self->m_xkbContext, static_cast<const char*>(buf), XKB_KEYMAP_FORMAT_TEXT_V1, XKB_KEYMAP_COMPILE_NO_FLAGS
   );
@@ -620,6 +638,7 @@ void WaylandSeat::handleKeyboardKeymap(
   }
   self->m_xkbKeymap = keymap;
   self->m_xkbState = state;
+  self->m_xkbKeymapData = std::move(keymapData);
 
   // (Re)create compose state for dead key / intl layout support
   if (self->m_composeState != nullptr) {
@@ -636,7 +655,7 @@ void WaylandSeat::handleKeyboardKeymap(
     self->m_composeState = xkb_compose_state_new(self->m_composeTable, XKB_COMPOSE_STATE_NO_FLAGS);
   }
 
-  kLog.info("keyboard: keymap loaded");
+  kLog.debug("keyboard: keymap loaded");
 }
 
 void WaylandSeat::handleKeyboardEnter(
@@ -678,15 +697,7 @@ void WaylandSeat::handleKeyboardKey(
   auto sym = static_cast<std::uint32_t>(xkb_state_key_get_one_sym(self->m_xkbState, xkbKeycode));
   auto utf32 = static_cast<std::uint32_t>(xkb_state_key_get_utf32(self->m_xkbState, xkbKeycode));
 
-  std::uint32_t mods = 0;
-  if (xkb_state_mod_name_is_active(self->m_xkbState, XKB_MOD_NAME_SHIFT, XKB_STATE_MODS_EFFECTIVE) > 0)
-    mods |= KeyMod::Shift;
-  if (xkb_state_mod_name_is_active(self->m_xkbState, XKB_MOD_NAME_CTRL, XKB_STATE_MODS_EFFECTIVE) > 0)
-    mods |= KeyMod::Ctrl;
-  if (xkb_state_mod_name_is_active(self->m_xkbState, XKB_MOD_NAME_ALT, XKB_STATE_MODS_EFFECTIVE) > 0)
-    mods |= KeyMod::Alt;
-  if (xkb_state_mod_name_is_active(self->m_xkbState, XKB_MOD_NAME_LOGO, XKB_STATE_MODS_EFFECTIVE) > 0)
-    mods |= KeyMod::Super;
+  const std::uint32_t mods = self->keyboardModifiers();
 
   const bool pressed = (state == WL_KEYBOARD_KEY_STATE_PRESSED);
 
@@ -859,6 +870,22 @@ std::vector<std::string> WaylandSeat::layoutNames() const {
   }
 
   return layouts;
+}
+
+std::uint32_t WaylandSeat::keyboardModifiers() const noexcept {
+  if (m_xkbState == nullptr) {
+    return 0;
+  }
+  std::uint32_t mods = 0;
+  if (xkb_state_mod_name_is_active(m_xkbState, XKB_MOD_NAME_SHIFT, XKB_STATE_MODS_EFFECTIVE) > 0)
+    mods |= KeyMod::Shift;
+  if (xkb_state_mod_name_is_active(m_xkbState, XKB_MOD_NAME_CTRL, XKB_STATE_MODS_EFFECTIVE) > 0)
+    mods |= KeyMod::Ctrl;
+  if (xkb_state_mod_name_is_active(m_xkbState, XKB_MOD_NAME_ALT, XKB_STATE_MODS_EFFECTIVE) > 0)
+    mods |= KeyMod::Alt;
+  if (xkb_state_mod_name_is_active(m_xkbState, XKB_MOD_NAME_LOGO, XKB_STATE_MODS_EFFECTIVE) > 0)
+    mods |= KeyMod::Super;
+  return mods;
 }
 
 WaylandSeat::LockKeysState WaylandSeat::lockKeysState() const {

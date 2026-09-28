@@ -5,10 +5,10 @@
       "error": "Ошибка аутентификации через отпечаток пальца",
       "no-match": "Отпечаток не совпадает",
       "not-centered": "Поставьте палец по центру и попробуйте снова",
-      "present": "Считывание отпечатка...",
+      "present": "Считывание отпечатка…",
       "ready": "Поместите палец на сканер",
       "remove-and-retry": "Уберите палец и попробуйте снова",
-      "retry": "Пожалуйста отсканируйте палец снова",
+      "retry": "Пожалуйста, отсканируйте палец снова",
       "swipe-too-short": "Слишком быстро, попробуйте снова",
       "too-many-attempts": "Отпечаток заблокирован (слишком много попыток)"
     },
@@ -19,7 +19,7 @@
     },
     "polkit": {
       "authenticate": "Аутентифицировать",
-      "authenticating": "Аутентификация...",
+      "authenticating": "Аутентификация…",
       "default-message": "Требуется аутентификация",
       "invalid-password": "Неверный пароль",
       "password-placeholder": "Пароль",
@@ -27,9 +27,53 @@
     }
   },
   "bar": {
+    "annotate": {
+      "capture-new-region": "Захватить новую область (отменяет текущие правки)",
+      "close": "Закрыть без отправки (Esc)",
+      "color-black": "Чёрный",
+      "color-blue": "Синий",
+      "color-green": "Зелёный",
+      "color-orange": "Оранжевый",
+      "color-purple": "Фиолетовый",
+      "color-red": "Красный",
+      "color-white": "Белый",
+      "color-yellow": "Жёлтый",
+      "copy": "Скопировать рисунок с пометками (Ctrl+C)",
+      "cursor": "Показывать указатель на снимке экрана (p)",
+      "cursor-capture-failed": "Переключение указателя недоступно: композитор не может предоставить отдельное изображение курсора",
+      "cursor-live": "Зафиксировать экран перед изменением захваченного курсора (F)",
+      "cursor-not-captured": "Переключение указателя недоступно: композитор не поддерживает отдельный захват курсора",
+      "done": "Применить настройки снимка экрана (Enter)",
+      "fill-off": "Заливка фигур: выкл.",
+      "fill-on": "Заливка фигур: вкл.",
+      "freeze": "Заморозить экран для рисования (f)",
+      "move-toolbar": "Панель инструментов можно перемещать",
+      "redo": "Повторить (Ctrl+Shift+Z)",
+      "save": "Сохранить рисунок с пометками (Ctrl+S)",
+      "size-advanced": "Точная регулировка размера",
+      "size-decrease": "Тоньше ([)",
+      "size-increase": "Толще (])",
+      "size-large": "Большой",
+      "size-medium": "Средний",
+      "size-small": "Маленький",
+      "tool-arrow": "Стрелка (a) · удерживайте Shift для привязки угла",
+      "tool-blur": "Размытие области (u)",
+      "tool-brush": "Кисть (b)",
+      "tool-circle": "Эллипс (o) · удерживайте Shift для круга",
+      "tool-crop": "Обрезать область экспорта (c)",
+      "tool-eraser": "Стёрка (e)",
+      "tool-highlighter": "Выделение (h)",
+      "tool-line": "Линия (a) · удерживайте Shift для привязки угла",
+      "tool-move": "Переместить (m)",
+      "tool-numbering": "Нумерованный маркер (n)",
+      "tool-rectangle": "Прямоугольник (s) · удерживайте Shift для квадрата",
+      "tool-text": "Текст (t)",
+      "undo": "Отменить (Ctrl+Z)"
+    },
     "screenshot": {
+      "annotate-export-failed": "Не удалось сформировать изображение",
       "choose-display": "Выбрать монитор",
-      "confirm-region": "Нажмите Enter или пробел для захвата · Esc для отмены · перетащите для повторного выбора",
+      "confirm-region": "{copy} для копирования · {save} для сохранения · \"Enter\" или \"Пробел\" для действия по умолчанию · {cancel} для отмены · Drag для изменения области",
       "fullscreen": "Полноэкранный режим",
       "overlay-alloc-failed": "Невозможно отобразить оверлей скриншота (недостаточно видеопамяти?)",
       "region": "Выбрать область"
@@ -43,7 +87,8 @@
       },
       "brightness": {
         "brightness": "Яркость",
-        "display": "Дисплей"
+        "display": "Дисплей",
+        "unavailable": "Управление яркостью недоступно"
       },
       "lock-keys": {
         "caps": "Caps",
@@ -60,6 +105,7 @@
       "network": {
         "active": "Активно",
         "band": "Band",
+        "cellular": "Мобильная сеть",
         "connected": "Подключено",
         "connecting": "Подключение",
         "download": "Загрузка",
@@ -73,8 +119,10 @@
         "not-connected": "Не подключено",
         "off": "Выкл",
         "on": "Вкл",
+        "operator": "Оператор",
         "scanning": "Сканирование",
         "signal": "Сигнал",
+        "technology": "Технология",
         "upload": "Загрузить",
         "vpn": "VPN",
         "wan-ip": "WAN IP",
@@ -92,22 +140,22 @@
         "reloaded": "Скрипт перезагружен"
       },
       "sysmon": {
-        "cpu": "CPU",
-        "cpu-freq": "Частота CPU",
-        "cpu-temp": "Температура CPU",
+        "cpu": "ЦП",
+        "cpu-freq": "Част. CPU",
+        "cpu-temp": "Темп. CPU",
         "disk": "Диск",
         "disk-free": "Свободно на диске",
         "disk-free-pct": "Свободно на диске в %",
         "disk-used": "Занято на диске",
         "disk-used-pct": "Занято на диске в %",
-        "download": "Скачать",
-        "gpu-temp": "Температура GPU",
+        "download": "Загрузка",
+        "gpu-temp": "Темп. GPU",
         "gpu-usage": "Загрузка GPU",
         "gpu-vram": "GPU VRAM",
-        "ram": "RAM",
-        "swap": "Swap",
+        "ram": "ОЗУ",
+        "swap": "Своп",
         "system": "Система",
-        "upload": "Загрузить"
+        "upload": "Отдача"
       },
       "volume": {
         "device": "Устройство",
@@ -117,11 +165,12 @@
       "weather": {
         "default": "Погода",
         "error": "Погода: ошибка",
-        "loading": "Погода...",
+        "loading": "Погода…",
         "no-location": "Нет местоположения",
         "off": "Погода выкл.",
         "tooltip": {
           "condition": "Состояние",
+          "feels-like": "Ощущается как",
           "high": "Максимальная",
           "humidity": "Влажность",
           "low": "Минимальная",
@@ -158,11 +207,11 @@
       "image": "Изображение",
       "title": "Запись буфера обмена"
     },
-    "filter-placeholder": "Фильтрация буфера обмена...",
+    "filter-placeholder": "Фильтрация буфера обмена…",
     "preview": {
       "empty-text-payload": "(пустой текст)",
       "image-title": "Изображение из буфера обмена",
-      "loading": "Загрузка предварительного просмотра...",
+      "loading": "Загрузка предварительного просмотра…",
       "text-title": "Текст из буфера обмена",
       "truncated": "… сокращено"
     },
@@ -184,6 +233,7 @@
     "audio": {
       "application-volumes": "Громкость приложений",
       "choose-effects-profile": "Выберите профиль",
+      "default-device": "Устройство по умолчанию",
       "effects-profile": "Эффекты",
       "input-device-prefix": "Ввод",
       "no-application-audio": "Нет звука приложений",
@@ -237,6 +287,7 @@
     "display": {
       "disabled": "Отключено",
       "no-displays": "Нет доступных мониторов",
+      "rescan": "Обновить мониторы DDC/CI",
       "unknown-resolution": "Неизвестное разрешение"
     },
     "home": {
@@ -254,11 +305,10 @@
       },
       "select-avatar": "Выбрать аватар",
       "unknown": "неизвестный",
-      "uptime": "Работает уже: {uptime}",
+      "uptime": "Работает – {uptime}",
       "weather": {
         "data-unavailable": "Данные о погоде недоступны.",
-        "disabled": "Погода отключена в конфигурации.",
-        "fetching": "Получение прогноза..."
+        "fetching": "Получение прогноза…"
       }
     },
     "media": {
@@ -268,18 +318,42 @@
       "start-playback": "Начните воспроизведение в приложении MPRIS"
     },
     "network": {
+      "anonymous-identity": "Анонимный идентификатор (необязательно)",
       "available": "Доступные",
+      "ca-certificate": "Путь к корневому сертификату (необязательно)",
+      "cellular": "Мобильная сеть",
+      "cellular-connected": "Подключено",
+      "cellular-connecting": "Соединение…",
+      "cellular-connection": "Мобильное подключение",
+      "cellular-enabling": "Включение…",
+      "cellular-failed": "Неудачно",
+      "cellular-locked": "SIM-карта заблокирована",
+      "cellular-no-service": "Нет сети",
+      "cellular-off": "Отключено",
+      "cellular-registered": "Зарегистрировано",
+      "cellular-searching": "Поиск…",
       "connect": "Подключиться",
       "current-connection": "Текущее подключение",
+      "domain-suffix-match": "Суффикс домена сервера",
+      "eap-method": "Метод EAP",
+      "enterprise-prompt-for": "Подключиться к сети {ssid}",
+      "error-ca-not-absolute": "Путь к сертификату должен быть абсолютным и начинаться с «/».",
+      "error-certificate-required": "Сеть требует аутентификации по сертификату (EAP-TLS), которая пока не поддерживается.",
+      "error-enterprise-unsupported": "Текущая сетевая подсистема не поддерживает настройку сетей 802.1X.",
+      "error-missing-identity": "Введите учётные данные, которые были выданы организацией.",
+      "error-missing-password": "Введите пароль.",
+      "error-unsupported-phase2": "PEAP требует внутренней аутентификации MSCHAPv2.",
       "external-ip": "WAN {ip}",
+      "identity": "Идентификатор",
       "no-networks": "Нет сетей в радиусе действия",
       "not-connected": "Не подключено",
       "password": "Пароль",
       "password-prompt": "Введите пароль",
       "password-prompt-for": "Введите пароль для {ssid}",
+      "phase2-auth": "Внутренняя аутентификация",
       "saved": "Сохраненные",
-      "unavailable-detail": "Установите и включите NetworkManager, чтобы управлять сетями отсюда.",
-      "unavailable-title": "NetworkManager недоступен",
+      "unavailable-detail": "Установите и включите NetworkManager, wpa_supplicant или iwd, чтобы управлять сетями отсюда.",
+      "unavailable-title": "Сеть недоступна",
       "vpns": "VPN",
       "wi-fi": "Wi-Fi",
       "wifi": "Wi-Fi",
@@ -289,8 +363,8 @@
     },
     "notifications": {
       "clear-all": "Очистить все уведомления",
-      "dnd-off": "Выключить режим \"Не беспокоить\"\"",
-      "dnd-on": "Включить режим \"Не беспокоить\"\"",
+      "dnd-off": "Выключить режим «Не беспокоить»",
+      "dnd-on": "Включить режим «Не беспокоить»",
       "empty-body": "Здесь будут отображаться последние уведомления.",
       "empty-title": "Нет уведомлений",
       "filter": {
@@ -305,9 +379,25 @@
     },
     "power": {
       "battery": "Батарея",
-      "design-capacity": "От расчитанной мощности",
+      "charging": {
+        "configured": "Установлено: {limits}",
+        "display-only": "Только отображение",
+        "error-denied": "В авторизации отказано. Пороги зарядки не изменены.",
+        "error-failed": "Не удалось изменить пороги зарядки.",
+        "externally-managed": "Установлено другим инструментом. Настройте UPower для управления порогами зарядки.",
+        "firmware-managed": "Зарядка управляется системной прошивкой",
+        "full-charge": "Может зарядиться до 100%",
+        "starts": "Включается ниже {start}%",
+        "starts-stops": "Старт при < {start}% · Стоп на {end}%",
+        "stops": "Отключается на {end}%",
+        "title": "Зарядка батареи",
+        "unreadable": "Недоступно",
+        "unsupported": "Пороги зарядки не поддерживаются",
+        "use-thresholds": "Ограничивать заряд батареи"
+      },
+      "design-capacity": "От расчётной ёмкости",
       "health": "Состояние батареи",
-      "performance-inhibited": "Производитльность недоступна",
+      "performance-inhibited": "Производительность недоступна",
       "peripherals": "Подключенные устройства",
       "power-profile": "Режим питания",
       "time-to-empty": "Осталось {time}",
@@ -340,7 +430,7 @@
         "dark": "Тёмная тема",
         "light": "Светлая тема"
       },
-      "keyboard-layout": "Раскладка",
+      "keyboard-layout": "Раскладка клавиатуры",
       "media": "Медиа",
       "mic-mute": "Микрофон",
       "nightlight": "Ночной свет",
@@ -406,6 +496,7 @@
       "data-unavailable": "Данные о погоде недоступны",
       "details": {
         "elevation": "Высота",
+        "feels-like": "Ощущается как",
         "sunrise": "Восход",
         "sunset": "Закат",
         "temp-max": "Макс. температура",
@@ -415,11 +506,11 @@
         "wind": "Ветер"
       },
       "disabled": "Включите [weather] в config.toml",
-      "fetching": "Получение прогноза...",
+      "fetching": "Получение прогноза…",
       "forecast-placeholder": {
         "day": "Воскресенье",
         "description": "Погода",
-        "temperature": "10 / 4C"
+        "temperature": "10 / 4°C"
       },
       "forecast-view": {
         "daily": "Каждый день",
@@ -437,7 +528,7 @@
       "location-unavailable": "Местоположение недоступно",
       "no-location-body": "Добавьте свой адрес или включите авто-определение в настройках геолокации",
       "no-location-title": "Местоположение не задано",
-      "refreshing": "Обновление погоды...",
+      "refreshing": "Обновление погоды…",
       "waiting": "Ожидание данных о погоде"
     }
   },
@@ -483,11 +574,11 @@
         "color-2": "Цвет №2",
         "color2": "Цвет 2",
         "command": "Команда",
-        "custom-color": "Пользовательский…",
+        "custom-color": "Пользовательский",
         "description": "Описание",
         "device": "Устройство",
         "display": "Дисплей",
-        "display-gauge": "Датчик",
+        "display-gauge": "Gauge",
         "display-graph": "График",
         "fade-when-idle": "Затухание в режиме ожидания",
         "fill-color": "Цвет заливки",
@@ -495,6 +586,7 @@
         "font-family-default": "По умолчанию",
         "forecast-days": "Прогнозируемые дни",
         "format": "Формат",
+        "gauge-layout": "Компоновка Gauge",
         "glyph": "Глифы",
         "hide-when-no-media": "Скрыть, когда нет медиа",
         "highlight-color": "Цвет выделения",
@@ -507,20 +599,25 @@
         "input-radius": "Радиус ввода",
         "interface": "Интерфейс",
         "label": "Надпись",
+        "label-min-width": "Минимальная ширина надписи",
         "layout": "Макет",
         "mirrored": "Зеркальный",
+        "network-speed-compact": "Скорость сети (компактно)",
         "network-speed-unit": "Единица измерения скорости сети",
         "network-speed-unit-auto": "Авто",
         "network-speed-unit-kilobytes": "кБ/с",
         "network-speed-unit-megabytes": "МБ/с",
         "opacity": "Непрозрачность",
         "primary-color": "Основной цвет",
-        "reset-defaults": "Спросить до значений по умолчанию",
+        "reset-defaults": "Сбросить до значений по умолчанию",
+        "reversed": "Обратный порядок",
         "ring-opacity": "Непрозрачность колец",
         "rotation-speed": "Скорость вращения",
+        "scroll-step": "Шаг прокрутки",
         "secondary-color": "Вторичный цвет",
         "sensitivity": "Чувствительность",
         "shadow": "Тень",
+        "show-caps-lock": "Предупреждение о Caps Lock",
         "show-device": "Показать устройство",
         "show-events": "Показать события",
         "show-forecast": "Показать прогноз",
@@ -531,8 +628,9 @@
         "show-password-hint": "Подсказка к паролю",
         "show-session-buttons": "Кнопки сессии",
         "show-unlock-hint": "Подсказка к разблокировке",
-        "show-vpn-label": "Показать иконку VPN",
+        "show-vpn-label": "Показать метку VPN",
         "show-weather": "Погода",
+        "show-week-numbers": "Показывать номера недель",
         "show-when-idle": "Показывать в режиме ожидания",
         "stat": "Показатель",
         "stat-cpu-freq": "Частота ЦП",
@@ -549,9 +647,11 @@
         "stat-swap-pct": "Swap %",
         "stat2": "Показатель 2",
         "title": "Заголовок",
+        "track-color": "Цвет дорожки",
         "variant": "Стиль",
         "variant-default": "По умолчанию",
         "variant-destructive": "Деструктивно",
+        "variant-ghost": "Ghost",
         "variant-outline": "Контур",
         "variant-primary": "Основной",
         "variant-secondary": "Вторичный",
@@ -570,9 +670,10 @@
         "grid": "Сетка"
       },
       "title": "Виджеты рабочего стола",
+      "title-lockscreen": "Виджеты экрана блокировки",
       "types": {
         "audio-visualizer": "Аудиовизуализатор",
-        "button": "Кпнока",
+        "button": "Кнопка",
         "calendar": "Календарь",
         "clock": "Часы",
         "fancy-audio-visualizer": "Красивый аудиовизуализатор",
@@ -595,7 +696,7 @@
     },
     "weather": {
       "error": "Ошибка",
-      "loading": "Загрузка",
+      "loading": "Загрузка…",
       "no-location": "Нет местоположения",
       "off": "Погода выключена"
     }
@@ -647,8 +748,9 @@
       "unpin-from-dock": "Открепить от Дока"
     },
     "empty": {
+      "loading": "Загрузка результатов…",
       "no-results": "Результаты не найдены",
-      "type-to-search": "Введите для поиска..."
+      "type-to-search": "Введите для поиска…"
     },
     "origins": {
       "appimage": "AppImage",
@@ -668,6 +770,20 @@
       "emoji": {
         "title": "Эмодзи"
       },
+      "panel": {
+        "builtin": {
+          "clipboard": "Буфер обмена",
+          "control-center": "Центр управления",
+          "launcher": "Лаунчер",
+          "polkit": "Запрос аутентификации",
+          "session": "Сессия",
+          "setup-wizard": "Мастер настройки",
+          "test": "Тестовая панель",
+          "tray-drawer": "Выдвижная панель трея",
+          "wallpaper": "Обои"
+        },
+        "title": "Панели"
+      },
       "session": {
         "action-subtitle": "Выполнить действие сессии",
         "command-subtitle": "Выполнить настроенную команду",
@@ -680,7 +796,7 @@
         "title": "Окна"
       }
     },
-    "search-placeholder": "Поиск приложений..."
+    "search-placeholder": "Поиск приложений…"
   },
   "location": {
     "errors": {
@@ -694,18 +810,19 @@
     },
     "source": {
       "address": "Адрес",
-      "auto": "Авто"
+      "auto": "Авто",
+      "manual": "Вручную"
     }
   },
   "lockscreen": {
-    "authenticating": "Аутентификация...",
+    "authenticating": "Аутентификация…",
     "authentication-failed": "Не удалось пройти аутентификацию",
-    "caps-lock-on": "Caps lock включён",
+    "caps-lock-on": "Caps Lock включён",
     "password-cleared": "Пароль удалён",
     "password-placeholder": "Пароль",
     "ready": "Введите пароль и нажмите Enter.",
     "unlocked": "Разблокировано",
-    "waiting": "Ожидание подтверждения блокировки..."
+    "waiting": "Ожидание подтверждения блокировки…"
   },
   "notifications": {
     "actions": {
@@ -714,17 +831,22 @@
     },
     "inline-reply": {
       "button": "Ответить",
-      "placeholder": "Введите ответ..."
+      "placeholder": "Введите ответ…"
     },
     "internal": {
       "battery": "Батарея",
-      "battery-critical-body": "{device}: {percent}% - компьютер скоро выключиться",
+      "battery-critical-body": "{device}: {percent}%; компьютер скоро выключится",
       "battery-critical-title": "Критически низкий заряд",
       "battery-device": "Аккумуляторное устройство",
       "battery-low-body": "{device}: осталось {percent}%",
       "battery-low-title": "Батарея разряжена",
       "calendar": "Календарь",
+      "calendar-credential-locked-body": "Разблокируйте связку ключей, используемую Secret Service, затем повторите попытку в Настройках. Если используется GNOME Keyring, сделайте связкой по умолчанию ту, которая разблокируется автоматически (например, «Вход» / Login).",
+      "calendar-credential-locked-title": "Связка ключей календаря заблокирована",
+      "calendar-digest-more": "+ещё {count}",
+      "calendar-digest-title": "Весь день сегодня",
       "calendar-google-connect-browser-failed": "Не удалось открыть браузер для авторизации Google. Проверьте браузер по умолчанию или настройку xdg-open.",
+      "calendar-google-connect-credential-store-failed": "Авторизация успешно завершена, но не удалось сохранить токен обновления. Разблокируйте или запустите Secret Service, после чего подключитесь снова.",
       "calendar-google-connect-expired": "Авторизация Google не была завершена вовремя. Запустите подключение снова.",
       "calendar-google-connect-failed-title": "Не удалось подключиться к Календарю Google",
       "calendar-google-connect-missing-account": "Ни одна настроенная учётная запись календаря Google не совпала с \"{account}\".",
@@ -733,13 +855,28 @@
       "calendar-google-connect-start-failed": "Не удалось запустить авторизацию Google. Проверьте подключение к сети и повторите попытку.",
       "calendar-google-connect-start-http": "Не удалось запустить авторизацию Google. Брокер OAuth вернул HTTP {status}.",
       "calendar-google-connect-timeout": "Истекло время ожидания авторизации Google. Запустите подключение снова, когда будете готовы войти.",
+      "calendar-reminder-catchup-body": "Скоро начнётся ещё {count} событий.",
+      "calendar-reminder-catchup-title": "Ещё предстоящие события",
+      "calendar-reminder-in": "Начнётся через {minutes} мин · {time}",
+      "calendar-reminder-now": "Начинается сейчас · {time}",
+      "calendar-reminder-open": "Открыть",
+      "calendar-reminder-untitled": "Событие без названия",
+      "calendar-reminder-with-location": "{when}\n{location}",
+      "config-migration-body": "Обновите {path} в исходном файле. Noctalia применяет эту замену временно. Выполните «noctalia config validate», чтобы просмотреть список всех необходимых изменений.",
       "config-migration-title": "Требуется обновление конфигурации",
       "dbus-disabled": "DBus-уведомления отключены",
       "desktop-widgets-editor": "Редактор виджетов",
-      "desktop-widgets-editor-enabled": "Редактор виджетов рабочего стола включён. Переключитесь на пустое рабочее пространство, чтобы увидеть оверлей редактора.",
+      "desktop-widgets-editor-enabled": "Редактор виджетов рабочего стола включён. Переключитесь на пустое рабочее пространство, чтобы открытые окна не перекрывали редактор.",
       "greeter-sync": "Noctalia Greeter",
-      "greeter-sync-pending-manual": "Файлы подготовлены. Запустите в терминале: pkexec noctalia-greeter-apply-appearance \"$XDG_RUNTIME_DIR/noctalia-greeter-sync\". Или задайте shell.greeter_sync.privilege_command (например, ghostty -e pkexec) и повторите синхронизацию.",
+      "greeter-sync-pending": "Синхронизация внешнего вида с экраном входа. Если появится запрос администратора, подтвердите его; авторизация без пароля зависит от системной политики.",
+      "greeter-sync-pending-console": "Синхронизация внешнего вида с экраном входа. Если потребуется авторизация, подтвердите запрос polkit в Noctalia, в TTY или в консоли.",
+      "greeter-sync-pending-legacy": "Синхронизация через устаревший модуль с авторизацией. Требуется подтверждение администратора.",
+      "greeter-sync-pending-manual": "Файлы подготовлены для устаревшей синхронизации с аутентификацией. Запустите консольную утилиту применения в терминале (сохранив переменную NOCTALIA_GREETER_STATE_DIR, если вы используете кастомный путь) или настройте параметр shell.greeter_sync.privilege_command и повторите синхронизацию.",
+      "greeter-sync-pending-manual-pkexec": "Синхронизация внешнего вида с экраном входа. Если требуется авторизация администратора, а запрос не появляется, выполните в терминале: pkexec noctalia-greeter-apply-appearance --sync \"/run/user/$(id -u)/noctalia-greeter-sync\".",
       "greeter-sync-success": "Внешний вид синхронизирован. Изменения вступят в силу на следующем экране входа.",
+      "greeter-sync-timeout": "Синхронизация с экраном входа всё ещё ожидает авторизации. Проверьте TTY или консоль на наличие запроса polkit, включите агент polkit в разделе «Безопасность» или выполните pkexec вручную.",
+      "greeter-sync-timeout-manual": "Для устаревшей синхронизации с аутентификацией по-прежнему требуется подтверждение администратора. Запустите позиционный вспомогательный инструмент применения (apply helper) в терминале, сохранив переменную NOCTALIA_GREETER_STATE_DIR, если вы используете нестандартный путь.",
+      "greeter-sync-timeout-manual-pkexec": "Синхронизация с экраном входа всё ещё требует авторизации. Выполните в терминале: pkexec noctalia-greeter-apply-appearance --sync \"/run/user/$(id -u)/noctalia-greeter-sync\"",
       "keybind-app": "Noctalia",
       "keybind-invalid-modifier": "Это сочетание клавиш принимает одну клавишу без модификаторов.",
       "keybind-invalid-printable": "Печатные клавиши (буквы, цифры, символы) требуют модификатор, например Ctrl или Alt.",
@@ -749,9 +886,10 @@
       "launcher-usage-reset-success": "Данные об использовании очищены.",
       "lockscreen-widgets-editor": "Редактор виджетов экрана блокировки",
       "lockscreen-widgets-editor-blocked-locked": "Разблокируйте сессию перед редактированием виджетов экрана блокировки.",
-      "lockscreen-widgets-editor-enabled": "Редактор виджетов экрана блокировки включён. Расположите виджеты в режиме предварительного просмотра, затем заблокируйте сессию, чтобы проверить правильность расположения.",
+      "lockscreen-widgets-editor-enabled": "Редактор виджетов экрана блокировки включён. Переключитесь на пустое рабочее пространство, чтобы открытые окна не перекрывали редактор.",
       "mpris-disabled": "MPRIS отключён",
       "polkit-agent": "Агент аутентификации",
+      "polkit-no-session": "Агенту polkit необходимы logind, elogind или XDG_SESSION_ID. В конфигурациях только с seatd он не может регистрировать графические запросы. Используйте pkexec в терминале для синхронизации с экраном входа или установите elogind для аутентификации внутри сеанса.",
       "screen-time-reset": "Экранное время",
       "screen-time-reset-success": "История использования очищена.",
       "session-bus-unavailable": "Шина сеанса недоступна",
@@ -805,9 +943,13 @@
   },
   "plugins": {
     "auto-disabled": {
+      "body-errors": "В работе плагина {plugin} произошло слишком много ошибок, и он был отключён. Перезагрузите его после устранения проблемы.",
+      "body-timeouts": "{plugin} перестал отвечать и был отключён. Перезапустите его после устранения проблемы.",
       "title": "Плагин отключен"
     },
     "enable-failed": {
+      "body-error": "{plugin}: {error}",
+      "body-incompatible": "{plugin} предназначен для API версии {version}; эта версия Noctalia поддерживает API {oldest}–{current}.",
       "body-timeout": "Установка {plugin} заняла слишком много времени.",
       "title": "Плагин не включен"
     }
@@ -856,6 +998,7 @@
   },
   "settings": {
     "actions": {
+      "confirm-reset": "Подтвердить сброс",
       "reset": "Сбросить"
     },
     "badges": {
@@ -871,12 +1014,18 @@
       "add-title": "Добавить учётную запись календаря",
       "calendars-label": "Календари",
       "color-label": "Цвет",
+      "credential-source-file": "Файл с паролем",
+      "credential-source-keyring": "Связка ключей",
+      "credential-source-label": "Хранилище учётных данных",
       "delete-error": "Не удалось удалить учётную запись календаря.",
       "edit-title": "Редактировать учётную запись календаря",
+      "ics-url-label": "ICS URL",
       "id-label": "ID учётной записи",
       "invalid": "Проверьте выделенные поля учётной записи календаря.",
       "name-label": "Отображаемое имя",
       "name-placeholder": "Персональный календарь",
+      "password-file-error": "Не удалось прочитать указанный файл паролей. Убедитесь, что он существует, является обычным доступным для чтения файлом и содержит пароль.",
+      "password-file-label": "Файл с паролем",
       "password-keep-placeholder": "Оставьте пустым, чтобы сохранить текущий пароль",
       "password-label": "Пароль приложения",
       "password-placeholder": "Пароль конкретного приложения",
@@ -884,15 +1033,23 @@
       "provider": {
         "custom": "CalDAV",
         "google": "Google",
-        "icloud": "iCloud"
+        "icloud": "iCloud",
+        "ics": "ICS URL",
+        "vdir": "Локально (vdir)"
       },
       "provider-label": "Провайдер",
       "save": "Сохранить",
       "save-connect": "Сохранить и подключить",
       "save-error": "Не удалось сохранить учётную запись календаря.",
+      "secret-cleanup-error": "Не удалось сохранить аккаунт, а его учётные данные в связке ключей не удалось восстановить или удалить. Повторите попытку после разблокировки Secret Service.",
+      "secret-service-cancelled": "Запрос Secret Service был отменён. Повторите попытку, когда будете готовы выполнить разблокировку.",
+      "secret-service-error": "Не удалось получить доступ к учётным данным календаря в Secret Service. Повторите операцию.",
+      "secret-service-locked": "Учётные данные календаря заблокированы или доступ запрещён. Разблокируйте Secret Service и повторите попытку.",
+      "secret-service-unavailable": "Служба Secret Service не найдена. Запустите совместимый менеджер паролей и попробуйте снова.",
       "server-url-label": "URL сервера",
       "username-label": "Имя пользователя",
-      "username-placeholder": "name@example.com"
+      "username-placeholder": "name@example.com",
+      "vdir-path-label": "Путь к каталогу"
     },
     "controls": {
       "keybind": {
@@ -922,7 +1079,7 @@
         "delete": "Удалить",
         "delete-confirm-desc": "Эта панель, созданная в GUI, будет удалена из settings.toml.",
         "delete-confirm-title": "Удалить \"{name}\"?",
-        "id-placeholder": "Идентификатор панели",
+        "id-placeholder": "ID панели",
         "label": "Панель: {name}",
         "management": "Панель",
         "move-down": "Вниз",
@@ -933,13 +1090,16 @@
       },
       "monitor-override": {
         "create": "Создать",
+        "custom": "Пользовательский",
         "delete": "Удалить",
         "delete-confirm-desc": "Это переопределение монитора, созданное в GUI, будет удалено из settings.toml.",
         "delete-confirm-title": "Удалить \"{name}\"?",
+        "exists": "Переопределение для этого монитора уже существует.",
         "label": "Монитор: {name}",
         "management": "Переопределение монитора",
         "match-placeholder": "Шаблон монитора",
         "new": "Переопределение монитора",
+        "new-title": "Новый профиль монитора",
         "rename": "Переименовать",
         "rename-save": "Сохранить"
       },
@@ -953,10 +1113,26 @@
           "title": "Виджеты панели"
         },
         "group": {
+          "accordion": "Аккордеон",
+          "accordion-description": "Показывать только первый виджет; при наведении на капсулу отображаются остальные",
+          "accordion-direction": "Направление раскрытия",
+          "accordion-direction-description": "В какую сторону от первого виджета разворачивать скрытые элементы",
           "action": "Группа",
           "border": "Граница",
           "border-description": "Цвет контура капсулы; оставьте значение по умолчанию, чтобы отключить контур",
           "clear": "Очистить",
+          "deselect": "Снять выделение",
+          "drag": "Переместить",
+          "drawer-columns": "Столбцы выдвижной панели",
+          "drawer-columns-description": "Количество виджетов в ряду выдвижной панели",
+          "drawer-detached": "Отсоединить панель",
+          "drawer-detached-description": "Открывать выдвижную панель как плавающую со своим фоном и не объединять её с основной панелью",
+          "drawer-enabled": "Выдвижная панель",
+          "drawer-enabled-description": "Переместить сгруппированные виджеты в выдвижную панель, открываемую по кнопке",
+          "drawer-glyph-closed": "Иконка закрытого состояния",
+          "drawer-glyph-closed-description": "Значок на кнопке переключения панели в закрытом состоянии",
+          "drawer-glyph-opened": "Иконка открытого состояния",
+          "drawer-glyph-opened-description": "Значок на кнопке переключения панели в открытом состоянии",
           "edit": "Настроить стиль",
           "fill": "Фон",
           "fill-description": "Цвет фона капсулы; также поддерживаются фиксированные HEX-цвета",
@@ -973,17 +1149,25 @@
           "padding-description": "Внутренний отступ между краем капсулы и её виджетами, в пикселях",
           "radius": "Радиус",
           "radius-description": "Радиус углов капсулы в пикселях; Авто наследует радиус капсулы панели",
+          "remove-from-group": "Удалить из группы",
+          "remove-orphan": "Удалить неизвестную группу",
+          "remove-widget": "Удалить с панели",
+          "select": "Выберите для группировки",
           "selected": "{count} выбрано",
+          "settings-widget": "Настройки виджета",
           "show": "Показать эту группу",
           "show-widget": "Показать этот виджет",
           "style": "Стиль",
           "title": "Капсульная группа",
-          "ungroup": "Разгруппировать"
+          "ungroup": "Разгруппировать",
+          "widget-spacing": "Пространство",
+          "widget-spacing-description": "Расстояние между виджетами в этой группе, в пикселях; Авто - наследует настройки виджетов панели"
         },
         "inspector": {
           "add-instance-title": "Добавить новый виджет с названием {widget} в {lane}",
           "add-title": "Добавить виджет в {lane}",
-          "move-to-lane": "Переместить в {lane}"
+          "move-to-lane": "Переместить в {lane}",
+          "reset-defaults": "Сбросить по умолчанию"
         },
         "instance": {
           "create-save": "Создать",
@@ -991,7 +1175,7 @@
           "delete-confirm-desc": "Этот виджет с таким названием будет удалён из всех панелей, а его настройки будут сброшены.",
           "delete-confirm-title": "Удалить \"{name}\"?",
           "id-description": "Только буквы, цифры, подчёркивания или дефисы. Без пробелов; значение должно быть уникальным.",
-          "id-placeholder": "Идентификатор виджета",
+          "id-placeholder": "ID виджета",
           "rename": "Переименовать",
           "rename-save": "Сохранить"
         },
@@ -1007,7 +1191,7 @@
           "empty": "Виджеты не найдены",
           "instance-description": "Именованный виджет типа \"{type}\"",
           "instance-toggle": "Именованный виджет",
-          "placeholder": "Поиск виджетов..."
+          "placeholder": "Поиск виджетов…"
         },
         "raw": {
           "delete": "Удалить",
@@ -1017,12 +1201,21 @@
         "settings": {
           "empty": "Ни одна настройка не соответствует текущим фильтрам.",
           "groups": {
+            "actions": "Действия",
+            "behavior": "Поведение",
             "grouping": "Группировка",
             "presentation": "Отображение",
             "runtime": "Выполнение",
+            "taskbar": {
+              "grouping": "Группировка",
+              "windows": "Окна",
+              "workspace-labels": "Метки рабочих пространств"
+            },
             "widget": "Виджет",
             "workspaces": {
-              "colors": "Цвета"
+              "colors": "Цвета",
+              "list": "Рабочие пространства",
+              "pills": "Стиль плашек"
             }
           }
         }
@@ -1030,6 +1223,9 @@
     },
     "errors": {
       "avatar-accounts": "Не удалось обновить аватар системного аккаунта.",
+      "avatar-invalid-path": "Не удалось прочитать файл аватарки по указанному пути.",
+      "avatar-load": "Не удалось загрузить изображение. Используйте форматы PNG, JPEG, WebP, GIF, BMP или SVG.",
+      "avatar-write": "Не удалось подготовить изображение аватарки для сохранения.",
       "bar": {
         "create": "Не удалось создать панель.",
         "delete": "Не удалось удалить панель.",
@@ -1037,6 +1233,7 @@
         "rename": "Не удалось переименовать панель."
       },
       "batch-write": "Некоторые настройки не удалось сохранить.",
+      "custom-schedule-times": "В пользовательском расписании должны быть указаны время восхода и заката в формате HH:MM.",
       "export-config": "Не удалось сохранить экспорт конфигурации.",
       "export-wallpaper-palette": "Не удалось сохранить палитру обоев как пользовательскую.",
       "monitor-override": {
@@ -1047,7 +1244,9 @@
       "reset-page": "Не удалось сбросить некоторые настройки.",
       "support-report": "Не удалось сохранить отчёт поддержки.",
       "sync-greeter": "Не удалось синхронизировать внешний вид с Noctalia Greeter.",
-      "sync-greeter-timeout-manual": "Для синхронизации Greeter всё ещё требуется подтверждение администратора. Запустите в терминале: pkexec noctalia-greeter-apply-appearance \"$XDG_RUNTIME_DIR/noctalia-greeter-sync\"",
+      "sync-greeter-timeout": "Синхронизация с экраном входа всё ещё ожидает авторизации. Проверьте TTY или консоль на наличие запроса polkit, включите агент polkit в разделе «Безопасность» или выполните pkexec вручную.",
+      "sync-greeter-timeout-manual": "Для устаревшей синхронизации с аутентификацией по-прежнему требуется подтверждение администратора. Запустите позиционный вспомогательный инструмент применения (apply helper) в терминале, сохранив переменную NOCTALIA_GREETER_STATE_DIR, если вы используете нестандартный путь.",
+      "sync-greeter-timeout-manual-pkexec": "Синхронизация с экраном входа всё ещё требует авторизации. Выполните в терминале: pkexec noctalia-greeter-apply-appearance --sync \"/run/user/$(id -u)/noctalia-greeter-sync\"",
       "widget": {
         "rename": "Не удалось переименовать виджет."
       },
@@ -1070,16 +1269,17 @@
         "command-placeholder": "отправить уведомление \"idle\"",
         "kind": {
           "custom": "Пользовательское",
-          "lock": "Блокировка",
-          "lock-and-suspend": "Блокировка и приостановка",
-          "screen-off": "Экран выключен",
+          "lock": "Заблокировать",
+          "lock-and-suspend": "Блокировка и Сон",
+          "screen-off": "Выключить экран",
           "suspend": "Сон"
         },
         "kind-section-label": "Действие",
+        "locked-timeout-label": "Время ожидания при блокировке (в секундах, 0 = отключено)",
         "name-label": "Имя",
         "name-placeholder": "idle-behavior",
         "resume-command-label": "Команда возобновления",
-        "resume-command-placeholder": "",
+        "resume-command-placeholder": "notify-send 'Возвращение из режима ожидания'",
         "summary": "{name} · {seconds} с",
         "summary-disabled-timeout": "{name} · таймаут отключён",
         "timeout-label": "Тайм-аут в секундах",
@@ -1101,15 +1301,18 @@
         "background": "Фон",
         "battery": "Батарея",
         "behavior": "Поведение",
+        "borders": "Границы",
         "brightness": "Яркость",
         "built-in": "Встроенные",
-        "calendar": "Календарь",
+        "calendar-accounts": "Учётные записи",
+        "calendar-reminders": "Напоминания",
         "capsules": "Капсулы",
         "clipboard": "Буфер обмена",
         "community": "Сообщество",
         "control-center": "Центр управления",
         "dead-zone": "Незанятая область",
         "directories": "Каталоги",
+        "display": "Монитор",
         "effects": "Эффекты",
         "filtering": "Фильтрация",
         "focus-styling": "Стиль фокуса",
@@ -1117,11 +1320,13 @@
         "general": "Основное",
         "greeter": "Greeter",
         "grouping": "Группировка",
+        "history": "История",
         "home": "Главная",
         "hot-corners": "Активные углы",
         "idle": "Простой",
         "interface": "Интерфейс",
         "keybinds": "Сочетания клавиш",
+        "keyboard-layout": "Раскладка клавиатуры",
         "kinds": "Виды",
         "launcher": "Лаунчер",
         "layout": "Макет",
@@ -1134,6 +1339,7 @@
         "monitor-thresholds": "Пороги подсветки",
         "monitors": "Мониторы",
         "motion": "Движение",
+        "navigation": "Навигация",
         "network": "Сеть",
         "night-light": "Ночной свет",
         "notifications": "Уведомления",
@@ -1144,9 +1350,13 @@
         "power": "Питание",
         "privacy": "Конфиденциальность",
         "profile": "Профиль",
+        "providers": "Провайдеры",
         "screen-corners": "Углы экрана",
         "screen-time": "Экранное время",
         "screenshot": "Скриншот",
+        "screenshot-annotation": "Аннотация",
+        "screenshot-capture": "Захват",
+        "screenshot-output": "Результат",
         "security": "Безопасность",
         "session-panel": "Сеанс",
         "shape": "Форма",
@@ -1158,13 +1368,15 @@
         "wallpaper": "Обои",
         "weather": "Погода",
         "widget-list": "Список виджетов",
-        "widgets": "Виджеты"
+        "widgets": "Виджеты",
+        "window-switcher": "Переключение окон"
       },
       "sections": {
         "accessibility": "Специальные возможности",
         "appearance": "Внешний вид",
         "backdrop": "Фон",
         "bar": "Панель",
+        "calendar": "Календарь",
         "control-center": "Центр управления",
         "desktop": "Рабочий стол",
         "dock": "Док",
@@ -1179,11 +1391,13 @@
         "plugins": "Плагины",
         "popups": "Всплывающие окна",
         "power": "Питание",
+        "screenshot": "Снимок экрана",
         "security": "Безопасность",
         "services": "Сервисы",
         "shell": "Оболочка",
         "system": "Система",
         "templates": "Шаблоны",
+        "umbriel": "Umbriel",
         "wallpaper": "Обои"
       }
     },
@@ -1191,17 +1405,41 @@
       "filter": {
         "add": "Добавить фильтр",
         "add-title": "Добавить фильтр уведомлений",
+        "allow-permanent": "Разрешить постоянные",
+        "allowed-urgencies-label": "Разрешённые уровни срочности",
+        "bypass-dnd": "Обходить режим «Не беспокоить»",
+        "flag": {
+          "dnd-bypass": "обход «Не беспокоить»",
+          "history": "история",
+          "permanent": "постоянное",
+          "sound": "звук",
+          "toast": "toast"
+        },
+        "flags-label": "При совпадении",
+        "match-content-label": "Регулярное выражение для текста",
+        "match-content-placeholder": "Шаблон регулярного выражения для заголовка или текста…",
         "match-label": "Приложение",
+        "match-placeholder": "Название приложения, ярлык или категория…",
+        "override-duration": "Переопределить длительность",
         "play-sound": "Воспроизвести звук",
         "save-history": "Сохранить в историю",
+        "show-toast": "Показать toast",
+        "summary": "{match} · {flags}",
+        "summary-blocked": "{match} · заблокировано",
+        "summary-disabled": "{match} · отключено",
         "unnamed": "Безымянный фильтр"
       }
     },
     "options": {
+      "accordion-direction": {
+        "end": "После первого виджета",
+        "start": "Перед первым виджетом"
+      },
       "bar": {
         "auto-hide": {
           "off": "Выкл",
-          "on": "Вкл"
+          "on": "Вкл",
+          "smart": "Умное"
         }
       },
       "clipboard": {
@@ -1247,11 +1485,23 @@
       "hot-corners": {
         "command": "Выполнить команду",
         "control-center": "Центр управления",
-        "launcher": "Лаунчер"
+        "launcher": "Лаунчер",
+        "none": "Отсутствует",
+        "window-switcher": "Переключение окон"
       },
       "layer": {
         "overlay": "Оверлей",
         "top": "Сверху"
+      },
+      "lockscreen": {
+        "transition": {
+          "disc": "Диск",
+          "fade": "Плавное исчезновение",
+          "honeycomb": "Соты",
+          "stripes": "Полосы",
+          "wipe": "Шторка",
+          "zoom": "Масштабирование"
+        }
       },
       "notification-urgency": {
         "critical": "Критическая",
@@ -1263,10 +1513,18 @@
         "vertical": "Вертикальная"
       },
       "panel-bar-alignment": {
-        "centered": "По центру"
+        "centered": "По центру",
+        "near-trigger": "По вызову"
       },
       "panel-position": {
         "auto": "Следовать за панелью"
+      },
+      "plugins": {
+        "auto-update": {
+          "all": "Все",
+          "none": "Нет",
+          "official": "Официальные"
+        }
       },
       "screen-position": {
         "bottom-center": "Внизу по центру",
@@ -1303,12 +1561,19 @@
           "up": "Вверх",
           "up-left": "Вверх влево",
           "up-right": "Вверх вправо"
+        },
+        "window-switcher-style": {
+          "carousel": "Карусель",
+          "compact": "Компактный"
         }
       },
       "theme": {
         "mode": {
           "dark": "Тёмная",
           "light": "Светлая"
+        },
+        "shell-mode": {
+          "follow": "Следовать"
         },
         "source": {
           "built-in": "Встроенная",
@@ -1318,7 +1583,7 @@
         }
       },
       "theme-role": {
-        "custom": "Пользовательская…",
+        "custom": "Пользовательская",
         "default": "По умолчанию"
       },
       "wallpaper": {
@@ -1327,6 +1592,7 @@
           "crop": "Обрезка",
           "fit": "Вписать",
           "repeat": "Повтор",
+          "span": "Растянуть",
           "stretch": "Растянуть"
         },
         "order": {
@@ -1352,13 +1618,20 @@
     "plugins": {
       "browse-store": "Просмотр плагинов",
       "panels": {
+        "layer": {
+          "description": "Для плавающей панели используется слой Layer-shell",
+          "label": "Слой"
+        },
         "open-near-click": {
-          "label": "Открывать возле клика"
+          "description": "Положение панели при открытии кликом по виджету",
+          "label": "Привязка к панели"
         },
         "placement": {
+          "description": "Прикрепить к панели или оставить её плавающей у края",
           "label": "Расположение"
         },
         "position": {
+          "description": "Положение на экране, когда панель плавающая",
           "label": "Позиция"
         }
       },
@@ -1369,8 +1642,13 @@
         "delete-confirm-title": "Удалить \"{name}\"?",
         "deprecated": "Устаревший",
         "empty": "Нет включенных плагинов.",
+        "held-back": "старая версия",
+        "held-back-hint": "v{version} требует API плагинов {required}; эта сборка Noctalia поддерживает API только до {current}. Обновите Noctalia, чтобы получить её.",
+        "incompatible-plugin-api": "несовместимый API плагинов",
         "remove": "Удалить плагин",
         "requires": "Требуются: {dependencies}",
+        "search-empty": "Нет плагинов, соответствующих «{query}».",
+        "search-placeholder": "Поиск установленных плагинов",
         "title": "Плагины",
         "update-all": "Обновить все ({count})",
         "update-available": "Доступно обновление",
@@ -1410,16 +1688,27 @@
       },
       "store": {
         "add": "Добавить в Noctalia",
+        "back-to-catalog": "Вернуться в каталог плагинов",
         "categories": "Категории",
         "category-all": "Все",
         "empty": "Плагины не найдены",
+        "held-back": "Старая версия",
+        "held-back-hint": "Устанавливает v{version} для API плагинов {resolved}. Последняя версия v{latest} требует API плагинов {latestRequired}; эта сборка Noctalia поддерживает API только до {current}.",
         "incompatible": "Несовместим",
+        "incompatible-hint": "Требуется API плагинов {required}; эта сборка Noctalia поддерживает {oldest}–{current}.",
+        "installed": "Установлено",
         "loading": "Загрузка каталога...",
         "no-readme": "Описание недоступно",
         "open-page": "Открыть страницу плагина на noctalia.dev",
         "open-source": "Открыть репозиторий исходного кода плагина",
         "results-count": "{count} плагинов",
         "search-placeholder": "Поиск плагинов...",
+        "sort-added-at-asc": "Сортировать по дате добавления (сначала старые)",
+        "sort-added-at-desc": "Сортировать по дате добавления (сначала новые)",
+        "sort-name-asc": "Сортировать по имени (А-Я)",
+        "sort-name-desc": "Сортировать по имени (Я-А)",
+        "sort-updated-at-asc": "Сортировать по дате обновления (сначала старые)",
+        "sort-updated-at-desc": "Сортировать по дате обновления (сначала новые)",
         "source-all": "Все",
         "title": "Магазин плагинов"
       }
@@ -1452,10 +1741,18 @@
           "description": "Выберите палитру из встроенного набора",
           "label": "Встроенная палитра"
         },
+        "button-borders": {
+          "description": "Рисовать контуры вокруг кнопок",
+          "label": "Кнопки"
+        },
+        "card-borders": {
+          "description": "Рисовать контуры вокруг карточек разделов внутри панелей и окон настроек",
+          "label": "Карты"
+        },
         "community-palette": {
           "description": "Выберите палитру из набора сообщества",
           "label": "Палитра сообщества",
-          "search-placeholder": "Поиск палитр..."
+          "search-placeholder": "Поиск палитр…"
         },
         "corner-roundness": {
           "description": "Масштаб радиуса углов во всех контейнерах и элементах управления оболочки",
@@ -1464,11 +1761,11 @@
         "custom-palette": {
           "description": "Выберите палитру из ~/.config/noctalia/palettes/",
           "label": "Пользовательская палитра",
-          "search-placeholder": "Поиск пользовательских палитр..."
+          "search-placeholder": "Поиск пользовательских палитр…"
         },
         "export-wallpaper-palette": {
           "button": "Сохранить как пользовательскую палитру",
-          "description": "Сохранить текущую палитру, созданную из обоев, как переиспользуемый файл пользовательской палитры",
+          "description": "Сохранить текущую палитру обоев как файл пользовательской палитры для дальнейшего использования",
           "label": "Экспорт палитры обоев"
         },
         "font-family": {
@@ -1481,6 +1778,10 @@
         "global-shadow-direction": {
           "description": "Направление тени, отбрасываемой поверхностями"
         },
+        "input-borders": {
+          "description": "Рисовать контуры вокруг элементов ввода",
+          "label": "Элементы ввода"
+        },
         "language": {
           "description": "Переопределить автоматическое определение локали",
           "label": "Язык"
@@ -1489,12 +1790,24 @@
           "description": "Откуда взять цветовую палитру",
           "label": "Источник палитры"
         },
+        "popup-borders": {
+          "description": "Рисовать контуры вокруг всплывающих и выпадающих меню",
+          "label": "Всплывающие меню"
+        },
+        "popup-shadows": {
+          "description": "Отображать тень для всплывающих и выпадающих меню",
+          "label": "Тени всплывающих меню"
+        },
         "pure-black-dark": {
           "description": "Привязка темных поверхностей к истинно черному цвету предотвращает появление полос на OLED-панелях (только для темной темы)",
           "label": "Чистый черный цвет"
         },
+        "shell-theme-mode": {
+          "description": "Закрепить светлый или тёмный режим Noctalia. Вариант \"Следовать\" синхронизирует его с общим режимом темы",
+          "label": "Режим темы Noctalia"
+        },
         "theme-mode": {
-          "description": "Выберите тёмный, светлый или автоматический режим в зависимости от времени суток",
+          "description": "Выберите тёмный, светлый или автоматический режим в зависимости от времени суток; также распространяется на приложения из шаблонов",
           "label": "Режим темы"
         },
         "ui-scale": {
@@ -1503,7 +1816,7 @@
         },
         "wallpaper-generation-scheme": {
           "description": "Выберите, как цвета обоев преобразуются в палитру",
-          "label": "Схема генерации обоев"
+          "label": "Схема получения палитры из обоев"
         }
       },
       "backdrop": {
@@ -1521,7 +1834,7 @@
       },
       "bar": {
         "auto-hide": {
-          "description": "Автоматически скрывать панель, когда она не используется"
+          "description": "«Выкл» - панель всегда видима; «Вкл» - скрывает её, пока указатель не подведён к краю экрана; «Умный» - показывает панель на пустом рабочем пространстве и скрывает при открытых окнах"
         },
         "background-opacity": {
           "description": "Непрозрачность фона панели"
@@ -1558,11 +1871,16 @@
           "description": "Радиус углов по умолчанию для капсул виджетов, ячеек рабочих пространств и групп панели задач; оставьте пустым для автоматической формы плашек или укажите 0 для квадратных углов",
           "label": "Радиус капсулы"
         },
+        "capsule-thickness": {
+          "description": "Размер капсулы поперёк панели как доля от толщины панели (1.0 — капсула заполняет панель целиком)",
+          "label": "Толщина капсулы"
+        },
         "center-widgets": {
           "description": "Виджеты в центре панели",
           "label": "Виджеты по центру"
         },
         "concave-edge-corners": {
+          "description": "Вырезать вогнутые выемки на двух углах панели (требуется нулевой отступ от края); при нулевых отступах концов выемки делаются на углах внутреннего края панели, иначе — на углах, примыкающих к краю экрана",
           "label": "Вогнутые края углов"
         },
         "contact-shadow": {
@@ -1591,8 +1909,11 @@
         "corner-top-right": {
           "description": "Радиус верхнего правого угла панели"
         },
+        "dead-zone-action": {
+          "description": "Действие для незанятых областей панели, которые не покрыты виджетами"
+        },
         "edge-margin": {
-          "description": "Расстояние от ближайшего края экрана; положительные значения отодвигают панель от него"
+          "description": "Зазор между панелью и краем экрана, у которого она находится; установите значение \"0 px\", чтобы панель прилегала вплотную к этому краю"
         },
         "enabled": {
           "description": "Показать или скрыть эту панель"
@@ -1602,19 +1923,30 @@
           "label": "Виджеты в конце"
         },
         "ends-margin": {
-          "description": "Отступ от каждого конца панели вдоль её главной оси"
+          "description": "Отступ от каждого конца панели вдоль её главной оси; установите \"0 px\" для панелей на всю ширину или высоту"
         },
         "font-family": {
           "description": "Шрифт для виджетов этой панели; оставьте пустым чтобы использовать глобальный шрифт (семейство шрифтов для каждого виджета переопределяет это)",
           "label": "Семейство шрифтов"
         },
+        "font-scale": {
+          "description": "Коэффициент масштабирования текста для всех виджетов на панели; параметр масштаба конкретного виджета умножается на это значение",
+          "label": "Масштаб шрифта"
+        },
         "font-weight": {
           "description": "Насыщенность шрифта по умолчанию для меток виджетов на этой панели.",
           "label": "Насыщенность шрифта"
         },
+        "hover-highlight": {
+          "description": "Немного выделять виджет, расположенный под курсором, выбранным цветом",
+          "label": "Подсветка при наведении"
+        },
         "layer": {
-          "description": "Используйте \"Оверлей\", чтобы показывать панель поверх полноэкранных приложений. Прикреплённые панели следуют за основной панелью",
+          "description": "Используйте \"Оверлей\", чтобы показывать панель поверх полноэкранных приложений; прикреплённые панели следуют за основной панелью",
           "label": "Слой Wayland"
+        },
+        "opposite-edge-margin": {
+          "description": "Дополнительное резервируемое пространство с внутренней стороны панели, дальше от края экрана; используйте, если развёрнутые окна игнорируют отступы панели"
         },
         "panel-overlap": {
           "description": "На сколько пикселей прикреплённая панель перекрывает край основной панели, чтобы скрыть стык (настройте, если видна линия или щель)",
@@ -1628,6 +1960,10 @@
         },
         "shadow": {
           "description": "Отбрасывать глобальную тень от панели"
+        },
+        "show-on-workspace-switch": {
+          "description": "Отображать панель при переключении рабочих пространств",
+          "label": "Показывать при переключении рабочих пространств"
         },
         "start-widgets": {
           "description": "Виджеты в начале (слева/сверху) панели",
@@ -1646,6 +1982,7 @@
           "label": "Цвет виджета"
         },
         "widget-icon-color": {
+          "description": "Переопределяет цвет для иконок на этой панели; также поддерживаются фиксированные цвета в HEX",
           "label": "Цвет значка виджета"
         },
         "widget-spacing": {
@@ -1726,7 +2063,7 @@
           "label": "Только активный монитор"
         },
         "auto-hide": {
-          "description": "Автоматически скрывать док, когда он не используется"
+          "description": "«Выкл» - док всегда видимый; «Вкл» - скрывает его, пока указатель не подведён к краю экрана; «Умный» - показывает док на пустом рабочем пространстве и скрывает при открытых окнах"
         },
         "background-opacity": {
           "description": "Непрозрачность фона дока"
@@ -1816,7 +2153,7 @@
           "label": "Масштаб увеличения"
         },
         "main-axis-padding": {
-          "description": "Внутренний отступ вдоль главной оси дока (между значками и короткими концами капсулы)"
+          "description": "Внутренний отступ по краям ряда иконок (перед первой и после последней иконки)"
         },
         "monitors": {
           "description": "Выберите, на каких мониторах будет отображаться док (оставьте пустым для всех); фильтрация активных мониторов применяется внутри этого списка",
@@ -1830,13 +2167,13 @@
           "description": "Край экрана, на котором расположен док"
         },
         "reserve-space": {
-          "description": "Резервировать место на экране для дока"
+          "description": "Отодвинуть окна со стороны дока"
         },
         "shadow": {
           "description": "Отбрасывать глобальную тень от дока"
         },
         "show-dots": {
-          "description": "Показывать точки запущенных окон рядом со значками в доке",
+          "description": "Показывать точки запущенных окон рядом со значками",
           "label": "Показывать точки"
         },
         "show-instance-count": {
@@ -1912,7 +2249,7 @@
             "label": "При изменении режима темы"
           },
           "wallpaper-changed": {
-            "description": "Команда, запускаемая при смене обоев",
+            "description": "Команда, запускаемая при смене обоев; предоставляет NOCTALIA_WALLPAPER_PATH и NOCTALIA_WALLPAPER_CONNECTOR",
             "label": "При смене обоев"
           },
           "wifi-disabled": {
@@ -1927,11 +2264,11 @@
       },
       "idle": {
         "behaviors": {
-          "description": "Именованные действия простоя с предустановками (блокировка, отключение мониторов, сон) или пользовательскими командами, тайм-аутами, командой возобновления и порядком выполнения",
+          "description": "Действия, выполняемые при простое (блокировка, отключение мониторов, сон), а также заданные команды с тайм-аутами, командой возобновления и порядком выполнения",
           "label": "Действия"
         },
         "pre-action-fade": {
-          "description": "Секунды полноэкранного затемнения перед командой простоя; укажите 0, чтобы отключить",
+          "description": "Секунды полноэкранного затемнения перед командой простоя (0, чтобы отключить)",
           "label": "Затемнение при простое"
         }
       },
@@ -1964,6 +2301,14 @@
           "description": "Сохранить текущее выделение или объект",
           "label": "Сохранить"
         },
+        "tab-next": {
+          "description": "Переместить фокус на следующий элемент управления",
+          "label": "Перейти к следующему"
+        },
+        "tab-previous": {
+          "description": "Переместить фокус на предыдущий элемент управления",
+          "label": "Перейти к предыдущему"
+        },
         "up": {
           "description": "Переместить фокус или выделение на одну строку вверх",
           "label": "Навигация вверх"
@@ -1975,6 +2320,7 @@
       },
       "lockscreen": {
         "allow-empty-password": {
+          "description": "Разрешить отправку пустого пароля по нажатию Enter (включите для аппаратных ключей безопасности или других беспарольных стеков PAM; оставьте выключенным, чтобы избежать случайной разблокировки при пробуждении системы)",
           "label": "Ввод пустого пароля"
         },
         "blur-intensity": {
@@ -1985,23 +2331,40 @@
           "description": "Использовать снимок рабочего стола как фон экрана блокировки",
           "label": "Захват рабочего стола"
         },
+        "edge-smoothness": {
+          "description": "Смягчение краёв перехода экрана блокировки",
+          "label": "Плавность краёв перехода"
+        },
         "enabled": {
+          "description": "Включить блокировку сессии, интеграцию с logind и действия при блокировке",
           "label": "Экран блокировки"
         },
         "fingerprint": {
           "description": "Используйте сканер отпечатка пальца через fprintd для разблокировки вместо пароля",
           "label": "Разблокировка отпечатком пальца"
         },
+        "lock-before-suspend": {
+          "description": "Блокировать сессию перед переходом в режим сна (закрытие крышки, systemctl suspend или hibernate); действие «Блокировка и сон» в любом случае сначала выполняют блокировку",
+          "label": "Заблокировать перед сном"
+        },
         "monitors": {
-          "description": "Выберите какой монитор будет показывать экран блокировки; оставьте пустым для показа на всех мониторах",
+          "description": "Выберите, какой монитор будет показывать экран блокировки; оставьте пустым для показа на всех мониторах",
           "label": "Мониторы"
         },
         "tint-intensity": {
           "description": "Оттенок цвета поверхности поверх фона экрана блокировки",
           "label": "Интенсивность оттенка"
         },
+        "transition-duration": {
+          "description": "Продолжительность анимаций блокировки и разблокировки в миллисекундах",
+          "label": "Продолжительность перехода"
+        },
+        "transitions": {
+          "description": "Эффекты, доступные при блокировке и разблокировке (один выбирается случайным образом)",
+          "label": "Эффекты перехода"
+        },
         "wallpaper": {
-          "description": "Пользовательское изображение для фона экрана блокировки. Оставьте пустым, чтобы использовать обои рабочего стола.",
+          "description": "Пользовательское изображение для фона экрана блокировки; оставьте пустым, чтобы использовать обои рабочего стола",
           "label": "Обои",
           "placeholder": "Использовать обои рабочего стола"
         },
@@ -2027,6 +2390,10 @@
         "blacklist-allow-critical": {
           "description": "Всё равно показывать критические уведомления от отправителей из чёрного списка"
         },
+        "border": {
+          "description": "Отображать контур вокруг всплывающих уведомлений",
+          "label": "Границы"
+        },
         "collapse-on-dismiss": {
           "description": "Сдвигать оставшиеся уведомления, закрывая промежутки после скрытия одного из них",
           "label": "Свернуть при закрытии"
@@ -2036,11 +2403,24 @@
           "label": "Демон уведомлений"
         },
         "filters": {
+          "description": "Правила для toast, истории и звуков по отправителям; применяется первый подходящий включённый фильтр",
           "label": "Фильтры оповещений"
+        },
+        "history-retention-hours": {
+          "description": "Автоматически удалять уведомления из истории старше указанного количества часов (0 - не удалять)",
+          "label": "Срок хранения"
+        },
+        "keep-dismissed-in-history": {
+          "description": "Оставлять уведомления в истории после закрытия их toast",
+          "label": "Хранить закрытые уведомления"
         },
         "layer": {
           "description": "Используйте \"Оверлей\", чтобы показывать всплывающие уведомления поверх полноэкранных приложений",
           "label": "Слой Wayland"
+        },
+        "max-visible": {
+          "description": "Максимальное количество уведомлений на экране (0 - занимать всё доступное пространство)",
+          "label": "Количество уведомлений"
         },
         "monitors": {
           "description": "Выберите, на каких мониторах будут отображаться всплывающие уведомления; оставьте пустым, чтобы отображалось на всех мониторах",
@@ -2081,19 +2461,44 @@
           "label": "Границы"
         },
         "control-center-sidebar": {
-          "description": "При открытии главной вкладки и общих панелей",
+          "description": "Выбор способа отображения боковой панели",
           "label": "Боковая панель"
         },
         "control-center-sidebar-section": {
           "description": "При открытии конкретной вкладки (громкость, медиа и т. д.)",
           "label": "Боковая панель при открытии вкладки"
         },
+        "control-center-tabs": {
+          "description": "Выберите какие вкладки отображать в центре управления; неотмеченные будут скрыты",
+          "label": "Вкладки центра управления"
+        },
+        "control-center-width": {
+          "description": "Ширина панели Центра управления в пикселях (компактный режим и режим без боковой панели масштабируются от неё)",
+          "label": "Ширина центра управления"
+        },
         "floating-layer": {
-          "description": "Используйте \"Сверху\", если окна-кандидаты на метод ввода, скрыты за плавающими панелями; \"Оверлай\" удерживает панели над полноэкранным содержимым"
+          "description": "Используйте \"Сверху\", если окна-кандидаты на метод ввода, скрыты за плавающими панелями; \"Оверлай\" удерживает панели над полноэкранным содержимым",
+          "label": "Слой плавающей панели"
+        },
+        "floating-offset": {
+          "description": "Зазор в пикселях между плавающей или откреплённой панелью и краем панели",
+          "label": "Отступ плавающей панели"
+        },
+        "home-session-button": {
+          "description": "Показывать кнопку действий сеанса в заголовке главной вкладки",
+          "label": "Кнопка сеанса в заголовке"
         },
         "home-shortcuts": {
           "description": "Выберите до шести кнопок быстрого доступа для домашней вкладки",
           "label": "Ярлыки главной вкладки"
+        },
+        "home-shortcuts-show-labels": {
+          "description": "Отображать текстовые подписи под значками ярлыков на главной вкладке",
+          "label": "Показывать подписи ярлыков"
+        },
+        "launcher-app-actions": {
+          "description": "Отображать действия для приложений в результатах поиска",
+          "label": "Отображать действия для приложений"
         },
         "launcher-app-grid": {
           "description": "Отображать сетку значков приложений с надписями под ними, если результаты относятся только к приложениям",
@@ -2103,6 +2508,10 @@
           "description": "Показать индикатор происхождения пакета рядом с названием приложения",
           "label": "Показывать индикаторы происхождения приложений"
         },
+        "launcher-auto-paste": {
+          "description": "После копирования результатов калькулятора, эмодзи и других данных вставлять их в окно в фокусе (те же сочетания клавиш, что и для автовставки буфера обмена)",
+          "label": "Автоматическая вставка"
+        },
         "launcher-categories": {
           "description": "Показывать фильтры категорий в лаунчере; откройте их F6, затем переключайте с помощью F6 и Shift+F6",
           "label": "Показывать категории"
@@ -2111,12 +2520,77 @@
           "description": "Использовать меньшие значки и более плотные строки результатов",
           "label": "Компактные строки"
         },
+        "launcher-currency-exchange": {
+          "description": "Загружать курсы из сторонних онлайн-источников",
+          "label": "Конвертация валют"
+        },
+        "launcher-global-calculator": {
+          "description": "Показывать результаты калькулятора также в поиске без префикса",
+          "label": "Калькулятор в общем поиске"
+        },
+        "launcher-global-emoji": {
+          "description": "Показывать результаты поиска эмодзи также в поиске без префикса",
+          "label": "Эмодзи в общем поиске"
+        },
+        "launcher-global-panels": {
+          "description": "Показывать панели также в поиске без префикса",
+          "label": "Панели в общем поиске"
+        },
+        "launcher-global-session": {
+          "description": "Показывать действия сессии также в поиске без префикса",
+          "label": "Сессия в общем поиске"
+        },
+        "launcher-global-wallpaper": {
+          "description": "Показывать обои также в поиске без префикса",
+          "label": "Обои в общем поиске"
+        },
+        "launcher-global-windows": {
+          "description": "Показывать открытые окна также в поиске без префикса",
+          "label": "Окна в общем поиске"
+        },
+        "launcher-ignored-panels": {
+          "description": "Панели, которые провайдер панелей никогда не показывает в списке (например, запросы аутентификации, мастер настройки)",
+          "label": "Игнорируемые панели"
+        },
+        "launcher-pinned-apps": {
+          "description": "ID desktop-записей приложений, закреплённых в лаунчере; они показываются первыми при открытии лаунчера",
+          "label": "Избранные приложения"
+        },
+        "launcher-prefix-calculator": {
+          "description": "Префикс для запуска вычислений калькулятора",
+          "label": "Префикс калькулятора"
+        },
+        "launcher-prefix-character": {
+          "description": "Общий символ префикса, используемый для активации префиксов всех провайдеров (например, /)",
+          "label": "Общий символ префикса"
+        },
+        "launcher-prefix-emoji": {
+          "description": "Префикс для запуска поиска эмодзи",
+          "label": "Префикс эмодзи"
+        },
+        "launcher-prefix-panels": {
+          "description": "Префикс для запуска поиска панелей",
+          "label": "Префикс панелей"
+        },
+        "launcher-prefix-session": {
+          "description": "Префикс для запуска действий питания сессии",
+          "label": "Префикс сессии"
+        },
+        "launcher-prefix-wallpaper": {
+          "description": "Префикс для запуска выбора обоев",
+          "label": "Префикс обоев"
+        },
+        "launcher-prefix-windows": {
+          "description": "Префикс для запуска поиска окон",
+          "label": "Префикс окон"
+        },
         "launcher-reset-usage": {
           "button": "Сбросить",
           "description": "Очистить количество запусков и историю последних использований, используемую для сортировки лаунчера",
           "label": "Сбросить данные об использовании"
         },
         "launcher-session-search": {
+          "description": "Включать действия сессии (блокировка, сон, перезагрузка, выключение, выход) в общий поиск лаунчера, а не только по префиксу /session",
           "label": "Включить поиск по сессиям"
         },
         "launcher-show-icons": {
@@ -2124,43 +2598,47 @@
           "label": "Показывать значки приложений"
         },
         "launcher-sort-by-usage": {
-          "description": "Поместить часто используемые приложения на первое место и отобразите фильтр \"Недавно использованные\"",
+          "description": "Помещать часто используемые приложения на первое место и показывать фильтр \"Недавно использованные\"",
           "label": "Сортировать по использованию"
         },
+        "list-item-background": {
+          "description": "Рисовать скруглённый фон за каждым элементом списков лаунчера и буфера обмена",
+          "label": "Фон элементов списка"
+        },
         "open-near-click-clipboard": {
-          "description": "Открывать панель буфера обмена рядом с кликом по панели, а не по центру панели",
-          "label": "Открывать рядом с кликом"
+          "description": "Где открывать панель буфера обмена по клику на виджете",
+          "label": "Привязка к панели"
         },
         "open-near-click-control-center": {
-          "description": "Открывать Центр управления рядом с кликом по панели, а не по центру панели",
-          "label": "Открывать рядом с кликом"
+          "description": "Где открывать Центр управления по клику на виджете",
+          "label": "Привязка к панели"
         },
         "open-near-click-launcher": {
-          "description": "Открывать панель лаунчера рядом с кликом по панели, а не по центру панели",
-          "label": "Открывать рядом с кликом"
+          "description": "Где открывать лаунчер по клику на виджете",
+          "label": "Привязка к панели"
         },
         "open-near-click-session": {
-          "description": "Открывать меню сеанса рядом с кликом по панели, а не по центру панели",
-          "label": "Открывать рядом с кликом"
+          "description": "Где открывать меню сеанса по клику на виджете",
+          "label": "Привязка к панели"
         },
         "open-near-click-wallpaper": {
-          "description": "Открывать выбор обоев рядом с кликом по панели, а не по центру панели",
-          "label": "Открывать рядом с кликом"
+          "description": "Где открывать выбор обоев по клику на виджете",
+          "label": "Привязка к панели"
         },
         "panel-anchor-bar": {
-          "description": "Панели прикрепляются при открытии; оставьте пустым, чтобы следить за виджетом, ярлыком или доком, с помощью которых они были открыты",
+          "description": "Панели прикрепляются при открытии; оставьте пустым, чтобы следовать за виджетом, ярлыком или доком, с помощью которых они были открыты",
           "label": "Привязка панели"
         },
         "placement-clipboard": {
-          "description": "Выберите, будет ли буфер обмена прикрепляться к панели, плавать рядом с ней или открываться по центру",
+          "description": "Выберите, будет ли буфер обмена прикрепляться к панели или будет плавающим в определённом положении на экране",
           "label": "Размещение"
         },
         "placement-control-center": {
-          "description": "Выберите, будет ли Центр управления прикрепляться к панели, плавать рядом с ней или открываться по центру",
+          "description": "Выберите, будет ли Центр управления прикрепляться к панели или будет плавающим в определённом положении на экране",
           "label": "Размещение"
         },
         "placement-launcher": {
-          "description": "Выберите, будет ли лаунчер прикреплён к панели, всплывать рядом с ней или открываться по центру",
+          "description": "Выберите, будет ли лаунчер прикреплён к панели или будет плавающим в определённом положении на экране",
           "label": "Размещение"
         },
         "placement-polkit": {
@@ -2168,43 +2646,61 @@
           "label": "Позиция"
         },
         "placement-session": {
-          "description": "Выберите, будет ли меню сеанса прикрепляться к панели, плавать рядом с ней или открываться по центру",
+          "description": "Выберите, будет ли меню сеанса прикрепляться к панели или будет плавающим",
           "label": "Размещение"
         },
         "placement-wallpaper": {
-          "description": "Выберите, будет ли средство выбора обоев прикрепляться к панели, плавать рядом с ней или открываться по центру",
+          "description": "Выберите, будет ли средство выбора обоев прикрепляться к панели или будет плавающим в определённом положении на экране",
           "label": "Размещение"
         },
         "position-clipboard": {
+          "description": "Где буфер обмена отображается на экране в плавающем режиме; «Следовать за панелью» удерживает его рядом с панелью",
           "label": "Позиция"
         },
         "position-control-center": {
+          "description": "Где Центр управления отображается на экране в плавающем режиме; «Следовать за панелью» удерживает его рядом с панелью",
           "label": "Позиция"
         },
         "position-launcher": {
+          "description": "Где лаунчер отображается на экране в плавающем режиме; «Следовать за панелью» удерживает его рядом с панелью",
           "label": "Позиция"
         },
         "position-polkit": {
+          "description": "Где запрос polkit отображается на экране в плавающем режиме; «Следовать за панелью» удерживает его рядом с панелью",
           "label": "Позиция"
         },
         "position-session": {
+          "description": "Где панель сеанса отображается на экране в плавающем режиме; «Следовать за панелью» удерживает её рядом с панелью",
           "label": "Позиция"
         },
         "position-wallpaper": {
+          "description": "Где выбор обоев отображается на экране в плавающем режиме; «Следовать за панелью» удерживает его рядом с панелью",
           "label": "Позиция"
         },
         "shadow": {
           "description": "Отбрасывать глобальную тень от поверхностей панелей"
         },
         "transparency-mode": {
-          "description": "Стиль стекла панели, включая прозрачность плавающей или центрированной панели и полупрозрачность карточек",
+          "description": "Стиль прозрачности панели, включая плавающие панели и полупрозрачность карточек",
           "label": "Прозрачность"
         }
       },
       "power": {
         "session-actions": {
-          "description": "Записи меню питания, порядок, пользовательские команды и значки",
+          "description": "Элементы панели сеанса, их порядок, пользовательские команды и значки",
           "label": "Пункты"
+        },
+        "session-grid": {
+          "description": "Отображать кнопки панели сессии в виде сетки",
+          "label": "В виде таблицы"
+        },
+        "session-grid-columns": {
+          "description": "Количество колонок в таблице",
+          "label": "Колонки"
+        },
+        "session-show-shortcuts": {
+          "description": "Показывать подсказки горячих клавиш",
+          "label": "Горячие клавиши"
         }
       },
       "services": {
@@ -2221,13 +2717,71 @@
           "description": "Добавить учётные записи iCloud, CalDAV, Google или ICS URL",
           "label": "Учётные записи календаря"
         },
+        "calendar-credentials": {
+          "button": "Повторить",
+          "description-cancelled": "Запрос Secret Service был отменён; повторите попытку, когда будете готовы",
+          "description-error": "Не удалось получить доступ к учётным данным календаря через Secret Service",
+          "description-locked": "Учётные данные календаря заблокированы или доступ запрещён; разблокируйте Secret Service и повторите попытку",
+          "description-migration": "Незашифрованные учётные данные календаря ожидают переноса в Secret Service; они не используются для синхронизации календаря",
+          "description-opening": "Учётные данные календаря открываются через Secret Service",
+          "description-unavailable": "В этой сессии недоступна служба хранения паролей (Secret Service)",
+          "label": "Хранилище учётных данных календаря"
+        },
+        "calendar-digest-time": {
+          "description": "Время показа одного уведомления со списком событий на весь день; оставьте пустым, чтобы отключить",
+          "label": "Время сводки событий на весь день"
+        },
         "calendar-edit": {
           "button": "Редактировать",
-          "description": "Обновить эту учётную запись календаря"
+          "button-reconnect": "Переподключиться",
+          "button-retry": "Повторить",
+          "description": "Обновить эту учётную запись календаря",
+          "description-locked": "Токен обновления находится в заблокированной связке ключей; разблокируйте связку ключей и повторите попытку",
+          "description-reconnect": "Авторизация Google отсутствует; подключите эту учётную запись снова"
+        },
+        "calendar-event-date-format": {
+          "description": "Формат даты в списке событий календаря",
+          "label": "Формат даты событий"
+        },
+        "calendar-event-time-format": {
+          "description": "Формат времени в списке событий календаря",
+          "label": "Формат времени событий"
         },
         "calendar-refresh-interval": {
           "description": "Как часто синхронизировать события календаря (минуты)",
           "label": "Интервал обновления"
+        },
+        "calendar-reminder-lead": {
+          "description": "За какое время напоминать о событиях, у которых нет собственного напоминания",
+          "label": "Время напоминания по умолчанию"
+        },
+        "calendar-reminder-use-event": {
+          "description": "Использовать напоминания, заданные в самих событиях; если выключено, все события используют время по умолчанию",
+          "label": "Использовать напоминания событий"
+        },
+        "calendar-reminders": {
+          "description": "Уведомлять до начала события",
+          "label": "Напоминания календаря"
+        },
+        "calendar-storage": {
+          "button": "Повторить",
+          "description-cancelled": "Запрос зашифрованного хранилища был отменён; события календаря останутся доступными только до конца этого сеанса",
+          "description-error": "Не удалось открыть или сохранить зашифрованный кэш событий календаря",
+          "description-locked": "Зашифрованное хранилище заблокировано или в доступе отказано; исправьте ошибку доступа и повторите попытку",
+          "description-migration": "Незашифрованный кэш событий календаря ожидает шифрования; он сохраняется до успешного завершения миграции",
+          "description-missing-key": "Ключ кэша событий календаря отсутствует; учётные данные используют отдельное хранилище (существующие файлы кэша сохранены)",
+          "description-opening": "Открывается зашифрованный кэш событий календаря",
+          "description-recovery": "Не удалось проверить подлинность кэша событий календаря, либо он повреждён; повторите попытку после восстановления правильного ключа или сбросьте личное хранилище",
+          "description-unavailable": "Провайдер Secret Service недоступен; события календаря останутся доступными только до конца этого сеанса",
+          "label": "Хранилище событий календаря"
+        },
+        "calendar-week-numbers": {
+          "description": "Показывать номера недель по ISO 8601 рядом с сеткой календаря",
+          "label": "Номера недель"
+        },
+        "custom-schedule": {
+          "description": "Использовать заданное вручную время восхода и заката вместо вычисления по координатам",
+          "label": "Пользовательское расписание"
         },
         "day-temperature": {
           "description": "Цветовая температура днём (Кельвин)",
@@ -2252,7 +2806,7 @@
           "placeholder": "Город, страна"
         },
         "location-auto-locate": {
-          "description": "Автоматически определять местоположение по IP-адресу",
+          "description": "Автоматически определять местоположение по IP-адресу через noctalia.dev",
           "label": "Автоматическое определение местоположения (IP)"
         },
         "longitude": {
@@ -2260,6 +2814,7 @@
           "label": "Долгота"
         },
         "minimum-brightness": {
+          "description": "Не позволяет экрану становиться полностью тёмным",
           "label": "Минимальная яркость"
         },
         "mpris-blacklist": {
@@ -2284,6 +2839,11 @@
           "description": "Воспроизводить звуковые эффекты для событий оболочки",
           "label": "Звуки оболочки"
         },
+        "sound-theme": {
+          "default": "По умолчанию",
+          "description": "Звуковая тема для звуковых эффектов оболочки",
+          "label": "Звуковая тема"
+        },
         "sound-volume": {
           "description": "Громкость звуковых эффектов оболочки",
           "label": "Громкость звука"
@@ -2296,9 +2856,13 @@
           "description": "Время заката вручную в формате HH:MM, используется, когда местоположение не задано",
           "label": "Закат"
         },
+        "sync-monitor-brightness": {
+          "description": "Синхронизировать яркость всех мониторов",
+          "label": "Синхронизация яркости мониторов"
+        },
         "system-monitor": {
           "cpu-poll": {
-            "description": "Интервал в секундах между замерами использования ЦП, температуры ЦП и средней нагрузки (0 отключает)",
+            "description": "Интервал в секундах между замерами использования ЦП, температуры ЦП и средней нагрузки (0 - отключено)",
             "label": "Интервал опроса ЦП"
           },
           "description": "Собирать статистику ЦП, памяти, сети, нагрузки, температуры и диска",
@@ -2307,7 +2871,7 @@
             "label": "Интервал опроса диска"
           },
           "gpu-poll": {
-            "description": "Интервал в секундах между замерами температуры GPU и VRAM. 0 отключает их (по умолчанию), чтобы не нагружать дискретный GPU; 5 — хороший интервал, если хотите включить",
+            "description": "Интервал в секундах между замерами температуры, нагрузки и VRAM для GPU; замеры производятся только при отображении информации (0 - полное отключение)",
             "label": "Интервал опроса GPU"
           },
           "label": "Системный монитор",
@@ -2320,9 +2884,14 @@
             "label": "Интервал опроса сети"
           },
           "stats": {
+            "cpu-freq": "Частота ЦП",
             "cpu-temp": "Температура ЦП",
             "cpu-usage": "Загрузка ЦП",
+            "disk-free": "Доступно на диске",
+            "disk-free-pct": "Доступно на диске %",
             "disk-usage": "Использование диска",
+            "disk-used": "Занято на диске",
+            "disk-used-pct": "Занято на диске %",
             "gpu-temp": "Температура GPU",
             "gpu-usage": "Загрузка GPU",
             "gpu-vram": "GPU VRAM",
@@ -2342,7 +2911,7 @@
           "placeholder": "/path/to/sound.wav"
         },
         "weather": {
-          "description": "Включить службу погоды",
+          "description": "Включить службу погоды (open-meteo.com)",
           "label": "Погода"
         },
         "weather-effects": {
@@ -2398,6 +2967,9 @@
         "main-axis-padding": {
           "label": "Отступ главной оси"
         },
+        "opposite-edge-margin": {
+          "label": "Отступ от противоположного края"
+        },
         "position": {
           "label": "Положение"
         },
@@ -2416,13 +2988,13 @@
       },
       "shell": {
         "avatar-path": {
-          "description": "Путь к собственному изображению аватара",
+          "description": "Путь к собственному изображению аватара; большие изображения обрезаются и сжимаются автоматически",
           "label": "Путь к аватару",
           "placeholder": "/path/to/avatar.png"
         },
         "clipboard-auto-paste": {
           "description": "Автоматически вставлять выделенные фрагменты из буфера обмена",
-          "label": "Автоматическая вставка в буфер обмена"
+          "label": "Автовставка из буфера обмена"
         },
         "clipboard-confirm-clear-history": {
           "description": "Спрашивать перед очисткой истории буфера обмена или удалением незакреплённой записи с панели; если отключено, эти действия выполняются сразу (закреплённые записи всё равно требуют подтверждения перед удалением)",
@@ -2441,17 +3013,51 @@
           "label": "Команда для изображений",
           "placeholder": "gimp {path} или satty -f -"
         },
+        "clipboard-keep-from-closed-apps": {
+          "description": "Оставлять последний скопированный элемент доступным для вставки после закрытия приложения, из которого он был скопирован",
+          "label": "Буфер обмена из закрытых приложений"
+        },
+        "clipboard-storage": {
+          "button": "Повторить",
+          "description-cancelled": "Запрос Secret Service был отменён; история буфера обмена останется доступной только до конца этого сеанса",
+          "description-error": "Не удалось открыть или сохранить зашифрованную историю буфера обмена",
+          "description-locked": "Хранилище ключей буфера обмена заблокировано или доступ запрещён; восстановите доступ и повторите попытку",
+          "description-migration": "Незашифрованная история буфера обмена ожидает шифрования; существующие файлы сохраняются до успешного завершения миграции",
+          "description-missing-key": "Настроенный ключ зашифрованного хранилища отсутствует; существующие файлы истории буфера обмена сохранены",
+          "description-opening": "Открывается зашифрованная история буфера обмена",
+          "description-recovery": "Не удалось проверить подлинность истории буфера обмена, либо она повреждена; повторите попытку после восстановления правильного ключа или сбросьте личное хранилище",
+          "description-unavailable": "Провайдер Secret Service недоступен; история буфера обмена останется доступной только до конца этого сеанса",
+          "label": "Хранилище истории буфера обмена"
+        },
         "date-format": {
           "description": "Формат даты по умолчанию для интерфейса оболочки, если нет отдельной настройки",
           "label": "Формат даты"
         },
+        "external-ip": {
+          "description": "Определять публичный WAN-адрес подключения (через api.noctalia.dev) и показывать его в Центре управления во вкладке \"Сеть\"",
+          "label": "Показывать WAN IP"
+        },
         "greeter-sync-auto": {
-          "description": "Автоматическая синхронизировать Greeter при каждом изменении обоев, цветов или режима темы.",
-          "label": "Авто-Синхронизация Greeter"
+          "description": "Автоматически синхронизировать Greeter при каждом изменении обоев, цветов, режима темы или шрифта. Авторизация по-прежнему определяется системной политикой; эта настройка не включает синхронизацию без пароля.",
+          "label": "Автосинхронизация Greeter"
+        },
+        "greeter-sync-privilege-command": {
+          "description": "Переопределяет запуск с повышенными привилегиями для «Синхронизировать сейчас» Greeter. Устаревший режим (старый вспомогательный инструмент или пользовательский каталог состояния Greeter) допускает другой способ повышения привилегий администратора. Ограниченная синхронизация добавляет --sync и требует, чтобы команда в итоге запускала pkexec (пример: ghostty -e pkexec)",
+          "label": "Команда привилегий синхронизации Greeter"
+        },
+        "keyboard-layout-custom-labels": {
+          "description": "Задать метки для отображения раскладок клавиатуры",
+          "label": "Метки раскладки"
         },
         "launch-apps-as-systemd-services": {
           "description": "Запускать приложения в отдельных службах systemd, чтобы они не использовали cgroup Noctalia",
-          "label": "Запускать приложения как службы systemd"
+          "label": "Запускать приложения как службы systemd",
+          "requires-systemd-session": "Требует, чтобы Noctalia работала как пользовательская служба systemd (uwsm или пользовательский юнит systemd)"
+        },
+        "launch-apps-custom-command": {
+          "description": "Оборачивает приложения, запускаемые из лаунчера, дока и панели задач; вместо $CMD подставляется исходная команда",
+          "label": "Пользовательская команда запуска приложений",
+          "placeholder": "$CMD"
         },
         "niri-overview-type-to-launch": {
           "description": "Открывать лаунчер при вводе текста в обзоре Niri; когда обзор открыт, используется небольшая поверхность для фокуса клавиатуры",
@@ -2464,6 +3070,14 @@
         "osd-background-opacity": {
           "description": "Непрозрачность фона всплывающих окон OSD",
           "label": "Непрозрачность фона"
+        },
+        "osd-border": {
+          "description": "Отображать контур вокруг окон OSD",
+          "label": "Границы"
+        },
+        "osd-enabled": {
+          "description": "Глобальное управление OSD; если отключено, всплывающие окна OSD не выводятся",
+          "label": "Включить OSD"
         },
         "osd-kinds-bluetooth": {
           "description": "Показывать OSD при включении Bluetooth",
@@ -2481,6 +3095,10 @@
           "description": "Показывать OSD при переключении режима \"Не беспокоить\"",
           "label": "Не беспокоить"
         },
+        "osd-kinds-keyboard-backlight": {
+          "description": "Показывать окно OSD при изменении уровня подсветки клавиатуры",
+          "label": "Подсветка клавиатуры"
+        },
         "osd-kinds-keyboard-layout": {
           "description": "Показывать OSD при изменении раскладки клавиатуры",
           "label": "Раскладка клавиатуры"
@@ -2490,9 +3108,11 @@
           "label": "Lock-клавиши"
         },
         "osd-kinds-media": {
+          "description": "Показывать окно OSD при начале воспроизведения нового трека",
           "label": "Сейчас играет"
         },
         "osd-kinds-nightlight": {
+          "description": "Показывать окно OSD при переключении ночного режима",
           "label": "Ночной свет"
         },
         "osd-kinds-power-profile": {
@@ -2500,6 +3120,7 @@
           "label": "Профиль питания"
         },
         "osd-kinds-privacy": {
+          "description": "Показывать окно OSD при начале или остановке захвата микрофона, камеры или экрана",
           "label": "Конфиденциальность"
         },
         "osd-kinds-volume": {
@@ -2536,7 +3157,11 @@
         },
         "osd-position": {
           "description": "Положение OSD на экране",
-          "label": "Положение экрана"
+          "label": "Положение на экране"
+        },
+        "osd-position-vertical": {
+          "description": "Положение на экране при вертикальной ориентации ползунка",
+          "label": "Вертикальное выравнивание"
         },
         "osd-scale": {
           "description": "Масштаб OSD относительно масштаба интерфейса оболочки (1.0 сохраняет размер по умолчанию)",
@@ -2550,15 +3175,41 @@
           "description": "Включить встроенный агент аутентификации",
           "label": "Агент Polkit"
         },
+        "privacy-cam-filter-regex": {
+          "description": "Регулярное выражение для приложений камеры, которые нужно игнорировать в индикаторах конфиденциальности и OSD",
+          "label": "Регулярное выражение фильтра камеры"
+        },
+        "privacy-mic-filter-regex": {
+          "description": "Регулярное выражение для приложений микрофона, которые нужно игнорировать в индикаторах конфиденциальности и OSD",
+          "label": "Регулярное выражение фильтра микрофона"
+        },
+        "privacy-screen-filter-regex": {
+          "description": "Регулярное выражение для приложений демонстрации экрана, которые нужно игнорировать в индикаторах конфиденциальности и OSD",
+          "label": "Регулярное выражение фильтра демонстрации экрана"
+        },
         "screen-time-enabled": {
           "description": "Отслеживать использование по приложениям и показывать его в Центре управления",
           "label": "Экранное время"
         },
         "screen-time-reset": {
           "button": "Сброс",
+          "description": "Очистить сохранённую историю активного использования по приложениям",
           "label": "Сбросить данные об экранном времени"
         },
+        "screenshot-annotate": {
+          "description": "Открывать редактор аннотаций для каждого снимка экрана; «Готово» применяет настройки сохранения, буфера обмена и передачи команде",
+          "label": "Аннотировать перед отправкой"
+        },
+        "screenshot-close-on-copy": {
+          "description": "Закрывать редактор после успешного копирования, включая случаи, когда он был открыт напрямую",
+          "label": "Закрывать редактор после копирования"
+        },
+        "screenshot-close-on-save": {
+          "description": "Закрывать редактор после успешного сохранения, включая случаи, когда он был открыт напрямую",
+          "label": "Закрывать редактор после сохранения"
+        },
         "screenshot-confirm-region": {
+          "description": "После выделения области не закрывать оверлей, пока вы не подтвердите выбор клавишей Enter или Space",
           "label": "Подтвердить регион"
         },
         "screenshot-copy-to-clipboard": {
@@ -2566,9 +3217,9 @@
           "label": "Копировать в буфер обмена"
         },
         "screenshot-directory": {
-          "description": "Папка для сохранённых PNG-файлов; оставьте пустым, чтобы использовать ~/Pictures",
+          "description": "Папка для сохранённых PNG-файлов; оставьте пустым, чтобы использовать стандартный каталог (XDG)",
           "label": "Папка сохранения",
-          "placeholder": "~/Pictures"
+          "placeholder": "Каталог с изображениями (XDG)"
         },
         "screenshot-filename-pattern": {
           "description": "Шаблон strftime без расширения (.png добавляется автоматически); используйте %s для Unix epoch",
@@ -2576,7 +3227,10 @@
         },
         "screenshot-freeze-screen": {
           "description": "Сделать снимок рабочего стола перед выбором области, чтобы движущийся контент оставался неподвижным",
-          "label": "Стоп-экран"
+          "label": "Заморозить экран"
+        },
+        "screenshot-output": {
+          "description": "Действия после захвата экрана или сохранения правок в редакторе."
         },
         "screenshot-pipe-command": {
           "description": "Команда запускается как /bin/sh -lc с PNG на stdin; для аннотаторов или загрузчиков (например: swappy -f - или satty -f -)",
@@ -2587,17 +3241,37 @@
           "description": "Отправлять захваченный PNG shell-команде через stdin",
           "label": "Передать команде"
         },
+        "screenshot-remember-last-region": {
+          "description": "Предварительно выделять последнюю область (в том числе после отмены) при следующем снимке области",
+          "label": "Запоминать последнюю область"
+        },
         "screenshot-save-to-file": {
           "description": "Сохранять снимки экрана как PNG-файлы в папку сохранения",
           "label": "Сохранить в файл"
+        },
+        "screenshot-show-cursor": {
+          "description": "Отображать курсор мыши на снимках экрана",
+          "label": "Показать курсор"
+        },
+        "screenshot-skip-annotate-on-copy-save": {
+          "description": "«Копировать» и «Сохранить» в оверлее области сразу выдают результат; Enter и Space по-прежнему открывают редактор",
+          "label": "Пропускать редактор при копировании или сохранении"
+        },
+        "settings-expand-all-groups": {
+          "description": "Раскрывать все группы настроек, а не только первую на каждой странице",
+          "label": "Раскрывать все группы настроек"
+        },
+        "settings-window-translucent": {
+          "description": "Полупрозрачный фон Настроек (для эффектов размытия)",
+          "label": "Полупрозрачный фон Настроек"
         },
         "show-location": {
           "description": "Показывать название местоположения в виджетах погоды",
           "label": "Показать местоположение"
         },
         "sync-greeter": {
-          "button": "Синхронизировать Cейчас",
-          "description": "Скопировать текущие обои и цвета в Noctalia Greeter (требуется одобрение администратора)",
+          "button": "Синхронизировать сейчас",
+          "description": "Скопировать текущий внешний вид и расположение мониторов в Noctalia Greeter. Потребуется подтверждение администратора, если только системная политика не разрешает беспарольную синхронизацию для вашего пользователя.",
           "label": "Noctalia Greeter"
         },
         "telemetry": {
@@ -2607,15 +3281,47 @@
         "time-format": {
           "description": "Формат времени по умолчанию для интерфейса оболочки, если нет отдельной настройки",
           "label": "Формат времени"
+        },
+        "umbriel-overview-type-to-launch": {
+          "description": "Открывать лаунчер при вводе текста в обзоре Umbriel; когда обзор открыт, используется небольшая поверхность для фокуса клавиатуры",
+          "label": "Введите для запуска"
+        },
+        "window-switcher-current-workspace-only": {
+          "description": "Показывать только окна активного рабочего пространства; выключите, чтобы показывать окна со всех рабочих пространств",
+          "label": "Только текущее рабочее пространство"
+        },
+        "window-switcher-mru": {
+          "description": "Упорядочивать окна в переключателе по последнему использованию, а не по рабочим пространствам и расположению на экране",
+          "label": "Порядок по последнему использованию"
+        },
+        "window-switcher-show-all-outputs": {
+          "description": "Показывать окна со всех мониторов; выключите, чтобы показывать только окна монитора, на котором открыт переключатель",
+          "label": "Показывать все мониторы"
+        },
+        "window-switcher-show-app-icon": {
+          "description": "Показывать значок приложения поверх предпросмотра его окна",
+          "label": "Показывать значок приложения"
+        },
+        "window-switcher-show-caption": {
+          "description": "Показывать заголовки окон и названия приложений под их предпросмотрами",
+          "label": "Показывать подпись"
+        },
+        "window-switcher-show-count": {
+          "description": "Показывать текущую позицию и общее число окон над предпросмотрами",
+          "label": "Показывать число окон"
+        },
+        "window-switcher-style": {
+          "description": "Выберите свободную карусель с глубиной или компактную полосу в рамке",
+          "label": "Стиль переключателя"
         }
       },
       "system": {
         "battery-device-warning-threshold": {
-          "description": "Переопределить порог предупреждения о заряде батареи для этого устройства. Укажите 0, чтобы отключить предупреждения для этого устройства.",
+          "description": "Переопределить порог предупреждения о заряде батареи для этого устройства (0 - отключает предупреждения для этого устройства)",
           "label": "{device}: порог предупреждения"
         },
         "battery-warning-threshold": {
-          "description": "Процент заряда батареи, при котором оболочка отправляет уведомление о низком заряде, а виджеты батареи используют цвет предупреждения. Укажите 0, чтобы отключить.",
+          "description": "Процент заряда батареи, при котором оболочка отправляет уведомление о низком заряде, а виджеты батареи используют цвет предупреждения (0 - для отключения)",
           "label": "Порог предупреждения о батарее"
         }
       },
@@ -2630,6 +3336,7 @@
           "empty": "Шаблоны сообщества пока недоступны. Включите шаблоны сообщества и сначала обновите каталог.",
           "label": "Шаблоны сообщества"
         },
+        "dynamic-output": "Путь вывода определяется при применении шаблона",
         "enable-builtins": {
           "description": "Использовать встроенный каталог шаблонов тем для приложений",
           "label": "Включить встроенные шаблоны"
@@ -2657,7 +3364,7 @@
           "label": "Включить подпапки"
         },
         "directory": {
-          "description": "Папка с обоями",
+          "description": "Папка с обоями; оставьте пустым, чтобы использовать стандартный путь (XDG)",
           "label": "Каталог обоев"
         },
         "directory-dark": {
@@ -2725,6 +3432,7 @@
       "command-label": "Команда оболочки",
       "command-placeholder": "Необязательная команда bash, оставьте пустым для встроенного поведения",
       "command-required-placeholder": "Выполняемая терминальная команда",
+      "countdown-seconds-description": "Задержка перед запуском в секундах. Повторная активация выполнит действие немедленно. При \"0\" запуск происходит без задержки.",
       "countdown-seconds-label": "Обратный отсчёт (секунды)",
       "glyph-label": "Глиф",
       "glyph-picker-title": "Глиф действия",
@@ -2735,15 +3443,509 @@
       "variant": {
         "default": "По умолчанию",
         "destructive": "Опасная",
-        "ghost": "Прозрачная",
+        "ghost": "Ghost",
         "outline": "Контур",
         "primary": "Основная",
         "secondary": "Вторичная"
       },
       "variant-label": "Стиль кнопки"
     },
+    "storage-recovery": {
+      "button": "Сброс хранилища",
+      "button-confirm": "Подтвердить сброс хранилища",
+      "description": "Безвозвратно удалить сохранённую историю буфера обмена и кэш событий календаря, после чего заново открыть личное хранилище (настроенный файл ключа никогда не изменяется)",
+      "error-delete": "Некоторые файлы личного хранилища не удалось удалить. Ключ хранилища сохранён.",
+      "error-key": "Файлы личного хранилища удалены, но защищённое хранилище не удалось открыть заново. Восстановите доступ и повторите попытку.",
+      "label": "Восстановить хранилище",
+      "success": "Сброс хранилища выполнен успешно."
+    },
+    "templates": {
+      "store": {
+        "browse": "Обзор шаблонов",
+        "categories": "Категории",
+        "category-all": "Все",
+        "empty": "Нет шаблонов, соответствующих заданным фильтрам",
+        "enabled-count": "{count} активно",
+        "filter-all": "Все",
+        "filter-enabled": "Активные",
+        "results-count": "{count} шаблонов",
+        "search-placeholder": "Поиск шаблонов…",
+        "sort-category-asc": "Сортировать по категории (А-Я)",
+        "sort-category-desc": "Сортировать по категории (Я-А)",
+        "sort-name-asc": "Сортировать по имени (А-Я)",
+        "sort-name-desc": "Сортировать по имени (Я-А)",
+        "title": "Шаблоны сообщества"
+      }
+    },
     "widgets": {
+      "actions": {
+        "command-placeholder": "Shell-команда",
+        "commands": {
+          "annotate": {
+            "description": "Рисовать на экране поверх запущенных приложений; нажмите F или кнопку «Заморозить», чтобы захватить фон",
+            "label": "Аннотировать экран"
+          },
+          "bar-auto-hide-set": {
+            "description": "Установить состояние автоскрытия для панели",
+            "label": "Установить автоскрытие панели"
+          },
+          "bar-hide": {
+            "description": "Скрыть одну или все панели и освободить занимаемые ими отступы",
+            "label": "Скрыть панель"
+          },
+          "bar-layer-set": {
+            "description": "Установить слой для одной или всех панелей",
+            "label": "Установить слой панели"
+          },
+          "bar-reserve-toggle": {
+            "description": "Переключить резервирование места для одной или всех панелей",
+            "label": "Переключить резервирование места панели"
+          },
+          "bar-show": {
+            "description": "Показать одну или все панели",
+            "label": "Показать панель"
+          },
+          "bar-toggle": {
+            "description": "Переключить видимость одной или всех панелей",
+            "label": "Переключить панель"
+          },
+          "bluetooth-disable": {
+            "description": "Отключение Bluetooth",
+            "label": "Отключить Bluetooth"
+          },
+          "bluetooth-enable": {
+            "description": "Включение Bluetooth",
+            "label": "Включить Bluetooth"
+          },
+          "bluetooth-status": {
+            "description": "Отображение состояния Bluetooth",
+            "label": "Статус Bluetooth"
+          },
+          "bluetooth-toggle": {
+            "description": "Переключение состояния Bluetooth",
+            "label": "Переключить Bluetooth"
+          },
+          "brightness-down": {
+            "description": "Уменьшить яркость (по умолчанию на текущем мониторе)",
+            "label": "Уменьшить яркость"
+          },
+          "brightness-list-backlight-devices": {
+            "description": "Вывести список доступных устройств подсветки в sysfs",
+            "label": "Список устройств"
+          },
+          "brightness-osd": {
+            "description": "Показать OSD яркости без изменения её уровня",
+            "label": "Показать OSD яркости"
+          },
+          "brightness-set": {
+            "description": "Установить яркость (по умолчанию для текущего монитора)",
+            "label": "Установить яркость"
+          },
+          "brightness-up": {
+            "description": "Увеличить яркость (по умолчанию на текущем мониторе)",
+            "label": "Увеличить яркость"
+          },
+          "caffeine-disable": {
+            "description": "Отключить Caffeine (ингибитор простоя)",
+            "label": "Отключить Caffeine"
+          },
+          "caffeine-enable": {
+            "description": "Включить Caffeine (ингибитор простоя)",
+            "label": "Включить Caffeine"
+          },
+          "caffeine-toggle": {
+            "description": "Переключить Caffeine (ингибитор простоя)",
+            "label": "Переключить Caffeine"
+          },
+          "clipboard-clear": {
+            "description": "Очистка истории буфера обмена",
+            "label": "Очистить историю буфера обмена"
+          },
+          "clipboard-copy": {
+            "description": "Копировать текст в буфер обмена",
+            "label": "Копировать в буфер обмена"
+          },
+          "clipboard-text": {
+            "description": "Вывести последний текст из буфера обмена (пусто, если в выделении нет текста)",
+            "label": "Вывести текст буфера обмена"
+          },
+          "color-scheme-get": {
+            "description": "Вывести активную цветовую схему: <источник> <название> (источник: builtin, wallpaper, community или custom)",
+            "label": "Получить цветовую схему"
+          },
+          "color-scheme-set": {
+            "description": "Установить источник и выбор палитры в settings.toml (имя встроенной схемы, схема генератора обоев, ID схемы сообщества или имя папки пользовательской схемы)",
+            "label": "Установить цветовую схему"
+          },
+          "config-reload": {
+            "description": "Перезагрузка конфигурационного файла",
+            "label": "Перезагрузить конфигурацию"
+          },
+          "desktop-widgets-edit": {
+            "description": "Открыть редактор виджетов экрана",
+            "label": "Редактировать виджеты экрана"
+          },
+          "desktop-widgets-exit": {
+            "description": "Закрыть редактор виджетов экрана",
+            "label": "Выйти из редактора виджетов экрана"
+          },
+          "desktop-widgets-hide": {
+            "description": "Скрыть виджеты рабочего стола (только для текущей сессии; сохранённые настройки не изменяются)",
+            "label": "Скрыть виджеты экрана"
+          },
+          "desktop-widgets-show": {
+            "description": "Показать виджеты рабочего стола (только для текущей сессии; сохранённые настройки не изменяются)",
+            "label": "Показать виджеты экрана"
+          },
+          "desktop-widgets-toggle": {
+            "description": "Переключить видимость виджетов рабочего стола (только до перезапуска; не изменяет сохранённую настройку)",
+            "label": "Переключить виджеты рабочего стола"
+          },
+          "desktop-widgets-toggle-edit": {
+            "description": "Переключить режим редактирования виджетов рабочего стола",
+            "label": "Переключить редактор виджетов рабочего стола"
+          },
+          "dock-hide": {
+            "description": "Скрыть док (переопределение сохраняется)",
+            "label": "Скрыть док"
+          },
+          "dock-reload": {
+            "description": "Перезагрузка конфигурации дока",
+            "label": "Перезагрузить док"
+          },
+          "dock-show": {
+            "description": "Показать док (переопределение сохраняется)",
+            "label": "Показать док"
+          },
+          "dock-toggle": {
+            "description": "Переключить видимость дока (переопределение сохраняется)",
+            "label": "Переключить док"
+          },
+          "dpms-off": {
+            "description": "Отключает мониторы",
+            "label": "Отключить мониторы"
+          },
+          "dpms-on": {
+            "description": "Включить мониторы",
+            "label": "Включить мониторы"
+          },
+          "effects-profile-set": {
+            "description": "Установить профиль вывода или ввода EasyEffects",
+            "label": "Установить профиль EasyEffects"
+          },
+          "greeter-sync": {
+            "description": "Синхронизировать обои, цвета и расположение мониторов с Noctalia Greeter",
+            "label": "Синхронизировать внешний вид Greeter"
+          },
+          "keyboard-backlight-down": {
+            "description": "Уменьшить подсветку всех клавиатур на один уровень",
+            "label": "Уменьшить подсветку клавиатуры"
+          },
+          "keyboard-backlight-osd": {
+            "description": "Показать OSD подсветки клавиатуры без изменения яркости",
+            "label": "Показать OSD подсветки клавиатуры"
+          },
+          "keyboard-backlight-set": {
+            "description": "Установить подсветку всех клавиатур (0–100 процентов)",
+            "label": "Установить подсветку клавиатуры"
+          },
+          "keyboard-backlight-toggle": {
+            "description": "Включить или выключить подсветку всех клавиатур",
+            "label": "Переключить подсветку клавиатуры"
+          },
+          "keyboard-backlight-up": {
+            "description": "Увеличить подсветку всех клавиатур на один уровень",
+            "label": "Увеличить подсветку клавиатуры"
+          },
+          "keyboard-layout-cycle": {
+            "description": "Переключиться на следующую раскладку клавиатуры",
+            "label": "Переключить раскладку клавиатуры"
+          },
+          "lockscreen-widgets-edit": {
+            "description": "Открыть редактор виджетов экрана блокировки",
+            "label": "Редактировать виджеты экрана блокировки"
+          },
+          "lockscreen-widgets-exit": {
+            "description": "Закрыть редактор виджетов экрана блокировки",
+            "label": "Выйти из редактора виджетов экрана блокировки"
+          },
+          "lockscreen-widgets-toggle-edit": {
+            "description": "Переключить режим редактирования виджетов экрана блокировки",
+            "label": "Переключить редактор виджетов экрана блокировки"
+          },
+          "log-level-set": {
+            "description": "Установить уровень журналирования консоли",
+            "label": "Установить уровень журнала"
+          },
+          "log-level-status": {
+            "description": "Вывести текущий уровень журналирования консоли",
+            "label": "Вывести уровень журнала"
+          },
+          "media": {
+            "description": "Управление активным воспроизведением медиа",
+            "label": "Управление медиа"
+          },
+          "mic-mute": {
+            "description": "Переключить заглушение микрофона",
+            "label": "Переключить заглушение микрофона"
+          },
+          "mic-volume-down": {
+            "description": "Уменьшить громкость микрофона",
+            "label": "Уменьшить громкость микрофона"
+          },
+          "mic-volume-osd": {
+            "description": "Показать OSD громкости микрофона без изменения громкости (по умолчанию — текущая громкость)",
+            "label": "Показать OSD микрофона"
+          },
+          "mic-volume-set": {
+            "description": "Установить громкость микрофона",
+            "label": "Установить громкость микрофона"
+          },
+          "mic-volume-up": {
+            "description": "Увеличить громкость микрофона",
+            "label": "Увеличить громкость микрофона"
+          },
+          "network-toggle": {
+            "description": "Отключить активную сеть или переподключиться, если ничего не подключено",
+            "label": "Переключить сетевое подключение"
+          },
+          "nightlight-disable": {
+            "description": "Отключить расписание ночного света",
+            "label": "Отключить ночной свет"
+          },
+          "nightlight-enable": {
+            "description": "Включить расписание ночного света",
+            "label": "Включить ночной свет"
+          },
+          "nightlight-force-toggle": {
+            "description": "Переключить принудительный режим ночного света",
+            "label": "Переключить принудительный ночной свет"
+          },
+          "nightlight-toggle": {
+            "description": "Переключить расписание ночного света",
+            "label": "Переключить ночной свет"
+          },
+          "notification-clear-active": {
+            "description": "Закрыть все текущие активные уведомления",
+            "label": "Закрыть активные уведомления"
+          },
+          "notification-clear-history": {
+            "description": "Очистить историю уведомлений",
+            "label": "Очистить историю уведомлений"
+          },
+          "notification-dnd-set": {
+            "description": "Установить состояние режима «Не беспокоить»",
+            "label": "Установить «Не беспокоить»"
+          },
+          "notification-dnd-status": {
+            "description": "Вывести состояние режима «Не беспокоить»",
+            "label": "Статус «Не беспокоить»"
+          },
+          "notification-dnd-toggle": {
+            "description": "Переключить режим «Не беспокоить»",
+            "label": "Переключить «Не беспокоить»"
+          },
+          "notification-invoke-latest": {
+            "description": "Выполнить действие по умолчанию для последнего активного уведомления",
+            "label": "Выполнить действие последнего уведомления"
+          },
+          "notification-show": {
+            "description": "Показать внутреннее уведомление Noctalia",
+            "label": "Показать уведомление"
+          },
+          "osd-disable": {
+            "description": "Отключить всплывающие окна OSD",
+            "label": "Отключить OSD"
+          },
+          "osd-enable": {
+            "description": "Включить всплывающие окна OSD",
+            "label": "Включить OSD"
+          },
+          "osd-toggle": {
+            "description": "Переключить всплывающие окна OSD",
+            "label": "Переключить OSD"
+          },
+          "panel-close": {
+            "description": "Закрыть активную панель или указанную панель, если она активна",
+            "label": "Закрыть панель"
+          },
+          "panel-open": {
+            "description": "Открыть панель по ID, при желании с контекстом (например, launcher /emo, control-center audio)",
+            "label": "Открыть панель"
+          },
+          "panel-toggle": {
+            "description": "Переключить панель по ID, при желании с контекстом (например, launcher /emo, control-center audio)",
+            "label": "Переключить панель"
+          },
+          "plugin": {
+            "description": "Отправить событие записи плагина",
+            "label": "Отправить событие плагину"
+          },
+          "plugins": {
+            "description": "Управление плагинами и источниками (список/включение/отключение/обновление; источники: список/добавить/удалить)",
+            "label": "Управление плагинами"
+          },
+          "power-cycle": {
+            "description": "Перебирать упорядоченный список профилей UPower, по умолчанию вперёд (циклически)",
+            "label": "Переключить профиль питания"
+          },
+          "power-set": {
+            "description": "Установить профиль питания UPower (например, performance, balanced, power-saver)",
+            "label": "Установить профиль питания"
+          },
+          "screenshot-annotate": {
+            "description": "Заморозить экран и аннотировать его, затем скопировать или сохранить",
+            "label": "Аннотировать снимок экрана"
+          },
+          "screenshot-fullscreen": {
+            "description": "По умолчанию захватывает монитор в фокусе; pick — интерактивный выбор монитора, all — все мониторы",
+            "label": "Снимок всего экрана"
+          },
+          "screenshot-region": {
+            "description": "Начать интерактивный снимок области",
+            "label": "Снимок области"
+          },
+          "session": {
+            "description": "Выполнить встроенное действие сеанса",
+            "label": "Действие сеанса"
+          },
+          "settings-close": {
+            "description": "Закрыть окно настроек",
+            "label": "Закрыть настройки"
+          },
+          "settings-open": {
+            "description": "Открыть окно настроек или перевести на него фокус, если оно уже открыто; при желании — на определённом разделе",
+            "label": "Открыть настройки"
+          },
+          "settings-open-plugin": {
+            "description": "Открыть окно настроек на настройках плагина (например, noctalia/notes)",
+            "label": "Открыть настройки плагина"
+          },
+          "settings-open-widget": {
+            "description": "Открыть окно настроек на виджете панели; при вызове из жеста виджета открывает настройки этого виджета",
+            "label": "Открыть настройки виджета"
+          },
+          "settings-toggle": {
+            "description": "Переключить окно настроек, при желании — на определённом разделе",
+            "label": "Переключить настройки"
+          },
+          "status": {
+            "description": "Вывести текущее состояние в формате JSON",
+            "label": "Вывести статус"
+          },
+          "taskbar-cycle": {
+            "description": "Перейти к соседней задаче или группе рабочего пространства в вызывающей панели задач",
+            "label": "Переключить панель задач"
+          },
+          "templates-apply": {
+            "description": "Применить настроенные шаблоны тем для текущей палитры",
+            "label": "Применить шаблоны тем"
+          },
+          "theme-mode-get": {
+            "description": "Вывести текущий применяемый режим темы",
+            "label": "Получить режим темы"
+          },
+          "theme-mode-set": {
+            "description": "Установить режим темы с сохранением в settings.toml",
+            "label": "Установить режим темы"
+          },
+          "theme-mode-toggle": {
+            "description": "Переключать режим темы между тёмным и светлым",
+            "label": "Переключить режим темы"
+          },
+          "volume-down": {
+            "description": "Уменьшить громкость динамиков",
+            "label": "Уменьшить громкость"
+          },
+          "volume-mute": {
+            "description": "Переключить заглушение динамиков",
+            "label": "Переключить заглушение"
+          },
+          "volume-osd": {
+            "description": "Показать OSD громкости без изменения громкости (по умолчанию — текущая громкость)",
+            "label": "Показать OSD громкости"
+          },
+          "volume-set": {
+            "description": "Установить громкость динамиков",
+            "label": "Установить громкость"
+          },
+          "volume-up": {
+            "description": "Увеличить громкость динамиков",
+            "label": "Увеличить громкость"
+          },
+          "wallpaper-get": {
+            "description": "Вывести путь к обоям по умолчанию или фактический путь для монитора",
+            "label": "Получить обои"
+          },
+          "wallpaper-next": {
+            "description": "Немедленно переключиться на следующие обои",
+            "label": "Следующие обои"
+          },
+          "wallpaper-previous": {
+            "description": "Немедленно переключиться на предыдущие обои",
+            "label": "Предыдущие обои"
+          },
+          "wallpaper-random": {
+            "description": "Немедленно переключиться на случайные обои",
+            "label": "Случайные обои"
+          },
+          "wallpaper-set": {
+            "description": "Установить обои для всех или конкретного монитора (сохраняется)",
+            "label": "Установить обои"
+          },
+          "wifi-disable": {
+            "description": "Отключить Wi-Fi",
+            "label": "Отключить Wi-Fi"
+          },
+          "wifi-enable": {
+            "description": "Включить Wi-Fi",
+            "label": "Включить Wi-Fi"
+          },
+          "wifi-status": {
+            "description": "Вывести состояние Wi-Fi",
+            "label": "Статус Wi-Fi"
+          },
+          "wifi-toggle": {
+            "description": "Переключить Wi-Fi",
+            "label": "Переключить Wi-Fi"
+          },
+          "window-switcher": {
+            "description": "Открыть или закрыть оверлей переключения окон",
+            "label": "Переключение окон"
+          },
+          "workspace-alert-add": {
+            "description": "Добавить оповещение рабочего пространства (по номеру, имени или ID)",
+            "label": "Добавить оповещение рабочего пространства"
+          },
+          "workspace-alert-add-window": {
+            "description": "Добавить оповещение рабочего пространства для окна",
+            "label": "Добавить оповещение для окна"
+          },
+          "workspace-alert-clear": {
+            "description": "Снять оповещение рабочего пространства",
+            "label": "Снять оповещение рабочего пространства"
+          },
+          "workspace-alert-clear-all": {
+            "description": "Снять все оповещения рабочих пространств",
+            "label": "Снять все оповещения рабочих пространств"
+          },
+          "workspace-alert-status": {
+            "description": "Вывести оповещения рабочих пространств",
+            "label": "Статус оповещений рабочих пространств"
+          },
+          "workspace-switch": {
+            "description": "Переключиться на соседнее рабочее пространство на целевом мониторе (останавливается на краях)",
+            "label": "Переключить рабочее пространство"
+          }
+        },
+        "default": "По умолчанию",
+        "disabled": "Отключено",
+        "run-command": "Выполнить команду…",
+        "unset": "Не задано"
+      },
       "gestures": {
+        "back": "Кнопка «Назад»",
+        "forward": "Кнопка «Вперёд»",
         "left": "Левый клик",
         "middle": "Средний клик",
         "right": "Правый клик",
@@ -2762,50 +3964,99 @@
         "ram": "RAM",
         "temp": "Температура"
       },
+      "map-placeholders": {
+        "effects-profile-name": "Имя профиля",
+        "glyph-name": "Имя глифа",
+        "key": "Ключ",
+        "label": "Метка",
+        "layout-name": "Имя раскладки",
+        "value": "Значение"
+      },
       "options": {
+        "after": "После",
         "always": "Всегда",
+        "auto": "Авто",
+        "before": "До",
+        "both": "Оба",
+        "compact": "Компактный",
+        "count": "Счётчик",
+        "cpu-freq": "Частота ЦП",
         "cpu-temp": "Температура ЦП",
         "cpu-usage": "Загрузка ЦП",
+        "disk-free": "Доступно на диске",
+        "disk-free-percent": "Доступно на диске %",
+        "disk-used": "Занято на диске",
+        "disk-used-percent": "Занято на диске %",
+        "dots": "Точки",
+        "focus-hint": "Активный",
         "full": "Полный",
-        "gauge": "Индикатор",
+        "gauge": "Gauge",
         "glyph": "Глиф",
         "gpu-temp": "Температура GPU",
         "gpu-usage": "Загрузка GPU",
         "gpu-vram": "GPU VRAM",
+        "gpu-vram-used": "Использовано VRAM",
         "graph": "График",
-        "graphic": "Индикатор",
+        "graphic": "Графический",
+        "hidden": "Скрыто",
         "icon-and-text": "Значок и текст",
         "icon-only": "Только значок",
+        "icons": "Иконки",
         "id": "ID",
         "input": "Вход",
         "instance": "Для размещения",
+        "kilobytes": "кБ/с",
+        "megabytes": "МБ/с",
+        "minimal": "Минимальный",
         "name": "Имя",
         "net-rx": "Сеть RX",
         "net-tx": "Сеть TX",
         "none": "Нет",
         "on-hover": "При наведении",
         "output": "Выход",
-        "ram-percent": "Процент RAM",
+        "percent": "Процент",
+        "ram-percent": "ОЗУ %",
         "ram-used": "Использовано RAM",
+        "rate": "Потребление энергии",
+        "regular": "Обычный",
+        "replace": "Заменить",
+        "scroll-gesture": "Один на жест",
+        "scroll-steps": "Каждый шаг",
         "shared": "Общий",
         "short": "Короткий",
-        "swap-percent": "Процент свопа",
+        "swap-percent": "Swap %",
         "text": "Текст",
         "text-only": "Только текст",
+        "time": "Время",
         "workspace-label-centered": "По центру",
         "workspace-label-corner": "В углу",
         "workspace-label-inside": "Внутри плашки"
       },
       "settings": {
+        "actions": {
+          "description": "Что делает каждый жест мыши на этом виджете; выберите команду, укажите shell-команду или отключите действие",
+          "label": "Действия жестов"
+        },
         "active-color": {
+          "description": "Цвет активных индикаторов конфиденциальности; также поддерживаются фиксированные HEX-цвета",
           "label": "Цвет в активности"
         },
+        "active-indicator-color": {
+          "description": "Цвет индикатора под значком активного окна",
+          "label": "Цвет индикатора активного окна"
+        },
         "active-opacity": {
-          "description": "Непрозрачность значка активного (сфокусированного) окна.",
+          "description": "Непрозрачность значка активного окна (в фокусе)",
           "label": "Непрозрачность активного значка"
         },
+        "active-pill-size": {
+          "description": "Минимальная длина плашки активного рабочего пространства вдоль панели, кратная толщине плашки",
+          "label": "Размер активной плашки",
+          "workspaces-description": "Минимальная длина плашки активного рабочего пространства вдоль панели, кратная толщине плашки; метки могут выходить за этот предел"
+        },
         "album-art-only": {
-          "description": "Показывать только круглую обложку альбома без названия трека"
+          "description": "Показывать только круглую обложку альбома без названия трека",
+          "label": "Только обложка альбома"
         },
         "anchor": {
           "description": "Закрепить этот виджет как якорь выравнивания по центру",
@@ -2815,9 +4066,17 @@
           "description": "Размер медиа-изображения в пикселях",
           "label": "Размер обложки"
         },
+        "artist-first": {
+          "description": "Показывать исполнителя перед названием трека (Исполнитель - Название)",
+          "label": "Сначала исполнитель"
+        },
         "bands": {
           "description": "Количество полос визуализатора",
           "label": "Полосы"
+        },
+        "cam-filter-regex": {
+          "description": "Регулярное выражение для игнорируемых имён процессов камеры",
+          "label": "Регулярное выражение фильтра камеры"
         },
         "capsule": {
           "description": "Рисовать капсулу за этим виджетом",
@@ -2853,8 +4112,12 @@
           "description": "Центрировать полосы визуализатора, а не выравнивать их по краю",
           "label": "Центрировано"
         },
+        "change-color-on-hover": {
+          "description": "Менять цвет заливки и метки рабочего пространства при наведении на него указателя",
+          "label": "Менять цвет при наведении"
+        },
         "color": {
-          "description": "Цвет переднего плана виджета; также поддерживаются фиксированные HEX-цвета",
+          "description": "Цвет значка и текста виджета; также поддерживаются фиксированные HEX-цвета",
           "label": "Цвет"
         },
         "color-1": {
@@ -2866,16 +4129,20 @@
           "label": "Цвет №2"
         },
         "custom-image": {
-          "description": "Путь к пользовательскому изображению. Оставьте пустым, чтобы использовать глиф значка.",
+          "description": "Путь к пользовательскому изображению; оставьте пустым, чтобы использовать глиф значка",
           "dialog-title": "Выберите собственное изображение",
           "label": "Пользовательское изображение"
         },
         "custom-image-colorize": {
-          "description": "Тонировать пользовательское изображение цветом виджета",
+          "description": "Тонировать пользовательское изображение цветом из настроек виджета",
           "label": "Раскрасить собственное изображение"
         },
+        "custom-label": {
+          "description": "Пользовательский текст рядом с глифом или пользовательским изображением; остаётся видимым, даже если «Показать глиф» отключено",
+          "label": "Пользовательская метка"
+        },
         "detached-panel": {
-          "description": "Открывать список приложений как плавающую панель с собственным фоном вместо присоединения к панели",
+          "description": "Открывать как плавающую панель с собственным фоном вместо присоединения к панели",
           "label": "Открепить панель"
         },
         "device": {
@@ -2883,12 +4150,12 @@
           "label": "Устройство"
         },
         "display": {
-          "active-window-description": "Значок, заголовок или оба варианта на горизонтальных панелях. Вертикальные панели остаются только со значками.",
+          "active-window-description": "Значок, заголовок или оба варианта на горизонтальных панелях; вертикальные панели остаются только со значками",
           "description": "Режим отображения этого виджета",
           "label": "Отображение"
         },
         "display-mode": {
-          "description": "Отображать батарею как графическую форму или глиф Tabler",
+          "description": "Отображать батарею как графическую форму, глиф Tabler или только текст",
           "label": "Режим отображения"
         },
         "drawer": {
@@ -2899,17 +4166,39 @@
           "description": "Количество значков трея в строке выдвижной панели",
           "label": "Столбцы выдвижной панели"
         },
+        "drawer-item-size": {
+          "description": "Размер значков трея внутри выдвижной панели в пикселях",
+          "label": "Размер значков выдвижной панели"
+        },
+        "effects-profile-glyphs": {
+          "description": "Сопоставление имён профилей EasyEffects с глифами значков",
+          "label": "Глифы профилей эффектов"
+        },
         "empty-color": {
           "description": "Цвет пустых рабочих пространств; также поддерживаются фиксированные HEX-цвета",
           "label": "Цвет пустых"
+        },
+        "enable-scroll": {
+          "description": "Разрешить прокрутку колесом мыши и на трекпаде для этого виджета",
+          "label": "Включить прокрутку"
         },
         "focused-color": {
           "description": "Цвет активного рабочего пространства; также поддерживаются фиксированные HEX-цвета",
           "label": "Цвет активного"
         },
+        "focused-output-only": {
+          "description": "Подсвечивать активное рабочее пространство только на мониторе в фокусе",
+          "label": "Подсвечивать только монитор в фокусе",
+          "taskbar-description": "Использовать цвет активного только для активного рабочего пространства на мониторе с фокусом клавиатуры или указателя; остальные мониторы используют цвет занятых",
+          "workspaces-description": "Подсвечивать активное рабочее пространство только на мониторе с фокусом клавиатуры или указателя; на остальных мониторах активное рабочее пространство показывается как занятое"
+        },
         "font-family": {
           "description": "Шрифт для этого виджета; оставьте пустым чтобы использовать шрифт панели",
           "label": "Семейство шрифтов"
+        },
+        "font-scale": {
+          "description": "Множитель масштаба текста в этом виджете, независимый от общего масштаба виджета",
+          "label": "Масштаб шрифта"
         },
         "font-weight": {
           "description": "По умолчанию наследует насыщенность шрифта панели",
@@ -2921,14 +4210,20 @@
         },
         "glyph": {
           "description": "Имя глифа значка",
-          "label": "Глиф"
+          "label": "Глиф",
+          "sysmon-description": "Пользовательский глиф значка; оставьте пустым, чтобы использовать значок выбранного показателя",
+          "volume-description": "Пользовательский глиф значка; оставьте пустым, чтобы использовать встроенные динамические значки"
+        },
+        "glyph-position": {
+          "description": "Расположение глифа или пользовательского изображения и метки относительно значения или визуализации",
+          "label": "Позиция глифа"
         },
         "group-by-workspace": {
           "description": "Группировать значки панели задач в капсулы рабочих пространств, когда доступны данные композитора",
           "label": "Группировать по рабочему пространству"
         },
         "group-single-icon-per-app": {
-          "description": "При группировке по рабочему пространству сворачивать несколько окон одного приложения в один значок со счётчиком.",
+          "description": "При группировке по рабочему пространству сворачивать несколько окон одного приложения в один значок со счётчиком",
           "label": "Один значок для каждого приложения"
         },
         "height": {
@@ -2936,15 +4231,32 @@
           "label": "Высота"
         },
         "hidden": {
-          "description": "Идентификаторы элементов трея, которые нужно скрыть",
+          "description": "ID элементов трея, которые нужно скрыть",
           "label": "Скрытые элементы"
+        },
+        "hide-album-art": {
+          "description": "Скрыть обложку альбома",
+          "label": "Скрыть обложку альбома"
+        },
+        "hide-artist": {
+          "description": "Скрыть имя исполнителя и показывать только название трека",
+          "label": "Скрыть исполнителя"
         },
         "hide-empty-workspaces": {
           "description": "При группировке по рабочему пространству исключать из списка панели задач капсулы без открытых окон.",
           "label": "Скрывать пустые рабочие пространства"
         },
         "hide-inactive": {
-          "label": "Скрыть, когда неактивности"
+          "description": "Скрывать неактивные значки конфиденциальности и весь виджет, когда ничего не активно",
+          "label": "Скрыть, когда неактивен"
+        },
+        "hide-passive": {
+          "description": "Скрывать элементы трея, у которых статус StatusNotifierItem равен Passive",
+          "label": "Скрывать пассивные элементы"
+        },
+        "hide-when-adapter-off": {
+          "description": "Скрывать виджет Bluetooth, когда адаптер выключен",
+          "label": "Скрывать при выключенном адаптере"
         },
         "hide-when-empty": {
           "description": "Скрывать плашки рабочих пространств, когда нет открытых окон",
@@ -2954,6 +4266,10 @@
         "hide-when-full": {
           "description": "Скрывать виджет батареи при полной зарядке",
           "label": "Скрывать при полной зарядке"
+        },
+        "hide-when-inactive": {
+          "description": "Скрывать виджет микрофона, пока ни одно приложение не захватывает звук",
+          "label": "Скрывать, когда неактивен"
         },
         "hide-when-no-connected-device": {
           "description": "Скрывать виджет Bluetooth, когда нет подключённых устройств",
@@ -2991,36 +4307,67 @@
           "description": "Переопределяет цвет только для иконок виджетов; также поддерживаются фиксированные HEX цвета",
           "label": "Цвет иконки"
         },
+        "icon-scale": {
+          "description": "Масштаб значков приложений панели задач относительно их размера по умолчанию",
+          "label": "Масштаб значков"
+        },
         "icon-size": {
           "description": "Размер значка в пикселях",
           "label": "Размер значка"
         },
+        "icon-spacing": {
+          "description": "Расстояние между значками индикаторов конфиденциальности в пикселях",
+          "label": "Расстояние между значками"
+        },
         "inactive-color": {
+          "description": "Цвет неактивных индикаторов конфиденциальности; также поддерживаются фиксированные HEX-цвета",
           "label": "Цвет вне активности"
         },
         "inactive-opacity": {
-          "description": "Непрозрачность значков неактивных окон (не в фокусе).",
+          "description": "Непрозрачность значков неактивных окон (не в фокусе)",
           "label": "Непрозрачность неактивного значка"
+        },
+        "inactive-pill-size": {
+          "description": "Минимальная длина плашки неактивного рабочего пространства вдоль панели, кратная толщине плашки",
+          "label": "Размер неактивной плашки",
+          "workspaces-description": "Минимальная длина плашки неактивного рабочего пространства вдоль панели, кратная толщине плашки; метки могут выходить за этот предел"
         },
         "interactive": {
           "description": "Разрешите наведение курсора, щелчки, прокрутку и всплывающие подсказки для этого виджета",
           "label": "Интерактивный"
         },
         "interface": {
+          "description": "Сетевой интерфейс для мониторинга; оставьте пустым, чтобы использовать суммарный трафик по всем интерфейсам",
           "label": "Интерфейс"
+        },
+        "item-spacing": {
+          "description": "Расстояние между элементами панели задач, когда группировка по рабочим пространствам отключена",
+          "label": "Расстояние между элементами"
         },
         "label": {
           "description": "Необязательный статический текст, отображаемый на этой кнопке",
           "label": "Метка"
         },
+        "label-content": {
+          "description": "Что показывает метка батареи: процент заряда, оставшееся время или потребление энергии",
+          "label": "Содержимое метки"
+        },
         "label-min-width": {
           "description": "Минимальная ширина метки в пикселях, чтобы избежать изменения размера",
           "label": "Минимальная ширина метки"
         },
+        "label-show-units": {
+          "description": "Показывать единицы измерения, такие как проценты / ГиБ / °C",
+          "label": "Показывать единицы измерения"
+        },
+        "label-source": {
+          "description": "Какую метку пространства показывать",
+          "label": "Источник метки"
+        },
         "labels-only-when-occupied": {
           "description": "Скрывать метки пустых неактивных рабочих пространств",
           "label": "Метки только для занятых",
-          "workspaces-description": "Показывать метки идентификатора или имени на рабочих пространствах с открытыми окнами и на активном рабочем пространстве, даже если оно пусто; остальные пустые рабочие пространства остаются без меток"
+          "workspaces-description": "Показывать идентификатор или метку на рабочих пространствах с открытыми окнами и на активном пространстве, даже если оно пустое; остальные пустые пространства остаются без меток"
         },
         "length": {
           "description": "Длина разделителя в пикселях",
@@ -3033,11 +4380,15 @@
         "max-label-chars": {
           "description": "Максимальное количество символов для имён рабочих пространств",
           "label": "Максимум символов в метке",
-          "workspaces-description": "Максимальное количество символов для меток имени рабочего пространства"
+          "workspaces-description": "Максимальное количество символов для меток рабочего пространства"
         },
         "max-length": {
           "description": "Максимальная длина виджета в пикселях",
           "label": "Максимальная длина"
+        },
+        "mic-filter-regex": {
+          "description": "Регулярное выражение для игнорируемых имён приложений микрофона",
+          "label": "Регулярное выражение фильтра микрофона"
         },
         "min-length": {
           "description": "Минимальная длина виджета в пикселях",
@@ -3045,11 +4396,28 @@
         },
         "minimal": {
           "description": "Показывать только идентификатор или имя рабочего пространства, без анимированных плашек",
-          "label": "Минимальный стиль"
+          "label": "Минимальный стиль",
+          "taskbar-description": "Только текстовые метки рабочих пространств, без цветных круглых фонов"
         },
         "mirrored": {
           "description": "Отражать визуализатор относительно центра",
           "label": "Зеркальный"
+        },
+        "mute-color": {
+          "description": "Цветовая роль значка и метки при заглушении; также поддерживаются фиксированные HEX-цвета",
+          "label": "Цвет заглушения"
+        },
+        "mute-glyph": {
+          "description": "Глиф значка при заглушении или нулевой громкости; оставьте пустым, чтобы использовать встроенный значок заглушения",
+          "label": "Глиф заглушения"
+        },
+        "network-speed-compact": {
+          "description": "Использовать короткие суффиксы единиц, например 1.2M вместо 1.2 МБ/с",
+          "label": "Компактная скорость сети"
+        },
+        "network-speed-unit": {
+          "description": "Единица измерения скорости приёма и передачи по сети; «Авто» переключается между Б/с, кБ/с, МБ/с и ГБ/с",
+          "label": "Единица скорости сети"
         },
         "occupied-color": {
           "description": "Цвет занятых рабочих пространств; также поддерживаются фиксированные HEX-цвета",
@@ -3069,28 +4437,46 @@
           "workspaces-description": "Настроить масштаб плашек рабочих пространств"
         },
         "pinned": {
-          "description": "Идентификаторы элементов трея, которые остаются видимыми на панели при включённом режиме выдвижной панели",
-          "label": "Закреплённые элементы"
+          "description": "ID элементов трея, которые остаются видимыми на панели при включённом режиме выдвижной панели",
+          "label": "Закреплённые элементы",
+          "taskbar-description": "Приложения, которые остаются на панели задач, когда не запущены; игнорируется, если включена группировка по рабочим пространствам",
+          "taskbar-label": "Закреплённые приложения"
+        },
+        "pinned-opacity": {
+          "description": "Непрозрачность закреплённых приложений, которые сейчас не запущены",
+          "label": "Непрозрачность закреплённых приложений"
+        },
+        "reversed": {
+          "description": "Расположить полосы в обратном порядке: от высоких частот к низким",
+          "label": "Обратный порядок"
         },
         "scale": {
           "description": "Масштаб этого виджета относительно масштаба содержимого панели",
           "label": "Масштаб"
         },
         "scope": {
-          "description": "Запускать отдельную среду выполнения скрипта для каждого размещения живого виджета или использовать одну среду выполнения для нескольких панелей с одинаковым идентификатором виджета",
+          "description": "Запускать отдельную среду выполнения скрипта для каждого активного виджета или использовать общую среду для всех панелей с одинаковым ID виджета",
           "label": "Область выполнения"
         },
         "script": {
           "description": "Путь к lua-скрипту",
           "label": "Скрипт"
         },
+        "scroll-repeat": {
+          "description": "Выберите, следуют ли действия прокрутки семантике команды, выполняются один раз за жест или повторяются на каждом шаге прокрутки",
+          "label": "Повтор прокрутки"
+        },
         "show-active-indicator": {
           "description": "Показывать небольшую точку под значком активного окна на панели задач",
           "label": "Индикатор активного окна"
         },
         "show-all-outputs": {
-          "description": "Включать окна со всех мониторов в этот виджет.",
+          "description": "Включать окна со всех мониторов в этот виджет",
           "label": "Показывать все мониторы"
+        },
+        "show-all-workspaces": {
+          "description": "Показывать рабочие пространства со всех мониторов",
+          "label": "Показывать со всех мониторов"
         },
         "show-caps-lock": {
           "description": "Показывать состояние Caps Lock",
@@ -3104,37 +4490,90 @@
           "description": "Показывать текст-заполнитель, когда ни одно окно не находится в фокусе, вместо того, чтобы скрывать виджет",
           "label": "Показать пустой ярлык"
         },
+        "show-glyph": {
+          "description": "Показывать глиф виджета или пользовательское изображение",
+          "label": "Показать глиф"
+        },
+        "show-icons": {
+          "description": "Показывать значок приложения в фокусе на активной плашке",
+          "label": "Показывать значки"
+        },
         "show-label": {
-          "description": "Показывать текст рядом со значком",
+          "description": "Показывать текстовую метку виджета",
           "label": "Показать метку"
+        },
+        "show-labels": {
+          "description": "Показывать текстовые метки на плашках",
+          "label": "Показывать метки"
         },
         "show-num-lock": {
           "description": "Показывать состояние Num Lock",
           "label": "Показать Num Lock"
         },
+        "show-progress": {
+          "description": "Заполнять фон виджета для отображения прогресса воспроизведения",
+          "label": "Показывать прогресс воспроизведения"
+        },
         "show-scroll-lock": {
           "description": "Показывать состояние Scroll Lock",
           "label": "Показывать Scroll Lock"
         },
+        "show-temperature": {
+          "description": "Показывать текст текущей температуры",
+          "label": "Показывать температуру"
+        },
+        "show-tooltip": {
+          "description": "Показывать полное имя рабочего пространства при наведении, если оно не отображается на плашке",
+          "label": "Подсказка с именем"
+        },
+        "show-unlock-hint": {
+          "description": "Показывать карточку состояния над полем входа для подсказок разблокировки и запросов аутентификации; ошибки и предупреждения о Caps Lock отображаются, даже если этот параметр отключён",
+          "label": "Подсказка к разблокировке"
+        },
+        "show-value": {
+          "description": "Показывать текущее значение рядом с визуализацией",
+          "label": "Показывать значение"
+        },
+        "show-vpn-label": {
+          "description": "В режиме «Заменить» меняет метку сети на метку VPN; в режиме «Оба» добавляет метку VPN рядом со значком VPN",
+          "label": "Показывать метку VPN"
+        },
         "show-when-idle": {
           "description": "Оставлять визуализатор видимым, даже когда медиа не воспроизводится",
           "label": "Показывать в простое"
+        },
+        "show-when-unavailable": {
+          "description": "Оставлять виджет яркости видимым, когда на этом мониторе нет управления яркостью",
+          "label": "Показывать, когда недоступно"
         },
         "show-window-title": {
           "description": "Показывать заголовок окна рядом с его значком (только на горизонтальных панелях)",
           "label": "Показывать заголовок окна"
         },
         "show-workspace-label": {
-          "description": "Показывать небольшую метку рабочего пространства на сгруппированных капсулах панели задач. Отключите для групп только со значками.",
+          "description": "Показывать небольшую метку рабочего пространства на сгруппированных капсулах панели задач; отключите для групп только со значками",
           "label": "Метка капсулы рабочего пространства"
         },
         "stat": {
           "description": "Системная статистика для отображения",
           "label": "Показатель"
         },
+        "style": {
+          "description": "Внешний вид переключателя рабочих пространств",
+          "label": "Стиль",
+          "workspaces-description": "Обычный - анимированные пашки; Минимальный - только текстовые метки; Активный - точки для неактивных пространств и расширенная плашка с иконкой активного приложения"
+        },
         "taskbar-max-width": {
           "description": "Общий лимит ширины в пикселях; заголовки окон сжимаются по размеру и скрываются, если места слишком мало",
           "label": "Максимальная ширина панели задач"
+        },
+        "text": {
+          "description": "Текст, отображаемый на панели",
+          "label": "Текст"
+        },
+        "timezone": {
+          "description": "Идентификатор часового пояса (например, Europe/Berlin) для этих часов; оставьте пустым, чтобы использовать системное местное время",
+          "label": "Часовой пояс"
         },
         "title-scroll": {
           "description": "Когда заголовок виджета должен прокручиваться",
@@ -3152,9 +4591,21 @@
           "description": "Тип встроенного виджета для этого именованного виджета",
           "label": "Тип"
         },
+        "urgent-color": {
+          "description": "Цветовая роль для срочных рабочих пространств; также поддерживаются фиксированные HEX-цвета",
+          "label": "Цвет срочных"
+        },
         "vertical-format": {
           "description": "Дополнительный формат для вертикальных панелей",
           "label": "Вертикальный формат"
+        },
+        "visualization": {
+          "description": "Gauge, график или без визуализации данных",
+          "label": "Визуализация"
+        },
+        "vpn-status": {
+          "description": "Как отображать статус VPN: «Заменить» меняет значок сети на щит VPN, «Оба» показывает их рядом, «Скрыто» отключает индикатор VPN",
+          "label": "Статус VPN"
         },
         "warning-color": {
           "description": "Цвет, применяемый, когда заряд на уровне системного порога предупреждения о батарее или ниже",
@@ -3171,6 +4622,10 @@
         "workspace-group-capsule": {
           "description": "Рисовать фон и границу вокруг каждого сгруппированного рабочего пространства. Отключите, чтобы оставить только группировку значков и метки плашек рабочих пространств.",
           "label": "Капсула группы рабочего пространства"
+        },
+        "workspace-group-content": {
+          "description": "Что показывает каждая группа рабочего пространства: значки приложений, счётчик окон или точки (до пяти, далее +N для остальных)",
+          "label": "Содержимое группы"
         },
         "workspace-label-placement": {
           "description": "В углу, по центру края или внутри плашки",
@@ -3205,6 +4660,7 @@
         "sysmon": "Системный монитор",
         "taskbar": "Панель задач",
         "test": "Тест",
+        "text": "Текст",
         "theme-mode": "Режим темы",
         "tray": "Трей",
         "volume": "Громкость",
@@ -3217,12 +4673,28 @@
       "export-config": "Экспортировать конфигурацию…",
       "export-config-saved": "Экспорт конфигурации сохранён.",
       "filter-overridden": "Измененные",
+      "legacy-config-warning": "Устаревшая настройка: {issue}. Отредактируйте эту запись в исходном файле; Noctalia применяет замену только временно. Выполните «noctalia config validate», чтобы просмотреть список всех необходимых изменений.",
       "native-title": "Настройки Noctalia",
       "no-results": "Настройки не найдены",
       "no-results-hint": "Попробуйте другое имя параметра или ключ конфигурации.",
+      "offline-mode-notice": {
+        "appearance": "Загрузка палитр сообщества работать не будет.",
+        "calendar": "Синхронизация учётных записей календаря работать не будет.",
+        "calendar-account": "Обнаружение календарей и синхронизация работать не будут.",
+        "disable-hint": "Отключите автономный режим в разделе «Безопасность».",
+        "launcher": "Загрузка курсов валют работать не будет.",
+        "location": "Запросы погоды и местоположения работать не будут.",
+        "plugin-store": "Обращение к удалённому каталогу плагинов и загрузка работать не будут.",
+        "plugins": "HTTP-запросы плагинов работать не будут. Git-источники по-прежнему могут обновляться.",
+        "security": "Определение внешнего IP и телеметрия работать не будут.",
+        "template-store": "Загрузка шаблонов сообщества работать не будет.",
+        "templates": "Загрузка и обновление шаблонов сообщества работать не будут.",
+        "title": "Автономный режим"
+      },
       "reset-page": "Сбросить страницу",
       "reset-page-confirm": "Подтвердить сброс",
       "search-placeholder": "Поиск настроек…",
+      "search-truncated": "Показаны первые {count} совпадений. Уточните запрос, чтобы сузить результаты.",
       "support-report": "Отчёт поддержки",
       "support-report-saved": "Отчёт поддержки сохранён.",
       "support-report-title": "Сохранить отчёт поддержки",
@@ -3300,7 +4772,7 @@
   },
   "tray": {
     "menu": {
-      "empty": "Нет пунктов меню...",
+      "empty": "Нет пунктов меню…",
       "pin": "Закрепить",
       "unpin": "Открепить"
     }
@@ -3309,7 +4781,7 @@
     "controls": {
       "search-picker": {
         "empty": "Нет результатов",
-        "placeholder": "Поиск..."
+        "placeholder": "Поиск…"
       },
       "select": {
         "placeholder": "Выберите вариант"
@@ -3330,7 +4802,7 @@
           "folder": "Папка"
         },
         "filename-placeholder": "Имя файла",
-        "filter-placeholder": "Фильтр...",
+        "filter-placeholder": "Фильтр…",
         "sort": {
           "ascending": "↑",
           "date": "Дата",
@@ -3355,15 +4827,24 @@
   "wallpaper": {
     "panel": {
       "all-monitors": "ВСЕ",
+      "choose-color": "Выбрать цвет обоев",
+      "close": "Закрыть панель обоев",
       "color-title": "Цвет обоев",
-      "filter-placeholder": "Фильтр...",
+      "favorite-add": "Добавить в избранное",
+      "favorite-current": "Добавить текущие обои в избранное",
+      "favorite-remove": "Убрать из избранного",
+      "filter-placeholder": "Фильтр…",
       "flatten": "Сгладить",
-      "loading": "Обои загружаются",
+      "loading": "Обои загружаются…",
+      "navigate-up": "Перейти в родительскую папку",
+      "refresh": "Обновить список обоев",
       "sort-date-asc": "Сортировать по дате (сначала старые)",
       "sort-date-desc": "Сортировать по дате (сначала новые)",
       "sort-name-asc": "Сортировать по названию (А-Я)",
       "sort-name-desc": "Сортировать по названию (Я-А)",
-      "title": "Обои"
+      "sort-random": "Сортировать случайно (перемешать)",
+      "title": "Обои",
+      "unfavorite-current": "Убрать текущие обои из избранного"
     }
   },
   "weather": {
@@ -3401,6 +4882,8 @@
     }
   },
   "window-switcher": {
+    "count": "{count} окно",
+    "count-plural": "{count} окон",
     "empty": "Нет открытых окон",
     "hint": "Tab · Shift+Tab · Клавиши со стрелками · Отпустите Alt для переключения · Esc для отмены",
     "title": "Окна"

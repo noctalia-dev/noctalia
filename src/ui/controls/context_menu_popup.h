@@ -51,7 +51,7 @@ struct ContextMenuPopupRequest {
   // pointer capture (scrollbar thumb drags leaving the popup). Defaults to parent.wlSurface.
   wl_surface* pointerParentSurface = nullptr;
   // Serial of the input event that requested this popup. When absent, legacy
-  // callers retain the previous last-input-serial behaviour.
+  // callers retain the previous last-input-serial behavior.
   std::optional<std::uint32_t> inputSerial = std::nullopt;
   std::optional<ContextMenuPopupPlacement> placement = std::nullopt;
 };

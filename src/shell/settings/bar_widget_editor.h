@@ -2,10 +2,12 @@
 
 #include "shell/settings/settings_registry.h"
 
+#include <cstddef>
 #include <functional>
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 class Button;
@@ -76,6 +78,21 @@ namespace settings {
 
   [[nodiscard]] bool isBarWidgetListPath(const std::vector<std::string>& path);
   [[nodiscard]] bool isFirstBarWidgetListPath(const std::vector<std::string>& path);
+
+  // Lane selection tokens address a lane position as "<laneKey>#<index>".
+  struct LaneSelectionToken {
+    std::string_view laneKey;
+    std::size_t index = 0;
+  };
+
+  [[nodiscard]] std::string makeLaneSelectionToken(std::string_view laneKey, std::size_t index);
+  // nullopt unless `token` is well-formed; `laneKey` views into `token`.
+  [[nodiscard]] std::optional<LaneSelectionToken> parseLaneSelectionToken(std::string_view token);
+  // Drops the token addressing `removedIndex` in `laneKey` and shifts that lane's higher indices
+  // down one. Tokens for other lanes are left alone.
+  void reindexLaneSelectionAfterRemoval(
+      std::vector<std::string>& selection, std::string_view laneKey, std::size_t removedIndex
+  );
 
   void addBarWidgetLaneEditor(Flex& section, const SettingEntry& entry, const BarWidgetEditorContext& ctx);
 

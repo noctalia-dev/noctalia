@@ -27,6 +27,9 @@ namespace compositors {
 
     [[nodiscard]] CompositorKind detectImpl() {
       // Compositor-set env vars are the most reliable signal.
+      if (const char* v = std::getenv("UMBRIEL_SOCKET"); v != nullptr && v[0] != '\0') {
+        return CompositorKind::Umbriel;
+      }
       if (const char* v = std::getenv("LABWC_PID"); v != nullptr && v[0] != '\0') {
         return CompositorKind::Labwc;
       }
@@ -48,12 +51,12 @@ namespace compositors {
       if (const char* v = std::getenv("MANGO_INSTANCE_SIGNATURE"); v != nullptr && v[0] != '\0') {
         return CompositorKind::Mango;
       }
-      if (const char* v = std::getenv("UMBRIEL_SOCKET"); v != nullptr && v[0] != '\0') {
-        return CompositorKind::Umbriel;
-      }
 
       // Fall back to the desktop env hint (covers dwl-style compositors that don't expose a socket var).
       const std::string hint = buildEnvHint();
+      if (StringUtils::containsInsensitive(hint, "umbriel")) {
+        return CompositorKind::Umbriel;
+      }
       if (StringUtils::containsInsensitive(hint, "triad")) {
         return CompositorKind::Triad;
       }
@@ -74,9 +77,6 @@ namespace compositors {
       }
       if (StringUtils::containsInsensitive(hint, "labwc")) {
         return CompositorKind::Labwc;
-      }
-      if (StringUtils::containsInsensitive(hint, "umbriel")) {
-        return CompositorKind::Umbriel;
       }
       if (StringUtils::containsInsensitive(hint, "kde") || StringUtils::containsInsensitive(hint, "plasma")) {
         return CompositorKind::Kde;

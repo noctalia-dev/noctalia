@@ -91,6 +91,10 @@ public:
   [[nodiscard]] ClipboardPersistenceState persistenceState() const noexcept;
   [[nodiscard]] bool persistenceMigrationPending() const noexcept;
   [[nodiscard]] std::size_t addPollFds(std::vector<pollfd>& fds) const;
+  // The poll source has to advertise an immediate timeout while this is set:
+  // adoption is only flushed from dispatchPollEvents, and a NULL selection
+  // leaves the service with no fd to wake on.
+  [[nodiscard]] bool hasPendingOrphanAdopt() const noexcept;
 
   void syncPersistence();
   void retryPersistence();

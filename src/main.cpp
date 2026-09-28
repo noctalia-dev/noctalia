@@ -1,5 +1,6 @@
 #include "app/application.h"
 #include "app/single_instance_lock.h"
+#include "auth/pam_authenticator.h"
 #include "cli/completions.h"
 #include "cli/help.h"
 #include "cli/schema_root.h"
@@ -284,6 +285,9 @@ int main(int argc, char* argv[]) {
       return noctalia::theme::runCli(argc, argv);
     if (std::strcmp(argv[1], "msg") == 0)
       return noctalia::ipc::runCli(argc, argv);
+    // Internal mode for PAM authentication after re-exec.
+    if (std::strcmp(argv[1], "pam-helper") == 0)
+      return PamAuthenticator::runHelperMode(argc, argv);
     if (std::strcmp(argv[1], "config") == 0)
       return noctalia::config::runCli(argc, argv);
     if (std::strcmp(argv[1], "dmenu") == 0)

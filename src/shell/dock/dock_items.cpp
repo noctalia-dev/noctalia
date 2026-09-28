@@ -506,8 +506,8 @@ namespace shell::dock {
     }
 
     // Clear previous items by recreating the row.
-    if (instance.row != nullptr && instance.slideRoot != nullptr) {
-      instance.slideRoot->removeChild(instance.row);
+    if (instance.row != nullptr && instance.row->parent() != nullptr) {
+      instance.row->parent()->removeChild(instance.row);
       instance.row = nullptr;
     }
     instance.items.clear();
@@ -520,8 +520,9 @@ namespace shell::dock {
     }
 
     auto freshRow = makeDockItemRow(cfg, vert);
-    Node* rowParent =
-        instance.slideRoot != nullptr ? static_cast<Node*>(instance.slideRoot) : static_cast<Node*>(instance.panel);
+    Node* rowParent = instance.viewport != nullptr ? static_cast<Node*>(instance.viewport)
+        : instance.slideRoot != nullptr            ? instance.slideRoot
+                                                   : static_cast<Node*>(instance.panel);
     instance.row = static_cast<Flex*>(rowParent->addChild(std::move(freshRow)));
     const auto& itemModels = snapshot.items;
 
@@ -859,7 +860,7 @@ namespace shell::dock {
           Box* dotNode = item.dotIndicators[dotIndex];
           const bool visible = dotIndex < dotCount;
           dotNode->setVisible(visible);
-          dotNode->setFill(colorSpecFromRole(ColorRole::Secondary));
+          dotNode->setFill(colorSpecFromRole(model.active ? ColorRole::Primary : ColorRole::Secondary));
           if (visible) {
             const float main = groupStart + static_cast<float>(dotIndex) * (dot + kDotGap);
             if (verticalDots) {

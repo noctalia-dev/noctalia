@@ -661,8 +661,17 @@ void TrayService::startAsWatcherOwner() {
   try {
     m_bus.connection().requestName(kWatcherBusName);
   } catch (const sdbus::Error& e) {
-    kLog.warn("tray failed to claim {}: {}", std::string{kWatcherBusName}, e.what());
-    throw;
+    // Only a genuine name race means another watcher owns the name now. Any other
+    // failure such as a disconnected bus or a permission error must keep the
+    // original startup failure path, or the tray stays enabled without a watcher.
+    if (!externalWatcherHasOwner()) {
+      kLog.warn("tray failed to claim {}: {}", std::string{kWatcherBusName}, e.what());
+      throw;
+    }
+    kLog.debug("tray watcher claim lost to another owner, switching to client: {}", e.what());
+    m_watcherObject.reset();
+    startAsWatcherClient();
+    return;
   }
 
   kLog.debug("tray watcher active on {}", std::string{kWatcherBusName});
@@ -686,7 +695,9 @@ void TrayService::startAsWatcherClient() {
 
   kLog.debug("tray using external StatusNotifierWatcher");
   if (externalWatcherHasOwner()) {
-    connectToExternalWatcher();
+    // Deferred so a watcher that is already running does not deliver its items
+    // before the shell UI that consumes them has been initialized.
+    DeferredCall::callLater([this]() { connectToExternalWatcher(); });
   }
   DeferredCall::callLater([this]() { discoverExistingItems(); });
   DeferredCall::callLater([this]() { discoverExistingItems(); });

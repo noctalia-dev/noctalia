@@ -1,0 +1,104 @@
+---
+title: Lockscreen widgets
+description: Configurable widgets on the session lock screen, layout editor, and settings.toml overrides.
+sidebar:
+  order: 6
+---
+
+# Lockscreen widgets
+
+Lockscreen widgets use the same widget types and per-type settings as [desktop widgets](/noctalia/desktop/widgets/). Layout is stored in a dedicated `[lockscreen_widgets]` section (not shared with `[desktop_widgets]` or `[lockscreen]` backdrop keys).
+
+- Declarative config: `[lockscreen_widgets]` in `~/.config/noctalia/*.toml`
+- GUI/editor overrides: `settings.toml` under your Noctalia state directory (same as desktop widgets)
+
+```toml
+[lockscreen_widgets]
+enabled = true
+
+[lockscreen_widgets.widget.clock_main]
+type     = "clock"
+output   = "DP-1"
+cx         = 1600.0
+cy         = 120.0
+box_width  = 360.0
+box_height = 120.0
+rotation   = 0.0
+
+[lockscreen_widgets.widget.clock_main.settings]
+format = "{:%H:%M}"
+```
+
+When enabled, widgets render on each lock surface, over the same blurred and tinted wallpaper as the rest of the lock screen. To show a clock on the lock screen, add a **clock** widget.
+
+Text widgets (clock, weather, media player, label, sysmon) support a per-widget `font_family` setting just like desktop widgets - empty inherits the shell font. See [Desktop widgets - Common settings](/noctalia/desktop/widgets/#common-settings).
+
+---
+
+## Edit mode
+
+Edit mode is only available while the session is **unlocked**. The editor shows a dimmed full-screen preview with a movable **login box** preview on each monitor (one per output).
+
+### Related IPC
+
+For lockscreen widget edit-mode commands, see
+[Surfaces → Lockscreen widgets](/noctalia/ipc/surfaces/#lockscreen-widgets).
+
+You can also use **Settings → Security → Lock screen → Toggle Editor**.
+
+### Controls
+
+Same interaction model as desktop widget edit mode (move, rotate, resize, grid snap, center guides, toolbar), except the **login box** widget can only be moved (not resized or rotated). You can toggle the visibility of login boxes for individual monitors using the eye icon in the toolbar, provided that at least one login box remains visible across all monitors. Select it and open the settings inspector to adjust panel and input styling; **Reset to Defaults** at the bottom restores all login box settings. See [Desktop widgets - Edit mode](/noctalia/desktop/widgets/#edit-mode).
+
+---
+
+## Config format
+
+The schema mirrors `[desktop_widgets]`: `enabled`, `schema_version`, optional `[lockscreen_widgets.grid]`, `widget_order`, and `[lockscreen_widgets.widget.<id>]` tables with `type`, `output`, `cx`, `cy`, `box_width`, `box_height`, `rotation`, `enabled`, and `[lockscreen_widgets.widget.<id>.settings]`.
+
+Widget IDs generated in the editor use the `lockscreen-widget-` prefix. Login box placement uses fixed IDs `lockscreen-login-box@<output>` with `type = "login_box"` (not shown in the add-widget list).
+
+### Login box settings
+
+The login box uses the same inspector layout as other lockscreen widgets:
+
+- **Widget** - layout mode, optional Regular extras, login controls, and password field styling
+- **Background** - outer bar color, opacity, and corner radius (`background_color`, `background_opacity`, `background_radius`)
+
+`layout` chooses the login panel shape:
+
+- `regular` (default) - v4-style panel with media, weather, and optional session action buttons around the password row
+- `compact` - slim password row (previous default look)
+
+Auth status is a separate fixed-size card outside the login panel (above it by default, flipping below when the panel is near the top of the screen). It does not change the login box size. With `show_unlock_hint = true` (default), the card shows the idle unlock hint and auth prompts (for example fingerprint or “Authenticating…”). With it off, the card stays hidden except for errors and Caps Lock warnings (when `show_caps_lock` is enabled). The editor preview shows a matching ghost for the unlock-hint card that follows the same above/below placement.
+
+| Setting | Default | Range | Description |
+| --- | --- | --- | --- |
+| `layout` | `regular` | `compact` \| `regular` | Login panel layout |
+| `show_session_buttons` | `true` | bool | Regular: show session actions from `[shell.session].actions` (lock actions omitted) |
+| `show_media` | `true` | bool | Regular: show media in the info row. Both media and weather may be off (the info strip collapses) |
+| `show_weather` | `true` | bool | Regular: show weather beside media. Alone, weather is centered and shows more forecast days; when unavailable while media is on, media fills the row |
+| `background_color` | `surface_variant` | color role | Outer login bar fill |
+| `background_opacity` | `0.88` | `0.0`–`1.0` | Outer login bar opacity |
+| `background_radius` | `12` | `0`–`32` | Outer login bar corner radius (logical px) |
+| `show_login_button` | `true` | bool | Show the check button beside the password field |
+| `show_unlock_hint` | `true` | bool | Show the status card for the idle unlock hint and auth prompts; errors and Caps Lock still appear when off |
+| `show_caps_lock` | `true` | bool | Show a Caps Lock warning in the status card |
+| `show_keyboard_layout` | `true` | bool | Show the keyboard layout chip (cycles when multiple layouts are available) |
+| `input_opacity` | `1.0` | `0.0`–`1.0` | Password field background opacity |
+| `input_radius` | `6` | `0`–`32` | Password field corner radius (logical px) |
+| `center_password_text` | `false` | bool | Center password dots and placeholder inside the field |
+
+```toml
+[lockscreen_widgets.widget."lockscreen-login-box@DP-1".settings]
+layout = "regular"
+show_session_buttons = true
+show_media = true
+show_weather = true
+show_unlock_hint = true
+background_color = "surface_variant"
+background_opacity = 0.75
+background_radius = 16.0
+input_opacity = 0.9
+input_radius = 8.0
+```

@@ -1,0 +1,57 @@
+---
+title: screenshot
+description: Captures screen regions or displays through the bar.
+sidebar:
+  order: 20
+---
+
+Captures the screen through the compositor's `wlr-screencopy` protocol (Niri, Hyprland, Sway, and other compositors that expose it). The widget is omitted from the bar when screencopy is unavailable.
+
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| `glyph` | string | `"screenshot"` | Bar glyph name: Noctalia alias, Tabler icon name, or `U+` / `0x` codepoint |
+| `custom_image` | string | `""` | Path to a custom image displayed instead of the glyph. Leave empty to use the glyph |
+| `custom_image_colorize` | bool | `false` | When `true`, tint the custom image with the widget icon color |
+
+The capture **output policy** (save to file, output directory, filename pattern, clipboard, freeze, pipe command) is global and lives under [`[shell.screenshot]`](/noctalia/configuration/shell/#shell-settings), shared by this widget and the IPC commands. The widget only sets its glyph; the left click is a [widget action](/noctalia/bar/actions/).
+
+**Click behavior:**
+
+- **Left-click**: runs `screenshot-region` by default, using the global output policy. Bind `left` to `screenshot-fullscreen` for fullscreen capture instead.
+- **Right-click**: opens a menu with fullscreen and region capture.
+
+**Fullscreen** on a **single monitor** captures that output immediately (focused monitor when using IPC with no argument). On **multiple monitors**, fullscreen opens a **display picker**: a top bar labeled “Choose display” with one button per connector (`DP-1`, `HDMI-A-1`, …). Click a button from **any** screen to capture that output - you do not need to move the pointer onto that monitor first. Clicking the dimmed desktop captures the monitor under the cursor (same as before). Press a **`[keybinds].cancel`** chord (default **Escape**) to dismiss the picker.
+
+**Region** mode shows a dimmed overlay; drag to select, release to capture. Press **`[keybinds].cancel`** to cancel. With `remember_last_region = true` (or when region confirmation is enabled), the region awaits confirmation before capturing. While a region is awaiting confirmation, you can fine-tune the capture area: drag the edges or corners to resize, or drag inside the selection to move the entire region. Press Enter or Space to take the screenshot, or drag outside the box to start a new selection.
+
+While dragging or adjusting a region, a size badge (`1920x1080`) follows the pointer below the cursor.
+
+```toml
+[widget.screenshot]
+glyph = "screenshot"
+
+[widget.screenshot.actions]
+left = "screenshot-fullscreen"   # default is "screenshot-region"
+```
+
+**Command-line capture:**
+
+```sh
+noctalia msg screenshot-region
+noctalia msg screenshot-fullscreen
+noctalia msg screenshot-fullscreen pick
+noctalia msg screenshot-fullscreen DP-2
+noctalia msg screenshot-fullscreen all
+
+```
+
+Both commands use the global `[shell.screenshot]` output policy. The canonical command list is also under [Keybinds & IPC → Media & UI → Screenshots](/noctalia/ipc/media-and-ui/#screenshots).
+
+| `screenshot-fullscreen` argument | Behavior |
+|----------------------------------|----------|
+| *(none)* | Focused monitor |
+| `pick` | Display picker (multi-monitor); immediate capture on one monitor |
+| `DP-2`, `HDMI-A-1`, … | Named output only - no picker; exact connector name or word-boundary match in the output description |
+| `all` or `*` | One combined desktop PNG |
+
+The bar widget’s fullscreen action matches `pick` on multi-monitor setups. To capture a specific display from a script without UI, pass the connector name (for example `noctalia msg screenshot-fullscreen DP-1`).

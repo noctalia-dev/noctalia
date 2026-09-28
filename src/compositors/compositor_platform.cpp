@@ -42,6 +42,7 @@
 #include <optional>
 #include <string>
 #include <sys/types.h>
+#include <unordered_map>
 #include <unordered_set>
 #include <utility>
 
@@ -199,14 +200,15 @@ namespace {
     });
   }
 
-  void appendHyprlandExtOnlyWindows(
+  void mergeHyprlandExtWindows(
       std::vector<ToplevelInfo>& windows, const std::vector<ToplevelInfo>& extWindows,
       const compositors::hyprland::HyprlandToplevelMapping& mapping,
       const std::unordered_set<std::string>* outputWindowIds
   ) {
-    std::unordered_set<std::string> wlrRepresentedIds;
-    wlrRepresentedIds.reserve(windows.size());
-    for (const auto& window : windows) {
+    std::unordered_map<std::string, std::size_t> wlrIndexByWindowId;
+    wlrIndexByWindowId.reserve(windows.size());
+    for (std::size_t i = 0; i < windows.size(); ++i) {
+      const auto& window = windows[i];
       if (window.handle == nullptr) {
         continue;
       }
@@ -216,7 +218,7 @@ namespace {
       }
       const auto normalized = compositors::hyprland::normalizeWindowId(*windowId);
       if (!normalized.empty()) {
-        wlrRepresentedIds.insert(normalized);
+        wlrIndexByWindowId.try_emplace(normalized, i);
       }
     }
 
@@ -227,8 +229,8 @@ namespace {
       const auto windowId = mapping.windowIdForExtHandle(extWindow.extHandle);
       if (windowId.has_value()) {
         const auto normalized = compositors::hyprland::normalizeWindowId(*windowId);
-        // The wlr results above already cover this output, so skip the ext copy of anything in them.
-        if (!normalized.empty() && wlrRepresentedIds.contains(normalized)) {
+        if (const auto wlr = wlrIndexByWindowId.find(normalized); wlr != wlrIndexByWindowId.end()) {
+          windows[wlr->second].extHandle = extWindow.extHandle;
           continue;
         }
         // ext_foreign_toplevel_list has no per-output metadata; scope to this bar's monitor via IPC.
@@ -381,11 +383,12 @@ namespace {
       return std::make_unique<FocusedOutputAdapter<SwayOutputBackend>>(runtimeRegistry.sway());
     case compositors::CompositorKind::Triad:
       return std::make_unique<FocusedOutputAdapter<TriadOutputBackend>>(runtimeRegistry.triad());
+    case compositors::CompositorKind::Umbriel:
+      return std::make_unique<FocusedOutputAdapter<UmbrielOutputBackend>>(runtimeRegistry.umbriel());
     case compositors::CompositorKind::Dwl:
     case compositors::CompositorKind::Labwc:
     case compositors::CompositorKind::Kde:
     case compositors::CompositorKind::Mango:
-    case compositors::CompositorKind::Umbriel:
     case compositors::CompositorKind::Unknown:
       break;
     }
@@ -673,6 +676,14 @@ const compositors::niri::NiriRuntime& CompositorPlatform::niriRuntime() const no
   return m_runtimeRegistry->niri();
 }
 
+compositors::umbriel::UmbrielRuntime& CompositorPlatform::umbrielRuntime() noexcept {
+  return m_runtimeRegistry->umbriel();
+}
+
+const compositors::umbriel::UmbrielRuntime& CompositorPlatform::umbrielRuntime() const noexcept {
+  return m_runtimeRegistry->umbriel();
+}
+
 bool CompositorPlatform::hasXdgShell() const noexcept { return m_wayland.hasXdgShell(); }
 
 bool CompositorPlatform::hasXdgActivation() const noexcept { return m_wayland.hasXdgActivation(); }
@@ -889,7 +900,7 @@ std::vector<ToplevelInfo> CompositorPlatform::windowsForApp(
   if (!m_wayland.hasExtForeignToplevelList()) {
     return windows;
   }
-  appendHyprlandExtOnlyWindows(
+  mergeHyprlandExtWindows(
       windows, m_wayland.extWindowsForApp(idLower, wmClassLower), *m_hyprlandToplevelMapping,
       outputFilter != nullptr ? &outputWindowIds : nullptr
   );
@@ -901,8 +912,15 @@ std::vector<ToplevelInfo> CompositorPlatform::windowsWithoutAppId(wl_output* out
   if (!compositors::isHyprland() || m_hyprlandToplevelMapping == nullptr || !m_hyprlandToplevelMapping->available()) {
     return windows;
   }
-  dropWindowsOnOtherOutputs(
-      windows, *m_hyprlandToplevelMapping, outputScopedWindowIds(m_workspaces.get(), outputFilter)
+  const auto outputWindowIds = outputScopedWindowIds(m_workspaces.get(), outputFilter);
+  dropWindowsOnOtherOutputs(windows, *m_hyprlandToplevelMapping, outputWindowIds);
+
+  if (!m_wayland.hasExtForeignToplevelList()) {
+    return windows;
+  }
+  mergeHyprlandExtWindows(
+      windows, m_wayland.extWindowsWithoutAppId(), *m_hyprlandToplevelMapping,
+      outputFilter != nullptr ? &outputWindowIds : nullptr
   );
   return windows;
 }
@@ -1385,6 +1403,10 @@ std::vector<WorkspaceWindowAssignment> CompositorPlatform::workspaceWindowAssign
     );
   }
   return result;
+}
+
+std::vector<std::string> CompositorPlatform::openOverlayWorkspaceKeys(wl_output* outputFilter) const {
+  return m_workspaces != nullptr ? m_workspaces->openOverlayWorkspaceKeys(outputFilter) : std::vector<std::string>{};
 }
 
 TaskbarAssignmentMode CompositorPlatform::taskbarAssignmentMode() const noexcept {

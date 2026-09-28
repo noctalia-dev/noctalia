@@ -59,6 +59,11 @@ body:
       description: |
         Paste any relevant logs, terminal output, or stack traces here.
 
+        If Noctalia crashed, include the complete output from the terminal where it was started, if available. Do not
+        paste only `Segmentation fault`; that does not include the useful diagnostic output.
+
+        If a maintainer asks for an ASan report, follow the [ASan crash-report instructions](https://github.com/noctalia-dev/noctalia/blob/main/CONTRIBUTING.md#asan-crash-reports).
+
         Examples:
         - journalctl output
         - terminal errors
@@ -83,6 +88,7 @@ body:
       description: Select the compositor where the issue occurs.
       options:
         - Niri
+        - Umbriel
         - Hyprland
         - Sway
         - Scroll
@@ -117,10 +123,10 @@ body:
         Please provide relevant system information:
 
         If you selected `Other` for distribution and/or compositor, please specify the exact one(s) here.
-        - Installation method: e.g. AUR, source build, Nix
+        - Installation method: e.g. Arch package, source build, Nix
         - GPU: e.g. AMD RX 7800 XT (amdgpu)
       placeholder: |
-        Installation method: e.g. AUR, source build, Nix
+        Installation method: e.g. Arch package, source build, Nix
         GPU: e.g. AMD RX 7800 XT (amdgpu)
       render: text
     validations:

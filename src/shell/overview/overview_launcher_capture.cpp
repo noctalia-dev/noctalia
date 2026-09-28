@@ -3,6 +3,7 @@
 #include "compositors/compositor_detect.h"
 #include "compositors/compositor_platform.h"
 #include "compositors/niri/niri_runtime.h"
+#include "compositors/umbriel/umbriel_runtime.h"
 #include "core/input/key_modifiers.h"
 #include "core/input/key_symbols.h"
 #include "core/log.h"
@@ -60,7 +61,7 @@ namespace {
 bool OverviewLauncherCapture::initialize(
     WaylandConnection& wayland, RenderContext* renderContext, CompositorPlatform& platform, PanelManager& panelManager
 ) {
-  if (!compositors::isNiri() || !platform.tracksOverviewState()) {
+  if ((!compositors::isNiri() && !compositors::isUmbriel()) || !platform.tracksOverviewState()) {
     return true;
   }
 
@@ -117,6 +118,18 @@ bool OverviewLauncherCapture::surfacesMatchOutputs() const {
 }
 
 void OverviewLauncherCapture::sync() {
+  const bool overviewOpen = m_platform != nullptr && m_platform->hasOverviewState() && m_platform->isOverviewOpen();
+  if (m_launcherOpenedFromOverview) {
+    if (m_panelManager == nullptr || !m_panelManager->isOpenPanel("launcher")) {
+      m_launcherOpenedFromOverview = false;
+    } else if (!overviewOpen) {
+      m_launcherOpenedFromOverview = false;
+      destroySurfaces();
+      m_panelManager->closePanelById("launcher");
+      return;
+    }
+  }
+
   if (!shouldBeActive()) {
     destroySurfaces();
     return;
@@ -182,36 +195,48 @@ OverviewLauncherCapture::Instance* OverviewLauncherCapture::instanceForKeyboardS
   return nullptr;
 }
 
-bool OverviewLauncherCapture::sendNiriAction(const char* actionName) const {
+bool OverviewLauncherCapture::sendOverviewAction(const char* actionName) const {
   if (m_platform == nullptr || actionName == nullptr || actionName[0] == '\0') {
     return false;
   }
-  return m_platform->niriRuntime().requestAction(nlohmann::json{{actionName, nlohmann::json::object()}});
+  if (compositors::isUmbriel()) {
+    return m_platform->umbrielRuntime().requestAction(actionName);
+  }
+  if (compositors::isNiri()) {
+    return m_platform->niriRuntime().requestAction(nlohmann::json{{actionName, nlohmann::json::object()}});
+  }
+  return false;
 }
 
-bool OverviewLauncherCapture::handleNiriOverviewKey(const KeyboardEvent& event) const {
+bool OverviewLauncherCapture::handleOverviewKey(const KeyboardEvent& event) const {
   if (!event.pressed || event.preedit) {
     return false;
   }
+  const bool isUmbriel = compositors::isUmbriel();
 
   if (KeySymbol::isEnter(event.sym) || KeySymbol::isEscape(event.sym)) {
-    (void)sendNiriAction("ToggleOverview");
+    const auto* action = isUmbriel ? "overview-toggle" : "ToggleOverview";
+    (void)sendOverviewAction(action);
     return true;
   }
   if (KeySymbol::isLeft(event.sym)) {
-    (void)sendNiriAction("FocusColumnLeft");
+    const auto* action = isUmbriel ? "window-focus-left" : "FocusColumnLeft";
+    (void)sendOverviewAction(action);
     return true;
   }
   if (KeySymbol::isRight(event.sym)) {
-    (void)sendNiriAction("FocusColumnRight");
+    const auto* action = isUmbriel ? "window-focus-right" : "FocusColumnRight";
+    (void)sendOverviewAction(action);
     return true;
   }
   if (KeySymbol::isUp(event.sym)) {
-    (void)sendNiriAction("FocusWorkspaceUp");
+    const auto* action = isUmbriel ? "window-focus-or-workspace-up" : "FocusWorkspaceUp";
+    (void)sendOverviewAction(action);
     return true;
   }
   if (KeySymbol::isDown(event.sym)) {
-    (void)sendNiriAction("FocusWorkspaceDown");
+    const auto* action = isUmbriel ? "window-focus-or-workspace-down" : "FocusWorkspaceDown";
+    (void)sendOverviewAction(action);
     return true;
   }
 
@@ -235,7 +260,7 @@ bool OverviewLauncherCapture::handleKeyboardEvent(const KeyboardEvent& event) {
     return false;
   }
 
-  if (handleNiriOverviewKey(event)) {
+  if (handleOverviewKey(event)) {
     return true;
   }
 
@@ -248,7 +273,18 @@ bool OverviewLauncherCapture::handleKeyboardEvent(const KeyboardEvent& event) {
     return true;
   }
 
-  m_openLauncher(initialQuery, instance->output, {});
-  destroySurfaces();
+  // Open on the compositor's focused output. The exclusive-keyboard capture
+  // surface that received the keystroke is not reliably on the focused monitor
+  // (Umbriel can route it to a fixed output), so prefer the focus source and
+  // fall back to the surface's own output.
+  wl_output* target = instance->output;
+  if (m_platform != nullptr) {
+    if (wl_output* focused = m_platform->focusedInteractiveOutput(); focused != nullptr) {
+      target = focused;
+    }
+  }
+  m_openLauncher(initialQuery, target, {});
+  m_launcherOpenedFromOverview = m_panelManager != nullptr && m_panelManager->isOpenPanel("launcher");
+  sync();
   return true;
 }

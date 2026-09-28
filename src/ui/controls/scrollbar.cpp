@@ -1,6 +1,8 @@
 #include "ui/controls/scrollbar.h"
 
 #include "cursor-shape-v1-client-protocol.h"
+#include "render/animation/animation.h"
+#include "render/animation/animation_manager.h"
 #include "render/core/render_styles.h"
 #include "render/scene/input_area.h"
 #include "render/scene/rect_node.h"
@@ -14,12 +16,12 @@
 
 namespace {
 
-  RoundedRectStyle makeSolid(const Color& fill) {
+  RoundedRectStyle makeSolid(const Color& fill, float radius) {
     return RoundedRectStyle{
         .fill = fill,
         .border = fill,
         .fillMode = FillMode::Solid,
-        .radius = Style::scrollbarWidth * 0.5F,
+        .radius = radius,
         .softness = 1.0F,
         .borderWidth = 0.0F,
     };
@@ -53,6 +55,8 @@ Scrollbar::Scrollbar() {
     m_onScrollChanged(std::clamp(currentOffset() + data.scrollDelta(Style::scrollWheelStep), 0.0F, m_maxScroll));
     return true;
   });
+  trackArea->setOnEnter([this](const InputArea::PointerData&) { updateExpanded(); });
+  trackArea->setOnLeave([this]() { updateExpanded(); });
   m_trackArea = static_cast<InputArea*>(addChild(std::move(trackArea)));
 
   auto thumbArea = std::make_unique<InputArea>();
@@ -67,6 +71,7 @@ Scrollbar::Scrollbar() {
       m_dragStartPosition = localPosition + thumbPosition;
       m_dragStartOffset = currentOffset();
     }
+    updateExpanded();
   });
   thumbArea->setOnMotion([this](const InputArea::PointerData& data) {
     if (m_thumbTravel <= 0.0F || !m_onScrollChanged || m_thumbArea == nullptr || !m_thumbArea->pressed()) {
@@ -85,6 +90,8 @@ Scrollbar::Scrollbar() {
     m_onScrollChanged(std::clamp(currentOffset() + data.scrollDelta(Style::scrollWheelStep), 0.0F, m_maxScroll));
     return true;
   });
+  thumbArea->setOnEnter([this](const InputArea::PointerData&) { updateExpanded(); });
+  thumbArea->setOnLeave([this]() { updateExpanded(); });
   m_thumbArea = static_cast<InputArea*>(addChild(std::move(thumbArea)));
 
   applyPalette();
@@ -102,6 +109,16 @@ void Scrollbar::setOnScrollChanged(std::function<void(float)> callback) { m_onSc
 
 void Scrollbar::setTrackInset(float inset) { m_trackInset = std::max(0.0F, inset); }
 
+void Scrollbar::setContentScale(float scale) {
+  const float clamped = std::max(0.1F, scale);
+  if (m_contentScale == clamped) {
+    return;
+  }
+  m_contentScale = clamped;
+  applyGeometry();
+  markLayoutDirty();
+}
+
 float Scrollbar::currentOffset() const noexcept {
   const float thumbPosition = m_orientation == ScrollOrientation::Horizontal ? m_thumb->x() : m_thumb->y();
   return m_thumbTravel > 0.0F
@@ -109,9 +126,16 @@ float Scrollbar::currentOffset() const noexcept {
       : 0.0F;
 }
 
+float Scrollbar::thickness() const noexcept {
+  const float base = Style::scrollbarWidth * m_contentScale;
+  const float expanded = Style::scrollbarHoverWidth * m_contentScale;
+  return base + (expanded - base) * std::clamp(m_expansion, 0.0F, 1.0F);
+}
+
 void Scrollbar::update(float viewportExtent, float contentExtent, float scrollOffset) {
   m_viewportExtent = viewportExtent;
   m_contentExtent = contentExtent;
+  m_lastScrollOffset = scrollOffset;
   m_maxScroll = std::max(0.0F, contentExtent - viewportExtent);
 
   m_shown = contentExtent > viewportExtent + 0.5F;
@@ -121,47 +145,103 @@ void Scrollbar::update(float viewportExtent, float contentExtent, float scrollOf
   m_thumbArea->setVisible(m_shown);
   if (!m_shown) {
     m_thumbTravel = 0.0F;
+    setExpanded(false);
     return;
   }
 
-  const float trackExtent = std::max(0.0F, viewportExtent - m_trackInset * 2.0F);
-  const float thickness = Style::scrollbarWidth;
-  if (m_orientation == ScrollOrientation::Horizontal) {
-    m_track->setPosition(m_trackInset, 0.0F);
-    m_track->setFrameSize(trackExtent, thickness);
-    m_trackArea->setPosition(m_trackInset, 0.0F);
-    m_trackArea->setFrameSize(trackExtent, thickness);
-  } else {
-    m_track->setPosition(0.0F, m_trackInset);
-    m_track->setFrameSize(thickness, trackExtent);
-    m_trackArea->setPosition(0.0F, m_trackInset);
-    m_trackArea->setFrameSize(thickness, trackExtent);
+  applyGeometry();
+}
+
+void Scrollbar::applyGeometry() {
+  if (!m_shown) {
+    return;
   }
 
+  // The reserved gutter is one base thickness wide; the expansion grows inward, over the
+  // content, so the outer edge stays put and no relayout is needed while hovering.
+  const float thick = thickness();
+  const float overlay = thick - Style::scrollbarWidth * m_contentScale;
+  m_crossOffset = Style::rtl() && m_orientation == ScrollOrientation::Vertical ? 0.0F : -overlay;
+  const float slop = Style::scrollbarHitSlop * m_contentScale;
+  const HitTestOutset outset = m_orientation == ScrollOrientation::Horizontal
+      ? HitTestOutset{.top = slop}
+      : (Style::rtl() ? HitTestOutset{.right = slop} : HitTestOutset{.left = slop});
+  m_trackArea->setHitTestOutset(outset);
+  m_thumbArea->setHitTestOutset(outset);
+
+  const float trackExtent = std::max(0.0F, m_viewportExtent - m_trackInset * 2.0F);
+  if (m_orientation == ScrollOrientation::Horizontal) {
+    m_track->setPosition(m_trackInset, m_crossOffset);
+    m_track->setFrameSize(trackExtent, thick);
+    m_trackArea->setPosition(m_trackInset, m_crossOffset);
+    m_trackArea->setFrameSize(trackExtent, thick);
+  } else {
+    m_track->setPosition(m_crossOffset, m_trackInset);
+    m_track->setFrameSize(thick, trackExtent);
+    m_trackArea->setPosition(m_crossOffset, m_trackInset);
+    m_trackArea->setFrameSize(thick, trackExtent);
+  }
+
+  // A thumb shorter than the bar is thick reads as a blob, so the floor grows with the bar.
+  const float minThumbExtent = std::max(Style::scrollbarMinThumbHeight * m_contentScale, thick);
   const float thumbExtent = std::min(
       trackExtent,
-      std::max(
-          Style::scrollbarMinThumbHeight, (viewportExtent * viewportExtent) / std::max(viewportExtent, contentExtent)
-      )
+      std::max(minThumbExtent, (m_viewportExtent * m_viewportExtent) / std::max(m_viewportExtent, m_contentExtent))
   );
   m_thumbTravel = std::max(0.0F, trackExtent - thumbExtent);
   if (m_orientation == ScrollOrientation::Horizontal) {
-    m_thumb->setFrameSize(thumbExtent, thickness);
-    m_thumbArea->setFrameSize(thumbExtent, thickness);
+    m_thumb->setFrameSize(thumbExtent, thick);
+    m_thumbArea->setFrameSize(thumbExtent, thick);
   } else {
-    m_thumb->setFrameSize(thickness, thumbExtent);
-    m_thumbArea->setFrameSize(thickness, thumbExtent);
+    m_thumb->setFrameSize(thick, thumbExtent);
+    m_thumbArea->setFrameSize(thick, thumbExtent);
   }
 
-  applyThumbPosition(scrollOffset, m_maxScroll);
+  applyPalette();
+  applyThumbPosition(m_lastScrollOffset, m_maxScroll);
+}
+
+void Scrollbar::updateExpanded() {
+  const bool hovered =
+      (m_trackArea != nullptr && m_trackArea->hovered()) || (m_thumbArea != nullptr && m_thumbArea->hovered());
+  const bool dragging = m_thumbArea != nullptr && m_thumbArea->pressed();
+  setExpanded(m_shown && (hovered || dragging));
+}
+
+void Scrollbar::setExpanded(bool expanded) {
+  const float target = expanded ? 1.0F : 0.0F;
+  if (m_expansion == target && m_expandAnim == 0) {
+    return;
+  }
+  AnimationManager* animations = animationManager();
+  if (animations == nullptr) {
+    applyExpansion(target);
+    return;
+  }
+  if (m_expandAnim != 0) {
+    animations->cancel(m_expandAnim);
+  }
+  m_expandAnim = animations->animate(
+      m_expansion, target, static_cast<float>(Style::animNormal), Easing::EaseOutCubic,
+      [this](float value) { applyExpansion(value); }, [this] { m_expandAnim = 0; }, this
+  );
+  // Starting an animation mutates nothing yet, so the surface has no reason to schedule a frame
+  // and would never tick it. Ask for the repaint that starts the frame loop.
+  markPaintDirty();
+}
+
+void Scrollbar::applyExpansion(float expansion) {
+  m_expansion = std::clamp(expansion, 0.0F, 1.0F);
+  applyGeometry();
 }
 
 void Scrollbar::applyPalette() {
+  const float radius = thickness() * 0.5F;
   if (m_track != nullptr) {
-    m_track->setStyle(makeSolid(resolveColorSpec(scrollbarTrackColor())));
+    m_track->setStyle(makeSolid(resolveColorSpec(scrollbarTrackColor()), radius));
   }
   if (m_thumb != nullptr) {
-    m_thumb->setStyle(makeSolid(resolveColorSpec(scrollbarThumbColor())));
+    m_thumb->setStyle(makeSolid(resolveColorSpec(scrollbarThumbColor()), radius));
   }
 }
 
@@ -169,10 +249,10 @@ void Scrollbar::applyThumbPosition(float scrollOffset, float maxScroll) {
   const float t = maxScroll > 0.0F ? std::clamp(scrollOffset / maxScroll, 0.0F, 1.0F) : 0.0F;
   const float thumbPosition = m_trackInset + t * m_thumbTravel;
   if (m_orientation == ScrollOrientation::Horizontal) {
-    m_thumb->setPosition(thumbPosition, 0.0F);
-    m_thumbArea->setPosition(thumbPosition, 0.0F);
+    m_thumb->setPosition(thumbPosition, m_crossOffset);
+    m_thumbArea->setPosition(thumbPosition, m_crossOffset);
   } else {
-    m_thumb->setPosition(0.0F, thumbPosition);
-    m_thumbArea->setPosition(0.0F, thumbPosition);
+    m_thumb->setPosition(m_crossOffset, thumbPosition);
+    m_thumbArea->setPosition(m_crossOffset, thumbPosition);
   }
 }

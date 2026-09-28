@@ -807,6 +807,7 @@ void TestPanel::create() {
 
   auto scroll = ui::scrollView({
       .out = &m_scrollView,
+      .contentScale = scale,
       .scrollbarVisible = true,
       .viewportPaddingH = 0.0F,
       .viewportPaddingV = 0.0F,

@@ -1,0 +1,31 @@
+---
+title: clock
+description: Displays the current time with configurable formats and timezone.
+sidebar:
+  order: 8
+---
+
+Displays the current time.
+
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| `format` | string | `{:%H:%M}` | Clock format string for horizontal bars and vertical fallback. Use `\n` for multiple lines; examples: `{:%H:%M}\n{:%d/%m}`, `%H:%M`, `{:%-I:%M %p}`. See [Date format tokens](/noctalia/configuration/date-format-tokens/). |
+| `vertical_format` | string | `""` | Format used when the bar is vertical. When empty, falls back to `format` with `:` replaced by line breaks. Supports the same syntax as `format`. |
+| `tooltip_format` | string | `""` | Optional format shown when mouse is hovered over the clock widget. This utilizes the same [date format tokens](/noctalia/configuration/date-format-tokens/) as format. |
+| `timezone` | string | `""` | Optional timezone identifier (e.g. `Europe/Berlin`, `UTC`) to use for this clock. If empty, uses the system's local time. |
+
+```toml
+[widget.clock]
+format = "{:%H:%M}\n{:%d/%m}"
+vertical_format = "{:%H\n%M}"
+tooltip_format = "{:%A, %B %d, %Y}"
+
+[widget.clock-12h]
+type   = "clock"
+format = "{:%-I:%M %p}"
+
+[widget.clock-seconds]
+type   = "clock"
+format = "{:%H:%M:%S}"
+vertical_format = "{:%H\n%M\n%S}"
+```

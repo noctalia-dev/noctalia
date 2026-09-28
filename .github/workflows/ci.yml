@@ -39,7 +39,7 @@ jobs:
           pacman -Syu --noconfirm --needed \
             base-devel git meson ninja pkgconf \
             wayland wayland-protocols \
-            libglvnd freetype2 fontconfig \
+            libglvnd freetype2 fontconfig noto-fonts \
             cairo pango harfbuzz \
             libxkbcommon glib2 \
             libsecret libsodium \

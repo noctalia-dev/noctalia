@@ -42,6 +42,7 @@
 #include "launcher/dmenu_provider.h"
 #include "launcher/emoji_provider.h"
 #include "launcher/math_provider.h"
+#include "launcher/panel_provider.h"
 #include "launcher/plugin_launcher_provider.h"
 #include "launcher/session_provider.h"
 #include "launcher/wallpaper_provider.h"
@@ -106,6 +107,15 @@
 
 namespace {
   constexpr Logger kLog("app");
+
+  [[nodiscard]] bool overviewTypeToLaunchEnabled(const ConfigService& configService) {
+    if (compositors::isUmbriel()) {
+      return configService.config().shell.umbrielOverviewTypeToLaunchEnabled;
+    } else if (compositors::isNiri()) {
+      return configService.config().shell.niriOverviewTypeToLaunchEnabled;
+    }
+    return false;
+  }
 } // namespace
 
 void Application::initUi() {
@@ -200,26 +210,23 @@ void Application::performGreeterSync(bool quiet) {
     return;
   }
 
-  const std::uint64_t generation = ++m_greeterSyncGeneration;
-  m_greeterSyncTimeoutTimer.stop();
+  const std::uint64_t generation = m_greeterSyncGeneration + 1;
 
   const auto complete = [this, generation, quiet](bool success) {
-    if (generation != m_greeterSyncGeneration) {
-      return;
-    }
-    m_greeterSyncTimeoutTimer.stop();
-    if (success) {
-      if (!quiet) {
-        DeferredCall::callLater([this]() {
+    DeferredCall::callLater([this, generation, quiet, success]() {
+      if (generation != m_greeterSyncGeneration) {
+        return;
+      }
+      m_greeterSyncTimeoutTimer.stop();
+      if (success) {
+        if (!quiet) {
           notify::info(
               "Noctalia", i18n::tr("notifications.internal.greeter-sync"),
               i18n::tr("notifications.internal.greeter-sync-success")
           );
-        });
+        }
+        return;
       }
-      return;
-    }
-    DeferredCall::callLater([this, quiet]() {
       if (quiet) {
         notify::error(
             "Noctalia", i18n::tr("notifications.internal.greeter-sync"), i18n::tr("settings.errors.sync-greeter")
@@ -230,12 +237,15 @@ void Application::performGreeterSync(bool quiet) {
     });
   };
 
-  if (m_configService.config().shell.polkitAgent && m_polkitAgent != nullptr) {
-    m_polkitAgent->markNextRequestInternal();
-  }
   const auto launch = greeter::syncAppearanceToGreeterAsync(
-      m_configService, m_themeService.resolvedMode(), complete, &m_compositorPlatform, m_logindService != nullptr
+      m_configService, m_themeService.resolvedShellMode(), complete, &m_compositorPlatform, m_logindService != nullptr
   );
+  if (launch == greeter::GreeterSyncLaunch::Busy) {
+    return;
+  }
+
+  m_greeterSyncGeneration = generation;
+  m_greeterSyncTimeoutTimer.stop();
   if (launch == greeter::GreeterSyncLaunch::Failed) {
     if (quiet) {
       notify::error(
@@ -259,16 +269,17 @@ void Application::performGreeterSync(bool quiet) {
     }
     return;
   }
-
+  const bool legacySync = launch == greeter::GreeterSyncLaunch::LaunchedLegacy;
   if (!quiet) {
     const bool customPrivilege =
         !StringUtils::trim(m_configService.config().shell.greeterSync.privilegeCommand).empty();
     const bool polkitAgentActive = m_configService.config().shell.polkitAgent && m_polkitAgent != nullptr;
     const bool inSessionPolkit = likelySupportsInSessionPolkit();
-    const char* pendingBodyKey = "notifications.internal.greeter-sync-pending";
-    if (!customPrivilege && !polkitAgentActive && !inSessionPolkit) {
-      pendingBodyKey = "notifications.internal.greeter-sync-pending-manual";
-    } else if (!customPrivilege && !polkitAgentActive) {
+    const char* pendingBodyKey = legacySync ? "notifications.internal.greeter-sync-pending-legacy"
+                                            : "notifications.internal.greeter-sync-pending";
+    if (!legacySync && !customPrivilege && !polkitAgentActive && !inSessionPolkit) {
+      pendingBodyKey = "notifications.internal.greeter-sync-pending-manual-pkexec";
+    } else if (!legacySync && !customPrivilege && !polkitAgentActive) {
       pendingBodyKey = "notifications.internal.greeter-sync-pending-console";
     }
     notify::info("Noctalia", i18n::tr("notifications.internal.greeter-sync"), i18n::tr(pendingBodyKey));
@@ -276,21 +287,27 @@ void Application::performGreeterSync(bool quiet) {
 
   if (!quiet) {
     const bool inSessionPolkit = likelySupportsInSessionPolkit();
-    m_greeterSyncTimeoutTimer.start(std::chrono::seconds(90), [this, generation, inSessionPolkit]() {
+    m_greeterSyncTimeoutTimer.start(std::chrono::seconds(90), [this, generation, inSessionPolkit, legacySync]() {
       if (generation != m_greeterSyncGeneration) {
         return;
       }
-      DeferredCall::callLater([this, inSessionPolkit]() {
+      DeferredCall::callLater([this, generation, inSessionPolkit, legacySync]() {
+        if (generation != m_greeterSyncGeneration) {
+          return;
+        }
         notify::error(
             "Noctalia", i18n::tr("notifications.internal.greeter-sync"),
             i18n::tr(
-                inSessionPolkit ? "notifications.internal.greeter-sync-timeout"
-                                : "notifications.internal.greeter-sync-timeout-manual"
+                inSessionPolkit  ? "notifications.internal.greeter-sync-timeout"
+                    : legacySync ? "notifications.internal.greeter-sync-timeout-manual"
+                                 : "notifications.internal.greeter-sync-timeout-manual-pkexec"
             )
         );
         m_settingsWindow.markSettingsWriteError(
             i18n::tr(
-                inSessionPolkit ? "settings.errors.sync-greeter-timeout" : "settings.errors.sync-greeter-timeout-manual"
+                inSessionPolkit  ? "settings.errors.sync-greeter-timeout"
+                    : legacySync ? "settings.errors.sync-greeter-timeout-manual"
+                                 : "settings.errors.sync-greeter-timeout-manual-pkexec"
             )
         );
       });
@@ -331,6 +348,9 @@ void Application::initLockScreenAndSession() {
         if (m_logindService != nullptr) {
           m_logindService->setSessionLockedHint(true);
         }
+        if (m_screenSaverService != nullptr) {
+          m_screenSaverService->emitActiveChanged(true);
+        }
         releaseSleepDelayInhibitIfPending();
       },
       [this]() {
@@ -343,6 +363,9 @@ void Application::initLockScreenAndSession() {
         requestAllSurfacesRedraw();
         if (m_logindService != nullptr) {
           m_logindService->setSessionLockedHint(false);
+        }
+        if (m_screenSaverService != nullptr) {
+          m_screenSaverService->emitActiveChanged(false);
         }
       },
       [this]() {
@@ -447,7 +470,7 @@ void Application::initInputDispatch() {
       m_lockScreen.onKeyboardEvent(event);
       return;
     }
-    // Grab popups are modal — while one is open it owns the keyboard and ESC
+    // Grab popups are modal: while one is open it owns the keyboard and ESC
     // dismisses it before anything behind can react.
     if (ContextMenuPopup::dispatchKeyboardEvent(event)) {
       return;
@@ -565,48 +588,51 @@ void Application::initPanelManagerAndPanels() {
   syncClipboardService();
   m_panelManager.registerPanel("session", std::make_unique<SessionPanel>(&m_configService, m_sessionActionRunner));
   m_panelManager.registerPanel("test", std::make_unique<TestPanel>());
-  m_panelManager.registerPanel(
-      "control-center",
-      std::make_unique<ControlCenterPanel>(ControlCenterServices{
-          .notifications = &m_notificationManager,
-          .audio = m_pipewireService.get(),
-          .easyEffects = m_easyEffectsService.get(),
-          .mpris = m_mprisService.get(),
-          .config = &m_configService,
-          .httpClient = &m_httpClient,
-          .weather = &m_weatherService,
-          .spectrum = m_pipewireSpectrum.get(),
-          .upower = m_upowerService.get(),
-          .powerProfiles = m_powerProfilesService.get(),
-          .network = m_networkService.get(),
-          .networkSecrets = m_networkSecretAgent.get(),
-          .externalIp = &m_externalIpService,
-          .bluetooth = m_bluetoothService.get(),
-          .bluetoothAgent = m_bluetoothAgent.get(),
-          .brightness = m_brightnessService.get(),
-          .sysmon = m_systemMonitor.get(),
-          .screenTime = &m_screenTimeService,
-          .nightLight = &m_gammaService,
-          .theme = &m_themeService,
-          .idleInhibitor = &m_idleInhibitor,
-          .dependencies = &m_dependencyService,
-          .platform = &m_compositorPlatform,
-          .ipc = &m_ipcService,
-          .wallpaper = &m_wallpaper,
-          .calendar = &m_calendarService,
-          .scriptApi = &m_scriptApi,
-          .fileWatcher = &m_fileWatcher,
-          .clipboard = &m_clipboardService,
-          .accounts = m_accountsService.get(),
-          .thumbnails = &m_thumbnailService,
-          .asyncTextures = &m_asyncTextureCache,
-      })
-  );
+  auto controlCenterPanel = std::make_unique<ControlCenterPanel>(ControlCenterServices{
+      .notifications = &m_notificationManager,
+      .audio = m_pipewireService.get(),
+      .easyEffects = m_easyEffectsService.get(),
+      .mpris = m_mprisService.get(),
+      .config = &m_configService,
+      .httpClient = &m_httpClient,
+      .weather = &m_weatherService,
+      .spectrum = m_pipewireSpectrum.get(),
+      .upower = m_upowerService.get(),
+      .powerProfiles = m_powerProfilesService.get(),
+      .network = m_networkService.get(),
+      .modem = m_modemManagerService.get(),
+      .networkSecrets = m_networkSecretAgent.get(),
+      .externalIp = &m_externalIpService,
+      .bluetooth = m_bluetoothService.get(),
+      .bluetoothAgent = m_bluetoothAgent.get(),
+      .brightness = m_brightnessService.get(),
+      .sysmon = m_systemMonitor.get(),
+      .screenTime = &m_screenTimeService,
+      .nightLight = &m_gammaService,
+      .theme = &m_themeService,
+      .idleInhibitor = &m_idleInhibitor,
+      .dependencies = &m_dependencyService,
+      .platform = &m_compositorPlatform,
+      .ipc = &m_ipcService,
+      .wallpaper = &m_wallpaper,
+      .calendar = &m_calendarService,
+      .scriptApi = &m_scriptApi,
+      .fileWatcher = &m_fileWatcher,
+      .clipboard = &m_clipboardService,
+      .accounts = m_accountsService.get(),
+      .thumbnails = &m_thumbnailService,
+      .asyncTextures = &m_asyncTextureCache,
+  });
+  ControlCenterPanel* controlCenterPanelPtr = controlCenterPanel.get();
+  m_panelManager.registerPanel("control-center", std::move(controlCenterPanel));
   {
     auto launcherPanel = std::make_unique<LauncherPanel>(&m_configService, &m_asyncTextureCache);
     launcherPanel->addProvider(std::make_unique<AppProvider>(&m_configService, &m_compositorPlatform));
     launcherPanel->addProvider(std::make_unique<WallpaperProvider>(&m_configService, &m_wayland, &m_themeService));
     launcherPanel->addProvider(std::make_unique<WindowProvider>(&m_compositorPlatform));
+    launcherPanel->addProvider(
+        std::make_unique<PanelProvider>(&m_panelManager, controlCenterPanelPtr, &m_configService)
+    );
     launcherPanel->addProvider(std::make_unique<SessionProvider>(&m_configService, &m_sessionActionRunner));
     launcherPanel->addProvider(std::make_unique<MathProvider>(&m_clipboardService, &m_configService, &m_httpClient));
     launcherPanel->addProvider(std::make_unique<EmojiProvider>(&m_clipboardService));
@@ -654,7 +680,7 @@ void Application::initPanelManagerAndPanels() {
   reloadDmenuProviders();
   reloadPluginPanels();
   m_overviewLauncherCapture.initialize(m_wayland, &m_renderContext, m_compositorPlatform, m_panelManager);
-  m_overviewLauncherCapture.setEnabled(m_configService.config().shell.niriOverviewTypeToLaunchEnabled);
+  m_overviewLauncherCapture.setEnabled(overviewTypeToLaunchEnabled(m_configService));
   m_overviewLauncherCapture.setOpenLauncherCallback(
       [this](std::string_view initialQuery, wl_output* output, std::string_view sourceBarName) {
         if (m_panelManager.isOpenPanel("launcher")) {
@@ -680,12 +706,13 @@ void Application::initPanelManagerAndPanels() {
   });
   m_panelManager.setPanelClosedCallback([this]() {
     m_overviewLauncherCapture.sync();
+    m_bar.rearmTooltipForHoveredWidget();
     m_bar.reevaluateAutoHide();
     // Widgets that stay visible while their panel is open re-evaluate on the next update.
     m_bar.refresh();
   });
   m_configService.addReloadCallback([this]() {
-    m_overviewLauncherCapture.setEnabled(m_configService.config().shell.niriOverviewTypeToLaunchEnabled);
+    m_overviewLauncherCapture.setEnabled(overviewTypeToLaunchEnabled(m_configService));
   });
   m_overviewLauncherCapture.sync();
   m_panelManager.registerPanel(
@@ -714,6 +741,11 @@ void Application::initNotificationAndOsd() {
   auto applyHistoryRetention = [this]() {
     m_notificationManager.setHistoryRetentionHours(m_configService.config().notification.historyRetentionHours);
   };
+  auto applyDismissedHistory = [this]() {
+    m_notificationManager.setKeepDismissedInHistory(m_configService.config().notification.keepDismissedInHistory);
+  };
+  applyDismissedHistory();
+  m_configService.addReloadCallback(applyDismissedHistory);
   applyHistoryRetention();
   m_configService.addReloadCallback(applyHistoryRetention);
   applyNotificationFilterConfig();
@@ -726,6 +758,7 @@ void Application::initNotificationAndOsd() {
   m_windowSwitcher.initialize(
       m_wayland, &m_renderContext, m_compositorPlatform, &m_configService, &m_asyncTextureCache
   );
+  m_configService.addReloadCallback([this]() { m_windowSwitcher.onConfigReload(); });
   m_configService.addReloadCallback([this]() { m_osdOverlay.onConfigReload(); });
   m_idleGraceOverlay.initialize(m_wayland, &m_renderContext);
   m_wayland.setIdleCapabilitiesReadyCallback([this]() { m_idleManager.reload(m_configService.config().idle); });
@@ -736,22 +769,27 @@ void Application::initNotificationAndOsd() {
           std::function<void()> onFadeComplete
       ) {
         (void)behaviorName;
-        // Snapshot the clean desktop before the overlay fades in
-        if (willLockSession && m_configService.isLockScreenEnabled()) {
+        (void)willLockSession;
+        const std::uint64_t generation = ++m_idleGraceOverlayGeneration;
+        // Snapshot before the overlay fades in. A lock behavior can join an
+        // already-active grace period after this callback has run.
+        if (m_configService.isLockScreenEnabled()) {
           m_lockScreen.primeDesktopCaptures();
         }
-        DeferredCall::callLater([this, fadeIn, done = std::move(onFadeComplete)]() mutable {
+        DeferredCall::callLater([this, generation, fadeIn, done = std::move(onFadeComplete)]() mutable {
+          if (generation != m_idleGraceOverlayGeneration) {
+            return;
+          }
           m_idleGraceOverlay.show(fadeIn, std::move(done));
         });
       },
       [this](bool userCancelled, bool willLockSession) {
+        ++m_idleGraceOverlayGeneration;
         // Keep the overlay only when handing off to Noctalia's lock screen (avoids a flash).
         // External lockers never take ownership; deferred hide also races with suspend.
         const bool handoffToLockScreen = !userCancelled && willLockSession && m_configService.isLockScreenEnabled();
         if (!handoffToLockScreen) {
           m_idleGraceOverlay.hide();
-        }
-        if (userCancelled) {
           m_lockScreen.clearPrimedDesktopCaptures();
         }
       }
@@ -789,6 +827,7 @@ void Application::initNotificationAndOsd() {
   );
   m_audioOsd.bindOverlay(m_osdOverlay);
   m_audioOsd.setSoundPlayer(m_soundPlayer.get());
+  m_screenshotService.setSoundPlayer(m_soundPlayer.get());
   if (m_pipewireService != nullptr) {
     m_audioOsd.primeFromService(*m_pipewireService);
   }
@@ -832,6 +871,7 @@ void Application::initBarDockAndLayout() {
       .sysmon = m_systemMonitor.get(),
       .powerProfiles = m_powerProfilesService.get(),
       .network = m_networkService.get(),
+      .modem = m_modemManagerService.get(),
       .externalIp = &m_externalIpService,
       .idleInhibitor = &m_idleInhibitor,
       .mpris = m_mprisService.get(),
@@ -868,8 +908,8 @@ void Application::initBarDockAndLayout() {
   m_panelManager.setAttachedPanelAvailabilityCallback([this](wl_output* output, std::string_view barName) {
     return m_bar.canAttachPanelToBar(output, barName);
   });
-  m_panelManager.setAttachedPanelLayerProvider([this](wl_output* output, std::string_view barName) {
-    return m_bar.layerForBar(output, barName);
+  m_panelManager.setBarConfigProvider([this](wl_output* output, std::string_view barName) {
+    return m_bar.configForBar(output, barName);
   });
   m_panelManager.setAttachedPanelBarSettledCallback([this](wl_output* output, std::string_view barName) {
     return m_bar.isAttachedPanelBarSettled(output, barName);

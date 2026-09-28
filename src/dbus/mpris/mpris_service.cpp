@@ -277,14 +277,6 @@ namespace {
     return normalized;
   }
 
-  std::string logicalTrackSignature(const MprisPlayerInfo& info) {
-    const std::string canonicalSourceUrl = canonicalTrackSourceUrl(info.sourceUrl);
-    if (!canonicalSourceUrl.empty()) {
-      return std::format("{}\n{}", info.trackId, canonicalSourceUrl);
-    }
-    return std::format("{}\n{}\n{}\n{}", info.trackId, info.title, joinedArtists(info.artists), info.album);
-  }
-
   std::map<std::string, sdbus::Variant> to_dbus_player(const MprisPlayerInfo& info) {
     std::map<std::string, sdbus::Variant> player;
     player["bus_name"] = sdbus::Variant(info.busName);
@@ -353,6 +345,14 @@ namespace {
   std::string normalizeFilterToken(std::string_view value) { return StringUtils::toLower(StringUtils::trim(value)); }
 
 } // namespace
+
+std::string logicalTrackSignature(const MprisPlayerInfo& info) {
+  const std::string canonicalSourceUrl = canonicalTrackSourceUrl(info.sourceUrl);
+  if (!canonicalSourceUrl.empty()) {
+    return std::format("{}\n{}", info.trackId, canonicalSourceUrl);
+  }
+  return std::format("{}\n{}\n{}\n{}", info.trackId, info.title, joinedArtists(info.artists), info.album);
+}
 
 MprisService::MprisService(SessionBus& bus)
     : m_bus(bus), m_dbusProxy(sdbus::createProxy(bus.connection(), kDbusName, kDbusPath)) {
@@ -1928,10 +1928,9 @@ void MprisService::applyPlayerSnapshot(
     const MprisPlayerInfo previous_info = existing->second;
 
     MprisPlayerInfo merged = info;
-    const bool trackIdChanged = !info.trackId.empty()
-        && info.trackId != previous_info.trackId
-        && info.trackId != "/org/mpris/MediaPlayer2/TrackList/NoTrack";
-    if (!trackIdChanged && merged.artUrl.empty() && !previous_info.artUrl.empty()) {
+    // Keep the previous art only while the same logical track refreshes its metadata.
+    const bool sameLogicalTrack = logicalTrackSignature(info) == logicalTrackSignature(previous_info);
+    if (sameLogicalTrack && merged.artUrl.empty() && !previous_info.artUrl.empty()) {
       merged.artUrl = previous_info.artUrl;
     }
 

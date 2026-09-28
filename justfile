@@ -53,6 +53,10 @@ test m=mode *args: (_ensure-configured m)
     fi
     meson test -C build-{{m}} {{args}}
 
+# Regressions for the GitHub workflow scripts. Pure Python, builds nothing.
+test-workflows:
+    python3 -m unittest discover -s .github/workflows/scripts -p 'test_*.py'
+
 install m:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -78,6 +82,7 @@ format:
 _clang_tidy m=mode *args:
     #!/usr/bin/env bash
     set -euo pipefail
+    meson compile -C "build-{{m}}" wayland-protocol-headers
     src_root="$(realpath src)"
     # compile_commands.json stores build-relative paths, so clang-tidy emits header
     # diagnostics as ../src/...; the header-filter must match that form (an absolute

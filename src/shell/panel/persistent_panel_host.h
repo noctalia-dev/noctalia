@@ -6,6 +6,7 @@
 #include "wayland/layer_surface.h"
 
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -63,6 +64,7 @@ public:
   void onConfigReloaded();
   void onIconThemeChanged();
   void refresh();
+  void setPanelClosedCallback(std::function<void()> callback);
 
 private:
   struct Instance {
@@ -101,4 +103,5 @@ private:
   RenderContext* m_renderContext = nullptr;
   std::unordered_map<std::string, std::unique_ptr<Panel>> m_panels;
   std::vector<std::unique_ptr<Instance>> m_instances;
+  std::function<void()> m_panelClosedCallback;
 };

@@ -5,6 +5,7 @@
 
 #include "security/secret_store.h"
 #include "security/storage_key_provider.h"
+#include "wayland/clipboard_poll_source.h"
 #include "wayland/clipboard_service.h"
 
 #include <algorithm>
@@ -343,6 +344,27 @@ int main() {
   }
 
   {
+    // The adoption queued by a NULL selection has to survive a main loop that
+    // dispatches a source only on a ready fd or an advertised timeout: with no
+    // transfer in flight the clipboard has no fd to be woken on.
+    Harness harness;
+    ClipboardPollSource source(harness.clipboard);
+    fake.claims = 0;
+    simulateCopy(harness.clipboard, &offerIds[2], "text/plain;charset=utf-8", bytesOf("orphan"));
+    expect(source.pollTimeoutMs() < 0, "poll source asked for a timed wake with nothing pending");
+
+    harness.clipboard.handleSelection(nullptr);
+    std::vector<pollfd> fds;
+    const std::size_t start = source.addPollFds(fds);
+    expect(fds.empty(), "clipboard held a poll fd with no transfer in flight");
+    expect(source.pollTimeoutMs() == 0, "poll source did not request an immediate wake for a queued adoption");
+
+    source.dispatch(fds, start);
+    expect(fake.claims == 1, "the queued adoption was never flushed");
+    expect(source.pollTimeoutMs() < 0, "poll source kept requesting immediate wakes after adopting");
+  }
+
+  {
     // Byte pressure must give up images, not the text behind them: the text was
     // copied first, so an oldest-first policy would drop it.
     constexpr std::size_t kImageBytes = 512U * 1024U;
@@ -390,7 +412,8 @@ int main() {
 
     for (int i = 0; i < 3; ++i) {
       simulateCopy(
-          harness.clipboard, &offerIds[i], "text/plain;charset=utf-8", bytesOf(std::string("entry ") + char('a' + i))
+          harness.clipboard, &offerIds[i], "text/plain;charset=utf-8",
+          bytesOf(std::string("entry ") + static_cast<char>('a' + i))
       );
     }
     expect(harness.clipboard.history().size() == 3, "three distinct copies did not produce three entries");
@@ -401,7 +424,7 @@ int main() {
     for (int i = 0; i < 3; ++i) {
       simulateCopy(
           harness.clipboard, &offerIds[3 + i], "text/plain;charset=utf-8",
-          bytesOf(std::string("entry ") + char('x' + i))
+          bytesOf(std::string("entry ") + static_cast<char>('x' + i))
       );
     }
     // Newest first, so "entry z" sits at the front.

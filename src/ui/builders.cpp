@@ -748,6 +748,9 @@ namespace ui {
     if (props.orientation.has_value()) {
       control->setOrientation(*props.orientation);
     }
+    if (props.contentScale.has_value()) {
+      control->setContentScale(*props.contentScale);
+    }
     if (props.state != nullptr) {
       control->bindState(props.state);
     }
@@ -796,6 +799,9 @@ namespace ui {
 
   std::unique_ptr<VirtualGridView> virtualGridView(VirtualGridViewProps props) {
     auto control = std::make_unique<VirtualGridView>();
+    if (props.contentScale.has_value()) {
+      control->setScale(*props.contentScale);
+    }
     if (props.columns.has_value()) {
       control->setColumns(*props.columns);
     }
@@ -816,6 +822,9 @@ namespace ui {
     }
     if (props.overscanRows.has_value()) {
       control->setOverscanRows(*props.overscanRows);
+    }
+    if (props.itemCursorShape.has_value()) {
+      control->setItemCursorShape(*props.itemCursorShape);
     }
     if (props.scrollbarVisible.has_value()) {
       control->scrollView().setScrollbarVisible(*props.scrollbarVisible);
@@ -844,6 +853,9 @@ namespace ui {
 
   std::unique_ptr<VirtualListView> virtualListView(VirtualListViewProps props) {
     auto control = std::make_unique<VirtualListView>();
+    if (props.contentScale.has_value()) {
+      control->setContentScale(*props.contentScale);
+    }
     if (props.itemGap.has_value()) {
       control->setItemGap(*props.itemGap);
     }
