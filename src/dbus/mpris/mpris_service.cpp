@@ -1928,9 +1928,9 @@ void MprisService::applyPlayerSnapshot(
     const MprisPlayerInfo previous_info = existing->second;
 
     MprisPlayerInfo merged = info;
-    // trackId alone can't detect a track change for players that never set it (e.g. Kopuz).
-    const bool logicalTrackUnchangedForArt = logicalTrackSignature(info) == logicalTrackSignature(previous_info);
-    if (logicalTrackUnchangedForArt && merged.artUrl.empty() && !previous_info.artUrl.empty()) {
+    // Keep the previous art only while the same logical track refreshes its metadata.
+    const bool sameLogicalTrack = logicalTrackSignature(info) == logicalTrackSignature(previous_info);
+    if (sameLogicalTrack && merged.artUrl.empty() && !previous_info.artUrl.empty()) {
       merged.artUrl = previous_info.artUrl;
     }
 
