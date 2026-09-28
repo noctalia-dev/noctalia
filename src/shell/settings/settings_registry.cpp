@@ -272,18 +272,15 @@ namespace settings {
     }
 
     std::vector<SelectOption> controlCenterShortcutOptions(const Config& cfg) {
+      auto catalog = ShortcutRegistry::catalog();
       std::vector<SelectOption> opts;
-      opts.reserve(ShortcutRegistry::catalog().size());
-      for (const auto& shortcut : ShortcutRegistry::catalog()) {
+      opts.reserve(catalog.size());
+      for (auto& shortcut : catalog) {
         if (!ShortcutRegistry::isAvailable(shortcut.type, cfg)) {
           continue;
         }
-        opts.push_back(
-            SelectOption{
-                std::string(shortcut.type),
-                shortcut.literalLabel ? std::string(shortcut.labelKey) : i18n::tr(shortcut.labelKey)
-            }
-        );
+        std::string label = shortcut.literalLabel ? std::move(shortcut.labelKey) : i18n::tr(shortcut.labelKey);
+        opts.push_back(SelectOption{std::move(shortcut.type), std::move(label)});
       }
       return opts;
     }

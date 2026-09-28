@@ -555,9 +555,7 @@ namespace {
 } // namespace
 
 std::vector<ShortcutRegistry::CatalogEntry> ShortcutRegistry::catalog() {
-  // Built-in shortcuts plus every plugin [[shortcut]] entry. Rebuilt fresh on every call
-  // (not cached) so a plugin installed, enabled, or removed after startup is reflected
-  // immediately instead of only after a restart.
+  // Built-in shortcuts plus every currently active plugin [[shortcut]] entry.
   auto result = kBuiltinShortcuts
       | std::views::transform([](const BuiltinShortcutDescriptor& shortcut) {
                   return CatalogEntry{.type = std::string(shortcut.type), .labelKey = std::string(shortcut.labelKey)};
@@ -565,13 +563,9 @@ std::vector<ShortcutRegistry::CatalogEntry> ShortcutRegistry::catalog() {
       | std::ranges::to<std::vector>();
   scripting::PluginRegistry::instance().ensureScanned();
   for (const auto& entry : scripting::PluginRegistry::instance().entriesOfKind(scripting::PluginEntryKind::Shortcut)) {
-    result.push_back(
-        CatalogEntry{
-            .type = entry.fullId(),
-            .labelKey = entry.manifest->name.empty() ? entry.fullId() : entry.manifest->name,
-            .literalLabel = true,
-        }
-    );
+    std::string id = entry.fullId();
+    std::string label = entry.manifest->name.empty() ? id : entry.manifest->name;
+    result.push_back(CatalogEntry{.type = std::move(id), .labelKey = std::move(label), .literalLabel = true});
   }
   return result;
 }

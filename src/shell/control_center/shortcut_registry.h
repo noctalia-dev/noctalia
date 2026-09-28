@@ -44,9 +44,7 @@ public:
     bool literalLabel = false; // when true, labelKey holds a literal display name, not an i18n key
   };
 
-  // Rebuilt on every call so newly installed/removed plugin [[shortcut]] entries show up
-  // without a restart; this is only called while building the Settings shortcut dropdown,
-  // not on a hot path.
+  // Rebuilt on every call from the current plugin registry state.
   [[nodiscard]] static std::vector<CatalogEntry> catalog();
   // Whether a built-in shortcut's backing feature is enabled. Drives both the
   // Settings GUI add-list and create(); disabled features cannot be added.
