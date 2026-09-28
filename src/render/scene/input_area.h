@@ -40,12 +40,7 @@ public:
     float axisSteps = 0.0F;
     bool axisStepStartsGesture = false;
 
-    [[nodiscard]] float scrollDelta(float wheelStep) const noexcept {
-      if (axisLines != 0.0F) {
-        return axisLines * wheelStep;
-      }
-      return static_cast<float>(axisValue);
-    }
+    [[nodiscard]] float scrollDelta(float wheelStep) const noexcept;
 
     // Whole wheel-detent steps accumulated by the InputArea (positive = scroll
     // down), for discrete stepping (volume, workspace cycling, ...). An event

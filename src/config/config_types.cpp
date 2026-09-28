@@ -539,12 +539,38 @@ float resolveWidgetContentScale(float barScale, const WidgetConfig* widget, std:
   return barScale * std::clamp(static_cast<float>(widgetScale), 0.2F, 2.5F);
 }
 
+float resolveWidgetFontScale(float barFontScale, const WidgetConfig* widget, std::string_view context) {
+  if (widget == nullptr) {
+    return barFontScale;
+  }
+
+  const auto it = widget->settings.find("font_scale");
+  if (it == widget->settings.end()) {
+    return barFontScale;
+  }
+
+  double widgetFontScale = 1.0;
+  if (const auto* rawDouble = std::get_if<double>(&it->second)) {
+    if (!std::isfinite(*rawDouble)) {
+      throw std::runtime_error(std::string(context) + ".font_scale: expected finite number");
+    }
+    widgetFontScale = *rawDouble;
+  } else if (const auto* rawInt = std::get_if<std::int64_t>(&it->second)) {
+    widgetFontScale = static_cast<double>(*rawInt);
+  } else {
+    throw std::runtime_error(std::string(context) + ".font_scale: expected finite number");
+  }
+
+  return barFontScale * std::clamp(static_cast<float>(widgetFontScale), 0.2F, 2.5F);
+}
+
 CommonWidgetOptions resolveCommonWidgetOptions(
     const BarConfig& bar, const WidgetConfig* widget, std::string_view widgetType, float barScale
 ) {
   CommonWidgetOptions options;
   options.interactive = widgetType != "spacer";
   options.contentScale = resolveWidgetContentScale(barScale, widget);
+  options.fontScale = resolveWidgetFontScale(bar.fontScale, widget);
   options.capsule = resolveWidgetBarCapsuleSpec(bar, widget);
   if (widget == nullptr) {
     return options;

@@ -93,6 +93,14 @@ const noctalia::bar::WidgetDefinition<MediaWidget::Options>& mediaWidgetDefiniti
                       .visibleWhen = notAlbumArtOnly,
                   },
           }),
+          field<&Options::showProgress>({
+              .key = "show_progress",
+              .presentation =
+                  settings::WidgetSettingPresentation{
+                      .visibleWhen = notAlbumArtOnly,
+                      .horizontalBarOnly = true,
+                  },
+          }),
           field<&Options::hideWhenNoMedia>({
               .key = "hide_when_no_media",
           }),

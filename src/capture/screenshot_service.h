@@ -136,7 +136,6 @@ private:
       std::optional<std::filesystem::path> destPath, wl_output* output
   );
   [[nodiscard]] wl_output* preferredCaptureOutput() const;
-  [[nodiscard]] std::filesystem::path defaultPicturesDirectory() const;
   [[nodiscard]] std::filesystem::path outputDirectory(const OutputOptions& options) const;
   [[nodiscard]] std::filesystem::path
   makeScreenshotPath(const OutputOptions& options, const std::string& labelBase, int suffix = 0) const;

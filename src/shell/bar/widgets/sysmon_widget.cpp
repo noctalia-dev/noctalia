@@ -272,7 +272,7 @@ void SysmonWidget::create() {
   if (m_showValue) {
     textNode = ui::label({
         .out = &m_label,
-        .fontSize = Style::fontSizeBody * m_contentScale,
+        .fontSize = Style::fontSizeBody * fontScale(),
         .fontWeight = labelFontWeight(),
         .fontFamily = labelFontFamily(),
         .minWidth =
@@ -537,7 +537,7 @@ void SysmonWidget::doLayout(Renderer& renderer, float containerWidth, float cont
     if (orientationChanged || m_lastRawValue.empty()) {
       syncLabelText(m_lastRawValue.empty() ? formatValue() : m_lastRawValue);
     }
-    m_label->setFontSize((verticalBar ? Style::fontSizeCaption : Style::fontSizeBody) * m_contentScale);
+    m_label->setFontSize((verticalBar ? Style::fontSizeCaption : Style::fontSizeBody) * fontScale());
     m_label->measure(renderer);
   }
   const float labelW = m_label != nullptr ? m_label->width() : 0.0F;
@@ -657,7 +657,7 @@ void SysmonWidget::doUpdate(Renderer& renderer) {
   const std::string value = formatValue();
   syncValueColor();
   if (m_label != nullptr) {
-    m_label->setFontSize((m_isVerticalBar ? Style::fontSizeCaption : Style::fontSizeBody) * m_contentScale);
+    m_label->setFontSize((m_isVerticalBar ? Style::fontSizeCaption : Style::fontSizeBody) * fontScale());
     if (syncLabelText(value)) {
       m_label->measure(renderer);
     }

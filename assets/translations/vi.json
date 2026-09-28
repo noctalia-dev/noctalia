@@ -305,6 +305,21 @@
     },
     "power": {
       "battery": "Pin",
+      "charging": {
+        "display-only": "Chỉ hiển thị",
+        "error-denied": "Xác minh đã bị từ chối. Mức sạc đã chưa được thay đổi.",
+        "error-failed": "Mức sạc không thể bị thay đổi",
+        "externally-managed": "Đã được đặt bởi một công cụ khác. Vui lòng chỉnh UPower để thay đổi mức sạc.",
+        "firmware-managed": "Phần mềm hệ thống đang quản lí sạc.",
+        "full-charge": "Có thể sạc tới 100%.",
+        "starts": "Bắt đầu ở {start}%",
+        "starts-stops": "Bắt đầu ở {start}% · Kết thúc ở {end}%",
+        "stops": "Kết thúc ở {end}%",
+        "title": "Sạc pin",
+        "unreadable": "Không khả dụng",
+        "unsupported": "Mức sạc không được hỗ trợ",
+        "use-thresholds": "Sử dụng mức sạc"
+      },
       "design-capacity": "Công suất thiết kế",
       "health": "Trình trạng pin",
       "performance-inhibited": "Hiệu suất không xác định",
@@ -579,6 +594,7 @@
         "grid": "Lưới"
       },
       "title": "Tiện ích màn hình nền",
+      "title-lockscreen": "Widget màn hình khóa",
       "types": {
         "audio-visualizer": "Trực quan hóa âm thanh",
         "button": "Nút",
@@ -923,6 +939,9 @@
       "save-error": "Không thể lưu tài khoản lịch.",
       "secret-cleanup-error": "Không thể lưu tài khoản, cũng như không thể khôi phục hoặc dọn dẹp thông tin xác thực trong keyring của tài khoản đó. Vui lòng thử lại sau khi mở khóa Secret Service.",
       "secret-service-cancelled": "Yêu cầu của Secret Service đã bị hủy. Hãy thử lại khi bạn sẵn sàng mở khóa.",
+      "secret-service-error": "Không thể truy cập thông tin xác thực lịch trong Secret Service. Vui lòng thử lại thao tác.",
+      "secret-service-locked": "Thông tin xác thực lịch đang bị khóa hoặc truy cập đã bị từ chối. Vui lòng mở Secret Service và thử lại.",
+      "secret-service-unavailable": "Không có nhà cung cấp Secret Service nào khả dụng. Hãy khởi động một nhà cung cấp tương thích và thử lại.",
       "server-url-label": "URL máy chủ",
       "username-label": "Tên người dùng",
       "username-placeholder": "name@example.com"
@@ -987,7 +1006,9 @@
         },
         "group": {
           "accordion": "Phong cầm",
+          "accordion-description": "Chỉ hiển thị widget đầu tiên; di chuột qua phần bao chứa sẽ làm hiện ra các phần còn lại.",
           "accordion-direction": "Hiển thị hướng",
+          "accordion-direction-description": "Phía của tiện ích đầu tiên nơi các widget ẩn bung ra",
           "action": "Nhóm",
           "border": "Viền",
           "border-description": "Vai trò màu sắc đường viền của Vùng chứa; để Mặc định nếu không muốn có đường viền",
@@ -1025,17 +1046,20 @@
           "remove-widget": "Bỏ khỏi thanh",
           "select": "Chọn để gộp lại",
           "selected": "{count} đã chọn",
+          "settings-widget": "Cài đặt Widget",
           "show": "Hiện nhóm này",
           "show-widget": "Hiện widget này",
           "style": "Phong cách",
           "title": "Nhóm khung",
           "ungroup": "Tách nhóm",
-          "widget-spacing": "Ngăn cách"
+          "widget-spacing": "Ngăn cách",
+          "widget-spacing-description": "Khoảng cách giữa các widget trong nhóm này (tính bằng pixel); chế độ Tự động sẽ kế thừa khoảng cách widget của thanh công cụ."
         },
         "inspector": {
           "add-instance-title": "Thêm mới tiện ích có tên {widget} vào khu vực {lane}",
           "add-title": "Thêm widget vào {lane}",
-          "move-to-lane": "Di chuyển đến {lane}"
+          "move-to-lane": "Di chuyển đến {lane}",
+          "reset-defaults": "Đặt lại về mặc định"
         },
         "instance": {
           "create-save": "Tạo",
@@ -1719,6 +1743,9 @@
         "corner-top-right": {
           "description": "Bán kính góc trên bên phải cho Bar"
         },
+        "dead-zone-action": {
+          "description": "Thực hiện hành động trên các phần của thanh không bị widget nào che khuất."
+        },
         "edge-margin": {
           "description": "Khoảng cách giữa thanh và mép màn hình mà nó nằm trên. Đặt 0 px để thanh nằm sát mép màn hình."
         },
@@ -1736,11 +1763,15 @@
           "description": "Phông chữ dùng cho các widget trên thanh này. Để trống để sử dụng phông chữ toàn cục. Thiết lập Họ phông chữ riêng của widget sẽ ưu tiên hơn tùy chọn này.",
           "label": "Phông chữ"
         },
+        "font-scale": {
+          "description": "Hệ số tỷ lệ cho văn bản trên tất cả các widget ở thanh này; hệ số này sẽ nhân với giá trị font_scale của từng widget."
+        },
         "font-weight": {
           "description": "Độ đậm mặc định cho nhãn tiện ích trên thanh này.",
           "label": "Độ đậm phông chữ"
         },
         "hover-highlight": {
+          "description": "Tô màu nhẹ cho widget nằm dưới con trỏ chuột bằng chính màu nền trước của nó.",
           "label": "Làm nổi bật khi di chuột lên"
         },
         "layer": {
@@ -2311,6 +2342,9 @@
         "open-near-click-wallpaper": {
           "description": "Đặt bảng chọn hình nền gần vị trí nhấp vào thanh thay vì căn giữa theo chiều dài thanh",
           "label": "Mở gần nhấp"
+        },
+        "panel-anchor-bar": {
+          "description": "Các bảng thanh sẽ gắn vào vị trí kích hoạt khi được mở; hãy để trống để chúng đi theo widget, lối tắt hoặc thanh dock đã mở chúng."
         },
         "placement-clipboard": {
           "description": "Chọn xem bảng tạm gắn vào Bar, lơ lửng gần đó, hay mở ở giữa",
@@ -2941,6 +2975,24 @@
       "variant-label": "Kiểu nút"
     },
     "widgets": {
+      "actions": {
+        "command-placeholder": "Câu lệnh",
+        "default": "Mặc định",
+        "disabled": "Tắt",
+        "run-command": "Chạy một câu lệnh...",
+        "unset": "Chưa đặt"
+      },
+      "gestures": {
+        "back": "Nút quay lại",
+        "forward": "Nút tiếp tục",
+        "left": "Nút chuột trái",
+        "middle": "Nút chuột giữa (nút con lăn)",
+        "right": "Nút chuột phải",
+        "scroll-down": "Cuộn xuống",
+        "scroll-left": "Cuộn lên",
+        "scroll-right": "Cuộn trái",
+        "scroll-up": "Cuộn phải"
+      },
       "instances": {
         "cpu": "CPU",
         "date": "Ngày",
@@ -2951,32 +3003,63 @@
         "ram": "RAM",
         "temp": "Nhiệt độ"
       },
+      "map-placeholders": {
+        "effects-profile-name": "Tên cấu hình",
+        "glyph-name": "Tên ký tự",
+        "key": "Nút",
+        "label": "Nhãn",
+        "layout-name": "Tên layout",
+        "value": "Giá trị"
+      },
       "options": {
+        "after": "Sau",
         "always": "Luôn",
+        "auto": "Chế độ Tự động",
+        "before": "Trước",
+        "both": "Cả hai",
+        "compact": "Gọn",
+        "count": "Số lượng",
         "cpu-freq": "Tần số CPU",
         "cpu-temp": "Nhiệt độ CPU",
         "cpu-usage": "Sử dụng CPU",
+        "disk-free": "Dung lượng ổ nhớ còn trống",
+        "disk-free-percent": "% dung lượng ổ nhớ còn trống",
+        "disk-used": "Dung lượng ổ nhớ đã dùng",
+        "disk-used-percent": "% dung lượng ổ nhớ đã dùng",
+        "dots": "Những dấu chấm",
+        "focus-hint": "Màu nổi bật",
         "full": "Đầy đủ",
         "gauge": "Đồng hồ",
         "glyph": "Biểu tượng",
         "gpu-temp": "Nhiệt độ GPU",
         "gpu-usage": "Mức sử dụng GPU",
         "gpu-vram": "GPU VRAM",
+        "gpu-vram-used": "VRAM GPU đã sử dụng",
         "graph": "Biểu đồ",
         "graphic": "Đồ họa",
+        "hidden": "Đã ẩn",
         "icon-and-text": "Biểu tượng và Văn bản",
         "icon-only": "Chỉ biểu tượng",
+        "icons": "Biểu tượng",
         "id": "ID",
         "input": "Đầu vào",
         "instance": "Theo vị trí",
+        "kilobytes": "kB/s",
+        "megabytes": "MB/s",
+        "minimal": "Tối giản",
         "name": "Tên",
         "net-rx": "Mạng nhận",
         "net-tx": "Mạng gửi đi",
         "none": "Không",
         "on-hover": "Khi di chuột qua",
         "output": "Đầu ra",
+        "percent": "Phần trăm",
         "ram-percent": "Phần trăm RAM",
         "ram-used": "RAM đã dùng",
+        "rate": "Tốc độ",
+        "regular": "Bình thường",
+        "replace": "Thay thế",
+        "scroll-gesture": "Một lần cho mỗi Cử chỉ",
         "shared": "Chung",
         "short": "Ngắn",
         "swap-percent": "Phần trăm Swap",

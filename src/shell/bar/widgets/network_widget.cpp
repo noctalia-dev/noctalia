@@ -112,7 +112,7 @@ void NetworkWidget::create() {
   area->addChild(
       ui::label({
           .out = &m_label,
-          .fontSize = Style::fontSizeBody * m_contentScale,
+          .fontSize = Style::fontSizeBody * fontScale(),
           .fontWeight = labelFontWeight(),
           .fontFamily = labelFontFamily(),
       })
@@ -122,7 +122,7 @@ void NetworkWidget::create() {
   area->addChild(
       ui::label({
           .out = &m_vpnLabel,
-          .fontSize = Style::fontSizeBody * m_contentScale,
+          .fontSize = Style::fontSizeBody * fontScale(),
           .fontWeight = labelFontWeight(),
           .fontFamily = labelFontFamily(),
           .visible = false,
@@ -149,7 +149,7 @@ void NetworkWidget::doLayout(Renderer& renderer, float containerWidth, float con
     m_label->measure(renderer);
   }
   if (m_vpnLabel != nullptr && m_vpnLabel->visible()) {
-    m_vpnLabel->setFontSize((m_isVertical ? Style::fontSizeCaption : Style::fontSizeBody) * m_contentScale);
+    m_vpnLabel->setFontSize((m_isVertical ? Style::fontSizeCaption : Style::fontSizeBody) * fontScale());
     m_vpnLabel->measure(renderer);
   }
 
@@ -301,7 +301,7 @@ void NetworkWidget::syncState(Renderer& renderer) {
       if (m_isVertical && text.size() > 3) {
         text = text.substr(0, 3);
       }
-      m_label->setFontSize((m_isVertical ? Style::fontSizeCaption : Style::fontSizeBody) * m_contentScale);
+      m_label->setFontSize((m_isVertical ? Style::fontSizeCaption : Style::fontSizeBody) * fontScale());
       m_label->setText(text);
       m_label->setColor(widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface)));
       m_label->measure(renderer);
@@ -317,7 +317,7 @@ void NetworkWidget::syncState(Renderer& renderer) {
       if (m_isVertical && vpnText.size() > 3) {
         vpnText = vpnText.substr(0, 3);
       }
-      m_vpnLabel->setFontSize((m_isVertical ? Style::fontSizeCaption : Style::fontSizeBody) * m_contentScale);
+      m_vpnLabel->setFontSize((m_isVertical ? Style::fontSizeCaption : Style::fontSizeBody) * fontScale());
       m_vpnLabel->setText(vpnText);
       m_vpnLabel->setColor(widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface)));
       m_vpnLabel->measure(renderer);

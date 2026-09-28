@@ -2069,7 +2069,7 @@ void SettingsWindow::openPluginStore() {
                             ) { return m_pluginManager != nullptr && m_pluginManager->isEnabling(id); },
               .scale = scale,
           },
-          &m_pluginFileCache
+          &m_pluginFileCache, &m_pluginStoreScrollState
       );
 
       m_pluginFileCache.setOnReady([storeContent](
@@ -2180,6 +2180,7 @@ void SettingsWindow::openPluginStore() {
                         event.sym, event.modifiers, event.pressed, event.preedit, focused
                     );
                   },
+              .onClosed = [storeContent]() { storeContent->detachGrid(); },
           }
       );
     });

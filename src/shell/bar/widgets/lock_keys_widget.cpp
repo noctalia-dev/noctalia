@@ -206,15 +206,15 @@ void LockKeysWidget::sync(Renderer& renderer) {
   const bool full = m_displayMode == DisplayMode::Full;
   configureLabel(
       m_capsLabel, full ? i18n::tr("bar.widgets.lock-keys.caps") : i18n::tr("bar.widgets.lock-keys.caps-short"),
-      capsVisible, m_contentScale, labelFontWeight()
+      capsVisible, fontScale(), labelFontWeight()
   );
   configureLabel(
       m_numLabel, full ? i18n::tr("bar.widgets.lock-keys.num") : i18n::tr("bar.widgets.lock-keys.num-short"),
-      numVisible, m_contentScale, labelFontWeight()
+      numVisible, fontScale(), labelFontWeight()
   );
   configureLabel(
       m_scrollLabel, full ? i18n::tr("bar.widgets.lock-keys.scroll") : i18n::tr("bar.widgets.lock-keys.scroll-short"),
-      scrollVisible, m_contentScale, labelFontWeight()
+      scrollVisible, fontScale(), labelFontWeight()
   );
 
   if (m_capsLabel != nullptr) {

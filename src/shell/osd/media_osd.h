@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <unordered_map>
 class MprisService;
 class OsdOverlay;
 
@@ -19,5 +20,6 @@ public:
 private:
   OsdOverlay* m_overlay = nullptr;
   MediaOsdData m_lastData;
+  std::unordered_map<std::string, double> m_lastVolumes;
   bool m_hasData = false;
 };

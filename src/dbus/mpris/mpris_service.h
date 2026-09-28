@@ -202,6 +202,7 @@ private:
   std::unordered_map<std::string, std::chrono::steady_clock::time_point> m_pendingPositionCandidateAt;
   std::unordered_map<std::string, std::chrono::steady_clock::time_point> m_lastPositionSampleAt;
   std::unordered_map<std::string, std::chrono::steady_clock::time_point> m_lastPropertiesUpdate;
+  std::unordered_map<std::string, TimerManager::TimerId> m_propertiesRefreshTimers;
   std::unordered_map<std::string, std::chrono::steady_clock::time_point> m_lastPlayingUpdate;
   std::unordered_map<std::string, std::chrono::steady_clock::time_point> m_lastStrongMetadataUpdate;
   std::unordered_map<std::string, int> m_playerPropertiesFailures;

@@ -22,17 +22,24 @@ let
   generateJson = generateConfig jsonFormat;
 in
 {
+  # Disable the home-manager module to avoid conflicts
+  disabledModules = [ "programs/noctalia.nix" ];
+
+  imports = [
+    (lib.mkRenamedOptionModule
+      [ "programs" "noctalia" "validateConfig" ]
+      [ "programs" "noctalia" "checkConfig" ]
+    )
+  ];
+
   options.programs.noctalia = {
-    enable = lib.mkEnableOption "Whether to enable noctalia, a lightweight Wayland shell and bar.";
+    enable = lib.mkEnableOption "noctalia, a lightweight Wayland shell and bar";
 
-    systemd.enable = lib.mkEnableOption "Enables a systemd user service for noctalia.";
+    systemd.enable = lib.mkEnableOption "a systemd user service for noctalia";
 
-    package = lib.mkOption {
-      type = lib.types.nullOr lib.types.package;
-      description = "The noctalia package to use.";
-    };
+    package = lib.mkPackageOption pkgs "noctalia" { nullable = true; };
 
-    validateConfig = lib.mkOption {
+    checkConfig = lib.mkOption {
       type = lib.types.bool;
       default = true;
       description = "Validate the configuration file at build time.";
@@ -74,11 +81,11 @@ in
     customPalettes = lib.mkOption {
       type =
         with lib.types;
-        oneOf [
+        attrsOf (oneOf [
           jsonFormat.type
           str
           path
-        ];
+        ]);
       default = { };
       description = ''
         Custom color pallete options.
@@ -119,8 +126,8 @@ in
             let
               rawConfig = generateToml "config.toml" cfg.settings;
             in
-            if cfg.validateConfig && cfg.package != null then
-              pkgs.runCommand "noctalia-config" { } ''
+            if cfg.checkConfig && cfg.package != null then
+              pkgs.runCommand "noctalia-config.toml" { } ''
                 ${lib.getExe cfg.package} config validate ${rawConfig}
                 cp ${rawConfig} $out
               ''

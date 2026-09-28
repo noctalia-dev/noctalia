@@ -1,5 +1,6 @@
 #include "system/icon_resolver.h"
 
+#include "core/log.h"
 #include "util/string_utils.h"
 
 #include <algorithm>
@@ -13,11 +14,14 @@
 #include <optional>
 #include <set>
 #include <string_view>
+#include <unordered_set>
 #include <utility>
 
 namespace fs = std::filesystem;
 
 namespace {
+
+  constexpr Logger kLog("icon-resolver");
 
   struct IconThemePlan {
     std::vector<std::string> baseDirs;
@@ -75,6 +79,26 @@ namespace {
     if (!std::ranges::contains(values, value)) {
       values.push_back(std::move(value));
     }
+  }
+
+  bool pathExists(const fs::path& path) {
+    std::error_code ec;
+    return fs::exists(path, ec);
+  }
+
+  bool pathIsDirectory(const fs::path& path) {
+    std::error_code ec;
+    const bool isDirectory = fs::is_directory(path, ec);
+    if (ec) {
+      static std::mutex logMutex;
+      static std::unordered_set<std::string> loggedPaths;
+      std::scoped_lock lock(logMutex);
+      const std::string pathString = path.string();
+      if (loggedPaths.emplace(pathString).second) {
+        kLog.warn("cannot access icon directory '{}': {}", pathString, ec.message());
+      }
+    }
+    return isDirectory;
   }
 
   std::vector<std::string> splitList(std::string_view value, char separator) {
@@ -354,7 +378,7 @@ namespace {
 
     for (const auto& base : baseDirs) {
       const std::string themeRoot = base + "/" + themeName;
-      if (!fs::is_directory(themeRoot)) {
+      if (!pathIsDirectory(themeRoot)) {
         continue;
       }
 
@@ -399,7 +423,7 @@ namespace {
     for (const auto& candidate : readGtkThemeCandidates()) {
       bool exists = false;
       for (const auto& base : plan.baseDirs) {
-        if (fs::is_directory(base + "/" + candidate)) {
+        if (pathIsDirectory(base + "/" + candidate)) {
           exists = true;
           break;
         }
@@ -511,7 +535,7 @@ void IconResolver::invalidateMissingCache() { m_missingCache.clear(); }
 std::string IconResolver::findIcon(const std::string& name, int targetSize) const {
   // Absolute path — use directly
   if (!name.empty() && name[0] == '/') {
-    return fs::exists(name) ? name : std::string{};
+    return pathExists(name) ? name : std::string{};
   }
 
   if (targetSize <= 0) {
@@ -520,7 +544,7 @@ std::string IconResolver::findIcon(const std::string& name, int targetSize) cons
     for (const auto& dir : m_searchDirs) {
       for (const char* ext : {".svg", ".png"}) {
         std::string path = dir.path + name + ext;
-        if (fs::exists(path)) {
+        if (pathExists(path)) {
           return path;
         }
       }
@@ -530,7 +554,7 @@ std::string IconResolver::findIcon(const std::string& name, int targetSize) cons
     // (first match honours theme inheritance order).
     for (const auto& dir : m_searchDirs) {
       std::string svg = dir.path + name + ".svg";
-      if (fs::exists(svg)) {
+      if (pathExists(svg)) {
         return svg;
       }
     }
@@ -543,7 +567,7 @@ std::string IconResolver::findIcon(const std::string& name, int targetSize) cons
     bool bestIsUpscale = true;
     for (const auto& dir : m_searchDirs) {
       std::string png = dir.path + name + ".png";
-      if (!fs::exists(png)) {
+      if (!pathExists(png)) {
         continue;
       }
       const int size = dir.size;
@@ -573,7 +597,7 @@ std::string IconResolver::findIcon(const std::string& name, int targetSize) cons
   for (const auto& dir : m_pixmapDirs) {
     for (const char* ext : {".svg", ".png"}) {
       std::string path = dir + "/" + name + ext;
-      if (fs::exists(path)) {
+      if (pathExists(path)) {
         return path;
       }
     }

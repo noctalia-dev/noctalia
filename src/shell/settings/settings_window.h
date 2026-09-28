@@ -237,6 +237,8 @@ private:
   bool m_pluginListDirty = true;
   bool m_pluginListRefreshInFlight = false;
   std::uint64_t m_pluginListRefreshGeneration = 0;
+  // Plugin catalog scroll state outlives both the store sheet and its async file callbacks.
+  ScrollViewState m_pluginStoreScrollState;
   scripting::PluginFileCache m_pluginFileCache;
   RenderContext* m_renderContext = nullptr;
   DependencyService* m_dependencies = nullptr;

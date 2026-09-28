@@ -15,6 +15,8 @@ namespace {
   // detent convention is 15 units; we require a bit more so touchpad swipes
   // step deliberately rather than racing the finger.
   constexpr float kScrollUnitsPerStep = 20.0F;
+  // Match GTK's Wayland smooth-scroll distance.
+  constexpr float kTouchpadScrollScale = 2.5F;
   // A pause longer than this ends a scroll gesture: the next axis event starts
   // fresh so a partial detent left over from a free-spin flick can't bank into
   // the following one and tip it into an extra step.
@@ -29,6 +31,16 @@ namespace {
   }
 
 } // namespace
+
+float InputArea::PointerData::scrollDelta(float wheelStep) const noexcept {
+  if (axisSource == WL_POINTER_AXIS_SOURCE_FINGER) {
+    return static_cast<float>(axisValue) * kTouchpadScrollScale;
+  }
+  if (axisLines != 0.0F) {
+    return axisLines * wheelStep;
+  }
+  return static_cast<float>(axisValue);
+}
 
 InputArea::InputArea() : Node(NodeType::Base) {}
 

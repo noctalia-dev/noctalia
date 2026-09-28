@@ -823,6 +823,9 @@ namespace ui {
     if (props.scrollCardStyleScale.has_value()) {
       control->scrollView().setCardStyle(*props.scrollCardStyleScale);
     }
+    if (props.state != nullptr) {
+      control->bindScrollState(props.state);
+    }
     if (props.adapter != nullptr) {
       control->setAdapter(props.adapter);
     }
@@ -846,6 +849,9 @@ namespace ui {
     }
     if (props.overscanItems.has_value()) {
       control->setOverscanItems(*props.overscanItems);
+    }
+    if (props.state != nullptr) {
+      control->bindScrollState(props.state);
     }
     if (props.adapter != nullptr) {
       control->setAdapter(props.adapter);

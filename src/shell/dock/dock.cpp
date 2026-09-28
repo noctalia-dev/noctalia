@@ -1123,17 +1123,21 @@ void Dock::tryFulfillPendingLaunchFocus() {
 
   auto windowsOnTarget =
       shell::dock::windowsForDockItem(*m_platform, pending.idLower, pending.wmClassLower, pending.targetOutput);
-  const ToplevelInfo* window = newestActivatableWindow(windowsOnTarget);
-  if (window == nullptr) {
+  std::optional<ToplevelInfo> window;
+  if (const ToplevelInfo* candidate = newestActivatableWindow(windowsOnTarget); candidate != nullptr) {
+    window = *candidate;
+  }
+  if (!window.has_value()) {
     auto windows =
         shell::dock::windowsForDockItem(*m_platform, pending.idLower, pending.wmClassLower, pending.outputFilter);
     if (windows.empty() && pending.outputFilter != nullptr) {
       windows = shell::dock::windowsForDockItem(*m_platform, pending.idLower, pending.wmClassLower, nullptr);
     }
-    window = newestActivatableWindow(windows);
-    if (window == nullptr) {
+    const ToplevelInfo* candidate = newestActivatableWindow(windows);
+    if (candidate == nullptr) {
       return;
     }
+    window = *candidate;
     // Landed off the launch monitor; relocate before activate.
     if (pending.targetOutput != nullptr) {
       m_platform->moveToplevelToOutput(*window, pending.targetOutput);

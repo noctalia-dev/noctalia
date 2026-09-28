@@ -425,6 +425,7 @@ namespace ui {
 
   struct VirtualGridViewProps {
     VirtualGridView** out = nullptr;
+    ScrollViewState* state = nullptr;
     std::optional<std::size_t> columns = std::nullopt;
     std::optional<float> minCellWidth = std::nullopt;
     std::optional<float> cellHeight = std::nullopt;
@@ -447,6 +448,7 @@ namespace ui {
 
   struct VirtualListViewProps {
     VirtualListView** out = nullptr;
+    ScrollViewState* state = nullptr;
     std::optional<float> itemGap = std::nullopt;
     std::optional<std::size_t> overscanItems = std::nullopt;
     VirtualListAdapter* adapter = nullptr;

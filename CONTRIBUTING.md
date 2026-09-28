@@ -88,7 +88,7 @@ Runtime asset lookup order:
 5. the compiled install path from Meson (`<prefix>/<datadir>/noctalia/assets`)
 6. the source-tree `assets/` directory as a development fallback
 
-An asset root is only accepted if it contains the expected shipped files such as `emoji.json`, `fonts/tabler.ttf`,
+An asset root is only accepted if it contains the expected shipped files such as `emoji.json`, `fonts/noctalia-tabler.ttf`,
 `templates/builtin.toml`, and `translations/en.json`.
 
 ## Code Style
@@ -218,7 +218,7 @@ src/
   wayland/          Wayland connection, seats, surfaces, clipboard, toplevels, text input
     hyprland/       Hyprland-specific Wayland protocol helpers
 assets/
-  fonts/            Bundled Tabler and UI fonts
+  fonts/            Bundled Noctalia Tabler and UI fonts
   sounds/           Notification and UI sounds
   templates/        Built-in theme templates
   translations/     Exported translation catalogs

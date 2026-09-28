@@ -1,7 +1,6 @@
 #include "shell/settings/plugin_store_content.h"
 
 #include "config/config_service.h"
-#include "core/deferred_call.h"
 #include "core/input/key_symbols.h"
 #include "core/input/keybind_matcher.h"
 #include "i18n/i18n.h"
@@ -126,10 +125,10 @@ namespace settings {
 
   PluginStoreContent::PluginStoreContent(
       std::vector<StoreCatalogEntry> catalog, ConfigService* config, std::unordered_set<std::string> onDiskIds,
-      PluginStoreCallbacks callbacks, scripting::PluginFileCache* fileCache
+      PluginStoreCallbacks callbacks, scripting::PluginFileCache* fileCache, ScrollViewState* scrollState
   )
       : m_catalog(std::move(catalog)), m_config(config), m_onDiskIds(std::move(onDiskIds)),
-        m_callbacks(std::move(callbacks)), m_fileCache(fileCache) {
+        m_callbacks(std::move(callbacks)), m_fileCache(fileCache), m_scrollState(scrollState) {
     if (m_config != nullptr) {
       if (const std::optional<std::string> sort = m_config->stateString("plugin_store", "sort")) {
         m_sortMode = sortModeFromState(*sort);
@@ -143,23 +142,17 @@ namespace settings {
 
   PluginStoreContent::~PluginStoreContent() = default;
 
-  void PluginStoreContent::stashScrollOffset() {
-    if (m_grid != nullptr && !isDetailView()) {
-      m_pendingRestoreScrollOffset = m_grid->scrollView().scrollOffset();
-    }
+  void PluginStoreContent::detachGrid() noexcept {
+    m_grid = nullptr;
+    m_countLabel = nullptr;
+    m_sortButton = nullptr;
   }
 
-  void PluginStoreContent::restoreScrollOffset() {
-    if (!m_pendingRestoreScrollOffset.has_value()) {
-      return;
+  void PluginStoreContent::requestRebuild() {
+    detachGrid();
+    if (m_onRebuildNeeded) {
+      m_onRebuildNeeded();
     }
-    const float offset = *m_pendingRestoreScrollOffset;
-    m_pendingRestoreScrollOffset.reset();
-    VirtualGridView* grid = m_grid;
-    if (grid == nullptr) {
-      return;
-    }
-    DeferredCall::callLater([grid, offset]() { grid->scrollView().setScrollOffset(offset); });
   }
 
   void PluginStoreContent::setOnRebuildNeeded(std::function<void()> cb) { m_onRebuildNeeded = std::move(cb); }
@@ -472,10 +465,7 @@ namespace settings {
                 }
 
                 applyFilter();
-                stashScrollOffset();
-                if (m_onRebuildNeeded) {
-                  m_onRebuildNeeded();
-                }
+                requestRebuild();
               },
           })
       );
@@ -498,10 +488,7 @@ namespace settings {
               .variant = ButtonVariant::Ghost,
               .onClick = [this]() {
                 m_tagFiltersCollapsed = !m_tagFiltersCollapsed;
-                stashScrollOffset();
-                if (m_onRebuildNeeded) {
-                  m_onRebuildNeeded();
-                }
+                requestRebuild();
               },
           })
       );
@@ -519,10 +506,7 @@ namespace settings {
               .onClick = [this, tag = std::move(tag)]() {
                 m_selectedTag = tag;
                 applyFilter();
-                stashScrollOffset();
-                if (m_onRebuildNeeded) {
-                  m_onRebuildNeeded();
-                }
+                requestRebuild();
               },
           });
           tagButtons.push_back(std::move(btn));
@@ -590,6 +574,7 @@ namespace settings {
 
     auto grid = ui::virtualGridView({
         .out = &m_grid,
+        .state = m_scrollState,
         .minCellWidth = 200.0F * scale,
         .cellHeight = 215.0F * scale,
         .squareCells = false,
@@ -611,7 +596,6 @@ namespace settings {
     if (const auto index = indexOfPluginId(m_selectedPluginId.value_or("")); index.has_value()) {
       m_grid->setSelectedIndex(index);
     }
-    restoreScrollOffset();
     body.addChild(std::move(grid));
 
     if (m_filteredIndices.empty()) {
@@ -884,39 +868,35 @@ namespace settings {
   }
 
   void PluginStoreContent::openDetail(std::size_t filteredIndex) {
-    stashScrollOffset();
+    if (filteredIndex >= m_filteredIndices.size()) {
+      return;
+    }
     m_detailIndex = filteredIndex;
     m_selectedPluginId = m_catalog[m_filteredIndices[filteredIndex]].entry.id;
     m_detailReadme.clear();
     m_detailReadmeLoading = false;
 
-    if (filteredIndex < m_filteredIndices.size()) {
-      const auto& storeEntry = m_catalog[m_filteredIndices[filteredIndex]];
-      if (m_fileCache != nullptr) {
-        m_detailReadmeLoading = true;
-        std::string path = m_fileCache->resolve(storeEntry.entry.id, storeEntry.sourceConfig, "README.md");
-        if (!path.empty()) {
-          std::ifstream f(path);
-          if (f.is_open()) {
-            m_detailReadme = std::string(std::istreambuf_iterator<char>(f), {});
-          }
-          m_detailReadmeLoading = false;
+    const auto& storeEntry = m_catalog[m_filteredIndices[filteredIndex]];
+    if (m_fileCache != nullptr) {
+      m_detailReadmeLoading = true;
+      std::string path = m_fileCache->resolve(storeEntry.entry.id, storeEntry.sourceConfig, "README.md");
+      if (!path.empty()) {
+        std::ifstream f(path);
+        if (f.is_open()) {
+          m_detailReadme = std::string(std::istreambuf_iterator<char>(f), {});
         }
+        m_detailReadmeLoading = false;
       }
     }
 
-    if (m_onRebuildNeeded) {
-      m_onRebuildNeeded();
-    }
+    requestRebuild();
   }
 
   void PluginStoreContent::closeDetail() {
     m_detailIndex.reset();
     m_detailReadme.clear();
     m_detailReadmeLoading = false;
-    if (m_onRebuildNeeded) {
-      m_onRebuildNeeded();
-    }
+    requestRebuild();
   }
 
   void PluginStoreContent::selectIndex(std::size_t index) {
@@ -1079,9 +1059,7 @@ namespace settings {
           m_detailReadme = std::string(std::istreambuf_iterator<char>(f), {});
         }
         m_detailReadmeLoading = false;
-        if (m_onRebuildNeeded) {
-          m_onRebuildNeeded();
-        }
+        requestRebuild();
       }
     }
   }

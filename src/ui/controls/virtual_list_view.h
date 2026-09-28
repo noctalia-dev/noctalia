@@ -11,6 +11,7 @@
 
 class Renderer;
 class ScrollView;
+struct ScrollViewState;
 
 // Adapter that drives a VirtualListView from an external data source.
 //
@@ -39,6 +40,8 @@ public:
 
   // Adapter is non-owning and must outlive the list.
   void setAdapter(VirtualListAdapter* adapter);
+  // State is non-owning and must outlive the list.
+  void bindScrollState(ScrollViewState* state);
 
   void notifyDataChanged();
   void notifyItemChanged(std::size_t index);

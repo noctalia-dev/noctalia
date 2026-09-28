@@ -996,6 +996,8 @@ BarConfig ConfigService::resolveForOutput(const BarConfig& base, const WaylandOu
       resolved.endWidgets = *ovr.endWidgets;
     if (ovr.scale)
       resolved.scale = *ovr.scale;
+    if (ovr.fontScale)
+      resolved.fontScale = *ovr.fontScale;
     if (ovr.widgetCapsuleDefault)
       resolved.widgetCapsuleDefault = *ovr.widgetCapsuleDefault;
     if (ovr.widgetCapsuleFill)

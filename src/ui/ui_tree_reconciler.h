@@ -70,8 +70,10 @@ namespace ui {
     void setCallbackSink(CallbackSink sink) { m_sink = std::move(sink); }
     void setPathResolver(PathResolver resolver) { m_resolver = std::move(resolver); }
     void setFocusRequestSink(FocusRequestSink sink) { m_focusSink = std::move(sink); }
-    // Content scale multiplied into size-like props (fonts, gaps, sizes, radii).
+    // Content scale multiplied into size-like props (gaps, sizes, radii).
     void setScale(float scale);
+    // Additional multiplier applied only to text sizes.
+    void setFontScale(float scale);
     // Host text defaults for label/glyph props the tree leaves unset, so
     // declarative text matches the host's imperative text (e.g. the bar's
     // per-widget font family/weight). Empty family = renderer-global font.
@@ -119,6 +121,7 @@ namespace ui {
     PathResolver m_resolver;
     FocusRequestSink m_focusSink;
     float m_scale = 1.0F;
+    float m_fontScale = 1.0F;
     std::string m_defaultFontFamily;
     FontWeight m_defaultFontWeight; // initialized in the ctor (opaque enum here)
     bool m_compactControls = false;

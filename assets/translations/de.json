@@ -579,6 +579,7 @@
         "grid": "Gitter"
       },
       "title": "Desktop-Widgets",
+      "title-lockscreen": "Sperrbildschirm-Widgets",
       "types": {
         "audio-visualizer": "Audio-Visualizer",
         "button": "Button",
@@ -2316,6 +2317,10 @@
           "description": "Zeige ein Raster von App-Icons mit Beschriftungen darunter, wenn die Ergebnisse ausschließlich Apps sind",
           "label": "App-Rasteransicht"
         },
+        "launcher-app-origin-indicator": {
+          "description": "Zeige Paketherkunft-Indikatoren bei App-Ergebnissen an",
+          "label": "App-Herkunft-Indikatoren anzeigen"
+        },
         "launcher-auto-paste": {
           "description": "Füge nach Rechner-, Emoji- und anderen Kopier-Aktivierungen automatisch in das fokussierte Fenster ein (gleiche Tastenkürzel wie beim Zwischenablage-Auto-Paste)",
           "label": "Auto-Paste"
@@ -3516,6 +3521,10 @@
         "hide-when-full": {
           "description": "Blende das Akku-Widget aus, wenn der Akku vollständig geladen ist",
           "label": "Ausblenden, wenn voll"
+        },
+        "hide-when-inactive": {
+          "description": "Blende das Mikrofon-Widget aus, während keine Anwendung Audio aufnimmt",
+          "label": "Ausblenden, wenn inaktiv"
         },
         "hide-when-no-connected-device": {
           "description": "Blende das Bluetooth-Widget aus, wenn kein Gerät verbunden ist",
