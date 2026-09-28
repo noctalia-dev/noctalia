@@ -564,11 +564,12 @@ std::string IconResolver::findIcon(const std::string& name, int targetSize) cons
       }
     }
   } else {
-    // Among bitmaps, prefer the smallest theme size that is still >= the
-    // requested size (gentle downscale); otherwise the largest available
-    // (least upscaling). Unknown-size dirs are a last resort.
+    // Search dirs are grouped by theme; stop at the end of the first theme with
+    // a match. Within it an SVG wins; among bitmaps, prefer the smallest theme
+    // size that is still >= the requested size (gentle downscale); otherwise the
+    // largest available (least upscaling). Unknown-size dirs are a last resort.
     std::string best;
-    std::string theme;
+    std::string_view theme;
     int bestSize = 0;
     bool bestIsUpscale = true;
     for (const auto& dir : m_searchDirs) {
