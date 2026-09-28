@@ -134,18 +134,19 @@ namespace {
     return config->config().notification.borderColor;
   }
 
-  [[nodiscard]] float toastBorderWidth(const ConfigService* config, Urgency urgency) {
+  [[nodiscard]] float toastBorderWidth(const ConfigService* config, Urgency urgency, float scale) {
     if (config == nullptr) {
-      return urgency == Urgency::Critical ? Style::emphasizedBorderWidth : Style::borderWidth;
+      return (urgency == Urgency::Critical ? Style::emphasizedBorderWidth : Style::borderWidth) * scale;
     }
     const auto& notification = config->config().notification;
     if (!notification.border) {
       return 0.0F;
     }
+    const float width = std::max(0.0F, notification.borderWidth);
     if (urgency == Urgency::Critical) {
-      return Style::emphasizedBorderWidth;
+      return std::max(Style::emphasizedBorderWidth, width) * scale;
     }
-    return std::max(0.0F, notification.borderWidth);
+    return width * scale;
   }
 
   [[nodiscard]] float cardWidth(float scale) { return static_cast<float>(kCardWidth) * scale; }
@@ -2336,7 +2337,7 @@ InputArea* NotificationToast::buildCard(
   *outCardForeground = foreground.get();
 
   const float bgAlpha = m_config != nullptr ? m_config->config().notification.backgroundOpacity : 0.97F;
-  const float borderWidth = toastBorderWidth(m_config, entry.urgency);
+  const float borderWidth = toastBorderWidth(m_config, entry.urgency, scale);
   const ColorSpec borderColor = toastBorderColor(m_config, entry.urgency);
   foreground->addChild(
       ui::progressBar({
