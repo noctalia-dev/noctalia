@@ -145,11 +145,23 @@ void IdleManager::setSessionLocked(bool locked) {
     return;
   }
   m_sessionLocked = locked;
-  // Locking must not undo an idle action that already ran: re-arming an idled behavior runs its resume
-  // action, which would light the display back up the moment the session locks. Those behaviors keep
-  // their state and get resumed by the real input that eventually wakes the seat. Unlocking keeps the
-  // safety net, being the transition after which a stuck display-off would never be undone.
-  recreateBehaviorNotifications(!locked);
+  if (!locked) {
+    // Unlock: re-arm all behaviors, resuming any that idled (a stuck display-off would otherwise never
+    // be undone since no real input event arrives to drive the resume action).
+    recreateBehaviorNotifications(true);
+  } else {
+    // Lock: re-arm only behaviors that carry a locked_timeout — they need to switch from their normal
+    // countdown to the shorter one. Behaviors in Waiting phase without locked_timeout are already
+    // counting toward their original timeout and must not be reset; resetting them forces a full extra
+    // wait after lock before e.g. suspend fires.
+    cancelActiveGrace(false);
+    for (auto& behavior : m_behaviors) {
+      if (std::isfinite(behavior->config.lockedTimeoutSeconds) && behavior->config.lockedTimeoutSeconds > 0.0) {
+        recreateBehaviorNotification(*behavior, false);
+      }
+    }
+    kLog.debug("idle behavior notifications re-armed");
+  }
 }
 
 double IdleManager::effectiveTimeoutSeconds(const IdleBehaviorConfig& config) const {
