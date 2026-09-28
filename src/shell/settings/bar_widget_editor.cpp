@@ -2,6 +2,7 @@
 
 #include "config/config_service.h"
 #include "config/config_types.h"
+#include "config/schema/ranges.h"
 #include "core/files/directory_scanner.h"
 #include "cursor-shape-v1-client-protocol.h"
 #include "i18n/i18n.h"
@@ -644,7 +645,9 @@ namespace settings {
         group.foreground = *ovr->widgetCapsuleForeground;
       }
       if (ovr->widgetCapsuleBorderWidth.has_value()) {
-        group.borderWidth = std::clamp(static_cast<float>(*ovr->widgetCapsuleBorderWidth), 0.0F, 8.0F);
+        group.borderWidth = noctalia::config::schema::applyRange(
+            *ovr->widgetCapsuleBorderWidth, noctalia::config::schema::kBarCapsuleBorderWidthRange
+        );
       }
       if (ovr->widgetCapsulePadding.has_value()) {
         group.padding = std::clamp(static_cast<float>(*ovr->widgetCapsulePadding), 0.0F, 48.0F);
@@ -2311,10 +2314,13 @@ namespace settings {
               }
           )
       );
+      const auto& borderWidthRange = noctalia::config::schema::kBarCapsuleBorderWidthRange;
       ctx.makeRow(
           *panelPtr, groupEntry("border-width"),
           makeGroupSliderControl(
-              ctx, static_cast<double>(style.borderWidth), 0.0, 8.0, 0.5, false, [mutateGroup](double v) {
+              ctx, static_cast<double>(style.borderWidth), static_cast<double>(*borderWidthRange.min),
+              static_cast<double>(*borderWidthRange.max), static_cast<double>(*borderWidthRange.step), false,
+              [mutateGroup](double v) {
                 mutateGroup([&](BarCapsuleGroupStyle& g) { g.borderWidth = static_cast<float>(v); });
               }
           )

@@ -9,6 +9,7 @@
 #include "config/schema/config_schema.h"
 #include "config/schema/config_sections.h"
 #include "config/schema/engine.h"
+#include "config/schema/ranges.h"
 #include "config/widget_config.h"
 #include "core/build_info.h"
 #include "core/deferred_call.h"
@@ -1028,7 +1029,9 @@ BarConfig ConfigService::resolveForOutput(const BarConfig& base, const WaylandOu
       resolved.widgetCapsuleOpacity = std::clamp(static_cast<float>(*ovr.widgetCapsuleOpacity), 0.0F, 1.0F);
     }
     if (ovr.widgetCapsuleBorderWidth) {
-      resolved.widgetCapsuleBorderWidth = std::clamp(static_cast<float>(*ovr.widgetCapsuleBorderWidth), 0.0F, 8.0F);
+      resolved.widgetCapsuleBorderWidth = noctalia::config::schema::applyRange(
+          *ovr.widgetCapsuleBorderWidth, noctalia::config::schema::kBarCapsuleBorderWidthRange
+      );
     }
     if (ovr.hoverHighlight) {
       resolved.hoverHighlight = *ovr.hoverHighlight;

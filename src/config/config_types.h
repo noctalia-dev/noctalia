@@ -108,7 +108,7 @@ struct BarMonitorOverride {
   std::optional<double> widgetCapsulePadding;
   std::optional<double> widgetCapsuleRadius;
   std::optional<double> widgetCapsuleOpacity;
-  std::optional<double> widgetCapsuleBorderWidth;
+  std::optional<float> widgetCapsuleBorderWidth;
   std::optional<bool> hoverHighlight;
   BarDeadZoneOverride deadZone;
 

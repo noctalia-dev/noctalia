@@ -1,5 +1,6 @@
 #include "shell/settings/widget_settings_registry.h"
 
+#include "config/schema/ranges.h"
 #include "i18n/i18n.h"
 #include "scripting/plugin_i18n.h"
 #include "scripting/plugin_panel_shell.h"
@@ -674,8 +675,13 @@ namespace settings {
     auto capsuleBorder = withGroup(colorSpec("capsule_border", {}, true), "presentation");
     capsuleBorder.visibleWhen = capsuleOn;
 
+    const auto& borderWidthRange = noctalia::config::schema::kBarCapsuleBorderWidthRange;
     auto capsuleBorderWidth = withGroup(
-        doubleSpec("capsule_border_width", static_cast<double>(Style::borderWidth), 0.0, 8.0, 0.5), "presentation"
+        doubleSpec(
+            "capsule_border_width", static_cast<double>(Style::borderWidth), static_cast<double>(*borderWidthRange.min),
+            static_cast<double>(*borderWidthRange.max), static_cast<double>(*borderWidthRange.step)
+        ),
+        "presentation"
     );
     capsuleBorderWidth.visibleWhen = capsuleOn;
 

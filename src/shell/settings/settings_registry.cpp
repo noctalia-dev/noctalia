@@ -3265,7 +3265,8 @@ namespace settings {
         auto e = makeEntry(
             section, "capsules", tr("settings.schema.bar.capsule-border-width.label"),
             tr("settings.schema.bar.capsule-border-width.description"), path("capsule_border_width"),
-            SliderSetting{bar.widgetCapsuleBorderWidth, 0.0F, 8.0F, 0.5F, false}, "pill outline width", true
+            sliderFor(bar.widgetCapsuleBorderWidth, noctalia::config::schema::kBarCapsuleBorderWidthRange, false),
+            "pill outline width", true
         );
         e.visibleWhen = capsuleOn;
         entries.push_back(std::move(e));
@@ -3593,9 +3594,10 @@ namespace settings {
           auto e = makeEntry(
               section, "capsules", tr("settings.schema.bar.capsule-border-width.label"),
               tr("settings.schema.bar.capsule-border-width.description"), monitorPath("capsule_border_width"),
-              SliderSetting{
-                  ovr.widgetCapsuleBorderWidth.value_or(bar.widgetCapsuleBorderWidth), 0.0F, 8.0F, 0.5F, false
-              },
+              sliderFor(
+                  ovr.widgetCapsuleBorderWidth.value_or(bar.widgetCapsuleBorderWidth),
+                  noctalia::config::schema::kBarCapsuleBorderWidthRange, false
+              ),
               "pill outline width", true
           );
           e.visibleWhen = monitorCapsuleOn;

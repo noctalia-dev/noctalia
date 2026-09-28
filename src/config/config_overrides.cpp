@@ -2,6 +2,7 @@
 #include "config/config_merge.h"
 #include "config/config_service.h"
 #include "config/config_validate.h"
+#include "config/schema/ranges.h"
 #include "config/widget_config.h"
 #include "core/files/resource_paths.h"
 #include "core/input/key_chord.h"
@@ -292,7 +293,9 @@ namespace {
       resolved.widgetCapsuleOpacity = std::clamp(static_cast<float>(*ovr.widgetCapsuleOpacity), 0.0F, 1.0F);
     }
     if (ovr.widgetCapsuleBorderWidth) {
-      resolved.widgetCapsuleBorderWidth = std::clamp(static_cast<float>(*ovr.widgetCapsuleBorderWidth), 0.0F, 8.0F);
+      resolved.widgetCapsuleBorderWidth = noctalia::config::schema::applyRange(
+          *ovr.widgetCapsuleBorderWidth, noctalia::config::schema::kBarCapsuleBorderWidthRange
+      );
     }
     if (ovr.hoverHighlight) {
       resolved.hoverHighlight = *ovr.hoverHighlight;

@@ -226,7 +226,7 @@ namespace config_export {
       if (ovr.widgetCapsuleOpacity)
         resolved.widgetCapsuleOpacity = static_cast<float>(*ovr.widgetCapsuleOpacity);
       if (ovr.widgetCapsuleBorderWidth)
-        resolved.widgetCapsuleBorderWidth = static_cast<float>(*ovr.widgetCapsuleBorderWidth);
+        resolved.widgetCapsuleBorderWidth = *ovr.widgetCapsuleBorderWidth;
       if (ovr.hoverHighlight)
         resolved.hoverHighlight = *ovr.hoverHighlight;
       if (ovr.deadZone.actions)

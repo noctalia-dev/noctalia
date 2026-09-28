@@ -1,5 +1,6 @@
 #include "config/config_types.h"
 
+#include "config/schema/ranges.h"
 #include "core/input/key_modifiers.h"
 #include "render/core/color.h"
 #include "util/string_utils.h"
@@ -362,8 +363,9 @@ WidgetBarCapsuleSpec resolveWidgetBarCapsuleSpec(const BarConfig& bar, const Wid
   }
   spec.borderWidth = bar.widgetCapsuleBorderWidth;
   if (widget != nullptr && widget->hasSetting("capsule_border_width")) {
-    spec.borderWidth = std::clamp(
-        static_cast<float>(widget->getDouble("capsule_border_width", static_cast<double>(spec.borderWidth))), 0.0F, 8.0F
+    spec.borderWidth = noctalia::config::schema::applyRange(
+        static_cast<float>(widget->getDouble("capsule_border_width", static_cast<double>(spec.borderWidth))),
+        noctalia::config::schema::kBarCapsuleBorderWidthRange
     );
   }
   spec.opacity = bar.widgetCapsuleOpacity;

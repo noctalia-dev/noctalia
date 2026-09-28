@@ -1850,8 +1850,6 @@ namespace noctalia::config::schema {
     constexpr Range<double> kBarCapsulePaddingRangeD{0.0, 48.0};
     constexpr Range<double> kBarCapsuleRadiusRangeD{0.0, 80.0};
     constexpr Range<double> kBarCapsuleOpacityRangeD{0.0, 1.0};
-    constexpr Range<float> kBarCapsuleBorderWidthRange{0.0F, 8.0F};
-    constexpr Range<double> kBarCapsuleBorderWidthRangeD{0.0, 8.0};
 
     // Concrete ColorSpec stored as a config string; always emitted. A present
     // non-string value is a hard error (mirrors colorStringValue).
@@ -2331,8 +2329,8 @@ namespace noctalia::config::schema {
             &BarMonitorOverride::widgetCapsuleBorder, &BarMonitorOverride::widgetCapsuleBorderSpecified,
             "capsule_border"
         ),
-        optionalDoubleField(
-            &BarMonitorOverride::widgetCapsuleBorderWidth, "capsule_border_width", kBarCapsuleBorderWidthRangeD
+        optionalFloatField(
+            &BarMonitorOverride::widgetCapsuleBorderWidth, "capsule_border_width", kBarCapsuleBorderWidthRange
         ),
         optionalBoolField(&BarMonitorOverride::hoverHighlight, "hover_highlight"),
         // capsule_group: read-only here (overrides serialize via the resolved bar).
