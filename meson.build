@@ -1209,7 +1209,6 @@ if build_tests
     'ico_decoder',
     'icon_resolver',
     'image_file_loader_data_uri',
-    'image_opacity',
     'image_orientation',
     'image_source_log',
     'inotify',
