@@ -1481,16 +1481,18 @@ void LockScreen::tryAuthenticate() {
   updatePromptOnSurfaces();
 
   const PamAuthenticator authenticator = m_authenticator;
-  // Authenticate against the PAM service set at build time (-Dpam_service,
-  // "login" by default). If fingerprint is enabled, strip pam_fprintd from it:
-  // noctalia drives the reader itself over D-Bus and the two can't share the
-  // sensor. See docs/fingerprint.md.
-  const std::string pamService = NOCTALIA_PAM_SERVICE;
-  const std::string pamLanguage(i18n::Service::instance().language());
-  const std::string pamStartFailure = i18n::tr("auth.pam.start-failed");
-  std::thread([this, generation, password = std::move(password), authenticator, pamService, pamLanguage,
-               pamStartFailure] mutable {
-    const auto result = authenticator.authenticateCurrentUser(password, pamService, pamLanguage, pamStartFailure);
+  // PAM runs in noctalia-pam-helper against the service set at build time
+  // (-Dpam_service, "login" by default). If fingerprint is enabled, strip
+  // pam_fprintd from it: noctalia drives the reader itself over D-Bus and the
+  // two can't share the sensor. See docs/fingerprint.md.
+  PamAuthenticator::Messages pamMessages{
+      .startFailed = i18n::tr("auth.pam.start-failed"),
+      .userUnavailable = i18n::tr("auth.pam.user-unavailable"),
+      .authenticationFailed = i18n::tr("auth.pam.authentication-failed"),
+  };
+  std::thread([this, generation, password = std::move(password), authenticator,
+               pamMessages = std::move(pamMessages)] mutable {
+    const auto result = authenticator.authenticateCurrentUser(password, pamMessages);
     clearSensitiveString(password);
     DeferredCall::callLater([this, generation, result] { handleAuthResult(generation, result); });
   }).detach();
