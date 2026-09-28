@@ -2358,11 +2358,11 @@
           "label": "Border"
         },
         "border-color": {
-          "description": "Notification toasts border color; a color role name such as primary follows the active theme",
+          "description": "Color role for the notification toast outline; fixed hex colors are also supported",
           "label": "Border Color"
         },
         "border-width": {
-          "description": "Outline width of notification toasts in pixels",
+          "description": "Outline width of notification toasts in pixels; 0 hides the outline",
           "label": "Border Width"
         },
         "collapse-on-dismiss": {

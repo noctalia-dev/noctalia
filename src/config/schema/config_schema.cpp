@@ -64,7 +64,6 @@ namespace noctalia::config::schema {
   namespace {
     // Concrete ColorSpec stored as a config string; always emitted. A present
     // non-string value is a hard error (mirrors colorStringValue).
-    // Define before all the schema, so colorField can be use when needs.
     template <typename Struct> Field<Struct> colorField(ColorSpec Struct::* member, std::string_view key) {
       return custom<Struct>(
           key,
