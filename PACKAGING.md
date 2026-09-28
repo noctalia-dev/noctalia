@@ -95,6 +95,9 @@ support.
 - Tests: `-Dtests=disabled` (or leave `auto`, which skips tests for release).
 - `jemalloc`: recommended on glibc; Meson feature option `-Djemalloc=auto|enabled|disabled`.
   Only used on glibc builds.
+- `pam_service`: PAM service the lock screen authenticates against, `login` by
+  default. A different service (for example `-Dpam_service=noctalia`) needs a
+  matching `/etc/pam.d/<service>` shipped by the package.
 
 Prefix/datadir are baked into the binary via `NOCTALIA_INSTALL_PREFIX` /
 `NOCTALIA_INSTALL_DATADIR`. Install with the same prefix you configured.
@@ -159,7 +162,7 @@ Each carries its own license file beside the code.
 | Dependency | Role |
 |---|---|
 | PipeWire **daemon** (+ WirePlumber 0.5) | Audio, volume OSD, privacy indicators, spectrum. Libraries alone are not enough; without a running daemon those features stay off. |
-| PAM (`login` service by default) | Lock screen authentication |
+| PAM (`login` service by default, `-Dpam_service=`) | Lock screen authentication |
 | Fontconfig / fonts | Text rendering (users still need usable fonts installed) |
 | `git` | Plugin git sources / auto-update invoke `git` on `PATH` |
 | `upower` | Optional: battery / power devices |

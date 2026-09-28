@@ -1099,10 +1099,11 @@ void LockScreen::tryAuthenticate() {
   updatePromptOnSurfaces();
 
   const PamAuthenticator authenticator = m_authenticator;
-  // Authenticate against the "login" stack. If fingerprint is enabled, strip
-  // pam_fprintd from it: noctalia drives the reader itself over D-Bus and the
-  // two can't share the sensor. See docs/fingerprint.md.
-  const std::string pamService = "login";
+  // Authenticate against the PAM service set at build time (-Dpam_service,
+  // "login" by default). If fingerprint is enabled, strip pam_fprintd from it:
+  // noctalia drives the reader itself over D-Bus and the two can't share the
+  // sensor. See docs/fingerprint.md.
+  const std::string pamService = NOCTALIA_PAM_SERVICE;
   const std::string pamLanguage(i18n::Service::instance().language());
   const std::string pamStartFailure = i18n::tr("auth.pam.start-failed");
   std::thread([this, generation, password = std::move(password), authenticator, pamService, pamLanguage,

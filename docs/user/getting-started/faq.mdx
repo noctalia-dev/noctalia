@@ -328,9 +328,9 @@ See [Location](/noctalia/services/location/), [Theme](/noctalia/theming/#mode), 
 
 <FaqItem question="Why can't I unlock my lock screen?">
 
-Noctalia authenticates through PAM using the `login` service. Make sure `/etc/pam.d/login` exists and is valid for your distribution.
+Noctalia authenticates through PAM using the `login` service by default. Your distribution may build it with a dedicated service instead (Meson option `pam_service`). Make sure `/etc/pam.d/<service>` exists and is valid for your distribution.
 
-If you changed your PAM stack for fingerprint, security key, or other authentication methods, make sure those changes are present in the `login` PAM service used by Noctalia.
+If you changed your PAM stack for fingerprint, security key, or other authentication methods, make sure those changes are present in the PAM service used by Noctalia.
 
 </FaqItem>
 
