@@ -1,4 +1,5 @@
 option('tests', type: 'feature', value: 'auto', description: 'Build unit tests (auto: on for unsanitized debug builds)')
+option('pam_service', type: 'string', value: 'login', description: 'PAM service the lock screen authenticates against')
 option('jemalloc', type: 'feature', value: 'auto', description: 'Use jemalloc on glibc builds')
 option(
   'native_optimizations',
