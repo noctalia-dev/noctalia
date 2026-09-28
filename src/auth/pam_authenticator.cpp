@@ -1,13 +1,12 @@
 #include "auth/pam_authenticator.h"
 
+#include "auth/pam_helper_protocol.h"
 #include "core/log.h"
-#include "i18n/i18n.h"
 
-#include <algorithm>
+#include <array>
 #include <cerrno>
+#include <climits>
 #include <cstdint>
-#include <cstdlib>
-#include <cstring>
 #include <fcntl.h>
 #include <pthread.h>
 #include <pwd.h>
@@ -19,127 +18,15 @@
 #include <unistd.h>
 #include <vector>
 
+#ifndef NOCTALIA_PAM_HELPER
+#error "NOCTALIA_PAM_HELPER must be defined"
+#endif
+
 namespace {
 
   constexpr Logger kLog("pam");
 
-  constexpr std::size_t kMaxPamMessageBytes = 4096;
-  constexpr std::size_t kMaxPasswordBytes = 64 * 1024;
-
-  void secureClear(std::string& value) {
-    volatile char* ptr = value.empty() ? nullptr : value.data();
-    for (std::size_t i = 0; i < value.size(); ++i) {
-      ptr[i] = '\0';
-    }
-    value.clear();
-  }
-
-  struct PamConversationData {
-    const char* password = nullptr;
-  };
-
-  struct PamHandle {
-    pam_handle_t* h = nullptr;
-    int lastRc = PAM_SUCCESS;
-
-    PamHandle() = default;
-    PamHandle(const PamHandle&) = delete;
-    PamHandle& operator=(const PamHandle&) = delete;
-
-    ~PamHandle() {
-      if (h != nullptr) {
-        pam_end(h, lastRc);
-      }
-    }
-  };
-
-  int pamConversation(int numMsg, const pam_message** msg, pam_response** response, void* appdataPtr) {
-    if (numMsg <= 0 || msg == nullptr || response == nullptr || appdataPtr == nullptr) {
-      return PAM_CONV_ERR;
-    }
-
-    auto* data = static_cast<PamConversationData*>(appdataPtr);
-    auto* replies = static_cast<pam_response*>(std::calloc(static_cast<std::size_t>(numMsg), sizeof(pam_response)));
-    if (replies == nullptr) {
-      return PAM_BUF_ERR;
-    }
-
-    for (int i = 0; i < numMsg; ++i) {
-      if (msg[i] == nullptr) {
-        std::free(replies);
-        return PAM_CONV_ERR;
-      }
-
-      switch (msg[i]->msg_style) {
-      case PAM_PROMPT_ECHO_OFF:
-        replies[i].resp = ::strdup(data->password != nullptr ? data->password : "");
-        break;
-      case PAM_PROMPT_ECHO_ON:
-        replies[i].resp = ::strdup("");
-        break;
-      case PAM_ERROR_MSG:
-      case PAM_TEXT_INFO:
-        replies[i].resp = nullptr;
-        break;
-      default:
-        for (int j = 0; j <= i; ++j) {
-          if (replies[j].resp != nullptr) {
-            std::free(replies[j].resp);
-          }
-        }
-        std::free(replies);
-        return PAM_CONV_ERR;
-      }
-
-      if ((msg[i]->msg_style == PAM_PROMPT_ECHO_OFF || msg[i]->msg_style == PAM_PROMPT_ECHO_ON)
-          && replies[i].resp == nullptr) {
-        for (int j = 0; j <= i; ++j) {
-          if (replies[j].resp != nullptr) {
-            std::free(replies[j].resp);
-          }
-        }
-        std::free(replies);
-        return PAM_BUF_ERR;
-      }
-    }
-
-    *response = replies;
-    return PAM_SUCCESS;
-  }
-
-  [[nodiscard]] bool writeAll(int fd, const void* data, std::size_t len) {
-    auto* bytes = static_cast<const std::uint8_t*>(data);
-    std::size_t remaining = len;
-    while (remaining > 0) {
-      const ssize_t n = ::write(fd, bytes, remaining);
-      if (n > 0) {
-        bytes += static_cast<std::size_t>(n);
-        remaining -= static_cast<std::size_t>(n);
-      } else if (n < 0 && errno == EINTR) {
-        continue;
-      } else {
-        return false;
-      }
-    }
-    return true;
-  }
-
-  [[nodiscard]] bool readAll(int fd, void* data, std::size_t len) {
-    auto* bytes = static_cast<std::uint8_t*>(data);
-    std::size_t remaining = len;
-    while (remaining > 0) {
-      const ssize_t n = ::read(fd, bytes, remaining);
-      if (n > 0) {
-        bytes += static_cast<std::size_t>(n);
-        remaining -= static_cast<std::size_t>(n);
-      } else if (n < 0 && errno == EINTR) {
-        continue;
-      } else {
-        return false;
-      }
-    }
-    return true;
-  }
+  constexpr const char* kHelperName = "noctalia-pam-helper";
 
   void closeFd(int& fd) {
     if (fd >= 0) {
@@ -201,7 +88,9 @@ namespace {
 
     const auto len = static_cast<std::uint32_t>(password.size());
     errno = 0;
-    const bool sent = writeAll(fd, &len, sizeof(len)) && (len == 0 || writeAll(fd, password.data(), len));
+    const bool sent = pam_helper::writeAll(fd, &pam_helper::kProtocolVersion, sizeof(pam_helper::kProtocolVersion))
+        && pam_helper::writeAll(fd, &len, sizeof(len))
+        && (len == 0 || pam_helper::writeAll(fd, password.data(), len));
     const int writeError = errno;
 
     bool restoreSafe = true;
@@ -220,113 +109,68 @@ namespace {
     return sent;
   }
 
-  [[nodiscard]] bool writeResult(int fd, const PamAuthenticator::Result& result) {
-    const std::uint8_t success = result.success ? 1 : 0;
-    if (!writeAll(fd, &success, sizeof(success))) {
+  struct HelperReply {
+    std::uint8_t version = 0;
+    pam_helper::Status status = pam_helper::Status::Failed;
+    int pamRc = PAM_SUCCESS;
+  };
+
+  // Reads the version first; the rest only when it matches.
+  [[nodiscard]] bool readReply(int fd, HelperReply& reply) {
+    if (!pam_helper::readAll(fd, &reply.version, sizeof(reply.version))
+        || reply.version != pam_helper::kProtocolVersion) {
       return false;
     }
-    const std::uint32_t len = static_cast<std::uint32_t>(std::min(result.message.size(), kMaxPamMessageBytes));
-    if (!writeAll(fd, &len, sizeof(len))) {
+    std::uint8_t status = 0;
+    std::int32_t pamRc = 0;
+    if (!pam_helper::readAll(fd, &status, sizeof(status))
+        || status > static_cast<std::uint8_t>(pam_helper::kLastStatus)
+        || !pam_helper::readAll(fd, &pamRc, sizeof(pamRc))) {
       return false;
     }
-    if (len > 0 && !writeAll(fd, result.message.data(), len)) {
-      return false;
-    }
+    reply.status = static_cast<pam_helper::Status>(status);
+    reply.pamRc = pamRc;
     return true;
   }
 
-  [[nodiscard]] bool readResult(int fd, PamAuthenticator::Result& result) {
-    std::uint8_t success = 0;
-    if (!readAll(fd, &success, sizeof(success)) || success > 1) {
-      return false;
-    }
-    std::uint32_t len = 0;
-    if (!readAll(fd, &len, sizeof(len))) {
-      return false;
-    }
-    if (len > kMaxPamMessageBytes) {
-      return false;
-    }
-    result.success = success != 0;
-    result.message.clear();
-    if (len > 0) {
-      result.message.resize(len);
-      if (!readAll(fd, result.message.data(), len)) {
-        return false;
+  // A helper next to the running binary (build tree, portable bundle) wins over
+  // the installed one, so a dev build never talks to an older installed helper.
+  // Installed binaries have no helper beside them in bindir.
+  [[nodiscard]] std::string resolveHelperPath() {
+    std::array<char, PATH_MAX> exe{};
+    const ssize_t n = ::readlink("/proc/self/exe", exe.data(), exe.size() - 1);
+    if (n > 0) {
+      std::string path(exe.data(), static_cast<std::size_t>(n));
+      const auto slash = path.rfind('/');
+      if (slash != std::string::npos) {
+        path.resize(slash + 1);
+        path += kHelperName;
+        if (::access(path.c_str(), X_OK) == 0) {
+          return path;
+        }
       }
     }
-    return true;
-  }
-
-  [[nodiscard]] PamAuthenticator::Result authenticateDirect(std::string_view password, std::string_view service) {
-    std::string user = PamAuthenticator::currentUsername();
-    if (user.empty()) {
-      return PamAuthenticator::Result{.success = false, .message = i18n::tr("auth.pam.user-unavailable")};
-    }
-
-    std::string passwordCopy(password);
-    PamConversationData convData{.password = passwordCopy.c_str()};
-    pam_conv conv = {
-        .conv = &pamConversation,
-        .appdata_ptr = &convData,
-    };
-
-    kLog.debug("authenticating user='{}' service='{}'", user, service);
-
-    PamHandle pamh;
-    const int startRc = pam_start(service.data(), user.c_str(), &conv, &pamh.h);
-    if (startRc != PAM_SUCCESS || pamh.h == nullptr) {
-      kLog.error(
-          "pam_start failed rc={} ({})", startRc, pamh.h != nullptr ? pam_strerror(pamh.h, startRc) : "no handle"
-      );
-      secureClear(passwordCopy);
-      return PamAuthenticator::Result{.success = false, .message = i18n::tr("auth.pam.start-failed")};
-    }
-
-    int rc = pam_authenticate(pamh.h, 0);
-    kLog.debug("pam_authenticate rc={} ({})", rc, pam_strerror(pamh.h, rc));
-    if (rc == PAM_SUCCESS) {
-      // An unprivileged locker can't read the shadow database for the account
-      // stack: pam_unix reports PAM_AUTHINFO_UNAVAIL, pam_tcb reports
-      // PAM_CRED_INSUFFICIENT. pam_authenticate already proved identity.
-      const int acctRc = pam_acct_mgmt(pamh.h, 0);
-      kLog.debug("pam_acct_mgmt rc={} ({})", acctRc, pam_strerror(pamh.h, acctRc));
-      if (acctRc != PAM_SUCCESS && acctRc != PAM_AUTHINFO_UNAVAIL && acctRc != PAM_CRED_INSUFFICIENT) {
-        rc = acctRc;
-      }
-    }
-    const char* err = pam_strerror(pamh.h, rc);
-    const std::string errStr = err != nullptr ? err : i18n::tr("auth.pam.authentication-failed");
-    pamh.lastRc = rc;
-
-    secureClear(passwordCopy);
-
-    if (rc == PAM_SUCCESS) {
-      kLog.debug("authentication succeeded for user='{}'", user);
-      return PamAuthenticator::Result{.success = true, .message = {}};
-    }
-
-    kLog.warn("authentication failed for user='{}' rc={} ({})", user, rc, errStr);
-    return PamAuthenticator::Result{.success = false, .message = errStr};
+    return ::access(NOCTALIA_PAM_HELPER, X_OK) == 0 ? NOCTALIA_PAM_HELPER : std::string{};
   }
 
 } // namespace
 
-PamAuthenticator::Result PamAuthenticator::authenticateCurrentUser(
-    std::string_view password, std::string_view service, std::string_view language, std::string_view startFailureMessage
-) const {
-  // Re-exec before invoking PAM so the helper cannot inherit locked library
-  // state from the shell's other threads.
-  const auto fail = [startFailureMessage]() {
-    return Result{.success = false, .message = std::string(startFailureMessage)};
-  };
+PamAuthenticator::Result
+PamAuthenticator::authenticateCurrentUser(std::string_view password, const Messages& messages) const {
+  // PAM runs in a separate helper executable: the helper cannot inherit locked
+  // library state from the shell's other threads, and distributions can grant
+  // it the privileges their PAM stack needs without extending them to the shell.
+  const auto fail = [&messages]() { return Result{.success = false, .message = messages.startFailed}; };
 
-  if (password.size() > kMaxPasswordBytes || service.empty() || language.empty()) {
+  if (password.size() > pam_helper::kMaxPasswordBytes) {
     return fail();
   }
 
-  std::string serviceCopy(service);
-  std::string languageCopy(language);
+  const std::string helperPath = resolveHelperPath();
+  if (helperPath.empty()) {
+    kLog.error("{} not found (expected at {})", kHelperName, NOCTALIA_PAM_HELPER);
+    return fail();
+  }
 
   int inPipe[2] = {-1, -1};
   int outPipe[2] = {-1, -1};
@@ -338,9 +182,7 @@ PamAuthenticator::Result PamAuthenticator::authenticateCurrentUser(
     return fail();
   }
 
-  const char* helperArgv[] = {
-      "noctalia", "pam-helper", serviceCopy.c_str(), languageCopy.c_str(), nullptr,
-  };
+  const char* helperArgv[] = {kHelperName, nullptr};
 
   const pid_t pid = ::fork();
   if (pid < 0) {
@@ -358,7 +200,7 @@ PamAuthenticator::Result PamAuthenticator::authenticateCurrentUser(
     (void)::close(inPipe[1]);
     (void)::close(outPipe[0]);
     (void)::close(outPipe[1]);
-    ::execv("/proc/self/exe", const_cast<char* const*>(helperArgv));
+    ::execv(helperPath.c_str(), const_cast<char* const*>(helperArgv));
     ::_exit(127);
   }
 
@@ -368,8 +210,10 @@ PamAuthenticator::Result PamAuthenticator::authenticateCurrentUser(
   const bool sentOk = sendPassword(inPipe[1], password);
   closeFd(inPipe[1]);
 
-  Result result;
-  const bool readOk = sentOk && readResult(outPipe[0], result);
+  // Read even if sending failed: a helper that rejects our protocol version
+  // replies with its own before closing stdin.
+  HelperReply reply;
+  const bool readOk = readReply(outPipe[0], reply);
   closeFd(outPipe[0]);
 
   int status = 0;
@@ -380,47 +224,42 @@ PamAuthenticator::Result PamAuthenticator::authenticateCurrentUser(
 
   const bool exited = waitResult == pid && WIFEXITED(status);
   const int exitCode = exited ? WEXITSTATUS(status) : -1;
-  const bool statusOk = readOk && (exitCode == 0 || exitCode == 1) && ((exitCode == 0) == result.success);
+  const bool succeeded = reply.status == pam_helper::Status::Success;
+  const bool statusOk = readOk
+      && (exitCode == pam_helper::kExitSuccess || exitCode == pam_helper::kExitFailure)
+      && ((exitCode == pam_helper::kExitSuccess) == succeeded);
+  if (reply.version != 0 && reply.version != pam_helper::kProtocolVersion) {
+    kLog.error(
+        "pam helper {} speaks protocol {}, expected {}; restart noctalia after an upgrade", helperPath, reply.version,
+        pam_helper::kProtocolVersion
+    );
+    return fail();
+  }
   if (!sentOk || !statusOk) {
     kLog.warn(
-        "pam helper failed (sent={} read={} waited={} exited={} status={})", sentOk, readOk, waitResult == pid, exited,
-        exitCode
+        "pam helper {} failed (sent={} read={} waited={} exited={} status={})", helperPath, sentOk, readOk,
+        waitResult == pid, exited, exitCode
     );
     return fail();
   }
 
-  return result;
-}
-
-int PamAuthenticator::runHelperMode(int argc, char* argv[]) {
-  if (argc != 4 || argv[2][0] == '\0' || argv[3][0] == '\0') {
-    return 2;
+  const char* pamError = pam_strerror(nullptr, reply.pamRc);
+  switch (reply.status) {
+  case pam_helper::Status::Success:
+    kLog.debug("authentication succeeded");
+    return Result{.success = true, .message = {}};
+  case pam_helper::Status::UserUnavailable:
+    kLog.error("pam helper could not resolve the current user");
+    return Result{.success = false, .message = messages.userUnavailable};
+  case pam_helper::Status::StartFailed:
+    kLog.error("pam_start failed rc={} ({})", reply.pamRc, pamError != nullptr ? pamError : "");
+    return Result{.success = false, .message = messages.startFailed};
+  case pam_helper::Status::Failed:
+    break;
   }
 
-  const std::string_view service = argv[2];
-  const std::string_view language = argv[3];
-  i18n::Service::instance().init(language);
-  if (i18n::Service::instance().language() != language) {
-    return 2;
-  }
-
-  std::uint32_t len = 0;
-  if (!readAll(STDIN_FILENO, &len, sizeof(len)) || len > kMaxPasswordBytes) {
-    return 2;
-  }
-  std::string password(len, '\0');
-  if (len > 0 && !readAll(STDIN_FILENO, password.data(), len)) {
-    secureClear(password);
-    return 2;
-  }
-
-  Result result = authenticateDirect(password, service);
-  secureClear(password);
-
-  if (!writeResult(STDOUT_FILENO, result)) {
-    return 2;
-  }
-  return result.success ? 0 : 1;
+  kLog.warn("authentication failed rc={} ({})", reply.pamRc, pamError != nullptr ? pamError : "");
+  return Result{.success = false, .message = pamError != nullptr ? pamError : messages.authenticationFailed};
 }
 
 std::string PamAuthenticator::currentUsername() {

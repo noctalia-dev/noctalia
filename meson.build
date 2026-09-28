@@ -1107,7 +1107,7 @@ endif
 _noctalia_compile_definitions = [
   '-DNOCTALIA_INSTALL_PREFIX="' + get_option('prefix') + '"',
   '-DNOCTALIA_INSTALL_DATADIR="' + get_option('datadir') + '"',
-  '-DNOCTALIA_PAM_SERVICE="' + pam_service + '"',
+  '-DNOCTALIA_PAM_HELPER="' + (get_option('prefix') / get_option('libexecdir') / 'noctalia' / 'noctalia-pam-helper') + '"',
   '-DNOCTALIA_VERSION="' + meson.project_version() + '"',
 ] + jemalloc_cpp_args
 
@@ -1140,6 +1140,21 @@ noctalia_exe = executable('noctalia',
   cpp_args: _noctalia_cpp_args,
   objects: noctalia_core_lib.extract_all_objects(recursive: false),
   install: true,
+)
+
+# PAM runs in its own small executable so distributions can grant it the
+# privileges their PAM stack needs (e.g. setgid for a password-check helper)
+# without extending them to the shell. Keep its dependencies to libpam.
+executable('noctalia-pam-helper',
+  sources: files('src/auth/pam_helper_main.cpp'),
+  dependencies: [pam_dep],
+  include_directories: include_directories('src'),
+  cpp_args: [
+    '-Wall', '-Wextra', '-Wno-missing-field-initializers', '-Wpedantic', '-Wconversion', '-Wshadow',
+    '-DNOCTALIA_PAM_SERVICE="' + pam_service + '"',
+  ],
+  install: true,
+  install_dir: get_option('libexecdir') / 'noctalia',
 )
 
 install_subdir('assets',

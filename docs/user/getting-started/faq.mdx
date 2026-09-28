@@ -332,6 +332,8 @@ Noctalia authenticates through PAM using the `login` service by default. Your di
 
 If you changed your PAM stack for fingerprint, security key, or other authentication methods, make sure those changes are present in the PAM service used by Noctalia.
 
+If the log says `noctalia-pam-helper not found`, the installation is incomplete: the helper must be installed next to the `noctalia` binary or in `<libexecdir>/noctalia/`.
+
 </FaqItem>
 
 <FaqItem question="Does the lock screen engage before suspend?">
