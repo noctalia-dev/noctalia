@@ -1,9 +1,13 @@
 #include "theme/hook_runner.h"
 
 #include <cassert>
+#include <chrono>
 #include <filesystem>
 #include <fstream>
+#include <memory>
 #include <string>
+#include <thread>
+#include <unistd.h>
 
 namespace {
 
@@ -93,6 +97,29 @@ namespace {
     std::filesystem::remove(running);
   }
 
+  void test_shutdown_does_not_wait_out_a_stuck_hook() {
+    // Namespaced by pid so concurrent test runs cannot fight over the sentinel.
+    const auto started =
+        std::filesystem::temp_directory_path() / ("noctalia_hook_runner_stuck_started_" + std::to_string(::getpid()));
+    std::filesystem::remove(started);
+
+    auto runner = std::make_unique<noctalia::theme::HookRunner>(1, std::chrono::milliseconds(100));
+    runner->enqueue("trap '' TERM; printf ran > " + started.string() + "; sleep 5", /*generation=*/1);
+
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+    while (!std::filesystem::exists(started) && std::chrono::steady_clock::now() < deadline) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    }
+    assert(std::filesystem::exists(started));
+
+    const auto start = std::chrono::steady_clock::now();
+    runner.reset();
+    const auto elapsed = std::chrono::steady_clock::now() - start;
+    assert(elapsed < std::chrono::seconds(2));
+    (void)elapsed;
+    std::filesystem::remove(started);
+  }
+
 } // namespace
 
 int main() {
@@ -100,5 +127,6 @@ int main() {
   test_drops_hooks_from_superseded_generations();
   test_invalidate_drops_queued_hooks();
   test_shutdown_drops_backlog_and_awaits_running();
+  test_shutdown_does_not_wait_out_a_stuck_hook();
   return 0;
 }
