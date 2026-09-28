@@ -12,6 +12,7 @@
 #include "render/text/glyph_registry.h"
 #include "shell/panel/panel_manager.h"
 #include "shell/tray/tray_identifier.h"
+#include "shell/tray/tray_theme_path_index.h"
 #include "system/desktop_entry.h"
 #include "ui/app_icon_colorization.h"
 #include "ui/builders.h"
@@ -21,15 +22,13 @@
 
 #include <algorithm>
 #include <cmath>
-#include <filesystem>
 #include <linux/input-event-codes.h>
 #include <memory>
 #include <optional>
 #include <string>
+#include <vector>
 
 namespace {
-
-  namespace fs = std::filesystem;
 
   constexpr Logger kLog("tray");
 
@@ -187,49 +186,10 @@ TrayWidget::TrayWidget(ConfigService& config, TrayService* tray, Options options
   normalizeTokens(m_hiddenItems);
   normalizeTokens(m_pinnedItems);
   buildDesktopIconIndex();
-}
-
-std::string TrayWidget::resolveFromTrayThemePath(std::string_view themePath, std::string_view iconName) {
-  if (themePath.empty() || iconName.empty()) {
-    return {};
-  }
-
-  const std::string themePathKey(themePath);
-  auto [cacheIt, inserted] = m_trayThemePathIcons.try_emplace(themePathKey);
-  if (inserted) {
-    std::error_code ec;
-    if (!fs::is_directory(themePathKey, ec)) {
-      return {};
-    }
-
-    auto& iconIndex = cacheIt->second;
-    for (fs::recursive_directory_iterator it(themePathKey, fs::directory_options::skip_permission_denied, ec), end;
-         !ec && it != end; it.increment(ec)) {
-      if (ec || !it->is_regular_file()) {
-        continue;
-      }
-
-      const fs::path path = it->path();
-      const auto extension = StringUtils::toLower(path.extension().string());
-      if (extension != ".svg" && extension != ".png") {
-        continue;
-      }
-
-      const std::string stem = path.stem().string();
-      for (const auto& variant : identifierVariants(stem)) {
-        iconIndex.try_emplace(variant, path.string());
-      }
-    }
-  }
-
-  const auto& iconIndex = cacheIt->second;
-  for (const auto& variant : identifierVariants(iconName)) {
-    if (const auto it = iconIndex.find(variant); it != iconIndex.end()) {
-      return it->second;
-    }
-  }
-
-  return {};
+  m_themePathIndexListener = tray::ThemePathIconStore::instance().addListener([this]() {
+    m_rebuildPending = true;
+    requestUpdate();
+  });
 }
 
 float TrayWidget::resolvedInlineEntryGap() const {
@@ -694,7 +654,8 @@ void TrayWidget::rebuild(Renderer& renderer) {
         if (overlayName.empty()) {
           return {};
         }
-        if (const auto themed = resolveFromTrayThemePath(item.iconThemePath, overlayName); !themed.empty()) {
+        if (const auto themed = tray::ThemePathIconStore::instance().resolve(item.iconThemePath, overlayName);
+            !themed.empty()) {
           return themed;
         }
         if (const auto direct = m_iconResolver.resolve(overlayName, iconRequestSize); !direct.empty()) {
@@ -923,7 +884,8 @@ std::string TrayWidget::resolveIconPath(const TrayItemInfo& item) {
   } else {
     preferred = item.iconName;
   }
-  if (const auto themed = resolveFromTrayThemePath(item.iconThemePath, preferred); !themed.empty()) {
+  if (const auto themed = tray::ThemePathIconStore::instance().resolve(item.iconThemePath, preferred);
+      !themed.empty()) {
     m_preferredIconPaths[item.id] = themed;
     return themed;
   }
@@ -1088,7 +1050,7 @@ void TrayWidget::layoutHoverOverlays() {
 // wiped by `attachWidgetsToSections` before the next widget batch), and the entries' `area`
 // pointers are inside our own scene subtree, which the bar destroys *before* clearing the widget
 // vector. Touching either from the destructor is redundant at best and a use-after-free at worst.
-TrayWidget::~TrayWidget() = default;
+TrayWidget::~TrayWidget() { tray::ThemePathIconStore::instance().removeListener(m_themePathIndexListener); }
 
 void TrayWidget::clearHoverOverlays() {
   if (m_hoverOverlayParent != nullptr) {
