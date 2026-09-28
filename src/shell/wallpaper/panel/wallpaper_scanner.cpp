@@ -6,9 +6,11 @@
 
 #include <algorithm>
 #include <cerrno>
+#include <string>
 #include <sys/eventfd.h>
 #include <system_error>
 #include <unistd.h>
+#include <unordered_set>
 #include <utility>
 
 namespace {
@@ -26,10 +28,30 @@ namespace {
     }
   }
 
+  // Records the directory's canonical path and reports whether it is new.
+  // follow_directory_symlink has no cycle detection, so a symlink that points
+  // back up the tree would recurse until the kernel refuses the path, and two
+  // symlinks to the same folder would list every image in it twice. Walking
+  // each real directory at most once removes both problems.
+  bool claimDirectory(const std::filesystem::path& dir, std::unordered_set<std::string>& visited) {
+    std::error_code ec;
+    const auto resolved = std::filesystem::canonical(dir, ec);
+    if (ec) {
+      return false;
+    }
+    return visited.insert(resolved.string()).second;
+  }
+
   void collectFlat(const std::filesystem::path& dir, std::vector<WallpaperEntry>& out) {
+    std::unordered_set<std::string> visited;
+    claimDirectory(dir, visited);
+
     std::error_code ec;
     for (auto it = std::filesystem::recursive_directory_iterator(
-             dir, std::filesystem::directory_options::skip_permission_denied, ec
+             dir,
+             std::filesystem::directory_options::skip_permission_denied
+                 | std::filesystem::directory_options::follow_directory_symlink,
+             ec
          );
          !ec && it != std::filesystem::end(it); it.increment(ec)) {
       if (ec) {
@@ -44,6 +66,12 @@ namespace {
       }
 
       std::error_code typeEc;
+      if (entry.is_directory(typeEc) && !typeEc) {
+        if (!claimDirectory(entry.path(), visited)) {
+          it.disable_recursion_pending();
+        }
+        continue;
+      }
       if (!entry.is_regular_file(typeEc) || typeEc) {
         continue;
       }

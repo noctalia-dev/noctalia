@@ -1,5 +1,6 @@
 #pragma once
 
+#include <chrono>
 #include <functional>
 #include <string>
 #include <string_view>
@@ -9,6 +10,7 @@ class Flex;
 class InputArea;
 class Label;
 class ScrollView;
+struct CalendarEvent;
 struct CalendarSnapshot;
 
 namespace calendar_view {
@@ -73,8 +75,8 @@ namespace calendar_view {
     const CalendarSnapshot* snapshot = nullptr;
     Date selected;
     float scale = 1.0F;
-    std::string_view dateFormat = "%A %e %B";
-    std::string_view timeFormat = "%H:%M";
+    std::string_view dateFormat;
+    std::string_view timeFormat;
     std::string fontFamily;
     EventListState* state = nullptr;
     std::function<void()> requestRedraw;
@@ -82,6 +84,9 @@ namespace calendar_view {
 
   [[nodiscard]] State stateForOffset(int monthOffset);
   [[nodiscard]] int dateKey(Date date) noexcept;
+
+  [[nodiscard]] bool eventPassed(const CalendarEvent& event, std::chrono::system_clock::time_point now);
+
   void rebuildMonth(const MonthBuildOptions& options);
   void rebuildEventList(const EventListBuildOptions& options);
   void layoutEventLinkOverlays(const EventListState& state);

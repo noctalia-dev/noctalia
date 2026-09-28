@@ -292,20 +292,16 @@ namespace scripting {
     auto sourceLock = plugin_source_locks::acquire(source.name);
     const bool localOnly = access == CatalogAccess::LocalOnly;
     std::error_code ec;
-    if (!std::filesystem::exists(dest / ".git", ec)) {
-      if (localOnly) {
+    if (localOnly) {
+      // Local-only reads never touch the remote, so they need a checkout, not a
+      // prepared one.
+      if (!std::filesystem::exists(dest / ".git", ec)) {
         return {.ok = false, .error = "source '" + source.name + "' is not cloned yet", .entries = {}, .revision = {}};
       }
-      std::filesystem::create_directories(dest.parent_path(), ec);
-      auto cloned = plugin_git::cloneBlobless(source.location, dest);
-      if (!cloned) {
-        return {.ok = false, .error = "clone failed: " + cloned.err, .entries = {}, .revision = {}};
-      }
-    }
-    if (const auto configured = plugin_git::setOrigin(dest, source.location); !configured) {
+    } else if (const auto prepared = plugin_git::ensureRepo(dest, source.location); !prepared) {
       return {
           .ok = false,
-          .error = "cannot configure origin for source '" + source.name + "': " + configured.err,
+          .error = "cannot prepare cache for source '" + source.name + "': " + prepared.err,
           .entries = {},
           .revision = {}
       };

@@ -28,12 +28,15 @@ namespace {
 
   [[nodiscard]] float overlayControlSize(float contentScale) { return Style::controlHeightSm * contentScale; }
 
-  [[nodiscard]] float starButtonSize(float contentScale) {
-    const float starPadding = Style::spaceXs * contentScale;
-    return overlayControlSize(contentScale) + starPadding * 2.0F;
-  }
+  // Star hit box sits flush in the thumbnail's top-right corner, glyph centered inside it.
+  [[nodiscard]] float starButtonSize(float contentScale) { return overlayControlSize(contentScale); }
 
   [[nodiscard]] float starShadowOffset(float contentScale) { return std::max(0.5F, 1.0F * contentScale); }
+
+  // Theme-mode badge: a snug pill around its caption-sized glyph.
+  [[nodiscard]] float modeBadgeSize(float contentScale) {
+    return (Style::fontSizeCaption + Style::spaceXs * 2.0F) * contentScale;
+  }
 
   [[nodiscard]] float activeThumbScale(bool selected, bool current, bool hovered) {
     if (selected || current) {
@@ -58,10 +61,9 @@ namespace {
   starRegionContains(float cellWidth, float /*cellHeight*/, float contentScale, float localX, float localY) {
     const float padding = Style::spaceXs * contentScale;
     const float frameWidth = std::max(0.0F, cellWidth - padding * 2.0F);
-    const float inset = Style::spaceXs * contentScale;
     const float btnSize = starButtonSize(contentScale);
-    const float starX = padding + frameWidth - btnSize - inset;
-    const float starY = padding + inset;
+    const float starX = padding + frameWidth - btnSize;
+    const float starY = padding;
     return localX >= starX && localX < starX + btnSize && localY >= starY && localY < starY + btnSize;
   }
 
@@ -71,6 +73,18 @@ bool WallpaperTile::hitTestStarRegion(
     float cellWidth, float cellHeight, float contentScale, float localX, float localY
 ) noexcept {
   return starRegionContains(cellWidth, cellHeight, contentScale, localX, localY);
+}
+
+TooltipAnchorInsets
+WallpaperTile::starTooltipAnchorInsets(float cellWidth, float cellHeight, float contentScale) noexcept {
+  const float padding = Style::spaceXs * contentScale;
+  const float btnSize = starButtonSize(contentScale);
+  return TooltipAnchorInsets{
+      .top = padding,
+      .right = padding,
+      .bottom = std::max(0.0F, cellHeight - padding - btnSize),
+      .left = std::max(0.0F, cellWidth - padding - btnSize),
+  };
 }
 
 WallpaperTile::WallpaperTile(float cellWidth, float cellHeight, float contentScale)
@@ -99,7 +113,7 @@ WallpaperTile::WallpaperTile(float cellWidth, float cellHeight, float contentSca
   });
 
   const float frameRadius = Style::scaledRadiusLg(m_contentScale);
-  const float overlaySize = overlayControlSize(m_contentScale);
+  const float badgeSize = modeBadgeSize(m_contentScale);
 
   auto layout = ui::column({
       .out = &m_layout,
@@ -165,10 +179,10 @@ WallpaperTile::WallpaperTile(float cellWidth, float cellHeight, float contentSca
           .glyph = "sun",
           .glyphSize = Style::fontSizeCaption * m_contentScale,
           .variant = ButtonVariant::Primary,
-          .minWidth = overlaySize,
-          .minHeight = overlaySize,
+          .minWidth = badgeSize,
+          .minHeight = badgeSize,
           .padding = Style::spaceXs * m_contentScale * 0.5F,
-          .radius = Style::scaledRadiusMd(m_contentScale),
+          .radius = Style::scaledRadiusSm(m_contentScale),
           .visible = false,
           .participatesInLayout = false,
       })
@@ -208,7 +222,6 @@ void WallpaperTile::layoutThumbOverlays() {
     return;
   }
 
-  const float inset = Style::spaceXs * m_contentScale;
   const float w = m_thumbFrameWidth;
   const float h = m_thumbFrameHeight;
 
@@ -222,14 +235,16 @@ void WallpaperTile::layoutThumbOverlays() {
     const float glyphW = m_starGlyph->width() > 0.0F ? m_starGlyph->width() : hitSize;
     const float glyphH = m_starGlyph->height() > 0.0F ? m_starGlyph->height() : hitSize;
     m_starGlyph->setPosition(
-        std::round(w - hitSize - inset + (hitSize - glyphW) * 0.5F), std::round(inset + (hitSize - glyphH) * 0.5F)
+        std::round(w - hitSize + (hitSize - glyphW) * 0.5F), std::round((hitSize - glyphH) * 0.5F)
     );
   }
 
   if (m_modeBadge != nullptr) {
-    const float btnW = m_modeBadge->width() > 0.0F ? m_modeBadge->width() : overlayControlSize(m_contentScale);
+    const float btnW = m_modeBadge->width() > 0.0F ? m_modeBadge->width() : modeBadgeSize(m_contentScale);
     const float btnH = m_modeBadge->height() > 0.0F ? m_modeBadge->height() : btnW;
-    m_modeBadge->setPosition(std::round(inset), std::round(h - btnH - inset));
+    // Center the badge on the same corner offset as the star so both overlays mirror each other.
+    const float cornerBox = starButtonSize(m_contentScale);
+    m_modeBadge->setPosition(std::round((cornerBox - btnW) * 0.5F), std::round(h - btnH - (cornerBox - btnH) * 0.5F));
     m_modeBadge->setSize(btnW, btnH);
   }
 

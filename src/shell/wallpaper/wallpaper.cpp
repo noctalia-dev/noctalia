@@ -452,7 +452,7 @@ void Wallpaper::reload() {
   if (!nowEnabled) {
     resetAutomationState();
     m_wallpaperEnabled = false;
-    // Wallpaper disabled — full teardown
+    // Wallpaper disabled, full teardown
     for (auto& inst : m_instances) {
       releaseInstanceTextures(*inst);
     }
@@ -467,7 +467,7 @@ void Wallpaper::reload() {
   m_wallpaperEnabled = true;
   m_lastWallpaperConfig = wallpaperConfig;
 
-  // Wallpaper remains (or becomes) enabled — sync instances without teardown
+  // Wallpaper remains (or becomes) enabled, sync instances without teardown
   // to avoid flickering. syncInstances handles monitor override changes
   // (adds/removes instances) without disturbing existing surfaces.
   syncInstances();
@@ -814,14 +814,14 @@ void Wallpaper::syncInstances() {
     // Check if a monitor override now disables this output
     if (const auto* ovr = wallpaper::findWallpaperMonitorOverride(m_config->config().wallpaper, *output);
         ovr != nullptr && ovr->enabled && !*ovr->enabled) {
-      kLog.info("removing instance for {} — disabled by monitor override", output->connectorName);
+      kLog.info("removing instance for {}: disabled by monitor override", output->connectorName);
       releaseInstanceTextures(*inst);
       return true;
     }
 
     // An external wallpaper source (e.g. mpvpaper plugin) now owns this output
     if (m_externallyManagedOutputs.contains(output->connectorName)) {
-      kLog.info("removing instance for {} — managed by external source", output->connectorName);
+      kLog.info("removing instance for {}: managed by external source", output->connectorName);
       releaseInstanceTextures(*inst);
       return true;
     }
@@ -847,11 +847,11 @@ void Wallpaper::syncInstances() {
       enabled = *ovr->enabled;
     }
     if (!enabled) {
-      kLog.info("skipping {} ({}) — disabled by monitor override", output.connectorName, output.description);
+      kLog.info("skipping {} ({}): disabled by monitor override", output.connectorName, output.description);
       continue;
     }
     if (m_externallyManagedOutputs.contains(output.connectorName)) {
-      kLog.info("skipping {} ({}) — managed by external source", output.connectorName, output.description);
+      kLog.info("skipping {} ({}): managed by external source", output.connectorName, output.description);
       continue;
     }
 
@@ -880,7 +880,7 @@ void Wallpaper::setAutomationGate(std::function<bool()> gate) { m_automationGate
 bool Wallpaper::automationAllowed() const noexcept { return !m_automationGate || m_automationGate(); }
 
 ThemeMode Wallpaper::directoryThemeMode() const noexcept {
-  const ThemeMode configured = m_config != nullptr ? m_config->config().theme.mode : ThemeMode::Dark;
+  const ThemeMode configured = m_config != nullptr ? shellThemeMode(m_config->config().theme) : ThemeMode::Dark;
   const bool isLight = m_themeService != nullptr ? m_themeService->isLightMode() : configured == ThemeMode::Light;
   return wallpaper::effectiveThemeMode(configured, isLight);
 }

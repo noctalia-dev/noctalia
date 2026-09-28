@@ -1,0 +1,175 @@
+---
+title: Widget Actions
+description: Rebind what any bar widget does on click, scroll and thumb buttons.
+sidebar:
+  order: 5
+---
+
+
+What a bar widget does when you click or scroll it is configuration, not something baked into the
+widget. Every widget accepts an `actions` table that binds a gesture to a command:
+
+```toml
+[widget.media.actions]
+right = "media toggle"
+scroll_up = "volume-up"
+middle = "exec notify-send 'Media' 'Middle click'"
+```
+
+Widgets ship with sensible defaults, so you only declare the gestures you want to change. Clearing a
+binding in the settings editor restores the default.
+
+The Actions section in Settings is shown only while the widget is `interactive`. With
+`interactive = false`, pointer gestures pass through and the section is hidden (bindings in config
+are left alone).
+
+## Gestures
+
+The vocabulary is fixed. Any other key is a config error.
+
+| Key | Gesture |
+|---|---|
+| `left` | Left click |
+| `right` | Right click |
+| `middle` | Middle click |
+| `back` | Thumb button, back |
+| `forward` | Thumb button, forward |
+| `scroll_up` | Wheel or touchpad, up |
+| `scroll_down` | Wheel or touchpad, down |
+| `scroll_left` | Wheel or touchpad, left |
+| `scroll_right` | Wheel or touchpad, right |
+
+Scroll input is quantized into whole wheel-detent steps. The widget's `scroll_repeat` setting decides
+whether each step fires its action or one gesture fires it once.
+
+## Scroll repetition
+
+Set `scroll_repeat` under the widget itself:
+
+```toml
+[widget.workspaces]
+scroll_repeat = "steps"
+```
+
+| Value | Behavior |
+|---|---|
+| `auto` | Cycle commands such as workspace, taskbar, media, and power-profile navigation run once per gesture. Ramp commands such as volume and brightness run for every step. |
+| `gesture` | Run any bound scroll action once per gesture. |
+| `steps` | Run any bound scroll action for every quantized scroll step. |
+
+`auto` is the default. Use `steps` when one longer touchpad movement or several quick wheel detents
+should cross multiple workspaces or tasks. Use `gesture` when noisy hardware should never produce
+more than one action per movement. Reversing direction always starts a new gesture.
+
+There are no modifier combinations such as `ctrl+left`. The bar never takes keyboard focus, so it
+cannot know which modifiers are held.
+
+## Actions
+
+An action is one of three things:
+
+| Form | Meaning |
+|---|---|
+| `<command> [arguments]` | Run an IPC command, exactly as `noctalia msg` would |
+| `exec <command line>` | Run a shell command |
+| `none` | Unbind the gesture |
+
+```toml
+[widget.clock.actions]
+left = "panel-toggle control-center calendar"   # IPC command with arguments
+right = "exec gsimplecal"                       # shell command
+middle = "none"                                 # nothing happens
+```
+
+The command vocabulary is the same one `noctalia msg` uses, so anything you can bind to a keyboard
+shortcut you can bind to a widget. Run `noctalia msg --help` for the full list. The settings editor
+offers the same commands in a searchable picker, with the argument hint shown in the field beside it.
+
+Reach for `exec` only when nothing in that list covers what you want. A built-in command is faster,
+it reports its own errors, and it stays correct when the shell changes underneath it - `media toggle`
+is the right way to pause playback, not `exec playerctl play-pause`.
+
+A misspelled command is reported once in the log, naming the exact config path, and the gesture does
+nothing. It is never silently treated as a shell command - that is what `exec` is for.
+
+## Where bindings live
+
+Bindings resolve in four layers. Later layers win, one gesture at a time:
+
+1. **Built-in defaults** - `middle` opens the widget's settings, on every widget
+2. **Widget defaults** - what the widget type does out of the box, e.g. `left` opens its panel
+3. **`[bar.<name>.actions]`** - every widget on that bar
+4. **`[widget.<name>.actions]`** - one widget instance
+
+So a bar-wide rule can turn something off everywhere while a single widget keeps its own binding:
+
+```toml
+[bar.default.actions]
+middle = "none"                 # no middle-click-opens-settings anywhere on this bar
+
+[widget.clock.actions]
+middle = "exec gnome-calendar"  # …except on the clock
+```
+
+## Widgets that own a gesture
+
+Some widgets handle a gesture on their individual items rather than as a whole, and those cannot be
+rebound:
+
+| Widget | Reserved |
+|---|---|
+| `workspaces` | `left` - activates the workspace you clicked |
+| `taskbar` | `left`, `middle` - activates and closes that window |
+| `tray` | `left`, `right` - activates the item and opens its menu |
+| `screenshot` | `right` - opens the capture menu anchored to the widget |
+
+Every other gesture on those widgets is bindable as usual, and the settings editor simply omits the
+reserved rows. A bar-wide binding skips them silently; binding one explicitly per widget is reported
+as a config error.
+
+## The dead zone
+
+The parts of the bar no widget covers take the same bindings, under the bar's `dead_zone` table:
+
+```toml
+[bar.default.dead_zone.actions]
+left = "panel-toggle launcher"
+scroll_up = "volume-up"
+back = "media previous"
+```
+
+Right click opens the control center at the pointer unless you bind it to something else. Panel
+actions here anchor at the pointer rather than at a widget, since there is no widget to anchor to.
+A monitor override may carry its own `dead_zone.actions` table, which replaces the bar's rather than
+merging with it.
+
+
+## Examples
+
+Make the volume widget mute on middle click instead of opening settings, and adjust in bigger steps:
+
+```toml
+[widget.volume.actions]
+middle = "volume-mute"
+scroll_up = "volume-up 10%"
+scroll_down = "volume-down 10%"
+```
+
+Give the clock a second panel on right click and a calendar app on the thumb button:
+
+```toml
+[widget.clock.actions]
+right = "panel-toggle control-center weather"
+forward = "exec gnome-calendar"
+```
+
+Turn a spacer into a hidden hot zone. Spacers are non-interactive by default, so turn
+Interactive on and bind the gestures you want:
+
+```toml
+[widget.spacer]
+interactive = true
+
+[widget.spacer.actions]
+left = "panel-toggle launcher"
+```

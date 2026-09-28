@@ -39,8 +39,8 @@ namespace {
   }
 
   void doubleClickAtStart(Input& input) {
-    input.inputArea()->dispatchPress(0.0f, 0.0f, BTN_LEFT, true);
-    input.inputArea()->dispatchPress(0.0f, 0.0f, BTN_LEFT, true);
+    input.inputArea()->dispatchPress(0.0F, 0.0F, BTN_LEFT, true);
+    input.inputArea()->dispatchPress(0.0F, 0.0F, BTN_LEFT, true);
   }
 
   void pressBackspace(Input& input) { sendKey(input, XKB_KEY_BackSpace, 0, 0); }

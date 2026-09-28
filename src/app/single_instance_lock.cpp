@@ -23,7 +23,7 @@ bool SingleInstanceLock::tryAcquire() {
     // The lock file is unusable (e.g. read-only runtime dir). Degrade to running
     // unguarded rather than refusing to start — losing the single-instance
     // guarantee is better than a shell that won't launch.
-    kLog.warn("could not open lock file {}: {} — running without single-instance guard", m_path, std::strerror(errno));
+    kLog.warn("could not open lock file {}: {}; running without single-instance guard", m_path, std::strerror(errno));
     return true;
   }
 
@@ -34,7 +34,7 @@ bool SingleInstanceLock::tryAcquire() {
       return false;
     }
     // Unexpected flock failure — degrade to unguarded, same rationale as above.
-    kLog.warn("flock failed on {}: {} — running without single-instance guard", m_path, std::strerror(errno));
+    kLog.warn("flock failed on {}: {}; running without single-instance guard", m_path, std::strerror(errno));
     ::close(fd);
     return true;
   }

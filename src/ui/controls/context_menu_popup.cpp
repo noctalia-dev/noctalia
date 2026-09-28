@@ -155,6 +155,7 @@ void ContextMenuPopup::open(ContextMenuPopupRequest request) {
     auto scrollView = std::make_unique<ScrollView>();
     scrollView->setPosition(chrome.contentX(), chrome.contentY());
     scrollView->setSize(chrome.contentWidth, chrome.contentHeight);
+    scrollView->setContentScale(contentScale);
     scrollView->setViewportPaddingH(0.0F);
     scrollView->setViewportPaddingV(0.0F);
     scrollView->clearFill();

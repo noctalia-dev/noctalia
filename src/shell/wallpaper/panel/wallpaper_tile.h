@@ -61,6 +61,8 @@ public:
 
   [[nodiscard]] static bool
   hitTestStarRegion(float cellWidth, float cellHeight, float contentScale, float localX, float localY) noexcept;
+  [[nodiscard]] static TooltipAnchorInsets
+  starTooltipAnchorInsets(float cellWidth, float cellHeight, float contentScale) noexcept;
 
   [[nodiscard]] const WallpaperEntry* entry() const noexcept { return m_hasEntry ? &m_entry : nullptr; }
 

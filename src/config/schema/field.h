@@ -308,7 +308,7 @@ namespace noctalia::config::schema {
         key,
         [member, key](const toml::table& tbl, Struct& out, std::string_view, Diagnostics&) {
           if (auto v = tbl[key].value<std::string>()) {
-            out.*member = v->empty() ? *v : FileUtils::expandUserPath(*v).string();
+            out.*member = v->empty() ? *v : FileUtils::expandUserPath(FileUtils::expandEnvVars(*v)).string();
           }
         },
         [member, key](toml::table& tbl, const Struct& in) { tbl.insert_or_assign(key, in.*member); }
@@ -321,7 +321,7 @@ namespace noctalia::config::schema {
         key,
         [member, key](const toml::table& tbl, Struct& out, std::string_view, Diagnostics&) {
           if (auto v = tbl[key].value<std::string>()) {
-            out.*member = v->empty() ? *v : FileUtils::expandUserPath(*v).string();
+            out.*member = v->empty() ? *v : FileUtils::expandUserPath(FileUtils::expandEnvVars(*v)).string();
           }
         },
         [member, key](toml::table& tbl, const Struct& in) {

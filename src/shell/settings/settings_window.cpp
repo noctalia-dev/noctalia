@@ -492,6 +492,7 @@ void SettingsWindow::openToBarWidget(std::string barName, std::string widgetName
   clearTransientSettingsState();
   clearStatusMessage();
   m_searchQuery.clear();
+  m_pluginSearchQuery.clear();
   m_selectedSection = "bar";
   m_selectedBarName = std::move(barName);
   m_selectedMonitorOverride.clear();
@@ -515,6 +516,7 @@ bool SettingsWindow::openToPlugin(std::string pluginId) {
   clearTransientSettingsState();
   clearStatusMessage();
   m_searchQuery.clear();
+  m_pluginSearchQuery.clear();
   m_selectedSection = "plugins";
   m_pendingOpenPluginSettingsId = std::move(pluginId);
   m_contentScrollState.offset = 0.0F;
@@ -573,6 +575,8 @@ void SettingsWindow::destroyWindow() {
   m_headerRow = nullptr;
   m_filterRow = nullptr;
   m_contentContainer = nullptr;
+  m_pageTitleRow = nullptr;
+  m_groupJumpRow = nullptr;
   m_contentScrollView = nullptr;
   m_sidebarScrollView = nullptr;
   m_sidebarNav = nullptr;
@@ -613,8 +617,6 @@ void SettingsWindow::destroyWindow() {
   m_creatingBarName.clear();
   m_renamingBarName.clear();
   m_pendingDeleteBarName.clear();
-  m_creatingMonitorOverrideBarName.clear();
-  m_creatingMonitorOverrideMatch.clear();
   m_renamingMonitorOverrideBarName.clear();
   m_renamingMonitorOverrideMatch.clear();
   m_pendingDeleteMonitorOverrideBarName.clear();
@@ -622,6 +624,8 @@ void SettingsWindow::destroyWindow() {
   m_pendingResetPageScope.clear();
   m_pendingResetSettingPaths.clear();
   m_searchQuery.clear();
+  m_pluginSearchQuery.clear();
+  m_pluginSearchDebounceTimer.stop();
   m_selectedSection.clear();
   m_selectedBarName.clear();
   m_selectedMonitorOverride.clear();
@@ -636,6 +640,7 @@ void SettingsWindow::destroyWindow() {
   m_showOverriddenOnly = false;
   m_sidebarScrollState = {};
   m_contentScrollState = {};
+  m_expandedSettingGroups.clear();
 
   // Plugin-store thumbnails are the only async textures this window holds; drop the
   // zero-ref residents once the scene (and with it every Image) is gone.
@@ -895,8 +900,6 @@ void SettingsWindow::clearTransientSettingsState() {
   m_creatingBarName.clear();
   m_renamingBarName.clear();
   m_pendingDeleteBarName.clear();
-  m_creatingMonitorOverrideBarName.clear();
-  m_creatingMonitorOverrideMatch.clear();
   m_renamingMonitorOverrideBarName.clear();
   m_renamingMonitorOverrideMatch.clear();
   m_pendingDeleteMonitorOverrideBarName.clear();
@@ -1086,7 +1089,6 @@ void SettingsWindow::onKeyboardEvent(const KeyboardEvent& event) {
         || !m_creatingBarName.empty()
         || !m_renamingBarName.empty()
         || !m_pendingDeleteBarName.empty()
-        || !m_creatingMonitorOverrideBarName.empty()
         || !m_renamingMonitorOverrideBarName.empty()
         || !m_pendingDeleteMonitorOverrideBarName.empty()) {
       m_editingWidgetName.clear();
@@ -1098,8 +1100,6 @@ void SettingsWindow::onKeyboardEvent(const KeyboardEvent& event) {
       m_creatingBarName.clear();
       m_renamingBarName.clear();
       m_pendingDeleteBarName.clear();
-      m_creatingMonitorOverrideBarName.clear();
-      m_creatingMonitorOverrideMatch.clear();
       m_renamingMonitorOverrideBarName.clear();
       m_renamingMonitorOverrideMatch.clear();
       m_pendingDeleteMonitorOverrideBarName.clear();
@@ -1207,7 +1207,11 @@ void SettingsWindow::onExternalOptionsChanged() { requestSceneRebuild(); }
 void SettingsWindow::onPluginsChanged() {
   markPluginListDirty();
   if (isOpen() && m_selectedSection == "plugins") {
-    requestContentRebuild();
+    // The plugin store's body shows install progress, so it needs the rebuild; any other
+    // editor sheet would just lose its focus for an unrelated plugin event.
+    requestContentRebuild(
+        /*refreshRegistry=*/false, /*refreshFilterRow=*/false, /*rebuildEditorSheet=*/m_pluginStoreSheetOpen
+    );
   }
 }
 

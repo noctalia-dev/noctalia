@@ -103,6 +103,21 @@ to use.
 The repo also includes `lefthook.yml`. Run `lefthook install` to install the pre-commit hook; it runs `just format`
 before commits and refreshes the git index for tracked formatting changes.
 
+Do not use em dashes (—) or double hyphens (--) as sentence punctuation, in code, comments, documentation, or commit
+messages. Use a comma, colon, semicolon, or parentheses instead.
+
+## Pull Request Template
+
+Pull request descriptions are checked automatically when they are opened, edited, reopened, or marked ready for
+review. Keep the `## Summary`, `## Motivation`, `## Type of Change`, `## Testing`, and `## Checklist` headings and the
+Checklist wording from [`.github/PULL_REQUEST_TEMPLATE.md`](.github/PULL_REQUEST_TEMPLATE.md). The remaining sections
+are context only: fill them in, leave them empty, or delete them. In Type of Change, keep only the lines that apply.
+
+Draft pull requests may leave checkboxes incomplete. Before marking a pull request ready for review, select at least one
+change type and check every item in the Checklist section. A pull request that is missing required template structure
+is commented on and converted back to a draft; add the missing content and mark it ready for review to run the check
+again. The check never closes a pull request.
+
 ### Naming Conventions
 
 | | Convention | Example |
@@ -156,6 +171,7 @@ src/
     bluetooth/      BlueZ service and pairing agent
     idle/           Screensaver D-Bus service
     logind/         logind integration
+    modem/          ModemManager cellular integration
     mpris/          Media player integration and artwork cache
     network/        NetworkManager, wpa_supplicant, and secret agent integration
     notification/   Desktop notification D-Bus service
@@ -233,6 +249,7 @@ third_party/
   material_color_utilities/ Material Design color generation (vendored)
 ```
 
+
 ## Debugging
 
 All debug commands use the `dev.noctalia.Debug` D-Bus service, available at runtime.
@@ -250,3 +267,37 @@ gdbus call --session --dest dev.noctalia.Debug --object-path /dev/noctalia/Debug
 # Emit an internal notification (app_name, summary, body, timeout_ms, urgency 0-2)
 gdbus call --session --dest dev.noctalia.Debug --object-path /dev/noctalia/Debug --method dev.noctalia.Debug.EmitInternalNotification "Noctalia" "Test" "Hello from debug" 5000 1
 ```
+
+### Crash output
+
+When reporting a crash, include the complete terminal output from the process if it is available. Do not paste only
+`Segmentation fault`; that line does not contain a useful stack trace or the error context.
+
+### ASan crash reports
+
+AddressSanitizer (ASan) can find memory errors that a normal build reports only as a crash. It requires a temporary
+source build; it does not replace the Noctalia package you already use.
+
+Install the source-build dependencies for your distribution using the commands in
+[BUILDING.md](BUILDING.md#dependencies), then clone the repository:
+
+```sh
+git clone https://github.com/noctalia-dev/noctalia.git
+cd noctalia
+```
+
+Stop the Noctalia instance started by your compositor, then configure and build ASan:
+
+```sh
+just configure asan && just build asan
+```
+
+Start the ASan binary in the foreground and save its output:
+
+```sh
+ASAN_OPTIONS=log_path=/tmp/noctalia-asan ./build-asan/noctalia 2>&1 | tee noctalia-asan-terminal.log
+```
+
+Reproduce the crash once. If Noctalia does not exit, press `Ctrl+C`. Attach both `noctalia-asan-terminal.log` and every
+`/tmp/noctalia-asan.*` file to the GitHub issue. The files in `/tmp` preserve the ASan report if the crash takes down
+the terminal. If the build or startup fails, attach that complete output instead.

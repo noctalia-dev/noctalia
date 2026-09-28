@@ -884,7 +884,6 @@
     },
     "navigation": {
       "groups": {
-        "calendar": "Kalender",
         "weather": "Väder"
       }
     },

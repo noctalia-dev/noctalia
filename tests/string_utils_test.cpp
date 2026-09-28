@@ -1,15 +1,16 @@
 #include "util/string_utils.h"
 
 #include <cstdio>
+#include <print>
 #include <string_view>
 
 namespace {
 
   bool expectEqual(std::string_view actual, std::string_view expected, const char* message) {
     if (actual != expected) {
-      std::fprintf(
-          stderr, "string_utils_test: %s: expected '%.*s', got '%.*s'\n", message, static_cast<int>(expected.size()),
-          expected.data(), static_cast<int>(actual.size()), actual.data()
+      std::println(
+          stderr, "string_utils_test: {}: expected '{:.{}}', got '{:.{}}'", message, expected.data(),
+          static_cast<int>(expected.size()), actual.data(), static_cast<int>(actual.size())
       );
       return false;
     }
@@ -19,8 +20,8 @@ namespace {
   bool expectCompare(int actual, int expectedSign, const char* message) {
     const int sign = (actual > 0) - (actual < 0);
     if (sign != expectedSign) {
-      std::fprintf(
-          stderr, "string_utils_test: %s: expected sign %d, got %d (raw %d)\n", message, expectedSign, sign, actual
+      std::println(
+          stderr, "string_utils_test: {}: expected sign {}, got {} (raw {})", message, expectedSign, sign, actual
       );
       return false;
     }
@@ -54,6 +55,22 @@ int main() {
   ok = expectCompare(StringUtils::naturalCaseInsensitiveCompare("a2", "a10"), -1, "natural: a2 < a10") && ok;
   ok = expectCompare(StringUtils::naturalCaseInsensitiveCompare("file", "file1"), -1, "natural: shorter prefix first")
       && ok;
+
+  ok = expectEqual(
+           StringUtils::sanitizeMarkup("<b>bold</b><br>next"), "bold\nnext", "strips supported notification markup"
+       )
+      && ok;
+  ok = expectEqual(
+           StringUtils::sanitizeMarkup("<.< wawd :>"), "<.< wawd :>",
+           "preserves angle-bracket text that is not notification markup"
+       )
+      && ok;
+  ok = expectEqual(
+           StringUtils::sanitizeMarkup("<span>literal</span>"), "<span>literal</span>",
+           "preserves unsupported markup literally"
+       )
+      && ok;
+  ok = expectEqual(StringUtils::sanitizeMarkup("&lt;literal&gt;"), "<literal>", "unescapes XML entities") && ok;
 
   return ok ? 0 : 1;
 }

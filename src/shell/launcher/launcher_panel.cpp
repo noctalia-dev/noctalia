@@ -6,6 +6,7 @@
 #include "core/input/key_symbols.h"
 #include "core/input/keybind_matcher.h"
 #include "core/ui_phase.h"
+#include "cursor-shape-v1-client-protocol.h"
 #include "i18n/i18n.h"
 #include "launcher/app_provider.h"
 #include "render/core/async_texture_cache.h"
@@ -766,9 +767,7 @@ public:
     if (!m_dragSourceIndex.has_value()) {
       return false;
     }
-    if (!m_dragging) {
-      m_dragging = true;
-    }
+    m_dragging = true;
 
     const std::optional<std::size_t> nextTarget =
         index.has_value() && *index != *m_dragSourceIndex && isReorderable(*index) ? index : std::nullopt;
@@ -1144,6 +1143,7 @@ void LauncherPanel::create() {
           .columnGap = 0.0F,
           .rowGap = Style::spaceXs * scale,
           .overscanRows = kRowOverscan,
+          .itemCursorShape = WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_POINTER,
           .adapter = m_listAdapter.get(),
           .flexGrow = 1.0F,
           .onSelectionChanged =
@@ -1158,6 +1158,7 @@ void LauncherPanel::create() {
 
   auto detailScroll = ui::scrollView({
       .out = &m_detailScroll,
+      .contentScale = scale,
       .scrollbarVisible = true,
       .viewportPaddingH = Style::spaceSm * scale,
       .viewportPaddingV = Style::spaceSm * scale,
@@ -1247,6 +1248,7 @@ void LauncherPanel::syncLauncherViewLayout(Renderer* renderer) {
   const bool useGrid = shouldUseAppGrid();
   const float scale = contentScale();
   const LauncherListStyle style = launcherListStyleFrom(m_config, scale, panelCardOpacity());
+  m_grid->setScale(scale);
   m_listAdapter->setListStyle(style);
   m_gridAdapter->setListStyle(style);
   const bool reorderEnabled = m_query.empty() && m_scopedProviderId.empty() && m_activeCategoryType == All;
@@ -1548,6 +1550,7 @@ void LauncherPanel::onInputChanged(const std::string& text) {
 
   std::vector<LauncherCategory> newCategories;
   bool hasRecentlyUsed = false;
+  bool anyProviderLoading = false;
 
   if (!m_scopedProviderId.empty()) {
     for (auto& provider : m_providers) {
@@ -1555,6 +1558,7 @@ void LauncherPanel::onInputChanged(const std::string& text) {
         continue;
       }
       m_allResults = provider->query(text);
+      anyProviderLoading = provider->isLoading();
       for (auto& result : m_allResults) {
         result.providerId = provider->id();
       }
@@ -1600,6 +1604,7 @@ void LauncherPanel::onInputChanged(const std::string& text) {
 
     if (activeProvider != nullptr) {
       m_allResults = activeProvider->queryPrefixed(queryText);
+      anyProviderLoading = activeProvider->isLoading();
       if (activeProvider->trackUsage()) {
         applyUsageBoost(m_allResults, *activeProvider);
         if (sortByUsage && m_usageTracker.getRecentlyUsedCount(activeProvider->id()) > 0) {
@@ -1625,6 +1630,9 @@ void LauncherPanel::onInputChanged(const std::string& text) {
           continue;
         }
         auto results = provider->query(queryText);
+        if (provider->isLoading()) {
+          anyProviderLoading = true;
+        }
         if (provider->trackUsage()) {
           applyUsageBoost(results, *provider);
           if (sortByUsage && m_usageTracker.getRecentlyUsedCount(provider->id()) > 0) {
@@ -1690,6 +1698,8 @@ void LauncherPanel::onInputChanged(const std::string& text) {
   if (text.empty() && m_scopedProviderId.empty()) {
     applyPinnedApplicationOrder();
   }
+
+  m_anyProviderLoading = anyProviderLoading;
 
   applyActiveCategory();
 }
@@ -1951,9 +1961,13 @@ void LauncherPanel::applyEmptyState() {
   m_emptyLabel->setVisible(empty);
   m_emptyLabel->setParticipatesInLayout(empty);
   if (empty) {
-    m_emptyLabel->setText(
-        m_query.empty() ? i18n::tr("launcher.empty.type-to-search") : i18n::tr("launcher.empty.no-results")
-    );
+    if (m_anyProviderLoading && !m_query.empty()) {
+      m_emptyLabel->setText(i18n::tr("launcher.empty.loading"));
+    } else {
+      m_emptyLabel->setText(
+          m_query.empty() ? i18n::tr("launcher.empty.type-to-search") : i18n::tr("launcher.empty.no-results")
+      );
+    }
   }
 }
 

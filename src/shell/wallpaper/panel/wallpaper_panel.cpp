@@ -5,6 +5,7 @@
 #include "core/log.h"
 #include "core/random.h"
 #include "core/ui_phase.h"
+#include "cursor-shape-v1-client-protocol.h"
 #include "i18n/i18n.h"
 #include "render/core/renderer.h"
 #include "render/core/thumbnail_service.h"
@@ -54,7 +55,7 @@ namespace {
   constexpr float kMonitorSelectMinWidth = 136.0F;
   constexpr float kFavoriteSelectMinWidth = 168.0F;
   constexpr float kFavoritesMetaRowGap = Style::spaceSm;
-  constexpr float kTileAspect = 0.78F; // height / width — leaves room for label under widescreen thumb
+  constexpr float kTileAspect = 0.78F; // height / width, leaves room for label under widescreen thumb
 
   [[nodiscard]] std::size_t themeModeSegmentIndex(ThemeMode mode) {
     switch (mode) {
@@ -344,6 +345,24 @@ public:
     static_cast<WallpaperTile&>(tile).setStarHovered(hovered);
   }
 
+  [[nodiscard]] std::string overlayTooltip(std::size_t index) const override {
+    if (m_config == nullptr || m_entries == nullptr || index >= m_entries->size() || (*m_entries)[index].isDir) {
+      return {};
+    }
+    return i18n::tr(
+        m_config->isWallpaperFavorite((*m_entries)[index].absPath.string()) ? "wallpaper.panel.favorite-remove"
+                                                                            : "wallpaper.panel.favorite-add"
+    );
+  }
+
+  [[nodiscard]] std::optional<TooltipAnchorInsets>
+  itemTooltipAnchorInsets(std::size_t index, float cellWidth, float cellHeight) const override {
+    if (m_entries == nullptr || index >= m_entries->size() || (*m_entries)[index].isDir) {
+      return std::nullopt;
+    }
+    return WallpaperTile::starTooltipAnchorInsets(cellWidth, cellHeight, m_scale);
+  }
+
   void onActivate(std::size_t index) override {
     if (!m_onActivate || m_entries == nullptr || index >= m_entries->size()) {
       return;
@@ -455,6 +474,7 @@ void WallpaperPanel::create() {
           .glyph = "arrow-big-up",
           .glyphSize = Style::fontSizeBody * scale,
           .variant = ButtonVariant::Secondary,
+          .tooltip = i18n::tr("wallpaper.panel.navigate-up"),
           .minWidth = Style::controlHeightSm * scale,
           .minHeight = Style::controlHeightSm * scale,
           .padding = Style::spaceXs * scale,
@@ -521,6 +541,7 @@ void WallpaperPanel::create() {
           .glyph = "color-picker",
           .glyphSize = Style::fontSizeBody * scale,
           .variant = ButtonVariant::Default,
+          .tooltip = i18n::tr("wallpaper.panel.choose-color"),
           .minWidth = Style::controlHeightSm * scale,
           .minHeight = Style::controlHeightSm * scale,
           .padding = Style::spaceXs * scale,
@@ -535,6 +556,7 @@ void WallpaperPanel::create() {
           .glyph = std::string(sortModeGlyph(m_sortMode)),
           .glyphSize = Style::fontSizeBody * scale,
           .variant = ButtonVariant::Default,
+          .tooltip = i18n::tr(sortModeTooltipKey(m_sortMode)),
           .minWidth = Style::controlHeightSm * scale,
           .minHeight = Style::controlHeightSm * scale,
           .padding = Style::spaceXs * scale,
@@ -549,6 +571,7 @@ void WallpaperPanel::create() {
           .glyph = "refresh",
           .glyphSize = Style::fontSizeBody * scale,
           .variant = ButtonVariant::Default,
+          .tooltip = i18n::tr("wallpaper.panel.refresh"),
           .minWidth = Style::controlHeightSm * scale,
           .minHeight = Style::controlHeightSm * scale,
           .padding = Style::spaceXs * scale,
@@ -572,6 +595,7 @@ void WallpaperPanel::create() {
           .out = &m_closeButton,
           .glyph = "close",
           .glyphSize = Style::fontSizeBody * scale,
+          .tooltip = i18n::tr("wallpaper.panel.close"),
           .minWidth = Style::controlHeightSm * scale,
           .minHeight = Style::controlHeightSm * scale,
           .padding = Style::spaceXs * scale,
@@ -592,7 +616,7 @@ void WallpaperPanel::create() {
       .fillWidth = true,
   });
 
-  // Only offer palette sources that actually have palettes — Community/Custom are empty
+  // Only offer palette sources that actually have palettes; Community/Custom are empty
   // when nothing is fetched/installed, and selecting them would do nothing.
   m_paletteSourceOrder.clear();
   std::vector<ui::SegmentedOption> paletteSourceOptions;
@@ -664,6 +688,21 @@ void WallpaperPanel::create() {
       })
   );
 
+  favoritesOptions->addChild(
+      ui::button({
+          .out = &m_favoriteCurrentButton,
+          .glyph = "star",
+          .glyphSize = Style::fontSizeBody * scale,
+          .variant = ButtonVariant::Default,
+          .tooltip = i18n::tr("wallpaper.panel.favorite-current"),
+          .minWidth = Style::controlHeightSm * scale,
+          .minHeight = Style::controlHeightSm * scale,
+          .padding = Style::spaceXs * scale,
+          .radius = Style::scaledRadiusMd(scale),
+          .onClick = [this]() { toggleFavoriteForPath(currentWallpaperPathForSelection()); },
+      })
+  );
+
   favoritesOptions->addChild(ui::spacer());
 
   favoritesOptions->addChild(
@@ -714,11 +753,13 @@ void WallpaperPanel::create() {
   root->addChild(
       ui::virtualGridView({
           .out = &m_grid,
+          .contentScale = scale,
           .minCellWidth = kMinTileWidth * scale,
           .squareCells = false,
           .columnGap = Style::spaceMd * scale,
           .rowGap = Style::spaceMd * scale,
           .overscanRows = 2,
+          .itemCursorShape = WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_POINTER,
           .adapter = m_adapter.get(),
           .flexGrow = 1.0F,
           .onSelectionChanged =
@@ -901,6 +942,7 @@ void WallpaperPanel::onClose() {
   m_title = nullptr;
   m_backButton = nullptr;
   m_monitorSelect = nullptr;
+  m_favoriteCurrentButton = nullptr;
   m_filterInput = nullptr;
   m_flattenToggle = nullptr;
   m_flattenLabel = nullptr;
@@ -996,7 +1038,7 @@ std::filesystem::path WallpaperPanel::rootDirectoryForSelection() const {
     return {};
   }
   const auto& wp = m_config->config().wallpaper;
-  const ThemeMode configured = m_config->config().theme.mode;
+  const ThemeMode configured = shellThemeMode(m_config->config().theme);
   const bool isLight = m_themeService != nullptr ? m_themeService->isLightMode() : configured == ThemeMode::Light;
   const ThemeMode mode = wallpaper::effectiveThemeMode(configured, isLight);
 
@@ -1086,6 +1128,15 @@ std::string WallpaperPanel::displayNameForWallpaperPath(std::string_view path) {
 void WallpaperPanel::syncBrowseChrome() {
   if (m_backButton != nullptr) {
     m_backButton->setVisible(!m_navStack.empty());
+  }
+  if (m_favoriteCurrentButton != nullptr && m_config != nullptr) {
+    const std::string current = currentWallpaperPathForSelection();
+    const bool favorite = !current.empty() && m_config->isWallpaperFavorite(current);
+    m_favoriteCurrentButton->setEnabled(!current.empty());
+    m_favoriteCurrentButton->setGlyph(favorite ? "star-filled" : "star");
+    m_favoriteCurrentButton->setTooltip(
+        i18n::tr(favorite ? "wallpaper.panel.unfavorite-current" : "wallpaper.panel.favorite-current")
+    );
   }
   syncThemeControls();
 }
@@ -1234,15 +1285,19 @@ void WallpaperPanel::applyThemeFromControls() {
 
   if (!path.empty() && m_config->isWallpaperFavorite(path)) {
     // Edit the selected wallpaper's favorite preset and apply it live (also re-asserts the wallpaper).
-    m_config->setWallpaperFavoriteThemeMode(path, theme.themeMode);
+    if (theme.themeMode.has_value()) {
+      m_config->setWallpaperFavoriteThemeMode(path, *theme.themeMode);
+    }
     m_config->setWallpaperFavoritePaletteSource(path, theme.paletteSource);
     m_config->setWallpaperFavoritePaletteSelection(path, paletteSelectionValue(theme));
     applyWallpaperPath(path, &theme);
     return;
   }
 
-  // No favorite target — behave like the Settings window: change the global theme only.
-  m_config->setThemeMode(theme.themeMode);
+  // No favorite target, so behave like the Settings window and change the global theme only.
+  if (theme.themeMode.has_value()) {
+    m_config->setThemeMode(*theme.themeMode);
+  }
   if (theme.paletteSource.has_value()) {
     (void)m_config->setThemeColorScheme(*theme.paletteSource, paletteSelectionValue(theme));
   }
@@ -1257,7 +1312,10 @@ void WallpaperPanel::syncThemeControls() {
 
   m_syncingFavoriteControls = true;
 
-  m_favoriteThemeSegmented->setSelectedIndex(themeModeSegmentIndex(themeSettings.themeMode));
+  // A favorite without a stored mode keeps the global mode, so show that.
+  m_favoriteThemeSegmented->setSelectedIndex(
+      themeModeSegmentIndex(themeSettings.themeMode.value_or(m_config->config().theme.mode))
+  );
 
   if (m_favoritePaletteSourceSegmented != nullptr) {
     const std::size_t sourceIndex =
@@ -1275,7 +1333,7 @@ void WallpaperPanel::refreshScan() {
     m_scanPending = false;
     return;
   }
-  // requestScan() returns false when a worker scan was queued — the entries
+  // requestScan() returns false when a worker scan was queued; the entries
   // arrive later via onScanComplete(). A cached/fresh dir returns true.
   m_scanPending = !m_scanner->requestScan(dir, m_flatten);
 }
@@ -1409,6 +1467,7 @@ void WallpaperPanel::applyWallpaperPath(const std::string& path, const Wallpaper
       choice.connector.empty() ? std::optional<std::string>{} : std::optional<std::string>{choice.connector};
   m_config->applyWallpaperSelection(connector, path, applyTheme, allMonitorConnectors());
   rebindGrid();
+  syncBrowseChrome();
 }
 
 const WallpaperFavorite* WallpaperPanel::favoriteThemeToApply(std::string_view path) const {

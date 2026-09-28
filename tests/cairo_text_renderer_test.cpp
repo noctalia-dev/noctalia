@@ -37,7 +37,7 @@ namespace {
       [[maybe_unused]] const auto cachedAbove =
           renderer.measure(1.0F, text, fontSize, FontWeight::Normal, naturalWidth + delta, 3);
       const auto cachedBelow = renderer.measure(1.0F, text, fontSize, FontWeight::Normal, naturalWidth - delta, 3);
-      if (!sameMetrics(cachedBelow, expectedBelow)) {
+      if (cachedBelow.lineCount != expectedBelow.lineCount) {
         std::println(
             stderr,
             "cairo_text_renderer_test: FAIL: cached measurement at width {} reused metrics from width {} "

@@ -16,6 +16,7 @@ class Box;
 class CompositorPlatform;
 class ConfigService;
 class Flex;
+class InputArea;
 class LayerSurface;
 class Node;
 class RenderContext;
@@ -27,6 +28,8 @@ namespace shell::dock {
     std::uint32_t outputName = 0;
     wl_output* output = nullptr;
     std::int32_t scale = 1;
+    // Output scale is not an integer, so a flush dock has to overlap the screen edge.
+    bool fractionalScale = false;
     std::int32_t outputLogicalX = 0;
     std::int32_t outputLogicalY = 0;
     std::int32_t outputLogicalWidth = 0;
@@ -40,7 +43,10 @@ namespace shell::dock {
     float slideHiddenDy = 0.0F;
     Box* shadow = nullptr;
     Box* panel = nullptr;
+    InputArea* viewport = nullptr;
     Flex* row = nullptr;
+    float scrollOffset = 0.0F;
+    float maxScrollOffset = 0.0F;
     InputDispatcher inputDispatcher;
     std::vector<shell::dock::DockItemView> items;
     DockSnapshot snapshot;

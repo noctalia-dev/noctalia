@@ -22767,6 +22767,10 @@
     "category": "Uncategorized",
     "codepoint": "U+F1BB"
   },
+  "umbriel": {
+    "category": "Design",
+    "codepoint": "U+F066"
+  },
   "underline": {
     "category": "Text",
     "codepoint": "U+EBA2"

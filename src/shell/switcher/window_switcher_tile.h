@@ -1,15 +1,20 @@
 #pragma once
 
+#include "capture/screencopy_capture.h"
+#include "render/core/render_styles.h"
 #include "render/scene/input_area.h"
+#include "shell/switcher/window_switcher_style.h"
 #include "ui/palette.h"
 
 #include <cstdint>
 #include <functional>
+#include <memory>
 #include <optional>
 #include <string>
 
 class AsyncTextureCache;
 class Box;
+class Button;
 class Flex;
 class Glyph;
 class Image;
@@ -23,57 +28,73 @@ struct WindowSwitcherEntry {
   std::string appLabel;
   std::string iconPath;
   std::uintptr_t closeHandle = 0;
+  std::uintptr_t captureHandle = 0;
+  std::shared_ptr<const ScreencopyImage> thumbnail;
 };
 
-// Window-switcher cell: surface frame around a surface-variant icon card and title.
+// Preview card shared by window-switcher presentation styles.
 class WindowSwitcherTile : public InputArea {
 public:
   WindowSwitcherTile(float contentScale, AsyncTextureCache* asyncTextures);
 
-  [[nodiscard]] static bool
-  hitTestCloseRegion(float cellWidth, float cellHeight, float contentScale, float localX, float localY) noexcept;
-
-  void setCellSize(float cellWidth, float cellHeight);
+  void setCardSize(float width, float height);
+  void setShadowStyle(const RoundedRectStyle& style);
+  void setShowCaption(bool show);
+  void setShowAppIcon(bool show);
   void setAppIconColorizeTint(std::optional<ColorSpec> tint) { m_appIconColorizeTint = tint; }
   void setOnInvalidate(std::function<void()> callback) { m_onInvalidate = std::move(callback); }
-  void setCloseHovered(bool hovered);
-  void bind(Renderer& renderer, const WindowSwitcherEntry& entry, bool selected, bool hovered);
+  void setOnActivate(std::function<void()> callback) { m_onActivate = std::move(callback); }
+  void setOnClose(std::function<void()> callback) { m_onClose = std::move(callback); }
+  void bind(
+      Renderer& renderer, const WindowSwitcherEntry& entry, WindowSwitcherTileDepth depth, bool showCaption,
+      bool wideCaption, WindowSwitcherHorizontalPlacement iconPlacement,
+      WindowSwitcherHorizontalPlacement closePlacement
+  );
 
 private:
-  void applyVisualState();
-  void applyCloseVisualState();
   bool refreshIcon(Renderer& renderer);
-  void layoutOverlays(Renderer& renderer);
+  void setPointerHovered(bool hovered);
+  void applyVisualState();
+  void layoutContent(Renderer& renderer);
 
 protected:
   void doLayout(Renderer& renderer) override;
 
   float m_contentScale = 1.0F;
-  float m_cellWidth = 0.0F;
-  float m_cellHeight = 0.0F;
-  float m_iconHostWidth = 0.0F;
-  float m_iconHostHeight = 0.0F;
+  float m_cardWidth = 0.0F;
+  float m_cardHeight = 0.0F;
 
-  Flex* m_layout = nullptr;
+  Box* m_shadow = nullptr;
   Box* m_frame = nullptr;
-  Flex* m_inner = nullptr;
-  Box* m_iconHost = nullptr;
-  Flex* m_caption = nullptr;
-  Box* m_closeBackdrop = nullptr;
-  Glyph* m_closeGlyph = nullptr;
+  Box* m_previewHost = nullptr;
+  Image* m_thumbnail = nullptr;
+  Box* m_toneOverlay = nullptr;
   Image* m_icon = nullptr;
   Glyph* m_fallbackGlyph = nullptr;
+  Box* m_captionBadge = nullptr;
+  Flex* m_caption = nullptr;
   Label* m_title = nullptr;
   Label* m_subtitle = nullptr;
+  Button* m_close = nullptr;
 
-  WindowSwitcherEntry m_entry;
   bool m_hasEntry = false;
   bool m_selected = false;
-  bool m_hovered = false;
-  bool m_closeHovered = false;
+  bool m_pointerHovered = false;
+  bool m_shadowConfigured = false;
+  bool m_showCaption = true;
+  bool m_captionVisible = false;
+  bool m_wideCaption = false;
+  bool m_showAppIcon = true;
+  WindowSwitcherHorizontalPlacement m_iconPlacement = WindowSwitcherHorizontalPlacement::Left;
+  WindowSwitcherHorizontalPlacement m_closePlacement = WindowSwitcherHorizontalPlacement::Right;
+  WindowSwitcherTileDepth m_depth = WindowSwitcherTileDepth::Far;
+  RoundedRectStyle m_shadowStyle;
   std::string m_iconPath;
   int m_iconTargetSize = 0;
+  std::shared_ptr<const ScreencopyImage> m_thumbnailImage;
   AsyncTextureCache* m_asyncTextures = nullptr;
   std::optional<ColorSpec> m_appIconColorizeTint;
   std::function<void()> m_onInvalidate;
+  std::function<void()> m_onActivate;
+  std::function<void()> m_onClose;
 };

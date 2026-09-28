@@ -2,6 +2,7 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <print>
 #include <string>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -11,7 +12,7 @@ namespace {
 
   bool expect(bool condition, const char* message) {
     if (!condition) {
-      std::fprintf(stderr, "desktop_entry_launch_test: %s\n", message);
+      std::println(stderr, "desktop_entry_launch_test: {}", message);
     }
     return condition;
   }
@@ -27,16 +28,16 @@ namespace {
       return true;
     }
 
-    std::fprintf(stderr, "desktop_entry_launch_test: %s\n", message);
-    std::fprintf(stderr, "  expected:");
+    std::println(stderr, "desktop_entry_launch_test: {}", message);
+    std::print(stderr, "  expected:");
     for (const auto& arg : expected) {
-      std::fprintf(stderr, " [%s]", arg.c_str());
+      std::print(stderr, " [{}]", arg);
     }
-    std::fprintf(stderr, "\n  actual:");
+    std::print(stderr, "\n  actual:");
     for (const auto& arg : command->args) {
-      std::fprintf(stderr, " [%s]", arg.c_str());
+      std::print(stderr, " [{}]", arg);
     }
-    std::fprintf(stderr, "\n");
+    std::println(stderr, "");
     return false;
   }
 

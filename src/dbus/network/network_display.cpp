@@ -8,6 +8,9 @@ namespace network_display {
     if (state.kind == NetworkConnectivity::Wired) {
       return state.connected ? "ethernet" : "ethernet-off";
     }
+    if (state.kind == NetworkConnectivity::Cellular) {
+      return state.connected ? "cell-signal-1" : cellularOffGlyph();
+    }
     return wifiGlyphForState(state);
   }
 
@@ -76,5 +79,25 @@ namespace network_display {
     }
     return nullptr;
   }
+
+  const char* cellularGlyphForSignal(std::uint8_t signal) noexcept {
+    // cell-signal-* rather than antenna-bars-*: the antenna-bars outlines in the
+    // vendored tabler.ttf are mangled and render as dots, while cell-signal
+    // renders correctly.
+    switch (wifiSignalBand(signal)) {
+    case 4:
+      return "cell-signal-5";
+    case 3:
+      return "cell-signal-4";
+    case 2:
+      return "cell-signal-3";
+    case 1:
+      return "cell-signal-2";
+    default:
+      return "cell-signal-1";
+    }
+  }
+
+  const char* cellularOffGlyph() noexcept { return "cell-signal-off"; }
 
 } // namespace network_display

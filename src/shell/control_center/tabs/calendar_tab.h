@@ -1,5 +1,6 @@
 #pragma once
 
+#include "core/timer_manager.h"
 #include "render/animation/animation_manager.h"
 #include "shell/control_center/tab.h"
 #include "ui/controls/calendar_view.h"
@@ -74,4 +75,5 @@ private:
   AnimationManager::Id m_monthSlideAnimId = 0;
   bool m_showEventsCard = true;
   bool m_showWeekNumbers = false;
+  Timer m_eventFadeTimer;
 };
