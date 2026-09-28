@@ -781,9 +781,10 @@ void TaskbarWidget::doLayout(Renderer& renderer, float containerWidth, float con
 void TaskbarWidget::doUpdate(Renderer& /*renderer*/) {
   updateModels();
   if (m_focusedOutputOnly) {
-    const bool isFocused = isFocusedOutput();
-    if (isFocused != m_wasFocusedOutput) {
-      m_wasFocusedOutput = isFocused;
+    // Focus moving between two other outputs changes which workspace is styled as focused.
+    wl_output* focusedOutput = m_platform.preferredInteractiveOutput();
+    if (focusedOutput != m_lastFocusedOutput) {
+      m_lastFocusedOutput = focusedOutput;
       m_rebuildPending = true;
       if (root() != nullptr) {
         root()->markLayoutDirty();
@@ -3442,8 +3443,6 @@ ColorSpec TaskbarWidget::workspaceFillColor(const WorkspaceModel& model) const {
   color.alpha *= 0.55F;
   return color;
 }
-
-bool TaskbarWidget::isFocusedOutput() const { return m_platform.preferredInteractiveOutput() == m_output; }
 
 ColorSpec TaskbarWidget::workspaceTextColor(const WorkspaceModel& model) const {
   const Workspace& workspace = model.workspace;

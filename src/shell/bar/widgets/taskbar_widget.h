@@ -201,7 +201,6 @@ private:
   [[nodiscard]] bool workspaceUsesFocusedStyle(const WorkspaceModel& model) const noexcept;
   [[nodiscard]] ColorSpec workspaceFillColor(const WorkspaceModel& model) const;
   [[nodiscard]] ColorSpec workspaceTextColor(const WorkspaceModel& model) const;
-  [[nodiscard]] bool isFocusedOutput() const;
   [[nodiscard]] static ColorSpec readableColorForFill(const ColorSpec& fill);
   [[nodiscard]] static ColorRole onRoleForFill(ColorRole fill);
   [[nodiscard]] static bool taskInWorkspaceGroup(const TaskModel& task, const WorkspaceModel& ws);
@@ -241,7 +240,7 @@ private:
   bool m_hideEmptyWorkspaces = false;
   bool m_workspaceGroupCapsule = true;
   bool m_focusedOutputOnly = false;
-  bool m_wasFocusedOutput = true;
+  wl_output* m_lastFocusedOutput = nullptr;
   bool m_minimal = false;
   bool m_groupSingleIconPerApp = false;
   bool m_showActiveIndicator = true;
