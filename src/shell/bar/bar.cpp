@@ -1009,7 +1009,8 @@ namespace {
           hasCapsuleContent = hasCapsuleContent || widget->shouldShowBarCapsule();
         }
         const bool hasPaintedFill = resolveColorSpec(scaleAlpha(run.spec.fill, run.spec.opacity)).a > 0.0F;
-        const bool hasPaintedBorder = run.spec.border.has_value() && resolveColorSpec(*run.spec.border).a > 0.0F;
+        const bool hasPaintedBorder =
+            run.spec.border.has_value() && run.spec.borderWidth > 0.0F && resolveColorSpec(*run.spec.border).a > 0.0F;
         run.hasPaintedCapsuleBackground = hasCapsuleContent && (hasPaintedFill || hasPaintedBorder);
 
         shell->setVisible(hasVisibleContent);
