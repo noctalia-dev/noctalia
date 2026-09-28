@@ -341,9 +341,15 @@ wayland_scanner    = find_program('wayland-scanner')
 wayland_protos_dir = wayland_protos_dep.get_variable('pkgdatadir')
 
 # ── Compile arguments ─────────────────────────────────────────────────────────
+pam_service = get_option('pam_service')
+if pam_service == '' or pam_service.contains('/') or pam_service.contains('"') or pam_service.contains('\\')
+  error('pam_service must be a plain PAM service name, got "@0@"'.format(pam_service))
+endif
+
 _noctalia_compile_definitions = [
   '-DNOCTALIA_INSTALL_PREFIX="' + get_option('prefix') + '"',
   '-DNOCTALIA_INSTALL_DATADIR="' + get_option('datadir') + '"',
+  '-DNOCTALIA_PAM_SERVICE="' + pam_service + '"',
   '-DNOCTALIA_VERSION="' + meson.project_version() + '"',
 ] + jemalloc_cpp_args
 
