@@ -395,7 +395,8 @@ effective OSD size on top of
 `monitors` limits OSD popups to the listed connector names (same matching rules as notification toasts and the dock);
 leave it empty to show on every connected output. If none of the configured monitors are connected, OSD falls back to all
 outputs until one reconnects. `background_opacity` sets popup background opacity, `border` draws the card outline (default
-`true`; set `false` for a borderless look), and `offset_x` / `offset_y` are the
+`true`; set `false` for a borderless look), `border_color` sets its color (theme color role or hex, default `outline`),
+`border_width` sets its width in logical pixels (0 to 6, default `1`), and `offset_x` / `offset_y` are the
 absolute margins from the screen edge for the chosen `position`.
 Each popup kind can be toggled independently under `[osd.kinds]`. The volume master toggle enables both output and input
 OSDs by default; set `volume_output` or `volume_input` to `false` to disable one side only. `media = false` disables
