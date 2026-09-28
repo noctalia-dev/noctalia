@@ -286,11 +286,12 @@ namespace {
     int rc = pam_authenticate(pamh.h, 0);
     kLog.debug("pam_authenticate rc={} ({})", rc, pam_strerror(pamh.h, rc));
     if (rc == PAM_SUCCESS) {
-      // An unprivileged locker can't read /etc/shadow for the account stack, so
-      // ignore PAM_AUTHINFO_UNAVAIL; pam_authenticate already proved identity.
+      // An unprivileged locker can't read the shadow database for the account
+      // stack: pam_unix reports PAM_AUTHINFO_UNAVAIL, pam_tcb reports
+      // PAM_CRED_INSUFFICIENT. pam_authenticate already proved identity.
       const int acctRc = pam_acct_mgmt(pamh.h, 0);
       kLog.debug("pam_acct_mgmt rc={} ({})", acctRc, pam_strerror(pamh.h, acctRc));
-      if (acctRc != PAM_SUCCESS && acctRc != PAM_AUTHINFO_UNAVAIL) {
+      if (acctRc != PAM_SUCCESS && acctRc != PAM_AUTHINFO_UNAVAIL && acctRc != PAM_CRED_INSUFFICIENT) {
         rc = acctRc;
       }
     }
