@@ -493,7 +493,9 @@ namespace {
         if (const std::uintptr_t wlrHandle = wlrHandleForToplevel(live->second); wlrHandle != 0) {
           candidate.entry.closeHandle = wlrHandle;
         }
-        candidate.entry.captureHandle = extHandleForToplevel(live->second);
+        if (const std::uintptr_t extHandle = extHandleForToplevel(live->second); extHandle != 0) {
+          candidate.entry.captureHandle = extHandle;
+        }
         candidate.toplevelOrder = live->second.order;
       }
       addCandidate(std::move(candidate), key);
