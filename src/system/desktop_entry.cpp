@@ -573,6 +573,7 @@ namespace {
         return;
       }
 
+      // Snapshot sources before scanning; a change during the scan keeps the cache dirty.
       m_sourceSignature = computeSourceSignature();
 
       auto scanned = std::make_shared<const std::vector<DesktopEntry>>(scanDesktopEntries(m_language));
