@@ -953,10 +953,12 @@ namespace process {
     return false;
   }
 
-  RunResult runSync(const std::string& command) {
+  RunResult runSync(const std::string& command) { return runSync(command, RunOptions{}); }
+
+  RunResult runSync(const std::string& command, RunOptions options) {
     if (command.empty())
       return {-1, {}, {}};
-    return runSync(std::vector<std::string>{"/bin/sh", "-lc", command});
+    return runSyncProcess(std::vector<std::string>{"/bin/sh", "-lc", command}, options);
   }
 
   bool launchFirstAvailable(std::initializer_list<std::initializer_list<const char*>> commandVariants) {

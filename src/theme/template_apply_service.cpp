@@ -14,11 +14,15 @@
 #include "util/string_utils.h"
 
 #include <algorithm>
+#include <atomic>
 #include <chrono>
+#include <condition_variable>
 #include <filesystem>
 #include <iterator>
+#include <mutex>
 #include <set>
 #include <string>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -161,8 +165,9 @@ namespace noctalia::theme {
 
   } // namespace
 
-  TemplateApplyService::TemplateApplyService(ConfigService& config)
-      : m_config(config), m_hookRunner(std::make_unique<HookRunner>()) {
+  TemplateApplyService::TemplateApplyService(ConfigService& config, std::chrono::milliseconds hookShutdownGrace)
+      : m_config(config), m_hookShutdownGrace(hookShutdownGrace),
+        m_hookRunner(std::make_unique<HookRunner>(HookRunner::kDefaultMaxConcurrent, hookShutdownGrace, m_hookCancel)) {
     m_worker = std::thread([this]() { workerLoop(); });
   }
 
@@ -176,9 +181,36 @@ namespace noctalia::theme {
     // The worker may be draining hooks; drop the backlog so shutdown waits only for
     // the hooks already running.
     m_hookRunner->requestShutdown();
+    // The worker can be blocked inside a synchronous hook, and the runner waits for its
+    // asynchronous ones. Neither may hold teardown forever: both get one grace period,
+    // then m_hookCancel terminates the process group of every hook still running.
+    std::mutex graceMutex;
+    std::condition_variable graceCv;
+    bool hooksDone = false;
+    std::thread graceThread([this, &graceMutex, &graceCv, &hooksDone]() {
+      std::unique_lock lock(graceMutex);
+      if (graceCv.wait_for(lock, m_hookShutdownGrace, [&hooksDone]() { return hooksDone; })) {
+        return;
+      }
+      if (!m_hookCancel->exchange(true)) {
+        kLog.warn(
+            "a template hook is still running after {}s; terminating it",
+            std::chrono::duration_cast<std::chrono::duration<double>>(m_hookShutdownGrace).count()
+        );
+      }
+    });
     if (m_worker.joinable()) {
       m_worker.join();
     }
+    // Destroyed inside the grace window, so its running hooks share the same deadline
+    // instead of starting a second one.
+    m_hookRunner.reset();
+    {
+      std::scoped_lock lock(graceMutex);
+      hooksDone = true;
+    }
+    graceCv.notify_one();
+    graceThread.join();
   }
 
   void TemplateApplyService::setAfterApplyCallback(
@@ -300,6 +332,7 @@ namespace noctalia::theme {
     options.configTable = request.configTable;
     options.hookRunner = &hookRunner;
     options.generation = request.generation;
+    options.hookCancel = m_hookCancel;
 
     TemplateEngine engine(TemplateEngine::makeThemeData(request.palette), options);
 
@@ -449,8 +482,11 @@ namespace noctalia::theme {
         resolved.push_back(id);
         continue;
       }
-      // A failed hook stays owed: the next application retries it.
-      const process::RunResult result = process::runSync(rendered.text);
+      // A failed hook stays owed: the next application retries it. That includes one
+      // terminated by the shutdown grace, so cancelling it here is safe.
+      process::RunOptions runOptions;
+      runOptions.cancel = m_hookCancel;
+      const process::RunResult result = process::runSync(rendered.text, runOptions);
       if (!result) {
         kLog.warn("undo hook for built-in template '{}' failed with exit code {}: {}", id, result.exitCode, result.err);
         continue;

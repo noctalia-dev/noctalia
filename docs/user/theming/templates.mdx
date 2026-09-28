@@ -581,6 +581,11 @@ example when two entries restart or reconfigure the same application.
 A theme change always waits for the hooks it started before reporting the theme as applied, and hooks left over from a
 superseded theme change are dropped or awaited before the next one is applied.
 
+When Noctalia exits, hooks that are still running get 5 seconds to finish. After that their process group is
+terminated, so a hook that never exits cannot keep Noctalia from quitting. `output_path_dynamic` commands follow the
+same rule. A hook that rewrites a file should write a temporary file and move it into place, so an interrupted run
+leaves the previous file intact.
+
 `post_action` selects a Noctalia-owned native operation that runs after all outputs are written successfully. The
 canonical `kde-color-scheme` action requires exactly one output, merges that generated KDE color scheme into
 `$XDG_CONFIG_HOME/kdeglobals`, and notifies running KDE applications over the session bus. Unknown action names fail
