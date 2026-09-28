@@ -166,11 +166,13 @@ namespace {
   // Resolves the bar a panel should attach to / position relative to.
   // `shell.panel_anchor_bar` wins when set; otherwise `barName` is the opening
   // source bar. A named bar that does not exist fails loudly (nullopt).
-  // Prefer an enabled bar on the output; if none is enabled there (e.g. a bar-less
-  // monitor), still return a resolved bar so openPanel can use a center-screen
-  // floating layout via attached-panel availability.
+  // Active bar instances are authoritative because temporary IPC state lives
+  // there. Without an active instance, retain the configured bar so a panel can
+  // use its floating or center-screen placement.
   std::optional<BarConfig> resolvePanelBarConfig(
-      ConfigService* configService, CompositorPlatform* platform, wl_output* output, std::string_view barName = {}
+      ConfigService* configService, CompositorPlatform* platform, wl_output* output,
+      const std::function<std::optional<BarConfig>(wl_output*, std::string_view)>& barConfigProvider,
+      std::string_view barName = {}
   ) {
     if (configService == nullptr || configService->config().bars.empty()) {
       return BarConfig{};
@@ -188,11 +190,20 @@ namespace {
     const auto resolve = [wlOutput](const BarConfig& bar) {
       return wlOutput != nullptr ? ConfigService::resolveForOutput(bar, *wlOutput) : bar;
     };
+    const auto runtimeConfig = [&](std::string_view name) -> std::optional<BarConfig> {
+      if (!barConfigProvider || output == nullptr) {
+        return std::nullopt;
+      }
+      return barConfigProvider(output, name);
+    };
 
     if (!effectiveName.empty()) {
       for (const auto& bar : bars) {
         if (bar.name != effectiveName) {
           continue;
+        }
+        if (auto runtime = runtimeConfig(effectiveName); runtime.has_value()) {
+          return runtime;
         }
         BarConfig resolved = resolve(bar);
         if (!resolved.enabled) {
@@ -204,6 +215,9 @@ namespace {
       return std::nullopt;
     }
 
+    if (auto runtime = runtimeConfig({}); runtime.has_value()) {
+      return runtime;
+    }
     for (const auto& bar : bars) {
       BarConfig resolved = resolve(bar);
       if (resolved.enabled) {
@@ -478,10 +492,10 @@ void PanelManager::setAttachedPanelAvailabilityCallback(std::function<bool(wl_ou
   m_attachedPanelAvailabilityCallback = std::move(callback);
 }
 
-void PanelManager::setAttachedPanelLayerProvider(
-    std::function<std::optional<std::string>(wl_output*, std::string_view)> provider
+void PanelManager::setBarConfigProvider(
+    std::function<std::optional<BarConfig>(wl_output*, std::string_view)> provider
 ) {
-  m_attachedPanelLayerProvider = std::move(provider);
+  m_barConfigProvider = std::move(provider);
 }
 
 void PanelManager::setAttachedPanelBarSettledCallback(std::function<bool(wl_output*, std::string_view)> callback) {
@@ -581,7 +595,8 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
     return;
   }
 
-  auto barConfigOpt = resolvePanelBarConfig(m_config, m_platform, request.output, request.sourceBarName);
+  auto barConfigOpt =
+      resolvePanelBarConfig(m_config, m_platform, request.output, m_barConfigProvider, request.sourceBarName);
   if (!barConfigOpt.has_value()) {
     return;
   }
@@ -596,11 +611,6 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
   auto panelWidth = static_cast<std::uint32_t>(m_activePanel->preferredWidth());
   auto panelHeight = static_cast<std::uint32_t>(m_activePanel->preferredHeight());
   m_sourceBarName = barConfig.name;
-  if (m_attachedPanelLayerProvider != nullptr) {
-    if (auto layer = m_attachedPanelLayerProvider(request.output, m_sourceBarName); layer.has_value()) {
-      barConfig.layer = *layer;
-    }
-  }
   const bool isBottom = barConfig.position == "bottom";
   const bool isLeft = barConfig.position == "left";
   const bool isRight = barConfig.position == "right";
@@ -2486,7 +2496,7 @@ void PanelManager::onConfigReloaded() {
     return;
   }
 
-  const auto barConfigOpt = resolvePanelBarConfig(m_config, m_platform, m_output, m_sourceBarName);
+  const auto barConfigOpt = resolvePanelBarConfig(m_config, m_platform, m_output, m_barConfigProvider, m_sourceBarName);
   if (!barConfigOpt.has_value()) {
     return;
   }

@@ -40,6 +40,7 @@ public:
   [[nodiscard]] std::unordered_map<std::string, std::vector<std::string>>
   appIdsByWorkspace(wl_output* output) const override;
   [[nodiscard]] std::vector<WorkspaceWindow> workspaceWindows(wl_output* output) const override;
+  [[nodiscard]] std::vector<std::string> openOverlayWorkspaceKeys(wl_output* output) const override;
   [[nodiscard]] std::optional<std::string> focusedWindowId() const;
   void focusWindow(const std::string& windowId) override;
   void cleanup() override;
@@ -58,7 +59,8 @@ private:
     Unknown,
     // TODO: Remove LegacyId after Noctalia drops support for Hyprland v0.56.2 and older.
     LegacyId,
-    StableIdentity,
+    TypedIdentity,
+    NormalIdentity,
   };
 
   enum class WorkspaceKind {
@@ -120,6 +122,7 @@ private:
   [[nodiscard]] static std::optional<IpcSchema> detectIpcSchema(const nlohmann::json& workspaces);
   [[nodiscard]] static std::optional<WorkspaceIdentity>
   parseJsonWorkspaceIdentity(const nlohmann::json& json, IpcSchema schema);
+  [[nodiscard]] static bool isAddressIdentitySchema(IpcSchema schema) noexcept;
   [[nodiscard]] std::optional<WorkspaceIdentity>
   parseEventWorkspaceIdentity(std::string_view selector, std::string_view displayName = {}) const;
   [[nodiscard]] static std::optional<std::uint64_t> parseHexAddress(std::string_view value);
@@ -135,6 +138,8 @@ private:
   std::vector<WorkspaceState> m_workspaces;
   std::unordered_map<std::uint64_t, ToplevelState> m_toplevels;
   std::unordered_map<std::string, std::string> m_activeWorkspaceByMonitor;
+  // Special workspace open on each monitor, absent when it shows its regular workspace.
+  std::unordered_map<std::string, std::string> m_openSpecialWorkspaceByMonitor;
   std::string m_focusedWindowId;
   std::size_t m_nextOrdinal = 0;
   IpcSchema m_ipcSchema = IpcSchema::Unknown;

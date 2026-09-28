@@ -2127,12 +2127,12 @@ bool Bar::canAttachPanelToBar(wl_output* output, std::string_view barName) const
   return barSupportsSlideBehavior(instance->barConfig) || instanceEffectivelyVisible(*instance);
 }
 
-std::optional<std::string> Bar::layerForBar(wl_output* output, std::string_view barName) const noexcept {
+std::optional<BarConfig> Bar::configForBar(wl_output* output, std::string_view barName) const {
   const BarInstance* instance = instanceForBar(output, barName);
-  if (instance == nullptr || instance->surface == nullptr || !instance->barConfig.enabled) {
+  if (instance == nullptr || !instance->barConfig.enabled) {
     return std::nullopt;
   }
-  return instance->barConfig.layer;
+  return instance->barConfig;
 }
 
 LayerShellLayer Bar::highestLayerForOutput(wl_output* output) const noexcept {

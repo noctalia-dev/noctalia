@@ -333,8 +333,10 @@ private:
   // other widget.
   std::string m_actionsExpandedFor;
   // Expanded setting groups per page, keyed by content section key (pageScopeKey).
-  // A page gets its default first-group expansion when first rendered this session.
+  // A page gets its default expansion (first group, or all with settings_expand_all_groups) when first
+  // rendered; changing settings_expand_all_groups drops this state so every page re-seeds.
   std::unordered_map<std::string, std::unordered_set<std::string>> m_expandedSettingGroups;
+  bool m_expandedSettingGroupsSeededExpandAll = false;
   std::string m_creatingBarName;
   std::string m_renamingBarName;
   std::string m_pendingDeleteBarName;

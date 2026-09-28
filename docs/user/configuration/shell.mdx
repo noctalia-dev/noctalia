@@ -45,6 +45,7 @@ polkit_agent          = false           # register Noctalia's native polkit auth
 password_style        = "default"       # default | random
 avatar_path           = "~/Pictures/avatar.png"
 settings_show_advanced = true           # show advanced settings by default in Settings
+settings_expand_all_groups = false      # expand every Settings group by default
 settings_window_translucent = false     # translucent Settings window background
 show_location         = true            # show weather location text in shell UI
 launch_apps_as_systemd_services = false # launch apps as transient systemd services (needs Noctalia to be a user unit)
@@ -169,7 +170,13 @@ command = "swaylock -f"
 blacklist = []           # optional list of players to hide from media widgets/control-center
 
 [shell.window_switcher]
-mru = false              # order windows by most recently used (Alt+Tab) instead of workspace layout
+style = "carousel"              # "carousel" (freestanding depth layout) or "compact" (boxed strip)
+mru = false                     # order windows by most recently used (Alt+Tab) instead of workspace layout
+show_caption = true             # show window titles and application names below previews
+show_count = true               # show the current and total window count above the previews
+show_app_icon = true            # show application icons over window previews
+show_all_outputs = true         # list windows from every monitor; false = only the monitor showing the switcher
+current_workspace_only = false  # list only the windows of the workspace shown on each monitor; false = windows from every workspace
 
 [shell.privacy]
 mic_filter_regex    = "" # ignore matching microphone application names
@@ -208,6 +215,7 @@ Notes:
 - Notification daemon ownership moved out of `[shell]`: use `[notification].enable_daemon` in [Services](/noctalia/services/notifications/).
 - `password_style`: `default` uses `circle-filled`; `random` cycles through multiple filled glyph shapes on polkit and lock screen inputs.
 - `settings_show_advanced`: when `true`, Settings opens with advanced entries visible.
+- `settings_expand_all_groups`: when `true`, every collapsible group on a Settings page starts expanded; when `false`, only the first group does. Changing it resets the expanded groups on every page.
 - `settings_window_translucent`: when `true`, the Settings window background is drawn translucent. Compositor blur or other effects can be applied via compositor window rules.
 - `show_location`: when `false`, weather location text/coordinates are hidden in shell surfaces.
 - `app_icon_colorize` and `app_icon_color`: global application icon tinting for the dock, system tray (bar and drawer), taskbar, active-window widget, and launcher panel results. See [App icon colorization](#app-icon-colorization). Bar `launcher` / `control-center` widgets can optionally tint `custom_image` via `custom_image_colorize` using the widget **Color** setting (Presentation group in the widget editor).
@@ -251,7 +259,7 @@ Notes:
 - `shell.launcher.compact` uses smaller icons, tighter padding, and single-line rows (subtitles hidden).
 - `shell.launcher.app_grid` switches to a multi-column icon grid with labels underneath when every visible result is an application. Mixed results (global search, prefixed providers, session actions, and so on) stay in the default list layout.
 - `shell.launcher.show_app_actions` includes searchable `.desktop` actions alongside application results. Action rows show the action name with the parent application underneath and launch that action directly. Disabled by default; application actions remain available from an application's right-click menu.
-- `shell.launcher.sort_by_usage` boosts frequently launched apps toward the top of results and exposes a **Recently Used** category filter. Disable it for strictly alphabetical ordering within each provider.
+- `shell.launcher.sort_by_usage` boosts frequently used results (applications, emoji, panels, wallpapers, and dmenu entries) toward the top of results and exposes a **Recently Used** category filter. Disable it for strictly alphabetical ordering within each provider.
 - `shell.launcher.pinned` is an ordered list of desktop entry IDs shown first when the launcher opens without a query. Launcher pins are independent from `dock.pinned` and each taskbar widget's `pinned` list.
 - `shell.launcher.fetch_exchange_rates` refreshes currency exchange rates in the background from libqalculate's third-party online sources (enabled by default). Disable it to opt out of those requests; the last cached rates are still used for conversion. Refresh is also skipped when `[shell].offline_mode` is enabled.
 - `shell.launcher.auto_paste` controls virtual-keyboard paste after copy-style activations (calculator, emoji, copy-mode dmenu). Providers that copy opt in with `supportsAutoPaste`. Same values as `shell.clipboard_auto_paste` (`off` | `auto` | `ctrl_v` | `ctrl_shift_v` | `shift_insert`). Default `auto`.
@@ -275,7 +283,7 @@ Notes:
 - `close_on_save` defaults to `true`: **Save**, **Ctrl+S**, or **`[keybinds].save`** closes the annotation editor after successfully writing the annotated PNG to disk. Set it to `false` to keep editing after saving. Failed saves keep the editor open. Configure **Close Editor After Saving** under **Settings → Screenshot → Annotation**. This option also applies when you open the editor directly, so it remains available when **Edit Before Saving or Copying** is off.
 - **Capture new region** in the annotation toolbar discards the current edit and starts a fresh region capture of the desktop, without the old ink or toolbar. The selected image opens in the editor even when `annotate = false`, with the same pointer control and remembered tool preferences. It keeps the editor's current pointer choice when starting from a captured image, and uses the current screenshot settings for region selection and delivery; cancelling the picker closes the capture.
 - `noctalia msg annotate <path>` opens an image from disk in the same editor, with no capture involved. `save_to_file`, `copy_to_clipboard`, and `pipe_to_command` apply to **Done** exactly as they do for a capture, and **Save** writes a new PNG into `directory` using `filename_pattern`; the source file is never overwritten.
-- **Window switcher** is an Alt+Tab-style overlay with no `[shell]` settings yet. Bind your compositor shortcut to `noctalia msg window-switcher` (see [Shell → Window switcher](/noctalia/ipc/shell/#window-switcher)). While open, windows appear in a centered grid (up to five columns) with application icons, titles, and a per-window close control. Tab / Shift+Tab cycle selection; arrow keys move within the grid; releasing Alt or Enter confirms; Escape cancels. The list updates live when windows open, close, or retitle while the overlay stays open.
+- **Window switcher** is an Alt+Tab-style overlay configured under `[shell.window_switcher]`; `style = "carousel"` is the default freestanding depth layout, while `style = "compact"` restores a boxed strip of equal-sized cards. `mru = true` orders windows by most recent use instead of workspace layout. `show_caption`, `show_count`, and `show_app_icon` independently control captions below previews, the counter above them, and application icons over previews. `show_all_outputs = false` lists only windows on the monitor where the switcher opens. Bind your compositor shortcut to `noctalia msg window-switcher` (see [Shell → Window switcher](/noctalia/ipc/shell/#window-switcher)). Carousel cards keep stable proportions at each depth and fit each captured snapshot inside a small themed frame, so differing window aspect ratios do not distort the layout. The selected preview stays centered and largest, its immediate neighbors remain medium-sized, and darker outer cards step farther back. Application icons scale with their rendered preview; left-side cards place them bottom-left, right-side cards place them bottom-right, and the selected card keeps the conventional bottom-left position. Close controls mirror the side at the top of left and right cards, while the selected card keeps its close control at the top-right. Position, scale, opacity, and pointer-hover lift animate using the global animation settings; the selected-card shadow follows `[shell.shadow]`. Each close control appears only while its card is hovered. Both styles rotate through larger window sets while keeping up to five cards visible. Compositors without foreign-toplevel image capture use application icons in the cards when `show_app_icon = true`. Tab / Shift+Tab or the arrow keys cycle selection; releasing the shortcut's primary modifier or pressing Enter confirms; Escape cancels. The switcher updates live when windows open, close, retitle, or receive their snapshot while the overlay stays open.
 - **Hot corners** let you trigger actions by pushing your mouse pointer into one of the four screen corners. When `[hot_corners].enabled = true`, the shell places invisible hit areas in each corner. `delay_ms` (default `0`) is how long the pointer must stay in the corner before the action runs; raise it to reduce accidental triggers. Each corner (`top_left`, `top_right`, `bottom_left`, `bottom_right`) takes an `action`. If `action` is `"command"`, provide a shell `command` to execute. Configure under **Settings → Desktop → Hot Corners**.
 
 ### Encrypted storage master key
@@ -358,9 +366,12 @@ high_contrast         = false           # enable high contrast mode for visually
 position = "top_center"  # top_right | top_left | top_center | bottom_right | bottom_left | bottom_center | center_right | center_left
 position_vertical = "top_center"  # same options; used when orientation = "vertical"
 orientation = "horizontal" # horizontal | vertical (volume/brightness sliders only)
+hide_delay_ms = 1400     # time before a popup starts hiding; range 250 to 10000 ms
 scale = 1.0              # OSD size multiplier on top of shell.ui_scale
 background_opacity = 0.97 # background opacity of OSD popups
 border = true            # outline around OSD popup cards; set false for a borderless look
+border_color = "outline" # outline color: theme color role (e.g. "primary") or hex (e.g. "#a8b185")
+border_width = 1         # outline stroke width in px; raise for a thicker outline
 offset_x = 20            # absolute horizontal margin from the screen edge
 offset_y = 8             # absolute vertical margin from the screen edge
 # monitors = ["DP-1"]    # connector names; omit or leave empty for all monitors
@@ -387,13 +398,16 @@ The OSD powers volume, brightness, DND, caffeine, lock-key, keyboard-layout, pri
 and external/IPC power-profile popups, and defaults to `top_center` with a horizontal layout. Set
 `orientation = "vertical"` for a taller vertical gauge on volume, display brightness, and keyboard-backlight sliders; text-only popups (media, lock
 keys, keyboard layout, privacy, and similar) always use horizontal layout for readability. `position` controls placement
-for horizontal popups; `position_vertical` controls placement when slider orientation is vertical. `scale` multiplies the
-effective OSD size on top of
-`shell.ui_scale` (for example `1.25` makes volume, brightness, and lock-key popups 25% larger than the default).
-`monitors` limits OSD popups to the listed connector names (same matching rules as notification toasts and the dock);
+for horizontal popups; `position_vertical` controls placement when slider orientation is vertical. `hide_delay_ms` controls
+how long a popup remains visible after each show or retrigger before its hide animation starts. It accepts 250 to 10000
+milliseconds and defaults to 1400. Reloading the configuration affects the next show or retrigger without changing an
+already running timer. `scale` multiplies the effective OSD size on top of `shell.ui_scale` (for example `1.25` makes
+volume, brightness, and lock-key popups 25% larger than the default). `monitors` limits OSD popups to the listed
+connector names (same matching rules as notification toasts and the dock);
 leave it empty to show on every connected output. If none of the configured monitors are connected, OSD falls back to all
 outputs until one reconnects. `background_opacity` sets popup background opacity, `border` draws the card outline (default
-`true`; set `false` for a borderless look), and `offset_x` / `offset_y` are the
+`true`; set `false` for a borderless look), `border_color` sets its color (theme color role or hex, default `outline`),
+`border_width` sets its width in logical pixels (0 to 6, default `1`), and `offset_x` / `offset_y` are the
 absolute margins from the screen edge for the chosen `position`.
 Each popup kind can be toggled independently under `[osd.kinds]`. The volume master toggle enables both output and input
 OSDs by default; set `volume_output` or `volume_input` to `false` to disable one side only. `media = false` disables
@@ -411,9 +425,11 @@ Set **`[lockscreen].enabled = false`** to turn off session lock entirely: no `ex
 
 When the lock screen is enabled, **`lock_before_suspend`** (default `true`) locks the session on logind `PrepareForSleep` before suspend or hibernate (including lid-close sleep), so you do not need a separate idle daemon for lock-before-sleep. Set it `false` if you want external suspend without locking.
 
-When enabled and `wlr-screencopy` is available, Noctalia can capture the desktop **before** the session lock engages and use that snapshot as the lock screen background instead of the wallpaper. Desktop capture is disabled by default.
+When enabled and `wlr-screencopy` is available, Noctalia can capture the desktop **before** the session lock engages and use that snapshot as the lock screen background instead of the wallpaper. Desktop capture is disabled by default. A lock transition also uses a frozen pre-lock capture, but only as a temporary layer drawn by the secure lock surface while the complete lock screen (including its blur and tint) is revealed or concealed.
 
-Configure under **`[lockscreen]`** in TOML, or use **Settings → Security → Lock Screen**. The **Desktop capture** toggle appears only when your compositor supports screencopy. Use **Wallpaper** to pick a custom lock screen image (empty uses the desktop wallpaper per output).
+Configure under **`[lockscreen]`** in TOML, or use **Settings → Security → Lock Screen**. The **Desktop capture** and transition controls appear only when your compositor supports screencopy. Use **Wallpaper** to pick a custom lock screen image (empty uses the desktop wallpaper per output).
+
+Lock screen transitions have their own effect pool, duration, and edge smoothness. They do not read or modify the settings under **`[wallpaper]`**. Set `transition = []` to disable lock and unlock animations.
 
 ```toml
 [lockscreen]
@@ -422,6 +438,9 @@ lock_before_suspend   = true      # lock on PrepareForSleep (lid close / systemc
 fingerprint           = true      # allow fingerprint (PAM) authentication on the lock screen
 allow_empty_password  = false     # submit Enter with an empty password (security-key PAM stacks)
 blurred_desktop       = false     # use a desktop snapshot as the lock screen background
+transition            = ["fade", "wipe", "disc", "stripes", "zoom", "honeycomb"]
+transition_duration   = 1500      # lock/unlock animation length in milliseconds
+edge_smoothness       = 0.3       # transition edge feathering (0.0 = sharp, 1.0 = soft)
 blur_intensity        = 0.5       # background blur (0.0 = none, 1.0 = maximum)
 tint_intensity        = 0.3       # surface-color tint over the background (0.0 = none, 1.0 = opaque)
 wallpaper             = ""        # optional image path; empty uses the desktop wallpaper per output
@@ -435,12 +454,15 @@ monitors              = []        # connectors that show the lock screen; empty 
 | `fingerprint` | bool | `true` | When `true`, fingerprint (PAM) authentication is offered on the lock screen alongside the password field. Set `false` to require password entry only. |
 | `allow_empty_password` | bool | `false` | When `true`, Enter can submit an empty password (needed for some security-key PAM stacks). When `false`, empty submits are ignored to avoid accidental `pam_faillock` lockouts from wake keys. |
 | `blurred_desktop` | bool | `false` | Capture each output before lock and use it as the lock screen background. |
+| `transition` | array | all effects | Pool of lock/unlock effects: `fade`, `wipe`, `disc`, `stripes`, `zoom`, and `honeycomb`. One is selected from the configured pool; an empty array disables transitions. |
+| `transition_duration` | float | `1500` | Lock/unlock animation duration in milliseconds (`100`–`30000`). |
+| `edge_smoothness` | float | `0.3` | Feathering around transition boundaries (`0.0`–`1.0`). |
 | `blur_intensity` | float | `0.5` | Blur strength for the active lock screen background (`0.0`–`1.0`). |
 | `tint_intensity` | float | `0.3` | Surface-color tint over the active lock screen background (`0.0`–`1.0`). |
 | `wallpaper` | string | `""` | Optional image path for the lock screen. When empty, each output uses its desktop wallpaper. Ignored when desktop capture is active. |
 | `monitors` | array | `[]` | Connector names that show the lock screen. Empty shows it on all outputs; listed-only mode leaves other outputs black. |
 
-If capture fails (missing protocol, permission denied, etc.), the lock screen falls back to the normal per-output wallpaper. The snapshot lives in memory only until unlock. Blur and tint sliders can be adjusted live from Settings while the session is locked.
+If capture fails (missing protocol, permission denied, etc.), the transition is skipped and the lock screen falls back to the normal per-output wallpaper when desktop capture was requested. The snapshot lives in memory only until unlock. Blur and tint sliders can be adjusted live from Settings while the session is locked.
 
 ---
 

@@ -277,7 +277,6 @@
       "uptime": "가동 시간 - {uptime}",
       "weather": {
         "data-unavailable": "날씨 데이터를 사용할 수 없습니다.",
-        "disabled": "설정에서 날씨가 비활성화되어 있습니다.",
         "fetching": "일기 예보 불러오는 중..."
       }
     },
@@ -1225,7 +1224,6 @@
         "borders": "테두리",
         "brightness": "밝기",
         "built-in": "기본 제공",
-        "calendar": "캘린더",
         "capsules": "캡슐",
         "clipboard": "클립보드",
         "community": "커뮤니티",
@@ -4034,7 +4032,6 @@
         "plugin-store": "원격 플러그인 카탈로그 및 다운로드 요청이 작동하지 않습니다.",
         "plugins": "플러그인 HTTP 요청이 작동하지 않습니다. Git 소스는 계속 업데이트할 수 있습니다.",
         "security": "외부 IP 조회 및 텔레메트리 전송이 작동하지 않습니다.",
-        "services": "캘린더 계정 동기화가 작동하지 않습니다.",
         "template-store": "커뮤니티 템플릿 다운로드가 작동하지 않습니다.",
         "templates": "커뮤니티 템플릿 다운로드 및 업데이트가 작동하지 않습니다.",
         "title": "오프라인 모드"

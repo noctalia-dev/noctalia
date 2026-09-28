@@ -257,7 +257,6 @@
       "uptime": "Temps actiu – {uptime}",
       "weather": {
         "data-unavailable": "Dades meteorològiques no disponibles.",
-        "disabled": "El temps està desactivat a la configuració.",
         "fetching": "S'està obtenint la previsió…"
       }
     },
@@ -1180,7 +1179,6 @@
         "borders": "Vores",
         "brightness": "Brillantor",
         "built-in": "Integrat",
-        "calendar": "Calendari",
         "capsules": "Càpsules",
         "clipboard": "Porta-retalls",
         "community": "Comunitat",
@@ -3474,7 +3472,7 @@
           "volume-description": "Glif d'icona personalitzat; deixa'l buit per utilitzar les icones dinàmiques integrades"
         },
         "glyph-position": {
-          "description": "En quin ordre mostrar el glif en relació amb el text/gràfic/indicador",
+          "description": "Col·loca el glif o la imatge personalitzada i l'etiqueta personalitzada respecte al valor o la visualització",
           "label": "Posició del glif"
         },
         "group-by-workspace": {
@@ -3925,7 +3923,6 @@
         "plugin-store": "El catàleg remot de connectors i les sol·licituds de descàrrega no funcionaran.",
         "plugins": "Les sol·licituds HTTP dels connectors no funcionaran. Les fonts Git encara es podran actualitzar.",
         "security": "La consulta d'IP externa i la telemetria no funcionaran.",
-        "services": "La sincronització del compte de calendari no funcionarà.",
         "template-store": "Les descàrregues de plantilles de la comunitat no funcionaran.",
         "templates": "Les descàrregues i actualitzacions de plantilles de la comunitat no funcionaran.",
         "title": "Mode fora de línia"

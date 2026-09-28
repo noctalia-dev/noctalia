@@ -92,7 +92,7 @@ Declare favorites with `[[wallpaper.favorite]]`:
 ```toml
 [[wallpaper.favorite]]
 path = "/home/user/Wallpapers/sunset.jpg"
-theme_mode = "auto"              # auto, light, or dark
+theme_mode = "auto"              # optional: auto, light, or dark
 palette_source = "wallpaper"     # optional: builtin, wallpaper, community, or custom
 wallpaper_scheme = "m3-content"  # when palette_source = wallpaper
 
@@ -105,7 +105,7 @@ builtin_palette = "Noctalia"
 
 The **Theme** and **Colors** row is always available under the toolbar. When no favorited image is selected, those controls persist a live global theme override, the same as changing theme mode or palette source in Settings. When the selected image is already a favorite, adjusting the controls also saves the favorite preset and re-applies that wallpaper with the updated settings.
 
-Starring an image wallpaper bookmarks the path only, except when that image is the wallpaper currently applied to the selected monitor: the favorite is saved with the active `theme_mode`, `palette_source`, and palette selection so re-applying it restores the look you already have. Declarative `color:#RRGGBB` favorites use the same stored theme fields when present. Clicking a favorite applies the wallpaper together with its stored theme settings.
+Starring an image wallpaper bookmarks the path only, except when that image is the wallpaper currently applied to the selected monitor: the favorite is saved with the active `theme_mode`, `palette_source`, and palette selection so re-applying it restores the look you already have. Declarative `color:#RRGGBB` favorites use the same stored theme fields when present. Clicking a favorite applies the wallpaper together with its stored theme settings; a favorite without `theme_mode` or `palette_source` leaves the current theme mode or palette unchanged.
 
 ---
 

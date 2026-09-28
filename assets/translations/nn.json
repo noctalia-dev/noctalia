@@ -282,7 +282,6 @@
       "uptime": "Oppetid - {uptime}",
       "weather": {
         "data-unavailable": "Vẽrdata utilgjengeleg",
-        "disabled": "Vêr er avslege i tilmåtinga.",
         "fetching": "Hentar varsel ..."
       }
     },
@@ -1203,7 +1202,6 @@
         "borders": "Omrit",
         "brightness": "Ljosstyrke",
         "built-in": "Innebygd",
-        "calendar": "Kalender",
         "capsules": "Piller",
         "clipboard": "Utklippstavle",
         "community": "Samfunn",
@@ -3921,7 +3919,6 @@
         "plugin-store": "Utvidingskatalogen og -nedlasting kjem ikkje til å verka.",
         "plugins": "HTTP-spurnader frå utvidingar kjem ikkje til å verka. Git-brunnar kan oppdatera enno.",
         "security": "Ekstern IP-finning og telemetri kjem ikkje til å verka.",
-        "services": "Synkronisering av kalenderkonto kjem ikkje til å verka.",
         "template-store": "Nedlasting av malar frå samfunnet kjem ikkje til å verka.",
         "templates": "Nedlasting og oppdatering av malar frå samfunnet kjem ikkje til å verka.",
         "title": "Avnetes-modus"

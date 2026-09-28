@@ -332,11 +332,12 @@ location = "https://example.invalid/bad"
   // checks exercise real serialization rather than all-defaults.
   Config makeProbe() {
     Config c;
-    c.audio = AudioConfig{true, true, 0.73F, "change.ogg", "notify.ogg"};
+    c.audio = AudioConfig{true, true, 0.73F, "freedesktop"};
     c.weather = WeatherConfig{false, false, 17, "imperial"};
     c.osd.position = "bottom_left";
     c.osd.positionVertical = "top_right";
     c.osd.orientation = "vertical";
+    c.osd.hideDelayMs = 2750;
     c.osd.scale = 1.4F;
     c.osd.backgroundOpacity = 0.42F;
     c.osd.border = false;
@@ -349,6 +350,9 @@ location = "https://example.invalid/bad"
     c.lockscreen = LockscreenConfig{
         .lockBeforeSuspend = false,
         .blurredDesktop = true,
+        .transitions = {LockscreenTransition::Disc, LockscreenTransition::Zoom},
+        .transitionDurationMs = 900.0F,
+        .edgeSmoothness = 0.7F,
         .blurIntensity = 0.6F,
         .tintIntensity = 0.25F,
         .monitors = {"DP-1"}
@@ -423,6 +427,10 @@ location = "https://example.invalid/bad"
     c.calendar.refreshMinutes = 30;
     c.calendar.eventDateFormat = "%Y-%m-%d";
     c.calendar.eventTimeFormat = "%I:%M %p";
+    c.calendar.reminders.enabled = false;
+    c.calendar.reminders.useEventReminders = false;
+    c.calendar.reminders.defaultLeadMinutes = 25;
+    c.calendar.reminders.allDayDigestTime = "07:45";
     c.calendar.accounts = {
         {"acc1", "google", "Work", "#ff0000", "", "", "", {}},
         {"acc2",
@@ -500,6 +508,11 @@ location = "https://example.invalid/bad"
         LauncherProviderConfig{"session", "s", true}, LauncherProviderConfig{"wallpaper", "w"}
     };
     c.shell.keyboardLayout.customLabels = {{"English (US)", "US"}, {"German", "DE"}};
+    c.shell.windowSwitcher.style = ShellConfig::WindowSwitcherStyle::Compact;
+    c.shell.windowSwitcher.mru = true;
+    c.shell.windowSwitcher.showCaption = false;
+    c.shell.windowSwitcher.showCount = false;
+    c.shell.windowSwitcher.showAppIcon = false;
     c.shell.screenCorners.enabled = true;
     c.shell.screenCorners.size = 24;
     c.shell.mpris.blacklist = {"firefox"};
@@ -572,6 +585,16 @@ location = "https://example.invalid/bad"
   }
 
   void checkClamps() {
+    // Calendar reminder lead is capped at a day ahead.
+    {
+      auto t = toml::parse("default_lead_minutes = 99999");
+      CalendarConfig::Reminders r{};
+      Diagnostics d;
+      readInto(t, r, calendarRemindersSchema(), "calendar.reminders", d);
+      if (r.defaultLeadMinutes != 1440) {
+        fail("calendar.reminders.default_lead_minutes clamp: expected 1440");
+      }
+    }
     // sound_volume above the max clamps to 1.0.
     {
       auto t = toml::parse("sound_volume = 2.5");
@@ -611,6 +634,40 @@ location = "https://example.invalid/bad"
       readInto(t, b, barFieldsSchema(), "bar", d);
       if (b.fontScale != *kBarFontScaleRange.min) {
         fail("bar.font_scale clamp: expected 0.2");
+      }
+    }
+    // Lockscreen transitions own their duration range and retain an empty effect
+    // pool as the explicit way to disable animation.
+    {
+      auto t = toml::parse("transition = []\ntransition_duration = 25\nedge_smoothness = 2.0");
+      LockscreenConfig lockscreen{};
+      Diagnostics d;
+      readInto(t, lockscreen, lockscreenSchema(), "lockscreen", d);
+      if (!lockscreen.transitions.empty()) {
+        fail("lockscreen.transition: empty pool did not disable transitions");
+      }
+      if (lockscreen.transitionDurationMs != *kLockscreenTransitionDurationRange.min) {
+        fail("lockscreen.transition_duration clamp: expected 100");
+      }
+      if (lockscreen.edgeSmoothness != 1.0F) {
+        fail("lockscreen.edge_smoothness clamp: expected 1.0");
+      }
+    }
+    // Invalid transition values are surfaced instead of silently changing the
+    // configured effect pool.
+    {
+      auto t = toml::parse(R"(transition = ["fade", "unknown", 3])");
+      LockscreenConfig lockscreen{};
+      Diagnostics d;
+      readInto(t, lockscreen, lockscreenSchema(), "lockscreen", d);
+      if (lockscreen.transitions != std::vector{LockscreenTransition::Fade}) {
+        fail("lockscreen.transition: valid values were not retained");
+      }
+      const auto warnings = std::ranges::count_if(d.entries, [](const Diagnostics::Entry& entry) {
+        return entry.severity == Diagnostics::Severity::Warning && entry.path.starts_with("lockscreen.transition[");
+      });
+      if (warnings != 2) {
+        fail("lockscreen.transition: invalid entries were not reported");
       }
     }
     // Clipboard history count accepts large text-heavy histories but still has

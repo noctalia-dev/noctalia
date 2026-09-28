@@ -23,7 +23,7 @@ namespace {
 
   shell::dock::DockSurfaceGeometry geometryFor(const DockConfig& cfg, bool fractionalScale) {
     const ShellConfig::ShadowConfig shadow;
-    return shell::dock::computeSurfaceGeometry(cfg, shadow, kItemCount, fractionalScale);
+    return shell::dock::computeSurfaceGeometry(cfg, shadow, kItemCount, fractionalScale, 1920, 1080);
   }
 
   int edgeMargin(const shell::dock::DockSurfaceGeometry& geometry, DockEdge edge) {
@@ -79,6 +79,19 @@ int main() {
     TEST_CHECK(fractionalRegion.size() == 1);
     TEST_CHECK(fractionalRegion[0].height == integerRegion[0].height + 1);
     TEST_CHECK(fractionalRegion[0].y == integerRegion[0].y - 1);
+  }
+
+  // Overflowing docks stop at the output ends so their item viewport can scroll.
+  for (const DockEdge edge : kEdges) {
+    DockConfig cfg = flushDock(edge);
+    cfg.marginEnds = 12;
+    const ShellConfig::ShadowConfig shadow;
+    const auto geometry = shell::dock::computeSurfaceGeometry(
+        cfg, shadow, 100, false, /*outputLogicalWidth=*/800, /*outputLogicalHeight=*/600
+    );
+    const std::uint32_t expectedLength = shell::dock::isVerticalEdge(edge) ? 576U : 776U;
+    const std::uint32_t actualLength = shell::dock::isVerticalEdge(edge) ? geometry.surfaceH : geometry.surfaceW;
+    TEST_CHECK(actualLength == expectedLength);
   }
 
   return 0;

@@ -564,6 +564,12 @@ void TooltipManager::refreshFromArea(InputArea* area) {
     break;
   }
   case State::FadingOut:
+    if (m_fadeAnimId != 0) {
+      scheduleRetargetPopup();
+    } else {
+      // Fade finished and the surface teardown is queued; show again once it completes.
+      m_showAfterDestroy = true;
+    }
     break;
   }
 }
@@ -575,7 +581,11 @@ void TooltipManager::refreshPopupContent() {
 
   const auto [contentW, contentH] = measureContent(m_surface->renderTarget().renderer(), m_pendingContent);
   if (contentW == 0 || contentH == 0) {
+    // The area is still hovered but its provider has nothing to show right now; keep tracking
+    // it so a later refreshFromArea() can bring the tooltip back.
+    InputArea* area = m_pendingArea;
     dismissPopup();
+    m_pendingArea = area;
     return;
   }
 

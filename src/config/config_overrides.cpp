@@ -2309,7 +2309,7 @@ void ConfigService::extractWallpaperFromTable(const toml::table& table) {
       }
       if (auto modeKey = (*favTbl)["theme_mode"].value<std::string>()) {
         if (auto parsed = enumFromKey(kThemeModes, *modeKey)) {
-          favorite.themeMode = *parsed;
+          favorite.themeMode = parsed;
         }
       }
       if (auto sourceKey = (*favTbl)["palette_source"].value<std::string>()) {
@@ -2346,7 +2346,9 @@ void ConfigService::syncWallpaperFavoritesToOverridesTable() {
   for (const auto& favorite : m_wallpaperFavorites) {
     toml::table entry;
     entry.insert("path", favorite.path);
-    entry.insert("theme_mode", std::string(enumToKey(kThemeModes, favorite.themeMode)));
+    if (favorite.themeMode.has_value()) {
+      entry.insert("theme_mode", std::string(enumToKey(kThemeModes, *favorite.themeMode)));
+    }
     if (favorite.paletteSource.has_value()) {
       entry.insert("palette_source", std::string(enumToKey(kPaletteSources, *favorite.paletteSource)));
       switch (*favorite.paletteSource) {
@@ -2594,8 +2596,8 @@ void ConfigService::applyWallpaperSelection(
 
   if (applyTheme != nullptr) {
     auto* themeTbl = ensureTable(m_overridesTable, "theme");
-    if (m_config.theme.mode != applyTheme->themeMode) {
-      themeTbl->insert_or_assign("mode", std::string(enumToKey(kThemeModes, applyTheme->themeMode)));
+    if (applyTheme->themeMode.has_value() && m_config.theme.mode != *applyTheme->themeMode) {
+      themeTbl->insert_or_assign("mode", std::string(enumToKey(kThemeModes, *applyTheme->themeMode)));
       changed = true;
     }
 

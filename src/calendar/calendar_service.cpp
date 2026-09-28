@@ -4,6 +4,7 @@
 #include "calendar/caldav_discovery.h"
 #include "calendar/calendar_cache.h"
 #include "calendar/calendar_discovery_state.h"
+#include "calendar/calendar_reminders.h"
 #include "calendar/event_link.h"
 #include "calendar/ical_parser.h"
 #include "calendar/vdir_reader.h"
@@ -1435,9 +1436,17 @@ bool CalendarService::parseCache(std::span<const std::uint8_t> contents) {
       event.colorHex = item.value("color", std::string{});
       event.location = item.value("location", std::string{});
       event.url = calendar::resolveEventLink(event.location, {}, item.value("url", std::string{}));
+      event.webUrl = calendar::resolveEventLink({}, {}, item.value("web_url", std::string{}));
       event.start = fromUnix(item.value("start", std::int64_t{0}));
       event.end = fromUnix(item.value("end", std::int64_t{0}));
       event.allDay = item.value("all_day", false);
+      // A missing key means the source said nothing; an empty array means "explicitly no reminder".
+      if (const auto reminders = item.find("reminders"); reminders != item.end() && reminders->is_array()) {
+        auto leads = reminders->get<std::vector<std::int32_t>>();
+        // Normalize on read so a hand-edited or corrupted cache cannot inflate the fired set.
+        calendar::normalizeReminderLeads(leads);
+        event.reminderLeadSeconds = std::move(leads);
+      }
       const std::string account = item.value("account", std::string{});
       parsed[account].push_back(std::move(event));
     }
@@ -1468,10 +1477,14 @@ void CalendarService::saveCache() {
           {"color", event.colorHex},
           {"location", event.location},
           {"url", event.url},
+          {"web_url", event.webUrl},
           {"start", toUnix(event.start)},
           {"end", toUnix(event.end)},
           {"all_day", event.allDay},
       });
+      if (event.reminderLeadSeconds.has_value()) {
+        events.back()["reminders"] = *event.reminderLeadSeconds;
+      }
     }
   }
 

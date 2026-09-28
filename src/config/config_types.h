@@ -480,6 +480,15 @@ enum class WallpaperTransition : std::uint8_t {
   Honeycomb = 5,
 };
 
+enum class LockscreenTransition : std::uint8_t {
+  Fade = 0,
+  Wipe = 1,
+  Disc = 2,
+  Stripes = 3,
+  Zoom = 4,
+  Honeycomb = 5,
+};
+
 struct WallpaperMonitorOverride {
   std::string match;
   std::optional<bool> enabled;
@@ -541,6 +550,11 @@ struct LockscreenConfig {
   bool fingerprint = true;
   bool allowEmptyPassword = false;
   bool blurredDesktop = false;
+  std::vector<LockscreenTransition> transitions = {LockscreenTransition::Fade, LockscreenTransition::Wipe,
+                                                   LockscreenTransition::Disc, LockscreenTransition::Stripes,
+                                                   LockscreenTransition::Zoom, LockscreenTransition::Honeycomb};
+  float transitionDurationMs = 1500.0F;
+  float edgeSmoothness = 0.3F;
   float blurIntensity = 0.5F;
   float tintIntensity = 0.3F;
   std::string wallpaper;
@@ -731,9 +745,12 @@ struct OsdConfig {
   std::string position = "top_center";
   std::string positionVertical = "top_center";
   std::string orientation = "horizontal";
+  std::int32_t hideDelayMs = 1400;
   float scale = 1.0F;
   float backgroundOpacity = 0.97F;
   bool border = true; // outline around OSD popup cards
+  ColorSpec borderColor = colorSpecFromRole(ColorRole::Outline);
+  float borderWidth = Style::borderWidth;
   int offsetX = 20;
   int offsetY = 8;
   std::vector<std::string> monitors;
@@ -916,6 +933,15 @@ constexpr EnumOption<WallpaperTransition> kWallpaperTransitions[] = {
     {WallpaperTransition::Zoom, "zoom", "settings.options.wallpaper.transition.zoom"},
 };
 
+constexpr EnumOption<LockscreenTransition> kLockscreenTransitions[] = {
+    {LockscreenTransition::Disc, "disc", "settings.options.lockscreen.transition.disc"},
+    {LockscreenTransition::Fade, "fade", "settings.options.lockscreen.transition.fade"},
+    {LockscreenTransition::Honeycomb, "honeycomb", "settings.options.lockscreen.transition.honeycomb"},
+    {LockscreenTransition::Stripes, "stripes", "settings.options.lockscreen.transition.stripes"},
+    {LockscreenTransition::Wipe, "wipe", "settings.options.lockscreen.transition.wipe"},
+    {LockscreenTransition::Zoom, "zoom", "settings.options.lockscreen.transition.zoom"},
+};
+
 // One config-driven dmenu-style launcher entry. The provider runs `command`, splits
 // its stdout into newline-separated candidates, and on activation either runs `exec`
 // (with {selection}/{query} substituted) or copies the selection to the clipboard.
@@ -1078,8 +1104,24 @@ struct ShellConfig {
     bool operator==(const PrivacyConfig&) const = default;
   };
 
+  enum class WindowSwitcherStyle : std::uint8_t {
+    Carousel = 0,
+    Compact = 1,
+  };
+
+  static constexpr EnumOption<WindowSwitcherStyle> kWindowSwitcherStyles[] = {
+      {WindowSwitcherStyle::Carousel, "carousel", "settings.options.shell.window-switcher-style.carousel"},
+      {WindowSwitcherStyle::Compact, "compact", "settings.options.shell.window-switcher-style.compact"},
+  };
+
   struct WindowSwitcherConfig {
+    WindowSwitcherStyle style = WindowSwitcherStyle::Carousel;
     bool mru = false;
+    bool showCaption = true;
+    bool showCount = true;
+    bool showAppIcon = true;
+    bool showAllOutputs = true;
+    bool currentWorkspaceOnly = false;
 
     bool operator==(const WindowSwitcherConfig&) const = default;
   };
@@ -1109,6 +1151,7 @@ struct ShellConfig {
   AnimationConfig animation;
   std::string avatarPath;
   bool settingsShowAdvanced = true;
+  bool settingsExpandAllGroups = false;
   bool settingsWindowTranslucent = false;
   bool showLocation = true;
   bool appIconColorize = false;
@@ -1185,10 +1228,25 @@ struct CalendarConfig {
     bool operator==(const Account&) const = default;
   };
 
+  // Event reminder notifications. Gated by CalendarConfig::enabled.
+  struct Reminders {
+    bool enabled = true;
+    // Honor per-event reminders (VALARM triggers, Google reminder overrides). When false, every
+    // event uses defaultLeadMinutes instead.
+    bool useEventReminders = true;
+    // Fallback lead for events that carry no reminder of their own. 0 = notify at event start.
+    std::int32_t defaultLeadMinutes = 10;
+    // "HH:MM" local time for the once-a-day all-day event digest; empty disables it.
+    std::string allDayDigestTime = "09:00";
+
+    bool operator==(const Reminders&) const = default;
+  };
+
   bool enabled = false;
   std::int32_t refreshMinutes = 15;
   std::string eventDateFormat = "%A %e %B";
   std::string eventTimeFormat = "%H:%M";
+  Reminders reminders;
   std::vector<Account> accounts;
 
   bool operator==(const CalendarConfig&) const = default;
@@ -1272,10 +1330,9 @@ struct SystemConfig {
 
 struct AudioConfig {
   bool enableOverdrive = false;
-  bool enableSounds = false;
+  bool enableSounds = true;
   float soundVolume = 0.5F;
-  std::string volumeChangeSound;
-  std::string notificationSound;
+  std::string soundTheme = "freedesktop";
 
   bool operator==(const AudioConfig&) const = default;
 };
@@ -1478,7 +1535,7 @@ constexpr EnumOption<ShellThemeMode> kShellThemeModes[] = {
 
 struct WallpaperFavorite {
   std::string path;
-  ThemeMode themeMode = ThemeMode::Auto;
+  std::optional<ThemeMode> themeMode;
   std::optional<PaletteSource> paletteSource;
   std::string builtinPalette;
   std::string communityPalette;

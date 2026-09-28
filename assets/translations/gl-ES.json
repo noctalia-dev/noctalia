@@ -238,7 +238,6 @@
       "uptime": "Activo - {uptime}",
       "weather": {
         "data-unavailable": "Os datos meteorolóxicos non están dispoñibles.",
-        "disabled": "O tempo está desactivado na configuración.",
         "fetching": "Obtendo a previsión..."
       }
     },
@@ -1084,7 +1083,6 @@
         "behavior": "Comportamento",
         "brightness": "Brillo",
         "built-in": "Integrado",
-        "calendar": "Calendario",
         "capsules": "Cápsulas",
         "clipboard": "Portapapeis",
         "community": "Comunidade",

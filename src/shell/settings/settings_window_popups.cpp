@@ -1183,7 +1183,7 @@ void SettingsWindow::openNotificationFilterCreateEditor() {
   auto ctx = makeContentContext(cfg, selectedBar, selectedMonitorOverride);
   ctx.openNotificationFilterEntryEditor = {};
   ctx.afterNotificationFilterApply = [this, rowState]() {
-    if (m_config == nullptr || rowState->match.empty()) {
+    if (m_config == nullptr || (rowState->match.empty() && rowState->matchContent.empty())) {
       return;
     }
     auto next = m_config->config().notification.filters;

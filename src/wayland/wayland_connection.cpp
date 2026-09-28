@@ -78,6 +78,7 @@ namespace {
   constexpr std::uint32_t kScreencopyManagerVersion = 3;
   constexpr std::uint32_t kImageCopyCaptureManagerVersion = 1;
   constexpr std::uint32_t kOutputImageCaptureSourceManagerVersion = 1;
+  constexpr std::uint32_t kForeignToplevelImageCaptureSourceManagerVersion = 1;
   constexpr std::uint32_t kOutputManagerVersion = 4;
   constexpr std::uint32_t kOutputManagerMinVersion = 3;
 
@@ -680,6 +681,11 @@ ext_output_image_capture_source_manager_v1* WaylandConnection::outputImageCaptur
   return m_outputImageCaptureSourceManager;
 }
 
+ext_foreign_toplevel_image_capture_source_manager_v1*
+WaylandConnection::foreignToplevelImageCaptureSourceManager() const noexcept {
+  return m_foreignToplevelImageCaptureSourceManager;
+}
+
 std::string WaylandConnection::requestActivationToken(wl_surface* surface) const {
   if (m_xdgActivation == nullptr || m_display == nullptr) {
     return {};
@@ -1267,6 +1273,14 @@ void WaylandConnection::bindGlobal(
     return;
   }
 
+  if (interfaceName == ext_foreign_toplevel_image_capture_source_manager_v1_interface.name) {
+    const auto bindVersion = std::min(version, kForeignToplevelImageCaptureSourceManagerVersion);
+    m_foreignToplevelImageCaptureSourceManager = static_cast<ext_foreign_toplevel_image_capture_source_manager_v1*>(
+        wl_registry_bind(registry, name, &ext_foreign_toplevel_image_capture_source_manager_v1_interface, bindVersion)
+    );
+    return;
+  }
+
   if (interfaceName == zwlr_output_manager_v1_interface.name) {
     // head/mode release requests need v3; nothing useful to bind below that anyway.
     if (version < kOutputManagerMinVersion) {
@@ -1422,6 +1436,10 @@ void WaylandConnection::cleanup() {
   if (m_outputImageCaptureSourceManager != nullptr) {
     ext_output_image_capture_source_manager_v1_destroy(m_outputImageCaptureSourceManager);
     m_outputImageCaptureSourceManager = nullptr;
+  }
+  if (m_foreignToplevelImageCaptureSourceManager != nullptr) {
+    ext_foreign_toplevel_image_capture_source_manager_v1_destroy(m_foreignToplevelImageCaptureSourceManager);
+    m_foreignToplevelImageCaptureSourceManager = nullptr;
   }
 
   for (auto* mode : m_outputModes) {

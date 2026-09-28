@@ -1,5 +1,6 @@
 project('noctalia', ['c', 'cpp'],
-  version: '5.1.0',
+  version: files('VERSION'),
+  meson_version: '>=1.1',
   default_options: [
     'cpp_std=c++23',
     'cpp_extensions=false',
@@ -417,6 +418,8 @@ _wlr_ls_c = custom_target('wlr-layer-shell-unstable-v1-client-source',
 _protocol_sources += _wlr_ls_c
 _protocol_headers += _wlr_ls_h
 
+alias_target('wayland-protocol-headers', _protocol_headers)
+
 # ── Main sources ──────────────────────────────────────────────────────────────
 _noctalia_sources = files(
   'src/app/application.cpp',
@@ -435,6 +438,8 @@ _noctalia_sources = files(
   'src/calendar/calendar_cache.cpp',
   'src/calendar/calendar_credential_store.cpp',
   'src/calendar/calendar_discovery_state.cpp',
+  'src/calendar/calendar_reminder_monitor.cpp',
+  'src/calendar/calendar_reminders.cpp',
   'src/calendar/calendar_service.cpp',
   'src/calendar/event_link.cpp',
   'src/calendar/google_client.cpp',
@@ -488,6 +493,7 @@ _noctalia_sources = files(
   'src/dbus/notification/notification_poll_source.cpp',
   'src/dbus/notification/notification_service.cpp',
   'src/dbus/power/power_profiles_service.cpp',
+  'src/dbus/secret/secret_collection_probe.cpp',
   'src/dbus/session_bus.cpp',
   'src/dbus/system_bus.cpp',
   'src/dbus/tray/fcitx_status.cpp',
@@ -528,6 +534,7 @@ _noctalia_sources = files(
   'src/notification/notification_display_name.cpp',
   'src/notification/notification_history_store.cpp',
   'src/pipewire/pipewire_service.cpp',
+  'src/pipewire/pipewire_error.cpp',
   'src/pipewire/audio_glyphs.cpp',
   'src/pipewire/audio_route_selection.cpp',
   'src/pipewire/wireplumber_mixer.cpp',
@@ -552,6 +559,7 @@ _noctalia_sources = files(
   'src/render/core/image_orientation.cpp',
   'src/render/programs/glyph_program.cpp',
   'src/render/programs/image_program.cpp',
+  'src/render/programs/lockscreen_transition_program.cpp',
   'src/render/programs/linear_gradient_program.cpp',
   'src/render/programs/rect_program.cpp',
   'src/render/programs/screen_corner_program.cpp',
@@ -669,6 +677,9 @@ _noctalia_sources = files(
   'src/ui/dialogs/layer_popup_host.cpp',
   'src/shell/launcher/launcher_panel.cpp',
   'src/shell/switcher/window_switcher.cpp',
+  'src/shell/switcher/window_switcher_style.cpp',
+  'src/shell/switcher/window_switcher_carousel_style.cpp',
+  'src/shell/switcher/window_switcher_compact_style.cpp',
   'src/shell/switcher/window_switcher_tile.cpp',
   'src/shell/profile/avatar_path.cpp',
   'src/shell/greeter/greeter_appearance_sync.cpp',
@@ -840,6 +851,7 @@ _noctalia_sources = files(
   'src/system/location_service.cpp',
   'src/capture/screencopy_capture.cpp',
   'src/capture/pointer_cursor_capture.cpp',
+  'src/capture/toplevel_thumbnail_capture.cpp',
   'src/capture/screencopy_util.cpp',
   'src/capture/screenshot_capture.cpp',
   'src/capture/screenshot_image.cpp',
@@ -880,6 +892,7 @@ _noctalia_sources = files(
   'src/ui/controls/grid_view.cpp',
   'src/ui/controls/grid_tile.cpp',
   'src/ui/controls/image.cpp',
+  'src/ui/controls/lockscreen_transition_cover.cpp',
   'src/ui/controls/input.cpp',
   'src/core/input/keybind_matcher.cpp',
   'src/ui/controls/keybind_recorder.cpp',
@@ -991,6 +1004,7 @@ _noctalia_sources = files(
   'src/theme/kde_color_scheme.cpp',
   'src/theme/firefox_theme/css.cpp',
   'src/theme/firefox_theme/firefox_theme.cpp',
+  'src/theme/firefox_theme/manifest.cpp',
   'src/theme/firefox_theme/native_messaging.cpp',
   'src/theme/firefox_theme/settings.cpp',
   'src/theme/hook_runner.cpp',
@@ -1154,6 +1168,8 @@ if build_tests
     'calendar_cache_permissions',
     'calendar_credential_store',
     'calendar_discovery_state',
+    'calendar_reminder_monitor',
+    'calendar_reminders',
     'calendar_view_passed_event',
     'capsule_group_lane_override',
     'capsule_group_reconcile',
@@ -1181,7 +1197,9 @@ if build_tests
     'event_link',
     'fcitx_status',
     'freedesktop_key_file',
+    'firefox_theme_manifest',
     'google_client_calendar_list',
+    'google_client_reminders',
     'greeter_appearance_sync',
     'grid_item_cursor',
     'hook_manager',
@@ -1215,7 +1233,9 @@ if build_tests
     'notification_filter',
     'notification_history_dismiss',
     'notification_history_utf8',
+    'notification_internal_history',
     'path_browse',
+    'pipewire_error',
     'plugin_bindings',
     'plugin_catalog',
     'plugin_git_export',
@@ -1240,6 +1260,7 @@ if build_tests
     'template_hook_runner',
     'theme_shell_mode',
     'time_format',
+    'toplevel_thumbnail_capture',
     'tray_identifier',
     'triad_workspace_backend',
     'ui_tree_reconciler',
@@ -1248,6 +1269,7 @@ if build_tests
     'uri',
     'vdir_reader',
     'virtual_grid_view_gesture',
+    'wallpaper_scan_symlink',
     'wallpaper_shuffle_state',
     'wayland_output_scale',
     'wayland_toplevels_identity',
@@ -1255,7 +1277,9 @@ if build_tests
     'widget_action',
     'widget_definition',
     'widget_settings_schema',
+    'window_switcher_membership',
     'workspace_alert_service',
+    'workspaces_widget',
   ]
 
   foreach test_name : _cpp_test_names
@@ -1280,6 +1304,11 @@ if build_tests
     sources: files('tests/upower_charge_limit_integration_test.cpp'),
     dependencies: noctalia_core_dep,
   )
+  secret_collection_probe_integration_exe = executable('secret_collection_probe_integration_test',
+    sources: files('tests/secret_collection_probe_integration_test.cpp'),
+    dependencies: noctalia_core_dep,
+    override_options: ['b_ndebug=false'],
+  )
   dbus_run_session = find_program('dbus-run-session', required: false)
   if dbus_run_session.found()
     test('upower_charge_limit_integration',
@@ -1290,6 +1319,11 @@ if build_tests
         'sh', upower_integration_exe.full_path(),
       ],
       depends: upower_integration_exe,
+    )
+    test('secret_collection_probe_integration',
+      dbus_run_session,
+      args: ['--', secret_collection_probe_integration_exe.full_path()],
+      depends: secret_collection_probe_integration_exe,
     )
   endif
 

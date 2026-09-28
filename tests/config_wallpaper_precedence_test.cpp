@@ -124,12 +124,53 @@ namespace {
     std::filesystem::remove_all(root);
   }
 
+  // A favorite starred without a preset must not touch the global theme mode when applied;
+  // one with an explicit theme_mode must restore it.
+  void checkFavoriteThemeModeOverride() {
+    const std::filesystem::path root =
+        std::filesystem::temp_directory_path() / ("noctalia-wallpaper-favorite-" + std::to_string(::getpid()));
+    std::filesystem::remove_all(root);
+    std::filesystem::create_directories(root / "config" / "noctalia");
+    std::filesystem::create_directories(root / "state" / "noctalia");
+    std::filesystem::create_directories(root / "data");
+    ::setenv("NOCTALIA_CONFIG_HOME", (root / "config").c_str(), 1);
+    ::setenv("NOCTALIA_STATE_HOME", (root / "state").c_str(), 1);
+    ::setenv("NOCTALIA_DATA_HOME", (root / "data").c_str(), 1);
+
+    {
+      std::ofstream out(root / "state" / "noctalia" / "settings.toml", std::ios::trunc);
+      out << "[theme]\nmode = \"dark\"\n\n"
+             "[[wallpaper.favorite]]\npath = \"/tmp/explicit.png\"\ntheme_mode = \"light\"\n";
+    }
+    ConfigService config;
+    expect(config.config().theme.mode == ThemeMode::Dark, "global theme mode was not read");
+
+    config.addWallpaperFavorite("/tmp/bookmark.png");
+    config.forceReload();
+    const WallpaperFavorite* bookmark = config.wallpaperFavorite("/tmp/bookmark.png");
+    expect(bookmark != nullptr && !bookmark->themeMode.has_value(), "path-only favorite gained a theme mode");
+
+    config.applyWallpaperSelection(std::nullopt, "/tmp/bookmark.png", bookmark, {});
+    expect(config.config().theme.mode == ThemeMode::Dark, "path-only favorite changed the global theme mode");
+
+    config.applyWallpaperSelection(
+        std::nullopt, "/tmp/explicit.png", config.wallpaperFavorite("/tmp/explicit.png"), {}
+    );
+    expect(config.config().theme.mode == ThemeMode::Light, "favorite theme_mode was not applied");
+
+    ::unsetenv("NOCTALIA_CONFIG_HOME");
+    ::unsetenv("NOCTALIA_STATE_HOME");
+    ::unsetenv("NOCTALIA_DATA_HOME");
+    std::filesystem::remove_all(root);
+  }
+
 } // namespace
 
 int main() {
   checkConfigSurvivesFirstSidecarWrite();
   checkSidecarPathOutranksConfigFilePath();
   checkDirectoryExpandsEnvVars();
+  checkFavoriteThemeModeOverride();
 
   if (g_failures == 0) {
     std::println("config_wallpaper_precedence_test: all checks passed");

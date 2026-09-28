@@ -280,7 +280,7 @@ namespace noctalia::cli {
     };
     inline constexpr Command barReserveToggle{
         "bar-reserve-toggle",
-        "Toggle reserve space for one or all bars",
+        "Temporarily toggle reserve space for one or all bars",
         {},
         {},
         {},

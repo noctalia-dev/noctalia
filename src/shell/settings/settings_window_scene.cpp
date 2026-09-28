@@ -1027,6 +1027,10 @@ void SettingsWindow::rebuildSettingsContent() {
   if (selectedBar != nullptr && !m_selectedMonitorOverride.empty()) {
     selectedMonitorOverride = settings::findMonitorOverride(*selectedBar, m_selectedMonitorOverride);
   }
+  if (cfg.shell.settingsExpandAllGroups != m_expandedSettingGroupsSeededExpandAll) {
+    m_expandedSettingGroups.clear();
+    m_expandedSettingGroupsSeededExpandAll = cfg.shell.settingsExpandAllGroups;
+  }
 
   m_contentContainer->setDirection(FlexDirection::Vertical);
   m_contentContainer->setAlign(FlexAlign::Stretch);
@@ -1101,6 +1105,7 @@ void SettingsWindow::rebuildSettingsContent() {
                   }
                 },
             .expandedGroupsByPage = m_expandedSettingGroups,
+            .expandAllGroups = cfg.shell.settingsExpandAllGroups,
             .pluginsLoading = m_pluginListDirty || m_pluginListRefreshInFlight,
             .setEnabled =
                 [this](std::string id, bool enable) {
@@ -1555,14 +1560,14 @@ void SettingsWindow::refreshSettingsRegistry(const Config& cfg) {
     }
 
     auto it = std::ranges::find_if(m_settingsRegistry, [](const settings::SettingEntry& entry) {
-      return entry.section == settings::SettingsSection::Services && entry.group == "calendar";
+      return entry.section == settings::SettingsSection::Calendar && entry.group == "general";
     });
     if (it != m_settingsRegistry.end()) {
       ++it;
     }
     settings::SettingEntry retry{
-        .section = settings::SettingsSection::Services,
-        .group = "calendar",
+        .section = settings::SettingsSection::Calendar,
+        .group = "general",
         .title = i18n::tr("settings.schema.services.calendar-credentials.label"),
         .subtitle = i18n::tr(descriptionKey),
         .path = {},
@@ -1612,14 +1617,14 @@ void SettingsWindow::refreshSettingsRegistry(const Config& cfg) {
     }
 
     auto it = std::ranges::find_if(m_settingsRegistry, [](const settings::SettingEntry& entry) {
-      return entry.section == settings::SettingsSection::Services && entry.group == "calendar";
+      return entry.section == settings::SettingsSection::Calendar && entry.group == "general";
     });
     if (it != m_settingsRegistry.end()) {
       ++it;
     }
     settings::SettingEntry retry{
-        .section = settings::SettingsSection::Services,
-        .group = "calendar",
+        .section = settings::SettingsSection::Calendar,
+        .group = "general",
         .title = i18n::tr("settings.schema.services.calendar-storage.label"),
         .subtitle = i18n::tr(descriptionKey),
         .path = {},
@@ -1744,7 +1749,7 @@ void SettingsWindow::refreshSettingsRegistry(const Config& cfg) {
   };
 
   if (calendarStorageRecovery && m_resetEncryptedStorage) {
-    insertStorageRecovery(settings::SettingsSection::Services, "calendar");
+    insertStorageRecovery(settings::SettingsSection::Calendar, "general");
   }
   if (clipboardStorageRecovery && m_resetEncryptedStorage) {
     insertStorageRecovery(settings::SettingsSection::Shell, "clipboard");
@@ -1939,8 +1944,8 @@ void SettingsWindow::refreshSettingsRegistry(const Config& cfg) {
 
   if (m_config != nullptr) {
     auto it = std::ranges::find_if(m_settingsRegistry, [](const settings::SettingEntry& e) {
-      return e.section == settings::SettingsSection::Services
-          && e.group == "calendar"
+      return e.section == settings::SettingsSection::Calendar
+          && e.group == "calendar-accounts"
           && e.path == std::vector<std::string>{"calendar", "refresh_minutes"};
     });
     if (it != m_settingsRegistry.end()) {
@@ -1948,8 +1953,8 @@ void SettingsWindow::refreshSettingsRegistry(const Config& cfg) {
     }
     const settings::SettingVisibility calendarOn = [](const Config& c) { return c.calendar.enabled; };
     settings::SettingEntry addBtn{
-        .section = settings::SettingsSection::Services,
-        .group = "calendar",
+        .section = settings::SettingsSection::Calendar,
+        .group = "calendar-accounts",
         .title = i18n::tr("settings.schema.services.calendar-add.label"),
         .subtitle = i18n::tr("settings.schema.services.calendar-add.description"),
         .path = {},
@@ -1982,8 +1987,8 @@ void SettingsWindow::refreshSettingsRegistry(const Config& cfg) {
           : reconnectRequired                             ? "settings.schema.services.calendar-edit.button-reconnect"
                                                           : "settings.schema.services.calendar-edit.button";
       settings::SettingEntry btn{
-          .section = settings::SettingsSection::Services,
-          .group = "calendar",
+          .section = settings::SettingsSection::Calendar,
+          .group = "calendar-accounts",
           .title = account.displayName.empty() ? account.id : account.displayName,
           .subtitle = i18n::tr(descriptionKey),
           .path = {},

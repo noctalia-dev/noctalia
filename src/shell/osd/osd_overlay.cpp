@@ -24,8 +24,6 @@ namespace {
 
   constexpr Logger kLog("osd");
 
-  constexpr int kHideDelayMs = Style::animSlow * 3 + Style::animFast * 2;
-
   enum class OsdRevealDir { FromLeft, FromRight, FromTop, FromBottom };
 
   [[nodiscard]] float osdContentOpacity(float reveal) {
@@ -84,6 +82,21 @@ namespace {
       return 0.97F;
     }
     return std::clamp(config->config().osd.backgroundOpacity, 0.0F, 1.0F);
+  }
+
+  [[nodiscard]] ColorSpec osdBorderColor(const ConfigService* config) {
+    if (config == nullptr) {
+      return colorSpecFromRole(ColorRole::Outline);
+    }
+    return config->config().osd.borderColor;
+  }
+
+  [[nodiscard]] float osdBorderWidth(const ConfigService* config, float scale) {
+    if (config == nullptr) {
+      return Style::borderWidth * scale;
+    }
+    const auto& osd = config->config().osd;
+    return osd.border ? std::max(0.0F, osd.borderWidth) * scale : 0.0F;
   }
 
   [[nodiscard]] bool isVerticalOrientation(const std::string& orientation) { return orientation == "vertical"; }
@@ -615,18 +628,17 @@ void OsdOverlay::buildScene(Instance& inst, std::uint32_t width, std::uint32_t h
   const float cardX = cardBaseX(w, cw);
   const float cardY = cardBaseYForPosition(m_lastPosition, h, ch);
   const float backgroundOpacity = osdBackgroundOpacity(m_config);
-  const bool drawBorder = m_config == nullptr || m_config->config().osd.border;
-  const float border = drawBorder ? Style::borderWidth * s : 0.0F;
+  const ColorSpec borderColor = osdBorderColor(m_config);
+  const float border = osdBorderWidth(m_config, s);
 
   inst.sceneRoot->addChild(
       ui::box({
           .out = &inst.background,
           .width = cw,
           .height = ch,
-          .configure = [cardX, cardY, cw, ch, s, border, backgroundOpacity](Box& box) {
-            box.setCardStyle();
+          .configure = [cardX, cardY, cw, ch, s, border, borderColor, backgroundOpacity](Box& box) {
             box.setFill(colorSpecFromRole(ColorRole::Surface, backgroundOpacity));
-            box.setBorder(colorSpecFromRole(ColorRole::Outline), border);
+            box.setBorder(borderColor, border);
             box.setRadius(osdCardRadius(cw, ch, s));
             box.setPosition(cardX, cardY);
             box.setZIndex(0);
@@ -723,6 +735,7 @@ void OsdOverlay::updateInstanceContent(Instance& inst) {
   const float cw = cardWidth(s, m_lastOrientation);
   const float ch = cardHeight(s, m_lastOrientation, m_lastShowProgress);
   inst.background->setFill(colorSpecFromRole(ColorRole::Surface, osdBackgroundOpacity(m_config)));
+  inst.background->setBorder(osdBorderColor(m_config), osdBorderWidth(m_config, s));
 
   const ColorRole accentRole = m_content.overLimit ? ColorRole::Error
       : m_content.inactive                         ? ColorRole::OnSurfaceVariant
@@ -867,8 +880,10 @@ void OsdOverlay::animateInstance(Instance& inst) {
     applyReveal(inst, 1.0F);
   }
 
+  const float hideDelayMs =
+      static_cast<float>(m_config != nullptr ? m_config->config().osd.hideDelayMs : OsdConfig{}.hideDelayMs);
   inst.hideAnimId = inst.animations.animateTimer(
-      1.0F, 0.0F, kHideDelayMs, Easing::Linear, [](float /*v*/) {},
+      1.0F, 0.0F, hideDelayMs, Easing::Linear, [](float /*v*/) {},
       [this, &inst]() {
         inst.hideAnimId = inst.animations.animate(
             1.0F, 0.0F, Style::animNormal, Easing::EaseInQuad, [this, &inst](float v) { applyReveal(inst, v); },

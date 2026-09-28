@@ -345,6 +345,24 @@ public:
     static_cast<WallpaperTile&>(tile).setStarHovered(hovered);
   }
 
+  [[nodiscard]] std::string overlayTooltip(std::size_t index) const override {
+    if (m_config == nullptr || m_entries == nullptr || index >= m_entries->size() || (*m_entries)[index].isDir) {
+      return {};
+    }
+    return i18n::tr(
+        m_config->isWallpaperFavorite((*m_entries)[index].absPath.string()) ? "wallpaper.panel.favorite-remove"
+                                                                            : "wallpaper.panel.favorite-add"
+    );
+  }
+
+  [[nodiscard]] std::optional<TooltipAnchorInsets>
+  itemTooltipAnchorInsets(std::size_t index, float cellWidth, float cellHeight) const override {
+    if (m_entries == nullptr || index >= m_entries->size() || (*m_entries)[index].isDir) {
+      return std::nullopt;
+    }
+    return WallpaperTile::starTooltipAnchorInsets(cellWidth, cellHeight, m_scale);
+  }
+
   void onActivate(std::size_t index) override {
     if (!m_onActivate || m_entries == nullptr || index >= m_entries->size()) {
       return;
@@ -1267,7 +1285,9 @@ void WallpaperPanel::applyThemeFromControls() {
 
   if (!path.empty() && m_config->isWallpaperFavorite(path)) {
     // Edit the selected wallpaper's favorite preset and apply it live (also re-asserts the wallpaper).
-    m_config->setWallpaperFavoriteThemeMode(path, theme.themeMode);
+    if (theme.themeMode.has_value()) {
+      m_config->setWallpaperFavoriteThemeMode(path, *theme.themeMode);
+    }
     m_config->setWallpaperFavoritePaletteSource(path, theme.paletteSource);
     m_config->setWallpaperFavoritePaletteSelection(path, paletteSelectionValue(theme));
     applyWallpaperPath(path, &theme);
@@ -1275,7 +1295,9 @@ void WallpaperPanel::applyThemeFromControls() {
   }
 
   // No favorite target, so behave like the Settings window and change the global theme only.
-  m_config->setThemeMode(theme.themeMode);
+  if (theme.themeMode.has_value()) {
+    m_config->setThemeMode(*theme.themeMode);
+  }
   if (theme.paletteSource.has_value()) {
     (void)m_config->setThemeColorScheme(*theme.paletteSource, paletteSelectionValue(theme));
   }
@@ -1290,7 +1312,10 @@ void WallpaperPanel::syncThemeControls() {
 
   m_syncingFavoriteControls = true;
 
-  m_favoriteThemeSegmented->setSelectedIndex(themeModeSegmentIndex(themeSettings.themeMode));
+  // A favorite without a stored mode keeps the global mode, so show that.
+  m_favoriteThemeSegmented->setSelectedIndex(
+      themeModeSegmentIndex(themeSettings.themeMode.value_or(m_config->config().theme.mode))
+  );
 
   if (m_favoritePaletteSourceSegmented != nullptr) {
     const std::size_t sourceIndex =

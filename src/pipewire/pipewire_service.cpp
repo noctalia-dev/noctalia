@@ -5,14 +5,17 @@
 #include "ipc/ipc_arg_parse.h"
 #include "ipc/ipc_service.h"
 #include "pipewire/audio_route_selection.h"
+#include "pipewire/pipewire_error.h"
 #include "pipewire/wireplumber_mixer.h"
 #include "util/string_utils.h"
 
 #include <algorithm>
 #include <array>
 #include <cctype>
+#include <cerrno>
 #include <charconv>
 #include <chrono>
+#include <climits>
 #include <cmath>
 #include <concepts>
 #include <cstring>
@@ -51,6 +54,8 @@ namespace {
   constexpr auto kVolumeWriteGuardDuration = std::chrono::milliseconds(400);
   constexpr auto kVolumeWriteGuardEpsilon = 0.02F;
   constexpr auto kInitialSyncTimeout = std::chrono::seconds(1);
+  constexpr auto kReconnectInitialDelay = std::chrono::milliseconds(250);
+  constexpr auto kReconnectMaxDelay = std::chrono::seconds(5);
 
   [[nodiscard]] bool pipeWireVersionSupportsPassiveFollow(std::string_view version) {
     const auto majorEnd = version.find('.');
@@ -85,11 +90,16 @@ namespace {
     auto* svc = static_cast<PipeWireService*>(data);
     svc->onCoreDone(id, sequence);
   }
+  void onCoreError(void* data, std::uint32_t id, int sequence, int result, const char* message) {
+    auto* svc = static_cast<PipeWireService*>(data);
+    svc->onCoreError(id, sequence, result, message);
+  }
 
   const pw_core_events kCoreEvents = {
       .version = PW_VERSION_CORE_EVENTS,
       .info = onCoreInfo,
       .done = onCoreDone,
+      .error = onCoreError,
   };
 
   // Registry events.
@@ -778,11 +788,42 @@ PipeWireService::PipeWireService() {
     throw std::runtime_error("pipewire: failed to create context");
   }
 
+  pw_loop_enter(m_loop);
+  if (!connectRemote(true)) {
+    kLog.warn("PipeWire daemon unavailable at startup; retrying in the background");
+    scheduleReconnect();
+  }
+}
+
+PipeWireService::~PipeWireService() {
+  disconnectRemote(false);
+  if (m_context != nullptr) {
+    pw_context_destroy(m_context);
+  }
+  if (m_loop != nullptr) {
+    pw_loop_leave(m_loop);
+    pw_loop_destroy(m_loop);
+  }
+
+  pw_deinit();
+}
+
+bool PipeWireService::connectRemote(bool waitForSync) {
+  if (m_core != nullptr || m_context == nullptr || m_loop == nullptr) {
+    return m_core != nullptr;
+  }
+
+  m_connectionLossPending = false;
+  m_serverVersion.clear();
+  m_serverSupportsPassiveFollow = false;
+  m_initialSyncSequence = -1;
+  m_initialSyncPending = false;
+  m_reconnecting = m_hasConnected;
+  m_connectionAnnouncementPending = true;
+
   m_core = pw_context_connect(m_context, nullptr, 0);
   if (m_core == nullptr) {
-    pw_context_destroy(m_context);
-    pw_loop_destroy(m_loop);
-    throw std::runtime_error("pipewire: failed to connect to daemon");
+    return false;
   }
 
   m_coreListener = new spa_hook{};
@@ -791,51 +832,65 @@ PipeWireService::PipeWireService() {
 
   m_registry = pw_core_get_registry(m_core, PW_VERSION_REGISTRY, 0);
   if (m_registry == nullptr) {
-    spa_hook_remove(m_coreListener);
-    delete m_coreListener;
-    pw_core_disconnect(m_core);
-    pw_context_destroy(m_context);
-    pw_loop_destroy(m_loop);
-    throw std::runtime_error("pipewire: failed to get registry");
+    disconnectRemote(false);
+    return false;
   }
 
   m_registryListener = new spa_hook{};
   spa_zero(*m_registryListener);
   pw_registry_add_listener(m_registry, m_registryListener, &kRegistryEvents, this);
 
-  pw_loop_enter(m_loop);
-
-  // Complete the initial roundtrip before consumers inspect daemon capabilities or discovered objects.
-  auto* loop = m_loop;
   m_initialSyncSequence = pw_core_sync(m_core, PW_ID_CORE, 0);
   m_initialSyncPending = m_initialSyncSequence >= 0;
-  const auto syncDeadline = std::chrono::steady_clock::now() + kInitialSyncTimeout;
-  while (m_initialSyncPending) {
-    const auto remaining =
-        std::chrono::duration_cast<std::chrono::milliseconds>(syncDeadline - std::chrono::steady_clock::now());
-    if (remaining <= std::chrono::milliseconds::zero()) {
-      break;
-    }
-    const int result = pw_loop_iterate(loop, static_cast<int>(remaining.count()));
-    if (result < 0) {
-      kLog.warn("initial daemon sync failed: {}", spa_strerror(result));
-      break;
-    }
-  }
-  if (m_initialSyncPending) {
-    kLog.warn(
-        "initial daemon sync did not complete within {}ms",
-        std::chrono::duration_cast<std::chrono::milliseconds>(kInitialSyncTimeout).count()
-    );
-  }
-  if (m_serverVersion.empty()) {
-    kLog.warn("daemon version unavailable; using node.passive=true for the spectrum stream");
-  } else {
-    kLog.info("connected to daemon {} (client library {})", m_serverVersion, pw_get_library_version());
+  if (m_initialSyncSequence < 0) {
+    m_connectionLossPending = true;
   }
 
-  enumDefaultAudioDeviceParams();
-  while (pw_loop_iterate(loop, 0) > 0) {
+  if (waitForSync && m_initialSyncPending) {
+    const auto syncDeadline = std::chrono::steady_clock::now() + kInitialSyncTimeout;
+    while (m_initialSyncPending && !m_connectionLossPending) {
+      const auto remaining =
+          std::chrono::duration_cast<std::chrono::milliseconds>(syncDeadline - std::chrono::steady_clock::now());
+      if (remaining <= std::chrono::milliseconds::zero()) {
+        break;
+      }
+      const int result = pw_loop_iterate(m_loop, static_cast<int>(remaining.count()));
+      if (result == -EINTR) {
+        continue;
+      }
+      if (result < 0) {
+        kLog.warn("initial daemon sync failed: {}", spa_strerror(result));
+        m_connectionLossPending = true;
+        break;
+      }
+    }
+    if (m_initialSyncPending && !m_connectionLossPending) {
+      kLog.warn(
+          "initial daemon sync did not complete within {}ms",
+          std::chrono::duration_cast<std::chrono::milliseconds>(kInitialSyncTimeout).count()
+      );
+    }
+  }
+
+  if (m_connectionLossPending) {
+    disconnectRemote(true);
+    return false;
+  }
+
+  m_reconnectAt = {};
+  m_reconnectDelay = kReconnectInitialDelay;
+
+  if (!m_initialSyncPending) {
+    enumDefaultAudioDeviceParams();
+    announceConnection();
+  } else if (waitForSync) {
+    announceConnection();
+  }
+  while (pw_loop_iterate(m_loop, 0) > 0) {
+  }
+  if (m_connectionLossPending) {
+    disconnectRemote(true);
+    return false;
   }
   rebuildState();
 
@@ -843,11 +898,17 @@ PipeWireService::PipeWireService() {
   if (sink != nullptr) {
     kLog.info("default sink \"{}\" vol={:.0F}%", sink->description, sink->volume * 100.0F);
   }
+  return true;
 }
 
-PipeWireService::~PipeWireService() {
-  // Destroy node proxies and their listeners
+void PipeWireService::disconnectRemote(bool notifyState) {
+  m_pendingDefaultAudioDevicePropsEnum = false;
+  m_initialSyncSequence = -1;
+  m_initialSyncPending = false;
+
+  // Destroy node proxies and their listeners.
   for (auto& [id, nd] : m_nodes) {
+    (void)id;
     if (nd->listener != nullptr) {
       spa_hook_remove(nd->listener);
       delete nd->listener;
@@ -859,6 +920,7 @@ PipeWireService::~PipeWireService() {
   m_nodes.clear();
 
   for (auto& [id, client] : m_clients) {
+    (void)id;
     if (client.listener != nullptr) {
       spa_hook_remove(client.listener);
       delete client.listener;
@@ -870,6 +932,7 @@ PipeWireService::~PipeWireService() {
   m_clients.clear();
 
   for (auto& [id, device] : m_devices) {
+    (void)id;
     if (device.listener != nullptr) {
       spa_hook_remove(device.listener);
       delete device.listener;
@@ -879,37 +942,48 @@ PipeWireService::~PipeWireService() {
     }
   }
   m_devices.clear();
+  m_links.clear();
+  m_metadataTargetObjects.clear();
 
   for (auto& cleanup : m_metadataCleanups) {
     cleanup();
   }
   m_metadataCleanups.clear();
+  m_defaultMetadata = nullptr;
+  m_defaultSinkName.clear();
+  m_defaultSourceName.clear();
 
-  if (m_coreListener != nullptr) {
-    spa_hook_remove(m_coreListener);
-    delete m_coreListener;
+  if (notifyState) {
+    rebuildState();
+  } else {
+    m_state = {};
+    m_privacyState = {};
   }
 
   if (m_registryListener != nullptr) {
     spa_hook_remove(m_registryListener);
     delete m_registryListener;
+    m_registryListener = nullptr;
   }
 
   if (m_registry != nullptr) {
     pw_proxy_destroy(reinterpret_cast<pw_proxy*>(m_registry));
+    m_registry = nullptr;
+  }
+  if (m_coreListener != nullptr) {
+    spa_hook_remove(m_coreListener);
+    delete m_coreListener;
+    m_coreListener = nullptr;
   }
   if (m_core != nullptr) {
     pw_core_disconnect(m_core);
-  }
-  if (m_context != nullptr) {
-    pw_context_destroy(m_context);
-  }
-  if (m_loop != nullptr) {
-    pw_loop_leave(m_loop);
-    pw_loop_destroy(m_loop);
+    m_core = nullptr;
   }
 
-  pw_deinit();
+  m_serverVersion.clear();
+  m_serverSupportsPassiveFollow = false;
+  m_connectionLossPending = false;
+  m_connectionAnnouncementPending = false;
 }
 
 void PipeWireService::onCoreInfo(const pw_core_info* info) {
@@ -924,31 +998,118 @@ void PipeWireService::onCoreInfo(const pw_core_info* info) {
 void PipeWireService::onCoreDone(std::uint32_t id, int sequence) {
   if (id == PW_ID_CORE && sequence == m_initialSyncSequence) {
     m_initialSyncPending = false;
+    enumDefaultAudioDeviceParams();
+    announceConnection();
   }
 }
 
+void PipeWireService::announceConnection() {
+  if (!m_connectionAnnouncementPending) {
+    return;
+  }
+  m_connectionAnnouncementPending = false;
+  m_hasConnected = true;
+
+  if (m_serverVersion.empty()) {
+    kLog.warn("daemon version unavailable; using node.passive=true for the spectrum stream");
+  } else if (m_reconnecting) {
+    kLog.info("reconnected to daemon {}", m_serverVersion);
+  } else {
+    kLog.info("connected to daemon {} (client library {})", m_serverVersion, pw_get_library_version());
+  }
+}
+
+void PipeWireService::onCoreError(std::uint32_t id, int sequence, int result, const char* message) {
+  const char* const detail = message != nullptr ? message : "unknown";
+  switch (noctalia::pipewire::classifyError(id, result)) {
+  case noctalia::pipewire::ErrorDisposition::Reconnect:
+    kLog.warn("core connection error seq={} result={} ({}): {}", sequence, result, spa_strerror(result), detail);
+    m_connectionLossPending = true;
+    return;
+  case noctalia::pipewire::ErrorDisposition::StaleObject:
+    kLog.debug("request target {} seq={} no longer available: {}", id, sequence, detail);
+    return;
+  case noctalia::pipewire::ErrorDisposition::Report:
+    break;
+  }
+
+  kLog.warn("PipeWire error id={} seq={} result={} ({}): {}", id, sequence, result, spa_strerror(result), detail);
+}
+
 int PipeWireService::fd() const noexcept {
-  if (m_loop == nullptr) {
+  if (m_loop == nullptr || m_core == nullptr) {
     return -1;
   }
   auto* loop = m_loop;
   return pw_loop_get_fd(loop);
 }
 
+int PipeWireService::pollTimeoutMs() const noexcept {
+  if (m_core != nullptr || m_reconnectAt.time_since_epoch().count() == 0) {
+    return -1;
+  }
+
+  const auto remaining = std::chrono::ceil<std::chrono::milliseconds>(m_reconnectAt - std::chrono::steady_clock::now());
+  if (remaining <= std::chrono::milliseconds::zero()) {
+    return 0;
+  }
+  return static_cast<int>(std::min(remaining, std::chrono::milliseconds{INT_MAX}).count());
+}
+
 void PipeWireService::dispatch() {
   if (m_loop == nullptr) {
     return;
   }
-  auto* loop = m_loop;
-  // Process all pending events without blocking
-  while (pw_loop_iterate(loop, 0) > 0) {
+
+  if (m_core == nullptr) {
+    if (m_reconnectAt.time_since_epoch().count() != 0 && std::chrono::steady_clock::now() >= m_reconnectAt) {
+      if (!connectRemote(false)) {
+        scheduleReconnect();
+      }
+    }
+    return;
   }
+
+  int result = 0;
+  do {
+    result = pw_loop_iterate(m_loop, 0);
+  } while (result > 0 && !m_connectionLossPending);
+  if (result < 0 && result != -EINTR) {
+    kLog.warn("PipeWire dispatch failed: {}", spa_strerror(result));
+    m_connectionLossPending = true;
+  }
+  if (m_connectionLossPending) {
+    handleConnectionLoss();
+    return;
+  }
+
   if (m_pendingDefaultAudioDevicePropsEnum) {
     m_pendingDefaultAudioDevicePropsEnum = false;
     enumDefaultAudioDeviceParams();
-    while (pw_loop_iterate(loop, 0) > 0) {
+    do {
+      result = pw_loop_iterate(m_loop, 0);
+    } while (result > 0 && !m_connectionLossPending);
+    if (result < 0 && result != -EINTR) {
+      kLog.warn("PipeWire parameter dispatch failed: {}", spa_strerror(result));
+      m_connectionLossPending = true;
+    }
+    if (m_connectionLossPending) {
+      handleConnectionLoss();
     }
   }
+}
+
+void PipeWireService::scheduleReconnect() {
+  m_reconnectAt = std::chrono::steady_clock::now() + m_reconnectDelay;
+  kLog.info("retrying PipeWire connection in {}ms", m_reconnectDelay.count());
+  m_reconnectDelay =
+      std::min(m_reconnectDelay * 2, std::chrono::duration_cast<std::chrono::milliseconds>(kReconnectMaxDelay));
+}
+
+void PipeWireService::handleConnectionLoss() {
+  kLog.warn("PipeWire connection lost; audio devices will be unavailable until reconnection");
+  disconnectRemote(true);
+  scheduleReconnect();
 }
 
 void PipeWireService::enumDefaultAudioDeviceParams() {
@@ -960,8 +1121,12 @@ void PipeWireService::enumDefaultAudioDeviceParams() {
     if (nd->mediaClass != "Audio/Sink" && nd->mediaClass != "Audio/Source") {
       continue;
     }
-    pw_node_enum_params(nd->proxy, 0, SPA_PARAM_Props, 0, UINT32_MAX, nullptr);
-    pw_node_enum_params(nd->proxy, 0, SPA_PARAM_Route, 0, UINT32_MAX, nullptr);
+    if (nd->hasReadablePropsParam) {
+      pw_node_enum_params(nd->proxy, 0, SPA_PARAM_Props, 0, UINT32_MAX, nullptr);
+    }
+    if (nd->hasReadableRouteParam) {
+      pw_node_enum_params(nd->proxy, 0, SPA_PARAM_Route, 0, UINT32_MAX, nullptr);
+    }
   }
 }
 
@@ -1030,7 +1195,6 @@ void PipeWireService::onRegistryGlobal(std::uint32_t id, const char* type, std::
         pw_device_add_listener(proxy, stored.listener, &kDeviceEvents, &stored);
         std::uint32_t params[] = {SPA_PARAM_Route};
         pw_device_subscribe_params(proxy, params, 1);
-        pw_device_enum_params(proxy, 0, SPA_PARAM_Route, 0, UINT32_MAX, nullptr);
       }
     }
     return;
@@ -1124,9 +1288,6 @@ void PipeWireService::onRegistryGlobal(std::uint32_t id, const char* type, std::
       // Subscribe to Props param changes
       std::uint32_t params[] = {SPA_PARAM_Props, SPA_PARAM_Route};
       pw_node_subscribe_params(proxy, params, 2);
-      // Fetch current props so initial UI state does not sit at 100%.
-      pw_node_enum_params(proxy, 0, SPA_PARAM_Props, 0, UINT32_MAX, nullptr);
-      pw_node_enum_params(proxy, 0, SPA_PARAM_Route, 0, UINT32_MAX, nullptr);
     }
 
     m_nodes[id] = std::move(nd);
@@ -1341,10 +1502,15 @@ void PipeWireService::onNodeInfo(std::uint32_t id, const pw_node_info* info) {
 
   // Request Props param enumeration if changes flagged
   if ((info->change_mask & PW_NODE_CHANGE_MASK_PARAMS) != 0) {
+    nd.hasReadablePropsParam = false;
+    nd.hasReadableRouteParam = false;
     for (std::uint32_t i = 0; i < info->n_params; ++i) {
-      if (info->params[i].id == SPA_PARAM_Props) {
+      const bool readable = (info->params[i].flags & SPA_PARAM_INFO_READ) != 0;
+      if (info->params[i].id == SPA_PARAM_Props && readable) {
+        nd.hasReadablePropsParam = true;
         pw_node_enum_params(it->second->proxy, 0, SPA_PARAM_Props, 0, UINT32_MAX, nullptr);
-      } else if (info->params[i].id == SPA_PARAM_Route) {
+      } else if (info->params[i].id == SPA_PARAM_Route && readable) {
+        nd.hasReadableRouteParam = true;
         pw_node_enum_params(it->second->proxy, 0, SPA_PARAM_Route, 0, UINT32_MAX, nullptr);
       }
     }
@@ -1492,7 +1658,7 @@ void PipeWireService::onDeviceInfo(std::uint32_t id, const pw_device_info* info)
 
   if ((info->change_mask & PW_DEVICE_CHANGE_MASK_PARAMS) != 0) {
     for (std::uint32_t i = 0; i < info->n_params; ++i) {
-      if (info->params[i].id == SPA_PARAM_Route) {
+      if (info->params[i].id == SPA_PARAM_Route && (info->params[i].flags & SPA_PARAM_INFO_READ) != 0) {
         pw_device_enum_params(it->second.proxy, 0, SPA_PARAM_Route, 0, UINT32_MAX, nullptr);
       }
     }

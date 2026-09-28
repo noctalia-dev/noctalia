@@ -91,6 +91,16 @@ namespace {
     return entry;
   }
 
+  DesktopEntry issueEntry(std::string_view id, std::string_view name, std::string_view icon) {
+    DesktopEntry entry;
+    entry.id = std::string(id);
+    entry.idLower = StringUtils::toLower(entry.id);
+    entry.name = std::string(name);
+    entry.nameLower = StringUtils::toLower(entry.name);
+    entry.icon = std::string(icon);
+    return entry;
+  }
+
   void testAppImageOriginDetection() {
     namespace fs = std::filesystem;
 
@@ -154,6 +164,14 @@ namespace {
       std::ofstream entry(inaccessibleApplications / "inaccessible.desktop");
       entry << "[Desktop Entry]\nType=Application\nName=Inaccessible App\nExec=inaccessible-app\n";
     }
+    {
+      std::ofstream entry(applications / "userapp-Firefox-ABCD.desktop");
+      entry << "[Desktop Entry]\nType=Application\nName=Firefox\nNoDisplay=true\nExec=firefox\n";
+    }
+    {
+      std::ofstream entry(systemApplications / "firefox.desktop");
+      entry << "[Desktop Entry]\nType=Application\nName=Firefox\nExec=firefox\nIcon=firefox\n";
+    }
     chmod(inaccessibleApplications.c_str(), 0000);
 
     const char* oldDataHome = std::getenv("XDG_DATA_HOME");
@@ -182,6 +200,12 @@ namespace {
     TEST_CHECK(findOrigin("native") == DesktopEntryOrigin::System);
     TEST_CHECK(findOrigin("path") == DesktopEntryOrigin::AppImage);
     TEST_CHECK(findOrigin("shadowed-native") == DesktopEntryOrigin::System);
+    TEST_CHECK(std::ranges::none_of(entries, [](const DesktopEntry& entry) {
+      return entry.id == "userapp-Firefox-ABCD";
+    }));
+    const DesktopEntry firefox = app_identity::resolveRunningDesktopEntry("firefox", entries);
+    TEST_CHECK(firefox.id == "firefox");
+    TEST_CHECK(firefox.icon == "firefox");
 
     chmod(inaccessibleApplications.c_str(), 0700);
     fs::current_path(savedWorkingDirectory);
@@ -280,6 +304,42 @@ int main() {
   };
   const DesktopEntry ambiguousResolved = app_identity::resolveRunningDesktopEntry("org.kde.easyeffects", ambiguousTail);
   TEST_CHECK(ambiguousResolved.id == "org.kde.easyeffects");
+
+  const DesktopEntry iconlessFirefox = issueEntry("userapp-Firefox-ABCD", "Firefox", "");
+  const DesktopEntry canonicalFirefox = issueEntry("firefox", "Firefox", "firefox");
+  const DesktopEntry rankedFirefox = app_identity::resolveRunningDesktopEntry(
+      "firefox", std::array<DesktopEntry, 2>{iconlessFirefox, canonicalFirefox}
+  );
+  TEST_CHECK(rankedFirefox.id == "firefox");
+  TEST_CHECK(rankedFirefox.icon == "firefox");
+
+  const DesktopEntry threema = issueEntry("ch.threema.threema-desktop", "Threema Beta", "ch.threema.threema-desktop");
+  const DesktopEntry eduVpn = issueEntry("nl.eduvpn.org.eduvpn", "eduVPN", "nl.eduvpn.org.eduvpn");
+  const auto issueApps = app_identity::resolveRunningApps(
+      std::array<std::string, 2>{"Threema", ".eduvpn-gui-wrapped"}, std::array<DesktopEntry, 2>{threema, eduVpn}
+  );
+  TEST_CHECK(issueApps.size() == 2);
+  TEST_CHECK(issueApps[0].entry.id == "ch.threema.threema-desktop");
+  TEST_CHECK(issueApps[0].entry.icon == "ch.threema.threema-desktop");
+  TEST_CHECK(issueApps[1].entry.id == "nl.eduvpn.org.eduvpn");
+  TEST_CHECK(issueApps[1].entry.icon == "nl.eduvpn.org.eduvpn");
+
+  const auto ambiguousWrapper = std::array<DesktopEntry, 2>{
+      issueEntry("org.alpha.eduvpn", "Alpha VPN", "alpha-eduvpn"),
+      issueEntry("org.beta.eduvpn", "Beta VPN", "beta-eduvpn"),
+  };
+  const DesktopEntry unresolvedWrapper =
+      app_identity::resolveRunningDesktopEntry(".eduvpn-gui-wrapped", ambiguousWrapper);
+  TEST_CHECK(unresolvedWrapper.id == ".eduvpn-gui-wrapped");
+  TEST_CHECK(unresolvedWrapper.icon.empty());
+
+  DesktopEntry steam = issueEntry("steam", "Steam", "steam");
+  DesktopEntry steamGame = issueEntry("terraria", "Terraria", "terraria");
+  steamGame.exec = "steam steam://rungameid/105600";
+  const DesktopEntry resolvedSteamGame =
+      app_identity::resolveRunningDesktopEntry("steam_app_105600", std::array<DesktopEntry, 2>{steam, steamGame});
+  TEST_CHECK(resolvedSteamGame.id == "terraria");
+  TEST_CHECK(resolvedSteamGame.startupWmClass == "steam_app_105600");
 
   testAppImageOriginDetection();
 

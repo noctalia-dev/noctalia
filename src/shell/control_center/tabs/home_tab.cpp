@@ -15,7 +15,7 @@
 #include "render/animation/animation_manager.h"
 #include "render/core/async_texture_cache.h"
 #include "render/scene/input_area.h"
-#include "scripting/plugin_registry.h"
+#include "scripting/plugin_id.h"
 #include "shell/control_center/shortcut_registry.h"
 #include "shell/panel/panel_button_style.h"
 #include "shell/panel/panel_manager.h"
@@ -491,7 +491,7 @@ std::unique_ptr<Flex> HomeTab::create() {
               .color = colorSpecFromRole(ColorRole::OnSurface),
           }),
           ui::row(
-              {.align = FlexAlign::Center, .gap = Style::spaceXs * scale},
+              {.out = &m_weatherRow, .align = FlexAlign::Center, .gap = Style::spaceXs * scale},
               ui::glyph({
                   .out = &m_weatherGlyph,
                   .glyph = "weather-cloud-sun",
@@ -508,8 +508,10 @@ std::unique_ptr<Flex> HomeTab::create() {
       )
   );
 
-  // Clicking anywhere on the clock/weather card opens the weather tab.
-  m_dateTimeCardArea = addCardOverlay(*m_dateTimeCard, []() { openControlCenterTab("weather"); });
+  // Opens Weather when weather is enabled, otherwise Calendar.
+  m_dateTimeCardArea = addCardOverlay(*m_dateTimeCard, [this]() {
+    openControlCenterTab(m_weather != nullptr && m_weather->enabled() ? "weather" : "calendar");
+  });
 
   leftColumn->addChild(std::move(mediaCard));
   leftColumn->addChild(std::move(dateTimeCard));
@@ -555,7 +557,8 @@ std::unique_ptr<Flex> HomeTab::create() {
 
   // A plugin shortcut seeds its Luau runtime once, at construction. Plugin settings changed
   // since the last build means every reusable plugin instance is stale, so drop it and let
-  // ShortcutRegistry::create() re-seed from the current config.
+  // ShortcutRegistry::create() re-seed from the current config. Match on the id syntax, not
+  // the registry: a disabled plugin has already left the registry and must not be reused.
   const bool pluginsChanged = m_config != nullptr && !(m_config->config().plugins == m_lastPlugins);
   if (m_config != nullptr) {
     m_lastPlugins = m_config->config().plugins;
@@ -564,9 +567,7 @@ std::unique_ptr<Flex> HomeTab::create() {
   for (std::size_t i = 0; i < count; ++i) {
     const auto& sc = shortcuts[i];
     auto shortcut = takeReusable(sc.type);
-    if (shortcut != nullptr
-        && pluginsChanged
-        && scripting::isPluginEntryOfKind(sc.type, scripting::PluginEntryKind::Shortcut)) {
+    if (shortcut != nullptr && pluginsChanged && scripting::isValidPluginEntryId(sc.type)) {
       shortcut.reset();
     }
     const bool reused = shortcut != nullptr;
@@ -1304,6 +1305,7 @@ void HomeTab::onClose() {
   m_userAvatar = nullptr;
   m_timeLabel = nullptr;
   m_dateLabel = nullptr;
+  m_weatherRow = nullptr;
   m_weatherGlyph = nullptr;
   m_weatherLine = nullptr;
   m_userHost = nullptr;
@@ -1444,12 +1446,13 @@ void HomeTab::sync(Renderer& renderer) {
     m_userVersion->setText(noctaliaVersionLine());
   }
 
-  if (m_weatherGlyph != nullptr && m_weatherLine != nullptr) {
-    if (m_weather == nullptr || !m_weather->enabled()) {
-      m_weatherGlyph->setGlyph("weather-cloud-off");
-      m_weatherGlyph->setColor(colorSpecFromRole(ColorRole::OnSurfaceVariant));
-      m_weatherLine->setText(i18n::tr("control-center.home.weather.disabled"));
-    } else if (!m_weather->locationConfigured()) {
+  const bool weatherEnabled = m_weather != nullptr && m_weather->enabled();
+  if (m_weatherRow != nullptr) {
+    m_weatherRow->setVisible(weatherEnabled);
+    m_weatherRow->setParticipatesInLayout(weatherEnabled);
+  }
+  if (weatherEnabled && m_weatherGlyph != nullptr && m_weatherLine != nullptr) {
+    if (!m_weather->locationConfigured()) {
       m_weatherGlyph->setGlyph("weather-cloud");
       m_weatherGlyph->setColor(colorSpecFromRole(ColorRole::OnSurfaceVariant));
       m_weatherLine->setText(i18n::tr("control-center.weather.no-location-title"));

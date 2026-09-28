@@ -716,6 +716,9 @@ namespace settings {
     auto [pageIt, fresh] = ctx.expandedGroupsByPage.try_emplace("plugins");
     if (fresh) {
       pageIt->second.insert("plugins");
+      if (ctx.expandAllGroups) {
+        pageIt->second.insert("sources");
+      }
     }
     auto& expandedGroups = pageIt->second;
 

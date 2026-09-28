@@ -258,7 +258,6 @@
       "uptime": "Betriebszeit – {uptime}",
       "weather": {
         "data-unavailable": "Wetterdaten nicht verfügbar.",
-        "disabled": "Wetter ist in der Konfiguration deaktiviert.",
         "fetching": "Vorhersage wird abgerufen…"
       }
     },
@@ -907,7 +906,7 @@
       "inherited": "Geerbt",
       "monitor": "Monitor",
       "official": "Offiziell",
-      "override": "Überschrieben"
+      "override": "Überschreiben"
     },
     "calendar-accounts": {
       "add-title": "Kalenderkonto hinzufügen",
@@ -1197,7 +1196,6 @@
         "borders": "Rahmen",
         "brightness": "Helligkeit",
         "built-in": "Integriert",
-        "calendar": "Kalender",
         "capsules": "Kapseln",
         "clipboard": "Zwischenablage",
         "community": "Community",
@@ -3947,7 +3945,7 @@
     "window": {
       "export-config": "Konfiguration exportieren…",
       "export-config-saved": "Konfigurationsexport gespeichert.",
-      "filter-overridden": "Überschrieben",
+      "filter-overridden": "Überschreiben",
       "legacy-config-warning": "Veraltete Einstellung: {issue}. Bearbeite diesen Quelleintrag; Noctalia wendet den Ersatz nur vorübergehend an. Führe noctalia config validate aus, um alle erforderlichen Änderungen aufzulisten.",
       "native-title": "Noctalia-Einstellungen",
       "no-results": "Keine Einstellungen gefunden",
@@ -3961,7 +3959,6 @@
         "plugin-store": "Fernzugriff auf den Plugin-Katalog und Download-Anfragen werden nicht funktionieren.",
         "plugins": "Plugin-HTTP-Anfragen werden nicht funktionieren; Git-Quellen können weiterhin aktualisiert werden.",
         "security": "Externe IP-Abfrage und Telemetrie werden nicht funktionieren.",
-        "services": "Kalenderkonten-Synchronisierung wird nicht funktionieren.",
         "template-store": "Community-Template-Downloads werden nicht funktionieren.",
         "templates": "Community-Template-Downloads und -Aktualisierungen werden nicht funktionieren.",
         "title": "Offline-Modus"

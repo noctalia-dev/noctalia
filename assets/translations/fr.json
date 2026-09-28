@@ -282,7 +282,6 @@
       "uptime": "Allumé depuis : {uptime}",
       "weather": {
         "data-unavailable": "Données météo indisponibles.",
-        "disabled": "La météo est désactivée dans la configuration.",
         "fetching": "Récupération des prévisions..."
       }
     },
@@ -1197,7 +1196,6 @@
         "borders": "Bordures",
         "brightness": "Luminosité",
         "built-in": "Intégré",
-        "calendar": "Calendrier",
         "capsules": "Capsules",
         "clipboard": "Presse-papiers",
         "community": "Communauté",

@@ -17,6 +17,8 @@ namespace screencopy {
 
   [[nodiscard]] bool orientCaptureNative(ScreencopyImage& image, const WaylandConnection& wayland, wl_output* output);
 
+  void orientCaptureForTransform(ScreencopyImage& image, std::int32_t transform);
+
   void transformCapture(ScreencopyImage& image, std::int32_t transform);
 
 } // namespace screencopy

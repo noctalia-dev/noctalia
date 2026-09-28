@@ -90,6 +90,8 @@ struct UPowerChargeLimitState {
 };
 
 [[nodiscard]] std::string batteryStateLabel(BatteryState state);
+// Whether the battery state implies external power; empty when the state does not say (Unknown, Empty).
+[[nodiscard]] std::optional<bool> batteryStatePlugged(BatteryState state);
 
 // Level-aware battery icon (battery-0..4 / charging / plugged), shared by the bar widget and Power tab.
 [[nodiscard]] const char* batteryGlyphName(double percentage, BatteryState state);

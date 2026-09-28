@@ -53,4 +53,5 @@ private:
   OpenLauncherCallback m_openLauncher;
   std::vector<std::unique_ptr<Instance>> m_instances;
   bool m_enabled = false;
+  bool m_launcherOpenedFromOverview = false;
 };

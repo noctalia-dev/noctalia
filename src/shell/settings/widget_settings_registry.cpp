@@ -47,6 +47,7 @@
 #include <array>
 #include <cctype>
 #include <cmath>
+#include <cstring>
 #include <format>
 #include <iterator>
 #include <stdexcept>
@@ -625,10 +626,11 @@ namespace settings {
     }
 
     std::ranges::sort(entries, [](const auto& a, const auto& b) {
-      if (a.label == b.label) {
+      const int result = std::strcoll(a.label.c_str(), b.label.c_str());
+      if (result == 0) {
         return a.value < b.value;
       }
-      return a.label < b.label;
+      return result < 0;
     });
     return entries;
   }

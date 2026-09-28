@@ -13,6 +13,8 @@ namespace noctalia::config::schema {
   inline constexpr Range<float> kUnitRange{0.0F, 1.0F, 0.01F};          // opacities, intensities, 0..1 factors
   inline constexpr Range<float> kScaleRange{0.5F, 2.5F, 0.05F};         // ui_scale, notification/osd scale
   inline constexpr Range<std::int64_t> kRefreshMinutesRange{5, 240, 5}; // calendar/weather refresh interval
+  // Calendar reminder lead time; 0 = notify at event start, 1440 = a full day ahead.
+  inline constexpr Range<std::int64_t> kReminderLeadMinutesRange{0, 1440, 5};
 
   // Shell.
   inline constexpr Range<float> kAnimationSpeedRange{0.1F, 4.0F, 0.05F};
@@ -26,6 +28,8 @@ namespace noctalia::config::schema {
       noctalia::config::kClipboardHistoryStepEntries,
   };
   inline constexpr Range<std::int64_t> kSessionGridColumnsRange{1, 5, 1};
+  inline constexpr Range<std::int64_t> kOsdHideDelayMsRange{250, 10000, 50};
+  inline constexpr Range<float> kLockscreenTransitionDurationRange{100.0F, 30000.0F, 100.0F};
 
   // Bar.
   inline constexpr Range<float> kBarFontScaleRange{0.2F, 2.5F, 0.01F};
@@ -43,6 +47,7 @@ namespace noctalia::config::schema {
   inline constexpr Range<std::int64_t> kDockMarginEdgeRange{0, 100, 1};
   inline constexpr Range<std::int64_t> kDockRadiusRange{0, 80, 1}; // radius + each corner
   inline constexpr Range<float> kDockBorderWidthRange{0.0F, 20.0F, 0.5F};
+  inline constexpr Range<float> kOsdBorderWidthRange{0.0F, 6.0F, 0.5F};
   inline constexpr Range<float> kNotificationToastBorderWidthRange{0.0F, 6.0F, 0.5F};
   inline constexpr Range<float> kDockActiveScaleRange{0.1F, 1.75F, 0.05F};
   inline constexpr Range<float> kDockInactiveScaleRange{0.1F, 1.0F, 0.05F};

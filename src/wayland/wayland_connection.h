@@ -49,6 +49,7 @@ struct zwlr_gamma_control_manager_v1;
 struct zwlr_screencopy_manager_v1;
 struct ext_image_copy_capture_manager_v1;
 struct ext_output_image_capture_source_manager_v1;
+struct ext_foreign_toplevel_image_capture_source_manager_v1;
 struct wp_fractional_scale_manager_v1;
 struct wp_viewporter;
 struct zwlr_output_manager_v1;
@@ -187,6 +188,8 @@ public:
   [[nodiscard]] zwlr_screencopy_manager_v1* screencopyManager() const noexcept;
   [[nodiscard]] ext_image_copy_capture_manager_v1* imageCopyCaptureManager() const noexcept;
   [[nodiscard]] ext_output_image_capture_source_manager_v1* outputImageCaptureSourceManager() const noexcept;
+  [[nodiscard]] ext_foreign_toplevel_image_capture_source_manager_v1*
+  foreignToplevelImageCaptureSourceManager() const noexcept;
   [[nodiscard]] bool hasBackgroundEffectBlur() const noexcept;
   [[nodiscard]] zwlr_gamma_control_manager_v1* gammaControlManager() const noexcept;
   [[nodiscard]] ext_background_effect_manager_v1* backgroundEffectManager() const noexcept;
@@ -321,6 +324,7 @@ private:
   zwlr_screencopy_manager_v1* m_screencopyManager = nullptr;
   ext_image_copy_capture_manager_v1* m_imageCopyCaptureManager = nullptr;
   ext_output_image_capture_source_manager_v1* m_outputImageCaptureSourceManager = nullptr;
+  ext_foreign_toplevel_image_capture_source_manager_v1* m_foreignToplevelImageCaptureSourceManager = nullptr;
   zwlr_output_manager_v1* m_outputManager = nullptr;
   std::unordered_map<zwlr_output_head_v1*, WaylandOutputHeadInfo> m_outputHeads;
   std::unordered_set<zwlr_output_mode_v1*> m_outputModes;

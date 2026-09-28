@@ -27,6 +27,16 @@
     }
   },
   "bar": {
+    "annotate": {
+      "color-black": "Czarny",
+      "color-blue": "Niebieski",
+      "color-green": "Zielony",
+      "color-orange": "Pomarańczowy",
+      "color-purple": "Fioletowy",
+      "color-red": "Czerwony",
+      "color-white": "Biały",
+      "color-yellow": "Żółty"
+    },
     "screenshot": {
       "choose-display": "Wybierz ekran",
       "confirm-region": "Enter lub Spacja aby wykonać zrzut · Esc aby anulować · Przeciągnij, aby wybrać ponownie",
@@ -122,6 +132,7 @@
         "off": "Pogoda wyłączona",
         "tooltip": {
           "condition": "Kondycja",
+          "feels-like": "Temperatura odczuwalna",
           "high": "Wysoka",
           "humidity": "Wilgotność",
           "low": "Niska",
@@ -256,7 +267,6 @@
       "uptime": "Czas działania - {uptime}",
       "weather": {
         "data-unavailable": "Dane pogodowe niedostępne.",
-        "disabled": "Pogoda jest wyłączona w konfiguracji.",
         "fetching": "Pobieranie prognozy…"
       }
     },
@@ -386,14 +396,24 @@
       "weather": "Pogoda"
     },
     "weather": {
+      "daily": {
+        "tooltip": {
+          "high": "Max",
+          "low": "Min",
+          "sunrise": "Wschód",
+          "sunset": "Zachód"
+        }
+      },
       "data-unavailable": "Dane pogodowe niedostępne",
       "details": {
         "elevation": "Wysokość",
+        "feels-like": "Temperatura odczuwalna",
         "sunrise": "Wschód słońca",
         "sunset": "Zachód słońca",
         "temp-max": "Temperatura maksymalna",
         "temp-min": "Temperatura minimalna",
         "timezone": "Strefa czasowa",
+        "uv-index": "Indeks UV",
         "wind": "Wiatr"
       },
       "disabled": "Włącz [weather] w config.toml",
@@ -402,6 +422,10 @@
         "day": "Niedziela",
         "description": "Pogoda",
         "temperature": "10 / 4°C"
+      },
+      "forecast-view": {
+        "daily": "Dzienna",
+        "hourly": "Godzinna"
       },
       "hourly": {
         "tooltip": {
@@ -976,7 +1000,6 @@
         "behavior": "zachowanie",
         "brightness": "jasność",
         "built-in": "wbudowane",
-        "calendar": "kalendarz",
         "capsules": "kapsułki",
         "clipboard": "schowek",
         "community": "społeczność",
@@ -1278,7 +1301,7 @@
           "label": "Źródło palety"
         },
         "theme-mode": {
-          "description": "Wybierz ciemny, jasny lub automatyczny na podstawie pory dnia",
+          "description": "Wybierz ciemny, jasny lub automatyczny na podstawie pory dnia; stosowane także dla aplikacji za pomocą templatek",
           "label": "Tryb motywu"
         },
         "ui-scale": {

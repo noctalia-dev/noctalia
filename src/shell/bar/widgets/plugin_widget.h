@@ -41,7 +41,8 @@ namespace scripting {
 class PluginWidget : public Widget, public scripting::PluginIpcEndpoint {
 public:
   PluginWidget(
-      scripting::PluginRuntimeContext context, std::string barName, std::string outputName, bool enableScroll = true
+      scripting::PluginRuntimeContext context, std::string barName, std::string outputName, bool isVertical,
+      bool enableScroll = true
   );
   ~PluginWidget() override;
 

@@ -80,6 +80,8 @@ Click the avatar in the user card to pick a custom image. Noctalia saves the sel
 
 When AccountsService is available, Noctalia also writes the selected avatar to `org.freedesktop.Accounts` as your user's `IconFile`. That is what Noctalia Greeter reads for the login user list. On distros where this is not enabled by default, install and enable **accountsservice** (usually the `accounts-daemon` service) if you want the same avatar in both the shell and the greeter.
 
+Click the date/time card to open the Weather tab. When `[weather].enabled = false`, the card hides its weather summary line and opens the Calendar tab instead.
+
 The shortcut buttons are configured separately; see [Control Center shortcuts](/noctalia/control-center/shortcuts/).
 
 Set `show_session_button = false` under `[control_center]` to hide the session-actions button in the Home tab header. This does not affect Home shortcuts configured with `type = "session"` or session widgets on the bar.

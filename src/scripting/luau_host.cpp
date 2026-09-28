@@ -3018,23 +3018,51 @@ bool LuauHost::pushRequiredModule(lua_State* L, std::string_view request, std::s
   const ScopeExit popModule([this] { m_moduleStack.pop_back(); });
 
   size_t bytecodeSize = 0;
-  char* bytecode = luau_compile(source.data(), source.size(), nullptr, &bytecodeSize);
-  if (bytecode == nullptr) {
+  // Owned: the Lua C API calls below can throw the memory-ceiling exception this function
+  // documents, and the buffer must not outlive the load in a require chain.
+  std::unique_ptr<char, decltype(&std::free)> bytecode(
+      luau_compile(source.data(), source.size(), nullptr, &bytecodeSize), &std::free
+  );
+  if (!bytecode) {
     error = "require: failed to compile '" + moduleKey + "'";
     return false;
   }
-  const int loadResult = luau_load(L, moduleKey.c_str(), bytecode, bytecodeSize, 0);
-  std::free(bytecode);
-  if (loadResult != 0) {
-    const char* message = lua_tostring(L, -1);
-    error = message != nullptr ? message : "module compilation failed";
-    lua_settop(L, initialTop);
+
+  // The restore guard below pushes without growing the stack, and it runs while that
+  // exception may be in flight, so reserve what it needs before anything else is on the
+  // stack.
+  if (!lua_checkstack(L, 8)) {
+    error = "require: not enough VM stack to load '" + moduleKey + "'";
     return false;
   }
 
   // Private globals for the module: writes land here, reads fall through to the
-  // shared sandboxed globals. The directory rides on the metatable so require() in
-  // any function closed over this env resolves lexically, whenever it runs.
+  // shared sandboxed globals, and _G is the module env (see docs/user/plugins/
+  // development/entries.mdx). The directory rides on the metatable so require() in any
+  // function closed over this env resolves lexically, whenever it runs.
+  //
+  // Luau only trusts its load-time global/builtin resolution cache when the closure's env
+  // is marked safe, and resolves it against the loading thread's globals; installing the
+  // module env there and marking it safe gives modules the same fast paths (LOP_GETIMPORT,
+  // LOP_FASTCALL*) the entry chunk gets from luaL_sandboxthread, instead of a metatable
+  // lookup per global access. A module that names the global _G keeps that table (the env
+  // itself) writable and readable under a name the cache can't account for, so it must stay
+  // unsafe. Token match, not substring, so e.g. MERGE_GAP doesn't cost a module its fast path.
+  const auto namesTheModuleEnv = [](std::string_view src) {
+    const auto isIdentifierChar = [](unsigned char c) {
+      return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_';
+    };
+    for (std::size_t at = src.find("_G"); at != std::string_view::npos; at = src.find("_G", at + 1)) {
+      const bool startsToken = at == 0 || !isIdentifierChar(static_cast<unsigned char>(src[at - 1]));
+      const bool endsToken = at + 2 >= src.size() || !isIdentifierChar(static_cast<unsigned char>(src[at + 2]));
+      if (startsToken && endsToken) {
+        return true;
+      }
+    }
+    return false;
+  };
+  const bool envCacheable = !namesTheModuleEnv(source);
+
   const std::string moduleDir = modulePath.parent_path().string();
   lua_newtable(L);
   lua_pushvalue(L, -1);
@@ -3046,7 +3074,40 @@ bool LuauHost::pushRequiredModule(lua_State* L, std::string_view request, std::s
   lua_setfield(L, -2, kModuleDirKey);
   lua_setreadonly(L, -1, true);
   lua_setmetatable(L, -2);
-  lua_setfenv(L, -2);
+  if (envCacheable) {
+    lua_setsafeenv(L, -1, true);
+  }
+
+  const int envIndex = lua_gettop(L);
+  lua_pushthread(L);
+  lua_pushvalue(L, envIndex);
+  lua_setfenv(L, -2); // thread globals = env, for the load
+  lua_pop(L, 1);
+
+  int loadResult = 0;
+  {
+    // Puts the thread globals back on every exit, including the C++ exception a
+    // memory-ceiling failure throws out of the loader.
+    const ScopeExit restoreThreadGlobals([&] {
+      lua_pushthread(L);
+      lua_getmetatable(L, envIndex);
+      lua_getfield(L, -1, "__index");
+      lua_setfenv(L, -3);
+      lua_pop(L, 2);
+    });
+    loadResult = luau_load(L, moduleKey.c_str(), bytecode.get(), bytecodeSize, 0);
+    bytecode.reset(); // released as soon as the loader is done; the guards cover a throw
+  }
+  if (loadResult != 0) {
+    const char* message = lua_tostring(L, -1);
+    error = message != nullptr ? message : "module compilation failed";
+    lua_settop(L, initialTop);
+    return false;
+  }
+
+  // The loader closes the chunk and its nested functions over the thread globals, which
+  // were the module env for the load, so the closure env is already right.
+  lua_remove(L, envIndex);
 
   if (lua_pcall(L, 0, LUA_MULTRET, 0) != 0) {
     const char* message = lua_tostring(L, -1);

@@ -277,7 +277,6 @@
       "uptime": "Çalışma süresi – {uptime}",
       "weather": {
         "data-unavailable": "Hava durumu verisi alınamadı.",
-        "disabled": "Hava durumu konfigde devre dışı bırakıldı.",
         "fetching": "Tahminler alınıyor..."
       }
     },
@@ -1199,7 +1198,6 @@
         "borders": "Kenarlıklar",
         "brightness": "Parlaklık",
         "built-in": "Dahili",
-        "calendar": "Takvim",
         "capsules": "Kapsüller",
         "clipboard": "Pano",
         "community": "Topluluk",
@@ -3962,7 +3960,6 @@
         "plugin-store": "Uzak eklenti kataloğu ve indirme istekleri çalışmayacak.",
         "plugins": "Eklenti HTTP istekleri çalışmayacak. Git kaynakları yine de güncellenebilir.",
         "security": "Harici IP sorgulama ve telemetri çalışmayacak.",
-        "services": "Takvim hesabı eşzamanlaması çalışmayacak.",
         "template-store": "Topluluk şablonu indirmeleri çalışmayacak.",
         "templates": "Topluluk şablonu indirmeleri ve güncellemeleri çalışmayacak.",
         "title": "Çevrimdışı Mod"
