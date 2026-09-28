@@ -54,28 +54,32 @@ Direct project dependencies are listed below; transitive dependencies are owned 
 
 ## Runtime Assets
 
-`meson install` installs the binary and shipped assets separately using the normal prefix layout:
+`meson install` installs the binary, the lock screen PAM helper and shipped assets separately using the normal prefix layout:
 
 ```text
 /usr/local/bin/noctalia
+/usr/local/libexec/noctalia/noctalia-pam-helper
 /usr/local/share/noctalia/assets/...
 ```
 
 With a different Meson `prefix`/`datadir`, the same structure is preserved under that prefix.
 
-Noctalia needs the `assets/` tree at runtime. Copying only the bare `noctalia` binary is not enough.
+Noctalia needs the `assets/` tree at runtime, and the lock screen needs `noctalia-pam-helper`. Copying only the bare
+`noctalia` binary is not enough.
 
 Portable bundle layouts are also supported:
 
 ```text
 bundle/
   noctalia
+  noctalia-pam-helper
   assets/
 ```
 
 ```text
 bundle/
   bin/noctalia
+  bin/noctalia-pam-helper
   share/noctalia/assets/
 ```
 
@@ -87,6 +91,9 @@ Runtime asset lookup order:
 4. install-style `../share/noctalia/assets` relative to the executable
 5. the compiled install path from Meson (`<prefix>/<datadir>/noctalia/assets`)
 6. the source-tree `assets/` directory as a development fallback
+
+`noctalia-pam-helper` is looked up next to the executable first, then at the compiled install path
+(`<prefix>/<libexecdir>/noctalia/noctalia-pam-helper`).
 
 An asset root is only accepted if it contains the expected shipped files such as `emoji.json`, `fonts/noctalia-tabler.ttf`,
 `templates/builtin.toml`, and `translations/en.json`.
