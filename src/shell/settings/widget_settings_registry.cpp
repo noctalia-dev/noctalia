@@ -702,16 +702,23 @@ namespace settings {
     scrollRepeat.visibleWhen = WidgetSettingVisibility{"interactive", {"true"}};
     actions.visibleWhen = WidgetSettingVisibility{"interactive", {"true"}};
 
+    auto visibility = withGroup(
+        selectSpec(
+            "monitor_focus_behavior", "ignored",
+            {{"ignored", "settings.widgets.options.monitor-focus-behavior-ignored"},
+             {"focused", "settings.widgets.options.monitor-focus-behavior-focused"},
+             {"unfocused", "settings.widgets.options.monitor-focus-behavior-unfocused"}}
+        ),
+        "presentation"
+    );
+    visibility.segmented = true;
+
     return {
-        std::move(enabled),         std::move(anchor),
-        std::move(interactive),     std::move(scale),
-        std::move(fontScale),       std::move(widgetColor),
-        std::move(widgetIconColor), std::move(fontFamily),
-        std::move(fontWeight),      std::move(capsuleToggle),
-        std::move(capsuleRadius),   std::move(capsuleFill),
-        std::move(capsuleBorder),   std::move(capsuleForeground),
-        std::move(capsulePadding),  std::move(capsuleOpacity),
-        std::move(scrollRepeat),    std::move(actions),
+        std::move(enabled),        std::move(anchor),        std::move(interactive),       std::move(visibility),
+        std::move(scale),          std::move(fontScale),     std::move(widgetColor),       std::move(widgetIconColor),
+        std::move(fontFamily),     std::move(fontWeight),    std::move(capsuleToggle),     std::move(capsuleRadius),
+        std::move(capsuleFill),    std::move(capsuleBorder), std::move(capsuleForeground), std::move(capsulePadding),
+        std::move(capsuleOpacity), std::move(scrollRepeat),  std::move(actions),
     };
   }
 

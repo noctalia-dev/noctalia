@@ -16,10 +16,11 @@ Middle-click a bar widget to open Settings directly to that widget's configurati
 
 ```toml
 [widget.<name>]
-type = "<widget-type>"   # defaults to <name> when omitted
-scale = 1.0              # multiplies all content by the owning bar's scale
-font_scale = 1.0         # additional text-only multiplier
-enabled = true           # show or hide this widget on the bar
+type = "<widget-type>"              # defaults to <name> when omitted
+scale = 1.0                         # multiplies all content by the owning bar's scale
+font_scale = 1.0                    # additional text-only multiplier
+monitor_focus_behavior = "ignored"  # ignored | focused | unfocused; hide depending on monitor focus
+enabled = true                      # show or hide this widget on the bar
 # ...widget-specific settings
 ```
 
