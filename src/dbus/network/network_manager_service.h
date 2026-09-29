@@ -76,7 +76,6 @@ public:
 
   // Whether any saved connection matches the SSID (uses cached snapshot refreshed on every refresh()).
   [[nodiscard]] bool hasSavedConnection(const std::string& ssid) const override;
-  [[nodiscard]] bool supportsSecretAgent() const noexcept override { return true; }
 
 private:
   void refreshAccessPoints(std::function<void()> onComplete);
