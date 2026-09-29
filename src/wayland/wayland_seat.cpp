@@ -15,7 +15,6 @@
 #include <xkbcommon/xkbcommon.h>
 
 namespace {
-  constexpr std::uint32_t kEvdevXkbOffset = 8; // evdev keycode → XKB keycode
 
   const wl_keyboard_listener kKeyboardListener = {
       .keymap = &WaylandSeat::handleKeyboardKeymap,
@@ -89,10 +88,6 @@ void WaylandSeat::setKeyboardEventCallback(KeyboardEventCallback callback) {
 
 void WaylandSeat::setKeyboardFocusCallback(KeyboardFocusCallback callback) {
   m_keyboardFocusCallback = std::move(callback);
-}
-
-void WaylandSeat::setKeyboardEnterCallback(KeyboardEnterCallback callback) {
-  m_keyboardEnterCallback = std::move(callback);
 }
 
 void WaylandSeat::setKeyboardModifiersCallback(KeyboardModifiersCallback callback) {
@@ -668,17 +663,11 @@ void WaylandSeat::handleKeyboardKeymap(
 }
 
 void WaylandSeat::handleKeyboardEnter(
-    void* data, wl_keyboard* /*keyboard*/, std::uint32_t /*serial*/, wl_surface* surface, wl_array* keys
+    void* data, wl_keyboard* /*keyboard*/, std::uint32_t /*serial*/, wl_surface* surface, wl_array* /*keys*/
 ) {
   auto* self = static_cast<WaylandSeat*>(data);
   self->m_repeatActive = false;
   self->m_lastKeyboardSurface = surface;
-  self->m_pendingEnterSurface = surface;
-  self->m_pendingEnterKeycodes.clear();
-  if (keys != nullptr && keys->size >= sizeof(std::uint32_t)) {
-    const auto* begin = static_cast<const std::uint32_t*>(keys->data);
-    self->m_pendingEnterKeycodes.assign(begin, begin + keys->size / sizeof(std::uint32_t));
-  }
   if (self->m_keyboardFocusCallback) {
     self->m_keyboardFocusCallback(surface, true);
   }
@@ -691,10 +680,6 @@ void WaylandSeat::handleKeyboardLeave(
   self->m_repeatActive = false;
   if (self->m_lastKeyboardSurface == surface) {
     self->m_lastKeyboardSurface = nullptr;
-  }
-  if (self->m_pendingEnterSurface == surface) {
-    self->m_pendingEnterSurface = nullptr;
-    self->m_pendingEnterKeycodes.clear();
   }
   if (self->m_keyboardFocusCallback) {
     self->m_keyboardFocusCallback(surface, false);
@@ -712,7 +697,7 @@ void WaylandSeat::handleKeyboardKey(
     return;
   }
 
-  const std::uint32_t xkbKeycode = key + kEvdevXkbOffset;
+  const std::uint32_t xkbKeycode = key + 8; // evdev → XKB
   auto sym = static_cast<std::uint32_t>(xkb_state_key_get_one_sym(self->m_xkbState, xkbKeycode));
   auto utf32 = static_cast<std::uint32_t>(xkb_state_key_get_utf32(self->m_xkbState, xkbKeycode));
 
@@ -806,23 +791,6 @@ void WaylandSeat::handleKeyboardModifiers(
     xkb_state_update_mask(self->m_xkbState, modsDepressed, modsLatched, modsLocked, 0, 0, group);
     if (self->m_keyboardModifiersCallback) {
       self->m_keyboardModifiersCallback(self->keyboardModifiers());
-    }
-  }
-  if (self->m_pendingEnterSurface != nullptr) {
-    wl_surface* entered = self->m_pendingEnterSurface;
-    self->m_pendingEnterSurface = nullptr;
-    std::vector<std::uint32_t> heldKeysyms;
-    if (self->m_xkbState != nullptr) {
-      heldKeysyms.reserve(self->m_pendingEnterKeycodes.size());
-      for (const std::uint32_t keycode : self->m_pendingEnterKeycodes) {
-        heldKeysyms.push_back(
-            static_cast<std::uint32_t>(xkb_state_key_get_one_sym(self->m_xkbState, keycode + kEvdevXkbOffset))
-        );
-      }
-    }
-    self->m_pendingEnterKeycodes.clear();
-    if (self->m_keyboardEnterCallback) {
-      self->m_keyboardEnterCallback(entered, self->keyboardModifiers(), heldKeysyms);
     }
   }
   if (self->m_lockKeysChangeCallback) {

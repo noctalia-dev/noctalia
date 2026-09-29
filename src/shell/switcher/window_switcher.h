@@ -21,7 +21,6 @@ class ToplevelThumbnailCapture;
 class WaylandConnection;
 struct wl_callback;
 struct wl_output;
-struct wl_surface;
 
 // Fullscreen keyboard-driven switcher with selectable preview presentations.
 class WindowSwitcher {
@@ -42,7 +41,6 @@ public:
   [[nodiscard]] bool isActive() const noexcept { return m_active; }
   [[nodiscard]] bool onPointerEvent(const PointerEvent& event);
   [[nodiscard]] bool onKeyboardEvent(const KeyboardEvent& event);
-  void onKeyboardEnter(wl_surface* surface, std::uint32_t modifiers, const std::vector<std::uint32_t>& heldKeysyms);
   void onKeyboardModifiers(std::uint32_t modifiers);
 
 private:

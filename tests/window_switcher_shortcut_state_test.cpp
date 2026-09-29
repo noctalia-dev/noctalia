@@ -77,6 +77,38 @@ namespace {
     TEST_CHECK(!state.beginReleaseCheck());
   }
 
+  void testFocusCheckWithoutHeldModifierConfirms() {
+    WindowSwitcherShortcutState state;
+    TEST_CHECK(!state.beginReleaseCheck());
+
+    state.expectHeldModifier();
+    TEST_CHECK(state.beginReleaseCheck());
+    TEST_CHECK(state.completeReleaseCheck(KeyMod::Shift));
+    TEST_CHECK(!state.hasPendingFocusCheck());
+  }
+
+  void testFocusCheckWithHeldModifierWaitsForRelease() {
+    WindowSwitcherShortcutState state;
+    state.expectHeldModifier();
+
+    TEST_CHECK(state.beginReleaseCheck());
+    TEST_CHECK(!state.completeReleaseCheck(KeyMod::Super));
+    TEST_CHECK(state.modifiers() == KeyMod::Super);
+    TEST_CHECK(!state.beginReleaseCheck());
+
+    TEST_CHECK(state.noteRelease(KeyMod::Super, 0));
+    TEST_CHECK(state.beginReleaseCheck());
+    TEST_CHECK(state.completeReleaseCheck(0));
+  }
+
+  void testResetClearsFocusCheck() {
+    WindowSwitcherShortcutState state;
+    state.expectHeldModifier();
+    state.reset();
+    TEST_CHECK(!state.hasPendingFocusCheck());
+    TEST_CHECK(!state.beginReleaseCheck());
+  }
+
 } // namespace
 
 int main() {
@@ -86,5 +118,8 @@ int main() {
   testReleaseCapturesModifierFromReleasedKey();
   testUnrelatedReleaseIsIgnored();
   testResetInvalidatesPendingRelease();
+  testFocusCheckWithoutHeldModifierConfirms();
+  testFocusCheckWithHeldModifierWaitsForRelease();
+  testResetClearsFocusCheck();
   return 0;
 }
