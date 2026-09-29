@@ -323,7 +323,9 @@ namespace settings {
             .preDispatchKeyboard =
                 [this](const KeyboardEvent& event) {
                   return m_fileDialog != nullptr
-                      && m_fileDialog->handleGlobalKey(event.sym, event.modifiers, event.pressed, event.preedit);
+                      && m_fileDialog->handleGlobalKey(
+                          event.sym, event.modifiers, event.pressed, event.preedit, event.repeat
+                      );
                 },
             .requestClose =
                 [this, aliveGuard]() {

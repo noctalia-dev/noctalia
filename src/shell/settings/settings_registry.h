@@ -41,6 +41,7 @@ namespace settings {
     System,
     Services,
     Location,
+    Calendar,
     Power,
     Hooks,
     Niri,

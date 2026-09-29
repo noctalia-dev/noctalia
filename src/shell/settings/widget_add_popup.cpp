@@ -16,6 +16,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <cstring>
 #include <string>
 #include <string_view>
 #include <unordered_set>
@@ -39,12 +40,11 @@ namespace settings {
 
     void sortSearchOptions(std::vector<SearchPickerOption>& options) {
       std::ranges::sort(options, [](const SearchPickerOption& a, const SearchPickerOption& b) {
-        const std::string aLabel = StringUtils::toLower(a.label);
-        const std::string bLabel = StringUtils::toLower(b.label);
-        if (aLabel == bLabel) {
+        const int result = std::strcoll(StringUtils::toLower(a.label).c_str(), StringUtils::toLower(b.label).c_str());
+        if (result == 0) {
           return a.value < b.value;
         }
-        return aLabel < bLabel;
+        return result < 0;
       });
     }
 

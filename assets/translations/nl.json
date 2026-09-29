@@ -250,7 +250,6 @@
       "uptime": "Uptime - {uptime}",
       "weather": {
         "data-unavailable": "Weergegevens niet beschikbaar.",
-        "disabled": "Weer is uitgeschakeld in de configuratie.",
         "fetching": "Weersvoorspelling ophalen..."
       }
     },
@@ -1014,7 +1013,6 @@
         "behavior": "Gedrag",
         "brightness": "Helderheid",
         "built-in": "Ingebouwd",
-        "calendar": "Agenda",
         "capsules": "Capsules",
         "clipboard": "Klembord",
         "community": "Community",

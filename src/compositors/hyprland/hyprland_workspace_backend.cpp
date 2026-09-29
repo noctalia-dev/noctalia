@@ -196,6 +196,26 @@ std::vector<WorkspaceWindow> HyprlandWorkspaceBackend::workspaceWindows(wl_outpu
   return result;
 }
 
+// Hyprland keeps the regular workspace active while a special workspace covers the monitor.
+std::vector<std::string> HyprlandWorkspaceBackend::openOverlayWorkspaceKeys(wl_output* output) const {
+  ensureSnapshotFresh();
+
+  const std::string outputName = m_outputNameResolver != nullptr ? m_outputNameResolver(output) : std::string{};
+  std::vector<std::string> keys;
+  keys.reserve(m_openSpecialWorkspaceByMonitor.size());
+  for (const auto& [monitor, workspaceKey] : m_openSpecialWorkspaceByMonitor) {
+    if (workspaceKey.empty()) {
+      continue;
+    }
+    // An unresolvable output name must not hide an open special workspace.
+    if (output != nullptr && !outputName.empty() && monitor != outputName) {
+      continue;
+    }
+    keys.push_back(assignmentKeyFor(workspaceKey));
+  }
+  return keys;
+}
+
 std::optional<std::string> HyprlandWorkspaceBackend::focusedWindowId() const {
   if (m_focusedWindowId.empty()) {
     return std::nullopt;
@@ -224,6 +244,7 @@ void HyprlandWorkspaceBackend::notifyCleanup() {
   m_workspaces.clear();
   m_toplevels.clear();
   m_activeWorkspaceByMonitor.clear();
+  m_openSpecialWorkspaceByMonitor.clear();
   m_focusedWindowId.clear();
   m_nextOrdinal = 0;
   m_ipcSchema = IpcSchema::Unknown;
@@ -372,16 +393,16 @@ HyprlandWorkspaceBackend::WorkspaceRefreshResult HyprlandWorkspaceBackend::refre
       const std::string workspaceAddress = namedWorkspace ? workspaceString.substr(5) : std::string{};
       const auto legacyNumber =
           schema == IpcSchema::LegacyId && !namedWorkspace ? parseInt(workspaceString) : std::optional<int>{};
-      const auto stableNumber = schema == IpcSchema::StableIdentity && !namedWorkspace ? parseUnsigned(workspaceString)
-                                                                                       : std::optional<std::uint32_t>{};
-      const bool numberedWorkspace = legacyNumber.has_value() ? *legacyNumber > 0 : stableNumber.has_value();
+      const auto addressNumber = isAddressIdentitySchema(schema) && !namedWorkspace ? parseUnsigned(workspaceString)
+                                                                                    : std::optional<std::uint32_t>{};
+      const bool numberedWorkspace = legacyNumber.has_value() ? *legacyNumber > 0 : addressNumber.has_value();
       if ((namedWorkspace && workspaceAddress.empty()) || (!namedWorkspace && !numberedWorkspace)) {
         continue;
       }
 
       WorkspaceIdentity identity;
       if (numberedWorkspace) {
-        const auto number = schema == IpcSchema::LegacyId ? static_cast<std::uint32_t>(*legacyNumber) : *stableNumber;
+        const auto number = schema == IpcSchema::LegacyId ? static_cast<std::uint32_t>(*legacyNumber) : *addressNumber;
         identity.key = std::to_string(number);
         identity.selector = identity.key;
         identity.address = identity.key;
@@ -419,7 +440,7 @@ HyprlandWorkspaceBackend::WorkspaceRefreshResult HyprlandWorkspaceBackend::refre
       WorkspaceState workspace;
       workspace.identity = std::move(identity);
       workspace.name = namedWorkspace
-          ? (schema == IpcSchema::StableIdentity && !defaultName.empty() ? defaultName : workspaceAddress)
+          ? (isAddressIdentitySchema(schema) && !defaultName.empty() ? defaultName : workspaceAddress)
           : defaultName;
       workspace.monitor = item.value("monitor", "");
 
@@ -477,6 +498,7 @@ void HyprlandWorkspaceBackend::refreshMonitors() {
   }
 
   std::unordered_map<std::string, std::string> activeByMonitor;
+  std::unordered_map<std::string, std::string> specialByMonitor;
   for (const auto& item : *json) {
     if (!item.is_object()) {
       continue;
@@ -495,9 +517,19 @@ void HyprlandWorkspaceBackend::refreshMonitors() {
       }
       activeByMonitor[monitorName] = identity->key;
     }
+
+    // Hyprland only sends specialWorkspace while it is open, so a missing field clears it.
+    const auto specialIt = item.find("specialWorkspace");
+    if (specialIt != item.end() && specialIt->is_object()) {
+      const auto identity = parseJsonWorkspaceIdentity(*specialIt, m_ipcSchema);
+      if (identity.has_value() && identity->kind == WorkspaceKind::Special) {
+        specialByMonitor[monitorName] = identity->key;
+      }
+    }
   }
 
   m_activeWorkspaceByMonitor = std::move(activeByMonitor);
+  m_openSpecialWorkspaceByMonitor = std::move(specialByMonitor);
 }
 
 void HyprlandWorkspaceBackend::refreshClients() {
@@ -709,6 +741,16 @@ void HyprlandWorkspaceBackend::handleEvent(std::string_view event, std::string_v
     return;
   }
 
+  if (event == "activespecial" || event == "activespecialv2") {
+    // Toggling an already-populated special moves no window, so no other event tells us
+    // the monitor snapshot went stale. The payload is not parsed: j/monitors is the only
+    // source that tells whether the special is open, and it keys it per monitor.
+    refreshMonitors();
+    recomputeWorkspaceFlags();
+    notifyChanged();
+    return;
+  }
+
   if (event == "createworkspacev2") {
     const auto args = parseEventArgs(data, 2);
     const auto identity = parseEventWorkspaceIdentity(args[0], args[1]);
@@ -750,6 +792,7 @@ void HyprlandWorkspaceBackend::handleEvent(std::string_view event, std::string_v
       }
     }
 
+    refreshMonitors();
     recomputeWorkspaceFlags();
     notifyChanged();
     return;
@@ -816,6 +859,8 @@ void HyprlandWorkspaceBackend::handleEvent(std::string_view event, std::string_v
     return;
   }
 
+  // A special workspace can open or close on any of these without a workspacev2 event, so
+  // the monitor snapshot is refreshed before the branches below fan out.
   if (event == "openwindow") {
     const auto args = parseEventArgs(data, 4);
     const auto address = parseHexAddress(args[0]);
@@ -824,7 +869,8 @@ void HyprlandWorkspaceBackend::handleEvent(std::string_view event, std::string_v
     if (!address.has_value() || workspaceName.empty()) {
       return;
     }
-    if (m_ipcSchema == IpcSchema::StableIdentity) {
+    refreshMonitors();
+    if (isAddressIdentitySchema(m_ipcSchema)) {
       refreshClients();
       recomputeWorkspaceFlags();
       notifyChanged();
@@ -855,6 +901,7 @@ void HyprlandWorkspaceBackend::handleEvent(std::string_view event, std::string_v
       return;
     }
     m_toplevels.erase(*address);
+    refreshMonitors();
     recomputeWorkspaceFlags();
     notifyChanged();
     return;
@@ -871,6 +918,7 @@ void HyprlandWorkspaceBackend::handleEvent(std::string_view event, std::string_v
       return;
     }
     moveToplevel(*address, identity->key);
+    refreshMonitors();
     refreshClients();
     recomputeWorkspaceFlags();
     notifyChanged();
@@ -960,38 +1008,20 @@ HyprlandWorkspaceBackend::detectIpcSchema(const nlohmann::json& workspaces) {
     return std::nullopt;
   }
 
-  std::optional<IpcSchema> schema;
-  for (const auto& workspace : workspaces) {
-    if (!workspace.is_object()) {
+  std::optional<IpcSchema> detected;
+  for (const auto candidate : {IpcSchema::LegacyId, IpcSchema::TypedIdentity, IpcSchema::NormalIdentity}) {
+    const bool matches = std::ranges::all_of(workspaces, [candidate](const nlohmann::json& workspace) {
+      return parseJsonWorkspaceIdentity(workspace, candidate).has_value();
+    });
+    if (!matches) {
+      continue;
+    }
+    if (detected.has_value()) {
       return std::nullopt;
     }
-
-    const auto idIt = workspace.find("id");
-    const auto addressIt = workspace.find("address");
-    const auto typeIt = workspace.find("type");
-    const bool legacy = idIt != workspace.end()
-        && idIt->is_number_integer()
-        && addressIt == workspace.end()
-        && typeIt == workspace.end();
-    const bool stable = idIt == workspace.end()
-        && addressIt != workspace.end()
-        && addressIt->is_string()
-        && typeIt != workspace.end()
-        && typeIt->is_string();
-    if (legacy == stable) {
-      return std::nullopt;
-    }
-
-    const IpcSchema itemSchema = legacy ? IpcSchema::LegacyId : IpcSchema::StableIdentity;
-    if (schema.has_value() && *schema != itemSchema) {
-      return std::nullopt;
-    }
-    if (!parseJsonWorkspaceIdentity(workspace, itemSchema).has_value()) {
-      return std::nullopt;
-    }
-    schema = itemSchema;
+    detected = candidate;
   }
-  return schema;
+  return detected;
 }
 
 std::optional<HyprlandWorkspaceBackend::WorkspaceIdentity>
@@ -1032,17 +1062,13 @@ HyprlandWorkspaceBackend::parseJsonWorkspaceIdentity(const nlohmann::json& json,
     return identity;
   }
 
-  if (schema != IpcSchema::StableIdentity) {
+  if (!isAddressIdentitySchema(schema)) {
     return std::nullopt;
   }
 
   const auto addressIt = json.find("address");
   const auto typeIt = json.find("type");
-  if (json.contains("id")
-      || addressIt == json.end()
-      || !addressIt->is_string()
-      || typeIt == json.end()
-      || !typeIt->is_string()) {
+  if (addressIt == json.end() || !addressIt->is_string() || typeIt == json.end() || !typeIt->is_string()) {
     return std::nullopt;
   }
   identity.address = addressIt->get<std::string>();
@@ -1051,7 +1077,10 @@ HyprlandWorkspaceBackend::parseJsonWorkspaceIdentity(const nlohmann::json& json,
     return std::nullopt;
   }
 
-  if (type == "numbered") {
+  if (schema == IpcSchema::TypedIdentity && type == "numbered") {
+    if (json.contains("id")) {
+      return std::nullopt;
+    }
     identity.number = parseUnsigned(identity.address);
     if (!identity.number.has_value()) {
       return std::nullopt;
@@ -1059,18 +1088,58 @@ HyprlandWorkspaceBackend::parseJsonWorkspaceIdentity(const nlohmann::json& json,
     identity.kind = WorkspaceKind::Numbered;
     identity.key = identity.address;
     identity.selector = identity.address;
-  } else if (type == "named") {
+  } else if (schema == IpcSchema::TypedIdentity && type == "named") {
+    if (json.contains("id")) {
+      return std::nullopt;
+    }
     identity.kind = WorkspaceKind::Named;
     identity.key = "name:" + identity.address;
     identity.selector = identity.key;
   } else if (type == "special") {
+    if (json.contains("id")) {
+      return std::nullopt;
+    }
     identity.kind = WorkspaceKind::Special;
+    identity.key = identity.address;
+    identity.selector = identity.address;
+  } else if (schema == IpcSchema::NormalIdentity && type == "normal") {
+    const auto idIt = json.find("id");
+    if (idIt == json.end()) {
+      identity.kind = WorkspaceKind::Named;
+      identity.key = "name:" + identity.address;
+      identity.selector = identity.key;
+      return identity;
+    }
+    const auto id = [&]() -> std::optional<std::uint64_t> {
+      if (idIt->is_number_unsigned()) {
+        return idIt->get<std::uint64_t>();
+      }
+      if (idIt->is_number_integer()) {
+        const auto signedId = idIt->get<std::int64_t>();
+        if (signedId > 0) {
+          return static_cast<std::uint64_t>(signedId);
+        }
+      }
+      return std::nullopt;
+    }();
+    if (!id.has_value()
+        || *id == 0
+        || *id > std::numeric_limits<std::uint32_t>::max()
+        || identity.address != std::to_string(*id)) {
+      return std::nullopt;
+    }
+    identity.number = static_cast<std::uint32_t>(*id);
+    identity.kind = WorkspaceKind::Numbered;
     identity.key = identity.address;
     identity.selector = identity.address;
   } else {
     return std::nullopt;
   }
   return identity;
+}
+
+bool HyprlandWorkspaceBackend::isAddressIdentitySchema(IpcSchema schema) noexcept {
+  return schema == IpcSchema::TypedIdentity || schema == IpcSchema::NormalIdentity;
 }
 
 std::optional<HyprlandWorkspaceBackend::WorkspaceIdentity>
@@ -1213,7 +1282,7 @@ bool HyprlandWorkspaceBackend::isSpecial(const WorkspaceState& state) {
   return state.identity.kind == WorkspaceKind::Special;
 }
 
-// Stable-identity Hyprland traverses named workspaces newest-first, followed by numbered workspaces.
+// Address-identity Hyprland traverses named workspaces newest-first, followed by numbered workspaces.
 bool HyprlandWorkspaceBackend::workspaceOrderLess(const WorkspaceState* a, const WorkspaceState* b) {
   if (a->identity.legacyId.has_value() && b->identity.legacyId.has_value()) {
     return *a->identity.legacyId < *b->identity.legacyId;

@@ -34,6 +34,10 @@ int main() {
   TEST_CHECK(shouldBindExtForeignToplevelList(CompositorKind::Kde));
   TEST_CHECK(!shouldBindExtForeignToplevelList(CompositorKind::Unknown));
   TEST_CHECK(!shouldBindExtForeignToplevelList(CompositorKind::Sway));
+  TEST_CHECK(toplevel_identity::wlr(0).empty());
+  TEST_CHECK(toplevel_identity::wlr(42) == "wlr:42");
+  TEST_CHECK(toplevel_identity::isWlr("wlr:42"));
+  TEST_CHECK(!toplevel_identity::isWlr("42"));
 
   WaylandToplevels toplevels;
   auto* handle = reinterpret_cast<zwlr_foreign_toplevel_handle_v1*>(0x1);

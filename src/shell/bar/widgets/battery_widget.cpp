@@ -387,9 +387,7 @@ void BatteryWidget::syncState(Renderer& renderer) {
   m_lastVertical = m_isVertical;
   m_lastTooltipRefreshTime = now;
 
-  const bool isPluggedIn = s.state == BatteryState::Charging
-      || s.state == BatteryState::FullyCharged
-      || s.state == BatteryState::PendingCharge;
+  const bool isPluggedIn = batteryStatePlugged(s.state).value_or(false);
 
   const bool hasVisibleContent = m_displayMode != BatteryDisplayMode::None || m_showLabel;
 

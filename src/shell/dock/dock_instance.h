@@ -16,6 +16,7 @@ class Box;
 class CompositorPlatform;
 class ConfigService;
 class Flex;
+class InputArea;
 class LayerSurface;
 class Node;
 class RenderContext;
@@ -42,7 +43,10 @@ namespace shell::dock {
     float slideHiddenDy = 0.0F;
     Box* shadow = nullptr;
     Box* panel = nullptr;
+    InputArea* viewport = nullptr;
     Flex* row = nullptr;
+    float scrollOffset = 0.0F;
+    float maxScrollOffset = 0.0F;
     InputDispatcher inputDispatcher;
     std::vector<shell::dock::DockItemView> items;
     DockSnapshot snapshot;

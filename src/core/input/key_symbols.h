@@ -1,5 +1,7 @@
 #pragma once
 
+#include "core/input/key_modifiers.h"
+
 #include <cstdint>
 #include <xkbcommon/xkbcommon-keysyms.h>
 
@@ -81,5 +83,21 @@ namespace KeySymbol {
         || sym == XKB_KEY_Hyper_R
         || sym == XKB_KEY_Meta_L
         || sym == XKB_KEY_Meta_R;
+  }
+
+  [[nodiscard]] inline std::uint32_t modifierMask(std::uint32_t sym) noexcept {
+    switch (sym) {
+    case XKB_KEY_Shift_L:
+    case XKB_KEY_Shift_R:
+      return KeyMod::Shift;
+    case XKB_KEY_Control_L:
+    case XKB_KEY_Control_R:
+      return KeyMod::Ctrl;
+    case XKB_KEY_Alt_L:
+    case XKB_KEY_Alt_R:
+      return KeyMod::Alt;
+    default:
+      return isSuperModifier(sym) ? KeyMod::Super : 0;
+    }
   }
 } // namespace KeySymbol

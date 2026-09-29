@@ -100,6 +100,7 @@ public:
 
   // Poll integration
   [[nodiscard]] int fd() const noexcept;
+  [[nodiscard]] int pollTimeoutMs() const noexcept;
   void dispatch();
   [[nodiscard]] pw_core* coreHandle() const noexcept { return m_core; }
   [[nodiscard]] pw_loop* loop() const noexcept { return m_loop; }
@@ -164,6 +165,8 @@ public:
     bool nodePassive = false;
     bool streamCaptureSink = false;
     bool streamClassificationReady = false;
+    bool hasReadablePropsParam = false;
+    bool hasReadableRouteParam = false;
     float volume = 1.0F;
     // Software / node-route mute from PipeWire props (SPA_PARAM_Props, node routes). For device nodes
     // swMute mirrors the authoritative mixer-api mute.
@@ -209,6 +212,7 @@ public:
   };
   void onCoreInfo(const struct pw_core_info* info);
   void onCoreDone(std::uint32_t id, int sequence);
+  void onCoreError(std::uint32_t id, int sequence, int result, const char* message);
   void onRegistryGlobal(std::uint32_t id, const char* type, std::uint32_t version, const struct spa_dict* props);
   void onRegistryGlobalRemove(std::uint32_t id);
   void onClientInfo(std::uint32_t id, const struct pw_client_info* info);
@@ -227,6 +231,12 @@ public:
   void onTargetObjectMetadata(std::uint32_t subject, const std::string& target);
 
 private:
+  [[nodiscard]] bool connectRemote(bool waitForSync);
+  void disconnectRemote(bool notifyState);
+  void scheduleReconnect();
+  void handleConnectionLoss();
+  void announceConnection();
+
   bool m_pendingDefaultAudioDevicePropsEnum = false;
   void enumDefaultAudioDeviceParams();
 
@@ -276,6 +286,12 @@ private:
   bool m_serverSupportsPassiveFollow = false;
   int m_initialSyncSequence = -1;
   bool m_initialSyncPending = false;
+  bool m_connectionLossPending = false;
+  bool m_connectionAnnouncementPending = false;
+  bool m_reconnecting = false;
+  bool m_hasConnected = false;
+  std::chrono::steady_clock::time_point m_reconnectAt;
+  std::chrono::milliseconds m_reconnectDelay{250};
 
   std::unordered_map<std::uint32_t, std::unique_ptr<NodeData>> m_nodes;
   std::unordered_map<std::uint32_t, ClientData> m_clients;

@@ -1304,7 +1304,11 @@ namespace settings {
     if (collapsibleGroups) {
       auto [pageIt, fresh] = ctx.expandedGroupsByPage.try_emplace(pageKey);
       if (fresh) {
-        pageIt->second.insert(pageGroupKeys.front());
+        if (ctx.config.shell.settingsExpandAllGroups) {
+          pageIt->second.insert(pageGroupKeys.begin(), pageGroupKeys.end());
+        } else {
+          pageIt->second.insert(pageGroupKeys.front());
+        }
       }
       expandedGroups = &pageIt->second;
     }

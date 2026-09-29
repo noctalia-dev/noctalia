@@ -99,6 +99,9 @@ private:
     std::string nameLower;
     std::string appIdLower;
     std::string title;
+    // Desktop entry name, shown while the title is blank. Display only; window and workspace
+    // matching stay on title.
+    std::string displayName;
     std::string iconPath;
     std::string workspaceKey;
     std::string workspaceWindowId;
@@ -181,6 +184,7 @@ private:
   void updateModels();
   void syncWorkspaceGroupingCapability();
   [[nodiscard]] static std::string toLower(std::string value);
+  [[nodiscard]] static const std::string& displayTitle(const TaskModel& task) noexcept;
   [[nodiscard]] static std::string workspaceLabel(const Workspace& workspace, std::size_t index);
   [[nodiscard]] static ModelComparison compareModels(
       bool groupByWorkspace, const std::vector<TaskModel>& previousTasks,
@@ -198,9 +202,9 @@ private:
   [[nodiscard]] bool useMultiOutputWorkspaceKeys() const noexcept;
   [[nodiscard]] std::string workspaceKeyPrefixForOutput(wl_output* out) const;
   [[nodiscard]] wl_output* workspaceHostOutput(const WorkspaceModel& model) const noexcept;
-  [[nodiscard]] ColorSpec workspaceFillColor(const Workspace& workspace) const;
-  [[nodiscard]] ColorSpec workspaceTextColor(const Workspace& workspace) const;
-  [[nodiscard]] bool isFocusedOutput() const;
+  [[nodiscard]] bool workspaceUsesFocusedStyle(const WorkspaceModel& model) const noexcept;
+  [[nodiscard]] ColorSpec workspaceFillColor(const WorkspaceModel& model) const;
+  [[nodiscard]] ColorSpec workspaceTextColor(const WorkspaceModel& model) const;
   [[nodiscard]] static ColorSpec readableColorForFill(const ColorSpec& fill);
   [[nodiscard]] static ColorRole onRoleForFill(ColorRole fill);
   [[nodiscard]] static bool taskInWorkspaceGroup(const TaskModel& task, const WorkspaceModel& ws);
@@ -240,8 +244,7 @@ private:
   bool m_hideEmptyWorkspaces = false;
   bool m_workspaceGroupCapsule = true;
   bool m_focusedOutputOnly = false;
-  bool m_wasFocusedOutput = true;
-  bool m_activeUsesFocusedColor = true;
+  wl_output* m_lastFocusedOutput = nullptr;
   bool m_minimal = false;
   bool m_groupSingleIconPerApp = false;
   bool m_showActiveIndicator = true;

@@ -257,7 +257,6 @@
       "uptime": "Thời gian hoạt động - {uptime}",
       "weather": {
         "data-unavailable": "Không thể tải dữ liệu thời tiết.",
-        "disabled": "Tính năng thời tiết đã bị vô hiệu hóa trong config.",
         "fetching": "Đang cập nhật dự báo thời tiết..."
       }
     },
@@ -1193,7 +1192,6 @@
         "borders": "Viền",
         "brightness": "Độ sáng",
         "built-in": "Tích hợp sẵn",
-        "calendar": "Lịch",
         "capsules": "Viên nang",
         "clipboard": "Bảng tạm",
         "community": "Cộng đồng",

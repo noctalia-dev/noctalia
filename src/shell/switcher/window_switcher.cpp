@@ -1,5 +1,6 @@
 #include "shell/switcher/window_switcher.h"
 
+#include "capture/toplevel_thumbnail_capture.h"
 #include "compositors/compositor_detect.h"
 #include "compositors/compositor_platform.h"
 #include "compositors/hyprland/hyprland_window_id.h"
@@ -10,7 +11,6 @@
 #include "core/input/keybind_matcher.h"
 #include "core/log.h"
 #include "core/ui_phase.h"
-#include "cursor-shape-v1-client-protocol.h"
 #include "i18n/i18n.h"
 #include "ipc/ipc_service.h"
 #include "render/animation/animation_manager.h"
@@ -19,6 +19,10 @@
 #include "render/scene/input_area.h"
 #include "render/scene/input_dispatcher.h"
 #include "render/scene/node.h"
+#include "shell/surface/shadow.h"
+#include "shell/switcher/window_switcher_carousel_style.h"
+#include "shell/switcher/window_switcher_compact_style.h"
+#include "shell/switcher/window_switcher_membership.h"
 #include "shell/switcher/window_switcher_tile.h"
 #include "system/app_identity.h"
 #include "system/desktop_entry.h"
@@ -26,7 +30,6 @@
 #include "system/internal_app_metadata.h"
 #include "ui/app_icon_colorization.h"
 #include "ui/builders.h"
-#include "ui/controls/virtual_grid_view.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 #include "util/string_utils.h"
@@ -39,6 +42,8 @@
 #include <limits>
 #include <linux/input-event-codes.h>
 #include <memory>
+#include <optional>
+#include <string_view>
 #include <unordered_map>
 #include <unordered_set>
 #include <xkbcommon/xkbcommon-keysyms.h>
@@ -46,66 +51,27 @@
 namespace {
 
   constexpr Logger kLog("window-switcher");
-  constexpr std::size_t kGridColumns = 5;
-  constexpr float kDimOpacity = 0.62F;
-  constexpr float kMinCellWidth = 164.0F;
-  constexpr float kMaxCellWidth = 224.0F;
-  constexpr float kWindowPreviewAspect = 16.0F / 10.0F;
-  constexpr float kCaptionBlock = 48.0F;
+  constexpr std::size_t kVisibleCards = 5;
+  constexpr float kVisibleOpacityThreshold = 0.01F;
+  constexpr std::uint32_t kShortcutModifierMask = KeyMod::Ctrl | KeyMod::Alt | KeyMod::Super;
 
-  struct SwitcherGridMetrics {
-    std::size_t columns = 1;
-    float cellW = 0.0F;
-    float cellH = 0.0F;
-    float gridW = 0.0F;
-    float gridH = 0.0F;
-    float colGap = 0.0F;
-    float rowGap = 0.0F;
-
-    [[nodiscard]] bool sameLayoutAs(const SwitcherGridMetrics& other) const noexcept {
-      return columns == other.columns && std::abs(cellW - other.cellW) < 0.5F && std::abs(cellH - other.cellH) < 0.5F;
+  [[nodiscard]] WindowSwitcherStyleLayout computeSwitcherLayout(
+      float screenWidth, float screenHeight, float scale, std::size_t windowCount, std::size_t selectedIndex,
+      const ShellConfig::WindowSwitcherConfig& config
+  ) {
+    const WindowSwitcherStyleContext context{
+        .screenWidth = screenWidth,
+        .screenHeight = screenHeight,
+        .scale = scale,
+        .windowCount = windowCount,
+        .selectedIndex = selectedIndex,
+        .showCaption = config.showCaption,
+        .showCount = config.showCount,
+    };
+    if (config.style == ShellConfig::WindowSwitcherStyle::Compact) {
+      return computeWindowSwitcherCompactLayout(context);
     }
-  };
-
-  [[nodiscard]] SwitcherGridMetrics
-  computeSwitcherGridMetrics(float screenW, float screenH, float scale, std::size_t itemCount) {
-    SwitcherGridMetrics metrics;
-    metrics.colGap = Style::spaceMd * scale;
-    metrics.rowGap = Style::spaceMd * scale;
-
-    metrics.columns = itemCount == 0 ? 1 : std::min(kGridColumns, itemCount);
-    const std::size_t rows = itemCount == 0 ? 1 : (itemCount + metrics.columns - 1) / metrics.columns;
-
-    const float sidePad = Style::spaceLg * scale * 2.0F;
-    const float minCellW = kMinCellWidth * scale;
-    const float maxCellW = kMaxCellWidth * scale;
-    const float captionBlock = kCaptionBlock * scale + Style::spaceSm * scale * 2.0F;
-
-    const float availableW = std::max(0.0F, screenW - sidePad);
-    float cellW = metrics.columns == 0
-        ? minCellW
-        : (availableW - metrics.colGap * static_cast<float>(metrics.columns - 1)) / static_cast<float>(metrics.columns);
-    cellW = std::clamp(cellW, minCellW, maxCellW);
-
-    auto cellHeightForWidth = [captionBlock](float width) { return width / kWindowPreviewAspect + captionBlock; };
-
-    float cellH = cellHeightForWidth(cellW);
-    float gridH = cellH * static_cast<float>(rows) + metrics.rowGap * static_cast<float>(rows > 0 ? rows - 1 : 0);
-    const float maxGridH = std::max(0.0F, screenH - sidePad);
-    if (gridH > maxGridH && rows > 0) {
-      cellH = (maxGridH - metrics.rowGap * static_cast<float>(rows - 1)) / static_cast<float>(rows);
-      cellW = std::min(cellW, (cellH - captionBlock) * kWindowPreviewAspect);
-      cellW = std::max(minCellW * 0.88F, cellW);
-      cellH = cellHeightForWidth(cellW);
-      gridH = cellH * static_cast<float>(rows) + metrics.rowGap * static_cast<float>(rows > 0 ? rows - 1 : 0);
-    }
-
-    metrics.cellW = cellW;
-    metrics.cellH = cellH;
-    metrics.gridW =
-        cellW * static_cast<float>(metrics.columns) + metrics.colGap * static_cast<float>(metrics.columns - 1);
-    metrics.gridH = gridH;
-    return metrics;
+    return computeWindowSwitcherCarouselLayout(context);
   }
 
   [[nodiscard]] std::string resolveWindowIconPath(const std::string& appId, IconResolver& iconResolver, int iconSize) {
@@ -147,8 +113,6 @@ namespace {
     return config != nullptr ? config->config().accessibility.uiScale : 1.0F;
   }
 
-  [[nodiscard]] bool isAltModifier(std::uint32_t sym) noexcept { return sym == XKB_KEY_Alt_L || sym == XKB_KEY_Alt_R; }
-
   [[nodiscard]] const WaylandOutput* findOutput(const WaylandConnection& wayland, wl_output* output) {
     for (const auto& entry : wayland.outputs()) {
       if (entry.output == output) {
@@ -172,6 +136,14 @@ namespace {
     return 0;
   }
 
+  [[nodiscard]] std::optional<std::string>
+  windowIdForToplevelInfo(const CompositorPlatform& platform, const ToplevelInfo& info) {
+    if (info.exactIdentity && !info.identifier.empty()) {
+      return info.identifier;
+    }
+    return platform.compositorWindowIdForToplevelInfo(info);
+  }
+
   [[nodiscard]] std::string canonicalWindowId(std::string_view windowId) {
     if (windowId.empty()) {
       return {};
@@ -182,6 +154,23 @@ namespace {
       }
     }
     return std::string(windowId);
+  }
+
+  [[nodiscard]] std::string identityKeyForToplevelInfo(const CompositorPlatform& platform, const ToplevelInfo& info) {
+    if (const auto windowId = windowIdForToplevelInfo(platform, info); windowId.has_value()) {
+      return canonicalWindowId(*windowId);
+    }
+    return toplevel_identity::wlr(wlrHandleForToplevel(info));
+  }
+
+  [[nodiscard]] bool identityKeysEqual(const std::string_view lhs, const std::string_view rhs) {
+    if (lhs == rhs) {
+      return true;
+    }
+    if (toplevel_identity::isWlr(lhs) || toplevel_identity::isWlr(rhs)) {
+      return false;
+    }
+    return compositors::isHyprland() && compositors::hyprland::windowIdsEqual(lhs, rhs);
   }
 
   void activateWindowSwitcherEntry(CompositorPlatform& platform, const WindowSwitcherEntry& entry) {
@@ -216,23 +205,22 @@ namespace {
     platform.focusCompositorWindow(entry.windowId, true);
   }
 
-  [[nodiscard]] std::string identityKeyForEntry(const WindowSwitcherEntry& entry) {
-    const std::string canonical = canonicalWindowId(entry.windowId);
-    if (!canonical.empty()) {
-      return canonical;
-    }
-    if (entry.closeHandle != 0) {
-      return "handle:" + std::to_string(entry.closeHandle);
-    }
-    return {};
-  }
+  [[nodiscard]] std::string identityKeyForEntry(const WindowSwitcherEntry& entry) { return entry.identityKey; }
 
   [[nodiscard]] std::string currentFocusedWindowKey(const CompositorPlatform& platform) {
     const auto focusedId = platform.focusedCompositorWindowId();
-    if (!focusedId.has_value()) {
+    if (focusedId.has_value()) {
+      return canonicalWindowId(*focusedId);
+    }
+
+    const auto active = platform.activeToplevel();
+    if (!active.has_value() || active->handle == nullptr) {
       return {};
     }
-    return canonicalWindowId(*focusedId);
+    if (const auto mappedId = platform.compositorWindowIdForToplevel(active->handle); mappedId.has_value()) {
+      return canonicalWindowId(*mappedId);
+    }
+    return toplevel_identity::wlr(reinterpret_cast<std::uintptr_t>(active->handle));
   }
 
   [[nodiscard]] std::uintptr_t resolveCloseHandle(
@@ -261,17 +249,39 @@ namespace {
     return 0;
   }
 
+  [[nodiscard]] std::uintptr_t
+  resolveCaptureHandle(const WaylandConnection& wayland, std::string_view appId, std::string_view title) {
+    const std::string idLower = StringUtils::toLower(appId);
+    const auto windows = wayland.extWindowsForApp(idLower, idLower);
+    ext_foreign_toplevel_handle_v1* matched = nullptr;
+    for (const auto& info : windows) {
+      if (info.extHandle == nullptr || (!title.empty() && info.title != title)) {
+        continue;
+      }
+      if (matched != nullptr) {
+        return 0;
+      }
+      matched = info.extHandle;
+    }
+    if (matched != nullptr) {
+      return reinterpret_cast<std::uintptr_t>(matched);
+    }
+    if (windows.size() == 1 && windows.front().extHandle != nullptr) {
+      return reinterpret_cast<std::uintptr_t>(windows.front().extHandle);
+    }
+    return 0;
+  }
+
   [[nodiscard]] WindowSwitcherEntry makeEntryFromToplevel(
       const CompositorPlatform& platform, IconResolver& iconResolver, int iconSize, const std::string& appId,
       const ToplevelInfo& info
   ) {
     WindowSwitcherEntry entry;
-    if (const auto windowId = platform.compositorWindowIdForToplevelInfo(info); windowId.has_value()) {
+    if (const auto windowId = windowIdForToplevelInfo(platform, info); windowId.has_value()) {
       entry.windowId = *windowId;
-    } else if (info.handle != nullptr) {
-      entry.windowId = "toplevel:" + std::to_string(reinterpret_cast<std::uintptr_t>(info.handle));
     }
     entry.closeHandle = wlrHandleForToplevel(info);
+    entry.captureHandle = extHandleForToplevel(info);
     entry.appId = info.appId.empty() ? appId : info.appId;
     entry.appLabel = resolveWindowAppLabel(entry.appId);
     entry.title = info.title.empty() ? entry.appLabel : info.title;
@@ -290,53 +300,60 @@ namespace {
   };
 
   [[nodiscard]] WindowSwitcherEntry makeEntryFromAssignment(
-      const CompositorPlatform& platform, IconResolver& iconResolver, int iconSize,
+      const CompositorPlatform& platform, const WaylandConnection& wayland, IconResolver& iconResolver, int iconSize,
       const WorkspaceWindowAssignment& assignment
   ) {
     WindowSwitcherEntry entry;
-    entry.windowId = assignment.windowId;
+    if (!toplevel_identity::isWlr(assignment.windowId)) {
+      entry.windowId = assignment.windowId;
+    }
     entry.appId = assignment.appId;
     entry.appLabel = resolveWindowAppLabel(entry.appId);
     entry.title = !assignment.title.empty() ? assignment.title : entry.appLabel;
     entry.iconPath = resolveWindowIconPath(entry.appId, iconResolver, iconSize);
     entry.closeHandle = resolveCloseHandle(platform, entry.windowId, entry.appId, entry.title);
+    entry.captureHandle = resolveCaptureHandle(wayland, entry.appId, entry.title);
     return entry;
   }
 
-  void
-  indexLiveToplevelsByWindowId(const CompositorPlatform& platform, std::unordered_map<std::string, ToplevelInfo>& out) {
+  void indexLiveToplevelsByIdentity(
+      const CompositorPlatform& platform, wl_output* outputFilter, std::unordered_map<std::string, ToplevelInfo>& out
+  ) {
     std::unordered_set<std::uintptr_t> seenWlrHandles;
     std::unordered_set<std::uintptr_t> seenExtHandles;
 
-    for (const auto& appId : platform.runningAppIds()) {
-      const std::string lower = StringUtils::toLower(appId);
-      for (const auto& info : platform.windowsForApp(lower, lower)) {
-        const std::uintptr_t wlrHandle = wlrHandleForToplevel(info);
-        const std::uintptr_t extHandle = extHandleForToplevel(info);
-        if (wlrHandle != 0 && seenWlrHandles.contains(wlrHandle)) {
-          continue;
-        }
-        if (extHandle != 0 && seenExtHandles.contains(extHandle)) {
-          continue;
-        }
-
-        const auto mappedId = platform.compositorWindowIdForToplevelInfo(info);
-        if (!mappedId.has_value() || mappedId->empty()) {
-          continue;
-        }
-        const std::string key = canonicalWindowId(*mappedId);
-        if (key.empty()) {
-          continue;
-        }
-
-        if (wlrHandle != 0) {
-          seenWlrHandles.insert(wlrHandle);
-        }
-        if (extHandle != 0) {
-          seenExtHandles.insert(extHandle);
-        }
-        out[key] = info;
+    const auto indexToplevel = [&](const ToplevelInfo& info) {
+      const std::uintptr_t wlrHandle = wlrHandleForToplevel(info);
+      const std::uintptr_t extHandle = extHandleForToplevel(info);
+      if (wlrHandle != 0 && seenWlrHandles.contains(wlrHandle)) {
+        return;
       }
+      if (extHandle != 0 && seenExtHandles.contains(extHandle)) {
+        return;
+      }
+
+      const std::string key = identityKeyForToplevelInfo(platform, info);
+      if (key.empty()) {
+        return;
+      }
+
+      if (wlrHandle != 0) {
+        seenWlrHandles.insert(wlrHandle);
+      }
+      if (extHandle != 0) {
+        seenExtHandles.insert(extHandle);
+      }
+      out[key] = info;
+    };
+
+    for (const auto& appId : platform.runningAppIds(outputFilter)) {
+      const std::string lower = StringUtils::toLower(appId);
+      for (const auto& info : platform.enrichedWindowsForApp(lower, lower, outputFilter)) {
+        indexToplevel(info);
+      }
+    }
+    for (const auto& info : platform.enrichedWindowsWithoutAppId(outputFilter)) {
+      indexToplevel(info);
     }
   }
 
@@ -351,38 +368,114 @@ namespace {
       }
     }
 
-    std::unordered_map<std::string, ToplevelInfo> liveToplevelById;
-    indexLiveToplevelsByWindowId(platform, liveToplevelById);
-    for (const auto& live : liveToplevelById) {
+    std::unordered_map<std::string, ToplevelInfo> liveToplevelByIdentity;
+    indexLiveToplevelsByIdentity(platform, nullptr, liveToplevelByIdentity);
+    for (const auto& live : liveToplevelByIdentity) {
       keys.insert(live.first);
     }
     return keys;
   }
 
-  void buildWindowEntries(
-      const CompositorPlatform& platform, IconResolver& iconResolver, int iconSize,
-      std::vector<WindowSwitcherEntry>& out, const std::optional<std::string>& focusedId,
-      const std::deque<std::string>* mruKeys
-  ) {
-    std::unordered_map<std::string, WorkspaceWindowAssignment> assignmentById;
-    assignmentById.reserve(32);
-    for (const auto& assignment : platform.workspaceWindowAssignments()) {
-      if (assignment.windowId.empty()) {
+  [[nodiscard]] std::optional<std::string>
+  focusedWindowAssignmentKey(const CompositorPlatform& platform, wl_output* output) {
+    const std::string focusedKey = currentFocusedWindowKey(platform);
+    if (focusedKey.empty()) {
+      return std::nullopt;
+    }
+    for (const auto& assignment : platform.workspaceWindowAssignments(output)) {
+      if (assignment.workspaceKey.empty() || assignment.windowId.empty()) {
         continue;
       }
+      const std::string key = canonicalWindowId(assignment.windowId);
+      if (identityKeysEqual(key, focusedKey)) {
+        return assignment.workspaceKey;
+      }
+    }
+    return std::nullopt;
+  }
+
+  [[nodiscard]] switcher_membership::OutputMembership
+  buildOutputMembership(const CompositorPlatform& platform, wl_output* output) {
+    switcher_membership::OutputMembership membership;
+    membership.workspaces = platform.workspaces(output);
+    membership.overlayKeys = platform.openOverlayWorkspaceKeys(output);
+    membership.assignments = platform.workspaceWindowAssignments(output);
+    const bool hasActive =
+        std::ranges::any_of(membership.workspaces, [](const Workspace& workspace) { return workspace.active; });
+    // Without an active workspace the focus is the only hint of what the user sees.
+    if (!hasActive) {
+      membership.focusedKey = focusedWindowAssignmentKey(platform, output).value_or(std::string{});
+    }
+    return membership;
+  }
+
+  [[nodiscard]] std::vector<switcher_membership::OutputMembership> collectOutputMemberships(
+      const CompositorPlatform& platform, const WaylandConnection& wayland, wl_output* outputFilter
+  ) {
+    std::vector<switcher_membership::OutputMembership> memberships;
+    const auto appendForOutput = [&](wl_output* output) {
+      if (output != nullptr) {
+        memberships.push_back(buildOutputMembership(platform, output));
+      }
+    };
+
+    if (outputFilter != nullptr) {
+      appendForOutput(outputFilter);
+      return memberships;
+    }
+    memberships.reserve(wayland.outputs().size());
+    for (const auto& output : wayland.outputs()) {
+      appendForOutput(output.output);
+    }
+    return memberships;
+  }
+
+  [[nodiscard]] std::vector<WorkspaceWindowAssignment> collectSwitcherAssignments(
+      const CompositorPlatform& platform, const WaylandConnection& wayland, wl_output* outputFilter,
+      bool currentWorkspaceOnly, bool& membershipFilterApplied
+  ) {
+    membershipFilterApplied = false;
+    if (!currentWorkspaceOnly) {
+      return platform.workspaceWindowAssignments(outputFilter);
+    }
+
+    const std::vector<switcher_membership::OutputMembership> memberships =
+        collectOutputMemberships(platform, wayland, outputFilter);
+    // No output reports assignments: turning the filter on would then hide every window,
+    // since the switcher drops the toplevels it has no assignment for. Better unfiltered.
+    if (!switcher_membership::hasWorkspaceMembershipData(memberships)) {
+      return platform.workspaceWindowAssignments(outputFilter);
+    }
+
+    membershipFilterApplied = true;
+    return switcher_membership::assignmentsOnVisibleWorkspaces(memberships);
+  }
+
+  void buildWindowEntries(
+      const CompositorPlatform& platform, const WaylandConnection& wayland, IconResolver& iconResolver, int iconSize,
+      wl_output* outputFilter, std::vector<WindowSwitcherEntry>& out, const std::string& focusedKey,
+      const std::deque<std::string>* mruKeys, bool currentWorkspaceOnly
+  ) {
+    bool membershipFilterApplied = false;
+    const std::vector<WorkspaceWindowAssignment> assignments =
+        collectSwitcherAssignments(platform, wayland, outputFilter, currentWorkspaceOnly, membershipFilterApplied);
+
+    std::unordered_map<std::string, WorkspaceWindowAssignment> assignmentByIdentity;
+    assignmentByIdentity.reserve(assignments.size());
+    for (const auto& assignment : assignments) {
       const std::string key = canonicalWindowId(assignment.windowId);
       if (key.empty()) {
         continue;
       }
-      assignmentById[key] = assignment;
+      assignmentByIdentity.try_emplace(key, assignment);
     }
 
-    std::unordered_map<std::string, ToplevelInfo> liveToplevelById;
-    indexLiveToplevelsByWindowId(platform, liveToplevelById);
+    std::unordered_map<std::string, ToplevelInfo> liveToplevelByIdentity;
+    indexLiveToplevelsByIdentity(platform, outputFilter, liveToplevelByIdentity);
 
     std::unordered_set<std::string> seenKeys;
     std::vector<WindowSwitcherCandidate> candidates;
-    candidates.reserve(assignmentById.size() + liveToplevelById.size());
+    candidates.reserve(assignmentByIdentity.size() + liveToplevelByIdentity.size());
 
     // Empty while MRU ordering is off, which leaves every candidate at rank max.
     std::unordered_map<std::string_view, std::size_t> mruRanks;
@@ -398,40 +491,43 @@ namespace {
         return;
       }
       seenKeys.insert(key);
+      candidate.entry.identityKey = key;
       if (const auto rank = mruRanks.find(key); rank != mruRanks.end()) {
         candidate.mruIndex = rank->second;
       }
       candidates.push_back(std::move(candidate));
     };
 
-    for (const auto& [key, assignment] : assignmentById) {
+    for (const auto& [key, assignment] : assignmentByIdentity) {
       WindowSwitcherCandidate candidate;
-      candidate.entry = makeEntryFromAssignment(platform, iconResolver, iconSize, assignment);
+      candidate.entry = makeEntryFromAssignment(platform, wayland, iconResolver, iconSize, assignment);
       candidate.workspaceKey = assignment.workspaceKey;
       candidate.sortX = assignment.x;
       candidate.sortY = assignment.y;
-      if (const auto live = liveToplevelById.find(key); live != liveToplevelById.end()) {
+      if (const auto live = liveToplevelByIdentity.find(key); live != liveToplevelByIdentity.end()) {
         if (!live->second.title.empty()) {
           candidate.entry.title = live->second.title;
         }
         if (const std::uintptr_t wlrHandle = wlrHandleForToplevel(live->second); wlrHandle != 0) {
           candidate.entry.closeHandle = wlrHandle;
         }
+        if (const std::uintptr_t extHandle = extHandleForToplevel(live->second); extHandle != 0) {
+          candidate.entry.captureHandle = extHandle;
+        }
         candidate.toplevelOrder = live->second.order;
       }
       addCandidate(std::move(candidate), key);
     }
 
-    for (const auto& [key, info] : liveToplevelById) {
+    for (const auto& [key, info] : liveToplevelByIdentity) {
       if (seenKeys.contains(key)) {
+        continue;
+      }
+      if (membershipFilterApplied) {
         continue;
       }
       WindowSwitcherCandidate candidate;
       candidate.entry = makeEntryFromToplevel(platform, iconResolver, iconSize, info.appId, info);
-      if (const auto mappedId = platform.compositorWindowIdForToplevelInfo(info);
-          mappedId.has_value() && !mappedId->empty()) {
-        candidate.entry.windowId = *mappedId;
-      }
       candidate.toplevelOrder = info.order;
       addCandidate(std::move(candidate), key);
     }
@@ -460,19 +556,10 @@ namespace {
     out.clear();
     out.reserve(candidates.size());
 
-    std::optional<std::string> focusedKey;
-    if (focusedId.has_value()) {
-      focusedKey = canonicalWindowId(*focusedId);
-      if (focusedKey->empty()) {
-        focusedKey = *focusedId;
-      }
-    }
-
-    if (focusedKey.has_value()) {
+    if (!focusedKey.empty()) {
       for (auto it = candidates.begin(); it != candidates.end(); ++it) {
         const std::string key = identityKeyForEntry(it->entry);
-        if (key == *focusedKey
-            || (compositors::isHyprland() && compositors::hyprland::windowIdsEqual(key, *focusedKey))) {
+        if (identityKeysEqual(key, focusedKey)) {
           out.push_back(std::move(it->entry));
           candidates.erase(it);
           break;
@@ -485,78 +572,9 @@ namespace {
     }
   }
 
-  class WindowSwitcherGridAdapter final : public VirtualGridAdapter {
-  public:
-    WindowSwitcherGridAdapter(float scale, AsyncTextureCache* cache, std::optional<ColorSpec> iconTint)
-        : m_scale(scale), m_cache(cache), m_iconTint(iconTint) {}
-
-    void setEntries(const std::vector<WindowSwitcherEntry>* entries) { m_entries = entries; }
-    void setRenderer(Renderer* renderer) { m_renderer = renderer; }
-    void setOnActivate(std::function<void(std::size_t)> callback) { m_onActivate = std::move(callback); }
-    void setOnClose(std::function<void(std::size_t)> callback) { m_onClose = std::move(callback); }
-    void setOnInvalidate(std::function<void()> callback) { m_onInvalidate = std::move(callback); }
-
-    [[nodiscard]] std::size_t itemCount() const override { return m_entries == nullptr ? 0U : m_entries->size(); }
-
-    [[nodiscard]] std::unique_ptr<Node> createTile() override {
-      std::unique_ptr<WindowSwitcherTile> tile = std::make_unique<WindowSwitcherTile>(m_scale, m_cache);
-      tile->setAppIconColorizeTint(m_iconTint);
-      tile->setOnInvalidate(m_onInvalidate);
-      return tile;
-    }
-
-    void bindTile(Node& tile, std::size_t index, bool selected, bool hovered) override {
-      if (m_renderer == nullptr || m_entries == nullptr || index >= m_entries->size()) {
-        return;
-      }
-      auto* windowTile = dynamic_cast<WindowSwitcherTile*>(&tile);
-      if (windowTile == nullptr) {
-        return;
-      }
-      windowTile->setCellSize(windowTile->width(), windowTile->height());
-      windowTile->bind(*m_renderer, (*m_entries)[index], selected, hovered);
-    }
-
-    void onActivate(std::size_t index) override {
-      if (m_onActivate) {
-        m_onActivate(index);
-      }
-    }
-
-    bool
-    onPointerPress(std::size_t index, float cellLocalX, float cellLocalY, float cellWidth, float cellHeight) override {
-      if (!WindowSwitcherTile::hitTestCloseRegion(cellWidth, cellHeight, m_scale, cellLocalX, cellLocalY)) {
-        return false;
-      }
-      if (m_onClose) {
-        m_onClose(index);
-      }
-      return true;
-    }
-
-    [[nodiscard]] bool overlayHitTest(
-        std::size_t index, float cellLocalX, float cellLocalY, float cellWidth, float cellHeight
-    ) const override {
-      (void)index;
-      return WindowSwitcherTile::hitTestCloseRegion(cellWidth, cellHeight, m_scale, cellLocalX, cellLocalY);
-    }
-
-    void applyOverlayHover(Node& tile, bool hovered) override {
-      static_cast<WindowSwitcherTile&>(tile).setCloseHovered(hovered);
-    }
-
-  private:
-    float m_scale = 1.0F;
-    AsyncTextureCache* m_cache = nullptr;
-    std::optional<ColorSpec> m_iconTint;
-    Renderer* m_renderer = nullptr;
-    const std::vector<WindowSwitcherEntry>* m_entries = nullptr;
-    std::function<void(std::size_t)> m_onActivate;
-    std::function<void(std::size_t)> m_onClose;
-    std::function<void()> m_onInvalidate;
-  };
-
 } // namespace
+
+WindowSwitcher::WindowSwitcher() = default;
 
 WindowSwitcher::~WindowSwitcher() { destroySurface(); }
 
@@ -567,12 +585,24 @@ struct WindowSwitcher::Instance {
   AnimationManager animations;
   std::unique_ptr<Node> sceneRoot;
   InputArea* input = nullptr;
-  VirtualGridView* grid = nullptr;
+  InputArea* panel = nullptr;
+  Box* panelBackground = nullptr;
+  Box* dimmer = nullptr;
+  InputArea* strip = nullptr;
+  std::vector<WindowSwitcherTile*> tiles;
+  Label* counterLabel = nullptr;
+  Box* countBackground = nullptr;
   Label* emptyLabel = nullptr;
   InputDispatcher inputDispatcher;
-  std::unique_ptr<WindowSwitcherGridAdapter> adapter;
-  SwitcherGridMetrics gridMetrics;
+  WindowSwitcherStyleLayout styleLayout;
+  AnimationManager::Id carouselAnimId = 0;
+  bool contentSyncPending = false;
   bool pointerInside = false;
+  bool revealStarted = false;
+  ShellConfig::WindowSwitcherStyle style = ShellConfig::WindowSwitcherStyle::Carousel;
+  bool showCaption = true;
+  bool showCount = true;
+  bool showAppIcon = true;
 };
 
 void WindowSwitcher::initialize(
@@ -584,6 +614,7 @@ void WindowSwitcher::initialize(
   m_platform = &platform;
   m_config = config;
   m_asyncTextures = asyncTextures;
+  m_thumbnailCapture = std::make_unique<ToplevelThumbnailCapture>(wayland);
 }
 
 void WindowSwitcher::registerIpc(IpcService& ipc) {
@@ -605,9 +636,21 @@ void WindowSwitcher::registerIpc(IpcService& ipc) {
     if (output == nullptr) {
       return "error: no output available\n";
     }
-    show(output);
+    const std::uint32_t modifiers = m_active && m_wayland != nullptr ? m_wayland->keyboardModifiers() : 0;
+    showFromShortcut(output, modifiers);
     return "ok\n";
   });
+}
+
+void WindowSwitcher::onConfigReload() {
+  if (!m_active) {
+    return;
+  }
+  refreshWindows();
+  if (m_instance != nullptr) {
+    m_instance->styleLayout = {};
+  }
+  requestSceneUpdate();
 }
 
 void WindowSwitcher::onOutputChange() {
@@ -660,27 +703,52 @@ void WindowSwitcher::onToplevelChange() {
   const std::size_t previousCount = m_windows.size();
   refreshWindows();
   if (m_instance != nullptr && m_windows.size() != previousCount) {
-    m_instance->gridMetrics = {};
+    m_instance->styleLayout = {};
+  } else if (m_instance != nullptr) {
+    m_instance->contentSyncPending = true;
   }
   requestSceneUpdate();
 }
 
-void WindowSwitcher::show(wl_output* output) {
+void WindowSwitcher::show(wl_output* output) { showWithDirection(output, 1); }
+
+void WindowSwitcher::showFromShortcut(wl_output* output, std::uint32_t modifiers) {
+  showWithDirection(output, (modifiers & KeyMod::Shift) != 0 ? -1 : 1);
+  if (!m_active) {
+    return;
+  }
+  m_shortcutSession = true;
+  captureShortcutModifiers(modifiers);
+}
+
+void WindowSwitcher::showWithDirection(wl_output* output, int direction) {
   if (m_wayland == nullptr || m_renderContext == nullptr || m_platform == nullptr || output == nullptr) {
     return;
   }
 
   const bool wasActive = m_active;
+  const bool outputChanged = output != m_output;
   if (!wasActive) {
     recordFocusedWindow();
+    m_shortcutModifiers = 0;
+    m_shortcutSession = false;
   }
+  m_output = output;
+  const std::string focusedKey = currentFocusedWindowKey(*m_platform);
   refreshWindows();
 
-  m_output = output;
   if (wasActive) {
-    cycleSelection(1);
+    cycleSelection(direction);
   } else {
-    m_selectedIndex = m_windows.size() > 1 ? 1 : 0;
+    bool focusedListedFirst = false;
+    if (!focusedKey.empty() && !m_windows.empty()) {
+      const std::string frontKey = identityKeyForEntry(m_windows.front());
+      focusedListedFirst = identityKeysEqual(frontKey, focusedKey);
+    }
+    m_selectedIndex = 0;
+    if (m_windows.size() > 1 && focusedListedFirst) {
+      m_selectedIndex = direction < 0 ? m_windows.size() - 1 : 1;
+    }
   }
   m_active = true;
 
@@ -690,6 +758,15 @@ void WindowSwitcher::show(wl_output* output) {
     return;
   }
   requestSceneUpdate();
+  if (!wasActive || outputChanged) {
+    startThumbnailCaptures();
+  }
+}
+
+void WindowSwitcher::captureShortcutModifiers(std::uint32_t modifiers) {
+  if (m_shortcutModifiers == 0) {
+    m_shortcutModifiers = modifiers & kShortcutModifierMask;
+  }
 }
 
 void WindowSwitcher::hide() {
@@ -701,7 +778,9 @@ void WindowSwitcher::hide() {
   m_output = nullptr;
   m_windows.clear();
   m_selectedIndex = 0;
-  m_gridColumns = kGridColumns;
+  m_shortcutModifiers = 0;
+  m_shortcutSession = false;
+  cancelThumbnailCaptures();
   destroySurface();
 }
 
@@ -712,6 +791,15 @@ void WindowSwitcher::refreshWindows() {
   }
 
   std::optional<std::string> selectedKey;
+  std::unordered_map<std::string, std::shared_ptr<const ScreencopyImage>> thumbnails;
+  thumbnails.reserve(m_windows.size());
+  for (const auto& entry : m_windows) {
+    if (entry.thumbnail != nullptr) {
+      if (std::string key = identityKeyForEntry(entry); !key.empty()) {
+        thumbnails.emplace(std::move(key), entry.thumbnail);
+      }
+    }
+  }
   if (m_active && m_selectedIndex < m_windows.size()) {
     selectedKey = identityKeyForEntry(m_windows[m_selectedIndex]);
     if (selectedKey->empty()) {
@@ -719,17 +807,25 @@ void WindowSwitcher::refreshWindows() {
     }
   }
 
-  const int iconSize = 96;
+  const int iconSize = static_cast<int>(std::round((Style::controlHeightLg + Style::spaceLg) * shellUiScale(m_config)));
+  const bool allOutputs = m_config == nullptr || m_config->config().shell.windowSwitcher.showAllOutputs;
+  const bool currentWorkspaceOnly = m_config != nullptr && m_config->config().shell.windowSwitcher.currentWorkspaceOnly;
   buildWindowEntries(
-      *m_platform, m_iconResolver, iconSize, m_windows, m_platform->focusedCompositorWindowId(),
-      mruEnabled() ? &m_mruKeys : nullptr
+      *m_platform, *m_wayland, m_iconResolver, iconSize, allOutputs ? nullptr : m_output, m_windows,
+      currentFocusedWindowKey(*m_platform), mruEnabled() ? &m_mruKeys : nullptr, currentWorkspaceOnly
   );
+
+  for (auto& entry : m_windows) {
+    const auto thumbnail = thumbnails.find(identityKeyForEntry(entry));
+    if (thumbnail != thumbnails.end()) {
+      entry.thumbnail = thumbnail->second;
+    }
+  }
 
   if (selectedKey.has_value()) {
     for (std::size_t i = 0; i < m_windows.size(); ++i) {
       const std::string key = identityKeyForEntry(m_windows[i]);
-      if (key == *selectedKey
-          || (compositors::isHyprland() && compositors::hyprland::windowIdsEqual(key, *selectedKey))) {
+      if (identityKeysEqual(key, *selectedKey)) {
         m_selectedIndex = i;
         return;
       }
@@ -741,13 +837,93 @@ void WindowSwitcher::refreshWindows() {
   }
 }
 
+void WindowSwitcher::startThumbnailCaptures() {
+  cancelThumbnailCaptures();
+  if (!m_active || m_wayland == nullptr || m_thumbnailCapture == nullptr || !m_thumbnailCapture->available()) {
+    return;
+  }
+
+  std::vector<bool> queued(m_windows.size(), false);
+  auto enqueue = [this, &queued](std::size_t index) {
+    if (index >= m_windows.size() || queued[index]) {
+      return;
+    }
+    queued[index] = true;
+    const WindowSwitcherEntry& entry = m_windows[index];
+    const std::string key = identityKeyForEntry(entry);
+    if (!key.empty() && entry.captureHandle != 0 && entry.thumbnail == nullptr) {
+      m_thumbnailQueue.push_back(ThumbnailRequest{.windowKey = key, .captureHandle = entry.captureHandle});
+    }
+  };
+  if (m_selectedIndex < m_windows.size()) {
+    enqueue(m_selectedIndex);
+    const std::size_t visibleCount = std::min(kVisibleCards, m_windows.size());
+    const std::size_t centerSlot = visibleCount / 2;
+    const std::size_t start = (m_selectedIndex + m_windows.size() - centerSlot) % m_windows.size();
+    for (std::size_t slot = 0; slot < visibleCount; ++slot) {
+      enqueue((start + slot) % m_windows.size());
+    }
+  }
+  for (std::size_t i = 0; i < m_windows.size(); ++i) {
+    enqueue(i);
+  }
+  captureNextThumbnail();
+}
+
+void WindowSwitcher::captureNextThumbnail() {
+  if (!m_active || m_wayland == nullptr || m_thumbnailCapture == nullptr || m_thumbnailCapture->busy()) {
+    return;
+  }
+
+  while (!m_thumbnailQueue.empty()) {
+    ThumbnailRequest request = std::move(m_thumbnailQueue.front());
+    m_thumbnailQueue.pop_front();
+    auto* handle = reinterpret_cast<ext_foreign_toplevel_handle_v1*>(request.captureHandle);
+    bool handleIsLive = false;
+    m_wayland->visitExtToplevelHandles([&](ext_foreign_toplevel_handle_v1* live) { handleIsLive |= live == handle; });
+    if (!handleIsLive) {
+      continue;
+    }
+
+    m_thumbnailCapture->capture(
+        handle, 640, 400,
+        [this, windowKey = std::move(request.windowKey)](std::optional<ScreencopyImage> image, std::string error) {
+          if (!error.empty()) {
+            kLog.debug("thumbnail capture skipped for {}: {}", windowKey, error);
+          } else if (m_active && image.has_value()) {
+            auto thumbnail = std::make_shared<ScreencopyImage>(std::move(*image));
+            for (auto& entry : m_windows) {
+              if (identityKeyForEntry(entry) == windowKey) {
+                entry.thumbnail = thumbnail;
+              }
+            }
+            if (m_instance != nullptr) {
+              m_instance->contentSyncPending = true;
+            }
+            requestSceneUpdate();
+          }
+          captureNextThumbnail();
+        }
+    );
+    return;
+  }
+}
+
+void WindowSwitcher::cancelThumbnailCaptures() {
+  m_thumbnailQueue.clear();
+  if (m_thumbnailCapture != nullptr) {
+    m_thumbnailCapture->cancelInFlight();
+  }
+}
+
 void WindowSwitcher::setSelectedIndex(std::size_t index) {
   if (m_windows.empty()) {
     m_selectedIndex = 0;
     return;
   }
   m_selectedIndex = index % m_windows.size();
-  syncGridSelection();
+  prioritizeSelectedThumbnail();
+  syncSelection(true);
   requestSceneUpdate();
 }
 
@@ -759,26 +935,24 @@ void WindowSwitcher::cycleSelection(int delta) {
   const auto next = (static_cast<long>(m_selectedIndex) + delta) % static_cast<long>(count);
   m_selectedIndex =
       next >= 0 ? static_cast<std::size_t>(next) : static_cast<std::size_t>(next + static_cast<long>(count));
-  syncGridSelection();
+  prioritizeSelectedThumbnail();
+  syncSelection(true);
   requestSceneUpdate();
 }
 
-void WindowSwitcher::navigateGrid(int colDelta, int rowDelta) {
-  if (m_windows.empty()) {
+void WindowSwitcher::navigateList(int delta) { cycleSelection(delta); }
+
+void WindowSwitcher::prioritizeSelectedThumbnail() {
+  if (m_selectedIndex >= m_windows.size() || m_windows[m_selectedIndex].thumbnail != nullptr) {
     return;
   }
-  const std::size_t columns = std::max<std::size_t>(1, m_gridColumns);
-  const auto col = static_cast<int>(m_selectedIndex % columns);
-  const auto row = static_cast<int>(m_selectedIndex / columns);
-  int nextCol = col + colDelta;
-  int nextRow = row + rowDelta;
-  nextCol = std::clamp(nextCol, 0, static_cast<int>(columns) - 1);
-  nextRow = std::max(0, nextRow);
-  std::size_t nextIndex = static_cast<std::size_t>(nextRow) * columns + static_cast<std::size_t>(nextCol);
-  if (nextIndex >= m_windows.size()) {
-    nextIndex = m_windows.size() - 1;
+  const std::string selectedKey = identityKeyForEntry(m_windows[m_selectedIndex]);
+  const auto request = std::ranges::find_if(m_thumbnailQueue, [&](const ThumbnailRequest& queued) {
+    return queued.windowKey == selectedKey;
+  });
+  if (request != m_thumbnailQueue.end()) {
+    std::rotate(m_thumbnailQueue.begin(), request, request + 1);
   }
-  setSelectedIndex(nextIndex);
 }
 
 void WindowSwitcher::activateSelected() {
@@ -825,6 +999,7 @@ void WindowSwitcher::closeWindowAt(std::size_t index) {
     m_platform->closeToplevel(handle);
   }
 
+  const std::size_t previousCount = m_windows.size();
   refreshWindows();
   if (m_windows.empty()) {
     hide();
@@ -832,6 +1007,13 @@ void WindowSwitcher::closeWindowAt(std::size_t index) {
   }
   if (m_selectedIndex >= m_windows.size()) {
     m_selectedIndex = m_windows.size() - 1;
+  }
+  if (m_instance != nullptr) {
+    if (m_windows.size() != previousCount) {
+      m_instance->styleLayout = {};
+    } else {
+      m_instance->contentSyncPending = true;
+    }
   }
   requestSceneUpdate();
 }
@@ -843,22 +1025,208 @@ void WindowSwitcher::requestSceneUpdate() {
   }
 }
 
-void WindowSwitcher::syncGridSelection() {
-  if (m_instance == nullptr
-      || m_instance->grid == nullptr
-      || m_instance->adapter == nullptr
-      || m_instance->surface == nullptr) {
+void WindowSwitcher::syncSelection(bool animate) {
+  if (m_instance == nullptr || m_instance->strip == nullptr || m_instance->surface == nullptr) {
     return;
   }
+  if (m_instance->tiles.size() != m_windows.size()) {
+    m_instance->styleLayout = {};
+    m_instance->contentSyncPending = true;
+    return;
+  }
+
+  struct CardTransition {
+    WindowSwitcherTile* tile = nullptr;
+    float fromX = 0.0F;
+    float fromY = 0.0F;
+    float fromScaleX = 1.0F;
+    float fromScaleY = 1.0F;
+    float fromOpacity = 1.0F;
+    float toX = 0.0F;
+    float toY = 0.0F;
+    float toScaleX = 1.0F;
+    float toScaleY = 1.0F;
+    float toOpacity = 1.0F;
+    bool hideOnComplete = false;
+  };
+
+  const std::vector<WindowSwitcherCardTarget> previousTargets = m_instance->styleLayout.cards;
+  const bool interrupted = m_instance->carouselAnimId != 0;
+  if (interrupted) {
+    m_instance->animations.cancel(m_instance->carouselAnimId);
+    m_instance->carouselAnimId = 0;
+  }
+
+  const ShellConfig::WindowSwitcherConfig switcherConfig =
+      m_config != nullptr ? m_config->config().shell.windowSwitcher : ShellConfig::WindowSwitcherConfig{};
+  if (m_instance->surface->width() > 0 && m_instance->surface->height() > 0) {
+    m_instance->styleLayout = computeSwitcherLayout(
+        static_cast<float>(m_instance->surface->width()), static_cast<float>(m_instance->surface->height()),
+        m_instance->uiLayoutScale, m_windows.size(), m_selectedIndex, switcherConfig
+    );
+    positionPanel(
+        *m_instance, static_cast<float>(m_instance->surface->width()), static_cast<float>(m_instance->surface->height())
+    );
+  }
+
   Renderer& renderer = m_instance->surface->renderTarget().renderer();
-  m_instance->adapter->setRenderer(&renderer);
-  m_instance->adapter->setEntries(&m_windows);
-  m_instance->grid->setSelectedIndex(m_selectedIndex);
-  m_instance->grid->scrollToIndex(m_selectedIndex);
-  m_instance->grid->notifyDataChanged();
+  const std::vector<WindowSwitcherCardTarget>& targets = m_instance->styleLayout.cards;
+
+  std::vector<CardTransition> transitions;
+  transitions.reserve(m_instance->tiles.size());
+  for (std::size_t windowIndex = 0; windowIndex < m_instance->tiles.size(); ++windowIndex) {
+    WindowSwitcherTile* tile = m_instance->tiles[windowIndex];
+    if (tile == nullptr) {
+      continue;
+    }
+
+    const bool wasVisible = tile->visible();
+    const float oldVisualW = tile->width() * tile->scaleX();
+    const float oldVisualH = tile->height() * tile->scaleY();
+    const float oldVisualX = tile->x() + (tile->width() - oldVisualW) * 0.5F;
+    const float oldVisualY = tile->y() + (tile->height() - oldVisualH) * 0.5F;
+    const float oldOpacity = tile->opacity();
+    const WindowSwitcherCardTarget& target = targets[windowIndex];
+    const bool wasTargetVisible = windowIndex < previousTargets.size() && previousTargets[windowIndex].visible;
+
+    if (target.visible) {
+      tile->bind(
+          renderer, m_windows[windowIndex], target.depth, target.showCaption, target.wideCaption, target.iconPlacement,
+          target.closePlacement
+      );
+      tile->setCardSize(target.width, target.height);
+      tile->setZIndex(target.zIndex);
+      tile->setVisible(true);
+
+      if (!animate) {
+        tile->setPosition(target.x, target.y);
+        tile->setScale(1.0F);
+        tile->setOpacity(target.opacity);
+        continue;
+      }
+
+      float startVisualW = oldVisualW;
+      float startVisualH = oldVisualH;
+      float startVisualX = oldVisualX;
+      float startVisualY = oldVisualY;
+      float startOpacity = oldOpacity;
+      if (!wasVisible) {
+        startVisualW = target.width * Style::windowSwitcherIncomingCardScale;
+        startVisualH = target.height * Style::windowSwitcherIncomingCardScale;
+        startVisualX = target.x + target.direction * target.width * Style::windowSwitcherIncomingCardSlide;
+        startVisualY = target.y + (target.height - startVisualH) * 0.5F;
+        startOpacity = 0.0F;
+      } else if (interrupted && wasTargetVisible) {
+        // A card that entered during the cancelled step now occupies a stable
+        // slot and must not remain transparent through successive repeats.
+        startOpacity = target.opacity;
+      }
+
+      CardTransition transition;
+      transition.tile = tile;
+      transition.fromScaleX = target.width > 0.0F ? startVisualW / target.width : 1.0F;
+      transition.fromScaleY = target.height > 0.0F ? startVisualH / target.height : 1.0F;
+      transition.fromX = startVisualX - (target.width - startVisualW) * 0.5F;
+      transition.fromY = startVisualY - (target.height - startVisualH) * 0.5F;
+      transition.fromOpacity = startOpacity;
+      transition.toX = target.x;
+      transition.toY = target.y;
+      transition.toOpacity = target.opacity;
+      transitions.push_back(transition);
+      continue;
+    }
+
+    if (!wasVisible || !animate || (interrupted && !wasTargetVisible)) {
+      tile->setVisible(false);
+      tile->setScale(1.0F);
+      continue;
+    }
+
+    const float direction = oldVisualX + oldVisualW * 0.5F < m_instance->styleLayout.stripWidth * 0.5F ? -1.0F : 1.0F;
+    const float targetVisualW = oldVisualW * Style::windowSwitcherIncomingCardScale;
+    const float targetVisualH = oldVisualH * Style::windowSwitcherIncomingCardScale;
+    const float targetVisualX = oldVisualX + direction * oldVisualW * Style::windowSwitcherOutgoingCardSlide;
+    const float targetVisualY = oldVisualY + (oldVisualH - targetVisualH) * 0.5F;
+    tile->setZIndex(0);
+
+    CardTransition transition;
+    transition.tile = tile;
+    transition.fromX = tile->x();
+    transition.fromY = tile->y();
+    transition.fromScaleX = tile->scaleX();
+    transition.fromScaleY = tile->scaleY();
+    transition.fromOpacity = oldOpacity;
+    transition.toScaleX = tile->width() > 0.0F ? targetVisualW / tile->width() : 1.0F;
+    transition.toScaleY = tile->height() > 0.0F ? targetVisualH / tile->height() : 1.0F;
+    transition.toX = targetVisualX - (tile->width() - targetVisualW) * 0.5F;
+    transition.toY = targetVisualY - (tile->height() - targetVisualH) * 0.5F;
+    transition.toOpacity = 0.0F;
+    transition.hideOnComplete = true;
+    transitions.push_back(transition);
+  }
+
+  m_instance->contentSyncPending = false;
   if (m_instance->emptyLabel != nullptr) {
     m_instance->emptyLabel->setVisible(m_windows.empty());
   }
+  if (m_instance->counterLabel != nullptr) {
+    if (m_windows.empty()) {
+      m_instance->counterLabel->setText(i18n::trp("window-switcher.count", 0));
+    } else {
+      m_instance->counterLabel->setText(std::to_string(m_selectedIndex + 1) + " / " + std::to_string(m_windows.size()));
+    }
+  }
+
+  if (!animate || transitions.empty()) {
+    return;
+  }
+
+  for (const CardTransition& transition : transitions) {
+    transition.tile->setPosition(transition.fromX, transition.fromY);
+    transition.tile->setScale(transition.fromScaleX, transition.fromScaleY);
+    transition.tile->setOpacity(transition.fromOpacity);
+  }
+
+  Instance* instance = m_instance;
+  InputArea* animationOwner = instance->strip;
+  instance->carouselAnimId = instance->animations.animate(
+      0.0F, 1.0F, Style::animNormal, Easing::EaseOutCubic,
+      [instance, transitions](float progress) {
+        for (const CardTransition& transition : transitions) {
+          transition.tile->setPosition(
+              std::lerp(transition.fromX, transition.toX, progress),
+              std::lerp(transition.fromY, transition.toY, progress)
+          );
+          transition.tile->setScale(
+              std::lerp(transition.fromScaleX, transition.toScaleX, progress),
+              std::lerp(transition.fromScaleY, transition.toScaleY, progress)
+          );
+          transition.tile->setOpacity(std::lerp(transition.fromOpacity, transition.toOpacity, progress));
+        }
+        if (instance->pointerInside) {
+          instance->inputDispatcher.syncPointerHover();
+        }
+      },
+      [this, instance, transitions]() {
+        if (m_instance != instance) {
+          return;
+        }
+        instance->carouselAnimId = 0;
+        for (const CardTransition& transition : transitions) {
+          if (transition.hideOnComplete) {
+            transition.tile->setVisible(false);
+            transition.tile->setScale(1.0F);
+          }
+        }
+        if (instance->pointerInside) {
+          instance->inputDispatcher.syncPointerHover();
+        }
+        if (instance->contentSyncPending) {
+          requestSceneUpdate();
+        }
+      },
+      animationOwner
+  );
 }
 
 bool WindowSwitcher::matchesTrigger(const KeyboardEvent& event) const noexcept {
@@ -868,17 +1236,18 @@ bool WindowSwitcher::matchesTrigger(const KeyboardEvent& event) const noexcept {
   if (m_config == nullptr) {
     return false;
   }
-  if ((event.modifiers & KeyMod::Alt) == 0 || (event.modifiers & KeyMod::Super) != 0) {
+  const std::uint32_t shortcutModifiers = event.modifiers & kShortcutModifierMask;
+  if (shortcutModifiers == 0) {
     return false;
   }
 
-  const std::uint32_t normalizedModifiers = event.modifiers & ~(KeyMod::Alt | KeyMod::Super);
+  const std::uint32_t normalizedModifiers = event.modifiers & ~shortcutModifiers;
   return m_config->matchesKeybind(KeybindAction::TabNext, event.sym, normalizedModifiers)
       || m_config->matchesKeybind(KeybindAction::TabPrevious, event.sym, normalizedModifiers);
 }
 
 bool WindowSwitcher::isModifierRelease(const KeyboardEvent& event) const noexcept {
-  return !event.pressed && (isAltModifier(event.sym) || event.sym == XKB_KEY_Super_L || event.sym == XKB_KEY_Super_R);
+  return !event.pressed && (KeySymbol::modifierMask(event.sym) & m_shortcutModifiers) != 0;
 }
 
 bool WindowSwitcher::onKeyboardEvent(const KeyboardEvent& event) {
@@ -899,10 +1268,17 @@ bool WindowSwitcher::onKeyboardEvent(const KeyboardEvent& event) {
       if (output == nullptr) {
         return false;
       }
-      show(output);
+      showFromShortcut(output, event.modifiers);
       return true;
     }
     return false;
+  }
+
+  if (m_shortcutSession) {
+    captureShortcutModifiers(event.modifiers);
+    if (!event.pressed) {
+      captureShortcutModifiers(KeySymbol::modifierMask(event.sym));
+    }
   }
 
   if (isModifierRelease(event)) {
@@ -915,7 +1291,7 @@ bool WindowSwitcher::onKeyboardEvent(const KeyboardEvent& event) {
     return true;
   }
 
-  const std::uint32_t normalizedModifiers = event.modifiers & ~(KeyMod::Alt | KeyMod::Super);
+  const std::uint32_t normalizedModifiers = event.modifiers & ~m_shortcutModifiers;
   auto matchesAction = [&](KeybindAction action) {
     if (m_config != nullptr) {
       return m_config->matchesKeybind(action, event.sym, normalizedModifiers);
@@ -945,19 +1321,19 @@ bool WindowSwitcher::onKeyboardEvent(const KeyboardEvent& event) {
   }
 
   if (matchesAction(KeybindAction::Left)) {
-    navigateGrid(-1, 0);
+    navigateList(-1);
     return true;
   }
   if (matchesAction(KeybindAction::Right)) {
-    navigateGrid(1, 0);
+    navigateList(1);
     return true;
   }
   if (matchesAction(KeybindAction::Up)) {
-    navigateGrid(0, -1);
+    navigateList(-1);
     return true;
   }
   if (matchesAction(KeybindAction::Down)) {
-    navigateGrid(0, 1);
+    navigateList(1);
     return true;
   }
 
@@ -1079,6 +1455,14 @@ void WindowSwitcher::ensureSurface() {
     }
     prepareFrame(*instPtr, needsUpdate, needsLayout);
   });
+  inst->surface->setFrameTickCallback([this, instPtr](float /*deltaMs*/) {
+    if (!m_active || m_instance != instPtr || instPtr->surface == nullptr) {
+      return;
+    }
+    positionPanel(
+        *instPtr, static_cast<float>(instPtr->surface->width()), static_cast<float>(instPtr->surface->height())
+    );
+  });
   inst->surface->setClosedCallback([this]() { DeferredCall::callLater([this]() { hide(); }); });
 
   if (!inst->surface->initialize(m_output)) {
@@ -1099,6 +1483,7 @@ void WindowSwitcher::destroySurface() {
   if (m_instance->surface != nullptr) {
     m_instance->surface->setClosedCallback(nullptr);
     m_instance->surface->setPrepareFrameCallback(nullptr);
+    m_instance->surface->setFrameTickCallback(nullptr);
     m_instance->surface->setConfigureCallback(nullptr);
     m_instance->surface->setSceneRoot(nullptr);
   }
@@ -1120,33 +1505,119 @@ void WindowSwitcher::prepareFrame(Instance& instance, bool /*needsUpdate*/, bool
   m_renderContext->makeCurrent(instance.surface->renderTarget());
   Renderer& renderer = instance.surface->renderTarget().renderer();
 
-  const auto metrics = computeSwitcherGridMetrics(
-      static_cast<float>(width), static_cast<float>(height), instance.uiLayoutScale, m_windows.size()
+  const ShellConfig::WindowSwitcherConfig switcherConfig =
+      m_config != nullptr ? m_config->config().shell.windowSwitcher : ShellConfig::WindowSwitcherConfig{};
+  const auto layout = computeSwitcherLayout(
+      static_cast<float>(width), static_cast<float>(height), instance.uiLayoutScale, m_windows.size(), m_selectedIndex,
+      switcherConfig
   );
   const bool needsSceneBuild = instance.sceneRoot == nullptr
       || static_cast<std::uint32_t>(std::round(instance.sceneRoot->width())) != width
       || static_cast<std::uint32_t>(std::round(instance.sceneRoot->height())) != height
-      || !instance.gridMetrics.sameLayoutAs(metrics);
+      || instance.tiles.size() != m_windows.size()
+      || instance.style != switcherConfig.style
+      || instance.showCaption != switcherConfig.showCaption
+      || instance.showCount != switcherConfig.showCount
+      || instance.showAppIcon != switcherConfig.showAppIcon;
   if (needsSceneBuild) {
-    instance.gridMetrics = metrics;
-    m_gridColumns = metrics.columns;
+    instance.styleLayout = layout;
     buildScene(instance, width, height);
   } else {
-    syncGridSelection();
+    const bool layoutChanged = !instance.styleLayout.sameGeometryAs(layout);
+    instance.styleLayout = layout;
+    if ((instance.contentSyncPending || layoutChanged) && instance.carouselAnimId == 0) {
+      syncSelection(layoutChanged);
+    }
     if (instance.sceneRoot != nullptr && instance.sceneRoot->layoutDirty()) {
       instance.sceneRoot->layout(renderer);
-      positionGrid(instance, static_cast<float>(width), static_cast<float>(height));
     }
+    positionPanel(instance, static_cast<float>(width), static_cast<float>(height));
+  }
+  if (instance.pointerInside) {
+    instance.inputDispatcher.syncPointerHover();
   }
 }
 
-void WindowSwitcher::positionGrid(Instance& instance, float screenW, float screenH) {
-  if (instance.grid == nullptr) {
+void WindowSwitcher::positionPanel(Instance& instance, float screenW, float screenH) {
+  if (instance.panel == nullptr || instance.strip == nullptr) {
     return;
   }
-  instance.grid->setPosition(
-      std::round((screenW - instance.grid->width()) * 0.5F), std::round((screenH - instance.grid->height()) * 0.5F)
-  );
+  const WindowSwitcherStyleLayout& layout = instance.styleLayout;
+  const float panelX = std::round((screenW - layout.panelWidth) * 0.5F);
+  const float panelY = std::round((screenH - layout.panelHeight) * 0.5F);
+  instance.panel->setPosition(panelX, panelY);
+  instance.panel->setFrameSize(layout.panelWidth, layout.panelHeight);
+  if (instance.panelBackground != nullptr) {
+    instance.panelBackground->setVisible(layout.boxed);
+    instance.panelBackground->setPosition(0.0F, 0.0F);
+    instance.panelBackground->setFrameSize(layout.panelWidth, layout.panelHeight);
+  }
+  instance.strip->setPosition(layout.stripX, layout.stripY);
+  instance.strip->setFrameSize(layout.stripWidth, layout.stripHeight);
+  if (instance.countBackground != nullptr) {
+    instance.countBackground->setPosition(layout.countX, layout.countY);
+    instance.countBackground->setFrameSize(layout.countWidth, layout.countHeight);
+  }
+  if (instance.counterLabel != nullptr) {
+    instance.counterLabel->setPosition(
+        (layout.countWidth - instance.counterLabel->width()) * 0.5F,
+        (layout.countHeight - instance.counterLabel->height()) * 0.5F
+    );
+  }
+  if (instance.emptyLabel != nullptr) {
+    instance.emptyLabel->setPosition(
+        layout.stripX + (layout.stripWidth - instance.emptyLabel->width()) * 0.5F,
+        layout.stripY + (layout.stripHeight - instance.emptyLabel->height()) * 0.5F
+    );
+  }
+
+  std::vector<InputRect> blurRects;
+  if (layout.boxed && instance.panelBackground != nullptr) {
+    float left = 0.0F;
+    float top = 0.0F;
+    float right = 0.0F;
+    float bottom = 0.0F;
+    Node::transformedBounds(instance.panelBackground, left, top, right, bottom);
+    const int blurX = static_cast<int>(std::floor(left));
+    const int blurY = static_cast<int>(std::floor(top));
+    const int blurW = std::max(1, static_cast<int>(std::ceil(right) - std::floor(left)));
+    const int blurH = std::max(1, static_cast<int>(std::ceil(bottom) - std::floor(top)));
+    auto strips =
+        Surface::tessellateRoundedRect(blurX, blurY, blurW, blurH, Style::scaledRadiusXl(instance.uiLayoutScale));
+    blurRects.insert(blurRects.end(), strips.begin(), strips.end());
+  }
+  for (const WindowSwitcherTile* tile : instance.tiles) {
+    if (tile == nullptr || !tile->visible() || tile->opacity() <= kVisibleOpacityThreshold) {
+      continue;
+    }
+    float left = 0.0F;
+    float top = 0.0F;
+    float right = 0.0F;
+    float bottom = 0.0F;
+    Node::transformedBounds(tile, left, top, right, bottom);
+    const int blurX = static_cast<int>(std::floor(left));
+    const int blurY = static_cast<int>(std::floor(top));
+    const int blurW = std::max(1, static_cast<int>(std::ceil(right) - std::floor(left)));
+    const int blurH = std::max(1, static_cast<int>(std::ceil(bottom) - std::floor(top)));
+    auto strips =
+        Surface::tessellateRoundedRect(blurX, blurY, blurW, blurH, Style::scaledRadiusXl(instance.uiLayoutScale));
+    blurRects.insert(blurRects.end(), strips.begin(), strips.end());
+  }
+  if (instance.countBackground != nullptr) {
+    float left = 0.0F;
+    float top = 0.0F;
+    float right = 0.0F;
+    float bottom = 0.0F;
+    Node::transformedBounds(instance.countBackground, left, top, right, bottom);
+    const int blurX = static_cast<int>(std::floor(left));
+    const int blurY = static_cast<int>(std::floor(top));
+    const int blurW = std::max(1, static_cast<int>(std::ceil(right) - std::floor(left)));
+    const int blurH = std::max(1, static_cast<int>(std::ceil(bottom) - std::floor(top)));
+    auto strips =
+        Surface::tessellateRoundedRect(blurX, blurY, blurW, blurH, Style::scaledRadiusMd(instance.uiLayoutScale));
+    blurRects.insert(blurRects.end(), strips.begin(), strips.end());
+  }
+  instance.surface->setBlurRegion(blurRects);
 }
 
 void WindowSwitcher::buildScene(Instance& instance, std::uint32_t width, std::uint32_t height) {
@@ -1175,88 +1646,128 @@ void WindowSwitcher::buildScene(Instance& instance, std::uint32_t width, std::ui
     (void)onKeyboardEvent(event);
   });
 
+  const WindowSwitcherStyleLayout& layout = instance.styleLayout;
+
   input->addChild(
       ui::box({
-          .fill = fixedColorSpec(rgba(0.0F, 0.0F, 0.0F, 1.0F)),
+          .out = &instance.dimmer,
+          .fill = colorSpecFromRole(ColorRole::Shadow),
           .width = w,
           .height = h,
-          .opacity = kDimOpacity,
+          .opacity = Style::windowSwitcherDimOpacity,
           .participatesInLayout = false,
       })
   );
 
-  const SwitcherGridMetrics& metrics = instance.gridMetrics;
-
+  auto panel = ui::inputArea({
+      .out = &instance.panel,
+      .acceptedButtons = InputArea::buttonMask(BTN_LEFT),
+      .frameWidth = layout.panelWidth,
+      .frameHeight = layout.panelHeight,
+      .participatesInLayout = false,
+  });
+  panel->addChild(
+      ui::box({
+          .out = &instance.panelBackground,
+          .fill = colorSpecFromRole(ColorRole::Surface),
+          .border = scaleAlpha(colorSpecFromRole(ColorRole::Outline), Style::disabledOutlineAlpha),
+          .borderWidth = Style::borderWidth,
+          .radius = Style::scaledRadiusXl(scale),
+          .visible = layout.boxed,
+          .participatesInLayout = false,
+      })
+  );
   std::optional<ColorSpec> iconTint;
   if (m_config != nullptr) {
     iconTint = effectiveShellAppIconColorizationTint(m_config->config().shell);
   }
-  instance.adapter = std::make_unique<WindowSwitcherGridAdapter>(scale, m_asyncTextures, iconTint);
-  instance.adapter->setEntries(&m_windows);
-  instance.adapter->setRenderer(&renderer);
-  instance.adapter->setOnActivate([this](std::size_t index) {
-    setSelectedIndex(index);
-    activateSelected();
-    hide();
-  });
-  instance.adapter->setOnClose([this](std::size_t index) { closeWindowAt(index); });
-  instance.adapter->setOnInvalidate([this]() { requestSceneUpdate(); });
-
-  input->addChild(
-      ui::virtualGridView({
-          .out = &instance.grid,
-          .contentScale = scale,
-          .columns = metrics.columns,
-          .cellHeight = metrics.cellH,
-          .squareCells = false,
-          .columnGap = metrics.colGap,
-          .rowGap = metrics.rowGap,
-          .overscanRows = 1,
-          .itemCursorShape = WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_POINTER,
-          .adapter = instance.adapter.get(),
-          .width = metrics.gridW,
-          .height = metrics.gridH,
-          .visible = !m_windows.empty(),
-          .participatesInLayout = false,
-          .onSelectionChanged =
-              [this](std::optional<std::size_t> idx) {
-                if (idx.has_value()) {
-                  m_selectedIndex = *idx;
-                }
-              },
-          .configure =
-              [gridW = metrics.gridW, gridH = metrics.gridH](VirtualGridView& grid) {
-                grid.setFillWidth(false);
-                grid.setFillHeight(false);
-                grid.setMinWidth(gridW);
-                grid.setMinHeight(gridH);
-                grid.setMaxWidth(gridW);
-                grid.setMaxHeight(gridH);
-                grid.setSize(gridW, gridH);
-              },
-      })
+  const ShellConfig::ShadowConfig shadowConfig =
+      m_config != nullptr ? m_config->config().shell.shadow : ShellConfig::ShadowConfig{};
+  const float cardRadius = Style::scaledRadiusXl(scale);
+  const RoundedRectStyle selectedShadowStyle = shell::surface_shadow::style(
+      shadowConfig, 1.0F, shell::surface_shadow::Shape{.radius = Radii{cardRadius, cardRadius, cardRadius, cardRadius}}
   );
+  auto strip = ui::inputArea({
+      .out = &instance.strip,
+      .frameWidth = layout.stripWidth,
+      .frameHeight = layout.stripHeight,
+      .participatesInLayout = false,
+  });
+  instance.tiles.clear();
+  instance.counterLabel = nullptr;
+  instance.countBackground = nullptr;
+  instance.carouselAnimId = 0;
+  const ShellConfig::WindowSwitcherConfig switcherConfig =
+      m_config != nullptr ? m_config->config().shell.windowSwitcher : ShellConfig::WindowSwitcherConfig{};
+  instance.style = switcherConfig.style;
+  instance.showCaption = switcherConfig.showCaption;
+  instance.showCount = switcherConfig.showCount;
+  instance.showAppIcon = switcherConfig.showAppIcon;
+  if (!m_windows.empty()) {
+    for (std::size_t windowIndex = 0; windowIndex < m_windows.size(); ++windowIndex) {
+      auto tile = std::make_unique<WindowSwitcherTile>(scale, m_asyncTextures);
+      WindowSwitcherTile* tilePtr = tile.get();
+      const WindowSwitcherCardTarget& target = layout.cards[windowIndex];
+      tile->setCardSize(target.width, target.height);
+      tile->setVisible(false);
+      tile->setAppIconColorizeTint(iconTint);
+      tile->setShadowStyle(selectedShadowStyle);
+      tile->setShowCaption(switcherConfig.showCaption);
+      tile->setShowAppIcon(switcherConfig.showAppIcon);
+      tile->setOnInvalidate([this]() { requestSceneUpdate(); });
+      tile->setOnActivate([this, windowIndex]() {
+        setSelectedIndex(windowIndex);
+        activateSelected();
+      });
+      tile->setOnClose([this, windowIndex]() { closeWindowAt(windowIndex); });
+      instance.tiles.push_back(tilePtr);
+      strip->addChild(std::move(tile));
+    }
+  }
+  panel->addChild(std::move(strip));
 
-  input->addChild(
+  if (switcherConfig.showCount) {
+    auto countBackground = ui::box({
+        .out = &instance.countBackground,
+        .fill = colorSpecFromRole(ColorRole::Surface),
+        .border = scaleAlpha(colorSpecFromRole(ColorRole::Outline), Style::disabledOutlineAlpha),
+        .borderWidth = Style::borderWidth,
+        .radius = Style::scaledRadiusMd(scale),
+        .width = layout.countWidth,
+        .height = layout.countHeight,
+        .participatesInLayout = false,
+    });
+    countBackground->addChild(
+        ui::label({
+            .out = &instance.counterLabel,
+            .fontSize = Style::fontSizeCaption * scale,
+            .fontWeight = FontWeight::Medium,
+            .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+            .participatesInLayout = false,
+        })
+    );
+    panel->addChild(std::move(countBackground));
+  }
+
+  panel->addChild(
       ui::label({
           .out = &instance.emptyLabel,
           .text = i18n::tr("window-switcher.empty"),
           .fontSize = Style::fontSizeBody * scale,
-          .color = colorSpecFromRole(ColorRole::OnSurface, 0.88F),
+          .color = colorSpecFromRole(ColorRole::OnSurface),
+          .textAlign = TextAlign::Center,
           .visible = m_windows.empty(),
           .participatesInLayout = false,
-          .configure = [screenW = w, screenH = h](Label& label) {
-            label.setTextAlign(TextAlign::Center);
-            label.setPosition(std::round(screenW * 0.5F - 80.0F), std::round(screenH * 0.5F - 10.0F));
-          },
       })
   );
 
+  input->addChild(std::move(panel));
+
   instance.input = input.get();
   instance.sceneRoot->addChild(std::move(input));
-  syncGridSelection();
+  syncSelection(false);
   instance.sceneRoot->layout(renderer);
-  positionGrid(instance, w, h);
+  positionPanel(instance, w, h);
 
   instance.surface->setSceneRoot(instance.sceneRoot.get());
   instance.inputDispatcher.setSceneRoot(instance.sceneRoot.get());
@@ -1267,5 +1778,21 @@ void WindowSwitcher::buildScene(Instance& instance, std::uint32_t width, std::ui
   });
   if (instance.input != nullptr) {
     instance.inputDispatcher.setFocus(instance.input);
+  }
+
+  if (!instance.revealStarted && instance.panel != nullptr && instance.dimmer != nullptr) {
+    instance.revealStarted = true;
+    instance.panel->setOpacity(0.0F);
+    instance.panel->setScale(Style::windowSwitcherRevealScale);
+    instance.dimmer->setOpacity(0.0F);
+    instance.animations.animate(
+        0.0F, 1.0F, Style::animNormal, Easing::EaseOutCubic,
+        [panelNode = instance.panel, dimmer = instance.dimmer](float value) {
+          panelNode->setOpacity(value);
+          panelNode->setScale(Style::windowSwitcherRevealScale + (1.0F - Style::windowSwitcherRevealScale) * value);
+          dimmer->setOpacity(Style::windowSwitcherDimOpacity * value);
+        },
+        {}, instance.panel
+    );
   }
 }

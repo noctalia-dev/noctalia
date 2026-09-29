@@ -66,7 +66,6 @@ private:
   void hideCountdownOverlays();
   void attachCountdownOverlay(Button& button, ActionCountdownOverlay& overlay, float scale);
   void syncCountdownOverlayColors(std::size_t index);
-  void invokeEntry(const SessionPanelActionConfig& cfg);
   [[nodiscard]] std::vector<SessionPanelActionConfig> effectiveActions() const;
   [[nodiscard]] Button* createActionButton(const SessionPanelActionConfig& cfg, std::size_t index, float scale);
   [[nodiscard]] std::size_t entryCountForLayout() const;
@@ -81,6 +80,7 @@ private:
   std::vector<std::optional<std::string>> m_entryShortcutBadges;
   std::optional<std::size_t> m_selectedIndex;
   std::optional<PendingCountdown> m_pendingCountdown;
+  bool m_actionQueued = false;
   ConfigService* m_config = nullptr;
   SessionActionRunner* m_actionRunner = nullptr;
 };

@@ -9,6 +9,7 @@
 #include <array>
 #include <cctype>
 #include <cstdlib>
+#include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <memory>
@@ -573,14 +574,16 @@ namespace {
         return;
       }
 
+      // Snapshot sources before scanning; a change during the scan keeps the cache dirty.
+      m_sourceSignature = computeSourceSignature();
+
       auto scanned = std::make_shared<const std::vector<DesktopEntry>>(scanDesktopEntries(m_language));
       {
         std::scoped_lock lock(m_entriesMutex);
         m_entries = std::move(scanned);
       }
       rebuildWatches();
-      m_sourceSignature = computeSourceSignature();
-      m_dirty = false;
+      m_dirty = computeSourceSignature() != m_sourceSignature;
       ++m_version;
       kLog.debug("refreshed desktop entries: {} apps (version {})", m_entries->size(), m_version);
     }
@@ -735,8 +738,10 @@ std::vector<DesktopEntry> scanDesktopEntries(std::string_view language) {
     }
   }
 
-  // Sort by name for consistent ordering
-  std::ranges::sort(entries, {}, &DesktopEntry::nameLower);
+  // Collate lowercased names so ordering follows LC_COLLATE and stays case-insensitive under the C locale.
+  std::ranges::sort(entries, [](const DesktopEntry& a, const DesktopEntry& b) {
+    return std::strcoll(a.nameLower.c_str(), b.nameLower.c_str()) < 0;
+  });
 
   return entries;
 }

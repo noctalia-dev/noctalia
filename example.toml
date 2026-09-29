@@ -20,6 +20,7 @@ niri_overview_type_to_launch_enabled = false # opt in to type-to-launch from nir
 polkit_agent          = false
 password_style        = "default"    # default | random
 settings_show_advanced = true        # show advanced settings by default in Settings
+settings_expand_all_groups = false   # expand every group on Settings pages by default
 # settings_window_translucent = false  # translucent settings window background
 show_location         = true         # hide weather location text in shell UI when false
 # app_icon_colorize   = false        # recolor application icons across the shell
@@ -41,7 +42,9 @@ shared_gl_context     = true         # startup-only; false isolates GPU contexts
 # avatar_path         = "~/Pictures/avatar.png"
 
 [shell.screenshot]
+skip_annotate_on_copy_save = false  # Ctrl+C / Ctrl+S in the region overlay skip the annotation editor
 close_on_copy = true                # close the annotation editor after Copy or Ctrl+C succeeds
+close_on_save = true                # close the annotation editor after Save or Ctrl+S succeeds
 
 [shell.privacy]
 mic_filter_regex = ""                # microphone app names to ignore in privacy indicators and OSD
@@ -108,7 +111,11 @@ prefix = "win"
 blacklist = []                      # ignore MPRIS players by bus/identity/desktop entry token
 
 [shell.window_switcher]
+style = "carousel"                    # "carousel" (depth layout) or "compact" (boxed strip)
 mru = false                         # order windows by most recently used (Alt+Tab) instead of workspace layout
+show_caption = true                 # show window titles and application names below previews
+show_count = true                   # show the current and total window count above the previews
+show_app_icon = true                # show application icons over window previews
 
 # ── Wallpaper ─────────────────────────────────────────────────────────────────
 
@@ -176,6 +183,9 @@ keep_dismissed_in_history = true    # set false to remove history entries when t
 layer              = "top"          # top | overlay
 scale              = 1.0            # notification size multiplier applied on top of accessibility.ui_scale
 background_opacity = 0.97
+border             = true           # outline around toast cards; set false for a borderless look
+border_color       = "outline"      # outline color: theme color role (e.g. "primary") or hex (e.g. "#a8b185")
+border_width       = 1              # outline stroke width in px; raise for a thicker outline
 offset_x           = 20             # absolute horizontal margin from the screen edge
 offset_y           = 8              # absolute vertical margin from the screen edge
 # [notification.filter.rhythmbox]
@@ -197,8 +207,12 @@ offset_y           = 8              # absolute vertical margin from the screen e
 position = "top_right"              # top_right | top_left | top_center | bottom_right | bottom_left | bottom_center | center_right | center_left
 position_vertical = "top_center"    # same options; used when orientation = "vertical"
 orientation = "horizontal"          # horizontal | vertical (volume/brightness sliders only; text popups stay horizontal)
+hide_delay_ms = 1400                # time before a popup starts hiding; range 250 to 10000 ms
 scale = 1.0                         # OSD size multiplier applied on top of accessibility.ui_scale
 background_opacity = 0.97           # background opacity of OSD popups
+border = true                       # outline around OSD popup cards; set false for a borderless look
+border_color = "outline"            # outline color: theme color role (e.g. "primary") or hex (e.g. "#a8b185")
+border_width = 1                    # outline stroke width in px; raise for a thicker outline
 offset_x = 20                       # absolute horizontal margin from the screen edge
 offset_y = 8                        # absolute vertical margin from the screen edge
 # monitors = ["DP-1"]               # connector names; omit or leave empty for all monitors
@@ -223,6 +237,9 @@ privacy = true                      # microphone/camera/screen-share capture cha
 [lockscreen]
 enabled                 = true
 blurred_desktop         = false       # use a desktop snapshot as the lock screen background (requires wlr-screencopy)
+transition              = ["fade", "wipe", "disc", "stripes", "zoom", "honeycomb"] # empty disables lock/unlock animation
+transition_duration     = 1500        # lock/unlock animation length in milliseconds
+edge_smoothness         = 0.3         # transition edge feathering (0.0 = sharp, 1.0 = soft)
 blur_intensity          = 0.5         # lock screen background blur (0.0 = none, 1.0 = maximum)
 tint_intensity          = 0.3         # surface-color tint over the lock screen background
 # wallpaper             = ""          # optional image path for the lock screen; empty uses the desktop wallpaper
@@ -248,6 +265,14 @@ refresh_minutes             = 15
 event_date_format           = "%A %e %B"    # date format used for events
 event_time_format           = "%H:%M"       # time format used for events
 
+# Notifications for upcoming events.
+
+[calendar.reminders]
+enabled              = true
+use_event_reminders  = true     # honor per-event reminders; off = always use the default lead below
+default_lead_minutes = 10       # used for events with no reminder of their own; 0 = at event start
+all_day_digest_time  = "09:00"  # one notification listing today's all-day events; "" disables it
+
 # Calendar tab of the control center.
 
 [control_center.calendar]
@@ -269,8 +294,7 @@ effects         = true              # visual weather effects
 enable_overdrive = false            # allow volume above 100% (up to 150%)
 enable_sounds = false               # master toggle for UI feedback sounds
 sound_volume = 0.5                  # 0.0 - 1.0
-volume_change_sound = ""            # empty = bundled sounds/volume-change.wav
-notification_sound = ""             # empty = bundled sounds/notification.wav
+sound_theme = "freedesktop"
 
 # ── Brightness ────────────────────────────────────────────────────────────────
 
@@ -362,6 +386,7 @@ capsule            = false
 # capsule_radius   = 8.0            # omit/blank in Settings for automatic pill radius; 0.0 = square
 # capsule_opacity  = 1.0
 # capsule_border   = "outline"      # uncomment for a border on all widgets
+# capsule_border_width = 1.0        # outline thickness in pixels (0-8); needs capsule_border
 
 start  = ["launcher", "wallpaper", "workspaces"]
 center = ["clock"]

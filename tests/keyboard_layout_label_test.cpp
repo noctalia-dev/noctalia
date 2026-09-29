@@ -40,6 +40,23 @@ int main() {
       "full formatting changed the layout name"
   );
   expect(
+      formatKeyboardLayoutLabel("English (UK, Macintosh)", KeyboardLayoutDisplayMode::Short) == "GB",
+      "UK Macintosh layout was identified as another English layout"
+  );
+  expect(
+      formatKeyboardLayoutLabel("English (UK)", KeyboardLayoutDisplayMode::Short) == "GB",
+      "basic UK layout did not use the canonical GB code"
+  );
+  expect(
+      formatKeyboardLayoutLabel("English (UK, Macintosh)", KeyboardLayoutDisplayMode::Full)
+          == "English (UK, Macintosh)",
+      "full formatting changed the UK Macintosh XKB name"
+  );
+  expect(
+      formatKeyboardLayoutLabel("English (Macintosh, ABC, ANSI)", KeyboardLayoutDisplayMode::Short) == "US",
+      "US Macintosh layout was not preserved"
+  );
+  expect(
       formatKeyboardLayoutLabel("unknown layout", KeyboardLayoutDisplayMode::Short) == "--",
       "unknown short layout did not use the unknown marker"
   );

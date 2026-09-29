@@ -248,6 +248,7 @@ location = "https://example.invalid/bad"
     bar.widgetCapsuleOpacity = 0.9F;
     bar.widgetCapsuleBorderSpecified = true;
     bar.widgetCapsuleBorder = colorSpecFromConfigString("#111213");
+    bar.widgetCapsuleBorderWidth = 2.5F;
     bar.hoverHighlight = false;
     BarCapsuleGroupStyle group;
     group.id = "grp1";
@@ -255,6 +256,7 @@ location = "https://example.invalid/bad"
     group.fill = colorSpecFromConfigString("#222324");
     group.borderSpecified = true;
     group.border = colorSpecFromConfigString("#333435");
+    group.borderWidth = 3.0F;
     group.foreground = colorSpecFromConfigString("#444546");
     group.padding = 20.0F;
     group.radius = 14.0F;
@@ -316,12 +318,14 @@ location = "https://example.invalid/bad"
     ogroup.fill = colorSpecFromConfigString("#f1f2f3");
     ogroup.borderSpecified = true;
     ogroup.border = colorSpecFromConfigString("#0f0e0d");
+    ogroup.borderWidth = 1.5F;
     ogroup.foreground = colorSpecFromConfigString("#0c0b0a");
     ogroup.padding = 18.0F;
     ogroup.radius = 9.0F;
     ogroup.opacity = 0.6F;
     ovr.widgetCapsuleGroups = std::vector<BarCapsuleGroupStyle>{ogroup};
     ovr.widgetCapsulePadding = 24.0;
+    ovr.widgetCapsuleBorderWidth = 4.0F;
     ovr.widgetCapsuleRadius = 30.0;
     ovr.widgetCapsuleOpacity = 0.5;
     bar.monitorOverrides = {ovr};
@@ -332,11 +336,12 @@ location = "https://example.invalid/bad"
   // checks exercise real serialization rather than all-defaults.
   Config makeProbe() {
     Config c;
-    c.audio = AudioConfig{true, true, 0.73F, "change.ogg", "notify.ogg"};
+    c.audio = AudioConfig{true, true, 0.73F, "freedesktop"};
     c.weather = WeatherConfig{false, false, 17, "imperial"};
     c.osd.position = "bottom_left";
     c.osd.positionVertical = "top_right";
     c.osd.orientation = "vertical";
+    c.osd.hideDelayMs = 2750;
     c.osd.scale = 1.4F;
     c.osd.backgroundOpacity = 0.42F;
     c.osd.border = false;
@@ -349,6 +354,9 @@ location = "https://example.invalid/bad"
     c.lockscreen = LockscreenConfig{
         .lockBeforeSuspend = false,
         .blurredDesktop = true,
+        .transitions = {LockscreenTransition::Disc, LockscreenTransition::Zoom},
+        .transitionDurationMs = 900.0F,
+        .edgeSmoothness = 0.7F,
         .blurIntensity = 0.6F,
         .tintIntensity = 0.25F,
         .monitors = {"DP-1"}
@@ -424,6 +432,10 @@ location = "https://example.invalid/bad"
     c.calendar.refreshMinutes = 30;
     c.calendar.eventDateFormat = "%Y-%m-%d";
     c.calendar.eventTimeFormat = "%I:%M %p";
+    c.calendar.reminders.enabled = false;
+    c.calendar.reminders.useEventReminders = false;
+    c.calendar.reminders.defaultLeadMinutes = 25;
+    c.calendar.reminders.allDayDigestTime = "07:45";
     c.calendar.accounts = {
         {"acc1", "google", "Work", "#ff0000", "", "", "", {}},
         {"acc2",
@@ -501,11 +513,18 @@ location = "https://example.invalid/bad"
         LauncherProviderConfig{"session", "s", true}, LauncherProviderConfig{"wallpaper", "w"}
     };
     c.shell.keyboardLayout.customLabels = {{"English (US)", "US"}, {"German", "DE"}};
+    c.shell.windowSwitcher.style = ShellConfig::WindowSwitcherStyle::Compact;
+    c.shell.windowSwitcher.mru = true;
+    c.shell.windowSwitcher.showCaption = false;
+    c.shell.windowSwitcher.showCount = false;
+    c.shell.windowSwitcher.showAppIcon = false;
     c.shell.screenCorners.enabled = true;
     c.shell.screenCorners.size = 24;
     c.shell.mpris.blacklist = {"firefox"};
     c.shell.screenshot.directory = "/shots";
     c.shell.screenshot.pipeToCommand = true;
+    c.shell.screenshot.skipAnnotateOnCopySave = true;
+    c.shell.screenshot.closeOnSave = false; // non-default (default is true) so the round-trip exercises it
     c.shell.session.actions = {
         SessionPanelActionConfig{
             "lock",
@@ -571,6 +590,16 @@ location = "https://example.invalid/bad"
   }
 
   void checkClamps() {
+    // Calendar reminder lead is capped at a day ahead.
+    {
+      auto t = toml::parse("default_lead_minutes = 99999");
+      CalendarConfig::Reminders r{};
+      Diagnostics d;
+      readInto(t, r, calendarRemindersSchema(), "calendar.reminders", d);
+      if (r.defaultLeadMinutes != 1440) {
+        fail("calendar.reminders.default_lead_minutes clamp: expected 1440");
+      }
+    }
     // sound_volume above the max clamps to 1.0.
     {
       auto t = toml::parse("sound_volume = 2.5");
@@ -610,6 +639,40 @@ location = "https://example.invalid/bad"
       readInto(t, b, barFieldsSchema(), "bar", d);
       if (b.fontScale != *kBarFontScaleRange.min) {
         fail("bar.font_scale clamp: expected 0.2");
+      }
+    }
+    // Lockscreen transitions own their duration range and retain an empty effect
+    // pool as the explicit way to disable animation.
+    {
+      auto t = toml::parse("transition = []\ntransition_duration = 25\nedge_smoothness = 2.0");
+      LockscreenConfig lockscreen{};
+      Diagnostics d;
+      readInto(t, lockscreen, lockscreenSchema(), "lockscreen", d);
+      if (!lockscreen.transitions.empty()) {
+        fail("lockscreen.transition: empty pool did not disable transitions");
+      }
+      if (lockscreen.transitionDurationMs != *kLockscreenTransitionDurationRange.min) {
+        fail("lockscreen.transition_duration clamp: expected 100");
+      }
+      if (lockscreen.edgeSmoothness != 1.0F) {
+        fail("lockscreen.edge_smoothness clamp: expected 1.0");
+      }
+    }
+    // Invalid transition values are surfaced instead of silently changing the
+    // configured effect pool.
+    {
+      auto t = toml::parse(R"(transition = ["fade", "unknown", 3])");
+      LockscreenConfig lockscreen{};
+      Diagnostics d;
+      readInto(t, lockscreen, lockscreenSchema(), "lockscreen", d);
+      if (lockscreen.transitions != std::vector{LockscreenTransition::Fade}) {
+        fail("lockscreen.transition: valid values were not retained");
+      }
+      const auto warnings = std::ranges::count_if(d.entries, [](const Diagnostics::Entry& entry) {
+        return entry.severity == Diagnostics::Severity::Warning && entry.path.starts_with("lockscreen.transition[");
+      });
+      if (warnings != 2) {
+        fail("lockscreen.transition: invalid entries were not reported");
       }
     }
     // Clipboard history count accepts large text-heavy histories but still has
@@ -1010,6 +1073,7 @@ border = "#123456"
 border_width = 2.0
 capsule = true
 capsule_border = "#111213"
+capsule_border_width = 2.5
 capsule_fill = "#ABCDEF"
 capsule_foreground = "#FEDCBA"
 capsule_opacity = 0.89999997615814209
@@ -1068,6 +1132,7 @@ widget_spacing = 8
     border_width = 3.0
     capsule = false
     capsule_border = "#C1C2C3"
+    capsule_border_width = 4.0
     capsule_fill = "#B1B2B3"
     capsule_foreground = "#D1D2D3"
     capsule_opacity = 0.5
@@ -1119,6 +1184,7 @@ widget_spacing = 8
         accordion = false
         accordion_direction = "end"
         border = "#0F0E0D"
+        border_width = 1.5
         enabled = true
         fill = "#F1F2F3"
         foreground = "#0C0B0A"
@@ -1132,6 +1198,7 @@ widget_spacing = 8
     accordion = true
     accordion_direction = "start"
     border = "#333435"
+    border_width = 3.0
     enabled = true
     fill = "#222324"
     foreground = "#444546"

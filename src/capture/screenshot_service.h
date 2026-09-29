@@ -21,6 +21,7 @@ class NotificationManager;
 struct Config;
 class RenderContext;
 class WaylandConnection;
+class SoundPlayer;
 struct KeyboardEvent;
 struct PointerEvent;
 struct wl_output;
@@ -70,6 +71,8 @@ public:
   [[nodiscard]] static OutputOptions outputOptionsFromConfig(const Config& config);
 
   void registerIpc(IpcService& ipc, const ConfigService& configService);
+
+  void setSoundPlayer(SoundPlayer* soundPlayer);
 
 private:
   struct PendingCapture {
@@ -178,6 +181,7 @@ private:
   void notifyError(const std::string& message);
   void rememberRegion(const LogicalRect& region);
   [[nodiscard]] std::optional<LogicalRect> loadRememberedRegion() const;
+  void playCaptureSound();
 
   WaylandConnection& m_wayland;
   CompositorPlatform& m_platform;
@@ -198,4 +202,5 @@ private:
   std::optional<PendingDelivery> m_pendingDelivery;
   FreezeTarget m_freezeTarget = FreezeTarget::Region;
   bool m_freezeCaptureActive = false;
+  SoundPlayer* m_soundPlayer = nullptr;
 };

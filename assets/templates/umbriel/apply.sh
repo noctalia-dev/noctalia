@@ -22,7 +22,7 @@ include_line='files = ["noctalia.toml"]'
 mkdir -p "$config_dir"
 
 if [ ! -f "$config_file" ]; then
-    printf '[include]\n%s\n' "$include_line" >"$config_file"
+    printf '[include.optional]\n%s\n' "$include_line" >"$config_file"
     exit 0
 fi
 
@@ -30,9 +30,8 @@ tmp_file="$(mktemp "$config_file.tmp.XXXXXX")"
 trap 'rm -f "$tmp_file"' EXIT
 
 awk '
-    function add_files() {
+    function add_optional_files() {
         print "files = [\"noctalia.toml\"]"
-        added = 1
     }
 
     # Offset of the first ch at or after start that is real array syntax: not
@@ -63,11 +62,11 @@ awk '
     # Rebuild a complete "files = [ ... ]" statement (buf may span lines),
     # dropping any existing noctalia.toml entry and appending it last so it
     # overrides earlier includes. Handles single-line and multi-line arrays.
-    function build(buf,   open, endp, head, inner, tail, test, multiline, indent) {
+    function build_optional(buf,   open, endp, head, inner, tail, test, multiline, indent) {
         open = find_syntax(buf, 1, "[")
         endp = find_syntax(buf, open + 1, "]")
         if (open == 0 || endp == 0 || endp < open) {
-            print "error: include.files must be an array" > "/dev/stderr"
+            print "error: include.optional.files must be an array" > "/dev/stderr"
             exit 2
         }
         head  = substr(buf, 1, open)
@@ -100,39 +99,81 @@ awk '
         return head inner ", \"noctalia.toml\"" tail
     }
 
+    # Remove the generated include from the mandatory section written by older
+    # Noctalia versions while preserving every user-owned include.
+    function build_required(buf,   open, endp, head, inner, tail) {
+        if (index(buf, "\"noctalia.toml\"") == 0)
+            return buf
+
+        open = find_syntax(buf, 1, "[")
+        endp = find_syntax(buf, open + 1, "]")
+        if (open == 0 || endp == 0 || endp < open)
+            return buf
+
+        head  = substr(buf, 1, open)
+        inner = substr(buf, open + 1, endp - open - 1)
+        tail  = substr(buf, endp)
+
+        gsub(/"noctalia\.toml"[[:space:]]*,[[:space:]]*/, "", inner)
+        gsub(/,[[:space:]]*"noctalia\.toml"/, "", inner)
+        gsub(/"noctalia\.toml"/, "", inner)
+        return head inner tail
+    }
+
     collecting {
         buf = buf "\n" $0
         if (has_array_close($0)) {
-            print build(buf)
+            if (collecting_optional)
+                print build_optional(buf)
+            else
+                print build_required(buf)
             collecting = 0
-            added = 1
+            collecting_optional = 0
         }
         next
     }
 
-    /^[[:space:]]*\[include\][[:space:]]*(#.*)?$/ {
-        saw_include = 1
-        in_include = 1
+    /^[[:space:]]*\[/ {
+        if (in_optional && !saw_optional_files)
+            add_optional_files()
+        in_optional = 0
+        in_required = 0
+
+        if ($0 ~ /^[[:space:]]*\[include\.optional\][[:space:]]*(#.*)?$/) {
+            saw_optional = 1
+            in_optional = 1
+        } else if ($0 ~ /^[[:space:]]*\[include\][[:space:]]*(#.*)?$/) {
+            in_required = 1
+        }
+
         print
         next
     }
 
-    in_include && /^[[:space:]]*\[/ {
-        if (!saw_files)
-            add_files()
-        in_include = 0
-    }
-
-    in_include && /^[[:space:]]*files[[:space:]]*=/ {
-        saw_files = 1
+    in_optional && /^[[:space:]]*files[[:space:]]*=/ {
+        saw_optional_files = 1
         if (find_syntax($0, 1, "[") == 0) {
-            print "error: include.files must be an array" > "/dev/stderr"
+            print "error: include.optional.files must be an array" > "/dev/stderr"
             exit 2
         }
         buf = $0
         if (has_array_close($0)) {
-            print build(buf)
-            added = 1
+            print build_optional(buf)
+        } else {
+            collecting = 1
+            collecting_optional = 1
+        }
+        next
+    }
+
+    in_required && /^[[:space:]]*files[[:space:]]*=/ {
+        if (find_syntax($0, 1, "[") == 0) {
+            print
+            next
+        }
+        buf = $0
+        if (has_array_close($0)) {
+            print build_required(buf)
         } else {
             collecting = 1
         }
@@ -144,12 +185,12 @@ awk '
     END {
         if (collecting)
             print buf
-        if (in_include && !saw_files)
-            add_files()
-        if (!saw_include) {
+        if (in_optional && !saw_optional_files)
+            add_optional_files()
+        if (!saw_optional) {
             print ""
-            print "[include]"
-            add_files()
+            print "[include.optional]"
+            add_optional_files()
         }
     }
 ' "$config_file" >"$tmp_file"

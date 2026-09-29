@@ -18,7 +18,11 @@ namespace {
 
   enum class SnapshotSchema {
     Legacy,
-    Stable,
+    LegacySpecialOpen,
+    TypedIdentity,
+    TypedSpecialOverlay,
+    TypedSpecialOverlayClosed,
+    NormalIdentity,
     Mixed,
     Malformed,
   };
@@ -36,9 +40,61 @@ namespace {
     {"name": "WAYLAND-1", "activeWorkspace": {"id": 8, "name": "8"}}
   ])";
 
-  // Named and numbered workspaces may have the same address in the stable-identity schema.
+  // Hyprland keeps the regular workspace active while a special one covers it.
+  constexpr std::string_view kLegacySpecialOpenWorkspacesJson = R"([
+    {"id": 8, "name": "8", "monitor": "WAYLAND-1"},
+    {"id": -99, "name": "special:special", "monitor": "WAYLAND-1"}
+  ])";
+
+  constexpr std::string_view kLegacySpecialOpenMonitorsJson = R"([
+    {
+      "name": "WAYLAND-1",
+      "activeWorkspace": {"id": 8, "name": "8"},
+      "specialWorkspace": {"id": -99, "name": "special:special"}
+    }
+  ])";
+
+  constexpr std::string_view kLegacySpecialOpenClientsJson = R"([
+    {
+      "address": "0x101",
+      "workspace": {"id": 8, "name": "8"},
+      "class": "org.example.Numbered",
+      "initialClass": "org.example.Numbered",
+      "title": "Regular window",
+      "at": [10, 7]
+    },
+    {
+      "address": "0x102",
+      "workspace": {"id": -99, "name": "special:special"},
+      "class": "org.example.Scratch",
+      "initialClass": "org.example.Scratch",
+      "title": "Scratch window",
+      "at": [0, 0]
+    }
+  ])";
+
+  constexpr std::string_view kLegacyClientsJson = R"([
+    {
+      "address": "0x100",
+      "workspace": {"id": -1337, "name": "0"},
+      "class": "org.example.Named",
+      "initialClass": "org.example.Named",
+      "title": "Named window",
+      "at": [30, 4]
+    },
+    {
+      "address": "0x101",
+      "workspace": {"id": 8, "name": "8"},
+      "class": "org.example.Numbered",
+      "initialClass": "org.example.Numbered",
+      "title": "Numbered window",
+      "at": [10, 7]
+    }
+  ])";
+
+  // Named and numbered workspaces may have the same address in the typed-identity schema.
   // The backend must retain the kind in its public key so joins remain unambiguous.
-  constexpr std::string_view kStableWorkspacesJson = R"([
+  constexpr std::string_view kTypedWorkspacesJson = R"([
     {"address": "8", "type": "named", "name": "Named Eight", "monitor": "WAYLAND-1"},
     {"address": "10", "type": "numbered", "name": "Ten", "monitor": "WAYLAND-2"},
     {"address": "2", "type": "numbered", "name": "Two", "monitor": "WAYLAND-1"},
@@ -47,12 +103,12 @@ namespace {
     {"address": "special:scratch", "type": "special", "name": "Scratch", "monitor": "WAYLAND-1"}
   ])";
 
-  constexpr std::string_view kStableMonitorsJson = R"([
+  constexpr std::string_view kTypedMonitorsJson = R"([
     {"name": "WAYLAND-1", "activeWorkspace": {"address": "8", "type": "named", "name": "Named Eight"}},
     {"name": "WAYLAND-2", "activeWorkspace": {"address": "10", "type": "numbered", "name": "Ten"}}
   ])";
 
-  constexpr std::string_view kStableClientsJson = R"([
+  constexpr std::string_view kTypedClientsJson = R"([
     {
       "address": "0x100",
       "workspace": {"address": "8", "type": "named", "name": "Named Eight"},
@@ -88,6 +144,107 @@ namespace {
     }
   ])";
 
+  // The normal-identity schema reports all ordinary workspaces as "normal" and
+  // distinguishes numbered workspaces with an optional numeric id.
+  constexpr std::string_view kNormalWorkspacesJson = R"([
+    {"address": "8", "type": "normal", "name": "Named Eight", "monitor": "WAYLAND-1"},
+    {"address": "10", "id": 10, "type": "normal", "name": "Ten", "monitor": "WAYLAND-2"},
+    {"address": "2", "id": 2, "type": "normal", "name": "Two", "monitor": "WAYLAND-1"},
+    {"address": "8", "id": 8, "type": "normal", "name": "Eight", "monitor": "WAYLAND-1"},
+    {"address": "alpha", "type": "normal", "name": "Alpha", "monitor": "WAYLAND-1"},
+    {"address": "special:scratch", "type": "special", "name": "Scratch", "monitor": "WAYLAND-1"}
+  ])";
+
+  constexpr std::string_view kNormalMonitorsJson = R"([
+    {"name": "WAYLAND-1", "activeWorkspace": {"address": "8", "type": "normal", "name": "Named Eight"}},
+    {"name": "WAYLAND-2", "activeWorkspace": {"address": "10", "id": 10, "type": "normal", "name": "Ten"}}
+  ])";
+
+  constexpr std::string_view kNormalClientsJson = R"([
+    {
+      "address": "0x100",
+      "workspace": {"address": "8", "type": "normal", "name": "Named Eight"},
+      "class": "org.example.Named",
+      "initialClass": "org.example.Named",
+      "title": "Named window",
+      "at": [30, 4]
+    },
+    {
+      "address": "0x101",
+      "workspace": {"address": "8", "id": 8, "type": "normal", "name": "Eight"},
+      "class": "org.example.Numbered",
+      "initialClass": "org.example.Numbered",
+      "title": "Numbered window",
+      "at": [10, 7]
+    },
+    {
+      "address": "0x102",
+      "workspace": {"address": "10", "id": 10, "type": "normal", "name": "Ten"},
+      "class": "org.example.Remote",
+      "initialClass": "org.example.Remote",
+      "title": "Other output",
+      "at": [0, 0]
+    },
+    {
+      "address": "0x103",
+      "workspace": {"address": "alpha", "type": "normal", "name": "Alpha"},
+      "class": "",
+      "initialClass": "org.example.Alpha",
+      "title": "Alpha\nwindow",
+      "at": [20, 1],
+      "urgent": true
+    }
+  ])";
+
+  // Only one of the two monitors has a special workspace open, so the overlay must be
+  // reported per output.
+  constexpr std::string_view kTypedSpecialOverlayWorkspacesJson = R"([
+    {"address": "8", "type": "numbered", "name": "Eight", "monitor": "WAYLAND-1"},
+    {"address": "10", "type": "numbered", "name": "Ten", "monitor": "WAYLAND-2"},
+    {"address": "special:magic", "type": "special", "name": "Scratch", "monitor": "WAYLAND-1"}
+  ])";
+
+  constexpr std::string_view kTypedSpecialOverlayMonitorsJson = R"([
+    {
+      "name": "WAYLAND-1",
+      "activeWorkspace": {"address": "8", "type": "numbered", "name": "Eight"},
+      "specialWorkspace": {"address": "special:magic", "type": "special", "name": "Scratch"}
+    },
+    {"name": "WAYLAND-2", "activeWorkspace": {"address": "10", "type": "numbered", "name": "Ten"}}
+  ])";
+
+  constexpr std::string_view kTypedSpecialOverlayClosedMonitorsJson = R"([
+    {"name": "WAYLAND-1", "activeWorkspace": {"address": "8", "type": "numbered", "name": "Eight"}},
+    {"name": "WAYLAND-2", "activeWorkspace": {"address": "10", "type": "numbered", "name": "Ten"}}
+  ])";
+
+  constexpr std::string_view kTypedSpecialOverlayClientsJson = R"([
+    {
+      "address": "0x101",
+      "workspace": {"address": "8", "type": "numbered", "name": "Eight"},
+      "class": "org.example.Eight",
+      "initialClass": "org.example.Eight",
+      "title": "Eight window",
+      "at": [10, 7]
+    },
+    {
+      "address": "0x102",
+      "workspace": {"address": "special:magic", "type": "special", "name": "Scratch"},
+      "class": "org.example.Scratch",
+      "initialClass": "org.example.Scratch",
+      "title": "Scratch window",
+      "at": [0, 0]
+    },
+    {
+      "address": "0x103",
+      "workspace": {"address": "10", "type": "numbered", "name": "Ten"},
+      "class": "org.example.Ten",
+      "initialClass": "org.example.Ten",
+      "title": "Ten window",
+      "at": [0, 0]
+    }
+  ])";
+
   constexpr std::string_view kMixedWorkspacesJson = R"([
     {"address": "8", "type": "named", "name": "Named Eight", "monitor": "WAYLAND-1"},
     {"id": 2, "name": "Two", "monitor": "WAYLAND-1"}
@@ -113,8 +270,16 @@ namespace {
       switch (schema) {
       case SnapshotSchema::Legacy:
         return std::string(kLegacyWorkspacesJson);
-      case SnapshotSchema::Stable:
-        return std::string(kStableWorkspacesJson);
+      case SnapshotSchema::LegacySpecialOpen:
+        return std::string(kLegacySpecialOpenWorkspacesJson);
+      case SnapshotSchema::TypedIdentity:
+        return std::string(kTypedWorkspacesJson);
+      case SnapshotSchema::TypedSpecialOverlay:
+        return std::string(kTypedSpecialOverlayWorkspacesJson);
+      case SnapshotSchema::TypedSpecialOverlayClosed:
+        return std::string(kTypedSpecialOverlayWorkspacesJson);
+      case SnapshotSchema::NormalIdentity:
+        return std::string(kNormalWorkspacesJson);
       case SnapshotSchema::Mixed:
         return std::string(kMixedWorkspacesJson);
       case SnapshotSchema::Malformed:
@@ -125,10 +290,37 @@ namespace {
       if (schema == SnapshotSchema::Legacy) {
         return std::string(kLegacyMonitorsJson);
       }
-      return std::string(schema == SnapshotSchema::Stable ? kStableMonitorsJson : kRejectedMonitorsJson);
+      if (schema == SnapshotSchema::LegacySpecialOpen) {
+        return std::string(kLegacySpecialOpenMonitorsJson);
+      }
+      if (schema == SnapshotSchema::TypedIdentity) {
+        return std::string(kTypedMonitorsJson);
+      }
+      if (schema == SnapshotSchema::TypedSpecialOverlay) {
+        return std::string(kTypedSpecialOverlayMonitorsJson);
+      }
+      if (schema == SnapshotSchema::TypedSpecialOverlayClosed) {
+        return std::string(kTypedSpecialOverlayClosedMonitorsJson);
+      }
+      return std::string(schema == SnapshotSchema::NormalIdentity ? kNormalMonitorsJson : kRejectedMonitorsJson);
     }
     if (command.contains("j/clients")) {
-      return schema == SnapshotSchema::Stable ? std::string(kStableClientsJson) : "[]";
+      if (schema == SnapshotSchema::Legacy) {
+        return std::string(kLegacyClientsJson);
+      }
+      if (schema == SnapshotSchema::LegacySpecialOpen) {
+        return std::string(kLegacySpecialOpenClientsJson);
+      }
+      if (schema == SnapshotSchema::TypedIdentity) {
+        return std::string(kTypedClientsJson);
+      }
+      if (schema == SnapshotSchema::TypedSpecialOverlay) {
+        return std::string(kTypedSpecialOverlayClientsJson);
+      }
+      if (schema == SnapshotSchema::TypedSpecialOverlayClosed) {
+        return std::string(kTypedSpecialOverlayClientsJson);
+      }
+      return schema == SnapshotSchema::NormalIdentity ? std::string(kNormalClientsJson) : "[]";
     }
     if (command.contains("j/status")) {
       return R"({"configProvider": "lua"})";
@@ -252,6 +444,255 @@ namespace {
     return true;
   }
 
+  bool checkLegacySnapshot(HyprlandWorkspaceBackend& backend) {
+    bool ok = true;
+    const auto all = backend.all();
+    ok = orderedByLegacyId("legacy all()", all) && ok;
+    ok = orderedByLegacyId("legacy forOutput()", backend.forOutput(reinterpret_cast<wl_output*>(0x1))) && ok;
+
+    const auto* named = findWorkspace(all, "-1337");
+    const auto* numbered = findWorkspace(all, "8");
+    ok = check(named != nullptr && named->occupied && !named->active, "legacy named workspace flags are incorrect")
+        && ok;
+    ok = check(
+             numbered != nullptr && numbered->occupied && numbered->active,
+             "legacy numbered workspace flags are incorrect"
+         )
+        && ok;
+
+    const auto appIds = backend.appIdsByWorkspace(nullptr);
+    ok = check(
+             appIds.contains("0") && appIds.at("0") == std::vector<std::string>{"org.example.Named"},
+             "legacy named taskbar assignment failed"
+         )
+        && ok;
+    ok = check(
+             appIds.contains("8") && appIds.at("8") == std::vector<std::string>{"org.example.Numbered"},
+             "legacy numbered taskbar assignment failed"
+         )
+        && ok;
+
+    const auto windows = backend.workspaceWindows(reinterpret_cast<wl_output*>(0x1));
+    const auto* namedWindow = findWindow(windows, "100");
+    const auto* numberedWindow = findWindow(windows, "101");
+    ok = check(windows.size() == 2, "legacy taskbar window assignments have unexpected size") && ok;
+    ok = check(
+             namedWindow != nullptr && namedWindow->workspaceKey == "0" && namedWindow->appId == "org.example.Named",
+             "legacy named taskbar window assignment failed"
+         )
+        && ok;
+    ok = check(
+             numberedWindow != nullptr
+                 && numberedWindow->workspaceKey == "8"
+                 && numberedWindow->appId == "org.example.Numbered",
+             "legacy numbered taskbar window assignment failed"
+         )
+        && ok;
+    return ok;
+  }
+
+  bool checkAddressIdentitySnapshot(HyprlandWorkspaceBackend& backend, std::string_view schemaName) {
+    bool ok = true;
+    const auto message = [schemaName](std::string_view detail) {
+      return std::string(schemaName) + ": " + std::string(detail);
+    };
+
+    const auto all = backend.all();
+    ok = hasIds(message("all()"), all, {"name:alpha", "name:8", "2", "8", "10"}) && ok;
+    ok = hasIds(
+             message("forOutput()"), backend.forOutput(reinterpret_cast<wl_output*>(0x1)),
+             {"name:alpha", "name:8", "2", "8"}
+         )
+        && ok;
+
+    const auto* namedEight = findWorkspace(all, "name:8");
+    const auto* numberedEight = findWorkspace(all, "8");
+    const auto* ten = findWorkspace(all, "10");
+    const auto* two = findWorkspace(all, "2");
+    const auto* alpha = findWorkspace(all, "name:alpha");
+    ok = check(
+             namedEight != nullptr && namedEight->active && namedEight->occupied, message("named address 8 join failed")
+         )
+        && ok;
+    ok = check(
+             numberedEight != nullptr && !numberedEight->active && numberedEight->occupied,
+             message("numbered address 8 join collided with named address 8")
+         )
+        && ok;
+    ok = check(ten != nullptr && ten->active && ten->occupied, message("second-monitor active/client join failed"))
+        && ok;
+    ok =
+        check(two != nullptr && !two->active && !two->occupied, message("empty numbered workspace flags are incorrect"))
+        && ok;
+    ok = check(alpha != nullptr && alpha->occupied && alpha->urgent, message("named client/urgent join failed")) && ok;
+
+    const auto appIds = backend.appIdsByWorkspace(nullptr);
+    ok = check(appIds.size() == 4, message("client assignments have unexpected keys")) && ok;
+    ok = check(
+             appIds.contains("name:8") && appIds.at("name:8") == std::vector<std::string>{"org.example.Named"},
+             message("named address 8 app assignment failed")
+         )
+        && ok;
+    ok = check(
+             appIds.contains("8") && appIds.at("8") == std::vector<std::string>{"org.example.Numbered"},
+             message("numbered address 8 app assignment failed")
+         )
+        && ok;
+    ok = check(
+             appIds.contains("10") && appIds.at("10") == std::vector<std::string>{"org.example.Remote"},
+             message("numbered workspace app assignment failed")
+         )
+        && ok;
+    ok = check(
+             appIds.contains("name:alpha") && appIds.at("name:alpha") == std::vector<std::string>{"org.example.Alpha"},
+             message("initialClass fallback assignment failed")
+         )
+        && ok;
+
+    const auto windows = backend.workspaceWindows(reinterpret_cast<wl_output*>(0x1));
+    const auto* namedWindow = findWindow(windows, "100");
+    const auto* numberedWindow = findWindow(windows, "101");
+    const auto* alphaWindow = findWindow(windows, "103");
+    ok = check(windows.size() == 3, message("output-filtered window assignments have unexpected size")) && ok;
+    ok = check(
+             namedWindow != nullptr
+                 && namedWindow->workspaceKey == "name:8"
+                 && namedWindow->appId == "org.example.Named",
+             message("named address 8 window assignment failed")
+         )
+        && ok;
+    ok = check(
+             numberedWindow != nullptr
+                 && numberedWindow->workspaceKey == "8"
+                 && numberedWindow->appId == "org.example.Numbered",
+             message("numbered address 8 window assignment failed")
+         )
+        && ok;
+    ok =
+        check(
+            alphaWindow != nullptr && alphaWindow->workspaceKey == "name:alpha" && alphaWindow->title == "Alpha window",
+            message("named workspace window data failed")
+        )
+        && ok;
+
+    auto& eventHandler = static_cast<compositors::hyprland::HyprlandEventHandler&>(backend);
+    eventHandler.handleEvent("activewindowv2", "0x100");
+    ok = check(backend.focusedWindowId() == std::optional<std::string>{"100"}, message("focused window event was lost"))
+        && ok;
+    return ok;
+  }
+
+  bool checkLegacySpecialWorkspaceOpen(HyprlandWorkspaceBackend& backend) {
+    bool ok = true;
+    auto* output = reinterpret_cast<wl_output*>(0x1);
+
+    const auto all = backend.all();
+    ok = hasIds("legacy special all()", all, {"8"}) && ok;
+    ok = hasIds("legacy special forOutput()", backend.forOutput(output), {"8"}) && ok;
+
+    // "Is anything active" is therefore no hint that a special workspace covers it.
+    const auto* numbered = findWorkspace(all, "8");
+    ok = check(numbered != nullptr && numbered->active, "legacy special regular workspace must stay active") && ok;
+
+    // The overlay key must use the same spelling as the window assignments of its windows.
+    ok = check(
+             backend.openOverlayWorkspaceKeys(output) == std::vector<std::string>{"special:special"},
+             "legacy special overlay key is wrong for its output"
+         )
+        && ok;
+    ok = check(
+             backend.openOverlayWorkspaceKeys(nullptr) == std::vector<std::string>{"special:special"},
+             "legacy special overlay key is missing for the whole session"
+         )
+        && ok;
+
+    const auto windows = backend.workspaceWindows(output);
+    const auto* scratch = findWindow(windows, "102");
+    ok =
+        check(
+            scratch != nullptr && scratch->workspaceKey == "special:special" && scratch->appId == "org.example.Scratch",
+            "legacy special window is not assigned to the overlay key"
+        )
+        && ok;
+    ok = check(windows.size() == 2, "legacy special window assignments have unexpected size") && ok;
+    return ok;
+  }
+
+  bool checkPerOutputSpecialWorkspace(HyprlandWorkspaceBackend& backend) {
+    bool ok = true;
+    auto* left = reinterpret_cast<wl_output*>(0x1);
+    auto* right = reinterpret_cast<wl_output*>(0x2);
+
+    ok = hasIds("overlay all()", backend.all(), {"8", "10"}) && ok;
+    ok = hasIds("overlay forOutput(left)", backend.forOutput(left), {"8"}) && ok;
+    ok = hasIds("overlay forOutput(right)", backend.forOutput(right), {"10"}) && ok;
+
+    ok = check(
+             backend.openOverlayWorkspaceKeys(left) == std::vector<std::string>{"special:magic"},
+             "the monitor with an open special workspace must report it"
+         )
+        && ok;
+    ok =
+        check(
+            backend.openOverlayWorkspaceKeys(right).empty(), "a monitor without a special workspace must not report one"
+        )
+        && ok;
+    ok = check(
+             backend.openOverlayWorkspaceKeys(nullptr) == std::vector<std::string>{"special:magic"},
+             "the session-wide overlay lookup must not leak into other monitors"
+         )
+        && ok;
+
+    const auto leftWindows = backend.workspaceWindows(left);
+    const auto* scratchWindow = findWindow(leftWindows, "102");
+    ok = check(leftWindows.size() == 2, "overlay output assignments have unexpected size") && ok;
+    ok = check(
+             scratchWindow != nullptr && scratchWindow->workspaceKey == "special:magic",
+             "special window assignment key does not match the overlay key"
+         )
+        && ok;
+    const auto rightWindows = backend.workspaceWindows(right);
+    const auto* tenWindow = findWindow(rightWindows, "103");
+    ok = check(
+             rightWindows.size() == 1 && tenWindow != nullptr && tenWindow->workspaceKey == "10",
+             "the other monitor lost its regular workspace assignment"
+         )
+        && ok;
+    return ok;
+  }
+
+  // Toggling an already-populated special workspace changes no window, so the switcher only
+  // learns about it when activespecialv2 refreshes the monitor snapshot.
+  bool checkSpecialWorkspaceToggle(HyprlandWorkspaceBackend& backend, std::atomic<SnapshotSchema>& schema) {
+    bool ok = true;
+    auto* left = reinterpret_cast<wl_output*>(0x1);
+    auto& eventHandler = static_cast<compositors::hyprland::HyprlandEventHandler&>(backend);
+
+    ok = check(
+             backend.openOverlayWorkspaceKeys(left) == std::vector<std::string>{"special:magic"},
+             "the special workspace must be open before the toggle"
+         )
+        && ok;
+
+    schema.store(SnapshotSchema::TypedSpecialOverlayClosed);
+    eventHandler.handleEvent("activespecialv2", "special:magic,special:magic");
+    ok = check(
+             backend.openOverlayWorkspaceKeys(left).empty(),
+             "closing an already-populated special workspace must clear the overlay"
+         )
+        && ok;
+
+    schema.store(SnapshotSchema::TypedSpecialOverlay);
+    eventHandler.handleEvent("activespecial", "special:magic");
+    ok = check(
+             backend.openOverlayWorkspaceKeys(left) == std::vector<std::string>{"special:magic"},
+             "reopening an already-populated special workspace must restore the overlay"
+         )
+        && ok;
+
+    return ok;
+  }
+
 } // namespace
 
 int main() {
@@ -289,94 +730,19 @@ int main() {
     HyprlandWorkspaceBackend backend([](wl_output*) { return std::string("WAYLAND-1"); }, runtime);
     backend.syncFromCompositor();
 
-    ok = orderedByLegacyId("legacy all()", backend.all()) && ok;
-    ok = orderedByLegacyId("legacy forOutput()", backend.forOutput(reinterpret_cast<wl_output*>(0x1))) && ok;
+    ok = checkLegacySnapshot(backend) && ok;
   }
 
-  schema.store(SnapshotSchema::Stable);
+  schema.store(SnapshotSchema::TypedIdentity);
   {
     compositors::hyprland::HyprlandRuntime runtime;
     HyprlandWorkspaceBackend backend([](wl_output*) { return std::string("WAYLAND-1"); }, runtime);
-    ok = check(backend.connectSocket(), "stable backend must connect to the event socket") && ok;
-
-    const auto all = backend.all();
-    ok = hasIds("stable all()", all, {"name:alpha", "name:8", "2", "8", "10"}) && ok;
-    ok = hasIds(
-             "stable forOutput()", backend.forOutput(reinterpret_cast<wl_output*>(0x1)),
-             {"name:alpha", "name:8", "2", "8"}
-         )
-        && ok;
-
-    const auto* namedEight = findWorkspace(all, "name:8");
-    const auto* numberedEight = findWorkspace(all, "8");
-    const auto* ten = findWorkspace(all, "10");
-    const auto* two = findWorkspace(all, "2");
-    const auto* alpha = findWorkspace(all, "name:alpha");
-    ok =
-        check(namedEight != nullptr && namedEight->active && namedEight->occupied, "named address 8 join failed") && ok;
-    ok = check(
-             numberedEight != nullptr && !numberedEight->active && numberedEight->occupied,
-             "numbered address 8 join collided with named address 8"
-         )
-        && ok;
-    ok = check(ten != nullptr && ten->active && ten->occupied, "second-monitor active/client join failed") && ok;
-    ok = check(two != nullptr && !two->active && !two->occupied, "empty numbered workspace flags are incorrect") && ok;
-    ok = check(alpha != nullptr && alpha->occupied && alpha->urgent, "named client/urgent join failed") && ok;
-
-    const auto appIds = backend.appIdsByWorkspace(nullptr);
-    ok = check(appIds.size() == 4, "stable client assignments have unexpected keys") && ok;
-    ok = check(
-             appIds.contains("name:8") && appIds.at("name:8") == std::vector<std::string>{"org.example.Named"},
-             "named address 8 app assignment failed"
-         )
-        && ok;
-    ok = check(
-             appIds.contains("8") && appIds.at("8") == std::vector<std::string>{"org.example.Numbered"},
-             "numbered address 8 app assignment failed"
-         )
-        && ok;
-    ok = check(
-             appIds.contains("10") && appIds.at("10") == std::vector<std::string>{"org.example.Remote"},
-             "numbered workspace app assignment failed"
-         )
-        && ok;
-    ok = check(
-             appIds.contains("name:alpha") && appIds.at("name:alpha") == std::vector<std::string>{"org.example.Alpha"},
-             "initialClass fallback assignment failed"
-         )
-        && ok;
-
-    const auto windows = backend.workspaceWindows(reinterpret_cast<wl_output*>(0x1));
-    const auto* namedWindow = findWindow(windows, "100");
-    const auto* numberedWindow = findWindow(windows, "101");
-    const auto* alphaWindow = findWindow(windows, "103");
-    ok = check(windows.size() == 3, "output-filtered stable window assignments have unexpected size") && ok;
-    ok = check(
-             namedWindow != nullptr
-                 && namedWindow->workspaceKey == "name:8"
-                 && namedWindow->appId == "org.example.Named",
-             "named address 8 window assignment failed"
-         )
-        && ok;
-    ok = check(
-             numberedWindow != nullptr
-                 && numberedWindow->workspaceKey == "8"
-                 && numberedWindow->appId == "org.example.Numbered",
-             "numbered address 8 window assignment failed"
-         )
-        && ok;
-    ok =
-        check(
-            alphaWindow != nullptr && alphaWindow->workspaceKey == "name:alpha" && alphaWindow->title == "Alpha window",
-            "named workspace window data failed"
-        )
-        && ok;
-    auto& eventHandler = static_cast<compositors::hyprland::HyprlandEventHandler&>(backend);
-    eventHandler.handleEvent("activewindowv2", "0x100");
-    ok = check(backend.focusedWindowId() == std::optional<std::string>{"100"}, "focused window event was lost") && ok;
+    ok = check(backend.connectSocket(), "typed-identity backend must connect to the event socket") && ok;
+    ok = checkAddressIdentitySnapshot(backend, "typed identity") && ok;
 
     const auto lastGood = backend.all();
     const auto lastGoodApps = backend.appIdsByWorkspace(nullptr);
+    auto& eventHandler = static_cast<compositors::hyprland::HyprlandEventHandler&>(backend);
     schema.store(SnapshotSchema::Mixed);
     eventHandler.handleEvent("configreloaded", "");
     ok = check(sameWorkspaces(backend.all(), lastGood), "mixed-schema snapshot replaced the last good state") && ok;
@@ -394,6 +760,38 @@ int main() {
              "malformed snapshot changed the last good client assignments"
          )
         && ok;
+  }
+
+  schema.store(SnapshotSchema::NormalIdentity);
+  {
+    compositors::hyprland::HyprlandRuntime runtime;
+    HyprlandWorkspaceBackend backend([](wl_output*) { return std::string("WAYLAND-1"); }, runtime);
+    ok = check(backend.connectSocket(), "normal-identity backend must connect to the event socket") && ok;
+    ok = checkAddressIdentitySnapshot(backend, "normal identity") && ok;
+  }
+
+  schema.store(SnapshotSchema::LegacySpecialOpen);
+  {
+    compositors::hyprland::HyprlandRuntime runtime;
+    HyprlandWorkspaceBackend backend([](wl_output*) { return std::string("WAYLAND-1"); }, runtime);
+    backend.syncFromCompositor();
+
+    ok = checkLegacySpecialWorkspaceOpen(backend) && ok;
+  }
+
+  schema.store(SnapshotSchema::TypedSpecialOverlay);
+  {
+    compositors::hyprland::HyprlandRuntime runtime;
+    HyprlandWorkspaceBackend backend(
+        [](wl_output* output) {
+          return output == reinterpret_cast<wl_output*>(0x2) ? std::string("WAYLAND-2") : std::string("WAYLAND-1");
+        },
+        runtime
+    );
+    backend.syncFromCompositor();
+
+    ok = checkPerOutputSpecialWorkspace(backend) && ok;
+    ok = checkSpecialWorkspaceToggle(backend, schema) && ok;
   }
 
   stop.store(true);

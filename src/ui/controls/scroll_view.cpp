@@ -112,6 +112,8 @@ ScrollView::ScrollView() {
     return true;
   });
   m_viewportArea = static_cast<InputArea*>(addChild(std::move(viewportArea)));
+  // Keep scrolled content from painting over the border stroke.
+  m_viewportArea->setClipChildren(true);
 
   auto content = std::make_unique<Flex>();
   content->setDirection(FlexDirection::Vertical);
@@ -263,6 +265,10 @@ void ScrollView::clearFill() {
 }
 
 void ScrollView::setBorder(const ColorSpec& border, float width) {
+  // The border width feeds doLayout's clip box and content insets.
+  if (m_backgroundBorderWidth != width) {
+    markLayoutDirty();
+  }
   m_backgroundBorder = border;
   m_backgroundBorderWidth = width;
   applyPalette();
@@ -271,6 +277,9 @@ void ScrollView::setBorder(const ColorSpec& border, float width) {
 void ScrollView::setBorder(const Color& border, float width) { setBorder(fixedColorSpec(border), width); }
 
 void ScrollView::clearBorder() {
+  if (m_backgroundBorderWidth != 0.0F) {
+    markLayoutDirty();
+  }
   m_backgroundBorder = clearColorSpec();
   m_backgroundBorderWidth = 0.0F;
   applyPalette();
@@ -355,12 +364,12 @@ float ScrollView::contentViewportWidth(bool reserveScrollbarGutter) const noexce
   const float gutter = m_orientation == ScrollOrientation::Vertical && (m_scrollbarShown || reserveScrollbarGutter)
       ? scrollbarGutter()
       : 0.0F;
-  return std::max(0.0F, width() - m_viewportPaddingH * 2.0F - gutter);
+  return std::max(0.0F, width() - (m_viewportPaddingH + m_backgroundBorderWidth) * 2.0F - gutter);
 }
 
 float ScrollView::contentViewportHeight() const noexcept {
   const float gutter = m_orientation == ScrollOrientation::Horizontal && m_scrollbarShown ? scrollbarGutter() : 0.0F;
-  return std::max(0.0F, height() - m_viewportPaddingV * 2.0F - gutter);
+  return std::max(0.0F, height() - (m_viewportPaddingV + m_backgroundBorderWidth) * 2.0F - gutter);
 }
 
 void ScrollView::applyPalette() {
@@ -384,9 +393,11 @@ void ScrollView::doLayout(Renderer& renderer) {
   }
 
   const float w = width() > 0.0F ? width() : kDefaultWidth;
-  const float viewportX = m_viewportPaddingH;
-  const float viewportY = m_viewportPaddingV;
-  const float availableW = std::max(0.0F, w - m_viewportPaddingH * 2.0F);
+  const float clipInset = m_backgroundBorderWidth;
+  const float clipW = std::max(0.0F, w - clipInset * 2.0F);
+  const float insetH = m_viewportPaddingH + m_backgroundBorderWidth;
+  const float insetV = m_viewportPaddingV + m_backgroundBorderWidth;
+  const float availableW = std::max(0.0F, w - insetH * 2.0F);
 
   // Capture before the orientation branches recompute m_maxScrollOffset:
   // stick-to-bottom must compare against the extents of the previous pass.
@@ -403,42 +414,52 @@ void ScrollView::doLayout(Renderer& renderer) {
     LayoutConstraints contentConstraints;
     contentConstraints.setExactWidth(contentWidth);
     contentSize = m_content->measure(renderer, contentConstraints);
-    m_content->arrange(renderer, LayoutRect{.x = 0.0F, .y = 0.0F, .width = contentWidth, .height = contentSize.height});
+    m_content->arrange(
+        renderer,
+        LayoutRect{
+            .x = m_viewportPaddingH, .y = m_viewportPaddingV, .width = contentWidth, .height = contentSize.height
+        }
+    );
 
-    const float naturalH = contentSize.height + m_viewportPaddingV * 2.0F + gutter;
+    const float naturalH = contentSize.height + insetV * 2.0F + gutter;
     const float h = height() > 0.0F ? height() : naturalH;
-    const float viewportH = std::max(0.0F, h - m_viewportPaddingV * 2.0F - gutter);
+    const float viewportH = std::max(0.0F, h - insetV * 2.0F - gutter);
     m_viewportWidth = availableW;
     m_viewportHeight = viewportH;
     setSize(w, h);
+    const float clipH = std::max(0.0F, h - clipInset * 2.0F);
 
     m_background->setPosition(0.0F, 0.0F);
     m_background->setFrameSize(w, h);
-    m_viewportArea->setPosition(viewportX, viewportY);
-    m_viewportArea->setFrameSize(availableW, viewportH);
+    m_viewportArea->setPosition(clipInset, clipInset);
+    m_viewportArea->setFrameSize(clipW, clipH);
 
     m_maxScrollOffset = std::max(0.0F, contentWidth - availableW);
     updateTouchScrollAxis();
-    m_scrollbar->setPosition(viewportX, viewportY + viewportH + Style::scrollbarGap * m_contentScale);
+    m_scrollbar->setPosition(insetH, insetV + viewportH + Style::scrollbarGap * m_contentScale);
     m_scrollbar->setVisible(m_showScrollbar);
     m_scrollbar->update(availableW, contentWidth, m_scrollOffset);
   } else {
     LayoutConstraints contentConstraints;
     contentConstraints.setExactWidth(availableW);
     LayoutSize contentSize = m_content->measure(renderer, contentConstraints);
-    m_content->arrange(renderer, LayoutRect{.x = 0.0F, .y = 0.0F, .width = availableW, .height = contentSize.height});
+    m_content->arrange(
+        renderer,
+        LayoutRect{.x = m_viewportPaddingH, .y = m_viewportPaddingV, .width = availableW, .height = contentSize.height}
+    );
 
-    const float naturalH = contentSize.height + m_viewportPaddingV * 2.0F;
+    const float naturalH = contentSize.height + insetV * 2.0F;
     const float h = height() > 0.0F ? height() : naturalH;
-    const float viewportH = std::max(0.0F, h - m_viewportPaddingV * 2.0F);
+    const float viewportH = std::max(0.0F, h - insetV * 2.0F);
     m_viewportHeight = viewportH;
     m_viewportWidth = availableW;
     setSize(w, h);
+    const float clipH = std::max(0.0F, h - clipInset * 2.0F);
 
     m_background->setPosition(0.0F, 0.0F);
     m_background->setFrameSize(w, h);
-    m_viewportArea->setPosition(viewportX, viewportY);
-    m_viewportArea->setFrameSize(availableW, viewportH);
+    m_viewportArea->setPosition(clipInset, clipInset);
+    m_viewportArea->setFrameSize(clipW, clipH);
 
     m_scrollbarShown = m_showScrollbar && m_content->height() > viewportH + 0.5F;
     const float gutter = m_scrollbarShown ? scrollbarGutter() : 0.0F;
@@ -455,9 +476,8 @@ void ScrollView::doLayout(Renderer& renderer) {
     const float contentHeight = m_content->height();
     m_maxScrollOffset = std::max(0.0F, contentHeight - viewportH);
     updateTouchScrollAxis();
-    const float scrollbarX =
-        Style::rtl() ? m_viewportPaddingH : m_viewportPaddingH + m_viewportWidth - m_scrollbar->reservedThickness();
-    m_scrollbar->setPosition(scrollbarX, m_viewportPaddingV);
+    const float scrollbarX = Style::rtl() ? insetH : insetH + m_viewportWidth - m_scrollbar->reservedThickness();
+    m_scrollbar->setPosition(scrollbarX, insetV);
     m_scrollbar->setVisible(m_showScrollbar);
     m_scrollbar->update(viewportH, contentHeight, m_scrollOffset);
   }
@@ -506,10 +526,10 @@ void ScrollView::doArrange(Renderer& renderer, const LayoutRect& rect) { arrange
 void ScrollView::applyScrollOffset() {
   if (m_content != nullptr) {
     if (m_orientation == ScrollOrientation::Horizontal) {
-      m_content->setPosition(-m_scrollOffset, 0.0F);
+      m_content->setPosition(m_viewportPaddingH - m_scrollOffset, m_viewportPaddingV);
     } else {
       const float gutter = Style::rtl() && m_scrollbarShown ? scrollbarGutter() : 0.0F;
-      m_content->setPosition(gutter, -m_scrollOffset);
+      m_content->setPosition(m_viewportPaddingH + gutter, m_viewportPaddingV - m_scrollOffset);
     }
   }
   if (m_scrollbar != nullptr && m_scrollbarShown) {

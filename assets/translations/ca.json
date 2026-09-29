@@ -257,7 +257,6 @@
       "uptime": "Temps actiu – {uptime}",
       "weather": {
         "data-unavailable": "Dades meteorològiques no disponibles.",
-        "disabled": "El temps està desactivat a la configuració.",
         "fetching": "S'està obtenint la previsió…"
       }
     },
@@ -729,7 +728,7 @@
     },
     "internal": {
       "battery": "Bateria",
-      "battery-critical-body": "{device}: {percent}% – el teu ordinador s'apagarà en breu",
+      "battery-critical-body": "{device}: {percent}%; l'ordinador s'apagarà aviat",
       "battery-critical-title": "Bateria críticament baixa",
       "battery-device": "Dispositiu de bateria",
       "battery-low-body": "{device}: {percent}% restant",
@@ -1180,7 +1179,6 @@
         "borders": "Vores",
         "brightness": "Brillantor",
         "built-in": "Integrat",
-        "calendar": "Calendari",
         "capsules": "Càpsules",
         "clipboard": "Porta-retalls",
         "community": "Comunitat",
@@ -2537,11 +2535,11 @@
           "description-reconnect": "Falta l'autorització de Google; torna a connectar aquest compte"
         },
         "calendar-event-date-format": {
-          "description": "El format de data mostrat a la targeta de l'esdeveniment per a la data seleccionada",
+          "description": "El format de data que es mostra per als esdeveniments del calendari a les vistes de calendari",
           "label": "Format de data de l'esdeveniment"
         },
         "calendar-event-time-format": {
-          "description": "El format d'hora mostrat per als esdeveniments del calendari",
+          "description": "El format d'hora que es mostra per als esdeveniments del calendari a les vistes de calendari",
           "label": "Format d'hora de l'esdeveniment"
         },
         "calendar-refresh-interval": {
@@ -2985,9 +2983,9 @@
           "label": "Copia al porta-retalls"
         },
         "screenshot-directory": {
-          "description": "Carpeta per als fitxers PNG desats; deixa buit per utilitzar ~/Imatges",
+          "description": "Carpeta per als fitxers PNG desats; deixa-la buida per fer servir el directori estàndard d'Imatges de XDG",
           "label": "Directori de sortida",
-          "placeholder": "~/Imatges"
+          "placeholder": "Carpeta d'Imatges XDG"
         },
         "screenshot-filename-pattern": {
           "description": "Patró strftime sense extensió (s'afegeix .png); utilitza %s per a l'època unix",
@@ -3089,7 +3087,7 @@
           "label": "Inclou subcarpetes"
         },
         "directory": {
-          "description": "Carpeta que conté fons de pantalla",
+          "description": "Carpeta que conté els fons de pantalla; deixa-la buida per fer servir el directori estàndard d'Imatges de XDG",
           "label": "Directori de fons de pantalla"
         },
         "directory-dark": {
@@ -3474,7 +3472,7 @@
           "volume-description": "Glif d'icona personalitzat; deixa'l buit per utilitzar les icones dinàmiques integrades"
         },
         "glyph-position": {
-          "description": "En quin ordre mostrar el glif en relació amb el text/gràfic/indicador",
+          "description": "Col·loca el glif o la imatge personalitzada i l'etiqueta personalitzada respecte al valor o la visualització",
           "label": "Posició del glif"
         },
         "group-by-workspace": {
@@ -3925,7 +3923,6 @@
         "plugin-store": "El catàleg remot de connectors i les sol·licituds de descàrrega no funcionaran.",
         "plugins": "Les sol·licituds HTTP dels connectors no funcionaran. Les fonts Git encara es podran actualitzar.",
         "security": "La consulta d'IP externa i la telemetria no funcionaran.",
-        "services": "La sincronització del compte de calendari no funcionarà.",
         "template-store": "Les descàrregues de plantilles de la comunitat no funcionaran.",
         "templates": "Les descàrregues i actualitzacions de plantilles de la comunitat no funcionaran.",
         "title": "Mode fora de línia"

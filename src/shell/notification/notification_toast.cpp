@@ -123,6 +123,31 @@ namespace {
     return std::max(0.1F, accessibility.uiScale * notification.scale);
   }
 
+  [[nodiscard]] ColorSpec toastBorderColor(const ConfigService* config, Urgency urgency) {
+    if (urgency == Urgency::Critical) {
+      return colorSpecFromRole(ColorRole::Error);
+    }
+    if (config == nullptr) {
+      return colorSpecFromRole(ColorRole::Outline);
+    }
+    return config->config().notification.borderColor;
+  }
+
+  [[nodiscard]] float toastBorderWidth(const ConfigService* config, Urgency urgency, float scale) {
+    if (config == nullptr) {
+      return (urgency == Urgency::Critical ? Style::emphasizedBorderWidth : Style::borderWidth) * scale;
+    }
+    const auto& notification = config->config().notification;
+    if (!notification.border) {
+      return 0.0F;
+    }
+    const float width = std::max(0.0F, notification.borderWidth);
+    if (urgency == Urgency::Critical) {
+      return std::max(Style::emphasizedBorderWidth, width) * scale;
+    }
+    return width * scale;
+  }
+
   [[nodiscard]] float notificationWidth(const ConfigService* config) {
     if (config == nullptr) {
       return static_cast<float>(NotificationConfig::kDefaultWidth);
@@ -2334,9 +2359,8 @@ InputArea* NotificationToast::buildCard(
   *outCardForeground = foreground.get();
 
   const float bgAlpha = m_config != nullptr ? m_config->config().notification.backgroundOpacity : 0.97F;
-  const bool hasBorder = m_config == nullptr || m_config->config().notification.border;
-  const float borderWidth =
-      hasBorder ? (entry.urgency == Urgency::Critical ? Style::emphasizedBorderWidth : Style::borderWidth) : 0.0F;
+  const float borderWidth = toastBorderWidth(m_config, entry.urgency, scale);
+  const ColorSpec borderColor = toastBorderColor(m_config, entry.urgency);
   foreground->addChild(
       ui::progressBar({
           .out = outProgress,
@@ -2683,13 +2707,11 @@ InputArea* NotificationToast::buildCard(
       ui::box({
           .width = cardW,
           .height = cardHeight,
-          .configure = [scale, bgAlpha, borderWidth, urgency = entry.urgency](Box& box) {
+          .configure = [scale, bgAlpha, borderWidth, borderColor](Box& box) {
             box.setCardStyle();
             box.setRadius(Style::scaledRadiusXl(scale));
             box.setFill(colorSpecFromRole(ColorRole::Surface, bgAlpha));
-            box.setBorder(
-                colorSpecFromRole(urgency == Urgency::Critical ? ColorRole::Error : ColorRole::Outline), borderWidth
-            );
+            box.setBorder(borderColor, borderWidth);
           },
       })
   );

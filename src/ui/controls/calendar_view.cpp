@@ -442,7 +442,8 @@ namespace calendar_view {
           continue;
         }
         hasEvents = true;
-        const bool hasLink = options.state != nullptr && !event.url.empty();
+        const std::string& link = event.url.empty() ? event.webUrl : event.url;
+        const bool hasLink = options.state != nullptr && !link.empty();
         const float timeMaxWidth =
             hasLink ? std::max(40.0F, textMaxWidth - linkGlyphSize - linkGlyphGap) : textMaxWidth;
         const float eventAlpha = eventPassed(event, now) ? kPassedEventAlpha : 1.0F;
@@ -505,7 +506,7 @@ namespace calendar_view {
           area->setParticipatesInLayout(false);
           area->setZIndex(1);
           area->setCursorShape(WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_POINTER);
-          area->setTooltip(event.url);
+          area->setTooltip(link);
 
           Flex* row = eventRow;
           row->setRadius(Style::radiusSm * options.scale);
@@ -521,7 +522,7 @@ namespace calendar_view {
           };
           area->setOnEnter([setHovered](const InputArea::PointerData&) { setHovered(true); });
           area->setOnLeave([setHovered]() { setHovered(false); });
-          area->setOnClick([url = event.url](const InputArea::PointerData&) { (void)net::openInBrowser(url); });
+          area->setOnClick([url = link](const InputArea::PointerData&) { (void)net::openInBrowser(url); });
 
           options.state->linkOverlays.push_back({.row = row, .area = area.get()});
           eventRow->addChild(std::move(area));

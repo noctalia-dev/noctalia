@@ -10,18 +10,20 @@
 #include <vector>
 
 struct pw_stream;
-struct spa_hook;
+struct spa_source;
 
 class SoundPlayer {
 public:
   explicit SoundPlayer(pw_loop* loop);
   ~SoundPlayer();
 
+  [[nodiscard]] static std::vector<std::pair<std::string, std::string>> availableThemes();
+
   SoundPlayer(const SoundPlayer&) = delete;
   SoundPlayer& operator=(const SoundPlayer&) = delete;
 
-  bool load(const std::string& name, const std::filesystem::path& path);
   void play(const std::string& name);
+  void setTheme(std::string theme);
   void setVolume(float volume);
 
   [[nodiscard]] std::optional<std::string>
@@ -32,6 +34,7 @@ public:
   static void onProcess(void* userdata);
   static void onStreamStateChanged(void* userdata, pw_stream_state oldState, pw_stream_state state, const char* error);
   static void onDrained(void* userdata);
+  static void onStreamCloseTimer(void* userdata, std::uint64_t expirations);
 
 private:
   struct SoundBuffer {
@@ -43,7 +46,6 @@ private:
   struct ActiveStream {
     SoundPlayer* owner = nullptr;
     pw_stream* stream = nullptr;
-    spa_hook* listener = nullptr;
     std::shared_ptr<const SoundBuffer> buffer;
     std::size_t cursor = 0;
     bool draining = false;
@@ -58,7 +60,9 @@ private:
   void removeFinished();
 
   pw_loop* m_loop = nullptr;
+  spa_source* m_streamCloseTimer = nullptr;
   float m_volume = 1.0F;
+  std::string m_theme;
   std::unordered_map<std::string, std::shared_ptr<const SoundBuffer>> m_buffers;
   std::unordered_map<std::uint64_t, std::unordered_map<std::string, std::shared_ptr<const SoundBuffer>>>
       m_pluginBuffers;

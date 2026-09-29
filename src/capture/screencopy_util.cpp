@@ -4,8 +4,10 @@
 #include "wayland/wayland_connection.h"
 
 #include <algorithm>
+#include <array>
+#include <chrono>
 #include <cstring>
-#include <wayland-client-core.h>
+#include <optional>
 #include <wayland-client-protocol.h>
 
 namespace {
@@ -185,26 +187,37 @@ namespace {
   }
 
   void orientCaptureToLogical(ScreencopyImage& image, const WaylandOutput& output) {
-    if (captureNeedsOutputTransform(image, output)) {
-      applyOutputTransform(image, output.transform);
-    }
-    if (image.yInvert) {
-      flipRgbaVertical(image);
-      image.yInvert = false;
-    }
+    const std::int32_t transform =
+        captureNeedsOutputTransform(image, output) ? output.transform : WL_OUTPUT_TRANSFORM_NORMAL;
+    screencopy::orientCaptureForTransform(image, transform);
   }
 
 } // namespace
 
 namespace screencopy {
 
+  void orientCaptureForTransform(ScreencopyImage& image, std::int32_t transform) {
+    if (image.yInvert) {
+      flipRgbaVertical(image);
+      image.yInvert = false;
+    }
+    applyOutputTransform(image, transform);
+  }
+
   void transformCapture(ScreencopyImage& image, std::int32_t transform) { applyOutputTransform(image, transform); }
 
-  bool captureOutputBlocking(
+  CaptureOutputStatus captureOutputBlocking(
       ScreencopyCapture& capture, WaylandConnection& wayland, wl_output* output, ScreencopyImage& out,
-      std::string& error, bool overlayCursor
+      std::string& error, bool overlayCursor, WaylandConnection* eventConnection,
+      std::optional<std::chrono::steady_clock::time_point> deadline
   ) {
     error.clear();
+    const auto captureDeadline = deadline.value_or(std::chrono::steady_clock::now() + kBlockingCaptureTimeout);
+    if (std::chrono::steady_clock::now() >= captureDeadline) {
+      error = "screencopy capture timed out";
+      return CaptureOutputStatus::CaptureFailed;
+    }
+
     bool finished = false;
     capture.capture(
         output, std::nullopt, overlayCursor, [&](std::optional<ScreencopyImage> image, const std::string& err) {
@@ -218,29 +231,46 @@ namespace screencopy {
     );
 
     if (!error.empty()) {
-      return false;
+      return CaptureOutputStatus::CaptureFailed;
     }
 
-    while (!finished && capture.busy()) {
-      if (wl_display_roundtrip(wayland.display()) < 0) {
-        error = "Wayland roundtrip failed";
-        return false;
+    const std::array targets{
+        wayland::DispatchTarget{
+            .connection = eventConnection != &wayland ? eventConnection : nullptr,
+            .role = "primary",
+        },
+        wayland::DispatchTarget{
+            .connection = &wayland,
+            .role = "capture",
+        },
+    };
+    const wayland::DispatchResult waitResult =
+        wayland::dispatchUntil(targets, captureDeadline, [&finished, &capture]() {
+          return finished || !capture.busy();
+        });
+    if (waitResult.status != wayland::DispatchStatus::Completed) {
+      capture.cancelInFlight();
+      if (waitResult.status == wayland::DispatchStatus::TimedOut) {
+        error = "screencopy capture timed out";
+        return CaptureOutputStatus::CaptureFailed;
       }
+      error = waitResult.error;
+      return CaptureOutputStatus::EventLoopFailed;
     }
 
     if (!error.empty() || !finished) {
       if (error.empty()) {
         error = "screencopy capture failed";
       }
-      return false;
+      return CaptureOutputStatus::CaptureFailed;
     }
 
     if (out.width <= 0 || out.height <= 0 || out.rgba.empty()) {
       error = "screencopy capture returned an empty frame";
-      return false;
+      return CaptureOutputStatus::CaptureFailed;
     }
 
-    return true;
+    return CaptureOutputStatus::Success;
   }
 
   bool orientCaptureNative(ScreencopyImage& image, const WaylandConnection& wayland, wl_output* output) {
