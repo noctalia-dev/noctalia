@@ -170,6 +170,7 @@ namespace scripting {
     Log,
     NotifyInfo,
     NotifyError,
+    ShowOsd,
     CopyToClipboard,
     SetWallpaperEnabled,
     SetWallpaper,
@@ -201,7 +202,10 @@ namespace scripting {
     // SetWallpaperMask: title holds output, body mask path, extra wallpaper path, and hostId the owner.
     // TogglePanel: title holds the panel id ("author/plugin:panel").
     // OpenPluginSettings: title holds the plugin id ("author/plugin").
+    // ShowOsd: title holds the glyph name, body the value text, number the progress (nullopt = no bar), flag the
+    // inactive state.
     bool flag = false;
+    std::optional<double> number;
     // LayerCommand: title holds the layer entry id ("author/plugin:entry"); layerPatch is read for Configure.
     PluginLayerCommand layerCommand = PluginLayerCommand::Show;
     PluginLayerConfigPatch layerPatch;

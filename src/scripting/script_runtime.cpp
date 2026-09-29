@@ -204,6 +204,9 @@ namespace scripting {
         case ScriptSideEffectKind::LayerCommand:
           api.invokeLayerCommand(effect.layerCommand, effect.title, effect.layerPatch);
           break;
+        case ScriptSideEffectKind::ShowOsd:
+          api.invokeShowOsd(effect.title, effect.body, effect.number, effect.flag);
+          break;
         }
       }
     }

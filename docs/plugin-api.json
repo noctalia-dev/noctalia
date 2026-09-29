@@ -214,5 +214,11 @@
     "noctaliaVersion": null,
     "feature": "bar-drag-and-drop",
     "introduced": "`ui.dragSource()` and `ui.dropZone()` in bar widgets (`barWidget.render`), not only panels; `dragSource.grabCursor` and `dragSource.onClick` for a source that wraps a whole clickable item; `expandOnDrag` grows a zone along its thin axis."
+  },
+  {
+    "level": 39,
+    "noctaliaVersion": null,
+    "feature": "osd",
+    "introduced": "`noctalia.osd.show(icon, value, opts)` for showing the shell OSD from plugins."
   }
 ]
