@@ -51,6 +51,7 @@ struct KeyboardEvent {
   std::uint32_t modifiers = 0; // KeyMod bitmask
   bool pressed = false;
   bool preedit = false; // dead key preview (composing in progress)
+  bool repeat = false;  // fake auto repeat of held key, not a fresh one
 };
 
 class WaylandSeat {

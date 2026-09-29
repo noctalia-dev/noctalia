@@ -628,7 +628,9 @@ void FileDialogView::doUpdate(Renderer& renderer) {
   requestRedraw();
 }
 
-bool FileDialogView::handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit) {
+bool FileDialogView::handleGlobalKey(
+    std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit, bool repeat
+) {
   if (!pressed || preedit) {
     return false;
   }
@@ -653,10 +655,18 @@ bool FileDialogView::handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers,
     return true;
   }
 
-  const bool emptySearchFocused = hostFocusedArea() == m_searchInput->inputArea() && m_searchInput->value().empty();
-  if (KeySymbol::isBackspace(sym) && (!isTextInputFocused() || emptySearchFocused)) {
-    navigateUp();
-    return true;
+  if (KeySymbol::isBackspace(sym)) {
+    if (!isTextInputFocused()) {
+      navigateUp();
+      return true;
+    }
+
+    const bool emptySearchFocused =
+        m_searchInput != nullptr && hostFocusedArea() == m_searchInput->inputArea() && m_searchInput->value().empty();
+    if (emptySearchFocused && !repeat) {
+      navigateUp();
+      return true;
+    }
   }
 
   if (m_visibleEntries.empty()) {
