@@ -224,8 +224,10 @@ bool MediaWidget::needsFrameTick() const {
 void MediaWidget::onFrameTick(float deltaMs) {
   constexpr float kRotationsPerSecond = 0.1F;
   constexpr float kTwoPi = 2.0F * std::numbers::pi_v<float>;
+  // The first tick after a pause carries the whole idle gap; clamp it so resuming does not jump the artwork.
+  constexpr float kMaxStepMs = 50.0F;
 
-  m_artRotation += (kTwoPi * kRotationsPerSecond) * (deltaMs / 1000.0F);
+  m_artRotation += (kTwoPi * kRotationsPerSecond) * (std::min(deltaMs, kMaxStepMs) / 1000.0F);
   if (m_artRotation >= kTwoPi) {
     m_artRotation -= kTwoPi;
   }
