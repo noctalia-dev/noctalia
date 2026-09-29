@@ -74,6 +74,9 @@ const noctalia::bar::WidgetDefinition<ActiveWindowWidget::Options>& activeWindow
           field<&Options::showEmptyLabel>({
               .key = "show_empty_label",
           }),
+          field<&Options::tooltipEnabled>({
+              .key = "tooltip_enabled",
+          }),
       },
   };
   return definition;
