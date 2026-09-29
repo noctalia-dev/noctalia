@@ -1155,6 +1155,7 @@ if build_tests
     'calendar_view_passed_event',
     'capsule_group_lane_override',
     'capsule_group_reconcile',
+    'capsule_group_style_persist',
     'cli_help',
     'cli_parse',
     'cli_schema',

@@ -551,6 +551,7 @@ namespace {
                     "border", item.border.has_value() ? colorSpecToConfigString(*item.border) : std::string{}
                 );
               }
+              row.insert_or_assign("border_width", static_cast<double>(item.borderWidth));
               if (item.foreground.has_value()) {
                 row.insert_or_assign("foreground", colorSpecToConfigString(*item.foreground));
               }
