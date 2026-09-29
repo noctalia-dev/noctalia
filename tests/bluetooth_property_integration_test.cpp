@@ -1,8 +1,8 @@
 #include "dbus/bluetooth/bluetooth_service.h"
 #include "dbus/system_bus.h"
+#include "tests/test_check.h"
 
 #include <atomic>
-#include <cassert>
 #include <chrono>
 #include <functional>
 #include <map>
@@ -24,8 +24,9 @@ int main() {
   std::atomic<int> writes = 0;
   std::counting_semaphore<7> replies{0};
   auto delayedSetter = [&](bool) {
+    // Timing out here means a property setter dispatched synchronously and waited for this reply.
     const bool released = replies.try_acquire_for(10s);
-    assert(released && "Property dispatch waited for a withheld reply");
+    TEST_CHECK(released);
     const int request = ++writes;
     if (request == 5 || request == 7) {
       throw sdbus::Error(sdbus::Error::Name{"org.bluez.Error.Failed"}, "Test property failure");
@@ -53,7 +54,7 @@ int main() {
       bus.processPendingEvents();
       std::this_thread::sleep_for(1ms);
     }
-    assert(ready());
+    TEST_CHECK(ready());
   };
   wait([&] { return service.hasStateSnapshot() && service.devices().size() == 1; });
 
@@ -63,9 +64,9 @@ int main() {
   service.setDiscoverable(true);
   service.setPairable(false);
   service.setTrusted(devicePath, true);
-  assert(writes == 0);
+  TEST_CHECK(writes == 0);
   replies.release(4);
-  assert(service.state().powered);
+  TEST_CHECK(service.state().powered);
   wait([&] { return writes == 4; });
 
   int stateChanges = 0;
@@ -83,9 +84,9 @@ int main() {
     wait([&] { return service.state().powered == powered; });
   };
   emitPowered(false);
-  assert(lastOrigin == BluetoothStateChangeOrigin::Noctalia);
+  TEST_CHECK(lastOrigin == BluetoothStateChangeOrigin::Noctalia);
   emitPowered(true);
-  assert(lastOrigin == BluetoothStateChangeOrigin::External);
+  TEST_CHECK(lastOrigin == BluetoothStateChangeOrigin::External);
 
   // An earlier failure must not clear a newer request for the same power state.
   const int beforeRepeatedRequest = stateChanges;
@@ -96,7 +97,7 @@ int main() {
   replies.release();
   wait([&] { return writes == 6; });
   emitPowered(false);
-  assert(lastOrigin == BluetoothStateChangeOrigin::Noctalia);
+  TEST_CHECK(lastOrigin == BluetoothStateChangeOrigin::Noctalia);
   emitPowered(true);
 
   // A failed local request must not mislabel the next external power change.
@@ -104,8 +105,8 @@ int main() {
   service.setPowered(false);
   replies.release();
   wait([&] { return writes == 7 && stateChanges > previousChanges; });
-  assert(service.state().powered);
+  TEST_CHECK(service.state().powered);
   emitPowered(false);
-  assert(lastOrigin == BluetoothStateChangeOrigin::External);
+  TEST_CHECK(lastOrigin == BluetoothStateChangeOrigin::External);
   connection->leaveEventLoop();
 }
