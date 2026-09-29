@@ -17,8 +17,22 @@ These commands are useful for media keys, compositor binds, scripts, and custom 
 | Disable all OSD popups | <IpcCommand command="osd-disable" /> | Disable OSD popups and close any visible popup. |
 | Toggle all OSD popups | <IpcCommand command="osd-toggle" /> | Toggle OSD popups at runtime and print `on` or `off`. |
 
+| Show a custom OSD | <IpcCommand command="osd-show <icon> [value]" /> | Show a custom popup with a glyph and optional text. |
+
 `osd-enable`, `osd-disable`, and `osd-toggle` apply only to the running shell and never change the saved `[osd].enabled` setting. Turning OSDs off
 immediately closes any visible popup. An explicit change to the saved OSD toggle cancels the runtime override.
+
+`osd-show` takes a glyph name and optional text, or a JSON payload for the progress bar and muted look:
+
+```sh
+noctalia msg osd-show wifi VPN connected
+noctalia msg osd-show '{"icon":"brightness-low","value":"40%","progress":0.4}'
+noctalia msg osd-show '{"icon":"wifi-off","value":"VPN disconnected","inactive":true}'
+```
+
+JSON fields: `icon` (required string), `value` (string), `progress` (number from `0` to `1`, clamped; omit it for a
+text-only popup), and `inactive` (boolean). Custom popups follow `[osd.kinds].custom` and share the slot with the
+built-in OSDs, the same as popups from plugins.
 
 ## Volume
 

@@ -4020,6 +4020,10 @@
             "description": "Enable OSD popups",
             "label": "Enable OSD"
           },
+          "osd-show": {
+            "description": "Show a custom OSD popup",
+            "label": "Show custom OSD"
+          },
           "osd-toggle": {
             "description": "Toggle OSD popups",
             "label": "Toggle OSD"

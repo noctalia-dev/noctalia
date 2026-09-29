@@ -20,6 +20,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <nlohmann/json.hpp>
 
 namespace {
 
@@ -210,6 +211,17 @@ namespace {
 
 } // namespace
 
+OsdContent customOsdContent(std::string icon, std::string value, std::optional<double> progress, bool inactive) {
+  return OsdContent{
+      .kind = OsdKind::Custom,
+      .icon = std::move(icon),
+      .value = std::move(value),
+      .progress = static_cast<float>(std::clamp(progress.value_or(0.0), 0.0, 1.0)),
+      .showProgress = progress.has_value(),
+      .inactive = inactive,
+  };
+}
+
 OsdOverlay::OsdOverlay() = default;
 
 OsdOverlay::~OsdOverlay() = default;
@@ -245,6 +257,60 @@ void OsdOverlay::registerIpc(IpcService& ipc) {
     }
     setEnabledOverride(!isEnabled());
     return isEnabled() ? "on\n" : "off\n";
+  });
+  ipc.bind(noctalia::cli::msg::osdShow, [this](const std::string& args) -> std::string {
+    const std::string input = StringUtils::trim(args);
+    if (input.empty()) {
+      return "error: osd-show requires <icon> [value] or <json-payload>\n";
+    }
+
+    std::string icon;
+    std::string value;
+    std::optional<double> progress;
+    bool inactive = false;
+
+    if (input.front() == '{') {
+      const nlohmann::json payload = nlohmann::json::parse(input, nullptr, false);
+      if (payload.is_discarded() || !payload.is_object()) {
+        return "error: osd-show JSON payload must be an object\n";
+      }
+      if (const auto it = payload.find("icon"); it != payload.end()) {
+        if (!it->is_string()) {
+          return "error: osd-show field 'icon' must be a string\n";
+        }
+        icon = it->get<std::string>();
+      }
+      if (const auto it = payload.find("value"); it != payload.end()) {
+        if (!it->is_string()) {
+          return "error: osd-show field 'value' must be a string\n";
+        }
+        value = it->get<std::string>();
+      }
+      if (const auto it = payload.find("progress"); it != payload.end()) {
+        if (!it->is_number()) {
+          return "error: osd-show field 'progress' must be a number\n";
+        }
+        progress = it->get<double>();
+      }
+      if (const auto it = payload.find("inactive"); it != payload.end()) {
+        if (!it->is_boolean()) {
+          return "error: osd-show field 'inactive' must be a boolean\n";
+        }
+        inactive = it->get<bool>();
+      }
+    } else {
+      const std::size_t split = input.find_first_of(" \t");
+      icon = input.substr(0, split);
+      if (split != std::string::npos) {
+        value = StringUtils::trim(input.substr(split));
+      }
+    }
+
+    if (icon.empty()) {
+      return "error: osd-show requires a non-empty icon\n";
+    }
+    show(customOsdContent(std::move(icon), std::move(value), progress, inactive));
+    return "ok\n";
   });
 }
 

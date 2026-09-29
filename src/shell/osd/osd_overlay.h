@@ -51,6 +51,11 @@ struct OsdContent {
   bool inactive = false;
 };
 
+// Custom OSD as requested by plugins and the osd-show IPC command. No progress hides the bar;
+// a given progress is clamped to [0, 1].
+[[nodiscard]] OsdContent
+customOsdContent(std::string icon, std::string value, std::optional<double> progress, bool inactive);
+
 class OsdOverlay {
 public:
   OsdOverlay();
