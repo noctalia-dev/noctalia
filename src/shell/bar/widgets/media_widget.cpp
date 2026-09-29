@@ -216,11 +216,9 @@ void MediaWidget::doUpdate(Renderer& renderer) {
 }
 
 bool MediaWidget::needsFrameTick() const {
-  return m_rotateAlbumArt
-      && m_lastPlaybackStatus == "Playing"
-      && m_art != nullptr
-      && m_art->hasImage()
-      && m_art->visible();
+  // hasImage() already implies the art slot is shown: syncState() clears the art when hide_album_art is set. Do not
+  // test visible() here, syncState() runs before doLayout() reveals the art slot for a newly loaded image.
+  return m_rotateAlbumArt && m_lastPlaybackStatus == "Playing" && m_art != nullptr && m_art->hasImage();
 }
 
 void MediaWidget::onFrameTick(float deltaMs) {
