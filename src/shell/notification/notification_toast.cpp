@@ -127,7 +127,7 @@ namespace {
     if (config == nullptr) {
       return static_cast<float>(NotificationConfig::kDefaultWidth);
     }
-    return static_cast<float>(std::max(1, config->config().notification.width));
+    return static_cast<float>(config->config().notification.width);
   }
 
   [[nodiscard]] float cardWidth(float scale, float width) { return width * scale; }
