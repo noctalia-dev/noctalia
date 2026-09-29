@@ -760,8 +760,7 @@ void NotificationToast::onNotificationEvent(const Notification& n, NotificationE
                    width = notificationWidth(m_config),
                    edgePad = horizontalInnerPad(notificationUiScale(m_config))](float v) {
                     applyCardRevealNodes(
-                        viewport, content, foreground, v, targetY, revealDirection(), cardHeight, scale, width,
-                        edgePad
+                        viewport, content, foreground, v, targetY, revealDirection(), cardHeight, scale, width, edgePad
                     );
                   },
                   [this, instPtr, id = n.id]() {
@@ -1896,8 +1895,7 @@ void NotificationToast::collapseStack() {
             [this, viewport, content, foreground, newSurfY, cardHeight, scale, width = notificationWidth(m_config),
              edgePad = horizontalInnerPad(scale)](float v) {
               applyCardRevealNodes(
-                  viewport, content, foreground, v, newSurfY, revealDirection(), cardHeight, scale, width,
-                  edgePad
+                  viewport, content, foreground, v, newSurfY, revealDirection(), cardHeight, scale, width, edgePad
               );
             },
             [this, instPtr, entryId]() {
