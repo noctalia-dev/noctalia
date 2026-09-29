@@ -19,7 +19,7 @@ read_env_value() {
     awk -F= -v env_name="$1" '$1 == env_name { sub(/^[^=]*=/, ""); print; exit }'
 }
 
-# One grep over every /proc/*/environ instead of a stat(1) fork and a tr|awk pipeline
+# grep over every /proc/*/environ instead of a stat(1) fork and a tr|awk pipeline
 # per process: the same first-match-in-path-order result for a fraction of the cost.
 # find and xargs feed the paths in batches sized under ARG_MAX, so the path list never
 # has to fit in one execve argument vector the way a shell glob passed as argv does.
