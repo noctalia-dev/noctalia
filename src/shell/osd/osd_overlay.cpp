@@ -1,5 +1,6 @@
 #include "shell/osd/osd_overlay.h"
 
+#include "compositors/compositor_platform.h"
 #include "config/config_service.h"
 #include "config/config_types.h"
 #include "core/deferred_call.h"
@@ -211,8 +212,11 @@ OsdOverlay::OsdOverlay() = default;
 
 OsdOverlay::~OsdOverlay() = default;
 
-void OsdOverlay::initialize(WaylandConnection& wayland, ConfigService* config, RenderContext* renderContext) {
+void OsdOverlay::initialize(
+    WaylandConnection& wayland, CompositorPlatform& platform, ConfigService* config, RenderContext* renderContext
+) {
   m_wayland = &wayland;
+  m_platform = &platform;
   m_config = config;
   m_renderContext = renderContext;
   m_lastConfiguredEnabled = m_config == nullptr || m_config->config().osd.enabled;
@@ -281,6 +285,10 @@ void OsdOverlay::show(const OsdContent& content) {
     return;
   }
 
+  const bool followFocusedOutput = m_config != nullptr && m_config->config().osd.followFocusedOutput;
+  if (followFocusedOutput && !isVisible() && m_platform != nullptr) {
+    m_targetOutput = m_platform->preferredInteractiveOutput();
+  }
   m_content = content;
   ensureSurfaces();
   for (auto& inst : m_instances) {
@@ -348,6 +356,9 @@ std::vector<std::string> OsdOverlay::osdMonitors() const {
 }
 
 bool OsdOverlay::shouldRenderOnOutput(const WaylandOutput& output) const {
+  if (m_followFocusedOutput) {
+    return output.output == m_targetOutput;
+  }
   const auto selectedMonitors = osdMonitors();
   if (selectedMonitors.empty()) {
     return true;
@@ -361,7 +372,16 @@ void OsdOverlay::onOutputChange() {
   if (m_instances.empty()) {
     return;
   }
+  const bool wasVisible = isVisible();
   ensureSurfaces();
+  if (wasVisible) {
+    for (auto& inst : m_instances) {
+      if (inst->surface != nullptr && !inst->visible && !inst->showPending && inst->showAnimId == 0) {
+        inst->showPending = true;
+        inst->surface->requestUpdate();
+      }
+    }
+  }
   requestLayout();
 }
 
@@ -396,7 +416,16 @@ void OsdOverlay::ensureSurfaces() {
   const std::string orientation = effectiveOsdOrientation(m_content, configOrientation);
   const std::string position = effectiveOsdPosition(orientation, horizontalPosition, verticalPosition);
   const float layoutScale = osdUiScale(m_config);
-  const auto selectedMonitors = osdMonitors();
+  m_followFocusedOutput = m_config != nullptr && m_config->config().osd.followFocusedOutput;
+  if (!m_followFocusedOutput) {
+    m_targetOutput = nullptr;
+  } else {
+    const WaylandOutput* targetOutput = m_targetOutput != nullptr ? m_wayland->findOutputByWl(m_targetOutput) : nullptr;
+    if (targetOutput == nullptr || !targetOutput->done || !targetOutput->hasUsableGeometry()) {
+      m_targetOutput = m_platform != nullptr ? m_platform->preferredInteractiveOutput() : nullptr;
+    }
+  }
+  const auto selectedMonitors = m_followFocusedOutput ? std::vector<std::string>{} : osdMonitors();
 
   if (!m_instances.empty()
       && (position != m_lastPosition
@@ -896,6 +925,7 @@ void OsdOverlay::animateInstance(Instance& inst) {
                 });
                 if (allIdle) {
                   destroySurfaces();
+                  m_targetOutput = nullptr;
                 }
               });
             }

@@ -1885,6 +1885,10 @@
           "description": "Widgets in the center of the bar",
           "label": "Center Widgets"
         },
+        "compositor-blur": {
+          "description": "Allow the compositor to blur behind this bar when the background effect protocol is available",
+          "label": "Compositor Blur"
+        },
         "concave-edge-corners": {
           "description": "Carve concave notches into two of the bar's corners (requires Edge Margin to be 0); with Ends Margin at 0, the corners on the bar's inner edge are carved, otherwise the corners touching the screen edge are carved",
           "label": "Concave Edge Corners"
@@ -2420,6 +2424,10 @@
           "description": "Per-sender rules for toasts, history, and sounds; first matching enabled filter wins",
           "label": "Notification Filters"
         },
+        "follow-focused-output": {
+          "description": "Show new notification toasts on the focused monitor",
+          "label": "Follow Focused Output"
+        },
         "history-retention-hours": {
           "description": "Automatically remove notification history entries older than the specified number of hours (0 to keep forever)",
           "label": "Retention Period"
@@ -2467,6 +2475,10 @@
         "toast-opacity": {
           "description": "Background opacity of notification toasts",
           "label": "Background Opacity"
+        },
+        "width": {
+          "description": "Toast width in pixels before scaling",
+          "label": "Width"
         }
       },
       "panels": {
@@ -3101,6 +3113,10 @@
           "description": "Master switch for all OSD popups; when off no OSD is shown",
           "label": "Enable OSD"
         },
+        "osd-follow-focused-output": {
+          "description": "Show new OSD popups on the focused monitor; visible popups stay where they appeared",
+          "label": "Follow Focused Output"
+        },
         "osd-hide-delay": {
           "description": "How long an OSD popup remains visible before hiding",
           "label": "Hide Delay"
@@ -3212,6 +3228,10 @@
         "privacy-screen-filter-regex": {
           "description": "Regex for screen-sharing apps to ignore in privacy indicators and OSDs",
           "label": "Screen Sharing Filter Regex"
+        },
+        "readline-shortcuts": {
+          "description": "Use readline-style shortcuts in every text field (Ctrl+A moves to the start of the line instead of selecting all)",
+          "label": "Readline Shortcuts"
         },
         "screen-time-enabled": {
           "description": "Track per-app usage and show it in Control Center",
@@ -4479,6 +4499,10 @@
         "reversed": {
           "description": "Reverse the low-to-high frequency order of the bars",
           "label": "Reversed"
+        },
+        "rotate-album-art": {
+          "description": "Rotate the circular album artwork while media is playing",
+          "label": "Rotate Album Art"
         },
         "scale": {
           "description": "Scale this widget relative to the bar content scale",

@@ -949,6 +949,12 @@ void NetworkTab::onClose() {
 }
 
 void NetworkTab::syncPasswordCard() {
+  if (m_hasPendingSecret
+      && !m_pendingAccessPoint.has_value()
+      && m_secrets != nullptr
+      && !m_secrets->hasPendingRequest()) {
+    clearPasswordPrompt();
+  }
   if (m_passwordCard == nullptr) {
     return;
   }
@@ -1115,17 +1121,22 @@ void NetworkTab::clearPasswordPrompt() {
   setCredentialError({});
 }
 
+bool NetworkTab::networkAvailable() const noexcept { return m_network != nullptr && m_network->available(); }
+
 void NetworkTab::syncCurrentCard() {
   if (m_currentTitle == nullptr || m_currentDetail == nullptr) {
     return;
   }
-  if (m_network == nullptr) {
+  if (!networkAvailable()) {
     m_currentTitle->setText(i18n::tr("control-center.network.unavailable-title"));
     m_currentDetail->setText(i18n::tr("control-center.network.unavailable-detail"));
     if (m_currentRow != nullptr) {
       m_currentRow->setVisible(false);
     }
     return;
+  }
+  if (m_currentRow != nullptr) {
+    m_currentRow->setVisible(true);
   }
   const NetworkState& s = m_network->state();
   if (m_actionPending) {
@@ -1246,7 +1257,9 @@ NetworkTab::structureKey(const std::vector<AccessPointInfo>& aps, const std::vec
   }
   const bool wirelessEnabled = m_network != nullptr && m_network->state().wirelessEnabled;
   const bool scanning = m_network != nullptr && m_network->state().scanning;
-  key += "vis:";
+  key += "avail:";
+  key += networkAvailable() ? '1' : '0';
+  key += "\nvis:";
   key += m_vpnVisible ? '1' : '0';
   key += "\nwifi:";
   key += wirelessEnabled ? '1' : '0';
@@ -1385,7 +1398,7 @@ void NetworkTab::rebuildApList(Renderer& renderer) {
     m_list->removeChild(m_list->children().front().get());
   }
 
-  if (m_network == nullptr) {
+  if (!networkAvailable()) {
     m_list->addChild(
         ui::label({
             .text = i18n::tr("control-center.network.unavailable-title"),

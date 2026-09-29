@@ -1,6 +1,6 @@
+#include "tests/test_check.h"
 #include "theme/hook_runner.h"
 
-#include <cassert>
 #include <filesystem>
 #include <fstream>
 #include <string>
@@ -28,11 +28,11 @@ namespace {
         runner.enqueue("printf x >> " + sentinel.string(), /*generation=*/1);
       }
       runner.waitIdle();
-      assert(runner.pendingCount() == 0);
+      TEST_CHECK(runner.pendingCount() == 0);
     }
 
     // Concurrency is bounded, so queued hooks must still all run before waitIdle returns.
-    assert(readSentinel(sentinel) == "xxxx");
+    TEST_CHECK(readSentinel(sentinel) == "xxxx");
     std::filesystem::remove(sentinel);
   }
 
@@ -47,10 +47,10 @@ namespace {
       runner.enqueue("printf stale > " + sentinel.string(), /*generation=*/1);
       runner.enqueue("printf current > " + sentinel.string(), /*generation=*/2);
       runner.waitIdle();
-      assert(runner.pendingCount() == 0);
+      TEST_CHECK(runner.pendingCount() == 0);
     }
 
-    assert(readSentinel(sentinel) == "current");
+    TEST_CHECK(readSentinel(sentinel) == "current");
     std::filesystem::remove(sentinel);
   }
 
@@ -66,10 +66,10 @@ namespace {
       runner.enqueue("printf stale > " + sentinel.string(), /*generation=*/1);
       runner.invalidateBefore(2);
       runner.waitIdle();
-      assert(runner.pendingCount() == 0);
+      TEST_CHECK(runner.pendingCount() == 0);
     }
 
-    assert(!std::filesystem::exists(sentinel));
+    TEST_CHECK(!std::filesystem::exists(sentinel));
   }
 
   void test_shutdown_drops_backlog_and_awaits_running() {
@@ -88,8 +88,8 @@ namespace {
     }
 
     // Destruction waits for the hook that had already started, and only for that one.
-    assert(std::filesystem::exists(running));
-    assert(!std::filesystem::exists(queued));
+    TEST_CHECK(std::filesystem::exists(running));
+    TEST_CHECK(!std::filesystem::exists(queued));
     std::filesystem::remove(running);
   }
 

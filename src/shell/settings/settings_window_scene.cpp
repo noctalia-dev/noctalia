@@ -745,6 +745,7 @@ settings::RegistryEnvironment SettingsWindow::buildRegistryEnvironment() const {
   }
   env.niriBackdropSupported = (m_wayland != nullptr && compositors::isNiri());
   env.screencopySupported = m_wayland != nullptr && m_wayland->hasScreencopy();
+  env.backgroundEffectBlurSupported = m_wayland != nullptr && m_wayland->hasBackgroundEffectBlur();
   env.niriOverviewTypeToLaunchSupported = (m_wayland != nullptr && compositors::isNiri());
   env.umbrielOverviewTypeToLaunchSupported = (m_wayland != nullptr && compositors::isUmbriel());
   env.ddcutilAvailable = (m_dependencies != nullptr && m_dependencies->hasDdcutil());

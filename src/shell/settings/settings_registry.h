@@ -303,6 +303,7 @@ namespace settings {
     bool niriOverviewTypeToLaunchSupported = false; // show niri-only type-to-launch integration
     bool umbrielOverviewTypeToLaunchSupported = false;
     bool screencopySupported = false;           // lockscreen blurred desktop + screenshot features
+    bool backgroundEffectBlurSupported = false; // hide compositor blur toggles without ext-background-effect-v1
     bool ddcutilAvailable = false;              // disable ddcutil toggle when ddcutil is not on PATH
     bool systemdUserManaged = false;            // disable systemd app launching when the shell is not a user unit
     bool gammaControlAvailable = false;         // hide night-light entries when gamma control is unavailable

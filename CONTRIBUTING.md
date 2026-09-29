@@ -160,6 +160,11 @@ check.
 For bug fixes, reproduce the bug and confirm the reproduction no longer fails. Add a regression test only when it
 provides durable coverage beyond that check.
 
+Write test checks with `TEST_CHECK` from `tests/test_check.h`, never `assert`. `assert` compiles away under `NDEBUG`, so
+a release build would pass a broken test silently; `TEST_CHECK` prints the failed expression with its file and line and
+exits non-zero. The header refuses to compile with `NDEBUG`, so test executables set
+`override_options: ['b_ndebug=false']` in `meson.build`.
+
 ## Commit Messages
 
 Follow the Conventional Commits style used in the history: `type(scope): summary`, or `type: summary` when no scope

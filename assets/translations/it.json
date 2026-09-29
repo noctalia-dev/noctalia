@@ -3075,9 +3075,21 @@
           "description": "Disegna un contorno attorno ai popup OSD",
           "label": "Bordo"
         },
+        "osd-border-color": {
+          "description": "Ruolo del colore per il contorno del popup OSD; sono supportati anche codici colore in formato esadecimale",
+          "label": "Colore del bordo"
+        },
+        "osd-border-width": {
+          "description": "Spessore del contorno dei popup OSD in pixel; 0 nasconde il contorno",
+          "label": "Larghezza del bordo"
+        },
         "osd-enabled": {
           "description": "Interruttore principale per tutti i popup OSD; quando è spento non viene mostrato alcun OSD",
           "label": "Abilita OSD"
+        },
+        "osd-hide-delay": {
+          "description": "Per quanto tempo un popup OSD rimane visibile prima di sparire",
+          "label": "Ritardo scomparsa"
         },
         "osd-kinds-bluetooth": {
           "description": "Mostra un popup OSD quando il Bluetooth viene attivato/disattivato",
@@ -4189,7 +4201,7 @@
         "focused-output-only": {
           "description": "Evidenzia solo l'area di lavoro attiva sul monitor focalizzato",
           "label": "Evidenzia solo il monitor focalizzato",
-          "taskbar-description": "Utilizza il colore focalizzato solo per l'area di lavoro attiva sul monitor in focus tramite tastiera o puntatore; gli altri monitor utilizzano il colore per occupato",
+          "taskbar-description": "Evidenzia solo l'area di lavoro attiva sul monitor che ha il focus su tastiera o puntatore; le aree di lavoro attive sugli altri monitor utilizzano il colore corrispondente all'area occupata e lo stile a capsula per le aree di lavoro inattive",
           "workspaces-description": "Evidenzia solo l'area di lavoro attiva sul monitor con il focus della tastiera o del puntatore; gli altri monitor mostrano invece lo spazio di lavoro attivo come occupato"
         },
         "font-family": {
@@ -4885,7 +4897,7 @@
     "count": "{count} finestra",
     "count-plural": "{count} finestre",
     "empty": "Nessuna finestra aperta",
-    "hint": "Tab · Shift+Tab · Tasti freccia · Rilascia Alt per cambiare · Esc per annullare",
+    "hint": "Tab · Maiusc+Tab · Tasti freccia · Rilascia il modificatore di scelta rapida per cambiare · Esc per annullare",
     "title": "Finestre"
   }
 }

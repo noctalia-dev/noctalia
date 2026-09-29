@@ -51,6 +51,7 @@ struct KeyboardEvent {
   std::uint32_t modifiers = 0; // KeyMod bitmask
   bool pressed = false;
   bool preedit = false; // dead key preview (composing in progress)
+  bool repeat = false;  // synthesized by client-side key repeat, not a fresh press
 };
 
 class WaylandSeat {
@@ -78,6 +79,7 @@ public:
   // compositor reports as still held on entry.
   using KeyboardEnterCallback =
       std::function<void(wl_surface* surface, std::uint32_t modifiers, const std::vector<std::uint32_t>& heldKeysyms)>;
+  using KeyboardModifiersCallback = std::function<void(std::uint32_t modifiers)>;
   using LockKeysChangeCallback = std::function<void()>;
 
   void bind(wl_seat* seat);
@@ -86,6 +88,7 @@ public:
   void setKeyboardEventCallback(KeyboardEventCallback callback);
   void setKeyboardFocusCallback(KeyboardFocusCallback callback);
   void setKeyboardEnterCallback(KeyboardEnterCallback callback);
+  void setKeyboardModifiersCallback(KeyboardModifiersCallback callback);
   void setLockKeysChangeCallback(LockKeysChangeCallback callback);
   void setCursorShape(std::uint32_t serial, std::uint32_t shape);
   void forgetSurface(wl_surface* surface) noexcept;
@@ -214,6 +217,7 @@ private:
   KeyboardEventCallback m_keyboardEventCallback;
   KeyboardFocusCallback m_keyboardFocusCallback;
   KeyboardEnterCallback m_keyboardEnterCallback;
+  KeyboardModifiersCallback m_keyboardModifiersCallback;
   LockKeysChangeCallback m_lockKeysChangeCallback;
   // Keys held at the last wl_keyboard.enter, reported through m_keyboardEnterCallback once
   // the trailing modifiers event has updated the xkb state.

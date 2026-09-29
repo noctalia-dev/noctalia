@@ -49,6 +49,8 @@ While the overlay is open it takes exclusive keyboard focus on its layer surface
 - **Quick tap** - releasing the shortcut modifier before the overlay has keyboard focus counts as the release: the previous window is activated and the overlay closes, like a quick Alt+Tab
 - **Pointer** - click a card to switch; click the selected card's close control to close that window
 
+Modifier releases generated while an input method hands keyboard focus to the switcher are ignored until the physical shortcut modifier is actually released.
+
 The switcher refreshes while the overlay stays open (new windows, closed windows, and title changes such as Discord channel switches). Selection stays on the same window when its title updates.
 
 Snapshots are intentionally frozen for each switcher session rather than streamed. The selected window is captured first; remaining windows are captured one at a time and downsampled before display to keep the overlay responsive and memory-bounded. Compositors that do not advertise `ext_foreign_toplevel_image_capture_source_manager_v1` retain the same navigation and controls with icon-based cards.

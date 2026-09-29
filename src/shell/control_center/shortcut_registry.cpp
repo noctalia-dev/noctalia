@@ -53,7 +53,7 @@ namespace {
     std::string_view iconOn() const override { return "wifi"; }
     std::string_view iconOff() const override { return "wifi-off"; }
     std::string displayIcon() const override {
-      if (m_svc == nullptr) {
+      if (m_svc == nullptr || !m_svc->available()) {
         return "wifi-question";
       }
       return network_display::wifiGlyphForState(m_svc->state());

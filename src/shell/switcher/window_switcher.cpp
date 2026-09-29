@@ -46,6 +46,8 @@
 #include <string_view>
 #include <unordered_map>
 #include <unordered_set>
+#include <wayland-client-core.h>
+#include <wayland-client-protocol.h>
 #include <xkbcommon/xkbcommon-keysyms.h>
 
 namespace {
@@ -53,7 +55,6 @@ namespace {
   constexpr Logger kLog("window-switcher");
   constexpr std::size_t kVisibleCards = 5;
   constexpr float kVisibleOpacityThreshold = 0.01F;
-  constexpr std::uint32_t kShortcutModifierMask = KeyMod::Ctrl | KeyMod::Alt | KeyMod::Super;
 
   [[nodiscard]] WindowSwitcherStyleLayout computeSwitcherLayout(
       float screenWidth, float screenHeight, float scale, std::size_t windowCount, std::size_t selectedIndex,
@@ -576,7 +577,10 @@ namespace {
 
 WindowSwitcher::WindowSwitcher() = default;
 
-WindowSwitcher::~WindowSwitcher() { destroySurface(); }
+WindowSwitcher::~WindowSwitcher() {
+  cancelShortcutModifierReleaseCheck();
+  destroySurface();
+}
 
 struct WindowSwitcher::Instance {
   wl_output* output = nullptr;
@@ -730,7 +734,9 @@ void WindowSwitcher::showWithDirection(wl_output* output, int direction) {
   const bool outputChanged = output != m_output;
   if (!wasActive) {
     recordFocusedWindow();
-    m_shortcutModifiers = 0;
+    cancelShortcutModifierReleaseCheck();
+    m_shortcutState.reset();
+    ++m_shortcutSessionGeneration;
     m_shortcutSession = false;
   }
   m_output = output;
@@ -763,11 +769,7 @@ void WindowSwitcher::showWithDirection(wl_output* output, int direction) {
   }
 }
 
-void WindowSwitcher::captureShortcutModifiers(std::uint32_t modifiers) {
-  if (m_shortcutModifiers == 0) {
-    m_shortcutModifiers = modifiers & kShortcutModifierMask;
-  }
-}
+void WindowSwitcher::captureShortcutModifiers(std::uint32_t modifiers) { m_shortcutState.capture(modifiers); }
 
 void WindowSwitcher::hide() {
   if (!m_active && m_instance == nullptr) {
@@ -778,7 +780,9 @@ void WindowSwitcher::hide() {
   m_output = nullptr;
   m_windows.clear();
   m_selectedIndex = 0;
-  m_shortcutModifiers = 0;
+  cancelShortcutModifierReleaseCheck();
+  m_shortcutState.reset();
+  ++m_shortcutSessionGeneration;
   m_shortcutSession = false;
   cancelThumbnailCaptures();
   destroySurface();
@@ -1236,7 +1240,7 @@ bool WindowSwitcher::matchesTrigger(const KeyboardEvent& event) const noexcept {
   if (m_config == nullptr) {
     return false;
   }
-  const std::uint32_t shortcutModifiers = event.modifiers & kShortcutModifierMask;
+  const std::uint32_t shortcutModifiers = event.modifiers & WindowSwitcherShortcutState::kModifierMask;
   if (shortcutModifiers == 0) {
     return false;
   }
@@ -1247,7 +1251,76 @@ bool WindowSwitcher::matchesTrigger(const KeyboardEvent& event) const noexcept {
 }
 
 bool WindowSwitcher::isModifierRelease(const KeyboardEvent& event) const noexcept {
-  return !event.pressed && (KeySymbol::modifierMask(event.sym) & m_shortcutModifiers) != 0;
+  return !event.pressed && (KeySymbol::modifierMask(event.sym) & m_shortcutState.modifiers()) != 0;
+}
+
+void WindowSwitcher::onKeyboardModifiers(std::uint32_t modifiers) {
+  if (!m_active || !m_shortcutSession || !m_shortcutState.hasPendingRelease()) {
+    return;
+  }
+  m_shortcutState.updateModifiers(modifiers);
+  scheduleShortcutModifierReleaseCheck();
+}
+
+void WindowSwitcher::scheduleShortcutModifierReleaseCheck() {
+  if (!m_shortcutState.beginReleaseCheck()) {
+    return;
+  }
+
+  // Keep an input method's mirrored release and the following physical mask
+  // restoration ahead of the decision, even when the socket read is split.
+  if (m_wayland != nullptr && m_wayland->display() != nullptr) {
+    m_shortcutReleaseSync = wl_display_sync(m_wayland->display());
+    if (m_shortcutReleaseSync != nullptr) {
+      static constexpr wl_callback_listener kReleaseSyncListener = {
+          .done = &WindowSwitcher::handleShortcutModifierReleaseSync,
+      };
+      if (wl_callback_add_listener(m_shortcutReleaseSync, &kReleaseSyncListener, this) == 0) {
+        return;
+      }
+      wl_callback_destroy(m_shortcutReleaseSync);
+      m_shortcutReleaseSync = nullptr;
+    }
+  }
+
+  const std::uint64_t generation = m_shortcutSessionGeneration;
+  DeferredCall::callLater([this, generation]() {
+    if (generation != m_shortcutSessionGeneration) {
+      return;
+    }
+    completeShortcutModifierReleaseCheck();
+  });
+}
+
+void WindowSwitcher::completeShortcutModifierReleaseCheck() {
+  if (!m_active || !m_shortcutSession || m_wayland == nullptr) {
+    return;
+  }
+  if (!m_shortcutState.completeReleaseCheck(m_wayland->keyboardModifiers())) {
+    return;
+  }
+  activateSelected();
+  hide();
+}
+
+void WindowSwitcher::cancelShortcutModifierReleaseCheck() {
+  if (m_shortcutReleaseSync == nullptr) {
+    return;
+  }
+  wl_callback_destroy(m_shortcutReleaseSync);
+  m_shortcutReleaseSync = nullptr;
+}
+
+void WindowSwitcher::handleShortcutModifierReleaseSync(
+    void* data, wl_callback* callback, std::uint32_t /*callbackData*/
+) {
+  auto* self = static_cast<WindowSwitcher*>(data);
+  if (self->m_shortcutReleaseSync != callback) {
+    return;
+  }
+  self->m_shortcutReleaseSync = nullptr;
+  wl_callback_destroy(callback);
+  self->completeShortcutModifierReleaseCheck();
 }
 
 // The compositor keybind that opens the overlay runs out of process, so a quick
@@ -1267,9 +1340,9 @@ void WindowSwitcher::onKeyboardEnter(
       || surface != m_instance->surface->wlSurface()) {
     return;
   }
-  std::uint32_t held = modifiers & kShortcutModifierMask;
+  std::uint32_t held = modifiers & WindowSwitcherShortcutState::kModifierMask;
   for (const std::uint32_t sym : heldKeysyms) {
-    held |= KeySymbol::modifierMask(sym) & kShortcutModifierMask;
+    held |= KeySymbol::modifierMask(sym) & WindowSwitcherShortcutState::kModifierMask;
   }
   if (held != 0) {
     return;
@@ -1310,8 +1383,9 @@ bool WindowSwitcher::onKeyboardEvent(const KeyboardEvent& event) {
   }
 
   if (isModifierRelease(event)) {
-    activateSelected();
-    hide();
+    if (m_shortcutState.noteRelease(KeySymbol::modifierMask(event.sym), event.modifiers)) {
+      scheduleShortcutModifierReleaseCheck();
+    }
     return true;
   }
 
@@ -1319,7 +1393,7 @@ bool WindowSwitcher::onKeyboardEvent(const KeyboardEvent& event) {
     return true;
   }
 
-  const std::uint32_t normalizedModifiers = event.modifiers & ~m_shortcutModifiers;
+  const std::uint32_t normalizedModifiers = event.modifiers & ~m_shortcutState.modifiers();
   auto matchesAction = [&](KeybindAction action) {
     if (m_config != nullptr) {
       return m_config->matchesKeybind(action, event.sym, normalizedModifiers);

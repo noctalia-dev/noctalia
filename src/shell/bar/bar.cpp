@@ -2404,6 +2404,7 @@ void Bar::createInstance(const WaylandOutput& output, std::size_t barIndex, cons
       .marginBottom = surfaceSpec.marginBottom,
       .marginLeft = surfaceSpec.marginLeft,
       .defaultHeight = surfaceSpec.surfaceHeight,
+      .prewarmBlur = barConfig.compositorBlur,
   };
 
   instance->surface = std::make_unique<LayerSurface>(m_platform->wayland(), std::move(surfaceConfig));
@@ -3170,7 +3171,7 @@ void Bar::applyBarCompositorBlur(BarInstance& instance) const {
   if (instance.surface == nullptr) {
     return;
   }
-  if (!barContentVisuallyShown(instance)) {
+  if (!instance.barConfig.compositorBlur || !barContentVisuallyShown(instance)) {
     instance.surface->clearBlurRegion();
     return;
   }

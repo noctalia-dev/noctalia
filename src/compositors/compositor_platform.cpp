@@ -18,10 +18,6 @@
 #include "compositors/sway/sway_keyboard_backend.h"
 #include "compositors/sway/sway_output_backend.h"
 #include "compositors/sway/sway_runtime.h"
-#include "compositors/triad/triad_keyboard_backend.h"
-#include "compositors/triad/triad_output_backend.h"
-#include "compositors/triad/triad_runtime.h"
-#include "compositors/triad/triad_workspace_backend.h"
 #include "compositors/umbriel/umbriel_keyboard_backend.h"
 #include "compositors/umbriel/umbriel_output_backend.h"
 #include "compositors/umbriel/umbriel_runtime.h"
@@ -346,10 +342,6 @@ namespace {
             return compositors::sway::setOutputPower(runtime, on);
           }
       );
-    case compositors::CompositorKind::Triad:
-      return std::make_unique<LambdaOutputPowerBackend>([&runtime = runtimeRegistry.triad()](
-                                                            WaylandConnection& /*wayland*/, bool on
-                                                        ) { return compositors::triad::setOutputPower(runtime, on); });
     case compositors::CompositorKind::Mango:
       return std::make_unique<LambdaOutputPowerBackend>(
           [&runtime = runtimeRegistry.mango()](WaylandConnection& wayland, bool on) {
@@ -381,8 +373,6 @@ namespace {
       return std::make_unique<FocusedOutputAdapter<NiriOutputBackend>>(runtimeRegistry.niri());
     case compositors::CompositorKind::Sway:
       return std::make_unique<FocusedOutputAdapter<SwayOutputBackend>>(runtimeRegistry.sway());
-    case compositors::CompositorKind::Triad:
-      return std::make_unique<FocusedOutputAdapter<TriadOutputBackend>>(runtimeRegistry.triad());
     case compositors::CompositorKind::Umbriel:
       return std::make_unique<FocusedOutputAdapter<UmbrielOutputBackend>>(runtimeRegistry.umbriel());
     case compositors::CompositorKind::Dwl:
@@ -398,8 +388,6 @@ namespace {
   [[nodiscard]] std::unique_ptr<compositors::WorkspaceMetadataBackend>
   createWorkspaceMetadataBackend(compositors::CompositorRuntimeRegistry& runtimeRegistry) {
     switch (compositors::detect()) {
-    case compositors::CompositorKind::Triad:
-      return std::make_unique<TriadWorkspaceBackend>(runtimeRegistry.triad());
     case compositors::CompositorKind::Niri:
       return std::make_unique<NiriWorkspaceBackend>(runtimeRegistry.niri());
     case compositors::CompositorKind::Umbriel:
@@ -427,8 +415,6 @@ namespace {
       return std::make_unique<KeyboardLayoutBackendAdapter<MangoKeyboardBackend>>(runtimeRegistry.mango());
     case compositors::CompositorKind::Sway:
       return std::make_unique<KeyboardLayoutBackendAdapter<SwayKeyboardBackend>>(runtimeRegistry.sway());
-    case compositors::CompositorKind::Triad:
-      return std::make_unique<KeyboardLayoutBackendAdapter<TriadKeyboardBackend>>(runtimeRegistry.triad());
     case compositors::CompositorKind::Umbriel:
       return std::make_unique<KeyboardLayoutBackendAdapter<UmbrielKeyboardBackend>>(runtimeRegistry.umbriel());
     case compositors::CompositorKind::Dwl:
@@ -1578,8 +1564,6 @@ bool CompositorPlatform::requestSessionExit() const {
     return m_runtimeRegistry->niri().requestAction(
         nlohmann::json{{"Quit", nlohmann::json{{"skip_confirmation", true}}}}, true
     );
-  case compositors::CompositorKind::Triad:
-    return m_runtimeRegistry->triad().requestAction("exit-session");
   case compositors::CompositorKind::Mango:
     return process::launchFirstAvailable({{"mmsg", "dispatch", "quit"}});
   case compositors::CompositorKind::Dwl:

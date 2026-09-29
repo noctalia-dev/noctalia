@@ -108,6 +108,8 @@ System monitor sampling is configured globally under `[system.monitor]`; see [Sy
 
 The Network tab uses the configured network backend to show wireless state and connection details. It is the destination for Wi-Fi shortcuts and network-related right-click actions.
 
+NetworkManager is preferred and followed on the system bus: when it starts after the shell or restarts, the tab picks it up, and while it is stopped the tab shows the network as unavailable. A standalone wpa_supplicant or iwd backend is used only when one of them is running at startup and NetworkManager is not.
+
 The current connection line lists the IPv4 address, signal strength, radio band, and external IP. The band (`2.4 GHz`, `5 GHz`, `6 GHz`, or `60 GHz`) is shown only when the backend reports the connection frequency: NetworkManager and wpa_supplicant do, iwd does not.
 
 ### Enterprise Wi-Fi (802.1X)

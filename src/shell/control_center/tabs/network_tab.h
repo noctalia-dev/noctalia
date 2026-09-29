@@ -45,6 +45,8 @@ private:
   void doUpdate(Renderer& renderer) override;
   void onPanelCardOpacityChanged(float opacity) override;
 
+  // A backend exists and its daemon is on the bus.
+  [[nodiscard]] bool networkAvailable() const noexcept;
   void syncCurrentCard();
   void beginPendingAction(bool wasConnected);
   void requestWirelessEnabled(bool enabled);

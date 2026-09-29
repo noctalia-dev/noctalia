@@ -1788,6 +1788,11 @@ namespace settings {
         "calendar date format strftime chrono"
     ));
     entries.push_back(makeEntry(
+        SettingsSection::Shell, "general", tr("settings.schema.shell.readline-shortcuts.label"),
+        tr("settings.schema.shell.readline-shortcuts.description"), {"shell", "readline_shortcuts"},
+        ToggleSetting{cfg.shell.readlineShortcuts}, "readline emacs keyboard shortcuts text input line editing"
+    ));
+    entries.push_back(makeEntry(
         SettingsSection::Shell, "keyboard-layout", tr("settings.schema.shell.keyboard-layout-custom-labels.label"),
         tr("settings.schema.shell.keyboard-layout-custom-labels.description"),
         {"shell", "keyboard_layout", "custom_labels"},
@@ -2144,11 +2149,20 @@ namespace settings {
         "outline border width thickness"
     ));
     entries.push_back(makeEntry(
-        SettingsSection::Osd, "osd", tr("settings.schema.shell.osd-monitors.label"),
-        tr("settings.schema.shell.osd-monitors.description"), {"osd", "monitors"},
-        ListSetting{.items = cfg.osd.monitors, .suggestedOptions = env.availableOutputs},
-        "monitor output display screen hud overlay"
+        SettingsSection::Osd, "osd", tr("settings.schema.shell.osd-follow-focused-output.label"),
+        tr("settings.schema.shell.osd-follow-focused-output.description"), {"osd", "follow_focused_output"},
+        ToggleSetting{cfg.osd.followFocusedOutput}, "monitor output display focused active hud overlay"
     ));
+    {
+      auto e = makeEntry(
+          SettingsSection::Osd, "osd", tr("settings.schema.shell.osd-monitors.label"),
+          tr("settings.schema.shell.osd-monitors.description"), {"osd", "monitors"},
+          ListSetting{.items = cfg.osd.monitors, .suggestedOptions = env.availableOutputs},
+          "monitor output display screen hud overlay"
+      );
+      e.visibleWhen = [](const Config& c) { return !c.osd.followFocusedOutput; };
+      entries.push_back(std::move(e));
+    }
     entries.push_back(makeEntry(
         SettingsSection::Osd, "kinds", tr("settings.schema.shell.osd-kinds-volume.label"),
         tr("settings.schema.shell.osd-kinds-volume.description"), {"osd", "kinds", "volume"},
@@ -3092,6 +3106,15 @@ namespace settings {
         tr("settings.schema.notifications.scale.description"), {"notification", "scale"},
         sliderFor(cfg.notification.scale, noctalia::config::schema::kScaleRange, false), "toast size scale"
     ));
+    {
+      SliderSetting width = sliderFor(cfg.notification.width, noctalia::config::schema::kNotificationWidthRange, true);
+      width.valueSuffix = "px";
+      entries.push_back(makeEntry(
+          SettingsSection::Notifications, "toasts", tr("settings.schema.notifications.width.label"),
+          tr("settings.schema.notifications.width.description"), {"notification", "width"}, std::move(width),
+          "toast size dimension wide narrow"
+      ));
+    }
     entries.push_back(makeEntry(
         SettingsSection::Notifications, "toasts", tr("settings.schema.notifications.offset-x.label"),
         tr("settings.schema.notifications.offset-x.description"), {"notification", "offset_x"},
@@ -3138,11 +3161,21 @@ namespace settings {
         "outline border width thickness"
     ));
     entries.push_back(makeEntry(
-        SettingsSection::Notifications, "toasts", tr("settings.schema.notifications.monitors.label"),
-        tr("settings.schema.notifications.monitors.description"), {"notification", "monitors"},
-        ListSetting{.items = cfg.notification.monitors, .suggestedOptions = env.availableOutputs},
-        "monitor output display screen"
+        SettingsSection::Notifications, "toasts", tr("settings.schema.notifications.follow-focused-output.label"),
+        tr("settings.schema.notifications.follow-focused-output.description"),
+        {"notification", "follow_focused_output"}, ToggleSetting{cfg.notification.followFocusedOutput},
+        "monitor output display focused active"
     ));
+    {
+      auto e = makeEntry(
+          SettingsSection::Notifications, "toasts", tr("settings.schema.notifications.monitors.label"),
+          tr("settings.schema.notifications.monitors.description"), {"notification", "monitors"},
+          ListSetting{.items = cfg.notification.monitors, .suggestedOptions = env.availableOutputs},
+          "monitor output display screen"
+      );
+      e.visibleWhen = [](const Config& c) { return !c.notification.followFocusedOutput; };
+      entries.push_back(std::move(e));
+    }
     entries.push_back(makeEntry(
         SettingsSection::Notifications, "history", tr("settings.schema.notifications.keep-dismissed-in-history.label"),
         tr("settings.schema.notifications.keep-dismissed-in-history.description"),
@@ -3304,6 +3337,13 @@ namespace settings {
           tr("settings.schema.bar.background-opacity.description"), path("background_opacity"),
           SliderSetting{bar.backgroundOpacity, 0.0F, 1.0F, 0.01F, false}, "alpha"
       ));
+      if (env.backgroundEffectBlurSupported) {
+        entries.push_back(makeEntry(
+            section, "effects", tr("settings.schema.bar.compositor-blur.label"),
+            tr("settings.schema.bar.compositor-blur.description"), path("compositor_blur"),
+            ToggleSetting{bar.compositorBlur}, "blur frosted background effect wayland"
+        ));
+      }
       entries.push_back(makeEntry(
           section, "effects", tr("settings.schema.shared.shadow.label"), tr("settings.schema.bar.shadow.description"),
           path("shadow"), ToggleSetting{bar.shadow}, "shadow"
@@ -3645,6 +3685,13 @@ namespace settings {
             tr("settings.schema.bar.background-opacity.description"), monitorPath("background_opacity"),
             SliderSetting{ovr.backgroundOpacity.value_or(bar.backgroundOpacity), 0.0F, 1.0F, 0.01F, false}, "alpha"
         ));
+        if (env.backgroundEffectBlurSupported) {
+          entries.push_back(makeEntry(
+              section, "effects", tr("settings.schema.bar.compositor-blur.label"),
+              tr("settings.schema.bar.compositor-blur.description"), monitorPath("compositor_blur"),
+              ToggleSetting{ovr.compositorBlur.value_or(bar.compositorBlur)}, "blur frosted background effect wayland"
+          ));
+        }
         entries.push_back(makeEntry(
             section, "effects", tr("settings.schema.shared.shadow.label"), tr("settings.schema.bar.shadow.description"),
             monitorPath("shadow"), ToggleSetting{ovr.shadow.value_or(bar.shadow)}, "shadow"

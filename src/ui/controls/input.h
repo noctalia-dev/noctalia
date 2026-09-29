@@ -39,8 +39,6 @@ public:
   void setHorizontalPadding(float padding);
   void setClearButtonEnabled(bool enabled);
   void setPasswordMode(bool enabled);
-  /// Apply readline-style line editing shortcuts.
-  void setLineEditingEnabled(bool enabled);
   /// Multi-line editing: Enter inserts '\n' (Ctrl+Enter submits), the text wraps
   /// at the viewport width and scrolls vertically. The control keeps whatever
   /// height layout assigns (explicit height or flex-grown) instead of forcing
@@ -75,6 +73,8 @@ public:
   /// Submit invokes onSubmit only when this matcher returns true (Application wires ConfigService validate keybinds).
   static void setValidateKeyMatcher(std::function<bool(std::uint32_t sym, std::uint32_t modifiers)> matcher) noexcept;
   static void setPasswordMaskStyle(PasswordMaskStyle style) noexcept;
+  /// Readline-style editing shortcuts for every Input (Ctrl+A moves to the start instead of selecting all).
+  static void setReadlineShortcutsEnabled(bool enabled) noexcept;
   void clearSelection();
 
   [[nodiscard]] const std::string& value() const noexcept { return m_value; }
@@ -232,7 +232,6 @@ private:
   bool m_clearButtonEnabled = false;
   bool m_passwordMode = false;
   bool m_multiline = false;
-  bool m_lineEditing = false;
   bool m_invalid = false;
   bool m_frameVisible = true;
   bool m_embeddedOnSolidPrimary = false;

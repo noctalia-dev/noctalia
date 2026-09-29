@@ -34,6 +34,7 @@ public:
     int artSize = 16;
     MediaTitleScrollMode titleScrollMode = MediaTitleScrollMode::None;
     bool hideWhenNoMedia = false;
+    bool rotateAlbumArt = false;
     bool albumArtOnly = false;
     bool hideAlbumArt = false;
     bool hideArtist = false;
@@ -44,6 +45,8 @@ public:
   MediaWidget(MprisService* mpris, HttpClient* httpClient, wl_output* output, Options options);
 
   void create() override;
+  [[nodiscard]] bool needsFrameTick() const override;
+  void onFrameTick(float deltaMs) override;
 
 private:
   void doLayout(Renderer& renderer, float containerWidth, float containerHeight) override;
@@ -65,6 +68,7 @@ private:
   float m_artSize = 16.0F;
   MediaTitleScrollMode m_titleScrollMode = MediaTitleScrollMode::None;
   bool m_hideWhenNoMedia = false;
+  bool m_rotateAlbumArt = false;
   bool m_albumArtOnly = false;
   bool m_hideAlbumArt = false;
   bool m_hideArtist = false;
@@ -73,6 +77,7 @@ private:
   // Cached from the last doLayout(); the update phase has no container extents of its own.
   bool m_isVertical = false;
   bool m_progressFillVisible = false;
+  float m_artRotation = 0.0F;
   InputArea* m_area = nullptr;
   Image* m_art = nullptr;
   Glyph* m_emptyGlyph = nullptr;
