@@ -8,6 +8,7 @@
 #include "render/core/renderer.h"
 #include "render/scene/input_area.h"
 #include "ui/builders.h"
+#include "ui/controls/button.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 
@@ -27,9 +28,11 @@ namespace {
 MediaWidget::MediaWidget(MprisService* mpris, HttpClient* httpClient, wl_output* /*output*/, Options options)
     : m_mpris(mpris), m_httpClient(httpClient), m_maxWidth(static_cast<float>(options.maxWidth)),
       m_minWidth(static_cast<float>(options.minWidth)), m_artSize(static_cast<float>(options.artSize)),
-      m_titleScrollMode(options.titleScrollMode), m_hideWhenNoMedia(options.hideWhenNoMedia),
-      m_albumArtOnly(options.albumArtOnly), m_hideAlbumArt(options.hideAlbumArt), m_hideArtist(options.hideArtist),
-      m_artistFirst(options.artistFirst), m_showProgress(options.showProgress) {}
+      m_titleScrollMode(options.titleScrollMode),
+      m_hideWhenNoMedia(options.hideWhenNoMedia),
+      m_hideControls(options.hideControls), m_albumArtOnly(options.albumArtOnly),
+      m_hideAlbumArt(options.hideAlbumArt), m_hideTitle(options.hideTitle), m_hideArtist(options.hideArtist),
+      m_showProgress(options.showProgress) {}
 
 void MediaWidget::create() {
   auto area = ui::inputArea({});
@@ -77,6 +80,8 @@ void MediaWidget::create() {
           .maxWidth = m_maxWidth * m_contentScale,
           .maxLines = 1,
           .autoScroll = false,
+	  // MediaTab Bar scrolling speed; the MediaTab Panel uses its own setting.
+          .autoScrollSpeed = 17.0F,
       })
   );
 
@@ -90,8 +95,45 @@ void MediaWidget::create() {
       })
   );
 
+  area->addChild(
+      ui::button({
+          .out = &m_previousButton,
+          .glyph = "media-prev",
+          .variant = ButtonVariant::Ghost,
+          .onClick = [this]() {
+            if (m_mpris != nullptr)
+              m_mpris->previousActive();
+          },
+      })
+  );
+
+  area->addChild(
+      ui::button({
+          .out = &m_playPauseButton,
+          .glyph = "media-play",
+          .variant = ButtonVariant::Ghost,
+          .onClick = [this]() {
+            if (m_mpris != nullptr)
+              m_mpris->playPauseActive();
+          },
+      })
+  );
+
+  area->addChild(
+      ui::button({
+          .out = &m_nextButton,
+          .glyph = "media-next",
+          .variant = ButtonVariant::Ghost,
+          .onClick = [this]() {
+            if (m_mpris != nullptr)
+              m_mpris->nextActive();
+          },
+      })
+  );
+
   setRoot(std::move(area));
 }
+
 
 void MediaWidget::doLayout(Renderer& renderer, float containerWidth, float containerHeight) {
   auto* rootNode = root();
@@ -121,7 +163,7 @@ void MediaWidget::doLayout(Renderer& renderer, float containerWidth, float conta
   m_emptyGlyph->setColor(colorSpecFromRole(ColorRole::OnSurfaceVariant));
   m_emptyGlyph->measure(renderer);
 
-  const bool hideAlbumArt = m_hideAlbumArt && !m_isVertical;
+  const bool hideAlbumArt = m_hideAlbumArt;
   const bool showArtSlot = !hideAlbumArt && m_art->hasImage();
 
   // Clamp art to the label's single-line height so oversized art_size cannot
@@ -129,8 +171,7 @@ void MediaWidget::doLayout(Renderer& renderer, float containerWidth, float conta
   // from the same reference metrics.
   float artSize = 0.0F;
   if (showArtSlot) {
-    const float requestedArtSize = m_artSize * m_contentScale;
-    artSize = artOnly ? requestedArtSize : std::min(requestedArtSize, m_label->height());
+    artSize = m_artSize * m_contentScale;
     m_art->setVisible(true);
     m_art->setSize(artSize, artSize);
     m_art->setRadius(artSize * 0.5F);
@@ -146,51 +187,199 @@ void MediaWidget::doLayout(Renderer& renderer, float containerWidth, float conta
   const bool showLabel = m_label->visible();
   applyTitleScrollMode(showLabel);
 
-  const float leadingWidth = showArtSlot ? artSize : (showEmptyGlyph ? m_emptyGlyph->width() : 0.0F);
-  const float spacing = showLabel && leadingWidth > 0.0F ? Style::spaceXs : 0.0F;
-  const float labelMaxWidth = showLabel ? std::max(0.0F, maxLength - leadingWidth - spacing) : 0.0F;
-  m_label->setMaxWidth(labelMaxWidth);
+    const float leadingWidth =
+      showArtSlot ? artSize
+                  : (showEmptyGlyph ? m_emptyGlyph->width() : 0.0F);
+
+  const float spacing =
+      showLabel && leadingWidth > 0.0F ? Style::spaceXs : 0.0F;
+
+  const bool showControls = !m_hideControls;
+
+  const float controlsGap =
+      showControls && (leadingWidth > 0.0F || showLabel)
+          ? Style::spaceXs * m_contentScale
+          : 0.0F;
+
+  const float buttonSize =
+      Style::baseGlyphSize * 1.8F * m_contentScale;
+
+  // Each visual domain owns its own width:
+  // artwork = fixed artSize, controls = fixed button group,
+  // text = the flexible domain between them.
+  const float controlsWidth =
+      showControls ? buttonSize * 3.0F : 0.0F;
+
+  const float fixedWidth =
+      leadingWidth + spacing + controlsGap + controlsWidth;
+
+  const float textMinWidth =
+      showLabel
+          ? std::max(0.0F, minLength - fixedWidth)
+          : 0.0F;
+
+  const float textMaxWidth =
+      showLabel
+          ? std::max(0.0F, maxLength - fixedWidth)
+          : 0.0F;
+
+  m_label->setMaxWidth(textMaxWidth);
   m_label->measure(renderer);
 
-  float contentHeight = showLabel ? m_label->height() : 0.0F;
+  float contentHeight =
+      showLabel ? m_label->height() : 0.0F;
+
   if (showArtSlot) {
     contentHeight = std::max(contentHeight, artSize);
   }
+
   if (showEmptyGlyph) {
-    contentHeight = std::max(contentHeight, m_emptyGlyph->height());
+    contentHeight =
+        std::max(contentHeight, m_emptyGlyph->height());
   }
+
+  float textDomainWidth = 0.0F;
+
+  if (showLabel) {
+    textDomainWidth =
+        std::clamp(
+            m_label->width(),
+            textMinWidth,
+            textMaxWidth
+        );
+  }
+
   if (artOnly) {
     if (showArtSlot) {
-      m_art->setPosition(0.0F, 0.0F);
-      rootNode->setSize(artSize, artSize);
+      m_art->setPosition(
+          0.0F,
+          std::round((contentHeight - artSize) * 0.5F)
+      );
+
+      m_emptyGlyph->setPosition(0.0F, 0.0F);
+
+      rootNode->setSize(
+          artSize + controlsGap + controlsWidth,
+          contentHeight
+      );
     } else if (showEmptyGlyph) {
       m_art->setPosition(0.0F, 0.0F);
-      m_emptyGlyph->setPosition(0.0F, 0.0F);
-      rootNode->setSize(m_emptyGlyph->width(), m_emptyGlyph->height());
+
+      m_emptyGlyph->setPosition(
+          0.0F,
+          std::round(
+              (contentHeight - m_emptyGlyph->height()) * 0.5F
+          )
+      );
+
+      rootNode->setSize(
+          leadingWidth + controlsGap + controlsWidth,
+          contentHeight
+      );
     } else {
       m_art->setPosition(0.0F, 0.0F);
       m_emptyGlyph->setPosition(0.0F, 0.0F);
-      rootNode->setSize(0.0F, 0.0F);
+
+      rootNode->setSize(
+          controlsWidth,
+          contentHeight
+      );
     }
   } else {
     if (showArtSlot) {
-      m_art->setPosition(0.0F, std::round((contentHeight - artSize) * 0.5F));
+      m_art->setPosition(
+          0.0F,
+          std::round((contentHeight - artSize) * 0.5F)
+      );
+
       m_emptyGlyph->setPosition(0.0F, 0.0F);
-      m_label->setPosition(artSize + spacing, std::round((contentHeight - m_label->height()) * 0.5F));
+
+      m_label->setPosition(
+          artSize + spacing,
+          std::round(
+              (contentHeight - m_label->height()) * 0.5F
+          )
+      );
     } else if (showEmptyGlyph) {
       m_art->setPosition(0.0F, 0.0F);
-      m_emptyGlyph->setPosition(0.0F, std::round((contentHeight - m_emptyGlyph->height()) * 0.5F));
-      m_label->setPosition(m_emptyGlyph->width() + spacing, std::round((contentHeight - m_label->height()) * 0.5F));
+
+      m_emptyGlyph->setPosition(
+          0.0F,
+          std::round(
+              (contentHeight - m_emptyGlyph->height()) * 0.5F
+          )
+      );
+
+      m_label->setPosition(
+          m_emptyGlyph->width() + spacing,
+          std::round(
+              (contentHeight - m_label->height()) * 0.5F
+          )
+      );
     } else {
       m_art->setPosition(0.0F, 0.0F);
       m_emptyGlyph->setPosition(0.0F, 0.0F);
-      m_label->setPosition(0.0F, std::round((contentHeight - m_label->height()) * 0.5F));
+
+      m_label->setPosition(
+          0.0F,
+          std::round(
+              (contentHeight - m_label->height()) * 0.5F
+          )
+      );
     }
-    const float contentWidth = showLabel ? m_label->x() + m_label->width()
-                                         : (showArtSlot ? artSize : (showEmptyGlyph ? m_emptyGlyph->width() : 0.0F));
-    rootNode->setSize(std::clamp(contentWidth, minLength, maxLength), contentHeight);
+
+    const float contentDomainWidth =
+        leadingWidth + spacing + textDomainWidth;
+
+    rootNode->setSize(
+        contentDomainWidth + controlsGap + controlsWidth,
+        contentHeight
+    );
   }
-  m_progressBar->setVisible(showProgressFill);
+
+  // Controls occupy their own fixed-width domain after the content domain.
+  m_previousButton->setVisible(showControls);
+  m_playPauseButton->setVisible(showControls);
+  m_nextButton->setVisible(showControls);
+
+  if (showControls) {
+    const float contentDomainWidth =
+        leadingWidth + spacing + textDomainWidth;
+
+    const float controlsX =
+        contentDomainWidth + controlsGap;
+
+    const float controlsY =
+        std::round((contentHeight - buttonSize) * 0.5F);
+
+    m_previousButton->setSize(
+        buttonSize,
+        buttonSize
+    );
+    m_previousButton->setPosition(
+        controlsX,
+        controlsY
+    );
+
+    m_playPauseButton->setSize(
+        buttonSize,
+        buttonSize
+    );
+    m_playPauseButton->setPosition(
+        controlsX + buttonSize,
+        controlsY
+    );
+
+    m_nextButton->setSize(
+        buttonSize,
+        buttonSize
+    );
+    m_nextButton->setPosition(
+        controlsX + buttonSize * 2.0F,
+        controlsY
+    );
+  }
+
   if (showProgressFill) {
     const float fillWidth = rootNode->width();
     const float fillHeight = rootNode->height();
@@ -221,7 +410,9 @@ void MediaWidget::applyTitleScrollMode(bool titleVisible) {
   const bool shouldScroll = titleVisible
       && (m_titleScrollMode == MediaTitleScrollMode::Always
           || (m_titleScrollMode == MediaTitleScrollMode::OnHover && m_area != nullptr && m_area->hovered()));
+
   m_label->setAutoScroll(shouldScroll);
+  m_label->setAutoScrollMode(AutoScrollMode::PingPong);
   m_label->setAutoScrollOnlyWhenHovered(false);
 }
 
@@ -241,7 +432,7 @@ std::optional<MprisPlayerInfo> MediaWidget::activePlayer() const {
 }
 
 bool MediaWidget::progressFillEligible(const std::optional<MprisPlayerInfo>& active) const noexcept {
-  return m_showProgress && !m_isVertical && !m_albumArtOnly && active.has_value() && active->lengthUs > 0;
+  return m_showProgress && !m_isVertical && active.has_value() && active->lengthUs > 0;
 }
 
 void MediaWidget::syncProgress(const std::optional<MprisPlayerInfo>& active) {
@@ -291,7 +482,7 @@ void MediaWidget::syncState(Renderer& renderer, const std::optional<MprisPlayerI
 
   if (active.has_value()) {
     playbackStatus = active->playbackStatus;
-    displayText = buildDisplayText(*active, m_hideArtist, m_artistFirst);
+    displayText = buildDisplayText(*active, m_hideTitle, m_hideArtist);
     artUrl = effectiveArtUrl(*active);
   }
 
@@ -305,6 +496,9 @@ void MediaWidget::syncState(Renderer& renderer, const std::optional<MprisPlayerI
 
   if (playbackChanged && !textChanged && !artChanged && !artAwaitingDecode) {
     m_lastPlaybackStatus = playbackStatus;
+    m_playPauseButton->setGlyph(
+        m_lastPlaybackStatus == "Playing" ? "media-pause" : "media-play"
+    );
     m_label->setColor(
         m_lastPlaybackStatus == "Playing" ? widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface))
                                           : colorSpecFromRole(ColorRole::OnSurfaceVariant)
@@ -316,6 +510,9 @@ void MediaWidget::syncState(Renderer& renderer, const std::optional<MprisPlayerI
   m_lastText = displayText;
   m_lastArtUrl = artUrl;
   m_lastPlaybackStatus = playbackStatus;
+  m_playPauseButton->setGlyph(
+      m_lastPlaybackStatus == "Playing" ? "media-pause" : "media-play"
+  );
 
   if (textChanged) {
     m_label->setText(m_lastText);
@@ -363,28 +560,37 @@ void MediaWidget::syncState(Renderer& renderer, const std::optional<MprisPlayerI
   }
 }
 
-std::string MediaWidget::buildDisplayText(const MprisPlayerInfo& player, bool hideArtist, bool artistFirst) {
+std::string MediaWidget::buildDisplayText(const MprisPlayerInfo& player, bool hideTitle, bool hideArtist) {
+  const std::string title = hideTitle ? std::string() : player.title;
   const std::string artists = hideArtist ? std::string() : joinArtists(player.artists);
-  if (!player.title.empty() && !artists.empty()) {
-    if (artistFirst) {
-      return artists + " - " + player.title;
-    }
-    return player.title + " - " + artists;
+
+  if (!title.empty() && !artists.empty()) {
+    return title + " - " + artists;
   }
-  if (!player.title.empty()) {
-    return player.title;
+
+  if (!title.empty()) {
+    return title;
   }
+
   if (!artists.empty()) {
     return artists;
   }
+
+  if (hideTitle && hideArtist) {
+    return {};
+  }
+
   if (!player.identity.empty()) {
     return player.identity;
   }
+
   if (!player.busName.empty()) {
     return player.busName;
   }
+
   if (player.playbackStatus == "Playing") {
     return i18n::tr("bar.widgets.media.playing");
   }
+
   return i18n::tr("bar.widgets.media.nothing-playing");
 }

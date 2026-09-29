@@ -17,6 +17,7 @@ class Label;
 class MprisService;
 class Renderer;
 class ProgressBar;
+class Button;
 struct MprisPlayerInfo;
 struct wl_output;
 
@@ -33,11 +34,13 @@ public:
     int minWidth = 80;
     int artSize = 16;
     MediaTitleScrollMode titleScrollMode = MediaTitleScrollMode::None;
+    float scrollSpeed = 48.0F;
     bool hideWhenNoMedia = false;
+    bool hideControls = false;
     bool albumArtOnly = false;
     bool hideAlbumArt = false;
+    bool hideTitle = false;
     bool hideArtist = false;
-    bool artistFirst = false;
     bool showProgress = false;
   };
 
@@ -56,7 +59,7 @@ private:
   void syncProgress(const std::optional<MprisPlayerInfo>& active);
   [[nodiscard]] bool progressFillEligible(const std::optional<MprisPlayerInfo>& active) const noexcept;
   [[nodiscard]] std::optional<MprisPlayerInfo> activePlayer() const;
-  [[nodiscard]] static std::string buildDisplayText(const MprisPlayerInfo& player, bool hideArtist, bool artistFirst);
+  [[nodiscard]] static std::string buildDisplayText(const MprisPlayerInfo& player, bool hideTitle, bool hideArtist);;
 
   MprisService* m_mpris = nullptr;
   HttpClient* m_httpClient = nullptr;
@@ -65,10 +68,11 @@ private:
   float m_artSize = 16.0F;
   MediaTitleScrollMode m_titleScrollMode = MediaTitleScrollMode::None;
   bool m_hideWhenNoMedia = false;
+  bool m_hideControls = false;
   bool m_albumArtOnly = false;
   bool m_hideAlbumArt = false;
+  bool m_hideTitle = false;
   bool m_hideArtist = false;
-  bool m_artistFirst = false;
   bool m_showProgress = false;
   // Cached from the last doLayout(); the update phase has no container extents of its own.
   bool m_isVertical = false;
@@ -78,6 +82,9 @@ private:
   Glyph* m_emptyGlyph = nullptr;
   Label* m_label = nullptr;
   ProgressBar* m_progressBar = nullptr;
+  Button* m_previousButton = nullptr;
+  Button* m_playPauseButton = nullptr;
+  Button* m_nextButton = nullptr;
 
   std::string m_lastText;
   std::string m_lastArtUrl;
