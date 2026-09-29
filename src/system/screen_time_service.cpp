@@ -360,7 +360,6 @@ void ScreenTimeService::resumeTracking() {
     return;
   }
   onFocusChange();
-  scheduleNextTick();
 }
 
 void ScreenTimeService::onFocusChange() {
