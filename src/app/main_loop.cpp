@@ -445,7 +445,8 @@ void MainLoop::run() {
         it->second = std::min(it->second, requested);
       }
 
-      const auto remaining = std::chrono::duration_cast<std::chrono::milliseconds>(it->second - nowBeforePoll).count();
+      // Round up so poll() sleeps until a sub-millisecond deadline has passed.
+      const auto remaining = std::chrono::ceil<std::chrono::milliseconds>(it->second - nowBeforePoll).count();
       const int remainingMs =
           remaining < 0 ? 0 : static_cast<int>(std::min<std::int64_t>(remaining, std::numeric_limits<int>::max()));
       if (pollTimeout < 0 || remainingMs < pollTimeout) {

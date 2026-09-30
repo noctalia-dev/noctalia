@@ -371,7 +371,7 @@ namespace {
     sortedPaths.reserve(dirNames.size());
     for (const auto& name : dirNames) {
       const auto& entry = dirMap[name];
-      sortedPaths.push_back(IconSearchDir{.path = name, .size = entry.size, .scalable = entry.scalable});
+      sortedPaths.push_back(IconSearchDir{.path = name, .size = entry.size, .scalable = entry.scalable, .theme = {}});
     }
 
     return {sortedPaths, inherits};
@@ -386,6 +386,7 @@ namespace {
     }
     visited.insert(themeName);
 
+    std::vector<std::string> parents;
     for (const auto& base : baseDirs) {
       const std::string themeRoot = base + "/" + themeName;
       if (!pathIsDirectory(themeRoot)) {
@@ -403,7 +404,10 @@ namespace {
           pushUniqueDir(
               searchDirs,
               IconSearchDir{
-                  .path = themeRoot + path, .size = sizeFromDirName(name), .scalable = name.contains("scalable")
+                  .path = themeRoot + path,
+                  .size = sizeFromDirName(name),
+                  .scalable = name.contains("scalable"),
+                  .theme = themeName
               }
           );
         }
@@ -411,14 +415,22 @@ namespace {
         for (const auto& dir : dirs) {
           pushUniqueDir(
               searchDirs,
-              IconSearchDir{.path = themeRoot + "/" + dir.path + "/", .size = dir.size, .scalable = dir.scalable}
+              IconSearchDir{
+                  .path = themeRoot + "/" + dir.path + "/",
+                  .size = dir.size,
+                  .scalable = dir.scalable,
+                  .theme = themeName
+              }
           );
         }
       }
 
       for (const auto& parent : inherits) {
-        buildThemeSearchPaths(parent, baseDirs, visited, searchDirs);
+        pushUnique(parents, parent);
       }
+    }
+    for (const auto& parent : parents) {
+      buildThemeSearchPaths(parent, baseDirs, visited, searchDirs);
     }
   }
 
@@ -564,22 +576,25 @@ std::string IconResolver::findIcon(const std::string& name, int targetSize) cons
       }
     }
   } else {
-    // Size-aware: a vector icon is crisp at any size, so an SVG always wins
-    // (first match honours theme inheritance order).
+    // Search dirs are grouped by theme; stop at the end of the first theme with
+    // a match. Within it an SVG wins; among bitmaps, prefer the smallest theme
+    // size that is still >= the requested size (gentle downscale); otherwise the
+    // largest available (least upscaling). Unknown-size dirs are a last resort.
+    std::string best;
+    std::string_view theme;
+    int bestSize = 0;
+    bool bestIsUpscale = true;
     for (const auto& dir : m_searchDirs) {
+      if (dir.theme != theme) {
+        if (!best.empty()) {
+          return best;
+        }
+        theme = dir.theme;
+      }
       std::string svg = dir.path + name + ".svg";
       if (pathExists(svg)) {
         return svg;
       }
-    }
-
-    // Among bitmaps, prefer the smallest theme size that is still >= the
-    // requested size (gentle downscale); otherwise the largest available
-    // (least upscaling). Unknown-size dirs are a last resort.
-    std::string best;
-    int bestSize = 0;
-    bool bestIsUpscale = true;
-    for (const auto& dir : m_searchDirs) {
       std::string png = dir.path + name + ".png";
       if (!pathExists(png)) {
         continue;

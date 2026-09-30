@@ -156,11 +156,11 @@ void WorkspacesWidget::setWorkspaceClickHandler(InputArea& area, wl_output* outp
 
 void WorkspacesWidget::applyItemVisualStyle(Item& item) {
   if (item.indicator != nullptr) {
-    item.indicator->setFill(workspaceFillColor(item.visualWorkspace));
+    item.indicator->setFill(workspaceFillColor(item.visualWorkspace, item.output));
     item.indicator->clearBorder();
   }
   if (item.text != nullptr && item.showLabel) {
-    item.text->setColor(workspaceTextColor(item.visualWorkspace));
+    item.text->setColor(workspaceTextColor(item.visualWorkspace, item.output));
   }
 }
 
@@ -308,9 +308,10 @@ void WorkspacesWidget::doUpdate(Renderer& renderer) {
 
   if (!structuralChange && !activeChange && !hideWhenEmptyTransition) {
     if (m_focusedOutputOnly) {
-      const bool isFocused = isFocusedOutput();
-      if (isFocused != m_wasFocusedOutput) {
-        m_wasFocusedOutput = isFocused;
+      // Focus moving between two other outputs changes which workspace is styled as focused.
+      wl_output* focusedOutput = m_platform.preferredInteractiveOutput();
+      if (focusedOutput != m_lastFocusedOutput) {
+        m_lastFocusedOutput = focusedOutput;
         retarget(renderer);
       }
     }
@@ -338,7 +339,6 @@ void WorkspacesWidget::doUpdate(Renderer& renderer) {
 void WorkspacesWidget::rebuild(Renderer& renderer) {
   uiAssertNotRendering("WorkspacesWidget::rebuild");
   const bool animateFromSnapshot = !isMinimal() && !m_rebuildSnapshot.empty();
-  m_activeUsesFocusedColor = !m_focusedOutputOnly || isFocusedOutput();
   cancelAnimation();
   if (m_animations != nullptr) {
     m_animations->cancelForOwner(&m_hoverProgress);
@@ -572,7 +572,7 @@ void WorkspacesWidget::rebuild(Renderer& renderer) {
       const float indicatorH = m_isVertical ? w : m_indicatorHeight;
       item.indicator = static_cast<Box*>(area->addChild(
           ui::box({
-              .fill = workspaceFillColor(ws),
+              .fill = workspaceFillColor(ws, entry.output),
               .radius = workspacePillRadius(indicatorW, indicatorH),
               .width = w,
               .height = m_indicatorHeight,
@@ -588,7 +588,7 @@ void WorkspacesWidget::rebuild(Renderer& renderer) {
               .fontSize = labelFontSize,
               .fontWeight = configuredFontWeight,
               .fontFamily = labelFontFamily(),
-              .color = workspaceTextColor(ws),
+              .color = workspaceTextColor(ws, entry.output),
               .baselineMode = LabelBaselineMode::Text,
           })
       ));
@@ -828,7 +828,7 @@ void WorkspacesWidget::ensureItemLabel(Renderer& renderer, Item& item, const Wor
           .fontSize = labelFontSize,
           .fontWeight = labelFontWeight(),
           .fontFamily = labelFontFamily(),
-          .color = workspaceTextColor(workspace),
+          .color = workspaceTextColor(workspace, item.output),
           .baselineMode = LabelBaselineMode::Text,
       })
   ));
@@ -918,7 +918,7 @@ void WorkspacesWidget::recalculateItemMetrics(
     if (item.showLabel) {
       item.text->setText(label);
       item.text->setFontWeight(configuredFontWeight);
-      item.text->setColor(workspaceTextColor(workspace));
+      item.text->setColor(workspaceTextColor(workspace, item.output));
       item.text->measure(renderer);
     }
   }
@@ -934,7 +934,6 @@ void WorkspacesWidget::retarget(Renderer& renderer) {
     return;
   }
 
-  m_activeUsesFocusedColor = !m_focusedOutputOnly || isFocusedOutput();
   for (auto& item : m_items) {
     const auto workspaceIt = std::ranges::find(m_cachedState, item.key, [](const WorkspaceState& state) {
       return workspaceIdentityKey(state.workspace, state.output);
@@ -1487,14 +1486,13 @@ std::optional<std::size_t> WorkspacesWidget::numericWorkspaceId(const Workspace&
   return std::nullopt;
 }
 
-bool WorkspacesWidget::isFocusedOutput() const { return m_platform.preferredInteractiveOutput() == m_output; }
+bool WorkspacesWidget::workspaceUsesFocusedStyle(const Workspace& workspace, wl_output* output) const {
+  return workspace.active && (!m_focusedOutputOnly || m_platform.preferredInteractiveOutput() == output);
+}
 
-ColorSpec WorkspacesWidget::workspaceFillColor(const Workspace& workspace) const {
+ColorSpec WorkspacesWidget::workspaceFillColor(const Workspace& workspace, wl_output* output) const {
   if (workspace.active) {
-    if (m_activeUsesFocusedColor) {
-      return m_focusedColor;
-    }
-    return m_occupiedColor;
+    return workspaceUsesFocusedStyle(workspace, output) ? m_focusedColor : m_occupiedColor;
   }
   if (workspace.urgent) {
     return m_urgentColor;
@@ -1507,18 +1505,15 @@ ColorSpec WorkspacesWidget::workspaceFillColor(const Workspace& workspace) const
   return color;
 }
 
-ColorSpec WorkspacesWidget::workspaceTextColor(const Workspace& workspace) const {
+ColorSpec WorkspacesWidget::workspaceTextColor(const Workspace& workspace, wl_output* output) const {
   if (workspace.urgent) {
     return isMinimal() ? m_urgentColor : readableColorForFill(m_urgentColor);
   }
   if (!isMinimal()) {
-    return readableColorForFill(workspaceFillColor(workspace));
+    return readableColorForFill(workspaceFillColor(workspace, output));
   }
   if (workspace.active) {
-    if (m_activeUsesFocusedColor) {
-      return m_focusedColor;
-    }
-    return m_occupiedColor;
+    return workspaceUsesFocusedStyle(workspace, output) ? m_focusedColor : m_occupiedColor;
   }
   if (workspace.occupied) {
     return m_occupiedColor;

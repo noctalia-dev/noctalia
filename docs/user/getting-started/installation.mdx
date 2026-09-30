@@ -16,6 +16,7 @@ Noctalia is available on the following distributions. Choose your platform below
 - [Gentoo](#gentoo)
 - [GNU Guix](#guix)
 - [Debian](#debian) (including Ubuntu)
+- [Chimera Linux](#chimera)
 
 You can also [install manually](#manual-install) on any other Linux distribution.
 
@@ -265,6 +266,27 @@ sudo systemctl enable --now greetd
 </ol>
 ---
 
+## Chimera Linux {#chimera}
+
+Noctalia is available in Chimera's `user` repository.
+
+Run the following commands as root.
+
+**Step 1**: Enable the `user` repository if it isn't already:
+
+```bash
+apk add chimera-repo-user
+```
+
+**Step 2**: Refresh the package indexes and install Noctalia:
+
+```bash
+apk update
+apk add noctalia
+```
+
+---
+
 ## Manual Installation {#manual-install}
 
 :::caution[Not Recommended]
@@ -409,7 +431,7 @@ bundle/
   share/noctalia/assets/
 ```
 
-See [CONTRIBUTING.md](https://github.com/noctalia-dev/noctalia/blob/main/CONTRIBUTING.md#runtime-assets) for the full runtime asset lookup order.
+See [PACKAGING.md](https://github.com/noctalia-dev/noctalia/blob/main/PACKAGING.md#runtime-asset-lookup) for the full runtime asset lookup order.
 
 ## Getting Help
 

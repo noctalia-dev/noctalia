@@ -308,7 +308,6 @@
       "uptime": "已运行 – {uptime}",
       "weather": {
         "data-unavailable": "天气数据不可用。",
-        "disabled": "天气已在配置中禁用。",
         "fetching": "正在获取天气预报…"
       }
     },

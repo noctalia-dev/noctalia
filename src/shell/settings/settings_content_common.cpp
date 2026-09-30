@@ -98,6 +98,9 @@ namespace settings {
     if (key == "background_opacity") {
       return override->backgroundOpacity.has_value();
     }
+    if (key == "compositor_blur") {
+      return override->compositorBlur.has_value();
+    }
     if (key == "border") {
       return override->border.has_value();
     }
@@ -121,6 +124,9 @@ namespace settings {
     }
     if (key == "capsule_border") {
       return override->widgetCapsuleBorderSpecified;
+    }
+    if (key == "capsule_border_width") {
+      return override->widgetCapsuleBorderWidth.has_value();
     }
     if (key == "capsule_foreground") {
       return override->widgetCapsuleForeground.has_value();

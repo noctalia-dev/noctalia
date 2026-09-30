@@ -108,6 +108,7 @@ private:
 
   Label* m_timeLabel = nullptr;
   Label* m_dateLabel = nullptr;
+  Flex* m_weatherRow = nullptr;
   Glyph* m_weatherGlyph = nullptr;
   Label* m_weatherLine = nullptr;
   Label* m_userHost = nullptr;

@@ -259,7 +259,6 @@
       "uptime": "Rendszeridő - {uptime}",
       "weather": {
         "data-unavailable": "Az időjárási adatok nem érhetők el.",
-        "disabled": "Az időjárás le van tiltva a konfigurációban.",
         "fetching": "Előrejelzés lekérése…"
       }
     },

@@ -270,7 +270,6 @@
       "uptime": "مدة التشغيل: {uptime}",
       "weather": {
         "data-unavailable": "بيانات الطقس غير متاحة.",
-        "disabled": "الطقس معطّل في الإعدادات.",
         "fetching": "جارٍ جلب التوقعات..."
       }
     },
@@ -1301,6 +1300,7 @@
         "shell": "واجهة الأوامر",
         "system": "النظام",
         "templates": "القوالب",
+        "umbriel": "Umbriel",
         "wallpaper": "خلفية الشاشة"
       }
     },

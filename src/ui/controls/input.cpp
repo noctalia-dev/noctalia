@@ -36,6 +36,7 @@ namespace {
 
   TextClipboard* g_clipboard = nullptr;
   Input::PasswordMaskStyle g_passwordMaskStyle = Input::PasswordMaskStyle::CircleFilled;
+  bool g_readlineShortcuts = false;
   std::function<bool(std::uint32_t, std::uint32_t)> g_validateKeyMatcher;
 
   std::optional<std::string> readClipboardText() {
@@ -608,6 +609,8 @@ void Input::setValidateKeyMatcher(std::function<bool(std::uint32_t, std::uint32_
 
 void Input::setPasswordMaskStyle(PasswordMaskStyle style) noexcept { g_passwordMaskStyle = style; }
 
+void Input::setReadlineShortcutsEnabled(bool enabled) noexcept { g_readlineShortcuts = enabled; }
+
 void Input::selectAll() {
   resetUndoCoalescing();
   m_selectionAnchor = 0;
@@ -648,8 +651,6 @@ void Input::moveCaretRight(bool shift) {
   revealCursor();
   notifyTextInputStateChanged(TextInputChangeCause::Other);
 }
-
-void Input::setLineEditingEnabled(bool enabled) { m_lineEditing = enabled; }
 
 void Input::clearSelection() {
   resetUndoCoalescing();
@@ -1103,14 +1104,14 @@ void Input::handleKey(std::uint32_t sym, std::uint32_t utf32, std::uint32_t modi
   const bool clearShortcut = ctrl && !shift && (sym == 'u' || sym == 'U');
 
   const bool alt = (modifiers & KeyMod::Alt) != 0;
-  const bool lineEditCaretToEnd = m_lineEditing && ctrl && !shift && (sym == 'e' || sym == 'E');
-  const bool lineEditCaretBack = m_lineEditing && ctrl && !shift && (sym == 'b' || sym == 'B');
-  const bool lineEditCaretForward = m_lineEditing && ctrl && !shift && (sym == 'f' || sym == 'F');
-  const bool lineEditWordBack = m_lineEditing && alt && (sym == 'b' || sym == 'B');
-  const bool lineEditWordForward = m_lineEditing && alt && (sym == 'f' || sym == 'F');
-  const bool lineEditDeleteWordBack = m_lineEditing && ctrl && (sym == 'w' || sym == 'W');
-  const bool lineEditDeleteToEnd = m_lineEditing && ctrl && !shift && (sym == 'k' || sym == 'K');
-  const bool lineEditDeleteWordForward = m_lineEditing && alt && (sym == 'd' || sym == 'D');
+  const bool lineEditCaretToEnd = g_readlineShortcuts && ctrl && !shift && (sym == 'e' || sym == 'E');
+  const bool lineEditCaretBack = g_readlineShortcuts && ctrl && !shift && (sym == 'b' || sym == 'B');
+  const bool lineEditCaretForward = g_readlineShortcuts && ctrl && !shift && (sym == 'f' || sym == 'F');
+  const bool lineEditWordBack = g_readlineShortcuts && alt && (sym == 'b' || sym == 'B');
+  const bool lineEditWordForward = g_readlineShortcuts && alt && (sym == 'f' || sym == 'F');
+  const bool lineEditDeleteWordBack = g_readlineShortcuts && ctrl && (sym == 'w' || sym == 'W');
+  const bool lineEditDeleteToEnd = g_readlineShortcuts && ctrl && !shift && (sym == 'k' || sym == 'K');
+  const bool lineEditDeleteWordForward = g_readlineShortcuts && alt && (sym == 'd' || sym == 'D');
   const bool lineEditShortcut = lineEditCaretToEnd
       || lineEditCaretBack
       || lineEditCaretForward
@@ -1189,7 +1190,7 @@ void Input::handleKey(std::uint32_t sym, std::uint32_t utf32, std::uint32_t modi
   }
   if (clearShortcut) {
     resetUndoCoalescing();
-    if (m_lineEditing) {
+    if (g_readlineShortcuts) {
       if (m_cursorPos > 0) {
         pushUndoSnapshot(EditCoalesceKind::Discrete);
         m_value.erase(0, m_cursorPos);
@@ -1208,7 +1209,7 @@ void Input::handleKey(std::uint32_t sym, std::uint32_t utf32, std::uint32_t modi
     }
   } else if (ctrl && (sym == 'a' || sym == 'A')) {
     resetUndoCoalescing();
-    if (m_lineEditing) {
+    if (g_readlineShortcuts) {
       m_cursorPos = 0;
       m_selectionAnchor = 0;
     } else {

@@ -282,7 +282,6 @@
       "uptime": "Allumé depuis : {uptime}",
       "weather": {
         "data-unavailable": "Données météo indisponibles.",
-        "disabled": "La météo est désactivée dans la configuration.",
         "fetching": "Récupération des prévisions..."
       }
     },

@@ -257,7 +257,6 @@
       "uptime": "Temps actiu – {uptime}",
       "weather": {
         "data-unavailable": "Dades meteorològiques no disponibles.",
-        "disabled": "El temps està desactivat a la configuració.",
         "fetching": "S'està obtenint la previsió…"
       }
     },

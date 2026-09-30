@@ -236,7 +236,6 @@
       "uptime": "Doba běhu – {uptime}",
       "weather": {
         "data-unavailable": "Údaje o počasí nejsou k dispozici.",
-        "disabled": "Počasí je v konfiguraci vypnuto.",
         "fetching": "Načítání předpovědi…"
       }
     },

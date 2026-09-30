@@ -267,7 +267,6 @@
       "uptime": "Czas działania - {uptime}",
       "weather": {
         "data-unavailable": "Dane pogodowe niedostępne.",
-        "disabled": "Pogoda jest wyłączona w konfiguracji.",
         "fetching": "Pobieranie prognozy…"
       }
     },

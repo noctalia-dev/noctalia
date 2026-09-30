@@ -109,8 +109,9 @@ The built-in Material color tokens are:
 | Outline and utility | `outline`, `outline_variant`, `shadow`, `scrim` |
 | Inverse | `inverse_surface`, `inverse_on_surface`, `inverse_primary` |
 | Background | `background`, `on_background` |
+| Hover | `hover`, `on_hover` |
 
-This list covers the 48 Material color tokens exposed through `colors`. Terminal tokens are listed in [Terminal Tokens](#terminal-tokens). Custom colors add their generated token names at render time; see [Custom Colors](#custom-colors).
+This list covers the 48 Material color tokens plus the two hover roles exposed through `colors`. `hover` and `on_hover` carry the palette's [`mHover` and `mOnHover`](/noctalia/theming/palette/#color-roles); wallpaper-generated palettes set them to `tertiary` and `on_tertiary`. Terminal tokens are listed in [Terminal Tokens](#terminal-tokens). Custom colors add their generated token names at render time; see [Custom Colors](#custom-colors).
 
 ### Modes
 
@@ -135,13 +136,6 @@ The following values are available directly:
 `image` is the source image path when rendering from an image-driven theme.
 
 `closest_color` is populated during config-driven rendering when `compare_to` and `colors_to_compare` are used.
-
-### Color Aliases
-
-Supported aliases:
-
-- `hover` -> `surface_container_high`
-- `on_hover` -> `on_surface`
 
 ## Formats
 

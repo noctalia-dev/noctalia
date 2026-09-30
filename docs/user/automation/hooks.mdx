@@ -26,7 +26,7 @@ Noctalia's own feedback.
 | `logging_out` | Immediately before the session panel runs the logout sequence. |
 | `rebooting` | Immediately before the session panel runs reboot. |
 | `shutting_down` | Immediately before the session panel runs shutdown. |
-| `wifi_enabled` / `wifi_disabled` | When NetworkManager's Wi-Fi radio toggles (not on first snapshot). |
+| `wifi_enabled` / `wifi_disabled` | When NetworkManager's Wi-Fi radio toggles (not on first snapshot, and not when NetworkManager stops or starts). |
 | `bluetooth_enabled` / `bluetooth_disabled` | When the default adapter's powered state toggles (not on first snapshot). |
 | `battery_charging` | When the battery enters charging after the previous tracked battery hook state was not charging. Intermediate UPower states do not retrigger it. |
 | `battery_discharging` | When the battery enters discharging after the previous tracked battery hook state was not discharging. Intermediate UPower states do not retrigger it. |

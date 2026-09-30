@@ -204,6 +204,7 @@ location = "https://example.invalid/bad"
     bar.layer = "overlay";
     bar.thickness = 44;
     bar.backgroundOpacity = 0.85F;
+    bar.compositorBlur = false;
     bar.border = colorSpecFromConfigString("#123456");
     bar.borderWidth = 2.0F;
     bar.radius = 18;
@@ -248,6 +249,7 @@ location = "https://example.invalid/bad"
     bar.widgetCapsuleOpacity = 0.9F;
     bar.widgetCapsuleBorderSpecified = true;
     bar.widgetCapsuleBorder = colorSpecFromConfigString("#111213");
+    bar.widgetCapsuleBorderWidth = 2.5F;
     bar.hoverHighlight = false;
     BarCapsuleGroupStyle group;
     group.id = "grp1";
@@ -255,6 +257,7 @@ location = "https://example.invalid/bad"
     group.fill = colorSpecFromConfigString("#222324");
     group.borderSpecified = true;
     group.border = colorSpecFromConfigString("#333435");
+    group.borderWidth = 3.0F;
     group.foreground = colorSpecFromConfigString("#444546");
     group.padding = 20.0F;
     group.radius = 14.0F;
@@ -275,6 +278,7 @@ location = "https://example.invalid/bad"
     ovr.layer = "top";
     ovr.thickness = 50;
     ovr.backgroundOpacity = 0.7F;
+    ovr.compositorBlur = true;
     ovr.border = colorSpecFromConfigString("#a1a2a3");
     ovr.borderWidth = 3.0F;
     ovr.radius = 22;
@@ -316,12 +320,14 @@ location = "https://example.invalid/bad"
     ogroup.fill = colorSpecFromConfigString("#f1f2f3");
     ogroup.borderSpecified = true;
     ogroup.border = colorSpecFromConfigString("#0f0e0d");
+    ogroup.borderWidth = 1.5F;
     ogroup.foreground = colorSpecFromConfigString("#0c0b0a");
     ogroup.padding = 18.0F;
     ogroup.radius = 9.0F;
     ogroup.opacity = 0.6F;
     ovr.widgetCapsuleGroups = std::vector<BarCapsuleGroupStyle>{ogroup};
     ovr.widgetCapsulePadding = 24.0;
+    ovr.widgetCapsuleBorderWidth = 4.0F;
     ovr.widgetCapsuleRadius = 30.0;
     ovr.widgetCapsuleOpacity = 0.5;
     bar.monitorOverrides = {ovr};
@@ -337,9 +343,11 @@ location = "https://example.invalid/bad"
     c.osd.position = "bottom_left";
     c.osd.positionVertical = "top_right";
     c.osd.orientation = "vertical";
+    c.osd.hideDelayMs = 2750;
     c.osd.scale = 1.4F;
     c.osd.backgroundOpacity = 0.42F;
     c.osd.border = false;
+    c.osd.followFocusedOutput = true;
     c.osd.offsetX = 33;
     c.osd.offsetY = 11;
     c.osd.monitors = {"DP-1", "HDMI-A-1"};
@@ -378,8 +386,10 @@ location = "https://example.invalid/bad"
         .position = "bottom_left",
         .layer = "overlay",
         .scale = 1.3F,
+        .width = 420,
         .backgroundOpacity = 0.5F,
         .border = false,
+        .followFocusedOutput = true,
         .offsetX = 12,
         .offsetY = 6,
         .monitors = {"DP-2"},
@@ -481,6 +491,7 @@ location = "https://example.invalid/bad"
     c.shell.lang = "en_US";
     c.shell.timeFormat = "{:%H:%M:%S}";
     c.shell.passwordMaskStyle = PasswordMaskStyle::RandomIcons;
+    c.shell.readlineShortcuts = true;
     c.shell.clipboardHistoryMaxEntries = 80;
     c.shell.clipboardAutoPaste = ClipboardAutoPasteMode::CtrlV;
     c.storage.keySource = StorageKeySource::File;
@@ -680,9 +691,27 @@ location = "https://example.invalid/bad"
         fail("shell.clipboard_history_max_entries clamp: expected 10000");
       }
     }
+    {
+      auto t = toml::parse("width = 100");
+      NotificationConfig n{};
+      Diagnostics d;
+      readInto(t, n, notificationSchema(), "notification", d);
+      if (n.width != static_cast<std::int32_t>(*kNotificationWidthRange.min)) {
+        fail("notification.width clamp: expected 240");
+      }
+    }
+    {
+      auto t = toml::parse("width = 2000");
+      NotificationConfig n{};
+      Diagnostics d;
+      readInto(t, n, notificationSchema(), "notification", d);
+      if (n.width != static_cast<std::int32_t>(*kNotificationWidthRange.max)) {
+        fail("notification.width clamp: expected 500");
+      }
+    }
   }
 
-  void checkMonitorFontScaleChangeSet() {
+  void checkMonitorOverrideChangeSet() {
     Config before;
     BarConfig bar;
     bar.name = "default";
@@ -691,10 +720,16 @@ location = "https://example.invalid/bad"
     bar.monitorOverrides.push_back(monitor);
     before.bars.push_back(bar);
 
-    Config after = before;
-    after.bars.front().monitorOverrides.front().fontScale = 1.5F;
-    if (!computeConfigChangeSet(before, after).bars) {
+    Config fontScaleChanged = before;
+    fontScaleChanged.bars.front().monitorOverrides.front().fontScale = 1.5F;
+    if (!computeConfigChangeSet(before, fontScaleChanged).bars) {
       fail("monitor font_scale override did not mark bars changed");
+    }
+
+    Config blurChanged = before;
+    blurChanged.bars.front().monitorOverrides.front().compositorBlur = false;
+    if (!computeConfigChangeSet(before, blurChanged).bars) {
+      fail("monitor compositor_blur override did not mark bars changed");
     }
   }
 
@@ -1049,6 +1084,7 @@ border = "#123456"
 border_width = 2.0
 capsule = true
 capsule_border = "#111213"
+capsule_border_width = 2.5
 capsule_fill = "#ABCDEF"
 capsule_foreground = "#FEDCBA"
 capsule_opacity = 0.89999997615814209
@@ -1057,6 +1093,7 @@ capsule_radius = 12.0
 capsule_thickness = 0.5
 center = [ "clock", "weather" ]
 color = "#0A0B0C"
+compositor_blur = false
 concave_edge_corners = true
 contact_shadow = true
 enabled = false
@@ -1107,6 +1144,7 @@ widget_spacing = 8
     border_width = 3.0
     capsule = false
     capsule_border = "#C1C2C3"
+    capsule_border_width = 4.0
     capsule_fill = "#B1B2B3"
     capsule_foreground = "#D1D2D3"
     capsule_opacity = 0.5
@@ -1115,6 +1153,7 @@ widget_spacing = 8
     capsule_thickness = 0.25
     center = [ "media" ]
     color = "#E1E2E3"
+    compositor_blur = true
     concave_edge_corners = false
     contact_shadow = false
     enabled = true
@@ -1158,6 +1197,7 @@ widget_spacing = 8
         accordion = false
         accordion_direction = "end"
         border = "#0F0E0D"
+        border_width = 1.5
         enabled = true
         fill = "#F1F2F3"
         foreground = "#0C0B0A"
@@ -1171,6 +1211,7 @@ widget_spacing = 8
     accordion = true
     accordion_direction = "start"
     border = "#333435"
+    border_width = 3.0
     enabled = true
     fill = "#222324"
     foreground = "#444546"
@@ -1282,7 +1323,7 @@ widget_spacing = 8
   checkStorageKeySourceValidation();
   checkPanelFloatingLayerValidation();
   checkClamps();
-  checkMonitorFontScaleChangeSet();
+  checkMonitorOverrideChangeSet();
   checkPluginAutoUpdateMode();
   checkAutoUpdateScopeSelection();
   checkDuplicatePluginSourceRejection();

@@ -250,7 +250,6 @@
       "uptime": "Uptime - {uptime}",
       "weather": {
         "data-unavailable": "Weergegevens niet beschikbaar.",
-        "disabled": "Weer is uitgeschakeld in de configuratie.",
         "fetching": "Weersvoorspelling ophalen..."
       }
     },

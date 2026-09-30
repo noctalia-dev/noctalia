@@ -24,6 +24,7 @@ layer              = "top"       # top | overlay; overlay appears above fullscre
 
 thickness          = 34          # bar cross-axis size in pixels (height for horizontal, width for vertical)
 background_opacity = 1.0         # 0.0 (transparent) to 1.0 (opaque)
+compositor_blur    = true        # publish a compositor blur region for this bar
 border             = "outline"   # color role or #RRGGBB for the bar outline
 border_width       = 0.0         # inside outline width in pixels; 0 disables it
 shadow             = true        # cast the global [shell.shadow]
@@ -53,6 +54,7 @@ capsule_thickness  = 0.76          # capsule size across the bar as a fraction o
 capsule_radius     = 8.0            # omit for automatic pill radius
 capsule_opacity    = 1.0
 # capsule_border   = "outline"   # omit this key for no border by default
+capsule_border_width = 1.0          # outline thickness in logical pixels (0-8), drawn only with capsule_border
 
 start  = ["launcher", "wallpaper", "workspaces"]
 center = ["clock"]
@@ -120,6 +122,7 @@ position           = "bottom"  # top | bottom | left | right
 enabled            = true
 thickness          = 44
 background_opacity = 0.9
+compositor_blur    = false
 border_width       = 1.0
 radius             = 0
 radius_top_left    = 12
@@ -139,7 +142,9 @@ end                = ["volume", "clock"]
 
 `match` defaults to the subtable key name when omitted, so `[bar.default.monitor."DP-1"]` without a `match` field works too.
 
-Only the fields you specify are overridden; everything else falls through to the `[bar.*]` defaults. Supported override fields: all bar fields including `position`, `dead_zone`, plus `auto_hide`, `smart_auto_hide`, `show_on_workspace_switch`, `reserve_space`, `layer`, `scale`, `font_scale`, `background_opacity`, `color`, `font_family`, and all `capsule_*` keys.
+Only the fields you specify are overridden; everything else falls through to the `[bar.*]` defaults. Supported override fields: all bar fields including `position`, `dead_zone`, plus `auto_hide`, `smart_auto_hide`, `show_on_workspace_switch`, `reserve_space`, `layer`, `scale`, `font_scale`, `background_opacity`, `compositor_blur`, `color`, `font_family`, and all `capsule_*` keys.
+
+`compositor_blur = true` publishes the bar's shape as a blur region when the compositor supports `ext-background-effect-v1`. Set it to `false` to clear the bar's blur request without changing blur for panels, the dock, notifications, or other surfaces. This setting is independent of `background_opacity`, defaults to `true`, applies immediately on reload, and can be overridden per monitor. In the Settings GUI it lives under **Bar → Effects** and only appears when the compositor supports `ext-background-effect-v1`; on other compositors the key has no effect.
 
 Shadow blur, offset, and alpha are global under `[shell.shadow]`. Bars only expose `shadow = true|false`.
 
@@ -174,7 +179,7 @@ Set auto-hide to **Smart** in bar settings (or `smart_auto_hide = true` with `au
 
 - Mutually exclusive with pointer auto-hide (`auto_hide = true`); if both are set in config, smart auto-hide takes precedence.
 - Uses the same slide animation and edge reveal strip while hidden.
-- On compositors that report overview state (Niri, Triad), the bar is kept visible while overview is open.
+- On compositors that report overview state (Niri, Umbriel), the bar is kept visible while overview is open.
 - Re-evaluates on workspace changes, window open/close, and overview toggles.
 
 `margin_opposite_edge` adds extra reserved space on the inward side of the bar (below a top bar, above a bottom bar, and so on for vertical bars). The bar itself does not move; the compositor exclusive zone grows so tiled and maximized windows stop further away. Use it when a compositor ignores or under-reserves struts - for example Labwc with a maximized window that still touches the bar. Requires `reserve_space = true`. The default is `0`.
@@ -211,6 +216,7 @@ Set under `[bar.<name>]` or `[bar.<name>.monitor.*]`:
 | `capsule_padding` | number | `6` | Inner padding in logical pixels before `scale` is applied (clamped 0–48). |
 | `capsule_opacity` | number | `1.0` | Capsule background opacity (0.0–1.0). |
 | `capsule_border` | string | *(omitted)* | Color role for the capsule border; fixed hex colors are also supported. If omitted, no border by default. If present as `""`, no border. |
+| `capsule_border_width` | number | `1` | Capsule outline thickness in logical pixels before `scale` is applied (clamped 0–8). Only drawn when `capsule_border` resolves to a color. |
 | `hover_highlight` | bool | `true` | Softly tint the widget under the mouse pointer with its own foreground color. Works with and without capsules; inside a capsule group only the hovered member lights up. The highlight never changes widget layout or spacing. Set `false` to disable the effect on this bar. |
 
 ### Per-widget overrides
@@ -231,6 +237,7 @@ Set under `[widget.<name>]`:
 | `capsule_padding` | number | *(from bar)* | Per-widget inner padding (0–48). |
 | `capsule_opacity` | number | *(from bar)* | Per-widget capsule background opacity. |
 | `capsule_border` | string | *(from bar)* | Color role for the capsule border; fixed hex colors are also supported. Omit to inherit bar policy. Present but empty/whitespace-only = no border. |
+| `capsule_border_width` | number | *(from bar)* | Per-widget capsule outline thickness (0–8). Omit to inherit the bar value. |
 | `color` | string | *(unset)* | Icon + label color role with or without capsule; fixed hex colors are also supported. Resolution order: `color` → `capsule_foreground` → built-in defaults. |
 | `icon_color` | string | *(unset)* | Overrides `color` for icons only. Resolution order for icons: `icon_color` → `color` → `capsule_foreground` → built-in defaults. Labels always use `color`. |
 | `interactive` | bool | `true` (spacers: `false`) | Set `false` to make the widget passive: hover highlight and tooltips are disabled, pointer events (clicks, scrolls) pass through to the bar underneath, and the **Actions** settings section is hidden. The widget is still drawn; use `enabled = false` to hide it entirely. Spacers default to non-interactive so they stay click-through layout gaps. |
@@ -320,6 +327,7 @@ widget_spacing = 10                      # optional: gap between this group's wi
 | `enabled` | bool | `true` | Show or hide the entire group on the bar. Disabled groups are not populated and their widgets consume no resources. |
 | `fill` | string | `surface_variant` | Background color role for the shared capsule; fixed hex colors are also supported. |
 | `border` | string | *(omitted)* | Color role for the capsule border; fixed hex colors are also supported. Omit for no outline; present but empty (`""`) also means no outline. |
+| `border_width` | number | `1` | Capsule outline thickness in logical pixels (clamped 0–8). Only drawn when `border` resolves to a color. |
 | `foreground` | string | *(unset)* | Icon + label color role for all widgets inside this group; fixed hex colors are also supported. |
 | `padding` | number | `6` | Inner padding between the capsule edge and its widgets, in logical pixels (clamped 0–48). |
 | `radius` | number | *(auto pill)* | Capsule corner radius in logical pixels (0–80). Omit for automatic pill radius. |

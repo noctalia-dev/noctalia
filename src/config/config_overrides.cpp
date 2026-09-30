@@ -2,6 +2,7 @@
 #include "config/config_merge.h"
 #include "config/config_service.h"
 #include "config/config_validate.h"
+#include "config/schema/ranges.h"
 #include "config/widget_config.h"
 #include "core/files/resource_paths.h"
 #include "core/input/key_chord.h"
@@ -187,6 +188,9 @@ namespace {
     if (ovr.backgroundOpacity) {
       resolved.backgroundOpacity = *ovr.backgroundOpacity;
     }
+    if (ovr.compositorBlur) {
+      resolved.compositorBlur = *ovr.compositorBlur;
+    }
     if (ovr.border) {
       resolved.border = *ovr.border;
     }
@@ -290,6 +294,11 @@ namespace {
     }
     if (ovr.widgetCapsuleOpacity) {
       resolved.widgetCapsuleOpacity = std::clamp(static_cast<float>(*ovr.widgetCapsuleOpacity), 0.0F, 1.0F);
+    }
+    if (ovr.widgetCapsuleBorderWidth) {
+      resolved.widgetCapsuleBorderWidth = noctalia::config::schema::applyRange(
+          *ovr.widgetCapsuleBorderWidth, noctalia::config::schema::kBarCapsuleBorderWidthRange
+      );
     }
     if (ovr.hoverHighlight) {
       resolved.hoverHighlight = *ovr.hoverHighlight;
@@ -545,6 +554,7 @@ namespace {
                     "border", item.border.has_value() ? colorSpecToConfigString(*item.border) : std::string{}
                 );
               }
+              row.insert_or_assign("border_width", static_cast<double>(item.borderWidth));
               if (item.foreground.has_value()) {
                 row.insert_or_assign("foreground", colorSpecToConfigString(*item.foreground));
               }

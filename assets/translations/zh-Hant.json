@@ -253,7 +253,6 @@
       "uptime": "運作時間 – {uptime}",
       "weather": {
         "data-unavailable": "無天氣資料。",
-        "disabled": "天氣資料已停用。",
         "fetching": "正在擷取天氣資料…"
       }
     },

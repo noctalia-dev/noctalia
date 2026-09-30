@@ -21,6 +21,7 @@
 #include "wayland/wayland_seat.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <string>
 #include <thread>
@@ -729,12 +730,6 @@ bool LockScreen::captureDesktopSnapshots() {
 
   const std::uint64_t generation = m_desktopCaptureGeneration;
 
-  ScreencopyCapture capture(*m_wayland);
-  if (!capture.available()) {
-    kLog.warn("lockscreen desktop capture requested but screencopy is unavailable");
-    return true;
-  }
-
   std::vector<WaylandOutput> targets;
   for (const auto& output : m_wayland->outputs()) {
     if (!output.done || output.output == nullptr || !output.hasUsableGeometry() || !isInteractiveOutput(output)) {
@@ -743,18 +738,56 @@ bool LockScreen::captureDesktopSnapshots() {
     targets.push_back(output);
   }
 
+  if (targets.empty()) {
+    return true;
+  }
+
+  const auto firstCaptureDeadline = std::chrono::steady_clock::now() + screencopy::kBlockingCaptureTimeout;
+  WaylandConnection captureWayland(WaylandConnection::Purpose::Screencopy);
+  std::string setupError;
+  if (!captureWayland.connectUntil(firstCaptureDeadline, m_wayland, setupError)) {
+    kLog.warn("lockscreen desktop capture setup failed: {}", setupError);
+    return true;
+  }
+
+  ScreencopyCapture capture(captureWayland);
+  if (!capture.available()) {
+    kLog.warn("lockscreen desktop capture requested but isolated screencopy is unavailable");
+    return true;
+  }
+
+  bool firstCapture = true;
   for (const auto& target : targets) {
     if (generation != m_desktopCaptureGeneration) {
       return false;
     }
 
+    const auto& captureOutputs = captureWayland.outputs();
+    const auto captureIt = std::ranges::find_if(captureOutputs, [&target](const WaylandOutput& candidate) {
+      return candidate.name == target.name
+          && (target.connectorName.empty() || candidate.connectorName == target.connectorName);
+    });
+    if (captureIt == captureOutputs.end() || captureIt->output == nullptr) {
+      kLog.debug("skipping lockscreen desktop capture for disappeared output {}", target.connectorName);
+      continue;
+    }
+
     ScreencopyImage image;
     std::string error;
-    if (!screencopy::captureOutputBlocking(capture, *m_wayland, target.output, image, error)) {
+    const auto deadline =
+        firstCapture ? std::optional<std::chrono::steady_clock::time_point>(firstCaptureDeadline) : std::nullopt;
+    firstCapture = false;
+    const screencopy::CaptureOutputStatus captureStatus = screencopy::captureOutputBlocking(
+        capture, captureWayland, captureIt->output, image, error, false, m_wayland, deadline
+    );
+    if (captureStatus != screencopy::CaptureOutputStatus::Success) {
       if (generation != m_desktopCaptureGeneration) {
         return false;
       }
       kLog.warn("lockscreen desktop capture failed for {}: {}", target.connectorName, error);
+      if (captureStatus == screencopy::CaptureOutputStatus::EventLoopFailed) {
+        break;
+      }
       continue;
     }
 

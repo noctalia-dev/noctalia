@@ -1928,10 +1928,9 @@ void MprisService::applyPlayerSnapshot(
     const MprisPlayerInfo previous_info = existing->second;
 
     MprisPlayerInfo merged = info;
-    const bool trackIdChanged = !info.trackId.empty()
-        && info.trackId != previous_info.trackId
-        && info.trackId != "/org/mpris/MediaPlayer2/TrackList/NoTrack";
-    if (!trackIdChanged && merged.artUrl.empty() && !previous_info.artUrl.empty()) {
+    // Keep the previous art only while the same logical track refreshes its metadata.
+    const bool sameLogicalTrack = logicalTrackSignature(info) == logicalTrackSignature(previous_info);
+    if (sameLogicalTrack && merged.artUrl.empty() && !previous_info.artUrl.empty()) {
       merged.artUrl = previous_info.artUrl;
     }
 

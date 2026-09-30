@@ -493,6 +493,7 @@ _noctalia_sources = files(
   'src/dbus/notification/notification_poll_source.cpp',
   'src/dbus/notification/notification_service.cpp',
   'src/dbus/power/power_profiles_service.cpp',
+  'src/dbus/secret/secret_collection_probe.cpp',
   'src/dbus/session_bus.cpp',
   'src/dbus/system_bus.cpp',
   'src/dbus/tray/fcitx_status.cpp',
@@ -956,10 +957,6 @@ _noctalia_sources = files(
   'src/compositors/niri/niri_output_backend.cpp',
   'src/compositors/niri/niri_keyboard_backend.cpp',
   'src/compositors/niri/niri_workspace_backend.cpp',
-  'src/compositors/triad/triad_runtime.cpp',
-  'src/compositors/triad/triad_output_backend.cpp',
-  'src/compositors/triad/triad_keyboard_backend.cpp',
-  'src/compositors/triad/triad_workspace_backend.cpp',
   'src/compositors/umbriel/umbriel_runtime.cpp',
   'src/compositors/umbriel/umbriel_event_handler.cpp',
   'src/compositors/umbriel/umbriel_workspace_backend.cpp',
@@ -1152,6 +1149,14 @@ install_data(
 )
 
 if build_tests
+  wayland_server_dep = dependency('wayland-server')
+
+  _wlr_screencopy_test_server_h = custom_target('wlr-screencopy-unstable-v1-test-server-header',
+    input: 'protocols/wlr-screencopy-unstable-v1.xml',
+    output: 'wlr-screencopy-unstable-v1-test-server-protocol.h',
+    command: [wayland_scanner, 'server-header', '@INPUT@', '@OUTPUT@'],
+  )
+
   _cpp_test_names = [
     'annotation_document',
     'annotation_raster',
@@ -1172,6 +1177,7 @@ if build_tests
     'calendar_view_passed_event',
     'capsule_group_lane_override',
     'capsule_group_reconcile',
+    'capsule_group_style_persist',
     'cli_help',
     'cli_parse',
     'cli_schema',
@@ -1261,7 +1267,6 @@ if build_tests
     'time_format',
     'toplevel_thumbnail_capture',
     'tray_identifier',
-    'triad_workspace_backend',
     'ui_tree_reconciler',
     'upower_charge_limit',
     'upower_device_catalog',
@@ -1278,6 +1283,7 @@ if build_tests
     'widget_settings_schema',
     'window_switcher_membership',
     'wpa_supplicant_utils',
+    'window_switcher_shortcut_state',
     'workspace_alert_service',
     'workspaces_widget',
   ]
@@ -1300,9 +1306,22 @@ if build_tests
     test(test_name, test_exe, args: test_args)
   endforeach
 
+  screencopy_connection_isolation_exe = executable('screencopy_connection_isolation_test',
+    sources: files('tests/screencopy_connection_isolation_test.cpp') + [_wlr_screencopy_test_server_h],
+    dependencies: [noctalia_core_dep, wayland_server_dep],
+    override_options: ['b_ndebug=false'],
+  )
+  test('screencopy_connection_isolation', screencopy_connection_isolation_exe)
+
   upower_integration_exe = executable('upower_charge_limit_integration_test',
     sources: files('tests/upower_charge_limit_integration_test.cpp'),
     dependencies: noctalia_core_dep,
+    override_options: ['b_ndebug=false'],
+  )
+  secret_collection_probe_integration_exe = executable('secret_collection_probe_integration_test',
+    sources: files('tests/secret_collection_probe_integration_test.cpp'),
+    dependencies: noctalia_core_dep,
+    override_options: ['b_ndebug=false'],
   )
   dbus_run_session = find_program('dbus-run-session', required: false)
   if dbus_run_session.found()
@@ -1314,6 +1333,28 @@ if build_tests
         'sh', upower_integration_exe.full_path(),
       ],
       depends: upower_integration_exe,
+    )
+    test('secret_collection_probe_integration',
+      dbus_run_session,
+      args: ['--', secret_collection_probe_integration_exe.full_path()],
+      depends: secret_collection_probe_integration_exe,
+    )
+  endif
+
+  bluetooth_property_integration_exe = executable('bluetooth_property_integration_test',
+    sources: files('tests/bluetooth_property_integration_test.cpp'),
+    dependencies: noctalia_core_dep,
+    override_options: ['b_ndebug=false'],
+  )
+  if dbus_run_session.found()
+    test('bluetooth_property_integration',
+      dbus_run_session,
+      args: [
+        '--', 'sh', '-c',
+        'export DBUS_SYSTEM_BUS_ADDRESS="$DBUS_SESSION_BUS_ADDRESS"; exec "$1"',
+        'sh', bluetooth_property_integration_exe.full_path(),
+      ],
+      depends: bluetooth_property_integration_exe,
     )
   endif
 

@@ -308,7 +308,6 @@
       "uptime": "Tempo Ativo – {uptime}",
       "weather": {
         "data-unavailable": "Dados de clima indisponíveis",
-        "disabled": "O clima está desabilitado nas configurações.",
         "fetching": "Buscando previsão..."
       }
     },
@@ -653,7 +652,7 @@
         "variant-default": "Padrão",
         "variant-destructive": "Destrutivo",
         "variant-ghost": "Ghost",
-        "variant-outline": "Outline",
+        "variant-outline": "Contorno",
         "variant-primary": "Primário",
         "variant-secondary": "Secundário",
         "vertical": "Vertical",
@@ -1121,6 +1120,8 @@
           "action": "Grupo",
           "border": "Borda",
           "border-description": "Cor do contorno da cápsula; deixe em Padrão para nenhum contorno.",
+          "border-width": "Largura de Borda",
+          "border-width-description": "Espessura do contorno da cápsula em pixels; só desenhado quando a cor de borda está definida",
           "clear": "Apagar",
           "deselect": "Desmarcar",
           "drag": "Reordenar",
@@ -1852,6 +1853,10 @@
           "description": "Cor de contorno padrão da cápsula; cores hexadecimais fixas também são suportadas",
           "label": "Borda da Cápsula"
         },
+        "capsule-border-width": {
+          "description": "Espessura do contorno da cápsula em pixels; só desenhado quando a cor da borda da cápsula está definida",
+          "label": "Largura da Borda de Cápsula"
+        },
         "capsule-fill": {
           "description": "Função de cor de fundo padrão da cápsula; cores hexadecimais fixas também são suportadas",
           "label": "Preenchimento da Cápsula"
@@ -1879,6 +1884,10 @@
         "center-widgets": {
           "description": "Widgets no centro da barra",
           "label": "Widgets Centrais"
+        },
+        "compositor-blur": {
+          "description": "Permitir que o compositor borre atrás desta barra quando o protocolo de efeito de plano de fundo estiver disponível",
+          "label": "Borragem de Compositor"
         },
         "concave-edge-corners": {
           "description": "Cria entalhes côncavos em dois dos cantos da barra (requer Margem da Borda em 0); Com Margem das Extremidades em 0, os entalhes aparecem na borda interna da barra; caso contrário, aparecem nos cantos que tocam a borda da tela",
@@ -2395,6 +2404,14 @@
           "description": "Desenha um contorno ao redor das lâminas de notificação",
           "label": "Borda"
         },
+        "border-color": {
+          "description": "Função de cor para o contorno da lâmina de notificação; cores hex físicas também são suportadas",
+          "label": "Cor da Borda"
+        },
+        "border-width": {
+          "description": "Largura do contorno da lâmina de notificação em pixels; 0 oculta o contorno",
+          "label": "Largura da Borda"
+        },
         "collapse-on-dismiss": {
           "description": "Deslizar as lâminas restantes para preencher as lacunas quando uma delas for descartada",
           "label": "Recolher ao Dispensar"
@@ -2406,6 +2423,10 @@
         "filters": {
           "description": "Regras por remetente para lâminas de notificação, histórico e sons; o primeiro filtro compatível habilitado prevalece",
           "label": "Filtros de Notificações"
+        },
+        "follow-focused-output": {
+          "description": "Mostrar novas lâminas de notificação no monitor focado; lâminas continuam visíveis onde elas apareceram",
+          "label": "Seguir Saída focada"
         },
         "history-retention-hours": {
           "description": "Automaticamente remover histórico de notificações se existir por mais que esta quantidade de horas (0 para manter para sempre)",
@@ -2454,6 +2475,10 @@
         "toast-opacity": {
           "description": "Opacidade do plano de fundo das lâminas de notificação",
           "label": "Opacidade do Plano de Fundo"
+        },
+        "width": {
+          "description": "Largura das lâminas em pixels antes de escalar",
+          "label": "Largura"
         }
       },
       "panels": {
@@ -3076,9 +3101,24 @@
           "description": "Desenha um contorno ao redor do OSD",
           "label": "Borda"
         },
+        "osd-border-color": {
+          "description": "Função de cor do contorno para o popup de OSD; color fixas em hex também são suportadas",
+          "label": "Cor de Borda"
+        },
+        "osd-border-width": {
+          "description": "Largura do contorno dos popups de OSD em pixels; 0 oculta o contorno",
+          "label": "Espessura de Borda"
+        },
         "osd-enabled": {
           "description": "Interruptor principal para todos os OSDs; quando desabilitado, nenhum OSD é exibido",
           "label": "Habilitar OSD"
+        },
+        "osd-follow-focused-output": {
+          "label": "Seguir Saída focada"
+        },
+        "osd-hide-delay": {
+          "description": "Por quanto tempo um popup de OSD permanece visível antes de ser ocultado",
+          "label": "Atraso para Ocultar"
         },
         "osd-kinds-bluetooth": {
           "description": "Exibir um OSD quando o Bluetooth for habilitado/desabilitado",
@@ -3187,6 +3227,10 @@
         "privacy-screen-filter-regex": {
           "description": "Regex para apps de compartilhamento de tela para ignorar nos indicadores de privacidade e OSDs",
           "label": "Filtro Regex para Compartilhamento de Tela"
+        },
+        "readline-shortcuts": {
+          "description": "Usar atalhos estilo readline em cada campo de texto (Ctrl+A move para o início da linha ao invés de selecionar tudo)",
+          "label": "Atalhos Readline"
         },
         "screen-time-enabled": {
           "description": "Monitora o uso por aplicativo e visualize-o na Central de Controle",
@@ -3445,7 +3489,7 @@
         "default": "Padrão",
         "destructive": "Destrutivo",
         "ghost": "Ghost",
-        "outline": "Outline",
+        "outline": "Contorno",
         "primary": "Primário",
         "secondary": "Secundário"
       },
@@ -4087,6 +4131,10 @@
           "description": "Cor para o contorno da cápsula; cores hexadecimais fixas também são suportadas",
           "label": "Borda da Cápsula"
         },
+        "capsule-border-width": {
+          "description": "Espessura do contorno da cápsula em pixels; somente desenhado quando a cor da borda da cápsula está definida",
+          "label": "Largura da Borda da Cápsula"
+        },
         "capsule-fill": {
           "description": "Função de cor para o fundo da cápsula; cores hexadecimais fixas também são suportadas",
           "label": "Preenchimento da Cápsula"
@@ -4190,7 +4238,7 @@
         "focused-output-only": {
           "description": "Somente destaque o espaço de trabalho ativo no monitor em foco",
           "label": "Destacar Somente Monitor Focado",
-          "taskbar-description": "Use a cor de foco apenas para o espaço de trabalho ativo no monitor que estiver com o foco do teclado ou do ponteiro; os outros monitores usam a cor de ocupado",
+          "taskbar-description": "Somente evidencie o espaço de trabalho no monitor que tem o foco do teclado ou do ponteiro; espaços de trabalho em outros monitores usam a cor de ocupado e o estilo de cápsula inativa",
           "workspaces-description": "Destacar somente o espaço de trabalho ativo no monitor que tem o foco do teclado ou ponteiro; outros monitores mostram seus espaços de trabalho ativos como ocupados"
         },
         "font-family": {
@@ -4450,6 +4498,9 @@
         "reversed": {
           "description": "Inverta a ordem de frequência de baixo-para-alto da barras",
           "label": "Invertido"
+        },
+        "rotate-album-art": {
+          "label": "Girar Art do Album"
         },
         "scale": {
           "description": "Dimensionar este widget em relação à escala do conteúdo da barra",
@@ -4886,7 +4937,7 @@
     "count": "{count} janela",
     "count-plural": "{count} janelas",
     "empty": "Sem janelas abertas",
-    "hint": "Tab · Shift+Tab · Setas · Solte o Alt para alterar · Esc para cancelar",
+    "hint": "Tab · Shift+Tab · Setas · Solte o modificador de atalho para alterar · Esc para cancelar",
     "title": "Janelas"
   }
 }

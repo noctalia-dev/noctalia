@@ -1,5 +1,6 @@
 #include "config/config_types.h"
 
+#include "config/schema/ranges.h"
 #include "core/input/key_modifiers.h"
 #include "render/core/color.h"
 #include "util/string_utils.h"
@@ -360,6 +361,13 @@ WidgetBarCapsuleSpec resolveWidgetBarCapsuleSpec(const BarConfig& bar, const Wid
       );
     }
   }
+  spec.borderWidth = bar.widgetCapsuleBorderWidth;
+  if (widget != nullptr && widget->hasSetting("capsule_border_width")) {
+    spec.borderWidth = noctalia::config::schema::applyRange(
+        static_cast<float>(widget->getDouble("capsule_border_width", static_cast<double>(spec.borderWidth))),
+        noctalia::config::schema::kBarCapsuleBorderWidthRange
+    );
+  }
   spec.opacity = bar.widgetCapsuleOpacity;
   if (widget != nullptr && widget->hasSetting("capsule_opacity")) {
     spec.opacity = std::clamp(
@@ -482,6 +490,7 @@ WidgetBarCapsuleSpec capsuleSpecFromGroup(const BarConfig& bar, const BarCapsule
   spec.group = group.id;
   spec.fill = group.fill;
   spec.border = group.borderSpecified ? group.border : std::nullopt;
+  spec.borderWidth = group.borderWidth;
   spec.foreground = group.foreground;
   spec.padding = group.padding;
   // "Auto" radius (no explicit group radius) inherits the bar's capsule radius; unset at both levels = pill.

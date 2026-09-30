@@ -277,7 +277,6 @@
       "uptime": "Çalışma süresi – {uptime}",
       "weather": {
         "data-unavailable": "Hava durumu verisi alınamadı.",
-        "disabled": "Hava durumu konfigde devre dışı bırakıldı.",
         "fetching": "Tahminler alınıyor..."
       }
     },

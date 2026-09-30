@@ -282,7 +282,6 @@
       "uptime": "Oppetid - {uptime}",
       "weather": {
         "data-unavailable": "Vẽrdata utilgjengeleg",
-        "disabled": "Vêr er avslege i tilmåtinga.",
         "fetching": "Hentar varsel ..."
       }
     },

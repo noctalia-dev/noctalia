@@ -277,7 +277,6 @@
       "uptime": "가동 시간 - {uptime}",
       "weather": {
         "data-unavailable": "날씨 데이터를 사용할 수 없습니다.",
-        "disabled": "설정에서 날씨가 비활성화되어 있습니다.",
         "fetching": "일기 예보 불러오는 중..."
       }
     },

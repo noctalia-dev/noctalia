@@ -258,7 +258,6 @@
       "uptime": "זמן פעולה – {uptime}",
       "weather": {
         "data-unavailable": "נתוני מזג אוויר לא זמינים.",
-        "disabled": "מזג אוויר מושבת בהגדרות.",
         "fetching": "מאחזר תחזית…"
       }
     },

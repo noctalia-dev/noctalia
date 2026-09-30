@@ -109,9 +109,39 @@ Prefix/datadir are baked into the binary via `NOCTALIA_INSTALL_PREFIX` /
 ```
 
 The shipped `assets/` tree is **required at runtime**. Shipping only the binary
-breaks fonts, translations, templates, glyphs, and sounds. See
-[CONTRIBUTING.md](CONTRIBUTING.md#runtime-assets) for lookup order (including
-`NOCTALIA_ASSETS_DIR` overrides for unusual layouts).
+breaks fonts, translations, templates, glyphs, and sounds.
+
+### Runtime asset lookup
+
+Besides the prefix layout above, portable bundle layouts are supported:
+
+```text
+bundle/
+  noctalia
+  assets/
+```
+
+```text
+bundle/
+  bin/noctalia
+  share/noctalia/assets/
+```
+
+Noctalia resolves the asset root in this order:
+
+1. `NOCTALIA_ASSETS_DIR` (a warning is logged if it is set but invalid)
+2. `assets/` next to the executable
+3. `assets/` one level above the executable (this is how a `build-debug/`
+   binary finds the source tree's `assets/`)
+4. `../<datadir>/noctalia/assets` relative to the executable, when the
+   configured Meson `datadir` is relative
+5. `../share/noctalia/assets` relative to the executable
+6. the compiled install path from Meson (`<prefix>/<datadir>/noctalia/assets`)
+
+A candidate is only accepted if it contains `emoji.json`,
+`fonts/noctalia-tabler.ttf`, `templates/builtin.toml`, and
+`translations/en.json`. If none qualifies, Noctalia logs a warning and uses the
+compiled install path.
 
 Not shipped (don’t look for them in the install): AppStream / metainfo XML, man
 pages, systemd units.

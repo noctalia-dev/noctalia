@@ -87,7 +87,8 @@
       },
       "brightness": {
         "brightness": "Яскравість",
-        "display": "Дисплей"
+        "display": "Дисплей",
+        "unavailable": "Контроль яскравості недоступний"
       },
       "lock-keys": {
         "caps": "Caps",
@@ -307,7 +308,6 @@
       "uptime": "Час роботи - {uptime}",
       "weather": {
         "data-unavailable": "Дані про погоду недоступні.",
-        "disabled": "Погода вимкнена у конфігурації.",
         "fetching": "Отримання прогнозу..."
       }
     },
@@ -2957,6 +2957,40 @@
             "description": "Збільшити гучність мікрофону",
             "label": "Збільшити гучність мікрофону"
           },
+          "nightlight-disable": {
+            "label": "Вимкнути нічний режим"
+          },
+          "nightlight-enable": {
+            "description": "Увімкнути розклад нічного режиму",
+            "label": "Увімкнути нічний режим"
+          },
+          "nightlight-force-toggle": {
+            "description": "Перемкнути нічний режим примусово ",
+            "label": "Перемкнути нічний режим примусово "
+          },
+          "nightlight-toggle": {
+            "description": "Перемкнути розклад нічного режиму"
+          },
+          "notification-clear-active": {
+            "description": "Відкинути всі активні сповіщення",
+            "label": "Відкинути активні сповіщення"
+          },
+          "notification-clear-history": {
+            "description": "Очистити історію сповіщень",
+            "label": "Очистити історію сповіщень"
+          },
+          "panel-close": {
+            "description": "Закрити поточну Panel або за ім'ям, якщо вона активна",
+            "label": "Закрити Panel"
+          },
+          "panel-open": {
+            "description": "Відкрити Panel за ідентифікатором, по бажанню з контекстом (напр. launcher /emo, control-center audio)",
+            "label": "Відкрити Panel"
+          },
+          "panel-toggle": {
+            "description": "Перемкнути Panel за ідентифікатором, по бажанню з контекстом (напр. launcher /emo, control-center audio)",
+            "label": "Перемкнути Panel"
+          },
           "screenshot-annotate": {
             "description": "Заморозити екран та анотувати, потім копіювати або зберегти",
             "label": "Анотувати знімок екрану"
@@ -2984,14 +3018,20 @@
       "options": {
         "always": "Завжди",
         "auto": "Автоматично",
+        "cpu-freq": "Частота ЦП",
         "cpu-temp": "Температура CPU",
         "cpu-usage": "Використання CPU",
+        "disk-free": "Диску вільно",
+        "disk-free-percent": "Диску вільно %",
+        "disk-used": "Диску використано",
+        "disk-used-percent": "Диску використано %",
         "full": "Повний",
         "gauge": "Gauge",
         "glyph": "Гліф",
         "gpu-temp": "Температура GPU",
         "gpu-usage": "Використання GPU",
         "gpu-vram": "GPU VRAM",
+        "gpu-vram-used": "Пам'яті ГП використано",
         "graph": "Графік",
         "graphic": "Графіка",
         "icon-and-text": "Іконка та Текст",

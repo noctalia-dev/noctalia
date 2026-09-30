@@ -258,7 +258,6 @@
       "uptime": "Betriebszeit – {uptime}",
       "weather": {
         "data-unavailable": "Wetterdaten nicht verfügbar.",
-        "disabled": "Wetter ist in der Konfiguration deaktiviert.",
         "fetching": "Vorhersage wird abgerufen…"
       }
     },

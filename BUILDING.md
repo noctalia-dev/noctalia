@@ -225,4 +225,4 @@ bundle/
   share/noctalia/assets/
 ```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md#runtime-assets) for the full runtime asset lookup order.
+See [PACKAGING.md](PACKAGING.md#runtime-asset-lookup) for the full runtime asset lookup order.

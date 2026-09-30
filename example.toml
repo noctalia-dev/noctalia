@@ -19,6 +19,7 @@ telemetry_enabled     = false        # send an anonymous startup ping
 niri_overview_type_to_launch_enabled = false # opt in to type-to-launch from niri overview
 polkit_agent          = false
 password_style        = "default"    # default | random
+readline_shortcuts    = false        # readline-style shortcuts in every text field (Ctrl+A = line start)
 settings_show_advanced = true        # show advanced settings by default in Settings
 settings_expand_all_groups = false   # expand every group on Settings pages by default
 # settings_window_translucent = false  # translucent settings window background
@@ -183,6 +184,11 @@ keep_dismissed_in_history = true    # set false to remove history entries when t
 layer              = "top"          # top | overlay
 scale              = 1.0            # notification size multiplier applied on top of accessibility.ui_scale
 background_opacity = 0.97
+border             = true           # outline around toast cards; set false for a borderless look
+border_color       = "outline"      # outline color: theme color role (e.g. "primary") or hex (e.g. "#a8b185")
+border_width       = 1              # outline stroke width in px; raise for a thicker outline
+follow_focused_output = false       # show new toasts on the focused output; visible toasts stay pinned there
+# monitors          = ["DP-1"]      # connector names; omit or leave empty for all monitors
 offset_x           = 20             # absolute horizontal margin from the screen edge
 offset_y           = 8              # absolute vertical margin from the screen edge
 # [notification.filter.rhythmbox]
@@ -204,8 +210,13 @@ offset_y           = 8              # absolute vertical margin from the screen e
 position = "top_right"              # top_right | top_left | top_center | bottom_right | bottom_left | bottom_center | center_right | center_left
 position_vertical = "top_center"    # same options; used when orientation = "vertical"
 orientation = "horizontal"          # horizontal | vertical (volume/brightness sliders only; text popups stay horizontal)
+hide_delay_ms = 1400                # time before a popup starts hiding; range 250 to 10000 ms
 scale = 1.0                         # OSD size multiplier applied on top of accessibility.ui_scale
 background_opacity = 0.97           # background opacity of OSD popups
+border = true                       # outline around OSD popup cards; set false for a borderless look
+border_color = "outline"            # outline color: theme color role (e.g. "primary") or hex (e.g. "#a8b185")
+border_width = 1                    # outline stroke width in px; raise for a thicker outline
+follow_focused_output = false       # show a new OSD on the focused output; keep it pinned until it disappears
 offset_x = 20                       # absolute horizontal margin from the screen edge
 offset_y = 8                        # absolute vertical margin from the screen edge
 # monitors = ["DP-1"]               # connector names; omit or leave empty for all monitors
@@ -362,6 +373,7 @@ delete   = ["del"]
 position           = "top"          # top | bottom | left | right
 thickness          = 34
 background_opacity = 1.0
+compositor_blur    = true          # false stops compositor blur for this bar
 radius             = 12
 margin_ends        = 180
 margin_edge        = 10
@@ -379,6 +391,7 @@ capsule            = false
 # capsule_radius   = 8.0            # omit/blank in Settings for automatic pill radius; 0.0 = square
 # capsule_opacity  = 1.0
 # capsule_border   = "outline"      # uncomment for a border on all widgets
+# capsule_border_width = 1.0        # outline thickness in pixels (0-8); needs capsule_border
 
 start  = ["launcher", "wallpaper", "workspaces"]
 center = ["clock"]
@@ -394,8 +407,9 @@ end    = ["media", "tray", "notifications", "clipboard", "network", "bluetooth",
 
 # Per-monitor override example; only the fields you list are overridden:
 # [bar.main.monitor.dp1]
-# match     = "DP-1"
-# thickness = 44
+# match           = "DP-1"
+# thickness       = 44
+# compositor_blur = false
 # [bar.main.monitor.dp1.dead_zone.actions]
 # left = "panel-toggle launcher"
 

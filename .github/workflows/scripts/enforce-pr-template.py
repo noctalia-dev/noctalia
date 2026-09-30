@@ -27,7 +27,11 @@ TYPE_CHANGE_ITEMS = (
     "Breaking change",
     "Refactoring",
     "Build / packaging",
+    "Documentation only",
 )
+# "Breaking change" qualifies another type; every other type is a primary kind of change.
+PRIMARY_CHANGE_TYPES = tuple(item for item in TYPE_CHANGE_ITEMS if item != "Breaking change")
+CHANGE_TYPE_REQUIREMENT = "exactly one checked change type other than Breaking change"
 MANDATORY_CHECKLIST_ITEMS = (
     "This PR is ready for review, or it is marked as Draft.",
     "I read and followed the relevant guidance in `CONTRIBUTING.md`.",
@@ -55,8 +59,9 @@ Missing:
 OUTRO = """
 Add the items above to the description, keeping their exact wording, then mark the pull
 request ready for review. That re-runs this check. Draft pull requests may leave boxes
-unchecked. Before a pull request is ready for review, select at least one change type and
-check every item under Checklist.
+unchecked. Before a pull request is ready for review, check exactly one change type (add
+Breaking change alongside it when it applies) and check every item under Checklist. A pull
+request should contain one feature, fix, or refactor; split unrelated changes.
 
 Sections that only offer context may be deleted; nothing else about this pull request was
 changed.
@@ -103,11 +108,13 @@ def missing_requirements(body: object, *, require_completed: bool = False) -> li
     if not require_completed:
         return missing
 
-    if not any(
-        checklist_state(normalized_body, item) in ("x", "X")
-        for item in TYPE_CHANGE_ITEMS
-    ):
-        missing.append("at least one checked change type")
+    checked_primary_types = [
+        item
+        for item in PRIMARY_CHANGE_TYPES
+        if checklist_state(normalized_body, item) in ("x", "X")
+    ]
+    if len(checked_primary_types) != 1:
+        missing.append(CHANGE_TYPE_REQUIREMENT)
 
     for item in MANDATORY_CHECKLIST_ITEMS:
         if states[item] == " ":

@@ -68,15 +68,42 @@ namespace noctalia::config::schema {
     return s;
   }
 
+  namespace {
+    // Concrete ColorSpec stored as a config string; always emitted. A present
+    // non-string value is a hard error (mirrors colorStringValue).
+    template <typename Struct> Field<Struct> colorField(ColorSpec Struct::* member, std::string_view key) {
+      return custom<Struct>(
+          key,
+          [member, key](const toml::table& tbl, Struct& out, std::string_view parentPath, Diagnostics&) {
+            if (!tbl.contains(key)) {
+              return;
+            }
+            auto v = tbl[key].value<std::string>();
+            if (!v) {
+              throw std::runtime_error(joinPath(parentPath, key) + ": expected string ColorSpec");
+            }
+            out.*member = colorSpecFromConfigString(*v, joinPath(parentPath, key));
+          },
+          [member, key](toml::table& tbl, const Struct& in) {
+            tbl.insert_or_assign(key, colorSpecToConfigString(in.*member));
+          }
+      );
+    }
+  } // namespace
+
   const Schema<OsdConfig>& osdSchema() {
     static const Schema<OsdConfig> s = {
         field(&OsdConfig::enabled, "enabled"),
         field(&OsdConfig::position, "position"),
         field(&OsdConfig::positionVertical, "position_vertical"),
         field(&OsdConfig::orientation, "orientation"),
+        field(&OsdConfig::hideDelayMs, "hide_delay_ms", kOsdHideDelayMsRange),
         field(&OsdConfig::scale, "scale", kScaleRange),
         field(&OsdConfig::backgroundOpacity, "background_opacity", kUnitRange),
         field(&OsdConfig::border, "border"),
+        colorField(&OsdConfig::borderColor, "border_color"),
+        field(&OsdConfig::borderWidth, "border_width", kOsdBorderWidthRange),
+        field(&OsdConfig::followFocusedOutput, "follow_focused_output"),
         field(&OsdConfig::offsetX, "offset_x", Range<std::int64_t>{0, std::nullopt}),
         field(&OsdConfig::offsetY, "offset_y", Range<std::int64_t>{0, std::nullopt}),
         field(&OsdConfig::monitors, "monitors"),
@@ -263,8 +290,12 @@ namespace noctalia::config::schema {
         field(&NotificationConfig::position, "position"),
         field(&NotificationConfig::layer, "layer"),
         field(&NotificationConfig::scale, "scale", kScaleRange),
+        field(&NotificationConfig::width, "width", kNotificationWidthRange),
         field(&NotificationConfig::backgroundOpacity, "background_opacity", kUnitRange),
         field(&NotificationConfig::border, "border"),
+        colorField(&NotificationConfig::borderColor, "border_color"),
+        field(&NotificationConfig::borderWidth, "border_width", kNotificationToastBorderWidthRange),
+        field(&NotificationConfig::followFocusedOutput, "follow_focused_output"),
         field(&NotificationConfig::offsetX, "offset_x"),
         field(&NotificationConfig::offsetY, "offset_y"),
         field(&NotificationConfig::monitors, "monitors"),
@@ -1610,6 +1641,7 @@ namespace noctalia::config::schema {
         field(&ShellConfig::umbrielOverviewTypeToLaunchEnabled, "umbriel_overview_type_to_launch_enabled"),
         field(&ShellConfig::polkitAgent, "polkit_agent"),
         enumField(&ShellConfig::passwordMaskStyle, "password_style", kPasswordMaskStyles),
+        field(&ShellConfig::readlineShortcuts, "readline_shortcuts"),
         field(&ShellConfig::settingsShowAdvanced, "settings_show_advanced"),
         field(&ShellConfig::settingsExpandAllGroups, "settings_expand_all_groups"),
         field(&ShellConfig::settingsWindowTranslucent, "settings_window_translucent"),
@@ -1902,27 +1934,6 @@ namespace noctalia::config::schema {
     constexpr Range<double> kBarCapsulePaddingRangeD{0.0, 48.0};
     constexpr Range<double> kBarCapsuleRadiusRangeD{0.0, 80.0};
     constexpr Range<double> kBarCapsuleOpacityRangeD{0.0, 1.0};
-
-    // Concrete ColorSpec stored as a config string; always emitted. A present
-    // non-string value is a hard error (mirrors colorStringValue).
-    template <typename Struct> Field<Struct> colorField(ColorSpec Struct::* member, std::string_view key) {
-      return custom<Struct>(
-          key,
-          [member, key](const toml::table& tbl, Struct& out, std::string_view parentPath, Diagnostics&) {
-            if (!tbl.contains(key)) {
-              return;
-            }
-            auto v = tbl[key].value<std::string>();
-            if (!v) {
-              throw std::runtime_error(joinPath(parentPath, key) + ": expected string ColorSpec");
-            }
-            out.*member = colorSpecFromConfigString(*v, joinPath(parentPath, key));
-          },
-          [member, key](toml::table& tbl, const Struct& in) {
-            tbl.insert_or_assign(key, colorSpecToConfigString(in.*member));
-          }
-      );
-    }
   } // namespace
 
   const Schema<DockConfig>& dockSchema() {
@@ -2198,6 +2209,7 @@ namespace noctalia::config::schema {
           field(&BarCapsuleGroupStyle::members, "members"),
           colorField(&BarCapsuleGroupStyle::fill, "fill"),
           capsuleBorderField(&BarCapsuleGroupStyle::border, &BarCapsuleGroupStyle::borderSpecified, "border"),
+          field(&BarCapsuleGroupStyle::borderWidth, "border_width", kBarCapsuleBorderWidthRange),
           optionalColorField(&BarCapsuleGroupStyle::foreground, "foreground"),
           field(&BarCapsuleGroupStyle::padding, "padding", kBarCapsulePaddingRange),
           optionalFloatField(&BarCapsuleGroupStyle::radius, "radius", kBarCapsuleRadiusRangeF),
@@ -2271,6 +2283,7 @@ namespace noctalia::config::schema {
         barLayerField(),
         field(&BarConfig::thickness, "thickness", kBarThicknessRange),
         field(&BarConfig::backgroundOpacity, "background_opacity", kBarOpacityRange),
+        field(&BarConfig::compositorBlur, "compositor_blur"),
         colorField(&BarConfig::border, "border"),
         field(&BarConfig::borderWidth, "border_width", kBarBorderWidthRange),
         barRadiusField(),
@@ -2308,6 +2321,7 @@ namespace noctalia::config::schema {
         optionalDoubleField(&BarConfig::widgetCapsuleRadius, "capsule_radius", kBarCapsuleRadiusRangeD),
         field(&BarConfig::widgetCapsuleOpacity, "capsule_opacity", kBarOpacityRange),
         capsuleBorderField(&BarConfig::widgetCapsuleBorder, &BarConfig::widgetCapsuleBorderSpecified, "capsule_border"),
+        field(&BarConfig::widgetCapsuleBorderWidth, "capsule_border_width", kBarCapsuleBorderWidthRange),
         field(&BarConfig::hoverHighlight, "hover_highlight"),
         subTable(&BarConfig::deadZone, "dead_zone", barDeadZoneSchema()),
         field(&BarConfig::actions, "actions"),
@@ -2344,6 +2358,7 @@ namespace noctalia::config::schema {
         ),
         optionalIntField(&BarMonitorOverride::thickness, "thickness", kBarThicknessRange),
         optionalFloatField(&BarMonitorOverride::backgroundOpacity, "background_opacity", kBarOpacityRange),
+        optionalBoolField(&BarMonitorOverride::compositorBlur, "compositor_blur"),
         optionalColorField(&BarMonitorOverride::border, "border"),
         optionalFloatField(&BarMonitorOverride::borderWidth, "border_width", kBarBorderWidthRange),
         optionalIntField(&BarMonitorOverride::radius, "radius", kBarRadiusRange),
@@ -2378,6 +2393,9 @@ namespace noctalia::config::schema {
         capsuleBorderField(
             &BarMonitorOverride::widgetCapsuleBorder, &BarMonitorOverride::widgetCapsuleBorderSpecified,
             "capsule_border"
+        ),
+        optionalFloatField(
+            &BarMonitorOverride::widgetCapsuleBorderWidth, "capsule_border_width", kBarCapsuleBorderWidthRange
         ),
         optionalBoolField(&BarMonitorOverride::hoverHighlight, "hover_highlight"),
         // capsule_group: read-only here (overrides serialize via the resolved bar).

@@ -8,9 +8,9 @@
       "present": "指紋認証中…",
       "ready": "指をセンサーに当ててください",
       "remove-and-retry": "指を離して再度行ってください",
-      "retry": "再度指紋認証を行ってください",
+      "retry": "もう一度指紋を読み取ってください",
       "swipe-too-short": "スワイプが短すぎます。もう一度お試しください",
-      "too-many-attempts": "指紋認証が無効化されました（試行回数超過）"
+      "too-many-attempts": "試行回数が多すぎるため、指紋認証が無効になりました"
     },
     "pam": {
       "authentication-failed": "認証に失敗しました",
@@ -23,13 +23,13 @@
       "default-message": "認証が必要です",
       "invalid-password": "パスワードが違います",
       "password-placeholder": "パスワード",
-      "title": "パスワードが必要です"
+      "title": "認証が必要です"
     }
   },
   "bar": {
     "annotate": {
       "capture-new-region": "新しい範囲を撮影（現在の編集内容は破棄されます）",
-      "close": "送信せず閉じる (Esc)",
+      "close": "送信せず閉じる（Esc）",
       "color-black": "黒",
       "color-blue": "青",
       "color-green": "緑",
@@ -61,18 +61,46 @@
       "tool-brush": "ブラシ（b）",
       "tool-circle": "楕円（o）・Shiftキーを押しながら円を描画",
       "tool-crop": "書き出し範囲を切り抜く（c）",
-      "tool-eraser": "消しゴム（e）"
+      "tool-eraser": "消しゴム（e）",
+      "tool-highlighter": "蛍光ペン（h）",
+      "tool-line": "直線（l）・Shiftキーを押しながら角度を固定",
+      "tool-move": "注釈を移動（m）",
+      "tool-numbering": "番号付きマーカー（n）",
+      "tool-rectangle": "長方形（s）・Shiftキーを押しながら正方形を描画",
+      "tool-text": "テキスト（t）",
+      "undo": "元に戻す（Ctrl+Z）"
     },
     "screenshot": {
+      "annotate-export-failed": "注釈付き画像を生成できませんでした",
       "choose-display": "画面を選択",
-      "overlay-alloc-failed": "スクリーンショットのオーバーレイを表示できませんでした（GPUのビデオメモリ不足？）"
+      "confirm-region": "{copy}でコピー・{save}で保存・EnterまたはSpaceで既定の操作・{cancel}でキャンセル・ドラッグで再選択",
+      "fullscreen": "全画面",
+      "overlay-alloc-failed": "スクリーンショットのオーバーレイを表示できませんでした（GPUのビデオメモリ不足？）",
+      "region": "範囲を選択"
     },
     "widgets": {
+      "active-window": {
+        "no-active-window": "アクティブなウィンドウはありません"
+      },
       "bluetooth": {
         "connected": "接続済み"
       },
       "brightness": {
-        "display": "ディスプレイ"
+        "brightness": "明るさ",
+        "display": "ディスプレイ",
+        "unavailable": "明るさ調整を利用できません"
+      },
+      "lock-keys": {
+        "caps": "Caps",
+        "caps-short": "C",
+        "num": "Num",
+        "num-short": "N",
+        "scroll": "Scroll",
+        "scroll-short": "S"
+      },
+      "media": {
+        "nothing-playing": "何も再生していません",
+        "playing": "再生中"
       },
       "network": {
         "active": "アクティブ",
@@ -102,10 +130,37 @@
         "wired": "有線",
         "yes": "はい"
       },
+      "privacy": {
+        "camera": "カメラ",
+        "microphone": "マイク",
+        "screen-sharing": "画面共有"
+      },
+      "scripted": {
+        "reload-failed": "スクリプトの再読み込みに失敗しました",
+        "reloaded": "スクリプトを再読み込みしました"
+      },
       "sysmon": {
+        "cpu": "CPU",
+        "cpu-freq": "CPU周波数",
         "cpu-temp": "CPU温度",
+        "disk": "ディスク",
+        "disk-free": "ディスク空き容量",
+        "disk-free-pct": "ディスク空き率",
+        "disk-used": "ディスク使用量",
+        "disk-used-pct": "ディスク使用率",
+        "download": "下り",
         "gpu-temp": "GPU温度",
-        "system": "システム"
+        "gpu-usage": "GPU使用率",
+        "gpu-vram": "VRAM使用量",
+        "ram": "RAM",
+        "swap": "スワップ",
+        "system": "システム",
+        "upload": "上り"
+      },
+      "volume": {
+        "device": "デバイス",
+        "mic": "マイク",
+        "volume": "音量"
       },
       "weather": {
         "default": "天気",
@@ -253,7 +308,6 @@
       "uptime": "起動時間　–　{uptime}",
       "weather": {
         "data-unavailable": "天気のデータは無効化されています",
-        "disabled": "天気は設定から無効化されています",
         "fetching": "天気予報を取得中…"
       }
     },
@@ -354,10 +408,10 @@
       "back": "戻る",
       "disabled": "スクリーンタイムの記録がオフです。アプリごとの使用状況を記録するには、設定で有効にしてください。",
       "empty": "アプリの使用状況はまだ記録されていません。ウィンドウにフォーカスすると、記録が開始されます。",
-      "hour-0": "０時",
-      "hour-12": "１２時",
-      "hour-18": "１８時",
-      "hour-6": "６時",
+      "hour-0": "0時",
+      "hour-12": "12時",
+      "hour-18": "18時",
+      "hour-6": "6時",
       "most-used": "使用時間の長いアプリ",
       "range": {
         "14-days": "過去１４日間",
@@ -413,7 +467,7 @@
         "load": "1分／5分／15分間の平均負荷"
       },
       "unknown": "不明",
-      "uptime-prefix": "稼働 {uptime} · {osAge}"
+      "uptime-prefix": "稼働{uptime} · {osAge}"
     },
     "tabs": {
       "audio": "音声",
@@ -463,7 +517,7 @@
         "hourly": "時間別"
       },
       "hourly": {
-        "summary": "{condition} / 降水確率 {precip}%",
+        "summary": "{condition}・降水確率 {precip}%",
         "tooltip": {
           "condition": "状態",
           "humidity": "湿度",
@@ -516,9 +570,9 @@
         "clock-style-analog": "アナログ",
         "clock-style-digital": "デジタル",
         "color": "色",
-        "color-1": "色１",
-        "color-2": "色２",
-        "color2": "色２",
+        "color-1": "色1",
+        "color-2": "色2",
+        "color2": "色2",
         "command": "コマンド",
         "custom-color": "カスタム",
         "description": "説明",
@@ -538,7 +592,7 @@
         "highlight-color": "強調色",
         "horizontal": "横向き",
         "hover-background": "ホバー時の背景色",
-        "hover-foreground": "ホバー時の背景色",
+        "hover-foreground": "ホバー時の前景色",
         "image-path": "画像",
         "inner-diameter": "内径",
         "input-opacity": "入力欄の不透明度",
@@ -597,7 +651,7 @@
         "variant": "スタイル",
         "variant-default": "既定",
         "variant-destructive": "危険",
-        "variant-ghost": "ゴースト\\",
+        "variant-ghost": "ゴースト",
         "variant-outline": "枠線",
         "variant-primary": "主要",
         "variant-secondary": "補助",
@@ -798,9 +852,9 @@
       "calendar-google-connect-missing-account": "設定済みのGoogleカレンダーアカウントに「{account}」と一致するものがありません。",
       "calendar-google-connect-rate-limited": "Google認証は一時的に制限されています。しばらく待ってから、もう一度お試しください。",
       "calendar-google-connect-result-failed": "Google認証を完了できませんでした。もう一度接続を開始してください",
-      "calendar-google-connect-start-failed": "Google の認証を開始できませんでした。ネットワーク接続を確認して、もう一度お試しください。",
+      "calendar-google-connect-start-failed": "Googleの認証を開始できませんでした。ネットワーク接続を確認して、もう一度お試しください。",
       "calendar-google-connect-start-http": "Google認証を開始できませんでした。OAuthブローカーからHTTP {status}が返されました。",
-      "calendar-google-connect-timeout": "Google の認証がタイムアウトしました。サインインする準備ができたら、もう一度接続を開始してください。",
+      "calendar-google-connect-timeout": "Googleの認証がタイムアウトしました。サインインする準備ができたら、もう一度接続を開始してください。",
       "calendar-reminder-catchup-body": "まもなく開始する予定が他に{count}件あります。",
       "calendar-reminder-catchup-title": "今後の予定をさらに表示",
       "calendar-reminder-in": "{minutes}分後に開始・{time}",
@@ -815,7 +869,7 @@
       "desktop-widgets-editor-enabled": "デスクトップウィジェットの編集が有効です。開いているウィンドウで編集画面が隠れないよう、空のワークスペースに切り替えてください。",
       "greeter-sync": "Noctalia Greeter",
       "greeter-sync-pending": "外観設定をグリーターに同期しています。管理者の認証画面が表示された場合は承認してください。パスワード不要の認証はシステムポリシーに従います。",
-      "greeter-sync-pending-console": "観設定をグリーターに同期しています。認証が必要な場合は、Noctalia、TTY、またはコンソールに表示されるpolkitの認証要求を承認してください。",
+      "greeter-sync-pending-console": "外観設定をグリーターに同期しています。認証が必要な場合は、Noctalia、TTY、またはコンソールに表示されるpolkitの認証要求を承認してください。",
       "greeter-sync-pending-legacy": "認証済みの従来方式ヘルパーを使用して同期しています。管理者の承認が必要です。",
       "greeter-sync-pending-manual": "認証済みの従来方式の同期用ファイルを準備しました。ターミナルで位置引数形式の適用ヘルパーを実行してください。独自の保存先を使用している場合はNOCTALIA_GREETER_STATE_DIRを引き継ぐか、shell.greeter_sync.privilege_commandを設定してから、もう一度同期してください。",
       "greeter-sync-pending-manual-pkexec": "外観設定をグリーターに同期しています。管理者の認証が必要なのに認証要求が表示されない場合は、ターミナルで次のコマンドを実行してください：pkexec noctalia-greeter-apply-appearance --sync \"/run/user/$(id -u)/noctalia-greeter-sync\"",
@@ -890,7 +944,7 @@
   "plugins": {
     "auto-disabled": {
       "body-errors": "{plugin}でエラーが多発したため無効化されました。問題を修正してから再読み込みしてください。",
-      "body-timeouts": "{plugin} が応答しなくなったため、無効化されました。問題を修正した後、再読み込みしてください。",
+      "body-timeouts": "{plugin}が応答しなくなったため、無効化されました。問題を修正した後、再読み込みしてください。",
       "title": "プラグインは無効です"
     },
     "enable-failed": {
@@ -912,7 +966,7 @@
       },
       "tooltip": {
         "device": "電池",
-        "device-numbered": "電池 {index}",
+        "device-numbered": "電池{index}",
         "health": "状態",
         "rate": "速度",
         "status": "ステータス",
@@ -987,7 +1041,31 @@
       "username-placeholder": "name@example.com",
       "vdir-path-label": "ディレクトリのパス"
     },
+    "controls": {
+      "path-browse": {
+        "file-title": "ファイルを選択"
+      }
+    },
+    "dialogs": {
+      "color-picker": {
+        "title": "色を選択"
+      }
+    },
     "entities": {
+      "bar": {
+        "create": "作成",
+        "delete": "削除",
+        "delete-confirm-desc": "GUIで作成したバーはsettings.tomlから削除されます。",
+        "delete-confirm-title": "「{name}」を削除しますか？",
+        "id-placeholder": "バーのID",
+        "label": "バー：{name}",
+        "management": "バー",
+        "move-down": "下へ移動",
+        "move-up": "上へ移動",
+        "new": "新しいバー",
+        "rename": "名前を変更",
+        "rename-save": "保存"
+      },
       "monitor-override": {
         "create": "新規作成",
         "custom": "独自設定",
@@ -1004,46 +1082,108 @@
         "rename-save": "保存"
       },
       "widget": {
+        "editor": {
+          "description": "バーの各レーンにウィジェットを配置",
+          "title": "バーウィジェット"
+        },
         "group": {
-          "drawer-columns": "ドロワーの列数"
+          "accordion-direction-description": "非表示のウィジェットを展開する方向",
+          "border-description": "カプセルの枠線色。「既定」のままにすると枠線を表示しません",
+          "drawer-columns": "ドロワーの列数",
+          "drawer-detached-description": "ドロワーをバーに統合せず、独自の背景を持つ浮動パネルとして開く",
+          "fill-description": "カプセルの背景色。固定の16進数カラーコードにも対応",
+          "foreground-description": "このグループ内のウィジェットに使用するアイコンとラベルの色",
+          "radius-description": "カプセルの角丸半径（ピクセル）。「自動」ではバーのカプセル半径を継承",
+          "remove-widget": "バーから削除",
+          "widget-spacing-description": "このグループ内のウィジェット間隔（ピクセル）。「自動」ではバーのウィジェット間隔を継承"
+        },
+        "instance": {
+          "delete-confirm-desc": "この名前付きウィジェットをすべてのバーから削除し、設定も破棄します。",
+          "id-description": "英字、数字、アンダースコア、ハイフンのみ使用できます。スペースは使用できず、一意である必要があります。"
+        },
+        "raw": {
+          "description": "このウィジェット設定に含まれる未対応のキーは保持されます。"
         },
         "settings": {
+          "empty": "現在の絞り込み条件に一致する設定はありません。",
           "groups": {
-            "runtime": "実行環境"
+            "runtime": "実行環境",
+            "taskbar": {
+              "grouping": "グループ化",
+              "windows": "ウィンドウ",
+              "workspace-labels": "ワークスペースラベル"
+            }
           }
         }
       }
     },
     "errors": {
       "avatar-accounts": "システムアカウントのアバターを更新できませんでした。",
+      "avatar-invalid-path": "選択したアバターのパスは、読み取り可能な画像ファイルではありません。",
+      "avatar-load": "選択した画像を読み込めませんでした。PNG、JPEG、WebP、GIF、BMP、SVGを使用してください。",
+      "avatar-write": "アバター画像を保存できる状態にできませんでした。",
+      "bar": {
+        "create": "バーを作成できませんでした。",
+        "delete": "バーを削除できませんでした。",
+        "move": "バーを移動できませんでした。",
+        "rename": "バーの名前を変更できませんでした。"
+      },
+      "batch-write": "一部の設定を保存できませんでした。",
       "custom-schedule-times": "独自のスケジュールには、日の出と日の入りの時刻をどちらもHH:MM形式で指定する必要があります。",
+      "export-config": "設定の書き出しを保存できませんでした。",
       "export-wallpaper-palette": "壁紙の配色を独自の配色として保存できませんでした。",
       "monitor-override": {
         "create": "画面の上書き設定を作成できませんでした。",
         "delete": "画面の上書き設定を削除できませんでした。",
         "rename": "画面の上書き設定の名前を変更できませんでした。"
       },
+      "reset-page": "一部の設定をリセットできませんでした。",
+      "support-report": "サポートレポートを保存できませんでした。",
+      "sync-greeter": "外観設定をNoctalia Greeterに同期できませんでした。",
       "sync-greeter-timeout": "グリーターの同期は、まだ認証待ちです。TTYまたはコンソールでpolkitの認証要求を確認するか、セキュリティ設定でpolkitエージェントを有効にするか、pkexecを手動で実行してください。",
       "sync-greeter-timeout-manual": "認証済みの従来方式の同期には、引き続き管理者の承認が必要です。ターミナルで位置引数形式の適用ヘルパーを実行し、独自の保存先を使用している場合はNOCTALIA_GREETER_STATE_DIRを引き継いでください",
-      "sync-greeter-timeout-manual-pkexec": "グリーターの同期には、まだ認証が必要です。ターミナルで次のコマンドを実行してください：pkexec noctalia-greeter-apply-appearance --sync \"/run/user/$(id -u)/noctalia-greeter-sync\""
+      "sync-greeter-timeout-manual-pkexec": "グリーターの同期には、まだ認証が必要です。ターミナルで次のコマンドを実行してください：pkexec noctalia-greeter-apply-appearance --sync \"/run/user/$(id -u)/noctalia-greeter-sync\"",
+      "widget": {
+        "rename": "名前付きウィジェットの名前を変更できませんでした。"
+      },
+      "write": "設定を保存できませんでした。"
+    },
+    "export-config": {
+      "full-effective-description": "内蔵の既定値を含む、現在有効なすべての設定を書き出します。設定内容の確認やスナップショットの共有に便利ですが、現在の既定値も明示的に保存されます。",
+      "merged-user-description": "設定ファイルとGUIでの上書き設定を1つのTOMLファイルにまとめます。内蔵の既定値は明示せず、そのまま使用されます。",
+      "merged-user-save-title": "統合したユーザー設定を保存",
+      "merged-user-title": "統合ユーザー設定（推奨）"
     },
     "idle": {
       "behavior": {
-        "locked-timeout-label": "ロック中のタイムアウト時間（秒、0 で無効）",
+        "kind": {
+          "lock": "ロック",
+          "lock-and-suspend": "ロックしてサスペンド",
+          "screen-off": "画面をオフ"
+        },
+        "locked-timeout-label": "ロック中のタイムアウト時間（秒、0で無効）",
         "summary-disabled-timeout": "{name} · タイムアウト無効",
         "timeout-label": "タイムアウト（秒）"
+      },
+      "live-status": {
+        "idle-for-one": "1秒間待機",
+        "idle-for-seconds": "{seconds}秒間待機"
       }
     },
     "navigation": {
       "groups": {
+        "accessibility": "アクセシビリティ",
         "audio": "音声",
         "authentication": "認証",
+        "built-in": "内蔵",
         "clipboard": "クリップボード",
         "control-center": "コントロールセンター",
         "home": "ホーム",
+        "hot-corners": "ホットコーナー",
         "launcher": "ランチャー",
         "lifecycle": "ライフサイクル",
         "location": "位置情報",
+        "lock-screen": "ロック画面",
         "media": "メディア",
         "monitor": "システム監視",
         "monitor-polling": "更新間隔",
@@ -1053,16 +1193,21 @@
         "notifications": "通知",
         "osd": "OSD",
         "power": "電源",
+        "screen-corners": "画面の四隅",
         "screen-time": "スクリーンタイム",
         "session-panel": "セッションパネル",
         "system": "システム",
         "theme": "テーマ",
         "toasts": "ポップアップ通知",
+        "user": "ユーザー",
         "wallpaper": "壁紙",
         "weather": "天気",
         "window-switcher": "ウィンドウ・スイッチャー"
       },
       "sections": {
+        "accessibility": "アクセシビリティ",
+        "appearance": "外観",
+        "bar": "バー",
         "control-center": "コントロールセンター",
         "dock": "ドック",
         "launcher": "ランチャー",
@@ -1105,6 +1250,13 @@
       }
     },
     "options": {
+      "bar": {
+        "auto-hide": {
+          "off": "オフ",
+          "on": "オン",
+          "smart": "スマート"
+        }
+      },
       "clipboard": {
         "auto-paste": {
           "ctrl-shift-v": "Ctrl+Shift+V",
@@ -1124,7 +1276,16 @@
         "none": "なし",
         "start": "先頭"
       },
+      "edge": {
+        "left": "左"
+      },
+      "font-weight": {
+        "default": "既定（バー）",
+        "heavy": "太字",
+        "ultra-heavy": "極太"
+      },
       "hot-corners": {
+        "command": "コマンドを実行",
         "control-center": "コントロールセンター",
         "launcher": "ランチャー",
         "window-switcher": "ウィンドウ・スイッチャー"
@@ -1139,6 +1300,13 @@
           "zoom": "ズーム"
         }
       },
+      "panel-bar-alignment": {
+        "centered": "中央",
+        "near-trigger": "トリガー付近"
+      },
+      "panel-position": {
+        "auto": "バーに追従"
+      },
       "plugins": {
         "auto-update": {
           "all": "すべて",
@@ -1146,9 +1314,20 @@
           "official": "公式"
         }
       },
+      "screen-position": {
+        "bottom-left": "左下",
+        "center-left": "左中央",
+        "top-left": "左上"
+      },
       "shell": {
         "panel-placement": {
-          "attached": "バーに固定"
+          "attached": "バーに固定",
+          "floating": "浮動"
+        },
+        "shadow-direction": {
+          "down-left": "左下",
+          "left": "左",
+          "up-left": "左上"
         },
         "window-switcher-style": {
           "carousel": "カルーセル",
@@ -1303,10 +1482,59 @@
     },
     "schema": {
       "appearance": {
+        "animations": {
+          "description": "UIアニメーションを有効・無効にする"
+        },
+        "app-icon-color": {
+          "description": "アプリアイコンを着色するときに使用する配色の色",
+          "label": "アプリアイコンの色"
+        },
+        "app-icon-colorize": {
+          "description": "シェル全体のアプリアイコンを現在の配色に合わせて着色",
+          "label": "アプリアイコンを着色"
+        },
+        "builtin-palette": {
+          "description": "内蔵カタログから配色を選択",
+          "label": "内蔵配色"
+        },
+        "button-borders": {
+          "description": "シェル全体のボタンに枠線を表示"
+        },
+        "card-borders": {
+          "description": "パネル内のセクションカードと設定画面に枠線を表示"
+        },
+        "community-palette": {
+          "description": "コミュニティカタログから配色を選択"
+        },
+        "corner-roundness": {
+          "description": "シェルUIのコンテナとコントロール全体の角丸半径を調整",
+          "label": "角の丸み"
+        },
+        "custom-palette": {
+          "description": "~/.config/noctalia/palettes/から配色を選択"
+        },
         "export-wallpaper-palette": {
           "button": "独自の配色として保存",
           "description": "現在の壁紙から、再利用可能な配色ファイルとして保存",
           "label": "壁紙の配色をエクスポート"
+        },
+        "global-shadow-direction": {
+          "description": "サーフェスから影を落とす方向"
+        },
+        "input-borders": {
+          "description": "シェル全体のテキスト入力欄やその他の入力項目に枠線を表示"
+        },
+        "palette-source": {
+          "description": "配色の取得元"
+        },
+        "popup-borders": {
+          "description": "ポップアップとドロップダウンに枠線を表示"
+        },
+        "popup-shadows": {
+          "description": "ポップアップとドロップダウンの背後に影を表示"
+        },
+        "pure-black-dark": {
+          "description": "暗いサーフェスを完全な黒に固定し、OLEDパネルでのバンディングを防止（ダークモードのみ）"
         },
         "shell-theme-mode": {
           "description": "Noctalia独自のライトまたはダークモードに固定します。「追従」ではテーマモードと同期します",
@@ -1316,27 +1544,228 @@
           "description": "ダーク、ライト、または時間帯に応じて自動で切り替えるモードを選択します",
           "label": "テーマモード"
         },
+        "ui-scale": {
+          "description": "インターフェース全体の表示倍率を調整",
+          "label": "UI表示倍率"
+        },
         "wallpaper-generation-scheme": {
           "description": "壁紙の色を配色に変換する方法を選択",
           "label": "壁紙からの配色生成方式"
         }
       },
+      "backdrop": {
+        "tint-intensity": {
+          "description": "背景の着色の強さ",
+          "label": "着色の強さ"
+        }
+      },
       "bar": {
+        "auto-hide": {
+          "description": "オフではバーを常に表示。オンではポインターを画面端に移動するまで非表示。スマートでは空のワークスペースでバーを表示し、ウィンドウが開いているときは非表示"
+        },
+        "background-opacity": {
+          "description": "バーの背景不透明度"
+        },
+        "border": {
+          "description": "バーの枠線に使用する色。固定の16進数カラーコードにも対応",
+          "label": "枠線"
+        },
+        "border-width": {
+          "description": "バー内側の枠線の太さ",
+          "label": "枠線の太さ"
+        },
+        "capsule-border": {
+          "description": "既定のカプセル枠線に使用する色。固定の16進数カラーコードにも対応",
+          "label": "カプセルの枠線"
+        },
+        "capsule-fill": {
+          "description": "既定のカプセル背景に使用する色。固定の16進数カラーコードにも対応",
+          "label": "カプセルの背景色"
+        },
+        "capsule-foreground": {
+          "description": "カプセル内のアイコンとラベルに使用する既定の色。固定の16進数カラーコードにも対応",
+          "label": "カプセルの前景色"
+        },
+        "capsule-opacity": {
+          "description": "ウィジェットのカプセル背景の不透明度",
+          "label": "カプセルの不透明度"
+        },
+        "capsule-padding": {
+          "description": "ウィジェットのカプセル内の余白",
+          "label": "カプセルの内側余白"
+        },
+        "capsule-radius": {
+          "description": "ウィジェットのカプセル、ワークスペースピル、タスクバーのワークスペースグループに使用する既定の角丸半径。空欄では自動的にピル形状になり、0では角が直角になります",
+          "label": "カプセルの角丸半径"
+        },
+        "capsule-thickness": {
+          "description": "バーの太さに対するカプセルの大きさの比率（1.0でバーの太さ全体を使用）",
+          "label": "カプセルの太さ"
+        },
+        "center-widgets": {
+          "description": "バー中央のウィジェット",
+          "label": "中央のウィジェット"
+        },
+        "concave-edge-corners": {
+          "description": "バーの2つの角に凹みを付けます（Edge Marginを0にする必要があります）。Ends Marginが0の場合はバー内側の角を、それ以外の場合は画面端に接する角を凹ませます",
+          "label": "内向きの角"
+        },
         "contact-shadow": {
           "description": "バーに固定されたパネルとバーの境目に暗いグラデーションを表示し、奥行きを表現"
         },
+        "content-padding": {
+          "description": "バーの内容領域の内側余白",
+          "label": "内容の内側余白"
+        },
+        "content-scale": {
+          "description": "バーの内容の拡大率",
+          "label": "内容の拡大率"
+        },
+        "corner-bottom-left": {
+          "description": "バー左下の角丸半径"
+        },
+        "corner-bottom-right": {
+          "description": "バー右下の角丸半径"
+        },
+        "corner-radius": {
+          "description": "バーの角丸半径"
+        },
+        "corner-top-left": {
+          "description": "バー左上の角丸半径"
+        },
+        "corner-top-right": {
+          "description": "バー右上の角丸半径"
+        },
+        "dead-zone-action": {
+          "description": "ウィジェットで覆われていないバー部分で実行する操作"
+        },
+        "edge-margin": {
+          "description": "バーと配置先の画面端との間隔。0pxにすると画面端に密着します"
+        },
+        "enabled": {
+          "description": "このバーの表示・非表示を切替"
+        },
+        "end-widgets": {
+          "description": "バー終端側（右／下）のウィジェット",
+          "label": "終端ウィジェット"
+        },
+        "ends-margin": {
+          "description": "バーの長さ方向の両端を縮める幅。0pxにすると横幅または縦幅いっぱいに表示されます"
+        },
+        "font-family": {
+          "description": "このバーのウィジェットに使用するフォント。空欄の場合は全体のフォントを継承します（各ウィジェットの「フォントファミリー」設定が優先されます）",
+          "label": "フォントファミリー"
+        },
+        "font-scale": {
+          "description": "このバーのすべてのウィジェットに適用する文字の拡大率。各ウィジェットのfont_scaleはこの値に乗算されます",
+          "label": "フォント倍率"
+        },
+        "font-weight": {
+          "description": "このバーのウィジェットラベルに使用する既定の文字の太さ",
+          "label": "文字の太さ"
+        },
+        "hover-highlight": {
+          "description": "マウスポインターを重ねたウィジェットを、そのウィジェットの前景色で薄く着色",
+          "label": "ホバー時の強調表示"
+        },
         "layer": {
-          "description": "Overlayを使用して全画面アプリの上にバーを表示。バーに固定したパネルもバーに追従"
+          "description": "Overlayを使用して全画面アプリの上にバーを表示。バーに固定したパネルもバーに追従",
+          "label": "Waylandレイヤー"
+        },
+        "opposite-edge-margin": {
+          "description": "バーの画面端とは反対側に追加で確保する領域。最大化したウィンドウが予約領域を無視する場合に使用します"
         },
         "panel-overlap": {
-          "description": "境目を隠すため、固定パネルをバー端に重ねる幅（ピクセル）。線や隙間が見える場合は調整"
+          "description": "境目を隠すため、固定パネルをバー端に重ねる幅（ピクセル）。線や隙間が見える場合は調整",
+          "label": "パネルの重なり"
+        },
+        "position": {
+          "description": "バーを配置する画面端"
+        },
+        "reserve-space": {
+          "description": "バー側の画面端からウィンドウを離す"
+        },
+        "shadow": {
+          "description": "バーから全体のサーフェスシャドウを表示"
+        },
+        "show-on-workspace-switch": {
+          "description": "アクティブなワークスペースが切り替わったときにバーを一時的に表示",
+          "label": "ワークスペース切替時に表示"
+        },
+        "start-widgets": {
+          "description": "バー始端側（左／上）のウィジェット",
+          "label": "始端ウィジェット"
+        },
+        "thickness": {
+          "description": "バーの太さ（ピクセル）",
+          "label": "太さ"
+        },
+        "widget-capsules": {
+          "description": "ウィジェットをカプセル背景で囲む",
+          "label": "ウィジェットカプセル"
+        },
+        "widget-color": {
+          "description": "このバーのウィジェットに使用する既定のアイコンとラベルの色。固定の16進数カラーコードにも対応",
+          "label": "ウィジェットの色"
+        },
+        "widget-icon-color": {
+          "description": "このバーのアイコンにウィジェットの色とは別の色を使用。固定の16進数カラーコードにも対応",
+          "label": "ウィジェットアイコンの色"
+        },
+        "widget-spacing": {
+          "description": "バーウィジェット間の間隔",
+          "label": "ウィジェット間隔"
         }
       },
       "desktop": {
+        "hot-corners-bottom-left": {
+          "description": "画面左下の角にポインターを移動したときの操作",
+          "label": "左下の角"
+        },
+        "hot-corners-bottom-left-command": {
+          "description": "画面左下の角にポインターを移動したときに実行するシェルコマンド"
+        },
+        "hot-corners-bottom-right": {
+          "description": "画面右下の角にポインターを移動したときの操作",
+          "label": "右下の角"
+        },
+        "hot-corners-bottom-right-command": {
+          "description": "画面右下の角にポインターを移動したときに実行するシェルコマンド"
+        },
+        "hot-corners-delay-ms": {
+          "description": "操作を実行するまでポインターを角に留める時間（0ですぐに実行）"
+        },
+        "hot-corners-enabled": {
+          "description": "マウスポインターを画面の隅に移動して操作を実行",
+          "label": "ホットコーナー"
+        },
+        "hot-corners-top-left": {
+          "description": "画面左上の角にポインターを移動したときの操作",
+          "label": "左上の角"
+        },
+        "hot-corners-top-left-command": {
+          "description": "画面左上の角にポインターを移動したときに実行するシェルコマンド"
+        },
+        "hot-corners-top-right": {
+          "description": "画面右上の角にポインターを移動したときの操作",
+          "label": "右上の角"
+        },
+        "hot-corners-top-right-command": {
+          "description": "画面右上の角にポインターを移動したときに実行するシェルコマンド"
+        },
+        "screen-corners-enabled": {
+          "description": "黒いオーバーレイで画面の角を丸くする",
+          "label": "画面の四隅"
+        },
+        "screen-corners-size": {
+          "description": "画面の角丸半径（ピクセル）",
+          "label": "角の大きさ"
+        },
         "widgets": {
           "label": "デスクトップウィジェット"
         },
         "widgets-editor": {
+          "button": "編集モードを切替",
           "description": "デスクトップウィジェットを追加、移動、サイズ変更"
         }
       },
@@ -1424,7 +1853,7 @@
           "label": "独自の画像に色を付ける"
         },
         "launcher-icon": {
-          "description": "ドックのランチャーボタンに表示する Tablerアイコン",
+          "description": "ドックのランチャーボタンに表示するTablerアイコン",
           "label": "ランチャーアイコン"
         },
         "launcher-position": {
@@ -1478,6 +1907,18 @@
       },
       "hooks": {
         "events": {
+          "battery-charging": {
+            "description": "電池の充電開始時に実行するコマンド"
+          },
+          "battery-discharging": {
+            "description": "電池の放電開始時に実行するコマンド"
+          },
+          "battery-percentage-changed": {
+            "description": "電池残量の変化時に実行するコマンド"
+          },
+          "battery-plugged": {
+            "description": "電池が充電完了または充電待機状態になったときに実行するコマンド"
+          },
           "bluetooth-disabled": {
             "description": "Bluetooth無効時に実行するコマンド",
             "label": "Bluetooth無効時"
@@ -1486,9 +1927,19 @@
             "description": "Bluetooth有効時に実行するコマンド",
             "label": "Bluetooth有効時"
           },
+          "colors-changed": {
+            "description": "現在の配色が変更されたときに実行するコマンド",
+            "label": "配色変更時"
+          },
+          "logging-out": {
+            "description": "ログアウト前に実行するコマンド"
+          },
           "power-profile-changed": {
             "description": "有効なUPower/PPD電源プロファイルが変更されたときに実行するコマンド",
             "label": "電源プロファイル変更時"
+          },
+          "rebooting": {
+            "description": "再起動前に実行するコマンド"
           },
           "session-locked": {
             "description": "セッションがロックされたときに実行するコマンド",
@@ -1498,6 +1949,13 @@
             "description": "セッションのロック解除後に実行するコマンド",
             "label": "セッションロック解除時"
           },
+          "shutting-down": {
+            "description": "シャットダウン前に実行するコマンド",
+            "label": "シャットダウン時"
+          },
+          "started": {
+            "description": "Noctalia起動後に実行するコマンド"
+          },
           "theme-mode-changed": {
             "description": "確定したテーマモードがライトとダークの間で切り替わったときに実行するコマンドです",
             "label": "テーマモード変更時"
@@ -1505,12 +1963,39 @@
           "wallpaper-changed": {
             "description": "壁紙変更時に実行するコマンド。NOCTALIA_WALLPAPER_PATHとNOCTALIA_WALLPAPER_CONNECTORが利用できます。",
             "label": "壁紙変更時"
+          },
+          "wifi-disabled": {
+            "description": "Wi-Fi無効時に実行するコマンド",
+            "label": "Wi-Fi無効時"
+          },
+          "wifi-enabled": {
+            "description": "Wi-Fi有効時に実行するコマンド"
           }
         }
       },
       "idle": {
         "behaviors": {
           "description": "名前付きのアイドル操作を、プリセット（ロック、画面オフ、サスペンド）または独自のコマンドとして設定できます。タイムアウト、復帰時の連動、実行順序にも対応します"
+        },
+        "pre-action-fade": {
+          "description": "アイドルコマンド実行前に全画面を暗くする時間（秒、0で無効）"
+        }
+      },
+      "keybinds": {
+        "cancel": {
+          "description": "ポップアップやパネルを閉じるか、現在の操作を中止"
+        },
+        "delete": {
+          "description": "選択した項目を削除",
+          "label": "削除"
+        },
+        "left": {
+          "description": "フォーカスまたは選択を左へ移動",
+          "label": "左へ移動"
+        },
+        "tab-next": {
+          "description": "フォーカスを次の項目へ移動",
+          "label": "次へフォーカス"
         }
       },
       "lockscreen": {
@@ -1618,7 +2103,7 @@
           "label": "ポップアップ通知の最大表示数"
         },
         "monitors": {
-          "description": "通知ポップアップを表示する画面を選択します。空欄の場合はすべての画面に表示します。",
+          "description": "ポップアップ通知を表示する画面を選択します。空欄の場合はすべての画面に表示します。",
           "label": "画面"
         },
         "offset-x": {
@@ -1651,6 +2136,9 @@
         }
       },
       "panels": {
+        "borders": {
+          "description": "浮動パネルに枠線を表示"
+        },
         "control-center-sidebar": {
           "description": "側面パネルの表示方法を選択",
           "label": "サイドバー"
@@ -1666,6 +2154,9 @@
         "control-center-width": {
           "description": "コントロールセンターパネルの幅（ピクセル）。コンパクトおよびサイドバーなしモードでは、この値を基準に縮小されます",
           "label": "コントロールセンターの幅"
+        },
+        "floating-offset": {
+          "description": "浮動または分離されたパネルとバー端との間隔（ピクセル）"
         },
         "home-session-button": {
           "description": "ホームタブの見出しにセッション操作ボタンを表示",
@@ -1717,7 +2208,7 @@
         },
         "launcher-global-panels": {
           "description": "プレフィックスなしの検索にもパネルを表示",
-          "label": "グローバル検索にパネルを表示"
+          "label": "全体検索にパネルを表示"
         },
         "launcher-global-session": {
           "description": "セッション操作をプレフィックスなしの検索にも表示",
@@ -1808,7 +2299,8 @@
           "label": "バーに沿って表示"
         },
         "panel-anchor-bar": {
-          "description": "パネルを開いたときに固定するバー。空欄の場合は、パネルを開いたウィジェット、ショートカット、またはドックに従います"
+          "description": "パネルを開いたときに固定するバー。空欄の場合は、パネルを開いたウィジェット、ショートカット、またはドックに従います",
+          "label": "固定先のバー"
         },
         "placement-clipboard": {
           "description": "クリップボードをバーに固定するか、画面上の指定位置に浮かせて表示するかを選択",
@@ -1845,6 +2337,9 @@
           "description": "ランチャーを画面上に浮かせる位置。「バーに追従」ではバーの近くに表示",
           "label": "表示位置"
         },
+        "position-polkit": {
+          "description": "polkitの認証画面を画面上に浮かせる位置。「バーに追従」ではバーの近くに表示"
+        },
         "position-session": {
           "description": "セッションパネルを画面上に浮かせる位置。「バーに追従」ではバーの近くに表示",
           "label": "表示位置"
@@ -1852,6 +2347,12 @@
         "position-wallpaper": {
           "description": "壁紙選択画面を画面上に浮かせる位置。「バーに追従」ではバーの近くに表示",
           "label": "位置"
+        },
+        "shadow": {
+          "description": "パネルから全体のサーフェスシャドウを表示"
+        },
+        "transparency-mode": {
+          "description": "浮動パネルの不透明度やカードの半透明を含む、パネルのガラス風表示"
         }
       },
       "power": {
@@ -1943,11 +2444,18 @@
           "description": "座標から計算せず、日の出と日の入りの時刻を手動で指定します",
           "label": "手動スケジュール"
         },
+        "day-temperature": {
+          "description": "昼間の色温度（ケルビン）"
+        },
         "ddcutil": {
-          "description": "DDC/CIを使用して外部画面の明るさを調整"
+          "description": "DDC/CIを使用して外部画面の明るさを調整",
+          "requires-ddcutil": "DDC/CIによる明るさ調整を有効にするにはddcutilをインストールしてください"
         },
         "force-night-light": {
           "description": "時刻に関係なく、常に夜間照明を適用します"
+        },
+        "latitude": {
+          "description": "自動位置検出と住所指定が無効な場合に、日の出・日の入りスケジュールで使用する緯度を手動指定"
         },
         "location-address": {
           "description": "自動検出が無効な場合に使用する都市名または住所",
@@ -1958,16 +2466,36 @@
           "description": "noctalia.devを利用してIPアドレスから現在地を自動検出",
           "label": "現在地を自動検出（IP）"
         },
+        "longitude": {
+          "description": "自動位置検出と住所指定が無効な場合に、日の出・日の入りスケジュールで使用する経度を手動指定"
+        },
         "mpris-blacklist": {
           "description": "メディア操作と「再生中」で除外するプレーヤー"
         },
+        "night-light": {
+          "description": "夜間に画面の色を暖色寄りに変更",
+          "requires-gamma-control": "コンポジターはガンマ調整に対応していません"
+        },
+        "night-temperature": {
+          "description": "夜間の色温度（ケルビン）"
+        },
         "notification-sound": {
-          "description": "通知音に使用する音声ファイル"
+          "description": "通知音に使用する音声ファイル",
+          "label": "通知音",
+          "placeholder": "/path/to/sound.wav"
+        },
+        "shell-sounds": {
+          "description": "シェルのイベントで効果音を再生",
+          "label": "シェル効果音"
         },
         "sound-theme": {
           "default": "既定",
           "description": "シェルの効果音に使用するサウンドテーマ",
           "label": "サウンドテーマ"
+        },
+        "sound-volume": {
+          "description": "シェル効果音の音量",
+          "label": "効果音の音量"
         },
         "sunrise": {
           "description": "位置情報未設定時に使用する日の出時刻（HH:MM形式）"
@@ -1981,12 +2509,12 @@
         },
         "system-monitor": {
           "cpu-poll": {
-            "description": "CPU使用率、CPU温度、負荷平均を取得する間隔（秒、0 で無効）",
+            "description": "CPU使用率、CPU温度、負荷平均を取得する間隔（秒、0で無効）",
             "label": "CPU監視間隔"
           },
           "description": "CPU、メモリ、ネットワーク、負荷、温度、ディスクの統計情報を取得",
           "disk-poll": {
-            "description": "ディスク使用量とスワップ使用量を取得する間隔（秒、0 で無効）",
+            "description": "ディスク使用量とスワップ使用量を取得する間隔（秒、0で無効）",
             "label": "ディスク監視間隔"
           },
           "gpu-poll": {
@@ -1995,7 +2523,7 @@
           },
           "label": "システム監視",
           "memory-poll": {
-            "description": "メモリ使用量を取得する間隔（秒、0 で無効）",
+            "description": "メモリ使用量を取得する間隔（秒、0で無効）",
             "label": "メモリ監視間隔"
           },
           "network-poll": {
@@ -2025,7 +2553,9 @@
           }
         },
         "volume-change-sound": {
-          "description": "音量変更時の通知音に使用する音声ファイル"
+          "description": "音量変更時の通知音に使用する音声ファイル",
+          "label": "音量変更時の効果音",
+          "placeholder": "/path/to/sound.wav"
         },
         "weather": {
           "description": "open-meteo.comを通じて天気予報サービスを有効にします",
@@ -2042,6 +2572,23 @@
         "weather-unit": {
           "description": "気象表示の単位",
           "label": "単位"
+        }
+      },
+      "shared": {
+        "corner-bottom-left": {
+          "label": "左下の角丸半径"
+        },
+        "corner-radius": {
+          "label": "角丸半径"
+        },
+        "corner-top-left": {
+          "label": "左上の角丸半径"
+        },
+        "ends-margin": {
+          "label": "両端の余白"
+        },
+        "reserve-space": {
+          "label": "予約領域"
         }
       },
       "shell": {
@@ -2082,11 +2629,17 @@
           "description-unavailable": "利用可能なSecret Serviceプロバイダーがありません。クリップボード履歴はこのセッション中のみ利用できます",
           "label": "クリップボード履歴の保存先"
         },
+        "date-format": {
+          "description": "個別設定のないシェルUIで使用する既定の日付形式"
+        },
         "external-ip": {
           "description": "接続のパブリックWAN IPアドレスを（api.noctalia.dev経由で）取得し、コントロールセンターのネットワークタブに表示します"
         },
         "greeter-sync-auto": {
           "description": "壁紙、配色、テーマモード、またはシェルフォントの変更時に、グリーターを自動同期します。認証は引き続きシステムの方針に従います。この設定でパスワードなしの同期が有効になることはありません。"
+        },
+        "greeter-sync-privilege-command": {
+          "description": "グリーターの「今すぐ同期」で使用する権限昇格コマンドを上書きします。レガシーモード（旧ヘルパーまたはカスタムのグリーター状態ディレクトリ）では、別の管理者権限昇格ツールも使用できます。制限付き同期では--syncが追加され、指定したプレフィックスが最終的にpkexecを起動する必要があります（例：ghostty -e pkexec）"
         },
         "launch-apps-as-systemd-services": {
           "description": "アプリを個別のsystemdサービスとして起動し、Noctaliaのcgroupを共有しないようにします。",
@@ -2228,12 +2781,42 @@
         "screenshot-annotate": {
           "description": "スクリーンショットを撮るたびに注釈エディターを開きます。「完了」を押すと、保存、クリップボード、パイプの設定が適用されます"
         },
+        "screenshot-close-on-copy": {
+          "description": "エディターからのコピーに成功したら閉じる。エディターを直接開いた場合も対象"
+        },
+        "screenshot-close-on-save": {
+          "description": "エディターからの保存に成功したら閉じる。エディターを直接開いた場合も対象"
+        },
+        "screenshot-confirm-region": {
+          "description": "範囲を描画した後、EnterまたはSpaceで確定するまでオーバーレイを開いたままにする"
+        },
         "screenshot-copy-to-clipboard": {
           "description": "撮影したPNGをクリップボードにコピー",
           "label": "クリップボードにコピー"
         },
+        "screenshot-directory": {
+          "description": "保存するPNGファイルのフォルダー。空欄の場合は標準のXDG画像フォルダーを使用",
+          "label": "出力先フォルダー"
+        },
         "screenshot-filename-pattern": {
-          "description": "拡張子を除いたstrftime形式（.pngは自動的に追加されます）。UNIX時刻には%sを使用してください。"
+          "description": "拡張子を除いたstrftime形式（.pngは自動的に追加されます）。UNIX時刻には%sを使用してください。",
+          "label": "ファイル名のパターン"
+        },
+        "screenshot-freeze-screen": {
+          "description": "範囲選択前にデスクトップを撮影し、動いている内容を静止させる"
+        },
+        "screenshot-pipe-command": {
+          "description": "PNGを標準入力で渡し、/bin/sh -lcとして実行するコマンド。注釈ツールやアップロードツールに使用します（例：swappy -f -、satty -f -）"
+        },
+        "screenshot-remember-last-region": {
+          "description": "次回の範囲スクリーンショットで、前回の範囲をあらかじめ選択（キャンセルした場合も含む）"
+        },
+        "screenshot-save-to-file": {
+          "description": "スクリーンショットをPNGファイルとして出力先フォルダーに保存",
+          "label": "ファイルに保存"
+        },
+        "screenshot-show-cursor": {
+          "description": "スクリーンショットにマウスポインターを含める"
         },
         "show-location": {
           "description": "天気予報に地名を表示する",
@@ -2294,13 +2877,20 @@
       },
       "templates": {
         "builtin-ids": {
-          "description": "テーマ変更ごとに反映する内蔵アプリ用テンプレートを切り替えます"
+          "description": "テーマ変更ごとに反映する内蔵アプリ用テンプレートを切り替えます",
+          "empty": "利用可能な内蔵テンプレートはありません。",
+          "label": "内蔵テンプレート"
         },
         "community-ids": {
-          "description": "テーマ変更時に適用するコミュニティテンプレートを参照して有効化します"
+          "description": "テーマ変更時に適用するコミュニティテンプレートを参照して有効化します",
+          "empty": "利用可能なコミュニティテンプレートはまだありません。先にコミュニティテンプレートを有効にして、カタログを更新してください。"
         },
         "enable-builtins": {
-          "description": "アプリ用テーマテンプレートの同梱カタログを使用します"
+          "description": "アプリ用テーマテンプレートの同梱カタログを使用します",
+          "label": "内蔵テンプレートを有効化"
+        },
+        "enable-community-templates": {
+          "description": "コミュニティカタログからテンプレートをダウンロードして適用"
         }
       },
       "wallpaper": {
@@ -2408,11 +2998,37 @@
       "variant-label": "ボタンのスタイル"
     },
     "storage-recovery": {
-      "description": "保存済みのクリップボード履歴とカレンダー予定のキャッシュを完全に削除し、非公開保存領域を再度開きます（設定済みの鍵ファイルは変更されません）"
+      "description": "保存済みのクリップボード履歴とカレンダー予定のキャッシュを完全に削除し、非公開保存領域を再度開きます（設定済みの鍵ファイルは変更されません）",
+      "error-delete": "一部の非公開保存領域のファイルを削除できませんでした。保存用の鍵は保持されています。",
+      "error-key": "非公開保存領域のファイルは削除されましたが、安全な保存領域を再度開けませんでした。アクセス権を修正して、もう一度お試しください。"
     },
     "widgets": {
       "actions": {
         "commands": {
+          "bar-auto-hide-set": {
+            "description": "バーの自動非表示状態を設定",
+            "label": "バーの自動非表示を設定"
+          },
+          "bar-hide": {
+            "description": "1つまたはすべてのバーを非表示にし、確保していた配置領域を解放",
+            "label": "バーを非表示"
+          },
+          "bar-layer-set": {
+            "description": "1つまたはすべてのバーのレイヤーを設定",
+            "label": "バーのレイヤーを設定"
+          },
+          "bar-reserve-toggle": {
+            "description": "1つまたはすべてのバーの予約領域を切替",
+            "label": "バーの予約領域を切替"
+          },
+          "bar-show": {
+            "description": "1つまたはすべてのバーを表示",
+            "label": "バーを表示"
+          },
+          "bar-toggle": {
+            "description": "1つまたはすべてのバーの表示・非表示を切替",
+            "label": "バーの表示・非表示を切替"
+          },
           "bluetooth-disable": {
             "description": "Bluetoothを無効化",
             "label": "Bluetoothを無効化"
@@ -2430,7 +3046,8 @@
             "label": "Bluetoothのオン・オフを切替"
           },
           "brightness-down": {
-            "description": "明るさを下げる（既定では現在の画面）"
+            "description": "明るさを下げる（既定では現在の画面）",
+            "label": "明るさを下げる"
           },
           "brightness-osd": {
             "description": "明るさを変更せずに明るさOSDを表示",
@@ -2459,6 +3076,9 @@
           },
           "color-scheme-set": {
             "description": "settings.tomlで配色の取得元と選択内容を設定（builtin名、wallpaper生成方式、community ID、またはcustom配色フォルダー名）"
+          },
+          "config-reload": {
+            "description": "設定ファイルを再読み込み"
           },
           "desktop-widgets-edit": {
             "description": "デスクトップウィジェット編集を開く",
@@ -2511,9 +3131,16 @@
           "greeter-sync": {
             "description": "壁紙、配色、画面配置をNoctalia Greeterに同期"
           },
+          "keyboard-backlight-down": {
+            "description": "すべてのキーボードバックライトを1段階暗くする",
+            "label": "キーボードバックライトを暗くする"
+          },
           "keyboard-backlight-osd": {
             "description": "明るさを変更せずにキーボードバックライトOSDを表示",
             "label": "キーボードバックライトOSDを表示"
+          },
+          "keyboard-layout-cycle": {
+            "description": "次のキーボード配列に切替"
           },
           "lockscreen-widgets-edit": {
             "description": "ロック画面ウィジェット編集を開く",
@@ -2531,6 +3158,10 @@
             "description": "再生中のメディアを操作",
             "label": "メディア操作"
           },
+          "mic-volume-down": {
+            "description": "マイク音量を下げる",
+            "label": "マイク音量を下げる"
+          },
           "mic-volume-osd": {
             "description": "音量を変更せずにマイク音量OSDを表示（既定では現在の音量）",
             "label": "マイクOSDを表示"
@@ -2542,6 +3173,18 @@
           "notification-clear-active": {
             "description": "現在表示中の通知をすべて閉じる",
             "label": "表示中の通知を閉じる"
+          },
+          "notification-dnd-set": {
+            "description": "通知のおやすみモード状態を設定",
+            "label": "おやすみモードを設定"
+          },
+          "notification-dnd-status": {
+            "description": "通知のおやすみモード状態を出力",
+            "label": "おやすみモードの状態"
+          },
+          "notification-dnd-toggle": {
+            "description": "通知のおやすみモード状態を切替",
+            "label": "おやすみモードを切替"
           },
           "osd-disable": {
             "description": "OSDポップアップを無効化",
@@ -2573,12 +3216,22 @@
             "description": "UPowerの電源プロファイルを設定します（例：パフォーマンス、バランス、省電力）",
             "label": "電源プロファイルを設定"
           },
+          "screenshot-annotate": {
+            "description": "画面を固定して注釈を付け、コピーまたは保存"
+          },
           "screenshot-fullscreen": {
             "description": "既定では現在操作中の画面を撮影し、pickで対話的に選択、allですべての画面を撮影"
           },
           "session": {
             "description": "内蔵のセッション操作を実行",
             "label": "セッション操作"
+          },
+          "settings-open-widget": {
+            "description": "バーウィジェットの設定画面を開く。ウィジェットのジェスチャーから実行した場合は、そのウィジェットを対象にします"
+          },
+          "taskbar-cycle": {
+            "description": "呼び出し元のタスクバーで、隣のタスクまたはワークスペースグループへ移動",
+            "label": "タスクバーを順番に切替"
           },
           "templates-apply": {
             "description": "現在の配色に設定済みのテーマテンプレートを適用",
@@ -2595,6 +3248,10 @@
           "theme-mode-toggle": {
             "description": "ダーク／ライト間でテーマモードを切替",
             "label": "テーマモードを切り替える"
+          },
+          "volume-down": {
+            "description": "スピーカー音量を下げる",
+            "label": "音量を下げる"
           },
           "volume-mute": {
             "description": "スピーカーの消音を切替",
@@ -2631,26 +3288,79 @@
           "workspace-switch": {
             "description": "対象画面で隣のワークスペースへ切替（両端で停止）"
           }
-        }
+        },
+        "run-command": "コマンドを実行…"
+      },
+      "gestures": {
+        "left": "左クリック",
+        "scroll-left": "左へスクロール"
       },
       "instances": {
         "network-rx": "ネットワーク下り",
-        "network-tx": "ネットワーク上り"
+        "network-tx": "ネットワーク上り",
+        "output-volume": "出力音量"
       },
       "options": {
         "cpu-temp": "CPU温度",
         "cpu-usage": "CPU使用率",
         "gpu-temp": "GPU温度",
+        "gpu-usage": "GPU使用率",
         "net-rx": "ネットワーク下り",
         "net-tx": "ネットワーク上り",
+        "output": "出力",
         "time": "時刻"
       },
       "settings": {
+        "active-color": {
+          "description": "使用中のプライバシー表示に使用する色。固定の16進数カラーコードにも対応",
+          "label": "有効時の色"
+        },
+        "active-pill-size": {
+          "description": "バー方向における現在のワークスペースピルの最小長。ピルの太さに対する倍率で指定",
+          "workspaces-description": "バー方向における現在のワークスペースピルの最小長。ピルの太さに対する倍率で指定し、ラベルは必要に応じてこれを超えて拡張されます"
+        },
         "art-size": {
           "description": "メディアアートワークの大きさ（ピクセル）"
         },
+        "capsule-border": {
+          "description": "カプセルの枠線に使用する色。固定の16進数カラーコードにも対応"
+        },
+        "capsule-fill": {
+          "description": "カプセルの背景に使用する色。固定の16進数カラーコードにも対応"
+        },
+        "capsule-foreground": {
+          "description": "カプセル内の内容に使用する色。固定の16進数カラーコードにも対応"
+        },
+        "capsule-radius": {
+          "taskbar-description": "ウィジェットのカプセル、ワークスペースの円形インジケーター、ワークスペースグループのカプセルに使用する角丸半径。空欄では自動的にピル形状になり、0では角が直角になります"
+        },
+        "centered": {
+          "description": "ビジュアライザーのバーを端に揃えず中央に配置"
+        },
+        "color": {
+          "description": "このウィジェットのアイコンとラベルに使用する色。固定の16進数カラーコードにも対応",
+          "label": "色"
+        },
+        "color-1": {
+          "description": "ビジュアライザーのグラデーションの1色目",
+          "label": "色1"
+        },
+        "color-2": {
+          "description": "ビジュアライザーのグラデーションの2色目",
+          "label": "色2"
+        },
+        "custom-image-colorize": {
+          "description": "カスタム画像をウィジェットのアイコン色で着色",
+          "label": "カスタム画像を着色"
+        },
+        "detached-panel": {
+          "description": "ドロワーをバー端に固定せず、浮動パネルとして開く"
+        },
         "device": {
           "description": "監視・操作対象のデバイス"
+        },
+        "display": {
+          "active-window-description": "横向きのバーではアイコン、タイトル、または両方を表示。縦向きのバーではアイコンのみ表示"
         },
         "drawer": {
           "description": "バーにトレイボタンを表示し、項目をパネルで開きます"
@@ -2661,17 +3371,37 @@
         "drawer-item-size": {
           "description": "ドロワーパネル内のトレイアイコンのサイズ（ピクセル）"
         },
+        "empty-color": {
+          "description": "空のワークスペースに使用する色。固定の16進数カラーコードにも対応",
+          "label": "空きワークスペースの色"
+        },
+        "focused-color": {
+          "description": "フォーカス中のワークスペースに使用する色。固定の16進数カラーコードにも対応",
+          "label": "フォーカス中の色"
+        },
         "focused-output-only": {
           "description": "フォーカス中の画面のみワークスペースを強調表示",
           "label": "フォーカス中の画面のみ強調",
           "taskbar-description": "キーボードまたはポインターがフォーカスしている画面では、現在のワークスペースにフォーカス色を使用し、その他の画面では使用中の色を使用",
           "workspaces-description": "キーボードまたはポインターのフォーカスがある画面でのみ現在のワークスペースを強調表示し、その他の画面では使用中として表示"
         },
+        "font-family": {
+          "description": "このウィジェットに使用するフォント。空欄の場合はバーのフォントを継承"
+        },
+        "font-weight": {
+          "description": "既定ではバーの文字の太さを継承"
+        },
         "format": {
           "description": "時刻形式の文字列"
         },
+        "group-by-workspace": {
+          "description": "コンポジターから情報を取得できる場合、タスクバーアイコンをワークスペースごとのカプセルにまとめる"
+        },
         "hidden": {
           "description": "非表示にするトレイアイテムのID"
+        },
+        "hide-empty-workspaces": {
+          "description": "ワークスペースごとにグループ化する場合、実行中のウィンドウがないカプセルをタスクバー一覧から除外"
         },
         "hide-passive": {
           "description": "ステータスがPassiveのトレイ項目を非表示"
@@ -2695,14 +3425,44 @@
         "hide-when-plugged": {
           "description": "電源接続中は電池ウィジェットを非表示にする"
         },
+        "highlight-color": {
+          "description": "危険しきい値以上のときに使用する色",
+          "label": "強調色"
+        },
+        "icon-color": {
+          "description": "アイコンにのみウィジェットとは別の色を使用。固定の16進数カラーコードにも対応",
+          "label": "アイコンの色"
+        },
+        "icon-scale": {
+          "description": "タスクバーのアプリアイコンを既定の大きさに対して拡大・縮小する倍率"
+        },
+        "inactive-color": {
+          "description": "非アクティブなプライバシー表示に使用する色。固定の16進数カラーコードにも対応",
+          "label": "非アクティブ色"
+        },
+        "inactive-pill-size": {
+          "description": "バー方向における非アクティブなワークスペースピルの最小長。ピルの太さに対する倍率で指定",
+          "workspaces-description": "バー方向における非アクティブなワークスペースピルの最小長。ピルの太さに対する倍率で指定し、ラベルは必要に応じてこれを超えて拡張されます"
+        },
         "interface": {
           "description": "監視するネットワークインターフェースです。空欄にすると、すべてのインターフェースの合計を使用します。"
+        },
+        "item-spacing": {
+          "description": "ワークスペースのグループ化が無効な場合のタスクバー項目間の間隔"
         },
         "label-content": {
           "description": "電池表示に表示する内容：充電率、残り時間、または消費電力"
         },
         "match-adjacent-spacing": {
-          "description": "トレイアイコン間の間隔を広げ、隣接するバーウィジェットと揃えます（カプセルのパディングを含みます）"
+          "description": "トレイアイコン間の間隔を広げ、隣接するバーウィジェットと揃えます（カプセルのパディングを含みます）",
+          "label": "隣接ウィジェットの間隔に合わせる"
+        },
+        "minimal": {
+          "taskbar-description": "色付きの円形背景を使わず、文字だけのワークスペースラベルを表示"
+        },
+        "mute-color": {
+          "description": "ミュート時のアイコンとラベルに使用する色。固定の16進数カラーコードにも対応",
+          "label": "ミュート色"
         },
         "mute-glyph": {
           "description": "消音時または音量0%時に使用するアイコン文字。空欄の場合は内蔵の消音アイコンを使用"
@@ -2712,15 +3472,30 @@
           "label": "コンパクトなネットワーク速度"
         },
         "network-speed-unit": {
-          "description": "ネットワークの下り・上り速度に使用する単位。自動ではB/s、kB/s、MB/s、GB/s を切り替えます",
+          "description": "ネットワークの下り・上り速度に使用する単位。自動ではB/s、kB/s、MB/s、GB/sを切り替えます",
           "label": "ネットワーク速度の単位"
         },
+        "occupied-color": {
+          "description": "使用中のワークスペースに使用する色。固定の16進数カラーコードにも対応",
+          "label": "使用中ワークスペースの色"
+        },
         "pinned": {
-          "description": "ドロワーモード有効時もバーに表示するトレイ項目のID"
+          "description": "ドロワーモード有効時もバーに表示するトレイ項目のID",
+          "taskbar-description": "実行していないときもタスクバーに残すアプリ。「ワークスペースごとにグループ化」が有効な場合は無視されます",
+          "taskbar-label": "ピン留めしたアプリ"
+        },
+        "reversed": {
+          "description": "バーの周波数順（低→高）を反転"
+        },
+        "scale": {
+          "description": "バーの内容倍率を基準にこのウィジェットを拡大・縮小"
         },
         "scope": {
           "description": "各ウィジェット配置ごとに個別のスクリプト実行環境を使用するか、同じウィジェットIDを持つ複数のバーで実行環境を共有します",
           "label": "実行環境の範囲"
+        },
+        "show-active-indicator": {
+          "description": "タスクバーでアクティブなウィンドウのアイコン下に小さな点を表示"
         },
         "show-all-outputs": {
           "description": "このウィジェットにすべての画面のウィンドウを表示",
@@ -2742,18 +3517,35 @@
         "show-when-idle": {
           "description": "メディアを再生していない場合でも、ビジュアライザーを表示したままにします"
         },
+        "show-window-title": {
+          "description": "ウィンドウタイトルをアイコンの横に表示（横向きのバーのみ）"
+        },
+        "show-workspace-label": {
+          "description": "グループ化されたタスクバーカプセルに小さなワークスペースラベルを表示。アイコンのみのグループにする場合は無効にします"
+        },
         "stat": {
           "description": "表示するシステム情報"
+        },
+        "taskbar-max-width": {
+          "description": "全体の最大幅（ピクセル）。ウィンドウタイトルは収まるように縮まり、狭すぎる場合は非表示になります",
+          "label": "タスクバーの最大幅"
+        },
+        "text": {
+          "description": "バーに表示する文字列"
         },
         "timezone": {
           "description": "この時計で使用するタイムゾーン識別子（例：Europe/Berlin）。空欄の場合はシステムの現地時刻を使用します",
           "label": "タイムゾーン"
         },
+        "vertical-format": {
+          "description": "縦向きのバーで使用する任意の書式"
+        },
         "vpn-status": {
           "description": "VPNの状態表示方法。ReplaceではネットワークアイコンをVPNシールドに置き換え、Bothでは両方を並べて表示し、HiddenではVPNインジケーターを非表示にします"
         },
         "warning-color": {
-          "description": "電池残量が警告しきい値以下のときに使用する色"
+          "description": "電池残量が警告しきい値以下のときに使用する色",
+          "label": "警告色"
         }
       },
       "types": {
@@ -2768,6 +3560,7 @@
         "power-profile": "電源プロファイル",
         "session": "セッション",
         "sysmon": "システム監視",
+        "taskbar": "タスクバー",
         "theme-mode": "テーマモード",
         "tray": "トレイ",
         "wallpaper": "壁紙",
@@ -2860,6 +3653,13 @@
       "unpin": "ピン留めを外す"
     }
   },
+  "ui": {
+    "dialogs": {
+      "color-picker": {
+        "title": "色"
+      }
+    }
+  },
   "wallpaper": {
     "panel": {
       "all-monitors": "すべて",
@@ -2878,7 +3678,7 @@
       "sort-date-desc": "日付順（新しい順）",
       "sort-name-asc": "名前順（昇順）",
       "sort-name-desc": "名前順（降順）",
-      "sort-random": "ランダム表示 / シャッフル",
+      "sort-random": "ランダム表示・シャッフル",
       "title": "壁紙",
       "unfavorite-current": "現在の壁紙をお気に入りから削除"
     }
@@ -2921,7 +3721,7 @@
     "count": "{count}個のウィンドウ",
     "count-plural": "{count}個のウィンドウ",
     "empty": "ウィンドウが開いていません",
-    "hint": "Tab · Shift+Tab · 矢印キー · Altキーを離すと切り替わります · Escキーでキャンセル",
+    "hint": "Tab・Shift+Tab・矢印キー・ショートカットの修飾キーを離して切替・Escでキャンセル",
     "title": "ウィンドウ"
   }
 }

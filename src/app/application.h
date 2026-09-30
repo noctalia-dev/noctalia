@@ -15,6 +15,7 @@
 #include "core/timer_manager.h"
 #include "dbus/network/external_ip_service.h"
 #include "dbus/notification/notification_poll_source.h"
+#include "dbus/secret/secret_collection_probe.h"
 #include "hooks/battery_hook_state.h"
 #include "hooks/hook_manager.h"
 #include "idle/idle_grace_overlay.h"
@@ -208,8 +209,7 @@ private:
   // actually unlocked, so a lookup that lost the startup race recovers without restarting Noctalia.
   void installSecretServiceCollectionWatch();
   void onSecretServiceCollectionChanged();
-  [[nodiscard]] bool defaultSecretCollectionUnlocked();
-  void retrySecretServiceConsumers();
+  void retrySecretServiceConsumers(bool defaultCollectionUnlocked = false);
   void scheduleNotificationShellRefresh();
   void syncPolkitAgent();
   [[nodiscard]] bool likelySupportsInSessionPolkit() const noexcept;
@@ -312,6 +312,7 @@ private:
   std::unique_ptr<sdbus::IProxy> m_secretServiceNameWatchProxy;
   bool m_secretServiceNameWatchInstalled = false;
   std::unique_ptr<sdbus::IProxy> m_secretServiceCollectionWatchProxy;
+  std::unique_ptr<SecretCollectionProbe> m_secretServiceCollectionProbe;
   bool m_secretServiceCollectionWatchInstalled = false;
   bool m_secretServiceOwned = false;
   bool m_storageKeyAutoRetried = false;

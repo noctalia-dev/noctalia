@@ -90,6 +90,10 @@ void WaylandSeat::setKeyboardFocusCallback(KeyboardFocusCallback callback) {
   m_keyboardFocusCallback = std::move(callback);
 }
 
+void WaylandSeat::setKeyboardModifiersCallback(KeyboardModifiersCallback callback) {
+  m_keyboardModifiersCallback = std::move(callback);
+}
+
 void WaylandSeat::setLockKeysChangeCallback(LockKeysChangeCallback callback) {
   m_lockKeysChangeCallback = std::move(callback);
 }
@@ -757,7 +761,8 @@ void WaylandSeat::handleKeyboardKey(
   // cancel it via stopKeyRepeat() if the key press causes a state transition
   // (e.g. lockscreen unlock) that makes the held key irrelevant.
   if (pressed && self->m_repeatRate > 0) {
-    self->m_repeatKey = KeyboardEvent{.sym = sym, .utf32 = utf32, .key = key, .modifiers = mods, .pressed = true};
+    self->m_repeatKey =
+        KeyboardEvent{.sym = sym, .utf32 = utf32, .key = key, .modifiers = mods, .pressed = true, .repeat = true};
     self->m_repeatActive = true;
     self->m_repeatInDelay = true;
     self->m_repeatNextFire = SteadyClock::now() + std::chrono::milliseconds(self->m_repeatDelayMs);
@@ -784,6 +789,9 @@ void WaylandSeat::handleKeyboardModifiers(
   auto* self = static_cast<WaylandSeat*>(data);
   if (self->m_xkbState != nullptr) {
     xkb_state_update_mask(self->m_xkbState, modsDepressed, modsLatched, modsLocked, 0, 0, group);
+    if (self->m_keyboardModifiersCallback) {
+      self->m_keyboardModifiersCallback(self->keyboardModifiers());
+    }
   }
   if (self->m_lockKeysChangeCallback) {
     const LockKeysState current = self->lockKeysState();

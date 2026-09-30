@@ -87,7 +87,8 @@
       },
       "brightness": {
         "brightness": "Brillo",
-        "display": "Pantalla"
+        "display": "Pantalla",
+        "unavailable": "Control de brillo no disponible"
       },
       "lock-keys": {
         "caps": "Mayús",
@@ -307,7 +308,6 @@
       "uptime": "Tiempo de actividad – {uptime}",
       "weather": {
         "data-unavailable": "Datos meteorológicos no disponibles.",
-        "disabled": "Clima deshabilitado en la configuración.",
         "fetching": "Cargando pronóstico…"
       }
     },
@@ -843,6 +843,8 @@
       "calendar": "Calendario",
       "calendar-credential-locked-body": "Desbloquea el keyring utilizado por el Servicio Secreto y, a continuación, vuelve a intentarlo en la configuración. En GNOME Keyring, establece como predeterminado un llavero que se desbloquee automáticamente, como el de «Inicio de sesión» (Login).",
       "calendar-credential-locked-title": "El keyring del calendario está bloqueado",
+      "calendar-digest-more": "+{count} más",
+      "calendar-digest-title": "Todo el día de hoy",
       "calendar-google-connect-browser-failed": "No se pudo iniciar ningún navegador para la autorización de Google. Compruebe su navegador predeterminado o la configuración de xdg-open.",
       "calendar-google-connect-credential-store-failed": "Autorización completada, pero el nuevo token no se puede guardar. Desbloquea o inicia el Almacén de Credenciales, y luego conecta de nuevo.",
       "calendar-google-connect-expired": "La autorización de Google caducó antes de que finalizara el inicio de sesión. Vuelva a iniciar la conexión.",
@@ -853,6 +855,13 @@
       "calendar-google-connect-start-failed": "No se pudo iniciar la autorización de Google. Comprueba tu conexión a internet e inténtalo de nuevo.",
       "calendar-google-connect-start-http": "No se pudo iniciar la autorización de Google. El intermediario de OAuth devolvió HTTP {status}.",
       "calendar-google-connect-timeout": "La autorización de Google expiró. Inicie la conexión nuevamente cuando esté listo para iniciar sesión.",
+      "calendar-reminder-catchup-body": "{count} Los eventos comenzaran pronto.",
+      "calendar-reminder-catchup-title": "Más eventos próximos",
+      "calendar-reminder-in": "Comienza en {minutes} min · {time}",
+      "calendar-reminder-now": "Comienza ahora · {time}",
+      "calendar-reminder-open": "Abrir",
+      "calendar-reminder-untitled": "Evento sin título",
+      "calendar-reminder-with-location": "{when}\n{location}",
       "config-migration-body": "Actualiza {path} en el archivo de origen. Noctalia está aplicando este reemplazo solo temporalmente. Ejecuta noctalia config validate para listar todos los cambios necesarios.",
       "config-migration-title": "Se necesita actualizar configuración",
       "dbus-disabled": "Notificaciones DBus deshabilitada",
@@ -1295,6 +1304,8 @@
         "borders": "Bordes",
         "brightness": "Brillo",
         "built-in": "Integrado",
+        "calendar-accounts": "Cuentas",
+        "calendar-reminders": "Recordatorios",
         "capsules": "Cápsulas",
         "clipboard": "Portapapeles",
         "community": "Comunidad",
@@ -1365,6 +1376,7 @@
         "appearance": "Apariencia",
         "backdrop": "Fondo",
         "bar": "Barra",
+        "calendar": "Calendario",
         "control-center": "Centro de control",
         "desktop": "Escritorio",
         "dock": "Dock",
@@ -1549,6 +1561,10 @@
           "up": "Arriba",
           "up-left": "Arriba izquierda",
           "up-right": "Arriba derecha"
+        },
+        "window-switcher-style": {
+          "carousel": "Carousel",
+          "compact": "Compacto "
         }
       },
       "theme": {
@@ -2711,6 +2727,10 @@
           "description-unavailable": "No hay ningún proveedor del Servicio Secreto disponible en esta sesión",
           "label": "Almacenamiento de las credenciales del Calendario"
         },
+        "calendar-digest-time": {
+          "description": "Hora para mostrar una única notificación con todos los eventos de todo el día. Déjalo vacío para desactivar.",
+          "label": "Hora del resumen diario"
+        },
         "calendar-edit": {
           "button": "Editar",
           "button-reconnect": "Reconectar",
@@ -2730,6 +2750,18 @@
         "calendar-refresh-interval": {
           "description": "Con qué frecuencia sincronizar los eventos del calendario (minutos)",
           "label": "Intervalo de actualización"
+        },
+        "calendar-reminder-lead": {
+          "description": "Antelación de las notificaciones para eventos sin recordatorio propio.",
+          "label": "Recordatorio predeterminado"
+        },
+        "calendar-reminder-use-event": {
+          "description": "Respeta el recordatorio configurado en cada evento. Si está desactivado, todos los eventos usarán el tiempo de antelación predeterminado.",
+          "label": "Usar recordatorios del evento"
+        },
+        "calendar-reminders": {
+          "description": "Notificar antes de que comience un evento.",
+          "label": "Recordatorios del calendario"
         },
         "calendar-storage": {
           "button": "Reintentar",
@@ -3225,6 +3257,10 @@
           "description": "Copiar y guardar en la región superpuesta entrega inmediatamente; Enter y Espacio aún abren el editor",
           "label": "Omitir editor al copiar o guardar"
         },
+        "settings-expand-all-groups": {
+          "description": "Abrir todos los grupos de configuración expandidos en lugar de solo el primero de cada página.",
+          "label": "Expandir todos los grupos de configuración"
+        },
         "settings-window-translucent": {
           "description": "Hacer que el fondo de Configuración sea translúcido para los efectos del compositor",
           "label": "Configuración de fondo translúcido"
@@ -3250,9 +3286,33 @@
           "description": "Abre el lanzador al escribir en la vista general de Umbriel; utiliza una superficie diminuta para el foco del teclado mientras la vista general está abierta",
           "label": "Escribe para lanzar"
         },
+        "window-switcher-current-workspace-only": {
+          "description": "Mostrar solo las ventanas del espacio de trabajo activo. Desactiva esta opción para incluir las ventanas de todos los espacios de trabajo.",
+          "label": "Solo el espacio de trabajo actual"
+        },
         "window-switcher-mru": {
           "description": "Ordenar las ventanas en el selector según el uso más reciente, en lugar de por espacio de trabajo y disposición de la pantalla",
           "label": "Orden de uso más reciente"
+        },
+        "window-switcher-show-all-outputs": {
+          "description": "Mostrar ventanas de todos los monitores. Desactiva esta opción para mostrar solo las ventanas del monitor donde se encuentra el selector.",
+          "label": "Mostrar todos los monitores"
+        },
+        "window-switcher-show-app-icon": {
+          "description": "Mostrar el icono de cada aplicación sobre la vista previa de su ventana.",
+          "label": "Mostrar iconos de aplicaciones"
+        },
+        "window-switcher-show-caption": {
+          "description": "Mostrar el icono de cada aplicación sobre la vista previa de su ventana.",
+          "label": "Mostrar subtítulos"
+        },
+        "window-switcher-show-count": {
+          "description": "Mostrar la posición actual y el número total de ventanas sobre las vistas previas.",
+          "label": "Mostrar contador de ventanas"
+        },
+        "window-switcher-style": {
+          "description": "Elegir entre el carrusel flotante en profundidad o la tira compacta enmarcada.",
+          "label": "Estilo del selector de ventanas"
         }
       },
       "system": {
@@ -4462,6 +4522,10 @@
           "description": "Mostrar el texto de temperatura actual",
           "label": "Mostrar temperatura"
         },
+        "show-tooltip": {
+          "description": "Mostrar el nombre completo de un espacio de trabajo al pasar el cursor cuando su indicador no lo muestra.",
+          "label": "Mostrar nombre al pasar el cursor"
+        },
         "show-unlock-hint": {
           "description": "Mostra la tarjeta de estado encima del cuadro de inicio de sesión para obtener sugerencias de desbloqueo y avisos de autenticación; los errores y las advertencias de Bloq Mayús siguen apareciendo cuando esta opción está desactivada",
           "label": "Pista de desbloqueo"
@@ -4477,6 +4541,10 @@
         "show-when-idle": {
           "description": "Mantener el visualizador visible incluso cuando no se reproduzca ningún medio",
           "label": "Mostrar en inactividad"
+        },
+        "show-when-unavailable": {
+          "description": "Mantener visible el widget de brillo cuando este monitor no tiene controles de brillo.",
+          "label": "Mostrar cuando no está disponible"
         },
         "show-window-title": {
           "description": "Muestra el título de la ventana junto a su icono (solo en barras horizontales)",
@@ -4611,6 +4679,7 @@
       "no-results-hint": "Prueba con otro nombre o clave de configuración.",
       "offline-mode-notice": {
         "appearance": "Las descargas de paletas de la comunidad no funcionarán.",
+        "calendar": "La sincronización de la cuenta del calendario no funcionará.",
         "calendar-account": "La detección y sincronización del calendario no funcionará.",
         "disable-hint": "Desactive el modo sin conexión en la sección de Seguridad.",
         "launcher": "La obtención del tipo de cambio no funcionará.",
@@ -4761,7 +4830,9 @@
       "choose-color": "Elegir el color del fondo de pantalla",
       "close": "Cerrar panel de fondo de pantalla",
       "color-title": "Color del fondo de pantalla",
+      "favorite-add": "Añadir  a Favoritos",
       "favorite-current": "Agregar el fondo de pantalla actual a favoritos",
+      "favorite-remove": "Eliminar de Favoritos",
       "filter-placeholder": "Filtrar...",
       "flatten": "Subcarpetas",
       "loading": "Cargando fondos de pantalla...",
@@ -4811,6 +4882,8 @@
     }
   },
   "window-switcher": {
+    "count": "{count} ventana",
+    "count-plural": "{count} ventanas",
     "empty": "No hay ventanas abiertas",
     "hint": "Tab · Shift+Tab · Flechas de direcciones · Suelte Alt para cambiar · Esc para cancelar",
     "title": "Ventanas"
