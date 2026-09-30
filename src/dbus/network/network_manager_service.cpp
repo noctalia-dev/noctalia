@@ -278,10 +278,9 @@ void NetworkManagerService::detach() {
   ++m_scanGeneration;
   m_pendingLocalWirelessEnabled.reset();
 
-  const bool hadSnapshot = m_hasStateSnapshot;
   m_state = {};
   m_hasStateSnapshot = false;
-  if (hadSnapshot && m_changeCallback) {
+  if (m_changeCallback) {
     m_changeCallback(m_state, NetworkChangeOrigin::External);
   }
 }
