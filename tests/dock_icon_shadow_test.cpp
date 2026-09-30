@@ -52,7 +52,7 @@ int main() {
     }
     TEST_CHECK(std::abs(total / (density * density) - 24 * 8) < 2);
   }
-  std::fill(source.rgba.begin(), source.rgba.end(), 0);
+  std::ranges::fill(source.rgba, 0);
   const auto empty = makeIconShadow(source, 24, 1);
   for (std::size_t i = 3; i < empty.rgba.size(); i += 4) {
     TEST_CHECK(empty.rgba[i] == 0);
