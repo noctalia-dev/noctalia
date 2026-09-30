@@ -334,19 +334,25 @@ namespace security {
                                     ) -> std::optional<SecretStoreBackendResult> {
             for (GList* node = items.get(); node != nullptr; node = node->next) {
               auto* item = SECRET_ITEM(node->data);
-              if (secret_item_get_locked(item) != 0) {
-                lockedItemFound = true;
-                continue;
-              }
 
+              // Treat GetSecret as authoritative: the item proxy's cached Locked property may be stale.
               GError* rawError = nullptr;
               if (secret_item_load_secret_sync(item, cancellable, &rawError) == 0) {
                 ErrorPtr error(rawError, &g_error_free);
-                return error != nullptr ? resultFromError(error.get())
-                                        : SecretStoreBackendResult{
-                                              .status = SecretStoreStatus::BackendError,
-                                              .errorCategory = SecretStoreErrorCategory::Protocol,
-                                          };
+                if (error == nullptr) {
+                  return SecretStoreBackendResult{
+                      .status = SecretStoreStatus::BackendError,
+                      .errorCategory = SecretStoreErrorCategory::Protocol,
+                  };
+                }
+                SecretStoreBackendResult errorResult = resultFromError(error.get());
+                if (errorResult.status == SecretStoreStatus::DeniedOrLocked
+                    && errorResult.errorCategory == SecretStoreErrorCategory::Locked) {
+                  // A genuinely locked item does not rule out a readable match further down the list.
+                  lockedItemFound = true;
+                  continue;
+                }
+                return errorResult;
               }
               SecretValue* value = secret_item_get_secret(item);
               if (value == nullptr) {
