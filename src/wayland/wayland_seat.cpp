@@ -1,5 +1,6 @@
 #include "wayland/wayland_seat.h"
 
+#include "compositors/compositor_detect.h"
 #include "core/input/shortcut_keysym.h"
 #include "core/log.h"
 #include "cursor-shape-v1-client-protocol.h"
@@ -388,11 +389,13 @@ void WaylandSeat::handlePointerAxisDiscrete(
   if (axis >= self->m_pendingAxisDetents.size()) {
     return;
   }
-  AxisDetent& detent = self->m_pendingAxisDetents[axis];
-  detent.valid = true;
-  detent.discrete = discrete;
-  if (detent.lines == 0.0F) {
-    detent.lines = static_cast<float>(discrete);
+  if (!compositors::isNiri()) {
+    AxisDetent& detent = self->m_pendingAxisDetents[axis];
+    detent.valid = true;
+    detent.discrete = discrete;
+    if (detent.lines == 0.0F) {
+      detent.lines = static_cast<float>(discrete);
+    }
   }
 }
 
