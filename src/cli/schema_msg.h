@@ -190,6 +190,18 @@ namespace noctalia::cli {
   inline constexpr std::array kMsgScreenshotFullscreenPositionals{
       Positional{"mode", {}, kMsgScreenshotFullscreenModeChoices, false, false, false},
   };
+  inline constexpr std::array kMsgOutputPathFlags{
+      Flag{
+          "--path",
+          {},
+          "<file>",
+          "Write the output to this file instead of the configured filename",
+          {},
+          {},
+          false,
+          false
+      },
+  };
   inline constexpr std::array kMsgSessionPositionals{
       Positional{"action", {}, kMsgSessionActionChoices, true, false, false},
   };
@@ -264,7 +276,7 @@ namespace noctalia::cli {
         "background",
         {},
         {},
-        {},
+        kMsgOutputPathFlags,
         kMsgAnnotatePositionals,
         {},
         false
@@ -630,20 +642,27 @@ namespace noctalia::cli {
         {},          false
     };
     inline constexpr Command screenshotAnnotate{
-        "screenshot-annotate", "Freeze the screen and annotate it, then copy or save", {}, {}, {}, {}, {}, false
+        "screenshot-annotate",
+        "Freeze the screen and annotate it, then copy or save",
+        {},
+        {},
+        kMsgOutputPathFlags,
+        {},
+        {},
+        false
     };
     inline constexpr Command screenshotFullscreen{
         "screenshot-fullscreen",
         "Capture the focused monitor by default, pick interactively with pick, or all outputs with all",
         {},
         {},
-        {},
+        kMsgOutputPathFlags,
         kMsgScreenshotFullscreenPositionals,
         {},
         false
     };
     inline constexpr Command screenshotRegion{
-        "screenshot-region", "Start an interactive region screenshot", {}, {}, {}, {}, {}, false
+        "screenshot-region", "Start an interactive region screenshot", {}, {}, kMsgOutputPathFlags, {}, {}, false
     };
     inline constexpr Command session{"session", "Run a built-in session action", {}, {},
                                      {},        kMsgSessionPositionals,          {}, false};

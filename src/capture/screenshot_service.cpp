@@ -147,6 +147,40 @@ namespace {
     return options.saveToFile || (options.pipeToCommand && !options.pipeCommand.empty());
   }
 
+  // Apply recognised output flags to options and return the positional tokens.
+  // Unknown options and a missing flag value are reported as errors.
+  [[nodiscard]] std::expected<std::vector<std::string>, std::string>
+  applyOutputArgs(ScreenshotService::OutputOptions& options, const std::vector<std::string>& tokens) {
+    std::vector<std::string> positionals;
+    for (std::size_t i = 0; i < tokens.size(); ++i) {
+      const std::string& token = tokens[i];
+      if (token == "--path") {
+        if (i + 1 >= tokens.size()) {
+          return std::unexpected("error: --path requires a value\n");
+        }
+        options.filePath = tokens[++i];
+        continue;
+      }
+      if (token.size() > 1 && token.front() == '-') {
+        return std::unexpected("error: unknown option: " + token + "\n");
+      }
+      positionals.push_back(token);
+    }
+    return positionals;
+  }
+
+  // Build OutputOptions from config and the raw IPC argument string, returning the
+  // positional tokens alongside. Parsing errors are propagated to the caller.
+  [[nodiscard]] std::expected<std::pair<ScreenshotService::OutputOptions, std::vector<std::string>>, std::string>
+  outputOptionsFromArgs(const Config& config, std::string_view args) {
+    ScreenshotService::OutputOptions options = ScreenshotService::outputOptionsFromConfig(config);
+    auto parsed = applyOutputArgs(options, StringUtils::splitWhitespace(StringUtils::trim(args)));
+    if (!parsed) {
+      return std::unexpected(std::move(parsed.error()));
+    }
+    return std::make_pair(std::move(options), std::move(*parsed));
+  }
+
   // Decoded file pixels stand in for a capture: straight RGBA, no cursor variant.
   [[nodiscard]] std::expected<capture::ScreenshotImage, std::string> loadImageForAnnotation(const std::string& path) {
     auto loaded = loadImageFile(path);
@@ -711,7 +745,7 @@ ScreenshotService::OutputOptions ScreenshotService::outputOptionsFromConfig(cons
 }
 
 void ScreenshotService::registerIpc(IpcService& ipc, const ConfigService& configService) {
-  ipc.bind(noctalia::cli::msg::screenshotRegion, [this, &configService](const std::string& /*args*/) -> std::string {
+  ipc.bind(noctalia::cli::msg::screenshotRegion, [this, &configService](const std::string& args) -> std::string {
     if (!available()) {
       return "error: screen capture is not available on this compositor\n";
     }
@@ -722,7 +756,15 @@ void ScreenshotService::registerIpc(IpcService& ipc, const ConfigService& config
     if (renderContext == nullptr) {
       return "error: render context unavailable\n";
     }
-    beginRegionCapture(*renderContext, outputOptionsFromConfig(configService.config()));
+
+    const auto parsed = outputOptionsFromArgs(configService.config(), args);
+    if (!parsed) {
+      return parsed.error();
+    }
+    if (!parsed->second.empty()) {
+      return "error: unexpected argument: " + parsed->second.front() + "\n";
+    }
+    beginRegionCapture(*renderContext, parsed->first);
     return "ok\n";
   });
 
@@ -733,8 +775,12 @@ void ScreenshotService::registerIpc(IpcService& ipc, const ConfigService& config
     if (m_annotationOverlay != nullptr && m_annotationOverlay->isActive()) {
       return "error: a screenshot overlay is already active\n";
     }
-    const std::string token = StringUtils::trim(args);
-    const auto options = outputOptionsFromConfig(configService.config());
+    auto parsed = outputOptionsFromArgs(configService.config(), args);
+    if (!parsed) {
+      return parsed.error();
+    }
+    const OutputOptions& options = parsed->first;
+    const std::string token = StringUtils::join(parsed->second, " ");
     if (token == "all" || token == "*") {
       captureAllOutputs(options);
       return "ok\n";
@@ -765,7 +811,7 @@ void ScreenshotService::registerIpc(IpcService& ipc, const ConfigService& config
     return "ok\n";
   });
 
-  ipc.bind(noctalia::cli::msg::screenshotAnnotate, [this, &configService](const std::string& /*args*/) -> std::string {
+  ipc.bind(noctalia::cli::msg::screenshotAnnotate, [this, &configService](const std::string& args) -> std::string {
     if (!available()) {
       return "error: screen capture is not available on this compositor\n";
     }
@@ -776,7 +822,14 @@ void ScreenshotService::registerIpc(IpcService& ipc, const ConfigService& config
     if (renderContext == nullptr) {
       return "error: render context unavailable\n";
     }
-    beginAnnotation(*renderContext, outputOptionsFromConfig(configService.config()), true);
+    const auto parsed = outputOptionsFromArgs(configService.config(), args);
+    if (!parsed) {
+      return parsed.error();
+    }
+    if (!parsed->second.empty()) {
+      return "error: unexpected argument: " + parsed->second.front() + "\n";
+    }
+    beginAnnotation(*renderContext, parsed->first, true);
     return "ok\n";
   });
 
@@ -790,12 +843,16 @@ void ScreenshotService::registerIpc(IpcService& ipc, const ConfigService& config
     if (renderContext == nullptr) {
       return "error: render context unavailable\n";
     }
-    const auto options = outputOptionsFromConfig(configService.config());
-    const std::string path = StringUtils::trim(args);
-    if (path.empty()) {
+    auto parsed = outputOptionsFromArgs(configService.config(), args);
+    if (!parsed) {
+      return parsed.error();
+    }
+    const OutputOptions& options = parsed->first;
+    if (parsed->second.empty()) {
       beginAnnotation(*renderContext, options, false);
       return "ok\n";
     }
+    const std::string path = StringUtils::join(parsed->second, " ");
     const std::optional<std::string_view> callerCwd =
         ipc.callerCwd().has_value() ? std::optional<std::string_view>{*ipc.callerCwd()} : std::nullopt;
     const std::string resolved = FileUtils::resolvePath(path, callerCwd).string();
@@ -1854,6 +1911,14 @@ std::filesystem::path ScreenshotService::outputDirectory(const OutputOptions& op
 std::filesystem::path
 ScreenshotService::makeScreenshotPath(const OutputOptions& options, const std::string& labelBase, int suffix) const {
   const auto dir = outputDirectory(options);
+  const std::filesystem::path filePath = FileUtils::expandUserPath(options.filePath);
+  if (!filePath.empty()) {
+    if (filePath.is_absolute()) {
+      return filePath;
+    }
+    return dir / filePath;
+  }
+
   const std::string stem = formatFilenameStem(options.filenamePattern, labelBase, suffix);
   return dir / (stem + ".png");
 }
