@@ -221,6 +221,15 @@ namespace {
       score += 20;
     } else if (name == "nouveau") {
       score += 10;
+    } else if (name == "applesmc") {
+      if (lbl.empty()) {
+        return 0;
+      }
+      if (lbl == "tcgc" || lbl.contains("gpu") || lbl.contains("graphics")) {
+        score += 20;
+      } else {
+        return -1;
+      }
     } else {
       return -1;
     }
@@ -437,7 +446,10 @@ namespace {
         continue;
       }
 
-      const std::string hwmonName = FileUtils::readSmallTextFile(hwmonEntry.path() / "name").value_or("");
+      std::string hwmonName = FileUtils::readSmallTextFile(hwmonEntry.path() / "name").value_or("");
+      if (hwmonName.empty()) {
+        hwmonName = FileUtils::readSmallTextFile(hwmonEntry.path() / "device" / "name").value_or("");
+      }
       const int nameScore = scoreGpuHwmonSensor(hwmonName, "");
       if (nameScore < 0) {
         continue;
@@ -450,38 +462,49 @@ namespace {
         continue;
       }
 
-      for (const auto& fileEntry : fs::directory_iterator{hwmonEntry.path()}) {
-        if (!fileEntry.is_regular_file()) {
+      const std::array<fs::path, 2> searchDirs{hwmonEntry.path(), hwmonEntry.path() / "device"};
+      for (const auto& searchDir : searchDirs) {
+        std::error_code dirEc;
+        if (!fs::exists(searchDir, dirEc) || !fs::is_directory(searchDir, dirEc)) {
           continue;
         }
 
-        const std::string fileName = fileEntry.path().filename().string();
-        if (!fileName.starts_with("temp") || !fileName.ends_with("_input")) {
-          continue;
-        }
+        for (const auto& fileEntry : fs::directory_iterator{searchDir, dirEc}) {
+          if (!fileEntry.is_regular_file()) {
+            continue;
+          }
 
-        const std::string base = fileName.substr(0, fileName.size() - 6);
-        const std::string label = FileUtils::readSmallTextFile(hwmonEntry.path() / (base + "_label")).value_or("");
-        const auto tempC = readTempInputCelsius(fileEntry.path());
-        if (!tempC.has_value()) {
-          continue;
-        }
+          const std::string fileName = fileEntry.path().filename().string();
+          if (!fileName.starts_with("temp") || !fileName.ends_with("_input")) {
+            continue;
+          }
 
-        const int score = scoreGpuHwmonSensor(hwmonName, label);
-        if (isNvidia) {
-          probe.foundNvidia = true;
-        }
-        if (isBetterHwmonSensor(
-                score, *tempC, bestScore,
-                probe.reading.has_value() ? std::optional<double>{probe.reading->tempC} : std::nullopt
-            )) {
-          bestScore = score;
-          probe.reading = TempSensorReading{
-              .tempC = *tempC,
-              .score = score,
-              .source = formatHwmonTempSource(hwmonName, label, fileEntry.path()),
-              .isNvidia = isNvidia
-          };
+          const std::string base = fileName.substr(0, fileName.size() - 6);
+          const std::string label = FileUtils::readSmallTextFile(searchDir / (base + "_label")).value_or("");
+          const auto tempC = readTempInputCelsius(fileEntry.path());
+          if (!tempC.has_value()) {
+            continue;
+          }
+
+          const int score = scoreGpuHwmonSensor(hwmonName, label);
+          if (score < 0) {
+            continue;
+          }
+          if (isNvidia) {
+            probe.foundNvidia = true;
+          }
+          if (isBetterHwmonSensor(
+                  score, *tempC, bestScore,
+                  probe.reading.has_value() ? std::optional<double>{probe.reading->tempC} : std::nullopt
+              )) {
+            bestScore = score;
+            probe.reading = TempSensorReading{
+                .tempC = *tempC,
+                .score = score,
+                .source = formatHwmonTempSource(hwmonName, label, fileEntry.path()),
+                .isNvidia = isNvidia
+            };
+          }
         }
       }
     }
@@ -1757,11 +1780,24 @@ SystemMonitorService::GpuTempData SystemMonitorService::readGpuTempData(NvidiaDi
     if (nvml.has_value() && (!best.has_value() || nvml->tempC > best->tempC)) {
       best = nvml;
     }
-    return GpuTempData{
-        .tempC = best.has_value() ? std::optional<double>{best->tempC} : std::nullopt,
-        .source = best.has_value() ? best->source : std::string{},
-        .detail = nvml.has_value() ? "NVML fallback available" : "NVML fallback unavailable"
-    };
+    if (best.has_value()) {
+      return GpuTempData{
+          .tempC = best->tempC,
+          .source = best->source,
+          .detail = nvml.has_value() ? "NVML fallback available" : "NVML fallback unavailable"
+      };
+    }
+  }
+
+  if (ensureIntelGpuReader().ready()) {
+    const auto cpuProbe = readCpuTempSensor(m_pollConfig);
+    if (cpuProbe.reading.has_value()) {
+      return GpuTempData{
+          .tempC = cpuProbe.reading->tempC,
+          .source = cpuProbe.reading->source,
+          .detail = "using CPU package temperature (integrated GPU die)"
+      };
+    }
   }
 
   return GpuTempData{};
