@@ -419,6 +419,7 @@ end    = ["media", "tray", "notifications", "clipboard", "network", "bluetooth",
 enabled             = false         # set true to activate
 position            = "bottom"      # top | bottom | left | right
 icon_size           = 48
+icon_shadow         = false
 main_axis_padding   = 16
 cross_axis_padding  = 8
 item_spacing        = 6

@@ -49,6 +49,7 @@ namespace shell::dock {
     float maxScrollOffset = 0.0F;
     InputDispatcher inputDispatcher;
     std::vector<shell::dock::DockItemView> items;
+    float iconRenderScale = 0.0F;
     DockSnapshot snapshot;
     bool pointerInside = false;
     float hoverPointerMain = 0.0F;

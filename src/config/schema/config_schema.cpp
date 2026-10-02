@@ -1942,6 +1942,7 @@ namespace noctalia::config::schema {
         enumField(&DockConfig::position, "position", kDockEdges),
         field(&DockConfig::activeMonitorOnly, "active_monitor_only"),
         field(&DockConfig::iconSize, "icon_size", kDockIconSizeRange),
+        field(&DockConfig::iconShadow, "icon_shadow"),
         field(&DockConfig::mainAxisPadding, "main_axis_padding", kDockPaddingRange),
         field(&DockConfig::crossAxisPadding, "cross_axis_padding", kDockPaddingRange),
         field(&DockConfig::itemSpacing, "item_spacing", kDockItemSpacingRange),
