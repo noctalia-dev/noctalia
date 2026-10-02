@@ -120,11 +120,13 @@ namespace {
     applyHoverBadgeVisual(badge, edge, iconBaseX, iconBaseY, iconSize, badgeSize, scale);
   }
 
-  void applyShellAppIconColorization(Image* image, const ShellConfig& shell) {
+  void applyShellAppIconColorization(Image* image, const ShellConfig& shell, float saturation) {
     if (image == nullptr) {
       return;
     }
-    image->setAppIconColorization(effectiveShellAppIconColorizationTint(shell));
+    const auto tint = effectiveShellAppIconColorizationTint(shell);
+    image->setAppIconColorization(tint);
+    image->setSaturation(tint.has_value() ? 1.0F : saturation);
   }
 
   [[nodiscard]] float itemRestCenterMain(float restMainPos, float cellMain) { return restMainPos + cellMain * 0.5F; }
@@ -788,7 +790,7 @@ namespace shell::dock {
       const bool isDraggedItem = dragActive && itemIndex == instance.drag.sourceIndex;
       const float iconScale = model.active ? cfg.activeScale : cfg.inactiveScale;
       const float iconOpacity = model.active ? cfg.activeOpacity : cfg.inactiveOpacity;
-      applyShellAppIconColorization(item.iconImage, shell);
+      applyShellAppIconColorization(item.iconImage, shell, cfg.iconSaturation);
       Node* iconNode =
           item.iconImage != nullptr ? static_cast<Node*>(item.iconImage) : static_cast<Node*>(item.iconGlyph);
 

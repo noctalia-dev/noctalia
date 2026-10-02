@@ -63,6 +63,7 @@ uniform vec4 u_tint;
 uniform int u_monochrome;
 uniform int u_alpha_mask;
 uniform float u_opacity;
+uniform float u_saturation;
 uniform vec2 u_size;
 uniform float u_radius;
 uniform vec4 u_border_color;
@@ -121,6 +122,10 @@ void main() {
         float coverage = u_alpha_mask != 0 ? texel.a : dot(texel.rgb, vec3(0.299, 0.587, 0.114)) * texel.a;
         fill = vec4(u_tint.rgb, coverage * u_tint.a);
     } else {
+        if (u_saturation != 1.0) {
+            float luminance = dot(texel.rgb, vec3(0.2126, 0.7152, 0.0722));
+            texel.rgb = mix(vec3(luminance), texel.rgb, u_saturation);
+        }
         fill = texel * u_tint;
     }
     if (u_scrim_enabled == 1) {
@@ -171,6 +176,7 @@ void ImageProgram::ensureInitialized() {
   m_monochromeLocation = glGetUniformLocation(m_program.id(), "u_monochrome");
   m_alphaMaskLocation = glGetUniformLocation(m_program.id(), "u_alpha_mask");
   m_opacityLocation = glGetUniformLocation(m_program.id(), "u_opacity");
+  m_saturationLocation = glGetUniformLocation(m_program.id(), "u_saturation");
   m_radiusLocation = glGetUniformLocation(m_program.id(), "u_radius");
   m_borderColorLocation = glGetUniformLocation(m_program.id(), "u_border_color");
   m_borderWidthLocation = glGetUniformLocation(m_program.id(), "u_border_width");
@@ -194,6 +200,7 @@ void ImageProgram::ensureInitialized() {
       || m_monochromeLocation < 0
       || m_alphaMaskLocation < 0
       || m_opacityLocation < 0
+      || m_saturationLocation < 0
       || m_radiusLocation < 0
       || m_borderColorLocation < 0
       || m_borderWidthLocation < 0
@@ -222,6 +229,7 @@ void ImageProgram::destroy() {
   m_monochromeLocation = -1;
   m_alphaMaskLocation = -1;
   m_opacityLocation = -1;
+  m_saturationLocation = -1;
   m_radiusLocation = -1;
   m_borderColorLocation = -1;
   m_borderWidthLocation = -1;
@@ -243,7 +251,8 @@ void ImageProgram::abandon() noexcept { m_program.abandon(); }
 void ImageProgram::draw(
     TextureId texture, float surfaceWidth, float surfaceHeight, float width, float height, const Color& tint,
     bool monochromeTint, bool alphaMaskTint, float opacity, float radius, const Color& borderColor, float borderWidth,
-    int fitMode, float textureWidth, float textureHeight, const Mat3& transform, const ImageScrim& scrim
+    int fitMode, float textureWidth, float textureHeight, const Mat3& transform, const ImageScrim& scrim,
+    float saturation
 ) const {
   if (!m_program.isValid() || texture == 0 || width <= 0.0F || height <= 0.0F) {
     return;
@@ -264,6 +273,7 @@ void ImageProgram::draw(
   glUniform1i(m_monochromeLocation, monochromeTint ? 1 : 0);
   glUniform1i(m_alphaMaskLocation, alphaMaskTint ? 1 : 0);
   glUniform1f(m_opacityLocation, opacity);
+  glUniform1f(m_saturationLocation, saturation);
   glUniform1f(m_radiusLocation, std::max(0.0F, radius));
   glUniform4f(m_borderColorLocation, borderColor.r, borderColor.g, borderColor.b, borderColor.a);
   glUniform1f(m_borderWidthLocation, std::max(0.0F, borderWidth));
