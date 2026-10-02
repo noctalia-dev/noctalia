@@ -35,6 +35,8 @@ struct DesktopEntry {
   std::string exec;
   std::string icon;
   std::string categories;
+  // Lowercased MIME/content types from the MimeType= key (including x-scheme-handler/*).
+  std::vector<std::string> mimeTypes;
   std::string keywords;
   std::string startupWmClass;
   std::string workingDir;

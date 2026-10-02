@@ -451,8 +451,20 @@ namespace settings {
   ) {
     auto& ctx = m_ctx;
     const float scale = m_scale;
+    std::string selectedIconPath;
+    for (const auto& opt : setting.options) {
+      if (opt.value == setting.selectedValue && !opt.iconPath.empty()) {
+        selectedIconPath = opt.iconPath;
+        break;
+      }
+    }
+    const std::optional<std::string> leadingIcon = selectedIconPath.empty()
+        ? std::optional<std::string>{}
+        : std::optional<std::string>{std::move(selectedIconPath)};
     return ui::button({
         .text = optionLabel(setting.options, setting.selectedValue),
+        .leadingIconPath = leadingIcon,
+        .leadingIconSize = static_cast<int>(Style::fontSizeBody * scale),
         .fontSize = Style::fontSizeBody * scale,
         .contentAlign = ButtonContentAlign::Start,
         .variant = ButtonVariant::Default,

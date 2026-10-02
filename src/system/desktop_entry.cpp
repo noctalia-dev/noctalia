@@ -375,6 +375,8 @@ namespace {
         entry.icon = std::string(value);
       } else if (key == "Categories") {
         entry.categories = std::string(value);
+      } else if (key == "MimeType") {
+        splitMultipleDesktopStrings(entry.mimeTypes, value);
       } else if (key == "Keywords") {
         entry.keywords = std::string(value);
       } else if (key == "StartupWMClass") {
@@ -436,6 +438,9 @@ namespace {
     entry.genericNameLower = StringUtils::toLower(entry.genericName);
     entry.keywordsLower = StringUtils::toLower(entry.keywords);
     entry.categoriesLower = StringUtils::toLower(entry.categories);
+    for (std::string& mime : entry.mimeTypes) {
+      mime = StringUtils::toLower(mime);
+    }
     entry.startupWmClassLower = StringUtils::toLower(entry.startupWmClass);
     entry.idLower = StringUtils::toLower(entry.id);
     entry.execLower = StringUtils::toLower(entry.exec);

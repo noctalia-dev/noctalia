@@ -336,6 +336,7 @@ namespace settings {
     case SettingsSection::Shell:
     case SettingsSection::Keybinds:
     case SettingsSection::System:
+    case SettingsSection::DefaultApps:
     case SettingsSection::Power:
     case SettingsSection::Hooks:
     case SettingsSection::Niri:
@@ -373,6 +374,7 @@ namespace settings {
     case SettingsSection::Shell:
     case SettingsSection::Keybinds:
     case SettingsSection::System:
+    case SettingsSection::DefaultApps:
     case SettingsSection::Power:
     case SettingsSection::Hooks:
     case SettingsSection::Niri:

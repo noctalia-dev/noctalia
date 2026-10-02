@@ -11,6 +11,7 @@
 #include <vector>
 
 class Glyph;
+class Image;
 class InputArea;
 class Label;
 
@@ -53,6 +54,7 @@ public:
 
   void setText(std::string_view text);
   void setGlyph(std::string_view name);
+  void setLeadingIcon(const std::string& path, int targetSize);
   void setFontSize(float size);
   void setGlyphSize(float size);
   // Pin the button to an exact height (e.g. Style::controlHeightSm) instead of the content-derived
@@ -121,9 +123,12 @@ private:
 
   Glyph* m_glyph = nullptr;
   Label* m_label = nullptr;
+  Image* m_leadingIcon = nullptr;
   Flex* m_badge = nullptr;
   Label* m_badgeLabel = nullptr;
   InputArea* m_inputArea = nullptr;
+  std::string m_leadingIconPath;
+  int m_leadingIconTargetSize = 16;
   std::uint32_t m_animId = 0;
   std::function<void()> m_onClick;
   std::function<void()> m_onRightClick;

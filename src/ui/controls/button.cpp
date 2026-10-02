@@ -5,6 +5,7 @@
 #include "render/core/renderer.h"
 #include "render/scene/input_area.h"
 #include "ui/controls/glyph.h"
+#include "ui/controls/image.h"
 #include "ui/controls/label.h"
 #include "ui/palette.h"
 #include "ui/style.h"
@@ -281,6 +282,23 @@ void Button::setGlyph(std::string_view name) {
   m_glyph->setGlyph(name);
 }
 
+void Button::setLeadingIcon(const std::string& path, int targetSize) {
+  m_leadingIconPath = path;
+  m_leadingIconTargetSize = std::max(1, targetSize);
+  if (m_leadingIcon == nullptr) {
+    auto image = std::make_unique<Image>();
+    m_leadingIcon = static_cast<Image*>(insertChildAt(0, std::move(image)));
+    if (m_label != nullptr) {
+      setDirection(FlexDirection::Horizontal);
+      setGap(Style::spaceXs);
+    }
+    applyColors(m_targetBg, m_targetBorder, m_targetLabel);
+  }
+  m_leadingIcon->setVisible(!m_leadingIconPath.empty());
+  m_leadingIcon->setFrameSize(static_cast<float>(m_leadingIconTargetSize), static_cast<float>(m_leadingIconTargetSize));
+  markLayoutDirty();
+}
+
 void Button::setFontSize(float size) {
   ensureLabel();
   m_label->setFontSize(size);
@@ -537,7 +555,7 @@ void Button::ensureLabel() {
   m_label = static_cast<Label*>(addChild(std::move(label)));
   setMinHeight(Style::controlHeight);
   setPadding(Style::spaceSm, Style::spaceMd);
-  if (m_glyph != nullptr) {
+  if (m_glyph != nullptr || m_leadingIcon != nullptr) {
     setDirection(FlexDirection::Horizontal);
     setGap(Style::spaceXs);
   }
@@ -714,11 +732,14 @@ void Button::applyLabelMaxWidth(bool honorAssignedBox) {
   const float padding = paddingLeft() + paddingRight();
   // A glyph only eats into the label's width when it sits beside it; stacked above (vertical
   // buttons such as the control-center tiles) the label owns the full inner width.
-  const bool glyphSharesRow = m_glyph != nullptr && m_glyph->visible() && direction() == FlexDirection::Horizontal;
+  const bool contentSharesRow = direction() == FlexDirection::Horizontal;
+  const bool glyphSharesRow = m_glyph != nullptr && m_glyph->visible() && contentSharesRow;
   const float glyphW = glyphSharesRow ? m_glyph->width() + gap() : 0.0F;
+  const bool leadingIconSharesRow = m_leadingIcon != nullptr && m_leadingIcon->visible() && contentSharesRow;
+  const float leadingIconW = leadingIconSharesRow ? m_leadingIcon->width() + gap() : 0.0F;
   // Ceil: Label ceils its own box, so a cap derived back out of that box can land a fraction
   // under the text it already fits and ellipsize a label that does not overflow.
-  m_label->setMaxWidth(std::ceil(std::max(0.0F, maxBtnWidth - padding - glyphW)));
+  m_label->setMaxWidth(std::ceil(std::max(0.0F, maxBtnWidth - padding - glyphW - leadingIconW)));
   // A budget without a line limit wraps instead of ellipsizing: Pango only draws the ellipsis
   // once the content exceeds an explicit line budget.
   m_label->setMaxLines(1);
@@ -733,6 +754,11 @@ void Button::doLayout(Renderer& renderer) {
   const bool glyphOnly = m_glyph != nullptr && !hasVisibleLabel;
 
   // The label's budget subtracts the glyph's measured width, so the glyph measures first.
+  // Image::setSourceFile no-ops when the path and size are unchanged, so calling it every
+  // layout keeps the icon in sync with theme or size changes without a loaded-guard flag.
+  if (m_leadingIcon != nullptr && m_leadingIcon->visible() && !m_leadingIconPath.empty()) {
+    m_leadingIcon->setSourceFile(renderer, m_leadingIconPath, m_leadingIconTargetSize, true);
+  }
   if (m_glyph != nullptr) {
     m_glyph->measure(renderer);
   }
