@@ -25,6 +25,7 @@ namespace lockscreen_login_box {
   constexpr std::string_view kLayoutRegular = "regular";
   constexpr std::string_view kShowSessionButtonsKey = "show_session_buttons";
   constexpr std::string_view kShowMediaKey = "show_media";
+  constexpr std::string_view kShowMediaControlsKey = "show_media_controls";
   constexpr std::string_view kShowWeatherKey = "show_weather";
   constexpr std::string_view kInputOpacityKey = "input_opacity";
   constexpr std::string_view kInputRadiusKey = "input_radius";
@@ -52,6 +53,7 @@ namespace lockscreen_login_box {
     bool showKeyboardLayout = true;
     bool showSessionButtons = true;
     bool showMedia = true;
+    bool showMediaControls = true;
     bool showWeather = true;
     bool showUnlockHint = true;
   };

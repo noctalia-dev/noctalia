@@ -170,6 +170,10 @@ private:
   Flex* m_mediaTextColumn = nullptr;
   Label* m_mediaTitle = nullptr;
   Label* m_mediaArtist = nullptr;
+  Flex* m_mediaControls = nullptr;
+  Button* m_mediaPrevButton = nullptr;
+  Button* m_mediaPlayPauseButton = nullptr;
+  Button* m_mediaNextButton = nullptr;
   Flex* m_weatherBlock = nullptr;
   Flex* m_weatherCurrent = nullptr;
   Glyph* m_weatherGlyph = nullptr;

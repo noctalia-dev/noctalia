@@ -22,6 +22,7 @@ namespace {
         || key == lockscreen_login_box::kLayoutKey
         || key == lockscreen_login_box::kShowSessionButtonsKey
         || key == lockscreen_login_box::kShowMediaKey
+        || key == lockscreen_login_box::kShowMediaControlsKey
         || key == lockscreen_login_box::kShowWeatherKey
         || key == lockscreen_login_box::kShowLoginButtonKey
         || key == lockscreen_login_box::kShowCapsLockKey

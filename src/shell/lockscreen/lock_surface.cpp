@@ -39,6 +39,7 @@
 #include <tuple>
 #include <utility>
 #include <wayland-client-core.h>
+#include <xkbcommon/xkbcommon-keysyms.h>
 
 namespace {
 
@@ -280,6 +281,84 @@ LockSurface::LockSurface(WaylandConnection& connection, ConfigService* config) :
           .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
           .maxLines = 1,
           .textAlign = TextAlign::Start,
+      })
+  );
+
+  m_mediaBlock->addChild(
+      ui::flex(
+          FlexDirection::Horizontal,
+          {
+              .out = &m_mediaControls,
+              .align = FlexAlign::Center,
+              .justify = FlexJustify::Start,
+              .gap = 2.0F,
+              .widthPolicy = FlexSizePolicy::Content,
+              .heightPolicy = FlexSizePolicy::Content,
+              .clipChildren = true,
+              .flexGrow = 0.0F,
+              .visible = false,
+              .configure = [](Flex& flex) { flex.setZIndex(2); },
+          }
+      )
+  );
+  m_mediaControls->addChild(
+      ui::button({
+          .out = &m_mediaPrevButton,
+          .glyph = "media-prev",
+          .glyphSize = 14.0F,
+          .variant = ButtonVariant::Ghost,
+          .minWidth = 24.0F,
+          .minHeight = 24.0F,
+          .padding = 4.0F,
+          .radius = Style::scaledRadiusSm(),
+          .onClick =
+              [this]() {
+                if (m_mpris != nullptr) {
+                  (void)m_mpris->previousActive();
+                  requestUpdate();
+                }
+              },
+          .configure = [](Button& button) { button.setZIndex(2); },
+      })
+  );
+  m_mediaControls->addChild(
+      ui::button({
+          .out = &m_mediaPlayPauseButton,
+          .glyph = "media-play",
+          .glyphSize = 14.0F,
+          .variant = ButtonVariant::Ghost,
+          .minWidth = 24.0F,
+          .minHeight = 24.0F,
+          .padding = 4.0F,
+          .radius = Style::scaledRadiusSm(),
+          .onClick =
+              [this]() {
+                if (m_mpris != nullptr) {
+                  (void)m_mpris->playPauseActive();
+                  requestUpdate();
+                }
+              },
+          .configure = [](Button& button) { button.setZIndex(2); },
+      })
+  );
+  m_mediaControls->addChild(
+      ui::button({
+          .out = &m_mediaNextButton,
+          .glyph = "media-next",
+          .glyphSize = 14.0F,
+          .variant = ButtonVariant::Ghost,
+          .minWidth = 24.0F,
+          .minHeight = 24.0F,
+          .padding = 4.0F,
+          .radius = Style::scaledRadiusSm(),
+          .onClick =
+              [this]() {
+                if (m_mpris != nullptr) {
+                  (void)m_mpris->nextActive();
+                  requestUpdate();
+                }
+              },
+          .configure = [](Button& button) { button.setZIndex(2); },
       })
   );
 
@@ -953,6 +1032,24 @@ void LockSurface::onKeyboardEvent(const KeyboardEvent& event) {
     return;
   }
 
+  if (m_locked && event.pressed && m_mpris != nullptr) {
+    if (event.sym == XKB_KEY_XF86AudioPlay || event.sym == XKB_KEY_XF86AudioPause) {
+      (void)m_mpris->playPauseActive();
+      requestUpdate();
+      return;
+    }
+    if (event.sym == XKB_KEY_XF86AudioNext) {
+      (void)m_mpris->nextActive();
+      requestUpdate();
+      return;
+    }
+    if (event.sym == XKB_KEY_XF86AudioPrev) {
+      (void)m_mpris->previousActive();
+      requestUpdate();
+      return;
+    }
+  }
+
   if (m_locked
       && event.pressed
       && m_passwordField != nullptr
@@ -1300,6 +1397,34 @@ void LockSurface::layoutScene(std::uint32_t width, std::uint32_t height) {
   if (m_mediaArtist != nullptr) {
     m_mediaArtist->setFontSize(captionSize);
   }
+
+  const float mediaButtonSize = 24.0F * contentScale;
+  const float mediaGlyphSize = 14.0F * contentScale;
+  const float mediaButtonPadding = 4.0F * contentScale;
+  const float mediaButtonRadius = Style::scaledRadiusSm(contentScale);
+
+  if (m_mediaPrevButton != nullptr) {
+    m_mediaPrevButton->setMinWidth(mediaButtonSize);
+    m_mediaPrevButton->setMinHeight(mediaButtonSize);
+    m_mediaPrevButton->setGlyphSize(mediaGlyphSize);
+    m_mediaPrevButton->setPadding(mediaButtonPadding);
+    m_mediaPrevButton->setRadius(mediaButtonRadius);
+  }
+  if (m_mediaPlayPauseButton != nullptr) {
+    m_mediaPlayPauseButton->setMinWidth(mediaButtonSize);
+    m_mediaPlayPauseButton->setMinHeight(mediaButtonSize);
+    m_mediaPlayPauseButton->setGlyphSize(mediaGlyphSize);
+    m_mediaPlayPauseButton->setPadding(mediaButtonPadding);
+    m_mediaPlayPauseButton->setRadius(mediaButtonRadius);
+  }
+  if (m_mediaNextButton != nullptr) {
+    m_mediaNextButton->setMinWidth(mediaButtonSize);
+    m_mediaNextButton->setMinHeight(mediaButtonSize);
+    m_mediaNextButton->setGlyphSize(mediaGlyphSize);
+    m_mediaNextButton->setPadding(mediaButtonPadding);
+    m_mediaNextButton->setRadius(mediaButtonRadius);
+  }
+
   if (m_mediaBlock != nullptr) {
     m_mediaBlock->setVisible(showMedia);
     m_mediaBlock->setMaxWidth(mediaBudget);
@@ -1350,7 +1475,13 @@ void LockSurface::layoutScene(std::uint32_t width, std::uint32_t height) {
     }
   }
 
-  const float mediaTextMax = std::max(48.0F, mediaBudget - mediaArtSize - Style::spaceSm);
+  const bool showControls = m_mediaControls != nullptr && m_mediaControls->visible();
+  const float controlsGap = 2.0F * contentScale;
+  if (m_mediaControls != nullptr) {
+    m_mediaControls->setGap(controlsGap);
+  }
+  const float controlsWidth = showControls ? (3.0F * mediaButtonSize + 2.0F * controlsGap + Style::spaceSm) : 0.0F;
+  const float mediaTextMax = std::max(48.0F, mediaBudget - mediaArtSize - Style::spaceSm - controlsWidth);
   if (m_mediaTitle != nullptr) {
     m_mediaTitle->setMaxWidth(mediaTextMax);
     m_mediaTitle->setEllipsize(TextEllipsize::End);
@@ -1717,6 +1848,28 @@ void LockSurface::syncRegularExtras(Renderer& renderer) {
         m_mediaFallbackGlyph->setVisible(!hasArt);
       }
     }
+
+    const bool hasActive = active.has_value();
+    const bool showControls = hasActive && style.showMediaControls;
+    if (m_mediaControls != nullptr) {
+      m_mediaControls->setVisible(showControls);
+    }
+    if (showControls) {
+      if (m_mediaPrevButton != nullptr) {
+        m_mediaPrevButton->setEnabled(active->canGoPrevious);
+      }
+      if (m_mediaNextButton != nullptr) {
+        m_mediaNextButton->setEnabled(active->canGoNext);
+      }
+      if (m_mediaPlayPauseButton != nullptr) {
+        m_mediaPlayPauseButton->setEnabled(active->canPlay || active->canPause);
+        m_mediaPlayPauseButton->setGlyph(active->playbackStatus == "Playing" ? "media-pause" : "media-play");
+      }
+    }
+  }
+
+  if (m_mediaControls != nullptr && (!extras.showMedia || !mediaReady || !style.showMediaControls)) {
+    m_mediaControls->setVisible(false);
   }
 
   if (m_weatherBlock != nullptr) {
