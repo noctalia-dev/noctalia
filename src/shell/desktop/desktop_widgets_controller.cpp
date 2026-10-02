@@ -210,7 +210,10 @@ void DesktopWidgetsController::setWallpaperMask(
     kLog.warn("output {} already has a wallpaper mask owner", outputName);
     return;
   }
-  if (m_wayland == nullptr || desktop_widgets::findOutputByKey(*m_wayland, outputName) == nullptr) {
+  const bool outputExists = m_wayland != nullptr
+      && std::ranges::any_of(m_wayland->outputs(),
+                             [&outputName](const WaylandOutput& output) { return output.connectorName == outputName; });
+  if (!outputExists) {
     kLog.warn("rejected wallpaper mask for unknown output {}", outputName);
     return;
   }
@@ -260,7 +263,9 @@ void DesktopWidgetsController::onOutputChange() {
     return;
   }
   bool placementChanged = m_placementMapper.remapForOutputChange(*m_wayland, m_snapshot.widgets);
+  const auto widgetsBeforeNormalization = m_snapshot.widgets;
   normalizeSnapshot();
+  placementChanged |= m_snapshot.widgets != widgetsBeforeNormalization;
   placementChanged |= m_placementMapper.remapForOutputChange(*m_wayland, m_snapshot.widgets);
   if (placementChanged) {
     saveSnapshotToConfig();
@@ -424,7 +429,11 @@ void DesktopWidgetsController::loadSnapshotFromConfig() {
     return;
   }
   m_snapshot = m_config->config().desktopWidgets;
+  const auto widgetsBeforeNormalization = m_snapshot.widgets;
   normalizeSnapshot();
+  if (m_snapshot.widgets != widgetsBeforeNormalization) {
+    saveSnapshotToConfig();
+  }
 }
 
 void DesktopWidgetsController::saveSnapshotToConfig() {
@@ -522,14 +531,14 @@ void DesktopWidgetsController::normalizeSnapshot() {
     if (widget.outputName.empty()) {
       const WaylandOutput* output = desktop_widgets::resolveEffectiveOutput(*m_wayland, widget.outputName);
       if (output != nullptr) {
-        widget.outputName = desktop_widgets::outputKey(*output);
+        widget.outputName = desktop_widgets::placementOutputKey(*output);
       }
       continue;
     }
 
-    if (const WaylandOutput* exact = desktop_widgets::findOutputByKey(*m_wayland, widget.outputName);
+    if (const WaylandOutput* exact = desktop_widgets::findOutputByPlacementKey(*m_wayland, widget.outputName);
         exact != nullptr) {
-      widget.outputName = desktop_widgets::outputKey(*exact);
+      widget.outputName = desktop_widgets::placementOutputKey(*exact);
     }
     // cx/cy clamping is owned by the editor (during drag) and the host (on widget creation and
     // prepareFrame). Both of those paths know the widget's actual intrinsic size; clamping here

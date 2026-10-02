@@ -1,6 +1,7 @@
 #pragma once
 
 #include "config/config_types.h"
+#include "shell/desktop/desktop_widget_output.h"
 #include "shell/desktop/widget_transform.h"
 #include "wayland/wayland_connection.h"
 
@@ -17,14 +18,7 @@ namespace desktop_widgets {
     outScaleY = state.flipY ? -1.0F : 1.0F;
   }
 
-  inline std::string outputKey(const WaylandOutput& output) {
-    if (!output.connectorName.empty()) {
-      return output.connectorName;
-    }
-    return std::to_string(output.name);
-  }
-
-  inline const WaylandOutput* findOutputByKey(const WaylandConnection& wayland, const std::string& key) {
+  inline const WaylandOutput* findOutputByPlacementKey(const WaylandConnection& wayland, const std::string& key) {
     if (key.empty()) {
       return nullptr;
     }
@@ -32,7 +26,7 @@ namespace desktop_widgets {
       if (!output.done || output.output == nullptr || !output.hasUsableGeometry()) {
         continue;
       }
-      if (outputKey(output) == key) {
+      if (outputMatchesPlacementKey(key, output)) {
         return &output;
       }
     }
@@ -50,7 +44,7 @@ namespace desktop_widgets {
       if (primary == nullptr) {
         primary = &output;
       }
-      if (!requestedOutput.empty() && outputKey(output) == requestedOutput) {
+      if (!requestedOutput.empty() && outputMatchesPlacementKey(requestedOutput, output)) {
         return &output;
       }
     }
@@ -64,7 +58,7 @@ namespace desktop_widgets {
     if (state.outputName.empty()) {
       return resolveEffectiveOutput(wayland, state.outputName);
     }
-    return findOutputByKey(wayland, state.outputName);
+    return findOutputByPlacementKey(wayland, state.outputName);
   }
 
   inline float outputLogicalWidth(const WaylandOutput& output) {

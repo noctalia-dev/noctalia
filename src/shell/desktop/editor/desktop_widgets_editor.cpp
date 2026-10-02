@@ -364,7 +364,7 @@ void DesktopWidgetsEditor::syncSurfaces() {
       return output.done
           && output.output != nullptr
           && output.hasUsableGeometry()
-          && desktop_widgets::outputKey(output) == surface->outputName;
+          && desktop_widgets::placementOutputKey(output) == surface->outputName;
     });
   });
 
@@ -372,7 +372,7 @@ void DesktopWidgetsEditor::syncSurfaces() {
     if (!output.done || output.output == nullptr || !output.hasUsableGeometry()) {
       continue;
     }
-    const std::string key = desktop_widgets::outputKey(output);
+    const std::string key = desktop_widgets::placementOutputKey(output);
     const bool exists =
         std::ranges::any_of(m_surfaces, [&](const auto& surface) { return surface->outputName == key; });
     if (!exists) {
@@ -395,7 +395,7 @@ void DesktopWidgetsEditor::createSurface(const WaylandOutput& output) {
   };
 
   auto overlay = std::make_unique<OverlaySurface>();
-  overlay->outputName = desktop_widgets::outputKey(output);
+  overlay->outputName = desktop_widgets::placementOutputKey(output);
   overlay->output = output.output;
   overlay->sceneRebuildRequested = true;
   overlay->surface = std::make_unique<LayerSurface>(*m_wayland, std::move(surfaceConfig));
@@ -558,7 +558,7 @@ std::string DesktopWidgetsEditor::effectiveOutputName(const DesktopWidgetState& 
     return state.outputName;
   }
   if (const WaylandOutput* output = desktop_widgets::resolveStateOutput(*m_wayland, state); output != nullptr) {
-    return desktop_widgets::outputKey(*output);
+    return desktop_widgets::placementOutputKey(*output);
   }
   return {};
 }
@@ -666,7 +666,10 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
   surface.wallpaperPreviewActive = false;
   surface.wallpaperPreviewPath.clear();
 
-  if (lockscreenWallpaperDiffersFromDesktop(m_profile, m_config, surface.outputName)) {
+  const WaylandOutput* previewOutput = m_wayland != nullptr ? m_wayland->findOutputByWl(surface.output) : nullptr;
+  const std::string_view previewConnector =
+      previewOutput != nullptr ? desktop_widgets::connectorNameForOutputApi(*previewOutput) : std::string_view{};
+  if (lockscreenWallpaperDiffersFromDesktop(m_profile, m_config, previewConnector)) {
     surface.wallpaperPreviewActive = true;
     surface.wallpaperPreviewPath = m_config->config().lockscreen.wallpaper;
 
@@ -2124,7 +2127,8 @@ void DesktopWidgetsEditor::updateDrag() {
   float dragSceneX = m_currentEventSceneX;
   float dragSceneY = m_currentEventSceneY;
   if (m_drag.mode == DragMode::Move && m_wayland != nullptr) {
-    const WaylandOutput* sourceOutput = desktop_widgets::findOutputByKey(*m_wayland, m_drag.moveSourceOutputName);
+    const WaylandOutput* sourceOutput =
+        desktop_widgets::findOutputByPlacementKey(*m_wayland, m_drag.moveSourceOutputName);
     if (sourceOutput == nullptr) {
       sourceOutput = desktop_widgets::resolveStateOutput(*m_wayland, *state);
     }
@@ -2133,7 +2137,7 @@ void DesktopWidgetsEditor::updateDrag() {
       const double globalY = static_cast<double>(sourceOutput->logicalY) + static_cast<double>(m_currentEventSceneY);
       if (const WaylandOutput* targetOutput = outputAtGlobalPoint(*m_wayland, globalX, globalY);
           targetOutput != nullptr) {
-        m_drag.surfaceOutputName = desktop_widgets::outputKey(*targetOutput);
+        m_drag.surfaceOutputName = desktop_widgets::placementOutputKey(*targetOutput);
         dragSceneX = static_cast<float>(globalX - static_cast<double>(targetOutput->logicalX));
         dragSceneY = static_cast<float>(globalY - static_cast<double>(targetOutput->logicalY));
       }
