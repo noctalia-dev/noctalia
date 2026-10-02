@@ -127,6 +127,8 @@ namespace scripting {
 
   bool isValidPanelLayer(std::string_view value) noexcept { return std::ranges::contains(kPanelLayers, value); }
 
+  bool panelLayerFollowsFloating(std::string_view value) noexcept { return value == kPanelLayerFollow; }
+
   bool isPanelShellSettingKey(std::string_view entryId, std::string_view key) noexcept {
     return key == panelShellSettingKey(entryId, "placement")
         || key == panelShellSettingKey(entryId, "position")

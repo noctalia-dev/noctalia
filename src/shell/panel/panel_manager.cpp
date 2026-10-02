@@ -12,6 +12,7 @@
 #include "render/render_context.h"
 #include "render/scene/input_area.h"
 #include "scripting/plugin_id.h"
+#include "scripting/plugin_panel_shell.h"
 #include "shell/bar/bar_corner_shape.h"
 #include "shell/bar/bar_reserved_zone.h"
 #include "shell/panel/panel.h"
@@ -322,7 +323,10 @@ namespace {
 
   [[nodiscard]] LayerShellLayer
   resolveFloatingPanelLayer(const ConfigService* configService, std::string_view panelId, const Panel& panel) {
-    if (configService != nullptr && usesConfiguredFloatingLayer(panelId)) {
+    if (configService == nullptr) {
+      return panel.layer();
+    }
+    if (usesConfiguredFloatingLayer(panelId) || scripting::panelLayerFollowsFloating(panel.panelLayerToken())) {
       return layerShellLayerFromConfig(configService->config().shell.panel.floatingLayer);
     }
     return panel.layer();
