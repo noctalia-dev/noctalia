@@ -71,6 +71,7 @@ namespace noctalia::config::schema {
   namespace {
     // Concrete ColorSpec stored as a config string; always emitted. A present
     // non-string value is a hard error (mirrors colorStringValue).
+    // Define before all the schema, so colorField can be use when needs.
     template <typename Struct> Field<Struct> colorField(ColorSpec Struct::* member, std::string_view key) {
       return custom<Struct>(
           key,
@@ -1370,6 +1371,8 @@ namespace noctalia::config::schema {
       static const Schema<ShellConfig::PanelConfig> s = {
           enumField(&ShellConfig::PanelConfig::transparencyMode, "transparency_mode", kPanelTransparencyModes),
           field(&ShellConfig::PanelConfig::borders, "borders"),
+          colorField(&ShellConfig::PanelConfig::borderColor, "border_color"),
+          field(&ShellConfig::PanelConfig::borderWidth, "border_width", kPanelBorderWidthRange),
           field(&ShellConfig::PanelConfig::shadow, "shadow"),
           field(&ShellConfig::PanelConfig::listItemBackground, "list_item_background"),
           custom<ShellConfig::PanelConfig>(
