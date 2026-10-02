@@ -240,6 +240,7 @@ privacy = true                      # microphone/camera/screen-share capture cha
 
 [lockscreen]
 enabled                 = true
+grace_period_seconds    = 5           # unlock without a password on any keypress or mouse movement for this long after locking (0 = off)
 blurred_desktop         = false       # use a desktop snapshot as the lock screen background (requires wlr-screencopy)
 transition              = ["fade", "wipe", "disc", "stripes", "zoom", "honeycomb"] # empty disables lock/unlock animation
 transition_duration     = 1500        # lock/unlock animation length in milliseconds
