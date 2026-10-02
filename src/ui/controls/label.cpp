@@ -17,7 +17,8 @@ namespace {
 
   constexpr Logger kLog("label");
 
-  constexpr const char* kMarqueeGap = " ";
+  constexpr const char kMarqueeGapChar = ' ';
+  constexpr const float kMarqueeGapMaxWidth = 100.0F;
 
 } // namespace
 
@@ -682,10 +683,15 @@ LayoutSize Label::measureWithConstraints(Renderer& renderer, const LayoutConstra
   }
 
   if (overflow && m_autoScroll) {
-    auto gapMetrics =
-        renderer.measureText(kMarqueeGap, m_textNode->fontSize(), fontWeight, 0.0F, 1, align, m_textNode->fontFamily());
-    m_marqueeLoopPeriod = m_fullTextWidth + gapMetrics.width;
-    m_textNode->setText(m_plainText + kMarqueeGap + m_plainText);
+    auto gapMetrics = renderer.measureText(
+        std::string(1, kMarqueeGapChar), m_textNode->fontSize(), fontWeight, 0.0F, 1, align, m_textNode->fontFamily()
+    );
+    const auto numChars = gapMetrics.width > 0.0F
+        ? static_cast<int>(std::ceil(std::min(width(), kMarqueeGapMaxWidth) / gapMetrics.width))
+        : 1;
+    auto totalGapWidth = static_cast<float>(numChars) * gapMetrics.width;
+    m_marqueeLoopPeriod = m_fullTextWidth + totalGapWidth;
+    m_textNode->setText(m_plainText + std::string(numChars, kMarqueeGapChar) + m_plainText);
   } else {
     m_marqueeLoopPeriod = 0.0F;
     m_textNode->setText(m_plainText);
