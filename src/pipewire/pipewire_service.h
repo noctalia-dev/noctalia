@@ -5,6 +5,7 @@
 #include <chrono>
 #include <cstdint>
 #include <functional>
+#include <future>
 #include <memory>
 #include <spa/param/param.h>
 #include <string>
@@ -241,6 +242,7 @@ private:
   void enumDefaultAudioDeviceParams();
 
   void rebuildState();
+  void pollCameraApps();
   // Resolves a metadata "target.object" value to a sink node id, or 0 when no sink matches.
   [[nodiscard]] std::uint32_t resolveTargetObjectSink(const std::string& target) const;
   void refreshNodeIdentity(NodeData& nd);
@@ -306,6 +308,9 @@ private:
   std::string m_defaultSourceName;
   AudioState m_state;
   PrivacyState m_privacyState;
+  std::vector<std::string> m_cameraApps;
+  std::future<std::vector<std::string>> m_cameraScan;
+  std::chrono::steady_clock::time_point m_cameraScanAt;
   ChangeCallback m_changeCallback;
   VolumePreviewCallback m_volumePreviewCallback;
   WirePlumberMixer* m_wpMixer = nullptr;
