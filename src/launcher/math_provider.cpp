@@ -38,6 +38,49 @@ namespace {
     return std::string(text.substr(begin, end - begin));
   }
 
+  // libqalculate has no "of" operator, so the natural percentage phrasing
+  // "20% of 250" mis-tokenises into unit prefixes and returns confident
+  // garbage (e.g. rem(20, 250'f' B)). Rewrite "<value>% of <expr>" — and the
+  // "percent of" spelling — into multiplication, which libqalculate evaluates
+  // with the expected part-of-whole semantics: 20% * 250 = 50.
+  constexpr std::string_view kPercentKeyword = "percent";
+
+  std::string rewritePercentOf(std::string_view text) {
+    std::string out(text);
+    std::size_t i = 0;
+    while (i + 1 < out.size()) {
+      const bool wordMatch = std::tolower(static_cast<unsigned char>(out[i])) == 'o'
+          && std::tolower(static_cast<unsigned char>(out[i + 1])) == 'f';
+      const std::size_t afterWord = i + 2;
+      const bool leftBound = i == 0 || std::isspace(static_cast<unsigned char>(out[i - 1])) != 0;
+      const bool rightBound = afterWord == out.size() || std::isspace(static_cast<unsigned char>(out[afterWord])) != 0;
+      if (wordMatch && leftBound && rightBound) {
+        std::size_t prev = i;
+        while (prev > 0 && std::isspace(static_cast<unsigned char>(out[prev - 1])) != 0) {
+          --prev;
+        }
+        bool afterPercent = prev > 0 && out[prev - 1] == '%';
+        if (!afterPercent && prev >= kPercentKeyword.size()) {
+          afterPercent = true;
+          for (std::size_t k = 0; k < kPercentKeyword.size(); ++k) {
+            const char c = out[prev - kPercentKeyword.size() + k];
+            if (std::tolower(static_cast<unsigned char>(c)) != kPercentKeyword[k]) {
+              afterPercent = false;
+              break;
+            }
+          }
+        }
+        if (afterPercent) {
+          out.replace(i, 2, 1, '*');
+          ++i;
+          continue;
+        }
+      }
+      ++i;
+    }
+    return out;
+  }
+
   bool shouldRefreshExchangeRateSource(std::string_view url) { return !url.contains("nbrb.by"); }
 
 } // namespace
@@ -109,7 +152,7 @@ std::vector<LauncherResult> MathProvider::query(std::string_view text) const {
 std::vector<LauncherResult> MathProvider::queryPrefixed(std::string_view text) const { return evaluate(text); }
 
 std::vector<LauncherResult> MathProvider::evaluate(std::string_view text) const {
-  const std::string localized = trimmed(text);
+  const std::string localized = rewritePercentOf(trimmed(text));
   if (!m_calc || localized.empty()) {
     return {};
   }
