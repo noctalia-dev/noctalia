@@ -2,7 +2,9 @@
 
 #include <cstdint>
 #include <functional>
+#include <string>
 #include <string_view>
+#include <vector>
 
 class CompositorPlatform;
 class ConfigService;
@@ -24,6 +26,17 @@ namespace greeter {
     };
 
     [[nodiscard]] ApplyHelperProtocol classifyApplyHelperProtocol(const process::RunResult& result);
+
+    // One output's current mode, as reported by the session compositor.
+    struct OutputModeEntry {
+      std::string connectorName;
+      std::int32_t width = 0;
+      std::int32_t height = 0;
+      std::int32_t refreshMHz = 0;
+    };
+
+    // Formats staged output_modes content: "DP-1:2560x1440@59.998; HDMI-A-1:1920x1080".
+    [[nodiscard]] std::string formatOutputModesString(const std::vector<OutputModeEntry>& entries);
 
   } // namespace detail
 

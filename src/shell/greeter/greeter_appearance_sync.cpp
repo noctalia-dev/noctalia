@@ -76,6 +76,7 @@ namespace {
   constexpr std::string_view kStagedOutputLayoutFileName = "output_layout";
   constexpr std::string_view kStagedOutputTransformsFileName = "output_transforms";
   constexpr std::string_view kStagedOutputScalesFileName = "output_scales";
+  constexpr std::string_view kStagedOutputModesFileName = "output_modes";
   // Staged appearance fragment; the apply helper merges it into live sync.toml.
   constexpr std::string_view kStagedSyncTomlFileName = "sync.toml";
 
@@ -718,6 +719,35 @@ namespace {
     return scales;
   }
 
+  [[nodiscard]] std::optional<std::string> buildGreeterOutputModes(const CompositorPlatform& platform) {
+    const auto& outputs = platform.outputs();
+    std::vector<greeter::detail::OutputModeEntry> entries;
+    entries.reserve(outputs.size());
+    for (const auto& output : outputs) {
+      if (!output.connectorName.empty() && !output.done) {
+        kLog.info("greeter sync: output '{}' not ready; skipping output modes sync", output.connectorName);
+        return std::nullopt;
+      }
+      if (!output.done || output.connectorName.empty() || output.width <= 0 || output.height <= 0) {
+        continue;
+      }
+      entries.push_back(
+          greeter::detail::OutputModeEntry{output.connectorName, output.width, output.height, output.refreshMHz}
+      );
+    }
+
+    if (entries.empty()) {
+      kLog.info("greeter sync: no ready outputs; skipping output modes sync");
+      return std::nullopt;
+    }
+
+    const std::string modes = greeter::detail::formatOutputModesString(entries);
+    if (modes.empty()) {
+      return std::nullopt;
+    }
+    return modes;
+  }
+
   void logOutputLayoutForGreeter(const CompositorPlatform& platform) {
     const auto& outputs = platform.outputs();
     if (outputs.empty()) {
@@ -744,6 +774,9 @@ namespace {
     }
     if (const auto scales = buildGreeterOutputScales(platform)) {
       kLog.info("greeter sync: staging output_scales \"{}\"", *scales);
+    }
+    if (const auto modes = buildGreeterOutputModes(platform)) {
+      kLog.info("greeter sync: staging output_modes \"{}\"", *modes);
     }
   }
 
@@ -796,6 +829,24 @@ namespace {
     out << scales << '\n';
     if (!out.good()) {
       kLog.warn("failed to write staged output scales '{}'", scalesPath.string());
+      return false;
+    }
+    return true;
+  }
+
+  [[nodiscard]] bool stageOutputModes(const std::filesystem::path& staging, std::string_view modes) {
+    const auto modesPath = staging / kStagedOutputModesFileName;
+    std::ofstream out(modesPath);
+    if (!out.is_open()) {
+      kLog.warn("failed to open staged output modes '{}'", modesPath.string());
+      return false;
+    }
+    if (!secureStagedFile(modesPath)) {
+      return false;
+    }
+    out << modes << '\n';
+    if (!out.good()) {
+      kLog.warn("failed to write staged output modes '{}'", modesPath.string());
       return false;
     }
     return true;
@@ -928,6 +979,22 @@ namespace {
 
 namespace greeter::detail {
 
+  std::string formatOutputModesString(const std::vector<OutputModeEntry>& entries) {
+    std::vector<OutputModeEntry> sorted(entries);
+    std::ranges::sort(sorted, [](const auto& lhs, const auto& rhs) { return lhs.connectorName < rhs.connectorName; });
+    std::string modes;
+    for (const auto& entry : sorted) {
+      if (!modes.empty()) {
+        modes += "; ";
+      }
+      modes += entry.connectorName + ':' + std::to_string(entry.width) + 'x' + std::to_string(entry.height);
+      if (entry.refreshMHz > 0) {
+        modes += '@' + std::format("{:.3F}", static_cast<double>(entry.refreshMHz) / 1000.0);
+      }
+    }
+    return modes;
+  }
+
   ApplyHelperProtocol classifyApplyHelperProtocol(const process::RunResult& result) {
     if (result.timedOut || result.outTruncated || result.errTruncated) {
       return ApplyHelperProtocol::Unknown;
@@ -1036,8 +1103,13 @@ namespace greeter {
           return GreeterSyncLaunch::Failed;
         }
       }
+      if (const auto modes = buildGreeterOutputModes(*platform)) {
+        if (!stageOutputModes(staging, *modes)) {
+          return GreeterSyncLaunch::Failed;
+        }
+      }
     } else {
-      kLog.info("greeter sync: no compositor platform provided; skipping output layout/transforms/scales sync");
+      kLog.info("greeter sync: no compositor platform provided; skipping output layout/transforms/scales/modes sync");
     }
 
     const auto outputWallpapers = stageAllOutputWallpapers(staging, configService);
