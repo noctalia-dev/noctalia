@@ -94,6 +94,12 @@ public:
   void setWallpaperPath(const std::optional<std::string>& connectorName, const std::string& path);
   void setWallpaperChangeCallback(ChangeCallback callback);
 
+  // Effective lock screen wallpaper: lockscreen.wallpaper if set, else the desktop wallpaper.
+  [[nodiscard]] std::string getLockscreenWallpaperPath(const std::string& connectorName) const;
+  void setLockscreenWallpaperPath(const std::string& path);
+  // Reverts to inheriting the desktop wallpaper.
+  void clearLockscreenWallpaperPath();
+
   [[nodiscard]] const std::vector<WallpaperFavorite>& wallpaperFavorites() const noexcept;
   [[nodiscard]] bool isWallpaperFavorite(std::string_view path) const;
   [[nodiscard]] const WallpaperFavorite* wallpaperFavorite(std::string_view path) const;
