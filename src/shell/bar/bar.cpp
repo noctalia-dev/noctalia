@@ -111,7 +111,18 @@ namespace {
     if (!assignments.empty()) {
       return false;
     }
-    return active->occupied;
+    if (active->occupied) {
+      return true;
+    }
+    // Compositors without occupancy tracking (labwc) or without a known
+    // active workspace: a keyboard-focused toplevel on this output means
+    // the visible desktop is in use, so auto-hide may engage.
+    if (output != nullptr) {
+      if (const auto focused = platform.activeToplevel(); focused.has_value()) {
+        return platform.activeToplevelOutput() == output;
+      }
+    }
+    return false;
   }
 
   [[nodiscard]] bool smartAutoHideWantsPinnedVisible(const CompositorPlatform& platform, wl_output* output) {
