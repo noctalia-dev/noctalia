@@ -259,6 +259,21 @@ void WallpaperTile::layoutThumbOverlays() {
   }
 }
 
+float WallpaperTile::captionHeight(float contentScale) noexcept {
+  return Style::spaceXs * contentScale + Style::fontSizeCaption * contentScale * 1.4F;
+}
+
+void WallpaperTile::setShowName(bool showName) {
+  if (m_showName == showName) {
+    return;
+  }
+  m_showName = showName;
+  if (m_label != nullptr) {
+    m_label->setVisible(showName);
+  }
+  setCellSize(m_cellWidth, m_cellHeight);
+}
+
 void WallpaperTile::setCellSize(float cellWidth, float cellHeight) {
   m_cellWidth = cellWidth;
   m_cellHeight = cellHeight;
@@ -266,12 +281,12 @@ void WallpaperTile::setCellSize(float cellWidth, float cellHeight) {
 
   const float padding = Style::spaceXs * m_contentScale;
   const float innerGap = Style::spaceXs * m_contentScale;
-  const float labelH = Style::fontSizeCaption * m_contentScale * 1.4F;
+  const float captionH = m_showName ? captionHeight(m_contentScale) : 0.0F;
   m_thumbFrameWidth = std::max(0.0F, cellWidth - padding * 2.0F);
-  m_thumbFrameHeight = std::max(0.0F, cellHeight - padding * 2.0F - innerGap - labelH);
+  m_thumbFrameHeight = std::max(0.0F, cellHeight - padding * 2.0F - captionH);
 
   if (m_layout != nullptr) {
-    m_layout->setGap(innerGap);
+    m_layout->setGap(m_showName ? innerGap : 0.0F);
     m_layout->setPadding(padding);
     m_layout->setFrameSize(cellWidth, cellHeight);
   }

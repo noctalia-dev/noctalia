@@ -1372,6 +1372,7 @@ namespace noctalia::config::schema {
           field(&ShellConfig::PanelConfig::borders, "borders"),
           field(&ShellConfig::PanelConfig::shadow, "shadow"),
           field(&ShellConfig::PanelConfig::listItemBackground, "list_item_background"),
+          field(&ShellConfig::PanelConfig::wallpaperShowNames, "wallpaper_show_names"),
           custom<ShellConfig::PanelConfig>(
               "floating_layer",
               [](const toml::table& tbl, ShellConfig::PanelConfig& out, std::string_view parentPath,

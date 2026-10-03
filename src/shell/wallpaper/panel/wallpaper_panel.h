@@ -164,6 +164,7 @@ private:
   Timer m_filterDebounceTimer;
 
   bool m_flatten = false;
+  bool m_showNames = true;
   bool m_scanPending = false;
   SortMode m_sortMode = SortMode::NameAsc;
   std::uint64_t m_randomSeed = 0;

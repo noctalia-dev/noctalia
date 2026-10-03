@@ -2705,6 +2705,10 @@
         "transparency-mode": {
           "description": "Panel glass style, including floating panel opacity and card translucency",
           "label": "Transparency"
+        },
+        "wallpaper-show-names": {
+          "description": "Caption each thumbnail with its file name in the wallpaper picker.",
+          "label": "Show File Names"
         }
       },
       "power": {
