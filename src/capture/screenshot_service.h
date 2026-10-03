@@ -40,6 +40,7 @@ public:
     std::string pipeCommand;
     std::string directory;
     std::string filenamePattern;
+    std::string filePath;
   };
 
   ScreenshotService(

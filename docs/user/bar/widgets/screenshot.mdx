@@ -45,7 +45,7 @@ noctalia msg screenshot-fullscreen all
 
 ```
 
-Both commands use the global `[shell.screenshot]` output policy. The canonical command list is also under [Keybinds & IPC → Media & UI → Screenshots](/noctalia/ipc/media-and-ui/#screenshots).
+Both commands use the global `[shell.screenshot]` output policy. Pass `--path <file>` to override the output path: an absolute path is used as-is, a relative path resolves against the screenshot output directory, and `~` expands to the home directory. `--path` takes a separate value, and unrecognised options are rejected. The canonical command list is also under [Keybinds & IPC → Media & UI → Screenshots](/noctalia/ipc/media-and-ui/#screenshots).
 
 | `screenshot-fullscreen` argument | Behavior |
 |----------------------------------|----------|
