@@ -13,6 +13,7 @@
 #include <cstring>
 #include <limits>
 #include <new>
+#include <stb/stb_image_resize2.h>
 #include <sys/mman.h>
 #include <unistd.h>
 #include <utility>
@@ -33,27 +34,50 @@ namespace {
     }
   }
 
+  [[nodiscard]] bool formatHasAlpha(std::uint32_t format) noexcept {
+    return format == WL_SHM_FORMAT_ARGB8888 || format == WL_SHM_FORMAT_ABGR8888;
+  }
+
   [[nodiscard]] std::uint8_t straightChannel(std::uint32_t value, std::uint32_t alpha) {
     return alpha == 0 ? 0 : static_cast<std::uint8_t>(std::min(255U, (value * 255U + alpha / 2U) / alpha));
   }
 
-  [[nodiscard]] std::array<std::uint8_t, 4>
-  pixelAt(std::span<const std::uint8_t> pixels, int width, int height, std::uint32_t format, int x, int y) {
-    x = std::clamp(x, 0, width - 1);
-    y = std::clamp(y, 0, height - 1);
-    const auto offset =
-        (static_cast<std::size_t>(y) * static_cast<std::size_t>(width) + static_cast<std::size_t>(x)) * 4U;
-    std::uint32_t pixel = 0;
-    std::memcpy(&pixel, pixels.data() + offset, sizeof(pixel));
-    const bool hasAlpha = format == WL_SHM_FORMAT_ARGB8888 || format == WL_SHM_FORMAT_ABGR8888;
+  [[nodiscard]] bool resizeToRgba(
+      std::span<const std::uint8_t> pixels, int width, int height, std::uint32_t format, ScreencopyImage& out
+  ) {
     const bool blueFirst = format == WL_SHM_FORMAT_ARGB8888 || format == WL_SHM_FORMAT_XRGB8888;
-    const std::uint32_t alpha = hasAlpha ? pixel >> 24U : 255U;
-    const std::uint32_t low = pixel & 255U;
-    const std::uint32_t high = (pixel >> 16U) & 255U;
-    return {
-        straightChannel(blueFirst ? high : low, alpha), straightChannel((pixel >> 8U) & 255U, alpha),
-        straightChannel(blueFirst ? low : high, alpha), static_cast<std::uint8_t>(alpha)
-    };
+    const bool hasAlpha = formatHasAlpha(format);
+
+    // Both layouts are premultiplied so stbir only resizes and swizzles. It skips layout conversion when the size is
+    // unchanged, so straightening alpha is done below rather than relying on stbir.
+    STBIR_RESIZE resize;
+    stbir_resize_init(
+        &resize, pixels.data(), width, height, width * 4, out.rgba.data(), out.width, out.height, out.width * 4,
+        STBIR_4CHANNEL, STBIR_TYPE_UINT8
+    );
+    stbir_set_pixel_layouts(&resize, blueFirst ? STBIR_BGRA_PM : STBIR_RGBA_PM, STBIR_RGBA_PM);
+    if (stbir_resize_extended(&resize) == 0) {
+      return false;
+    }
+
+    const std::size_t pixelCount = static_cast<std::size_t>(out.width) * static_cast<std::size_t>(out.height);
+    std::uint8_t* data = out.rgba.data();
+    for (std::size_t i = 0; i < pixelCount; ++i) {
+      std::uint8_t* pixel = data + i * 4U;
+      if (!hasAlpha) {
+        pixel[3] = 255;
+        continue;
+      }
+      const std::uint32_t alpha = pixel[3];
+      if (alpha == 255) {
+        continue;
+      }
+      for (std::size_t channel = 0; channel < 3; ++channel) {
+        pixel[channel] = straightChannel(pixel[channel], alpha);
+      }
+    }
+
+    return true;
   }
 
   [[nodiscard]] bool transformSwapsAxes(std::int32_t transform) noexcept {
@@ -90,32 +114,8 @@ std::optional<ScreencopyImage> capture::makeToplevelThumbnail(
   image.height = std::max(1, static_cast<int>(std::round(static_cast<float>(height) * scale)));
   image.rgba.resize(static_cast<std::size_t>(image.width) * static_cast<std::size_t>(image.height) * 4U);
 
-  const float xScale = static_cast<float>(width) / static_cast<float>(image.width);
-  const float yScale = static_cast<float>(height) / static_cast<float>(image.height);
-  for (int y = 0; y < image.height; ++y) {
-    const float srcY = (static_cast<float>(y) + 0.5F) * yScale - 0.5F;
-    const int y0 = static_cast<int>(std::floor(srcY));
-    const int y1 = y0 + 1;
-    const float fy = srcY - static_cast<float>(y0);
-    for (int x = 0; x < image.width; ++x) {
-      const float srcX = (static_cast<float>(x) + 0.5F) * xScale - 0.5F;
-      const int x0 = static_cast<int>(std::floor(srcX));
-      const int x1 = x0 + 1;
-      const float fx = srcX - static_cast<float>(x0);
-      const auto p00 = pixelAt(pixels, width, height, format, x0, y0);
-      const auto p10 = pixelAt(pixels, width, height, format, x1, y0);
-      const auto p01 = pixelAt(pixels, width, height, format, x0, y1);
-      const auto p11 = pixelAt(pixels, width, height, format, x1, y1);
-      auto* target = image.rgba.data()
-          + (static_cast<std::size_t>(y) * static_cast<std::size_t>(image.width) + static_cast<std::size_t>(x)) * 4U;
-      for (std::size_t channel = 0; channel < 4; ++channel) {
-        const float top = static_cast<float>(p00[channel])
-            + (static_cast<float>(p10[channel]) - static_cast<float>(p00[channel])) * fx;
-        const float bottom = static_cast<float>(p01[channel])
-            + (static_cast<float>(p11[channel]) - static_cast<float>(p01[channel])) * fx;
-        target[channel] = static_cast<std::uint8_t>(std::clamp(std::lround(top + (bottom - top) * fy), 0L, 255L));
-      }
-    }
+  if (!resizeToRgba(pixels, width, height, format, image)) {
+    return std::nullopt;
   }
   screencopy::orientCaptureForTransform(image, transform);
   return image;
