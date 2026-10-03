@@ -4184,7 +4184,7 @@
           "label": "Colorize Custom Image"
         },
         "custom-label": {
-          "description": "Custom text shown beside the glyph or custom image; remains visible when Show Glyph is disabled",
+          "description": "Custom text shown with this widget; leave empty to hide it",
           "label": "Custom Label"
         },
         "detached-panel": {

@@ -595,6 +595,8 @@ CommonWidgetOptions resolveCommonWidgetOptions(
     options.labelFontWeight = std::get<std::int64_t>(*fontWeight);
   }
   options.labelFontFamily = widget->getString("font_family");
+  options.customLabel = widget->getString("custom_label");
+  options.showGlyph = widget->getBool("show_glyph", true);
   options.scrollRepeat = widget->getString("scroll_repeat", "auto");
   options.enableScroll = widget->getBool("enable_scroll", true);
   return options;
