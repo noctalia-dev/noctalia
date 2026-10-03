@@ -1201,6 +1201,9 @@ namespace settings {
       case WidgetSettingOptionSource::BatteryDevices:
         sourcedOptions = ctx.batteryDeviceOptions;
         break;
+      case WidgetSettingOptionSource::Outputs:
+        sourcedOptions = ctx.availableOutputs;
+        break;
       case WidgetSettingOptionSource::Static:
         break;
       }
@@ -1581,7 +1584,15 @@ namespace settings {
           ctx.makeRow(*panel, entry, makeGlyphTextControl(settingValueAsString(value)));
           break;
         case WidgetControlKind::StringList:
-          ctx.makeListBlock(*panel, entry, ListSetting{.items = settingValueAsStringList(value)});
+          ctx.makeListBlock(
+              *panel, entry,
+              ListSetting{
+                  .items = settingValueAsStringList(value),
+                  .suggestedOptions = spec.optionSource == WidgetSettingOptionSource::Outputs
+                      ? ctx.availableOutputs
+                      : std::vector<SelectOption>{},
+              }
+          );
           break;
         case WidgetControlKind::StringMap: {
           // Gesture bindings have a closed key set, so they get one fixed row per gesture rather

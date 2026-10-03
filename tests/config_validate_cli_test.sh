@@ -65,6 +65,20 @@ case "$timezone_output" in
   *) fail "invalid timezone config did not report the widget setting path" ;;
 esac
 
+removed_workspace_setting_output=$("$noctalia_bin" config validate tests/config_validate/removed-workspaces-show-all-outputs.toml 2>&1) \
+  && fail "removed workspaces show_all_outputs setting should fail"
+case "$removed_workspace_setting_output" in
+  *'ERROR tests/config_validate/removed-workspaces-show-all-outputs.toml:2:20: widget.workspaces.show_all_outputs: show_all_outputs was removed; replace it with monitors = ["OUTPUT-NAME", ...]'*) ;;
+  *) fail "removed implicit workspaces show_all_outputs setting did not report replacement guidance: $removed_workspace_setting_output" ;;
+esac
+case "$removed_workspace_setting_output" in
+  *'ERROR tests/config_validate/removed-workspaces-show-all-outputs.toml:6:20: widget.named-workspaces.show_all_outputs: show_all_outputs was removed; replace it with monitors = ["OUTPUT-NAME", ...]'*) ;;
+  *) fail "removed named workspaces show_all_outputs setting did not report replacement guidance: $removed_workspace_setting_output" ;;
+esac
+case "$removed_workspace_setting_output" in
+  *'widget.taskbar.show_all_outputs'*) fail "taskbar show_all_outputs was incorrectly rejected" ;;
+esac
+
 # The exporter and the validator must agree on every section: whatever `config export
 # full` emits, `config validate` has to recognize. A section wired into one but not the
 # other (the historical failure mode) shows up here as an unknown section/setting.
