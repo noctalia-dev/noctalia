@@ -218,6 +218,8 @@ Bar-specific constraints:
   warning. Pointer controls (`ui.button`, `ui.toggle`, `ui.slider`, `ui.progress`, `ui.graph`, …) work.
 - **Clicks compose**: an inline control consumes its own clicks; the widget-level `onClick`/`onRightClick` still fire
   for the rest of the capsule (and its padding).
+- **Drag and drop works** (<PluginApiBadge feature="bar-drag-and-drop" />): `ui.dragSource` / `ui.dropZone` behave as
+  in panels, with the ghost confined to the widget's extent - see [Drag and drop](#drag-and-drop-panels-only).
 - Ticks stay on `noctalia.setUpdateInterval` - there is no frame-tick API in the bar.
 
 The `declarative` widget in the official `noctalia/example` plugin is the reference implementation.
@@ -470,10 +472,11 @@ The reference implementation is the `panel` entry of the official `noctalia/exam
 exercising every interactive control. `noctalia/wallhaven:browser` is a network-backed panel (thumbnail grid, filters,
 download + apply via `noctalia.wallpaperDirectory()` and `noctalia.setWallpaper()`).
 
-## Drag and drop (panels only) {#drag-and-drop-panels-only}
+## Drag and drop {#drag-and-drop-panels-only}
 
 Panels can offer pointer drag and drop for reorderable lists, kanban-style groups, and cross-container moves
-(requires <PluginApiBadge feature="drag-and-drop" />). The host owns the whole interaction - pointer capture, hit testing, the drag ghost,
+(requires <PluginApiBadge feature="drag-and-drop" />); bar widgets rendered with `barWidget.render` can too
+(requires <PluginApiBadge feature="bar-drag-and-drop" />), for example to reorder a row of workspace pills. The host owns the whole interaction - pointer capture, hit testing, the drag ghost,
 target highlighting, and cursor changes - and the plugin receives **one callback after a completed drop**. The plugin
 owns its data: mutate the model in the callback and re-render. Nothing moves by itself.
 
@@ -482,8 +485,8 @@ container that accepts drops. Both take the common layout props of a column/row 
 
 | Constructor | Props |
 |-------------|-------|
-| `ui.dragSource` | `dragType` (**required** string, matched against `accepts`), `payload` (**required** opaque string, first callback argument), `enabled`, `tooltip`, `previewAncestor` (int 0-8: how many parent levels the ghost shows; `1` previews the row around a grip), `liftFromLayout` (bool: remove the previewed row from layout while dragging - pair with `expandOnDrag` insertion zones) |
-| `ui.dropZone` | `accepts` (**required** array of drag types; `{}` accepts nothing), `value` (**required** opaque string, second callback argument), `onDrop` (**required** callback), `direction` (`column`/`row`), `enabled`, `expandOnDrag` (bool: a fixed-height zone animates to the dragged row's height while targeted), `hitSlop` (number: extra drag-only hit distance around the zone, without changing layout or normal clicks) |
+| `ui.dragSource` | `dragType` (**required** string, matched against `accepts`), `payload` (**required** opaque string, first callback argument), `enabled`, `tooltip`, `previewAncestor` (int 0-8: how many parent levels the ghost shows; `1` previews the row around a grip), `liftFromLayout` (bool: remove the previewed row from layout while dragging - pair with `expandOnDrag` insertion zones), `grabCursor` (bool, default `true`: show the grab hand on hover; set `false` when the whole source is an ordinary clickable item rather than a grip - dragging always shows the grabbing hand), `onClick` (callback for a press released before the drag threshold - how a source that wraps a whole item stays clickable, since its input area covers the item; a completed drag never fires it) <PluginApiBadge feature="bar-drag-and-drop" /> |
+| `ui.dropZone` | `accepts` (**required** array of drag types; `{}` accepts nothing), `value` (**required** opaque string, second callback argument), `onDrop` (**required** callback), `direction` (`column`/`row`), `enabled`, `expandOnDrag` (bool: a thin zone animates to the dragged item's size along its thin axis while targeted - a 3px-high rule between rows grows in height, a 4px-wide one between the members of a row grows in width), `hitSlop` (number: extra drag-only hit distance around the zone, without changing layout or normal clicks) |
 
 A press becomes a drag only after a small movement threshold, so clicks on controls inside a dragged row still work.
 While dragging, the source dims (or lifts out of layout), a ghost of the previewed subtree follows the pointer, and
@@ -522,7 +525,9 @@ end
 
 - **Sortable lists**: place a thin `expandOnDrag` + `hitSlop` insertion zone before every row and one after the last;
   with `liftFromLayout` on the source the list shows exactly one open gap that follows the pointer. Encode the
-  insertion point in `value` (`"before:<id>"`, `"end"`, ...) - the callback never receives coordinates.
+  insertion point in `value` (`"before:<id>"`, `"end"`, ...) - the callback never receives coordinates. The same
+  recipe works sideways: in a `ui.row` make the zones narrow (`width = 4`, full `height`) and the gap opens
+  horizontally (a bar widget's pills, for example).
 - **Cross-container moves**: use the same `dragType` in every compatible container and a different `value` per
   container. Keep a container-level `ui.dropZone` around each list so an empty list stays a valid target.
 - **Validation is strict**: a missing, mistyped, empty, or over-limit required prop logs and disables that control for
@@ -530,7 +535,8 @@ end
   and each `accepts` entry 256 bytes; at most 16 `accepts` entries.
 - **Update the model before slow persistence**: mutate + `render()` first, then save; keep a snapshot to roll back on
   failure. `enabled = false` on sources/zones is useful while a save is in flight.
-- **Scope and limits**: panels only (the constructors are rejected with a log message on other surfaces); drags stay
-  inside one panel; only the left button drags; there is no OS/Wayland drag and drop, no keyboard drag (keep a
+- **Scope and limits**: panels and bar widgets (the constructors are rejected with a log message on desktop widgets);
+  drags stay inside one panel or one bar widget - the ghost is drawn in the widget's own extent, so the bar's
+  cross-axis clip applies; only the left button drags; there is no OS/Wayland drag and drop, no keyboard drag (keep a
   non-drag alternative such as a move-to selector for keyboard users), and the mouse wheel cannot scroll the panel
   while a drag is active.
