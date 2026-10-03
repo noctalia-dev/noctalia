@@ -1019,6 +1019,50 @@ namespace {
     return 0;
   }
 
+  // noctalia.osd.show(icon: string, value: string?, opts: { progress: number?, inactive: boolean? }?)
+  int luau_osd_show(lua_State* L) {
+    size_t iconLen = 0;
+    const char* icon = luaL_checklstring(L, 1, &iconLen);
+    if (iconLen == 0) {
+      luaL_argerror(L, 1, "expected a non-empty glyph name");
+    }
+    size_t valueLen = 0;
+    const char* value = luaL_optlstring(L, 2, "", &valueLen);
+
+    std::optional<double> progress;
+    bool inactive = false;
+    if (!lua_isnoneornil(L, 3)) {
+      luaL_checktype(L, 3, LUA_TTABLE);
+
+      lua_getfield(L, 3, "progress");
+      if (!lua_isnil(L, -1)) {
+        if (lua_type(L, -1) != LUA_TNUMBER) {
+          luaL_error(L, "osd.show: progress must be a number");
+        }
+        progress = lua_tonumber(L, -1);
+        // std::clamp passes NaN through, so reject it here where the plugin author sees the error.
+        if (std::isnan(*progress)) {
+          luaL_error(L, "osd.show: progress must not be NaN");
+        }
+      }
+      lua_pop(L, 1);
+
+      lua_getfield(L, 3, "inactive");
+      if (!lua_isnil(L, -1)) {
+        if (lua_type(L, -1) != LUA_TBOOLEAN) {
+          luaL_error(L, "osd.show: inactive must be a boolean");
+        }
+        inactive = lua_toboolean(L, -1) != 0;
+      }
+      lua_pop(L, 1);
+    }
+
+    if (auto* host = hostForState(L)) {
+      host->scriptShowOsd(std::string(icon, iconLen), std::string(value, valueLen), progress, inactive);
+    }
+    return 0;
+  }
+
   int luau_readFile(lua_State* L) {
     size_t len = 0;
     const char* path = luaL_checklstring(L, 1, &len);
@@ -1703,6 +1747,11 @@ namespace {
       {nullptr, nullptr},
   };
 
+  const luaL_Reg kNoctaliaOsdLib[] = {
+      {"show", luau_osd_show},
+      {nullptr, nullptr},
+  };
+
   const luaL_Reg kNoctaliaJsonLib[] = {
       {"decode", luau_json_decode},
       {"encode", luau_json_encode},
@@ -1830,6 +1879,10 @@ namespace {
     lua_createtable(L, 0, 0);
     luaL_register(L, nullptr, kNoctaliaSoundLib);
     lua_setfield(L, -2, "sound");
+    // noctalia.osd = { show }
+    lua_createtable(L, 0, 0);
+    luaL_register(L, nullptr, kNoctaliaOsdLib);
+    lua_setfield(L, -2, "osd");
     // noctalia.string = { trim, urlEncode, urlDecode }
     lua_createtable(L, 0, 0);
     luaL_register(L, nullptr, kNoctaliaStringLib);
@@ -2776,6 +2829,18 @@ void LuauHost::scriptPlaySound(std::string name) {
   if (m_scriptContext != nullptr) {
     m_scriptContext->sideEffects.push_back(
         {.kind = scripting::ScriptSideEffectKind::PlaySound, .title = std::move(name), .hostId = m_hostId}
+    );
+  }
+}
+
+void LuauHost::scriptShowOsd(std::string icon, std::string value, std::optional<double> progress, bool inactive) {
+  if (m_scriptContext != nullptr) {
+    m_scriptContext->sideEffects.push_back(
+        {.kind = scripting::ScriptSideEffectKind::ShowOsd,
+         .title = std::move(icon),
+         .body = std::move(value),
+         .flag = inactive,
+         .number = progress}
     );
   }
 }

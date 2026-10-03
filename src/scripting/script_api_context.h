@@ -38,6 +38,7 @@ namespace scripting {
     using SetWallpaperMaskHook =
         std::function<void(std::uint64_t, const std::string&, const std::string&, const std::string&)>;
     using ClearWallpaperMasksHook = std::function<void(std::uint64_t)>;
+    using ShowOsdHook = std::function<void(const std::string&, const std::string&, std::optional<double>, bool)>;
 
     [[nodiscard]] bool isDarkMode() const noexcept { return m_darkMode.load(std::memory_order_relaxed); }
     void setDarkMode(bool dark) noexcept { m_darkMode.store(dark, std::memory_order_relaxed); }
@@ -214,6 +215,16 @@ namespace scripting {
 
     [[nodiscard]] UnloadPluginSoundsHook unloadPluginSoundsHook() const { return m_unloadPluginSoundsHook; }
 
+    void setShowOsdHook(ShowOsdHook hook) { m_showOsdHook = std::move(hook); }
+
+    void invokeShowOsd(
+        const std::string& icon, const std::string& value, std::optional<double> progress, bool inactive
+    ) const {
+      if (m_showOsdHook) {
+        m_showOsdHook(icon, value, progress, inactive);
+      }
+    }
+
   private:
     std::atomic<SystemMonitorService*> m_systemMonitor{nullptr};
     std::atomic<bool> m_darkMode{true};
@@ -234,6 +245,7 @@ namespace scripting {
     LoadSoundHook m_loadSoundHook;
     PlaySoundHook m_playSoundHook;
     UnloadPluginSoundsHook m_unloadPluginSoundsHook;
+    ShowOsdHook m_showOsdHook;
   };
 
 } // namespace scripting

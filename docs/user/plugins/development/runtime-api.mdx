@@ -321,6 +321,31 @@ Sound names are scoped to one runtime instance. Reloading or stopping it cancels
 cached names, while a sound already playing finishes safely. Playback honors `[audio].enable_sounds` and
 `[audio].sound_volume`. Triggering the same loaded sound while it is still playing is suppressed.
 
+## OSD
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `noctalia.osd.show(icon: string, value: string?, opts: table?)` | nothing | Shows the shell OSD popup. Requires <PluginApiBadge feature="osd" />. |
+
+`icon` is a glyph name, the same names `ui.glyph` accepts, and must not be empty. `value` is the text shown next to the
+icon; it defaults to empty. `opts` is an optional table:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `progress` | number? | Fill level from `0` to `1`; values outside are clamped and NaN raises an error. Omit it for a text-only popup. |
+| `inactive` | boolean? | Draws the icon and text in the muted color, as the built-in popups do for "off" states. |
+
+```lua
+noctalia.osd.show("wifi", "VPN connected")
+noctalia.osd.show("wifi-off", "VPN disconnected", { inactive = true })
+noctalia.osd.show("brightness-low", "40%", { progress = 0.4 })
+noctalia.osd.show("volume-high", "", { progress = 0.4 }) -- bar without text
+```
+
+A wrong argument or field type raises an error at the call. The popup uses the same slot as the built-in OSDs, so a
+newer volume or brightness change replaces it and vice versa. Users can turn plugin popups off with
+`[osd.kinds].custom = false`, and nothing is shown while the OSD is disabled.
+
 ## HTTP and downloads
 
 | Method | Returns | Description |

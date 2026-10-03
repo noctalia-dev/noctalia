@@ -353,6 +353,7 @@ location = "https://example.invalid/bad"
     c.osd.monitors = {"DP-1", "HDMI-A-1"};
     c.osd.kinds.lockKeys = false;
     c.osd.kinds.keyboardLayout = false;
+    c.osd.kinds.custom = false;
     c.backdrop = BackdropConfig{true, 0.8F, 0.2F};
     c.lockscreen = LockscreenConfig{
         .lockBeforeSuspend = false,

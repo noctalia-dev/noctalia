@@ -395,6 +395,7 @@ keyboard_layout = true   # input keyboard layout changes
 media = true             # MPRIS playback, track changes, and per-player volume changes
 privacy = true           # microphone/camera/screen share capture changes
 keyboard_backlight = true # keyboard backlight level
+custom = true            # custom popups sent by plugins or scripts
 ```
 
 The OSD powers volume, brightness, DND, caffeine, lock-key, keyboard-layout, privacy, external/IPC Wi-Fi, external/IPC Bluetooth,
@@ -421,6 +422,7 @@ level popups.
 `lock_keys = false` disables Caps/Num/Scroll Lock popups; when no `lock_keys` bar widget is configured, this also stops
 lock-key state polling. `keyboard_layout = false` disables layout-change popups. `privacy = false` disables popups shown
 when microphone, camera, or screen share capture starts or stops.
+`custom = false` disables custom popups sent by plugins or scripts.
 
 ---
 

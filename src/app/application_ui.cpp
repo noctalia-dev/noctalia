@@ -765,6 +765,11 @@ void Application::initNotificationAndOsd() {
   );
   m_configService.addReloadCallback([this]() { m_windowSwitcher.onConfigReload(); });
   m_configService.addReloadCallback([this]() { m_osdOverlay.onConfigReload(); });
+  m_scriptApi.setShowOsdHook(
+      [this](const std::string& icon, const std::string& value, std::optional<double> progress, bool inactive) {
+        m_osdOverlay.show(customOsdContent(icon, value, progress, inactive));
+      }
+  );
   m_idleGraceOverlay.initialize(m_wayland, &m_renderContext);
   m_wayland.setIdleCapabilitiesReadyCallback([this]() { m_idleManager.reload(m_configService.config().idle); });
   m_idleManager.initialize(

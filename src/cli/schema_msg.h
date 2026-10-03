@@ -164,6 +164,10 @@ namespace noctalia::cli {
       Positional{"summary", {}, {}, true, false, false},
       Positional{"body", {}, {}, true, false, true},
   };
+  inline constexpr std::array kMsgOsdShowPositionals{
+      Positional{"icon", {}, {}, true, false, false},
+      Positional{"value", "Text shown next to the icon", {}, false, false, true},
+  };
   inline constexpr std::array kMsgPanelClosePositionals{
       Positional{"id", {}, {}, false, false, false},
   };
@@ -573,6 +577,8 @@ namespace noctalia::cli {
                                               false};
     inline constexpr Command osdDisable{"osd-disable", "Disable OSD popups", {}, {}, {}, {}, {}, false};
     inline constexpr Command osdEnable{"osd-enable", "Enable OSD popups", {}, {}, {}, {}, {}, false};
+    inline constexpr Command osdShow{"osd-show", "Show a custom OSD popup", {}, {},
+                                     {},         kMsgOsdShowPositionals,    {}, false};
     inline constexpr Command osdToggle{"osd-toggle", "Toggle OSD popups", {}, {}, {}, {}, {}, false};
     inline constexpr Command panelClose{
         "panel-close",
@@ -900,6 +906,7 @@ namespace noctalia::cli {
       msg::notificationShow,
       msg::osdDisable,
       msg::osdEnable,
+      msg::osdShow,
       msg::osdToggle,
       msg::panelClose,
       msg::panelOpen,
