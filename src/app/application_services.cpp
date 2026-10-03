@@ -22,6 +22,7 @@
 #include "dbus/network/iwd_service.h"
 #include "dbus/network/network_manager_service.h"
 #include "dbus/network/network_secret_agent.h"
+#include "dbus/network/network_service.h"
 #include "dbus/network/wpa_supplicant_service.h"
 #include "dbus/notification/kde_notification_client.h"
 #include "dbus/notification/notification_dbus_host.h"
@@ -1273,36 +1274,43 @@ void Application::initSystemBusServices() {
       m_keyboardBacklightService.reset();
     }
 
-    // NetworkManager is preferred, and its backend follows the bus name when NetworkManager starts later
-    // or restarts. When it is not running at startup, a standalone wpa_supplicant or iwd takes over if
-    // one is; otherwise the NetworkManager backend waits for it to appear.
+    std::unique_ptr<INetworkService> networkManager;
+    std::unique_ptr<INetworkService> fallback;
+    IwdService* iwdService = nullptr;
     try {
-      m_networkService = std::make_unique<NetworkManagerService>(*m_systemBus);
+      networkManager = std::make_unique<NetworkManagerService>(*m_systemBus);
     } catch (const std::exception& e) {
       kLog.warn("NetworkManager backend disabled: {}", e.what());
     }
-    if (m_networkService == nullptr || !m_networkService->available()) {
+    if (networkManager == nullptr || !networkManager->available()) {
       try {
-        m_networkService = std::make_unique<WpaSupplicantService>(*m_systemBus);
+        fallback = std::make_unique<WpaSupplicantService>(*m_systemBus);
         kLog.info("network service active (wpa_supplicant)");
       } catch (const std::exception& e) {
         kLog.warn("wpa_supplicant unavailable ({}), trying iwd", e.what());
         try {
-          m_networkService = std::make_unique<IwdService>(*m_systemBus);
+          auto iwd = std::make_unique<IwdService>(*m_systemBus);
+          iwdService = iwd.get();
+          fallback = std::move(iwd);
           kLog.info("network service active (iwd)");
         } catch (const std::exception& e2) {
           kLog.warn("iwd unavailable ({})", e2.what());
         }
       }
+    }
+    if (networkManager != nullptr) {
+      m_networkService = std::make_unique<NetworkService>(std::move(networkManager), std::move(fallback));
     } else {
-      kLog.info("network service active");
+      m_networkService = std::move(fallback);
     }
 
     if (m_networkService != nullptr) {
       m_networkService->setChangeCallback(
           [this, shouldRefreshControlCenter](const NetworkState& state, NetworkChangeOrigin origin) {
-            // NetworkManager leaving or returning is not a radio toggle.
-            if (m_networkService->available()) {
+            if (origin == NetworkChangeOrigin::BackendChanged) {
+              m_prevWirelessEnabledForEvents =
+                  m_networkService->hasStateSnapshot() ? std::optional(state.wirelessEnabled) : std::nullopt;
+            } else if (m_networkService->available()) {
               onNetworkStateChangedForEvents(state, origin);
             }
             m_externalIpService.onNetworkChanged();
@@ -1333,8 +1341,7 @@ void Application::initSystemBusServices() {
       m_networkSecretAgent.reset();
     }
 
-    // Initialize iwd secret agent if iwd is the active network service
-    if (auto* iwdService = dynamic_cast<IwdService*>(m_networkService.get())) {
+    if (iwdService != nullptr) {
       try {
         m_iwdSecretAgent = std::make_unique<IwdSecretAgent>(*m_systemBus);
         iwdService->setSecretAgent(m_iwdSecretAgent.get());

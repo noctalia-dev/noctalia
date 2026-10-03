@@ -485,6 +485,7 @@ _noctalia_sources = files(
   'src/dbus/network/iwd_service.cpp',
   'src/dbus/network/network_display.cpp',
   'src/dbus/network/network_manager_service.cpp',
+  'src/dbus/network/network_service.cpp',
   'src/dbus/network/network_secret_agent.cpp',
   'src/dbus/network/wpa_supplicant_service.cpp',
   'src/dbus/polkit/polkit_agent.cpp',
@@ -1334,6 +1335,19 @@ if build_tests
   )
   dbus_run_session = find_program('dbus-run-session', required: false)
   if dbus_run_session.found()
+    network_recovery_integration_exe = executable('network_recovery_integration_test',
+      sources: files('tests/network_recovery_integration_test.cpp'),
+      dependencies: noctalia_core_dep,
+    )
+    test('network_recovery_integration',
+      dbus_run_session,
+      args: [
+        '--', 'sh', '-c',
+        'export DBUS_SYSTEM_BUS_ADDRESS="$DBUS_SESSION_BUS_ADDRESS"; exec "$1"',
+        'sh', network_recovery_integration_exe.full_path(),
+      ],
+      depends: network_recovery_integration_exe,
+    )
     test('upower_charge_limit_integration',
       dbus_run_session,
       args: [

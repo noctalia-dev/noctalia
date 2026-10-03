@@ -67,4 +67,5 @@ struct NetworkState {
 enum class NetworkChangeOrigin : std::uint8_t {
   External,
   Noctalia,
+  BackendChanged,
 };
