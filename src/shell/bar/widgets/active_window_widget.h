@@ -38,6 +38,7 @@ public:
     ActiveWindowTitleScrollMode titleScrollMode = ActiveWindowTitleScrollMode::None;
     ActiveWindowDisplayMode displayMode = ActiveWindowDisplayMode::IconAndText;
     bool showEmptyLabel = false;
+    bool tooltipEnabled = true;
   };
 
   ActiveWindowWidget(ConfigService& config, CompositorPlatform& platform, Options options);
@@ -74,6 +75,7 @@ private:
   std::string m_lastAppId;
   std::string m_lastIconPath;
   std::string m_lastTooltipTitle;
+  bool m_tooltipEnabled;
   bool m_lastEmptyState = false;
   bool m_iconColorizeRefreshPending = false;
   Signal<>::ScopedConnection m_appIconColorizeConn;

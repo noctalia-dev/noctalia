@@ -22,7 +22,7 @@ ActiveWindowWidget::ActiveWindowWidget(ConfigService& config, CompositorPlatform
     : m_config(config), m_platform(platform), m_maxWidth(static_cast<float>(options.maxWidth)),
       m_minWidth(static_cast<float>(options.minWidth)), m_iconSize(static_cast<float>(options.iconSize)),
       m_titleScrollMode(options.titleScrollMode), m_displayMode(options.displayMode),
-      m_showEmptyLabel(options.showEmptyLabel) {
+      m_showEmptyLabel(options.showEmptyLabel), m_tooltipEnabled(options.tooltipEnabled) {
   buildDesktopIconIndex();
 }
 
@@ -220,14 +220,16 @@ void ActiveWindowWidget::syncState(Renderer& renderer) {
   m_lastAppId = appId;
   m_lastEmptyState = emptyState;
 
-  const std::string tooltipText = emptyState ? std::string{} : title;
-  if (tooltipText != m_lastTooltipTitle) {
-    m_lastTooltipTitle = tooltipText;
-    if (m_area != nullptr) {
-      if (tooltipText.empty()) {
-        m_area->clearTooltip();
-      } else {
-        m_area->setTooltip(tooltipText);
+  if (m_tooltipEnabled) {
+    const std::string tooltipText = emptyState ? std::string{} : title;
+    if (tooltipText != m_lastTooltipTitle) {
+      m_lastTooltipTitle = tooltipText;
+      if (m_area != nullptr) {
+        if (tooltipText.empty()) {
+          m_area->clearTooltip();
+        } else {
+          m_area->setTooltip(tooltipText);
+        }
       }
     }
   }

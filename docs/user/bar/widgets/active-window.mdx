@@ -15,6 +15,7 @@ Shows the active window icon and title for the current output. The window icon u
 | `title_scroll` | string | `"none"` | Title scrolling mode: `"none"`, `"always"`, or `"on_hover"` |
 | `display` | string | `"icon_and_text"` | Content mode on horizontal bars: `"icon_and_text"`, `"icon_only"`, or `"text_only"`. Vertical bars show the icon only when a window is focused. |
 | `show_empty_label` | bool | `false` | When enabled, show "No active window" instead of hiding the widget when no window is focused |
+| `tooltip_enabled` | bool | `true` | When disabled, the tooltip isn't shown. |
 
 ```toml
 [widget.active_window]
@@ -24,4 +25,5 @@ icon_size = 14
 title_scroll = "on_hover"
 display = "icon_and_text"
 show_empty_label = true
+tooltip_enabled = false
 ```
