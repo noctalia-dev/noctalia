@@ -212,6 +212,7 @@ namespace calendar {
     req.allowRedirectAuth = allowRedirectAuth;
     req.basicUsername = account.username;
     req.basicPassword = secretString(account.password);
+    req.tlsClientCert = account.tls;
     req.headers = {
         "Depth: 1",
         "Content-Type: application/xml; charset=utf-8",

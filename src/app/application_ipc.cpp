@@ -428,6 +428,14 @@ void Application::initIpc() {
     return "ok\n";
   });
 
+  m_ipcService.bind(noctalia::cli::msg::calendarSync, [this](const std::string&) -> std::string {
+    if (!m_calendarService.enabled()) {
+      return "error: calendar service is disabled\n";
+    }
+    m_calendarService.requestRefresh();
+    return "ok\n";
+  });
+
   m_ipcService.bindCycle(noctalia::cli::msg::workspaceSwitch, [this](const std::string& args) -> std::string {
     const auto parts = noctalia::ipc::splitWords(args);
     if (parts.size() != 1 || (parts[0] != "next" && parts[0] != "prev")) {

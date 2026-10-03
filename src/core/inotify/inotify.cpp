@@ -64,9 +64,8 @@ void Inotify::drain(std::optional<Callback> global_callback) noexcept {
       if ((event->mask & IN_IGNORED) != 0) {
         // watch was removed somehow => remove watch id
         m_watchDescriptors.erase(event->wd);
-      } else if (
-          global_callback.has_value() && ((event->mask & IN_Q_OVERFLOW) != 0 || m_watchDescriptors.contains(event->wd))
-      ) {
+      } else if (global_callback.has_value()
+                 && ((event->mask & IN_Q_OVERFLOW) != 0 || m_watchDescriptors.contains(event->wd))) {
         (*global_callback)(event);
       }
 

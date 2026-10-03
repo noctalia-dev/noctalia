@@ -18,6 +18,7 @@ namespace calendar {
     std::shared_ptr<const security::SecureBuffer> password; // app password
     std::string calendarName;
     std::string color;
+    std::shared_ptr<const HttpTlsClientCert> tls; // optional mTLS client-certificate material
   };
 
   class CalDavClient {

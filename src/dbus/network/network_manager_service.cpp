@@ -2534,13 +2534,11 @@ void NetworkManagerService::readStateAsync(std::function<void(NetworkState)> onC
                 next->kind = NetworkConnectivity::Wireless;
               } else if (deviceType == kNmDeviceTypeModem) {
                 next->kind = NetworkConnectivity::Cellular;
-              } else if (
-                  deviceType == kNmDeviceTypeEthernet
-                  || deviceType == kNmDeviceTypeBridge
-                  || deviceType == kNmDeviceTypeBond
-                  || deviceType == kNmDeviceTypeTeam
-                  || deviceType == kNmDeviceTypeVlan
-              ) {
+              } else if (deviceType == kNmDeviceTypeEthernet
+                         || deviceType == kNmDeviceTypeBridge
+                         || deviceType == kNmDeviceTypeBond
+                         || deviceType == kNmDeviceTypeTeam
+                         || deviceType == kNmDeviceTypeVlan) {
                 next->kind = NetworkConnectivity::Wired;
               }
               // Remaining device types (wireguard, tun, …) are VPN/overlay virtual
