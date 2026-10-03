@@ -434,7 +434,15 @@ namespace {
     if (isBlankSearchKey(key)) {
       return nullptr;
     }
-    for (const auto& entry : desktopEntries()) {
+    const auto& entries = desktopEntries();
+    // Entries are sorted by name, so without this an unrelated launcher that only shares the term via
+    // its Icon (e.g. a browser-profile entry with Icon=librewolf) wins over librewolf.desktop itself.
+    for (const auto& entry : entries) {
+      if (lowerIdentifier(entry.id) == key) {
+        return &entry;
+      }
+    }
+    for (const auto& entry : entries) {
       if (isValidDesktopMatch(key, entry)) {
         return &entry;
       }
