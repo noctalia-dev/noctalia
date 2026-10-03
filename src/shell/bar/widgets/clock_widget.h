@@ -20,6 +20,7 @@ public:
   ClockWidget(wl_output* output, Options options);
 
   void create() override;
+  [[nodiscard]] bool wantsSecondTicks() const override;
 
 private:
   [[nodiscard]] std::string formatTimeText() const;
