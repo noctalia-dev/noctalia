@@ -698,6 +698,17 @@ namespace {
     return instance;
   }
 
+  // follow_directory_symlink has no cycle detection, so a link pointing back up the tree would recurse until the
+  // kernel refuses the path. Walking each real directory at most once removes that.
+  bool claimDirectory(const fs::path& dir, std::unordered_set<std::string>& visited) {
+    std::error_code ec;
+    const auto resolved = fs::canonical(dir, ec);
+    if (ec) {
+      return false;
+    }
+    return visited.insert(resolved.string()).second;
+  }
+
 } // namespace
 
 std::vector<DesktopEntry> scanDesktopEntries(std::string_view language) {
@@ -715,12 +726,23 @@ std::vector<DesktopEntry> scanDesktopEntries(std::string_view language) {
       continue;
     }
 
-    constexpr auto options = fs::directory_options::skip_permission_denied;
+    std::unordered_set<std::string> visitedDirs;
+    claimDirectory(appDir, visitedDirs);
+
+    constexpr auto options =
+        fs::directory_options::skip_permission_denied | fs::directory_options::follow_directory_symlink;
     for (fs::recursive_directory_iterator it(appDir, options, ec), end; it != end; it.increment(ec)) {
       if (ec) {
         ec.clear();
         continue;
       }
+      if (it->is_directory(ec) && !ec) {
+        if (!claimDirectory(it->path(), visitedDirs)) {
+          it.disable_recursion_pending();
+        }
+        continue;
+      }
+      ec.clear();
       if (!it->is_regular_file(ec)) {
         ec.clear();
         continue;
