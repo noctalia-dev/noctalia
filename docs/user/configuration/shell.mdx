@@ -424,6 +424,22 @@ when microphone, camera, or screen share capture starts or stops.
 
 ---
 
+## Polkit
+
+The native Polkit agent is enabled with `shell.polkit_agent = true`.
+Enable empty responses under **Settings → Security → Authentication → Polkit Empty Password Submit**.
+
+```toml
+[polkit]
+allow_empty_password = false
+```
+
+Set `polkit.allow_empty_password = true` to let Enter or the submit button forward
+an empty response to the Polkit PAM conversation. This supports passwordless PAM
+stacks such as Howdy and security keys. Authentication is still handled by PAM.
+The default is `false`, which ignores empty submissions. This setting is independent
+of `lockscreen.allow_empty_password`.
+
 ## Lock screen
 
 Set **`[lockscreen].enabled = false`** to turn off session lock entirely: no `ext-session-lock-v1` engagement, no logind lock/unlock integration, and lock actions are hidden or no-op (idle lock, session panel, launcher, and `noctalia msg session lock`). **`lock-and-suspend`** falls back to suspend-only while the lock screen is disabled.

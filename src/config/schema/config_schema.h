@@ -13,6 +13,7 @@ namespace noctalia::config::schema {
   const Schema<OsdConfig>& osdSchema();
   const Schema<BackdropConfig>& backdropSchema();
   const Schema<LockscreenConfig>& lockscreenSchema();
+  const Schema<PolkitConfig>& polkitSchema();
   const Schema<SystemConfig>& systemSchema();
   const Schema<NightLightConfig>& nightlightSchema();
   const Schema<LocationConfig>& locationSchema();

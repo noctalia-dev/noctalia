@@ -397,6 +397,7 @@ namespace {
         && a.wallpaper == b.wallpaper
         && a.backdrop == b.backdrop
         && a.lockscreen == b.lockscreen
+        && a.polkit == b.polkit
         && a.dock == b.dock
         && a.shell == b.shell
         && a.osd == b.osd
@@ -877,6 +878,7 @@ ConfigChangeSet computeConfigChangeSet(const Config& prev, const Config& next) {
       .wallpaper = !(prev.wallpaper == next.wallpaper),
       .backdrop = !(prev.backdrop == next.backdrop),
       .lockscreen = !(prev.lockscreen == next.lockscreen),
+      .polkit = !(prev.polkit == next.polkit),
       .dock = !(prev.dock == next.dock),
       .shell = !(prev.shell == next.shell),
       .osd = !(prev.osd == next.osd),

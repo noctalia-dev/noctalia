@@ -121,6 +121,13 @@ namespace noctalia::config::schema {
     return s;
   }
 
+  const Schema<PolkitConfig>& polkitSchema() {
+    static const Schema<PolkitConfig> s = {
+        field(&PolkitConfig::allowEmptyPassword, "allow_empty_password"),
+    };
+    return s;
+  }
+
   const Schema<LockscreenConfig>& lockscreenSchema() {
     static const Schema<LockscreenConfig> s = {
         field(&LockscreenConfig::enabled, "enabled"),
