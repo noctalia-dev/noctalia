@@ -131,7 +131,7 @@ void LockScreen::setLoginBoxServices(
   }
 }
 
-bool LockScreen::lock() {
+bool LockScreen::lock(bool skipEnterTransition) {
   if (m_wayland == nullptr || m_renderContext == nullptr) {
     invalidateDesktopCaptures();
     notifyLockAborted();
@@ -143,7 +143,13 @@ bool LockScreen::lock() {
     notifyLockAborted();
     return false;
   }
+  if (m_unlocking) {
+    cancelUnlock();
+  }
   if (isActive() || m_lockStarting) {
+    if (skipEnterTransition) {
+      this->skipEnterTransition();
+    }
     return true;
   }
   if (!m_wayland->hasSessionLockManager()) {
@@ -161,6 +167,7 @@ bool LockScreen::lock() {
     return true;
   }
 
+  m_skipEnterTransition = skipEnterTransition || m_pendingAfterLocked != nullptr;
   m_lockStarting = true;
 
   if (m_desktopCapturesPrimed) {
@@ -227,6 +234,7 @@ void LockScreen::unlock() {
   }
 
   m_pendingAfterLocked = {};
+  m_skipEnterTransition = false;
   m_suspendTimeoutTimer.stop();
   invalidatePendingAuthentication();
   stopFingerprint();
@@ -279,6 +287,7 @@ void LockScreen::finishUnlock() {
 
   m_lockPending = false;
   m_locked = false;
+  m_skipEnterTransition = false;
   clearSensitiveString(m_password);
   m_status.clear();
   m_statusIsError = false;
@@ -330,7 +339,7 @@ void LockScreen::onOutputChange() {
   if (m_lockDeferred) {
     if (m_wayland != nullptr && !m_wayland->outputs().empty()) {
       m_lockDeferred = false;
-      (void)lock();
+      (void)lock(m_skipEnterTransition);
     }
     return;
   }
@@ -502,10 +511,10 @@ void LockScreen::onKeyboardEvent(const KeyboardEvent& event) {
 
 bool LockScreen::isActive() const noexcept { return m_lockPending || m_locked; }
 
-bool LockScreen::isSessionLocked() const noexcept { return m_locked; }
+bool LockScreen::isSessionLocked() const noexcept { return m_locked && !m_unlocking; }
 
 bool LockScreen::tryFlushPendingAfterLocked() {
-  if (m_locked && m_pendingAfterLocked && allSurfacesReady()) {
+  if (m_locked && !m_unlocking && m_pendingAfterLocked && allSurfacesReady()) {
     auto pending = std::move(m_pendingAfterLocked);
     m_pendingAfterLocked = {};
     m_suspendTimeoutTimer.stop();
@@ -549,19 +558,58 @@ void LockScreen::dispatchPendingAfterLocked() {
   }
 }
 
+void LockScreen::skipEnterTransition() {
+  m_skipEnterTransition = true;
+  for (auto& instance : m_instances) {
+    if (instance.surface != nullptr) {
+      instance.surface->skipEnterTransition();
+    }
+  }
+}
+
+bool LockScreen::cancelUnlock() {
+  if (!m_unlocking) {
+    return false;
+  }
+  kLog.info("aborting session unlock; relocking session");
+  m_unlocking = false;
+  m_unlockFinishQueued = false;
+  m_unlockTransitionTimer.stop();
+  invalidatePendingAuthentication();
+
+  for (auto& instance : m_instances) {
+    if (instance.surface != nullptr) {
+      instance.surface->cancelExitTransition();
+    }
+  }
+
+  clearSensitiveString(m_password);
+  m_status.clear();
+  m_statusIsError = false;
+  updatePromptOnSurfaces();
+  startFingerprint();
+
+  return true;
+}
+
 void LockScreen::runAfterSessionLocked(std::function<void()> fn) {
   if (fn == nullptr) {
     return;
   }
   m_pendingAfterLocked = std::move(fn);
+  if (m_unlocking) {
+    cancelUnlock();
+  }
+  skipEnterTransition();
   if (tryFlushPendingAfterLocked()) {
     return;
   }
   if (isActive()) {
     return;
   }
-  if (!lock()) {
+  if (!lock(true)) {
     m_pendingAfterLocked = {};
+    m_skipEnterTransition = false;
   }
 }
 
@@ -580,7 +628,9 @@ void LockScreen::handleLocked(void* data, ext_session_lock_v1* /*lock*/) {
   for (auto& instance : self->m_instances) {
     instance.surface->setLockedState(true);
     instance.surface->setOnLogin([self]() { self->tryAuthenticate(); });
-    instance.surface->startEnterTransition();
+    if (!self->m_skipEnterTransition) {
+      instance.surface->startEnterTransition();
+    }
   }
 
   // Start the fallback timer (3 seconds) to trigger suspend anyway if surfaces take too long to render
@@ -608,6 +658,7 @@ void LockScreen::handleFinished(void* data, ext_session_lock_v1* /*lock*/) {
   kLog.info("session lock finished by compositor");
   const bool wasLockedInteractive = self->m_locked;
   self->m_pendingAfterLocked = {};
+  self->m_skipEnterTransition = false;
   self->m_unlockTransitionTimer.stop();
   self->m_unlocking = false;
   self->m_unlockFinishQueued = false;
@@ -974,7 +1025,7 @@ void LockScreen::createInstance(const WaylandOutput& output) {
   }
   const std::optional<LockscreenTransitionKind> transition =
       m_activeTransition.has_value() ? std::optional{renderTransitionKind(*m_activeTransition)} : std::nullopt;
-  surface->configureTransition(transition, m_transitionParams, m_transitionDurationMs);
+  surface->configureTransition(transition, m_transitionParams, m_transitionDurationMs, m_skipEnterTransition);
   surface->setRenderCallback([this]() { tryFlushPendingAfterLocked(); });
   surface->setTransitionCallback([this]() { handleTransitionStateChanged(); });
   surface->setOnLogin([this]() { tryAuthenticate(); });
@@ -1009,6 +1060,7 @@ void LockScreen::notifyLockAborted() {
 
 void LockScreen::resetLockState() {
   m_pendingAfterLocked = {};
+  m_skipEnterTransition = false;
   m_suspendTimeoutTimer.stop();
   m_unlockTransitionTimer.stop();
   m_lockDeferred = false;

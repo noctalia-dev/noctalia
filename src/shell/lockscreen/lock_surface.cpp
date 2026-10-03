@@ -760,7 +760,8 @@ bool LockSurface::usesDesktopCaptureBackground() const noexcept {
 }
 
 void LockSurface::configureTransition(
-    std::optional<LockscreenTransitionKind> transition, const LockscreenTransitionParams& params, float durationMs
+    std::optional<LockscreenTransitionKind> transition, const LockscreenTransitionParams& params, float durationMs,
+    bool skipEnterTransition
 ) {
   cancelTransitionAnimation();
   m_transitionParams = params;
@@ -775,6 +776,14 @@ void LockSurface::configureTransition(
   }
 
   m_transition = *transition;
+  if (skipEnterTransition) {
+    m_transitionProgress = 1.0F;
+    m_transitionPhase = TransitionPhase::Stable;
+    syncTransitionCover();
+    requestLayout();
+    return;
+  }
+
   m_transitionProgress = 0.0F;
   m_transitionPhase = TransitionPhase::Cover;
   syncTransitionCover();
@@ -782,9 +791,29 @@ void LockSurface::configureTransition(
 }
 
 void LockSurface::startEnterTransition() {
+  if (m_transitionPhase == TransitionPhase::Stable || m_transitionPhase == TransitionPhase::Disabled) {
+    return;
+  }
   m_enterTransitionRequested = true;
   if (m_transitionPhase == TransitionPhase::Ready) {
     beginEnterAnimation();
+  }
+}
+
+void LockSurface::skipEnterTransition() {
+  m_enterTransitionRequested = false;
+  cancelTransitionAnimation();
+  if (m_transitionPhase != TransitionPhase::Disabled
+      && m_transitionPhase != TransitionPhase::ExitComplete
+      && m_transitionPhase != TransitionPhase::Exiting
+      && m_transitionPhase != TransitionPhase::ExitEndpoint) {
+    m_transitionPhase = TransitionPhase::Stable;
+    m_transitionProgress = 1.0F;
+    syncTransitionCover();
+    requestLayout();
+    requestUpdate();
+    requestRedraw();
+    notifyTransitionStateChanged();
   }
 }
 
@@ -834,6 +863,21 @@ void LockSurface::startExitTransition() {
       this
   );
   requestRedraw();
+}
+
+void LockSurface::cancelExitTransition() {
+  m_enterTransitionRequested = false;
+  cancelTransitionAnimation();
+  if (m_transitionPhase != TransitionPhase::Disabled) {
+    m_transitionPhase = TransitionPhase::Stable;
+    m_transitionProgress = 1.0F;
+    syncTransitionCover();
+  }
+  focusPasswordField();
+  requestLayout();
+  requestUpdate();
+  requestRedraw();
+  notifyTransitionStateChanged();
 }
 
 bool LockSurface::transitionInputReady() const noexcept {

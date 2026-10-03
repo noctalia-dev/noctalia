@@ -51,7 +51,10 @@ public:
   void setLoginBoxServices(
       SessionActionRunner* sessionActions, MprisService* mpris, const WeatherService* weather, HttpClient* httpClient
   );
-  bool lock();
+  bool lock(bool skipEnterTransition = false);
+  void skipEnterTransition();
+  bool cancelUnlock();
+  [[nodiscard]] bool isUnlocking() const noexcept { return m_unlocking; }
   void primeDesktopCaptures();
   void clearPrimedDesktopCaptures();
   void unlock();
@@ -159,6 +162,7 @@ private:
   std::optional<LockscreenTransition> m_activeTransition;
   LockscreenTransitionParams m_transitionParams;
   float m_transitionDurationMs = 1500.0F;
+  bool m_skipEnterTransition = false;
   std::function<void()> m_pendingAfterLocked;
   std::function<void()> m_onSessionLocked;
   std::function<void()> m_onSessionUnlocked;
