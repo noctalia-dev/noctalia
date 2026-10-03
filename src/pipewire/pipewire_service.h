@@ -310,6 +310,7 @@ private:
   PrivacyState m_privacyState;
   std::vector<std::string> m_cameraApps;
   std::future<std::vector<std::string>> m_cameraScan;
+  // Next camera scan / in-flight poll instant; initialized in the constructor (not epoch).
   std::chrono::steady_clock::time_point m_cameraScanAt;
   ChangeCallback m_changeCallback;
   VolumePreviewCallback m_volumePreviewCallback;

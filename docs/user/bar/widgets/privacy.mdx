@@ -7,7 +7,7 @@ sidebar:
 
 Shows when your microphone, camera, or screen is being captured, based on PipeWire stream links. Camera detection also checks once per second for applications opening video devices directly through V4L2, as the v4 privacy indicator plugin did. Each input type has its own icon that switches between an "off" glyph (idle) and an active glyph (in use). Hovering the widget lists the applications currently using each device.
 
-Direct V4L2 access is reported using process names and works independently of the PipeWire daemon. It indicates an open video device, including applications that keep it open while not streaming. Metadata devices are excluded. Processes whose file descriptors cannot be inspected due to system permissions cannot be detected this way.
+Direct V4L2 access is reported using process names (`/proc/<pid>/comm`, at most 15 characters) and works independently of the PipeWire daemon. It indicates an open `/dev/video*` node, including applications that keep a device open while not streaming. Metadata devices are excluded. Other V4L2 nodes such as mem2mem codecs, v4l2loopback, and HDMI capture can still appear when a process holds them open. Processes whose file descriptors cannot be inspected due to system permissions cannot be detected this way.
 
 | Setting | Type | Default | Description |
 |---------|------|---------|-------------|

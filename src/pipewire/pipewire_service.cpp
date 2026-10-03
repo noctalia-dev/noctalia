@@ -790,6 +790,13 @@ PipeWireService::PipeWireService() {
   }
 
   pw_loop_enter(m_loop);
+  try {
+    m_cameraScan = std::async(std::launch::async, [] { return v4l2CameraApps(); });
+    m_cameraScanAt = std::chrono::steady_clock::now() + std::chrono::milliseconds(100);
+  } catch (const std::exception& e) {
+    kLog.warn("could not start camera scan: {}", e.what());
+    m_cameraScanAt = std::chrono::steady_clock::now() + std::chrono::seconds(1);
+  }
   if (!connectRemote(true)) {
     kLog.warn("PipeWire daemon unavailable at startup; retrying in the background");
     scheduleReconnect();
@@ -797,6 +804,9 @@ PipeWireService::PipeWireService() {
 }
 
 PipeWireService::~PipeWireService() {
+  if (m_cameraScan.valid()) {
+    m_cameraScan.wait();
+  }
   disconnectRemote(false);
   if (m_context != nullptr) {
     pw_context_destroy(m_context);
@@ -1047,16 +1057,12 @@ int PipeWireService::fd() const noexcept {
 
 int PipeWireService::pollTimeoutMs() const noexcept {
   const auto now = std::chrono::steady_clock::now();
-  const auto cameraRemaining = std::clamp(
-      std::chrono::ceil<std::chrono::milliseconds>(m_cameraScanAt - now), std::chrono::milliseconds::zero(),
-      std::chrono::milliseconds{INT_MAX}
-  );
-  const int cameraTimeout = static_cast<int>(cameraRemaining.count());
+  const int cameraTimeout = v4l2CameraPollTimeoutMs(m_cameraScanAt, now);
   if (m_core != nullptr || m_reconnectAt.time_since_epoch().count() == 0) {
     return cameraTimeout;
   }
 
-  const auto remaining = std::chrono::ceil<std::chrono::milliseconds>(m_reconnectAt - std::chrono::steady_clock::now());
+  const auto remaining = std::chrono::ceil<std::chrono::milliseconds>(m_reconnectAt - now);
   if (remaining <= std::chrono::milliseconds::zero()) {
     return 0;
   }
@@ -1069,29 +1075,32 @@ void PipeWireService::pollCameraApps() {
     return;
   }
   if (m_cameraScan.valid()) {
-    if (m_cameraScan.wait_for(std::chrono::milliseconds::zero()) == std::future_status::ready) {
-      try {
-        auto apps = m_cameraScan.get();
-        if (apps != m_cameraApps) {
-          m_cameraApps = std::move(apps);
-          rebuildState();
-        }
-      } catch (const std::exception& e) {
-        kLog.warn("camera scan failed: {}", e.what());
-      }
-      m_cameraScanAt = now + std::chrono::seconds(1);
+    if (m_cameraScan.wait_for(std::chrono::milliseconds::zero()) != std::future_status::ready) {
+      m_cameraScanAt = now + std::chrono::milliseconds(100);
       return;
     }
-  } else {
     try {
-      m_cameraScan = std::async(std::launch::async, [] { return v4l2CameraApps(); });
-    } catch (const std::exception& e) {
-      kLog.warn("could not start camera scan: {}", e.what());
+      auto apps = m_cameraScan.get();
+      // Advance the deadline before rebuildState so a change callback cannot start a second scan.
       m_cameraScanAt = now + std::chrono::seconds(1);
-      return;
+      if (apps != m_cameraApps) {
+        m_cameraApps = std::move(apps);
+        rebuildState();
+      }
+    } catch (const std::exception& e) {
+      kLog.warn("camera scan failed: {}", e.what());
+      m_cameraScanAt = now + std::chrono::seconds(1);
     }
+    return;
   }
-  m_cameraScanAt = now + std::chrono::milliseconds(100);
+
+  try {
+    m_cameraScan = std::async(std::launch::async, [] { return v4l2CameraApps(); });
+    m_cameraScanAt = now + std::chrono::milliseconds(100);
+  } catch (const std::exception& e) {
+    kLog.warn("could not start camera scan: {}", e.what());
+    m_cameraScanAt = now + std::chrono::seconds(1);
+  }
 }
 
 void PipeWireService::dispatch() {
@@ -2005,8 +2014,15 @@ void PipeWireService::rebuildState() {
   for (const auto& app : m_cameraApps) {
     // Keep PipeWire's richer application label when it already reports this camera client.
     const bool reported = std::ranges::any_of(nextPrivacy.captures, [&](const PrivacyCapture& capture) {
+      if (capture.kind != PrivacyCaptureKind::Camera) {
+        return false;
+      }
+      if (v4l2CameraSameApp(capture.appName, app)) {
+        return true;
+      }
       const auto* node = findNode(capture.nodeId);
-      return capture.kind == PrivacyCaptureKind::Camera && node != nullptr && node->applicationBinary == app;
+      return node != nullptr
+          && (v4l2CameraSameApp(node->applicationBinary, app) || v4l2CameraSameApp(node->applicationName, app));
     });
     if (!reported) {
       addCapture(PrivacyCaptureKind::Camera, 0, app);
