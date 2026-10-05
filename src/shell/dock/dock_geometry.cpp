@@ -261,8 +261,6 @@ namespace shell::dock {
     } else {
       geometry.marginTop = cfg.marginEnds;
       geometry.marginBottom = cfg.marginEnds;
-    }
-    if (!cfg.maximize || outputLogicalHeight <= 0) {
       geometry.surfaceH = static_cast<std::uint32_t>(panelW + sb.up + sb.down + insetT + insetB + mainPad * 2);
     }
     if (isRight) {
