@@ -756,12 +756,14 @@ bool BluetoothService::pair(const std::string& devicePath) {
     proxy->callMethodAsync("Pair")
         .onInterface(kDeviceInterface)
         .uponReplyInvoke([this, devicePath](std::optional<sdbus::Error> err) {
-          if (err.has_value()) {
-            kLog.warn("Device.Pair failed {}: {}", devicePath, err->what());
-            if (auto* dev = findDevice(devicePath)) {
-              dev->connecting = false;
-              emitDevices();
-            }
+          if (!err.has_value()) {
+            setTrusted(devicePath, true);
+            return;
+          }
+          kLog.warn("Device.Pair failed {}: {}", devicePath, err->what());
+          if (auto* dev = findDevice(devicePath)) {
+            dev->connecting = false;
+            emitDevices();
           }
         });
     return true;
