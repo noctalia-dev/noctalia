@@ -71,11 +71,6 @@ namespace {
     return FlexJustify::Start;
   }
 
-  [[nodiscard]] bool dockLauncherAtEnd(const DockConfig& cfg) {
-    return cfg.launcherPosition == DockLauncherPosition::End
-        || (cfg.launcherPosition == DockLauncherPosition::Start && cfg.alignment == DockAlignment::End);
-  }
-
   void resetDockItemDragState(shell::dock::DockInstance& instance) {
     instance.drag.holdTimer.stop();
     instance.drag = {};
@@ -542,7 +537,7 @@ namespace shell::dock {
     instance.row = static_cast<Flex*>(rowParent->addChild(std::move(freshRow)));
     const auto& itemModels = snapshot.items;
 
-    if (launcherPosition == DockLauncherPosition::Start && !dockLauncherAtEnd(cfg)) {
+    if (launcherPosition == DockLauncherPosition::Start) {
       instance.row->addChild(createLauncherButton(instance, cfg, renderer, clickContext));
     }
 
@@ -766,7 +761,7 @@ namespace shell::dock {
       }
     }
 
-    if (dockLauncherAtEnd(cfg)) {
+    if (launcherPosition == DockLauncherPosition::End) {
       instance.row->addChild(createLauncherButton(instance, cfg, renderer, clickContext));
     }
 
@@ -1026,7 +1021,7 @@ namespace shell::dock {
 
     std::vector<HoverSlot> slots;
     slots.reserve(itemCount + 1U);
-    if (!dockLauncherAtEnd(cfg) && instance.launcherArea != nullptr) {
+    if (cfg.launcherPosition == DockLauncherPosition::Start && instance.launcherArea != nullptr) {
       slots.push_back(
           HoverSlot{
               .area = instance.launcherArea,
@@ -1063,7 +1058,7 @@ namespace shell::dock {
           }
       );
     }
-    if (dockLauncherAtEnd(cfg) && instance.launcherArea != nullptr) {
+    if (cfg.launcherPosition == DockLauncherPosition::End && instance.launcherArea != nullptr) {
       slots.push_back(
           HoverSlot{
               .area = instance.launcherArea,
@@ -1145,7 +1140,7 @@ namespace shell::dock {
       return;
     }
     const bool vertical = shell::dock::isVerticalEdge(cfg.position);
-    if (!dockLauncherAtEnd(cfg) && instance.launcherArea != nullptr) {
+    if (cfg.launcherPosition == DockLauncherPosition::Start && instance.launcherArea != nullptr) {
       instance.launcherRestMainPos = vertical ? instance.launcherArea->y() : instance.launcherArea->x();
       instance.launcherRestCrossPos = vertical ? instance.launcherArea->x() : instance.launcherArea->y();
       instance.launcherHoverMainOffset = 0.0F;
@@ -1158,7 +1153,7 @@ namespace shell::dock {
       item.restCrossPos = vertical ? item.area->x() : item.area->y();
       item.hoverMainOffset = 0.0F;
     }
-    if (dockLauncherAtEnd(cfg) && instance.launcherArea != nullptr) {
+    if (cfg.launcherPosition == DockLauncherPosition::End && instance.launcherArea != nullptr) {
       instance.launcherRestMainPos = vertical ? instance.launcherArea->y() : instance.launcherArea->x();
       instance.launcherRestCrossPos = vertical ? instance.launcherArea->x() : instance.launcherArea->y();
       instance.launcherHoverMainOffset = 0.0F;

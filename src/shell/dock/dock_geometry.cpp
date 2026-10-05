@@ -43,8 +43,7 @@ namespace shell::dock {
       if (outputLength <= 0) {
         return;
       }
-      const std::int32_t marginEnds = cfg.maximize ? 0 : cfg.marginEnds;
-      const std::int32_t availableLength = std::max(1, outputLength - marginEnds * 2);
+      const std::int32_t availableLength = std::max(1, outputLength - cfg.marginEnds * 2);
       const auto maximumLength = static_cast<std::uint32_t>(availableLength);
       if (vertical) {
         geometry.surfaceH = std::min(geometry.surfaceH, maximumLength);
@@ -229,7 +228,7 @@ namespace shell::dock {
     if (!vertical) {
       geometry.surfaceW = static_cast<std::uint32_t>(panelW + sb.left + sb.right + insetL + insetR + mainPad * 2);
       if (cfg.maximize && outputLogicalWidth > 0) {
-        geometry.surfaceW = static_cast<std::uint32_t>(outputLogicalWidth);
+        geometry.surfaceW = static_cast<std::uint32_t>(std::max(1, outputLogicalWidth - cfg.marginEnds * 2));
       } else {
         geometry.marginLeft = cfg.marginEnds;
         geometry.marginRight = cfg.marginEnds;
@@ -257,7 +256,7 @@ namespace shell::dock {
     }
 
     if (cfg.maximize && outputLogicalHeight > 0) {
-      geometry.surfaceH = static_cast<std::uint32_t>(outputLogicalHeight);
+      geometry.surfaceH = static_cast<std::uint32_t>(std::max(1, outputLogicalHeight - cfg.marginEnds * 2));
     } else {
       geometry.marginTop = cfg.marginEnds;
       geometry.marginBottom = cfg.marginEnds;

@@ -418,7 +418,7 @@ end    = ["media", "tray", "notifications", "clipboard", "network", "bluetooth",
 [dock]
 enabled             = false         # set true to activate
 position            = "bottom"      # top | bottom | left | right
-maximize            = false         # fill the screen along the dock's main axis; setting radius/corner radii to 0 fills the screen completely
+maximize            = false         # fill the screen along the dock's main axis, inset by margin_ends
 alignment           = "center"      # center | start | end; only used when maximize = true
 icon_size           = 48
 main_axis_padding   = 16
