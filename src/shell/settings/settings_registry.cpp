@@ -1038,7 +1038,7 @@ namespace settings {
         auto entry = makeEntry(
             SettingsSection::Dock, "layout", tr("settings.schema.dock.alignment.label"),
             tr("settings.schema.dock.alignment.description"), path("alignment"),
-            asSegmented(enumSelect(kDockAlignments, dock.alignment)), "center start align icons"
+            asSegmented(enumSelect(kDockAlignments, dock.alignment)), "center start end align icons right bottom"
         );
         entry.visibleWhen = [currentDock](const Config& current) { return currentDock(current).maximize; };
         entries.push_back(std::move(entry));

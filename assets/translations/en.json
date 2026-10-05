@@ -2061,7 +2061,7 @@
       },
       "dock": {
         "alignment": {
-          "description": "Align icons at the center or start of the maximized dock",
+          "description": "Align icons at the center, start, or end of the maximized dock",
           "label": "Icon Alignment"
         },
         "active-icon-opacity": {

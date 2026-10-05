@@ -12,7 +12,7 @@ A standalone application dock that displays pinned and running apps. Disabled by
 enabled             = false      # set true to activate
 position            = "bottom"   # top | bottom | left | right
 maximize            = false      # fill the screen along the dock's main axis, with no end margins
-alignment           = "center"   # center | start; only used when maximize = true
+alignment           = "center"   # center | start | end; only used when maximize = true
 active_monitor_only = false      # when true, only show apps/windows from the active monitor
 
 icon_size           = 48
@@ -66,8 +66,8 @@ Shadow blur, offset, and alpha are global under `[shell.shadow]`. The dock only 
 
 When `maximize = true`, the dock background spans the full screen width for top and bottom positions (or the full
 screen height for left and right positions), ignoring `margin_ends`. `margin_edge` still controls its distance from the
-screen edge. `alignment` places the icons in the center or at the start of that span: left-aligned for horizontal docks
-and top-aligned for vertical docks.
+screen edge. `alignment` places the icons at the center, start, or end of that span. Start aligns icons to the left for
+horizontal docks and the top for vertical docks; end aligns them to the right or bottom, respectively.
 
 ## Per-monitor overrides
 

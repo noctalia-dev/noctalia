@@ -633,6 +633,7 @@ enum class DockLauncherPosition : std::uint8_t {
 enum class DockAlignment : std::uint8_t {
   Center = 0,
   Start = 1,
+  End = 2,
 };
 
 constexpr EnumOption<DockLauncherPosition> kDockLauncherPositions[] = {
@@ -644,6 +645,7 @@ constexpr EnumOption<DockLauncherPosition> kDockLauncherPositions[] = {
 constexpr EnumOption<DockAlignment> kDockAlignments[] = {
     {DockAlignment::Center, "center", "settings.options.screen-position.center"},
     {DockAlignment::Start, "start", "settings.options.dock-launcher-position.start"},
+    {DockAlignment::End, "end", "settings.options.dock-launcher-position.end"},
 };
 
 struct DockMonitorOverride {
