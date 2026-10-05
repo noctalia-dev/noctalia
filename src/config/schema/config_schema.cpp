@@ -2190,6 +2190,8 @@ namespace noctalia::config::schema {
           field(&DockMonitorOverride::match, "match"),
           optionalBoolField(&DockMonitorOverride::enabled, "enabled"),
           optionalEnumField(&DockMonitorOverride::position, "position", kDockEdges),
+          optionalBoolField(&DockMonitorOverride::maximize, "maximize"),
+          optionalEnumField(&DockMonitorOverride::alignment, "alignment", kDockAlignments),
           optionalBoolField(&DockMonitorOverride::activeMonitorOnly, "active_monitor_only"),
           optionalIntField(&DockMonitorOverride::iconSize, "icon_size", kDockIconSizeRange),
           optionalIntField(&DockMonitorOverride::mainAxisPadding, "main_axis_padding", kDockPaddingRange),
@@ -2252,6 +2254,8 @@ namespace noctalia::config::schema {
     static const Schema<DockConfig> s = {
         field(&DockConfig::enabled, "enabled"),
         enumField(&DockConfig::position, "position", kDockEdges),
+        field(&DockConfig::maximize, "maximize"),
+        enumField(&DockConfig::alignment, "alignment", kDockAlignments),
         field(&DockConfig::activeMonitorOnly, "active_monitor_only"),
         field(&DockConfig::iconSize, "icon_size", kDockIconSizeRange),
         field(&DockConfig::mainAxisPadding, "main_axis_padding", kDockPaddingRange),

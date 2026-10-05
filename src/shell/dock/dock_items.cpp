@@ -385,6 +385,7 @@ namespace shell::dock {
         vertical ? FlexDirection::Vertical : FlexDirection::Horizontal,
         {
             .align = FlexAlign::Center,
+            .justify = cfg.alignment == DockAlignment::Center ? FlexJustify::Center : FlexJustify::Start,
             .gap = static_cast<float>(cfg.itemSpacing),
             .paddingV = vertical ? mainPad : crossPad,
             .paddingH = vertical ? crossPad : mainPad,

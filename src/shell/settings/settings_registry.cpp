@@ -1030,6 +1030,20 @@ namespace settings {
           asSegmented(enumSelect(kDockEdges, dock.position)), "edge"
       ));
       entries.push_back(makeEntry(
+          SettingsSection::Dock, "layout", tr("settings.schema.dock.maximize.label"),
+          tr("settings.schema.dock.maximize.description"), path("maximize"), ToggleSetting{dock.maximize},
+          "full width maximize screen"
+      ));
+      {
+        auto entry = makeEntry(
+            SettingsSection::Dock, "layout", tr("settings.schema.dock.alignment.label"),
+            tr("settings.schema.dock.alignment.description"), path("alignment"),
+            asSegmented(enumSelect(kDockAlignments, dock.alignment)), "center start align icons"
+        );
+        entry.visibleWhen = [currentDock](const Config& current) { return currentDock(current).maximize; };
+        entries.push_back(std::move(entry));
+      }
+      entries.push_back(makeEntry(
           SettingsSection::Dock, "layout", tr("settings.schema.dock.icon-size.label"),
           tr("settings.schema.dock.icon-size.description"), path("icon_size"),
           sliderFor(dock.iconSize, noctalia::config::schema::kDockIconSizeRange, true), "apps"

@@ -630,10 +630,20 @@ enum class DockLauncherPosition : std::uint8_t {
   End = 2,
 };
 
+enum class DockAlignment : std::uint8_t {
+  Center = 0,
+  Start = 1,
+};
+
 constexpr EnumOption<DockLauncherPosition> kDockLauncherPositions[] = {
     {DockLauncherPosition::None, "none", "settings.options.dock-launcher-position.none"},
     {DockLauncherPosition::Start, "start", "settings.options.dock-launcher-position.start"},
     {DockLauncherPosition::End, "end", "settings.options.dock-launcher-position.end"},
+};
+
+constexpr EnumOption<DockAlignment> kDockAlignments[] = {
+    {DockAlignment::Center, "center", "settings.options.screen-position.center"},
+    {DockAlignment::Start, "start", "settings.options.dock-launcher-position.start"},
 };
 
 struct DockMonitorOverride {
@@ -642,6 +652,8 @@ struct DockMonitorOverride {
   std::string match;
   std::optional<bool> enabled;
   std::optional<DockEdge> position;
+  std::optional<bool> maximize;
+  std::optional<DockAlignment> alignment;
   std::optional<bool> activeMonitorOnly;
   std::optional<std::int32_t> iconSize;
   std::optional<std::int32_t> mainAxisPadding;
@@ -684,6 +696,8 @@ struct DockMonitorOverride {
 struct DockConfig {
   bool enabled = false; // opt-in; dock is hidden by default
   DockEdge position = DockEdge::Bottom;
+  bool maximize = false; // fill the screen along the dock's main axis
+  DockAlignment alignment = DockAlignment::Center;
   bool activeMonitorOnly = false;    // render only on preferred active output
   std::int32_t iconSize = 48;        // icon size in pixels (before ui_scale)
   std::int32_t mainAxisPadding = 16; // inner padding along the icon row (main axis)

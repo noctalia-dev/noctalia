@@ -94,5 +94,47 @@ int main() {
     TEST_CHECK(actualLength == expectedLength);
   }
 
+  {
+    DockConfig cfg = flushDock(DockEdge::Bottom);
+    cfg.maximize = true;
+    cfg.marginEnds = 80;
+    const ShellConfig::ShadowConfig shadow;
+    const auto geometry = shell::dock::computeSurfaceGeometry(
+        cfg, shadow, kItemCount, false, /*outputLogicalWidth=*/1920, /*outputLogicalHeight=*/1080
+    );
+    const auto panel = shell::dock::computePanelGeometry(cfg, shadow, geometry.surfaceW, geometry.surfaceH);
+    const auto concave = shell::dock::dockConcaveShape(cfg);
+    TEST_CHECK(geometry.surfaceW == 1920U);
+    TEST_CHECK(geometry.marginLeft == 0);
+    TEST_CHECK(geometry.marginRight == 0);
+    TEST_CHECK(panel.panelX - concave.logicalInset.left == 0.0F);
+    TEST_CHECK(panel.panelX + panel.panelW + concave.logicalInset.right == 1920.0F);
+    const auto input = shell::dock::computeInputRegion(cfg, panel, 1920, 1080, false, false);
+    TEST_CHECK(input.size() == 1);
+    TEST_CHECK(input.front().x == 0);
+    TEST_CHECK(input.front().width == 1920);
+  }
+
+  {
+    DockConfig cfg = flushDock(DockEdge::Left);
+    cfg.maximize = true;
+    cfg.marginEnds = 80;
+    const ShellConfig::ShadowConfig shadow;
+    const auto geometry = shell::dock::computeSurfaceGeometry(
+        cfg, shadow, kItemCount, false, /*outputLogicalWidth=*/1920, /*outputLogicalHeight=*/1080
+    );
+    const auto panel = shell::dock::computePanelGeometry(cfg, shadow, geometry.surfaceW, geometry.surfaceH);
+    const auto concave = shell::dock::dockConcaveShape(cfg);
+    TEST_CHECK(geometry.surfaceH == 1080U);
+    TEST_CHECK(geometry.marginTop == 0);
+    TEST_CHECK(geometry.marginBottom == 0);
+    TEST_CHECK(panel.panelY - concave.logicalInset.top == 0.0F);
+    TEST_CHECK(panel.panelY + panel.panelH + concave.logicalInset.bottom == 1080.0F);
+    const auto input = shell::dock::computeInputRegion(cfg, panel, 1920, 1080, false, false);
+    TEST_CHECK(input.size() == 1);
+    TEST_CHECK(input.front().y == 0);
+    TEST_CHECK(input.front().height == 1080);
+  }
+
   return 0;
 }
