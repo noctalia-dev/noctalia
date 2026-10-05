@@ -32,6 +32,8 @@ Alt+Tab-style overlay with two presentations selected by `[shell.window_switcher
 |--------|---------|-------------|
 | Open | <IpcCommand command="window-switcher" /> | Show the switcher on the preferred monitor (pointer, keyboard focus, or first output). |
 | Open from a held-modifier keybind | <IpcCommand command="window-switcher hold" /> | Same as Open, for Alt+Tab-style keybinds. If the shortcut modifier is already released when the overlay gains keyboard focus (a quick tap), the previous window is activated and the overlay closes. |
+| Open sticky | <IpcCommand command="window-switcher open" /> | Same as Open, but releasing modifiers never closes the overlay. It stays open until Enter, Escape, a click, or `window-switcher close`. Use it for tap-style keybinds such as Super+A. |
+| Toggle sticky | <IpcCommand command="window-switcher toggle" /> | Close the overlay if it is open, otherwise run `open`. |
 | Close | <IpcCommand command="window-switcher close" /> | Hide the overlay without changing focus. `hide` is an alias. |
 
 Example Hyprland bind (use `hold` so a quick tap switches to the previous window):
@@ -40,11 +42,17 @@ Example Hyprland bind (use `hold` so a quick tap switches to the previous window
 hl.bind("ALT + TAB", hl.dsp.exec_cmd("noctalia msg window-switcher hold"))
 ```
 
+For a tap-style bind that stays open after you let go, use `toggle`:
+
+```ini
+hl.bind("SUPER + A", hl.dsp.exec_cmd("noctalia msg window-switcher toggle"))
+```
+
 While the overlay is open it takes exclusive keyboard focus on its layer surface:
 
 - **Tab** / **Shift+Tab** - cycle selection
 - **Arrow keys** - move through the active switcher style
-- **Release the shortcut modifier** - focus the selected window (for example, release Alt for Alt+Tab or Super for Super+Tab)
+- **Release the shortcut modifier** - focus the selected window (for example, release Alt for Alt+Tab or Super for Super+Tab). Ignored after `open` or `toggle`
 - **Enter** - focus the selected window and close
 - **Escape** - close without switching
 - **Quick tap** - with `window-switcher hold`, releasing the shortcut modifier before the overlay has keyboard focus counts as the release: the previous window is activated and the overlay closes. Without `hold` (terminals, scripts, gestures), the overlay stays open until Enter, Escape, or a click
