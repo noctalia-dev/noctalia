@@ -104,6 +104,25 @@ int main() {
        )
       && ok;
 
+  ok = expectArgs(
+           desktop_entry_launch::prepareCommand("SAL_USE_VCLPLUGIN=gtk3 libreoffice --writer %U", false),
+           {"env", "SAL_USE_VCLPLUGIN=gtk3", "libreoffice", "--writer"},
+           "leading environment assignments should be passed through env"
+       )
+      && ok;
+
+  ok = expectArgs(
+           desktop_entry_launch::prepareCommand("FOO=\"a b\" _BAR1=2 sample --opt=value", false),
+           {"env", "FOO=a b", "_BAR1=2", "sample", "--opt=value"}, "quoted environment assignments should stay together"
+       )
+      && ok;
+
+  ok = expect(
+           !desktop_entry_launch::prepareCommand("FOO=bar", false).has_value(),
+           "assignment-only command should not prepare an argv"
+       )
+      && ok;
+
   desktop_entry_launch::PrepareOptions terminalOptions;
   const std::string fakeTerminal = makeExecutableFixture();
   terminalOptions.terminalCandidates = {"missing-terminal-candidate", fakeTerminal};
