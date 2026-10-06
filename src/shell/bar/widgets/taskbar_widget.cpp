@@ -2720,6 +2720,22 @@ void TaskbarWidget::updateModels() {
     }
   }
 
+  if (!m_configOptions.hiddenWorkspaces.empty() && !nextWorkspaces.empty()) {
+    const auto& hiddenNames = m_configOptions.hiddenWorkspaces;
+    // Hidden workspaces still show while active, so switching to one keeps its windows visible.
+    const auto isHidden = [&hiddenNames](const WorkspaceModel& wsm) {
+      return !wsm.workspace.active
+          && !wsm.workspace.name.empty()
+          && std::ranges::find(hiddenNames, wsm.workspace.name) != hiddenNames.end();
+    };
+    std::erase_if(nextTasks, [&](const TaskModel& t) {
+      return std::ranges::any_of(nextWorkspaces, [&](const WorkspaceModel& wsm) {
+        return isHidden(wsm) && taskInWorkspaceGroup(t, wsm);
+      });
+    });
+    std::erase_if(nextWorkspaces, isHidden);
+  }
+
   if (m_onlyActiveWorkspace && !nextWorkspaces.empty()) {
     std::unordered_set<std::string> activeKeys;
     activeKeys.reserve(nextWorkspaces.size() * 3);

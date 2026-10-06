@@ -45,6 +45,7 @@ struct TaskbarWidgetOptions {
   WorkspaceLabelPlacement workspaceLabelPlacement = WorkspaceLabelPlacement::Corner;
   WorkspaceGroupContent workspaceGroupContent = WorkspaceGroupContent::Icons;
   bool hideEmptyWorkspaces = false;
+  std::vector<std::string> hiddenWorkspaces;
   bool workspaceGroupCapsule = true;
   bool focusedOutputOnly = false;
   bool minimal = false;

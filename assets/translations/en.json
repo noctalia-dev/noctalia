@@ -4287,6 +4287,10 @@
           "description": "Hide the album artwork",
           "label": "Hide Album Art"
         },
+        "hidden-workspaces": {
+          "description": "Workspace names whose windows are left out of the taskbar unless that workspace is active",
+          "label": "Hidden Workspaces"
+        },
         "hide-artist": {
           "description": "Hide the artist name and only show the track title",
           "label": "Hide Artist"

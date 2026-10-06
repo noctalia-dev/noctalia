@@ -156,6 +156,12 @@ const noctalia::bar::WidgetDefinition<TaskbarWidgetOptions>& taskbarWidgetDefini
                           .presentation = presentation("taskbar.grouping", groupedOnly(), true),
                       }
                   ),
+                  field<&Options::hiddenWorkspaces>(
+                      {
+                          .key = "hidden_workspaces",
+                          .presentation = presentation("taskbar.grouping", std::nullopt, true),
+                      }
+                  ),
                   field<&Options::workspaceGroupContent>(
                       {
                           .key = "workspace_group_content",
