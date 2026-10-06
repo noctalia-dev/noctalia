@@ -26,7 +26,9 @@ namespace settings {
 
   bool isMonitorOverrideSettingPath(const std::vector<std::string>& path) {
     return (path.size() >= 5 && path[0] == "bar" && path[2] == "monitor")
-        || (path.size() >= 4 && path[0] == "dock" && path[1] == "monitor"
+        || (path.size() >= 4
+            && path[0] == "dock"
+            && path[1] == "monitor"
             && (path.back() == "maximize" || path.back() == "alignment"));
   }
 

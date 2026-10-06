@@ -338,8 +338,8 @@ namespace shell::dock {
       return DockPanelGeometry{
           .panelX = cfg.maximize ? insetL : bleedL + insetL + mainPad,
           .panelY = y,
-          .panelW = cfg.maximize ? surfaceW - insetL - insetR
-                                : surfaceW - bleedL - bleedR - insetL - insetR - mainPad * 2.0F,
+          .panelW =
+              cfg.maximize ? surfaceW - insetL - insetR : surfaceW - bleedL - bleedR - insetL - insetR - mainPad * 2.0F,
           .panelH = panelThickness,
       };
     }
@@ -356,8 +356,8 @@ namespace shell::dock {
         .panelX = x,
         .panelY = cfg.maximize ? insetT : bleedU + insetT + mainPad,
         .panelW = panelThickness,
-        .panelH = cfg.maximize ? surfaceH - insetT - insetB
-                              : surfaceH - bleedU - bleedD - insetT - insetB - mainPad * 2.0F,
+        .panelH =
+            cfg.maximize ? surfaceH - insetT - insetB : surfaceH - bleedU - bleedD - insetT - insetB - mainPad * 2.0F,
     };
   }
 
