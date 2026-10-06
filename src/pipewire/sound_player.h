@@ -5,6 +5,7 @@
 #include <memory>
 #include <optional>
 #include <pipewire/pipewire.h>
+#include <set>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -24,6 +25,7 @@ public:
 
   void play(const std::string& name);
   void setTheme(std::string theme);
+  void setEventEnabled(const std::string& event, bool enabled);
   void setVolume(float volume);
 
   [[nodiscard]] std::optional<std::string>
@@ -63,6 +65,7 @@ private:
   spa_source* m_streamCloseTimer = nullptr;
   float m_volume = 1.0F;
   std::string m_theme;
+  std::set<std::string> m_disabledEvents;
   std::unordered_map<std::string, std::shared_ptr<const SoundBuffer>> m_buffers;
   std::unordered_map<std::uint64_t, std::unordered_map<std::string, std::shared_ptr<const SoundBuffer>>>
       m_pluginBuffers;

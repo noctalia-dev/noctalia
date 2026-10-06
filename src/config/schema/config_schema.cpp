@@ -31,8 +31,12 @@ namespace noctalia::config::schema {
     static const Schema<AudioConfig> s = {
         field(&AudioConfig::enableOverdrive, "enable_overdrive"),
         field(&AudioConfig::enableSounds, "enable_sounds"),
+        field(&AudioConfig::enableVolumeSounds, "enable_volume_sounds"),
+        field(&AudioConfig::enableNotificationSounds, "enable_notification_sounds"),
+        field(&AudioConfig::enablePowerSounds, "enable_power_sounds"),
+        field(&AudioConfig::enableScreenshotSounds, "enable_screenshot_sounds"),
         field(&AudioConfig::soundVolume, "sound_volume", kUnitRange),
-        field(&AudioConfig::soundTheme, "sound_theme"),
+        field(&AudioConfig::soundTheme, "sound_theme")
     };
     return s;
   }

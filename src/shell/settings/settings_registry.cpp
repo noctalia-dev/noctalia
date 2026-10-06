@@ -2912,6 +2912,26 @@ namespace settings {
         ToggleSetting{cfg.audio.enableSounds}, "sound"
     ));
     entries.push_back(makeEntry(
+        SettingsSection::Services, "audio", tr("settings.schema.services.volume-sounds.label"),
+        tr("settings.schema.services.volume-sounds.description"), {"audio", "enable_volume_sounds"},
+        ToggleSetting{cfg.audio.enableVolumeSounds}, "sound"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Services, "audio", tr("settings.schema.services.notification-sounds.label"),
+        tr("settings.schema.services.notification-sounds.description"), {"audio", "enable_notification_sounds"},
+        ToggleSetting{cfg.audio.enableNotificationSounds}, "sound"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Services, "audio", tr("settings.schema.services.power-sounds.label"),
+        tr("settings.schema.services.power-sounds.description"), {"audio", "enable_power_sounds"},
+        ToggleSetting{cfg.audio.enablePowerSounds}, "sound"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Services, "audio", tr("settings.schema.services.screenshot-sounds.label"),
+        tr("settings.schema.services.screenshot-sounds.description"), {"audio", "enable_screenshot_sounds"},
+        ToggleSetting{cfg.audio.enableScreenshotSounds}, "sound"
+    ));
+    entries.push_back(makeEntry(
         SettingsSection::Services, "audio", tr("settings.schema.services.sound-volume.label"),
         tr("settings.schema.services.sound-volume.description"), {"audio", "sound_volume"},
         sliderFor(cfg.audio.soundVolume, noctalia::config::schema::kUnitRange, false), "sound"

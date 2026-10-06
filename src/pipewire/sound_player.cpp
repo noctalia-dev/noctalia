@@ -282,6 +282,9 @@ SoundPlayer::loadPluginSound(std::uint64_t ownerId, const std::string& name, con
 void SoundPlayer::unloadPluginSounds(std::uint64_t ownerId) { m_pluginBuffers.erase(ownerId); }
 
 void SoundPlayer::play(const std::string& name) {
+  if (m_disabledEvents.contains(name)) {
+    return;
+  }
   const auto it = m_buffers.find(name);
   if (it == m_buffers.end()) {
     return;
@@ -352,6 +355,14 @@ void SoundPlayer::playBuffer(const std::string& name, const std::shared_ptr<cons
   }
 
   m_active.push_back(std::move(active));
+}
+
+void SoundPlayer::setEventEnabled(const std::string& event, bool enabled) {
+  if (enabled) {
+    m_disabledEvents.erase(event);
+  } else {
+    m_disabledEvents.insert(event);
+  }
 }
 
 void SoundPlayer::setVolume(float volume) { m_volume = std::clamp(volume, 0.0F, 1.0F); }

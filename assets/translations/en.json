@@ -2857,8 +2857,20 @@
           "label": "Notification Sound",
           "placeholder": "/path/to/sound.wav"
         },
+        "notification-sounds": {
+          "description": "Play a sound when notifications arrive",
+          "label": "Notification Sounds"
+        },
+        "power-sounds": {
+          "description": "Play a sound when the charger connects or disconnects",
+          "label": "Power Sounds"
+        },
+        "screenshot-sounds": {
+          "description": "Play a sound on screenshot capture",
+          "label": "Screenshot Sounds"
+        },
         "shell-sounds": {
-          "description": "Play sound effects for shell events",
+          "description": "Master toggle for shell sound effects",
           "label": "Shell Sounds"
         },
         "sound-theme": {
@@ -2931,6 +2943,10 @@
           "description": "Sound file used for volume feedback",
           "label": "Volume Change Sound",
           "placeholder": "/path/to/sound.wav"
+        },
+        "volume-sounds": {
+          "description": "Play a sound when output or input volume changes",
+          "label": "Volume Sounds"
         },
         "weather": {
           "description": "Enable the weather service via open-meteo.com",
