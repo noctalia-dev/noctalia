@@ -342,9 +342,9 @@ location = "https://example.invalid/bad"
         .enableOverdrive = true,
         .enableSounds = true,
         .enableVolumeSounds = false,
-        .enableNotificationSounds = true,
-        .enablePowerSounds = true,
-        .enableScreenshotSounds = true,
+        .enableNotificationSounds = false,
+        .enablePowerSounds = false,
+        .enableScreenshotSounds = false,
         .soundVolume = 0.73F,
         .soundTheme = "freedesktop"
     };

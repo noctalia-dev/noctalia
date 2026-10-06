@@ -435,7 +435,7 @@ uint32_t NotificationManager::addOrReplace(NotificationRequest request) {
   }
   const bool dndAllowsSound = !m_doNotDisturb || dndPolicy == NotificationDndPolicy::Bypass;
   if (dndAllowsSound && m_soundPlayer != nullptr && dispatch.playSound) {
-    m_soundPlayer->play("message-new-instant");
+    m_soundPlayer->play(SoundPlayer::kEventNotification);
   }
 
   return n.id;
