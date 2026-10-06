@@ -308,7 +308,6 @@
       "uptime": "Tempo di attività – {uptime}",
       "weather": {
         "data-unavailable": "Dati meteo non disponibili.",
-        "disabled": "Il meteo è disabilitato nella configurazione.",
         "fetching": "Recupero previsioni meteo..."
       }
     },
@@ -1121,6 +1120,8 @@
           "action": "Raggruppa",
           "border": "Bordo",
           "border-description": "Ruolo colore del contorno capsula; lascia Predefinito per nessun contorno",
+          "border-width": "Dimensione Bordo",
+          "border-width-description": "Spessore del contorno capsula in pixels; disegnata solo quando il colore del bordo è impostato",
           "clear": "Cancella",
           "deselect": "Deseleziona",
           "drag": "Riordina",
@@ -1852,6 +1853,10 @@
           "description": "Ruolo colore predefinito del contorno capsula; sono supportati anche codici colore in formato esadecimale",
           "label": "Bordo capsula"
         },
+        "capsule-border-width": {
+          "description": "Spessore del contorno capsula in pixels; disegnata solo quando il colore del bordo capsula è impostato",
+          "label": "Dimensione Bordo Capsula"
+        },
         "capsule-fill": {
           "description": "Ruolo colore predefinito dello sfondo capsula; sono supportati anche codici colore in formato esadecimale",
           "label": "Riempimento capsula"
@@ -1879,6 +1884,10 @@
         "center-widgets": {
           "description": "Widget al centro della barra",
           "label": "Widget centrali"
+        },
+        "compositor-blur": {
+          "description": "Consenti al compositor di sfocare lo sfondo dietro questa barra quando è disponibile il protocollo per gli effetti di sfondo",
+          "label": "Sfocatura compositor"
         },
         "concave-edge-corners": {
           "description": "Intaglia delle tacche concave in due degli angoli della barra (è necessario che il margine del bordo sia impostato a 0); Se il margine delle estremità è impostato su 0, vengono intagliati gli angoli sul bordo interno della barra, in caso contrario, vengono intagliati gli angoli che toccano il bordo dello schermo",
@@ -2156,10 +2165,6 @@
         "main-axis-padding": {
           "description": "Spaziatura interna alle estremità della riga di icone (prima della prima icona e dopo l'ultima)"
         },
-        "monitors": {
-          "description": "Scegli quali monitor mostrano la dock (lascia vuoto per tutti); il filtro monitor attivo si applica dentro questi monitor",
-          "label": "Monitor"
-        },
         "pinned-apps": {
           "description": "ID desktop entry delle app fissate alla dock",
           "label": "App fissate"
@@ -2395,6 +2400,14 @@
           "description": "Disegna un contorno attorno ai toast di notifica",
           "label": "Bordo"
         },
+        "border-color": {
+          "description": "Ruolo del colore per il contorno del messaggio di notifica; sono supportati anche codici colore in formato esadecimale",
+          "label": "Colore Bordo"
+        },
+        "border-width": {
+          "description": "Spessore del contorno dei toast notifica in pixels; 0 nasconde il contorno",
+          "label": "Dimensione Bordo"
+        },
         "collapse-on-dismiss": {
           "description": "Fa scorrere i toast rimanenti per chiudere gli spazi quando uno viene ignorato",
           "label": "Compatta alla chiusura"
@@ -2406,6 +2419,10 @@
         "filters": {
           "description": "Regole notifiche per mittente, cronologia e suoni; ha priorità il primo filtro abilitato corrispondente",
           "label": "Filtri notifiche"
+        },
+        "follow-focused-output": {
+          "description": "Mostra le nuove notifiche toast sul monitor attivo",
+          "label": "Segui l'output che ha il focus"
         },
         "history-retention-hours": {
           "description": "Rimuovi automaticamente le voci della cronologia delle notifiche più vecchie del numero di ore specificato (0 per conservarle per sempre)",
@@ -2454,6 +2471,10 @@
         "toast-opacity": {
           "description": "Opacità sfondo delle notifiche toast",
           "label": "Opacità sfondo"
+        },
+        "width": {
+          "description": "Larghezza del toast in pixel prima del ridimensionamento",
+          "label": "Larghezza"
         }
       },
       "panels": {
@@ -3076,9 +3097,25 @@
           "description": "Disegna un contorno attorno ai popup OSD",
           "label": "Bordo"
         },
+        "osd-border-color": {
+          "description": "Ruolo del colore per il contorno del popup OSD; sono supportati anche codici colore in formato esadecimale",
+          "label": "Colore del bordo"
+        },
+        "osd-border-width": {
+          "description": "Spessore del contorno dei popup OSD in pixel; 0 nasconde il contorno",
+          "label": "Larghezza del bordo"
+        },
         "osd-enabled": {
           "description": "Interruttore principale per tutti i popup OSD; quando è spento non viene mostrato alcun OSD",
           "label": "Abilita OSD"
+        },
+        "osd-follow-focused-output": {
+          "description": "Mostra i nuovi popup OSD sul monitor attivo; i popup visibili rimangono nella posizione in cui sono apparsi",
+          "label": "Segui l'output che ha il focus"
+        },
+        "osd-hide-delay": {
+          "description": "Per quanto tempo un popup OSD rimane visibile prima di sparire",
+          "label": "Ritardo scomparsa"
         },
         "osd-kinds-bluetooth": {
           "description": "Mostra un popup OSD quando il Bluetooth viene attivato/disattivato",
@@ -3187,6 +3224,10 @@
         "privacy-screen-filter-regex": {
           "description": "Espressione regolare per ignorare le app di condivisione dello schermo negli indicatori di privacy e OSD",
           "label": "Filtro espressione regolare condivisone schermo"
+        },
+        "readline-shortcuts": {
+          "description": "Utilizza scorciatoie stile readline in ogni campo di testo (Ctrl+A sposta il testo all'inizio della riga invece di selezionarla tutta)",
+          "label": "Scorciatoie readline"
         },
         "screen-time-enabled": {
           "description": "Monitora l'uso per app e lo mostra nel centro di controllo",
@@ -4087,6 +4128,10 @@
           "description": "Ruolo colore per il contorno capsula; sono supportati anche codici colore in formato esadecimale",
           "label": "Bordo capsula"
         },
+        "capsule-border-width": {
+          "description": "Spessore del contorno della capsula in pixel; viene disegnato solo quando è impostato un colore del bordo della capsula",
+          "label": "Dimensione Bordo Capsula"
+        },
         "capsule-fill": {
           "description": "Ruolo colore per lo sfondo capsula; sono supportati anche codici colore in formato esadecimale",
           "label": "Riempimento capsula"
@@ -4190,7 +4235,7 @@
         "focused-output-only": {
           "description": "Evidenzia solo l'area di lavoro attiva sul monitor focalizzato",
           "label": "Evidenzia solo il monitor focalizzato",
-          "taskbar-description": "Utilizza il colore focalizzato solo per l'area di lavoro attiva sul monitor in focus tramite tastiera o puntatore; gli altri monitor utilizzano il colore per occupato",
+          "taskbar-description": "Evidenzia solo l'area di lavoro attiva sul monitor che ha il focus su tastiera o puntatore; le aree di lavoro attive sugli altri monitor utilizzano il colore corrispondente all'area occupata e lo stile a capsula per le aree di lavoro inattive",
           "workspaces-description": "Evidenzia solo l'area di lavoro attiva sul monitor con il focus della tastiera o del puntatore; gli altri monitor mostrano invece lo spazio di lavoro attivo come occupato"
         },
         "font-family": {
@@ -4450,6 +4495,10 @@
         "reversed": {
           "description": "Invertire l'ordine delle frequenze da bassa ad alta delle barre",
           "label": "Invertito"
+        },
+        "rotate-album-art": {
+          "description": "Ruota la copertina circolare dell'album mentre il contenuto multimediale è in riproduzione",
+          "label": "Ruota la copertina dell'album"
         },
         "scale": {
           "description": "Scala questo widget rispetto alla scala contenuto della barra",
@@ -4886,7 +4935,7 @@
     "count": "{count} finestra",
     "count-plural": "{count} finestre",
     "empty": "Nessuna finestra aperta",
-    "hint": "Tab · Shift+Tab · Tasti freccia · Rilascia Alt per cambiare · Esc per annullare",
+    "hint": "Tab · Maiusc+Tab · Tasti freccia · Rilascia il modificatore di scelta rapida per cambiare · Esc per annullare",
     "title": "Finestre"
   }
 }

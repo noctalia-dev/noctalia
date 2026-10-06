@@ -680,6 +680,9 @@ namespace {
     // script, e.g. vscode, would end prematurely when the script exits, and the actual app process
     // is still running.
     systemdArgs.emplace_back("--property=ExitType=cgroup");
+    // A child being selected by the OOM killer must not make systemd terminate every other
+    // process in the app unit, such as unrelated shells and terminal multiplexer sessions.
+    systemdArgs.emplace_back("--property=OOMPolicy=continue");
 
     // We launch the app as a systemd service instead of a scope so the user can:
     // 1. Place drop-in files in ~/.config/systemd/user/app-<desktop-id>@.service.d/ to set properties like resource

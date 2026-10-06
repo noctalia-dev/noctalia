@@ -357,11 +357,17 @@ layout = "horizontal"
 color  = "on_surface"
 shadow = true
 hide_when_no_media = true
+album_art_background = false
+album_art_blur = 24
+audio_visualizer = false
 ```
 
 | Setting | Type | Default | Description |
 |---------|------|---------|-------------|
-| `layout` | string | `"horizontal"` | `"horizontal"` (cover on left) or `"vertical"` (cover on top) |
+| `layout` | string | `"horizontal"` | Preferred auto-fit layout: `"horizontal"` (cover on left) or `"vertical"` (cover on top). Explicitly sized boxes adapt between the two layouts to fit their aspect ratio. |
+| `album_art_background` | bool | `false` | Fill the player card with a blurred, palette-scrimmed copy of the current album art |
+| `album_art_blur` | int | `24` | Album-art background blur radius from `0` (sharp) to `96` pixels |
+| `audio_visualizer` | bool | `false` | Show a subtle PipeWire spectrum behind the metadata and playback controls |
 | `hide_when_no_media` | bool | `false` | Hide the widget when no MPRIS player is active |
 
 ---

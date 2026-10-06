@@ -55,6 +55,8 @@ namespace noctalia::theme {
       "outline",
       "outline_variant",
       "shadow",
+      "hover",
+      "on_hover",
       "scrim",
       "inverse_surface",
       "inverse_on_surface",

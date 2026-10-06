@@ -51,6 +51,7 @@ struct KeyboardEvent {
   std::uint32_t modifiers = 0; // KeyMod bitmask
   bool pressed = false;
   bool preedit = false; // dead key preview (composing in progress)
+  bool repeat = false;  // synthesized by client-side key repeat, not a fresh press
 };
 
 class WaylandSeat {
@@ -73,6 +74,7 @@ public:
   using PointerEventCallback = std::function<void(const PointerEvent&)>;
   using KeyboardEventCallback = std::function<void(const KeyboardEvent&)>;
   using KeyboardFocusCallback = std::function<void(wl_surface* surface, bool entered)>;
+  using KeyboardModifiersCallback = std::function<void(std::uint32_t modifiers)>;
   using LockKeysChangeCallback = std::function<void()>;
 
   void bind(wl_seat* seat);
@@ -80,6 +82,7 @@ public:
   void setPointerEventCallback(PointerEventCallback callback);
   void setKeyboardEventCallback(KeyboardEventCallback callback);
   void setKeyboardFocusCallback(KeyboardFocusCallback callback);
+  void setKeyboardModifiersCallback(KeyboardModifiersCallback callback);
   void setLockKeysChangeCallback(LockKeysChangeCallback callback);
   void setCursorShape(std::uint32_t serial, std::uint32_t shape);
   void forgetSurface(wl_surface* surface) noexcept;
@@ -207,6 +210,7 @@ private:
   xkb_compose_state* m_composeState = nullptr;
   KeyboardEventCallback m_keyboardEventCallback;
   KeyboardFocusCallback m_keyboardFocusCallback;
+  KeyboardModifiersCallback m_keyboardModifiersCallback;
   LockKeysChangeCallback m_lockKeysChangeCallback;
   LockKeysState m_lastLockKeysState;
 

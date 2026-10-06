@@ -51,7 +51,7 @@ With grouping, `workspace_group_content` chooses what each capsule shows for its
 | `occupied_color` | string | `"secondary"` | Workspace disc fill when occupied |
 | `empty_color` | string | `"secondary"` | Workspace disc fill when empty (shown at reduced opacity) |
 | `urgent_color` | string | `"error"` | Workspace disc fill when urgent |
-| `focused_output_only` | bool | `false` | Only use the focused color for the active workspace disc on the monitor that has keyboard or pointer focus; other monitors use the occupied color. Applies to the workspace label, so it is only meaningful with `show_workspace_label = true`. |
+| `focused_output_only` | bool | `false` | Only highlight the active workspace on the monitor that has keyboard or pointer focus: its workspace disc uses the focused color and its group capsule the stronger fill and border. Active workspaces on other monitors use the occupied color and the inactive capsule style. Requires `group_by_workspace = true`. |
 
 ```toml
 [widget.taskbar]

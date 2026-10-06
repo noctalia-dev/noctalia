@@ -216,7 +216,7 @@ namespace shell::dock {
 
     Renderer& renderer = instance.surface->renderTarget().renderer();
 
-    const auto& cfg = deps.config.config().dock;
+    const auto& cfg = instance.config;
     const bool vert = shell::dock::isVerticalEdge(cfg.position);
 
     const auto w = static_cast<float>(instance.surface->width());
@@ -257,11 +257,11 @@ namespace shell::dock {
       // Clip overflow along the dock while retaining the cross-axis surface room used by magnification.
       auto viewport = ui::inputArea({});
       viewport->setClipChildren(true);
-      viewport->setOnAxisHandler([inst = &instance, &config = deps.config](const InputArea::PointerData& data) {
+      viewport->setOnAxisHandler([inst = &instance](const InputArea::PointerData& data) {
         if (inst->row == nullptr || inst->maxScrollOffset <= 0.0F) {
           return false;
         }
-        const auto& dockConfig = config.config().dock;
+        const auto& dockConfig = inst->config;
         const bool vertical = shell::dock::isVerticalEdge(dockConfig.position);
         const bool mainAxis =
             data.axis == (vertical ? WL_POINTER_AXIS_VERTICAL_SCROLL : WL_POINTER_AXIS_HORIZONTAL_SCROLL);
@@ -403,8 +403,8 @@ namespace shell::dock {
     applyDockCompositorBlur(instance, cfg);
 
     // Palette reactivity.
-    instance.paletteConn = paletteChanged().connect([inst = &instance, &config = deps.config] {
-      applyPanelPalette(*inst, config.config().dock);
+    instance.paletteConn = paletteChanged().connect([inst = &instance] {
+      applyPanelPalette(*inst, inst->config);
       if (inst->surface)
         inst->surface->requestRedraw();
     });
@@ -438,8 +438,8 @@ namespace shell::dock {
     }
   }
 
-  void revealAutoHideDock(DockInstance& inst, ConfigService& config) {
-    const auto& cfg = config.config().dock;
+  void revealAutoHideDock(DockInstance& inst) {
+    const auto& cfg = inst.config;
     if (!dockUsesAnyAutoHide(cfg) || inst.surface == nullptr || inst.slideRoot == nullptr) {
       return;
     }
@@ -459,11 +459,10 @@ namespace shell::dock {
 
     inst.hideAnimId = inst.animations.animate(
         current, 1.0F, Style::animNormal, Easing::EaseOutCubic,
-        [&inst, &config](float v) {
+        [&inst](float v) {
           inst.hideOpacity = v;
-          const auto& dockCfg = config.config().dock;
-          syncDockSlideLayerTransform(inst, dockCfg);
-          applyDockCompositorBlur(inst, dockCfg);
+          syncDockSlideLayerTransform(inst, inst.config);
+          applyDockCompositorBlur(inst, inst.config);
         },
         [&inst]() { inst.hideAnimId = 0; }
     );
@@ -471,7 +470,7 @@ namespace shell::dock {
     inst.surface->requestRedraw();
   }
 
-  void startHideFadeOut(DockInstance& inst, ConfigService& config) {
+  void startHideFadeOut(DockInstance& inst) {
     // xdg tooltips are not parent-transformed with the slide; destroy immediately
     // so they cannot remain pinned after auto-hide starts (#4177).
     TooltipManager::instance().forceDestroy();
@@ -482,15 +481,14 @@ namespace shell::dock {
     const float current = inst.hideOpacity;
     inst.hideAnimId = inst.animations.animate(
         current, 0.0F, Style::animNormal, Easing::EaseInQuad,
-        [&inst, &config](float v) {
+        [&inst](float v) {
           inst.hideOpacity = v;
-          const auto& cfg = config.config().dock;
-          syncDockSlideLayerTransform(inst, cfg);
-          applyDockCompositorBlur(inst, cfg);
+          syncDockSlideLayerTransform(inst, inst.config);
+          applyDockCompositorBlur(inst, inst.config);
         },
         [&inst]() { inst.hideAnimId = 0; }
     );
-    syncDockAutoHideInputRegion(inst, config.config().dock, DockPanelGeometry{});
+    syncDockAutoHideInputRegion(inst, inst.config, DockPanelGeometry{});
     if (inst.surface) {
       inst.surface->requestRedraw();
     }

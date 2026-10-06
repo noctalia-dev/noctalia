@@ -1,5 +1,6 @@
 #include "shell/settings/widget_settings_registry.h"
 
+#include "config/schema/ranges.h"
 #include "i18n/i18n.h"
 #include "scripting/plugin_i18n.h"
 #include "scripting/plugin_panel_shell.h"
@@ -47,6 +48,7 @@
 #include <array>
 #include <cctype>
 #include <cmath>
+#include <cstring>
 #include <format>
 #include <iterator>
 #include <stdexcept>
@@ -625,10 +627,11 @@ namespace settings {
     }
 
     std::ranges::sort(entries, [](const auto& a, const auto& b) {
-      if (a.label == b.label) {
+      const int result = std::strcoll(a.label.c_str(), b.label.c_str());
+      if (result == 0) {
         return a.value < b.value;
       }
-      return a.label < b.label;
+      return result < 0;
     });
     return entries;
   }
@@ -674,6 +677,16 @@ namespace settings {
     auto capsuleBorder = withGroup(colorSpec("capsule_border", {}, true), "presentation");
     capsuleBorder.visibleWhen = capsuleOn;
 
+    const auto& borderWidthRange = noctalia::config::schema::kBarCapsuleBorderWidthRange;
+    auto capsuleBorderWidth = withGroup(
+        doubleSpec(
+            "capsule_border_width", static_cast<double>(Style::borderWidth), static_cast<double>(*borderWidthRange.min),
+            static_cast<double>(*borderWidthRange.max), static_cast<double>(*borderWidthRange.step)
+        ),
+        "presentation"
+    );
+    capsuleBorderWidth.visibleWhen = capsuleOn;
+
     auto capsuleForeground = withGroup(colorSpec("capsule_foreground", {}, true), "presentation");
     capsuleForeground.visibleWhen = capsuleOn;
 
@@ -703,15 +716,16 @@ namespace settings {
     actions.visibleWhen = WidgetSettingVisibility{"interactive", {"true"}};
 
     return {
-        std::move(enabled),         std::move(anchor),
-        std::move(interactive),     std::move(scale),
-        std::move(fontScale),       std::move(widgetColor),
-        std::move(widgetIconColor), std::move(fontFamily),
-        std::move(fontWeight),      std::move(capsuleToggle),
-        std::move(capsuleRadius),   std::move(capsuleFill),
-        std::move(capsuleBorder),   std::move(capsuleForeground),
-        std::move(capsulePadding),  std::move(capsuleOpacity),
-        std::move(scrollRepeat),    std::move(actions),
+        std::move(enabled),           std::move(anchor),
+        std::move(interactive),       std::move(scale),
+        std::move(fontScale),         std::move(widgetColor),
+        std::move(widgetIconColor),   std::move(fontFamily),
+        std::move(fontWeight),        std::move(capsuleToggle),
+        std::move(capsuleRadius),     std::move(capsuleFill),
+        std::move(capsuleBorder),     std::move(capsuleBorderWidth),
+        std::move(capsuleForeground), std::move(capsulePadding),
+        std::move(capsuleOpacity),    std::move(scrollRepeat),
+        std::move(actions),
     };
   }
 

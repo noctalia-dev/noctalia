@@ -116,11 +116,9 @@ void FingerprintAuthenticator::stop() {
   m_active = false;
   m_verifying = false;
   m_claiming = false;
-  if (!m_abort) {
-    releaseDevice();
-  } else {
-    m_device.reset();
-  }
+  // Release even after verify-disconnected: fprintd also reports libfprint's recoverable TOO_HOT
+  // cutoff that way and keeps our claim until Release or until this long-lived connection closes.
+  releaseDevice();
 }
 
 bool FingerprintAuthenticator::createDeviceProxy() {

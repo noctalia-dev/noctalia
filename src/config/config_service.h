@@ -148,6 +148,7 @@ public:
   [[nodiscard]] bool canMoveBarOverride(std::string_view name, int direction) const;
   [[nodiscard]] bool canDeleteBarOverride(std::string_view name) const;
   [[nodiscard]] bool isOverrideOnlyMonitorOverride(std::string_view barName, std::string_view match) const;
+  [[nodiscard]] bool isOverrideOnlyDockMonitorOverride(std::string_view tableName) const;
   bool createBarOverride(std::string_view name);
   bool moveBarOverride(std::string_view name, int direction);
   bool renameBarOverride(std::string_view oldName, std::string_view newName);
@@ -155,6 +156,9 @@ public:
   bool createMonitorOverride(std::string_view barName, std::string_view match);
   bool renameMonitorOverride(std::string_view barName, std::string_view oldMatch, std::string_view newMatch);
   bool deleteMonitorOverride(std::string_view barName, std::string_view match);
+  bool createDockMonitorOverride(std::string_view match);
+  bool renameDockMonitorOverride(std::string_view oldTableName, std::string_view newMatch);
+  bool deleteDockMonitorOverride(std::string_view tableName);
   bool deleteCalendarAccountOverride(std::string_view id);
   bool setOverride(const std::vector<std::string>& path, ConfigOverrideValue value);
   bool setOverride(const std::vector<std::string>& path, ConfigOverrideValue value, bool* changed);
@@ -175,6 +179,7 @@ public:
   bool renameOverrideTable(const std::vector<std::string>& oldPath, const std::vector<std::string>& newPath);
 
   [[nodiscard]] static BarConfig resolveForOutput(const BarConfig& base, const WaylandOutput& output);
+  [[nodiscard]] static DockConfig resolveForOutput(const DockConfig& base, const WaylandOutput& output);
 
   // Recursively overlays `overlay` onto `base` (tables merge, everything else
   // replaces). Public so `config validate` can reproduce loadAll's merge order.
@@ -252,6 +257,7 @@ private:
   toml::table m_persistedOverridesTable;
   std::unordered_set<std::string> m_configFileBarNames;
   std::unordered_map<std::string, std::unordered_set<std::string>> m_configFileMonitorOverrideNames;
+  std::unordered_set<std::string> m_configFileDockMonitorOverrideNames;
   std::unordered_set<std::string> m_configFileCalendarAccountNames;
   std::string m_defaultWallpaperPath;
   std::string m_lastWallpaperPath;

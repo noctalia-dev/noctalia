@@ -12,6 +12,7 @@
 #include "ui/builders.h"
 #include "ui/controls/button.h"
 #include "ui/controls/flex.h"
+#include "ui/controls/glyph.h"
 #include "ui/controls/grid_tile.h"
 #include "ui/controls/grid_view.h"
 #include "ui/controls/label.h"
@@ -456,7 +457,11 @@ namespace calendar_view {
           timeText = formatLocalUnixTime(static_cast<std::int64_t>(raw), options.timeFormat);
         }
 
+        Label* timeLabel = nullptr;
+        Glyph* linkGlyph = nullptr;
+        Label* titleLabel = nullptr;
         auto time = ui::label({
+            .out = &timeLabel,
             .text = timeText,
             .fontSize = Style::fontSizeCaption * options.scale,
             .fontFamily = options.fontFamily,
@@ -469,6 +474,7 @@ namespace calendar_view {
           timeLine = ui::row(
               {.align = FlexAlign::Center, .gap = linkGlyphGap}, std::move(timeLine),
               ui::glyph({
+                  .out = &linkGlyph,
                   .glyph = "external-link",
                   .glyphSize = linkGlyphSize,
                   .color = colorSpecFromRole(ColorRole::OnSurfaceVariant, eventAlpha),
@@ -480,6 +486,7 @@ namespace calendar_view {
         auto details = ui::column(
             {.align = FlexAlign::Start, .gap = Style::spaceXs * 0.5F * options.scale, .flexGrow = 1.0F},
             ui::label({
+                .out = &titleLabel,
                 .text = event.title.empty() ? i18n::tr("control-center.calendar.events") : event.title,
                 .fontSize = Style::fontSizeBody * options.scale,
                 .fontFamily = options.fontFamily,
@@ -510,12 +517,20 @@ namespace calendar_view {
 
           Flex* row = eventRow;
           row->setRadius(Style::radiusSm * options.scale);
-          const auto setHovered = [row, requestRedraw = options.requestRedraw](bool hovered) {
+          const auto setHovered = [row, titleLabel, timeLabel, linkGlyph, eventAlpha,
+                                   requestRedraw = options.requestRedraw](bool hovered) {
             if (hovered) {
               row->setFill(colorSpecFromRole(ColorRole::Hover));
             } else {
               row->clearFill();
             }
+            const ColorSpec titleColor =
+                colorSpecFromRole(hovered ? ColorRole::OnHover : ColorRole::OnSurface, eventAlpha);
+            const ColorSpec detailColor =
+                colorSpecFromRole(hovered ? ColorRole::OnHover : ColorRole::OnSurfaceVariant, eventAlpha);
+            titleLabel->setColor(titleColor);
+            timeLabel->setColor(detailColor);
+            linkGlyph->setColor(detailColor);
             if (requestRedraw) {
               requestRedraw();
             }

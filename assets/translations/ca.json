@@ -257,7 +257,6 @@
       "uptime": "Temps actiu – {uptime}",
       "weather": {
         "data-unavailable": "Dades meteorològiques no disponibles.",
-        "disabled": "El temps està desactivat a la configuració.",
         "fetching": "S'està obtenint la previsió…"
       }
     },
@@ -1982,10 +1981,6 @@
         },
         "main-axis-padding": {
           "description": "Farcit interior als extrems de la fila d'icones (abans de la primera icona i després de l'última)"
-        },
-        "monitors": {
-          "description": "Tria quins monitors mostren el dock (deixa buit per a tots); el filtratge de monitor actiu s'aplica dins d'aquests monitors",
-          "label": "Monitors"
         },
         "pinned-apps": {
           "description": "IDs d'entrada d'escriptori de les aplicacions fixades al dock",

@@ -153,6 +153,7 @@ namespace settings {
     const auto requestRebuild = std::move(ctx.requestRebuild);
     const auto createBar = std::move(ctx.createBar);
     const auto openMonitorOverrideCreate = std::move(ctx.openMonitorOverrideCreate);
+    const auto openDockMonitorOverrideCreate = std::move(ctx.openDockMonitorOverrideCreate);
     const float scale = ctx.scale;
     const bool searchActive = ctx.globalSearchActive;
     const bool showActiveTab = !searchActive;
@@ -186,13 +187,16 @@ namespace settings {
 
     for (const auto& section : ctx.sections) {
       const std::string sectionId(settingsSectionId(section));
-      const bool selected = showActiveTab && sectionId == *selectedSection;
+      const bool selected = showActiveTab
+          && sectionId == *selectedSection
+          && (section != SettingsSection::Dock || selectedMonitorOverride->empty());
       const auto onClick = [selectedSection, scroll, sectionId, searchActive, clearTransientState, clearSearchQuery,
-                            requestRebuild]() {
+                            requestRebuild, selectedMonitorOverride]() {
         if (searchActive || *selectedSection != sectionId) {
           scroll->offset = 0.0F;
         }
         *selectedSection = sectionId;
+        selectedMonitorOverride->clear();
         clearSearchQuery();
         clearTransientState();
         requestRebuild();
@@ -204,6 +208,64 @@ namespace settings {
           ),
           onClick
       );
+
+      if (section != SettingsSection::Dock) {
+        continue;
+      }
+      for (const auto& override : cfg.dock.monitorOverrides) {
+        const bool overrideSelected =
+            showActiveTab && *selectedSection == "dock" && *selectedMonitorOverride == override.tableName;
+        const std::string tableName = override.tableName;
+        const std::string label = override.match;
+        const auto onMonitorClick = [selectedSection, selectedMonitorOverride, scroll, tableName, searchActive,
+                                     clearTransientState, clearSearchQuery, requestRebuild]() {
+          if (searchActive || *selectedSection != "dock" || *selectedMonitorOverride != tableName) {
+            scroll->offset = 0.0F;
+          }
+          *selectedSection = "dock";
+          *selectedMonitorOverride = tableName;
+          clearSearchQuery();
+          clearTransientState();
+          requestRebuild();
+        };
+        addNavButton(
+            *nav,
+            makeSecondaryNavButton(
+                "device-desktop", i18n::tr("settings.entities.monitor-override.label", "name", label), scale,
+                overrideSelected, onMonitorClick
+            ),
+            onMonitorClick
+        );
+      }
+      if (*selectedSection == "dock") {
+        const auto onNewDockMonitorClick = [openDockMonitorOverrideCreate, clearTransientState]() {
+          clearTransientState();
+          if (openDockMonitorOverrideCreate) {
+            openDockMonitorOverrideCreate();
+          }
+        };
+        addNavButton(
+            *nav,
+            ui::button({
+                .text = i18n::tr("settings.entities.monitor-override.new"),
+                .glyph = "add",
+                .fontSize = Style::fontSizeCaption * scale,
+                .glyphSize = Style::fontSizeCaption * scale,
+                .contentAlign = ButtonContentAlign::Start,
+                .variant = ButtonVariant::Ghost,
+                .minHeight = Style::controlHeightSm * scale,
+                .paddingTop = Style::spaceXs * scale,
+                .paddingRight = Style::spaceMd * scale,
+                .paddingBottom = Style::spaceXs * scale,
+                .paddingLeft = Style::spaceLg * scale,
+                .gap = Style::spaceXs * scale,
+                .radius = Style::scaledRadiusMd(scale),
+                .onClick = onNewDockMonitorClick,
+                .configure = [](Button& button) { button.setTabStop(false); },
+            }),
+            onNewDockMonitorClick
+        );
+      }
     }
 
     for (const auto& barName : ctx.availableBars) {

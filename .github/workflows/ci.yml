@@ -19,14 +19,14 @@ jobs:
     steps:
       - name: Install tools
         run: |
-          pacman -Syu --noconfirm --needed git clang
+          pacman -Syu --noconfirm --needed git just clang22
 
       - uses: actions/checkout@v6
 
       - name: Check formatting
-        run: |
-          mapfile -d '' files < <(find src \( -name '*.cpp' -o -name '*.h' \) -print0)
-          clang-format --dry-run -Werror "${files[@]}"
+        env:
+          PATH: /usr/lib/llvm22/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+        run: just format-check
 
   build:
     name: Build (debug)

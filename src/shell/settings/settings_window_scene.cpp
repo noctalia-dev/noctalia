@@ -592,6 +592,9 @@ namespace {
       const settings::SettingEntry& entry, std::string_view selectedSection, std::string_view selectedBarName,
       std::string_view selectedMonitorOverride
   ) {
+    if (selectedSection == "dock") {
+      return settings::settingEntryMatchesDockNavigation(entry, selectedMonitorOverride);
+    }
     if (selectedSection != "bar") {
       const auto section = settings::settingsSectionFromId(selectedSection);
       return section.has_value() && entry.section == *section;
@@ -614,6 +617,13 @@ namespace {
   std::string pageScopeKey(
       std::string_view selectedSection, std::string_view selectedBarName, std::string_view selectedMonitorOverride
   ) {
+    if (selectedSection == "dock") {
+      std::string key = "dock";
+      if (!selectedMonitorOverride.empty()) {
+        key += ":monitor:" + std::string(selectedMonitorOverride);
+      }
+      return key;
+    }
     if (selectedSection != "bar") {
       return std::string(selectedSection);
     }
@@ -745,6 +755,7 @@ settings::RegistryEnvironment SettingsWindow::buildRegistryEnvironment() const {
   }
   env.niriBackdropSupported = (m_wayland != nullptr && compositors::isNiri());
   env.screencopySupported = m_wayland != nullptr && m_wayland->hasScreencopy();
+  env.backgroundEffectBlurSupported = m_wayland != nullptr && m_wayland->hasBackgroundEffectBlur();
   env.niriOverviewTypeToLaunchSupported = (m_wayland != nullptr && compositors::isNiri());
   env.umbrielOverviewTypeToLaunchSupported = (m_wayland != nullptr && compositors::isUmbriel());
   env.ddcutilAvailable = (m_dependencies != nullptr && m_dependencies->hasDdcutil());
@@ -831,12 +842,23 @@ void SettingsWindow::syncSelectedBarState(const Config& cfg, const std::vector<s
     m_selectedBarName = availableBars.front();
   }
 
-  const BarConfig* selectedBar = settings::findBar(cfg, m_selectedBarName);
-  if (selectedBar != nullptr
-      && !m_selectedMonitorOverride.empty()
-      && settings::findMonitorOverride(*selectedBar, m_selectedMonitorOverride) == nullptr) {
-    m_selectedMonitorOverride.clear();
+  if (m_selectedMonitorOverride.empty()) {
+    return;
   }
+  if (m_selectedSection == "dock") {
+    if (settings::findDockMonitorOverride(cfg.dock, m_selectedMonitorOverride) == nullptr) {
+      m_selectedMonitorOverride.clear();
+    }
+    return;
+  }
+  if (m_selectedSection == "bar") {
+    const BarConfig* selectedBar = settings::findBar(cfg, m_selectedBarName);
+    if (selectedBar == nullptr || settings::findMonitorOverride(*selectedBar, m_selectedMonitorOverride) == nullptr) {
+      m_selectedMonitorOverride.clear();
+    }
+    return;
+  }
+  m_selectedMonitorOverride.clear();
 }
 
 std::vector<settings::SelectOption> SettingsWindow::batteryDeviceOptions() const {
@@ -901,7 +923,9 @@ settings::SettingsContentContext SettingsWindow::makeContentContext(
       .searchQuery = m_searchQuery,
       .selectedSection = m_selectedSection,
       .selectedBar = selectedBar,
-      .selectedMonitorOverride = selectedMonitorOverride,
+      .selectedMonitorOverride = m_selectedSection == "bar" && selectedMonitorOverride != nullptr
+          ? std::string_view(selectedMonitorOverride->match)
+          : std::string_view(m_selectedMonitorOverride),
       .showAdvanced = m_showAdvanced,
       .showOverriddenOnly = m_showOverriddenOnly,
       .batteryDeviceOptions = batteryDeviceOptions(),
@@ -1027,6 +1051,10 @@ void SettingsWindow::rebuildSettingsContent() {
   if (selectedBar != nullptr && !m_selectedMonitorOverride.empty()) {
     selectedMonitorOverride = settings::findMonitorOverride(*selectedBar, m_selectedMonitorOverride);
   }
+  const DockMonitorOverride* selectedDockMonitorOverride = nullptr;
+  if (m_selectedSection == "dock" && !m_selectedMonitorOverride.empty()) {
+    selectedDockMonitorOverride = settings::findDockMonitorOverride(cfg.dock, m_selectedMonitorOverride);
+  }
   if (cfg.shell.settingsExpandAllGroups != m_expandedSettingGroupsSeededExpandAll) {
     m_expandedSettingGroups.clear();
     m_expandedSettingGroupsSeededExpandAll = cfg.shell.settingsExpandAllGroups;
@@ -1048,12 +1076,15 @@ void SettingsWindow::rebuildSettingsContent() {
           .selectedSection = m_selectedSection,
           .selectedBar = selectedBar,
           .selectedMonitorOverride = selectedMonitorOverride,
+          .selectedDockMonitorOverride = selectedDockMonitorOverride,
           .renamingBarName = m_renamingBarName,
           .pendingDeleteBarName = m_pendingDeleteBarName,
           .renamingMonitorOverrideBarName = m_renamingMonitorOverrideBarName,
           .renamingMonitorOverrideMatch = m_renamingMonitorOverrideMatch,
           .pendingDeleteMonitorOverrideBarName = m_pendingDeleteMonitorOverrideBarName,
           .pendingDeleteMonitorOverrideMatch = m_pendingDeleteMonitorOverrideMatch,
+          .renamingDockMonitorOverride = m_renamingDockMonitorOverride,
+          .pendingDeleteDockMonitorOverride = m_pendingDeleteDockMonitorOverride,
           .requestRebuild = [this]() { requestContentRebuild(/*refreshRegistry=*/true, /*refreshFilterRow=*/true); },
           .renameBar =
               [this](std::string oldName, std::string newName) { renameBar(std::move(oldName), std::move(newName)); },
@@ -1066,6 +1097,11 @@ void SettingsWindow::rebuildSettingsContent() {
           .deleteMonitorOverride = [this](
                                        std::string barName, std::string match
                                    ) { deleteMonitorOverride(std::move(barName), std::move(match)); },
+          .renameDockMonitorOverride = [this](
+                                           std::string oldTableName, std::string newMatch
+                                       ) { renameDockMonitorOverride(std::move(oldTableName), std::move(newMatch)); },
+          .deleteDockMonitorOverride =
+              [this](std::string tableName) { deleteDockMonitorOverride(std::move(tableName)); },
       }
   );
   logSettingsProfile("rebuildContent barManagement", phaseProfileWatch);
@@ -1422,6 +1458,7 @@ std::unique_ptr<Flex> SettingsWindow::buildBody(
   const auto openMonitorOverrideCreate = [this](std::string barName) {
     openMonitorOverrideCreateDialog(std::move(barName));
   };
+  const auto openDockMonitorOverrideCreate = [this]() { openMonitorOverrideCreateDialog(std::nullopt); };
   const auto clearTransientSettingsState = [this]() { this->clearTransientSettingsState(); };
   const auto clearSearchQuery = [this]() {
     m_searchQuery.clear();
@@ -1452,6 +1489,7 @@ std::unique_ptr<Flex> SettingsWindow::buildBody(
           .requestRebuild = requestRebuild,
           .createBar = createBar,
           .openMonitorOverrideCreate = openMonitorOverrideCreate,
+          .openDockMonitorOverrideCreate = openDockMonitorOverrideCreate,
           .scrollSidebarNodeIntoView = [this](const Node* node) { scrollSidebarNodeIntoView(node); },
           .outNav = &m_sidebarNav,
       }

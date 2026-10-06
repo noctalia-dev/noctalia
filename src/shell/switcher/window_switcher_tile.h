@@ -22,6 +22,9 @@ class Label;
 class Renderer;
 
 struct WindowSwitcherEntry {
+  // Switcher bookkeeping only; never pass this process-local key to compositor APIs.
+  std::string identityKey;
+  // Compositor-issued ID for direct actions. Empty for WLR-handle-only windows.
   std::string windowId;
   std::string title;
   std::string appId;

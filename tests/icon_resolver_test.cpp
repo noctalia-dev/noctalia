@@ -57,12 +57,22 @@ int main() {
   const fs::path bareRootIcon = bareThemeRoot / "bare-root-icon.png";
   std::ofstream(bareSizedIcon) << "png";
   std::ofstream(bareRootIcon) << "png";
+  const fs::path themedBitmap = bitmapIconDir / "theme-priority.png";
+  std::ofstream(themedBitmap) << "png";
+  std::ofstream(bareThemeRoot / "theme-priority.svg") << "<svg/>";
+  std::ofstream(bitmapIconDir / "bitmap-priority.png") << "png";
+  std::ofstream(bareBitmapDir / "bitmap-priority.png") << "png";
+  const fs::path extraData = root / "extra";
+  const fs::path extraIcons = extraData / "icons/hicolor/scalable/apps";
+  fs::create_directories(extraIcons);
+  std::ofstream(extraIcons / "later-root.svg") << "<svg/>";
+  std::ofstream(bareThemeRoot / "later-root.svg") << "<svg/>";
   fs::create_directories(deniedDataHome);
   std::ofstream(deniedIcon) << "<svg/>";
   fs::permissions(deniedDataHome, fs::perms::none);
   setenv("HOME", tempDir, 1);
   setenv("XDG_DATA_HOME", deniedDataHome.c_str(), 1);
-  setenv("XDG_DATA_DIRS", tempDir, 1);
+  setenv("XDG_DATA_DIRS", (root.string() + ":" + extraData.string()).c_str(), 1);
 
   bool ok = true;
 
@@ -82,6 +92,7 @@ int main() {
   }
 
   IconResolver resolver(true);
+  const auto initialIconDirModified = fs::last_write_time(iconDir);
 
   std::fflush(stderr);
   (void)::dup2(savedStderr, STDERR_FILENO);
@@ -129,6 +140,8 @@ int main() {
   const fs::path polledIcon = iconDir / "polled-icon.svg";
   ok = expect(resolver.resolve("polled-icon", 32).empty(), "second initial icon miss should be cached") && ok;
   std::ofstream(polledIcon) << "<svg/>";
+  // Some filesystems do not expose a distinct directory mtime for rapid changes.
+  fs::last_write_time(iconDir, initialIconDirModified);
   ok = expect(IconResolver::checkThemeChanged(), "theme poll should detect icon directory changes") && ok;
   ok = expect(
            resolver.resolve("polled-icon", 32) == polledIcon.string(),
@@ -170,6 +183,24 @@ int main() {
            "index-less inherited theme should resolve icons at the theme root"
        )
       && ok;
+
+  for (const int size : {0, 32, 64, 128}) {
+    ok = expect(
+             resolver.resolve("bitmap-priority", size) == (bitmapIconDir / "bitmap-priority.png").string(),
+             "current-theme bitmap must precede a better-sized inherited bitmap"
+         )
+        && ok;
+    ok = expect(
+             resolver.resolve("theme-priority", size) == themedBitmap.string(),
+             "current-theme bitmap must precede an inherited vector icon"
+         )
+        && ok;
+    ok = expect(
+             resolver.resolve("later-root", size) == (extraIcons / "later-root.svg").string(),
+             "all roots of the current theme must precede inherited themes"
+         )
+        && ok;
+  }
 
   fs::remove_all(root, ec);
   return ok ? 0 : 1;

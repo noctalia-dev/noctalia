@@ -308,7 +308,6 @@
       "uptime": "已运行 – {uptime}",
       "weather": {
         "data-unavailable": "天气数据不可用。",
-        "disabled": "天气已在配置中禁用。",
         "fetching": "正在获取天气预报…"
       }
     },
@@ -1121,6 +1120,8 @@
           "action": "组合",
           "border": "边框",
           "border-description": "胶囊轮廓的颜色；保持“默认”时不显示轮廓",
+          "border-width": "边框宽度",
+          "border-width-description": "胶囊边框的宽度（像素）；仅设置边框颜色时显示",
           "clear": "清除",
           "deselect": "取消选择",
           "drag": "重新排序",
@@ -1632,7 +1633,7 @@
           "label": "显示模式"
         },
         "position": {
-          "description": "当面板悬浮时的屏幕位置",
+          "description": "面板悬浮时的屏幕位置",
           "label": "屏幕位置"
         }
       },
@@ -1852,6 +1853,10 @@
           "description": "胶囊轮廓的默认颜色；支持固定的十六进制颜色值",
           "label": "胶囊边框"
         },
+        "capsule-border-width": {
+          "description": "胶囊边框的宽度（像素）；仅设置胶囊边框颜色时显示",
+          "label": "胶囊边框宽度"
+        },
         "capsule-fill": {
           "description": "胶囊背景的默认颜色；支持固定的十六进制颜色值",
           "label": "胶囊背景"
@@ -1879,6 +1884,10 @@
         "center-widgets": {
           "description": "状态栏中央的小组件",
           "label": "中央小组件"
+        },
+        "compositor-blur": {
+          "description": "合成器支持背景模糊时，允许模糊状态栏后方内容",
+          "label": "合成器模糊"
         },
         "concave-edge-corners": {
           "description": "将状态栏的两个角转为内凹圆角（要求“边缘边距”为 0）。当“两端边距”为 0 时，将状态栏内侧边缘的两个角转为内凹；非 0 时，将外侧边缘（贴近屏幕边缘）的两个角转为内凹",
@@ -2156,10 +2165,6 @@
         "main-axis-padding": {
           "description": "Dock 两端的内边距（图标与 Dock 两端之间）"
         },
-        "monitors": {
-          "description": "选择显示 Dock 的屏幕（留空为全部）；“仅当前屏幕应用”设置在所选范围内生效",
-          "label": "屏幕"
-        },
         "pinned-apps": {
           "description": "固定到 Dock 的应用桌面项 ID",
           "label": "已固定应用"
@@ -2395,6 +2400,14 @@
           "description": "为 Toast 通知绘制轮廓",
           "label": "边框"
         },
+        "border-color": {
+          "description": "Toast 通知的边框颜色；支持固定的十六进制颜色值",
+          "label": "边框颜色"
+        },
+        "border-width": {
+          "description": "Toast 通知的边框宽度（像素）；设为 0 时隐藏边框",
+          "label": "边框宽度"
+        },
         "collapse-on-dismiss": {
           "description": "关闭 Toast 通知时，其余通知会自动滑动填补间隙",
           "label": "关闭后收拢"
@@ -2406,6 +2419,10 @@
         "filters": {
           "description": "按发送方设置 Toast 通知、历史记录和提示音规则；按顺序匹配已启用的过滤器",
           "label": "通知过滤器"
+        },
+        "follow-focused-output": {
+          "description": "在焦点所在屏幕显示新的 Toast 通知",
+          "label": "跟随焦点屏幕"
         },
         "history-retention-hours": {
           "description": "自动移除超过指定时长的通知历史记录（设为 0 时永久保留）",
@@ -2454,6 +2471,10 @@
         "toast-opacity": {
           "description": "Toast 通知的背景不透明度",
           "label": "背景不透明度"
+        },
+        "width": {
+          "description": "缩放前 Toast 通知的宽度（像素）",
+          "label": "宽度"
         }
       },
       "panels": {
@@ -3076,9 +3097,25 @@
           "description": "为 OSD 弹窗绘制轮廓",
           "label": "边框"
         },
+        "osd-border-color": {
+          "description": "OSD 弹窗的边框颜色；也支持固定的十六进制颜色值",
+          "label": "边框颜色"
+        },
+        "osd-border-width": {
+          "description": "OSD 弹窗的边框宽度（像素）；设为 0 时隐藏边框",
+          "label": "边框宽度"
+        },
         "osd-enabled": {
           "description": "所有 OSD 弹窗的总开关；关闭后不显示任何 OSD",
           "label": "启用 OSD"
+        },
+        "osd-follow-focused-output": {
+          "description": "在焦点所在屏幕显示新的 OSD 弹窗；已显示的弹窗保持原位",
+          "label": "跟随焦点屏幕"
+        },
+        "osd-hide-delay": {
+          "description": "OSD 弹窗隐藏前的显示时长",
+          "label": "隐藏延迟"
         },
         "osd-kinds-bluetooth": {
           "description": "切换蓝牙时显示 OSD 弹窗",
@@ -3188,6 +3225,10 @@
           "description": "匹配并忽略隐私指示器和 OSD 弹窗中特定屏幕共享应用的正则表达式",
           "label": "屏幕共享过滤正则"
         },
+        "readline-shortcuts": {
+          "description": "在所有文本框中使用 Readline 风格的快捷键（Ctrl+A 移至行首，而不是全选）",
+          "label": "Readline 快捷键"
+        },
         "screen-time-enabled": {
           "description": "记录每个应用的使用时长并显示在控制中心",
           "label": "屏幕时间"
@@ -3259,7 +3300,7 @@
           "label": "复制或保存时跳过编辑器"
         },
         "settings-expand-all-groups": {
-          "description": "展开每个设置组，而不是只展开每页的第一个",
+          "description": "展开所有设置组，而不是每页仅展开第一个",
           "label": "展开所有设置组"
         },
         "settings-window-translucent": {
@@ -3288,16 +3329,16 @@
           "label": "键入启动"
         },
         "window-switcher-current-workspace-only": {
-          "description": "仅列出活动工作区中的窗口；关闭后包含所有工作区的窗口",
-          "label": "仅当前工作区"
+          "description": "仅列出活动工作区的窗口；关闭后包含所有工作区的窗口",
+          "label": "仅活动工作区"
         },
         "window-switcher-mru": {
           "description": "按最近使用顺序排列窗口，而不是按工作区和屏幕布局排列",
           "label": "最近使用顺序"
         },
         "window-switcher-show-all-outputs": {
-          "description": "列出每个显示器上的窗口；关闭后仅列出显示切换器的显示器上的窗口",
-          "label": "显示所有显示器"
+          "description": "列出所有屏幕上的窗口；关闭后仅列出切换器所在屏幕的窗口",
+          "label": "包含所有屏幕"
         },
         "window-switcher-show-app-icon": {
           "description": "在各窗口预览上显示对应的应用图标",
@@ -4087,6 +4128,10 @@
           "description": "胶囊轮廓的颜色；支持固定的十六进制颜色值",
           "label": "胶囊边框"
         },
+        "capsule-border-width": {
+          "description": "胶囊边框的宽度（像素）；仅设置胶囊边框颜色时显示",
+          "label": "胶囊边框宽度"
+        },
         "capsule-fill": {
           "description": "胶囊背景的颜色；支持固定的十六进制颜色值",
           "label": "胶囊背景"
@@ -4190,8 +4235,8 @@
         "focused-output-only": {
           "description": "仅高亮焦点屏幕上的活动工作区",
           "label": "仅高亮焦点屏幕",
-          "taskbar-description": "仅当前聚焦屏幕上的活动工作区使用焦点颜色；其他屏幕的活动工作区使用非空颜色",
-          "workspaces-description": "仅当前聚焦屏幕上的活动工作区使用焦点颜色；其他屏幕的活动工作区使用非空颜色"
+          "taskbar-description": "仅高亮当前聚焦屏幕上的活动工作区；其他屏幕的活动工作区使用非空工作区颜色和非活动胶囊样式",
+          "workspaces-description": "仅高亮当前聚焦屏幕上的活动工作区；其他屏幕的活动工作区使用非空颜色"
         },
         "font-family": {
           "description": "小组件的字体；留空时继承状态栏字体",
@@ -4451,6 +4496,10 @@
           "description": "将频谱条按频率从高到低排列",
           "label": "反向"
         },
+        "rotate-album-art": {
+          "description": "媒体播放时旋转圆形专辑封面",
+          "label": "旋转专辑封面"
+        },
         "scale": {
           "description": "按状态栏内容缩放比例调整小组件大小",
           "label": "缩放"
@@ -4524,7 +4573,7 @@
           "label": "显示气温"
         },
         "show-tooltip": {
-          "description": "当工作区的胶囊标签尚未显示其全名时，悬停以显示工作区的全名",
+          "description": "工作区标签未完整显示名称时，悬停可显示完整名称",
           "label": "显示名称提示"
         },
         "show-unlock-hint": {
@@ -4544,8 +4593,8 @@
           "label": "空闲时显示"
         },
         "show-when-unavailable": {
-          "description": "当此显示器无亮度控制时，保持亮度小部件可见",
-          "label": "不可用时显示"
+          "description": "当屏幕不支持亮度控制时，仍显示亮度小组件",
+          "label": "不可用时仍显示"
         },
         "show-window-title": {
           "description": "在图标旁显示窗口标题（仅适用于水平状态栏）",
@@ -4831,9 +4880,9 @@
       "choose-color": "选择壁纸颜色",
       "close": "关闭壁纸面板",
       "color-title": "壁纸颜色",
-      "favorite-add": "添加到收藏夹",
+      "favorite-add": "添加到收藏",
       "favorite-current": "将当前壁纸添加到收藏",
-      "favorite-remove": "从收藏夹中移除",
+      "favorite-remove": "从收藏中移除",
       "filter-placeholder": "筛选…",
       "flatten": "平铺显示",
       "loading": "正在加载壁纸…",
@@ -4886,7 +4935,7 @@
     "count": "{count} 个窗口",
     "count-plural": "{count} 个窗口",
     "empty": "没有打开的窗口",
-    "hint": "Tab · Shift+Tab · 方向键 · 松开 Alt 切换 · Esc 取消",
+    "hint": "Tab · Shift+Tab · 方向键 · 松开修饰键切换 · Esc 取消",
     "title": "窗口"
   }
 }

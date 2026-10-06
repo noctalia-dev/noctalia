@@ -7,6 +7,7 @@
 #include "config/config_types.h"
 
 #include <algorithm>
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <print>
@@ -37,13 +38,18 @@ namespace {
     return it == config.calendar.accounts.end() ? nullptr : &*it;
   }
 
+  const DockMonitorOverride* findDockMonitorOverride(const Config& config, std::string_view tableName) {
+    const auto it = std::ranges::find(config.dock.monitorOverrides, tableName, &DockMonitorOverride::tableName);
+    return it == config.dock.monitorOverrides.end() ? nullptr : &*it;
+  }
+
 } // namespace
 
 int main() {
   const std::filesystem::path root =
       std::filesystem::temp_directory_path() / ("noctalia-override-mutation-" + std::to_string(::getpid()));
   std::filesystem::remove_all(root);
-  writeFile(root / "config" / "noctalia" / "config.toml", "\n");
+  writeFile(root / "config" / "noctalia" / "config.toml", "[dock]\nenabled = true\nmonitors = [\"legacy\"]\n");
 
   ::setenv("NOCTALIA_CONFIG_HOME", (root / "config").c_str(), 1);
   ::setenv("XDG_STATE_HOME", (root / "state").c_str(), 1);
@@ -54,6 +60,13 @@ int main() {
 
   {
     ConfigService config;
+
+    const DockMonitorOverride* legacyDockOverride = findDockMonitorOverride(config.config(), "legacy");
+    expect(legacyDockOverride != nullptr, "legacy dock monitor allow-list is loaded as an override");
+    expect(
+        !config.isOverrideOnlyDockMonitorOverride("legacy"),
+        "legacy dock monitor override remains owned by the hand-written config"
+    );
 
     std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>> create;
     create.emplace_back(std::vector<std::string>{"calendar", "enabled"}, true);
@@ -88,6 +101,49 @@ int main() {
     // A mutation that changes nothing must not commit, so consumers are not woken for a no-op.
     expect(config.mutateOverrides({}, {serverUrlPath}, nullptr), "clearing an absent key succeeds");
     expect(reloads == 1, "no-op mutation does not reach the config");
+
+    expect(config.createDockMonitorOverride("eDP-1"), "dock monitor override is created");
+    expect(config.isOverrideOnlyDockMonitorOverride("eDP-1"), "created dock monitor override is GUI-owned");
+    const DockMonitorOverride* dockOverride = findDockMonitorOverride(config.config(), "eDP-1");
+    expect(dockOverride != nullptr, "created dock monitor override is loaded");
+    if (dockOverride != nullptr) {
+      expect(dockOverride->match == "eDP-1", "created dock monitor override defaults match to its table name");
+    }
+
+    const std::vector<std::string> dockIconSizePath{"dock", "monitor", "eDP-1", "icon_size"};
+    expect(config.setOverride(dockIconSizePath, std::int64_t{42}), "dock monitor setting is written");
+    expect(config.renameDockMonitorOverride("eDP-1", "laptop"), "dock monitor override is renamed");
+    expect(!config.hasOverride(dockIconSizePath), "renamed dock monitor override removes the old table");
+    expect(
+        config.hasOverride({"dock", "monitor", "laptop", "icon_size"}),
+        "renamed dock monitor override retains its settings"
+    );
+    dockOverride = findDockMonitorOverride(config.config(), "laptop");
+    expect(
+        dockOverride != nullptr && dockOverride->match == "laptop", "renamed dock monitor override updates its match"
+    );
+
+    expect(config.deleteDockMonitorOverride("laptop"), "dock monitor override is deleted");
+    expect(findDockMonitorOverride(config.config(), "laptop") == nullptr, "deleted dock monitor override is unloaded");
+  }
+
+  const std::filesystem::path overlayRoot = root / "overlay-case";
+  writeFile(overlayRoot / "config" / "noctalia" / "config.toml", "[dock]\nenabled = true\n");
+  writeFile(
+      overlayRoot / "state" / "noctalia" / "settings.toml", "config_version = 14\n[dock]\nmonitors = [\"DP-1\"]\n"
+  );
+  ::setenv("NOCTALIA_CONFIG_HOME", (overlayRoot / "config").c_str(), 1);
+  ::setenv("XDG_STATE_HOME", (overlayRoot / "state").c_str(), 1);
+  {
+    ConfigService config;
+    const DockMonitorOverride* migrated = findDockMonitorOverride(config.config(), "DP-1");
+    expect(!config.config().dock.enabled, "sidecar monitor allow-list disabled the inherited global dock");
+    expect(migrated != nullptr && migrated->enabled == true, "sidecar monitor allow-list became an enabled override");
+    expect(!config.hasOverride({"dock", "monitors"}), "sidecar migration removed the legacy monitors key");
+    expect(
+        config.hasOverride({"dock", "monitor", "DP-1", "enabled"}),
+        "sidecar migration persisted the enabled monitor override"
+    );
   }
 
   std::filesystem::remove_all(root);

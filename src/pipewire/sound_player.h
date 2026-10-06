@@ -10,7 +10,7 @@
 #include <vector>
 
 struct pw_stream;
-struct spa_hook;
+struct spa_source;
 
 class SoundPlayer {
 public:
@@ -34,6 +34,7 @@ public:
   static void onProcess(void* userdata);
   static void onStreamStateChanged(void* userdata, pw_stream_state oldState, pw_stream_state state, const char* error);
   static void onDrained(void* userdata);
+  static void onStreamCloseTimer(void* userdata, std::uint64_t expirations);
 
 private:
   struct SoundBuffer {
@@ -45,7 +46,6 @@ private:
   struct ActiveStream {
     SoundPlayer* owner = nullptr;
     pw_stream* stream = nullptr;
-    spa_hook* listener = nullptr;
     std::shared_ptr<const SoundBuffer> buffer;
     std::size_t cursor = 0;
     bool draining = false;
@@ -60,6 +60,7 @@ private:
   void removeFinished();
 
   pw_loop* m_loop = nullptr;
+  spa_source* m_streamCloseTimer = nullptr;
   float m_volume = 1.0F;
   std::string m_theme;
   std::unordered_map<std::string, std::shared_ptr<const SoundBuffer>> m_buffers;

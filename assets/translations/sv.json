@@ -255,7 +255,6 @@
       "uptime": "Drifttid - {uptime}",
       "weather": {
         "data-unavailable": "Väderdata otillgängligt.",
-        "disabled": "Väder är avstängt i inställningarna.",
         "fetching": "Hämtar prognos..."
       }
     },

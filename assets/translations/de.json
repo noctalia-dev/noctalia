@@ -258,7 +258,6 @@
       "uptime": "Betriebszeit – {uptime}",
       "weather": {
         "data-unavailable": "Wetterdaten nicht verfügbar.",
-        "disabled": "Wetter ist in der Konfiguration deaktiviert.",
         "fetching": "Vorhersage wird abgerufen…"
       }
     },
@@ -2010,10 +2009,6 @@
         },
         "main-axis-padding": {
           "description": "Innenabstand an den Enden der Iconreihe (vor dem ersten und nach dem letzten Icon)"
-        },
-        "monitors": {
-          "description": "Wähle, welche Monitore das Dock anzeigen (leer lassen für alle); die Filterung nach aktivem Monitor gilt innerhalb dieser Monitore",
-          "label": "Monitore"
         },
         "pinned-apps": {
           "description": "Desktop-Eintrag-IDs der an das Dock angehefteten Apps",

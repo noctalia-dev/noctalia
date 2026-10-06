@@ -1245,11 +1245,10 @@ namespace settings {
 
     const std::string_view selectedBarName =
         ctx.selectedBar != nullptr ? std::string_view{ctx.selectedBar->name} : std::string_view{};
-    const std::string_view selectedMonitorMatch = ctx.selectedMonitorOverride != nullptr
-        ? std::string_view{ctx.selectedMonitorOverride->match}
-        : std::string_view{};
+    const std::string_view selectedMonitorMatch = ctx.selectedMonitorOverride;
     const std::optional<SettingsSection> selectedSettingsSection =
-        ctx.selectedSection != "bar" ? settingsSectionFromId(ctx.selectedSection) : std::nullopt;
+        ctx.selectedSection != "bar" && ctx.selectedSection != "dock" ? settingsSectionFromId(ctx.selectedSection)
+                                                                      : std::nullopt;
 
     // Coalesce entries by (content section, group) so each group renders once even if its entries were
     // declared non-contiguously in the registry. See coalesceByGroupKey().
@@ -1260,12 +1259,18 @@ namespace settings {
       if (ctx.searchQuery.empty()
           && !ctx.selectedSection.empty()
           && ctx.selectedSection != "bar"
+          && ctx.selectedSection != "dock"
           && (!selectedSettingsSection.has_value() || entry.section != *selectedSettingsSection)) {
         return false;
       }
       if (ctx.searchQuery.empty()
           && ctx.selectedSection == "bar"
           && !settingEntryMatchesBarNavigation(entry, selectedBarName, selectedMonitorMatch)) {
+        return false;
+      }
+      if (ctx.searchQuery.empty()
+          && ctx.selectedSection == "dock"
+          && !settingEntryMatchesDockNavigation(entry, selectedMonitorMatch)) {
         return false;
       }
       if (!ctx.showAdvanced && entry.advanced) {
@@ -1354,6 +1359,8 @@ namespace settings {
           if (isBarMonitorOverrideSettingPath(entry.path)) {
             displayTitle += " / " + entry.path[3];
           }
+        } else if (isDockMonitorOverrideSettingPath(entry.path)) {
+          displayTitle = sectionLabel(entry.section) + " / " + entry.path[2];
         } else {
           displayTitle = sectionLabel(entry.section);
         }

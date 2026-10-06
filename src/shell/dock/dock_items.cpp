@@ -371,7 +371,6 @@ namespace {
 namespace shell::dock {
 
   struct DockItemClickContext {
-    ConfigService& config;
     DockItemCallbacks callbacks;
   };
 
@@ -483,14 +482,13 @@ namespace shell::dock {
 
     resetDockItemDragState(instance);
 
-    const auto& cfg = deps.model.config.config().dock;
+    const auto& cfg = instance.config;
     const DockEdge edge = cfg.position;
     const DockLauncherPosition launcherPosition = cfg.launcherPosition;
     const bool vert = shell::dock::isVerticalEdge(edge);
     const auto iSize = static_cast<float>(cfg.iconSize);
     const int iconDecodeTarget = dockIconDecodeTargetSize(cfg);
     auto clickContext = std::make_shared<DockItemClickContext>(DockItemClickContext{
-        .config = deps.model.config,
         .callbacks = callbacks,
     });
 
@@ -657,7 +655,7 @@ namespace shell::dock {
           return;
         }
         auto& drag = instPtr->drag;
-        const auto& dockCfg = clickContext->config.config().dock;
+        const auto& dockCfg = instPtr->config;
         if (d.pressed) {
           if (!itemPinned) {
             return;
@@ -705,7 +703,7 @@ namespace shell::dock {
           return;
         }
 
-        const auto& dockCfg = clickContext->config.config().dock;
+        const auto& dockCfg = instPtr->config;
         const float mainPos = pointerMainOnRow(dockCfg, instPtr->items[itemIndex].area, d.localX, d.localY);
         instPtr->drag.currentMain = mainPos;
         if (instPtr->drag.active) {
@@ -776,7 +774,7 @@ namespace shell::dock {
     }
     Renderer& renderer = instance.surface->renderTarget().renderer();
 
-    const auto& cfg = deps.model.config.config().dock;
+    const auto& cfg = instance.config;
     const auto& shell = deps.model.config.config().shell;
     const DockEdge edge = cfg.position;
     const std::size_t itemCount = std::min(instance.items.size(), snapshot.items.size());
@@ -920,19 +918,19 @@ namespace shell::dock {
 
     // Magnification owns active/inactive scale via updateHoverZoom; kick it on focus updates.
     if (cfg.magnification && instance.surface != nullptr) {
-      if (updateHoverZoom(instance, deps, snapshot, kHoverZoomReferenceFrameMs)) {
+      if (updateHoverZoom(instance, snapshot, kHoverZoomReferenceFrameMs)) {
         instance.surface->requestFrameTick();
         instance.surface->requestRedraw();
       }
     }
   }
 
-  void clearHoverZoom(DockInstance& instance, DockItemSceneDependencies deps, const DockSnapshot& snapshot) {
+  void clearHoverZoom(DockInstance& instance, const DockSnapshot& snapshot) {
     instance.hoverPointerValid = false;
     if (instance.surface == nullptr) {
       return;
     }
-    (void)updateHoverZoom(instance, deps, snapshot, kHoverZoomReferenceFrameMs);
+    (void)updateHoverZoom(instance, snapshot, kHoverZoomReferenceFrameMs);
     instance.surface->requestFrameTick();
     instance.surface->requestRedraw();
   }
@@ -969,9 +967,8 @@ namespace shell::dock {
     return true;
   }
 
-  bool
-  updateHoverZoom(DockInstance& instance, DockItemSceneDependencies deps, const DockSnapshot& snapshot, float deltaMs) {
-    const auto& cfg = deps.model.config.config().dock;
+  bool updateHoverZoom(DockInstance& instance, const DockSnapshot& snapshot, float deltaMs) {
+    const auto& cfg = instance.config;
     if (!cfg.magnification || instance.row == nullptr) {
       return false;
     }

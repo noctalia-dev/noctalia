@@ -589,18 +589,32 @@ void BluetoothService::setPowered(bool enabled) {
       emitState(BluetoothStateChangeOrigin::Noctalia);
     }
   }
-  if (enabled != m_state.powered) {
+  const bool changesPower = enabled != m_state.powered;
+  if (changesPower) {
     m_pendingLocalPowered = enabled;
+    ++m_pendingPoweredRevision;
   }
+  const auto pendingRevision = m_pendingPoweredRevision;
   try {
     if (!enabled && m_state.discovering) {
       m_impl->adapter->callMethodAsync("StopDiscovery")
           .onInterface(kAdapterInterface)
           .uponReplyInvoke([](std::optional<sdbus::Error>) {});
     }
-    m_impl->adapter->setProperty("Powered").onInterface(kAdapterInterface).toValue(enabled);
+    m_impl->adapter->setPropertyAsync("Powered")
+        .onInterface(kAdapterInterface)
+        .toValue(enabled)
+        .uponReplyInvoke([this, enabled, changesPower, pendingRevision](std::optional<sdbus::Error> err) {
+          if (err.has_value()) {
+            if (changesPower && pendingRevision == m_pendingPoweredRevision && m_pendingLocalPowered == enabled) {
+              m_pendingLocalPowered.reset();
+            }
+            kLog.warn("setPowered failed: {}", err->what());
+            emitState();
+          }
+        });
   } catch (const sdbus::Error& e) {
-    if (m_pendingLocalPowered == enabled) {
+    if (changesPower && pendingRevision == m_pendingPoweredRevision && m_pendingLocalPowered == enabled) {
       m_pendingLocalPowered.reset();
     }
     kLog.warn("setPowered failed: {}", e.what());
@@ -612,7 +626,14 @@ void BluetoothService::setDiscoverable(bool enabled) {
     return;
   }
   try {
-    m_impl->adapter->setProperty("Discoverable").onInterface(kAdapterInterface).toValue(enabled);
+    m_impl->adapter->setPropertyAsync("Discoverable")
+        .onInterface(kAdapterInterface)
+        .toValue(enabled)
+        .uponReplyInvoke([](std::optional<sdbus::Error> err) {
+          if (err.has_value()) {
+            kLog.warn("setDiscoverable failed: {}", err->what());
+          }
+        });
   } catch (const sdbus::Error& e) {
     kLog.warn("setDiscoverable failed: {}", e.what());
   }
@@ -623,7 +644,14 @@ void BluetoothService::setPairable(bool enabled) {
     return;
   }
   try {
-    m_impl->adapter->setProperty("Pairable").onInterface(kAdapterInterface).toValue(enabled);
+    m_impl->adapter->setPropertyAsync("Pairable")
+        .onInterface(kAdapterInterface)
+        .toValue(enabled)
+        .uponReplyInvoke([](std::optional<sdbus::Error> err) {
+          if (err.has_value()) {
+            kLog.warn("setPairable failed: {}", err->what());
+          }
+        });
   } catch (const sdbus::Error& e) {
     kLog.warn("setPairable failed: {}", e.what());
   }
@@ -773,7 +801,14 @@ void BluetoothService::setTrusted(const std::string& devicePath, bool trusted) {
     return;
   }
   try {
-    proxy->setProperty("Trusted").onInterface(kDeviceInterface).toValue(trusted);
+    proxy->setPropertyAsync("Trusted")
+        .onInterface(kDeviceInterface)
+        .toValue(trusted)
+        .uponReplyInvoke([devicePath](std::optional<sdbus::Error> err) {
+          if (err.has_value()) {
+            kLog.warn("setTrusted failed {}: {}", devicePath, err->what());
+          }
+        });
   } catch (const sdbus::Error& e) {
     kLog.warn("setTrusted failed {}: {}", devicePath, e.what());
   }

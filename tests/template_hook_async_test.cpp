@@ -1,7 +1,7 @@
+#include "tests/test_check.h"
 #include "theme/hook_runner.h"
 #include "theme/template_engine.h"
 
-#include <cassert>
 #include <chrono>
 #include <filesystem>
 #include <fstream>
@@ -38,8 +38,7 @@ namespace {
     TemplateEngine engine(TemplateEngine::ThemeData{{"primary", {{"dark", "#ff0000"}}}}, options);
     const auto start = std::chrono::steady_clock::now();
     const bool ok = engine.processConfigFile(configPath);
-    assert(ok);
-    (void)ok;
+    TEST_CHECK(ok);
     return std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
   }
 
@@ -66,12 +65,11 @@ namespace {
     HookRunner runner(4);
     const double elapsed = process(entry("slow", "sleep 1; touch " + marker.string(), /*async=*/true), runner);
 
-    assert(elapsed < 0.5);
-    assert(!std::filesystem::exists(marker)); // still running
-    (void)elapsed;
+    TEST_CHECK(elapsed < 0.5);
+    TEST_CHECK(!std::filesystem::exists(marker)); // still running
 
     runner.waitIdle();
-    assert(std::filesystem::exists(marker));
+    TEST_CHECK(std::filesystem::exists(marker));
   }
 
   // hook_async = false serializes against hooks started earlier in the same run, so two
@@ -89,9 +87,8 @@ namespace {
 
     // The inline hook ran after the background one despite being enqueued later, and
     // processing had to wait for it.
-    assert(readFile(order) == "background,inline,");
-    assert(elapsed >= 0.4);
-    (void)elapsed;
+    TEST_CHECK(readFile(order) == "background,inline,");
+    TEST_CHECK(elapsed >= 0.4);
   }
 
 } // namespace

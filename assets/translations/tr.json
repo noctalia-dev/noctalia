@@ -277,7 +277,6 @@
       "uptime": "Çalışma süresi – {uptime}",
       "weather": {
         "data-unavailable": "Hava durumu verisi alınamadı.",
-        "disabled": "Hava durumu konfigde devre dışı bırakıldı.",
         "fetching": "Tahminler alınıyor..."
       }
     },
@@ -2015,10 +2014,6 @@
         },
         "main-axis-padding": {
           "description": "Simge sırasının uçlarındaki iç boşluk (ilk simgeden önce ve son simgeden sonra)"
-        },
-        "monitors": {
-          "description": "Rıhtımın hangi monitörlerde gösterileceğini seçin (tümü için boş bırakın); aktif monitör filtrelemesi bu monitörler içinde uygulanır",
-          "label": "Monitörler"
         },
         "pinned-apps": {
           "description": "Rıhtıma sabitlenmiş uygulamaların masaüstü girdi kimlikleri",

@@ -75,9 +75,22 @@ uninstall m:
     fi
     ninja -C build-{{m}} uninstall
 
-format:
+_check_formatter:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    version="$(clang-format --version)"
+    echo "$version"
+    if [[ ! "$version" =~ version\ 22\. ]]; then
+        echo "error: formatting requires clang-format 22; put its bin directory on PATH" >&2
+        exit 1
+    fi
+
+format: _check_formatter
     find src tests \( -name '*.cpp' -o -name '*.h' \) -print0 | xargs -0 clang-format -i
     find src tests \( -name '*.cpp' -o -name '*.h' \) -print0 | xargs -0 grep -ZlP '\s+$' | xargs -0 -r sed -i 's/[[:space:]]*$//'
+
+format-check: _check_formatter
+    find src tests \( -name '*.cpp' -o -name '*.h' \) -print0 | xargs -0 clang-format --dry-run -Werror
 
 _clang_tidy m=mode *args:
     #!/usr/bin/env bash

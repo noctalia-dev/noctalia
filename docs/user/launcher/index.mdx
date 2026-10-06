@@ -75,6 +75,7 @@ A quick way to find and copy emojis.
 
 - **Prefix**: `/emo `
 - **Functionality**: Searches `emoji.json` by name, category, and keywords. Activating a result copies the emoji character directly to your clipboard.
+- **Usage**: With `shell.launcher.sort_by_usage` enabled, frequently copied emojis rise to the top of an empty `/emo` query, and the **Recently Used** filter lists recent picks newest first.
 
 Example: `/emo heart`
 
@@ -200,7 +201,8 @@ results.
 
 ## Text editing shortcuts
 
-While the launcher input is focused, readline-style shortcuts are available:
+When `shell.readline_shortcuts` is enabled (Settings → Shell → General), every text field, including the launcher input,
+supports readline-style shortcuts. Otherwise `Ctrl+A` selects all and `Ctrl+U` clears the field.
 
 | Shortcut            | Action                                  |
 | ------------------- | --------------------------------------- |

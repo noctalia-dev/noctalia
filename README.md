@@ -70,7 +70,7 @@ Noctalia supports Wayland compositors that provide the layer-shell protocols it 
 integration works through compositor-native backends where needed, or through `ext-workspace-v1` on compositors that
 implement it.
 
-Current compositor integrations include Niri, Hyprland, Sway, Scroll, Mango, Labwc, Triad, dwl, and other compatible
+Current compositor integrations include Niri, Hyprland, Sway, Scroll, Mango, Labwc, dwl, and other compatible
 Wayland compositors. Other compositors may run Noctalia but can have reduced workspace, window, output, or
 session-action integration depending on the protocols and IPC they expose.
 
@@ -107,8 +107,9 @@ lives in the [documentation site](https://docs.noctalia.dev/noctalia/). The sour
 
 ## Contributing
 
-Developer notes, architecture overview, code style, project layout, and debugging commands live in
-[CONTRIBUTING.md](CONTRIBUTING.md).
+Developer notes, code style, contribution rules, testing, project layout, and debugging commands live in
+[CONTRIBUTING.md](CONTRIBUTING.md). The architecture and its invariants are described in
+[ARCHITECTURE.md](ARCHITECTURE.md).
 
 Bug reports, fixes, documentation updates, themes, and configuration examples are welcome. For general help and design
 discussion, join the community on [Discord](https://discord.noctalia.dev).

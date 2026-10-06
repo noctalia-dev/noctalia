@@ -31,12 +31,13 @@ Alt+Tab-style overlay with two presentations selected by `[shell.window_switcher
 | Action | Command | Description |
 |--------|---------|-------------|
 | Open | <IpcCommand command="window-switcher" /> | Show the switcher on the preferred monitor (pointer, keyboard focus, or first output). |
+| Open from a held-modifier keybind | <IpcCommand command="window-switcher hold" /> | Same as Open, for Alt+Tab-style keybinds. If the shortcut modifier is already released when the overlay gains keyboard focus (a quick tap), the previous window is activated and the overlay closes. |
 | Close | <IpcCommand command="window-switcher close" /> | Hide the overlay without changing focus. `hide` is an alias. |
 
-Example Hyprland bind:
+Example Hyprland bind (use `hold` so a quick tap switches to the previous window):
 
 ```ini
-hl.bind("ALT + TAB", hl.dsp.exec_cmd("noctalia msg window-switcher"))
+hl.bind("ALT + TAB", hl.dsp.exec_cmd("noctalia msg window-switcher hold"))
 ```
 
 While the overlay is open it takes exclusive keyboard focus on its layer surface:
@@ -46,7 +47,10 @@ While the overlay is open it takes exclusive keyboard focus on its layer surface
 - **Release the shortcut modifier** - focus the selected window (for example, release Alt for Alt+Tab or Super for Super+Tab)
 - **Enter** - focus the selected window and close
 - **Escape** - close without switching
+- **Quick tap** - with `window-switcher hold`, releasing the shortcut modifier before the overlay has keyboard focus counts as the release: the previous window is activated and the overlay closes. Without `hold` (terminals, scripts, gestures), the overlay stays open until Enter, Escape, or a click
 - **Pointer** - click a card to switch; click the selected card's close control to close that window
+
+Modifier releases generated while an input method hands keyboard focus to the switcher are ignored until the physical shortcut modifier is actually released.
 
 The switcher refreshes while the overlay stays open (new windows, closed windows, and title changes such as Discord channel switches). Selection stays on the same window when its title updates.
 

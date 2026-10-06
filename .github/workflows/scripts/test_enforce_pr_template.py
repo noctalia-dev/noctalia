@@ -129,7 +129,32 @@ class TemplateValidationTests(unittest.TestCase):
         body = ready_template().replace("- [x] Bug fix", "- [ ] Bug fix")
         self.assertEqual(
             enforce_pr_template.missing_requirements(body, require_completed=True),
-            ["at least one checked change type"],
+            [enforce_pr_template.CHANGE_TYPE_REQUIREMENT],
+        )
+
+    def test_rejects_ready_template_with_two_primary_change_types(self) -> None:
+        body = ready_template().replace("- [ ] New feature", "- [x] New feature")
+        self.assertEqual(
+            enforce_pr_template.missing_requirements(body, require_completed=True),
+            [enforce_pr_template.CHANGE_TYPE_REQUIREMENT],
+        )
+
+    def test_rejects_breaking_change_as_the_only_change_type(self) -> None:
+        body = (
+            ready_template()
+            .replace("- [x] Bug fix", "- [ ] Bug fix")
+            .replace("- [ ] Breaking change", "- [x] Breaking change")
+        )
+        self.assertEqual(
+            enforce_pr_template.missing_requirements(body, require_completed=True),
+            [enforce_pr_template.CHANGE_TYPE_REQUIREMENT],
+        )
+
+    def test_accepts_breaking_change_alongside_one_primary_type(self) -> None:
+        body = ready_template().replace("- [ ] Breaking change", "- [x] Breaking change")
+        self.assertEqual(
+            enforce_pr_template.missing_requirements(body, require_completed=True),
+            [],
         )
 
     def test_ready_template_requires_every_mandatory_item(self) -> None:
@@ -292,7 +317,7 @@ class TemplateEnforcementTests(unittest.TestCase):
     def test_invalid_draft_updates_the_latest_enforcement_comment(self) -> None:
         stale = {
             "body": enforce_pr_template.build_enforcement_comment(
-                ["at least one checked change type"],
+                [enforce_pr_template.CHANGE_TYPE_REQUIREMENT],
                 converted=True,
             ),
             "url": self.COMMENT_URL,

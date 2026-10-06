@@ -187,7 +187,7 @@ private:
   void openBarWidgetAddPopup(const std::vector<std::string>& lanePath);
   // Request is taken by value because opening the popup can close the sheet that owns the forwarding control.
   void openSearchPickerPopup(settings::SearchPickerOpenRequest request);
-  void openMonitorOverrideCreateDialog(std::string barName);
+  void openMonitorOverrideCreateDialog(std::optional<std::string> barName);
   void openSessionActionEntryEditor(std::size_t index);
   void syncSessionActionInlineSummary(std::size_t index, const SessionPanelActionConfig& row);
   void openIdleBehaviorEntryEditor(std::size_t index);
@@ -226,6 +226,9 @@ private:
   void createMonitorOverride(std::string barName, std::string match);
   void renameMonitorOverride(std::string barName, std::string oldMatch, std::string newMatch);
   void deleteMonitorOverride(std::string barName, std::string match);
+  void createDockMonitorOverride(std::string match);
+  void renameDockMonitorOverride(std::string oldTableName, std::string newMatch);
+  void deleteDockMonitorOverride(std::string tableName);
   [[nodiscard]] float uiScale() const;
 
   [[nodiscard]] std::optional<LayerPopupParentContext> topmostPopupParentContext() const;
@@ -344,6 +347,8 @@ private:
   std::string m_renamingMonitorOverrideMatch;
   std::string m_pendingDeleteMonitorOverrideBarName;
   std::string m_pendingDeleteMonitorOverrideMatch;
+  std::string m_renamingDockMonitorOverride;
+  std::string m_pendingDeleteDockMonitorOverride;
   std::string m_pendingDeletePluginId;
   std::string m_selectedBarName;
   std::string m_selectedMonitorOverride;

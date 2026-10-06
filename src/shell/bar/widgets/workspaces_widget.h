@@ -159,11 +159,11 @@ private:
     float opacity = 1.0F;
   };
 
-  [[nodiscard]] ColorSpec workspaceFillColor(const Workspace& workspace) const;
-  [[nodiscard]] ColorSpec workspaceTextColor(const Workspace& workspace) const;
+  [[nodiscard]] bool workspaceUsesFocusedStyle(const Workspace& workspace, wl_output* output) const;
+  [[nodiscard]] ColorSpec workspaceFillColor(const Workspace& workspace, wl_output* output) const;
+  [[nodiscard]] ColorSpec workspaceTextColor(const Workspace& workspace, wl_output* output) const;
   [[nodiscard]] static ColorRole onRoleForFill(ColorRole fill);
   [[nodiscard]] static ColorSpec readableColorForFill(const ColorSpec& fill);
-  [[nodiscard]] bool isFocusedOutput() const;
 
   CompositorPlatform& m_platform;
   ConfigService& m_configService;
@@ -182,8 +182,7 @@ private:
   WorkspacesStyle m_style = WorkspacesStyle::Regular;
   bool m_focusedOutputOnly = false;
   bool m_changeColorOnHover = true;
-  bool m_wasFocusedOutput = true;
-  bool m_activeUsesFocusedColor = true;
+  wl_output* m_lastFocusedOutput = nullptr;
   std::string m_cachedActiveWindowAppId;
   IconResolver m_iconResolver;
   std::unordered_map<std::string, std::string> m_appIcons;
