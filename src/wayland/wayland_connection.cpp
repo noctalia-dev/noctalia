@@ -55,7 +55,7 @@
 namespace {
 
   constexpr std::uint32_t kCompositorVersion = 4;
-  constexpr std::uint32_t kSeatVersion = 5;
+  constexpr std::uint32_t kSeatVersion = 8;
   constexpr std::uint32_t kShmVersion = 1;
   constexpr std::uint32_t kSubcompositorVersion = 1;
   constexpr std::uint32_t kLayerShellVersion = 4;
