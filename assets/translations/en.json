@@ -4313,6 +4313,10 @@
           "description": "Hide the battery widget when fully charged",
           "label": "Hide When Full"
         },
+        "hide-when-idle": {
+          "description": "Hide the widget while the active MPRIS player is paused or stopped",
+          "label": "Hide When Idle"
+        },
         "hide-when-inactive": {
           "description": "Hide the microphone widget while no application is capturing audio",
           "label": "Hide When Inactive"
