@@ -181,9 +181,7 @@ namespace noctalia::theme {
     }
   }
 
-  void TemplateApplyService::setAfterApplyCallback(
-      std::function<void(std::string_view appliedMode, bool paletteChanged)> callback
-  ) const {
+  void TemplateApplyService::setAfterApplyCallback(std::function<void(bool paletteChanged)> callback) const {
     std::scoped_lock lock(m_mutex);
     m_afterApplyCallback = std::move(callback);
   }
@@ -208,9 +206,7 @@ namespace noctalia::theme {
         if (m_paletteChangedOwed && !m_inFlight && !m_pendingRequest.has_value()) {
           m_paletteChangedOwed = false;
           if (m_afterApplyCallback) {
-            undeliverable = [callback = m_afterApplyCallback, mode = request.defaultMode]() {
-              callback(mode, /*paletteChanged=*/true);
-            };
+            undeliverable = [callback = m_afterApplyCallback]() { callback(/*paletteChanged=*/true); };
           }
         }
       } else {
@@ -519,9 +515,7 @@ namespace noctalia::theme {
         // generation that replaced it.
         if (!m_shutdown && request.generation == m_nextGeneration && m_afterApplyCallback) {
           const bool paletteChanged = std::exchange(m_paletteChangedOwed, false);
-          afterApplyCallback = [callback = m_afterApplyCallback, mode = request.defaultMode, paletteChanged]() {
-            callback(mode, paletteChanged);
-          };
+          afterApplyCallback = [callback = m_afterApplyCallback, paletteChanged]() { callback(paletteChanged); };
         }
       }
       if (afterApplyCallback) {

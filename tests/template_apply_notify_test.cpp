@@ -13,7 +13,6 @@
 #include <cstdlib>
 #include <filesystem>
 #include <string>
-#include <string_view>
 #include <thread>
 #include <unistd.h>
 
@@ -59,14 +58,12 @@ int main() {
 
   int applications = 0;
   int paletteChanges = 0;
-  std::string lastMode;
   {
     ConfigService config;
     TemplateApplyService service(config);
-    service.setAfterApplyCallback([&](std::string_view appliedMode, bool paletteChanged) {
+    service.setAfterApplyCallback([&](bool paletteChanged) {
       ++applications;
       paletteChanges += paletteChanged ? 1 : 0;
-      lastMode = appliedMode;
     });
 
     // A plain application that changed the palette.
@@ -74,7 +71,6 @@ int main() {
     settle();
     TEST_CHECK(applications == 1);
     TEST_CHECK(paletteChanges == 1);
-    TEST_CHECK(lastMode == "dark");
 
     // A same-palette apply deduplicates against the queued one. It must not cancel the palette
     // change the queued one is still owed.
@@ -104,7 +100,6 @@ int main() {
     settle();
     TEST_CHECK(applications == 1);
     TEST_CHECK(paletteChanges == 0);
-    TEST_CHECK(lastMode == "light");
 
     // A palette change owed by an apply that has nothing left to render still lands.
     applications = 0;

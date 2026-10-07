@@ -701,7 +701,7 @@ void Application::initStyleThemeAndWayland() {
   });
 
   // Runs once per applied generation: colors_changed only concerns a palette that actually changed.
-  m_templateApplyService.setAfterApplyCallback([this](std::string_view appliedMode, bool paletteChanged) {
+  m_templateApplyService.setAfterApplyCallback([this](bool paletteChanged) {
     if (paletteChanged) {
       m_hookManager.fire(HookKind::ColorsChanged);
     }
