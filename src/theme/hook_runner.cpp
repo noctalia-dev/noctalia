@@ -139,7 +139,7 @@ namespace noctalia::theme {
 
     process::RunOptions options;
     options.maxOutputBytes = kMaxHookOutputBytes;
-    // Let the destructor's grace-period cancel reach an already-running hook.
+    // Let the shutdown cancel (this runner's grace or the owner's shared flag) reach an already-running hook.
     options.cancel = state->cancel;
     if (process::runAsync(command, std::move(callbacks), options)) {
       return true;

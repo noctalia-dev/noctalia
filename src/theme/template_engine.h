@@ -46,8 +46,8 @@ namespace noctalia::theme {
       std::shared_ptr<const toml::table> configTable;
       HookRunner* hookRunner = nullptr;
       std::uint64_t generation = 0;
-      // Hard cancel for a synchronous hook: when set true (e.g. at shutdown) an in-flight
-      // inline hook has its process group terminated instead of blocking teardown.
+      // Hard cancel for synchronous user commands: when set true (e.g. at shutdown) an in-flight
+      // inline hook or dynamic path command has its process group terminated instead of blocking teardown.
       std::shared_ptr<std::atomic<bool>> hookCancel;
     };
 
