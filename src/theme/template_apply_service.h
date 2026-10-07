@@ -31,15 +31,15 @@ namespace noctalia::theme {
     TemplateApplyService(const TemplateApplyService&) = delete;
     TemplateApplyService& operator=(const TemplateApplyService&) = delete;
 
-    // Every completed application notifies. `paletteChanged` marks this apply as one whose
-    // palette differs from the last; the flag is owed until a non-superseded application
-    // reports it, so a later apply() that coalesces with, supersedes, or deduplicates against
-    // this one still passes it on.
+    // `paletteChanged` marks this apply as one whose palette differs from the last; the flag is
+    // owed until a non-superseded application reports it, so a later apply() that coalesces
+    // with, supersedes, or deduplicates against this one still passes it on.
     void apply(
         const GeneratedPalette& palette, std::string_view defaultMode, bool force = false, bool paletteChanged = false
     ) const;
-    // The notification handler. Sticky: set once.
-    void setAfterApplyCallback(std::function<void(bool paletteChanged)> callback) const;
+    // Runs on the main loop once a changed palette is written and its hooks have finished.
+    // Sticky: set once.
+    void setPaletteChangedCallback(std::function<void()> callback) const;
     void registerIpc(IpcService& ipc);
 
   private:
@@ -86,7 +86,7 @@ namespace noctalia::theme {
     mutable std::uint64_t m_nextGeneration = 0;
     mutable bool m_shutdown = false;
     mutable bool m_inFlight = false;
-    mutable std::function<void(bool paletteChanged)> m_afterApplyCallback;
+    mutable std::function<void()> m_paletteChangedCallback;
     // A palette change has been reported to apply() and not yet passed on to the handler.
     mutable bool m_paletteChangedOwed = false;
     mutable std::unique_ptr<HookRunner> m_hookRunner;

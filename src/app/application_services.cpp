@@ -700,12 +700,7 @@ void Application::initStyleThemeAndWayland() {
     }
   });
 
-  // Runs once per applied generation: colors_changed only concerns a palette that actually changed.
-  m_templateApplyService.setAfterApplyCallback([this](bool paletteChanged) {
-    if (paletteChanged) {
-      m_hookManager.fire(HookKind::ColorsChanged);
-    }
-  });
+  m_templateApplyService.setPaletteChangedCallback([this]() { m_hookManager.fire(HookKind::ColorsChanged); });
 
   m_themeService.setResolvedCallback([this, lastResolvedThemeMode = std::optional<std::string>{},
                                       lastGeneratedPalette = std::optional<noctalia::theme::GeneratedPalette>{},

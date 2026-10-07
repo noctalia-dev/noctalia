@@ -181,9 +181,9 @@ namespace noctalia::theme {
     }
   }
 
-  void TemplateApplyService::setAfterApplyCallback(std::function<void(bool paletteChanged)> callback) const {
+  void TemplateApplyService::setPaletteChangedCallback(std::function<void()> callback) const {
     std::scoped_lock lock(m_mutex);
-    m_afterApplyCallback = std::move(callback);
+    m_paletteChangedCallback = std::move(callback);
   }
 
   void TemplateApplyService::apply(
@@ -200,14 +200,11 @@ namespace noctalia::theme {
       // are captured only when an application is queued; forced IPC re-application bypasses
       // this deduplication.
       if (!force && m_lastAppliedRequest.has_value() && sameInputs(request, *m_lastAppliedRequest)) {
-        // The applied mode already matches, so only an owed palette change is still worth
-        // reporting. It rides on the application queued or in flight; with neither, no worker
-        // pass is left to carry it.
+        // Nothing is left to render. An owed palette change rides on the application queued
+        // or in flight; with neither, no worker pass is left to carry it.
         if (m_paletteChangedOwed && !m_inFlight && !m_pendingRequest.has_value()) {
           m_paletteChangedOwed = false;
-          if (m_afterApplyCallback) {
-            undeliverable = [callback = m_afterApplyCallback]() { callback(/*paletteChanged=*/true); };
-          }
+          undeliverable = m_paletteChangedCallback;
         }
       } else {
         request.undoBuiltinIds = syncAppliedBuiltinIds(request.templates);
@@ -500,26 +497,28 @@ namespace noctalia::theme {
 
       applyRequest(request);
 
-      // Hooks of the current generation must finish before the after-apply callback
+      // Hooks of the current generation must finish before the palette-changed callback
       // reports the theme as applied. A superseded generation skips the drain; the next
       // applyRequest() waits its hooks out before touching anything.
       if (!requestSuperseded(request.generation)) {
         m_hookRunner->waitIdle();
       }
 
-      std::function<void()> afterApplyCallback;
+      std::function<void()> paletteChangedCallback;
       {
         std::scoped_lock lock(m_mutex);
         m_inFlight = false;
         // A superseded generation reports nothing and leaves an owed palette change to the
         // generation that replaced it.
-        if (!m_shutdown && request.generation == m_nextGeneration && m_afterApplyCallback) {
-          const bool paletteChanged = std::exchange(m_paletteChangedOwed, false);
-          afterApplyCallback = [callback = m_afterApplyCallback, paletteChanged]() { callback(paletteChanged); };
+        if (!m_shutdown
+            && request.generation == m_nextGeneration
+            && m_paletteChangedCallback
+            && std::exchange(m_paletteChangedOwed, false)) {
+          paletteChangedCallback = m_paletteChangedCallback;
         }
       }
-      if (afterApplyCallback) {
-        DeferredCall::callLater(std::move(afterApplyCallback));
+      if (paletteChangedCallback) {
+        DeferredCall::callLater(std::move(paletteChangedCallback));
       }
     }
   }
