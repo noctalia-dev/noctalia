@@ -1,6 +1,7 @@
 #pragma once
 
 #include "config/config_types.h"
+#include "core/timer_manager.h"
 #include "shell/wallpaper/wallpaper_shuffle_state.h"
 #include "ui/signal.h"
 
@@ -43,6 +44,9 @@ public:
       noctalia::theme::ThemeService* themeService = nullptr
   );
   void onOutputChange();
+  // Called when ThemeService resolves a light/dark appearance. Applies theme-bound
+  // wallpaper paths when theme sync is enabled (debounced during startup).
+  void onResolvedThemeModeChanged(std::string_view mode);
   // Mark an output as driven by an external wallpaper source (e.g. an mpvpaper plugin):
   // its Background surface is torn down so the external surface shows through. Runtime-only
   // (not persisted) — it clears on restart and is re-asserted by the owner.
@@ -90,6 +94,11 @@ private:
   // Persist a resolved image path to a single connector, or to every connected
   // output plus the default when no connector is given.
   void applyResolvedWallpaper(const std::optional<std::string>& connector, const std::string& resolvedPath);
+  void updateThemeSyncBindingForManualPick(const std::optional<std::string>& connector, const std::string& path);
+  void seedThemeSyncBindingForCurrentMode();
+  void scheduleThemeSync(std::string_view mode);
+  void applyThemeSync(std::string_view mode);
+  [[nodiscard]] bool themeSyncPathExists(const std::string& path) const;
   void reload();
   void syncInstances();
   void applyStartupAutomation(std::int64_t secondStamp);
@@ -134,6 +143,10 @@ private:
   wallpaper::ShuffleState m_shuffleState;
   Signal<>::ScopedConnection m_paletteConn;
   Signal<> m_changed;
+  bool m_initialized = false;
+  bool m_themeSyncStartupPhase = true;
+  std::optional<std::string> m_pendingThemeSyncMode;
+  Timer m_themeSyncTimer;
   std::vector<std::unique_ptr<WallpaperInstance>> m_instances;
   std::unordered_set<std::string> m_externallyManagedOutputs;
 };

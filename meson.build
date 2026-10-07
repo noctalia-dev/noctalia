@@ -1278,6 +1278,7 @@ if build_tests
     'virtual_grid_view_gesture',
     'wallpaper_scan_symlink',
     'wallpaper_shuffle_state',
+    'wallpaper_theme_sync_paths',
     'wayland_output_scale',
     'wayland_toplevels_identity',
     'webp_decoder',
