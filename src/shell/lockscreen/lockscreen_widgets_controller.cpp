@@ -169,6 +169,16 @@ void LockscreenWidgetsController::onSecondTick() {
   }
 }
 
+bool LockscreenWidgetsController::wantsSecondTicks() const {
+  if (!m_initialized) {
+    return false;
+  }
+  if (isEditing()) {
+    return true;
+  }
+  return m_host != nullptr && m_host->wantsSecondTicks();
+}
+
 void LockscreenWidgetsController::requestLayout() {
   if (!m_initialized) {
     return;
