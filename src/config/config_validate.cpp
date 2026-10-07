@@ -501,7 +501,16 @@ namespace noctalia::config {
         const auto fields = settings::widgetSettingSchema(type, &wc, &pluginRegistry);
         // Plugin widgets resolve their settings from a static plugin.toml manifest, so
         // unknown keys are flagged like any other widget.
-        validateSettingsMap(*tbl, fields, base, /*flagUnknown=*/true, diag, /*ignoreKeys=*/{"type"}, base);
+        std::unordered_set<std::string> ignoredKeys{"type"};
+        if (type == "workspaces" && tbl->contains("show_all_outputs")) {
+          diag.error(
+              base + ".show_all_outputs",
+              "show_all_outputs was removed; replace it with monitors = [\"OUTPUT-NAME\", ...]",
+              "workspaces.show-all-outputs.removed"
+          );
+          ignoredKeys.insert("show_all_outputs");
+        }
+        validateSettingsMap(*tbl, fields, base, /*flagUnknown=*/true, diag, ignoredKeys, base);
         if (auto error = settings::validateWidgetSemantics(type, &wc); error.has_value()) {
           diag.componentError(base, base, *error);
         }
