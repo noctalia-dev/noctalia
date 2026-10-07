@@ -240,8 +240,9 @@ namespace noctalia::cli {
       Positional{"connector", {}, {}, false, false, false},
       Positional{"path", {}, {}, true, false, false},
   };
+  inline constexpr std::array<std::string_view, 3> kMsgWindowSwitcherActionChoices{"close", "hide", "hold"};
   inline constexpr std::array kMsgWindowSwitcherPositionals{
-      Positional{"action", {}, {}, false, false, false},
+      Positional{"action", {}, kMsgWindowSwitcherActionChoices, false, false, false},
   };
   inline constexpr std::array kMsgWorkspaceAlertAddPositionals{
       Positional{"workspace", {}, {}, true, false, false},
@@ -280,7 +281,7 @@ namespace noctalia::cli {
     };
     inline constexpr Command barReserveToggle{
         "bar-reserve-toggle",
-        "Toggle reserve space for one or all bars",
+        "Temporarily toggle reserve space for one or all bars",
         {},
         {},
         {},

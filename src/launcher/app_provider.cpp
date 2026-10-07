@@ -340,23 +340,12 @@ bool AppProvider::activate(const LauncherResult& result) {
       }
     }
 
-    std::string token;
-    if (m_platform != nullptr && m_platform->hasXdgActivation()) {
-      token = m_platform->requestActivationToken(nullptr);
-    }
-    desktop_entry_launch::LaunchOptions launchOptions{
-        .activationToken = std::move(token),
-        .runAsSystemdService = m_config->config().shell.launchAppsAsSystemdServices,
-        .customCommand = m_config->config().shell.launchAppsCustomCommand,
-        .dbusActivatable = entry.dbusActivatable,
-        .dbusAppId = entry.id,
-    };
-
+    wl_surface* launchSurface = nullptr;
+    wl_output* launchOutput = nullptr;
     if (m_platform != nullptr) {
-      wl_output* launchOutput = nullptr;
-
-      if (PanelManager& panelManager = PanelManager::instance(); panelManager.isOpenPanel("launcher")) {
-        launchOutput = panelManager.attachedPanelOutput();
+      if (auto context = PanelManager::instance().popupParentContextForPanel("launcher"); context.has_value()) {
+        launchSurface = context->surface;
+        launchOutput = context->output;
       }
 
       if (launchOutput == nullptr) {
@@ -367,6 +356,21 @@ bool AppProvider::activate(const LauncherResult& result) {
       if (launchOutput == nullptr) {
         launchOutput = m_platform->preferredInteractiveOutput();
       }
+    }
+
+    std::string token;
+    if (m_platform != nullptr && m_platform->hasXdgActivation()) {
+      token = m_platform->requestActivationToken(launchSurface);
+    }
+    desktop_entry_launch::LaunchOptions launchOptions{
+        .activationToken = std::move(token),
+        .runAsSystemdService = m_config->config().shell.launchAppsAsSystemdServices,
+        .customCommand = m_config->config().shell.launchAppsCustomCommand,
+        .dbusActivatable = entry.dbusActivatable,
+        .dbusAppId = entry.id,
+    };
+
+    if (m_platform != nullptr) {
       m_platform->prepareAppLaunchOnOutput(launchOutput);
     }
 

@@ -298,6 +298,16 @@ namespace {
     const std::string errStr = err != nullptr ? err : i18n::tr("auth.pam.authentication-failed");
     pamh.lastRc = rc;
 
+    if (rc == PAM_SUCCESS) {
+      // A credential-provider failure must not reject an otherwise valid unlock.
+      const int credRc = pam_setcred(pamh.h, PAM_REFRESH_CRED);
+      kLog.debug("pam_setcred PAM_REFRESH_CRED rc={} ({})", credRc, pam_strerror(pamh.h, credRc));
+      pamh.lastRc = credRc;
+      if (credRc != PAM_SUCCESS) {
+        kLog.warn("credential refresh failed for user='{}' rc={} ({})", user, credRc, pam_strerror(pamh.h, credRc));
+      }
+    }
+
     secureClear(passwordCopy);
 
     if (rc == PAM_SUCCESS) {

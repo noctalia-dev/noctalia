@@ -166,13 +166,20 @@ int main() {
   invalidSysmon.settings["show_value"] = false;
   invalidSysmon.settings["visualization"] = std::string("none");
   const auto sysmonError = settings::validateWidgetSemantics("sysmon", &invalidSysmon);
-  if (!sysmonError.has_value() || *sysmonError != "show_glyph, show_value, and visualization cannot all be disabled") {
+  if (!sysmonError.has_value()
+      || *sysmonError != "show_glyph, custom_label, show_value, and visualization cannot all be disabled") {
     fail("sysmon", "invalid resolved options did not produce the semantic error");
   }
+  invalidSysmon.settings["custom_label"] = std::string("CPU");
+  if (settings::validateWidgetSemantics("sysmon", &invalidSysmon).has_value()) {
+    fail("sysmon", "custom-label-only options produced a semantic error");
+  }
+  invalidSysmon.settings["custom_label"] = std::string();
   invalidSysmon.settings["show_value"] = true;
   if (settings::validateWidgetSemantics("sysmon", &invalidSysmon).has_value()) {
     fail("sysmon", "valid resolved options produced a semantic error");
   }
+
   checkDefinition("taskbar", taskbarWidgetDefinition);
   WidgetConfig spacedTaskbar;
   spacedTaskbar.type = "taskbar";

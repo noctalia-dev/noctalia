@@ -66,7 +66,8 @@ private:
       float scale, std::string_view text, float fontSize, FontWeight fontWeight, float maxWidth, int maxLines,
       TextAlign align, std::string_view fontFamily, TextEllipsize ellipsize, bool useMarkup
   );
-  [[nodiscard]] TextMetrics measureFontScaled(float scale, float fontSize, FontWeight fontWeight);
+  [[nodiscard]] TextMetrics
+  measureFontScaled(float scale, float fontSize, FontWeight fontWeight, std::string_view fontFamily);
   void measureTextCursorStopsScaled(
       float scale, std::string_view text, float fontSize, const std::vector<std::size_t>& byteOffsets,
       std::vector<float>& outStops, FontWeight fontWeight

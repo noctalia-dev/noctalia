@@ -225,6 +225,27 @@ namespace {
     return cfg.autoHide;
   }
 
+  [[nodiscard]] const DockMonitorOverride*
+  matchingDockMonitorOverride(const DockConfig& cfg, const WaylandOutput& output) {
+    const auto it = std::ranges::find_if(cfg.monitorOverrides, [&output](const DockMonitorOverride& override) {
+      return outputMatchesSelector(override.match, output);
+    });
+    return it != cfg.monitorOverrides.end() ? &*it : nullptr;
+  }
+
+  [[nodiscard]] bool dockMayBeEnabled(const DockConfig& cfg) {
+    return cfg.enabled || std::ranges::any_of(cfg.monitorOverrides, [](const DockMonitorOverride& override) {
+             return override.enabled.value_or(false);
+           });
+  }
+
+  [[nodiscard]] std::vector<std::string> dockPinnedOverridePath(const shell::dock::DockInstance& instance) {
+    if (instance.pinnedOverridden && !instance.monitorOverrideTable.empty()) {
+      return {"dock", "monitor", instance.monitorOverrideTable, "pinned"};
+    }
+    return {"dock", "pinned"};
+  }
+
   [[nodiscard]] bool workspaceKeyMatchesAssignment(std::string_view assignmentKey, const Workspace& workspace) {
     if (assignmentKey.empty()) {
       return false;
@@ -316,15 +337,12 @@ bool Dock::initialize(CompositorPlatform& platform, ConfigService* config, Rende
 
   m_lastDockConfig = cfg;
   m_lastShadow = m_config->config().shell.shadow;
-  m_lastPinnedConfig = cfg.pinned;
   m_lastBarLayerStack = barLayerStackSignature(m_config->config());
 
-  if (!cfg.enabled) {
+  if (!dockMayBeEnabled(cfg)) {
     kLog.info("dock disabled in config");
     return true;
   }
-
-  refreshPinnedAppsIfNeeded();
   return true;
 }
 
@@ -335,12 +353,10 @@ void Dock::reload() {
   m_lastShadow = m_config->config().shell.shadow;
   m_lastBarLayerStack = barLayerStackSignature(m_config->config());
 
-  if (!cfg.enabled) {
+  if (!dockMayBeEnabled(cfg)) {
     closeAllInstances();
     return;
   }
-
-  refreshPinnedAppsIfNeeded();
 
   closeAllInstances();
 
@@ -358,12 +374,11 @@ void Dock::show() {
   if (m_overlayDisplaySuppressed) {
     return;
   }
-  if (m_config == nullptr || !m_config->config().dock.enabled) {
+  if (m_config == nullptr || !dockMayBeEnabled(m_config->config().dock)) {
     return;
   }
 
   pruneCachedToplevelHandles();
-  refreshPinnedAppsIfNeeded();
   if (m_instances.empty()) {
     syncInstances();
     return;
@@ -427,20 +442,18 @@ void Dock::detachInstanceState(shell::dock::DockInstance& inst) {
 }
 
 void Dock::onOutputChange() {
-  if (!m_config->config().dock.enabled) {
+  if (m_config == nullptr || !dockMayBeEnabled(m_config->config().dock)) {
     return;
   }
   syncInstances();
 }
 
 void Dock::refresh() {
-  if (m_config == nullptr || m_platform == nullptr || !m_config->config().dock.enabled) {
+  if (m_config == nullptr || m_platform == nullptr || !dockMayBeEnabled(m_config->config().dock)) {
     return;
   }
 
   pruneCachedToplevelHandles();
-  refreshPinnedAppsIfNeeded();
-
   syncInstances();
 
   if (m_instances.empty()) {
@@ -516,7 +529,7 @@ bool Dock::onPointerEvent(const PointerEvent& event) {
     }
     updateHoverZoomPointer(*m_hoveredInstance, static_cast<float>(event.sx), static_cast<float>(event.sy));
     // Auto-hide: show the dock when the pointer enters.
-    if (dockPointerHideAllowed(m_config->config().dock, *m_hoveredInstance)
+    if (dockPointerHideAllowed(m_hoveredInstance->config, *m_hoveredInstance)
         && m_hoveredInstance->sceneRoot != nullptr) {
       if (m_hoveredInstance->hideAnimId != 0) {
         m_hoveredInstance->animations.cancel(m_hoveredInstance->hideAnimId);
@@ -527,7 +540,7 @@ bool Dock::onPointerEvent(const PointerEvent& event) {
           current, 1.0F, Style::animNormal, Easing::EaseOutCubic,
           [inst = m_hoveredInstance, this](float v) {
             inst->hideOpacity = v;
-            const auto& cfg = m_config->config().dock;
+            const auto& cfg = inst->config;
             shell::dock::syncDockSlideLayerTransform(*inst, cfg);
             shell::dock::applyDockCompositorBlur(*inst, cfg);
           },
@@ -553,8 +566,8 @@ bool Dock::onPointerEvent(const PointerEvent& event) {
       m_hoveredInstance->pointerInside = false;
       m_hoveredInstance->inputDispatcher.pointerLeave();
 
-      if (dockPointerHideAllowed(m_config->config().dock, *m_hoveredInstance) && m_popupOwnerInstance == nullptr) {
-        shell::dock::startHideFadeOut(*m_hoveredInstance, *m_config);
+      if (dockPointerHideAllowed(m_hoveredInstance->config, *m_hoveredInstance) && m_popupOwnerInstance == nullptr) {
+        shell::dock::startHideFadeOut(*m_hoveredInstance);
       }
       m_hoveredInstance = nullptr;
     }
@@ -609,6 +622,12 @@ bool Dock::onPointerEvent(const PointerEvent& event) {
     break;
   }
   case PointerEvent::Type::Axis:
+    if (m_hoveredInstance != nullptr) {
+      m_hoveredInstance->inputDispatcher.pointerAxis(
+          static_cast<float>(event.sx), static_cast<float>(event.sy), event.axis, event.axisSource, event.axisValue,
+          event.axisDiscrete, event.axisValue120, event.axisLines, event.axisGestureSerial
+      );
+    }
     break;
   }
 
@@ -627,33 +646,21 @@ bool Dock::onPointerEvent(const PointerEvent& event) {
 
 // ── Private: instance management ─────────────────────────────────────────────
 
-bool Dock::refreshPinnedAppsIfNeeded() {
-  return shell::dock::refreshPinnedAppsIfNeeded(
-      m_config->config().dock, m_lastPinnedConfig, m_pinnedEntries, m_modelSerial, m_entriesVersion
-  );
-}
-
 void Dock::syncInstances() {
   if (m_overlayDisplaySuppressed) {
     return;
   }
   const auto& outputs = m_platform->outputs();
-  const auto& cfg = m_config->config().dock;
-  const auto& selectedMonitors = cfg.monitors;
-  const bool hasStaticContent = !cfg.pinned.empty() || shell::dock::dockLauncherButtonCount(cfg) > 0;
-  // When activeMonitorOnly is off, the running-apps check is identical for every output, so hoist it.
-  const bool anyRunningGlobal = (!hasStaticContent && cfg.showRunning && !cfg.activeMonitorOnly)
-      ? !m_platform->runningAppIds(nullptr).empty()
-      : false;
+  const auto& baseConfig = m_config->config().dock;
   const auto outputAllowed = [&](const WaylandOutput& output) {
     if (!output.done || !output.hasUsableGeometry()) {
       return false;
     }
-    if (!selectedMonitors.empty() && std::ranges::none_of(selectedMonitors, [&output](const std::string& m) {
-          return outputMatchesSelector(m, output);
-        })) {
+    const DockConfig cfg = ConfigService::resolveForOutput(baseConfig, output);
+    if (!cfg.enabled) {
       return false;
     }
+    const bool hasStaticContent = !cfg.pinned.empty() || shell::dock::dockLauncherButtonCount(cfg) > 0;
     if (hasStaticContent) {
       return true;
     }
@@ -663,7 +670,7 @@ void Dock::syncInstances() {
     if (cfg.activeMonitorOnly) {
       return !m_platform->runningAppIds(output.output).empty();
     }
-    return anyRunningGlobal;
+    return !m_platform->runningAppIds(nullptr).empty();
   };
 
   // Remove instances for dead outputs or outputs no longer selected.
@@ -716,14 +723,17 @@ void Dock::reevaluateSmartAutoHide() {
     return;
   }
 
-  const auto& cfg = m_config->config().dock;
-  if (!cfg.enabled || !cfg.smartAutoHide) {
+  if (!dockMayBeEnabled(m_config->config().dock)) {
     return;
   }
 
   for (const auto& instanceUp : m_instances) {
     shell::dock::DockInstance* instance = instanceUp.get();
     if (instance == nullptr || instance->surface == nullptr) {
+      continue;
+    }
+    const auto& cfg = instance->config;
+    if (!cfg.smartAutoHide) {
       continue;
     }
 
@@ -755,12 +765,12 @@ void Dock::reevaluateSmartAutoHide() {
     bool needsRedraw = pinnedChanged;
     if (wantsPinned) {
       if (instance->hideOpacity < 1.0F || pinnedChanged) {
-        shell::dock::revealAutoHideDock(*instance, *m_config);
+        shell::dock::revealAutoHideDock(*instance);
         needsRedraw = true;
       }
     } else if (!instance->pointerInside && m_popupOwnerInstance == nullptr) {
       if (instance->hideOpacity > 0.0F || pinnedChanged) {
-        shell::dock::startHideFadeOut(*instance, *m_config);
+        shell::dock::startHideFadeOut(*instance);
         needsRedraw = true;
       }
     }
@@ -774,7 +784,8 @@ void Dock::reevaluateSmartAutoHide() {
 void Dock::createInstance(const WaylandOutput& output) {
   assertDockInitialized(m_platform, m_config, m_renderContext);
 
-  const auto& cfg = m_config->config().dock;
+  const auto& baseConfig = m_config->config().dock;
+  const DockConfig cfg = ConfigService::resolveForOutput(baseConfig, output);
   kLog.info(
       "creating dock on {} ({}) icon_size={} position={}", output.connectorName, output.description, cfg.iconSize,
       enumToKey(kDockEdges, cfg.position)
@@ -789,10 +800,16 @@ void Dock::createInstance(const WaylandOutput& output) {
   instance->outputLogicalY = output.logicalY;
   instance->outputLogicalWidth = output.effectiveLogicalWidth();
   instance->outputLogicalHeight = output.effectiveLogicalHeight();
+  instance->config = cfg;
+  if (const auto* override = matchingDockMonitorOverride(baseConfig, output); override != nullptr) {
+    instance->monitorOverrideTable = override->tableName;
+    instance->pinnedOverridden = override->pinned.has_value();
+  }
 
   const auto& shadowConfig = m_config->config().shell.shadow;
   LayerSurfaceConfig lsCfg = shell::dock::makeLayerSurfaceConfig(
-      cfg, shadowConfig, cfg.pinned.size() + shell::dock::dockLauncherButtonCount(cfg), instance->fractionalScale
+      cfg, shadowConfig, cfg.pinned.size() + shell::dock::dockLauncherButtonCount(cfg), instance->fractionalScale,
+      instance->outputLogicalWidth, instance->outputLogicalHeight
   );
 
   instance->surface = std::make_unique<LayerSurface>(m_platform->wayland(), std::move(lsCfg));
@@ -816,15 +833,10 @@ void Dock::createInstance(const WaylandOutput& output) {
     );
   });
   instance->surface->setFrameTickCallback([this, inst](float deltaMs) {
-    if (m_config == nullptr || m_renderContext == nullptr || !m_config->config().dock.magnification) {
+    if (m_config == nullptr || m_renderContext == nullptr || !inst->config.magnification) {
       return;
     }
-    const shell::dock::DockItemSceneDependencies deps{
-        .model = {.config = *m_config},
-        .renderContext = *m_renderContext,
-        .iconResolver = m_iconResolver,
-    };
-    if (shell::dock::updateHoverZoom(*inst, deps, inst->snapshot, deltaMs) && inst->surface != nullptr) {
+    if (shell::dock::updateHoverZoom(*inst, inst->snapshot, deltaMs) && inst->surface != nullptr) {
       inst->surface->requestFrameTick();
       inst->surface->requestRedraw();
     }
@@ -866,13 +878,17 @@ bool Dock::syncInstanceModel(shell::dock::DockInstance& instance) {
     }
   }
 
+  (void)shell::dock::refreshPinnedAppsIfNeeded(
+      instance.config, instance.lastPinnedConfig, instance.pinnedEntries, instance.modelSerial, instance.entriesVersion
+  );
+
   auto next = shell::dock::buildDockSnapshot({
       .platform = *m_platform,
-      .config = m_config->config().dock,
+      .config = instance.config,
       .output = instance.output,
       .globalActiveIdLower = activeIdLower,
-      .pinnedEntries = m_pinnedEntries,
-      .sourceSerial = m_modelSerial,
+      .pinnedEntries = instance.pinnedEntries,
+      .sourceSerial = instance.modelSerial,
   });
 
   const bool needRebuild = instance.snapshot.sourceSerial != next.sourceSerial
@@ -943,18 +959,12 @@ void Dock::updateVisuals(shell::dock::DockInstance& instance) {
 
 void Dock::updateHoverZoomPointer(shell::dock::DockInstance& instance, float sceneX, float sceneY) {
   assertDockInitialized(m_platform, m_config, m_renderContext);
-  if (!m_config->config().dock.magnification || instance.row == nullptr) {
+  if (!instance.config.magnification || instance.row == nullptr) {
     return;
   }
 
-  const shell::dock::DockItemSceneDependencies deps{
-      .model = {.config = *m_config},
-      .renderContext = *m_renderContext,
-      .iconResolver = m_iconResolver,
-  };
-
-  if (!shell::dock::syncHoverPointerFromScene(instance, m_config->config().dock, sceneX, sceneY)) {
-    shell::dock::clearHoverZoom(instance, deps, instance.snapshot);
+  if (!shell::dock::syncHoverPointerFromScene(instance, instance.config, sceneX, sceneY)) {
+    shell::dock::clearHoverZoom(instance, instance.snapshot);
     return;
   }
 
@@ -966,17 +976,12 @@ void Dock::updateHoverZoomPointer(shell::dock::DockInstance& instance, float sce
 }
 
 void Dock::clearHoverZoomPointer(shell::dock::DockInstance& instance) {
-  if (m_config == nullptr || m_renderContext == nullptr || !m_config->config().dock.magnification) {
+  if (m_config == nullptr || m_renderContext == nullptr || !instance.config.magnification) {
     instance.hoverPointerValid = false;
     return;
   }
 
-  const shell::dock::DockItemSceneDependencies deps{
-      .model = {.config = *m_config},
-      .renderContext = *m_renderContext,
-      .iconResolver = m_iconResolver,
-  };
-  shell::dock::clearHoverZoom(instance, deps, instance.snapshot);
+  shell::dock::clearHoverZoom(instance, instance.snapshot);
 }
 
 // ── Private: item context menu (right-click) ──────────────────────────────────
@@ -986,7 +991,7 @@ void Dock::beginDrag(shell::dock::DockInstance& instance, std::size_t index, flo
     return;
   }
 
-  const auto& cfg = m_config->config().dock;
+  const auto& cfg = instance.config;
   if (index >= cfg.pinned.size()) {
     return;
   }
@@ -1008,7 +1013,7 @@ void Dock::updateDrag(shell::dock::DockInstance& instance, float mainPos) {
     return;
   }
 
-  const auto& cfg = m_config->config().dock;
+  const auto& cfg = instance.config;
   instance.drag.currentMain = mainPos;
   const std::size_t nextTarget = shell::dock::computeDragTargetIndex(instance, cfg, mainPos);
   if (nextTarget != instance.drag.targetIndex) {
@@ -1041,7 +1046,7 @@ void Dock::endDrag(shell::dock::DockInstance& instance, bool commit) {
     return;
   }
 
-  const auto& cfg = m_config->config().dock;
+  const auto& cfg = instance.config;
   if (wasActive) {
     shell::dock::clearDragVisuals(instance, cfg);
   }
@@ -1062,9 +1067,10 @@ void Dock::endDrag(shell::dock::DockInstance& instance, bool commit) {
   }
   pinnedList.insert(pinnedList.begin() + static_cast<std::ptrdiff_t>(insertAt), std::move(moved));
   ConfigService* config = m_config;
-  DeferredCall::callLater([config, pinnedList = std::move(pinnedList)]() mutable {
+  auto path = dockPinnedOverridePath(instance);
+  DeferredCall::callLater([config, path = std::move(path), pinnedList = std::move(pinnedList)]() mutable {
     if (config != nullptr) {
-      (void)config->setOverride({"dock", "pinned"}, std::move(pinnedList));
+      (void)config->setOverride(path, std::move(pinnedList));
     }
   });
 }
@@ -1105,10 +1111,10 @@ void Dock::closeItemMenu() {
   if (owner->pointerInside
       || m_config == nullptr
       || owner->hideOpacity <= 0.0F
-      || !dockPointerHideAllowed(m_config->config().dock, *owner)) {
+      || !dockPointerHideAllowed(owner->config, *owner)) {
     return;
   }
-  shell::dock::startHideFadeOut(*owner, *m_config);
+  shell::dock::startHideFadeOut(*owner);
 }
 
 void Dock::tryFulfillPendingLaunchFocus() {
@@ -1156,14 +1162,14 @@ void Dock::activateOrLaunchItem(shell::dock::DockInstance& instance, const shell
 
   auto windows = shell::dock::windowsForDockItem(
       *m_platform, action.windowLookupIdLower, action.windowLookupWmClassLower,
-      shell::dock::dockFilterOutput(m_config->config().dock, instance.output)
+      shell::dock::dockFilterOutput(instance.config, instance.output)
   );
 
   if (windows.empty()) {
     m_pendingLaunchFocus = PendingLaunchFocus{
         .idLower = action.windowLookupIdLower,
         .wmClassLower = action.windowLookupWmClassLower,
-        .outputFilter = shell::dock::dockFilterOutput(m_config->config().dock, instance.output),
+        .outputFilter = shell::dock::dockFilterOutput(instance.config, instance.output),
         .targetOutput = instance.output,
         .deadline = std::chrono::steady_clock::now() + std::chrono::seconds(8),
     };
@@ -1221,12 +1227,14 @@ void Dock::openItemMenu(shell::dock::DockInstance& instance, const shell::dock::
 
   auto windows = shell::dock::windowsForDockItem(
       *m_platform, action.windowLookupIdLower, action.windowLookupWmClassLower,
-      shell::dock::dockFilterOutput(m_config->config().dock, instance.output)
+      shell::dock::dockFilterOutput(instance.config, instance.output)
   );
   const std::string entryId = action.entry.id;
   const std::string entryWorkingDir = action.entry.workingDir;
   const bool entryTerminal = action.entry.terminal;
   const DesktopEntry entryForPin = action.entry;
+  const auto pinnedPath = dockPinnedOverridePath(instance);
+  const auto configuredPinned = instance.config.pinned;
 
   shell::dock::DockMenuCallbacks callbacks{
       .activateWindow =
@@ -1251,11 +1259,11 @@ void Dock::openItemMenu(shell::dock::DockInstance& instance, const shell::dock::
             );
           },
       .setEntryPinned =
-          [this, entryForPin](bool pinned) {
+          [this, entryForPin, pinnedPath, configuredPinned](bool pinned) {
             if (m_config == nullptr) {
               return;
             }
-            std::vector<std::string> pinnedList = m_config->config().dock.pinned;
+            std::vector<std::string> pinnedList = configuredPinned;
             if (pinned) {
               if (shell::dock::pinned_apps::containsEntry(pinnedList, entryForPin)) {
                 return;
@@ -1264,7 +1272,7 @@ void Dock::openItemMenu(shell::dock::DockInstance& instance, const shell::dock::
             } else {
               shell::dock::pinned_apps::removeEntry(pinnedList, entryForPin);
             }
-            (void)m_config->setOverride({"dock", "pinned"}, std::move(pinnedList));
+            (void)m_config->setOverride(pinnedPath, std::move(pinnedList));
           },
       .closeMenu = [this]() { closeItemMenu(); },
   };
@@ -1272,8 +1280,8 @@ void Dock::openItemMenu(shell::dock::DockInstance& instance, const shell::dock::
   auto* layerSurface =
       instance.surface != nullptr ? m_platform->layerSurfaceFor(instance.surface->wlSurface()) : nullptr;
   m_itemMenu = shell::dock::createItemMenu(
-      *m_platform, *m_config, *m_renderContext, layerSurface, instance.output, m_config->config().dock, action.entry,
-      windows, callbacks
+      *m_platform, *m_config, *m_renderContext, layerSurface, instance.output, instance.config, action.entry, windows,
+      callbacks
   );
   if (m_itemMenu == nullptr) {
     m_popupOwnerInstance = nullptr;

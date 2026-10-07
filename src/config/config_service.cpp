@@ -9,6 +9,7 @@
 #include "config/schema/config_schema.h"
 #include "config/schema/config_sections.h"
 #include "config/schema/engine.h"
+#include "config/schema/ranges.h"
 #include "config/widget_config.h"
 #include "core/build_info.h"
 #include "core/deferred_call.h"
@@ -453,6 +454,16 @@ namespace {
     }
   }
 
+  void seedLegacyDockAllowListEnabled(toml::table& sidecar, const toml::table& baseConfig) {
+    auto* dock = sidecar["dock"].as_table();
+    if (dock == nullptr || (*dock)["monitors"].as_array() == nullptr || dock->contains("enabled")) {
+      return;
+    }
+    if (baseConfig["dock"]["enabled"].value_or(false)) {
+      dock->insert("enabled", true);
+    }
+  }
+
   toml::table buildDistroReport() {
     toml::table distro;
     distro.insert_or_assign("label", distroLabel());
@@ -495,6 +506,7 @@ namespace {
       const std::filesystem::path settingsFile{std::string(settingsPath)};
       try {
         toml::table sidecar = toml::parse_file(std::string(settingsPath));
+        seedLegacyDockAllowListEnabled(sidecar, merged);
         noctalia::config::ConfigOriginIndex origins;
         origins.record(settingsFile, sidecar);
         schema::Diagnostics migrationDiag;
@@ -947,6 +959,8 @@ BarConfig ConfigService::resolveForOutput(const BarConfig& base, const WaylandOu
       resolved.thickness = *ovr.thickness;
     if (ovr.backgroundOpacity)
       resolved.backgroundOpacity = *ovr.backgroundOpacity;
+    if (ovr.compositorBlur)
+      resolved.compositorBlur = *ovr.compositorBlur;
     if (ovr.border)
       resolved.border = *ovr.border;
     if (ovr.borderWidth)
@@ -1027,6 +1041,11 @@ BarConfig ConfigService::resolveForOutput(const BarConfig& base, const WaylandOu
     if (ovr.widgetCapsuleOpacity) {
       resolved.widgetCapsuleOpacity = std::clamp(static_cast<float>(*ovr.widgetCapsuleOpacity), 0.0F, 1.0F);
     }
+    if (ovr.widgetCapsuleBorderWidth) {
+      resolved.widgetCapsuleBorderWidth = noctalia::config::schema::applyRange(
+          *ovr.widgetCapsuleBorderWidth, noctalia::config::schema::kBarCapsuleBorderWidthRange
+      );
+    }
     if (ovr.hoverHighlight) {
       resolved.hoverHighlight = *ovr.hoverHighlight;
     }
@@ -1036,6 +1055,24 @@ BarConfig ConfigService::resolveForOutput(const BarConfig& base, const WaylandOu
     break; // first match wins
   }
 
+  return resolved;
+}
+
+DockConfig ConfigService::resolveForOutput(const DockConfig& base, const WaylandOutput& output) {
+  for (const auto& ovr : base.monitorOverrides) {
+    if (!outputMatchesSelector(ovr.match, output)) {
+      continue;
+    }
+
+    kLog.debug(
+        "dock monitor override \"{}\" matched output {} ({})", ovr.match, output.connectorName, output.description
+    );
+
+    return resolveDockMonitorOverride(base, ovr);
+  }
+
+  DockConfig resolved = base;
+  resolved.monitorOverrides.clear();
   return resolved;
 }
 
@@ -1391,6 +1428,7 @@ void ConfigService::loadAll() {
 
   decltype(m_configFileBarNames) configFileBarNames;
   decltype(m_configFileMonitorOverrideNames) configFileMonitorOverrideNames;
+  decltype(m_configFileDockMonitorOverrideNames) configFileDockMonitorOverrideNames;
   decltype(m_configFileCalendarAccountNames) configFileCalendarAccountNames;
   if (auto* barTblMap = merged["bar"].as_table()) {
     for (const auto& [barName, barNode] : *barTblMap) {
@@ -1416,6 +1454,22 @@ void ConfigService::loadAll() {
       }
     }
   }
+  if (auto* dockTbl = merged["dock"].as_table()) {
+    if (auto* monTblMap = (*dockTbl)["monitor"].as_table()) {
+      for (const auto& [monName, monNode] : *monTblMap) {
+        if (monNode.is_table()) {
+          configFileDockMonitorOverrideNames.insert(std::string(monName.str()));
+        }
+      }
+    }
+    if (auto* legacyMonitors = (*dockTbl)["monitors"].as_array()) {
+      for (const auto& node : *legacyMonitors) {
+        if (const auto selector = node.value<std::string>(); selector.has_value() && !selector->empty()) {
+          configFileDockMonitorOverrideNames.insert(*selector);
+        }
+      }
+    }
+  }
   if (auto* calendarTbl = merged["calendar"].as_table()) {
     if (auto* accountTblMap = (*calendarTbl)["account"].as_table()) {
       for (const auto& [accountName, accountNode] : *accountTblMap) {
@@ -1433,6 +1487,7 @@ void ConfigService::loadAll() {
   int appliedVersion = storedVersion;
   bool sidecarNeedsPersist = false;
   if (!m_overridesTable.empty()) {
+    seedLegacyDockAllowListEnabled(effectiveOverrides, merged);
     const auto parsedVersion = noctalia::config::storedConfigVersion(effectiveOverrides, migrationDiag);
     if (parsedVersion.has_value()) {
       storedVersion = *parsedVersion;
@@ -1472,6 +1527,7 @@ void ConfigService::loadAll() {
     m_config = makeDefaultConfig();
     m_configFileBarNames.clear();
     m_configFileMonitorOverrideNames.clear();
+    m_configFileDockMonitorOverrideNames.clear();
     m_configFileCalendarAccountNames.clear();
     m_defaultWallpaperPath.clear();
     m_lastWallpaperPath.clear();
@@ -1530,6 +1586,7 @@ void ConfigService::loadAll() {
     m_config = std::move(nextConfig);
     m_configFileBarNames = std::move(configFileBarNames);
     m_configFileMonitorOverrideNames = std::move(configFileMonitorOverrideNames);
+    m_configFileDockMonitorOverrideNames = std::move(configFileDockMonitorOverrideNames);
     m_configFileCalendarAccountNames = std::move(configFileCalendarAccountNames);
     extractWallpaperFromTable(merged);
     updateLegacyConfigIssues(std::move(legacyIssues));
@@ -1549,6 +1606,7 @@ void ConfigService::loadAll() {
     m_config = makeDefaultConfig();
     m_configFileBarNames.clear();
     m_configFileMonitorOverrideNames.clear();
+    m_configFileDockMonitorOverrideNames.clear();
     m_configFileCalendarAccountNames.clear();
     m_defaultWallpaperPath.clear();
     m_lastWallpaperPath.clear();

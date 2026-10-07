@@ -118,6 +118,18 @@ bool OverviewLauncherCapture::surfacesMatchOutputs() const {
 }
 
 void OverviewLauncherCapture::sync() {
+  const bool overviewOpen = m_platform != nullptr && m_platform->hasOverviewState() && m_platform->isOverviewOpen();
+  if (m_launcherOpenedFromOverview) {
+    if (m_panelManager == nullptr || !m_panelManager->isOpenPanel("launcher")) {
+      m_launcherOpenedFromOverview = false;
+    } else if (!overviewOpen) {
+      m_launcherOpenedFromOverview = false;
+      destroySurfaces();
+      m_panelManager->closePanelById("launcher");
+      return;
+    }
+  }
+
   if (!shouldBeActive()) {
     destroySurfaces();
     return;
@@ -272,6 +284,7 @@ bool OverviewLauncherCapture::handleKeyboardEvent(const KeyboardEvent& event) {
     }
   }
   m_openLauncher(initialQuery, target, {});
-  destroySurfaces();
+  m_launcherOpenedFromOverview = m_panelManager != nullptr && m_panelManager->isOpenPanel("launcher");
+  sync();
   return true;
 }

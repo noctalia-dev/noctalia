@@ -145,11 +145,6 @@ namespace noctalia::theme {
 
     constexpr std::string_view kUnknownPrefix = "{{";
 
-    const std::unordered_map<std::string, std::string> kColorAliases = {
-        {"hover", "surface_container_high"},
-        {"on_hover", "on_surface"},
-    };
-
     const std::unordered_set<std::string> kKnownFormats = {
         "hex", "hex_stripped", "rgb",  "rgb_csv", "rgba", "hsl",        "hsla",
         "red", "green",        "blue", "alpha",   "hue",  "saturation", "lightness",
@@ -991,11 +986,9 @@ namespace noctalia::theme {
           logError();
           return "{{" + base + "}}";
         }
-        std::string colorName = match[1].str();
+        const std::string colorName = match[1].str();
         const std::string mode = match[2].str();
         const std::string formatType = match[3].str();
-        if (auto alias = kColorAliases.find(colorName); alias != kColorAliases.end())
-          colorName = alias->second;
 
         auto modeIt = m_themeData.find(mode == "default" ? m_options.defaultMode : mode);
         if (modeIt == m_themeData.end()) {

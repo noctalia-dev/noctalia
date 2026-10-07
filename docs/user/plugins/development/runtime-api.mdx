@@ -318,8 +318,8 @@ callback with `false` and a non-empty error. At most eight loads may be pending 
 that already has a pending load returns `false`.
 
 Sound names are scoped to one runtime instance. Reloading or stopping it cancels pending callbacks and releases its
-cached names, while a sound already playing finishes safely. Playback honors `[audio].enable_sounds` and
-`[audio].sound_volume`. Triggering the same loaded sound while it is still playing is suppressed.
+cached names, while a sound already playing finishes safely. Playback honors `[audio].sound_volume`, the shell
+sound toggles do not affect it. Triggering the same loaded sound while it is still playing is suppressed.
 
 ## HTTP and downloads
 

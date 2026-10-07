@@ -92,7 +92,7 @@ namespace {
     iconNode->setPosition(x, y);
   }
 
-  void applyHoverBadgeVisual(
+  void applyBadgeVisual(
       Box* badge, DockEdge edge, float iconBaseX, float iconBaseY, float iconSize, float badgeSize, float iconScale
   ) {
     if (badge == nullptr) {
@@ -103,13 +103,18 @@ namespace {
     float iconX = iconBaseX;
     float iconY = iconBaseY;
     shell::dock::shiftAlongEdge(edge, iconX, iconY, shift);
+    const float iconLeft = iconX + iconSize * (1.0F - iconScale) * 0.5F;
     const float iconRight = iconX + iconSize * (1.0F + iconScale) * 0.5F;
     const float iconTop = iconY + iconSize * (1.0F - iconScale) * 0.5F;
+    const float iconBottom = iconY + iconSize * (1.0F + iconScale) * 0.5F;
+    const float scaledBadgeSize = badgeSize * iconScale;
+    // Keep the badge on the screen-interior corner so a flush dock never needs an outer-edge gap.
+    const float badgeLeft = edge == DockEdge::Right ? iconLeft - scaledBadgeSize * (1.0F - kBadgeCornerInsetX)
+                                                    : iconRight - scaledBadgeSize * kBadgeCornerInsetX;
+    const float badgeTop = edge == DockEdge::Top ? iconBottom - scaledBadgeSize * (1.0F - kBadgeCornerInsetY)
+                                                 : iconTop - scaledBadgeSize * kBadgeCornerInsetY;
     const float badgeCenterAdjust = badgeSize * (1.0F - iconScale) * 0.5F;
-    badge->setPosition(
-        iconRight - badgeSize * kBadgeCornerInsetX * iconScale - badgeCenterAdjust,
-        iconTop - badgeSize * kBadgeCornerInsetY * iconScale - badgeCenterAdjust
-    );
+    badge->setPosition(badgeLeft - badgeCenterAdjust, badgeTop - badgeCenterAdjust);
   }
 
   void applyHoverItemVisual(
@@ -117,7 +122,7 @@ namespace {
       float scale
   ) {
     applyHoverIconVisual(iconNode, edge, iconBaseX, iconBaseY, iconSize, scale);
-    applyHoverBadgeVisual(badge, edge, iconBaseX, iconBaseY, iconSize, badgeSize, scale);
+    applyBadgeVisual(badge, edge, iconBaseX, iconBaseY, iconSize, badgeSize, scale);
   }
 
   void applyShellAppIconColorization(Image* image, const ShellConfig& shell) {
@@ -371,7 +376,6 @@ namespace {
 namespace shell::dock {
 
   struct DockItemClickContext {
-    ConfigService& config;
     DockItemCallbacks callbacks;
   };
 
@@ -483,14 +487,13 @@ namespace shell::dock {
 
     resetDockItemDragState(instance);
 
-    const auto& cfg = deps.model.config.config().dock;
+    const auto& cfg = instance.config;
     const DockEdge edge = cfg.position;
     const DockLauncherPosition launcherPosition = cfg.launcherPosition;
     const bool vert = shell::dock::isVerticalEdge(edge);
     const auto iSize = static_cast<float>(cfg.iconSize);
     const int iconDecodeTarget = dockIconDecodeTargetSize(cfg);
     auto clickContext = std::make_shared<DockItemClickContext>(DockItemClickContext{
-        .config = deps.model.config,
         .callbacks = callbacks,
     });
 
@@ -506,8 +509,8 @@ namespace shell::dock {
     }
 
     // Clear previous items by recreating the row.
-    if (instance.row != nullptr && instance.slideRoot != nullptr) {
-      instance.slideRoot->removeChild(instance.row);
+    if (instance.row != nullptr && instance.row->parent() != nullptr) {
+      instance.row->parent()->removeChild(instance.row);
       instance.row = nullptr;
     }
     instance.items.clear();
@@ -520,8 +523,9 @@ namespace shell::dock {
     }
 
     auto freshRow = makeDockItemRow(cfg, vert);
-    Node* rowParent =
-        instance.slideRoot != nullptr ? static_cast<Node*>(instance.slideRoot) : static_cast<Node*>(instance.panel);
+    Node* rowParent = instance.viewport != nullptr ? static_cast<Node*>(instance.viewport)
+        : instance.slideRoot != nullptr            ? instance.slideRoot
+                                                   : static_cast<Node*>(instance.panel);
     instance.row = static_cast<Flex*>(rowParent->addChild(std::move(freshRow)));
     const auto& itemModels = snapshot.items;
 
@@ -621,8 +625,6 @@ namespace shell::dock {
 
       if (cfg.showInstanceCount) {
         const float bd = std::max(kBadgeMinSize, iSize * kBadgeSizeRatio);
-        const float badgeX = kCellPad + iSize - bd * kBadgeCornerInsetX;
-        const float badgeY = kCellPad - bd * kBadgeCornerInsetY;
 
         areaNode->addChild(
             ui::box({
@@ -631,7 +633,9 @@ namespace shell::dock {
                 .width = bd,
                 .height = bd,
                 .visible = false,
-                .configure = [badgeX, badgeY](Box& box) { box.setPosition(badgeX, badgeY); },
+                .configure = [edge, iSize, bd](Box& box) {
+                  applyBadgeVisual(&box, edge, kCellPad, kCellPad, iSize, bd, 1.0F);
+                },
             })
         );
 
@@ -656,7 +660,7 @@ namespace shell::dock {
           return;
         }
         auto& drag = instPtr->drag;
-        const auto& dockCfg = clickContext->config.config().dock;
+        const auto& dockCfg = instPtr->config;
         if (d.pressed) {
           if (!itemPinned) {
             return;
@@ -704,7 +708,7 @@ namespace shell::dock {
           return;
         }
 
-        const auto& dockCfg = clickContext->config.config().dock;
+        const auto& dockCfg = instPtr->config;
         const float mainPos = pointerMainOnRow(dockCfg, instPtr->items[itemIndex].area, d.localX, d.localY);
         instPtr->drag.currentMain = mainPos;
         if (instPtr->drag.active) {
@@ -775,7 +779,7 @@ namespace shell::dock {
     }
     Renderer& renderer = instance.surface->renderTarget().renderer();
 
-    const auto& cfg = deps.model.config.config().dock;
+    const auto& cfg = instance.config;
     const auto& shell = deps.model.config.config().shell;
     const DockEdge edge = cfg.position;
     const std::size_t itemCount = std::min(instance.items.size(), snapshot.items.size());
@@ -806,10 +810,7 @@ namespace shell::dock {
 
         if (item.badge != nullptr && !cfg.magnification) {
           const float bd = std::max(kBadgeMinSize, static_cast<float>(cfg.iconSize) * kBadgeSizeRatio);
-          item.badge->setScale(1.0F);
-          item.badge->setPosition(
-              kCellPad + static_cast<float>(cfg.iconSize) - bd * kBadgeCornerInsetX, kCellPad - bd * kBadgeCornerInsetY
-          );
+          applyBadgeVisual(item.badge, edge, kCellPad, kCellPad, static_cast<float>(cfg.iconSize), bd, 1.0F);
         }
 
         if (!cfg.magnification && !dragActive) {
@@ -919,19 +920,19 @@ namespace shell::dock {
 
     // Magnification owns active/inactive scale via updateHoverZoom; kick it on focus updates.
     if (cfg.magnification && instance.surface != nullptr) {
-      if (updateHoverZoom(instance, deps, snapshot, kHoverZoomReferenceFrameMs)) {
+      if (updateHoverZoom(instance, snapshot, kHoverZoomReferenceFrameMs)) {
         instance.surface->requestFrameTick();
         instance.surface->requestRedraw();
       }
     }
   }
 
-  void clearHoverZoom(DockInstance& instance, DockItemSceneDependencies deps, const DockSnapshot& snapshot) {
+  void clearHoverZoom(DockInstance& instance, const DockSnapshot& snapshot) {
     instance.hoverPointerValid = false;
     if (instance.surface == nullptr) {
       return;
     }
-    (void)updateHoverZoom(instance, deps, snapshot, kHoverZoomReferenceFrameMs);
+    (void)updateHoverZoom(instance, snapshot, kHoverZoomReferenceFrameMs);
     instance.surface->requestFrameTick();
     instance.surface->requestRedraw();
   }
@@ -968,9 +969,8 @@ namespace shell::dock {
     return true;
   }
 
-  bool
-  updateHoverZoom(DockInstance& instance, DockItemSceneDependencies deps, const DockSnapshot& snapshot, float deltaMs) {
-    const auto& cfg = deps.model.config.config().dock;
+  bool updateHoverZoom(DockInstance& instance, const DockSnapshot& snapshot, float deltaMs) {
+    const auto& cfg = instance.config;
     if (!cfg.magnification || instance.row == nullptr) {
       return false;
     }

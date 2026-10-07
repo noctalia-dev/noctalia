@@ -68,7 +68,9 @@ Use these context IDs with `noctalia msg panel-toggle control-center <context>` 
 
 `weather`, `system`, and `screen-time` open only when their corresponding services are enabled; `power` opens only when UPower or `power-profiles-daemon` is available. Otherwise Noctalia falls back to the first visible tab.
 
-Any tab except Home can also be hidden manually with [`hidden_tabs`](#sidebar) (use the context ID, e.g. `"monitor"` for the brightness tab). Hidden tabs drop from both the sidebar and keyboard navigation.
+Any tab except Home can also be hidden manually with [`hidden_tabs`](#sidebar) (use the context ID, e.g. `"monitor"` for the brightness tab). Hidden tabs drop from both the sidebar and keyboard navigation, and from the launcher's [Panels provider](/noctalia/launcher/#panels).
+
+Every available tab except Home that isn't hidden also gets its own row in the launcher's [Panels provider](/noctalia/launcher/#panels) (`/pan`), so you can jump straight to, say, Bluetooth without landing on Home first. Home remains available through the main Control Center row.
 
 ## Home
 
@@ -77,6 +79,8 @@ The Home tab is the default Control Center landing view. It combines frequently 
 Click the avatar in the user card to pick a custom image. Noctalia saves the selected path as `[shell].avatar_path`.
 
 When AccountsService is available, Noctalia also writes the selected avatar to `org.freedesktop.Accounts` as your user's `IconFile`. That is what Noctalia Greeter reads for the login user list. On distros where this is not enabled by default, install and enable **accountsservice** (usually the `accounts-daemon` service) if you want the same avatar in both the shell and the greeter.
+
+Click the date/time card to open the Weather tab. When `[weather].enabled = false`, the card hides its weather summary line and opens the Calendar tab instead.
 
 The shortcut buttons are configured separately; see [Control Center shortcuts](/noctalia/control-center/shortcuts/).
 
@@ -103,6 +107,8 @@ System monitor sampling is configured globally under `[system.monitor]`; see [Sy
 ## Network
 
 The Network tab uses the configured network backend to show wireless state and connection details. It is the destination for Wi-Fi shortcuts and network-related right-click actions.
+
+NetworkManager is preferred and followed on the system bus: when it starts after the shell or restarts, the tab picks it up, and while it is stopped the tab shows the network as unavailable. A standalone wpa_supplicant or iwd backend is used only when one of them is running at startup and NetworkManager is not.
 
 The current connection line lists the IPv4 address, signal strength, radio band, and external IP. The band (`2.4 GHz`, `5 GHz`, `6 GHz`, or `60 GHz`) is shown only when the backend reports the connection frequency: NetworkManager and wpa_supplicant do, iwd does not.
 

@@ -222,38 +222,64 @@ for their rendering APIs and controls.
 
 ## `barWidget.*` - widget presentation
 
-`setText` · `setGlyph` · `setImage` · `setTooltip` · `clearTooltip` · `setFont` · `setColor` · `setGlyphColor` ·
-`setVisible` · `isVertical` · `outputName` · `render`
+A bar widget can patch the built-in glyph/text row with the imperative methods below, or describe composite content as a
+`ui.*` tree with `barWidget.render(tree)`. Calls update persistent presentation state until replaced by another call.
+After `render()` activates a tree, `setText`, `setGlyph`, `setImage`, `setFont`, `setColor`, and `setGlyphColor`
+have no visible effect. See [Declarative UI](/noctalia/plugins/development/declarative-ui/#barwidgetrender--declarative-bar-widget-ui)
+for the declarative API and its bar-specific constraints.
 
-A bar widget can either patch the built-in glyph/text row with the imperative setters below, or describe composite
-content as a `ui.*` tree with `barWidget.render(tree)` - see
-[Declarative UI](/noctalia/plugins/development/declarative-ui/#barwidgetrender--declarative-bar-widget-ui).
+### Reference
 
-`outputName()` returns the connector name of the monitor this widget instance's bar is on (or `nil` when unknown).
-Each placement of the widget gets its own value, so a widget on two bars can scope its content per monitor - unlike
-`noctalia.focusedOutputName()`, which returns the same globally focused output everywhere. Cross-reference
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `barWidget.setText(text)` | nothing | Sets the text label. An empty string hides the label. |
+| `barWidget.setGlyph(name)` | nothing | Shows a named glyph and removes any image set by `setImage`. |
+| `barWidget.setImage(path [, watch [, width [, height]]])` | nothing | Shows an image and hides the glyph. Relative paths resolve from the plugin directory; `~` expands to the home directory. `watch` reloads the image when the source changes. Supplying only `width` uses a square image; omit dimensions to use the image's natural size. |
+| `barWidget.setTooltip(content)` | nothing | Sets a plain-text tooltip, one key/value row, or an array of rows. Pass `nil` or empty content to clear it. |
+| `barWidget.clearTooltip()` | nothing | Clears the current tooltip. Equivalent to `setTooltip(nil)`. |
+| `barWidget.setFont(family [, baseline])` | nothing | Sets the text font family and optional baseline mode. Load custom fonts first with [`noctalia.loadFont(path)`](/noctalia/plugins/development/runtime-api/#filesystem). |
+| `barWidget.setColor(color [, mode])` | nothing | Sets the text color to a palette role or `#RRGGBB` value. See [Colors](#colors). |
+| `barWidget.setGlyphColor(color [, mode])` | nothing | Sets the glyph color to a palette role or `#RRGGBB` value. See [Colors](#colors). |
+| `barWidget.setVisible(visible)` | nothing | Shows or hides the entire widget capsule. |
+| `barWidget.isVertical()` | bool | Returns `true` when this widget's hosting bar is vertical, otherwise `false`. Use it to choose a column for a side bar and a row for a horizontal bar. |
+| `barWidget.outputName()` | string or `nil` | Returns the connector name of the monitor this widget instance's bar is on, or `nil` when unknown. |
+| `barWidget.render(tree)` | nothing | Replaces the built-in glyph/text row with a declarative `ui.*` tree. See [Declarative UI](/noctalia/plugins/development/declarative-ui/#barwidgetrender--declarative-bar-widget-ui). |
+
+`outputName()` is local to each widget placement, so a widget on two bars can scope content per monitor. In contrast,
+`noctalia.focusedOutputName()` returns the same globally focused output everywhere. Cross-reference
 [`noctalia.outputs()`](/noctalia/plugins/development/runtime-api/#outputs-wallpaper-and-panels) by name when you need
 geometry.
 
+### Tooltips
+
+`setTooltip` accepts a string, one `{ key, value }` row, or an array of rows. A row may use positional or named fields:
+
 ```lua
-local label = noctalia.getConfig("label")
+barWidget.setTooltip("CPU: 42%")
+barWidget.setTooltip({ "CPU", "42%" })
+barWidget.setTooltip({
+  { key = "CPU", value = "42%" },
+  { "Memory", "6.2 GiB" },
+})
+```
 
-function update()
-  noctalia.setUpdateInterval(1000)
-  barWidget.setGlyph("puzzle")
-  barWidget.setText(label)
-end
+### Colors
 
-function onClick()
-  noctalia.notify("Hello", "you clicked me")
-end
+Pass a [palette color role](/noctalia/theming/palette/) or a fixed `#RRGGBB` value to `setColor` and
+`setGlyphColor`. With the default mode, `"on_surface"` keeps the widget's configured `color` or `icon_color`;
+pass `"script"` as the second argument to use `"on_surface"` literally.
+
+```lua
+barWidget.setColor("primary")
+barWidget.setGlyphColor("#FFF59B")
+barWidget.setColor("on_surface", "script")
 ```
 
 ### Custom fonts
 
 Register a font file with [`noctalia.loadFont(path)`](/noctalia/plugins/development/runtime-api/#filesystem), then pass the
-returned family name to `setFont`. The font becomes usable anywhere text is drawn - `setFont` and a `ui.*` label's
-`fontFamily` prop - and stays available across every surface once loaded.
+returned family name to `setFont`. The font becomes usable anywhere text is drawn: `setFont` and a `ui.*` label's
+`fontFamily` prop. It stays available across every surface once loaded.
 
 `setFont(family, baseline?)` takes a font family name and an optional baseline mode:
 

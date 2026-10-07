@@ -12,6 +12,7 @@
 #include "ui/builders.h"
 #include "ui/controls/button.h"
 #include "ui/controls/flex.h"
+#include "ui/controls/glyph.h"
 #include "ui/controls/grid_tile.h"
 #include "ui/controls/grid_view.h"
 #include "ui/controls/label.h"
@@ -442,7 +443,8 @@ namespace calendar_view {
           continue;
         }
         hasEvents = true;
-        const bool hasLink = options.state != nullptr && !event.url.empty();
+        const std::string& link = event.url.empty() ? event.webUrl : event.url;
+        const bool hasLink = options.state != nullptr && !link.empty();
         const float timeMaxWidth =
             hasLink ? std::max(40.0F, textMaxWidth - linkGlyphSize - linkGlyphGap) : textMaxWidth;
         const float eventAlpha = eventPassed(event, now) ? kPassedEventAlpha : 1.0F;
@@ -455,7 +457,11 @@ namespace calendar_view {
           timeText = formatLocalUnixTime(static_cast<std::int64_t>(raw), options.timeFormat);
         }
 
+        Label* timeLabel = nullptr;
+        Glyph* linkGlyph = nullptr;
+        Label* titleLabel = nullptr;
         auto time = ui::label({
+            .out = &timeLabel,
             .text = timeText,
             .fontSize = Style::fontSizeCaption * options.scale,
             .fontFamily = options.fontFamily,
@@ -468,6 +474,7 @@ namespace calendar_view {
           timeLine = ui::row(
               {.align = FlexAlign::Center, .gap = linkGlyphGap}, std::move(timeLine),
               ui::glyph({
+                  .out = &linkGlyph,
                   .glyph = "external-link",
                   .glyphSize = linkGlyphSize,
                   .color = colorSpecFromRole(ColorRole::OnSurfaceVariant, eventAlpha),
@@ -479,6 +486,7 @@ namespace calendar_view {
         auto details = ui::column(
             {.align = FlexAlign::Start, .gap = Style::spaceXs * 0.5F * options.scale, .flexGrow = 1.0F},
             ui::label({
+                .out = &titleLabel,
                 .text = event.title.empty() ? i18n::tr("control-center.calendar.events") : event.title,
                 .fontSize = Style::fontSizeBody * options.scale,
                 .fontFamily = options.fontFamily,
@@ -505,23 +513,31 @@ namespace calendar_view {
           area->setParticipatesInLayout(false);
           area->setZIndex(1);
           area->setCursorShape(WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_POINTER);
-          area->setTooltip(event.url);
+          area->setTooltip(link);
 
           Flex* row = eventRow;
           row->setRadius(Style::radiusSm * options.scale);
-          const auto setHovered = [row, requestRedraw = options.requestRedraw](bool hovered) {
+          const auto setHovered = [row, titleLabel, timeLabel, linkGlyph, eventAlpha,
+                                   requestRedraw = options.requestRedraw](bool hovered) {
             if (hovered) {
               row->setFill(colorSpecFromRole(ColorRole::Hover));
             } else {
               row->clearFill();
             }
+            const ColorSpec titleColor =
+                colorSpecFromRole(hovered ? ColorRole::OnHover : ColorRole::OnSurface, eventAlpha);
+            const ColorSpec detailColor =
+                colorSpecFromRole(hovered ? ColorRole::OnHover : ColorRole::OnSurfaceVariant, eventAlpha);
+            titleLabel->setColor(titleColor);
+            timeLabel->setColor(detailColor);
+            linkGlyph->setColor(detailColor);
             if (requestRedraw) {
               requestRedraw();
             }
           };
           area->setOnEnter([setHovered](const InputArea::PointerData&) { setHovered(true); });
           area->setOnLeave([setHovered]() { setHovered(false); });
-          area->setOnClick([url = event.url](const InputArea::PointerData&) { (void)net::openInBrowser(url); });
+          area->setOnClick([url = link](const InputArea::PointerData&) { (void)net::openInBrowser(url); });
 
           options.state->linkOverlays.push_back({.row = row, .area = area.get()});
           eventRow->addChild(std::move(area));

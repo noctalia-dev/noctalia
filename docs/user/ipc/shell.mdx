@@ -26,28 +26,35 @@ Set `NOCTALIA_LOG_LEVEL` to `debug`, `info`, `warn`, or `error` before startup t
 
 ## Window Switcher
 
-Alt+Tab-style overlay: a dimmed fullscreen layer with a centered grid of open windows (application icon, title, optional app name). There is no `[shell.window_switcher]` configuration block yet - wire your compositor shortcut to the IPC commands below.
+Alt+Tab-style overlay with two presentations selected by `[shell.window_switcher].style`: the default `carousel` uses freestanding selected/near/far cards, while `compact` uses a boxed strip of equal-sized cards. Carousel cards keep stable proportions and fit snapshots inside a small themed frame, so differing window aspect ratios do not distort the layout. Captions sit below previews and the position counter sits above them. Application icons scale with the rendered preview and follow the carousel direction: bottom-left on left and selected cards, bottom-right on right cards. Close controls follow the same side at the top of left and right cards, while the selected card keeps its close control at the top-right. Moving through either style animates position, scale, opacity, and pointer-hover changes using the global animation settings. The selected card's shadow uses `[shell.shadow]`, and each close control appears only while the pointer is over its card. When the compositor supports the foreign-toplevel image-capture protocol, Noctalia takes a static snapshot of each window as the switcher opens; unsupported windows use their application icon instead. The window-switcher settings also control MRU ordering, whether captions, the counter, and application icons are shown, and which windows the list is drawn from: `show_all_outputs` picks the monitors, and `current_workspace_only` keeps the workspace shown on each of them (an open Hyprland special workspace takes over from the regular one it covers). Then wire your compositor shortcut to the IPC commands below.
 
 | Action | Command | Description |
 |--------|---------|-------------|
 | Open | <IpcCommand command="window-switcher" /> | Show the switcher on the preferred monitor (pointer, keyboard focus, or first output). |
+| Open from a held-modifier keybind | <IpcCommand command="window-switcher hold" /> | Same as Open, for Alt+Tab-style keybinds. If the shortcut modifier is already released when the overlay gains keyboard focus (a quick tap), the previous window is activated and the overlay closes. |
 | Close | <IpcCommand command="window-switcher close" /> | Hide the overlay without changing focus. `hide` is an alias. |
 
-Example Hyprland bind:
+Example Hyprland bind (use `hold` so a quick tap switches to the previous window):
 
 ```ini
-hl.bind("ALT + TAB", hl.dsp.exec_cmd("noctalia msg window-switcher"))
+hl.bind("ALT + TAB", hl.dsp.exec_cmd("noctalia msg window-switcher hold"))
 ```
 
 While the overlay is open it takes exclusive keyboard focus on its layer surface:
 
 - **Tab** / **Shift+Tab** - cycle selection
-- **Arrow keys** - move within the grid (up to five columns)
+- **Arrow keys** - move through the active switcher style
+- **Release the shortcut modifier** - focus the selected window (for example, release Alt for Alt+Tab or Super for Super+Tab)
 - **Enter** - focus the selected window and close
 - **Escape** - close without switching
-- **Pointer** - click a tile to switch; click the close control on a tile to close that window
+- **Quick tap** - with `window-switcher hold`, releasing the shortcut modifier before the overlay has keyboard focus counts as the release: the previous window is activated and the overlay closes. Without `hold` (terminals, scripts, gestures), the overlay stays open until Enter, Escape, or a click
+- **Pointer** - click a card to switch; click the selected card's close control to close that window
 
-The window list refreshes while the overlay stays open (new windows, closed windows, and title changes such as Discord channel switches). Selection stays on the same window when its title updates.
+Modifier releases generated while an input method hands keyboard focus to the switcher are ignored until the physical shortcut modifier is actually released.
+
+The switcher refreshes while the overlay stays open (new windows, closed windows, and title changes such as Discord channel switches). Selection stays on the same window when its title updates.
+
+Snapshots are intentionally frozen for each switcher session rather than streamed. The selected window is captured first; remaining windows are captured one at a time and downsampled before display to keep the overlay responsive and memory-bounded. Compositors that do not advertise `ext_foreign_toplevel_image_capture_source_manager_v1` retain the same navigation and controls with icon-based cards.
 
 ## Session
 

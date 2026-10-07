@@ -12,7 +12,6 @@ A standalone application dock that displays pinned and running apps. Disabled by
 enabled             = false      # set true to activate
 position            = "bottom"   # top | bottom | left | right
 active_monitor_only = false      # when true, only show apps/windows from the active monitor
-monitors            = []         # connector names to show on; empty = all outputs
 
 icon_size           = 48
 main_axis_padding   = 16          # inner padding along the icon row (main axis)
@@ -62,6 +61,35 @@ pinned = ["firefox", "code", "kitty"]
 `border_width` draws an inside outline using `border`.
 
 Shadow blur, offset, and alpha are global under `[shell.shadow]`. The dock only exposes `shadow = true|false`.
+
+## Per-monitor overrides
+
+Add named subtables under `[dock.monitor.*]` to customize each output. First match wins in file order, and omitted fields inherit the values from `[dock]`.
+
+```toml
+[dock.monitor.laptop]
+match               = "eDP-1"
+enabled             = true
+icon_size           = 40
+magnification_scale = 1.3
+pinned              = ["firefox", "org.gnome.Nautilus"]
+
+[dock.monitor.external]
+match     = "DELL"
+enabled   = true
+position  = "left"
+auto_hide = true
+```
+
+Selectors use the same rules as bar monitor overrides: an exact connector name such as `eDP-1`, or a word-boundary token in the output description. `match` defaults to the subtable name, so `[dock.monitor."DP-1"]` works without an explicit `match` key.
+
+Every dock setting can be overridden, including `enabled`, layout, appearance, auto-hide behavior, running-app filtering, launcher settings, and `pinned`. To show the dock only on selected outputs, set global `enabled = false` and use `enabled = true` in those outputs' overrides. With global `enabled = true`, an override can suppress the dock on an output with `enabled = false`.
+
+The former `[dock].monitors` allow-list is migrated automatically. A non-empty list on an enabled dock becomes global `enabled = false` plus `enabled = true` overrides for its selectors, preserving the previous output selection.
+
+In Settings, open **Dock** and choose **Monitor Override** in the sidebar. Each override gets its own Dock settings page; values that have not been changed there continue to inherit from the global Dock page.
+
+When a monitor override declares `pinned`, reordering or pinning from that dock instance updates the same `[dock.monitor.<name>].pinned` list. Instances that inherit `pinned` continue to update the global `[dock].pinned` list.
 
 ---
 
@@ -132,7 +160,7 @@ Set auto-hide to **Smart** in dock settings (or `smart_auto_hide = true` with `a
 
 - Mutually exclusive with pointer auto-hide; if both are set in config, smart auto-hide takes precedence.
 - Uses the same slide animation and edge reveal strip while hidden.
-- On compositors that report overview state (Niri, Triad), the dock is kept visible while overview is open.
+- On compositors that report overview state (Niri, Umbriel), the dock is kept visible while overview is open.
 
 `reserve_space` controls whether the dock keeps a compositor exclusive zone. With both auto-hide modes off, `reserve_space = true` keeps windows pushed away; `reserve_space = false` overlays the dock on top of full-screen clients. With pointer or smart auto-hide active, `reserve_space = false` retracts the dock as an overlay (no gap); `reserve_space = true` keeps the gap while the dock slides out of view.
 

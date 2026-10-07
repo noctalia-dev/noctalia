@@ -44,7 +44,7 @@ namespace settings {
     std::string_view searchQuery;
     std::string_view selectedSection;
     const BarConfig* selectedBar = nullptr;
-    const BarMonitorOverride* selectedMonitorOverride = nullptr;
+    std::string_view selectedMonitorOverride;
     bool showAdvanced = false;
     bool showOverriddenOnly = false;
     std::vector<SelectOption> batteryDeviceOptions;

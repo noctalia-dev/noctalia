@@ -5,6 +5,7 @@
 #include "core/scoped_timer.h"
 #include "core/ui_phase.h"
 #include "render/backend/render_backend.h"
+#include "render/core/lockscreen_transition_types.h"
 #include "render/core/texture_handle.h"
 #include "render/core/texture_manager.h"
 #include "render/core/wallpaper_types.h"
@@ -16,6 +17,7 @@
 #include "render/scene/glyph_node.h"
 #include "render/scene/graph_node.h"
 #include "render/scene/image_node.h"
+#include "render/scene/lockscreen_transition_node.h"
 #include "render/scene/node.h"
 #include "render/scene/rect_node.h"
 #include "render/scene/screen_corner_node.h"
@@ -268,8 +270,9 @@ TextMetrics RenderContext::measureTextScaled(
   };
 }
 
-TextMetrics RenderContext::measureFontScaled(float scale, float fontSize, FontWeight fontWeight) {
-  auto m = m_textRenderer.measureFont(scale, fontSize, fontWeight);
+TextMetrics
+RenderContext::measureFontScaled(float scale, float fontSize, FontWeight fontWeight, std::string_view fontFamily) {
+  auto m = m_textRenderer.measureFont(scale, fontSize, fontWeight, fontFamily);
   return TextMetrics{
       .width = m.width,
       .left = m.left,
@@ -408,8 +411,6 @@ void RenderContext::renderNode(
   case NodeType::Image: {
     const auto* img = static_cast<const ImageNode*>(node);
     if (img->textureId() != 0) {
-      auto tint = img->tint();
-      tint.a *= effectiveOpacity;
       m_backend->drawImage(
           RenderImageDraw{
               .texture = img->textureId(),
@@ -417,7 +418,7 @@ void RenderContext::renderNode(
               .surfaceHeight = sh,
               .width = node->width(),
               .height = node->height(),
-              .tint = tint,
+              .tint = img->tint(),
               .monochromeTint = img->monochromeTint(),
               .alphaMaskTint = img->alphaMaskTint(),
               .opacity = effectiveOpacity,
@@ -556,6 +557,26 @@ void RenderContext::renderNode(
               .fillColor = wallpaper->fillColor(),
               .transform = worldTransform,
               .span = wallpaper->spanParams(),
+          }
+      );
+    }
+    break;
+  }
+  case NodeType::LockscreenTransition: {
+    const auto* transition = static_cast<const LockscreenTransitionNode*>(node);
+    if (transition->texture() != 0) {
+      m_backend->drawLockscreenTransition(
+          LockscreenTransitionDrawParams{
+              .transition = transition->transition(),
+              .texture = transition->texture(),
+              .surfaceWidth = sw,
+              .surfaceHeight = sh,
+              .quadWidth = node->width(),
+              .quadHeight = node->height(),
+              .progress = transition->progress(),
+              .opacity = effectiveOpacity,
+              .params = transition->transitionParams(),
+              .transform = worldTransform,
           }
       );
     }

@@ -13,7 +13,7 @@ Find answers to common setup and troubleshooting questions for Noctalia.
 
 <FaqItem question="What distributions are supported?">
 
-Noctalia is packaged for Arch Linux, NixOS, Fedora, openSUSE, and Void Linux. You can also install it manually on other Linux distributions if the required build and runtime dependencies are available.
+Noctalia is packaged for Arch Linux, NixOS, Fedora, openSUSE. You can also install it manually on other Linux distributions if the required build and runtime dependencies are available.
 
 See the [Installation guide](/noctalia/getting-started/installation/) for distro-specific commands and manual install steps.
 
@@ -331,6 +331,8 @@ See [Location](/noctalia/services/location/), [Theme](/noctalia/theming/#mode), 
 Noctalia authenticates through PAM using the `login` service. Make sure `/etc/pam.d/login` exists and is valid for your distribution.
 
 If you changed your PAM stack for fingerprint, security key, or other authentication methods, make sure those changes are present in the `login` PAM service used by Noctalia.
+
+After a successful PAM unlock, Noctalia asks the same PAM stack to refresh existing credentials, such as Kerberos tickets or PAM-integrated GPG and keyring credentials.
 
 </FaqItem>
 

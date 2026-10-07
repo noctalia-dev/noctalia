@@ -237,11 +237,15 @@ std::size_t CairoTextRenderer::MetricsKeyHash::operator()(const MetricsKey& k) c
 }
 
 bool CairoTextRenderer::FontMetricsKey::operator==(const FontMetricsKey& other) const noexcept {
-  return fontWeight == other.fontWeight && sizeBits == other.sizeBits && scaleBits == other.scaleBits;
+  return fontWeight == other.fontWeight
+      && sizeBits == other.sizeBits
+      && scaleBits == other.scaleBits
+      && fontFamily == other.fontFamily;
 }
 
 std::size_t CairoTextRenderer::FontMetricsKeyHash::operator()(const FontMetricsKey& k) const noexcept {
-  std::size_t seed = std::hash<std::uint32_t>{}(k.sizeBits);
+  std::size_t seed = std::hash<std::string>{}(k.fontFamily);
+  hashCombine(seed, std::hash<std::uint32_t>{}(k.sizeBits));
   hashCombine(seed, std::hash<std::uint32_t>{}(k.scaleBits));
   hashCombine(seed, std::hash<int>{}(static_cast<int>(k.fontWeight)));
   return seed;
@@ -545,13 +549,15 @@ CairoTextRenderer::TextMetrics CairoTextRenderer::measure(
   return metrics;
 }
 
-CairoTextRenderer::TextMetrics
-CairoTextRenderer::measureFont(float contentScale, float fontSize, FontWeight fontWeight) const {
+CairoTextRenderer::TextMetrics CairoTextRenderer::measureFont(
+    float contentScale, float fontSize, FontWeight fontWeight, std::string_view fontFamily
+) const {
   if (m_pangoContext == nullptr) {
     return {};
   }
 
   FontMetricsKey cacheKey;
+  cacheKey.fontFamily.assign(fontFamily);
   cacheKey.sizeBits = sizeKey(fontSize);
   cacheKey.scaleBits = scaleKey(contentScale);
   cacheKey.fontWeight = fontWeight;
@@ -561,7 +567,7 @@ CairoTextRenderer::measureFont(float contentScale, float fontSize, FontWeight fo
 
   const float rasterSize = std::max(1.0F, fontSize * contentScale);
   PangoFontDescription* desc = pango_font_description_new();
-  pango_font_description_set_family(desc, m_fontFamily.c_str());
+  pango_font_description_set_family(desc, fontFamily.empty() ? m_fontFamily.c_str() : cacheKey.fontFamily.c_str());
   pango_font_description_set_weight(desc, static_cast<PangoWeight>(fontWeight));
   pango_font_description_set_absolute_size(desc, static_cast<double>(rasterSize) * PANGO_SCALE);
 

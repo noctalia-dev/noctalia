@@ -13,8 +13,12 @@ show_actions             = true        # show action buttons; when false, clicki
 position                 = "top_right" # top_right | top_left | top_center | bottom_right | bottom_left | bottom_center
 layer                    = "top"       # top | overlay; overlay appears above fullscreen apps
 scale                    = 1.0         # toast size multiplier on top of shell.ui_scale
+width                    = 360         # toast width in pixels before scaling (240–500)
 background_opacity       = 0.97        # toast card background alpha; lower values let compositor blur show through
 border                   = true        # outline around toast cards; set false for a borderless look
+border_color             = "outline"   # outline color: theme color role (e.g. "primary") or hex (e.g. "#a8b185")
+border_width             = 1           # outline stroke width in px; raise for a thicker outline
+follow_focused_output    = false       # show new toasts on the focused output; keep visible toasts pinned
 offset_x                 = 20          # absolute horizontal margin from the screen edge
 offset_y                 = 8           # absolute vertical margin from the screen edge
 monitors                 = []          # empty = all monitors; otherwise connector/description selectors (e.g. ["eDP-1", "DP-1"])
@@ -40,31 +44,35 @@ play_sound      = true
 - `layer = "overlay"` shows toasts above fullscreen apps.
 - `offset_x` and `offset_y` are absolute margins from the nearest screen edge for the configured `position`.
 - `monitors = []` shows notifications on all monitors (default).
+- `follow_focused_output = true` shows each new notification toast on the currently focused output. Visible toasts stay on the output where they appeared, so changing focus does not move them; each output keeps an independent stack. If that output disconnects, its toasts move to the current focused output. This option takes precedence over `monitors`; the saved monitor list is used again when it is disabled.
 - When `monitors` is non-empty, toasts are only created on matching monitors.
 - If none of the configured monitors are currently connected (e.g. an external display was undocked), Noctalia falls back to showing toasts on all available monitors so notifications never disappear silently. Targeting is restored automatically when a configured monitor reconnects.
 - Selector matching follows monitor override rules: exact connector name (`eDP-1`) or a word-boundary token in the monitor description.
-- Internal Noctalia notifications (shell and plugins) are toast-only and are never stored in notification history.
+- Internal Noctalia notifications (shell and plugins) are toast-only and are not stored in notification history, except [calendar reminders](/noctalia/services/calendar/#reminders).
 - Notification summaries are always plain text. Noctalia does not advertise body-markup support, so it strips the
   standard notification body tags (`b`, `i`, `u`, `a`, `img`, `br`) while preserving malformed or unsupported
   angle-bracket text literally. A `br` tag becomes a line break.
 - By default, dismissing a toast (right-click, close button, or `noctalia msg notification-clear-active`) only hides it. The entry stays in control-center history and still counts as unread until the notifications tab is opened. Set `keep_dismissed_in_history = false` to remove the history entry when its toast is dismissed. Timed-out notifications remain in history.
-- `history_retention_hours` removes stored external notifications older than the configured number of hours. The default
+- `history_retention_hours` removes stored notifications older than the configured number of hours. The default
   `0` retains history indefinitely; accepted values are `0`–`8760`.
 - `collapse_on_dismiss = true` (default) causes remaining toasts to slide into a compact stack when one is dismissed. Set to `false` for stable-slot behavior where toasts keep their original positions.
 - `border = true` (default) draws an outline around toast cards. Set to `false` for a borderless look.
+- `border_color` sets the toast outline color: a theme color role name (e.g. `primary`) or a hex value (e.g. `#a8b185`). Defaults to the theme `outline` role and applies to normal and low urgency toasts; critical toasts keep their red urgency outline. Configure in **Settings → Notifications → Toasts**.
+- `border_width` sets the toast outline stroke width in logical px (scaled with the toast `scale`), 0 to 6 in 0.5 steps; 0 hides the outline. Defaults to 1 px. Critical toasts use at least the emphasized 3 px width, or `border_width` when it is larger. Configure in **Settings → Notifications → Toasts**.
 - `history_retention_hours = 0` (default) keeps notification history entries forever. Set to a positive integer (1–8760) to automatically remove entries older than that many hours from control-center history. Active on-screen toasts are never removed. Configure in **Settings → Notifications → History**.
 - `max_visible = 0` (default) fills all available vertical screen space with notification toasts. Set to a positive integer (1–20) to limit how many toasts are visible at once; excess toasts are queued off-screen and promoted when slots free up. Configure in **Settings → Notifications → Toasts**.
+- `width = 360` (default) toast width in pixels before `scale` (`240`–`500`). Configure in **Settings → Notifications → Toasts**.
 
 ## Filtering
 
-Notifications can be filtered before toasts and sounds. External Freedesktop notifications can also be kept out of control-center history. Internal shell/plugin toasts use the same toast/sound filters, but they are never written to history (the save-history flag does not apply to them).
+Notifications can be filtered before toasts and sounds. External Freedesktop notifications can also be kept out of control-center history. Internal shell/plugin toasts use the same toast/sound filters, but they are not written to history (the save-history flag does not apply to them), except calendar reminders, which honor `save_history` like external notifications.
 
 - `[notification.filter.<name>]` - per-sender rules evaluated in `filter_order` (first matching enabled filter wins). Each filter has:
  - `match` - one case-insensitive token matched against the app name (exact or substring), `desktop-entry`, or `category`.
  - `match_content` - optional regular expression matched against the notification summary or body.
  - `allowed_urgencies` - when non-empty, only listed urgency levels pass this filter. Values: `low`, `normal`, `critical`. Omit or list all three to allow every level.
  - `show_toast` - show a toast popup (default `true`).
- - `save_history` - keep the notification in control-center history (default `true`). External notifications only; internals are never stored.
+ - `save_history` - keep the notification in control-center history (default `true`). Applies to external notifications and calendar reminders; other internal notifications are never stored.
  - `play_sound` - play the notification sound when a toast is shown (default `true`).
  - `bypass_dnd` - allow matching notifications to show while Do Not Disturb is enabled (default `false`). Their sound also bypasses Do Not Disturb when `play_sound = true`.
  - `allow_permanent` - allow this sender to create persistent (0-timeout) toasts (default `true`). When `false`, persistent toasts are forced to the standard expiration timeout.
@@ -107,6 +115,8 @@ internal shell/plugin toasts.
 
 This affects new notifications only. Use `noctalia msg notification-clear-history` to remove entries already stored in
 history.
+
+Shell notifications are toast-only and are not kept in history, with one exception: [calendar reminders](/noctalia/services/calendar/#reminders) are retained, because a reminder missed while you were away has no other place to surface. They appear under the app name `Calendar`, so a filter matching that name controls their toast, sound, and history like any other notification.
 
 ## Related IPC
 

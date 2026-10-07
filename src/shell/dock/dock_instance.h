@@ -16,6 +16,7 @@ class Box;
 class CompositorPlatform;
 class ConfigService;
 class Flex;
+class InputArea;
 class LayerSurface;
 class Node;
 class RenderContext;
@@ -33,6 +34,13 @@ namespace shell::dock {
     std::int32_t outputLogicalY = 0;
     std::int32_t outputLogicalWidth = 0;
     std::int32_t outputLogicalHeight = 0;
+    DockConfig config;
+    std::string monitorOverrideTable;
+    bool pinnedOverridden = false;
+    std::vector<std::string> lastPinnedConfig;
+    std::vector<DesktopEntry> pinnedEntries;
+    std::uint64_t modelSerial = 0;
+    std::uint64_t entriesVersion = 0;
     std::unique_ptr<LayerSurface> surface;
     // sceneRoot must be destroyed before `animations` — ~Node() calls cancelForOwner().
     AnimationManager animations;
@@ -42,7 +50,10 @@ namespace shell::dock {
     float slideHiddenDy = 0.0F;
     Box* shadow = nullptr;
     Box* panel = nullptr;
+    InputArea* viewport = nullptr;
     Flex* row = nullptr;
+    float scrollOffset = 0.0F;
+    float maxScrollOffset = 0.0F;
     InputDispatcher inputDispatcher;
     std::vector<shell::dock::DockItemView> items;
     DockSnapshot snapshot;
@@ -98,7 +109,7 @@ namespace shell::dock {
   void applyPanelPalette(DockInstance& instance, const DockConfig& cfg);
   void syncDockSlideLayerTransform(DockInstance& instance, const DockConfig& cfg);
   void applyDockCompositorBlur(DockInstance& instance, const DockConfig& cfg);
-  void startHideFadeOut(DockInstance& instance, ConfigService& config);
-  void revealAutoHideDock(DockInstance& instance, ConfigService& config);
+  void startHideFadeOut(DockInstance& instance);
+  void revealAutoHideDock(DockInstance& instance);
 
 } // namespace shell::dock

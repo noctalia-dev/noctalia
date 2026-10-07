@@ -2,6 +2,7 @@
 
 #include "config/config_service.h"
 #include "config/config_types.h"
+#include "config/schema/ranges.h"
 #include "core/files/directory_scanner.h"
 #include "cursor-shape-v1-client-protocol.h"
 #include "i18n/i18n.h"
@@ -622,6 +623,7 @@ namespace settings {
       group.borderSpecified = bar->widgetCapsuleBorderSpecified;
       group.border = bar->widgetCapsuleBorder;
       group.foreground = bar->widgetCapsuleForeground;
+      group.borderWidth = bar->widgetCapsuleBorderWidth;
       group.padding = bar->widgetCapsulePadding;
       if (bar->widgetCapsuleRadius.has_value()) {
         group.radius = static_cast<float>(*bar->widgetCapsuleRadius);
@@ -641,6 +643,11 @@ namespace settings {
       }
       if (ovr->widgetCapsuleForeground.has_value()) {
         group.foreground = *ovr->widgetCapsuleForeground;
+      }
+      if (ovr->widgetCapsuleBorderWidth.has_value()) {
+        group.borderWidth = noctalia::config::schema::applyRange(
+            *ovr->widgetCapsuleBorderWidth, noctalia::config::schema::kBarCapsuleBorderWidthRange
+        );
       }
       if (ovr->widgetCapsulePadding.has_value()) {
         group.padding = std::clamp(static_cast<float>(*ovr->widgetCapsulePadding), 0.0F, 48.0F);
@@ -2304,6 +2311,17 @@ namespace settings {
           makeGroupColorControl(
               ctx, optionalColorSpecConfigValue(style.foreground), true, [mutateGroup](std::optional<ColorSpec> c) {
                 mutateGroup([&](BarCapsuleGroupStyle& g) { g.foreground = c; });
+              }
+          )
+      );
+      const auto& borderWidthRange = noctalia::config::schema::kBarCapsuleBorderWidthRange;
+      ctx.makeRow(
+          *panelPtr, groupEntry("border-width"),
+          makeGroupSliderControl(
+              ctx, static_cast<double>(style.borderWidth), static_cast<double>(*borderWidthRange.min),
+              static_cast<double>(*borderWidthRange.max), static_cast<double>(*borderWidthRange.step), false,
+              [mutateGroup](double v) {
+                mutateGroup([&](BarCapsuleGroupStyle& g) { g.borderWidth = static_cast<float>(v); });
               }
           )
       );

@@ -11,6 +11,7 @@
 #include "ipc/ipc_service.h"
 #include "notification/notification.h"
 #include "notification/notification_manager.h"
+#include "pipewire/sound_player.h"
 #include "render/core/image_encoder.h"
 #include "render/core/image_file_loader.h"
 #include "render/render_context.h"
@@ -833,6 +834,7 @@ void ScreenshotService::captureFullscreen(const OutputOptions& options, wl_outpu
     notifyError("No outputs available");
     return;
   }
+  playCaptureSound();
   captureOutput(output, std::nullopt, "screenshot", options);
 }
 
@@ -962,6 +964,7 @@ void ScreenshotService::ensureRegionOverlay() {
           if (m_regionOutputOptions.freezeScreen && m_regionOverlay != nullptr) {
             m_frozenScreenshots = m_regionOverlay->takeFrozenScreenshots();
           }
+          playCaptureSound();
           completeFullscreenSelection(output, m_regionOutputOptions);
           m_regionFullscreenPick = false;
           return;
@@ -972,6 +975,10 @@ void ScreenshotService::ensureRegionOverlay() {
         }
 
         OutputOptions options = m_regionOutputOptions;
+        if (action != capture::ConfirmAction::None
+            && m_configService.config().shell.screenshot.skipAnnotateOnCopySave) {
+          options.annotate = false;
+        }
         if (action == capture::ConfirmAction::ForceClipboard) {
           options.copyToClipboard = true;
           options.saveToFile = false;
@@ -983,6 +990,7 @@ void ScreenshotService::ensureRegionOverlay() {
         if (options.freezeScreen && m_regionOverlay != nullptr) {
           m_frozenScreenshots = m_regionOverlay->takeFrozenScreenshots();
         }
+        playCaptureSound();
         if (options.freezeScreen && !m_frozenScreenshots.empty()) {
           deliverFrozenGlobalRegion(*region, options);
           return;
@@ -1276,8 +1284,8 @@ void ScreenshotService::ensureAnnotationOverlay() {
         options.saveToFile ? std::optional(makeScreenshotPath(options, "annotated")) : std::nullopt;
     const bool delivered = finishDelivery(std::move(image), options, destPath);
     if (delivered
-        && action == capture::AnnotationExport::Copy
-        && m_configService.config().shell.screenshot.closeOnCopy) {
+        && ((action == capture::AnnotationExport::Copy && m_configService.config().shell.screenshot.closeOnCopy)
+            || (action == capture::AnnotationExport::Save && m_configService.config().shell.screenshot.closeOnSave))) {
       DeferredCall::callLater([this]() { m_annotationOverlay->cancel(); });
     }
   });
@@ -1650,6 +1658,7 @@ void ScreenshotService::captureAllOutputs(const OutputOptions& options) {
     notifyError("No outputs available");
     return;
   }
+  playCaptureSound();
   if (targets.size() == 1) {
     captureOutput(targets.front().output, std::nullopt, targets.front().label, options);
     return;
@@ -1855,4 +1864,12 @@ void ScreenshotService::notifySaved(const std::filesystem::path& path) {
 
 void ScreenshotService::notifyError(const std::string& message) {
   m_notifications.addInternal("Noctalia", "Screenshot failed", message, Urgency::Critical);
+}
+
+void ScreenshotService::setSoundPlayer(SoundPlayer* soundPlayer) { m_soundPlayer = soundPlayer; }
+
+void ScreenshotService::playCaptureSound() {
+  if (m_soundPlayer != nullptr) {
+    m_soundPlayer->play(SoundPlayer::kEventScreenCapture);
+  }
 }

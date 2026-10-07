@@ -18,10 +18,6 @@
 #include "compositors/sway/sway_keyboard_backend.h"
 #include "compositors/sway/sway_output_backend.h"
 #include "compositors/sway/sway_runtime.h"
-#include "compositors/triad/triad_keyboard_backend.h"
-#include "compositors/triad/triad_output_backend.h"
-#include "compositors/triad/triad_runtime.h"
-#include "compositors/triad/triad_workspace_backend.h"
 #include "compositors/umbriel/umbriel_keyboard_backend.h"
 #include "compositors/umbriel/umbriel_output_backend.h"
 #include "compositors/umbriel/umbriel_runtime.h"
@@ -42,6 +38,7 @@
 #include <optional>
 #include <string>
 #include <sys/types.h>
+#include <unordered_map>
 #include <unordered_set>
 #include <utility>
 
@@ -199,14 +196,15 @@ namespace {
     });
   }
 
-  void appendHyprlandExtOnlyWindows(
+  void mergeHyprlandExtWindows(
       std::vector<ToplevelInfo>& windows, const std::vector<ToplevelInfo>& extWindows,
       const compositors::hyprland::HyprlandToplevelMapping& mapping,
       const std::unordered_set<std::string>* outputWindowIds
   ) {
-    std::unordered_set<std::string> wlrRepresentedIds;
-    wlrRepresentedIds.reserve(windows.size());
-    for (const auto& window : windows) {
+    std::unordered_map<std::string, std::size_t> wlrIndexByWindowId;
+    wlrIndexByWindowId.reserve(windows.size());
+    for (std::size_t i = 0; i < windows.size(); ++i) {
+      const auto& window = windows[i];
       if (window.handle == nullptr) {
         continue;
       }
@@ -216,7 +214,7 @@ namespace {
       }
       const auto normalized = compositors::hyprland::normalizeWindowId(*windowId);
       if (!normalized.empty()) {
-        wlrRepresentedIds.insert(normalized);
+        wlrIndexByWindowId.try_emplace(normalized, i);
       }
     }
 
@@ -227,8 +225,8 @@ namespace {
       const auto windowId = mapping.windowIdForExtHandle(extWindow.extHandle);
       if (windowId.has_value()) {
         const auto normalized = compositors::hyprland::normalizeWindowId(*windowId);
-        // The wlr results above already cover this output, so skip the ext copy of anything in them.
-        if (!normalized.empty() && wlrRepresentedIds.contains(normalized)) {
+        if (const auto wlr = wlrIndexByWindowId.find(normalized); wlr != wlrIndexByWindowId.end()) {
+          windows[wlr->second].extHandle = extWindow.extHandle;
           continue;
         }
         // ext_foreign_toplevel_list has no per-output metadata; scope to this bar's monitor via IPC.
@@ -344,10 +342,6 @@ namespace {
             return compositors::sway::setOutputPower(runtime, on);
           }
       );
-    case compositors::CompositorKind::Triad:
-      return std::make_unique<LambdaOutputPowerBackend>([&runtime = runtimeRegistry.triad()](
-                                                            WaylandConnection& /*wayland*/, bool on
-                                                        ) { return compositors::triad::setOutputPower(runtime, on); });
     case compositors::CompositorKind::Mango:
       return std::make_unique<LambdaOutputPowerBackend>(
           [&runtime = runtimeRegistry.mango()](WaylandConnection& wayland, bool on) {
@@ -379,8 +373,6 @@ namespace {
       return std::make_unique<FocusedOutputAdapter<NiriOutputBackend>>(runtimeRegistry.niri());
     case compositors::CompositorKind::Sway:
       return std::make_unique<FocusedOutputAdapter<SwayOutputBackend>>(runtimeRegistry.sway());
-    case compositors::CompositorKind::Triad:
-      return std::make_unique<FocusedOutputAdapter<TriadOutputBackend>>(runtimeRegistry.triad());
     case compositors::CompositorKind::Umbriel:
       return std::make_unique<FocusedOutputAdapter<UmbrielOutputBackend>>(runtimeRegistry.umbriel());
     case compositors::CompositorKind::Dwl:
@@ -396,8 +388,6 @@ namespace {
   [[nodiscard]] std::unique_ptr<compositors::WorkspaceMetadataBackend>
   createWorkspaceMetadataBackend(compositors::CompositorRuntimeRegistry& runtimeRegistry) {
     switch (compositors::detect()) {
-    case compositors::CompositorKind::Triad:
-      return std::make_unique<TriadWorkspaceBackend>(runtimeRegistry.triad());
     case compositors::CompositorKind::Niri:
       return std::make_unique<NiriWorkspaceBackend>(runtimeRegistry.niri());
     case compositors::CompositorKind::Umbriel:
@@ -425,8 +415,6 @@ namespace {
       return std::make_unique<KeyboardLayoutBackendAdapter<MangoKeyboardBackend>>(runtimeRegistry.mango());
     case compositors::CompositorKind::Sway:
       return std::make_unique<KeyboardLayoutBackendAdapter<SwayKeyboardBackend>>(runtimeRegistry.sway());
-    case compositors::CompositorKind::Triad:
-      return std::make_unique<KeyboardLayoutBackendAdapter<TriadKeyboardBackend>>(runtimeRegistry.triad());
     case compositors::CompositorKind::Umbriel:
       return std::make_unique<KeyboardLayoutBackendAdapter<UmbrielKeyboardBackend>>(runtimeRegistry.umbriel());
     case compositors::CompositorKind::Dwl:
@@ -898,7 +886,7 @@ std::vector<ToplevelInfo> CompositorPlatform::windowsForApp(
   if (!m_wayland.hasExtForeignToplevelList()) {
     return windows;
   }
-  appendHyprlandExtOnlyWindows(
+  mergeHyprlandExtWindows(
       windows, m_wayland.extWindowsForApp(idLower, wmClassLower), *m_hyprlandToplevelMapping,
       outputFilter != nullptr ? &outputWindowIds : nullptr
   );
@@ -910,8 +898,15 @@ std::vector<ToplevelInfo> CompositorPlatform::windowsWithoutAppId(wl_output* out
   if (!compositors::isHyprland() || m_hyprlandToplevelMapping == nullptr || !m_hyprlandToplevelMapping->available()) {
     return windows;
   }
-  dropWindowsOnOtherOutputs(
-      windows, *m_hyprlandToplevelMapping, outputScopedWindowIds(m_workspaces.get(), outputFilter)
+  const auto outputWindowIds = outputScopedWindowIds(m_workspaces.get(), outputFilter);
+  dropWindowsOnOtherOutputs(windows, *m_hyprlandToplevelMapping, outputWindowIds);
+
+  if (!m_wayland.hasExtForeignToplevelList()) {
+    return windows;
+  }
+  mergeHyprlandExtWindows(
+      windows, m_wayland.extWindowsWithoutAppId(), *m_hyprlandToplevelMapping,
+      outputFilter != nullptr ? &outputWindowIds : nullptr
   );
   return windows;
 }
@@ -1396,6 +1391,10 @@ std::vector<WorkspaceWindowAssignment> CompositorPlatform::workspaceWindowAssign
   return result;
 }
 
+std::vector<std::string> CompositorPlatform::openOverlayWorkspaceKeys(wl_output* outputFilter) const {
+  return m_workspaces != nullptr ? m_workspaces->openOverlayWorkspaceKeys(outputFilter) : std::vector<std::string>{};
+}
+
 TaskbarAssignmentMode CompositorPlatform::taskbarAssignmentMode() const noexcept {
   return m_workspaces != nullptr ? m_workspaces->taskbarAssignmentMode() : TaskbarAssignmentMode::Generic;
 }
@@ -1565,8 +1564,6 @@ bool CompositorPlatform::requestSessionExit() const {
     return m_runtimeRegistry->niri().requestAction(
         nlohmann::json{{"Quit", nlohmann::json{{"skip_confirmation", true}}}}, true
     );
-  case compositors::CompositorKind::Triad:
-    return m_runtimeRegistry->triad().requestAction("exit-session");
   case compositors::CompositorKind::Mango:
     return process::launchFirstAvailable({{"mmsg", "dispatch", "quit"}});
   case compositors::CompositorKind::Dwl:

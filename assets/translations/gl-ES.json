@@ -238,7 +238,6 @@
       "uptime": "Activo - {uptime}",
       "weather": {
         "data-unavailable": "Os datos meteorolóxicos non están dispoñibles.",
-        "disabled": "O tempo está desactivado na configuración.",
         "fetching": "Obtendo a previsión..."
       }
     },
@@ -1084,7 +1083,6 @@
         "behavior": "Comportamento",
         "brightness": "Brillo",
         "built-in": "Integrado",
-        "calendar": "Calendario",
         "capsules": "Cápsulas",
         "clipboard": "Portapapeis",
         "community": "Comunidade",
@@ -1821,10 +1819,6 @@
         },
         "main-axis-padding": {
           "description": "Recheo interior ao longo do eixo principal do Dock, entre as iconas e os extremos curtos da cápsula"
-        },
-        "monitors": {
-          "description": "Escolle que monitores mostran o Dock; déixao baleiro para todos. O filtrado por monitor activo aplícase dentro destes monitores",
-          "label": "Monitores"
         },
         "pinned-apps": {
           "description": "IDs das entradas de escritorio das aplicacións fixadas no Dock",

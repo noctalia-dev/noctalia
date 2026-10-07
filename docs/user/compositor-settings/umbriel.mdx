@@ -92,7 +92,7 @@ Umbriel can launch Noctalia IPC commands directly from its `[keybinds]` table. A
 "Mod+Space" = "spawn:noctalia msg panel-toggle launcher"
 "Mod+S" = "spawn:noctalia msg panel-toggle control-center"
 "Mod+Comma" = "spawn:noctalia msg settings-toggle"
-"Alt+Tab" = "spawn:noctalia msg window-switcher"
+"Alt+Tab" = "spawn:noctalia msg window-switcher hold"
 "Mod+Shift+A" = "spawn:noctalia msg screenshot-annotate"
 "Mod+Ctrl+A" = "spawn:noctalia msg annotate"
 
@@ -108,6 +108,8 @@ Umbriel can launch Noctalia IPC commands directly from its `[keybinds]` table. A
 ## Optional Type to Launch
 
 Noctalia can open its launcher when you start typing in umbriel's overview.
+
+A launcher opened by typing closes automatically when you leave the overview. Launchers opened normally are unaffected.
 
 ```toml
 [shell]

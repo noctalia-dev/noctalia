@@ -236,7 +236,6 @@
       "uptime": "Doba běhu – {uptime}",
       "weather": {
         "data-unavailable": "Údaje o počasí nejsou k dispozici.",
-        "disabled": "Počasí je v konfiguraci vypnuto.",
         "fetching": "Načítání předpovědi…"
       }
     },
@@ -1044,7 +1043,6 @@
         "behavior": "Chování",
         "brightness": "Jas",
         "built-in": "Vestavěné",
-        "calendar": "Kalendář",
         "capsules": "Kapsle",
         "clipboard": "Schránka",
         "community": "Komunita",
@@ -1723,10 +1721,6 @@
         },
         "main-axis-padding": {
           "description": "Vnitřní odsazení podél hlavní osy docku (mezi ikonami a krátkými konci kapsle)"
-        },
-        "monitors": {
-          "description": "Vybrat, které monitory zobrazují dock (ponechte prázdné pro všechny); filtrování aktivního monitoru se uplatní v rámci těchto monitorů",
-          "label": "Monitory"
         },
         "pinned-apps": {
           "description": "ID desktop entry aplikací připnutých k docku",

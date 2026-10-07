@@ -32,6 +32,7 @@ jobs:
 
             const compositorLabelMap = {
               "Niri": "niri",
+              "Umbriel": "umbriel",
               "Hyprland": "hyprland",
               "Sway": "sway",
               "Scroll": "scroll",
@@ -82,7 +83,7 @@ jobs:
                   owner,
                   repo,
                   name,
-                  color: "5319e7",
+                  color: "d4c5f9",
                   description
                 });
                 core.info(`Created missing label "${name}".`);

@@ -11,6 +11,8 @@ Labels are controlled by two independent settings: `show_labels` turns them on o
 With `show_labels = false`, regular draws unlabeled pills and Focus Hint shows just the focused app icon. Minimal draws no pill backgrounds at all, so its workspaces become blank slots.
 Focus Hint's app icon has its own switch, `show_icons`; turning both off leaves an empty expanded pill for the active workspace.
 
+Hovering a named workspace shows its full name in a tooltip whenever the pill does not already spell it out: when `max_label_chars` cut it short, when `label_source = "id"` shows a number instead, or when labels are off. Set `show_tooltip = false` to turn this off.
+
 Workspace pills use the workspaces widget's resolved `capsule_radius`.
 Set `[widget.workspaces].capsule_radius` for just the workspace switcher, or `[bar.<name>].capsule_radius` as the bar default.
 Pill styling and `capsule_radius` apply only when `style = "regular"`.
@@ -22,6 +24,7 @@ Pill styling and `capsule_radius` apply only when `style = "regular"`.
 | `show_icons` | bool | `true` | Draw the focused app icon on the active pill. Focus Hint only; the other styles never draw app icons. |
 | `label_source` | string | `"id"` | What labels show: `"id"` (workspace number, falling back to its name when no numeric identity exists) or `"name"` (workspace name). |
 | `max_label_chars` | int | `1` | Maximum characters for non-numeric workspace labels, including names used as the `"id"` fallback. Numeric labels such as `10` and `11` are never truncated. |
+| `show_tooltip` | bool | `true` | Show a named workspace's full name in a hover tooltip when its pill does not already display it. |
 | `pill_scale` | float | `1.0` | Scale workspace pill thickness (cross-axis size; regular style only). |
 | `active_pill_size` | float | `2.2` | Minimum active pill length along the bar, as a multiple of pill thickness. Labels may expand beyond this. |
 | `inactive_pill_size` | float | `1.0` | Minimum inactive pill length along the bar, as a multiple of pill thickness. Labels may expand beyond this. |
@@ -42,6 +45,7 @@ show_labels = true      # false = unlabeled pills (Focus Hint: app icon only)
 show_icons = true       # focus_hint only; false = active pill without the focused app icon
 label_source = "id"     # id | name
 max_label_chars = 2     # truncate long workspace names (e.g. "VESKTOP" → "VE")
+show_tooltip = true     # false = no full-name tooltip on hover
 labels_only_when_occupied = true  # (1) (2*) ( ) (4) - occupied tags and the active tag show labels (*active but empty)
 hide_when_empty = true
 show_all_outputs = false  # true = include workspaces from every monitor; this bar's monitor comes first

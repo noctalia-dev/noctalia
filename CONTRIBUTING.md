@@ -1,10 +1,12 @@
 Contributing
 ===
 
-This file collects contributor-facing details for Noctalia: design goals, stack notes, code style, source layout,
-runtime asset behavior, and debugging helpers.
+This file collects contributor-facing details for Noctalia: design goals, stack notes, code style, contribution rules,
+testing, commit conventions, source layout, and debugging helpers.
 
-For dependencies and normal build commands, start with [BUILDING.md](BUILDING.md).
+For dependencies and normal build commands, start with [BUILDING.md](BUILDING.md). For the architecture and the
+invariants reviewers enforce (UI phases, layer boundaries, rendering, surfaces, config, plugins), read
+[ARCHITECTURE.md](ARCHITECTURE.md).
 
 Before contributing, read our [ethos](https://noctalia.dev/ethos) to understand the values and philosophy guiding the
 project.
@@ -52,49 +54,15 @@ Direct project dependencies are listed below; transitive dependencies are owned 
 | Theme generation | Material Color Utilities (vendored) |
 | Memory allocation | `jemalloc` (optional) |
 
-## Runtime Assets
-
-`meson install` installs the binary and shipped assets separately using the normal prefix layout:
-
-```text
-/usr/local/bin/noctalia
-/usr/local/share/noctalia/assets/...
-```
-
-With a different Meson `prefix`/`datadir`, the same structure is preserved under that prefix.
-
-Noctalia needs the `assets/` tree at runtime. Copying only the bare `noctalia` binary is not enough.
-
-Portable bundle layouts are also supported:
-
-```text
-bundle/
-  noctalia
-  assets/
-```
-
-```text
-bundle/
-  bin/noctalia
-  share/noctalia/assets/
-```
-
-Runtime asset lookup order:
-
-1. `NOCTALIA_ASSETS_DIR`
-2. `assets/` next to the executable
-3. `assets/` one level above the executable
-4. install-style `../share/noctalia/assets` relative to the executable
-5. the compiled install path from Meson (`<prefix>/<datadir>/noctalia/assets`)
-6. the source-tree `assets/` directory as a development fallback
-
-An asset root is only accepted if it contains the expected shipped files such as `emoji.json`, `fonts/noctalia-tabler.ttf`,
-`templates/builtin.toml`, and `translations/en.json`.
-
 ## Code Style
 
-This project uses [clang-format](https://clang.llvm.org/docs/ClangFormat.html) for formatting. Run `just format`
-before committing.
+This project uses [clang-format](https://clang.llvm.org/docs/ClangFormat.html) 22 for formatting. Run `just format`
+before committing and `just format-check` to run the same check as CI, covering both `src/` and `tests/`.
+Both recipes reject other formatter major versions and print the version in use.
+
+Install `clang22` on Arch or `clang-tools-extra` on Fedora 44. If your distribution installs Clang 22 outside the default
+PATH, prepend its binary directory when running either recipe, for example
+`PATH=/usr/lib/llvm22/bin:$PATH just format-check` on Arch. Keep editor formatting on Clang 22 as well.
 
 For editor integration, `just configure` creates a root `compile_commands.json` symlink to the selected Meson build
 directory. Run `just configure`, `just configure release`, or `just configure asan` for the build mode you want clangd
@@ -103,20 +71,16 @@ to use.
 The repo also includes `lefthook.yml`. Run `lefthook install` to install the pre-commit hook; it runs `just format`
 before commits and refreshes the git index for tracked formatting changes.
 
-Do not use em dashes (—) or double hyphens (--) as sentence punctuation, in code, comments, documentation, or commit
-messages. Use a comma, colon, semicolon, or parentheses instead.
+### Lint
 
-## Pull Request Template
+Code must pass clang-tidy with warnings treated as errors. `just lint` checks the whole tree; while iterating, lint only
+the `.cpp` files you touched:
 
-Pull request descriptions are checked automatically when they are opened, edited, reopened, or marked ready for
-review. Keep the `## Summary`, `## Motivation`, `## Type of Change`, `## Testing`, and `## Checklist` headings and the
-Checklist wording from [`.github/PULL_REQUEST_TEMPLATE.md`](.github/PULL_REQUEST_TEMPLATE.md). The remaining sections
-are context only: fill them in, leave them empty, or delete them. In Type of Change, keep only the lines that apply.
+```sh
+clang-tidy -p build-debug --warnings-as-errors='*' <touched .cpp files...>
+```
 
-Draft pull requests may leave checkboxes incomplete. Before marking a pull request ready for review, select at least one
-change type and check every item in the Checklist section. A pull request that is missing required template structure
-is commented on and converted back to a draft; add the missing content and mark it ready for review to run the check
-again. The check never closes a pull request.
+Headers are linted through the `.cpp` files that include them. Fix every finding before opening a pull request.
 
 ### Naming Conventions
 
@@ -133,6 +97,103 @@ again. The check never closes a pull request.
 D-Bus wire-protocol string literals, such as `player["bus_name"]`, stay snake_case because they are wire names, not
 C++ identifiers.
 
+### Source Conventions
+
+- `src/` is the include root; project includes are relative to it (`#include "app/application.h"`).
+- A single `meson.build` lists every source directly; there are no per-directory build files.
+- Headers and sources are co-located; there is no separate `include/` tree.
+
+### Comments
+
+Comments explain what the current code does and any non-obvious constraint a reader needs. Do not narrate history,
+rejected alternatives, or "why we don't do X"; git holds that. If a comment is longer than the code it describes, cut it
+down.
+
+## Contribution Rules
+
+### One change per pull request
+
+Keep each pull request to a single feature, fix, or refactor. Unrelated changes, including drive-by cleanups and
+formatting of untouched code, go in separate pull requests so each can be reviewed and reverted on its own.
+
+### One canonical name, no fallbacks
+
+Every config key, IPC name, path, and identifier has exactly one canonical name. Do not add aliases, "try name X then
+name Y" resolution, backwards-compatibility shims, or silent default chains that hide misconfiguration. When input is
+wrong or missing, fail or report it loudly instead of papering over it. A maintainer may explicitly request a migration
+path; do not add one unprompted.
+
+This applies to identity and configuration, not runtime resilience. Graceful degradation of an operation, such as
+serving a cached last-known-good value when a network or IO call fails, is fine.
+
+### User documentation
+
+End-user documentation lives in [`docs/user/`](docs/user/) (MDX), with images under `docs/assets/`. Any change that adds,
+removes, or changes user-facing configuration or behavior updates the relevant page in the same commit as the code.
+
+The documentation site is generated from these files by `tools/sync-docs.sh`, which copies `docs/user/**/*.mdx` into the
+docs site checkout and deletes pages that no longer exist here. Never edit the generated copies; the next sync
+overwrites them.
+
+### Vendored code
+
+Do not patch vendored code under `third_party/` for Noctalia behavior; local edits are lost when the dependency is
+refreshed. Put compatibility code in Noctalia-owned sources under `src/`, or fix the issue upstream and update the
+vendored snapshot from upstream.
+
+## Testing
+
+Unit tests are not required for every change. Choose the verification that exercises the changed behavior most
+directly, and describe it in the pull request's Testing section.
+
+Add or modify a permanent unit test only when all of the following hold:
+
+- It protects an observable, deterministic contract.
+- A plausible future regression would have meaningful impact.
+- Existing tests do not already cover the contract.
+- The test would fail for a plausible broken implementation.
+- The test is cheaper and more reliable than exercising the behavior in the running shell.
+
+Unit tests are most valuable for configuration parsing and migration, persistent data, security boundaries, parsers and
+decoders, non-trivial state machines, and deterministic protocol transformations.
+
+Do not add tests for trivial forwarding, getters, constants, duplicated implementation logic, implementation details, or
+visual behavior modelled through mocks. Rendering, layout, animation, Wayland lifecycle, and compositor integration
+changes are verified in the real shell; do not synthesize brittle pointer-event or mock-based tests to avoid a visual
+check.
+
+For bug fixes, reproduce the bug and confirm the reproduction no longer fails. Add a regression test only when it
+provides durable coverage beyond that check.
+
+Write test checks with `TEST_CHECK` from `tests/test_check.h`, never `assert`. `assert` compiles away under `NDEBUG`, so
+a release build would pass a broken test silently; `TEST_CHECK` prints the failed expression with its file and line and
+exits non-zero. The header refuses to compile with `NDEBUG`, so test executables set
+`override_options: ['b_ndebug=false']` in `meson.build`.
+
+## Commit Messages
+
+Follow the Conventional Commits style used in the history: `type(scope): summary`, or `type: summary` when no scope
+helps. Use lowercase types such as `feat`, `fix`, `refactor`, `chore`, `test`, `i18n`, `ui`, or `config`, and a focused
+subsystem scope when useful, for example `refactor(bar): use widget option structs`. Keep the summary concise,
+imperative, and specific.
+
+Default to the summary line alone. Add a body only when it carries information a reader would otherwise miss: a
+non-obvious root cause, a constraint that forced the approach, a behavior change users will notice, or a `Fixes #N`
+reference. Do not restate the diff or list touched files.
+
+## Pull Request Template
+
+Pull request descriptions are checked automatically when they are opened, edited, reopened, or marked ready for
+review. Keep the `## Summary`, `## Motivation`, `## Type of Change`, `## Testing`, and `## Checklist` headings and the
+Checklist wording from [`.github/PULL_REQUEST_TEMPLATE.md`](.github/PULL_REQUEST_TEMPLATE.md). The remaining sections
+are context only: fill them in, leave them empty, or delete them. In Type of Change, keep only the lines that apply.
+
+Draft pull requests may leave checkboxes incomplete. Before marking a pull request ready for review, check exactly one
+of Bug fix, New feature, Refactoring, Build / packaging, or Documentation only (add Breaking change alongside it when it
+applies), and check every item in the Checklist section. A pull request that is missing required template structure is
+commented on and converted back to a draft; add the missing content and mark it ready for review to run the check
+again. The check never closes a pull request.
+
 ## Translations
 
 Noctalia translations are managed through [Noctalia Translate](https://i18n.noctalia.dev/projects/noctalia). The JSON
@@ -146,6 +207,9 @@ updates through the translation app.
 
 Only edit non-English translation files when the PR is explicitly about translation tooling, an import/export sync, or a
 maintainer has asked for that specific locale change.
+
+Keep the `common` namespace narrow, for actions shared across the UI. Settings labels live under
+`settings.widgets.settings.<config_key>.label` and `settings.widgets.settings.<config_key>.description`.
 
 After adding or renaming translation keys, run:
 

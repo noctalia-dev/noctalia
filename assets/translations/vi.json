@@ -257,7 +257,6 @@
       "uptime": "Thời gian hoạt động - {uptime}",
       "weather": {
         "data-unavailable": "Không thể tải dữ liệu thời tiết.",
-        "disabled": "Tính năng thời tiết đã bị vô hiệu hóa trong config.",
         "fetching": "Đang cập nhật dự báo thời tiết..."
       }
     },
@@ -1193,7 +1192,6 @@
         "borders": "Viền",
         "brightness": "Độ sáng",
         "built-in": "Tích hợp sẵn",
-        "calendar": "Lịch",
         "capsules": "Viên nang",
         "clipboard": "Bảng tạm",
         "community": "Cộng đồng",
@@ -1984,10 +1982,6 @@
         },
         "main-axis-padding": {
           "description": "Khoảng đệm bên trong dọc theo trục chính của Dock (giữa các biểu tượng và các cạnh ngắn của Capsule)"
-        },
-        "monitors": {
-          "description": "Chọn màn hình hiển thị Dock (để trống cho tất cả); tính năng lọc theo màn hình đang hoạt động sẽ áp dụng trong các màn hình này",
-          "label": "Màn hình"
         },
         "pinned-apps": {
           "description": "ID mục nhập desktop của các ứng dụng được ghim vào Dock",

@@ -82,6 +82,10 @@ public:
 
   virtual void applyOverlayHover(Node& /*tile*/, bool /*hovered*/) {}
 
+  // Optional tooltip shown instead of itemTooltip() while the item's overlay is hovered.
+  // Anchored by itemTooltipAnchorInsets().
+  [[nodiscard]] virtual std::string overlayTooltip(std::size_t /*index*/) const { return {}; }
+
   // Optional: secondary button press (e.g. context menu). Anchor coordinates are in the panel scene graph
   // (surface-local).
   virtual void onSecondaryActivate(std::size_t /*index*/, float /*anchorX*/, float /*anchorY*/) {}
@@ -200,4 +204,6 @@ private:
   float m_pressLocalX = 0.0F;
   float m_pressLocalY = 0.0F;
   bool m_dragThresholdPassed = false;
+  // Hides the hovered item's tooltip after an adapter-consumed press, until the hover target changes.
+  bool m_tooltipSuppressed = false;
 };

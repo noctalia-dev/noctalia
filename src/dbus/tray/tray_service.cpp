@@ -661,8 +661,17 @@ void TrayService::startAsWatcherOwner() {
   try {
     m_bus.connection().requestName(kWatcherBusName);
   } catch (const sdbus::Error& e) {
-    kLog.warn("tray failed to claim {}: {}", std::string{kWatcherBusName}, e.what());
-    throw;
+    // Only a genuine name race means another watcher owns the name now. Any other
+    // failure such as a disconnected bus or a permission error must keep the
+    // original startup failure path, or the tray stays enabled without a watcher.
+    if (!externalWatcherHasOwner()) {
+      kLog.warn("tray failed to claim {}: {}", std::string{kWatcherBusName}, e.what());
+      throw;
+    }
+    kLog.debug("tray watcher claim lost to another owner, switching to client: {}", e.what());
+    m_watcherObject.reset();
+    startAsWatcherClient();
+    return;
   }
 
   kLog.debug("tray watcher active on {}", std::string{kWatcherBusName});
@@ -686,7 +695,9 @@ void TrayService::startAsWatcherClient() {
 
   kLog.debug("tray using external StatusNotifierWatcher");
   if (externalWatcherHasOwner()) {
-    connectToExternalWatcher();
+    // Deferred so a watcher that is already running does not deliver its items
+    // before the shell UI that consumes them has been initialized.
+    DeferredCall::callLater([this]() { connectToExternalWatcher(); });
   }
   DeferredCall::callLater([this]() { discoverExistingItems(); });
   DeferredCall::callLater([this]() { discoverExistingItems(); });
@@ -1488,32 +1499,13 @@ void TrayService::onRegisterStatusNotifierItem(const std::string& serviceOrPath,
   }
 
   if (busOnlyRegistration) {
-    // Async hasServiceOwner check before probing.
-    if (m_dbusProxy) {
-      m_dbusProxy->callMethodAsync("NameHasOwner")
-          .onInterface(kDbusInterface)
-          .withTimeout(std::chrono::milliseconds(200))
-          .withArguments(busName)
-          .uponReplyInvoke([this, busName](std::optional<sdbus::Error> error, bool hasOwner) {
-            if (error.has_value()) {
-              kLog.debug("register item ignored: NameHasOwner failed for bus='{}' err={}", busName, error->what());
-              return;
-            }
-            if (!hasOwner) {
-              kLog.debug("register item ignored: no DBus owner for bus='{}'", busName);
-              return;
-            }
-            scheduleBusOnlyRegistrationProbe(busName, kBusOnlyRegistrationProbeAttempts);
-          });
-    }
+    // The item probe checks reachability and retries until the item is ready.
+    // A separate short owner check can expire while a startup frame is rendering.
+    scheduleBusOnlyRegistrationProbe(busName, kBusOnlyRegistrationProbeAttempts);
     return;
   }
 
-  // For non-bus-only registrations, we deliberately do not check NameHasOwner before registering.
-  // Async metadata fetch and NameOwnerChanged cleanup are robust, so we tolerate briefly registering
-  // items for dead/unowned bus names—they are quickly cleaned up on failure. This avoids a synchronous
-  // or extra async round-trip for every registration and improves responsiveness.
-  // (See also: busOnlyRegistration branch above for the async owner check.)
+  // Metadata refresh is async; NameOwnerChanged removes items whose owner exits.
   registerOrRefreshItem(busName, objectPath);
   const auto elapsedMs =
       std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t0).count();
@@ -1544,7 +1536,7 @@ void TrayService::discoverExistingItems() {
   try {
     m_dbusProxy->callMethodAsync("ListNames")
         .onInterface(kDbusInterface)
-        .withTimeout(std::chrono::milliseconds(200))
+        .withTimeout(kItemPropertyTimeout)
         .uponReplyInvoke([this](std::optional<sdbus::Error> error, std::vector<std::string> names) {
           if (error.has_value()) {
             kLog.debug("tray discover failed: {}", error->what());

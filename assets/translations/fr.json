@@ -282,7 +282,6 @@
       "uptime": "Allumé depuis : {uptime}",
       "weather": {
         "data-unavailable": "Données météo indisponibles.",
-        "disabled": "La météo est désactivée dans la configuration.",
         "fetching": "Récupération des prévisions..."
       }
     },
@@ -621,6 +620,9 @@
         "wave-thickness": "Épaisseur de l’onde",
         "widget-section": "Widget"
       },
+      "state": {
+        "grid": "Grille"
+      },
       "title": "Widgets du bureau",
       "types": {
         "audio-visualizer": "Visualiseur audio",
@@ -693,7 +695,9 @@
     },
     "context-menu": {
       "open": "Ouvrir",
+      "pin": "Épingler au lanceur",
       "pin-to-dock": "Épingler au Dock",
+      "unpin": "Désépingler du lanceur",
       "unpin-from-dock": "Retirer du Dock"
     },
     "empty": {
@@ -715,6 +719,13 @@
       },
       "emoji": {
         "title": "Emoji"
+      },
+      "panel": {
+        "builtin": {
+          "session": "Session",
+          "wallpaper": "Fond d'écran"
+        },
+        "title": "Panneaux"
       },
       "session": {
         "action-subtitle": "Exécuter une action de session",
@@ -782,6 +793,8 @@
       "calendar-google-connect-start-failed": "Impossible de démarrer l’autorisation Google. Vérifiez votre connexion réseau et réessayez.",
       "calendar-google-connect-start-http": "Impossible de démarrer l’autorisation Google. Le broker OAuth a renvoyé HTTP {status}.",
       "calendar-google-connect-timeout": "Délai d’attente de l’autorisation Google dépassé. Relancez la connexion lorsque vous êtes prêt à vous connecter.",
+      "calendar-reminder-open": "Ouvrir",
+      "calendar-reminder-with-location": "{when}\n{location}",
       "config-migration-title": "Mise à jour de la configuration nécessaire",
       "dbus-disabled": "Notifications DBus désactivées",
       "desktop-widgets-editor": "Éditeur de widgets",
@@ -1197,7 +1210,6 @@
         "borders": "Bordures",
         "brightness": "Luminosité",
         "built-in": "Intégré",
-        "calendar": "Calendrier",
         "capsules": "Capsules",
         "clipboard": "Presse-papiers",
         "community": "Communauté",
@@ -1947,10 +1959,6 @@
         "main-axis-padding": {
           "description": "Marges internes le long de l’axe principal du dock (entre les icônes et les extrémités de la capsule)"
         },
-        "monitors": {
-          "description": "Choisissez sur quels écrans afficher le dock (laisser vide pour tous) ; le filtrage par écran actif s’applique à ces écrans",
-          "label": "Écrans"
-        },
         "pinned-apps": {
           "description": "Identifiants des applications épinglées au dock",
           "label": "Applications épinglées"
@@ -2222,7 +2230,7 @@
       },
       "panels": {
         "borders": {
-          "description": "Affiche un contour sur les panneaux et les cartes de section",
+          "description": "Affiche un contour sur les panneaux flottants",
           "label": "Contours"
         },
         "control-center-sidebar": {
@@ -3012,6 +3020,9 @@
           "osd-enable": {
             "description": "Activer les popups OSD",
             "label": "Activer l'OSD"
+          },
+          "volume-down": {
+            "label": "Baisse le volume"
           },
           "volume-osd": {
             "description": "Afficher le volume OSD sans changer le volume (par défaut le volume actuel) ",

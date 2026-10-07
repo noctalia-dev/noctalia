@@ -259,7 +259,6 @@
       "uptime": "Rendszeridő - {uptime}",
       "weather": {
         "data-unavailable": "Az időjárási adatok nem érhetők el.",
-        "disabled": "Az időjárás le van tiltva a konfigurációban.",
         "fetching": "Előrejelzés lekérése…"
       }
     },
@@ -1156,7 +1155,6 @@
         "borders": "Szegélyek",
         "brightness": "Fényerő",
         "built-in": "Beépített",
-        "calendar": "Naptár",
         "capsules": "Kapszulák",
         "clipboard": "Vágólap",
         "community": "Közösség",
@@ -1934,10 +1932,6 @@
         },
         "main-axis-padding": {
           "description": "Belső kitöltés az ikonsor végein (az első ikon előtt és az utolsó ikon után)"
-        },
-        "monitors": {
-          "description": "Válaszd ki, mely monitorokon jelenjen meg a dokk (hagyd üresen az összeshez); az aktív monitor szűrése ezeken a monitorokon belül érvényesül",
-          "label": "Monitorok"
         },
         "pinned-apps": {
           "description": "A dokkhoz rögzített alkalmazások asztali bejegyzés azonosítói",

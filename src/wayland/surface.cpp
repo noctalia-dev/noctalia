@@ -396,6 +396,9 @@ void Surface::handleFrameDone(void* data, wl_callback* callback, std::uint32_t c
   if (hasPendingWork) {
     self->queueFrameWork(runFrameTick, deltaMs);
   }
+
+  // Keep this last: a derived callback may schedule teardown of its owning surface.
+  self->onFrameCallbackDone();
 }
 
 void Surface::onSurfaceOutputEnter(wl_surface* surface, wl_output* output) {
@@ -468,6 +471,8 @@ void Surface::onConfigure(std::uint32_t width, std::uint32_t height) {
   m_redrawRequested = true;
   queueFrameWork();
 }
+
+void Surface::onFrameCallbackDone() {}
 
 void Surface::setConfigureCallback(ConfigureCallback callback) { m_configureCallback = std::move(callback); }
 

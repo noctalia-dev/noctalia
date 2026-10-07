@@ -90,6 +90,10 @@ void WaylandSeat::setKeyboardFocusCallback(KeyboardFocusCallback callback) {
   m_keyboardFocusCallback = std::move(callback);
 }
 
+void WaylandSeat::setKeyboardModifiersCallback(KeyboardModifiersCallback callback) {
+  m_keyboardModifiersCallback = std::move(callback);
+}
+
 void WaylandSeat::setLockKeysChangeCallback(LockKeysChangeCallback callback) {
   m_lockKeysChangeCallback = std::move(callback);
 }
@@ -176,6 +180,7 @@ void WaylandSeat::cleanup() {
     xkb_keymap_unref(m_xkbKeymap);
     m_xkbKeymap = nullptr;
   }
+  m_xkbKeymapData.clear();
   if (m_xkbContext != nullptr) {
     xkb_context_unref(m_xkbContext);
     m_xkbContext = nullptr;
@@ -606,6 +611,12 @@ void WaylandSeat::handleKeyboardKeymap(
     return;
   }
 
+  if (size == self->m_xkbKeymapData.size() && std::memcmp(buf, self->m_xkbKeymapData.data(), size) == 0) {
+    munmap(buf, size);
+    return;
+  }
+  std::string keymapData(static_cast<const char*>(buf), size);
+
   auto* keymap = xkb_keymap_new_from_string(
       self->m_xkbContext, static_cast<const char*>(buf), XKB_KEYMAP_FORMAT_TEXT_V1, XKB_KEYMAP_COMPILE_NO_FLAGS
   );
@@ -631,6 +642,7 @@ void WaylandSeat::handleKeyboardKeymap(
   }
   self->m_xkbKeymap = keymap;
   self->m_xkbState = state;
+  self->m_xkbKeymapData = std::move(keymapData);
 
   // (Re)create compose state for dead key / intl layout support
   if (self->m_composeState != nullptr) {
@@ -647,7 +659,7 @@ void WaylandSeat::handleKeyboardKeymap(
     self->m_composeState = xkb_compose_state_new(self->m_composeTable, XKB_COMPOSE_STATE_NO_FLAGS);
   }
 
-  kLog.info("keyboard: keymap loaded");
+  kLog.debug("keyboard: keymap loaded");
 }
 
 void WaylandSeat::handleKeyboardEnter(
@@ -749,7 +761,8 @@ void WaylandSeat::handleKeyboardKey(
   // cancel it via stopKeyRepeat() if the key press causes a state transition
   // (e.g. lockscreen unlock) that makes the held key irrelevant.
   if (pressed && self->m_repeatRate > 0) {
-    self->m_repeatKey = KeyboardEvent{.sym = sym, .utf32 = utf32, .key = key, .modifiers = mods, .pressed = true};
+    self->m_repeatKey =
+        KeyboardEvent{.sym = sym, .utf32 = utf32, .key = key, .modifiers = mods, .pressed = true, .repeat = true};
     self->m_repeatActive = true;
     self->m_repeatInDelay = true;
     self->m_repeatNextFire = SteadyClock::now() + std::chrono::milliseconds(self->m_repeatDelayMs);
@@ -776,6 +789,9 @@ void WaylandSeat::handleKeyboardModifiers(
   auto* self = static_cast<WaylandSeat*>(data);
   if (self->m_xkbState != nullptr) {
     xkb_state_update_mask(self->m_xkbState, modsDepressed, modsLatched, modsLocked, 0, 0, group);
+    if (self->m_keyboardModifiersCallback) {
+      self->m_keyboardModifiersCallback(self->keyboardModifiers());
+    }
   }
   if (self->m_lockKeysChangeCallback) {
     const LockKeysState current = self->lockKeysState();

@@ -251,14 +251,8 @@ const noctalia::bar::WidgetDefinition<TaskbarWidgetOptions>& taskbarWidgetDefini
                       {
                           .key = "focused_output_only",
                           .presentation = presentation(
-                              "taskbar.workspace-labels",
-                              all(
-                                  {
-                                      {"group_by_workspace", {"true"}},
-                                      {"show_workspace_label", {"true"}},
-                                  }
-                              ),
-                              true, "settings.widgets.settings.focused-output-only.taskbar-description"
+                              "taskbar.workspace-labels", groupedOnly(), true,
+                              "settings.widgets.settings.focused-output-only.taskbar-description"
                           ),
                       }
                   ),

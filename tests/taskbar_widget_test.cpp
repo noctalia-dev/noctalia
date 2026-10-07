@@ -52,6 +52,28 @@ public:
     };
   }
 
+  static std::string displayTitle(std::string title, std::string displayName, std::string appId) {
+    const TaskbarWidget::TaskModel task{
+        .appId = std::move(appId),
+        .title = std::move(title),
+        .displayName = std::move(displayName),
+    };
+    return TaskbarWidget::displayTitle(task);
+  }
+
+  static std::pair<bool, bool> compareDisplayNames(std::string previousName, std::string nextName) {
+    const TaskbarWidget::TaskModel previous{
+        .handleKey = 11,
+        .displayName = std::move(previousName),
+    };
+    const TaskbarWidget::TaskModel next{
+        .handleKey = 11,
+        .displayName = std::move(nextName),
+    };
+    const auto comparison = TaskbarWidget::compareModels(false, {previous}, {}, {next}, {});
+    return {comparison.layoutEqual, comparison.titlesChanged};
+  }
+
   static std::string bindingWindowId(std::string workspaceWindowId, std::string exactId) {
     return std::string(
         TaskbarWidget::workspaceBindingWindowId(
@@ -108,6 +130,16 @@ int main() {
   TEST_CHECK(TaskbarWidgetTestAccess::resolvedTitle(tasks, 0, 7, 7) == std::optional<std::string>("retitled"));
   TEST_CHECK(!TaskbarWidgetTestAccess::resolvedTitle(tasks, 2, 7, 7).has_value());
   TEST_CHECK(!TaskbarWidgetTestAccess::resolvedTitle(tasks, 0, 7, 8).has_value());
+
+  // A window with a blank title shows its desktop entry name, or the app id when no entry matches.
+  TEST_CHECK(TaskbarWidgetTestAccess::displayTitle("Document", "Editor", "org.example.editor") == "Document");
+  TEST_CHECK(TaskbarWidgetTestAccess::displayTitle("", "Editor", "org.example.editor") == "Editor");
+  TEST_CHECK(TaskbarWidgetTestAccess::displayTitle(" ", "Editor", "org.example.editor") == "Editor");
+  TEST_CHECK(TaskbarWidgetTestAccess::displayTitle("", "", "org.example.editor") == "org.example.editor");
+  TEST_CHECK(TaskbarWidgetTestAccess::displayTitle("", "", "").empty());
+  // A display name change patches the retained label like a title change.
+  TEST_CHECK(TaskbarWidgetTestAccess::compareDisplayNames("Editor", "Editor (Beta)") == std::pair(true, true));
+  TEST_CHECK(TaskbarWidgetTestAccess::compareDisplayNames("Editor", "Editor") == std::pair(true, false));
 
   // Workspace placement can be rebound while the authoritative exact identity
   // remains intact for focus/close actions.

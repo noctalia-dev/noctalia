@@ -262,7 +262,46 @@ int main() {
                )
                && writeText(modulePluginDir / "modules/lazy.luau", "return 'lazy'\n")
                && writeText(modulePluginDir / "modules/cycle_a.luau", "return require('./cycle_b.luau')\n")
-               && writeText(modulePluginDir / "modules/cycle_b.luau", "return require('./cycle_a.luau')\n"),
+               && writeText(modulePluginDir / "modules/cycle_b.luau", "return require('./cycle_a.luau')\n")
+               // Mentions _G: its _G is the writable module env, so the env stays unsafe
+               // and a builtin shadowed through _G must stay visible to global reads.
+               && writeText(
+                   modulePluginDir / "modules/gated.luau",
+                   "local realPairs = pairs\n"
+                   "_G.pairs = function(t)\n"
+                   "  return realPairs(t)\n"
+                   "end\n"
+                   // Read through the global before touching getfenv: that call clears the
+                   // env's safe flag, which would mask a stale cached read.
+                   "local shadowVisible = pairs == _G.pairs\n"
+                   "local sameEnv = _G == getfenv(1)\n"
+                   "local M = { sameEnv = sameEnv, shadowVisible = shadowVisible }\n"
+                   "return M\n"
+               )
+               // No _G token anywhere: the env is cacheable, so the loader must install it as
+               // the thread globals for the load and mark it safe to keep Luau's fast paths.
+               // SAMPLE_GAP contains _G without naming it, so a substring match instead of a
+               // token match would drop this module onto the slow path and the timing below
+               // would catch it.
+               && writeText(
+                   modulePluginDir / "modules/ungated.luau",
+                   "local M = {}\n"
+                   "local SAMPLE_GAP = 4\n"
+                   "local buf = buffer.create(65536)\n"
+                   "function M.pass()\n"
+                   "  local o = 0\n"
+                   "  local acc = 0.0\n"
+                   "  while o < 65536 do\n"
+                   "    buffer.writef32(buf, o, buffer.readf32(buf, o) * 1.0000001)\n"
+                   "    buffer.writef32(buf, o + 4, buffer.readf32(buf, o + 4) * 1.0000001)\n"
+                   "    buffer.writef32(buf, o + 8, buffer.readf32(buf, o + 8) * 1.0000001)\n"
+                   "    buffer.writef32(buf, o + 12, buffer.readf32(buf, o + 12) * 1.0000001)\n"
+                   "    o += SAMPLE_GAP + 12\n"
+                   "  end\n"
+                   "  return acc\n"
+                   "end\n"
+                   "return M\n"
+               ),
            "failed to create require test modules"
        )
       && ok;
@@ -412,6 +451,89 @@ int main() {
          )
         && ok;
     runtime.unsubscribe(subscription);
+  }
+
+  {
+    // A module keeps Luau's fast global paths. The loader installs the module env as the
+    // thread globals for the load and marks it safe, so the chunk resolves global reads and
+    // builtin calls from the load-time cache instead of a metatable lookup per access. The
+    // same loop is timed in the entry chunk and in the module and the ratio decides, since
+    // both paths compute the same thing: without the fast path a module loop runs several
+    // times slower than the entry chunk (about 7x in this host) and at the same speed with
+    // it (about 1.0x). Scheduler noise inflates both sides, so each side takes its best of
+    // three rounds.
+    scripting::ScriptRuntime runtime("test/require-speed:service", {}, api, modulePluginDir);
+    runtime.start(
+        (modulePluginDir / "speed-main.luau").string(),
+        "local gated = require('./modules/gated.luau')\n"
+        "local fast = require('./modules/ungated.luau')\n"
+        "noctalia.state.set('module_G_is_env', gated.sameEnv)\n"
+        "noctalia.state.set('module_G_shadow_visible', gated.shadowVisible)\n"
+        "local buf = buffer.create(65536)\n"
+        "local function pass()\n"
+        "  local o = 0\n"
+        "  local acc = 0.0\n"
+        "  while o < 65536 do\n"
+        "    buffer.writef32(buf, o, buffer.readf32(buf, o) * 1.0000001)\n"
+        "    buffer.writef32(buf, o + 4, buffer.readf32(buf, o + 4) * 1.0000001)\n"
+        "    buffer.writef32(buf, o + 8, buffer.readf32(buf, o + 8) * 1.0000001)\n"
+        "    buffer.writef32(buf, o + 12, buffer.readf32(buf, o + 12) * 1.0000001)\n"
+        "    o += 16\n"
+        "  end\n"
+        "  return acc\n"
+        "end\n"
+        // Size the work against this machine so the chunk stays well inside its CPU budget
+        // and a module on the slow path still finishes the script: the ratio, not the
+        // absolute time, is what the test checks.
+        "local calibrateAt = os.clock()\n"
+        "pass()\n"
+        "local perPass = math.max(os.clock() - calibrateAt, 1e-9)\n"
+        "local passes = math.clamp(math.floor(0.004 / perPass), 1, 200)\n"
+        "local entryBest, moduleBest = 1e9, 1e9\n"
+        "local agree = true\n"
+        "for _ = 1, 3 do\n"
+        "  local entryAt = os.clock()\n"
+        "  local entry = 0.0\n"
+        "  for _ = 1, passes do entry += pass() end\n"
+        "  entryBest = math.min(entryBest, os.clock() - entryAt)\n"
+        "  local moduleAt = os.clock()\n"
+        "  local module = 0.0\n"
+        "  for _ = 1, passes do module += fast.pass() end\n"
+        "  moduleBest = math.min(moduleBest, os.clock() - moduleAt)\n"
+        "  agree = agree and entry == module\n"
+        "end\n"
+        "noctalia.state.set('speed_loops_agree', agree)\n"
+        "noctalia.state.set('speed_ratio', moduleBest / entryBest)\n",
+        {}
+    );
+    ok = expect(
+             drainUntil([&] { return waitForState("test/require-speed", "speed_ratio"); }),
+             "the module speed script did not finish"
+         )
+        && ok;
+    const auto speedState = [](std::string_view key) {
+      return scripting::PluginStateStore::instance().get("test/require-speed", std::string(key));
+    };
+    ok = expect(speedState("module_G_is_env") == "true", "inside a module _G must still be the module environment")
+        && ok;
+    ok = expect(
+             speedState("module_G_shadow_visible") == "true",
+             "a module that mentions _G lost the documented env semantics"
+         )
+        && ok;
+    ok = expect(speedState("speed_loops_agree") == "true", "the module loop computed a different result") && ok;
+    double ratio = 0.0;
+    if (const auto raw = speedState("speed_ratio"); raw.has_value()) {
+      try {
+        ratio = std::stod(*raw);
+      } catch (const std::exception&) {
+        ratio = 0.0;
+      }
+    }
+    const std::string speedMessage =
+        "a required module paid a metatable lookup per global read: module/entry speed ratio was "
+        + std::to_string(ratio);
+    ok = expect(ratio > 0.0 && ratio < 2.5, speedMessage.c_str()) && ok;
   }
 
   {

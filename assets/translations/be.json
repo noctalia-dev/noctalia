@@ -27,6 +27,22 @@
     }
   },
   "bar": {
+    "annotate": {
+      "color-black": "Чорны",
+      "color-blue": "Сіні",
+      "color-green": "Зялёны",
+      "color-orange": "Аранжавы",
+      "color-purple": "Фіялетавы",
+      "color-red": "Чырвоны",
+      "color-white": "Белы",
+      "color-yellow": "Жоўты",
+      "redo": "Узнавіць (Ctrl+Shift+Z)",
+      "size-large": "Вялікі",
+      "size-medium": "Сярэдні",
+      "size-small": "Малы",
+      "tool-text": "Тэкст (t)",
+      "undo": "Адрабіць (Ctrl+Z)"
+    },
     "screenshot": {
       "choose-display": "Выбраць дысплэй",
       "confirm-region": "{copy} для капіравання · {save} для захавання · Увод або Прабел для скіду · {cancel} для скасавання · Перацягванне для змены вобласці",
@@ -73,8 +89,10 @@
         "not-connected": "Не падлучана",
         "off": "Выкл",
         "on": "Укл",
+        "operator": "Аператар",
         "scanning": "Ідзе сканіраванне",
         "signal": "Сігнал",
+        "technology": "Тэхналогія",
         "upload": "Запампоўка",
         "vpn": "VPN",
         "wan-ip": "WAN IP",
@@ -93,6 +111,7 @@
       },
       "sysmon": {
         "cpu": "ЦП",
+        "cpu-freq": "Частата ЦП",
         "cpu-temp": "Тэмпература ЦП",
         "disk": "Дыск",
         "disk-free": "Свабодна",
@@ -121,6 +140,7 @@
         "off": "Надвор'е выключана",
         "tooltip": {
           "condition": "Стан",
+          "feels-like": "Адчуваецца як",
           "high": "Высок",
           "humidity": "Вільготнасць",
           "low": "Нізк",
@@ -257,7 +277,6 @@
       "uptime": "Час працы – {uptime}",
       "weather": {
         "data-unavailable": "Дадзеныя аб надвор'і недаступныя.",
-        "disabled": "Надвор'е выключана ў файле канфігурацыі.",
         "fetching": "Загрузка прагнозу…"
       }
     },
@@ -269,6 +288,14 @@
     },
     "network": {
       "available": "Даступна",
+      "cellular-connected": "Падлучана",
+      "cellular-connecting": "Падлучэнне…",
+      "cellular-enabling": "Уключэнне…",
+      "cellular-failed": "Не ўдалося",
+      "cellular-locked": "SIM-карта заблакаваная",
+      "cellular-no-service": "Няма абслугоўвання",
+      "cellular-off": "Выкл",
+      "cellular-searching": "Пошук…",
       "connect": "Злучыцца",
       "current-connection": "Бягучае злучэнне",
       "external-ip": "WAN {ip}",
@@ -422,6 +449,7 @@
       "data-unavailable": "Дадзеныя аб надвор'і недаступныя",
       "details": {
         "elevation": "Уздым",
+        "feels-like": "Адчуваецца як",
         "sunrise": "Узыход сонца",
         "sunset": "Захад сонца",
         "temp-max": "Максімальная тэмпература",
@@ -673,6 +701,7 @@
       "unpin-from-dock": "Адмацаваць ад дока"
     },
     "empty": {
+      "loading": "Загрузка вынікаў…",
       "no-results": "Вынікаў не знойдзена",
       "type-to-search": "Пачніце ўвод для пошуку…"
     },
@@ -693,6 +722,18 @@
       },
       "emoji": {
         "title": "Эмодзі"
+      },
+      "panel": {
+        "builtin": {
+          "clipboard": "Буфер абмену",
+          "control-center": "Цэнтр кіравання",
+          "launcher": "Праграма запуску",
+          "polkit": "Запыт аўтэнтыфікацыі",
+          "session": "Сесія",
+          "setup-wizard": "Майстар налады",
+          "wallpaper": "Шпалеры"
+        },
+        "title": "Панэлі"
       },
       "session": {
         "action-subtitle": "Выканаць дзеянне сеанса",
@@ -745,7 +786,7 @@
     },
     "internal": {
       "battery": "Батарэя",
-      "battery-critical-body": "{device}: {percent}% - ваш камп'ютар хутка выключыцца",
+      "battery-critical-body": "{device}: {percent}%; ваш камп'ютар хутка выключыцца",
       "battery-critical-title": "Крытычна нізкі зарад батарэі",
       "battery-device": "Прылада з батарэяй",
       "battery-low-body": "{device}: засталося {percent}%",
@@ -945,7 +986,8 @@
       "secret-service-unavailable": "Няма пастаўшчыкоў сэрвісу сакрэтаў. Запусціце пастаўшчыка, які падтрымліваецца, і паспрабуйце зноў.",
       "server-url-label": "URL-адрас сервера",
       "username-label": "Імя карыстальніка",
-      "username-placeholder": "imia@prykład.by"
+      "username-placeholder": "imia@prykład.by",
+      "vdir-path-label": "Шлях да каталога"
     },
     "controls": {
       "keybind": {
@@ -1196,7 +1238,6 @@
         "borders": "Краі",
         "brightness": "Яркасць",
         "built-in": "Убудавана",
-        "calendar": "Каляндар",
         "capsules": "Капсулы",
         "clipboard": "Буфер абмену",
         "community": "Супольнасць",
@@ -1395,9 +1436,9 @@
       },
       "plugins": {
         "auto-update": {
-          "all": "Усе крыніцы",
+          "all": "Усе",
           "none": "Нічога",
-          "official": "Толькі афіцыйныя"
+          "official": "Афіцыйныя"
         }
       },
       "screen-position": {
@@ -1445,7 +1486,7 @@
         "source": {
           "built-in": "Убудаваныя",
           "community": "Супольныя",
-          "custom": "Карыстацкiя",
+          "custom": "Карыстальніцкiя",
           "wallpaper": "Шпалеры"
         }
       },
@@ -1663,7 +1704,7 @@
           "label": "Абсалютны чорны"
         },
         "theme-mode": {
-          "description": "Выбярыце паміж цёмны, светлы, або аўтаматычны рэжым",
+          "description": "Выбярыце цёмны, светлы, або аўтаматычны рэжым у залежнасці ад часу сутак; таксама датычыцца праграм праз шаблоны",
           "label": "Рэжым"
         },
         "ui-scale": {
@@ -1746,20 +1787,334 @@
           "description": "Перавызначае колеры віджэтаў на гэтай панэлі; таксама падтрымліваюцца фіксаваныя колеры HEX"
         }
       },
+      "desktop": {
+        "hot-corners-bottom-left-command": {
+          "label": "Каманда"
+        },
+        "hot-corners-bottom-right-command": {
+          "label": "Каманда"
+        },
+        "hot-corners-top-left-command": {
+          "label": "Каманда"
+        },
+        "hot-corners-top-right-command": {
+          "label": "Каманда"
+        }
+      },
+      "dock": {
+        "icon-size": {
+          "label": "Памер значка"
+        }
+      },
+      "keybinds": {
+        "delete": {
+          "label": "Выдаліць"
+        },
+        "save": {
+          "label": "Захаваць"
+        },
+        "validate": {
+          "label": "Пацвердзіць"
+        }
+      },
+      "lockscreen": {
+        "monitors": {
+          "label": "Маніторы"
+        },
+        "wallpaper": {
+          "label": "Шпалеры"
+        }
+      },
+      "notifications": {
+        "border": {
+          "label": "Мяжа"
+        },
+        "monitors": {
+          "label": "Маніторы"
+        },
+        "scale": {
+          "label": "Памер"
+        }
+      },
+      "panels": {
+        "control-center-sidebar": {
+          "label": "Бакавая панэль"
+        },
+        "open-near-click-control-center": {
+          "label": "Уздоўж панэлі"
+        },
+        "open-near-click-launcher": {
+          "label": "Уздоўж панэлі"
+        },
+        "open-near-click-session": {
+          "label": "Уздоўж панэлі"
+        },
+        "open-near-click-wallpaper": {
+          "label": "Уздоўж панэлі"
+        },
+        "placement-clipboard": {
+          "label": "Размяшчэнне"
+        },
+        "placement-control-center": {
+          "label": "Размяшчэнне"
+        },
+        "placement-launcher": {
+          "label": "Размяшчэнне"
+        },
+        "placement-polkit": {
+          "label": "Размяшчэнне"
+        },
+        "placement-session": {
+          "label": "Размяшчэнне"
+        },
+        "placement-wallpaper": {
+          "label": "Размяшчэнне"
+        },
+        "position-clipboard": {
+          "label": "Пазіцыя"
+        },
+        "position-control-center": {
+          "label": "Пазіцыя"
+        },
+        "position-launcher": {
+          "label": "Пазіцыя"
+        },
+        "position-polkit": {
+          "label": "Пазіцыя"
+        },
+        "position-session": {
+          "label": "Пазіцыя"
+        },
+        "position-wallpaper": {
+          "label": "Пазіцыя"
+        },
+        "transparency-mode": {
+          "label": "Празрыстасць"
+        }
+      },
+      "power": {
+        "session-grid-columns": {
+          "label": "Калонкі"
+        }
+      },
+      "services": {
+        "calendar": {
+          "label": "Календар"
+        },
+        "location-address": {
+          "label": "Адрас",
+          "placeholder": "Горад, краіна"
+        },
+        "night-light": {
+          "label": "Начное святло"
+        },
+        "notification-sound": {
+          "placeholder": "/path/to/sound.wav"
+        },
+        "sunrise": {
+          "label": "Усход"
+        },
+        "sunset": {
+          "label": "Захад"
+        },
+        "system-monitor": {
+          "stats": {
+            "cpu-freq": "Частата ЦП",
+            "cpu-temp": "Тэмпература ЦП",
+            "cpu-usage": "Выкарыстанне ЦП"
+          },
+          "threshold": {
+            "label": "{stat}"
+          }
+        },
+        "volume-change-sound": {
+          "placeholder": "/path/to/sound.wav"
+        },
+        "weather": {
+          "label": "Надвор'е"
+        },
+        "weather-unit": {
+          "label": "Адзінкі"
+        }
+      },
+      "shared": {
+        "position": {
+          "label": "Пазіцыя"
+        },
+        "shadow": {
+          "label": "Цень"
+        }
+      },
       "shell": {
+        "avatar-path": {
+          "placeholder": "/path/to/avatar.png"
+        },
+        "date-format": {
+          "label": "Фармат даты"
+        },
+        "launch-apps-custom-command": {
+          "placeholder": "$CMD"
+        },
+        "osd-border": {
+          "label": "Мяжа"
+        },
+        "osd-enabled": {
+          "label": "Уключыць OSD"
+        },
+        "osd-kinds-bluetooth": {
+          "label": "Bluetooth"
+        },
+        "osd-kinds-brightness": {
+          "label": "Яркасць"
+        },
+        "osd-kinds-caffeine": {
+          "label": "Caffeine"
+        },
         "osd-kinds-dnd": {
           "description": "Паказваць усплывальнае акно OSD пры пераключэнні рэжыму «Не турбаваць»",
           "label": "Не турбаваць"
         },
+        "osd-kinds-keyboard-backlight": {
+          "label": "Падсветка клавіятуры"
+        },
+        "osd-kinds-keyboard-layout": {
+          "label": "Раскладка клавіятуры"
+        },
+        "osd-kinds-lock-keys": {
+          "label": "Клавішы блакіроўкі"
+        },
+        "osd-kinds-media": {
+          "label": "Зараз прайграваецца"
+        },
+        "osd-kinds-nightlight": {
+          "label": "Начное святло"
+        },
+        "osd-kinds-power-profile": {
+          "label": "Профіль сілкавання"
+        },
+        "osd-kinds-privacy": {
+          "label": "Прыватнасць"
+        },
+        "osd-kinds-volume": {
+          "label": "Гучнасць"
+        },
+        "osd-kinds-volume-input": {
+          "label": "Уваходная гучнасць"
+        },
+        "osd-kinds-volume-output": {
+          "label": "Выхадная гучнасць"
+        },
+        "osd-kinds-wifi": {
+          "label": "Wi-Fi"
+        },
+        "osd-monitors": {
+          "label": "Маніторы"
+        },
+        "osd-orientation": {
+          "label": "Арыентацыя"
+        },
+        "osd-position": {
+          "label": "Пазіцыя экрана"
+        },
+        "osd-position-vertical": {
+          "label": "Вертыкальная пазіцыя"
+        },
+        "osd-scale": {
+          "label": "Маштаб"
+        },
         "polkit-agent": {
           "description": "Уключыць убудаваны агент аўтэнтыфікацыі"
+        },
+        "screen-time-reset": {
+          "button": "Скінуць"
+        },
+        "screenshot-save-to-file": {
+          "label": "Захаваць у файл"
+        },
+        "time-format": {
+          "label": "Фармат часу"
+        }
+      },
+      "wallpaper": {
+        "automation-order": {
+          "label": "Парадак"
+        },
+        "directory-dark": {
+          "placeholder": "~/Pictures/Wallpapers"
+        },
+        "directory-light": {
+          "placeholder": "~/Pictures/Wallpapers"
+        },
+        "monitor-directory-dark": {
+          "placeholder": "~/Pictures/Wallpapers"
+        },
+        "monitor-directory-light": {
+          "placeholder": "~/Pictures/Wallpapers"
         }
       }
     },
+    "templates": {
+      "store": {
+        "category-all": "Усе",
+        "filter-all": "Усе"
+      }
+    },
     "widgets": {
+      "actions": {
+        "commands": {
+          "dpms-off": {
+            "description": "Выключыць маніторы",
+            "label": "Выключыць маніторы"
+          },
+          "dpms-on": {
+            "description": "Уключыць маніторы",
+            "label": "Уключыць маніторы"
+          },
+          "osd-disable": {
+            "label": "Адключыць OSD"
+          },
+          "osd-enable": {
+            "label": "Уключыць OSD"
+          },
+          "osd-toggle": {
+            "label": "Пераключыць OSD"
+          },
+          "power-set": {
+            "label": "Задаць профіль сілкавання"
+          }
+        }
+      },
+      "instances": {
+        "cpu": "ЦП",
+        "date": "Дата",
+        "temp": "Тэмпература"
+      },
+      "map-placeholders": {
+        "key": "Ключ",
+        "value": "Значэнне"
+      },
+      "options": {
+        "after": "Пасля",
+        "always": "Заўсёды",
+        "before": "Перад",
+        "count": "Колькасць",
+        "cpu-freq": "Частата ЦП",
+        "cpu-temp": "Тэмпература ЦП",
+        "cpu-usage": "Выкарыстанне ЦП",
+        "kilobytes": "КБ/с",
+        "megabytes": "МБ/с",
+        "name": "Назва",
+        "text": "Тэкст",
+        "text-only": "Толькі тэкст",
+        "time": "Час",
+        "workspace-label-corner": "Кут"
+      },
       "settings": {
         "active-color": {
           "description": "Колер актыўных індыкатараў прыватнасці; таксама падтрымліваюцца фіксаваныя колеры HEX"
+        },
+        "anchor": {
+          "label": "Якар"
         },
         "capsule-border": {
           "description": "Колер абрысу капсулы; таксама падтрымліваюцца фіксаваныя колеры HEX"
@@ -1771,7 +2126,20 @@
           "description": "Колер змесціва ўнутры капсулы; таксама падтрымліваюцца фіксаваныя колеры HEX"
         },
         "color": {
-          "description": "Колер значка і загалоўка гэтага віджэта; таксама падтрымліваюцца фіксаваныя колеры HEX"
+          "description": "Колер значка і загалоўка гэтага віджэта; таксама падтрымліваюцца фіксаваныя колеры HEX",
+          "label": "Колер"
+        },
+        "color-1": {
+          "label": "Колер 1"
+        },
+        "color-2": {
+          "label": "Колер 2"
+        },
+        "device": {
+          "label": "Прылада"
+        },
+        "display": {
+          "label": "Дысплэй"
         },
         "empty-color": {
           "description": "Колер пустых прастор; таксама падтрымліваюцца фіксаваныя колеры HEX"
@@ -1779,19 +2147,180 @@
         "focused-color": {
           "description": "Колер сфакусаванай прасторы; таксама падтрымліваюцца фіксаваныя колеры HEX"
         },
+        "format": {
+          "label": "Фармат"
+        },
+        "height": {
+          "label": "Вышыня"
+        },
         "icon-color": {
           "description": "Перавызначае колер віджэта толькі для значкоў; таксама падтрымліваюцца фіксаваныя колеры HEX"
         },
         "inactive-color": {
           "description": "Колер неактыўных індыкатараў прыватнасці; таксама падтрымліваюцца фіксаваныя колеры HEX"
         },
+        "label": {
+          "label": "Подпіс"
+        },
+        "length": {
+          "label": "Даўжыня"
+        },
         "mute-color": {
           "description": "Колер значка і загалоўка пры заглушэнні; таксама падтрымліваюцца фіксаваныя колеры HEX"
         },
         "occupied-color": {
           "description": "Колер занятых прастор; таксама падтрымліваюцца фіксаваныя колеры HEX"
+        },
+        "path": {
+          "label": "Шлях"
+        },
+        "script": {
+          "label": "Сцэнарый"
+        },
+        "style": {
+          "label": "Стыль"
+        },
+        "text": {
+          "label": "Тэкст"
+        },
+        "timezone": {
+          "label": "Часавы пояс"
+        },
+        "tooltip": {
+          "label": "Падказка"
+        },
+        "type": {
+          "label": "Тып"
+        },
+        "width": {
+          "label": "Шырыня"
         }
+      },
+      "types": {
+        "power-profile": "Профіль сілкавання"
+      }
+    },
+    "window": {
+      "title": "Налады"
+    }
+  },
+  "setup-wizard": {
+    "get-started": "Пачаць",
+    "mode": "Рэжым",
+    "wallpaper": "Шпалеры"
+  },
+  "system": {
+    "hardware": {
+      "unknown-cpu": "Невядомы ЦП"
+    }
+  },
+  "time": {
+    "duration": {
+      "three-parts": "{first} {second} {third}",
+      "two-parts": "{first} {second}"
+    },
+    "relative": {
+      "days-ago": "{count} дзень таму",
+      "days-ago-plural": "{count} дзён таму",
+      "hours-ago": "{count} гадз. таму",
+      "hours-ago-plural": "{count} гадз. таму",
+      "just-now": "толькі што",
+      "minutes-ago": "{count} хв. таму",
+      "minutes-ago-plural": "{count} хв. таму"
+    },
+    "units": {
+      "day": "{count} дзень",
+      "day-plural": "{count} дзён",
+      "hour": "{count} гадзіна",
+      "hour-compact": "{count} г.",
+      "hour-plural": "{count} гадзін",
+      "minute": "{count} хвіліна",
+      "minute-compact": "{count} хв.",
+      "minute-plural": "{count} хвілін",
+      "month": "{count} месяц",
+      "month-plural": "{count} месяцаў",
+      "year": "{count} год",
+      "year-plural": "{count} гадоў"
+    }
+  },
+  "ui": {
+    "controls": {
+      "search-picker": {
+        "empty": "Няма вынікаў",
+        "placeholder": "Пошук…"
+      }
+    },
+    "dialogs": {
+      "color-picker": {
+        "title": "Колер"
+      },
+      "file": {
+        "actions": {
+          "open": "Адкрыць",
+          "save": "Захаваць",
+          "select-folder": "Выбраць папку"
+        },
+        "entry": {
+          "folder": "Папка"
+        },
+        "filename-placeholder": "Назва файла",
+        "filter-placeholder": "Фільтр…",
+        "sort": {
+          "ascending": "↑",
+          "date": "Дата",
+          "descending": "↓",
+          "name": "Назва",
+          "size": "Памер"
+        },
+        "title": {
+          "open": "Адкрыць файл",
+          "save": "Захаваць файл",
+          "select-folder": "Выбраць папку"
+        }
+      },
+      "glyph-picker": {
+        "all-categories": "Усе"
       }
     }
+  },
+  "wallpaper": {
+    "panel": {
+      "all-monitors": "УСЕ",
+      "filter-placeholder": "Фільтр…",
+      "title": "Шпалеры"
+    }
+  },
+  "weather": {
+    "conditions": {
+      "full": {
+        "clear-sky": "Яснае неба",
+        "drizzle": "Імжа",
+        "fog": "Туман",
+        "mainly-clear": "Пераважна ясна",
+        "overcast": "Пахмурна",
+        "partly-cloudy": "Пераменная воблачнасць",
+        "rain-showers": "Дажджы",
+        "snow": "Снег",
+        "snow-showers": "Мокры снег",
+        "thunderstorm": "Навальніца",
+        "unknown": "Невядома"
+      },
+      "short": {
+        "clear": "Ясна",
+        "cloudy": "Воблачна",
+        "drizzle": "Імжа",
+        "fog": "Туман",
+        "mostly-clear": "Пераважна ясна",
+        "overcast": "Пахмурна",
+        "showers": "Ліўні",
+        "snow": "Снег",
+        "snow-showers": "Мокры снег",
+        "storm": "Шторм",
+        "weather": "Надвор'е"
+      }
+    }
+  },
+  "window-switcher": {
+    "title": "Вокны"
   }
 }

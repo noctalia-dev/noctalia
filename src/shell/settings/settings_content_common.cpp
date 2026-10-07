@@ -98,6 +98,9 @@ namespace settings {
     if (key == "background_opacity") {
       return override->backgroundOpacity.has_value();
     }
+    if (key == "compositor_blur") {
+      return override->compositorBlur.has_value();
+    }
     if (key == "border") {
       return override->border.has_value();
     }
@@ -121,6 +124,9 @@ namespace settings {
     }
     if (key == "capsule_border") {
       return override->widgetCapsuleBorderSpecified;
+    }
+    if (key == "capsule_border_width") {
+      return override->widgetCapsuleBorderWidth.has_value();
     }
     if (key == "capsule_foreground") {
       return override->widgetCapsuleForeground.has_value();
@@ -315,9 +321,10 @@ namespace settings {
     case SettingsSection::Templates:
     case SettingsSection::Launcher:
     case SettingsSection::Security:
-    case SettingsSection::Services:
     case SettingsSection::Location:
+    case SettingsSection::Calendar:
       return true;
+    case SettingsSection::Services:
     case SettingsSection::Wallpaper:
     case SettingsSection::Desktop:
     case SettingsSection::Dock:
@@ -350,10 +357,11 @@ namespace settings {
       return i18n::tr("settings.window.offline-mode-notice.launcher");
     case SettingsSection::Security:
       return i18n::tr("settings.window.offline-mode-notice.security");
-    case SettingsSection::Services:
-      return i18n::tr("settings.window.offline-mode-notice.services");
+    case SettingsSection::Calendar:
+      return i18n::tr("settings.window.offline-mode-notice.calendar");
     case SettingsSection::Location:
       return i18n::tr("settings.window.offline-mode-notice.location");
+    case SettingsSection::Services:
     case SettingsSection::Wallpaper:
     case SettingsSection::Desktop:
     case SettingsSection::Dock:

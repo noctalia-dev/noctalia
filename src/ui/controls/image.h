@@ -45,6 +45,9 @@ public:
 
   bool setSourceFile(Renderer& renderer, const std::string& path, int targetSize = 0, bool mipmap = false);
   bool setSourceFile(Renderer& renderer, const std::string& path, int targetSize, bool mipmap, bool centerSquareCrop);
+  bool setSourceFileBlurred(
+      Renderer& renderer, const std::string& path, int targetSize, int blurRadius, bool mipmap = false
+  );
   bool reloadSourceFile(
       Renderer& renderer, const std::string& path, int targetSize = 0, bool mipmap = false,
       bool centerSquareCrop = false
@@ -98,6 +101,9 @@ private:
   void rebakeColorizedTexture();
   void reloadColorizedSource();
   void reloadUncolorizedSource();
+  bool setSourceFileImpl(
+      Renderer& renderer, const std::string& path, int targetSize, bool mipmap, bool centerSquareCrop, int blurRadius
+  );
 
   ImageNode* m_image = nullptr;
   TextureHandle m_texture{};
@@ -107,6 +113,7 @@ private:
   int m_sourceTargetSize = 0;
   bool m_sourceMipmap = false;
   bool m_sourceCenterSquareCrop = false;
+  int m_sourceBlurRadius = 0;
   std::vector<std::uint8_t> m_ownedSourceRgba;
   int m_ownedSourceRgbaWidth = 0;
   int m_ownedSourceRgbaHeight = 0;

@@ -14,7 +14,19 @@ fail() {
 }
 
 work_dir=$(mktemp -d)
-trap 'rm -rf "$work_dir"' EXIT
+# ghostty/reload.sh hands the pgrep result to bash's `kill` builtin, which no PATH stub
+# can intercept, so the stub must name a process this test owns. Ignore SIGUSR2 before
+# forking so the child cannot receive it before installing a handler.
+trap '' USR2
+sleep 300 &
+signal_target=$!
+trap - USR2
+cleanup() {
+  kill "$signal_target" 2>/dev/null || true
+  wait "$signal_target" 2>/dev/null || true
+  rm -rf "$work_dir"
+}
+trap cleanup EXIT
 
 stub_dir="$work_dir/bin"
 mkdir -p "$stub_dir"
@@ -32,9 +44,9 @@ done
 
 # The guards in front of a reload must not decide the outcome: report every client as
 # running, in a mode that accepts the reload.
-cat >"$stub_dir/pgrep" <<'EOF'
+cat >"$stub_dir/pgrep" <<EOF
 #!/bin/sh
-echo "4242 $*"
+echo "$signal_target \$*"
 exit 0
 EOF
 chmod +x "$stub_dir/pgrep"

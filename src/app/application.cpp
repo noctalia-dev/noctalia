@@ -201,6 +201,10 @@ void Application::run(std::function<void()> startupReadyCallback) {
   initLogFile();
   initLogLevelFromEnvironment();
   kLog.info("noctalia {}", noctalia::build_info::displayVersion());
+  // Claim the tray watcher name first. The tray UI itself is wired up later.
+  // Item callbacks run from deferred work on the main loop, after the shell
+  // is initialized.
+  initEarlySessionBusAndTray();
   runStartupPhase("initServices", [this]() { initServices(); });
   runStartupPhase("initPlugins", [this]() {
     // Configure the plugin registry from [plugins] before any UI consumes it, and
@@ -276,7 +280,6 @@ void Application::run(std::function<void()> startupReadyCallback) {
   });
 #endif
 
-  m_trayInitTimer.start(std::chrono::milliseconds(500), [this]() { startTrayService(); });
   m_polkitInitTimer.start(std::chrono::milliseconds(1000), [this]() { syncPolkitAgent(); });
 
   m_mainLoop = std::make_unique<MainLoop>(m_wayland, m_bar, [this]() { return currentPollSources(); });

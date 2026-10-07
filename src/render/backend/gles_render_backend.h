@@ -11,6 +11,7 @@
 #include "render/programs/glyph_program.h"
 #include "render/programs/graph_program.h"
 #include "render/programs/image_program.h"
+#include "render/programs/lockscreen_transition_program.h"
 #include "render/programs/rect_program.h"
 #include "render/programs/screen_corner_program.h"
 #include "render/programs/spinner_program.h"
@@ -87,6 +88,7 @@ public:
   ) override;
   void drawWallpaper(const WallpaperDrawParams& params) override;
   void drawWallpaperMask(const WallpaperMaskDrawParams& params) override;
+  void drawLockscreenTransition(const LockscreenTransitionDrawParams& params) override;
   void drawFullscreenTexture(TextureId texture, bool flipY) override;
   void drawFullscreenTint(Color color) override;
   void drawFramebufferBlur(
@@ -132,6 +134,7 @@ private:
   GraphProgram m_graphProgram;
   WallpaperProgram m_wallpaperProgram;
   WallpaperMaskProgram m_wallpaperMaskProgram;
+  LockscreenTransitionProgram m_lockscreenTransitionProgram;
   BlurProgram m_blurProgram;
   ShaderProgram m_fullscreenTextureProgram;
   ShaderProgram m_fullscreenTintProgram;

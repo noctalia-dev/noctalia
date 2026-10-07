@@ -97,7 +97,7 @@ namespace settings {
     };
     const auto flushMatchFromInput = [&row, matchPtr]() -> bool {
       row.match = normalizeNotificationMatchToken(matchPtr->value());
-      if (row.match.empty()) {
+      if (row.match.empty() && row.matchContent.empty()) {
         matchPtr->setInvalid(true);
         return false;
       }
@@ -283,7 +283,8 @@ namespace settings {
             .glyph = "check",
             .fontSize = Style::fontSizeBody * scale,
             .glyphSize = Style::fontSizeBody * scale,
-            .enabled = !normalizeNotificationMatchToken(row.match).empty(),
+            .enabled =
+                !normalizeNotificationMatchToken(row.match).empty() || !StringUtils::trim(row.matchContent).empty(),
             .variant = ButtonVariant::Default,
             .minHeight = Style::controlHeight * scale,
             .paddingV = Style::spaceSm * scale,
@@ -302,9 +303,19 @@ namespace settings {
             },
         })
     );
-    matchPtr->setOnChange([matchPtr, applyButton](const std::string& text) {
+    const auto refreshApply = [matchPtr, matchContentPtr, applyButton]() {
+      applyButton->setEnabled(
+          !normalizeNotificationMatchToken(matchPtr->value()).empty()
+          || !StringUtils::trim(matchContentPtr->value()).empty()
+      );
+    };
+    matchPtr->setOnChange([matchPtr, refreshApply](const std::string& /*text*/) {
       matchPtr->setInvalid(false);
-      applyButton->setEnabled(!normalizeNotificationMatchToken(text).empty());
+      refreshApply();
+    });
+    matchContentPtr->setOnChange([matchPtr, refreshApply](const std::string& /*text*/) {
+      matchPtr->setInvalid(false);
+      refreshApply();
     });
     parent.addChild(std::move(actions));
   }

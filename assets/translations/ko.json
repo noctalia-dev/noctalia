@@ -27,7 +27,23 @@
     }
   },
   "bar": {
+    "annotate": {
+      "color-black": "검정",
+      "color-blue": "파랑",
+      "color-green": "초록",
+      "color-orange": "주황",
+      "color-purple": "보라",
+      "color-red": "빨강",
+      "color-white": "하양",
+      "color-yellow": "노랑",
+      "size-large": "큼",
+      "size-medium": "중간",
+      "size-small": "작음",
+      "tool-text": "텍스트 (t)",
+      "undo": "되돌리기 (Ctrl+Z)"
+    },
     "screenshot": {
+      "annotate-export-failed": "주석이 추가된 이미지를 생성하지 못했습니다",
       "choose-display": "디스플레이 선택",
       "confirm-region": "{copy}로 복사 · {save}로 저장 · Enter 또는 Space 기본값 · {cancel}로 취소 · 드래그로 재선택",
       "fullscreen": "전체 화면",
@@ -60,6 +76,7 @@
       "network": {
         "active": "활성",
         "band": "밴드",
+        "cellular": "셀룰러",
         "connected": "연결됨",
         "connecting": "연결 중",
         "download": "다운로드",
@@ -73,8 +90,10 @@
         "not-connected": "연결되지 않음",
         "off": "꺼짐",
         "on": "켜짐",
+        "operator": "네트워크 제공업체",
         "scanning": "검색 중",
         "signal": "신호",
+        "technology": "네트워크 방식",
         "upload": "업로드",
         "vpn": "VPN",
         "wan-ip": "WAN IP",
@@ -238,6 +257,7 @@
     "display": {
       "disabled": "비활성화됨",
       "no-displays": "사용 가능한 모니터 없음",
+      "rescan": "DDC/CI 모니터 재스캔",
       "unknown-resolution": "알 수 없는 해상도"
     },
     "home": {
@@ -258,7 +278,6 @@
       "uptime": "가동 시간 - {uptime}",
       "weather": {
         "data-unavailable": "날씨 데이터를 사용할 수 없습니다.",
-        "disabled": "설정에서 날씨가 비활성화되어 있습니다.",
         "fetching": "일기 예보 불러오는 중..."
       }
     },
@@ -269,9 +288,26 @@
       "start-playback": "MRPIS 앱에서 재생 시작"
     },
     "network": {
+      "anonymous-identity": "익명 식별자 (선택)",
       "available": "사용 가능",
+      "ca-certificate": "CA 인증서 경로 (선택)",
+      "cellular": "셀룰러",
+      "cellular-connected": "연결됨",
+      "cellular-connecting": "연결중...",
+      "cellular-connection": "셀룰러 연결",
+      "cellular-enabling": "켜기...",
+      "cellular-failed": "실패",
+      "cellular-locked": "SIM 잠김",
+      "cellular-no-service": "서비스 없음",
+      "cellular-off": "꺼짐",
+      "cellular-registered": "등록됨",
+      "cellular-searching": "검색중...",
       "connect": "연결",
       "current-connection": "현재 연결",
+      "domain-suffix-match": "서버 도메인 접미사",
+      "eap-method": "EAP 메서드",
+      "enterprise-prompt-for": "{ssid}로 로그인",
+      "error-missing-password": "비밀번호를 입력하세요.",
       "external-ip": "WAN {ip}",
       "no-networks": "범위 내에 네트워크 없음",
       "not-connected": "연결되지 않음",
@@ -744,7 +780,7 @@
     },
     "internal": {
       "battery": "배터리",
-      "battery-critical-body": "{device}: {percent}% – 컴퓨터가 곧 종료됩니다",
+      "battery-critical-body": "{device}: {percent}%, 컴퓨터가 곧 종료됩니다",
       "battery-critical-title": "배터리 매우 부족",
       "battery-device": "배터리 장치",
       "battery-low-body": "{device}: {percent}% 남음",
@@ -752,6 +788,8 @@
       "calendar": "캘린더",
       "calendar-credential-locked-body": "시크릿 서비스에서 사용하는 키링을 잠금 해제한 후 설정에서 다시 시도합니다. GNOME Keyring을 사용하는 경우 로그인과 같이 자동으로 잠금 해제되는 키링을 기본값으로 사용하세요.",
       "calendar-credential-locked-title": "캘린더 키링이 잠겨있습니다",
+      "calendar-digest-more": "+{count}개 더",
+      "calendar-digest-title": "오늘 하루 종일",
       "calendar-google-connect-browser-failed": "Google 인증을 위한 브라우저를 실행할 수 없습니다. 기본 브라우저 또는 xdg-open 설정을 확인하세요.",
       "calendar-google-connect-credential-store-failed": "갱신 토큰을 저장할 수 없습니다. Secret Service를 잠금 해제하거나 시작한 후 다시 시도하세요.",
       "calendar-google-connect-expired": "로그인을 완료하기 전에 Google 인증이 만료되었습니다. 다시 시도하세요.",
@@ -762,6 +800,9 @@
       "calendar-google-connect-start-failed": "Google 인증을 시작할 수 없습니다. 네트워크 연결을 확인하고 다시 시도하세요.",
       "calendar-google-connect-start-http": "Google 인증을 시작할 수 없습니다. OAuth 브로커가 HTTP {status}를 반환했습니다.",
       "calendar-google-connect-timeout": "Google 인증 시간이 초과되었습니다. 다시 시도하세요.",
+      "calendar-reminder-open": "열기",
+      "calendar-reminder-untitled": "제목 없는 이벤트",
+      "calendar-reminder-with-location": "{when}\n{location}",
       "config-migration-body": "소스 파일에서 {path}를 업데이트하세요.  Noctalia는 변경 사항을 일시적으로 적용하고 있습니다. noctalia config validate를 실행하여 필요한 변경 사항을 확인하세요",
       "config-migration-title": "설정 업데이트 필요",
       "dbus-disabled": "DBus 알림 비활성화됨",
@@ -931,7 +972,8 @@
         "custom": "CalDAV",
         "google": "Google",
         "icloud": "iCloud",
-        "ics": "ICS URL"
+        "ics": "ICS URL",
+        "vdir": "로컬 (vdir)"
       },
       "provider-label": "제공업체",
       "save": "저장",
@@ -944,7 +986,8 @@
       "secret-service-unavailable": "사용 가능한 Secret Service 제공자가 없습니다. 호환 가능한 제공자를 시작하고 다시 시도하세요.",
       "server-url-label": "서버 URL",
       "username-label": "사용자 이름",
-      "username-placeholder": "name@example.com"
+      "username-placeholder": "name@example.com",
+      "vdir-path-label": "디렉토리 경로"
     },
     "controls": {
       "keybind": {
@@ -985,6 +1028,7 @@
       },
       "monitor-override": {
         "create": "생성",
+        "custom": "사용자 지정",
         "delete": "삭제",
         "delete-confirm-desc": "GUI로 생성된 이 모니터 재정의가 settings.toml에서 제거됩니다.",
         "delete-confirm-title": "\"{name}\"을(를) 삭제하시겠습니까?",
@@ -1191,7 +1235,8 @@
         "borders": "테두리",
         "brightness": "밝기",
         "built-in": "기본 제공",
-        "calendar": "캘린더",
+        "calendar-accounts": "계정",
+        "calendar-reminders": "리마인더",
         "capsules": "캡슐",
         "clipboard": "클립보드",
         "community": "커뮤니티",
@@ -1240,6 +1285,8 @@
         "screen-corners": "화면 모서리",
         "screen-time": "스크린 타임",
         "screenshot": "스크린샷",
+        "screenshot-capture": "캡처",
+        "screenshot-output": "출력",
         "security": "보안",
         "session-panel": "세션 패널",
         "shape": "모양",
@@ -1251,13 +1298,15 @@
         "wallpaper": "배경 화면",
         "weather": "날씨",
         "widget-list": "위젯 목록",
-        "widgets": "위젯"
+        "widgets": "위젯",
+        "window-switcher": "창 전환기"
       },
       "sections": {
         "accessibility": "접근성",
         "appearance": "모양",
         "backdrop": "배경막",
         "bar": "바",
+        "calendar": "캘린더",
         "control-center": "제어 센터",
         "desktop": "데스크톱",
         "dock": "독",
@@ -1272,6 +1321,7 @@
         "plugins": "플러그인",
         "popups": "팝업",
         "power": "전원",
+        "screenshot": "스크린샷",
         "security": "보안",
         "services": "서비스",
         "shell": "쉘",
@@ -1390,9 +1440,9 @@
       },
       "plugins": {
         "auto-update": {
-          "all": "모든 소스",
+          "all": "모두",
           "none": "없음",
-          "official": "공식 전용"
+          "official": "공식"
         }
       },
       "screen-position": {
@@ -1480,6 +1530,9 @@
     "plugins": {
       "browse-store": "플러그인 찾아보기",
       "panels": {
+        "layer": {
+          "label": "레이어"
+        },
         "open-near-click": {
           "description": "바 위젯을 클릭하여 패널이 배치되는 위치",
           "label": "바를 따라"
@@ -1505,6 +1558,7 @@
         "incompatible-plugin-api": "호환되지 않는 플러그인 API",
         "remove": "플러그인 제거",
         "requires": "필요: {dependencies}",
+        "search-placeholder": "설치된 플러그인 검색",
         "title": "플러그인",
         "update-all": "모두 업데이트 ({count})",
         "update-available": "업데이트 가능",
@@ -1552,6 +1606,7 @@
         "held-back-hint": "플러그인 API {resolved}(으)로 v{version}을(를) 설치합니다. 가장 최신 버전인 v{latest}에는 플러그인 API {latestRequired}이(가) 필요하지만, 현재 이 Noctalia는 최대 {current}까지 지원합니다.",
         "incompatible": "호환되지 않음",
         "incompatible-hint": "필수 플러그인 API 버전이 누락되었습니다. 이 Noctalia 버전은 {oldest}부터 {current}까지 지원합니다.",
+        "installed": "설치됨",
         "loading": "카탈로그 불러오는 중…",
         "no-readme": "설명 없음.",
         "open-page": "noctalia.dev에서 플러그인 페이지 열기",
@@ -1656,6 +1711,9 @@
         "pure-black-dark": {
           "description": "OLED 패널에서 밴딩을 방지하기 위해 어두운 부분을 짙은 검은색으로 고정 (다크 모드에만 해당)",
           "label": "OLED 블랙"
+        },
+        "shell-theme-mode": {
+          "label": "셸 테마 모드"
         },
         "theme-mode": {
           "description": "시간에 따라 어두움, 밝음 또는 자동 선택",
@@ -2004,10 +2062,6 @@
         },
         "main-axis-padding": {
           "description": "아이콘 열의 양쪽 끝 내부 여백 (첫 번째 아이콘 앞과 마지막 아이콘 뒤)"
-        },
-        "monitors": {
-          "description": "독을 표시할 모니터 선택 (비워 두면 모든 모니터에 표시). 이 모니터들 내에서 활성 모니터 필터링이 적용됩니다",
-          "label": "모니터"
         },
         "pinned-apps": {
           "description": "독에 고정된 앱의 데스크톱 항목 ID",
@@ -2556,11 +2610,18 @@
           "description": "캘린더 이벤트를 동기화하는 빈도 (분)",
           "label": "새로 고침 간격"
         },
+        "calendar-reminder-use-event": {
+          "label": "이벤트 리마인더 사용"
+        },
+        "calendar-reminders": {
+          "description": "이벤트 시작 전 알림",
+          "label": "캘린더 리마인더"
+        },
         "calendar-storage": {
           "button": "다시 시도",
           "description-cancelled": "암호화된 저장소 프롬프트가 취소되었습니다. 캘린더 이벤트는 이 세션에서만 사용 가능합니다.",
           "description-error": "암호화된 캘린더 이벤트 캐시를 열거나 저장할 수 없습니다.",
-          "description-locked": "암호화된 저장소가 잠겨 있거나 접근이 거부되었습니다. 접근을 수정하고 다시 시도하세요.",
+          "description-locked": "암호화된 저장소가 잠겨 있거나 접근이 거부되었습니다, 접근을 수정하고 다시 시도하세요.",
           "description-migration": "평문 캘린더 이벤트 캐시가 암호화 대기 중입니다. 마이그레이션이 성공할 때까지 보존됩니다.",
           "description-missing-key": "캘린더 이벤트 캐시 키가 없습니다. 계정 자격 증명은 별도로 보관됩니다. (기존 캐시 파일은 보관됨)",
           "description-opening": "암호화된 캘린더 이벤트 캐시를 여는 중입니다",
@@ -2631,6 +2692,11 @@
         "shell-sounds": {
           "description": "쉘 이벤트에 효과음 재생",
           "label": "쉘 소리"
+        },
+        "sound-theme": {
+          "default": "기본",
+          "description": "쉘 소리 효과에 사용되는 소리 테마",
+          "label": "소리 테마"
         },
         "sound-volume": {
           "description": "쉘 효과음 볼륨",
@@ -3212,6 +3278,65 @@
       "actions": {
         "command-placeholder": "쉘 명령어",
         "commands": {
+          "bar-auto-hide-set": {
+            "label": "바 자동 숨기기 설정"
+          },
+          "bar-hide": {
+            "label": "바 숨기기"
+          },
+          "bar-layer-set": {
+            "label": "바 레이어 설정"
+          },
+          "bar-show": {
+            "label": "바 보이기"
+          },
+          "bluetooth-disable": {
+            "description": "블루투스 비활성화",
+            "label": "블루투스 비활성화"
+          },
+          "bluetooth-enable": {
+            "description": "블루투스 활성화",
+            "label": "블루투스 활성화"
+          },
+          "bluetooth-status": {
+            "label": "블루투스 상태"
+          },
+          "brightness-down": {
+            "label": "밝기 낮추기"
+          },
+          "brightness-set": {
+            "label": "밝기 설정"
+          },
+          "brightness-up": {
+            "label": "밝기 올리기"
+          },
+          "caffeine-disable": {
+            "label": "카페인 비활성화"
+          },
+          "caffeine-enable": {
+            "label": "카페인 활성화"
+          },
+          "clipboard-clear": {
+            "description": "클립보드 기록 지우기",
+            "label": "클립보드 기록 지우기"
+          },
+          "clipboard-copy": {
+            "description": "클립보드에 텍스트 복사",
+            "label": "클립보드에 복사"
+          },
+          "clipboard-text": {
+            "label": "클립보드 텍스트 인쇄"
+          },
+          "desktop-widgets-edit": {
+            "label": "데스크탑 위젯 수정"
+          },
+          "desktop-widgets-exit": {
+            "description": "데스크탑 위젯 수정기 닫기",
+            "label": "데스크탑 위젯 수정기 나가기"
+          },
+          "desktop-widgets-hide": {
+            "label": "데스크탑 위젯 숨기기"
+          },
           "screenshot-fullscreen": {
             "description": "기본적으로 현재 활성화된 모니터를 캡처합니다. pick을 사용하여 캡처할 모니터를 직접 선택하거나, all로 모든 모니터를 캡처할 수 있습니다."
           },
@@ -3922,6 +4047,7 @@
       "no-results-hint": "다른 설정 이름이나 설정 키를 시도해 보세요.",
       "offline-mode-notice": {
         "appearance": "커뮤니티 팔레트 다운로드가 작동하지 않습니다.",
+        "calendar": "캘린더 계정 동기화가 작동하지 않습니다.",
         "calendar-account": "캘린더 검색 및 동기화가 작동하지 않습니다.",
         "disable-hint": "보안 섹션에서 오프라인 모드를 비활성화하세요.",
         "launcher": "환율 가져오기가 작동하지 않습니다.",
@@ -3929,7 +4055,6 @@
         "plugin-store": "원격 플러그인 카탈로그 및 다운로드 요청이 작동하지 않습니다.",
         "plugins": "플러그인 HTTP 요청이 작동하지 않습니다. Git 소스는 계속 업데이트할 수 있습니다.",
         "security": "외부 IP 조회 및 텔레메트리 전송이 작동하지 않습니다.",
-        "services": "캘린더 계정 동기화가 작동하지 않습니다.",
         "template-store": "커뮤니티 템플릿 다운로드가 작동하지 않습니다.",
         "templates": "커뮤니티 템플릿 다운로드 및 업데이트가 작동하지 않습니다.",
         "title": "오프라인 모드"

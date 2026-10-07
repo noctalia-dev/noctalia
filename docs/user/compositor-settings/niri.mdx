@@ -57,7 +57,7 @@ binds {
     Mod+Space { spawn-sh "noctalia msg panel-toggle launcher"; }
     Mod+S { spawn-sh "noctalia msg panel-toggle control-center"; }
     Mod+Comma { spawn-sh "noctalia msg settings-toggle"; }
-    Alt+Tab { spawn-sh "noctalia msg window-switcher"; }
+    Alt+Tab { spawn-sh "noctalia msg window-switcher hold"; }
     // Niri has a built-in window switcher you might want to try it to see which one you prefer.
 
     // Audio & Brightness
@@ -72,6 +72,8 @@ binds {
 ## Optional Type to Launch
 
 Noctalia can open its launcher when you start typing in niri's overview. This is disabled by default because it requires a tiny keyboard-focus layer surface while overview is open, which means some niri overview-only keyboard state, such as the app focus ring, may not behave exactly like native overview navigation.
+
+A launcher opened by typing closes automatically when you leave the overview. Launchers opened normally are unaffected.
 
 ```toml
 [shell]

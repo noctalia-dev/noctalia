@@ -7,6 +7,8 @@ sidebar:
 
 System tray (StatusNotifierItem). Tray icons use the global `[shell.app_icon_colorize]` / `[shell.app_icon_color]` settings when enabled (see [Shell → App icon colorization](/noctalia/configuration/shell/#app-icon-colorization)); `[shell.app_icon_colorize]` does not recolor symbolic tray icons. Symbolic/monochrome tray glyphs, the drawer chevron, and letter fallbacks follow the widget's `color` / `icon_color` (items needing attention stay in the error color).
 
+When Noctalia restarts, running applications can re-register their tray icons. Noctalia also discovers existing StatusNotifierItem services. Icons may take a few seconds to reappear while startup is busy.
+
 | Setting | Type | Default | Description |
 |---------|------|---------|-------------|
 | `hidden` | array of string | `[]` | Tray items to hide by id/name/bus/path token |

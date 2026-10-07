@@ -1,8 +1,8 @@
 #include "dbus/upower/upower_charge_limit_support.h"
 #include "dbus/upower/upower_service.h"
 #include "shell/control_center/tabs/power_tab.h"
+#include "tests/test_check.h"
 
-#include <cassert>
 #include <chrono>
 #include <filesystem>
 #include <fstream>
@@ -91,31 +91,31 @@ int main() {
   tree.write("charge_control_start_threshold", "75\n");
   tree.write("charge_control_end_threshold", " 80 \n");
   auto probe = upower::detail::readChargeThresholdsFromSysfs("BAT0", tree.root);
-  assert(probe.start == 75U);
-  assert(probe.end == 80U);
+  TEST_CHECK(probe.start == 75U);
+  TEST_CHECK(probe.end == 80U);
 
   probe = upower::detail::readChargeThresholdsFromSysfs("/sys/devices/platform/test/power_supply/BAT0", tree.root);
-  assert(probe.start == 75U);
-  assert(probe.end == 80U);
+  TEST_CHECK(probe.start == 75U);
+  TEST_CHECK(probe.end == 80U);
 
   std::filesystem::remove(tree.root / "BAT0" / "charge_control_end_threshold");
   probe = upower::detail::readChargeThresholdsFromSysfs("BAT0", tree.root);
-  assert(probe.start == 75U);
-  assert(!probe.end.has_value());
+  TEST_CHECK(probe.start == 75U);
+  TEST_CHECK(!probe.end.has_value());
 
   std::filesystem::remove(tree.root / "BAT0" / "charge_control_start_threshold");
   tree.write("charge_control_end_threshold", "85");
   probe = upower::detail::readChargeThresholdsFromSysfs("BAT0", tree.root);
-  assert(!probe.start.has_value());
-  assert(probe.end == 85U);
+  TEST_CHECK(!probe.start.has_value());
+  TEST_CHECK(probe.end == 85U);
 
   probe = upower::detail::readChargeThresholdsFromSysfs("BAT1", tree.root);
-  assert(!probe.start.has_value() && !probe.end.has_value());
+  TEST_CHECK(!probe.start.has_value() && !probe.end.has_value());
 
   for (const std::string value : {"nope", "80 percent", "-1", "101", "4294967296"}) {
     tree.write("charge_control_end_threshold", value);
     probe = upower::detail::readChargeThresholdsFromSysfs("BAT0", tree.root);
-    assert(!probe.end.has_value());
+    TEST_CHECK(!probe.end.has_value());
   }
 
   tree.write("charge_control_end_threshold", "80");
@@ -125,7 +125,7 @@ int main() {
   );
   probe = upower::detail::readChargeThresholdsFromSysfs("BAT0", tree.root);
   if (geteuid() != 0) {
-    assert(!probe.end.has_value());
+    TEST_CHECK(!probe.end.has_value());
   }
 
   for (const std::string unsafe :
@@ -133,17 +133,17 @@ int main() {
         "/tmp/power_supply/BAT0", "/sys/class/power_supply/BAT0/extra", "/sys/class/power_supply/BAT 0", "BAT 0",
         "BAT0\\x"}) {
     probe = upower::detail::readChargeThresholdsFromSysfs(unsafe, tree.root);
-    assert(!probe.start.has_value() && !probe.end.has_value());
+    TEST_CHECK(!probe.start.has_value() && !probe.end.has_value());
   }
 
   UPowerChargeLimitState state;
   using Mode = PowerTabTestAccess::Mode;
-  assert(PowerTabTestAccess::mode(state) == Mode::Unsupported);
-  assert(!PowerTabTestAccess::visible(state));
+  TEST_CHECK(PowerTabTestAccess::mode(state) == Mode::Unsupported);
+  TEST_CHECK(!PowerTabTestAccess::visible(state));
 
   state.supported = true;
-  assert(PowerTabTestAccess::mode(state) == Mode::ReadOnly);
-  assert(!PowerTabTestAccess::visible(state));
+  TEST_CHECK(PowerTabTestAccess::mode(state) == Mode::ReadOnly);
+  TEST_CHECK(!PowerTabTestAccess::visible(state));
 
   state = supportedState(true);
   state.supportedSettings = 3U;
@@ -151,86 +151,86 @@ int main() {
   state.configuredEnd = 80U;
   state.effectiveStart = 75U;
   state.effectiveEnd = 80U;
-  assert(PowerTabTestAccess::mode(state) == Mode::UPowerActive);
-  assert(PowerTabTestAccess::visible(state));
+  TEST_CHECK(PowerTabTestAccess::mode(state) == Mode::UPowerActive);
+  TEST_CHECK(PowerTabTestAccess::visible(state));
 
   state = supportedState(false);
   state.effectiveStart = 0U;
   state.effectiveEnd = 100U;
-  assert(PowerTabTestAccess::mode(state) == Mode::UPowerDisabled);
+  TEST_CHECK(PowerTabTestAccess::mode(state) == Mode::UPowerDisabled);
 
   state = supportedState(false);
   state.configuredStart = 75U;
   state.configuredEnd = 80U;
   state.effectiveStart = 75U;
   state.effectiveEnd = 80U;
-  assert(PowerTabTestAccess::mode(state) == Mode::ExternallyManaged);
-  assert(PowerTabTestAccess::control(state) == std::tuple(true, true, false));
+  TEST_CHECK(PowerTabTestAccess::mode(state) == Mode::ExternallyManaged);
+  TEST_CHECK(PowerTabTestAccess::control(state) == std::tuple(true, true, false));
 
   state.requestPending = true;
   state.requestedEnabled = false;
-  assert(PowerTabTestAccess::mode(state) == Mode::UPowerDisabled);
-  assert(PowerTabTestAccess::control(state) == std::tuple(true, false, false));
+  TEST_CHECK(PowerTabTestAccess::mode(state) == Mode::UPowerDisabled);
+  TEST_CHECK(PowerTabTestAccess::control(state) == std::tuple(true, false, false));
 
   // Apple Silicon reports an unrestricted charge limit as 100/100; that is not a
   // restriction and must not be classified as externally managed.
   state = supportedState(false);
   state.effectiveStart = 100U;
   state.effectiveEnd = 100U;
-  assert(!state.hasRestrictiveThreshold());
-  assert(PowerTabTestAccess::mode(state) == Mode::UPowerDisabled);
+  TEST_CHECK(!state.hasRestrictiveThreshold());
+  TEST_CHECK(PowerTabTestAccess::mode(state) == Mode::UPowerDisabled);
 
   // Huawei-WMI EC "off" / full charge is start=95 end=100, not 0/100.
   state = supportedState(false);
   state.effectiveStart = 95U;
   state.effectiveEnd = 100U;
-  assert(!state.hasRestrictiveThreshold());
-  assert(PowerTabTestAccess::mode(state) == Mode::UPowerDisabled);
-  assert(PowerTabTestAccess::control(state) == std::tuple(true, false, true));
+  TEST_CHECK(!state.hasRestrictiveThreshold());
+  TEST_CHECK(PowerTabTestAccess::mode(state) == Mode::UPowerDisabled);
+  TEST_CHECK(PowerTabTestAccess::control(state) == std::tuple(true, false, true));
 
   // Nearby restrictive pairs stay ExternallyManaged when the toggle is off.
   state.effectiveStart = 95U;
   state.effectiveEnd = 99U;
-  assert(state.hasRestrictiveThreshold());
-  assert(PowerTabTestAccess::mode(state) == Mode::ExternallyManaged);
-  assert(PowerTabTestAccess::control(state) == std::tuple(true, true, false));
+  TEST_CHECK(state.hasRestrictiveThreshold());
+  TEST_CHECK(PowerTabTestAccess::mode(state) == Mode::ExternallyManaged);
+  TEST_CHECK(PowerTabTestAccess::control(state) == std::tuple(true, true, false));
 
   state.effectiveStart = 75U;
   state.effectiveEnd = 80U;
-  assert(state.hasRestrictiveThreshold());
-  assert(PowerTabTestAccess::mode(state) == Mode::ExternallyManaged);
+  TEST_CHECK(state.hasRestrictiveThreshold());
+  TEST_CHECK(PowerTabTestAccess::mode(state) == Mode::ExternallyManaged);
 
   state = supportedState(true);
   state.supportedSettings = 4U;
-  assert(PowerTabTestAccess::mode(state) == Mode::FirmwareManaged);
-  assert(PowerTabTestAccess::visible(state));
+  TEST_CHECK(PowerTabTestAccess::mode(state) == Mode::FirmwareManaged);
+  TEST_CHECK(PowerTabTestAccess::visible(state));
 
   state.methodAvailable = false;
-  assert(PowerTabTestAccess::mode(state) == Mode::FirmwareManaged);
-  assert(PowerTabTestAccess::control(state) == std::tuple(false, true, false));
+  TEST_CHECK(PowerTabTestAccess::mode(state) == Mode::FirmwareManaged);
+  TEST_CHECK(PowerTabTestAccess::control(state) == std::tuple(false, true, false));
 
   state = supportedState(true);
   state.supportedSettings = 2U;
   state.configuredEnd = 80U;
   state.effectiveEnd = 80U;
-  assert(PowerTabTestAccess::mode(state) == Mode::UPowerActive);
+  TEST_CHECK(PowerTabTestAccess::mode(state) == Mode::UPowerActive);
 
   state.enabledAvailable = false;
-  assert(PowerTabTestAccess::mode(state) == Mode::ReadOnly);
+  TEST_CHECK(PowerTabTestAccess::mode(state) == Mode::ReadOnly);
 
   state = supportedState(false);
   state.methodAvailable = false;
-  assert(PowerTabTestAccess::mode(state) == Mode::ReadOnly);
-  assert(PowerTabTestAccess::control(state) == std::tuple(false, false, false));
+  TEST_CHECK(PowerTabTestAccess::mode(state) == Mode::ReadOnly);
+  TEST_CHECK(PowerTabTestAccess::control(state) == std::tuple(false, false, false));
 
   state = {};
   state.effectiveEnd = 100U;
-  assert(PowerTabTestAccess::mode(state) == Mode::ReadOnly);
+  TEST_CHECK(PowerTabTestAccess::mode(state) == Mode::ReadOnly);
 
   state = {};
   state.effectiveStart = 70U;
-  assert(PowerTabTestAccess::mode(state) == Mode::ReadOnly);
-  assert(PowerTabTestAccess::visible(state));
+  TEST_CHECK(PowerTabTestAccess::mode(state) == Mode::ReadOnly);
+  TEST_CHECK(PowerTabTestAccess::visible(state));
 
   state = supportedState(true);
   state.configuredStart = 70U;
@@ -239,31 +239,31 @@ int main() {
   state.effectiveEnd = 85U;
   state.requestPending = true;
   state.requestedEnabled = false;
-  assert(state.configuredStart != state.effectiveStart);
-  assert(state.configuredEnd != state.effectiveEnd);
-  assert(PowerTabTestAccess::mode(state) == Mode::UPowerActive);
-  assert(PowerTabTestAccess::control(state) == std::tuple(true, false, false));
+  TEST_CHECK(state.configuredStart != state.effectiveStart);
+  TEST_CHECK(state.configuredEnd != state.effectiveEnd);
+  TEST_CHECK(PowerTabTestAccess::mode(state) == Mode::UPowerActive);
+  TEST_CHECK(PowerTabTestAccess::control(state) == std::tuple(true, false, false));
 
   // A reconciled disabled state presents an enabled control after a failed operation.
   state = supportedState(false);
   state.operationError = ChargeLimitOperationError::PermissionDenied;
-  assert(PowerTabTestAccess::control(state) == std::tuple(true, false, true));
+  TEST_CHECK(PowerTabTestAccess::control(state) == std::tuple(true, false, true));
 
   // A reconciled enabled state presents an enabled, checked control.
   state = supportedState(true);
-  assert(PowerTabTestAccess::control(state) == std::tuple(true, true, true));
+  TEST_CHECK(PowerTabTestAccess::control(state) == std::tuple(true, true, true));
 
   state = supportedState(false);
   state.effectiveStart = 75U;
   state.effectiveEnd = 80U;
-  assert(PowerTabTestAccess::control(state) == std::tuple(true, true, false));
+  TEST_CHECK(PowerTabTestAccess::control(state) == std::tuple(true, true, false));
 
   // Keep the disabled control visible when UPower reports the externally applied
   // thresholds but does not advertise support for changing them.
   state.supported = false;
   state.methodAvailable = false;
-  assert(PowerTabTestAccess::mode(state) == Mode::ExternallyManaged);
-  assert(PowerTabTestAccess::control(state) == std::tuple(true, true, false));
+  TEST_CHECK(PowerTabTestAccess::mode(state) == Mode::ExternallyManaged);
+  TEST_CHECK(PowerTabTestAccess::control(state) == std::tuple(true, true, false));
 
   return 0;
 }

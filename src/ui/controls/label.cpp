@@ -583,7 +583,7 @@ LayoutSize Label::measureWithConstraints(Renderer& renderer, const LayoutConstra
       height = std::round(std::max(actualHeight, inkHeight));
       m_baselineOffset = -metrics.inkTop + (height - inkHeight) * 0.5F;
     } else if (m_baselineMode == LabelBaselineMode::TextFixedHeight) {
-      const auto fontMetrics = renderer.measureFont(m_textNode->fontSize(), fontWeight);
+      const auto fontMetrics = renderer.measureFont(m_textNode->fontSize(), fontWeight, m_textNode->fontFamily());
       height = std::round(fontMetrics.bottom - fontMetrics.top);
       const float capHeight = fontMetrics.capHeight;
       m_baselineOffset = capHeight > 0.0F ? height * 0.5F + capHeight * 0.5F : -fontMetrics.top;
@@ -596,7 +596,8 @@ LayoutSize Label::measureWithConstraints(Renderer& renderer, const LayoutConstra
       // normal text, whose ink top coincides with the cap top. Unrounded baseline —
       // the renderer snaps the glyph quad to the pixel grid.
       height = std::round(actualHeight);
-      const float capHeight = renderer.measureFont(m_textNode->fontSize(), fontWeight).capHeight;
+      const float capHeight =
+          renderer.measureFont(m_textNode->fontSize(), fontWeight, m_textNode->fontFamily()).capHeight;
       m_baselineOffset = capHeight > 0.0F ? height * 0.5F - (metrics.inkTop + capHeight * 0.5F)
                                           : -metrics.inkTop + (height - inkHeight) * 0.5F;
     } else {
@@ -605,7 +606,8 @@ LayoutSize Label::measureWithConstraints(Renderer& renderer, const LayoutConstra
       // box-centers this label sits caps/digits dead-centre. capHeight is the
       // measured cap of 'H', a stable per-font property. Unrounded: the renderer
       // snaps the glyph quad to the pixel grid, so rounding here double-rounds.
-      const float capHeight = renderer.measureFont(m_textNode->fontSize(), fontWeight).capHeight;
+      const float capHeight =
+          renderer.measureFont(m_textNode->fontSize(), fontWeight, m_textNode->fontFamily()).capHeight;
       m_baselineOffset =
           capHeight > 0.0F ? height * 0.5F + capHeight * 0.5F : -metrics.top + (height - actualHeight) * 0.5F;
     }

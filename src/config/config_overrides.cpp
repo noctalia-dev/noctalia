@@ -2,6 +2,7 @@
 #include "config/config_merge.h"
 #include "config/config_service.h"
 #include "config/config_validate.h"
+#include "config/schema/ranges.h"
 #include "config/widget_config.h"
 #include "core/files/resource_paths.h"
 #include "core/input/key_chord.h"
@@ -187,6 +188,9 @@ namespace {
     if (ovr.backgroundOpacity) {
       resolved.backgroundOpacity = *ovr.backgroundOpacity;
     }
+    if (ovr.compositorBlur) {
+      resolved.compositorBlur = *ovr.compositorBlur;
+    }
     if (ovr.border) {
       resolved.border = *ovr.border;
     }
@@ -290,6 +294,11 @@ namespace {
     }
     if (ovr.widgetCapsuleOpacity) {
       resolved.widgetCapsuleOpacity = std::clamp(static_cast<float>(*ovr.widgetCapsuleOpacity), 0.0F, 1.0F);
+    }
+    if (ovr.widgetCapsuleBorderWidth) {
+      resolved.widgetCapsuleBorderWidth = noctalia::config::schema::applyRange(
+          *ovr.widgetCapsuleBorderWidth, noctalia::config::schema::kBarCapsuleBorderWidthRange
+      );
     }
     if (ovr.hoverHighlight) {
       resolved.hoverHighlight = *ovr.hoverHighlight;
@@ -545,6 +554,7 @@ namespace {
                     "border", item.border.has_value() ? colorSpecToConfigString(*item.border) : std::string{}
                 );
               }
+              row.insert_or_assign("border_width", static_cast<double>(item.borderWidth));
               if (item.foreground.has_value()) {
                 row.insert_or_assign("foreground", colorSpecToConfigString(*item.foreground));
               }
@@ -1615,6 +1625,12 @@ bool ConfigService::isOverrideOnlyMonitorOverride(std::string_view barName, std:
   return !barIt->second.contains(std::string(match));
 }
 
+bool ConfigService::isOverrideOnlyDockMonitorOverride(std::string_view tableName) const {
+  return !tableName.empty()
+      && hasOverride({"dock", "monitor", std::string(tableName)})
+      && !m_configFileDockMonitorOverrideNames.contains(std::string(tableName));
+}
+
 bool ConfigService::createBarOverride(std::string_view name) {
   if (m_overridesPath.empty() || name.empty()) {
     return false;
@@ -1812,6 +1828,65 @@ bool ConfigService::deleteMonitorOverride(std::string_view barName, std::string_
     return false;
   }
   return clearOverride({"bar", std::string(barName), "monitor", std::string(match)});
+}
+
+bool ConfigService::createDockMonitorOverride(std::string_view match) {
+  if (m_overridesPath.empty() || match.empty()) {
+    return false;
+  }
+  if (std::ranges::any_of(m_config.dock.monitorOverrides, [match](const DockMonitorOverride& override) {
+        return override.tableName == match || override.match == match;
+      })) {
+    return false;
+  }
+
+  auto* dockRoot = ensureTable(m_overridesTable, "dock");
+  if (dockRoot == nullptr) {
+    return false;
+  }
+  auto* monitorRoot = ensureTable(*dockRoot, "monitor");
+  if (monitorRoot == nullptr || monitorRoot->get(std::string(match)) != nullptr) {
+    return false;
+  }
+  if (ensureTable(*monitorRoot, match) == nullptr) {
+    return false;
+  }
+
+  if (!writeOverridesToFile()) {
+    kLog.warn("failed to write {}", m_overridesPath);
+    return false;
+  }
+
+  m_ownOverridesWritePending = true;
+  loadAll();
+  fireReloadCallbacks();
+  return true;
+}
+
+bool ConfigService::renameDockMonitorOverride(std::string_view oldTableName, std::string_view newMatch) {
+  if (oldTableName.empty()
+      || newMatch.empty()
+      || oldTableName == newMatch
+      || !isOverrideOnlyDockMonitorOverride(oldTableName)) {
+    return false;
+  }
+  if (std::ranges::any_of(
+          m_config.dock.monitorOverrides, [oldTableName, newMatch](const DockMonitorOverride& override) {
+            return override.tableName != oldTableName && (override.tableName == newMatch || override.match == newMatch);
+          }
+      )) {
+    return false;
+  }
+  return renameOverrideTable(
+      {"dock", "monitor", std::string(oldTableName)}, {"dock", "monitor", std::string(newMatch)}
+  );
+}
+
+bool ConfigService::deleteDockMonitorOverride(std::string_view tableName) {
+  if (!isOverrideOnlyDockMonitorOverride(tableName)) {
+    return false;
+  }
+  return clearOverride({"dock", "monitor", std::string(tableName)});
 }
 
 bool ConfigService::deleteCalendarAccountOverride(std::string_view id) {
@@ -2309,7 +2384,7 @@ void ConfigService::extractWallpaperFromTable(const toml::table& table) {
       }
       if (auto modeKey = (*favTbl)["theme_mode"].value<std::string>()) {
         if (auto parsed = enumFromKey(kThemeModes, *modeKey)) {
-          favorite.themeMode = *parsed;
+          favorite.themeMode = parsed;
         }
       }
       if (auto sourceKey = (*favTbl)["palette_source"].value<std::string>()) {
@@ -2346,7 +2421,9 @@ void ConfigService::syncWallpaperFavoritesToOverridesTable() {
   for (const auto& favorite : m_wallpaperFavorites) {
     toml::table entry;
     entry.insert("path", favorite.path);
-    entry.insert("theme_mode", std::string(enumToKey(kThemeModes, favorite.themeMode)));
+    if (favorite.themeMode.has_value()) {
+      entry.insert("theme_mode", std::string(enumToKey(kThemeModes, *favorite.themeMode)));
+    }
     if (favorite.paletteSource.has_value()) {
       entry.insert("palette_source", std::string(enumToKey(kPaletteSources, *favorite.paletteSource)));
       switch (*favorite.paletteSource) {
@@ -2594,8 +2671,8 @@ void ConfigService::applyWallpaperSelection(
 
   if (applyTheme != nullptr) {
     auto* themeTbl = ensureTable(m_overridesTable, "theme");
-    if (m_config.theme.mode != applyTheme->themeMode) {
-      themeTbl->insert_or_assign("mode", std::string(enumToKey(kThemeModes, applyTheme->themeMode)));
+    if (applyTheme->themeMode.has_value() && m_config.theme.mode != *applyTheme->themeMode) {
+      themeTbl->insert_or_assign("mode", std::string(enumToKey(kThemeModes, *applyTheme->themeMode)));
       changed = true;
     }
 
