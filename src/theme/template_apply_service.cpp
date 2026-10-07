@@ -167,7 +167,7 @@ namespace noctalia::theme {
 
   TemplateApplyService::TemplateApplyService(ConfigService& config, std::chrono::milliseconds hookShutdownGrace)
       : m_config(config), m_hookShutdownGrace(hookShutdownGrace),
-        m_hookRunner(std::make_unique<HookRunner>(HookRunner::kDefaultMaxConcurrent, hookShutdownGrace, m_hookCancel)) {
+        m_hookRunner(std::make_unique<HookRunner>(HookRunner::kDefaultMaxConcurrent, m_hookCancel)) {
     m_worker = std::thread([this]() { workerLoop(); });
   }
 
@@ -192,18 +192,17 @@ namespace noctalia::theme {
       if (graceCv.wait_for(lock, m_hookShutdownGrace, [&hooksDone]() { return hooksDone; })) {
         return;
       }
-      if (!m_hookCancel->exchange(true)) {
-        kLog.warn(
-            "a template hook is still running after {}s; terminating it",
-            std::chrono::duration_cast<std::chrono::duration<double>>(m_hookShutdownGrace).count()
-        );
-      }
+      m_hookCancel->store(true);
+      kLog.warn(
+          "a template hook is still running after {}s; terminating it",
+          std::chrono::duration_cast<std::chrono::duration<double>>(m_hookShutdownGrace).count()
+      );
     });
     if (m_worker.joinable()) {
       m_worker.join();
     }
-    // Destroyed inside the grace window, so its running hooks share the same deadline
-    // instead of starting a second one.
+    // Destroyed inside the grace window: its destructor waits for the running hooks, and
+    // the same deadline terminates them.
     m_hookRunner.reset();
     {
       std::scoped_lock lock(graceMutex);

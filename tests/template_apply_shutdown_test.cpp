@@ -109,9 +109,9 @@ namespace {
   }
 
   // A pre_hook is not a barrier, so it can block the worker while an asynchronous post_hook
-  // from an earlier template is still running. Both must be terminated on the same deadline;
-  // waiting one grace for each would take at least twice as long.
-  void test_stuck_sync_and_async_hooks_share_one_grace(const std::filesystem::path& root) {
+  // from an earlier template is still running in the HookRunner. The service's one deadline
+  // must terminate both; without it the runner's destructor would wait for the async hook forever.
+  void test_stuck_sync_and_async_hooks_share_one_deadline(const std::filesystem::path& root) {
     const auto asyncPid = root / "async.pid";
     const auto syncPid = root / "sync.pid";
     const std::string input = (root / "input.tmpl").string();
@@ -193,7 +193,7 @@ int main() {
   ::setenv("NOCTALIA_ASSETS_DIR", (root / "assets").c_str(), 1);
 
   test_stuck_inline_post_hook(root);
-  test_stuck_sync_and_async_hooks_share_one_grace(root);
+  test_stuck_sync_and_async_hooks_share_one_deadline(root);
   test_stuck_undo_hook(root);
 
   ::unsetenv("NOCTALIA_CONFIG_HOME");

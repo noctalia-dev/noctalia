@@ -1,7 +1,6 @@
 #pragma once
 
 #include <atomic>
-#include <chrono>
 #include <condition_variable>
 #include <cstddef>
 #include <cstdint>
@@ -18,15 +17,11 @@ namespace noctalia::theme {
   class HookRunner {
   public:
     static constexpr std::size_t kDefaultMaxConcurrent = 4;
-    static constexpr std::chrono::milliseconds kDefaultShutdownGrace{5000};
 
-    // shutdownCancel lets an owner that already bounds its own shutdown share that budget:
-    // raising it terminates every running hook, and the destructor then only waits for the
-    // reap. Without one the runner uses a private flag and its own grace period.
+    // Raising `cancel` terminates the process group of every running hook. The owner sets it
+    // to bound shutdown; without one, running hooks are always waited out.
     explicit HookRunner(
-        std::size_t maxConcurrent = kDefaultMaxConcurrent,
-        std::chrono::milliseconds shutdownGrace = kDefaultShutdownGrace,
-        std::shared_ptr<std::atomic<bool>> shutdownCancel = nullptr
+        std::size_t maxConcurrent = kDefaultMaxConcurrent, std::shared_ptr<std::atomic<bool>> cancel = nullptr
     );
     ~HookRunner();
 
@@ -60,11 +55,8 @@ namespace noctalia::theme {
       std::size_t maxConcurrent = kDefaultMaxConcurrent;
       std::uint64_t currentGeneration = 0;
       bool shutdown = false;
-      // Grace before a still-running hook is force-terminated at destruction.
-      std::chrono::milliseconds shutdownGrace = kDefaultShutdownGrace;
-      // Terminates the process group of every running hook once set (checked by
-      // process::runAsync's poll loop). Shared so detached hook threads see it.
-      std::shared_ptr<std::atomic<bool>> cancel = std::make_shared<std::atomic<bool>>(false);
+      // Passed to every hook's process::runAsync; null when the owner never cancels.
+      std::shared_ptr<std::atomic<bool>> cancel;
     };
 
     static void pump(const std::shared_ptr<State>& state);

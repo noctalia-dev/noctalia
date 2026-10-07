@@ -113,34 +113,14 @@ namespace {
     std::filesystem::remove(running);
   }
 
-  void test_shutdown_terminates_hung_hook_after_grace() {
-    const auto pidFile = sentinelPath("hung_pid");
-    std::filesystem::remove(pidFile);
-
-    auto runner = std::make_unique<noctalia::theme::HookRunner>(1, std::chrono::milliseconds(200));
-    // Ignores SIGTERM, so only the SIGKILL escalation can end it.
-    runner->enqueue("trap '' TERM; echo $$ > " + pidFile.string() + "; exec sleep 600", /*generation=*/1);
-    const pid_t pid = waitForPid(pidFile);
-    TEST_CHECK(pid > 0);
-
-    const auto start = std::chrono::steady_clock::now();
-    runner.reset();
-    const auto elapsed = std::chrono::steady_clock::now() - start;
-
-    // Destruction waits out the grace instead of the hook, and reaps what it terminated.
-    TEST_CHECK(elapsed < std::chrono::seconds(2));
-    TEST_CHECK(::kill(pid, 0) != 0 && errno == ESRCH);
-    std::filesystem::remove(pidFile);
-  }
-
-  // An owner that bounds its own shutdown passes its flag in: raising it terminates the
-  // running hook, so the destructor does not wait out a second grace of its own.
-  void test_shared_cancel_terminates_before_own_grace() {
+  // An owner bounds shutdown by raising the cancel flag it passed in: that terminates the
+  // running hook, so the destructor no longer waits for it to exit on its own.
+  void test_cancel_terminates_running_hook() {
     const auto pidFile = sentinelPath("shared_pid");
     std::filesystem::remove(pidFile);
 
     auto cancel = std::make_shared<std::atomic<bool>>(false);
-    auto runner = std::make_unique<noctalia::theme::HookRunner>(1, std::chrono::seconds(30), cancel);
+    auto runner = std::make_unique<noctalia::theme::HookRunner>(1, cancel);
     // Ignores SIGTERM, so only the SIGKILL escalation can end it.
     runner->enqueue("trap '' TERM; echo $$ > " + pidFile.string() + "; exec sleep 600", /*generation=*/1);
     const pid_t pid = waitForPid(pidFile);
@@ -167,7 +147,6 @@ int main() {
   test_drops_hooks_from_superseded_generations();
   test_invalidate_drops_queued_hooks();
   test_shutdown_drops_backlog_and_awaits_running();
-  test_shutdown_terminates_hung_hook_after_grace();
-  test_shared_cancel_terminates_before_own_grace();
+  test_cancel_terminates_running_hook();
   return 0;
 }
