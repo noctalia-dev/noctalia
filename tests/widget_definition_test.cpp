@@ -44,6 +44,7 @@
 #include <set>
 #include <string>
 #include <string_view>
+#include <utility>
 
 // The battery definition's finalize hook reaches into the warning-threshold helper, which would drag
 // UPower, notifications and i18n into a test about definition well-formedness. Threshold behavior is
@@ -306,6 +307,42 @@ int main() {
   }
   if (hideWhenInactiveVisible("speaker")) {
     fail("volume", "hide_when_inactive is offered on an output widget");
+  }
+  // `custom_label` and `show_glyph` are common settings: every built-in widget exposes them,
+  // and a typed definition declaring the same key (sysmon, keyboard_layout) shadows the
+  // common spec so exactly one control exists per key.
+  const auto sysmonSpecs = settings::widgetSettingSpecs("sysmon", nullptr, "sans-serif", false);
+  for (const auto& [key, expectedType] :
+       {std::pair{"custom_label", noctalia::config::schema::WidgetSettingType::String},
+        std::pair{"show_glyph", noctalia::config::schema::WidgetSettingType::Bool}}) {
+    for (const std::string_view type : {"battery", "clock", "taskbar", "volume"}) {
+      const auto spec = settings::findWidgetSettingSpec(type, key);
+      if (!spec.has_value()) {
+        fail(type, std::format("{} is missing from the common settings", key));
+        continue;
+      }
+      if (spec->schema.type != expectedType) {
+        fail(type, std::format("{} has the wrong setting type", key));
+      }
+    }
+    const auto sysmonCount = std::ranges::count_if(sysmonSpecs, [&key](const settings::WidgetSettingSpec& spec) {
+      return spec.schema.key == key;
+    });
+    if (sysmonCount != 1) {
+      fail("sysmon", std::format("{} spec count is {}, expected 1", key, sysmonCount));
+    }
+  }
+  WidgetConfig customLabelConfig;
+  customLabelConfig.type = "battery";
+  customLabelConfig.settings["custom_label"] = std::string("BAT");
+  if (resolveCommonWidgetOptions(BarConfig{}, &customLabelConfig, "battery", 1.0F).customLabel != "BAT") {
+    fail("battery", "custom_label did not resolve into the common widget options");
+  }
+  WidgetConfig glyphHidden;
+  glyphHidden.type = "battery";
+  glyphHidden.settings["show_glyph"] = false;
+  if (resolveCommonWidgetOptions(BarConfig{}, &glyphHidden, "battery", 1.0F).showGlyph) {
+    fail("battery", "show_glyph=false did not resolve into the common widget options");
   }
   checkDefinition("wallpaper", wallpaperWidgetDefinition);
   checkDefinition("weather", weatherWidgetDefinition);

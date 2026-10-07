@@ -20,6 +20,7 @@ type = "<widget-type>"   # defaults to <name> when omitted
 scale = 1.0              # multiplies all content by the owning bar's scale
 font_scale = 1.0         # additional text-only multiplier
 enabled = true           # show or hide this widget on the bar
+custom_label = ""        # optional text shown with the widget; leave empty to hide it
 # ...widget-specific settings
 ```
 
@@ -36,7 +37,7 @@ end = ["clock", "clock-seconds"]   # two clock widgets, different formats
 
 ## Shared behavior and appearance
 
-Configure click, scroll, and thumb-button bindings under [Widget Actions](/noctalia/bar/actions/). Configure shared capsule styling under [Bar → Widget Capsule](/noctalia/bar/#widget-capsule).
+Configure click, scroll, and thumb-button bindings under [Widget Actions](/noctalia/bar/actions/). Configure shared capsule styling under [Bar → Widget Capsule](/noctalia/bar/#widget-capsule). Every bar widget, including plugin widgets, accepts `custom_label`, which renders as text next to the widget content (above it on vertical bars); widgets that manage their own identity, such as sysmon, render it inside their identity group. Set `show_glyph = false` on any widget, plugin widgets included, to hide its icon glyphs and reclaim the space they occupied; image content such as tray and taskbar icons is not affected. Widgets with no text of their own need `custom_label` to stay visible; battery instead hides its icon with `display_mode = "none"` (see [Battery](/noctalia/bar/widgets/battery/)).
 
 ## Built-in widgets
 

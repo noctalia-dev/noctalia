@@ -8,7 +8,9 @@
 #include "shell/bar/widget_action_dispatcher.h"
 #include "shell/bar/widget_gesture_defaults.h"
 #include "ui/builders.h"
+#include "ui/controls/glyph.h"
 #include "ui/palette.h"
+#include "ui/style.h"
 #include "util/string_utils.h"
 
 #include <algorithm>
@@ -126,12 +128,37 @@ void Widget::setRoot(std::unique_ptr<Node> root) {
   // Nothing is bound until resolveGestureBindings() runs, and an area with no accepted buttons
   // never wins the dispatcher's ancestor walk.
   m_gestureArea->setAcceptedButtons(0);
-  if (root != nullptr) {
+  const std::string customLabel = StringUtils::trim(m_customLabelText);
+  if (root != nullptr && !customLabel.empty() && !m_customLabelHandled) {
+    // Shared bar-widget label: wrap the widget root so the label adds to the widget's
+    // laid-out footprint without every widget implementing it. Widgets that render the
+    // label themselves (sysmon) call markCustomLabelHandled() and keep this path dormant.
+    const bool innerVisible = root->visible();
+    const bool innerParticipates = root->participatesInLayout();
+    auto wrapper = ui::node({});
+    m_customLabelWrapper = wrapper.get();
+    auto label = ui::label({
+        .out = &m_customLabel,
+        .text = customLabel,
+        .fontSize = Style::fontSizeBody * fontScale(),
+        .fontWeight = m_labelFontWeight,
+        .fontFamily = m_labelFontFamily,
+        .color = widgetIconColorOr(colorSpecFromRole(ColorRole::OnSurface)),
+    });
+    wrapper->addChild(std::move(label));
+    wrapper->addChild(std::move(root));
+    wrapper->setVisible(innerVisible);
+    wrapper->setParticipatesInLayout(innerParticipates);
+    m_gestureArea->addChild(std::move(wrapper));
+  } else if (root != nullptr) {
     m_gestureArea->addChild(std::move(root));
   }
 
   m_outer = std::move(gestureArea);
   m_outer->setHitTestVisible(!m_nonInteractive && !m_barPointerSuppressed);
+  // Suppress before the first doLayout: widgets size their root there, so the first frame must
+  // already measure collapsed glyphs instead of rendering one frame with full-size gaps.
+  applyCommonGlyphVisibility();
   // Bindings are resolved before create() runs, so install them here too: whichever of the two
   // happens last is the one that wires the area up.
   installGestureHandlers();
@@ -140,12 +167,63 @@ void Widget::setRoot(std::unique_ptr<Node> root) {
 
 void Widget::syncOuterFromRoot() noexcept {
   Node* outer = outerNode();
-  if (outer == nullptr || m_innerRoot == nullptr) {
+  // The custom-label wrapper, when active, is the widget's laid-out footprint.
+  Node* source = m_customLabelWrapper != nullptr ? m_customLabelWrapper : m_innerRoot;
+  if (outer == nullptr || source == nullptr) {
     return;
   }
-  outer->setSize(m_innerRoot->width(), m_innerRoot->height());
-  outer->setVisible(m_innerRoot->visible());
-  outer->setParticipatesInLayout(m_innerRoot->participatesInLayout());
+  outer->setSize(source->width(), source->height());
+  outer->setVisible(source->visible());
+  outer->setParticipatesInLayout(source->participatesInLayout());
+}
+
+void Widget::layoutCustomLabel(Renderer& renderer, float containerWidth, float containerHeight) {
+  if (m_customLabelWrapper == nullptr || m_customLabel == nullptr || m_innerRoot == nullptr) {
+    return;
+  }
+
+  const bool isVerticalBar = containerHeight > containerWidth;
+  m_customLabel->setFontSize((isVerticalBar ? Style::fontSizeCaption : Style::fontSizeBody) * fontScale());
+  m_customLabel->setColor(widgetIconColorOr(colorSpecFromRole(ColorRole::OnSurface)));
+  m_customLabel->measure(renderer);
+
+  const float labelWidth = m_customLabel->width();
+  const float labelHeight = m_customLabel->height();
+  const float contentWidth = m_innerRoot->width();
+  const float contentHeight = m_innerRoot->height();
+  // The gap only separates label from content; with empty content it would trail the label.
+  const float gap = (isVerticalBar ? contentHeight : contentWidth) > 0.0F ? Style::spaceXs * m_contentScale : 0.0F;
+
+  if (isVerticalBar) {
+    const float width = std::max(labelWidth, contentWidth);
+    m_customLabel->setPosition((width - labelWidth) * 0.5F, 0.0F);
+    m_innerRoot->setPosition((width - contentWidth) * 0.5F, labelHeight + gap);
+    m_customLabelWrapper->setSize(width, labelHeight + gap + contentHeight);
+  } else {
+    const float height = std::max(labelHeight, contentHeight);
+    m_customLabel->setPosition(0.0F, (height - labelHeight) * 0.5F);
+    m_innerRoot->setPosition(labelWidth + gap, (height - contentHeight) * 0.5F);
+    m_customLabelWrapper->setSize(labelWidth + gap + contentWidth, height);
+  }
+
+  m_customLabelWrapper->setVisible(m_innerRoot->visible());
+  m_customLabelWrapper->setParticipatesInLayout(m_innerRoot->participatesInLayout());
+}
+
+void Widget::hideGlyphNodes(Node& node) {
+  for (const auto& child : node.children()) {
+    if (auto* glyph = dynamic_cast<Glyph*>(child.get()); glyph != nullptr) {
+      glyph->suppress();
+    }
+    hideGlyphNodes(*child);
+  }
+}
+
+void Widget::applyCommonGlyphVisibility() {
+  if (m_showGlyph || m_innerRoot == nullptr) {
+    return;
+  }
+  hideGlyphNodes(*m_innerRoot);
 }
 
 void Widget::setAnimationManager(AnimationManager* mgr) noexcept { m_animations = mgr; }
@@ -203,6 +281,8 @@ void Widget::applyCommonOptions(
   }
 
   m_fontScale = options.fontScale;
+  m_customLabelText = options.customLabel;
+  m_showGlyph = options.showGlyph;
 
   m_scrollRepeatMode = noctalia::bar::ScrollRepeatMode::Auto;
   if (const auto mode = noctalia::bar::parseScrollRepeatMode(options.scrollRepeat); mode.has_value()) {

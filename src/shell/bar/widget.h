@@ -20,6 +20,7 @@
 class AnimationManager;
 class Box;
 class InputArea;
+class Label;
 struct PointerEvent;
 
 namespace noctalia::bar {
@@ -45,6 +46,8 @@ public:
   void layout(Renderer& renderer, float containerWidth, float containerHeight) {
     UiPhaseScope layoutPhase(UiPhase::Layout);
     doLayout(renderer, containerWidth, containerHeight);
+    layoutCustomLabel(renderer, containerWidth, containerHeight);
+    applyCommonGlyphVisibility();
     syncOuterFromRoot();
   }
   void update(Renderer& renderer) {
@@ -149,6 +152,9 @@ protected:
       std::string_view panelId, std::string_view context = {}, std::optional<float> anchorSurfaceX = std::nullopt,
       std::optional<float> anchorSurfaceY = std::nullopt, PanelActivation activation = PanelActivation::Toggle
   );
+  // Widgets that render the shared `custom_label` themselves (sysmon) opt out of the base
+  // wrapper; their own options resolve the same `custom_label` key.
+  void markCustomLabelHandled() noexcept { m_customLabelHandled = true; }
   void setRoot(std::unique_ptr<Node> root);
   void clearReleasedRoot() noexcept {
     m_outerPtr = nullptr;
@@ -170,6 +176,8 @@ protected:
   float m_fontScale = 1.0F;
   FontWeight m_labelFontWeight = FontWeight::Medium;
   std::string m_labelFontFamily; // empty = inherit renderer-global family
+  std::string m_customLabelText; // shared `custom_label` from the common widget options
+  bool m_showGlyph = true;       // shared `show_glyph` from the common widget options
   std::string m_configName;
   bool m_anchor = false;
   AnimationManager* m_animations = nullptr;
@@ -194,14 +202,25 @@ private:
   // wrapper stays inert until something is actually bound to it.
   void updateGestureAreaEnabled() noexcept;
   void syncOuterHitTestVisible() noexcept;
-  // The wrapper carries no geometry or visibility of its own; it mirrors root(), which widgets
-  // size in doLayout() and hide in doUpdate() (hide_when_no_media, hide_when_off, ...).
+  // The wrapper carries no geometry of its own; it mirrors the laid-out content: the
+  // custom-label wrapper when one is active, otherwise root(), which widgets size in
+  // doLayout() and hide in doUpdate() (hide_when_no_media, hide_when_off, ...).
   void syncOuterFromRoot() noexcept;
+  void layoutCustomLabel(Renderer& renderer, float containerWidth, float containerHeight);
+  // With the shared `show_glyph` option off, hides the widget's icon glyphs wherever they sit
+  // in the subtree. Only Glyph-class nodes are affected; image content (tray, taskbar, media
+  // artwork) is not. Runs at setRoot() and after every layout; typed `show_glyph` handlers
+  // (sysmon, keyboard_layout) also consume the key, and this walk applies on top, idempotently.
+  void applyCommonGlyphVisibility();
+  static void hideGlyphNodes(Node& node);
 
   // m_outer owns m_innerRoot as its only child until releaseRoot() hands it to the bar.
   std::unique_ptr<Node> m_outer;
   Node* m_outerPtr = nullptr;
   Node* m_innerRoot = nullptr;
+  Node* m_customLabelWrapper = nullptr;
+  Label* m_customLabel = nullptr;
+  bool m_customLabelHandled = false;
   InputArea* m_gestureArea = nullptr;
   // The widget's own root area and what it claimed before any binding was applied.
   InputArea* m_innerArea = nullptr;

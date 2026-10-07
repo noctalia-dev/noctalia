@@ -90,6 +90,13 @@ void Glyph::doArrange(Renderer& renderer, const LayoutRect& rect) {
   measureWithConstraints(renderer, constraints);
 }
 
+void Glyph::suppress() {
+  m_suppressed = true;
+  setVisible(false);
+  setParticipatesInLayout(false);
+  Node::setSize(0.0F, 0.0F);
+}
+
 void Glyph::measure(Renderer& renderer) {
   LayoutConstraints constraints;
   if (width() > 0.0F && !sizeAssignedByLayout()) {
@@ -99,6 +106,10 @@ void Glyph::measure(Renderer& renderer) {
 }
 
 LayoutSize Glyph::measureWithConstraints(Renderer& renderer, const LayoutConstraints& constraints) {
+  if (m_suppressed) {
+    Node::setSize(0.0F, 0.0F);
+    return LayoutSize{.width = 0.0F, .height = 0.0F};
+  }
   const float renderScale = renderer.renderScale();
   if (m_measureCached
       && m_cachedCodepoint == m_glyphNode->codepoint()

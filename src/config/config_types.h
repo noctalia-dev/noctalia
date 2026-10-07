@@ -408,6 +408,8 @@ struct CommonWidgetOptions {
   std::optional<ColorSpec> iconColor;
   std::optional<std::int64_t> labelFontWeight;
   std::string labelFontFamily;
+  std::string customLabel;
+  bool showGlyph = true;
   WidgetBarCapsuleSpec capsule;
   std::string scrollRepeat = "auto";
   bool enableScroll = true;

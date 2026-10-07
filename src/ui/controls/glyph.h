@@ -26,6 +26,10 @@ public:
 
   void measure(Renderer& renderer);
 
+  // Host-driven suppression (shared `show_glyph` option off): the glyph renders nothing and
+  // reports no size, so the widget's own layout collapses the space it used to occupy.
+  // One-way: bar widgets are rebuilt on config change, so there is no unsuppress path.
+  void suppress();
   [[nodiscard]] float baselineOffset() const noexcept { return m_baselineOffset; }
 
 private:
@@ -36,6 +40,7 @@ private:
   LayoutSize measureWithConstraints(Renderer& renderer, const LayoutConstraints& constraints);
 
   GlyphNode* m_glyphNode = nullptr;
+  bool m_suppressed = false;
   float m_baselineOffset = 0.0F;
   float m_logicalFontSize = 0.0F;
   ColorSpec m_color = colorSpecFromRole(ColorRole::OnSurface);

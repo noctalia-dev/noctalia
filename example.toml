@@ -599,5 +599,7 @@ enabled = false
 # tooltip_format = "{:%A, %B %d, %Y}"
 # scale = 1.0                         # multiplies the bar scale for this widget only
 # font_scale = 1.0                    # multiplies text size for this widget only
+# custom_label = ""                   # optional text shown with the widget; shared by all bar widgets
+# show_glyph = true                   # set false to hide widget icon glyphs; plugin widgets included
 # font_weight = 700
 # interactive = false                 # pass clicks/scrolls through to the bar and disable hover/tooltips
