@@ -5,7 +5,9 @@
 #include <memory>
 #include <optional>
 #include <pipewire/pipewire.h>
+#include <set>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <vector>
 
@@ -14,6 +16,12 @@ struct spa_source;
 
 class SoundPlayer {
 public:
+  static constexpr std::string_view kEventVolumeChange = "audio-volume-change";
+  static constexpr std::string_view kEventNotification = "message-new-instant";
+  static constexpr std::string_view kEventPowerPlug = "power-plug";
+  static constexpr std::string_view kEventPowerUnplug = "power-unplug";
+  static constexpr std::string_view kEventScreenCapture = "screen-capture";
+
   explicit SoundPlayer(pw_loop* loop);
   ~SoundPlayer();
 
@@ -22,8 +30,10 @@ public:
   SoundPlayer(const SoundPlayer&) = delete;
   SoundPlayer& operator=(const SoundPlayer&) = delete;
 
-  void play(const std::string& name);
+  void play(std::string_view name);
   void setTheme(std::string theme);
+  void setShellSoundsEnabled(bool enabled);
+  void setEventEnabled(std::string_view event, bool enabled);
   void setVolume(float volume);
 
   [[nodiscard]] std::optional<std::string>
@@ -63,6 +73,8 @@ private:
   spa_source* m_streamCloseTimer = nullptr;
   float m_volume = 1.0F;
   std::string m_theme;
+  bool m_shellSoundsEnabled = true;
+  std::set<std::string, std::less<>> m_disabledEvents;
   std::unordered_map<std::string, std::shared_ptr<const SoundBuffer>> m_buffers;
   std::unordered_map<std::uint64_t, std::unordered_map<std::string, std::shared_ptr<const SoundBuffer>>>
       m_pluginBuffers;

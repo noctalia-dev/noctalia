@@ -5,6 +5,7 @@
 #include "i18n/i18n.h"
 #include "shell/wallpaper/wallpaper_paths.h"
 #include "theme/theme_service.h"
+#include "util/file_utils.h"
 #include "util/fuzzy_match.h"
 #include "util/string_utils.h"
 #include "wayland/wayland_connection.h"
@@ -35,25 +36,22 @@ namespace {
       return candidates;
     }
 
-    for (auto it = std::filesystem::recursive_directory_iterator(
-             directory, std::filesystem::directory_options::skip_permission_denied, ec
-         );
-         !ec && it != std::filesystem::end(it); it.increment(ec)) {
-      if (ec) {
-        break;
-      }
+    FileUtils::walkDirectoryTree(
+        directory, [](const std::filesystem::directory_entry&) { return true; },
+        [&candidates](const std::filesystem::directory_entry& entry) {
+          std::error_code typeEc;
+          if (!entry.is_regular_file(typeEc) || typeEc || !DirectoryScanner::isImagePath(entry.path())) {
+            return;
+          }
 
-      std::error_code typeEc;
-      if (!it->is_regular_file(typeEc) || typeEc || !DirectoryScanner::isImagePath(it->path())) {
-        continue;
-      }
-
-      WallpaperCandidate candidate;
-      candidate.name = it->path().filename().string();
-      candidate.path = it->path().string();
-      candidate.searchable = StringUtils::toLower(candidate.name + " " + it->path().parent_path().filename().string());
-      candidates.push_back(std::move(candidate));
-    }
+          WallpaperCandidate candidate;
+          candidate.name = entry.path().filename().string();
+          candidate.path = entry.path().string();
+          candidate.searchable =
+              StringUtils::toLower(candidate.name + " " + entry.path().parent_path().filename().string());
+          candidates.push_back(std::move(candidate));
+        }
+    );
 
     std::ranges::sort(candidates, [](const auto& a, const auto& b) {
       return StringUtils::toLower(a.name) < StringUtils::toLower(b.name);

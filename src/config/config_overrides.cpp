@@ -303,6 +303,9 @@ namespace {
     if (ovr.hoverHighlight) {
       resolved.hoverHighlight = *ovr.hoverHighlight;
     }
+    if (ovr.showTooltip) {
+      resolved.showTooltip = *ovr.showTooltip;
+    }
     if (ovr.deadZone.actions) {
       resolved.deadZone.actions = *ovr.deadZone.actions;
     }

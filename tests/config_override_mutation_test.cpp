@@ -146,6 +146,24 @@ int main() {
     );
   }
 
+  // A bar-inherited widget setting resolves an unset value from the bar, so an explicit value equal to the
+  // widget schema default is a real override and must survive the no-op override pruning.
+  const std::filesystem::path inheritRoot = root / "bar-inherit-case";
+  writeFile(
+      inheritRoot / "config" / "noctalia" / "config.toml",
+      "[bar.default]\nshow_tooltip = false\n\n[widget.clock]\ntype = \"clock\"\n"
+  );
+  ::setenv("NOCTALIA_CONFIG_HOME", (inheritRoot / "config").c_str(), 1);
+  ::setenv("XDG_STATE_HOME", (inheritRoot / "state").c_str(), 1);
+  {
+    ConfigService config;
+    const std::vector<std::string> tooltipPath{"widget", "clock", "show_tooltip"};
+    expect(config.setOverride(tooltipPath, true), "explicit widget show_tooltip = true was accepted");
+    expect(config.hasOverride(tooltipPath), "explicit widget show_tooltip = true survived pruning");
+    expect(config.clearOverride(tooltipPath), "widget show_tooltip override was cleared");
+    expect(!config.hasOverride(tooltipPath), "clearing restored inheritance from the bar");
+  }
+
   std::filesystem::remove_all(root);
 
   if (g_failures == 0) {

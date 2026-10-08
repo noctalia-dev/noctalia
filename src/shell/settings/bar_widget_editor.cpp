@@ -2,6 +2,8 @@
 
 #include "config/config_service.h"
 #include "config/config_types.h"
+#include "config/schema/config_schema.h"
+#include "config/schema/engine.h"
 #include "config/schema/ranges.h"
 #include "core/files/directory_scanner.h"
 #include "cursor-shape-v1-client-protocol.h"
@@ -1059,6 +1061,82 @@ namespace settings {
       return 8;
     }
 
+    // The value an unset bar-inherited widget setting resolves to on this lane: the lane's monitor
+    // override, then the bar itself. Nullopt off a bar lane or when the bar has no such key.
+    std::optional<bool>
+    inheritedBarBoolForLane(const Config& cfg, const std::vector<std::string>& lanePath, std::string_view key) {
+      namespace schema = noctalia::config::schema;
+      if (lanePath.size() < 2 || lanePath[0] != "bar") {
+        return std::nullopt;
+      }
+      const BarConfig* bar = findBar(cfg, lanePath[1]);
+      if (bar == nullptr) {
+        return std::nullopt;
+      }
+      if (isMonitorWidgetListPath(lanePath) && lanePath.size() >= 4) {
+        if (const auto* ovr = findMonitorOverride(*bar, lanePath[3]); ovr != nullptr) {
+          if (const auto value = schema::writeField(*ovr, schema::barMonitorOverrideSchema(), key)[key].value<bool>()) {
+            return value;
+          }
+        }
+      }
+      return schema::writeField(*bar, schema::barFieldsSchema(), key)[key].value<bool>();
+    }
+
+    // Bar-inherited settings default to the lane's bar value, so visibility conditions and the
+    // Inherit choice reflect what the widget resolves to on this bar.
+    void applyLaneBarInheritance(
+        std::vector<WidgetSettingSpec>& specs, const Config& cfg, const std::vector<std::string>& lanePath
+    ) {
+      for (auto& spec : specs) {
+        if (!spec.schema.inheritsFromBar) {
+          continue;
+        }
+        if (const auto inherited = inheritedBarBoolForLane(cfg, lanePath, spec.schema.key)) {
+          spec.schema.defaultValue = *inherited;
+        }
+      }
+    }
+
+    // Inherit (resolved value) | On | Off. Inherit drops the settings override; a value written in the
+    // config file stays authoritative, as with every other settings reset.
+    std::unique_ptr<Node> makeInheritedBoolControl(
+        const BarWidgetEditorContext& ctx, std::vector<std::string> path, std::optional<bool> explicitValue,
+        bool inherited
+    ) {
+      std::size_t selectedIndex = 0;
+      if (explicitValue.has_value()) {
+        selectedIndex = *explicitValue ? 1 : 2;
+      }
+      return ui::segmented({
+          .options =
+              std::vector<ui::SegmentedOption>{
+                  {.label = i18n::tr(
+                       "common.states.inherit-value", "value",
+                       i18n::tr(inherited ? "common.states.on" : "common.states.off")
+                   )},
+                  {.label = i18n::tr("common.states.on")},
+                  {.label = i18n::tr("common.states.off")},
+              },
+          .selectedIndex = selectedIndex,
+          .scale = ctx.scale,
+          .onChange = [configService = ctx.configService, setOverride = ctx.setOverride,
+                       clearOverride = ctx.clearOverride, requestRebuild = ctx.requestRebuild,
+                       path = std::move(path)](std::size_t index) {
+            if (index == 0) {
+              if (configService != nullptr && configService->hasOverride(path)) {
+                clearOverride(path);
+              }
+            } else {
+              setOverride(path, index == 1);
+            }
+            if (requestRebuild) {
+              requestRebuild();
+            }
+          },
+      });
+    }
+
     std::string settingValueAsString(const WidgetSettingValue& value) {
       if (const auto* v = std::get_if<std::string>(&value)) {
         return *v;
@@ -1352,6 +1430,7 @@ namespace settings {
       const auto widgetIt = ctx.config.widgets.find(widgetName);
       const WidgetConfig* widgetConfig = widgetIt != ctx.config.widgets.end() ? &widgetIt->second : nullptr;
       auto specs = widgetSettingSpecs(widgetType, widgetConfig, ctx.config.shell.fontFamily);
+      applyLaneBarInheritance(specs, ctx.config, lanePath);
       if (specs.empty()) {
         return;
       }
@@ -1458,11 +1537,23 @@ namespace settings {
 
         switch (spec.control) {
         case WidgetControlKind::Bool: {
+          const bool resolved = settingValueAsBool(value);
+          if (spec.schema.inheritsFromBar) {
+            std::optional<bool> explicitValue;
+            if (widgetConfig != nullptr && widgetConfig->settings.contains(spec.schema.key)) {
+              explicitValue = resolved;
+            }
+            ctx.makeRow(
+                *panel, entry,
+                makeInheritedBoolControl(ctx, path, explicitValue, settingValueAsBool(spec.schema.defaultValue))
+            );
+            break;
+          }
           std::optional<bool> clearWhenValue;
           if (const auto* defaultBool = std::get_if<bool>(&spec.schema.defaultValue)) {
             clearWhenValue = *defaultBool;
           }
-          ctx.makeRow(*panel, entry, ctx.makeToggle(settingValueAsBool(value), path, clearWhenValue));
+          ctx.makeRow(*panel, entry, ctx.makeToggle(resolved, path, clearWhenValue));
           break;
         }
         case WidgetControlKind::Int: {
@@ -1998,7 +2089,9 @@ namespace settings {
           body.addChild(std::move(confirmPanel));
         }
 
-        addWidgetSettingsPanel(body, widgetName, currentLanePath, ctx);
+        // The panel only needs the bar and monitor the lane belongs to; currentLanePath is empty for widgets
+        // that sit inside a capsule group.
+        addWidgetSettingsPanel(body, widgetName, laneListPath, ctx);
 
         // Reset to Defaults button — collects all currently overridden setting paths for this widget.
         if (ctx.clearOverrides && ctx.configService != nullptr) {

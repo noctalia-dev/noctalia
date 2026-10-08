@@ -6,6 +6,8 @@
 #include "system/terminal_launch.h"
 #include "util/file_utils.h"
 
+#include <algorithm>
+#include <cctype>
 #include <chrono>
 #include <gio/gio.h>
 #include <map>
@@ -140,6 +142,14 @@ namespace {
       args.push_back(std::move(current));
     }
     return args;
+  }
+
+  bool isEnvAssignment(std::string_view arg) {
+    const auto eq = arg.find('=');
+    if (eq == std::string_view::npos || eq == 0 || std::isdigit(static_cast<unsigned char>(arg.front())) != 0) {
+      return false;
+    }
+    return std::ranges::all_of(arg.substr(0, eq), [](unsigned char c) { return std::isalnum(c) != 0 || c == '_'; });
   }
 
   std::string expandExecutablePath(std::string_view binary) {
@@ -295,12 +305,15 @@ namespace desktop_entry_launch {
       args = tokenize(cleanExec);
     }
 
-    if (!args.empty() && args.front().contains('/')) {
-      args.front() = expandExecutablePath(args.front());
-    }
-
-    if (args.empty()) {
+    const auto program = std::ranges::find_if_not(args, isEnvAssignment);
+    if (program == args.end()) {
       return std::nullopt;
+    }
+    if (program->contains('/')) {
+      *program = expandExecutablePath(*program);
+    }
+    if (program != args.begin()) {
+      args.insert(args.begin(), "env");
     }
     return PreparedCommand{std::move(args)};
   }

@@ -63,6 +63,8 @@ alpha     = 0.55                    # multiplied by each component's background 
 [shell.panel]
 transparency_mode     = "solid"     # solid | soft | glass; controls floating-panel opacity and card translucency
 borders               = true        # panel shell outline and in-panel section cards
+border_color          = "outline"   # floating panel outline color: theme role token or #RRGGBB
+border_width          = 1.0         # floating panel outline width in px, 0 hides the stroke
 shadow                = true        # cast the global [shell.shadow] from panel surfaces
 launcher_placement       = "floating" # attached | floating
 clipboard_placement      = "floating" # attached | floating
@@ -266,6 +268,8 @@ disk_poll_seconds = 10.0            # disk usage and swap usage; graph widgets u
 
 [calendar]
 enabled                     = false
+dedupe_events               = false         # merge an event that appears in more than one calendar into one entry
+dedupe_ignore_patterns      = []            # regexes stripped from a title before events are compared, e.g. ['\s*\(.*\)$']
 refresh_minutes             = 15
 event_date_format           = "%A %e %B"    # date format used for events
 event_time_format           = "%H:%M"       # time format used for events
@@ -297,7 +301,11 @@ effects         = true              # visual weather effects
 
 [audio]
 enable_overdrive = false            # allow volume above 100% (up to 150%)
-enable_sounds = false               # master toggle for UI feedback sounds
+enable_sounds = false               # master toggle for shell sounds (plugins unaffected)
+enable_volume_sounds = true         # sound on volume changes
+enable_notification_sounds = true   # sound on notifications
+enable_power_sounds = true          # sound on charger connect or remove
+enable_screenshot_sounds = true     # sound on screenshots
 sound_volume = 0.5                  # 0.0 - 1.0
 sound_theme = "freedesktop"
 

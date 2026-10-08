@@ -1870,6 +1870,6 @@ void ScreenshotService::setSoundPlayer(SoundPlayer* soundPlayer) { m_soundPlayer
 
 void ScreenshotService::playCaptureSound() {
   if (m_soundPlayer != nullptr) {
-    m_soundPlayer->play("screen-capture");
+    m_soundPlayer->play(SoundPlayer::kEventScreenCapture);
   }
 }

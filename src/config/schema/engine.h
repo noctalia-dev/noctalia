@@ -4,6 +4,7 @@
 #include "config/schema/field.h"
 #include "core/toml.h"
 
+#include <algorithm>
 #include <string>
 #include <string_view>
 #include <unordered_set>
@@ -28,6 +29,17 @@ namespace noctalia::config::schema {
     toml::table tbl;
     for (const auto& f : schema) {
       f.write(tbl, in);
+    }
+    return tbl;
+  }
+
+  // Serialize only the field named `key`; the table is empty when the schema has no such field or the
+  // field does not emit (e.g. an unset optional).
+  template <typename Struct>
+  toml::table writeField(const Struct& in, const Schema<Struct>& schema, std::string_view key) {
+    toml::table tbl;
+    if (const auto it = std::ranges::find(schema, key, &Field<Struct>::key); it != schema.end()) {
+      it->write(tbl, in);
     }
     return tbl;
   }

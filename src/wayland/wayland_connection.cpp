@@ -55,7 +55,7 @@
 namespace {
 
   constexpr std::uint32_t kCompositorVersion = 4;
-  constexpr std::uint32_t kSeatVersion = 5;
+  constexpr std::uint32_t kSeatVersion = 8;
   constexpr std::uint32_t kShmVersion = 1;
   constexpr std::uint32_t kSubcompositorVersion = 1;
   constexpr std::uint32_t kLayerShellVersion = 4;
@@ -157,10 +157,15 @@ namespace {
   void outputDone(void* data, wl_output* wlOut) {
     auto* self = static_cast<WaylandConnection*>(data);
     auto* out = self->findOutputByWl(wlOut);
-    if (out != nullptr) {
-      out->done = true;
-      self->notifyOutputReady(wlOut);
+    if (out == nullptr) {
+      return;
     }
+    // A hot-plugged output's first done precedes its xdg-output logical size.
+    if (out->xdgOutput != nullptr && out->logicalWidth <= 0) {
+      return;
+    }
+    out->done = true;
+    self->notifyOutputReady(wlOut);
   }
 
   void outputScale(void* data, wl_output* wlOut, int32_t factor) {
@@ -229,6 +234,7 @@ namespace {
     auto* self = static_cast<WaylandConnection*>(data);
     auto* out = self->findOutputByXdg(xdgOutput);
     if (out != nullptr && out->output != nullptr) {
+      out->done = true;
       self->notifyOutputReady(out->output);
     }
   }

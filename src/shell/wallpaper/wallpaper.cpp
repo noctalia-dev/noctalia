@@ -160,21 +160,15 @@ namespace {
     }
 
     if (recursive) {
-      for (auto it = std::filesystem::recursive_directory_iterator(
-               directory, std::filesystem::directory_options::skip_permission_denied, ec
-           );
-           !ec && it != std::filesystem::end(it); it.increment(ec)) {
-        if (ec) {
-          break;
-        }
-        std::error_code typeEc;
-        if (!it->is_regular_file(typeEc) || typeEc) {
-          continue;
-        }
-        if (DirectoryScanner::isImagePath(it->path())) {
-          out.push_back(it->path().string());
-        }
-      }
+      FileUtils::walkDirectoryTree(
+          directory, [](const std::filesystem::directory_entry&) { return true; },
+          [&out](const std::filesystem::directory_entry& entry) {
+            std::error_code typeEc;
+            if (entry.is_regular_file(typeEc) && !typeEc && DirectoryScanner::isImagePath(entry.path())) {
+              out.push_back(entry.path().string());
+            }
+          }
+      );
       return;
     }
 

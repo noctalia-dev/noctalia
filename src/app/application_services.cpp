@@ -123,24 +123,6 @@ namespace {
       Application::s_shutdownRequested = true;
     }
   }
-
-  void syncGSettingsColorScheme(std::string_view mode) {
-    if (mode.empty()) {
-      return;
-    }
-    const std::string pref = mode == "light" ? "prefer-light" : "prefer-dark";
-    if (process::commandExists("gsettings")) {
-      std::string cmd = "gsettings set org.gnome.desktop.interface color-scheme \"";
-      cmd += pref;
-      cmd += "\"";
-      (void)process::runAsync(cmd);
-    } else if (process::commandExists("dconf")) {
-      std::string cmd = "dconf write /org/gnome/desktop/interface/color-scheme \"'";
-      cmd += pref;
-      cmd += "'\"";
-      (void)process::runAsync(cmd);
-    }
-  }
 } // namespace
 
 void Application::scheduleNotificationShellRefresh() {
@@ -718,14 +700,7 @@ void Application::initStyleThemeAndWayland() {
     }
   });
 
-  // Runs once per applied generation: the gsettings color-scheme write has to land after the
-  // gtk-theme templates, and colors_changed only concerns a palette that actually changed.
-  m_templateApplyService.setAfterApplyCallback([this](std::string_view appliedMode, bool paletteChanged) {
-    syncGSettingsColorScheme(appliedMode);
-    if (paletteChanged) {
-      m_hookManager.fire(HookKind::ColorsChanged);
-    }
-  });
+  m_templateApplyService.setPaletteChangedCallback([this]() { m_hookManager.fire(HookKind::ColorsChanged); });
 
   m_themeService.setResolvedCallback([this, lastResolvedThemeMode = std::optional<std::string>{},
                                       lastGeneratedPalette = std::optional<noctalia::theme::GeneratedPalette>{},
@@ -751,7 +726,6 @@ void Application::initStyleThemeAndWayland() {
     }
   });
   m_themeService.apply();
-  syncGSettingsColorScheme(m_themeService.resolvedMode());
   syncScriptApiWallpaperDirectory();
   syncScriptApiShellTimeFormats();
   m_configService.addReloadCallback([this]() { m_themeService.onConfigReload(); }, "theme");
@@ -1455,8 +1429,14 @@ void Application::initBrightnessAndPipewire() {
       }
 
       const auto& audio = m_configService.config().audio;
-      m_soundPlayer->setVolume(audio.enableSounds ? audio.soundVolume : 0.0F);
+      m_soundPlayer->setShellSoundsEnabled(audio.enableSounds);
+      m_soundPlayer->setVolume(audio.soundVolume);
       m_soundPlayer->setTheme(audio.soundTheme.empty() ? "freedesktop" : audio.soundTheme);
+      m_soundPlayer->setEventEnabled(SoundPlayer::kEventVolumeChange, audio.enableVolumeSounds);
+      m_soundPlayer->setEventEnabled(SoundPlayer::kEventNotification, audio.enableNotificationSounds);
+      m_soundPlayer->setEventEnabled(SoundPlayer::kEventPowerPlug, audio.enablePowerSounds);
+      m_soundPlayer->setEventEnabled(SoundPlayer::kEventPowerUnplug, audio.enablePowerSounds);
+      m_soundPlayer->setEventEnabled(SoundPlayer::kEventScreenCapture, audio.enableScreenshotSounds);
     };
     applySoundConfig();
     m_configService.addReloadCallback(

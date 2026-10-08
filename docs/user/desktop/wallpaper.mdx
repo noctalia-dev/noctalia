@@ -71,6 +71,8 @@ Selecting a monitor in the panel toolbar switches to that monitor's resolved dir
 
 The launcher's wallpaper provider and **automatic rotation** use the same browse-folder resolution so they stay aligned with the picker. When automation runs with `per_monitor_directories = true`, each monitor picks independently from its own resolved folder.
 
+Recursive scans follow symlinks to folders: the picker with **Flatten** on, the launcher's wallpaper provider, and automatic rotation with `recursive = true`. Each real folder is scanned once, so a symlink back up the tree or a second link to the same folder does not repeat images.
+
 Prefer a color role such as `surface` or `primary` for `fill_color` so wallpaper fallback colors follow the active palette. Fixed hex colors (`#RGB`, `#RGBA`, `#RRGGBB`, `#RRGGBBAA`) are supported when a non-palette fill is intentional. It is used behind image wallpapers and in uncovered areas for `center`/`fit`. Invalid role names or malformed hex colors are treated as config errors.
 
 Monitor overrides may also set `fill_color`.

@@ -226,7 +226,9 @@
       "auto": "Auto",
       "custom": "Custom",
       "inherit": "Inherit",
-      "off": "Off"
+      "inherit-value": "Inherit ({value})",
+      "off": "Off",
+      "on": "On"
     }
   },
   "control-center": {
@@ -1978,6 +1980,10 @@
           "description": "Briefly reveal the bar when the active workspace changes",
           "label": "Show on Workspace Switch"
         },
+        "show-tooltip": {
+          "description": "Show hover tooltips for widgets on this bar; a widget's own Show Tooltip setting overrides this",
+          "label": "Show Tooltips"
+        },
         "start-widgets": {
           "description": "Widgets on the start (left/top) side of the bar",
           "label": "Start Widgets"
@@ -2489,6 +2495,14 @@
           "description": "Draw an outline on floating panels",
           "label": "Borders"
         },
+        "border-color": {
+          "description": "Outline color for floating panels; a theme role name follows the active theme, or pick a custom color",
+          "label": "Border Color"
+        },
+        "border-width": {
+          "description": "Outline width for floating panels in pixels, 0 hides the stroke",
+          "label": "Border Width"
+        },
         "control-center-sidebar": {
           "description": "Choose how to display the sidebar",
           "label": "Sidebar"
@@ -2712,6 +2726,10 @@
         "transparency-mode": {
           "description": "Panel glass style, including floating panel opacity and card translucency",
           "label": "Transparency"
+        },
+        "wallpaper-show-names": {
+          "description": "Caption each thumbnail with its file name in the wallpaper picker.",
+          "label": "Show File Names"
         }
       },
       "power": {
@@ -2755,6 +2773,14 @@
           "description-opening": "Calendar credentials are being opened through Secret Service",
           "description-unavailable": "No Secret Service provider is available in this session",
           "label": "Calendar Credential Storage"
+        },
+        "calendar-dedupe-events": {
+          "description": "Collapse an event that appears in more than one of your calendars into a single entry",
+          "label": "Merge Duplicate Events"
+        },
+        "calendar-dedupe-ignore-patterns": {
+          "description": "Regular expressions removed from an event title before it is compared, so titles that differ only by a matched part still merge",
+          "label": "Ignore in Title When Merging"
         },
         "calendar-digest-time": {
           "description": "Time of day for a single notification listing all-day events. Leave empty to disable.",
@@ -2864,8 +2890,20 @@
           "label": "Notification Sound",
           "placeholder": "/path/to/sound.wav"
         },
+        "notification-sounds": {
+          "description": "Play a sound when notifications arrive",
+          "label": "Notification Sounds"
+        },
+        "power-sounds": {
+          "description": "Play a sound when the charger connects or disconnects",
+          "label": "Power Sounds"
+        },
+        "screenshot-sounds": {
+          "description": "Play a sound on screenshot capture",
+          "label": "Screenshot Sounds"
+        },
         "shell-sounds": {
-          "description": "Play sound effects for shell events",
+          "description": "Master toggle for shell sound effects",
           "label": "Shell Sounds"
         },
         "sound-theme": {
@@ -2938,6 +2976,10 @@
           "description": "Sound file used for volume feedback",
           "label": "Volume Change Sound",
           "placeholder": "/path/to/sound.wav"
+        },
+        "volume-sounds": {
+          "description": "Play a sound when output or input volume changes",
+          "label": "Volume Sounds"
         },
         "weather": {
           "description": "Enable the weather service via open-meteo.com",
@@ -4320,6 +4362,10 @@
           "description": "Hide the battery widget when fully charged",
           "label": "Hide When Full"
         },
+        "hide-when-idle": {
+          "description": "Hide the widget while the active MPRIS player is paused or stopped",
+          "label": "Hide When Idle"
+        },
         "hide-when-inactive": {
           "description": "Hide the microphone widget while no application is capturing audio",
           "label": "Hide When Inactive"
@@ -4580,8 +4626,8 @@
           "label": "Show Temperature"
         },
         "show-tooltip": {
-          "description": "Show a workspace's full name on hover when its pill does not already display it",
-          "label": "Show Name Tooltip"
+          "description": "Show this widget's tooltip on hover",
+          "label": "Show Tooltip"
         },
         "show-unlock-hint": {
           "description": "Show the status card above the login box for unlock hints and auth prompts; errors and Caps Lock warnings still appear when this is off",

@@ -3,6 +3,7 @@
 #include "core/inotify/inotify.h"
 #include "core/log.h"
 #include "i18n/language_tag.h"
+#include "util/file_utils.h"
 #include "util/string_utils.h"
 
 #include <algorithm>
@@ -506,6 +507,56 @@ namespace {
     return dirs;
   }
 
+  // Scans every applications directory. When `visitedDirs` is set, it receives each real directory the scan walked,
+  // so the cache watches exactly what was scanned.
+  std::vector<DesktopEntry> scanApplicationDirectories(std::string_view language, std::vector<fs::path>* visitedDirs) {
+    std::vector<DesktopEntry> entries;
+
+    // Track seen IDs to deduplicate (first occurrence wins per XDG spec).
+    // Hidden/NoDisplay files still claim their ID so user-local overrides can
+    // suppress lower-priority system entries.
+    std::unordered_set<std::string> seenIds;
+
+    for (const auto& dataDir : xdgDataDirs()) {
+      const fs::path appDir = fs::path(dataDir) / "applications";
+      std::error_code ec;
+      if (!fs::is_directory(appDir, ec)) {
+        continue;
+      }
+
+      if (visitedDirs != nullptr) {
+        visitedDirs->push_back(appDir);
+      }
+
+      FileUtils::walkDirectoryTree(
+          appDir,
+          [visitedDirs](const fs::directory_entry& dir) {
+            if (visitedDirs != nullptr) {
+              visitedDirs->push_back(dir.path());
+            }
+            return true;
+          },
+          [&](const fs::directory_entry& file) {
+            std::error_code typeEc;
+            if (!file.is_regular_file(typeEc) || typeEc || file.path().extension() != ".desktop") {
+              return;
+            }
+            if (!seenIds.insert(file.path().stem().string()).second) {
+              return;
+            }
+            parseDesktopFile(file.path(), language, entries);
+          }
+      );
+    }
+
+    // Collate lowercased names so ordering follows LC_COLLATE and stays case-insensitive under the C locale.
+    std::ranges::sort(entries, [](const DesktopEntry& a, const DesktopEntry& b) {
+      return std::strcoll(a.nameLower.c_str(), b.nameLower.c_str()) < 0;
+    });
+
+    return entries;
+  }
+
   class DesktopEntryCache {
   public:
     DesktopEntryCache() = default;
@@ -577,12 +628,14 @@ namespace {
       // Snapshot sources before scanning; a change during the scan keeps the cache dirty.
       m_sourceSignature = computeSourceSignature();
 
-      auto scanned = std::make_shared<const std::vector<DesktopEntry>>(scanDesktopEntries(m_language));
+      std::vector<fs::path> scannedDirs;
+      auto scanned =
+          std::make_shared<const std::vector<DesktopEntry>>(scanApplicationDirectories(m_language, &scannedDirs));
       {
         std::scoped_lock lock(m_entriesMutex);
         m_entries = std::move(scanned);
       }
-      rebuildWatches();
+      rebuildWatches(scannedDirs);
       m_dirty = computeSourceSignature() != m_sourceSignature;
       ++m_version;
       kLog.debug("refreshed desktop entries: {} apps (version {})", m_entries->size(), m_version);
@@ -633,30 +686,15 @@ namespace {
       m_watchedPaths.clear();
     }
 
-    void rebuildWatches() {
+    void rebuildWatches(const std::vector<fs::path>& dirs) {
       clearWatches();
 
       if (m_inotify.fd() < 0) {
         return;
       }
 
-      for (const auto& dataDir : xdgDataDirs()) {
-        const fs::path appDir = fs::path(dataDir) / "applications";
-        std::error_code ec;
-        if (!fs::is_directory(appDir, ec)) {
-          continue;
-        }
-
-        addWatch(appDir);
-        for (fs::recursive_directory_iterator it(appDir, ec), end; it != end; it.increment(ec)) {
-          if (ec) {
-            ec.clear();
-            continue;
-          }
-          if (it->is_directory(ec) && !ec) {
-            addWatch(it->path());
-          }
-        }
+      for (const auto& dir : dirs) {
+        addWatch(dir);
       }
     }
 
@@ -701,49 +739,7 @@ namespace {
 } // namespace
 
 std::vector<DesktopEntry> scanDesktopEntries(std::string_view language) {
-  std::vector<DesktopEntry> entries;
-
-  // Track seen IDs to deduplicate (first occurrence wins per XDG spec).
-  // Hidden/NoDisplay files still claim their ID so user-local overrides can
-  // suppress lower-priority system entries.
-  std::unordered_set<std::string> seenIds;
-
-  for (const auto& dataDir : xdgDataDirs()) {
-    fs::path appDir = fs::path(dataDir) / "applications";
-    std::error_code ec;
-    if (!fs::is_directory(appDir, ec)) {
-      continue;
-    }
-
-    constexpr auto options = fs::directory_options::skip_permission_denied;
-    for (fs::recursive_directory_iterator it(appDir, options, ec), end; it != end; it.increment(ec)) {
-      if (ec) {
-        ec.clear();
-        continue;
-      }
-      if (!it->is_regular_file(ec)) {
-        ec.clear();
-        continue;
-      }
-      if (it->path().extension() != ".desktop") {
-        continue;
-      }
-
-      std::string id = it->path().stem().string();
-      if (!seenIds.insert(id).second) {
-        continue;
-      }
-
-      parseDesktopFile(it->path(), language, entries);
-    }
-  }
-
-  // Collate lowercased names so ordering follows LC_COLLATE and stays case-insensitive under the C locale.
-  std::ranges::sort(entries, [](const DesktopEntry& a, const DesktopEntry& b) {
-    return std::strcoll(a.nameLower.c_str(), b.nameLower.c_str()) < 0;
-  });
-
-  return entries;
+  return scanApplicationDirectories(language, nullptr);
 }
 
 const std::vector<DesktopEntry>& desktopEntries() { return cache().entries(); }

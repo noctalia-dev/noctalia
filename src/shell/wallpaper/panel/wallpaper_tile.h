@@ -48,6 +48,10 @@ public:
   void clearEntry(Renderer& renderer);
   void refreshThumbnail(Renderer& renderer);
 
+  // Show or hide the filename caption. The grid shortens its cells by
+  // captionHeight() while hidden, so the thumbnail keeps the same size.
+  void setShowName(bool showName);
+
   void setSelected(bool selected);
   void setCurrent(bool current);
   void setHoveredVisual(bool hovered);
@@ -63,6 +67,9 @@ public:
   hitTestStarRegion(float cellWidth, float cellHeight, float contentScale, float localX, float localY) noexcept;
   [[nodiscard]] static TooltipAnchorInsets
   starTooltipAnchorInsets(float cellWidth, float cellHeight, float contentScale) noexcept;
+
+  // Space a filename caption reserves in a tile
+  [[nodiscard]] static float captionHeight(float contentScale) noexcept;
 
   [[nodiscard]] const WallpaperEntry* entry() const noexcept { return m_hasEntry ? &m_entry : nullptr; }
 
@@ -98,6 +105,7 @@ private:
   bool m_selected = false;
   bool m_current = false;
   bool m_hoveredVisual = false;
+  bool m_showName = true;
   bool m_favorited = false;
   bool m_starHoveredVisual = false;
   std::optional<ThemeMode> m_themeModeBadge;

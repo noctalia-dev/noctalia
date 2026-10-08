@@ -578,6 +578,7 @@ CommonWidgetOptions resolveCommonWidgetOptions(
 ) {
   CommonWidgetOptions options;
   options.interactive = widgetType != "spacer";
+  options.showTooltip = bar.showTooltip;
   options.contentScale = resolveWidgetContentScale(barScale, widget);
   options.fontScale = resolveWidgetFontScale(bar.fontScale, widget);
   options.capsule = resolveWidgetBarCapsuleSpec(bar, widget);
@@ -588,6 +589,7 @@ CommonWidgetOptions resolveCommonWidgetOptions(
   options.enabled = widget->getBool("enabled", true);
   options.anchor = widget->getBool("anchor", false);
   options.interactive = widget->getBool("interactive", options.interactive);
+  options.showTooltip = widget->getBool("show_tooltip", options.showTooltip);
   options.color = widget->getOptionalColorSpec("color", "widget.color");
   options.iconColor = widget->getOptionalColorSpec("icon_color", "widget.icon_color");
   if (const auto* fontWeight = widget->findSetting("font_weight");

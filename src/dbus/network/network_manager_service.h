@@ -170,6 +170,7 @@ private:
   Timer m_scanTimeoutTimer;
   std::uint64_t m_scanGeneration = 0;
   std::optional<bool> m_pendingLocalWirelessEnabled;
+  std::vector<std::shared_ptr<WirelessEnabledCompletion>> m_pendingWirelessCompletions;
   bool m_hasStateSnapshot = false;
   ChangeCallback m_changeCallback;
 

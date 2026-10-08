@@ -270,8 +270,9 @@ TextMetrics RenderContext::measureTextScaled(
   };
 }
 
-TextMetrics RenderContext::measureFontScaled(float scale, float fontSize, FontWeight fontWeight) {
-  auto m = m_textRenderer.measureFont(scale, fontSize, fontWeight);
+TextMetrics
+RenderContext::measureFontScaled(float scale, float fontSize, FontWeight fontWeight, std::string_view fontFamily) {
+  auto m = m_textRenderer.measureFont(scale, fontSize, fontWeight, fontFamily);
   return TextMetrics{
       .width = m.width,
       .left = m.left,

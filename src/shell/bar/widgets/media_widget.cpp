@@ -29,9 +29,9 @@ MediaWidget::MediaWidget(MprisService* mpris, HttpClient* httpClient, wl_output*
     : m_mpris(mpris), m_httpClient(httpClient), m_maxWidth(static_cast<float>(options.maxWidth)),
       m_minWidth(static_cast<float>(options.minWidth)), m_artSize(static_cast<float>(options.artSize)),
       m_titleScrollMode(options.titleScrollMode), m_hideWhenNoMedia(options.hideWhenNoMedia),
-      m_rotateAlbumArt(options.rotateAlbumArt), m_albumArtOnly(options.albumArtOnly),
-      m_hideAlbumArt(options.hideAlbumArt), m_hideArtist(options.hideArtist), m_artistFirst(options.artistFirst),
-      m_showProgress(options.showProgress) {}
+      m_hideWhenIdle(options.hideWhenIdle), m_rotateAlbumArt(options.rotateAlbumArt),
+      m_albumArtOnly(options.albumArtOnly), m_hideAlbumArt(options.hideAlbumArt), m_hideArtist(options.hideArtist),
+      m_artistFirst(options.artistFirst), m_showProgress(options.showProgress) {}
 
 void MediaWidget::create() {
   auto area = ui::inputArea({});
@@ -249,8 +249,7 @@ void MediaWidget::applyTitleScrollMode(bool titleVisible) {
   m_label->setAutoScrollOnlyWhenHovered(false);
 }
 
-void MediaWidget::syncWidgetVisibility(bool hasMedia) {
-  const bool showWidget = !m_hideWhenNoMedia || hasMedia;
+void MediaWidget::syncWidgetVisibility(bool showWidget) {
   if (Node* rootNode = root(); rootNode != nullptr) {
     if (rootNode->visible() != showWidget || rootNode->participatesInLayout() != showWidget) {
       rootNode->setVisible(showWidget);
@@ -303,9 +302,12 @@ void MediaWidget::syncState(Renderer& renderer, const std::optional<MprisPlayerI
     return;
   }
 
-  syncWidgetVisibility(active.has_value());
-  if (m_hideWhenNoMedia && !active.has_value()) {
+  const bool playing = active.has_value() && active->playbackStatus == "Playing";
+  const bool showWidget = active.has_value() ? (!m_hideWhenIdle || playing) : !m_hideWhenNoMedia;
+  syncWidgetVisibility(showWidget);
+  if (!showWidget) {
     applyTitleScrollMode(false);
+    m_lastPlaybackStatus.clear();
     return;
   }
 

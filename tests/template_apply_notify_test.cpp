@@ -1,6 +1,6 @@
-// A requested after-apply notification is owed until an application delivers it. Later
-// applies that coalesce with, supersede, or deduplicate against the requesting one must not
-// swallow it, and an application that did not ask for one must stay silent.
+// A palette-change notification is owed until an application delivers it. Later applies that
+// coalesce with, supersede, or deduplicate against the requesting one must not swallow it, and
+// an application that did not change the palette must stay silent.
 
 #include "config/config_service.h"
 #include "core/deferred_call.h"
@@ -13,7 +13,6 @@
 #include <cstdlib>
 #include <filesystem>
 #include <string>
-#include <string_view>
 #include <thread>
 #include <unistd.h>
 
@@ -57,62 +56,44 @@ int main() {
   ::setenv("NOCTALIA_STATE_HOME", (root / "state").c_str(), 1);
   ::setenv("NOCTALIA_DATA_HOME", (root / "data").c_str(), 1);
 
-  int applications = 0;
-  int paletteChanges = 0;
-  std::string lastMode;
+  int notifications = 0;
   {
     ConfigService config;
     TemplateApplyService service(config);
-    service.setAfterApplyCallback([&](std::string_view appliedMode, bool paletteChanged) {
-      ++applications;
-      paletteChanges += paletteChanged ? 1 : 0;
-      lastMode = appliedMode;
-    });
+    service.setPaletteChangedCallback([&]() { ++notifications; });
 
     // A plain application that changed the palette.
     service.apply(paletteWith(0x111111), "dark", /*force=*/false, /*paletteChanged=*/true);
     settle();
-    TEST_CHECK(applications == 1);
-    TEST_CHECK(paletteChanges == 1);
-    TEST_CHECK(lastMode == "dark");
+    TEST_CHECK(notifications == 1);
 
     // A same-palette apply deduplicates against the queued one. It must not cancel the palette
     // change the queued one is still owed.
-    applications = 0;
-    paletteChanges = 0;
+    notifications = 0;
     service.apply(paletteWith(0x222222), "dark", /*force=*/false, /*paletteChanged=*/true);
     service.apply(paletteWith(0x222222), "dark", /*force=*/false, /*paletteChanged=*/false);
     settle();
-    TEST_CHECK(applications == 1);
-    TEST_CHECK(paletteChanges == 1);
+    TEST_CHECK(notifications == 1);
 
     // A different palette supersedes the queued request before it runs. The superseding
     // generation inherits the owed palette change instead of dropping it.
-    applications = 0;
-    paletteChanges = 0;
+    notifications = 0;
     service.apply(paletteWith(0x333333), "dark", /*force=*/false, /*paletteChanged=*/true);
     service.apply(paletteWith(0x444444), "dark", /*force=*/false, /*paletteChanged=*/false);
     settle();
-    TEST_CHECK(applications == 1);
-    TEST_CHECK(paletteChanges == 1);
+    TEST_CHECK(notifications == 1);
 
-    // An application that only switched mode still reports, so a consumer ordered behind the
-    // templates runs, but it is not a palette change.
-    applications = 0;
-    paletteChanges = 0;
+    // An application that only switched mode re-renders templates but is not a palette change.
+    notifications = 0;
     service.apply(paletteWith(0x444444), "light", /*force=*/false, /*paletteChanged=*/false);
     settle();
-    TEST_CHECK(applications == 1);
-    TEST_CHECK(paletteChanges == 0);
-    TEST_CHECK(lastMode == "light");
+    TEST_CHECK(notifications == 0);
 
     // A palette change owed by an apply that has nothing left to render still lands.
-    applications = 0;
-    paletteChanges = 0;
+    notifications = 0;
     service.apply(paletteWith(0x444444), "light", /*force=*/false, /*paletteChanged=*/true);
     settle();
-    TEST_CHECK(applications == 1);
-    TEST_CHECK(paletteChanges == 1);
+    TEST_CHECK(notifications == 1);
   }
 
   ::unsetenv("NOCTALIA_CONFIG_HOME");

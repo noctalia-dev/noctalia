@@ -3,6 +3,7 @@
 #include "config/config_service.h"
 #include "config/config_types.h"
 #include "shell/surface/shadow.h"
+#include "ui/palette.h"
 
 #include <algorithm>
 #include <cstdint>
@@ -45,6 +46,20 @@ namespace shell::panel_surface {
     const auto mode =
         configService != nullptr ? configService->config().shell.panel.transparencyMode : PanelTransparencyMode::Solid;
     return detachedPanelBackgroundOpacityForTransparencyMode(mode);
+  }
+
+  [[nodiscard]] inline ColorSpec
+  borderColor(const ConfigService* configService, float panelBackgroundOpacity) noexcept {
+    const ColorSpec spec = configService != nullptr ? configService->config().shell.panel.borderColor
+                                                    : colorSpecFromRole(ColorRole::Outline);
+    return scaleAlpha(spec, panelBackgroundOpacity);
+  }
+
+  [[nodiscard]] inline float borderWidth(const ConfigService* configService) noexcept {
+    if (configService == nullptr) {
+      return Style::borderWidth;
+    }
+    return std::max(0.0F, configService->config().shell.panel.borderWidth);
   }
 
   [[nodiscard]] inline float cardOpacity(const ConfigService* configService, float panelBackgroundOpacity) noexcept {

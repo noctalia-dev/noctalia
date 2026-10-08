@@ -201,7 +201,7 @@ void SoundPlayer::setTheme(std::string theme) {
 
   std::unordered_map<std::string, std::shared_ptr<const SoundBuffer>> buffers;
   for (const std::string_view event :
-       {"message-new-instant", "audio-volume-change", "power-plug", "power-unplug", "screen-capture"}) {
+       {kEventNotification, kEventVolumeChange, kEventPowerPlug, kEventPowerUnplug, kEventScreenCapture}) {
     const auto result = findThemeSound(event, theme);
     if (result.state == ThemeSoundLookupState::Disabled) {
       kLog.info("sound theme '{}': event '{}' is disabled", theme, event);
@@ -281,12 +281,15 @@ SoundPlayer::loadPluginSound(std::uint64_t ownerId, const std::string& name, con
 
 void SoundPlayer::unloadPluginSounds(std::uint64_t ownerId) { m_pluginBuffers.erase(ownerId); }
 
-void SoundPlayer::play(const std::string& name) {
-  const auto it = m_buffers.find(name);
+void SoundPlayer::play(std::string_view name) {
+  if (!m_shellSoundsEnabled || m_disabledEvents.contains(name)) {
+    return;
+  }
+  const auto it = m_buffers.find(std::string(name));
   if (it == m_buffers.end()) {
     return;
   }
-  playBuffer(name, it->second);
+  playBuffer(std::string(name), it->second);
 }
 
 void SoundPlayer::playPluginSound(std::uint64_t ownerId, const std::string& name) {
@@ -352,6 +355,16 @@ void SoundPlayer::playBuffer(const std::string& name, const std::shared_ptr<cons
   }
 
   m_active.push_back(std::move(active));
+}
+
+void SoundPlayer::setShellSoundsEnabled(bool enabled) { m_shellSoundsEnabled = enabled; }
+
+void SoundPlayer::setEventEnabled(std::string_view event, bool enabled) {
+  if (enabled) {
+    m_disabledEvents.erase(std::string(event));
+  } else {
+    m_disabledEvents.insert(std::string(event));
+  }
 }
 
 void SoundPlayer::setVolume(float volume) { m_volume = std::clamp(volume, 0.0F, 1.0F); }

@@ -74,8 +74,7 @@ WorkspacesWidget::WorkspacesWidget(
     : m_platform(platform), m_configService(config), m_output(output), m_labelSource(options.labelSource),
       m_showLabels(options.showLabels), m_maxLabelChars(options.maxLabelChars),
       m_labelsOnlyWhenOccupied(options.labelsOnlyWhenOccupied), m_showIcons(options.showIcons),
-      m_showTooltip(options.showTooltip), m_hideWhenEmpty(options.hideWhenEmpty),
-      m_showAllOutputs(options.showAllOutputs), m_pillScale(options.pillScale),
+      m_hideWhenEmpty(options.hideWhenEmpty), m_showAllOutputs(options.showAllOutputs), m_pillScale(options.pillScale),
       m_activePillSize(std::clamp(options.activePillSize, 0.25F, 8.0F)),
       m_inactivePillSize(std::clamp(options.inactivePillSize, 0.25F, 8.0F)), m_style(options.style),
       m_focusedOutputOnly(options.focusedOutputOnly), m_changeColorOnHover(options.changeColorOnHover),
@@ -467,7 +466,9 @@ void WorkspacesWidget::rebuild(Renderer& renderer) {
     const auto& entry = entries[i];
 
     if (entry.showLabel) {
-      const TextMetrics tm = renderer.measureText(entry.label, labelFontSize, configuredFontWeight);
+      const TextMetrics tm = renderer.measureText(
+          entry.label, labelFontSize, configuredFontWeight, 0.0F, 0, TextAlign::Start, labelFontFamily()
+      );
       slot.textWidth = std::max(tm.right - tm.left, tm.inkRight - tm.inkLeft);
       slot.textHeight = tm.bottom - tm.top;
     }
@@ -498,7 +499,9 @@ void WorkspacesWidget::rebuild(Renderer& renderer) {
         slot.activeWidth = slot.inactiveWidth;
       }
       if (entry.showLabel) {
-        const TextMetrics tm = renderer.measureText(entry.label, labelFontSize, configuredFontWeight);
+        const TextMetrics tm = renderer.measureText(
+            entry.label, labelFontSize, configuredFontWeight, 0.0F, 0, TextAlign::Start, labelFontFamily()
+        );
         maxLabelHeight = std::max(maxLabelHeight, tm.bottom - tm.top);
       }
       continue;
@@ -861,7 +864,8 @@ void WorkspacesWidget::recalculateItemMetrics(
   float textWidth = 0.0F;
   float textHeight = 0.0F;
   if (item.showLabel) {
-    const TextMetrics tm = renderer.measureText(label, labelFontSize, configuredFontWeight);
+    const TextMetrics tm =
+        renderer.measureText(label, labelFontSize, configuredFontWeight, 0.0F, 0, TextAlign::Start, labelFontFamily());
     textWidth = std::max(tm.right - tm.left, tm.inkRight - tm.inkLeft);
     textHeight = tm.bottom - tm.top;
   }
@@ -1445,7 +1449,7 @@ WorkspacesWidget::workspaceTooltipText(const Workspace& workspace, const std::st
 }
 
 void WorkspacesWidget::syncItemTooltip(Item& item, const Workspace& workspace) {
-  if (item.area == nullptr || !m_showTooltip) {
+  if (item.area == nullptr) {
     return;
   }
 

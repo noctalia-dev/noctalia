@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <condition_variable>
 #include <cstddef>
 #include <cstdint>
@@ -17,7 +18,11 @@ namespace noctalia::theme {
   public:
     static constexpr std::size_t kDefaultMaxConcurrent = 4;
 
-    explicit HookRunner(std::size_t maxConcurrent = kDefaultMaxConcurrent);
+    // Raising `cancel` terminates the process group of every running hook. The owner sets it
+    // to bound shutdown; without one, running hooks are always waited out.
+    explicit HookRunner(
+        std::size_t maxConcurrent = kDefaultMaxConcurrent, std::shared_ptr<std::atomic<bool>> cancel = nullptr
+    );
     ~HookRunner();
 
     HookRunner(const HookRunner&) = delete;
@@ -50,6 +55,8 @@ namespace noctalia::theme {
       std::size_t maxConcurrent = kDefaultMaxConcurrent;
       std::uint64_t currentGeneration = 0;
       bool shutdown = false;
+      // Passed to every hook's process::runAsync; null when the owner never cancels.
+      std::shared_ptr<std::atomic<bool>> cancel;
     };
 
     static void pump(const std::shared_ptr<State>& state);

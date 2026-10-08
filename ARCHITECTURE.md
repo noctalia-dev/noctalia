@@ -100,8 +100,8 @@ overlays use the dedicated `ScreenCornerProgram` and `ScreenCornerNode` path.
 Vertical text centering lives in the `Label` engine, never in widgets. Widgets box-center the label and do no font math.
 
 - In Text mode, `Label` places the baseline so the cap band is centered: `baselineOffset = height/2 + capHeight/2`.
-- `capHeight` is the measured baseline-to-cap-top of `H` from `Renderer::measureFont().capHeight`, a stable per-font
-  value. It is not the OS/2 declared cap height, and not the label's own per-string ink.
+- `capHeight` is the measured baseline-to-cap-top of `H` from `Renderer::measureFont().capHeight` for the label's own
+  font family, a stable per-font value. It is not the OS/2 declared cap height, and not the label's own per-string ink.
 - Do not center on the line box (`(ascent - descent)/2`); it places caps too high on fonts with a large descent.
 - Do not pre-round text positions. `CairoTextRenderer::draw()` snaps the final glyph quad to the buffer pixel grid, so
   rounding earlier double-rounds and causes 1px drift. Round box and rect positions; leave text positions fractional.

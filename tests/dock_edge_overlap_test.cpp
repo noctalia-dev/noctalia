@@ -40,6 +40,22 @@ namespace {
     return 0;
   }
 
+  bool panelTouchesSurfaceEdge(
+      const shell::dock::DockPanelGeometry& panel, const shell::dock::DockSurfaceGeometry& surface, DockEdge edge
+  ) {
+    switch (edge) {
+    case DockEdge::Bottom:
+      return panel.panelY + panel.panelH == static_cast<float>(surface.surfaceH);
+    case DockEdge::Top:
+      return panel.panelY == 0.0F;
+    case DockEdge::Left:
+      return panel.panelX == 0.0F;
+    case DockEdge::Right:
+      return panel.panelX + panel.panelW == static_cast<float>(surface.surfaceW);
+    }
+    return false;
+  }
+
 } // namespace
 
 int main() {
@@ -57,6 +73,32 @@ int main() {
     TEST_CHECK(integerGeometry.surfaceW == fractionalGeometry.surfaceW);
     TEST_CHECK(integerGeometry.surfaceH == fractionalGeometry.surfaceH);
     TEST_CHECK(integerGeometry.exclusiveZone == fractionalGeometry.exclusiveZone);
+  }
+
+  // Magnification reserves surface space away from the screen edge. Instance-count badges face
+  // inward, so enabling them must not move a flush panel away from its anchored edge.
+  for (const DockEdge edge : kEdges) {
+    DockConfig cfg = flushDock(edge);
+    cfg.magnification = true;
+    cfg.magnificationScale = 1.45F;
+    cfg.showInstanceCount = true;
+    const auto surface = geometryFor(cfg, /*fractionalScale=*/false);
+    const ShellConfig::ShadowConfig shadow;
+    const auto panel = shell::dock::computePanelGeometry(
+        cfg, shadow, static_cast<float>(surface.surfaceW), static_cast<float>(surface.surfaceH)
+    );
+    TEST_CHECK(panelTouchesSurfaceEdge(panel, surface, edge));
+  }
+
+  {
+    DockConfig top = flushDock(DockEdge::Top);
+    top.magnification = true;
+    top.showInstanceCount = true;
+    DockConfig bottom = top;
+    bottom.position = DockEdge::Bottom;
+    TEST_CHECK(
+        geometryFor(top, /*fractionalScale=*/false).surfaceH == geometryFor(bottom, /*fractionalScale=*/false).surfaceH
+    );
   }
 
   // A dock held off the edge by a margin is already clear of the rounding, so it never overlaps.

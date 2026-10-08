@@ -111,6 +111,7 @@ struct BarMonitorOverride {
   std::optional<double> widgetCapsuleOpacity;
   std::optional<float> widgetCapsuleBorderWidth;
   std::optional<bool> hoverHighlight;
+  std::optional<bool> showTooltip;
   BarDeadZoneOverride deadZone;
 
   [[nodiscard]] bool isAutoHideEnabled(bool baseAutoHide, bool baseSmartAutoHide) const noexcept {
@@ -201,6 +202,8 @@ struct BarConfig {
   float widgetCapsuleBorderWidth = Style::borderWidth;
   // Soft tint of a widget's foreground color over the widget under the pointer (per member in capsule groups).
   bool hoverHighlight = true;
+  // Default for the per-widget `show_tooltip`; widgets on this bar show hover tooltips unless overridden.
+  bool showTooltip = true;
   BarDeadZoneConfig deadZone;
   std::vector<BarMonitorOverride> monitorOverrides;
 
@@ -404,6 +407,7 @@ struct CommonWidgetOptions {
   bool interactive = true;
   float contentScale = 1.0F;
   float fontScale = 1.0F;
+  bool showTooltip = true;
   std::optional<ColorSpec> color;
   std::optional<ColorSpec> iconColor;
   std::optional<std::int64_t> labelFontWeight;
@@ -1056,9 +1060,12 @@ struct ShellConfig {
 
   struct PanelConfig {
     PanelTransparencyMode transparencyMode = PanelTransparencyMode::Solid;
-    bool borders = true;                   // outline on floating panel surfaces
+    bool borders = true; // outline on floating panel surfaces
+    ColorSpec borderColor = colorSpecFromRole(ColorRole::Outline);
+    float borderWidth = Style::borderWidth;
     bool shadow = true;                    // cast the global [shell.shadow] from panel surfaces
     bool listItemBackground = false;       // filled rounded background behind launcher/clipboard list items
+    bool wallpaperShowNames = true;        // caption wallpaper picker thumbnails with their file name
     std::string floatingLayer = "overlay"; // top | overlay; attached panels follow their bar
     PanelPlacement launcherPlacement = PanelPlacement::Floating;
     PanelPlacement clipboardPlacement = PanelPlacement::Floating;
@@ -1309,6 +1316,8 @@ struct CalendarConfig {
   };
 
   bool enabled = false;
+  bool dedupeEvents = false; // collapse an occurrence that appears in more than one calendar, across accounts too
+  std::vector<std::string> dedupeIgnorePatterns; // regexes stripped from a title before two events are compared
   std::int32_t refreshMinutes = 15;
   std::string eventDateFormat = "%A %e %B";
   std::string eventTimeFormat = "%H:%M";
@@ -1397,6 +1406,10 @@ struct SystemConfig {
 struct AudioConfig {
   bool enableOverdrive = false;
   bool enableSounds = true;
+  bool enableVolumeSounds = true;
+  bool enableNotificationSounds = true;
+  bool enablePowerSounds = true;
+  bool enableScreenshotSounds = true;
   float soundVolume = 0.5F;
   std::string soundTheme = "freedesktop";
 

@@ -4,8 +4,10 @@
 #include "core/log.h"
 #include "ipc/ipc_arg_parse.h"
 #include "ipc/ipc_service.h"
+#include "pipewire/audio_media_class.h"
 #include "pipewire/audio_route_selection.h"
 #include "pipewire/pipewire_error.h"
+#include "pipewire/privacy_capture_classification.h"
 #include "pipewire/wireplumber_mixer.h"
 #include "util/string_utils.h"
 
@@ -578,23 +580,12 @@ namespace {
     return 0;
   }
 
-  constexpr auto kTrackedNodeClasses = std::to_array<std::string_view>({
-      "Audio/Sink",
-      "Audio/Source",
-      "Stream/Output/Audio",
-      "Stream/Input/Audio",
-  });
-
   constexpr auto kPrivacyAudioNodeClasses = std::to_array<std::string_view>({
       "Stream/Input/Audio",
   });
 
   constexpr auto kMicrophoneSourceClasses = std::to_array<std::string_view>({
       "Audio/Source",
-  });
-
-  constexpr auto kAudioCaptureConsumerClasses = std::to_array<std::string_view>({
-      "Stream/Input/Audio",
   });
 
   constexpr auto kCameraSourceClasses = std::to_array<std::string_view>({
@@ -636,21 +627,6 @@ namespace {
 
   bool isProgramStreamClass(std::string_view mediaClass) { return mediaClass == "Stream/Output/Audio"; }
 
-  [[nodiscard]] bool isTrackedNodeClass(std::string_view mediaClass) {
-    return std::ranges::contains(kTrackedNodeClasses, mediaClass) || mediaClass.contains("Video");
-  }
-
-  // PipeWire exposes virtual endpoints (e.g. EasyEffects) with a suffix such
-  // as `Audio/Sink/Virtual`; collapse them to the base class so downstream
-  // tracking treats them like normal sinks/sources.
-  void normalizeAudioMediaClass(std::string& mediaClass) {
-    if (mediaClass.starts_with("Audio/Sink")) {
-      mediaClass = "Audio/Sink";
-    } else if (mediaClass.starts_with("Audio/Source")) {
-      mediaClass = "Audio/Source";
-    }
-  }
-
   [[nodiscard]] bool isPrivacyCandidateClass(std::string_view mediaClass) {
     return std::ranges::contains(kPrivacyAudioNodeClasses, mediaClass)
         || (mediaClass.contains("Video") && !mediaClass.contains("Audio"));
@@ -686,7 +662,12 @@ namespace {
   }
 
   [[nodiscard]] bool isAudioCaptureConsumer(const PipeWireService::NodeData& nd) {
-    return std::ranges::contains(kAudioCaptureConsumerClasses, nd.mediaClass) && !nd.streamCaptureSink;
+    return noctalia::pipewire::isPrivacyAudioCaptureConsumer({
+        .mediaClass = nd.mediaClass,
+        .linkGroup = nd.linkGroup,
+        .nodePassive = nd.nodePassive,
+        .streamCaptureSink = nd.streamCaptureSink,
+    });
   }
 
   [[nodiscard]] bool isCameraSource(const PipeWireService::NodeData& nd) {

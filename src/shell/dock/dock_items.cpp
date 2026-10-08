@@ -92,7 +92,7 @@ namespace {
     iconNode->setPosition(x, y);
   }
 
-  void applyHoverBadgeVisual(
+  void applyBadgeVisual(
       Box* badge, DockEdge edge, float iconBaseX, float iconBaseY, float iconSize, float badgeSize, float iconScale
   ) {
     if (badge == nullptr) {
@@ -103,13 +103,18 @@ namespace {
     float iconX = iconBaseX;
     float iconY = iconBaseY;
     shell::dock::shiftAlongEdge(edge, iconX, iconY, shift);
+    const float iconLeft = iconX + iconSize * (1.0F - iconScale) * 0.5F;
     const float iconRight = iconX + iconSize * (1.0F + iconScale) * 0.5F;
     const float iconTop = iconY + iconSize * (1.0F - iconScale) * 0.5F;
+    const float iconBottom = iconY + iconSize * (1.0F + iconScale) * 0.5F;
+    const float scaledBadgeSize = badgeSize * iconScale;
+    // Keep the badge on the screen-interior corner so a flush dock never needs an outer-edge gap.
+    const float badgeLeft = edge == DockEdge::Right ? iconLeft - scaledBadgeSize * (1.0F - kBadgeCornerInsetX)
+                                                    : iconRight - scaledBadgeSize * kBadgeCornerInsetX;
+    const float badgeTop = edge == DockEdge::Top ? iconBottom - scaledBadgeSize * (1.0F - kBadgeCornerInsetY)
+                                                 : iconTop - scaledBadgeSize * kBadgeCornerInsetY;
     const float badgeCenterAdjust = badgeSize * (1.0F - iconScale) * 0.5F;
-    badge->setPosition(
-        iconRight - badgeSize * kBadgeCornerInsetX * iconScale - badgeCenterAdjust,
-        iconTop - badgeSize * kBadgeCornerInsetY * iconScale - badgeCenterAdjust
-    );
+    badge->setPosition(badgeLeft - badgeCenterAdjust, badgeTop - badgeCenterAdjust);
   }
 
   void applyHoverItemVisual(
@@ -117,7 +122,7 @@ namespace {
       float scale
   ) {
     applyHoverIconVisual(iconNode, edge, iconBaseX, iconBaseY, iconSize, scale);
-    applyHoverBadgeVisual(badge, edge, iconBaseX, iconBaseY, iconSize, badgeSize, scale);
+    applyBadgeVisual(badge, edge, iconBaseX, iconBaseY, iconSize, badgeSize, scale);
   }
 
   void applyShellAppIconColorization(Image* image, const ShellConfig& shell) {
@@ -620,8 +625,6 @@ namespace shell::dock {
 
       if (cfg.showInstanceCount) {
         const float bd = std::max(kBadgeMinSize, iSize * kBadgeSizeRatio);
-        const float badgeX = kCellPad + iSize - bd * kBadgeCornerInsetX;
-        const float badgeY = kCellPad - bd * kBadgeCornerInsetY;
 
         areaNode->addChild(
             ui::box({
@@ -630,7 +633,9 @@ namespace shell::dock {
                 .width = bd,
                 .height = bd,
                 .visible = false,
-                .configure = [badgeX, badgeY](Box& box) { box.setPosition(badgeX, badgeY); },
+                .configure = [edge, iSize, bd](Box& box) {
+                  applyBadgeVisual(&box, edge, kCellPad, kCellPad, iSize, bd, 1.0F);
+                },
             })
         );
 
@@ -805,10 +810,7 @@ namespace shell::dock {
 
         if (item.badge != nullptr && !cfg.magnification) {
           const float bd = std::max(kBadgeMinSize, static_cast<float>(cfg.iconSize) * kBadgeSizeRatio);
-          item.badge->setScale(1.0F);
-          item.badge->setPosition(
-              kCellPad + static_cast<float>(cfg.iconSize) - bd * kBadgeCornerInsetX, kCellPad - bd * kBadgeCornerInsetY
-          );
+          applyBadgeVisual(item.badge, edge, kCellPad, kCellPad, static_cast<float>(cfg.iconSize), bd, 1.0F);
         }
 
         if (!cfg.magnification && !dragActive) {

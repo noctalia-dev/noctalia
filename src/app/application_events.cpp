@@ -124,7 +124,7 @@ void Application::onUpowerStateChangedForHooks() {
     if (m_prevBatteryPluggedForEvents.has_value()
         && *m_prevBatteryPluggedForEvents != *plugged
         && m_soundPlayer != nullptr) {
-      m_soundPlayer->play(*plugged ? "power-plug" : "power-unplug");
+      m_soundPlayer->play(*plugged ? SoundPlayer::kEventPowerPlug : SoundPlayer::kEventPowerUnplug);
     }
     m_prevBatteryPluggedForEvents = plugged;
   } else if (!state.isPresent) {

@@ -21,10 +21,12 @@ Left-click opens the Media tab in the control center; right-click toggles play/p
 | `art_size` | number | `16` | Artwork size in pixels before scale |
 | `title_scroll` | string | `"none"` | Media title scrolling mode: `"none"`, `"always"`, or `"on_hover"` (hidden when `album_art_only` is enabled) |
 | `hide_when_no_media` | bool | `false` | Hide the widget when no MPRIS player is active |
+| `hide_when_idle` | bool | `false` | Hide the widget while the active MPRIS player is paused or stopped |
 
 ```toml
 [widget.media]
 artist_first = true
 art_size     = 24
 hide_when_no_media = true
+hide_when_idle = true
 ```

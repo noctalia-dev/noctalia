@@ -80,8 +80,8 @@ _check_formatter:
     set -euo pipefail
     version="$(clang-format --version)"
     echo "$version"
-    if [[ ! "$version" =~ version\ 22\. ]]; then
-        echo "error: formatting requires clang-format 22; put its bin directory on PATH" >&2
+    if [[ ! "$version" =~ version\ ([0-9]+)\. ]] || [[ "${BASH_REMATCH[1]}" -lt 22 ]]; then
+        echo "error: formatting requires clang-format 22 or newer; put its bin directory on PATH" >&2
         exit 1
     fi
 

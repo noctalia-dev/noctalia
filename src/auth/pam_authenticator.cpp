@@ -36,6 +36,7 @@ namespace {
 
   struct PamConversationData {
     const char* password = nullptr;
+    bool passwordSent = false;
   };
 
   struct PamHandle {
@@ -72,7 +73,17 @@ namespace {
 
       switch (msg[i]->msg_style) {
       case PAM_PROMPT_ECHO_OFF:
+        if (data->passwordSent) {
+          for (int j = 0; j < i; ++j) {
+            if (replies[j].resp != nullptr) {
+              std::free(replies[j].resp);
+            }
+          }
+          std::free(replies);
+          return PAM_CONV_ERR;
+        }
         replies[i].resp = ::strdup(data->password != nullptr ? data->password : "");
+        data->passwordSent = true;
         break;
       case PAM_PROMPT_ECHO_ON:
         replies[i].resp = ::strdup("");
@@ -297,6 +308,16 @@ namespace {
     const char* err = pam_strerror(pamh.h, rc);
     const std::string errStr = err != nullptr ? err : i18n::tr("auth.pam.authentication-failed");
     pamh.lastRc = rc;
+
+    if (rc == PAM_SUCCESS) {
+      // A credential-provider failure must not reject an otherwise valid unlock.
+      const int credRc = pam_setcred(pamh.h, PAM_REFRESH_CRED);
+      kLog.debug("pam_setcred PAM_REFRESH_CRED rc={} ({})", credRc, pam_strerror(pamh.h, credRc));
+      pamh.lastRc = credRc;
+      if (credRc != PAM_SUCCESS) {
+        kLog.warn("credential refresh failed for user='{}' rc={} ({})", user, credRc, pam_strerror(pamh.h, credRc));
+      }
+    }
 
     secureClear(passwordCopy);
 

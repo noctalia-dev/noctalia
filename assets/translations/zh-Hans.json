@@ -4236,7 +4236,7 @@
           "description": "仅高亮焦点屏幕上的活动工作区",
           "label": "仅高亮焦点屏幕",
           "taskbar-description": "仅高亮当前聚焦屏幕上的活动工作区；其他屏幕的活动工作区使用非空工作区颜色和非活动胶囊样式",
-          "workspaces-description": "仅高亮当前聚焦屏幕上的活动工作区；其他屏幕的活动工作区使用非空颜色"
+          "workspaces-description": "仅高亮当前聚焦屏幕上的活动工作区；其他屏幕的活动工作区使用非空工作区颜色"
         },
         "font-family": {
           "description": "小组件的字体；留空时继承状态栏字体",

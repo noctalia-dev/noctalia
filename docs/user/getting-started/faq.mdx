@@ -332,6 +332,8 @@ Noctalia authenticates through PAM using the `login` service. Make sure `/etc/pa
 
 If you changed your PAM stack for fingerprint, security key, or other authentication methods, make sure those changes are present in the `login` PAM service used by Noctalia.
 
+After a successful PAM unlock, Noctalia asks the same PAM stack to refresh existing credentials, such as Kerberos tickets or PAM-integrated GPG and keyring credentials.
+
 </FaqItem>
 
 <FaqItem question="Does the lock screen engage before suspend?">

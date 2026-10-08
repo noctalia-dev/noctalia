@@ -251,6 +251,7 @@ location = "https://example.invalid/bad"
     bar.widgetCapsuleBorder = colorSpecFromConfigString("#111213");
     bar.widgetCapsuleBorderWidth = 2.5F;
     bar.hoverHighlight = false;
+    bar.showTooltip = false;
     BarCapsuleGroupStyle group;
     group.id = "grp1";
     group.members = {"clock", "weather"};
@@ -314,6 +315,7 @@ location = "https://example.invalid/bad"
     ovr.widgetColor = colorSpecFromConfigString("#e1e2e3");
     ovr.widgetIconColor = colorSpecFromConfigString("#e3e2e1");
     ovr.hoverHighlight = true;
+    ovr.showTooltip = true;
     BarCapsuleGroupStyle ogroup;
     ogroup.id = "ogrp";
     ogroup.members = {"volume"};
@@ -338,7 +340,16 @@ location = "https://example.invalid/bad"
   // checks exercise real serialization rather than all-defaults.
   Config makeProbe() {
     Config c;
-    c.audio = AudioConfig{true, true, 0.73F, "freedesktop"};
+    c.audio = AudioConfig{
+        .enableOverdrive = true,
+        .enableSounds = true,
+        .enableVolumeSounds = false,
+        .enableNotificationSounds = false,
+        .enablePowerSounds = false,
+        .enableScreenshotSounds = false,
+        .soundVolume = 0.73F,
+        .soundTheme = "freedesktop"
+    };
     c.weather = WeatherConfig{false, false, 17, "imperial"};
     c.osd.position = "bottom_left";
     c.osd.positionVertical = "top_right";
@@ -443,6 +454,8 @@ location = "https://example.invalid/bad"
     c.controlCenter.calendarTab.showWeekNumbers = true;
     c.controlCenter.shortcuts = {{"wifi"}, {"bluetooth"}};
     c.calendar.enabled = true;
+    c.calendar.dedupeEvents = true;
+    c.calendar.dedupeIgnorePatterns = {R"(\s*\(.*\)$)", " - tentative"};
     c.calendar.refreshMinutes = 30;
     c.calendar.eventDateFormat = "%Y-%m-%d";
     c.calendar.eventTimeFormat = "%I:%M %p";
@@ -1129,6 +1142,7 @@ reserve_space = false
 scale = 2.0
 shadow = false
 show_on_workspace_switch = true
+show_tooltip = false
 smart_auto_hide = false
 start = [ "launcher" ]
 thickness = 44
@@ -1190,6 +1204,7 @@ widget_spacing = 8
     scale = 1.5
     shadow = true
     show_on_workspace_switch = true
+    show_tooltip = true
     smart_auto_hide = false
     start = [ "tray" ]
     thickness = 50

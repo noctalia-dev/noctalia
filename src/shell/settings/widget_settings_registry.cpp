@@ -643,6 +643,10 @@ namespace settings {
     enabled.visibleInInspector = false;
     auto anchor = withGroup(boolSpec("anchor", false, true), "presentation");
     auto interactive = withGroup(boolSpec("interactive", true), "presentation");
+    // Non-interactive widgets never show tooltips.
+    auto showTooltip = withGroup(boolSpec("show_tooltip", true), "presentation");
+    showTooltip.schema.inheritsFromBar = true;
+    showTooltip.visibleWhen = WidgetSettingVisibility{"interactive", {"true"}};
     auto scale = withGroup(doubleSpec("scale", 1.0, 0.2, 2.5, 0.05), "presentation");
     auto fontScale = withGroup(doubleSpec("font_scale", 1.0, 0.2, 2.5, 0.01), "presentation");
     auto widgetColor = withGroup(colorSpec("color", {}, true), "presentation");
@@ -671,6 +675,7 @@ namespace settings {
     fontFamily = withGroup(std::move(fontFamily), "presentation");
 
     auto capsuleToggle = withGroup(boolSpec("capsule", false), "presentation");
+    capsuleToggle.schema.inheritsFromBar = true;
     auto capsuleFill = withGroup(colorSpec("capsule_fill", "", true), "presentation");
     capsuleFill.visibleWhen = capsuleOn;
 
@@ -716,16 +721,13 @@ namespace settings {
     actions.visibleWhen = WidgetSettingVisibility{"interactive", {"true"}};
 
     return {
-        std::move(enabled),           std::move(anchor),
-        std::move(interactive),       std::move(scale),
-        std::move(fontScale),         std::move(widgetColor),
-        std::move(widgetIconColor),   std::move(fontFamily),
-        std::move(fontWeight),        std::move(capsuleToggle),
-        std::move(capsuleRadius),     std::move(capsuleFill),
-        std::move(capsuleBorder),     std::move(capsuleBorderWidth),
-        std::move(capsuleForeground), std::move(capsulePadding),
-        std::move(capsuleOpacity),    std::move(scrollRepeat),
-        std::move(actions),
+        std::move(enabled),           std::move(anchor),          std::move(interactive),
+        std::move(showTooltip),       std::move(scale),           std::move(fontScale),
+        std::move(widgetColor),       std::move(widgetIconColor), std::move(fontFamily),
+        std::move(fontWeight),        std::move(capsuleToggle),   std::move(capsuleRadius),
+        std::move(capsuleFill),       std::move(capsuleBorder),   std::move(capsuleBorderWidth),
+        std::move(capsuleForeground), std::move(capsulePadding),  std::move(capsuleOpacity),
+        std::move(scrollRepeat),      std::move(actions),
     };
   }
 
@@ -1275,8 +1277,9 @@ namespace settings {
     if (!field.has_value()) {
       return false;
     }
-    // OptionalDouble unset means inherit/auto, 0 is a valid explicit radius and must persist.
-    if (field->type == schema::WidgetSettingType::OptionalDouble) {
+    // OptionalDouble unset means inherit/auto, 0 is a valid explicit radius and must persist. Bar-inherited
+    // settings resolve an unset value from the bar, so an explicit default value must persist too.
+    if (field->type == schema::WidgetSettingType::OptionalDouble || field->inheritsFromBar) {
       return false;
     }
     return configOverrideValueMatchesWidgetSetting(overrideValue, field->defaultValue);
@@ -1347,7 +1350,7 @@ namespace settings {
       }
       return !widgetSettingValuesEqual(*withValue, *withoutValue);
     }
-    if (field->type == schema::WidgetSettingType::OptionalDouble) {
+    if (field->type == schema::WidgetSettingType::OptionalDouble || field->inheritsFromBar) {
       if (!withValue.has_value() || !withoutValue.has_value()) {
         return true;
       }

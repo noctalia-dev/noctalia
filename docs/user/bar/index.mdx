@@ -42,6 +42,7 @@ margin_opposite_edge = 0         # extra reserved space on the inward side of th
 padding            = 14          # main-axis padding from bar edges to start/end widget sections
 widget_spacing     = 6           # gap between widgets within a section
 hover_highlight    = true        # softly tint the widget under the mouse pointer with its foreground color
+show_tooltip       = true        # show hover tooltips for widgets on this bar; per-widget show_tooltip overrides
 scale              = 1.0         # content scale multiplier for icons, spacing, and base text size
 font_scale         = 1.0         # additional text-only scale multiplier
 font_weight        = 500         # CSS weight 100–1000 (e.g. 400 regular, 700 bold); primary label weight for bar widgets
@@ -218,6 +219,7 @@ Set under `[bar.<name>]` or `[bar.<name>.monitor.*]`:
 | `capsule_border` | string | *(omitted)* | Color role for the capsule border; fixed hex colors are also supported. If omitted, no border by default. If present as `""`, no border. |
 | `capsule_border_width` | number | `1` | Capsule outline thickness in logical pixels before `scale` is applied (clamped 0–8). Only drawn when `capsule_border` resolves to a color. |
 | `hover_highlight` | bool | `true` | Softly tint the widget under the mouse pointer with its own foreground color. Works with and without capsules; inside a capsule group only the hovered member lights up. The highlight never changes widget layout or spacing. Set `false` to disable the effect on this bar. |
+| `show_tooltip` | bool | `true` | Show hover tooltips for widgets on this bar. Set `false` to turn tooltips off for every widget on this bar without disabling clicks or scrolls; a widget's own `show_tooltip` overrides it. |
 
 ### Per-widget overrides
 
@@ -241,6 +243,7 @@ Set under `[widget.<name>]`:
 | `color` | string | *(unset)* | Icon + label color role with or without capsule; fixed hex colors are also supported. Resolution order: `color` → `capsule_foreground` → built-in defaults. |
 | `icon_color` | string | *(unset)* | Overrides `color` for icons only. Resolution order for icons: `icon_color` → `color` → `capsule_foreground` → built-in defaults. Labels always use `color`. |
 | `interactive` | bool | `true` (spacers: `false`) | Set `false` to make the widget passive: hover highlight and tooltips are disabled, pointer events (clicks, scrolls) pass through to the bar underneath, and the **Actions** settings section is hidden. The widget is still drawn; use `enabled = false` to hide it entirely. Spacers default to non-interactive so they stay click-through layout gaps. |
+| `show_tooltip` | bool | *(from bar)* | Show this widget's hover tooltips. Set `false` to hide them while keeping the widget interactive. Omit to inherit the owning bar's `show_tooltip`. Has no effect when `interactive = false`, which already disables tooltips. |
 | `scroll_repeat` | string | `auto` | Scroll action repetition: `auto` uses once-per-gesture for cycle commands and every-step for ramp commands; `gesture` always runs once per gesture; `steps` always runs for every quantized step. |
 | `enabled` | bool | `true` | Show or hide this widget on the bar. Disabled widgets are not created and consume no resources. |
 

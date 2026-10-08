@@ -17,6 +17,18 @@ Shows battery charge level and state via UPower. Hides itself when the selected 
 | `device` | string | `"auto"` | UPower device selector. `auto` monitors the system power-supply battery only; explicit selectors can target any present battery-capable UPower device. |
 | `warning_color` | color | `"error"` | Color applied when charge is at or below the matching global/per-device `[battery]` warning threshold. Ignored while charging. |
 
+In `graphic` mode, the label is centered inside the battery body in a small font. Percentages show only the number,
+without a `%` suffix. On horizontal bars the body keeps the same size with or without a label; longer labels such as
+`100`, time, or rate shrink their font to fit. On vertical bars the body fits the number and always shows the
+percentage. Rate labels round to whole watts with no space before `W`, for example `44W`; positive rates below one
+watt show `<1W`. Time labels of an hour or more use a clock style such as `2:54`; shorter times show minutes, such as
+`53m`. Tooltips and non-graphic modes keep the full forms, such as `44.3 W` and `2h 54m`.
+
+The body uses the widget foreground color, or `warning_color` at low charge, like the battery without a label: the
+fill is that color, and the empty track mixes it toward the `surface` color role. The label uses the `surface` color
+role, so it reads on both sides of the fill boundary. Charging and plugged-in state icons remain outside the body.
+Theme changes update the colors immediately.
+
 `device = "auto"` is safe on desktops: it will not use gamepads, mice, headsets, or other peripherals as the default battery widget. Use an explicit selector for those devices.
 
 Selectors can be a full UPower object path, a native path/name, a stable suffix such as `BAT0`, or available device metadata such as model, serial, or vendor.

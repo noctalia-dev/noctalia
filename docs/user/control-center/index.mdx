@@ -110,7 +110,7 @@ The Network tab uses the configured network backend to show wireless state and c
 
 NetworkManager is preferred and followed on the system bus: when it starts after the shell or restarts, the tab picks it up, and while it is stopped the tab shows the network as unavailable. A standalone wpa_supplicant or iwd backend is used only when one of them is running at startup and NetworkManager is not.
 
-The current connection line lists the IPv4 address, signal strength, radio band, and external IP. The band (`2.4 GHz`, `5 GHz`, `6 GHz`, or `60 GHz`) is shown only when the backend reports the connection frequency: NetworkManager and wpa_supplicant do, iwd does not.
+The current connection line lists the IPv4 address, signal strength, radio band, and external IP. The band (`2.4 GHz`, `5 GHz`, `6 GHz`, or `60 GHz`) is shown only when the backend reports the connection frequency. NetworkManager and wpa_supplicant report it; iwd reports it when Station diagnostics provide a positive frequency.
 
 ### Enterprise Wi-Fi (802.1X)
 
@@ -130,7 +130,7 @@ Cellular needs ModemManager running (`org.freedesktop.ModemManager1`) and, for m
 
 ## Bluetooth
 
-The Bluetooth tab shows adapter power state, paired devices, and connection controls. It is backed by Noctalia's Bluetooth service and agent.
+The Bluetooth tab shows adapter power state, paired devices, and connection controls. It is backed by Noctalia's Bluetooth service and agent. Devices paired from the tab are marked trusted, which turns on **Auto-reconnect** for them.
 
 ## Weather
 

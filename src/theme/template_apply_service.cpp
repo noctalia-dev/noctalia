@@ -14,11 +14,15 @@
 #include "util/string_utils.h"
 
 #include <algorithm>
+#include <atomic>
 #include <chrono>
+#include <condition_variable>
 #include <filesystem>
 #include <iterator>
+#include <mutex>
 #include <set>
 #include <string>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -161,8 +165,9 @@ namespace noctalia::theme {
 
   } // namespace
 
-  TemplateApplyService::TemplateApplyService(ConfigService& config)
-      : m_config(config), m_hookRunner(std::make_unique<HookRunner>()) {
+  TemplateApplyService::TemplateApplyService(ConfigService& config, std::chrono::milliseconds hookShutdownGrace)
+      : m_config(config), m_hookShutdownGrace(hookShutdownGrace),
+        m_hookRunner(std::make_unique<HookRunner>(HookRunner::kDefaultMaxConcurrent, m_hookCancel)) {
     m_worker = std::thread([this]() { workerLoop(); });
   }
 
@@ -176,16 +181,40 @@ namespace noctalia::theme {
     // The worker may be draining hooks; drop the backlog so shutdown waits only for
     // the hooks already running.
     m_hookRunner->requestShutdown();
+    // The worker can be blocked inside a synchronous hook, and the runner waits for its
+    // asynchronous ones. Neither may hold teardown forever: both get one grace period,
+    // then m_hookCancel terminates the process group of every hook still running.
+    std::mutex graceMutex;
+    std::condition_variable graceCv;
+    bool hooksDone = false;
+    std::thread graceThread([this, &graceMutex, &graceCv, &hooksDone]() {
+      std::unique_lock lock(graceMutex);
+      if (graceCv.wait_for(lock, m_hookShutdownGrace, [&hooksDone]() { return hooksDone; })) {
+        return;
+      }
+      m_hookCancel->store(true);
+      kLog.warn(
+          "a template hook is still running after {}s; terminating it",
+          std::chrono::duration_cast<std::chrono::duration<double>>(m_hookShutdownGrace).count()
+      );
+    });
     if (m_worker.joinable()) {
       m_worker.join();
     }
+    // Destroyed inside the grace window: its destructor waits for the running hooks, and
+    // the same deadline terminates them.
+    m_hookRunner.reset();
+    {
+      std::scoped_lock lock(graceMutex);
+      hooksDone = true;
+    }
+    graceCv.notify_one();
+    graceThread.join();
   }
 
-  void TemplateApplyService::setAfterApplyCallback(
-      std::function<void(std::string_view appliedMode, bool paletteChanged)> callback
-  ) const {
+  void TemplateApplyService::setPaletteChangedCallback(std::function<void()> callback) const {
     std::scoped_lock lock(m_mutex);
-    m_afterApplyCallback = std::move(callback);
+    m_paletteChangedCallback = std::move(callback);
   }
 
   void TemplateApplyService::apply(
@@ -202,16 +231,11 @@ namespace noctalia::theme {
       // are captured only when an application is queued; forced IPC re-application bypasses
       // this deduplication.
       if (!force && m_lastAppliedRequest.has_value() && sameInputs(request, *m_lastAppliedRequest)) {
-        // The applied mode already matches, so only an owed palette change is still worth
-        // reporting. It rides on the application queued or in flight; with neither, no worker
-        // pass is left to carry it.
+        // Nothing is left to render. An owed palette change rides on the application queued
+        // or in flight; with neither, no worker pass is left to carry it.
         if (m_paletteChangedOwed && !m_inFlight && !m_pendingRequest.has_value()) {
           m_paletteChangedOwed = false;
-          if (m_afterApplyCallback) {
-            undeliverable = [callback = m_afterApplyCallback, mode = request.defaultMode]() {
-              callback(mode, /*paletteChanged=*/true);
-            };
-          }
+          undeliverable = m_paletteChangedCallback;
         }
       } else {
         request.undoBuiltinIds = syncAppliedBuiltinIds(request.templates);
@@ -300,6 +324,7 @@ namespace noctalia::theme {
     options.configTable = request.configTable;
     options.hookRunner = &hookRunner;
     options.generation = request.generation;
+    options.hookCancel = m_hookCancel;
 
     TemplateEngine engine(TemplateEngine::makeThemeData(request.palette), options);
 
@@ -449,8 +474,11 @@ namespace noctalia::theme {
         resolved.push_back(id);
         continue;
       }
-      // A failed hook stays owed: the next application retries it.
-      const process::RunResult result = process::runSync(rendered.text);
+      // A failed hook stays owed: the next application retries it. That includes one
+      // terminated by the shutdown grace, so cancelling it here is safe.
+      process::RunOptions runOptions;
+      runOptions.cancel = m_hookCancel;
+      const process::RunResult result = process::runSync(rendered.text, runOptions);
       if (!result) {
         kLog.warn("undo hook for built-in template '{}' failed with exit code {}: {}", id, result.exitCode, result.err);
         continue;
@@ -504,28 +532,28 @@ namespace noctalia::theme {
 
       applyRequest(request);
 
-      // Hooks of the current generation must finish before the after-apply callback
+      // Hooks of the current generation must finish before the palette-changed callback
       // reports the theme as applied. A superseded generation skips the drain; the next
       // applyRequest() waits its hooks out before touching anything.
       if (!requestSuperseded(request.generation)) {
         m_hookRunner->waitIdle();
       }
 
-      std::function<void()> afterApplyCallback;
+      std::function<void()> paletteChangedCallback;
       {
         std::scoped_lock lock(m_mutex);
         m_inFlight = false;
         // A superseded generation reports nothing and leaves an owed palette change to the
         // generation that replaced it.
-        if (!m_shutdown && request.generation == m_nextGeneration && m_afterApplyCallback) {
-          const bool paletteChanged = std::exchange(m_paletteChangedOwed, false);
-          afterApplyCallback = [callback = m_afterApplyCallback, mode = request.defaultMode, paletteChanged]() {
-            callback(mode, paletteChanged);
-          };
+        if (!m_shutdown
+            && request.generation == m_nextGeneration
+            && m_paletteChangedCallback
+            && std::exchange(m_paletteChangedOwed, false)) {
+          paletteChangedCallback = m_paletteChangedCallback;
         }
       }
-      if (afterApplyCallback) {
-        DeferredCall::callLater(std::move(afterApplyCallback));
+      if (paletteChangedCallback) {
+        DeferredCall::callLater(std::move(paletteChangedCallback));
       }
     }
   }

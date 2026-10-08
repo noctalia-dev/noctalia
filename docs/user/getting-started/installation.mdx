@@ -135,64 +135,44 @@ emerge --ask gui-apps/noctalia
 
 ## GNU Guix {#guix}
 
-The Git repository of Noctalia is also available as a [Guix channel](https://guix.gnu.org/manual/devel/en/html_node/Channels.html).  It provides a `(noctalia)` [module](https://guix.gnu.org/manual/devel/en/html_node/Package-Modules.html) with the `noctalia-git` package.
+Noctalia is available in the main Guix repository as the package `noctalia-shell`. Simply add `(gnu packages window-management)` to your list of imported modules, then add `noctalia-shell` to your list of packages.
 
-```scheme
-(channel
-  (name 'noctalia)
-  (url "https://github.com/noctalia-dev/noctalia")
-  (branch "main"))
-```
+Due to the fast pace of development on Noctalia, the main Guix channel is likely to lag behind in version. If you don't wish to wait for it to update then you have two alternative channels. Do note that with both options you will be compiling the package yourself, because only the main Guix channel provides substitutes for it.
 
-To use this channel, add it into your `~/.config/guix/channels.scm`.  For example:
-
-```scheme
-(list (channel
-        (name 'noctalia)
-        (url "https://github.com/noctalia-dev/noctalia")
-        (branch "main"))
-      %default-guix-channel)
-```
-
-After updating channels via [`guix pull`](https://guix.gnu.org/manual/devel/en/html_node/Invoking-guix-pull.html), Noctalia will be available to your Guix installation.  Then you're free to do what you want with the `noctalia-git` package ;-)
-
-For example, spawn one-off software environment via [`guix shell`](https://guix.gnu.org/manual/devel/en/html_node/Invoking-guix-shell.html):
-
-```bash
-guix shell noctalia-git
-```
-
-install it into your user profile via [`guix package`](https://guix.gnu.org/manual/devel/en/html_node/Invoking-guix-package.html):
-
-```bash
-guix install noctalia-git
-```
-
-declare it in your [home environment](https://guix.gnu.org/manual/devel/en/html_node/Home-Configuration.html) (`...`s are placeholders for your existing configuration):
-
-```scheme
-(use-modules (noctalia)
-             ...)
-
-(home-environment
-  (packages
-   (list noctalia-git
-         ...))
-  ...)
-```
-
-or [whole-system configuration](https://guix.gnu.org/manual/devel/en/html_node/System-Configuration.html):
-
-```scheme
-(use-modules (noctalia)
-             ...)
-
-(operating-system
-  (packages
-   (list noctalia-git
-         ...))
-  ...)
-```
+<Tabs>
+  <TabItem label="Noctalia channel">
+  
+  The Git repository of Noctalia is also available as a [Guix channel](https://guix.gnu.org/manual/devel/en/html_node/Channels.html).  It provides a `(noctalia)` module with the `noctalia-git` package. 
+  
+  Do note that since this is a git package, there might be times (though rare) where it fails to compile when either dependencies or something about the build process changes. If that happens you might want to [pin the channel](https://guix.gnu.org/manual/devel/en/html_node/Replicating-Guix.html) to an older working commit by adding `(commit "[full commit hash]")` to the channel definition.
+  
+  ```scheme
+  (channel
+    (name 'noctalia)
+    (url "https://github.com/noctalia-dev/noctalia")
+    (branch "main"))
+  ```
+  
+  Whenver you run `guix pull` you will get the latest commit of noctalia, which will start compiling and be available for use when you reconfigure your system or home environment, whichever you added the `noctalia-shell` package to. You can use `guix pull --select=noctalia` if you wish to update only noctalia without needing to pull your other channels.
+  
+  <TabItem label="Midnight channel">
+  
+  The third-party [`midnight`](https://codeberg.org/stampede/midnight) guix channel provides the `noctalia` package under the module `(midnight packages noctalia)`. It provides up-to-date stable releases of noctalia for those who prefer that over a git package.
+  
+  ```scheme
+  (channel
+    (name 'midnight)
+    (url "https://codeberg.org/stampede/midnight.git")
+    (branch "main")
+    (introduction
+      (make-channel-introduction
+        "d97d1568954cfcbf543c9fcdfd5771e2b730ae19"
+        (openpgp-fingerprint
+          "640A 2C3C E948 22D3 394B 40C3 CAFA EECA 00FF 9B1E"))))
+  ```
+  
+  </TabItem>
+</Tabs>
 
 ---
 

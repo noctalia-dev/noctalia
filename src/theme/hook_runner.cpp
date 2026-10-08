@@ -13,15 +13,18 @@ namespace noctalia::theme {
     constexpr std::size_t kMaxHookOutputBytes = 8 * 1024;
   } // namespace
 
-  HookRunner::HookRunner(std::size_t maxConcurrent) : m_state(std::make_shared<State>()) {
+  HookRunner::HookRunner(std::size_t maxConcurrent, std::shared_ptr<std::atomic<bool>> cancel)
+      : m_state(std::make_shared<State>()) {
     m_state->maxConcurrent = maxConcurrent > 0 ? maxConcurrent : kDefaultMaxConcurrent;
+    m_state->cancel = std::move(cancel);
   }
 
   HookRunner::~HookRunner() {
     requestShutdown();
     std::unique_lock lock(m_state->mutex);
     // Hooks that already started own the shared state; wait them out instead of
-    // killing a command halfway through rewriting an application's config.
+    // killing a command halfway through rewriting an application's config. An owner
+    // that must bound this raises the cancel flag, which ends them.
     m_state->idleCv.wait(lock, [this]() { return m_state->running == 0; });
   }
 
@@ -118,6 +121,8 @@ namespace noctalia::theme {
 
     process::RunOptions options;
     options.maxOutputBytes = kMaxHookOutputBytes;
+    // Let the owner's cancel flag reach an already-running hook.
+    options.cancel = state->cancel;
     if (process::runAsync(command, std::move(callbacks), options)) {
       return true;
     }

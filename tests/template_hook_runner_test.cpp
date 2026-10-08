@@ -1,9 +1,16 @@
 #include "tests/test_check.h"
 #include "theme/hook_runner.h"
 
+#include <atomic>
+#include <cerrno>
+#include <chrono>
 #include <filesystem>
 #include <fstream>
+#include <memory>
+#include <signal.h>
 #include <string>
+#include <sys/types.h>
+#include <thread>
 
 namespace {
 
@@ -16,6 +23,19 @@ namespace {
     std::string contents;
     std::getline(in, contents);
     return contents;
+  }
+
+  // Waits for a hook to report its pid, so a test knows the hook is really running.
+  pid_t waitForPid(const std::filesystem::path& path) {
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+    while (std::chrono::steady_clock::now() < deadline) {
+      const std::string contents = readSentinel(path);
+      if (!contents.empty()) {
+        return static_cast<pid_t>(std::stol(contents));
+      }
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+    return -1;
   }
 
   void test_runs_every_enqueued_hook() {
@@ -93,6 +113,33 @@ namespace {
     std::filesystem::remove(running);
   }
 
+  // An owner bounds shutdown by raising the cancel flag it passed in: that terminates the
+  // running hook, so the destructor no longer waits for it to exit on its own.
+  void test_cancel_terminates_running_hook() {
+    const auto pidFile = sentinelPath("shared_pid");
+    std::filesystem::remove(pidFile);
+
+    auto cancel = std::make_shared<std::atomic<bool>>(false);
+    auto runner = std::make_unique<noctalia::theme::HookRunner>(1, cancel);
+    // Ignores SIGTERM, so only the SIGKILL escalation can end it.
+    runner->enqueue("trap '' TERM; echo $$ > " + pidFile.string() + "; exec sleep 600", /*generation=*/1);
+    const pid_t pid = waitForPid(pidFile);
+    TEST_CHECK(pid > 0);
+
+    const auto start = std::chrono::steady_clock::now();
+    std::thread owner([cancel]() {
+      std::this_thread::sleep_for(std::chrono::milliseconds(200));
+      cancel->store(true);
+    });
+    runner.reset();
+    const auto elapsed = std::chrono::steady_clock::now() - start;
+    owner.join();
+
+    TEST_CHECK(elapsed < std::chrono::seconds(2));
+    TEST_CHECK(::kill(pid, 0) != 0 && errno == ESRCH);
+    std::filesystem::remove(pidFile);
+  }
+
 } // namespace
 
 int main() {
@@ -100,5 +147,6 @@ int main() {
   test_drops_hooks_from_superseded_generations();
   test_invalidate_drops_queued_hooks();
   test_shutdown_drops_backlog_and_awaits_running();
+  test_cancel_terminates_running_hook();
   return 0;
 }
