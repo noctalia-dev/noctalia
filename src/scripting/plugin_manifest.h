@@ -97,6 +97,10 @@ namespace scripting {
     // gesture vocabulary and action grammar belong to the bar, not to the manifest parser.
     std::vector<std::pair<std::string, std::string>> widgetActions;
 
+    // Whether the bar draws its whole-widget hover highlight over this [[widget]] entry
+    // (`hover_highlight`, plugin_api >= 33). False when the widget draws its own per-item hover.
+    bool widgetHoverHighlight = true;
+
     // Launcher-provider routing metadata (parsed only for LauncherProvider entries);
     // static so the launcher routes/filters without invoking the plugin.
     std::string launcherPrefix;
