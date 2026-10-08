@@ -183,7 +183,6 @@ private:
   Flex* m_loginContentRow = nullptr;
   Input* m_passwordField = nullptr;
   Button* m_passwordRevealButton = nullptr;
-  bool m_passwordRevealed = false;
   Button* m_loginButton = nullptr;
   Button* m_layoutChip = nullptr;
   Flex* m_sessionRow = nullptr;

@@ -514,10 +514,10 @@ LockSurface::LockSurface(WaylandConnection& connection, ConfigService* config) :
                 if (m_passwordField == nullptr) {
                   return;
                 }
-                m_passwordRevealed = !m_passwordRevealed;
-                m_passwordField->setPasswordMode(!m_passwordRevealed);
+                const bool revealed = !m_passwordField->passwordRevealed();
+                m_passwordField->setPasswordRevealed(revealed);
                 if (m_passwordRevealButton != nullptr) {
-                  m_passwordRevealButton->setGlyph(m_passwordRevealed ? "eye-off" : "eye");
+                  m_passwordRevealButton->setGlyph(revealed ? "eye-off" : "eye");
                 }
               },
           .configure = [](Button& button) { button.setZIndex(2); },
@@ -670,14 +670,11 @@ void LockSurface::setLockedState(bool locked) {
   m_locked = locked;
   if (m_locked) {
     // Never carry a revealed password across lock cycles.
-    if (m_passwordRevealed) {
-      m_passwordRevealed = false;
-      if (m_passwordField != nullptr) {
-        m_passwordField->setPasswordMode(true);
-      }
-      if (m_passwordRevealButton != nullptr) {
-        m_passwordRevealButton->setGlyph("eye");
-      }
+    if (m_passwordField != nullptr) {
+      m_passwordField->setPasswordRevealed(false);
+    }
+    if (m_passwordRevealButton != nullptr) {
+      m_passwordRevealButton->setGlyph("eye");
     }
     focusPasswordField();
   } else {

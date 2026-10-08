@@ -72,6 +72,8 @@ The login box uses the same inspector layout as other lockscreen widgets:
 
 Auth status is a separate fixed-size card outside the login panel (above it by default, flipping below when the panel is near the top of the screen). It does not change the login box size. With `show_unlock_hint = true` (default), the card shows the idle unlock hint and auth prompts (for example fingerprint or “Authenticating…”). With it off, the card stays hidden except for errors and Caps Lock warnings (when `show_caps_lock` is enabled). The editor preview shows a matching ghost for the unlock-hint card that follows the same above/below placement.
 
+The eye button beside the password field shows the typed password as plain text on that monitor only; other monitors keep it masked. It hides again on every lock. While revealed, the field still blocks copy and cut to the clipboard and keeps reporting itself to input methods as a sensitive password field.
+
 | Setting | Default | Range | Description |
 | --- | --- | --- | --- |
 | `layout` | `regular` | `compact` \| `regular` | Login panel layout |
