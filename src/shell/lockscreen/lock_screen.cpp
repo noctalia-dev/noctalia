@@ -23,6 +23,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <ctime>
 #include <string>
 #include <thread>
 #include <utility>
@@ -31,9 +32,13 @@ namespace {
 
   constexpr Logger kLog("lockscreen");
 
-  std::int64_t wallClockMillis() {
-    return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch())
-        .count();
+  // CLOCK_BOOTTIME counts suspend time like wall-clock, but is monotonic: realtime
+  // adjustments after lock can never push an expired grace deadline back into the
+  // future (a system_clock-based deadline was shown to be rewindable after expiry).
+  std::int64_t bootTimeMillis() {
+    timespec ts{};
+    clock_gettime(CLOCK_BOOTTIME, &ts);
+    return static_cast<std::int64_t>(ts.tv_sec) * 1000 + static_cast<std::int64_t>(ts.tv_nsec) / 1000000;
   }
 
   Color resolveWallpaperFillColor(const WallpaperConfig& config) {
@@ -151,7 +156,7 @@ bool LockScreen::lock() {
   if (isActive() || m_lockStarting) {
     return true;
   }
-  m_lockedAtMillis = wallClockMillis();
+  m_lockedAtMillis = bootTimeMillis();
   m_graceAllowed = true;
   kLog.debug("lock requested, grace starts at {}", m_lockedAtMillis);
   if (!m_wayland->hasSessionLockManager()) {
@@ -534,11 +539,11 @@ bool LockScreen::isInGracePeriod() const noexcept {
   if (m_configService == nullptr || m_configService->config().lockscreen.gracePeriodSeconds <= 0) {
     return false;
   }
-  // Wall-clock comparison, evaluated fresh on every interaction: a cached
-  // timestamp would keep the grace window alive indefinitely.
+  // Boottime deadline, evaluated fresh on every interaction: a cached timestamp
+  // would keep the grace window alive indefinitely.
   const std::int64_t windowMillis =
       static_cast<std::int64_t>(m_configService->config().lockscreen.gracePeriodSeconds) * 1000;
-  return wallClockMillis() < m_lockedAtMillis + windowMillis;
+  return bootTimeMillis() < m_lockedAtMillis + windowMillis;
 }
 
 void LockScreen::tryGraceUnlock() {

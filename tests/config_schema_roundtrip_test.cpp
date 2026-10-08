@@ -703,6 +703,24 @@ location = "https://example.invalid/bad"
         fail("lockscreen.transition: invalid entries were not reported");
       }
     }
+    // Grace period is strictly opt-in: a config that never mentions the key keeps
+    // requiring authentication, and an explicit 0 stays disabled.
+    {
+      auto t = toml::parse("lock_before_suspend = true");
+      LockscreenConfig lockscreen{};
+      Diagnostics d;
+      readInto(t, lockscreen, lockscreenSchema(), "lockscreen", d);
+      if (lockscreen.gracePeriodSeconds != 0) {
+        fail("lockscreen.grace_period_seconds: missing key must default to 0 (passwordless unlock is opt-in)");
+      }
+      auto explicitZero = toml::parse("grace_period_seconds = 0");
+      LockscreenConfig zero{};
+      Diagnostics dZero;
+      readInto(explicitZero, zero, lockscreenSchema(), "lockscreen", dZero);
+      if (zero.gracePeriodSeconds != 0) {
+        fail("lockscreen.grace_period_seconds: explicit 0 must stay disabled");
+      }
+    }
     // Clipboard history count accepts large text-heavy histories but still has
     // an explicit config ceiling.
     {

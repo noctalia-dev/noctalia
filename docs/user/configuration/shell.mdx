@@ -436,6 +436,8 @@ Set **`[lockscreen].enabled = false`** to turn off session lock entirely: no `ex
 
 When the lock screen is enabled, **`lock_before_suspend`** (default `true`) locks the session on logind `PrepareForSleep` before suspend or hibernate (including lid-close sleep), so you do not need a separate idle daemon for lock-before-sleep. Set it `false` if you want external suspend without locking.
 
+**`grace_period_seconds`** (disabled by default, `0`–`60`) adds a short window right after locking during which the screen unlocks without a password: any pressed key or mouse movement of more than 5 px triggers an unlock, mirroring hyprlock's initial-input behavior. This is strictly opt-in so existing configurations keep requiring authentication; you can enable it under **Settings → Security → Lock Screen** or in TOML. Sleep always cancels the window: locks engaged by `PrepareForSleep` or **Lock and Suspend** never accept passwordless unlock, and whatever remains of a window is revoked on resume as an additional safeguard.
+
 When enabled and `wlr-screencopy` is available, Noctalia can capture the desktop **before** the session lock engages and use that snapshot as the lock screen background instead of the wallpaper. Desktop capture is disabled by default. A lock transition also uses a frozen pre-lock capture, but only as a temporary layer drawn by the secure lock surface while the complete lock screen (including its blur and tint) is revealed or concealed.
 
 Configure under **`[lockscreen]`** in TOML, or use **Settings → Security → Lock Screen**. The **Desktop capture** and transition controls appear only when your compositor supports screencopy. Use **Wallpaper** to pick a custom lock screen image (empty uses the desktop wallpaper per output).
@@ -446,6 +448,7 @@ Lock screen transitions have their own effect pool, duration, and edge smoothnes
 [lockscreen]
 enabled               = true      # master switch for session lock
 lock_before_suspend   = true      # lock on PrepareForSleep (lid close / systemctl suspend)
+grace_period_seconds  = 0         # passwordless unlock window after locking; 0 (default) = off
 fingerprint           = true      # allow fingerprint (PAM) authentication on the lock screen
 allow_empty_password  = false     # submit Enter with an empty password (security-key PAM stacks)
 blurred_desktop       = false     # use a desktop snapshot as the lock screen background
@@ -462,6 +465,7 @@ monitors              = []        # connectors that show the lock screen; empty 
 |-------|------|---------|-------------|
 | `enabled` | bool | `true` | Master switch for session lock, logind integration, and lock actions. |
 | `lock_before_suspend` | bool | `true` | When `true`, hold a logind sleep-delay inhibitor and lock on `PrepareForSleep` before suspend/hibernate (including lid-close sleep). Set `false` to allow external suspend without locking; explicit **Lock and Suspend** actions still lock first. |
+| `grace_period_seconds` | int | `0` | Passwordless unlock window right after locking. Strictly opt-in: with the default `0`, every unlock requires authentication. When set to a value in `1`–`60`, any keypress or mouse movement of more than 5 px unlocks without a password for that many seconds (after a clock-based expiry, measured against a suspend-inclusive monotonic clock; automatic lock by the idle timer counts). The window is always revoked when the session sleeps: locks engaged by `PrepareForSleep` or **Lock and Suspend** never offer passwordless unlock, and a resume clears whatever was left. |
 | `fingerprint` | bool | `true` | When `true`, fingerprint (PAM) authentication is offered on the lock screen alongside the password field. Set `false` to require password entry only. |
 | `allow_empty_password` | bool | `false` | When `true`, Enter can submit an empty password (needed for some security-key PAM stacks). When `false`, empty submits are ignored to avoid accidental `pam_faillock` lockouts from wake keys. |
 | `blurred_desktop` | bool | `false` | Capture each output before lock and use it as the lock screen background. |

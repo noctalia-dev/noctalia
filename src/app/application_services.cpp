@@ -1061,6 +1061,10 @@ void Application::initSystemBusServices() {
           // fade-complete cleanup races with process freeze.
           m_idleGraceOverlay.hide();
           if (sleeping) {
+            // Sleep-related locks must never offer passwordless unlock: revoke
+            // before handling the transition so locks already pending or engaged
+            // lose the window, and idempotently again after the lock armed below.
+            m_lockScreen.resetGracePeriod();
             // Screen time must not accumulate across suspend even when lock-before-suspend is off.
             m_screenTimeService.setSuspendPaused(true);
             // Delay inhibit (when lock_before_suspend is on) holds sleep until we lock.
@@ -1100,6 +1104,8 @@ void Application::initSystemBusServices() {
               return;
             }
             // Deferred lock (no outputs yet) never reaches SessionLocked; do not block sleep.
+            // lock() re-armed grace above; a sleep-bound lock must never offer it.
+            m_lockScreen.resetGracePeriod();
             if (!m_lockScreen.isActive()) {
               m_releaseSleepDelayWhenLocked = false;
               if (m_logindService != nullptr) {
