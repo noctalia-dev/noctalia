@@ -45,12 +45,37 @@ namespace Style {
   // Pointer distance in logical px before an armed drag becomes active.
   inline constexpr float dragStartThreshold = 6.0F;
 
+  // Base scrollbar thickness at rest, and while the pointer is over it. The bar overlays the
+  // content as it expands, so hovering never reflows the scroll view.
   inline constexpr float scrollbarWidth = 6.0F;
+  inline constexpr float scrollbarHoverWidth = 12.0F;
   inline constexpr float scrollbarGap = spaceSm;
-  inline constexpr float scrollbarMinThumbHeight = 24.0F;
+  // Shortest the thumb gets on a long document; it must stay a usable drag target and read as a
+  // bar rather than a lozenge next to the hovered thickness.
+  inline constexpr float scrollbarMinThumbHeight = 32.0F;
+  // Pointer margin on the content side of the bar, so a thin bar stays an easy grab target.
+  inline constexpr float scrollbarHitSlop = 6.0F;
 
   // Growth cap (logical px, before content scale) for menus/dropdowns that size to their content.
   inline constexpr float menuAutoMaxWidth = 420.0F;
+
+  // Window switcher carousel geometry and depth treatment.
+  inline constexpr float windowSwitcherDimOpacity = 0.3F;
+  inline constexpr float windowSwitcherSelectedCardWidth = 500.0F;
+  inline constexpr float windowSwitcherNearCardWidth = 380.0F;
+  inline constexpr float windowSwitcherFarCardWidth = 280.0F;
+  inline constexpr float windowSwitcherCompactCardWidth = 220.0F;
+  inline constexpr float windowSwitcherPreviewAspect = 1.6F;
+  inline constexpr float windowSwitcherCardOverlap = controlHeightLg + spaceLg;
+  inline constexpr float windowSwitcherNarrowLayoutThreshold = 0.72F;
+  inline constexpr float windowSwitcherPreviewIconScale = 0.12F;
+  inline constexpr float windowSwitcherFallbackIconScale = 0.28F;
+  inline constexpr float windowSwitcherCaptionHeight = controlHeightLg;
+  inline constexpr float windowSwitcherCaptionLineGap = -spaceXs;
+  inline constexpr float windowSwitcherIncomingCardScale = 0.9F;
+  inline constexpr float windowSwitcherIncomingCardSlide = 0.25F;
+  inline constexpr float windowSwitcherOutgoingCardSlide = 0.3F;
+  inline constexpr float windowSwitcherRevealScale = 0.95F;
 
   // Toggle preset geometry. Track height = thumb + 2 * inset; track width = thumb + 2 * inset + travel.
   inline constexpr float toggleThumbSizeSm = 14.0F;

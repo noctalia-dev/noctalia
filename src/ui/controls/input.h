@@ -39,8 +39,10 @@ public:
   void setHorizontalPadding(float padding);
   void setClearButtonEnabled(bool enabled);
   void setPasswordMode(bool enabled);
-  /// Apply readline-style line editing shortcuts.
-  void setLineEditingEnabled(bool enabled);
+  /// Shows a password-mode value as plain text. Display only: the field keeps password semantics (no
+  /// clipboard export, no undo history, sensitive text-input hints). Ignored outside password mode;
+  /// entering or leaving password mode conceals the value again.
+  void setPasswordRevealed(bool revealed);
   /// Multi-line editing: Enter inserts '\n' (Ctrl+Enter submits), the text wraps
   /// at the viewport width and scrolls vertically. The control keeps whatever
   /// height layout assigns (explicit height or flex-grown) instead of forcing
@@ -66,6 +68,7 @@ public:
   void setSurfaceOpacity(float opacity);
   void setFrameRadius(float radius);
   [[nodiscard]] bool enabled() const noexcept { return m_enabled; }
+  [[nodiscard]] bool passwordRevealed() const noexcept { return m_passwordRevealed; }
   void selectAll();
   void moveCaretLeft(bool shift = false);
   void moveCaretRight(bool shift = false);
@@ -75,6 +78,8 @@ public:
   /// Submit invokes onSubmit only when this matcher returns true (Application wires ConfigService validate keybinds).
   static void setValidateKeyMatcher(std::function<bool(std::uint32_t sym, std::uint32_t modifiers)> matcher) noexcept;
   static void setPasswordMaskStyle(PasswordMaskStyle style) noexcept;
+  /// Readline-style editing shortcuts for every Input (Ctrl+A moves to the start instead of selecting all).
+  static void setReadlineShortcutsEnabled(bool enabled) noexcept;
   void clearSelection();
 
   [[nodiscard]] const std::string& value() const noexcept { return m_value; }
@@ -136,6 +141,7 @@ private:
   [[nodiscard]] std::size_t selectionStart() const noexcept;
   [[nodiscard]] std::size_t selectionEnd() const noexcept;
   [[nodiscard]] bool isReadOnlyVisual() const noexcept;
+  [[nodiscard]] bool passwordMasked() const noexcept { return m_passwordMode && !m_passwordRevealed; }
   [[nodiscard]] EditSnapshot currentEditSnapshot() const;
   void deleteSelection();
   void clearEditHistory();
@@ -231,8 +237,8 @@ private:
   float m_horizontalPadding = Style::spaceMd;
   bool m_clearButtonEnabled = false;
   bool m_passwordMode = false;
+  bool m_passwordRevealed = false;
   bool m_multiline = false;
-  bool m_lineEditing = false;
   bool m_invalid = false;
   bool m_frameVisible = true;
   bool m_embeddedOnSolidPrimary = false;

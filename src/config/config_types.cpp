@@ -1,5 +1,6 @@
 #include "config/config_types.h"
 
+#include "config/schema/ranges.h"
 #include "core/input/key_modifiers.h"
 #include "render/core/color.h"
 #include "util/string_utils.h"
@@ -360,6 +361,13 @@ WidgetBarCapsuleSpec resolveWidgetBarCapsuleSpec(const BarConfig& bar, const Wid
       );
     }
   }
+  spec.borderWidth = bar.widgetCapsuleBorderWidth;
+  if (widget != nullptr && widget->hasSetting("capsule_border_width")) {
+    spec.borderWidth = noctalia::config::schema::applyRange(
+        static_cast<float>(widget->getDouble("capsule_border_width", static_cast<double>(spec.borderWidth))),
+        noctalia::config::schema::kBarCapsuleBorderWidthRange
+    );
+  }
   spec.opacity = bar.widgetCapsuleOpacity;
   if (widget != nullptr && widget->hasSetting("capsule_opacity")) {
     spec.opacity = std::clamp(
@@ -482,6 +490,7 @@ WidgetBarCapsuleSpec capsuleSpecFromGroup(const BarConfig& bar, const BarCapsule
   spec.group = group.id;
   spec.fill = group.fill;
   spec.border = group.borderSpecified ? group.border : std::nullopt;
+  spec.borderWidth = group.borderWidth;
   spec.foreground = group.foreground;
   spec.padding = group.padding;
   // "Auto" radius (no explicit group radius) inherits the bar's capsule radius; unset at both levels = pill.
@@ -569,6 +578,7 @@ CommonWidgetOptions resolveCommonWidgetOptions(
 ) {
   CommonWidgetOptions options;
   options.interactive = widgetType != "spacer";
+  options.showTooltip = bar.showTooltip;
   options.contentScale = resolveWidgetContentScale(barScale, widget);
   options.fontScale = resolveWidgetFontScale(bar.fontScale, widget);
   options.capsule = resolveWidgetBarCapsuleSpec(bar, widget);
@@ -579,6 +589,7 @@ CommonWidgetOptions resolveCommonWidgetOptions(
   options.enabled = widget->getBool("enabled", true);
   options.anchor = widget->getBool("anchor", false);
   options.interactive = widget->getBool("interactive", options.interactive);
+  options.showTooltip = widget->getBool("show_tooltip", options.showTooltip);
   options.color = widget->getOptionalColorSpec("color", "widget.color");
   options.iconColor = widget->getOptionalColorSpec("icon_color", "widget.icon_color");
   if (const auto* fontWeight = widget->findSetting("font_weight");
@@ -641,4 +652,91 @@ bool outputMatchesSelector(const std::string& match, const WaylandOutput& output
     }
   }
   return false;
+}
+
+DockConfig resolveDockMonitorOverride(const DockConfig& base, const DockMonitorOverride& override) {
+  DockConfig resolved = base;
+  resolved.monitorOverrides.clear();
+
+  if (override.enabled)
+    resolved.enabled = *override.enabled;
+  if (override.position)
+    resolved.position = *override.position;
+  if (override.activeMonitorOnly)
+    resolved.activeMonitorOnly = *override.activeMonitorOnly;
+  if (override.iconSize)
+    resolved.iconSize = *override.iconSize;
+  if (override.mainAxisPadding)
+    resolved.mainAxisPadding = *override.mainAxisPadding;
+  if (override.crossAxisPadding)
+    resolved.crossAxisPadding = *override.crossAxisPadding;
+  if (override.itemSpacing)
+    resolved.itemSpacing = *override.itemSpacing;
+  if (override.backgroundOpacity)
+    resolved.backgroundOpacity = *override.backgroundOpacity;
+  if (override.border)
+    resolved.border = *override.border;
+  if (override.borderWidth)
+    resolved.borderWidth = *override.borderWidth;
+  if (override.radius) {
+    resolved.radius = *override.radius;
+    resolved.radiusTopLeft = *override.radius;
+    resolved.radiusTopRight = *override.radius;
+    resolved.radiusBottomLeft = *override.radius;
+    resolved.radiusBottomRight = *override.radius;
+  }
+  if (override.radiusTopLeft)
+    resolved.radiusTopLeft = *override.radiusTopLeft;
+  if (override.radiusTopRight)
+    resolved.radiusTopRight = *override.radiusTopRight;
+  if (override.radiusBottomLeft)
+    resolved.radiusBottomLeft = *override.radiusBottomLeft;
+  if (override.radiusBottomRight)
+    resolved.radiusBottomRight = *override.radiusBottomRight;
+  if (override.concaveEdgeCorners)
+    resolved.concaveEdgeCorners = *override.concaveEdgeCorners;
+  if (override.marginEnds)
+    resolved.marginEnds = *override.marginEnds;
+  if (override.marginEdge)
+    resolved.marginEdge = *override.marginEdge;
+  if (override.shadow)
+    resolved.shadow = *override.shadow;
+  if (override.showRunning)
+    resolved.showRunning = *override.showRunning;
+  if (override.autoHide)
+    resolved.autoHide = *override.autoHide;
+  if (override.smartAutoHide)
+    resolved.smartAutoHide = *override.smartAutoHide;
+  if (override.layer)
+    resolved.layer = *override.layer;
+  if (override.reserveSpace)
+    resolved.reserveSpace = *override.reserveSpace;
+  if (override.activeScale)
+    resolved.activeScale = *override.activeScale;
+  if (override.inactiveScale)
+    resolved.inactiveScale = *override.inactiveScale;
+  if (override.magnification)
+    resolved.magnification = *override.magnification;
+  if (override.magnificationScale)
+    resolved.magnificationScale = *override.magnificationScale;
+  if (override.activeOpacity)
+    resolved.activeOpacity = *override.activeOpacity;
+  if (override.inactiveOpacity)
+    resolved.inactiveOpacity = *override.inactiveOpacity;
+  if (override.showDots)
+    resolved.showDots = *override.showDots;
+  if (override.showInstanceCount)
+    resolved.showInstanceCount = *override.showInstanceCount;
+  if (override.launcherPosition)
+    resolved.launcherPosition = *override.launcherPosition;
+  if (override.launcherIcon)
+    resolved.launcherIcon = *override.launcherIcon;
+  if (override.launcherCustomImage)
+    resolved.launcherCustomImage = *override.launcherCustomImage;
+  if (override.launcherCustomImageColorize)
+    resolved.launcherCustomImageColorize = *override.launcherCustomImageColorize;
+  if (override.pinned)
+    resolved.pinned = *override.pinned;
+
+  return resolved;
 }

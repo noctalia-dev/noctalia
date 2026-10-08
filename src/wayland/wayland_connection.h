@@ -11,6 +11,7 @@
 #include <memory>
 #include <optional>
 #include <poll.h>
+#include <span>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -47,6 +48,9 @@ struct hyprland_focus_grab_manager_v1;
 struct hyprland_toplevel_mapping_manager_v1;
 struct zwlr_gamma_control_manager_v1;
 struct zwlr_screencopy_manager_v1;
+struct ext_image_copy_capture_manager_v1;
+struct ext_output_image_capture_source_manager_v1;
+struct ext_foreign_toplevel_image_capture_source_manager_v1;
 struct wp_fractional_scale_manager_v1;
 struct wp_viewporter;
 struct zwlr_output_manager_v1;
@@ -128,7 +132,12 @@ struct WaylandOutputHeadInfo {
 
 class WaylandConnection {
 public:
-  WaylandConnection();
+  enum class Purpose : std::uint8_t {
+    Shell,
+    Screencopy,
+  };
+
+  explicit WaylandConnection(Purpose purpose = Purpose::Shell);
   ~WaylandConnection();
 
   WaylandConnection(const WaylandConnection&) = delete;
@@ -137,6 +146,8 @@ public:
   using ChangeCallback = std::function<void()>;
 
   bool connect();
+  bool
+  connectUntil(std::chrono::steady_clock::time_point deadline, WaylandConnection* eventConnection, std::string& error);
 
   // Delegate setters
   void setOutputChangeCallback(ChangeCallback callback);
@@ -151,6 +162,7 @@ public:
   );
   void setPointerEventCallback(WaylandSeat::PointerEventCallback callback);
   void setKeyboardEventCallback(WaylandSeat::KeyboardEventCallback callback);
+  void setKeyboardModifiersCallback(WaylandSeat::KeyboardModifiersCallback callback);
   void setLockKeysChangeCallback(WaylandSeat::LockKeysChangeCallback callback);
   /// Fired when both `ext_idle_notifier_v1` and `wl_seat` are bound (including late registry globals).
   void setIdleCapabilitiesReadyCallback(ChangeCallback callback);
@@ -183,6 +195,10 @@ public:
   [[nodiscard]] bool hasOutputManagement() const noexcept;
   [[nodiscard]] bool hasScreencopy() const noexcept;
   [[nodiscard]] zwlr_screencopy_manager_v1* screencopyManager() const noexcept;
+  [[nodiscard]] ext_image_copy_capture_manager_v1* imageCopyCaptureManager() const noexcept;
+  [[nodiscard]] ext_output_image_capture_source_manager_v1* outputImageCaptureSourceManager() const noexcept;
+  [[nodiscard]] ext_foreign_toplevel_image_capture_source_manager_v1*
+  foreignToplevelImageCaptureSourceManager() const noexcept;
   [[nodiscard]] bool hasBackgroundEffectBlur() const noexcept;
   [[nodiscard]] zwlr_gamma_control_manager_v1* gammaControlManager() const noexcept;
   [[nodiscard]] ext_background_effect_manager_v1* backgroundEffectManager() const noexcept;
@@ -195,6 +211,7 @@ public:
   [[nodiscard]] std::string describeDisplayError(int operationErrno = 0) const;
   [[nodiscard]] wl_compositor* compositor() const noexcept;
   [[nodiscard]] wl_seat* seat() const noexcept;
+  [[nodiscard]] wl_pointer* pointer() const noexcept;
   [[nodiscard]] wl_shm* shm() const noexcept;
   [[nodiscard]] wl_subcompositor* subcompositor() const noexcept;
   [[nodiscard]] zwlr_layer_shell_v1* layerShell() const noexcept;
@@ -240,6 +257,7 @@ public:
   [[nodiscard]] wl_output* lastPointerOutput() const noexcept;
   [[nodiscard]] wl_surface* lastPointerSurface() const noexcept;
   [[nodiscard]] wl_surface* lastKeyboardSurface() const noexcept;
+  [[nodiscard]] std::uint32_t keyboardModifiers() const noexcept;
   [[nodiscard]] bool hasPointerPosition() const noexcept;
   [[nodiscard]] double lastPointerX() const noexcept;
   [[nodiscard]] double lastPointerY() const noexcept;
@@ -292,8 +310,10 @@ private:
   void bindTextInputService();
   void bindVirtualKeyboardService();
   void cleanup();
+  [[nodiscard]] bool setupDisplay(wl_display* display, std::string& error);
   void logStartupSummary() const;
 
+  Purpose m_purpose = Purpose::Shell;
   wl_display* m_display = nullptr;
   wl_registry* m_registry = nullptr;
   wl_compositor* m_compositor = nullptr;
@@ -313,6 +333,9 @@ private:
   hyprland_focus_grab_manager_v1* m_hyprlandFocusGrabManager = nullptr;
   zwlr_gamma_control_manager_v1* m_gammaControlManager = nullptr;
   zwlr_screencopy_manager_v1* m_screencopyManager = nullptr;
+  ext_image_copy_capture_manager_v1* m_imageCopyCaptureManager = nullptr;
+  ext_output_image_capture_source_manager_v1* m_outputImageCaptureSourceManager = nullptr;
+  ext_foreign_toplevel_image_capture_source_manager_v1* m_foreignToplevelImageCaptureSourceManager = nullptr;
   zwlr_output_manager_v1* m_outputManager = nullptr;
   std::unordered_map<zwlr_output_head_v1*, WaylandOutputHeadInfo> m_outputHeads;
   std::unordered_set<zwlr_output_mode_v1*> m_outputModes;
@@ -352,3 +375,30 @@ private:
   WaylandToplevels m_toplevelsHandler;
   WaylandExtForeignToplevels m_extForeignToplevels;
 };
+
+namespace wayland {
+
+  struct DispatchTarget {
+    WaylandConnection* connection = nullptr;
+    std::string_view role;
+  };
+
+  enum class DispatchStatus : std::uint8_t {
+    Completed,
+    TimedOut,
+    PollFailed,
+    ConnectionFailed,
+  };
+
+  struct DispatchResult {
+    DispatchStatus status = DispatchStatus::Completed;
+    WaylandConnection* failedConnection = nullptr;
+    std::string error;
+  };
+
+  [[nodiscard]] DispatchResult dispatchUntil(
+      std::span<const DispatchTarget> targets, std::chrono::steady_clock::time_point deadline,
+      const std::function<bool()>& completed
+  );
+
+} // namespace wayland

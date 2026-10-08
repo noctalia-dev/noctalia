@@ -6,6 +6,7 @@
 #include "config/schema/config_schema.h"
 
 #include <cstdio>
+#include <print>
 #include <string>
 #include <vector>
 
@@ -24,14 +25,14 @@ namespace {
 
   void expectKnown(const std::vector<std::string>& path) {
     if (!isKnownConfigPath(path)) {
-      std::fprintf(stderr, "config_path_resolution: FAIL: expected known: %s\n", join(path).c_str());
+      std::println(stderr, "config_path_resolution: FAIL: expected known: {}", join(path));
       ++g_failures;
     }
   }
 
   void expectUnknown(const std::vector<std::string>& path) {
     if (isKnownConfigPath(path)) {
-      std::fprintf(stderr, "config_path_resolution: FAIL: expected unknown: %s\n", join(path).c_str());
+      std::println(stderr, "config_path_resolution: FAIL: expected unknown: {}", join(path));
       ++g_failures;
     }
   }
@@ -54,12 +55,15 @@ int main() {
   expectKnown({"wallpaper", "fill_color"});
   expectKnown({"dock", "icon_size"});
   expectKnown({"dock", "radius_top_left"});
+  expectKnown({"dock", "monitor", "DP-1", "icon_size"});
+  expectKnown({"dock", "monitor", "DP-1", "pinned"});
   expectKnown({"desktop_widgets", "enabled"});
   expectKnown({"desktop_widgets", "grid", "cell_size"});
   expectKnown({"desktop_widgets", "widget_order"});
   expectKnown({"desktop_widgets", "widget", "clock1", "type"});
   expectKnown({"desktop_widgets", "widget", "clock1", "settings", "format"});
   expectKnown({"osd", "scale"});
+  expectKnown({"notification", "width"});
   expectKnown({"notification", "background_opacity"});
   expectKnown({"battery", "warning_threshold"});
   expectKnown({"calendar", "refresh_minutes"});
@@ -84,6 +88,8 @@ int main() {
   expectUnknown({"accessibilit", "ui_scale"});                   // section typo
   expectUnknown({"shell"});                                      // bare section
   expectUnknown({"dock", "radius_top_typo"});
+  expectUnknown({"dock", "monitors"});
+  expectUnknown({"dock", "monitor", "DP-1", "monitors"});
   expectUnknown({"desktop_widgets", "enabeld"});
   expectUnknown({"desktop_widgets", "grid", "cell_szie"});
   expectUnknown({"desktop_widgets", "widget", "clock1", "bogus"});
@@ -95,6 +101,6 @@ int main() {
     std::puts("config_path_resolution: all checks passed");
     return 0;
   }
-  std::fprintf(stderr, "config_path_resolution: %d failure(s)\n", g_failures);
+  std::println(stderr, "config_path_resolution: {} failure(s)", g_failures);
   return 1;
 }

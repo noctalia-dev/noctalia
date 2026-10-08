@@ -178,6 +178,7 @@ namespace {
     }
 
     auto scroll = ui::scrollView({
+        .contentScale = ctx.scale,
         .viewportPaddingH = 0.0F,
         .viewportPaddingV = 0.0F,
         .fillWidth = true,

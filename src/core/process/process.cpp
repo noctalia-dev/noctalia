@@ -19,6 +19,7 @@
 #include <mutex>
 #include <optional>
 #include <sstream>
+#include <string>
 #include <string_view>
 #include <sys/poll.h>
 #include <sys/wait.h>
@@ -679,13 +680,17 @@ namespace {
     // script, e.g. vscode, would end prematurely when the script exits, and the actual app process
     // is still running.
     systemdArgs.emplace_back("--property=ExitType=cgroup");
+    // A child being selected by the OOM killer must not make systemd terminate every other
+    // process in the app unit, such as unrelated shells and terminal multiplexer sessions.
+    systemdArgs.emplace_back("--property=OOMPolicy=continue");
 
     // We launch the app as a systemd service instead of a scope so the user can:
     // 1. Place drop-in files in ~/.config/systemd/user/app-<desktop-id>@.service.d/ to set properties like resource
     // limits or env vars.
     // 2. See the app's output and exit code (if it fails) in `systemctl status`.
     if (!appName.empty()) {
-      const std::string uuid = StringUtils::generateUuid();
+      std::string uuid = StringUtils::generateUuid();
+      std::erase(uuid, '-');
       if (!uuid.empty()) {
         systemdArgs.push_back(std::format("--unit=app-{}@{}.service", escapeSystemdUnitName(appName), uuid));
       }
@@ -951,10 +956,12 @@ namespace process {
     return false;
   }
 
-  RunResult runSync(const std::string& command) {
+  RunResult runSync(const std::string& command) { return runSync(command, RunOptions{}); }
+
+  RunResult runSync(const std::string& command, RunOptions options) {
     if (command.empty())
       return {-1, {}, {}};
-    return runSync(std::vector<std::string>{"/bin/sh", "-lc", command});
+    return runSyncProcess(std::vector<std::string>{"/bin/sh", "-lc", command}, options);
   }
 
   bool launchFirstAvailable(std::initializer_list<std::initializer_list<const char*>> commandVariants) {

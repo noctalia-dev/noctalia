@@ -346,15 +346,16 @@ namespace scripting {
           return false;
         }
 
-        // Supersede an already-queued coalescing CallArgs for the same callback
+        // Supersede an already-queued coalescing CallArgs on the same stream
         // with the newer payload instead of appending. Bounds the queue to a
-        // single pending event per callback (e.g. onAudioSpectrum at 60Hz), so a
-        // slow script can never accumulate stale spectrum frames.
+        // single pending event per stream (e.g. onAudioSpectrum at 60Hz), so a
+        // slow script can never accumulate stale spectrum frames, and callbacks
+        // sharing a stream stay in true order: the newest state wins.
         if (event.kind == ScriptEventKind::CallArgs && event.coalesce) {
           const auto existing = std::ranges::find_if(queue, [&event](const auto& queued) {
             return queued.kind == ScriptEventKind::CallArgs
                 && queued.coalesce
-                && queued.functionName == event.functionName;
+                && queued.coalesceKey == event.coalesceKey;
           });
           if (existing != queue.end()) {
             event.generation = generation;
@@ -1130,6 +1131,7 @@ namespace scripting {
     event.snapshot = std::move(snapshot);
     event.budget = kCallBudget;
     event.coalesce = options.coalesce;
+    event.coalesceKey = options.coalesceKey.empty() ? event.functionName : std::move(options.coalesceKey);
     event.droppable = options.droppable;
     return m_state != nullptr && m_state->enqueue(std::move(event));
   }
@@ -1141,10 +1143,12 @@ namespace scripting {
   }
 
   bool ScriptRuntime::enqueueCallStrings(
-      std::string functionName, std::string first, std::string second, ScriptSnapshot snapshot, bool coalesce
+      std::string functionName, std::string first, std::string second, ScriptSnapshot snapshot, bool coalesce,
+      std::string coalesceKey
   ) {
     return enqueueCallArgs(
-        std::move(functionName), {std::move(first), std::move(second)}, std::move(snapshot), {.coalesce = coalesce}
+        std::move(functionName), {std::move(first), std::move(second)}, std::move(snapshot),
+        {.coalesce = coalesce, .coalesceKey = std::move(coalesceKey)}
     );
   }
 

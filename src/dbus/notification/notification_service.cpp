@@ -408,7 +408,7 @@ namespace notification_dbus {
         NotificationRequest{
             .replacesId = replaces_id,
             .appName = StringUtils::truncateUtf8(app_name, kMaxStringLen),
-            .summary = StringUtils::sanitizeMarkup(StringUtils::truncateUtf8(summary, kMaxStringLen)),
+            .summary = StringUtils::truncateUtf8(summary, kMaxStringLen),
             .body = StringUtils::sanitizeMarkup(StringUtils::truncateUtf8(body, kMaxStringLen)),
             .urgency = notifyUrgencyFromHints(hints),
             .timeout = timeout,

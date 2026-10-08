@@ -841,9 +841,36 @@ struct BrightnessService::Impl {
         continue;
       }
 
-      const BacklightConnectorResolution resolution = resolveBacklightConnector(path, wayland);
-      const std::string& connectorName = resolution.connectorName;
+      BacklightConnectorResolution resolution = resolveBacklightConnector(path, wayland);
+      std::string connectorName = resolution.connectorName;
       const WaylandOutput* output = findOutputByConnector(wayland, connectorName);
+
+      // Honor an explicit output-to-backlight mapping when automatic DRM/sysfs connector discovery fails.
+      if (!resolution.exactDrmMatch || connectorName.empty() || output == nullptr) {
+        for (const auto& candidateOutput : wayland.outputs()) {
+          if (!candidateOutput.done || candidateOutput.connectorName.empty()) {
+            continue;
+          }
+
+          const auto explicitDevice = backlightDeviceForOutput(activeConfig, &candidateOutput);
+          if (!explicitDevice.has_value() || extractBacklightDeviceName(*explicitDevice) != name) {
+            continue;
+          }
+
+          const BrightnessBackendPreference explicitPreference =
+              backendPreferenceForOutput(activeConfig, &candidateOutput);
+          if (explicitPreference == BrightnessBackendPreference::None
+              || explicitPreference == BrightnessBackendPreference::Ddcutil) {
+            continue;
+          }
+
+          connectorName = candidateOutput.connectorName;
+          output = &candidateOutput;
+          resolution.exactDrmMatch = false;
+          kLog.info("using explicitly configured backlight '{}' for connector {}", name, connectorName);
+          break;
+        }
+      }
 
       if (connectorName.empty() || output == nullptr) {
         kLog.debug("skipping backlight '{}' because it could not be matched to an active output", name);
@@ -1528,11 +1555,13 @@ void BrightnessService::setAllBrightness(float value) { m_impl->setAllBrightness
 
 void BrightnessService::requestDdcRefresh() { m_impl->queueDdcRefreshes(); }
 
+void BrightnessService::requestDdcRescan() { m_impl->scheduleDdcDetect(); }
+
 void BrightnessService::reload(const BrightnessConfig& config) { m_impl->reload(config); }
 
 void BrightnessService::onOutputsChanged() { m_impl->onOutputsChanged(); }
 
-void BrightnessService::registerIpc(IpcService& ipc, std::function<void()> onBatchChange) {
+void BrightnessService::registerIpc(IpcService& ipc, std::function<void(BatchChangePhase)> onBatchChange) {
   auto resolveTargets = [this,
                          &ipc](std::string_view token, std::vector<std::string>& ids, std::string& error) -> bool {
     if (!available()) {
@@ -1620,8 +1649,9 @@ void BrightnessService::registerIpc(IpcService& ipc, std::function<void()> onBat
       return error;
     }
 
-    if (ids.size() > 1 && onBatchChange) {
-      onBatchChange();
+    const bool isBatch = ids.size() > 1 && onBatchChange;
+    if (isBatch) {
+      onBatchChange(BatchChangePhase::Begin);
     }
 
     for (const auto& id : ids) {
@@ -1630,6 +1660,10 @@ void BrightnessService::registerIpc(IpcService& ipc, std::function<void()> onBat
         continue;
       }
       apply(*display);
+    }
+
+    if (isBatch) {
+      onBatchChange(BatchChangePhase::End);
     }
     return "ok\n";
   };

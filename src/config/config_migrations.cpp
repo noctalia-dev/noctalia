@@ -26,6 +26,8 @@ namespace noctalia::config {
     constexpr int kWorkspacesDisplayMigrationVersion = 11;
     constexpr int kKeyboardLayoutCustomLabelsMigrationVersion = 12;
     constexpr int kPluginAutoUpdateModeMigrationVersion = 13;
+    constexpr int kCalendarEventFormatsMigrationVersion = 14;
+    constexpr int kDockMonitorOverridesMigrationVersion = 15;
     constexpr std::int64_t kMaxBarRadius = 500;
     constexpr std::array<std::string_view, 5> kBarRadiusKeys = {
         "radius", "radius_top_left", "radius_top_right", "radius_bottom_left", "radius_bottom_right",
@@ -643,6 +645,116 @@ namespace noctalia::config {
       });
     }
 
+    template <typename OnChanged> void migrateCalendarEventFormats(toml::table& root, OnChanged&& onChanged) {
+      auto* controlCenter = root["control_center"].as_table();
+      if (controlCenter == nullptr) {
+        return;
+      }
+      auto* calendarTab = (*controlCenter)["calendar"].as_table();
+      if (calendarTab == nullptr) {
+        return;
+      }
+
+      toml::table* calendar = root["calendar"].as_table();
+      if (calendar == nullptr) {
+        if (root.contains("calendar")) {
+          return;
+        }
+        root.insert("calendar", toml::table{});
+        calendar = root["calendar"].as_table();
+      }
+      if (calendar == nullptr) {
+        return;
+      }
+
+      constexpr std::array<std::string_view, 2> kFormatKeys{"event_date_format", "event_time_format"};
+      for (const std::string_view key : kFormatKeys) {
+        toml::node* oldNode = calendarTab->get(key);
+        if (oldNode == nullptr) {
+          continue;
+        }
+        const std::string path = "control_center.calendar." + std::string(key);
+        const bool keptCanonical = calendar->contains(key);
+        if (!keptCanonical) {
+          calendar->insert_or_assign(key, *oldNode);
+        }
+        calendarTab->erase(key);
+        onChanged(path, keptCanonical);
+      }
+    }
+
+    void migrateCalendarEventFormatsSidecar(toml::table& root, schema::Diagnostics& diag) {
+      migrateCalendarEventFormats(root, [&diag](const std::string& path, bool keptCanonical) {
+        diag.warn(
+            path,
+            keptCanonical ? "moved event format to calendar configuration; kept the existing canonical value"
+                          : "moved event format to calendar configuration"
+        );
+      });
+    }
+
+    template <typename OnChanged> void migrateDockMonitorAllowList(toml::table& root, OnChanged&& onChanged) {
+      auto* dock = root["dock"].as_table();
+      if (dock == nullptr) {
+        return;
+      }
+      auto* legacyMonitors = (*dock)["monitors"].as_array();
+      if (legacyMonitors == nullptr) {
+        return;
+      }
+
+      std::vector<std::string> selectors;
+      selectors.reserve(legacyMonitors->size());
+      for (const auto& node : *legacyMonitors) {
+        const auto selector = node.value<std::string>();
+        if (!selector.has_value()) {
+          return;
+        }
+        selectors.push_back(*selector);
+      }
+
+      if ((*dock)["enabled"].value_or(false) && !selectors.empty()) {
+        auto* monitorOverrides = (*dock)["monitor"].as_table();
+        if (monitorOverrides == nullptr) {
+          if (dock->contains("monitor")) {
+            return;
+          }
+          dock->insert("monitor", toml::table{});
+          monitorOverrides = (*dock)["monitor"].as_table();
+        }
+        if (monitorOverrides == nullptr) {
+          return;
+        }
+
+        for (const std::string& selector : selectors) {
+          if (selector.empty()) {
+            continue;
+          }
+          auto* monitorOverride = (*monitorOverrides)[selector].as_table();
+          if (monitorOverride == nullptr) {
+            if (monitorOverrides->contains(selector)) {
+              return;
+            }
+            monitorOverrides->insert(selector, toml::table{});
+            monitorOverride = (*monitorOverrides)[selector].as_table();
+          }
+          if (monitorOverride != nullptr && !monitorOverride->contains("enabled")) {
+            monitorOverride->insert("enabled", true);
+          }
+        }
+        dock->insert_or_assign("enabled", false);
+      }
+
+      dock->erase("monitors");
+      onChanged("dock.monitors");
+    }
+
+    void migrateDockMonitorAllowListSidecar(toml::table& root, schema::Diagnostics& diag) {
+      migrateDockMonitorAllowList(root, [&diag](const std::string& path) {
+        diag.warn(path, "migrated dock monitor allow-list to per-monitor enabled overrides");
+      });
+    }
+
     template <typename OnChanged> void migratePluginAutoUpdateMode(toml::table& root, OnChanged&& onChanged) {
       auto* plugins = root["plugins"].as_table();
       if (plugins == nullptr) {
@@ -766,6 +878,16 @@ namespace noctalia::config {
             .toVersion = kPluginAutoUpdateModeMigrationVersion,
             .summary = "plugins: migrate boolean auto-update to source scope",
             .apply = migratePluginAutoUpdateModeSidecar,
+        },
+        {
+            .toVersion = kCalendarEventFormatsMigrationVersion,
+            .summary = "calendar: move event formats to calendar configuration",
+            .apply = migrateCalendarEventFormatsSidecar,
+        },
+        {
+            .toVersion = kDockMonitorOverridesMigrationVersion,
+            .summary = "dock: migrate monitor allow-list to per-monitor enabled overrides",
+            .apply = migrateDockMonitorAllowListSidecar,
         },
     };
     return migrations;
@@ -911,6 +1033,22 @@ namespace noctalia::config {
           .migrationVersion = kPluginAutoUpdateModeMigrationVersion,
           .path = path,
           .message = "boolean plugin auto-update is deprecated; use \"" + std::string(mode) + "\"",
+      });
+    });
+    migrateCalendarEventFormats(root, [&issues](const std::string& path, bool keptCanonical) {
+      issues.push_back({
+          .migrationVersion = kCalendarEventFormatsMigrationVersion,
+          .path = path,
+          .message = keptCanonical
+              ? "event format is deprecated; move it to [calendar] and keep the existing canonical value"
+              : "event format is deprecated; move it to [calendar]",
+      });
+    });
+    migrateDockMonitorAllowList(root, [&issues](const std::string& path) {
+      issues.push_back({
+          .migrationVersion = kDockMonitorOverridesMigrationVersion,
+          .path = path,
+          .message = "dock monitors is deprecated; use per-monitor enabled overrides",
       });
     });
   }

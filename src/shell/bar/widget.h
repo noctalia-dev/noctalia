@@ -108,6 +108,8 @@ public:
   [[nodiscard]] std::string_view configName() const noexcept { return m_configName; }
   void setAnchor(bool anchor) noexcept { m_anchor = anchor; }
   [[nodiscard]] bool isAnchor() const noexcept { return m_anchor; }
+  // Bar-owned gate: when false the bar never shows this widget's tooltips; widgets keep setting their content.
+  [[nodiscard]] bool showsTooltip() const noexcept { return m_showTooltip; }
 
   void setBarCapsuleSpec(WidgetBarCapsuleSpec spec) noexcept { m_barCapsuleSpec = std::move(spec); }
   void setWidgetForeground(std::optional<ColorSpec> color) noexcept { m_widgetForeground = color; }
@@ -172,6 +174,7 @@ protected:
   std::string m_labelFontFamily; // empty = inherit renderer-global family
   std::string m_configName;
   bool m_anchor = false;
+  bool m_showTooltip = true;
   AnimationManager* m_animations = nullptr;
   UpdateCallback m_updateCallback;
   RedrawCallback m_redrawCallback;

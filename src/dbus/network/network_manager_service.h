@@ -10,6 +10,7 @@
 #include <optional>
 #include <set>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <vector>
 
@@ -32,6 +33,9 @@ public:
   void setChangeCallback(ChangeCallback callback) override;
   void refresh() override;
 
+  // Follows the org.freedesktop.NetworkManager bus name: NetworkManager may start after the shell or
+  // restart mid-session. Nothing is sent to it while it is off the bus.
+  [[nodiscard]] bool available() const noexcept override { return m_nm != nullptr; }
   [[nodiscard]] const NetworkState& state() const noexcept override { return m_state; }
   [[nodiscard]] bool hasStateSnapshot() const noexcept override { return m_hasStateSnapshot; }
   [[nodiscard]] const std::vector<AccessPointInfo>& accessPoints() const noexcept override { return m_accessPoints; }
@@ -49,12 +53,20 @@ public:
   bool activateAccessPoint(const AccessPointInfo& ap) override;
   bool activateAccessPoint(const AccessPointInfo& ap, const std::string& psk) override;
 
+  [[nodiscard]] bool supportsEnterprise() const noexcept override { return true; }
+  bool activateEnterpriseAccessPoint(
+      const AccessPointInfo& ap, const network_enterprise::EnterpriseCredentials& credentials
+  ) override;
+
   // Activate / deactivate a saved VPN connection profile. Deactivate also
   // aborts a connection that is stuck activating.
   bool activateVpnConnection(const VpnConnectionInfo& vpn) override;
   bool deactivateVpnConnection(const VpnConnectionInfo& vpn) override;
   [[nodiscard]] bool canActivateWiredConnection() const noexcept override;
   bool activateWiredConnection() override;
+  [[nodiscard]] bool canActivateCellularConnection() const noexcept override;
+  bool activateCellularConnection() override;
+  bool deactivateCellularConnection() override;
 
   // Enable / disable the Wi-Fi radio.
   void setWirelessEnabled(bool enabled, WirelessEnabledCompletion onComplete = {}) override;
@@ -67,18 +79,24 @@ public:
 
   // Whether any saved connection matches the SSID (uses cached snapshot refreshed on every refresh()).
   [[nodiscard]] bool hasSavedConnection(const std::string& ssid) const override;
-  [[nodiscard]] bool supportsSecretAgent() const noexcept override { return true; }
 
 private:
   void refreshAccessPoints(std::function<void()> onComplete);
   void refreshSavedConnections(std::function<void()> onComplete);
-  void refreshVpnConnections(std::function<void()> onComplete);
+  // Rebuilds the VPN profile list and, from one pass over NM's active
+  // connections, the derived flags those profiles share with cellular
+  // (m_anyVpnConnected, m_anyCellularActive).
+  void refreshVpnAndActiveConnections(std::function<void()> onComplete);
   void reconcileVpnActiveWatchers(const std::set<std::string>& activePaths);
   void finishSavedConnections(
-      std::vector<std::string>& ssids, std::vector<std::string>& wiredConnectionPaths, std::function<void()> onComplete
+      std::vector<std::string>& ssids, std::vector<std::string>& wiredConnectionPaths,
+      std::vector<std::string>& cellularConnectionPaths, std::function<void()> onComplete
   );
   void finishRefreshAccessPoints(std::vector<AccessPointInfo>& aps, std::function<void()> onComplete);
-  bool addAndActivateAccessPoint(const AccessPointInfo& ap, const std::optional<std::string>& psk);
+  bool addAndActivateAccessPoint(
+      const AccessPointInfo& ap, const std::optional<std::string>& psk,
+      const std::optional<network_enterprise::EnterpriseCredentials>& credentials = std::nullopt
+  );
   void watchPendingAccessPointActivation(
       const std::string& ssid, const std::string& connectionPath, const std::string& activePath
   );
@@ -102,6 +120,15 @@ private:
   void
   collectWifiDevices(std::function<void(std::vector<std::string> devicePaths, std::int64_t lastScanBaseline)> done);
   void tryActivateWiredConnection(std::shared_ptr<std::vector<std::string>> candidates, std::size_t index);
+  void tryActivateCellularConnection(std::shared_ptr<std::vector<std::string>> candidates, std::size_t index);
+  // Shared deactivate-by-profile-paths machinery used by the VPN and cellular
+  // toggles. Deactivates active (or stuck-activating) connections whose profile
+  // path is in the set. Returns false only on an immediate dispatch error.
+  bool deactivateConnectionsByProfilePaths(const std::set<std::string>& profilePaths, std::string_view kindTag);
+  // Subscribe to the running NetworkManager and read its state.
+  void attach();
+  // Drop every proxy, cached object path, and derived state of the instance that left.
+  void detach();
   void readStateAsync(std::function<void(NetworkState)> onComplete);
   [[nodiscard]] NetworkChangeOrigin consumeWirelessEnabledChangeOrigin(bool enabled);
   void beginScan(std::int64_t lastScanBaseline);
@@ -110,6 +137,7 @@ private:
   struct PendingAccessPointActivation;
 
   SystemBus& m_bus;
+  std::unique_ptr<sdbus::IProxy> m_busDaemon; // NameOwnerChanged watch for NetworkManager.
   std::unique_ptr<sdbus::IProxy> m_nm;
   std::unique_ptr<sdbus::IProxy> m_activeConnection;
   std::unique_ptr<sdbus::IProxy> m_activeDevice;
@@ -124,6 +152,7 @@ private:
   std::vector<VpnConnectionInfo> m_vpnConnections;
   std::vector<std::string> m_savedSsids;
   std::vector<std::string> m_savedWiredConnectionPaths;
+  std::vector<std::string> m_savedCellularConnectionPaths;
   std::unordered_map<std::string, std::unique_ptr<PendingAccessPointActivation>> m_pendingApActivations;
   // Finished activations whose proxy may still be executing its own handler;
   // freed at the next refresh completion (an async reply context).
@@ -136,10 +165,12 @@ private:
   bool m_emitOnNextRefresh = false;
   bool m_scanning = false;
   bool m_anyVpnConnected = false;
+  bool m_anyCellularActive = false;
   std::int64_t m_scanBaselineLastScan = 0;
   Timer m_scanTimeoutTimer;
   std::uint64_t m_scanGeneration = 0;
   std::optional<bool> m_pendingLocalWirelessEnabled;
+  std::vector<std::shared_ptr<WirelessEnabledCompletion>> m_pendingWirelessCompletions;
   bool m_hasStateSnapshot = false;
   ChangeCallback m_changeCallback;
 

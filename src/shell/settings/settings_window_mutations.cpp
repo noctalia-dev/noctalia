@@ -271,8 +271,6 @@ void SettingsWindow::createBar(std::string name) {
       m_creatingBarName.clear();
       m_renamingBarName.clear();
       m_pendingDeleteBarName.clear();
-      m_creatingMonitorOverrideBarName.clear();
-      m_creatingMonitorOverrideMatch.clear();
       m_renamingMonitorOverrideBarName.clear();
       m_renamingMonitorOverrideMatch.clear();
       m_pendingDeleteMonitorOverrideBarName.clear();
@@ -297,8 +295,6 @@ void SettingsWindow::renameBar(std::string oldName, std::string newName) {
       m_selectedMonitorOverride.clear();
       m_renamingBarName.clear();
       m_pendingDeleteBarName.clear();
-      m_creatingMonitorOverrideBarName.clear();
-      m_creatingMonitorOverrideMatch.clear();
       m_renamingMonitorOverrideBarName.clear();
       m_renamingMonitorOverrideMatch.clear();
       m_pendingDeleteMonitorOverrideBarName.clear();
@@ -324,8 +320,6 @@ void SettingsWindow::deleteBar(std::string name) {
       }
       m_renamingBarName.clear();
       m_pendingDeleteBarName.clear();
-      m_creatingMonitorOverrideBarName.clear();
-      m_creatingMonitorOverrideMatch.clear();
       m_renamingMonitorOverrideBarName.clear();
       m_renamingMonitorOverrideMatch.clear();
       m_pendingDeleteMonitorOverrideBarName.clear();
@@ -359,8 +353,6 @@ void SettingsWindow::createMonitorOverride(std::string barName, std::string matc
       m_selectedSection = "bar";
       m_selectedBarName = barName;
       m_selectedMonitorOverride = match;
-      m_creatingMonitorOverrideBarName.clear();
-      m_creatingMonitorOverrideMatch.clear();
       m_renamingMonitorOverrideBarName.clear();
       m_renamingMonitorOverrideMatch.clear();
       m_pendingDeleteMonitorOverrideBarName.clear();
@@ -409,6 +401,62 @@ void SettingsWindow::deleteMonitorOverride(std::string barName, std::string matc
       m_renamingMonitorOverrideMatch.clear();
       m_pendingDeleteMonitorOverrideBarName.clear();
       m_pendingDeleteMonitorOverrideMatch.clear();
+      markSettingsWriteSuccess();
+      return;
+    }
+    markSettingsWriteError(i18n::tr("settings.errors.monitor-override.delete"));
+  });
+}
+
+void SettingsWindow::createDockMonitorOverride(std::string match) {
+  DeferredCall::callLater([this, match = std::move(match)]() {
+    if (m_config == nullptr) {
+      return;
+    }
+    if (m_config->createDockMonitorOverride(match)) {
+      m_selectedSection = "dock";
+      m_selectedMonitorOverride = match;
+      m_renamingDockMonitorOverride.clear();
+      m_pendingDeleteDockMonitorOverride.clear();
+      m_contentScrollState.offset = 0.0F;
+      markSettingsWriteSuccess();
+      return;
+    }
+    markSettingsWriteError(i18n::tr("settings.errors.monitor-override.create"));
+  });
+}
+
+void SettingsWindow::renameDockMonitorOverride(std::string oldTableName, std::string newMatch) {
+  DeferredCall::callLater([this, oldTableName = std::move(oldTableName), newMatch = std::move(newMatch)]() {
+    if (m_config == nullptr) {
+      return;
+    }
+    if (m_config->renameDockMonitorOverride(oldTableName, newMatch)) {
+      if (m_selectedSection == "dock" && m_selectedMonitorOverride == oldTableName) {
+        m_selectedMonitorOverride = newMatch;
+      }
+      m_renamingDockMonitorOverride.clear();
+      m_pendingDeleteDockMonitorOverride.clear();
+      m_contentScrollState.offset = 0.0F;
+      markSettingsWriteSuccess();
+      return;
+    }
+    markSettingsWriteError(i18n::tr("settings.errors.monitor-override.rename"));
+  });
+}
+
+void SettingsWindow::deleteDockMonitorOverride(std::string tableName) {
+  DeferredCall::callLater([this, tableName = std::move(tableName)]() {
+    if (m_config == nullptr) {
+      return;
+    }
+    if (m_config->deleteDockMonitorOverride(tableName)) {
+      if (m_selectedSection == "dock" && m_selectedMonitorOverride == tableName) {
+        m_selectedMonitorOverride.clear();
+        m_contentScrollState.offset = 0.0F;
+      }
+      m_renamingDockMonitorOverride.clear();
+      m_pendingDeleteDockMonitorOverride.clear();
       markSettingsWriteSuccess();
       return;
     }

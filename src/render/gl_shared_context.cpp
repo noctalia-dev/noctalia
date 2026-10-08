@@ -3,8 +3,10 @@
 #include "core/log.h"
 
 #include <EGL/eglext.h>
+#include <dlfcn.h>
 #include <format>
 #include <stdexcept>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -44,6 +46,59 @@ namespace {
       EGL_NONE,
   };
 
+  std::string_view eglErrorName(EGLint error) {
+    switch (error) {
+    case EGL_SUCCESS:
+      return "EGL_SUCCESS";
+    case EGL_NOT_INITIALIZED:
+      return "EGL_NOT_INITIALIZED";
+    case EGL_BAD_ACCESS:
+      return "EGL_BAD_ACCESS";
+    case EGL_BAD_ALLOC:
+      return "EGL_BAD_ALLOC";
+    case EGL_BAD_ATTRIBUTE:
+      return "EGL_BAD_ATTRIBUTE";
+    case EGL_BAD_CONTEXT:
+      return "EGL_BAD_CONTEXT";
+    case EGL_BAD_CONFIG:
+      return "EGL_BAD_CONFIG";
+    case EGL_BAD_CURRENT_SURFACE:
+      return "EGL_BAD_CURRENT_SURFACE";
+    case EGL_BAD_DISPLAY:
+      return "EGL_BAD_DISPLAY";
+    case EGL_BAD_SURFACE:
+      return "EGL_BAD_SURFACE";
+    case EGL_BAD_MATCH:
+      return "EGL_BAD_MATCH";
+    case EGL_BAD_PARAMETER:
+      return "EGL_BAD_PARAMETER";
+    case EGL_BAD_NATIVE_PIXMAP:
+      return "EGL_BAD_NATIVE_PIXMAP";
+    case EGL_BAD_NATIVE_WINDOW:
+      return "EGL_BAD_NATIVE_WINDOW";
+    case EGL_CONTEXT_LOST:
+      return "EGL_CONTEXT_LOST";
+    default:
+      return "unknown EGL error";
+    }
+  }
+
+  std::string eglDisplayFailureDetail(EGLint eglError, std::string_view loaderError) {
+    std::string detail = eglError == EGL_SUCCESS
+        ? "eglGetDisplay failed (no EGL error reported)"
+        : std::format("eglGetDisplay failed ({} / 0x{:04x})", eglErrorName(eglError), static_cast<unsigned>(eglError));
+    if (loaderError.empty()) {
+      return detail;
+    }
+
+    detail += std::format(": EGL vendor library loading failed: {}", loaderError);
+    if (loaderError.contains("GLIBC_") && loaderError.contains("/nix/store/")) {
+      detail += ". This can indicate an incompatible NixOS graphics-driver/runtime closure; build Noctalia with the "
+                "system nixpkgs (set noctalia.inputs.nixpkgs.follows = \"nixpkgs\")";
+    }
+    return detail;
+  }
+
   bool hasExtension(const char* extensions, std::string_view name) {
     if (extensions == nullptr || name.empty()) {
       return false;
@@ -77,9 +132,12 @@ void GlSharedContext::initialize(wl_display* display, bool createSharedContext) 
     throw std::runtime_error("GlSharedContext requires a valid Wayland display");
   }
 
+  (void)dlerror();
   m_display = eglGetDisplay(reinterpret_cast<EGLNativeDisplayType>(display));
   if (m_display == EGL_NO_DISPLAY) {
-    throw std::runtime_error("eglGetDisplay failed");
+    const char* loaderError = dlerror();
+    const std::string loaderDetail = loaderError != nullptr ? loaderError : "";
+    throw std::runtime_error(eglDisplayFailureDetail(eglGetError(), loaderDetail));
   }
 
   EGLint major = 0;

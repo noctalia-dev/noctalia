@@ -184,6 +184,7 @@
     "audio": {
       "application-volumes": "Anwendungslautstärken",
       "choose-effects-profile": "Wähle ein Profil",
+      "default-device": "Standardgerät",
       "effects-profile": "Effekte",
       "input-device-prefix": "Eingabe",
       "no-application-audio": "Kein Anwendungsaudio",
@@ -257,7 +258,6 @@
       "uptime": "Betriebszeit – {uptime}",
       "weather": {
         "data-unavailable": "Wetterdaten nicht verfügbar.",
-        "disabled": "Wetter ist in der Konfiguration deaktiviert.",
         "fetching": "Vorhersage wird abgerufen…"
       }
     },
@@ -305,6 +305,22 @@
     },
     "power": {
       "battery": "Akku",
+      "charging": {
+        "configured": "Konfiguriert: {limits}",
+        "display-only": "Nur anzeigen",
+        "error-denied": "Autorisierung wurde verweigert. Ladeschwellenwerte wurden nicht geändert.",
+        "error-failed": "Ladeschwellenwerte konnten nicht geändert werden.",
+        "externally-managed": "Von einem anderen Tool festgelegt. Konfiguriere UPower zur Verwaltung der Ladeschwellenwerte.",
+        "firmware-managed": "Laden wird von der System-Firmware verwaltet",
+        "full-charge": "Kann bis 100% laden",
+        "starts": "Startet unter {start}%",
+        "starts-stops": "Startet unter {start}% · Stoppt bei {end}%",
+        "stops": "Stoppt bei {end}%",
+        "title": "Akkuladung",
+        "unreadable": "Nicht verfügbar",
+        "unsupported": "Ladeschwellenwerte werden nicht unterstützt",
+        "use-thresholds": "Ladeschwellenwerte verwenden"
+      },
       "design-capacity": "Der Nennkapazität",
       "health": "Akkuzustand",
       "performance-inhibited": "Leistung nicht verfügbar",
@@ -890,7 +906,7 @@
       "inherited": "Geerbt",
       "monitor": "Monitor",
       "official": "Offiziell",
-      "override": "Überschrieben"
+      "override": "Überschreiben"
     },
     "calendar-accounts": {
       "add-title": "Kalenderkonto hinzufügen",
@@ -1180,7 +1196,6 @@
         "borders": "Rahmen",
         "brightness": "Helligkeit",
         "built-in": "Integriert",
-        "calendar": "Kalender",
         "capsules": "Kapseln",
         "clipboard": "Zwischenablage",
         "community": "Community",
@@ -1376,6 +1391,13 @@
       },
       "panel-position": {
         "auto": "Leiste folgen"
+      },
+      "plugins": {
+        "auto-update": {
+          "all": "Alle Quellen",
+          "none": "Keine",
+          "official": "Nur offizielle"
+        }
       },
       "screen-position": {
         "bottom-center": "Unten mittig",
@@ -1762,6 +1784,10 @@
           "description": "Schriftart für die Widgets dieser Leiste; leer lassen, um die globale Schriftart zu übernehmen (eine widget-spezifische Schriftart überschreibt dies)",
           "label": "Schriftart"
         },
+        "font-scale": {
+          "description": "Skalierungsfaktor für Text aller Widgets auf dieser Leiste; wird mit dem font_scale des jeweiligen Widgets multipliziert",
+          "label": "Schriftskalierung"
+        },
         "font-weight": {
           "description": "Standard-Schriftstärke für Widget-Beschriftungen auf dieser Leiste",
           "label": "Schriftstärke"
@@ -1983,10 +2009,6 @@
         },
         "main-axis-padding": {
           "description": "Innenabstand an den Enden der Iconreihe (vor dem ersten und nach dem letzten Icon)"
-        },
-        "monitors": {
-          "description": "Wähle, welche Monitore das Dock anzeigen (leer lassen für alle); die Filterung nach aktivem Monitor gilt innerhalb dieser Monitore",
-          "label": "Monitore"
         },
         "pinned-apps": {
           "description": "Desktop-Eintrag-IDs der an das Dock angehefteten Apps",
@@ -2985,9 +3007,9 @@
           "label": "In Zwischenablage kopieren"
         },
         "screenshot-directory": {
-          "description": "Ordner für gespeicherte PNG-Dateien; leer lassen, um ~/Pictures zu verwenden",
+          "description": "Ordner für gespeicherte PNG-Dateien; leer lassen, um das Standard-XDG-Bilderverzeichnis zu verwenden",
           "label": "Ausgabeverzeichnis",
-          "placeholder": "~/Pictures"
+          "placeholder": "XDG-Bilderverzeichnis"
         },
         "screenshot-filename-pattern": {
           "description": "strftime-Muster ohne Dateiendung (.png wird hinzugefügt); verwende %s für Unix-Epoche",
@@ -3089,7 +3111,7 @@
           "label": "Unterordner einschließen"
         },
         "directory": {
-          "description": "Ordner mit Hintergrundbildern",
+          "description": "Ordner mit Hintergrundbildern; leer lassen, um das Standard-XDG-Bilderverzeichnis zu verwenden",
           "label": "Hintergrundbildverzeichnis"
         },
         "directory-dark": {
@@ -3459,6 +3481,10 @@
           "description": "Schriftart für dieses Widget; leer lassen, um die Schriftart der Leiste zu übernehmen",
           "label": "Schriftart"
         },
+        "font-scale": {
+          "description": "Skalierungsmultiplikator für Text in diesem Widget, unabhängig von der Gesamtskalierung des Widgets",
+          "label": "Schriftskalierung"
+        },
         "font-weight": {
           "description": "Standard übernimmt die Schriftstärke der Leiste",
           "label": "Schriftstärke"
@@ -3761,6 +3787,10 @@
           "description": "Zeige den Num-Lock-Status an",
           "label": "Num Lock anzeigen"
         },
+        "show-progress": {
+          "description": "Fülle den Widget-Hintergrund, um den Wiedergabefortschritt anzuzeigen",
+          "label": "Wiedergabefortschritt anzeigen"
+        },
         "show-scroll-lock": {
           "description": "Zeige den Scroll-Lock-Status an",
           "label": "Scroll Lock anzeigen"
@@ -3911,7 +3941,7 @@
     "window": {
       "export-config": "Konfiguration exportieren…",
       "export-config-saved": "Konfigurationsexport gespeichert.",
-      "filter-overridden": "Überschrieben",
+      "filter-overridden": "Überschreiben",
       "legacy-config-warning": "Veraltete Einstellung: {issue}. Bearbeite diesen Quelleintrag; Noctalia wendet den Ersatz nur vorübergehend an. Führe noctalia config validate aus, um alle erforderlichen Änderungen aufzulisten.",
       "native-title": "Noctalia-Einstellungen",
       "no-results": "Keine Einstellungen gefunden",
@@ -3925,7 +3955,6 @@
         "plugin-store": "Fernzugriff auf den Plugin-Katalog und Download-Anfragen werden nicht funktionieren.",
         "plugins": "Plugin-HTTP-Anfragen werden nicht funktionieren; Git-Quellen können weiterhin aktualisiert werden.",
         "security": "Externe IP-Abfrage und Telemetrie werden nicht funktionieren.",
-        "services": "Kalenderkonten-Synchronisierung wird nicht funktionieren.",
         "template-store": "Community-Template-Downloads werden nicht funktionieren.",
         "templates": "Community-Template-Downloads und -Aktualisierungen werden nicht funktionieren.",
         "title": "Offline-Modus"

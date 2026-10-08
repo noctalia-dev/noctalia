@@ -5,6 +5,7 @@
 #include "ui/controls/flex.h"
 
 #include <cstddef>
+#include <cstdint>
 #include <functional>
 #include <memory>
 #include <optional>
@@ -81,6 +82,10 @@ public:
 
   virtual void applyOverlayHover(Node& /*tile*/, bool /*hovered*/) {}
 
+  // Optional tooltip shown instead of itemTooltip() while the item's overlay is hovered.
+  // Anchored by itemTooltipAnchorInsets().
+  [[nodiscard]] virtual std::string overlayTooltip(std::size_t /*index*/) const { return {}; }
+
   // Optional: secondary button press (e.g. context menu). Anchor coordinates are in the panel scene graph
   // (surface-local).
   virtual void onSecondaryActivate(std::size_t /*index*/, float /*anchorX*/, float /*anchorY*/) {}
@@ -109,6 +114,11 @@ public:
   void setColumnGap(float gap);
   void setRowGap(float gap);
   void setOverscanRows(std::size_t rows);
+  // wp_cursor_shape value applied while the pointer is over a cell (0 = inherit).
+  void setItemCursorShape(std::uint32_t shape);
+  // Content scale of the hosting surface: sets the scrollbar geometry scale and the pointer
+  // travel threshold that separates a click from a drag on an adapter-consumed press.
+  void setScale(float scale);
 
   void scrollToIndex(std::size_t index);
   void setSelectedIndex(std::optional<std::size_t> index);
@@ -168,6 +178,8 @@ private:
   float m_columnGap = 4.0F;
   float m_rowGap = 4.0F;
   std::size_t m_overscanRows = 2;
+  std::uint32_t m_itemCursorShape = 0;
+  float m_scale = 1.0F;
 
   std::optional<std::size_t> m_selectedIndex;
   std::optional<std::size_t> m_hoveredIndex;
@@ -186,4 +198,12 @@ private:
   bool m_pendingScrollToIndex = false;
   std::size_t m_pendingScrollIndex = 0;
   bool m_adapterPointerCapture = false;
+  // Press point of the captured press, and whether the pointer has travelled
+  // far enough since for the gesture to count as a drag. Only meaningful while
+  // m_adapterPointerCapture holds, and both are set when capture begins.
+  float m_pressLocalX = 0.0F;
+  float m_pressLocalY = 0.0F;
+  bool m_dragThresholdPassed = false;
+  // Hides the hovered item's tooltip after an adapter-consumed press, until the hover target changes.
+  bool m_tooltipSuppressed = false;
 };

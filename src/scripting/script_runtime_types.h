@@ -234,10 +234,14 @@ namespace scripting {
 
   // Queue policy for a callback invocation.
   struct ScriptCallOptions {
-    // A newer queued call to the same callback replaces this one.
+    // A newer queued call on the same coalescing stream replaces this one.
     bool coalesce = false;
     // This call may be dropped when the queue is full.
     bool droppable = false;
+    // Coalescing stream this call belongs to; empty means the callback name.
+    // Callbacks whose relative order matters (a graph's pointer position and
+    // its pointer leave) share one key so the newest event always wins.
+    std::string coalesceKey;
   };
 
   struct ScriptEvent {
@@ -252,11 +256,13 @@ namespace scripting {
     // CallArgs payload: the callback's argument list, pushed in order.
     ScriptArgs args;
     bool processMatchResult = false;
-    // When true, a newer CallArgs event with the same functionName supersedes
+    // When true, a newer CallArgs event on the same coalescing stream supersedes
     // this one while it is still queued (only the latest payload matters, e.g.
     // onAudioSpectrum frames). IPC and other callbacks leave this false so every
     // event is delivered.
     bool coalesce = false;
+    // Coalescing stream identity, defaulted to the callback name.
+    std::string coalesceKey;
     // When true, this event may be dropped to make room once the queue is full
     // (state-echo callbacks such as onHover, where a missed edge is harmless).
     bool droppable = false;

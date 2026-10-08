@@ -8,9 +8,6 @@ wallpaper, lock screen, session actions, clipboard history, OSDs, tray integrati
 built directly on Wayland and OpenGL ES with no Qt or GTK dependency, so the UI, rendering, configuration, and IPC model
 are designed as one cohesive shell instead of a collection of unrelated panels and scripts.
 
-> [!IMPORTANT]
-> Noctalia v5 is currently in Beta. While the core features and architecture are stabilizing, you may still encounter occasional configuration or behavior adjustments as we prepare for the final release.
-
 <p><br/></p>
 
 <p align="center">
@@ -73,7 +70,7 @@ Noctalia supports Wayland compositors that provide the layer-shell protocols it 
 integration works through compositor-native backends where needed, or through `ext-workspace-v1` on compositors that
 implement it.
 
-Current compositor integrations include Niri, Hyprland, Sway, Scroll, Mango, Labwc, Triad, dwl, and other compatible
+Current compositor integrations include Niri, Hyprland, Sway, Scroll, Mango, Labwc, dwl, and other compatible
 Wayland compositors. Other compositors may run Noctalia but can have reduced workspace, window, output, or
 session-action integration depending on the protocols and IPC they expose.
 
@@ -83,15 +80,19 @@ Noctalia is a desktop shell, not a full desktop environment. It provides the vis
 Wayland compositor: bars, panels, launcher, notifications, dock, lock screen, idle behavior, OSDs, theming, wallpapers,
 desktop widgets, and multi-monitor shell surfaces.
 
-Window management, tiling, file management, removable-drive mounting, printers management and screen mirroring/casting
-belong to the compositor, dedicated desktop applications, or system services.
+Window management, tiling, compositor configuration such as monitor arrangement and positions, file management,
+removable-drive mounting, printers management, and screen mirroring/casting belong to the compositor, dedicated desktop
+applications, or system services.
 
 Display/login greeter support lives in the separate [Noctalia Greeter](https://github.com/noctalia-dev/noctalia-greeter)
 project. Noctalia may integrate with those pieces when useful, but it does not replace them.
 
+Core Noctalia is non-invasive: it does not manage your compositor settings or take over your dotfiles. Compositor-specific
+controls can be provided as opt-in plugins rather than becoming core shell behavior.
+
 The plugin system is available for user-installed extensions. Features that are useful to some users but not essential
 to the core shell can live there: extra bar widgets, launcher providers, desktop widgets, panels, shortcuts, background
-services, compositor-specific extras, hardware-specific controls, and third-party service integrations.
+services, compositor-specific extras and controls, hardware-specific controls, and third-party service integrations.
 
 ## Build from source
 
@@ -101,12 +102,14 @@ Source dependencies, distro-specific package commands, build modes, and install 
 ## Configuration
 
 A ready-to-use starting config with all defaults is at [example.toml](example.toml). The full configuration reference
-lives in the [documentation site](https://docs.noctalia.dev/noctalia/).
+lives in the [documentation site](https://docs.noctalia.dev/noctalia/). The source MDX files are in
+[`docs/user/`](docs/user/); sync them to a local docs checkout with `tools/sync-docs.sh`.
 
 ## Contributing
 
-Developer notes, architecture overview, code style, project layout, and debugging commands live in
-[CONTRIBUTING.md](CONTRIBUTING.md).
+Developer notes, code style, contribution rules, testing, project layout, and debugging commands live in
+[CONTRIBUTING.md](CONTRIBUTING.md). The architecture and its invariants are described in
+[ARCHITECTURE.md](ARCHITECTURE.md).
 
 Bug reports, fixes, documentation updates, themes, and configuration examples are welcome. For general help and design
 discussion, join the community on [Discord](https://discord.noctalia.dev).

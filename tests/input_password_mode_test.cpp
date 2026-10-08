@@ -39,8 +39,8 @@ namespace {
   }
 
   void doubleClickAtStart(Input& input) {
-    input.inputArea()->dispatchPress(0.0f, 0.0f, BTN_LEFT, true);
-    input.inputArea()->dispatchPress(0.0f, 0.0f, BTN_LEFT, true);
+    input.inputArea()->dispatchPress(0.0F, 0.0F, BTN_LEFT, true);
+    input.inputArea()->dispatchPress(0.0F, 0.0F, BTN_LEFT, true);
   }
 
   void pressBackspace(Input& input) { sendKey(input, XKB_KEY_BackSpace, 0, 0); }
@@ -207,6 +207,45 @@ int main() {
     ctrlX(input);
     ctrlZ(input);
     ok = expect(input.value().empty(), "password Ctrl+Z cannot resurrect a cleared password") && ok;
+  }
+
+  // Revealing is display-only: copy, cut, undo and text-input hints keep password semantics.
+  {
+    MockClipboard clipboard;
+    Input::setTextClipboard(&clipboard);
+    Input input;
+    setup(input, "secret", true);
+    input.setPasswordRevealed(true);
+    ok = expect(input.passwordRevealed(), "password field can be revealed") && ok;
+    ctrlA(input);
+    ctrlC(input);
+    ok = expect(!clipboard.wasSet(), "revealed password Ctrl+C never writes to the clipboard") && ok;
+    ctrlX(input);
+    ok = expect(input.value().empty(), "revealed password Ctrl+X still clears the field") && ok;
+    ok = expect(!clipboard.wasSet(), "revealed password Ctrl+X never writes to the clipboard") && ok;
+    ctrlZ(input);
+    ok = expect(input.value().empty(), "revealed password Ctrl+Z cannot resurrect a cleared password") && ok;
+    input.setValue("secret");
+    const TextInputState state = input.textInputState();
+    ok = expect(state.purpose == TextInputPurpose::Password, "revealed password keeps the password purpose") && ok;
+    ok = expect(state.sensitiveData, "revealed password stays sensitive for input methods") && ok;
+    ok = expect(
+             !state.sendSurroundingText && state.surroundingText.empty(), "revealed password withholds surrounding text"
+         )
+        && ok;
+  }
+
+  // Reveal state never outlives password mode, and plain fields cannot be "revealed".
+  {
+    Input input;
+    setup(input, "secret", true);
+    input.setPasswordRevealed(true);
+    input.setPasswordMode(false);
+    input.setPasswordMode(true);
+    ok = expect(!input.passwordRevealed(), "re-entering password mode conceals the value") && ok;
+    input.setPasswordMode(false);
+    input.setPasswordRevealed(true);
+    ok = expect(!input.passwordRevealed(), "reveal is ignored outside password mode") && ok;
   }
 
   Input::setTextClipboard(nullptr);

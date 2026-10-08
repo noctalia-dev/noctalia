@@ -250,7 +250,6 @@
       "uptime": "Uptime - {uptime}",
       "weather": {
         "data-unavailable": "Weergegevens niet beschikbaar.",
-        "disabled": "Weer is uitgeschakeld in de configuratie.",
         "fetching": "Weersvoorspelling ophalen..."
       }
     },
@@ -1014,7 +1013,6 @@
         "behavior": "Gedrag",
         "brightness": "Helderheid",
         "built-in": "Ingebouwd",
-        "calendar": "Agenda",
         "capsules": "Capsules",
         "clipboard": "Klembord",
         "community": "Community",
@@ -1589,10 +1587,6 @@
         },
         "main-axis-padding": {
           "description": "Binnenste opvulling langs de hoofdas van het dock (tussen iconen en de korte uiteinden van de capsule)"
-        },
-        "monitors": {
-          "description": "Kies welke monitoren het dock tonen; laat leeg voor alle; actieve-monitorfiltering is van toepassing binnen deze monitoren",
-          "label": "Monitoren"
         },
         "pinned-apps": {
           "description": "Desktopbestand-ID's van applicaties die aan het dock zijn vastgemaakt",

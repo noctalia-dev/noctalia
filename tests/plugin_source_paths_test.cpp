@@ -4,22 +4,23 @@
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
+#include <print>
 #include <string>
 
 namespace {
 
   bool expect(bool condition, const char* message) {
     if (!condition) {
-      std::fprintf(stderr, "plugin_source_paths_test: %s\n", message);
+      std::println(stderr, "plugin_source_paths_test: {}", message);
     }
     return condition;
   }
 
   bool expectPath(const std::filesystem::path& actual, const std::filesystem::path& expected, const char* message) {
     if (actual != expected) {
-      std::fprintf(
-          stderr, "plugin_source_paths_test: %s\n  actual:   %s\n  expected: %s\n", message, actual.string().c_str(),
-          expected.string().c_str()
+      std::println(
+          stderr, "plugin_source_paths_test: {}\n  actual:   {}\n  expected: {}", message, actual.string(),
+          expected.string()
       );
       return false;
     }

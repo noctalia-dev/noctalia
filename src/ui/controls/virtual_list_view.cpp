@@ -156,6 +156,12 @@ void VirtualListView::setOverscanItems(std::size_t items) {
   markLayoutDirty();
 }
 
+void VirtualListView::setContentScale(float scale) {
+  if (m_scroll != nullptr) {
+    m_scroll->setContentScale(scale);
+  }
+}
+
 void VirtualListView::scrollToIndex(std::size_t index) {
   m_pendingScrollToIndex = true;
   m_pendingScrollIndex = index;
@@ -174,7 +180,7 @@ void VirtualListView::doLayout(Renderer& renderer) {
   const float padV = m_scroll->viewportPaddingV();
   const float innerW = std::max(0.0F, ourW - 2.0F * padH);
   const float viewportH = std::max(0.0F, ourH - 2.0F * padV);
-  const float scrollbarGutter = Style::scrollbarWidth + Style::scrollbarGap;
+  const float scrollbarGutter = m_scroll->scrollbarGutter();
 
   // Match ScrollView: only reserve the scrollbar gutter when content overflows vertically.
   recomputeMetrics(renderer, innerW);

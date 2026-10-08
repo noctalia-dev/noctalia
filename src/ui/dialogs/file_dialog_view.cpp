@@ -4,6 +4,7 @@
 #include "core/input/key_modifiers.h"
 #include "core/input/key_symbols.h"
 #include "core/input/keybind_matcher.h"
+#include "cursor-shape-v1-client-protocol.h"
 #include "i18n/i18n.h"
 #include "render/core/renderer.h"
 #include "render/core/thumbnail_service.h"
@@ -353,12 +354,14 @@ void FileDialogView::create() {
   listCard->addChild(
       ui::virtualGridView({
           .out = &m_listGrid,
+          .contentScale = scale,
           .columns = 1,
           .cellHeight = m_listRowHeight,
           .squareCells = false,
           .columnGap = 0.0F,
           .rowGap = 0.0F,
           .overscanRows = kListRowOverscan,
+          .itemCursorShape = WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_POINTER,
           .scrollbarVisible = true,
           .adapter = m_listAdapter.get(),
           .flexGrow = 1.0F,
@@ -402,12 +405,14 @@ void FileDialogView::create() {
   gridContainer->addChild(
       ui::virtualGridView({
           .out = &m_gridGrid,
+          .contentScale = scale,
           .columns = 0,
           .minCellWidth = m_gridCellSize,
           .squareCells = true,
           .columnGap = Style::spaceSm * scale,
           .rowGap = Style::spaceSm * scale,
           .overscanRows = kGridRowOverscan,
+          .itemCursorShape = WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_POINTER,
           .scrollbarVisible = true,
           .scrollCardStyleScale = scale,
           .adapter = m_gridAdapter.get(),
@@ -623,7 +628,9 @@ void FileDialogView::doUpdate(Renderer& renderer) {
   requestRedraw();
 }
 
-bool FileDialogView::handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit) {
+bool FileDialogView::handleGlobalKey(
+    std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit, bool repeat
+) {
   if (!pressed || preedit) {
     return false;
   }
@@ -648,9 +655,18 @@ bool FileDialogView::handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers,
     return true;
   }
 
-  if (KeySymbol::isBackspace(sym) && !isTextInputFocused()) {
-    navigateUp();
-    return true;
+  if (KeySymbol::isBackspace(sym)) {
+    if (!isTextInputFocused()) {
+      navigateUp();
+      return true;
+    }
+
+    const bool emptySearchFocused =
+        m_searchInput != nullptr && hostFocusedArea() == m_searchInput->inputArea() && m_searchInput->value().empty();
+    if (emptySearchFocused && !repeat) {
+      navigateUp();
+      return true;
+    }
   }
 
   if (m_visibleEntries.empty()) {
@@ -1004,6 +1020,11 @@ void FileDialogView::navigateInto(const std::filesystem::path& path) {
     return;
   }
   m_currentDirectory = path;
+  m_filterQuery.clear();
+  if (m_searchInput != nullptr) {
+    m_searchInput->setValue("");
+  }
+  FileDialog::setLastBrowsedDirectory(path);
   refreshDirectory();
 }
 

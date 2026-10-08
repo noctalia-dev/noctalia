@@ -51,6 +51,7 @@ struct KeyboardEvent {
   std::uint32_t modifiers = 0; // KeyMod bitmask
   bool pressed = false;
   bool preedit = false; // dead key preview (composing in progress)
+  bool repeat = false;  // synthesized by client-side key repeat, not a fresh press
 };
 
 class WaylandSeat {
@@ -73,6 +74,7 @@ public:
   using PointerEventCallback = std::function<void(const PointerEvent&)>;
   using KeyboardEventCallback = std::function<void(const KeyboardEvent&)>;
   using KeyboardFocusCallback = std::function<void(wl_surface* surface, bool entered)>;
+  using KeyboardModifiersCallback = std::function<void(std::uint32_t modifiers)>;
   using LockKeysChangeCallback = std::function<void()>;
 
   void bind(wl_seat* seat);
@@ -80,6 +82,7 @@ public:
   void setPointerEventCallback(PointerEventCallback callback);
   void setKeyboardEventCallback(KeyboardEventCallback callback);
   void setKeyboardFocusCallback(KeyboardFocusCallback callback);
+  void setKeyboardModifiersCallback(KeyboardModifiersCallback callback);
   void setLockKeysChangeCallback(LockKeysChangeCallback callback);
   void setCursorShape(std::uint32_t serial, std::uint32_t shape);
   void forgetSurface(wl_surface* surface) noexcept;
@@ -87,6 +90,7 @@ public:
 
   [[nodiscard]] std::uint32_t lastSerial() const noexcept { return m_lastSerial; }
   [[nodiscard]] wl_seat* seat() const noexcept { return m_seat; }
+  [[nodiscard]] wl_pointer* pointer() const noexcept { return m_pointer; }
 
   // Key repeat — driven by KeyRepeatPollSource
   [[nodiscard]] int repeatPollTimeoutMs() const;
@@ -149,6 +153,9 @@ public:
   [[nodiscard]] std::vector<std::string> layoutNames() const;
   [[nodiscard]] LockKeysState lockKeysState() const;
   [[nodiscard]] InputSource lastInputSource() const noexcept { return m_lastInputSource; }
+  // Live modifier mask from the xkb state. Unlike KeyboardEvent::modifiers this is readable
+  // when no key event is in flight, which drag-time modifiers (Shift to constrain) need.
+  [[nodiscard]] std::uint32_t keyboardModifiers() const noexcept;
 
   [[nodiscard]] double userIdleSeconds() const noexcept;
 
@@ -176,6 +183,8 @@ private:
   std::array<std::uint32_t, 2> m_axisGestureSerial{};
   wl_surface* m_lastPointerSurface = nullptr;
   std::uint32_t m_pointerEnterSerial = 0;
+  std::uint32_t m_lastCursorShape = 0;
+  std::uint32_t m_lastCursorShapeSerial = 0;
   double m_lastPointerX = 0.0;
   double m_lastPointerY = 0.0;
   bool m_hasPointerPosition = false;
@@ -196,10 +205,12 @@ private:
   xkb_context* m_xkbContext = nullptr;
   xkb_keymap* m_xkbKeymap = nullptr;
   xkb_state* m_xkbState = nullptr;
+  std::string m_xkbKeymapData;
   xkb_compose_table* m_composeTable = nullptr;
   xkb_compose_state* m_composeState = nullptr;
   KeyboardEventCallback m_keyboardEventCallback;
   KeyboardFocusCallback m_keyboardFocusCallback;
+  KeyboardModifiersCallback m_keyboardModifiersCallback;
   LockKeysChangeCallback m_lockKeysChangeCallback;
   LockKeysState m_lastLockKeysState;
 

@@ -4,13 +4,14 @@
 #include <cstdint>
 #include <cstdio>
 #include <expected>
+#include <print>
 #include <string>
 
 namespace {
 
   bool check(bool condition, const char* message) {
     if (!condition) {
-      std::fprintf(stderr, "jxl_decoder_test: FAIL: %s\n", message);
+      std::println(stderr, "jxl_decoder_test: FAIL: {}", message);
     }
     return condition;
   }
@@ -62,8 +63,8 @@ namespace {
     }
     for (std::size_t i = 0; i < kExpectedRgba.size(); ++i) {
       if (decoded.pixels[i] != kExpectedRgba[i]) {
-        std::fprintf(
-            stderr, "jxl_decoder_test: FAIL: %s: byte %zu is %u, expected %u\n", label, i,
+        std::println(
+            stderr, "jxl_decoder_test: FAIL: {}: byte {} is {}, expected {}", label, i,
             static_cast<unsigned>(decoded.pixels[i]), static_cast<unsigned>(kExpectedRgba[i])
         );
         ok = false;
@@ -132,8 +133,8 @@ namespace {
     bool ok = true;
     for (std::size_t i = 0; i < kExpectedStraight.size(); ++i) {
       if (result->pixels[i] != kExpectedStraight[i]) {
-        std::fprintf(
-            stderr, "jxl_decoder_test: FAIL: premultiplied: byte %zu is %u, expected %u\n", i,
+        std::println(
+            stderr, "jxl_decoder_test: FAIL: premultiplied: byte {} is {}, expected {}", i,
             static_cast<unsigned>(result->pixels[i]), static_cast<unsigned>(kExpectedStraight[i])
         );
         ok = false;

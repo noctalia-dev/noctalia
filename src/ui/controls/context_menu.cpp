@@ -73,6 +73,15 @@ void ContextMenuControl::setEntries(std::vector<ContextMenuControlEntry> entries
   markLayoutDirty();
 }
 
+void ContextMenuControl::setReserveToggleSpace(bool reserve) {
+  if (m_reserveToggleSpace == reserve) {
+    return;
+  }
+  m_reserveToggleSpace = reserve;
+  m_needsRebuild = true;
+  markLayoutDirty();
+}
+
 void ContextMenuControl::setMaxVisible(std::size_t maxVisible) {
   m_maxVisible = std::max<std::size_t>(1, maxVisible);
   m_needsRebuild = true;
@@ -210,7 +219,7 @@ float ContextMenuControl::rowBottom(std::size_t index) const noexcept {
 float ContextMenuControl::preferredHeight() const { return preferredHeight(m_entries, m_maxVisible, m_contentScale); }
 
 float ContextMenuControl::preferredWidth(
-    Renderer& renderer, const std::vector<ContextMenuControlEntry>& entries, float scale
+    Renderer& renderer, const std::vector<ContextMenuControlEntry>& entries, float scale, bool reserveToggleSpace
 ) {
   scale = safeScale(scale);
   float maxRowWidth = 0.0F;
@@ -218,7 +227,7 @@ float ContextMenuControl::preferredWidth(
     if (entry.separator || entry.label.empty()) {
       continue;
     }
-    const float toggleSlot = hasToggle(entry) ? kToggleSlot * scale : 0.0F;
+    const float toggleSlot = (reserveToggleSpace || hasToggle(entry)) ? kToggleSlot * scale : 0.0F;
     const FontWeight weight = entry.header ? FontWeight::Bold : FontWeight::Normal;
     const float textWidth = std::ceil(renderer.measureText(entry.label, kMenuFontSize * scale, weight).width);
     // Mirrors rebuildRows: 8px label inset each side, 30px right when a chevron is drawn.
@@ -326,8 +335,7 @@ void ContextMenuControl::rebuildRows(Renderer& renderer) {
           })
       );
 
-      const bool toggleVisible = hasToggle(entry);
-      const float toggleSlot = toggleVisible ? kToggleSlot * scale : 0.0F;
+      const float toggleSlot = (m_reserveToggleSpace || hasToggle(entry)) ? kToggleSlot * scale : 0.0F;
       const float indent = entryIndent(entry, scale);
       const std::string toggleGlyph = toggleGlyphName(entry);
       if (!toggleGlyph.empty()) {

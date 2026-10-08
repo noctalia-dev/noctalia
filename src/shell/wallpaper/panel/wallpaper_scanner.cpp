@@ -2,13 +2,16 @@
 
 #include "core/files/directory_scanner.h"
 #include "core/log.h"
+#include "util/file_utils.h"
 #include "util/string_utils.h"
 
 #include <algorithm>
 #include <cerrno>
+#include <string>
 #include <sys/eventfd.h>
 #include <system_error>
 #include <unistd.h>
+#include <unordered_set>
 #include <utility>
 
 namespace {
@@ -27,36 +30,27 @@ namespace {
   }
 
   void collectFlat(const std::filesystem::path& dir, std::vector<WallpaperEntry>& out) {
-    std::error_code ec;
-    for (auto it = std::filesystem::recursive_directory_iterator(
-             dir, std::filesystem::directory_options::skip_permission_denied, ec
-         );
-         !ec && it != std::filesystem::end(it); it.increment(ec)) {
-      if (ec) {
-        break;
-      }
-      const auto& entry = *it;
-      if (entry.path().filename().string().starts_with('.')) {
-        if (entry.is_directory()) {
-          it.disable_recursion_pending();
+    FileUtils::walkDirectoryTree(
+        dir,
+        [](const std::filesystem::directory_entry& entry) {
+          return !entry.path().filename().string().starts_with('.');
+        },
+        [&out](const std::filesystem::directory_entry& entry) {
+          if (entry.path().filename().string().starts_with('.')) {
+            return;
+          }
+          std::error_code typeEc;
+          if (!entry.is_regular_file(typeEc) || typeEc || !DirectoryScanner::isImagePath(entry.path())) {
+            return;
+          }
+          WallpaperEntry e;
+          e.name = entry.path().filename().string();
+          e.absPath = entry.path();
+          e.isDir = false;
+          cacheMtime(entry, e);
+          out.push_back(std::move(e));
         }
-        continue;
-      }
-
-      std::error_code typeEc;
-      if (!entry.is_regular_file(typeEc) || typeEc) {
-        continue;
-      }
-      if (!DirectoryScanner::isImagePath(entry.path())) {
-        continue;
-      }
-      WallpaperEntry e;
-      e.name = entry.path().filename().string();
-      e.absPath = entry.path();
-      e.isDir = false;
-      cacheMtime(entry, e);
-      out.push_back(std::move(e));
-    }
+    );
   }
 
   void collectShallow(const std::filesystem::path& dir, std::vector<WallpaperEntry>& out) {

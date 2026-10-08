@@ -2,8 +2,11 @@
 
 #include "core/toml.h" // IWYU pragma: keep
 
+#include <atomic>
+#include <cstdint>
 #include <filesystem>
 #include <functional>
+#include <memory>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -23,6 +26,8 @@ namespace noctalia::theme {
     int errorCount = 0;
   };
 
+  class HookRunner;
+
   class TemplateEngine {
   public:
     using ModeMap = std::unordered_map<std::string, std::string>;
@@ -39,6 +44,11 @@ namespace noctalia::theme {
       std::string schemeType = "content";
       bool verbose = true;
       std::shared_ptr<const toml::table> configTable;
+      HookRunner* hookRunner = nullptr;
+      std::uint64_t generation = 0;
+      // Hard cancel for synchronous user commands: when set true (e.g. at shutdown) an in-flight
+      // inline hook or dynamic path command has its process group terminated instead of blocking teardown.
+      std::shared_ptr<std::atomic<bool>> hookCancel;
     };
 
     explicit TemplateEngine(ThemeData themeData);

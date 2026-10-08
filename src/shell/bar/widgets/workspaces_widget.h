@@ -19,6 +19,7 @@ class ConfigService;
 class Image;
 class InputArea;
 class Label;
+class WorkspacesWidgetTestAccess;
 
 enum class WorkspacesStyle : std::uint8_t {
   Regular,
@@ -37,6 +38,7 @@ public:
     WorkspacesStyle style = WorkspacesStyle::Regular;
     WorkspacesLabelSource labelSource = WorkspacesLabelSource::Id;
     bool showLabels = true;
+    bool showIcons = true;
     ColorSpec focusedColor = colorSpecFromRole(ColorRole::Primary);
     ColorSpec occupiedColor = colorSpecFromRole(ColorRole::Secondary);
     ColorSpec emptyColor = colorSpecFromRole(ColorRole::Secondary);
@@ -59,6 +61,8 @@ public:
   [[nodiscard]] bool wantsBarHoverHighlight() const noexcept override { return false; }
 
 private:
+  friend class WorkspacesWidgetTestAccess;
+
   struct Item;
 
   void doLayout(Renderer& renderer, float containerWidth, float containerHeight) override;
@@ -80,6 +84,9 @@ private:
 
   [[nodiscard]] static std::optional<std::size_t> numericWorkspaceId(const Workspace& workspace);
   [[nodiscard]] std::string workspaceLabel(const Workspace& workspace, std::size_t displayIndex) const;
+  // The workspace name, unless the pill already shows it in full. Empty means no tooltip.
+  [[nodiscard]] static std::string
+  workspaceTooltipText(const Workspace& workspace, const std::string& label, bool showLabel);
   [[nodiscard]] std::string activeWindowAppId() const;
   [[nodiscard]] std::string resolveIconPath(const std::string& appId);
   [[nodiscard]] float focusedPillIconSize() const noexcept;
@@ -92,10 +99,13 @@ private:
   [[nodiscard]] bool shouldShowWorkspaceLabel(const Workspace& workspace, std::string_view label) const noexcept;
   [[nodiscard]] bool isMinimal() const noexcept { return m_style == WorkspacesStyle::Minimal; }
   [[nodiscard]] bool isFocusHint() const noexcept { return m_style == WorkspacesStyle::FocusHint; }
+  // FocusHint is the only style that draws the focused app icon.
+  [[nodiscard]] bool showsActiveIcon() const noexcept { return isFocusHint() && m_showIcons; }
   [[nodiscard]] bool isWorkspaceHidden(const Workspace& workspace) const noexcept;
   void syncWidgetVisibility(bool showWidget);
   void recalculateItemMetrics(Renderer& renderer, Item& item, const Workspace& workspace, std::size_t displayIndex);
   void ensureItemLabel(Renderer& renderer, Item& item, const Workspace& workspace);
+  void syncItemTooltip(Item& item, const Workspace& workspace);
   void setWorkspaceClickHandler(InputArea& area, wl_output* output, const Workspace& workspace);
   void applyItemVisualStyle(Item& item);
   void updateHoverOverlay();
@@ -119,6 +129,7 @@ private:
     wl_output* output = nullptr;
     std::string key;
     std::string label;
+    std::string tooltip;
     std::string iconPath;
     bool showLabel = false;
     bool showIcon = false;
@@ -147,11 +158,11 @@ private:
     float opacity = 1.0F;
   };
 
-  [[nodiscard]] ColorSpec workspaceFillColor(const Workspace& workspace) const;
-  [[nodiscard]] ColorSpec workspaceTextColor(const Workspace& workspace) const;
+  [[nodiscard]] bool workspaceUsesFocusedStyle(const Workspace& workspace, wl_output* output) const;
+  [[nodiscard]] ColorSpec workspaceFillColor(const Workspace& workspace, wl_output* output) const;
+  [[nodiscard]] ColorSpec workspaceTextColor(const Workspace& workspace, wl_output* output) const;
   [[nodiscard]] static ColorRole onRoleForFill(ColorRole fill);
   [[nodiscard]] static ColorSpec readableColorForFill(const ColorSpec& fill);
-  [[nodiscard]] bool isFocusedOutput() const;
 
   CompositorPlatform& m_platform;
   ConfigService& m_configService;
@@ -160,6 +171,7 @@ private:
   bool m_showLabels = true;
   std::size_t m_maxLabelChars = 1;
   bool m_labelsOnlyWhenOccupied = false;
+  bool m_showIcons = true;
   bool m_hideWhenEmpty = false;
   bool m_showAllOutputs = false;
   float m_pillScale = 1.0F;
@@ -168,8 +180,7 @@ private:
   WorkspacesStyle m_style = WorkspacesStyle::Regular;
   bool m_focusedOutputOnly = false;
   bool m_changeColorOnHover = true;
-  bool m_wasFocusedOutput = true;
-  bool m_activeUsesFocusedColor = true;
+  wl_output* m_lastFocusedOutput = nullptr;
   std::string m_cachedActiveWindowAppId;
   IconResolver m_iconResolver;
   std::unordered_map<std::string, std::string> m_appIcons;

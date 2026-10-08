@@ -152,3 +152,5 @@ void rgbToHsv(const Color& rgb, float& h, float& s, float& v);
 // in either comma-separated (legacy) or space-separated (CSS Color 4, with '/' alpha) form.
 // Channels take number or percentage; hue takes an optional deg/grad/rad/turn unit.
 [[nodiscard]] bool tryParseCssColor(std::string_view text, Color& out);
+// Like tryParseCssColor(), but also accepts CSS named colors.
+[[nodiscard]] bool tryParseCssColorWithNamedColors(std::string_view text, Color& out);

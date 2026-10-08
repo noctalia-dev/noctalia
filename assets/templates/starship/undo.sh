@@ -5,8 +5,6 @@ palette_file="${XDG_CACHE_HOME:-$HOME/.cache}/noctalia/starship-palette.toml"
 marker_begin="# >>> NOCTALIA STARSHIP PALETTE >>>"
 marker_end="# <<< NOCTALIA STARSHIP PALETTE <<<"
 
-rm -f -- "$palette_file"
-
 expand_tilde() {
     case "$1" in
         "~") printf '%s' "$HOME" ;;
@@ -76,3 +74,5 @@ if [ -f "$config_file" ]; then
         cat "$tmp_file" >"$config_file"
     fi
 fi
+
+rm -f -- "$palette_file"

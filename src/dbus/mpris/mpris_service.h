@@ -54,6 +54,11 @@ struct MprisPlayerInfo {
 // Joins artist names with ", ".
 [[nodiscard]] std::string joinedArtists(const std::vector<std::string>& artists);
 
+// Identity of the track a player is on, independent of the display strings that churn while a
+// player seeks or buffers. Prefers the track id plus a source URL normalized against playback
+// position parameters, and falls back to the metadata strings when there is no source URL.
+[[nodiscard]] std::string logicalTrackSignature(const MprisPlayerInfo& info);
+
 class MprisService {
 public:
   explicit MprisService(SessionBus& bus);

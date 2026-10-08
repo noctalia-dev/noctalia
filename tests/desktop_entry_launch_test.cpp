@@ -2,6 +2,7 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <print>
 #include <string>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -11,7 +12,7 @@ namespace {
 
   bool expect(bool condition, const char* message) {
     if (!condition) {
-      std::fprintf(stderr, "desktop_entry_launch_test: %s\n", message);
+      std::println(stderr, "desktop_entry_launch_test: {}", message);
     }
     return condition;
   }
@@ -27,16 +28,16 @@ namespace {
       return true;
     }
 
-    std::fprintf(stderr, "desktop_entry_launch_test: %s\n", message);
-    std::fprintf(stderr, "  expected:");
+    std::println(stderr, "desktop_entry_launch_test: {}", message);
+    std::print(stderr, "  expected:");
     for (const auto& arg : expected) {
-      std::fprintf(stderr, " [%s]", arg.c_str());
+      std::print(stderr, " [{}]", arg);
     }
-    std::fprintf(stderr, "\n  actual:");
+    std::print(stderr, "\n  actual:");
     for (const auto& arg : command->args) {
-      std::fprintf(stderr, " [%s]", arg.c_str());
+      std::print(stderr, " [{}]", arg);
     }
-    std::fprintf(stderr, "\n");
+    std::println(stderr, "");
     return false;
   }
 
@@ -100,6 +101,25 @@ int main() {
            desktop_entry_launch::prepareCommand(R"(/bin/sh -c "\\$SHELL -i -c scrcpy")", false),
            {"/bin/sh", "-c", "$SHELL -i -c scrcpy"},
            "desktop-entry escaping should preserve a shell variable in a quoted argument"
+       )
+      && ok;
+
+  ok = expectArgs(
+           desktop_entry_launch::prepareCommand("SAL_USE_VCLPLUGIN=gtk3 libreoffice --writer %U", false),
+           {"env", "SAL_USE_VCLPLUGIN=gtk3", "libreoffice", "--writer"},
+           "leading environment assignments should be passed through env"
+       )
+      && ok;
+
+  ok = expectArgs(
+           desktop_entry_launch::prepareCommand("FOO=\"a b\" _BAR1=2 sample --opt=value", false),
+           {"env", "FOO=a b", "_BAR1=2", "sample", "--opt=value"}, "quoted environment assignments should stay together"
+       )
+      && ok;
+
+  ok = expect(
+           !desktop_entry_launch::prepareCommand("FOO=bar", false).has_value(),
+           "assignment-only command should not prepare an argv"
        )
       && ok;
 

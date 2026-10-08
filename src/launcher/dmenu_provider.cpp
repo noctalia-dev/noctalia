@@ -1,5 +1,6 @@
 #include "launcher/dmenu_provider.h"
 
+#include "core/deferred_call.h"
 #include "core/log.h"
 #include "core/process/process.h"
 #include "util/fuzzy_match.h"
@@ -7,8 +8,12 @@
 #include "wayland/clipboard_service.h"
 
 #include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <cstddef>
+#include <cstdint>
+#include <functional>
+#include <memory>
 #include <string>
 #include <string_view>
 
@@ -50,51 +55,120 @@ DmenuProvider::Line DmenuProvider::parseLine(std::string&& raw) {
   return line;
 }
 
+std::vector<DmenuProvider::Line> DmenuProvider::parseLines(std::string_view out) {
+  std::vector<Line> lines;
+  std::size_t begin = 0;
+  for (std::size_t i = 0; i <= out.size(); ++i) {
+    if (i < out.size() && out[i] != '\n') {
+      continue;
+    }
+    std::size_t end = i;
+    if (end > begin && out[end - 1] == '\r') {
+      --end;
+    }
+    if (end > begin) {
+      lines.push_back(parseLine(std::string(out.substr(begin, end - begin))));
+    }
+    begin = i + 1;
+  }
+  return lines;
+}
+
 DmenuProvider::DmenuProvider(DmenuEntryConfig entry, ClipboardService* clipboard)
     : m_entry(std::move(entry)), m_clipboard(clipboard) {
   m_id = "dmenu.";
   m_id += m_entry.id;
   m_prefix = m_entry.prefix.value_or("");
   m_glyph = m_entry.glyph.value_or("terminal");
+  m_alive = std::make_shared<std::atomic<bool>>(true);
+  m_cancel = std::make_shared<std::atomic<bool>>(false);
+}
+
+DmenuProvider::~DmenuProvider() {
+  if (m_cancel) {
+    m_cancel->store(true, std::memory_order_relaxed);
+  }
+  if (m_alive) {
+    m_alive->store(false, std::memory_order_relaxed);
+  }
 }
 
 std::string DmenuProvider::displayName() const { return m_entry.label.value_or(m_entry.id); }
 
 void DmenuProvider::ensureLoaded() const {
-  if (m_loaded) {
+  if (m_loaded || m_loading) {
     return;
   }
-  m_loaded = true; // set before run so a failure doesn't retry every keystroke
-  m_lines.clear();
 
   if (m_entry.command.empty()) {
-    return;
-  }
-  const auto result =
-      process::runSyncWithTimeoutAndOutputLimit({"/bin/sh", "-lc", m_entry.command}, kCommandTimeout, kMaxOutputBytes);
-  if (!result) {
-    kLog.warn("[{}] command failed (exit {})", m_entry.id, result.exitCode);
+    m_loaded = true;
     return;
   }
 
-  std::size_t begin = 0;
-  for (std::size_t i = 0; i <= result.out.size(); ++i) {
-    if (i < result.out.size() && result.out[i] != '\n') {
-      continue;
-    }
-    std::size_t end = i;
-    if (end > begin && result.out[end - 1] == '\r') {
-      --end;
-    }
-    if (end > begin) {
-      m_lines.push_back(parseLine(result.out.substr(begin, end - begin)));
-    }
-    begin = i + 1;
+  m_loading = true;
+
+  std::string entryId = m_entry.id;
+  auto alive = m_alive;
+  const auto cancel = m_cancel;
+  if (!cancel) {
+    m_loading = false;
+    m_loaded = true;
+    return;
+  }
+  const std::uint64_t generation = m_generation;
+
+  process::RunOptions options;
+  options.timeout = kCommandTimeout;
+  options.maxOutputBytes = kMaxOutputBytes;
+  options.cancel = cancel;
+
+  const bool launched = process::runAsync(
+      m_entry.command,
+      process::RunCallbacks{
+          .onExit =
+              [this, alive = std::move(alive), generation,
+               entryId = std::move(entryId)](process::RunResult result) mutable {
+                // Worker thread: `this` may be gone, so only forward state to the
+                // deferred callback below (main loop), which checks m_alive.
+                std::vector<Line> lines = parseLines(result.out);
+                // Partial stdout from a timed-out run is never published.
+                if (result.timedOut) {
+                  lines.clear();
+                }
+                if (result.timedOut || (!result && lines.empty())) {
+                  kLog.warn("[{}] command failed (exit {})", entryId, result.exitCode);
+                }
+                DeferredCall::callLater([this, alive = std::move(alive), generation,
+                                         lines = std::move(lines)]() mutable {
+                  if (!alive || !alive->load(std::memory_order_relaxed) || generation != m_generation) {
+                    return;
+                  }
+                  m_lines = std::move(lines);
+                  m_loading = false;
+                  m_loaded = true;
+                  if (m_onResultsChanged) {
+                    m_onResultsChanged();
+                  }
+                });
+              }
+      },
+      options
+  );
+
+  if (!launched) {
+    m_loading = false;
+    m_loaded = true;
   }
 }
 
 void DmenuProvider::reset() {
+  if (m_cancel) {
+    m_cancel->store(true, std::memory_order_relaxed);
+  }
+  m_cancel = std::make_shared<std::atomic<bool>>(false);
+  ++m_generation;
   m_lines.clear();
+  m_loading = false;
   m_loaded = false;
 }
 

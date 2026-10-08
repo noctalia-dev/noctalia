@@ -912,6 +912,7 @@ void TrayMenu::buildScene(MenuInstance& inst, uint32_t width, uint32_t height) {
 
   auto scrollView = ui::scrollView({
       .state = &inst.scrollState,
+      .contentScale = contentScale(),
       .scrollbarVisible = true,
       .viewportPaddingH = 0.0F,
       .viewportPaddingV = 0.0F,
@@ -926,6 +927,7 @@ void TrayMenu::buildScene(MenuInstance& inst, uint32_t width, uint32_t height) {
       },
   });
   auto menu = std::make_unique<ContextMenuControl>();
+  menu->setReserveToggleSpace(true);
   menu->setContentScale(contentScale());
   menu->setMenuWidth(menuWidth);
   menu->setMaxVisible(entries.size()); // Always lay out all entries for scrolling
@@ -1272,6 +1274,7 @@ void TrayMenu::buildSubmenuScene(std::size_t levelIndex, MenuInstance& inst, uin
 
   auto scrollView = ui::scrollView({
       .state = &inst.scrollState,
+      .contentScale = contentScale(),
       .scrollbarVisible = true,
       .viewportPaddingH = 0.0F,
       .viewportPaddingV = 0.0F,
@@ -1287,6 +1290,7 @@ void TrayMenu::buildSubmenuScene(std::size_t levelIndex, MenuInstance& inst, uin
   });
 
   auto menu = std::make_unique<ContextMenuControl>();
+  menu->setReserveToggleSpace(true);
   menu->setContentScale(contentScale());
   menu->setMenuWidth(menuWidth);
   menu->setMaxVisible(entries.size()); // Always lay out all entries for scrolling
