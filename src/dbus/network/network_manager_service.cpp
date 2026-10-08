@@ -12,6 +12,7 @@
 #include <sdbus-c++/IProxy.h>
 #include <sdbus-c++/Types.h>
 #include <set>
+#include <utility>
 #include <vector>
 
 namespace {
@@ -281,6 +282,12 @@ void NetworkManagerService::detach() {
   const bool hadSnapshot = m_hasStateSnapshot;
   m_state = {};
   m_hasStateSnapshot = false;
+  const auto completions = std::exchange(m_pendingWirelessCompletions, {});
+  for (const auto& completion : completions) {
+    if (auto onComplete = std::move(*completion)) {
+      onComplete(false);
+    }
+  }
   if (hadSnapshot && m_changeCallback) {
     m_changeCallback(m_state, NetworkChangeOrigin::External);
   }
@@ -1059,6 +1066,15 @@ void NetworkManagerService::setWirelessEnabled(bool enabled, WirelessEnabledComp
   if (enabled != m_state.wirelessEnabled) {
     m_pendingLocalWirelessEnabled = enabled;
   }
+  auto completion = std::make_shared<WirelessEnabledCompletion>(std::move(onComplete));
+  m_pendingWirelessCompletions.push_back(completion);
+  auto complete = [this, completion](bool success) {
+    auto callback = std::move(*completion);
+    std::erase(m_pendingWirelessCompletions, completion);
+    if (callback) {
+      callback(success);
+    }
+  };
   // Async: the write is polkit-gated; a sync call can block the main loop
   // while authorization is pending.
   const std::weak_ptr<int> lifetimeToken = m_lifetimeToken;
@@ -1066,7 +1082,7 @@ void NetworkManagerService::setWirelessEnabled(bool enabled, WirelessEnabledComp
     m_nm->setPropertyAsync("WirelessEnabled")
         .onInterface(kNmInterface)
         .toValue(enabled)
-        .uponReplyInvoke([this, lifetimeToken, enabled, onComplete](std::optional<sdbus::Error> err) {
+        .uponReplyInvoke([this, lifetimeToken, enabled, complete](std::optional<sdbus::Error> err) {
           if (lifetimeToken.expired()) {
             return;
           }
@@ -1075,25 +1091,19 @@ void NetworkManagerService::setWirelessEnabled(bool enabled, WirelessEnabledComp
               m_pendingLocalWirelessEnabled.reset();
             }
             kLog.warn("WirelessEnabled write failed: {}", err->what());
-            if (onComplete) {
-              onComplete(false);
-            }
+            complete(false);
             return;
           }
           m_emitOnNextRefresh = true;
           refresh();
-          if (onComplete) {
-            onComplete(true);
-          }
+          complete(true);
         });
   } catch (const sdbus::Error& e) {
     if (m_pendingLocalWirelessEnabled == enabled) {
       m_pendingLocalWirelessEnabled.reset();
     }
     kLog.warn("WirelessEnabled write dispatch failed: {}", e.what());
-    if (onComplete) {
-      onComplete(false);
-    }
+    complete(false);
   }
 }
 
