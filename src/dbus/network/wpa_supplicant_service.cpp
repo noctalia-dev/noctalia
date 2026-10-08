@@ -1,7 +1,6 @@
 #include "dbus/network/wpa_supplicant_service.h"
 
 #include "core/log.h"
-#include "dbus/network/wpa_supplicant_utils.h"
 #include "dbus/system_bus.h"
 #include "system/rfkill_helper.h"
 
@@ -45,6 +44,11 @@ namespace {
     if (dBm >= -50)
       return 100;
     return static_cast<std::uint8_t>(2 * (dBm + 100));
+  }
+
+  // wpa_supplicant quotes D-Bus string values for "ssid" itself; a byte array is taken verbatim.
+  sdbus::Variant ssidVariant(const std::string& ssid) {
+    return sdbus::Variant{std::vector<std::uint8_t>{ssid.begin(), ssid.end()}};
   }
 
   // Read all BSS properties in one GetAll round-trip.
@@ -259,7 +263,7 @@ bool WpaSupplicantService::activateAccessPoint(const AccessPointInfo& ap) {
   try {
     using VariantMap = std::map<std::string, sdbus::Variant>;
     VariantMap args;
-    args["ssid"] = wpa_supplicant::ssidVariant(ap.ssid);
+    args["ssid"] = ssidVariant(ap.ssid);
     args["key_mgmt"] = sdbus::Variant{std::string{"NONE"}};
     sdbus::ObjectPath netPath;
     iface->callMethod("AddNetwork").onInterface(kWpaIfaceInterface).withArguments(args).storeResultsTo(netPath);
@@ -279,7 +283,7 @@ bool WpaSupplicantService::activateAccessPoint(const AccessPointInfo& ap, const 
   try {
     using VariantMap = std::map<std::string, sdbus::Variant>;
     VariantMap args;
-    args["ssid"] = wpa_supplicant::ssidVariant(ap.ssid);
+    args["ssid"] = ssidVariant(ap.ssid);
     args["psk"] = sdbus::Variant{psk}; // raw passphrase, no quotes
     sdbus::ObjectPath netPath;
     iface->callMethod("AddNetwork").onInterface(kWpaIfaceInterface).withArguments(args).storeResultsTo(netPath);
