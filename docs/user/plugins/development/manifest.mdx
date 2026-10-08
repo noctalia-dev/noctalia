@@ -99,6 +99,23 @@ settings, so `onMiddleClick` does not fire out of the box. Declaring `middle = "
 for your script - though a declared action is visible in the settings editor where a Luau callback is
 not.
 
+### Widget hover highlight
+
+By default the bar tints the whole widget under the pointer. A `[[widget]]` entry that draws its own hover per item
+(like the built-in workspaces widget) can turn the bar's tint off with `hover_highlight = false`
+<PluginApiBadge feature="widget-hover-highlight" />. Put the key on the entry itself, before any `[widget.*]`
+subtable such as `[widget.actions]`; after one, TOML reads it as part of that subtable.
+
+```toml
+[[widget]]
+id    = "hello"
+entry = "widget.luau"
+hover_highlight = false
+```
+
+This removes only the whole-widget tint; the widget still receives clicks and scrolls. `[bar.<name>] hover_highlight = false`
+still turns the tint off for every widget on that bar.
+
 ## Settings schema
 
 A setting becomes a typed control in the settings GUI and is read back via `noctalia.getConfig(key)`. Only declared keys

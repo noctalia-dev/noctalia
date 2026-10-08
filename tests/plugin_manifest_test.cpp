@@ -1281,6 +1281,76 @@ int main() {
   ok = expect(!scripting::parsePluginManifest(badActionPath, &error).has_value(), "a non-string action should fail")
       && ok;
 
+  // A [[widget]] entry can opt out of the bar's whole-widget hover highlight. The key sits on
+  // the entry itself, ahead of any [widget.*] subtable.
+  const auto hoverPath = root / "hover-highlight" / "plugin.toml";
+  ok = expect(
+           writeManifest(
+               hoverPath,
+               "id = \"me/hover-highlight\"\n"
+               "name = \"Hover Highlight\"\n"
+               "plugin_api = 33\n"
+               "[[widget]]\n"
+               "id = \"bar\"\n"
+               "entry = \"bar.luau\"\n"
+               "hover_highlight = false\n"
+           ),
+           "failed to write the hover highlight manifest"
+       )
+      && ok;
+  error.clear();
+  const auto hover = scripting::parsePluginManifest(hoverPath, &error);
+  ok = expect(hover.has_value(), error.empty() ? "a widget declaring hover_highlight should parse" : error.c_str())
+      && ok;
+  if (hover.has_value() && !hover->entries.empty()) {
+    ok = expect(!hover->entries.front().widgetHoverHighlight, "hover_highlight = false should be recorded") && ok;
+  }
+
+  const auto hoverOldApiPath = root / "hover-old-api" / "plugin.toml";
+  ok = expect(
+           writeManifest(
+               hoverOldApiPath,
+               "id = \"me/hover-old-api\"\n"
+               "name = \"Hover Old Api\"\n"
+               "plugin_api = 32\n"
+               "[[widget]]\n"
+               "id = \"bar\"\n"
+               "entry = \"bar.luau\"\n"
+               "hover_highlight = false\n"
+           ),
+           "failed to write the hover old api manifest"
+       )
+      && ok;
+  error.clear();
+  ok = expect(
+           !scripting::parsePluginManifest(hoverOldApiPath, &error).has_value(),
+           "hover_highlight below its plugin_api level should fail"
+       )
+      && ok;
+  ok = expectEq(error, "widget entry 'bar': hover_highlight requires plugin_api >= 33", "hover api gate error") && ok;
+
+  const auto hoverBadPath = root / "hover-bad" / "plugin.toml";
+  ok = expect(
+           writeManifest(
+               hoverBadPath,
+               "id = \"me/hover-bad\"\n"
+               "name = \"Hover Bad\"\n"
+               "plugin_api = 33\n"
+               "[[widget]]\n"
+               "id = \"bar\"\n"
+               "entry = \"bar.luau\"\n"
+               "hover_highlight = \"no\"\n"
+           ),
+           "failed to write the hover bad manifest"
+       )
+      && ok;
+  error.clear();
+  ok = expect(
+           !scripting::parsePluginManifest(hoverBadPath, &error).has_value(), "a non-bool hover_highlight should fail"
+       )
+      && ok;
+  ok = expectEq(error, "widget entry 'bar': hover_highlight must be a bool", "hover type error") && ok;
+
   std::error_code ec;
   std::filesystem::remove_all(root, ec);
   return ok ? 0 : 1;
