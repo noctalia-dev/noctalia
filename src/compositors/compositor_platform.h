@@ -205,6 +205,7 @@ private:
   void bindKdeVirtualDesktop(org_kde_plasma_virtual_desktop_management* management);
   void bindDwlIpcWorkspace(zdwl_ipc_manager_v2* manager);
   void notifyToplevelsChanged();
+  bool syncLabwcMetadata() const;
   void onOutputAdded(wl_output* output);
   void onOutputRemoved(wl_output* output);
   [[nodiscard]] wl_output* resolveOutputName(const std::string& outputName) const;

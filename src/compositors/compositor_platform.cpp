@@ -9,6 +9,7 @@
 #include "compositors/hyprland/hyprland_toplevel_mapping.h"
 #include "compositors/hyprland/hyprland_window_id.h"
 #include "compositors/kde/kwin_active_window.h"
+#include "compositors/labwc/labwc_workspace_backend.h"
 #include "compositors/mango/mango_keyboard_backend.h"
 #include "compositors/mango/mango_output_backend.h"
 #include "compositors/niri/niri_keyboard_backend.h"
@@ -397,9 +398,10 @@ namespace {
     case compositors::CompositorKind::Mango:
     case compositors::CompositorKind::Dwl:
     case compositors::CompositorKind::Kde:
-    case compositors::CompositorKind::Labwc:
     case compositors::CompositorKind::Unknown:
       break;
+    case compositors::CompositorKind::Labwc:
+      return std::make_unique<LabwcWorkspaceBackend>();
     }
     return nullptr;
   }
@@ -579,6 +581,18 @@ CompositorPlatform::CompositorPlatform(WaylandConnection& wayland)
     : m_wayland(wayland), m_runtimeRegistry(std::make_unique<compositors::CompositorRuntimeRegistry>()),
       m_workspaces(std::make_unique<WaylandWorkspaces>(*m_runtimeRegistry)) {
   m_workspaceMetadataBackend = createWorkspaceMetadataBackend(*m_runtimeRegistry);
+  if (auto* labwcBackend = dynamic_cast<LabwcWorkspaceBackend*>(m_workspaceMetadataBackend.get());
+      labwcBackend != nullptr) {
+    // labwc exposes workspaces via ext-workspace but no per-window desktop
+    // info: feed the metadata backend with the ext workspace list plus the
+    // wlr-foreign-toplevel snapshots so it can derive occupancy.
+    labwcBackend->setProviders(
+        [this]() -> std::vector<Workspace> {
+          return m_workspaces != nullptr ? m_workspaces->all() : std::vector<Workspace>{};
+        },
+        [this](const std::function<void(const WlrToplevelSnapshot&)>& visit) { m_wayland.visitWlrToplevels(visit); }
+    );
+  }
   if (auto focusedOutputBackend = createFocusedOutputBackend(*m_runtimeRegistry); focusedOutputBackend != nullptr) {
     m_focusedOutputBackends.push_back(std::move(focusedOutputBackend));
   }
@@ -1034,9 +1048,22 @@ void CompositorPlatform::syncHyprlandToplevelMappings() {
 
 void CompositorPlatform::notifyToplevelsChanged() {
   syncHyprlandToplevelMappings();
+  if (syncLabwcMetadata() && m_workspaceChangeCallback) {
+    // Window open/close/focus changes occupancy on labwc: re-evaluate
+    // workspace widgets and smart auto-hide.
+    m_workspaceChangeCallback();
+  }
   if (m_toplevelChangeCallback) {
     m_toplevelChangeCallback();
   }
+}
+
+bool CompositorPlatform::syncLabwcMetadata() const {
+  auto* labwcBackend = dynamic_cast<LabwcWorkspaceBackend*>(m_workspaceMetadataBackend.get());
+  if (labwcBackend == nullptr) {
+    return false;
+  }
+  return labwcBackend->sync();
 }
 
 std::optional<std::string>
@@ -1225,6 +1252,7 @@ void CompositorPlatform::dispatchWorkspacePoll(const std::vector<pollfd>& fds, s
 }
 
 std::vector<Workspace> CompositorPlatform::workspaces() const {
+  syncLabwcMetadata();
   auto current = m_workspaces != nullptr ? m_workspaces->all() : std::vector<Workspace>{};
   if (m_workspaceMetadataBackend != nullptr) {
     m_workspaceMetadataBackend->apply(current);
@@ -1239,6 +1267,7 @@ std::vector<Workspace> CompositorPlatform::workspaces() const {
 }
 
 std::vector<Workspace> CompositorPlatform::workspaces(wl_output* output) const {
+  syncLabwcMetadata();
   auto current = m_workspaces != nullptr ? m_workspaces->forOutput(output) : std::vector<Workspace>{};
   if (m_workspaceMetadataBackend != nullptr) {
     m_workspaceMetadataBackend->apply(current, connectorNameForOutput(output));
@@ -1359,6 +1388,7 @@ std::vector<std::string> CompositorPlatform::workspaceDisplayKeys(wl_output* out
 }
 
 std::vector<WorkspaceWindowAssignment> CompositorPlatform::workspaceWindowAssignments(wl_output* outputFilter) const {
+  syncLabwcMetadata();
   if (compositors::isKde() && m_kwinActiveWindow != nullptr && m_kwinActiveWindow->isAvailable()) {
     const auto tracked =
         kdeTrackedWindowsForOutput(m_kwinActiveWindow->trackedWorkspaceWindows(), connectorNameForOutput(outputFilter));
