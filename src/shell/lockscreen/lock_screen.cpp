@@ -32,9 +32,8 @@ namespace {
 
   constexpr Logger kLog("lockscreen");
 
-  // CLOCK_BOOTTIME counts suspend time like wall-clock, but is monotonic: realtime
-  // adjustments after lock can never push an expired grace deadline back into the
-  // future (a system_clock-based deadline was shown to be rewindable after expiry).
+  // CLOCK_BOOTTIME counts suspend time but is monotonic, so realtime adjustments
+  // can never push an expired grace deadline back into the future.
   std::int64_t bootTimeMillis() {
     timespec ts{};
     clock_gettime(CLOCK_BOOTTIME, &ts);
