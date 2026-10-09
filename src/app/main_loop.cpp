@@ -485,10 +485,8 @@ void MainLoop::run() {
       if (pollTimeout == 0) {
         if (!s_zeroSince) {
           s_zeroSince = now;
-        } else if (
-            now - *s_zeroSince > std::chrono::milliseconds(100)
-            && (!s_lastWarn || now - *s_lastWarn > std::chrono::seconds(5))
-        ) {
+        } else if (now - *s_zeroSince > std::chrono::milliseconds(100)
+                   && (!s_lastWarn || now - *s_lastWarn > std::chrono::seconds(5))) {
           s_lastWarn = now;
           for (auto* src : sources) {
             if (src->pollTimeoutMs() == 0) {

@@ -868,10 +868,8 @@ void WaylandConnection::notifySurfaceOutputLeave(wl_surface* surface, wl_output*
     std::erase(outputs, output);
     if (outputs.empty()) {
       m_surfaceOutputs.erase(it);
-    } else if (
-        auto current = m_surfaceOutputMap.find(surface);
-        current != m_surfaceOutputMap.end() && current->second == output
-    ) {
+    } else if (auto current = m_surfaceOutputMap.find(surface);
+               current != m_surfaceOutputMap.end() && current->second == output) {
       current->second = outputs.back();
     }
   }

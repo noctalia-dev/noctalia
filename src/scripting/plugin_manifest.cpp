@@ -444,10 +444,8 @@ namespace scripting {
                 outFill = true;
                 return true;
               }
-            } else if (
-                const auto number = tableNumber(*entryTable, key);
-                number.has_value() && std::isfinite(*number) && *number > 0.0
-            ) {
+            } else if (const auto number = tableNumber(*entryTable, key);
+                       number.has_value() && std::isfinite(*number) && *number > 0.0) {
               outSize = *number;
               return true;
             }

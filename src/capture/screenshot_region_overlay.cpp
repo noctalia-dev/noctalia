@@ -571,11 +571,9 @@ namespace capture {
               || m_dragMode == DragMode::BottomLeftCorner) {
             m_startGlobalX = x1;
             m_currentGlobalX = globalX;
-          } else if (
-              m_dragMode == DragMode::RightEdge
-              || m_dragMode == DragMode::TopRightCorner
-              || m_dragMode == DragMode::BottomRightCorner
-          ) {
+          } else if (m_dragMode == DragMode::RightEdge
+                     || m_dragMode == DragMode::TopRightCorner
+                     || m_dragMode == DragMode::BottomRightCorner) {
             m_startGlobalX = x0;
             m_currentGlobalX = globalX;
           }
@@ -585,11 +583,9 @@ namespace capture {
               || m_dragMode == DragMode::TopRightCorner) {
             m_startGlobalY = y1;
             m_currentGlobalY = globalY;
-          } else if (
-              m_dragMode == DragMode::BottomEdge
-              || m_dragMode == DragMode::BottomLeftCorner
-              || m_dragMode == DragMode::BottomRightCorner
-          ) {
+          } else if (m_dragMode == DragMode::BottomEdge
+                     || m_dragMode == DragMode::BottomLeftCorner
+                     || m_dragMode == DragMode::BottomRightCorner) {
             m_startGlobalY = y0;
             m_currentGlobalY = globalY;
           }

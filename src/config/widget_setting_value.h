@@ -98,11 +98,9 @@ namespace noctalia::config {
         throw std::overflow_error("widget setting number is not finite or is outside the supported range");
       }
       return converted;
-    } else if constexpr (
-        std::is_same_v<T, std::string>
-        || std::is_same_v<T, std::vector<std::string>>
-        || std::is_same_v<T, WidgetSettingStringMap>
-    ) {
+    } else if constexpr (std::is_same_v<T, std::string>
+                         || std::is_same_v<T, std::vector<std::string>>
+                         || std::is_same_v<T, WidgetSettingStringMap>) {
       return value;
     } else if constexpr (std::is_same_v<T, ColorSpec>) {
       return colorSpecToConfigString(value);

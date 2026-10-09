@@ -2396,12 +2396,10 @@ void TaskbarWidget::updateModels() {
                 )) {
               continue;
             }
-          } else if (
-              assignmentAppLower != task.appIdLower
-              && assignmentAppLower != task.idLower
-              && assignmentAppLower != task.startupWmClassLower
-              && assignmentAppLower != task.nameLower
-          ) {
+          } else if (assignmentAppLower != task.appIdLower
+                     && assignmentAppLower != task.idLower
+                     && assignmentAppLower != task.startupWmClassLower
+                     && assignmentAppLower != task.nameLower) {
             continue;
           }
           if (assignment.workspaceKey != task.workspaceKey) {

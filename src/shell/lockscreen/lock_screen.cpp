@@ -440,9 +440,8 @@ void LockScreen::onPointerEvent(const PointerEvent& event) {
     m_pointerEnterY = event.sy;
   } else if (event.type == PointerEvent::Type::Leave && event.surface == m_pointerSurface) {
     m_pointerSurface = nullptr;
-  } else if (
-      (event.type == PointerEvent::Type::Button || event.type == PointerEvent::Type::Axis) && event.surface != nullptr
-  ) {
+  } else if ((event.type == PointerEvent::Type::Button || event.type == PointerEvent::Type::Axis)
+             && event.surface != nullptr) {
     m_pointerSurface = event.surface;
   }
 

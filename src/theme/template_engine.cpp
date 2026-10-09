@@ -931,9 +931,8 @@ namespace noctalia::theme {
           resolved = ScopeValue(m_options.configDir);
         } else if (base == "config_file") {
           resolved = ScopeValue(m_options.configFile);
-        } else if (
-            auto fromScope = resolveFromScope(base, scope); !std::holds_alternative<std::monostate>(fromScope.value)
-        ) {
+        } else if (auto fromScope = resolveFromScope(base, scope);
+                   !std::holds_alternative<std::monostate>(fromScope.value)) {
           resolved = std::move(fromScope);
         } else if (base.starts_with("colors.")) {
           resolved = ScopeValue(processColorExpression(base, filters));
