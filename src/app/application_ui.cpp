@@ -916,6 +916,9 @@ void Application::initBarDockAndLayout() {
   m_panelManager.setBarConfigProvider([this](wl_output* output, std::string_view barName) {
     return m_bar.configForBar(output, barName);
   });
+  m_panelManager.setAttachedPanelStateCallback([this](wl_output* output, std::string_view barName, bool open) {
+    m_bar.setAttachedPanelOpen(output, barName, open);
+  });
   m_panelManager.setAttachedPanelBarSettledCallback([this](wl_output* output, std::string_view barName) {
     return m_bar.isAttachedPanelBarSettled(output, barName);
   });
