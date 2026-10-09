@@ -148,6 +148,8 @@ private:
   // Declarative mode: barWidget.render(tree) reconciles into m_uiHost and hides
   // the imperative glyph/image/label row.
   Flex* m_uiHost = nullptr;
+  // Preview layer for ui.dragSource ghosts (see create()).
+  Node* m_dragOverlay = nullptr;
   ui::UiTreeReconciler m_reconciler;
   std::optional<ui::UiTreeNode> m_tree;
   bool m_warnedImperativeWhileDeclarative = false;

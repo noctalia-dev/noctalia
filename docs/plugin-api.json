@@ -178,5 +178,11 @@
     "noctaliaVersion": "v5.2.0",
     "feature": "container-tooltip",
     "introduced": "The `tooltip` prop on `ui.box`, `ui.row`, `ui.column`, and `ui.image`, shown on hover."
+  },
+  {
+    "level": 33,
+    "noctaliaVersion": null,
+    "feature": "bar-drag-and-drop",
+    "introduced": "`ui.dragSource()` and `ui.dropZone()` in bar widgets (`barWidget.render`), not only panels; `dragSource.grabCursor` and `dragSource.onClick` for a source that wraps a whole clickable item; `expandOnDrag` grows a zone along its thin axis."
   }
 ]
