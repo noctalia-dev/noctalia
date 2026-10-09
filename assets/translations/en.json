@@ -801,7 +801,27 @@
         "title": "Windows"
       }
     },
-    "search-placeholder": "Search applications…"
+    "search-placeholder": "Search applications…",
+    "browser": {
+      "actions": {
+        "power": "Power",
+        "settings": "Settings"
+      },
+      "navigation": {
+        "all-apps": "All Apps",
+        "pinned": "Pinned",
+        "providers": "Providers",
+        "recent": "Recent"
+      },
+      "sections": {
+        "all-apps": "All Apps",
+        "other-apps": "Other Apps",
+        "pinned": "Pinned",
+        "providers": "Providers",
+        "recent": "Recent",
+        "search-results": "Search Results"
+      }
+    }
   },
   "location": {
     "errors": {
@@ -1554,6 +1574,10 @@
         "top-right": "Top Right"
       },
       "shell": {
+        "launcher-search-position": {
+          "bottom": "Bottom",
+          "top": "Top"
+        },
         "panel-placement": {
           "attached": "Attached",
           "floating": "Floating"
@@ -2566,7 +2590,7 @@
           "label": "Show App Actions"
         },
         "launcher-app-grid": {
-          "description": "Show a grid of application icons with labels underneath when results are apps only",
+          "description": "Show applications, global search results, and the provider overview as icon grids",
           "label": "App Grid View"
         },
         "launcher-app-origin-indicator": {
@@ -2578,7 +2602,7 @@
           "label": "Auto-Paste"
         },
         "launcher-categories": {
-          "description": "Display category filters in the launcher; reveal with F6, then cycle with F6 and Shift+F6",
+          "description": "Group All Apps into desktop-entry category sections",
           "label": "Show Categories"
         },
         "launcher-compact": {
@@ -2588,6 +2612,18 @@
         "launcher-currency-exchange": {
           "description": "Fetch rates from third party online sources",
           "label": "Currency Exchange Conversion"
+        },
+        "launcher-search-position": {
+          "description": "Display the search bar at the top or bottom of the launcher",
+          "label": "Search Position"
+        },
+        "launcher-show-session-button": {
+          "description": "Show a shortcut to the configured session actions",
+          "label": "Show Session Button"
+        },
+        "launcher-show-settings-button": {
+          "description": "Show a shortcut to Noctalia Settings",
+          "label": "Show Settings Button"
         },
         "launcher-global-calculator": {
           "description": "Also show calculator results in unprefixed search",

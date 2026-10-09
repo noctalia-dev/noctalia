@@ -630,7 +630,8 @@ void Application::initPanelManagerAndPanels() {
   ControlCenterPanel* controlCenterPanelPtr = controlCenterPanel.get();
   m_panelManager.registerPanel("control-center", std::move(controlCenterPanel));
   {
-    auto launcherPanel = std::make_unique<LauncherPanel>(&m_configService, &m_asyncTextureCache);
+    auto launcherPanel =
+        std::make_unique<LauncherPanel>(&m_configService, m_accountsService.get(), &m_asyncTextureCache);
     launcherPanel->addProvider(std::make_unique<AppProvider>(&m_configService, &m_compositorPlatform));
     launcherPanel->addProvider(std::make_unique<WallpaperProvider>(&m_configService, &m_wayland, &m_themeService));
     launcherPanel->addProvider(std::make_unique<WindowProvider>(&m_compositorPlatform));

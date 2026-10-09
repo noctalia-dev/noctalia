@@ -101,11 +101,14 @@ open_near_click_wallpaper      = false  # attached/floating: follow the bar clic
 open_near_click_session        = false  # attached/floating: follow the bar click instead of bar-center
 
 [shell.launcher]
-categories      = true   # show launcher category filters; Tab toggles them while open
+search_position = "top" # top | bottom; search bar position
+show_settings_button = true # show the Settings shortcut
+show_session_button = true # show the session-actions shortcut
+categories      = true   # group All Apps into category sections
 show_icons      = true   # show application icons in launcher results
 show_app_origin_indicator = true # show package origin indicators on application results
 compact         = false  # smaller icons and tighter rows; hides subtitles
-app_grid        = false  # icon grid with labels underneath when results are apps only
+app_grid        = false  # icon grid for applications, global searches, and the provider overview
 show_app_actions = false  # include searchable .desktop actions alongside applications
 sort_by_usage   = true   # boost frequently used apps and show Recently Used filter
 pinned          = []     # desktop entry IDs shown first when the launcher opens
@@ -261,11 +264,12 @@ Notes:
 - `shell.panel.floating_offset` sets the gap in pixels a floating panel keeps from the bar edge, or from the screen edge when it is pinned with a `*_position` (default `8`). It also spaces panels using the reserved edge area when multiple bars share an edge. `attached` panels ignore it.
 - When multiple enabled bars resolve to the same edge on one monitor, exact source-bar attachment is ambiguous. In that case attached/floating panels use the compositor's reserved edge area and open outside the bar stack instead of anchoring to one bar. Prefer setting `shell.panel_anchor_bar` when you have more than one bar and open panels via IPC or shortcuts.
 - `shell.panel.open_near_click_control_center`, `open_near_click_launcher`, `open_near_click_clipboard`, `open_near_click_wallpaper`, and `open_near_click_session` position attached or floating panels near the click location on the bar instead of centering them along the bar. They are ignored when a panel is `floating` with a `*_position` other than `auto`, since it is then pinned to a fixed screen position.
-- `shell.launcher.categories` shows compact category filters in the launcher for providers that expose categories, currently Applications and Emoji. **All** leaves results unfiltered. With a prefixed provider such as `/emo`, the filters come from that provider. Press `Tab` while the launcher is open to hide/show the filters; the left/right keybind actions move between filters.
+- `shell.launcher.search_position` displays the search bar at the `top` (default) or `bottom` of the launcher. `show_settings_button` and `show_session_button` independently control the shortcuts in the profile bar.
+- `shell.launcher.categories` groups **All Apps** into labeled desktop-entry category sections. Turn this off for one uninterrupted application list or grid.
 - `shell.launcher.show_icons` toggles application icons in launcher result rows. Prefixed-provider rows (for example emoji) still show their leading character when icons are hidden.
 - `shell.launcher.show_app_origin_indicator` toggles the package-origin overlays on application results, such as Flatpak, Snap, Nix, and AppImage.
 - `shell.launcher.compact` uses smaller icons, tighter padding, and single-line rows (subtitles hidden).
-- `shell.launcher.app_grid` switches to a multi-column icon grid with labels underneath when every visible result is an application. Mixed results (global search, prefixed providers, session actions, and so on) stay in the default list layout.
+- `shell.launcher.app_grid` switches application browsing, global search results, and the provider overview to a multi-column icon grid with labels underneath. Results from an explicitly selected or prefixed provider stay in the list layout.
 - `shell.launcher.show_app_actions` includes searchable `.desktop` actions alongside application results. Action rows show the action name with the parent application underneath and launch that action directly. Disabled by default; application actions remain available from an application's right-click menu.
 - `shell.launcher.sort_by_usage` boosts frequently used results (applications, emoji, panels, wallpapers, and dmenu entries) toward the top of results and exposes a **Recently Used** category filter. Disable it for strictly alphabetical ordering within each provider.
 - `shell.launcher.pinned` is an ordered list of desktop entry IDs shown first when the launcher opens without a query. Launcher pins are independent from `dock.pinned` and each taskbar widget's `pinned` list.

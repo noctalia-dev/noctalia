@@ -36,6 +36,7 @@ public:
   void requestScrollToBottom();
   void scrollBy(float delta);
   void setScrollbarVisible(bool visible);
+  void setReserveScrollbarGutter(bool reserve);
   // Vertical clearance at both track ends (e.g. the host card's corner radius).
   void setScrollbarInsetV(float inset);
   // Layout scale of the surface hosting this view (1.0 = base logical px). Scales the
@@ -66,6 +67,7 @@ public:
   [[nodiscard]] float contentViewportHeight() const noexcept;
   [[nodiscard]] float viewportPaddingH() const noexcept { return m_viewportPaddingH; }
   [[nodiscard]] float viewportPaddingV() const noexcept { return m_viewportPaddingV; }
+  [[nodiscard]] bool reservesScrollbarGutter() const noexcept { return m_reserveScrollbarGutter; }
   // Width reserved for the vertical scrollbar plus its gap, at the current content scale.
   [[nodiscard]] float scrollbarGutter() const noexcept;
   [[nodiscard]] float contentScale() const noexcept { return m_contentScale; }
@@ -117,6 +119,7 @@ private:
   float m_backgroundSoftness = 1.0F;
   bool m_scrollbarShown = false;
   bool m_showScrollbar = true;
+  bool m_reserveScrollbarGutter = false;
   bool m_dragging = false;
   ScrollOrientation m_orientation = ScrollOrientation::Vertical;
 };

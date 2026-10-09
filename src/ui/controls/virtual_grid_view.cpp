@@ -148,7 +148,11 @@ void VirtualGridView::setMinCellWidth(float width) {
 }
 
 void VirtualGridView::setCellHeight(float height) {
-  m_cellHeight = std::max(1.0F, height);
+  const float next = std::max(1.0F, height);
+  if (std::abs(m_cellHeight - next) < 0.001F) {
+    return;
+  }
+  m_cellHeight = next;
   notifyDataChanged();
 }
 
@@ -247,8 +251,7 @@ void VirtualGridView::doLayout(Renderer& renderer) {
   }
 
   // Step 1: estimate the canvas's virtual size so ScrollView can measure
-  // content height correctly. Match ScrollView's gutter behavior: reserve
-  // space for the scrollbar only when the content overflows vertically.
+  // content height correctly. Match ScrollView's configured gutter behavior.
   const float ourW = std::max(0.0F, width());
   const float ourH = std::max(0.0F, height());
   const float padH = m_scroll->viewportPaddingH();
@@ -289,7 +292,7 @@ void VirtualGridView::doLayout(Renderer& renderer) {
 
   float viewportW = innerW;
   GridMetrics metrics = resolveMetrics(viewportW);
-  if (metrics.virtualHeight > viewportH + 0.5F) {
+  if (m_scroll->reservesScrollbarGutter() || metrics.virtualHeight > viewportH + 0.5F) {
     viewportW = std::max(0.0F, innerW - scrollbarGutter);
     metrics = resolveMetrics(viewportW);
   }

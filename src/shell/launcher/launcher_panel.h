@@ -13,21 +13,27 @@
 #include <vector>
 
 class ContextMenuPopup;
+class AccountsService;
+class Button;
 class Flex;
+class Glyph;
+class Image;
 class Input;
 class Label;
 class LauncherResultAdapter;
 class LauncherAppGridAdapter;
+class LauncherSectionsAdapter;
 class Renderer;
 class Segmented;
 class ScrollView;
 class VirtualGridView;
+class VirtualListView;
 class ConfigService;
 class AsyncTextureCache;
 
 class LauncherPanel : public Panel {
 public:
-  LauncherPanel(ConfigService* config, AsyncTextureCache* asyncTextures);
+  LauncherPanel(ConfigService* config, AccountsService* accounts, AsyncTextureCache* asyncTextures);
   ~LauncherPanel() override;
 
   void addProvider(std::unique_ptr<LauncherProvider> provider);
@@ -53,15 +59,16 @@ public:
   // supports auto-paste. The host schedules virtual-keyboard paste (clipboard path).
   void setCopiedActivationCallback(std::function<void()> callback) { m_onCopiedActivation = std::move(callback); }
 
-  [[nodiscard]] float preferredWidth() const override { return scaled(560.0F); }
-  [[nodiscard]] float preferredHeight() const override { return scaled(500.0F); }
+  [[nodiscard]] float preferredWidth() const override;
+  [[nodiscard]] float preferredHeight() const override;
   [[nodiscard]] LayerShellKeyboard keyboardMode() const override { return LayerShellKeyboard::Exclusive; }
   [[nodiscard]] InputArea* initialFocusArea() const override;
   [[nodiscard]] bool handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit) override;
   [[nodiscard]] PanelPlacement panelPlacement() const noexcept override;
 
 private:
-  enum ActiveCategoryType { All, RecentlyUsed, Category };
+  enum ActiveCategoryType { All, Pinned, RecentlyUsed, Category };
+  enum class ResultsTransition : std::uint8_t { None, Search, Navigation };
 
   struct CategoryFilterSlot {
     ActiveCategoryType type;
@@ -70,6 +77,7 @@ private:
 
   void onPanelCardOpacityChanged(float opacity) override;
   void doLayout(Renderer& renderer, float width, float height) override;
+  void doUpdate(Renderer& renderer) override;
   void onInputChanged(const std::string& text);
   void setQuery(std::string query);
   // Re-gather the current query, preserving the selected result by identity.
@@ -88,18 +96,31 @@ private:
   void finishActivation(LauncherProvider& provider, const std::string& resultId, bool copied);
   [[nodiscard]] std::vector<LauncherResult> providerOverviewResults(std::string_view text) const;
   [[nodiscard]] bool openAppActionsMenu(std::size_t index, float anchorX, float anchorY);
-  void rebuildCategoryFilter(const std::vector<LauncherCategory>& categories);
+  void updateCategoryFilterModel(const std::vector<LauncherCategory>& categories);
+  void rebuildCategoryFilter();
+  void rebuildLauncherNavigation();
+  void updateCategorySelectionChrome();
+  void updateLauncherSectionTitle();
   void setCategoryFilterVisible(bool visible);
   void setActiveCategorySlot(std::size_t slotIndex);
   void applyActiveCategory();
   void syncLauncherListStyle();
   void syncLauncherViewLayout(Renderer* renderer = nullptr);
+  void queueResultsTransition(ResultsTransition transition);
+  void animateResultsTransition();
   [[nodiscard]] bool shouldUseAppGrid() const;
+  [[nodiscard]] bool shouldUseLauncherSections() const;
+  void rebuildLauncherSections();
+  void selectResult(std::size_t index, bool scrollToSelection);
   void refreshLauncherAppIconColorization();
   void updateLauncherGridMetrics(Renderer& renderer);
   void updatePinnedApplicationState();
   void applyPinnedApplicationOrder();
   void reorderPinnedApplication(std::string_view sourcePath, std::string_view targetPath);
+  void syncLauncherAvatar(Renderer& renderer);
+  void showProviderOverview();
+  void showSessionActions();
+  [[nodiscard]] bool usesBrowserLayout() const;
   [[nodiscard]] bool shouldTrackUsage() const;
 
   std::vector<std::unique_ptr<LauncherProvider>> m_providers;
@@ -112,7 +133,18 @@ private:
   Input* m_input = nullptr;
   Segmented* m_categoryFilter = nullptr;
   Flex* m_body = nullptr;
+  Flex* m_resultsViewport = nullptr;
+  Flex* m_launcherToolbar = nullptr;
+  Flex* m_launcherNavigation = nullptr;
+  Label* m_launcherSectionTitle = nullptr;
+  Image* m_launcherAvatar = nullptr;
+  Glyph* m_launcherAvatarFallback = nullptr;
+  Button* m_launcherSettingsButton = nullptr;
+  Button* m_launcherPowerButton = nullptr;
+  Button* m_launcherProvidersButton = nullptr;
+  std::vector<Button*> m_launcherCategoryButtons;
   VirtualGridView* m_grid = nullptr;
+  VirtualListView* m_launcherSections = nullptr;
   ScrollView* m_detailScroll = nullptr;
   Label* m_detailSubtitle = nullptr;
   Label* m_detailBody = nullptr;
@@ -120,6 +152,7 @@ private:
   bool m_anyProviderLoading = false;
   std::unique_ptr<LauncherResultAdapter> m_listAdapter;
   std::unique_ptr<LauncherAppGridAdapter> m_gridAdapter;
+  std::unique_ptr<LauncherSectionsAdapter> m_launcherSectionsAdapter;
 
   std::string m_query;
   std::string m_scopedProviderId;
@@ -129,17 +162,26 @@ private:
   std::vector<LauncherCategory> m_currentCategories;
   std::vector<CategoryFilterSlot> m_categoryFilterSlots;
   bool m_hasRecentlyUsed = false;
+  bool m_hasPinnedApplications = false;
+  bool m_categoryFilterRebuildPending = false;
   std::size_t m_selectedIndex = 0;
+  std::size_t m_activeCategorySlotIndex = 0;
   bool m_categoryFilterVisible = true;
+  bool m_browserMode = false;
+  bool m_showingProviderOverview = false;
+  std::string m_launcherProviderViewId;
   bool m_launcherShowIcons = true;
   bool m_launcherShowAppOriginIndicator = true;
   bool m_launcherCompact = false;
   bool m_launcherAppGrid = false;
   bool m_usingAppGrid = false;
+  ResultsTransition m_pendingResultsTransition = ResultsTransition::None;
   float m_launcherRowHeight = 0.0F;
   std::uint64_t m_desktopEntriesVersion = 0;
   ConfigService* m_config = nullptr;
+  AccountsService* m_accounts = nullptr;
   AsyncTextureCache* m_asyncTextures = nullptr;
+  std::string m_launcherAvatarPath;
   std::unique_ptr<ContextMenuPopup> m_actionsMenu;
   Signal<>::ScopedConnection m_appIconColorizeConn;
   std::function<void()> m_onCopiedActivation;

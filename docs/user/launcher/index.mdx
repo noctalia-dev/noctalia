@@ -7,6 +7,23 @@ sidebar:
 
 The Noctalia launcher is a centralized search interface that provides quick access to your applications, system actions, and utility providers.
 
+## Layout
+
+The launcher combines search with compact tabs for Recent, All Apps, Pinned, and Providers. Search appears above the results by default, with profile and shortcut controls along the bottom. Search can instead sit in that bottom bar, and the Settings and session shortcuts can be hidden independently.
+
+Configure the layout under **Settings → Panels → Launcher**, or in your config:
+
+```toml
+[shell.launcher]
+search_position = "top"
+show_settings_button = true
+show_session_button = true
+categories = true
+app_grid = false
+```
+
+`search_position = "bottom"` moves search into the profile bar. `categories` groups **All Apps** into labeled sections. `app_grid` switches application browsing, global search results, and the provider overview between rows and an icon grid. Search results from an explicitly selected or prefixed provider remain rows.
+
 ## How search works
 
 As you type, Noctalia queries all active **Launcher Providers**. Providers can either be "global" (always searching) or "prefixed" (triggered by a specific keyword).
@@ -20,15 +37,9 @@ Type `/` by itself to show a lightweight overview of available prefixed provider
 
 The launcher tracks how often you activate specific results (applications and wallpapers). Frequently used items receive a score boost, surfacing them at the top of the results list even with partial queries.
 
-### Category filters
+### Application categories
 
-When category filters are enabled, the launcher shows compact filter buttons for providers that expose categories.
-
-- **Applications** can be filtered by desktop-entry categories such as Internet, Development, Games, Office, System, and Utilities.
-- **Emoji** can be filtered by emoji categories such as people, animals, food, travel, objects, symbols, and flags.
-- **All** leaves the active result set unfiltered.
-
-Press `F6` while the launcher is open to reveal hidden filters without changing the active filter. Once the filters are visible, use `F6` to move to the next filter and `Shift+F6` to move to the previous filter.
+When categories are enabled, **All Apps** groups applications into desktop-entry categories such as Internet, Development, Games, Office, System, and Utilities.
 
 :::note[Application options]
 
@@ -44,7 +55,7 @@ Right-click an application result to open its menu of additional per-app options
 
 The primary provider for finding and launching your installed apps.
 
-When `shell.launcher.app_grid` is enabled and every visible result is an application, results switch from the default list to a multi-column icon grid with the app name underneath. Mixed searches (calculator hits, emoji, session actions, prefixed providers, and so on) keep the list layout. Left/right keybinds move between columns in grid mode; up/down move by row.
+Enabling `shell.launcher.app_grid` switches application browsing, global search results, and the provider overview to a multi-column icon grid with the item name underneath. Results from an explicitly selected or prefixed provider keep the list layout. Left/right keybinds move between columns in grid mode; up/down move by row.
 
 - **Source**: Reads `.desktop` entries from standard XDG directories (e.g., `/usr/share/applications`, `~/.local/share/applications`).
 - **Package origins**: Results identify Flatpak, Snap, Nix, and AppImage applications when their desktop entries or executable metadata provide that information. AppImages are recognized from their AppImage desktop-entry metadata or executable signature, including extensionless files managed by AppImageLauncher.
@@ -221,7 +232,7 @@ supports readline-style shortcuts. Otherwise `Ctrl+A` selects all and `Ctrl+U` c
 The launcher itself is mostly automatic, but its behavior is influenced by other sections of your config:
 
 - **[Keybinds](/noctalia/configuration/shell/#keybinds)**: Customize navigation (`up`, `down`) and activation (`validate`, `cancel`).
-- **[Shell](/noctalia/configuration/shell/#shell-settings)**: `ui_scale` and `font_family` affect the launcher's appearance. `shell.launcher.categories` controls the category filters. `show_icons`, `show_app_origin_indicator`, `compact`, `app_grid`, `show_app_actions`, `sort_by_usage`, `pinned`, `fetch_exchange_rates`, and `auto_paste` adjust result layout, origin overlays, action search, ordering, pinning, currency rate refresh, and paste-after-copy (Settings → Launcher). `[shell.launcher.dmenu.entry.<id>]` adds custom dmenu-style providers backed by a shell command.
+- **[Shell](/noctalia/configuration/shell/#shell-settings)**: `ui_scale` and `font_family` affect the launcher's appearance. `shell.launcher.search_position`, `show_settings_button`, and `show_session_button` configure the toolbar. `categories`, `show_icons`, `show_app_origin_indicator`, `compact`, `app_grid`, `show_app_actions`, `sort_by_usage`, `pinned`, `fetch_exchange_rates`, and `auto_paste` adjust result layout, origin overlays, action search, ordering, pinning, currency rate refresh, and paste-after-copy (Settings → Launcher). `[shell.launcher.dmenu.entry.<id>]` adds custom dmenu-style providers backed by a shell command.
 - **[Wallpaper](/noctalia/desktop/wallpaper/)**: Defines the search paths for the Wallpaper provider.
 - **[Session actions](/noctalia/configuration/shell/#session-panel)**: Defines the actions shown by the Session provider.
 

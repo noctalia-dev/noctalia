@@ -1097,7 +1097,21 @@ struct ShellConfig {
   // Launcher behavior/appearance. Panel placement for the launcher surface stays
   // under [shell.panel] (launcher_placement/position/open_near_click_launcher),
   // parallel to every other surface.
+  enum class LauncherSearchPosition : std::uint8_t {
+    Top = 0,
+    Bottom = 1,
+  };
+
+  static constexpr EnumOption<LauncherSearchPosition> kLauncherSearchPositions[] = {
+      {LauncherSearchPosition::Top, "top", "settings.options.shell.launcher-search-position.top"},
+      {LauncherSearchPosition::Bottom, "bottom", "settings.options.shell.launcher-search-position.bottom"},
+  };
+
   struct LauncherConfig {
+    LauncherSearchPosition searchPosition = LauncherSearchPosition::Top;
+    bool showSettingsButton = true;
+    bool showSessionButton = true;
+    // Group the All Apps view by desktop-entry category.
     bool categories = true;
     bool showIcons = true;
     bool showAppOriginIndicator = true;

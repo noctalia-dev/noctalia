@@ -80,11 +80,14 @@ open_near_click_wallpaper      = false # for attached/floating placement, follow
 open_near_click_session        = false # for attached/floating placement, follow the bar click instead of bar-center
 
 [shell.launcher]
-categories    = true                    # show category filters in the launcher
+search_position = "top"                  # top | bottom; search bar position
+show_settings_button = true              # show the Settings shortcut beside search
+show_session_button = true               # show the session-actions shortcut beside search
+categories    = true                    # group All Apps into desktop-entry category sections
 show_icons    = true                    # show application icons in launcher results
 show_app_origin_indicator = true        # show package origin indicators on application results
 compact       = false                   # use smaller icons and tighter result rows
-app_grid      = false                   # show app icon grid view when results are apps only
+app_grid      = false                   # show apps, global searches, and the provider overview as icon grids
 sort_by_usage = true                    # sort apps by usage frequency
 pinned        = []                      # e.g. ["firefox", "code", "kitty"] (launcher only)
 fetch_exchange_rates = true             # refresh currency rates from third-party sources
