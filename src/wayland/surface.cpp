@@ -654,6 +654,26 @@ void Surface::setInputRegion(const std::vector<InputRect>& rects) {
   wl_region_destroy(region);
 }
 
+void Surface::setOpaque(bool opaque) {
+  if (m_surface == nullptr || m_opaque == opaque) {
+    return;
+  }
+  if (!opaque) {
+    wl_surface_set_opaque_region(m_surface, nullptr);
+    m_opaque = false;
+    return;
+  }
+  wl_region* region = wl_compositor_create_region(m_connection.compositor());
+  if (region == nullptr) {
+    return;
+  }
+  // The compositor clips the region to the surface, so it stays valid across resizes.
+  wl_region_add(region, 0, 0, std::numeric_limits<std::int32_t>::max(), std::numeric_limits<std::int32_t>::max());
+  wl_surface_set_opaque_region(m_surface, region);
+  wl_region_destroy(region);
+  m_opaque = true;
+}
+
 bool Surface::prepareBlurEffect() {
   if (m_surface == nullptr) {
     traceSurfaceEvent(*this, "blur-effect-skip-no-surface");
@@ -1300,6 +1320,7 @@ void Surface::destroySurface() {
   if (m_surface != nullptr) {
     wl_surface_destroy(m_surface);
     m_surface = nullptr;
+    m_opaque = false;
   }
 
   m_running = false;

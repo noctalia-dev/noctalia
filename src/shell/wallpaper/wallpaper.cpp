@@ -1522,6 +1522,24 @@ void Wallpaper::updateRendererState(WallpaperInstance& instance) {
         }
     );
   }
+  if (instance.surface != nullptr) {
+    const auto coversOpaquely =
+        [&wpConfig](WallpaperSourceKind kind, const Color& color, const TextureHandle& texture) {
+          if (kind == WallpaperSourceKind::Color) {
+            return color.a >= 1.0F;
+          }
+          // Center and Fit leave the surface outside the image to the fill; the other modes cover all of it.
+          const bool fillsSurface =
+              wpConfig.fillMode != WallpaperFillMode::Center && wpConfig.fillMode != WallpaperFillMode::Fit;
+          return fillsSurface && texture.opaque;
+        };
+    // The fill spans the whole surface beneath every source, so either it or every source drawn now must be opaque.
+    const bool sourcesOpaque =
+        coversOpaquely(instance.currentSourceKind, instance.currentColor, instance.currentTexture)
+        && (!instance.transitioning
+            || coversOpaquely(instance.nextSourceKind, instance.nextColor, instance.nextTexture));
+    instance.surface->setOpaque(fillColor.a >= 1.0F || sourcesOpaque);
+  }
   wallpaperNode->setSources(
       instance.currentSourceKind, instance.currentTexture.id, instance.currentColor, instance.nextSourceKind,
       instance.nextTexture.id, instance.nextColor, static_cast<float>(instance.currentTexture.width),
