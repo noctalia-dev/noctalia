@@ -3084,6 +3084,12 @@ void LauncherPanel::updateLauncherOptionButtons() {
   }
   const auto& launcher = m_config->config().shell.launcher;
   if (m_launcherUsageButton != nullptr) {
+    const bool orderingAvailable = !m_showingProviderOverview
+        && m_launcherProviderViewId.empty()
+        && (m_activeCategoryType == All || m_activeCategoryType == Category);
+    m_launcherUsageButton->setVisible(orderingAvailable);
+    m_launcherUsageButton->setParticipatesInLayout(orderingAvailable);
+    m_launcherUsageButton->setEnabled(orderingAvailable);
     m_launcherUsageButton->setSelected(false);
     m_launcherUsageButton->setGlyph(launcher.sortByUsage ? "sort-ascending-letters" : "sort-descending-small-big");
     m_launcherUsageButton->setTooltip(
