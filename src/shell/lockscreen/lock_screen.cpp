@@ -65,6 +65,17 @@ namespace {
       return LockscreenTransitionKind::Zoom;
     case LockscreenTransition::Honeycomb:
       return LockscreenTransitionKind::Honeycomb;
+    // Contributed section: custom transition kind mappings (Vortex, Pixel, Diamond, Golden, Melt)
+    case LockscreenTransition::Vortex:
+      return LockscreenTransitionKind::Vortex;
+    case LockscreenTransition::Pixel:
+      return LockscreenTransitionKind::Pixel;
+    case LockscreenTransition::Diamond:
+      return LockscreenTransitionKind::Diamond;
+    case LockscreenTransition::Golden:
+      return LockscreenTransitionKind::Golden;
+    case LockscreenTransition::Melt:
+      return LockscreenTransitionKind::Melt;
     }
     std::unreachable();
   }
@@ -927,6 +938,29 @@ void LockScreen::chooseTransition() {
     m_transitionParams.cellSize = Random::randomFloat(0.02F, 0.06F);
     m_transitionParams.centerX = Random::randomFloat(0.2F, 0.8F);
     m_transitionParams.centerY = Random::randomFloat(0.2F, 0.8F);
+    break;
+  // Contributed section: custom transition parameter randomization (Vortex, Pixel, Diamond, Golden, Melt)
+  case LockscreenTransition::Vortex:
+    m_transitionParams.centerX = Random::randomFloat(0.2F, 0.8F);
+    m_transitionParams.centerY = Random::randomFloat(0.2F, 0.8F);
+    break;
+  case LockscreenTransition::Pixel:
+    m_transitionParams.cellSize = Random::randomFloat(0.02F, 0.05F);
+    m_transitionParams.centerX = Random::randomFloat(0.2F, 0.8F);
+    m_transitionParams.centerY = Random::randomFloat(0.2F, 0.8F);
+    break;
+  case LockscreenTransition::Diamond:
+    m_transitionParams.cellSize = Random::randomFloat(0.0345F, 0.069F);
+    m_transitionParams.centerX = Random::randomFloat(0.2F, 0.8F);
+    m_transitionParams.centerY = Random::randomFloat(0.2F, 0.8F);
+    break;
+  case LockscreenTransition::Golden:
+    m_transitionParams.centerX = Random::randomFloat(0.2F, 0.8F);
+    m_transitionParams.centerY = Random::randomFloat(0.2F, 0.8F);
+    m_transitionParams.angle = Random::randomFloat(0.0F, 360.0F);
+    break;
+  case LockscreenTransition::Melt:
+    m_transitionParams.angle = Random::randomFloat(0.0F, 360.0F);
     break;
   case LockscreenTransition::Fade:
   case LockscreenTransition::Zoom:

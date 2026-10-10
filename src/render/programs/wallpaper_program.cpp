@@ -1,11 +1,14 @@
 #include "render/programs/wallpaper_program.h"
 
+#include "core/log.h"
 #include "render/programs/wallpaper_sampling_glsl.h"
 
 #include <stdexcept>
 #include <string>
 
 namespace {
+
+  constexpr Logger kLog("render.wallpaper");
 
   constexpr char kVertexShader[] = R"(
 precision highp float;
@@ -283,34 +286,231 @@ void main() {
 }
 )";
 
+  // Contributed section: custom wallpaper transition shaders (Vortex, Pixel, Diamond, Golden, Melt)
+  constexpr char kVortexFragment[] = R"(
+uniform float u_centerX;
+uniform float u_centerY;
+uniform float u_aspectRatio;
+uniform float u_smoothness;
+
+void main() {
+    vec2 uv = v_texcoord;
+    vec4 color1 = sampleSource(u_source1, uv, u_imageWidth1, u_imageHeight1, u_sourceKind1, u_sourceColor1);
+    vec4 color2 = sampleSource(u_source2, uv, u_imageWidth2, u_imageHeight2, u_sourceKind2, u_sourceColor2);
+
+    float mappedSmoothness = mix(0.001, 0.5, u_smoothness * u_smoothness);
+    float feather = max(0.015, mappedSmoothness * 1.5);
+    vec2 center = vec2(u_centerX * u_aspectRatio, u_centerY);
+    vec2 aspectUV = vec2(uv.x * u_aspectRatio, uv.y);
+    vec2 delta = aspectUV - center;
+    float dist = length(delta);
+    float angle = atan(delta.y, delta.x) + (1.0 - u_progress) * 3.14159265;
+    float normAngle = (angle + 3.14159265) / 6.2831853;
+    float arms = 3.0;
+    float spiral = dist + fract(normAngle * arms) * 0.25;
+
+    float maxDist = length(max(center, vec2(u_aspectRatio, 1.0) - center));
+    float edge = u_progress * (maxDist + 0.25 + 2.0 * feather) - feather;
+    float factor = smoothstep(edge - feather, edge + feather, spiral);
+    gl_FragColor = mix(color2, color1, factor);
+}
+)";
+
+  constexpr char kPixelFragment[] = R"(
+uniform float u_cellSize;
+uniform float u_centerX;
+uniform float u_centerY;
+uniform float u_aspectRatio;
+uniform float u_smoothness;
+
+void main() {
+    vec2 uv = v_texcoord;
+    vec4 color1 = sampleSource(u_source1, uv, u_imageWidth1, u_imageHeight1, u_sourceKind1, u_sourceColor1);
+    vec4 color2 = sampleSource(u_source2, uv, u_imageWidth2, u_imageHeight2, u_sourceKind2, u_sourceColor2);
+
+    float mappedSmoothness = mix(0.001, 0.5, u_smoothness * u_smoothness);
+    float feather = max(0.02, mappedSmoothness * 1.5);
+    vec2 center = vec2(u_centerX * u_aspectRatio, u_centerY);
+    vec2 aspectUV = vec2(uv.x * u_aspectRatio, uv.y);
+
+    float size = max(u_cellSize * 0.75, 0.02);
+    vec2 cell = floor(aspectUV / size);
+    float noise = fract(sin(dot(cell, vec2(12.9898, 78.233))) * 43758.5453);
+
+    float maxDist = length(max(center, vec2(u_aspectRatio, 1.0) - center));
+    float distNorm = distance(aspectUV, center) / max(maxDist, 0.001);
+    float threshold = mix(distNorm, noise, 0.35);
+
+    float edge = u_progress * (1.0 + 2.0 * feather) - feather;
+    float factor = smoothstep(edge - feather, edge + feather, threshold);
+    gl_FragColor = mix(color2, color1, factor);
+}
+)";
+
+  constexpr char kDiamondFragment[] = R"(
+uniform float u_cellSize;
+uniform float u_centerX;
+uniform float u_centerY;
+uniform float u_aspectRatio;
+uniform float u_smoothness;
+
+void main() {
+    vec2 uv = v_texcoord;
+    vec4 color1 = sampleSource(u_source1, uv, u_imageWidth1, u_imageHeight1, u_sourceKind1, u_sourceColor1);
+    vec4 color2 = sampleSource(u_source2, uv, u_imageWidth2, u_imageHeight2, u_sourceKind2, u_sourceColor2);
+
+    float mappedSmoothness = mix(0.001, 0.5, u_smoothness * u_smoothness);
+    float feather = max(0.05, mappedSmoothness * 2.5);
+    vec2 center = vec2(u_centerX * u_aspectRatio, u_centerY);
+    vec2 aspectUV = vec2(uv.x * u_aspectRatio, uv.y);
+
+    float size = max(u_cellSize * 1.15, 0.0345);
+    vec2 cellIndex = floor(aspectUV / size);
+    vec2 cellCenter = (cellIndex + 0.5) * size;
+    vec2 inCell = abs(aspectUV - cellCenter) / (size * 0.5);
+    float diamondMetric = inCell.x + inCell.y;
+
+    float maxDist = length(max(center, vec2(u_aspectRatio, 1.0) - center));
+    float delay = (distance(cellCenter, center) / max(maxDist, 0.001)) * 0.4;
+    float localProgress = clamp((u_progress - delay) / max(1.0 - delay, 0.0001), 0.0, 1.0);
+    float radius = localProgress * (2.0 + 2.0 * feather) - feather;
+    float factor = smoothstep(radius - feather, radius + feather, diamondMetric);
+    gl_FragColor = mix(color2, color1, factor);
+}
+)";
+
+  constexpr char kGoldenFragment[] = R"(
+uniform float u_angle;
+uniform float u_centerX;
+uniform float u_centerY;
+uniform float u_aspectRatio;
+uniform float u_smoothness;
+
+void main() {
+    vec2 uv = v_texcoord;
+    vec4 color1 = sampleSource(u_source1, uv, u_imageWidth1, u_imageHeight1, u_sourceKind1, u_sourceColor1);
+    vec4 color2 = sampleSource(u_source2, uv, u_imageWidth2, u_imageHeight2, u_sourceKind2, u_sourceColor2);
+
+    float mappedSmoothness = mix(0.001, 0.5, u_smoothness * u_smoothness);
+    float feather = max(0.02, mappedSmoothness * 1.6);
+    vec2 center = vec2(u_centerX * u_aspectRatio, u_centerY);
+    vec2 aspectUV = vec2(uv.x * u_aspectRatio, uv.y);
+    vec2 delta = aspectUV - center;
+    float dist = length(delta);
+    float angle = atan(delta.y, delta.x);
+
+    float maxDist = length(max(center, vec2(u_aspectRatio, 1.0) - center));
+
+    // Golden ratio logarithmic spiral (growth rate b = ln(1.6180339887) / (pi / 2) ≈ 0.306349)
+    float b = 0.306349;
+    float phase = radians(u_angle) + u_progress * 6.2831853;
+    float deltaTheta = mod(angle - phase, 6.2831853);
+    float goldenDist = (dist / max(maxDist, 0.001)) * exp(-b * deltaTheta);
+
+    float edge = u_progress * (1.0 + 2.0 * feather) - feather;
+    float factor = smoothstep(edge - feather, edge + feather, goldenDist);
+    gl_FragColor = mix(color2, color1, factor);
+}
+)";
+
+  constexpr char kMeltFragment[] = R"(
+uniform float u_angle;
+uniform float u_smoothness;
+
+void main() {
+    vec2 uv = v_texcoord;
+    vec4 color1 = sampleSource(u_source1, uv, u_imageWidth1, u_imageHeight1, u_sourceKind1, u_sourceColor1);
+    vec4 color2 = sampleSource(u_source2, uv, u_imageWidth2, u_imageHeight2, u_sourceKind2, u_sourceColor2);
+
+    float mappedSmoothness = mix(0.001, 0.5, u_smoothness * u_smoothness);
+    float feather = max(0.02, mappedSmoothness * 1.5);
+
+    // Multi-harmonic organic liquid melt wave
+    float wave = sin(uv.x * 14.0 + radians(u_angle)) * 0.05
+               + sin(uv.x * 32.0 - radians(u_angle) * 1.5) * 0.025
+               + cos(uv.x * 7.0 + 1.2) * 0.04;
+
+    float drip = uv.y + wave;
+    float maxSpan = 1.0 + 0.115;
+    float edge = u_progress * (maxSpan + 2.0 * feather) - feather - 0.0575;
+    float factor = smoothstep(edge - feather, edge + feather, drip);
+    gl_FragColor = mix(color2, color1, factor);
+}
+)";
+
 } // namespace
 
 void WallpaperProgram::ensureInitialized() {
-  if (m_programs[0].program.isValid()) {
+  // Eagerly initialize only the default Fade program; all others compile lazily on demand
+  ensureProgram(static_cast<std::size_t>(WallpaperTransition::Fade));
+}
+
+// Contributed section: lazy compilation and safe fallback for wallpaper transition shaders
+void WallpaperProgram::ensureProgram(std::size_t index) const {
+  if (index >= kTransitionCount || m_programs[index].program.isValid() || m_failed[index]) {
     return;
   }
 
-  initProgram(static_cast<std::size_t>(WallpaperTransition::Fade), kFadeFragment);
-  initProgram(static_cast<std::size_t>(WallpaperTransition::Wipe), kWipeFragment);
-  initProgram(static_cast<std::size_t>(WallpaperTransition::Disc), kDiscFragment);
-  initProgram(static_cast<std::size_t>(WallpaperTransition::Stripes), kStripesFragment);
-  initProgram(static_cast<std::size_t>(WallpaperTransition::Zoom), kZoomFragment);
-  initProgram(static_cast<std::size_t>(WallpaperTransition::Honeycomb), kHoneycombFragment);
+  try {
+    switch (static_cast<WallpaperTransition>(index)) {
+    case WallpaperTransition::Fade:
+      initProgram(index, kFadeFragment);
+      break;
+    case WallpaperTransition::Wipe:
+      initProgram(index, kWipeFragment);
+      break;
+    case WallpaperTransition::Disc:
+      initProgram(index, kDiscFragment);
+      break;
+    case WallpaperTransition::Stripes:
+      initProgram(index, kStripesFragment);
+      break;
+    case WallpaperTransition::Zoom:
+      initProgram(index, kZoomFragment);
+      break;
+    case WallpaperTransition::Honeycomb:
+      initProgram(index, kHoneycombFragment);
+      break;
+    case WallpaperTransition::Vortex:
+      initProgram(index, kVortexFragment);
+      break;
+    case WallpaperTransition::Pixel:
+      initProgram(index, kPixelFragment);
+      break;
+    case WallpaperTransition::Diamond:
+      initProgram(index, kDiamondFragment);
+      break;
+    case WallpaperTransition::Golden:
+      initProgram(index, kGoldenFragment);
+      break;
+    case WallpaperTransition::Melt:
+      initProgram(index, kMeltFragment);
+      break;
+    }
+  } catch (const std::exception& e) {
+    m_failed[index] = true;
+    kLog.error("failed to compile wallpaper shader for transition {}: {}", index, e.what());
+    if (index != static_cast<std::size_t>(WallpaperTransition::Fade)) {
+      ensureProgram(static_cast<std::size_t>(WallpaperTransition::Fade));
+    }
+  }
 }
 
 void WallpaperProgram::destroy() {
+  m_failed.fill(false);
   for (auto& pd : m_programs) {
     pd.program.destroy();
   }
 }
 
 void WallpaperProgram::abandon() noexcept {
+  m_failed.fill(false);
   for (auto& pd : m_programs) {
     pd.program.abandon();
   }
 }
 
-void WallpaperProgram::initProgram(std::size_t index, const char* fragSource) {
+void WallpaperProgram::initProgram(std::size_t index, const char* fragSource) const {
   const std::string fullFrag =
       std::string(kCommonPrefix) + std::string(wallpaper_shader::kSamplingSource) + kCommonSuffix + fragSource;
 
@@ -364,8 +564,17 @@ void WallpaperProgram::initProgram(std::size_t index, const char* fragSource) {
 
 void WallpaperProgram::draw(const WallpaperDrawParams& p) const {
   auto idx = static_cast<std::size_t>(p.transition);
-  if (idx >= kTransitionCount || !m_programs[idx].program.isValid() || p.quadWidth <= 0.0F || p.quadHeight <= 0.0F) {
+  if (idx >= kTransitionCount || p.quadWidth <= 0.0F || p.quadHeight <= 0.0F) {
     return;
+  }
+  ensureProgram(idx);
+  if (!m_programs[idx].program.isValid()) {
+    // Contributed: fall back safely to Fade if requested transition failed to compile
+    idx = static_cast<std::size_t>(WallpaperTransition::Fade);
+    ensureProgram(idx);
+    if (!m_programs[idx].program.isValid()) {
+      return;
+    }
   }
   if (p.from.kind == WallpaperSourceKind::Image && p.from.texture == 0) {
     return;

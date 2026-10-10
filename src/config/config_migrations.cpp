@@ -28,6 +28,8 @@ namespace noctalia::config {
     constexpr int kPluginAutoUpdateModeMigrationVersion = 13;
     constexpr int kCalendarEventFormatsMigrationVersion = 14;
     constexpr int kDockMonitorOverridesMigrationVersion = 15;
+    // Contributed: migration version for legacy transition aliases (newan1..newan5 -> vortex..melt)
+    constexpr int kTransitionAnimationAliasesMigrationVersion = 16;
     constexpr std::int64_t kMaxBarRadius = 500;
     constexpr std::array<std::string_view, 5> kBarRadiusKeys = {
         "radius", "radius_top_left", "radius_top_right", "radius_bottom_left", "radius_bottom_right",
@@ -777,6 +779,63 @@ namespace noctalia::config {
       });
     }
 
+    // Contributed section: migrate legacy transition animation names (newan1..newan5 -> vortex..melt)
+    template <typename OnChanged>
+    void migrateTransitionArray(
+        toml::table& parent, std::string_view key, std::string_view parentPath, OnChanged& onChanged
+    ) {
+      auto* arr = parent[key].as_array();
+      if (arr == nullptr) {
+        return;
+      }
+      toml::array newArr;
+      bool modified = false;
+      for (const auto& item : *arr) {
+        if (auto s = item.value<std::string>()) {
+          std::string_view val = *s;
+          std::string canonical;
+          if (val == "newan1") {
+            canonical = "vortex";
+          } else if (val == "newan2") {
+            canonical = "pixel";
+          } else if (val == "newan3") {
+            canonical = "diamond";
+          } else if (val == "newan4") {
+            canonical = "golden";
+          } else if (val == "newan5") {
+            canonical = "melt";
+          }
+          if (!canonical.empty()) {
+            newArr.push_back(canonical);
+            modified = true;
+          } else {
+            newArr.push_back(*s);
+          }
+        } else {
+          newArr.push_back(item);
+        }
+      }
+      if (modified) {
+        parent.insert_or_assign(key, std::move(newArr));
+        onChanged(std::string(parentPath) + "." + std::string(key));
+      }
+    }
+
+    template <typename OnChanged> void migrateTransitionAnimationAliases(toml::table& root, OnChanged&& onChanged) {
+      if (auto* wallpaper = root["wallpaper"].as_table()) {
+        migrateTransitionArray(*wallpaper, "transition", "wallpaper", onChanged);
+      }
+      if (auto* lockscreen = root["lockscreen"].as_table()) {
+        migrateTransitionArray(*lockscreen, "transition", "lockscreen", onChanged);
+      }
+    }
+
+    void migrateTransitionAnimationAliasesSidecar(toml::table& root, schema::Diagnostics& diag) {
+      migrateTransitionAnimationAliases(root, [&diag](const std::string& path) {
+        diag.warn(path, "migrated legacy newan1-newan5 transition names to canonical names");
+      });
+    }
+
     std::uint64_t stableIssueHash(int migrationVersion, std::string_view path) {
       constexpr std::uint64_t kOffset = 14695981039346656037ULL;
       constexpr std::uint64_t kPrime = 1099511628211ULL;
@@ -888,6 +947,12 @@ namespace noctalia::config {
             .toVersion = kDockMonitorOverridesMigrationVersion,
             .summary = "dock: migrate monitor allow-list to per-monitor enabled overrides",
             .apply = migrateDockMonitorAllowListSidecar,
+        },
+        // Contributed: migration 16 for legacy transition aliases
+        {
+            .toVersion = kTransitionAnimationAliasesMigrationVersion,
+            .summary = "transitions: migrate legacy newan1-newan5 names to vortex, pixel, diamond, golden, melt",
+            .apply = migrateTransitionAnimationAliasesSidecar,
         },
     };
     return migrations;
@@ -1049,6 +1114,14 @@ namespace noctalia::config {
           .migrationVersion = kDockMonitorOverridesMigrationVersion,
           .path = path,
           .message = "dock monitors is deprecated; use per-monitor enabled overrides",
+      });
+    });
+    // Contributed: report legacy transition names issue
+    migrateTransitionAnimationAliases(root, [&issues](const std::string& path) {
+      issues.push_back({
+          .migrationVersion = kTransitionAnimationAliasesMigrationVersion,
+          .path = path,
+          .message = "transition effect names newan1-newan5 are deprecated; use vortex, pixel, diamond, golden, melt",
       });
     });
   }

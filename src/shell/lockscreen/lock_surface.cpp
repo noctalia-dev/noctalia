@@ -1088,8 +1088,9 @@ void LockSurface::beginEnterAnimation() {
   m_transitionPhase = TransitionPhase::Entering;
   m_transitionProgress = 0.0F;
   syncTransitionCover();
+  const float durationMs = m_transitionDurationMs;
   m_transitionAnimation = m_animations.animateTimer(
-      0.0F, 1.0F, m_transitionDurationMs, Easing::EaseInOutCubic,
+      0.0F, 1.0F, durationMs, Easing::EaseInOutCubic,
       [this](float progress) {
         m_transitionProgress = progress;
         syncTransitionCover();

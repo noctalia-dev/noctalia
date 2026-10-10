@@ -1511,10 +1511,15 @@
       },
       "lockscreen": {
         "transition": {
+          "diamond": "Diamond",
           "disc": "Disc",
           "fade": "Fade",
+          "golden": "Golden",
           "honeycomb": "Honeycomb",
+          "melt": "Melt",
+          "pixel": "Pixel",
           "stripes": "Stripes",
+          "vortex": "Vortex",
           "wipe": "Wipe",
           "zoom": "Zoom"
         }
@@ -1616,10 +1621,15 @@
           "random": "Random"
         },
         "transition": {
+          "diamond": "Diamond",
           "disc": "Disc",
           "fade": "Fade",
+          "golden": "Golden",
           "honeycomb": "Honeycomb",
+          "melt": "Melt",
+          "pixel": "Pixel",
           "stripes": "Stripes",
+          "vortex": "Vortex",
           "wipe": "Wipe",
           "zoom": "Zoom"
         }

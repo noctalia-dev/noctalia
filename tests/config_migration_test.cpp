@@ -1036,6 +1036,37 @@ radius = -10
     expect(g_syntheticMigrationApplications == 1, "synthetic upgrade did not execute exactly one pending body");
   }
 
+  // Contributed test: verify migration of legacy transition names (newan1..newan5 -> vortex..melt)
+  void checkTransitionAnimationAliasesMigration() {
+    toml::table root = toml::parse(R"(
+[wallpaper]
+transition = ["fade", "newan1", "newan2", "newan3", "newan4", "newan5"]
+
+[lockscreen]
+transition = ["newan1", "disc", "newan4"]
+)");
+
+    noctalia::config::LegacyConfigIssues issues;
+    noctalia::config::normalizeLegacyConfig(root, issues);
+
+    auto* wpArr = root["wallpaper"]["transition"].as_array();
+    expect(wpArr != nullptr, "wallpaper transition array is missing");
+    expect(wpArr->size() == 6, "wallpaper transition array size mismatch");
+    expect((*wpArr)[1].value<std::string>() == "vortex", "newan1 not migrated to vortex");
+    expect((*wpArr)[2].value<std::string>() == "pixel", "newan2 not migrated to pixel");
+    expect((*wpArr)[3].value<std::string>() == "diamond", "newan3 not migrated to diamond");
+    expect((*wpArr)[4].value<std::string>() == "golden", "newan4 not migrated to golden");
+    expect((*wpArr)[5].value<std::string>() == "melt", "newan5 not migrated to melt");
+
+    auto* lsArr = root["lockscreen"]["transition"].as_array();
+    expect(lsArr != nullptr, "lockscreen transition array is missing");
+    expect((*lsArr)[0].value<std::string>() == "vortex", "lockscreen newan1 not migrated to vortex");
+    expect((*lsArr)[2].value<std::string>() == "golden", "lockscreen newan4 not migrated to golden");
+
+    expect(hasIssuePath(issues, "wallpaper.transition"), "wallpaper.transition issue missing");
+    expect(hasIssuePath(issues, "lockscreen.transition"), "lockscreen.transition issue missing");
+  }
+
 } // namespace
 
 int main() {
@@ -1054,6 +1085,8 @@ int main() {
   checkKeyboardLayoutCustomLabelsMigration();
   checkWorkspacesDisplayMigration();
   checkPluginAutoUpdateModeMigration();
+  // Contributed test call
+  checkTransitionAnimationAliasesMigration();
   checkVersionGating();
   checkReminderFingerprint();
   checkRegistryOrdering();

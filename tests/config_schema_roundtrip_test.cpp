@@ -703,6 +703,23 @@ location = "https://example.invalid/bad"
         fail("lockscreen.transition: invalid entries were not reported");
       }
     }
+    // Contributed test: legacy transition aliases (newan1..newan5) parse into canonical enums
+    {
+      auto t = toml::parse(R"(transition = ["newan1", "newan2", "newan3", "newan4", "newan5"])");
+      LockscreenConfig lockscreen{};
+      Diagnostics d;
+      readInto(t, lockscreen, lockscreenSchema(), "lockscreen", d);
+      const std::vector<LockscreenTransition> expected = {
+          LockscreenTransition::Vortex, LockscreenTransition::Pixel, LockscreenTransition::Diamond,
+          LockscreenTransition::Golden, LockscreenTransition::Melt,
+      };
+      if (lockscreen.transitions != expected) {
+        fail("lockscreen.transition: legacy newan1..newan5 aliases were not parsed correctly");
+      }
+      if (d.hasErrors() || !d.entries.empty()) {
+        fail("lockscreen.transition: legacy newan1..newan5 produced unexpected diagnostics warnings");
+      }
+    }
     // Grace period is strictly opt-in: a config that never mentions the key keeps
     // requiring authentication, and an explicit 0 stays disabled.
     {

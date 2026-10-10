@@ -62,10 +62,8 @@ vec2 hex_round(float q, float r) {
 }
 
 float max_distance_to_corners(vec2 center, float aspect) {
-    float result = distance(center, vec2(0.0, 0.0));
-    result = max(result, distance(center, vec2(aspect, 0.0)));
-    result = max(result, distance(center, vec2(0.0, 1.0)));
-    return max(result, distance(center, vec2(aspect, 1.0)));
+    vec2 corner_delta = max(center, vec2(aspect, 1.0) - center);
+    return length(corner_delta);
 }
 
 float wipe_coverage(vec2 uv, float progress, float smoothness) {
@@ -135,6 +133,82 @@ float honeycomb_coverage(vec2 uv, float progress, float smoothness) {
     float radius = progress * (max_dist + 2.0 * smoothness) - smoothness;
     return smoothstep(radius - smoothness, radius + smoothness, distance(cell_center, center));
 }
+// Contributed section: custom lockscreen transition shaders (Vortex, Pixel, Diamond, Golden, Melt)
+float vortex_coverage(vec2 uv, float progress, float smoothness) {
+    vec2 aspect_uv = vec2(uv.x * u_aspect_ratio, uv.y);
+    vec2 center = vec2(u_center.x * u_aspect_ratio, u_center.y);
+    vec2 delta = aspect_uv - center;
+    float dist = length(delta);
+    float angle = atan(delta.y, delta.x) + (1.0 - progress) * 3.14159265;
+    float norm_angle = (angle + 3.14159265) / 6.2831853;
+    float arms = 3.0;
+    float spiral = dist + fract(norm_angle * arms) * 0.25;
+    float max_dist = max_distance_to_corners(center, u_aspect_ratio);
+    float feather = max(0.015, smoothness * 1.5);
+    float edge = progress * (max_dist + 0.25 + 2.0 * feather) - feather;
+    return smoothstep(edge - feather, edge + feather, spiral);
+}
+
+float pixelate_coverage(vec2 uv, float progress, float smoothness) {
+    vec2 aspect_uv = vec2(uv.x * u_aspect_ratio, uv.y);
+    vec2 center = vec2(u_center.x * u_aspect_ratio, u_center.y);
+    float size = max(u_cell_size * 0.75, 0.02);
+    vec2 cell = floor(aspect_uv / size);
+    float noise = fract(sin(dot(cell, vec2(12.9898, 78.233))) * 43758.5453);
+    float max_dist = max_distance_to_corners(center, u_aspect_ratio);
+    float dist_norm = distance(aspect_uv, center) / max(max_dist, 0.001);
+    float threshold = mix(dist_norm, noise, 0.35);
+    float feather = max(0.02, smoothness * 1.5);
+    float edge = progress * (1.0 + 2.0 * feather) - feather;
+    return smoothstep(edge - feather, edge + feather, threshold);
+}
+
+float diamond_coverage(vec2 uv, float progress, float smoothness) {
+    vec2 aspect_uv = vec2(uv.x * u_aspect_ratio, uv.y);
+    vec2 center = vec2(u_center.x * u_aspect_ratio, u_center.y);
+    float size = max(u_cell_size * 1.15, 0.0345);
+    vec2 cell_index = floor(aspect_uv / size);
+    vec2 cell_center = (cell_index + 0.5) * size;
+    vec2 in_cell = abs(aspect_uv - cell_center) / (size * 0.5);
+    float diamond_metric = in_cell.x + in_cell.y;
+    float max_dist = max_distance_to_corners(center, u_aspect_ratio);
+    float delay = (distance(cell_center, center) / max(max_dist, 0.001)) * 0.4;
+    float local_progress = clamp((progress - delay) / max(1.0 - delay, 0.0001), 0.0, 1.0);
+    float feather = max(0.05, smoothness * 2.5);
+    float radius = local_progress * (2.0 + 2.0 * feather) - feather;
+    return smoothstep(radius - feather, radius + feather, diamond_metric);
+}
+
+float golden_coverage(vec2 uv, float progress, float smoothness) {
+    vec2 aspect_uv = vec2(uv.x * u_aspect_ratio, uv.y);
+    vec2 center = vec2(u_center.x * u_aspect_ratio, u_center.y);
+    vec2 delta = aspect_uv - center;
+    float dist = length(delta);
+    float angle = atan(delta.y, delta.x);
+    float max_dist = max_distance_to_corners(center, u_aspect_ratio);
+
+    // Golden ratio logarithmic spiral (growth rate b = ln(1.6180339887) / (pi / 2) ≈ 0.306349)
+    float b = 0.306349;
+    float phase = radians(u_angle) + progress * 6.2831853;
+    float delta_theta = mod(angle - phase, 6.2831853);
+    float golden_dist = (dist / max(max_dist, 0.001)) * exp(-b * delta_theta);
+
+    float feather = max(0.02, smoothness * 1.6);
+    float edge = progress * (1.0 + 2.0 * feather) - feather;
+    return smoothstep(edge - feather, edge + feather, golden_dist);
+}
+
+float melt_coverage(vec2 uv, float progress, float smoothness) {
+    float feather = max(0.02, smoothness * 1.5);
+    float wave = sin(uv.x * 14.0 + radians(u_angle)) * 0.05
+               + sin(uv.x * 32.0 - radians(u_angle) * 1.5) * 0.025
+               + cos(uv.x * 7.0 + 1.2) * 0.04;
+
+    float drip = uv.y + wave;
+    float max_span = 1.0 + 0.115;
+    float edge = progress * (max_span + 2.0 * feather) - feather - 0.0575;
+    return smoothstep(edge - feather, edge + feather, drip);
+}
 
 void main() {
     float progress = clamp(u_progress, 0.0, 1.0);
@@ -158,8 +232,19 @@ void main() {
         float scale = 1.0 + 0.15 * progress;
         uv = (uv - 0.5) / scale + 0.5;
         coverage = 1.0 - progress;
-    } else {
+    } else if (u_transition < 5.5) {
         coverage = honeycomb_coverage(uv, progress, smoothness);
+    // Contributed section: branch into custom lockscreen transition shaders
+    } else if (u_transition < 6.5) {
+        coverage = vortex_coverage(uv, progress, smoothness);
+    } else if (u_transition < 7.5) {
+        coverage = pixelate_coverage(uv, progress, smoothness);
+    } else if (u_transition < 8.5) {
+        coverage = diamond_coverage(uv, progress, smoothness);
+    } else if (u_transition < 9.5) {
+        coverage = golden_coverage(uv, progress, smoothness);
+    } else {
+        coverage = melt_coverage(uv, progress, smoothness);
     }
 
     vec4 texel = texture2D(u_texture, uv);

@@ -491,6 +491,12 @@ enum class WallpaperTransition : std::uint8_t {
   Stripes = 3,
   Zoom = 4,
   Honeycomb = 5,
+  // Contributed: custom transition options (Vortex, Pixel, Diamond, Golden, Melt)
+  Vortex = 6,
+  Pixel = 7,
+  Diamond = 8,
+  Golden = 9,
+  Melt = 10,
 };
 
 enum class LockscreenTransition : std::uint8_t {
@@ -500,6 +506,12 @@ enum class LockscreenTransition : std::uint8_t {
   Stripes = 3,
   Zoom = 4,
   Honeycomb = 5,
+  // Contributed: custom transition options (Vortex, Pixel, Diamond, Golden, Melt)
+  Vortex = 6,
+  Pixel = 7,
+  Diamond = 8,
+  Golden = 9,
+  Melt = 10,
 };
 
 struct WallpaperMonitorOverride {
@@ -531,9 +543,12 @@ struct WallpaperConfig {
   bool enabled = true;
   WallpaperFillMode fillMode = WallpaperFillMode::Crop;
   std::optional<ColorSpec> fillColor;
-  std::vector<WallpaperTransition> transitions = {WallpaperTransition::Fade, WallpaperTransition::Wipe,
-                                                  WallpaperTransition::Disc, WallpaperTransition::Stripes,
-                                                  WallpaperTransition::Zoom, WallpaperTransition::Honeycomb};
+  std::vector<WallpaperTransition> transitions = {WallpaperTransition::Fade,    WallpaperTransition::Wipe,
+                                                  WallpaperTransition::Disc,    WallpaperTransition::Stripes,
+                                                  WallpaperTransition::Zoom,    WallpaperTransition::Honeycomb,
+                                                  WallpaperTransition::Vortex,  WallpaperTransition::Pixel,
+                                                  WallpaperTransition::Diamond, WallpaperTransition::Golden,
+                                                  WallpaperTransition::Melt};
   float transitionDurationMs = 1500.0F;
   float edgeSmoothness = 0.3F;
   bool transitionOnStartup = false;
@@ -569,9 +584,12 @@ struct LockscreenConfig {
   bool fingerprint = true;
   bool allowEmptyPassword = false;
   bool blurredDesktop = false;
-  std::vector<LockscreenTransition> transitions = {LockscreenTransition::Fade, LockscreenTransition::Wipe,
-                                                   LockscreenTransition::Disc, LockscreenTransition::Stripes,
-                                                   LockscreenTransition::Zoom, LockscreenTransition::Honeycomb};
+  std::vector<LockscreenTransition> transitions = {LockscreenTransition::Fade,    LockscreenTransition::Wipe,
+                                                   LockscreenTransition::Disc,    LockscreenTransition::Stripes,
+                                                   LockscreenTransition::Zoom,    LockscreenTransition::Honeycomb,
+                                                   LockscreenTransition::Vortex,  LockscreenTransition::Pixel,
+                                                   LockscreenTransition::Diamond, LockscreenTransition::Golden,
+                                                   LockscreenTransition::Melt};
   float transitionDurationMs = 1500.0F;
   float edgeSmoothness = 0.3F;
   float blurIntensity = 0.5F;
@@ -603,6 +621,29 @@ constexpr std::optional<T> enumFromKey(const EnumOption<T> (&options)[N], std::s
       return opt.value;
     }
   }
+
+  // Contributed section: support legacy transition animation aliases (newan1..newan5 -> vortex..melt)
+  std::string_view canonicalKey{};
+  if (key == "newan1") {
+    canonicalKey = "vortex";
+  } else if (key == "newan2") {
+    canonicalKey = "pixel";
+  } else if (key == "newan3") {
+    canonicalKey = "diamond";
+  } else if (key == "newan4") {
+    canonicalKey = "golden";
+  } else if (key == "newan5") {
+    canonicalKey = "melt";
+  }
+
+  if (!canonicalKey.empty()) {
+    for (const auto& opt : options) {
+      if (opt.key == canonicalKey) {
+        return opt.value;
+      }
+    }
+  }
+
   return std::nullopt;
 }
 
@@ -995,20 +1036,32 @@ constexpr EnumOption<WallpaperAutomationConfig::Order> kWallpaperAutomationOrder
     {WallpaperAutomationConfig::Order::Alphabetical, "alphabetical", "settings.options.wallpaper.order.alphabetical"},
 };
 
+// Contributed: expanded wallpaper transition options with Diamond, Golden, Melt, Pixel, Vortex
 constexpr EnumOption<WallpaperTransition> kWallpaperTransitions[] = {
+    {WallpaperTransition::Diamond, "diamond", "settings.options.wallpaper.transition.diamond"},
     {WallpaperTransition::Disc, "disc", "settings.options.wallpaper.transition.disc"},
     {WallpaperTransition::Fade, "fade", "settings.options.wallpaper.transition.fade"},
+    {WallpaperTransition::Golden, "golden", "settings.options.wallpaper.transition.golden"},
     {WallpaperTransition::Honeycomb, "honeycomb", "settings.options.wallpaper.transition.honeycomb"},
+    {WallpaperTransition::Melt, "melt", "settings.options.wallpaper.transition.melt"},
+    {WallpaperTransition::Pixel, "pixel", "settings.options.wallpaper.transition.pixel"},
     {WallpaperTransition::Stripes, "stripes", "settings.options.wallpaper.transition.stripes"},
+    {WallpaperTransition::Vortex, "vortex", "settings.options.wallpaper.transition.vortex"},
     {WallpaperTransition::Wipe, "wipe", "settings.options.wallpaper.transition.wipe"},
     {WallpaperTransition::Zoom, "zoom", "settings.options.wallpaper.transition.zoom"},
 };
 
+// Contributed: expanded lockscreen transition options with Diamond, Golden, Melt, Pixel, Vortex
 constexpr EnumOption<LockscreenTransition> kLockscreenTransitions[] = {
+    {LockscreenTransition::Diamond, "diamond", "settings.options.lockscreen.transition.diamond"},
     {LockscreenTransition::Disc, "disc", "settings.options.lockscreen.transition.disc"},
     {LockscreenTransition::Fade, "fade", "settings.options.lockscreen.transition.fade"},
+    {LockscreenTransition::Golden, "golden", "settings.options.lockscreen.transition.golden"},
     {LockscreenTransition::Honeycomb, "honeycomb", "settings.options.lockscreen.transition.honeycomb"},
+    {LockscreenTransition::Melt, "melt", "settings.options.lockscreen.transition.melt"},
+    {LockscreenTransition::Pixel, "pixel", "settings.options.lockscreen.transition.pixel"},
     {LockscreenTransition::Stripes, "stripes", "settings.options.lockscreen.transition.stripes"},
+    {LockscreenTransition::Vortex, "vortex", "settings.options.lockscreen.transition.vortex"},
     {LockscreenTransition::Wipe, "wipe", "settings.options.lockscreen.transition.wipe"},
     {LockscreenTransition::Zoom, "zoom", "settings.options.lockscreen.transition.zoom"},
 };
