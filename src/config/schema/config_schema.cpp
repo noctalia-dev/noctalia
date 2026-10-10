@@ -1439,9 +1439,9 @@ namespace noctalia::config::schema {
           enumField(
               &ShellConfig::LauncherConfig::searchPosition, "search_position", ShellConfig::kLauncherSearchPositions
           ),
+          enumField(&ShellConfig::LauncherConfig::defaultView, "default_view", ShellConfig::kLauncherDefaultViews),
           field(&ShellConfig::LauncherConfig::showSettingsButton, "show_settings_button"),
           field(&ShellConfig::LauncherConfig::showSessionButton, "show_session_button"),
-          field(&ShellConfig::LauncherConfig::categories, "categories"),
           field(&ShellConfig::LauncherConfig::showIcons, "show_icons"),
           field(&ShellConfig::LauncherConfig::showAppOriginIndicator, "show_app_origin_indicator"),
           field(&ShellConfig::LauncherConfig::compact, "compact"),

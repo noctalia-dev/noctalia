@@ -68,7 +68,7 @@ public:
 
 private:
   enum ActiveCategoryType { All, Pinned, RecentlyUsed, Category };
-  enum class ResultsTransition : std::uint8_t { None, Search, Navigation };
+  enum class ResultsTransition : std::uint8_t { None, NavigationForward, NavigationBackward };
 
   struct CategoryFilterSlot {
     ActiveCategoryType type;
@@ -96,13 +96,15 @@ private:
   void finishActivation(LauncherProvider& provider, const std::string& resultId, bool copied);
   [[nodiscard]] std::vector<LauncherResult> providerOverviewResults(std::string_view text) const;
   [[nodiscard]] bool openAppActionsMenu(std::size_t index, float anchorX, float anchorY);
+  [[nodiscard]] bool openLauncherOptionsMenu();
   void updateCategoryFilterModel(const std::vector<LauncherCategory>& categories);
   void rebuildCategoryFilter();
   void rebuildLauncherNavigation();
+  void applyDefaultView();
   void updateCategorySelectionChrome();
-  void updateLauncherSectionTitle();
   void setCategoryFilterVisible(bool visible);
   void setActiveCategorySlot(std::size_t slotIndex);
+  void setActiveBrowserCategory(std::size_t categoryIndex);
   void applyActiveCategory();
   void syncLauncherListStyle();
   void syncLauncherViewLayout(Renderer* renderer = nullptr);
@@ -135,14 +137,12 @@ private:
   Flex* m_body = nullptr;
   Flex* m_resultsViewport = nullptr;
   Flex* m_launcherToolbar = nullptr;
-  Flex* m_launcherNavigation = nullptr;
-  Label* m_launcherSectionTitle = nullptr;
+  Segmented* m_launcherNavigation = nullptr;
   Image* m_launcherAvatar = nullptr;
   Glyph* m_launcherAvatarFallback = nullptr;
   Button* m_launcherSettingsButton = nullptr;
+  Button* m_launcherOptionsButton = nullptr;
   Button* m_launcherPowerButton = nullptr;
-  Button* m_launcherProvidersButton = nullptr;
-  std::vector<Button*> m_launcherCategoryButtons;
   VirtualGridView* m_grid = nullptr;
   VirtualListView* m_launcherSections = nullptr;
   ScrollView* m_detailScroll = nullptr;
@@ -164,9 +164,10 @@ private:
   bool m_hasRecentlyUsed = false;
   bool m_hasPinnedApplications = false;
   bool m_categoryFilterRebuildPending = false;
+  bool m_applyDefaultViewPending = false;
+  bool m_syncingLauncherNavigation = false;
   std::size_t m_selectedIndex = 0;
   std::size_t m_activeCategorySlotIndex = 0;
-  bool m_categoryFilterVisible = true;
   bool m_browserMode = false;
   bool m_showingProviderOverview = false;
   std::string m_launcherProviderViewId;
@@ -176,6 +177,8 @@ private:
   bool m_launcherAppGrid = false;
   bool m_usingAppGrid = false;
   ResultsTransition m_pendingResultsTransition = ResultsTransition::None;
+  bool m_resultsTransitionActive = false;
+  float m_resultsTransitionBaseX = 0.0F;
   float m_launcherRowHeight = 0.0F;
   std::uint64_t m_desktopEntriesVersion = 0;
   ConfigService* m_config = nullptr;
@@ -183,6 +186,7 @@ private:
   AsyncTextureCache* m_asyncTextures = nullptr;
   std::string m_launcherAvatarPath;
   std::unique_ptr<ContextMenuPopup> m_actionsMenu;
+  std::unique_ptr<ContextMenuPopup> m_optionsMenu;
   Signal<>::ScopedConnection m_appIconColorizeConn;
   std::function<void()> m_onCopiedActivation;
 };

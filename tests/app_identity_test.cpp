@@ -153,6 +153,12 @@ namespace {
       entry << "[Desktop Entry]\nType=Application\nName=Native App\nExec=native-app\n";
     }
     {
+      std::ofstream entry(applications / "appimage-opt-out.desktop");
+      entry
+          << "[Desktop Entry]\nType=Application\nName=AppImage Opt Out\nExec=native-app\n"
+          << "X-AppImage-Integrate=false\n";
+    }
+    {
       std::ofstream entry(applications / "path.desktop");
       entry << "[Desktop Entry]\nType=Application\nName=PATH AppImage\nExec=path-appimage\n";
     }
@@ -198,6 +204,7 @@ namespace {
     TEST_CHECK(findOrigin("portable") == DesktopEntryOrigin::AppImage);
     TEST_CHECK(findOrigin("suffix") == DesktopEntryOrigin::AppImage);
     TEST_CHECK(findOrigin("native") == DesktopEntryOrigin::System);
+    TEST_CHECK(findOrigin("appimage-opt-out") == DesktopEntryOrigin::System);
     TEST_CHECK(findOrigin("path") == DesktopEntryOrigin::AppImage);
     TEST_CHECK(findOrigin("shadowed-native") == DesktopEntryOrigin::System);
     TEST_CHECK(std::ranges::none_of(entries, [](const DesktopEntry& entry) {

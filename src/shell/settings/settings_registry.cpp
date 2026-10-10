@@ -1297,6 +1297,12 @@ namespace settings {
         "launcher search toolbar position top bottom"
     ));
     entries.push_back(makeEntry(
+        SettingsSection::Launcher, "launcher", tr("settings.schema.panels.launcher-default-view.label"),
+        tr("settings.schema.panels.launcher-default-view.description"), {"shell", "launcher", "default_view"},
+        enumSelect(ShellConfig::kLauncherDefaultViews, cfg.shell.launcher.defaultView),
+        "launcher default view recent pinned all apps categories"
+    ));
+    entries.push_back(makeEntry(
         SettingsSection::Launcher, "launcher", tr("settings.schema.panels.launcher-show-settings-button.label"),
         tr("settings.schema.panels.launcher-show-settings-button.description"),
         {"shell", "launcher", "show_settings_button"}, ToggleSetting{cfg.shell.launcher.showSettingsButton},
@@ -1307,11 +1313,6 @@ namespace settings {
         tr("settings.schema.panels.launcher-show-session-button.description"),
         {"shell", "launcher", "show_session_button"}, ToggleSetting{cfg.shell.launcher.showSessionButton},
         "launcher session power shortcut button"
-    ));
-    entries.push_back(makeEntry(
-        SettingsSection::Launcher, "launcher", tr("settings.schema.panels.launcher-categories.label"),
-        tr("settings.schema.panels.launcher-categories.description"), {"shell", "launcher", "categories"},
-        ToggleSetting{cfg.shell.launcher.categories}, "launcher categories filter"
     ));
     entries.push_back(makeEntry(
         SettingsSection::Launcher, "launcher", tr("settings.schema.panels.launcher-show-icons.label"),

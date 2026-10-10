@@ -804,14 +804,20 @@
     "search-placeholder": "Search applications…",
     "browser": {
       "actions": {
+        "options": "Launcher Options",
         "power": "Power",
         "settings": "Settings"
       },
       "navigation": {
         "all-apps": "All Apps",
+        "categories": "Categories",
         "pinned": "Pinned",
         "providers": "Providers",
         "recent": "Recent"
+      },
+      "options": {
+        "app-grid": "Grid View",
+        "sort-by-usage": "Prioritize Frequent Apps"
       },
       "sections": {
         "all-apps": "All Apps",
@@ -1574,6 +1580,12 @@
         "top-right": "Top Right"
       },
       "shell": {
+        "launcher-default-view": {
+          "all-apps": "All Apps",
+          "categories": "Categories",
+          "pinned": "Pinned",
+          "recent": "Recent"
+        },
         "launcher-search-position": {
           "bottom": "Bottom",
           "top": "Top"
@@ -2601,10 +2613,6 @@
           "description": "After calculator, emoji, and other copy activations, paste into the focused window (same shortcuts as clipboard auto-paste)",
           "label": "Auto-Paste"
         },
-        "launcher-categories": {
-          "description": "Group All Apps into desktop-entry category sections",
-          "label": "Show Categories"
-        },
         "launcher-compact": {
           "description": "Use smaller icons and tighter result rows",
           "label": "Compact Rows"
@@ -2613,9 +2621,13 @@
           "description": "Fetch rates from third party online sources",
           "label": "Currency Exchange Conversion"
         },
+        "launcher-default-view": {
+          "description": "Choose the view shown when the launcher opens without a search",
+          "label": "Default View"
+        },
         "launcher-search-position": {
-          "description": "Display the search bar at the top or bottom of the launcher",
-          "label": "Search Position"
+          "description": "Place the launcher toolbar at the top or bottom",
+          "label": "Toolbar Position"
         },
         "launcher-show-session-button": {
           "description": "Show a shortcut to the configured session actions",
@@ -2654,7 +2666,7 @@
           "label": "Panels Ignored"
         },
         "launcher-pinned-apps": {
-          "description": "Desktop entry IDs of apps pinned to the launcher; they appear first when the launcher opens",
+          "description": "Desktop entry IDs shown in manual order in the Pinned view",
           "label": "Pinned Apps"
         },
         "launcher-prefix-calculator": {
@@ -2699,7 +2711,7 @@
           "label": "Show App Icons"
         },
         "launcher-sort-by-usage": {
-          "description": "Boost frequently used apps toward the top and show a Recently Used category filter",
+          "description": "Prioritize frequently used apps and show the Recent view",
           "label": "Sort by Usage"
         },
         "list-item-background": {

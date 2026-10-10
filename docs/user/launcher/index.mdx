@@ -9,20 +9,22 @@ The Noctalia launcher is a centralized search interface that provides quick acce
 
 ## Layout
 
-The launcher combines search with compact tabs for Recent, All Apps, Pinned, and Providers. Search appears above the results by default, with profile and shortcut controls along the bottom. Search can instead sit in that bottom bar, and the Settings and session shortcuts can be hidden independently.
+The launcher combines search with compact views for Recent, Pinned, All Apps, Categories, and Providers. The Pinned view appears when at least one app is pinned. The profile, search field, launcher options, Settings shortcut, and session shortcut share one toolbar that can sit above or below the results.
 
 Configure the layout under **Settings → Panels → Launcher**, or in your config:
 
 ```toml
 [shell.launcher]
 search_position = "top"
+default_view = "recent"
 show_settings_button = true
 show_session_button = true
-categories = true
 app_grid = false
 ```
 
-`search_position = "bottom"` moves search into the profile bar. `categories` groups **All Apps** into labeled sections. `app_grid` switches application browsing, global search results, and the provider overview between rows and an icon grid. Search results from an explicitly selected or prefixed provider remain rows.
+`search_position = "bottom"` moves the whole toolbar below the results. `default_view` accepts `recent`, `pinned`, `all_apps`, or `categories`; when a conditional view is unavailable, the launcher opens All Apps. **All Apps** stays flat, while **Categories** adds a second row for switching between desktop-entry categories. `app_grid` switches application browsing, global search results, and the provider overview between rows and an icon grid. Search results from an explicitly selected or prefixed provider remain rows.
+
+The launcher-options button beside search can toggle usage-based ordering and grid view without opening Settings. These controls change the same persistent options shown under **Settings → Panels → Launcher**.
 
 ## How search works
 
@@ -39,7 +41,7 @@ The launcher tracks how often you activate specific results (applications and wa
 
 ### Application categories
 
-When categories are enabled, **All Apps** groups applications into desktop-entry categories such as Internet, Development, Games, Office, System, and Utilities.
+The **Categories** view lets you switch between desktop-entry categories such as Internet, Development, Games, Office, System, and Utilities. **All Apps** remains an uninterrupted list or grid.
 
 :::note[Application options]
 
@@ -58,11 +60,11 @@ The primary provider for finding and launching your installed apps.
 Enabling `shell.launcher.app_grid` switches application browsing, global search results, and the provider overview to a multi-column icon grid with the item name underneath. Results from an explicitly selected or prefixed provider keep the list layout. Left/right keybinds move between columns in grid mode; up/down move by row.
 
 - **Source**: Reads `.desktop` entries from standard XDG directories (e.g., `/usr/share/applications`, `~/.local/share/applications`).
-- **Package origins**: Results identify Flatpak, Snap, Nix, and AppImage applications when their desktop entries or executable metadata provide that information. AppImages are recognized from their AppImage desktop-entry metadata or executable signature, including extensionless files managed by AppImageLauncher.
+- **Package origins**: Results identify Flatpak, Snap, Nix, and AppImage applications when their desktop entries or executable metadata provide that information. AppImages are recognized from their AppImage desktop-entry metadata or executable signature, including extensionless files managed by AppImageLauncher. `X-AppImage-Integrate=false` explicitly opts a desktop entry out of AppImage classification.
 - **Search**: Matches against the application name, generic name, keywords, and categories.
 - **Desktop actions**: Set `shell.launcher.show_app_actions = true` to search and launch `.desktop` actions directly alongside applications. This is disabled by default; actions remain available from an application's right-click menu.
 - **Scoring**: Uses fuzzy matching with weights. Activation count boosts the score.
-- **Pinned apps**: Drag a pinned app onto another pinned app to reorder them. Pin markers appear in both the list and app-grid views.
+- **Pinned apps**: The Pinned view follows the configured manual order. Drag a pinned app onto another pinned app to reorder them. Pin markers appear in both the list and app-grid views.
 - **Terminal apps**: Entries with `Terminal=true` run inside a terminal. Prefer `export TERMINAL=wezterm` (or another emulator on `PATH`); do not put `-e` in `$TERMINAL`. See [Shell: launching apps](/noctalia/configuration/shell/#shell-settings) for discovery order and how this differs from `launch_apps_custom_command`.
 
 ### Calculator
@@ -232,7 +234,7 @@ supports readline-style shortcuts. Otherwise `Ctrl+A` selects all and `Ctrl+U` c
 The launcher itself is mostly automatic, but its behavior is influenced by other sections of your config:
 
 - **[Keybinds](/noctalia/configuration/shell/#keybinds)**: Customize navigation (`up`, `down`) and activation (`validate`, `cancel`).
-- **[Shell](/noctalia/configuration/shell/#shell-settings)**: `ui_scale` and `font_family` affect the launcher's appearance. `shell.launcher.search_position`, `show_settings_button`, and `show_session_button` configure the toolbar. `categories`, `show_icons`, `show_app_origin_indicator`, `compact`, `app_grid`, `show_app_actions`, `sort_by_usage`, `pinned`, `fetch_exchange_rates`, and `auto_paste` adjust result layout, origin overlays, action search, ordering, pinning, currency rate refresh, and paste-after-copy (Settings → Launcher). `[shell.launcher.dmenu.entry.<id>]` adds custom dmenu-style providers backed by a shell command.
+- **[Shell](/noctalia/configuration/shell/#shell-settings)**: `ui_scale` and `font_family` affect the launcher's appearance. `shell.launcher.search_position`, `default_view`, `show_settings_button`, and `show_session_button` configure the toolbar and opening view. `show_icons`, `show_app_origin_indicator`, `compact`, `app_grid`, `show_app_actions`, `sort_by_usage`, `pinned`, `fetch_exchange_rates`, and `auto_paste` adjust result layout, origin overlays, action search, ordering, pinning, currency rate refresh, and paste-after-copy (Settings → Launcher). `[shell.launcher.dmenu.entry.<id>]` adds custom dmenu-style providers backed by a shell command.
 - **[Wallpaper](/noctalia/desktop/wallpaper/)**: Defines the search paths for the Wallpaper provider.
 - **[Session actions](/noctalia/configuration/shell/#session-panel)**: Defines the actions shown by the Session provider.
 

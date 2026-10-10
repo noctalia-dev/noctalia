@@ -527,6 +527,7 @@ location = "https://example.invalid/bad"
     c.shell.panel.floatingLayer = "top";
     c.shell.panel.launcherPlacement = PanelPlacement::Floating;
     c.shell.launcher.searchPosition = ShellConfig::LauncherSearchPosition::Bottom;
+    c.shell.launcher.defaultView = ShellConfig::LauncherDefaultView::Categories;
     c.shell.launcher.showSettingsButton = false;
     c.shell.launcher.showSessionButton = false;
     c.shell.launcher.compact = true;

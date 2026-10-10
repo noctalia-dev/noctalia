@@ -17,6 +17,7 @@
 #include "shell/dock/pinned_apps.h"
 #include "shell/panel/panel_manager.h"
 #include "shell/profile/avatar_path.h"
+#include "shell/tooltip/tooltip_manager.h"
 #include "system/desktop_entry.h"
 #include "system/distro_info.h"
 #include "ui/app_icon_colorization.h"
@@ -1537,31 +1538,25 @@ void LauncherPanel::create() {
     body->setPadding(Style::spaceSm * scale);
     body->setGap(Style::spaceSm * scale);
     body->setCardStyle(scale, panelCardOpacity());
-    auto header = ui::row({
+    auto navigationRow = ui::row({
         .align = FlexAlign::Center,
-        .gap = Style::spaceMd * scale,
+        .justify = FlexJustify::End,
         .fillWidth = true,
     });
-    header->addChild(
-        ui::label({
-            .out = &m_launcherSectionTitle,
-            .text = i18n::tr("launcher.browser.sections.all-apps"),
-            .fontSize = Style::fontSizeTitle * scale,
-            .fontWeight = FontWeight::SemiBold,
-            .color = colorSpecFromRole(ColorRole::OnSurface),
-            .maxLines = 1,
-            .ellipsize = TextEllipsize::End,
-            .flexGrow = 1.0F,
-        })
-    );
-    header->addChild(
-        ui::row({
+    navigationRow->addChild(
+        ui::segmented({
             .out = &m_launcherNavigation,
-            .align = FlexAlign::Center,
-            .gap = Style::spaceXs * scale,
+            .scale = scale,
+            .compact = true,
+            .surfaceOpacity = panelCardOpacity(),
+            .equalSegmentWidths = false,
         })
     );
-    body->addChild(std::move(header));
+    if (m_launcherNavigation != nullptr && m_launcherNavigation->focusArea() != nullptr) {
+      m_launcherNavigation->focusArea()->setTabFocusKey("launcher.navigation");
+    }
+    body->addChild(std::move(navigationRow));
+    body->addChild(std::move(categoryFilter));
   }
 
   auto resultsViewport = ui::column({
@@ -1776,20 +1771,33 @@ void LauncherPanel::create() {
     const bool showSessionButton = m_config == nullptr || m_config->config().shell.launcher.showSessionButton;
     const bool searchOnTop = m_config == nullptr
         || m_config->config().shell.launcher.searchPosition == ShellConfig::LauncherSearchPosition::Top;
-    if (searchOnTop) {
-      toolbar->addChild(ui::spacer());
-    } else {
-      toolbar->addChild(
-          ui::separator({
-              .spacing = Style::spaceXs * scale,
-              .orientation = SeparatorOrientation::VerticalRule,
-              .gradientEdges = false,
-          })
-      );
-      input->setFlexGrow(1.0F);
-      toolbar->addChild(std::move(input));
-    }
-    toolbar->addChild(std::move(categoryFilter));
+    toolbar->addChild(
+        ui::separator({
+            .spacing = Style::spaceXs * scale,
+            .orientation = SeparatorOrientation::VerticalRule,
+            .gradientEdges = false,
+        })
+    );
+    input->setFlexGrow(1.0F);
+    toolbar->addChild(std::move(input));
+    toolbar->addChild(
+        ui::button({
+            .out = &m_launcherOptionsButton,
+            .glyph = "adjustments-horizontal",
+            .glyphSize = Style::fontSizeTitle * scale,
+            .variant = ButtonVariant::Ghost,
+            .surfaceOpacity = panelCardOpacity(),
+            .tooltip = i18n::tr("launcher.browser.actions.options"),
+            .radius = Style::scaledRadiusMd(scale),
+            .width = Style::controlHeight * scale,
+            .onClick = [this]() { (void)openLauncherOptionsMenu(); },
+            .configure =
+                [scale](Button& button) {
+                  button.setControlHeight(Style::controlHeight * scale);
+                  button.inputArea()->setTabFocusKey("launcher.options");
+                },
+        })
+    );
     if (showSettingsButton) {
       toolbar->addChild(
           ui::button({
@@ -1821,13 +1829,7 @@ void LauncherPanel::create() {
               .tooltip = i18n::tr("launcher.browser.actions.power"),
               .radius = Style::scaledRadiusMd(scale),
               .width = Style::controlHeight * scale,
-              .onClick =
-                  [this]() {
-                    showSessionActions();
-                    if (m_input != nullptr) {
-                      PanelManager::instance().focusArea(m_input->inputArea());
-                    }
-                  },
+              .onClick = [this]() { showSessionActions(); },
               .configure =
                   [scale](Button& button) {
                     button.setControlHeight(Style::controlHeight * scale);
@@ -1837,9 +1839,8 @@ void LauncherPanel::create() {
       );
     }
     if (searchOnTop) {
-      container->addChild(std::move(input));
-      container->addChild(std::move(body));
       container->addChild(std::move(toolbar));
+      container->addChild(std::move(body));
     } else {
       container->addChild(std::move(body));
       container->addChild(std::move(toolbar));
@@ -1914,9 +1915,7 @@ void LauncherPanel::queueResultsTransition(ResultsTransition transition) {
   if (!m_browserMode || transition == ResultsTransition::None) {
     return;
   }
-  if (m_pendingResultsTransition == ResultsTransition::None || transition == ResultsTransition::Navigation) {
-    m_pendingResultsTransition = transition;
-  }
+  m_pendingResultsTransition = transition;
 }
 
 void LauncherPanel::animateResultsTransition() {
@@ -1929,43 +1928,42 @@ void LauncherPanel::animateResultsTransition() {
   if (animations == nullptr) {
     m_resultsViewport->setOpacity(1.0F);
     m_resultsViewport->setScale(1.0F);
+    m_resultsTransitionActive = false;
     return;
   }
 
   animations->cancelForOwner(m_resultsViewport);
-  const bool navigation = transition == ResultsTransition::Navigation;
-  const float startOpacity = navigation ? 0.0F : 0.45F;
-  const float startScale = navigation ? 0.965F : 0.985F;
-  const auto duration = static_cast<float>(navigation ? Style::animNormal : Style::animFast);
+  if (m_resultsTransitionActive) {
+    m_resultsViewport->setPosition(m_resultsTransitionBaseX, m_resultsViewport->y());
+  }
+  constexpr float startOpacity = 0.78F;
+  const auto duration = static_cast<float>(Style::animFast);
   Flex* const viewport = m_resultsViewport;
+  const float visualDirection = transition == ResultsTransition::NavigationForward ? 1.0F : -1.0F;
+  const float direction = Style::rtl() ? -visualDirection : visualDirection;
+  const float travel = std::min(viewport->width() * 0.12F, 72.0F * contentScale());
+  m_resultsTransitionBaseX = viewport->x();
+  m_resultsTransitionActive = true;
   viewport->setOpacity(startOpacity);
-  viewport->setScale(startScale);
+  viewport->setScale(1.0F);
+  viewport->setPosition(m_resultsTransitionBaseX + direction * travel, viewport->y());
   animations->animate(
       0.0F, 1.0F, duration, Easing::EaseOutCubic,
-      [viewport, startOpacity, startScale](float progress) {
+      [this, viewport, startOpacity, direction, travel](float progress) {
         viewport->setOpacity(startOpacity + (1.0F - startOpacity) * progress);
-        viewport->setScale(startScale + (1.0F - startScale) * progress);
+        viewport->setPosition(m_resultsTransitionBaseX + direction * travel * (1.0F - progress), viewport->y());
       },
-      [viewport]() {
+      [this, viewport]() {
         viewport->setOpacity(1.0F);
         viewport->setScale(1.0F);
+        viewport->setPosition(m_resultsTransitionBaseX, viewport->y());
+        m_resultsTransitionActive = false;
       },
       viewport
   );
 }
 
-bool LauncherPanel::shouldUseLauncherSections() const {
-  return m_browserMode
-      && m_config != nullptr
-      && m_config->config().shell.launcher.categories
-      && m_query.empty()
-      && m_scopedProviderId.empty()
-      && m_activeCategoryType == All
-      && !m_results.empty()
-      && std::ranges::all_of(m_results, [](const LauncherResult& result) {
-           return result.providerId == kApplicationsProviderId;
-         });
-}
+bool LauncherPanel::shouldUseLauncherSections() const { return false; }
 
 void LauncherPanel::rebuildLauncherSections() {
   if (m_launcherSectionsAdapter == nullptr || m_launcherSections == nullptr) {
@@ -2001,8 +1999,7 @@ void LauncherPanel::syncLauncherViewLayout(Renderer* renderer) {
   if (m_launcherSections != nullptr) {
     m_launcherSections->setContentScale(scale);
   }
-  const bool reorderEnabled =
-      m_query.empty() && m_scopedProviderId.empty() && (m_activeCategoryType == All || m_activeCategoryType == Pinned);
+  const bool reorderEnabled = m_query.empty() && m_scopedProviderId.empty() && m_activeCategoryType == Pinned;
   const bool listReorderEnabledChanged = m_listAdapter->setReorderEnabled(reorderEnabled);
   const bool gridReorderEnabledChanged = m_gridAdapter->setReorderEnabled(reorderEnabled);
   const bool reorderEnabledChanged = listReorderEnabledChanged || gridReorderEnabledChanged;
@@ -2111,6 +2108,9 @@ void LauncherPanel::onPanelCardOpacityChanged(float opacity) {
   if (m_categoryFilter != nullptr) {
     m_categoryFilter->setSurfaceOpacity(opacity);
   }
+  if (m_launcherNavigation != nullptr) {
+    m_launcherNavigation->setSurfaceOpacity(opacity);
+  }
   if (m_launcherToolbar != nullptr) {
     m_launcherToolbar->setCardStyle(contentScale(), opacity);
   }
@@ -2120,12 +2120,7 @@ void LauncherPanel::onPanelCardOpacityChanged(float opacity) {
   if (m_launcherSections != nullptr) {
     m_launcherSections->notifyDataChanged();
   }
-  for (Button* button : m_launcherCategoryButtons) {
-    if (button != nullptr) {
-      button->setSurfaceOpacity(opacity);
-    }
-  }
-  for (Button* button : {m_launcherProvidersButton, m_launcherSettingsButton, m_launcherPowerButton}) {
+  for (Button* button : {m_launcherOptionsButton, m_launcherSettingsButton, m_launcherPowerButton}) {
     if (button != nullptr) {
       button->setSurfaceOpacity(opacity);
     }
@@ -2201,7 +2196,7 @@ void LauncherPanel::syncLauncherAvatar(Renderer& renderer) {
 void LauncherPanel::showProviderOverview() {
   const std::string prefix = m_config != nullptr ? m_config->config().shell.launcher.providerPrefix : "/";
   if (!prefix.empty()) {
-    queueResultsTransition(ResultsTransition::Navigation);
+    queueResultsTransition(ResultsTransition::NavigationForward);
     setQuery(prefix);
   }
 }
@@ -2213,7 +2208,7 @@ void LauncherPanel::showSessionActions() {
     return;
   }
   m_activeCategoryType = All;
-  queueResultsTransition(ResultsTransition::Navigation);
+  queueResultsTransition(ResultsTransition::NavigationForward);
   m_activeCategory.clear();
   const auto allSlot = std::ranges::find(m_categoryFilterSlots, All, &CategoryFilterSlot::type);
   m_activeCategorySlotIndex =
@@ -2240,7 +2235,6 @@ void LauncherPanel::onOpen(std::string_view context) {
   // inotify cannot observe). Cheap stat-only check; only rescans on real change.
   refreshDesktopEntriesIfSourcesChanged();
 
-  m_categoryFilterVisible = m_config != nullptr && m_config->config().shell.launcher.categories;
   m_activeCategoryType = All;
   m_activeCategorySlotIndex = 0;
   m_activeCategory.clear();
@@ -2249,6 +2243,7 @@ void LauncherPanel::onOpen(std::string_view context) {
   m_hasRecentlyUsed = false;
   m_hasPinnedApplications = false;
   m_categoryFilterRebuildPending = true;
+  m_applyDefaultViewPending = m_browserMode;
   m_showingProviderOverview = false;
   m_launcherProviderViewId.clear();
 
@@ -2272,6 +2267,9 @@ void LauncherPanel::onClose() {
   if (m_actionsMenu != nullptr && m_actionsMenu->isOpen()) {
     m_actionsMenu->close();
   }
+  if (m_optionsMenu != nullptr && m_optionsMenu->isOpen()) {
+    m_optionsMenu->close();
+  }
 
   if (m_asyncTextures != nullptr) {
     DeferredCall::callLater([asyncTextures = m_asyncTextures]() { asyncTextures->trimUnused(0); });
@@ -2294,9 +2292,13 @@ void LauncherPanel::onClose() {
   m_hasRecentlyUsed = false;
   m_hasPinnedApplications = false;
   m_categoryFilterRebuildPending = false;
+  m_applyDefaultViewPending = false;
+  m_syncingLauncherNavigation = false;
   m_showingProviderOverview = false;
   m_launcherProviderViewId.clear();
   m_pendingResultsTransition = ResultsTransition::None;
+  m_resultsTransitionActive = false;
+  m_resultsTransitionBaseX = 0.0F;
   m_selectedIndex = 0;
   m_usingAppGrid = false;
   m_launcherRowHeight = 0.0F;
@@ -2319,13 +2321,11 @@ void LauncherPanel::onClose() {
   m_resultsViewport = nullptr;
   m_launcherToolbar = nullptr;
   m_launcherNavigation = nullptr;
-  m_launcherSectionTitle = nullptr;
   m_launcherAvatar = nullptr;
   m_launcherAvatarFallback = nullptr;
   m_launcherSettingsButton = nullptr;
+  m_launcherOptionsButton = nullptr;
   m_launcherPowerButton = nullptr;
-  m_launcherProvidersButton = nullptr;
-  m_launcherCategoryButtons.clear();
   m_grid = nullptr;
   m_launcherSections = nullptr;
   m_detailScroll = nullptr;
@@ -2351,22 +2351,7 @@ bool LauncherPanel::shouldTrackUsage() const {
 
 void LauncherPanel::syncUsageTrackingState() {
   if (m_input != nullptr) {
-    const bool categoriesVisible = m_config != nullptr && m_config->config().shell.launcher.categories;
-    const bool categoryPresentationChanged = categoriesVisible != m_categoryFilterVisible;
-    m_categoryFilterVisible = categoriesVisible;
-    if (categoryPresentationChanged) {
-      m_activeCategoryType = All;
-      const auto allSlot = std::ranges::find(m_categoryFilterSlots, All, &CategoryFilterSlot::type);
-      m_activeCategorySlotIndex = allSlot == m_categoryFilterSlots.end()
-          ? 0
-          : static_cast<std::size_t>(allSlot - m_categoryFilterSlots.begin());
-      m_activeCategory.clear();
-    }
     reapplyCurrentQuery();
-    if (categoryPresentationChanged) {
-      updateCategoryFilterModel(m_currentCategories);
-      applyActiveCategory();
-    }
   }
 }
 
@@ -2449,9 +2434,6 @@ void LauncherPanel::onInputChanged(const std::string& text) {
     m_desktopEntriesVersion = desktopVersion;
   }
 
-  if (text != m_query) {
-    queueResultsTransition(ResultsTransition::Search);
-  }
   m_query = text;
   m_showingProviderOverview = false;
   if (m_browserMode && !text.empty() && m_activeCategoryType != All) {
@@ -2642,13 +2624,11 @@ void LauncherPanel::onInputChanged(const std::string& text) {
   }
 
   if (categoriesChanged) {
-    m_activeCategoryType = All;
-    m_activeCategory.clear();
     updateCategoryFilterModel(newCategories);
   }
 
-  if (text.empty() && m_scopedProviderId.empty()) {
-    applyPinnedApplicationOrder();
+  if (m_applyDefaultViewPending) {
+    applyDefaultView();
   }
 
   m_anyProviderLoading = anyProviderLoading;
@@ -2674,7 +2654,7 @@ void LauncherPanel::applyPinnedApplicationOrder() {
     }
   }
 
-  std::ranges::stable_sort(m_allResults, [&pinnedPaths](const LauncherResult& a, const LauncherResult& b) {
+  std::ranges::stable_sort(m_results, [&pinnedPaths](const LauncherResult& a, const LauncherResult& b) {
     const auto rank = [&pinnedPaths](const LauncherResult& result) {
       if (result.providerId != kApplicationsProviderId) {
         return pinnedPaths.size();
@@ -2748,9 +2728,12 @@ void LauncherPanel::updateCategoryFilterModel(const std::vector<LauncherCategory
     if (m_hasRecentlyUsed) {
       m_categoryFilterSlots.push_back({RecentlyUsed, 0});
     }
-    m_categoryFilterSlots.push_back({All, 0});
     if (m_hasPinnedApplications) {
       m_categoryFilterSlots.push_back({Pinned, 0});
+    }
+    m_categoryFilterSlots.push_back({All, 0});
+    if (!categories.empty()) {
+      m_categoryFilterSlots.push_back({Category, 0});
     }
   } else {
     m_categoryFilterSlots.push_back({All, 0});
@@ -2762,7 +2745,28 @@ void LauncherPanel::updateCategoryFilterModel(const std::vector<LauncherCategory
     }
   }
 
-  const auto activeSlot = std::ranges::find(m_categoryFilterSlots, m_activeCategoryType, &CategoryFilterSlot::type);
+  auto activeSlot = m_categoryFilterSlots.end();
+  if (m_activeCategoryType == Category) {
+    const auto activeCategory = std::ranges::find(categories, m_activeCategory, &LauncherCategory::label);
+    if (activeCategory != categories.end()) {
+      if (m_browserMode) {
+        activeSlot = std::ranges::find(m_categoryFilterSlots, Category, &CategoryFilterSlot::type);
+      } else {
+        const std::size_t categoryIndex = static_cast<std::size_t>(activeCategory - categories.begin());
+        activeSlot = std::ranges::find_if(m_categoryFilterSlots, [categoryIndex](const CategoryFilterSlot& slot) {
+          return slot.type == Category && slot.categoryIndex == categoryIndex;
+        });
+      }
+    }
+  } else {
+    activeSlot = std::ranges::find(m_categoryFilterSlots, m_activeCategoryType, &CategoryFilterSlot::type);
+  }
+
+  if (activeSlot == m_categoryFilterSlots.end()) {
+    m_activeCategoryType = All;
+    m_activeCategory.clear();
+    activeSlot = std::ranges::find(m_categoryFilterSlots, All, &CategoryFilterSlot::type);
+  }
   m_activeCategorySlotIndex = activeSlot == m_categoryFilterSlots.end()
       ? 0
       : static_cast<std::size_t>(activeSlot - m_categoryFilterSlots.begin());
@@ -2781,30 +2785,43 @@ void LauncherPanel::rebuildCategoryFilter() {
   }
 
   m_categoryFilter->clearOptions();
-  for (std::size_t i = 0; i < m_categoryFilterSlots.size(); ++i) {
-    const auto& slot = m_categoryFilterSlots[i];
-    switch (slot.type) {
-    case All:
-      m_categoryFilter->addOption("", "layout-grid");
-      m_categoryFilter->setOptionTooltip(i, i18n::tr("launcher.categories.all"));
-      break;
-    case Pinned:
-      m_categoryFilter->addOption("", "pin-filled");
-      m_categoryFilter->setOptionTooltip(i, i18n::tr("launcher.browser.navigation.pinned"));
-      break;
-    case RecentlyUsed:
-      m_categoryFilter->addOption("", "history");
-      m_categoryFilter->setOptionTooltip(i, i18n::tr("launcher.categories.recently-used"));
-      break;
-    case Category:
-      m_categoryFilter->addOption("", m_currentCategories[slot.categoryIndex].glyphName);
-      m_categoryFilter->setOptionTooltip(i, m_currentCategories[slot.categoryIndex].label);
-      break;
+  if (m_browserMode) {
+    std::size_t selectedCategory = 0;
+    for (std::size_t i = 0; i < m_currentCategories.size(); ++i) {
+      const LauncherCategory& category = m_currentCategories[i];
+      m_categoryFilter->addOption(category.label, category.glyphName);
+      if (category.label == m_activeCategory) {
+        selectedCategory = i;
+      }
     }
+    m_categoryFilter->setSelectedIndex(selectedCategory);
+    m_categoryFilter->setOnChange([this](std::size_t idx) { setActiveBrowserCategory(idx); });
+  } else {
+    for (std::size_t i = 0; i < m_categoryFilterSlots.size(); ++i) {
+      const auto& slot = m_categoryFilterSlots[i];
+      switch (slot.type) {
+      case All:
+        m_categoryFilter->addOption("", "layout-grid");
+        m_categoryFilter->setOptionTooltip(i, i18n::tr("launcher.categories.all"));
+        break;
+      case Pinned:
+        m_categoryFilter->addOption("", "pin-filled");
+        m_categoryFilter->setOptionTooltip(i, i18n::tr("launcher.browser.navigation.pinned"));
+        break;
+      case RecentlyUsed:
+        m_categoryFilter->addOption("", "history");
+        m_categoryFilter->setOptionTooltip(i, i18n::tr("launcher.categories.recently-used"));
+        break;
+      case Category:
+        m_categoryFilter->addOption("", m_currentCategories[slot.categoryIndex].glyphName);
+        m_categoryFilter->setOptionTooltip(i, m_currentCategories[slot.categoryIndex].label);
+        break;
+      }
+    }
+    m_categoryFilter->setSelectedIndex(m_activeCategorySlotIndex);
+    m_categoryFilter->setOnChange([this](std::size_t idx) { setActiveCategorySlot(idx); });
   }
-  m_categoryFilter->setSelectedIndex(m_activeCategorySlotIndex);
-  m_categoryFilter->setOnChange([this](std::size_t idx) { setActiveCategorySlot(idx); });
-  setCategoryFilterVisible(m_categoryFilterVisible);
+  setCategoryFilterVisible(true);
   rebuildLauncherNavigation();
   updateCategorySelectionChrome();
 }
@@ -2815,120 +2832,97 @@ void LauncherPanel::rebuildLauncherNavigation() {
     return;
   }
 
-  while (!m_launcherNavigation->children().empty()) {
-    (void)m_launcherNavigation->removeChild(m_launcherNavigation->children().back().get());
-  }
-  m_launcherCategoryButtons.assign(m_categoryFilterSlots.size(), nullptr);
-  m_launcherProvidersButton = nullptr;
+  m_launcherNavigation->setOnChange({});
+  m_launcherNavigation->clearOptions();
 
-  const float scale = contentScale();
-  const auto addCategoryButton = [this, scale](std::size_t index) {
-    const CategoryFilterSlot& slot = m_categoryFilterSlots[index];
+  for (const CategoryFilterSlot& slot : m_categoryFilterSlots) {
     std::string label;
     std::string glyph;
-    std::string focusKey;
     switch (slot.type) {
     case All:
       label = i18n::tr("launcher.browser.navigation.all-apps");
       glyph = "apps";
-      focusKey = "launcher.navigation.all-apps";
       break;
     case Pinned:
       label = i18n::tr("launcher.browser.navigation.pinned");
       glyph = "pin-filled";
-      focusKey = "launcher.navigation.pinned";
       break;
     case RecentlyUsed:
       label = i18n::tr("launcher.browser.navigation.recent");
       glyph = "history";
-      focusKey = "launcher.navigation.recent";
       break;
     case Category:
+      label = i18n::tr("launcher.browser.navigation.categories");
+      glyph = "category";
+      break;
+    }
+    m_launcherNavigation->addOption(label, glyph);
+  }
+  m_launcherNavigation->addOption(i18n::tr("launcher.browser.navigation.providers"), "sparkles");
+  const std::size_t selectedIndex =
+      m_showingProviderOverview ? m_categoryFilterSlots.size() : m_activeCategorySlotIndex;
+  m_launcherNavigation->setSelectedIndex(selectedIndex);
+  m_launcherNavigation->setOnChange([this](std::size_t index) {
+    if (m_syncingLauncherNavigation) {
       return;
     }
-
-    const ActiveCategoryType categoryType = slot.type;
-
-    m_launcherNavigation->addChild(
-        ui::button({
-            .out = &m_launcherCategoryButtons[index],
-            .text = label,
-            .glyph = glyph,
-            .fontSize = Style::fontSizeCaption * scale,
-            .glyphSize = Style::fontSizeBody * scale,
-            .contentAlign = ButtonContentAlign::Center,
-            .variant = ButtonVariant::Tab,
-            .surfaceOpacity = panelCardOpacity(),
-            .paddingH = Style::spaceXs * scale,
-            .gap = Style::spaceXs * scale,
-            .radius = Style::scaledRadiusMd(scale),
-            .onClick =
-                [this, categoryType]() {
-                  DeferredCall::callLater([this, categoryType]() {
-                    if (!m_query.empty() || !m_launcherProviderViewId.empty()) {
-                      setQuery("");
-                    }
-                    for (std::size_t slotIndex = 0; slotIndex < m_categoryFilterSlots.size(); ++slotIndex) {
-                      const CategoryFilterSlot& candidate = m_categoryFilterSlots[slotIndex];
-                      if (candidate.type != categoryType) {
-                        continue;
-                      }
-                      setActiveCategorySlot(slotIndex);
-                      if (m_input != nullptr) {
-                        PanelManager::instance().focusArea(m_input->inputArea());
-                      }
-                      return;
-                    }
-                  });
-                },
-            .configure =
-                [scale, focusKey = std::move(focusKey)](Button& button) {
-                  button.setControlHeight(Style::controlHeightSm * scale);
-                  button.inputArea()->setTabFocusKey(focusKey);
-                },
-        })
-    );
-  };
-
-  for (std::size_t i = 0; i < m_categoryFilterSlots.size(); ++i) {
-    addCategoryButton(i);
-  }
-  m_launcherNavigation->addChild(
-      ui::button({
-          .out = &m_launcherProvidersButton,
-          .text = i18n::tr("launcher.browser.navigation.providers"),
-          .glyph = "sparkles",
-          .fontSize = Style::fontSizeCaption * scale,
-          .glyphSize = Style::fontSizeBody * scale,
-          .contentAlign = ButtonContentAlign::Center,
-          .variant = ButtonVariant::Tab,
-          .surfaceOpacity = panelCardOpacity(),
-          .paddingH = Style::spaceXs * scale,
-          .gap = Style::spaceXs * scale,
-          .radius = Style::scaledRadiusMd(scale),
-          .onClick =
-              [this]() {
-                DeferredCall::callLater([this]() {
-                  showProviderOverview();
-                  if (m_input != nullptr) {
-                    PanelManager::instance().focusArea(m_input->inputArea());
-                  }
-                });
-              },
-          .configure =
-              [scale](Button& button) {
-                button.setControlHeight(Style::controlHeightSm * scale);
-                button.inputArea()->setTabFocusKey("launcher.navigation.providers");
-              },
-      })
-  );
+    DeferredCall::callLater([this, index]() {
+      if (index < m_categoryFilterSlots.size()) {
+        setActiveCategorySlot(index);
+      } else {
+        showProviderOverview();
+      }
+    });
+  });
 
   updateCategorySelectionChrome();
-  m_launcherNavigation->markLayoutDirty();
+}
+
+void LauncherPanel::applyDefaultView() {
+  m_applyDefaultViewPending = false;
+  if (!m_browserMode || !m_query.empty()) {
+    return;
+  }
+
+  ActiveCategoryType requested = All;
+  if (m_config != nullptr) {
+    switch (m_config->config().shell.launcher.defaultView) {
+    case ShellConfig::LauncherDefaultView::Recent:
+      requested = RecentlyUsed;
+      break;
+    case ShellConfig::LauncherDefaultView::Pinned:
+      requested = Pinned;
+      break;
+    case ShellConfig::LauncherDefaultView::AllApps:
+      requested = All;
+      break;
+    case ShellConfig::LauncherDefaultView::Categories:
+      requested = Category;
+      break;
+    }
+  }
+
+  auto slot = std::ranges::find(m_categoryFilterSlots, requested, &CategoryFilterSlot::type);
+  if (slot == m_categoryFilterSlots.end()) {
+    slot = std::ranges::find(m_categoryFilterSlots, All, &CategoryFilterSlot::type);
+  }
+  if (slot == m_categoryFilterSlots.end()) {
+    return;
+  }
+
+  m_activeCategorySlotIndex = static_cast<std::size_t>(slot - m_categoryFilterSlots.begin());
+  m_activeCategoryType = slot->type;
+  if (m_activeCategoryType == Category && !m_currentCategories.empty()) {
+    m_activeCategory = m_currentCategories.front().label;
+  } else {
+    m_activeCategory.clear();
+  }
 }
 
 void LauncherPanel::setActiveCategorySlot(std::size_t slotIndex) {
-  if (m_browserMode && (!m_query.empty() || !m_launcherProviderViewId.empty())) {
+  const bool leavingProvider = m_browserMode && (!m_query.empty() || !m_launcherProviderViewId.empty());
+  const std::size_t previousSlotIndex = m_activeCategorySlotIndex;
+  if (leavingProvider) {
     setQuery("");
   }
   if (slotIndex >= m_categoryFilterSlots.size()) {
@@ -2938,8 +2932,11 @@ void LauncherPanel::setActiveCategorySlot(std::size_t slotIndex) {
   const auto& slot = m_categoryFilterSlots[slotIndex];
   m_activeCategorySlotIndex = slotIndex;
   m_activeCategoryType = slot.type;
-  if (slot.type == Category && slot.categoryIndex < m_currentCategories.size()) {
-    m_activeCategory = m_currentCategories[slot.categoryIndex].label;
+  if (slot.type == Category && !m_currentCategories.empty()) {
+    const auto active = std::ranges::find(m_currentCategories, m_activeCategory, &LauncherCategory::label);
+    if (active == m_currentCategories.end()) {
+      m_activeCategory = m_currentCategories.front().label;
+    }
   } else {
     m_activeCategory.clear();
   }
@@ -2947,76 +2944,63 @@ void LauncherPanel::setActiveCategorySlot(std::size_t slotIndex) {
     m_categoryFilter->setSelectedIndex(slotIndex);
   }
   updateCategorySelectionChrome();
-  queueResultsTransition(ResultsTransition::Navigation);
+  if (leavingProvider || slotIndex < previousSlotIndex) {
+    queueResultsTransition(ResultsTransition::NavigationBackward);
+  } else if (slotIndex > previousSlotIndex) {
+    queueResultsTransition(ResultsTransition::NavigationForward);
+  }
+  applyActiveCategory();
+}
+
+void LauncherPanel::setActiveBrowserCategory(std::size_t categoryIndex) {
+  if (!m_browserMode || categoryIndex >= m_currentCategories.size()) {
+    return;
+  }
+  const auto previousCategory = std::ranges::find(m_currentCategories, m_activeCategory, &LauncherCategory::label);
+  const std::size_t previousCategoryIndex = previousCategory == m_currentCategories.end()
+      ? categoryIndex
+      : static_cast<std::size_t>(previousCategory - m_currentCategories.begin());
+  m_activeCategoryType = Category;
+  m_activeCategory = m_currentCategories[categoryIndex].label;
+  const auto slot = std::ranges::find(m_categoryFilterSlots, Category, &CategoryFilterSlot::type);
+  if (slot != m_categoryFilterSlots.end()) {
+    m_activeCategorySlotIndex = static_cast<std::size_t>(slot - m_categoryFilterSlots.begin());
+  }
+  updateCategorySelectionChrome();
+  if (categoryIndex < previousCategoryIndex) {
+    queueResultsTransition(ResultsTransition::NavigationBackward);
+  } else if (categoryIndex > previousCategoryIndex) {
+    queueResultsTransition(ResultsTransition::NavigationForward);
+  }
   applyActiveCategory();
 }
 
 void LauncherPanel::updateCategorySelectionChrome() {
-  for (std::size_t i = 0; i < m_launcherCategoryButtons.size(); ++i) {
-    if (m_launcherCategoryButtons[i] != nullptr) {
-      m_launcherCategoryButtons[i]->setSelected(
-          m_query.empty() && m_launcherProviderViewId.empty() && i == m_activeCategorySlotIndex
-      );
+  if (m_launcherNavigation != nullptr && !m_categoryFilterSlots.empty()) {
+    const std::size_t selectedIndex =
+        m_showingProviderOverview ? m_categoryFilterSlots.size() : m_activeCategorySlotIndex;
+    if (m_launcherNavigation->selectedIndex() != selectedIndex) {
+      m_syncingLauncherNavigation = true;
+      m_launcherNavigation->setSelectedIndex(selectedIndex);
+      m_syncingLauncherNavigation = false;
     }
-  }
-  if (m_launcherProvidersButton != nullptr) {
-    m_launcherProvidersButton->setSelected(m_showingProviderOverview);
   }
   if (m_launcherPowerButton != nullptr) {
     m_launcherPowerButton->setSelected(m_launcherProviderViewId == kSessionProviderId);
   }
-  updateLauncherSectionTitle();
-}
-
-void LauncherPanel::updateLauncherSectionTitle() {
-  if (m_launcherSectionTitle == nullptr) {
-    return;
-  }
-  if (!m_launcherProviderViewId.empty()) {
-    const auto provider =
-        std::ranges::find(m_providers, std::string_view(m_launcherProviderViewId), [](const auto& candidate) {
-          return candidate->id();
-        });
-    if (provider != m_providers.end()) {
-      m_launcherSectionTitle->setText((*provider)->displayName());
-      return;
-    }
-  }
-  if (!m_query.empty()) {
-    if (m_showingProviderOverview) {
-      m_launcherSectionTitle->setText(i18n::tr("launcher.browser.sections.providers"));
-      return;
-    }
-    for (const auto& provider : m_providers) {
-      if (!provider->prefix().empty() && std::string_view(m_query).starts_with(provider->prefix())) {
-        m_launcherSectionTitle->setText(provider->displayName());
-        return;
-      }
-    }
-    m_launcherSectionTitle->setText(i18n::tr("launcher.browser.sections.search-results"));
-    return;
-  }
-  switch (m_activeCategoryType) {
-  case All:
-    m_launcherSectionTitle->setText(i18n::tr("launcher.browser.sections.all-apps"));
-    break;
-  case Pinned:
-    m_launcherSectionTitle->setText(i18n::tr("launcher.browser.sections.pinned"));
-    break;
-  case RecentlyUsed:
-    m_launcherSectionTitle->setText(i18n::tr("launcher.browser.sections.recent"));
-    break;
-  case Category:
-    m_launcherSectionTitle->setText(m_activeCategory);
-    break;
-  }
+  setCategoryFilterVisible(true);
 }
 
 void LauncherPanel::setCategoryFilterVisible(bool visible) {
   if (m_categoryFilter == nullptr) {
     return;
   }
-  const bool show = !m_browserMode && visible && !m_categoryFilterSlots.empty();
+  const bool show = m_browserMode ? visible
+          && m_activeCategoryType == Category
+          && m_query.empty()
+          && m_launcherProviderViewId.empty()
+          && !m_currentCategories.empty()
+                                  : visible && !m_categoryFilterSlots.empty();
   m_categoryFilter->setVisible(show);
   m_categoryFilter->setParticipatesInLayout(show);
   if (m_container != nullptr) {
@@ -3072,37 +3056,13 @@ void LauncherPanel::applyActiveCategory() {
   m_results.clear();
   switch (m_activeCategoryType) {
   case All:
-    if (m_browserMode
-        && m_config != nullptr
-        && m_config->config().shell.launcher.categories
-        && m_query.empty()
-        && m_scopedProviderId.empty()
-        && std::ranges::all_of(m_allResults, [](const LauncherResult& result) {
-             return result.providerId == kApplicationsProviderId;
-           })) {
-      std::vector<bool> assigned(m_allResults.size(), false);
-      m_results.reserve(m_allResults.size());
-      for (const LauncherCategory& category : m_currentCategories) {
-        for (std::size_t i = 0; i < m_allResults.size(); ++i) {
-          if (!assigned[i] && m_allResults[i].category == category.label) {
-            m_results.push_back(m_allResults[i]);
-            assigned[i] = true;
-          }
-        }
-      }
-      for (std::size_t i = 0; i < m_allResults.size(); ++i) {
-        if (!assigned[i]) {
-          m_results.push_back(m_allResults[i]);
-        }
-      }
-    } else {
-      m_results = m_allResults;
-    }
+    m_results = m_allResults;
     break;
   case Pinned:
     std::ranges::copy_if(m_allResults, std::back_inserter(m_results), [](const LauncherResult& result) {
       return result.pinned;
     });
+    applyPinnedApplicationOrder();
     break;
   case RecentlyUsed:
     std::ranges::copy_if(m_allResults, std::back_inserter(m_results), [](const LauncherResult& r) {
@@ -3220,6 +3180,90 @@ void LauncherPanel::bindDetailResult() {
   m_detailSubtitle->setText(singleLinePreview(result.subtitle));
   m_detailBody->setText(result.title.empty() ? result.id : result.title);
   m_detailScroll->setScrollOffset(0.0F);
+}
+
+bool LauncherPanel::openLauncherOptionsMenu() {
+  if (m_config == nullptr || m_launcherOptionsButton == nullptr) {
+    return false;
+  }
+
+  WaylandConnection* wl = PanelManager::instance().wayland();
+  RenderContext* rc = PanelManager::instance().renderContext();
+  const auto parentCtx = PanelManager::instance().fallbackPopupParentContext();
+  if (wl == nullptr || rc == nullptr || !parentCtx.has_value()) {
+    return false;
+  }
+
+  constexpr std::int32_t kSortByUsage = 1;
+  constexpr std::int32_t kAppGrid = 2;
+  const auto& launcher = m_config->config().shell.launcher;
+  std::vector<ContextMenuControlEntry> entries{
+      ContextMenuControlEntry{
+          .id = kSortByUsage,
+          .label = i18n::tr("launcher.browser.options.sort-by-usage"),
+          .checkmark = true,
+          .toggleState = launcher.sortByUsage ? 1 : 0,
+      },
+      ContextMenuControlEntry{
+          .id = kAppGrid,
+          .label = i18n::tr("launcher.browser.options.app-grid"),
+          .checkmark = true,
+          .toggleState = launcher.appGrid ? 1 : 0,
+      },
+  };
+
+  if (m_optionsMenu == nullptr) {
+    m_optionsMenu = std::make_unique<ContextMenuPopup>(*wl, *rc);
+  }
+  TooltipManager::instance().forceDestroy();
+  m_optionsMenu->setShadowConfig(m_config->config().shell.shadow);
+  PanelManager::instance().beginAttachedPopup(parentCtx->surface);
+  PanelManager::instance().setActivePopup(m_optionsMenu.get());
+  m_optionsMenu->setOnDismissed([parentSurface = parentCtx->surface]() {
+    PanelManager::instance().clearActivePopup();
+    PanelManager::instance().endAttachedPopup(parentSurface);
+  });
+  m_optionsMenu->setOnActivate([this](const ContextMenuControlEntry& entry) {
+    if (m_config == nullptr) {
+      return;
+    }
+    const auto& current = m_config->config().shell.launcher;
+    switch (entry.id) {
+    case kSortByUsage:
+      (void)m_config->setOverride({"shell", "launcher", "sort_by_usage"}, !current.sortByUsage);
+      break;
+    case kAppGrid:
+      (void)m_config->setOverride({"shell", "launcher", "app_grid"}, !current.appGrid);
+      break;
+    default:
+      break;
+    }
+  });
+
+  float anchorX = 0.0F;
+  float anchorY = 0.0F;
+  Node::absolutePosition(m_launcherOptionsButton, anchorX, anchorY);
+  const float scale = contentScale();
+  m_optionsMenu->open(
+      ContextMenuPopupRequest{
+          .entries = std::move(entries),
+          .minMenuWidth = 240.0F * scale,
+          .maxMenuWidth = Style::menuAutoMaxWidth * scale,
+          .maxVisible = 2,
+          .anchor =
+              PopupAnchorRect{
+                  .x = static_cast<std::int32_t>(std::round(anchorX)),
+                  .y = static_cast<std::int32_t>(std::round(anchorY)),
+                  .width = std::max(1, static_cast<std::int32_t>(std::round(m_launcherOptionsButton->width()))),
+                  .height = std::max(1, static_cast<std::int32_t>(std::round(m_launcherOptionsButton->height()))),
+              },
+          .parent = PopupSurfaceParent{
+              .layerSurface = parentCtx->layerSurface,
+              .output = parentCtx->output,
+          },
+      }
+  );
+  return true;
 }
 
 bool LauncherPanel::openAppActionsMenu(std::size_t index, float anchorX, float anchorY) {
