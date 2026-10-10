@@ -300,7 +300,7 @@ void main() {
     vec2 aspectUV = vec2(uv.x * u_aspectRatio, uv.y);
     vec2 delta = aspectUV - center;
     float dist = length(delta);
-    float angle = atan(delta.y, delta.x);
+    float angle = atan(delta.y, delta.x) + (1.0 - u_progress) * 3.14159265;
     float normAngle = (angle + 3.14159265) / 6.2831853;
     float arms = 3.0;
     float spiral = dist + fract(normAngle * arms) * 0.25;
@@ -370,7 +370,7 @@ void main() {
     vec2 center = vec2(u_centerX * u_aspectRatio, u_centerY);
     vec2 aspectUV = vec2(uv.x * u_aspectRatio, uv.y);
 
-    float size = max(u_cellSize, 0.03);
+    float size = max(u_cellSize * 1.15, 0.0345);
     vec2 cellIndex = floor(aspectUV / size);
     vec2 cellCenter = (cellIndex + 0.5) * size;
     vec2 inCell = abs(aspectUV - cellCenter) / (size * 0.5);
@@ -408,7 +408,7 @@ void main() {
     vec2 aspectUV = vec2(uv.x * u_aspectRatio, uv.y);
     vec2 delta = aspectUV - center;
     float dist = length(delta);
-    float angle = atan(delta.y, delta.x) + radians(u_angle);
+    float angle = atan(delta.y, delta.x);
 
     float maxDist = 0.0;
     maxDist = max(maxDist, distance(center, vec2(0.0, 0.0)));
@@ -418,12 +418,12 @@ void main() {
 
     // Golden ratio logarithmic spiral (growth rate b = ln(1.6180339887) / (pi / 2) ≈ 0.306349)
     float b = 0.306349;
-    float spiral = (angle - log(max(dist, 0.001)) / b) / 6.2831853;
-    float spiralBranch = fract(spiral);
-    float goldenCoord = (dist / max(maxDist, 0.001)) * 0.7 + spiralBranch * 0.3;
+    float phase = radians(u_angle) + u_progress * 6.2831853;
+    float deltaTheta = mod(angle - phase, 6.2831853);
+    float goldenDist = (dist / max(maxDist, 0.001)) * exp(-b * deltaTheta);
 
     float edge = u_progress * (1.0 + 2.0 * feather) - feather;
-    float factor = smoothstep(edge - feather, edge + feather, goldenCoord);
+    float factor = smoothstep(edge - feather, edge + feather, goldenDist);
     gl_FragColor = mix(color2, color1, factor);
 }
 )";

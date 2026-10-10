@@ -948,7 +948,7 @@ void LockScreen::chooseTransition() {
     m_transitionParams.centerY = Random::randomFloat(0.2F, 0.8F);
     break;
   case LockscreenTransition::NewAn3:
-    m_transitionParams.cellSize = Random::randomFloat(0.03F, 0.06F);
+    m_transitionParams.cellSize = Random::randomFloat(0.0345F, 0.069F);
     m_transitionParams.centerX = Random::randomFloat(0.2F, 0.8F);
     m_transitionParams.centerY = Random::randomFloat(0.2F, 0.8F);
     break;

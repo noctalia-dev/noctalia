@@ -141,7 +141,7 @@ float spiral_coverage(vec2 uv, float progress, float smoothness) {
     vec2 center = vec2(u_center.x * u_aspect_ratio, u_center.y);
     vec2 delta = aspect_uv - center;
     float dist = length(delta);
-    float angle = atan(delta.y, delta.x);
+    float angle = atan(delta.y, delta.x) + (1.0 - progress) * 3.14159265;
     float norm_angle = (angle + 3.14159265) / 6.2831853;
     float arms = 3.0;
     float spiral = dist + fract(norm_angle * arms) * 0.25;
@@ -168,7 +168,7 @@ float pixelate_coverage(vec2 uv, float progress, float smoothness) {
 float diamond_coverage(vec2 uv, float progress, float smoothness) {
     vec2 aspect_uv = vec2(uv.x * u_aspect_ratio, uv.y);
     vec2 center = vec2(u_center.x * u_aspect_ratio, u_center.y);
-    float size = max(u_cell_size, 0.03);
+    float size = max(u_cell_size * 1.15, 0.0345);
     vec2 cell_index = floor(aspect_uv / size);
     vec2 cell_center = (cell_index + 0.5) * size;
     vec2 in_cell = abs(aspect_uv - cell_center) / (size * 0.5);
@@ -186,18 +186,18 @@ float golden_coverage(vec2 uv, float progress, float smoothness) {
     vec2 center = vec2(u_center.x * u_aspect_ratio, u_center.y);
     vec2 delta = aspect_uv - center;
     float dist = length(delta);
-    float angle = atan(delta.y, delta.x) + radians(u_angle);
+    float angle = atan(delta.y, delta.x);
     float max_dist = max_distance_to_corners(center, u_aspect_ratio);
 
     // Golden ratio logarithmic spiral (growth rate b = ln(1.6180339887) / (pi / 2) ≈ 0.306349)
     float b = 0.306349;
-    float spiral = (angle - log(max(dist, 0.001)) / b) / 6.2831853;
-    float spiral_branch = fract(spiral);
-    float golden_coord = (dist / max(max_dist, 0.001)) * 0.7 + spiral_branch * 0.3;
+    float phase = radians(u_angle) + progress * 6.2831853;
+    float delta_theta = mod(angle - phase, 6.2831853);
+    float golden_dist = (dist / max(max_dist, 0.001)) * exp(-b * delta_theta);
 
     float feather = max(0.02, smoothness * 1.6);
     float edge = progress * (1.0 + 2.0 * feather) - feather;
-    return smoothstep(edge - feather, edge + feather, golden_coord);
+    return smoothstep(edge - feather, edge + feather, golden_dist);
 }
 
 float liquid_coverage(vec2 uv, float progress, float smoothness) {

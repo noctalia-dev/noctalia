@@ -50,8 +50,19 @@ namespace {
 
   [[nodiscard]] Color defaultWallpaperColor() { return rgba(0.0F, 0.0F, 0.0F, 1.0F); }
 
-  [[nodiscard]] float transitionProgressForTime(float time) {
-    return applyEasing(kWallpaperTransitionEasing, std::clamp(time, 0.0F, 1.0F));
+  [[nodiscard]] float transitionProgressForTime(WallpaperTransition transition, float time) {
+    const float clamped = std::clamp(time, 0.0F, 1.0F);
+    switch (transition) {
+    case WallpaperTransition::NewAn1:
+    case WallpaperTransition::NewAn4:
+    case WallpaperTransition::NewAn5:
+      return applyEasing(Easing::CubicBezierDramatic, clamped);
+    case WallpaperTransition::NewAn2:
+    case WallpaperTransition::NewAn3:
+      return applyEasing(Easing::CubicBezierAlt, clamped);
+    default:
+      return applyEasing(kWallpaperTransitionEasing, clamped);
+    }
   }
 
   void setTransitionTime(WallpaperInstance& instance, float time) {
@@ -109,7 +120,7 @@ namespace {
       params.centerY = randomFloat(0.2F, 0.8F);
       break;
     case WallpaperTransition::NewAn3:
-      params.cellSize = randomFloat(0.03F, 0.06F);
+      params.cellSize = randomFloat(0.0345F, 0.069F);
       params.centerX = randomFloat(0.2F, 0.8F);
       params.centerY = randomFloat(0.2F, 0.8F);
       break;
@@ -1454,7 +1465,10 @@ void Wallpaper::startTransitionAnimation(
   instance.transitionDirection = direction;
   setTransitionTime(instance, fromTime);
 
-  const float durationMs = std::abs(toTime - fromTime) * wpConfig.transitionDurationMs;
+  float durationMs = std::abs(toTime - fromTime) * wpConfig.transitionDurationMs;
+  if (instance.activeTransition == WallpaperTransition::NewAn1) {
+    durationMs *= 1.75F;
+  }
   if (durationMs <= 0.0F) {
     setTransitionTime(instance, toTime);
     finishTransition(instance);
@@ -1551,7 +1565,8 @@ void Wallpaper::updateRendererState(WallpaperInstance& instance) {
       static_cast<float>(instance.nextTexture.height)
   );
   wallpaperNode->setTransition(
-      instance.activeTransition, transitionProgressForTime(instance.transitionTime), instance.transitionParams
+      instance.activeTransition, transitionProgressForTime(instance.activeTransition, instance.transitionTime),
+      instance.transitionParams
   );
   wallpaperNode->setFillMode(wpConfig.fillMode);
   wallpaperNode->setFillColor(fillColor);
