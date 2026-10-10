@@ -1625,6 +1625,7 @@ namespace noctalia::config::schema {
         field(&ShellConfig::popupBorders, "popup_borders"),
         field(&ShellConfig::popupShadows, "popup_shadows"),
         field(&ShellConfig::cardBorders, "card_borders"),
+        field(&ShellConfig::showCloseButtons, "show_close_buttons"),
         // font_family is trimmed; empty falls back to sans-serif.
         custom<ShellConfig>(
             "font_family",

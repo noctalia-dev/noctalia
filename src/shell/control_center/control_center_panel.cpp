@@ -20,6 +20,7 @@
 #include "ui/controls/scroll_view.h"
 #include "ui/scroll_into_view.h"
 #include "ui/split_pane_focus.h"
+#include "ui/style.h"
 
 #include <algorithm>
 #include <chrono>
@@ -272,14 +273,16 @@ void ControlCenterPanel::create() {
     }
   }
 
-  m_contentHeaderActions->addChild(
-      ui::button({
-          .out = &m_closeButton,
-          .glyph = "close",
-          .onClick = []() { PanelManager::instance().close(); },
-          .configure = [scale](Button& button) { panel_button_style::configureHeaderIconButton(button, scale); },
-      })
-  );
+  if (Style::closeButtonsEnabled()) {
+    m_contentHeaderActions->addChild(
+        ui::button({
+            .out = &m_closeButton,
+            .glyph = "close",
+            .onClick = []() { PanelManager::instance().close(); },
+            .configure = [scale](Button& button) { panel_button_style::configureHeaderIconButton(button, scale); },
+        })
+    );
+  }
   header->addChild(std::move(headerActions));
 
   content->addChild(std::move(header));

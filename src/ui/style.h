@@ -117,6 +117,9 @@ namespace Style {
   [[nodiscard]] bool popupShadowsEnabled() noexcept;
   void setPopupShadowsEnabled(bool enabled);
 
+  [[nodiscard]] bool closeButtonsEnabled() noexcept;
+  void setCloseButtonsEnabled(bool enabled);
+
   [[nodiscard]] float scaledRadius(float radius, float localScale = 1.0F) noexcept;
   [[nodiscard]] float scaledRadiusSm(float localScale = 1.0F) noexcept;
   [[nodiscard]] float scaledRadiusMd(float localScale = 1.0F) noexcept;

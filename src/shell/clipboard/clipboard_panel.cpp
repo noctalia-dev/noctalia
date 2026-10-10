@@ -710,13 +710,15 @@ void ClipboardPanel::create() {
           false
       ),
       makeCompactIconButton(&m_pinButton, "pin", ButtonVariant::Default, scale, [this]() { togglePinSelected(); }),
-      makeCompactIconButton(
-          &m_deleteEntryButton, "trash", ButtonVariant::Destructive, scale, [this]() { requestDeleteSelectedEntry(); }
-      ),
-      makeCompactIconButton(&m_closeButton, "close", ButtonVariant::Default, scale, []() {
-        PanelManager::instance().close();
+      makeCompactIconButton(&m_deleteEntryButton, "trash", ButtonVariant::Destructive, scale, [this]() {
+        requestDeleteSelectedEntry();
       })
   );
+  if (Style::closeButtonsEnabled()) {
+    previewActions->addChild(makeCompactIconButton(&m_closeButton, "close", ButtonVariant::Default, scale, []() {
+      PanelManager::instance().close();
+    }));
+  }
 
   auto previewHeader = ui::row(
       {

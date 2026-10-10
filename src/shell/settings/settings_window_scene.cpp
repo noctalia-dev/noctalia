@@ -1225,7 +1225,7 @@ void SettingsWindow::rebuildSettingsContent() {
 }
 
 std::unique_ptr<Flex> SettingsWindow::buildHeaderRow(float scale) {
-  return ui::row(
+  auto row = ui::row(
       {
           .align = FlexAlign::Center,
           .justify = FlexJustify::SpaceBetween,
@@ -1249,19 +1249,24 @@ std::unique_ptr<Flex> SettingsWindow::buildHeaderRow(float scale) {
           .radius = Style::scaledRadiusMd(scale),
           .onClick = [this]() { openActionsMenu(); },
           .configure = [](Button& button) { button.setTabStop(false); },
-      }),
-      ui::button({
-          .glyph = "close",
-          .glyphSize = Style::fontSizeBody * scale,
-          .variant = ButtonVariant::Default,
-          .minWidth = Style::controlHeightSm * scale,
-          .minHeight = Style::controlHeightSm * scale,
-          .padding = Style::spaceXs * scale,
-          .radius = Style::scaledRadiusMd(scale),
-          .onClick = [this]() { close(); },
-          .configure = [](Button& button) { button.setTabStop(false); },
       })
   );
+  if (Style::closeButtonsEnabled()) {
+    row->addChild(
+        ui::button({
+            .glyph = "close",
+            .glyphSize = Style::fontSizeBody * scale,
+            .variant = ButtonVariant::Default,
+            .minWidth = Style::controlHeightSm * scale,
+            .minHeight = Style::controlHeightSm * scale,
+            .padding = Style::spaceXs * scale,
+            .radius = Style::scaledRadiusMd(scale),
+            .onClick = [this]() { close(); },
+            .configure = [](Button& button) { button.setTabStop(false); },
+        })
+    );
+  }
+  return row;
 }
 
 std::unique_ptr<Flex> SettingsWindow::buildFilterRow(

@@ -510,6 +510,7 @@ location = "https://example.invalid/bad"
     };
     c.accessibility.uiScale = 1.25F;
     c.shell.buttonBorders = false;
+    c.shell.showCloseButtons = false;
     c.shell.fontFamily = "Inter";
     c.shell.lang = "en_US";
     c.shell.timeFormat = "{:%H:%M:%S}";
