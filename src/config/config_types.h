@@ -548,6 +548,7 @@ enum class LockscreenTransition : std::uint8_t {
   Diamond = 8,
   Golden = 9,
   Melt = 10,
+  Crt = 11,
 };
 
 struct WallpaperMonitorOverride {
@@ -628,7 +629,7 @@ struct LockscreenConfig {
                                                    LockscreenTransition::Zoom,    LockscreenTransition::Honeycomb,
                                                    LockscreenTransition::Vortex,  LockscreenTransition::Pixel,
                                                    LockscreenTransition::Diamond, LockscreenTransition::Golden,
-                                                   LockscreenTransition::Melt};
+                                                   LockscreenTransition::Melt,    LockscreenTransition::Crt};
   float transitionDurationMs = 1500.0F;
   float edgeSmoothness = 0.3F;
   float blurIntensity = 0.5F;
@@ -1040,6 +1041,7 @@ constexpr EnumOption<WallpaperTransition> kWallpaperTransitions[] = {
 };
 
 constexpr EnumOption<LockscreenTransition> kLockscreenTransitions[] = {
+    {LockscreenTransition::Crt, "crt", "settings.options.lockscreen.transition.crt"},
     {LockscreenTransition::Diamond, "diamond", "settings.options.lockscreen.transition.diamond"},
     {LockscreenTransition::Disc, "disc", "settings.options.lockscreen.transition.disc"},
     {LockscreenTransition::Fade, "fade", "settings.options.lockscreen.transition.fade"},
