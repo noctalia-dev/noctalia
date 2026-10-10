@@ -1220,6 +1220,8 @@ struct ShellConfig {
   bool setupWizardEnabled = true;
   bool niriOverviewTypeToLaunchEnabled = false;
   bool umbrielOverviewTypeToLaunchEnabled = false;
+  bool niriOverviewCloseOnLaunchEnabled = false;
+  bool umbrielOverviewCloseOnLaunchEnabled = false;
   bool polkitAgent = false;
   PasswordMaskStyle passwordMaskStyle = PasswordMaskStyle::CircleFilled;
   /// Readline-style editing shortcuts in every text input (Ctrl+A moves to the start instead of selecting all).
