@@ -447,7 +447,7 @@ void WallpaperProgram::ensureInitialized() {
 
 // Contributed section: lazy compilation and safe fallback for wallpaper transition shaders
 void WallpaperProgram::ensureProgram(std::size_t index) const {
-  if (index >= kTransitionCount || m_programs[index].program.isValid()) {
+  if (index >= kTransitionCount || m_programs[index].program.isValid() || m_failed[index]) {
     return;
   }
 
@@ -488,6 +488,7 @@ void WallpaperProgram::ensureProgram(std::size_t index) const {
       break;
     }
   } catch (const std::exception& e) {
+    m_failed[index] = true;
     kLog.error("failed to compile wallpaper shader for transition {}: {}", index, e.what());
     if (index != static_cast<std::size_t>(WallpaperTransition::Fade)) {
       ensureProgram(static_cast<std::size_t>(WallpaperTransition::Fade));
@@ -496,12 +497,14 @@ void WallpaperProgram::ensureProgram(std::size_t index) const {
 }
 
 void WallpaperProgram::destroy() {
+  m_failed.fill(false);
   for (auto& pd : m_programs) {
     pd.program.destroy();
   }
 }
 
 void WallpaperProgram::abandon() noexcept {
+  m_failed.fill(false);
   for (auto& pd : m_programs) {
     pd.program.abandon();
   }

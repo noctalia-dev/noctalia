@@ -71,4 +71,6 @@ private:
   void initProgram(std::size_t index, const char* fragSource) const;
 
   mutable std::array<ProgramData, kTransitionCount> m_programs;
+  // Contributed: track failed compilations to prevent retry/log spam loops
+  mutable std::array<bool, kTransitionCount> m_failed{};
 };
