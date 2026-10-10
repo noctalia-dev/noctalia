@@ -1703,11 +1703,7 @@ void LauncherPanel::create() {
                   m_selectedIndex = *idx;
                 }
               },
-          .configure =
-              [browser = m_browserMode](VirtualGridView& grid) {
-                grid.setFillWidth(true);
-                grid.scrollView().setReserveScrollbarGutter(browser);
-              },
+          .configure = [](VirtualGridView& grid) { grid.setFillWidth(true); },
       })
   );
 
