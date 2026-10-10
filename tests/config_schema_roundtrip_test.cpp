@@ -710,8 +710,8 @@ location = "https://example.invalid/bad"
       Diagnostics d;
       readInto(t, lockscreen, lockscreenSchema(), "lockscreen", d);
       const std::vector<LockscreenTransition> expected = {
-          LockscreenTransition::Vortex,  LockscreenTransition::Pixel,  LockscreenTransition::Diamond,
-          LockscreenTransition::Golden,  LockscreenTransition::Melt,
+          LockscreenTransition::Vortex, LockscreenTransition::Pixel, LockscreenTransition::Diamond,
+          LockscreenTransition::Golden, LockscreenTransition::Melt,
       };
       if (lockscreen.transitions != expected) {
         fail("lockscreen.transition: legacy newan1..newan5 aliases were not parsed correctly");

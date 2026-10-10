@@ -781,7 +781,9 @@ namespace noctalia::config {
 
     // Contributed section: migrate legacy transition animation names (newan1..newan5 -> vortex..melt)
     template <typename OnChanged>
-    void migrateTransitionArray(toml::table& parent, std::string_view key, std::string_view parentPath, OnChanged& onChanged) {
+    void migrateTransitionArray(
+        toml::table& parent, std::string_view key, std::string_view parentPath, OnChanged& onChanged
+    ) {
       auto* arr = parent[key].as_array();
       if (arr == nullptr) {
         return;
@@ -819,8 +821,7 @@ namespace noctalia::config {
       }
     }
 
-    template <typename OnChanged>
-    void migrateTransitionAnimationAliases(toml::table& root, OnChanged&& onChanged) {
+    template <typename OnChanged> void migrateTransitionAnimationAliases(toml::table& root, OnChanged&& onChanged) {
       if (auto* wallpaper = root["wallpaper"].as_table()) {
         migrateTransitionArray(*wallpaper, "transition", "wallpaper", onChanged);
       }

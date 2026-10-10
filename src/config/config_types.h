@@ -543,10 +543,10 @@ struct WallpaperConfig {
   bool enabled = true;
   WallpaperFillMode fillMode = WallpaperFillMode::Crop;
   std::optional<ColorSpec> fillColor;
-  std::vector<WallpaperTransition> transitions = {WallpaperTransition::Fade, WallpaperTransition::Wipe,
-                                                  WallpaperTransition::Disc, WallpaperTransition::Stripes,
-                                                  WallpaperTransition::Zoom, WallpaperTransition::Honeycomb,
-                                                  WallpaperTransition::Vortex, WallpaperTransition::Pixel,
+  std::vector<WallpaperTransition> transitions = {WallpaperTransition::Fade,    WallpaperTransition::Wipe,
+                                                  WallpaperTransition::Disc,    WallpaperTransition::Stripes,
+                                                  WallpaperTransition::Zoom,    WallpaperTransition::Honeycomb,
+                                                  WallpaperTransition::Vortex,  WallpaperTransition::Pixel,
                                                   WallpaperTransition::Diamond, WallpaperTransition::Golden,
                                                   WallpaperTransition::Melt};
   float transitionDurationMs = 1500.0F;
@@ -584,10 +584,10 @@ struct LockscreenConfig {
   bool fingerprint = true;
   bool allowEmptyPassword = false;
   bool blurredDesktop = false;
-  std::vector<LockscreenTransition> transitions = {LockscreenTransition::Fade, LockscreenTransition::Wipe,
-                                                   LockscreenTransition::Disc, LockscreenTransition::Stripes,
-                                                   LockscreenTransition::Zoom, LockscreenTransition::Honeycomb,
-                                                   LockscreenTransition::Vortex, LockscreenTransition::Pixel,
+  std::vector<LockscreenTransition> transitions = {LockscreenTransition::Fade,    LockscreenTransition::Wipe,
+                                                   LockscreenTransition::Disc,    LockscreenTransition::Stripes,
+                                                   LockscreenTransition::Zoom,    LockscreenTransition::Honeycomb,
+                                                   LockscreenTransition::Vortex,  LockscreenTransition::Pixel,
                                                    LockscreenTransition::Diamond, LockscreenTransition::Golden,
                                                    LockscreenTransition::Melt};
   float transitionDurationMs = 1500.0F;
