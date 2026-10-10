@@ -1559,8 +1559,8 @@ void LauncherPanel::create() {
             ui::button({
                 .out = &m_launcherUsageButton,
                 .glyph = m_config != nullptr && m_config->config().shell.launcher.sortByUsage
-                    ? "sort-ascending-letters"
-                    : "sort-descending-small-big",
+                    ? "sort-descending-small-big"
+                    : "sort-ascending-letters",
                 .glyphSize = Style::fontSizeBody * scale,
                 .variant = ButtonVariant::Ghost,
                 .surfaceOpacity = panelCardOpacity(),
@@ -1587,7 +1587,7 @@ void LauncherPanel::create() {
             }),
             ui::button({
                 .out = &m_launcherGridButton,
-                .glyph = m_config != nullptr && m_config->config().shell.launcher.appGrid ? "list" : "layout-grid",
+                .glyph = m_config != nullptr && m_config->config().shell.launcher.appGrid ? "layout-grid" : "list",
                 .glyphSize = Style::fontSizeBody * scale,
                 .variant = ButtonVariant::Ghost,
                 .surfaceOpacity = panelCardOpacity(),
@@ -3087,7 +3087,7 @@ void LauncherPanel::updateLauncherOptionButtons() {
     m_launcherUsageButton->setParticipatesInLayout(orderingAvailable);
     m_launcherUsageButton->setEnabled(orderingAvailable);
     m_launcherUsageButton->setSelected(false);
-    m_launcherUsageButton->setGlyph(launcher.sortByUsage ? "sort-ascending-letters" : "sort-descending-small-big");
+    m_launcherUsageButton->setGlyph(launcher.sortByUsage ? "sort-descending-small-big" : "sort-ascending-letters");
     m_launcherUsageButton->setTooltip(
         i18n::tr(
             launcher.sortByUsage ? "launcher.browser.options.use-default-order"
@@ -3097,7 +3097,7 @@ void LauncherPanel::updateLauncherOptionButtons() {
   }
   if (m_launcherGridButton != nullptr) {
     m_launcherGridButton->setSelected(false);
-    m_launcherGridButton->setGlyph(launcher.appGrid ? "list" : "layout-grid");
+    m_launcherGridButton->setGlyph(launcher.appGrid ? "layout-grid" : "list");
     m_launcherGridButton->setTooltip(
         i18n::tr(launcher.appGrid ? "launcher.browser.options.show-list" : "launcher.browser.options.show-grid")
     );
