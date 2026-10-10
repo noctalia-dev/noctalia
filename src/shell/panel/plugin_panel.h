@@ -60,6 +60,7 @@ public:
   void onOpen(std::string_view context) override;
   void onClose() override;
   void onFrameTick(float deltaMs) override;
+  void scrollFocusedInputIntoView(InputArea* area) override;
   [[nodiscard]] bool isContextActive(std::string_view context) const override;
 
   [[nodiscard]] float preferredWidth() const override { return scaled(m_preferredWidth); }

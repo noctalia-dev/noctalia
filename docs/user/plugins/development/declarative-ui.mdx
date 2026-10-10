@@ -52,7 +52,7 @@ compact: it hugs its content instead of using the taller settings-panel control 
 | Constructor | Props |
 |-------------|-------|
 | `ui.column` / `ui.row` | `gap`, `padding`, `paddingH`, `paddingV`, `align` (`start`/`center`/`end`/`stretch`), `justify` (`start`/`center`/`end`/`space_between`), `fill`, `radius`, `border`, `borderWidth`, `minWidth`, `minHeight`, `onClick`, `onHover`, `tooltip` |
-| `ui.scroll` | a vertically scrolling container; same layout props as a column plus `fill`, `radius`, `border`, `borderWidth`, `stickToBottom` (bool), `onScroll`, `scrollToBottomRev` (number - see below) |
+| `ui.scroll` | a vertically scrolling container; same layout props as a column plus `fill`, `radius`, `border`, `borderWidth`, `stickToBottom` (bool), `onScroll`, `scrollToBottomRev` (number - see below), `revealKey` (string - see below) |
 | `ui.label` | `text`, `fontSize`, `color`, `fontWeight` (`thin`…`heavy`), `fontFamily` (a family name; load a file with `noctalia.loadFont`), `baseline` (`text`/`textFixedHeight`/`inkCentered`/`pictographic`), `maxWidth`, `maxLines`, `textAlign` |
 | `ui.markdown` | `text` (markdown source - see below), `width`, `height` |
 | `ui.glyph` | `name` (Tabler/Nerd-Font glyph), `size`, `color` |
@@ -170,6 +170,18 @@ prop is logged and skipped - typos surface in the log instead of failing silentl
   jumps to the bottom on the first render that sees it and again whenever the number changes; the jump lands after
   the next layout pass, so it reaches content added in the same render. All three require
   <PluginApiBadge feature="plugin-ui-props" />.
+- **Reveal a child**: `ui.scroll` with `revealKey = "hit-12"` scrolls the descendant with that `key` into view by
+  the smallest distance that shows it whole, and leaves the offset alone when it is already fully visible - what a
+  keyboard selection in a long list needs. The reveal lands after the next layout pass, so it reaches a child added
+  in the same render; a key no child carries yet waits for the render that adds one. It re-applies when the value
+  changes or the child reappears, never on an unchanged re-render, so the user's own scrolling is not undone.
+  Requires <PluginApiBadge feature="scroll-reveal-key" />.
+  ```lua
+  -- rows are keyed "hit-<index>"; onKey moves `selected` and re-renders
+  ui.scroll({ flexGrow = 1, revealKey = "hit-" .. selected }, rows)
+  ```
+  A control inside a `ui.scroll` that gains keyboard focus (Tab, Shift+Tab) is scrolled into view by the host with
+  no prop involved.
 - **Focus**: `ui.input` with `focus = true` grabs keyboard focus once, when the control is **created**, never on
   later re-renders, so it won't steal focus while the user interacts elsewhere. To focus again (e.g. a new document
   in the same editor slot), give the input a fresh `key`. The seeded `value` places the caret at the end.

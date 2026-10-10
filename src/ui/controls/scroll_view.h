@@ -34,6 +34,10 @@ public:
   void requestScrollToOffset(float offset);
   // One-shot jump to the bottom under the same layout-time semantics.
   void requestScrollToBottom();
+  // One-shot minimal scroll that brings a descendant of content() fully into the
+  // viewport, under the same layout-time semantics. Ignored once the node has
+  // left content(), so callers need not clear it when they drop the node.
+  void requestScrollIntoView(const Node* target);
   void scrollBy(float delta);
   void setScrollbarVisible(bool visible);
   // Vertical clearance at both track ends (e.g. the host card's corner radius).
@@ -92,6 +96,8 @@ private:
   bool m_stickToBottom = false;
   bool m_pendingScrollToBottom = false;
   std::optional<float> m_pendingScrollOffset;
+  // May dangle by layout time; located under content() before it is dereferenced.
+  const Node* m_pendingScrollIntoView = nullptr;
   std::function<void(float)> m_onScrollChanged;
   ColorSpec m_backgroundFill = clearColorSpec();
   ColorSpec m_backgroundBorder = clearColorSpec();

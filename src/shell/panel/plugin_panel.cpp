@@ -10,6 +10,8 @@
 #include "ui/builders.h"
 #include "ui/controls/context_menu_popup.h"
 #include "ui/controls/flex.h"
+#include "ui/controls/scroll_view.h"
+#include "ui/scroll_into_view.h"
 #include "ui/style.h"
 #include "wayland/layer_surface.h"
 
@@ -301,6 +303,12 @@ void PluginPanel::doLayout(Renderer& renderer, float width, float height) {
 }
 
 void PluginPanel::doUpdate(Renderer& renderer) { (void)renderer; }
+
+void PluginPanel::scrollFocusedInputIntoView(InputArea* area) {
+  if (ScrollView* scrollView = findEnclosingScrollView(area)) {
+    scrollNodeIntoScrollView(*scrollView, nullptr, *area, 0.0F);
+  }
+}
 
 void PluginPanel::startTickTimer() {
   if (!m_wantsSecondTicks || !m_open) {
