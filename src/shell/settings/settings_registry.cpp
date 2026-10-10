@@ -3340,6 +3340,25 @@ namespace settings {
           autoHideModeSelect(barAutoHideMode(bar.autoHide, bar.smartAutoHide), path("smart_auto_hide")),
           "autohide smart workspace"
       ));
+      {
+        auto e = makeEntry(
+            section, "general", tr("settings.schema.bar.auto-hide-delay.label"),
+            tr("settings.schema.bar.auto-hide-delay.description"), path("auto_hide_delay_ms"),
+            StepperSetting{
+                .value = bar.autoHideDelayMs,
+                .minValue = 0,
+                .maxValue = 600000,
+                .step = 1000,
+                .valueSuffix = "ms",
+            },
+            "autohide delay wait"
+        );
+        e.visibleWhen = [barName = bar.name](const Config& c) {
+          const BarConfig* b = findBar(c, barName);
+          return b != nullptr && b->autoHide && !b->smartAutoHide;
+        };
+        entries.push_back(std::move(e));
+      }
       const SettingVisibility autoHideOn = [barName = bar.name](const Config& c) {
         const BarConfig* b = findBar(c, barName);
         return b != nullptr && b->isAutoHideEnabled();
@@ -3680,6 +3699,31 @@ namespace settings {
             ),
             "autohide smart workspace"
         ));
+        {
+          auto e = makeEntry(
+              section, "general", tr("settings.schema.bar.auto-hide-delay.label"),
+              tr("settings.schema.bar.auto-hide-delay.description"), monitorPath("auto_hide_delay_ms"),
+              StepperSetting{
+                  .value = ovr.autoHideDelayMs.value_or(bar.autoHideDelayMs),
+                  .minValue = 0,
+                  .maxValue = 600000,
+                  .step = 1000,
+                  .valueSuffix = "ms",
+              },
+              "autohide delay wait"
+          );
+          e.visibleWhen = [barName = bar.name, match = ovr.match](const Config& c) {
+            const BarConfig* b = findBar(c, barName);
+            if (b == nullptr) {
+              return false;
+            }
+            const BarMonitorOverride* o = findMonitorOverride(*b, match);
+            const bool autoHide = o != nullptr ? o->autoHide.value_or(b->autoHide) : b->autoHide;
+            const bool smartAutoHide = o != nullptr ? o->smartAutoHide.value_or(b->smartAutoHide) : b->smartAutoHide;
+            return autoHide && !smartAutoHide;
+          };
+          entries.push_back(std::move(e));
+        }
         const SettingVisibility monitorAutoHideOn = [barName = bar.name, match = ovr.match](const Config& c) {
           const BarConfig* b = findBar(c, barName);
           if (b == nullptr) {

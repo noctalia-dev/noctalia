@@ -1934,6 +1934,7 @@ namespace noctalia::config::schema {
     // optional BarMonitorOverride fields, declared once so the two schemas can't
     // drift apart.
     constexpr Range<std::int64_t> kBarThicknessRange{10, 300};
+    constexpr Range<std::int64_t> kBarAutoHideDelayRange{0, 600000};
     constexpr Range<std::int64_t> kBarRadiusRange{0, 500};
     constexpr Range<std::int64_t> kBarPanelOverlapRange{-2, 3};
     constexpr Range<float> kBarCapsuleThicknessRange{0.1F, 1.0F};
@@ -2355,6 +2356,7 @@ namespace noctalia::config::schema {
     static const Schema<BarConfig> s = {
         field(&BarConfig::enabled, "enabled"),
         field(&BarConfig::autoHide, "auto_hide"),
+        field(&BarConfig::autoHideDelayMs, "auto_hide_delay_ms", kBarAutoHideDelayRange),
         field(&BarConfig::smartAutoHide, "smart_auto_hide"),
         field(&BarConfig::showOnWorkspaceSwitch, "show_on_workspace_switch"),
         field(&BarConfig::reserveSpace, "reserve_space"),
@@ -2414,6 +2416,7 @@ namespace noctalia::config::schema {
         field(&BarMonitorOverride::position, "position"),
         optionalBoolField(&BarMonitorOverride::enabled, "enabled"),
         optionalBoolField(&BarMonitorOverride::autoHide, "auto_hide"),
+        optionalIntField(&BarMonitorOverride::autoHideDelayMs, "auto_hide_delay_ms", kBarAutoHideDelayRange),
         optionalBoolField(&BarMonitorOverride::smartAutoHide, "smart_auto_hide"),
         optionalBoolField(&BarMonitorOverride::showOnWorkspaceSwitch, "show_on_workspace_switch"),
         optionalBoolField(&BarMonitorOverride::reserveSpace, "reserve_space"),

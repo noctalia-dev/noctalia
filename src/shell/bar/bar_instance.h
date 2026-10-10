@@ -1,6 +1,7 @@
 #pragma once
 
 #include "config/config_service.h"
+#include "core/timer_manager.h"
 #include "render/animation/animation_manager.h"
 #include "render/scene/input_area.h"
 #include "render/scene/input_dispatcher.h"
@@ -69,6 +70,7 @@ struct BarInstance {
   bool ipcLayoutReleased = false;
   // bar-auto-hide-set off keeps autoHide true until the reveal completes; block hover helpers from replacing it.
   bool autoHideDisablePending = false;
+  Timer autoHideDelayTimer;
   // smart_auto_hide: active workspace empty (or overview open) — keep the bar visible.
   bool smartAutoHidePinnedVisible = false;
   bool pointerInside = false;

@@ -964,6 +964,8 @@ BarConfig ConfigService::resolveForOutput(const BarConfig& base, const WaylandOu
       resolved.enabled = *ovr.enabled;
     if (ovr.autoHide)
       resolved.autoHide = *ovr.autoHide;
+    if (ovr.autoHideDelayMs)
+      resolved.autoHideDelayMs = *ovr.autoHideDelayMs;
     if (ovr.smartAutoHide)
       resolved.smartAutoHide = *ovr.smartAutoHide;
     if (ovr.showOnWorkspaceSwitch)

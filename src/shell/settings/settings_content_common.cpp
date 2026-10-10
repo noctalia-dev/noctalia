@@ -50,6 +50,9 @@ namespace settings {
     if (key == "auto_hide") {
       return override->autoHide.has_value();
     }
+    if (key == "auto_hide_delay_ms") {
+      return override->autoHideDelayMs.has_value();
+    }
     if (key == "smart_auto_hide") {
       return override->smartAutoHide.has_value();
     }
