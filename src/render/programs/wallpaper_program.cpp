@@ -283,7 +283,7 @@ void main() {
 }
 )";
 
-  constexpr char kNewAn1Fragment[] = R"(
+  constexpr char kVortexFragment[] = R"(
 uniform float u_centerX;
 uniform float u_centerY;
 uniform float u_aspectRatio;
@@ -305,19 +305,14 @@ void main() {
     float arms = 3.0;
     float spiral = dist + fract(normAngle * arms) * 0.25;
 
-    float maxDist = 0.0;
-    maxDist = max(maxDist, distance(center, vec2(0.0, 0.0)));
-    maxDist = max(maxDist, distance(center, vec2(u_aspectRatio, 0.0)));
-    maxDist = max(maxDist, distance(center, vec2(0.0, 1.0)));
-    maxDist = max(maxDist, distance(center, vec2(u_aspectRatio, 1.0)));
-
+    float maxDist = length(max(center, vec2(u_aspectRatio, 1.0) - center));
     float edge = u_progress * (maxDist + 0.25 + 2.0 * feather) - feather;
     float factor = smoothstep(edge - feather, edge + feather, spiral);
     gl_FragColor = mix(color2, color1, factor);
 }
 )";
 
-  constexpr char kNewAn2Fragment[] = R"(
+  constexpr char kPixelFragment[] = R"(
 uniform float u_cellSize;
 uniform float u_centerX;
 uniform float u_centerY;
@@ -338,12 +333,7 @@ void main() {
     vec2 cell = floor(aspectUV / size);
     float noise = fract(sin(dot(cell, vec2(12.9898, 78.233))) * 43758.5453);
 
-    float maxDist = 0.0;
-    maxDist = max(maxDist, distance(center, vec2(0.0, 0.0)));
-    maxDist = max(maxDist, distance(center, vec2(u_aspectRatio, 0.0)));
-    maxDist = max(maxDist, distance(center, vec2(0.0, 1.0)));
-    maxDist = max(maxDist, distance(center, vec2(u_aspectRatio, 1.0)));
-
+    float maxDist = length(max(center, vec2(u_aspectRatio, 1.0) - center));
     float distNorm = distance(aspectUV, center) / max(maxDist, 0.001);
     float threshold = mix(distNorm, noise, 0.35);
 
@@ -353,7 +343,7 @@ void main() {
 }
 )";
 
-  constexpr char kNewAn3Fragment[] = R"(
+  constexpr char kDiamondFragment[] = R"(
 uniform float u_cellSize;
 uniform float u_centerX;
 uniform float u_centerY;
@@ -376,12 +366,7 @@ void main() {
     vec2 inCell = abs(aspectUV - cellCenter) / (size * 0.5);
     float diamondMetric = inCell.x + inCell.y;
 
-    float maxDist = 0.0;
-    maxDist = max(maxDist, distance(center, vec2(0.0, 0.0)));
-    maxDist = max(maxDist, distance(center, vec2(u_aspectRatio, 0.0)));
-    maxDist = max(maxDist, distance(center, vec2(0.0, 1.0)));
-    maxDist = max(maxDist, distance(center, vec2(u_aspectRatio, 1.0)));
-
+    float maxDist = length(max(center, vec2(u_aspectRatio, 1.0) - center));
     float delay = (distance(cellCenter, center) / max(maxDist, 0.001)) * 0.4;
     float localProgress = clamp((u_progress - delay) / max(1.0 - delay, 0.0001), 0.0, 1.0);
     float radius = localProgress * (2.0 + 2.0 * feather) - feather;
@@ -390,7 +375,7 @@ void main() {
 }
 )";
 
-  constexpr char kNewAn4Fragment[] = R"(
+  constexpr char kGoldenFragment[] = R"(
 uniform float u_angle;
 uniform float u_centerX;
 uniform float u_centerY;
@@ -410,11 +395,7 @@ void main() {
     float dist = length(delta);
     float angle = atan(delta.y, delta.x);
 
-    float maxDist = 0.0;
-    maxDist = max(maxDist, distance(center, vec2(0.0, 0.0)));
-    maxDist = max(maxDist, distance(center, vec2(u_aspectRatio, 0.0)));
-    maxDist = max(maxDist, distance(center, vec2(0.0, 1.0)));
-    maxDist = max(maxDist, distance(center, vec2(u_aspectRatio, 1.0)));
+    float maxDist = length(max(center, vec2(u_aspectRatio, 1.0) - center));
 
     // Golden ratio logarithmic spiral (growth rate b = ln(1.6180339887) / (pi / 2) ≈ 0.306349)
     float b = 0.306349;
@@ -428,7 +409,7 @@ void main() {
 }
 )";
 
-  constexpr char kNewAn5Fragment[] = R"(
+  constexpr char kMeltFragment[] = R"(
 uniform float u_angle;
 uniform float u_smoothness;
 
@@ -484,20 +465,20 @@ void WallpaperProgram::ensureProgram(std::size_t index) const {
   case WallpaperTransition::Honeycomb:
     initProgram(index, kHoneycombFragment);
     break;
-  case WallpaperTransition::NewAn1:
-    initProgram(index, kNewAn1Fragment);
+  case WallpaperTransition::Vortex:
+    initProgram(index, kVortexFragment);
     break;
-  case WallpaperTransition::NewAn2:
-    initProgram(index, kNewAn2Fragment);
+  case WallpaperTransition::Pixel:
+    initProgram(index, kPixelFragment);
     break;
-  case WallpaperTransition::NewAn3:
-    initProgram(index, kNewAn3Fragment);
+  case WallpaperTransition::Diamond:
+    initProgram(index, kDiamondFragment);
     break;
-  case WallpaperTransition::NewAn4:
-    initProgram(index, kNewAn4Fragment);
+  case WallpaperTransition::Golden:
+    initProgram(index, kGoldenFragment);
     break;
-  case WallpaperTransition::NewAn5:
-    initProgram(index, kNewAn5Fragment);
+  case WallpaperTransition::Melt:
+    initProgram(index, kMeltFragment);
     break;
   }
 }

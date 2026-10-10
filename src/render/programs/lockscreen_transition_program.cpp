@@ -62,10 +62,8 @@ vec2 hex_round(float q, float r) {
 }
 
 float max_distance_to_corners(vec2 center, float aspect) {
-    float result = distance(center, vec2(0.0, 0.0));
-    result = max(result, distance(center, vec2(aspect, 0.0)));
-    result = max(result, distance(center, vec2(0.0, 1.0)));
-    return max(result, distance(center, vec2(aspect, 1.0)));
+    vec2 corner_delta = max(center, vec2(aspect, 1.0) - center);
+    return length(corner_delta);
 }
 
 float wipe_coverage(vec2 uv, float progress, float smoothness) {
@@ -136,7 +134,7 @@ float honeycomb_coverage(vec2 uv, float progress, float smoothness) {
     return smoothstep(radius - smoothness, radius + smoothness, distance(cell_center, center));
 }
 
-float spiral_coverage(vec2 uv, float progress, float smoothness) {
+float vortex_coverage(vec2 uv, float progress, float smoothness) {
     vec2 aspect_uv = vec2(uv.x * u_aspect_ratio, uv.y);
     vec2 center = vec2(u_center.x * u_aspect_ratio, u_center.y);
     vec2 delta = aspect_uv - center;
@@ -200,7 +198,7 @@ float golden_coverage(vec2 uv, float progress, float smoothness) {
     return smoothstep(edge - feather, edge + feather, golden_dist);
 }
 
-float liquid_coverage(vec2 uv, float progress, float smoothness) {
+float melt_coverage(vec2 uv, float progress, float smoothness) {
     float feather = max(0.02, smoothness * 1.5);
     float wave = sin(uv.x * 14.0 + radians(u_angle)) * 0.05
                + sin(uv.x * 32.0 - radians(u_angle) * 1.5) * 0.025
@@ -237,7 +235,7 @@ void main() {
     } else if (u_transition < 5.5) {
         coverage = honeycomb_coverage(uv, progress, smoothness);
     } else if (u_transition < 6.5) {
-        coverage = spiral_coverage(uv, progress, smoothness);
+        coverage = vortex_coverage(uv, progress, smoothness);
     } else if (u_transition < 7.5) {
         coverage = pixelate_coverage(uv, progress, smoothness);
     } else if (u_transition < 8.5) {
@@ -245,7 +243,7 @@ void main() {
     } else if (u_transition < 9.5) {
         coverage = golden_coverage(uv, progress, smoothness);
     } else {
-        coverage = liquid_coverage(uv, progress, smoothness);
+        coverage = melt_coverage(uv, progress, smoothness);
     }
 
     vec4 texel = texture2D(u_texture, uv);

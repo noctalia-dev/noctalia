@@ -46,20 +46,6 @@ namespace {
       .configure = &LockSurface::handleConfigure,
   };
 
-  [[nodiscard]] Easing easingForLockscreenTransition(LockscreenTransitionKind kind) {
-    switch (kind) {
-    case LockscreenTransitionKind::NewAn1:
-    case LockscreenTransitionKind::NewAn4:
-    case LockscreenTransitionKind::NewAn5:
-      return Easing::CubicBezierDramatic;
-    case LockscreenTransitionKind::NewAn2:
-    case LockscreenTransitionKind::NewAn3:
-      return Easing::CubicBezierAlt;
-    default:
-      return Easing::EaseInOutCubic;
-    }
-  }
-
   constexpr float kMediaArtSize = lockscreen_login_box::kRegularMediaArtSize;
   constexpr float kWeatherGlyphSize = 28.0F;
   constexpr float kForecastGlyphSize = lockscreen_login_box::kRegularForecastGlyphSize;
@@ -861,12 +847,11 @@ void LockSurface::startExitTransition() {
   m_transitionPhase = TransitionPhase::Exiting;
   syncTransitionCover();
   float durationMs = m_transitionDurationMs * m_transitionProgress;
-  if (m_transition == LockscreenTransitionKind::NewAn1) {
+  if (m_transition == LockscreenTransitionKind::Vortex) {
     durationMs *= 1.75F;
   }
-  const Easing easing = easingForLockscreenTransition(m_transition);
   m_transitionAnimation = m_animations.animateTimer(
-      m_transitionProgress, 0.0F, durationMs, easing,
+      m_transitionProgress, 0.0F, durationMs, Easing::EaseInOutCubic,
       [this](float progress) {
         m_transitionProgress = progress;
         syncTransitionCover();
@@ -1107,12 +1092,11 @@ void LockSurface::beginEnterAnimation() {
   m_transitionProgress = 0.0F;
   syncTransitionCover();
   float durationMs = m_transitionDurationMs;
-  if (m_transition == LockscreenTransitionKind::NewAn1) {
+  if (m_transition == LockscreenTransitionKind::Vortex) {
     durationMs *= 1.75F;
   }
-  const Easing easing = easingForLockscreenTransition(m_transition);
   m_transitionAnimation = m_animations.animateTimer(
-      0.0F, 1.0F, durationMs, easing,
+      0.0F, 1.0F, durationMs, Easing::EaseInOutCubic,
       [this](float progress) {
         m_transitionProgress = progress;
         syncTransitionCover();

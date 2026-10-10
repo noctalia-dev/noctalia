@@ -50,19 +50,8 @@ namespace {
 
   [[nodiscard]] Color defaultWallpaperColor() { return rgba(0.0F, 0.0F, 0.0F, 1.0F); }
 
-  [[nodiscard]] float transitionProgressForTime(WallpaperTransition transition, float time) {
-    const float clamped = std::clamp(time, 0.0F, 1.0F);
-    switch (transition) {
-    case WallpaperTransition::NewAn1:
-    case WallpaperTransition::NewAn4:
-    case WallpaperTransition::NewAn5:
-      return applyEasing(Easing::CubicBezierDramatic, clamped);
-    case WallpaperTransition::NewAn2:
-    case WallpaperTransition::NewAn3:
-      return applyEasing(Easing::CubicBezierAlt, clamped);
-    default:
-      return applyEasing(kWallpaperTransitionEasing, clamped);
-    }
+  [[nodiscard]] float transitionProgressForTime(float time) {
+    return applyEasing(kWallpaperTransitionEasing, std::clamp(time, 0.0F, 1.0F));
   }
 
   void setTransitionTime(WallpaperInstance& instance, float time) {
@@ -110,26 +99,26 @@ namespace {
       params.centerX = randomFloat(0.2F, 0.8F);
       params.centerY = randomFloat(0.2F, 0.8F);
       break;
-    case WallpaperTransition::NewAn1:
+    case WallpaperTransition::Vortex:
       params.centerX = randomFloat(0.2F, 0.8F);
       params.centerY = randomFloat(0.2F, 0.8F);
       break;
-    case WallpaperTransition::NewAn2:
+    case WallpaperTransition::Pixel:
       params.cellSize = randomFloat(0.02F, 0.05F);
       params.centerX = randomFloat(0.2F, 0.8F);
       params.centerY = randomFloat(0.2F, 0.8F);
       break;
-    case WallpaperTransition::NewAn3:
+    case WallpaperTransition::Diamond:
       params.cellSize = randomFloat(0.0345F, 0.069F);
       params.centerX = randomFloat(0.2F, 0.8F);
       params.centerY = randomFloat(0.2F, 0.8F);
       break;
-    case WallpaperTransition::NewAn4:
+    case WallpaperTransition::Golden:
       params.centerX = randomFloat(0.2F, 0.8F);
       params.centerY = randomFloat(0.2F, 0.8F);
       params.angle = randomFloat(0.0F, 360.0F);
       break;
-    case WallpaperTransition::NewAn5:
+    case WallpaperTransition::Melt:
       params.angle = randomFloat(0.0F, 360.0F);
       break;
     case WallpaperTransition::Fade:
@@ -1466,7 +1455,7 @@ void Wallpaper::startTransitionAnimation(
   setTransitionTime(instance, fromTime);
 
   float durationMs = std::abs(toTime - fromTime) * wpConfig.transitionDurationMs;
-  if (instance.activeTransition == WallpaperTransition::NewAn1) {
+  if (instance.activeTransition == WallpaperTransition::Vortex) {
     durationMs *= 1.75F;
   }
   if (durationMs <= 0.0F) {
@@ -1565,8 +1554,7 @@ void Wallpaper::updateRendererState(WallpaperInstance& instance) {
       static_cast<float>(instance.nextTexture.height)
   );
   wallpaperNode->setTransition(
-      instance.activeTransition, transitionProgressForTime(instance.activeTransition, instance.transitionTime),
-      instance.transitionParams
+      instance.activeTransition, transitionProgressForTime(instance.transitionTime), instance.transitionParams
   );
   wallpaperNode->setFillMode(wpConfig.fillMode);
   wallpaperNode->setFillColor(fillColor);

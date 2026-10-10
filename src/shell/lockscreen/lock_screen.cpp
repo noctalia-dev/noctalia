@@ -65,16 +65,16 @@ namespace {
       return LockscreenTransitionKind::Zoom;
     case LockscreenTransition::Honeycomb:
       return LockscreenTransitionKind::Honeycomb;
-    case LockscreenTransition::NewAn1:
-      return LockscreenTransitionKind::NewAn1;
-    case LockscreenTransition::NewAn2:
-      return LockscreenTransitionKind::NewAn2;
-    case LockscreenTransition::NewAn3:
-      return LockscreenTransitionKind::NewAn3;
-    case LockscreenTransition::NewAn4:
-      return LockscreenTransitionKind::NewAn4;
-    case LockscreenTransition::NewAn5:
-      return LockscreenTransitionKind::NewAn5;
+    case LockscreenTransition::Vortex:
+      return LockscreenTransitionKind::Vortex;
+    case LockscreenTransition::Pixel:
+      return LockscreenTransitionKind::Pixel;
+    case LockscreenTransition::Diamond:
+      return LockscreenTransitionKind::Diamond;
+    case LockscreenTransition::Golden:
+      return LockscreenTransitionKind::Golden;
+    case LockscreenTransition::Melt:
+      return LockscreenTransitionKind::Melt;
     }
     std::unreachable();
   }
@@ -938,26 +938,26 @@ void LockScreen::chooseTransition() {
     m_transitionParams.centerX = Random::randomFloat(0.2F, 0.8F);
     m_transitionParams.centerY = Random::randomFloat(0.2F, 0.8F);
     break;
-  case LockscreenTransition::NewAn1:
+  case LockscreenTransition::Vortex:
     m_transitionParams.centerX = Random::randomFloat(0.2F, 0.8F);
     m_transitionParams.centerY = Random::randomFloat(0.2F, 0.8F);
     break;
-  case LockscreenTransition::NewAn2:
+  case LockscreenTransition::Pixel:
     m_transitionParams.cellSize = Random::randomFloat(0.02F, 0.05F);
     m_transitionParams.centerX = Random::randomFloat(0.2F, 0.8F);
     m_transitionParams.centerY = Random::randomFloat(0.2F, 0.8F);
     break;
-  case LockscreenTransition::NewAn3:
+  case LockscreenTransition::Diamond:
     m_transitionParams.cellSize = Random::randomFloat(0.0345F, 0.069F);
     m_transitionParams.centerX = Random::randomFloat(0.2F, 0.8F);
     m_transitionParams.centerY = Random::randomFloat(0.2F, 0.8F);
     break;
-  case LockscreenTransition::NewAn4:
+  case LockscreenTransition::Golden:
     m_transitionParams.centerX = Random::randomFloat(0.2F, 0.8F);
     m_transitionParams.centerY = Random::randomFloat(0.2F, 0.8F);
     m_transitionParams.angle = Random::randomFloat(0.0F, 360.0F);
     break;
-  case LockscreenTransition::NewAn5:
+  case LockscreenTransition::Melt:
     m_transitionParams.angle = Random::randomFloat(0.0F, 360.0F);
     break;
   case LockscreenTransition::Fade:

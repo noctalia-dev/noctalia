@@ -1511,15 +1511,15 @@
       },
       "lockscreen": {
         "transition": {
+          "diamond": "Diamond",
           "disc": "Disc",
           "fade": "Fade",
+          "golden": "Golden",
           "honeycomb": "Honeycomb",
-          "newan1": "NewAn1",
-          "newan2": "NewAn2",
-          "newan3": "NewAn3",
-          "newan4": "NewAn4",
-          "newan5": "NewAn5",
+          "melt": "Melt",
+          "pixel": "Pixel",
           "stripes": "Stripes",
+          "vortex": "Vortex",
           "wipe": "Wipe",
           "zoom": "Zoom"
         }
@@ -1621,15 +1621,15 @@
           "random": "Random"
         },
         "transition": {
+          "diamond": "Diamond",
           "disc": "Disc",
           "fade": "Fade",
+          "golden": "Golden",
           "honeycomb": "Honeycomb",
-          "newan1": "NewAn1",
-          "newan2": "NewAn2",
-          "newan3": "NewAn3",
-          "newan4": "NewAn4",
-          "newan5": "NewAn5",
+          "melt": "Melt",
+          "pixel": "Pixel",
           "stripes": "Stripes",
+          "vortex": "Vortex",
           "wipe": "Wipe",
           "zoom": "Zoom"
         }
