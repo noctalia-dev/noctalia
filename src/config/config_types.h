@@ -500,6 +500,7 @@ enum class LockscreenTransition : std::uint8_t {
   Stripes = 3,
   Zoom = 4,
   Honeycomb = 5,
+  Crt = 6,
 };
 
 struct WallpaperMonitorOverride {
@@ -571,7 +572,8 @@ struct LockscreenConfig {
   bool blurredDesktop = false;
   std::vector<LockscreenTransition> transitions = {LockscreenTransition::Fade, LockscreenTransition::Wipe,
                                                    LockscreenTransition::Disc, LockscreenTransition::Stripes,
-                                                   LockscreenTransition::Zoom, LockscreenTransition::Honeycomb};
+                                                   LockscreenTransition::Zoom, LockscreenTransition::Honeycomb,
+                                                   LockscreenTransition::Crt};
   float transitionDurationMs = 1500.0F;
   float edgeSmoothness = 0.3F;
   float blurIntensity = 0.5F;
@@ -1005,6 +1007,7 @@ constexpr EnumOption<WallpaperTransition> kWallpaperTransitions[] = {
 };
 
 constexpr EnumOption<LockscreenTransition> kLockscreenTransitions[] = {
+    {LockscreenTransition::Crt, "crt", "settings.options.lockscreen.transition.crt"},
     {LockscreenTransition::Disc, "disc", "settings.options.lockscreen.transition.disc"},
     {LockscreenTransition::Fade, "fade", "settings.options.lockscreen.transition.fade"},
     {LockscreenTransition::Honeycomb, "honeycomb", "settings.options.lockscreen.transition.honeycomb"},
