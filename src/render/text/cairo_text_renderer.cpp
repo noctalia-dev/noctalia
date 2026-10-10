@@ -70,43 +70,16 @@ namespace {
     }
   }
 
-  // Scan UTF-8 text for codepoints that are likely to resolve to a COLR/bitmap
-  // color glyph. We can't ask Pango cheaply whether a shaped run used a color
-  // font, so we approximate: if the text contains codepoints in the common
-  // emoji / symbol / dingbat ranges, rasterize as RGBA so the color layers are
-  // preserved. Otherwise we can use A8 coverage + shader tint, which lets one
-  // cache entry serve all colors for the same text.
-  bool containsColorGlyph(std::string_view text) {
-    const auto* s = reinterpret_cast<const unsigned char*>(text.data());
-    const std::size_t n = text.size();
-    std::size_t i = 0;
-    while (i < n) {
-      unsigned char b = s[i];
-      char32_t cp = 0;
-      int len = 1;
-      if (b < 0x80) {
-        cp = b;
-      } else if ((b & 0xE0) == 0xC0 && i + 1 < n) {
-        cp = static_cast<char32_t>((b & 0x1F) << 6 | (s[i + 1] & 0x3F));
-        len = 2;
-      } else if ((b & 0xF0) == 0xE0 && i + 2 < n) {
-        cp = static_cast<char32_t>((b & 0x0F) << 12 | (s[i + 1] & 0x3F) << 6 | (s[i + 2] & 0x3F));
-        len = 3;
-      } else if ((b & 0xF8) == 0xF0 && i + 3 < n) {
-        cp = static_cast<char32_t>(
-            (b & 0x07) << 18 | (s[i + 1] & 0x3F) << 12 | (s[i + 2] & 0x3F) << 6 | (s[i + 3] & 0x3F)
-        );
-        len = 4;
-      } else {
-        return true; // malformed — be safe
+  bool containsColorGlyph(PangoLayout* layout) {
+    for (GSList* line = pango_layout_get_lines_readonly(layout); line != nullptr; line = line->next) {
+      for (GSList* run = static_cast<PangoLayoutLine*>(line->data)->runs; run != nullptr; run = run->next) {
+        const auto* glyphs = static_cast<PangoGlyphItem*>(run->data)->glyphs;
+        for (int i = 0; i < glyphs->num_glyphs; ++i) {
+          if (glyphs->glyphs[i].attr.is_color) {
+            return true;
+          }
+        }
       }
-      i += static_cast<std::size_t>(len);
-      if (cp >= 0x2600 && cp <= 0x27BF)
-        return true; // misc symbols + dingbats
-      if (cp >= 0x1F000 && cp <= 0x1FFFF)
-        return true; // emoji planes
-      if (cp >= 0x1F900 && cp <= 0x1F9FF)
-        return true; // supplemental symbols
     }
     return false;
   }
@@ -957,8 +930,6 @@ CairoTextRenderer::CacheEntry* CairoTextRenderer::lookupOrRasterize(
   // surface, so rgb must be part of the key. Alpha is normalized to 1.0 in
   // the key AND in the rasterized source so opacity animations on mixed
   // strings still reuse one entry.
-  const bool tinted = !containsColorGlyph(text);
-
   CacheKey key;
   key.text.assign(text);
   key.fontFamily.assign(fontFamily);
@@ -970,9 +941,14 @@ CairoTextRenderer::CacheEntry* CairoTextRenderer::lookupOrRasterize(
   key.ellipsize = ellipsize;
   key.fontWeight = fontWeight;
   key.useMarkup = useMarkup;
-  key.colorRgba = tinted ? 0U : packColorRgb(color);
-
   auto it = m_cache.find(key);
+  if (it != m_cache.end()) {
+    touch(it);
+    return &it->second;
+  }
+
+  key.colorRgba = packColorRgb(color);
+  it = m_cache.find(key);
   if (it != m_cache.end()) {
     touch(it);
     return &it->second;
@@ -982,6 +958,10 @@ CairoTextRenderer::CacheEntry* CairoTextRenderer::lookupOrRasterize(
       contentScale, text, fontSize, fontWeight, maxWidth * contentScale, maxLines, align, fontFamily, ellipsize,
       useMarkup
   );
+  const bool tinted = !containsColorGlyph(layout);
+  if (tinted) {
+    key.colorRgba = 0U;
+  }
   Color rasterColor = color;
   if (!tinted) {
     rasterColor.a = 1.0F;
