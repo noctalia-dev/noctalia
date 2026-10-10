@@ -139,6 +139,10 @@ namespace ui {
     void releasePointer(const Node* owner);
     [[nodiscard]] bool subtreeOwnsPointer(const Slot& slot) const;
     [[nodiscard]] std::unique_ptr<Node> createControl(const UiTreeNode& desired);
+    // Scroll revealKey. Runs after the scroll's children reconcile, since the key
+    // names one of them.
+    void syncScrollReveal(Slot& slot, const UiTreeNode& desired);
+    [[nodiscard]] static const Slot* findKeyedSlot(const std::vector<Slot>& slots, const std::string& key);
 
     CallbackSink m_sink;
     PathResolver m_resolver;

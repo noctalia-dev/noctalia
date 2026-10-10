@@ -6,6 +6,7 @@
 #include "render/scene/rect_node.h"
 #include "ui/controls/scrollbar.h"
 #include "ui/palette.h"
+#include "ui/scroll_into_view.h"
 #include "ui/style.h"
 
 #include <algorithm>
@@ -33,6 +34,15 @@ namespace {
   std::uint32_t scrollAxis(ScrollOrientation orientation) {
     return orientation == ScrollOrientation::Horizontal ? WL_POINTER_AXIS_HORIZONTAL_SCROLL
                                                         : WL_POINTER_AXIS_VERTICAL_SCROLL;
+  }
+
+  bool subtreeContains(const Node& root, const Node* target) {
+    if (&root == target) {
+      return true;
+    }
+    return std::ranges::any_of(root.children(), [target](const auto& child) {
+      return subtreeContains(*child, target);
+    });
   }
 
 } // namespace
@@ -334,6 +344,11 @@ void ScrollView::requestScrollToBottom() {
   markLayoutDirty();
 }
 
+void ScrollView::requestScrollIntoView(const Node* target) {
+  m_pendingScrollIntoView = target;
+  markLayoutDirty();
+}
+
 void ScrollView::setContentScale(float scale) {
   const float clamped = std::max(0.1F, scale);
   if (m_contentScale == clamped) {
@@ -515,6 +530,11 @@ void ScrollView::doLayout(Renderer& renderer) {
   }
 
   applyScrollOffset();
+
+  const Node* target = std::exchange(m_pendingScrollIntoView, nullptr);
+  if (target != nullptr && m_orientation == ScrollOrientation::Vertical && subtreeContains(*m_content, target)) {
+    scrollNodeIntoScrollView(*this, m_boundState, *target, 0.0F);
+  }
 }
 
 LayoutSize ScrollView::doMeasure(Renderer& renderer, const LayoutConstraints& constraints) {

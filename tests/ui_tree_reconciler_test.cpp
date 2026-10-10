@@ -19,6 +19,7 @@
 #include "ui/controls/spacer.h"
 #include "ui/controls/toggle.h"
 #include "ui/drag_drop_controller.h"
+#include "ui/scroll_into_view.h"
 #include "ui/style.h"
 #include "ui/ui_tree.h"
 #include "ui/ui_tree_reconciler.h"
@@ -1028,6 +1029,73 @@ int main() {
       ok = expect(sv->content()->children().size() == 2, "scroll children land in content flex") && ok;
       auto* label = dynamic_cast<Label*>(sv->content()->children()[0].get());
       ok = expect(label != nullptr && label->text() == "one", "scroll child label applied") && ok;
+    }
+  }
+
+  // revealKey scrolls the keyed child into view by the minimum distance and
+  // re-applies only when the key changes or the child reappears.
+  {
+    ui::UiTreeReconciler reconciler;
+    Flex host;
+
+    // Rows sit in a column inside the scroll, so the key lookup has to recurse.
+    const auto makeTree = [](int rowCount, const std::string& revealKey) {
+      ui::UiTreeNode rows = makeNode("column");
+      rows.key = "rows";
+      for (int i = 1; i <= rowCount; ++i) {
+        ui::UiTreeNode row = makeNode("box");
+        row.key = "row-" + std::to_string(i);
+        row.props.emplace("height", 40.0);
+        rows.children.push_back(std::move(row));
+      }
+      ui::UiTreeNode scroll = makeNode("scroll");
+      scroll.key = "list";
+      if (!revealKey.empty()) {
+        scroll.props.emplace("revealKey", revealKey);
+      }
+      scroll.children.push_back(std::move(rows));
+      ui::UiTreeNode tree = makeNode("column");
+      tree.children.push_back(std::move(scroll));
+      return tree;
+    };
+
+    (void)reconciler.reconcile(host, makeTree(10, "row-1"), renderer);
+    auto* column = dynamic_cast<Flex*>(host.children().front().get());
+    auto* sv = column != nullptr ? dynamic_cast<ScrollView*>(column->children()[0].get()) : nullptr;
+    ok = expect(sv != nullptr, "reveal scroll built") && ok;
+    if (sv != nullptr) {
+      const auto render = [&](int rowCount, const std::string& revealKey) {
+        (void)reconciler.reconcile(host, makeTree(rowCount, revealKey), renderer);
+        sv->setSize(200.0F, 100.0F);
+        sv->layout(renderer);
+      };
+      const float viewport = 100.0F - sv->viewportPaddingV() * 2.0F;
+
+      render(10, "row-1");
+      ok = expect(sv->maxScrollOffset() == 400.0F - viewport, "reveal list overflows its viewport") && ok;
+      ok = expect(sv->scrollOffset() == 0.0F, "revealing a visible row does not scroll") && ok;
+
+      render(10, "row-5");
+      ok = expect(sv->scrollOffset() == 200.0F - viewport, "a row below the fold lands at the viewport bottom") && ok;
+
+      render(10, "row-4");
+      ok = expect(sv->scrollOffset() == 200.0F - viewport, "a fully visible row leaves the offset alone") && ok;
+
+      render(10, "row-2");
+      ok = expect(sv->scrollOffset() == 40.0F, "a row above the fold lands at the viewport top") && ok;
+
+      sv->setScrollOffset(300.0F);
+      render(10, "row-2");
+      ok = expect(sv->scrollOffset() == 300.0F, "an unchanged revealKey does not undo a manual scroll") && ok;
+
+      render(10, "row-12");
+      ok = expect(sv->scrollOffset() == 300.0F, "a key no child carries does not scroll") && ok;
+      render(12, "row-12");
+      ok = expect(sv->scrollOffset() == 480.0F - viewport, "the reveal lands on the render that adds the child") && ok;
+
+      render(1, "row-12");
+      render(12, "row-12");
+      ok = expect(sv->scrollOffset() == 480.0F - viewport, "a child that reappears is revealed again") && ok;
     }
   }
 
@@ -2368,6 +2436,13 @@ int main() {
       source->inputArea()->dispatchPress(targetX, targetY, BTN_LEFT, false);
       ok = expect(callbackCount == 0, "release after reset cannot drop") && ok;
     }
+  }
+
+  // content() hangs off the viewport clip node, not the ScrollView itself.
+  {
+    ScrollView scrollView;
+    Node* row = scrollView.content()->addChild(std::make_unique<Box>());
+    ok = expect(findEnclosingScrollView(row) == &scrollView, "a content child resolves to its scroll view") && ok;
   }
 
   {

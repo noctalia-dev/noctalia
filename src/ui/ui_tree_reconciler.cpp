@@ -506,9 +506,9 @@ namespace ui {
       static const std::unordered_set<std::string> kToggle = {"width",   "height",  "flexGrow", "opacity",
                                                               "visible", "checked", "enabled",  "onChange"};
       static const std::unordered_set<std::string> kScroll = {
-          "width",    "height", "flexGrow",    "opacity",       "visible",  "fill",
-          "radius",   "border", "borderWidth", "gap",           "padding",  "paddingH",
-          "paddingV", "align",  "justify",     "stickToBottom", "onScroll", "scrollToBottomRev"
+          "width",   "height",        "flexGrow", "opacity",           "visible",  "fill",     "radius",
+          "border",  "borderWidth",   "gap",      "padding",           "paddingH", "paddingV", "align",
+          "justify", "stickToBottom", "onScroll", "scrollToBottomRev", "revealKey"
       };
       static const std::unordered_set<std::string> kDragSource = {
           "width",   "height",   "flexGrow",    "opacity",         "visible",       "gap",
@@ -592,6 +592,7 @@ namespace ui {
     std::string pointerStreamKey;         // coalescing stream shared by this graph's pointer callbacks
     std::string imagePath;                // last-applied resolved image source
     std::string lastText;                 // markdown source cache - setMarkdown re-parses, only call on change
+    std::string revealKey;                // last-applied scroll revealKey, empty while no child carries it
     float lastMarkdownScale = 0.0F;       // content scale baked into the parsed markdown
     float lastMarkdownFontScale = 0.0F;   // text-only multiplier baked into the parsed markdown
     float imageTargetSize = 0.0F;
@@ -857,8 +858,44 @@ namespace ui {
       } else if (container != nullptr && want.children.empty() && !slot.children.empty()) {
         structureChanged |= syncChildren(*container, slot.children, {}, renderer);
       }
+      if (want.type == "scroll" && slot.node != nullptr) {
+        syncScrollReveal(slot, want);
+      }
     }
     return structureChanged;
+  }
+
+  const UiTreeReconciler::Slot*
+  UiTreeReconciler::findKeyedSlot(const std::vector<Slot>& slots, const std::string& key) {
+    for (const auto& slot : slots) {
+      if (slot.key == key) {
+        return &slot;
+      }
+      if (const Slot* match = findKeyedSlot(slot.children, key)) {
+        return match;
+      }
+    }
+    return nullptr;
+  }
+
+  void UiTreeReconciler::syncScrollReveal(Slot& slot, const UiTreeNode& desired) {
+    const std::string* revealKey = strProp(desired, "revealKey");
+    if (revealKey == nullptr || revealKey->empty()) {
+      slot.revealKey.clear();
+      return;
+    }
+    // Looked up before the unchanged check, so a key whose child is missing is
+    // forgotten and the reveal lands on the render that adds or restores it.
+    const Slot* target = findKeyedSlot(slot.children, *revealKey);
+    if (target == nullptr) {
+      slot.revealKey.clear();
+      return;
+    }
+    if (*revealKey == slot.revealKey) {
+      return;
+    }
+    slot.revealKey = *revealKey;
+    static_cast<ScrollView*>(slot.node)->requestScrollIntoView(target->node);
   }
 
   void UiTreeReconciler::syncWrapperCallbacks(Slot& slot, const UiTreeNode& desired, Node* node) {
