@@ -58,6 +58,7 @@ struct Notification {
   std::string appName;
   std::string summary;
   std::string body;
+  std::string sender;
   int32_t timeout;
   Urgency urgency;
   std::vector<std::string> actions; // pairs: [key, label, key, label, ...]

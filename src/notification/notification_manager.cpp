@@ -29,8 +29,6 @@ namespace {
   }
 
   constexpr std::string_view kInlineReplyAction = "inline-reply";
-  constexpr std::string_view kInlineReplyActionPrefix = "inline-reply::";
-  constexpr std::size_t kMaxActionKeyLength = 1024;
 
   bool notificationHasAction(const Notification& notification, std::string_view actionKey) {
     for (std::size_t i = 0; i + 1 < notification.actions.size(); i += 2) {
@@ -67,12 +65,13 @@ namespace {
 
   bool hasSameContent(
       const Notification& notification, NotificationOrigin origin, const std::string& appName,
-      const std::string& summary, const std::string& body
+      const std::string& summary, const std::string& body, const std::string& sender
   ) {
     return notification.origin == origin
         && notification.appName == appName
         && notification.summary == summary
-        && notification.body == body;
+        && notification.body == body
+        && notification.sender == sender;
   }
 
   bool shouldTrackHistory(NotificationOrigin origin, Urgency urgency, bool transient, bool persistInHistory) noexcept {
@@ -264,6 +263,7 @@ uint32_t NotificationManager::addOrReplace(NotificationRequest request) {
   auto& appName = request.appName;
   auto& summary = request.summary;
   auto& body = request.body;
+  auto& sender = request.sender;
   const Urgency urgency = request.urgency;
   int32_t timeout = request.timeout;
   const NotificationOrigin origin = request.origin;
@@ -329,6 +329,7 @@ uint32_t NotificationManager::addOrReplace(NotificationRequest request) {
           (n.appName != appName
            || n.summary != summary
            || n.body != body
+           || n.sender != sender
            || n.timeout != timeout
            || n.urgency != urgency
            || n.origin != origin
@@ -347,6 +348,9 @@ uint32_t NotificationManager::addOrReplace(NotificationRequest request) {
       n.dndPolicy = dndPolicy;
       n.summary = std::move(summary);
       n.body = std::move(body);
+      if (!sender.empty()) {
+        n.sender = std::move(sender);
+      }
       n.timeout = timeout;
       n.urgency = urgency;
       n.actions = std::move(actions);
@@ -384,7 +388,7 @@ uint32_t NotificationManager::addOrReplace(NotificationRequest request) {
 
   // Suppress immediate duplicate bursts. Later same-content notifications should still be visible.
   for (const auto& existing : std::views::reverse(m_notifications)) {
-    if (hasSameContent(existing, origin, appName, summary, body)
+    if (hasSameContent(existing, origin, appName, summary, body, sender)
         && now - existing.receivedTime < kImplicitDuplicateWindow) {
       logNotification(existing, "duplicate ignored");
       return existing.id;
@@ -405,6 +409,7 @@ uint32_t NotificationManager::addOrReplace(NotificationRequest request) {
           .appName = std::move(appName),
           .summary = std::move(summary),
           .body = std::move(body),
+          .sender = std::move(sender),
           .timeout = timeout,
           .urgency = urgency,
           .actions = std::move(actions),
@@ -497,6 +502,8 @@ void NotificationManager::setActionInvokeCallback(ActionInvokeCallback callback)
 
 void NotificationManager::setCloseCallback(CloseCallback callback) { m_closeCallback = std::move(callback); }
 
+void NotificationManager::setReplyCallback(ReplyCallback callback) { m_replyCallback = std::move(callback); }
+
 bool NotificationManager::hasPendingDBusClose(uint32_t id) const noexcept { return m_pendingDBusClose.contains(id); }
 
 bool NotificationManager::invokeAction(uint32_t id, const std::string& actionKey, bool closeAfterInvoke) {
@@ -523,15 +530,10 @@ bool NotificationManager::invokeAction(
   }
 
   if (actionKey == kInlineReplyAction) {
-    // This server delivers reply text via invokeInlineReply() as "inline-reply::<text>".
+    // Inline replies are delivered via invokeInlineReply() and the NotificationReplied signal.
     return false;
   }
-  const bool inlineReplyWithPayload = actionKey.starts_with(std::string(kInlineReplyActionPrefix));
-  if (inlineReplyWithPayload) {
-    if (!notificationHasAction(*notification, kInlineReplyAction)) {
-      return false;
-    }
-  } else if (!notificationHasAction(*notification, actionKey)) {
+  if (!notificationHasAction(*notification, actionKey)) {
     return false;
   }
 
@@ -569,11 +571,43 @@ bool NotificationManager::invokeInlineReply(
     return false;
   }
 
-  std::string actionKey;
-  actionKey.reserve(kInlineReplyActionPrefix.size() + replyText.size());
-  actionKey.append(kInlineReplyActionPrefix);
-  actionKey.append(StringUtils::truncateUtf8(replyText, kMaxActionKeyLength - kInlineReplyActionPrefix.size()));
-  return invokeAction(id, actionKey, std::move(activationToken), closeAfterInvoke);
+  const Notification* notification = nullptr;
+  if (const auto it = m_idToIndex.find(id); it != m_idToIndex.end()) {
+    notification = &m_notifications[it->second];
+  } else if (const auto histIt = m_historyIndex.find(id); histIt != m_historyIndex.end()) {
+    if (!hasPendingDBusClose(id)) {
+      return false;
+    }
+    notification = &m_history[histIt->second].notification;
+  } else {
+    return false;
+  }
+
+  // Verify this notification actually has the "inline-reply" button
+  if (!notificationHasAction(*notification, kInlineReplyAction)) {
+    return false;
+  }
+
+  // Send the text via reply callback
+  if (notification->origin == NotificationOrigin::External) {
+    if (m_replyCallback) {
+      m_replyCallback(id, replyText, activationToken, notification->sender);
+    }
+  }
+
+  // Dismiss the notification
+  if (closeAfterInvoke) {
+    if (m_idToIndex.contains(id)) {
+      (void)close(id, CloseReason::Dismissed);
+    } else if (const auto histIt = m_historyIndex.find(id); histIt != m_historyIndex.end()) {
+      emitPendingDBusClose(id, CloseReason::Dismissed);
+      m_history[histIt->second].notification.actions.clear();
+      m_history[histIt->second].active = false;
+      ++m_changeSerial;
+      schedulePersistHistory();
+    }
+  }
+  return true;
 }
 
 void NotificationManager::emitPendingDBusClose(uint32_t id, CloseReason reason) {

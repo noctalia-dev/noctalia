@@ -1249,6 +1249,7 @@ if build_tests
     'notification_filter',
     'notification_history_dismiss',
     'notification_history_utf8',
+    'notification_inline_reply',
     'notification_internal_history',
     'path_browse',
     'pipewire_error',
@@ -1405,6 +1406,19 @@ if build_tests
         'sh', bluetooth_property_integration_exe.full_path(),
       ],
       depends: bluetooth_property_integration_exe,
+    )
+  endif
+
+  notification_reply_integration_exe = executable('notification_reply_integration_test',
+    sources: files('tests/notification_reply_integration_test.cpp'),
+    dependencies: noctalia_core_dep,
+    override_options: ['b_ndebug=false'],
+  )
+  if dbus_run_session.found()
+    test('notification_reply_integration',
+      dbus_run_session,
+      args: ['--', notification_reply_integration_exe.full_path()],
+      depends: notification_reply_integration_exe,
     )
   endif
 
