@@ -660,7 +660,7 @@ void Application::initPanelManagerAndPanels() {
   m_configService.addReloadCallback(
       [this]() {
         if (m_launcherPanel != nullptr) {
-          m_launcherPanel->syncUsageTrackingState();
+          m_launcherPanel->syncUsageOrderingState();
         }
       },
       "launcher-usage"

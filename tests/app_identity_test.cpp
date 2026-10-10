@@ -150,7 +150,9 @@ namespace {
     }
     {
       std::ofstream entry(applications / "native.desktop");
-      entry << "[Desktop Entry]\nType=Application\nName=Native App\nExec=native-app\n";
+      entry
+          << "[Desktop Entry]\nType=Application\nName=Native App\nExec=native-app\n"
+          << "X-AppImage-Homepage=https://example.com/native-app\n";
     }
     {
       std::ofstream entry(applications / "appimage-opt-out.desktop");

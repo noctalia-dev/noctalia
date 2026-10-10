@@ -804,7 +804,6 @@
     "search-placeholder": "Search applications…",
     "browser": {
       "actions": {
-        "options": "Launcher Options",
         "power": "Power",
         "settings": "Settings"
       },
@@ -816,8 +815,10 @@
         "recent": "Recent"
       },
       "options": {
-        "app-grid": "Grid View",
-        "sort-by-usage": "Prioritize Frequent Apps"
+        "show-grid": "Show Grid View",
+        "show-list": "Show List View",
+        "sort-by-frequency": "Prioritize Frequent Results",
+        "use-default-order": "Use Default Ordering"
       },
       "sections": {
         "all-apps": "All Apps",
@@ -2625,6 +2626,10 @@
           "description": "Choose the view shown when the launcher opens without a search",
           "label": "Default View"
         },
+        "launcher-width": {
+          "description": "Set the launcher panel width",
+          "label": "Launcher Width"
+        },
         "launcher-search-position": {
           "description": "Place the launcher toolbar at the top or bottom",
           "label": "Toolbar Position"
@@ -2711,7 +2716,7 @@
           "label": "Show App Icons"
         },
         "launcher-sort-by-usage": {
-          "description": "Prioritize frequently used apps and show the Recent view",
+          "description": "Prioritize frequently used results in normal browsing and search",
           "label": "Sort by Usage"
         },
         "list-item-background": {

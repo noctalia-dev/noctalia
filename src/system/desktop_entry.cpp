@@ -260,7 +260,7 @@ namespace {
     LocalizedValues localizedComments;
     LocalizedValues localizedKeywords;
     std::string type;
-    bool hasAppImageMetadata = false;
+    bool hasAppImageVersion = false;
     bool appImageIntegrationDisabled = false;
 
     // Desktop-environment visibility lists (OnlyShowIn/NotShowIn)
@@ -398,11 +398,9 @@ namespace {
       } else if (key == "Actions") {
         splitMultipleDesktopStrings(actionOrder, value);
       } else if (key == "X-AppImage-Integrate") {
-        const bool integrationEnabled = parseDesktopBool(value);
-        appImageIntegrationDisabled = !integrationEnabled;
-        hasAppImageMetadata = hasAppImageMetadata || integrationEnabled;
-      } else if (key.starts_with("X-AppImage-")) {
-        hasAppImageMetadata = true;
+        appImageIntegrationDisabled = !parseDesktopBool(value);
+      } else if (key == "X-AppImage-Version") {
+        hasAppImageVersion = !value.empty();
       }
     }
 
@@ -446,7 +444,7 @@ namespace {
     entry.idLower = StringUtils::toLower(entry.id);
     entry.execLower = StringUtils::toLower(entry.exec);
     const bool appImage = !appImageIntegrationDisabled
-        && (hasAppImageMetadata || executableIsAppImage(entry.exec, isUserDesktopEntry(filepath)));
+        && (hasAppImageVersion || executableIsAppImage(entry.exec, isUserDesktopEntry(filepath)));
     entry.origin = detectOrigin(filepath, appImage);
 
     // Build actions in the declared order.

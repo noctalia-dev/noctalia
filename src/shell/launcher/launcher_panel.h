@@ -9,6 +9,7 @@
 #include <cstddef>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -53,7 +54,7 @@ public:
   void onIconThemeChanged() override;
 
   void clearUsage();
-  void syncUsageTrackingState();
+  void syncUsageOrderingState();
 
   // Invoked after a terminal close when the activation copied text and the provider
   // supports auto-paste. The host schedules virtual-keyboard paste (clipboard path).
@@ -73,6 +74,14 @@ private:
   struct CategoryFilterSlot {
     ActiveCategoryType type;
     std::size_t categoryIndex = 0;
+  };
+
+  struct BrowserViewState {
+    ActiveCategoryType categoryType = All;
+    std::size_t categorySlotIndex = 0;
+    std::string category;
+    std::string query;
+    std::string providerViewId;
   };
 
   void onPanelCardOpacityChanged(float opacity) override;
@@ -96,12 +105,12 @@ private:
   void finishActivation(LauncherProvider& provider, const std::string& resultId, bool copied);
   [[nodiscard]] std::vector<LauncherResult> providerOverviewResults(std::string_view text) const;
   [[nodiscard]] bool openAppActionsMenu(std::size_t index, float anchorX, float anchorY);
-  [[nodiscard]] bool openLauncherOptionsMenu();
   void updateCategoryFilterModel(const std::vector<LauncherCategory>& categories);
   void rebuildCategoryFilter();
   void rebuildLauncherNavigation();
   void applyDefaultView();
   void updateCategorySelectionChrome();
+  void updateLauncherOptionButtons();
   void setCategoryFilterVisible(bool visible);
   void setActiveCategorySlot(std::size_t slotIndex);
   void setActiveBrowserCategory(std::size_t categoryIndex);
@@ -123,7 +132,6 @@ private:
   void showProviderOverview();
   void showSessionActions();
   [[nodiscard]] bool usesBrowserLayout() const;
-  [[nodiscard]] bool shouldTrackUsage() const;
 
   std::vector<std::unique_ptr<LauncherProvider>> m_providers;
   std::vector<LauncherResult> m_results;
@@ -141,7 +149,8 @@ private:
   Image* m_launcherAvatar = nullptr;
   Glyph* m_launcherAvatarFallback = nullptr;
   Button* m_launcherSettingsButton = nullptr;
-  Button* m_launcherOptionsButton = nullptr;
+  Button* m_launcherUsageButton = nullptr;
+  Button* m_launcherGridButton = nullptr;
   Button* m_launcherPowerButton = nullptr;
   VirtualGridView* m_grid = nullptr;
   VirtualListView* m_launcherSections = nullptr;
@@ -171,6 +180,7 @@ private:
   bool m_browserMode = false;
   bool m_showingProviderOverview = false;
   std::string m_launcherProviderViewId;
+  std::optional<BrowserViewState> m_sessionReturnView;
   bool m_launcherShowIcons = true;
   bool m_launcherShowAppOriginIndicator = true;
   bool m_launcherCompact = false;
@@ -186,7 +196,6 @@ private:
   AsyncTextureCache* m_asyncTextures = nullptr;
   std::string m_launcherAvatarPath;
   std::unique_ptr<ContextMenuPopup> m_actionsMenu;
-  std::unique_ptr<ContextMenuPopup> m_optionsMenu;
   Signal<>::ScopedConnection m_appIconColorizeConn;
   std::function<void()> m_onCopiedActivation;
 };

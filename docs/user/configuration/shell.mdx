@@ -101,6 +101,7 @@ open_near_click_wallpaper      = false  # attached/floating: follow the bar clic
 open_near_click_session        = false  # attached/floating: follow the bar click instead of bar-center
 
 [shell.launcher]
+width = 760             # panel width in pixels (560–1200)
 search_position = "top" # top | bottom; whole launcher toolbar position
 default_view   = "recent" # recent | pinned | all_apps | categories
 show_settings_button = true # show the Settings shortcut
@@ -110,7 +111,7 @@ show_app_origin_indicator = true # show package origin indicators on application
 compact         = false  # smaller icons and tighter rows; hides subtitles
 app_grid        = false  # icon grid for applications, global searches, and the provider overview
 show_app_actions = false  # include searchable .desktop actions alongside applications
-sort_by_usage   = true   # boost frequently used apps and show the Recent view
+sort_by_usage   = true   # boost frequently used results
 pinned          = []     # ordered desktop entry IDs shown in the Pinned view
 fetch_exchange_rates = true  # refresh currency rates from third-party online sources
 provider_prefix = "/"    # common prefix character for provider trigger words (e.g. "/" or ".")
@@ -264,6 +265,7 @@ Notes:
 - `shell.panel.floating_offset` sets the gap in pixels a floating panel keeps from the bar edge, or from the screen edge when it is pinned with a `*_position` (default `8`). It also spaces panels using the reserved edge area when multiple bars share an edge. `attached` panels ignore it.
 - When multiple enabled bars resolve to the same edge on one monitor, exact source-bar attachment is ambiguous. In that case attached/floating panels use the compositor's reserved edge area and open outside the bar stack instead of anchoring to one bar. Prefer setting `shell.panel_anchor_bar` when you have more than one bar and open panels via IPC or shortcuts.
 - `shell.panel.open_near_click_control_center`, `open_near_click_launcher`, `open_near_click_clipboard`, `open_near_click_wallpaper`, and `open_near_click_session` position attached or floating panels near the click location on the bar instead of centering them along the bar. They are ignored when a panel is `floating` with a `*_position` other than `auto`, since it is then pinned to a fixed screen position.
+- `shell.launcher.width` sets the launcher panel width in pixels from `560` to `1200` (default `760`).
 - `shell.launcher.search_position` places the complete launcher toolbar at the `top` (default) or `bottom`. `show_settings_button` and `show_session_button` independently control its shortcuts.
 - `shell.launcher.default_view` chooses the view shown when opening without a search: `recent` (default), `pinned`, `all_apps`, or `categories`. If the selected view has no entries, the launcher opens **All Apps**.
 - `shell.launcher.show_icons` toggles application icons in launcher result rows. Prefixed-provider rows (for example emoji) still show their leading character when icons are hidden.
@@ -271,7 +273,7 @@ Notes:
 - `shell.launcher.compact` uses smaller icons, tighter padding, and single-line rows (subtitles hidden).
 - `shell.launcher.app_grid` switches application browsing, global search results, and the provider overview to a multi-column icon grid with labels underneath. Results from an explicitly selected or prefixed provider stay in the list layout.
 - `shell.launcher.show_app_actions` includes searchable `.desktop` actions alongside application results. Action rows show the action name with the parent application underneath and launch that action directly. Disabled by default; application actions remain available from an application's right-click menu.
-- `shell.launcher.sort_by_usage` boosts frequently used results (applications, emoji, panels, wallpapers, and dmenu entries) toward the top and exposes the **Recent** view. Disable it for provider ordering without the usage boost. The launcher-options button can change this setting without leaving the launcher.
+- `shell.launcher.sort_by_usage` boosts frequently used results (applications, emoji, panels, wallpapers, and dmenu entries) toward the top. Disable it to keep each provider's default ordering without the usage boost. Noctalia continues recording local launcher history for the chronological **Recent** view. The option buttons above the results can change this setting without leaving the launcher.
 - `shell.launcher.pinned` is an ordered list of desktop entry IDs shown in the **Pinned** view. Launcher pins are independent from `dock.pinned` and each taskbar widget's `pinned` list.
 - `shell.launcher.fetch_exchange_rates` refreshes currency exchange rates in the background from libqalculate's third-party online sources (enabled by default). Disable it to opt out of those requests; the last cached rates are still used for conversion. Refresh is also skipped when `[shell].offline_mode` is enabled.
 - `shell.launcher.auto_paste` controls virtual-keyboard paste after copy-style activations (calculator, emoji, copy-mode dmenu). Providers that copy opt in with `supportsAutoPaste`. Same values as `shell.clipboard_auto_paste` (`off` | `auto` | `ctrl_v` | `ctrl_shift_v` | `shift_insert`). Default `auto`.

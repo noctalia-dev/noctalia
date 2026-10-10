@@ -80,6 +80,7 @@ open_near_click_wallpaper      = false # for attached/floating placement, follow
 open_near_click_session        = false # for attached/floating placement, follow the bar click instead of bar-center
 
 [shell.launcher]
+width = 760                              # panel width in pixels (560–1200)
 search_position = "top"                  # top | bottom; whole launcher toolbar position
 default_view   = "recent"                # recent | pinned | all_apps | categories
 show_settings_button = true              # show the Settings shortcut beside search
@@ -88,7 +89,7 @@ show_icons    = true                    # show application icons in launcher res
 show_app_origin_indicator = true        # show package origin indicators on application results
 compact       = false                   # use smaller icons and tighter result rows
 app_grid      = false                   # show apps, global searches, and the provider overview as icon grids
-sort_by_usage = true                    # sort apps by usage frequency
+sort_by_usage = true                    # boost frequently used results
 pinned        = []                      # ordered apps in the Pinned view, e.g. ["firefox", "code", "kitty"]
 fetch_exchange_rates = true             # refresh currency rates from third-party sources
 provider_prefix = "/"                     # common prefix character for provider trigger words (e.g. "/" or ".")

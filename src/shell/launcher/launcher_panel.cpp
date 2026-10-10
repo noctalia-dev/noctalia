@@ -17,7 +17,6 @@
 #include "shell/dock/pinned_apps.h"
 #include "shell/panel/panel_manager.h"
 #include "shell/profile/avatar_path.h"
-#include "shell/tooltip/tooltip_manager.h"
 #include "system/desktop_entry.h"
 #include "system/distro_info.h"
 #include "ui/app_icon_colorization.h"
@@ -49,8 +48,8 @@ namespace {
   constexpr float kIconSizeDefault = 40.0F;
   constexpr float kIconSizeCompact = 28.0F;
   constexpr std::size_t kAppGridColumns = 5;
-  constexpr float kLauncherWidth = 760.0F;
   constexpr float kLauncherHeight = 620.0F;
+  constexpr std::int32_t kCompactNavigationWidth = 680;
   constexpr float kLauncherAvatarSize = 44.0F;
   constexpr std::string_view kApplicationsProviderId = "Applications";
   constexpr std::string_view kSessionProviderId = "Session";
@@ -1410,7 +1409,11 @@ LauncherPanel::~LauncherPanel() = default;
 
 bool LauncherPanel::usesBrowserLayout() const { return m_scopedProviderId.empty(); }
 
-float LauncherPanel::preferredWidth() const { return scaled(usesBrowserLayout() ? kLauncherWidth : 560.0F); }
+float LauncherPanel::preferredWidth() const {
+  const float browserWidth = m_config != nullptr ? static_cast<float>(m_config->config().shell.launcher.width)
+                                                 : static_cast<float>(ShellConfig::LauncherConfig::kDefaultWidth);
+  return scaled(usesBrowserLayout() ? browserWidth : 560.0F);
+}
 
 float LauncherPanel::preferredHeight() const { return scaled(usesBrowserLayout() ? kLauncherHeight : 500.0F); }
 
@@ -1444,7 +1447,7 @@ void LauncherPanel::applyProviderConfig(LauncherProvider& provider) const {
 }
 
 void LauncherPanel::finishActivation(LauncherProvider& provider, const std::string& resultId, bool copied) {
-  if (shouldTrackUsage() && provider.trackUsage()) {
+  if (provider.trackUsage()) {
     m_usageTracker.record(provider.id(), resultId);
   }
   PanelManager::instance().closePanel(false);
@@ -1500,6 +1503,9 @@ void LauncherPanel::create() {
       .surfaceOpacity = panelCardOpacity(),
       .onChange =
           [this](const std::string& text) {
+            if (m_launcherProviderViewId == kSessionProviderId) {
+              m_sessionReturnView.reset();
+            }
             m_launcherProviderViewId.clear();
             onInputChanged(text);
             if (m_input == nullptr) {
@@ -1540,9 +1546,74 @@ void LauncherPanel::create() {
     body->setCardStyle(scale, panelCardOpacity());
     auto navigationRow = ui::row({
         .align = FlexAlign::Center,
-        .justify = FlexJustify::End,
+        .justify = FlexJustify::SpaceBetween,
+        .gap = Style::spaceSm * scale,
         .fillWidth = true,
     });
+    navigationRow->addChild(
+        ui::row(
+            {
+                .align = FlexAlign::Center,
+                .gap = Style::spaceXs * scale,
+            },
+            ui::button({
+                .out = &m_launcherUsageButton,
+                .glyph = m_config != nullptr && m_config->config().shell.launcher.sortByUsage
+                    ? "sort-ascending-letters"
+                    : "sort-descending-small-big",
+                .glyphSize = Style::fontSizeBody * scale,
+                .variant = ButtonVariant::Ghost,
+                .surfaceOpacity = panelCardOpacity(),
+                .tooltip = i18n::tr(
+                    m_config != nullptr && m_config->config().shell.launcher.sortByUsage
+                        ? "launcher.browser.options.use-default-order"
+                        : "launcher.browser.options.sort-by-frequency"
+                ),
+                .radius = Style::scaledRadiusMd(scale),
+                .width = Style::controlHeightSm * scale,
+                .onClick =
+                    [this]() {
+                      if (m_config == nullptr) {
+                        return;
+                      }
+                      const bool enabled = !m_config->config().shell.launcher.sortByUsage;
+                      (void)m_config->setOverride({"shell", "launcher", "sort_by_usage"}, enabled);
+                    },
+                .configure =
+                    [scale](Button& button) {
+                      button.setControlHeight(Style::controlHeightSm * scale);
+                      button.inputArea()->setTabFocusKey("launcher.sort-by-usage");
+                    },
+            }),
+            ui::button({
+                .out = &m_launcherGridButton,
+                .glyph = m_config != nullptr && m_config->config().shell.launcher.appGrid ? "list" : "layout-grid",
+                .glyphSize = Style::fontSizeBody * scale,
+                .variant = ButtonVariant::Ghost,
+                .surfaceOpacity = panelCardOpacity(),
+                .tooltip = i18n::tr(
+                    m_config != nullptr && m_config->config().shell.launcher.appGrid
+                        ? "launcher.browser.options.show-list"
+                        : "launcher.browser.options.show-grid"
+                ),
+                .radius = Style::scaledRadiusMd(scale),
+                .width = Style::controlHeightSm * scale,
+                .onClick =
+                    [this]() {
+                      if (m_config == nullptr) {
+                        return;
+                      }
+                      const bool enabled = !m_config->config().shell.launcher.appGrid;
+                      (void)m_config->setOverride({"shell", "launcher", "app_grid"}, enabled);
+                    },
+                .configure =
+                    [scale](Button& button) {
+                      button.setControlHeight(Style::controlHeightSm * scale);
+                      button.inputArea()->setTabFocusKey("launcher.grid-view");
+                    },
+            })
+        )
+    );
     navigationRow->addChild(
         ui::segmented({
             .out = &m_launcherNavigation,
@@ -1780,24 +1851,6 @@ void LauncherPanel::create() {
     );
     input->setFlexGrow(1.0F);
     toolbar->addChild(std::move(input));
-    toolbar->addChild(
-        ui::button({
-            .out = &m_launcherOptionsButton,
-            .glyph = "adjustments-horizontal",
-            .glyphSize = Style::fontSizeTitle * scale,
-            .variant = ButtonVariant::Ghost,
-            .surfaceOpacity = panelCardOpacity(),
-            .tooltip = i18n::tr("launcher.browser.actions.options"),
-            .radius = Style::scaledRadiusMd(scale),
-            .width = Style::controlHeight * scale,
-            .onClick = [this]() { (void)openLauncherOptionsMenu(); },
-            .configure =
-                [scale](Button& button) {
-                  button.setControlHeight(Style::controlHeight * scale);
-                  button.inputArea()->setTabFocusKey("launcher.options");
-                },
-        })
-    );
     if (showSettingsButton) {
       toolbar->addChild(
           ui::button({
@@ -2120,7 +2173,12 @@ void LauncherPanel::onPanelCardOpacityChanged(float opacity) {
   if (m_launcherSections != nullptr) {
     m_launcherSections->notifyDataChanged();
   }
-  for (Button* button : {m_launcherOptionsButton, m_launcherSettingsButton, m_launcherPowerButton}) {
+  for (Button* button : {
+           m_launcherUsageButton,
+           m_launcherGridButton,
+           m_launcherSettingsButton,
+           m_launcherPowerButton,
+       }) {
     if (button != nullptr) {
       button->setSurfaceOpacity(opacity);
     }
@@ -2138,6 +2196,7 @@ void LauncherPanel::doLayout(Renderer& renderer, float width, float height) {
   if (m_categoryFilterRebuildPending) {
     rebuildCategoryFilter();
   }
+  updateLauncherOptionButtons();
   syncLauncherListStyle();
   syncLauncherViewLayout(&renderer);
 
@@ -2202,17 +2261,40 @@ void LauncherPanel::showProviderOverview() {
 }
 
 void LauncherPanel::showSessionActions() {
+  if (m_launcherProviderViewId == kSessionProviderId && m_sessionReturnView.has_value()) {
+    BrowserViewState previous = std::move(*m_sessionReturnView);
+    m_sessionReturnView.reset();
+    m_activeCategoryType = previous.categoryType;
+    m_activeCategorySlotIndex = previous.categorySlotIndex;
+    m_activeCategory = std::move(previous.category);
+    m_launcherProviderViewId = std::move(previous.providerViewId);
+    queueResultsTransition(ResultsTransition::NavigationBackward);
+    if (m_input != nullptr) {
+      m_input->setValue(singleLinePreview(previous.query));
+    }
+    if (m_grid != nullptr) {
+      m_grid->scrollView().setScrollOffset(0.0F);
+    }
+    if (m_launcherSections != nullptr) {
+      m_launcherSections->scrollView().setScrollOffset(0.0F);
+    }
+    onInputChanged(previous.query);
+    return;
+  }
+
   const auto provider =
       std::ranges::find(m_providers, kSessionProviderId, [](const auto& candidate) { return candidate->id(); });
   if (provider == m_providers.end() || (*provider)->prefix().empty()) {
     return;
   }
-  m_activeCategoryType = All;
+  m_sessionReturnView = BrowserViewState{
+      .categoryType = m_activeCategoryType,
+      .categorySlotIndex = m_activeCategorySlotIndex,
+      .category = m_activeCategory,
+      .query = m_query,
+      .providerViewId = m_launcherProviderViewId,
+  };
   queueResultsTransition(ResultsTransition::NavigationForward);
-  m_activeCategory.clear();
-  const auto allSlot = std::ranges::find(m_categoryFilterSlots, All, &CategoryFilterSlot::type);
-  m_activeCategorySlotIndex =
-      allSlot == m_categoryFilterSlots.end() ? 0 : static_cast<std::size_t>(allSlot - m_categoryFilterSlots.begin());
   m_launcherProviderViewId = std::string((*provider)->id());
   if (m_input != nullptr) {
     m_input->setValue("");
@@ -2246,6 +2328,7 @@ void LauncherPanel::onOpen(std::string_view context) {
   m_applyDefaultViewPending = m_browserMode;
   m_showingProviderOverview = false;
   m_launcherProviderViewId.clear();
+  m_sessionReturnView.reset();
 
   const std::string initialValue(context);
   if (m_input != nullptr) {
@@ -2267,10 +2350,6 @@ void LauncherPanel::onClose() {
   if (m_actionsMenu != nullptr && m_actionsMenu->isOpen()) {
     m_actionsMenu->close();
   }
-  if (m_optionsMenu != nullptr && m_optionsMenu->isOpen()) {
-    m_optionsMenu->close();
-  }
-
   if (m_asyncTextures != nullptr) {
     DeferredCall::callLater([asyncTextures = m_asyncTextures]() { asyncTextures->trimUnused(0); });
   }
@@ -2296,6 +2375,7 @@ void LauncherPanel::onClose() {
   m_syncingLauncherNavigation = false;
   m_showingProviderOverview = false;
   m_launcherProviderViewId.clear();
+  m_sessionReturnView.reset();
   m_pendingResultsTransition = ResultsTransition::None;
   m_resultsTransitionActive = false;
   m_resultsTransitionBaseX = 0.0F;
@@ -2324,7 +2404,8 @@ void LauncherPanel::onClose() {
   m_launcherAvatar = nullptr;
   m_launcherAvatarFallback = nullptr;
   m_launcherSettingsButton = nullptr;
-  m_launcherOptionsButton = nullptr;
+  m_launcherUsageButton = nullptr;
+  m_launcherGridButton = nullptr;
   m_launcherPowerButton = nullptr;
   m_grid = nullptr;
   m_launcherSections = nullptr;
@@ -2345,11 +2426,7 @@ void LauncherPanel::clearUsage() {
   }
 }
 
-bool LauncherPanel::shouldTrackUsage() const {
-  return m_config != nullptr && m_config->config().shell.launcher.sortByUsage;
-}
-
-void LauncherPanel::syncUsageTrackingState() {
+void LauncherPanel::syncUsageOrderingState() {
   if (m_input != nullptr) {
     reapplyCurrentQuery();
   }
@@ -2379,6 +2456,9 @@ void LauncherPanel::reapplyCurrentQuery() {
 void LauncherPanel::setQuery(std::string query) {
   if (m_input == nullptr) {
     return;
+  }
+  if (m_launcherProviderViewId == kSessionProviderId) {
+    m_sessionReturnView.reset();
   }
   m_launcherProviderViewId.clear();
   m_input->setValue(singleLinePreview(query));
@@ -2502,13 +2582,12 @@ void LauncherPanel::onInputChanged(const std::string& text) {
     const bool typedQuery = !queryText.empty();
     const bool sortByUsage = m_config != nullptr && m_config->config().shell.launcher.sortByUsage;
 
-    auto applyUsageBoost = [&](std::vector<LauncherResult>& results, const LauncherProvider& provider) {
-      if (!sortByUsage) {
-        return;
-      }
+    auto applyUsageMetadata = [&](std::vector<LauncherResult>& results, const LauncherProvider& provider) {
       for (auto& result : results) {
-        const int usageCount = m_usageTracker.getCount(provider.id(), result.id);
-        result.score += usageBoostForScore(result.score, usageCount, typedQuery);
+        if (sortByUsage) {
+          const int usageCount = m_usageTracker.getCount(provider.id(), result.id);
+          result.score += usageBoostForScore(result.score, usageCount, typedQuery);
+        }
         result.recentlyUsedIndex = m_usageTracker.getRecentlyUsedIndex(provider.id(), result.id);
       }
     };
@@ -2517,8 +2596,8 @@ void LauncherPanel::onInputChanged(const std::string& text) {
       m_allResults = activeProvider->queryPrefixed(queryText);
       anyProviderLoading = activeProvider->isLoading();
       if (activeProvider->trackUsage()) {
-        applyUsageBoost(m_allResults, *activeProvider);
-        if (sortByUsage && m_usageTracker.getRecentlyUsedCount(activeProvider->id()) > 0) {
+        applyUsageMetadata(m_allResults, *activeProvider);
+        if (m_usageTracker.getRecentlyUsedCount(activeProvider->id()) > 0) {
           hasRecentlyUsed = true;
         }
       }
@@ -2550,8 +2629,8 @@ void LauncherPanel::onInputChanged(const std::string& text) {
           anyProviderLoading = true;
         }
         if (provider->trackUsage()) {
-          applyUsageBoost(results, *provider);
-          if (sortByUsage && m_usageTracker.getRecentlyUsedCount(provider->id()) > 0) {
+          applyUsageMetadata(results, *provider);
+          if (m_usageTracker.getRecentlyUsedCount(provider->id()) > 0) {
             hasRecentlyUsed = true;
           }
         }
@@ -2575,9 +2654,7 @@ void LauncherPanel::onInputChanged(const std::string& text) {
         std::ranges::find(m_providers, kApplicationsProviderId, [](const auto& provider) { return provider->id(); });
     if (applications != m_providers.end()) {
       newCategories = (*applications)->categories();
-      hasRecentlyUsed = m_config != nullptr
-          && m_config->config().shell.launcher.sortByUsage
-          && m_usageTracker.getRecentlyUsedCount((*applications)->id()) > 0;
+      hasRecentlyUsed = m_usageTracker.getRecentlyUsedCount((*applications)->id()) > 0;
     }
   }
 
@@ -2790,6 +2867,7 @@ void LauncherPanel::rebuildCategoryFilter() {
     for (std::size_t i = 0; i < m_currentCategories.size(); ++i) {
       const LauncherCategory& category = m_currentCategories[i];
       m_categoryFilter->addOption(category.label, category.glyphName);
+      m_categoryFilter->setOptionTooltip(i, category.label);
       if (category.label == m_activeCategory) {
         selectedCategory = i;
       }
@@ -2834,7 +2912,9 @@ void LauncherPanel::rebuildLauncherNavigation() {
 
   m_launcherNavigation->setOnChange({});
   m_launcherNavigation->clearOptions();
+  const bool iconOnly = m_config != nullptr && m_config->config().shell.launcher.width < kCompactNavigationWidth;
 
+  std::size_t navigationIndex = 0;
   for (const CategoryFilterSlot& slot : m_categoryFilterSlots) {
     std::string label;
     std::string glyph;
@@ -2856,9 +2936,13 @@ void LauncherPanel::rebuildLauncherNavigation() {
       glyph = "category";
       break;
     }
-    m_launcherNavigation->addOption(label, glyph);
+    m_launcherNavigation->addOption(iconOnly ? "" : label, glyph);
+    m_launcherNavigation->setOptionTooltip(navigationIndex, label);
+    ++navigationIndex;
   }
-  m_launcherNavigation->addOption(i18n::tr("launcher.browser.navigation.providers"), "sparkles");
+  const std::string providersLabel = i18n::tr("launcher.browser.navigation.providers");
+  m_launcherNavigation->addOption(iconOnly ? "" : providersLabel, "sparkles");
+  m_launcherNavigation->setOptionTooltip(navigationIndex, providersLabel);
   const std::size_t selectedIndex =
       m_showingProviderOverview ? m_categoryFilterSlots.size() : m_activeCategorySlotIndex;
   m_launcherNavigation->setSelectedIndex(selectedIndex);
@@ -2920,6 +3004,9 @@ void LauncherPanel::applyDefaultView() {
 }
 
 void LauncherPanel::setActiveCategorySlot(std::size_t slotIndex) {
+  if (m_launcherProviderViewId == kSessionProviderId) {
+    m_sessionReturnView.reset();
+  }
   const bool leavingProvider = m_browserMode && (!m_query.empty() || !m_launcherProviderViewId.empty());
   const std::size_t previousSlotIndex = m_activeCategorySlotIndex;
   if (leavingProvider) {
@@ -2991,6 +3078,30 @@ void LauncherPanel::updateCategorySelectionChrome() {
   setCategoryFilterVisible(true);
 }
 
+void LauncherPanel::updateLauncherOptionButtons() {
+  if (m_config == nullptr) {
+    return;
+  }
+  const auto& launcher = m_config->config().shell.launcher;
+  if (m_launcherUsageButton != nullptr) {
+    m_launcherUsageButton->setSelected(false);
+    m_launcherUsageButton->setGlyph(launcher.sortByUsage ? "sort-ascending-letters" : "sort-descending-small-big");
+    m_launcherUsageButton->setTooltip(
+        i18n::tr(
+            launcher.sortByUsage ? "launcher.browser.options.use-default-order"
+                                 : "launcher.browser.options.sort-by-frequency"
+        )
+    );
+  }
+  if (m_launcherGridButton != nullptr) {
+    m_launcherGridButton->setSelected(false);
+    m_launcherGridButton->setGlyph(launcher.appGrid ? "list" : "layout-grid");
+    m_launcherGridButton->setTooltip(
+        i18n::tr(launcher.appGrid ? "launcher.browser.options.show-list" : "launcher.browser.options.show-grid")
+    );
+  }
+}
+
 void LauncherPanel::setCategoryFilterVisible(bool visible) {
   if (m_categoryFilter == nullptr) {
     return;
@@ -3054,6 +3165,13 @@ std::vector<LauncherResult> LauncherPanel::providerOverviewResults(std::string_v
 
 void LauncherPanel::applyActiveCategory() {
   m_results.clear();
+  if (m_launcherProviderViewId == kSessionProviderId) {
+    m_results = m_allResults;
+    m_selectedIndex = 0;
+    updateCategorySelectionChrome();
+    refreshResults();
+    return;
+  }
   switch (m_activeCategoryType) {
   case All:
     m_results = m_allResults;
@@ -3180,90 +3298,6 @@ void LauncherPanel::bindDetailResult() {
   m_detailSubtitle->setText(singleLinePreview(result.subtitle));
   m_detailBody->setText(result.title.empty() ? result.id : result.title);
   m_detailScroll->setScrollOffset(0.0F);
-}
-
-bool LauncherPanel::openLauncherOptionsMenu() {
-  if (m_config == nullptr || m_launcherOptionsButton == nullptr) {
-    return false;
-  }
-
-  WaylandConnection* wl = PanelManager::instance().wayland();
-  RenderContext* rc = PanelManager::instance().renderContext();
-  const auto parentCtx = PanelManager::instance().fallbackPopupParentContext();
-  if (wl == nullptr || rc == nullptr || !parentCtx.has_value()) {
-    return false;
-  }
-
-  constexpr std::int32_t kSortByUsage = 1;
-  constexpr std::int32_t kAppGrid = 2;
-  const auto& launcher = m_config->config().shell.launcher;
-  std::vector<ContextMenuControlEntry> entries{
-      ContextMenuControlEntry{
-          .id = kSortByUsage,
-          .label = i18n::tr("launcher.browser.options.sort-by-usage"),
-          .checkmark = true,
-          .toggleState = launcher.sortByUsage ? 1 : 0,
-      },
-      ContextMenuControlEntry{
-          .id = kAppGrid,
-          .label = i18n::tr("launcher.browser.options.app-grid"),
-          .checkmark = true,
-          .toggleState = launcher.appGrid ? 1 : 0,
-      },
-  };
-
-  if (m_optionsMenu == nullptr) {
-    m_optionsMenu = std::make_unique<ContextMenuPopup>(*wl, *rc);
-  }
-  TooltipManager::instance().forceDestroy();
-  m_optionsMenu->setShadowConfig(m_config->config().shell.shadow);
-  PanelManager::instance().beginAttachedPopup(parentCtx->surface);
-  PanelManager::instance().setActivePopup(m_optionsMenu.get());
-  m_optionsMenu->setOnDismissed([parentSurface = parentCtx->surface]() {
-    PanelManager::instance().clearActivePopup();
-    PanelManager::instance().endAttachedPopup(parentSurface);
-  });
-  m_optionsMenu->setOnActivate([this](const ContextMenuControlEntry& entry) {
-    if (m_config == nullptr) {
-      return;
-    }
-    const auto& current = m_config->config().shell.launcher;
-    switch (entry.id) {
-    case kSortByUsage:
-      (void)m_config->setOverride({"shell", "launcher", "sort_by_usage"}, !current.sortByUsage);
-      break;
-    case kAppGrid:
-      (void)m_config->setOverride({"shell", "launcher", "app_grid"}, !current.appGrid);
-      break;
-    default:
-      break;
-    }
-  });
-
-  float anchorX = 0.0F;
-  float anchorY = 0.0F;
-  Node::absolutePosition(m_launcherOptionsButton, anchorX, anchorY);
-  const float scale = contentScale();
-  m_optionsMenu->open(
-      ContextMenuPopupRequest{
-          .entries = std::move(entries),
-          .minMenuWidth = 240.0F * scale,
-          .maxMenuWidth = Style::menuAutoMaxWidth * scale,
-          .maxVisible = 2,
-          .anchor =
-              PopupAnchorRect{
-                  .x = static_cast<std::int32_t>(std::round(anchorX)),
-                  .y = static_cast<std::int32_t>(std::round(anchorY)),
-                  .width = std::max(1, static_cast<std::int32_t>(std::round(m_launcherOptionsButton->width()))),
-                  .height = std::max(1, static_cast<std::int32_t>(std::round(m_launcherOptionsButton->height()))),
-              },
-          .parent = PopupSurfaceParent{
-              .layerSurface = parentCtx->layerSurface,
-              .output = parentCtx->output,
-          },
-      }
-  );
-  return true;
 }
 
 bool LauncherPanel::openAppActionsMenu(std::size_t index, float anchorX, float anchorY) {
