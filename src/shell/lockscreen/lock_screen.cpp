@@ -66,6 +66,8 @@ namespace {
       return LockscreenTransitionKind::Zoom;
     case LockscreenTransition::Honeycomb:
       return LockscreenTransitionKind::Honeycomb;
+    case LockscreenTransition::Crt:
+      return LockscreenTransitionKind::Crt;
     }
     std::unreachable();
   }
@@ -1117,6 +1119,7 @@ void LockScreen::chooseTransition() {
     break;
   case LockscreenTransition::Fade:
   case LockscreenTransition::Zoom:
+  case LockscreenTransition::Crt:
     break;
   }
 }
