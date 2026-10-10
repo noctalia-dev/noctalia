@@ -355,6 +355,24 @@ namespace noctalia::config::schema {
         return opts[i].value;
       }
     }
+    for (std::size_t i = 0; i < n; ++i) {
+      if (opts[i].key.size() == key.size()) {
+        bool match = true;
+        for (std::size_t j = 0; j < key.size(); ++j) {
+          char a = opts[i].key[j];
+          char b = key[j];
+          char la = (a >= 'A' && a <= 'Z') ? static_cast<char>(a + 32) : a;
+          char lb = (b >= 'A' && b <= 'Z') ? static_cast<char>(b + 32) : b;
+          if (la != lb) {
+            match = false;
+            break;
+          }
+        }
+        if (match) {
+          return opts[i].value;
+        }
+      }
+    }
     return std::nullopt;
   }
 

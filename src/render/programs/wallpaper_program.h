@@ -26,7 +26,7 @@ public:
   void draw(const WallpaperDrawParams& params) const;
 
 private:
-  static constexpr std::size_t kTransitionCount = 6;
+  static constexpr std::size_t kTransitionCount = 11;
 
   struct ProgramData {
     ShaderProgram program;

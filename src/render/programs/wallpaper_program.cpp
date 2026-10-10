@@ -283,6 +283,165 @@ void main() {
 }
 )";
 
+  constexpr char kNewAn1Fragment[] = R"(
+uniform float u_centerX;
+uniform float u_centerY;
+uniform float u_aspectRatio;
+uniform float u_smoothness;
+
+void main() {
+    vec2 uv = v_texcoord;
+    vec4 color1 = sampleSource(u_source1, uv, u_imageWidth1, u_imageHeight1, u_sourceKind1, u_sourceColor1);
+    vec4 color2 = sampleSource(u_source2, uv, u_imageWidth2, u_imageHeight2, u_sourceKind2, u_sourceColor2);
+
+    float mappedSmoothness = mix(0.001, 0.5, u_smoothness * u_smoothness);
+    vec2 center = vec2(u_centerX * u_aspectRatio, u_centerY);
+    vec2 aspectUV = vec2(uv.x * u_aspectRatio, uv.y);
+    vec2 delta = aspectUV - center;
+    float dist = length(delta);
+    float angle = atan(delta.y, delta.x);
+    float normAngle = (angle + 3.14159265) / 6.2831853;
+    float arms = 3.0;
+    float spiral = dist + fract(normAngle * arms) * 0.25;
+
+    float maxDist = 0.0;
+    maxDist = max(maxDist, distance(center, vec2(0.0, 0.0)));
+    maxDist = max(maxDist, distance(center, vec2(u_aspectRatio, 0.0)));
+    maxDist = max(maxDist, distance(center, vec2(0.0, 1.0)));
+    maxDist = max(maxDist, distance(center, vec2(u_aspectRatio, 1.0)));
+
+    float edge = u_progress * (maxDist + 0.25 + 2.0 * mappedSmoothness) - mappedSmoothness;
+    float factor = smoothstep(edge - mappedSmoothness, edge + mappedSmoothness, spiral);
+    gl_FragColor = mix(color2, color1, factor);
+}
+)";
+
+  constexpr char kNewAn2Fragment[] = R"(
+uniform float u_cellSize;
+uniform float u_centerX;
+uniform float u_centerY;
+uniform float u_aspectRatio;
+uniform float u_smoothness;
+
+void main() {
+    vec2 uv = v_texcoord;
+    vec4 color1 = sampleSource(u_source1, uv, u_imageWidth1, u_imageHeight1, u_sourceKind1, u_sourceColor1);
+    vec4 color2 = sampleSource(u_source2, uv, u_imageWidth2, u_imageHeight2, u_sourceKind2, u_sourceColor2);
+
+    float mappedSmoothness = mix(0.001, 0.5, u_smoothness * u_smoothness);
+    vec2 center = vec2(u_centerX * u_aspectRatio, u_centerY);
+    vec2 aspectUV = vec2(uv.x * u_aspectRatio, uv.y);
+
+    float size = max(u_cellSize * 0.75, 0.02);
+    vec2 cell = floor(aspectUV / size);
+    float noise = fract(sin(dot(cell, vec2(12.9898, 78.233))) * 43758.5453);
+
+    float maxDist = 0.0;
+    maxDist = max(maxDist, distance(center, vec2(0.0, 0.0)));
+    maxDist = max(maxDist, distance(center, vec2(u_aspectRatio, 0.0)));
+    maxDist = max(maxDist, distance(center, vec2(0.0, 1.0)));
+    maxDist = max(maxDist, distance(center, vec2(u_aspectRatio, 1.0)));
+
+    float distNorm = distance(aspectUV, center) / max(maxDist, 0.001);
+    float threshold = mix(distNorm, noise, 0.35);
+
+    float edge = u_progress * (1.0 + 2.0 * mappedSmoothness) - mappedSmoothness;
+    float factor = smoothstep(edge - mappedSmoothness, edge + mappedSmoothness, threshold);
+    gl_FragColor = mix(color2, color1, factor);
+}
+)";
+
+  constexpr char kNewAn3Fragment[] = R"(
+uniform float u_cellSize;
+uniform float u_centerX;
+uniform float u_centerY;
+uniform float u_aspectRatio;
+uniform float u_smoothness;
+
+void main() {
+    vec2 uv = v_texcoord;
+    vec4 color1 = sampleSource(u_source1, uv, u_imageWidth1, u_imageHeight1, u_sourceKind1, u_sourceColor1);
+    vec4 color2 = sampleSource(u_source2, uv, u_imageWidth2, u_imageHeight2, u_sourceKind2, u_sourceColor2);
+
+    float mappedSmoothness = mix(0.001, 0.5, u_smoothness * u_smoothness);
+    vec2 center = vec2(u_centerX * u_aspectRatio, u_centerY);
+    vec2 aspectUV = vec2(uv.x * u_aspectRatio, uv.y);
+
+    float size = max(u_cellSize, 0.03);
+    vec2 cellIndex = floor(aspectUV / size);
+    vec2 cellCenter = (cellIndex + 0.5) * size;
+    vec2 inCell = abs(aspectUV - cellCenter) / (size * 0.5);
+    float diamondMetric = inCell.x + inCell.y;
+
+    float maxDist = 0.0;
+    maxDist = max(maxDist, distance(center, vec2(0.0, 0.0)));
+    maxDist = max(maxDist, distance(center, vec2(u_aspectRatio, 0.0)));
+    maxDist = max(maxDist, distance(center, vec2(0.0, 1.0)));
+    maxDist = max(maxDist, distance(center, vec2(u_aspectRatio, 1.0)));
+
+    float delay = (distance(cellCenter, center) / max(maxDist, 0.001)) * 0.4;
+    float localProgress = clamp((u_progress - delay) / max(1.0 - delay, 0.0001), 0.0, 1.0);
+    float radius = localProgress * (2.0 + 2.0 * mappedSmoothness) - mappedSmoothness;
+    float factor = smoothstep(radius - mappedSmoothness, radius + mappedSmoothness, diamondMetric);
+    gl_FragColor = mix(color2, color1, factor);
+}
+)";
+
+  constexpr char kNewAn4Fragment[] = R"(
+uniform float u_angle;
+uniform float u_centerX;
+uniform float u_centerY;
+uniform float u_aspectRatio;
+uniform float u_smoothness;
+
+void main() {
+    vec2 uv = v_texcoord;
+    vec4 color1 = sampleSource(u_source1, uv, u_imageWidth1, u_imageHeight1, u_sourceKind1, u_sourceColor1);
+    vec4 color2 = sampleSource(u_source2, uv, u_imageWidth2, u_imageHeight2, u_sourceKind2, u_sourceColor2);
+
+    float mappedSmoothness = mix(0.001, 0.5, u_smoothness * u_smoothness);
+    vec2 center = vec2(u_centerX * u_aspectRatio, u_centerY);
+    vec2 aspectUV = vec2(uv.x * u_aspectRatio, uv.y);
+    vec2 delta = aspectUV - center;
+    float ang = atan(delta.y, delta.x);
+    float rad = radians(u_angle);
+    float normAngle = mod(ang - rad + 6.2831853, 6.2831853) / 6.2831853;
+
+    float edge = u_progress * (1.0 + 2.0 * mappedSmoothness) - mappedSmoothness;
+    float factor = smoothstep(edge - mappedSmoothness, edge + mappedSmoothness, normAngle);
+    gl_FragColor = mix(color2, color1, factor);
+}
+)";
+
+  constexpr char kNewAn5Fragment[] = R"(
+uniform float u_centerX;
+uniform float u_centerY;
+uniform float u_aspectRatio;
+uniform float u_smoothness;
+
+void main() {
+    vec2 uv = v_texcoord;
+    vec4 color1 = sampleSource(u_source1, uv, u_imageWidth1, u_imageHeight1, u_sourceKind1, u_sourceColor1);
+    vec4 color2 = sampleSource(u_source2, uv, u_imageWidth2, u_imageHeight2, u_sourceKind2, u_sourceColor2);
+
+    float mappedSmoothness = mix(0.001, 0.5, u_smoothness * u_smoothness);
+    vec2 center = vec2(u_centerX * u_aspectRatio, u_centerY);
+    vec2 aspectUV = vec2(uv.x * u_aspectRatio, uv.y);
+    float dist = distance(aspectUV, center);
+
+    float maxDist = 0.0;
+    maxDist = max(maxDist, distance(center, vec2(0.0, 0.0)));
+    maxDist = max(maxDist, distance(center, vec2(u_aspectRatio, 0.0)));
+    maxDist = max(maxDist, distance(center, vec2(0.0, 1.0)));
+    maxDist = max(maxDist, distance(center, vec2(u_aspectRatio, 1.0)));
+
+    float wave = sin(dist * 35.0 - u_progress * 12.0) * 0.03 * (1.0 - u_progress * 0.7);
+    float radius = u_progress * (maxDist + 0.1 + 2.0 * mappedSmoothness) - mappedSmoothness;
+    float factor = smoothstep(radius - mappedSmoothness, radius + mappedSmoothness, dist + wave);
+    gl_FragColor = mix(color2, color1, factor);
+}
+)";
+
 } // namespace
 
 void WallpaperProgram::ensureInitialized() {
@@ -296,6 +455,11 @@ void WallpaperProgram::ensureInitialized() {
   initProgram(static_cast<std::size_t>(WallpaperTransition::Stripes), kStripesFragment);
   initProgram(static_cast<std::size_t>(WallpaperTransition::Zoom), kZoomFragment);
   initProgram(static_cast<std::size_t>(WallpaperTransition::Honeycomb), kHoneycombFragment);
+  initProgram(static_cast<std::size_t>(WallpaperTransition::NewAn1), kNewAn1Fragment);
+  initProgram(static_cast<std::size_t>(WallpaperTransition::NewAn2), kNewAn2Fragment);
+  initProgram(static_cast<std::size_t>(WallpaperTransition::NewAn3), kNewAn3Fragment);
+  initProgram(static_cast<std::size_t>(WallpaperTransition::NewAn4), kNewAn4Fragment);
+  initProgram(static_cast<std::size_t>(WallpaperTransition::NewAn5), kNewAn5Fragment);
 }
 
 void WallpaperProgram::destroy() {

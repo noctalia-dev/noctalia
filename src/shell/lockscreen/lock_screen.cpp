@@ -65,6 +65,16 @@ namespace {
       return LockscreenTransitionKind::Zoom;
     case LockscreenTransition::Honeycomb:
       return LockscreenTransitionKind::Honeycomb;
+    case LockscreenTransition::NewAn1:
+      return LockscreenTransitionKind::NewAn1;
+    case LockscreenTransition::NewAn2:
+      return LockscreenTransitionKind::NewAn2;
+    case LockscreenTransition::NewAn3:
+      return LockscreenTransitionKind::NewAn3;
+    case LockscreenTransition::NewAn4:
+      return LockscreenTransitionKind::NewAn4;
+    case LockscreenTransition::NewAn5:
+      return LockscreenTransitionKind::NewAn5;
     }
     std::unreachable();
   }
@@ -925,6 +935,29 @@ void LockScreen::chooseTransition() {
     break;
   case LockscreenTransition::Honeycomb:
     m_transitionParams.cellSize = Random::randomFloat(0.02F, 0.06F);
+    m_transitionParams.centerX = Random::randomFloat(0.2F, 0.8F);
+    m_transitionParams.centerY = Random::randomFloat(0.2F, 0.8F);
+    break;
+  case LockscreenTransition::NewAn1:
+    m_transitionParams.centerX = Random::randomFloat(0.2F, 0.8F);
+    m_transitionParams.centerY = Random::randomFloat(0.2F, 0.8F);
+    break;
+  case LockscreenTransition::NewAn2:
+    m_transitionParams.cellSize = Random::randomFloat(0.02F, 0.05F);
+    m_transitionParams.centerX = Random::randomFloat(0.2F, 0.8F);
+    m_transitionParams.centerY = Random::randomFloat(0.2F, 0.8F);
+    break;
+  case LockscreenTransition::NewAn3:
+    m_transitionParams.cellSize = Random::randomFloat(0.03F, 0.06F);
+    m_transitionParams.centerX = Random::randomFloat(0.2F, 0.8F);
+    m_transitionParams.centerY = Random::randomFloat(0.2F, 0.8F);
+    break;
+  case LockscreenTransition::NewAn4:
+    m_transitionParams.centerX = Random::randomFloat(0.2F, 0.8F);
+    m_transitionParams.centerY = Random::randomFloat(0.2F, 0.8F);
+    m_transitionParams.angle = Random::randomFloat(0.0F, 360.0F);
+    break;
+  case LockscreenTransition::NewAn5:
     m_transitionParams.centerX = Random::randomFloat(0.2F, 0.8F);
     m_transitionParams.centerY = Random::randomFloat(0.2F, 0.8F);
     break;

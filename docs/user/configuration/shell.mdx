@@ -452,7 +452,7 @@ grace_period_seconds  = 0         # passwordless unlock window after locking; 0 
 fingerprint           = true      # allow fingerprint (PAM) authentication on the lock screen
 allow_empty_password  = false     # submit Enter with an empty password (security-key PAM stacks)
 blurred_desktop       = false     # use a desktop snapshot as the lock screen background
-transition            = ["fade", "wipe", "disc", "stripes", "zoom", "honeycomb"]
+transition            = ["fade", "wipe", "disc", "stripes", "zoom", "honeycomb", "newan1", "newan2", "newan3", "newan4", "newan5"]
 transition_duration   = 1500      # lock/unlock animation length in milliseconds
 edge_smoothness       = 0.3       # transition edge feathering (0.0 = sharp, 1.0 = soft)
 blur_intensity        = 0.5       # background blur (0.0 = none, 1.0 = maximum)
@@ -469,7 +469,7 @@ monitors              = []        # connectors that show the lock screen; empty 
 | `fingerprint` | bool | `true` | When `true`, fingerprint (PAM) authentication is offered on the lock screen alongside the password field. Set `false` to require password entry only. |
 | `allow_empty_password` | bool | `false` | When `true`, Enter can submit an empty password (needed for some security-key PAM stacks). When `false`, empty submits are ignored to avoid accidental `pam_faillock` lockouts from wake keys. |
 | `blurred_desktop` | bool | `false` | Capture each output before lock and use it as the lock screen background. |
-| `transition` | array | all effects | Pool of lock/unlock effects: `fade`, `wipe`, `disc`, `stripes`, `zoom`, and `honeycomb`. One is selected from the configured pool; an empty array disables transitions. |
+| `transition` | array | all effects | Pool of lock/unlock effects: `fade`, `wipe`, `disc`, `stripes`, `zoom`, `honeycomb`, `newan1`, `newan2`, `newan3`, `newan4`, and `newan5`. One is selected from the configured pool; an empty array disables transitions. |
 | `transition_duration` | float | `1500` | Lock/unlock animation duration in milliseconds (`100`–`30000`). |
 | `edge_smoothness` | float | `0.3` | Feathering around transition boundaries (`0.0`–`1.0`). |
 | `blur_intensity` | float | `0.5` | Blur strength for the active lock screen background (`0.0`–`1.0`). |

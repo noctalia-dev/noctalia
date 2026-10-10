@@ -12,6 +12,11 @@ enum class LockscreenTransitionKind : std::uint8_t {
   Stripes = 3,
   Zoom = 4,
   Honeycomb = 5,
+  NewAn1 = 6,
+  NewAn2 = 7,
+  NewAn3 = 8,
+  NewAn4 = 9,
+  NewAn5 = 10,
 };
 
 struct LockscreenTransitionParams {

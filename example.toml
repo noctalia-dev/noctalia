@@ -126,7 +126,7 @@ show_app_icon = true                # show application icons over window preview
 enabled             = true
 fill_mode           = "crop"        # center | crop | fit | stretch | repeat | span
 fill_color          = ""            # optional fallback/fill color: prefer a color role token; fixed hex also works
-transition          = ["fade", "wipe", "disc", "stripes", "zoom", "honeycomb"]
+transition          = ["fade", "wipe", "disc", "stripes", "zoom", "honeycomb", "newan1", "newan2", "newan3", "newan4", "newan5"]
 transition_duration = 1500          # milliseconds
 edge_smoothness     = 0.3
 transition_on_startup = false       # animate the first wallpaper at shell startup (v4-style)
@@ -244,7 +244,7 @@ privacy = true                      # microphone/camera/screen-share capture cha
 enabled                 = true
 grace_period_seconds    = 0           # passwordless unlock on any keypress or mouse movement for this long after locking (opt-in; default 0 = off)
 blurred_desktop         = false       # use a desktop snapshot as the lock screen background (requires wlr-screencopy)
-transition              = ["fade", "wipe", "disc", "stripes", "zoom", "honeycomb"] # empty disables lock/unlock animation
+transition              = ["fade", "wipe", "disc", "stripes", "zoom", "honeycomb", "newan1", "newan2", "newan3", "newan4", "newan5"] # empty disables lock/unlock animation
 transition_duration     = 1500        # lock/unlock animation length in milliseconds
 edge_smoothness         = 0.3         # transition edge feathering (0.0 = sharp, 1.0 = soft)
 blur_intensity          = 0.5         # lock screen background blur (0.0 = none, 1.0 = maximum)

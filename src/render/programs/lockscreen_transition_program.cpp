@@ -136,6 +136,69 @@ float honeycomb_coverage(vec2 uv, float progress, float smoothness) {
     return smoothstep(radius - smoothness, radius + smoothness, distance(cell_center, center));
 }
 
+float spiral_coverage(vec2 uv, float progress, float smoothness) {
+    vec2 aspect_uv = vec2(uv.x * u_aspect_ratio, uv.y);
+    vec2 center = vec2(u_center.x * u_aspect_ratio, u_center.y);
+    vec2 delta = aspect_uv - center;
+    float dist = length(delta);
+    float angle = atan(delta.y, delta.x);
+    float norm_angle = (angle + 3.14159265) / 6.2831853;
+    float arms = 3.0;
+    float spiral = dist + fract(norm_angle * arms) * 0.25;
+    float max_dist = max_distance_to_corners(center, u_aspect_ratio);
+    float edge = progress * (max_dist + 0.25 + 2.0 * smoothness) - smoothness;
+    return smoothstep(edge - smoothness, edge + smoothness, spiral);
+}
+
+float pixelate_coverage(vec2 uv, float progress, float smoothness) {
+    vec2 aspect_uv = vec2(uv.x * u_aspect_ratio, uv.y);
+    vec2 center = vec2(u_center.x * u_aspect_ratio, u_center.y);
+    float size = max(u_cell_size * 0.75, 0.02);
+    vec2 cell = floor(aspect_uv / size);
+    float noise = fract(sin(dot(cell, vec2(12.9898, 78.233))) * 43758.5453);
+    float max_dist = max_distance_to_corners(center, u_aspect_ratio);
+    float dist_norm = distance(aspect_uv, center) / max(max_dist, 0.001);
+    float threshold = mix(dist_norm, noise, 0.35);
+    float edge = progress * (1.0 + 2.0 * smoothness) - smoothness;
+    return smoothstep(edge - smoothness, edge + smoothness, threshold);
+}
+
+float diamond_coverage(vec2 uv, float progress, float smoothness) {
+    vec2 aspect_uv = vec2(uv.x * u_aspect_ratio, uv.y);
+    vec2 center = vec2(u_center.x * u_aspect_ratio, u_center.y);
+    float size = max(u_cell_size, 0.03);
+    vec2 cell_index = floor(aspect_uv / size);
+    vec2 cell_center = (cell_index + 0.5) * size;
+    vec2 in_cell = abs(aspect_uv - cell_center) / (size * 0.5);
+    float diamond_metric = in_cell.x + in_cell.y;
+    float max_dist = max_distance_to_corners(center, u_aspect_ratio);
+    float delay = (distance(cell_center, center) / max(max_dist, 0.001)) * 0.4;
+    float local_progress = clamp((progress - delay) / max(1.0 - delay, 0.0001), 0.0, 1.0);
+    float radius = local_progress * (2.0 + 2.0 * smoothness) - smoothness;
+    return smoothstep(radius - smoothness, radius + smoothness, diamond_metric);
+}
+
+float sweep_coverage(vec2 uv, float progress, float smoothness) {
+    vec2 aspect_uv = vec2(uv.x * u_aspect_ratio, uv.y);
+    vec2 center = vec2(u_center.x * u_aspect_ratio, u_center.y);
+    vec2 delta = aspect_uv - center;
+    float ang = atan(delta.y, delta.x);
+    float rad = radians(u_angle);
+    float norm_angle = mod(ang - rad + 6.2831853, 6.2831853) / 6.2831853;
+    float edge = progress * (1.0 + 2.0 * smoothness) - smoothness;
+    return smoothstep(edge - smoothness, edge + smoothness, norm_angle);
+}
+
+float ripple_coverage(vec2 uv, float progress, float smoothness) {
+    vec2 aspect_uv = vec2(uv.x * u_aspect_ratio, uv.y);
+    vec2 center = vec2(u_center.x * u_aspect_ratio, u_center.y);
+    float dist = distance(aspect_uv, center);
+    float max_dist = max_distance_to_corners(center, u_aspect_ratio);
+    float wave = sin(dist * 35.0 - progress * 12.0) * 0.03 * (1.0 - progress * 0.7);
+    float radius = progress * (max_dist + 0.1 + 2.0 * smoothness) - smoothness;
+    return smoothstep(radius - smoothness, radius + smoothness, dist + wave);
+}
+
 void main() {
     float progress = clamp(u_progress, 0.0, 1.0);
     vec2 uv = v_texcoord;
@@ -158,8 +221,18 @@ void main() {
         float scale = 1.0 + 0.15 * progress;
         uv = (uv - 0.5) / scale + 0.5;
         coverage = 1.0 - progress;
-    } else {
+    } else if (u_transition < 5.5) {
         coverage = honeycomb_coverage(uv, progress, smoothness);
+    } else if (u_transition < 6.5) {
+        coverage = spiral_coverage(uv, progress, smoothness);
+    } else if (u_transition < 7.5) {
+        coverage = pixelate_coverage(uv, progress, smoothness);
+    } else if (u_transition < 8.5) {
+        coverage = diamond_coverage(uv, progress, smoothness);
+    } else if (u_transition < 9.5) {
+        coverage = sweep_coverage(uv, progress, smoothness);
+    } else {
+        coverage = ripple_coverage(uv, progress, smoothness);
     }
 
     vec4 texel = texture2D(u_texture, uv);
