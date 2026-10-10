@@ -2322,6 +2322,11 @@ namespace settings {
         tr("settings.schema.shell.osd-kinds-keyboard-backlight.description"), {"osd", "kinds", "keyboard_backlight"},
         ToggleSetting{cfg.osd.kinds.keyboardBacklight}, "hud overlay keyboard backlight kbd"
     ));
+    entries.push_back(makeEntry(
+        SettingsSection::Osd, "kinds", tr("settings.schema.shell.osd-kinds-custom.label"),
+        tr("settings.schema.shell.osd-kinds-custom.description"), {"osd", "kinds", "custom"},
+        ToggleSetting{cfg.osd.kinds.custom}, "hud overlay plugin custom script"
+    ));
     // Gate every OSD entry after the master toggle on osd.enabled, preserving any per-entry visibility.
     for (std::size_t i = osdGatedStart; i < entries.size(); ++i) {
       SettingVisibility prev = std::move(entries[i].visibleWhen);

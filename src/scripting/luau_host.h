@@ -201,6 +201,7 @@ public:
   void scriptPlaySound(std::string name);
   void scriptNotifyInfo(std::string title, std::string body);
   void scriptNotifyError(std::string title, std::string body);
+  void scriptShowOsd(std::string icon, std::string value, std::optional<double> progress, bool inactive);
   // Toggle the host wallpaper surface on an output. Queued as a side effect and
   // applied on the main thread (Wallpaper is not worker-thread safe).
   void scriptSetWallpaperEnabled(std::string connector, bool enabled);
