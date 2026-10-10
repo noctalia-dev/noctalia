@@ -26,6 +26,7 @@ public:
   void draw(const WallpaperDrawParams& params) const;
 
 private:
+  // Contributed: expanded transition count to 11 for custom animations (Vortex, Pixel, Diamond, Golden, Melt)
   static constexpr std::size_t kTransitionCount = 11;
 
   struct ProgramData {

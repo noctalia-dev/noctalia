@@ -98,7 +98,7 @@ namespace {
       params.cellSize = randomFloat(0.02F, 0.06F);
       params.centerX = randomFloat(0.2F, 0.8F);
       params.centerY = randomFloat(0.2F, 0.8F);
-      break;
+    // Contributed section: custom transition animation parameter randomization (Vortex, Pixel, Diamond, Golden, Melt)
     case WallpaperTransition::Vortex:
       params.centerX = randomFloat(0.2F, 0.8F);
       params.centerY = randomFloat(0.2F, 0.8F);
@@ -1454,10 +1454,7 @@ void Wallpaper::startTransitionAnimation(
   instance.transitionDirection = direction;
   setTransitionTime(instance, fromTime);
 
-  float durationMs = std::abs(toTime - fromTime) * wpConfig.transitionDurationMs;
-  if (instance.activeTransition == WallpaperTransition::Vortex) {
-    durationMs *= 1.75F;
-  }
+  const float durationMs = std::abs(toTime - fromTime) * wpConfig.transitionDurationMs;
   if (durationMs <= 0.0F) {
     setTransitionTime(instance, toTime);
     finishTransition(instance);

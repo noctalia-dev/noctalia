@@ -846,10 +846,7 @@ void LockSurface::startExitTransition() {
 
   m_transitionPhase = TransitionPhase::Exiting;
   syncTransitionCover();
-  float durationMs = m_transitionDurationMs * m_transitionProgress;
-  if (m_transition == LockscreenTransitionKind::Vortex) {
-    durationMs *= 1.75F;
-  }
+  const float durationMs = m_transitionDurationMs * m_transitionProgress;
   m_transitionAnimation = m_animations.animateTimer(
       m_transitionProgress, 0.0F, durationMs, Easing::EaseInOutCubic,
       [this](float progress) {
@@ -1091,10 +1088,7 @@ void LockSurface::beginEnterAnimation() {
   m_transitionPhase = TransitionPhase::Entering;
   m_transitionProgress = 0.0F;
   syncTransitionCover();
-  float durationMs = m_transitionDurationMs;
-  if (m_transition == LockscreenTransitionKind::Vortex) {
-    durationMs *= 1.75F;
-  }
+  const float durationMs = m_transitionDurationMs;
   m_transitionAnimation = m_animations.animateTimer(
       0.0F, 1.0F, durationMs, Easing::EaseInOutCubic,
       [this](float progress) {

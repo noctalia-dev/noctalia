@@ -373,6 +373,28 @@ namespace noctalia::config::schema {
         }
       }
     }
+
+    // Contributed section: support legacy transition animation aliases (newan1..newan5 -> vortex..melt)
+    std::string_view canonicalKey{};
+    if (key == "newan1") {
+      canonicalKey = "vortex";
+    } else if (key == "newan2") {
+      canonicalKey = "pixel";
+    } else if (key == "newan3") {
+      canonicalKey = "diamond";
+    } else if (key == "newan4") {
+      canonicalKey = "golden";
+    } else if (key == "newan5") {
+      canonicalKey = "melt";
+    }
+
+    if (!canonicalKey.empty()) {
+      for (std::size_t i = 0; i < n; ++i) {
+        if (opts[i].key == canonicalKey) {
+          return opts[i].value;
+        }
+      }
+    }
     return std::nullopt;
   }
 

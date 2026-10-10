@@ -12,6 +12,7 @@ enum class LockscreenTransitionKind : std::uint8_t {
   Stripes = 3,
   Zoom = 4,
   Honeycomb = 5,
+  // Contributed section: custom lockscreen transition kinds (Vortex, Pixel, Diamond, Golden, Melt)
   Vortex = 6,
   Pixel = 7,
   Diamond = 8,

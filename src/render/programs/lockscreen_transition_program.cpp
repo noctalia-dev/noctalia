@@ -133,7 +133,7 @@ float honeycomb_coverage(vec2 uv, float progress, float smoothness) {
     float radius = progress * (max_dist + 2.0 * smoothness) - smoothness;
     return smoothstep(radius - smoothness, radius + smoothness, distance(cell_center, center));
 }
-
+// Contributed section: custom lockscreen transition shaders (Vortex, Pixel, Diamond, Golden, Melt)
 float vortex_coverage(vec2 uv, float progress, float smoothness) {
     vec2 aspect_uv = vec2(uv.x * u_aspect_ratio, uv.y);
     vec2 center = vec2(u_center.x * u_aspect_ratio, u_center.y);
@@ -234,6 +234,7 @@ void main() {
         coverage = 1.0 - progress;
     } else if (u_transition < 5.5) {
         coverage = honeycomb_coverage(uv, progress, smoothness);
+    // Contributed section: branch into custom lockscreen transition shaders
     } else if (u_transition < 6.5) {
         coverage = vortex_coverage(uv, progress, smoothness);
     } else if (u_transition < 7.5) {

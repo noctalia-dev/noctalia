@@ -491,6 +491,7 @@ enum class WallpaperTransition : std::uint8_t {
   Stripes = 3,
   Zoom = 4,
   Honeycomb = 5,
+  // Contributed: custom transition options (Vortex, Pixel, Diamond, Golden, Melt)
   Vortex = 6,
   Pixel = 7,
   Diamond = 8,
@@ -505,6 +506,7 @@ enum class LockscreenTransition : std::uint8_t {
   Stripes = 3,
   Zoom = 4,
   Honeycomb = 5,
+  // Contributed: custom transition options (Vortex, Pixel, Diamond, Golden, Melt)
   Vortex = 6,
   Pixel = 7,
   Diamond = 8,
@@ -619,6 +621,29 @@ constexpr std::optional<T> enumFromKey(const EnumOption<T> (&options)[N], std::s
       return opt.value;
     }
   }
+
+  // Contributed section: support legacy transition animation aliases (newan1..newan5 -> vortex..melt)
+  std::string_view canonicalKey{};
+  if (key == "newan1") {
+    canonicalKey = "vortex";
+  } else if (key == "newan2") {
+    canonicalKey = "pixel";
+  } else if (key == "newan3") {
+    canonicalKey = "diamond";
+  } else if (key == "newan4") {
+    canonicalKey = "golden";
+  } else if (key == "newan5") {
+    canonicalKey = "melt";
+  }
+
+  if (!canonicalKey.empty()) {
+    for (const auto& opt : options) {
+      if (opt.key == canonicalKey) {
+        return opt.value;
+      }
+    }
+  }
+
   return std::nullopt;
 }
 
@@ -1011,6 +1036,7 @@ constexpr EnumOption<WallpaperAutomationConfig::Order> kWallpaperAutomationOrder
     {WallpaperAutomationConfig::Order::Alphabetical, "alphabetical", "settings.options.wallpaper.order.alphabetical"},
 };
 
+// Contributed: expanded wallpaper transition options with Diamond, Golden, Melt, Pixel, Vortex
 constexpr EnumOption<WallpaperTransition> kWallpaperTransitions[] = {
     {WallpaperTransition::Diamond, "diamond", "settings.options.wallpaper.transition.diamond"},
     {WallpaperTransition::Disc, "disc", "settings.options.wallpaper.transition.disc"},
@@ -1025,6 +1051,7 @@ constexpr EnumOption<WallpaperTransition> kWallpaperTransitions[] = {
     {WallpaperTransition::Zoom, "zoom", "settings.options.wallpaper.transition.zoom"},
 };
 
+// Contributed: expanded lockscreen transition options with Diamond, Golden, Melt, Pixel, Vortex
 constexpr EnumOption<LockscreenTransition> kLockscreenTransitions[] = {
     {LockscreenTransition::Diamond, "diamond", "settings.options.lockscreen.transition.diamond"},
     {LockscreenTransition::Disc, "disc", "settings.options.lockscreen.transition.disc"},
