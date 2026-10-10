@@ -168,12 +168,8 @@ namespace shell::dock {
     }
 
     const bool fullSurface = instance.pointerInside || (cfg.smartAutoHide && instance.smartAutoHidePinnedVisible);
-    if (fullSurface) {
-      instance.surface->setInputRegion({InputRect{0, 0, surfW, surfH}});
-      return;
-    }
     instance.surface->setInputRegion(
-        shell::dock::computeInputRegion(cfg, DockPanelGeometry{}, surfW, surfH, true, instance.fractionalScale)
+        shell::dock::computeInputRegion(cfg, panelGeometry, surfW, surfH, !fullSurface, instance.fractionalScale)
     );
   }
 
@@ -223,7 +219,6 @@ namespace shell::dock {
     const auto h = static_cast<float>(instance.surface->height());
 
     const auto& shadowConfig = deps.config.config().shell.shadow;
-    const auto panelGeometry = shell::dock::computePanelGeometry(cfg, shadowConfig, w, h);
     const auto concave = shell::dock::dockConcaveShape(cfg);
 
     if (instance.sceneRoot == nullptr) {
@@ -327,6 +322,9 @@ namespace shell::dock {
       instance.panel->setLogicalInset(concave.logicalInset);
       instance.panel->setRadii(concave.radii);
     }
+
+    const auto totalItemCount = instance.items.size() + shell::dock::dockLauncherButtonCount(cfg);
+    const auto panelGeometry = shell::dock::computePanelGeometry(cfg, shadowConfig, w, h, totalItemCount);
 
     // Update root size on reconfigure.
     instance.sceneRoot->setSize(w, h);

@@ -136,5 +136,37 @@ int main() {
     TEST_CHECK(actualLength == expectedLength);
   }
 
+  // Surface span is static across changing item counts to prevent compositor buffer scaling.
+  {
+    DockConfig cfg = flushDock(DockEdge::Bottom);
+    cfg.marginEnds = 10;
+    const ShellConfig::ShadowConfig shadow;
+    const auto geo1 = shell::dock::computeSurfaceGeometry(cfg, shadow, 1, false, 1920, 1080);
+    const auto geo5 = shell::dock::computeSurfaceGeometry(cfg, shadow, 5, false, 1920, 1080);
+    const auto geo15 = shell::dock::computeSurfaceGeometry(cfg, shadow, 15, false, 1920, 1080);
+    TEST_CHECK(geo1.surfaceW == 1900U);
+    TEST_CHECK(geo5.surfaceW == 1900U);
+    TEST_CHECK(geo15.surfaceW == 1900U);
+
+    // Panel capsule is centered within the surface.
+    const auto panel1 = shell::dock::computePanelGeometry(
+        cfg, shadow, static_cast<float>(geo1.surfaceW), static_cast<float>(geo1.surfaceH), 1
+    );
+    const auto panel5 = shell::dock::computePanelGeometry(
+        cfg, shadow, static_cast<float>(geo5.surfaceW), static_cast<float>(geo5.surfaceH), 5
+    );
+    const float center1 = panel1.panelX + panel1.panelW * 0.5F;
+    const float center5 = panel5.panelX + panel5.panelW * 0.5F;
+    const float surfaceCenter = static_cast<float>(geo1.surfaceW) * 0.5F;
+    TEST_CHECK(std::abs(center1 - surfaceCenter) <= 1.0F);
+    TEST_CHECK(std::abs(center5 - surfaceCenter) <= 1.0F);
+    TEST_CHECK(panel1.panelW < panel5.panelW);
+
+    // Input region is confined to the capsule and not the full surface width.
+    const auto region5 = shell::dock::computeInputRegion(cfg, panel5, geo5.surfaceW, geo5.surfaceH, false, false);
+    TEST_CHECK(region5.size() == 1);
+    TEST_CHECK(region5[0].width < static_cast<int>(geo5.surfaceW));
+  }
+
   return 0;
 }
