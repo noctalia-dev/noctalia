@@ -1125,7 +1125,7 @@ struct ShellConfig {
     static constexpr std::int32_t kDefaultWidth = 760;
 
     std::int32_t width = kDefaultWidth;
-    LauncherSearchPosition searchPosition = LauncherSearchPosition::Top;
+    LauncherSearchPosition searchPosition = LauncherSearchPosition::Bottom;
     LauncherDefaultView defaultView = LauncherDefaultView::Recent;
     bool showSettingsButton = true;
     bool showSessionButton = true;

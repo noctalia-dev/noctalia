@@ -16,14 +16,14 @@ Configure the layout under **Settings → Panels → Launcher**, or in your conf
 ```toml
 [shell.launcher]
 width = 760
-search_position = "top"
+search_position = "bottom"
 default_view = "recent"
 show_settings_button = true
 show_session_button = true
 app_grid = false
 ```
 
-`width` sets the panel width from 560 to 1100 pixels. At narrower widths, the view tabs use icons with full-name tooltips so the navigation stays on one row. `search_position = "bottom"` moves the whole toolbar below the results. `default_view` accepts `recent`, `pinned`, `all_apps`, or `categories`; when a conditional view is unavailable, the launcher opens All Apps. **All Apps** stays flat, while **Categories** adds a second row for switching between desktop-entry categories. Hover a view or category tab to see its full name. `app_grid` switches application browsing, global search results, and the provider overview between rows and an icon grid. Search results from an explicitly selected or prefixed provider remain rows.
+`width` sets the panel width from 560 to 1100 pixels. At narrower widths, the view tabs use icons with full-name tooltips so the navigation stays on one row. `search_position = "top"` moves the whole toolbar above the results. `default_view` accepts `recent`, `pinned`, `all_apps`, or `categories`; when a conditional view is unavailable, the launcher opens All Apps. **All Apps** stays flat, while **Categories** adds a second row for switching between desktop-entry categories. Hover a view or category tab to see its full name. `app_grid` switches application browsing, global search results, and the provider overview between rows and an icon grid. Search results from an explicitly selected or prefixed provider remain rows.
 
 The buttons at the left of the view switcher toggle usage-based ordering and grid view without opening Settings. Each button shows the alternative mode it will switch to, such as List while grid view is active. The ordering button appears for All Apps, Categories, and search results. It is hidden for Recent, Pinned, Providers, and session actions, where changing the order does not apply. They change the same persistent options shown under **Settings → Panels → Launcher**.
 

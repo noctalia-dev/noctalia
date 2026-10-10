@@ -1840,8 +1840,8 @@ void LauncherPanel::create() {
     toolbar->addChild(std::move(profile));
     const bool showSettingsButton = m_config == nullptr || m_config->config().shell.launcher.showSettingsButton;
     const bool showSessionButton = m_config == nullptr || m_config->config().shell.launcher.showSessionButton;
-    const bool searchOnTop = m_config == nullptr
-        || m_config->config().shell.launcher.searchPosition == ShellConfig::LauncherSearchPosition::Top;
+    const bool searchOnTop = m_config != nullptr
+        && m_config->config().shell.launcher.searchPosition == ShellConfig::LauncherSearchPosition::Top;
     toolbar->addChild(
         ui::separator({
             .spacing = Style::spaceXs * scale,
