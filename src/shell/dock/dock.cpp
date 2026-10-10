@@ -546,12 +546,21 @@ bool Dock::onPointerEvent(const PointerEvent& event) {
           },
           [inst = m_hoveredInstance]() { inst->hideAnimId = 0; }
       );
-      // Restore full input region (full surface so shadow-margin edges don't
-      // cause an immediate Leave when triggered from the edge of the strip).
+      // Restore panel input region so magnified icons / capsule receive events,
+      // while clicks outside the capsule pass through to underlying windows.
       if (m_hoveredInstance->surface != nullptr) {
         const int sw = static_cast<int>(m_hoveredInstance->surface->width());
         const int sh = static_cast<int>(m_hoveredInstance->surface->height());
-        m_hoveredInstance->surface->setInputRegion({InputRect{0, 0, sw, sh}});
+        const auto& shadowConfig = m_config->config().shell.shadow;
+        const auto panelGeo = shell::dock::computePanelGeometry(
+            m_hoveredInstance->config, shadowConfig, static_cast<float>(sw), static_cast<float>(sh),
+            m_hoveredInstance->items.size() + shell::dock::dockLauncherButtonCount(m_hoveredInstance->config)
+        );
+        m_hoveredInstance->surface->setInputRegion(
+            shell::dock::computeInputRegion(
+                m_hoveredInstance->config, panelGeo, sw, sh, false, m_hoveredInstance->fractionalScale
+            )
+        );
       }
       m_hoveredInstance->surface->requestRedraw();
     }
