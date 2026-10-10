@@ -295,6 +295,7 @@ void main() {
     vec4 color2 = sampleSource(u_source2, uv, u_imageWidth2, u_imageHeight2, u_sourceKind2, u_sourceColor2);
 
     float mappedSmoothness = mix(0.001, 0.5, u_smoothness * u_smoothness);
+    float feather = max(0.015, mappedSmoothness * 1.5);
     vec2 center = vec2(u_centerX * u_aspectRatio, u_centerY);
     vec2 aspectUV = vec2(uv.x * u_aspectRatio, uv.y);
     vec2 delta = aspectUV - center;
@@ -310,8 +311,8 @@ void main() {
     maxDist = max(maxDist, distance(center, vec2(0.0, 1.0)));
     maxDist = max(maxDist, distance(center, vec2(u_aspectRatio, 1.0)));
 
-    float edge = u_progress * (maxDist + 0.25 + 2.0 * mappedSmoothness) - mappedSmoothness;
-    float factor = smoothstep(edge - mappedSmoothness, edge + mappedSmoothness, spiral);
+    float edge = u_progress * (maxDist + 0.25 + 2.0 * feather) - feather;
+    float factor = smoothstep(edge - feather, edge + feather, spiral);
     gl_FragColor = mix(color2, color1, factor);
 }
 )";
@@ -329,6 +330,7 @@ void main() {
     vec4 color2 = sampleSource(u_source2, uv, u_imageWidth2, u_imageHeight2, u_sourceKind2, u_sourceColor2);
 
     float mappedSmoothness = mix(0.001, 0.5, u_smoothness * u_smoothness);
+    float feather = max(0.02, mappedSmoothness * 1.5);
     vec2 center = vec2(u_centerX * u_aspectRatio, u_centerY);
     vec2 aspectUV = vec2(uv.x * u_aspectRatio, uv.y);
 
@@ -345,8 +347,8 @@ void main() {
     float distNorm = distance(aspectUV, center) / max(maxDist, 0.001);
     float threshold = mix(distNorm, noise, 0.35);
 
-    float edge = u_progress * (1.0 + 2.0 * mappedSmoothness) - mappedSmoothness;
-    float factor = smoothstep(edge - mappedSmoothness, edge + mappedSmoothness, threshold);
+    float edge = u_progress * (1.0 + 2.0 * feather) - feather;
+    float factor = smoothstep(edge - feather, edge + feather, threshold);
     gl_FragColor = mix(color2, color1, factor);
 }
 )";
@@ -364,6 +366,7 @@ void main() {
     vec4 color2 = sampleSource(u_source2, uv, u_imageWidth2, u_imageHeight2, u_sourceKind2, u_sourceColor2);
 
     float mappedSmoothness = mix(0.001, 0.5, u_smoothness * u_smoothness);
+    float feather = max(0.05, mappedSmoothness * 2.5);
     vec2 center = vec2(u_centerX * u_aspectRatio, u_centerY);
     vec2 aspectUV = vec2(uv.x * u_aspectRatio, uv.y);
 
@@ -381,8 +384,8 @@ void main() {
 
     float delay = (distance(cellCenter, center) / max(maxDist, 0.001)) * 0.4;
     float localProgress = clamp((u_progress - delay) / max(1.0 - delay, 0.0001), 0.0, 1.0);
-    float radius = localProgress * (2.0 + 2.0 * mappedSmoothness) - mappedSmoothness;
-    float factor = smoothstep(radius - mappedSmoothness, radius + mappedSmoothness, diamondMetric);
+    float radius = localProgress * (2.0 + 2.0 * feather) - feather;
+    float factor = smoothstep(radius - feather, radius + feather, diamondMetric);
     gl_FragColor = mix(color2, color1, factor);
 }
 )";
@@ -400,23 +403,33 @@ void main() {
     vec4 color2 = sampleSource(u_source2, uv, u_imageWidth2, u_imageHeight2, u_sourceKind2, u_sourceColor2);
 
     float mappedSmoothness = mix(0.001, 0.5, u_smoothness * u_smoothness);
+    float feather = max(0.02, mappedSmoothness * 1.6);
     vec2 center = vec2(u_centerX * u_aspectRatio, u_centerY);
     vec2 aspectUV = vec2(uv.x * u_aspectRatio, uv.y);
     vec2 delta = aspectUV - center;
-    float ang = atan(delta.y, delta.x);
-    float rad = radians(u_angle);
-    float normAngle = mod(ang - rad + 6.2831853, 6.2831853) / 6.2831853;
+    float dist = length(delta);
+    float angle = atan(delta.y, delta.x) + radians(u_angle);
 
-    float edge = u_progress * (1.0 + 2.0 * mappedSmoothness) - mappedSmoothness;
-    float factor = smoothstep(edge - mappedSmoothness, edge + mappedSmoothness, normAngle);
+    float maxDist = 0.0;
+    maxDist = max(maxDist, distance(center, vec2(0.0, 0.0)));
+    maxDist = max(maxDist, distance(center, vec2(u_aspectRatio, 0.0)));
+    maxDist = max(maxDist, distance(center, vec2(0.0, 1.0)));
+    maxDist = max(maxDist, distance(center, vec2(u_aspectRatio, 1.0)));
+
+    // Golden ratio logarithmic spiral (growth rate b = ln(1.6180339887) / (pi / 2) ≈ 0.306349)
+    float b = 0.306349;
+    float spiral = (angle - log(max(dist, 0.001)) / b) / 6.2831853;
+    float spiralBranch = fract(spiral);
+    float goldenCoord = (dist / max(maxDist, 0.001)) * 0.7 + spiralBranch * 0.3;
+
+    float edge = u_progress * (1.0 + 2.0 * feather) - feather;
+    float factor = smoothstep(edge - feather, edge + feather, goldenCoord);
     gl_FragColor = mix(color2, color1, factor);
 }
 )";
 
   constexpr char kNewAn5Fragment[] = R"(
-uniform float u_centerX;
-uniform float u_centerY;
-uniform float u_aspectRatio;
+uniform float u_angle;
 uniform float u_smoothness;
 
 void main() {
@@ -425,19 +438,17 @@ void main() {
     vec4 color2 = sampleSource(u_source2, uv, u_imageWidth2, u_imageHeight2, u_sourceKind2, u_sourceColor2);
 
     float mappedSmoothness = mix(0.001, 0.5, u_smoothness * u_smoothness);
-    vec2 center = vec2(u_centerX * u_aspectRatio, u_centerY);
-    vec2 aspectUV = vec2(uv.x * u_aspectRatio, uv.y);
-    float dist = distance(aspectUV, center);
+    float feather = max(0.02, mappedSmoothness * 1.5);
 
-    float maxDist = 0.0;
-    maxDist = max(maxDist, distance(center, vec2(0.0, 0.0)));
-    maxDist = max(maxDist, distance(center, vec2(u_aspectRatio, 0.0)));
-    maxDist = max(maxDist, distance(center, vec2(0.0, 1.0)));
-    maxDist = max(maxDist, distance(center, vec2(u_aspectRatio, 1.0)));
+    // Multi-harmonic organic liquid melt wave
+    float wave = sin(uv.x * 14.0 + radians(u_angle)) * 0.05
+               + sin(uv.x * 32.0 - radians(u_angle) * 1.5) * 0.025
+               + cos(uv.x * 7.0 + 1.2) * 0.04;
 
-    float wave = sin(dist * 35.0 - u_progress * 12.0) * 0.03 * (1.0 - u_progress * 0.7);
-    float radius = u_progress * (maxDist + 0.1 + 2.0 * mappedSmoothness) - mappedSmoothness;
-    float factor = smoothstep(radius - mappedSmoothness, radius + mappedSmoothness, dist + wave);
+    float drip = uv.y + wave;
+    float maxSpan = 1.0 + 0.115;
+    float edge = u_progress * (maxSpan + 2.0 * feather) - feather - 0.0575;
+    float factor = smoothstep(edge - feather, edge + feather, drip);
     gl_FragColor = mix(color2, color1, factor);
 }
 )";
@@ -445,21 +456,50 @@ void main() {
 } // namespace
 
 void WallpaperProgram::ensureInitialized() {
-  if (m_programs[0].program.isValid()) {
+  // Eagerly initialize only the default Fade program; all others compile lazily on demand
+  ensureProgram(static_cast<std::size_t>(WallpaperTransition::Fade));
+}
+
+void WallpaperProgram::ensureProgram(std::size_t index) const {
+  if (index >= kTransitionCount || m_programs[index].program.isValid()) {
     return;
   }
 
-  initProgram(static_cast<std::size_t>(WallpaperTransition::Fade), kFadeFragment);
-  initProgram(static_cast<std::size_t>(WallpaperTransition::Wipe), kWipeFragment);
-  initProgram(static_cast<std::size_t>(WallpaperTransition::Disc), kDiscFragment);
-  initProgram(static_cast<std::size_t>(WallpaperTransition::Stripes), kStripesFragment);
-  initProgram(static_cast<std::size_t>(WallpaperTransition::Zoom), kZoomFragment);
-  initProgram(static_cast<std::size_t>(WallpaperTransition::Honeycomb), kHoneycombFragment);
-  initProgram(static_cast<std::size_t>(WallpaperTransition::NewAn1), kNewAn1Fragment);
-  initProgram(static_cast<std::size_t>(WallpaperTransition::NewAn2), kNewAn2Fragment);
-  initProgram(static_cast<std::size_t>(WallpaperTransition::NewAn3), kNewAn3Fragment);
-  initProgram(static_cast<std::size_t>(WallpaperTransition::NewAn4), kNewAn4Fragment);
-  initProgram(static_cast<std::size_t>(WallpaperTransition::NewAn5), kNewAn5Fragment);
+  switch (static_cast<WallpaperTransition>(index)) {
+  case WallpaperTransition::Fade:
+    initProgram(index, kFadeFragment);
+    break;
+  case WallpaperTransition::Wipe:
+    initProgram(index, kWipeFragment);
+    break;
+  case WallpaperTransition::Disc:
+    initProgram(index, kDiscFragment);
+    break;
+  case WallpaperTransition::Stripes:
+    initProgram(index, kStripesFragment);
+    break;
+  case WallpaperTransition::Zoom:
+    initProgram(index, kZoomFragment);
+    break;
+  case WallpaperTransition::Honeycomb:
+    initProgram(index, kHoneycombFragment);
+    break;
+  case WallpaperTransition::NewAn1:
+    initProgram(index, kNewAn1Fragment);
+    break;
+  case WallpaperTransition::NewAn2:
+    initProgram(index, kNewAn2Fragment);
+    break;
+  case WallpaperTransition::NewAn3:
+    initProgram(index, kNewAn3Fragment);
+    break;
+  case WallpaperTransition::NewAn4:
+    initProgram(index, kNewAn4Fragment);
+    break;
+  case WallpaperTransition::NewAn5:
+    initProgram(index, kNewAn5Fragment);
+    break;
+  }
 }
 
 void WallpaperProgram::destroy() {
@@ -474,7 +514,7 @@ void WallpaperProgram::abandon() noexcept {
   }
 }
 
-void WallpaperProgram::initProgram(std::size_t index, const char* fragSource) {
+void WallpaperProgram::initProgram(std::size_t index, const char* fragSource) const {
   const std::string fullFrag =
       std::string(kCommonPrefix) + std::string(wallpaper_shader::kSamplingSource) + kCommonSuffix + fragSource;
 
@@ -528,7 +568,11 @@ void WallpaperProgram::initProgram(std::size_t index, const char* fragSource) {
 
 void WallpaperProgram::draw(const WallpaperDrawParams& p) const {
   auto idx = static_cast<std::size_t>(p.transition);
-  if (idx >= kTransitionCount || !m_programs[idx].program.isValid() || p.quadWidth <= 0.0F || p.quadHeight <= 0.0F) {
+  if (idx >= kTransitionCount || p.quadWidth <= 0.0F || p.quadHeight <= 0.0F) {
+    return;
+  }
+  ensureProgram(idx);
+  if (!m_programs[idx].program.isValid()) {
     return;
   }
   if (p.from.kind == WallpaperSourceKind::Image && p.from.texture == 0) {

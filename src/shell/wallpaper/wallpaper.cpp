@@ -119,8 +119,7 @@ namespace {
       params.angle = randomFloat(0.0F, 360.0F);
       break;
     case WallpaperTransition::NewAn5:
-      params.centerX = randomFloat(0.2F, 0.8F);
-      params.centerY = randomFloat(0.2F, 0.8F);
+      params.angle = randomFloat(0.0F, 360.0F);
       break;
     case WallpaperTransition::Fade:
     default:

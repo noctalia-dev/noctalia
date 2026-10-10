@@ -66,7 +66,8 @@ private:
     GLint cellSizeLoc = -1;
   };
 
-  void initProgram(std::size_t index, const char* fragSource);
+  void ensureProgram(std::size_t index) const;
+  void initProgram(std::size_t index, const char* fragSource) const;
 
-  std::array<ProgramData, kTransitionCount> m_programs;
+  mutable std::array<ProgramData, kTransitionCount> m_programs;
 };

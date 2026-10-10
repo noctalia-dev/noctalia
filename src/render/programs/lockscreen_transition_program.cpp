@@ -146,8 +146,9 @@ float spiral_coverage(vec2 uv, float progress, float smoothness) {
     float arms = 3.0;
     float spiral = dist + fract(norm_angle * arms) * 0.25;
     float max_dist = max_distance_to_corners(center, u_aspect_ratio);
-    float edge = progress * (max_dist + 0.25 + 2.0 * smoothness) - smoothness;
-    return smoothstep(edge - smoothness, edge + smoothness, spiral);
+    float feather = max(0.015, smoothness * 1.5);
+    float edge = progress * (max_dist + 0.25 + 2.0 * feather) - feather;
+    return smoothstep(edge - feather, edge + feather, spiral);
 }
 
 float pixelate_coverage(vec2 uv, float progress, float smoothness) {
@@ -159,8 +160,9 @@ float pixelate_coverage(vec2 uv, float progress, float smoothness) {
     float max_dist = max_distance_to_corners(center, u_aspect_ratio);
     float dist_norm = distance(aspect_uv, center) / max(max_dist, 0.001);
     float threshold = mix(dist_norm, noise, 0.35);
-    float edge = progress * (1.0 + 2.0 * smoothness) - smoothness;
-    return smoothstep(edge - smoothness, edge + smoothness, threshold);
+    float feather = max(0.02, smoothness * 1.5);
+    float edge = progress * (1.0 + 2.0 * feather) - feather;
+    return smoothstep(edge - feather, edge + feather, threshold);
 }
 
 float diamond_coverage(vec2 uv, float progress, float smoothness) {
@@ -174,29 +176,40 @@ float diamond_coverage(vec2 uv, float progress, float smoothness) {
     float max_dist = max_distance_to_corners(center, u_aspect_ratio);
     float delay = (distance(cell_center, center) / max(max_dist, 0.001)) * 0.4;
     float local_progress = clamp((progress - delay) / max(1.0 - delay, 0.0001), 0.0, 1.0);
-    float radius = local_progress * (2.0 + 2.0 * smoothness) - smoothness;
-    return smoothstep(radius - smoothness, radius + smoothness, diamond_metric);
+    float feather = max(0.05, smoothness * 2.5);
+    float radius = local_progress * (2.0 + 2.0 * feather) - feather;
+    return smoothstep(radius - feather, radius + feather, diamond_metric);
 }
 
-float sweep_coverage(vec2 uv, float progress, float smoothness) {
+float golden_coverage(vec2 uv, float progress, float smoothness) {
     vec2 aspect_uv = vec2(uv.x * u_aspect_ratio, uv.y);
     vec2 center = vec2(u_center.x * u_aspect_ratio, u_center.y);
     vec2 delta = aspect_uv - center;
-    float ang = atan(delta.y, delta.x);
-    float rad = radians(u_angle);
-    float norm_angle = mod(ang - rad + 6.2831853, 6.2831853) / 6.2831853;
-    float edge = progress * (1.0 + 2.0 * smoothness) - smoothness;
-    return smoothstep(edge - smoothness, edge + smoothness, norm_angle);
+    float dist = length(delta);
+    float angle = atan(delta.y, delta.x) + radians(u_angle);
+    float max_dist = max_distance_to_corners(center, u_aspect_ratio);
+
+    // Golden ratio logarithmic spiral (growth rate b = ln(1.6180339887) / (pi / 2) ≈ 0.306349)
+    float b = 0.306349;
+    float spiral = (angle - log(max(dist, 0.001)) / b) / 6.2831853;
+    float spiral_branch = fract(spiral);
+    float golden_coord = (dist / max(max_dist, 0.001)) * 0.7 + spiral_branch * 0.3;
+
+    float feather = max(0.02, smoothness * 1.6);
+    float edge = progress * (1.0 + 2.0 * feather) - feather;
+    return smoothstep(edge - feather, edge + feather, golden_coord);
 }
 
-float ripple_coverage(vec2 uv, float progress, float smoothness) {
-    vec2 aspect_uv = vec2(uv.x * u_aspect_ratio, uv.y);
-    vec2 center = vec2(u_center.x * u_aspect_ratio, u_center.y);
-    float dist = distance(aspect_uv, center);
-    float max_dist = max_distance_to_corners(center, u_aspect_ratio);
-    float wave = sin(dist * 35.0 - progress * 12.0) * 0.03 * (1.0 - progress * 0.7);
-    float radius = progress * (max_dist + 0.1 + 2.0 * smoothness) - smoothness;
-    return smoothstep(radius - smoothness, radius + smoothness, dist + wave);
+float liquid_coverage(vec2 uv, float progress, float smoothness) {
+    float feather = max(0.02, smoothness * 1.5);
+    float wave = sin(uv.x * 14.0 + radians(u_angle)) * 0.05
+               + sin(uv.x * 32.0 - radians(u_angle) * 1.5) * 0.025
+               + cos(uv.x * 7.0 + 1.2) * 0.04;
+
+    float drip = uv.y + wave;
+    float max_span = 1.0 + 0.115;
+    float edge = progress * (max_span + 2.0 * feather) - feather - 0.0575;
+    return smoothstep(edge - feather, edge + feather, drip);
 }
 
 void main() {
@@ -230,9 +243,9 @@ void main() {
     } else if (u_transition < 8.5) {
         coverage = diamond_coverage(uv, progress, smoothness);
     } else if (u_transition < 9.5) {
-        coverage = sweep_coverage(uv, progress, smoothness);
+        coverage = golden_coverage(uv, progress, smoothness);
     } else {
-        coverage = ripple_coverage(uv, progress, smoothness);
+        coverage = liquid_coverage(uv, progress, smoothness);
     }
 
     vec4 texel = texture2D(u_texture, uv);

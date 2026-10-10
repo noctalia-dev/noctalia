@@ -958,8 +958,7 @@ void LockScreen::chooseTransition() {
     m_transitionParams.angle = Random::randomFloat(0.0F, 360.0F);
     break;
   case LockscreenTransition::NewAn5:
-    m_transitionParams.centerX = Random::randomFloat(0.2F, 0.8F);
-    m_transitionParams.centerY = Random::randomFloat(0.2F, 0.8F);
+    m_transitionParams.angle = Random::randomFloat(0.0F, 360.0F);
     break;
   case LockscreenTransition::Fade:
   case LockscreenTransition::Zoom:
