@@ -19,6 +19,7 @@
 #include "ui/controls/spacer.h"
 #include "ui/controls/toggle.h"
 #include "ui/drag_drop_controller.h"
+#include "ui/scroll_into_view.h"
 #include "ui/style.h"
 #include "ui/ui_tree.h"
 #include "ui/ui_tree_reconciler.h"
@@ -2368,6 +2369,13 @@ int main() {
       source->inputArea()->dispatchPress(targetX, targetY, BTN_LEFT, false);
       ok = expect(callbackCount == 0, "release after reset cannot drop") && ok;
     }
+  }
+
+  // content() hangs off the viewport clip node, not the ScrollView itself.
+  {
+    ScrollView scrollView;
+    Node* row = scrollView.content()->addChild(std::make_unique<Box>());
+    ok = expect(findEnclosingScrollView(row) == &scrollView, "a content child resolves to its scroll view") && ok;
   }
 
   {
