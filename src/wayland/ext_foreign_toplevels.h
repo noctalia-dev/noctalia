@@ -2,8 +2,10 @@
 
 #include "wayland/wayland_toplevels.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <functional>
+#include <span>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -26,6 +28,8 @@ public:
   [[nodiscard]] std::vector<ToplevelInfo>
   windowsForApp(const std::string& idLower, const std::string& wmClassLower) const;
   [[nodiscard]] std::vector<ToplevelInfo> windowsWithoutAppId() const;
+  // For the compositors who exposes window id (eg. Niri, Umbriel)
+  [[nodiscard]] ext_foreign_toplevel_handle_v1* extHandleForIdentifier(std::string_view identifier) const;
 
   template <typename Fn> void visitExtHandles(Fn&& fn) const {
     for (const auto& [handle, state] : m_handles) {
@@ -68,3 +72,12 @@ private:
   bool m_initialSyncDone = false;
   ChangeCallback m_changeCallback;
 };
+
+// Unique ext toplevel with an exact title match, skipping wlr-only entries. handle is
+// nullptr on zero or multiple matches; matchCount says which.
+struct ExtToplevelTitleMatch {
+  ext_foreign_toplevel_handle_v1* handle = nullptr;
+  std::size_t matchCount = 0;
+};
+[[nodiscard]] ExtToplevelTitleMatch
+uniqueExtHandleForTitle(std::span<const ToplevelInfo> windows, std::string_view title);

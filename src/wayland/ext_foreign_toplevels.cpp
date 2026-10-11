@@ -198,6 +198,35 @@ std::vector<ToplevelInfo> WaylandExtForeignToplevels::windowsWithoutAppId() cons
   return out;
 }
 
+ext_foreign_toplevel_handle_v1* WaylandExtForeignToplevels::extHandleForIdentifier(std::string_view identifier) const {
+  if (identifier.empty()) {
+    return nullptr;
+  }
+  for (const auto& [handle, state] : m_handles) {
+    if (handle != nullptr && state.ready && state.committed.identifier == identifier) {
+      return handle;
+    }
+  }
+  return nullptr;
+}
+
+ExtToplevelTitleMatch
+uniqueExtHandleForTitle(const std::span<const ToplevelInfo> windows, const std::string_view title) {
+  ExtToplevelTitleMatch match;
+  for (const auto& window : windows) {
+    if (window.extHandle == nullptr || (!title.empty() && window.title != title)) {
+      continue;
+    }
+    ++match.matchCount;
+    if (match.matchCount > 1) {
+      match.handle = nullptr;
+      continue;
+    }
+    match.handle = window.extHandle;
+  }
+  return match;
+}
+
 void WaylandExtForeignToplevels::onToplevelCreated(ext_foreign_toplevel_handle_v1* handle) {
   if (handle == nullptr) {
     return;

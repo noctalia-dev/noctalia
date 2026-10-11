@@ -1043,6 +1043,10 @@ std::vector<ToplevelInfo> WaylandConnection::extWindowsWithoutAppId() const {
   return m_extForeignToplevels.isBound() ? m_extForeignToplevels.windowsWithoutAppId() : std::vector<ToplevelInfo>{};
 }
 
+ext_foreign_toplevel_handle_v1* WaylandConnection::extHandleForIdentifier(std::string_view identifier) const {
+  return m_extForeignToplevels.isBound() ? m_extForeignToplevels.extHandleForIdentifier(identifier) : nullptr;
+}
+
 bool WaylandConnection::containsWlrToplevelHandle(zwlr_foreign_toplevel_handle_v1* handle) const {
   return m_toplevelsHandler.containsWlrHandle(handle);
 }

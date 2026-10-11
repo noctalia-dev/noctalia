@@ -20,7 +20,7 @@ namespace capture {
   );
 }
 
-// One-shot, bounded-size snapshots sourced directly from an ext-foreign-toplevel handle.
+// One-shot snapshots from an ext-foreign-toplevel handle, positive bounds downscale, zero keeps native size.
 class ToplevelThumbnailCapture {
 public:
   using CompletionCallback = std::function<void(std::optional<ScreencopyImage>, std::string error)>;

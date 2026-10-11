@@ -138,6 +138,9 @@ public:
   [[nodiscard]] zwlr_foreign_toplevel_handle_v1* toplevelHandleForCompositorWindowId(std::string_view windowId) const;
   [[nodiscard]] bool isCompositorWindowIdKnown(std::string_view windowId) const;
   [[nodiscard]] std::optional<std::string> focusedCompositorWindowId() const;
+  // Live ext handle for a compositor window id (Hyprland mapping or the committed ext identifier
+  // when backend has exact window identifier), nullptr when unknown.
+  [[nodiscard]] ext_foreign_toplevel_handle_v1* extHandleForCompositorWindowId(std::string_view windowId) const;
 
   void setWorkspaceChangeCallback(ChangeCallback callback);
   void setOverviewChangeCallback(ChangeCallback callback);

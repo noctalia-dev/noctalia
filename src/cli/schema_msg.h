@@ -645,6 +645,9 @@ namespace noctalia::cli {
     inline constexpr Command screenshotRegion{
         "screenshot-region", "Start an interactive region screenshot", {}, {}, {}, {}, {}, false
     };
+    inline constexpr Command screenshotWindow{
+        "screenshot-window", "Captures the current focused window", {}, {}, {}, {}, {}, false
+    };
     inline constexpr Command session{"session", "Run a built-in session action", {}, {},
                                      {},        kMsgSessionPositionals,          {}, false};
     inline constexpr Command settingsClose{"settings-close", "Close the settings window", {}, {}, {}, {}, {}, false};
@@ -911,6 +914,7 @@ namespace noctalia::cli {
       msg::screenshotAnnotate,
       msg::screenshotFullscreen,
       msg::screenshotRegion,
+      msg::screenshotWindow,
       msg::session,
       msg::settingsClose,
       msg::settingsOpen,
