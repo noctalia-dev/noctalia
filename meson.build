@@ -427,6 +427,7 @@ _noctalia_sources = files(
   'src/app/application_ipc.cpp',
   'src/app/application_plugins.cpp',
   'src/app/application_poll_sources.cpp',
+  'src/app/application_sd_notify.cpp',
   'src/app/application_services.cpp',
   'src/app/application_ui.cpp',
   'src/app/main_loop.cpp',
@@ -1139,9 +1140,21 @@ noctalia_exe = executable('noctalia',
   install: true,
 )
 
+noctalia_session_config = configuration_data()
+noctalia_session_config.set(
+  'NOCTALIA_EXECUTABLE',
+  get_option('prefix') / get_option('bindir') / 'noctalia', 
+)
+configure_file(
+  input: 'assets/noctalia.service.in',
+  output: 'noctalia.service',
+  configuration: noctalia_session_config,
+  install_dir: get_option('datadir') / 'noctalia' / 'assets',
+)
+
 install_subdir('assets',
   install_dir: get_option('datadir') / 'noctalia',
-  exclude_files: ['dev.noctalia.Noctalia.desktop'],
+  exclude_files: ['dev.noctalia.Noctalia.desktop', 'noctalia.service.in'],
 )
 
 install_data(

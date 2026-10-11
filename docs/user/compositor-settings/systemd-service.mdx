@@ -1,0 +1,88 @@
+---
+title: Noctalia systemd user service
+description: How to enable the Noctalia systemd user service, instead of starting it from the compositor config.
+sidebar:
+  order: 10
+---
+
+We provide an experimental systemd user service for Noctalia. If your compositor is started as a
+systemd user service, then instead of launching Noctalia from your compositor configuration, you
+can enable this service so that systemd automatically starts Noctalia after the compositor.
+
+Benefits:
+- The Noctalia service blocks subsequent services having `After=graphical-session.target` (e.g. XDG
+  autostart apps) from starting, until Noctalia starts listening on the systray D-Bus interface. This
+  cleanly fixes the race condition where an autostart app might try to register with the systray before
+  Noctalia is ready, thus failing to show its systray icon.
+- Noctalia runs in its own cgroup, isolating its resource usage from other processes. And you can set
+  resource limits for it independently in the service file.
+
+## Supported Compositors
+
+The following compositors are supported with the systemd user service by default:
+
+- Niri
+- Hyprland (uwsm-managed)
+- Umbriel
+- Mango
+
+The following compositors are supported, but require additional steps:
+
+- Labwc
+- KDE Plasma
+
+The following compositors are not supported (because they don't run as systemd user services):
+
+- Hyprland
+- Sway / Scroll
+
+## Installation
+
+1. Copy `noctalia.service` from `/usr/share/noctalia/assets` to `$HOME/.config/systemd/user/`.
+   (Depending on your installation method, the source dir could be `/usr/local/share/noctalia/assets`
+   or `$HOME/.local/share/noctalia/assets` instead.)
+1. Reload the systemd user daemon: `systemctl --user daemon-reload`
+1. Enable the Noctalia service: `systemctl --user enable noctalia.service`
+
+This enables Noctalia for all supported compositors (except KDE Plasma, see "KDE Plasma" below).
+
+To uninstall, run `systemctl --user disable noctalia.service`
+
+It's also recommended to enable the "Launch Apps as systemd Services" option in "Shell" settings,
+when running Noctalia as a systemd user service.
+
+### Labwc
+
+For Labwc, you also need to add the following line to `$HOME/.config/labwc/autostart`:
+
+```sh
+systemctl --user --no-block start labwc-session.target
+```
+
+### KDE Plasma
+
+For KDE Plasma, before the step 2 above, edit `$HOME/.config/systemd/user/noctalia.service` and
+uncomment (remove the leading `#`) the `WantedBy=plasma-workspace-wayland.target` line. Then continue
+from step 2.
+
+### Manual Installation
+
+If you don't want to enable the service for all supported compositors, then before the step 2 above,
+edit `$HOME/.config/systemd/user/noctalia.service` and comment out (add a leading `#`) the `WantedBy`
+line for the compositors you do not want to enable. Then continue from step 2.
+
+If you use `uwsm` to launch compositors other than Hyprland, add corresponding lines like
+`After=wayland-wm@hyprland.desktop.target` and `WantedBy=wayland-session@hyprland.desktop.target`
+to the service file.
+
+## Troubleshooting
+
+If some apps launched from Noctalia don't use the cursor theme and size in your compositor config,
+but when launched via a compositor keybinding they work correctly, it's usually because the compositor
+doesn't export the `XCURSOR_THEME` and `XCURSOR_SIZE` environment variables to the systemd user
+manager, so apps spawned directly for the compositor inherit them, but Noctalia itself and apps launched
+from Noctalia do not. To fix this, you can add the following to the autostart section in your compositor configuration file:
+
+```sh
+systemctl --user import-environment XCURSOR_THEME XCURSOR_SIZE
+```
