@@ -62,8 +62,10 @@ private:
   void tint(RenderFramebuffer& target, Color color, float intensity);
   void blitToSurface(TextureId texture);
   void swapBuffers();
+  void checkGraphicsReset();
 
   wl_surface* m_surface = nullptr;
+  GlSharedContext* m_shared = nullptr;
   std::unique_ptr<RenderBackend> m_backend;
   std::unique_ptr<RenderTarget> m_target;
 

@@ -9,6 +9,7 @@
 #include "render/core/texture_handle.h"
 #include "render/core/texture_manager.h"
 #include "render/core/wallpaper_types.h"
+#include "render/gl_shared_context.h"
 #include "render/render_target.h"
 #include "render/scene/audio_spectrum_node.h"
 #include "render/scene/countdown_ring_node.h"
@@ -57,24 +58,6 @@ namespace {
     }
   }
 
-  std::string_view graphicsResetStatusName(RenderGraphicsResetStatus status) {
-    switch (status) {
-    case RenderGraphicsResetStatus::NoError:
-      return "no-error";
-    case RenderGraphicsResetStatus::Guilty:
-      return "guilty-context-reset";
-    case RenderGraphicsResetStatus::Innocent:
-      return "innocent-context-reset";
-    case RenderGraphicsResetStatus::Unknown:
-      return "unknown-context-reset";
-    case RenderGraphicsResetStatus::Purged:
-      return "purged-context-reset";
-    case RenderGraphicsResetStatus::Other:
-      return "other-context-reset";
-    }
-    return "other-context-reset";
-  }
-
   RenderScissor
   scissorForClip(float sw, float sh, float bw, float bh, float left, float top, float right, float bottom) {
     const float scaleX = sw > 0.0F ? bw / sw : 1.0F;
@@ -118,6 +101,7 @@ RenderContext::~RenderContext() { cleanup(); }
 
 void RenderContext::initialize(GlSharedContext& shared) {
   cleanup();
+  m_shared = &shared;
   m_backend = createDefaultRenderBackend();
   m_backend->initialize(shared);
 
@@ -137,6 +121,7 @@ void RenderContext::restoreAfterGraphicsReset(GlSharedContext& shared) {
   if (m_backend == nullptr) {
     throw std::runtime_error("cannot restore an uninitialized render context");
   }
+  m_shared = &shared;
   m_backend->initialize(shared);
   m_backend->textureManager().probeExtensions();
   invalidateGpuResourcesNextFrame();
@@ -330,11 +315,8 @@ void RenderContext::handleGraphicsReset(RenderGraphicsResetStatus status) {
   if (m_graphicsResetPending) {
     return;
   }
-  kLog.warn("graphics reset detected: {}; scheduling context recovery", graphicsResetStatusName(status));
   m_graphicsResetPending = true;
-  if (m_graphicsResetCallback) {
-    m_graphicsResetCallback(status);
-  }
+  m_shared->reportGraphicsReset(status, "render");
 }
 
 void RenderContext::renderNode(

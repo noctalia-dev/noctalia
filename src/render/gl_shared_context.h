@@ -1,10 +1,16 @@
 #pragma once
 
 #include <EGL/egl.h>
+#include <functional>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 struct wl_display;
+enum class RenderGraphicsResetStatus;
+
+// Reset status of the GL context current on this thread. NoError when the driver exposes no reset query.
+[[nodiscard]] RenderGraphicsResetStatus currentGlContextResetStatus();
 
 // Owns the EGLDisplay, the chosen EGLConfig, and a root surfaceless EGLContext
 // that is the share parent for every other EGLContext in the shell
@@ -39,6 +45,13 @@ public:
   // Returns false if eglMakeCurrent failed (e.g. context lost on resume); callers skip GPU work.
   bool makeCurrentSurfaceless() const;
 
+  // Single sink for resets seen on any context of this display (root, RenderContext, WallpaperRenderer).
+  // Drivers report resets per hardware context, so every owner polls its own context and reports here.
+  void setGraphicsResetCallback(std::function<void(RenderGraphicsResetStatus)> callback) {
+    m_graphicsResetCallback = std::move(callback);
+  }
+  void reportGraphicsReset(RenderGraphicsResetStatus status, std::string_view source) const;
+
 private:
   void buildContextAttributes();
   [[nodiscard]] EGLContext createContextWithCurrentAttributes(EGLContext shareContext) const;
@@ -52,4 +65,6 @@ private:
   bool m_resetNotificationEnabled = false;
   bool m_videoMemoryPurgeNotificationEnabled = false;
   bool m_sharedContextEnabled = false;
+  std::function<void(RenderGraphicsResetStatus)> m_graphicsResetCallback;
+  mutable bool m_graphicsResetReported = false;
 };

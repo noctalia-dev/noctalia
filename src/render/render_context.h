@@ -33,9 +33,6 @@ public:
   void finishGraphicsResetRecovery() noexcept { m_graphicsResetPending = false; }
 
   void renderScene(RenderTarget& target, Node* sceneRoot, const WallpaperMaskDrawParams* wallpaperMask = nullptr);
-  void setGraphicsResetCallback(std::function<void(RenderGraphicsResetStatus)> callback) {
-    m_graphicsResetCallback = std::move(callback);
-  }
   // Returns false if the surface could not be made current (e.g. teardown);
   // best-effort callers may ignore it, render paths must skip the frame.
   bool makeCurrent(RenderTarget& target);
@@ -95,5 +92,5 @@ private:
   std::uint64_t m_gpuResourceGeneration = 0;
   bool m_glyphTexturesDirty = false;
   bool m_graphicsResetPending = false;
-  std::function<void(RenderGraphicsResetStatus)> m_graphicsResetCallback;
+  GlSharedContext* m_shared = nullptr;
 };
