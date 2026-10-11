@@ -6,6 +6,7 @@
 #include "render/core/blur_cache.h"
 #include "render/core/color.h"
 #include "render/core/lockscreen_transition_types.h"
+#include "render/core/shared_texture_cache.h"
 #include "render/core/texture_manager.h"
 #include "render/scene/input_dispatcher.h"
 #include "render/scene/node.h"
@@ -37,7 +38,6 @@ class LockscreenTransitionCover;
 class MprisService;
 class Renderer;
 class SessionActionRunner;
-class SharedTextureCache;
 class WallpaperNode;
 class WeatherService;
 struct KeyboardEvent;
@@ -135,7 +135,6 @@ private:
   void notifyTransitionStateChanged();
   void applyWallpaperTexture();
   void applyBlurredDesktopTexture();
-  void releaseWallpaperTextureRef(const std::string& path);
   void releaseCaptureTextures();
   void layoutScene(std::uint32_t width, std::uint32_t height);
   void updateCopy();
@@ -188,7 +187,8 @@ private:
   Flex* m_sessionRow = nullptr;
   std::vector<Button*> m_sessionButtons;
   SharedTextureCache* m_textureCache = nullptr;
-  TextureHandle m_wallpaperTexture{};
+  SharedTextureCache::Lease m_wallpaperLease;
+  SharedTextureCache::Lease m_pendingWallpaperLease;
   TextureHandle m_blurredWallpaperTexture{};
   TextureHandle m_captureSourceTexture{};
   TextureHandle m_blurredDesktopTexture{};
@@ -210,7 +210,8 @@ private:
   bool m_enterTransitionRequested = false;
   bool m_captureDirty = true;
   std::string m_wallpaperPath;
-  std::string m_textureWallpaperPath;
+  std::string m_shownWallpaperPath;
+  std::string m_pendingWallpaperPath;
   WallpaperFillMode m_wallpaperFillMode = WallpaperFillMode::Crop;
   Color m_wallpaperFillColor = rgba(0.0F, 0.0F, 0.0F, 0.0F);
   bool m_wallpaperDirty = false;

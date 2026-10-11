@@ -1,6 +1,8 @@
 #pragma once
 
 #include "config/config_types.h"
+#include "render/core/shared_texture_cache.h"
+#include "render/core/wallpaper_types.h"
 #include "shell/wallpaper/wallpaper_shuffle_state.h"
 #include "ui/signal.h"
 
@@ -14,11 +16,9 @@
 class ConfigService;
 class IpcService;
 class RenderContext;
-class SharedTextureCache;
 class WaylandConnection;
 enum class ThemeMode : std::uint8_t;
 enum class WallpaperTransitionDirection;
-struct TextureHandle;
 struct WallpaperInstance;
 struct PointerEvent;
 struct WaylandOutput;
@@ -108,9 +108,13 @@ private:
       std::string_view scope, std::string_view source
   );
   void createInstance(const WaylandOutput& output);
-  [[nodiscard]] TextureHandle acquireTexture(const std::string& path);
-  void releaseTexture(TextureHandle& handle, const std::string& path);
   void loadWallpaper(WallpaperInstance& instance, const std::string& path);
+  void beginWallpaperChange(
+      WallpaperInstance& instance, const std::string& path, WallpaperSourceKind kind, SharedTextureCache::Lease image,
+      const Color& color
+  );
+  void onImageChanged(WallpaperInstance& instance);
+  static void cancelLoading(WallpaperInstance& instance);
   TransitionRedirect redirectActiveTransition(WallpaperInstance& instance, const std::string& path);
   void startTransition(WallpaperInstance& instance);
   void startTransitionAnimation(WallpaperInstance& instance, float fromTime, WallpaperTransitionDirection direction);

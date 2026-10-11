@@ -127,12 +127,12 @@ void Backdrop::onStateChange() {
 
   for (auto& inst : m_instances) {
     auto newPath = m_config->getWallpaperPath(inst->connectorName);
-    if (newPath.empty() || newPath == inst->currentPath) {
+    const std::string& targetPath = inst->pendingLease.empty() ? inst->currentPath : inst->pendingPath;
+    if (newPath.empty() || newPath == targetPath) {
       continue;
     }
 
     kLog.info("updating {} → {}", inst->connectorName, newPath);
-    releaseInstanceTexture(*inst);
     loadWallpaper(*inst, newPath);
   }
 }
@@ -154,20 +154,6 @@ void Backdrop::onGpuResourcesInvalidated() {
     if (inst->surface != nullptr) {
       inst->surface->onGpuResourcesInvalidated();
     }
-    if (!inst->currentPath.empty()) {
-      if (m_textureCache != nullptr && m_textureCache->shared()) {
-        inst->currentTexture = m_textureCache->peek(inst->currentPath);
-      } else if (inst->surface != nullptr) {
-        auto* renderer = inst->surface->wallpaperRenderer();
-        if (renderer != nullptr && renderer->backend() != nullptr) {
-          renderer->backend()->makeCurrentNoSurface();
-          if (inst->currentTexture.id != 0) {
-            renderer->backend()->textureManager().unload(inst->currentTexture);
-          }
-          inst->currentTexture = renderer->backend()->textureManager().loadFromFile(inst->currentPath, 0, true);
-        }
-      }
-    }
     updateRendererState(*inst);
     if (inst->surface != nullptr) {
       inst->surface->requestRedraw();
@@ -180,7 +166,7 @@ void Backdrop::prepareForGraphicsReset() noexcept {
     if (inst->surface != nullptr) {
       inst->surface->prepareForGraphicsReset();
     }
-    inst->currentTexture = {};
+    updateRendererState(*inst);
   }
 }
 
@@ -265,7 +251,10 @@ void Backdrop::createInstance(const WaylandOutput& output) {
 
   auto* instPtr = inst.get();
   inst->surface->setConfigureCallback([this, instPtr](std::uint32_t /*width*/, std::uint32_t /*height*/) {
-    if (instPtr->currentTexture.id != 0 || !shouldHaveInstances() || m_config == nullptr) {
+    if (!instPtr->currentLease.empty()
+        || !instPtr->pendingLease.empty()
+        || !shouldHaveInstances()
+        || m_config == nullptr) {
       return;
     }
     std::string path = instPtr->currentPath;
@@ -290,25 +279,47 @@ void Backdrop::createInstance(const WaylandOutput& output) {
 }
 
 void Backdrop::loadWallpaper(BackdropInstance& inst, const std::string& path) {
-  auto tex = m_textureCache->acquire(path);
-  if (tex.id == 0 && !m_textureCache->shared() && inst.surface != nullptr) {
-    auto* renderer = inst.surface->wallpaperRenderer();
-    if (renderer != nullptr && renderer->backend() != nullptr) {
-      renderer->backend()->makeCurrentNoSurface();
-      tex = renderer->backend()->textureManager().loadFromFile(path, 0, true);
-    }
+  RenderBackend* backend = nullptr;
+  if (inst.surface != nullptr && inst.surface->wallpaperRenderer() != nullptr) {
+    backend = inst.surface->wallpaperRenderer()->backend();
   }
-  if (tex.id == 0) {
-    kLog.warn("failed to load {}", path);
+  // Without a shared context and before the surface has a backend the lease is empty; the configure callback retries.
+  auto lease = m_textureCache->acquire(SharedTextureRequest{.path = path}, backend, [this, instPtr = &inst]() {
+    promotePendingTexture(*instPtr);
+    updateRendererState(*instPtr);
+    if (instPtr->surface != nullptr) {
+      instPtr->surface->requestRedraw();
+    }
+  });
+  if (lease.empty()) {
     return;
   }
 
-  inst.currentTexture = tex;
-  inst.currentPath = path;
+  inst.pendingLease = std::move(lease);
+  inst.pendingPath = path;
+  promotePendingTexture(inst);
   updateRendererState(inst);
   if (inst.surface != nullptr) {
     inst.surface->requestRedraw();
   }
+}
+
+void Backdrop::promotePendingTexture(BackdropInstance& inst) {
+  if (inst.pendingLease.empty()) {
+    return;
+  }
+  if (inst.pendingLease.failed()) {
+    kLog.warn("failed to load {}", inst.pendingPath);
+    inst.pendingLease.reset();
+    inst.pendingPath.clear();
+    return;
+  }
+  if (!inst.pendingLease.texture().valid()) {
+    return;
+  }
+  inst.currentLease = std::move(inst.pendingLease);
+  inst.currentPath = std::move(inst.pendingPath);
+  inst.pendingPath.clear();
 }
 
 void Backdrop::updateRendererState(BackdropInstance& inst) {
@@ -324,30 +335,20 @@ void Backdrop::updateRendererState(BackdropInstance& inst) {
   const Color surface = colorForRole(ColorRole::Surface);
   inst.surface->setTintColor(surface.r, surface.g, surface.b);
 
-  if (inst.currentTexture.id != 0) {
+  const TextureHandle texture = inst.currentLease.texture();
+  if (texture.valid()) {
     inst.surface->setWallpaperState(
-        inst.currentTexture.id, static_cast<float>(inst.currentTexture.width),
-        static_cast<float>(inst.currentTexture.height), m_config->config().wallpaper.fillMode
+        texture.id, static_cast<float>(texture.width), static_cast<float>(texture.height),
+        m_config->config().wallpaper.fillMode
     );
   } else {
     inst.surface->setWallpaperState({}, 0.0F, 0.0F, m_config->config().wallpaper.fillMode);
   }
 }
 
-void Backdrop::releaseInstanceTexture(BackdropInstance& inst, bool clearPath) {
-  if (inst.currentTexture.id != 0) {
-    if (m_textureCache->shared()) {
-      m_textureCache->release(inst.currentTexture, inst.currentPath);
-    } else if (inst.surface != nullptr) {
-      auto* renderer = inst.surface->wallpaperRenderer();
-      if (renderer != nullptr && renderer->backend() != nullptr) {
-        renderer->backend()->makeCurrentNoSurface();
-        renderer->backend()->textureManager().unload(inst.currentTexture);
-      }
-    }
-    inst.currentTexture = {};
-  }
-  if (clearPath) {
-    inst.currentPath.clear();
-  }
+void Backdrop::releaseInstanceTexture(BackdropInstance& inst) {
+  inst.pendingLease.reset();
+  inst.pendingPath.clear();
+  inst.currentLease.reset();
+  inst.currentPath.clear();
 }

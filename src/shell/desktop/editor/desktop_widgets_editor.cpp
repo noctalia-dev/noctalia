@@ -2654,22 +2654,11 @@ void DesktopWidgetsEditor::onSecondTick() {
 }
 
 void DesktopWidgetsEditor::releaseWallpaperPreview(OverlaySurface& surface) {
-  if (surface.wallpaperPreviewTexture.id == 0) {
-    surface.wallpaperPreviewLoadedPath.clear();
-    return;
-  }
-
-  const std::string& releasePath = surface.wallpaperPreviewLoadedPath;
-  if (m_textureCache != nullptr && m_textureCache->shared()) {
-    if (!releasePath.empty()) {
-      m_textureCache->release(surface.wallpaperPreviewTexture, releasePath);
-    }
-  } else if (m_renderContext != nullptr) {
-    m_renderContext->backend().makeCurrentNoSurface();
-    m_renderContext->textureManager().unload(surface.wallpaperPreviewTexture);
-  }
-  surface.wallpaperPreviewTexture = {};
+  surface.wallpaperPreviewLease.reset();
+  surface.wallpaperPreviewPendingLease.reset();
   surface.wallpaperPreviewLoadedPath.clear();
+  surface.wallpaperPreviewPendingPath.clear();
+  surface.wallpaperPreviewFailedPath.clear();
 }
 
 void DesktopWidgetsEditor::updateWallpaperPreview(OverlaySurface& surface) {
@@ -2693,9 +2682,7 @@ void DesktopWidgetsEditor::updateWallpaperPreview(OverlaySurface& surface) {
 
   Color color = rgba(0.0F, 0.0F, 0.0F, 1.0F);
   if (parseColorWallpaperPath(path, color)) {
-    if (surface.wallpaperPreviewTexture.id != 0) {
-      releaseWallpaperPreview(surface);
-    }
+    releaseWallpaperPreview(surface);
     surface.wallpaperPreview->setSources(
         WallpaperSourceKind::Color, {}, color, WallpaperSourceKind::Image, {}, rgba(0.0F, 0.0F, 0.0F, 1.0F), 0.0F, 0.0F,
         0.0F, 0.0F
@@ -2704,30 +2691,39 @@ void DesktopWidgetsEditor::updateWallpaperPreview(OverlaySurface& surface) {
     return;
   }
 
-  const bool needsReload = surface.wallpaperPreviewTexture.id == 0 || surface.wallpaperPreviewLoadedPath != path;
-  TextureHandle texture = surface.wallpaperPreviewTexture;
-  if (needsReload) {
-    if (m_textureCache != nullptr) {
-      texture = m_textureCache->acquire(path);
-      if (texture.id == 0 && !m_textureCache->shared()) {
-        m_renderContext->backend().makeCurrentNoSurface();
-        texture = m_renderContext->textureManager().loadFromFile(path, 0, true);
-      }
-    } else {
-      m_renderContext->backend().makeCurrentNoSurface();
-      texture = m_renderContext->textureManager().loadFromFile(path, 0, true);
+  if (m_textureCache != nullptr
+      && path != surface.wallpaperPreviewLoadedPath
+      && path != surface.wallpaperPreviewPendingPath
+      && path != surface.wallpaperPreviewFailedPath) {
+    OverlaySurface* surfacePtr = &surface;
+    surface.wallpaperPreviewPendingLease =
+        m_textureCache->acquire(SharedTextureRequest{.path = path}, &m_renderContext->backend(), [surfacePtr]() {
+          if (surfacePtr->surface != nullptr) {
+            surfacePtr->surface->requestUpdate();
+          }
+        });
+    surface.wallpaperPreviewPendingPath = path;
+  }
+
+  if (!surface.wallpaperPreviewPendingLease.empty()) {
+    if (surface.wallpaperPreviewPendingLease.texture().id != 0) {
+      surface.wallpaperPreviewLease = std::move(surface.wallpaperPreviewPendingLease);
+      surface.wallpaperPreviewLoadedPath = std::move(surface.wallpaperPreviewPendingPath);
+      surface.wallpaperPreviewPendingPath.clear();
+    } else if (surface.wallpaperPreviewPendingLease.failed()) {
+      Logger(m_profile.logSection.data())
+          .warn("{} widgets editor: failed to load wallpaper preview {}", m_profile.logSection, path);
+      surface.wallpaperPreviewPendingLease.reset();
+      surface.wallpaperPreviewFailedPath = std::move(surface.wallpaperPreviewPendingPath);
+      surface.wallpaperPreviewPendingPath.clear();
     }
   }
 
+  const TextureHandle texture = surface.wallpaperPreviewLease.texture();
   if (texture.id == 0) {
     return;
   }
 
-  if (needsReload && surface.wallpaperPreviewTexture.id != 0 && surface.wallpaperPreviewLoadedPath != path) {
-    releaseWallpaperPreview(surface);
-  }
-  surface.wallpaperPreviewTexture = texture;
-  surface.wallpaperPreviewLoadedPath = path;
   surface.wallpaperPreview->setTextures(
       texture.id, {}, static_cast<float>(texture.width), static_cast<float>(texture.height), 0.0F, 0.0F
   );
