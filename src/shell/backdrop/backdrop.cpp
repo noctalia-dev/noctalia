@@ -7,6 +7,7 @@
 #include "render/core/shared_texture_cache.h"
 #include "shell/backdrop/backdrop_instance.h"
 #include "shell/backdrop/backdrop_surface.h"
+#include "shell/wallpaper/wallpaper_geometry.h"
 #include "ui/palette.h"
 #include "wayland/wayland_connection.h"
 
@@ -99,6 +100,7 @@ void Backdrop::reload() {
 
   if (!recreateNeeded) {
     for (auto& inst : m_instances) {
+      refreshCoverage(*inst);
       updateRendererState(*inst);
       if (inst->surface != nullptr) {
         inst->surface->requestRedraw();
@@ -120,6 +122,9 @@ void Backdrop::onOutputChange() {
     return;
   }
   syncInstances();
+  for (auto& inst : m_instances) {
+    refreshCoverage(*inst);
+  }
 }
 
 void Backdrop::onStateChange() {
@@ -251,6 +256,7 @@ void Backdrop::createInstance(const WaylandOutput& output) {
 
   auto* instPtr = inst.get();
   inst->surface->setConfigureCallback([this, instPtr](std::uint32_t /*width*/, std::uint32_t /*height*/) {
+    refreshCoverage(*instPtr);
     if (!instPtr->currentLease.empty()
         || !instPtr->pendingLease.empty()
         || !shouldHaveInstances()
@@ -284,7 +290,8 @@ void Backdrop::loadWallpaper(BackdropInstance& inst, const std::string& path) {
     backend = inst.surface->wallpaperRenderer()->backend();
   }
   // Without a shared context and before the surface has a backend the lease is empty; the configure callback retries.
-  auto lease = m_textureCache->acquire(SharedTextureRequest{.path = path}, backend, [this, instPtr = &inst]() {
+  const SharedTextureRequest request{.path = path, .coverage = textureCoverage(inst)};
+  auto lease = m_textureCache->acquire(request, backend, [this, instPtr = &inst]() {
     promotePendingTexture(*instPtr);
     updateRendererState(*instPtr);
     if (instPtr->surface != nullptr) {
@@ -301,6 +308,23 @@ void Backdrop::loadWallpaper(BackdropInstance& inst, const std::string& path) {
   updateRendererState(inst);
   if (inst.surface != nullptr) {
     inst.surface->requestRedraw();
+  }
+}
+
+TextureCoverage Backdrop::textureCoverage(const BackdropInstance& inst) const {
+  if (m_wayland == nullptr || m_config == nullptr) {
+    return {};
+  }
+  return wallpaperTextureCoverage(m_wayland->outputs(), inst.outputName, m_config->config().wallpaper.fillMode);
+}
+
+void Backdrop::refreshCoverage(BackdropInstance& inst) {
+  const TextureCoverage coverage = textureCoverage(inst);
+  if (!inst.currentLease.empty()) {
+    inst.currentLease.setCoverage(coverage);
+  }
+  if (!inst.pendingLease.empty()) {
+    inst.pendingLease.setCoverage(coverage);
   }
 }
 

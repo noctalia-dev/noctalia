@@ -56,6 +56,10 @@ directory_dark  = "/home/user/Wallpapers/Vertical/Dark"
 - **repeat** - tiled at native size across the output.
 - **span** - a single image stretched across the whole multi-monitor desktop, so each output shows the slice that matches its position in the compositor layout. The monitors are treated as one continuous canvas, honoring each output's logical position and the offset between them, so a wide wallpaper flows across screens instead of repeating the same framing on each. Single-monitor setups behave like `crop`, and the slices refresh automatically when a monitor is moved, added, or removed.
 
+#### Large images
+
+Wallpapers are decoded in the background, so a huge file never freezes the shell; the previous wallpaper stays up until the new one is ready. For `crop`, `fit`, `stretch` and `span`, an image much larger than the output is halved (averaging each 2×2 block) while it still covers the output in physical pixels, or the whole desktop for `span`. These are exactly the mipmap levels the GPU would otherwise generate and never sample at that size, so the result on screen is identical while VRAM use and upload time drop: a 16384×9216 image on a 1080p output is kept at 2048×1152. `center` and `repeat` show source pixels 1:1 and always keep the full resolution, as does `shell.disable_mipmaps = true`, since the GPU then samples the full-size image directly.
+
 `wallpaper.default.path` sets the initial/default wallpaper for every output. It can be declared in `~/.config/noctalia/*.toml`; choosing a wallpaper through the UI or IPC writes the same key to `settings.toml`, which loads last and overrides the declarative value.
 
 An empty global `wallpaper.directory` resolves to the standard XDG Pictures directory, using `XDG_PICTURES_DIR` or the `user-dirs.dirs` configuration file, and falls back to `~/Pictures`. This keeps the picker, launcher provider, and automatic rotation aligned without requiring a separate wallpaper folder.

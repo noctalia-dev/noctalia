@@ -70,6 +70,10 @@ private:
   void buildScene(DesktopWidgetInstance& instance);
   void prepareFrame(DesktopWidgetInstance& instance, bool needsUpdate, bool needsLayout);
   [[nodiscard]] DesktopWidgetInstance* findInstance(const std::string& id);
+  // Coverage of the wallpaper as drawn on the output with this key; empty (full resolution) if the output is unknown.
+  [[nodiscard]] TextureCoverage wallpaperMaskCoverage(const std::string& outputName) const;
+  // Re-targets every mask after output geometry or the wallpaper fill mode may have changed.
+  void refreshWallpaperMasks();
   // Checks a pending mask against its wallpaper once both are decoded; erases the entry if they do not match.
   void validateWallpaperMask(const std::string& outputName);
   void onWallpaperMaskTextureChanged(const std::string& outputName);

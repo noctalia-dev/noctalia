@@ -28,9 +28,22 @@ enum class SharedTextureKind : std::uint8_t {
   AlphaMask,
 };
 
+// Physical pixels a texture still has to cover where it is drawn. The cache halves the decoded image with a 2x2 box
+// filter while the result stays at least this large on both axes: exactly the mip levels the GPU would generate and
+// never sample for that coverage, so nothing on screen changes. An empty coverage keeps the full resolution, as do
+// disabled mipmaps (the renderer then samples the base level directly, so dropping it would change pixels).
+struct TextureCoverage {
+  int width = 0;
+  int height = 0;
+
+  [[nodiscard]] bool empty() const noexcept { return width <= 0 || height <= 0; }
+  bool operator==(const TextureCoverage&) const = default;
+};
+
 struct SharedTextureRequest {
   std::string path;
   SharedTextureKind kind = SharedTextureKind::Color;
+  TextureCoverage coverage;
 
   bool operator==(const SharedTextureRequest&) const = default;
 };
@@ -58,6 +71,9 @@ public:
     [[nodiscard]] bool empty() const noexcept { return m_cache == nullptr; }
     [[nodiscard]] TextureHandle texture() const;
     [[nodiscard]] bool failed() const;
+    // Re-targets the lease at another coverage. The current texture stays valid until the new one is uploaded, then
+    // onChange fires; like every texture() change this happens from dispatch(), never inside this call.
+    void setCoverage(TextureCoverage coverage);
     void reset();
 
   private:
@@ -126,6 +142,8 @@ private:
 
   struct LeaseRecord {
     EntryKey key;
+    // Coverage the lease is moving to; key keeps serving until this entry is uploaded.
+    std::optional<EntryKey> pending;
     std::function<void()> onChange;
   };
 
@@ -144,6 +162,10 @@ private:
   void releaseEntry(const EntryKey& key);
   void releaseLease(std::uint64_t id);
   [[nodiscard]] const Entry* findLeaseEntry(std::uint64_t id) const;
+  void setLeaseCoverage(std::uint64_t id, TextureCoverage coverage);
+  // Promotes a lease's pending entry once it is uploaded, or drops it if it failed. True if texture() changed.
+  bool resolvePending(LeaseRecord& record);
+  [[nodiscard]] static TextureCoverage effectiveCoverage(TextureCoverage coverage);
 
   void requestDecode(const SharedTextureRequest& request);
   void cancelDecodeIfUnused(const SharedTextureRequest& request);
@@ -177,6 +199,8 @@ private:
   std::unordered_set<SharedTextureRequest, RequestHash> m_pendingDecodes;
   std::unordered_map<EntryKey, Entry, EntryKeyHash> m_entries;
   std::unordered_map<std::uint64_t, LeaseRecord> m_leases;
+  // Leases whose pending coverage was already resident when set; dispatch() switches them.
+  std::vector<std::uint64_t> m_deferredSwitches;
   std::uint64_t m_nextLeaseId = 0;
   std::shared_ptr<int> m_lifetimeToken = std::make_shared<int>(0);
 };

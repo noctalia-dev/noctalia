@@ -60,6 +60,7 @@ public:
   void setTextureCache(SharedTextureCache* cache) noexcept { m_textureCache = cache; }
   void setWallpaperPath(std::string wallpaperPath);
   void setWallpaperFillMode(WallpaperFillMode fillMode);
+  void setWallpaperCoverage(TextureCoverage coverage);
   void setWallpaperFillColor(Color fillColor);
   void setDesktopCapture(std::optional<ScreencopyImage> capture, bool useAsBackground);
   void configureTransition(
@@ -213,6 +214,7 @@ private:
   std::string m_shownWallpaperPath;
   std::string m_pendingWallpaperPath;
   WallpaperFillMode m_wallpaperFillMode = WallpaperFillMode::Crop;
+  TextureCoverage m_wallpaperCoverage;
   Color m_wallpaperFillColor = rgba(0.0F, 0.0F, 0.0F, 0.0F);
   bool m_wallpaperDirty = false;
   InputDispatcher m_inputDispatcher;

@@ -73,21 +73,49 @@ void DesktopWidgetsHost::setWallpaperMasks(const OutputWallpaperMaskMap& masks) 
         continue;
       }
       const auto onChange = [this, name = outputName]() { onWallpaperMaskTextureChanged(name); };
+      const TextureCoverage coverage = wallpaperMaskCoverage(outputName);
       m_wallpaperMasks.emplace(
           outputName,
           LoadedWallpaperMask{
               .descriptor = descriptor,
               .mask = m_textureCache->acquire(
-                  SharedTextureRequest{.path = descriptor.path, .kind = SharedTextureKind::AlphaMask}, backend, onChange
+                  SharedTextureRequest{
+                      .path = descriptor.path, .kind = SharedTextureKind::AlphaMask, .coverage = coverage
+                  },
+                  backend, onChange
               ),
               .wallpaper = m_textureCache->acquire(
-                  SharedTextureRequest{.path = descriptor.wallpaperPath, .kind = SharedTextureKind::Color}, backend,
-                  onChange
+                  SharedTextureRequest{
+                      .path = descriptor.wallpaperPath, .kind = SharedTextureKind::Color, .coverage = coverage
+                  },
+                  backend, onChange
               ),
           }
       );
       validateWallpaperMask(outputName);
     }
+  }
+  for (auto& instance : m_instances) {
+    updateWallpaperMask(*instance);
+  }
+}
+
+TextureCoverage DesktopWidgetsHost::wallpaperMaskCoverage(const std::string& outputName) const {
+  if (m_wayland == nullptr || m_config == nullptr) {
+    return {};
+  }
+  const WaylandOutput* output = desktop_widgets::findOutputByKey(*m_wayland, outputName);
+  if (output == nullptr) {
+    return {};
+  }
+  return wallpaperTextureCoverage(m_wayland->outputs(), output->name, m_config->config().wallpaper.fillMode);
+}
+
+void DesktopWidgetsHost::refreshWallpaperMasks() {
+  for (auto& [outputName, loaded] : m_wallpaperMasks) {
+    const TextureCoverage coverage = wallpaperMaskCoverage(outputName);
+    loaded.mask.setCoverage(coverage);
+    loaded.wallpaper.setCoverage(coverage);
   }
   for (auto& instance : m_instances) {
     updateWallpaperMask(*instance);
@@ -141,10 +169,10 @@ void DesktopWidgetsHost::hide() {
 
 void DesktopWidgetsHost::rebuild(const DesktopWidgetsSnapshot& snapshot) {
   m_snapshot = snapshot;
-  if (!m_visible) {
-    return;
+  if (m_visible) {
+    syncInstances();
   }
-  syncInstances();
+  refreshWallpaperMasks();
 }
 
 void DesktopWidgetsHost::reloadPluginWidgets() {
@@ -164,10 +192,10 @@ void DesktopWidgetsHost::reloadPluginWidgets() {
 }
 
 void DesktopWidgetsHost::onOutputChange() {
-  if (!m_visible) {
-    return;
+  if (m_visible) {
+    syncInstances();
   }
-  syncInstances();
+  refreshWallpaperMasks();
 }
 
 void DesktopWidgetsHost::onSecondTick() {
@@ -421,13 +449,14 @@ void DesktopWidgetsHost::updateWallpaperMask(DesktopWidgetInstance& instance) {
     return;
   }
 
+  const auto fillMode = m_config->config().wallpaper.fillMode;
+  maskIt->second.mask.setCoverage(wallpaperTextureCoverage(m_wayland->outputs(), output->name, fillMode));
   const TextureHandle texture = maskIt->second.mask.texture();
   if (!texture.valid() || texture.width <= 0 || texture.height <= 0) {
     instance.surface->setWallpaperMask(std::nullopt);
     return;
   }
 
-  const auto fillMode = m_config->config().wallpaper.fillMode;
   const WallpaperSpanParams span = fillMode == WallpaperFillMode::Span
       ? computeWallpaperSpanParams(m_wayland->outputs(), output->name)
       : WallpaperSpanParams{};

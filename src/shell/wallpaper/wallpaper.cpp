@@ -450,6 +450,7 @@ void Wallpaper::reload() {
   // Refresh renderer state on all instances to pick up fill mode / smoothness
   // changes that take effect immediately without a texture reload.
   for (auto& inst : m_instances) {
+    refreshTextureCoverage(*inst);
     updateRendererState(*inst);
     inst->surface->requestRedraw();
   }
@@ -460,6 +461,9 @@ void Wallpaper::onOutputChange() {
     return;
   }
   syncInstances();
+  for (auto& inst : m_instances) {
+    refreshTextureCoverage(*inst);
+  }
 
   // Span fill mode maps a single image across the whole desktop, so a geometry
   // change on any output shifts the slice shown on every other output. Refresh
@@ -1240,6 +1244,7 @@ void Wallpaper::createInstance(const WaylandOutput& output) {
     inst->wallpaperNode->setPosition(0.0F, 0.0F);
     inst->wallpaperNode->setSize(sw, sh);
 
+    refreshTextureCoverage(*inst);
     if (inst->currentPath.empty() && !wallpaperPath.empty()) {
       loadWallpaper(*inst, wallpaperPath);
     } else {
@@ -1268,6 +1273,20 @@ void Wallpaper::releaseInstanceTextures(WallpaperInstance& inst) {
 void Wallpaper::cancelLoading(WallpaperInstance& instance) {
   instance.loadingImage.reset();
   instance.loadingPath.clear();
+}
+
+TextureCoverage Wallpaper::textureCoverage(const WallpaperInstance& instance) const {
+  if (m_wayland == nullptr || m_config == nullptr) {
+    return {};
+  }
+  return wallpaperTextureCoverage(m_wayland->outputs(), instance.outputName, m_config->config().wallpaper.fillMode);
+}
+
+void Wallpaper::refreshTextureCoverage(WallpaperInstance& instance) {
+  const TextureCoverage coverage = textureCoverage(instance);
+  instance.currentImage.setCoverage(coverage);
+  instance.nextImage.setCoverage(coverage);
+  instance.loadingImage.setCoverage(coverage);
 }
 
 // ── Wallpaper loading & transitions ──────────────────────────────────────────
@@ -1299,7 +1318,8 @@ void Wallpaper::loadWallpaper(WallpaperInstance& instance, const std::string& pa
   SharedTextureCache::Lease image;
   if (m_textureCache != nullptr) {
     image = m_textureCache->acquire(
-        SharedTextureRequest{.path = path}, m_renderContext != nullptr ? &m_renderContext->backend() : nullptr,
+        SharedTextureRequest{.path = path, .coverage = textureCoverage(instance)},
+        m_renderContext != nullptr ? &m_renderContext->backend() : nullptr,
         [this, inst = &instance]() { onImageChanged(*inst); }
     );
   }

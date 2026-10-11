@@ -3,6 +3,7 @@
 #include "wayland/wayland_connection.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 
 WallpaperSpanParams computeWallpaperSpanParams(const std::vector<WaylandOutput>& outputs, std::uint32_t outputName) {
@@ -50,4 +51,40 @@ WallpaperSpanParams computeWallpaperSpanParams(const std::vector<WaylandOutput>&
   span.totalWidth = static_cast<float>(maxX - minX);
   span.totalHeight = static_cast<float>(maxY - minY);
   return span;
+}
+
+TextureCoverage wallpaperTextureCoverage(
+    const std::vector<WaylandOutput>& outputs, std::uint32_t outputName, WallpaperFillMode fillMode
+) {
+  const auto output = std::ranges::find(outputs, outputName, &WaylandOutput::name);
+  if (output == outputs.end() || !output->hasUsableGeometry()) {
+    return {};
+  }
+
+  auto width = static_cast<float>(output->effectiveLogicalWidth());
+  auto height = static_cast<float>(output->effectiveLogicalHeight());
+  switch (fillMode) {
+  case WallpaperFillMode::Center:
+  case WallpaperFillMode::Repeat:
+    return {};
+  case WallpaperFillMode::Span: {
+    // Without span geometry the shader falls back to crop on this output.
+    const WallpaperSpanParams span = computeWallpaperSpanParams(outputs, outputName);
+    if (span.totalWidth > 0.0F && span.totalHeight > 0.0F) {
+      width = span.totalWidth;
+      height = span.totalHeight;
+    }
+    break;
+  }
+  case WallpaperFillMode::Crop:
+  case WallpaperFillMode::Fit:
+  case WallpaperFillMode::Stretch:
+    break;
+  }
+
+  const float scale = output->configuredScale();
+  return {
+      .width = static_cast<int>(std::ceil(width * scale)),
+      .height = static_cast<int>(std::ceil(height * scale)),
+  };
 }

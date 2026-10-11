@@ -23,6 +23,7 @@
 #include "shell/desktop/widgets/desktop_login_box_widget.h"
 #include "shell/lockscreen/lockscreen_login_box.h"
 #include "shell/tooltip/tooltip_manager.h"
+#include "shell/wallpaper/wallpaper_geometry.h"
 #include "time/time_format.h"
 #include "ui/builders.h"
 #include "ui/controls/select_dropdown_popup.h"
@@ -2691,17 +2692,28 @@ void DesktopWidgetsEditor::updateWallpaperPreview(OverlaySurface& surface) {
     return;
   }
 
+  TextureCoverage coverage;
+  if (m_wayland != nullptr) {
+    if (const WaylandOutput* output = desktop_widgets::findOutputByKey(*m_wayland, surface.outputName);
+        output != nullptr) {
+      coverage = wallpaperTextureCoverage(m_wayland->outputs(), output->name, surface.wallpaperPreview->fillMode());
+    }
+  }
+  surface.wallpaperPreviewLease.setCoverage(coverage);
+  surface.wallpaperPreviewPendingLease.setCoverage(coverage);
+
   if (m_textureCache != nullptr
       && path != surface.wallpaperPreviewLoadedPath
       && path != surface.wallpaperPreviewPendingPath
       && path != surface.wallpaperPreviewFailedPath) {
     OverlaySurface* surfacePtr = &surface;
-    surface.wallpaperPreviewPendingLease =
-        m_textureCache->acquire(SharedTextureRequest{.path = path}, &m_renderContext->backend(), [surfacePtr]() {
+    surface.wallpaperPreviewPendingLease = m_textureCache->acquire(
+        SharedTextureRequest{.path = path, .coverage = coverage}, &m_renderContext->backend(), [surfacePtr]() {
           if (surfacePtr->surface != nullptr) {
             surfacePtr->surface->requestUpdate();
           }
-        });
+        }
+    );
     surface.wallpaperPreviewPendingPath = path;
   }
 

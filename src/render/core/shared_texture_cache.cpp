@@ -33,6 +33,45 @@ namespace {
     }
     return true;
   }
+
+  // Number of 2x halvings that keep the image at least `coverage` on both axes.
+  [[nodiscard]] int reductionLevel(int width, int height, TextureCoverage coverage) {
+    if (coverage.empty()) {
+      return 0;
+    }
+    int level = 0;
+    while ((width >> (level + 1)) >= coverage.width && (height >> (level + 1)) >= coverage.height) {
+      ++level;
+    }
+    return level;
+  }
+
+  // One mip step: each output pixel averages a 2x2 block, the box filter glGenerateMipmap uses. An odd last row or
+  // column is dropped, matching the floor(size / 2) level dimensions. Runs in place: every write lands at or before
+  // the block being read, and only on bytes no later block reads.
+  void halveInPlace(std::vector<std::uint8_t>& pixels, int& width, int& height, int channels) {
+    const int halfWidth = width / 2;
+    const int halfHeight = height / 2;
+    const auto channelCount = static_cast<std::size_t>(channels);
+    const std::size_t stride = static_cast<std::size_t>(width) * channelCount;
+    std::uint8_t* data = pixels.data();
+    for (int y = 0; y < halfHeight; ++y) {
+      const std::uint8_t* top = data + (static_cast<std::size_t>(y) * 2U * stride);
+      const std::uint8_t* bottom = top + stride;
+      std::uint8_t* out = data + (static_cast<std::size_t>(y) * static_cast<std::size_t>(halfWidth) * channelCount);
+      for (int x = 0; x < halfWidth; ++x) {
+        const std::size_t left = static_cast<std::size_t>(x) * 2U * channelCount;
+        for (std::size_t c = 0; c < channelCount; ++c) {
+          const std::size_t s = left + c;
+          const unsigned sum = top[s] + top[s + channelCount] + bottom[s] + bottom[s + channelCount] + 2U;
+          out[(static_cast<std::size_t>(x) * channelCount) + c] = static_cast<std::uint8_t>(sum >> 2U);
+        }
+      }
+    }
+    width = halfWidth;
+    height = halfHeight;
+    pixels.resize(static_cast<std::size_t>(width) * static_cast<std::size_t>(height) * channelCount);
+  }
 } // namespace
 
 // ── Lease ────────────────────────────────────────────────────────────────────
@@ -70,6 +109,12 @@ bool SharedTextureCache::Lease::failed() const {
   const SharedTextureCache* cache = liveCache();
   const Entry* entry = cache != nullptr ? cache->findLeaseEntry(m_id) : nullptr;
   return entry != nullptr && entry->state == EntryState::Failed;
+}
+
+void SharedTextureCache::Lease::setCoverage(TextureCoverage coverage) {
+  if (SharedTextureCache* cache = liveCache(); cache != nullptr) {
+    cache->setLeaseCoverage(m_id, coverage);
+  }
 }
 
 void SharedTextureCache::Lease::reset() {
@@ -129,6 +174,7 @@ SharedTextureCache::acquire(SharedTextureRequest request, RenderBackend* backend
   if (request.path.empty()) {
     return {};
   }
+  request.coverage = effectiveCoverage(request.coverage);
   EntryKey key{.request = std::move(request), .backend = m_textureManager != nullptr ? nullptr : backend};
   if (m_textureManager == nullptr && key.backend == nullptr) {
     return {};
@@ -202,13 +248,20 @@ void SharedTextureCache::dispatch(const std::vector<pollfd>& fds, std::size_t st
       }
     }
   }
-  if (changed.empty()) {
-    return;
-  }
 
   std::vector<std::uint64_t> notify;
-  for (const auto& [id, record] : m_leases) {
-    if (record.onChange && std::ranges::find(changed, record.key) != changed.end()) {
+  for (auto& [id, record] : m_leases) {
+    const bool pendingChanged =
+        record.pending.has_value() && std::ranges::find(changed, *record.pending) != changed.end();
+    const bool switched = pendingChanged && resolvePending(record);
+    if (record.onChange && (switched || std::ranges::find(changed, record.key) != changed.end())) {
+      notify.push_back(id);
+    }
+  }
+  // Coverage changes whose target was already resident switch here, so onChange stays the only way texture() changes.
+  for (const std::uint64_t id : std::exchange(m_deferredSwitches, {})) {
+    const auto it = m_leases.find(id);
+    if (it != m_leases.end() && it->second.pending.has_value() && resolvePending(it->second) && it->second.onChange) {
       notify.push_back(id);
     }
   }
@@ -251,8 +304,12 @@ void SharedTextureCache::releaseLease(std::uint64_t id) {
     return;
   }
   const EntryKey key = std::move(it->second.key);
+  const std::optional<EntryKey> pending = std::move(it->second.pending);
   m_leases.erase(it);
   releaseEntry(key);
+  if (pending.has_value()) {
+    releaseEntry(*pending);
+  }
 }
 
 const SharedTextureCache::Entry* SharedTextureCache::findLeaseEntry(std::uint64_t id) const {
@@ -262,6 +319,75 @@ const SharedTextureCache::Entry* SharedTextureCache::findLeaseEntry(std::uint64_
   }
   const auto entry = m_entries.find(lease->second.key);
   return entry != m_entries.end() ? &entry->second : nullptr;
+}
+
+void SharedTextureCache::setLeaseCoverage(std::uint64_t id, TextureCoverage coverage) {
+  const auto it = m_leases.find(id);
+  if (it == m_leases.end()) {
+    return;
+  }
+  LeaseRecord& record = it->second;
+  EntryKey target = record.key;
+  target.request.coverage = effectiveCoverage(coverage);
+
+  if (target == record.key) {
+    if (record.pending.has_value()) {
+      const EntryKey pending = *std::exchange(record.pending, std::nullopt);
+      releaseEntry(pending);
+    }
+    return;
+  }
+  if (record.pending == target) {
+    return;
+  }
+
+  retainEntry(target);
+  if (record.pending.has_value()) {
+    const EntryKey pending = *std::exchange(record.pending, std::nullopt);
+    releaseEntry(pending);
+  }
+
+  const EntryState targetState = m_entries.find(target)->second.state;
+  const auto active = m_entries.find(record.key);
+  const bool activeReady = active != m_entries.end() && active->second.state == EntryState::Ready;
+  if (targetState == EntryState::Failed && activeReady) {
+    releaseEntry(target);
+    return;
+  }
+  if (targetState == EntryState::Loading && !activeReady) {
+    // Nothing is shown either way, so retarget the lease now.
+    const EntryKey previous = std::exchange(record.key, std::move(target));
+    releaseEntry(previous);
+    return;
+  }
+  record.pending = std::move(target);
+  if (targetState != EntryState::Loading) {
+    m_deferredSwitches.push_back(id);
+    signalMain();
+  }
+}
+
+bool SharedTextureCache::resolvePending(LeaseRecord& record) {
+  const auto it = m_entries.find(*record.pending);
+  if (it == m_entries.end()) {
+    record.pending.reset();
+    return false;
+  }
+  if (it->second.state == EntryState::Loading) {
+    return false;
+  }
+  const EntryKey pending = *std::exchange(record.pending, std::nullopt);
+  if (it->second.state == EntryState::Failed) {
+    releaseEntry(pending);
+    return false;
+  }
+  const EntryKey previous = std::exchange(record.key, pending);
+  releaseEntry(previous);
+  return true;
+}
+
+TextureCoverage SharedTextureCache::effectiveCoverage(TextureCoverage coverage) {
+  return coverage.empty() || !TextureManager::globalMipmapsEnabled() ? TextureCoverage{} : coverage;
 }
 
 void SharedTextureCache::requestDecode(const SharedTextureRequest& request) {
@@ -319,7 +445,10 @@ void SharedTextureCache::upload(const EntryKey& key, Entry& entry, const Decoded
   handle.opaque = image.opaque;
   entry.handle = handle;
   entry.state = EntryState::Ready;
-  kLog.info("uploaded {} ({}x{})", key.request.path, image.width, image.height);
+  kLog.info(
+      "uploaded {} ({}x{} from {}x{})", key.request.path, image.width, image.height, image.sourceWidth,
+      image.sourceHeight
+  );
 }
 
 void SharedTextureCache::unloadEntry(const EntryKey& key, Entry& entry) {
@@ -355,37 +484,75 @@ bool SharedTextureCache::makeCurrentFor(const EntryKey& key) {
 
 void SharedTextureCache::workerLoop() {
   while (true) {
-    SharedTextureRequest request;
+    // Every queued request for the same file shares one decode; each coverage gets its own reduction.
+    std::vector<SharedTextureRequest> batch;
     {
       std::unique_lock lock(m_queueMutex);
       m_queueCv.wait(lock, [this]() { return m_shutdown.load() || !m_jobQueue.empty(); });
       if (m_shutdown.load()) {
         return;
       }
-      request = std::move(m_jobQueue.front());
+      batch.push_back(std::move(m_jobQueue.front()));
       m_jobQueue.pop_front();
+      for (auto it = m_jobQueue.begin(); it != m_jobQueue.end();) {
+        if (it->path == batch.front().path && it->kind == batch.front().kind) {
+          batch.push_back(std::move(*it));
+          it = m_jobQueue.erase(it);
+        } else {
+          ++it;
+        }
+      }
     }
 
-    DecodedImage image{.request = request};
-    auto loaded = loadImageFile(request.path);
+    const std::string& path = batch.front().path;
+    auto loaded = loadImageFile(path);
     if (!loaded) {
-      kLog.warn("failed to decode {} ({})", ImageSourceLog::describe(request.path), loaded.error());
-      image.failed = true;
-      pushResult(std::move(image));
+      kLog.warn("failed to decode {} ({})", ImageSourceLog::describe(path), loaded.error());
+      for (SharedTextureRequest& request : batch) {
+        pushResult(DecodedImage{.request = std::move(request), .failed = true});
+      }
       continue;
     }
 
-    image.width = loaded->width;
-    image.height = loaded->height;
-    image.sourceWidth = loaded->width;
-    image.sourceHeight = loaded->height;
-    if (request.kind == SharedTextureKind::AlphaMask) {
-      packFirstChannel(loaded->rgba, loaded->width, loaded->height);
-    } else {
-      image.opaque = allOpaque(loaded->rgba);
+    const int sourceWidth = loaded->width;
+    const int sourceHeight = loaded->height;
+    const bool alphaMask = batch.front().kind == SharedTextureKind::AlphaMask;
+    if (alphaMask) {
+      packFirstChannel(loaded->rgba, sourceWidth, sourceHeight);
     }
-    image.pixels = std::move(loaded->rgba);
-    pushResult(std::move(image));
+    // Averaging fully opaque pixels stays fully opaque, so the source answer holds for every reduction.
+    const bool opaque = !alphaMask && allOpaque(loaded->rgba);
+
+    // Smallest reduction first, so each result is copied out before the buffer is halved further.
+    std::ranges::sort(batch, {}, [sourceWidth, sourceHeight](const SharedTextureRequest& request) {
+      return reductionLevel(sourceWidth, sourceHeight, request.coverage);
+    });
+    std::vector<std::uint8_t> pixels = std::move(loaded->rgba);
+    int width = sourceWidth;
+    int height = sourceHeight;
+    int level = 0;
+    const auto reduce = [&](SharedTextureRequest& request) {
+      const int target = reductionLevel(sourceWidth, sourceHeight, request.coverage);
+      for (; level < target; ++level) {
+        halveInPlace(pixels, width, height, alphaMask ? 1 : 4);
+      }
+      return DecodedImage{
+          .request = std::move(request),
+          .width = width,
+          .height = height,
+          .sourceWidth = sourceWidth,
+          .sourceHeight = sourceHeight,
+          .opaque = opaque,
+      };
+    };
+    for (std::size_t i = 0; i + 1 < batch.size(); ++i) {
+      DecodedImage image = reduce(batch[i]);
+      image.pixels = pixels;
+      pushResult(std::move(image));
+    }
+    DecodedImage last = reduce(batch.back());
+    last.pixels = std::move(pixels);
+    pushResult(std::move(last));
   }
 }
 

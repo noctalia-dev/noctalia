@@ -16,6 +16,7 @@
 #include "shell/desktop/desktop_widget_layout.h"
 #include "shell/keyboard_layout_label.h"
 #include "shell/lockscreen/lock_surface.h"
+#include "shell/wallpaper/wallpaper_geometry.h"
 #include "ui/palette.h"
 #include "wayland/wayland_connection.h"
 #include "wayland/wayland_seat.h"
@@ -351,6 +352,7 @@ void LockScreen::onOutputChange() {
     return;
   }
   syncInstances();
+  applyWallpaperStyleToSurfaces();
   if (m_unlocking) {
     for (auto& instance : m_instances) {
       if (instance.surface != nullptr && !instance.surface->exitTransitionComplete()) {
@@ -1015,6 +1017,9 @@ void LockScreen::applyWallpaperStyleToSurfaces() {
     }
     instance.surface->setWallpaperPath(wallpaperPathForOutput(instance.connectorName));
     instance.surface->setWallpaperFillMode(fillMode);
+    instance.surface->setWallpaperCoverage(
+        wallpaperTextureCoverage(m_wayland->outputs(), instance.outputName, fillMode)
+    );
     instance.surface->setWallpaperFillColor(fillColor);
   }
 }
@@ -1028,7 +1033,9 @@ void LockScreen::createInstance(const WaylandOutput& output) {
   surface->setOutputKey(desktop_widgets::outputKey(output));
   if (m_configService != nullptr) {
     surface->setWallpaperPath(wallpaperPathForOutput(output.connectorName));
-    surface->setWallpaperFillMode(m_configService->config().wallpaper.fillMode);
+    const WallpaperFillMode fillMode = m_configService->config().wallpaper.fillMode;
+    surface->setWallpaperFillMode(fillMode);
+    surface->setWallpaperCoverage(wallpaperTextureCoverage(m_wayland->outputs(), output.name, fillMode));
     surface->setWallpaperFillColor(resolveWallpaperFillColor(m_configService->config().wallpaper));
   }
   if (auto captureIt = m_desktopCaptures.find(output.output); captureIt != m_desktopCaptures.end()) {

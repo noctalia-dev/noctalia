@@ -115,6 +115,9 @@ private:
   );
   void onImageChanged(WallpaperInstance& instance);
   static void cancelLoading(WallpaperInstance& instance);
+  [[nodiscard]] TextureCoverage textureCoverage(const WallpaperInstance& instance) const;
+  // Re-targets every leased image of the instance after an output or fill mode change.
+  void refreshTextureCoverage(WallpaperInstance& instance);
   TransitionRedirect redirectActiveTransition(WallpaperInstance& instance, const std::string& path);
   void startTransition(WallpaperInstance& instance);
   void startTransitionAnimation(WallpaperInstance& instance, float fromTime, WallpaperTransitionDirection direction);

@@ -756,6 +756,15 @@ void LockSurface::setWallpaperFillMode(WallpaperFillMode fillMode) {
   requestRedraw();
 }
 
+void LockSurface::setWallpaperCoverage(TextureCoverage coverage) {
+  if (m_wallpaperCoverage == coverage) {
+    return;
+  }
+  m_wallpaperCoverage = coverage;
+  m_wallpaperDirty = true;
+  requestLayout();
+}
+
 void LockSurface::setWallpaperFillColor(Color fillColor) {
   if (m_wallpaperFillColor == fillColor) {
     return;
@@ -1893,15 +1902,19 @@ void LockSurface::applyWallpaperTexture() {
     m_wallpaper->setFillMode(m_wallpaperFillMode);
     m_wallpaper->setFillColor(m_wallpaperFillColor);
   } else if (m_textureCache != nullptr && !m_wallpaperPath.empty()) {
+    m_wallpaperLease.setCoverage(m_wallpaperCoverage);
+    m_pendingWallpaperLease.setCoverage(m_wallpaperCoverage);
     if (m_shownWallpaperPath == m_wallpaperPath) {
       m_pendingWallpaperLease.reset();
       m_pendingWallpaperPath.clear();
     } else if (m_pendingWallpaperPath != m_wallpaperPath && renderContext() != nullptr) {
-      m_pendingWallpaperLease =
-          m_textureCache->acquire(SharedTextureRequest{.path = m_wallpaperPath}, &renderContext()->backend(), [this]() {
+      m_pendingWallpaperLease = m_textureCache->acquire(
+          SharedTextureRequest{.path = m_wallpaperPath, .coverage = m_wallpaperCoverage}, &renderContext()->backend(),
+          [this]() {
             m_wallpaperDirty = true;
             requestLayout();
-          });
+          }
+      );
       m_pendingWallpaperPath = m_pendingWallpaperLease.empty() ? std::string{} : m_wallpaperPath;
     }
 
