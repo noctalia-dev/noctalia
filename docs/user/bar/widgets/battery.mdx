@@ -19,10 +19,11 @@ Shows battery charge level and state via UPower. Hides itself when the selected 
 
 In `graphic` mode, the label is centered inside the battery body in a small font. Percentages show only the number,
 without a `%` suffix. On horizontal bars the body keeps the same size with or without a label; longer labels such as
-`100`, time, or rate shrink their font to fit. On vertical bars the body fits the number and always shows the
-percentage. Rate labels round to whole watts with no space before `W`, for example `44W`; positive rates below one
-watt show `<1W`. Time labels of an hour or more use a clock style such as `2:54`; shorter times show minutes, such as
-`53m`. Tooltips and non-graphic modes keep the full forms, such as `44.3 W` and `2h 54m`.
+`100`, time, or rate shrink their font to fit. On vertical bars the label always shows the percentage, the body is
+sized for two digits so it keeps one width from `1` to `99`, and the label is hidden at 100%. Rate labels round to
+whole watts with no space before `W`, for example `44W`; positive rates below one watt show `<1W`. Time labels of an
+hour or more use a clock style such as `2:54`; shorter times show minutes, such as `53m`. Tooltips and non-graphic
+modes keep the full forms, such as `44.3 W` and `2h 54m`.
 
 The body uses the widget foreground color, or `warning_color` at low charge, like the battery without a label: the
 fill is that color, and the empty track mixes it toward the `surface` color role. The label uses the `surface` color
