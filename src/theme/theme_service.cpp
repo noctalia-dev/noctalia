@@ -30,6 +30,7 @@
 #include <string>
 #include <string_view>
 #include <system_error>
+#include <utility>
 
 namespace noctalia::theme {
 
@@ -47,6 +48,29 @@ namespace noctalia::theme {
       std::string mode;
       std::string shellMode;
     };
+
+    // Pure and thread-safe: runs on the wallpaper palette worker as well as the main thread.
+    std::optional<GeneratedPalette> decodeWallpaperPalette(const std::string& path, Scheme scheme) {
+      profiling::StopWatch loadWatch;
+      auto image = loadAndResize(path, scheme);
+      if (profiling::enabled()) {
+        kLog.info("theme: wallpaper load+resize: {:.1F} ms", loadWatch.elapsedMs());
+      }
+      if (!image) {
+        kLog.warn("failed to load wallpaper '{}': {}", path, image.error());
+        return std::nullopt;
+      }
+      profiling::StopWatch genWatch;
+      auto generated = generate(image->rgb, scheme);
+      if (profiling::enabled()) {
+        kLog.info("theme: wallpaper palette generate: {:.1F} ms", genWatch.elapsedMs());
+      }
+      if (!generated) {
+        kLog.warn("failed to generate palette from wallpaper: {}", generated.error());
+        return std::nullopt;
+      }
+      return std::move(*generated);
+    }
 
     ResolvedTheme resolveBuiltin(const ThemeConfig& cfg, std::string_view mode, std::string_view shellMode) {
       const auto* palette = findBuiltinPalette(cfg.builtinPalette);
@@ -265,6 +289,19 @@ namespace noctalia::theme {
   ThemeService::ThemeService(ConfigService& config, HttpClient& httpClient)
       : m_config(config), m_httpClient(httpClient) {}
 
+  ThemeService::~ThemeService() {
+    m_alive.reset();
+    {
+      std::scoped_lock lock(m_wallpaperWorkerMutex);
+      m_wallpaperWorkerShutdown = true;
+      m_wallpaperQueued.reset();
+    }
+    m_wallpaperWorkerCv.notify_all();
+    if (m_wallpaperWorker.joinable()) {
+      m_wallpaperWorker.join();
+    }
+  }
+
   void ThemeService::apply() { resolveAndSet(/*animate=*/false); }
 
   void ThemeService::onConfigReload() { resolveAndSet(/*animate=*/true); }
@@ -395,8 +432,8 @@ namespace noctalia::theme {
     });
   }
 
-  std::optional<GeneratedPalette>
-  ThemeService::resolveWallpaperGenerated(const ThemeConfig& cfg, const std::string& wallpaperPath) {
+  std::optional<ThemeService::WallpaperPaletteKey>
+  ThemeService::wallpaperPaletteKey(const ThemeConfig& cfg, const std::string& wallpaperPath) const {
     if (wallpaperPath.empty()) {
       kLog.warn("wallpaper theme requested but no wallpaper path set");
       return std::nullopt;
@@ -406,48 +443,117 @@ namespace noctalia::theme {
       kLog.warn("unknown wallpaper scheme '{}', falling back to m3-content", cfg.wallpaperScheme);
       scheme = Scheme::Content;
     }
-
-    // mtime drives cache invalidation: an edited wallpaper at the same path
-    // re-decodes. A failed stat (mtime 0) disables the cache rather than risk a
-    // stale palette.
     std::error_code ec;
     const auto writeTime = std::filesystem::last_write_time(wallpaperPath, ec);
-    const std::int64_t mtimeNs = ec ? 0 : writeTime.time_since_epoch().count();
+    return WallpaperPaletteKey{
+        .path = wallpaperPath,
+        .schemeName = cfg.wallpaperScheme,
+        .scheme = *scheme,
+        .mtimeNs = ec ? 0 : writeTime.time_since_epoch().count(),
+    };
+  }
 
-    if (mtimeNs != 0
-        && m_wallpaperCacheGenerated.has_value()
-        && m_wallpaperCachePath == wallpaperPath
-        && m_wallpaperCacheScheme == cfg.wallpaperScheme
-        && m_wallpaperCacheMtimeNs == mtimeNs) {
+  bool ThemeService::wallpaperCacheMatches(const WallpaperPaletteKey& key) const {
+    return key.mtimeNs != 0 && m_wallpaperCacheGenerated.has_value() && m_wallpaperCacheKey == key;
+  }
+
+  void ThemeService::storeWallpaperCache(const WallpaperPaletteKey& key, const GeneratedPalette& generated) {
+    if (key.mtimeNs == 0) {
+      return;
+    }
+    m_wallpaperCacheGenerated = generated;
+    m_wallpaperCacheKey = key;
+  }
+
+  std::optional<GeneratedPalette>
+  ThemeService::resolveWallpaperGenerated(const ThemeConfig& cfg, const std::string& wallpaperPath) {
+    const auto key = wallpaperPaletteKey(cfg, wallpaperPath);
+    if (!key) {
+      return std::nullopt;
+    }
+    if (wallpaperCacheMatches(*key)) {
       return m_wallpaperCacheGenerated;
     }
+    auto generated = decodeWallpaperPalette(key->path, key->scheme);
+    if (generated) {
+      storeWallpaperCache(*key, *generated);
+    }
+    return generated;
+  }
 
-    profiling::StopWatch loadWatch;
-    auto image = loadAndResize(wallpaperPath, *scheme);
-    if (profiling::enabled()) {
-      kLog.info("theme: wallpaper load+resize: {:.1F} ms", loadWatch.elapsedMs());
+  ThemeService::WallpaperLookup
+  ThemeService::lookupWallpaperGenerated(const ThemeConfig& cfg, const std::string& wallpaperPath) {
+    const auto key = wallpaperPaletteKey(cfg, wallpaperPath);
+    if (!key) {
+      return {};
     }
-    if (!image) {
-      kLog.warn("failed to load wallpaper '{}': {}", wallpaperPath, image.error());
-      return std::nullopt;
+    if (wallpaperCacheMatches(*key)) {
+      return {.generated = m_wallpaperCacheGenerated};
     }
-    profiling::StopWatch genWatch;
-    auto generated = generate(image->rgb, *scheme);
-    if (profiling::enabled()) {
-      kLog.info("theme: wallpaper palette generate: {:.1F} ms", genWatch.elapsedMs());
+    // An unstat-able file cannot be cached, so a background result could never be served;
+    // reading it fails fast anyway.
+    if (key->mtimeNs == 0) {
+      return {.generated = decodeWallpaperPalette(key->path, key->scheme)};
     }
-    if (!generated) {
-      kLog.warn("failed to generate palette from wallpaper: {}", generated.error());
-      return std::nullopt;
+    if (m_wallpaperFailed == key) {
+      return {};
     }
+    requestWallpaperPalette(*key);
+    return {.pending = true};
+  }
 
-    if (mtimeNs != 0) {
-      m_wallpaperCacheGenerated = *generated;
-      m_wallpaperCachePath = wallpaperPath;
-      m_wallpaperCacheScheme = cfg.wallpaperScheme;
-      m_wallpaperCacheMtimeNs = mtimeNs;
+  void ThemeService::requestWallpaperPalette(const WallpaperPaletteKey& key) {
+    if (m_wallpaperRequested == key) {
+      return;
     }
-    return *generated;
+    m_wallpaperRequested = key;
+    {
+      std::scoped_lock lock(m_wallpaperWorkerMutex);
+      m_wallpaperQueued = key;
+    }
+    if (!m_wallpaperWorker.joinable()) {
+      m_wallpaperWorker = std::thread([this]() { wallpaperWorkerLoop(); });
+    }
+    m_wallpaperWorkerCv.notify_one();
+  }
+
+  void ThemeService::wallpaperWorkerLoop() {
+    const std::weak_ptr<bool> alive = m_alive;
+    while (true) {
+      WallpaperPaletteKey key;
+      {
+        std::unique_lock lock(m_wallpaperWorkerMutex);
+        m_wallpaperWorkerCv.wait(lock, [this]() { return m_wallpaperWorkerShutdown || m_wallpaperQueued.has_value(); });
+        if (m_wallpaperWorkerShutdown) {
+          return;
+        }
+        key = std::move(*m_wallpaperQueued);
+        m_wallpaperQueued.reset();
+      }
+      auto generated = decodeWallpaperPalette(key.path, key.scheme);
+      DeferredCall::callLater([this, alive, key = std::move(key), generated = std::move(generated)]() mutable {
+        if (alive.expired()) {
+          return;
+        }
+        onWallpaperPaletteDecoded(key, std::move(generated));
+      });
+    }
+  }
+
+  void
+  ThemeService::onWallpaperPaletteDecoded(const WallpaperPaletteKey& key, std::optional<GeneratedPalette> generated) {
+    if (m_wallpaperRequested != key) {
+      return; // superseded by a newer wallpaper or scheme
+    }
+    m_wallpaperRequested.reset();
+    if (generated) {
+      storeWallpaperCache(key, *generated);
+    } else {
+      m_wallpaperFailed = key;
+    }
+    if (m_config.config().theme.source == PaletteSource::Wallpaper) {
+      resolveAndSet(/*animate=*/true);
+    }
   }
 
   void ThemeService::resolveAndSet(bool animate) {
@@ -480,10 +586,20 @@ namespace noctalia::theme {
         kLog.warn("custom palette '{}' not found or invalid; falling back to builtin", cfg.customPalette);
       }
     } else if (cfg.source == PaletteSource::Wallpaper) {
-      if (auto generated = resolveWallpaperGenerated(cfg, m_config.getPaletteWallpaperPath())) {
+      // Startup snaps synchronously so the first frame never shows a different palette.
+      // Afterwards a multi-second decode of a huge image must not block the event loop.
+      const std::string wallpaperPath = m_config.getPaletteWallpaperPath();
+      WallpaperLookup lookup = animate ? lookupWallpaperGenerated(cfg, wallpaperPath)
+                                       : WallpaperLookup{.generated = resolveWallpaperGenerated(cfg, wallpaperPath)};
+      if (lookup.pending) {
+        rescheduleAutoTimer();
+        return;
+      }
+      if (lookup.generated) {
+        const GeneratedPalette& generated = *lookup.generated;
         resolved = ResolvedTheme{
-            .generated = *generated,
-            .palette = mapGeneratedPaletteMode(shellMode == "light" ? generated->light : generated->dark),
+            .generated = generated,
+            .palette = mapGeneratedPaletteMode(shellMode == "light" ? generated.light : generated.dark),
             .mode = mode,
             .shellMode = shellMode,
         };
