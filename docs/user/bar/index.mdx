@@ -17,6 +17,7 @@ order = ["main"]              # layer-shell creation order
 position           = "top"       # top | bottom | left | right
 enabled            = true
 auto_hide          = false       # slide out after pointer leaves; reveal from edge trigger strip
+auto_hide_delay_ms = 0           # wait after pointer leaves before hiding, 0 to 600000 ms
 smart_auto_hide    = false       # show when the active workspace is empty; hide when it has windows
 show_on_workspace_switch = true  # with auto_hide: briefly reveal when the active workspace changes
 reserve_space      = true        # reserve compositor exclusive zone / push windows away
@@ -167,6 +168,7 @@ Shadow blur, offset, and alpha are global under `[shell.shadow]`. Bars only expo
 
 When `auto_hide = true`, the bar:
 - Slides out once the pointer leaves the bar.
+- With `auto_hide_delay_ms > 0`, waits that many milliseconds after the pointer leaves before sliding out. Moving the pointer back onto the bar cancels the wait. The default `0` hides immediately. The setting applies to pointer auto-hide, not Smart mode or explicit `bar-hide` commands. It can also be set per monitor.
 - Slides back in when the pointer reaches the matching screen edge. With `margin_edge > 0`, the float gap is included in the layer surface so reveal works from the physical screen edge. With `margin_edge = 0`, the bar stays flush to the edge; pointer hit-testing still uses the full layer surface so reveal does not immediately cancel.
 - While auto-hide is active, pointer hit-testing uses the full bar layer surface so entering from the edge strip does not immediately leave again.
 - With `show_on_workspace_switch = true` (default), briefly reveals when the active workspace changes on that monitor, then hides again if the pointer is not over the bar.

@@ -1869,6 +1869,10 @@
         "auto-hide": {
           "description": "Off keeps the bar visible; On hides it until you move the pointer to the screen edge; Smart shows the bar on an empty workspace and hides it when windows are open"
         },
+        "auto-hide-delay": {
+          "description": "Wait this many milliseconds after the pointer leaves before hiding the bar; 0 hides immediately (On mode only)",
+          "label": "Auto-Hide Delay"
+        },
         "background-opacity": {
           "description": "Background opacity of the bar"
         },

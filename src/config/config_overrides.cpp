@@ -173,6 +173,9 @@ namespace {
     if (ovr.autoHide) {
       resolved.autoHide = *ovr.autoHide;
     }
+    if (ovr.autoHideDelayMs) {
+      resolved.autoHideDelayMs = *ovr.autoHideDelayMs;
+    }
     if (ovr.smartAutoHide) {
       resolved.smartAutoHide = *ovr.smartAutoHide;
     }
