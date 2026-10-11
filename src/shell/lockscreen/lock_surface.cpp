@@ -798,7 +798,8 @@ bool LockSurface::usesDesktopCaptureBackground() const noexcept {
 }
 
 void LockSurface::configureTransition(
-    std::optional<LockscreenTransitionKind> transition, const LockscreenTransitionParams& params, float durationMs
+    std::optional<LockscreenTransitionKind> transition, const LockscreenTransitionParams& params, float durationMs,
+    bool skipEnterTransition
 ) {
   cancelTransitionAnimation();
   m_transitionParams = params;
@@ -813,6 +814,14 @@ void LockSurface::configureTransition(
   }
 
   m_transition = *transition;
+  if (skipEnterTransition) {
+    m_transitionProgress = 1.0F;
+    m_transitionPhase = TransitionPhase::Stable;
+    syncTransitionCover();
+    requestLayout();
+    return;
+  }
+
   m_transitionProgress = 0.0F;
   m_transitionPhase = TransitionPhase::Cover;
   syncTransitionCover();
@@ -820,9 +829,33 @@ void LockSurface::configureTransition(
 }
 
 void LockSurface::startEnterTransition() {
+  if (m_transitionPhase == TransitionPhase::Stable || m_transitionPhase == TransitionPhase::Disabled) {
+    return;
+  }
   m_enterTransitionRequested = true;
   if (m_transitionPhase == TransitionPhase::Ready) {
     beginEnterAnimation();
+  }
+}
+
+void LockSurface::skipEnterTransition() {
+  m_enterTransitionRequested = false;
+  cancelTransitionAnimation();
+  const bool wasSafe = isSafeState() && isSafeFrameRendered();
+  if (m_transitionPhase != TransitionPhase::Disabled
+      && m_transitionPhase != TransitionPhase::ExitComplete
+      && m_transitionPhase != TransitionPhase::Exiting
+      && m_transitionPhase != TransitionPhase::ExitEndpoint) {
+    m_transitionPhase = TransitionPhase::Stable;
+    m_transitionProgress = 1.0F;
+    syncTransitionCover();
+    requestLayout();
+    requestUpdate();
+    requestRedraw();
+    notifyTransitionStateChanged();
+  }
+  if (!wasSafe) {
+    requireSafeFrame();
   }
 }
 
@@ -874,12 +907,50 @@ void LockSurface::startExitTransition() {
   requestRedraw();
 }
 
+void LockSurface::cancelExitTransition() {
+  m_enterTransitionRequested = false;
+  cancelTransitionAnimation();
+  if (m_transitionPhase != TransitionPhase::Disabled) {
+    m_transitionPhase = TransitionPhase::Stable;
+    m_transitionProgress = 1.0F;
+    syncTransitionCover();
+  }
+  focusPasswordField();
+  requestLayout();
+  requestUpdate();
+  requestRedraw();
+  notifyTransitionStateChanged();
+  requireSafeFrame();
+}
+
 bool LockSurface::transitionInputReady() const noexcept {
   return m_transitionPhase == TransitionPhase::Disabled || m_transitionPhase == TransitionPhase::Stable;
 }
 
 bool LockSurface::exitTransitionComplete() const noexcept {
   return m_transitionPhase == TransitionPhase::Disabled || m_transitionPhase == TransitionPhase::ExitComplete;
+}
+
+bool LockSurface::isSafeState() const noexcept {
+  return m_blackout
+      || ((m_transitionPhase == TransitionPhase::Stable || m_transitionPhase == TransitionPhase::Disabled)
+          && (m_transitionCover == nullptr || !m_transitionCover->visible()));
+}
+
+bool LockSurface::isSafeFrameRendered() const noexcept {
+  return isSafeState() && m_lastPresentedSafeGeneration >= m_requiredSafeGeneration;
+}
+
+void LockSurface::requireSafeFrame() {
+  // A pending callback may belong to a render from before normalization. Drop
+  // it so only a callback requested by the replacement safe render can advance
+  // the presented generation.
+  discardPendingFrameCallback();
+  m_inFlightRenderGeneration = 0;
+  m_inFlightFrameIsSafe = false;
+  m_requiredSafeGeneration = std::max(m_requiredSafeGeneration, m_currentRenderGeneration + 1);
+  requestUpdate();
+  requestRedraw();
 }
 
 void LockSurface::setBackgroundStyle(float blurIntensity, float tintIntensity) {
@@ -908,6 +979,7 @@ void LockSurface::setBlackout(bool blackout) {
     syncTransitionCover();
     notifyTransitionStateChanged();
   }
+  requireSafeFrame();
   requestLayout();
 }
 
@@ -1014,7 +1086,7 @@ void LockSurface::handleConfigure(
   auto* self = static_cast<LockSurface*>(data);
   self->m_receivedConfigure = true;
   if (self->width() != width || self->height() != height) {
-    self->m_firstFrameRendered = false;
+    self->requireSafeFrame();
   }
   ext_session_lock_surface_v1_ack_configure(lockSurface, serial);
   self->Surface::onConfigure(width, height);
@@ -2099,6 +2171,8 @@ void LockSurface::prepareForGraphicsReset() noexcept {
 
 void LockSurface::forceRepaintAfterResume() {
   discardPendingFrameCallback();
+  m_inFlightRenderGeneration = 0;
+  m_inFlightFrameIsSafe = false;
   const bool exiting =
       m_transitionPhase == TransitionPhase::Exiting || m_transitionPhase == TransitionPhase::ExitEndpoint;
   cancelTransitionAnimation();
@@ -2111,16 +2185,24 @@ void LockSurface::forceRepaintAfterResume() {
     m_transitionProgress = 1.0F;
   }
   syncTransitionCover();
-  requestUpdate();
-  requestRedraw();
+  requireSafeFrame();
+}
+
+void LockSurface::render() {
+  const bool safe = isSafeState();
+  const std::uint64_t gen = ++m_currentRenderGeneration;
+  m_inFlightRenderGeneration = gen;
+  m_inFlightFrameIsSafe = safe;
+  Surface::render();
 }
 
 void LockSurface::onFrameCallbackDone() {
-  if (!m_firstFrameRendered) {
-    m_firstFrameRendered = true;
-    if (m_renderCallback) {
-      m_renderCallback();
-    }
+  if (m_inFlightRenderGeneration > 0 && m_inFlightFrameIsSafe) {
+    m_lastPresentedSafeGeneration = m_inFlightRenderGeneration;
+  }
+
+  if (m_renderCallback) {
+    m_renderCallback();
   }
 
   if (m_transitionPhase == TransitionPhase::Cover) {

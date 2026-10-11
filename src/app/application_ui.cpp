@@ -334,7 +334,6 @@ void Application::initLockScreenAndSession() {
   m_configService.addReloadCallback([this]() {
     if (m_logindService != nullptr) {
       m_logindService->setSessionLockIntegrationEnabled(m_configService.isLockScreenEnabled());
-      m_logindService->setLockBeforeSuspendEnabled(m_configService.shouldLockBeforeSuspend());
     }
     m_lockScreen.onConfigChanged();
     m_lockscreenWidgetsController.onLockStateChanged();
@@ -352,7 +351,6 @@ void Application::initLockScreenAndSession() {
         if (m_screenSaverService != nullptr) {
           m_screenSaverService->emitActiveChanged(true);
         }
-        releaseSleepDelayInhibitIfPending();
       },
       [this]() {
         m_idleGraceOverlay.hide();
@@ -376,9 +374,9 @@ void Application::initLockScreenAndSession() {
         requestAllSurfacesRedraw();
       }
   );
+  m_lockScreen.setSuspendReadyCallback([this]() { releaseSleepDelayInhibitIfPending(); });
   if (m_logindService != nullptr) {
     m_logindService->setSessionLockIntegrationEnabled(m_configService.isLockScreenEnabled());
-    m_logindService->setLockBeforeSuspendEnabled(m_configService.shouldLockBeforeSuspend());
     m_logindService->setLockCallback([this]() {
       if (!m_configService.isLockScreenEnabled()) {
         return;

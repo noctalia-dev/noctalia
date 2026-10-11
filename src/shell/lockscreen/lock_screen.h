@@ -51,7 +51,10 @@ public:
   void setLoginBoxServices(
       SessionActionRunner* sessionActions, MprisService* mpris, const WeatherService* weather, HttpClient* httpClient
   );
-  bool lock();
+  bool lock(bool skipEnterTransition = false);
+  void skipEnterTransition();
+  bool cancelUnlock();
+  [[nodiscard]] bool isUnlocking() const noexcept { return m_unlocking; }
   void primeDesktopCaptures();
   void clearPrimedDesktopCaptures();
   void unlock();
@@ -85,9 +88,11 @@ public:
     }
   }
 
-  /// Runs `fn` after the session reaches interactive lock (`m_locked`), or immediately if already locked.
-  /// Used so suspend runs after lock surfaces exist. Cleared if lock fails or the lock request is aborted.
+  /// Runs `fn` after the session reaches interactive lock and every lock surface presents a safe frame.
+  /// Used so suspend runs only after lock surfaces no longer show captured desktop pixels.
   void runAfterSessionLocked(std::function<void()> fn);
+  void setSuspendReadyCallback(std::function<void()> onSuspendReady);
+  [[nodiscard]] bool allSurfacesReady() const;
 
   /// Revokes the grace window: in-flight grace unlock stops working, and arming is
   /// cleared for a lock already pending or engaged (sleep transitions call this).
@@ -108,9 +113,9 @@ private:
   [[nodiscard]] bool captureDesktopSnapshots();
   void invalidateDesktopCaptures();
   [[nodiscard]] bool shouldCaptureDesktop() const;
-  [[nodiscard]] bool allSurfacesReady() const;
   bool tryFlushPendingAfterLocked();
   void dispatchPendingAfterLocked();
+  void notifySuspendReady();
   void applyLockscreenStyle(LockSurface& surface) const;
   void applyOutputRestriction();
   void applyWallpaperStyleToSurfaces();
@@ -170,15 +175,16 @@ private:
   std::optional<LockscreenTransition> m_activeTransition;
   LockscreenTransitionParams m_transitionParams;
   float m_transitionDurationMs = 1500.0F;
+  bool m_skipEnterTransition = false;
   std::function<void()> m_pendingAfterLocked;
   std::function<void()> m_onSessionLocked;
   std::function<void()> m_onSessionUnlocked;
   std::function<void()> m_onLockAborted;
+  std::function<void()> m_onSuspendReady;
   SessionActionRunner* m_sessionActions = nullptr;
   MprisService* m_mpris = nullptr;
   const WeatherService* m_weather = nullptr;
   HttpClient* m_httpClient = nullptr;
-  Timer m_suspendTimeoutTimer;
   // CLOCK_BOOTTIME millis when the lock flow started; grace expires gracePeriodSeconds after it.
   std::int64_t m_lockedAtMillis = 0;
   bool m_graceAllowed = false;

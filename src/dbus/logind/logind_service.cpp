@@ -115,15 +115,10 @@ void LogindService::setSessionLockIntegrationEnabled(bool enabled) {
     kLog.info("logind session lock monitor disabled");
     return;
   }
-  ensureSessionLockMonitor();
-}
-
-void LogindService::setLockBeforeSuspendEnabled(bool enabled) {
-  if (!m_sessionLockIntegrationEnabled || !enabled) {
-    releaseSleepDelayInhibit();
-    return;
-  }
+  // Keep a delay inhibitor available for manual lock/unlock transitions too,
+  // even when lock-before-suspend is disabled.
   (void)acquireSleepDelayInhibit();
+  ensureSessionLockMonitor();
 }
 
 void LogindService::setPrepareForSleepCallback(PrepareForSleepCallback callback) {

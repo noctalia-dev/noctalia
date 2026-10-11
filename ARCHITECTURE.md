@@ -157,6 +157,18 @@ use `needsFrameTick()` and `onFrameTick()` only for continuous animation.
   `compositor_detect.h`; do not sniff environment variables again.
 - Session actions use compositor-native logout commands. Niri goes through `NiriRuntime` IPC, not the CLI.
 
+## Session Lock and Suspend
+
+- On logind `PrepareForSleep`, resolve any active transition before policy early returns: cancel an unlock so the
+  session remains locked, or skip the lock enter animation. This also applies to plain Noctalia suspend and when
+  `lock_before_suspend` is disabled.
+- Protocol lock state alone does not prove that captured desktop pixels have been replaced. After normalizing a
+  transition, retain the sleep-delay inhibitor until each active lock surface receives a Wayland frame callback for a
+  safe render generation. Discard pending callbacks during normalization so an earlier in-flight render cannot satisfy
+  this requirement.
+- On resume, discard any lock-surface frame callback left pending across suspend, normalize its transition, and request
+  a replacement frame while the session remains locked.
+
 ## Configuration and State
 
 - Schema structs and enums live in `src/config/config_types.*`. `ConfigService` owns lifecycle and hot reload. Override
