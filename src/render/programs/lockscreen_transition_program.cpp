@@ -136,6 +136,39 @@ float honeycomb_coverage(vec2 uv, float progress, float smoothness) {
     return smoothstep(radius - smoothness, radius + smoothness, distance(cell_center, center));
 }
 
+// Old-TV power-off: the image squashes into a glowing horizontal line over the lock
+// screen, the line pinches into a dot, and the dot fades out. Run in reverse (unlock)
+// it plays as the CRT power-on. Returns premultiplied color.
+vec4 crt_color(vec2 uv, float progress, float edge) {
+    float squash = smoothstep(0.0, 0.55, progress);
+    float pinch = smoothstep(0.5, 0.85, progress);
+    float whiten = smoothstep(0.2, 0.55, progress);
+    float dot_fade = 1.0 - smoothstep(0.85, 1.0, progress);
+    float thickness = 0.004;
+
+    float scale_y = mix(1.0, thickness, squash);
+    float scale_x = max(mix(1.0, 0.0, pinch), thickness / max(u_aspect_ratio, 0.0001));
+
+    // Box in aspect-corrected space: square corners while squashing, rounding in only
+    // during the pinch so the final dot is circular.
+    vec2 p = vec2((uv.x - 0.5) * u_aspect_ratio, uv.y - 0.5);
+    vec2 half_size = vec2(scale_x * u_aspect_ratio, scale_y) * 0.5;
+    float corner = min(half_size.x, half_size.y) * pinch;
+    vec2 q = abs(p) - half_size + corner;
+    float dist = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - corner;
+    float mask = 1.0 - smoothstep(-edge, edge, dist);
+
+    vec2 sample_uv = clamp((uv - 0.5) / vec2(scale_x, scale_y) + 0.5, 0.0, 1.0);
+    vec4 texel = texture2D(u_texture, sample_uv);
+    vec3 color = mix(texel.rgb, vec3(1.0), whiten);
+    float content = mask * dot_fade * texel.a;
+    float glow = exp(-max(dist, 0.0) * 90.0) * whiten * dot_fade * 0.6;
+
+    float alpha = clamp(content + glow, 0.0, 1.0);
+    vec3 rgb = min(color * content + vec3(glow), vec3(alpha));
+    return vec4(rgb, alpha);
+}
+
 void main() {
     float progress = clamp(u_progress, 0.0, 1.0);
     vec2 uv = v_texcoord;
@@ -158,8 +191,12 @@ void main() {
         float scale = 1.0 + 0.15 * progress;
         uv = (uv - 0.5) / scale + 0.5;
         coverage = 1.0 - progress;
-    } else {
+    } else if (u_transition < 5.5) {
         coverage = honeycomb_coverage(uv, progress, smoothness);
+    } else if (u_transition < 6.5) {
+        float edge = mix(0.0015, 0.02, u_smoothness * u_smoothness);
+        gl_FragColor = crt_color(uv, progress, edge) * clamp(u_opacity, 0.0, 1.0);
+        return;
     }
 
     vec4 texel = texture2D(u_texture, uv);

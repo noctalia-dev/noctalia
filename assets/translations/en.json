@@ -1511,6 +1511,7 @@
       },
       "lockscreen": {
         "transition": {
+          "crt": "CRT",
           "disc": "Disc",
           "fade": "Fade",
           "honeycomb": "Honeycomb",
