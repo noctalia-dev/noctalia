@@ -26,7 +26,24 @@ write_if_changed() {
     rm -f "$tmp"
 }
 
+# foot loads only the first foot.ini it finds, so a new user file would hide one in XDG_CONFIG_DIRS.
+find_system_config() {
+    local dir dirs
+    IFS=: read -ra dirs <<<"${XDG_CONFIG_DIRS:-/etc/xdg}"
+    for dir in "${dirs[@]}"; do
+        if [ -n "$dir" ] && [ -f "$dir/foot/foot.ini" ]; then
+            printf '%s\n' "$dir/foot/foot.ini"
+            return 0
+        fi
+    done
+    return 1
+}
+
 if [ ! -f "$config_file" ]; then
+    if system_config="$(find_system_config)"; then
+        echo "Warning: not creating $config_file because it would hide $system_config; add '$include_line' under [main] in your foot config to apply the Noctalia theme" >&2
+        exit 0
+    fi
     cat >"$config_file" <<EOF
 [main]
 $include_line

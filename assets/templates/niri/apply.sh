@@ -30,6 +30,11 @@ apply_include() {
     mkdir -p "$config_dir"
 
     if [ ! -f "$config_file" ]; then
+        # niri falls back to /etc/niri/config.kdl only while the user config is missing.
+        if [ -f /etc/niri/config.kdl ]; then
+            echo "Warning: not creating $config_file because it would hide /etc/niri/config.kdl; add 'include \"$output_file\"' to your niri config to apply the Noctalia theme" >&2
+            return
+        fi
         printf '%s\n' "$include_line" >"$config_file"
         return
     fi

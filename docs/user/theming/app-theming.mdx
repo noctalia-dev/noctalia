@@ -32,6 +32,12 @@ cleanup for every selected built-in template.
 Application configs must be writable for Noctalia to remove those integrations. For declaratively managed configs such
 as Home Manager symlinks into the Nix store, remove the Noctalia include or theme selection from the declarative source.
 
+When an application has no user config, a built-in template creates one that includes the Noctalia theme. Alacritty,
+foot, kitty, mango, niri, scroll, and sway stop reading their other config locations once a user config exists, so the
+template skips this step and logs a warning when another config is present, for example `/etc/xdg/foot/foot.ini`
+written by the NixOS `programs.foot.settings` option. Add the include named in the warning to that config to apply the
+Noctalia theme.
+
 List available built-in and configured template IDs:
 
 ```sh

@@ -25,7 +25,29 @@ write_if_changed() {
     rm -f "$tmp"
 }
 
+# alacritty loads only the first config it finds, so a new user file would hide any of these.
+find_other_config() {
+    local dir dirs candidate
+    local candidates=("$config_dir/alacritty.toml")
+    IFS=: read -ra dirs <<<"${XDG_CONFIG_DIRS:-/etc/xdg}"
+    for dir in "${dirs[@]}"; do
+        [ -n "$dir" ] && candidates+=("$dir/alacritty/alacritty.toml" "$dir/alacritty.toml")
+    done
+    candidates+=("$HOME/.alacritty.toml" "/etc/alacritty/alacritty.toml")
+    for candidate in "${candidates[@]}"; do
+        if [ -f "$candidate" ]; then
+            printf '%s\n' "$candidate"
+            return 0
+        fi
+    done
+    return 1
+}
+
 if [ ! -f "$config_file" ]; then
+    if other_config="$(find_other_config)"; then
+        echo "Warning: not creating $config_file because it would hide $other_config; add \"$theme_path\" to [general] import in your alacritty config to apply the Noctalia theme" >&2
+        exit 0
+    fi
     cat >"$config_file" <<EOF
 [general]
 import = [
