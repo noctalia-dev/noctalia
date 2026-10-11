@@ -1209,7 +1209,12 @@ void LockSurface::layoutScene(std::uint32_t width, std::uint32_t height) {
   m_loginContentRow->setVisible(loginVisible);
   m_passwordField->setVisible(loginVisible);
   if (m_passwordRevealButton != nullptr) {
-    m_passwordRevealButton->setVisible(loginVisible);
+    const bool showReveal = loginVisible && loginStyle.showPasswordReveal;
+    m_passwordRevealButton->setVisible(showReveal);
+    if (!showReveal) {
+      m_passwordField->setPasswordRevealed(false);
+      m_passwordRevealButton->setGlyph("eye");
+    }
   }
   m_loginButton->setVisible(loginVisible && loginStyle.showLoginButton);
 
