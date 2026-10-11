@@ -312,10 +312,9 @@ namespace noctalia::theme {
         ? Color::fromHsl(surfaceVariantH, surfaceVariantS, std::min(surfaceVariantL + 0.12, 0.50))
         : Color::fromHsl(surfaceH, surfaceS, std::min(surfaceL + 0.03, 0.98));
 
+    // The outline role reads outline_variant, so it must be mOutline as given.
     const Color outline = ensureContrast(outlineRaw, surface, 3.0);
-    const auto [outlineH, outlineS, outlineL] = outline.toHsl();
-    const Color outlineVariant = isDark ? Color::fromHsl(outlineH, outlineS, std::max(outlineL - 0.15, 0.1))
-                                        : Color::fromHsl(outlineH, outlineS, std::min(outlineL + 0.15, 0.9));
+    const Color outlineVariant = outlineRaw;
     const Color scrim(0, 0, 0);
     const Color inverseSurface = isDark ? Color::fromHsl(surfaceH, 0.08, 0.90) : Color::fromHsl(surfaceH, 0.08, 0.15);
     const Color inverseOnSurface = isDark ? Color::fromHsl(surfaceH, 0.05, 0.15) : Color::fromHsl(surfaceH, 0.05, 0.90);
