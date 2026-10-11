@@ -629,6 +629,9 @@ namespace noctalia::cli {
         {},          kMsgPowerSetPositionals,
         {},          false
     };
+    inline constexpr Command screenshotActiveWindow{
+        "screenshot-active-window", "Capture the active window", {}, {}, {}, {}, {}, false
+    };
     inline constexpr Command screenshotAnnotate{
         "screenshot-annotate", "Freeze the screen and annotate it, then copy or save", {}, {}, {}, {}, {}, false
     };
@@ -908,6 +911,7 @@ namespace noctalia::cli {
       msg::plugins,
       msg::powerCycle,
       msg::powerSet,
+      msg::screenshotActiveWindow,
       msg::screenshotAnnotate,
       msg::screenshotFullscreen,
       msg::screenshotRegion,

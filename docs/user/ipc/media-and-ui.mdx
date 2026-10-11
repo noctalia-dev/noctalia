@@ -119,6 +119,7 @@ Requires compositor support for `wlr-screencopy-unstable-v1`. Uses the global `[
 | Fullscreen (pick monitor) | <IpcCommand command="screenshot-fullscreen pick" /> | Open the display picker on multi-monitor setups. On a single monitor, captures immediately. |
 | Fullscreen (specific output) | <IpcCommand command="screenshot-fullscreen DP-2" /> | Capture one output without the picker. Pass the Wayland connector name (e.g. `DP-1`, `HDMI-A-1`) or a word-boundary match in the output description. |
 | Fullscreen (all monitors) | <IpcCommand command="screenshot-fullscreen all" /> | One combined desktop PNG spanning every monitor. |
+| Active window | <IpcCommand command="screenshot-active-window" /> | Capture the focused window's own contents, so windows overlapping it never show through. Needs `ext-image-copy-capture-v1` and `ext-foreign-toplevel-list-v1`. Honors `annotate = true` like the other modes. |
 | Annotate a frozen screen | <IpcCommand command="screenshot-annotate" /> | Freeze every monitor and open the annotation editor over the frozen image. **Copy** and **Save** deliver the annotated PNG; **`[keybinds].cancel`** closes without delivering. |
 | Annotate the live screen | <IpcCommand command="annotate" /> | Transparent drawing overlay for presentations. Apps keep updating behind the ink; **`F`** freezes the screen under it and reveals Blur, Crop, Copy, and Save. |
 | Annotate an image file | <IpcCommand command="annotate ~/Pictures/shot.png" /> | Open an image from disk in the editor instead of the screen. No screencopy support needed. |

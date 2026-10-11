@@ -3,6 +3,7 @@
 #include "capture/annotation_overlay.h"
 #include "capture/screenshot_capture.h"
 #include "capture/screenshot_region_overlay.h"
+#include "capture/toplevel_thumbnail_capture.h"
 
 #include <cstdint>
 #include <expected>
@@ -24,6 +25,7 @@ class WaylandConnection;
 class SoundPlayer;
 struct KeyboardEvent;
 struct PointerEvent;
+struct ext_foreign_toplevel_handle_v1;
 struct wl_output;
 
 class ScreenshotService {
@@ -54,6 +56,9 @@ public:
   void captureFullscreenInteractive(RenderContext& renderContext, const OutputOptions& options);
   void beginRegionCapture(RenderContext& renderContext, const OutputOptions& options);
   void beginFullscreenCapture(RenderContext& renderContext, const OutputOptions& options);
+  // Captures the focused window's own buffer, so overlapping windows never show through.
+  void captureActiveWindow(const OutputOptions& options);
+  [[nodiscard]] bool windowCaptureAvailable() const noexcept;
   // freezeFirst selects the frozen annotator (screenshot-annotate); otherwise the overlay
   // starts transparent over the running desktop (annotate).
   void beginAnnotation(RenderContext& renderContext, const OutputOptions& options, bool freezeFirst);
@@ -163,6 +168,7 @@ private:
       const std::string& error
   );
   void finishAllOutputsBatch();
+  [[nodiscard]] std::expected<ext_foreign_toplevel_handle_v1*, std::string> resolveActiveExtToplevel() const;
   void cancelAllOutputsBatch();
   void deliverCaptureResult(
       capture::ScreenshotImage image, const OutputOptions& options, std::optional<std::filesystem::path> destPath
@@ -189,6 +195,7 @@ private:
   ConfigService& m_configService;
   ClipboardService* m_clipboard = nullptr;
   ScreenshotCapture m_capture;
+  ToplevelThumbnailCapture m_windowCapture;
   std::unique_ptr<capture::ScreenshotRegionOverlay> m_regionOverlay;
   std::vector<PendingCapture> m_captureQueue;
   std::unique_ptr<AllOutputsBatch> m_allOutputsBatch;

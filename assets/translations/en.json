@@ -3968,6 +3968,10 @@
             "description": "Set the UPower power profile (e.g. performance, balanced, power-saver)",
             "label": "Set power profile"
           },
+          "screenshot-active-window": {
+            "description": "Capture the active window",
+            "label": "Active window screenshot"
+          },
           "screenshot-annotate": {
             "description": "Freeze the screen and annotate it, then copy or save",
             "label": "Annotate screenshot"

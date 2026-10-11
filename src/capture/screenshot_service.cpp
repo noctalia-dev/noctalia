@@ -1,7 +1,9 @@
 #include "capture/screenshot_service.h"
 
 #include "capture/screenshot_region_overlay.h"
+#include "compositors/compositor_detect.h"
 #include "compositors/compositor_platform.h"
+#include "compositors/hyprland/hyprland_window_id.h"
 #include "config/config_service.h"
 #include "config/config_types.h"
 #include "core/deferred_call.h"
@@ -37,6 +39,7 @@
 #include <filesystem>
 #include <format>
 #include <fstream>
+#include <limits>
 #include <nlohmann/json.hpp>
 #include <stb/stb_image_resize2.h>
 #include <sys/wait.h>
@@ -617,7 +620,7 @@ ScreenshotService::ScreenshotService(
     NotificationManager& notifications, ClipboardService* clipboard
 )
     : m_wayland(wayland), m_platform(platform), m_notifications(notifications), m_configService(configService),
-      m_clipboard(clipboard), m_capture(wayland) {}
+      m_clipboard(clipboard), m_capture(wayland), m_windowCapture(wayland) {}
 
 ScreenshotService::~ScreenshotService() = default;
 
@@ -765,6 +768,19 @@ void ScreenshotService::registerIpc(IpcService& ipc, const ConfigService& config
     return "ok\n";
   });
 
+  ipc.bind(
+      noctalia::cli::msg::screenshotActiveWindow, [this, &configService](const std::string& /*args*/) -> std::string {
+        if (!windowCaptureAvailable()) {
+          return "error: window capture needs ext-image-copy-capture-v1 and ext-foreign-toplevel-list-v1\n";
+        }
+        if (overlayBusy()) {
+          return "error: a screenshot overlay is already active\n";
+        }
+        captureActiveWindow(outputOptionsFromConfig(configService.config()));
+        return "ok\n";
+      }
+  );
+
   ipc.bind(noctalia::cli::msg::screenshotAnnotate, [this, &configService](const std::string& /*args*/) -> std::string {
     if (!available()) {
       return "error: screen capture is not available on this compositor\n";
@@ -836,6 +852,96 @@ void ScreenshotService::captureFullscreen(const OutputOptions& options, wl_outpu
   }
   playCaptureSound();
   captureOutput(output, std::nullopt, "screenshot", options);
+}
+
+bool ScreenshotService::windowCaptureAvailable() const noexcept {
+  return m_windowCapture.available() && m_wayland.hasExtForeignToplevelList();
+}
+
+// The focused toplevel comes from the wlr/compositor side, so its ext-foreign-toplevel twin is found by
+// compositor window ID where one is mapped (Hyprland), else by app ID and title. An ambiguous match fails
+// rather than capturing the wrong window.
+std::expected<ext_foreign_toplevel_handle_v1*, std::string> ScreenshotService::resolveActiveExtToplevel() const {
+  const auto active = m_platform.activeToplevel();
+  if (!active.has_value()) {
+    return std::unexpected("No active window");
+  }
+  const std::string idLower = StringUtils::toLower(active->appId);
+  const auto windows =
+      idLower.empty() ? m_wayland.extWindowsWithoutAppId() : m_wayland.extWindowsForApp(idLower, idLower);
+
+  if (const auto focusedId = m_platform.focusedCompositorWindowId(); focusedId.has_value()) {
+    for (const auto& info : windows) {
+      if (info.extHandle == nullptr) {
+        continue;
+      }
+      const auto mapped = m_platform.compositorWindowIdForExtToplevel(info.extHandle);
+      if (mapped.has_value()
+          && (compositors::isHyprland() ? compositors::hyprland::windowIdsEqual(*mapped, *focusedId)
+                                        : *mapped == *focusedId)) {
+        return info.extHandle;
+      }
+    }
+  }
+
+  ext_foreign_toplevel_handle_v1* matched = nullptr;
+  for (const auto& info : windows) {
+    if (info.extHandle == nullptr || info.title != active->title) {
+      continue;
+    }
+    if (matched != nullptr) {
+      return std::unexpected("Several windows match the active window; cannot tell which to capture");
+    }
+    matched = info.extHandle;
+  }
+  if (matched != nullptr) {
+    return matched;
+  }
+  if (windows.size() == 1 && windows.front().extHandle != nullptr) {
+    return windows.front().extHandle;
+  }
+  return std::unexpected("Could not find a capturable handle for the active window");
+}
+
+void ScreenshotService::captureActiveWindow(const OutputOptions& options) {
+  if (!windowCaptureAvailable()) {
+    notifyError("Window capture is not available on this compositor");
+    return;
+  }
+  if (!hasAnyOutput(options)) {
+    notifyError("No screenshot output enabled");
+    return;
+  }
+  if (overlayBusy()) {
+    notifyError("A screenshot overlay is already active");
+    return;
+  }
+  if (m_windowCapture.busy()) {
+    notifyError("A window capture is already in progress");
+    return;
+  }
+  const auto handle = resolveActiveExtToplevel();
+  if (!handle) {
+    notifyError(handle.error());
+    return;
+  }
+
+  std::optional<std::filesystem::path> destPath =
+      needsScreenshotPath(options) ? std::optional(makeScreenshotPath(options, "window")) : std::nullopt;
+  playCaptureSound();
+  // An unbounded thumbnail is a 1:1 copy of the window buffer.
+  constexpr int kNoLimit = std::numeric_limits<int>::max();
+  m_windowCapture.capture(
+      *handle, kNoLimit, kNoLimit,
+      [this, options, destPath = std::move(destPath)](std::optional<ScreencopyImage> image, std::string error) mutable {
+        if (!image.has_value()) {
+          kLog.warn("window screenshot failed: {}", error.empty() ? "empty frame" : error);
+          notifyError(error.empty() ? "Window screenshot failed" : error);
+          return;
+        }
+        deliverCaptureResult(capture::ScreenshotImage{.image = std::move(*image)}, options, std::move(destPath));
+      }
+  );
 }
 
 void ScreenshotService::captureFullscreenInteractive(RenderContext& renderContext, const OutputOptions& options) {
