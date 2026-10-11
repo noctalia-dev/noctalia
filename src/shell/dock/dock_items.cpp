@@ -59,6 +59,18 @@ namespace {
     return areaMain + (vertical ? localY : localX);
   }
 
+  [[nodiscard]] FlexJustify dockAlignmentJustify(DockAlignment alignment) {
+    switch (alignment) {
+    case DockAlignment::Center:
+      return FlexJustify::Center;
+    case DockAlignment::Start:
+      return FlexJustify::Start;
+    case DockAlignment::End:
+      return FlexJustify::End;
+    }
+    return FlexJustify::Start;
+  }
+
   void resetDockItemDragState(shell::dock::DockInstance& instance) {
     instance.drag.holdTimer.stop();
     instance.drag = {};
@@ -390,6 +402,7 @@ namespace shell::dock {
         vertical ? FlexDirection::Vertical : FlexDirection::Horizontal,
         {
             .align = FlexAlign::Center,
+            .justify = dockAlignmentJustify(cfg.alignment),
             .gap = static_cast<float>(cfg.itemSpacing),
             .paddingV = vertical ? mainPad : crossPad,
             .paddingH = vertical ? crossPad : mainPad,

@@ -420,6 +420,8 @@ location = "https://example.invalid/bad"
     };
     c.dock.enabled = true;
     c.dock.position = DockEdge::Left;
+    c.dock.maximize = true;
+    c.dock.alignment = DockAlignment::End;
     c.dock.iconSize = 40;
     c.dock.border = colorSpecFromRole(ColorRole::Primary);
     c.dock.borderWidth = 1.5F;
@@ -435,6 +437,8 @@ location = "https://example.invalid/bad"
         .match = "eDP-1",
         .enabled = false,
         .position = DockEdge::Left,
+        .maximize = false,
+        .alignment = DockAlignment::Center,
         .iconSize = 36,
         .autoHide = true,
         .launcherPosition = DockLauncherPosition::End,
@@ -1268,6 +1272,12 @@ widget_spacing = 8
 
   const Config probe = makeProbe();
   const toml::table serialized = config_export::serialize(probe);
+  {
+    const DockConfig resolved = resolveDockMonitorOverride(probe.dock, probe.dock.monitorOverrides.front());
+    if (resolved.maximize || resolved.alignment != DockAlignment::Center) {
+      fail("dock: monitor override did not resolve maximize/alignment values");
+    }
+  }
 
   {
     Config pluginMapProbe;

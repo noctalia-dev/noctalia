@@ -25,11 +25,30 @@ namespace settings {
   } // namespace
 
   bool isMonitorOverrideSettingPath(const std::vector<std::string>& path) {
-    return path.size() >= 5 && path[0] == "bar" && path[2] == "monitor";
+    return (path.size() >= 5 && path[0] == "bar" && path[2] == "monitor")
+        || (path.size() >= 4
+            && path[0] == "dock"
+            && path[1] == "monitor"
+            && (path.back() == "maximize" || path.back() == "alignment"));
   }
 
   bool monitorOverrideHasExplicitValue(const Config& cfg, const std::vector<std::string>& path) {
     if (!isMonitorOverrideSettingPath(path)) {
+      return false;
+    }
+
+    if (path[0] == "dock") {
+      const auto* override = findDockMonitorOverride(cfg.dock, path[2]);
+      if (override == nullptr) {
+        return false;
+      }
+      const std::string_view key = path.back();
+      if (key == "maximize") {
+        return override->maximize.has_value();
+      }
+      if (key == "alignment") {
+        return override->alignment.has_value();
+      }
       return false;
     }
 

@@ -217,8 +217,12 @@ namespace shell::dock {
     DockSurfaceGeometry geometry;
     if (!vertical) {
       geometry.surfaceW = static_cast<std::uint32_t>(panelW + sb.left + sb.right + insetL + insetR + mainPad * 2);
-      geometry.marginLeft = cfg.marginEnds;
-      geometry.marginRight = cfg.marginEnds;
+      if (cfg.maximize && outputLogicalWidth > 0) {
+        geometry.surfaceW = static_cast<std::uint32_t>(std::max(1, outputLogicalWidth - cfg.marginEnds * 2));
+      } else {
+        geometry.marginLeft = cfg.marginEnds;
+        geometry.marginRight = cfg.marginEnds;
+      }
       if (isBottom) {
         if (edgeGutter > 0) {
           geometry.surfaceH = static_cast<std::uint32_t>(sb.up + panelH + edgeGutter + zoomPad);
@@ -240,9 +244,13 @@ namespace shell::dock {
       return geometry;
     }
 
-    geometry.marginTop = cfg.marginEnds;
-    geometry.marginBottom = cfg.marginEnds;
-    geometry.surfaceH = static_cast<std::uint32_t>(panelW + sb.up + sb.down + insetT + insetB + mainPad * 2);
+    if (cfg.maximize && outputLogicalHeight > 0) {
+      geometry.surfaceH = static_cast<std::uint32_t>(std::max(1, outputLogicalHeight - cfg.marginEnds * 2));
+    } else {
+      geometry.marginTop = cfg.marginEnds;
+      geometry.marginBottom = cfg.marginEnds;
+      geometry.surfaceH = static_cast<std::uint32_t>(panelW + sb.up + sb.down + insetT + insetB + mainPad * 2);
+    }
     if (isRight) {
       if (edgeGutter > 0) {
         geometry.surfaceW = static_cast<std::uint32_t>(sb.left + panelH + edgeGutter + zoomPad);
@@ -316,9 +324,10 @@ namespace shell::dock {
         }
       }
       return DockPanelGeometry{
-          .panelX = bleedL + insetL + mainPad,
+          .panelX = cfg.maximize ? insetL : bleedL + insetL + mainPad,
           .panelY = y,
-          .panelW = surfaceW - bleedL - bleedR - insetL - insetR - mainPad * 2.0F,
+          .panelW =
+              cfg.maximize ? surfaceW - insetL - insetR : surfaceW - bleedL - bleedR - insetL - insetR - mainPad * 2.0F,
           .panelH = panelThickness,
       };
     }
@@ -333,9 +342,10 @@ namespace shell::dock {
     }
     return DockPanelGeometry{
         .panelX = x,
-        .panelY = bleedU + insetT + mainPad,
+        .panelY = cfg.maximize ? insetT : bleedU + insetT + mainPad,
         .panelW = panelThickness,
-        .panelH = surfaceH - bleedU - bleedD - insetT - insetB - mainPad * 2.0F,
+        .panelH =
+            cfg.maximize ? surfaceH - insetT - insetB : surfaceH - bleedU - bleedD - insetT - insetB - mainPad * 2.0F,
     };
   }
 
@@ -391,11 +401,12 @@ namespace shell::dock {
       return {InputRect{0, 0, surfaceW, trigger}};
     }
 
+    const bool vertical = isVerticalEdge(cfg.position);
     return {InputRect{
-        static_cast<int>(std::lround(panel.panelX)),
-        static_cast<int>(std::lround(panel.panelY)),
-        static_cast<int>(std::lround(panel.panelW)),
-        static_cast<int>(std::lround(panel.panelH)),
+        cfg.maximize && !vertical ? 0 : static_cast<int>(std::lround(panel.panelX)),
+        cfg.maximize && vertical ? 0 : static_cast<int>(std::lround(panel.panelY)),
+        cfg.maximize && !vertical ? surfaceW : static_cast<int>(std::lround(panel.panelW)),
+        cfg.maximize && vertical ? surfaceH : static_cast<int>(std::lround(panel.panelH)),
     }};
   }
 

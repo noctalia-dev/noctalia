@@ -2095,6 +2095,10 @@
         }
       },
       "dock": {
+        "alignment": {
+          "description": "Align icons at the center, start, or end of the maximized dock",
+          "label": "Icon Alignment"
+        },
         "active-icon-opacity": {
           "description": "Opacity of the focused dock icon",
           "label": "Active Icon Opacity"
@@ -2196,6 +2200,10 @@
         "magnification-scale": {
           "description": "Maximum icon scale multiplier at the pointer center (1.0 disables magnification)",
           "label": "Magnification Scale"
+        },
+        "maximize": {
+          "description": "Extend the dock across the full screen width or height",
+          "label": "Maximize Dock"
         },
         "main-axis-padding": {
           "description": "Inner padding at the ends of the icon row (before the first and after the last icon)"
