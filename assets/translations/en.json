@@ -3083,6 +3083,12 @@
           "label": "Shadow Direction"
         }
       },
+      "polkit": {
+        "allow-empty-password": {
+          "description": "Allow empty responses in Polkit prompts for Howdy, security keys, and other passwordless PAM stacks",
+          "label": "Polkit Empty Password Submit"
+        }
+      },
       "shell": {
         "avatar-path": {
           "description": "Path to a custom avatar image; large images are cropped and resized automatically",
