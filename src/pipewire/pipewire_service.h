@@ -172,6 +172,10 @@ public:
     // swMute mirrors the authoritative mixer-api mute.
     bool swMute = false;
     bool nodeRouteMute = false;
+    // Monitor-port mute (SPA_PROP_monitorMute). Route-less virtual sources such as EasyEffects'
+    // null-audio-sink capture from monitor ports, which ignore SPA_PROP_mute unless the node sets
+    // monitor.channel-volumes.
+    bool monitorMute = false;
     // Effective mute for UI (includes device-route mute).
     bool muted = false;
     std::uint32_t channelCount = 0;
