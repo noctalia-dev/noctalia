@@ -4673,6 +4673,10 @@
           "description": "Show workspaces from every monitor on this widget",
           "label": "Show All Monitors"
         },
+        "show-app-icons-on-hover": {
+          "description": "Grow the hovered workspace into the icons of the apps open on it",
+          "label": "App Icons on Hover"
+        },
         "show-caps-lock": {
           "description": "Show Caps Lock state",
           "label": "Show Caps Lock"

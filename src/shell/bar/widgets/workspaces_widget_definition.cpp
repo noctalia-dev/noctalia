@@ -116,6 +116,13 @@ const noctalia::bar::WidgetDefinition<WorkspacesWidget::Options>& workspacesWidg
                           .visibleWhen = focusHintStyleOnly(),
                       },
               }),
+              field<&Options::showAppIconsOnHover>({
+                  .key = "show_app_icons_on_hover",
+                  .presentation =
+                      settings::WidgetSettingPresentation{
+                          .group = "workspaces.list",
+                      },
+              }),
               field<&Options::style>({
                   .key = "style",
                   .choices =
