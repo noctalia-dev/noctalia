@@ -47,4 +47,27 @@ namespace shell {
     return out;
   }
 
+  // Resolves the bar-relative start/end alignment an *attached* panel should take
+  // from the same `<panel>_position` vocabulary, restricted to the component that
+  // matches the bar's own axis (left/right for a horizontal bar, top/bottom for a
+  // vertical bar). The perpendicular component and "auto"/"center" carry no
+  // alignment preference; the caller keeps its existing bar-centered default then.
+  struct AttachedPositionAlign {
+    bool start = false;
+    bool end = false;
+  };
+
+  [[nodiscard]] inline AttachedPositionAlign attachedPositionAlign(std::string_view position, bool barIsVertical) {
+    if (barIsVertical) {
+      return {
+          .start = position == "top_left" || position == "top_center" || position == "top_right",
+          .end = position == "bottom_left" || position == "bottom_center" || position == "bottom_right",
+      };
+    }
+    return {
+        .start = position == "top_left" || position == "center_left" || position == "bottom_left",
+        .end = position == "top_right" || position == "center_right" || position == "bottom_right",
+    };
+  }
+
 } // namespace shell

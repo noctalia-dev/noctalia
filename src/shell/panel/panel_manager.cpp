@@ -949,6 +949,7 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
     m_detachedRevealDirection = AttachedRevealDirection::Down;
     m_keyboardRelaxTimer.stop();
     m_attachedBarPosition.clear();
+    m_attachedAlignEdge = AttachedEdgeAlign::None;
     m_sourceBarName.clear();
     m_attachedPanelGeometry.reset();
     m_attachedToBar = false;
@@ -1017,13 +1018,33 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
     std::int32_t visualY = 0;
     const bool useAnchorForAttached =
         request.hasAnchorPosition && openNearClickEnabled(m_activePanel, m_activePanelId, m_config);
+    const auto attachedAlign = shell::attachedPositionAlign(panelPosition, barIsVertical);
+    const AttachedEdgeAlign resolvedAlignEdge = useAnchorForAttached ? AttachedEdgeAlign::None
+        : attachedAlign.end                                          ? AttachedEdgeAlign::End
+        : attachedAlign.start                                        ? AttachedEdgeAlign::Start
+                                                                     : AttachedEdgeAlign::None;
     if (barIsVertical) {
       const auto minY = barTop + totalStartInset;
       const auto maxY = std::max(minY, barBottom - static_cast<std::int32_t>(panelHeight) - totalEndInset);
       const auto centeredY = barTop + (barBottom - barTop - static_cast<std::int32_t>(panelHeight)) / 2;
       const auto desiredY =
           static_cast<std::int32_t>(std::lround(request.anchorY - static_cast<float>(panelHeight) * 0.5F));
-      visualY = useAnchorForAttached ? std::clamp(desiredY, minY, maxY) : centeredY;
+      // Edge alignment hugs the bar's actual top/bottom extent flush, unlike the
+      // click anchor's minY/maxY clamp, which leaves room for the bar-corner/panel-corner
+      // nesting inset so a panel dragged near the edge doesn't collide with it. The
+      // away-side corner at that end goes square (see edgeAlignedRadii), so there's no
+      // rounding there needing bleed room — it genuinely butts against the edge.
+      const auto flushStartY = std::min(minY, barTop);
+      const auto flushEndY = std::max(maxY, barBottom - static_cast<std::int32_t>(panelHeight));
+      if (useAnchorForAttached) {
+        visualY = std::clamp(desiredY, minY, maxY);
+      } else if (attachedAlign.end) {
+        visualY = flushEndY;
+      } else if (attachedAlign.start) {
+        visualY = flushStartY;
+      } else {
+        visualY = centeredY;
+      }
       visualX = barIsLeft ? barRight - panelOverlap : barLeft - static_cast<std::int32_t>(panelWidth) + panelOverlap;
     } else {
       const auto minX = barLeft + totalStartInset;
@@ -1031,7 +1052,22 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
       const auto centeredX = barLeft + (barRight - barLeft - static_cast<std::int32_t>(panelWidth)) / 2;
       const auto desiredX =
           static_cast<std::int32_t>(std::lround(request.anchorX - static_cast<float>(panelWidth) * 0.5F));
-      visualX = useAnchorForAttached ? std::clamp(desiredX, minX, maxX) : centeredX;
+      // Edge alignment hugs the bar's actual left/right extent flush, unlike the click
+      // anchor's minX/maxX clamp, which leaves room for the bar-corner/panel-corner
+      // nesting inset so a panel dragged near the edge doesn't collide with it. The
+      // away-side corner at that end goes square (see edgeAlignedRadii), so there's no
+      // rounding there needing bleed room — it genuinely butts against the edge.
+      const auto flushStartX = std::min(minX, barLeft);
+      const auto flushEndX = std::max(maxX, barRight - static_cast<std::int32_t>(panelWidth));
+      if (useAnchorForAttached) {
+        visualX = std::clamp(desiredX, minX, maxX);
+      } else if (attachedAlign.end) {
+        visualX = flushEndX;
+      } else if (attachedAlign.start) {
+        visualX = flushStartX;
+      } else {
+        visualX = centeredX;
+      }
       visualY = barIsBottom ? barTop - static_cast<std::int32_t>(panelHeight) + panelOverlap : barBottom - panelOverlap;
     }
 
@@ -1058,6 +1094,7 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
     m_attachedRevealDirection = attached_panel::revealDirection(barPosition);
     m_keyboardRelaxTimer.stop();
     m_attachedBarPosition = std::string(barPosition);
+    m_attachedAlignEdge = resolvedAlignEdge;
     m_attachedToBar = true;
 
     // Convert panel screen coords to bar-surface-local coords for shadow exclusion.
@@ -1206,6 +1243,7 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
     m_detachedRevealDirection = AttachedRevealDirection::Down;
     m_keyboardRelaxTimer.stop();
     m_attachedBarPosition.clear();
+    m_attachedAlignEdge = AttachedEdgeAlign::None;
     m_attachedPanelGeometry.reset();
     m_attachedOpenAnimationPending = false;
     kLog.warn("panel manager: attached layer-shell failed for \"{}\", falling back to standalone", panelId);
@@ -1529,6 +1567,7 @@ void PanelManager::destroyPanel() {
   m_detachedRevealDirection = AttachedRevealDirection::Down;
   m_keyboardRelaxTimer.stop();
   m_attachedBarPosition.clear();
+  m_attachedAlignEdge = AttachedEdgeAlign::None;
   m_sourceBarName.clear();
   m_attachedPanelGeometry.reset();
   m_attachedToBar = false;
@@ -2338,7 +2377,7 @@ void PanelManager::applyPanelCompositorBlur(
   const CornerShapes corners = m_attachedToBar ? attached_panel::cornerShapes(m_attachedBarPosition) : CornerShapes{};
   const RectInsets logicalInset =
       m_attachedToBar ? attached_panel::logicalInset(m_attachedBarPosition, radius) : RectInsets{};
-  const Radii radii = Radii{radius, radius, radius, radius};
+  const Radii radii = attached_panel::edgeAlignedRadii(m_attachedBarPosition, m_attachedAlignEdge, radius);
   auto strips = Surface::tessellateShape(bodyX, bodyY, bodyW, bodyH, corners, logicalInset, radii);
   if (strips.empty()) {
     if (blurTraceEnabled()) {
@@ -2405,7 +2444,7 @@ void PanelManager::applyAttachedDecorationStyle() {
           shell::surface_shadow::Shape{
               .corners = attached_panel::cornerShapes(m_attachedBarPosition),
               .logicalInset = attached_panel::logicalInset(m_attachedBarPosition, radius),
-              .radius = Radii{radius, radius, radius, radius},
+              .radius = attached_panel::edgeAlignedRadii(m_attachedBarPosition, m_attachedAlignEdge, radius),
           }
       );
       m_panelShadowNode->setStyle(shadowStyle);
@@ -2434,7 +2473,7 @@ void PanelManager::applyAttachedDecorationStyle() {
              GradientStop{1.0F, endColor}},
         .corners = attached_panel::cornerShapes(m_attachedBarPosition),
         .logicalInset = attached_panel::logicalInset(m_attachedBarPosition, radius),
-        .radius = Radii{radius, radius, radius, radius},
+        .radius = attached_panel::edgeAlignedRadii(m_attachedBarPosition, m_attachedAlignEdge, radius),
         .softness = 1.0F,
         .borderWidth = 0.0F,
     };
@@ -2582,7 +2621,7 @@ void PanelManager::buildScene(std::uint32_t width, std::uint32_t height) {
         bg->clearBorder();
         bg->setCornerShapes(attached_panel::cornerShapes(m_attachedBarPosition));
         bg->setLogicalInset(attached_panel::logicalInset(m_attachedBarPosition, radius));
-        bg->setRadii(Radii{radius, radius, radius, radius});
+        bg->setRadii(attached_panel::edgeAlignedRadii(m_attachedBarPosition, m_attachedAlignEdge, radius));
         // Fill (opacity-dependent) is applied via applyAttachedDecorationStyle() below.
       } else {
         const float backgroundOpacity = shell::panel_surface::backgroundOpacity(m_config);
