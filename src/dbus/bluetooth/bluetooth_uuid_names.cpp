@@ -235,7 +235,7 @@ std::optional<std::uint16_t> bluetoothUuidShortId(std::string_view uuid) {
     return std::nullopt;
   }
   // The first four digits must be zero for the value to fit 16 bits.
-  if (lower.compare(0, 4, "0000") != 0) {
+  if (!lower.starts_with("0000")) {
     return std::nullopt;
   }
   return parseHex16(std::string_view(lower).substr(4, 4));
