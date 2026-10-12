@@ -1249,6 +1249,7 @@ if build_tests
     'notification_dnd',
     'notification_filter',
     'notification_history_dismiss',
+    'notification_history_image_bounds',
     'notification_history_utf8',
     'notification_internal_history',
     'path_browse',
