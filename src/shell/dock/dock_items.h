@@ -78,11 +78,10 @@ namespace shell::dock {
       const DockItemCallbacks& callbacks
   );
   void updateVisuals(DockInstance& instance, DockItemSceneDependencies deps, const DockSnapshot& snapshot);
-  [[nodiscard]] bool
-  updateHoverZoom(DockInstance& instance, DockItemSceneDependencies deps, const DockSnapshot& snapshot, float deltaMs);
+  [[nodiscard]] bool updateHoverZoom(DockInstance& instance, const DockSnapshot& snapshot, float deltaMs);
   [[nodiscard]] bool
   syncHoverPointerFromScene(DockInstance& instance, const DockConfig& cfg, float sceneX, float sceneY);
-  void clearHoverZoom(DockInstance& instance, DockItemSceneDependencies deps, const DockSnapshot& snapshot);
+  void clearHoverZoom(DockInstance& instance, const DockSnapshot& snapshot);
   void syncDockItemRestPositions(DockInstance& instance, const DockConfig& cfg);
   void applyDragVisuals(DockInstance& instance, const DockConfig& cfg);
   void clearDragVisuals(DockInstance& instance, const DockConfig& cfg);

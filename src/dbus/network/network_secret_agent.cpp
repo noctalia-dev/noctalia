@@ -8,6 +8,7 @@
 #include <optional>
 #include <sdbus-c++/IConnection.h>
 #include <sdbus-c++/IObject.h>
+#include <sdbus-c++/IProxy.h>
 #include <sdbus-c++/MethodResult.h>
 #include <sdbus-c++/Types.h>
 #include <sdbus-c++/VTableItems.h>
@@ -30,12 +31,17 @@ namespace {
   const sdbus::ServiceName kNmBusName{"org.freedesktop.NetworkManager"};
   const sdbus::ObjectPath kAgentManagerObjectPath{"/org/freedesktop/NetworkManager/AgentManager"};
   constexpr auto kAgentManagerInterface = "org.freedesktop.NetworkManager.AgentManager";
+  const sdbus::ServiceName kDbusBusName{"org.freedesktop.DBus"};
+  const sdbus::ObjectPath kDbusObjectPath{"/org/freedesktop/DBus"};
+  constexpr auto kDbusInterface = "org.freedesktop.DBus";
 
   constexpr std::uint32_t kNmSecretAgentGetSecretsFlagAllowInteraction = 0x1;
 
   constexpr auto kWirelessSettingName = "802-11-wireless";
   constexpr auto kWirelessSecuritySettingName = "802-11-wireless-security";
+  constexpr auto kEnterpriseSettingName = "802-1x";
   constexpr auto kPskKey = "psk";
+  constexpr auto kEapPasswordKey = "password";
 
   std::string extractSsid(const SecretsDict& connection) {
     auto wifiIt = connection.find(kWirelessSettingName);
@@ -59,11 +65,27 @@ namespace {
 struct NetworkSecretAgent::Impl {
   SystemBus& bus;
   std::unique_ptr<sdbus::IObject> object;
+  std::unique_ptr<sdbus::IProxy> nameWatcher;
+  bool registered = false;
   RequestCallback requestCallback;
   std::optional<sdbus::Result<SecretsDict>> pendingResult;
   std::string pendingSettingName;
 
   explicit Impl(SystemBus& b) : bus(b) {}
+
+  void registerAgent() {
+    try {
+      auto agentManager = sdbus::createProxy(bus.connection(), kNmBusName, kAgentManagerObjectPath);
+      agentManager->callMethod("Register")
+          .onInterface(kAgentManagerInterface)
+          .withArguments(std::string(kAgentIdentifier));
+      registered = true;
+      kLog.info("registered NetworkManager secret agent as {}", kAgentIdentifier);
+    } catch (const sdbus::Error& e) {
+      registered = false;
+      kLog.warn("secret agent registration failed: {}", e.what());
+    }
+  }
 
   void onGetSecrets(
       sdbus::Result<SecretsDict>&& result, SecretsDict connection, sdbus::ObjectPath connectionPath,
@@ -79,7 +101,10 @@ struct NetworkSecretAgent::Impl {
       );
       return;
     }
-    if (settingName != kWirelessSecuritySettingName) {
+    // NM asks for the pre-shared key under "802-11-wireless-security" and for EAP
+    // credentials under "802-1x". Rejecting the latter is what leaves an
+    // enterprise profile unable to re-authenticate after its password changes.
+    if (settingName != kWirelessSecuritySettingName && settingName != kEnterpriseSettingName) {
       kLog.debug("GetSecrets for unsupported setting \"{}\" -> NoSecrets", settingName);
       result.returnError(
           sdbus::Error{
@@ -126,12 +151,13 @@ struct NetworkSecretAgent::Impl {
     pendingSettingName.clear();
   }
 
-  void submitPending(const std::string& psk) {
+  void submitPending(const std::string& secret) {
     if (!pendingResult.has_value()) {
       return;
     }
     SecretsDict secrets;
-    secrets[pendingSettingName][kPskKey] = sdbus::Variant{psk};
+    const auto* key = pendingSettingName == kEnterpriseSettingName ? kEapPasswordKey : kPskKey;
+    secrets[pendingSettingName][key] = sdbus::Variant{secret};
     pendingResult->returnResults(secrets);
     pendingResult.reset();
     pendingSettingName.clear();
@@ -170,15 +196,21 @@ NetworkSecretAgent::NetworkSecretAgent(SystemBus& bus) : m_impl(std::make_unique
       )
       .forInterface(kAgentInterface);
 
-  // Register with NM's agent manager.
-  try {
-    auto agentManager = sdbus::createProxy(bus.connection(), kNmBusName, kAgentManagerObjectPath);
-    agentManager->callMethod("Register")
-        .onInterface(kAgentManagerInterface)
-        .withArguments(std::string(kAgentIdentifier));
-    kLog.info("registered NetworkManager secret agent as {}", kAgentIdentifier);
-  } catch (const sdbus::Error& e) {
-    kLog.warn("secret agent registration failed: {}", e.what());
+  m_impl->nameWatcher = sdbus::createProxy(bus.connection(), kDbusBusName, kDbusObjectPath);
+  m_impl->nameWatcher->uponSignal("NameOwnerChanged")
+      .onInterface(kDbusInterface)
+      .call([this](const std::string& name, const std::string& oldOwner, const std::string& newOwner) {
+        if (name != kNmBusName || (oldOwner.empty() && !newOwner.empty() && m_impl->registered)) {
+          return;
+        }
+        m_impl->registered = false;
+        m_impl->cancelPending("NetworkManager owner changed");
+        if (!newOwner.empty()) {
+          m_impl->registerAgent();
+        }
+      });
+  if (bus.nameHasOwner(kNmBusName)) {
+    m_impl->registerAgent();
   }
 }
 
@@ -186,7 +218,11 @@ NetworkSecretAgent::~NetworkSecretAgent() {
   if (m_impl == nullptr) {
     return;
   }
+  m_impl->nameWatcher.reset();
   m_impl->cancelPending("agent shutting down");
+  if (!m_impl->registered) {
+    return;
+  }
   try {
     auto agentManager = sdbus::createProxy(m_impl->bus.connection(), kNmBusName, kAgentManagerObjectPath);
     agentManager->callMethod("Unregister").onInterface(kAgentManagerInterface);
@@ -201,9 +237,9 @@ void NetworkSecretAgent::setRequestCallback(RequestCallback callback) {
   }
 }
 
-void NetworkSecretAgent::submitSecret(const std::string& psk) {
+void NetworkSecretAgent::submitSecret(const std::string& secret) {
   if (m_impl != nullptr) {
-    m_impl->submitPending(psk);
+    m_impl->submitPending(secret);
   }
 }
 

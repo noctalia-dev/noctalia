@@ -70,7 +70,9 @@ public:
       float maxWidth = 0.0F, int maxLines = 0, TextAlign align = TextAlign::Start, std::string_view fontFamily = {},
       TextEllipsize ellipsize = TextEllipsize::End, bool useMarkup = false
   );
-  [[nodiscard]] TextMetrics measureFont(float contentScale, float fontSize, FontWeight fontWeight) const;
+  // Metrics of `fontFamily` (empty = the active family set by setFontFamily()).
+  [[nodiscard]] TextMetrics
+  measureFont(float contentScale, float fontSize, FontWeight fontWeight, std::string_view fontFamily = {}) const;
   void measureCursorStops(
       float contentScale, std::string_view text, float fontSize, const std::vector<std::size_t>& byteOffsets,
       std::vector<float>& outStops, FontWeight fontWeight = FontWeight::Normal
@@ -129,16 +131,17 @@ private:
   };
 
   // Color- and text-independent key for measureFont(), which derives font
-  // metrics from the active family at a given size/weight/scale. measureFont()
+  // metrics from a family at a given size/weight/scale. measureFont()
   // runs every frame from bar layout; each underlying pango_context_get_metrics
   // call makes Pango accumulate internal cache structures that are never
   // reclaimed during the run (heaptrack: top leak, ~24MB over a 30m session).
   // Memoizing collapses ~15k calls/run down to the handful of distinct fonts.
+  // An empty family means the active family; clearCaches() runs when it changes.
   struct FontMetricsKey {
+    std::string fontFamily;
     std::uint32_t sizeBits = 0;
     std::uint32_t scaleBits = 0;
     FontWeight fontWeight = FontWeight::Normal;
-
     bool operator==(const FontMetricsKey& other) const noexcept;
   };
   struct FontMetricsKeyHash {

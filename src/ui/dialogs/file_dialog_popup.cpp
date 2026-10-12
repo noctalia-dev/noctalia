@@ -82,7 +82,7 @@ bool FileDialogPopup::preDispatchKeyboard(const KeyboardEvent& event) {
   if (m_dialog == nullptr) {
     return false;
   }
-  return m_dialog->handleGlobalKey(event.sym, event.modifiers, event.pressed, event.preedit);
+  return m_dialog->handleGlobalKey(event.sym, event.modifiers, event.pressed, event.preedit, event.repeat);
 }
 
 void FileDialogPopup::onSheetClose() {

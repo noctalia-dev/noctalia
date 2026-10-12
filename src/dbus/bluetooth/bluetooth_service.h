@@ -133,6 +133,7 @@ private:
   BluetoothState m_state;
   std::vector<BluetoothDeviceInfo> m_devices;
   std::optional<bool> m_pendingLocalPowered;
+  std::uint64_t m_pendingPoweredRevision = 0;
   Timer m_autoReconnectTimer;
   int m_autoReconnectAttempt = 0;
   bool m_hasStateSnapshot = false;

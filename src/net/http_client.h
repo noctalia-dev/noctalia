@@ -32,6 +32,8 @@ struct HttpResponse {
   long status = 0;          // HTTP status code (0 when transportOk is false)
   std::string effectiveUrl; // final URL after redirects (empty when unavailable)
   std::string body;
+  // Response header names are lowercase; values exclude surrounding whitespace.
+  std::unordered_map<std::string, std::string> headers;
 };
 
 struct HttpStreamResult {
@@ -47,7 +49,7 @@ public:
   using StreamDataCallback = std::function<void(std::string_view chunk)>;
   using StreamCloseCallback = std::function<void(HttpStreamResult)>;
 
-  HttpClient();
+  explicit HttpClient(std::filesystem::path caBundlePath = {});
   ~HttpClient();
 
   HttpClient(const HttpClient&) = delete;
@@ -123,6 +125,7 @@ private:
     std::string basicUsername;
     std::string basicPassword;
     std::string response;
+    std::unordered_map<std::string, std::string> responseHeaders;
     std::array<char, CURL_ERROR_SIZE> errorBuffer{};
   };
 
@@ -153,10 +156,11 @@ private:
   void performMulti(const char* reason);
   // Applies the options every transfer shares, including the non-blocking abandonment of a
   // stuck DNS lookup. Call before the request-specific options.
-  static void applyCommonOptions(CURL* easy);
+  void applyCommonOptions(CURL* easy) const;
   [[nodiscard]] bool hasActiveTransfers() const;
 
   CURLM* m_multi = nullptr;
+  std::filesystem::path m_caBundlePath;
   int m_running = 0;
   std::chrono::steady_clock::time_point m_lastServiceAt;
   bool m_offlineMode = false;

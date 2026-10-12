@@ -87,6 +87,12 @@ void INetworkService::registerIpc(IpcService& ipc, WirelessFeedbackCallback wire
       disconnect();
       return "ok\n";
     }
+    if (s.kind == NetworkConnectivity::Cellular && (s.connected || s.resolving)) {
+      if (!deactivateCellularConnection()) {
+        return "error: failed to disconnect the cellular connection\n";
+      }
+      return "ok\n";
+    }
     if (!s.wirelessEnabled) {
       return setWifi(true);
     }
@@ -96,6 +102,12 @@ void INetworkService::registerIpc(IpcService& ipc, WirelessFeedbackCallback wire
       }
       return "ok\n";
     }
-    return "error: nothing to toggle (Wi-Fi is on and no wired connection is available)\n";
+    if (canActivateCellularConnection()) {
+      if (!activateCellularConnection()) {
+        return "error: failed to activate the cellular connection\n";
+      }
+      return "ok\n";
+    }
+    return "error: nothing to toggle (Wi-Fi is on and no wired or cellular connection is available)\n";
   });
 }

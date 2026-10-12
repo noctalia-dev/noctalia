@@ -1,5 +1,6 @@
 #include "ui/controls/glyph_picker.h"
 
+#include "cursor-shape-v1-client-protocol.h"
 #include "i18n/i18n.h"
 #include "render/text/glyph_registry.h"
 #include "ui/builders.h"
@@ -145,36 +146,39 @@ GlyphPicker::GlyphPicker(float chromeScale) : m_chromeScale(std::max(0.1F, chrom
   setGap(Style::spaceMd * m_chromeScale);
   setPadding(Style::spaceSm * m_chromeScale);
 
-  addChild(
-      ui::row(
-          {
-              .align = FlexAlign::Center,
-              .gap = Style::spaceSm * m_chromeScale,
-          },
-          ui::label({
-              .out = &m_title,
-              .text = i18n::tr("ui.dialogs.glyph-picker.title"),
-              .fontSize = Style::fontSizeTitle * m_chromeScale,
-              .fontWeight = FontWeight::Bold,
-              .color = colorSpecFromRole(ColorRole::Primary),
-          }),
-          ui::spacer(),
-          ui::button({
-              .glyph = "close",
-              .glyphSize = Style::fontSizeBody * m_chromeScale,
-              .variant = ButtonVariant::Default,
-              .minWidth = Style::controlHeightSm * m_chromeScale,
-              .minHeight = Style::controlHeightSm * m_chromeScale,
-              .padding = Style::spaceXs * m_chromeScale,
-              .radius = Style::scaledRadiusMd(m_chromeScale),
-              .onClick = [this]() {
-                if (m_onCancel) {
-                  m_onCancel();
-                }
-              },
-          })
-      )
+  auto headerRow = ui::row({
+      .align = FlexAlign::Center,
+      .gap = Style::spaceSm * m_chromeScale,
+  });
+  headerRow->addChild(
+      ui::label({
+          .out = &m_title,
+          .text = i18n::tr("ui.dialogs.glyph-picker.title"),
+          .fontSize = Style::fontSizeTitle * m_chromeScale,
+          .fontWeight = FontWeight::Bold,
+          .color = colorSpecFromRole(ColorRole::Primary),
+      })
   );
+  headerRow->addChild(ui::spacer());
+  if (Style::closeButtonsEnabled()) {
+    headerRow->addChild(
+        ui::button({
+            .glyph = "close",
+            .glyphSize = Style::fontSizeBody * m_chromeScale,
+            .variant = ButtonVariant::Default,
+            .minWidth = Style::controlHeightSm * m_chromeScale,
+            .minHeight = Style::controlHeightSm * m_chromeScale,
+            .padding = Style::spaceXs * m_chromeScale,
+            .radius = Style::scaledRadiusMd(m_chromeScale),
+            .onClick = [this]() {
+              if (m_onCancel) {
+                m_onCancel();
+              }
+            },
+        })
+    );
+  }
+  addChild(std::move(headerRow));
 
   m_adapter = std::make_unique<GlyphGridAdapter>(m_chromeScale);
   m_categoryOptions.reserve(m_adapter->categories().size() + 1);
@@ -219,11 +223,13 @@ GlyphPicker::GlyphPicker(float chromeScale) : m_chromeScale(std::max(0.1F, chrom
   addChild(
       ui::virtualGridView({
           .out = &m_grid,
+          .contentScale = m_chromeScale,
           .minCellWidth = 56.0F * m_chromeScale,
           .squareCells = true,
           .columnGap = Style::spaceXs * m_chromeScale,
           .rowGap = Style::spaceXs * m_chromeScale,
           .overscanRows = 2,
+          .itemCursorShape = WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_POINTER,
           .adapter = m_adapter.get(),
           .flexGrow = 1.0F,
           .onSelectionChanged = [this](std::optional<std::size_t>) { applySelectionToButton(); },

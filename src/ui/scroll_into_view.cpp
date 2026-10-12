@@ -45,14 +45,34 @@ void scrollNodeIntoScrollView(ScrollView& scrollView, ScrollViewState* state, co
   }
 }
 
+void scrollNodeToScrollViewTop(ScrollView& scrollView, const Node& target, float margin) {
+  Flex* content = scrollView.content();
+  if (content == nullptr) {
+    return;
+  }
+
+  float targetX = 0.0F;
+  float targetY = 0.0F;
+  float contentX = 0.0F;
+  float contentY = 0.0F;
+  Node::absolutePosition(&target, targetX, targetY);
+  Node::absolutePosition(content, contentX, contentY);
+  (void)targetX;
+  (void)contentX;
+
+  scrollView.requestScrollToOffset(std::max(0.0F, targetY - contentY - margin));
+}
+
 ScrollView* findEnclosingScrollView(Node* node) {
-  for (Node* current = node; current != nullptr; current = current->parent()) {
-    Node* parent = current->parent();
-    if (parent == nullptr) {
+  for (Node* ancestor = node != nullptr ? node->parent() : nullptr; ancestor != nullptr;
+       ancestor = ancestor->parent()) {
+    auto* scrollView = dynamic_cast<ScrollView*>(ancestor);
+    if (scrollView == nullptr) {
       continue;
     }
-    if (auto* scrollView = dynamic_cast<ScrollView*>(parent)) {
-      if (scrollView->content() == current) {
+    // Only the content() subtree scrolls; the scrollbar and background do not.
+    for (const Node* inner = node; inner != scrollView; inner = inner->parent()) {
+      if (inner == scrollView->content()) {
         return scrollView;
       }
     }

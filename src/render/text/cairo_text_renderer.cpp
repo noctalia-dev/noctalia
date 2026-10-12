@@ -70,43 +70,16 @@ namespace {
     }
   }
 
-  // Scan UTF-8 text for codepoints that are likely to resolve to a COLR/bitmap
-  // color glyph. We can't ask Pango cheaply whether a shaped run used a color
-  // font, so we approximate: if the text contains codepoints in the common
-  // emoji / symbol / dingbat ranges, rasterize as RGBA so the color layers are
-  // preserved. Otherwise we can use A8 coverage + shader tint, which lets one
-  // cache entry serve all colors for the same text.
-  bool containsColorGlyph(std::string_view text) {
-    const auto* s = reinterpret_cast<const unsigned char*>(text.data());
-    const std::size_t n = text.size();
-    std::size_t i = 0;
-    while (i < n) {
-      unsigned char b = s[i];
-      char32_t cp = 0;
-      int len = 1;
-      if (b < 0x80) {
-        cp = b;
-      } else if ((b & 0xE0) == 0xC0 && i + 1 < n) {
-        cp = static_cast<char32_t>((b & 0x1F) << 6 | (s[i + 1] & 0x3F));
-        len = 2;
-      } else if ((b & 0xF0) == 0xE0 && i + 2 < n) {
-        cp = static_cast<char32_t>((b & 0x0F) << 12 | (s[i + 1] & 0x3F) << 6 | (s[i + 2] & 0x3F));
-        len = 3;
-      } else if ((b & 0xF8) == 0xF0 && i + 3 < n) {
-        cp = static_cast<char32_t>(
-            (b & 0x07) << 18 | (s[i + 1] & 0x3F) << 12 | (s[i + 2] & 0x3F) << 6 | (s[i + 3] & 0x3F)
-        );
-        len = 4;
-      } else {
-        return true; // malformed — be safe
+  bool containsColorGlyph(PangoLayout* layout) {
+    for (GSList* line = pango_layout_get_lines_readonly(layout); line != nullptr; line = line->next) {
+      for (GSList* run = static_cast<PangoLayoutLine*>(line->data)->runs; run != nullptr; run = run->next) {
+        const auto* glyphs = static_cast<PangoGlyphItem*>(run->data)->glyphs;
+        for (int i = 0; i < glyphs->num_glyphs; ++i) {
+          if (glyphs->glyphs[i].attr.is_color) {
+            return true;
+          }
+        }
       }
-      i += static_cast<std::size_t>(len);
-      if (cp >= 0x2600 && cp <= 0x27BF)
-        return true; // misc symbols + dingbats
-      if (cp >= 0x1F000 && cp <= 0x1FFFF)
-        return true; // emoji planes
-      if (cp >= 0x1F900 && cp <= 0x1F9FF)
-        return true; // supplemental symbols
     }
     return false;
   }
@@ -237,11 +210,15 @@ std::size_t CairoTextRenderer::MetricsKeyHash::operator()(const MetricsKey& k) c
 }
 
 bool CairoTextRenderer::FontMetricsKey::operator==(const FontMetricsKey& other) const noexcept {
-  return fontWeight == other.fontWeight && sizeBits == other.sizeBits && scaleBits == other.scaleBits;
+  return fontWeight == other.fontWeight
+      && sizeBits == other.sizeBits
+      && scaleBits == other.scaleBits
+      && fontFamily == other.fontFamily;
 }
 
 std::size_t CairoTextRenderer::FontMetricsKeyHash::operator()(const FontMetricsKey& k) const noexcept {
-  std::size_t seed = std::hash<std::uint32_t>{}(k.sizeBits);
+  std::size_t seed = std::hash<std::string>{}(k.fontFamily);
+  hashCombine(seed, std::hash<std::uint32_t>{}(k.sizeBits));
   hashCombine(seed, std::hash<std::uint32_t>{}(k.scaleBits));
   hashCombine(seed, std::hash<int>{}(static_cast<int>(k.fontWeight)));
   return seed;
@@ -264,7 +241,7 @@ void CairoTextRenderer::initialize(RenderBackend* backend, TextureManager* textu
   }
 
   if (cairo_version() < CAIRO_VERSION_ENCODE(1, 18, 0)) {
-    kLog.warn("cairo version {} (<1.18) — COLR v1 color emoji will not render", cairo_version_string());
+    kLog.warn("cairo version {} (<1.18): COLR v1 color emoji will not render", cairo_version_string());
   }
 
   m_fontMap = pango_cairo_font_map_new();
@@ -545,13 +522,15 @@ CairoTextRenderer::TextMetrics CairoTextRenderer::measure(
   return metrics;
 }
 
-CairoTextRenderer::TextMetrics
-CairoTextRenderer::measureFont(float contentScale, float fontSize, FontWeight fontWeight) const {
+CairoTextRenderer::TextMetrics CairoTextRenderer::measureFont(
+    float contentScale, float fontSize, FontWeight fontWeight, std::string_view fontFamily
+) const {
   if (m_pangoContext == nullptr) {
     return {};
   }
 
   FontMetricsKey cacheKey;
+  cacheKey.fontFamily.assign(fontFamily);
   cacheKey.sizeBits = sizeKey(fontSize);
   cacheKey.scaleBits = scaleKey(contentScale);
   cacheKey.fontWeight = fontWeight;
@@ -561,7 +540,7 @@ CairoTextRenderer::measureFont(float contentScale, float fontSize, FontWeight fo
 
   const float rasterSize = std::max(1.0F, fontSize * contentScale);
   PangoFontDescription* desc = pango_font_description_new();
-  pango_font_description_set_family(desc, m_fontFamily.c_str());
+  pango_font_description_set_family(desc, fontFamily.empty() ? m_fontFamily.c_str() : cacheKey.fontFamily.c_str());
   pango_font_description_set_weight(desc, static_cast<PangoWeight>(fontWeight));
   pango_font_description_set_absolute_size(desc, static_cast<double>(rasterSize) * PANGO_SCALE);
 
@@ -745,7 +724,7 @@ void CairoTextRenderer::rasterizeLayout(
   // than the max). We clip rather than horizontally tile; horizontal tiling
   // would mean splitting glyphs across textures.
   if (pxWidth > maxTex) {
-    kLog.warn("text width {}px exceeds backend texture limit {} — clipping", pxWidth, maxTex);
+    kLog.warn("text width {}px exceeds backend texture limit {}; clipping", pxWidth, maxTex);
     pxWidth = maxTex;
   }
 
@@ -951,8 +930,6 @@ CairoTextRenderer::CacheEntry* CairoTextRenderer::lookupOrRasterize(
   // surface, so rgb must be part of the key. Alpha is normalized to 1.0 in
   // the key AND in the rasterized source so opacity animations on mixed
   // strings still reuse one entry.
-  const bool tinted = !containsColorGlyph(text);
-
   CacheKey key;
   key.text.assign(text);
   key.fontFamily.assign(fontFamily);
@@ -964,9 +941,14 @@ CairoTextRenderer::CacheEntry* CairoTextRenderer::lookupOrRasterize(
   key.ellipsize = ellipsize;
   key.fontWeight = fontWeight;
   key.useMarkup = useMarkup;
-  key.colorRgba = tinted ? 0U : packColorRgb(color);
-
   auto it = m_cache.find(key);
+  if (it != m_cache.end()) {
+    touch(it);
+    return &it->second;
+  }
+
+  key.colorRgba = packColorRgb(color);
+  it = m_cache.find(key);
   if (it != m_cache.end()) {
     touch(it);
     return &it->second;
@@ -976,6 +958,10 @@ CairoTextRenderer::CacheEntry* CairoTextRenderer::lookupOrRasterize(
       contentScale, text, fontSize, fontWeight, maxWidth * contentScale, maxLines, align, fontFamily, ellipsize,
       useMarkup
   );
+  const bool tinted = !containsColorGlyph(layout);
+  if (tinted) {
+    key.colorRgba = 0U;
+  }
   Color rasterColor = color;
   if (!tinted) {
     rasterColor.a = 1.0F;

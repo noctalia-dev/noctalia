@@ -100,38 +100,41 @@ namespace settings {
         .padding = gap,
     });
 
-    root->addChild(
-        ui::row(
-            {
-                .align = FlexAlign::Center,
-                .gap = Style::spaceSm * m_scale,
-            },
-            ui::label({
-                .text = i18n::tr("settings.export-config.title"),
-                .fontSize = Style::fontSizeTitle * m_scale,
-                .fontWeight = FontWeight::Bold,
-                .color = colorSpecFromRole(ColorRole::OnSurface),
-                .flexGrow = 1.0F,
-            }),
-            ui::button({
-                .glyph = "close",
-                .glyphSize = Style::fontSizeBody * m_scale,
-                .variant = ButtonVariant::Default,
-                .minWidth = Style::controlHeightSm * m_scale,
-                .minHeight = Style::controlHeightSm * m_scale,
-                .padding = Style::spaceXs * m_scale,
-                .radius = Style::scaledRadiusMd(m_scale),
-                .onClick = [this]() {
-                  const std::weak_ptr<void> aliveGuard = m_aliveGuard;
-                  DeferredCall::callLater([this, aliveGuard]() {
-                    if (!aliveGuard.expired()) {
-                      close();
-                    }
-                  });
-                },
-            })
-        )
+    auto header = ui::row({
+        .align = FlexAlign::Center,
+        .gap = Style::spaceSm * m_scale,
+    });
+    header->addChild(
+        ui::label({
+            .text = i18n::tr("settings.export-config.title"),
+            .fontSize = Style::fontSizeTitle * m_scale,
+            .fontWeight = FontWeight::Bold,
+            .color = colorSpecFromRole(ColorRole::OnSurface),
+            .flexGrow = 1.0F,
+        })
     );
+    if (Style::closeButtonsEnabled()) {
+      header->addChild(
+          ui::button({
+              .glyph = "close",
+              .glyphSize = Style::fontSizeBody * m_scale,
+              .variant = ButtonVariant::Default,
+              .minWidth = Style::controlHeightSm * m_scale,
+              .minHeight = Style::controlHeightSm * m_scale,
+              .padding = Style::spaceXs * m_scale,
+              .radius = Style::scaledRadiusMd(m_scale),
+              .onClick = [this]() {
+                const std::weak_ptr<void> aliveGuard = m_aliveGuard;
+                DeferredCall::callLater([this, aliveGuard]() {
+                  if (!aliveGuard.expired()) {
+                    close();
+                  }
+                });
+              },
+          })
+      );
+    }
+    root->addChild(std::move(header));
 
     root->addChild(
         ui::column(

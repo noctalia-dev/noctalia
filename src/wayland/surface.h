@@ -85,6 +85,8 @@ public:
   void setOutputChangedCallback(OutputChangedCallback callback);
   void setInputRegion(const std::vector<InputRect>& rects);
   void setBlurRegion(const std::vector<InputRect>& rects);
+  // Declares the whole surface opaque, or not, from its next commit, so the compositor can skip what lies beneath it.
+  void setOpaque(bool opaque);
   void clearBlurRegion();
   void setDebugName(std::string name);
 
@@ -113,6 +115,9 @@ public:
   static std::vector<InputRect> tessellateRotatedRoundedRect(
       float centerX, float centerY, float width, float height, float radius, float rotationRad, int stripPx = 1
   );
+  // True when any rect covers at least one pixel of a `width` x `height` surface.
+  // Rects are surface-local, so they may legitimately sit partly or fully outside.
+  static bool regionIntersectsBounds(const std::vector<InputRect>& rects, std::uint32_t width, std::uint32_t height);
   void requestUpdate();
   void requestUpdateOnly();
   void requestLayout();
@@ -151,6 +156,7 @@ protected:
   virtual bool createWlSurface();
   virtual void onConfigure(std::uint32_t width, std::uint32_t height);
   virtual void render();
+  virtual void onFrameCallbackDone();
   virtual void onScaleChanged();
   bool prepareBlurEffect();
   void initializeSurfaceScaleProtocol();
@@ -206,6 +212,7 @@ private:
   bool m_layoutRequested = false;
   bool m_redrawRequested = false;
   bool m_running = false;
+  bool m_opaque = false;
   bool m_configured = false;
   bool m_inFrameHandler = false;
   bool m_inPrepareFrame = false;

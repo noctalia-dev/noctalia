@@ -1,0 +1,80 @@
+---
+title: Mango
+description: Configure Mango effects and keybinds for Noctalia.
+sidebar:
+  order: 7
+---
+
+Configure Mango for Noctalia surfaces and use Mango binds to launch Noctalia IPC commands directly from the compositor.
+
+## Autostart Noctalia
+
+Add to your `~/.config/mango/config.conf`:
+
+```bash
+exec-once=noctalia
+```
+
+## Blur and shadows
+
+Mango's SceneFX layer blur does not filter by surface opacity. If layer blur is enabled, transparent Noctalia surfaces can still receive compositor blur. For the cleanest result, disable Mango's blur and layer shadows, and turn on Noctalia's own drop shadows.
+
+Add this to `~/.config/mango/config.conf`:
+
+```ini
+blur=1
+blur_layer=0
+blur_optimized=1
+blur_params_num_passes=2
+blur_params_radius=5
+blur_params_noise=0.02
+blur_params_brightness=0.9
+blur_params_contrast=0.9
+blur_params_saturation=1.0
+layer_animations=0
+
+shadows=1
+layer_shadows=0
+shadow_only_floating=0
+shadows_size=4
+shadows_blur=12
+shadows_position_x=2
+shadows_position_y=2
+shadowscolor=0x000000ff
+```
+
+Mango uses `blur_layer` for layer-surface blur and `layer_shadows` for layer-surface shadows. Use those exact names; both also require their global toggles, `blur=1` and `shadows=1`.
+
+Then disable Noctalia's rendered drop shadows in your Noctalia TOML config:
+
+```toml
+[bar.default]
+shadow = false
+contact_shadow = false
+
+[dock]
+shadow = false
+
+[shell.panel]
+shadow = false
+```
+
+If you have more than one bar, set `shadow = false` on each `[bar.<name>]` entry.
+
+## IPC Keybinds
+
+Add these binds to your `~/.config/mango/config.conf`:
+
+```bash
+# Core binds
+bind=SUPER,space,spawn,noctalia msg panel-toggle launcher
+bind=SUPER,s,spawn,noctalia msg panel-toggle control-center
+bind=SUPER,comma,spawn,noctalia msg settings-toggle
+
+# Media keys
+bind=NONE,XF86AudioRaiseVolume,spawn,noctalia msg volume-up
+bind=NONE,XF86AudioLowerVolume,spawn,noctalia msg volume-down
+bind=NONE,XF86AudioMute,spawn,noctalia msg volume-mute
+bind=NONE,XF86MonBrightnessUp,spawn,noctalia msg brightness-up
+bind=NONE,XF86MonBrightnessDown,spawn,noctalia msg brightness-down
+```

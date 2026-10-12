@@ -1,0 +1,19 @@
+---
+title: wallpaper
+description: Opens the wallpaper picker panel from the bar.
+sidebar:
+  order: 30
+---
+
+Shows a glyph and opens the wallpaper picker panel on click.
+
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| `glyph` | string | `"wallpaper-selector"` | Bar glyph name: Noctalia alias, Tabler icon name, or `U+` / `0x` codepoint |
+| `custom_image` | string | `""` | Path to a custom image displayed instead of the glyph. Leave empty to use the glyph |
+| `custom_image_colorize` | bool | `false` | When `true`, tint the custom image with the widget icon color |
+
+```toml
+[widget.wallpaper]
+glyph = "photo"
+```

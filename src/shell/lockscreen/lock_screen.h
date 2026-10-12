@@ -3,6 +3,7 @@
 #include "auth/pam_authenticator.h"
 #include "capture/screencopy_capture.h"
 #include "core/timer_manager.h"
+#include "render/core/lockscreen_transition_types.h"
 
 #include <cstdint>
 #include <functional>
@@ -33,6 +34,7 @@ class SharedTextureCache;
 class SystemBus;
 class WaylandConnection;
 class WeatherService;
+enum class LockscreenTransition : std::uint8_t;
 
 class LockScreen {
 public:
@@ -67,6 +69,9 @@ public:
   /// After suspend/resume, discard pending callbacks on active lock surfaces
   /// while preserving queued work, then request an immediate redraw.
   void forceRepaintAfterResume();
+  /// After suspend/resume, revoke the passwordless grace period as a safety net;
+  /// the boottime expiry check alone would also have expired it by then.
+  void onSystemResumed();
   void onPointerEvent(const PointerEvent& event);
   void onKeyboardEvent(const KeyboardEvent& event);
   [[nodiscard]] bool isActive() const noexcept;
@@ -84,6 +89,10 @@ public:
   /// Used so suspend runs after lock surfaces exist. Cleared if lock fails or the lock request is aborted.
   void runAfterSessionLocked(std::function<void()> fn);
 
+  /// Revokes the grace window: in-flight grace unlock stops working, and arming is
+  /// cleared for a lock already pending or engaged (sleep transitions call this).
+  void resetGracePeriod();
+
   static void handleLocked(void* data, ext_session_lock_v1* lock);
   static void handleFinished(void* data, ext_session_lock_v1* lock);
 
@@ -96,8 +105,9 @@ private:
   };
 
   void syncInstances();
-  void captureDesktopSnapshots();
-  [[nodiscard]] bool shouldUseBlurredDesktop() const;
+  [[nodiscard]] bool captureDesktopSnapshots();
+  void invalidateDesktopCaptures();
+  [[nodiscard]] bool shouldCaptureDesktop() const;
   [[nodiscard]] bool allSurfacesReady() const;
   bool tryFlushPendingAfterLocked();
   void dispatchPendingAfterLocked();
@@ -107,6 +117,11 @@ private:
   [[nodiscard]] bool isInteractiveOutput(const WaylandOutput& output) const;
   [[nodiscard]] std::string wallpaperPathForOutput(const std::string& connectorName) const;
   void createInstance(const WaylandOutput& output);
+  void chooseTransition();
+  void handleTransitionStateChanged();
+  void tryFinishAnimatedUnlock();
+  void finishUnlock();
+  void notifyLockAborted();
   void resetLockState();
   void clearInstances();
   void updatePromptOnSurfaces();
@@ -121,6 +136,10 @@ private:
   void stopFingerprint();
   void handleFingerprintStatus(const std::string& message, bool isError);
   static void clearSensitiveString(std::string& value);
+  /// Passwordless grace window: any keypress or pointer movement beyond 5px unlocks
+  /// without a password while the window is live (matches hyprlock).
+  [[nodiscard]] bool isInGracePeriod() const noexcept;
+  void tryGraceUnlock();
 
   WaylandConnection* m_wayland = nullptr;
   RenderContext* m_renderContext = nullptr;
@@ -142,8 +161,15 @@ private:
   std::uint64_t m_authGeneration = 0;
   bool m_lockPending = false;
   bool m_locked = false;
+  bool m_lockStarting = false;
   bool m_desktopCapturesPrimed = false;
+  std::uint64_t m_desktopCaptureGeneration = 0;
   bool m_lockDeferred = false;
+  bool m_unlocking = false;
+  bool m_unlockFinishQueued = false;
+  std::optional<LockscreenTransition> m_activeTransition;
+  LockscreenTransitionParams m_transitionParams;
+  float m_transitionDurationMs = 1500.0F;
   std::function<void()> m_pendingAfterLocked;
   std::function<void()> m_onSessionLocked;
   std::function<void()> m_onSessionUnlocked;
@@ -153,4 +179,10 @@ private:
   const WeatherService* m_weather = nullptr;
   HttpClient* m_httpClient = nullptr;
   Timer m_suspendTimeoutTimer;
+  // CLOCK_BOOTTIME millis when the lock flow started; grace expires gracePeriodSeconds after it.
+  std::int64_t m_lockedAtMillis = 0;
+  bool m_graceAllowed = false;
+  double m_pointerEnterX = 0.0;
+  double m_pointerEnterY = 0.0;
+  Timer m_unlockTransitionTimer;
 };

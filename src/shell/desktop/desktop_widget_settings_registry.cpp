@@ -274,6 +274,9 @@ namespace desktop_settings {
       auto circle = boolSpec("circle", true);
       circle.visibleWhen = analogOnly;
       add(std::move(circle));
+      auto showSeconds = boolSpec("show_seconds", true);
+      showSeconds.visibleWhen = analogOnly;
+      add(std::move(showSeconds));
     } else if (type == "audio_visualizer") {
       add(intSpec("bands", 32, 4.0, 128.0, 4.0));
       add(boolSpec("mirrored", true));
@@ -332,6 +335,11 @@ namespace desktop_settings {
       add(colorSpec("color", "on_surface"));
       add(fontFamilySpec());
       add(boolSpec("shadow", true));
+      add(boolSpec("album_art_background", false));
+      auto albumArtBlur = intSpec("album_art_blur", 24, 0.0, 96.0, 4.0);
+      albumArtBlur.visibleWhen = WidgetSettingVisibility{"album_art_background", {"true"}};
+      add(std::move(albumArtBlur));
+      add(boolSpec("audio_visualizer", false));
       add(boolSpec("hide_when_no_media", false));
     } else if (type == "label") {
       add(stringSpec("title", "Title"));

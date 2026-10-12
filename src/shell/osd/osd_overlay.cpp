@@ -1,5 +1,6 @@
 #include "shell/osd/osd_overlay.h"
 
+#include "compositors/compositor_platform.h"
 #include "config/config_service.h"
 #include "config/config_types.h"
 #include "core/deferred_call.h"
@@ -23,8 +24,6 @@
 namespace {
 
   constexpr Logger kLog("osd");
-
-  constexpr int kHideDelayMs = Style::animSlow * 3 + Style::animFast * 2;
 
   enum class OsdRevealDir { FromLeft, FromRight, FromTop, FromBottom };
 
@@ -84,6 +83,21 @@ namespace {
       return 0.97F;
     }
     return std::clamp(config->config().osd.backgroundOpacity, 0.0F, 1.0F);
+  }
+
+  [[nodiscard]] ColorSpec osdBorderColor(const ConfigService* config) {
+    if (config == nullptr) {
+      return colorSpecFromRole(ColorRole::Outline);
+    }
+    return config->config().osd.borderColor;
+  }
+
+  [[nodiscard]] float osdBorderWidth(const ConfigService* config, float scale) {
+    if (config == nullptr) {
+      return Style::borderWidth * scale;
+    }
+    const auto& osd = config->config().osd;
+    return osd.border ? std::max(0.0F, osd.borderWidth) * scale : 0.0F;
   }
 
   [[nodiscard]] bool isVerticalOrientation(const std::string& orientation) { return orientation == "vertical"; }
@@ -198,8 +212,11 @@ OsdOverlay::OsdOverlay() = default;
 
 OsdOverlay::~OsdOverlay() = default;
 
-void OsdOverlay::initialize(WaylandConnection& wayland, ConfigService* config, RenderContext* renderContext) {
+void OsdOverlay::initialize(
+    WaylandConnection& wayland, CompositorPlatform& platform, ConfigService* config, RenderContext* renderContext
+) {
   m_wayland = &wayland;
+  m_platform = &platform;
   m_config = config;
   m_renderContext = renderContext;
   m_lastConfiguredEnabled = m_config == nullptr || m_config->config().osd.enabled;
@@ -268,6 +285,10 @@ void OsdOverlay::show(const OsdContent& content) {
     return;
   }
 
+  const bool followFocusedOutput = m_config != nullptr && m_config->config().osd.followFocusedOutput;
+  if (followFocusedOutput && !isVisible() && m_platform != nullptr) {
+    m_targetOutput = m_platform->preferredInteractiveOutput();
+  }
   m_content = content;
   ensureSurfaces();
   for (auto& inst : m_instances) {
@@ -335,6 +356,9 @@ std::vector<std::string> OsdOverlay::osdMonitors() const {
 }
 
 bool OsdOverlay::shouldRenderOnOutput(const WaylandOutput& output) const {
+  if (m_followFocusedOutput) {
+    return output.output == m_targetOutput;
+  }
   const auto selectedMonitors = osdMonitors();
   if (selectedMonitors.empty()) {
     return true;
@@ -348,7 +372,16 @@ void OsdOverlay::onOutputChange() {
   if (m_instances.empty()) {
     return;
   }
+  const bool wasVisible = isVisible();
   ensureSurfaces();
+  if (wasVisible) {
+    for (auto& inst : m_instances) {
+      if (inst->surface != nullptr && !inst->visible && !inst->showPending && inst->showAnimId == 0) {
+        inst->showPending = true;
+        inst->surface->requestUpdate();
+      }
+    }
+  }
   requestLayout();
 }
 
@@ -383,7 +416,16 @@ void OsdOverlay::ensureSurfaces() {
   const std::string orientation = effectiveOsdOrientation(m_content, configOrientation);
   const std::string position = effectiveOsdPosition(orientation, horizontalPosition, verticalPosition);
   const float layoutScale = osdUiScale(m_config);
-  const auto selectedMonitors = osdMonitors();
+  m_followFocusedOutput = m_config != nullptr && m_config->config().osd.followFocusedOutput;
+  if (!m_followFocusedOutput) {
+    m_targetOutput = nullptr;
+  } else {
+    const WaylandOutput* targetOutput = m_targetOutput != nullptr ? m_wayland->findOutputByWl(m_targetOutput) : nullptr;
+    if (targetOutput == nullptr || !targetOutput->done || !targetOutput->hasUsableGeometry()) {
+      m_targetOutput = m_platform != nullptr ? m_platform->preferredInteractiveOutput() : nullptr;
+    }
+  }
+  const auto selectedMonitors = m_followFocusedOutput ? std::vector<std::string>{} : osdMonitors();
 
   if (!m_instances.empty()
       && (position != m_lastPosition
@@ -615,18 +657,17 @@ void OsdOverlay::buildScene(Instance& inst, std::uint32_t width, std::uint32_t h
   const float cardX = cardBaseX(w, cw);
   const float cardY = cardBaseYForPosition(m_lastPosition, h, ch);
   const float backgroundOpacity = osdBackgroundOpacity(m_config);
-  const bool drawBorder = m_config == nullptr || m_config->config().osd.border;
-  const float border = drawBorder ? Style::borderWidth * s : 0.0F;
+  const ColorSpec borderColor = osdBorderColor(m_config);
+  const float border = osdBorderWidth(m_config, s);
 
   inst.sceneRoot->addChild(
       ui::box({
           .out = &inst.background,
           .width = cw,
           .height = ch,
-          .configure = [cardX, cardY, cw, ch, s, border, backgroundOpacity](Box& box) {
-            box.setCardStyle();
+          .configure = [cardX, cardY, cw, ch, s, border, borderColor, backgroundOpacity](Box& box) {
             box.setFill(colorSpecFromRole(ColorRole::Surface, backgroundOpacity));
-            box.setBorder(colorSpecFromRole(ColorRole::Outline), border);
+            box.setBorder(borderColor, border);
             box.setRadius(osdCardRadius(cw, ch, s));
             box.setPosition(cardX, cardY);
             box.setZIndex(0);
@@ -723,6 +764,7 @@ void OsdOverlay::updateInstanceContent(Instance& inst) {
   const float cw = cardWidth(s, m_lastOrientation);
   const float ch = cardHeight(s, m_lastOrientation, m_lastShowProgress);
   inst.background->setFill(colorSpecFromRole(ColorRole::Surface, osdBackgroundOpacity(m_config)));
+  inst.background->setBorder(osdBorderColor(m_config), osdBorderWidth(m_config, s));
 
   const ColorRole accentRole = m_content.overLimit ? ColorRole::Error
       : m_content.inactive                         ? ColorRole::OnSurfaceVariant
@@ -867,8 +909,10 @@ void OsdOverlay::animateInstance(Instance& inst) {
     applyReveal(inst, 1.0F);
   }
 
+  const float hideDelayMs =
+      static_cast<float>(m_config != nullptr ? m_config->config().osd.hideDelayMs : OsdConfig{}.hideDelayMs);
   inst.hideAnimId = inst.animations.animateTimer(
-      1.0F, 0.0F, kHideDelayMs, Easing::Linear, [](float /*v*/) {},
+      1.0F, 0.0F, hideDelayMs, Easing::Linear, [](float /*v*/) {},
       [this, &inst]() {
         inst.hideAnimId = inst.animations.animate(
             1.0F, 0.0F, Style::animNormal, Easing::EaseInQuad, [this, &inst](float v) { applyReveal(inst, v); },
@@ -881,6 +925,7 @@ void OsdOverlay::animateInstance(Instance& inst) {
                 });
                 if (allIdle) {
                   destroySurfaces();
+                  m_targetOutput = nullptr;
                 }
               });
             }

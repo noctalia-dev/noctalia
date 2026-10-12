@@ -97,6 +97,9 @@ public:
   void setPanelToggleCallback(PanelToggleCallback callback);
   void setContentScale(float scale) noexcept { m_contentScale = scale; }
   [[nodiscard]] float contentScale() const noexcept { return m_contentScale; }
+  void setFontScale(float scale) noexcept { m_fontScale = scale; }
+  [[nodiscard]] float fontScale() const noexcept { return m_contentScale * m_fontScale; }
+  [[nodiscard]] float fontScaleMultiplier() const noexcept { return m_fontScale; }
   void setLabelFontWeight(FontWeight fontWeight) noexcept { m_labelFontWeight = fontWeight; }
   [[nodiscard]] FontWeight labelFontWeight() const noexcept { return m_labelFontWeight; }
   void setLabelFontFamily(std::string family) noexcept { m_labelFontFamily = std::move(family); }
@@ -105,6 +108,8 @@ public:
   [[nodiscard]] std::string_view configName() const noexcept { return m_configName; }
   void setAnchor(bool anchor) noexcept { m_anchor = anchor; }
   [[nodiscard]] bool isAnchor() const noexcept { return m_anchor; }
+  // Bar-owned gate: when false the bar never shows this widget's tooltips; widgets keep setting their content.
+  [[nodiscard]] bool showsTooltip() const noexcept { return m_showTooltip; }
 
   void setBarCapsuleSpec(WidgetBarCapsuleSpec spec) noexcept { m_barCapsuleSpec = std::move(spec); }
   void setWidgetForeground(std::optional<ColorSpec> color) noexcept { m_widgetForeground = color; }
@@ -164,10 +169,12 @@ protected:
   virtual void doUpdate(Renderer& renderer) { (void)renderer; }
 
   float m_contentScale = 1.0F;
+  float m_fontScale = 1.0F;
   FontWeight m_labelFontWeight = FontWeight::Medium;
   std::string m_labelFontFamily; // empty = inherit renderer-global family
   std::string m_configName;
   bool m_anchor = false;
+  bool m_showTooltip = true;
   AnimationManager* m_animations = nullptr;
   UpdateCallback m_updateCallback;
   RedrawCallback m_redrawCallback;

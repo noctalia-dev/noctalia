@@ -1,7 +1,10 @@
+#include "calendar/calendar_reminders.h"
 #include "calendar/ical_parser.h"
+#include "render/core/color.h"
 
 #include <algorithm>
 #include <chrono>
+#include <cstdint>
 #include <print>
 #include <string>
 #include <thread>
@@ -214,6 +217,22 @@ int main() {
                             "URL:https://calendar.example/event/2\r\n"
                             "DTSTART:20240101T090000Z\r\nDTEND:20240101T100000Z\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n";
     ok = expectOneEventUrl(ics, start, end, "https://calendar.example/event/2", "url property fallback") && ok;
+  }
+
+  // Outlook places Teams links in DESCRIPTION, often as an HTML anchor, while URL points to an event page.
+  {
+    const std::string ics =
+        "BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nUID:teams\r\nSUMMARY:Standup\r\n"
+        "LOCATION:Microsoft Teams Meeting\r\n"
+        "DESCRIPTION:Join now: <a "
+        "href=\"https://teams.microsoft.com/l/meetup-join/19%3ameeting_abc%40thread.v2/0?context=%7b%7d\">Join</a>\r\n"
+        "URL:https://outlook.office.com/calendar/item/3\r\n"
+        "DTSTART:20240101T090000Z\r\nDTEND:20240101T100000Z\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n";
+    ok = expectOneEventUrl(
+             ics, start, end, "https://teams.microsoft.com/l/meetup-join/19%3ameeting_abc%40thread.v2/0?context=%7b%7d",
+             "Teams description link wins over url property"
+         )
+        && ok;
   }
 
   // An event with neither carries no link.
@@ -493,7 +512,7 @@ int main() {
   // All-day (VALUE=DATE) MONTHLY on the 1st, over a one-year window, is exactly 12 - one per month.
   // The old code derived the day-of-month from floor<days> of the UTC instant, which for a zone east
   // of UTC rolls back to the previous civil day (the 31st of Dec), so months without a 31st were
-  // dropped. Correct behaviour is zone-independent. Window is padded ±half-month so each local-midnight
+  // dropped. Correct behavior is zone-independent. Window is padded ±half-month so each local-midnight
   // occurrence lands inside regardless of the running zone's UTC offset.
   {
     const std::string ics = "BEGIN:VEVENT\r\nUID:ad\r\nSUMMARY:s\r\nDTSTART;VALUE=DATE:20240101\r\n"
@@ -720,6 +739,209 @@ int main() {
     ok = expect(
              steady_clock::now() - beforeCancellation < milliseconds{500},
              "cancelled recurrence expansion did not stop promptly"
+         )
+        && ok;
+  }
+
+  // ---- VALARM reminder extraction ----
+
+  const auto leadsOf = [&](const std::string& vevent) {
+    const std::string ics = "BEGIN:VCALENDAR\r\nVERSION:2.0\r\n" + vevent + "END:VCALENDAR\r\n";
+    const ICalParseResult result = parseEvents(ics, utc(2024, 1, 1), utc(2024, 12, 31));
+    return result.events.empty() ? std::optional<std::vector<std::int32_t>>{}
+                                 : result.events.front().reminderLeadSeconds;
+  };
+
+  {
+    const auto leads = leadsOf(
+        "BEGIN:VEVENT\r\nUID:rel\r\nSUMMARY:Standup\r\nDTSTART:20240610T090000Z\r\nDTEND:20240610T093000Z\r\n"
+        "BEGIN:VALARM\r\nACTION:DISPLAY\r\nTRIGGER:-PT15M\r\nEND:VALARM\r\nEND:VEVENT\r\n"
+    );
+    ok =
+        expect(leads == std::vector<std::int32_t>{900}, "relative VALARM trigger did not yield a 15 minute lead") && ok;
+  }
+
+  {
+    // is_null_trigger() is true for PT0S, so gating on it would silently drop "alert at start".
+    const auto leads = leadsOf(
+        "BEGIN:VEVENT\r\nUID:zero\r\nSUMMARY:Now\r\nDTSTART:20240610T090000Z\r\nDTEND:20240610T093000Z\r\n"
+        "BEGIN:VALARM\r\nACTION:DISPLAY\r\nTRIGGER:PT0S\r\nEND:VALARM\r\nEND:VEVENT\r\n"
+    );
+    ok = expect(leads == std::vector<std::int32_t>{0}, "TRIGGER:PT0S did not yield a zero lead") && ok;
+  }
+
+  {
+    // RELATED=END anchors to DTEND, so on a 3 day event -P4D lands one day before DTSTART.
+    const auto leads = leadsOf(
+        "BEGIN:VEVENT\r\nUID:relend\r\nSUMMARY:Trip\r\nDTSTART:20240610T090000Z\r\nDTEND:20240613T090000Z\r\n"
+        "BEGIN:VALARM\r\nACTION:DISPLAY\r\nTRIGGER;RELATED=END:-P4D\r\nEND:VALARM\r\nEND:VEVENT\r\n"
+    );
+    ok = expect(leads == std::vector<std::int32_t>{24 * 3600}, "RELATED=END lead was not anchored to DTEND") && ok;
+  }
+
+  {
+    // RELATED=END:-PT10M on a one hour event fires after the start, so it can never be relevant.
+    const auto leads = leadsOf(
+        "BEGIN:VEVENT\r\nUID:after\r\nSUMMARY:Late\r\nDTSTART:20240610T090000Z\r\nDTEND:20240610T100000Z\r\n"
+        "BEGIN:VALARM\r\nACTION:DISPLAY\r\nTRIGGER;RELATED=END:-PT10M\r\nEND:VALARM\r\nEND:VEVENT\r\n"
+    );
+    ok = expect(!leads.has_value(), "a post-start reminder was not dropped") && ok;
+  }
+
+  {
+    const auto leads = leadsOf(
+        "BEGIN:VEVENT\r\nUID:abs\r\nSUMMARY:One off\r\nDTSTART:20240610T090000Z\r\nDTEND:20240610T093000Z\r\n"
+        "BEGIN:VALARM\r\nACTION:DISPLAY\r\nTRIGGER;VALUE=DATE-TIME:20240610T084500Z\r\n"
+        "END:VALARM\r\nEND:VEVENT\r\n"
+    );
+    ok = expect(leads == std::vector<std::int32_t>{900}, "absolute VALARM trigger was not converted to a lead") && ok;
+  }
+
+  {
+    // An absolute trigger fires once for a whole series, so it must not be copied onto occurrences.
+    const std::string ics = "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nBEGIN:VEVENT\r\nUID:absrec\r\nSUMMARY:Series\r\n"
+                            "DTSTART:20240610T090000Z\r\nDTEND:20240610T093000Z\r\nRRULE:FREQ=DAILY;COUNT=3\r\n"
+                            "BEGIN:VALARM\r\nACTION:DISPLAY\r\nTRIGGER;VALUE=DATE-TIME:20240610T084500Z\r\n"
+                            "END:VALARM\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n";
+    const ICalParseResult result = parseEvents(ics, utc(2024, 1, 1), utc(2024, 12, 31));
+    bool allEmpty = !result.events.empty();
+    for (const auto& event : result.events) {
+      allEmpty = allEmpty && !event.reminderLeadSeconds.has_value();
+    }
+    ok = expect(allEmpty, "absolute trigger on a recurring event was not skipped") && ok;
+  }
+
+  {
+    // Relative triggers must reach every expanded occurrence.
+    const std::string ics =
+        "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nBEGIN:VEVENT\r\nUID:relrec\r\nSUMMARY:Series\r\n"
+        "DTSTART:20240610T090000Z\r\nDTEND:20240610T093000Z\r\nRRULE:FREQ=DAILY;COUNT=3\r\n"
+        "BEGIN:VALARM\r\nACTION:DISPLAY\r\nTRIGGER:-PT5M\r\nEND:VALARM\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n";
+    const ICalParseResult result = parseEvents(ics, utc(2024, 1, 1), utc(2024, 12, 31));
+    bool allCarry = result.events.size() == 3;
+    for (const auto& event : result.events) {
+      allCarry = allCarry && event.reminderLeadSeconds == std::vector<std::int32_t>{300};
+    }
+    ok = expect(allCarry, "recurrence occurrences did not all inherit the relative reminder") && ok;
+  }
+
+  {
+    const auto leads = leadsOf(
+        "BEGIN:VEVENT\r\nUID:email\r\nSUMMARY:Mail\r\nDTSTART:20240610T090000Z\r\nDTEND:20240610T093000Z\r\n"
+        "BEGIN:VALARM\r\nACTION:EMAIL\r\nTRIGGER:-PT30M\r\nEND:VALARM\r\nEND:VEVENT\r\n"
+    );
+    ok = expect(!leads.has_value(), "ACTION:EMAIL alarm was not ignored") && ok;
+  }
+
+  {
+    // ACTION is mandatory per RFC 5545, but a feed omitting it still means "alert me".
+    const auto leads = leadsOf(
+        "BEGIN:VEVENT\r\nUID:noaction\r\nSUMMARY:Bare\r\nDTSTART:20240610T090000Z\r\nDTEND:20240610T093000Z\r\n"
+        "BEGIN:VALARM\r\nTRIGGER:-PT20M\r\nEND:VALARM\r\nEND:VEVENT\r\n"
+    );
+    ok = expect(leads == std::vector<std::int32_t>{1200}, "VALARM without ACTION was not honored") && ok;
+  }
+
+  {
+    const auto leads = leadsOf(
+        "BEGIN:VEVENT\r\nUID:multi\r\nSUMMARY:Many\r\nDTSTART:20240610T090000Z\r\nDTEND:20240610T093000Z\r\n"
+        "BEGIN:VALARM\r\nACTION:DISPLAY\r\nTRIGGER:-PT30M\r\nEND:VALARM\r\n"
+        "BEGIN:VALARM\r\nACTION:AUDIO\r\nTRIGGER:-PT5M\r\nEND:VALARM\r\n"
+        "BEGIN:VALARM\r\nACTION:DISPLAY\r\nTRIGGER:-PT30M\r\nEND:VALARM\r\nEND:VEVENT\r\n"
+    );
+    ok = expect(leads == (std::vector<std::int32_t>{300, 1800}), "multiple VALARMs were not sorted and deduplicated")
+        && ok;
+  }
+
+  // ---- per-event colors ----
+
+  {
+    const std::string icsRfcColor = wrap("COLOR:#336699\r\n");
+    const ICalParseResult res1 = parseEvents(icsRfcColor, start, end);
+    ok = expect(res1.status == ICalParseStatus::Complete, "RFC COLOR parse failed") && ok;
+    ok = expect(!res1.events.empty() && res1.events[0].colorHex == "#336699", "RFC COLOR not extracted") && ok;
+
+    const std::string icsCssColor = wrap("COLOR:blue\r\n");
+    const ICalParseResult res2 = parseEvents(icsCssColor, start, end);
+    ok = expect(res2.status == ICalParseStatus::Complete, "CSS COLOR parse failed") && ok;
+    ok = expect(!res2.events.empty() && res2.events[0].colorHex == "#0000FF", "CSS COLOR not converted to hex") && ok;
+
+    const std::string icsAppleColor = wrap("X-APPLE-CALENDAR-COLOR:#FF5500\r\n");
+    const ICalParseResult res3 = parseEvents(icsAppleColor, start, end);
+    ok = expect(res3.status == ICalParseStatus::Complete, "Apple color parse failed") && ok;
+    ok = expect(!res3.events.empty() && res3.events[0].colorHex == "#FF5500", "Apple color not extracted") && ok;
+
+    const std::string icsAppleMixedCase = wrap("X-Apple-Calendar-Color:#FF5500\r\n");
+    const ICalParseResult res4 = parseEvents(icsAppleMixedCase, start, end);
+    ok = expect(res4.status == ICalParseStatus::Complete, "mixed-case Apple color parse failed") && ok;
+    ok = expect(!res4.events.empty() && res4.events[0].colorHex == "#FF5500", "mixed-case Apple color not extracted")
+        && ok;
+
+    const std::string icsXColor = wrap("X-COLOR:#12AB34\r\n");
+    const ICalParseResult res5 = parseEvents(icsXColor, start, end);
+    ok = expect(res5.status == ICalParseStatus::Complete, "X-COLOR parse failed") && ok;
+    ok = expect(!res5.events.empty() && res5.events[0].colorHex == "#12AB34", "X-COLOR not extracted") && ok;
+
+    const std::string icsOutlookColor = wrap("X-OUTLOOK-COLOR:#A1B2C3\r\n");
+    const ICalParseResult res6 = parseEvents(icsOutlookColor, start, end);
+    ok = expect(res6.status == ICalParseStatus::Complete, "X-OUTLOOK-COLOR parse failed") && ok;
+    ok = expect(!res6.events.empty() && res6.events[0].colorHex == "#A1B2C3", "X-OUTLOOK-COLOR not extracted") && ok;
+
+    const std::string icsPrecedence = wrap("COLOR:blue\r\nX-COLOR:#FF0000\r\n");
+    const ICalParseResult res7 = parseEvents(icsPrecedence, start, end);
+    ok = expect(res7.status == ICalParseStatus::Complete, "color precedence parse failed") && ok;
+    ok = expect(!res7.events.empty() && res7.events[0].colorHex == "#0000FF", "RFC COLOR did not win") && ok;
+
+    const std::string icsInvalidRfcColor = wrap("COLOR:not-a-color\r\nX-COLOR:#0A0B0C\r\n");
+    const ICalParseResult res8 = parseEvents(icsInvalidRfcColor, start, end);
+    ok = expect(res8.status == ICalParseStatus::Complete, "invalid RFC color parse failed") && ok;
+    ok = expect(
+             !res8.events.empty() && res8.events[0].colorHex == "#0A0B0C",
+             "vendor color was not used after invalid RFC COLOR"
+         )
+        && ok;
+
+    const std::string icsModernNamedColor = wrap("COLOR:rebeccapurple\r\n");
+    const ICalParseResult res9 = parseEvents(icsModernNamedColor, start, end);
+    ok = expect(res9.status == ICalParseStatus::Complete, "modern named color parse failed") && ok;
+    ok = expect(!res9.events.empty() && res9.events[0].colorHex == "#663399", "modern named color was not converted")
+        && ok;
+
+    const std::string icsNoColor = wrap("");
+    const ICalParseResult res10 = parseEvents(icsNoColor, start, end);
+    ok = expect(res10.status == ICalParseStatus::Complete, "No-color parse failed") && ok;
+    ok = expect(!res10.events.empty() && res10.events[0].colorHex.empty(), "No-color event has non-empty colorHex")
+        && ok;
+  }
+
+  {
+    std::string vevent =
+        "BEGIN:VEVENT\r\nUID:cap\r\nSUMMARY:Capped\r\nDTSTART:20240610T090000Z\r\nDTEND:20240610T093000Z\r\n";
+    for (int minutes = 1; minutes <= 8; ++minutes) {
+      vevent += "BEGIN:VALARM\r\nACTION:DISPLAY\r\nTRIGGER:-PT" + std::to_string(minutes) + "M\r\nEND:VALARM\r\n";
+    }
+    vevent += "END:VEVENT\r\n";
+    ok = expect(
+             leadsOf(vevent).value_or(std::vector<std::int32_t>{}).size() == calendar::kMaxRemindersPerEvent,
+             "VALARM count was not capped"
+         )
+        && ok;
+  }
+
+  {
+    const auto leads = leadsOf(
+        "BEGIN:VEVENT\r\nUID:none\r\nSUMMARY:Quiet\r\nDTSTART:20240610T090000Z\r\nDTEND:20240610T093000Z\r\n"
+        "END:VEVENT\r\n"
+    );
+    ok = expect(!leads.has_value(), "event without VALARM reported reminders") && ok;
+  }
+
+  {
+    Color color;
+    ok = expect(!tryParseCssColor("red", color), "strict CSS parser accepted a named color") && ok;
+    ok = expect(
+             tryParseCssColorWithNamedColors("ReBeccAPurple", color) && color == hex("#663399"),
+             "named CSS parser rejected rebeccapurple"
          )
         && ok;
   }

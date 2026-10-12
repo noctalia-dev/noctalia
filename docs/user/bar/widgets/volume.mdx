@@ -1,0 +1,61 @@
+---
+title: volume
+description: Shows and controls PipeWire output or input volume.
+sidebar:
+  order: 29
+---
+
+Shows PipeWire output (speaker) or input (microphone) volume and mute state.
+
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| `device` | string | `"output"` | Audio target: `"output"` (default sink) or `"input"` (default source / microphone) |
+| `glyph` | string | `""` | Custom icon glyph for the active state. Leave empty to use the built-in dynamic icons |
+| `mute_glyph` | string | `""` | Icon glyph used when muted or at 0% volume. Leave empty to use the built-in mute icon |
+| `effects_profile_glyphs` | table | `{}` | Map EasyEffects profile names to glyph names. |
+| `custom_image` | string | `""` | Path to a custom image displayed instead of the active/mute glyphs. Leave empty to use the glyph |
+| `custom_image_colorize` | bool | `false` | When `true`, tint the custom image with the same color the glyph would use, including `mute_color` while muted |
+| `show_label` | bool | `true` | Show the volume percentage next to the glyph (horizontal and vertical bars) |
+| `mute_color` | string | `"error"` | Color role or hex color for the icon and label when muted |
+| `hide_when_inactive` | bool | `false` | *(Input only)* Hide the microphone widget while no application is capturing audio |
+
+```toml
+[widget.volume]
+device = "output"   # output | input
+glyph = ""          # custom active glyph; empty = built-in dynamic icons
+mute_glyph = ""     # custom mute/0% glyph; empty = built-in mute icon
+effects_profile_glyphs = { Gaming = "device-gamepad", Music = "music" }
+show_label = false
+mute_color = "error"
+
+[widget.input-volume]
+type = "volume"
+device = "input"
+hide_when_inactive = true   # input only: hide when no app is capturing audio
+
+[widget.output-volume]
+type = "volume"
+device = "output"
+```
+
+**Command-line controls:**
+
+```sh
+# Output (speaker)
+noctalia msg volume-set 65
+noctalia msg volume-up
+noctalia msg volume-up 10
+noctalia msg volume-down
+noctalia msg volume-mute
+
+# Input (microphone)
+noctalia msg mic-volume-set 0.5
+noctalia msg mic-volume-up
+noctalia msg mic-volume-up 5%
+noctalia msg mic-volume-down
+noctalia msg mic-mute
+```
+
+Volume and mic IPC use a default step of 5% when no explicit step is provided. Values and steps accept normalized (`0.0`–`1.0`) or percentage-style values (`65`, `65%`, `5%`). Rule of thumb: if you include a decimal and the value is `<= 1.0`, it is treated as normalized; otherwise it is treated as a percentage.
+
+Output and mic volume are clamped to 0–100% by default. If `[audio] enable_overdrive = true`, the maximum is raised to 150%.

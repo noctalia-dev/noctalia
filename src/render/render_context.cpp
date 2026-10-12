@@ -5,9 +5,11 @@
 #include "core/scoped_timer.h"
 #include "core/ui_phase.h"
 #include "render/backend/render_backend.h"
+#include "render/core/lockscreen_transition_types.h"
 #include "render/core/texture_handle.h"
 #include "render/core/texture_manager.h"
 #include "render/core/wallpaper_types.h"
+#include "render/gl_shared_context.h"
 #include "render/render_target.h"
 #include "render/scene/audio_spectrum_node.h"
 #include "render/scene/countdown_ring_node.h"
@@ -16,6 +18,7 @@
 #include "render/scene/glyph_node.h"
 #include "render/scene/graph_node.h"
 #include "render/scene/image_node.h"
+#include "render/scene/lockscreen_transition_node.h"
 #include "render/scene/node.h"
 #include "render/scene/rect_node.h"
 #include "render/scene/screen_corner_node.h"
@@ -53,24 +56,6 @@ namespace {
     } else if (ms >= kSlowRenderOperationDebugMs) {
       kLog.debug(fmt, std::forward<Args>(args)...);
     }
-  }
-
-  std::string_view graphicsResetStatusName(RenderGraphicsResetStatus status) {
-    switch (status) {
-    case RenderGraphicsResetStatus::NoError:
-      return "no-error";
-    case RenderGraphicsResetStatus::Guilty:
-      return "guilty-context-reset";
-    case RenderGraphicsResetStatus::Innocent:
-      return "innocent-context-reset";
-    case RenderGraphicsResetStatus::Unknown:
-      return "unknown-context-reset";
-    case RenderGraphicsResetStatus::Purged:
-      return "purged-context-reset";
-    case RenderGraphicsResetStatus::Other:
-      return "other-context-reset";
-    }
-    return "other-context-reset";
   }
 
   RenderScissor
@@ -116,6 +101,7 @@ RenderContext::~RenderContext() { cleanup(); }
 
 void RenderContext::initialize(GlSharedContext& shared) {
   cleanup();
+  m_shared = &shared;
   m_backend = createDefaultRenderBackend();
   m_backend->initialize(shared);
 
@@ -123,7 +109,7 @@ void RenderContext::initialize(GlSharedContext& shared) {
   m_backend->textureManager().probeExtensions();
   m_textRenderer.initialize(m_backend.get(), &m_backend->textureManager());
   m_glyphRenderer.initialize(
-      paths::assetPath("fonts/tabler.ttf").string(), m_backend.get(), &m_backend->textureManager()
+      paths::assetPath("fonts/noctalia-tabler.ttf").string(), m_backend.get(), &m_backend->textureManager()
   );
   m_textRenderer.setFontFamily(m_textFontFamily);
   m_textRenderer.setBaseDirection(m_textBaseDirRtl);
@@ -135,6 +121,7 @@ void RenderContext::restoreAfterGraphicsReset(GlSharedContext& shared) {
   if (m_backend == nullptr) {
     throw std::runtime_error("cannot restore an uninitialized render context");
   }
+  m_shared = &shared;
   m_backend->initialize(shared);
   m_backend->textureManager().probeExtensions();
   invalidateGpuResourcesNextFrame();
@@ -268,8 +255,9 @@ TextMetrics RenderContext::measureTextScaled(
   };
 }
 
-TextMetrics RenderContext::measureFontScaled(float scale, float fontSize, FontWeight fontWeight) {
-  auto m = m_textRenderer.measureFont(scale, fontSize, fontWeight);
+TextMetrics
+RenderContext::measureFontScaled(float scale, float fontSize, FontWeight fontWeight, std::string_view fontFamily) {
+  auto m = m_textRenderer.measureFont(scale, fontSize, fontWeight, fontFamily);
   return TextMetrics{
       .width = m.width,
       .left = m.left,
@@ -327,11 +315,8 @@ void RenderContext::handleGraphicsReset(RenderGraphicsResetStatus status) {
   if (m_graphicsResetPending) {
     return;
   }
-  kLog.warn("graphics reset detected: {}; scheduling context recovery", graphicsResetStatusName(status));
   m_graphicsResetPending = true;
-  if (m_graphicsResetCallback) {
-    m_graphicsResetCallback(status);
-  }
+  m_shared->reportGraphicsReset(status, "render");
 }
 
 void RenderContext::renderNode(
@@ -408,8 +393,6 @@ void RenderContext::renderNode(
   case NodeType::Image: {
     const auto* img = static_cast<const ImageNode*>(node);
     if (img->textureId() != 0) {
-      auto tint = img->tint();
-      tint.a *= effectiveOpacity;
       m_backend->drawImage(
           RenderImageDraw{
               .texture = img->textureId(),
@@ -417,7 +400,7 @@ void RenderContext::renderNode(
               .surfaceHeight = sh,
               .width = node->width(),
               .height = node->height(),
-              .tint = tint,
+              .tint = img->tint(),
               .monochromeTint = img->monochromeTint(),
               .alphaMaskTint = img->alphaMaskTint(),
               .opacity = effectiveOpacity,
@@ -556,6 +539,26 @@ void RenderContext::renderNode(
               .fillColor = wallpaper->fillColor(),
               .transform = worldTransform,
               .span = wallpaper->spanParams(),
+          }
+      );
+    }
+    break;
+  }
+  case NodeType::LockscreenTransition: {
+    const auto* transition = static_cast<const LockscreenTransitionNode*>(node);
+    if (transition->texture() != 0) {
+      m_backend->drawLockscreenTransition(
+          LockscreenTransitionDrawParams{
+              .transition = transition->transition(),
+              .texture = transition->texture(),
+              .surfaceWidth = sw,
+              .surfaceHeight = sh,
+              .quadWidth = node->width(),
+              .quadHeight = node->height(),
+              .progress = transition->progress(),
+              .opacity = effectiveOpacity,
+              .params = transition->transitionParams(),
+              .transform = worldTransform,
           }
       );
     }

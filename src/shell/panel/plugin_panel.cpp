@@ -10,7 +10,10 @@
 #include "ui/builders.h"
 #include "ui/controls/context_menu_popup.h"
 #include "ui/controls/flex.h"
+#include "ui/controls/scroll_view.h"
+#include "ui/scroll_into_view.h"
 #include "ui/style.h"
+#include "wayland/layer_surface.h"
 
 #include <algorithm>
 #include <cmath>
@@ -65,7 +68,8 @@ PluginPanel::PluginPanel(scripting::PluginRuntimeContext context, PluginPanelOpt
       m_preferredHeight(options.height > 0.0 ? static_cast<float>(options.height) : kDefaultPanelHeight),
       m_widthFill(options.widthFill), m_heightFill(options.heightFill),
       m_dismissOnOutsideClick(options.dismissOnOutsideClick),
-      m_keyboardMode(keyboardModeFromManifest(options.keyboardFocus)), m_persistent(options.persistent),
+      m_keyboardMode(keyboardModeFromManifest(options.keyboardFocus)),
+      m_layer(layerShellLayerFromConfig(options.shellConfig.layer)), m_persistent(options.persistent),
       m_shellConfig(options.shellConfig) {
   // The manifest parser already validated every spec, so a parse failure here means the two
   // drifted apart. Skip the entry rather than capture a chord nobody can describe.
@@ -181,7 +185,7 @@ void PluginPanel::create() {
         };
       }
       (void)m_runtime->enqueueCallStrings(
-          callback.fn, callback.arg1, callback.arg2, std::move(snapshot), callback.coalesce
+          callback.fn, callback.arg1, callback.arg2, std::move(snapshot), callback.coalesce, callback.coalesceKey
       );
     }
   });
@@ -233,6 +237,7 @@ void PluginPanel::onOpen(std::string_view context) {
   closeContextMenu();
   ++m_openGeneration;
   m_open = true;
+  m_openContext = std::string(context);
   if (m_runtime != nullptr) {
     (void)m_runtime->enqueueCallStrings("onOpen", std::string(context), {}, makeScriptSnapshot());
   }
@@ -242,9 +247,12 @@ void PluginPanel::onOpen(std::string_view context) {
   }
 }
 
+bool PluginPanel::isContextActive(std::string_view context) const { return m_open && m_openContext == context; }
+
 void PluginPanel::onClose() {
   ++m_openGeneration;
   m_open = false;
+  m_openContext.clear();
   closeContextMenu();
   m_tickTimer.stop();
   releaseCapturedKeys();
@@ -295,6 +303,12 @@ void PluginPanel::doLayout(Renderer& renderer, float width, float height) {
 }
 
 void PluginPanel::doUpdate(Renderer& renderer) { (void)renderer; }
+
+void PluginPanel::scrollFocusedInputIntoView(InputArea* area) {
+  if (ScrollView* scrollView = findEnclosingScrollView(area)) {
+    scrollNodeIntoScrollView(*scrollView, nullptr, *area, 0.0F);
+  }
+}
 
 void PluginPanel::startTickTimer() {
   if (!m_wantsSecondTicks || !m_open) {

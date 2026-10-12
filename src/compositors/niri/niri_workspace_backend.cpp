@@ -299,7 +299,7 @@ std::vector<WorkspaceWindow> NiriWorkspaceBackend::workspaceWindows(const std::s
   return result;
 }
 
-bool NiriWorkspaceBackend::focusWindowById(const std::string& windowId) {
+bool NiriWorkspaceBackend::focusWindowById(const std::string& windowId, bool /*warpPointer*/) {
   const auto id = parseUnsigned(windowId);
   if (!id.has_value()) {
     return false;
@@ -739,6 +739,9 @@ std::optional<std::size_t> NiriWorkspaceBackend::parseLeadingNumber(const std::s
 }
 
 std::string NiriWorkspaceBackend::workspaceKey(const WorkspaceState& workspace) {
+  if (!workspace.name.empty()) {
+    return workspace.name;
+  }
   if (workspace.idx > 0) {
     return std::to_string(workspace.idx);
   }

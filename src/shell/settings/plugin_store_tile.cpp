@@ -142,6 +142,23 @@ namespace settings {
         })
     );
     bottomRow->addChild(
+        ui::label({
+            .out = &m_recommendationsLabel,
+            .fontSize = Style::fontSizeMini * scale,
+            .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+            .visible = false,
+        })
+    );
+    bottomRow->addChild(
+        ui::glyph({
+            .out = &m_recommendationsGlyph,
+            .glyph = "thumb-up",
+            .glyphSize = Style::fontSizeMini * scale,
+            .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+            .visible = false,
+        })
+    );
+    bottomRow->addChild(
         ui::glyph({
             .out = &m_addedGlyph,
             .glyph = "check",
@@ -155,7 +172,8 @@ namespace settings {
 
   void PluginStoreTile::bind(
       const scripting::CatalogEntry& entry, std::string_view source, bool onDisk, bool selected, bool hovered,
-      const std::string& thumbnailPath, Renderer* renderer, AsyncTextureCache* textureCache
+      const std::string& thumbnailPath, Renderer* renderer, AsyncTextureCache* textureCache,
+      std::optional<std::uint64_t> recommendations, bool recommended, bool listed
   ) {
     // Thumbnail vs icon fallback.
     const bool hasThumbnail = !thumbnailPath.empty() && renderer != nullptr;
@@ -203,7 +221,7 @@ namespace settings {
 
     // The grid is where a user first meets a plugin, so an unusable or older-than-latest
     // entry has to say so here rather than only in the detail sheet.
-    const bool hasStatus = !entry.compatible || entry.heldBack;
+    const bool hasStatus = !listed || !entry.compatible || entry.heldBack;
     m_statusBadge->setVisible(hasStatus);
     m_statusBadge->setParticipatesInLayout(hasStatus);
     if (hasStatus) {
@@ -211,13 +229,25 @@ namespace settings {
       m_statusBadge->setFill(colorSpecFromRole(role, 0.15F));
       m_statusLabel->setColor(colorSpecFromRole(role));
       m_statusLabel->setText(
-          i18n::tr(entry.compatible ? "settings.plugins.store.held-back" : "settings.plugins.store.incompatible")
+          i18n::tr(
+              !listed ? "settings.plugins.store.not-listed"
+                      : (entry.compatible ? "settings.plugins.store.held-back" : "settings.plugins.store.incompatible")
+          )
       );
     }
 
     m_descLabel->setText(entry.description);
     m_authorLabel->setText(entry.author.empty() ? std::string() : entry.author);
 
+    const auto recommendationColor = colorSpecFromRole(recommended ? ColorRole::Primary : ColorRole::OnSurfaceVariant);
+    m_recommendationsLabel->setColor(recommendationColor);
+    m_recommendationsGlyph->setColor(recommendationColor);
+    m_recommendationsGlyph->setGlyph(recommended ? "thumb-up-filled" : "thumb-up");
+    m_recommendationsLabel->setVisible(recommendations.has_value());
+    m_recommendationsLabel->setParticipatesInLayout(recommendations.has_value());
+    m_recommendationsLabel->setText(recommendations.has_value() ? std::to_string(*recommendations) : std::string());
+    m_recommendationsGlyph->setVisible(recommendations.has_value() || recommended);
+    m_recommendationsGlyph->setParticipatesInLayout(recommendations.has_value() || recommended);
     m_addedGlyph->setVisible(onDisk);
     m_addedGlyph->setParticipatesInLayout(onDisk);
 

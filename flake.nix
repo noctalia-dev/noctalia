@@ -15,6 +15,8 @@
         "aarch64-linux"
       ];
 
+      rev = self.shortRev or self.dirtyShortRev;
+
       forEachSystem =
         perSystem:
         genAttrs systems (
@@ -27,13 +29,13 @@
     in
     {
       overlays.default = final: prev: {
-        noctalia = final.callPackage ./nix/package.nix { };
+        noctalia = final.callPackage ./nix/package.nix { inherit rev; };
       };
 
       packages = forEachSystem (
         { pkgs, ... }:
         rec {
-          default = pkgs.callPackage ./nix/package.nix { };
+          default = pkgs.callPackage ./nix/package.nix { inherit rev; };
           # DEPRECATED: identical to `default`; kept for compat, warns on use.
           cuda = warn "noctalia: the `.#cuda` package output is deprecated and now identical to `.#default` (autoAddDriverRunpath is always applied); switch to `.#default`. This alias will be removed in the future." default;
         }

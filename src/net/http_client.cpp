@@ -3,10 +3,12 @@
 #include "core/deferred_call.h"
 #include "core/log.h"
 
+#include <cctype>
 #include <chrono>
 #include <cstdio>
 #include <filesystem>
 #include <string>
+#include <utility>
 
 namespace {
   constexpr Logger kLog("http");
@@ -75,6 +77,29 @@ namespace {
     return bytes;
   }
 
+  std::size_t captureHeaders(char* ptr, std::size_t size, std::size_t nmemb, void* userdata) {
+    const std::size_t bytes = size * nmemb;
+    auto& headers = *static_cast<std::unordered_map<std::string, std::string>*>(userdata);
+    const std::string_view line(ptr, bytes);
+    if (line.starts_with("HTTP/")) {
+      headers.clear();
+    } else if (const auto colon = line.find(':'); colon != std::string_view::npos) {
+      std::string name(line.substr(0, colon));
+      for (auto& ch : name) {
+        ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+      }
+      auto value = line.substr(colon + 1);
+      const auto first = value.find_first_not_of(" \t\r\n");
+      if (first == std::string_view::npos) {
+        value = {};
+      } else {
+        value = value.substr(first, value.find_last_not_of(" \t\r\n") - first + 1);
+      }
+      headers.insert_or_assign(std::move(name), std::string(value));
+    }
+    return bytes;
+  }
+
   std::size_t forwardStreamChunk(char* ptr, std::size_t size, std::size_t nmemb, void* userdata) {
     const std::size_t bytes = size * nmemb;
     if (userdata == nullptr || ptr == nullptr || bytes == 0) {
@@ -89,8 +114,11 @@ namespace {
   }
 } // namespace
 
-void HttpClient::applyCommonOptions(CURL* easy) {
+void HttpClient::applyCommonOptions(CURL* easy) const {
   curl_easy_setopt(easy, CURLOPT_NOSIGNAL, 1L);
+  if (!m_caBundlePath.empty()) {
+    curl_easy_setopt(easy, CURLOPT_CAINFO, m_caBundlePath.c_str());
+  }
   // With the threaded resolver, curl reports a DNS timeout while its getaddrinfo() thread is
   // still blocked. Without this, curl_easy_cleanup() joins that thread and stalls the main loop
   // for as long as the resolver takes. CURLOPT_QUICK_EXIT detaches it instead: the abandoned
@@ -98,7 +126,7 @@ void HttpClient::applyCommonOptions(CURL* easy) {
   curl_easy_setopt(easy, CURLOPT_QUICK_EXIT, 1L);
 }
 
-HttpClient::HttpClient() {
+HttpClient::HttpClient(std::filesystem::path caBundlePath) : m_caBundlePath(std::move(caBundlePath)) {
   curl_global_init(CURL_GLOBAL_DEFAULT);
   m_multi = curl_multi_init();
 }
@@ -357,6 +385,8 @@ void HttpClient::request(HttpRequest req, ResponseCallback cb) {
   curl_easy_setopt(easy, CURLOPT_ERRORBUFFER, stored.errorBuffer.data());
   curl_easy_setopt(easy, CURLOPT_WRITEFUNCTION, captureResponse);
   curl_easy_setopt(easy, CURLOPT_WRITEDATA, &stored.response);
+  curl_easy_setopt(easy, CURLOPT_HEADERFUNCTION, captureHeaders);
+  curl_easy_setopt(easy, CURLOPT_HEADERDATA, &stored.responseHeaders);
 
   const CURLMcode addResult = curl_multi_add_handle(m_multi, easy);
   if (addResult != CURLM_OK) {
@@ -696,6 +726,7 @@ void HttpClient::finishRequestTransfer(CURL* easy, CURLcode result) {
   response.transportOk = result == CURLE_OK;
   response.status = responseCode;
   response.body = std::move(transfer.response);
+  response.headers = std::move(transfer.responseHeaders);
   response.effectiveUrl = std::move(effectiveUrl);
   if (!response.transportOk) {
     const char* detail = transfer.errorBuffer[0] != '\0' ? transfer.errorBuffer.data() : curl_easy_strerror(result);

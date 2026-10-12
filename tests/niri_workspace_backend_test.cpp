@@ -14,6 +14,7 @@
 #include <sys/un.h>
 #include <thread>
 #include <unistd.h>
+#include <vector>
 
 namespace {
 
@@ -60,9 +61,13 @@ int main() {
       "WorkspacesChanged",
       {{"workspaces",
         {
-            {{"id", 1}, {"idx", 1}, {"output", "DP-1"}},
+            {{"id", 1}, {"idx", 1}, {"name", "development"}, {"output", "DP-1"}},
             {{"id", 2}, {"idx", 2}, {"output", "DP-1"}},
         }}}
+  );
+  ok &= check(
+      backend.workspaceKeys("DP-1") == std::vector<std::string>({"development", "2"}),
+      "workspace keys should prefer names and fall back to indices"
   );
   changes = 0;
   backend.handleEvent(
@@ -102,7 +107,8 @@ int main() {
   auto windows = backend.workspaceWindows();
   const auto window41 = std::ranges::find(windows, "41", &WorkspaceWindow::windowId);
   ok &= check(
-      window41 != windows.end() && window41->x == 2 && window41->y == 1, "window 41 should have updated position"
+      window41 != windows.end() && window41->workspaceKey == "development" && window41->x == 2 && window41->y == 1,
+      "window 41 should use its named workspace and updated position"
   );
 
   std::string request;
@@ -122,7 +128,10 @@ int main() {
     }
     request.assign(buffer, static_cast<std::size_t>(size));
     constexpr std::string_view response = "{\"Ok\":null}\n";
-    (void)::write(client, response.data(), response.size());
+    const ssize_t written = ::write(client, response.data(), response.size());
+    if (written != static_cast<ssize_t>(response.size())) {
+      serverError = 3;
+    }
     ::close(client);
   });
 

@@ -48,7 +48,7 @@ public:
   [[nodiscard]] std::vector<WorkspaceWindow> workspaceWindows(const std::string& outputName = {}) const override;
   [[nodiscard]] bool hasExactWindowIdentity() const noexcept override { return true; }
   [[nodiscard]] std::optional<std::string> focusedWindowId() const override;
-  bool focusWindowById(const std::string& windowId) override;
+  bool focusWindowById(const std::string& windowId, bool warpPointer = false) override;
   bool closeWindowById(const std::string& windowId) override;
   void cleanup() override;
 

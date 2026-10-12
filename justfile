@@ -53,6 +53,10 @@ test m=mode *args: (_ensure-configured m)
     fi
     meson test -C build-{{m}} {{args}}
 
+# Regressions for the GitHub workflow scripts. Pure Python, builds nothing.
+test-workflows:
+    python3 -m unittest discover -s .github/workflows/scripts -p 'test_*.py'
+
 install m:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -71,13 +75,27 @@ uninstall m:
     fi
     ninja -C build-{{m}} uninstall
 
-format:
+_check_formatter:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    version="$(clang-format --version)"
+    echo "$version"
+    if [[ ! "$version" =~ version\ ([0-9]+)\. ]] || [[ "${BASH_REMATCH[1]}" -lt 22 ]]; then
+        echo "error: formatting requires clang-format 22 or newer; put its bin directory on PATH" >&2
+        exit 1
+    fi
+
+format: _check_formatter
     find src tests \( -name '*.cpp' -o -name '*.h' \) -print0 | xargs -0 clang-format -i
     find src tests \( -name '*.cpp' -o -name '*.h' \) -print0 | xargs -0 grep -ZlP '\s+$' | xargs -0 -r sed -i 's/[[:space:]]*$//'
+
+format-check: _check_formatter
+    find src tests \( -name '*.cpp' -o -name '*.h' \) -print0 | xargs -0 clang-format --dry-run -Werror
 
 _clang_tidy m=mode *args:
     #!/usr/bin/env bash
     set -euo pipefail
+    meson compile -C "build-{{m}}" wayland-protocol-headers
     src_root="$(realpath src)"
     # compile_commands.json stores build-relative paths, so clang-tidy emits header
     # diagnostics as ../src/...; the header-filter must match that form (an absolute

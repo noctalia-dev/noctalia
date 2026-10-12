@@ -10,6 +10,8 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <system_error>
+#include <unordered_set>
 #include <vector>
 
 namespace FileUtils {
@@ -107,6 +109,125 @@ namespace FileUtils {
       ++i;
     }
     return out;
+  }
+
+  // Resolves the user's standard Pictures directory. The environment override is
+  // useful for shells that export xdg-user-dirs values; the config-file lookup
+  // covers the normal xdg-user-dirs setup.
+  [[nodiscard]] inline std::filesystem::path defaultPicturesDirectory() {
+    const auto containsUndefinedVariable = [](std::string_view raw) {
+      const auto isNameStart = [](char c) { return (std::isalpha(static_cast<unsigned char>(c)) != 0) || c == '_'; };
+      const auto isNameChar = [](char c) { return (std::isalnum(static_cast<unsigned char>(c)) != 0) || c == '_'; };
+
+      for (std::size_t i = 0; i < raw.size();) {
+        if (raw[i] != '$') {
+          ++i;
+          continue;
+        }
+        if (i + 1 < raw.size() && raw[i + 1] == '{') {
+          const std::size_t close = raw.find('}', i + 2);
+          if (close == std::string_view::npos) {
+            ++i;
+            continue;
+          }
+          const std::string name(raw.substr(i + 2, close - (i + 2)));
+          const char* value = std::getenv(name.c_str());
+          if (value == nullptr || value[0] == '\0') {
+            return true;
+          }
+          i = close + 1;
+          continue;
+        }
+        if (i + 1 < raw.size() && isNameStart(raw[i + 1])) {
+          std::size_t end = i + 2;
+          while (end < raw.size() && isNameChar(raw[end])) {
+            ++end;
+          }
+          const std::string name(raw.substr(i + 1, end - (i + 1)));
+          const char* value = std::getenv(name.c_str());
+          if (value == nullptr || value[0] == '\0') {
+            return true;
+          }
+          i = end;
+          continue;
+        }
+        ++i;
+      }
+      return false;
+    };
+
+    const auto resolveExpanded = [&](std::string_view raw) {
+      if (raw.empty() || containsUndefinedVariable(raw)) {
+        return std::filesystem::path{};
+      }
+      const std::filesystem::path resolved = expandUserPath(expandEnvVars(raw));
+      return resolved.is_absolute() ? resolved : std::filesystem::path{};
+    };
+
+    if (const char* xdgPictures = std::getenv("XDG_PICTURES_DIR"); xdgPictures != nullptr && xdgPictures[0] != '\0') {
+      if (const std::filesystem::path resolved = resolveExpanded(xdgPictures); !resolved.empty()) {
+        return resolved;
+      }
+    }
+
+    const char* home = std::getenv("HOME");
+    if (home == nullptr || home[0] == '\0') {
+      return std::filesystem::path("/tmp");
+    }
+    const std::filesystem::path homePath(home);
+    if (!homePath.is_absolute()) {
+      return std::filesystem::path("/tmp");
+    }
+
+    std::filesystem::path configHome = homePath / ".config";
+    if (const char* xdgConfig = std::getenv("XDG_CONFIG_HOME"); xdgConfig != nullptr && xdgConfig[0] != '\0') {
+      const std::filesystem::path candidate(xdgConfig);
+      if (candidate.is_absolute()) {
+        configHome = candidate;
+      }
+    }
+
+    std::ifstream userDirs(configHome / "user-dirs.dirs");
+    std::string line;
+    constexpr std::string_view key = "XDG_PICTURES_DIR";
+    while (std::getline(userDirs, line)) {
+      const std::size_t keyStart = line.find_first_not_of(" \t");
+      if (keyStart == std::string::npos || line.compare(keyStart, key.size(), key) != 0) {
+        continue;
+      }
+      const std::size_t equals = keyStart + key.size();
+      if (equals >= line.size() || line[equals] != '=') {
+        continue;
+      }
+      const std::size_t valueStart = line.find_first_not_of(" \t", equals + 1);
+      if (valueStart == std::string::npos || line[valueStart] != '"') {
+        continue;
+      }
+
+      std::string value;
+      bool terminated = false;
+      for (std::size_t i = valueStart + 1; i < line.size(); ++i) {
+        if (line[i] == '"') {
+          terminated = true;
+          break;
+        }
+        if (line[i] == '\\' && i + 1 < line.size()) {
+          ++i;
+        }
+        value.push_back(line[i]);
+      }
+      if (!terminated) {
+        continue;
+      }
+      if (value.starts_with("$HOME/")) {
+        return homePath / value.substr(6);
+      }
+      if (!value.empty() && value[0] == '/') {
+        return std::filesystem::path(value);
+      }
+    }
+
+    return homePath / "Pictures";
   }
 
   // Expand XDG base-directory tokens ($XDG_CONFIG_HOME, etc.) to absolute paths
@@ -400,6 +521,38 @@ namespace FileUtils {
       absolute = std::filesystem::path(path);
     }
     return expandUserPath(absolute.lexically_normal().string()).string();
+  }
+
+  // Walks `root` recursively, following directory symlinks. follow_directory_symlink has no cycle detection, so each
+  // real directory (by canonical path) is entered at most once: a link back up the tree or a second link to an
+  // already walked directory is skipped. `onDirectory(entry)` runs for each newly reached directory and returns
+  // whether to descend into it; `onFile(entry)` runs for every other entry. The root is claimed but not reported.
+  // Unreadable directories are skipped; any other iteration error ends the walk.
+  template <typename OnDirectory, typename OnFile>
+  void walkDirectoryTree(const std::filesystem::path& root, OnDirectory&& onDirectory, OnFile&& onFile) {
+    std::unordered_set<std::string> claimed;
+    const auto claim = [&claimed](const std::filesystem::path& dir) {
+      std::error_code ec;
+      const auto resolved = std::filesystem::canonical(dir, ec);
+      return !ec && claimed.insert(resolved.string()).second;
+    };
+    if (!claim(root)) {
+      return;
+    }
+
+    constexpr auto options = std::filesystem::directory_options::skip_permission_denied
+        | std::filesystem::directory_options::follow_directory_symlink;
+    std::error_code ec;
+    for (std::filesystem::recursive_directory_iterator it(root, options, ec), end; !ec && it != end; it.increment(ec)) {
+      std::error_code typeEc;
+      if (it->is_directory(typeEc) && !typeEc) {
+        if (!claim(it->path()) || !onDirectory(*it)) {
+          it.disable_recursion_pending();
+        }
+        continue;
+      }
+      onFile(*it);
+    }
   }
 
 } // namespace FileUtils

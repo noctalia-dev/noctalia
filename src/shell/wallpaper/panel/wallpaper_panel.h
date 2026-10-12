@@ -136,6 +136,7 @@ private:
   Select* m_favoritePaletteDetailSelect = nullptr;
   Select* m_monitorSelect = nullptr;
   Input* m_filterInput = nullptr;
+  Button* m_favoriteCurrentButton = nullptr;
   Toggle* m_flattenToggle = nullptr;
   Label* m_flattenLabel = nullptr;
   Button* m_sortButton = nullptr;
@@ -163,6 +164,7 @@ private:
   Timer m_filterDebounceTimer;
 
   bool m_flatten = false;
+  bool m_showNames = true;
   bool m_scanPending = false;
   SortMode m_sortMode = SortMode::NameAsc;
   std::uint64_t m_randomSeed = 0;

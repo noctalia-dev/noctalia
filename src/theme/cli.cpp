@@ -255,6 +255,8 @@ namespace noctalia::theme {
       const auto onSurfaceVariant = loadHexColor(src, "mOnSurfaceVariant");
       const auto outlineRaw = loadHexColor(src, "mOutline");
       const auto shadow = loadHexColor(src, "mShadow").value_or(surface.value_or(Color{}));
+      const auto hover = loadHexColor(src, "mHover");
+      const auto onHover = loadHexColor(src, "mOnHover");
 
       if (!primary
           || !onPrimary
@@ -268,7 +270,9 @@ namespace noctalia::theme {
           || !onSurface
           || !surfaceVariant
           || !onSurfaceVariant
-          || !outlineRaw) {
+          || !outlineRaw
+          || !hover
+          || !onHover) {
         err = "fixed palette json is missing required colors";
         return std::nullopt;
       }
@@ -287,8 +291,8 @@ namespace noctalia::theme {
           .onSurfaceVariant = rgbHex(onSurfaceVariant->toArgb() & 0x00FFFFFFU),
           .outline = rgbHex(outlineRaw->toArgb() & 0x00FFFFFFU),
           .shadow = rgbHex(shadow.toArgb() & 0x00FFFFFFU),
-          .hover = rgbHex(tertiary->toArgb() & 0x00FFFFFFU),
-          .onHover = rgbHex(onTertiary->toArgb() & 0x00FFFFFFU),
+          .hover = rgbHex(hover->toArgb() & 0x00FFFFFFU),
+          .onHover = rgbHex(onHover->toArgb() & 0x00FFFFFFU),
       };
     }
 

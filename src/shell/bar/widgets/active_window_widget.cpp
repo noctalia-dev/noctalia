@@ -51,7 +51,7 @@ void ActiveWindowWidget::create() {
   rootNode->addChild(
       ui::label({
           .out = &m_title,
-          .fontSize = Style::fontSizeBody * m_contentScale,
+          .fontSize = Style::fontSizeBody * fontScale(),
           .fontWeight = labelFontWeight(),
           .fontFamily = labelFontFamily(),
           .color = widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface)),

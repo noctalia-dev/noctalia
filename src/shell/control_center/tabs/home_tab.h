@@ -108,6 +108,7 @@ private:
 
   Label* m_timeLabel = nullptr;
   Label* m_dateLabel = nullptr;
+  Flex* m_weatherRow = nullptr;
   Glyph* m_weatherGlyph = nullptr;
   Label* m_weatherLine = nullptr;
   Label* m_userHost = nullptr;
@@ -158,6 +159,9 @@ private:
   std::chrono::steady_clock::time_point m_nextRealtimeUpdateAt;
   std::chrono::steady_clock::time_point m_lastRealtimeMprisPollAt;
   Timer m_progressTimer;
+  // Keeps the home tab clock ticking while the panel is open and idle; the clock
+  // otherwise only refreshes when an unrelated service forces a redraw.
+  Timer m_clockTimer;
 
   GridView* m_shortcutsGrid = nullptr;
   std::vector<ShortcutPad> m_shortcutPads;

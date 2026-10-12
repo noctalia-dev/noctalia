@@ -5,6 +5,7 @@
 #include "cli/schema_firefox_theme.h"
 #include "core/inotify/inotify.h"
 #include "theme/firefox_theme/css.h"
+#include "theme/firefox_theme/manifest.h"
 #include "theme/firefox_theme/native_messaging.h"
 #include "theme/firefox_theme/settings.h"
 
@@ -36,8 +37,6 @@ namespace noctalia::theme {
     namespace settings = firefox_theme::settings;
 
     // Wire names required by the Pywalfox Firefox/Thunderbird extension.
-    constexpr std::string_view kExtensionId = "pywalfox@frewacom.org";
-    constexpr std::string_view kManifestName = "pywalfox";
     constexpr std::string_view kHostVersion = "noctalia-2.9.0-compat";
 
     constexpr std::string_view kActionVersion = "debug:version";
@@ -206,44 +205,7 @@ namespace noctalia::theme {
       return {};
     }
 
-    [[nodiscard]] bool pathLooksLikeNoctaliaHost(const std::filesystem::path& path) {
-      const std::string name = path.filename().string();
-      return name == "noctalia" || name == "noctalia-pywalfox";
-    }
-
-    [[nodiscard]] std::optional<std::filesystem::path> readExistingManifestHostPath() {
-      const auto manifest = userManifestPath();
-      if (manifest.empty()) {
-        return std::nullopt;
-      }
-      std::ifstream in(manifest);
-      if (!in) {
-        return std::nullopt;
-      }
-      try {
-        nlohmann::json root;
-        in >> root;
-        if (!root.contains("path") || !root["path"].is_string()) {
-          return std::nullopt;
-        }
-        return std::filesystem::path(root["path"].get<std::string>());
-      } catch (...) {
-        return std::nullopt;
-      }
-    }
-
     bool installManifest(const std::filesystem::path& hostExecutable, std::string* error) {
-      if (hostExecutable.empty() || !std::filesystem::is_regular_file(hostExecutable)) {
-        if (error != nullptr) {
-          *error = "noctalia executable not found";
-        }
-        return false;
-      }
-
-      std::error_code ec;
-      const auto canonical = std::filesystem::weakly_canonical(hostExecutable, ec);
-      const auto path = ec ? hostExecutable : canonical;
-
       const auto manifest = userManifestPath();
       if (manifest.empty()) {
         if (error != nullptr) {
@@ -251,32 +213,7 @@ namespace noctalia::theme {
         }
         return false;
       }
-
-      std::filesystem::create_directories(manifest.parent_path(), ec);
-      if (ec) {
-        if (error != nullptr) {
-          *error = "failed to create native-messaging-hosts directory: " + ec.message();
-        }
-        return false;
-      }
-
-      const nlohmann::json body = {
-          {"name", std::string(kManifestName)},
-          {"description", "Noctalia Firefox theme native messaging host"},
-          {"path", path.string()},
-          {"type", "stdio"},
-          {"allowed_extensions", nlohmann::json::array({std::string(kExtensionId)})},
-      };
-
-      std::ofstream out(manifest, std::ios::trunc);
-      if (!out) {
-        if (error != nullptr) {
-          *error = "failed to write " + manifest.string();
-        }
-        return false;
-      }
-      out << body.dump(2) << '\n';
-      return true;
+      return firefox_theme::manifest::install(manifest, hostExecutable, error);
     }
 
     bool uninstallManifest(std::string* error) {
@@ -310,13 +247,15 @@ namespace noctalia::theme {
         return false;
       }
 
-      if (const auto existing = readExistingManifestHostPath()) {
-        if (!pathLooksLikeNoctaliaHost(*existing)) {
-          if (warning != nullptr) {
-            *warning = "leaving existing native messaging host at " + existing->string();
-          }
-          return true;
+      const auto manifestPath = userManifestPath();
+      const auto existing = firefox_theme::manifest::inspect(manifestPath);
+      if (existing.ownership == firefox_theme::manifest::Ownership::Foreign) {
+        if (warning != nullptr) {
+          *warning = existing.hostPath.empty()
+              ? "leaving existing native messaging manifest at " + manifestPath.string()
+              : "leaving existing native messaging host at " + existing.hostPath.string();
         }
+        return true;
       }
 
       return installManifest(host, error);
@@ -656,11 +595,11 @@ namespace noctalia::theme {
       return false;
     }
     const std::string_view arg = argv[1];
-    if (arg == kExtensionId) {
+    if (arg == firefox_theme::manifest::kExtensionId) {
       return true;
     }
     // Firefox may pass an absolute chrome/extension path as argv[1] and the id as argv[2].
-    if (argc >= 3 && argv[2] != nullptr && std::string_view(argv[2]) == kExtensionId) {
+    if (argc >= 3 && argv[2] != nullptr && std::string_view(argv[2]) == firefox_theme::manifest::kExtensionId) {
       return true;
     }
     return false;

@@ -119,7 +119,7 @@ void main() {
     vec4 fill;
     if (u_monochrome != 0) {
         float coverage = u_alpha_mask != 0 ? texel.a : dot(texel.rgb, vec3(0.299, 0.587, 0.114)) * texel.a;
-        fill = vec4(u_tint.rgb * coverage, coverage * u_tint.a);
+        fill = vec4(u_tint.rgb, coverage * u_tint.a);
     } else {
         fill = texel * u_tint;
     }

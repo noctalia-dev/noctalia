@@ -148,7 +148,9 @@ namespace calendar {
         }
         for (CalendarEvent& event : result.events) {
           event.calendarName = request.calendarName;
-          event.colorHex = request.color;
+          if (event.colorHex.empty() && !request.color.empty()) {
+            event.colorHex = request.color;
+          }
           events.push_back(std::move(event));
         }
       }

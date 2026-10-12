@@ -208,8 +208,9 @@ DesktopClockWidget::Style DesktopClockWidget::styleFromSetting(std::string_view 
 
 DesktopClockWidget::DesktopClockWidget(Options options)
     : m_style(options.style), m_format(std::move(options.format)), m_color(options.color), m_shadow(options.shadow),
-      m_showCircle(options.showCircle), m_timezone(std::move(options.timezone)), m_centerText(options.centerText),
-      m_showsSeconds(m_style == Style::Analog || formatShowsSeconds(m_format)) {}
+      m_showCircle(options.showCircle), m_showSeconds(options.showSeconds), m_timezone(std::move(options.timezone)),
+      m_centerText(options.centerText),
+      m_showsSeconds((m_style == Style::Analog && m_showSeconds) || formatShowsSeconds(m_format)) {}
 
 void DesktopClockWidget::create() {
   auto rootNode = ui::node({});
@@ -276,6 +277,7 @@ void DesktopClockWidget::create() {
   syncDigitalTextAlign();
   syncStyleVisibility();
   syncCircleVisibility();
+  syncSecondHandVisibility();
   applyShadow();
   syncAnalogColors();
   updateAnalogHands();
@@ -305,6 +307,12 @@ void DesktopClockWidget::syncCircleVisibility() {
   }
   if (m_ticksRoot != nullptr) {
     m_ticksRoot->setVisible(m_showCircle);
+  }
+}
+
+void DesktopClockWidget::syncSecondHandVisibility() {
+  if (m_secondPivot != nullptr) {
+    m_secondPivot->setVisible(m_showSeconds);
   }
 }
 
@@ -426,23 +434,24 @@ void DesktopClockWidget::layoutDigital(Renderer& renderer) {
 
 void DesktopClockWidget::updateAnalogHands() {
   const LocalTimeParts time = currentLocalTimeParts(m_timezone);
-  if (time.hour == m_lastHour && time.minute == m_lastMinute && time.second == m_lastSecond) {
+  const int second = m_showSeconds ? time.second : 0;
+  if (time.hour == m_lastHour && time.minute == m_lastMinute && second == m_lastSecond) {
     return;
   }
 
   m_lastHour = time.hour;
   m_lastMinute = time.minute;
-  m_lastSecond = time.second;
+  m_lastSecond = second;
 
   const float hourAngle = degreesToRadians(
       (static_cast<float>(time.hour % 12)
        + static_cast<float>(time.minute) / 60.0F
-       + static_cast<float>(time.second) / 3600.0F)
+       + static_cast<float>(second) / 3600.0F)
       * 30.0F
   );
   const float minuteAngle =
-      degreesToRadians((static_cast<float>(time.minute) + static_cast<float>(time.second) / 60.0F) * 6.0F);
-  const float secondAngle = degreesToRadians(static_cast<float>(time.second) * 6.0F);
+      degreesToRadians((static_cast<float>(time.minute) + static_cast<float>(second) / 60.0F) * 6.0F);
+  const float secondAngle = degreesToRadians(static_cast<float>(second) * 6.0F);
 
   if (m_hourPivot != nullptr) {
     m_hourPivot->setRotation(hourAngle);
@@ -462,9 +471,11 @@ bool DesktopClockWidget::applySetting(
   if (key == "clock_style") {
     if (const auto* v = std::get_if<std::string>(&value)) {
       m_style = styleFromSetting(*v);
-      m_showsSeconds = m_style == Style::Analog || formatShowsSeconds(m_format);
+      m_showsSeconds = (m_style == Style::Analog && m_showSeconds) || formatShowsSeconds(m_format);
       syncStyleVisibility();
       syncCircleVisibility();
+      syncSecondHandVisibility();
+      m_lastHour = m_lastMinute = m_lastSecond = -1;
       requestLayout();
       (void)allSettings;
       (void)renderer;
@@ -485,7 +496,7 @@ bool DesktopClockWidget::applySetting(
   if (key == "format") {
     if (const auto* v = std::get_if<std::string>(&value)) {
       m_format = *v;
-      m_showsSeconds = m_style == Style::Analog || formatShowsSeconds(m_format);
+      m_showsSeconds = (m_style == Style::Analog && m_showSeconds) || formatShowsSeconds(m_format);
       m_lastText.clear();
       requestUpdate();
       return true;
@@ -520,6 +531,17 @@ bool DesktopClockWidget::applySetting(
       syncCircleVisibility();
       syncAnalogColors();
       requestLayout();
+      return true;
+    }
+    return false;
+  }
+  if (key == "show_seconds") {
+    if (const auto* v = std::get_if<bool>(&value)) {
+      m_showSeconds = *v;
+      m_showsSeconds = (m_style == Style::Analog && m_showSeconds) || formatShowsSeconds(m_format);
+      m_lastHour = m_lastMinute = m_lastSecond = -1;
+      syncSecondHandVisibility();
+      requestUpdate();
       return true;
     }
     return false;

@@ -18,12 +18,6 @@ namespace {
     return normalized.empty() || normalized == "auto";
   }
 
-  bool isPluggedIn(BatteryState state) {
-    return state == BatteryState::Charging
-        || state == BatteryState::FullyCharged
-        || state == BatteryState::PendingCharge;
-  }
-
   std::string deviceKey(const UPowerDeviceInfo& device) {
     if (!device.path.empty()) {
       return device.path;
@@ -176,7 +170,7 @@ void BatteryWarningMonitor::evaluate(
 
     // Re-arm when charging, absent, or warnings disabled. firedLevel is percentage-based, so a
     // threshold change across config reloads needs no special handling — the next level decides.
-    if (!device.state.isPresent || isPluggedIn(device.state.state) || threshold <= 0) {
+    if (!device.state.isPresent || batteryStatePlugged(device.state.state).value_or(false) || threshold <= 0) {
       state.firedLevel = kNoLevel;
       continue;
     }

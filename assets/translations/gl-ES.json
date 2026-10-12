@@ -238,7 +238,6 @@
       "uptime": "Activo - {uptime}",
       "weather": {
         "data-unavailable": "Os datos meteorolóxicos non están dispoñibles.",
-        "disabled": "O tempo está desactivado na configuración.",
         "fetching": "Obtendo a previsión..."
       }
     },
@@ -1084,7 +1083,6 @@
         "behavior": "Comportamento",
         "brightness": "Brillo",
         "built-in": "Integrado",
-        "calendar": "Calendario",
         "capsules": "Cápsulas",
         "clipboard": "Portapapeis",
         "community": "Comunidade",
@@ -1822,10 +1820,6 @@
         "main-axis-padding": {
           "description": "Recheo interior ao longo do eixo principal do Dock, entre as iconas e os extremos curtos da cápsula"
         },
-        "monitors": {
-          "description": "Escolle que monitores mostran o Dock; déixao baleiro para todos. O filtrado por monitor activo aplícase dentro destes monitores",
-          "label": "Monitores"
-        },
         "pinned-apps": {
           "description": "IDs das entradas de escritorio das aplicacións fixadas no Dock",
           "label": "Aplicacións fixadas"
@@ -2181,27 +2175,27 @@
           "label": "Colocación"
         },
         "position-clipboard": {
-          "description": "Onde flota o portapapeis na pantalla — Seguir a barra manteno preto da barra",
+          "description": "Onde flota o portapapeis na pantalla; Seguir a barra manteno preto da barra",
           "label": "Posición"
         },
         "position-control-center": {
-          "description": "Onde flota o Centro de control na pantalla — Seguir a barra manteno preto da barra",
+          "description": "Onde flota o Centro de control na pantalla; Seguir a barra manteno preto da barra",
           "label": "Posición"
         },
         "position-launcher": {
-          "description": "Onde flota o Launcher na pantalla — Seguir a barra manteno preto da barra",
+          "description": "Onde flota o Launcher na pantalla; Seguir a barra manteno preto da barra",
           "label": "Posición"
         },
         "position-polkit": {
-          "description": "Onde flota a solicitude de polkit na pantalla — Seguir a barra mantena preto da barra",
+          "description": "Onde flota a solicitude de polkit na pantalla; Seguir a barra mantena preto da barra",
           "label": "Posición"
         },
         "position-session": {
-          "description": "Onde flota o menú de sesión na pantalla — Seguir a barra manteno preto da barra",
+          "description": "Onde flota o menú de sesión na pantalla; Seguir a barra manteno preto da barra",
           "label": "Posición"
         },
         "position-wallpaper": {
-          "description": "Onde flota o selector de fondo de pantalla na pantalla — Seguir a barra manteno preto da barra",
+          "description": "Onde flota o selector de fondo de pantalla na pantalla; Seguir a barra manteno preto da barra",
           "label": "Posición"
         },
         "shadow": {

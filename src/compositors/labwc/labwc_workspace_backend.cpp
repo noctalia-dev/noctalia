@@ -150,13 +150,12 @@ std::vector<WorkspaceWindow> LabwcWorkspaceBackend::workspaceWindows(const std::
   std::vector<WorkspaceWindow> result;
   result.reserve(m_windows.size());
   for (const auto& [handleKey, window] : m_windows) {
-    (void)handleKey;
     if (window.workspaceKey.empty()) {
       continue;
     }
     result.push_back(
         WorkspaceWindow{
-            .windowId = std::to_string(handleKey),
+            .windowId = toplevel_identity::wlr(handleKey),
             .workspaceKey = window.workspaceKey,
             .appId = window.appId,
             .title = window.title,

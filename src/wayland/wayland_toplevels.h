@@ -15,6 +15,19 @@ struct wl_array;
 struct wl_output;
 struct wl_seat;
 
+namespace toplevel_identity {
+
+  // Canonical process-local identity for a live WLR foreign-toplevel handle.
+  inline constexpr std::string_view wlrPrefix = "wlr:";
+
+  [[nodiscard]] inline std::string wlr(const std::uintptr_t handle) {
+    return handle == 0 ? std::string{} : std::string(wlrPrefix) + std::to_string(handle);
+  }
+
+  [[nodiscard]] inline bool isWlr(const std::string_view identity) { return identity.starts_with(wlrPrefix); }
+
+} // namespace toplevel_identity
+
 struct ActiveToplevel {
   std::string title;
   std::string appId;

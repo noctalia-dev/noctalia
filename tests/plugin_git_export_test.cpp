@@ -58,6 +58,15 @@ namespace {
     return result;
   }
 
+  std::string gitConfigValue(const std::filesystem::path& repo, std::string_view key) {
+    auto result = process::runSync({"git", "-C", repo.string(), "config", "--get", std::string(key)});
+    std::string value = result.out;
+    while (!value.empty() && (value.back() == '\n' || value.back() == '\r')) {
+      value.pop_back();
+    }
+    return value;
+  }
+
 } // namespace
 
 int main() {
@@ -80,6 +89,13 @@ int main() {
     return 1;
   }
 
+  // Every git command in this test runs against a user config that renames the default
+  // clone remote, the configuration that used to leave source caches without `origin`.
+  const auto gitConfigFile = root / "gitconfig";
+  ok = writeText(gitConfigFile, "[clone]\n\tdefaultRemoteName = up\n") && ok;
+  ::setenv("GIT_CONFIG_GLOBAL", gitConfigFile.c_str(), 1);
+  ::setenv("GIT_CONFIG_SYSTEM", "/dev/null", 1);
+
   const auto source = root / "source";
   const auto repo = root / "repo";
   const auto exported = root / "exported";
@@ -97,6 +113,10 @@ int main() {
 
   const auto cloned = scripting::plugin_git::cloneBlobless(source.string(), repo);
   ok = expect(static_cast<bool>(cloned), "cloneBlobless failed") && ok;
+  ok = expect(
+           gitConfigValue(repo, "remote.origin.url") == source.string(), "clone did not pin the canonical origin remote"
+       )
+      && ok;
 
   const auto exportResult = scripting::plugin_git::exportSubdir(repo, "HEAD", "clock", exported);
   ok = expect(static_cast<bool>(exportResult), "exportSubdir failed") && ok;
@@ -115,7 +135,8 @@ int main() {
        )
       && ok;
 
-  const auto fetchResult = scripting::plugin_git::fetch(repo, source.string());
+  ok = expect(static_cast<bool>(scripting::plugin_git::ensureRepo(repo, source.string())), "ensureRepo failed") && ok;
+  const auto fetchResult = scripting::plugin_git::fetch(repo);
   ok = expect(static_cast<bool>(fetchResult), "fetch failed") && ok;
   const auto fetchedHead = scripting::plugin_git::remoteHead(repo);
   ok = expect(static_cast<bool>(fetchedHead), "failed to resolve FETCH_HEAD") && ok;
@@ -148,8 +169,7 @@ int main() {
             "-q", "-m", "clock requires a newer api"}
        )
       && ok;
-  ok = expect(static_cast<bool>(scripting::plugin_git::fetch(repo, source.string())), "fetch after the api bump failed")
-      && ok;
+  ok = expect(static_cast<bool>(scripting::plugin_git::fetch(repo)), "fetch after the api bump failed") && ok;
   const auto bumpedHead = scripting::plugin_git::remoteHead(repo);
   ok = expect(static_cast<bool>(bumpedHead), "failed to resolve the bumped revision") && ok;
 
@@ -183,14 +203,46 @@ int main() {
   const auto replacementHead = scripting::plugin_git::headRevision(replacementSource);
   ok = expect(static_cast<bool>(replacementHead), "failed to resolve replacement source HEAD") && ok;
   ok = expect(
-           static_cast<bool>(scripting::plugin_git::fetch(repo, replacementSource.string())),
-           "fetch did not accept the replacement source location"
+           static_cast<bool>(scripting::plugin_git::ensureRepo(repo, replacementSource.string())),
+           "ensureRepo did not accept the replacement source location"
        )
       && ok;
+  ok = expect(static_cast<bool>(scripting::plugin_git::fetch(repo)), "fetch after rebinding origin failed") && ok;
   const auto reboundHead = scripting::plugin_git::remoteHead(repo);
   ok = expect(static_cast<bool>(reboundHead), "failed to resolve rebound FETCH_HEAD") && ok;
   ok = expect(
            reboundHead.out == replacementHead.out, "fetch used the stale clone origin instead of the configured source"
+       )
+      && ok;
+
+  // A cache cloned without the pinned remote name (git config renaming it, or an
+  // interrupted clone) has no `origin`, so nothing in it can fetch. Preparing it must
+  // rebuild the cache instead of failing every later git operation.
+  const auto strayRemoteRepo = root / "stray-remote-repo";
+  ok = runGit({"git", "clone", "-q", "--no-checkout", source.string(), strayRemoteRepo.string()}) && ok;
+  ok = expect(
+           gitConfigValue(strayRemoteRepo, "remote.origin.url").empty(),
+           "the renamed-remote git config did not produce a cache without origin"
+       )
+      && ok;
+  ok = expect(
+           static_cast<bool>(scripting::plugin_git::ensureRepo(strayRemoteRepo, source.string())),
+           "preparing a cache without origin failed"
+       )
+      && ok;
+  ok = expect(
+           gitConfigValue(strayRemoteRepo, "remote.origin.url") == source.string(),
+           "preparing a cache without origin did not bind the canonical remote"
+       )
+      && ok;
+  ok = expect(
+           gitConfigValue(strayRemoteRepo, "remote.up.url").empty(),
+           "preparing a cache without origin kept the stray remote"
+       )
+      && ok;
+  ok = expect(
+           static_cast<bool>(scripting::plugin_git::fetch(strayRemoteRepo)),
+           "fetch failed after preparing a cache without origin"
        )
       && ok;
 

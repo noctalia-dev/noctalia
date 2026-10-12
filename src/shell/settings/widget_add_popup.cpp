@@ -16,6 +16,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <cstring>
 #include <string>
 #include <string_view>
 #include <unordered_set>
@@ -39,12 +40,11 @@ namespace settings {
 
     void sortSearchOptions(std::vector<SearchPickerOption>& options) {
       std::ranges::sort(options, [](const SearchPickerOption& a, const SearchPickerOption& b) {
-        const std::string aLabel = StringUtils::toLower(a.label);
-        const std::string bLabel = StringUtils::toLower(b.label);
-        if (aLabel == bLabel) {
+        const int result = std::strcoll(StringUtils::toLower(a.label).c_str(), StringUtils::toLower(b.label).c_str());
+        if (result == 0) {
           return a.value < b.value;
         }
-        return aLabel < bLabel;
+        return result < 0;
       });
     }
 
@@ -397,26 +397,28 @@ namespace settings {
       );
     }
 
-    header->addChild(
-        ui::button({
-            .glyph = "close",
-            .glyphSize = Style::fontSizeBody * m_scale,
-            .variant = ButtonVariant::Default,
-            .minWidth = Style::controlHeightSm * m_scale,
-            .minHeight = Style::controlHeightSm * m_scale,
-            .padding = Style::spaceXs * m_scale,
-            .radius = Style::scaledRadiusMd(m_scale),
-            .onClick = [this]() {
-              const std::weak_ptr<void> aliveGuard = m_aliveGuard;
-              DeferredCall::callLater([this, aliveGuard]() {
-                if (aliveGuard.expired()) {
-                  return;
-                }
-                close();
-              });
-            },
-        })
-    );
+    if (Style::closeButtonsEnabled()) {
+      header->addChild(
+          ui::button({
+              .glyph = "close",
+              .glyphSize = Style::fontSizeBody * m_scale,
+              .variant = ButtonVariant::Default,
+              .minWidth = Style::controlHeightSm * m_scale,
+              .minHeight = Style::controlHeightSm * m_scale,
+              .padding = Style::spaceXs * m_scale,
+              .radius = Style::scaledRadiusMd(m_scale),
+              .onClick = [this]() {
+                const std::weak_ptr<void> aliveGuard = m_aliveGuard;
+                DeferredCall::callLater([this, aliveGuard]() {
+                  if (aliveGuard.expired()) {
+                    return;
+                  }
+                  close();
+                });
+              },
+          })
+      );
+    }
     root->addChild(std::move(header));
 
     root->addChild(

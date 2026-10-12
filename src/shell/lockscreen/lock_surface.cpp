@@ -1,6 +1,7 @@
 #include "shell/lockscreen/lock_surface.h"
 
 #include "capture/screencopy_capture.h"
+#include "core/log.h"
 #include "core/ui_phase.h"
 #include "dbus/mpris/mpris_art.h"
 #include "dbus/mpris/mpris_service.h"
@@ -12,6 +13,7 @@
 #include "render/render_context.h"
 #include "render/scene/wallpaper_node.h"
 #include "shell/lockscreen/lockscreen_login_box.h"
+#include "shell/lockscreen/lockscreen_session_actions.h"
 #include "shell/lockscreen/lockscreen_widgets_host.h"
 #include "shell/session/session_action_meta.h"
 #include "shell/session/session_action_runner.h"
@@ -21,10 +23,10 @@
 #include "ui/controls/button.h"
 #include "ui/controls/image.h"
 #include "ui/controls/label.h"
+#include "ui/controls/lockscreen_transition_cover.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 #include "util/clamp.h"
-#include "util/string_utils.h"
 #include "wayland/wayland_connection.h"
 #include "wayland/wayland_seat.h"
 
@@ -36,9 +38,12 @@
 #include <memory>
 #include <string_view>
 #include <tuple>
+#include <utility>
 #include <wayland-client-core.h>
 
 namespace {
+
+  constexpr Logger kLog("lockscreen");
 
   const ext_session_lock_surface_v1_listener kLockSurfaceListener = {
       .configure = &LockSurface::handleConfigure,
@@ -502,6 +507,28 @@ LockSurface::LockSurface(WaylandConnection& connection, ConfigService* config) :
 
   m_loginContentRow->addChild(
       ui::button({
+          .out = &m_passwordRevealButton,
+          .text = "",
+          .glyph = "eye",
+          .glyphSize = 16.0F,
+          .variant = ButtonVariant::Ghost,
+          .onClick =
+              [this]() {
+                if (m_passwordField == nullptr) {
+                  return;
+                }
+                const bool revealed = !m_passwordField->passwordRevealed();
+                m_passwordField->setPasswordRevealed(revealed);
+                if (m_passwordRevealButton != nullptr) {
+                  m_passwordRevealButton->setGlyph(revealed ? "eye-off" : "eye");
+                }
+              },
+          .configure = [](Button& button) { button.setZIndex(2); },
+      })
+  );
+
+  m_loginContentRow->addChild(
+      ui::button({
           .out = &m_loginButton,
           .text = "",
           .glyph = "check",
@@ -532,6 +559,13 @@ LockSurface::LockSurface(WaylandConnection& connection, ConfigService* config) :
       )
   );
 
+  {
+    auto transitionCover = std::make_unique<LockscreenTransitionCover>();
+    transitionCover->setVisible(false);
+    transitionCover->setZIndex(1000);
+    m_transitionCover = static_cast<LockscreenTransitionCover*>(m_root.addChild(std::move(transitionCover)));
+  }
+
   m_inputDispatcher.setSceneRoot(&m_root);
   m_inputDispatcher.setCursorShapeCallback([this](std::uint32_t serial, std::uint32_t shape) {
     m_connection.setCursorShape(serial, shape);
@@ -548,9 +582,6 @@ LockSurface::LockSurface(WaylandConnection& connection, ConfigService* config) :
 LockSurface::~LockSurface() {
   m_aliveGuard.reset();
   releaseCaptureTextures();
-  if (m_wallpaperTexture.id != 0) {
-    releaseWallpaperTextureRef(m_textureWallpaperPath);
-  }
   m_connection.unregisterSurface(m_surface);
   if (m_lockSurface != nullptr) {
     // If get_lock_surface raced with the output disappearing server-side, some
@@ -594,6 +625,14 @@ bool LockSurface::initialize(ext_session_lock_v1* lock, wl_output* output, std::
     setBufferScale(scale);
   }
 
+  // Upload the immutable cover before the lock request is flushed. The first
+  // configured lock-surface frame can then be the captured desktop immediately.
+  if (m_transitionPhase == TransitionPhase::Cover && !ensureTransitionCaptureTexture()) {
+    m_transitionPhase = TransitionPhase::Disabled;
+    m_transitionProgress = 1.0F;
+    syncTransitionCover();
+  }
+
   if (!createWlSurface()) {
     return false;
   }
@@ -630,6 +669,13 @@ void LockSurface::setLockedState(bool locked) {
   }
   m_locked = locked;
   if (m_locked) {
+    // Never carry a revealed password across lock cycles.
+    if (m_passwordField != nullptr) {
+      m_passwordField->setPasswordRevealed(false);
+    }
+    if (m_passwordRevealButton != nullptr) {
+      m_passwordRevealButton->setGlyph("eye");
+    }
     focusPasswordField();
   } else {
     m_inputDispatcher.setFocus(nullptr);
@@ -710,6 +756,15 @@ void LockSurface::setWallpaperFillMode(WallpaperFillMode fillMode) {
   requestRedraw();
 }
 
+void LockSurface::setWallpaperCoverage(TextureCoverage coverage) {
+  if (m_wallpaperCoverage == coverage) {
+    return;
+  }
+  m_wallpaperCoverage = coverage;
+  m_wallpaperDirty = true;
+  requestLayout();
+}
+
 void LockSurface::setWallpaperFillColor(Color fillColor) {
   if (m_wallpaperFillColor == fillColor) {
     return;
@@ -730,15 +785,101 @@ void LockSurface::setWallpaperFillColor(Color fillColor) {
   requestRedraw();
 }
 
-void LockSurface::setDesktopCapture(std::optional<ScreencopyImage> capture) {
+void LockSurface::setDesktopCapture(std::optional<ScreencopyImage> capture, bool useAsBackground) {
   m_desktopCapture = std::move(capture);
+  m_useDesktopCaptureBackground = useAsBackground && m_desktopCapture.has_value() && !m_desktopCapture->rgba.empty();
   m_captureDirty = true;
   releaseCaptureTextures();
   requestLayout();
 }
 
-bool LockSurface::hasDesktopCapture() const noexcept {
-  return m_desktopCapture.has_value() && !m_desktopCapture->rgba.empty();
+bool LockSurface::usesDesktopCaptureBackground() const noexcept {
+  return m_useDesktopCaptureBackground && m_desktopCapture.has_value() && !m_desktopCapture->rgba.empty();
+}
+
+void LockSurface::configureTransition(
+    std::optional<LockscreenTransitionKind> transition, const LockscreenTransitionParams& params, float durationMs
+) {
+  cancelTransitionAnimation();
+  m_transitionParams = params;
+  m_transitionDurationMs = std::max(0.0F, durationMs);
+  m_transitionProgress = 1.0F;
+  m_enterTransitionRequested = false;
+
+  if (!transition.has_value() || m_blackout || !m_desktopCapture.has_value() || m_desktopCapture->rgba.empty()) {
+    m_transitionPhase = TransitionPhase::Disabled;
+    syncTransitionCover();
+    return;
+  }
+
+  m_transition = *transition;
+  m_transitionProgress = 0.0F;
+  m_transitionPhase = TransitionPhase::Cover;
+  syncTransitionCover();
+  requestLayout();
+}
+
+void LockSurface::startEnterTransition() {
+  m_enterTransitionRequested = true;
+  if (m_transitionPhase == TransitionPhase::Ready) {
+    beginEnterAnimation();
+  }
+}
+
+void LockSurface::startExitTransition() {
+  m_enterTransitionRequested = false;
+  if (m_transitionPhase == TransitionPhase::ExitComplete
+      || m_transitionPhase == TransitionPhase::ExitEndpoint
+      || m_transitionPhase == TransitionPhase::Exiting) {
+    return;
+  }
+
+  if (m_transitionPhase != TransitionPhase::Disabled && m_transitionCaptureTexture.id == 0) {
+    (void)ensureTransitionCaptureTexture();
+  }
+  if (m_transitionPhase == TransitionPhase::Disabled || m_transitionCaptureTexture.id == 0) {
+    m_transitionPhase = TransitionPhase::ExitComplete;
+    notifyTransitionStateChanged();
+    return;
+  }
+
+  cancelTransitionAnimation();
+  syncTransitionCover();
+  if (m_transitionProgress <= 0.0F) {
+    m_transitionProgress = 0.0F;
+    m_transitionPhase = TransitionPhase::ExitEndpoint;
+    syncTransitionCover();
+    requestRedraw();
+    return;
+  }
+
+  m_transitionPhase = TransitionPhase::Exiting;
+  syncTransitionCover();
+  const float durationMs = m_transitionDurationMs * m_transitionProgress;
+  m_transitionAnimation = m_animations.animateTimer(
+      m_transitionProgress, 0.0F, durationMs, Easing::EaseInOutCubic,
+      [this](float progress) {
+        m_transitionProgress = progress;
+        syncTransitionCover();
+      },
+      [this]() {
+        m_transitionAnimation = 0;
+        m_transitionProgress = 0.0F;
+        m_transitionPhase = TransitionPhase::ExitEndpoint;
+        syncTransitionCover();
+        requestRedraw();
+      },
+      this
+  );
+  requestRedraw();
+}
+
+bool LockSurface::transitionInputReady() const noexcept {
+  return m_transitionPhase == TransitionPhase::Disabled || m_transitionPhase == TransitionPhase::Stable;
+}
+
+bool LockSurface::exitTransitionComplete() const noexcept {
+  return m_transitionPhase == TransitionPhase::Disabled || m_transitionPhase == TransitionPhase::ExitComplete;
 }
 
 void LockSurface::setBackgroundStyle(float blurIntensity, float tintIntensity) {
@@ -761,6 +902,11 @@ void LockSurface::setBlackout(bool blackout) {
   m_blackout = blackout;
   if (m_blackout) {
     m_inputDispatcher.setFocus(nullptr);
+    cancelTransitionAnimation();
+    m_transitionPhase = TransitionPhase::Disabled;
+    m_transitionProgress = 1.0F;
+    syncTransitionCover();
+    notifyTransitionStateChanged();
   }
   requestLayout();
 }
@@ -874,6 +1020,108 @@ void LockSurface::handleConfigure(
   self->Surface::onConfigure(width, height);
 }
 
+bool LockSurface::ensureTransitionCaptureTexture() {
+  if (m_transitionCaptureTexture.id != 0) {
+    return true;
+  }
+  if (renderContext() == nullptr
+      || !m_desktopCapture.has_value()
+      || m_desktopCapture->rgba.empty()
+      || m_desktopCapture->width <= 0
+      || m_desktopCapture->height <= 0) {
+    return false;
+  }
+
+  auto& backend = renderContext()->backend();
+  if (!backend.makeCurrentNoSurface()) {
+    return false;
+  }
+  const auto& capture = *m_desktopCapture;
+  m_transitionCaptureTexture =
+      renderContext()->textureManager().loadFromRgba(capture.rgba.data(), capture.width, capture.height, false);
+  syncTransitionCover();
+  return m_transitionCaptureTexture.id != 0;
+}
+
+void LockSurface::layoutCoverOnly(std::uint32_t width, std::uint32_t height) {
+  const auto sw = static_cast<float>(width);
+  const auto sh = static_cast<float>(height);
+  m_root.setSize(sw, sh);
+  m_backgroundLayer->setVisible(false);
+  m_widgetLayer->setVisible(false);
+  m_loginPanel->setVisible(false);
+  m_authPanel->setVisible(false);
+  layoutTransitionCover();
+  syncTransitionCover();
+}
+
+void LockSurface::layoutTransitionCover() {
+  if (m_transitionCover == nullptr) {
+    return;
+  }
+  const auto sw = static_cast<float>(width());
+  const auto sh = static_cast<float>(height());
+  m_transitionCover->setPosition(0.0F, 0.0F);
+  m_transitionCover->setSize(sw, sh);
+  m_transitionParams.aspectRatio = sh > 0.0F ? sw / sh : 1.0F;
+}
+
+void LockSurface::syncTransitionCover() {
+  if (m_transitionCover == nullptr) {
+    return;
+  }
+
+  const bool visible = m_transitionCaptureTexture.id != 0
+      && m_transitionPhase != TransitionPhase::Disabled
+      && m_transitionPhase != TransitionPhase::Stable;
+  m_transitionCover->setVisible(visible);
+  m_transitionCover->setTexture(m_transitionCaptureTexture.id);
+  if (!visible) {
+    return;
+  }
+  m_transitionCover->setTransition(m_transition, m_transitionProgress, m_transitionParams);
+}
+
+void LockSurface::cancelTransitionAnimation() {
+  if (const auto animation = std::exchange(m_transitionAnimation, 0); animation != 0) {
+    m_animations.cancel(animation);
+  }
+}
+
+void LockSurface::beginEnterAnimation() {
+  if (m_transitionPhase != TransitionPhase::Ready) {
+    return;
+  }
+
+  cancelTransitionAnimation();
+  m_transitionPhase = TransitionPhase::Entering;
+  m_transitionProgress = 0.0F;
+  syncTransitionCover();
+  m_transitionAnimation = m_animations.animateTimer(
+      0.0F, 1.0F, m_transitionDurationMs, Easing::EaseInOutCubic,
+      [this](float progress) {
+        m_transitionProgress = progress;
+        syncTransitionCover();
+      },
+      [this]() {
+        m_transitionAnimation = 0;
+        m_transitionProgress = 1.0F;
+        m_transitionPhase = TransitionPhase::Stable;
+        syncTransitionCover();
+        requestRedraw();
+        notifyTransitionStateChanged();
+      },
+      this
+  );
+  requestRedraw();
+}
+
+void LockSurface::notifyTransitionStateChanged() {
+  if (m_transitionCallback) {
+    m_transitionCallback();
+  }
+}
+
 void LockSurface::prepareFrame(bool needsUpdate, bool needsLayout) {
   auto* context = renderContext();
   if (context == nullptr || width() == 0 || height() == 0) {
@@ -882,6 +1130,17 @@ void LockSurface::prepareFrame(bool needsUpdate, bool needsLayout) {
 
   context->makeCurrent(renderTarget());
   Renderer& renderer = renderTarget().renderer();
+
+  if (m_transitionPhase == TransitionPhase::Cover) {
+    if (ensureTransitionCaptureTexture()) {
+      UiPhaseScope layoutPhase(UiPhase::Layout);
+      layoutCoverOnly(width(), height());
+      return;
+    }
+    m_transitionPhase = TransitionPhase::Disabled;
+    m_transitionProgress = 1.0F;
+    syncTransitionCover();
+  }
 
   if (m_widgetsHost != nullptr) {
     m_widgetsHost->prepareFrame(*this, needsUpdate, needsLayout);
@@ -910,6 +1169,7 @@ void LockSurface::layoutScene(std::uint32_t width, std::uint32_t height) {
 
   if (m_blackout) {
     m_root.setSize(sw, sh);
+    m_backgroundLayer->setVisible(true);
     m_backgroundLayer->setPosition(0.0F, 0.0F);
     m_backgroundLayer->setSize(sw, sh);
     m_wallpaper->setVisible(false);
@@ -926,6 +1186,9 @@ void LockSurface::layoutScene(std::uint32_t width, std::uint32_t height) {
     m_widgetLayer->setVisible(false);
     m_loginPanel->setVisible(false);
     m_passwordField->setVisible(false);
+    if (m_passwordRevealButton != nullptr) {
+      m_passwordRevealButton->setVisible(false);
+    }
     m_loginButton->setVisible(false);
     if (m_infoRow != nullptr) {
       m_infoRow->setVisible(false);
@@ -939,11 +1202,14 @@ void LockSurface::layoutScene(std::uint32_t width, std::uint32_t height) {
     if (m_authPanel != nullptr) {
       m_authPanel->setVisible(false);
     }
+    layoutTransitionCover();
+    syncTransitionCover();
     return;
   }
 
   applyWallpaperTexture();
 
+  m_backgroundLayer->setVisible(true);
   m_wallpaper->setVisible(true);
   m_widgetLayer->setVisible(true);
   const bool loginVisible = isLoginBoxEnabled();
@@ -951,6 +1217,9 @@ void LockSurface::layoutScene(std::uint32_t width, std::uint32_t height) {
   m_loginPanel->setVisible(loginVisible);
   m_loginContentRow->setVisible(loginVisible);
   m_passwordField->setVisible(loginVisible);
+  if (m_passwordRevealButton != nullptr) {
+    m_passwordRevealButton->setVisible(loginVisible);
+  }
   m_loginButton->setVisible(loginVisible && loginStyle.showLoginButton);
 
   const bool regular = loginVisible && loginStyle.layout == lockscreen_login_box::LayoutMode::Regular;
@@ -1218,6 +1487,12 @@ void LockSurface::layoutScene(std::uint32_t width, std::uint32_t height) {
     m_loginButton->setGlyphSize(sessionGlyphSize);
   }
 
+  if (m_passwordRevealButton != nullptr) {
+    m_passwordRevealButton->setRadius(Style::scaledRadius(loginStyle.inputRadius));
+    m_passwordRevealButton->setSize(controlHeight, controlHeight);
+    m_passwordRevealButton->setGlyphSize(sessionGlyphSize);
+  }
+
   m_loginPanel->arrange(renderer, LayoutRect{panelX, panelY, panelWidth, panelHeight});
 
   // Auth panel: sibling above/below the login box (flips below when near the top edge).
@@ -1259,11 +1534,16 @@ void LockSurface::layoutScene(std::uint32_t width, std::uint32_t height) {
       m_authPanel->arrange(renderer, LayoutRect{authX, authY, authW, authH});
     }
   }
+  layoutTransitionCover();
+  syncTransitionCover();
 }
 
 void LockSurface::updateCopy() {
   m_passwordField->setValue(m_password);
   m_passwordField->setEnabled(!m_authenticating);
+  if (m_passwordRevealButton != nullptr) {
+    m_passwordRevealButton->setEnabled(!m_authenticating);
+  }
   if (m_loginButton != nullptr) {
     m_loginButton->setEnabled(!m_authenticating);
   }
@@ -1300,35 +1580,9 @@ void LockSurface::updateCopy() {
 }
 
 std::vector<SessionPanelActionConfig> LockSurface::resolveSessionActions() const {
-  std::vector<SessionPanelActionConfig> src =
+  const std::vector<SessionPanelActionConfig> src =
       m_config != nullptr ? m_config->config().shell.session.actions : defaultSessionPanelActions();
-
-  std::vector<SessionPanelActionConfig> out;
-  out.reserve(src.size());
-  for (const auto& row : src) {
-    if (!row.enabled) {
-      continue;
-    }
-    if (!session_action::isKnown(row.action)) {
-      continue;
-    }
-    if (row.action == "lock" || row.action == "lock_and_suspend") {
-      continue;
-    }
-    if (row.action == "command" && (!row.command.has_value() || StringUtils::trim(*row.command).empty())) {
-      continue;
-    }
-    out.push_back(row);
-  }
-  if (out.empty()) {
-    for (const auto& row : defaultSessionPanelActions()) {
-      if (row.action == "lock" || row.action == "lock_and_suspend") {
-        continue;
-      }
-      out.push_back(row);
-    }
-  }
-  return out;
+  return lockscreen::resolveSessionActions(src, defaultSessionPanelActions());
 }
 
 void LockSurface::ensureLayoutChipInPasswordRow() {
@@ -1397,8 +1651,9 @@ void LockSurface::rebuildSessionButtons() {
   }
 
   for (const auto& cfg : actions) {
-    const std::string labelText =
-        cfg.label.has_value() && !cfg.label->empty() ? *cfg.label : i18n::tr(session_action::labelKey(cfg.action));
+    const std::string_view labelKey =
+        cfg.action == "lock_and_suspend" ? session_action::labelKey("suspend") : session_action::labelKey(cfg.action);
+    const std::string labelText = cfg.label.has_value() && !cfg.label->empty() ? *cfg.label : i18n::tr(labelKey);
     auto button = ui::button({
         .out = nullptr,
         .text = labelText,
@@ -1615,29 +1870,8 @@ std::string LockSurface::resolveStatusText(const lockscreen_login_box::LoginBoxS
   return i18n::tr("lockscreen.ready");
 }
 
-void LockSurface::releaseWallpaperTextureRef(const std::string& path) {
-  if (m_wallpaperTexture.id == 0) {
-    return;
-  }
-  const std::string& releasePath = !path.empty() ? path : m_textureWallpaperPath;
-  if (m_textureCache != nullptr && m_textureCache->shared()) {
-    if (releasePath.empty()) {
-      m_wallpaperTexture = {};
-      return;
-    }
-    m_textureCache->release(m_wallpaperTexture, releasePath);
-  } else if (renderContext() != nullptr) {
-    renderContext()->backend().makeCurrentNoSurface();
-    renderContext()->textureManager().unload(m_wallpaperTexture);
-    m_wallpaperTexture = {};
-  }
-  if (m_textureWallpaperPath == releasePath || path.empty()) {
-    m_textureWallpaperPath.clear();
-  }
-}
-
 void LockSurface::applyWallpaperTexture() {
-  if (m_desktopCapture.has_value() && !m_desktopCapture->rgba.empty()) {
+  if (usesDesktopCaptureBackground()) {
     applyBlurredDesktopTexture();
     if (m_blurredDesktopTexture.id != 0) {
       return;
@@ -1651,9 +1885,10 @@ void LockSurface::applyWallpaperTexture() {
   bool loaded = true;
   Color color = rgba(0.0F, 0.0F, 0.0F, 1.0F);
   if (parseColorWallpaperPath(m_wallpaperPath, color)) {
-    if (m_wallpaperTexture.id != 0) {
-      releaseWallpaperTextureRef(m_textureWallpaperPath);
-    }
+    m_wallpaperLease.reset();
+    m_pendingWallpaperLease.reset();
+    m_shownWallpaperPath.clear();
+    m_pendingWallpaperPath.clear();
     if (m_blurredWallpaperTexture.id != 0 && renderContext() != nullptr) {
       renderContext()->backend().makeCurrentNoSurface();
       renderContext()->textureManager().unload(m_blurredWallpaperTexture);
@@ -1667,26 +1902,39 @@ void LockSurface::applyWallpaperTexture() {
     m_wallpaper->setFillMode(m_wallpaperFillMode);
     m_wallpaper->setFillColor(m_wallpaperFillColor);
   } else if (m_textureCache != nullptr && !m_wallpaperPath.empty()) {
-    const bool needsReload = m_wallpaperTexture.id == 0 || m_textureWallpaperPath != m_wallpaperPath;
-    TextureHandle newTexture = m_wallpaperTexture;
-    if (needsReload) {
-      newTexture = m_textureCache->acquire(m_wallpaperPath);
-      if (newTexture.id == 0 && !m_textureCache->shared() && renderContext() != nullptr) {
-        renderContext()->backend().makeCurrentNoSurface();
-        newTexture = renderContext()->textureManager().loadFromFile(m_wallpaperPath, 0, true);
+    m_wallpaperLease.setCoverage(m_wallpaperCoverage);
+    m_pendingWallpaperLease.setCoverage(m_wallpaperCoverage);
+    if (m_shownWallpaperPath == m_wallpaperPath) {
+      m_pendingWallpaperLease.reset();
+      m_pendingWallpaperPath.clear();
+    } else if (m_pendingWallpaperPath != m_wallpaperPath && renderContext() != nullptr) {
+      m_pendingWallpaperLease = m_textureCache->acquire(
+          SharedTextureRequest{.path = m_wallpaperPath, .coverage = m_wallpaperCoverage}, &renderContext()->backend(),
+          [this]() {
+            m_wallpaperDirty = true;
+            requestLayout();
+          }
+      );
+      m_pendingWallpaperPath = m_pendingWallpaperLease.empty() ? std::string{} : m_wallpaperPath;
+    }
+
+    if (!m_pendingWallpaperLease.empty()) {
+      if (m_pendingWallpaperLease.failed()) {
+        kLog.warn("failed to load lockscreen wallpaper {}", m_pendingWallpaperPath);
+        m_pendingWallpaperLease.reset();
+      } else if (m_pendingWallpaperLease.texture().id != 0) {
+        m_wallpaperLease = std::move(m_pendingWallpaperLease);
+        m_shownWallpaperPath = std::move(m_pendingWallpaperPath);
+        m_pendingWallpaperPath.clear();
       }
     }
 
-    if (newTexture.id == 0) {
+    const TextureHandle wallpaperTexture = m_wallpaperLease.texture();
+    if (wallpaperTexture.id == 0) {
       loaded = false;
     } else {
-      if (needsReload && m_wallpaperTexture.id != 0 && m_textureWallpaperPath != m_wallpaperPath) {
-        releaseWallpaperTextureRef(m_textureWallpaperPath);
-      }
-      m_wallpaperTexture = newTexture;
-      m_textureWallpaperPath = m_wallpaperPath;
+      loaded = m_pendingWallpaperLease.empty();
 
-      TextureHandle textureToDisplay = m_wallpaperTexture;
       if (m_blurredWallpaperTexture.id != 0 && renderContext() != nullptr) {
         renderContext()->backend().makeCurrentNoSurface();
         renderContext()->textureManager().unload(m_blurredWallpaperTexture);
@@ -1700,12 +1948,11 @@ void LockSurface::applyWallpaperTexture() {
         const std::uint32_t blurWidth = renderTarget().bufferWidth();
         const std::uint32_t blurHeight = renderTarget().bufferHeight();
         m_blurredWallpaperTexture = m_wallpaperBlurCache.get(
-            renderer->backend(), m_wallpaperTexture, blurWidth, blurHeight, blurRadius, kBlurRounds
+            renderer->backend(), wallpaperTexture, blurWidth, blurHeight, blurRadius, kBlurRounds
         );
-        if (m_blurredWallpaperTexture.id != 0) {
-          textureToDisplay = m_blurredWallpaperTexture;
-        }
       }
+      const TextureHandle textureToDisplay =
+          m_blurredWallpaperTexture.id != 0 ? m_blurredWallpaperTexture : wallpaperTexture;
       m_wallpaper->setTextures(
           textureToDisplay.id, {}, static_cast<float>(textureToDisplay.width),
           static_cast<float>(textureToDisplay.height), 0.0F, 0.0F
@@ -1715,9 +1962,10 @@ void LockSurface::applyWallpaperTexture() {
       m_wallpaper->setFillColor(m_wallpaperFillColor);
     }
   } else if (m_wallpaperPath.empty()) {
-    if (m_wallpaperTexture.id != 0) {
-      releaseWallpaperTextureRef(m_textureWallpaperPath);
-    }
+    m_wallpaperLease.reset();
+    m_pendingWallpaperLease.reset();
+    m_shownWallpaperPath.clear();
+    m_pendingWallpaperPath.clear();
     m_wallpaper->setTextures({}, {}, 0.0F, 0.0F, 0.0F, 0.0F);
   } else {
     loaded = false;
@@ -1731,6 +1979,7 @@ void LockSurface::releaseCaptureTextures() {
     m_blurredWallpaperTexture = {};
     m_captureSourceTexture = {};
     m_blurredDesktopTexture = {};
+    m_transitionCaptureTexture = {};
     m_blurCache.destroy();
     m_wallpaperBlurCache.destroy();
     return;
@@ -1750,12 +1999,16 @@ void LockSurface::releaseCaptureTextures() {
     tm.unload(m_blurredDesktopTexture);
     m_blurredDesktopTexture = {};
   }
+  if (m_transitionCaptureTexture.id != 0) {
+    tm.unload(m_transitionCaptureTexture);
+    m_transitionCaptureTexture = {};
+  }
   m_blurCache.destroy();
   m_wallpaperBlurCache.destroy();
 }
 
 void LockSurface::applyBlurredDesktopTexture() {
-  if (!m_captureDirty || !m_desktopCapture.has_value() || m_desktopCapture->rgba.empty()) {
+  if (!m_captureDirty || !usesDesktopCaptureBackground()) {
     return;
   }
 
@@ -1810,17 +2063,22 @@ void LockSurface::applyBlurredDesktopTexture() {
 }
 
 void LockSurface::onGpuResourcesInvalidated() {
+  const bool exitWasActive =
+      m_transitionPhase == TransitionPhase::Exiting || m_transitionPhase == TransitionPhase::ExitEndpoint;
+  const bool entryWasActive = m_transitionPhase == TransitionPhase::Cover
+      || m_transitionPhase == TransitionPhase::FinalPrime
+      || m_transitionPhase == TransitionPhase::Ready
+      || m_transitionPhase == TransitionPhase::Entering;
+  cancelTransitionAnimation();
   releaseCaptureTextures();
 
-  if (!m_wallpaperPath.empty() && m_textureCache != nullptr) {
-    if (m_textureCache->shared()) {
-      m_wallpaperTexture = m_textureCache->peek(m_wallpaperPath);
-    } else if (renderContext() != nullptr) {
-      renderContext()->backend().textureManager().unload(m_wallpaperTexture);
-      if (!m_wallpaperPath.empty()) {
-        m_wallpaperTexture = renderContext()->backend().textureManager().loadFromFile(m_wallpaperPath, 0, true);
-      }
-    }
+  if (exitWasActive) {
+    m_transitionPhase = TransitionPhase::ExitComplete;
+    m_transitionProgress = 0.0F;
+    notifyTransitionStateChanged();
+  } else if (entryWasActive) {
+    m_transitionPhase = TransitionPhase::Stable;
+    m_transitionProgress = 1.0F;
   }
 
   m_captureDirty = true;
@@ -1831,20 +2089,55 @@ void LockSurface::onGpuResourcesInvalidated() {
 void LockSurface::prepareForGraphicsReset() noexcept {
   m_blurCache.abandon();
   m_wallpaperBlurCache.abandon();
-  m_wallpaperTexture = {};
   m_blurredWallpaperTexture = {};
   m_captureSourceTexture = {};
   m_blurredDesktopTexture = {};
+  m_transitionCaptureTexture = {};
   m_captureDirty = true;
   m_wallpaperDirty = true;
 }
 
-void LockSurface::render() {
-  Surface::render();
+void LockSurface::forceRepaintAfterResume() {
+  discardPendingFrameCallback();
+  const bool exiting =
+      m_transitionPhase == TransitionPhase::Exiting || m_transitionPhase == TransitionPhase::ExitEndpoint;
+  cancelTransitionAnimation();
+  if (exiting) {
+    m_transitionPhase = TransitionPhase::ExitComplete;
+    m_transitionProgress = 0.0F;
+    notifyTransitionStateChanged();
+  } else if (m_transitionPhase != TransitionPhase::Disabled && m_transitionPhase != TransitionPhase::ExitComplete) {
+    m_transitionPhase = TransitionPhase::Stable;
+    m_transitionProgress = 1.0F;
+  }
+  syncTransitionCover();
+  requestUpdate();
+  requestRedraw();
+}
+
+void LockSurface::onFrameCallbackDone() {
   if (!m_firstFrameRendered) {
     m_firstFrameRendered = true;
     if (m_renderCallback) {
       m_renderCallback();
     }
+  }
+
+  if (m_transitionPhase == TransitionPhase::Cover) {
+    m_transitionPhase = TransitionPhase::FinalPrime;
+    requestUpdate();
+    return;
+  }
+  if (m_transitionPhase == TransitionPhase::FinalPrime) {
+    m_transitionPhase = TransitionPhase::Ready;
+    if (m_enterTransitionRequested) {
+      beginEnterAnimation();
+    }
+    notifyTransitionStateChanged();
+    return;
+  }
+  if (m_transitionPhase == TransitionPhase::ExitEndpoint) {
+    m_transitionPhase = TransitionPhase::ExitComplete;
+    notifyTransitionStateChanged();
   }
 }

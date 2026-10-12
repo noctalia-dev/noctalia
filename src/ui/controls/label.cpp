@@ -17,7 +17,8 @@ namespace {
 
   constexpr Logger kLog("label");
 
-  constexpr const char* kMarqueeGap = " ";
+  constexpr const char kMarqueeGapChar = ' ';
+  constexpr const float kMarqueeGapMaxWidth = 100.0F;
 
 } // namespace
 
@@ -553,7 +554,7 @@ LayoutSize Label::measureWithConstraints(Renderer& renderer, const LayoutConstra
     m_measuredLineCount = metrics.lineCount;
   } else if (m_measuredLineCount > 0 && metrics.lineCount != m_measuredLineCount) {
     kLog.warn(
-        "label '{}': line count changed between measure ({}) and arrange ({}) — wrap budgets diverged", m_plainText,
+        "label '{}': line count changed between measure ({}) and arrange ({}); wrap budgets diverged", m_plainText,
         m_measuredLineCount, metrics.lineCount
     );
   }
@@ -583,7 +584,7 @@ LayoutSize Label::measureWithConstraints(Renderer& renderer, const LayoutConstra
       height = std::round(std::max(actualHeight, inkHeight));
       m_baselineOffset = -metrics.inkTop + (height - inkHeight) * 0.5F;
     } else if (m_baselineMode == LabelBaselineMode::TextFixedHeight) {
-      const auto fontMetrics = renderer.measureFont(m_textNode->fontSize(), fontWeight);
+      const auto fontMetrics = renderer.measureFont(m_textNode->fontSize(), fontWeight, m_textNode->fontFamily());
       height = std::round(fontMetrics.bottom - fontMetrics.top);
       const float capHeight = fontMetrics.capHeight;
       m_baselineOffset = capHeight > 0.0F ? height * 0.5F + capHeight * 0.5F : -fontMetrics.top;
@@ -596,7 +597,8 @@ LayoutSize Label::measureWithConstraints(Renderer& renderer, const LayoutConstra
       // normal text, whose ink top coincides with the cap top. Unrounded baseline —
       // the renderer snaps the glyph quad to the pixel grid.
       height = std::round(actualHeight);
-      const float capHeight = renderer.measureFont(m_textNode->fontSize(), fontWeight).capHeight;
+      const float capHeight =
+          renderer.measureFont(m_textNode->fontSize(), fontWeight, m_textNode->fontFamily()).capHeight;
       m_baselineOffset = capHeight > 0.0F ? height * 0.5F - (metrics.inkTop + capHeight * 0.5F)
                                           : -metrics.inkTop + (height - inkHeight) * 0.5F;
     } else {
@@ -605,7 +607,8 @@ LayoutSize Label::measureWithConstraints(Renderer& renderer, const LayoutConstra
       // box-centers this label sits caps/digits dead-centre. capHeight is the
       // measured cap of 'H', a stable per-font property. Unrounded: the renderer
       // snaps the glyph quad to the pixel grid, so rounding here double-rounds.
-      const float capHeight = renderer.measureFont(m_textNode->fontSize(), fontWeight).capHeight;
+      const float capHeight =
+          renderer.measureFont(m_textNode->fontSize(), fontWeight, m_textNode->fontFamily()).capHeight;
       m_baselineOffset =
           capHeight > 0.0F ? height * 0.5F + capHeight * 0.5F : -metrics.top + (height - actualHeight) * 0.5F;
     }
@@ -682,10 +685,17 @@ LayoutSize Label::measureWithConstraints(Renderer& renderer, const LayoutConstra
   }
 
   if (overflow && m_autoScroll) {
-    auto gapMetrics =
-        renderer.measureText(kMarqueeGap, m_textNode->fontSize(), fontWeight, 0.0F, 1, align, m_textNode->fontFamily());
-    m_marqueeLoopPeriod = m_fullTextWidth + gapMetrics.width;
-    m_textNode->setText(m_plainText + kMarqueeGap + m_plainText);
+    auto gapMetrics = renderer.measureText(
+        std::string(1, kMarqueeGapChar), m_textNode->fontSize(), fontWeight, 0.0F, 1, align, m_textNode->fontFamily()
+    );
+    const auto numChars = gapMetrics.width > 0.0F
+        ? static_cast<int>(std::ceil(std::min(width(), kMarqueeGapMaxWidth) / gapMetrics.width))
+        : 1;
+    auto textWithGap = m_plainText + std::string(numChars, kMarqueeGapChar) + m_plainText;
+    auto textWithGapMetrics =
+        renderer.measureText(textWithGap, m_textNode->fontSize(), fontWeight, 0.0F, 1, align, m_textNode->fontFamily());
+    m_marqueeLoopPeriod = textWithGapMetrics.width - m_fullTextWidth;
+    m_textNode->setText(textWithGap);
   } else {
     m_marqueeLoopPeriod = 0.0F;
     m_textNode->setText(m_plainText);

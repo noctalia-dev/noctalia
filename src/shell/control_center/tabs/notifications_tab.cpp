@@ -665,7 +665,7 @@ std::unique_ptr<Flex> NotificationsTab::create() {
                   {.label = i18n::tr("control-center.notifications.filter.older")},
               },
           .selectedIndex = m_filterIndex,
-          .fontSize = Style::fontSizeCaption * scale,
+          .fontSize = Style::fontSizeCaption,
           .scale = scale,
           .surfaceOpacity = panelCardOpacity(),
           .equalSegmentWidths = true,
@@ -696,6 +696,7 @@ std::unique_ptr<Flex> NotificationsTab::create() {
   tab->addChild(
       ui::virtualListView({
           .out = &m_list,
+          .contentScale = scale,
           .itemGap = Style::spaceMd * scale,
           .overscanItems = 3,
           .adapter = m_adapter.get(),

@@ -404,6 +404,18 @@ namespace noctalia::config {
       if ((*calendar)["accounts"].as_array() != nullptr) {
         diag.error("calendar.accounts", "calendar accounts now use [calendar.account.<id>] named tables");
       }
+      // An unparseable digest time silently disables the all-day digest, so say so.
+      if (const auto* reminders = (*calendar)["reminders"].as_table(); reminders != nullptr) {
+        const auto digestTime = (*reminders)["all_day_digest_time"].value<std::string>();
+        if (digestTime.has_value()
+            && !digestTime->empty()
+            && !day_night_schedule::normalizedClock(*digestTime).has_value()) {
+          diag.warn(
+              "calendar.reminders.all_day_digest_time",
+              "\"" + *digestTime + "\" is not a time of day in HH:MM form; the all-day digest is disabled"
+          );
+        }
+      }
       const auto* accounts = (*calendar)["account"].as_table();
       if (accounts == nullptr) {
         return;

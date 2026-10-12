@@ -27,7 +27,7 @@ namespace {
   constexpr float kThumbnailWebPQuality = 82.0F;
   constexpr std::size_t kMinWorkers = 2;
   constexpr std::size_t kMaxWorkers = 4;
-  constexpr std::string_view kThumbnailCacheVersion = "thumbnail-service-v2";
+  constexpr std::string_view kThumbnailCacheVersion = "thumbnail-service-v3";
 
   std::filesystem::path thumbnailCacheDir() {
     if (const char* xdg = std::getenv("XDG_CACHE_HOME"); xdg != nullptr && xdg[0] != '\0') {

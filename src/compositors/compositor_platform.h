@@ -42,6 +42,9 @@ namespace compositors {
   namespace niri {
     class NiriRuntime;
   }
+  namespace umbriel {
+    class UmbrielRuntime;
+  }
 } // namespace compositors
 
 class WorkspaceAlertService;
@@ -151,6 +154,9 @@ public:
   [[nodiscard]] std::vector<std::string> workspaceDisplayKeys(wl_output* outputFilter = nullptr) const;
   [[nodiscard]] std::vector<WorkspaceWindowAssignment>
   workspaceWindowAssignments(wl_output* outputFilter = nullptr) const;
+  // Workspace keys of the overlay workspaces currently open on `outputFilter`
+  // (nullptr = every output). Empty unless the active workspace backend tracks them.
+  [[nodiscard]] std::vector<std::string> openOverlayWorkspaceKeys(wl_output* outputFilter = nullptr) const;
 
   // Workspace alerts: user-requested "attention" markers overlaid onto the
   // workspace model by reusing Workspace::id (no new per-backend identifier).
@@ -184,6 +190,9 @@ public:
 
   [[nodiscard]] compositors::niri::NiriRuntime& niriRuntime() noexcept;
   [[nodiscard]] const compositors::niri::NiriRuntime& niriRuntime() const noexcept;
+
+  [[nodiscard]] compositors::umbriel::UmbrielRuntime& umbrielRuntime() noexcept;
+  [[nodiscard]] const compositors::umbriel::UmbrielRuntime& umbrielRuntime() const noexcept;
 
 private:
   struct WorkspaceModelSnapshot {

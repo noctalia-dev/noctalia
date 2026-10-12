@@ -25,6 +25,8 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -53,6 +55,10 @@ struct KeyboardEvent;
 struct PointerEvent;
 struct wl_output;
 struct wl_surface;
+
+namespace scripting {
+  class PluginRecommendations;
+}
 
 namespace settings {
   class SettingsDialogPresenter;
@@ -102,6 +108,9 @@ public:
     m_openLockscreenWidgetEditor = std::move(callback);
   }
   void setOpenWallpaperPanel(std::function<void()> callback) { m_openWallpaperPanel = std::move(callback); }
+  void setPluginRecommendations(scripting::PluginRecommendations* recommendations) {
+    m_pluginRecommendations = recommendations;
+  }
   void setPluginManager(scripting::PluginManager* manager) { m_pluginManager = manager; }
   void setSyncGreeterAppearance(std::function<void()> callback) { m_syncGreeterAppearance = std::move(callback); }
   void setResetLauncherUsage(std::function<void()> callback) { m_resetLauncherUsage = std::move(callback); }
@@ -139,6 +148,7 @@ private:
   void buildScene(std::uint32_t width, std::uint32_t height);
   void rebuildSettingsContent();
   [[nodiscard]] settings::RegistryEnvironment buildRegistryEnvironment() const;
+  [[nodiscard]] std::vector<settings::SelectOption> availableOutputs() const;
   void refreshSettingsRegistry(const Config& cfg);
   void syncSelectedBarState(const Config& cfg, const std::vector<std::string>& availableBars);
   [[nodiscard]] std::unique_ptr<Flex> buildHeaderRow(float scale);
@@ -184,6 +194,7 @@ private:
   void openBarWidgetAddPopup(const std::vector<std::string>& lanePath);
   // Request is taken by value because opening the popup can close the sheet that owns the forwarding control.
   void openSearchPickerPopup(settings::SearchPickerOpenRequest request);
+  void openMonitorOverrideCreateDialog(std::optional<std::string> barName);
   void openSessionActionEntryEditor(std::size_t index);
   void syncSessionActionInlineSummary(std::size_t index, const SessionPanelActionConfig& row);
   void openIdleBehaviorEntryEditor(std::size_t index);
@@ -222,6 +233,9 @@ private:
   void createMonitorOverride(std::string barName, std::string match);
   void renameMonitorOverride(std::string barName, std::string oldMatch, std::string newMatch);
   void deleteMonitorOverride(std::string barName, std::string match);
+  void createDockMonitorOverride(std::string match);
+  void renameDockMonitorOverride(std::string oldTableName, std::string newMatch);
+  void deleteDockMonitorOverride(std::string tableName);
   [[nodiscard]] float uiScale() const;
 
   [[nodiscard]] std::optional<LayerPopupParentContext> topmostPopupParentContext() const;
@@ -232,11 +246,17 @@ private:
   IdleManager* m_idleManager = nullptr;
   ConfigService* m_config = nullptr;
   scripting::PluginManager* m_pluginManager = nullptr;
+  scripting::PluginRecommendations* m_pluginRecommendations = nullptr;
   // Cached PluginManager::list() — discovery can spawn git, so refresh it off the UI path.
   std::vector<scripting::PluginStatus> m_pluginList;
   bool m_pluginListDirty = true;
   bool m_pluginListRefreshInFlight = false;
   std::uint64_t m_pluginListRefreshGeneration = 0;
+  // The plugin store sheet is the sheet currently on screen, so plugin events may rebuild
+  // the sheet body; any other editor sheet must be left alone.
+  bool m_pluginStoreSheetOpen = false;
+  // Plugin catalog scroll state outlives both the store sheet and its async file callbacks.
+  ScrollViewState m_pluginStoreScrollState;
   scripting::PluginFileCache m_pluginFileCache;
   RenderContext* m_renderContext = nullptr;
   DependencyService* m_dependencies = nullptr;
@@ -260,6 +280,8 @@ private:
   Node* m_filterRow = nullptr;
   Button* m_actionsMenuButton = nullptr;
   Flex* m_contentContainer = nullptr;
+  Flex* m_pageTitleRow = nullptr;
+  Flex* m_groupJumpRow = nullptr;
   ScrollView* m_contentScrollView = nullptr;
   ScrollView* m_sidebarScrollView = nullptr;
   RovingListNavHost* m_sidebarNav = nullptr;
@@ -301,7 +323,9 @@ private:
   bool m_deferFocusScrollToLayout = false;
   Node* m_pendingContentScrollTarget = nullptr;
   std::string m_searchQuery;
+  std::string m_pluginSearchQuery;
   Timer m_searchDebounceTimer;
+  Timer m_pluginSearchDebounceTimer;
   // Set by openToBarWidget (e.g. middle-click on a bar widget) / openToPlugin and consumed after
   // the Settings scene is available so the requested editor can be mounted into it.
   std::string m_pendingOpenWidgetInspectorName;
@@ -319,15 +343,20 @@ private:
   // plain flag so the group survives the rebuild an edit triggers, but starts folded on every
   // other widget.
   std::string m_actionsExpandedFor;
+  // Expanded setting groups per page, keyed by content section key (pageScopeKey).
+  // A page gets its default expansion (first group, or all with settings_expand_all_groups) when first
+  // rendered; changing settings_expand_all_groups drops this state so every page re-seeds.
+  std::unordered_map<std::string, std::unordered_set<std::string>> m_expandedSettingGroups;
+  bool m_expandedSettingGroupsSeededExpandAll = false;
   std::string m_creatingBarName;
   std::string m_renamingBarName;
   std::string m_pendingDeleteBarName;
-  std::string m_creatingMonitorOverrideBarName;
-  std::string m_creatingMonitorOverrideMatch;
   std::string m_renamingMonitorOverrideBarName;
   std::string m_renamingMonitorOverrideMatch;
   std::string m_pendingDeleteMonitorOverrideBarName;
   std::string m_pendingDeleteMonitorOverrideMatch;
+  std::string m_renamingDockMonitorOverride;
+  std::string m_pendingDeleteDockMonitorOverride;
   std::string m_pendingDeletePluginId;
   std::string m_selectedBarName;
   std::string m_selectedMonitorOverride;

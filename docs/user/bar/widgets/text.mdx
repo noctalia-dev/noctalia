@@ -1,0 +1,21 @@
+---
+title: text
+description: Shows fixed custom text on the bar.
+sidebar:
+  order: 26
+---
+
+Fixed text on the bar. Requires a named `[widget.<name>]` entry.
+
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| `text` | string | `""` | Text shown on the bar |
+
+```toml
+[widget.hostname]
+type = "text"
+text = "noctalia"
+
+[bar.default]
+start = ["hostname", "workspaces"]
+```

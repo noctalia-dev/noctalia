@@ -662,7 +662,7 @@
   {
     "emoji": "☠️",
     "name": "skull and crossbones",
-    "keywords": ["danger", "pirate", "rip"],
+    "keywords": ["danger", "pirate", "rip", "death"],
     "category": "people"
   },
   {
@@ -3375,7 +3375,7 @@
   {
     "emoji": "🦧",
     "name": "orangutan",
-    "keywords": [],
+    "keywords": ["monkey"],
     "category": "animals"
   },
   {

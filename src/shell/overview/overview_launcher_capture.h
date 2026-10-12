@@ -40,8 +40,8 @@ private:
 
   [[nodiscard]] bool shouldBeActive() const;
   [[nodiscard]] bool surfacesMatchOutputs() const;
-  [[nodiscard]] bool handleNiriOverviewKey(const KeyboardEvent& event) const;
-  [[nodiscard]] bool sendNiriAction(const char* actionName) const;
+  [[nodiscard]] bool handleOverviewKey(const KeyboardEvent& event) const;
+  [[nodiscard]] bool sendOverviewAction(const char* actionName) const;
   void ensureSurfaces();
   void destroySurfaces();
   [[nodiscard]] Instance* instanceForKeyboardSurface(wl_surface* surface) noexcept;
@@ -53,4 +53,5 @@ private:
   OpenLauncherCallback m_openLauncher;
   std::vector<std::unique_ptr<Instance>> m_instances;
   bool m_enabled = false;
+  bool m_launcherOpenedFromOverview = false;
 };

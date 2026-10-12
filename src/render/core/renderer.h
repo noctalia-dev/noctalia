@@ -68,7 +68,9 @@ public:
       int maxLines = 0, TextAlign align = TextAlign::Start, std::string_view fontFamily = {},
       TextEllipsize ellipsize = TextEllipsize::End, bool useMarkup = false
   ) = 0;
-  [[nodiscard]] virtual TextMetrics measureFont(float fontSize, FontWeight fontWeight = FontWeight::Normal) = 0;
+  // Metrics of `fontFamily` (empty = renderer-global family) at the given size/weight.
+  [[nodiscard]] virtual TextMetrics
+  measureFont(float fontSize, FontWeight fontWeight = FontWeight::Normal, std::string_view fontFamily = {}) = 0;
 
   // Canonical "as tall as a line of text" row height: the rounded vertical
   // extent of the given font. Bar capsule heights and content widgets that must

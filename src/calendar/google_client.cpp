@@ -2,15 +2,18 @@
 
 #include "calendar/event_link.h"
 #include "calendar/google_calendar_list.h"
+#include "calendar/google_reminders.h"
 #include "core/log.h"
 #include "net/http_client.h"
 #include "net/uri.h"
 #include "time/time_format.h"
 
 #include <charconv>
+#include <cstdint>
 #include <memory>
 #include <nlohmann/json.hpp>
 #include <optional>
+#include <vector>
 
 namespace calendar {
 
@@ -100,6 +103,9 @@ namespace calendar {
       if (items == j.end() || !items->is_array()) {
         return;
       }
+      // The events.list response carries this calendar's own defaults, so resolving reminders.useDefault
+      // needs no separate calendarList lookup and cannot go stale against one.
+      const std::vector<std::int32_t> calendarDefaults = detail::googleDefaultReminders(j);
       for (const auto& item : *items) {
         if (item.value("status", std::string{}) == "cancelled") {
           continue;
@@ -108,9 +114,28 @@ namespace calendar {
         event.id = item.value("id", std::string{});
         event.title = item.value("summary", std::string{});
         event.location = item.value("location", std::string{});
-        event.url = resolveEventLink(event.location, item.value("hangoutLink", std::string{}));
+        event.url = resolveEventLink(event.location, item.value("hangoutLink", std::string{}), {});
+        if (event.url.empty()) {
+          event.url = resolveEventLink({}, item.value("description", std::string{}), {});
+        }
+        event.webUrl = resolveEventLink({}, {}, item.value("htmlLink", std::string{}));
         event.calendarName = meta.name;
-        event.colorHex = meta.color;
+        const std::string colorId = item.value("colorId", std::string{});
+        if (!colorId.empty()) {
+          // Google Calendar API v3 default event color palette ("1" through "11").
+          // Reference: https://developers.google.com/calendar/api/v3/reference/colors/get
+          static const std::unordered_map<std::string_view, std::string_view> kGoogleEventColors = {
+              {"1", "#7986cb"}, {"2", "#33b679"},  {"3", "#8e24aa"},  {"4", "#e67c73"},
+              {"5", "#f6bf26"}, {"6", "#f4511e"},  {"7", "#039be5"},  {"8", "#616161"},
+              {"9", "#3f51b5"}, {"10", "#0b8043"}, {"11", "#d50000"},
+          };
+          if (auto it = kGoogleEventColors.find(colorId); it != kGoogleEventColors.end()) {
+            event.colorHex = it->second;
+          }
+        }
+        if (event.colorHex.empty()) {
+          event.colorHex = meta.color;
+        }
 
         const auto readEndpoint = [](const nlohmann::json& node, std::chrono::system_clock::time_point& tp,
                                      bool& allDay) -> bool {
@@ -142,6 +167,7 @@ namespace calendar {
           event.end = event.start;
         }
         event.allDay = startAllDay;
+        event.reminderLeadSeconds = detail::googleEventReminders(item, calendarDefaults);
         out.push_back(std::move(event));
       }
     }

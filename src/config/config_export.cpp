@@ -151,6 +151,8 @@ namespace config_export {
         resolved.thickness = *ovr.thickness;
       if (ovr.backgroundOpacity)
         resolved.backgroundOpacity = *ovr.backgroundOpacity;
+      if (ovr.compositorBlur)
+        resolved.compositorBlur = *ovr.compositorBlur;
       if (ovr.border)
         resolved.border = *ovr.border;
       if (ovr.borderWidth)
@@ -200,6 +202,8 @@ namespace config_export {
         resolved.endWidgets = *ovr.endWidgets;
       if (ovr.scale)
         resolved.scale = *ovr.scale;
+      if (ovr.fontScale)
+        resolved.fontScale = *ovr.fontScale;
       if (ovr.widgetCapsuleDefault)
         resolved.widgetCapsuleDefault = *ovr.widgetCapsuleDefault;
       if (ovr.widgetCapsuleFill)
@@ -223,8 +227,12 @@ namespace config_export {
       }
       if (ovr.widgetCapsuleOpacity)
         resolved.widgetCapsuleOpacity = static_cast<float>(*ovr.widgetCapsuleOpacity);
+      if (ovr.widgetCapsuleBorderWidth)
+        resolved.widgetCapsuleBorderWidth = *ovr.widgetCapsuleBorderWidth;
       if (ovr.hoverHighlight)
         resolved.hoverHighlight = *ovr.hoverHighlight;
+      if (ovr.showTooltip)
+        resolved.showTooltip = *ovr.showTooltip;
       if (ovr.deadZone.actions)
         resolved.deadZone.actions = *ovr.deadZone.actions;
       return resolved;

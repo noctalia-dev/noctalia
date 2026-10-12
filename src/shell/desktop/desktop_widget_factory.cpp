@@ -213,6 +213,7 @@ std::unique_ptr<DesktopWidget> DesktopWidgetFactory::create(
         .color = getColorSpecSetting(settings, "color", colorSpecFromRole(ColorRole::OnSurface)),
         .shadow = getBoolSetting(settings, "shadow", true),
         .showCircle = getBoolSetting(settings, "circle", true),
+        .showSeconds = getBoolSetting(settings, "show_seconds", true),
         .centerText = getBoolSetting(settings, "center_text", true),
         .timezone = getStringSetting(settings, "timezone", ""),
     });
@@ -307,12 +308,15 @@ std::unique_ptr<DesktopWidget> DesktopWidgetFactory::create(
       return nullptr;
     }
     auto widget = std::make_unique<DesktopMediaPlayerWidget>(
-        m_mpris, m_httpClient,
+        m_mpris, m_httpClient, m_pipewireSpectrum,
         DesktopMediaPlayerWidget::Options{
             .vertical = getStringSetting(settings, "layout", "horizontal") == "vertical",
             .color = getColorSpecSetting(settings, "color", colorSpecFromRole(ColorRole::OnSurface)),
             .shadow = getBoolSetting(settings, "shadow", true),
             .hideWhenNoMedia = getBoolSetting(settings, "hide_when_no_media", false),
+            .albumArtBackground = getBoolSetting(settings, "album_art_background", false),
+            .albumArtBlur = getIntSetting(settings, "album_art_blur", 24),
+            .audioVisualizer = getBoolSetting(settings, "audio_visualizer", false),
         }
     );
     applyCommonSettings(*widget, settings);

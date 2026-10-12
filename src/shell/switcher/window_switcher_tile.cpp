@@ -1,174 +1,84 @@
 #include "shell/switcher/window_switcher_tile.h"
 
+#include "cursor-shape-v1-client-protocol.h"
 #include "render/core/renderer.h"
+#include "render/core/texture_manager.h"
 #include "ui/builders.h"
+#include "ui/controls/button.h"
 #include "ui/palette.h"
 #include "ui/style.h"
-#include "util/string_utils.h"
 
 #include <algorithm>
 #include <cmath>
+#include <linux/input-event-codes.h>
 
 namespace {
 
-  constexpr float kIconHostAspect = 16.0F / 10.0F;
-  constexpr float kIconScale = 0.5F;
-
-  [[nodiscard]] float closeHitSize(float contentScale) { return Style::controlHeightSm * contentScale * 0.72F; }
-
-  [[nodiscard]] float framePadding(float contentScale) { return Style::spaceXs * contentScale; }
-
-  [[nodiscard]] float captionTextInset(float contentScale) { return Style::spaceSm * contentScale; }
-
-  [[nodiscard]] float captionReserve(float contentScale) {
-    const float innerGap = Style::spaceXs * contentScale;
-    return Style::fontSizeCaption * contentScale * 1.3F + Style::fontSizeMini * contentScale * 1.15F + innerGap;
-  }
-
-  [[nodiscard]] std::pair<float, float>
-  iconHostDimensions(float cellWidth, float cellHeight, float contentScale) noexcept {
-    const float framePad = framePadding(contentScale);
-    const float innerGap = Style::spaceXs * contentScale;
-    const float iconHostWidth = std::max(0.0F, cellWidth - framePad * 2.0F);
-    const float iconHostHeight = std::max(
-        72.0F,
-        std::min(
-            iconHostWidth / kIconHostAspect,
-            std::max(0.0F, cellHeight - framePad * 2.0F - innerGap - captionReserve(contentScale))
-        )
-    );
-    return {iconHostWidth, iconHostHeight};
-  }
-
-  void applyCloseGlyphStyle(Glyph* glyph, const ColorSpec& fill, float contentScale) {
-    if (glyph == nullptr) {
-      return;
-    }
-    glyph->setColor(fill);
-    const float offset = std::max(0.5F, 0.85F * contentScale);
-    glyph->setShadow(colorSpecFromRole(ColorRole::Shadow, 0.55F), 0.0F, offset);
-  }
+  constexpr float kNearToneAlpha = Style::disabledOutlineAlpha * 0.25F;
+  constexpr float kFarToneAlpha = Style::disabledOutlineAlpha * 0.5F;
 
 } // namespace
 
-bool WindowSwitcherTile::hitTestCloseRegion(
-    float cellWidth, float cellHeight, float contentScale, float localX, float localY
-) noexcept {
-  const float framePad = framePadding(contentScale);
-  const auto [iconHostWidth, iconHostHeight] = iconHostDimensions(cellWidth, cellHeight, contentScale);
-  (void)iconHostHeight;
-
-  const float hitSize = closeHitSize(contentScale);
-  const float inset = Style::spaceXs * contentScale * 0.55F;
-  const float x = framePad + iconHostWidth - hitSize - inset;
-  const float y = framePad + inset;
-  return localX >= x && localX < x + hitSize && localY >= y && localY < y + hitSize;
-}
-
 WindowSwitcherTile::WindowSwitcherTile(float contentScale, AsyncTextureCache* asyncTextures)
     : m_contentScale(contentScale), m_asyncTextures(asyncTextures) {
-  setHitTestVisible(false);
+  const float cardRadius = Style::scaledRadiusXl(m_contentScale);
+  const float previewRadius = std::max(0.0F, cardRadius - Style::spaceXs * m_contentScale);
 
-  const float frameRadius = Style::scaledRadiusXl(m_contentScale);
-  const float iconRadius = Style::scaledRadiusLg(m_contentScale);
-  const float closeBackdropSize = closeHitSize(m_contentScale) + Style::spaceXs * m_contentScale * 0.45F;
-
-  auto layout = ui::column({
-      .out = &m_layout,
-      .align = FlexAlign::Stretch,
+  setAcceptedButtons(InputArea::buttonMask(BTN_LEFT));
+  setCursorShape(WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_POINTER);
+  setOnClick([this](const InputArea::PointerData&) {
+    if (m_onActivate) {
+      m_onActivate();
+    }
   });
-  addChild(std::move(layout));
+  setOnEnter([this](const InputArea::PointerData&) { setPointerHovered(true); });
+  setOnLeave([this]() { setPointerHovered(false); });
 
-  m_layout->addChild(
+  addChild(
+      ui::box({
+          .out = &m_shadow,
+          .visible = false,
+          .participatesInLayout = false,
+      })
+  );
+  m_shadow->setZIndex(-1);
+
+  addChild(
       ui::box({
           .out = &m_frame,
-          .fill = colorSpecFromRole(ColorRole::Surface, 0.9F),
-          .radius = frameRadius,
-          .configure = [frameRadius](Box& box) {
-            box.setRadius(frameRadius);
-            box.setClipChildren(true);
-          },
+          .fill = colorSpecFromRole(ColorRole::Surface),
+          .radius = cardRadius,
+          .participatesInLayout = false,
+          .configure = [](Box& box) { box.setClipChildren(true); },
       })
   );
-
   m_frame->addChild(
-      ui::column({
-          .out = &m_inner,
-          .align = FlexAlign::Stretch,
-          .gap = Style::spaceXs * m_contentScale,
-          .configure = [this, iconRadius, closeBackdropSize](Flex& column) {
-            column.addChild(
-                ui::box({
-                    .out = &m_iconHost,
-                    .fill = colorSpecFromRole(ColorRole::SurfaceVariant),
-                    .radius = iconRadius,
-                    .configure = [iconRadius](Box& box) {
-                      box.setRadius(iconRadius);
-                      box.setClipChildren(true);
-                    },
-                })
-            );
-
-            column.addChild(
-                ui::column({
-                    .out = &m_caption,
-                    .align = FlexAlign::Stretch,
-                    .justify = FlexJustify::Center,
-                    .gap = Style::spaceXs * m_contentScale * 0.35F,
-                    .flexGrow = 1.0F,
-                    .configure = [this](Flex& caption) {
-                      caption.addChild(
-                          ui::label({
-                              .out = &m_title,
-                              .fontSize = Style::fontSizeCaption * m_contentScale,
-                              .fontWeight = FontWeight::Bold,
-                              .color = colorSpecFromRole(ColorRole::OnSurface),
-                              .configure = [](Label& label) {
-                                label.setMaxLines(1);
-                                label.setTextAlign(TextAlign::Center);
-                              },
-                          })
-                      );
-
-                      caption.addChild(
-                          ui::label({
-                              .out = &m_subtitle,
-                              .fontSize = Style::fontSizeMini * m_contentScale,
-                              .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
-                              .configure = [](Label& label) {
-                                label.setMaxLines(1);
-                                label.setTextAlign(TextAlign::Center);
-                              },
-                          })
-                      );
-                    },
-                })
-            );
-
-            m_iconHost->addChild(
-                ui::box({
-                    .out = &m_closeBackdrop,
-                    .fill = colorSpecFromRole(ColorRole::Surface, 0.92F),
-                    .radius = closeBackdropSize * 0.5F,
-                    .visible = false,
-                    .participatesInLayout = false,
-                })
-            );
-
-            m_iconHost->addChild(
-                ui::glyph({
-                    .out = &m_closeGlyph,
-                    .glyph = "close",
-                    .glyphSize = Style::fontSizeCaption * m_contentScale * 0.92F,
-                    .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
-                    .participatesInLayout = false,
-                })
-            );
-          },
+      ui::box({
+          .out = &m_previewHost,
+          .fill = colorSpecFromRole(ColorRole::SurfaceVariant),
+          .radius = previewRadius,
+          .participatesInLayout = false,
+          .configure = [](Box& box) { box.setClipChildren(true); },
       })
   );
-
-  m_iconHost->addChild(
+  m_previewHost->addChild(
+      ui::image({
+          .out = &m_thumbnail,
+          .fit = ImageFit::Contain,
+          .radius = previewRadius,
+          .visible = false,
+          .participatesInLayout = false,
+      })
+  );
+  m_previewHost->addChild(
+      ui::box({
+          .out = &m_toneOverlay,
+          .fill = clearColorSpec(),
+          .radius = previewRadius,
+          .participatesInLayout = false,
+      })
+  );
+  m_previewHost->addChild(
       ui::image({
           .out = &m_icon,
           .fit = ImageFit::Contain,
@@ -176,9 +86,86 @@ WindowSwitcherTile::WindowSwitcherTile(float contentScale, AsyncTextureCache* as
           .participatesInLayout = false,
       })
   );
+  m_previewHost->addChild(
+      ui::glyph({
+          .out = &m_fallbackGlyph,
+          .glyph = "app-window",
+          .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+          .participatesInLayout = false,
+      })
+  );
+  m_previewHost->addChild(
+      ui::button({
+          .out = &m_close,
+          .glyph = "close",
+          .glyphSize = Style::fontSizeCaption * m_contentScale,
+          .controlHeight = (Style::controlHeightSm - Style::spaceSm) * m_contentScale,
+          .variant = ButtonVariant::Outline,
+          .padding = 0.0F,
+          .width = (Style::controlHeightSm - Style::spaceSm) * m_contentScale,
+          .height = (Style::controlHeightSm - Style::spaceSm) * m_contentScale,
+          .participatesInLayout = false,
+          .onClick = [this]() {
+            if (m_onClose) {
+              m_onClose();
+            }
+          },
+      })
+  );
+  const float closeHitSlop = Style::spaceXs * m_contentScale;
+  m_close->inputArea()->setHitTestOutset(
+      HitTestOutset{
+          .left = closeHitSlop,
+          .top = closeHitSlop,
+          .right = closeHitSlop,
+          .bottom = closeHitSlop,
+      }
+  );
+  m_close->setOnEnter([this]() { setPointerHovered(true); });
+  m_close->setOnLeave([this]() { setPointerHovered(false); });
+
+  auto captionBadge = ui::box({
+      .out = &m_captionBadge,
+      .fill = colorSpecFromRole(ColorRole::Surface),
+      .border = scaleAlpha(colorSpecFromRole(ColorRole::Outline), Style::disabledOutlineAlpha),
+      .borderWidth = Style::borderWidth,
+      .radius = cardRadius,
+      .visible = false,
+      .participatesInLayout = false,
+  });
+  captionBadge->addChild(
+      ui::column(
+          {
+              .out = &m_caption,
+              .align = FlexAlign::Stretch,
+              .justify = FlexJustify::Center,
+              .gap = Style::windowSwitcherCaptionLineGap * m_contentScale,
+              .participatesInLayout = false,
+          },
+          ui::label({
+              .out = &m_title,
+              .fontSize = Style::fontSizeCaption * m_contentScale,
+              .fontWeight = FontWeight::Bold,
+              .color = colorSpecFromRole(ColorRole::OnSurface),
+              .maxLines = 1,
+              .textAlign = TextAlign::Center,
+              .ellipsize = TextEllipsize::End,
+          }),
+          ui::label({
+              .out = &m_subtitle,
+              .fontSize = Style::fontSizeMini * m_contentScale,
+              .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+              .maxLines = 1,
+              .textAlign = TextAlign::Center,
+              .ellipsize = TextEllipsize::End,
+          })
+      )
+  );
+  captionBadge->setZIndex(2);
+  addChild(std::move(captionBadge));
 
   m_icon->setAsyncReadyCallback([this]() {
-    if (m_icon == nullptr || m_fallbackGlyph == nullptr || !m_icon->hasImage()) {
+    if (!m_showAppIcon || m_icon == nullptr || m_fallbackGlyph == nullptr || !m_icon->hasImage()) {
       return;
     }
     m_icon->setVisible(true);
@@ -188,204 +175,224 @@ WindowSwitcherTile::WindowSwitcherTile(float contentScale, AsyncTextureCache* as
       m_onInvalidate();
     }
   });
-
-  m_iconHost->addChild(
-      ui::glyph({
-          .out = &m_fallbackGlyph,
-          .glyph = "app-window",
-          .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
-          .visible = true,
-          .participatesInLayout = false,
-      })
-  );
 }
 
-void WindowSwitcherTile::setCellSize(float cellWidth, float cellHeight) {
-  m_cellWidth = std::max(0.0F, cellWidth);
-  m_cellHeight = std::max(0.0F, cellHeight);
-  setSize(m_cellWidth, m_cellHeight);
-
-  const float framePad = framePadding(m_contentScale);
-  const float innerGap = Style::spaceXs * m_contentScale;
-  std::tie(m_iconHostWidth, m_iconHostHeight) = iconHostDimensions(m_cellWidth, m_cellHeight, m_contentScale);
-
-  if (m_layout != nullptr) {
-    m_layout->setFrameSize(m_cellWidth, m_cellHeight);
-  }
-  if (m_frame != nullptr) {
-    m_frame->setFrameSize(m_cellWidth, m_cellHeight);
-  }
-  if (m_inner != nullptr) {
-    m_inner->setPadding(framePad);
-    m_inner->setGap(innerGap);
-    m_inner->setFrameSize(m_cellWidth, m_cellHeight);
-  }
-  if (m_iconHost != nullptr) {
-    m_iconHost->setFrameSize(m_iconHostWidth, m_iconHostHeight);
-  }
-  const float captionTextWidth = std::max(0.0F, m_iconHostWidth - captionTextInset(m_contentScale) * 2.0F);
-  if (m_title != nullptr) {
-    m_title->setMaxWidth(captionTextWidth);
-  }
-  if (m_subtitle != nullptr) {
-    m_subtitle->setMaxWidth(captionTextWidth);
-  }
-
+void WindowSwitcherTile::setCardSize(float width, float height) {
+  m_cardWidth = std::max(0.0F, width);
+  m_cardHeight = std::max(0.0F, height);
+  setSize(m_cardWidth, m_cardHeight);
   markLayoutDirty();
 }
 
-void WindowSwitcherTile::setCloseHovered(bool hovered) {
-  if (m_closeHovered == hovered) {
-    return;
+void WindowSwitcherTile::setShadowStyle(const RoundedRectStyle& style) {
+  m_shadowStyle = style;
+  m_shadowConfigured = true;
+  if (m_shadow != nullptr) {
+    m_shadow->setStyle(style);
   }
-  m_closeHovered = hovered;
-  applyCloseVisualState();
+  applyVisualState();
 }
 
-void WindowSwitcherTile::bind(Renderer& renderer, const WindowSwitcherEntry& entry, bool selected, bool hovered) {
-  m_entry = entry;
-  m_hasEntry = true;
-  m_selected = selected;
-  m_hovered = hovered;
+void WindowSwitcherTile::setShowCaption(bool show) {
+  m_showCaption = show;
+  applyVisualState();
+  markLayoutDirty();
+}
 
-  const std::string title = entry.title.empty() ? entry.appLabel : entry.title;
-  m_title->setText(title);
-
-  const std::string subtitle = entry.appLabel.empty() ? entry.appId : entry.appLabel;
-  const bool showSubtitle = !subtitle.empty() && StringUtils::toLower(subtitle) != StringUtils::toLower(title);
-  m_subtitle->setVisible(showSubtitle);
-  m_subtitle->setParticipatesInLayout(showSubtitle);
-  if (showSubtitle) {
-    m_subtitle->setText(subtitle);
-  } else {
-    m_subtitle->setText("");
+void WindowSwitcherTile::setShowAppIcon(bool show) {
+  m_showAppIcon = show;
+  if (!show) {
+    m_icon->setVisible(false);
+    m_fallbackGlyph->setVisible(false);
   }
+  markLayoutDirty();
+}
+
+void WindowSwitcherTile::bind(
+    Renderer& renderer, const WindowSwitcherEntry& entry, WindowSwitcherTileDepth depth, bool showCaption,
+    bool wideCaption, WindowSwitcherHorizontalPlacement iconPlacement, WindowSwitcherHorizontalPlacement closePlacement
+) {
+  m_hasEntry = true;
+  m_depth = depth;
+  m_selected = depth == WindowSwitcherTileDepth::Selected;
+  m_captionVisible = showCaption;
+  m_wideCaption = wideCaption;
+  m_iconPlacement = iconPlacement;
+  m_closePlacement = closePlacement;
+  m_title->setText(entry.title.empty() ? entry.appLabel : entry.title);
+  m_subtitle->setText(entry.appLabel.empty() ? entry.appId : entry.appLabel);
 
   if (entry.iconPath != m_iconPath) {
     m_iconPath = entry.iconPath;
     m_iconTargetSize = 0;
     m_icon->clear(renderer);
   }
-
+  if (entry.thumbnail != m_thumbnailImage) {
+    m_thumbnailImage = entry.thumbnail;
+    m_thumbnail->clear(renderer);
+    bool loaded = false;
+    if (m_thumbnailImage != nullptr
+        && m_thumbnailImage->width > 0
+        && m_thumbnailImage->height > 0
+        && !m_thumbnailImage->rgba.empty()) {
+      loaded = m_thumbnail->setSourceRaw(
+          renderer, m_thumbnailImage->rgba.data(), m_thumbnailImage->rgba.size(), m_thumbnailImage->width,
+          m_thumbnailImage->height, m_thumbnailImage->width * 4, PixmapFormat::RGBA, true
+      );
+    }
+    m_thumbnail->setVisible(loaded);
+  }
   applyVisualState();
-  applyCloseVisualState();
   markLayoutDirty();
 }
 
+void WindowSwitcherTile::setPointerHovered(bool hovered) {
+  if (m_pointerHovered == hovered) {
+    return;
+  }
+  m_pointerHovered = hovered;
+  applyVisualState();
+
+  if (m_onInvalidate) {
+    m_onInvalidate();
+  }
+}
+
 bool WindowSwitcherTile::refreshIcon(Renderer& renderer) {
+  if (!m_showAppIcon) {
+    m_icon->setVisible(false);
+    m_fallbackGlyph->setVisible(false);
+    return false;
+  }
   if (!m_hasEntry || m_iconPath.empty()) {
     m_icon->setVisible(false);
     m_fallbackGlyph->setVisible(true);
     return false;
   }
-
   m_icon->setAppIconColorization(m_appIconColorizeTint);
-  bool ready = false;
-  if (m_asyncTextures != nullptr) {
-    ready = m_icon->setSourceFileAsync(renderer, *m_asyncTextures, m_iconPath, m_iconTargetSize, true);
-  } else {
-    ready = m_icon->setSourceFile(renderer, m_iconPath, m_iconTargetSize, true);
-  }
-
-  const float iconSize = std::min(m_iconHostWidth, m_iconHostHeight) * kIconScale;
-  m_icon->setSize(iconSize, iconSize);
+  const bool ready = m_asyncTextures != nullptr
+      ? m_icon->setSourceFileAsync(renderer, *m_asyncTextures, m_iconPath, m_iconTargetSize, true)
+      : m_icon->setSourceFile(renderer, m_iconPath, m_iconTargetSize, true);
   m_icon->setVisible(ready);
   m_fallbackGlyph->setVisible(!ready);
   return ready;
 }
 
 void WindowSwitcherTile::applyVisualState() {
-  const float frameRadius = Style::scaledRadiusXl(m_contentScale);
   if (m_selected) {
     m_frame->setFill(colorSpecFromRole(ColorRole::Surface));
     m_frame->setBorder(colorSpecFromRole(ColorRole::Primary), Style::emphasizedBorderWidth);
-    m_frame->setOpacity(1.0F);
-  } else if (m_hovered) {
+    m_previewHost->setFill(colorSpecFromRole(ColorRole::SurfaceVariant));
+  } else if (m_pointerHovered) {
     m_frame->setFill(colorSpecFromRole(ColorRole::Surface));
     m_frame->setBorder(colorSpecFromRole(ColorRole::Hover), Style::emphasizedBorderWidth);
-    m_frame->setOpacity(1.0F);
+    m_previewHost->setFill(colorSpecFromRole(ColorRole::SurfaceVariant));
   } else {
     m_frame->setFill(colorSpecFromRole(ColorRole::Surface));
-    m_frame->setBorder(colorSpecFromRole(ColorRole::Outline, Style::disabledOutlineAlpha), Style::borderWidth);
-    m_frame->setOpacity(1.0F);
+    m_frame->setBorder(
+        scaleAlpha(colorSpecFromRole(ColorRole::Outline), Style::disabledOutlineAlpha), Style::borderWidth
+    );
+    m_previewHost->setFill(colorSpecFromRole(ColorRole::SurfaceVariant));
   }
-  m_frame->setRadius(frameRadius);
-
-  if (m_iconHost != nullptr) {
-    m_iconHost->clearBorder();
+  if (m_toneOverlay != nullptr) {
+    const float tone = m_depth == WindowSwitcherTileDepth::Far
+        ? kFarToneAlpha
+        : (m_depth == WindowSwitcherTileDepth::Near ? kNearToneAlpha : 0.0F);
+    m_toneOverlay->setFill(scaleAlpha(colorSpecFromRole(ColorRole::Shadow), tone));
   }
+  if (m_captionBadge != nullptr) {
+    m_captionBadge->setVisible(m_captionVisible && m_showCaption);
+  }
+  if (m_shadow != nullptr) {
+    m_shadow->setVisible(m_selected && m_shadowConfigured);
+  }
+  const bool showClose = m_pointerHovered;
+  m_close->setVisible(showClose);
+  m_close->setEnabled(showClose);
 }
 
-void WindowSwitcherTile::applyCloseVisualState() {
-  if (m_closeGlyph == nullptr) {
-    return;
-  }
-  if (m_closeBackdrop != nullptr) {
-    m_closeBackdrop->setVisible(m_closeHovered);
-  }
-  if (m_closeHovered) {
-    applyCloseGlyphStyle(m_closeGlyph, colorSpecFromRole(ColorRole::Error), m_contentScale);
-  } else {
-    applyCloseGlyphStyle(m_closeGlyph, colorSpecFromRole(ColorRole::OnSurfaceVariant, 0.88F), m_contentScale);
-  }
-}
+void WindowSwitcherTile::layoutContent(Renderer& renderer) {
+  const float outerPad = Style::spaceXs * m_contentScale;
+  const float innerW = std::max(0.0F, m_cardWidth - outerPad * 2.0F);
+  const float captionH = m_captionVisible && m_showCaption
+      ? std::min(Style::windowSwitcherCaptionHeight * m_contentScale, m_cardHeight)
+      : 0.0F;
+  const float captionGap = captionH > 0.0F ? Style::spaceMd * m_contentScale : 0.0F;
+  const float frameH = std::max(0.0F, m_cardHeight - captionGap - captionH);
+  const float previewH = std::max(0.0F, frameH - outerPad * 2.0F);
 
-void WindowSwitcherTile::layoutOverlays(Renderer& renderer) {
-  if (m_iconHostWidth <= 0.0F || m_iconHostHeight <= 0.0F) {
-    return;
+  if (m_shadow != nullptr) {
+    m_shadow->setPosition(m_shadowStyle.shadowCutoutOffsetX, m_shadowStyle.shadowCutoutOffsetY);
+    m_shadow->setFrameSize(m_cardWidth, frameH);
   }
+  m_frame->setPosition(0.0F, 0.0F);
+  m_frame->setFrameSize(m_cardWidth, frameH);
+  m_previewHost->setPosition(outerPad, outerPad);
+  m_previewHost->setFrameSize(innerW, previewH);
+  m_thumbnail->setPosition(0.0F, 0.0F);
+  m_thumbnail->setSize(innerW, previewH);
+  m_toneOverlay->setPosition(0.0F, 0.0F);
+  m_toneOverlay->setFrameSize(innerW, previewH);
 
-  const float hitSize = closeHitSize(m_contentScale);
-  const float inset = Style::spaceXs * m_contentScale * 0.55F;
-  const float backdropSize = hitSize + Style::spaceXs * m_contentScale * 0.45F;
-  const float closeX = std::round(m_iconHostWidth - hitSize - inset);
-  const float closeY = std::round(inset);
-
-  if (m_closeBackdrop != nullptr) {
-    m_closeBackdrop->setPosition(
-        std::round(closeX - (backdropSize - hitSize) * 0.5F), std::round(closeY - (backdropSize - hitSize) * 0.5F)
-    );
-    m_closeBackdrop->setSize(backdropSize, backdropSize);
-  }
-  if (m_closeGlyph != nullptr) {
-    m_closeGlyph->measure(renderer);
-    const float glyphW = m_closeGlyph->width() > 0.0F ? m_closeGlyph->width() : hitSize;
-    const float glyphH = m_closeGlyph->height() > 0.0F ? m_closeGlyph->height() : hitSize;
-    m_closeGlyph->setPosition(
-        std::round(closeX + (hitSize - glyphW) * 0.5F), std::round(closeY + (hitSize - glyphH) * 0.5F)
-    );
-  }
-
-  const int iconTarget =
-      std::max(32, static_cast<int>(std::round(std::min(m_iconHostWidth, m_iconHostHeight) * kIconScale)));
-  if (m_hasEntry && !m_iconPath.empty() && iconTarget != m_iconTargetSize) {
-    m_iconTargetSize = iconTarget;
+  const bool hasThumbnail = m_thumbnail->visible();
+  const float iconScale = hasThumbnail ? Style::windowSwitcherPreviewIconScale : Style::windowSwitcherFallbackIconScale;
+  const float iconSize = std::min(innerW, previewH) * iconScale;
+  const int targetSize = std::max(
+      static_cast<int>(std::round(Style::baseGlyphSize * m_contentScale)), static_cast<int>(std::round(iconSize))
+  );
+  if (m_showAppIcon && targetSize != m_iconTargetSize) {
+    m_iconTargetSize = targetSize;
     (void)refreshIcon(renderer);
-  } else if (m_hasEntry && !m_iconPath.empty()) {
+  } else if (m_showAppIcon && m_hasEntry && !m_iconPath.empty()) {
     (void)refreshIcon(renderer);
+  } else if (!m_showAppIcon) {
+    m_icon->setVisible(false);
+    m_fallbackGlyph->setVisible(false);
   }
+  const float overlayInset = Style::spaceSm * m_contentScale;
+  float iconX = (innerW - iconSize) * 0.5F;
+  if (hasThumbnail && m_iconPlacement == WindowSwitcherHorizontalPlacement::Left) {
+    iconX = overlayInset;
+  } else if (hasThumbnail && m_iconPlacement == WindowSwitcherHorizontalPlacement::Right) {
+    iconX = innerW - iconSize - overlayInset;
+  }
+  const float iconY = hasThumbnail ? previewH - iconSize - overlayInset : (previewH - iconSize) * 0.5F;
+  m_icon->setSize(iconSize, iconSize);
+  m_icon->setPosition(std::round(iconX), std::round(iconY));
+  m_fallbackGlyph->setGlyphSize(iconSize);
+  m_fallbackGlyph->measure(renderer);
+  m_fallbackGlyph->setPosition(
+      std::round(iconX + (iconSize - m_fallbackGlyph->width()) * 0.5F),
+      std::round(iconY + (iconSize - m_fallbackGlyph->height()) * 0.5F)
+  );
 
-  const float iconSize = std::min(m_iconHostWidth, m_iconHostHeight) * kIconScale;
-  if (m_icon != nullptr && m_icon->visible()) {
-    m_icon->setPosition(
-        std::round((m_iconHostWidth - m_icon->width()) * 0.5F), std::round((m_iconHostHeight - m_icon->height()) * 0.5F)
-    );
-  }
-  if (m_fallbackGlyph != nullptr && m_fallbackGlyph->visible()) {
-    m_fallbackGlyph->setGlyphSize(iconSize);
-    m_fallbackGlyph->measure(renderer);
-    m_fallbackGlyph->setPosition(
-        std::round((m_iconHostWidth - m_fallbackGlyph->width()) * 0.5F),
-        std::round((m_iconHostHeight - m_fallbackGlyph->height()) * 0.5F)
-    );
+  const float closeSize = (Style::controlHeightSm - Style::spaceSm) * m_contentScale;
+  const float closeInset = Style::spaceXs * m_contentScale;
+  const float closeX =
+      m_closePlacement == WindowSwitcherHorizontalPlacement::Left ? closeInset : innerW - closeSize - closeInset;
+  m_close->setPosition(std::round(closeX), std::round(closeInset));
+  m_close->setSize(closeSize, closeSize);
+
+  if (m_captionBadge != nullptr && m_captionVisible && m_showCaption) {
+    const float captionPad = Style::spaceLg * m_contentScale;
+    const float captionMargin = m_wideCaption ? 0.0F : Style::spaceLg * m_contentScale;
+    const float maxCaptionW = std::max(0.0F, m_cardWidth - captionMargin * 2.0F);
+    m_title->setMaxWidth(std::max(0.0F, maxCaptionW - captionPad * 2.0F));
+    m_subtitle->setMaxWidth(std::max(0.0F, maxCaptionW - captionPad * 2.0F));
+    m_title->measure(renderer);
+    m_subtitle->measure(renderer);
+    const float contentCaptionW = std::max(m_title->width(), m_subtitle->width()) + captionPad * 2.0F;
+    const float captionW = m_wideCaption ? maxCaptionW : std::min(maxCaptionW, contentCaptionW);
+    const float captionX = (m_cardWidth - captionW) * 0.5F;
+    const float captionY = frameH + captionGap;
+    m_captionBadge->setPosition(captionX, captionY);
+    m_captionBadge->setFrameSize(captionW, captionH);
+    m_caption->setPosition(captionPad, 0.0F);
+    m_caption->setFrameSize(std::max(0.0F, captionW - captionPad * 2.0F), captionH);
   }
 }
 
 void WindowSwitcherTile::doLayout(Renderer& renderer) {
-  if (m_cellWidth > 0.0F && m_cellHeight > 0.0F && (m_cellWidth != width() || m_cellHeight != height())) {
-    setCellSize(width(), height());
-  }
-
+  layoutContent(renderer);
   InputArea::doLayout(renderer);
-  layoutOverlays(renderer);
 }

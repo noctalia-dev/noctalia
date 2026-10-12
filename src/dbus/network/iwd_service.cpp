@@ -1,6 +1,7 @@
 #include "dbus/network/iwd_service.h"
 
 #include "core/log.h"
+#include "dbus/network/iwd_diagnostics.h"
 #include "dbus/network/iwd_secret_agent.h"
 #include "dbus/system_bus.h"
 #include "system/rfkill_helper.h"
@@ -24,6 +25,7 @@ namespace {
   const sdbus::ObjectPath kRootPath{"/"};
   constexpr auto kDeviceInterface = "net.connman.iwd.Device";
   constexpr auto kStationInterface = "net.connman.iwd.Station";
+  constexpr auto kStationDiagnosticInterface = "net.connman.iwd.StationDiagnostic";
   constexpr auto kNetworkInterface = "net.connman.iwd.Network";
   constexpr auto kKnownNetworkInterface = "net.connman.iwd.KnownNetwork";
   constexpr auto kObjectManagerInterface = "org.freedesktop.DBus.ObjectManager";
@@ -43,17 +45,7 @@ namespace {
 
   constexpr auto kPropertiesInterface = "org.freedesktop.DBus.Properties";
 
-  std::uint8_t signalToPercent(std::int16_t dBm) {
-    if (dBm <= -100) {
-      return 0;
-    }
-    if (dBm >= -50) {
-      return 100;
-    }
-    return static_cast<std::uint8_t>(2 * (dBm + 100));
-  }
-
-  std::uint8_t signalFromIwdStrength(std::int16_t centiDbm) { return signalToPercent(centiDbm / 100); }
+  std::uint8_t signalFromIwdStrength(std::int16_t centiDbm) { return iwd_diagnostics::signalToPercent(centiDbm / 100); }
 
   std::optional<std::string> stringProp(const VariantMap& props, std::string_view name) {
     const auto it = props.find(std::string{name});
@@ -270,6 +262,16 @@ void IwdService::refresh() {
       if (active) {
         next.ssid = ssid;
         next.signalStrength = std::max(next.signalStrength, strength);
+      }
+    }
+
+    if (connected) {
+      try {
+        VariantMap diagnostics;
+        stationProxy->callMethod("GetDiagnostics").onInterface(kStationDiagnosticInterface).storeResultsTo(diagnostics);
+        iwd_diagnostics::applyStationDiagnostics(next, diagnostics);
+      } catch (const sdbus::Error& e) {
+        kLog.debug("GetDiagnostics failed on {}: {}", std::string(stationPath), e.what());
       }
     }
   }

@@ -48,6 +48,7 @@ struct WeatherCurrentConditions {
   std::string timeIso;
   std::int32_t intervalSeconds = 0;
   double temperatureC = 0.0;
+  std::optional<double> apparentTemperatureC;
   double windSpeedKmh = 0.0;
   std::int32_t windDirectionDeg = 0;
   bool isDay = true;

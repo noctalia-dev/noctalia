@@ -1,6 +1,7 @@
 #include "shell/session/session_panel.h"
 
 #include "config/config_service.h"
+#include "core/deferred_call.h"
 #include "core/input/keybind_matcher.h"
 #include "core/log.h"
 #include "i18n/i18n.h"
@@ -275,6 +276,7 @@ void SessionPanel::onPanelCardOpacityChanged(float opacity) {
 void SessionPanel::onOpen(std::string_view /*context*/) {
   m_selectedIndex.reset();
   m_pendingCountdown.reset();
+  m_actionQueued = false;
   hideCountdownOverlays();
   restoreEntryBadges();
   updateSelectionVisuals();
@@ -311,13 +313,22 @@ void SessionPanel::armEntry(std::size_t index) {
 }
 
 void SessionPanel::executeEntry(std::size_t index) {
-  if (index >= m_visibleEntries.size()) {
+  if (index >= m_visibleEntries.size() || m_actionQueued) {
     return;
   }
+  SessionActionRunner* const actionRunner = m_actionRunner;
+  if (actionRunner == nullptr) {
+    kLog.warn("session panel: action runner unavailable");
+    return;
+  }
+
   const SessionPanelActionConfig cfg = m_visibleEntries[index];
+  m_actionQueued = true;
   m_pendingCountdown.reset();
-  PanelManager::instance().close();
-  invokeEntry(cfg);
+  DeferredCall::callLater([actionRunner, cfg]() {
+    PanelManager::instance().closePanel(/*animateClose=*/false);
+    actionRunner->invoke(cfg);
+  });
 }
 
 void SessionPanel::cancelCountdown() {
@@ -540,14 +551,6 @@ bool SessionPanel::handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers, b
   }
 
   return false;
-}
-
-void SessionPanel::invokeEntry(const SessionPanelActionConfig& cfg) {
-  if (m_actionRunner == nullptr) {
-    kLog.warn("session panel: action runner unavailable");
-    return;
-  }
-  m_actionRunner->invoke(cfg);
 }
 
 void SessionPanel::updateSelectionVisuals() {

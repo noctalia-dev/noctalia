@@ -15,7 +15,7 @@
 namespace security {
   namespace {
     constexpr Logger kLog("storage-key");
-    constexpr SecretId kStorageMasterKeyId{
+    const SecretId kStorageMasterKeyId{
         .scope = "storage",
         .owner = "encrypted-state",
         .name = "master-key",

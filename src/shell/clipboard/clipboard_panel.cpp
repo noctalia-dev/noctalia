@@ -7,6 +7,7 @@
 #include "core/log.h"
 #include "core/process/process.h"
 #include "core/ui_phase.h"
+#include "cursor-shape-v1-client-protocol.h"
 #include "i18n/i18n.h"
 #include "render/core/async_texture_cache.h"
 #include "render/core/color.h"
@@ -134,6 +135,14 @@ namespace {
       std::snprintf(buffer, sizeof(buffer), "%.1F %s", value, units[unitIndex]);
     }
     return buffer;
+  }
+
+  std::string formatPreviewMeta(const ClipboardEntry& entry, int imageWidth = 0, int imageHeight = 0) {
+    std::string meta = formatTimeAgo(entry.capturedAt) + "  •  " + formatBytes(entry.byteSize);
+    if (imageWidth > 0 && imageHeight > 0) {
+      meta += "  •  " + std::to_string(imageWidth) + "x" + std::to_string(imageHeight);
+    }
+    return meta;
   }
 
   std::string entryTitle(const ClipboardEntry& entry) {
@@ -659,12 +668,14 @@ void ClipboardPanel::create() {
   sidebar->addChild(
       ui::virtualGridView({
           .out = &m_listGrid,
+          .contentScale = scale,
           .columns = 1,
           .cellHeight = kRowHeightEstimate * scale,
           .squareCells = false,
           .columnGap = 0.0F,
           .rowGap = Style::spaceXs * scale,
           .overscanRows = kListOverscanRows,
+          .itemCursorShape = WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_POINTER,
           .scrollbarVisible = true,
           .adapter = m_listAdapter.get(),
           .flexGrow = 1.0F,
@@ -699,13 +710,15 @@ void ClipboardPanel::create() {
           false
       ),
       makeCompactIconButton(&m_pinButton, "pin", ButtonVariant::Default, scale, [this]() { togglePinSelected(); }),
-      makeCompactIconButton(
-          &m_deleteEntryButton, "trash", ButtonVariant::Destructive, scale, [this]() { requestDeleteSelectedEntry(); }
-      ),
-      makeCompactIconButton(&m_closeButton, "close", ButtonVariant::Default, scale, []() {
-        PanelManager::instance().close();
+      makeCompactIconButton(&m_deleteEntryButton, "trash", ButtonVariant::Destructive, scale, [this]() {
+        requestDeleteSelectedEntry();
       })
   );
+  if (Style::closeButtonsEnabled()) {
+    previewActions->addChild(makeCompactIconButton(&m_closeButton, "close", ButtonVariant::Default, scale, []() {
+      PanelManager::instance().close();
+    }));
+  }
 
   auto previewHeader = ui::row(
       {
@@ -771,6 +784,7 @@ void ClipboardPanel::create() {
 
   auto previewScroll = ui::scrollView({
       .out = &m_previewScrollView,
+      .contentScale = scale,
       .scrollbarVisible = true,
       .flexGrow = 1.0F,
       .configure = [scale, opacity = panelCardOpacity()](ScrollView& scrollView) {
@@ -1152,7 +1166,7 @@ void ClipboardPanel::rebuildPreview(Renderer& renderer, float width, float heigh
   const auto& entry = history[historyIndex];
   m_previewTitle->setText(previewTitle(entry));
   m_previewTitle->setMaxWidth(width);
-  m_previewMeta->setText(formatTimeAgo(entry.capturedAt) + "  •  " + formatBytes(entry.byteSize));
+  m_previewMeta->setText(formatPreviewMeta(entry));
   m_previewMeta->setMaxWidth(width);
 
   if (m_previewPayloadIndex != historyIndex) {
@@ -1183,15 +1197,33 @@ void ClipboardPanel::rebuildPreview(Renderer& renderer, float width, float heigh
         .width = width,
         .height = imageHeight,
     });
+    m_previewImage = image.get();
     const int previewTargetSize = static_cast<int>(std::ceil(std::max(width, imageHeight)));
-    image->setAsyncReadyCallback([]() { PanelManager::instance().refresh(); });
+    image->setAsyncReadyCallback([this, historyIndex]() {
+      if (m_clipboard == nullptr
+          || m_previewMeta == nullptr
+          || m_previewImage == nullptr
+          || selectedHistoryIndex() != historyIndex) {
+        return;
+      }
+      const auto& currentHistory = m_clipboard->history();
+      if (historyIndex >= currentHistory.size() || !m_previewImage->hasImage()) {
+        return;
+      }
+      m_previewMeta->setText(
+          formatPreviewMeta(currentHistory[historyIndex], m_previewImage->sourceWidth(), m_previewImage->sourceHeight())
+      );
+      PanelManager::instance().refresh();
+    });
     if (m_asyncTextures != nullptr && m_clipboard != nullptr) {
       const auto imageSource = m_clipboard->imageDataUri(historyIndex);
       if (imageSource.has_value()) {
         (void)image->setSourceFileAsync(renderer, *m_asyncTextures, *imageSource, previewTargetSize);
+        if (image->hasImage()) {
+          m_previewMeta->setText(formatPreviewMeta(entry, image->sourceWidth(), image->sourceHeight()));
+        }
       }
     }
-    m_previewImage = image.get();
     m_previewContent->addChild(std::move(image));
   } else {
     Color previewColor;

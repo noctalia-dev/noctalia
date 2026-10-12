@@ -2,6 +2,7 @@
 
 #include "config/config_types.h"
 #include "scripting/plugin_catalog.h"
+#include "scripting/plugin_recommendations.h"
 
 #include <cstddef>
 #include <functional>
@@ -9,7 +10,6 @@
 #include <optional>
 #include <string>
 #include <unordered_map>
-#include <unordered_set>
 #include <vector>
 
 class ConfigService;
@@ -21,6 +21,7 @@ class Button;
 class Renderer;
 class VirtualGridAdapter;
 class VirtualGridView;
+struct ScrollViewState;
 
 namespace scripting {
   class PluginFileCache;
@@ -35,31 +36,46 @@ namespace settings {
     UpdatedAtDesc,
     AddedAtAsc,
     AddedAtDesc,
+    MostRecommended,
+    Trending,
   };
 
   struct StoreCatalogEntry {
     scripting::CatalogEntry entry;
     std::string source;
     PluginSourceConfig sourceConfig;
+    bool listed = true;
+    [[nodiscard]] std::string key() const { return source + ":" + entry.id; }
   };
 
   struct PluginStoreCallbacks {
     std::function<void(std::string id, bool enable)> setEnabled;
     std::function<bool(const std::string& id)> isEnabling;
+    // Whether the plugin's files are on disk right now. Queried per build so a failed
+    // install keeps offering the add action instead of claiming the plugin is there.
+    std::function<bool(const std::string& id)> isInstalled;
+    std::function<bool(const std::string& id, const std::string& source)> ownsPlugin;
     float scale = 1.0F;
   };
 
   class PluginStoreContent {
   public:
     PluginStoreContent(
-        std::vector<StoreCatalogEntry> catalog, ConfigService* config, std::unordered_set<std::string> onDiskIds,
-        PluginStoreCallbacks callbacks, scripting::PluginFileCache* fileCache
+        std::vector<StoreCatalogEntry> catalog, ConfigService* config, PluginStoreCallbacks callbacks,
+        scripting::PluginFileCache* fileCache, ScrollViewState* scrollState,
+        scripting::PluginRecommendations* recommendations
     );
     ~PluginStoreContent();
 
+    // Forgets pointers into the hosting sheet before its nodes are destroyed.
+    void detachGrid() noexcept;
+
     void populateBody(Flex& body, Renderer& renderer, AsyncTextureCache* textureCache);
 
-    void updateOnDiskIds(std::unordered_set<std::string> ids);
+    void onRecommendationsChanged();
+    [[nodiscard]] std::optional<std::uint64_t> recommendationCount(const StoreCatalogEntry& entry) const;
+    [[nodiscard]] bool isRecommended(const StoreCatalogEntry& entry) const;
+
     void onFileReady(const std::string& pluginId, const std::string& filename, const std::string& path);
 
     void setOnRebuildNeeded(std::function<void()> cb);
@@ -79,8 +95,7 @@ namespace settings {
   private:
     void buildGridView(Flex& body, Renderer& renderer, AsyncTextureCache* textureCache);
     void buildDetailView(Flex& body, Renderer& renderer, AsyncTextureCache* textureCache);
-    void stashScrollOffset();
-    void restoreScrollOffset();
+    void requestRebuild();
     void syncSortButtonGlyph();
     void cycleSortMode();
     void setSortMode(SortMode mode);
@@ -97,17 +112,18 @@ namespace settings {
     void collectTags();
     void selectIndex(std::size_t index);
     // Position of a plugin in the current filtered order, or nullopt when the filter hides it.
-    [[nodiscard]] std::optional<std::size_t> indexOfPluginId(std::string_view id) const;
+    [[nodiscard]] std::optional<std::size_t> indexOfPluginKey(std::string_view key) const;
     // Rebind the grid to the filtered order and restore the selection onto the plugin it names.
     void syncGridSelection();
     void moveSelection(int delta);
     [[nodiscard]] bool activateSelection();
     [[nodiscard]] bool installDetailIfAvailable();
 
+    [[nodiscard]] std::optional<std::string> recommendationKey(const StoreCatalogEntry& entry) const;
     std::vector<StoreCatalogEntry> m_catalog;
+    scripting::PluginRecommendations* m_recommendations = nullptr;
     ConfigService* m_config = nullptr;
     std::vector<std::size_t> m_filteredIndices;
-    std::unordered_set<std::string> m_onDiskIds;
     std::vector<std::string> m_sources;
     bool m_tagFiltersCollapsed = true;
     std::vector<std::string> m_allTags;
@@ -119,6 +135,7 @@ namespace settings {
     std::string m_selectedSource;
     PluginStoreCallbacks m_callbacks;
     scripting::PluginFileCache* m_fileCache = nullptr;
+    ScrollViewState* m_scrollState = nullptr;
 
     std::optional<std::size_t> m_detailIndex;
     std::string m_detailReadme;
@@ -127,11 +144,10 @@ namespace settings {
     VirtualGridView* m_grid = nullptr;
     Label* m_countLabel = nullptr;
     Button* m_sortButton = nullptr;
-    std::optional<std::string> m_selectedPluginId;
+    std::optional<std::string> m_selectedPluginKey;
     std::function<void()> m_onRebuildNeeded;
 
     std::unordered_map<std::string, std::string> m_thumbnailPaths;
-    std::optional<float> m_pendingRestoreScrollOffset;
 
     Renderer* m_renderer = nullptr;
     AsyncTextureCache* m_textureCache = nullptr;

@@ -13,6 +13,7 @@ class BluetoothWidget : public Widget {
 public:
   struct Options {
     bool showLabel = false;
+    bool hideWhenAdapterOff = false;
     bool hideWhenNoConnectedDevice = false;
   };
 
@@ -28,6 +29,7 @@ private:
 
   BluetoothService* m_bluetooth = nullptr;
   bool m_showLabel = false;
+  bool m_hideWhenAdapterOff = false;
   bool m_hideWhenNoConnectedDevice = false;
   Glyph* m_glyph = nullptr;
   Label* m_label = nullptr;

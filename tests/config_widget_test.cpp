@@ -143,7 +143,7 @@ int main() {
   const WidgetBarCapsuleSpec automaticCapsule = resolveWidgetBarCapsuleSpec(bar, &launcher);
   ok = expect(automaticCapsule.enabled, "launcher capsule is enabled with an automatic radius") && ok;
   ok = expect(
-           automaticCapsule.radius.has_value() && *automaticCapsule.radius == 12.0f,
+           automaticCapsule.radius.has_value() && *automaticCapsule.radius == 12.0F,
            "automatic widget capsule radius keeps the bar radius"
        )
       && ok;
@@ -151,10 +151,30 @@ int main() {
   launcher.settings["capsule_radius"] = 7.0;
   const WidgetBarCapsuleSpec explicitCapsule = resolveWidgetBarCapsuleSpec(bar, &launcher);
   ok = expect(
-           explicitCapsule.radius.has_value() && *explicitCapsule.radius == 7.0f,
+           explicitCapsule.radius.has_value() && *explicitCapsule.radius == 7.0F,
            "numeric widget capsule radius overrides the bar radius"
        )
       && ok;
+
+  bar.widgetCapsuleBorderWidth = 3.0F;
+  const WidgetBarCapsuleSpec inheritedBorderWidth = resolveWidgetBarCapsuleSpec(bar, &launcher);
+  ok = expect(inheritedBorderWidth.borderWidth == 3.0F, "widget capsule inherits the bar border width") && ok;
+
+  launcher.settings["capsule_border_width"] = 1.5;
+  const WidgetBarCapsuleSpec explicitBorderWidth = resolveWidgetBarCapsuleSpec(bar, &launcher);
+  ok = expect(explicitBorderWidth.borderWidth == 1.5F, "widget capsule border width overrides the bar value") && ok;
+
+  launcher.settings["capsule_border_width"] = 99.0;
+  const WidgetBarCapsuleSpec clampedBorderWidth = resolveWidgetBarCapsuleSpec(bar, &launcher);
+  ok = expect(clampedBorderWidth.borderWidth == 8.0F, "widget capsule border width is clamped to 8") && ok;
+
+  BarCapsuleGroupStyle group;
+  group.id = "g1";
+  group.borderSpecified = true;
+  group.border = colorSpecFromRole(ColorRole::Outline);
+  group.borderWidth = 2.5F;
+  const WidgetBarCapsuleSpec groupSpec = capsuleSpecFromGroup(bar, group);
+  ok = expect(groupSpec.borderWidth == 2.5F, "capsule group border width reaches the resolved spec") && ok;
 
   return ok ? 0 : 1;
 }

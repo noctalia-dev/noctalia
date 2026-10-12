@@ -31,7 +31,10 @@ namespace {
 
 PersistentPanelHost::PersistentPanelHost() = default;
 
-PersistentPanelHost::~PersistentPanelHost() { closeAll(); }
+PersistentPanelHost::~PersistentPanelHost() {
+  m_panelClosedCallback = nullptr;
+  closeAll();
+}
 
 void PersistentPanelHost::initialize(
     CompositorPlatform& platform, ConfigService* config, RenderContext* renderContext
@@ -43,6 +46,10 @@ void PersistentPanelHost::initialize(
 
 void PersistentPanelHost::registerPanel(const std::string& id, std::unique_ptr<Panel> content) {
   m_panels[id] = std::move(content);
+}
+
+void PersistentPanelHost::setPanelClosedCallback(std::function<void()> callback) {
+  m_panelClosedCallback = std::move(callback);
 }
 
 void PersistentPanelHost::unregisterPanel(const std::string& id) {
@@ -280,6 +287,7 @@ void PersistentPanelHost::destroyInstance(std::vector<std::unique_ptr<Instance>>
 
   instance->animations.cancelAll();
   instance->inputDispatcher.setSceneRoot(nullptr);
+  TooltipManager::instance().restoreBarTooltipsForPanel(instance->id);
   // Tooltips are xdg_popups parented to this surface; they must die before it.
   TooltipManager::instance().forceDestroy();
   if (instance->panel != nullptr) {
@@ -294,6 +302,9 @@ void PersistentPanelHost::destroyInstance(std::vector<std::unique_ptr<Instance>>
     m_platform->stopKeyRepeat();
   }
   kLog.debug("closed \"{}\"", instance->id);
+  if (m_panelClosedCallback) {
+    m_panelClosedCallback();
+  }
 }
 
 void PersistentPanelHost::toggle(const std::string& id, wl_output* output, std::string_view context) {
@@ -329,7 +340,9 @@ void PersistentPanelHost::buildScene(Instance& instance, std::uint32_t width, st
     bg->setPanelStyle(m_config->config().shell.panel.borders);
     bg->setFill(colorSpecFromRole(ColorRole::Surface, backgroundOpacity));
     if (m_config->config().shell.panel.borders) {
-      bg->setBorder(colorSpecFromRole(ColorRole::Outline, backgroundOpacity), Style::borderWidth);
+      bg->setBorder(
+          shell::panel_surface::borderColor(m_config, backgroundOpacity), shell::panel_surface::borderWidth(m_config)
+      );
     }
     instance.bgNode = static_cast<Box*>(instance.sceneRoot->addChild(std::move(bg)));
   }
@@ -610,7 +623,9 @@ void PersistentPanelHost::onConfigReloaded() {
       instance->bgNode->setPanelStyle(m_config->config().shell.panel.borders);
       instance->bgNode->setFill(colorSpecFromRole(ColorRole::Surface, backgroundOpacity));
       if (m_config->config().shell.panel.borders) {
-        instance->bgNode->setBorder(colorSpecFromRole(ColorRole::Outline, backgroundOpacity), Style::borderWidth);
+        instance->bgNode->setBorder(
+            shell::panel_surface::borderColor(m_config, backgroundOpacity), shell::panel_surface::borderWidth(m_config)
+        );
       }
     }
     if (instance->surface != nullptr) {

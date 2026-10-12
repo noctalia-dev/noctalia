@@ -26,9 +26,9 @@ TextMetrics ScaledRenderer::measureText(
   );
 }
 
-TextMetrics ScaledRenderer::measureFont(float fontSize, FontWeight fontWeight) {
+TextMetrics ScaledRenderer::measureFont(float fontSize, FontWeight fontWeight, std::string_view fontFamily) {
   assert(m_context != nullptr && "ScaledRenderer measureFont without a bound RenderContext");
-  return m_context->measureFontScaled(currentScale(), fontSize, fontWeight);
+  return m_context->measureFontScaled(currentScale(), fontSize, fontWeight, fontFamily);
 }
 
 void ScaledRenderer::measureTextCursorStops(

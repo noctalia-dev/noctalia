@@ -1,0 +1,48 @@
+---
+title: Spotify
+description: Theming Spotify with Spicetify and Comfy theme
+sidebar:
+  order: 10
+---
+
+This guide covers theming Spotify with the help of [spicetify](https://spicetify.app/) and [comfy](https://github.com/Comfy-Themes/Spicetify)
+
+### Setup
+
+1. **Install spicetify according to your linux distribution:**
+refer to this link over here: https://spicetify.app/docs/getting-started
+
+2. **Install the comfy theme MANUALLY:**
+refer to this link over here: https://github.com/Comfy-Themes/Spicetify?tab=readme-ov-file#-manual-installation
+or follow the instructions below,
+
+```bash
+# navigate to your spicetify/Themes/ directory
+# run the command below to check where your config directory is
+spicetify config-dir
+# example:
+cd ~/.config/spicetify/Themes/
+
+# now clone Comfy Repo here
+git clone https://github.com/Comfy-Themes/Spicetify.git ComfyRepo
+
+# move the Comfy folder to the Themes/ directory
+mv ./ComfyRepo/Comfy/ ./
+# optionally clean up as well :)
+rm -rf ./ComfyRepo/
+
+# finally apply the theme
+spicetify config current_theme Comfy color_scheme Comfy
+spicetify config inject_css 1 replace_colors 1 overwrite_assets 1 inject_theme_js 1
+spicetify apply
+```
+
+3. **Enable matugen spicetify theming in Noctalia:**
+  - Open **Settings → Color Scheme → Templates → Programs**
+  - Toggle on **Spicetify**
+
+4. Enjoy!
+
+### Troubleshooting
+
+- **Theme not applying:** Run `spicetify apply` or restart spotify

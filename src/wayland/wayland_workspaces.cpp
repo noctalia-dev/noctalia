@@ -9,7 +9,6 @@
 #include "compositors/mango/mango_workspace_backend.h"
 #include "compositors/output_backend.h"
 #include "compositors/sway/sway_workspace_backend.h"
-#include "compositors/triad/triad_workspace_backend.h"
 #include "core/log.h"
 #include "dwl-ipc-unstable-v2-client-protocol.h"
 
@@ -55,12 +54,6 @@ WaylandWorkspaces::WaylandWorkspaces(compositors::CompositorRuntimeRegistry& run
   m_swayConnector = swayBackend.get();
   m_outputNameResolvers.push_back(swayBackend.get());
   m_backends.push_back(std::move(swayBackend));
-
-  auto triadBackend = std::make_unique<TriadWorkspaceBackend>(runtimeRegistry.triad());
-  m_triadBackend = triadBackend.get();
-  m_triadConnector = triadBackend.get();
-  m_outputNameResolvers.push_back(triadBackend.get());
-  m_backends.push_back(std::move(triadBackend));
 
   auto kwinBackend = std::make_unique<KwinWorkspaceBackend>();
   m_kwinBackend = kwinBackend.get();
@@ -114,11 +107,6 @@ void WaylandWorkspaces::initialize() {
   auto availableOrConnected = [](WorkspaceBackend* backend, WorkspaceSocketConnector* connector = nullptr) {
     return backend != nullptr && (backend->isAvailable() || (connector != nullptr && connector->connectSocket()));
   };
-  auto tryTriad = [&]() {
-    return m_triadBackend != nullptr
-        && m_triadConnector != nullptr
-        && (m_triadConnector->connectSocket() || m_triadBackend->isAvailable());
-  };
   auto tryFallback = [&](bool includeMangoIpc, bool includeDwlIpc) {
     if (availableOrConnected(m_extBackend)) {
       setActiveBackend(m_extBackend);
@@ -138,10 +126,6 @@ void WaylandWorkspaces::initialize() {
     }
     if (availableOrConnected(m_swayBackend, m_swayConnector)) {
       setActiveBackend(m_swayBackend);
-      return true;
-    }
-    if (tryTriad()) {
-      setActiveBackend(m_triadBackend);
       return true;
     }
     return false;
@@ -174,12 +158,6 @@ void WaylandWorkspaces::initialize() {
   case compositors::CompositorKind::Sway:
     if (availableOrConnected(m_swayBackend, m_swayConnector)) {
       setActiveBackend(m_swayBackend);
-      return;
-    }
-    break;
-  case compositors::CompositorKind::Triad:
-    if (tryTriad()) {
-      setActiveBackend(m_triadBackend);
       return;
     }
     break;
@@ -322,6 +300,10 @@ std::vector<WorkspaceWindow> WaylandWorkspaces::workspaceWindows(wl_output* outp
   return m_activeBackend != nullptr ? m_activeBackend->workspaceWindows(output) : std::vector<WorkspaceWindow>{};
 }
 
+std::vector<std::string> WaylandWorkspaces::openOverlayWorkspaceKeys(wl_output* output) const {
+  return m_activeBackend != nullptr ? m_activeBackend->openOverlayWorkspaceKeys(output) : std::vector<std::string>{};
+}
+
 void WaylandWorkspaces::focusWindow(const std::string& windowId) const {
   if (m_activeBackend != nullptr) {
     m_activeBackend->focusWindow(windowId);
@@ -329,9 +311,6 @@ void WaylandWorkspaces::focusWindow(const std::string& windowId) const {
 }
 
 std::optional<std::string> WaylandWorkspaces::focusedWindowId() const {
-  if (m_triadBackend != nullptr && m_activeBackend == m_triadBackend) {
-    return static_cast<const TriadWorkspaceBackend*>(m_triadBackend)->focusedWindowId();
-  }
   if (m_hyprlandBackend != nullptr) {
     return static_cast<const HyprlandWorkspaceBackend*>(m_hyprlandBackend)->focusedWindowId();
   }
