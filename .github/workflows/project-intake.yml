@@ -99,7 +99,7 @@ jobs:
             let item = members[0] || null;
             if (item?.isArchived) { core.info(`Preserving archived card ${item.id}`); return; }
             const fieldRead = async id => {
-              const result = await github.graphql(`query($id:ID!) { node(id:$id) { ... on ProjectV2Item { id content { ... on Issue { id } ... on PullRequest { id } } fieldValues(first:100) { nodes { ... on ProjectV2ItemFieldSingleSelectValue { name field { ... on ProjectV2SingleSelectField { name } } } } } } }`, { id });
+              const result = await github.graphql(`query($id:ID!) { node(id:$id) { ... on ProjectV2Item { id content { ... on Issue { id } ... on PullRequest { id } } fieldValues(first:100) { nodes { ... on ProjectV2ItemFieldSingleSelectValue { name field { ... on ProjectV2SingleSelectField { name } } } } } } } }`, { id });
               if (!result.node) throw new Error(`Project item ${id} disappeared`);
               return result.node;
             };
