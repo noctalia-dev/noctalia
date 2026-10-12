@@ -104,7 +104,7 @@ jobs:
               return result.node;
             };
             let current = item ? await fieldRead(item.id) : null;
-            const values = new Map((current?.fieldValues.nodes || []).map(value => [value.field.name, value.name]));
+            const values = new Map((current?.fieldValues.nodes || []).filter(value => value.field).map(value => [value.field.name, value.name]));
             for (const [name, desired] of [['Component','Noctalia'],['Kind',kind]]) {
               if (values.has(name) && values.get(name) !== desired) throw new Error(`Conflicting ${name} on ${item.id}`);
             }
@@ -115,7 +115,7 @@ jobs:
               if (!item?.id) throw new Error('Native item addition returned no item');
               current = await fieldRead(item.id);
               values.clear();
-              for (const value of current.fieldValues.nodes) values.set(value.field.name, value.name);
+              for (const value of current.fieldValues.nodes.filter(entry => entry.field)) values.set(value.field.name, value.name);
             }
             const updates = [];
             if (!values.has('Component')) updates.push(['component', component]);
@@ -128,7 +128,7 @@ jobs:
               await github.graphql(`mutation(${definitions}) { ${aliases} }`, variables);
             }
             const verified = await fieldRead(item.id);
-            const actual = new Map(verified.fieldValues.nodes.map(value => [value.field.name, value.name]));
+            const actual = new Map(verified.fieldValues.nodes.filter(value => value.field).map(value => [value.field.name, value.name]));
             if (verified.content.id !== sourceId || actual.get('Component') !== 'Noctalia' || actual.get('Kind') !== kind) throw new Error(`Native item verification failed for ${number}`);
             if ((added || !values.has('Status')) && actual.get('Status') !== 'Inbox') throw new Error(`Inbox verification failed for ${number}`);
             core.info(`${added ? 'Added' : 'Verified'} ${kind} ${number}: ${item.id}`);
