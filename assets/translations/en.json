@@ -253,7 +253,6 @@
     "bluetooth": {
       "accept": "Accept",
       "address": "Address",
-      "always-allow": "Always allow",
       "auto-reconnect": "Auto-reconnect",
       "bluetooth": "Bluetooth",
       "enter-code": "Enter code",
@@ -276,6 +275,7 @@
         "connected": "Connected",
         "paired": "Paired"
       },
+      "trust-and-allow": "Trust and allow",
       "unavailable": "Bluetooth service unavailable",
       "unknown-device": "Unknown device",
       "visible": "Discoverable by nearby devices"

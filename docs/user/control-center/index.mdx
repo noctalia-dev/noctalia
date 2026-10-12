@@ -136,6 +136,8 @@ Cellular needs ModemManager running (`org.freedesktop.ModemManager1`) and, for m
 
 The Bluetooth tab shows adapter power state, paired devices, and connection controls. It is backed by Noctalia's Bluetooth service and agent. Devices paired from the tab are marked trusted, which turns on **Auto-reconnect** for them.
 
+When a device asks for access to a service, the prompt names the service (for example, Audio Sink or Hands-Free) instead of showing its raw UUID. **Accept** allows that one request. **Trust and allow** also marks the device as trusted, so BlueZ grants its future service requests without prompting and **Auto-reconnect** turns on; turn off **Auto-reconnect** to revoke that trust.
+
 ## Weather
 
 The Weather tab expands the Home weather summary into current conditions, forecast detail, and location/status information. It is hidden when `[weather].enabled = false`.

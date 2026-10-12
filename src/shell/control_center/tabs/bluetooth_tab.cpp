@@ -461,8 +461,8 @@ std::unique_ptr<Flex> BluetoothTab::create() {
               },
       }),
       ui::button({
-          .out = &m_pairingAlwaysAllow,
-          .text = i18n::tr("control-center.bluetooth.always-allow"),
+          .out = &m_pairingTrustAndAllow,
+          .text = i18n::tr("control-center.bluetooth.trust-and-allow"),
           .variant = ButtonVariant::Default,
           .onClick =
               [this]() {
@@ -559,7 +559,7 @@ void BluetoothTab::onClose() {
   m_pairingInput = nullptr;
   m_pairingButtonRow = nullptr;
   m_pairingAccept = nullptr;
-  m_pairingAlwaysAllow = nullptr;
+  m_pairingTrustAndAllow = nullptr;
   m_pairingReject = nullptr;
   m_listScroll = nullptr;
   m_list = nullptr;
@@ -718,10 +718,10 @@ void BluetoothTab::syncPairingCard() {
     // is no Agent1 reply. Show only the Reject action so Accept cannot clear the card.
     m_pairingAccept->setVisible(req.kind != BluetoothPairingKind::DisplayPasskey);
   }
-  if (m_pairingAlwaysAllow != nullptr) {
-    // Only service authorization is suppressed by the Trusted flag, so "always allow"
-    // would be a false promise on the other request kinds.
-    m_pairingAlwaysAllow->setVisible(req.kind == BluetoothPairingKind::AuthorizeService);
+  if (m_pairingTrustAndAllow != nullptr) {
+    // Only service authorization is suppressed by the Trusted flag, so trusting the device
+    // would not stop the other request kinds from prompting again.
+    m_pairingTrustAndAllow->setVisible(req.kind == BluetoothPairingKind::AuthorizeService);
   }
 }
 
