@@ -3,6 +3,7 @@
 #include "ui/text_input_client.h"
 
 #include <cstdint>
+#include <optional>
 #include <string>
 
 struct wl_seat;
@@ -40,7 +41,7 @@ public:
   void handleAction(std::uint32_t action);
 
 private:
-  // Protocol state last committed during the current text-input activation.
+  // Protocol state sent with a text-input commit request.
   struct StateSignature {
     bool sendSurrounding = false;
     std::string surroundingText;
@@ -62,7 +63,6 @@ private:
   void commitActiveState(TextInputChangeCause cause);
   void commitProtocolState();
   void deactivateClient(TextInputClient* client);
-  void resetCommitSignature();
 
   zwp_text_input_manager_v3* m_manager = nullptr;
   wl_seat* m_seat = nullptr;
@@ -75,8 +75,8 @@ private:
   bool m_activeAcceptsKeyboardFocusActivation = false;
   TextInputEdit m_pendingEdit;
   std::uint32_t m_commitSerial = 0;
-  bool m_lastCommitValid = false;
-  StateSignature m_lastCommitSignature;
+  // Last state committed since the most recent enable or enter; deduplicates commits.
+  std::optional<StateSignature> m_lastCommittedState;
   std::uint32_t m_textInputVersion = 0;
   bool m_enabled = false;
 };

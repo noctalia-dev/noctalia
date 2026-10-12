@@ -144,7 +144,6 @@ void TextInputService::cleanup() {
   m_activeAcceptsKeyboardFocusActivation = false;
   m_pendingEdit = {};
   m_commitSerial = 0;
-  resetCommitSignature();
   m_textInputVersion = 0;
   m_enabled = false;
 }
@@ -237,7 +236,7 @@ bool TextInputService::activeSurfaceAcceptsTextInput() const noexcept {
 void TextInputService::handleEnter(wl_surface* surface) {
   m_enteredSurface = surface;
   m_pendingEdit = {};
-  resetCommitSignature();
+  m_lastCommittedState.reset();
   if (m_activeClient != nullptr && m_activeSurface == surface) {
     enableActive(TextInputChangeCause::Other);
   }
@@ -250,7 +249,6 @@ void TextInputService::handleLeave(wl_surface* surface) {
   m_enteredSurface = nullptr;
   m_enabled = false;
   m_pendingEdit = {};
-  resetCommitSignature();
   if (m_activeClient != nullptr && m_activeSurface == surface) {
     m_activeClient->textInputResetPreedit();
   }
@@ -301,7 +299,7 @@ void TextInputService::enableActive(TextInputChangeCause cause) {
   }
 
   if (!m_enabled) {
-    resetCommitSignature();
+    m_lastCommittedState.reset();
     zwp_text_input_v3_enable(m_textInput);
     m_enabled = true;
   }
@@ -319,10 +317,7 @@ void TextInputService::disableActive() {
     wl_surface_commit(m_activeSurface);
   }
   m_enabled = false;
-  resetCommitSignature();
 }
-
-void TextInputService::resetCommitSignature() { m_lastCommitValid = false; }
 
 void TextInputService::commitActiveState(TextInputChangeCause cause) {
   if (m_textInput == nullptr || m_activeClient == nullptr || m_activeSurface == nullptr || !m_enabled) {
@@ -334,8 +329,6 @@ void TextInputService::commitActiveState(TextInputChangeCause cause) {
 
   const TextInputState state = m_activeClient->textInputState();
   const bool sendSurrounding = stateCanSendSurroundingText(state);
-  const std::int32_t rectWidth = std::max<std::int32_t>(1, state.cursorRectWidth);
-  const std::int32_t rectHeight = std::max<std::int32_t>(1, state.cursorRectHeight);
 
   StateSignature signature;
   signature.sendSurrounding = sendSurrounding;
@@ -346,31 +339,30 @@ void TextInputService::commitActiveState(TextInputChangeCause cause) {
   signature.contentPurpose = contentPurposeFor(state.purpose);
   signature.rectX = clampProtocolInt(state.cursorRectX);
   signature.rectY = clampProtocolInt(state.cursorRectY);
-  signature.rectWidth = rectWidth;
-  signature.rectHeight = rectHeight;
+  signature.rectWidth = std::max<std::int32_t>(1, state.cursorRectWidth);
+  signature.rectHeight = std::max<std::int32_t>(1, state.cursorRectHeight);
 
   // Repeated preedit events can leave the protocol state unchanged. Avoid
   // feeding those events back into a commit/done loop with the input method.
-  if (m_lastCommitValid && m_lastCommitSignature == signature) {
+  if (m_lastCommittedState == signature) {
     return;
   }
-  m_lastCommitSignature = signature;
-  m_lastCommitValid = true;
 
   if (sendSurrounding) {
-    zwp_text_input_v3_set_surrounding_text(m_textInput, state.surroundingText.c_str(), state.cursor, state.anchor);
+    zwp_text_input_v3_set_surrounding_text(
+        m_textInput, signature.surroundingText.c_str(), signature.cursor, signature.anchor
+    );
   }
-  zwp_text_input_v3_set_content_type(
-      m_textInput, contentHintFor(state, m_textInputVersion), contentPurposeFor(state.purpose)
-  );
+  zwp_text_input_v3_set_content_type(m_textInput, signature.contentHint, signature.contentPurpose);
   zwp_text_input_v3_set_text_change_cause(
       m_textInput,
       cause == TextInputChangeCause::InputMethod ? ZWP_TEXT_INPUT_V3_CHANGE_CAUSE_INPUT_METHOD
                                                  : ZWP_TEXT_INPUT_V3_CHANGE_CAUSE_OTHER
   );
   zwp_text_input_v3_set_cursor_rectangle(
-      m_textInput, clampProtocolInt(state.cursorRectX), clampProtocolInt(state.cursorRectY), rectWidth, rectHeight
+      m_textInput, signature.rectX, signature.rectY, signature.rectWidth, signature.rectHeight
   );
+  m_lastCommittedState = std::move(signature);
   commitProtocolState();
   wl_surface_commit(m_activeSurface);
 }
@@ -381,7 +373,6 @@ void TextInputService::commitProtocolState() {
 }
 
 void TextInputService::deactivateClient(TextInputClient* client) {
-  resetCommitSignature();
   client->textInputResetPreedit();
   client->textInputDeactivated(*this);
 }
