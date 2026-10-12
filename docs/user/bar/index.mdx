@@ -110,6 +110,17 @@ Right-click opens Control Center unless you bind `right` to something else. Whil
 
 Per-monitor overrides can carry their own `[bar.<name>.monitor.<match>.dead_zone.actions]` table, which replaces the bar's rather than merging with it.
 
+### Dead zone click-through
+
+Set `click_through = true` to drop the dead zone from the bar's input region, so clicks there reach the window underneath instead of the bar. This suits a transparent bar that only shows a few widgets, such as a floating workspace strip. Only the widget sections (stretched across the bar's thickness) take input; dead zone actions no longer fire.
+
+```toml
+[bar.default.dead_zone]
+click_through = true
+```
+
+Per-monitor overrides accept `click_through` too, under `[bar.<name>.monitor.<match>.dead_zone]`.
+
 ---
 
 ## Per-monitor overrides

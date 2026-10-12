@@ -2349,6 +2349,7 @@ namespace noctalia::config::schema {
   const Schema<BarDeadZoneConfig>& barDeadZoneSchema() {
     static const Schema<BarDeadZoneConfig> s = {
         field(&BarDeadZoneConfig::actions, "actions"),
+        field(&BarDeadZoneConfig::clickThrough, "click_through"),
     };
     return s;
   }
@@ -2356,6 +2357,7 @@ namespace noctalia::config::schema {
   const Schema<BarDeadZoneOverride>& barDeadZoneOverrideSchema() {
     static const Schema<BarDeadZoneOverride> s = {
         field(&BarDeadZoneOverride::actions, "actions"),
+        optionalBoolField(&BarDeadZoneOverride::clickThrough, "click_through"),
     };
     return s;
   }

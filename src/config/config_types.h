@@ -59,6 +59,7 @@ inline constexpr std::string_view kCapsuleGroupTokenPrefix = "group:";
 
 struct BarDeadZoneOverride {
   std::optional<std::unordered_map<std::string, std::string>> actions;
+  std::optional<bool> clickThrough;
 
   bool operator==(const BarDeadZoneOverride&) const = default;
 };
@@ -125,6 +126,9 @@ struct BarDeadZoneConfig {
   // Gesture -> action bindings for the parts of the bar no widget covers. Same grammar as widget
   // actions; see widget_action.h.
   std::unordered_map<std::string, std::string> actions;
+  // Shrink the bar's input region to its widget sections so clicks on the rest of the bar reach
+  // the window below. The dead zone then takes no input, so its actions never fire.
+  bool clickThrough = false;
 
   bool operator==(const BarDeadZoneConfig&) const = default;
 };
