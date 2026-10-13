@@ -654,6 +654,7 @@ struct DockMonitorOverride {
   std::optional<DockEdge> position;
   std::optional<bool> activeMonitorOnly;
   std::optional<std::int32_t> iconSize;
+  std::optional<float> iconSaturation;
   std::optional<std::int32_t> mainAxisPadding;
   std::optional<std::int32_t> crossAxisPadding;
   std::optional<std::int32_t> itemSpacing;

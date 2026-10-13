@@ -437,6 +437,7 @@ location = "https://example.invalid/bad"
         .enabled = false,
         .position = DockEdge::Left,
         .iconSize = 36,
+        .iconSaturation = 0.25F,
         .autoHide = true,
         .launcherPosition = DockLauncherPosition::End,
         .pinned = std::vector<std::string>{"org.gnome.Nautilus.desktop"},
