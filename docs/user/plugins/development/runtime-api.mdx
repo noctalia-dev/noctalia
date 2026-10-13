@@ -420,8 +420,8 @@ noctalia.osd.show("brightness-low", "40%", { progress = 0.4 })
 noctalia.osd.show("volume-high", "", { progress = 0.4 }) -- bar without text
 ```
 
-A wrong argument or field type raises an error at the call. The popup uses the same slot as the built-in OSDs, so a
-newer volume or brightness change replaces it and vice versa. Users can turn plugin popups off with
+A wrong `opts` type, or a wrong `progress` or `inactive` type, raises an error at the call. The popup uses the same slot as the
+built-in OSDs, so a newer volume or brightness change replaces it and vice versa. Users can turn plugin popups off with
 `[osd.kinds].custom = false`, and nothing is shown while the OSD is disabled.
 
 ## HTTP and downloads
