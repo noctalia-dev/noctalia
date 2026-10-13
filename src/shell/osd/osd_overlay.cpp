@@ -853,10 +853,17 @@ void OsdOverlay::updateInstanceContent(Instance& inst) {
   // interior so they ellipsize within the padding instead of overflowing. Progress OSDs keep the
   // uncapped "100%" value so it can reserve minWidth beside the bar.
   const float horizontalValueMax = cw - cardPadding(s) * 2.0F - glyphSize(s) - innerGap(s);
+
+  // Progress OSDs: cap the label so a long custom label can't squeeze the bar to nothing.
+  // Built-in "100%" values are far below this cap, so they are unaffected.
+  const float fullBar = cw - cardPadding(s) * 2.0F - glyphSize(s) - innerGap(s) * 2.0F - inst.progressValueMinWidth;
+  const float minBar = fullBar / 3.0F;
+  const float progressValueMax = std::max(inst.progressValueMinWidth, horizontalValueMax - innerGap(s) - minBar);
+
   inst.value->setMaxWidth(
       vertical                      ? cw - cardPadding(s) * 2.0F
           : !m_content.showProgress ? std::max(0.0F, horizontalValueMax)
-                                    : 0.0F
+                                    : progressValueMax
   );
   inst.value->setMinWidth((!vertical && m_content.showProgress) ? inst.progressValueMinWidth : 0.0F);
   inst.value->setText(m_content.value);
