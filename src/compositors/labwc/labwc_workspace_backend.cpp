@@ -93,6 +93,7 @@ bool LabwcWorkspaceBackend::sync() {
             .workspaceKey = std::move(workspaceKey),
             .appId = toplevel.appId,
             .title = toplevel.title,
+            .minimized = toplevel.minimized,
         }
     );
   });
@@ -162,6 +163,7 @@ std::vector<WorkspaceWindow> LabwcWorkspaceBackend::workspaceWindows(const std::
             .x = window.x,
             .y = window.y,
             .outputName = {},
+            .minimized = window.minimized,
         }
     );
   }

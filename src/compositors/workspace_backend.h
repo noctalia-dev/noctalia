@@ -31,6 +31,7 @@ struct WorkspaceWindow {
   std::int32_t x = 0;
   std::int32_t y = 0;
   std::string outputName;
+  bool minimized = false;
 };
 
 struct WorkspaceWindowAssignment {
@@ -40,6 +41,7 @@ struct WorkspaceWindowAssignment {
   std::string title;
   std::int32_t x = 0;
   std::int32_t y = 0;
+  bool minimized = false;
 };
 
 struct TaskbarWindowCandidate {

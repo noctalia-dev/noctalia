@@ -291,7 +291,7 @@ namespace {
     if (platform.hasOverviewState() && platform.isOverviewOpen()) {
       return true;
     }
-    return !activeWorkspaceHasWindows(platform, output);
+    return !platform.activeWorkspaceHasVisibleWindows(output);
   }
 
 } // namespace
