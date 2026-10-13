@@ -56,6 +56,12 @@ float cornerMask() {
     float dist = roundedBoxSDF(center, halfSize, u_radius);
     return 1.0 - smoothstep(-1.0, 0.0, dist);
 }
+
+// Blend toward dark tints on light backgrounds (u_bg_color luminance).
+vec3 particleColor(vec3 darkModeColor, vec3 lightModeColor) {
+    float luma = dot(u_bg_color.rgb, vec3(0.2126, 0.7152, 0.0722));
+    return mix(darkModeColor, lightModeColor, smoothstep(0.45, 0.75, luma));
+}
 )";
 
   // --- Sun effect ---
@@ -123,8 +129,8 @@ void main() {
     float shimmerEffect = atmosphericShimmer(uv, iTime);
     float flare = sunCore(uvAspect, sunPosAspect, iTime);
 
-    vec3 sunColor = vec3(1.0, 0.95, 0.7);
-    vec3 shimmerColor = vec3(1.0, 0.98, 0.85);
+    vec3 sunColor = particleColor(vec3(1.0, 0.95, 0.7), vec3(0.85, 0.55, 0.05));
+    vec3 shimmerColor = particleColor(vec3(1.0, 0.98, 0.85), vec3(0.78, 0.62, 0.3));
 
     vec3 resultRGB = col.rgb;
     float resultAlpha = col.a;
@@ -191,7 +197,7 @@ void main() {
     }
 
     float snowAlpha = clamp(snow * 2.0, 0.0, 1.0);
-    vec3 snowColor = vec3(1.0);
+    vec3 snowColor = particleColor(vec3(1.0), vec3(0.45, 0.55, 0.65));
     vec3 blended = mix(u_bg_color.rgb, snowColor, snowAlpha);
 
     float mask = cornerMask();
@@ -286,10 +292,10 @@ void main() {
     rain = clamp(rain, 0.0, 1.0);
 
     // Compose: background → haze → rain
-    vec3 hazeColor = vec3(0.82, 0.85, 0.9);
+    vec3 hazeColor = particleColor(vec3(0.82, 0.85, 0.9), vec3(0.55, 0.6, 0.68));
     vec3 col = mix(u_bg_color.rgb, hazeColor, haze);
 
-    vec3 rainTint = vec3(0.88, 0.91, 1.0);
+    vec3 rainTint = particleColor(vec3(0.88, 0.91, 1.0), vec3(0.35, 0.45, 0.6));
     vec3 resultRGB = mix(col, rainTint, rain * 0.45);
 
     float mask = cornerMask();
@@ -376,7 +382,7 @@ void main() {
     float pulse = sin(iTime * 0.4) * pulseAmount + (1.0 - pulseAmount);
     fogDensity *= pulse;
 
-    vec3 hazeColor = vec3(0.88, 0.90, 0.93);
+    vec3 hazeColor = particleColor(vec3(0.88, 0.90, 0.93), vec3(0.5, 0.55, 0.62));
     float hazeOpacity = fogDensity * baseOpacity;
     vec3 fogContribution = hazeColor * hazeOpacity;
     float fogAlpha = hazeOpacity;
@@ -462,9 +468,9 @@ void main() {
     float stars2 = stars(uvAspect + vec2(0.5, 0.3), 25.0, iTime * 1.3);
     float stars3 = stars(uvAspect + vec2(0.25, 0.7), 15.0, iTime * 0.9);
 
-    vec3 starColor1 = vec3(0.85, 0.9, 1.0);
-    vec3 starColor2 = vec3(0.95, 0.97, 1.0);
-    vec3 starColor3 = vec3(1.0, 0.98, 0.95);
+    vec3 starColor1 = particleColor(vec3(0.85, 0.9, 1.0), vec3(0.25, 0.3, 0.45));
+    vec3 starColor2 = particleColor(vec3(0.95, 0.97, 1.0), vec3(0.3, 0.35, 0.5));
+    vec3 starColor3 = particleColor(vec3(1.0, 0.98, 0.95), vec3(0.35, 0.35, 0.45));
 
     vec3 starsRGB = starColor1 * stars1 * 0.6 +
                     starColor2 * stars2 * 0.8 +
