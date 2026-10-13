@@ -11,8 +11,6 @@ namespace {
 
   namespace fs = std::filesystem;
 
-  constexpr int kSysfsFailureRescanThreshold = 3;
-
   bool readBrightness(const fs::path& path, bool& on) {
     std::ifstream file(path);
     if (!file.is_open()) {
@@ -50,18 +48,31 @@ void LockKeysService::refreshNow() {
 }
 
 LockKeysService::LockKeysState LockKeysService::readCurrentState() {
-  if (!m_sysfsDiscovered) {
+  // Refreshes only run on modifier events, so rescanning here is cheap. An
+  // empty scan is never final: the keyboard may have been unplugged or asleep
+  // and its LEDs come back under a new inputN name.
+  const bool rescanned = !hasCachedSysfsLeds();
+  if (rescanned) {
     discoverSysfsLeds();
   }
 
-  if (auto sysfsState = readCachedSysfsState(); sysfsState.has_value()) {
+  if (auto sysfsState = readCachedSysfsState(true); sysfsState.has_value()) {
+    return *sysfsState;
+  }
+
+  // A cached LED vanished (reconnect, sleep): rescan once, then accept
+  // whatever subset still reads.
+  if (!rescanned) {
+    discoverSysfsLeds();
+  }
+  if (auto sysfsState = readCachedSysfsState(false); sysfsState.has_value()) {
     return *sysfsState;
   }
 
   return m_wayland.keyboardLockKeysState();
 }
 
-std::optional<LockKeysService::LockKeysState> LockKeysService::readCachedSysfsState() {
+std::optional<LockKeysService::LockKeysState> LockKeysService::readCachedSysfsState(bool requireAll) {
   if (!hasCachedSysfsLeds()) {
     return std::nullopt;
   }
@@ -86,23 +97,9 @@ std::optional<LockKeysService::LockKeysState> LockKeysService::readCachedSysfsSt
   readGroup(m_numLockPaths, &LockKeysState::numLock);
   readGroup(m_scrollLockPaths, &LockKeysState::scrollLock);
 
-  if (!readAny) {
-    ++m_sysfsReadFailures;
-    if (m_sysfsReadFailures >= kSysfsFailureRescanThreshold) {
-      discoverSysfsLeds();
-    }
+  if (!readAny || (requireAll && hadFailure)) {
     return std::nullopt;
   }
-
-  if (hadFailure) {
-    ++m_sysfsReadFailures;
-    if (m_sysfsReadFailures >= kSysfsFailureRescanThreshold) {
-      discoverSysfsLeds();
-    }
-  } else {
-    m_sysfsReadFailures = 0;
-  }
-
   return state;
 }
 
@@ -110,8 +107,6 @@ void LockKeysService::discoverSysfsLeds() {
   m_capsLockPaths.clear();
   m_numLockPaths.clear();
   m_scrollLockPaths.clear();
-  m_sysfsReadFailures = 0;
-  m_sysfsDiscovered = true;
 
   const fs::path ledsDir{"/sys/class/leds"};
   std::error_code ec;

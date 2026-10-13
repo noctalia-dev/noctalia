@@ -22,15 +22,14 @@ public:
 
 private:
   [[nodiscard]] LockKeysState readCurrentState();
-  [[nodiscard]] std::optional<LockKeysState> readCachedSysfsState();
+  // nullopt when no cached LED reads; with requireAll, also when any one fails.
+  [[nodiscard]] std::optional<LockKeysState> readCachedSysfsState(bool requireAll);
   void discoverSysfsLeds();
   [[nodiscard]] bool hasCachedSysfsLeds() const noexcept;
 
   WaylandConnection& m_wayland;
   LockKeysState m_state;
   bool m_hasState = false;
-  bool m_sysfsDiscovered = false;
-  int m_sysfsReadFailures = 0;
   ChangeCallback m_changeCallback;
   std::vector<std::filesystem::path> m_capsLockPaths;
   std::vector<std::filesystem::path> m_numLockPaths;
