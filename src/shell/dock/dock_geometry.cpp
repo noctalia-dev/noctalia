@@ -1,6 +1,5 @@
 #include "shell/dock/dock_geometry.h"
 
-#include "shell/dock/icon_shadow.h"
 #include "shell/surface/shadow.h"
 #include "wayland/layer_surface.h"
 
@@ -38,10 +37,12 @@ namespace shell::dock {
       const bool vertical = isVerticalEdge(cfg.position);
       const auto padX = static_cast<float>(kCellPad + (vertical ? cfg.crossAxisPadding : cfg.mainAxisPadding));
       const auto padY = static_cast<float>(kCellPad + (vertical ? cfg.mainAxisPadding : cfg.crossAxisPadding));
-      float left = halfGrowth + kIconShadowPadding * peak - padX;
-      float right = left;
-      float up = halfGrowth + (kIconShadowPadding - kIconShadowOffsetY) * peak - padY;
-      float down = halfGrowth + (kIconShadowPadding + kIconShadowOffsetY) * peak - padY;
+      const auto offset = shell::surface_shadow::maskStyle(shadow).offset;
+      constexpr auto padding = shell::surface_shadow::kMaskPadding;
+      float left = halfGrowth + static_cast<float>(padding - offset.x) * peak - padX;
+      float right = halfGrowth + static_cast<float>(padding + offset.x) * peak - padX;
+      float up = halfGrowth + static_cast<float>(padding - offset.y) * peak - padY;
+      float down = halfGrowth + static_cast<float>(padding + offset.y) * peak - padY;
       if (cfg.magnification) {
         const auto mainPad = static_cast<float>(dockHoverZoomMainPad(cfg));
         const auto crossPad = static_cast<float>(dockHoverZoomCrossPad(cfg));

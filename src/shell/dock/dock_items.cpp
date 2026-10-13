@@ -11,6 +11,7 @@
 #include "shell/dock/dock_instance.h"
 #include "shell/dock/dock_model.h"
 #include "shell/dock/icon_shadow.h"
+#include "shell/surface/shadow.h"
 #include "shell/tooltip/tooltip_manager.h"
 #include "system/icon_resolver.h"
 #include "system/internal_app_metadata.h"
@@ -605,20 +606,25 @@ namespace shell::dock {
         item.iconImage = iconImg.get();
         if (source) {
           const auto mask = makeIconShadow(*source, cfg.iconSize, density);
+          const auto shadowStyle = shell::surface_shadow::maskStyle(deps.model.config.config().shell.shadow);
+          constexpr auto padding = shell::surface_shadow::kMaskPadding;
           auto group = std::make_unique<Node>();
           group->setSize(iSize, iSize);
           group->setPosition(kCellPad, kCellPad);
           group->addChild(
               ui::image({
-                  .width = iSize + 2 * kIconShadowPadding,
-                  .height = iSize + 2 * kIconShadowPadding,
+                  .width = iSize + 2 * padding,
+                  .height = iSize + 2 * padding,
                   .configure = [&](Image& image) {
                     image.setSourceRaw(
                         renderer, mask.rgba.data(), mask.rgba.size(), mask.width, mask.height, 0, PixmapFormat::RGBA,
                         true
                     );
-                    image.setForegroundTint(colorSpecFromRole(ColorRole::Shadow, 1.0F / 3.0F));
-                    image.setPosition(-kIconShadowPadding, kIconShadowOffsetY - kIconShadowPadding);
+                    image.setForegroundTint(ColorSpec{.fixed = shadowStyle.tint});
+                    image.setPosition(
+                        static_cast<float>(shadowStyle.offset.x - padding),
+                        static_cast<float>(shadowStyle.offset.y - padding)
+                    );
                   },
               })
           );
