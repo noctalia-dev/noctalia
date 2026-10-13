@@ -1206,6 +1206,7 @@ if build_tests
     'desktop_entry_launch',
     'desktop_entry_localization',
     'desktop_entry_symlink',
+    'desktop_entry_watch',
     'disk_mounts',
     'dock_edge_overlap',
     'dock_pinned_apps',
