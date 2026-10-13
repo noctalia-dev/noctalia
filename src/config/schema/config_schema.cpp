@@ -2215,6 +2215,7 @@ namespace noctalia::config::schema {
           optionalEnumField(&DockMonitorOverride::position, "position", kDockEdges),
           optionalBoolField(&DockMonitorOverride::activeMonitorOnly, "active_monitor_only"),
           optionalIntField(&DockMonitorOverride::iconSize, "icon_size", kDockIconSizeRange),
+          optionalBoolField(&DockMonitorOverride::iconShadow, "icon_shadow"),
           optionalIntField(&DockMonitorOverride::mainAxisPadding, "main_axis_padding", kDockPaddingRange),
           optionalIntField(&DockMonitorOverride::crossAxisPadding, "cross_axis_padding", kDockPaddingRange),
           optionalIntField(&DockMonitorOverride::itemSpacing, "item_spacing", kDockItemSpacingRange),
