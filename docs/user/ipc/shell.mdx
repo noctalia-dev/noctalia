@@ -64,6 +64,6 @@ Snapshots are intentionally frozen for each switcher session rather than streame
 | Lock session | <IpcCommand command="session lock" /> | Lock the current session. `loginctl lock-session` uses the same path when Noctalia is running. |
 | Suspend system | <IpcCommand command="session suspend" /> | Suspend without locking first. |
 | Lock and suspend | <IpcCommand command="session lock-and-suspend" /> | Lock the session, then suspend once the lock is active. |
-| Log out | <IpcCommand command="session logout" /> | End the graphical session (compositor-native when available). |
+| Log out | <IpcCommand command="session logout" /> | End the graphical session through UWSM when active, otherwise compositor-native when available. |
 | Reboot | <IpcCommand command="session reboot" /> | Reboot the system. |
 | Shut down | <IpcCommand command="session shutdown" /> | Shut down the system. |

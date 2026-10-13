@@ -1548,6 +1548,11 @@ bool CompositorPlatform::requestSessionExit() const {
   const compositors::CompositorKind compositor = compositors::detect();
   logSessionExitContext(compositor);
 
+  if (process::commandExists("uwsm")
+      && process::runSync({"uwsm", "check", "is-active", "compositor-only"}).exitCode == 0) {
+    return process::runAsync({"uwsm", "stop"});
+  }
+
   switch (compositor) {
   case compositors::CompositorKind::Hyprland: {
     auto& runtime = m_runtimeRegistry->hyprland();
