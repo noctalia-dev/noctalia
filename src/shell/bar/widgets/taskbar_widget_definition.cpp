@@ -144,6 +144,12 @@ const noctalia::bar::WidgetDefinition<TaskbarWidgetOptions>& taskbarWidgetDefini
                           .presentation = presentation("taskbar.grouping", std::nullopt, true),
                       }
                   ),
+                  field<&Options::showRunning>(
+                      {
+                          .key = "show_running",
+                          .presentation = presentation("taskbar.windows", matches("group_by_workspace", {"false"})),
+                      }
+                  ),
                   field<&Options::groupByWorkspace>(
                       {
                           .key = "group_by_workspace",

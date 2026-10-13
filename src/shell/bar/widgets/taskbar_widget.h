@@ -58,6 +58,7 @@ struct TaskbarWidgetOptions {
   int itemSpacing = 4;
   std::vector<std::string> pinned;
   float pinnedOpacity = 0.5F;
+  bool showRunning = true;
   ColorSpec focusedColor = colorSpecFromRole(ColorRole::Primary);
   ColorSpec occupiedColor = colorSpecFromRole(ColorRole::Secondary);
   ColorSpec emptyColor = colorSpecFromRole(ColorRole::Secondary);
@@ -215,6 +216,7 @@ private:
   void activateTaskModel(const TaskModel& task);
   void closeTaskModel(const TaskModel& task);
   void applyPinnedMerge(std::vector<TaskModel>& tasks);
+  static void dropUnpinnedTasks(std::vector<TaskModel>& tasks, bool showRunning);
   void activateOrLaunchPinned(const TaskModel& task);
   void launchDesktopEntry(const TaskModel& task);
   [[nodiscard]] const std::vector<std::string>& pinnedConfigIds() const noexcept;

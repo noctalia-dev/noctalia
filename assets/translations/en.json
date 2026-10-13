@@ -4736,6 +4736,10 @@
           "description": "Fill the widget background to show playback progress",
           "label": "Show Playback Progress"
         },
+        "show-running": {
+          "description": "Show running windows that are not in the pinned list",
+          "label": "Show Running"
+        },
         "show-scroll-lock": {
           "description": "Show Scroll Lock state",
           "label": "Show Scroll Lock"

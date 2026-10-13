@@ -14,6 +14,8 @@ When grouped app collapsing is enabled, multi-window app tiles also show compact
 
 **Pinned apps** (`pinned`) keep desktop entries on the taskbar when they are not running. Matching uses the same desktop-entry rules as the [dock](/noctalia/dock/#pinned-matching). Pinned apps appear first (in list order), collapsed to one icon per app; other running windows follow as usual. Right-click an icon and choose **Pin** / **Unpin** to update the list. Non-running pins are dimmed by `pinned_opacity` (default `0.5`). Pins are only used on the flat strip; when `group_by_workspace` is on they are ignored (settings hide the list, and pin menu actions are unavailable).
 
+**Show running** (`show_running`, default `true`) keeps windows that are not in `pinned` on the flat strip; set it to `false` for a pinned-only strip. Non-running pins still dim by `pinned_opacity` (default `0.5`); raise it to `1.0` for full-strength icons. Ignored while `group_by_workspace` is on.
+
 **Only active workspace** limits the list to windows the shell can place on a workspace that is currently active on its monitor (same idea as the v4 taskbar option). It works with or without `group_by_workspace`; with grouping, inactive workspace capsules are omitted.
 
 **Workspace grouping** (`group_by_workspace` and related options) needs per-window workspace assignment from the compositor, not just a workspace list. Without it, the taskbar stays flat and those settings are hidden in the GUI (config keys are accepted but ignored). LabWC is a common example ([discussion #2924](https://github.com/labwc/labwc/discussions/2924)); use the **workspaces** widget for switching there.
@@ -29,6 +31,7 @@ With grouping, `workspace_group_content` chooses what each capsule shows for its
 |---------|------|---------|-------------|
 | `pinned` | array of string | `[]` | Desktop entry IDs to keep on the flat taskbar when not running. Ignored while `group_by_workspace` is on. |
 | `pinned_opacity` | float | `0.5` | Opacity multiplier for pinned apps that are not running. Settings UI shows this only when the pin list is non-empty (and grouping is off). |
+| `show_running` | bool | `true` | Show running windows that are not in `pinned`. Set `false` for a pinned-only strip. Ignored while `group_by_workspace` is on. |
 | `group_by_workspace` | bool | `false` | Group icons into workspace capsules when per-window workspace assignment is available. |
 | `show_all_outputs` | bool | `false` | Include windows from all monitors. With `group_by_workspace`, workspaces from every monitor are merged; capsule badges use `tag·n` (workspace tag, middle dot, monitor index in bar monitor order) when there is more than one monitor. |
 | `only_active_workspace` | bool | `false` | Show only windows on the active workspace for each relevant monitor. Depends on compositor workspace data; if a window’s workspace cannot be resolved, it is still shown. |
@@ -59,6 +62,7 @@ With grouping, `workspace_group_content` chooses what each capsule shows for its
 [widget.taskbar]
 pinned = ["firefox", "code", "kitty"]
 pinned_opacity = 0.5
+show_running = true
 icon_scale = 1.0
 item_spacing = 4  # Flat taskbar only; ignored when workspace grouping is enabled
 group_by_workspace = true

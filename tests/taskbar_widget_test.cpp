@@ -52,6 +52,9 @@ public:
     };
   }
 
+  static void dropUnpinned(std::vector<TaskbarWidget::TaskModel>& task, bool showRunning) {
+    TaskbarWidget::dropUnpinnedTasks(task, showRunning);
+  }
   static std::string displayTitle(std::string title, std::string displayName, std::string appId) {
     const TaskbarWidget::TaskModel task{
         .appId = std::move(appId),
@@ -154,5 +157,23 @@ int main() {
   TEST_CHECK(!TaskbarWidgetTestAccess::exactWindowIdChangeKeepsLayout(true, "", "41"));
   TEST_CHECK(TaskbarWidgetTestAccess::exactWindowIdChangeKeepsLayout(true, "41", "41"));
 
+  // show_running = false keeps only pinned tiles; the default keeps the whole strip.
+  auto strip = std::vector{
+      TaskbarWidgetTestAccess::task(11, "pinned-app"),
+      TaskbarWidgetTestAccess::task(12, "running-window"),
+  };
+  strip[0].pinned = true;
+  auto defaultStrip = strip;
+  TaskbarWidgetTestAccess::dropUnpinned(strip, false);
+  TEST_CHECK(strip.size() == 1);
+  TEST_CHECK(strip[0].title == "pinned-app");
+
+  TaskbarWidgetTestAccess::dropUnpinned(defaultStrip, true);
+  TEST_CHECK(defaultStrip.size() == 2);
+
+  // No pins with show_running = false leaves an empty strip.
+  auto noPins = std::vector{TaskbarWidgetTestAccess::task(11, "running-window")};
+  TaskbarWidgetTestAccess::dropUnpinned(noPins, false);
+  TEST_CHECK(noPins.empty());
   return 0;
 }
