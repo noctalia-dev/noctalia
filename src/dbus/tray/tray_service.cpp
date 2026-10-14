@@ -576,11 +576,26 @@ void TrayService::startWithWatcherDetection() {
       .call([this](const std::string& name, const std::string& old_owner, const std::string& new_owner) {
         if (name == std::string{kWatcherBusName}) {
           if (m_watcherRole == WatcherRole::Client) {
-            if (old_owner.empty() && !new_owner.empty()) {
-              DeferredCall::callLater([this]() { connectToExternalWatcher(); });
-            } else if (!old_owner.empty() && new_owner.empty()) {
+            if (!old_owner.empty()) {
               disconnectExternalWatcher();
             }
+            DeferredCall::callLater([this]() {
+              if (m_watcherRole != WatcherRole::Client) {
+                return;
+              }
+              if (externalWatcherHasOwner()) {
+                connectToExternalWatcher();
+                return;
+              }
+              try {
+                startAsWatcherOwner();
+              } catch (const sdbus::Error& e) {
+                kLog.warn("tray failed to take over {}: {}", std::string{kWatcherBusName}, e.what());
+                m_watcherObject.reset();
+                m_watcherRole = WatcherRole::Client;
+                m_hostRegistered = false;
+              }
+            });
           }
           return;
         }
@@ -620,6 +635,7 @@ bool TrayService::externalWatcherHasOwner() const {
 
 void TrayService::startAsWatcherOwner() {
   m_watcherRole = WatcherRole::Owner;
+  m_hostRegistered = true;
 
   m_watcherObject = sdbus::createObject(m_bus.connection(), kWatcherObjectPath);
 
