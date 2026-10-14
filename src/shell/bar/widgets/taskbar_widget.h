@@ -58,11 +58,11 @@ struct TaskbarWidgetOptions {
   int itemSpacing = 4;
   std::vector<std::string> pinned;
   float pinnedOpacity = 0.5F;
-  bool showRunning = true;
   ColorSpec focusedColor = colorSpecFromRole(ColorRole::Primary);
   ColorSpec occupiedColor = colorSpecFromRole(ColorRole::Secondary);
   ColorSpec emptyColor = colorSpecFromRole(ColorRole::Secondary);
   ColorSpec urgentColor = colorSpecFromRole(ColorRole::Error);
+  bool showRunning = true;
   bool showWindowTitle = false;
   int windowTitleMaxWidth = 100;
   int taskbarMaxWidth = 8192;

@@ -52,8 +52,8 @@ public:
     };
   }
 
-  static void dropUnpinned(std::vector<TaskbarWidget::TaskModel>& task, bool showRunning) {
-    TaskbarWidget::dropUnpinnedTasks(task, showRunning);
+  static void dropUnpinned(std::vector<TaskbarWidget::TaskModel>& tasks, bool showRunning) {
+    TaskbarWidget::dropUnpinnedTasks(tasks, showRunning);
   }
   static std::string displayTitle(std::string title, std::string displayName, std::string appId) {
     const TaskbarWidget::TaskModel task{
