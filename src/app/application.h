@@ -219,6 +219,10 @@ private:
   void syncScreenTimeService();
   void performGreeterSync(bool quiet = false);
   void scheduleGreeterAutoSync();
+  // Fires HookKind::LockscreenWallpaperChanged when the effective lock screen wallpaper
+  // (the override, or the default desktop wallpaper) differs from the last known value.
+  // Per-output desktop changes are reported by HookKind::WallpaperChanged instead.
+  void checkLockscreenWallpaperHook();
   bool runShellCommandBlocking(const std::string& command);
   bool runIdleAction(const IdleActionRequest& action);
   void onIconThemeChanged();
@@ -278,6 +282,7 @@ private:
   IdleGraceOverlay m_idleGraceOverlay;
   std::uint64_t m_idleGraceOverlayGeneration = 0;
   HookManager m_hookManager;
+  std::string m_lastLockscreenWallpaperPath;
   DependencyService m_dependencyService;
   GammaService m_gammaService;
   ScreenshotService m_screenshotService{

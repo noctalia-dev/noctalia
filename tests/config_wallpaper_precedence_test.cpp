@@ -164,6 +164,107 @@ namespace {
     std::filesystem::remove_all(root);
   }
 
+  // Temp config/state/data roots wired through the NOCTALIA_*_HOME env vars.
+  struct TestRoot {
+    std::filesystem::path root;
+
+    explicit TestRoot(const std::string& name, std::string_view configToml = {})
+        : root(std::filesystem::temp_directory_path() / (name + std::to_string(::getpid()))) {
+      std::filesystem::remove_all(root);
+      std::filesystem::create_directories(root / "config" / "noctalia");
+      std::filesystem::create_directories(root / "state" / "noctalia");
+      std::filesystem::create_directories(root / "data");
+      ::setenv("NOCTALIA_CONFIG_HOME", (root / "config").c_str(), 1);
+      ::setenv("NOCTALIA_STATE_HOME", (root / "state").c_str(), 1);
+      ::setenv("NOCTALIA_DATA_HOME", (root / "data").c_str(), 1);
+      if (!configToml.empty()) {
+        std::ofstream out(root / "config" / "noctalia" / "config.toml", std::ios::trunc);
+        out << configToml;
+      }
+    }
+
+    ~TestRoot() {
+      ::unsetenv("NOCTALIA_CONFIG_HOME");
+      ::unsetenv("NOCTALIA_STATE_HOME");
+      ::unsetenv("NOCTALIA_DATA_HOME");
+      std::error_code ec;
+      std::filesystem::permissions(
+          root / "state" / "noctalia", std::filesystem::perms::owner_all, std::filesystem::perm_options::replace, ec
+      );
+      std::filesystem::remove_all(root, ec);
+    }
+  };
+
+  // The lock screen inherits each output's own desktop wallpaper until an override is set, and the
+  // override applies to every output and survives a reload.
+  void checkLockscreenWallpaperResolution() {
+    TestRoot env("noctalia-lockscreen-wallpaper-resolve-");
+    ConfigService config;
+    config.setWallpaperPath(std::nullopt, "/tmp/default.png");
+    config.setWallpaperPath("DP-1", "/tmp/dp1.png");
+
+    expect(config.getLockscreenWallpaperPath("DP-1") == "/tmp/dp1.png", "output did not inherit its own wallpaper");
+    expect(config.getLockscreenWallpaperPath("DP-2") == "/tmp/default.png", "unknown output did not use default");
+    expect(config.getLockscreenWallpaperPath("") == "/tmp/default.png", "empty connector did not use default");
+
+    expect(config.setLockscreenWallpaperPath("/tmp/lock.png"), "setLockscreenWallpaperPath failed");
+    expect(config.getLockscreenWallpaperPath("DP-1") == "/tmp/lock.png", "override did not apply to DP-1");
+    expect(config.getLockscreenWallpaperPath("DP-2") == "/tmp/lock.png", "override did not apply to DP-2");
+
+    config.forceReload();
+    expect(config.getLockscreenWallpaperPath("DP-1") == "/tmp/lock.png", "override did not survive a reload");
+  }
+
+  // Clearing removes the override and falls back to config.toml, else the desktop wallpaper.
+  // Clearing again succeeds as a no-op.
+  void checkLockscreenWallpaperClear() {
+    {
+      TestRoot env("noctalia-lockscreen-wallpaper-clear-");
+      ConfigService config;
+      config.setWallpaperPath(std::nullopt, "/tmp/default.png");
+      expect(config.setLockscreenWallpaperPath("/tmp/lock.png"), "setLockscreenWallpaperPath failed");
+      expect(config.clearLockscreenWallpaperPath(), "clearLockscreenWallpaperPath failed");
+      expect(
+          config.getLockscreenWallpaperPath("") == "/tmp/default.png", "clear did not restore the desktop wallpaper"
+      );
+      expect(config.clearLockscreenWallpaperPath(), "clearing an already clear override did not succeed");
+    }
+    {
+      TestRoot env("noctalia-lockscreen-wallpaper-config-", "[lockscreen]\nwallpaper = \"/tmp/from-config.png\"\n");
+      ConfigService config;
+      config.setWallpaperPath(std::nullopt, "/tmp/default.png");
+      expect(config.getLockscreenWallpaperPath("") == "/tmp/from-config.png", "config.toml wallpaper was not read");
+      expect(config.setLockscreenWallpaperPath("/tmp/lock.png"), "setLockscreenWallpaperPath failed");
+      expect(config.getLockscreenWallpaperPath("") == "/tmp/lock.png", "override did not beat config.toml");
+      expect(config.clearLockscreenWallpaperPath(), "clearLockscreenWallpaperPath failed");
+      expect(
+          config.getLockscreenWallpaperPath("") == "/tmp/from-config.png",
+          "clear did not fall back to the config.toml wallpaper"
+      );
+    }
+  }
+
+  // A failed settings write is reported and leaves the effective wallpaper unchanged.
+  void checkLockscreenWallpaperSaveFailure() {
+    if (::geteuid() == 0) {
+      return;
+    }
+    TestRoot env("noctalia-lockscreen-wallpaper-readonly-");
+    ConfigService config;
+    config.setWallpaperPath(std::nullopt, "/tmp/default.png");
+    expect(config.setLockscreenWallpaperPath("/tmp/lock.png"), "setLockscreenWallpaperPath failed");
+
+    std::filesystem::permissions(
+        env.root / "state" / "noctalia", std::filesystem::perms::owner_read | std::filesystem::perms::owner_exec,
+        std::filesystem::perm_options::replace
+    );
+    expect(!config.setLockscreenWallpaperPath("/tmp/other.png"), "set reported success on an unwritable settings dir");
+    expect(!config.clearLockscreenWallpaperPath(), "clear reported success on an unwritable settings dir");
+    expect(
+        config.getLockscreenWallpaperPath("") == "/tmp/lock.png", "failed write changed the effective lock wallpaper"
+    );
+  }
+
 } // namespace
 
 int main() {
@@ -171,6 +272,9 @@ int main() {
   checkSidecarPathOutranksConfigFilePath();
   checkDirectoryExpandsEnvVars();
   checkFavoriteThemeModeOverride();
+  checkLockscreenWallpaperResolution();
+  checkLockscreenWallpaperClear();
+  checkLockscreenWallpaperSaveFailure();
 
   if (g_failures == 0) {
     std::println("config_wallpaper_precedence_test: all checks passed");

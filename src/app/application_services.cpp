@@ -641,6 +641,7 @@ void Application::initStyleThemeAndWayland() {
   m_syncScriptApiOutputs = [this]() {
     std::vector<scripting::ScriptOutputInfo> infos;
     std::unordered_map<std::string, std::string> wallpaperPaths;
+    std::unordered_map<std::string, std::string> lockscreenWallpaperPaths;
     wl_output* const focused = m_compositorPlatform.preferredInteractiveOutput();
     for (const auto& out : m_wayland.outputs()) {
       if (!out.done || out.connectorName.empty()) {
@@ -657,9 +658,13 @@ void Application::initStyleThemeAndWayland() {
           .focused = out.output == focused,
       });
       wallpaperPaths.insert_or_assign(out.connectorName, m_configService.getWallpaperPath(out.connectorName));
+      lockscreenWallpaperPaths.insert_or_assign(
+          out.connectorName, m_configService.getLockscreenWallpaperPath(out.connectorName)
+      );
     }
     m_scriptApi.setOutputs(std::move(infos));
     m_scriptApi.setWallpaperPaths(std::move(wallpaperPaths));
+    m_scriptApi.setLockscreenWallpaperPaths(std::move(lockscreenWallpaperPaths));
   };
   m_syncScriptApiOutputs();
 
@@ -690,6 +695,23 @@ void Application::initStyleThemeAndWayland() {
   });
   m_scriptApi.setClearWallpaperMasksHook([this](std::uint64_t ownerId) {
     m_desktopWidgetsController.clearWallpaperMasks(ownerId);
+  });
+
+  // Let a plugin set the lock screen wallpaper override.
+  m_scriptApi.setLockscreenWallpaperHook([this](const std::string& path) {
+    const auto resolved = wallpaper::resolveWallpaperImagePath(path);
+    if (!resolved.has_value()) {
+      kLog.warn("plugin setLockscreenWallpaper failed for \"{}\"", path);
+      return;
+    }
+    if (!m_configService.setLockscreenWallpaperPath(*resolved)) {
+      kLog.warn("plugin setLockscreenWallpaper could not save \"{}\"", *resolved);
+    }
+  });
+  m_scriptApi.setClearLockscreenWallpaperHook([this]() {
+    if (!m_configService.clearLockscreenWallpaperPath()) {
+      kLog.warn("plugin clearLockscreenWallpaper could not save settings");
+    }
   });
 
   // Let a plugin toggle one of its own panels.
@@ -955,6 +977,7 @@ void Application::initAuxServicesAndHooks() {
         fireWallpaperChangedHook(change.path, change.connector);
       }
     }
+    checkLockscreenWallpaperHook();
     if (compositors::isKde()) {
       const auto applyKdeWallpaper = [](const std::string& path, const std::string& connector) {
         if (path.empty()) {
@@ -1030,6 +1053,15 @@ void Application::initAuxServicesAndHooks() {
     m_scriptApi.setSystemMonitor(nullptr);
     m_systemMonitor.reset();
   }
+}
+
+void Application::checkLockscreenWallpaperHook() {
+  const std::string path = m_configService.getLockscreenWallpaperPath(std::string());
+  if (path == m_lastLockscreenWallpaperPath) {
+    return;
+  }
+  m_lastLockscreenWallpaperPath = path;
+  m_hookManager.fire(HookKind::LockscreenWallpaperChanged, {{"NOCTALIA_LOCKSCREEN_WALLPAPER_PATH", path}});
 }
 
 void Application::releaseSleepDelayInhibitIfPending() {

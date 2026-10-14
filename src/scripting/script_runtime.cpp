@@ -169,6 +169,12 @@ namespace scripting {
         case ScriptSideEffectKind::SetWallpaperMask:
           api.invokeSetWallpaperMask(effect.hostId, effect.title, effect.body, effect.extra);
           break;
+        case ScriptSideEffectKind::SetLockscreenWallpaper:
+          api.invokeSetLockscreenWallpaper(effect.body);
+          break;
+        case ScriptSideEffectKind::ClearLockscreenWallpaper:
+          api.invokeClearLockscreenWallpaper();
+          break;
         case ScriptSideEffectKind::TogglePanel:
           if (togglePanelCallback) {
             togglePanelCallback(effect.title);

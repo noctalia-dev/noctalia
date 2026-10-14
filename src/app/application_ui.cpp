@@ -331,6 +331,7 @@ void Application::initLockScreenAndSession() {
   );
   m_lockScreen.setLoginBoxServices(&m_sessionActionRunner, m_mprisService.get(), &m_weatherService, &m_httpClient);
   m_wallpaper.setAutomationGate([this]() { return !m_lockScreen.isActive(); });
+  m_lastLockscreenWallpaperPath = m_configService.getLockscreenWallpaperPath(std::string());
   m_configService.addReloadCallback([this]() {
     if (m_logindService != nullptr) {
       m_logindService->setSessionLockIntegrationEnabled(m_configService.isLockScreenEnabled());
@@ -338,6 +339,10 @@ void Application::initLockScreenAndSession() {
     }
     m_lockScreen.onConfigChanged();
     m_lockscreenWidgetsController.onLockStateChanged();
+    if (m_syncScriptApiOutputs) {
+      m_syncScriptApiOutputs();
+    }
+    checkLockscreenWallpaperHook();
   });
   m_lockScreen.setSessionHooks(
       [this]() {
