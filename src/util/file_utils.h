@@ -405,7 +405,27 @@ namespace FileUtils {
   }
 
   // Returns an empty path if the per-user download directory cannot be secured.
-  [[nodiscard]] std::filesystem::path downloadCacheDir(std::string_view category = {});
+  [[nodiscard]] inline std::filesystem::path downloadCacheDir(std::string_view category = {}) {
+    std::filesystem::path directory;
+    if (const char* cache = std::getenv("XDG_CACHE_HOME"); cache != nullptr && cache[0] == '/') {
+      directory = std::filesystem::path(cache) / "noctalia" / "downloads";
+    } else if (const char* home = std::getenv("HOME"); home != nullptr && home[0] == '/') {
+      directory = std::filesystem::path(home) / ".cache" / "noctalia" / "downloads";
+    } else {
+      return {};
+    }
+    std::error_code ec;
+    if (!createPrivateDirectories(directory, ec)) {
+      return {};
+    }
+    if (!category.empty()) {
+      directory /= category;
+      if (!createPrivateDirectories(directory, ec)) {
+        return {};
+      }
+    }
+    return directory;
+  }
 
   [[nodiscard]] inline std::string dataDir() {
     const char* noctalia = std::getenv("NOCTALIA_DATA_HOME");

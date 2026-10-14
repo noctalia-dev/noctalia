@@ -2,6 +2,7 @@
 #include "i18n/i18n_service.h"
 #include "net/http_client.h"
 #include "system/location_service.h"
+#include "util/file_utils.h"
 
 #include <cmath>
 #include <cstdlib>
@@ -48,6 +49,15 @@ int main() {
   ::setenv("NOCTALIA_CONFIG_HOME", configHome.c_str(), 1);
   ::setenv("NOCTALIA_STATE_HOME", stateHome.c_str(), 1);
   ::setenv("XDG_CACHE_HOME", cacheHome.c_str(), 1);
+
+  const auto downloads = cacheHome / "noctalia/downloads";
+  std::filesystem::create_directories(downloads);
+  std::filesystem::permissions(downloads, static_cast<std::filesystem::perms>(0755));
+  expect(FileUtils::downloadCacheDir() == downloads, "download cache path changed");
+  expect(
+      std::filesystem::status(downloads).permissions() == FileUtils::privateDirectoryMode(),
+      "existing download cache was not secured"
+  );
 
   writeConfig(configPath, "auto_locate = false\naddress = \"\"\nlatitude = 52.52\nlongitude = 13.405\n");
   i18n::Service::instance().init("en");
