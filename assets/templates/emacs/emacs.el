@@ -24,9 +24,11 @@
 (let* ((bg "{{colors.background.default.hex}}")
       (err "{{colors.error.default.hex}}")
       (err-container "{{colors.error_container.default.hex}}")
+      (hover "{{colors.hover.default.hex}}")
       (on-background "{{colors.on_background.default.hex}}")
       (on-err "{{colors.on_error.default.hex}}")
       (on-err-container "{{colors.on_error_container.default.hex}}")
+      (on-hover "{{colors.on_hover.default.hex}}")
       (on-primary "{{colors.on_primary.default.hex}}")
       (on-primary-container "{{colors.on_primary_container.default.hex}}")
       (on-secondary "{{colors.on_secondary.default.hex}}")
@@ -73,6 +75,11 @@
       (inverse-on-surface "{{colors.on_surface.default.hex}}")
       (inverse-primary "{{colors.primary.default.hex}}")
       (inverse-surface "{{colors.surface.default.hex}}")
+      ;; terminal colors
+      (terminal-foreground "{{colors.terminal_foreground.default.hex}}")
+      (terminal-background "{{colors.terminal_background.default.hex}}")
+      (terminal-cursor "{{colors.terminal_cursor.default.hex}}")
+      (terminal-cursor-text "{{colors.terminal_cursor_text.default.hex}}")
       ;; ANSI terminal colors
       (term0 "{{colors.terminal_normal_black.default.hex}}")
       (term1 "{{colors.terminal_normal_red.default.hex}}")
@@ -338,6 +345,22 @@
    `(centaur-tabs-unselected-modified ((t (:background ,surface :foreground ,tertiary))))
    `(centaur-tabs-active-bar-face ((t (:background ,primary))))
    
+   ;; message
+   `(message-header-to ((t (:foreground ,primary))))
+   `(message-header-cc ((t (:foreground ,secondary))))
+   `(message-header-subject ((t (:foreground ,tertiary))))
+   `(message-header-newsgroups ((t (:foreground ,tertiary))))
+   `(message-header-other ((t (:foreground ,terminal-foreground))))
+   `(message-header-name ((t (:foreground ,primary))))
+   `(message-header-xheader ((t (:foreground ,tertiary))))
+   `(message-separator ((t (:foreground ,on-surface-variant))))
+   `(message-cited-text-1 ((t (:foreground ,primary))))
+   `(message-cited-text-2 ((t (:foreground ,secondary))))
+   `(message-cited-text-3 ((t (:foreground ,tertiary))))
+   `(message-cited-text-4 ((t (:foreground ,err))))
+   `(message-mml ((t (:foreground ,secondary))))
+   `(message-signature-separator ((t (:foreground ,on-surface-variant))))
+
    ;; Fixed-pitch faces
    `(fixed-pitch ((t (:family "monospace"))))
    `(fixed-pitch-serif ((t (:family "monospace serif"))))
