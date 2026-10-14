@@ -404,10 +404,10 @@ namespace FileUtils {
     return {};
   }
 
-  // Per-user home for transient downloads. Never a fixed /tmp name: another user could create it first.
+  // Per-user disk cache keeps downloads out of shared /tmp and the runtime filesystem.
   [[nodiscard]] inline std::filesystem::path downloadCacheDir() {
-    if (const char* runtime = std::getenv("XDG_RUNTIME_DIR"); runtime != nullptr && runtime[0] == '/') {
-      return std::filesystem::path(runtime) / "noctalia";
+    if (const char* cache = std::getenv("XDG_CACHE_HOME"); cache != nullptr && cache[0] == '/') {
+      return std::filesystem::path(cache) / "noctalia" / "downloads";
     }
     const char* home = std::getenv("HOME");
     return std::filesystem::path(home != nullptr ? home : "") / ".cache" / "noctalia" / "downloads";
