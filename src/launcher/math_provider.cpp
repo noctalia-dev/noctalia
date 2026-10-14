@@ -7,7 +7,9 @@
 
 #include <cctype>
 #include <filesystem>
+#include <libqalculate/BuiltinFunctions.h>
 #include <libqalculate/Calculator.h>
+#include <libqalculate/Function.h>
 #include <memory>
 #include <string>
 
@@ -54,6 +56,12 @@ void MathProvider::initialize() {
   // Load any cached rates before definitions so currency units pick them up.
   m_calc->loadExchangeRates();
   m_calc->loadGlobalDefinitions();
+  // These run programs or touch files, so a pasted expression could execute code while it is typed.
+  for (const int id : {FUNCTION_ID_COMMAND, FUNCTION_ID_PLOT, FUNCTION_ID_LOAD, FUNCTION_ID_EXPORT}) {
+    if (MathFunction* function = m_calc->getFunctionById(id); function != nullptr) {
+      function->setActive(false);
+    }
+  }
   // Pre-warm internal state (GMP randstate) so the destructor path is safe.
   m_calc->calculate("0");
   m_calc->clearMessages();
