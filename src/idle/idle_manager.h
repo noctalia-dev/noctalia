@@ -67,13 +67,21 @@ private:
   };
 
   [[nodiscard]] double effectiveTimeoutSeconds(const IdleBehaviorConfig& config) const;
+  /// True while media holds an inhibit, including the short debounce that swallows renewals.
+  [[nodiscard]] bool screenSaverInhibited() const noexcept {
+    return m_screenSaverInhibitLocks > 0 || m_inhibitReleasePending;
+  }
+  void applyScreenSaverInhibitRelease();
+  void rearmWaitingBehaviors();
   void clearBehaviors();
   void syncHeartbeat();
   void destroyHeartbeat();
   void notifyLiveIdleChanged();
   void createBehavior(const IdleBehaviorConfig& config);
-  void recreateBehaviorNotification(BehaviorState& behavior);
-  void recreateBehaviorNotifications();
+  /// `resumeIfIdled` decides what happens to a behavior whose idle action already ran: run its resume
+  /// action and re-arm, or leave it idled so the input that wakes the seat still triggers the resume.
+  void recreateBehaviorNotification(BehaviorState& behavior, bool resumeIfIdled);
+  void recreateBehaviorNotifications(bool resumeIdledBehaviors);
   bool runBehavior(BehaviorState& behavior);
   void runResumeBehavior(BehaviorState& behavior);
   bool runAction(const IdleBehaviorConfig& behavior, const IdleActionRequest& action) const;
@@ -89,6 +97,7 @@ private:
   std::function<void()> m_onLiveIdleChange;
   IdleConfig m_idleConfig;
   Timer m_graceFallbackTimer;
+  Timer m_inhibitReleaseTimer;
   std::vector<BehaviorState*> m_graceBehaviors;
   bool m_activeGraceWillLock = false;
   std::uint64_t m_graceGeneration = 0;
@@ -97,6 +106,6 @@ private:
   bool m_heartbeatCompositorIdle = false;
   std::int64_t m_liveIdleSeconds = 0;
   std::int64_t m_screenSaverInhibitLocks = 0;
-  bool m_idledWhileScreenSaverInhibited = false;
+  bool m_inhibitReleasePending = false;
   bool m_sessionLocked = false;
 };

@@ -35,6 +35,7 @@ enabled = false             # explicitly disabled in the default config
 [idle.behavior.screen-off]
 timeout = 660
 action = "screen_off"       # turns monitors off, and back on when you return
+locked_timeout = 10         # while locked, turn off after 10 s instead of 660 s
 enabled = false             # explicitly disabled in the default config
 
 [idle.behavior.suspend]
@@ -53,6 +54,7 @@ resume_command = "notify-send 'Idle' 'Back from idle'"
 | `action` | string | `"command"` | What the behavior does: `lock`, `screen_off`, `suspend`, `lock_and_suspend`, or `command` |
 | `enabled` | bool | `true` | Enable or disable this behavior |
 | `timeout` | number | `0` | Seconds before the behavior triggers; fractional values are allowed (e.g. `0.3`); `0` disables this behavior |
+| `locked_timeout` | number | — | Alternative timeout used while the session is locked. When set, the behavior's countdown restarts from this value the moment the session locks. Only applies to behaviors that are still waiting at lock time — a behavior that has already fired is not re-armed. Omit (or set to `0`) to keep the normal `timeout` regardless of lock state. |
 | `command` | string | `""` | Only for `action = "command"`: a shell command to run when idle |
 | `resume_command` | string | `""` | Optional shell command to run when activity resumes |
 | `lock_before_suspend` | bool | `true` | For `action = "suspend"`, lock the session first (equivalent to `action = "lock_and_suspend"`). Set `false` to suspend without locking. |
