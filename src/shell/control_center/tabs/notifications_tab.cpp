@@ -17,6 +17,7 @@
 #include "ui/builders.h"
 #include "ui/palette.h"
 #include "ui/style.h"
+#include "util/file_utils.h"
 #include "util/string_utils.h"
 
 #include <algorithm>
@@ -106,8 +107,8 @@ namespace {
   constexpr int kExpandedMaxLines = 500;
 
   std::filesystem::path remoteNotificationIconCachePath(std::string_view url) {
-    return std::filesystem::path("/tmp")
-        / "noctalia-notification-icons"
+    return FileUtils::downloadCacheDir()
+        / "notification-icons"
         / (std::to_string(std::hash<std::string_view>{}(url)) + ".img");
   }
 

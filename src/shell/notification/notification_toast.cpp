@@ -20,6 +20,7 @@
 #include "ui/builders.h"
 #include "ui/palette.h"
 #include "ui/style.h"
+#include "util/file_utils.h"
 #include "util/string_utils.h"
 #include "wayland/layer_surface.h"
 #include "wayland/surface.h"
@@ -535,7 +536,7 @@ namespace {
   }
 
   std::filesystem::path remoteIconCachePath(std::string_view url) {
-    const std::filesystem::path cacheDir = std::filesystem::path("/tmp") / "noctalia-notification-icons";
+    const std::filesystem::path cacheDir = FileUtils::downloadCacheDir() / "notification-icons";
     const std::size_t hash = std::hash<std::string_view>{}(url);
     return cacheDir / (std::to_string(hash) + ".img");
   }

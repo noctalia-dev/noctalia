@@ -4,6 +4,7 @@
 #include "core/log.h"
 #include "i18n/i18n.h"
 #include "net/http_client.h"
+#include "util/file_utils.h"
 #include "util/string_utils.h"
 
 #include <cmath>
@@ -284,9 +285,7 @@ bool LocationService::coordinatesValid(double latitude, double longitude) noexce
       && longitude <= 180.0;
 }
 
-std::filesystem::path LocationService::transportCacheDir() {
-  return std::filesystem::path("/tmp") / "noctalia-location";
-}
+std::filesystem::path LocationService::transportCacheDir() { return FileUtils::downloadCacheDir() / "location"; }
 
 std::filesystem::path LocationService::stateCacheFilePath() {
   if (const char* xdg = std::getenv("XDG_CACHE_HOME"); xdg != nullptr && xdg[0] != '\0') {

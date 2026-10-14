@@ -5,6 +5,7 @@
 #include "i18n/i18n.h"
 #include "net/http_client.h"
 #include "time/time_format.h"
+#include "util/file_utils.h"
 
 #include <algorithm>
 #include <cctype>
@@ -690,7 +691,7 @@ bool WeatherService::coordinatesValid() const noexcept {
       && m_resolvedLongitude <= 180.0;
 }
 
-std::filesystem::path WeatherService::transportCacheDir() { return std::filesystem::path("/tmp") / "noctalia-weather"; }
+std::filesystem::path WeatherService::transportCacheDir() { return FileUtils::downloadCacheDir() / "weather"; }
 
 std::filesystem::path WeatherService::stateCacheFilePath() {
   if (const char* xdg = std::getenv("XDG_CACHE_HOME"); xdg != nullptr && xdg[0] != '\0') {
