@@ -61,6 +61,14 @@ int main() {
   ));
   TEST_CHECK(savesImageAsset(dir, {.width = 2, .height = 2, .rowStride = 0, .data = std::vector<std::uint8_t>(16)}));
 
+  // History holds message bodies, so neither the file nor its image assets may be readable by others.
+  constexpr auto kNotOwner = std::filesystem::perms::group_all | std::filesystem::perms::others_all;
+  TEST_CHECK((std::filesystem::status(dir / "history.json").permissions() & kNotOwner) == std::filesystem::perms::none);
+  TEST_CHECK(
+      (std::filesystem::status(dir / "notification_history_assets").permissions() & kNotOwner)
+      == std::filesystem::perms::none
+  );
+
   std::filesystem::remove_all(dir);
   return 0;
 }

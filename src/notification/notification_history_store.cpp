@@ -147,7 +147,7 @@ namespace {
       const std::filesystem::path& assetsDir, const std::string& baseFileName, const std::vector<std::uint8_t>& bytes
   ) {
     std::error_code ec;
-    std::filesystem::create_directories(assetsDir, ec);
+    (void)FileUtils::createPrivateDirectories(assetsDir, ec);
     const auto path = assetsDir / baseFileName;
     if (!bytes.empty() && std::filesystem::exists(path, ec) && std::filesystem::file_size(path, ec) == bytes.size()) {
       return true;
@@ -173,7 +173,7 @@ namespace {
         return true;
       }
     }
-    std::filesystem::create_directories(path.parent_path(), ec);
+    (void)FileUtils::createPrivateDirectories(path.parent_path(), ec);
     std::ofstream wf(path, std::ios::binary | std::ios::trunc);
     if (!wf) {
       return false;
@@ -669,10 +669,14 @@ bool saveNotificationHistoryToFile(
     kLog.warn("could not write notification history tmp {}", tmpPath);
     return false;
   }
+  // Notification bodies can hold one-time codes and private messages.
+  std::error_code ec;
+  if (!FileUtils::setPrivateFilePermissions(tmpPath, ec)) {
+    kLog.warn("failed to secure {}: {}", tmpPath, ec.message());
+  }
   out << root.dump(2, ' ', false, nlohmann::json::error_handler_t::replace);
   out.close();
 
-  std::error_code ec;
   std::filesystem::rename(tmpPath, path, ec);
   if (ec) {
     kLog.warn("could not rename notification history file: {}", ec.message());
