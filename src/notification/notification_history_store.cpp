@@ -1,5 +1,6 @@
 #include "notification/notification_history_store.h"
 
+#include "config/atomic_file.h"
 #include "core/log.h"
 #include "notification/notification_manager.h"
 #include "render/core/image_decoder.h"
@@ -371,7 +372,7 @@ namespace {
 
     const auto assetsDir = assetsDirectoryForJson(jsonFilePath);
     std::error_code ecMk;
-    std::filesystem::create_directories(assetsDir, ecMk);
+    (void)FileUtils::createPrivateDirectories(assetsDir, ecMk);
 
     const std::string webpBase = contentAddressedWebpName(rgba.data(), rgba.size());
     const auto webpPath = assetsDir / webpBase;
@@ -577,6 +578,10 @@ bool loadNotificationHistoryFromFile(
   if (!std::filesystem::exists(path, ec)) {
     return true;
   }
+  if (!FileUtils::setPrivateFilePermissions(path, ec)
+      || !FileUtils::createPrivateDirectories(assetsDirectoryForJson(path), ec)) {
+    return false;
+  }
 
   std::ifstream in(path, std::ios::binary);
   if (!in) {
@@ -663,23 +668,10 @@ bool saveNotificationHistoryToFile(
     arr.push_back(std::move(je));
   }
 
-  const std::string tmpPath = path.string() + ".tmp";
-  std::ofstream out(tmpPath, std::ios::binary | std::ios::trunc);
-  if (!out) {
-    kLog.warn("could not write notification history tmp {}", tmpPath);
-    return false;
-  }
-  // Notification bodies can hold one-time codes and private messages.
-  std::error_code ec;
-  if (!FileUtils::setPrivateFilePermissions(tmpPath, ec)) {
-    kLog.warn("failed to secure {}: {}", tmpPath, ec.message());
-  }
-  out << root.dump(2, ' ', false, nlohmann::json::error_handler_t::replace);
-  out.close();
-
-  std::filesystem::rename(tmpPath, path, ec);
-  if (ec) {
-    kLog.warn("could not rename notification history file: {}", ec.message());
+  if (!writeTextFileAtomic(
+          path, root.dump(2, ' ', false, nlohmann::json::error_handler_t::replace), FileUtils::privateFileMode()
+      )) {
+    kLog.warn("could not write notification history {}", path.string());
     return false;
   }
   std::unordered_set<std::string> keepImageFiles;

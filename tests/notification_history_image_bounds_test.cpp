@@ -60,9 +60,22 @@ int main() {
       dir, {.width = 2, .height = 2, .rowStride = 12, .channels = 3, .data = std::vector<std::uint8_t>(12 + 5)}
   ));
   TEST_CHECK(savesImageAsset(dir, {.width = 2, .height = 2, .rowStride = 0, .data = std::vector<std::uint8_t>(16)}));
+  constexpr auto kNotOwner = std::filesystem::perms::group_all | std::filesystem::perms::others_all;
+  std::filesystem::permissions(dir / "notification_history_assets", static_cast<std::filesystem::perms>(0755));
+  TEST_CHECK(savesImageAsset(dir, {.width = 2, .height = 2, .rowStride = 0, .data = std::vector<std::uint8_t>(16)}));
+  TEST_CHECK(
+      (std::filesystem::status(dir / "notification_history_assets").permissions() & kNotOwner)
+      == std::filesystem::perms::none
+  );
+
+  std::filesystem::permissions(dir / "history.json", static_cast<std::filesystem::perms>(0644));
+  std::filesystem::permissions(dir / "notification_history_assets", static_cast<std::filesystem::perms>(0755));
+  std::deque<NotificationHistoryEntry> loaded;
+  std::uint32_t nextId;
+  std::uint64_t serial;
+  TEST_CHECK(loadNotificationHistoryFromFile(dir / "history.json", loaded, nextId, serial));
 
   // History holds message bodies, so neither the file nor its image assets may be readable by others.
-  constexpr auto kNotOwner = std::filesystem::perms::group_all | std::filesystem::perms::others_all;
   TEST_CHECK((std::filesystem::status(dir / "history.json").permissions() & kNotOwner) == std::filesystem::perms::none);
   TEST_CHECK(
       (std::filesystem::status(dir / "notification_history_assets").permissions() & kNotOwner)
