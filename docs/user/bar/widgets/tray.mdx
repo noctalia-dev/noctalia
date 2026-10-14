@@ -21,6 +21,7 @@ For theme icons in `status` or `panel` directories, the tray selects SVG artwork
 | `drawer_columns`         | number          | `3`       | Number of tray icons per row in the drawer panel (`1` to `5`)                                                                        |
 | `drawer_item_size`       | number          | *inherit* | Size of tray icons inside the drawer panel in pixels (`8` to `64`)                                                                   |
 | `detached_panel`         | bool            | `false`   | Open the drawer as a floating panel instead of anchoring it to the bar edge.                                                         |
+| `force_app_icons`        | bool            | `false`   | Force tray icons to use desktop app icons.                                                                                           |
 
 ```toml
 [widget.tray]
@@ -31,6 +32,7 @@ drawer = true
 drawer_columns = 3
 drawer_item_size = 20
 detached_panel = false
+force_app_icons = false
 ```
 
 Tip: right-click a tray item and use `Pin` / `Unpin` in the item menu to update `pinned` without editing config manually.
