@@ -245,7 +245,7 @@ namespace {
     }
     outRgba.resize(static_cast<std::size_t>(outW) * static_cast<std::size_t>(outH) * 4);
     for (int y = 0; y < outH; ++y) {
-      const std::uint8_t* row = img.data.data() + static_cast<std::size_t>(y) * static_cast<std::size_t>(rs);
+      const std::uint8_t* row = img.data.data() + static_cast<std::size_t>(y) * rs;
       std::uint8_t* dst = outRgba.data() + static_cast<std::size_t>(y) * static_cast<std::size_t>(outW) * 4;
       if (c == 4) {
         std::memcpy(dst, row, static_cast<std::size_t>(outW) * 4);
