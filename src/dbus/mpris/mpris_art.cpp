@@ -161,6 +161,8 @@ namespace mpris {
     if (!isRemoteArtUrl(artUrl))
       return {};
     const auto cached = artCachePath(artUrl);
+    if (cached.empty())
+      return {};
     std::error_code ec;
     if (std::filesystem::exists(cached, ec) && std::filesystem::file_size(cached, ec) > 0)
       return cached.string();
@@ -174,12 +176,12 @@ namespace mpris {
     std::string path = cachedArtworkPath(artUrl);
     if (!path.empty() || !isRemoteArtUrl(artUrl) || httpClient == nullptr)
       return path;
+    const auto cached = artCachePath(artUrl);
+    if (cached.empty())
+      return {};
     const std::string key(artUrl);
     if (!pending.insert(key).second)
       return {};
-    const auto cached = artCachePath(artUrl);
-    std::error_code ec;
-    std::filesystem::create_directories(cached.parent_path(), ec);
     httpClient->download(
         artFetchCandidates(artUrl), cached,
         [&pending, key, onReady = std::move(onReady), lifetime = std::move(lifetime)](bool success) {
@@ -196,7 +198,9 @@ namespace mpris {
   std::string normalizeArtPath(std::string_view artUrl) { return uri::normalizeFileUrl(artUrl); }
 
   std::filesystem::path artCachePath(std::string_view artUrl) {
-    const std::filesystem::path cacheDir = FileUtils::downloadCacheDir() / "media-art";
+    const auto cacheDir = FileUtils::downloadCacheDir("media-art");
+    if (cacheDir.empty())
+      return {};
     const std::size_t hash = std::hash<std::string_view>{}(artUrl);
     return cacheDir / (std::to_string(hash) + ".img");
   }

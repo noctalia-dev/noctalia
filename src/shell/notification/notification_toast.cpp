@@ -536,7 +536,10 @@ namespace {
   }
 
   std::filesystem::path remoteIconCachePath(std::string_view url) {
-    const std::filesystem::path cacheDir = FileUtils::downloadCacheDir() / "notification-icons";
+    const auto cacheDir = FileUtils::downloadCacheDir("notification-icons");
+    if (cacheDir.empty()) {
+      return {};
+    }
     const std::size_t hash = std::hash<std::string_view>{}(url);
     return cacheDir / (std::to_string(hash) + ".img");
   }
@@ -3093,6 +3096,10 @@ std::string NotificationToast::resolveNotificationIconPath(const PopupEntry& ent
   const std::string iconValue = *entry.icon;
 
   if (isRemoteIconUrl(iconValue)) {
+    const auto cached = remoteIconCachePath(iconValue);
+    if (cached.empty()) {
+      return {};
+    }
     if (const auto it = m_remoteIconCache.find(iconValue); it != m_remoteIconCache.end()) {
       std::error_code ec;
       if (std::filesystem::exists(it->second, ec) && std::filesystem::file_size(it->second, ec) > 0) {
@@ -3107,7 +3114,6 @@ std::string NotificationToast::resolveNotificationIconPath(const PopupEntry& ent
       return {};
     }
 
-    const auto cached = remoteIconCachePath(iconValue);
     std::error_code ec;
     if (std::filesystem::exists(cached, ec) && std::filesystem::file_size(cached, ec) > 0) {
       const std::string cachedPath = cached.string();
@@ -3116,14 +3122,6 @@ std::string NotificationToast::resolveNotificationIconPath(const PopupEntry& ent
     }
 
     if (m_httpClient != nullptr && !m_pendingRemoteIconDownloads.contains(iconValue)) {
-      std::filesystem::create_directories(cached.parent_path(), ec);
-      if (ec) {
-        kLog.warn(
-            "notification toast: #{} failed to create icon cache dir '{}' error='{}'", entry.notificationId,
-            cached.parent_path().string(), ec.message()
-        );
-      }
-
       m_pendingRemoteIconDownloads.insert(iconValue);
       m_httpClient->download(iconValue, cached, [this, url = iconValue, path = cached.string()](bool success) {
         m_pendingRemoteIconDownloads.erase(url);

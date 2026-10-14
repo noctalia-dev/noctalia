@@ -404,14 +404,8 @@ namespace FileUtils {
     return {};
   }
 
-  // Per-user disk cache keeps downloads out of shared /tmp and the runtime filesystem.
-  [[nodiscard]] inline std::filesystem::path downloadCacheDir() {
-    if (const char* cache = std::getenv("XDG_CACHE_HOME"); cache != nullptr && cache[0] == '/') {
-      return std::filesystem::path(cache) / "noctalia" / "downloads";
-    }
-    const char* home = std::getenv("HOME");
-    return std::filesystem::path(home != nullptr ? home : "") / ".cache" / "noctalia" / "downloads";
-  }
+  // Returns an empty path if the per-user download directory cannot be secured.
+  [[nodiscard]] std::filesystem::path downloadCacheDir(std::string_view category = {});
 
   [[nodiscard]] inline std::string dataDir() {
     const char* noctalia = std::getenv("NOCTALIA_DATA_HOME");

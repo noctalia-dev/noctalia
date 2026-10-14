@@ -107,9 +107,11 @@ namespace {
   constexpr int kExpandedMaxLines = 500;
 
   std::filesystem::path remoteNotificationIconCachePath(std::string_view url) {
-    return FileUtils::downloadCacheDir()
-        / "notification-icons"
-        / (std::to_string(std::hash<std::string_view>{}(url)) + ".img");
+    const auto cacheDir = FileUtils::downloadCacheDir("notification-icons");
+    if (cacheDir.empty()) {
+      return {};
+    }
+    return cacheDir / (std::to_string(std::hash<std::string_view>{}(url)) + ".img");
   }
 
   std::string normalizeLocalIconPath(std::string_view iconValue) { return uri::normalizeFileUrl(iconValue); }
@@ -121,6 +123,9 @@ namespace {
     const std::string& iconValue = *n.icon;
     if (uri::isRemoteUrl(iconValue)) {
       const auto cached = remoteNotificationIconCachePath(iconValue);
+      if (cached.empty()) {
+        return {};
+      }
       std::error_code ec;
       if (std::filesystem::exists(cached, ec) && std::filesystem::file_size(cached, ec) > 0) {
         return cached.string();

@@ -504,9 +504,7 @@ void WeatherService::notifyChanged() {
 }
 
 void WeatherService::startWeatherFetch() {
-  std::error_code ec;
-  std::filesystem::create_directories(transportCacheDir(), ec);
-  const auto path = transportCacheDir() / "forecast.json";
+  const auto directory = transportCacheDir();
   const std::string url = std::format(
       "https://api.open-meteo.com/v1/forecast?latitude={}&longitude={}"
       "&current=temperature_2m,apparent_temperature,wind_speed_10m,wind_direction_10m,weather_code,is_day,uv_index,"
@@ -521,6 +519,11 @@ void WeatherService::startWeatherFetch() {
   m_error.clear();
   m_requestKind = RequestKind::FetchWeather;
   notifyChanged();
+  if (directory.empty()) {
+    handleWeatherResponse({}, false, serial);
+    return;
+  }
+  const auto path = directory / "forecast.json";
   m_httpClient.download(url, path, [this, path, serial](bool success) {
     handleWeatherResponse(path, success, serial);
   });
@@ -691,7 +694,7 @@ bool WeatherService::coordinatesValid() const noexcept {
       && m_resolvedLongitude <= 180.0;
 }
 
-std::filesystem::path WeatherService::transportCacheDir() { return FileUtils::downloadCacheDir() / "weather"; }
+std::filesystem::path WeatherService::transportCacheDir() { return FileUtils::downloadCacheDir("weather"); }
 
 std::filesystem::path WeatherService::stateCacheFilePath() {
   if (const char* xdg = std::getenv("XDG_CACHE_HOME"); xdg != nullptr && xdg[0] != '\0') {

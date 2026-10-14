@@ -493,6 +493,8 @@ void Application::syncStorageKeyProvider() {
 }
 
 void Application::initServices() {
+  // Secure existing downloads even when no service needs a new download this session.
+  (void)FileUtils::downloadCacheDir();
   if (!security::initializeSecurityPrimitives()) {
     kLog.error("libsodium initialization failed; encrypted persistence is unavailable");
   }

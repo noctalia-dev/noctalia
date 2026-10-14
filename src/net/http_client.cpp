@@ -6,8 +6,11 @@
 #include <cctype>
 #include <chrono>
 #include <cstdio>
+#include <cstdlib>
+#include <fcntl.h>
 #include <filesystem>
 #include <string>
+#include <unistd.h>
 #include <utility>
 
 namespace {
@@ -173,6 +176,11 @@ bool HttpClient::hasActiveTransfers() const {
 }
 
 void HttpClient::download(std::string_view url, const std::filesystem::path& destPath, CompletionCallback cb) {
+  if (destPath.empty()) {
+    kLog.warn("download requires a non-empty destination");
+    deferFailure(std::move(cb));
+    return;
+  }
   if (m_offlineMode) {
     kLog.warn("download skipped in offline mode url={}", urlForLog(url));
     deferFailure(std::move(cb));
@@ -188,10 +196,15 @@ void HttpClient::download(std::string_view url, const std::filesystem::path& des
     m_activeByDest.erase(activeIt);
   }
 
-  const auto tempPath = destPath.parent_path() / (destPath.filename().string() + ".part");
-
-  FILE* f = std::fopen(tempPath.c_str(), "wb");
+  std::string tempName = destPath.string() + ".part.XXXXXX";
+  const int fd = ::mkostemp(tempName.data(), O_CLOEXEC);
+  const std::filesystem::path tempPath(tempName);
+  FILE* f = fd >= 0 ? ::fdopen(fd, "wb") : nullptr;
   if (f == nullptr) {
+    if (fd >= 0) {
+      ::close(fd);
+      std::filesystem::remove(tempPath);
+    }
     kLog.warn("download failed to open temp file {} for url={}", tempPath.string(), urlForLog(url));
     deferFailure(std::move(cb));
     return;
@@ -636,16 +649,11 @@ void HttpClient::finishTransfer(CURL* easy, CURLcode result) {
     std::error_code ec;
     std::filesystem::rename(transfer.tempPath, transfer.destPath, ec);
     if (ec) {
-      std::filesystem::copy_file(
-          transfer.tempPath, transfer.destPath, std::filesystem::copy_options::overwrite_existing, ec
+      kLog.warn(
+          "download failed to move {} to {}: {}", transfer.tempPath.string(), transfer.destPath.string(), ec.message()
       );
       std::filesystem::remove(transfer.tempPath);
-      success = !ec;
-      if (!success) {
-        kLog.warn(
-            "download failed to move {} to {}: {}", transfer.tempPath.string(), transfer.destPath.string(), ec.message()
-        );
-      }
+      success = false;
     }
   } else {
     const char* detail = transfer.errorBuffer[0] != '\0' ? transfer.errorBuffer.data() : curl_easy_strerror(result);

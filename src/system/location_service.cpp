@@ -179,23 +179,29 @@ void LocationService::requestRefresh() {
 }
 
 void LocationService::startGeolocate() {
-  std::error_code ec;
-  std::filesystem::create_directories(transportCacheDir(), ec);
-  const auto path = transportCacheDir() / "geolocate.json";
+  const auto directory = transportCacheDir();
   const std::uint64_t serial = ++m_requestSerial;
   m_requestKind = RequestKind::Geolocate;
+  if (directory.empty()) {
+    handleResponse({}, true, false, serial);
+    return;
+  }
+  const auto path = directory / "geolocate.json";
   m_httpClient.download("https://api.noctalia.dev/geolocate", path, [this, path, serial](bool success) {
     handleResponse(path, true, success, serial);
   });
 }
 
 void LocationService::startAddressGeocode() {
-  std::error_code ec;
-  std::filesystem::create_directories(transportCacheDir(), ec);
-  const auto path = transportCacheDir() / "geocode.json";
+  const auto directory = transportCacheDir();
   const std::string url = "https://api.noctalia.dev/geocode?city=" + StringUtils::urlEncode(m_config.address);
   const std::uint64_t serial = ++m_requestSerial;
   m_requestKind = RequestKind::GeocodeAddress;
+  if (directory.empty()) {
+    handleResponse({}, false, false, serial);
+    return;
+  }
+  const auto path = directory / "geocode.json";
   m_httpClient.download(url, path, [this, path, serial](bool success) {
     handleResponse(path, false, success, serial);
   });
@@ -285,7 +291,7 @@ bool LocationService::coordinatesValid(double latitude, double longitude) noexce
       && longitude <= 180.0;
 }
 
-std::filesystem::path LocationService::transportCacheDir() { return FileUtils::downloadCacheDir() / "location"; }
+std::filesystem::path LocationService::transportCacheDir() { return FileUtils::downloadCacheDir("location"); }
 
 std::filesystem::path LocationService::stateCacheFilePath() {
   if (const char* xdg = std::getenv("XDG_CACHE_HOME"); xdg != nullptr && xdg[0] != '\0') {
