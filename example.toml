@@ -387,6 +387,7 @@ delete   = ["del"]
 # ── Bar ───────────────────────────────────────────────────────────────────────
 
 [bar.main]
+layer              = "top"          # top | overlay | smart; smart uses overlay for attached panels and their closing transition
 position           = "top"          # top | bottom | left | right
 thickness          = 34
 background_opacity = 1.0

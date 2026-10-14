@@ -103,6 +103,8 @@ public:
   [[nodiscard]] std::vector<wl_surface*> caffeineAnchorSurfaces() const;
   void
   setAttachedPanelGeometry(wl_output* output, std::string_view barName, std::optional<AttachedPanelGeometry> geometry);
+  // Promotes/demotes a Smart-layer bar as an attached panel opens/closes.
+  void setAttachedPanelOpen(wl_output* output, std::string_view barName, bool open);
   [[nodiscard]] bool canAttachPanelToBar(wl_output* output, std::string_view barName) const noexcept;
   [[nodiscard]] std::optional<BarConfig> configForBar(wl_output* output, std::string_view barName) const;
   // Highest layer-shell layer occupied by any enabled bar on the given output (defaults to Top when no bar is present).
@@ -153,6 +155,7 @@ private:
   void applyPendingWorkspaceReveal();
   void reevaluateSmartAutoHide();
   void startHideFadeOut(BarInstance& instance, bool immediate = false);
+  void finishSmartLayerTransition(BarInstance& instance);
   static void applyBackgroundPalette(BarInstance& instance);
   [[nodiscard]] std::string showBarIpc(std::string_view args);
   [[nodiscard]] std::string hideBarIpc(std::string_view args);
