@@ -1312,7 +1312,7 @@ int main() {
                hoverOldApiPath,
                "id = \"me/hover-old-api\"\n"
                "name = \"Hover Old Api\"\n"
-               "plugin_api = 32\n"
+               "plugin_api = 33\n"
                "[[widget]]\n"
                "id = \"bar\"\n"
                "entry = \"bar.luau\"\n"
