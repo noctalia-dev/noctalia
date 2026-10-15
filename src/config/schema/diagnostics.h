@@ -17,6 +17,8 @@ namespace noctalia::config::schema {
     std::uint32_t line = 0;
     std::uint32_t column = 0;
 
+    bool operator==(const SourceOrigin&) const = default;
+
     [[nodiscard]] bool valid() const { return !file.empty(); }
 
     // "file:line:column", or empty when unknown.

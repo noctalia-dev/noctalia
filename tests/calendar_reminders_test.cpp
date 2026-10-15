@@ -253,8 +253,9 @@ int main() {
     ok = expect(plan.due.size() == 2, "both due reminders should be recorded as fired") && ok;
     ok = expect(notifying == 1, "two reminders for one event produced two notifications") && ok;
     // The one shown must be the closest to the event, so the wording is accurate.
-    const auto* shown = std::ranges::find_if(plan.due, [](const calendar::DueReminder& d) { return d.notify; }).base();
-    ok = expect(shown != nullptr && shown->leadSeconds == 600, "the collapsed notification used the wrong lead") && ok;
+    const auto shown = std::ranges::find_if(plan.due, [](const calendar::DueReminder& d) { return d.notify; });
+    ok = expect(shown != plan.due.end() && shown->leadSeconds == 600, "the collapsed notification used the wrong lead")
+        && ok;
   }
 
   // ---- reminders coming due at different times still notify separately ----

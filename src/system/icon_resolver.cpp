@@ -215,7 +215,7 @@ namespace {
       if (ec) {
         signature += "missing";
       } else {
-        signature += std::to_string(modified.time_since_epoch().count());
+        signature += std::to_string(static_cast<std::int64_t>(modified.time_since_epoch().count()));
       }
       signature += '\n';
     };
