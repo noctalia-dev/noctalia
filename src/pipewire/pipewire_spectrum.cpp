@@ -448,10 +448,10 @@ void PipeWireSpectrum::handleAudioStateChanged() {
 }
 
 void PipeWireSpectrum::rebuildStream() {
-  clearValues(true);
   m_stream.reset();
   m_boundNodeId = 0;
   m_boundTargetObject.clear();
+  clearValues(true);
 
   const std::uint32_t target = resolvedTargetNodeId();
   const auto* targetNode = resolvedTargetNode();
@@ -483,12 +483,6 @@ void PipeWireSpectrum::rebuildStream() {
     resetListenerState(state, false);
   }
   m_nextFrameAt = std::chrono::steady_clock::now();
-  if (m_idle) {
-    for (const auto& [id, state] : m_listeners) {
-      (void)state;
-      emitChanged(id);
-    }
-  }
 }
 
 std::uint32_t PipeWireSpectrum::resolvedTargetNodeId() const noexcept {
