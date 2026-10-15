@@ -552,11 +552,13 @@ void Application::initPanelManagerAndPanels() {
     retrySecretServiceConsumers();
   });
   m_settingsWindow.setClipboardService(&m_clipboardService);
+  m_settingsWindow.setNotificationManager(&m_notificationManager);
   m_clipboardService.setPersistenceChangeCallback([this]() { m_settingsWindow.onExternalOptionsChanged(); });
   m_settingsWindow.setResetEncryptedStorage([this]() {
     const bool clipboardCleared = m_clipboardService.clearEncryptedPersistenceForRecovery();
     const bool calendarCleared = m_calendarService.clearEncryptedCacheForRecovery();
-    if (!clipboardCleared || !calendarCleared) {
+    const bool notificationsCleared = m_notificationManager.clearEncryptedHistoryForRecovery();
+    if (!clipboardCleared || !calendarCleared || !notificationsCleared) {
       m_settingsWindow.showTransientStatus(i18n::tr("settings.storage-recovery.error-delete"), true);
       m_settingsWindow.onExternalOptionsChanged();
       return;

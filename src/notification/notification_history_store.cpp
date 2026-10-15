@@ -1,9 +1,9 @@
 #include "notification/notification_history_store.h"
 
-#include "config/atomic_file.h"
 #include "core/log.h"
 #include "notification/notification_manager.h"
 #include "render/core/image_decoder.h"
+#include "security/encrypted_file_store.h"
 #include "util/base64.h"
 #include "util/file_utils.h"
 
@@ -17,7 +17,7 @@
 #include <fstream>
 #include <nlohmann/json.hpp>
 #include <optional>
-#include <sstream>
+#include <stdexcept>
 #include <string_view>
 #include <unordered_set>
 #include <vector>
@@ -109,7 +109,7 @@ namespace {
 
   constexpr std::string_view kAssetsDirName = "notification_history_assets";
 
-  /// History list only needs small previews; keeps WebP sidecars tiny.
+  // History previews are limited to 96 pixels per side.
   constexpr int kMaxPersistImageSide = 96;
   constexpr float kPersistWebPQuality = 65.0F;
 
@@ -117,7 +117,7 @@ namespace {
     return jsonFilePath.parent_path() / kAssetsDirName;
   }
 
-  /// 32 lowercase hex chars — content-addressed asset names (`i_<hex>.webp`).
+  // Content-addressed asset names use 32 lowercase hexadecimal characters.
   std::string hashBytesToHex32(const std::uint8_t* p, std::size_t n) {
     std::uint64_t h0 = 14695981039346656037ULL;
     std::uint64_t h1 = 13166748625691186689ULL;
@@ -137,53 +137,45 @@ namespace {
   }
 
   std::string contentAddressedWebpName(const std::uint8_t* rgba, std::size_t rgbaBytes) {
-    return std::string("i_") + hashBytesToHex32(rgba, rgbaBytes) + ".webp";
+    return std::string("i_") + hashBytesToHex32(rgba, rgbaBytes) + ".webp.enc";
   }
 
   std::string contentAddressedRgbaName(const std::uint8_t* bytes, std::size_t byteCount) {
-    return std::string("i_") + hashBytesToHex32(bytes, byteCount) + ".rgba";
+    return std::string("i_") + hashBytesToHex32(bytes, byteCount) + ".rgba.enc";
   }
 
-  bool writeRawRgbaBlob(
-      const std::filesystem::path& assetsDir, const std::string& baseFileName, const std::vector<std::uint8_t>& bytes
+  constexpr std::size_t kMaxHistoryBytes = 16 * 1024 * 1024;
+  constexpr std::size_t kMaxImageBytes = 16 * 1024 * 1024;
+  const security::EncryptionContext kHistoryContext{"notification-history-v1", "history"};
+
+  security::EncryptionContext imageContext(const std::filesystem::path& path) {
+    return {"notification-image-v1", path.filename().string()};
+  }
+
+  std::optional<std::vector<std::uint8_t>> readLegacy(const std::filesystem::path& path, std::size_t limit) {
+    std::error_code ec;
+    const auto size = std::filesystem::file_size(path, ec);
+    if (ec || size > limit) {
+      return std::nullopt;
+    }
+    std::ifstream input(path, std::ios::binary);
+    std::vector<std::uint8_t> bytes(static_cast<std::size_t>(size));
+    if (!input
+        || (!bytes.empty()
+            && !input.read(reinterpret_cast<char*>(bytes.data()), static_cast<std::streamsize>(bytes.size())))
+        || input.peek() != std::char_traits<char>::eof()) {
+      return std::nullopt;
+    }
+    return bytes;
+  }
+
+  bool writeImageBlob(
+      const std::filesystem::path& path, std::span<const std::uint8_t> bytes, const security::SecureKey& key
   ) {
-    std::error_code ec;
-    (void)FileUtils::createPrivateDirectories(assetsDir, ec);
-    const auto path = assetsDir / baseFileName;
-    if (!bytes.empty() && std::filesystem::exists(path, ec) && std::filesystem::file_size(path, ec) == bytes.size()) {
-      return true;
-    }
-    std::ofstream f(path, std::ios::binary | std::ios::trunc);
-    if (!f) {
-      return false;
-    }
-    if (!bytes.empty()) {
-      f.write(reinterpret_cast<const char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
-    }
-    return static_cast<bool>(f);
+    return bytes.size() <= kMaxImageBytes && security::writeEncryptedFile(path, bytes, key, imageContext(path));
   }
 
-  bool writeWebpBlobIfAbsent(const std::filesystem::path& path, const std::uint8_t* encoded, std::size_t encodedSize) {
-    std::error_code ec;
-    if (encoded == nullptr || encodedSize == 0) {
-      return false;
-    }
-    if (std::filesystem::exists(path, ec)) {
-      const auto sz = std::filesystem::file_size(path, ec);
-      if (!ec && sz == static_cast<std::uint64_t>(encodedSize)) {
-        return true;
-      }
-    }
-    (void)FileUtils::createPrivateDirectories(path.parent_path(), ec);
-    std::ofstream wf(path, std::ios::binary | std::ios::trunc);
-    if (!wf) {
-      return false;
-    }
-    wf.write(reinterpret_cast<const char*>(encoded), static_cast<std::streamsize>(encodedSize));
-    return static_cast<bool>(wf);
-  }
-
-  /// Icon preset + slow method trades CPU once-per-image for smaller files than WebPEncodeRGBA alone.
+  // Encode each preview with the WebP icon preset.
   std::optional<std::vector<std::uint8_t>> encodeWebpForHistory(const std::uint8_t* rgba, int w, int h, int stride) {
     WebPConfig config;
     if (!WebPConfigPreset(&config, WEBP_PRESET_ICON, kPersistWebPQuality)) {
@@ -288,8 +280,9 @@ namespace {
     h = nh;
   }
 
-  std::optional<NotificationImageData>
-  imageFromJson(const nlohmann::json& j, const std::filesystem::path& jsonFilePath) {
+  std::optional<NotificationImageData> imageFromJson(
+      const nlohmann::json& j, const std::filesystem::path& jsonFilePath, const security::SecureKey& key, bool legacy
+  ) {
     if (!j.is_object()) {
       return std::nullopt;
     }
@@ -303,8 +296,23 @@ namespace {
 
     const auto fileOnly = j.value("image_file", std::string());
     if (!fileOnly.empty()) {
+      if (std::filesystem::path(fileOnly).filename() != fileOnly || fileOnly == "." || fileOnly == "..") {
+        throw std::runtime_error("invalid notification image filename");
+      }
       const auto blobPath = assetsDirectoryForJson(jsonFilePath) / fileOnly;
-      img.data = FileUtils::readBinaryFile(blobPath.string());
+      if (legacy) {
+        auto bytes = readLegacy(blobPath, kMaxImageBytes);
+        if (!bytes) {
+          throw std::runtime_error("could not read legacy notification image");
+        }
+        img.data = std::move(*bytes);
+      } else {
+        auto result = security::readEncryptedFile(blobPath, key, imageContext(blobPath), kMaxImageBytes);
+        if (!result.succeeded()) {
+          throw std::runtime_error("could not authenticate notification image");
+        }
+        img.data = std::move(result.plaintext);
+      }
       if (!img.data.empty()) {
         auto decoded = decodeRasterImage(img.data.data(), img.data.size());
         if (decoded) {
@@ -342,8 +350,10 @@ namespace {
     return img;
   }
 
-  nlohmann::json
-  imageToJson(const NotificationImageData& img, const std::filesystem::path& jsonFilePath, uint32_t notificationId) {
+  nlohmann::json imageToJson(
+      const NotificationImageData& img, const std::filesystem::path& jsonFilePath, uint32_t notificationId,
+      const security::SecureKey& key
+  ) {
     nlohmann::json j;
     j["has_alpha"] = img.hasAlpha;
     j["bits_per_sample"] = img.bitsPerSample;
@@ -377,8 +387,8 @@ namespace {
     const std::string webpBase = contentAddressedWebpName(rgba.data(), rgba.size());
     const auto webpPath = assetsDir / webpBase;
 
-    // Same normalized pixels → same filename: skip WebP encode and skip rewriting the file.
-    if (std::filesystem::exists(webpPath, ecMk)) {
+    // Reuse only authenticated encrypted previews.
+    if (security::readEncryptedFile(webpPath, key, imageContext(webpPath), kMaxImageBytes).succeeded()) {
       j["width"] = w;
       j["height"] = h;
       j["row_stride"] = w * 4;
@@ -401,7 +411,7 @@ namespace {
       }
     }
 
-    if (!encodedBuf.empty() && writeWebpBlobIfAbsent(webpPath, encodedBuf.data(), encodedBuf.size())) {
+    if (!encodedBuf.empty() && writeImageBlob(webpPath, encodedBuf, key)) {
       j["width"] = w;
       j["height"] = h;
       j["row_stride"] = w * 4;
@@ -418,7 +428,7 @@ namespace {
     }
 
     const std::string rawBase = contentAddressedRgbaName(img.data.data(), img.data.size());
-    if (writeRawRgbaBlob(assetsDir, rawBase, img.data)) {
+    if (writeImageBlob(assetsDir / rawBase, img.data, key)) {
       j["width"] = img.width;
       j["height"] = img.height;
       j["row_stride"] = img.rowStride;
@@ -434,7 +444,8 @@ namespace {
     return j;
   }
 
-  nlohmann::json notificationToJson(const Notification& n, const std::filesystem::path& jsonFilePath) {
+  nlohmann::json
+  notificationToJson(const Notification& n, const std::filesystem::path& jsonFilePath, const security::SecureKey& key) {
     nlohmann::json j;
     j["id"] = n.id;
     j["origin"] = std::string(originStr(n.origin));
@@ -451,7 +462,7 @@ namespace {
       j["icon"] = nullptr;
     }
     if (n.imageData.has_value()) {
-      j["image_data"] = imageToJson(*n.imageData, jsonFilePath, n.id);
+      j["image_data"] = imageToJson(*n.imageData, jsonFilePath, n.id, key);
     } else {
       j["image_data"] = nullptr;
     }
@@ -470,7 +481,9 @@ namespace {
     return j;
   }
 
-  Notification notificationFromJson(const nlohmann::json& j, const std::filesystem::path& jsonFilePath) {
+  Notification notificationFromJson(
+      const nlohmann::json& j, const std::filesystem::path& jsonFilePath, const security::SecureKey& key, bool legacy
+  ) {
     Notification n{};
     n.id = j.value("id", 0U);
     n.origin = originFrom(j.value("origin", std::string(kOriginExternal)));
@@ -491,7 +504,7 @@ namespace {
       n.icon = j["icon"].get<std::string>();
     }
     if (j.contains("image_data") && j["image_data"].is_object()) {
-      n.imageData = imageFromJson(j["image_data"], jsonFilePath);
+      n.imageData = imageFromJson(j["image_data"], jsonFilePath, key, legacy);
     }
     if (j.contains("category") && !j["category"].is_null()) {
       n.category = j["category"].get<std::string>();
@@ -533,130 +546,195 @@ namespace {
     }
   }
 
-  void
+  bool
   pruneOrphanImageBlobs(const std::filesystem::path& jsonFilePath, const std::unordered_set<std::string>& keepFiles) {
     const auto assetsDir = assetsDirectoryForJson(jsonFilePath);
     std::error_code ec;
-    if (!std::filesystem::is_directory(assetsDir, ec)) {
-      return;
+    if (!std::filesystem::exists(assetsDir, ec)) {
+      return !ec;
     }
-    for (const auto& ent : std::filesystem::directory_iterator(assetsDir, ec)) {
-      if (ec || !ent.is_regular_file()) {
-        continue;
-      }
+    std::filesystem::directory_iterator it(assetsDir, ec);
+    const std::filesystem::directory_iterator end;
+    while (!ec && it != end) {
+      const auto& ent = *it;
       const std::string name = ent.path().filename().string();
-      const auto dot = name.rfind('.');
-      if (dot == std::string::npos) {
-        continue;
-      }
-      const std::string ext = name.substr(dot);
-      if (ext != ".rgba" && ext != ".webp") {
-        continue;
-      }
-      const bool legacyPerId = name.size() >= 7 && name[0] == 'n' && name[1] == '_';
-      const bool contentAddressed = name.size() >= 7 && name[0] == 'i' && name[1] == '_';
-      if (!legacyPerId && !contentAddressed) {
-        continue;
-      }
-      if (!keepFiles.contains(name)) {
+      const bool historyImage = (name.starts_with("n_") || name.starts_with("i_"))
+          && (name.ends_with(".rgba")
+              || name.ends_with(".webp")
+              || name.ends_with(".rgba.enc")
+              || name.ends_with(".webp.enc"));
+      if (historyImage && !keepFiles.contains(name) && ent.is_regular_file(ec)) {
         std::filesystem::remove(ent.path(), ec);
       }
+      if (!ec) {
+        it.increment(ec);
+      }
     }
+    return !ec;
   }
 
 } // namespace
 
+bool secureNotificationHistory(const std::filesystem::path& path) {
+  if (path.extension() != ".enc") {
+    return false;
+  }
+  auto legacyPath = path;
+  legacyPath.replace_extension(".json");
+  std::error_code ec;
+  for (const auto& file : {path, legacyPath, std::filesystem::path(legacyPath.string() + ".tmp")}) {
+    if (std::filesystem::exists(file, ec) && !FileUtils::setPrivateFilePermissions(file, ec)) {
+      return false;
+    }
+    if (ec) {
+      return false;
+    }
+  }
+  const auto assets = assetsDirectoryForJson(path);
+  return !std::filesystem::exists(assets, ec) ? !ec : FileUtils::setPrivateDirectoryPermissions(assets, ec);
+}
+
 bool loadNotificationHistoryFromFile(
     const std::filesystem::path& path, std::deque<NotificationHistoryEntry>& out, std::uint32_t& outNextId,
-    std::uint64_t& outChangeSerial
+    std::uint64_t& outChangeSerial, const security::SecureKey& key
 ) {
-  out.clear();
-  outNextId = 1;
-  outChangeSerial = 0;
-
-  std::error_code ec;
-  if (!std::filesystem::exists(path, ec)) {
-    return true;
+  if (!secureNotificationHistory(path)) {
+    return false;
   }
-  if (!FileUtils::setPrivateFilePermissions(path, ec)
-      || !FileUtils::createPrivateDirectories(assetsDirectoryForJson(path), ec)) {
+  auto result = security::readEncryptedFile(path, key, kHistoryContext, kMaxHistoryBytes);
+  const bool legacy = result.status == security::EncryptedReadStatus::NotFound;
+  auto legacyPath = path;
+  legacyPath.replace_extension(".json");
+  if (legacy) {
+    std::error_code ec;
+    if (!std::filesystem::exists(legacyPath, ec)) {
+      if (ec || std::filesystem::exists(legacyPath.string() + ".tmp", ec) || ec) {
+        return false;
+      }
+      out.clear();
+      outNextId = 1;
+      outChangeSerial = 0;
+      return true;
+    }
+    auto bytes = readLegacy(legacyPath, kMaxHistoryBytes);
+    if (!bytes) {
+      return false;
+    }
+    result.plaintext = std::move(*bytes);
+  } else if (!result.succeeded()) {
+    kLog.warn("could not authenticate or read notification history");
     return false;
   }
 
-  std::ifstream in(path, std::ios::binary);
-  if (!in) {
-    kLog.warn("could not open notification history {}", path.string());
-    return false;
-  }
-  std::stringstream buffer;
-  buffer << in.rdbuf();
-  nlohmann::json root;
+  std::deque<NotificationHistoryEntry> loaded;
+  std::uint32_t nextId = 1;
+  std::uint64_t changeSerial = 0;
   try {
-    root = nlohmann::json::parse(buffer.str());
-  } catch (const std::exception& e) {
-    kLog.warn("notification history parse failed: {}", e.what());
+    const auto root = nlohmann::json::parse(result.plaintext);
+    if (!root.is_object()) {
+      return false;
+    }
+    const auto version = root.value("version", legacy ? 2 : 3);
+    if ((legacy && version != 1 && version != 2) || (!legacy && version != 3)) {
+      return false;
+    }
+
+    nextId = root.value("next_id", 1U);
+    changeSerial = root.value("change_serial", std::uint64_t{0});
+
+    const auto entries = root.find("entries");
+    if (entries == root.end() || !entries->is_array()) {
+      return false;
+    }
+
+    std::uint32_t maxId = 0;
+    std::uint64_t maxSerial = 0;
+
+    for (const auto& item : *entries) {
+      if (!item.is_object()) {
+        return false;
+      }
+      NotificationHistoryEntry he;
+      he.notification = notificationFromJson(item.at("notification"), path, key, legacy);
+      he.active = item.value("active", false);
+      he.seen = item.value("seen", true);
+      if (item.contains("close_reason") && !item["close_reason"].is_null()) {
+        const auto crs = item["close_reason"].get<std::string>();
+        he.closeReason = closeReasonFrom(crs);
+      }
+      he.eventSerial = item.value("event_serial", std::uint64_t{0});
+
+      maxId = std::max(maxId, he.notification.id);
+      maxSerial = std::max(maxSerial, he.eventSerial);
+
+      loaded.push_back(std::move(he));
+    }
+
+    nextId = std::max(nextId, maxId + 1);
+    changeSerial = std::max(changeSerial, maxSerial);
+
+    constexpr std::size_t kMaxHistoryEntries = 100;
+    while (loaded.size() > kMaxHistoryEntries) {
+      loaded.pop_front();
+    }
+
+  } catch (const std::exception&) {
+    kLog.warn("notification history contains invalid data");
     return false;
   }
 
-  if (!root.is_object()) {
+  if (legacy && !saveNotificationHistoryToFile(path, loaded, nextId, changeSerial, key)) {
     return false;
   }
-
-  outNextId = root.value("next_id", 1U);
-  outChangeSerial = root.value("change_serial", std::uint64_t{0});
-
-  const auto entries = root.find("entries");
-  if (entries == root.end() || !entries->is_array()) {
-    return true;
+  const auto manifest = security::readEncryptedFile(path, key, kHistoryContext, kMaxHistoryBytes);
+  if (!manifest.succeeded()) {
+    return false;
   }
-
-  std::uint32_t maxId = 0;
-  std::uint64_t maxSerial = 0;
-
-  for (const auto& item : *entries) {
-    if (!item.is_object()) {
-      continue;
+  const auto savedRoot = nlohmann::json::parse(manifest.plaintext, nullptr, false);
+  if (savedRoot.is_discarded()) {
+    return false;
+  }
+  std::unordered_set<std::string> keepImageFiles;
+  collectReferencedImageFiles(savedRoot, keepImageFiles);
+  if (legacy) {
+    for (const auto& filename : keepImageFiles) {
+      const auto asset = assetsDirectoryForJson(path) / filename;
+      if (!security::readEncryptedFile(asset, key, imageContext(asset), kMaxImageBytes).succeeded()) {
+        return false;
+      }
     }
-    NotificationHistoryEntry he;
-    he.notification = notificationFromJson(item.at("notification"), path);
-    he.active = item.value("active", false);
-    he.seen = item.value("seen", true);
-    if (item.contains("close_reason") && !item["close_reason"].is_null()) {
-      const auto crs = item["close_reason"].get<std::string>();
-      he.closeReason = closeReasonFrom(crs);
-    }
-    he.eventSerial = item.value("event_serial", std::uint64_t{0});
-
-    maxId = std::max(maxId, he.notification.id);
-    maxSerial = std::max(maxSerial, he.eventSerial);
-
-    out.push_back(std::move(he));
   }
-
-  outNextId = std::max(outNextId, maxId + 1);
-  outChangeSerial = std::max(outChangeSerial, maxSerial);
-
-  constexpr std::size_t kMaxHistoryEntries = 100;
-  while (out.size() > kMaxHistoryEntries) {
-    out.pop_front();
+  std::error_code ec;
+  std::filesystem::remove(legacyPath, ec);
+  if (ec) {
+    return false;
   }
-
+  std::filesystem::remove(legacyPath.string() + ".tmp", ec);
+  if (ec || !pruneOrphanImageBlobs(path, keepImageFiles)) {
+    return false;
+  }
+  out = std::move(loaded);
+  outNextId = nextId;
+  outChangeSerial = changeSerial;
   return true;
 }
 
 bool saveNotificationHistoryToFile(
     const std::filesystem::path& path, const std::deque<NotificationHistoryEntry>& entries, std::uint32_t nextId,
-    std::uint64_t changeSerial
+    std::uint64_t changeSerial, const security::SecureKey& key
 ) {
+  if (path.extension() != ".enc") {
+    return false;
+  }
   nlohmann::json root;
-  root["version"] = 2;
+  root["version"] = 3;
   root["next_id"] = nextId;
   root["change_serial"] = changeSerial;
   auto& arr = root["entries"] = nlohmann::json::array();
 
   for (const auto& he : entries) {
     nlohmann::json je;
-    je["notification"] = notificationToJson(he.notification, path);
+    je["notification"] = notificationToJson(he.notification, path, key);
     je["active"] = he.active;
     je["seen"] = he.seen;
     if (he.closeReason.has_value()) {
@@ -668,14 +746,19 @@ bool saveNotificationHistoryToFile(
     arr.push_back(std::move(je));
   }
 
-  if (!writeTextFileAtomic(
-          path, root.dump(2, ' ', false, nlohmann::json::error_handler_t::replace), FileUtils::privateFileMode()
-      )) {
+  const auto text = root.dump(2, ' ', false, nlohmann::json::error_handler_t::replace);
+  const auto bytes = std::span(reinterpret_cast<const std::uint8_t*>(text.data()), text.size());
+  if (bytes.size() > kMaxHistoryBytes || !security::writeEncryptedFile(path, bytes, key, kHistoryContext)) {
     kLog.warn("could not write notification history {}", path.string());
     return false;
   }
   std::unordered_set<std::string> keepImageFiles;
   collectReferencedImageFiles(root, keepImageFiles);
-  pruneOrphanImageBlobs(path, keepImageFiles);
-  return true;
+  auto legacyPath = path;
+  legacyPath.replace_extension(".json");
+  std::error_code ec;
+  if (!std::filesystem::exists(legacyPath, ec) && !ec) {
+    return pruneOrphanImageBlobs(path, keepImageFiles);
+  }
+  return !ec;
 }

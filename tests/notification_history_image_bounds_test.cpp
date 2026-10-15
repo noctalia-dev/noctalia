@@ -1,5 +1,6 @@
 #include "notification/notification_history_store.h"
 #include "notification/notification_manager.h"
+#include "notification_history_test_utils.h"
 #include "test_check.h"
 #include "util/base64.h"
 
@@ -17,10 +18,10 @@ namespace {
   bool savesImageAsset(const std::filesystem::path& dir, const NotificationImageData& image) {
     std::deque<NotificationHistoryEntry> entries;
     entries.push_back({.notification = {.origin = NotificationOrigin::External, .imageData = image}});
-    const auto path = dir / "history.json";
-    TEST_CHECK(saveNotificationHistoryToFile(path, entries, 2, 1));
-    std::ifstream in(path);
-    const auto json = nlohmann::json::parse(in);
+    const auto key = notificationHistoryTestKey();
+    const auto path = dir / "history.enc";
+    TEST_CHECK(saveNotificationHistoryToFile(path, entries, 2, 1, key));
+    const auto json = readNotificationHistoryJson(path, key);
     const auto& savedImage = json.at("entries").at(0).at("notification").at("image_data");
     if (savedImage.contains("image_file")) {
       const auto asset = dir / "notification_history_assets" / savedImage.at("image_file").get<std::string>();
@@ -68,15 +69,16 @@ int main() {
       == std::filesystem::perms::none
   );
 
-  std::filesystem::permissions(dir / "history.json", static_cast<std::filesystem::perms>(0644));
+  std::filesystem::permissions(dir / "history.enc", static_cast<std::filesystem::perms>(0644));
   std::filesystem::permissions(dir / "notification_history_assets", static_cast<std::filesystem::perms>(0755));
   std::deque<NotificationHistoryEntry> loaded;
   std::uint32_t nextId;
   std::uint64_t serial;
-  TEST_CHECK(loadNotificationHistoryFromFile(dir / "history.json", loaded, nextId, serial));
+  const auto key = notificationHistoryTestKey();
+  TEST_CHECK(loadNotificationHistoryFromFile(dir / "history.enc", loaded, nextId, serial, key));
 
   // History holds message bodies, so neither the file nor its image assets may be readable by others.
-  TEST_CHECK((std::filesystem::status(dir / "history.json").permissions() & kNotOwner) == std::filesystem::perms::none);
+  TEST_CHECK((std::filesystem::status(dir / "history.enc").permissions() & kNotOwner) == std::filesystem::perms::none);
   TEST_CHECK(
       (std::filesystem::status(dir / "notification_history_assets").permissions() & kNotOwner)
       == std::filesystem::perms::none
