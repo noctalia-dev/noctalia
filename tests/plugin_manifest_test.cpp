@@ -1289,7 +1289,7 @@ int main() {
                hoverPath,
                "id = \"me/hover-highlight\"\n"
                "name = \"Hover Highlight\"\n"
-               "plugin_api = 33\n"
+               "plugin_api = 34\n"
                "[[widget]]\n"
                "id = \"bar\"\n"
                "entry = \"bar.luau\"\n"
@@ -1327,7 +1327,7 @@ int main() {
            "hover_highlight below its plugin_api level should fail"
        )
       && ok;
-  ok = expectEq(error, "widget entry 'bar': hover_highlight requires plugin_api >= 33", "hover api gate error") && ok;
+  ok = expectEq(error, "widget entry 'bar': hover_highlight requires plugin_api >= 34", "hover api gate error") && ok;
 
   const auto hoverBadPath = root / "hover-bad" / "plugin.toml";
   ok = expect(
@@ -1335,7 +1335,7 @@ int main() {
                hoverBadPath,
                "id = \"me/hover-bad\"\n"
                "name = \"Hover Bad\"\n"
-               "plugin_api = 33\n"
+               "plugin_api = 34\n"
                "[[widget]]\n"
                "id = \"bar\"\n"
                "entry = \"bar.luau\"\n"
