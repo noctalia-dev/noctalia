@@ -58,7 +58,7 @@ public:
     std::string customLabel;
     bool customImageColorize = false;
     std::string networkInterface;
-    FormatUnits::DecimalByteRateUnit networkSpeedUnit = FormatUnits::DecimalByteRateUnit::Auto;
+    FormatUnits::DecimalByteRateUnit networkSpeedUnit = FormatUnits::DecimalByteRateUnit::AutoBits;
     bool networkSpeedCompact = false;
     int networkSpeedDecimalPlaces = 1;
     SysmonVisualization visualization = SysmonVisualization::Gauge;
