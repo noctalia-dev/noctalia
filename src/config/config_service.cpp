@@ -651,6 +651,7 @@ void ConfigService::fireReloadCallbacks() {
     add(m_lastChange.audio, "audio");
     add(m_lastChange.brightness, "brightness");
     add(m_lastChange.battery, "battery");
+    add(m_lastChange.bluetooth, "bluetooth");
     add(m_lastChange.keybinds, "keybinds");
     add(m_lastChange.nightlight, "nightlight");
     add(m_lastChange.location, "location");

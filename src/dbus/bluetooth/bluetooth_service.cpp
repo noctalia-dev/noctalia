@@ -843,8 +843,15 @@ BluetoothStateChangeOrigin BluetoothService::consumePoweredChangeOrigin(bool pow
   return matchesLocalRequest ? BluetoothStateChangeOrigin::Noctalia : BluetoothStateChangeOrigin::External;
 }
 
+void BluetoothService::setAutoReconnect(bool enabled) {
+  m_autoReconnectEnabled = enabled;
+  if (!enabled) {
+    m_autoReconnectTimer.stop();
+  }
+}
+
 void BluetoothService::scheduleAutoReconnect() {
-  if (!m_state.powered) {
+  if (!m_autoReconnectEnabled || !m_state.powered) {
     return;
   }
   m_autoReconnectAttempt = 0;

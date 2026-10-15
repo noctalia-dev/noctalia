@@ -412,6 +412,9 @@ namespace {
     if (section == "battery") {
       return schema::writeTable(cfg.battery, schema::batterySchema());
     }
+    if (section == "bluetooth") {
+      return schema::writeTable(cfg.bluetooth, schema::bluetoothSchema());
+    }
     if (section == "brightness") {
       return schema::writeTable(cfg.brightness, schema::brightnessSchema());
     }

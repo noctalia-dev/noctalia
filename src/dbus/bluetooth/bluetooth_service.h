@@ -108,6 +108,9 @@ public:
 
   void refreshBatteryFromUPower();
 
+  // [bluetooth].auto_reconnect; disabling cancels a pending reconnect pass.
+  void setAutoReconnect(bool enabled);
+
 private:
   struct Impl;
   friend struct Impl;
@@ -135,6 +138,7 @@ private:
   std::uint64_t m_pendingPoweredRevision = 0;
   Timer m_autoReconnectTimer;
   int m_autoReconnectAttempt = 0;
+  bool m_autoReconnectEnabled = true;
   bool m_hasStateSnapshot = false;
   StateCallback m_stateCallback;
   DevicesCallback m_devicesCallback;

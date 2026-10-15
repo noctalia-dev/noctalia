@@ -1539,6 +1539,13 @@ struct BatteryConfig {
   bool operator==(const BatteryConfig&) const = default;
 };
 
+struct BluetoothConfig {
+  // Connect paired, trusted devices when the adapter powers on or the shell starts.
+  bool autoReconnect = true;
+
+  bool operator==(const BluetoothConfig&) const = default;
+};
+
 struct KeybindsConfig {
   std::vector<KeyChord> validate;
   std::vector<KeyChord> cancel;
@@ -1917,6 +1924,7 @@ struct Config {
   AudioConfig audio;
   BrightnessConfig brightness;
   BatteryConfig battery;
+  BluetoothConfig bluetooth;
   KeybindsConfig keybinds;
   NightLightConfig nightlight;
   LocationConfig location;
@@ -1948,6 +1956,7 @@ struct ConfigChangeSet {
   bool audio = true;
   bool brightness = true;
   bool battery = true;
+  bool bluetooth = true;
   bool keybinds = true;
   bool nightlight = true;
   bool location = true;
@@ -1978,6 +1987,7 @@ struct ConfigChangeSet {
         || audio
         || brightness
         || battery
+        || bluetooth
         || keybinds
         || nightlight
         || location
