@@ -1446,7 +1446,9 @@ void LauncherPanel::applyProviderConfig(LauncherProvider& provider) const {
   }
 }
 
-void LauncherPanel::finishActivation(LauncherProvider& provider, const std::string& resultId, bool copied) {
+void LauncherPanel::finishActivation(
+    LauncherProvider& provider, const std::string& resultId, bool copied, bool appLaunch
+) {
   const bool trackUsage = m_config == nullptr || m_config->config().shell.launcher.trackUsage;
   if (trackUsage && provider.trackUsage()) {
     m_usageTracker.record(provider.id(), resultId);
@@ -1454,6 +1456,9 @@ void LauncherPanel::finishActivation(LauncherProvider& provider, const std::stri
   PanelManager::instance().closePanel(false);
   if (copied && provider.supportsAutoPaste() && m_onCopiedActivation) {
     m_onCopiedActivation();
+  }
+  if (appLaunch && m_onAppLaunch) {
+    m_onAppLaunch();
   }
 }
 
@@ -3458,7 +3463,7 @@ bool LauncherPanel::openAppActionsMenu(std::size_t index, float anchorX, float a
       if (!provider->activate(result)) {
         return;
       }
-      finishActivation(*provider, result.id, provider->supportsAutoPaste());
+      finishActivation(*provider, result.id, provider->supportsAutoPaste(), !result.desktopEntryPath.empty());
       return;
     }
     return;
@@ -3532,7 +3537,7 @@ void LauncherPanel::activateSelected() {
       return;
     }
 
-    finishActivation(*provider, result.id, provider->supportsAutoPaste());
+    finishActivation(*provider, result.id, provider->supportsAutoPaste(), !result.desktopEntryPath.empty());
     return;
   }
 }

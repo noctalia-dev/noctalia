@@ -2529,6 +2529,14 @@ namespace settings {
             "niri overview type launch launcher search keyboard focus"
         ));
       }
+      if (env.niriOverviewCloseOnLaunchSupported) {
+        entries.push_back(makeEntry(
+            SettingsSection::Niri, "overview", tr("settings.schema.shell.niri-overview-close-on-launch.label"),
+            tr("settings.schema.shell.niri-overview-close-on-launch.description"),
+            {"shell", "niri_overview_close_on_launch_enabled"},
+            ToggleSetting{cfg.shell.niriOverviewCloseOnLaunchEnabled}, "niri overview close app launch launcher"
+        ));
+      }
       if (env.niriBackdropSupported) {
         entries.push_back(makeEntry(
             SettingsSection::Niri, "backdrop", tr("settings.schema.shared.enabled.label"),
@@ -2556,6 +2564,14 @@ namespace settings {
           {"shell", "umbriel_overview_type_to_launch_enabled"},
           ToggleSetting{cfg.shell.umbrielOverviewTypeToLaunchEnabled},
           "umbriel overview type launch launcher search keyboard focus"
+      ));
+    }
+    if (env.umbrielOverviewCloseOnLaunchSupported) {
+      entries.push_back(makeEntry(
+          SettingsSection::Umbriel, "overview", tr("settings.schema.shell.umbriel-overview-close-on-launch.label"),
+          tr("settings.schema.shell.umbriel-overview-close-on-launch.description"),
+          {"shell", "umbriel_overview_close_on_launch_enabled"},
+          ToggleSetting{cfg.shell.umbrielOverviewCloseOnLaunchEnabled}, "umbriel overview close app launch launcher"
       ));
     }
 

@@ -299,9 +299,11 @@ namespace settings {
 
   // Runtime conditions that gate optional sections (e.g. compositor-specific features).
   struct RegistryEnvironment {
-    bool niriBackdropSupported = false;             // hide niri backdrop entries when false
-    bool niriOverviewTypeToLaunchSupported = false; // show niri-only type-to-launch integration
+    bool niriBackdropSupported = false; // hide niri backdrop entries when false
+    bool niriOverviewTypeToLaunchSupported = false;
     bool umbrielOverviewTypeToLaunchSupported = false;
+    bool niriOverviewCloseOnLaunchSupported = false;
+    bool umbrielOverviewCloseOnLaunchSupported = false;
     bool screencopySupported = false;           // lockscreen blurred desktop + screenshot features
     bool backgroundEffectBlurSupported = false; // hide compositor blur toggles without ext-background-effect-v1
     bool ddcutilAvailable = false;              // disable ddcutil toggle when ddcutil is not on PATH
