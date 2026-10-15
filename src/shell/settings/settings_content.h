@@ -48,6 +48,7 @@ namespace settings {
     bool showAdvanced = false;
     bool showOverriddenOnly = false;
     std::vector<SelectOption> batteryDeviceOptions;
+    std::vector<SelectOption> availableOutputs;
 
     std::string& editingWidgetName;
     std::string& editingCapsuleGroupId;
