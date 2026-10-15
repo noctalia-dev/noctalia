@@ -171,7 +171,7 @@ TrayWidget::TrayWidget(ConfigService& config, TrayService* tray, Options options
       m_barPosition(std::move(options.barPosition)), m_panelGridMode(options.panelGridMode),
       m_panelGridColumns(std::clamp<std::size_t>(options.panelGridColumns, 1U, 5U)),
       m_inlineEntryGap(std::max(0.0F, options.inlineEntryGap)), m_matchAdjacentSpacing(options.matchAdjacentSpacing),
-      m_customItemSize(options.customItemSize) {
+      m_customItemSize(options.customItemSize), m_forceAppIcons(options.forceAppIcons) {
   auto normalizeTokens = [](std::vector<std::string>& tokens) {
     std::vector<std::string> normalized;
     normalized.reserve(tokens.size());
@@ -229,6 +229,29 @@ std::string TrayWidget::resolveFromTrayThemePath(std::string_view themePath, std
     }
   }
 
+  return {};
+}
+
+std::string TrayWidget::resolveDesktopIconPath(const TrayItemInfo& item) {
+  std::vector<std::string> candidates;
+  tray::appendIdentifierVariants(candidates, item.itemName);
+  tray::appendIdentifierVariants(candidates, item.processName);
+  tray::appendIdentifierVariants(candidates, item.title);
+  tray::appendIdentifierVariants(candidates, item.busName);
+  tray::appendIdentifierVariants(candidates, item.id);
+  tray::appendIdentifierVariants(candidates, item.objectPath);
+  tray::appendIdentifierVariants(candidates, item.iconName);
+
+  const float logicalSize = m_customItemSize.value_or(Style::baseGlyphSize) * m_contentScale;
+  const int rasterSize = std::max(32, static_cast<int>(std::round(logicalSize * 2.0F)));
+
+  for (const auto& candidate : candidates) {
+    if (const auto it = m_appIcons.find(candidate); it != m_appIcons.end()) {
+      if (const auto path = m_iconResolver.resolve(it->second, rasterSize); !path.empty()) {
+        return path;
+      }
+    }
+  }
   return {};
 }
 
@@ -902,6 +925,12 @@ void TrayWidget::buildDesktopIconIndex() {
 }
 
 std::string TrayWidget::resolveIconPath(const TrayItemInfo& item) {
+  if (m_forceAppIcons) {
+    if (const auto desktopIcon = resolveDesktopIconPath(item); !desktopIcon.empty()) {
+      return desktopIcon;
+    }
+  }
+
   const bool hasNamedIcon = item.needsAttention ? !item.attentionIconName.empty() : !item.iconName.empty();
   if (const auto it = m_preferPixmap.find(item.id); it != m_preferPixmap.end() && it->second) {
     // Some indicators publish pixmaps late (after startup) that are monochrome
