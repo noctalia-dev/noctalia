@@ -98,7 +98,7 @@ namespace scripting {
     std::vector<std::pair<std::string, std::string>> widgetActions;
 
     // Whether the bar draws its whole-widget hover highlight over this [[widget]] entry
-    // (`hover_highlight`, plugin_api >= 33). False when the widget draws its own per-item hover.
+    // (`hover_highlight`, plugin_api >= 34). False when the widget draws its own per-item hover.
     bool widgetHoverHighlight = true;
 
     // Launcher-provider routing metadata (parsed only for LauncherProvider entries);

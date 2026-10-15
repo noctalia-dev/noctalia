@@ -60,9 +60,7 @@ public:
   void setUpdateDeferralCallback(std::function<bool()> callback);
   [[nodiscard]] bool isVertical() const { return m_isVertical; }
   void setHoverHighlight(bool enabled) noexcept { m_hoverHighlight = enabled; }
-  [[nodiscard]] bool wantsBarHoverHighlight() const noexcept override {
-    return m_hoverHighlight && Widget::wantsBarHoverHighlight();
-  }
+  [[nodiscard]] bool wantsBarHoverTint() const noexcept override { return m_hoverHighlight; }
 
   // PluginIpcEndpoint
   [[nodiscard]] std::string_view ipcEntryId() const override { return m_entryId; }

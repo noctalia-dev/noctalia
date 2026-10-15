@@ -65,6 +65,8 @@ public:
   // Widgets with interactive sub-items (workspaces, taskbar, tray) manage hover per item and
   // opt out of the bar's generic whole-widget hover highlight.
   [[nodiscard]] virtual bool wantsBarHoverHighlight() const noexcept { return !m_nonInteractive; }
+  // Whether the hover box tints while the widget is hovered. The box still sizes the hit target.
+  [[nodiscard]] virtual bool wantsBarHoverTint() const noexcept { return true; }
 
   // The node this widget built. Widgets size and position it in doLayout().
   [[nodiscard]] Node* root() const noexcept { return m_innerRoot; }

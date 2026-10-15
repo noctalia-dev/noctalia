@@ -2921,7 +2921,7 @@ void Bar::attachWidgetsToSections(BarInstance& instance) {
 
 void Bar::updateWidgetHoverHighlight(BarInstance& instance, InputArea* hoveredArea) {
   Widget* target = widgetFromHoveredArea(instance, hoveredArea);
-  if (target != nullptr && target->barHoverBox() == nullptr) {
+  if (target != nullptr && (target->barHoverBox() == nullptr || !target->wantsBarHoverTint())) {
     target = nullptr;
   }
   if (target == instance.hoverHighlightWidget) {
