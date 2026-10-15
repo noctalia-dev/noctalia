@@ -59,8 +59,8 @@ public:
   void luaSetUpdateInterval(float ms);
   void setUpdateDeferralCallback(std::function<bool()> callback);
   [[nodiscard]] bool isVertical() const { return m_isVertical; }
-  void setHoverHighlight(bool enabled) noexcept { m_hoverHighlight = enabled; }
-  [[nodiscard]] bool wantsBarHoverTint() const noexcept override { return m_hoverHighlight; }
+  void setBarHoverTint(bool enabled) noexcept { m_barHoverTint = enabled; }
+  [[nodiscard]] bool wantsBarHoverTint() const noexcept override { return m_barHoverTint; }
 
   // PluginIpcEndpoint
   [[nodiscard]] std::string_view ipcEntryId() const override { return m_entryId; }
@@ -166,7 +166,7 @@ private:
   bool m_updateDeferred = false;
   bool m_isVertical = false;
   bool m_enableScroll = true;
-  bool m_hoverHighlight = true;
+  bool m_barHoverTint = true;
   bool m_glyphVisible = false;
   bool m_imageWatch = false;
   bool m_imageDirty = false;
