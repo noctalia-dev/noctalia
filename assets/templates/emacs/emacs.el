@@ -266,7 +266,17 @@
    `(term-color-magenta ((t (:foreground ,term5 :background ,term5))))
    `(term-color-cyan ((t (:foreground ,term6 :background ,term6))))
    `(term-color-white ((t (:foreground ,term7 :background ,term7))))
-   
+
+   ;; ANSI terminal colors
+   `(ansi-color-black ((t (:foreground ,term0 :background ,term0))))
+   `(ansi-color-red ((t (:foreground ,term1 :background ,term1))))
+   `(ansi-color-green ((t (:foreground ,term2 :background ,term2))))
+   `(ansi-color-yellow ((t (:foreground ,term3 :background ,term3))))
+   `(ansi-color-blue ((t (:foreground ,term4 :background ,term4))))
+   `(ansi-color-magenta ((t (:foreground ,term5 :background ,term5))))
+   `(ansi-color-cyan ((t (:foreground ,term6 :background ,term6))))
+   `(ansi-color-white ((t (:foreground ,term7 :background ,term7))))
+
    ;; EShell
    `(eshell-prompt ((t (:foreground ,primary :weight bold))))
    `(eshell-ls-directory ((t (:foreground ,primary :weight bold))))
