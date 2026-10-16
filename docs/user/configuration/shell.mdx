@@ -416,7 +416,8 @@ nightlight = true        # night light toggle
 dnd = true               # Do Not Disturb toggle
 lock_keys = true         # Caps/Num/Scroll Lock popups
 keyboard_layout = true   # input keyboard layout changes
-media = true             # MPRIS playback, track changes, and per-player volume changes
+media = true             # MPRIS track changes
+media_volume = true      # MPRIS per-player volume changes; requires media = true
 privacy = true           # microphone/camera/screen share capture changes
 keyboard_backlight = true # keyboard backlight level
 ```
@@ -439,8 +440,9 @@ takes precedence over `monitors`. `background_opacity` sets popup background opa
 `border_width` sets its width in logical pixels (0 to 6, default `1`), and `offset_x` / `offset_y` are the
 absolute margins from the screen edge for the chosen `position`.
 Each popup kind can be toggled independently under `[osd.kinds]`. The volume master toggle enables both output and input
-OSDs by default; set `volume_output` or `volume_input` to `false` to disable one side only. `media = false` disables
-MPRIS playback, track-change, and player-volume popups, and `keyboard_backlight = false` disables keyboard-backlight
+OSDs by default; set `volume_output` or `volume_input` to `false` to disable one side only. `media` gates MPRIS
+track-change popups, and `media_volume` (requires `media = true`) gates player-volume popups; set it to `false` to keep
+track-change popups without volume popups. `keyboard_backlight = false` disables keyboard-backlight
 level popups.
 `lock_keys = false` disables Caps/Num/Scroll Lock popups; when no `lock_keys` bar widget is configured, this also stops
 lock-key state polling. `keyboard_layout = false` disables layout-change popups. `privacy = false` disables popups shown

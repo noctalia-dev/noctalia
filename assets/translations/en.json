@@ -3338,6 +3338,10 @@
           "description": "Show an OSD popup when a new track starts playing",
           "label": "Now Playing"
         },
+        "osd-kinds-media-volume": {
+          "description": "Show an OSD popup when a media player's volume changes",
+          "label": "Media Volume"
+        },
         "osd-kinds-nightlight": {
           "description": "Show an OSD popup when night light is toggled",
           "label": "Night Light"

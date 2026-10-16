@@ -35,7 +35,7 @@ namespace {
     const int percent = static_cast<int>(std::round(std::max(0.0, volume) * 100.0));
     const std::string level = std::to_string(percent) + "%";
     return OsdContent{
-        .kind = OsdKind::Media,
+        .kind = OsdKind::MediaVolume,
         .icon = "disc",
         .value = playerName.empty() ? level : playerName + " - " + level,
         .showProgress = false,
