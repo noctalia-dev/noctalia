@@ -1246,11 +1246,13 @@ struct ShellConfig {
   enum class WindowSwitcherStyle : std::uint8_t {
     Carousel = 0,
     Compact = 1,
+    Icons = 2,
   };
 
   static constexpr EnumOption<WindowSwitcherStyle> kWindowSwitcherStyles[] = {
       {WindowSwitcherStyle::Carousel, "carousel", "settings.options.shell.window-switcher-style.carousel"},
       {WindowSwitcherStyle::Compact, "compact", "settings.options.shell.window-switcher-style.compact"},
+      {WindowSwitcherStyle::Icons, "icons", "settings.options.shell.window-switcher-style.icons"},
   };
 
   struct WindowSwitcherConfig {

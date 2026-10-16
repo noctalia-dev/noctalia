@@ -2200,7 +2200,7 @@ namespace settings {
         SettingsSection::Shell, "window-switcher", tr("settings.schema.shell.window-switcher-style.label"),
         tr("settings.schema.shell.window-switcher-style.description"), {"shell", "window_switcher", "style"},
         enumSelect(ShellConfig::kWindowSwitcherStyles, cfg.shell.windowSwitcher.style),
-        "window switcher alt tab style carousel compact"
+        "window switcher alt tab style carousel compact icons"
     ));
     entries.push_back(makeEntry(
         SettingsSection::Shell, "window-switcher", tr("settings.schema.shell.window-switcher-mru.label"),

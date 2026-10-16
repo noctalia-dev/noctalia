@@ -1634,7 +1634,8 @@
         },
         "window-switcher-style": {
           "carousel": "Carousel",
-          "compact": "Compact"
+          "compact": "Compact",
+          "icons": "Icons Only"
         }
       },
       "theme": {
@@ -3538,19 +3539,19 @@
           "label": "Show All Monitors"
         },
         "window-switcher-show-app-icon": {
-          "description": "Show each application's icon over its window preview",
+          "description": "Show each application's icon over its window preview; icons are always shown in Icons Only",
           "label": "Show Application Icon"
         },
         "window-switcher-show-caption": {
-          "description": "Show window titles and application names below their previews",
+          "description": "Show captions below previews, or the selected window title below the icon grid",
           "label": "Show Caption"
         },
         "window-switcher-show-count": {
-          "description": "Show the current position and total window count above the previews",
+          "description": "Show the current position and total window count above the switcher",
           "label": "Show Window Count"
         },
         "window-switcher-style": {
-          "description": "Choose the freestanding depth carousel or the boxed compact strip",
+          "description": "Choose the preview carousel, compact preview strip, or icons-only grid",
           "label": "Switcher Style"
         }
       },
