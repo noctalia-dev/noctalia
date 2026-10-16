@@ -531,34 +531,21 @@ bool Dock::onPointerEvent(const PointerEvent& event) {
     // Auto-hide: show the dock when the pointer enters.
     if (dockPointerHideAllowed(m_hoveredInstance->config, *m_hoveredInstance)
         && m_hoveredInstance->sceneRoot != nullptr) {
-      if (m_hoveredInstance->hideAnimId != 0) {
-        m_hoveredInstance->animations.cancel(m_hoveredInstance->hideAnimId);
-        m_hoveredInstance->hideAnimId = 0;
+      if (entered->hideOpacity >= 0.999F && entered->hideAnimId == 0) {
+        shell::dock::revealAutoHideDock(*entered);
+      } else {
+        entered->revealTimer.start(std::chrono::milliseconds{250}, [entered]() {
+          if (entered->pointerInside && dockPointerHideAllowed(entered->config, *entered)) {
+            shell::dock::revealAutoHideDock(*entered);
+          }
+        });
       }
-      const float current = m_hoveredInstance->hideOpacity;
-      m_hoveredInstance->hideAnimId = m_hoveredInstance->animations.animate(
-          current, 1.0F, Style::animNormal, Easing::EaseOutCubic,
-          [inst = m_hoveredInstance, this](float v) {
-            inst->hideOpacity = v;
-            const auto& cfg = inst->config;
-            shell::dock::syncDockSlideLayerTransform(*inst, cfg);
-            shell::dock::applyDockCompositorBlur(*inst, cfg);
-          },
-          [inst = m_hoveredInstance]() { inst->hideAnimId = 0; }
-      );
-      // Restore full input region (full surface so shadow-margin edges don't
-      // cause an immediate Leave when triggered from the edge of the strip).
-      if (m_hoveredInstance->surface != nullptr) {
-        const int sw = static_cast<int>(m_hoveredInstance->surface->width());
-        const int sh = static_cast<int>(m_hoveredInstance->surface->height());
-        m_hoveredInstance->surface->setInputRegion({InputRect{0, 0, sw, sh}});
-      }
-      m_hoveredInstance->surface->requestRedraw();
     }
     break;
   }
   case PointerEvent::Type::Leave: {
     if (m_hoveredInstance != nullptr) {
+      m_hoveredInstance->revealTimer.stop();
       if (m_hoveredInstance->drag.active || m_hoveredInstance->drag.armed) {
         endDrag(*m_hoveredInstance, false);
       }
