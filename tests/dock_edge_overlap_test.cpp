@@ -123,7 +123,7 @@ int main() {
     TEST_CHECK(fractionalRegion[0].y == integerRegion[0].y - 1);
   }
 
-  // Overflowing docks stop at the output ends so their item viewport can scroll.
+  // Overflowing docks stop at the margin_ends inset so their item viewport can scroll.
   for (const DockEdge edge : kEdges) {
     DockConfig cfg = flushDock(edge);
     cfg.marginEnds = 12;
@@ -134,6 +134,48 @@ int main() {
     const std::uint32_t expectedLength = shell::dock::isVerticalEdge(edge) ? 576U : 776U;
     const std::uint32_t actualLength = shell::dock::isVerticalEdge(edge) ? geometry.surfaceH : geometry.surfaceW;
     TEST_CHECK(actualLength == expectedLength);
+  }
+
+  {
+    DockConfig cfg = flushDock(DockEdge::Bottom);
+    cfg.maximize = true;
+    cfg.marginEnds = 80;
+    const ShellConfig::ShadowConfig shadow;
+    const auto geometry = shell::dock::computeSurfaceGeometry(
+        cfg, shadow, kItemCount, false, /*outputLogicalWidth=*/1920, /*outputLogicalHeight=*/1080
+    );
+    const auto panel = shell::dock::computePanelGeometry(cfg, shadow, geometry.surfaceW, geometry.surfaceH);
+    const auto concave = shell::dock::dockConcaveShape(cfg);
+    TEST_CHECK(geometry.surfaceW == 1760U);
+    TEST_CHECK(geometry.marginLeft == 0);
+    TEST_CHECK(geometry.marginRight == 0);
+    TEST_CHECK(panel.panelX - concave.logicalInset.left == 0.0F);
+    TEST_CHECK(panel.panelX + panel.panelW + concave.logicalInset.right == 1760.0F);
+    const auto input = shell::dock::computeInputRegion(cfg, panel, 1760, 1080, false, false);
+    TEST_CHECK(input.size() == 1);
+    TEST_CHECK(input.front().x == 0);
+    TEST_CHECK(input.front().width == 1760);
+  }
+
+  {
+    DockConfig cfg = flushDock(DockEdge::Left);
+    cfg.maximize = true;
+    cfg.marginEnds = 80;
+    const ShellConfig::ShadowConfig shadow;
+    const auto geometry = shell::dock::computeSurfaceGeometry(
+        cfg, shadow, kItemCount, false, /*outputLogicalWidth=*/1920, /*outputLogicalHeight=*/1080
+    );
+    const auto panel = shell::dock::computePanelGeometry(cfg, shadow, geometry.surfaceW, geometry.surfaceH);
+    const auto concave = shell::dock::dockConcaveShape(cfg);
+    TEST_CHECK(geometry.surfaceH == 920U);
+    TEST_CHECK(geometry.marginTop == 0);
+    TEST_CHECK(geometry.marginBottom == 0);
+    TEST_CHECK(panel.panelY - concave.logicalInset.top == 0.0F);
+    TEST_CHECK(panel.panelY + panel.panelH + concave.logicalInset.bottom == 920.0F);
+    const auto input = shell::dock::computeInputRegion(cfg, panel, 1920, 920, false, false);
+    TEST_CHECK(input.size() == 1);
+    TEST_CHECK(input.front().y == 0);
+    TEST_CHECK(input.front().height == 920);
   }
 
   return 0;

@@ -662,6 +662,10 @@ DockConfig resolveDockMonitorOverride(const DockConfig& base, const DockMonitorO
     resolved.enabled = *override.enabled;
   if (override.position)
     resolved.position = *override.position;
+  if (override.maximize)
+    resolved.maximize = *override.maximize;
+  if (override.alignment)
+    resolved.alignment = *override.alignment;
   if (override.activeMonitorOnly)
     resolved.activeMonitorOnly = *override.activeMonitorOnly;
   if (override.iconSize)

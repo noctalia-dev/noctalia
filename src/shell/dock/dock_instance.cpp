@@ -373,17 +373,17 @@ namespace shell::dock {
         shell::dock::dockContentSize(cfg, instance.items.size() + shell::dock::dockLauncherButtonCount(cfg))
     );
     if (vert) {
-      instance.viewport->setPosition(0.0F, panelGeometry.panelY);
-      instance.viewport->setSize(w, panelGeometry.panelH);
+      instance.viewport->setPosition(0.0F, cfg.maximize ? 0.0F : panelGeometry.panelY);
+      instance.viewport->setSize(w, cfg.maximize ? h : panelGeometry.panelH);
       instance.row->setPosition(panelGeometry.panelX, 0.0F);
-      instance.row->setSize(panelGeometry.panelW, contentLength);
-      instance.maxScrollOffset = std::max(0.0F, contentLength - panelGeometry.panelH);
+      instance.row->setSize(panelGeometry.panelW, cfg.maximize ? h : contentLength);
+      instance.maxScrollOffset = std::max(0.0F, contentLength - (cfg.maximize ? h : panelGeometry.panelH));
     } else {
-      instance.viewport->setPosition(panelGeometry.panelX, 0.0F);
-      instance.viewport->setSize(panelGeometry.panelW, h);
+      instance.viewport->setPosition(cfg.maximize ? 0.0F : panelGeometry.panelX, 0.0F);
+      instance.viewport->setSize(cfg.maximize ? w : panelGeometry.panelW, h);
       instance.row->setPosition(0.0F, panelGeometry.panelY);
-      instance.row->setSize(contentLength, panelGeometry.panelH);
-      instance.maxScrollOffset = std::max(0.0F, contentLength - panelGeometry.panelW);
+      instance.row->setSize(cfg.maximize ? w : contentLength, panelGeometry.panelH);
+      instance.maxScrollOffset = std::max(0.0F, contentLength - (cfg.maximize ? w : panelGeometry.panelW));
     }
     applyDockScrollOffset(instance, cfg);
     instance.row->layout(renderer);
