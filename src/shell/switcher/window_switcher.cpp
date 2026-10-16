@@ -630,7 +630,12 @@ void WindowSwitcher::registerIpc(IpcService& ipc) {
       }
       return "ok\n";
     }
-    if (!token.empty() && token != "hold") {
+    if (token == "toggle" && m_active) {
+      hide();
+      return "ok\n";
+    }
+    const bool sticky = token == "open" || token == "toggle";
+    if (!token.empty() && token != "hold" && !sticky) {
       return "error: unknown window-switcher action '" + token + "'\n";
     }
     if (m_platform == nullptr) {
@@ -642,6 +647,15 @@ void WindowSwitcher::registerIpc(IpcService& ipc) {
     }
     if (output == nullptr) {
       return "error: no output available\n";
+    }
+    if (sticky) {
+      // No shortcut session: modifier releases are ignored, so the overlay stays open
+      // until Enter, Escape, a click, or `window-switcher close`.
+      show(output);
+      cancelShortcutModifierReleaseCheck();
+      m_shortcutState.reset();
+      m_shortcutSession = false;
+      return "ok\n";
     }
     const bool wasActive = m_active;
     const std::uint32_t modifiers = m_active && m_wayland != nullptr ? m_wayland->keyboardModifiers() : 0;
