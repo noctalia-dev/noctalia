@@ -21,6 +21,14 @@ class Image;
 class Label;
 class Renderer;
 
+// Physical-pixel bounds requested for a window preview capture.
+struct ThumbnailTarget {
+  int width = 0;
+  int height = 0;
+
+  [[nodiscard]] bool operator==(const ThumbnailTarget&) const = default;
+};
+
 struct WindowSwitcherEntry {
   // Switcher bookkeeping only; never pass this process-local key to compositor APIs.
   std::string identityKey;
@@ -33,6 +41,7 @@ struct WindowSwitcherEntry {
   std::uintptr_t closeHandle = 0;
   std::uintptr_t captureHandle = 0;
   std::shared_ptr<const ScreencopyImage> thumbnail;
+  int thumbnailTargetWidth = 0;
 };
 
 // Preview card shared by window-switcher presentation styles.
