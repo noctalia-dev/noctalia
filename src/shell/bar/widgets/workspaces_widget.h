@@ -39,6 +39,7 @@ public:
     WorkspacesLabelSource labelSource = WorkspacesLabelSource::Id;
     bool showLabels = true;
     bool showIcons = true;
+    bool showAppIconsOnHover = false;
     ColorSpec focusedColor = colorSpecFromRole(ColorRole::Primary);
     ColorSpec occupiedColor = colorSpecFromRole(ColorRole::Secondary);
     ColorSpec emptyColor = colorSpecFromRole(ColorRole::Secondary);
@@ -88,19 +89,43 @@ private:
   [[nodiscard]] static std::string
   workspaceTooltipText(const Workspace& workspace, const std::string& label, bool showLabel);
   [[nodiscard]] std::string activeWindowAppId() const;
-  [[nodiscard]] std::string resolveIconPath(const std::string& appId);
+  [[nodiscard]] std::string resolveIconPath(const std::string& appId, float displaySize);
   [[nodiscard]] float focusedPillIconSize() const noexcept;
+  [[nodiscard]] float hoverAppIconSize() const noexcept;
+  [[nodiscard]] float hoverAppIconGap() const noexcept;
+  // Main-axis extent of the icon row itself, and of the pill that has to hold it.
+  [[nodiscard]] float hoverAppIconsExtent(std::size_t count) const noexcept;
+  [[nodiscard]] float hoverAppIconsPillMainAxisSize(std::size_t count) const noexcept;
   [[nodiscard]] float focusedPillDotSize() const noexcept;
   [[nodiscard]] float focusedPillActiveMainAxisSize(
       float textWidth, float textHeight, bool showLabel, bool hasIcon, float baseSize, float padding
   ) const noexcept;
   void buildDesktopIconIndex();
   void syncActiveWindowIcon(Renderer& renderer, Item& item);
+  // Deterministic left-to-right app order for a workspace: window position decides, duplicate
+  // app ids collapse into one icon, and `limit` caps how many icons a pill can grow for.
+  [[nodiscard]] static std::vector<std::string> hoverAppIdsForWorkspace(
+      const std::vector<WorkspaceWindowAssignment>& assignments, std::string_view workspaceKey,
+      const Workspace& workspace, std::size_t limit
+  );
+  // Backend workspace keys for `output`, index-aligned with its workspace list. Empty unless the
+  // hover app icons need them.
+  [[nodiscard]] std::vector<std::string> workspaceDisplayKeys(wl_output* output) const;
+  [[nodiscard]] std::vector<std::string> hoverAppIconPaths(const Item& item);
+  void syncHoveredAppIcons(Renderer& renderer);
+  // Returns true when the item's hover target width changed.
+  bool syncItemHoverAppIcons(Renderer& renderer, Item& item, bool expanded);
+  void rebuildHoverAppIcons(Renderer& renderer, Item& item);
+  void releaseHoverAppIcons(Item& item);
+  void layoutHoverAppIcons(Item& item, float itemW, float itemH);
+  void animateHoverExpansion();
   [[nodiscard]] bool shouldShowWorkspaceLabel(const Workspace& workspace, std::string_view label) const noexcept;
   [[nodiscard]] bool isMinimal() const noexcept { return m_style == WorkspacesStyle::Minimal; }
   [[nodiscard]] bool isFocusHint() const noexcept { return m_style == WorkspacesStyle::FocusHint; }
   // FocusHint is the only style that draws the focused app icon.
   [[nodiscard]] bool showsActiveIcon() const noexcept { return isFocusHint() && m_showIcons; }
+  // Any style can grow the hovered pill into the app icons of that workspace.
+  [[nodiscard]] bool showsHoverAppIcons() const noexcept { return m_showAppIconsOnHover; }
   [[nodiscard]] bool isWorkspaceHidden(const Workspace& workspace) const noexcept;
   void syncWidgetVisibility(bool showWidget);
   void recalculateItemMetrics(Renderer& renderer, Item& item, const Workspace& workspace, std::size_t displayIndex);
@@ -109,6 +134,9 @@ private:
   void setWorkspaceClickHandler(InputArea& area, wl_output* output, const Workspace& workspace);
   void applyItemVisualStyle(Item& item);
   void updateHoverOverlay();
+  void handleHoverEnter(InputArea* area);
+  void handleHoverLeave(InputArea* area);
+  void animateHoverProgress(float target);
   [[nodiscard]] bool shouldHoldPreviousVisualWorkspace(
       const Workspace& previousVisualWorkspace, const Workspace& currentWorkspace
   ) const noexcept;
@@ -117,6 +145,9 @@ private:
   struct WorkspaceState {
     Workspace workspace;
     wl_output* output = nullptr;
+    // Compositor workspace key, index-aligned with the backend's workspace list. Empty when the
+    // backend reports no keys; hover matching then falls back to the workspace identity.
+    std::string workspaceKey;
   };
 
   struct Item {
@@ -128,16 +159,21 @@ private:
     Workspace visualWorkspace;
     wl_output* output = nullptr;
     std::string key;
+    std::string workspaceKey;
     std::string label;
     std::string tooltip;
     std::string iconPath;
+    std::vector<Image*> hoverIcons;
+    std::vector<std::string> hoverIconPaths;
     bool showLabel = false;
     bool showIcon = false;
+    bool hoverExpanded = false;
     bool active = false;
     bool exiting = false;
     bool releaseVisualAfterAnimation = false;
     float inactiveWidth = 0.0F;
     float activeWidth = 0.0F;
+    float hoverWidth = 0.0F;
     float fromWidth = 0.0F;
     float targetX = 0.0F;
     float targetWidth = 0.0F;
@@ -172,6 +208,7 @@ private:
   std::size_t m_maxLabelChars = 1;
   bool m_labelsOnlyWhenOccupied = false;
   bool m_showIcons = true;
+  bool m_showAppIconsOnHover = false;
   bool m_hideWhenEmpty = false;
   bool m_showAllOutputs = false;
   float m_pillScale = 1.0F;
