@@ -88,6 +88,10 @@ A built-in expression evaluator powered by [`libqalculate`](https://qalculate.gi
 - **Currency rates**: Exchange rates are cached locally and refreshed in the background from libqalculate's
   ECB/global providers when `shell.launcher.fetch_exchange_rates` is enabled (the default). Refresh is also
   skipped when `[shell].offline_mode` is enabled; in either case the last cached rates are used.
+- **Configuration**: libqalculate can read user configuration for user-defined constants, functions and units.
+  The XML configuration can be manually edited in `$XDG_DATA_HOME/qalculate/definitions/`, or more conveniently via
+  any tool like [Qalculate!(GTK)](https://github.com/Qalculate/qalculate-gtk) which lets you configure this graphically.
+  Changes are picked up the next time noctalia starts.
 
 ### Emoji
 
