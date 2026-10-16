@@ -2307,6 +2307,7 @@ void LauncherPanel::showSessionActions() {
 void LauncherPanel::onOpen(std::string_view context) {
   for (auto& provider : m_providers) {
     applyProviderConfig(*provider);
+    provider->onLauncherOpened();
   }
 
   // Pick up apps installed since the last scan (notably Nix profile swaps that

@@ -107,6 +107,9 @@ public:
 
   virtual void initialize() {}
 
+  // Called each time the launcher panel opens, before the first query.
+  virtual void onLauncherOpened() {}
+
   // Called when the launcher panel closes. Async providers should drop any cached
   // result set so a later session doesn't briefly show the previous query's results.
   virtual void reset() {}
