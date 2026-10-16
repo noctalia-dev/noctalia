@@ -15,7 +15,7 @@ public:
   using ToplevelsProvider = std::function<void(const std::function<void(const WlrToplevelSnapshot&)>&)>;
 
   void setProviders(WorkspacesProvider workspaces, ToplevelsProvider toplevels);
-  [[nodiscard]] bool sync();
+  [[nodiscard]] bool sync() const;
 
   void setChangeCallback(ChangeCallback callback) override;
   void apply(std::vector<Workspace>& workspaces, const std::string& outputName = {}) const override;
@@ -42,5 +42,6 @@ private:
   WorkspacesProvider m_workspacesProvider;
   ToplevelsProvider m_toplevelsProvider;
   ChangeCallback m_changeCallback;
-  std::unordered_map<std::uintptr_t, TrackedWindow> m_windows;
+  // Mutable so the platform can refresh derived occupancy on const reads.
+  mutable std::unordered_map<std::uintptr_t, TrackedWindow> m_windows;
 };

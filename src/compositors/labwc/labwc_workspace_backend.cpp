@@ -1,10 +1,14 @@
 #include "compositors/labwc/labwc_workspace_backend.h"
 
+#include "core/log.h"
+
 #include <algorithm>
 #include <cctype>
 #include <unordered_set>
 
 namespace {
+
+  constexpr Logger kLog("workspace_labwc");
 
   [[nodiscard]] std::optional<std::size_t> parseLeadingNumber(const std::string& value) {
     if (value.empty() || !std::isdigit(static_cast<unsigned char>(value.front()))) {
@@ -62,46 +66,131 @@ std::string LabwcWorkspaceBackend::activeWorkspaceKey(const std::vector<Workspac
   return workspaces.empty() ? std::string{} : workspaceKeyFor(workspaces.front(), 0);
 }
 
-bool LabwcWorkspaceBackend::sync() {
+bool LabwcWorkspaceBackend::sync() const {
   if (!m_workspacesProvider || !m_toplevelsProvider) {
     return false;
   }
 
   const auto workspaces = m_workspacesProvider();
+  if (workspaces.empty()) {
+    // Transient during output/group renegotiation: never clobber tracking.
+    return false;
+  }
   const std::string activeKey = activeWorkspaceKey(workspaces);
+  if (activeKey.empty()) {
+    return false;
+  }
 
-  std::unordered_map<std::uintptr_t, TrackedWindow> next;
+  // labwc exposes no per-window workspace info and keeps the output set even
+  // for windows on hidden desktops, so a mapped window is not proof of being
+  // on the active desktop. Tracking is therefore focus-bound and sticky: the
+  // focused (activated) window is necessarily on the active desktop, so it is
+  // bound there; every other mapped window keeps its last known workspace;
+  // unseen windows are assumed newly opened on the active desktop. Only
+  // handles that vanish from the enumeration entirely (closed) are
+  // garbage-collected. During a switch the compositor can briefly report two
+  // active workspaces; rebinding is skipped then to avoid misattribution.
+  const bool singleActive = std::ranges::count(workspaces, true, &Workspace::active) == 1;
+
+  std::unordered_set<std::uintptr_t> seen;
+  bool changed = false;
+  std::size_t visibleCount = 0;
+  std::size_t hiddenCount = 0;
+
   m_toplevelsProvider([&](const WlrToplevelSnapshot& toplevel) {
     if (toplevel.handle == nullptr) {
       return;
     }
-
     const auto handleKey = reinterpret_cast<std::uintptr_t>(toplevel.handle);
-    std::string workspaceKey;
-    if (!toplevel.minimized) {
-      workspaceKey = activeKey;
-    } else if (const auto it = m_windows.find(handleKey); it != m_windows.end()) {
-      workspaceKey = it->second.workspaceKey;
-    }
-    if (workspaceKey.empty()) {
+    seen.insert(handleKey);
+    const auto it = m_windows.find(handleKey);
+
+    if (toplevel.output != nullptr && !toplevel.minimized) {
+      ++visibleCount;
+      if (toplevel.activated && singleActive) {
+        const TrackedWindow want{
+            .workspaceKey = activeKey,
+            .appId = toplevel.appId,
+            .title = toplevel.title,
+        };
+        if (it == m_windows.end() || !(it->second == want)) {
+          m_windows[handleKey] = want;
+          changed = true;
+        }
+        return;
+      }
+      if (it == m_windows.end()) {
+        if (!singleActive) {
+          // Transient double-active with no history to confirm: wait for the
+          // next sync rather than guessing.
+          return;
+        }
+        TrackedWindow want{
+            .workspaceKey = activeKey,
+            .appId = toplevel.appId,
+            .title = toplevel.title,
+        };
+        m_windows.emplace(handleKey, std::move(want));
+        changed = true;
+        return;
+      }
+      if (it->second.appId != toplevel.appId || it->second.title != toplevel.title) {
+        it->second.appId = toplevel.appId;
+        it->second.title = toplevel.title;
+        changed = true;
+      }
       return;
     }
 
-    next.emplace(
-        handleKey,
-        TrackedWindow{
-            .workspaceKey = std::move(workspaceKey),
-            .appId = toplevel.appId,
-            .title = toplevel.title,
-        }
-    );
+    if (toplevel.output != nullptr) {
+      // Minimized but still mapped: keep the previous workspace when known,
+      // otherwise the window still occupies the visible desktop.
+      ++visibleCount;
+      std::string key = activeKey;
+      if (it != m_windows.end() && !it->second.workspaceKey.empty()) {
+        key = it->second.workspaceKey;
+      }
+      const TrackedWindow want{
+          .workspaceKey = std::move(key),
+          .appId = toplevel.appId,
+          .title = toplevel.title,
+      };
+      if (it == m_windows.end() || !(it->second == want)) {
+        m_windows[handleKey] = want;
+        changed = true;
+      }
+      return;
+    }
+
+    ++hiddenCount;
+    if (it != m_windows.end()) {
+      // Hidden desktop or unmapped: retain occupancy, refresh metadata.
+      if (it->second.appId != toplevel.appId || it->second.title != toplevel.title) {
+        it->second.appId = toplevel.appId;
+        it->second.title = toplevel.title;
+        changed = true;
+      }
+    }
+    // A hidden toplevel never seen while visible cannot be attributed to any
+    // workspace without guessing, so it is ignored until it appears mapped.
   });
 
-  if (next == m_windows) {
-    return false;
+  for (auto it = m_windows.begin(); it != m_windows.end();) {
+    if (!seen.contains(it->first)) {
+      it = m_windows.erase(it);
+      changed = true;
+    } else {
+      ++it;
+    }
   }
-  m_windows = std::move(next);
-  return true;
+
+  if (changed) {
+    kLog.debug(
+        "sync: activeKey={} trackedWindows={} visible={} hidden={}", activeKey, m_windows.size(), visibleCount,
+        hiddenCount
+    );
+  }
+  return changed;
 }
 
 void LabwcWorkspaceBackend::apply(std::vector<Workspace>& workspaces, const std::string& /*outputName*/) const {
