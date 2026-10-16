@@ -19,8 +19,12 @@ namespace {
 
   void writeVariable(const fs::path& definitions, std::string_view name, std::string_view value) {
     std::ofstream file(definitions / "variables.xml");
-    file << "<?xml version=\"1.0\"?>\n<QALCULATE version=\"5.13.1\">\n  <variable>\n    <names>r:" << name
-         << "</names>\n    <value>" << value << "</value>\n  </variable>\n</QALCULATE>\n";
+    file
+        << "<?xml version=\"1.0\"?>\n<QALCULATE version=\"5.13.1\">\n  <variable>\n    <names>r:"
+        << name
+        << "</names>\n    <value>"
+        << value
+        << "</value>\n  </variable>\n</QALCULATE>\n";
   }
 
   // command() runs a program; it must stay disabled even after user definitions load.
