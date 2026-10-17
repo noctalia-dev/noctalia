@@ -93,7 +93,13 @@ namespace popup_chrome {
   }
 
   void setContentInputRegion(PopupSurface& surface, const Geometry& geometry) {
-    surface.setInputRegion({geometry.inputRect()});
+    const InputRect content = geometry.inputRect();
+    surface.setInputRegion({content});
+    // Popups set no xdg window geometry, so compositors that size popup background
+    // effects from it (niri) need an explicit card-shaped region to blur anything.
+    surface.setBlurRegion(
+        Surface::tessellateRoundedRect(content.x, content.y, content.width, content.height, Style::scaledRadiusLg())
+    );
   }
 
   RectNode* addShadow(
