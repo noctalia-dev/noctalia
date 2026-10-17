@@ -1548,8 +1548,10 @@ bool CompositorPlatform::requestSessionExit() const {
   const compositors::CompositorKind compositor = compositors::detect();
   logSessionExitContext(compositor);
 
+  constexpr std::chrono::milliseconds kUwsmProbeTimeout{2000};
   if (process::commandExists("uwsm")
-      && process::runSync({"uwsm", "check", "is-active", "compositor-only"}).exitCode == 0) {
+      && process::runSyncWithTimeout({"uwsm", "check", "is-active", "compositor-only"}, kUwsmProbeTimeout).exitCode
+          == 0) {
     return process::runAsync({"uwsm", "stop"});
   }
 
