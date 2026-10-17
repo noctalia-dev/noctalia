@@ -126,6 +126,8 @@ private:
   [[nodiscard]] bool isMetadataReady(const TrayItemInfo& item) const;
   void registerOrRefreshItem(const std::string& busName, const std::string& objectPath);
   void attachItemProxySignals(const std::string& itemId, sdbus::IProxy& proxy);
+  void resolveItemOwner(const std::string& itemId, const std::string& busName);
+  [[nodiscard]] bool isSignalFromItemOwner(const std::string& itemId, sdbus::IProxy& proxy) const;
   void resolvePathOnlyItemProxy(const std::string& itemId);
   void requestProcessNameForItem(const std::string& itemId, const std::string& busName);
   [[nodiscard]] std::uint32_t connectionPidForBusName(const std::string& busName) const;
@@ -154,6 +156,9 @@ private:
   std::unique_ptr<sdbus::IProxy> m_dbusProxy;
   std::unordered_map<std::string, TrayItemInfo> m_items;
   std::unordered_map<std::string, std::unique_ptr<sdbus::IProxy>> m_itemProxies;
+  // Unique bus name of each item's owner. sd-bus cannot match a well-known sender locally, so item
+  // proxies on a shared object path also receive other items' signals.
+  std::unordered_map<std::string, std::string> m_itemOwners;
   std::unordered_map<std::string, MenuCache> m_menuCache;
   std::unordered_set<std::string> m_pathOnlyResolutionsInFlight;
   bool m_hostRegistered = true;

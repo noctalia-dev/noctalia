@@ -1384,6 +1384,11 @@ if build_tests
     dependencies: noctalia_core_dep,
     override_options: ['b_ndebug=false'],
   )
+  tray_signal_sender_integration_exe = executable('tray_signal_sender_integration_test',
+    sources: files('tests/tray_signal_sender_integration_test.cpp'),
+    dependencies: noctalia_core_dep,
+    override_options: ['b_ndebug=false'],
+  )
   fingerprint_integration_exe = executable('fingerprint_authenticator_integration_test',
     sources: files('tests/fingerprint_authenticator_integration_test.cpp'),
     dependencies: noctalia_core_dep,
@@ -1412,6 +1417,11 @@ if build_tests
         depends: tray_registration_integration_exe,
       )
     endforeach
+    test('tray_signal_sender_integration',
+      dbus_run_session,
+      args: ['--', tray_signal_sender_integration_exe.full_path()],
+      depends: tray_signal_sender_integration_exe,
+    )
     test('fingerprint_authenticator_integration',
       dbus_run_session,
       args: [
