@@ -70,6 +70,13 @@ Supported JSON fields:
 | Stop playback | <IpcCommand command="media stop" /> | Send the MPRIS `Stop` command to the active player and dismiss it: the player is hidden from the media widget until it starts playing again or is explicitly selected with `next-player`/`previous-player`. Use `media pause` to pause without dismissing. |
 | Previous player | <IpcCommand command="media previous-player" /> | Switch the active player to the previous available MPRIS player and pin it. |
 | Next player | <IpcCommand command="media next-player" /> | Switch the active player to the next available MPRIS player and pin it. |
+| Set player volume | <IpcCommand command="media volume-set 65" /> | Set the active player's volume. Accepts `65`, `65%`, or a normalized value such as `0.65`. |
+| Raise player volume | <IpcCommand command="media volume-up" /> | Raise the active player's volume by the default step (5%). |
+| Raise player by amount | <IpcCommand command="media volume-up 10" /> | Raise the active player's volume by a custom step. Accepts `10`, `10%`, or a normalized value such as `0.1`. |
+| Lower player volume | <IpcCommand command="media volume-down" /> | Lower the active player's volume by the default step (5%). |
+| Lower player by amount | <IpcCommand command="media volume-down 5%" /> | Lower the active player's volume by a custom step. |
+
+Player volume is clamped to 0–100%. A player already above 100% can be lowered from that level, and raising it will not push it further past its current level. Repeated calls during a held key accumulate instead of re-reading a stale player volume.
 
 ## Wallpaper
 
