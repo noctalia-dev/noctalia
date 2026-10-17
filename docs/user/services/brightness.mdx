@@ -43,6 +43,20 @@ If controls are still missing after those retries, open **Control Center → Mon
 starts a new cycle. Outputs configured with `backend = "none"` or `backend = "backlight"`, and outputs already
 served by kernel backlight in `auto` mode, are excluded from DDC recovery.
 
+## HDR output under Umbriel
+
+A monitor that is in HDR mode is also brightened through the compositor, which sets the level its HDR
+content is rendered at: 0% selects 80 cd/m² and 100% selects 203 cd/m². The monitor's own brightness
+control keeps setting the brightness of the SDR content on that same monitor, so one slider covers both
+and keeps working while the monitor switches between SDR and HDR content. While the monitor is showing HDR
+content, the percentage you see is that compositor level, and it follows the monitor's own value again as
+soon as the content is SDR again.
+
+The HDR mode is read per monitor, and `on`, `auto` and `fullscreen` all take this path. A monitor whose
+HDR mode is `off`, and every other compositor, only uses the controls described above. A monitor in HDR
+mode always gets a brightness control, even when none was found for it. `backend = "none"` still hides a
+monitor, and `backend = "backlight"` still pins a monitor to its backlight device.
+
 ## Related IPC
 
 For brightness commands, targets, accepted value formats, and OSD behavior, see
