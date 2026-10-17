@@ -656,6 +656,7 @@ struct DockMonitorOverride {
   std::optional<DockEdge> position;
   std::optional<bool> activeMonitorOnly;
   std::optional<std::int32_t> iconSize;
+  std::optional<bool> iconShadow;
   std::optional<std::int32_t> mainAxisPadding;
   std::optional<std::int32_t> crossAxisPadding;
   std::optional<std::int32_t> itemSpacing;
@@ -696,7 +697,8 @@ struct DockMonitorOverride {
 struct DockConfig {
   bool enabled = false; // opt-in; dock is hidden by default
   DockEdge position = DockEdge::Bottom;
-  bool activeMonitorOnly = false;    // render only on preferred active output
+  bool activeMonitorOnly = false; // render only on preferred active output
+  bool iconShadow = false;
   std::int32_t iconSize = 48;        // icon size in pixels (before ui_scale)
   std::int32_t mainAxisPadding = 16; // inner padding along the icon row (main axis)
   std::int32_t crossAxisPadding = 8; // inner padding perpendicular to the icon row
