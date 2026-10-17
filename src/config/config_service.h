@@ -259,6 +259,7 @@ private:
   // Marker file (state dir): its existence means onboarding has been completed
   // or dismissed. Single canonical signal for the setup wizard.
   std::string m_setupMarkerPath;
+  toml::table m_configTable;
   toml::table m_overridesTable;
   toml::table m_persistedOverridesTable;
   std::unordered_set<std::string> m_configFileBarNames;

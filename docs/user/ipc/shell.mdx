@@ -17,6 +17,8 @@ These commands control shell state, logging, settings windows, the window switch
 | Show log level | <IpcCommand command="log-level-status" /> | Print the current console log level. |
 | Set log level | <IpcCommand command="log-level-set debug" /> | Set the console log level for the running session. Use `debug`, `info`, `warn`, or `error`. |
 | Reload config | <IpcCommand command="config-reload" /> | Reload the merged Noctalia config stack immediately. |
+| Get config | <IpcCommand command="config-get <path>" /> | Get the value of a specific TOML node in the merged Noctalia config stack. E.g., `config-get theme.shell_mode`. Note: only existing TOML nodes in config files are returned; default values yield an empty string. |
+| Set config | <IpcCommand command="config-set <path> <value>" /> | Set the value of a specific TOML node in the merged Noctalia config stack. String value must be quoted. E.g., `config-set theme.shell_mode "'dark'"`.|
 | Open settings | <IpcCommand command="settings-open [context]" /> | Open or focus the graphical settings window, optionally at a specific section (e.g. `bar`). |
 | Open plugin settings | <IpcCommand command="settings-open-plugin noctalia/notes" /> | Open the settings window at an installed plugin's settings. The plugin must be enabled and expose settings. |
 | Close settings | <IpcCommand command="settings-close" /> | Close the graphical settings window. |
