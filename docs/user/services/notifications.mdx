@@ -63,6 +63,18 @@ play_sound      = true
 - `max_visible = 0` (default) fills all available vertical screen space with notification toasts. Set to a positive integer (1–20) to limit how many toasts are visible at once; excess toasts are queued off-screen and promoted when slots free up. Configure in **Settings → Notifications → Toasts**.
 - `width = 360` (default) toast width in pixels before `scale` (`240`–`500`). Configure in **Settings → Notifications → Toasts**.
 
+## Opening notifications from history
+
+Click a notification card to invoke the sending application's default action. An actionable card shows a hand cursor;
+opening it closes the control center and supplies an activation token so the application can request focus.
+Expand, dismiss, and individual action buttons remain independent of the card's click target.
+
+Actions are available while a notification is active, and after its toast expires while its source callback is still
+pending. History text can outlive that callback: withdrawn or dismissed notifications and entries restored after a
+shell restart remain readable, but cannot invoke the original action. Cards without an available default action do
+not open an application. History only displays ordinary actions it can invoke; inline replies require the toast's
+reply input.
+
 ## Filtering
 
 Notifications can be filtered before toasts and sounds. External Freedesktop notifications can also be kept out of control-center history. Internal shell/plugin toasts use the same toast/sound filters, but they are not written to history (the save-history flag does not apply to them), except calendar reminders, which honor `save_history` like external notifications.

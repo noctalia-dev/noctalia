@@ -9,6 +9,7 @@
 #include <deque>
 #include <functional>
 #include <optional>
+#include <string_view>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -111,6 +112,8 @@ public:
   void setCloseCallback(CloseCallback callback);
   void setReplyCallback(ReplyCallback callback);
   [[nodiscard]] bool hasPendingDBusClose(uint32_t id) const noexcept;
+  // Available ordinary actions belong to a live notification or an expired one awaiting close.
+  [[nodiscard]] bool canInvokeAction(uint32_t id, std::string_view actionKey) const;
   [[nodiscard]] bool invokeAction(uint32_t id, const std::string& actionKey, bool closeAfterInvoke = true);
   [[nodiscard]] bool
   invokeAction(uint32_t id, const std::string& actionKey, std::string activationToken, bool closeAfterInvoke = true);
@@ -176,6 +179,7 @@ private:
   void emitPendingDBusClose(uint32_t id, CloseReason reason);
   // Live notification, or an expired one still awaiting its deferred NotificationClosed; nullptr otherwise.
   [[nodiscard]] const Notification* findInvokable(uint32_t id) const;
+  [[nodiscard]] const Notification* findInvokableAction(uint32_t id, std::string_view actionKey) const;
   void dismissAfterInvoke(uint32_t id);
   [[nodiscard]] bool computeHasUnreadNotificationHistory() const noexcept;
   void notifyUnreadStateChangedIfNeeded(bool previousUnreadState);
