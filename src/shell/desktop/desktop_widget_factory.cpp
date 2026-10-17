@@ -406,7 +406,7 @@ std::unique_ptr<DesktopWidget> DesktopWidgetFactory::create(
             .highlightColor = getColorSpecSetting(settings, "highlight_color", colorSpecFromRole(ColorRole::Error)),
             .networkInterface = getStringSetting(settings, "interface"),
             .networkSpeedUnit =
-                FormatUnits::decimalByteRateUnitFromString(getStringSetting(settings, "network_speed_unit", "auto")),
+                FormatUnits::decimalByteRateUnitFromString(getStringSetting(settings, "network_speed_unit", "autobits")),
             .networkSpeedLabelStyle = getBoolSetting(settings, "network_speed_compact", false)
                 ? FormatUnits::ByteRateLabelStyle::Compact
                 : FormatUnits::ByteRateLabelStyle::Full,

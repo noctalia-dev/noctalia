@@ -12,7 +12,7 @@ System resource monitor. Shows a configurable combination of a glyph, visualizat
 | `stat` | string | `"cpu_usage"` | Which stat to display. See [Available stats](/noctalia/services/system-monitor/#available-stats) |
 | `path` | string | `"/"` | Mount path for `disk_used_pct`, `disk_used`, `disk_free_pct`, or `disk_free` (ignored otherwise) |
 | `interface` | string | `""` | Network interface to monitor for `net_rx`/`net_tx`; empty uses the total across all non-loopback interfaces |
-| `network_speed_unit` | string | `"auto"` | Unit for `net_rx`/`net_tx`: `"auto"` (scales between B/s, kB/s, MB/s, GB/s), `"kb"` (always kB/s), or `"mb"` (always MB/s) |
+| `network_speed_unit` | string | `"autobits"` | Unit for `net_rx`/`net_tx`: `"auto"` (scales between B/s, KB/s, MB/s, GB/s), `"autobits"` (same as auto but bits-per-second), `"kb"` (always KB/s) or `"mb"` (always MB/s), `"kbit"` (always Kb/s), or `"mbit"` (always Mb/s) |
 | `network_speed_compact` | bool | `false` | Use short unit suffixes such as `1.2M` instead of `1.2 MB/s` for `net_rx`/`net_tx` |
 | `visualization` | string | `"gauge"` | Data visualization: `"gauge"`, `"graph"`, or `"none"` |
 | `show_value` | bool | `true` | Show the current text value |

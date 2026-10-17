@@ -238,6 +238,9 @@ namespace desktop_settings {
         {"auto", "desktop-widgets.editor.settings.network-speed-unit-auto"},
         {"kb", "desktop-widgets.editor.settings.network-speed-unit-kilobytes"},
         {"mb", "desktop-widgets.editor.settings.network-speed-unit-megabytes"},
+        {"autobits", "desktop-widgets.editor.settings.network-speed-unit-autobits"},
+        {"kbit", "desktop-widgets.editor.settings.network-speed-unit-kilobits"},
+        {"mbit", "desktop-widgets.editor.settings.network-speed-unit-megabits"},
     };
 
     std::vector<WidgetSettingSpec> specs;
@@ -386,7 +389,7 @@ namespace desktop_settings {
         add(std::move(interface));
       }
       {
-        auto unit = selectSpec("network_speed_unit", "auto", networkSpeedUnits);
+        auto unit = selectSpec("network_speed_unit", "autobits", networkSpeedUnits);
         unit.visibleWhen = WidgetSettingVisibility{{{"stat", {"net_rx", "net_tx"}}, {"stat2", {"net_rx", "net_tx"}}}};
         add(std::move(unit));
       }

@@ -139,6 +139,21 @@ const noctalia::bar::WidgetDefinition<SysmonWidget::Options, SysmonWidgetDefinit
                           .configValue = "mb",
                           .labelKey = "settings.widgets.options.megabytes",
                       },
+                      {
+                          .value = FormatUnits::DecimalByteRateUnit::AutoBits,
+                          .configValue = "autobits",
+                          .labelKey = "settings.widgets.options.autobits",
+                      },
+                      {
+                          .value = FormatUnits::DecimalByteRateUnit::Kilobits,
+                          .configValue = "kbit",
+                          .labelKey = "settings.widgets.options.kilobits",
+                      },
+                      {
+                          .value = FormatUnits::DecimalByteRateUnit::Megabits,
+                          .configValue = "mbit",
+                          .labelKey = "settings.widgets.options.megabits",
+                      },
                   },
               .presentation =
                   settings::WidgetSettingPresentation{
