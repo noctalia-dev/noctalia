@@ -3137,6 +3137,11 @@ namespace settings {
         ToggleSetting{.checked = cfg.brightness.syncBrightnessOfAllMonitors}, "monitor brightness"
     ));
     entries.push_back(makeEntry(
+        SettingsSection::Services, "bluetooth", tr("settings.schema.services.bluetooth-auto-reconnect.label"),
+        tr("settings.schema.services.bluetooth-auto-reconnect.description"), {"bluetooth", "auto_reconnect"},
+        ToggleSetting{cfg.bluetooth.autoReconnect}, "bluetooth reconnect connect trusted paired devices startup"
+    ));
+    entries.push_back(makeEntry(
         SettingsSection::Services, "media", tr("settings.schema.services.mpris-blacklist.label"),
         tr("settings.schema.services.mpris-blacklist.description"), {"shell", "mpris", "blacklist"},
         ListSetting{.items = cfg.shell.mpris.blacklist}, "mpris media player dbus session blacklist"
