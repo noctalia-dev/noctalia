@@ -34,7 +34,7 @@ public:
   struct Options {
     int minWidth = 80;
     int maxWidth = 260;
-    int iconSize = static_cast<int>(Style::fontSizeBody);
+    int iconSize = static_cast<int>(Style::baseGlyphSize);
     ActiveWindowTitleScrollMode titleScrollMode = ActiveWindowTitleScrollMode::None;
     ActiveWindowDisplayMode displayMode = ActiveWindowDisplayMode::IconAndText;
     bool showEmptyLabel = false;
@@ -50,6 +50,7 @@ private:
   void applyTitleScrollMode(bool titleVisible);
   void syncWidgetVisibility(bool showWidget);
   void syncState(Renderer& renderer);
+  [[nodiscard]] int iconTargetSize() const noexcept;
   [[nodiscard]] std::string resolveIconPath(const std::string& appId);
   void buildDesktopIconIndex();
 

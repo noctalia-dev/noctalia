@@ -42,7 +42,6 @@ void ActiveWindowWidget::create() {
       ui::image({
           .out = &m_icon,
           .fit = ImageFit::Contain,
-          .radius = Style::radiusSm,
           .width = m_iconSize * m_contentScale,
           .height = m_iconSize * m_contentScale,
       })
@@ -244,13 +243,17 @@ void ActiveWindowWidget::syncState(Renderer& renderer) {
   if (iconPath != m_lastIconPath) {
     m_lastIconPath = iconPath;
     if (!m_lastIconPath.empty()) {
-      m_icon->setSourceFile(renderer, m_lastIconPath, static_cast<int>(std::round(48.0F * m_contentScale)), true);
+      m_icon->setSourceFile(renderer, m_lastIconPath, iconTargetSize(), false);
     } else {
       m_icon->clear(renderer);
     }
   }
 
   requestUpdate();
+}
+
+int ActiveWindowWidget::iconTargetSize() const noexcept {
+  return std::max(1, static_cast<int>(std::round(m_iconSize * m_contentScale)));
 }
 
 std::string ActiveWindowWidget::resolveIconPath(const std::string& appId) {
@@ -264,19 +267,17 @@ std::string ActiveWindowWidget::resolveIconPath(const std::string& appId) {
 
   if (const auto entry = app_identity::findDesktopEntry(appId, desktopEntries());
       entry.has_value() && !entry->icon.empty()) {
-    const int iconTargetSize = static_cast<int>(std::round(48.0F * m_contentScale));
-    const std::string& resolved = m_iconResolver.resolve(entry->icon, iconTargetSize);
+    const std::string& resolved = m_iconResolver.resolve(entry->icon, iconTargetSize());
     if (!resolved.empty()) {
       return resolved;
     }
   }
 
-  const int iconTargetSize = static_cast<int>(std::round(48.0F * m_contentScale));
-  auto resolveByName = [this, iconTargetSize](const std::string& name) -> std::string {
+  auto resolveByName = [this](const std::string& name) -> std::string {
     if (name.empty()) {
       return {};
     }
-    return m_iconResolver.resolve(name, iconTargetSize);
+    return m_iconResolver.resolve(name, iconTargetSize());
   };
 
   if (auto it = m_appIcons.find(appId); it != m_appIcons.end()) {
