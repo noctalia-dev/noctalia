@@ -2566,6 +2566,10 @@
           "description": "Choose which monitors show notification toasts; leave empty to show on all monitors",
           "label": "Monitors"
         },
+        "newest-on-edge": {
+          "description": "Place each new toast against the screen edge of its position and push older toasts away, instead of appending it at the far end of the stack",
+          "label": "Newest Toast on Edge"
+        },
         "offset-x": {
           "description": "Absolute horizontal margin from the screen or bar edge",
           "label": "Horizontal Margin"

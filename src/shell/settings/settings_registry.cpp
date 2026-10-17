@@ -3336,6 +3336,11 @@ namespace settings {
         "toast popup placement anchor"
     ));
     entries.push_back(makeEntry(
+        SettingsSection::Notifications, "toasts", tr("settings.schema.notifications.newest-on-edge.label"),
+        tr("settings.schema.notifications.newest-on-edge.description"), {"notification", "newest_on_edge"},
+        ToggleSetting{cfg.notification.newestOnEdge}, "toast stack order newest oldest push direction"
+    ));
+    entries.push_back(makeEntry(
         SettingsSection::Notifications, "toasts", tr("settings.schema.notifications.scale.label"),
         tr("settings.schema.notifications.scale.description"), {"notification", "scale"},
         sliderFor(cfg.notification.scale, noctalia::config::schema::kScaleRange, false), "toast size scale"

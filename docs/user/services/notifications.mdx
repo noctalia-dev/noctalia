@@ -22,6 +22,7 @@ follow_focused_output    = false       # show new toasts on the focused output; 
 offset_x                 = 20          # absolute horizontal margin from the screen edge
 offset_y                 = 8           # absolute vertical margin from the screen edge
 monitors                 = []          # empty = all monitors; otherwise connector/description selectors (e.g. ["eDP-1", "DP-1"])
+newest_on_edge           = false       # place new toasts against the anchored screen edge, pushing older ones away
 collapse_on_dismiss      = true        # slide remaining toasts to close gaps when one is dismissed
 keep_dismissed_in_history = true       # keep history entries when their toasts are dismissed
 max_visible              = 0           # maximum on-screen toasts; 0 = fill available space (all visible)
@@ -55,6 +56,7 @@ play_sound      = true
 - By default, dismissing a toast (right-click, close button, or `noctalia msg notification-clear-active`) only hides it. The entry stays in control-center history and still counts as unread until the notifications tab is opened. Set `keep_dismissed_in_history = false` to remove the history entry when its toast is dismissed. Timed-out notifications remain in history.
 - `history_retention_hours` removes stored notifications older than the configured number of hours. The default
   `0` retains history indefinitely; accepted values are `0`–`8760`.
+- `newest_on_edge = false` (default) appends each new toast at the far end of the stack: the oldest toast stays against the anchored screen edge and new ones grow away from it (down for `top_*` positions, up for `bottom_*`). Set to `true` to instead place the newest toast against the anchored edge and push older toasts away from it. Configure in **Settings → Notifications → Toasts**.
 - `collapse_on_dismiss = true` (default) causes remaining toasts to slide into a compact stack when one is dismissed. Set to `false` for stable-slot behavior where toasts keep their original positions.
 - `border = true` (default) draws an outline around toast cards. Set to `false` for a borderless look.
 - `border_color` sets the toast outline color: a theme color role name (e.g. `primary`) or a hex value (e.g. `#a8b185`). Defaults to the theme `outline` role and applies to normal and low urgency toasts; critical toasts keep their red urgency outline. Configure in **Settings → Notifications → Toasts**.

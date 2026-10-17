@@ -305,6 +305,7 @@ namespace noctalia::config::schema {
         field(&NotificationConfig::offsetX, "offset_x"),
         field(&NotificationConfig::offsetY, "offset_y"),
         field(&NotificationConfig::monitors, "monitors"),
+        field(&NotificationConfig::newestOnEdge, "newest_on_edge"),
         field(&NotificationConfig::collapseOnDismiss, "collapse_on_dismiss"),
         field(&NotificationConfig::keepDismissedInHistory, "keep_dismissed_in_history"),
         field(&NotificationConfig::historyRetentionHours, "history_retention_hours", Range<std::int64_t>{0, 8760}),
