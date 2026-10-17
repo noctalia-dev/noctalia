@@ -3771,6 +3771,12 @@ namespace settings {
           section, "widget-list", tr("settings.schema.bar.end-widgets.label"),
           tr("settings.schema.bar.end-widgets.description"), path("end"), ListSetting{.items = bar.endWidgets}, "right"
       ));
+      entries.push_back(makeEntry(
+          section, "dead-zone", tr("settings.schema.bar.dead-zone-click-through.label"),
+          tr("settings.schema.bar.dead-zone-click-through.description"),
+          std::vector<std::string>{"bar", bar.name, "dead_zone", "click_through"},
+          ToggleSetting{bar.deadZone.clickThrough}, "bar empty margin dead zone click through pass input region"
+      ));
       // One row per gesture, from the same closed set widget actions use. An unset row shows the
       // built-in default as its placeholder, so "empty" never reads as "does nothing".
       for (const auto gesture : noctalia::bar::allGestures()) {

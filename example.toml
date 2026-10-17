@@ -422,6 +422,9 @@ end    = ["media", "tray", "notifications", "clipboard", "network", "bluetooth",
 # middle = "none"
 # scroll_up = "none"
 # scroll_down = "none"
+# Or let clicks on the dead zone pass through to the window below (dead zone actions then never fire):
+# [bar.main.dead_zone]
+# click_through = true
 
 # Per-monitor override example; only the fields you list are overridden:
 # [bar.main.monitor.dp1]

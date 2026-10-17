@@ -158,6 +158,9 @@ namespace settings {
     if (key == "end") {
       return override->endWidgets.has_value();
     }
+    if (path.size() >= 6 && path[4] == "dead_zone" && path[5] == "click_through") {
+      return override->deadZone.clickThrough.has_value();
+    }
     if (path.size() >= 6 && path[4] == "dead_zone") {
       return override->deadZone.actions.has_value();
     }

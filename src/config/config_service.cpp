@@ -1074,6 +1074,9 @@ BarConfig ConfigService::resolveForOutput(const BarConfig& base, const WaylandOu
     if (ovr.deadZone.actions) {
       resolved.deadZone.actions = *ovr.deadZone.actions;
     }
+    if (ovr.deadZone.clickThrough) {
+      resolved.deadZone.clickThrough = *ovr.deadZone.clickThrough;
+    }
     break; // first match wins
   }
 

@@ -2036,6 +2036,10 @@
         "dead-zone-action": {
           "description": "Action run on the parts of the bar no widget covers"
         },
+        "dead-zone-click-through": {
+          "description": "Let clicks on the parts of the bar no widget covers reach the window below; dead zone actions stop firing",
+          "label": "Click Through"
+        },
         "edge-margin": {
           "description": "Gap between the bar and the screen edge it sits on; set to 0 px to sit flush against that edge"
         },
