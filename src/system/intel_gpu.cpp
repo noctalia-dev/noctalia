@@ -130,6 +130,7 @@ namespace noctalia::system::intel_gpu {
       std::array<std::uint64_t, 2> busy{};
       std::array<std::uint64_t, 2> gpuTicks{};
       std::array<std::uint64_t, 2> capacity{1, 1};
+      bool hasEngineKey = false;
     };
 
     [[nodiscard]] std::optional<FdinfoClient>
@@ -179,6 +180,7 @@ namespace noctalia::system::intel_gpu {
         for (std::size_t engine = 0; engine < keys.size(); ++engine) {
           if (key == keys[engine].busy) {
             client.busy[engine] = *parsed;
+            client.hasEngineKey = true;
           } else if (!keys[engine].gpuTicks.empty() && key == keys[engine].gpuTicks) {
             client.gpuTicks[engine] = *parsed;
           } else if (key == keys[engine].capacity && *parsed > 0) {
@@ -231,6 +233,18 @@ namespace noctalia::system::intel_gpu {
       return current > previous ? current - previous : 0;
     }
 
+    [[nodiscard]] std::optional<std::uint64_t> readRc6ResidencyMs(const std::filesystem::path& path) {
+      std::ifstream file{path};
+      if (!file.is_open()) {
+        return std::nullopt;
+      }
+      std::uint64_t ms = 0;
+      if (file >> ms) {
+        return ms;
+      }
+      return std::nullopt;
+    }
+
   } // namespace
 
   std::vector<Device> findDevices(const std::filesystem::path& drmRoot) {
@@ -277,6 +291,16 @@ namespace noctalia::system::intel_gpu {
       device.devicePath = devicePath;
       device.pciSlot = deviceLink.filename().string();
       device.renderNode = findRenderNode(devicePath);
+
+      std::error_code rc6Ec;
+      const fs::path gtRc6 = entry.path() / "gt" / "gt0" / "rc6_residency_ms";
+      const fs::path powerRc6 = entry.path() / "power" / "rc6_residency_ms";
+      if (fs::is_regular_file(gtRc6, rc6Ec)) {
+        device.rc6ResidencyPath = gtRc6;
+      } else if (fs::is_regular_file(powerRc6, rc6Ec)) {
+        device.rc6ResidencyPath = powerRc6;
+      }
+
       devices.push_back(std::move(device));
     }
 
@@ -351,7 +375,48 @@ namespace noctalia::system::intel_gpu {
     std::unordered_map<std::uint64_t, FdinfoClient> clients;
     collectFdinfoClients(device, clients);
 
+    bool hasFdinfoEngineStats = false;
+    for (const auto& [clientId, client] : clients) {
+      (void)clientId;
+      if (client.hasEngineKey) {
+        hasFdinfoEngineStats = true;
+        break;
+      }
+    }
+
     const auto now = std::chrono::steady_clock::now();
+
+    if (!hasFdinfoEngineStats && !device.rc6ResidencyPath.empty()) {
+      const auto rc6Ms = readRc6ResidencyMs(device.rc6ResidencyPath);
+      if (!rc6Ms.has_value()) {
+        return std::nullopt;
+      }
+
+      const bool hadBaseline = m_hasRc6Baseline;
+      const auto previousAt = m_sampledAt;
+      const auto previousRc6 = m_previousRc6Ms;
+
+      m_previousRc6Ms = *rc6Ms;
+      m_sampledAt = now;
+      m_hasRc6Baseline = true;
+
+      if (!hadBaseline) {
+        return std::nullopt;
+      }
+
+      const auto elapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(now - previousAt).count();
+      if (elapsedMs <= 0) {
+        return std::nullopt;
+      }
+
+      const auto idleMs = monotonicDelta(*rc6Ms, previousRc6);
+      const double idleRatio = static_cast<double>(idleMs) / static_cast<double>(elapsedMs);
+      const double percent = std::clamp((1.0 - idleRatio) * 100.0, 0.0, 100.0);
+
+      return UsageReading{
+          .percent = percent, .source = std::format("{} rc6:{}", driverName(device.driver), device.pciSlot)
+      };
+    }
 
     std::array<std::uint64_t, kEngineClassCount> busyDelta{};
     std::array<std::uint64_t, kEngineClassCount> gpuTicks{};
