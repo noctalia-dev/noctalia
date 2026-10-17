@@ -1764,6 +1764,15 @@ namespace settings {
     }
     {
       auto e = makeEntry(
+          SettingsSection::Security, "lock-screen", tr("settings.schema.lockscreen.suspend-on-escape.label"),
+          tr("settings.schema.lockscreen.suspend-on-escape.description"), {"lockscreen", "suspend_on_escape"},
+          ToggleSetting{cfg.lockscreen.suspendOnEscape}, "lock screen escape suspend empty password"
+      );
+      e.visibleWhen = lockscreenOn;
+      entries.push_back(std::move(e));
+    }
+    {
+      auto e = makeEntry(
           SettingsSection::Security, "lock-screen", tr("settings.schema.lockscreen.grace-period.label"),
           tr("settings.schema.lockscreen.grace-period.description"), {"lockscreen", "grace_period_seconds"},
           StepperSetting{

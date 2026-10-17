@@ -250,6 +250,7 @@ privacy = true                      # microphone/camera/screen-share capture cha
 
 [lockscreen]
 enabled                 = true
+suspend_on_escape       = false       # suspend when Escape is pressed and password is clear
 grace_period_seconds    = 0           # passwordless unlock on any keypress or mouse movement for this long after locking (opt-in; default 0 = off)
 blurred_desktop         = false       # use a desktop snapshot as the lock screen background (requires wlr-screencopy)
 transition              = ["fade", "wipe", "disc", "stripes", "zoom", "honeycomb", "vortex", "pixel", "diamond", "golden", "melt"] # empty disables lock/unlock animation

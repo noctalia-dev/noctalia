@@ -16,6 +16,7 @@
 #include "shell/desktop/desktop_widget_layout.h"
 #include "shell/keyboard_layout_label.h"
 #include "shell/lockscreen/lock_surface.h"
+#include "shell/session/session_action_runner.h"
 #include "shell/wallpaper/wallpaper_geometry.h"
 #include "ui/palette.h"
 #include "wayland/wayland_connection.h"
@@ -551,6 +552,13 @@ void LockScreen::onKeyboardEvent(const KeyboardEvent& event) {
   }
 
   if (KeybindMatcher::matches(KeybindAction::Cancel, event.sym, event.modifiers)) {
+    if (m_password.empty() && m_configService != nullptr && m_configService->config().lockscreen.suspendOnEscape) {
+      if (m_sessionActions != nullptr) {
+        m_sessionActions->invoke(SessionPanelActionConfig{.action = "suspend"});
+      }
+      return;
+    }
+
     clearSensitiveString(m_password);
     m_status = i18n::tr("lockscreen.password-cleared");
     m_statusIsError = false;

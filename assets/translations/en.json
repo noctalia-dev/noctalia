@@ -2486,6 +2486,10 @@
           "description": "Lock the session before sleep (lid close, systemctl suspend, hibernate); Lock & Suspend actions still lock first",
           "label": "Lock Before Suspend"
         },
+        "suspend-on-escape": {
+          "description": "Suspend when Escape is pressed and the password field is empty",
+          "label": "Suspend on Escape"
+        },
         "monitors": {
           "description": "Choose which monitors show the lock screen; leave empty to show on all monitors",
           "label": "Monitors"
