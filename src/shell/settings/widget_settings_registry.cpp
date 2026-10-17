@@ -664,6 +664,10 @@ namespace settings {
     auto fontWeight = withGroup(selectSpec("font_weight", "", std::move(fontWeightOptions), true), "presentation");
     fontWeight.integerValue = true;
 
+    auto customLabel =
+        withGroup(baseSpec("custom_label", WidgetControlKind::String, std::string{}, false), "presentation");
+    auto showGlyph = withGroup(boolSpec("show_glyph", true), "presentation");
+
     // Font picker rendered as a filterable search picker but validated as a free string: a font configured
     // elsewhere but absent here must still load. Empty value = inherit the bar/shell font.
     auto fontFamily = baseSpec("font_family", WidgetControlKind::Select, std::string{}, true);
@@ -721,13 +725,28 @@ namespace settings {
     actions.visibleWhen = WidgetSettingVisibility{"interactive", {"true"}};
 
     return {
-        std::move(enabled),           std::move(anchor),          std::move(interactive),
-        std::move(showTooltip),       std::move(scale),           std::move(fontScale),
-        std::move(widgetColor),       std::move(widgetIconColor), std::move(fontFamily),
-        std::move(fontWeight),        std::move(capsuleToggle),   std::move(capsuleRadius),
-        std::move(capsuleFill),       std::move(capsuleBorder),   std::move(capsuleBorderWidth),
-        std::move(capsuleForeground), std::move(capsulePadding),  std::move(capsuleOpacity),
-        std::move(scrollRepeat),      std::move(actions),
+        std::move(enabled),
+        std::move(anchor),
+        std::move(interactive),
+        std::move(showTooltip),
+        std::move(scale),
+        std::move(fontScale),
+        std::move(customLabel),
+        std::move(showGlyph),
+        std::move(widgetColor),
+        std::move(widgetIconColor),
+        std::move(fontFamily),
+        std::move(fontWeight),
+        std::move(capsuleToggle),
+        std::move(capsuleRadius),
+        std::move(capsuleFill),
+        std::move(capsuleBorder),
+        std::move(capsuleBorderWidth),
+        std::move(capsuleForeground),
+        std::move(capsulePadding),
+        std::move(capsuleOpacity),
+        std::move(scrollRepeat),
+        std::move(actions),
     };
   }
 
@@ -758,6 +777,10 @@ namespace settings {
       auto commonSpecs = commonWidgetSettingSpecs(shellFontFamily, populateFontCatalogs);
       if (projection != nullptr) {
         applyCommonOverrides(commonSpecs, projection->commonOverrides(), type);
+        const auto typedFields = projection->schemaFields();
+        std::erase_if(commonSpecs, [&](const WidgetSettingSpec& spec) {
+          return std::ranges::contains(typedFields, spec.schema.key, &schema::WidgetSettingField::key);
+        });
       }
 
       if (projection != nullptr) {
@@ -1148,6 +1171,10 @@ namespace settings {
       auto fields = projection->schemaFields();
       auto common = commonWidgetSettingSpecs("sans-serif", false);
       applyCommonOverrides(common, projection->commonOverrides(), type);
+      const auto typedFields = projection->schemaFields();
+      std::erase_if(common, [&](const WidgetSettingSpec& spec) {
+        return std::ranges::contains(typedFields, spec.schema.key, &schema::WidgetSettingField::key);
+      });
       std::ranges::transform(common, std::back_inserter(fields), [](const WidgetSettingSpec& spec) {
         return spec.schema;
       });

@@ -232,6 +232,10 @@ SysmonWidget::~SysmonWidget() {
 }
 
 void SysmonWidget::create() {
+  // The shared `custom_label` is rendered inside the identity group below; keep the base
+  // wrapper from adding a second copy for this widget.
+  markCustomLabelHandled();
+
   auto container = ui::inputArea({});
 
   std::unique_ptr<Node> iconNode;
