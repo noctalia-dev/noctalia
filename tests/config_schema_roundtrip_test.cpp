@@ -566,6 +566,10 @@ location = "https://example.invalid/bad"
     c.shell.screenshot.skipAnnotateOnCopySave = true;
     c.shell.screenshot.closeOnSave = false; // non-default (default is true) so the round-trip exercises it
     c.shell.screenshot.regionModifier = ScreenshotRegionModifier::Super;
+    c.shell.screenshot.regionBorderWidth = 4.0F;
+    c.shell.screenshot.regionDimOpacity = 0.8F;
+    c.shell.screenshot.showRegionHint = false;
+    c.shell.screenshot.showRegionDimensions = false;
     c.shell.session.actions = {
         SessionPanelActionConfig{
             "lock",

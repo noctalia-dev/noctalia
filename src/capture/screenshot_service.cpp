@@ -954,7 +954,12 @@ void ScreenshotService::ensureRegionOverlay() {
       primaryKeybindLabel(keybinds.copy, KeybindAction::Copy), primaryKeybindLabel(keybinds.save, KeybindAction::Save),
       primaryKeybindLabel(keybinds.cancel, KeybindAction::Cancel)
   );
-  m_regionOverlay->setRegionModifier(regionModifierMask(m_configService.config().shell.screenshot.regionModifier));
+  const auto& screenshotCfg = m_configService.config().shell.screenshot;
+  m_regionOverlay->setRegionModifier(regionModifierMask(screenshotCfg.regionModifier));
+  m_regionOverlay->setSelectionBorderWidth(screenshotCfg.regionBorderWidth);
+  m_regionOverlay->setDimOpacity(screenshotCfg.regionDimOpacity);
+  m_regionOverlay->setShowRegionHint(screenshotCfg.showRegionHint);
+  m_regionOverlay->setShowRegionDimensions(screenshotCfg.showRegionDimensions);
   m_regionOverlay->setFailureCallback([this](const std::string& message) {
     m_frozenScreenshots.clear();
     m_regionFullscreenPick = false;

@@ -1257,6 +1257,10 @@ struct ShellConfig {
     std::string directory;       // empty = XDG Pictures directory
     std::string filenamePattern; // empty = screenshot_%Y%m%d_%H%M%S
     ScreenshotRegionModifier regionModifier = ScreenshotRegionModifier::None;
+    float regionBorderWidth = 2.0F;
+    float regionDimOpacity = 0.65F;
+    bool showRegionHint = true;
+    bool showRegionDimensions = true;
 
     bool operator==(const ScreenshotConfig&) const = default;
   };

@@ -3492,6 +3492,22 @@
           "description": "Pre-select the last region (including after cancel) on the next region screenshot",
           "label": "Remember Last Region"
         },
+        "screenshot-region-border-width": {
+          "description": "Width of the border around the selected region",
+          "label": "Region Border Width"
+        },
+        "screenshot-region-dim-opacity": {
+          "description": "Opacity of the darkened area around the selected region",
+          "label": "Region Dim Opacity"
+        },
+        "screenshot-show-region-hint": {
+          "description": "Show the confirm hint with keybinds (Copy, Save, Cancel) while confirming a region",
+          "label": "Show Region Hint"
+        },
+        "screenshot-show-region-dimensions": {
+          "description": "Show the dimensions tooltip badge while resizing/moving a region",
+          "label": "Show Region Dimensions"
+        },
         "screenshot-save-to-file": {
           "description": "Write screenshots as PNG files to the output directory",
           "label": "Save to File"

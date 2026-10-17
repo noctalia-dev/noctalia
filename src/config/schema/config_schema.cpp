@@ -1516,6 +1516,13 @@ namespace noctalia::config::schema {
           field(&ShellConfig::ScreenshotConfig::confirmRegion, "confirm_region"),
           field(&ShellConfig::ScreenshotConfig::rememberLastRegion, "remember_last_region"),
           enumField(&ShellConfig::ScreenshotConfig::regionModifier, "region_modifier", kScreenshotRegionModifiers),
+          field(
+              &ShellConfig::ScreenshotConfig::regionBorderWidth, "region_border_width",
+              kScreenshotRegionBorderWidthRange
+          ),
+          field(&ShellConfig::ScreenshotConfig::regionDimOpacity, "region_dim_opacity", kUnitRange),
+          field(&ShellConfig::ScreenshotConfig::showRegionHint, "show_region_hint"),
+          field(&ShellConfig::ScreenshotConfig::showRegionDimensions, "show_region_dimensions"),
           field(&ShellConfig::ScreenshotConfig::showCursor, "show_cursor"),
           field(&ShellConfig::ScreenshotConfig::annotate, "annotate"),
           field(&ShellConfig::ScreenshotConfig::skipAnnotateOnCopySave, "skip_annotate_on_copy_save"),

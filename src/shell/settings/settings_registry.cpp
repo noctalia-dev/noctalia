@@ -2108,6 +2108,38 @@ namespace settings {
         tr("settings.schema.shell.screenshot-show-cursor.description"), {"shell", "screenshot", "show_cursor"},
         ToggleSetting{cfg.shell.screenshot.showCursor}, "screenshot capture show cursor pointer mouse"
     ));
+    entries.push_back(makeEntry(
+        SettingsSection::Screenshot, "screenshot-capture",
+        tr("settings.schema.shell.screenshot-region-border-width.label"),
+        tr("settings.schema.shell.screenshot-region-border-width.description"),
+        {"shell", "screenshot", "region_border_width"},
+        sliderFor(
+            cfg.shell.screenshot.regionBorderWidth, noctalia::config::schema::kScreenshotRegionBorderWidthRange, false
+        ),
+        "screenshot region border outline width stroke"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Screenshot, "screenshot-capture",
+        tr("settings.schema.shell.screenshot-region-dim-opacity.label"),
+        tr("settings.schema.shell.screenshot-region-dim-opacity.description"),
+        {"shell", "screenshot", "region_dim_opacity"},
+        sliderFor(cfg.shell.screenshot.regionDimOpacity, noctalia::config::schema::kUnitRange, false),
+        "screenshot region dim opacity darkness overlay"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Screenshot, "screenshot-capture",
+        tr("settings.schema.shell.screenshot-show-region-hint.label"),
+        tr("settings.schema.shell.screenshot-show-region-hint.description"),
+        {"shell", "screenshot", "show_region_hint"}, ToggleSetting{cfg.shell.screenshot.showRegionHint},
+        "screenshot region confirm hint keybind copy save cancel"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Screenshot, "screenshot-capture",
+        tr("settings.schema.shell.screenshot-show-region-dimensions.label"),
+        tr("settings.schema.shell.screenshot-show-region-dimensions.description"),
+        {"shell", "screenshot", "show_region_dimensions"}, ToggleSetting{cfg.shell.screenshot.showRegionDimensions},
+        "screenshot region dimensions size tooltip badge"
+    ));
 
     entries.push_back(makeEntry(
         SettingsSection::Screenshot, "screenshot-annotation", tr("settings.schema.shell.screenshot-annotate.label"),
