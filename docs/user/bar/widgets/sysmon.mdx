@@ -7,6 +7,8 @@ sidebar:
 
 System resource monitor. Shows a configurable combination of a glyph, visualization, and text value for one stat. Multiple instances with different stats can coexist on the same bar. Sampling cadence is controlled globally by [`[system.monitor]`](/noctalia/services/system-monitor/), not per widget. Hovering the widget shows the selected stat first, followed by the other currently available sysmon stats.
 
+Value labels are right-aligned on top/bottom bars and centered on left/right bars.
+
 | Setting | Type | Default | Description |
 |---------|------|---------|-------------|
 | `stat` | string | `"cpu_usage"` | Which stat to display. See [Available stats](/noctalia/services/system-monitor/#available-stats) |

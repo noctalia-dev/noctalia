@@ -599,6 +599,8 @@ void SysmonWidget::doLayout(Renderer& renderer, float containerWidth, float cont
   const float baseSize = Style::fontSizeBody * m_contentScale;
 
   if (m_label != nullptr) {
+    const TextAlign rightAlign = Style::rtl() ? TextAlign::Start : TextAlign::End;
+    m_label->setTextAlign(isVerticalBar ? TextAlign::Center : rightAlign);
     if (orientationChanged || m_lastRawValue.empty()) {
       syncLabelText(m_lastRawValue.empty() ? formatValue() : m_lastRawValue);
     }
