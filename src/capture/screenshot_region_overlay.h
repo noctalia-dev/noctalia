@@ -1,6 +1,7 @@
 #pragma once
 
 #include "capture/screenshot_image.h"
+#include "capture/screenshot_region_gesture.h"
 
 #include <functional>
 #include <memory>
@@ -15,19 +16,6 @@ struct PointerEvent;
 namespace capture {
 
   enum class ConfirmAction { None, ForceClipboard, ForceSave };
-  enum class DragMode {
-    None,
-    NewSelection,
-    TopEdge,
-    BottomEdge,
-    LeftEdge,
-    RightEdge,
-    TopLeftCorner,
-    TopRightCorner,
-    BottomLeftCorner,
-    BottomRightCorner,
-    Move
-  };
 
   class ScreenshotRegionOverlay {
   public:
@@ -42,8 +30,9 @@ namespace capture {
     void setFailureCallback(FailureCallback callback);
     void setConfirmKeybindLabels(std::string copyLabel, std::string saveLabel, std::string cancelLabel);
     void setFrozenScreenshots(std::vector<FrozenScreenshot> screenshots);
-    // KeyMod bitmask to hold to move/resize a selection; 0 = no modifier needed.
-    void setRegionModifier(std::uint32_t mask);
+    // KeyMod bitmask, or the Space key, to hold to move/resize a selection; 0 and false = no
+    // modifier needed.
+    void setRegionModifier(std::uint32_t mask, bool spaceKey);
     [[nodiscard]] std::vector<FrozenScreenshot> takeFrozenScreenshots();
     void begin(
         bool freezeScreen, bool fullscreenPick = false, bool confirmRegion = false,
@@ -82,7 +71,9 @@ namespace capture {
     void updateSelectionVisuals();
     // Stores the shape on every instance and pushes it to the compositor right away.
     void applyCursorShape(std::uint32_t shape);
+    [[nodiscard]] bool modifierMode() const;
     [[nodiscard]] bool modifierHeld() const;
+    void setSpaceHeld(bool held);
     void completeSelection();
     void confirmPendingSelection(ConfirmAction action = ConfirmAction::None);
     void completeFullscreenPick(wl_output* output);
@@ -99,6 +90,8 @@ namespace capture {
     std::string m_saveKeybindLabel;
     std::string m_cancelKeybindLabel;
     std::uint32_t m_regionModifierMask = 0;
+    bool m_regionModifierSpace = false;
+    bool m_spaceHeld = false;
     bool m_active = false;
     bool m_freezeScreen = false;
     bool m_fullscreenPick = false;

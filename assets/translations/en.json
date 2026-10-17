@@ -74,6 +74,7 @@
       "annotate-export-failed": "Failed to build the annotated image",
       "choose-display": "Choose display",
       "confirm-region": "{copy} to copy · {save} to save · Enter or Space for defaults · {cancel} to cancel · Drag to reselect",
+      "confirm-region-space": "{copy} to copy · {save} to save · Enter for defaults · {cancel} to cancel · Drag to reselect · Hold Space to move",
       "fullscreen": "Full screen",
       "overlay-alloc-failed": "Could not display the screenshot overlay (GPU out of video memory?)",
       "region": "Select region"
@@ -1591,6 +1592,7 @@
           "ctrl": "Ctrl",
           "none": "None",
           "shift": "Shift",
+          "space": "Space",
           "super": "Super"
         }
       },
@@ -3474,7 +3476,7 @@
           "label": "Pipe to Command"
         },
         "screenshot-region-modifier": {
-          "description": "Modifier to move or resize a selected region: left-drag to move, right-drag to resize from the outer thirds (corners resize both axes). None (default) keeps the plain drag-to-adjust behavior",
+          "description": "Modifier to move or resize a selected region: left-drag to move, right-drag to resize from the outer thirds (corners resize both axes). None (default) keeps the plain drag-to-adjust behavior. With Space, only Enter confirms the region",
           "label": "Move/Resize Modifier"
         },
         "screenshot-remember-last-region": {

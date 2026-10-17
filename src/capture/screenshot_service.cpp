@@ -73,6 +73,7 @@ namespace {
       return KeyMod::Alt;
     case ScreenshotRegionModifier::Shift:
       return KeyMod::Shift;
+    case ScreenshotRegionModifier::Space:
     case ScreenshotRegionModifier::None:
       return 0;
     }
@@ -687,10 +688,11 @@ bool ScreenshotService::onKeyboardEvent(const KeyboardEvent& event) {
       return true;
     }
   }
-  if (!event.pressed) {
-    return false;
-  }
   const bool regionActive = m_regionOverlay != nullptr && m_regionOverlay->isActive();
+  if (!event.pressed) {
+    // The region overlay tracks the release of a held Space modifier.
+    return regionActive && m_regionOverlay->onKeyboardEvent(event);
+  }
   if (!m_freezeCaptureActive && !regionActive) {
     return false;
   }
@@ -954,7 +956,10 @@ void ScreenshotService::ensureRegionOverlay() {
       primaryKeybindLabel(keybinds.copy, KeybindAction::Copy), primaryKeybindLabel(keybinds.save, KeybindAction::Save),
       primaryKeybindLabel(keybinds.cancel, KeybindAction::Cancel)
   );
-  m_regionOverlay->setRegionModifier(regionModifierMask(m_configService.config().shell.screenshot.regionModifier));
+  const ScreenshotRegionModifier regionModifier = m_configService.config().shell.screenshot.regionModifier;
+  m_regionOverlay->setRegionModifier(
+      regionModifierMask(regionModifier), regionModifier == ScreenshotRegionModifier::Space
+  );
   m_regionOverlay->setFailureCallback([this](const std::string& message) {
     m_frozenScreenshots.clear();
     m_regionFullscreenPick = false;

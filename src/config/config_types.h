@@ -1048,13 +1048,14 @@ struct LauncherProviderConfig {
   bool operator==(const LauncherProviderConfig&) const = default;
 };
 
-// Modifier that must be held to move/resize an already selected capture region.
+// Modifier, or the Space key, that must be held to move/resize an already selected capture region.
 enum class ScreenshotRegionModifier : std::uint8_t {
   None = 0,
   Super = 1,
   Ctrl = 2,
   Alt = 3,
   Shift = 4,
+  Space = 5,
 };
 
 constexpr EnumOption<ScreenshotRegionModifier> kScreenshotRegionModifiers[] = {
@@ -1063,6 +1064,7 @@ constexpr EnumOption<ScreenshotRegionModifier> kScreenshotRegionModifiers[] = {
     {ScreenshotRegionModifier::Ctrl, "ctrl", "settings.options.screenshot.region-modifier.ctrl"},
     {ScreenshotRegionModifier::Alt, "alt", "settings.options.screenshot.region-modifier.alt"},
     {ScreenshotRegionModifier::Shift, "shift", "settings.options.screenshot.region-modifier.shift"},
+    {ScreenshotRegionModifier::Space, "space", "settings.options.screenshot.region-modifier.space"},
 };
 
 struct ShellConfig {
