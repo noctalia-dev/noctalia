@@ -4,6 +4,8 @@
 
 #include "config/config_service.h"
 #include "config/config_types.h"
+#include "shell/settings/bar_widget_editor.h"
+#include "test_check.h"
 
 #include <algorithm>
 #include <cstdlib>
@@ -174,6 +176,74 @@ members = [ "battery", "clock" ]
         std::ranges::find(groups, "g3", &BarCapsuleGroupStyle::id) == groups.end(),
         "the lane's GUI-created group is gone after reset"
     );
+  }
+
+  // A nested-only style edit must light the lane's Override badge, and Reset
+  // must restore the child without discarding an unrelated lane's edits.
+  {
+    writeFile(root / "config" / "noctalia" / "config.toml", R"(
+[bar.default]
+start = [ "group:outer" ]
+end = [ "group:other" ]
+
+[[bar.default.capsule_group]]
+id = "outer"
+members = [ "clock", "group:inner" ]
+
+[[bar.default.capsule_group]]
+id = "inner"
+members = [ "network", "volume" ]
+
+[[bar.default.capsule_group]]
+id = "other"
+members = [ "battery" ]
+)");
+    std::filesystem::remove(root / "state" / "noctalia" / "settings.toml");
+    ConfigService config;
+    const auto original = config.config().bars.at(0).widgetCapsuleGroups;
+    auto edited = original;
+    for (auto& group : edited) {
+      if (group.id == "inner") {
+        group.padding = 12.0F;
+      } else if (group.id == "other") {
+        group.padding = 14.0F;
+      }
+    }
+    TEST_CHECK(config.setOverride(groupPath, edited));
+    TEST_CHECK(config.hasEffectiveBarLaneOverride(lanePath));
+    bool changed = false;
+    TEST_CHECK(config.resetBarLaneOverride(lanePath, &changed) && changed);
+    TEST_CHECK(!config.hasEffectiveBarLaneOverride(lanePath));
+    TEST_CHECK(config.hasEffectiveBarLaneOverride({"bar", "default", "end"}));
+    const auto& restored = config.config().bars.at(0).widgetCapsuleGroups;
+    const auto inner = std::ranges::find(restored, "inner", &BarCapsuleGroupStyle::id);
+    const auto other = std::ranges::find(restored, "other", &BarCapsuleGroupStyle::id);
+    TEST_CHECK(inner != restored.end() && inner->padding == 6.0F);
+    TEST_CHECK(other != restored.end() && other->padding == 14.0F);
+  }
+
+  // Ungroup an inner group through the same edit plan used by both GUI actions.
+  // Replace every reference, including repeated lane occurrences, before saving.
+  std::filesystem::remove(root / "state" / "noctalia" / "settings.toml");
+  {
+    ConfigService config;
+    TEST_CHECK(config.setOverride(
+        {"bar", "default", "end"}, std::vector<std::string>{"group:other", "group:inner", "group:inner"}
+    ));
+    TEST_CHECK(settings::capsuleGroupUngroupEdits(config.config(), lanePath, "missing").empty());
+    TEST_CHECK(config.setOverrides(settings::capsuleGroupUngroupEdits(config.config(), lanePath, "inner")));
+  }
+  {
+    ConfigService config;
+    const auto& bar = config.config().bars.at(0);
+    const auto& groups = bar.widgetCapsuleGroups;
+    const auto outer = std::ranges::find(groups, "outer", &BarCapsuleGroupStyle::id);
+    TEST_CHECK(outer != groups.end());
+    TEST_CHECK((outer->members == std::vector<std::string>{"clock", "network", "volume"}));
+    TEST_CHECK(std::ranges::find(groups, "inner", &BarCapsuleGroupStyle::id) == groups.end());
+    TEST_CHECK((bar.endWidgets == std::vector<std::string>{"group:other", "network", "volume", "network", "volume"}));
+    TEST_CHECK(config.setOverrides(settings::capsuleGroupUngroupEdits(config.config(), lanePath, "outer")));
+    TEST_CHECK((config.config().bars.at(0).startWidgets == std::vector<std::string>{"clock", "network", "volume"}));
   }
 
   std::filesystem::remove_all(root);

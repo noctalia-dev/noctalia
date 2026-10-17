@@ -79,6 +79,11 @@ namespace settings {
   [[nodiscard]] bool isBarWidgetListPath(const std::vector<std::string>& path);
   [[nodiscard]] bool isFirstBarWidgetListPath(const std::vector<std::string>& path);
 
+  // Replaces a group with its members in every lane and parent in the same scope.
+  // Apply the returned edits as one batch so reconciliation sees the complete structure.
+  [[nodiscard]] std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>>
+  capsuleGroupUngroupEdits(const Config& config, const std::vector<std::string>& lanePath, std::string_view groupId);
+
   // Lane selection tokens address a lane position as "<laneKey>#<index>".
   struct LaneSelectionToken {
     std::string_view laneKey;

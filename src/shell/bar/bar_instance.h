@@ -30,7 +30,20 @@ struct BarCapsuleRun {
   float contentScale = 1.0F;
   // Capsule geometry can exist without a painted fill or border.
   bool hasPaintedCapsuleBackground = false;
+  // Direct member widgets of this run (for nested runs: only the widgets owned directly by
+  // this group; nested groups live in `children`).
   std::vector<Widget*> widgets;
+  // Nested inner-group runs, rendered with their shells as flex items inside this run's
+  // container (visual group-in-group nesting, one level deep). Empty for flat runs.
+  std::vector<BarCapsuleRun> children;
+  // Interleaving of direct widgets and nested children in container order. Entries with
+  // `isChild == false` index into `widgets`; entries with `isChild == true` index into
+  // `children`. Empty for flat runs (container order then equals `widgets` order).
+  struct MemberRef {
+    bool isChild = false;
+    std::size_t index = 0;
+  };
+  std::vector<MemberRef> memberOrder;
   // Hover highlight overlays, parallel to `widgets` for group runs; one shared box for single runs.
   std::vector<Box*> hoverBoxes;
   bool accordion = false;
