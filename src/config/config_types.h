@@ -27,9 +27,18 @@ enum class BarAccordionDirection : std::uint8_t { End = 0, Start = 1 };
 // A capsule group: an ordered set of member widgets sharing one capsule + style. `id` is opaque and
 // auto-generated. A group appears in a bar lane as a single token (see makeCapsuleGroupToken); its
 // members live inside the group, not loose in the lane.
+//
+// One level of visual nesting is supported: a member entry may itself be a `group:<id>` token,
+// rendering that inner group's capsule inside this group's capsule. Deeper nesting (a nested
+// group's members containing further group tokens) is ignored with a warning, as are
+// self-references and reference cycles. Accordion mode is disabled for a group that directly
+// contains nested groups; a nested inner group without deeper nesting of its own may accordion.
 struct BarCapsuleGroupStyle {
   std::string id;
-  std::vector<std::string> members; // ordered member widget references
+  // Ordered member widget references. An entry may also be a `group:<id>` token referencing
+  // another capsule group in the same bar scope (see kCapsuleGroupTokenPrefix); such nested
+  // references render one level deep only.
+  std::vector<std::string> members;
   bool enabled = true;
   ColorSpec fill = colorSpecFromRole(ColorRole::SurfaceVariant);
   // True when `border` is explicitly present (empty value = no outline); mirrors bar/widget border semantics.
@@ -385,6 +394,9 @@ struct WidgetBarCapsuleSpec {
   // Opaque group ID (auto-generated). Adjacent widgets in the same section with the same non-empty ID share one
   // shell and inherit the group's `BarCapsuleGroupStyle`.
   std::string group;
+  // When this widget belongs to a group nested inside another group, the outer group's ID.
+  // Empty for top-level members. Used by the bar to build the nested capsule scene tree.
+  std::string parentGroup;
   // Set only when `capsule_border` is present and non-empty in config; otherwise no outline.
   std::optional<ColorSpec> border;
   // Outline thickness in logical pixels before content-scale (see `capsule_border_width` / bar default).
@@ -469,9 +481,21 @@ struct WidgetConfig {
 [[nodiscard]] std::set<std::string>
 capsuleGroupRefsForMonitorScope(const BarConfig& bar, const BarMonitorOverride& monitorOverride);
 
+// Nesting helpers (one level of visual group-in-group nesting).
+// True when any member entry of `group` is itself a `group:<id>` token.
+[[nodiscard]] bool capsuleGroupHasNestedRef(const BarCapsuleGroupStyle& group);
+// IDs of groups nested directly inside `group` (the `group:<id>` member tokens, deduplicated,
+// in member order). IDs are returned verbatim, even when no matching group exists.
+[[nodiscard]] std::vector<std::string> nestedCapsuleGroupIds(const BarCapsuleGroupStyle& group);
+// Transitive closure of `referenced` through `groups` members: every nested group id reachable
+// from a referenced group. Followed transitively with cycle protection so validation and
+// reconcile never drop a reachable group, even though rendering expands only one level.
+[[nodiscard]] std::set<std::string>
+transitiveCapsuleGroupRefs(const std::set<std::string>& referenced, const std::vector<BarCapsuleGroupStyle>& groups);
+
 // Rebuilds an overriding capsule_group array against the config-file array, in file order: an
 // overridden group keeps its edited style, a file group the lanes reference again comes back, and a
-// GUI-created group survives only while a lane still references it (nothing can reach it otherwise).
+// GUI-created group survives while reachable from a lane, including through a restored parent.
 [[nodiscard]] std::vector<BarCapsuleGroupStyle> reconcileCapsuleGroups(
     const std::vector<BarCapsuleGroupStyle>& current, const std::vector<BarCapsuleGroupStyle>& base,
     const std::set<std::string>& referenced
