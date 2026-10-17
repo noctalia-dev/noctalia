@@ -317,6 +317,14 @@ std::optional<std::string> WaylandWorkspaces::focusedWindowId() const {
   return std::nullopt;
 }
 
+std::optional<std::string> WaylandWorkspaces::focusedExtToplevelIdentifier() const {
+  return m_swayBackend->focusedExtToplevelIdentifier();
+}
+
+bool WaylandWorkspaces::publishesExtToplevelIdentity() const noexcept {
+  return m_swayBackend->publishesExtToplevelIdentity();
+}
+
 std::vector<Workspace> WaylandWorkspaces::all() const {
   return m_activeBackend != nullptr ? m_activeBackend->all() : std::vector<Workspace>{};
 }

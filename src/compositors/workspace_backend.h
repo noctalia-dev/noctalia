@@ -85,6 +85,16 @@ public:
   // WorkspaceWindow::workspaceKey namespace.
   [[nodiscard]] virtual std::vector<std::string> openOverlayWorkspaceKeys(wl_output* /*output*/) const { return {}; }
   virtual void focusWindow(const std::string& /*windowId*/) {}
+  // Ext-foreign-toplevel identifier of the focused window, for compositors that publish one in
+  // their IPC tree. Window capture itself needs sway >= 1.12, where
+  // ext_foreign_toplevel_image_capture_source_manager_v1 landed. Separate namespace from
+  // focusedWindowId(): sway's node ids drive focus/close actions, while this joins the
+  // compositor-assigned ext capture source. Read together with publishesExtToplevelIdentity():
+  // a nullopt here with true there means the compositor publishes one but has none right now,
+  // whereas false there means it never will and callers may fall back.
+  [[nodiscard]] virtual std::optional<std::string> focusedExtToplevelIdentifier() const { return std::nullopt; }
+  // True only when this compositor is connected and observed publishing the identifier.
+  [[nodiscard]] virtual bool publishesExtToplevelIdentity() const noexcept { return false; }
   virtual void cleanup() = 0;
 
   [[nodiscard]] virtual int pollFd() const noexcept { return -1; }

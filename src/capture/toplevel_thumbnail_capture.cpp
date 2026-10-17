@@ -62,6 +62,11 @@ namespace {
         || transform == WL_OUTPUT_TRANSFORM_FLIPPED_90
         || transform == WL_OUTPUT_TRANSFORM_FLIPPED_270;
   }
+
+  // Zero bounds request native size.
+  [[nodiscard]] int effectiveCaptureBound(int bound) noexcept {
+    return bound > 0 ? bound : std::numeric_limits<int>::max();
+  }
 } // namespace
 
 std::optional<ScreencopyImage> capture::makeToplevelThumbnail(
@@ -85,6 +90,22 @@ std::optional<ScreencopyImage> capture::makeToplevelThumbnail(
       {1.0F, static_cast<float>(maxWidth) / static_cast<float>(orientedWidth),
        static_cast<float>(maxHeight) / static_cast<float>(orientedHeight)}
   );
+  if (scale >= 1.0F) {
+    // Scale 1.0: the loop's lerps collapse to the source pixel, so copy in one pass.
+    ScreencopyImage image;
+    image.width = width;
+    image.height = height;
+    image.rgba.resize(widthSize * heightSize * 4U);
+    for (int y = 0; y < height; ++y) {
+      auto* row = image.rgba.data() + static_cast<std::size_t>(y) * widthSize * 4U;
+      for (int x = 0; x < width; ++x) {
+        const auto px = pixelAt(pixels, width, height, format, x, y);
+        std::ranges::copy(px, row + static_cast<std::size_t>(x) * 4U);
+      }
+    }
+    screencopy::orientCaptureForTransform(image, transform);
+    return image;
+  }
   ScreencopyImage image;
   image.width = std::max(1, static_cast<int>(std::round(static_cast<float>(width) * scale)));
   image.height = std::max(1, static_cast<int>(std::round(static_cast<float>(height) * scale)));
@@ -225,7 +246,8 @@ struct ToplevelThumbnailCapturePending {
     try {
       auto thumbnail = capture::makeToplevelThumbnail(
           std::span(static_cast<const std::uint8_t*>(pending.mapped), pending.mappedSize), pending.bufferWidth,
-          pending.bufferHeight, pending.bufferFormat, pending.maxWidth, pending.maxHeight, pending.transform
+          pending.bufferHeight, pending.bufferFormat, effectiveCaptureBound(pending.maxWidth),
+          effectiveCaptureBound(pending.maxHeight), pending.transform
       );
       if (!thumbnail.has_value()) {
         pending.owner->fail("failed to decode toplevel thumbnail");
@@ -337,7 +359,9 @@ bool ToplevelThumbnailCapture::available() const noexcept {
 void ToplevelThumbnailCapture::capture(
     ext_foreign_toplevel_handle_v1* handle, int maxWidth, int maxHeight, CompletionCallback onComplete
 ) {
-  if (busy() || !available() || handle == nullptr || maxWidth <= 0 || maxHeight <= 0) {
+  // Zero bounds on both axes request native size.
+  const bool nativeSize = maxWidth == 0 && maxHeight == 0;
+  if (busy() || !available() || handle == nullptr || (!nativeSize && (maxWidth <= 0 || maxHeight <= 0))) {
     if (onComplete) {
       onComplete(std::nullopt, busy() ? "toplevel capture already in progress" : "toplevel capture unavailable");
     }

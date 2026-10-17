@@ -58,6 +58,10 @@ public:
   [[nodiscard]] wl_output* dwlIpcSelectedOutput() const;
   [[nodiscard]] std::optional<std::pair<std::string, std::string>> dwlIpcFocusedClientOnOutput(wl_output* output) const;
   [[nodiscard]] std::optional<std::string> focusedWindowId() const;
+  // Sway's ext-foreign-toplevel identifier for the focused view; see WorkspaceBackend for why
+  // this is not the same namespace as focusedWindowId().
+  [[nodiscard]] std::optional<std::string> focusedExtToplevelIdentifier() const;
+  [[nodiscard]] bool publishesExtToplevelIdentity() const noexcept;
 
 private:
   void setActiveBackend(WorkspaceBackend* backend);

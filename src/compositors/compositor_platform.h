@@ -139,6 +139,15 @@ public:
   [[nodiscard]] zwlr_foreign_toplevel_handle_v1* toplevelHandleForCompositorWindowId(std::string_view windowId) const;
   [[nodiscard]] bool isCompositorWindowIdKnown(std::string_view windowId) const;
   [[nodiscard]] std::optional<std::string> focusedCompositorWindowId() const;
+  // Live ext handle for a compositor window id (Hyprland mapping, or the committed ext identifier
+  // on compositors that publish one), nullptr when unknown.
+  [[nodiscard]] ext_foreign_toplevel_handle_v1* extHandleForCompositorWindowId(std::string_view windowId) const;
+  // Focused window's ext-foreign-toplevel identifier. Separate from focusedCompositorWindowId(),
+  // whose values drive focus/close actions and the taskbar's active-window match.
+  [[nodiscard]] std::optional<std::string> focusedExtToplevelIdentifier() const;
+  // True when the focused window can be named exactly, so a failed lookup means the join is
+  // still pending rather than that the title fallback should be tried.
+  [[nodiscard]] bool hasExactExtToplevelIdentity() const noexcept;
 
   void setWorkspaceChangeCallback(ChangeCallback callback);
   void setOverviewChangeCallback(ChangeCallback callback);
@@ -217,6 +226,7 @@ private:
   [[nodiscard]] static bool sameWorkspaceModelSnapshot(
       const std::vector<WorkspaceModelSnapshot>& lhs, const std::vector<WorkspaceModelSnapshot>& rhs
   );
+  [[nodiscard]] bool extToplevelIsLive(const ext_foreign_toplevel_handle_v1* handle) const;
 
   WaylandConnection& m_wayland;
   WorkspaceAlertService* m_workspaceAlertService = nullptr;

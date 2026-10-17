@@ -634,7 +634,7 @@ ScreenshotService::ScreenshotService(
     NotificationManager& notifications, ClipboardService* clipboard
 )
     : m_wayland(wayland), m_platform(platform), m_notifications(notifications), m_configService(configService),
-      m_clipboard(clipboard), m_capture(wayland) {}
+      m_clipboard(clipboard), m_capture(wayland), m_toplevelCapture(wayland) {}
 
 ScreenshotService::~ScreenshotService() = default;
 
@@ -803,6 +803,28 @@ void ScreenshotService::registerIpc(IpcService& ipc, const ConfigService& config
     return "ok\n";
   });
 
+  ipc.bind(noctalia::cli::msg::screenshotWindow, [this, &configService](const std::string& /*args*/) -> std::string {
+    if (!m_toplevelCapture.available()) {
+      return "error: window capture is not available on this compositor\n";
+    }
+    if (overlayBusy()) {
+      return "error: a screenshot overlay is already active\n";
+    }
+    if (m_toplevelCapture.busy()) {
+      return "error: a window capture is already in progress\n";
+    }
+    const auto options = outputOptionsFromConfig(configService.config());
+    if (!options.annotate && !hasAnyOutput(options)) {
+      return "error: no screenshot output enabled\n";
+    }
+    const auto target = resolveFocusedCaptureTarget();
+    if (!target.has_value()) {
+      return "error: " + target.error() + "\n";
+    }
+    captureWindow(*target, options);
+    return "ok\n";
+  });
+
   // The live annotator draws over running apps, so it opens without screencopy;
   // only its Freeze action needs capture support. With a path it edits that image instead.
   ipc.bind(noctalia::cli::msg::annotate, [this, &ipc, &configService](const std::string& args) -> std::string {
@@ -827,6 +849,71 @@ void ScreenshotService::registerIpc(IpcService& ipc, const ConfigService& config
     }
     return "ok\n";
   });
+}
+
+std::expected<ext_foreign_toplevel_handle_v1*, std::string> ScreenshotService::resolveFocusedCaptureTarget() const {
+  auto focusedId = m_platform.focusedCompositorWindowId();
+  if (!focusedId.has_value() || focusedId->empty()) {
+    focusedId = m_platform.focusedExtToplevelIdentifier();
+  }
+  if (focusedId.has_value() && !focusedId->empty()) {
+    if (auto* handle = m_platform.extHandleForCompositorWindowId(*focusedId); handle != nullptr) {
+      return handle;
+    }
+    if (m_platform.hasExactExtToplevelIdentity()) {
+      return std::unexpected("focused window identity is not available yet: " + *focusedId);
+    }
+  } else if (m_platform.hasExactExtToplevelIdentity()) {
+    return std::unexpected("no focused window identity reported by the compositor");
+  }
+
+  const auto focused = m_wayland.activeToplevel();
+  if (!focused.has_value() || focused->handle == nullptr) {
+    return std::unexpected("no focused window reported by the compositor");
+  }
+  const std::string appIdLower = StringUtils::toLower(focused->appId);
+  const auto appBucketed =
+      appIdLower.empty() ? m_wayland.extWindowsWithoutAppId() : m_wayland.extWindowsForApp(appIdLower, appIdLower);
+  const auto siblings = appIdLower.empty() ? m_wayland.windowsWithoutAppId(nullptr)
+                                           : m_wayland.windowsForApp(appIdLower, appIdLower, nullptr);
+  std::size_t wlrSameTitleCount = 0;
+  for (const auto& sibling : siblings) {
+    if (!focused->title.empty() && sibling.title != focused->title) {
+      continue;
+    }
+    ++wlrSameTitleCount;
+  }
+  const auto match = uniqueExtHandleForTitle(appBucketed, focused->title);
+  if (match.matchCount == 0) {
+    return std::unexpected("no window matches the focused window: " + focused->title);
+  }
+  if (match.handle == nullptr || wlrSameTitleCount != match.matchCount) {
+    return std::unexpected("multiple windows match the focused window: " + focused->title);
+  }
+  return match.handle;
+}
+
+void ScreenshotService::captureWindow(ext_foreign_toplevel_handle_v1* handle, const OutputOptions& options) {
+  const std::optional<std::filesystem::path> destPath =
+      needsScreenshotPath(options) ? std::optional(makeScreenshotPath(options, "window")) : std::nullopt;
+  m_toplevelCapture.capture(
+      handle, 0, 0, [this, options, destPath](std::optional<ScreencopyImage> image, std::string error) {
+        if (error.empty() && image.has_value()) {
+          playCaptureSound();
+          deliverCaptureResult(
+              capture::ScreenshotImage{
+                  .image = std::move(*image),
+                  .cursorVisible = false,
+                  .cursorStatus = capture::CursorToggleStatus::NotCaptured,
+              },
+              options, destPath
+          );
+          return;
+        }
+        kLog.warn("window screenshot failed: {}", error);
+        notifyError(error.empty() ? "Screenshot failed" : error);
+      }
+  );
 }
 
 wl_output* ScreenshotService::preferredCaptureOutput() const {
