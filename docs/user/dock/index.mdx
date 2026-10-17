@@ -31,6 +31,7 @@ margin_ends         = 0          # inset from each end of the dock along its mai
 margin_edge         = 0          # distance from the nearest screen edge (positive values float the dock)
 
 show_running        = true       # also show running apps not in the pinned list
+running_order       = "open"     # open | layout - order of the unpinned running apps; layout follows the window manager's layout (workspace, then column) on compositors that report window positions, e.g. niri
 auto_hide           = false      # slide out when pointer leaves; reveal from edge trigger strip
 smart_auto_hide     = false      # show when the active workspace is empty; hide when it has windows
 reserve_space       = true       # reserve compositor exclusive zone / push windows away
@@ -138,7 +139,7 @@ Pinned dock icons can be reordered by drag-and-drop:
 2. Drag along the dock axis to the desired position. Neighboring pinned icons shift to show where the item will land.
 3. Release to save the new order to `settings.toml` immediately (same persistence path as pin/unpin from the context menu).
 
-Running-only entries (apps shown because `show_running = true` but not in `pinned`) cannot be dragged, their order is not persisted. An app that is both running and pinned is treated as pinned and can be reordered.
+Running-only entries (apps shown because `show_running = true` but not in `pinned`) cannot be dragged; their order is not persisted and is derived from `running_order` instead: launch/open order by default, or the compositor's window layout order with `running_order = "layout"`. An app that is both running and pinned is treated as pinned and can be reordered.
 
 Leaving the dock surface while dragging cancels the reorder. Tooltips are hidden for the duration of a drag.
 

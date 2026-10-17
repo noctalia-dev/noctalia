@@ -1509,6 +1509,10 @@
         "none": "None",
         "start": "Start"
       },
+      "dock-running-order": {
+        "open": "Open order",
+        "layout": "Layout order"
+      },
       "edge": {
         "bottom": "Bottom",
         "left": "Left",
@@ -2292,6 +2296,10 @@
         },
         "reserve-space": {
           "description": "Push windows away from the dock edge"
+        },
+        "running-order": {
+          "description": "Order of the unpinned running apps: open follows launch order; layout follows the window manager's layout order (workspace, then column) on compositors that report window positions, such as niri",
+          "label": "Running Apps Order"
         },
         "shadow": {
           "description": "Cast the global surface shadow from the dock"

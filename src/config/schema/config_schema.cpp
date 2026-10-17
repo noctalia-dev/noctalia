@@ -2233,6 +2233,7 @@ namespace noctalia::config::schema {
           optionalIntField(&DockMonitorOverride::marginEdge, "margin_edge", kDockMarginEdgeRange),
           optionalBoolField(&DockMonitorOverride::shadow, "shadow"),
           optionalBoolField(&DockMonitorOverride::showRunning, "show_running"),
+          optionalEnumField(&DockMonitorOverride::runningOrder, "running_order", kDockRunningOrders),
           optionalBoolField(&DockMonitorOverride::autoHide, "auto_hide"),
           optionalBoolField(&DockMonitorOverride::smartAutoHide, "smart_auto_hide"),
           custom<DockMonitorOverride>(
@@ -2310,6 +2311,7 @@ namespace noctalia::config::schema {
         field(&DockConfig::marginEdge, "margin_edge", kDockMarginEdgeRange),
         field(&DockConfig::shadow, "shadow"),
         field(&DockConfig::showRunning, "show_running"),
+        enumField(&DockConfig::runningOrder, "running_order", kDockRunningOrders),
         field(&DockConfig::autoHide, "auto_hide"),
         field(&DockConfig::smartAutoHide, "smart_auto_hide"),
         custom<DockConfig>(

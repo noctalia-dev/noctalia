@@ -703,6 +703,8 @@ DockConfig resolveDockMonitorOverride(const DockConfig& base, const DockMonitorO
     resolved.shadow = *override.shadow;
   if (override.showRunning)
     resolved.showRunning = *override.showRunning;
+  if (override.runningOrder)
+    resolved.runningOrder = *override.runningOrder;
   if (override.autoHide)
     resolved.autoHide = *override.autoHide;
   if (override.smartAutoHide)
