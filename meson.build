@@ -1227,6 +1227,7 @@ if build_tests
     'firefox_theme_manifest',
     'google_client_calendar_list',
     'google_client_reminders',
+    'hidden_network',
     'greeter_appearance_sync',
     'grid_item_cursor',
     'hook_manager',

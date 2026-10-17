@@ -42,6 +42,11 @@ public:
   ) {
     return false;
   }
+  // Join a network that does not broadcast its SSID. Backends that cannot write
+  // a hidden profile keep the defaults, and the UI offers the form only where
+  // it is supported. An empty psk means an open network.
+  [[nodiscard]] virtual bool supportsHiddenNetworks() const noexcept { return false; }
+  virtual bool activateHiddenNetwork(const std::string& /*ssid*/, const std::string& /*psk*/) { return false; }
   virtual bool activateVpnConnection(const VpnConnectionInfo& vpn) = 0;
   virtual bool deactivateVpnConnection(const VpnConnectionInfo& vpn) = 0;
   [[nodiscard]] virtual bool canActivateWiredConnection() const noexcept { return false; }

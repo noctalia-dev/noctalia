@@ -1,6 +1,7 @@
 #include "dbus/network/network_manager_service.h"
 
 #include "core/log.h"
+#include "dbus/network/hidden_network.h"
 #include "dbus/network/network_manager_security.h"
 #include "dbus/system_bus.h"
 #include "i18n/i18n.h"
@@ -589,6 +590,12 @@ bool NetworkManagerService::addAndActivateAccessPoint(
     return false;
   }
   ConnectionSettings settings;
+  if (ap.path == "/") {
+    // No access point object to copy the SSID from: the network does not
+    // broadcast it, so the profile has to carry it and ask NM to probe for it.
+    settings["802-11-wireless"]["ssid"] = sdbus::Variant{network_hidden::ssidBytes(ap.ssid)};
+    settings["802-11-wireless"]["hidden"] = sdbus::Variant{true};
+  }
   if (ap.secured) {
     // Minimal secured-wifi settings — NM fills in ssid from the specific_object.
     // OWE uses key-mgmt owe with no psk (Enhanced Open is passwordless).
@@ -845,6 +852,29 @@ void NetworkManagerService::deleteUnsavedConnection(const std::string& connectio
   } catch (const sdbus::Error& e) {
     kLog.warn("delete unsaved connection dispatch failed ssid={} conn={}: {}", ssid, connectionPath, e.what());
   }
+}
+
+bool NetworkManagerService::activateHiddenNetwork(const std::string& ssid, const std::string& psk) {
+  if (!available() || network_hidden::validateSsid(ssid) != network_hidden::Validation::Ok) {
+    return false;
+  }
+  if (m_wifiDevices.empty()) {
+    kLog.warn("hidden network ssid={} requested with no wifi device", ssid);
+    return false;
+  }
+  // ponytail: first wifi device; pick by active device if multi-radio hosts ask for it.
+  AccessPointInfo ap;
+  ap.path = "/";
+  ap.devicePath = m_wifiDevices.begin()->first;
+  ap.ssid = ssid;
+  ap.secured = !psk.empty();
+  ap.keyManagement = network_manager_security::KeyManagement::Psk;
+  if (hasSavedConnection(ssid)) {
+    // ActivateConnection("/") with no specific object lets NM match the saved
+    // profile by SSID and run its own hidden-network probe.
+    return activateAccessPoint(ap);
+  }
+  return addAndActivateAccessPoint(ap, ap.secured ? std::optional<std::string>{psk} : std::nullopt);
 }
 
 bool NetworkManagerService::activateVpnConnection(const VpnConnectionInfo& vpn) {

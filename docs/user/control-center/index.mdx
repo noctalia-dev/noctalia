@@ -124,6 +124,12 @@ PEAP accepts MSCHAPv2 only, so the inner dropdown is pinned and disabled while P
 
 Enterprise networks are recognized on the NetworkManager backend only; the wpa_supplicant and iwd backends still show the pre-shared-key prompt for them, which an 802.1X network cannot accept. Certificate-based EAP-TLS, including WPA3-Enterprise 192-bit, is not supported: the form says so instead of writing a profile NetworkManager would reject. Use `nmcli` or another NetworkManager front end for those networks.
 
+### Hidden Wi-Fi
+
+Networks that do not broadcast their name never appear in the scan list. The eye-off button in the Wi-Fi card header opens a form asking for the network name (SSID) and password; leave the password empty for an open network. Noctalia writes a NetworkManager profile marked hidden so the device probes for that SSID, and the usual connection notifications report the outcome. Once the profile is saved, the network shows up in the list like any other.
+
+The button is shown on the NetworkManager backend only. On wpa_supplicant and iwd, create the profile with `wpa_cli` or `iwctl` instead; those backends then connect to it in the background and Noctalia shows it as active.
+
 ### Cellular
 
 When ModemManager reports a modem, the Network tab adds a **Cellular** card with a mobile-data switch and one row per modem showing its operator (or hardware name), state, access technology (`5G`, `LTE`, `HSPA+`, ...), and signal percentage. The card disappears again when ModemManager stops or the modem is unplugged.
