@@ -504,6 +504,12 @@ WidgetBarCapsuleSpec capsuleSpecFromGroup(const BarConfig& bar, const BarCapsule
   spec.opacity = group.opacity;
   spec.accordion = group.accordion;
   spec.accordionDirection = group.accordionDirection;
+  spec.accordionDurationMs = group.accordionDurationMs.has_value()
+      ? std::optional<float>{std::clamp(static_cast<float>(*group.accordionDurationMs), 0.0F, 2000.0F)}
+      : std::nullopt;
+  spec.accordionDelayMs = group.accordionDelayMs.has_value()
+      ? std::optional<float>{std::clamp(static_cast<float>(*group.accordionDelayMs), 0.0F, 2000.0F)}
+      : std::nullopt;
   spec.widgetSpacing =
       group.widgetSpacing.has_value() ? std::optional<float>{static_cast<float>(*group.widgetSpacing)} : std::nullopt;
   spec.hoverHighlight = bar.hoverHighlight;

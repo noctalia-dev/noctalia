@@ -2908,6 +2908,8 @@ void Bar::attachWidgetsToSections(BarInstance& instance) {
       run.contentScale = widget->contentScale();
       run.hoverBoxes = std::move(hoverBoxes);
       run.accordion = accordion;
+      run.accordionDurationMs = cap.accordionDurationMs.value_or(static_cast<float>(Style::animNormal));
+      run.accordionDelayMs = cap.accordionDelayMs.value_or(0.0F);
       run.accordionClip = clipPtr;
       run.accordionDirection = cap.accordionDirection;
       run.accordionVisibleIndex = accordionStart ? memberOrder.size() - 1 : 0;
@@ -2974,6 +2976,21 @@ void Bar::animateWidgetHoverHighlight(BarInstance& instance, Widget& widget, boo
   }
 }
 
+void Bar::beginAccordionAnimation(BarInstance& instance, BarCapsuleRun& run, bool expanded) {
+  run.accordionExpanded = expanded;
+  instance.animations.cancelForOwner(run.shell);
+  instance.animations.animate(
+      run.accordionProgress, expanded ? 1.0F : 0.0F, run.accordionDurationMs, Easing::EaseOutCubic,
+      [&run, surface = instance.surface.get()](float progress) {
+        run.accordionProgress = progress;
+        if (surface != nullptr) {
+          surface->requestLayout();
+        }
+      },
+      {}, run.shell
+  );
+}
+
 void Bar::updateAccordionExpansion(BarInstance& instance, InputArea* hoveredArea) {
   Widget* target = widgetFromHoveredArea(instance, hoveredArea);
 
@@ -2985,6 +3002,7 @@ void Bar::updateAccordionExpansion(BarInstance& instance, InputArea* hoveredArea
   auto updateRuns = [&](std::vector<BarCapsuleRun>& runs) {
     for (auto& run : runs) {
       if (!run.accordion || run.shell == nullptr) {
+        run.accordionDelayTimer.stop();
         continue;
       }
       bool want = target != nullptr && std::ranges::contains(run.widgets, target);
@@ -2994,20 +3012,48 @@ void Bar::updateAccordionExpansion(BarInstance& instance, InputArea* hoveredArea
         }
       }
       if (want == run.accordionExpanded) {
+        run.accordionDelayTimer.stop();
         continue;
       }
-      run.accordionExpanded = want;
-      changed = true;
-      instance.animations.cancelForOwner(run.shell);
-      instance.animations.animate(
-          run.accordionProgress, want ? 1.0F : 0.0F, Style::animNormal, Easing::EaseOutCubic,
-          [&run, surface = instance.surface.get()](float progress) {
-            run.accordionProgress = progress;
-            if (surface != nullptr) {
-              surface->requestLayout();
+      if (!want) {
+        // Collapse stays immediate; a pending expand is void once the pointer leaves.
+        run.accordionDelayTimer.stop();
+        beginAccordionAnimation(instance, run, false);
+        changed = true;
+        continue;
+      }
+      // Expand honors accordion_delay: arm a one-shot and re-verify hover when it fires, so a
+      // pointer that already moved on never unfolds the group.
+      if (run.accordionDelayMs <= 0.0F) {
+        beginAccordionAnimation(instance, run, true);
+        changed = true;
+        continue;
+      }
+      if (run.accordionDelayTimer.active()) {
+        continue;
+      }
+      run.accordionDelayTimer.start(
+          std::chrono::milliseconds(static_cast<int>(run.accordionDelayMs)), [this, &instance, &run]() {
+            if (!run.accordion || run.shell == nullptr || run.accordionExpanded) {
+              return;
             }
-          },
-          {}, run.shell
+            Widget* nowTarget = widgetFromHoveredArea(instance, instance.inputDispatcher.hoveredArea());
+            bool wantNow = nowTarget != nullptr && std::ranges::contains(run.widgets, nowTarget);
+            if (!wantNow && (run.accordionExpanded || run.accordionProgress > 0.0F)) {
+              float sx = instance.lastPointerSx;
+              float sy = instance.lastPointerSy;
+              if (instance.pointerInside && pointInsideNode(run.shell, sx, sy)) {
+                wantNow = true;
+              }
+            }
+            if (!wantNow) {
+              return;
+            }
+            beginAccordionAnimation(instance, run, true);
+            if (instance.surface != nullptr) {
+              instance.surface->requestLayout();
+            }
+          }
       );
     }
   };
