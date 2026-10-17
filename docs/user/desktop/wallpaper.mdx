@@ -26,6 +26,16 @@ directory_dark      = "/home/user/Wallpapers/Dark"
 # Enable per-monitor directory overrides (default: false)
 per_monitor_directories = false
 
+[wallpaper.theme_sync]
+enabled    = false
+path_light = "/home/user/Wallpapers/Light.jpg"
+path_dark  = "/home/user/Wallpapers/Dark.jpg"
+
+# Optional per-monitor bindings
+[wallpaper.theme_sync.monitor.DP-2]
+path_light = "/home/user/Wallpapers/Vertical/Light.jpg"
+path_dark  = "/home/user/Wallpapers/Vertical/Dark.jpg"
+
 [wallpaper.default]
 path = "/home/user/Wallpapers/default.png"
 
@@ -68,6 +78,18 @@ The wallpaper picker panel lists images from the resolved browse folder as a gri
 wallpaper currently applied to the selected monitor. In the **ALL** monitor view, the highlight follows the default
 wallpaper path. Theme-aware directories (`directory_light` / `directory_dark`) are used when the shell is in Light or
 Dark mode; **Auto** mode falls back to `directory`. Missing per-mode paths fall back to `directory`.
+
+### Theme sync
+
+Enable **Settings → Wallpaper → General → Sync Wallpaper with Theme**, or set
+`[wallpaper.theme_sync].enabled = true`. Picking a wallpaper on the **Light** or **Dark** tab in the wallpaper panel
+stores it as `path_light` or `path_dark`; the **Auto** tab stores it for the currently resolved appearance. When the
+shell's resolved light/dark appearance changes, including with `[theme].mode = "auto"` or a pinned
+`[theme].shell_mode`, Noctalia re-applies the matching binding per output.
+
+Per-monitor bindings under `[wallpaper.theme_sync.monitor.<connector>]` take precedence when they match the output.
+An empty mode path in a monitor override falls back to the global binding. A missing file is skipped with a warning,
+leaving the current wallpaper unchanged.
 
 When `per_monitor_directories` is **true**, each connected monitor can define its own `directory` / `directory_light` / `directory_dark` under `[wallpaper.monitor.<name>]`. The picker and automatic rotation resolve the folder per-monitor, so selecting a monitor in the panel toolbar switches to that monitor's override (falling back to the global folder if unset). When **false**, all monitors share the global directories regardless of which monitor is selected in the panel.
 
