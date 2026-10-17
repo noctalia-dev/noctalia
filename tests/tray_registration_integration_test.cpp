@@ -7,6 +7,7 @@
 #include <atomic>
 #include <chrono>
 #include <functional>
+#include <memory>
 #include <optional>
 #include <sdbus-c++/sdbus-c++.h>
 #include <string>
@@ -40,11 +41,16 @@ namespace {
 
 int main(int argc, char** argv) {
   TEST_CHECK(argc == 2);
-  TEST_CHECK(std::string{argv[1]} == "discovery" || std::string{argv[1]} == "registration");
+  TEST_CHECK(
+      std::string{argv[1]} == "discovery"
+      || std::string{argv[1]} == "registration"
+      || std::string{argv[1]} == "external-watcher"
+  );
   const bool discovery = std::string{argv[1]} == "discovery";
+  const bool externalWatcher = std::string{argv[1]} == "external-watcher";
   auto itemConnection = sdbus::createSessionBusConnection();
   const sdbus::ServiceName itemName{"org.kde.StatusNotifierItem-4242-1"};
-  if (discovery) {
+  if (discovery || externalWatcher) {
     itemConnection->requestName(itemName);
   }
   auto item = sdbus::createObject(*itemConnection, sdbus::ObjectPath{"/StatusNotifierItem"});
@@ -53,10 +59,56 @@ int main(int argc, char** argv) {
   ).forInterface(kItemInterface);
   itemConnection->enterEventLoopAsync();
 
+  std::unique_ptr<sdbus::IConnection> externalConnection;
+  std::unique_ptr<sdbus::IObject> externalObject;
+  if (externalWatcher) {
+    externalConnection = sdbus::createSessionBusConnection(sdbus::ServiceName{kWatcherInterface});
+    externalObject = sdbus::createObject(*externalConnection, sdbus::ObjectPath{"/StatusNotifierWatcher"});
+    externalObject
+        ->addVTable(
+            sdbus::registerMethod("RegisterStatusNotifierHost").implementedAs([](const std::string&) {}),
+            sdbus::registerProperty("RegisteredStatusNotifierItems").withGetter([&]() {
+              return std::vector<std::string>{std::string{itemName} + "/StatusNotifierItem"};
+            }),
+            sdbus::registerSignal("StatusNotifierItemRegistered").withParameters<std::string>("service"),
+            sdbus::registerSignal("StatusNotifierItemUnregistered").withParameters<std::string>("service")
+        )
+        .forInterface(kWatcherInterface);
+    externalConnection->enterEventLoopAsync();
+  }
+
   SessionBus bus;
   TrayService tray(bus);
   tray.start();
   runDeferredCalls();
+
+  if (externalWatcher) {
+    TEST_CHECK(drainUntil(bus, [&]() {
+      const auto items = tray.items();
+      return items.size() == 1 && items.front().iconName == "test-tray-icon";
+    }));
+    externalObject.reset();
+    externalConnection->leaveEventLoop();
+    externalConnection.reset();
+    TEST_CHECK(drainUntil(bus, [&]() {
+      auto daemon = sdbus::createProxy(
+          *itemConnection, sdbus::ServiceName{"org.freedesktop.DBus"}, sdbus::ObjectPath{"/org/freedesktop/DBus"}
+      );
+      std::string owner;
+      try {
+        daemon->callMethod("GetNameOwner")
+            .onInterface("org.freedesktop.DBus")
+            .withTimeout(std::chrono::milliseconds(200))
+            .withArguments(std::string{kWatcherInterface})
+            .storeResultsTo(owner);
+      } catch (const sdbus::Error&) {
+        return false;
+      }
+      return owner == bus.connection().getUniqueName() && tray.itemCount() == 1;
+    }));
+    itemConnection->leaveEventLoop();
+    return 0;
+  }
 
   auto watcher = sdbus::createProxy(
       *itemConnection, sdbus::ServiceName{kWatcherInterface}, sdbus::ObjectPath{"/StatusNotifierWatcher"}
