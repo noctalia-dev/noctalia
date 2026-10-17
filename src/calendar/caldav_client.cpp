@@ -92,14 +92,14 @@ namespace calendar {
       return true;
     }
 
-    void deliver(EventCallback callback, bool ok, std::vector<CalendarEvent> events) {
+    void deliver(EventCallback callback, SyncFailure failure, std::vector<CalendarEvent> events) {
       const std::weak_ptr<State> weak = weak_from_this();
-      DeferredCall::callLater([weak, callback = std::move(callback), ok, events = std::move(events)]() mutable {
+      DeferredCall::callLater([weak, callback = std::move(callback), failure, events = std::move(events)]() mutable {
         const auto state = weak.lock();
         if (!state || !state->accepting()) {
           return;
         }
-        callback(ok, std::move(events));
+        callback(failure, std::move(events));
       });
     }
 
@@ -122,14 +122,15 @@ namespace calendar {
       return !stopping;
     }
 
-    static std::pair<bool, std::vector<CalendarEvent>> parse(const ParseRequest& request, std::stop_token stopToken) {
+    static std::pair<SyncFailure, std::vector<CalendarEvent>>
+    parse(const ParseRequest& request, std::stop_token stopToken) {
       xmlDocPtr doc = xmlReadMemory(
           request.body.data(), static_cast<int>(request.body.size()), "caldav.xml", nullptr,
           XML_PARSE_NONET | XML_PARSE_NOERROR | XML_PARSE_NOWARNING | XML_PARSE_RECOVER
       );
       if (doc == nullptr) {
         kLog.warn("caldav response XML parse error");
-        return {false, {}};
+        return {SyncFailure::InvalidResponse, {}};
       }
 
       std::vector<std::string> calendarDataBlocks;
@@ -143,8 +144,11 @@ namespace calendar {
       std::vector<CalendarEvent> events;
       for (const std::string& ics : calendarDataBlocks) {
         ICalParseResult result = parseICalEvents(ics, request.start, request.end, control);
+        if (result.status == ICalParseStatus::Cancelled) {
+          return {SyncFailure::Cancelled, {}};
+        }
         if (result.status != ICalParseStatus::Complete) {
-          return {false, {}};
+          return {SyncFailure::InvalidResponse, {}};
         }
         for (CalendarEvent& event : result.events) {
           event.calendarName = request.calendarName;
@@ -154,7 +158,7 @@ namespace calendar {
           events.push_back(std::move(event));
         }
       }
-      return {true, std::move(events)};
+      return {SyncFailure::None, std::move(events)};
     }
 
     void workerLoop(std::stop_token stopToken) {
@@ -170,11 +174,11 @@ namespace calendar {
           requests.pop_front();
         }
 
-        auto [ok, events] = parse(request, stopToken);
+        auto [failure, events] = parse(request, stopToken);
         if (stopToken.stop_requested()) {
           return;
         }
-        deliver(std::move(request.callback), ok, std::move(events));
+        deliver(std::move(request.callback), failure, std::move(events));
       }
     }
 
@@ -227,7 +231,7 @@ namespace calendar {
       }
       if (!resp.transportOk || (resp.status != 207 && resp.status != 200)) {
         kLog.warn("caldav REPORT failed http={}", resp.status);
-        state->deliver(std::move(cb), false, {});
+        state->deliver(std::move(cb), syncFailureFromResponse(resp), {});
         return;
       }
       state->enqueue({
