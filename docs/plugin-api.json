@@ -190,5 +190,11 @@
     "noctaliaVersion": "v5.3.0",
     "feature": "widget-hover-highlight",
     "introduced": "The `hover_highlight` widget entry option for opting out of the bar's whole-widget hover highlight."
+  },
+  {
+    "level": 35,
+    "noctaliaVersion": null,
+    "feature": "osd",
+    "introduced": "`noctalia.osd.show(icon, value, opts)` for showing the shell OSD from plugins."
   }
 ]

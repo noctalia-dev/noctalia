@@ -191,6 +191,9 @@ namespace scripting {
         case ScriptSideEffectKind::PlaySound:
           api.invokePlaySound(effect.hostId, effect.title);
           break;
+        case ScriptSideEffectKind::ShowOsd:
+          api.invokeShowOsd(effect.title, effect.body, effect.number, effect.flag);
+          break;
         }
       }
     }
