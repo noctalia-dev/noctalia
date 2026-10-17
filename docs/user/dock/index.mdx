@@ -154,6 +154,8 @@ Dock settings expose **Off**, **On**, and **Smart** as one control. In config th
 
 When `auto_hide = true`, the dock slides out after the pointer leaves and slides back in when the pointer reaches the matching screen edge trigger strip.
 
+In either auto-hide mode, pointer-triggered reveal requires keeping the pointer on the edge trigger strip for 250 ms. Briefly crossing the edge does not reveal it.
+
 ### Smart auto-hide
 
 Set auto-hide to **Smart** in dock settings (or `smart_auto_hide = true` with `auto_hide = false` in config). The dock stays visible while the active workspace on that monitor is empty and hides when the workspace has windows.
