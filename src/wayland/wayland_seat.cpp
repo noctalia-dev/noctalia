@@ -760,7 +760,8 @@ void WaylandSeat::handleKeyboardKey(
   // Set up repeat state BEFORE dispatching, so the callback can authoritatively
   // cancel it via stopKeyRepeat() if the key press causes a state transition
   // (e.g. lockscreen unlock) that makes the held key irrelevant.
-  if (pressed && self->m_repeatRate > 0) {
+  const bool keyRepeats = self->m_xkbKeymap == nullptr || xkb_keymap_key_repeats(self->m_xkbKeymap, xkbKeycode) != 0;
+  if (pressed && self->m_repeatRate > 0 && keyRepeats) {
     self->m_repeatKey =
         KeyboardEvent{.sym = sym, .utf32 = utf32, .key = key, .modifiers = mods, .pressed = true, .repeat = true};
     self->m_repeatActive = true;
