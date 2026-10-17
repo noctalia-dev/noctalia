@@ -3,6 +3,7 @@
 #include "config/config_types.h"
 #include "core/timer_manager.h"
 #include "render/scene/input_dispatcher.h"
+#include "shell/dock/dock_geometry.h"
 #include "shell/dock/dock_items.h"
 #include "shell/dock/dock_model.h"
 #include "ui/signal.h"
@@ -50,6 +51,7 @@ namespace shell::dock {
     float slideHiddenDy = 0.0F;
     Box* shadow = nullptr;
     Box* panel = nullptr;
+    DockPanelGeometry panelGeometry;
     InputArea* viewport = nullptr;
     Flex* row = nullptr;
     float scrollOffset = 0.0F;
