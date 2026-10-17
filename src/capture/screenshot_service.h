@@ -3,6 +3,7 @@
 #include "capture/annotation_overlay.h"
 #include "capture/screenshot_capture.h"
 #include "capture/screenshot_region_overlay.h"
+#include "capture/screenshot_style.h"
 
 #include <cstdint>
 #include <expected>
@@ -40,6 +41,8 @@ public:
     std::string pipeCommand;
     std::string directory;
     std::string filenamePattern;
+    // Set from the annotation editor's style panel; applied to the final image just before encoding.
+    std::optional<capture::ScreenshotStyle> style;
   };
 
   ScreenshotService(
@@ -171,6 +174,9 @@ private:
   );
   bool
   finishDelivery(ScreencopyImage image, const OutputOptions& options, std::optional<std::filesystem::path> destPath);
+  void applyEditorStyle(OutputOptions& options) const;
+  void persistScreenshotStyle(const capture::ScreenshotStyleSettings& style);
+  [[nodiscard]] capture::ScreenshotStyleSettings loadScreenshotStyle() const;
   void onCaptureComplete(
       std::optional<capture::ScreenshotImage> image, const std::string& error, OutputOptions options,
       std::optional<std::filesystem::path> destPath
