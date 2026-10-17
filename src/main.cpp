@@ -11,6 +11,7 @@
 #include "ipc/cli.h"
 #include "launcher/dmenu_cli.h"
 #include "scripting/plugin_lint.h"
+#include "system/systemd_notify.h"
 #include "theme/cli.h"
 #include "theme/firefox_theme/firefox_theme.h"
 
@@ -23,6 +24,7 @@
 #include <cstring>
 #include <fcntl.h>
 #include <print>
+#include <stdexcept>
 #include <string>
 #include <unistd.h>
 
@@ -231,7 +233,12 @@ namespace {
     }
     try {
       Application app;
-      app.run([]() { completeDaemonStartup(0); });
+      app.run([]() {
+        if (!::systemdNotifyReady()) {
+          throw std::runtime_error("Failed to notify systemd that the service is ready.");
+        }
+        completeDaemonStartup(0);
+      });
     } catch (const std::exception& e) {
       logError("fatal: {}", e.what());
       completeDaemonStartup(1);

@@ -1,0 +1,21 @@
+[Unit]
+Description=Noctalia Wayland shell
+Documentation=https://github.com/noctalia-dev/noctalia
+PartOf=graphical-session.target
+Before=graphical-session.target
+After=niri.service
+After=wayland-wm@hyprland.desktop.target
+After=plasma-kwin_wayland.service
+
+[Service]
+Type=notify
+ExecStart=@NOCTALIA_EXECUTABLE@
+Restart=on-failure
+
+[Install]
+WantedBy=niri.service
+WantedBy=wayland-session@hyprland.desktop.target
+WantedBy=umbriel-session.target
+WantedBy=mango-session.target
+WantedBy=labwc-session.target
+# WantedBy=plasma-workspace-wayland.target

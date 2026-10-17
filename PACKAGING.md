@@ -199,13 +199,16 @@ Each carries its own license file beside the code.
 
 ## Startup and IPC
 
-No systemd user unit is shipped. Typical startup is compositor autostart or the
+Typical startup is compositor autostart or the
 desktop entry (`noctalia --daemon`). Control a running instance with
 `noctalia msg ...` (Unix socket under `XDG_RUNTIME_DIR`).
 
 Keep the `.desktop` daemon Exec unless you intentionally package a different
 session integration. Prefer the canonical description above for `Comment=` /
 AppStream summary as well.
+
+An experimental systemd user service is provided in `<prefix>/share/noctalia/assets/noctalia.service`.
+See `docs/user/compositor-settings/systemd-service.mdx` for details.
 
 ## Session conflicts
 

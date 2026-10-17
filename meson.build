@@ -878,6 +878,7 @@ _noctalia_sources = files(
   'src/system/cpu_temp_sensor.cpp',
   'src/system/intel_gpu.cpp',
   'src/system/system_monitor_service.cpp',
+  'src/system/systemd_notify.cpp',
   'src/system/weather_service.cpp',
   'src/time/time_format.cpp',
   'src/time/time_service.cpp',
@@ -1144,9 +1145,21 @@ noctalia_exe = executable('noctalia',
   install: true,
 )
 
+noctalia_session_config = configuration_data()
+noctalia_session_config.set(
+  'NOCTALIA_EXECUTABLE',
+  get_option('prefix') / get_option('bindir') / 'noctalia', 
+)
+configure_file(
+  input: 'assets/noctalia.service.in',
+  output: 'noctalia.service',
+  configuration: noctalia_session_config,
+  install_dir: get_option('datadir') / 'noctalia' / 'assets',
+)
+
 install_subdir('assets',
   install_dir: get_option('datadir') / 'noctalia',
-  exclude_files: ['dev.noctalia.Noctalia.desktop'],
+  exclude_files: ['dev.noctalia.Noctalia.desktop', 'noctalia.service.in'],
 )
 
 install_data(
