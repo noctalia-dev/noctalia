@@ -95,21 +95,27 @@ support.
 - Tests: `-Dtests=disabled` (or leave `auto`, which skips tests for release).
 - `jemalloc`: recommended on glibc; Meson feature option `-Djemalloc=auto|enabled|disabled`.
   Only used on glibc builds.
+- `pam_service`: PAM service the lock screen authenticates against, `login` by
+  default. A different service (for example `-Dpam_service=noctalia`) needs a
+  matching `/etc/pam.d/<service>` shipped by the package.
 
 Prefix/datadir are baked into the binary via `NOCTALIA_INSTALL_PREFIX` /
-`NOCTALIA_INSTALL_DATADIR`. Install with the same prefix you configured.
+`NOCTALIA_INSTALL_DATADIR`, and the PAM helper path (from libexecdir) via
+`NOCTALIA_PAM_HELPER`. Install with the same prefix you configured.
 
 ### Installed layout
 
 ```text
 <prefix>/bin/noctalia
+<prefix>/libexec/noctalia/noctalia-pam-helper
 <prefix>/share/noctalia/assets/...
 <prefix>/share/applications/dev.noctalia.Noctalia.desktop
 <prefix>/share/icons/hicolor/scalable/apps/noctalia.svg
 ```
 
 The shipped `assets/` tree is **required at runtime**. Shipping only the binary
-breaks fonts, translations, templates, glyphs, and sounds.
+breaks fonts, translations, templates, glyphs, and sounds. The lock screen also
+needs `noctalia-pam-helper`.
 
 ### Runtime asset lookup
 
@@ -118,12 +124,14 @@ Besides the prefix layout above, portable bundle layouts are supported:
 ```text
 bundle/
   noctalia
+  noctalia-pam-helper
   assets/
 ```
 
 ```text
 bundle/
   bin/noctalia
+  bin/noctalia-pam-helper
   share/noctalia/assets/
 ```
 
@@ -142,6 +150,9 @@ A candidate is only accepted if it contains `emoji.json`,
 `fonts/noctalia-tabler.ttf`, `templates/builtin.toml`, and
 `translations/en.json`. If none qualifies, Noctalia logs a warning and uses the
 compiled install path.
+
+`noctalia-pam-helper` is looked up next to the executable first, then at the
+compiled install path (`<prefix>/<libexecdir>/noctalia/noctalia-pam-helper`).
 
 Not shipped (don’t look for them in the install): AppStream / metainfo XML, man
 pages, systemd units.
@@ -189,13 +200,17 @@ Each carries its own license file beside the code.
 | Dependency | Role |
 |---|---|
 | PipeWire **daemon** (+ WirePlumber 0.5) | Audio, volume OSD, privacy indicators, spectrum. Libraries alone are not enough; without a running daemon those features stay off. |
-| PAM (`login` service by default) | Lock screen authentication |
+| PAM (`login` service by default, `-Dpam_service=`) | Lock screen authentication, via `noctalia-pam-helper` |
 | Fontconfig / fonts | Text rendering (users still need usable fonts installed) |
 | `git` | Plugin git sources / auto-update invoke `git` on `PATH` |
 | `upower` | Optional: battery / power devices |
 | `ddcutil` | Optional: external monitor brightness |
 | Secret Service provider | Optional but recommended for credential / encrypted-state persistence (GNOME Keyring, KWallet, KeePassXC, ...). `libsecret` is only the client library; without a session provider those features cannot persist secrets. |
 | `sound-theme-freedesktop` | Shell sounds |
+
+The lock screen runs PAM in `noctalia-pam-helper`, a small executable that links
+only libpam. If unprivileged password checks on your distribution need extra
+privileges, grant them to this helper, never to the `noctalia` binary.
 
 ## Startup and IPC
 
