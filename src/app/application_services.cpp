@@ -788,7 +788,7 @@ void Application::initStyleThemeAndWayland() {
       );
     }
     syncGSettingsColorScheme(resolvedMode);
-    m_wallpaper.onResolvedThemeModeChanged(resolvedMode);
+    m_wallpaper.onResolvedThemeModeChanged(m_themeService.resolvedShellMode());
   });
   m_themeService.apply();
   {

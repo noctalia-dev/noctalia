@@ -250,7 +250,7 @@ public:
   using ActivateCallback = std::function<void(const WallpaperEntry&)>;
   using StarCallback = std::function<void(const WallpaperEntry&)>;
 
-  explicit WallpaperGridAdapter(float scale) : m_scale(scale) {}
+  WallpaperGridAdapter(float scale, WaylandConnection* wayland) : m_scale(scale), m_wayland(wayland) {}
 
   void setEntries(const std::vector<WallpaperEntry>* entries) { m_entries = entries; }
   void setRenderer(Renderer* renderer) { m_renderer = renderer; }
@@ -302,6 +302,18 @@ public:
     return tile;
   }
 
+  [[nodiscard]] const WaylandOutput* monitorOutput() const {
+    if (m_wayland == nullptr || !m_monitorConnector.has_value()) {
+      return nullptr;
+    }
+    for (const auto& output : m_wayland->outputs()) {
+      if (output.connectorName == *m_monitorConnector) {
+        return &output;
+      }
+    }
+    return nullptr;
+  }
+
   void bindTile(Node& tile, std::size_t index, bool selected, bool hovered) override {
     auto* wt = static_cast<WallpaperTile*>(&tile);
     wt->setShowName(m_showNames);
@@ -313,7 +325,7 @@ public:
         const std::string path = entry.absPath.string();
         std::optional<ThemeMode> badge = favoriteThemeBadge(m_config->wallpaperFavorite(path));
         if (!badge.has_value() && m_config->config().wallpaper.themeSync.enabled) {
-          badge = wallpaper::themeSyncModeForPath(m_config->config().wallpaper, path, m_monitorConnector);
+          badge = wallpaper::themeSyncModeForPath(m_config->config().wallpaper, path, monitorOutput());
         }
         wt->setFavoriteState(m_config->isWallpaperFavorite(path), badge);
       } else {
@@ -392,6 +404,7 @@ public:
 
 private:
   float m_scale;
+  WaylandConnection* m_wayland = nullptr;
   const std::vector<WallpaperEntry>* m_entries = nullptr;
   std::string m_currentWallpaperPath;
   Renderer* m_renderer = nullptr;
@@ -792,7 +805,7 @@ void WallpaperPanel::create() {
   root->addChild(std::move(themeRow));
 
   // ── Body: virtualized scrolling grid ──────────────────────────────────
-  m_adapter = std::make_unique<WallpaperGridAdapter>(scale);
+  m_adapter = std::make_unique<WallpaperGridAdapter>(scale, m_wayland);
   m_adapter->setThumbnailService(m_thumbnails);
   m_adapter->setShowNames(m_showNames);
   m_adapter->setConfig(m_config);
@@ -1130,7 +1143,7 @@ ThemeMode WallpaperPanel::browseThemeMode() const {
     }
   }
 
-  const ThemeMode configured = m_config != nullptr ? m_config->config().theme.mode : ThemeMode::Dark;
+  const ThemeMode configured = m_config != nullptr ? shellThemeMode(m_config->config().theme) : ThemeMode::Dark;
   const bool isLight = m_themeService != nullptr ? m_themeService->isLightMode() : configured == ThemeMode::Light;
   return wallpaper::effectiveThemeMode(configured, isLight);
 }

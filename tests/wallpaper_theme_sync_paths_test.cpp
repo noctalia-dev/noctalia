@@ -67,8 +67,13 @@ int main() {
        )
       && ok;
   ok = expect(
-           wallpaper::themeSyncModeForPath(config, "/wallpapers/edp-day.jpg", "eDP-1") == ThemeMode::Light,
+           wallpaper::themeSyncModeForPath(config, "/wallpapers/edp-day.jpg", &output) == ThemeMode::Light,
            "theme sync badge resolves light binding for monitor"
+       )
+      && ok;
+  ok = expect(
+           wallpaper::themeSyncModeForPath(config, "/wallpapers/night.jpg", &output) == ThemeMode::Dark,
+           "theme sync badge falls back to the global binding when the monitor override has no match"
        )
       && ok;
 
@@ -120,8 +125,31 @@ int main() {
          )
         && ok;
     ok = expect(
-             !wallpaper::themeSyncModeForPath(monitorOnly, "/wallpapers/dp-dark.jpg", std::nullopt).has_value(),
+             !wallpaper::themeSyncModeForPath(monitorOnly, "/wallpapers/dp-dark.jpg", nullptr).has_value(),
              "all-monitors badge lookup ignores monitor-only bindings"
+         )
+        && ok;
+  }
+
+  {
+    WallpaperConfig selectorConfig{};
+    selectorConfig.themeSync.enabled = true;
+    selectorConfig.themeSync.monitorOverrides.push_back(
+        WallpaperThemeSyncMonitorOverride{.match = "U2720Q", .pathLight = "/wallpapers/dell-light.jpg"}
+    );
+    const WaylandOutput dell{
+        .connectorName = "DP-2",
+        .description = "Dell Inc. DELL U2720Q",
+    };
+
+    ok = expect(
+             wallpaper::resolveThemeSyncPath(selectorConfig, dell, ThemeMode::Light) == "/wallpapers/dell-light.jpg",
+             "monitor override resolves by output descriptor"
+         )
+        && ok;
+    ok = expect(
+             wallpaper::themeSyncModeForPath(selectorConfig, "/wallpapers/dell-light.jpg", &dell) == ThemeMode::Light,
+             "theme sync badge uses the same output selector as resolution"
          )
         && ok;
   }

@@ -453,9 +453,9 @@ bool Wallpaper::initialize(
   if (m_config->config().wallpaper.themeSync.enabled && m_themeService != nullptr) {
     {
       ConfigService::WallpaperBatch batch(*m_config);
-      applyThemeSync(m_themeService->resolvedMode());
+      applyThemeSync(m_themeService->resolvedShellMode());
     }
-    scheduleThemeSync(m_themeService->resolvedMode());
+    scheduleThemeSync(m_themeService->resolvedShellMode());
   }
 
   applyStartupAutomation(
@@ -496,9 +496,9 @@ void Wallpaper::reload() {
   m_wallpaperEnabled = true;
 
   if (themeSyncJustEnabled) {
-    const auto& themeSyncBefore = m_config->config().wallpaper.themeSync;
+    const WallpaperThemeSyncConfig themeSyncBefore = wallpaperConfig.themeSync;
     seedThemeSyncBindingForCurrentMode();
-    const auto& themeSyncAfter = m_config->config().wallpaper.themeSync;
+    const WallpaperThemeSyncConfig themeSyncAfter = m_config->config().wallpaper.themeSync;
     if (themeSyncBefore.pathLight != themeSyncAfter.pathLight || themeSyncBefore.pathDark != themeSyncAfter.pathDark) {
       return;
     }
@@ -509,9 +509,9 @@ void Wallpaper::reload() {
   if (wallpaperConfig.themeSync.enabled && m_themeService != nullptr) {
     {
       ConfigService::WallpaperBatch batch(*m_config);
-      applyThemeSync(m_themeService->resolvedMode());
+      applyThemeSync(m_themeService->resolvedShellMode());
     }
-    scheduleThemeSync(m_themeService->resolvedMode());
+    scheduleThemeSync(m_themeService->resolvedShellMode());
   }
 
   // Wallpaper remains (or becomes) enabled, sync instances without teardown
@@ -538,7 +538,7 @@ void Wallpaper::onOutputChange() {
   }
 
   if (m_config->config().wallpaper.themeSync.enabled && m_themeService != nullptr) {
-    scheduleThemeSync(m_themeService->resolvedMode());
+    scheduleThemeSync(m_themeService->resolvedShellMode());
   }
 
   // Span fill mode maps a single image across the whole desktop, so a geometry

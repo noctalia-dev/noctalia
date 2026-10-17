@@ -108,9 +108,8 @@ bool wallpaper::hasGlobalThemeSyncBinding(const WallpaperConfig& config, ThemeMo
   return !config.themeSync.pathDark.empty();
 }
 
-std::optional<ThemeMode> wallpaper::themeSyncModeForPath(
-    const WallpaperConfig& config, std::string_view path, const std::optional<std::string>& connector
-) {
+std::optional<ThemeMode>
+wallpaper::themeSyncModeForPath(const WallpaperConfig& config, std::string_view path, const WaylandOutput* output) {
   if (!config.themeSync.enabled || path.empty()) {
     return std::nullopt;
   }
@@ -120,18 +119,14 @@ std::optional<ThemeMode> wallpaper::themeSyncModeForPath(
     return !bound.empty() && FileUtils::normalizeWallpaperPath(bound) == normalized;
   };
 
-  if (connector.has_value() && !connector->empty()) {
-    for (const auto& ovr : config.themeSync.monitorOverrides) {
-      if (ovr.match != *connector) {
-        continue;
-      }
-      if (matches(ovr.pathLight)) {
+  if (output != nullptr) {
+    if (const auto* ovr = findThemeSyncMonitorOverride(config, *output)) {
+      if (matches(ovr->pathLight)) {
         return ThemeMode::Light;
       }
-      if (matches(ovr.pathDark)) {
+      if (matches(ovr->pathDark)) {
         return ThemeMode::Dark;
       }
-      return std::nullopt;
     }
   }
 

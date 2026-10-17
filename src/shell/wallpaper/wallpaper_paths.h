@@ -37,9 +37,9 @@ namespace wallpaper {
   [[nodiscard]] bool hasGlobalThemeSyncBinding(const WallpaperConfig& config, ThemeMode mode);
 
   // Returns light/dark when path is bound for theme sync on the given output scope.
-  [[nodiscard]] std::optional<ThemeMode> themeSyncModeForPath(
-      const WallpaperConfig& config, std::string_view path, const std::optional<std::string>& connector
-  );
+  // Pass nullptr for the all-monitors scope.
+  [[nodiscard]] std::optional<ThemeMode>
+  themeSyncModeForPath(const WallpaperConfig& config, std::string_view path, const WaylandOutput* output);
 
   void setThemeSyncBinding(
       ConfigService& config, const std::optional<std::string>& connector, ThemeMode mode, std::string_view path,
