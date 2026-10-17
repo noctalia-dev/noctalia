@@ -660,9 +660,19 @@ namespace noctalia::config::schema {
               }
           ),
           pathStringField(&CalendarConfig::Account::passwordFile, "password_file"),
+          pathStringField(&CalendarConfig::Account::clientCertFile, "client_cert_file"),
+          pathStringField(&CalendarConfig::Account::clientKeyFile, "client_key_file"),
           pathStringField(&CalendarConfig::Account::path, "path"),
           finalize<CalendarConfig::Account>([](CalendarConfig::Account& out, std::string_view parentPath,
                                                Diagnostics& diag) {
+            if (out.type != "caldav") {
+              if (!out.clientCertFile.empty()) {
+                diag.error(joinPath(parentPath, "client_cert_file"), "client_cert_file is only valid for caldav");
+              }
+              if (!out.clientKeyFile.empty()) {
+                diag.error(joinPath(parentPath, "client_key_file"), "client_key_file is only valid for caldav");
+              }
+            }
             if (out.type == "vdir") {
               if (out.credentialSource != CalendarCredentialSource::SecretService) {
                 diag.error(joinPath(parentPath, "credential_source"), "credential_source is only valid for caldav");
@@ -719,6 +729,20 @@ namespace noctalia::config::schema {
               }
             } else if (!out.passwordFile.empty()) {
               diag.error(joinPath(parentPath, "password_file"), R"(password_file requires credential_source = "file")");
+            }
+            if (!out.clientCertFile.empty() || !out.clientKeyFile.empty()) {
+              if (out.clientCertFile.empty()) {
+                diag.error(joinPath(parentPath, "client_key_file"), "client_key_file without client_cert_file");
+              } else if (!std::filesystem::path(out.clientCertFile).is_absolute()) {
+                diag.error(
+                    joinPath(parentPath, "client_cert_file"), "client_cert_file must resolve to an absolute path"
+                );
+              }
+              if (out.clientKeyFile.empty()) {
+                diag.error(joinPath(parentPath, "client_cert_file"), "client_cert_file without client_key_file");
+              } else if (!std::filesystem::path(out.clientKeyFile).is_absolute()) {
+                diag.error(joinPath(parentPath, "client_key_file"), "client_key_file must resolve to an absolute path");
+              }
             }
             if (out.provider.empty()) {
               diag.error(

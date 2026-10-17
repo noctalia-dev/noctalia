@@ -476,7 +476,9 @@ location = "https://example.invalid/bad"
          "user",
          {"personal"},
          CalendarCredentialSource::File,
-         "/run/agenix/noctalia-caldav"},
+         "/run/agenix/noctalia-caldav",
+         "/etc/pki/client.pem",
+         "/etc/pki/client.key"},
     };
     // Explicit chords so write→read round-trips (empty would emit defaults instead).
     c.keybinds.validate = {*parseKeyChordSpec("Return")};
@@ -968,6 +970,97 @@ credential_source = "automatic"
     }
   }
 
+  void checkCalendarClientCertValidation() {
+    const auto parse = [](std::string_view accountConfig) {
+      const toml::table table = toml::parse(accountConfig);
+      CalendarConfig calendar;
+      Diagnostics diagnostics;
+      readInto(table, calendar, calendarSchema(), "calendar", diagnostics);
+      return diagnostics;
+    };
+
+    const Diagnostics valid = parse(R"(
+[account.mtls]
+type = "caldav"
+provider = "custom"
+server_url = "https://dav.example.com/"
+username = "user"
+client_cert_file = "/etc/pki/client.pem"
+client_key_file = "/etc/pki/client.key"
+)");
+    if (valid.hasErrors()) {
+      fail("calendar: valid client_cert_file/client_key_file pair was rejected");
+    }
+
+    const Diagnostics certWithoutKey = parse(R"(
+[account.mtls]
+type = "caldav"
+provider = "custom"
+server_url = "https://dav.example.com/"
+username = "user"
+client_cert_file = "/etc/pki/client.pem"
+)");
+    if (!certWithoutKey.hasErrors()) {
+      fail("calendar: client_cert_file without client_key_file was accepted");
+    }
+
+    const Diagnostics keyWithoutCert = parse(R"(
+[account.mtls]
+type = "caldav"
+provider = "custom"
+server_url = "https://dav.example.com/"
+username = "user"
+client_key_file = "/etc/pki/client.key"
+)");
+    if (!keyWithoutCert.hasErrors()) {
+      fail("calendar: client_key_file without client_cert_file was accepted");
+    }
+
+    const Diagnostics relativePath = parse(R"(
+[account.mtls]
+type = "caldav"
+provider = "custom"
+server_url = "https://dav.example.com/"
+username = "user"
+client_cert_file = "pki/client.pem"
+client_key_file = "/etc/pki/client.key"
+)");
+    if (!relativePath.hasErrors()) {
+      fail("calendar: relative client_cert_file was accepted");
+    }
+
+    const Diagnostics icsAccount = parse(R"(
+[account.mtls]
+type = "ics"
+server_url = "https://example.com/calendar.ics"
+client_cert_file = "/etc/pki/client.pem"
+client_key_file = "/etc/pki/client.key"
+)");
+    if (!icsAccount.hasErrors()) {
+      fail("calendar: client cert fields were accepted for a non-caldav account");
+    }
+
+    const Diagnostics vdirAccount = parse(R"(
+[account.mtls]
+type = "vdir"
+path = "/home/user/.calendars"
+client_cert_file = "/etc/pki/client.pem"
+client_key_file = "/etc/pki/client.key"
+)");
+    if (!vdirAccount.hasErrors()) {
+      fail("calendar: client cert fields were accepted for a vdir account");
+    }
+    std::size_t vdirCertErrors = 0;
+    for (const auto& entry : vdirAccount.entries) {
+      if (entry.path == "calendar.account.mtls.client_cert_file") {
+        ++vdirCertErrors;
+      }
+    }
+    if (vdirCertErrors != 1) {
+      fail("calendar: vdir client_cert_file rejection was not reported exactly once");
+    }
+  }
+
   void checkPanelFloatingLayerValidation() {
     const auto parse = [](std::string_view panelConfig, ShellConfig& shell) {
       const toml::table table = toml::parse(panelConfig);
@@ -1378,6 +1471,7 @@ widget_spacing = 8
   checkPluginIdValidation();
   checkPluginSourceNameValidation();
   checkCalendarCredentialSourceValidation();
+  checkCalendarClientCertValidation();
   checkStorageKeySourceValidation();
   checkPanelFloatingLayerValidation();
   checkClamps();
