@@ -5119,7 +5119,8 @@
       "sort-name-desc": "Sort by name (Z-A)",
       "sort-random": "Sort by random (shuffle)",
       "title": "Wallpaper",
-      "unfavorite-current": "Remove current wallpaper from favorites"
+      "unfavorite-current": "Remove current wallpaper from favorites",
+      "user-card-image": "User Card Image"
     }
   },
   "weather": {

@@ -500,6 +500,41 @@ void WallpaperPanel::create() {
 
   toolbar->addChild(ui::spacer());
 
+  auto homeCardSource = ui::row({
+      .out = &m_homeCardSource,
+      .align = FlexAlign::Center,
+      .gap = Style::spaceSm * scale,
+      .visible = false,
+  });
+  homeCardSource->addChild(
+      ui::label({
+          .text = i18n::tr("wallpaper.panel.user-card-image"),
+          .fontSize = Style::fontSizeBody * scale,
+          .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+      })
+  );
+  homeCardSource->addChild(
+      ui::toggle({
+          .out = &m_homeCardToggle,
+          .onChange = [this](bool checked) {
+            if (m_config == nullptr || m_selectedMonitorIndex >= m_monitorChoices.size()) {
+              return;
+            }
+            const std::string& connector = m_monitorChoices[m_selectedMonitorIndex].connector;
+            if (connector.empty()) {
+              return;
+            }
+            if (!m_config->setStateString("control_center", "home_wallpaper_monitor", checked ? connector : "")) {
+              kLog.warn("failed to save Home card wallpaper monitor");
+            }
+            syncHomeCardSource();
+            m_dirty = true;
+            PanelManager::instance().refresh();
+          },
+      })
+  );
+  toolbar->addChild(std::move(homeCardSource));
+
   toolbar->addChild(
       ui::label({
           .out = &m_flattenLabel,
@@ -883,6 +918,24 @@ void WallpaperPanel::doLayout(Renderer& renderer, float width, float height) {
     m_grid->setCellHeight(kMinTileWidth * scale * kTileAspect - captionH);
   }
 
+  // Keep the action buttons on one row and anchored to the trailing edge.
+  // Let the filter give up space when the monitor-specific toggle is visible.
+  if (m_toolbar != nullptr && m_filterInput != nullptr) {
+    const float scale = contentScale();
+    const float gap = Style::spaceSm * scale;
+    float fixedWidth = -gap;
+    for (const auto& child : m_toolbar->children()) {
+      if (!child->visible() || !child->participatesInLayout()) {
+        continue;
+      }
+      fixedWidth += gap;
+      if (child.get() != m_filterInput && child->flexGrow() <= 0.0F) {
+        fixedWidth += child->measure(renderer, LayoutConstraints::unconstrained()).width;
+      }
+    }
+    m_filterInput->setSize(std::clamp(width - fixedWidth, 80.0F * scale, 210.0F * scale), 0.0F);
+  }
+
   m_rootLayout->setSize(width, height);
   m_rootLayout->layout(renderer);
   m_dirty = false;
@@ -975,6 +1028,8 @@ void WallpaperPanel::onClose() {
   m_filterInput = nullptr;
   m_flattenToggle = nullptr;
   m_flattenLabel = nullptr;
+  m_homeCardSource = nullptr;
+  m_homeCardToggle = nullptr;
   m_sortButton = nullptr;
   m_refreshButton = nullptr;
   m_colorButton = nullptr;
@@ -1155,6 +1210,7 @@ std::string WallpaperPanel::displayNameForWallpaperPath(std::string_view path) {
 }
 
 void WallpaperPanel::syncBrowseChrome() {
+  syncHomeCardSource();
   if (m_backButton != nullptr) {
     m_backButton->setVisible(!m_navStack.empty());
   }
@@ -1168,6 +1224,21 @@ void WallpaperPanel::syncBrowseChrome() {
     );
   }
   syncThemeControls();
+}
+
+void WallpaperPanel::syncHomeCardSource() {
+  if (m_homeCardSource == nullptr || m_homeCardToggle == nullptr) {
+    return;
+  }
+  const bool singleMonitor = m_config != nullptr
+      && m_selectedMonitorIndex < m_monitorChoices.size()
+      && !m_monitorChoices[m_selectedMonitorIndex].connector.empty();
+  m_homeCardSource->setVisible(singleMonitor);
+  m_homeCardToggle->setCheckedImmediate(
+      singleMonitor
+      && m_config->stateString("control_center", "home_wallpaper_monitor").value_or("")
+          == m_monitorChoices[m_selectedMonitorIndex].connector
+  );
 }
 
 std::string WallpaperPanel::selectedWallpaperPath() const {

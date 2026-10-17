@@ -77,6 +77,7 @@ private:
   void syncLoadingState();
   void applyFilter();
   void syncBrowseChrome();
+  void syncHomeCardSource();
   void syncBackButton();
   void navigateInto(const std::filesystem::path& dir);
   void navigateUp();
@@ -139,6 +140,8 @@ private:
   Button* m_favoriteCurrentButton = nullptr;
   Toggle* m_flattenToggle = nullptr;
   Label* m_flattenLabel = nullptr;
+  Flex* m_homeCardSource = nullptr;
+  Toggle* m_homeCardToggle = nullptr;
   Button* m_sortButton = nullptr;
   Button* m_refreshButton = nullptr;
   Button* m_colorButton = nullptr;

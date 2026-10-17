@@ -180,7 +180,7 @@ HomeTab::HomeTab(const ControlCenterServices& services)
   if (m_wallpaper != nullptr) {
     m_wallpaperChangedConn = m_wallpaper->changed().connect([this]() {
       if (m_thumbnails != nullptr && m_loadedWallpaperSize > 0) {
-        ensureWallpaperThumbnail(m_wallpaper->currentPath(), m_loadedWallpaperSize);
+        ensureWallpaperThumbnail(m_wallpaper->currentPath(wallpaperMonitor()), m_loadedWallpaperSize);
       }
       if (m_wallpaperBg != nullptr) {
         PanelManager::instance().requestUpdateOnly();
@@ -1099,12 +1099,18 @@ void HomeTab::ensureWallpaperThumbnail(const std::string& path, int targetPx) {
   m_loadedWallpaperSize = targetPx;
 }
 
+std::string HomeTab::wallpaperMonitor() const {
+  return m_config != nullptr ? m_config->stateString("control_center", "home_wallpaper_monitor").value_or("")
+                             : std::string{};
+}
+
 void HomeTab::syncWallpaperBackground(Renderer& renderer) {
   if (m_wallpaperBg == nullptr || m_wallpaperPlaceholder == nullptr) {
     return;
   }
 
-  const std::string path = m_wallpaper != nullptr ? m_wallpaper->currentPath() : std::string{};
+  const std::string monitor = wallpaperMonitor();
+  const std::string path = m_wallpaper != nullptr ? m_wallpaper->currentPath(monitor) : std::string{};
   const float renderScale = std::max(1.0F, renderer.renderScale());
   const int targetPx =
       static_cast<int>(std::lround(std::max(m_wallpaperBg->width(), m_wallpaperBg->height()) * renderScale));
@@ -1127,7 +1133,7 @@ void HomeTab::syncWallpaperBackground(Renderer& renderer) {
 
   // Instant placeholder: show the resident full-screen wallpaper texture (already
   // in VRAM, mipmapped) so the correct wallpaper appears with no decode wait.
-  const TextureHandle resident = m_wallpaper != nullptr ? m_wallpaper->currentTexture() : TextureHandle{};
+  const TextureHandle resident = m_wallpaper != nullptr ? m_wallpaper->currentTexture(monitor) : TextureHandle{};
   m_placeholderReady = resident.valid();
   if (m_placeholderReady) {
     m_wallpaperPlaceholder->setExternalTexture(renderer, resident);
