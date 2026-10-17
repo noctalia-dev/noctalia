@@ -97,6 +97,7 @@ void MathProvider::onLauncherOpened() {
 
 void MathProvider::rebuildCalculator() {
   // Calculator::reset() leaves lazily cached items (e.g. the radian unit) dangling, full recreation instead.
+  // Destroy the old instance first: ~Calculator clears the global CALCULATOR pointer the new one sets.
   m_calc.reset();
   m_calc = std::make_unique<Calculator>();
   // Load any cached rates before definitions so currency units pick them up.
