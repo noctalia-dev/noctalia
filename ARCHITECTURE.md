@@ -155,7 +155,8 @@ use `needsFrameTick()` and `onFrameTick()` only for continuous animation.
 - Prefer passing `CompositorPlatform&` over passing both `WaylandConnection&` and `CompositorPlatform&`.
 - Detect compositors with `compositors::detect()`, `isHyprland()`, `isNiri()`, `isSway()`, and `isMango()` from
   `compositor_detect.h`; do not sniff environment variables again.
-- Session actions use compositor-native logout commands. Niri goes through `NiriRuntime` IPC, not the CLI.
+- Logout goes through `uwsm stop` when UWSM manages the compositor, otherwise compositor-native logout commands. Niri goes
+  through `NiriRuntime` IPC, not the CLI.
 
 ## Configuration and State
 
