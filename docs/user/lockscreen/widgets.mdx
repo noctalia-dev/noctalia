@@ -77,7 +77,7 @@ The eye button beside the password field shows the typed password as plain text 
 | Setting | Default | Range | Description |
 | --- | --- | --- | --- |
 | `layout` | `regular` | `compact` \| `regular` | Login panel layout |
-| `show_session_buttons` | `true` | bool | Regular: show session actions from `[shell.session].actions` (lock actions omitted) |
+| `show_session_buttons` | `true` | bool | Regular: show session actions from `[shell.session].actions` (`lock` omitted) |
 | `show_media` | `true` | bool | Regular: show media in the info row. Both media and weather may be off (the info strip collapses) |
 | `show_weather` | `true` | bool | Regular: show weather beside media. Alone, weather is centered and shows more forecast days; when unavailable while media is on, media fills the row |
 | `background_color` | `surface_variant` | color role | Outer login bar fill |
@@ -91,6 +91,8 @@ The eye button beside the password field shows the typed password as plain text 
 | `input_opacity` | `1.0` | `0.0`–`1.0` | Password field background opacity |
 | `input_radius` | `6` | `0`–`32` | Password field corner radius (logical px) |
 | `center_password_text` | `false` | bool | Center password dots and placeholder inside the field |
+
+Enabled `lock_and_suspend` entries appear as Suspend unless an enabled `suspend` entry is present. Custom labels, glyphs, and commands are preserved, so a `lock_and_suspend` entry with `command = "systemctl sleep"` remains available on the lock screen.
 
 ```toml
 [lockscreen_widgets.widget."lockscreen-login-box@DP-1".settings]
