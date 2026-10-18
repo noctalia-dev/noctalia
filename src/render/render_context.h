@@ -60,18 +60,17 @@ private:
   // Scale-parameterized measurement/text ops. ScaledRenderer forwards here with
   // an explicit scale; no call mutates any shared render scale.
   [[nodiscard]] TextMetrics measureTextScaled(
-      float scale, std::string_view text, float fontSize, FontWeight fontWeight, float maxWidth, int maxLines,
-      TextAlign align, std::string_view fontFamily, TextEllipsize ellipsize, bool useMarkup
+      float scale, std::string_view text, float fontSize, const TextFont& font, float maxWidth, int maxLines,
+      TextAlign align, TextEllipsize ellipsize, bool useMarkup
   );
-  [[nodiscard]] TextMetrics
-  measureFontScaled(float scale, float fontSize, FontWeight fontWeight, std::string_view fontFamily);
+  [[nodiscard]] TextMetrics measureFontScaled(float scale, float fontSize, const TextFont& font);
   void measureTextCursorStopsScaled(
       float scale, std::string_view text, float fontSize, const std::vector<std::size_t>& byteOffsets,
-      std::vector<float>& outStops, FontWeight fontWeight
+      std::vector<float>& outStops, const TextFont& font
   );
   void measureTextCursorStopsWrappedScaled(
       float scale, std::string_view text, float fontSize, const std::vector<std::size_t>& byteOffsets, float maxWidth,
-      std::vector<TextCursorStop>& outStops, FontWeight fontWeight
+      std::vector<TextCursorStop>& outStops, const TextFont& font
   );
   [[nodiscard]] TextMetrics measureGlyphScaled(float scale, char32_t codepoint, float fontSize);
 

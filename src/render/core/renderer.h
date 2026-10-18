@@ -3,6 +3,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -27,6 +28,15 @@ enum class FontWeight : int {
   UltraBold = 800,
   Heavy = 900,
   UltraHeavy = 1000,
+};
+
+// Font selection for a run of text. An empty family means the renderer-global
+// family (shell.font_family).
+struct TextFont {
+  FontWeight weight = FontWeight::Normal;
+  std::string family;
+
+  bool operator==(const TextFont&) const = default;
 };
 
 // Caret geometry for one byte offset in a laid-out text: caret x, top and
@@ -64,33 +74,31 @@ public:
   virtual ~Renderer() = default;
 
   [[nodiscard]] virtual TextMetrics measureText(
-      std::string_view text, float fontSize, FontWeight fontWeight = FontWeight::Normal, float maxWidth = 0.0F,
-      int maxLines = 0, TextAlign align = TextAlign::Start, std::string_view fontFamily = {},
-      TextEllipsize ellipsize = TextEllipsize::End, bool useMarkup = false
+      std::string_view text, float fontSize, const TextFont& font = {}, float maxWidth = 0.0F, int maxLines = 0,
+      TextAlign align = TextAlign::Start, TextEllipsize ellipsize = TextEllipsize::End, bool useMarkup = false
   ) = 0;
-  // Metrics of `fontFamily` (empty = renderer-global family) at the given size/weight.
-  [[nodiscard]] virtual TextMetrics
-  measureFont(float fontSize, FontWeight fontWeight = FontWeight::Normal, std::string_view fontFamily = {}) = 0;
+  // Metrics of `font` at the given size.
+  [[nodiscard]] virtual TextMetrics measureFont(float fontSize, const TextFont& font = {}) = 0;
 
   // Canonical "as tall as a line of text" row height: the rounded vertical
   // extent of the given font. Bar capsule heights and content widgets that must
   // align with text (e.g. the audio visualizer) size their cross-axis to this
   // instead of re-deriving font metrics by hand. Backed by measureFont(), which
   // is memoized — safe to call from every layout pass.
-  [[nodiscard]] virtual float fontRowExtent(float fontSize, FontWeight fontWeight = FontWeight::Normal) {
-    const TextMetrics m = measureFont(fontSize, fontWeight);
+  [[nodiscard]] virtual float fontRowExtent(float fontSize, const TextFont& font = {}) {
+    const TextMetrics m = measureFont(fontSize, font);
     return std::round(m.bottom - m.top);
   }
   virtual void measureTextCursorStops(
       std::string_view text, float fontSize, const std::vector<std::size_t>& byteOffsets, std::vector<float>& outStops,
-      FontWeight fontWeight = FontWeight::Normal
+      const TextFont& font = {}
   ) = 0;
   // Like measureTextCursorStops, but lays the text out wrapped at maxWidth
   // (word-char wrap, '\n' honored — the same layout the draw path uses for a
   // maxLines=0 text node) and reports full caret rects instead of x only.
   virtual void measureTextCursorStopsWrapped(
       std::string_view text, float fontSize, const std::vector<std::size_t>& byteOffsets, float maxWidth,
-      std::vector<TextCursorStop>& outStops, FontWeight fontWeight = FontWeight::Normal
+      std::vector<TextCursorStop>& outStops, const TextFont& font = {}
   ) = 0;
   [[nodiscard]] virtual TextMetrics measureGlyph(char32_t codepoint, float fontSize) = 0;
   [[nodiscard]] virtual TextureManager& textureManager() = 0;

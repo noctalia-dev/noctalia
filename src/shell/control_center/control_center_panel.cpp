@@ -885,7 +885,7 @@ void ControlCenterPanel::layoutFullSidebarWidth(Renderer& renderer) {
     if (!isTabVisible(meta.id)) {
       continue;
     }
-    const TextMetrics text = renderer.measureText(i18n::tr(meta.titleKey), fontSize, FontWeight::Bold);
+    const TextMetrics text = renderer.measureText(i18n::tr(meta.titleKey), fontSize, {FontWeight::Bold});
     maxTabWidth = std::max(maxTabWidth, paddingH + glyphW + gap + text.width);
   }
 

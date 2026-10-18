@@ -261,7 +261,7 @@ void BatteryWidget::layoutGraphicMode(Renderer& renderer) {
     }
     labelW = m_overlayLabel->width();
     if (m_isVertical) {
-      labelW = std::max(labelW, std::ceil(renderer.measureText("00", fontSize, fontWeight).width));
+      labelW = std::max(labelW, std::ceil(renderer.measureText("00", fontSize, {fontWeight}).width));
     }
   }
   if (showStateGlyph) {

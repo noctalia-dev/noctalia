@@ -850,7 +850,7 @@ void Input::rebuildCursorStopsFull(Renderer& renderer) {
 
   if (m_value.empty()) {
     if (m_multiline) {
-      m_stopRect.push_back(TextCursorStop{0.0F, 0.0F, renderer.fontRowExtent(m_fontSize, m_label->fontWeight())});
+      m_stopRect.push_back(TextCursorStop{0.0F, 0.0F, renderer.fontRowExtent(m_fontSize, m_label->font())});
     }
     return;
   }
@@ -868,7 +868,7 @@ void Input::rebuildCursorStopsFull(Renderer& renderer) {
   }
   if (m_multiline) {
     renderer.measureTextCursorStopsWrapped(
-        m_value, m_fontSize, m_stopByte, m_stopsBuiltForWidth, m_stopRect, m_label->fontWeight()
+        m_value, m_fontSize, m_stopByte, m_stopsBuiltForWidth, m_stopRect, m_label->font()
     );
     if (m_stopRect.size() != m_stopByte.size()) {
       m_stopRect.assign(m_stopByte.size(), TextCursorStop{0.0F, 0.0F, m_fontSize});
@@ -878,7 +878,7 @@ void Input::rebuildCursorStopsFull(Renderer& renderer) {
       m_stopX[i] = m_stopRect[i].x;
     }
   } else if (!showPasswordGlyphs) {
-    renderer.measureTextCursorStops(m_value, m_fontSize, m_stopByte, m_stopX, m_label->fontWeight());
+    renderer.measureTextCursorStops(m_value, m_fontSize, m_stopByte, m_stopX, m_label->font());
     if (m_stopX.size() != m_stopByte.size()) {
       m_stopX.assign(m_stopByte.size(), 0.0F);
     }
@@ -911,7 +911,7 @@ void Input::recomputeContentLeadSlack(Renderer& renderer, float width, bool show
   } else if (!m_value.empty() && !m_stopX.empty()) {
     textExtent = *std::ranges::max_element(m_stopX);
   } else if (m_value.empty() && !m_placeholder.empty()) {
-    textExtent = renderer.measureText(m_placeholder, m_fontSize, m_label->fontWeight()).width;
+    textExtent = renderer.measureText(m_placeholder, m_fontSize, m_label->font()).width;
   }
   if (viewportWidth > 0.0F && textExtent > 0.0F && textExtent + 0.5F < viewportWidth) {
     m_contentLeadSlack = m_textAlign == TextAlign::Center ? std::round((viewportWidth - textExtent) * 0.5F)

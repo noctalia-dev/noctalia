@@ -235,12 +235,10 @@ void RenderContext::renderScene(RenderTarget& target, Node* sceneRoot, const Wal
 }
 
 TextMetrics RenderContext::measureTextScaled(
-    float scale, std::string_view text, float fontSize, FontWeight fontWeight, float maxWidth, int maxLines,
-    TextAlign align, std::string_view fontFamily, TextEllipsize ellipsize, bool useMarkup
+    float scale, std::string_view text, float fontSize, const TextFont& font, float maxWidth, int maxLines,
+    TextAlign align, TextEllipsize ellipsize, bool useMarkup
 ) {
-  auto m = m_textRenderer.measure(
-      scale, text, fontSize, fontWeight, maxWidth, maxLines, align, fontFamily, ellipsize, useMarkup
-  );
+  auto m = m_textRenderer.measure(scale, text, fontSize, font, maxWidth, maxLines, align, ellipsize, useMarkup);
   return TextMetrics{
       .width = m.width,
       .left = m.left,
@@ -255,9 +253,8 @@ TextMetrics RenderContext::measureTextScaled(
   };
 }
 
-TextMetrics
-RenderContext::measureFontScaled(float scale, float fontSize, FontWeight fontWeight, std::string_view fontFamily) {
-  auto m = m_textRenderer.measureFont(scale, fontSize, fontWeight, fontFamily);
+TextMetrics RenderContext::measureFontScaled(float scale, float fontSize, const TextFont& font) {
+  auto m = m_textRenderer.measureFont(scale, fontSize, font);
   return TextMetrics{
       .width = m.width,
       .left = m.left,
@@ -274,16 +271,16 @@ RenderContext::measureFontScaled(float scale, float fontSize, FontWeight fontWei
 
 void RenderContext::measureTextCursorStopsScaled(
     float scale, std::string_view text, float fontSize, const std::vector<std::size_t>& byteOffsets,
-    std::vector<float>& outStops, FontWeight fontWeight
+    std::vector<float>& outStops, const TextFont& font
 ) {
-  m_textRenderer.measureCursorStops(scale, text, fontSize, byteOffsets, outStops, fontWeight);
+  m_textRenderer.measureCursorStops(scale, text, fontSize, byteOffsets, outStops, font);
 }
 
 void RenderContext::measureTextCursorStopsWrappedScaled(
     float scale, std::string_view text, float fontSize, const std::vector<std::size_t>& byteOffsets, float maxWidth,
-    std::vector<TextCursorStop>& outStops, FontWeight fontWeight
+    std::vector<TextCursorStop>& outStops, const TextFont& font
 ) {
-  m_textRenderer.measureCursorStopsWrapped(scale, text, fontSize, byteOffsets, maxWidth, outStops, fontWeight);
+  m_textRenderer.measureCursorStopsWrapped(scale, text, fontSize, byteOffsets, maxWidth, outStops, font);
 }
 
 TextMetrics RenderContext::measureGlyphScaled(float scale, char32_t codepoint, float fontSize) {
@@ -370,22 +367,21 @@ void RenderContext::renderNode(
   case NodeType::Text: {
     const auto* text = static_cast<const TextNode*>(node);
     if (!text->text().empty()) {
-      const auto& font = text->fontFamily();
+      const TextFont& font = text->font();
       if (text->hasShadow()) {
         auto shadowColor = text->shadowColor();
         shadowColor.a *= effectiveOpacity;
         const Mat3 shadowTransform = worldTransform * Mat3::translation(text->shadowOffsetX(), text->shadowOffsetY());
         m_textRenderer.draw(
-            renderScale, sw, sh, 0.0F, 0.0F, text->text(), text->fontSize(), shadowColor, shadowTransform,
-            text->fontWeight(), text->maxWidth(), text->maxLines(), text->textAlign(), font, text->ellipsize(),
-            text->useMarkup()
+            renderScale, sw, sh, 0.0F, 0.0F, text->text(), text->fontSize(), shadowColor, shadowTransform, font,
+            text->maxWidth(), text->maxLines(), text->textAlign(), text->ellipsize(), text->useMarkup()
         );
       }
       auto color = text->color();
       color.a *= effectiveOpacity;
       m_textRenderer.draw(
-          renderScale, sw, sh, 0.0F, 0.0F, text->text(), text->fontSize(), color, worldTransform, text->fontWeight(),
-          text->maxWidth(), text->maxLines(), text->textAlign(), font, text->ellipsize(), text->useMarkup()
+          renderScale, sw, sh, 0.0F, 0.0F, text->text(), text->fontSize(), color, worldTransform, font,
+          text->maxWidth(), text->maxLines(), text->textAlign(), text->ellipsize(), text->useMarkup()
       );
     }
     break;

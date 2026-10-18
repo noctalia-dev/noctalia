@@ -95,7 +95,7 @@ namespace {
     const float maxTextWidth = maxWidth * 0.82F;
     const float maxTextHeight = maxHeight * 0.82F;
     while (fontSize >= minFontSize) {
-      const auto metrics = renderer.measureText(label, fontSize, fontWeight);
+      const auto metrics = renderer.measureText(label, fontSize, {fontWeight});
       const float textWidth = std::max(0.0F, metrics.right - metrics.left);
       const float textHeight = std::max(0.0F, metrics.bottom - metrics.top);
       if (textWidth <= maxTextWidth && textHeight <= maxTextHeight) {
@@ -114,7 +114,7 @@ namespace {
   [[nodiscard]] WorkspaceDiscSize measureWorkspaceDiscSize(
       Renderer& renderer, std::string_view label, float fontSize, float minHeight, float scale, FontWeight fontWeight
   ) {
-    const auto metrics = renderer.measureText(label, fontSize, fontWeight);
+    const auto metrics = renderer.measureText(label, fontSize, {fontWeight});
     const float textW = std::max(0.0F, metrics.right - metrics.left);
     const float pad = Style::spaceXs * scale;
     WorkspaceDiscSize size{};
@@ -871,7 +871,7 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
             / static_cast<float>(m_tasks.size())
         );
   // If the title text is too narrow, all it shows is "..." which isn't useful, so we hide it instead.
-  const auto metric = renderer.measureText("...", Style::fontSizeCaption * fontScale(), fontWeight);
+  const auto metric = renderer.measureText("...", Style::fontSizeCaption * fontScale(), {fontWeight});
   const float minWindowTitleWidth = (metric.right - metric.left) * 2;
   const float windowTitleGap = Style::spaceXs * m_contentScale;
   const float windowTitleWidth =
@@ -1421,7 +1421,7 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
       std::string overflowText;
       if (overflow > 0) {
         overflowText = "+" + std::to_string(overflow);
-        const TextMetrics tm = renderer.measureText(overflowText, overflowFontSize, fontWeight);
+        const TextMetrics tm = renderer.measureText(overflowText, overflowFontSize, {fontWeight});
         overflowLabelWidth = std::max(tm.right - tm.left, tm.inkRight - tm.inkLeft);
         overflowLabelHeight = tm.bottom - tm.top;
       }

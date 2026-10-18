@@ -37,19 +37,17 @@ public:
   void setContext(RenderContext* context) noexcept { m_context = context; }
 
   [[nodiscard]] TextMetrics measureText(
-      std::string_view text, float fontSize, FontWeight fontWeight = FontWeight::Normal, float maxWidth = 0.0F,
-      int maxLines = 0, TextAlign align = TextAlign::Start, std::string_view fontFamily = {},
-      TextEllipsize ellipsize = TextEllipsize::End, bool useMarkup = false
+      std::string_view text, float fontSize, const TextFont& font = {}, float maxWidth = 0.0F, int maxLines = 0,
+      TextAlign align = TextAlign::Start, TextEllipsize ellipsize = TextEllipsize::End, bool useMarkup = false
   ) override;
-  [[nodiscard]] TextMetrics
-  measureFont(float fontSize, FontWeight fontWeight = FontWeight::Normal, std::string_view fontFamily = {}) override;
+  [[nodiscard]] TextMetrics measureFont(float fontSize, const TextFont& font = {}) override;
   void measureTextCursorStops(
       std::string_view text, float fontSize, const std::vector<std::size_t>& byteOffsets, std::vector<float>& outStops,
-      FontWeight fontWeight = FontWeight::Normal
+      const TextFont& font = {}
   ) override;
   void measureTextCursorStopsWrapped(
       std::string_view text, float fontSize, const std::vector<std::size_t>& byteOffsets, float maxWidth,
-      std::vector<TextCursorStop>& outStops, FontWeight fontWeight = FontWeight::Normal
+      std::vector<TextCursorStop>& outStops, const TextFont& font = {}
   ) override;
   [[nodiscard]] TextMetrics measureGlyph(char32_t codepoint, float fontSize) override;
   [[nodiscard]] TextureManager& textureManager() override;

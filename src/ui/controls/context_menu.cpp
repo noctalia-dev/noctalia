@@ -229,7 +229,7 @@ float ContextMenuControl::preferredWidth(
     }
     const float toggleSlot = (reserveToggleSpace || hasToggle(entry)) ? kToggleSlot * scale : 0.0F;
     const FontWeight weight = entry.header ? FontWeight::Bold : FontWeight::Normal;
-    const float textWidth = std::ceil(renderer.measureText(entry.label, kMenuFontSize * scale, weight).width);
+    const float textWidth = std::ceil(renderer.measureText(entry.label, kMenuFontSize * scale, {weight}).width);
     // Mirrors rebuildRows: 8px label inset each side, 30px right when a chevron is drawn.
     const float sidePadding = (entry.hasSubmenu ? 30.0F : 16.0F) * scale;
     maxRowWidth = std::max(

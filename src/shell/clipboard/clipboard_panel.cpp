@@ -48,8 +48,8 @@ namespace {
   // Row height derives from measured font metrics so fonts with oversized
   // declared line extents still fit the title + meta stack.
   [[nodiscard]] float listRowHeight(Renderer& renderer, float scale) {
-    const TextMetrics title = renderer.measureFont(Style::fontSizeBody * scale, FontWeight::SemiBold);
-    const TextMetrics meta = renderer.measureFont(Style::fontSizeCaption * scale, FontWeight::Normal);
+    const TextMetrics title = renderer.measureFont(Style::fontSizeBody * scale, {FontWeight::SemiBold});
+    const TextMetrics meta = renderer.measureFont(Style::fontSizeCaption * scale, {FontWeight::Normal});
     const float textHeight = std::round(title.bottom - title.top) + std::round(meta.bottom - meta.top);
     return std::ceil(std::max(kListThumbSize * scale, textHeight) + Style::spaceXs * scale * 2.0F);
   }

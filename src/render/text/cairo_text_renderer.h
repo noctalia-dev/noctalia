@@ -13,6 +13,7 @@
 
 // Forward declarations to avoid dragging Pango headers into every TU.
 typedef struct _PangoContext PangoContext;
+typedef struct _PangoFontDescription PangoFontDescription;
 typedef struct _PangoFontMap PangoFontMap;
 typedef struct _PangoLayout PangoLayout;
 
@@ -66,33 +67,32 @@ public:
   void abandonGlyphTextures() noexcept;
 
   [[nodiscard]] TextMetrics measure(
-      float contentScale, std::string_view text, float fontSize, FontWeight fontWeight = FontWeight::Normal,
-      float maxWidth = 0.0F, int maxLines = 0, TextAlign align = TextAlign::Start, std::string_view fontFamily = {},
-      TextEllipsize ellipsize = TextEllipsize::End, bool useMarkup = false
+      float contentScale, std::string_view text, float fontSize, const TextFont& font = {}, float maxWidth = 0.0F,
+      int maxLines = 0, TextAlign align = TextAlign::Start, TextEllipsize ellipsize = TextEllipsize::End,
+      bool useMarkup = false
   );
-  // Metrics of `fontFamily` (empty = the active family set by setFontFamily()).
-  [[nodiscard]] TextMetrics
-  measureFont(float contentScale, float fontSize, FontWeight fontWeight, std::string_view fontFamily = {}) const;
+  // Metrics of `font` (an empty family = the active family set by setFontFamily()).
+  [[nodiscard]] TextMetrics measureFont(float contentScale, float fontSize, const TextFont& font = {}) const;
   void measureCursorStops(
       float contentScale, std::string_view text, float fontSize, const std::vector<std::size_t>& byteOffsets,
-      std::vector<float>& outStops, FontWeight fontWeight = FontWeight::Normal
+      std::vector<float>& outStops, const TextFont& font = {}
   );
   void measureCursorStopsWrapped(
       float contentScale, std::string_view text, float fontSize, const std::vector<std::size_t>& byteOffsets,
-      float maxWidth, std::vector<TextCursorStop>& outStops, FontWeight fontWeight = FontWeight::Normal
+      float maxWidth, std::vector<TextCursorStop>& outStops, const TextFont& font = {}
   );
 
   void draw(
       float contentScale, float surfaceWidth, float surfaceHeight, float x, float baselineY, std::string_view text,
-      float fontSize, const Color& color, const Mat3& transform, FontWeight fontWeight = FontWeight::Normal,
-      float maxWidth = 0.0F, int maxLines = 0, TextAlign align = TextAlign::Start, std::string_view fontFamily = {},
-      TextEllipsize ellipsize = TextEllipsize::End, bool useMarkup = false
+      float fontSize, const Color& color, const Mat3& transform, const TextFont& font = {}, float maxWidth = 0.0F,
+      int maxLines = 0, TextAlign align = TextAlign::Start, TextEllipsize ellipsize = TextEllipsize::End,
+      bool useMarkup = false
   );
 
 private:
   struct CacheKey {
     std::string text;
-    std::string fontFamily;
+    TextFont font;
     std::uint32_t sizeBits = 0;     // exact normalized fontSize bits
     std::uint32_t colorRgba = 0;    // packed r<<24|g<<16|b<<8|a
     std::uint32_t maxWidthBits = 0; // exact normalized maxWidth bits; 0 = no limit
@@ -100,7 +100,6 @@ private:
     std::uint16_t maxLines = 0;     // 0 = no explicit limit (use '\n'-count fallback)
     TextAlign align = TextAlign::Start;
     TextEllipsize ellipsize = TextEllipsize::End;
-    FontWeight fontWeight = FontWeight::Normal;
     bool useMarkup = false;
 
     bool operator==(const CacheKey& other) const noexcept;
@@ -114,14 +113,13 @@ private:
   // a PangoLayout for each call was the top allocation hot-spot in heaptrack.
   struct MetricsKey {
     std::string text;
-    std::string fontFamily;
+    TextFont font;
     std::uint32_t sizeBits = 0;
     std::uint32_t maxWidthBits = 0;
     std::uint32_t scaleBits = 0;
     std::uint16_t maxLines = 0;
     TextAlign align = TextAlign::Start;
     TextEllipsize ellipsize = TextEllipsize::End;
-    FontWeight fontWeight = FontWeight::Normal;
     bool useMarkup = false;
 
     bool operator==(const MetricsKey& other) const noexcept;
@@ -131,17 +129,16 @@ private:
   };
 
   // Color- and text-independent key for measureFont(), which derives font
-  // metrics from a family at a given size/weight/scale. measureFont()
+  // metrics from a font at a given size/scale. measureFont()
   // runs every frame from bar layout; each underlying pango_context_get_metrics
   // call makes Pango accumulate internal cache structures that are never
   // reclaimed during the run (heaptrack: top leak, ~24MB over a 30m session).
   // Memoizing collapses ~15k calls/run down to the handful of distinct fonts.
   // An empty family means the active family; clearCaches() runs when it changes.
   struct FontMetricsKey {
-    std::string fontFamily;
+    TextFont font;
     std::uint32_t sizeBits = 0;
     std::uint32_t scaleBits = 0;
-    FontWeight fontWeight = FontWeight::Normal;
     bool operator==(const FontMetricsKey& other) const noexcept;
   };
   struct FontMetricsKeyHash {
@@ -180,11 +177,13 @@ private:
   using MetricsMap = std::unordered_map<MetricsKey, TextMetrics, MetricsKeyHash>;
   using FontMetricsMap = std::unordered_map<FontMetricsKey, TextMetrics, FontMetricsKeyHash>;
 
+  // Font description for `font` at a raster pixel size; an empty family resolves to
+  // the active family. Caller owns it (pango_font_description_free).
+  PangoFontDescription* newFontDescription(const TextFont& font, float rasterSize) const;
   // Build a PangoLayout at the given scaled size. Caller owns the layout (g_object_unref).
   PangoLayout* buildLayout(
-      float contentScale, std::string_view text, float fontSize, FontWeight fontWeight, float maxWidthPxScaled,
-      int maxLines, TextAlign align, std::string_view fontFamily = {}, TextEllipsize ellipsize = TextEllipsize::End,
-      bool useMarkup = false
+      float contentScale, std::string_view text, float fontSize, const TextFont& font, float maxWidthPxScaled,
+      int maxLines, TextAlign align, TextEllipsize ellipsize = TextEllipsize::End, bool useMarkup = false
   ) const;
   // Render a layout into a new GL texture; fills out fields of `entry`.
   // When `tinted` is true, rasterizes as CAIRO_FORMAT_A8 and uploads alpha
@@ -196,9 +195,8 @@ private:
   TextMetrics metricsFromLayout(float contentScale, PangoLayout* layout) const;
 
   CacheEntry* lookupOrRasterize(
-      float contentScale, std::string_view text, float fontSize, FontWeight fontWeight, float maxWidth, int maxLines,
-      TextAlign align, const Color& color, std::string_view fontFamily = {},
-      TextEllipsize ellipsize = TextEllipsize::End, bool useMarkup = false
+      float contentScale, std::string_view text, float fontSize, const TextFont& font, float maxWidth, int maxLines,
+      TextAlign align, const Color& color, TextEllipsize ellipsize = TextEllipsize::End, bool useMarkup = false
   );
   void touch(CacheMap::iterator it);
   void evict(CacheMap::iterator it);

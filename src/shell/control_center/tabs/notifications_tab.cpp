@@ -195,7 +195,7 @@ namespace {
     if (text.empty()) {
       return 0.0F;
     }
-    const auto bounds = renderer.measureText(text, fontSize, fontWeight, maxWidth, maxLines);
+    const auto bounds = renderer.measureText(text, fontSize, {fontWeight}, maxWidth, maxLines);
     return std::max(0.0F, bounds.bottom - bounds.top);
   }
 
