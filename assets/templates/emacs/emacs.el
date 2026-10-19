@@ -276,6 +276,14 @@
    `(ansi-color-magenta ((t (:foreground ,term5 :background ,term5))))
    `(ansi-color-cyan ((t (:foreground ,term6 :background ,term6))))
    `(ansi-color-white ((t (:foreground ,term7 :background ,term7))))
+   `(ansi-color-bright-black ((t (:foreground ,term8 :background ,term8))))
+   `(ansi-color-bright-red ((t (:foreground ,term9 :background ,term9))))
+   `(ansi-color-bright-green ((t (:foreground ,term10 :background ,term10))))
+   `(ansi-color-bright-yellow ((t (:foreground ,term11 :background ,term11))))
+   `(ansi-color-bright-blue ((t (:foreground ,term12 :background ,term12))))
+   `(ansi-color-bright-magenta ((t (:foreground ,term13 :background ,term13))))
+   `(ansi-color-bright-cyan ((t (:foreground ,term14 :background ,term14))))
+   `(ansi-color-bright-white ((t (:foreground ,term15 :background ,term15))))
 
    ;; EShell
    `(eshell-prompt ((t (:foreground ,primary :weight bold))))
