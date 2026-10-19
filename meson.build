@@ -1185,6 +1185,7 @@ if build_tests
     'audio_route_selection',
     'battery_health',
     'battery_hook_state',
+    'battery_warning_threshold',
     'bluetooth_uuid_names',
     'button_layout',
     'cairo_text_renderer',

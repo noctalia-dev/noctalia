@@ -62,14 +62,18 @@ namespace {
 int batteryWarningThresholdForDevice(
     const BatteryConfig& config, const UPowerDeviceInfo& device, const UPowerDeviceInfo* systemBattery
 ) {
-  if (!isSystemBattery(device, systemBattery)) {
+  const bool isSystem = isSystemBattery(device, systemBattery);
+  if (!isSystem) {
     for (const auto& deviceThreshold : config.deviceThresholds) {
       if (upowerDeviceMatchesSelector(device, deviceThreshold.selector)) {
         return deviceThreshold.warningThreshold;
       }
     }
   }
-  return device.isLaptopBattery() ? config.warningThreshold : 0;
+  // A laptop pack that is not the system battery (BAT1 on a two-battery laptop) stays silent: the
+  // laptop warns as a whole on the combined charge. An explicit deviceThresholds entry gives the
+  // pack a warning of its own, at its own percent.
+  return device.isLaptopBattery() && isSystem ? config.warningThreshold : 0;
 }
 
 int batteryWarningThresholdForSelector(
@@ -167,22 +171,7 @@ void BatteryWarningMonitor::evaluate(
     seen.insert(key);
 
     const bool isSystem = isSystemBattery(device, systemBattery);
-    int threshold;
-
-    // A laptop pack that is not the system battery (BAT1 on a two-battery laptop) stays silent:
-    // the laptop already warns as a whole on the combined charge. An explicit deviceThresholds
-    // entry gives this pack a warning of its own, at its own percent.
-    if (device.isLaptopBattery() && !isSystem) {
-      threshold = 0;
-      for (const auto& deviceThreshold : config.deviceThresholds) {
-        if (upowerDeviceMatchesSelector(device, deviceThreshold.selector)) {
-          threshold = deviceThreshold.warningThreshold;
-          break;
-        }
-      }
-    } else {
-      threshold = batteryWarningThresholdForDevice(config, device, systemBattery);
-    }
+    const int threshold = batteryWarningThresholdForDevice(config, device, systemBattery);
 
     // The system battery warns on the combined DisplayDevice charge; explicit per-device
     // subjects warn on the pack's own percent.
