@@ -121,9 +121,10 @@ namespace {
   }
 
   void fireLowBatteryNotification(
-      NotificationManager& notifications, const UPowerDeviceInfo& device, int level, bool isSystem
+      NotificationManager& notifications, const UPowerDeviceInfo& device, const UPowerState& warningState,
+      int level, bool isSystem
   ) {
-    const int percent = std::clamp(static_cast<int>(std::round(device.state.percentage)), 0, 100);
+    const int percent = std::clamp(static_cast<int>(std::round(warningState.percentage)), 0, 100);
     const std::string label = deviceLabel(device);
 
     Urgency urgency = Urgency::Critical;
@@ -157,6 +158,7 @@ void BatteryWarningMonitor::evaluate(
 ) {
   std::unordered_set<std::string> seen;
   const auto* systemBattery = upower.defaultSystemBattery();
+  const UPowerState& combined = upower.state();
   for (const auto& device : upower.batteryDevices()) {
     const std::string key = deviceKey(device);
     if (key.empty()) {
@@ -165,18 +167,37 @@ void BatteryWarningMonitor::evaluate(
     seen.insert(key);
 
     const bool isSystem = isSystemBattery(device, systemBattery);
-    const int threshold = batteryWarningThresholdForDevice(config, device, systemBattery);
+    int threshold;
+
+    // A laptop pack that is not the system battery (BAT1 on a two-battery laptop) stays silent:
+    // the laptop already warns as a whole on the combined charge. An explicit deviceThresholds
+    // entry gives this pack a warning of its own, at its own percent.
+    if (device.isLaptopBattery() && !isSystem) {
+      threshold = 0;
+      for (const auto& deviceThreshold : config.deviceThresholds) {
+        if (upowerDeviceMatchesSelector(device, deviceThreshold.selector)) {
+          threshold = deviceThreshold.warningThreshold;
+          break;
+        }
+      }
+    } else {
+      threshold = batteryWarningThresholdForDevice(config, device, systemBattery);
+    }
+
+    // The system battery warns on the combined DisplayDevice charge; explicit per-device
+    // subjects warn on the pack's own percent.
+    const UPowerState& warningState = isSystem ? combined : device.state;
     auto& state = m_devices[key];
 
     // Re-arm when charging, absent, or warnings disabled. firedLevel is percentage-based, so a
     // threshold change across config reloads needs no special handling — the next level decides.
-    if (!device.state.isPresent || batteryStatePlugged(device.state.state).value_or(false) || threshold <= 0) {
+    if (!warningState.isPresent || batteryStatePlugged(warningState.state).value_or(false) || threshold <= 0) {
       state.firedLevel = kNoLevel;
       continue;
     }
 
     const std::vector<int> points = alertPointsForDevice(threshold, isSystem);
-    const int percent = static_cast<int>(std::round(device.state.percentage));
+    const int percent = static_cast<int>(std::round(warningState.percentage));
     const int currentLevel = currentLevelFor(points, percent);
 
     if (currentLevel == kNoLevel) {
@@ -188,7 +209,7 @@ void BatteryWarningMonitor::evaluate(
     // evaluate (startup) fires whatever level the battery already sits in — this is a deliberate
     // safety notification at boot, not a baseline state transition.
     if (currentLevel < state.firedLevel) {
-      fireLowBatteryNotification(notifications, device, currentLevel, isSystem);
+      fireLowBatteryNotification(notifications, device, warningState, currentLevel, isSystem);
       state.firedLevel = currentLevel;
     } else if (currentLevel > state.firedLevel) {
       state.firedLevel = currentLevel; // partial recharge → arm so re-dropping re-alerts
