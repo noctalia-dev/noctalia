@@ -121,8 +121,8 @@ namespace {
   }
 
   void fireLowBatteryNotification(
-      NotificationManager& notifications, const UPowerDeviceInfo& device, const UPowerState& warningState,
-      int level, bool isSystem
+      NotificationManager& notifications, const UPowerDeviceInfo& device, const UPowerState& warningState, int level,
+      bool isSystem
   ) {
     const int percent = std::clamp(static_cast<int>(std::round(warningState.percentage)), 0, 100);
     const std::string label = deviceLabel(device);
