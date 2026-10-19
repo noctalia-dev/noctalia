@@ -35,14 +35,14 @@ LockKeysService::LockKeysState LockKeysService::state() const noexcept { return 
 
 void LockKeysService::setChangeCallback(ChangeCallback callback) { m_changeCallback = std::move(callback); }
 
-void LockKeysService::refreshNow() {
+void LockKeysService::refreshNow(bool notify) {
   const LockKeysState previous = m_state;
   const bool hadState = m_hasState;
 
   m_state = readCurrentState();
   m_hasState = true;
 
-  if (hadState && previous != m_state && m_changeCallback) {
+  if (notify && hadState && previous != m_state && m_changeCallback) {
     m_changeCallback(previous, m_state);
   }
 }

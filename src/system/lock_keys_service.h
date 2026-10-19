@@ -18,7 +18,9 @@ public:
 
   [[nodiscard]] LockKeysState state() const noexcept;
   void setChangeCallback(ChangeCallback callback);
-  void refreshNow();
+  // notify=false re-reads state without reporting a change, for resyncing
+  // after a period where nothing was listening.
+  void refreshNow(bool notify = true);
 
 private:
   [[nodiscard]] LockKeysState readCurrentState();

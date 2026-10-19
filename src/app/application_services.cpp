@@ -931,6 +931,27 @@ void Application::initWaylandCallbacks() {
           }
         }
     );
+    // Refreshes otherwise only run on modifier events, so a consumer enabled
+    // after startup needs a fresh read: without one its first toggle would only
+    // prime the state and go unreported. The resync itself is silent so state
+    // that drifted while nothing listened doesn't pop an OSD on reload.
+    m_configService.addReloadCallback(
+        [this]() {
+          const ConfigChangeSet& change = m_configService.lastChange();
+          if (!change.osd && !change.bars && !change.widgets) {
+            return;
+          }
+          const Config& config = m_configService.config();
+          if (!lockKeysConsumersEnabled(config)) {
+            return;
+          }
+          m_lockKeysService.refreshNow(false);
+          if (configHasLockKeysWidget(config)) {
+            m_bar.refresh();
+          }
+        },
+        "lock-keys"
+    );
   }
   m_idleInhibitor.initialize(m_wayland);
   m_idleInhibitor.setChangeCallback([this, shouldRefreshControlCenter]() {
