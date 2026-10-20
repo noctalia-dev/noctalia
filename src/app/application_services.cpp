@@ -1669,6 +1669,10 @@ void Application::initSessionBusServices() {
   // first sync is not missed.
   auto pushCalendar = [this]() {
     const CalendarSnapshot& snapshot = m_calendarService.snapshot();
+    if (!snapshot.valid) {
+      m_scriptApi.setCalendarEvents(nullptr);
+      return;
+    }
     std::vector<scripting::ScriptCalendarEvent> events;
     events.reserve(snapshot.events.size());
     for (const CalendarEvent& event : snapshot.events) {
@@ -1686,7 +1690,9 @@ void Application::initSessionBusServices() {
           }
       );
     }
-    m_scriptApi.setCalendarEvents(snapshot.valid, std::move(events));
+    m_scriptApi.setCalendarEvents(
+        std::make_shared<const std::vector<scripting::ScriptCalendarEvent>>(std::move(events))
+    );
   };
   (void)m_calendarService.addChangeCallback(pushCalendar);
   m_calendarService.initialize();

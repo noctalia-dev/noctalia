@@ -126,20 +126,14 @@ namespace scripting {
 
     // Merged, already-expanded calendar events, mirrored from CalendarService on the main thread
     // so script bindings read them synchronously and race-free, exactly like clipboard text above.
-    // `valid` is false until the first successful sync, which lets a plugin tell "no events" apart
-    // from "not synced yet".
-    void setCalendarEvents(bool valid, std::vector<ScriptCalendarEvent> events) {
+    // Null until the first successful sync, which lets a plugin tell "no events" apart from "not
+    // synced yet". The pointed-to list is immutable; bindings hold the shared_ptr while converting.
+    void setCalendarEvents(std::shared_ptr<const std::vector<ScriptCalendarEvent>> events) {
       std::scoped_lock lock(m_mutex);
-      m_calendarValid = valid;
       m_calendarEvents = std::move(events);
     }
 
-    [[nodiscard]] bool calendarValid() const {
-      std::scoped_lock lock(m_mutex);
-      return m_calendarValid;
-    }
-
-    [[nodiscard]] std::vector<ScriptCalendarEvent> calendarEvents() const {
+    [[nodiscard]] std::shared_ptr<const std::vector<ScriptCalendarEvent>> calendarEvents() const {
       std::scoped_lock lock(m_mutex);
       return m_calendarEvents;
     }
@@ -305,8 +299,7 @@ namespace scripting {
     std::vector<ScriptOutputInfo> m_outputs;
     std::unordered_map<std::string, std::string> m_wallpaperPaths;
     std::optional<std::string> m_clipboardText;
-    std::vector<ScriptCalendarEvent> m_calendarEvents;
-    bool m_calendarValid = false;
+    std::shared_ptr<const std::vector<ScriptCalendarEvent>> m_calendarEvents;
     std::function<void(const std::string&, bool)> m_wallpaperEnabledHook;
     std::function<void(const std::string&, const std::string&)> m_wallpaperHook;
     SetWallpaperMaskHook m_wallpaperMaskHook;

@@ -851,15 +851,15 @@ namespace {
   // observe the shell's calendar, they do not mutate it.
   int luau_calendarEvents(lua_State* L) {
     auto* host = hostForState(L);
-    if (host == nullptr || !host->api().calendarValid()) {
+    const auto events = host == nullptr ? nullptr : host->api().calendarEvents();
+    if (events == nullptr) {
       lua_pushnil(L);
       return 1;
     }
 
-    const auto events = host->api().calendarEvents();
-    lua_createtable(L, static_cast<int>(events.size()), 0);
+    lua_createtable(L, static_cast<int>(events->size()), 0);
     int index = 1;
-    for (const auto& event : events) {
+    for (const auto& event : *events) {
       lua_createtable(L, 0, 9);
       setTableString(L, "id", event.id);
       setTableString(L, "title", event.title);
