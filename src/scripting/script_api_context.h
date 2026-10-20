@@ -124,7 +124,7 @@ namespace scripting {
       return m_clipboardText;
     }
 
-    // Merged, already-expanded calendar events — mirrored from CalendarService on the main thread
+    // Merged, already-expanded calendar events, mirrored from CalendarService on the main thread
     // so script bindings read them synchronously and race-free, exactly like clipboard text above.
     // `valid` is false until the first successful sync, which lets a plugin tell "no events" apart
     // from "not synced yet".

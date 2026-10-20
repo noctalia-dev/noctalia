@@ -118,9 +118,9 @@ example to phase an entry's updates onto a second boundary.
 ## Calendar
 
 `noctalia.calendarEvents()` returns the shell's merged, read-only view of the accounts configured
-under **Settings -> Calendar** (Google, CalDAV, ICS, vdir). It returns `nil` until the first
+under **Settings → Calendar** (Google, CalDAV, ICS, vdir). It returns `nil` until the first
 successful sync completes, which lets an entry tell "no upcoming events" apart from "not synced
-yet" — treat `nil` as unknown rather than empty.
+yet"; treat `nil` as unknown rather than empty.
 
 Each entry is one concrete event instance. Recurring events are expanded by the provider, so a
 weekly meeting appears as separate instances with their own resolved times rather than a rule you
@@ -128,7 +128,7 @@ have to interpret.
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `id` | string | iCal UID / provider event id, stable across syncs. The same meeting on two calendars (for example a shared team calendar and your own) arrives with different ids, so dedupe on `title` + `startMs` when that matters. |
+| `id` | string | iCal UID / provider event id, stable across syncs. The same meeting on two calendars (for example a shared team calendar and your own) arrives as separate entries with different ids unless the user enables `[calendar] dedupe_events`. |
 | `title` | string | Event summary. |
 | `calendarName` | string | Display name of the owning calendar. |
 | `colorHex` | string | Owning calendar's color, for example `"#3367d6"`. Empty when unknown. |
