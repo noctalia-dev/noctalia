@@ -26,6 +26,7 @@ Provided by system packages at build time and linked dynamically where applicabl
 - **[sdbus-c++](https://github.com/Kistler-Group/sdbus-cpp)** — D-Bus client bindings
 - **[libsecret](https://gnome.pages.gitlab.gnome.org/libsecret/)** — Secret Service client for credential and encrypted-state persistence
 - **[libsodium](https://doc.libsodium.org/)** — Cryptography for credential and encrypted-state persistence
+- **[Gcr](https://gitlab.gnome.org/GNOME/gcr)** — Secret exchange for keyring prompts
 - **[PipeWire](https://pipewire.org/)** — Audio capture and playback
 - **[WirePlumber](https://pipewire.pages.freedesktop.org/wireplumber/)** — PipeWire mixer and default-node integration
 - **[libsndfile](https://libsndfile.github.io/libsndfile/)** — UI sound effect decoding

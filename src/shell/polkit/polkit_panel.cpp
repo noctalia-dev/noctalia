@@ -17,34 +17,16 @@
 #include "ui/controls/image.h"
 #include "ui/palette.h"
 #include "ui/style.h"
+#include "ui/text_wrap.h"
 
 #include <algorithm>
-#include <cctype>
 #include <cmath>
 #include <memory>
 #include <string>
 
 namespace {
 
-  std::string wrapLongRuns(const std::string& text, std::size_t maxRun = 48) {
-    std::string out;
-    out.reserve(text.size() + text.size() / maxRun);
-    std::size_t run = 0;
-    for (char ch : text) {
-      const bool breakable = std::isspace(static_cast<unsigned char>(ch)) != 0 || ch == '/' || ch == ':' || ch == '-';
-      out.push_back(ch);
-      if (breakable) {
-        run = 0;
-        continue;
-      }
-      ++run;
-      if (run >= maxRun) {
-        out.push_back('\n');
-        run = 0;
-      }
-    }
-    return out;
-  }
+  using ui::wrapLongRuns;
 
 } // namespace
 

@@ -94,6 +94,7 @@
            curl
            fontconfig
            freetype
+           gcr
            glib
            gmp
            harfbuzz

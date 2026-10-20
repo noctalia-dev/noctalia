@@ -32,6 +32,7 @@
   md4c,
   libsecret,
   libsodium,
+  gcr_4,
   stb,
   fetchFromGitHub,
   nlohmann_json,
@@ -120,6 +121,7 @@ lib.warnIf cudaSupport
     md4c
     libsecret
     libsodium
+    gcr_4
     stb'
     nlohmann_json
     tomlplusplus

@@ -12,7 +12,7 @@ sudo pacman -S meson gcc just \
   libglvnd freetype2 fontconfig \
   cairo pango harfbuzz \
   libxkbcommon glib2 \
-  libsecret libsodium \
+  libsecret libsodium gcr-4 \
   sdbus-cpp libpipewire wireplumber polkit \
   pam curl libwebp libjxl libsndfile librsvg \
   libqalculate libxml2 \
@@ -30,7 +30,7 @@ sudo dnf install meson gcc-c++ just \
   freetype-devel fontconfig-devel \
   cairo-devel pango-devel harfbuzz-devel \
   libxkbcommon-devel glib2-devel \
-  libsecret-devel libsodium-devel \
+  libsecret-devel libsodium-devel gcr-devel \
   sdbus-cpp-devel pipewire-devel wireplumber-devel \
   pam-devel polkit-devel libcurl-devel libwebp-devel libjxl-devel libsndfile-devel librsvg2-devel \
   libqalculate-devel libxml2-devel \
@@ -48,7 +48,7 @@ sudo zypper install meson gcc-c++ just \
   freetype2-devel fontconfig-devel \
   cairo-devel pango-devel harfbuzz-devel \
   libxkbcommon-devel glib2-devel \
-  libsecret-devel libsodium-devel \
+  libsecret-devel libsodium-devel libgcr-devel \
   sdbus-cpp-devel pipewire-devel wireplumber-devel \
   pam-devel polkit-devel libcurl-devel libwebp-devel libjxl-devel libsndfile-devel librsvg-devel \
   libqalculate-devel libxml2-devel \
@@ -66,7 +66,7 @@ sudo apt install meson g++ just \
   libfreetype-dev libfontconfig-dev \
   libcairo2-dev libpango1.0-dev libharfbuzz-dev \
   libxkbcommon-dev libglib2.0-dev \
-  libsecret-1-dev libsodium-dev \
+  libsecret-1-dev libsodium-dev libgcr-4-dev \
   libsdbus-c++-dev libpipewire-0.3-dev libwireplumber-0.5-dev \
   libpam0g-dev libpolkit-agent-1-dev libpolkit-gobject-1-dev \
   libcurl4-openssl-dev libwebp-dev libjxl-dev libsndfile1-dev librsvg2-dev \
@@ -84,7 +84,7 @@ sudo xbps-install meson ninja pkg-config git \
   MesaLib-devel libglvnd-devel cairo-devel \
   pango-devel fontconfig-devel freetype-devel \
   harfbuzz-devel libxkbcommon-devel pipewire-devel wireplumber-devel \
-  libsecret-devel libsodium-devel \
+  libsecret-devel libsodium-devel gcr4-devel \
   libcurl-devel pam-devel libwebp-devel libjxl-devel libsndfile-devel \
   basu-devel sdbus-c++-devel \
   libmd4c-devel tomlplusplus-devel libical-devel \
@@ -102,7 +102,7 @@ sudo moss pkg add meson gcc clang just \
   libglvnd-devel freetype-devel fontconfig-devel \
   cairo-devel pango-devel harfbuzz-devel \
   libxkbcommon-devel glib2-devel \
-  libsecret-devel libsodium-devel \
+  libsecret-devel libsodium-devel gcr-devel \
   sdbus-cpp-devel pipewire-devel wireplumber-devel polkit-devel \
   linux-pam-devel curl libwebp-devel libjxl-devel libsndfile-devel librsvg-devel \
   libqalculate-devel libxml2-devel \
@@ -126,6 +126,8 @@ PipeWire libraries/headers are sufficient to build Noctalia, but the PipeWire da
 `ddcutil` is an optional dependency used for controlling monitor brightness.
 
 Credential and encrypted-state persistence requires a Secret Service provider at runtime, such as GNOME Keyring, KWallet, or KeePassXC. `libsecret` is the client library and does not provide the session service by itself. Noctalia continues to run when no provider is available, but features requiring durable secrets cannot persist them. CalDAV accounts may instead read their password from one explicitly configured regular file, which supports secret provisioners such as agenix and sops-nix without installing a Secret Service provider. Google refresh tokens and other writable credentials still require Secret Service. Encrypted state, including clipboard history and the calendar event cache, may instead read one storage master key from an explicitly configured file.
+
+`gcr-4` (the pkg-config module `gcr-4`, package names above) is a build-time requirement: only `GcrSecretExchange` is linked, for the Diffie-Hellman handshake used by the native `org.gnome.keyring.SystemPrompter` provider (`shell.secret_prompter`, off by default). No other part of GCR is used, and GTK is not pulled in by this dependency.
 
 `jemalloc` is recommended but optional. It reduces memory fragmentation in long-running sessions, and on glibc systems it is used automatically when detected. Use Meson's `-Djemalloc=enabled` or `-Djemalloc=disabled` option to require or disable it explicitly.
 

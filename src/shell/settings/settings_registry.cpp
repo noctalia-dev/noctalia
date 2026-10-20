@@ -1760,6 +1760,11 @@ namespace settings {
         ToggleSetting{cfg.shell.polkitColorizeIcons}, "authentication application icons colorize tint"
     ));
     entries.push_back(makeEntry(
+        SettingsSection::Security, "authentication", tr("settings.schema.shell.secret-prompter.label"),
+        tr("settings.schema.shell.secret-prompter.description"), {"shell", "secret_prompter"},
+        ToggleSetting{cfg.shell.secretPrompter}, "keyring secret password unlock gcr"
+    ));
+    entries.push_back(makeEntry(
         SettingsSection::Security, "authentication", tr("settings.schema.shell.password-style.label"),
         tr("settings.schema.shell.password-style.description"), {"shell", "password_style"},
         asSegmented(enumSelect(kPasswordMaskStyles, cfg.shell.passwordMaskStyle)), "polkit lock mask"

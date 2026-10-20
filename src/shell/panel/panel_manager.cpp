@@ -311,6 +311,11 @@ namespace {
     if (panelId == "polkit") {
       return pc.polkitPosition;
     }
+    if (panelId == "secret-prompt") {
+      // Modal credential prompt: always centred, not bar-relative, and not
+      // user-placeable -- it must be where the user is already looking.
+      return "center";
+    }
     return "auto";
   }
 
