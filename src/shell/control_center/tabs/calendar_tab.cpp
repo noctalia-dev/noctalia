@@ -613,6 +613,11 @@ void CalendarTab::rebuildEventList(float scale) {
       .state = &m_eventListState,
       .hidePastEvents = tabConfig.hidePastEvents,
       .pastEventsThresholdMinutes = tabConfig.pastEventsThresholdMinutes,
+      .onToggleHiddenPast =
+          [this]() {
+            m_eventsDirty = true;
+            PanelManager::instance().refresh();
+          },
       .requestRedraw = []() { PanelManager::instance().requestRedraw(); },
   });
 }

@@ -66,6 +66,7 @@ namespace calendar_view {
 
   struct EventListState {
     std::vector<EventLinkOverlay> linkOverlays;
+    bool showHiddenPast = false; // user expanded today's hidden past events
   };
 
   struct EventListBuildOptions {
@@ -79,8 +80,9 @@ namespace calendar_view {
     std::string_view timeFormat;
     std::string fontFamily;
     EventListState* state = nullptr;
-    bool hidePastEvents = false;        // applies only when the selected day is today
-    int pastEventsThresholdMinutes = 0; // with hidePastEvents: 0 = hide as soon as an event ends
+    bool hidePastEvents = false;              // applies only when the selected day is today
+    int pastEventsThresholdMinutes = 0;       // with hidePastEvents: 0 = hide as soon as an event ends
+    std::function<void()> onToggleHiddenPast; // the host must rebuild the list after state->showHiddenPast flips
     std::function<void()> requestRedraw;
   };
 
@@ -93,6 +95,12 @@ namespace calendar_view {
   // only if it ended more than thresholdMinutes ago.
   [[nodiscard]] bool eventHiddenAsPast(
       const CalendarEvent& event, std::chrono::system_clock::time_point now, bool hidePast, int thresholdMinutes
+  );
+
+  // Number of events hidden by the past-event filter on the selected day (0 unless it is today).
+  [[nodiscard]] int countHiddenPastEvents(
+      const CalendarSnapshot& snapshot, Date selected, std::chrono::system_clock::time_point now, bool hidePast,
+      int thresholdMinutes
   );
 
   void rebuildMonth(const MonthBuildOptions& options);

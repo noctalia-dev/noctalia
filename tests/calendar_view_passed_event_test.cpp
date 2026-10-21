@@ -8,6 +8,7 @@
 namespace {
 
   using namespace std::chrono;
+  using calendar_view::countHiddenPastEvents;
   using calendar_view::eventHiddenAsPast;
   using calendar_view::eventPassed;
 
@@ -112,6 +113,21 @@ int main() {
     ok = expect(!eventHiddenAsPast(recent, now, true, 30), "event within the threshold was hidden") && ok;
     ok = expect(eventHiddenAsPast(recent, now, true, 0), "threshold 0 kept a finished event") && ok;
     ok = expect(!eventHiddenAsPast(upcoming, now, true, 0), "upcoming event was hidden") && ok;
+  }
+
+  {
+    CalendarSnapshot snapshot;
+    snapshot.events = {
+        timedEvent(now - hours{3}, now - hours{2}),
+        timedEvent(now - hours{1}, now - minutes{10}),
+        timedEvent(now + hours{1}, now + hours{2}),
+    };
+    const calendar_view::Date today{.year = 2026, .month = 7, .day = 22};
+    const calendar_view::Date other{.year = 2026, .month = 7, .day = 21};
+    ok = expect(countHiddenPastEvents(snapshot, today, now, true, 30) == 1, "hidden count with threshold") && ok;
+    ok = expect(countHiddenPastEvents(snapshot, today, now, true, 0) == 2, "hidden count with zero threshold") && ok;
+    ok = expect(countHiddenPastEvents(snapshot, today, now, false, 0) == 0, "hidden count with hiding off") && ok;
+    ok = expect(countHiddenPastEvents(snapshot, other, now, true, 0) == 0, "hidden count on another day") && ok;
   }
 
   return ok ? 0 : 1;

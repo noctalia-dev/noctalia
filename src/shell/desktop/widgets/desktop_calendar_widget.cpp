@@ -374,6 +374,11 @@ void DesktopCalendarWidget::rebuildEventList() {
       .state = &m_eventListState,
       .hidePastEvents = tabConfig.hidePastEvents,
       .pastEventsThresholdMinutes = tabConfig.pastEventsThresholdMinutes,
+      .onToggleHiddenPast =
+          [this]() {
+            m_dirty = true;
+            requestLayout();
+          },
       .requestRedraw = [this]() { requestRedraw(); },
   });
 }
