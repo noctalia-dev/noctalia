@@ -132,11 +132,17 @@ namespace {
         && widgetSettingsEqual(a.settings, b.settings);
   }
 
+  bool desktopWidgetsProfileEqual(const DesktopWidgetsProfile& a, const DesktopWidgetsProfile& b) {
+    return a.name == b.name && a.grid == b.grid && vectorEqual(a.widgets, b.widgets, desktopWidgetEqual);
+  }
+
   bool desktopWidgetsConfigEqual(const DesktopWidgetsConfig& a, const DesktopWidgetsConfig& b) {
     return a.enabled == b.enabled
         && a.schemaVersion == b.schemaVersion
         && a.grid == b.grid
-        && vectorEqual(a.widgets, b.widgets, desktopWidgetEqual);
+        && a.activeProfile == b.activeProfile
+        && vectorEqual(a.widgets, b.widgets, desktopWidgetEqual)
+        && vectorEqual(a.profiles, b.profiles, desktopWidgetsProfileEqual);
   }
 
   bool lockscreenWidgetsConfigEqual(const LockscreenWidgetsConfig& a, const LockscreenWidgetsConfig& b) {
@@ -1231,7 +1237,26 @@ bool ConfigService::setDesktopWidgetsState(const DesktopWidgetsConfig& desktopWi
   }
 
   desktopWidgetsTbl->insert_or_assign("schema_version", static_cast<std::int64_t>(desktopWidgets.schemaVersion));
+  if (!desktopWidgets.activeProfile.empty()) {
+    desktopWidgetsTbl->insert_or_assign("active_profile", desktopWidgets.activeProfile);
+  } else {
+    desktopWidgetsTbl->erase("active_profile");
+  }
   writeWidgetsPlacementToTable(*desktopWidgetsTbl, desktopWidgets.grid, desktopWidgets.widgets);
+
+  if (!desktopWidgets.profiles.empty()) {
+    toml::array profilesArray;
+    profilesArray.reserve(desktopWidgets.profiles.size());
+    for (const auto& profile : desktopWidgets.profiles) {
+      toml::table profTbl;
+      profTbl.insert_or_assign("name", profile.name);
+      writeWidgetsPlacementToTable(profTbl, profile.grid, profile.widgets);
+      profilesArray.push_back(std::move(profTbl));
+    }
+    desktopWidgetsTbl->insert_or_assign("profiles", std::move(profilesArray));
+  } else {
+    desktopWidgetsTbl->erase("profiles");
+  }
 
   return commitOverrideTable(std::move(next), nullptr);
 }

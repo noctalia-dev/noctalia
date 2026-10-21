@@ -595,37 +595,11 @@ namespace noctalia::config {
       }
     }
 
-    void validateDesktopWidgets(
-        const toml::table& root, schema::Diagnostics& diag, scripting::PluginRegistry& pluginRegistry
+    void validateDesktopWidgetPlacementEntries(
+        const toml::table& section, std::string_view prefix, schema::Diagnostics& diag,
+        scripting::PluginRegistry& pluginRegistry
     ) {
-      const auto* dw = root["desktop_widgets"].as_table();
-      if (dw == nullptr) {
-        return;
-      }
-      validateWidgetSectionTypes(*dw, "desktop_widgets", diag);
-      static const std::unordered_set<std::string> kTopLevel = {
-          "enabled", "schema_version", "grid", "widget", "widget_order"
-      };
-      for (const auto& [key, node] : *dw) {
-        (void)node;
-        if (!kTopLevel.contains(std::string(key.str()))) {
-          diag.warn("desktop_widgets." + std::string(key.str()), "unknown setting");
-        }
-      }
-      if (const auto* grid = (*dw)["grid"].as_table()) {
-        static const std::unordered_set<std::string> kGrid = {
-            "visible",
-            "cell_size",
-            "major_interval",
-        };
-        for (const auto& [key, node] : *grid) {
-          (void)node;
-          if (!kGrid.contains(std::string(key.str()))) {
-            diag.warn("desktop_widgets.grid." + std::string(key.str()), "unknown setting");
-          }
-        }
-      }
-      const auto* widgets = (*dw)["widget"].as_table();
+      const auto* widgets = section["widget"].as_table();
       if (widgets == nullptr) {
         return;
       }
@@ -639,7 +613,7 @@ namespace noctalia::config {
           continue;
         }
         const std::string idStr(id.str());
-        const std::string base = "desktop_widgets.widget." + idStr;
+        const std::string base = std::string(prefix) + ".widget." + idStr;
         for (const auto& [key, value] : *tbl) {
           (void)value;
           if (!kWidgetKeys.contains(std::string(key.str()))) {
@@ -677,6 +651,97 @@ namespace noctalia::config {
           }
         }
       }
+    }
+
+    void validateDesktopWidgets(
+        const toml::table& root, schema::Diagnostics& diag, scripting::PluginRegistry& pluginRegistry
+    ) {
+      const auto* dw = root["desktop_widgets"].as_table();
+      if (dw == nullptr) {
+        return;
+      }
+      validateWidgetSectionTypes(*dw, "desktop_widgets", diag);
+      static const std::unordered_set<std::string> kTopLevel = {"enabled",      "schema_version", "grid",    "widget",
+                                                                "widget_order", "active_profile", "profiles"};
+      for (const auto& [key, node] : *dw) {
+        (void)node;
+        if (!kTopLevel.contains(std::string(key.str()))) {
+          diag.warn("desktop_widgets." + std::string(key.str()), "unknown setting");
+        }
+      }
+      const auto* profiles = (*dw)["profiles"].as_array();
+      const std::size_t inactiveCount = profiles != nullptr ? profiles->size() : 0;
+      const std::size_t totalProfiles = 1 + inactiveCount;
+      if (const auto* apNode = dw->get("active_profile")) {
+        if (const auto* strNode = apNode->as_string()) {
+          if (strNode->get().empty()) {
+            diag.warn("desktop_widgets.active_profile", "profile name cannot be empty");
+          }
+        } else if (const auto* intNode = apNode->as_integer()) {
+          const std::int64_t idx = intNode->get();
+          if (idx < 0 || static_cast<std::size_t>(idx) >= totalProfiles) {
+            diag.warn(
+                "desktop_widgets.active_profile",
+                "index " + std::to_string(idx) + " out of range (profile count: " + std::to_string(totalProfiles) + ")"
+            );
+          }
+        } else {
+          diag.warn("desktop_widgets.active_profile", "expected string or integer");
+        }
+      }
+      if (profiles != nullptr) {
+        static const std::unordered_set<std::string> kProfileKeys = {"name", "grid", "widget", "widget_order"};
+        std::size_t profileEntries = 0;
+        for (const auto& node : *profiles) {
+          if (profileEntries++ == kMaxDesktopWidgetProfiles - 1) {
+            diag.warn(
+                "desktop_widgets.profiles",
+                "only up to " + std::to_string(kMaxDesktopWidgetProfiles) + " profiles are supported"
+            );
+            break;
+          }
+          if (const auto* profTbl = node.as_table()) {
+            const auto profilePrefix = "desktop_widgets.profiles[" + std::to_string(profileEntries - 1) + "]";
+            const auto* nameNode = profTbl->get("name");
+            if (nameNode == nullptr || nameNode->as_string() == nullptr || nameNode->as_string()->get().empty()) {
+              diag.warn(profilePrefix + ".name", "profile name is required");
+            }
+            validateWidgetSectionTypes(*profTbl, profilePrefix, diag);
+            validateDesktopWidgetPlacementEntries(*profTbl, profilePrefix, diag, pluginRegistry);
+            for (const auto& [key, _] : *profTbl) {
+              if (!kProfileKeys.contains(std::string(key.str()))) {
+                diag.warn(profilePrefix + "." + std::string(key.str()), "unknown setting");
+              }
+            }
+            if (const auto* grid = (*profTbl)["grid"].as_table()) {
+              static const std::unordered_set<std::string> kGrid = {
+                  "visible",
+                  "cell_size",
+                  "major_interval",
+              };
+              for (const auto& [key, _] : *grid) {
+                if (!kGrid.contains(std::string(key.str()))) {
+                  diag.warn(profilePrefix + ".grid." + std::string(key.str()), "unknown setting");
+                }
+              }
+            }
+          }
+        }
+      }
+      if (const auto* grid = (*dw)["grid"].as_table()) {
+        static const std::unordered_set<std::string> kGrid = {
+            "visible",
+            "cell_size",
+            "major_interval",
+        };
+        for (const auto& [key, node] : *grid) {
+          (void)node;
+          if (!kGrid.contains(std::string(key.str()))) {
+            diag.warn("desktop_widgets.grid." + std::string(key.str()), "unknown setting");
+          }
+        }
+      }
+      validateDesktopWidgetPlacementEntries(*dw, "desktop_widgets", diag, pluginRegistry);
     }
 
     void validateLockscreenWidgets(
