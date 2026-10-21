@@ -3132,9 +3132,10 @@ namespace settings {
         ToggleSetting{.checked = cfg.brightness.syncBrightnessOfAllMonitors}, "monitor brightness"
     ));
     entries.push_back(makeEntry(
-        SettingsSection::Services, "bluetooth", tr("settings.schema.services.bluetooth-auto-reconnect.label"),
-        tr("settings.schema.services.bluetooth-auto-reconnect.description"), {"bluetooth", "auto_reconnect"},
-        ToggleSetting{cfg.bluetooth.autoReconnect}, "bluetooth reconnect connect trusted paired devices startup"
+        SettingsSection::Services, "bluetooth", tr("settings.schema.services.bluetooth-connect-when-enabled.label"),
+        tr("settings.schema.services.bluetooth-connect-when-enabled.description"),
+        {"bluetooth", "connect_when_enabled"}, ToggleSetting{cfg.bluetooth.connectWhenEnabled},
+        "bluetooth reconnect connect trusted paired devices startup resume"
     ));
     entries.push_back(makeEntry(
         SettingsSection::Services, "media", tr("settings.schema.services.mpris-blacklist.label"),

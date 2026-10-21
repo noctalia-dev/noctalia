@@ -320,7 +320,7 @@ sound_theme = "freedesktop"
 # ── Bluetooth ─────────────────────────────────────────────────────────────────
 
 [bluetooth]
-auto_reconnect = true               # connect trusted devices when the adapter powers on or the shell starts
+connect_when_enabled = false        # connect paired, trusted devices when Bluetooth turns on, at startup, and after resume
 
 # ── Brightness ────────────────────────────────────────────────────────────────
 

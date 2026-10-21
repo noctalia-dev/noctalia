@@ -1540,8 +1540,8 @@ struct BatteryConfig {
 };
 
 struct BluetoothConfig {
-  // Connect paired, trusted devices when the adapter powers on or the shell starts.
-  bool autoReconnect = true;
+  // Connect paired, trusted devices when Bluetooth turns on, at startup, and after resume.
+  bool connectWhenEnabled = false;
 
   bool operator==(const BluetoothConfig&) const = default;
 };

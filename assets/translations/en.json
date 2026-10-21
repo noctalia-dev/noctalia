@@ -2896,9 +2896,9 @@
           "description": "Allow volume above 100%",
           "label": "Audio Overdrive"
         },
-        "bluetooth-auto-reconnect": {
-          "description": "Connect trusted devices when the adapter powers on or the shell starts",
-          "label": "Auto-Reconnect Devices"
+        "bluetooth-connect-when-enabled": {
+          "description": "Connect paired, trusted devices when Bluetooth turns on, at startup, and after resume",
+          "label": "Connect Devices When Bluetooth Turns On"
         },
         "calendar": {
           "description": "Show events from your online calendar accounts",

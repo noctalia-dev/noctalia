@@ -1435,6 +1435,24 @@ if build_tests
     )
   endif
 
+  bluetooth_connect_pass_integration_exe = executable('bluetooth_connect_pass_integration_test',
+    sources: files('tests/bluetooth_connect_pass_integration_test.cpp'),
+    dependencies: noctalia_core_dep,
+    override_options: ['b_ndebug=false'],
+  )
+  if dbus_run_session.found()
+    test('bluetooth_connect_pass_integration',
+      dbus_run_session,
+      args: [
+        '--', 'sh', '-c',
+        'export DBUS_SYSTEM_BUS_ADDRESS="$DBUS_SESSION_BUS_ADDRESS"; exec "$1"',
+        'sh', bluetooth_connect_pass_integration_exe.full_path(),
+      ],
+      depends: bluetooth_connect_pass_integration_exe,
+      timeout: 60,
+    )
+  endif
+
   notification_reply_integration_exe = executable('notification_reply_integration_test',
     sources: files('tests/notification_reply_integration_test.cpp'),
     dependencies: noctalia_core_dep,

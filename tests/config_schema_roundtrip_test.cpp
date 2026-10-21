@@ -450,7 +450,7 @@ location = "https://example.invalid/bad"
     };
     c.battery.warningThreshold = 15;
     c.battery.deviceThresholds = {{"BAT0", 10}, {"hidpp:1", 25}};
-    c.bluetooth.autoReconnect = false;
+    c.bluetooth.connectWhenEnabled = true;
     c.controlCenter.sidebarMode = ControlCenterSidebarMode::Full;
     c.controlCenter.sidebarSectionMode = ControlCenterSidebarMode::None;
     c.controlCenter.calendarTab.showEventsCard = false;
