@@ -165,7 +165,7 @@ past_events_threshold_minutes = 30
 |--------|------|---------|-------------|
 | `show_events_card` | bool | `true` | Show the event list beside the month grid. Also toggled from the calendar button in the tab header. |
 | `show_week_numbers` | bool | `false` | Show a column of ISO 8601 week numbers to the left of the month grid, separated from it by a divider. Each row is numbered by the week its Thursday falls in. |
-| `hide_past_events` | bool | `false` | Hide today's events that have already ended from the event list. When `false`, every event of the day is shown and finished ones are dimmed. Other days are not affected. |
+| `hide_past_events` | bool | `false` | Hide today's events that have already ended from the event list. When `false`, every event of the day is shown and finished ones are dimmed. Other days are not affected. The desktop calendar widget follows this option too. |
 | `past_events_threshold_minutes` | int | `30` | With `hide_past_events` on, an event stays visible for this many minutes after it ends (0–1440). `0` hides it as soon as it ends. |
 
 The shared `event_date_format` and `event_time_format` options are documented under [Calendar](/noctalia/services/calendar/).
