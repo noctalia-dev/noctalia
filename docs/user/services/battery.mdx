@@ -19,11 +19,12 @@ warning_threshold = 15
 [battery.device."/org/freedesktop/UPower/devices/headset_dev_00_11_22_33_44_55"]
 warning_threshold = 10
 ```
+
 ## Multiple laptop batteries
 
-On laptops with more than one battery, the laptop warns once on the combined charge (UPower's display battery), not once per battery, and the notification shows the same combined percentage the bar widget displays. A second battery stays silent on its own. A per-device threshold warns about it individually, always at its own percent, like the battery_BAT1 example above.
+On laptops with more than one battery, the laptop warns once on the combined charge (UPower's display battery), not once per battery, and the notification shows the same combined percentage the bar widget displays. A second battery stays silent on its own. A per-device threshold warns about it individually, always at its own percent, like the `battery_BAT1` example above.
 
-Single-battery laptops are unaffected, the combined charge equals the single battery's charge, so thresholds, escalation levels, and notification text work exactly as before.
+Single-battery laptops are unaffected: the combined charge equals the single battery's charge, so thresholds, escalation levels, and notification text work exactly as before.
 
 ## Escalating low-battery warnings
 

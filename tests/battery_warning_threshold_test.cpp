@@ -23,13 +23,13 @@ int main() {
   // The system laptop battery keeps the global threshold on the combined charge.
   TEST_CHECK(batteryWarningThresholdForDevice(config, systemBattery, &systemBattery) == config.warningThreshold);
 
-  // A second laptop pack stays silent on its own. an explicit entry warns it at its own percent
+  // A second laptop pack stays silent on its own; an explicit entry warns it at its own percent.
   TEST_CHECK(batteryWarningThresholdForDevice(config, secondBattery, &systemBattery) == 0);
   BatteryConfig withSecondEntry;
   withSecondEntry.deviceThresholds.push_back({secondBattery.path, 15});
   TEST_CHECK(batteryWarningThresholdForDevice(withSecondEntry, secondBattery, &systemBattery) == 15);
 
-  // No system battery pointer: a laptop pack resolves to entry-or-0, never the global threshold
+  // No system battery pointer: a laptop pack resolves to entry-or-0, never the global threshold.
   TEST_CHECK(batteryWarningThresholdForDevice(config, secondBattery, nullptr) == 0);
 
   return 0;

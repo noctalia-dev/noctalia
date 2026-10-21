@@ -62,18 +62,17 @@ namespace {
 int batteryWarningThresholdForDevice(
     const BatteryConfig& config, const UPowerDeviceInfo& device, const UPowerDeviceInfo* systemBattery
 ) {
-  const bool isSystem = isSystemBattery(device, systemBattery);
-  if (!isSystem) {
-    for (const auto& deviceThreshold : config.deviceThresholds) {
-      if (upowerDeviceMatchesSelector(device, deviceThreshold.selector)) {
-        return deviceThreshold.warningThreshold;
-      }
+  if (isSystemBattery(device, systemBattery)) {
+    return config.warningThreshold;
+  }
+  for (const auto& deviceThreshold : config.deviceThresholds) {
+    if (upowerDeviceMatchesSelector(device, deviceThreshold.selector)) {
+      return deviceThreshold.warningThreshold;
     }
   }
-  // A laptop pack that is not the system battery (BAT1 on a two-battery laptop) stays silent: the
-  // laptop warns as a whole on the combined charge. An explicit deviceThresholds entry gives the
-  // pack a warning of its own, at its own percent.
-  return device.isLaptopBattery() && isSystem ? config.warningThreshold : 0;
+  // Without an explicit entry, every other battery stays silent. That includes a second laptop pack
+  // (BAT1 on a two-battery laptop): the system battery already warns on the combined charge.
+  return 0;
 }
 
 int batteryWarningThresholdForSelector(
