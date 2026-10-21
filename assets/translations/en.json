@@ -318,7 +318,8 @@
       "active-player": "Active player",
       "nothing-playing": "Nothing Playing",
       "now-playing": "Now Playing",
-      "start-playback": "Start playback in an MPRIS app"
+      "start-playback": "Start playback in an MPRIS app",
+      "toggle-visualizer": "Toggle visualizer"
     },
     "network": {
       "anonymous-identity": "Anonymous identity (optional)",

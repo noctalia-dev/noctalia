@@ -1827,6 +1827,11 @@ struct ControlCenterConfig {
     bool operator==(const CalendarTabConfig&) const = default;
   };
 
+  struct MediaTabConfig {
+    bool showVisualizer = true;
+    bool operator==(const MediaTabConfig&) const = default;
+  };
+
   std::vector<ShortcutConfig> shortcuts;
   std::vector<std::string> hiddenTabs; // tab keys (see kTabs) the user has hidden; empty = all available shown
   ControlCenterSidebarMode sidebarMode = ControlCenterSidebarMode::Compact;
@@ -1835,6 +1840,7 @@ struct ControlCenterConfig {
   bool showShortcutLabels = true;
   bool showSessionButton = true;
   CalendarTabConfig calendarTab;
+  MediaTabConfig mediaTab;
   bool operator==(const ControlCenterConfig&) const = default;
 };
 

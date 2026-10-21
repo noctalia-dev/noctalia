@@ -90,6 +90,17 @@ Set `show_session_button = false` under `[control_center]` to hide the session-a
 
 The Media tab shows active MPRIS players and exposes playback controls independent of any bar media widget. It is useful when multiple players are running or when artwork and track metadata need more room than a bar capsule can provide.
 
+`[control_center.media]` configures how the tab is drawn:
+
+```toml
+[control_center.media]
+show_visualizer = true
+```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `show_visualizer` | bool | `true` | Show the PipeWire audio visualizer beside the playback controls. Also toggled from the header button in the tab header. |
+
 ## Audio
 
 The Audio tab groups PipeWire output, input, device, and stream controls. Use it for volume changes, muting, selecting devices, and inspecting application streams without opening an external mixer.
