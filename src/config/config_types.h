@@ -835,11 +835,23 @@ struct DesktopWidgetState {
   bool operator==(const DesktopWidgetState&) const = default;
 };
 
+struct DesktopWidgetsProfile {
+  std::string name;
+  DesktopWidgetsGridState grid;
+  std::vector<DesktopWidgetState> widgets;
+
+  bool operator==(const DesktopWidgetsProfile&) const = default;
+};
+
+inline constexpr std::size_t kMaxDesktopWidgetProfiles = 5;
+
 struct DesktopWidgetsConfig {
   bool enabled = true;
   std::int32_t schemaVersion = 2;
   DesktopWidgetsGridState grid;
   std::vector<DesktopWidgetState> widgets;
+  std::string activeProfile;
+  std::vector<DesktopWidgetsProfile> profiles;
 
   bool operator==(const DesktopWidgetsConfig&) const = default;
 };

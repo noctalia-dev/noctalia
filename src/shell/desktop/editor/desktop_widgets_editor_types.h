@@ -24,6 +24,8 @@ inline DesktopWidgetsEditorSnapshot toDesktopWidgetsEditorSnapshot(const Lockscr
       .schemaVersion = config.schemaVersion,
       .grid = config.grid,
       .widgets = config.widgets,
+      .activeProfile = {},
+      .profiles = {},
   };
 }
 

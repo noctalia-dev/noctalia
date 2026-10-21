@@ -57,6 +57,7 @@ namespace noctalia::config::schema {
     static const Schema<DesktopWidgetsConfig> s = {
         field(&DesktopWidgetsConfig::enabled, "enabled"),
         field(&DesktopWidgetsConfig::schemaVersion, "schema_version"),
+        field(&DesktopWidgetsConfig::activeProfile, "active_profile"),
         subTable(&DesktopWidgetsConfig::grid, "grid", desktopWidgetsGridSchema()),
     };
     return s;

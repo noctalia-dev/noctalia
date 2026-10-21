@@ -256,6 +256,25 @@ namespace {
         }
       } else if (const auto desktopId = componentOwnerId(entry.ownerPath, "desktop_widgets.widget.")) {
         restorePlacementWidget(candidate.desktopWidgets.widgets, active.desktopWidgets.widgets, *desktopId);
+      } else if (entry.ownerPath.starts_with("desktop_widgets.profiles[")) {
+        // Restore per-profile widget entries: path is "desktop_widgets.profiles[N].widget.<id>..."
+        const auto closeBracket = entry.ownerPath.find(']', 25);
+        if (closeBracket != std::string_view::npos) {
+          const auto indexStr = entry.ownerPath.substr(25, closeBracket - 25);
+          std::size_t profileIndex = 0;
+          auto [ptr, ec] = std::from_chars(indexStr.data(), indexStr.data() + indexStr.size(), profileIndex);
+          if (ec == std::errc{}
+              && profileIndex < candidate.desktopWidgets.profiles.size()
+              && profileIndex < active.desktopWidgets.profiles.size()) {
+            const auto suffix = entry.ownerPath.substr(closeBracket + 1);
+            if (const auto profileWidgetId = componentOwnerId(suffix, ".widget.")) {
+              restorePlacementWidget(
+                  candidate.desktopWidgets.profiles[profileIndex].widgets,
+                  active.desktopWidgets.profiles[profileIndex].widgets, *profileWidgetId
+              );
+            }
+          }
+        }
       } else if (const auto lockscreenId = componentOwnerId(entry.ownerPath, "lockscreen_widgets.widget.")) {
         restorePlacementWidget(candidate.lockscreenWidgets.widgets, active.lockscreenWidgets.widgets, *lockscreenId);
       }
@@ -1962,6 +1981,64 @@ void ConfigService::parseConfigTable(
       desktopWidgets.schemaVersion = static_cast<std::int32_t>(*schemaVersion);
     }
     parseWidgetsPlacementSection(*desktopWidgetsTbl, desktopWidgets.grid, desktopWidgets.widgets, "desktop_widgets");
+
+    desktopWidgets.profiles.clear();
+    if (const auto* profilesArr = (*desktopWidgetsTbl)["profiles"].as_array()) {
+      desktopWidgets.profiles.reserve(std::min(profilesArr->size(), kMaxDesktopWidgetProfiles - 1));
+      if (profilesArr->size() >= kMaxDesktopWidgetProfiles) {
+        kLog.warn("desktop_widgets.profiles: total profile count cannot exceed {}", kMaxDesktopWidgetProfiles);
+      }
+      std::size_t profileEntries = 0;
+      for (const auto& profNode : *profilesArr) {
+        if (profileEntries++ >= kMaxDesktopWidgetProfiles - 1) {
+          break;
+        }
+        const auto* profTbl = profNode.as_table();
+        if (profTbl == nullptr) {
+          continue;
+        }
+        DesktopWidgetsProfile profile;
+        if (auto name = (*profTbl)["name"].value<std::string>()) {
+          profile.name = *name;
+        }
+        if (profile.name.empty()) {
+          kLog.warn("desktop_widgets.profiles: profile name is required; skipping unnamed profile");
+          continue;
+        }
+        const auto profileSection = "desktop_widgets.profiles[" + std::to_string(desktopWidgets.profiles.size()) + "]";
+        parseWidgetsPlacementSection(*profTbl, profile.grid, profile.widgets, profileSection);
+        desktopWidgets.profiles.push_back(std::move(profile));
+      }
+    }
+
+    const std::size_t totalProfiles = 1 + desktopWidgets.profiles.size();
+    if (auto activeProfStr = (*desktopWidgetsTbl)["active_profile"].value<std::string>()) {
+      desktopWidgets.activeProfile = *activeProfStr;
+      const auto it = std::ranges::find(desktopWidgets.profiles, *activeProfStr, &DesktopWidgetsProfile::name);
+      if (it != desktopWidgets.profiles.end()) {
+        std::string topLevelName = i18n::tr("desktop-widgets.editor.default-template-name", "index", "1");
+        std::swap(desktopWidgets.grid, it->grid);
+        std::swap(desktopWidgets.widgets, it->widgets);
+        it->name = std::move(topLevelName);
+      }
+    } else if (auto activeProfIdx = (*desktopWidgetsTbl)["active_profile"].value<int64_t>()) {
+      if (*activeProfIdx > 0 && static_cast<std::size_t>(*activeProfIdx) < totalProfiles) {
+        const auto inactiveIdx = static_cast<std::size_t>(*activeProfIdx - 1);
+        desktopWidgets.activeProfile = desktopWidgets.profiles[inactiveIdx].name;
+        std::string topLevelName = i18n::tr("desktop-widgets.editor.default-template-name", "index", "1");
+        std::swap(desktopWidgets.grid, desktopWidgets.profiles[inactiveIdx].grid);
+        std::swap(desktopWidgets.widgets, desktopWidgets.profiles[inactiveIdx].widgets);
+        desktopWidgets.profiles[inactiveIdx].name = std::move(topLevelName);
+      } else if (*activeProfIdx < 0 || static_cast<std::size_t>(*activeProfIdx) >= totalProfiles) {
+        kLog.warn(
+            "desktop_widgets.active_profile: index {} out of range (profile count: {})", *activeProfIdx, totalProfiles
+        );
+      }
+    }
+
+    if (desktopWidgets.activeProfile.empty()) {
+      desktopWidgets.activeProfile = i18n::tr("desktop-widgets.editor.default-template-name", "index", "1");
+    }
   }
 
   // Parse [lockscreen_widgets]
