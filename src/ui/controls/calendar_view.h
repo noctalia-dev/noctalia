@@ -79,6 +79,8 @@ namespace calendar_view {
     std::string_view timeFormat;
     std::string fontFamily;
     EventListState* state = nullptr;
+    bool hidePastEvents = false;        // applies only when the selected day is today
+    int pastEventsThresholdMinutes = 0; // with hidePastEvents: 0 = hide as soon as an event ends
     std::function<void()> requestRedraw;
   };
 
@@ -86,6 +88,12 @@ namespace calendar_view {
   [[nodiscard]] int dateKey(Date date) noexcept;
 
   [[nodiscard]] bool eventPassed(const CalendarEvent& event, std::chrono::system_clock::time_point now);
+
+  // True when a finished event should be left out of today's list: only when hidePast is set, and then
+  // only if it ended more than thresholdMinutes ago.
+  [[nodiscard]] bool eventHiddenAsPast(
+      const CalendarEvent& event, std::chrono::system_clock::time_point now, bool hidePast, int thresholdMinutes
+  );
 
   void rebuildMonth(const MonthBuildOptions& options);
   void rebuildEventList(const EventListBuildOptions& options);

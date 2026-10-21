@@ -3003,6 +3003,26 @@ namespace settings {
         {"control_center", "calendar", "show_week_numbers"},
         ToggleSetting{cfg.controlCenter.calendarTab.showWeekNumbers}, "calendar week numbers iso"
     ));
+    entries.push_back(makeEntry(
+        SettingsSection::Calendar, "general", tr("settings.schema.services.calendar-hide-past-events.label"),
+        tr("settings.schema.services.calendar-hide-past-events.description"),
+        {"control_center", "calendar", "hide_past_events"}, ToggleSetting{cfg.controlCenter.calendarTab.hidePastEvents},
+        "calendar past events today finished hide"
+    ));
+    {
+      auto e = makeEntry(
+          SettingsSection::Calendar, "general", tr("settings.schema.services.calendar-past-events-threshold.label"),
+          tr("settings.schema.services.calendar-past-events-threshold.description"),
+          {"control_center", "calendar", "past_events_threshold_minutes"},
+          sliderFor(
+              cfg.controlCenter.calendarTab.pastEventsThresholdMinutes,
+              noctalia::config::schema::kPastEventsThresholdMinutesRange, true
+          ),
+          "calendar past events threshold minutes hide old finished"
+      );
+      e.visibleWhen = [](const Config& c) { return c.controlCenter.calendarTab.hidePastEvents; };
+      entries.push_back(std::move(e));
+    }
     {
       auto e = makeEntry(
           SettingsSection::Calendar, "calendar-reminders", tr("settings.schema.services.calendar-reminders.label"),

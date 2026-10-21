@@ -2984,6 +2984,14 @@
           "description-unavailable": "No Secret Service provider is available; calendar events remain available for this session only",
           "label": "Calendar Event Storage"
         },
+        "calendar-hide-past-events": {
+          "description": "Hide today's finished events from the event list; when off, all past events are shown",
+          "label": "Hide Past Events"
+        },
+        "calendar-past-events-threshold": {
+          "description": "With Hide Past Events on, keep today's events visible for this many minutes after they end (0 hides them as soon as they end)",
+          "label": "Past Events Threshold"
+        },
         "calendar-week-numbers": {
           "description": "Show ISO 8601 week numbers alongside the calendar grid",
           "label": "Week Numbers"

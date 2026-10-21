@@ -8,6 +8,7 @@
 namespace {
 
   using namespace std::chrono;
+  using calendar_view::eventHiddenAsPast;
   using calendar_view::eventPassed;
 
   bool expect(bool condition, const char* message) {
@@ -99,6 +100,18 @@ int main() {
 
   {
     ok = expect(!eventPassed(timedEvent(now + hours{2}, now - hours{2}), now), "inverted range was passed") && ok;
+  }
+
+  {
+    const auto done = timedEvent(now - hours{2}, now - minutes{45});
+    const auto recent = timedEvent(now - hours{1}, now - minutes{10});
+    const auto upcoming = timedEvent(now + hours{1}, now + hours{2});
+    ok = expect(!eventHiddenAsPast(done, now, false, 30), "past event hidden with hide_past off") && ok;
+    ok = expect(!eventHiddenAsPast(recent, now, false, 0), "recent event hidden with hide_past off") && ok;
+    ok = expect(eventHiddenAsPast(done, now, true, 30), "event past the threshold was kept") && ok;
+    ok = expect(!eventHiddenAsPast(recent, now, true, 30), "event within the threshold was hidden") && ok;
+    ok = expect(eventHiddenAsPast(recent, now, true, 0), "threshold 0 kept a finished event") && ok;
+    ok = expect(!eventHiddenAsPast(upcoming, now, true, 0), "upcoming event was hidden") && ok;
   }
 
   return ok ? 0 : 1;

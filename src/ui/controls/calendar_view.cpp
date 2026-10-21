@@ -143,6 +143,15 @@ namespace calendar_view {
     return eventEndInstant(event) < now;
   }
 
+  bool eventHiddenAsPast(
+      const CalendarEvent& event, std::chrono::system_clock::time_point now, bool hidePast, int thresholdMinutes
+  ) {
+    if (!hidePast) {
+      return false;
+    }
+    return eventEndInstant(event) < now - std::chrono::minutes{std::max(thresholdMinutes, 0)};
+  }
+
   void rebuildMonth(const MonthBuildOptions& options) {
     uiAssertNotRendering("calendar_view::rebuildMonth");
     while (!options.grid.children().empty()) {
@@ -435,11 +444,16 @@ namespace calendar_view {
     const float linkGlyphGap = Style::spaceXs * options.scale;
     const int selectedKey = dateKey(options.selected);
     const auto now = std::chrono::system_clock::now();
+    const bool selectedIsToday = selectedKey == localDateKey(now);
     bool hasEvents = false;
     if (options.snapshot != nullptr) {
       for (const CalendarEvent& event : options.snapshot->events) {
         const auto [start, end] = eventDayRange(event);
         if (selectedKey < start || selectedKey > end) {
+          continue;
+        }
+        if (selectedIsToday
+            && eventHiddenAsPast(event, now, options.hidePastEvents, options.pastEventsThresholdMinutes)) {
           continue;
         }
         hasEvents = true;
