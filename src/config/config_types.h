@@ -819,6 +819,7 @@ struct OsdKindsConfig {
   bool lockKeys = true;
   bool keyboardLayout = true;
   bool media = true;
+  bool mediaVolume = true;
   bool privacy = true;
   bool keyboardBacklight = true;
   bool operator==(const OsdKindsConfig&) const = default;

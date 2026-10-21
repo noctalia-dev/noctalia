@@ -2414,6 +2414,15 @@ namespace settings {
         tr("settings.schema.shell.osd-kinds-media.description"), {"osd", "kinds", "media"},
         ToggleSetting{cfg.osd.kinds.media}, "hud overlay mpris audio music"
     ));
+    {
+      SettingEntry mediaVolumeEntry = makeEntry(
+          SettingsSection::Osd, "kinds", tr("settings.schema.shell.osd-kinds-media-volume.label"),
+          tr("settings.schema.shell.osd-kinds-media-volume.description"), {"osd", "kinds", "media_volume"},
+          ToggleSetting{cfg.osd.kinds.mediaVolume}, "hud overlay mpris media player volume level"
+      );
+      mediaVolumeEntry.visibleWhen = [](const Config& c) { return c.osd.kinds.media; };
+      entries.push_back(std::move(mediaVolumeEntry));
+    }
     entries.push_back(makeEntry(
         SettingsSection::Osd, "kinds", tr("settings.schema.shell.osd-kinds-privacy.label"),
         tr("settings.schema.shell.osd-kinds-privacy.description"), {"osd", "kinds", "privacy"},
