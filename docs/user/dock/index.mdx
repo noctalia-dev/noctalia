@@ -14,6 +14,7 @@ position            = "bottom"   # top | bottom | left | right
 active_monitor_only = false      # when true, only show apps/windows from the active monitor
 
 icon_size           = 48
+icon_shadow         = false
 main_axis_padding   = 16          # inner padding along the icon row (main axis)
 cross_axis_padding  = 8           # inner padding perpendicular to the icon row
 item_spacing        = 6          # gap between items in pixels
@@ -60,7 +61,7 @@ pinned = ["firefox", "code", "kitty"]
 
 `border_width` draws an inside outline using `border`.
 
-Shadow blur, offset, and alpha are global under `[shell.shadow]`. The dock only exposes `shadow = true|false`.
+The dock enables its panel shadow with `shadow = true|false`. `icon_shadow` adds a soft shadow following each application image's alpha mask, excluding glyph fallbacks. Both use the global alpha and direction under `[shell.shadow]`.
 
 ## Per-monitor overrides
 

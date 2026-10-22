@@ -853,6 +853,9 @@ void Image::reloadColorizedSource() {
   if (m_renderer == nullptr || !m_appIconColorizeTint.has_value()) {
     return;
   }
+  if (m_colorizationSource.empty() && !m_ownedSourceRgba.empty()) {
+    storeColorizationSource(m_ownedSourceRgba.data(), m_ownedSourceRgbaWidth, m_ownedSourceRgbaHeight);
+  }
   if (!m_colorizationSource.empty()) {
     rebakeColorizedTexture();
     return;
