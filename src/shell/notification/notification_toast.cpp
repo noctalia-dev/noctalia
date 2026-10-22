@@ -608,6 +608,7 @@ void NotificationToast::onConfigReload() {
   }
   revealQueuedEntries();
   enforceMaxVisible();
+  reflowNewestOnEdge();
   requestLayout();
 }
 
@@ -621,6 +622,7 @@ void NotificationToast::onOutputChange() {
   }
   revealQueuedEntries();
   enforceMaxVisible();
+  reflowNewestOnEdge();
   requestLayout();
 }
 
@@ -866,9 +868,11 @@ void NotificationToast::onNotificationEvent(const Notification& n, NotificationE
         if (!hasPlacement(m_entries[i])) {
           syncEntryVisibility(i);
           revealQueuedEntries();
+          reflowNewestOnEdge();
         } else if (std::abs(previousHeight - m_entries[i].height) > 0.5F) {
           syncEntryVisibility(i);
           revealQueuedEntries();
+          reflowNewestOnEdge();
         }
         break;
       }
@@ -949,6 +953,7 @@ void NotificationToast::addPopup(const Notification& n) {
   syncEntryVisibility(index);
   revealQueuedEntries();
   enforceMaxVisible();
+  reflowNewestOnEdge();
 
   kLog.debug("notification toast: showing #{}", n.id);
 }
@@ -1386,6 +1391,9 @@ void NotificationToast::resetPopupHover(uint32_t notificationId, int totalDurati
     collapseStack();
   }
   revealQueuedEntries();
+  for (std::size_t i = 0; i < m_entries.size(); ++i) {
+    syncEntryVisibility(i);
+  }
 }
 
 void NotificationToast::resetInstanceHover(Instance& inst, bool resumeTimers) {
@@ -1700,6 +1708,10 @@ bool NotificationToast::entriesShareStack(const PopupEntry& lhs, const PopupEntr
 
 bool NotificationToast::isBottomStacking() const { return isBottomPosition(notificationPosition()); }
 
+bool NotificationToast::isNewestOnEdge() const {
+  return m_config != nullptr && m_config->config().notification.newestOnEdge;
+}
+
 NotificationToast::RevealDirection NotificationToast::revealDirection() const {
   return revealDirectionForPosition(notificationPosition());
 }
@@ -1903,17 +1915,55 @@ void NotificationToast::collapseStack() {
       return;
     }
 
-    std::ranges::sort(placed, {}, &PlacedEntry::oldPrimary);
+    if (isNewestOnEdge()) {
+      std::ranges::sort(placed, std::ranges::greater{}, &PlacedEntry::index);
+    } else {
+      std::ranges::sort(placed, {}, &PlacedEntry::oldPrimary);
+    }
 
     float cursor = isBottomStacking() ? 0.0F : topPad;
-    for (auto& p : placed) {
-      if (p.hovered) {
-        cursor = std::max(cursor, p.oldPrimary + m_entries[p.index].height + layoutGap);
-        continue;
+    if (isNewestOnEdge()) {
+      struct ReservedSlot {
+        float start;
+        float end;
+      };
+      std::vector<ReservedSlot> reserved;
+      for (const auto& p : placed) {
+        if (p.hovered) {
+          reserved.push_back({p.oldPrimary, p.oldPrimary + m_entries[p.index].height});
+        }
       }
+      for (auto& p : placed) {
+        const float height = m_entries[p.index].height;
+        if (p.hovered) {
+          p.newPrimary = p.oldPrimary;
+          continue;
+        }
 
-      p.newPrimary = cursor;
-      cursor = cursor + m_entries[p.index].height + layoutGap;
+        bool shifted = true;
+        while (shifted) {
+          shifted = false;
+          for (const auto& slot : reserved) {
+            if (cursor < slot.end + layoutGap && cursor + height + layoutGap > slot.start) {
+              cursor = slot.end + layoutGap;
+              shifted = true;
+            }
+          }
+        }
+
+        p.newPrimary = cursor;
+        cursor = cursor + height + layoutGap;
+      }
+    } else {
+      for (auto& p : placed) {
+        if (p.hovered) {
+          cursor = std::max(cursor, p.oldPrimary + m_entries[p.index].height + layoutGap);
+          continue;
+        }
+
+        p.newPrimary = cursor;
+        cursor = cursor + m_entries[p.index].height + layoutGap;
+      }
     }
 
     for (auto& p : placed) {
@@ -2009,6 +2059,16 @@ void NotificationToast::collapseStack() {
   }
   for (wl_output* targetOutput : targetOutputs) {
     collapseOutput(targetOutput);
+  }
+}
+
+void NotificationToast::reflowNewestOnEdge() {
+  if (!isNewestOnEdge()) {
+    return;
+  }
+  collapseStack();
+  for (std::size_t i = 0; i < m_entries.size(); ++i) {
+    syncEntryVisibility(i);
   }
 }
 
