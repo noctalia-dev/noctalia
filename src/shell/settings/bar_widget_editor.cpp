@@ -2488,17 +2488,15 @@ namespace settings {
             })
         );
         const auto& accordionMsRange = noctalia::config::schema::kBarCapsuleAccordionMsRange;
-        const double accordionMsMin = static_cast<double>(*accordionMsRange.min);
-        const double accordionMsMax = static_cast<double>(*accordionMsRange.max);
-        const double accordionMsStep = static_cast<double>(*accordionMsRange.step);
+        const auto accordionMsMin = static_cast<double>(*accordionMsRange.min);
+        const auto accordionMsMax = static_cast<double>(*accordionMsRange.max);
+        const auto accordionMsStep = static_cast<double>(*accordionMsRange.step);
         ctx.makeRow(
             *panelPtr, groupEntry("accordion-duration"),
             makeGroupSliderControl(
                 ctx, static_cast<double>(style.accordionDurationMs.value_or(Style::animNormal)), accordionMsMin,
-                accordionMsMax, accordionMsStep, true, [mutateGroup, accordionMsMin, accordionMsMax](double v) {
-                  mutateGroup([&](BarCapsuleGroupStyle& g) {
-                    g.accordionDurationMs = static_cast<std::int32_t>(std::clamp(v, accordionMsMin, accordionMsMax));
-                  });
+                accordionMsMax, accordionMsStep, true, [mutateGroup](double v) {
+                  mutateGroup([&](BarCapsuleGroupStyle& g) { g.accordionDurationMs = static_cast<std::int32_t>(v); });
                 }
             )
         );
@@ -2506,10 +2504,8 @@ namespace settings {
             *panelPtr, groupEntry("accordion-delay"),
             makeGroupSliderControl(
                 ctx, static_cast<double>(style.accordionDelayMs.value_or(0)), accordionMsMin, accordionMsMax,
-                accordionMsStep, true, [mutateGroup, accordionMsMin, accordionMsMax](double v) {
-                  mutateGroup([&](BarCapsuleGroupStyle& g) {
-                    g.accordionDelayMs = static_cast<std::int32_t>(std::clamp(v, accordionMsMin, accordionMsMax));
-                  });
+                accordionMsStep, true, [mutateGroup](double v) {
+                  mutateGroup([&](BarCapsuleGroupStyle& g) { g.accordionDelayMs = static_cast<std::int32_t>(v); });
                 }
             )
         );
