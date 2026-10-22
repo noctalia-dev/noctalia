@@ -32,6 +32,7 @@
 #include "dbus/polkit/polkit_session_support.h"
 #include "dbus/power/power_profiles_service.h"
 #include "dbus/secret/secret_collection_probe.h"
+#include "dbus/secrets/secret_prompter.h"
 #include "dbus/session_bus.h"
 #include "dbus/session_bus_poll_source.h"
 #include "dbus/system_bus.h"
@@ -467,6 +468,48 @@ void Application::syncPolkitAgent() {
   });
   m_polkitPollSource = std::make_unique<PolkitPollSource>(*m_polkitAgent);
   m_polkitAgent->start();
+}
+
+void Application::syncSecretPrompter() {
+  if (m_bus == nullptr || !m_configService.config().shell.secretPrompter) {
+    if (m_secretPrompter != nullptr) {
+      kLog.info("secret prompter disabled by config");
+      m_secretPrompter.reset();
+    }
+    return;
+  }
+
+  if (m_secretPrompter != nullptr) {
+    return;
+  }
+
+  try {
+    m_secretPrompter = std::make_unique<SecretPrompter>(*m_bus);
+  } catch (const std::exception& e) {
+    // Expected whenever gnome-shell or a legacy gcr-prompter already owns the
+    // name. Their prompter keeps working; ours simply stays out of the way.
+    kLog.info("secret prompter not started: {}", e.what());
+    m_secretPrompter.reset();
+    return;
+  }
+
+  m_secretPrompter->setStateCallback([this]() {
+    if (m_secretPrompter == nullptr) {
+      return;
+    }
+    if (!m_secretPrompter->hasPendingPrompt()) {
+      if (m_panelManager.isOpenPanel("secret-prompt")) {
+        m_panelManager.close();
+      }
+      return;
+    }
+    if (!m_panelManager.isOpenPanel("secret-prompt")) {
+      wl_output* output = m_compositorPlatform.preferredInteractiveOutput(std::chrono::milliseconds(1200));
+      m_panelManager.openPanel("secret-prompt", PanelOpenRequest{.output = output});
+    } else {
+      m_panelManager.refresh();
+    }
+  });
 }
 
 void Application::syncScreenTimeService() {
@@ -1668,6 +1711,8 @@ void Application::initSessionBusServices() {
     m_configService.addReloadCallback([this]() { syncNotificationDaemon(); });
     installSecretServiceNameWatch();
     installSecretServiceCollectionWatch();
+    syncSecretPrompter();
+    m_configService.addReloadCallback([this]() { syncSecretPrompter(); });
 
     m_compositorPlatform.startKdeActiveWindow(*m_bus);
   }

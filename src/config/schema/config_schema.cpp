@@ -1706,6 +1706,7 @@ namespace noctalia::config::schema {
         field(&ShellConfig::niriOverviewCloseOnLaunchEnabled, "niri_overview_close_on_launch_enabled"),
         field(&ShellConfig::umbrielOverviewCloseOnLaunchEnabled, "umbriel_overview_close_on_launch_enabled"),
         field(&ShellConfig::polkitAgent, "polkit_agent"),
+        field(&ShellConfig::secretPrompter, "secret_prompter"),
         enumField(&ShellConfig::passwordMaskStyle, "password_style", kPasswordMaskStyles),
         field(&ShellConfig::readlineShortcuts, "readline_shortcuts"),
         field(&ShellConfig::settingsShowAdvanced, "settings_show_advanced"),

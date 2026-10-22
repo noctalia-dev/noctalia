@@ -42,7 +42,7 @@ jobs:
             libglvnd freetype2 fontconfig noto-fonts \
             cairo pango harfbuzz \
             libxkbcommon glib2 \
-            libsecret libsodium \
+            libsecret libsodium gcr-4 \
             sdbus-cpp libpipewire wireplumber polkit \
             pam curl libwebp libjxl libsndfile librsvg \
             libqalculate libxml2 \

@@ -41,7 +41,7 @@ Direct project dependencies are listed below; transitive dependencies are owned 
 | IPC and service runtime | `sdbus-c++`, `glib-2.0`, `gobject-2.0`, `gio-2.0` |
 | Audio | `libpipewire-0.3`, `wireplumber-0.5`, `libsndfile` |
 | Authentication | `PAM`, `polkit-agent-1`, `polkit-gobject-1` |
-| Credentials and encryption | `libsecret-1`, `libsodium` |
+| Credentials and encryption | `libsecret-1`, `libsodium`, `gcr-4` (Secret Service prompt exchange) |
 | HTTP | `libcurl` |
 | XML | `libxml2` |
 | Calendar data | `libical` |
@@ -250,6 +250,7 @@ src/
     notification/   Desktop notification D-Bus service
     polkit/         Polkit authentication agent
     power/          power-profiles-daemon integration
+    secrets/        org.gnome.keyring.SystemPrompter service
     tray/           StatusNotifierItem watcher/host
     upower/         Battery and power device integration
   debug/            Debug D-Bus service
@@ -287,6 +288,7 @@ src/
     panel/          Panel base, manager, attached-panel context
     polkit/         Polkit prompt panel
     screen_corners/ Screen corner overlays
+    secrets/        Keyring prompt panel
     session/        Session panel and action runners
     settings/       Settings window, setting controls, registries, popups
     setup_wizard/   First-run setup wizard

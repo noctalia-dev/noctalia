@@ -31,6 +31,7 @@
 #include "dbus/polkit/polkit_poll_source.h"
 #include "dbus/polkit/polkit_session_support.h"
 #include "dbus/power/power_profiles_service.h"
+#include "dbus/secrets/secret_prompter.h"
 #include "dbus/session_bus.h"
 #include "dbus/session_bus_poll_source.h"
 #include "dbus/system_bus.h"

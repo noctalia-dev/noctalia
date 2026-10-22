@@ -138,6 +138,7 @@ class PolkitPollSource;
 class PowerProfilesService;
 class ScreenSaverPollSource;
 class ScreenSaverService;
+class SecretPrompter;
 class SessionBus;
 class SessionBusPollSource;
 class SoundPlayer;
@@ -221,6 +222,7 @@ private:
   void scheduleNotificationShellRefresh();
   void syncPolkitAgent();
   [[nodiscard]] bool likelySupportsInSessionPolkit() const noexcept;
+  void syncSecretPrompter();
   void syncClipboardService();
   void syncStorageKeyProvider();
   void syncScreenTimeService();
@@ -309,6 +311,7 @@ private:
   std::unique_ptr<ModemManagerService> m_modemManagerService;
   Timer m_bluetoothResumeTimer;
   std::unique_ptr<PolkitAgent> m_polkitAgent;
+  std::unique_ptr<SecretPrompter> m_secretPrompter;
   std::optional<bool> m_notificationDaemonEnabled;
   bool m_notificationDaemonInitFailed = false;
   bool m_notificationShellRefreshScheduled = false;

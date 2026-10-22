@@ -24,6 +24,15 @@
       "invalid-password": "Invalid password",
       "password-placeholder": "Password",
       "title": "Authentication Required"
+    },
+    "secret-prompt": {
+      "confirm-placeholder": "Confirm password",
+      "continue": "Continue",
+      "default-message": "An application wants access to a stored secret",
+      "mismatch": "Passwords do not match",
+      "password-placeholder": "Password",
+      "title": "Unlock Keyring",
+      "unlock": "Unlock"
     }
   },
   "bar": {
@@ -3551,6 +3560,10 @@
         "screenshot-skip-annotate-on-copy-save": {
           "description": "Copy and Save in the region overlay deliver immediately; Enter and Space still open the editor",
           "label": "Skip Editor on Copy or Save"
+        },
+        "secret-prompter": {
+          "description": "Answer keyring unlock and password prompts from gnome-keyring, oo7 and other Secret Service providers",
+          "label": "Keyring Prompter"
         },
         "settings-expand-all-groups": {
           "description": "Open every settings group expanded instead of only the first one on each page",

@@ -69,6 +69,7 @@
 #include "shell/launcher/launcher_panel.h"
 #include "shell/panel/plugin_panel.h"
 #include "shell/polkit/polkit_panel.h"
+#include "shell/secrets/secret_prompt_panel.h"
 #include "shell/session/session_ipc.h"
 #include "shell/session/session_panel.h"
 #include "shell/setup_wizard/setup_wizard_panel.h"
@@ -756,6 +757,9 @@ void Application::initPanelManagerAndPanels() {
   m_panelManager.registerPanel("tray-drawer", std::make_unique<TrayDrawerPanel>(m_trayService.get(), &m_configService));
   m_panelManager.registerPanel("polkit", std::make_unique<PolkitPanel>(&m_configService, [this]() {
                                  return m_polkitAgent.get();
+                               }));
+  m_panelManager.registerPanel("secret-prompt", std::make_unique<SecretPromptPanel>(&m_configService, [this]() {
+                                 return m_secretPrompter.get();
                                }));
   m_panelManager.registerPanel("setup-wizard", std::make_unique<SetupWizardPanel>(&m_configService, &m_wayland));
 
