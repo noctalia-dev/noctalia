@@ -136,5 +136,114 @@ int main() {
     TEST_CHECK(actualLength == expectedLength);
   }
 
+  // Surface span is static across changing item counts to prevent compositor buffer scaling.
+  {
+    DockConfig cfg = flushDock(DockEdge::Bottom);
+    cfg.marginEnds = 10;
+    const ShellConfig::ShadowConfig shadow;
+    const auto geo1 = shell::dock::computeSurfaceGeometry(cfg, shadow, 1, false, 1920, 1080);
+    const auto geo5 = shell::dock::computeSurfaceGeometry(cfg, shadow, 5, false, 1920, 1080);
+    const auto geo15 = shell::dock::computeSurfaceGeometry(cfg, shadow, 15, false, 1920, 1080);
+    TEST_CHECK(geo1.surfaceW == 1900U);
+    TEST_CHECK(geo5.surfaceW == 1900U);
+    TEST_CHECK(geo15.surfaceW == 1900U);
+
+    // Panel capsule is centered within the surface.
+    const auto panel1 = shell::dock::computePanelGeometry(
+        cfg, shadow, static_cast<float>(geo1.surfaceW), static_cast<float>(geo1.surfaceH), 1
+    );
+    const auto panel5 = shell::dock::computePanelGeometry(
+        cfg, shadow, static_cast<float>(geo5.surfaceW), static_cast<float>(geo5.surfaceH), 5
+    );
+    const float center1 = panel1.panelX + panel1.panelW * 0.5F;
+    const float center5 = panel5.panelX + panel5.panelW * 0.5F;
+    const float surfaceCenter = static_cast<float>(geo1.surfaceW) * 0.5F;
+    TEST_CHECK(std::abs(center1 - surfaceCenter) <= 1.0F);
+    TEST_CHECK(std::abs(center5 - surfaceCenter) <= 1.0F);
+    TEST_CHECK(panel1.panelW < panel5.panelW);
+
+    // Input region is confined to the capsule and not the full surface width.
+    const auto region5 = shell::dock::computeInputRegion(cfg, panel5, geo5.surfaceW, geo5.surfaceH, false, false);
+    TEST_CHECK(region5.size() == 1);
+    TEST_CHECK(region5[0].width < static_cast<int>(geo5.surfaceW));
+
+    // Revealed dock with empty panel geometry falls back safely to full surface instead of returning 0x0.
+    const auto fallbackRegion = shell::dock::computeInputRegion(
+        cfg, shell::dock::DockPanelGeometry{}, geo5.surfaceW, geo5.surfaceH, /*hidden=*/false, false
+    );
+    TEST_CHECK(fallbackRegion.size() == 1);
+    TEST_CHECK(fallbackRegion[0].x == 0 && fallbackRegion[0].y == 0);
+    TEST_CHECK(fallbackRegion[0].width == static_cast<int>(geo5.surfaceW));
+    TEST_CHECK(fallbackRegion[0].height == static_cast<int>(geo5.surfaceH));
+  }
+
+  // Empty dock (itemCount == 0) computes small capsule pill, not full screen span.
+  {
+    DockConfig cfg = flushDock(DockEdge::Bottom);
+    cfg.marginEnds = 10;
+    const ShellConfig::ShadowConfig shadow;
+    const auto geo = shell::dock::computeSurfaceGeometry(cfg, shadow, 0, false, 1920, 1080);
+    const auto panel0 = shell::dock::computePanelGeometry(
+        cfg, shadow, static_cast<float>(geo.surfaceW), static_cast<float>(geo.surfaceH), 0
+    );
+    const auto expectedEmptySize = static_cast<float>(shell::dock::dockContentSize(cfg, 0));
+    TEST_CHECK(panel0.panelW == expectedEmptySize);
+    TEST_CHECK(panel0.panelW < static_cast<float>(geo.surfaceW));
+  }
+
+  // An auto-hide dock with marginEdge > 0 extends revealed input region to screen edge to prevent Leave flicker.
+  {
+    DockConfig cfg = flushDock(DockEdge::Bottom);
+    cfg.autoHide = true;
+    cfg.marginEdge = 8;
+    const ShellConfig::ShadowConfig shadow;
+    const auto geo = shell::dock::computeSurfaceGeometry(cfg, shadow, 5, false, 1920, 1080);
+    const auto panel = shell::dock::computePanelGeometry(
+        cfg, shadow, static_cast<float>(geo.surfaceW), static_cast<float>(geo.surfaceH), 5
+    );
+    const auto region =
+        shell::dock::computeInputRegion(cfg, panel, geo.surfaceW, geo.surfaceH, /*hidden=*/false, false);
+    TEST_CHECK(region.size() == 1);
+    TEST_CHECK(region[0].y + region[0].height == static_cast<int>(geo.surfaceH));
+  }
+
+  // Empty vertical dock (itemCount == 0) computes small capsule pill, not full screen span.
+  {
+    DockConfig cfg = flushDock(DockEdge::Left);
+    cfg.marginEnds = 10;
+    const ShellConfig::ShadowConfig shadow;
+    const auto geo = shell::dock::computeSurfaceGeometry(cfg, shadow, 0, false, 1920, 1080);
+    const auto panel0 = shell::dock::computePanelGeometry(
+        cfg, shadow, static_cast<float>(geo.surfaceW), static_cast<float>(geo.surfaceH), 0
+    );
+    const auto expectedEmptySize = static_cast<float>(shell::dock::dockContentSize(cfg, 0));
+    TEST_CHECK(panel0.panelH == expectedEmptySize);
+    TEST_CHECK(panel0.panelH < static_cast<float>(geo.surfaceH));
+  }
+
+  // Docks with marginEdge > 0 on Top, Left, Right edges extend revealed input region to screen edge.
+  for (const auto edge : {DockEdge::Top, DockEdge::Left, DockEdge::Right}) {
+    DockConfig cfg = flushDock(edge);
+    cfg.autoHide = true;
+    cfg.marginEdge = 8;
+    const ShellConfig::ShadowConfig shadow;
+    const auto geo = shell::dock::computeSurfaceGeometry(cfg, shadow, 5, false, 1920, 1080);
+    const auto panel = shell::dock::computePanelGeometry(
+        cfg, shadow, static_cast<float>(geo.surfaceW), static_cast<float>(geo.surfaceH), 5
+    );
+    const auto region =
+        shell::dock::computeInputRegion(cfg, panel, geo.surfaceW, geo.surfaceH, /*hidden=*/false, false);
+    TEST_CHECK(region.size() == 1);
+    if (edge == DockEdge::Top) {
+      TEST_CHECK(region[0].y == 0);
+      TEST_CHECK(region[0].height >= static_cast<int>(panel.panelY + panel.panelH));
+    } else if (edge == DockEdge::Left) {
+      TEST_CHECK(region[0].x == 0);
+      TEST_CHECK(region[0].width >= static_cast<int>(panel.panelX + panel.panelW));
+    } else if (edge == DockEdge::Right) {
+      TEST_CHECK(region[0].x + region[0].width == static_cast<int>(geo.surfaceW));
+    }
+  }
+
   return 0;
 }
