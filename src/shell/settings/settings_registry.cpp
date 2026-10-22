@@ -3175,6 +3175,29 @@ namespace settings {
         tr("settings.schema.services.sound-theme.description"), {"audio", "sound_theme"},
         SelectSetting{std::move(soundThemeOptions), cfg.audio.soundTheme}, "sound theme"
     ));
+    {
+      // A rate set in TOML that is not a preset gets its own option instead of showing as unknown.
+      std::vector<int> frameRates{30, 60, 100, 120, 144, 165, 240};
+      if (!std::ranges::contains(frameRates, cfg.audio.spectrumFrameRate)) {
+        frameRates.insert(
+            std::ranges::upper_bound(frameRates, cfg.audio.spectrumFrameRate), cfg.audio.spectrumFrameRate
+        );
+      }
+      std::vector<SelectOption> frameRateOptions;
+      for (const int fps : frameRates) {
+        const std::string value = std::to_string(fps);
+        frameRateOptions.push_back(
+            SelectOption{value, tr("settings.schema.services.spectrum-frame-rate.option", "fps", value)}
+        );
+      }
+      SelectSetting frameRateSelect{std::move(frameRateOptions), std::to_string(cfg.audio.spectrumFrameRate)};
+      frameRateSelect.valueType = SelectValueType::Integer;
+      entries.push_back(makeEntry(
+          SettingsSection::Services, "audio", tr("settings.schema.services.spectrum-frame-rate.label"),
+          tr("settings.schema.services.spectrum-frame-rate.description"), {"audio", "spectrum_frame_rate"},
+          std::move(frameRateSelect), "visualizer spectrum fps"
+      ));
+    }
     entries.push_back(makeEntry(
         SettingsSection::Services, "brightness", tr("settings.schema.services.ddcutil.label"),
         env.ddcutilAvailable ? tr("settings.schema.services.ddcutil.description")

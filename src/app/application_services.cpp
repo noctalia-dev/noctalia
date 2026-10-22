@@ -1558,6 +1558,22 @@ void Application::initBrightnessAndPipewire() {
         },
         "sound"
     );
+
+    auto applySpectrumConfig = [this]() {
+      if (m_pipewireSpectrum == nullptr) {
+        return;
+      }
+      m_pipewireSpectrum->setFrameRate(m_configService.config().audio.spectrumFrameRate);
+    };
+    applySpectrumConfig();
+    m_configService.addReloadCallback(
+        [this, applySpectrumConfig]() {
+          if (m_configService.lastChange().audio) {
+            applySpectrumConfig();
+          }
+        },
+        "spectrum"
+    );
   } catch (const std::exception& e) {
     kLog.warn("pipewire disabled: {}", e.what());
     m_soundPlayer.reset();

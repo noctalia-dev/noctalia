@@ -397,6 +397,14 @@ void PipeWireSpectrum::setSmoothing(bool enabled) {
   m_smoothing = enabled;
 }
 
+void PipeWireSpectrum::setFrameRate(int framesPerSecond) {
+  framesPerSecond = std::max(1, framesPerSecond);
+  if (framesPerSecond == m_frameRateHz) {
+    return;
+  }
+  m_frameRateHz = framesPerSecond;
+}
+
 int PipeWireSpectrum::pollTimeoutMs() const {
   if (!hasListeners() || m_stream == nullptr) {
     return -1;
@@ -697,7 +705,7 @@ bool PipeWireSpectrum::processListenerView(ListenerState& state, float nrFactor,
 }
 
 std::chrono::nanoseconds PipeWireSpectrum::frameInterval() const noexcept {
-  return std::chrono::nanoseconds{std::chrono::seconds{1}} / kFrameRateHz;
+  return std::chrono::nanoseconds{std::chrono::seconds{1}} / m_frameRateHz;
 }
 
 void PipeWireSpectrum::feedSamples(const float* monoSamples, int count) {
@@ -779,7 +787,13 @@ void PipeWireSpectrum::processFrame() {
     band *= m_sensitivity;
   }
 
-  const double gravityMod = std::max(1.0, 1.54 / std::max(static_cast<double>(m_noiseReduction), 0.01));
+  // Gravity is tuned for 60 fps; other frame rates rescale it the way cava does.
+  const double gravityMod = std::max(
+      1.0,
+      std::pow(60.0 / static_cast<double>(m_frameRateHz), 2.5)
+          * 1.54
+          / std::max(static_cast<double>(m_noiseReduction), 0.01)
+  );
 
   bool overshoot = false;
   bool silence = true;
@@ -826,7 +840,7 @@ void PipeWireSpectrum::processFrame() {
 
   if (silence) {
     ++m_idleFrames;
-    if (m_idleFrames >= kFrameRateHz) {
+    if (m_idleFrames >= m_frameRateHz) {
       if (!m_idle) {
         m_idle = true;
         clearValues(true);

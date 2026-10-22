@@ -350,7 +350,8 @@ location = "https://example.invalid/bad"
         .enablePowerSounds = false,
         .enableScreenshotSounds = false,
         .soundVolume = 0.73F,
-        .soundTheme = "freedesktop"
+        .soundTheme = "freedesktop",
+        .spectrumFrameRate = 144
     };
     c.weather = WeatherConfig{false, false, 17, "imperial"};
     c.osd.position = "bottom_left";

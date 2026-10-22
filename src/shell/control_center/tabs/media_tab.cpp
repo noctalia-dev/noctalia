@@ -629,7 +629,7 @@ void MediaTab::onFrameTick(float deltaMs) {
         m_visualizerSpectrum->setValues(m_spectrum->values(m_spectrumListenerId));
       }
     }
-    m_visualizerSpectrum->tick(deltaMs);
+    m_visualizerSpectrum->advance(deltaMs, m_spectrum != nullptr && !m_spectrum->idle());
   }
 }
 

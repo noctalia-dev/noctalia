@@ -36,7 +36,8 @@ namespace noctalia::config::schema {
         field(&AudioConfig::enablePowerSounds, "enable_power_sounds"),
         field(&AudioConfig::enableScreenshotSounds, "enable_screenshot_sounds"),
         field(&AudioConfig::soundVolume, "sound_volume", kUnitRange),
-        field(&AudioConfig::soundTheme, "sound_theme")
+        field(&AudioConfig::soundTheme, "sound_theme"),
+        field(&AudioConfig::spectrumFrameRate, "spectrum_frame_rate", kSpectrumFrameRateRange)
     };
     return s;
   }

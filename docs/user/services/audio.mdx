@@ -15,6 +15,7 @@ enable_power_sounds        = true   # sound on charger connect/disconnect
 enable_screenshot_sounds   = true   # sound on screenshots
 sound_volume               = 0.5    # global sound volume (0.0 - 1.0)
 sound_theme                = "freedesktop"
+spectrum_frame_rate        = 30     # audio visualizer updates per second (30 - 240)
 ```
 
 - `enable_overdrive = false` clamps Control Center output/microphone sliders to 100%; `true` allows up to 150%.
@@ -32,6 +33,10 @@ sound_theme                = "freedesktop"
   Premade themes are available on [Pling](https://www.pling.me/browse?cat=316&ord=rating); install them under
   `~/.local/share/sounds/<theme-name>/`. To create your own, follow the
   [freedesktop Sound Theme Specification](https://specifications.freedesktop.org/sound-theme/0.2/).
+- `spectrum_frame_rate` sets how many times per second the audio spectrum is analyzed while audio plays. It is
+  shared by every audio visualizer. The bar, desktop, media player, and Control Center visualizers redraw at this
+  rate rather than at the monitor's refresh rate; the fancy desktop visualizer keeps animating every frame. Higher
+  rates are smoother but use more CPU and GPU.
 - Shell sounds use these theme events: `message-new-instant` (notifications), `audio-volume-change` (volume
   changes), `power-plug` / `power-unplug` (laptop charger connected or removed), and `screen-capture`
   (screenshots). If a theme lacks the exact event, its trailing dash components are stripped (e.g.
