@@ -10,6 +10,9 @@ namespace FormatUnits {
     Auto,
     Kilobytes,
     Megabytes,
+    AutoBits,
+    Kilobits,
+    Megabits,
   };
   enum class ByteRateLabelStyle {
     Full,
