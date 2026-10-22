@@ -2964,6 +2964,7 @@
           "description-syncing-connecting": "Syncing: connecting…",
           "description-syncing-downloading": "Syncing: downloading events…",
           "failure-authentication": "The server rejected the username or password.",
+          "failure-client-certificate": "The client certificate or key file could not be read.",
           "failure-configuration": "The account settings are incomplete.",
           "failure-credentials": "No password is stored for this account, or it could not be read.",
           "failure-credentials-locked": "The keyring holding its credentials is locked; unlock it, then retry.",

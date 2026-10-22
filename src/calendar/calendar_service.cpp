@@ -31,6 +31,7 @@
 #include <nlohmann/json.hpp>
 #include <sodium.h>
 #include <thread>
+#include <unistd.h>
 #include <unordered_set>
 
 namespace {
@@ -112,6 +113,9 @@ namespace {
     }
     return calendar::SyncFailure::Credentials;
   }
+
+  // Whether this process can read the file at path, as libcurl must to load a client certificate or key.
+  bool isReadableFile(const std::string& path) { return !path.empty() && ::access(path.c_str(), R_OK) == 0; }
 
   void wipeString(std::string& value) {
     if (!value.empty()) {
@@ -769,6 +773,12 @@ void CalendarService::fetchCalDav(const CalendarConfig::Account& account) {
 
   std::shared_ptr<const HttpTlsClientCert> tls;
   if (!account.clientCertFile.empty() || !account.clientKeyFile.empty()) {
+    // libcurl would only report an unreadable file as a failed connection.
+    if (!isReadableFile(account.clientCertFile) || !isReadableFile(account.clientKeyFile)) {
+      kLog.warn("caldav account {} client_cert_file or client_key_file is not readable", account.id);
+      accountDone(account.id, calendar::SyncFailure::ClientCertificate, {});
+      return;
+    }
     auto material = std::make_shared<HttpTlsClientCert>();
     material->clientCertPath = account.clientCertFile;
     material->clientKeyPath = account.clientKeyFile;

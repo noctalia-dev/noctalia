@@ -35,6 +35,8 @@ namespace calendar {
       return "settings.schema.services.calendar-edit.failure-credentials";
     case SyncFailure::CredentialsLocked:
       return "settings.schema.services.calendar-edit.failure-credentials-locked";
+    case SyncFailure::ClientCertificate:
+      return "settings.schema.services.calendar-edit.failure-client-certificate";
     case SyncFailure::Authentication:
       return "settings.schema.services.calendar-edit.failure-authentication";
     case SyncFailure::NotFound:

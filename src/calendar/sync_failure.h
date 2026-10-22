@@ -15,6 +15,7 @@ namespace calendar {
     Configuration,     // a required setting is missing (server_url, username, path), or the type is unknown
     Credentials,       // no password is stored, or the password file can't be read
     CredentialsLocked, // the keyring is locked or Secret Service is unavailable
+    ClientCertificate, // the mTLS client certificate or key file (client_cert_file, client_key_file) can't be read
     Authentication,    // the server rejected the credentials (HTTP 401/403, a revoked Google grant)
     NotFound,          // nothing at the configured address: HTTP 404/405/410, a discovery step without an answer, a
                        // missing vdir directory

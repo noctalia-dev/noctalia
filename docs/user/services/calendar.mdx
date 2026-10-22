@@ -213,7 +213,8 @@ client_key_file  = "~/pki/client.key"
 ```
 
 - `client_cert_file` and `client_key_file` must be set together and point at PEM-encoded files. `~` and `$VARS`
-  expand; the result must be an absolute path.
+  expand; the result must be an absolute path. If either file can't be read, the account's sync status in Settings
+  says so.
 - Noctalia presents the certificate during discovery and every calendar sync. Use an `https://` `server_url`: libcurl
   also presents the certificate to any HTTPS host a redirect leads to.
 - The fields are only valid for caldav accounts; `google`, `ics`, and `vdir` accounts reject them.
