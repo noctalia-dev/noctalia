@@ -319,7 +319,7 @@ widget_spacing = 10                      # optional: gap between this group's wi
 | `accordion`           | bool    | `false`                    | Collapse the group to its first widget; hovering the capsule expands it in place to reveal the rest. Needs at least two widgets in the group. |
 | `accordion_direction` | string  | `end`                      | Where the hidden widgets unfold relative to the first one along the lane: `end` (after it) or `start` (before it).                            |
 | `accordion_duration`  | integer | `200`                      | Duration of the unfold and collapse animations in milliseconds (0–2000, 0 is instant).                                                        |
-| `accordion_delay`     | integer | `0`                        | Milliseconds to hover before unfolding starts (0–2000, 0 reacts at once; collapse begins without this delay).                                 |
+| `accordion_delay_ms`  | integer | `0`                        | Milliseconds to hover before unfolding starts (0–2000, 0 reacts at once; collapse begins without this delay).                                 |
 | `widget_spacing`      | integer | *(bar's `widget_spacing`)* | Gap between the group's widgets, in logical pixels. Omit to inherit the bar's `widget_spacing`.                                               |
 
 A group's style can be overridden per monitor by declaring `[[bar.<name>.monitor.<match>.capsule_group]]` tables with matching `id` values. A reused widget name (e.g. several `spacer` instances) can appear in different groups independently - membership is positional, not a per-widget flag.

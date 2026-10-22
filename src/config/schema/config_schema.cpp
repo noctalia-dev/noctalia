@@ -2214,7 +2214,7 @@ namespace noctalia::config::schema {
           optionalIntField(
               &BarCapsuleGroupStyle::accordionDurationMs, "accordion_duration", kBarCapsuleAccordionMsRange
           ),
-          optionalIntField(&BarCapsuleGroupStyle::accordionDelayMs, "accordion_delay", kBarCapsuleAccordionMsRange),
+          optionalIntField(&BarCapsuleGroupStyle::accordionDelayMs, "accordion_delay_ms", kBarCapsuleAccordionMsRange),
           optionalIntField(&BarCapsuleGroupStyle::widgetSpacing, "widget_spacing"),
       };
       return s;

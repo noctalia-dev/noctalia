@@ -578,7 +578,7 @@ namespace {
                 row.insert_or_assign("accordion_duration", static_cast<std::int64_t>(*item.accordionDurationMs));
               }
               if (item.accordionDelayMs.has_value()) {
-                row.insert_or_assign("accordion_delay", static_cast<std::int64_t>(*item.accordionDelayMs));
+                row.insert_or_assign("accordion_delay_ms", static_cast<std::int64_t>(*item.accordionDelayMs));
               }
               if (item.widgetSpacing.has_value()) {
                 row.insert_or_assign("widget_spacing", static_cast<std::int64_t>(*item.widgetSpacing));

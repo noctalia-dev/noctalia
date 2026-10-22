@@ -3024,7 +3024,7 @@ void Bar::updateAccordionExpansion(BarInstance& instance, InputArea* hoveredArea
         changed = true;
         continue;
       }
-      // Expand honors accordion_delay: arm a one-shot and re-verify hover when it fires, so a
+      // Expand honors accordion_delay_ms: arm a one-shot and re-verify hover when it fires, so a
       // pointer that already moved on never unfolds the group.
       if (run.accordionDelayMs <= 0.0F) {
         beginAccordionAnimation(instance, run, true);
