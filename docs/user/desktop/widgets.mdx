@@ -68,6 +68,15 @@ Widget previews are non-interactive in edit mode. Clicking anywhere within a wid
 | Settings inspector → **Reset to Defaults** | Restore all settings for the selected widget to built-in defaults |
 | `Escape` / click `Done` | Exit edit mode |
 
+### Templates
+
+The editor supports up to 5 desktop widget templates (profiles). Use the template selector in the editor toolbar to switch between layouts:
+
+- **Create:** Select **New +** in the template dropdown to start with a blank template canvas.
+- **Clone:** Click the clone button beside the dropdown to duplicate the active template layout with fresh widget IDs.
+- **Rename:** Click the rename button to edit the template name in a modal dialog (`Enter` confirms, `Escape` cancels).
+- **Delete:** Click the trash button to delete the active template with a confirmation dialog. Deletion is disabled when only one template remains.
+
 When the snap grid is active, moving a widget snaps the nearest outer edge or center line to the grid, screen edges, and
 nearby widgets. Resizing keeps the opposite edge anchored and snaps the dragged edge to the same guides, with a horizontal
 bias for corner drags so matching widget widths is easier.
@@ -80,7 +89,9 @@ when nearby, even if the snap grid is hidden or temporarily disabled with `Shift
 ## Config Format
 
 Widget definitions are named tables under `[desktop_widgets.widget.<id>]`. This makes them friendly to split config
-files and deep-merge overrides. Edit mode writes the same schema into `settings.toml`; use Settings -> Export Config... -> Merged User Config to promote
+files and deep-merge overrides. When using multiple templates, layouts can be declared under `[[desktop_widgets.profiles]]`
+with their own `name`, `grid`, and `widget.<id>` tables, and `active_profile` selects the active 0-based template index.
+Edit mode writes the same schema into `settings.toml`; use Settings -> Export Config... -> Merged User Config to promote
 GUI-edited layouts back into declarative config.
 When `widget_order` is present, it is the authoritative widget list and order; unlisted widget tables are ignored.
 
@@ -88,6 +99,7 @@ When `widget_order` is present, it is the authoritative widget list and order; u
 [desktop_widgets]
 enabled = true
 schema_version = 2
+active_profile = 0
 widget_order = ["clock_main"]
 
 [desktop_widgets.grid]
