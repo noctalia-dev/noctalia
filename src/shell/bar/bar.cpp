@@ -1429,6 +1429,17 @@ namespace {
     return nullptr;
   }
 
+  // An accordion run wants to be expanded while one of its widgets is hovered or, once it has started
+  // unfolding, while the pointer stays anywhere over its capsule (gaps and padding included).
+  bool accordionRunWantsExpansion(const BarInstance& instance, const BarCapsuleRun& run, const Widget* target) {
+    if (target != nullptr && std::ranges::contains(run.widgets, target)) {
+      return true;
+    }
+    return (run.accordionExpanded || run.accordionProgress > 0.0F)
+        && instance.pointerInside
+        && pointInsideNode(run.shell, instance.lastPointerSx, instance.lastPointerSy);
+  }
+
   // The area the tooltip manager may show a tooltip for: none when the owning widget disables tooltips.
   InputArea* tooltipAreaForHover(BarInstance& instance, InputArea* hoveredArea) {
     const Widget* owner = widgetFromHoveredArea(instance, hoveredArea);
@@ -2994,10 +3005,6 @@ void Bar::beginAccordionAnimation(BarInstance& instance, BarCapsuleRun& run, boo
 void Bar::updateAccordionExpansion(BarInstance& instance, InputArea* hoveredArea) {
   Widget* target = widgetFromHoveredArea(instance, hoveredArea);
 
-  auto isPointerInsideRunShell = [&instance](const BarCapsuleRun& run) -> bool {
-    return instance.pointerInside && pointInsideNode(run.shell, instance.lastPointerSx, instance.lastPointerSy);
-  };
-
   bool changed = false;
   auto updateRuns = [&](std::vector<BarCapsuleRun>& runs) {
     for (auto& run : runs) {
@@ -3005,12 +3012,7 @@ void Bar::updateAccordionExpansion(BarInstance& instance, InputArea* hoveredArea
         run.accordionDelayTimer.stop();
         continue;
       }
-      bool want = target != nullptr && std::ranges::contains(run.widgets, target);
-      if (!want && (run.accordionExpanded || run.accordionProgress > 0.0F)) {
-        if (isPointerInsideRunShell(run)) {
-          want = true;
-        }
-      }
+      const bool want = accordionRunWantsExpansion(instance, run, target);
       if (want == run.accordionExpanded) {
         run.accordionDelayTimer.stop();
         continue;
@@ -3034,19 +3036,8 @@ void Bar::updateAccordionExpansion(BarInstance& instance, InputArea* hoveredArea
       }
       run.accordionDelayTimer.start(
           std::chrono::milliseconds(static_cast<int>(run.accordionDelayMs)), [this, &instance, &run]() {
-            if (!run.accordion || run.shell == nullptr || run.accordionExpanded) {
-              return;
-            }
-            Widget* nowTarget = widgetFromHoveredArea(instance, instance.inputDispatcher.hoveredArea());
-            bool wantNow = nowTarget != nullptr && std::ranges::contains(run.widgets, nowTarget);
-            if (!wantNow && (run.accordionExpanded || run.accordionProgress > 0.0F)) {
-              float sx = instance.lastPointerSx;
-              float sy = instance.lastPointerSy;
-              if (instance.pointerInside && pointInsideNode(run.shell, sx, sy)) {
-                wantNow = true;
-              }
-            }
-            if (!wantNow) {
+            const Widget* nowTarget = widgetFromHoveredArea(instance, instance.inputDispatcher.hoveredArea());
+            if (run.accordionExpanded || !accordionRunWantsExpansion(instance, run, nowTarget)) {
               return;
             }
             beginAccordionAnimation(instance, run, true);
