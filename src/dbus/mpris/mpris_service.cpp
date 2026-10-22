@@ -710,8 +710,7 @@ void MprisService::registerIpc(IpcService& ipc) {
       if (!amount.has_value()) {
         return kMediaVolumeValueError;
       }
-      return setVolumeActive(std::clamp(*amount, 0.0F, 1.0F)) ? "ok\n"
-                                                              : "error: no active player or volume unsupported\n";
+      return setVolumeActive(*amount) ? "ok\n" : kMediaVolumeUnsupportedOrNoActive;
     }
     if (action == "volume-up" || action == "volume-down") {
       const auto step = parts.size() == 1 ? std::optional<float>(static_cast<float>(kMediaVolumeStepDefault))
