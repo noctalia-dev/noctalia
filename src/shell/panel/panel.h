@@ -58,6 +58,7 @@ public:
   [[nodiscard]] virtual bool fillsHeight() const noexcept { return false; }
   [[nodiscard]] virtual bool hasDecoration() const { return true; }
   [[nodiscard]] virtual LayerShellLayer layer() const { return LayerShellLayer::Top; }
+  [[nodiscard]] virtual std::string_view panelLayerToken() const { return {}; }
   // Keyboard focus policy. `None` means the panel never takes keyboard focus, so the
   // app the user is typing into keeps it — that also rules out outside-click
   // dismissal, which needs either the click shield (it would swallow the click meant
