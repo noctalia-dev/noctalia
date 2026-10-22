@@ -535,7 +535,7 @@ void MediaTab::doLayout(Renderer& renderer, float contentWidth, float bodyHeight
   const float cardInnerWidth =
       std::max(0.0F, m_nowCard->width() - (m_nowCard->paddingLeft() + m_nowCard->paddingRight()));
   const float mediaWidth =
-      m_showVisualizer ? std::clamp(cardInnerWidth, 1.0F, kMediaUnit * 11.0F * scale) : cardInnerWidth;
+      m_showVisualizer ? std::clamp(cardInnerWidth, 1.0F, kMediaUnit * 11.0F * scale) : std::max(cardInnerWidth, 1.0F);
   const float mediaStackHeight = m_mediaStack->height();
   m_mediaStack->setSize(mediaWidth, mediaStackHeight);
 
