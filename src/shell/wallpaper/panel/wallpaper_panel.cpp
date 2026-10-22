@@ -368,8 +368,9 @@ public:
     );
   }
 
-  [[nodiscard]] std::optional<TooltipAnchorInsets>
-  itemTooltipAnchorInsets(std::size_t index, float cellWidth, float cellHeight) const override {
+  [[nodiscard]] std::optional<TooltipAnchorInsets> itemTooltipAnchorInsets(
+      std::size_t index, float cellWidth, float cellHeight, bool /*overlayHovered*/
+  ) const override {
     if (m_entries == nullptr || index >= m_entries->size() || (*m_entries)[index].isDir) {
       return std::nullopt;
     }

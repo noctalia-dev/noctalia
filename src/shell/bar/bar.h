@@ -9,6 +9,7 @@
 #include "ui/dialogs/layer_popup_host.h"
 #include "wayland/surface.h"
 
+#include <chrono>
 #include <functional>
 #include <memory>
 #include <optional>
@@ -72,6 +73,9 @@ public:
   void onWorkspaceChanged();
   void scheduleSmartAutoHideReevaluation();
   void onSecondTick();
+  // True when any bar widget renders a value that changes every second, so the
+  // time source should wake on second boundaries.
+  [[nodiscard]] bool wantsSecondTicks() const;
   void refresh();
   void requestLayout();
   void setAutoHideSuppressionCallback(std::function<bool(const BarInstance&)> callback);
@@ -125,6 +129,8 @@ private:
   static void tickWidgets(std::vector<std::unique_ptr<Widget>>& widgets, float deltaMs);
   [[nodiscard]] static bool widgetsNeedFrameTick(const std::vector<std::unique_ptr<Widget>>& widgets);
   [[nodiscard]] static bool instanceNeedsFrameTick(const BarInstance& instance);
+  [[nodiscard]] static bool widgetsWantSecondTicks(const std::vector<std::unique_ptr<Widget>>& widgets);
+  [[nodiscard]] static bool instanceWantsSecondTicks(const BarInstance& instance);
   void syncInstances();
   void createInstance(const WaylandOutput& output, std::size_t barIndex, const BarConfig& barConfig);
   void destroyInstance(std::uint32_t outputName);
@@ -197,6 +203,10 @@ private:
   scripting::ScriptApiContext* m_scriptApi = nullptr;
   std::unique_ptr<WidgetFactory> m_widgetFactory;
   std::vector<std::unique_ptr<BarInstance>> m_instances;
+  // Wall-clock minute of the last full second-tick update, so minute-changing
+  // widgets refresh on the first tick of a new minute even when it lands off
+  // the :00 boundary (after suspend, a clock step, or the lock screen).
+  std::chrono::sys_time<std::chrono::minutes> m_lastTickMinute;
 
   // Snapshot of the config fields the bar depends on. Used to skip reloads
   // triggered by unrelated config changes (theme, weather, idle, etc.).

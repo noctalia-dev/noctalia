@@ -10,6 +10,7 @@ struct wl_output;
 class BrightnessWidget : public Widget {
 public:
   struct Options {
+    bool showGlyph = true;
     bool showLabel = true;
     bool showWhenUnavailable = false;
   };
@@ -26,6 +27,7 @@ private:
 
   BrightnessService* m_brightness = nullptr;
   wl_output* m_output = nullptr;
+  bool m_showGlyph = true;
   bool m_showLabel = true;
   bool m_showWhenUnavailable = false;
   Glyph* m_glyph = nullptr;

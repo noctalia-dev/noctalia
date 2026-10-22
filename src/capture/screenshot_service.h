@@ -3,6 +3,8 @@
 #include "capture/annotation_overlay.h"
 #include "capture/screenshot_capture.h"
 #include "capture/screenshot_region_overlay.h"
+#include "capture/toplevel_thumbnail_capture.h"
+#include "config/config_types.h"
 
 #include <cstdint>
 #include <expected>
@@ -18,13 +20,16 @@ class CompositorPlatform;
 class ConfigService;
 class IpcService;
 class NotificationManager;
-struct Config;
 class RenderContext;
 class WaylandConnection;
 class SoundPlayer;
 struct KeyboardEvent;
 struct PointerEvent;
 struct wl_output;
+
+namespace noctalia::cli {
+  struct Command;
+} // namespace noctalia::cli
 
 class ScreenshotService {
 public:
@@ -37,9 +42,16 @@ public:
     bool rememberLastRegion = false;
     bool showCursor = false;
     bool annotate = false;
+    bool skipAnnotateOnCopySave = false;
+    bool closeOnCopy = true;
+    bool closeOnSave = true;
     std::string pipeCommand;
     std::string directory;
     std::string filenamePattern;
+    ScreenshotFormat format = ScreenshotFormat::Png;
+    std::int32_t quality = 90;
+
+    bool operator==(const OutputOptions&) const = default;
   };
 
   ScreenshotService(
@@ -130,6 +142,7 @@ private:
       wl_output* output, std::optional<LogicalRect> region, const std::string& labelBase, const OutputOptions& options,
       int pathSuffix = 0
   );
+  void captureWindow(ext_foreign_toplevel_handle_v1* handle, const OutputOptions& options);
   void ensureRegionOverlay();
   void startRegionOverlay(RenderContext& renderContext);
   void startFullscreenOverlay(RenderContext& renderContext);
@@ -176,6 +189,10 @@ private:
       std::optional<std::filesystem::path> destPath
   );
   [[nodiscard]] wl_output* preferredCaptureOutput() const;
+  // Focused window: compositor window id (Hyprland mapping or exact identity backend), else the
+  // wlr activated toplevel matched by title and app id. Exact-identity backends fail explicitly
+  // while the id join is pending instead of falling back to the title join.
+  [[nodiscard]] std::expected<ext_foreign_toplevel_handle_v1*, std::string> resolveFocusedCaptureTarget() const;
   [[nodiscard]] std::filesystem::path outputDirectory(const OutputOptions& options) const;
   [[nodiscard]] std::filesystem::path
   makeScreenshotPath(const OutputOptions& options, const std::string& labelBase, int suffix = 0) const;
@@ -191,6 +208,7 @@ private:
   ConfigService& m_configService;
   ClipboardService* m_clipboard = nullptr;
   ScreenshotCapture m_capture;
+  ToplevelThumbnailCapture m_toplevelCapture;
   std::unique_ptr<capture::ScreenshotRegionOverlay> m_regionOverlay;
   std::vector<PendingCapture> m_captureQueue;
   std::unique_ptr<AllOutputsBatch> m_allOutputsBatch;
@@ -206,3 +224,15 @@ private:
   bool m_freezeCaptureActive = false;
   SoundPlayer* m_soundPlayer = nullptr;
 };
+
+struct ScreenshotIpcRequest {
+  ScreenshotService::OutputOptions options;
+  std::string target; // screenshot-fullscreen target / annotate path; empty when omitted
+};
+
+// Applies `noctalia msg <command>` flags on top of `base` (the [shell.screenshot] snapshot).
+// The error string is the complete IPC response: an "error: ...\n" line, or the help text.
+[[nodiscard]] std::expected<ScreenshotIpcRequest, std::string> parseScreenshotIpcRequest(
+    const noctalia::cli::Command& command, std::string_view args, ScreenshotService::OutputOptions base,
+    std::optional<std::string_view> callerCwd
+);

@@ -3,6 +3,7 @@
 #include "config/config_service.h"
 #include "config/config_types.h"
 #include "i18n/i18n.h"
+#include "net/url_open.h"
 #include "notification/notification_filter.h"
 #include "shell/settings/bar_widget_editor.h"
 #include "shell/settings/settings_content_common.h"
@@ -382,15 +383,15 @@ namespace settings {
 
       constexpr std::size_t kTemplateCardsPerRow = 5;
       auto selected = std::make_shared<std::vector<std::string>>(setting.selectedValues);
-      const auto options = std::make_shared<std::vector<SelectOption>>(setting.options);
+      const auto options = std::make_shared<std::vector<noctalia::theme::AvailableTemplate>>(setting.options);
       const auto path = entry.path;
 
       auto commit = [setOverride = ctx.setOverride, path, options, selected]() {
         std::vector<std::string> ordered;
         ordered.reserve(selected->size());
         for (const auto& opt : *options) {
-          if (std::ranges::contains(*selected, opt.value)) {
-            ordered.push_back(opt.value);
+          if (std::ranges::contains(*selected, opt.id)) {
+            ordered.push_back(opt.id);
           }
         }
         setOverride(path, std::move(ordered));
@@ -421,12 +422,13 @@ namespace settings {
           row = ui::row({.align = FlexAlign::Stretch, .gap = Style::spaceSm * scale, .fillWidth = true});
         }
 
-        const bool checked = std::ranges::contains(*selected, option.value);
-        const std::string value = option.value;
+        const bool checked = std::ranges::contains(*selected, option.id);
+        const std::string value = option.id;
         Button* card = nullptr;
         Label* titleLabel = nullptr;
         Label* categoryLabel = nullptr;
         Checkbox* checkbox = nullptr;
+        Button* documentationButton = nullptr;
         auto checkedState = std::make_shared<bool>(checked);
         const auto cardPaletteFor = [scale](bool active) {
           return Button::ButtonPalette{
@@ -480,21 +482,6 @@ namespace settings {
                 .checkedFill = colorSpecFromRole(ColorRole::Surface),
                 .checkedBorder = colorSpecFromRole(ColorRole::OnPrimary),
                 .checkedGlyph = colorSpecFromRole(ColorRole::Primary),
-                .onChange = [selected, value, commit, checkedState, card, cardPaletteFor](bool nextChecked) mutable {
-                  auto it = std::find(selected->begin(), selected->end(), value);
-                  if (nextChecked) {
-                    if (it == selected->end()) {
-                      selected->push_back(value);
-                    }
-                  } else if (it != selected->end()) {
-                    selected->erase(it);
-                  }
-                  *checkedState = nextChecked;
-                  if (card != nullptr) {
-                    card->setCustomPalette(cardPaletteFor(nextChecked));
-                  }
-                  commit();
-                },
             })
         );
 
@@ -502,55 +489,82 @@ namespace settings {
         text->addChild(
             ui::label({
                 .out = &titleLabel,
-                .text = option.label,
+                .text = option.displayName,
                 .fontSize = Style::fontSizeBody * scale,
                 .fontWeight = FontWeight::Medium,
                 .color = colorSpecFromRole(checked ? ColorRole::OnPrimary : ColorRole::OnSurface),
                 .maxLines = 1,
+                .ellipsize = TextEllipsize::End,
             })
         );
-        if (!option.description.empty()) {
+        if (!option.category.empty()) {
           text->addChild(
               ui::label({
                   .out = &categoryLabel,
-                  .text = option.description,
+                  .text = option.category,
                   .fontSize = Style::fontSizeCaption * scale,
                   .color = colorSpecFromRole(
                       checked ? ColorRole::OnPrimary : ColorRole::OnSurfaceVariant, checked ? 0.75F : 1.0F
                   ),
                   .maxLines = 1,
+                  .ellipsize = TextEllipsize::End,
               })
           );
         }
         card->addChild(std::move(text));
-        const auto syncNormalText = [titleLabel, categoryLabel](bool active) {
-          if (titleLabel != nullptr) {
-            titleLabel->setColor(colorSpecFromRole(active ? ColorRole::OnPrimary : ColorRole::OnSurface));
+        if (!option.documentationUrl.empty()) {
+          card->addChild(
+              ui::button({
+                  .out = &documentationButton,
+                  .glyph = "external-link",
+                  .glyphSize = Style::fontSizeBody * scale,
+                  .controlHeight = Style::controlHeightSm * scale,
+                  .variant = ButtonVariant::Ghost,
+                  .tooltip = i18n::tr("settings.templates.documentation"),
+                  .width = Style::controlHeightSm * scale,
+                  .height = Style::controlHeightSm * scale,
+                  .onClick = [url = option.documentationUrl]() { (void)net::openInBrowser(url); },
+                  .configure = [](Button& button) { button.setZIndex(2); },
+              })
+          );
+        }
+        const auto syncDocumentationColor = [documentationButton](ColorRole role) {
+          if (documentationButton == nullptr) {
+            return;
           }
-          if (categoryLabel != nullptr) {
-            categoryLabel->setColor(
-                colorSpecFromRole(active ? ColorRole::OnPrimary : ColorRole::OnSurfaceVariant, active ? 0.75F : 1.0F)
-            );
-          }
+          auto palette = Button::defaultPalette(ButtonVariant::Ghost);
+          palette.normal.label = colorSpecFromRole(role);
+          palette.hover.bg = colorSpecFromRole(ColorRole::Surface);
+          palette.hover.label = colorSpecFromRole(ColorRole::OnSurface);
+          documentationButton->setCustomPalette(palette);
         };
-        const auto syncHoverText = [titleLabel, categoryLabel](bool active) {
+        const auto syncTileState = [checkedState, card, documentationButton, titleLabel, categoryLabel,
+                                    syncDocumentationColor]() {
+          const bool linkHovered = documentationButton != nullptr && documentationButton->hovered();
+          card->setHoveredVisual(linkHovered);
+          const bool hovered = card->hovered() || linkHovered;
+          ColorRole foreground = ColorRole::OnSurface;
+          ColorRole detail = ColorRole::OnSurfaceVariant;
+          float detailOpacity = 1.0F;
+          if (*checkedState || card->pressed()) {
+            foreground = ColorRole::OnPrimary;
+            detail = ColorRole::OnPrimary;
+            detailOpacity = 0.75F;
+          } else if (hovered) {
+            foreground = ColorRole::OnHover;
+            detail = ColorRole::OnHover;
+            detailOpacity = 0.75F;
+          }
           if (titleLabel != nullptr) {
-            titleLabel->setColor(colorSpecFromRole(active ? ColorRole::OnPrimary : ColorRole::OnHover));
+            titleLabel->setColor(colorSpecFromRole(foreground));
           }
           if (categoryLabel != nullptr) {
-            categoryLabel->setColor(colorSpecFromRole(active ? ColorRole::OnPrimary : ColorRole::OnHover, 0.75F));
+            categoryLabel->setColor(colorSpecFromRole(detail, detailOpacity));
           }
-        };
-        const auto syncPressedText = [titleLabel, categoryLabel]() {
-          if (titleLabel != nullptr) {
-            titleLabel->setColor(colorSpecFromRole(ColorRole::OnPrimary));
-          }
-          if (categoryLabel != nullptr) {
-            categoryLabel->setColor(colorSpecFromRole(ColorRole::OnPrimary, 0.75F));
-          }
+          syncDocumentationColor(foreground);
         };
         auto setTileActive = [selected, value, commit, checkedState, card, checkbox, cardPaletteFor,
-                              syncNormalText](bool nextChecked) mutable {
+                              syncTileState](bool nextChecked) mutable {
           auto it = std::find(selected->begin(), selected->end(), value);
           if (nextChecked) {
             if (it == selected->end()) {
@@ -566,21 +580,22 @@ namespace settings {
           if (checkbox != nullptr) {
             checkbox->setChecked(nextChecked);
           }
-          syncNormalText(nextChecked);
+          syncTileState();
           commit();
         };
-        syncNormalText(*checkedState);
-        card->setOnEnter([checkedState, syncHoverText]() { syncHoverText(*checkedState); });
-        card->setOnLeave([checkedState, syncNormalText]() { syncNormalText(*checkedState); });
-        card->setOnPress([syncPressedText](float /*localX*/, float /*localY*/, bool pressed) {
-          if (!pressed) {
-            return;
-          }
-          syncPressedText();
-        });
+        checkbox->setOnChange(setTileActive);
+        syncTileState();
+        card->setOnEnter(syncTileState);
+        card->setOnLeave(syncTileState);
+        card->setOnPress([syncTileState](float /*localX*/, float /*localY*/, bool /*pressed*/) { syncTileState(); });
+        if (documentationButton != nullptr) {
+          documentationButton->setOnEnter(syncTileState);
+          documentationButton->setOnLeave(syncTileState);
+        }
         card->setOnClick([checkedState, setTileActive]() mutable { setTileActive(!*checkedState); });
-        if (!option.tooltip.empty()) {
-          card->setTooltip(option.tooltip);
+        const std::string tooltip = noctalia::theme::formatTemplateTooltip(option);
+        if (!tooltip.empty()) {
+          card->setTooltip(tooltip);
         }
 
         row->addChild(std::move(cardNode));

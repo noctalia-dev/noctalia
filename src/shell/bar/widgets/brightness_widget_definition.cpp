@@ -6,13 +6,23 @@ const noctalia::bar::WidgetDefinition<BrightnessWidget::Options>& brightnessWidg
 
   static const noctalia::bar::WidgetDefinition<Options> definition{
       .type = "brightness",
-      .fields = {
-          field<&Options::showLabel>({
-              .key = "show_label",
-          }),
-          field<&Options::showWhenUnavailable>({
-              .key = "show_when_unavailable",
-          }),
+      .fields =
+          {
+              field<&Options::showGlyph>({
+                  .key = "show_glyph",
+              }),
+              field<&Options::showLabel>({
+                  .key = "show_label",
+              }),
+              field<&Options::showWhenUnavailable>({
+                  .key = "show_when_unavailable",
+              }),
+          },
+      .validateOptions = [](const Options& options) -> std::optional<std::string> {
+        if (!options.showGlyph && !options.showLabel) {
+          return "show_glyph and show_label cannot both be false";
+        }
+        return std::nullopt;
       },
   };
   return definition;

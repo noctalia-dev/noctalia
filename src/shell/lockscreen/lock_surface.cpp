@@ -1272,8 +1272,9 @@ void LockSurface::layoutScene(std::uint32_t width, std::uint32_t height) {
   float panelX = std::round((sw - panelWidth) * 0.5F);
   float panelY = std::max(Style::spaceLg, sh - panelHeight - 84.0F);
   if (m_config != nullptr) {
-    if (const DesktopWidgetState* loginBox =
-            lockscreen_login_box::findForOutput(m_config->config().lockscreenWidgets.widgets, m_outputKey);
+    if (const DesktopWidgetState* loginBox = lockscreen_login_box::findForOutput(
+            m_config->config().lockscreenWidgets.widgets, m_connection.outputs(), m_outputKey
+        );
         loginBox != nullptr) {
       float cx = loginBox->cx;
       float cy = loginBox->cy;
@@ -1867,8 +1868,9 @@ lockscreen_login_box::LoginBoxStyle LockSurface::resolveLoginStyle() const {
   if (m_config == nullptr) {
     return lockscreen_login_box::LoginBoxStyle{};
   }
-  if (const DesktopWidgetState* loginBox =
-          lockscreen_login_box::findForOutput(m_config->config().lockscreenWidgets.widgets, m_outputKey);
+  if (const DesktopWidgetState* loginBox = lockscreen_login_box::findForOutput(
+          m_config->config().lockscreenWidgets.widgets, m_connection.outputs(), m_outputKey
+      );
       loginBox != nullptr) {
     return lockscreen_login_box::resolveStyle(loginBox->settings);
   }
@@ -1879,8 +1881,9 @@ bool LockSurface::isLoginBoxEnabled() const {
   if (m_config == nullptr) {
     return true;
   }
-  if (const DesktopWidgetState* loginBox =
-          lockscreen_login_box::findForOutput(m_config->config().lockscreenWidgets.widgets, m_outputKey);
+  if (const DesktopWidgetState* loginBox = lockscreen_login_box::findForOutput(
+          m_config->config().lockscreenWidgets.widgets, m_connection.outputs(), m_outputKey
+      );
       loginBox != nullptr) {
     return loginBox->enabled;
   }

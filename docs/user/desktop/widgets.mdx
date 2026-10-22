@@ -114,7 +114,7 @@ format = "{:%H:%M}"
 |-------|------|---------|-------------|
 | Table key | string | (required) | Unique widget identifier (`clock_main` in `[desktop_widgets.widget.clock_main]`) |
 | `type` | string | (required) | Widget type (`clock`, `weather`, `media_player`, etc.) |
-| `output` | string | - | Monitor name (e.g. `"DP-1"`) |
+| `output` | string | - | Exact connector name (e.g. `"DP-1"`) or a unique monitor description, make, model, or serial selector |
 | `cx`, `cy` | float | - | Center position in logical pixels |
 | `box_width` | float | `0.0` | Widget box width in logical pixels; `0.0` auto-fits the content |
 | `box_height` | float | `0.0` | Widget box height in logical pixels; `0.0` auto-fits the content |
@@ -128,6 +128,14 @@ format = "{:%H:%M}"
 type    = "clock"
 enabled = false   # hidden, but preserved
 ```
+
+### Monitor matching
+
+`output` uses the same monitor matcher as bar and dock overrides: an exact connector name, or a case-sensitive, whole-token substring of the monitor's description, make, model, or serial. For example, `output = "HP E273q"` follows that monitor when docking changes its connector name. Use a serial reported by your compositor to distinguish identical monitors. An exact connector name takes precedence over identity matches.
+
+Each widget targets one monitor. If an identity selector matches multiple connected monitors, the widget stays hidden and Noctalia logs a warning; make the selector more specific. If no monitor matches, its saved layout is retained until the monitor returns. Widgets with no `output` keep the existing first-available-monitor behavior.
+
+The editor preserves a description or serial selector when moving, resizing, or copying a widget on the same monitor. Moving or pasting it onto a different monitor assigns that monitor's connector name.
 
 ### Common settings
 
@@ -237,7 +245,7 @@ Right-click a day to launch the application registered for the `text/calendar` M
 
 ### audio_visualizer
 
-Desktop audio visualizers fill their widget box: the spectrum spans the full box width and the bars use the full box height. `box_width` and `box_height` set the box size - resize the box to change the visualizer's shape; leave both `0.0` to start from the default footprint. They also accept optional `mirrored`, `centered`, `show_when_idle`, `color_1`, and `color_2` settings; both colors default to `primary`.
+Desktop audio visualizers fill their widget box: the spectrum spans the full box width and the bars use the full box height. `box_width` and `box_height` set the box size - resize the box to change the visualizer's shape; leave both `0.0` to start from the default footprint. They also accept optional `mirrored`, `centered`, `show_wave`, `show_when_idle`, `color_1`, and `color_2` settings; both colors default to `primary`.
 
 ```toml
 [desktop_widgets.widget.audio_main]
@@ -260,9 +268,10 @@ color_2      = "secondary"
 
 | Setting | Type | Default | Description |
 |---------|------|---------|-------------|
-| `bands` | int | `32` | Number of frequency bands |
+| `bands` | int | `32` | Number of frequency bands; ignored when `show_wave` is enabled |
 | `mirrored` | bool | `true` | Mirror the spectrum horizontally |
-| `centered` | bool | `true` | Center bars vertically instead of aligning them to the bottom edge |
+| `centered` | bool | `true` | Center bars vertically instead of aligning them to the bottom edge; no effect when `show_wave` is enabled |
+| `show_wave` | bool | `false` | Render the spectrum as a smooth filled wave instead of discrete bars, with a smaller echo wave in `color_2` |
 | `show_when_idle` | bool | `true` | Keep the widget visible even when no media is playing |
 | `color_1` | string | `"primary"` | First gradient color role; fixed hex colors are also supported |
 | `color_2` | string | `"primary"` | Second gradient color role; fixed hex colors are also supported |

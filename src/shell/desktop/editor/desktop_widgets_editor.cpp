@@ -248,7 +248,7 @@ void DesktopWidgetsEditor::setExitRequestedCallback(std::function<void()> callba
 void DesktopWidgetsEditor::open(const DesktopWidgetsEditorSnapshot& snapshot) {
   m_snapshot = snapshot;
   if (m_profile.showLockscreenLoginPreview && m_wayland != nullptr) {
-    lockscreen_login_box::ensureWidgets(m_snapshot.widgets, *m_wayland);
+    lockscreen_login_box::ensureWidgets(m_snapshot.widgets, m_wayland->outputs());
   }
   m_open = true;
   clearSelection();
@@ -559,7 +559,12 @@ std::string DesktopWidgetsEditor::effectiveOutputName(const DesktopWidgetState& 
     return state.outputName;
   }
   if (const WaylandOutput* output = desktop_widgets::resolveStateOutput(*m_wayland, state); output != nullptr) {
-    return desktop_widgets::outputKey(*output);
+    const std::string outputName = desktop_widgets::outputKey(*output);
+    if (lockscreen_login_box::isLoginBoxWidget(state)
+        && lockscreen_login_box::findForOutput(m_snapshot.widgets, m_wayland->outputs(), outputName) != &state) {
+      return {};
+    }
+    return outputName;
   }
   return {};
 }
@@ -1223,7 +1228,7 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
                         && selectedWidgetIt->enabled) {
                       int enabledCount = 0;
                       for (const auto& w : m_snapshot.widgets) {
-                        if (lockscreen_login_box::isLoginBoxWidget(w) && w.enabled) {
+                        if (lockscreen_login_box::isLoginBoxWidget(w) && w.enabled && !effectiveOutputName(w).empty()) {
                           enabledCount++;
                         }
                       }
@@ -1640,7 +1645,7 @@ void DesktopWidgetsEditor::toggleSelectedWidgetEnabled() {
   if (lockscreen_login_box::isLoginBoxWidget(*state) && state->enabled) {
     int enabledCount = 0;
     for (const auto& w : m_snapshot.widgets) {
-      if (lockscreen_login_box::isLoginBoxWidget(w) && w.enabled) {
+      if (lockscreen_login_box::isLoginBoxWidget(w) && w.enabled && !effectiveOutputName(w).empty()) {
         enabledCount++;
       }
     }
@@ -1754,7 +1759,7 @@ std::vector<std::string> DesktopWidgetsEditor::insertWidgetCopies(
 
     DesktopWidgetState copy = templateState;
     copy.id = nextWidgetId();
-    if (!targetOutputName.empty()) {
+    if (!targetOutputName.empty() && effectiveOutputName(copy) != targetOutputName) {
       copy.outputName = targetOutputName;
     }
     copy.cx += offsetX;
@@ -2178,7 +2183,7 @@ void DesktopWidgetsEditor::updateDrag() {
   if (m_drag.mode == DragMode::Move) {
     state->cx = dragSceneX + m_drag.movePointerOffsetX;
     state->cy = dragSceneY + m_drag.movePointerOffsetY;
-    if (!m_drag.surfaceOutputName.empty()) {
+    if (!m_drag.surfaceOutputName.empty() && effectiveOutputName(*state) != m_drag.surfaceOutputName) {
       outputAssignmentChanged = outputAssignmentChanged || (state->outputName != m_drag.surfaceOutputName);
       state->outputName = m_drag.surfaceOutputName;
     }
@@ -2210,7 +2215,7 @@ void DesktopWidgetsEditor::updateDrag() {
       }
       groupState->cx = initial.state.cx + deltaX;
       groupState->cy = initial.state.cy + deltaY;
-      if (!m_drag.surfaceOutputName.empty()) {
+      if (!m_drag.surfaceOutputName.empty() && effectiveOutputName(*groupState) != m_drag.surfaceOutputName) {
         outputAssignmentChanged = outputAssignmentChanged || (groupState->outputName != m_drag.surfaceOutputName);
         groupState->outputName = m_drag.surfaceOutputName;
       }

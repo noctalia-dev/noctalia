@@ -236,6 +236,7 @@ void Application::run(std::function<void()> startupReadyCallback) {
         m_pluginServiceHost.refresh(m_configService.config().plugins.pluginSettings);
         reloadPluginLauncherProviders();
         reloadPluginPanels();
+        reloadPluginLayers();
         m_settingsWindow.onPluginsChanged();
       }
     });
@@ -248,6 +249,7 @@ void Application::run(std::function<void()> startupReadyCallback) {
       m_bar.reload();
       reloadPluginLauncherProviders();
       reloadPluginPanels();
+      reloadPluginLayers();
       m_settingsWindow.onPluginsChanged();
     });
     // A git-source enable exports on a worker thread; redraw the plugins list so the

@@ -278,6 +278,41 @@ See the [IPC overview](/noctalia/ipc/) and [Shell commands](/noctalia/ipc/shell/
 
 </FaqItem>
 
+<FaqItem question="Why don't I hear notification or volume sounds?">
+
+Noctalia plays its sounds as a PipeWire stream with `media.role=Notification`. WirePlumber stores one shared volume,
+mute state, and output device for every Notification-role stream (the "System Sounds" slider in pavucontrol, GNOME, and
+KDE). Plain `pw-play` uses the `Music` role, so it working does not rule this out.
+
+1. Compare both roles with the same file. If only the second one is silent, the problem is your Notification routing:
+
+   ```sh
+   f=/usr/share/sounds/freedesktop/stereo/audio-volume-change.oga
+   pw-play "$f"
+   pw-play --media-role=Notification "$f"
+   ```
+
+2. Inspect the saved state. Look for `"mute":true`, a volume near `0`, or a `"target"` pointing at another device
+   (for example an HDMI output):
+
+   ```sh
+   grep -i 'media.role:Notification' ~/.local/state/wireplumber/stream-properties
+   ```
+
+   Raise "System Sounds" in pavucontrol, or delete that line and run `systemctl --user restart wireplumber`.
+
+3. Watch where the stream goes: keep `pw-top` open and run `noctalia msg volume-up 5`. A `noctalia-sound` node should
+   appear on your output device.
+
+4. Run Noctalia with `NOCTALIA_LOG_LEVEL=debug` to log each sound stream's state changes and node id (use
+   `wpctl inspect <id>`). A warning that a stream "was never linked to an output" means WirePlumber found no sink for
+   it.
+
+Effect chains such as EasyEffects may not process notification streams, so they play without its gain. Also note that
+`sound_volume = 0.5` is about -13 dB because of the perceptual curve.
+
+</FaqItem>
+
 <FaqItem question="Why is my battery widget missing?">
 
 Battery status comes from UPower. Make sure UPower is installed and running.

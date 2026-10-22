@@ -137,6 +137,34 @@ void Application::reloadPluginPanels() {
   }
 }
 
+void Application::reloadPluginLayers() {
+  auto& registry = scripting::PluginRegistry::instance();
+  const auto& pluginSettings = m_configService.config().plugins.pluginSettings;
+  static const std::unordered_map<std::string, WidgetSettingValue> kNoOverrides;
+
+  std::vector<PluginLayerHost::Definition> definitions;
+  for (const auto& resolved : registry.entriesOfKind(scripting::PluginEntryKind::Layer)) {
+    if (resolved.entry == nullptr || resolved.manifest == nullptr) {
+      continue;
+    }
+    const auto psIt = pluginSettings.find(resolved.manifest->id);
+    const auto& overrides = psIt != pluginSettings.end() ? psIt->second : kNoOverrides;
+    auto seeded = scripting::seedEntrySettings(*resolved.entry, overrides);
+    scripting::mergePluginSettings(*resolved.manifest, overrides, seeded);
+    definitions.push_back(
+        PluginLayerHost::Definition{
+            .entryId = resolved.fullId(),
+            .sourcePath = resolved.sourcePath,
+            .pluginDir = resolved.pluginDir,
+            .settings = std::move(seeded),
+            .config = resolved.entry->layerConfig,
+            .visible = resolved.entry->layerVisible,
+        }
+    );
+  }
+  m_pluginLayerHost.reload(std::move(definitions));
+}
+
 void Application::runPluginAutoUpdate() {
   // Each update runs off-thread and serializes per-source via a source lock, so a tick
   // that overlaps a still-running update queues behind it rather than racing (at 6h it never does).

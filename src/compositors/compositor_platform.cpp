@@ -626,6 +626,7 @@ CompositorPlatform::~CompositorPlatform() {
   m_wayland.setKdeVirtualDesktopManagerCallback({});
   m_wayland.setHyprlandToplevelMappingManagerCallback({});
   m_wayland.setToplevelChangeCallback({});
+  m_wayland.setKeyboardLayoutChangeCallback({});
 }
 
 void CompositorPlatform::startKdeActiveWindow(SessionBus& bus) {
@@ -1147,13 +1148,7 @@ bool CompositorPlatform::isCompositorWindowIdKnown(const std::string_view window
   }
 
   if (const auto* extHandle = m_hyprlandToplevelMapping->extHandleForWindowId(normalized)) {
-    bool live = false;
-    m_wayland.visitExtToplevelHandles([&](ext_foreign_toplevel_handle_v1* handle) {
-      if (handle == extHandle) {
-        live = true;
-      }
-    });
-    if (live) {
+    if (extToplevelIsLive(extHandle)) {
       return true;
     }
   }
@@ -1173,6 +1168,49 @@ std::optional<std::string> CompositorPlatform::focusedCompositorWindowId() const
     }
   }
   return std::nullopt;
+}
+
+ext_foreign_toplevel_handle_v1*
+CompositorPlatform::extHandleForCompositorWindowId(const std::string_view windowId) const {
+  ext_foreign_toplevel_handle_v1* extHandle = nullptr;
+  if (m_hyprlandToplevelMapping != nullptr && m_hyprlandToplevelMapping->available()) {
+    const auto normalized = compositors::hyprland::normalizeWindowId(windowId);
+    if (normalized.empty()) {
+      return nullptr;
+    }
+    extHandle = m_hyprlandToplevelMapping->extHandleForWindowId(normalized);
+  } else if (hasExactExtToplevelIdentity()) {
+    extHandle = m_wayland.extHandleForIdentifier(windowId);
+  }
+  if (extHandle == nullptr) {
+    return nullptr;
+  }
+  return extToplevelIsLive(extHandle) ? extHandle : nullptr;
+}
+
+bool CompositorPlatform::extToplevelIsLive(const ext_foreign_toplevel_handle_v1* handle) const {
+  bool live = false;
+  m_wayland.visitExtToplevelHandles([&](ext_foreign_toplevel_handle_v1* candidate) {
+    if (candidate == handle) {
+      live = true;
+    }
+  });
+  return live;
+}
+
+std::optional<std::string> CompositorPlatform::focusedExtToplevelIdentifier() const {
+  const auto id = m_workspaces != nullptr ? m_workspaces->focusedExtToplevelIdentifier() : std::nullopt;
+  return id && !id->empty() ? id : std::nullopt;
+}
+
+bool CompositorPlatform::hasExactExtToplevelIdentity() const noexcept {
+  return hasExactWindowIdentity()
+      || (m_hyprlandToplevelMapping != nullptr
+          && m_hyprlandToplevelMapping->available()
+          && m_wayland.hasExtForeignToplevelList())
+      || (m_workspaces != nullptr
+          && m_wayland.hasExtForeignToplevelList()
+          && m_workspaces->publishesExtToplevelIdentity());
 }
 
 void CompositorPlatform::setWorkspaceChangeCallback(ChangeCallback callback) {
@@ -1574,6 +1612,9 @@ void CompositorPlatform::setKeyboardLayoutChangeCallback(ChangeCallback callback
   if (m_keyboardLayoutBackend != nullptr) {
     m_keyboardLayoutBackend->setChangeCallback(m_keyboardLayoutChangeCallback);
     m_keyboardLayoutBackend->connectSocket();
+  } else {
+    // No compositor IPC: the seat's xkb group is the only layout source, so it drives change events.
+    m_wayland.setKeyboardLayoutChangeCallback(m_keyboardLayoutChangeCallback);
   }
 }
 
@@ -1703,6 +1744,19 @@ bool CompositorPlatform::isOverviewOpen() const noexcept {
     return true;
   }
   return m_workspaceMetadataBackend->isOverviewOpen();
+}
+
+bool CompositorPlatform::closeOverview() const {
+  if (!tracksOverviewState() || !hasOverviewState() || !isOverviewOpen()) {
+    return false;
+  }
+  if (compositors::isUmbriel()) {
+    return umbrielRuntime().requestAction("overview-toggle");
+  }
+  if (compositors::isNiri()) {
+    return niriRuntime().requestAction(nlohmann::json{{"ToggleOverview", nlohmann::json::object()}});
+  }
+  return false;
 }
 
 void CompositorPlatform::bindExtWorkspace(ext_workspace_manager_v1* manager) {

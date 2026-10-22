@@ -1351,6 +1351,108 @@ int main() {
       && ok;
   ok = expectEq(error, "widget entry 'bar': hover_highlight must be a bool", "hover type error") && ok;
 
+  // A [[layer]] entry carries its surface defaults; every declared key lands in layerConfig.
+  const auto layerPath = root / "layer" / "plugin.toml";
+  ok = expect(
+           writeManifest(
+               layerPath,
+               "id = \"me/layer\"\n"
+               "name = \"Layer\"\n"
+               "plugin_api = 36\n"
+               "[[layer]]\n"
+               "id = \"bar\"\n"
+               "entry = \"bar.luau\"\n"
+               "layer = \"bottom\"\n"
+               "anchors = [\"top\", \"left\", \"right\"]\n"
+               "height = 32\n"
+               "margins = { top = 4, left = -2 }\n"
+               "exclusive_zone = \"auto\"\n"
+               "keyboard = \"on_demand\"\n"
+               "output = \"DP-1\"\n"
+               "visible = true\n"
+           ),
+           "failed to write the layer manifest"
+       )
+      && ok;
+  error.clear();
+  const auto layer = scripting::parsePluginManifest(layerPath, &error);
+  ok = expect(layer.has_value(), error.empty() ? "a layer entry should parse" : error.c_str()) && ok;
+  if (layer.has_value() && !layer->entries.empty()) {
+    const auto& entry = layer->entries.front();
+    const auto& config = entry.layerConfig;
+    ok = expect(entry.kind == scripting::PluginEntryKind::Layer, "a [[layer]] entry should have the Layer kind") && ok;
+    ok = expect(config.layer == scripting::PluginLayerLevel::Bottom, "layer = bottom should be recorded") && ok;
+    ok = expect(
+             config.anchors
+                 == (scripting::PluginLayerAnchor::Top
+                     | scripting::PluginLayerAnchor::Left
+                     | scripting::PluginLayerAnchor::Right),
+             "anchors should combine into the layer-shell bitmask"
+         )
+        && ok;
+    ok = expect(config.width == 0 && config.height == 32, "width defaults to 0 and height is recorded") && ok;
+    ok = expect(
+             config.marginTop == 4 && config.marginLeft == -2 && config.marginRight == 0 && config.marginBottom == 0,
+             "margins absent from the table should stay 0"
+         )
+        && ok;
+    ok = expect(config.exclusiveZoneAuto, "exclusive_zone = auto should be recorded") && ok;
+    ok = expect(config.keyboard == scripting::PluginLayerKeyboard::OnDemand, "keyboard = on_demand") && ok;
+    ok = expectEq(config.output, "DP-1", "output connector") && ok;
+    ok = expect(entry.layerVisible, "visible = true should be recorded") && ok;
+  }
+
+  const auto layerOldApiPath = root / "layer-old-api" / "plugin.toml";
+  ok = expect(
+           writeManifest(
+               layerOldApiPath,
+               "id = \"me/layer-old-api\"\n"
+               "name = \"Layer Old Api\"\n"
+               "plugin_api = 35\n"
+               "[[layer]]\n"
+               "id = \"bar\"\n"
+               "entry = \"bar.luau\"\n"
+           ),
+           "failed to write the layer old api manifest"
+       )
+      && ok;
+  error.clear();
+  ok = expect(
+           !scripting::parsePluginManifest(layerOldApiPath, &error).has_value(),
+           "a layer entry below its plugin_api level should fail"
+       )
+      && ok;
+  ok = expectEq(error, "layer entry 'bar' requires plugin_api >= 36", "layer api gate error") && ok;
+
+  const std::pair<std::string_view, std::string_view> badLayers[] = {
+      {"layer = \"desktop\"", R"(layer entry 'bar': layer must be "background", "bottom", "top", or "overlay")"},
+      {R"(anchors = ["top", "top"])",
+       R"(layer entry 'bar': anchors must list distinct values from "top", "bottom", "left", "right")"},
+      {"width = -1", "layer entry 'bar': width must be an integer between 0 and 65536"},
+      {"margins = { middle = 3 }", "layer entry 'bar': margins must be a table with integer top, right, bottom, left"},
+      {"exclusive_zone = -2", R"(layer entry 'bar': exclusive_zone must be "auto" or an integer >= -1)"},
+      {"keyboard = \"grab\"", R"(layer entry 'bar': keyboard must be "none", "on_demand", or "exclusive")"},
+      {"output = \"\"", R"(layer entry 'bar': output must be "all", "focused", or an output name)"},
+      {"visible = \"yes\"", "layer entry 'bar': visible must be a bool"},
+  };
+  for (const auto& [line, expected] : badLayers) {
+    const auto badPath = root / "layer-bad" / "plugin.toml";
+    ok = expect(
+             writeManifest(
+                 badPath,
+                 "id = \"me/layer-bad\"\nname = \"Layer Bad\"\nplugin_api = 36\n[[layer]]\nid = \"bar\"\n"
+                 "entry = \"bar.luau\"\n"
+                     + std::string(line)
+                     + "\n"
+             ),
+             "failed to write a bad layer manifest"
+         )
+        && ok;
+    error.clear();
+    ok = expect(!scripting::parsePluginManifest(badPath, &error).has_value(), "an invalid layer key should fail") && ok;
+    ok = expectEq(error, expected, "layer validation error") && ok;
+  }
+
   std::error_code ec;
   std::filesystem::remove_all(root, ec);
   return ok ? 0 : 1;

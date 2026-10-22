@@ -37,7 +37,7 @@ Direct project dependencies are listed below; transitive dependencies are owned 
 | Rendering | `EGL`, `OpenGL ES 2.0+`, `wayland-egl` (`libepoxy` fallback) |
 | Dynamic loading | `libdl` when provided separately by the platform |
 | Text | `cairo`, `cairo-ft`, `pango`, `pangocairo`, `pangoft2`, `harfbuzz`, `freetype2`, `fontconfig` |
-| Images | `Wuffs` (vendored), `stb_image_resize2`, `stb_image_write`, `libwebp`, `libjxl`, `libjxl_threads`, `librsvg` |
+| Images | `Wuffs` (vendored), `stb_image_resize2`, `stb_image_write`, `libwebp`, `libjxl`, `libjxl_threads`, `librsvg`, `libheif` (optional, loaded at runtime with `dlopen`) |
 | IPC and service runtime | `sdbus-c++`, `glib-2.0`, `gobject-2.0`, `gio-2.0` |
 | Audio | `libpipewire-0.3`, `wireplumber-0.5`, `libsndfile` |
 | Authentication | `PAM`, `polkit-agent-1`, `polkit-gobject-1` |
@@ -174,6 +174,10 @@ Write test checks with `TEST_CHECK` from `tests/test_check.h`, never `assert`. `
 a release build would pass a broken test silently; `TEST_CHECK` prints the failed expression with its file and line and
 exits non-zero. The header refuses to compile with `NDEBUG`, so test executables set
 `override_options: ['b_ndebug=false']` in `meson.build`.
+
+Compare parsed floating-point values with an appropriate tolerance, not exact equality to a decimal literal. For
+double-precision fixtures near 1, use `std::abs(actual - expected) <= std::numeric_limits<double>::epsilon()`, as in
+the plugin manifest tests. This also accommodates excess precision on 32-bit x87 builds.
 
 ## Commit Messages
 

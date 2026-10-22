@@ -76,6 +76,8 @@ Every available tab except Home that isn't hidden also gets its own row in the l
 
 The Home tab is the default Control Center landing view. It combines frequently checked status with a compact shortcut grid.
 
+The user card automatically prefers a landscape wallpaper image from the connected monitors. If none is landscape, it uses the first available image.
+
 Click the avatar in the user card to pick a custom image. Noctalia saves the selected path as `[shell].avatar_path`.
 
 When AccountsService is available, Noctalia also writes the selected avatar to `org.freedesktop.Accounts` as your user's `IconFile`. That is what Noctalia Greeter reads for the login user list. On distros where this is not enabled by default, install and enable **accountsservice** (usually the `accounts-daemon` service) if you want the same avatar in both the shell and the greeter.
@@ -137,6 +139,13 @@ Cellular needs ModemManager running (`org.freedesktop.ModemManager1`) and, for m
 The Bluetooth tab shows adapter power state, paired devices, and connection controls. It is backed by Noctalia's Bluetooth service and agent. Devices paired from the tab are marked trusted, which turns on **Auto-reconnect** for them.
 
 When a device asks for access to a service, the prompt names the service (for example, Audio Sink or Hands-Free) instead of showing its raw UUID. **Accept** allows that one request. **Trust and allow** also marks the device as trusted, so BlueZ grants its future service requests without prompting and **Auto-reconnect** turns on; turn off **Auto-reconnect** to revoke that trust.
+
+By default Noctalia does not dial out to devices: BlueZ and the devices handle reconnection, and most trusted headsets, keyboards, and mice reconnect on their own. For devices that wait for the computer to connect, set `connect_when_enabled = true`. When Bluetooth turns on (toggled on, at startup, or after resume), Noctalia then connects each paired, trusted device that is not already connected, once and one device at a time. A device that is switched off holds the queue until its connection attempt times out (several seconds), so leave this off if several trusted devices are usually off:
+
+```toml
+[bluetooth]
+connect_when_enabled = true
+```
 
 ## Weather
 

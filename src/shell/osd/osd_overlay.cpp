@@ -20,6 +20,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <nlohmann/json.hpp>
 
 namespace {
 
@@ -74,6 +75,8 @@ namespace {
       return kinds.privacy;
     case OsdKind::KeyboardBacklight:
       return kinds.keyboardBacklight;
+    case OsdKind::Custom:
+      return kinds.custom;
     }
     return true;
   }
@@ -208,6 +211,17 @@ namespace {
 
 } // namespace
 
+OsdContent customOsdContent(std::string icon, std::string value, std::optional<double> progress, bool inactive) {
+  return OsdContent{
+      .kind = OsdKind::Custom,
+      .icon = std::move(icon),
+      .value = std::move(value),
+      .progress = static_cast<float>(std::clamp(progress.value_or(0.0), 0.0, 1.0)),
+      .showProgress = progress.has_value(),
+      .inactive = inactive,
+  };
+}
+
 OsdOverlay::OsdOverlay() = default;
 
 OsdOverlay::~OsdOverlay() = default;
@@ -243,6 +257,60 @@ void OsdOverlay::registerIpc(IpcService& ipc) {
     }
     setEnabledOverride(!isEnabled());
     return isEnabled() ? "on\n" : "off\n";
+  });
+  ipc.bind(noctalia::cli::msg::osdShow, [this](const std::string& args) -> std::string {
+    const std::string input = StringUtils::trim(args);
+    if (input.empty()) {
+      return "error: osd-show requires <icon> [value] or <json-payload>\n";
+    }
+
+    std::string icon;
+    std::string value;
+    std::optional<double> progress;
+    bool inactive = false;
+
+    if (input.front() == '{') {
+      const nlohmann::json payload = nlohmann::json::parse(input, nullptr, false);
+      if (payload.is_discarded() || !payload.is_object()) {
+        return "error: osd-show JSON payload must be an object\n";
+      }
+      if (const auto it = payload.find("icon"); it != payload.end()) {
+        if (!it->is_string()) {
+          return "error: osd-show field 'icon' must be a string\n";
+        }
+        icon = it->get<std::string>();
+      }
+      if (const auto it = payload.find("value"); it != payload.end()) {
+        if (!it->is_string()) {
+          return "error: osd-show field 'value' must be a string\n";
+        }
+        value = it->get<std::string>();
+      }
+      if (const auto it = payload.find("progress"); it != payload.end()) {
+        if (!it->is_number()) {
+          return "error: osd-show field 'progress' must be a number\n";
+        }
+        progress = it->get<double>();
+      }
+      if (const auto it = payload.find("inactive"); it != payload.end()) {
+        if (!it->is_boolean()) {
+          return "error: osd-show field 'inactive' must be a boolean\n";
+        }
+        inactive = it->get<bool>();
+      }
+    } else {
+      const std::size_t split = input.find_first_of(" \t");
+      icon = input.substr(0, split);
+      if (split != std::string::npos) {
+        value = StringUtils::trim(input.substr(split));
+      }
+    }
+
+    if (icon.empty()) {
+      return "error: osd-show requires a non-empty icon\n";
+    }
+    show(customOsdContent(std::move(icon), std::move(value), progress, inactive));
+    return "ok\n";
   });
 }
 
@@ -785,10 +853,17 @@ void OsdOverlay::updateInstanceContent(Instance& inst) {
   // interior so they ellipsize within the padding instead of overflowing. Progress OSDs keep the
   // uncapped "100%" value so it can reserve minWidth beside the bar.
   const float horizontalValueMax = cw - cardPadding(s) * 2.0F - glyphSize(s) - innerGap(s);
+
+  // Progress OSDs: cap the label so a long custom label can't squeeze the bar to nothing.
+  // Built-in "100%" values are far below this cap, so they are unaffected.
+  const float fullBar = cw - cardPadding(s) * 2.0F - glyphSize(s) - innerGap(s) * 2.0F - inst.progressValueMinWidth;
+  const float minBar = fullBar / 3.0F;
+  const float progressValueMax = std::max(inst.progressValueMinWidth, horizontalValueMax - innerGap(s) - minBar);
+
   inst.value->setMaxWidth(
       vertical                      ? cw - cardPadding(s) * 2.0F
           : !m_content.showProgress ? std::max(0.0F, horizontalValueMax)
-                                    : 0.0F
+                                    : progressValueMax
   );
   inst.value->setMinWidth((!vertical && m_content.showProgress) ? inst.progressValueMinWidth : 0.0F);
   inst.value->setText(m_content.value);

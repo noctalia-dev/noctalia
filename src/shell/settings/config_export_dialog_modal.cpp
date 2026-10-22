@@ -154,6 +154,35 @@ namespace settings {
     );
 
     root->addChild(
+        ui::column(
+            {
+                .align = FlexAlign::Stretch,
+                .gap = Style::spaceXs * m_scale,
+                .padding = Style::spaceSm * m_scale,
+                .configure =
+                    [this](Flex& warning) {
+                      warning.setRadius(Style::scaledRadiusMd(m_scale));
+                      warning.setFill(colorSpecFromRole(ColorRole::Secondary, 0.14F));
+                      warning.setBorder(colorSpecFromRole(ColorRole::Secondary, 0.45F), Style::borderWidth);
+                    },
+            },
+            ui::label({
+                .text = i18n::tr("settings.export-config.privacy-warning-title"),
+                .fontSize = Style::fontSizeBody * m_scale,
+                .fontWeight = FontWeight::Bold,
+                .color = colorSpecFromRole(ColorRole::Secondary),
+                .maxLines = 0,
+            }),
+            ui::label({
+                .text = i18n::tr("settings.export-config.privacy-warning-description"),
+                .fontSize = Style::fontSizeCaption * m_scale,
+                .color = colorSpecFromRole(ColorRole::OnSurface),
+                .maxLines = 0,
+            })
+        )
+    );
+
+    root->addChild(
         ui::row(
             {
                 .align = FlexAlign::Center,

@@ -18,10 +18,6 @@
 
 namespace {
 
-  bool formatShowsSeconds(const std::string& format) {
-    return format.contains("%S") || format.contains("%T") || format.contains("%X");
-  }
-
   float clockFontSize(float contentScale) { return Style::fontSizeBody * 4.0F * contentScale; }
 
   float analogClockSize(float contentScale) { return Style::fontSizeBody * 5.25F * contentScale; }

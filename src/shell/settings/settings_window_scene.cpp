@@ -412,6 +412,9 @@ namespace {
     if (section == "battery") {
       return schema::writeTable(cfg.battery, schema::batterySchema());
     }
+    if (section == "bluetooth") {
+      return schema::writeTable(cfg.bluetooth, schema::bluetoothSchema());
+    }
     if (section == "brightness") {
       return schema::writeTable(cfg.brightness, schema::brightnessSchema());
     }
@@ -759,6 +762,10 @@ settings::RegistryEnvironment SettingsWindow::buildRegistryEnvironment() const {
   env.backgroundEffectBlurSupported = m_wayland != nullptr && m_wayland->hasBackgroundEffectBlur();
   env.niriOverviewTypeToLaunchSupported = (m_wayland != nullptr && compositors::isNiri());
   env.umbrielOverviewTypeToLaunchSupported = (m_wayland != nullptr && compositors::isUmbriel());
+  env.niriOverviewCloseOnLaunchSupported =
+      env.niriOverviewTypeToLaunchSupported && m_platform != nullptr && m_platform->tracksOverviewState();
+  env.umbrielOverviewCloseOnLaunchSupported =
+      env.umbrielOverviewTypeToLaunchSupported && m_platform != nullptr && m_platform->tracksOverviewState();
   env.ddcutilAvailable = (m_dependencies != nullptr && m_dependencies->hasDdcutil());
   env.systemdUserManaged = process::runningUnderSystemdUserManager();
   env.gammaControlAvailable = (m_wayland != nullptr && m_wayland->hasGammaControl());
@@ -1446,6 +1453,7 @@ std::unique_ptr<Flex> SettingsWindow::buildStatusRow(float scale) {
   return settings::makeSettingsStatusBanner({
       .message = messageText,
       .error = statusIsError,
+      .scrollable = true,
       .scale = scale,
       .onDismiss = transientStatus ? std::function<void()>{[this]() {
         clearStatusMessage();

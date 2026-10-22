@@ -2,6 +2,7 @@
 
 #include "config/config_types.h"
 #include "core/input/key_chord.h"
+#include "theme/builtin_templates.h"
 #include "ui/controls/button.h"
 #include "ui/controls/color_swatch_preview.h"
 #include "ui/palette.h"
@@ -246,7 +247,7 @@ namespace settings {
   };
 
   struct TemplateGridSetting {
-    std::vector<SelectOption> options;
+    std::vector<noctalia::theme::AvailableTemplate> options;
     std::vector<std::string> selectedValues;
     std::string emptyText;
   };
@@ -302,6 +303,8 @@ namespace settings {
     bool niriBackdropSupported = false;             // hide niri backdrop entries when false
     bool niriOverviewTypeToLaunchSupported = false; // show niri-only type-to-launch integration
     bool umbrielOverviewTypeToLaunchSupported = false;
+    bool niriOverviewCloseOnLaunchSupported = false;
+    bool umbrielOverviewCloseOnLaunchSupported = false;
     bool screencopySupported = false;           // lockscreen blurred desktop + screenshot features
     bool backgroundEffectBlurSupported = false; // hide compositor blur toggles without ext-background-effect-v1
     bool ddcutilAvailable = false;              // disable ddcutil toggle when ddcutil is not on PATH

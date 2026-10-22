@@ -45,7 +45,6 @@
       "cursor-not-captured": "Alternação de ponteiro não disponível: este compositor não suporta captura separada de cursor.",
       "done": "Aplicar as configurações da captura de tela (Enter)",
       "fill-off": "Preenchimento da forma: desligado",
-      "fill-on": "Preenchimento da forma: ligado",
       "freeze": "Congelar a tela sob a tinta (f)",
       "move-toolbar": "Arraste para mover a barra de ferramentas",
       "redo": "Refazer (Ctrl+Shift+Z)",
@@ -632,10 +631,12 @@
         "show-login-button": "Botão de Login",
         "show-media": "Mídia",
         "show-password-hint": "Dica de Senha",
+        "show-password-reveal": "Revelar Senha",
         "show-seconds": "Ponteiro dos Segundos",
         "show-session-buttons": "Botões de Sessão",
         "show-unlock-hint": "Dica de Desbloqueio",
         "show-vpn-label": "Mostra Rótulo VPN",
+        "show-wave": "Mostrar Onda",
         "show-weather": "Clima",
         "show-week-numbers": "Exibir Números da Semana",
         "show-when-idle": "Mostrar Quando Ocioso",
@@ -684,7 +685,7 @@
         "calendar": "Calendário",
         "clock": "Relógio",
         "fancy-audio-visualizer": "Vizualizador de Áudio Sofisticado",
-        "label": "Texto",
+        "label": "Rótulo",
         "login-box": "Caixa de Login",
         "media-player": "Reprodutor de Mídia",
         "sticker": "Adesivo",
@@ -1032,6 +1033,7 @@
       "lock-and-suspend": "Bloquear e Suspender",
       "logout": "Sair",
       "reboot": "Reiniciar",
+      "reboot-uefi": "Reiniciar para UEFI",
       "shutdown": "Desligar",
       "suspend": "Suspender"
     },
@@ -1306,6 +1308,8 @@
       "merged-user-description": "Combina arquivos de configuração e alterações na interface gráfica em um único arquivo TOML. Os valores padrão predefinidos permanecem implícitos.",
       "merged-user-save-title": "Salvar Configuração de Usuário Mesclada",
       "merged-user-title": "Configuração de Usuário Mesclada (Recomendado)",
+      "privacy-warning-description": "Ambos modos de exportação podem incluir chaves de API, senhas ou outros dados sensíveis armazenados em seu arquivo de configuração, incluindo plugins. Trate arquivos exportados como privados. Revise e remova dados sensíveis antes de compartilhar.",
+      "privacy-warning-title": "Exportações podem conter segredos",
       "title": "Exportar Configuração"
     },
     "idle": {
@@ -1541,10 +1545,15 @@
       },
       "lockscreen": {
         "transition": {
+          "diamond": "Diamante",
           "disc": "Disco",
           "fade": "Esvanescer",
+          "golden": "Dourado",
           "honeycomb": "Favo de Mel",
+          "melt": "Derretido",
+          "pixel": "Pixel",
           "stripes": "Listras",
+          "vortex": "Vórtice",
           "wipe": "Limpar",
           "zoom": "Zoom"
         }
@@ -1669,10 +1678,15 @@
           "random": "Aleatória"
         },
         "transition": {
+          "diamond": "Diamante",
           "disc": "Disco",
           "fade": "Desvanecer",
+          "golden": "Dourado",
           "honeycomb": "Favo de mel",
+          "melt": "Derretido",
+          "pixel": "Pixel",
           "stripes": "Listras",
+          "vortex": "Vórtice",
           "wipe": "Expurgar",
           "zoom": "Zoom"
         }
@@ -1683,6 +1697,21 @@
           "metric": "Métrica"
         }
       }
+    },
+    "palette-inspector": {
+      "copied": "{value} copiada",
+      "copy-failed": "Não foi possível copiar a cor para a área de transferência.",
+      "copy-hex": "Copiar valor hex",
+      "copy-name": "Copiar nome da cor",
+      "description": "Modelos de cores no modo {mode}.",
+      "empty": "Sem cores correspondentes.",
+      "filter-all": "Todas Cores",
+      "filter-palette": "Paleta",
+      "filter-terminal": "Terminal",
+      "missing": "Indisponível",
+      "search-placeholder": "Procurar por nomes de cores ou valores hex ...",
+      "terminal-number": "{number} · ANSI {index}",
+      "title": "Inspetor de Paleta"
     },
     "plugins": {
       "browse-store": "Navegar Plugins",
@@ -1868,6 +1897,11 @@
           "description": "Ignorar detecção automática de localização",
           "label": "Idioma"
         },
+        "palette-inspector": {
+          "button": "Inspecionar Cores",
+          "description": "Ver nomes de modelos de cores, amostras e valores hex para a paleta ativa",
+          "label": "Inspetor de Paleta"
+        },
         "palette-source": {
           "description": "De onde derivar a paleta de cores",
           "label": "Fonte da Paleta"
@@ -1891,6 +1925,10 @@
         "show-close-buttons": {
           "description": "Mostrar botões de fechar em painéis, lâminas de notificações, popups, diálogos e na janela de configurações",
           "label": "Mostrar botões de Fechar"
+        },
+        "sync-color-scheme": {
+          "description": "Definir a preferência de sistema para mode escuro/claro lido por navegadores e outros apps para seguir o Modo do Tema",
+          "label": "Sincronizar Esquema de Cores do App"
         },
         "theme-mode": {
           "description": "Escolha o modo Escuro, Claro ou Automático baseado na hora do dia; também aplica em apps através de modelos",
@@ -1921,6 +1959,10 @@
       "bar": {
         "auto-hide": {
           "description": "Desligado mantém a barra visível; Ligado a oculta até que você mova o ponteiro para a borda da tela; Inteligente mostra a barra em um espaço de trabalho vazio e a oculta quando há janelas abertas"
+        },
+        "auto-hide-delay": {
+          "description": "Aguardar esta quantidade de milissegundos depois que o ponteiro sair antes de ocultar a barra; 0 oculta imediatamente (somente no modo Ligado)",
+          "label": "Atraso de Auto-Ocultação"
         },
         "background-opacity": {
           "description": "Opacidade do plano de fundo da barra"
@@ -3111,7 +3153,7 @@
       },
       "shared": {
         "auto-hide": {
-          "label": "Auto-Esconder"
+          "label": "Auto-Ocultar"
         },
         "background-opacity": {
           "label": "Opacidade do Plano de Fundo"
@@ -3488,6 +3530,10 @@
           "description": "Formato de hora padrão para a interface do usuário do shell sem configuração própria",
           "label": "Formato da Hora"
         },
+        "umbriel-audio-provider": {
+          "description": "Compartilhe o espectro de áudio com os efeitos do Umbriel, mesmo sem um widget visualizador",
+          "label": "Prover Áudio para Umbriel"
+        },
         "umbriel-overview-type-to-launch": {
           "description": "Abrir o Launcher enquanto digite na Overveiw do Umbriel; utiliza uma pequena superfície de foco de teclado enquanto a Overview está aberta",
           "label": "Digitar para Abrir Launcher"
@@ -3666,6 +3712,8 @@
       "success": "Redefinição do armazenamento privado bem sucedida"
     },
     "templates": {
+      "documentation": "Documentação",
+      "readme": "Leiame",
       "store": {
         "browse": "Navegar pelos modelos",
         "categories": "Categorias",
@@ -4010,6 +4058,10 @@
           "screenshot-region": {
             "description": "Iniciar uma captura de tela de região interativa",
             "label": "Captura de tela de região"
+          },
+          "screenshot-window": {
+            "description": "Capturar a janela focada",
+            "label": "Capturar de janela"
           },
           "session": {
             "description": "Executar uma ação de sessão integrada",
@@ -4736,6 +4788,10 @@
           "description": "Preencha o fundo do widget para mostrar o progresso da reprodução",
           "label": "Mostrar Progresso da Reprodução"
         },
+        "show-running": {
+          "description": "Mostrar janelas em execução que não estão na lista fixada",
+          "label": "Mostrar em Execução"
+        },
         "show-scroll-lock": {
           "description": "Exibe estado do Scroll Lock",
           "label": "Exibir Scroll Lock"
@@ -4759,6 +4815,10 @@
         "show-vpn-label": {
           "description": "Substitui rótulo de rede com rótulo da VPN em modo Substituir; adiciona rótulo VPN próximo ao ícone de VPN no modo Ambos",
           "label": "Mostrar Rótulo VPN"
+        },
+        "show-wave": {
+          "description": "Exibir como uma onda com área preenchida, em vez de barras separadas",
+          "label": "Mostrar Onda"
         },
         "show-when-idle": {
           "description": "Mantenha o visualizador visível mesmo quando nenhum conteúdo estiver sendo reproduzido",

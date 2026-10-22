@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
+#include <expected>
 #include <format>
 #include <optional>
 #include <string>
@@ -558,6 +559,77 @@ namespace StringUtils {
     }
     result += '\'';
     return result;
+  }
+
+  // Splits a POSIX-shell-like argument string: whitespace separates words; '...' is literal;
+  // "..." honours \" \\ \$ \` escapes; a backslash outside quotes escapes the next character.
+  // Adjacent quoted and unquoted parts join into one word, and '' yields an empty word.
+  // Fails on an unterminated quote.
+  [[nodiscard]] inline std::expected<std::vector<std::string>, std::string> splitShellWords(std::string_view text) {
+    std::vector<std::string> words;
+    std::string current;
+    bool inWord = false;
+    std::size_t i = 0;
+    while (i < text.size()) {
+      const char ch = text[i];
+      if (ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r') {
+        if (inWord) {
+          words.push_back(std::move(current));
+          current.clear();
+          inWord = false;
+        }
+        ++i;
+        continue;
+      }
+      inWord = true;
+      if (ch == '\'') {
+        const std::size_t close = text.find('\'', i + 1);
+        if (close == std::string_view::npos) {
+          return std::unexpected("unterminated quote");
+        }
+        current.append(text.substr(i + 1, close - i - 1));
+        i = close + 1;
+      } else if (ch == '"') {
+        ++i;
+        bool closed = false;
+        while (i < text.size()) {
+          const char inner = text[i];
+          if (inner == '"') {
+            closed = true;
+            ++i;
+            break;
+          }
+          if (inner == '\\' && i + 1 < text.size()) {
+            const char next = text[i + 1];
+            if (next == '"' || next == '\\' || next == '$' || next == '`') {
+              current += next;
+              i += 2;
+              continue;
+            }
+          }
+          current += inner;
+          ++i;
+        }
+        if (!closed) {
+          return std::unexpected("unterminated quote");
+        }
+      } else if (ch == '\\') {
+        if (i + 1 < text.size()) {
+          current += text[i + 1];
+          i += 2;
+        } else {
+          current += '\\';
+          ++i;
+        }
+      } else {
+        current += ch;
+        ++i;
+      }
+    }
+    if (inWord) {
+      words.push_back(std::move(current));
+    }
+    return words;
   }
 
   [[nodiscard]] inline std::string quoteDouble(std::string_view text) {

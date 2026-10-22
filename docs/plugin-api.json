@@ -190,5 +190,35 @@
     "noctaliaVersion": "v5.3.0",
     "feature": "widget-hover-highlight",
     "introduced": "The `hover_highlight` widget entry option for opting out of the bar's whole-widget hover highlight."
+  },
+  {
+    "level": 35,
+    "noctaliaVersion": null,
+    "feature": "idle-watch",
+    "introduced": "`noctalia.idle.watch` and `noctalia.idle.unwatch` for compositor idle notifications, available to every entry kind."
+  },
+  {
+    "level": 36,
+    "noctaliaVersion": null,
+    "feature": "layer-entry",
+    "introduced": "`[[layer]]` entries for plugin-owned layer-shell surfaces, with `layer.*` and `noctalia.layer.show`, `hide`, and `configure`."
+  },
+  {
+    "level": 37,
+    "noctaliaVersion": null,
+    "feature": "calendar-events",
+    "introduced": "`noctalia.calendarEvents()` for reading the shell's synced calendar events."
+  },
+  {
+    "level": 38,
+    "noctaliaVersion": null,
+    "feature": "bar-drag-and-drop",
+    "introduced": "`ui.dragSource()` and `ui.dropZone()` in bar widgets (`barWidget.render`), not only panels; `dragSource.grabCursor` and `dragSource.onClick` for a source that wraps a whole clickable item; `expandOnDrag` grows a zone along its thin axis."
+  },
+  {
+    "level": 39,
+    "noctaliaVersion": null,
+    "feature": "osd",
+    "introduced": "`noctalia.osd.show(icon, value, opts)` for showing the shell OSD from plugins."
   }
 ]

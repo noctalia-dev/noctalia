@@ -1,6 +1,7 @@
 #pragma once
 
 #include "config/config_types.h"
+#include "scripting/plugin_layer_config.h"
 
 #include <cstdint>
 #include <filesystem>
@@ -76,6 +77,7 @@ namespace scripting {
     DesktopWidget,
     LauncherProvider,
     Service,
+    Layer,
   };
 
   // A launcher result category, declared statically on a [[launcher_provider]]
@@ -145,6 +147,11 @@ namespace scripting {
     // the host, so the panel can drive its own key interactions. Verbatim spec strings:
     // the script is called back with the same text declared here.
     std::vector<std::string> panelCaptureKeys;
+
+    // Surface defaults of a [[layer]] entry (plugin_api >= 36); noctalia.layer.configure() changes
+    // them at runtime. `layerVisible` shows the layer as soon as its plugin loads.
+    PluginLayerConfig layerConfig;
+    bool layerVisible = false;
   };
 
   struct PluginManifest {

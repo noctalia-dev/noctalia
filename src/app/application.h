@@ -21,6 +21,7 @@
 #include "idle/idle_grace_overlay.h"
 #include "idle/idle_inhibitor.h"
 #include "idle/idle_manager.h"
+#include "idle/plugin_idle_watches.h"
 #include "ipc/ipc_poll_source.h"
 #include "ipc/ipc_service.h"
 #include "launcher/dmenu_ipc.h"
@@ -56,6 +57,7 @@
 #include "shell/osd/privacy_osd.h"
 #include "shell/overview/overview_launcher_capture.h"
 #include "shell/panel/panel_manager.h"
+#include "shell/plugin_layer/plugin_layer_host.h"
 #include "shell/screen_corners/screen_corners.h"
 #include "shell/session/session_action_runner.h"
 #include "shell/settings/settings_window.h"
@@ -197,6 +199,8 @@ private:
   void reloadDmenuProviders();
   // (Re)register plugin-backed panels from the enabled plugin set.
   void reloadPluginPanels();
+  // Re-register plugin-backed [[layer]] entries from the enabled plugin set.
+  void reloadPluginLayers();
   // When [plugins].auto_update is on, pull git sources per the configured mode. Run once at
   // startup and on a 6h repeating timer so long-lived sessions pick up new plugin versions.
   void runPluginAutoUpdate();
@@ -226,6 +230,9 @@ private:
   bool runIdleAction(const IdleActionRequest& action);
   bool setOutputPower(bool on);
   void onIconThemeChanged();
+  // Finest time boundary the currently visible shell UI needs. Drives the time
+  // poll source so it can park between boundaries instead of waking every second.
+  [[nodiscard]] TimeService::Precision timePrecisionNeeded() const;
   void onGraphicsReset(RenderGraphicsResetStatus status);
   void recoverGraphicsAfterReset();
   void requestAllSurfacesRedraw();
@@ -280,6 +287,7 @@ private:
   std::unique_ptr<DebugService> m_debugService;
   IdleInhibitor m_idleInhibitor;
   IdleManager m_idleManager;
+  PluginIdleWatches m_pluginIdleWatches;
   IdleGraceOverlay m_idleGraceOverlay;
   std::uint64_t m_idleGraceOverlayGeneration = 0;
   HookManager m_hookManager;
@@ -354,6 +362,12 @@ private:
   // Ids of plugin-backed panels currently registered with m_panelManager, so a
   // reload can retire the previous set before registering the new one.
   std::vector<std::string> m_pluginPanelIds;
+  PluginLayerHost m_pluginLayerHost{
+      PluginLayerServices{
+          .platform = m_compositorPlatform, .renderContext = &m_renderContext, .config = &m_configService
+      },
+      m_scriptApi, &m_fileWatcher, &m_httpClient, &m_clipboardService
+  };
   WindowSwitcher m_windowSwitcher;
   OverviewLauncherCapture m_overviewLauncherCapture;
   NotificationToast m_notificationToast;

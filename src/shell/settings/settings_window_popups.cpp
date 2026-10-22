@@ -121,6 +121,8 @@ namespace {
     std::string password;
     CalendarCredentialSource credentialSource = CalendarCredentialSource::SecretService;
     std::string passwordFile;
+    std::string clientCertFile;
+    std::string clientKeyFile;
     std::string serverUrl;
     std::string path;
     std::string color;
@@ -130,6 +132,8 @@ namespace {
     bool usernameInvalid = false;
     bool passwordInvalid = false;
     bool passwordFileInvalid = false;
+    bool clientCertInvalid = false;
+    bool clientKeyInvalid = false;
     bool serverUrlInvalid = false;
     bool pathInvalid = false;
     bool credentialOperationInFlight = false;
@@ -1260,6 +1264,8 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
     draft->serverUrl = account->serverUrl;
     draft->credentialSource = account->credentialSource;
     draft->passwordFile = account->passwordFile;
+    draft->clientCertFile = account->clientCertFile;
+    draft->clientKeyFile = account->clientKeyFile;
     draft->color = account->color;
     draft->calendars = account->calendars;
     if (account->type == "google") {
@@ -1392,6 +1398,12 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
                 draft->credentialSource = CalendarCredentialSource::SecretService;
                 draft->passwordFile.clear();
               }
+              if (provider != CalendarAccountProvider::CustomCalDav) {
+                draft->clientCertFile.clear();
+                draft->clientKeyFile.clear();
+                draft->clientCertInvalid = false;
+                draft->clientKeyInvalid = false;
+              }
               bool isDefaultId = draft->id.empty()
                   || draft->id == "personal_icloud"
                   || draft->id == "home_nextcloud"
@@ -1448,6 +1460,8 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
     Input* usernameInput = nullptr;
     Input* passwordInput = nullptr;
     Input* passwordFileInput = nullptr;
+    Input* clientCertInput = nullptr;
+    Input* clientKeyInput = nullptr;
     Input* serverInput = nullptr;
     Input* pathInput = nullptr;
     if (draft->provider != CalendarAccountProvider::Google
@@ -1535,6 +1549,32 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
               .onChange = [draft](const std::string& value) {
                 draft->serverUrl = value;
                 draft->serverUrlInvalid = false;
+              },
+          })
+      );
+      addField(
+          body, i18n::tr("settings.calendar-accounts.client-cert-label"),
+          ui::input({
+              .out = &clientCertInput,
+              .value = draft->clientCertFile,
+              .placeholder = "/path/to/client.pem",
+              .invalid = draft->clientCertInvalid,
+              .onChange = [draft](const std::string& value) {
+                draft->clientCertFile = value;
+                draft->clientCertInvalid = false;
+              },
+          })
+      );
+      addField(
+          body, i18n::tr("settings.calendar-accounts.client-key-label"),
+          ui::input({
+              .out = &clientKeyInput,
+              .value = draft->clientKeyFile,
+              .placeholder = "/path/to/client.key",
+              .invalid = draft->clientKeyInvalid,
+              .onChange = [draft](const std::string& value) {
+                draft->clientKeyFile = value;
+                draft->clientKeyInvalid = false;
               },
           })
       );
@@ -1663,7 +1703,8 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
     }
 
     const auto persistAccount = [this, draft, idInput, nameInput, usernameInput, passwordInput, passwordFileInput,
-                                 serverInput, pathInput](bool closeAfter, bool connectAfter) {
+                                 clientCertInput, clientKeyInput, serverInput,
+                                 pathInput](bool closeAfter, bool connectAfter) {
       if (m_config == nullptr) {
         return;
       }
@@ -1679,6 +1720,12 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
       if (passwordFileInput != nullptr) {
         draft->passwordFile = trimInput(passwordFileInput);
       }
+      if (clientCertInput != nullptr) {
+        draft->clientCertFile = trimInput(clientCertInput);
+      }
+      if (clientKeyInput != nullptr) {
+        draft->clientKeyFile = trimInput(clientKeyInput);
+      }
       draft->serverUrl = trimInput(serverInput);
       if (pathInput != nullptr) {
         draft->path = trimInput(pathInput);
@@ -1688,6 +1735,8 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
       draft->usernameInvalid = false;
       draft->passwordInvalid = false;
       draft->passwordFileInvalid = false;
+      draft->clientCertInvalid = false;
+      draft->clientKeyInvalid = false;
       draft->serverUrlInvalid = false;
       draft->pathInvalid = false;
 
@@ -1713,6 +1762,14 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
           && (draft->passwordFile.empty() || !std::filesystem::path(draft->passwordFile).is_absolute())) {
         draft->passwordFileInvalid = true;
       }
+      if (caldav) {
+        const auto absolute = [](const std::string& value) { return std::filesystem::path(value).is_absolute(); };
+        const bool hasCert = !draft->clientCertFile.empty();
+        const bool hasKey = !draft->clientKeyFile.empty();
+        // The cert and the key are only usable as a pair, so a lone one marks the missing side invalid.
+        draft->clientCertInvalid = hasCert ? !absolute(draft->clientCertFile) : hasKey;
+        draft->clientKeyInvalid = hasKey ? !absolute(draft->clientKeyFile) : hasCert;
+      }
       if (vdir) {
         const std::filesystem::path checkPath =
             draft->path.empty() ? calendar::defaultVdirPath() : FileUtils::expandUserPath(draft->path);
@@ -1725,6 +1782,8 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
           || draft->usernameInvalid
           || draft->passwordInvalid
           || draft->passwordFileInvalid
+          || draft->clientCertInvalid
+          || draft->clientKeyInvalid
           || draft->serverUrlInvalid
           || draft->pathInvalid) {
         showTransientStatus(i18n::tr("settings.calendar-accounts.invalid"), true);
@@ -1761,6 +1820,9 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
           );
           overrides.push_back({{base[0], base[1], base[2], "password_file"}, draft->passwordFile});
         }
+        // Plain paths, not secrets, so they stay editable after creation.
+        overrides.push_back({{base[0], base[1], base[2], "client_cert_file"}, draft->clientCertFile});
+        overrides.push_back({{base[0], base[1], base[2], "client_key_file"}, draft->clientKeyFile});
       }
       if (draft->provider == CalendarAccountProvider::CustomCalDav || ics) {
         overrides.push_back({{base[0], base[1], base[2], "server_url"}, draft->serverUrl});
@@ -1778,6 +1840,8 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
           staleKeys.push_back({base[0], base[1], base[2], "username"});
           staleKeys.push_back({base[0], base[1], base[2], "credential_source"});
           staleKeys.push_back({base[0], base[1], base[2], "password_file"});
+          staleKeys.push_back({base[0], base[1], base[2], "client_cert_file"});
+          staleKeys.push_back({base[0], base[1], base[2], "client_key_file"});
         }
         if (draft->provider != CalendarAccountProvider::CustomCalDav && !ics) {
           staleKeys.push_back({base[0], base[1], base[2], "server_url"});

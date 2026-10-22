@@ -196,11 +196,11 @@ if not cc.has_header('stb/stb_image_write.h')
   error('stb/stb_image_write.h not found')
 endif
 
-# ── System: libwebp (WebP decode and thumbnail encode; demux for animations) ─
+# ── System: libwebp (WebP decode; thumbnail and screenshot encode; demux for animations) ─
 libwebp_dep       = dependency('libwebp', required: true)
 libwebpdemux_dep  = dependency('libwebpdemux', required: true)
 
-# ── System: libjxl (JPEG XL decode) ───────────────────────────────────────────
+# ── System: libjxl (JPEG XL decode and screenshot encode) ─────────────────────
 libjxl_dep          = dependency('libjxl', required: true)
 libjxl_threads_dep  = dependency('libjxl_threads', required: true)
 
@@ -514,6 +514,7 @@ _noctalia_sources = files(
   'src/idle/idle_inhibitor.cpp',
   'src/idle/idle_grace_overlay.cpp',
   'src/idle/idle_manager.cpp',
+  'src/idle/plugin_idle_watches.cpp',
   'src/ipc/ipc_client.cpp',
   'src/ipc/ipc_service.cpp',
   'src/launcher/app_provider.cpp',
@@ -562,6 +563,7 @@ _noctalia_sources = files(
   'src/render/core/stb_image_resize_impl.cpp',
   'src/render/core/thumbnail_service.cpp',
   'src/render/core/image_decoder.cpp',
+  'src/render/core/heif_library.cpp',
   'src/render/core/image_encoder.cpp',
   'src/render/core/image_orientation.cpp',
   'src/render/programs/glyph_program.cpp',
@@ -605,6 +607,7 @@ _noctalia_sources = files(
   'src/scripting/plugin_manager.cpp',
   'src/scripting/plugin_recommendations.cpp',
   'src/scripting/plugin_manifest.cpp',
+  'src/scripting/plugin_layer_config.cpp',
   'src/scripting/plugin_panel_shell.cpp',
   'src/scripting/plugin_registry.cpp',
   'src/scripting/plugin_script_watcher.cpp',
@@ -711,6 +714,8 @@ _noctalia_sources = files(
   'src/shell/panel/panel_manager.cpp',
   'src/shell/panel/persistent_panel_host.cpp',
   'src/shell/panel/plugin_panel.cpp',
+  'src/shell/plugin_layer/plugin_layer.cpp',
+  'src/shell/plugin_layer/plugin_layer_host.cpp',
   'src/shell/polkit/polkit_panel.cpp',
   'src/shell/session/session_action_meta.cpp',
   'src/shell/session/session_action_runner.cpp',
@@ -868,6 +873,7 @@ _noctalia_sources = files(
   'src/capture/screenshot_image.cpp',
   'src/capture/screenshot_service.cpp',
   'src/capture/screenshot_region_overlay.cpp',
+  'src/capture/screenshot_region_badge.cpp',
   'src/capture/annotation_document.cpp',
   'src/capture/annotation_raster.cpp',
   'src/capture/annotation_overlay.cpp',
@@ -1185,6 +1191,7 @@ if build_tests
     'audio_route_selection',
     'battery_health',
     'battery_hook_state',
+    'battery_warning_threshold',
     'bluetooth_uuid_names',
     'button_layout',
     'cairo_text_renderer',
@@ -1217,12 +1224,14 @@ if build_tests
     'desktop_entry_localization',
     'desktop_entry_symlink',
     'desktop_entry_watch',
+    'desktop_widget_output',
     'disk_mounts',
     'dock_edge_overlap',
     'dock_pinned_apps',
     'enterprise_credentials',
     'event_link',
     'event_merge',
+    'ext_toplevel_capture_target',
     'fcitx_status',
     'freedesktop_key_file',
     'firefox_theme_manifest',
@@ -1251,6 +1260,7 @@ if build_tests
     'kde_color_scheme',
     'keyboard_layout_label',
     'lane_selection_token',
+    'launcher_category_state',
     'location_service',
     'lockscreen_session_actions',
     'log',
@@ -1282,12 +1292,15 @@ if build_tests
     'plugin_source_paths',
     'process',
     'scheme',
+    'screenshot_region_badge',
+    'screenshot_ipc_request',
     'scrollbar_geometry',
     'secret_store',
     'security_primitives',
     'state_store',
     'string_utils',
     'surface_blur_region',
+    'sway_workspace_backend',
     'system_monitor_service',
     'taskbar_widget',
     'template_apply_notify',
@@ -1439,6 +1452,24 @@ if build_tests
     )
   endif
 
+  bluetooth_connect_pass_integration_exe = executable('bluetooth_connect_pass_integration_test',
+    sources: files('tests/bluetooth_connect_pass_integration_test.cpp'),
+    dependencies: noctalia_core_dep,
+    override_options: ['b_ndebug=false'],
+  )
+  if dbus_run_session.found()
+    test('bluetooth_connect_pass_integration',
+      dbus_run_session,
+      args: [
+        '--', 'sh', '-c',
+        'export DBUS_SYSTEM_BUS_ADDRESS="$DBUS_SESSION_BUS_ADDRESS"; exec "$1"',
+        'sh', bluetooth_connect_pass_integration_exe.full_path(),
+      ],
+      depends: bluetooth_connect_pass_integration_exe,
+      timeout: 60,
+    )
+  endif
+
   notification_reply_integration_exe = executable('notification_reply_integration_test',
     sources: files('tests/notification_reply_integration_test.cpp'),
     dependencies: noctalia_core_dep,
@@ -1475,6 +1506,11 @@ if build_tests
   test('umbriel_apply_include_comment',
     bash_program,
     args: ['tests/umbriel_apply_include_comment_test.sh', meson.current_source_dir() / 'assets/templates/umbriel/apply.sh'],
+    workdir: meson.current_source_dir(),
+  )
+  test('compositor_template_config',
+    bash_program,
+    args: ['tests/compositor_template_config_test.sh', meson.current_source_dir() / 'assets/templates'],
     workdir: meson.current_source_dir(),
   )
 endif # build_tests

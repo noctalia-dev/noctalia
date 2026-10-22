@@ -714,6 +714,21 @@ void Application::initStyleThemeAndWayland() {
   // Let a plugin toggle one of its own panels.
   m_scriptApi.setTogglePanelHook([this](const std::string& panelId) { m_panelManager.togglePanel(panelId); });
 
+  m_scriptApi.setIdleWatchHook([this](
+                                   std::uint64_t hostId, int watchId, std::uint32_t timeoutMs, bool ignoreInhibitors,
+                                   scripting::ScriptApiContext::IdleWatchDelivery delivery
+                               ) {
+    m_pluginIdleWatches.watch(hostId, watchId, timeoutMs, ignoreInhibitors, std::move(delivery));
+  });
+  m_scriptApi.setIdleUnwatchHook([this](std::uint64_t hostId, int watchId) {
+    m_pluginIdleWatches.unwatch(hostId, watchId);
+  });
+  m_scriptApi.setReleaseIdleWatchesHook([this](std::uint64_t hostId) { m_pluginIdleWatches.release(hostId); });
+  m_scriptApi.setLayerCommandHook([this](
+                                      scripting::PluginLayerCommand command, const std::string& entryId,
+                                      const scripting::PluginLayerConfigPatch& patch
+                                  ) { m_pluginLayerHost.command(command, entryId, patch); });
+
   m_scriptApi.setOpenPluginSettingsHook([this](const std::string& pluginId) {
     if (!m_panelManager.openPluginSettings(pluginId)) {
       kLog.warn("plugin openSettings ignored: \"{}\" has no settings", pluginId);
@@ -729,6 +744,9 @@ void Application::initStyleThemeAndWayland() {
     if (paletteChanged) {
       m_hookManager.fire(HookKind::ColorsChanged);
     }
+  });
+  m_templateApplyService.setWarningCallback([this](std::string_view warning) {
+    m_settingsWindow.showTransientStatus(std::string(warning), true);
   });
 
   m_themeService.setResolvedCallback([this, lastResolvedThemeMode = std::optional<std::string>{},
@@ -861,6 +879,7 @@ void Application::reconcileOutputSurfaces() {
   m_notificationToast.onOutputChange();
   m_osdOverlay.onOutputChange();
   m_windowSwitcher.onOutputChange();
+  m_pluginLayerHost.onOutputChange();
 }
 
 void Application::initWaylandCallbacks() {
@@ -1026,6 +1045,7 @@ void Application::initAuxServicesAndHooks() {
 
   m_themeService.setChangeCallback([this]() {
     requestAllSurfacesRedraw();
+    m_bar.refresh();
     m_lockScreen.onThemeChanged();
     m_trayMenu.onThemeChanged();
     m_backdrop.onThemeChanged();
@@ -1198,6 +1218,8 @@ void Application::initSystemBusServices() {
             });
           }
           requestAllSurfacesRedraw();
+          // The time poll deadline is monotonic and stalls across suspend; refresh clocks now.
+          DeferredCall::callLater([this]() { m_timeService.forceTick(); });
         });
         kLog.info("logind sleep monitor active");
         m_idleInhibitor.setLogindService(m_logindService.get());
@@ -1375,6 +1397,7 @@ void Application::initSystemBusServices() {
 
     try {
       m_bluetoothService = std::make_unique<BluetoothService>(*m_systemBus, m_upowerService.get());
+      m_bluetoothService->setConnectWhenEnabled(m_configService.config().bluetooth.connectWhenEnabled);
       auto refreshBluetoothUi = [this, shouldRefreshControlCenter]() {
         m_bar.refresh();
         if (shouldRefreshControlCenter()) {
@@ -1413,6 +1436,11 @@ void Application::initSystemBusServices() {
         m_bluetoothAgent.reset();
       }
     }
+    m_configService.addReloadCallback([this]() {
+      if (m_bluetoothService != nullptr) {
+        m_bluetoothService->setConnectWhenEnabled(m_configService.config().bluetooth.connectWhenEnabled);
+      }
+    });
 
     try {
       m_modemManagerService = std::make_unique<ModemManagerService>(*m_systemBus);
@@ -1646,7 +1674,41 @@ void Application::initSessionBusServices() {
 
   m_locationService.initialize();
   m_weatherService.initialize();
+
+  // Mirror the calendar snapshot into the script API so plugins can read it through
+  // noctalia.calendarEvents(). Same pattern as the clipboard text mirror: converted once per sync on
+  // the main thread, then read race-free from plugin states. Registered before initialize() so the
+  // first sync is not missed.
+  auto pushCalendar = [this]() {
+    const CalendarSnapshot& snapshot = m_calendarService.snapshot();
+    if (!snapshot.valid) {
+      m_scriptApi.setCalendarEvents(nullptr);
+      return;
+    }
+    std::vector<scripting::ScriptCalendarEvent> events;
+    events.reserve(snapshot.events.size());
+    for (const CalendarEvent& event : snapshot.events) {
+      events.push_back(
+          scripting::ScriptCalendarEvent{
+              .id = event.id,
+              .title = event.title,
+              .calendarName = event.calendarName,
+              .colorHex = event.colorHex,
+              .location = event.location,
+              .url = event.url,
+              .startMs = std::chrono::duration<double, std::milli>(event.start.time_since_epoch()).count(),
+              .endMs = std::chrono::duration<double, std::milli>(event.end.time_since_epoch()).count(),
+              .allDay = event.allDay,
+          }
+      );
+    }
+    m_scriptApi.setCalendarEvents(
+        std::make_shared<const std::vector<scripting::ScriptCalendarEvent>>(std::move(events))
+    );
+  };
+  (void)m_calendarService.addChangeCallback(pushCalendar);
   m_calendarService.initialize();
+  pushCalendar();
 
   // Load the persisted fired set before the first evaluation, or a restart would re-notify.
   m_calendarReminderMonitor.initialize();

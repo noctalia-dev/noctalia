@@ -75,7 +75,6 @@ namespace noctalia::cli {
   inline constexpr std::array<std::string_view, 6> kMsgNotificationDndSetStateChoices{"on",    "off", "true",
                                                                                       "false", "1",   "0"};
   inline constexpr std::array<std::string_view, 2> kMsgPowerCycleDirectionChoices{"next", "prev"};
-  inline constexpr std::array<std::string_view, 3> kMsgScreenshotFullscreenModeChoices{"pick", "monitor", "all"};
   inline constexpr std::array<std::string_view, 7> kMsgSessionActionChoices{"lock",    "suspend", "lock-and-suspend",
                                                                             "logout",  "reboot",  "reboot-uefi",
                                                                             "shutdown"};
@@ -84,7 +83,7 @@ namespace noctalia::cli {
   inline constexpr std::array<std::string_view, 2> kMsgWorkspaceSwitchDirectionChoices{"next", "prev"};
 
   inline constexpr std::array kMsgAnnotatePositionals{
-      Positional{"path", "Image file to annotate instead of the live screen", {}, false, false, false},
+      Positional{"path", "Image file to annotate instead of the live screen", {}, false, false, true},
   };
   inline constexpr std::array kMsgBarAutoHideSetPositionals{
       Positional{"state", {}, kMsgBarAutoHideSetStateChoices, true, false, false},
@@ -165,6 +164,10 @@ namespace noctalia::cli {
       Positional{"summary", {}, {}, true, false, false},
       Positional{"body", {}, {}, true, false, true},
   };
+  inline constexpr std::array kMsgOsdShowPositionals{
+      Positional{"icon", {}, {}, true, false, false},
+      Positional{"value", "Text shown next to the icon", {}, false, false, true},
+  };
   inline constexpr std::array kMsgPanelClosePositionals{
       Positional{"id", {}, {}, false, false, false},
   };
@@ -189,7 +192,14 @@ namespace noctalia::cli {
       Positional{"profile", {}, {}, true, false, false},
   };
   inline constexpr std::array kMsgScreenshotFullscreenPositionals{
-      Positional{"mode", {}, kMsgScreenshotFullscreenModeChoices, false, false, false},
+      Positional{
+          "target",
+          "pick, all, or a monitor connector or description; the focused monitor when omitted",
+          {},
+          false,
+          false,
+          true
+      },
   };
   inline constexpr std::array kMsgSessionPositionals{
       Positional{"action", {}, kMsgSessionActionChoices, true, false, false},
@@ -261,15 +271,72 @@ namespace noctalia::cli {
   inline constexpr std::array kMsgWorkspaceSwitchPositionals{
       Positional{"direction", {}, kMsgWorkspaceSwitchDirectionChoices, true, false, false},
   };
+  inline constexpr std::array<std::string_view, 4> kMsgScreenshotFormatChoices{"png", "jpeg", "webp", "jxl"};
+  inline constexpr std::array kMsgScreenshotFlags{
+      Flag{"--save-to-file", {}, {}, "Set save_to_file = true for this call", {}, {}, false, false},
+      Flag{"--no-save-to-file", {}, {}, "Set save_to_file = false for this call", {}, {}, false, false},
+      Flag{"--copy-to-clipboard", {}, {}, "Set copy_to_clipboard = true for this call", {}, {}, false, false},
+      Flag{"--no-copy-to-clipboard", {}, {}, "Set copy_to_clipboard = false for this call", {}, {}, false, false},
+      Flag{"--pipe-to-command", {}, {}, "Set pipe_to_command = true for this call", {}, {}, false, false},
+      Flag{"--no-pipe-to-command", {}, {}, "Set pipe_to_command = false for this call", {}, {}, false, false},
+      Flag{"--freeze-screen", {}, {}, "Set freeze_screen = true for this call", {}, {}, false, false},
+      Flag{"--no-freeze-screen", {}, {}, "Set freeze_screen = false for this call", {}, {}, false, false},
+      Flag{"--confirm-region", {}, {}, "Set confirm_region = true for this call", {}, {}, false, false},
+      Flag{"--no-confirm-region", {}, {}, "Set confirm_region = false for this call", {}, {}, false, false},
+      Flag{"--remember-last-region", {}, {}, "Set remember_last_region = true for this call", {}, {}, false, false},
+      Flag{"--no-remember-last-region", {}, {}, "Set remember_last_region = false for this call", {}, {}, false, false},
+      Flag{"--show-cursor", {}, {}, "Set show_cursor = true for this call", {}, {}, false, false},
+      Flag{"--no-show-cursor", {}, {}, "Set show_cursor = false for this call", {}, {}, false, false},
+      Flag{"--annotate", {}, {}, "Set annotate = true for this call", {}, {}, false, false},
+      Flag{"--no-annotate", {}, {}, "Set annotate = false for this call", {}, {}, false, false},
+      Flag{
+          "--skip-annotate-on-copy-save",
+          {},
+          {},
+          "Set skip_annotate_on_copy_save = true for this call",
+          {},
+          {},
+          false,
+          false
+      },
+      Flag{
+          "--no-skip-annotate-on-copy-save",
+          {},
+          {},
+          "Set skip_annotate_on_copy_save = false for this call",
+          {},
+          {},
+          false,
+          false
+      },
+      Flag{"--close-on-copy", {}, {}, "Set close_on_copy = true for this call", {}, {}, false, false},
+      Flag{"--no-close-on-copy", {}, {}, "Set close_on_copy = false for this call", {}, {}, false, false},
+      Flag{"--close-on-save", {}, {}, "Set close_on_save = true for this call", {}, {}, false, false},
+      Flag{"--no-close-on-save", {}, {}, "Set close_on_save = false for this call", {}, {}, false, false},
+      Flag{"--pipe-command", {}, "<command>", "Set pipe_command for this call", {}, {}, false, false},
+      Flag{
+          "--directory",
+          {},
+          "<dir>",
+          "Set directory for this call; relative paths resolve against the caller's directory",
+          {},
+          {},
+          false,
+          false
+      },
+      Flag{"--filename-pattern", {}, "<pattern>", "Set filename_pattern for this call", {}, {}, false, false},
+      Flag{"--format", {}, "<format>", "Set format for this call", kMsgScreenshotFormatChoices, {}, false, false},
+      Flag{"--quality", {}, "<1-100>", "Set quality for this call", {}, {}, false, false},
+  };
 
   namespace msg {
     inline constexpr Command annotate{
         "annotate",
-        "Draw on the screen over running apps, or annotate an image file; press F or the Freeze button to capture the "
+        "Draw on the screen over running apps, or annotate an image file; press Z or the Freeze button to capture the "
         "background",
         {},
         {},
-        {},
+        kMsgScreenshotFlags,
         kMsgAnnotatePositionals,
         {},
         false
@@ -578,6 +645,8 @@ namespace noctalia::cli {
                                               false};
     inline constexpr Command osdDisable{"osd-disable", "Disable OSD popups", {}, {}, {}, {}, {}, false};
     inline constexpr Command osdEnable{"osd-enable", "Enable OSD popups", {}, {}, {}, {}, {}, false};
+    inline constexpr Command osdShow{"osd-show", "Show a custom OSD popup", {}, {},
+                                     {},         kMsgOsdShowPositionals,    {}, false};
     inline constexpr Command osdToggle{"osd-toggle", "Toggle OSD popups", {}, {}, {}, {}, {}, false};
     inline constexpr Command panelClose{
         "panel-close",
@@ -635,20 +704,30 @@ namespace noctalia::cli {
         {},          false
     };
     inline constexpr Command screenshotAnnotate{
-        "screenshot-annotate", "Freeze the screen and annotate it, then copy or save", {}, {}, {}, {}, {}, false
+        "screenshot-annotate",
+        "Freeze the screen and annotate it, then copy or save",
+        {},
+        {},
+        kMsgScreenshotFlags,
+        {},
+        {},
+        false
     };
     inline constexpr Command screenshotFullscreen{
         "screenshot-fullscreen",
         "Capture the focused monitor by default, pick interactively with pick, or all outputs with all",
         {},
         {},
-        {},
+        kMsgScreenshotFlags,
         kMsgScreenshotFullscreenPositionals,
         {},
         false
     };
     inline constexpr Command screenshotRegion{
-        "screenshot-region", "Start an interactive region screenshot", {}, {}, {}, {}, {}, false
+        "screenshot-region", "Start an interactive region screenshot", {}, {}, kMsgScreenshotFlags, {}, {}, false
+    };
+    inline constexpr Command screenshotWindow{
+        "screenshot-window", "Capture the focused window", {}, {}, kMsgScreenshotFlags, {}, {}, false
     };
     inline constexpr Command session{"session", "Run a built-in session action", {}, {},
                                      {},        kMsgSessionPositionals,          {}, false};
@@ -905,6 +984,7 @@ namespace noctalia::cli {
       msg::notificationShow,
       msg::osdDisable,
       msg::osdEnable,
+      msg::osdShow,
       msg::osdToggle,
       msg::panelClose,
       msg::panelOpen,
@@ -916,6 +996,7 @@ namespace noctalia::cli {
       msg::screenshotAnnotate,
       msg::screenshotFullscreen,
       msg::screenshotRegion,
+      msg::screenshotWindow,
       msg::session,
       msg::settingsClose,
       msg::settingsOpen,

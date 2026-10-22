@@ -6,6 +6,7 @@
 #include "shell/settings/settings_content.h"
 #include "ui/builders.h"
 #include "ui/controls/collapsible.h"
+#include "ui/controls/scroll_view.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 #include "util/string_utils.h"
@@ -290,17 +291,39 @@ namespace settings {
           row.setBorder(colorSpecFromRole(error ? ColorRole::Error : ColorRole::Secondary, 0.45F), Style::borderWidth);
         },
     });
-    banner->addChild(
-        ui::label({
-            .out = props.messageOut,
-            .text = std::move(props.message),
-            .fontSize = Style::fontSizeCaption * scale,
-            .fontWeight = FontWeight::Bold,
-            .color = colorSpecFromRole(error ? ColorRole::Error : ColorRole::Secondary),
-            .maxLines = 3,
-            .flexGrow = 1.0F,
-        })
-    );
+    auto message = ui::label({
+        .out = props.messageOut,
+        .text = std::move(props.message),
+        .fontSize = Style::fontSizeCaption * scale,
+        .fontWeight = FontWeight::Bold,
+        .color = colorSpecFromRole(error ? ColorRole::Error : ColorRole::Secondary),
+        .maxLines = props.scrollable ? 0 : 3,
+        .flexGrow = props.scrollable ? 0.0F : 1.0F,
+    });
+    if (props.scrollable) {
+      auto messageColumn = ui::column({
+          .align = FlexAlign::Stretch,
+          .maxHeight = 160.0F * scale,
+          .flexGrow = 1.0F,
+      });
+      auto messageScroll = ui::scrollView({
+          .contentScale = scale,
+          .scrollbarVisible = true,
+          .viewportPaddingH = 0.0F,
+          .viewportPaddingV = 0.0F,
+          .flexGrow = 1.0F,
+          .configure = [](ScrollView& scroll) {
+            scroll.clearFill();
+            scroll.clearBorder();
+            scroll.content()->setAlign(FlexAlign::Stretch);
+          },
+      });
+      messageScroll->content()->addChild(std::move(message));
+      messageColumn->addChild(std::move(messageScroll));
+      banner->addChild(std::move(messageColumn));
+    } else {
+      banner->addChild(std::move(message));
+    }
     if (props.onDismiss) {
       banner->addChild(
           ui::button({

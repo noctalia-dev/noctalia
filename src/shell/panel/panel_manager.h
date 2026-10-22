@@ -251,6 +251,8 @@ private:
   InputDispatcher m_inputDispatcher;
 
   std::unordered_map<std::string, std::unique_ptr<Panel>> m_panels;
+  // Active panel unregistered while its surface was initializing; destroyed once the open finishes.
+  std::unique_ptr<Panel> m_retiredActivePanel;
   Panel* m_activePanel = nullptr;
   std::string m_activePanelId;
   std::string m_pendingOpenContext;

@@ -1,5 +1,6 @@
 #include "capture/screenshot_region_overlay.h"
 
+#include "capture/screenshot_region_badge.h"
 #include "config/config_types.h"
 #include "core/deferred_call.h"
 #include "core/input/key_symbols.h"
@@ -41,17 +42,14 @@ namespace capture {
 
     constexpr Logger kLog("screenshot-region");
     constexpr float kDimensionFontSize = 14.0F;
-    constexpr float kDimensionCursorOffsetX = 12.0F;
-    constexpr float kDimensionCursorOffsetY = 14.0F;
     constexpr float kDimensionPaddingX = 6.0F;
     constexpr float kDimensionPaddingY = 4.0F;
-    constexpr float kSelectionBorderWidth = 2.0F;
-    constexpr float kDimOpacity = 0.65F;
     constexpr double kHandleMargin = 15.0; // Hitbox size in pixels
 
-    [[nodiscard]] capture::DragMode hitTestSelection(double x, double y, double x0, double y0, double x1, double y1) {
-      const bool withinX = x >= x0 - kHandleMargin && x <= x1 + kHandleMargin;
-      const bool withinY = y >= y0 - kHandleMargin && y <= y1 + kHandleMargin;
+    [[nodiscard]] capture::DragMode
+    hitTestSelection(double x, double y, double x0, double y0, double x1, double y1, double margin) {
+      const bool withinX = x >= x0 - margin && x <= x1 + margin;
+      const bool withinY = y >= y0 - margin && y <= y1 + margin;
 
       if (!withinX || !withinY)
         return capture::DragMode::None;
@@ -61,10 +59,10 @@ namespace capture {
       const double distTop = std::abs(y - y0);
       const double distBottom = std::abs(y - y1);
 
-      bool nearLeft = distLeft <= kHandleMargin;
-      bool nearRight = distRight <= kHandleMargin;
-      bool nearTop = distTop <= kHandleMargin;
-      bool nearBottom = distBottom <= kHandleMargin;
+      bool nearLeft = distLeft <= margin;
+      bool nearRight = distRight <= margin;
+      bool nearTop = distTop <= margin;
+      bool nearBottom = distBottom <= margin;
 
       // Narrow selections can overlap opposing hit zones; bind the pointer to the nearer edge.
       if (nearLeft && nearRight) {
@@ -106,8 +104,8 @@ namespace capture {
 
     // Right-button resize zones: outer thirds of each axis pick the matching edge or corner.
     [[nodiscard]] capture::DragMode
-    hitTestRegionThirds(double x, double y, double x0, double y0, double x1, double y1) {
-      if (x < x0 - kHandleMargin || x > x1 + kHandleMargin || y < y0 - kHandleMargin || y > y1 + kHandleMargin) {
+    hitTestRegionThirds(double x, double y, double x0, double y0, double x1, double y1, double margin) {
+      if (x < x0 - margin || x > x1 + margin || y < y0 - margin || y > y1 + margin) {
         return capture::DragMode::None;
       }
 
@@ -300,6 +298,14 @@ namespace capture {
   }
 
   void ScreenshotRegionOverlay::setRegionModifier(std::uint32_t mask) { m_regionModifierMask = mask; }
+
+  void ScreenshotRegionOverlay::setSelectionBorderWidth(float width) { m_selectionBorderWidth = width; }
+
+  void ScreenshotRegionOverlay::setDimOpacity(float opacity) { m_dimOpacity = opacity; }
+
+  void ScreenshotRegionOverlay::setShowRegionHint(bool show) { m_showRegionHint = show; }
+
+  void ScreenshotRegionOverlay::setShowRegionDimensions(bool show) { m_showRegionDimensions = show; }
 
   void ScreenshotRegionOverlay::applyCursorShape(std::uint32_t shape) {
     for (auto& instance : m_instances) {
@@ -604,7 +610,8 @@ namespace capture {
 
           if (m_regionModifierMask == 0) {
             // Default: a plain drag hits edges/corners, outside starts a new selection.
-            m_dragMode = hitTestSelection(globalX, globalY, x0, y0, x1, y1);
+            const double margin = std::max<double>(kHandleMargin, m_selectionBorderWidth);
+            m_dragMode = hitTestSelection(globalX, globalY, x0, y0, x1, y1, margin);
             if (m_dragMode == DragMode::None) {
               m_confirming = false;
               m_dragMode = DragMode::NewSelection;
@@ -614,7 +621,8 @@ namespace capture {
             m_dragMode = DragMode::Move;
           } else {
             // Modifier + right drag resizes from the outer thirds; the center does nothing.
-            m_dragMode = hitTestRegionThirds(globalX, globalY, x0, y0, x1, y1);
+            const double margin = std::max<double>(kHandleMargin, m_selectionBorderWidth);
+            m_dragMode = hitTestRegionThirds(globalX, globalY, x0, y0, x1, y1, margin);
             if (m_dragMode == DragMode::None) {
               m_dragging = false;
               m_dragButton = 0;
@@ -722,7 +730,9 @@ namespace capture {
               const double x1 = std::max(m_startGlobalX, m_currentGlobalX);
               const double y1 = std::max(m_startGlobalY, m_currentGlobalY);
 
-              DragMode hoverMode = hitTestSelection(globalX, globalY, x0, y0, x1, y1);
+              DragMode hoverMode = hitTestSelection(
+                  globalX, globalY, x0, y0, x1, y1, std::max<double>(kHandleMargin, m_selectionBorderWidth)
+              );
               inputPtr->setCursorShape(cursorShapeForDragMode(hoverMode));
             }
           } else {
@@ -814,7 +824,7 @@ namespace capture {
           .fill = fixedColorSpec(rgba(0.0F, 0.0F, 0.0F, 1.0F)),
           .width = 0.0F,
           .height = 0.0F,
-          .opacity = kDimOpacity,
+          .opacity = m_dimOpacity,
           .configure = [](Box& box) { box.setPosition(0.0F, 0.0F); },
       });
       return static_cast<Box*>(input->addChild(std::move(strip)));
@@ -829,7 +839,9 @@ namespace capture {
 
     auto selection = ui::box({
         .visible = false,
-        .configure = [border](Box& box) { box.setBorder(fixedColorSpec(border), kSelectionBorderWidth); },
+        .configure = [border, width = m_selectionBorderWidth](Box& box) {
+          box.setBorder(fixedColorSpec(border), width);
+        },
     });
 
     Color badgeFill = colorForRole(ColorRole::Surface);
@@ -1121,9 +1133,9 @@ namespace capture {
       // The outline is inset, so expand it outward to keep the border out of the
       // captured (undimmed) region.
       inst->selection->setVisible(true);
-      inst->selection->setPosition(holeX0 - kSelectionBorderWidth, holeY0 - kSelectionBorderWidth);
+      inst->selection->setPosition(holeX0 - m_selectionBorderWidth, holeY0 - m_selectionBorderWidth);
       inst->selection->setSize(
-          (holeX1 - holeX0) + (kSelectionBorderWidth * 2.0F), (holeY1 - holeY0) + (kSelectionBorderWidth * 2.0F)
+          (holeX1 - holeX0) + (m_selectionBorderWidth * 2.0F), (holeY1 - holeY0) + (m_selectionBorderWidth * 2.0F)
       );
 
       if (inst->dimensionsBadge != nullptr && inst->dimensionsLabel != nullptr && m_renderContext != nullptr) {
@@ -1132,7 +1144,7 @@ namespace capture {
         const double targetY = m_cursorGlobalY;
         const bool badgeOnOutput = targetX >= outLeft && targetX < outRight && targetY >= outTop && targetY < outBottom;
 
-        if (showBadge && badgeOnOutput) {
+        if (showBadge && badgeOnOutput && m_showRegionDimensions) {
           inst->dimensionsLabel->setText(dimensionText);
           inst->dimensionsLabel->measure(inst->surface->renderTarget().renderer());
 
@@ -1140,24 +1152,12 @@ namespace capture {
           const float badgeHeight = inst->dimensionsLabel->height() + (kDimensionPaddingY * 2.0F);
           inst->dimensionsBadge->setSize(badgeWidth, badgeHeight);
 
-          const double selX0 = std::min(m_startGlobalX, m_currentGlobalX);
-          const double selX1 = std::max(m_startGlobalX, m_currentGlobalX);
-          const double selY0 = std::min(m_startGlobalY, m_currentGlobalY);
-          const double selY1 = std::max(m_startGlobalY, m_currentGlobalY);
+          const auto badgePos = placeRegionBadge(
+              surfaceW, surfaceH, holeX0 - m_selectionBorderWidth, holeY0 - m_selectionBorderWidth,
+              holeX1 + m_selectionBorderWidth, holeY1 + m_selectionBorderWidth, badgeWidth, badgeHeight
+          );
 
-          const double badgeCursorX = std::clamp(targetX, selX0, selX1);
-          const double badgeCursorY = std::clamp(targetY, selY0, selY1);
-
-          float badgeX = static_cast<float>(badgeCursorX - outLeft) + kDimensionCursorOffsetX;
-          float badgeY = static_cast<float>(badgeCursorY - outTop) + kDimensionCursorOffsetY;
-
-          const float maxX = std::max(0.0F, surfaceW - badgeWidth);
-          const float maxY = std::max(0.0F, surfaceH - badgeHeight);
-
-          badgeX = std::clamp(badgeX, 0.0F, maxX);
-          badgeY = std::clamp(badgeY, 0.0F, maxY);
-
-          inst->dimensionsBadge->setPosition(badgeX, badgeY);
+          inst->dimensionsBadge->setPosition(badgePos.x, badgePos.y);
           inst->dimensionsLabel->setPosition(kDimensionPaddingX, kDimensionPaddingY);
           inst->dimensionsBadge->setVisible(true);
         } else {
@@ -1171,8 +1171,9 @@ namespace capture {
         if (inst->confirmHint == nullptr || inst->surface == nullptr) {
           continue;
         }
-        inst->confirmHint->setVisible(m_confirming);
-        if (!m_confirming) {
+        const bool showHint = m_confirming && m_showRegionHint;
+        inst->confirmHint->setVisible(showHint);
+        if (!showHint) {
           continue;
         }
         if (inst->confirmHintLabel != nullptr) {

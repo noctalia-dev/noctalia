@@ -45,7 +45,6 @@
       "cursor-not-captured": "Alternado del puntero no disponible: este compositor no admite la captura separada del cursor",
       "done": "Aplicar la configuración de captura de pantalla (Enter)",
       "fill-off": "Relleno forma: off",
-      "fill-on": "Relleno forma: on",
       "freeze": "Congelar la pantalla bajo la tinta (f)",
       "move-toolbar": "Arrastra para mover la barra de herramientas",
       "redo": "Rehacer (Ctrl+Shift+Z)",

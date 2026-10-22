@@ -200,7 +200,7 @@ use `needsFrameTick()` and `onFrameTick()` only for continuous animation.
 - A distributable plugin is a directory with one static `plugin.toml`. There are no single-file `define{}` plugins and no
   manifest defaults in script code.
 - Canonical ids are `author/plugin` and `author/plugin:entry`. Entry types are `[[widget]]`, `[[shortcut]]`,
-  `[[service]]`, `[[desktop_widget]]`, `[[launcher_provider]]`, and `[[panel]]`.
+  `[[service]]`, `[[desktop_widget]]`, `[[launcher_provider]]`, `[[panel]]`, and `[[layer]]`.
 - Defaults live once in `plugin.toml`. Plugin code reads them with `noctalia.getConfig(key)` or
   `barWidget.getConfig(key)`; undeclared keys are loud misses. Plugin-level overrides live under
   `[plugin_settings."author/plugin"]`.

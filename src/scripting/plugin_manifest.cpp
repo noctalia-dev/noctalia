@@ -52,13 +52,14 @@ namespace scripting {
     }
 
     // Each entry kind paired with its TOML array-table name.
-    constexpr std::array<std::pair<PluginEntryKind, std::string_view>, 6> kEntryKinds{{
+    constexpr std::array<std::pair<PluginEntryKind, std::string_view>, 7> kEntryKinds{{
         {PluginEntryKind::Widget, "widget"},
         {PluginEntryKind::Panel, "panel"},
         {PluginEntryKind::Shortcut, "shortcut"},
         {PluginEntryKind::DesktopWidget, "desktop_widget"},
         {PluginEntryKind::LauncherProvider, "launcher_provider"},
         {PluginEntryKind::Service, "service"},
+        {PluginEntryKind::Layer, "layer"},
     }};
 
     ManifestFieldType parseFieldType(std::string_view type) {
@@ -638,6 +639,25 @@ namespace scripting {
               return false;
             }
             entry.widgetHoverHighlight = hoverHighlight->get();
+          }
+        }
+        if (kind == PluginEntryKind::Layer) {
+          if (manifest.pluginApiVersion < kLayerEntryPluginApiVersion) {
+            error =
+                "layer entry '" + entry.id + "' requires plugin_api >= " + std::to_string(kLayerEntryPluginApiVersion);
+            return false;
+          }
+          std::string layerError;
+          if (!parsePluginLayerTable(*entryTable, entry.layerConfig, layerError)) {
+            error = "layer entry '" + entry.id + "': " + layerError;
+            return false;
+          }
+          if (const auto visible = (*entryTable)["visible"]) {
+            if (visible.as_boolean() == nullptr) {
+              error = "layer entry '" + entry.id + "': visible must be a bool";
+              return false;
+            }
+            entry.layerVisible = visible.as_boolean()->get();
           }
         }
         if (kind == PluginEntryKind::LauncherProvider) {

@@ -493,6 +493,11 @@ enum class WallpaperTransition : std::uint8_t {
   Stripes = 3,
   Zoom = 4,
   Honeycomb = 5,
+  Vortex = 6,
+  Pixel = 7,
+  Diamond = 8,
+  Golden = 9,
+  Melt = 10,
 };
 
 enum class LockscreenTransition : std::uint8_t {
@@ -502,6 +507,11 @@ enum class LockscreenTransition : std::uint8_t {
   Stripes = 3,
   Zoom = 4,
   Honeycomb = 5,
+  Vortex = 6,
+  Pixel = 7,
+  Diamond = 8,
+  Golden = 9,
+  Melt = 10,
 };
 
 struct WallpaperMonitorOverride {
@@ -533,9 +543,12 @@ struct WallpaperConfig {
   bool enabled = true;
   WallpaperFillMode fillMode = WallpaperFillMode::Crop;
   std::optional<ColorSpec> fillColor;
-  std::vector<WallpaperTransition> transitions = {WallpaperTransition::Fade, WallpaperTransition::Wipe,
-                                                  WallpaperTransition::Disc, WallpaperTransition::Stripes,
-                                                  WallpaperTransition::Zoom, WallpaperTransition::Honeycomb};
+  std::vector<WallpaperTransition> transitions = {WallpaperTransition::Fade,    WallpaperTransition::Wipe,
+                                                  WallpaperTransition::Disc,    WallpaperTransition::Stripes,
+                                                  WallpaperTransition::Zoom,    WallpaperTransition::Honeycomb,
+                                                  WallpaperTransition::Vortex,  WallpaperTransition::Pixel,
+                                                  WallpaperTransition::Diamond, WallpaperTransition::Golden,
+                                                  WallpaperTransition::Melt};
   float transitionDurationMs = 1500.0F;
   float edgeSmoothness = 0.3F;
   bool transitionOnStartup = false;
@@ -571,9 +584,12 @@ struct LockscreenConfig {
   bool fingerprint = true;
   bool allowEmptyPassword = false;
   bool blurredDesktop = false;
-  std::vector<LockscreenTransition> transitions = {LockscreenTransition::Fade, LockscreenTransition::Wipe,
-                                                   LockscreenTransition::Disc, LockscreenTransition::Stripes,
-                                                   LockscreenTransition::Zoom, LockscreenTransition::Honeycomb};
+  std::vector<LockscreenTransition> transitions = {LockscreenTransition::Fade,    LockscreenTransition::Wipe,
+                                                   LockscreenTransition::Disc,    LockscreenTransition::Stripes,
+                                                   LockscreenTransition::Zoom,    LockscreenTransition::Honeycomb,
+                                                   LockscreenTransition::Vortex,  LockscreenTransition::Pixel,
+                                                   LockscreenTransition::Diamond, LockscreenTransition::Golden,
+                                                   LockscreenTransition::Melt};
   float transitionDurationMs = 1500.0F;
   float edgeSmoothness = 0.3F;
   float blurIntensity = 0.5F;
@@ -805,6 +821,7 @@ struct OsdKindsConfig {
   bool media = true;
   bool privacy = true;
   bool keyboardBacklight = true;
+  bool custom = true;
   bool operator==(const OsdKindsConfig&) const = default;
 };
 
@@ -998,19 +1015,29 @@ constexpr EnumOption<WallpaperAutomationConfig::Order> kWallpaperAutomationOrder
 };
 
 constexpr EnumOption<WallpaperTransition> kWallpaperTransitions[] = {
+    {WallpaperTransition::Diamond, "diamond", "settings.options.wallpaper.transition.diamond"},
     {WallpaperTransition::Disc, "disc", "settings.options.wallpaper.transition.disc"},
     {WallpaperTransition::Fade, "fade", "settings.options.wallpaper.transition.fade"},
+    {WallpaperTransition::Golden, "golden", "settings.options.wallpaper.transition.golden"},
     {WallpaperTransition::Honeycomb, "honeycomb", "settings.options.wallpaper.transition.honeycomb"},
+    {WallpaperTransition::Melt, "melt", "settings.options.wallpaper.transition.melt"},
+    {WallpaperTransition::Pixel, "pixel", "settings.options.wallpaper.transition.pixel"},
     {WallpaperTransition::Stripes, "stripes", "settings.options.wallpaper.transition.stripes"},
+    {WallpaperTransition::Vortex, "vortex", "settings.options.wallpaper.transition.vortex"},
     {WallpaperTransition::Wipe, "wipe", "settings.options.wallpaper.transition.wipe"},
     {WallpaperTransition::Zoom, "zoom", "settings.options.wallpaper.transition.zoom"},
 };
 
 constexpr EnumOption<LockscreenTransition> kLockscreenTransitions[] = {
+    {LockscreenTransition::Diamond, "diamond", "settings.options.lockscreen.transition.diamond"},
     {LockscreenTransition::Disc, "disc", "settings.options.lockscreen.transition.disc"},
     {LockscreenTransition::Fade, "fade", "settings.options.lockscreen.transition.fade"},
+    {LockscreenTransition::Golden, "golden", "settings.options.lockscreen.transition.golden"},
     {LockscreenTransition::Honeycomb, "honeycomb", "settings.options.lockscreen.transition.honeycomb"},
+    {LockscreenTransition::Melt, "melt", "settings.options.lockscreen.transition.melt"},
+    {LockscreenTransition::Pixel, "pixel", "settings.options.lockscreen.transition.pixel"},
     {LockscreenTransition::Stripes, "stripes", "settings.options.lockscreen.transition.stripes"},
+    {LockscreenTransition::Vortex, "vortex", "settings.options.lockscreen.transition.vortex"},
     {LockscreenTransition::Wipe, "wipe", "settings.options.lockscreen.transition.wipe"},
     {LockscreenTransition::Zoom, "zoom", "settings.options.lockscreen.transition.zoom"},
 };
@@ -1063,6 +1090,21 @@ constexpr EnumOption<ScreenshotRegionModifier> kScreenshotRegionModifiers[] = {
     {ScreenshotRegionModifier::Ctrl, "ctrl", "settings.options.screenshot.region-modifier.ctrl"},
     {ScreenshotRegionModifier::Alt, "alt", "settings.options.screenshot.region-modifier.alt"},
     {ScreenshotRegionModifier::Shift, "shift", "settings.options.screenshot.region-modifier.shift"},
+};
+
+// File format for saved screenshots; clipboard copies and pipe commands always receive PNG.
+enum class ScreenshotFormat : std::uint8_t {
+  Png = 0,
+  Jpeg = 1,
+  Webp = 2,
+  Jxl = 3,
+};
+
+constexpr EnumOption<ScreenshotFormat> kScreenshotFormats[] = {
+    {ScreenshotFormat::Png, "png", "settings.options.screenshot.format.png"},
+    {ScreenshotFormat::Jpeg, "jpeg", "settings.options.screenshot.format.jpeg"},
+    {ScreenshotFormat::Webp, "webp", "settings.options.screenshot.format.webp"},
+    {ScreenshotFormat::Jxl, "jxl", "settings.options.screenshot.format.jxl"},
 };
 
 struct ShellConfig {
@@ -1230,7 +1272,13 @@ struct ShellConfig {
     std::string pipeCommand;
     std::string directory;       // empty = XDG Pictures directory
     std::string filenamePattern; // empty = screenshot_%Y%m%d_%H%M%S
+    ScreenshotFormat format = ScreenshotFormat::Png;
+    std::int32_t quality = 90; // 1..100; ignored for PNG, 100 = lossless WebP/JPEG XL
     ScreenshotRegionModifier regionModifier = ScreenshotRegionModifier::None;
+    float regionBorderWidth = 2.0F;
+    float regionDimOpacity = 0.65F;
+    bool showRegionHint = true;
+    bool showRegionDimensions = true;
 
     bool operator==(const ScreenshotConfig&) const = default;
   };
@@ -1287,6 +1335,8 @@ struct ShellConfig {
   bool niriOverviewTypeToLaunchEnabled = false;
   bool umbrielOverviewTypeToLaunchEnabled = false;
   bool umbrielAudioProviderEnabled = false;
+  bool niriOverviewCloseOnLaunchEnabled = false;
+  bool umbrielOverviewCloseOnLaunchEnabled = false;
   bool polkitAgent = false;
   PasswordMaskStyle passwordMaskStyle = PasswordMaskStyle::CircleFilled;
   /// Readline-style editing shortcuts in every text input (Ctrl+A moves to the start instead of selecting all).
@@ -1365,8 +1415,10 @@ struct CalendarConfig {
     std::string username;               // CalDAV login (caldav only)
     std::vector<std::string> calendars; // discovered collection ids; empty = all
     CalendarCredentialSource credentialSource = CalendarCredentialSource::SecretService; // CalDAV only
-    std::string passwordFile; // required for file-backed CalDAV credentials
-    std::string path;         // directory path for vdir/local accounts
+    std::string passwordFile;   // required for file-backed CalDAV credentials
+    std::string clientCertFile; // optional mTLS client certificate, PEM (caldav only)
+    std::string clientKeyFile;  // optional mTLS client key, PEM (caldav only)
+    std::string path;           // directory path for vdir/local accounts
 
     bool operator==(const Account&) const = default;
   };
@@ -1538,6 +1590,13 @@ struct BatteryConfig {
   std::vector<BatteryDeviceWarningThreshold> deviceThresholds;
 
   bool operator==(const BatteryConfig&) const = default;
+};
+
+struct BluetoothConfig {
+  // Connect paired, trusted devices when Bluetooth turns on, at startup, and after resume.
+  bool connectWhenEnabled = false;
+
+  bool operator==(const BluetoothConfig&) const = default;
 };
 
 struct KeybindsConfig {
@@ -1918,6 +1977,7 @@ struct Config {
   AudioConfig audio;
   BrightnessConfig brightness;
   BatteryConfig battery;
+  BluetoothConfig bluetooth;
   KeybindsConfig keybinds;
   NightLightConfig nightlight;
   LocationConfig location;
@@ -1949,6 +2009,7 @@ struct ConfigChangeSet {
   bool audio = true;
   bool brightness = true;
   bool battery = true;
+  bool bluetooth = true;
   bool keybinds = true;
   bool nightlight = true;
   bool location = true;
@@ -1979,6 +2040,7 @@ struct ConfigChangeSet {
         || audio
         || brightness
         || battery
+        || bluetooth
         || keybinds
         || nightlight
         || location

@@ -27,6 +27,15 @@
     }
   },
   "bar": {
+    "annotate": {
+      "color-blue": "Kék",
+      "color-green": "Zöld",
+      "color-orange": "Narancssárga",
+      "color-purple": "Lila",
+      "color-red": "Piros",
+      "color-white": "Fehér",
+      "color-yellow": "Sárga"
+    },
     "screenshot": {
       "choose-display": "Kijelző kiválasztása",
       "confirm-region": "{copy} a másoláshoz · {save} a mentéshez · Enter vagy Space az alapértelmezéshez · {cancel} a megszakításhoz · Húzás az újra kijelöléshez",
@@ -256,7 +265,7 @@
       },
       "select-avatar": "Profilkép kiválasztása",
       "unknown": "ismeretlen",
-      "uptime": "Rendszeridő - {uptime}",
+      "uptime": "Működési idő - {uptime}",
       "weather": {
         "data-unavailable": "Az időjárási adatok nem érhetők el.",
         "fetching": "Előrejelzés lekérése…"

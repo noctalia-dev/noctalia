@@ -39,17 +39,26 @@ namespace capture {
     Image,
   };
 
+  enum class AnnotationFillMode : std::uint8_t {
+    Off,
+    Semi,
+    Opaque,
+  };
+
   struct AnnotationToolState {
     AnnotationTool tool = AnnotationTool::Brush;
     std::array<AnnotationColor, kAnnotationToolCount> color{};
     std::array<double, kAnnotationToolCount> width{};
-    bool fill = false;
+    AnnotationFillMode fill = AnnotationFillMode::Off;
     // Fine size stepper revealed, and each output's dragged toolbar spot; both survive across runs.
     bool advancedSize = false;
     std::unordered_map<std::string, AnnotationPoint> toolbarPositions;
   };
 
   [[nodiscard]] AnnotationToolState defaultAnnotationToolState();
+
+  [[nodiscard]] std::string_view annotationFillModeName(AnnotationFillMode mode) noexcept;
+  [[nodiscard]] std::optional<AnnotationFillMode> annotationFillModeFromName(std::string_view name) noexcept;
 
   class AnnotationOverlay {
   public:
@@ -142,7 +151,7 @@ namespace capture {
     void selectTool(AnnotationTool tool);
     void setToolColor(AnnotationColor color);
     void adjustToolWidth(double delta);
-    void toggleFill();
+    void cycleFill(bool forward = true);
     void undo();
     void redo();
     void requestExport(AnnotationExport action);

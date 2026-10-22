@@ -538,7 +538,24 @@ void PanelManager::unregisterPanel(const std::string& id) {
     return;
   }
   if (isOpenPanel(id)) {
-    closePanel(/*animateClose=*/false);
+    if (m_inTransition) {
+      // initialize() is still on the stack and destroyPanel would free its surface: keep the
+      // panel alive and destroy it from the main loop once the open has returned.
+      m_retiredActivePanel = std::move(it->second);
+      m_panels.erase(it);
+      DeferredCall::callLater([this]() {
+        if (m_activePanel != nullptr && m_activePanel == m_retiredActivePanel.get()) {
+          ++m_destroyGeneration;
+          destroyPanel();
+        }
+        m_retiredActivePanel.reset();
+      });
+      return;
+    }
+    // A closing panel is still read by its close animation: destroy it now and cancel
+    // the pending deferred destroy.
+    ++m_destroyGeneration;
+    destroyPanel();
   }
   m_panels.erase(it);
 }

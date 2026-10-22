@@ -142,6 +142,8 @@ public:
   [[nodiscard]] FileDialogPresenter* fileDialogPresenter() noexcept;
 
   void onSecondTick();
+  // True while the idle settings pane renders a live seconds counter.
+  [[nodiscard]] bool wantsSecondTicks() const noexcept;
   void onIdleLiveStatusChanged();
   void markSettingsWriteSuccess(bool requestRebuild = true);
   void markSettingsWriteError(std::string message);

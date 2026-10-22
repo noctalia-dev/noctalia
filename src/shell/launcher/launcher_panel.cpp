@@ -930,8 +930,9 @@ public:
     return (*m_results)[index].origin;
   }
 
-  [[nodiscard]] std::optional<TooltipAnchorInsets>
-  itemTooltipAnchorInsets(std::size_t index, float cellWidth, float cellHeight) const override {
+  [[nodiscard]] std::optional<TooltipAnchorInsets> itemTooltipAnchorInsets(
+      std::size_t index, float cellWidth, float cellHeight, bool /*overlayHovered*/
+  ) const override {
     if (m_results == nullptr || index >= m_results->size() || (*m_results)[index].originGlyph.empty()) {
       return std::nullopt;
     }
@@ -1081,8 +1082,9 @@ public:
     return (*m_results)[index].origin;
   }
 
-  [[nodiscard]] std::optional<TooltipAnchorInsets>
-  itemTooltipAnchorInsets(std::size_t index, float cellWidth, float cellHeight) const override {
+  [[nodiscard]] std::optional<TooltipAnchorInsets> itemTooltipAnchorInsets(
+      std::size_t index, float cellWidth, float cellHeight, bool /*overlayHovered*/
+  ) const override {
     if (m_results == nullptr || index >= m_results->size() || (*m_results)[index].originGlyph.empty()) {
       return std::nullopt;
     }
@@ -1446,7 +1448,9 @@ void LauncherPanel::applyProviderConfig(LauncherProvider& provider) const {
   }
 }
 
-void LauncherPanel::finishActivation(LauncherProvider& provider, const std::string& resultId, bool copied) {
+void LauncherPanel::finishActivation(
+    LauncherProvider& provider, const std::string& resultId, bool copied, bool appLaunch
+) {
   const bool trackUsage = m_config == nullptr || m_config->config().shell.launcher.trackUsage;
   if (trackUsage && provider.trackUsage()) {
     m_usageTracker.record(provider.id(), resultId);
@@ -1454,6 +1458,9 @@ void LauncherPanel::finishActivation(LauncherProvider& provider, const std::stri
   PanelManager::instance().closePanel(false);
   if (copied && provider.supportsAutoPaste() && m_onCopiedActivation) {
     m_onCopiedActivation();
+  }
+  if (appLaunch && m_onAppLaunch) {
+    m_onAppLaunch();
   }
 }
 
@@ -1558,70 +1565,87 @@ void LauncherPanel::create() {
             .equalSegmentWidths = false,
         })
     );
-    navigationRow->addChild(
-        ui::row(
-            {
-                .align = FlexAlign::Center,
-                .gap = Style::spaceXs * scale,
-            },
-            ui::button({
-                .out = &m_launcherUsageButton,
-                .glyph = m_config != nullptr && m_config->config().shell.launcher.sortByUsage
-                    ? "sort-ascending-letters"
-                    : "sort-descending-small-big",
-                .glyphSize = Style::fontSizeBody * scale,
-                .variant = ButtonVariant::Ghost,
-                .surfaceOpacity = panelCardOpacity(),
-                .tooltip = i18n::tr(
-                    m_config != nullptr && m_config->config().shell.launcher.sortByUsage
-                        ? "launcher.browser.options.use-default-order"
-                        : "launcher.browser.options.sort-by-frequency"
-                ),
-                .radius = Style::scaledRadiusMd(scale),
-                .width = Style::controlHeightSm * scale,
-                .onClick =
-                    [this]() {
-                      if (m_config == nullptr) {
-                        return;
-                      }
-                      const bool enabled = !m_config->config().shell.launcher.sortByUsage;
-                      (void)m_config->setOverride({"shell", "launcher", "sort_by_usage"}, enabled);
-                    },
-                .configure =
-                    [scale](Button& button) {
-                      button.setControlHeight(Style::controlHeightSm * scale);
-                      button.inputArea()->setTabFocusKey("launcher.sort-by-usage");
-                    },
-            }),
-            ui::button({
-                .out = &m_launcherGridButton,
-                .glyph = m_config != nullptr && m_config->config().shell.launcher.appGrid ? "list" : "layout-grid",
-                .glyphSize = Style::fontSizeBody * scale,
-                .variant = ButtonVariant::Ghost,
-                .surfaceOpacity = panelCardOpacity(),
-                .tooltip = i18n::tr(
-                    m_config != nullptr && m_config->config().shell.launcher.appGrid
-                        ? "launcher.browser.options.show-list"
-                        : "launcher.browser.options.show-grid"
-                ),
-                .radius = Style::scaledRadiusMd(scale),
-                .width = Style::controlHeightSm * scale,
-                .onClick =
-                    [this]() {
-                      if (m_config == nullptr) {
-                        return;
-                      }
-                      const bool enabled = !m_config->config().shell.launcher.appGrid;
-                      (void)m_config->setOverride({"shell", "launcher", "app_grid"}, enabled);
-                    },
-                .configure =
-                    [scale](Button& button) {
-                      button.setControlHeight(Style::controlHeightSm * scale);
-                      button.inputArea()->setTabFocusKey("launcher.grid-view");
-                    },
-            })
-        )
+    auto navigationActions = ui::row(
+        {
+            .align = FlexAlign::Center,
+            .gap = Style::spaceXs * scale,
+        },
+        ui::button({
+            .out = &m_launcherUsageButton,
+            .glyph = m_config != nullptr && m_config->config().shell.launcher.sortByUsage ? "sort-ascending-letters"
+                                                                                          : "sort-descending-small-big",
+            .glyphSize = Style::fontSizeBody * scale,
+            .variant = ButtonVariant::Ghost,
+            .surfaceOpacity = panelCardOpacity(),
+            .tooltip = i18n::tr(
+                m_config != nullptr && m_config->config().shell.launcher.sortByUsage
+                    ? "launcher.browser.options.use-default-order"
+                    : "launcher.browser.options.sort-by-frequency"
+            ),
+            .radius = Style::scaledRadiusMd(scale),
+            .width = Style::controlHeightSm * scale,
+            .onClick =
+                [this]() {
+                  if (m_config == nullptr) {
+                    return;
+                  }
+                  const bool enabled = !m_config->config().shell.launcher.sortByUsage;
+                  (void)m_config->setOverride({"shell", "launcher", "sort_by_usage"}, enabled);
+                },
+            .configure =
+                [scale](Button& button) {
+                  button.setControlHeight(Style::controlHeightSm * scale);
+                  button.inputArea()->setTabFocusKey("launcher.sort-by-usage");
+                },
+        }),
+        ui::button({
+            .out = &m_launcherGridButton,
+            .glyph = m_config != nullptr && m_config->config().shell.launcher.appGrid ? "list" : "layout-grid",
+            .glyphSize = Style::fontSizeBody * scale,
+            .variant = ButtonVariant::Ghost,
+            .surfaceOpacity = panelCardOpacity(),
+            .tooltip = i18n::tr(
+                m_config != nullptr && m_config->config().shell.launcher.appGrid ? "launcher.browser.options.show-list"
+                                                                                 : "launcher.browser.options.show-grid"
+            ),
+            .radius = Style::scaledRadiusMd(scale),
+            .width = Style::controlHeightSm * scale,
+            .onClick =
+                [this]() {
+                  if (m_config == nullptr) {
+                    return;
+                  }
+                  const bool enabled = !m_config->config().shell.launcher.appGrid;
+                  (void)m_config->setOverride({"shell", "launcher", "app_grid"}, enabled);
+                },
+            .configure =
+                [scale](Button& button) {
+                  button.setControlHeight(Style::controlHeightSm * scale);
+                  button.inputArea()->setTabFocusKey("launcher.grid-view");
+                },
+        })
     );
+    if (m_config == nullptr || m_config->config().shell.launcher.showSettingsButton) {
+      navigationActions->addChild(
+          ui::button({
+              .out = &m_launcherSettingsButton,
+              .glyph = "settings",
+              .glyphSize = Style::fontSizeBody * scale,
+              .variant = ButtonVariant::Ghost,
+              .surfaceOpacity = panelCardOpacity(),
+              .tooltip = i18n::tr("launcher.browser.actions.settings"),
+              .radius = Style::scaledRadiusMd(scale),
+              .width = Style::controlHeightSm * scale,
+              .onClick = []() { PanelManager::instance().openSettingsWindow(); },
+              .configure =
+                  [scale](Button& button) {
+                    button.setControlHeight(Style::controlHeightSm * scale);
+                    button.inputArea()->setTabFocusKey("launcher.settings");
+                  },
+          })
+      );
+    }
+    navigationRow->addChild(std::move(navigationActions));
     if (m_launcherNavigation != nullptr && m_launcherNavigation->focusArea() != nullptr) {
       m_launcherNavigation->focusArea()->setTabFocusKey("launcher.navigation");
     }
@@ -1774,10 +1798,12 @@ void LauncherPanel::create() {
         .fillWidth = true,
         .configure = [scale, opacity = panelCardOpacity()](Flex& flex) { flex.setCardStyle(scale, opacity); },
     });
+    const float toolbarSideWidth = kLauncherAvatarSize * scale;
     auto profile = ui::row({
         .align = FlexAlign::Center,
-        .gap = Style::spaceSm * scale,
-        .width = 180.0F * scale,
+        .justify = FlexJustify::Center,
+        .width = toolbarSideWidth,
+        .height = kLauncherAvatarSize * scale,
     });
     profile->addChild(
         ui::image({
@@ -1810,65 +1836,29 @@ void LauncherPanel::create() {
       PanelManager::instance().requestRedraw();
     });
     profile->addChild(
-        ui::column(
-            {
-                .align = FlexAlign::Start,
-                .gap = 0.0F,
-                .width = 120.0F * scale,
-            },
-            ui::label({
-                .text = sessionDisplayName(),
-                .fontSize = Style::fontSizeBody * scale,
-                .fontWeight = FontWeight::SemiBold,
-                .color = colorSpecFromRole(ColorRole::OnSurface),
-                .maxLines = 1,
-                .ellipsize = TextEllipsize::End,
-            }),
-            ui::label({
-                .text = distroLabel(),
-                .fontSize = Style::fontSizeMini * scale,
-                .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
-                .maxLines = 1,
-                .ellipsize = TextEllipsize::End,
-            })
-        )
+        ui::inputArea({
+            .acceptedButtons = 0,
+            .tooltip = sessionDisplayName() + "\n" + distroLabel(),
+            .width = kLauncherAvatarSize * scale,
+            .height = kLauncherAvatarSize * scale,
+            .zIndex = 1,
+            .participatesInLayout = false,
+        })
     );
     toolbar->addChild(std::move(profile));
-    const bool showSettingsButton = m_config == nullptr || m_config->config().shell.launcher.showSettingsButton;
+    input->setFlexGrow(1.0F);
+    toolbar->addChild(std::move(input));
+    auto shortcuts = ui::row({
+        .align = FlexAlign::Center,
+        .justify = FlexJustify::End,
+        .gap = Style::spaceSm * scale,
+        .width = toolbarSideWidth,
+    });
     const bool showSessionButton = m_config == nullptr || m_config->config().shell.launcher.showSessionButton;
     const bool searchOnTop = m_config != nullptr
         && m_config->config().shell.launcher.searchPosition == ShellConfig::LauncherSearchPosition::Top;
-    toolbar->addChild(
-        ui::separator({
-            .spacing = Style::spaceXs * scale,
-            .orientation = SeparatorOrientation::VerticalRule,
-            .gradientEdges = false,
-        })
-    );
-    input->setFlexGrow(1.0F);
-    toolbar->addChild(std::move(input));
-    if (showSettingsButton) {
-      toolbar->addChild(
-          ui::button({
-              .out = &m_launcherSettingsButton,
-              .glyph = "settings",
-              .glyphSize = Style::fontSizeTitle * scale,
-              .variant = ButtonVariant::Ghost,
-              .surfaceOpacity = panelCardOpacity(),
-              .tooltip = i18n::tr("launcher.browser.actions.settings"),
-              .radius = Style::scaledRadiusMd(scale),
-              .width = Style::controlHeight * scale,
-              .onClick = []() { PanelManager::instance().openSettingsWindow(); },
-              .configure =
-                  [scale](Button& button) {
-                    button.setControlHeight(Style::controlHeight * scale);
-                    button.inputArea()->setTabFocusKey("launcher.settings");
-                  },
-          })
-      );
-    }
     if (showSessionButton) {
-      toolbar->addChild(
+      shortcuts->addChild(
           ui::button({
               .out = &m_launcherPowerButton,
               .glyph = "shutdown",
@@ -1877,16 +1867,17 @@ void LauncherPanel::create() {
               .surfaceOpacity = panelCardOpacity(),
               .tooltip = i18n::tr("launcher.browser.actions.power"),
               .radius = Style::scaledRadiusMd(scale),
-              .width = Style::controlHeight * scale,
+              .width = toolbarSideWidth,
               .onClick = [this]() { showSessionActions(); },
               .configure =
                   [scale](Button& button) {
-                    button.setControlHeight(Style::controlHeight * scale);
+                    button.setControlHeight(kLauncherAvatarSize * scale);
                     button.inputArea()->setTabFocusKey("launcher.power");
                   },
           })
       );
     }
+    toolbar->addChild(std::move(shortcuts));
     if (searchOnTop) {
       container->addChild(std::move(toolbar));
       container->addChild(std::move(body));
@@ -2518,7 +2509,6 @@ void LauncherPanel::onInputChanged(const std::string& text) {
     const auto allSlot = std::ranges::find(m_categoryFilterSlots, All, &CategoryFilterSlot::type);
     m_activeCategorySlotIndex =
         allSlot == m_categoryFilterSlots.end() ? 0 : static_cast<std::size_t>(allSlot - m_categoryFilterSlots.begin());
-    m_activeCategory.clear();
   }
   m_allResults.clear();
 
@@ -2809,6 +2799,10 @@ void LauncherPanel::updateCategoryFilterModel(const std::vector<LauncherCategory
     if (!categories.empty()) {
       m_categoryFilterSlots.push_back({Category, 0});
     }
+    const auto defaultSlot = std::ranges::find(m_categoryFilterSlots, defaultCategoryType(), &CategoryFilterSlot::type);
+    if (defaultSlot != m_categoryFilterSlots.end()) {
+      std::ranges::rotate(m_categoryFilterSlots.begin(), defaultSlot, defaultSlot + 1);
+    }
   } else {
     m_categoryFilterSlots.push_back({All, 0});
     if (m_hasRecentlyUsed) {
@@ -2858,6 +2852,7 @@ void LauncherPanel::rebuildCategoryFilter() {
     return;
   }
 
+  m_categoryFilter->setOnChange({});
   m_categoryFilter->clearOptions();
   const bool categoryIconsOnly = m_config != nullptr && m_config->config().shell.launcher.categoryIconsOnly;
   if (m_browserMode) {
@@ -2912,7 +2907,11 @@ void LauncherPanel::rebuildLauncherNavigation() {
 
   m_launcherNavigation->setOnChange({});
   m_launcherNavigation->clearOptions();
-  const bool iconOnly = m_config != nullptr && m_config->config().shell.launcher.width < kCompactNavigationWidth;
+  const float settingsButtonWidth =
+      m_launcherSettingsButton != nullptr ? Style::controlHeightSm + Style::spaceXs : 0.0F;
+  const bool iconOnly = m_config != nullptr
+      && static_cast<float>(m_config->config().shell.launcher.width)
+          < static_cast<float>(kCompactNavigationWidth) + settingsButtonWidth;
 
   std::size_t navigationIndex = 0;
   for (const CategoryFilterSlot& slot : m_categoryFilterSlots) {
@@ -2962,31 +2961,29 @@ void LauncherPanel::rebuildLauncherNavigation() {
   updateCategorySelectionChrome();
 }
 
+LauncherPanel::ActiveCategoryType LauncherPanel::defaultCategoryType() const {
+  if (m_config != nullptr) {
+    switch (m_config->config().shell.launcher.defaultView) {
+    case ShellConfig::LauncherDefaultView::Recent:
+      return RecentlyUsed;
+    case ShellConfig::LauncherDefaultView::Pinned:
+      return Pinned;
+    case ShellConfig::LauncherDefaultView::All:
+      return All;
+    case ShellConfig::LauncherDefaultView::Categories:
+      return Category;
+    }
+  }
+  return All;
+}
+
 void LauncherPanel::applyDefaultView() {
   m_applyDefaultViewPending = false;
   if (!m_browserMode || !m_query.empty()) {
     return;
   }
 
-  ActiveCategoryType requested = All;
-  if (m_config != nullptr) {
-    switch (m_config->config().shell.launcher.defaultView) {
-    case ShellConfig::LauncherDefaultView::Recent:
-      requested = RecentlyUsed;
-      break;
-    case ShellConfig::LauncherDefaultView::Pinned:
-      requested = Pinned;
-      break;
-    case ShellConfig::LauncherDefaultView::All:
-      requested = All;
-      break;
-    case ShellConfig::LauncherDefaultView::Categories:
-      requested = Category;
-      break;
-    }
-  }
-
-  auto slot = std::ranges::find(m_categoryFilterSlots, requested, &CategoryFilterSlot::type);
+  auto slot = std::ranges::find(m_categoryFilterSlots, defaultCategoryType(), &CategoryFilterSlot::type);
   if (slot == m_categoryFilterSlots.end()) {
     slot = std::ranges::find(m_categoryFilterSlots, All, &CategoryFilterSlot::type);
   }
@@ -3027,7 +3024,7 @@ void LauncherPanel::setActiveCategorySlot(std::size_t slotIndex) {
     ) {
       m_activeCategory = m_currentCategories.front().label;
     }
-  } else {
+  } else if (!m_browserMode) {
     m_activeCategory.clear();
   }
   if (!m_browserMode && m_categoryFilter != nullptr && m_categoryFilter->selectedIndex() != slotIndex) {
@@ -3459,7 +3456,7 @@ bool LauncherPanel::openAppActionsMenu(std::size_t index, float anchorX, float a
       if (!provider->activate(result)) {
         return;
       }
-      finishActivation(*provider, result.id, provider->supportsAutoPaste());
+      finishActivation(*provider, result.id, provider->supportsAutoPaste(), !result.desktopEntryPath.empty());
       return;
     }
     return;
@@ -3533,7 +3530,7 @@ void LauncherPanel::activateSelected() {
       return;
     }
 
-    finishActivation(*provider, result.id, provider->supportsAutoPaste());
+    finishActivation(*provider, result.id, provider->supportsAutoPaste(), !result.desktopEntryPath.empty());
     return;
   }
 }

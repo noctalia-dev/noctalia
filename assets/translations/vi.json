@@ -27,7 +27,50 @@
     }
   },
   "bar": {
+    "annotate": {
+      "capture-new-region": "Chọn vùng chụp mới (hủy bỏ chỉnh sửa hiện tại)",
+      "close": "Đóng mà không chụp (Esc)",
+      "color-black": "Đen",
+      "color-blue": "Xanh dương",
+      "color-green": "Xanh lục",
+      "color-orange": "Cam",
+      "color-purple": "Tím",
+      "color-red": "Đỏ",
+      "color-white": "Trắng",
+      "color-yellow": "Vàng",
+      "copy": "Sao chép hình ảnh đã được ghi chú (Ctrl+C)",
+      "cursor": "Hiển thị con trỏ chụp cùng với màn hình (p)",
+      "cursor-capture-failed": "Không thể bật/tắt con trỏ: trình quản lý hiển thị không tìm thấy hình ảnh con trỏ riêng biệt",
+      "cursor-live": "Dừng màn hình trước để thay đổi con trỏ bị chụp (F)",
+      "cursor-not-captured": "Không thể bật/tắt con trỏ: trình quản lý hiển thị không hỗ trợ chụp con trỏ riêng biệt",
+      "done": "Áp dụng cài đặt chụp màn hình (Enter)",
+      "fill-off": "Lấp đầy hình khối: tắt",
+      "freeze": "Dừng màn hình dưới nét vẽ (f)",
+      "move-toolbar": "Kéo để di chuyển thanh công cụ",
+      "redo": "Làm lại (Ctrl+Shift+Z)",
+      "save": "Lưu hình ảnh đã được ghi chú (Ctrl+S)",
+      "size-advanced": "Điều chỉnh kích thước chi tiết",
+      "size-decrease": "Mỏng hơn ([)",
+      "size-increase": "Dày hơn (])",
+      "size-large": "Lớn",
+      "size-medium": "Vừa",
+      "size-small": "Nhỏ",
+      "tool-arrow": "Mũi tên (a) · nhấn giữ Shift để cố định góc",
+      "tool-blur": "Làm mờ một vùng (u)",
+      "tool-brush": "Cọ (b)",
+      "tool-circle": "Ellipse (o) · nhấn giữ Shift để tạo hình tròn",
+      "tool-crop": "Cắt vùng xuất (c)",
+      "tool-eraser": "Tẩy (e)",
+      "tool-highlighter": "Bút dạ quang (h)",
+      "tool-line": "Đường thẳng (l) · nhấn giữ Shift để cố định góc",
+      "tool-move": "Di chuyển ghi chú (m)",
+      "tool-numbering": "Đánh số (n)",
+      "tool-rectangle": "Hình chữ nhật (s) · nhấn giữ Shift để tạo hình vuông",
+      "tool-text": "Văn bản (t)",
+      "undo": "Hoàn tác (Ctrl+Z)"
+    },
     "screenshot": {
+      "annotate-export-failed": "Dựng hình ảnh được ghi chú thất bại",
       "choose-display": "Chọn màn hình",
       "confirm-region": "{copy} để sao chép · {save} để lưu · Enter hoặc Space để dùng mặc định · {cancel} để hủy · Kéo để chọn lại",
       "fullscreen": "Toàn màn hình",
@@ -43,7 +86,8 @@
       },
       "brightness": {
         "brightness": "Độ sáng",
-        "display": "Hiển thị"
+        "display": "Hiển thị",
+        "unavailable": "Tùy chỉnh độ sáng không khả dụng"
       },
       "lock-keys": {
         "caps": "Caps",
@@ -60,6 +104,7 @@
       "network": {
         "active": "Hoạt động",
         "band": "Dải tần",
+        "cellular": "Di động",
         "connected": "Đã kết nối",
         "connecting": "Đang kết nối",
         "download": "Tải xuống",
@@ -73,8 +118,10 @@
         "not-connected": "Chưa kết nối",
         "off": "Tắt",
         "on": "Bật",
+        "operator": "Nhà mạng",
         "scanning": "Đang tìm kiếm",
         "signal": "Tín hiệu",
+        "technology": "Công nghệ",
         "upload": "Tải lên",
         "vpn": "VPN",
         "wan-ip": "Địa chỉ IP WAN",
@@ -122,6 +169,7 @@
         "off": "Thời tiết không được bật",
         "tooltip": {
           "condition": "Điều kiện",
+          "feels-like": "Cảm thấy",
           "high": "Cao",
           "humidity": "Độ ẩm",
           "low": "Thấp",
@@ -177,13 +225,16 @@
       "auto": "Tự động",
       "custom": "Tùy chỉnh",
       "inherit": "Kế thừa",
-      "off": "Tắt"
+      "inherit-value": "Kế thừa ({value})",
+      "off": "Tắt",
+      "on": "Bật"
     }
   },
   "control-center": {
     "audio": {
       "application-volumes": "Âm lượng ứng dụng",
       "choose-effects-profile": "Chọn một cấu hình",
+      "default-device": "Thiết bị mặc định",
       "effects-profile": "Hiệu ứng",
       "input-device-prefix": "Đầu vào",
       "no-application-audio": "Không có âm thanh từ ứng dụng",
@@ -223,6 +274,7 @@
         "connected": "Đã kết nối",
         "paired": "Đã ghép nối"
       },
+      "trust-and-allow": "Tin tưởng và cho phép",
       "unavailable": "Bluetooth không khả dụng",
       "unknown-device": "Thiết bị không xác định",
       "visible": "Hiển thị với thiết bị lân cận"
@@ -237,6 +289,7 @@
     "display": {
       "disabled": "Đã tắt",
       "no-displays": "Không có màn hình nào khả dụng",
+      "rescan": "Dò lại màn hình DDC/CI",
       "unknown-resolution": "Độ phân giải không xác định"
     },
     "home": {
@@ -267,17 +320,41 @@
       "start-playback": "Bắt đầu phát nội dung trong ứng dụng MPRIS"
     },
     "network": {
+      "anonymous-identity": "Ẩn danh (tùy chọn)",
       "available": "Khả dụng",
+      "ca-certificate": "Đường dẫn chứng chỉ CA (tùy chọn)",
+      "cellular": "Di động",
+      "cellular-connected": "Đã kết nối",
+      "cellular-connecting": "Đang kết nối...",
+      "cellular-connection": "Kết nối di động",
+      "cellular-enabling": "Đang bật...",
+      "cellular-failed": "Thất bại",
+      "cellular-locked": "SIM bị khóa",
+      "cellular-no-service": "Không có dịch vụ",
+      "cellular-off": "Tắt",
+      "cellular-registered": "Đã đăng ký",
+      "cellular-searching": "Đang tìm kiếm...",
       "connect": "Kết nối",
       "current-connection": "Kết nối hiện tại",
+      "domain-suffix-match": "Hậu tố miền máy chủ",
+      "eap-method": "Phương thức EAP",
+      "enterprise-prompt-for": "Đăng nhập vào {ssid}",
+      "error-ca-not-absolute": "Đường dẫn chứng chỉ phải là đường dẫn tuyệt đối, bắt đầu với /.",
+      "error-certificate-required": "Mạng này yêu cầu xác thực dựa trên chứng chỉ (EAP-TLS), nhưng vẫn chưa được hỗ trợ.",
+      "error-enterprise-unsupported": "Trình quản lý mạng đang hoạt động không thể cấu hình mạng 802.1X.",
+      "error-missing-identity": "Nhập mã định danh do tổ chức của bạn cấp.",
+      "error-missing-password": "Nhập mật khẩu của bạn.",
+      "error-unsupported-phase2": "PEAP yêu cầu xác thực nội bộ MSCHAPv2.",
       "external-ip": "WAN {ip}",
+      "identity": "Mã định danh",
       "no-networks": "Không có mạng khả dụng ở gần",
       "not-connected": "Chưa kết nối",
       "password": "Mật khẩu",
       "password-prompt": "Nhập mật khẩu",
       "password-prompt-for": "Nhập mật khẩu cho {ssid}",
+      "phase2-auth": "Xác thực nội bộ",
       "saved": "Đã lưu",
-      "unavailable-detail": "Hãy cài đặt và kích hoạt NetworkManager để quản lý mạng tại đây.",
+      "unavailable-detail": "Hãy cài đặt và kích hoạt NetworkManager, wpa_supplicant hoặc iwd để quản lý mạng tại đây.",
       "unavailable-title": "NetworkManager không khả dụng",
       "vpns": "VPNs",
       "wi-fi": "Wi-Fi",
@@ -305,6 +382,7 @@
     "power": {
       "battery": "Pin",
       "charging": {
+        "configured": "Đã cấu hình: {limits}",
         "display-only": "Chỉ hiển thị",
         "error-denied": "Xác minh đã bị từ chối. Mức sạc đã chưa được thay đổi.",
         "error-failed": "Mức sạc không thể bị thay đổi",
@@ -420,6 +498,7 @@
       "data-unavailable": "Không thể tải dữ liệu thời tiết",
       "details": {
         "elevation": "Độ cao",
+        "feels-like": "Cảm thấy",
         "sunrise": "Bình minh",
         "sunset": "Hoàng hôn",
         "temp-max": "Nhiệt độ cao nhất",
@@ -474,7 +553,10 @@
         "select-sticker-image": "Chọn hình ảnh Sticker"
       },
       "settings": {
+        "album-art-background": "Hình nền ảnh bìa",
+        "album-art-blur": "Làm mờ ảnh bìa",
         "aspect-ratio": "Tỷ lệ khung hình",
+        "audio-visualizer": "Trình trực quan hóa âm thanh",
         "background": "Nền",
         "background-color": "Màu",
         "background-opacity": "Độ mờ",
@@ -549,6 +631,8 @@
         "show-login-button": "Nút đăng nhập",
         "show-media": "Trình phát",
         "show-password-hint": "Gợi ý mật khẩu",
+        "show-password-reveal": "Tiết lộ mật khẩu",
+        "show-seconds": "Kim giây",
         "show-session-buttons": "Những nút phiên",
         "show-unlock-hint": "Gợi ý mở khóa",
         "show-vpn-label": "Hiển thị nhãn VPN",
@@ -574,7 +658,7 @@
         "variant": "Phong cách",
         "variant-default": "Mặc định",
         "variant-destructive": "Nguy hiểm",
-        "variant-ghost": "Ghost",
+        "variant-ghost": "Bóng ma",
         "variant-outline": "Viền",
         "variant-primary": "Chính",
         "variant-secondary": "Phụ",
@@ -637,6 +721,34 @@
     }
   },
   "launcher": {
+    "browser": {
+      "actions": {
+        "power": "Nguồn",
+        "settings": "Cài đặt"
+      },
+      "navigation": {
+        "all": "Tất cả",
+        "all-apps": "Tất cả ứng dụng",
+        "categories": "Danh mục",
+        "pinned": "Đã ghim",
+        "providers": "Phía cung cấp",
+        "recent": "Gần đây"
+      },
+      "options": {
+        "show-grid": "Hiển thị dạng lưới",
+        "show-list": "Hiển thị dạng danh sách",
+        "sort-by-frequency": "Ưu tiên kết quả thường xuyên",
+        "use-default-order": "Dùng thứ tự mặc định"
+      },
+      "sections": {
+        "all-apps": "Tất cả ứng dụng",
+        "other-apps": "Ứng dụng khác",
+        "pinned": "Đã ghim",
+        "providers": "Phía cung cấp",
+        "recent": "Gần đây",
+        "search-results": "Tìm kiếm kết quả"
+      }
+    },
     "categories": {
       "all": "Tất cả",
       "applications": {
@@ -671,6 +783,7 @@
       "unpin-from-dock": "Bỏ ghim khỏi Dock"
     },
     "empty": {
+      "loading": "Đang tải kết quả...",
       "no-results": "Không tìm thấy kết quả nào",
       "type-to-search": "Gõ để tìm kiếm..."
     },
@@ -691,6 +804,20 @@
       },
       "emoji": {
         "title": "Emoji"
+      },
+      "panel": {
+        "builtin": {
+          "clipboard": "Bảng tạm",
+          "control-center": "Trung tâm điều khiển",
+          "launcher": "Trình khởi chạy",
+          "polkit": "Yêu cầu xác thực",
+          "session": "Phiên",
+          "setup-wizard": "Trình thiết lập",
+          "test": "Bảng kiểm thử",
+          "tray-drawer": "Ngăn kéo khay",
+          "wallpaper": "Hình nền"
+        },
+        "title": "Các bảng"
       },
       "session": {
         "action-subtitle": "Thực hiện thao tác phiên",
@@ -725,7 +852,7 @@
   "lockscreen": {
     "authenticating": "Đang xác thực...",
     "authentication-failed": "Xác thực thất bại",
-    "caps-lock-on": "Caps lock đang bật",
+    "caps-lock-on": "Caps Lock đang bật",
     "password-cleared": "Đã xóa mật khẩu",
     "password-placeholder": "Mật khẩu",
     "ready": "Nhập mật khẩu của bạn và nhấn Enter.",
@@ -751,6 +878,8 @@
       "calendar": "Lịch",
       "calendar-credential-locked-body": "Hãy mở khóa keyring mà Secret Service sử dụng, sau đó thử lại trong phần Cài đặt. Với GNOME Keyring, hãy đặt một chùm chìa khóa tự động mở khóa ví dụ như Login làm mặc định.",
       "calendar-credential-locked-title": "Keyring của Lịch đang bị khóa",
+      "calendar-digest-more": "+ {count} thêm nữa",
+      "calendar-digest-title": "Cả ngày hôm nay",
       "calendar-google-connect-browser-failed": "Không thể khởi chạy trình mở trình duyệt để ủy quyền Google. Kiểm tra trình duyệt mặc định của bạn hoặc thiết lập xdg-open.",
       "calendar-google-connect-credential-store-failed": "Xác minh hoàn tất, nhưng refresh token không thể được lưu. Vui lòng thử kết nối lại sau khi đã mở khóa hoặc bắt đầu Secret Service.",
       "calendar-google-connect-expired": "Ủy quyền Google đã hết hạn trước khi đăng nhập hoàn tất. Hãy bắt đầu lại kết nối.",
@@ -761,6 +890,13 @@
       "calendar-google-connect-start-failed": "Không thể bắt đầu ủy quyền Google. Vui lòng kiểm tra kết nối mạng và thử lại.",
       "calendar-google-connect-start-http": "Không thể bắt đầu ủy quyền Google. Trình môi giới OAuth đã trả về HTTP {status}.",
       "calendar-google-connect-timeout": "Thời gian ủy quyền Google đã hết. Hãy bắt đầu lại kết nối khi bạn sẵn sàng đăng nhập.",
+      "calendar-reminder-catchup-body": "{count} sự kiện sắp bắt đầu.",
+      "calendar-reminder-catchup-title": "Xem thêm sự kiện sắp tới",
+      "calendar-reminder-in": "Bắt đầu trong {minutes} phút · {time}",
+      "calendar-reminder-now": "Bắt đầu ngay · {time}",
+      "calendar-reminder-open": "Mở",
+      "calendar-reminder-untitled": "Sự kiện không có tiêu đề",
+      "calendar-reminder-with-location": "{when}\n{location}",
       "config-migration-body": "Cấu hình cũ, bao gồm {path}, đang được chuyển đổi tạm thời trong bộ nhớ. Hãy cập nhật cấu hình gốc; Cài đặt và noctalia config validate sẽ hiển thị cấu hình thay thế cần dùng.",
       "config-migration-title": "Cần cập nhật cấu hình",
       "dbus-disabled": "Thông báo DBus đã tắt",
@@ -769,10 +905,13 @@
       "greeter-sync": "Noctalia Màn hình chào",
       "greeter-sync-pending": "Đang chờ quyền quản trị viên để viết vào greeter.",
       "greeter-sync-pending-console": "Đang chờ quyền quản trị viên. Chấp thuận ở thông báo polkit, trong TTY hoặc chạy pkexec thủ công.",
+      "greeter-sync-pending-legacy": "Đang đồng bộ hóa qua trình hỗ trợ xác thực cũ. Yêu cầu quyền phê duyệt của quản trị viên.",
       "greeter-sync-pending-manual": "Đã chuẩn bị tệp. Hãy chạy câu lệnh sau trong terminal: pkexec noctalia-greeter-apply-appearance \"$XDG_RUNTIME_DIR/noctalia-greeter-sync\". Hoặc đặt shell.greeter_sync.privilege_command (ví dụ như ghostty -e pkexec) và đồng bộ hóa lần nữa.",
+      "greeter-sync-pending-manual-pkexec": "Đang đồng bộ hóa diện mạo với màn hình chào. Nếu yêu cầu quyền xác thực của quản trị viên nhưng không có hộp thoại nào xuất hiện, hãy chạy trong cửa sổ dòng lệnh: pkexec noctalia-greeter-apply-appearance --sync \"/run/user/$(id -u)/noctalia-greeter-sync\".",
       "greeter-sync-success": "Đã đồng bộ giao diện. Các thay đổi sẽ áp dụng vào màn hình đăng nhập tiếp theo.",
       "greeter-sync-timeout": "Đồng bộ hóa màn hình chào vẫn đang chờ quyền phê duyệt của quản trị viên. Hãy kiểm tra TTY hoặc bảng điều khiển để tìm yêu cầu từ polkit, bật tác nhân polkit trong phần cài đặt Bảo mật hoặc tự chạy pkexec thủ công.",
       "greeter-sync-timeout-manual": "Đồng bộ hóa màn hình chào vẫn cần quyền phê duyệt của quản trị viên. Hãy chạy lệnh sau trong Terminal: pkexec noctalia-greeter-apply-appearance \"$XDG_RUNTIME_DIR/noctalia-greeter-sync\"",
+      "greeter-sync-timeout-manual-pkexec": "Việc đồng bộ hóa màn hình chào vẫn cần được xác thực. Hãy chạy trong cửa sổ dòng lệnh: pkexec noctalia-greeter-apply-appearance --sync \"/run/user/$(id -u)/noctalia-greeter-sync\"",
       "keybind-app": "Noctalia",
       "keybind-invalid-modifier": "Phím tắt này nhận một phím không kèm phím bổ trợ.",
       "keybind-invalid-printable": "Các phím ký tự (chữ cái, số, ký hiệu) cần một phím bổ trợ như Ctrl hoặc Alt.",
@@ -784,6 +923,15 @@
       "lockscreen-widgets-editor-blocked-locked": "Mở khóa phiên trước khi chỉnh sửa các widget màn hình khóa.",
       "lockscreen-widgets-editor-enabled": "Trình chỉnh sửa Widget màn hình khóa đang bật. Sắp xếp các Widget trên Overlay xem trước, sau đó khóa phiên để kiểm tra bố cục.",
       "mpris-disabled": "MPRIS đã tắt",
+      "network": "Mạng",
+      "network-connect-failed-auth": "Mật khẩu bị từ chối hoặc không được cung cấp.",
+      "network-connect-failed-generic": "NetworkManager không thể hoàn tất được kết nối.",
+      "network-connect-failed-ip": "Đã kết nối tới mạng nhưng không thể lấy được địa chỉ IP.",
+      "network-connect-failed-no-reply": "NetworkManager không phản hồi. Có thể một yêu cầu xác thực đang chờ xử lý nhưng không có polkit agent nào để phản hồi yêu cầu đó.",
+      "network-connect-failed-not-found": "Mạng không còn nằm trong phạm vi phủ sóng.",
+      "network-connect-failed-permission": "Không có quyền thay đổi các kết nối mạng. Hãy kích hoạt polkit agent trong phần cài đặt Bảo mật, hoặc cho phép các hành động của NetworkManager theo quy tắc polkit.",
+      "network-connect-failed-timeout": "Không nhận được phản hồi từ mạng.",
+      "network-connect-failed-title": "Không thể kết nối tới {ssid}",
       "polkit-agent": "Polkit Agent",
       "polkit-no-session": "Polkit agent cần logind, elogind, hoặc XDG_SESSION_ID. Với những hệ thống chỉ có seatd thì nó không thể chạy giao diện xác thực. Sử dụng pkexec để đông bộ hóa greeter, hoặc cài đặt elogind để có xác thực giữa session.",
       "screen-time-reset": "Thời gian sử dụng",
@@ -881,9 +1029,10 @@
     "actions": {
       "custom": "Tùy chỉnh",
       "lock": "Khóa",
-      "lock-and-suspend": "Khóa & Tạm dừng",
+      "lock-and-suspend": "Khóa & Ngủ",
       "logout": "Đăng xuất",
       "reboot": "Khởi động lại",
+      "reboot-uefi": "Khởi động lại vào UEFI",
       "shutdown": "Tắt máy",
       "suspend": "Ngủ"
     },
@@ -930,7 +1079,8 @@
         "custom": "CalDAV",
         "google": "Google",
         "icloud": "iCloud",
-        "ics": "ICS URL"
+        "ics": "ICS URL",
+        "vdir": "Cục bộ (vdir)"
       },
       "provider-label": "Nhà cung cấp",
       "save": "Lưu",
@@ -943,7 +1093,8 @@
       "secret-service-unavailable": "Không có nhà cung cấp Secret Service nào khả dụng. Hãy khởi động một nhà cung cấp tương thích và thử lại.",
       "server-url-label": "URL máy chủ",
       "username-label": "Tên người dùng",
-      "username-placeholder": "name@example.com"
+      "username-placeholder": "name@example.com",
+      "vdir-path-label": "Đường dẫn thư mục"
     },
     "controls": {
       "keybind": {
@@ -984,13 +1135,16 @@
       },
       "monitor-override": {
         "create": "Tạo",
+        "custom": "Tùy chỉnh",
         "delete": "Xóa",
         "delete-confirm-desc": "Ghi đè màn hình được tạo bằng GUI này sẽ bị xóa khỏi settings.toml.",
         "delete-confirm-title": "Xóa \"{name}\"?",
+        "exists": "Đã tồn tại một cấu hình ghi đè cho màn hình này.",
         "label": "Màn hình: {name}",
         "management": "Ghi đè màn hình",
         "match-placeholder": "Khớp màn hình",
         "new": "Ghi đè màn hình",
+        "new-title": "Ghi đè màn hình mới",
         "rename": "Đổi tên",
         "rename-save": "Lưu"
       },
@@ -1011,6 +1165,8 @@
           "action": "Nhóm",
           "border": "Viền",
           "border-description": "Vai trò màu sắc đường viền của Vùng chứa; để Mặc định nếu không muốn có đường viền",
+          "border-width": "Độ dày viền",
+          "border-width-description": "Độ dày của viền viên nang tính theo pixel, chỉ hiển thị khi màu viền được thiết lập",
           "clear": "Xóa",
           "deselect": "Bỏ chọn",
           "drag": "Sắp xếp lại",
@@ -1124,6 +1280,7 @@
         "rename": "Không thể đổi tên thanh."
       },
       "batch-write": "Một số cài đặt không thể lưu.",
+      "custom-schedule-times": "Một lịch trình tùy chỉnh cần thời gian bình minh và hoàng hôn ở dạng HH:MM.",
       "export-config": "Lưu xuất cấu hình thất bại.",
       "export-wallpaper-palette": "Không thể lưu bảng màu hình nền thành bảng màu tùy chỉnh.",
       "monitor-override": {
@@ -1136,6 +1293,7 @@
       "sync-greeter": "Không thể đồng bộ giao diện với Noctalia Greeter.",
       "sync-greeter-timeout": "Quá trình đồng bộ màn hình chào vẫn đang chờ quyền phê duyệt của quản trị viên. Hãy kiểm tra TTY hoặc bảng điều khiển để tìm hộp thoại polkit, bật tác nhân polkit trong phần cài đặt Bảo mật hoặc tự chạy pkexec thủ công.",
       "sync-greeter-timeout-manual": "Đồng bộ hóa màn hình chào vẫn cần quyền phê duyệt của quản trị viên. Hãy chạy lệnh sau trong Terminal: pkexec noctalia-greeter-apply-appearance \"$XDG_RUNTIME_DIR/noctalia-greeter-sync\"",
+      "sync-greeter-timeout-manual-pkexec": "Đồng bộ hóa màn hình chào vẫn cần được ủy quyền. Vui lòng mở terminal và chạy lệnh: pkexec noctalia-greeter-apply-appearance --sync \"/run/user/$(id -u)/noctalia-greeter-sync\"",
       "widget": {
         "rename": "Không thể đổi tên tiện ích đã đặt tên."
       },
@@ -1149,6 +1307,8 @@
       "merged-user-description": "Kết hợp các tệp cấu hình và ghi đè GUI vào một tệp TOML duy nhất. Các giá trị mặc định tích hợp sẵn vẫn ngầm định.",
       "merged-user-save-title": "Lưu cấu hình người dùng đã hợp nhất",
       "merged-user-title": "Cấu hình người dùng hợp nhất (Khuyên dùng)",
+      "privacy-warning-description": "Cả hai chế độ xuất đều có thể bao gồm khóa API, mật khẩu hoặc dữ liệu nhạy cảm khác được lưu trong cấu hình của bạn, bao gồm cả các plugin. Hãy xem các tệp đã xuất là dữ liệu riêng tư. Kiểm tra và xóa dữ liệu nhạy cảm trước khi chia sẻ.",
+      "privacy-warning-title": "Tệp xuất có thể chứa dữ liệu bảo mật",
       "title": "Xuất cấu hình"
     },
     "idle": {
@@ -1159,11 +1319,12 @@
         "kind": {
           "custom": "Tùy chỉnh",
           "lock": "Khóa",
-          "lock-and-suspend": "Khóa & Tạm dừng",
+          "lock-and-suspend": "Khóa & Ngủ",
           "screen-off": "Tắt màn hình",
           "suspend": "Ngủ"
         },
         "kind-section-label": "Hành động",
+        "locked-timeout-label": "Thời gian chờ khi khóa (giây, 0 = tắt)",
         "name-label": "Tên",
         "name-placeholder": "Hành vi khi không hoạt động",
         "resume-command-label": "Lệnh khôi phục",
@@ -1192,6 +1353,8 @@
         "borders": "Viền",
         "brightness": "Độ sáng",
         "built-in": "Tích hợp sẵn",
+        "calendar-accounts": "Tài khoản",
+        "calendar-reminders": "Nhắc nhở",
         "capsules": "Viên nang",
         "clipboard": "Bảng tạm",
         "community": "Cộng đồng",
@@ -1225,6 +1388,7 @@
         "monitor-thresholds": "Các ngưỡng nổi bật",
         "monitors": "Màn hình",
         "motion": "Chuyển động",
+        "navigation": "Định vị",
         "network": "Mạng",
         "night-light": "Ánh sáng đêm",
         "notifications": "Thông báo",
@@ -1239,6 +1403,9 @@
         "screen-corners": "Các góc màn hình",
         "screen-time": "Thời gian sử dụng màn hình",
         "screenshot": "Chụp màn hình",
+        "screenshot-annotation": "Ghi chú",
+        "screenshot-capture": "Chụp",
+        "screenshot-output": "Đầu ra",
         "security": "Bảo mật",
         "session-panel": "Phiên",
         "shape": "Hình dạng",
@@ -1250,13 +1417,15 @@
         "wallpaper": "Hình nền",
         "weather": "Thời tiết",
         "widget-list": "Danh sách Widget",
-        "widgets": "Tiện ích"
+        "widgets": "Tiện ích",
+        "window-switcher": "Trình chuyển đổi cửa sổ"
       },
       "sections": {
         "accessibility": "Trợ năng",
         "appearance": "Giao diện",
         "backdrop": "Nền",
         "bar": "Thanh",
+        "calendar": "Lịch",
         "control-center": "Trung tâm điều khiển",
         "desktop": "Màn hình nền",
         "dock": "Dock",
@@ -1271,11 +1440,13 @@
         "plugins": "Plugins",
         "popups": "Pop-up",
         "power": "Nguồn",
+        "screenshot": "Chụp màn hình",
         "security": "Bảo mật",
         "services": "Dịch vụ",
         "shell": "Giao diện",
         "system": "Hệ thống",
         "templates": "Mẫu",
+        "umbriel": "Umbriel",
         "wallpaper": "Hình nền"
       }
     },
@@ -1285,11 +1456,13 @@
         "add-title": "Thêm bộ lọc thông báo",
         "allow-permanent": "Cho phép vĩnh viễn",
         "allowed-urgencies-label": "Mức độ ưu tiên được phép",
+        "bypass-dnd": "Bỏ qua chế độ Không làm phiền",
         "flag": {
+          "dnd-bypass": "Bỏ qua DND",
           "history": "lịch sử",
-          "permanent": "Vĩnh viễn",
+          "permanent": "vĩnh viễn",
           "sound": "âm thanh",
-          "toast": "thông báo nổi"
+          "toast": "toast"
         },
         "flags-label": "Khi phù hợp",
         "match-content-label": "Nội dung regex",
@@ -1369,6 +1542,15 @@
         "overlay": "Overlay",
         "top": "Trên"
       },
+      "lockscreen": {
+        "transition": {
+          "diamond": "Kim cương",
+          "golden": "Hoàng kim",
+          "melt": "Tan chảy",
+          "pixel": "Pixel",
+          "stripes": "Sọc"
+        }
+      },
       "notification-urgency": {
         "critical": "Nghiêm trọng",
         "low": "Thấp",
@@ -1385,6 +1567,13 @@
       "panel-position": {
         "auto": "Theo Bar"
       },
+      "plugins": {
+        "auto-update": {
+          "all": "Tất cả",
+          "none": "Không",
+          "official": "Chính thức"
+        }
+      },
       "screen-position": {
         "bottom-center": "Giữa dưới",
         "bottom-left": "Góc dưới bên trái",
@@ -1396,7 +1585,30 @@
         "top-left": "Góc trên bên trái",
         "top-right": "Trên cùng bên phải"
       },
+      "screenshot": {
+        "region-modifier": {
+          "alt": "Alt",
+          "ctrl": "Ctrl",
+          "none": "Không",
+          "shift": "Shift",
+          "super": "Super"
+        }
+      },
       "shell": {
+        "launcher-default-view": {
+          "all": "Tất cả",
+          "categories": "Danh mục",
+          "pinned": "Đã ghim",
+          "recent": "Gần đây"
+        },
+        "launcher-layout": {
+          "full": "Đầy đủ",
+          "simple": "Đơn giản"
+        },
+        "launcher-search-position": {
+          "bottom": "Dưới cùng",
+          "top": "Trên cùng"
+        },
         "panel-placement": {
           "attached": "Gắn vào",
           "floating": "Nổi"
@@ -1420,12 +1632,19 @@
           "up": "Hoạt động",
           "up-left": "Trên Trái",
           "up-right": "Trên bên phải"
+        },
+        "window-switcher-style": {
+          "carousel": "Băng chuyền",
+          "compact": "Thu gọn"
         }
       },
       "theme": {
         "mode": {
           "dark": "Tối",
           "light": "Sáng"
+        },
+        "shell-mode": {
+          "follow": "Theo hình nền"
         },
         "source": {
           "built-in": "Tích hợp sẵn",
@@ -1452,10 +1671,15 @@
           "random": "Ngẫu nhiên"
         },
         "transition": {
+          "diamond": "Kim cương",
           "disc": "Ổ đĩa",
           "fade": "Mờ dần",
+          "golden": "Hoàng kim",
           "honeycomb": "Tổ ong",
+          "melt": "Tan chảy",
+          "pixel": "Pixel",
           "stripes": "Sọc",
+          "vortex": "Dòng xoáy",
           "wipe": "Xóa",
           "zoom": "Thu phóng"
         }
@@ -1467,9 +1691,28 @@
         }
       }
     },
+    "palette-inspector": {
+      "copied": "Sao chép {value}",
+      "copy-failed": "Không thể sao chép màu tới bảng tạm.",
+      "copy-hex": "Sao chép giá trị hex",
+      "copy-name": "Sao chép tên màu",
+      "description": "Mẫu màu trong chế độ {mode}.",
+      "empty": "Không có màu khớp.",
+      "filter-all": "Toàn bộ màu",
+      "filter-palette": "Palette",
+      "filter-terminal": "Terminal",
+      "missing": "Không khả dụng",
+      "search-placeholder": "Tìm kiếm tên màu hoặc giá trị hex...",
+      "terminal-number": "{number} · ANSI {index}",
+      "title": "Bộ kiểm tra bảng màu"
+    },
     "plugins": {
       "browse-store": "Tìm kiếm plugin",
       "panels": {
+        "layer": {
+          "description": "Lớp layer-shell được sử dụng khi bảng ở trạng thái nổi",
+          "label": "Lớp"
+        },
         "open-near-click": {
           "description": "Mở bảng điều khiển gần widget trên thanh đã kích hoạt nó",
           "label": "Mở tại nơi click"
@@ -1491,9 +1734,12 @@
         "deprecated": "đã lỗi thời",
         "empty": "Không tìm thấy plugin nào. Hãy thêm nguồn hoặc kiểm tra mạng của bạn.",
         "held-back": "phiên bản cũ",
+        "held-back-hint": "Phiên bản v{version} yêu cầu API plugin {required}, phiên bản Noctalia này chỉ hỗ trợ tới {current}. Vui lòng nâng cấp Noctalia để sử dụng.",
         "incompatible-plugin-api": "API plugin không tương thích",
         "remove": "Loại bỏ plugin",
         "requires": "Cần: {dependencies}",
+        "search-empty": "Không tồn tại plugin khớp \"{query}\".",
+        "search-placeholder": "Tìm kiếm plugin đã cài đặt",
         "title": "Plugins",
         "update-all": "Cập nhật tất cả ({count})",
         "update-available": "có thể cập nhật",
@@ -1506,6 +1752,7 @@
         "add": "Thêm nguồn",
         "add-title": "Thêm nguồn của plugin",
         "auto-update": "Tự động cập nhật plugin",
+        "auto-update-desc": "Kiểm tra phiên bản mới từ các nguồn đã bật và giữ cho các plugin đã cài đặt luôn ở phiên bản mới nhất",
         "edit": "Chỉnh sửa nguồn",
         "edit-title": "Chỉnh sửa nguồn plugin",
         "empty": "Chưa có nguồn nào được cấu hình.",
@@ -1532,21 +1779,33 @@
       },
       "store": {
         "add": "Thêm vào Noctalia",
+        "back-to-catalog": "Về lại danh mục plugin",
         "categories": "Danh mục",
         "category-all": "Tất cả",
         "empty": "Không tìm thấy plugin",
         "held-back": "Phiên bản cũ",
-        "incompatible": "Không phù hợp",
+        "held-back-hint": "Cài đặt phiên bản v{version} cho plugin API {resolved}. Phiên bản mới nhất v{latest} cần plugin API {latestRequired}, phiên bản Noctalia này chỉ hỗ trợ tới {current}.",
+        "incompatible": "Không tương thích",
+        "incompatible-hint": "Yêu cầu plugin API {required}, phiên bản Noctalia này chỉ hỗ trợ từ {oldest} cho tới {current}.",
+        "installed": "Đã cài đặt",
         "loading": "Đang tải danh mục...",
         "no-readme": "Không có mô tả",
+        "not-listed": "Không nằm trong danh sách",
         "open-page": "Mở trang plugin tại noctalia.dev",
         "open-source": "Mở repo nguồn plugin",
+        "recommend": "Đề xuất",
+        "recommendation-pending": "Đang gửi đề xuất...",
+        "recommendation-rate-limited": "Quá nhiều yều cầu. Vui lòng đợi trước khi thử lại thay đổi này.",
+        "recommendation-retry": "Thử lại thay đổi đề xuất",
+        "remove-recommendation": "Hủy bỏ đề xuất",
         "results-count": "{count} plugins",
         "search-placeholder": "Tìm plugins...",
         "sort-added-at-asc": "Sắp xếp theo ngày được thêm (cũ nhất trước)",
         "sort-added-at-desc": "Sắp xếp theo ngày được thêm (mới nhất trước)",
+        "sort-most-recommended": "Được đề xuất nhiều nhất",
         "sort-name-asc": "Sắp xếp theo tên (A-Z)",
         "sort-name-desc": "Sắp xếp theo tên (Z-A)",
+        "sort-trending": "Xu hướng",
         "sort-updated-at-asc": "Sắp xếp theo ngày (cũ nhất trước)",
         "sort-updated-at-desc": "Sắp xếp theo ngày (mới nhất trước)",
         "source-all": "Tất cả các nguồn",
@@ -1623,6 +1882,9 @@
         "language": {
           "description": "Ghi đè phát hiện ngôn ngữ tự động",
           "label": "Ngôn ngữ"
+        },
+        "palette-inspector": {
+          "button": "Kiểm tra màu"
         },
         "palette-source": {
           "description": "Lấy bảng màu từ đâu",
@@ -2088,7 +2350,7 @@
       },
       "idle": {
         "behaviors": {
-          "description": "Các hành động khi không hoạt động được đặt tên với cài đặt sẵn (khóa, tắt màn hình, tạm dừng) hoặc lệnh tùy chỉnh, thời gian chờ, khôi phục ghép nối và thứ tự",
+          "description": "Các hành động khi không hoạt động được đặt tên với cài đặt sẵn (khóa, tắt màn hình, ngủ) hoặc lệnh tùy chỉnh, đếm ngược, khôi phục ghép đôi và thứ tự",
           "label": "Hành vi"
         },
         "pre-action-fade": {
@@ -2162,6 +2424,10 @@
         "fingerprint": {
           "description": "Cho phép mở khóa bằng vân tay qua fprintd cùng với mật khẩu.",
           "label": "Mở khóa bằng vân tay"
+        },
+        "lock-before-suspend": {
+          "description": "Khóa phiên trước khi ngủ (đóng nắp, ngủ hệ thống, ngủ đông); Khóa & Ngủ vẫn sẽ khóa trước",
+          "label": "Khóa trước khi ngủ"
         },
         "monitors": {
           "description": "Chọn màn hình hiển thị màn hình khóa; để trống để hiển thị trên tất cả các màn hình",
@@ -2306,7 +2572,7 @@
           "label": "Đặt lại dữ liệu sử dụng"
         },
         "launcher-session-search": {
-          "description": "Cho phép tìm thấy các thao tác phiên (khóa, tạm ngủ, khởi động lại, tắt máy, đăng xuất) từ tìm kiếm thông thường, thay vì chỉ qua /session",
+          "description": "Cho phép tìm thấy các thao tác phiên (khóa, ngủ, khởi động lại, tắt máy, đăng xuất) từ tìm kiếm thông thường, thay vì chỉ qua /session",
           "label": "Bật tìm kiếm các thao tác phiên"
         },
         "launcher-show-icons": {
@@ -2424,6 +2690,10 @@
           "description": "Tần suất đồng bộ hóa sự kiện lịch (phút)",
           "label": "Khoảng thời gian làm mới"
         },
+        "custom-schedule": {
+          "description": "Dùng thời gian bình minh/hoàng hôn thủ công thay vì tính toán dựa trên tọa độ",
+          "label": "Thời gian biểu tùy chỉnh"
+        },
         "day-temperature": {
           "description": "Nhiệt độ màu vào ban ngày (Kelvin)",
           "label": "Nhiệt độ ban ngày"
@@ -2475,6 +2745,9 @@
           "description": "Tệp âm thanh dùng cho phản hồi thông báo",
           "label": "Âm thanh thông báo",
           "placeholder": "/path/to/sound.wav"
+        },
+        "screenshot-sounds": {
+          "description": "Phát âm thanh khi chụp màn hình"
         },
         "shell-sounds": {
           "description": "Bật hiệu ứng âm thanh cho các sự kiện của shell",
@@ -2706,6 +2979,7 @@
           "label": "Đang phát"
         },
         "osd-kinds-nightlight": {
+          "description": "Hiển thị một thông báo OSD khi ánh sáng đêm bật/tắt",
           "label": "Ánh sáng đêm"
         },
         "osd-kinds-power-profile": {
@@ -2816,6 +3090,9 @@
         "screenshot-save-to-file": {
           "description": "Ghi ảnh chụp màn hình dưới dạng tệp PNG vào thư mục đầu ra.",
           "label": "Lưu vào tệp"
+        },
+        "screenshot-show-cursor": {
+          "description": "Bao gồm con trỏ chuột trong màn hình chụp"
         },
         "show-location": {
           "description": "Hiển thị tên vị trí trong widget thời tiết",
@@ -2971,6 +3248,24 @@
     "widgets": {
       "actions": {
         "command-placeholder": "Câu lệnh",
+        "commands": {
+          "nightlight-disable": {
+            "description": "Tắt lập lịch ánh sáng đêm",
+            "label": "Tắt ánh sáng đêm"
+          },
+          "nightlight-enable": {
+            "description": "Bật lập lịch ánh sáng đêm",
+            "label": "Bật ánh sáng đêm"
+          },
+          "nightlight-force-toggle": {
+            "description": "Bật/tắt chế độ ánh sáng đêm bắt buộc",
+            "label": "Bật/tắt ánh sáng đêm"
+          },
+          "nightlight-toggle": {
+            "description": "Bật/tắt lập lịch ánh sáng đêm",
+            "label": "Bật/tắt ánh sáng đêm"
+          }
+        },
         "default": "Mặc định",
         "disabled": "Tắt",
         "run-command": "Chạy một câu lệnh...",
@@ -3178,7 +3473,7 @@
           "label": "Sử dụng Bảng điều khiển ngăn kéo"
         },
         "drawer-columns": {
-          "description": "Số lượng biểu tượng Tray mỗi hàng trong bảng điều khiển ngăn kéo",
+          "description": "Số lượng biểu tượng khay mỗi hàng trong bảng điều khiển ngăn kéo",
           "label": "Cột ngăn kéo"
         },
         "drawer-item-size": {
@@ -3233,6 +3528,9 @@
         "hide-inactive": {
           "description": "Ẩn các biểu tượng quyền riêng tư không hoạt động và ẩn widget khi không có mục nào đang hoạt động",
           "label": "Ẩn khi không hoạt động"
+        },
+        "hide-passive": {
+          "description": "Ẩn các mục trên khay hệ thống nếu trạng thái StatusNotifierItem là Passive."
         },
         "hide-when-empty": {
           "description": "Ẩn các thẻ không gian làm việc khi không có cửa sổ nào đang mở",

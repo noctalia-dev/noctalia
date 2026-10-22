@@ -45,7 +45,6 @@
       "cursor-not-captured": "Attiva/disattiva puntatore non disponibile: il compositor non supporta la cattura separata del puntatore",
       "done": "Applica le impostazioni dello screenshot (Invio)",
       "fill-off": "Riempimento forma: disattivato",
-      "fill-on": "Riempimento forma: attivo",
       "freeze": "Congela lo schermo sotto l'inchiostro (f)",
       "move-toolbar": "Trascina per spostare la barra degli strumenti",
       "redo": "Ripeti (Ctrl+Maiusc+Z)",
@@ -632,10 +631,12 @@
         "show-login-button": "Pulsante di login",
         "show-media": "Media",
         "show-password-hint": "Suggerimento password",
+        "show-password-reveal": "Mostra password",
         "show-seconds": "Lancetta Secondi",
         "show-session-buttons": "Pulsanti di sessione",
         "show-unlock-hint": "Sblocca avvisi",
         "show-vpn-label": "Mostra etichetta VPN",
+        "show-wave": "Mostra onda",
         "show-weather": "Meteo",
         "show-week-numbers": "Mostra i numeri delle settimane",
         "show-when-idle": "Mostra quando inattivo",
@@ -1012,7 +1013,7 @@
         "device": "Batteria",
         "device-numbered": "Batteria {index}",
         "health": "Salute",
-        "rate": "Velocità",
+        "rate": "Potenza",
         "status": "Stato",
         "time-left": "Tempo rimanente",
         "time-to-full": "Tempo rimanente alla carica completa",
@@ -1032,6 +1033,7 @@
       "lock-and-suspend": "Blocca e sospendi",
       "logout": "Disconnetti",
       "reboot": "Riavvia",
+      "reboot-uefi": "Riavvia in modalità UEFI",
       "shutdown": "Spegni",
       "suspend": "Sospendi"
     },
@@ -1306,6 +1308,8 @@
       "merged-user-description": "Combina file di configurazione e override della GUI in un unico file TOML. I valori predefiniti integrati restano impliciti.",
       "merged-user-save-title": "Salva configurazione utente unificata",
       "merged-user-title": "Configurazione utente unificata (consigliata)",
+      "privacy-warning-description": "Entrambe le modalità di esportazione possono includere chiavi API, password o altri dati sensibili memorizzati nella configurazione, inclusi quelli dei plugin. Tratta i file esportati come privati. Rivedi e rimuovi i dati sensibili prima di condividerli.",
+      "privacy-warning-title": "Le esportazioni possono contenere segreti",
       "title": "Esporta configurazione"
     },
     "idle": {
@@ -1541,10 +1545,15 @@
       },
       "lockscreen": {
         "transition": {
+          "diamond": "Diamond",
           "disc": "Disco",
           "fade": "Dissolvenza",
+          "golden": "Golden",
           "honeycomb": "Nido d'ape",
+          "melt": "Melt",
+          "pixel": "Pixel",
           "stripes": "Strisce",
+          "vortex": "Vortex",
           "wipe": "Wipe",
           "zoom": "Zoom"
         }
@@ -1669,10 +1678,15 @@
           "random": "Casuale"
         },
         "transition": {
+          "diamond": "Diamond",
           "disc": "Disco",
           "fade": "Dissolvenza",
+          "golden": "Golden",
           "honeycomb": "Nido d'ape",
+          "melt": "Melt",
+          "pixel": "Pixel",
           "stripes": "Strisce",
+          "vortex": "Vortex",
           "wipe": "Tendina",
           "zoom": "Zoom"
         }
@@ -1683,6 +1697,21 @@
           "metric": "Metrico"
         }
       }
+    },
+    "palette-inspector": {
+      "copied": "Copiato {value}",
+      "copy-failed": "Impossibile copiare il colore negli appunti.",
+      "copy-hex": "Copia il valore esadecimale",
+      "copy-name": "Copia il nome del colore",
+      "description": "Template colori in modalità {mode}.",
+      "empty": "Nessun abbinamento di colori.",
+      "filter-all": "Tutti i colori",
+      "filter-palette": "Palette",
+      "filter-terminal": "Terminale",
+      "missing": "Non disponibile",
+      "search-placeholder": "Cerca i nomi dei colori o i valori esadecimali...",
+      "terminal-number": "{number} · ANSI {index}",
+      "title": "Analizzatore palette"
     },
     "plugins": {
       "browse-store": "Sfoglia plugin",
@@ -1868,6 +1897,11 @@
           "description": "Sovrascrivi il rilevamento automatico della lingua",
           "label": "Lingua"
         },
+        "palette-inspector": {
+          "button": "Ispeziona i colori",
+          "description": "Visualizza i nomi dei colori del modello, i campioni e i valori esadecimali per la tavolozza attiva",
+          "label": "Analizzatore palette"
+        },
         "palette-source": {
           "description": "Da dove ricavare la palette colori",
           "label": "Sorgente palette"
@@ -1891,6 +1925,10 @@
         "show-close-buttons": {
           "description": "Mostra i pulsanti di chiusura nei pannelli, notifiche, popup, finestre di dialogo e nella finestra delle impostazioni",
           "label": "Mostra pulsanti Chiudi"
+        },
+        "sync-color-scheme": {
+          "description": "Imposta la preferenza scura/chiara del sistema letta dai browser e da altre app in modo che segua la Modalità Tema",
+          "label": "Sincronizza schema colore app"
         },
         "theme-mode": {
           "description": "Scegli tra Scuro, Chiaro o Automatico in base all'ora del giorno; questa opzione si applica anche alle app tramite i modelli.",
@@ -1921,6 +1959,10 @@
       "bar": {
         "auto-hide": {
           "description": "Off mantiene la barra visibile; On la nasconde finché non sposti il ​​puntatore sul bordo dello schermo; Smart mostra la barra su un'area di lavoro vuota e la nasconde quando le finestre sono aperte"
+        },
+        "auto-hide-delay": {
+          "description": "Attendi questo numero di millisecondi dopo che il puntatore esce prima di nascondere la barra; 0 nasconde immediatamente (solo in modalità attiva)",
+          "label": "Ritardo auto-hide"
         },
         "background-opacity": {
           "description": "Opacità dello sfondo della barra"
@@ -3488,6 +3530,10 @@
           "description": "Formato ora predefinito per la shell UI senza impostazione propria",
           "label": "Formato ora"
         },
+        "umbriel-audio-provider": {
+          "description": "Condividi lo spettro audio con gli effetti Umbriel, anche senza un widget visualizzatore.",
+          "label": "Fornire l'audio a Umbriel"
+        },
         "umbriel-overview-type-to-launch": {
           "description": "Apri il launcher mentre digiti in nella Overview di Umbriel; utilizza una piccola area di focus della tastiera mentre l'Overview è aperta",
           "label": "Digita per avviare"
@@ -3666,6 +3712,8 @@
       "success": "L'archiviazione privata è stata reimpostata correttamente."
     },
     "templates": {
+      "documentation": "Documentazione",
+      "readme": "Readme",
       "store": {
         "browse": "Sfoglia template",
         "categories": "Categorie",
@@ -4010,6 +4058,10 @@
           "screenshot-region": {
             "description": "Avvia uno screenshot interattivo di un'area",
             "label": "Screenshot area"
+          },
+          "screenshot-window": {
+            "description": "Cattura la finestra in focus",
+            "label": "Screenshot della finestra"
           },
           "session": {
             "description": "Eseguire un'azione di sessione integrata",
@@ -4736,6 +4788,10 @@
           "description": "Riempi lo sfondo del widget per mostrare l'avanzamento della riproduzione",
           "label": "Mostra l'avanzamento della riproduzione"
         },
+        "show-running": {
+          "description": "Mostra le finestre in esecuzione che non sono nell'elenco fissato",
+          "label": "Mostra in esecuzione"
+        },
         "show-scroll-lock": {
           "description": "Mostra stato Scroll Lock",
           "label": "Mostra Scroll Lock"
@@ -4759,6 +4815,10 @@
         "show-vpn-label": {
           "description": "Sostituisce l'etichetta di rete con l'etichetta VPN in modalità di Sostituisci; aggiunge l'etichetta VPN accanto all'icona VPN in modalità Entrambi",
           "label": "Mostra etichetta VPN"
+        },
+        "show-wave": {
+          "description": "Visualizza come area riempita ad onde anziché come barre discrete",
+          "label": "Mostra onda"
         },
         "show-when-idle": {
           "description": "Mantiene visibile il visualizzatore anche quando nessun media è in riproduzione",

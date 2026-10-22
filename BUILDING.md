@@ -114,10 +114,14 @@ sudo moss install meson gcc clang just \
 Vendored dependencies, with no system package needed: `Wuffs`,
 `Luau`, `fzy`, and Material Color Utilities.
 
-System packages required beyond the Wayland/GL stack: `libwebp` handles WebP decoding and thumbnail encoding,
-`libjxl` handles JPEG XL decoding, `libsndfile` decodes shell sound effects (WAV, FLAC, Ogg/Vorbis, Opus, MP3, and
-AIFF), and Wuffs handles the other supported raster image formats. `libqalculate` powers
-the launcher calculator (arithmetic, unit and currency conversion).
+System packages required beyond the Wayland/GL stack: `libwebp` handles WebP decoding and encoding (thumbnails,
+screenshots), `libjxl` handles JPEG XL decoding and screenshot encoding, `libsndfile` decodes shell sound effects
+(WAV, FLAC, Ogg/Vorbis, Opus, MP3, and AIFF), and Wuffs handles the other supported raster image formats.
+`libqalculate` powers the launcher calculator (arithmetic, unit and currency conversion).
+
+HEIC, HEIF, and AVIF decoding is optional and needs no build-time package: Noctalia loads `libheif.so.1` with
+`dlopen` the first time it meets such an image. Install `libheif` with its AV1 (dav1d or aom) and HEVC (libde265)
+decoder plugins to use those formats; on Fedora the HEVC plugin comes from RPM Fusion's `libheif-freeworld`.
 
 Polkit agent support requires development files that provide the `polkit-agent-1` and `polkit-gobject-1` pkg-config
 modules. Some distros ship these in the runtime `polkit` package, while split-package distros use names such as

@@ -193,9 +193,11 @@ Each carries its own license file beside the code.
 | Fontconfig / fonts | Text rendering (users still need usable fonts installed) |
 | `git` | Plugin git sources / auto-update invoke `git` on `PATH` |
 | `upower` | Optional: battery / power devices |
+| `power-profiles-daemon` | Optional: power profile switching |
 | `ddcutil` | Optional: external monitor brightness |
 | Secret Service provider | Optional but recommended for credential / encrypted-state persistence (GNOME Keyring, KWallet, KeePassXC, ...). `libsecret` is only the client library; without a session provider those features cannot persist secrets. |
 | `sound-theme-freedesktop` | Shell sounds |
+| `libheif` (`libheif.so.1`) | Optional but recommended: HEIC, HEIF, and AVIF decoding for wallpapers, thumbnails, clipboard previews, and notification images. Loaded with `dlopen` on first use, so it is neither a build dependency nor a link dependency; declare it as a weak dependency (Arch `optdepends`, Debian/Fedora `Recommends`). AVIF needs libheif's dav1d or aom decoder plugin; HEIC needs an HEVC decoder plugin such as libde265. Fedora's main `libheif` lacks the HEVC decoder; RPM Fusion's `libheif-freeworld` provides it. |
 
 ## Startup and IPC
 

@@ -45,7 +45,6 @@
       "cursor-not-captured": "无法切换鼠标指针：合成器不支持单独捕获鼠标指针",
       "done": "完成（Enter）",
       "fill-off": "填充：关闭",
-      "fill-on": "填充：开启",
       "freeze": "冻结画面（F）",
       "move-toolbar": "拖动工具栏",
       "redo": "重做（Ctrl+Shift+Z）",
@@ -201,7 +200,7 @@
       "history-message": "剪贴板历史记录中没有条目。",
       "history-title": "剪贴板历史记录为空",
       "no-matches-message": "没有符合当前筛选条件的条目。",
-      "no-matches-title": "没有找到匹配的条目"
+      "no-matches-title": "没有匹配的条目"
     },
     "entry": {
       "image": "图片",
@@ -275,6 +274,7 @@
         "connected": "已连接",
         "paired": "已配对"
       },
+      "trust-and-allow": "信任并允许",
       "unavailable": "蓝牙服务不可用",
       "unknown-device": "未知设备",
       "visible": "可被附近设备发现"
@@ -402,8 +402,8 @@
       "performance-inhibited": "性能模式不可用",
       "peripherals": "已连接的设备",
       "power-profile": "电源配置",
-      "time-to-empty": "剩余续航 {time}",
-      "time-to-full": "距离充满 {time}",
+      "time-to-empty": "预计可用 {time}",
+      "time-to-full": "预计充满 {time}",
       "unknown-device": "未知设备"
     },
     "screen-time": {
@@ -570,7 +570,7 @@
         "center-text": "文字居中",
         "centered": "居中",
         "change-image": "更改…",
-        "circle": "圆形",
+        "circle": "圆环",
         "clock-style": "时钟样式",
         "clock-style-analog": "指针",
         "clock-style-digital": "数字",
@@ -631,6 +631,8 @@
         "show-login-button": "登录按钮",
         "show-media": "媒体",
         "show-password-hint": "密码提示",
+        "show-password-reveal": "显示密码",
+        "show-seconds": "秒针",
         "show-session-buttons": "会话按钮",
         "show-unlock-hint": "解锁提示",
         "show-vpn-label": "显示 VPN 标签",
@@ -719,6 +721,34 @@
     }
   },
   "launcher": {
+    "browser": {
+      "actions": {
+        "power": "电源",
+        "settings": "设置"
+      },
+      "navigation": {
+        "all": "全部",
+        "all-apps": "所有应用",
+        "categories": "类别",
+        "pinned": "已固定",
+        "providers": "搜索源",
+        "recent": "最近使用"
+      },
+      "options": {
+        "show-grid": "显示网格视图",
+        "show-list": "显示列表视图",
+        "sort-by-frequency": "优先显示常用结果",
+        "use-default-order": "使用默认排序"
+      },
+      "sections": {
+        "all-apps": "所有应用",
+        "other-apps": "其它应用",
+        "pinned": "已固定",
+        "providers": "搜索源",
+        "recent": "最近使用",
+        "search-results": "搜索结果"
+      }
+    },
     "categories": {
       "all": "全部",
       "applications": {
@@ -843,7 +873,7 @@
       "battery-critical-body": "{device}：{percent}%；即将关机",
       "battery-critical-title": "电量严重不足",
       "battery-device": "电池设备",
-      "battery-low-body": "{device}：剩余 {percent}%",
+      "battery-low-body": "{device}：剩余电量 {percent}%",
       "battery-low-title": "电量低",
       "calendar": "日历",
       "calendar-credential-locked-body": "请解锁 Secret Service 使用的密钥环，然后在“设置”中重试。使用 GNOME Keyring 时，需要将可自动解锁的密钥环（如 Login）设为默认。",
@@ -854,7 +884,7 @@
       "calendar-google-connect-credential-store-failed": "授权已完成，但无法保存刷新令牌。请解锁或启动 Secret Service，然后重新连接。",
       "calendar-google-connect-expired": "Google 授权在登录完成前已过期。请重新发起连接。",
       "calendar-google-connect-failed-title": "Google 日历连接失败",
-      "calendar-google-connect-missing-account": "没有找到与“{account}”匹配的已配置 Google 日历账户。",
+      "calendar-google-connect-missing-account": "没有与“{account}”匹配的已配置 Google 日历账户。",
       "calendar-google-connect-rate-limited": "Google 授权暂时受到频率限制。请稍等片刻后重试。",
       "calendar-google-connect-result-failed": "无法完成 Google 授权。请重新发起连接。",
       "calendar-google-connect-start-failed": "无法启动 Google 授权。请检查网络连接并重试。",
@@ -897,10 +927,10 @@
       "network-connect-failed-auth": "密码被拒绝或未提供。",
       "network-connect-failed-generic": "NetworkManager 无法完成连接。",
       "network-connect-failed-ip": "已连接到网络，但无法获取 IP 地址。",
-      "network-connect-failed-no-reply": "NetworkManager 未响应。可能有授权请求正在等待，但没有 polkit 代理来响应。",
-      "network-connect-failed-not-found": "网络已不在范围内。",
-      "network-connect-failed-permission": "无权更改网络连接。请在“安全”设置中启用 polkit 代理，或在 polkit 规则中允许 NetworkManager 操作。",
-      "network-connect-failed-timeout": "网络未及时响应。",
+      "network-connect-failed-no-reply": "NetworkManager 未响应。可能有授权请求因缺少 polkit 代理而无法处理。",
+      "network-connect-failed-not-found": "该网络已不在信号范围内。",
+      "network-connect-failed-permission": "无权更改网络连接。请在“安全”设置中启用 polkit 代理，或通过 polkit 规则允许 NetworkManager 操作。",
+      "network-connect-failed-timeout": "网络响应超时。",
       "network-connect-failed-title": "无法连接到 {ssid}",
       "polkit-agent": "Polkit 代理",
       "polkit-no-session": "Polkit 代理需要 logind、elogind 或 XDG_SESSION_ID。在仅使用 seatd 的环境中无法注册图形化身份验证提示。请使用终端 pkexec 完成 Greeter 同步，或安装 elogind 以支持会话内身份验证。",
@@ -984,8 +1014,8 @@
         "health": "健康度",
         "rate": "功率",
         "status": "状态",
-        "time-left": "剩余续航",
-        "time-to-full": "距离充满",
+        "time-left": "预计可用",
+        "time-to-full": "预计充满",
         "unknown-device": "未知设备"
       }
     },
@@ -1553,7 +1583,30 @@
         "top-left": "左上角",
         "top-right": "右上角"
       },
+      "screenshot": {
+        "region-modifier": {
+          "alt": "Alt",
+          "ctrl": "Ctrl",
+          "none": "无",
+          "shift": "Shift",
+          "super": "Super"
+        }
+      },
       "shell": {
+        "launcher-default-view": {
+          "all": "全部",
+          "categories": "类别",
+          "pinned": "已固定",
+          "recent": "最近使用"
+        },
+        "launcher-layout": {
+          "full": "完整",
+          "simple": "简洁"
+        },
+        "launcher-search-position": {
+          "bottom": "底部",
+          "top": "顶部"
+        },
         "panel-placement": {
           "attached": "吸附",
           "floating": "悬浮"
@@ -1631,6 +1684,21 @@
         }
       }
     },
+    "palette-inspector": {
+      "copied": "已复制 {value}",
+      "copy-failed": "无法将颜色复制到剪贴板。",
+      "copy-hex": "复制十六进制颜色值",
+      "copy-name": "复制颜色名称",
+      "description": " {mode}模式的模板颜色。",
+      "empty": "没有匹配的颜色。",
+      "filter-all": "所有颜色",
+      "filter-palette": "配色方案",
+      "filter-terminal": "终端",
+      "missing": "不可用",
+      "search-placeholder": "搜索颜色名称或十六进制颜色值…",
+      "terminal-number": "{number} · ANSI {index}",
+      "title": "配色方案查看器"
+    },
     "plugins": {
       "browse-store": "浏览插件",
       "panels": {
@@ -1663,7 +1731,7 @@
         "incompatible-plugin-api": "插件 API 不兼容",
         "remove": "移除插件",
         "requires": "依赖：{dependencies}",
-        "search-empty": "没有找到与“{query}”匹配的插件。",
+        "search-empty": "没有与“{query}”匹配的插件。",
         "search-placeholder": "搜索已安装插件",
         "title": "插件",
         "update-all": "全部更新（{count}）",
@@ -1715,18 +1783,18 @@
         "installed": "已安装",
         "loading": "正在加载目录…",
         "no-readme": "没有可用的描述。",
-        "not-listed": "未列出",
+        "not-listed": "已下架",
         "open-page": "在 noctalia.dev 上打开插件页面",
         "open-source": "打开插件源码仓库",
         "recommend": "推荐",
-        "recommendation-error": "更改未确认。您之前的推荐保持不变。请重试相同更改以同步状态。",
-        "recommendation-not-recommendable": "此插件无法接受此推荐。",
-        "recommendation-pending": "正在发送推荐…",
-        "recommendation-protocol-error": "服务返回了意外响应。您之前的推荐保持不变。",
-        "recommendation-rate-limited": "请求过多。请稍候再重试此更改。",
-        "recommendation-retry": "重试推荐更改",
+        "recommendation-error": "未能确认更改。原有推荐状态不变，请重试相同操作以同步状态。",
+        "recommendation-not-recommendable": "该插件无法接受本次推荐。",
+        "recommendation-pending": "正在提交推荐…",
+        "recommendation-protocol-error": "服务响应异常。原有推荐状态不变。",
+        "recommendation-rate-limited": "请求过于频繁，请稍后重试此操作。",
+        "recommendation-retry": "重试推荐操作",
         "recommendation-state-error": "无法读取或保存推荐状态。请检查 state.toml 后重试。",
-        "recommendation-unavailable": "推荐暂时不可用。您之前的推荐保持不变。您可以稍后重试。",
+        "recommendation-unavailable": "推荐暂时不可用。原有推荐状态不变，请稍后重试。",
         "remove-recommendation": "取消推荐",
         "results-count": "共 {count} 个插件",
         "search-placeholder": "搜索插件…",
@@ -1815,6 +1883,11 @@
           "description": "覆盖自动检测的语言设置",
           "label": "语言"
         },
+        "palette-inspector": {
+          "button": "查看颜色",
+          "description": "查看当前配色方案中的模板颜色名称、色样和十六进制颜色值",
+          "label": "配色方案查看器"
+        },
         "palette-source": {
           "description": "选择配色方案的来源",
           "label": "配色方案来源"
@@ -1832,8 +1905,16 @@
           "label": "纯黑"
         },
         "shell-theme-mode": {
-          "description": "固定 Noctalia 的浅色或深色模式；选择“跟随”则与主题模式保持同步",
+          "description": "固定 Noctalia 的浅色或深色模式；“跟随”与主题模式保持同步",
           "label": "Shell 主题模式"
+        },
+        "show-close-buttons": {
+          "description": "在面板、Toast 通知、弹窗、对话框和设置窗口中显示关闭按钮",
+          "label": "显示关闭按钮"
+        },
+        "sync-color-scheme": {
+          "description": "使浏览器和其他应用读取的系统深色/浅色偏好跟随主题模式",
+          "label": "同步应用配色方案"
         },
         "theme-mode": {
           "description": "选择深色、浅色，或根据时段自动切换；应用主题也会通过模板同步",
@@ -1864,6 +1945,10 @@
       "bar": {
         "auto-hide": {
           "description": "“关闭”时保持状态栏可见；“开启”时隐藏，直到将鼠标指针移至屏幕边缘；“智能”模式会在空工作区显示，并在有窗口时隐藏"
+        },
+        "auto-hide-delay": {
+          "description": "鼠标指针移开后等待指定时长再隐藏状态栏；设为 0 使立即隐藏",
+          "label": "自动隐藏延迟"
         },
         "background-opacity": {
           "description": "状态栏的背景不透明度"
@@ -1963,15 +2048,15 @@
           "description": "状态栏两端与屏幕边缘的距离；设为 0 时显示为全宽或全高"
         },
         "font-family": {
-          "description": "状态栏上小组件的字体；留空时继承全局字体（单独设置的小组件字体将覆盖此项）",
+          "description": "状态栏小组件的字体；留空时继承全局字体（单独设置的小组件字体将覆盖此项）",
           "label": "字体"
         },
         "font-scale": {
-          "description": "状态栏上小组件文本的缩放比例；各小组件的字体缩放会在此基础上叠加",
+          "description": "状态栏小组件文本的缩放比例；各小组件的字体缩放会在此基础上叠加",
           "label": "字体缩放"
         },
         "font-weight": {
-          "description": "状态栏上小组件标签的默认字重。",
+          "description": "状态栏小组件标签的默认字重。",
           "label": "字重"
         },
         "hover-highlight": {
@@ -2003,8 +2088,8 @@
           "label": "切换工作区时显示"
         },
         "show-tooltip": {
-          "description": "显示此状态栏上小组件的悬停提示；小组件自身的“显示提示”设置将覆盖此项",
-          "label": "显示提示"
+          "description": "状态栏小组件的悬停提示；小组件自身的“文字提示”设置将覆盖此项",
+          "label": "文字提示"
         },
         "start-widgets": {
           "description": "状态栏起始（左侧/顶部）的小组件",
@@ -2019,11 +2104,11 @@
           "label": "小组件胶囊"
         },
         "widget-color": {
-          "description": "状态栏上小组件图标和标签的默认颜色；支持固定的十六进制颜色值",
+          "description": "状态栏小组件图标和标签的默认颜色；支持固定的十六进制颜色值",
           "label": "小组件颜色"
         },
         "widget-icon-color": {
-          "description": "覆盖状态栏上小组件图标的颜色；支持固定的十六进制颜色值",
+          "description": "覆盖状态栏小组件图标的颜色；支持固定的十六进制颜色值",
           "label": "小组件图标颜色"
         },
         "widget-spacing": {
@@ -2381,7 +2466,7 @@
           "label": "指纹解锁"
         },
         "grace-period": {
-          "description": "锁定后允许在此时长内免密码解锁；按下任意键或移动鼠标即可解锁。设为 0 时始终需要密码",
+          "description": "锁定后允许在指定秒数内，按下任意键或移动鼠标免密解锁。设为 0 时始终需要密码",
           "label": "宽限期"
         },
         "lock-before-suspend": {
@@ -2514,7 +2599,7 @@
       },
       "panels": {
         "border-color": {
-          "description": "悬浮面板的轮廓颜色；主题角色名称跟随当前主题，或选择自定义颜色",
+          "description": "悬浮面板的轮廓颜色；主题色随当前主题变化，或选择自定义颜色",
           "label": "边框颜色"
         },
         "border-width": {
@@ -2574,8 +2659,12 @@
           "label": "自动粘贴"
         },
         "launcher-categories": {
-          "description": "在启动器中显示类别筛选；按 F6 显示和切换，Shift+F6 反向切换",
+          "description": "在搜索框下方显示“全部”、“最近使用”和分类标签",
           "label": "显示类别"
+        },
+        "launcher-category-icons-only": {
+          "description": "应用类别仅显示图标，悬停时显示完整名称",
+          "label": "仅显示类别图标"
         },
         "launcher-compact": {
           "description": "使用更小的图标和更紧凑的结果行",
@@ -2584,6 +2673,10 @@
         "launcher-currency-exchange": {
           "description": "从第三方在线来源获取汇率",
           "label": "货币汇率换算"
+        },
+        "launcher-default-view": {
+          "description": "选择启动器默认显示的视图",
+          "label": "默认视图"
         },
         "launcher-global-calculator": {
           "description": "在无前缀搜索中显示计算器",
@@ -2610,15 +2703,19 @@
           "label": "全局搜索中的窗口"
         },
         "launcher-grid": {
-          "description": "当搜索结果仅包含应用时，以网格形式显示应用图标，并在图标下方显示名称",
-          "label": "应用网格视图"
+          "description": "以图标网格而非列表形式显示结果和搜索源概览",
+          "label": "网格视图"
         },
         "launcher-ignored-panels": {
           "description": "面板搜索源不会列出的面板（例如身份验证提示、设置向导）",
           "label": "忽略的面板"
         },
+        "launcher-layout": {
+          "description": "“完整”布局包含视图选项卡，带有个人资料和快捷项的工具栏；“简洁”布局仅显示搜索框、可选的类别标签和搜索结果",
+          "label": "布局"
+        },
         "launcher-pinned-apps": {
-          "description": "固定到启动器的应用桌面项 ID；打开启动器时优先显示",
+          "description": "在“已固定”视图中按自定义顺序显示的桌面项 ID",
           "label": "已固定应用"
         },
         "launcher-prefix-calculator": {
@@ -2651,8 +2748,12 @@
         },
         "launcher-reset-usage": {
           "button": "重置",
-          "description": "清除用于启动器排序的启动次数和最近使用记录",
+          "description": "清除用于“最近使用”和按使用频率排序的启动器历史记录",
           "label": "重置使用数据"
+        },
+        "launcher-search-position": {
+          "description": "将启动器工具栏放置在顶部或底部",
+          "label": "工具栏位置"
         },
         "launcher-session-search": {
           "description": "将会话操作（锁定、挂起、重启、关机、注销）纳入启动器搜索结果，而不仅限于使用 /session 前缀搜索",
@@ -2662,9 +2763,25 @@
           "description": "在启动器搜索结果中显示应用图标",
           "label": "显示应用图标"
         },
+        "launcher-show-session-button": {
+          "description": "显示会话操作的快捷项",
+          "label": "显示会话按钮"
+        },
+        "launcher-show-settings-button": {
+          "description": "显示 Noctalia 设置的快捷项",
+          "label": "显示设置按钮"
+        },
         "launcher-sort-by-usage": {
-          "description": "优先显示常用应用，并显示“最近使用”类别筛选器",
+          "description": "浏览和搜索时优先显示常用结果",
           "label": "按使用情况排序"
+        },
+        "launcher-track-usage": {
+          "description": "记录用于“最近使用”和按使用频率排序的启动器历史记录",
+          "label": "记录使用情况"
+        },
+        "launcher-width": {
+          "description": "设置启动器面板的宽度",
+          "label": "启动器宽度"
         },
         "list-item-background": {
           "description": "为每个启动器和剪贴板列表项绘制圆角背景",
@@ -2750,7 +2867,7 @@
           "label": "透明效果"
         },
         "wallpaper-show-names": {
-          "description": "在壁纸选择器中为每个缩略图标注文件名。",
+          "description": "在壁纸选择器中为每个缩略图标注文件名",
           "label": "显示文件名"
         }
       },
@@ -2801,8 +2918,8 @@
           "label": "合并重复日程"
         },
         "calendar-dedupe-ignore-patterns": {
-          "description": "在比较前从日程标题中移除的正则表达式，使仅匹配部分不同的标题仍能合并",
-          "label": "合并时忽略标题中的匹配项"
+          "description": "在比较前匹配并移除日程标题中特定内容的正则表达式，使仅匹配部分不同的日程仍可合并",
+          "label": "合并时忽略的标题模式"
         },
         "calendar-digest-time": {
           "description": "每天发送全天日程汇总通知的时间；留空时禁用",
@@ -2913,16 +3030,16 @@
           "placeholder": "/path/to/sound.wav"
         },
         "notification-sounds": {
-          "description": "通知到达时播放声音",
-          "label": "通知声音"
+          "description": "收到通知时播放提示音",
+          "label": "通知提示音"
         },
         "power-sounds": {
-          "description": "充电器连接或断开时播放声音",
-          "label": "电源声音"
+          "description": "充电器连接或断开时播放提示音",
+          "label": "电源提示音"
         },
         "screenshot-sounds": {
-          "description": "截图时播放声音",
-          "label": "截图声音"
+          "description": "截图时播放提示音",
+          "label": "截图提示音"
         },
         "shell-sounds": {
           "description": "Shell 音效的总开关",
@@ -3000,8 +3117,8 @@
           "placeholder": "/path/to/sound.wav"
         },
         "volume-sounds": {
-          "description": "输出或输入音量变化时播放声音",
-          "label": "音量声音"
+          "description": "输出或输入音量变化时播放提示音",
+          "label": "音量提示音"
         },
         "weather": {
           "description": "启用天气服务，数据来自 open-meteo.com",
@@ -3169,7 +3286,7 @@
           "label": "边框"
         },
         "osd-border-color": {
-          "description": "OSD 弹窗的边框颜色；也支持固定的十六进制颜色值",
+          "description": "OSD 弹窗的边框颜色；支持固定的十六进制颜色值",
           "label": "边框颜色"
         },
         "osd-border-width": {
@@ -3354,6 +3471,10 @@
           "description": "将截取的 PNG 图片通过 stdin 传递给 Shell 命令",
           "label": "通过管道传递给命令"
         },
+        "screenshot-region-modifier": {
+          "description": "用于移动或调整选区大小的修饰键：按住该键并用鼠标左键拖动可移动选区，右键拖动选区边缘可调整大小（拖动四角可同时调整宽高）；选择“无”（默认）时保持直接拖动调整选区的方式",
+          "label": "移动/调整大小修饰键"
+        },
         "screenshot-remember-last-region": {
           "description": "下次区域截图时自动选中上次的选区（即使上次已取消）",
           "label": "记住上次选区"
@@ -3394,6 +3515,10 @@
         "time-format": {
           "description": "Shell UI 的默认时间格式",
           "label": "时间格式"
+        },
+        "umbriel-audio-provider": {
+          "description": "始终向 Umbriel 特效提供音频频谱，即使未使用音频可视化小组件",
+          "label": "向 Umbriel 提供音频"
         },
         "umbriel-overview-type-to-launch": {
           "description": "在 umbriel 概览中键入时打开启动器；进入概览后，将通过一个极小的输入界面接收键盘输入",
@@ -4352,7 +4477,7 @@
           "label": "隐藏托盘项"
         },
         "hidden-workspaces": {
-          "description": "窗口不显示在任务栏中的工作区名称，除非该工作区为活动状态",
+          "description": "在非活动状态下，不在任务栏显示窗口的工作区名称",
           "label": "隐藏的工作区"
         },
         "hide-album-art": {
@@ -4401,7 +4526,7 @@
           "label": "无设备连接时隐藏"
         },
         "hide-when-no-media": {
-          "description": "没有活动的 MPRIS 播放器时隐藏媒体小组件",
+          "description": "没有活动的 MPRIS 播放器时隐藏小组件",
           "label": "无媒体时隐藏"
         },
         "hide-when-no-unread": {
@@ -4643,6 +4768,10 @@
           "description": "填充小组件背景以显示播放进度",
           "label": "显示播放进度"
         },
+        "show-running": {
+          "description": "显示正在运行但未固定的应用窗口",
+          "label": "显示运行中的应用"
+        },
         "show-scroll-lock": {
           "description": "显示滚动锁定状态",
           "label": "显示滚动锁定"
@@ -4652,8 +4781,8 @@
           "label": "显示气温"
         },
         "show-tooltip": {
-          "description": "悬停时显示此小组件的提示",
-          "label": "显示提示"
+          "description": "悬停时显示小组件的文字提示",
+          "label": "文字提示"
         },
         "show-unlock-hint": {
           "description": "在登录框上方显示状态卡片，提示解锁和身份验证；关闭后仍会显示错误信息和大写锁定提示",

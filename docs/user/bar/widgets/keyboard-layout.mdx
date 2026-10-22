@@ -7,6 +7,8 @@ sidebar:
 
 Shows the current keyboard layout indicator from the active XKB state.
 
+While fcitx5 is running with its tray icon enabled, the widget shows the active fcitx5 input method instead. The name fcitx5 reports (for example `Mozc` or `Keyboard - English (US)`) goes through `custom_labels` and `display` like a layout name; a name with no compact form, such as `Mozc`, is shown as reported. `hide_when_single_layout` does not hide the widget while an input method is active.
+
 Left-click cycles layouts using the compositor backend when supported. Bind `left` to an `exec` action to run a custom command instead - see [Widget Actions](/noctalia/bar/actions/).
 
 | Setting | Type | Default | Description |

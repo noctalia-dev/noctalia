@@ -568,6 +568,9 @@ Behavior:
 - `post_hook` runs after a template is processed successfully, even when rendered output was unchanged
 - `closest_color` is available inside hooks
 
+Failed hooks whose stderr begins with `Warning:` show their diagnostic in Settings. Other hook failures are
+logged without a Settings banner.
+
 By default `post_hook` commands from different entries run in the background: they can overlap and finish in any order,
 and at most four run at a time. Set `hook_async = false` on an entry whose hook must not overlap with another one, for
 example when two entries restart or reconfigure the same application.

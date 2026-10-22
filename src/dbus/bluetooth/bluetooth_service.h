@@ -3,6 +3,7 @@
 #include "core/timer_manager.h"
 
 #include <cstdint>
+#include <deque>
 #include <functional>
 #include <memory>
 #include <optional>
@@ -108,6 +109,9 @@ public:
 
   void refreshBatteryFromUPower();
 
+  // [bluetooth].connect_when_enabled; disabling cancels a queued or running connect pass.
+  void setConnectWhenEnabled(bool enabled);
+
 private:
   struct Impl;
   friend struct Impl;
@@ -117,13 +121,15 @@ private:
   void emitState(BluetoothStateChangeOrigin origin = BluetoothStateChangeOrigin::External);
   void emitDevices();
 
-  /// Actively reconnect trusted+paired devices after the adapter powers on or at startup: BlueZ
-  /// keeps them Trusted but does not dial out to them, so many devices (audio especially) stay
-  /// disconnected until the host calls Connect(). Retries a few times with backoff to let the
-  /// controller and devices settle.
-  void scheduleAutoReconnect();
-  void armAutoReconnect();
-  void runAutoReconnectPass();
+  /// One connect pass over paired, trusted, disconnected devices when the adapter comes up (power-on,
+  /// startup, resume). Devices go one at a time, each after the previous Connect() replies: the
+  /// controller pages serially, and parallel attempts hold off devices that reconnect on their own.
+  void requestConnectPass();
+  void cancelConnectPass();
+  void startConnectPass();
+  void connectNextQueued();
+  // Calls onReply after the Connect() reply (success or error), not when dispatch fails.
+  bool dispatchConnect(const std::string& devicePath, std::function<void()> onReply);
 
   bool applyUPowerBattery();
 
@@ -133,8 +139,11 @@ private:
   std::vector<BluetoothDeviceInfo> m_devices;
   std::optional<bool> m_pendingLocalPowered;
   std::uint64_t m_pendingPoweredRevision = 0;
-  Timer m_autoReconnectTimer;
-  int m_autoReconnectAttempt = 0;
+  Timer m_connectPassTimer;
+  std::deque<std::string> m_connectQueue;
+  std::uint64_t m_connectPassGeneration = 0;
+  bool m_connectPassActive = false;
+  bool m_connectWhenEnabled = false;
   bool m_hasStateSnapshot = false;
   StateCallback m_stateCallback;
   DevicesCallback m_devicesCallback;

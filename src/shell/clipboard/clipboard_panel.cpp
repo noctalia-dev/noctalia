@@ -39,6 +39,7 @@ namespace {
   constexpr float kListGlyphSize = 24.0F;
   constexpr float kListThumbSize = 40.0F;
   constexpr float kListPinGlyphSize = 16.0F;
+  constexpr float kPreviewPlaceholderGlyphSize = 64.0F;
   constexpr std::size_t kListOverscanRows = 3;
   constexpr auto kPreviewPayloadDebounceInterval = std::chrono::milliseconds(75);
   constexpr auto kFilterDebounceInterval = std::chrono::milliseconds(120);
@@ -137,8 +138,26 @@ namespace {
     return buffer;
   }
 
+  // "image/heic" -> "HEIC", "image/svg+xml" -> "SVG".
+  std::string imageFormatLabel(std::string_view mimeType) {
+    const std::size_t slash = mimeType.find('/');
+    if (slash == std::string_view::npos) {
+      return {};
+    }
+    std::string_view subtype = mimeType.substr(slash + 1);
+    subtype = subtype.substr(0, subtype.find('+'));
+    std::string label(subtype);
+    std::ranges::transform(label, label.begin(), [](unsigned char c) { return static_cast<char>(std::toupper(c)); });
+    return label;
+  }
+
   std::string formatPreviewMeta(const ClipboardEntry& entry, int imageWidth = 0, int imageHeight = 0) {
     std::string meta = formatTimeAgo(entry.capturedAt) + "  •  " + formatBytes(entry.byteSize);
+    if (entry.isImage()) {
+      if (const std::string format = imageFormatLabel(entry.dataMimeType); !format.empty()) {
+        meta += "  •  " + format;
+      }
+    }
     if (imageWidth > 0 && imageHeight > 0) {
       meta += "  •  " + std::to_string(imageWidth) + "x" + std::to_string(imageHeight);
     }
@@ -953,6 +972,7 @@ void ClipboardPanel::onClose() {
   m_previewScrollView = nullptr;
   m_previewContent = nullptr;
   m_previewImage = nullptr;
+  m_previewPlaceholder = nullptr;
   m_previewPayloadDebounceTimer.stop();
   m_filterDebounceTimer.stop();
   m_pendingFilterQuery.clear();
@@ -1143,6 +1163,7 @@ void ClipboardPanel::rebuildPreview(Renderer& renderer, float width, float heigh
     m_previewContent->removeChild(m_previewContent->children().front().get());
   }
   m_previewImage = nullptr;
+  m_previewPlaceholder = nullptr;
 
   const auto& history = m_clipboard != nullptr ? m_clipboard->history() : std::deque<ClipboardEntry>{};
   const std::size_t historyIndex = selectedHistoryIndex();
@@ -1192,14 +1213,39 @@ void ClipboardPanel::rebuildPreview(Renderer& renderer, float width, float heigh
     const float scale = contentScale();
     const float imageHeight =
         std::min(kPreviewImageHeight * scale, std::max(180.0F * scale, height - Style::spaceMd * scale));
+    // The image stays hidden until a texture arrives. Formats the decoder cannot handle (for
+    // example HEIC/AVIF without libheif) never produce one, so the placeholder glyph remains and
+    // the entry is still listed and pasteable.
     auto image = ui::image({
         .fit = ImageFit::Contain,
         .width = width,
         .height = imageHeight,
+        .visible = false,
+        .participatesInLayout = false,
     });
     m_previewImage = image.get();
+    auto placeholder = ui::glyph({
+        .out = &m_previewPlaceholder,
+        .glyph = "photo",
+        .glyphSize = kPreviewPlaceholderGlyphSize * scale,
+        .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+        .width = width,
+        .height = imageHeight,
+    });
+    const auto showLoadedImage = [this]() {
+      if (m_previewImage == nullptr || !m_previewImage->hasImage()) {
+        return false;
+      }
+      m_previewImage->setVisible(true);
+      m_previewImage->setParticipatesInLayout(true);
+      if (m_previewPlaceholder != nullptr) {
+        m_previewPlaceholder->setVisible(false);
+        m_previewPlaceholder->setParticipatesInLayout(false);
+      }
+      return true;
+    };
     const int previewTargetSize = static_cast<int>(std::ceil(std::max(width, imageHeight)));
-    image->setAsyncReadyCallback([this, historyIndex]() {
+    image->setAsyncReadyCallback([this, historyIndex, showLoadedImage]() {
       if (m_clipboard == nullptr
           || m_previewMeta == nullptr
           || m_previewImage == nullptr
@@ -1207,7 +1253,7 @@ void ClipboardPanel::rebuildPreview(Renderer& renderer, float width, float heigh
         return;
       }
       const auto& currentHistory = m_clipboard->history();
-      if (historyIndex >= currentHistory.size() || !m_previewImage->hasImage()) {
+      if (historyIndex >= currentHistory.size() || !showLoadedImage()) {
         return;
       }
       m_previewMeta->setText(
@@ -1219,12 +1265,13 @@ void ClipboardPanel::rebuildPreview(Renderer& renderer, float width, float heigh
       const auto imageSource = m_clipboard->imageDataUri(historyIndex);
       if (imageSource.has_value()) {
         (void)image->setSourceFileAsync(renderer, *m_asyncTextures, *imageSource, previewTargetSize);
-        if (image->hasImage()) {
+        if (showLoadedImage()) {
           m_previewMeta->setText(formatPreviewMeta(entry, image->sourceWidth(), image->sourceHeight()));
         }
       }
     }
     m_previewContent->addChild(std::move(image));
+    m_previewContent->addChild(std::move(placeholder));
   } else {
     Color previewColor;
     if (tryParseCssColor(entry.textPreview, previewColor)) {

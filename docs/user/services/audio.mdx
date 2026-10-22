@@ -36,6 +36,10 @@ sound_theme                = "freedesktop"
   changes), `power-plug` / `power-unplug` (laptop charger connected or removed), and `screen-capture`
   (screenshots). If a theme lacks the exact event, its trailing dash components are stripped (e.g.
   `message-new-instant`, then `message-new`, then `message`) before trying parent themes.
+- Sounds play as a PipeWire stream with `media.role=Notification`. WirePlumber shares one saved volume, mute state,
+  and output device across all Notification-role streams, shown as "System Sounds" in pavucontrol, GNOME, and KDE. If
+  shell sounds are silent while other audio works, see the
+  [FAQ entry](/noctalia/getting-started/faq/#troubleshooting).
 
 Noctalia reconnects automatically if the PipeWire daemon restarts or is temporarily unavailable. Audio devices and
 controls disappear while the daemon is offline and repopulate after PipeWire and its session manager are ready again.

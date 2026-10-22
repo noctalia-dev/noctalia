@@ -52,6 +52,7 @@ optional settings schema. The supported entry kinds:
 | `[[launcher_provider]]` | Launcher provider | Answers launcher queries with results, behind a prefix |
 | `[[desktop_widget]]` | Desktop widget | A tile on the desktop; declares its UI as a `ui.*` tree |
 | `[[panel]]` | Panel | A pop-up surface; declares its UI as a `ui.*` tree, opened by id |
+| `[[layer]]` | Layer surface | A plugin-owned layer-shell surface; declares its UI as a `ui.*` tree, shown and hidden by id |
 | `[[service]]` | Headless service | Background loop, no UI - feeds the plugin's other entries |
 
 An entry is addressed `<author>/<plugin>:<entry-id>` - e.g. a bar widget is configured with
@@ -115,6 +116,44 @@ hover_highlight = false
 
 This removes only the whole-widget tint; the widget still receives clicks and scrolls.
 `[bar.<name>] hover_highlight = false` still turns the tint off for every widget on that bar.
+
+### Layer entries
+
+A `[[layer]]` entry <PluginApiBadge feature="layer-entry" /> declares a plugin-owned layer-shell surface. A manifest
+with a `[[layer]]` entry and a lower `plugin_api` is rejected with `layer entry '<id>' requires plugin_api >= 36`. See
+[Layer surfaces](/noctalia/plugins/development/entries/#layer-surfaces) for how layers behave at runtime.
+
+```toml
+[[layer]]
+id = "saver"
+entry = "saver.luau"
+layer = "overlay"
+anchors = ["top", "bottom", "left", "right"]
+keyboard = "exclusive"
+```
+
+| Key | Type | Default | Notes |
+|-----|------|---------|-------|
+| `layer` | string | `"top"` | `"background"`, `"bottom"`, `"top"`, or `"overlay"` |
+| `anchors` | array of strings | `[]` (centered) | Any distinct subset of `"top"`, `"bottom"`, `"left"`, `"right"` |
+| `width` | integer | `0` | Logical px, 0 to 65536. `0` stretches when anchored to both `left` and `right`, otherwise sizes to content |
+| `height` | integer | `0` | Same as `width`, for `top` and `bottom` |
+| `margins` | table | all `0` | Integer `top`, `right`, `bottom`, `left`; missing sides are `0` |
+| `exclusive_zone` | integer or `"auto"` | `0` | Integer >= -1 with layer-shell semantics: `-1` ignores other surfaces' zones, `0` reserves none, `n` reserves `n` px. `"auto"` reserves the surface's extent perpendicular to its single anchored edge; corner or centered anchoring reserves nothing |
+| `keyboard` | string | `"none"` | `"none"`, `"on_demand"`, or `"exclusive"`. When an `"on_demand"` layer gets focus is up to the compositor: some (umbriel) focus it when it appears, others only on click |
+| `click_through` | bool | `false` | `true` gives the surface an empty input region, so the pointer reaches what is below |
+| `output` | string | `"all"` | `"all"`, `"focused"` (picked when shown), or a connector name such as `"DP-1"` |
+| `visible` | bool | `false` | `true` shows the layer as soon as the plugin loads |
+
+Invalid values fail with `layer entry '<id>': <message>`, for example
+`layer must be "background", "bottom", "top", or "overlay"` or `exclusive_zone must be "auto" or an integer >= -1`.
+
+The surface namespace is fixed to `noctalia-plugin:<author>/<plugin>:<entry>`, so compositor layer rules can match it;
+it is not configurable. Values changed at runtime with
+[`noctalia.layer.configure`](/noctalia/plugins/development/runtime-api/#layers) persist until the plugin reloads
+(a settings change or update), then return to the manifest values.
+
+Layers do not support entry-level settings (`[[layer.setting]]`); use plugin-level `[[setting]]` instead.
 
 ## Settings schema
 

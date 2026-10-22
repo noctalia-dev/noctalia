@@ -12,6 +12,20 @@ the insertion hint, fullscreen backdrop, and overview tint.
 
 Enable **Umbriel** under **Settings → Templates → Compositors**.
 
-Noctalia writes the rendered template to `~/.config/umbriel/noctalia.toml` and adds
-it to the `files` array in the `[include.optional]` section of `config.toml`. Existing include
-entries are preserved. Umbriel reloads both files automatically when they change.
+Noctalia writes the rendered template to `~/.config/umbriel/noctalia.toml` and, when
+`~/.config/umbriel/config.toml` already exists and is writable, adds it to the `files`
+array in the `[include.optional]` section. Existing include entries are preserved.
+Both paths honor `$XDG_CONFIG_HOME`. Umbriel reloads both files automatically when they change.
+
+If the primary user config is absent, Noctalia leaves it absent and warns that manual setup is required.
+Add the generated file to the config Umbriel actually loads, for example:
+
+```toml
+[include.optional]
+files = ["/home/you/.config/umbriel/noctalia.toml"]
+```
+
+Replace `/home/you/.config` with your resolved config directory and preserve any existing `files` entries.
+Use an absolute path when including the theme from a system or custom config. For declarative configs,
+add the include in the source that manages them. See [Compositor Configuration](/noctalia/theming/app-theming/#compositor-configuration)
+for setup and recovery instructions.

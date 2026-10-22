@@ -170,6 +170,7 @@ public:
   void setKeyboardEventCallback(WaylandSeat::KeyboardEventCallback callback);
   void setKeyboardModifiersCallback(WaylandSeat::KeyboardModifiersCallback callback);
   void setLockKeysChangeCallback(WaylandSeat::LockKeysChangeCallback callback);
+  void setKeyboardLayoutChangeCallback(WaylandSeat::KeyboardLayoutChangeCallback callback);
   /// Fired when both `ext_idle_notifier_v1` and `wl_seat` are bound (including late registry globals).
   void setIdleCapabilitiesReadyCallback(ChangeCallback callback);
   void setClipboardService(ClipboardService* clipboardService);
@@ -226,6 +227,9 @@ public:
   [[nodiscard]] ext_idle_notifier_v1* idleNotifier() const noexcept;
   /// Inhibitor-aware idle notification (`get_idle_notification`); honors `zwp_idle_inhibitor_v1`.
   [[nodiscard]] ext_idle_notification_v1* createIdleNotification(std::uint32_t timeoutMs) const;
+  /// Input-only idle notification (`get_input_idle_notification`, notifier v2); ignores idle inhibitors.
+  /// Returns null when the compositor's notifier is older than v2.
+  [[nodiscard]] ext_idle_notification_v1* createInputIdleNotification(std::uint32_t timeoutMs) const;
   [[nodiscard]] zwp_idle_inhibit_manager_v1* idleInhibitManager() const noexcept;
   [[nodiscard]] const std::vector<WaylandOutput>& outputs() const noexcept;
   [[nodiscard]] WaylandOutput* findOutputByWl(wl_output* wlOutput);
@@ -247,6 +251,7 @@ public:
   [[nodiscard]] std::vector<ToplevelInfo>
   extWindowsForApp(const std::string& idLower, const std::string& wmClassLower) const;
   [[nodiscard]] std::vector<ToplevelInfo> extWindowsWithoutAppId() const;
+  [[nodiscard]] ext_foreign_toplevel_handle_v1* extHandleForIdentifier(std::string_view identifier) const;
   [[nodiscard]] bool containsWlrToplevelHandle(zwlr_foreign_toplevel_handle_v1* handle) const;
   template <typename Fn> void visitExtToplevelHandles(Fn&& fn) const {
     m_extForeignToplevels.visitExtHandles(std::forward<Fn>(fn));

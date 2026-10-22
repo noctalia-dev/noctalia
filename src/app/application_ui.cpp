@@ -116,6 +116,15 @@ namespace {
     }
     return false;
   }
+
+  [[nodiscard]] bool overviewCloseOnLaunchEnabled(const ConfigService& configService) {
+    if (compositors::isUmbriel()) {
+      return configService.config().shell.umbrielOverviewCloseOnLaunchEnabled;
+    } else if (compositors::isNiri()) {
+      return configService.config().shell.niriOverviewCloseOnLaunchEnabled;
+    }
+    return false;
+  }
 } // namespace
 
 void Application::initUi() {
@@ -361,6 +370,8 @@ void Application::initLockScreenAndSession() {
         m_hookManager.fire(HookKind::SessionUnlocked);
         releaseSleepDelayInhibitIfPending();
         requestAllSurfacesRedraw();
+        // The bar skipped ticks while locked; refresh it now rather than at the next minute.
+        DeferredCall::callLater([this]() { m_timeService.forceTick(); });
         if (m_logindService != nullptr) {
           m_logindService->setSessionLockedHint(false);
         }
@@ -437,6 +448,9 @@ void Application::initInputDispatch() {
     if (m_screenshotService.onPointerEvent(event)) {
       return;
     }
+    if (m_pluginLayerHost.onPointerEvent(event)) {
+      return;
+    }
     if (m_lockscreenWidgetsController.onPointerEvent(event)) {
       return;
     }
@@ -505,6 +519,9 @@ void Application::initInputDispatch() {
     }
     if (m_desktopWidgetsController.isEditing()) {
       m_desktopWidgetsController.onKeyboardEvent(event);
+      return;
+    }
+    if (m_pluginLayerHost.onKeyboardEvent(event)) {
       return;
     }
     if (m_settingsWindow.ownsKeyboardSurface(m_wayland.lastKeyboardSurface())) {
@@ -656,6 +673,12 @@ void Application::initPanelManagerAndPanels() {
         });
       });
     });
+    launcherPanel->setOnAppLaunchCallback([this]() {
+      if (!overviewCloseOnLaunchEnabled(m_configService)) {
+        return;
+      }
+      (void)m_compositorPlatform.closeOverview();
+    });
     m_launcherPanel = launcherPanel.get();
     m_panelManager.registerPanel("launcher", std::move(launcherPanel));
   }
@@ -686,6 +709,8 @@ void Application::initPanelManagerAndPanels() {
   reloadPluginLauncherProviders();
   reloadDmenuProviders();
   reloadPluginPanels();
+  reloadPluginLayers();
+  m_configService.addReloadCallback([this]() { m_pluginLayerHost.onConfigReload(); });
   m_overviewLauncherCapture.initialize(m_wayland, &m_renderContext, m_compositorPlatform, m_panelManager);
   m_overviewLauncherCapture.setEnabled(overviewTypeToLaunchEnabled(m_configService));
   m_overviewLauncherCapture.setOpenLauncherCallback(
@@ -769,8 +794,17 @@ void Application::initNotificationAndOsd() {
   );
   m_configService.addReloadCallback([this]() { m_windowSwitcher.onConfigReload(); });
   m_configService.addReloadCallback([this]() { m_osdOverlay.onConfigReload(); });
+  m_scriptApi.setShowOsdHook(
+      [this](const std::string& icon, const std::string& value, std::optional<double> progress, bool inactive) {
+        m_osdOverlay.show(customOsdContent(icon, value, progress, inactive));
+      }
+  );
   m_idleGraceOverlay.initialize(m_wayland, &m_renderContext);
-  m_wayland.setIdleCapabilitiesReadyCallback([this]() { m_idleManager.reload(m_configService.config().idle); });
+  m_pluginIdleWatches.initialize(m_wayland);
+  m_wayland.setIdleCapabilitiesReadyCallback([this]() {
+    m_idleManager.reload(m_configService.config().idle);
+    m_pluginIdleWatches.onCapabilitiesReady();
+  });
   m_idleManager.initialize(
       m_wayland,
       [this](
@@ -817,8 +851,10 @@ void Application::initNotificationAndOsd() {
     if (m_screenSaverService->active()) {
       m_screenSaverService->setChangeCallback([this](std::int64_t locks) {
         m_idleManager.setScreenSaverInhibitLocks(locks);
+        m_pluginIdleWatches.setScreenSaverInhibited(locks > 0);
       });
       m_idleManager.setScreenSaverInhibitLocks(m_screenSaverService->inhibitLocks());
+      m_pluginIdleWatches.setScreenSaverInhibited(m_screenSaverService->inhibitLocks() > 0);
     } else {
       m_screenSaverService.reset();
     }
@@ -1107,7 +1143,7 @@ void Application::initWidgetControllersAndCallbacks() {
       "shell-language-direction"
   );
 
-  m_timeService.setTickSecondCallback([this]() {
+  m_timeService.setTickCallback([this]() {
     m_wallpaper.onSecondTick();
     if (m_lockScreen.isActive()) {
       m_lockscreenWidgetsController.onSecondTick();
@@ -1116,12 +1152,10 @@ void Application::initWidgetControllersAndCallbacks() {
       m_desktopWidgetsController.onSecondTick();
       m_lockscreenWidgetsController.onSecondTick();
       m_settingsWindow.onSecondTick();
-      if (m_configService.config().osd.kinds.keyboardLayout) {
-        m_keyboardLayoutOsd.onLayoutChanged(m_compositorPlatform, m_configService.config());
-      }
     }
-    m_idleManager.onSecondTick();
   });
+  m_timeService.setPrecisionProvider([this]() { return timePrecisionNeeded(); });
+  m_timeService.setDeadlineProvider([this]() { return m_wallpaper.nextAutomationDeadline(); });
 
   if (m_pipewireService != nullptr) {
     m_audioOsd.suppressFor(std::chrono::milliseconds(2000));
@@ -1162,4 +1196,18 @@ void Application::initWidgetControllersAndCallbacks() {
   // never occluded by shell chrome on their shared layer.
   m_screenCorners.initialize(m_wayland, &m_configService, &m_renderContext);
   m_hotCorners.initialize(m_wayland, &m_configService, &m_renderContext);
+}
+
+TimeService::Precision Application::timePrecisionNeeded() const {
+  // Only a visible clock that renders seconds needs the finer boundary. The
+  // bar, desktop, and lockscreen hosts each report only their live widgets.
+  if (m_bar.wantsSecondTicks()
+      || m_desktopWidgetsController.wantsSecondTicks()
+      || m_lockscreenWidgetsController.wantsSecondTicks()
+      || m_settingsWindow.wantsSecondTicks()) {
+    return TimeService::Precision::Second;
+  }
+  // Minute is the idle floor: it settles minute-aligned clocks. Wallpaper
+  // automation wakes through its own deadline instead.
+  return TimeService::Precision::Minute;
 }

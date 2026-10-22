@@ -28,6 +28,11 @@ namespace {
   constexpr float kGraphicTerminalHeight = 7.0F;
   constexpr float kGraphicCornerRadius = 4.0F;
 
+  // The bar updates once a minute unless a widget renders seconds, so a shorter
+  // interval would never be honoured. The second of slack keeps an update that
+  // lands just short of a full minute from pushing the refresh out to two.
+  constexpr auto kTooltipForceRefreshInterval = std::chrono::seconds(59);
+
   const char* batteryStateGlyph(BatteryState state) {
     if (state == BatteryState::Charging) {
       return "bolt-filled";
@@ -408,7 +413,7 @@ void BatteryWidget::syncState(Renderer& renderer) {
 
   const auto now = std::chrono::steady_clock::now();
   const bool forceTimeRefresh = (m_lastTooltipRefreshTime == std::chrono::steady_clock::time_point{})
-      || (now - m_lastTooltipRefreshTime >= std::chrono::seconds(15));
+      || (now - m_lastTooltipRefreshTime >= kTooltipForceRefreshInterval);
 
   if (s.percentage == m_lastPct
       && s.state == m_lastState

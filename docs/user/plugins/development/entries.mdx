@@ -11,21 +11,21 @@ import PluginApiBadge from '../../../../../components/PluginApiBadge.astro';
 A script defines **global functions** that Noctalia calls, and drives the UI through the API namespaces. Which globals
 apply depends on the entry kind:
 
-| Function | Widget | Shortcut | Launcher | Desktop | Panel | Service | When |
-|----------|:------:|:--------:|:--------:|:-------:|:-----:|:-------:|------|
-| `update()` | ✓ | | | ✓ | ✓ | ✓ | every update interval |
-| `onClick()` / `onRightClick()` | ✓ | ✓ | | | | | pointer press |
-| `onMiddleClick()` | ✓ | | | | | | middle press |
-| `onScroll(axis, steps, startsGesture)` | ✓ | | | | | | wheel or touchpad scroll over the widget (see below) |
-| `onQuery(text)` | | | ✓ | | | | launcher text changed (behind the prefix) |
-| `onActivate(id)` | | | ✓ | | | | a launcher result was selected |
-| `onEnable()` | | | | | | ✓ | the plugin was explicitly enabled successfully (see below) |
-| `onOpen(context)` / `onClose()` | | | | | ✓ | | the panel is opened / closed |
-| `onKey(chord, pressed)` | | | | | ✓ | | a `capture_keys` chord while the panel is focused ([details](/noctalia/plugins/development/declarative-ui/#handling-keys-directly)) |
-| `onFrameTick(deltaMs)` | | | | ✓ | ✓ | | every frame, after `desktopWidget.setNeedsFrameTick(true)` / `panel.setNeedsFrameTick(true)` |
-| `onIpc(event, payload)` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | `noctalia msg plugin …` |
-| `onConfigChanged()` | | | | | | ✓ | a plugin setting changed (see below) |
-| `onExit(signal, reason)` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | the entry runtime is about to be destroyed (see below) |
+| Function | Widget | Shortcut | Launcher | Desktop | Panel | Layer | Service | When |
+|----------|:------:|:--------:|:--------:|:-------:|:-----:|:-----:|:-------:|------|
+| `update()` | ✓ | | | ✓ | ✓ | ✓ | ✓ | every update interval |
+| `onClick()` / `onRightClick()` | ✓ | ✓ | | | | | | pointer press |
+| `onMiddleClick()` | ✓ | | | | | | | middle press |
+| `onScroll(axis, steps, startsGesture)` | ✓ | | | | | | | wheel or touchpad scroll over the widget (see below) |
+| `onQuery(text)` | | | ✓ | | | | | launcher text changed (behind the prefix) |
+| `onActivate(id)` | | | ✓ | | | | | a launcher result was selected |
+| `onEnable()` | | | | | | | ✓ | the plugin was explicitly enabled successfully (see below) |
+| `onOpen(context)` / `onClose()` | | | | | ✓ | | | the panel is opened / closed |
+| `onKey(chord, pressed)` | | | | | ✓ | | | a `capture_keys` chord while the panel is focused ([details](/noctalia/plugins/development/declarative-ui/#handling-keys-directly)) |
+| `onFrameTick(deltaMs)` | | | | ✓ | ✓ | ✓ | | every frame, after `desktopWidget.setNeedsFrameTick(true)` / `panel.setNeedsFrameTick(true)` / `layer.setNeedsFrameTick(true)` |
+| `onIpc(event, payload)` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | `noctalia msg plugin …` |
+| `onConfigChanged()` | | | | | | ✓ | ✓ | a plugin setting changed (see below) |
+| `onExit(signal, reason)` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | the entry runtime is about to be destroyed (see below) |
 
 The top level of the script runs once at load - set up state and register `noctalia.state.watch` handlers there.
 
@@ -217,8 +217,69 @@ function onConfigChanged()
 end
 ```
 
-Desktop widgets and panels use declarative `ui.*` trees. See [Declarative UI](/noctalia/plugins/development/declarative-ui/)
-for their rendering APIs and controls.
+### Layer surfaces
+
+A `[[layer]]` entry <PluginApiBadge feature="layer-entry" /> is a plugin-owned layer-shell surface (a full-screen
+overlay, a custom bar, a screensaver). Its manifest keys are listed under
+[Layer entries](/noctalia/plugins/development/manifest/#layer-entries). A layer is lazy: nothing exists until it is
+shown, either with `visible = true` in the manifest or with
+[`noctalia.layer.show(id)`](/noctalia/plugins/development/runtime-api/#layers) from any entry of the same plugin.
+
+- **One runtime per output**: while shown, the layer gets one surface and one runtime for each target output. Hiding
+  destroys both, so runtime state does not survive a hide. Outputs that appear later are covered automatically when
+  `output` is `"all"` or matches their connector.
+- **Input**: pointer and keyboard input drive `ui.*` controls like in a panel. Keys reach the layer only while it holds
+  keyboard focus. With `keyboard = "on_demand"` the compositor decides when that is: some focus the layer when it
+  appears, others only on click, and clicking another window takes focus back. With `keyboard = "exclusive"` the layer
+  takes every key while shown, so keys typed to dismiss it do not reach the app underneath.
+- **IPC**: `onIpc(event, payload)` targets an instance by its output connector, or `all`.
+- **Hot reload**: editing a `.luau` file reloads the layer like any other entry.
+- **Session lock**: lock surfaces always stay above every layer.
+
+An OLED screensaver pairs a service that watches idle time with a full-screen black layer:
+
+```toml
+id = "me/saver"
+name = "Saver"
+version = "1.0.0"
+plugin_api = 36
+
+[[setting]]
+key = "timeout"
+type = "int"
+label_key = "settings.timeout"
+default = 120
+min = 10
+
+[[service]]
+id = "idle"
+entry = "service.luau"
+
+[[layer]]
+id = "screen"
+entry = "screen.luau"
+layer = "overlay"
+anchors = ["top", "bottom", "left", "right"]
+exclusive_zone = -1
+keyboard = "exclusive"
+```
+
+```lua
+-- service.luau
+--!nonstrict
+noctalia.idle.watch(noctalia.getConfig("timeout"), function(idle)
+  if idle then noctalia.layer.show("screen") else noctalia.layer.hide("screen") end
+end)
+```
+
+```lua
+-- screen.luau
+--!nonstrict
+layer.render(ui.column({ fill = "#000000", flexGrow = 1 }, {}))
+```
+
+Desktop widgets, panels, and layers use declarative `ui.*` trees. See
+[Declarative UI](/noctalia/plugins/development/declarative-ui/) for their rendering APIs and controls.
 
 ## `barWidget.*` - widget presentation
 

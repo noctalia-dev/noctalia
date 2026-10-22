@@ -36,13 +36,28 @@
       "color-red": "Rouge",
       "color-white": "Blanc",
       "color-yellow": "Jaune",
+      "copy": "Copier l'image annotée (Ctrl+C)",
+      "cursor": "Afficher le curseur capturé avec l'écran (p)",
+      "cursor-capture-failed": "Impossible d'afficher le curseur: le compositeur n'a pas fourni d'image séparée pour le curseur",
       "redo": "Annuler (Ctrl+Shift+Z)",
+      "save": "Enregistrer l’image annotée (Ctrl+S)",
+      "size-advanced": "Régler l’épaisseur précisément ",
+      "size-decrease": "Plus fin ([)",
+      "size-increase": "Plus épais (])",
       "size-large": "Grand",
       "size-medium": "Moyen",
       "size-small": "Petit",
+      "tool-arrow": "Flèche (a) · maintenir Maj pour fixer l’angle",
       "tool-blur": "Flouter une région (u)",
       "tool-brush": "Pinceau (b)",
+      "tool-circle": "Ellipse (o) · maintenir Maj pour un cercle",
+      "tool-crop": "Rogner l’image exportée (c)",
       "tool-eraser": "Gomme (e)",
+      "tool-highlighter": "Surligneur (h)",
+      "tool-line": "Ligne (l) · maintenir Maj pour fixer l’angle ",
+      "tool-move": "Déplacer une annotation (m)",
+      "tool-numbering": "Marqueur numérique (n)",
+      "tool-rectangle": "Rectangle (s) · maintenir Maj pour un carré ",
       "tool-text": "Texte (t)",
       "undo": "Annuler (Ctrl+Z)"
     },
@@ -63,7 +78,8 @@
       },
       "brightness": {
         "brightness": "Luminosité",
-        "display": "Écran"
+        "display": "Écran",
+        "unavailable": "Réglage de luminosité indisponible "
       },
       "lock-keys": {
         "caps": "Maj",
@@ -201,7 +217,9 @@
       "auto": "Auto",
       "custom": "Personnalisé",
       "inherit": "Hérité",
-      "off": "Désactivé"
+      "inherit-value": "Hérité ({value})",
+      "off": "Désactivé",
+      "on": "Activé "
     }
   },
   "control-center": {
@@ -248,6 +266,7 @@
         "connected": "Connecté",
         "paired": "Associé"
       },
+      "trust-and-allow": "Faire confiance et autoriser",
       "unavailable": "Services bluetooth indisponibles",
       "unknown-device": "Appareil inconnu",
       "visible": "Détectable par les appareils à proximité"
@@ -262,6 +281,7 @@
     "display": {
       "disabled": "Désactivé",
       "no-displays": "Aucun écran disponible",
+      "rescan": "Scanner les écrans DDC/CI de nouveau",
       "unknown-resolution": "Résolution inconnue"
     },
     "home": {
@@ -292,24 +312,39 @@
       "start-playback": "Démarrer la lecture dans une application MPRIS"
     },
     "network": {
+      "anonymous-identity": "Identité anonyme (facultatif)",
       "available": "Disponible",
+      "ca-certificate": "Chemin du certificat CA (facultatif)",
       "cellular": "Cellulaire",
       "cellular-connected": "Connecté",
       "cellular-connecting": "En cours de connection...",
       "cellular-connection": "Connection cellulaire",
+      "cellular-enabling": "Démarrage...",
       "cellular-failed": "Échoué",
       "cellular-locked": "SIM bloqué",
       "cellular-no-service": "Aucun service",
       "cellular-off": "Éteint",
       "cellular-registered": "Enregistré",
+      "cellular-searching": "Recherche...",
       "connect": "Se connecter",
       "current-connection": "Connexion actuelle",
+      "domain-suffix-match": "Suffixe du domaine du serveur",
+      "eap-method": "Méthode EAP",
+      "enterprise-prompt-for": "Se connecter à {ssid}",
+      "error-ca-not-absolute": "Le chemin du certificat doit être absolu (commencer par un /).",
+      "error-certificate-required": "Ce réseau nécessite une authentification par certificat (EAP-TLS), ce qui n'est pas encore supporté.",
+      "error-enterprise-unsupported": "Le backend réseau actuel ne peut pas configurer un réseau 802.1X.",
+      "error-missing-identity": "Entrer l'identité fournie par votre organisation.",
+      "error-missing-password": "Entrer votre mot de passe.",
+      "error-unsupported-phase2": "PEAP nécessite l'authentification interne MSCHAPv2",
       "external-ip": "WAN {ip}",
+      "identity": "Identité",
       "no-networks": "Aucun réseau à proximité",
       "not-connected": "Non connecté",
       "password": "Mot de passe",
       "password-prompt": "Saisir le mot de passe",
       "password-prompt-for": "Saisir le mot de passe pour {ssid}",
+      "phase2-auth": "Authentification interne",
       "saved": "Sauvegardé",
       "unavailable-detail": "Installer et activer NetworkManager, wpa_supplicant ou iwd pour gérer les réseaux depuis cette interface.",
       "unavailable-title": "Service réseau indisponible",
@@ -343,6 +378,7 @@
         "error-denied": "L'autorisation n'a pas été accordée. Les limites de charges n'ont pas été modifiées.",
         "error-failed": "Les limites de charge n'ont pas pu être modifiées.",
         "externally-managed": "Géré par un autre outil. Configurez UPower pour modifier les limites de charge.",
+        "firmware-managed": "La charge est gérée par le firmware système",
         "full-charge": "Peut être chargée à 100%",
         "starts": "Commence à partir de {start}%",
         "starts-stops": "Commence à partir de {start}% · S'arrête à {end}%",
@@ -494,7 +530,7 @@
       "actions": {
         "add": "Ajouter",
         "clone": "Dupliquer (Ctrl+C, Ctrl+V pour copier/coller)",
-        "done": "Fait",
+        "done": "Terminé",
         "flip-horizontal": "Miroir horizontal",
         "flip-vertical": "Miroir vertical",
         "hide": "Cacher",
@@ -508,7 +544,10 @@
         "select-sticker-image": "Sélectionner une image de sticker"
       },
       "settings": {
+        "album-art-background": "Fond de la pochette d'album",
+        "album-art-blur": "Flou de la pochette d'album",
         "aspect-ratio": "Format",
+        "audio-visualizer": "Visualiseur audio",
         "background": "Arrière-plan",
         "background-color": "Couleur",
         "background-opacity": "Opacité",
@@ -567,6 +606,7 @@
         "opacity": "Opacité",
         "primary-color": "Couleur principale",
         "reset-defaults": "Réinitialiser les valeurs par défaut",
+        "reversed": "Inversé",
         "ring-opacity": "Opacité de l’anneau",
         "rotation-speed": "Vitesse de rotation",
         "scroll-step": "Pas de défilement",
@@ -580,7 +620,10 @@
         "show-keyboard-layout": "Disposition du clavier",
         "show-label": "Afficher l’étiquette",
         "show-login-button": "Bouton de connexion",
+        "show-media": "Média",
         "show-password-hint": "Indice de mot de passe",
+        "show-password-reveal": "Afficher le mot de passe",
+        "show-seconds": "Afficher les secondes",
         "show-session-buttons": "Boutons de session",
         "show-unlock-hint": "Indice de déverrouillage",
         "show-vpn-label": "Afficher le libellé VPN",
@@ -624,6 +667,7 @@
         "grid": "Grille"
       },
       "title": "Widgets du bureau",
+      "title-lockscreen": "Widgets de l’écran de verrouillage ",
       "types": {
         "audio-visualizer": "Visualiseur audio",
         "button": "Bouton",
@@ -667,6 +711,12 @@
     }
   },
   "launcher": {
+    "browser": {
+      "actions": {
+        "power": "Alimentation",
+        "settings": "Paramètres"
+      }
+    },
     "categories": {
       "all": "Tout",
       "applications": {
@@ -1249,7 +1299,7 @@
         "osd": "OSD",
         "overview": "Aperçu",
         "pinned-apps": "Applications épinglées",
-        "polkit": "Pokit",
+        "polkit": "Polkit",
         "power": "Alimentation",
         "privacy": "Confidentialité",
         "profile": "Profil",
@@ -1257,6 +1307,8 @@
         "screen-corners": "Coins d’écran",
         "screen-time": "Temps d’écran",
         "screenshot": "Capture d'écran",
+        "screenshot-annotation": "Annotation",
+        "screenshot-capture": "Capture",
         "security": "Sécurité",
         "session-panel": "Panneau de session",
         "shape": "Forme",
@@ -1289,6 +1341,7 @@
         "plugins": "Plugins",
         "popups": "Popups",
         "power": "Alimentation",
+        "screenshot": "Capture d'écran",
         "security": "Sécurité",
         "services": "Services",
         "shell": "Shell",
@@ -1409,6 +1462,15 @@
         "top-left": "Haut gauche",
         "top-right": "Haut droit"
       },
+      "screenshot": {
+        "region-modifier": {
+          "alt": "Alt",
+          "ctrl": "Ctrl",
+          "none": "Aucun",
+          "shift": "Maj",
+          "super": "Super"
+        }
+      },
       "shell": {
         "panel-placement": {
           "attached": "Attaché",
@@ -1439,6 +1501,9 @@
         "mode": {
           "dark": "Sombre",
           "light": "Clair"
+        },
+        "shell-mode": {
+          "follow": "Suivre"
         },
         "source": {
           "built-in": "Intégré",
@@ -1479,6 +1544,9 @@
           "metric": "Métrique"
         }
       }
+    },
+    "palette-inspector": {
+      "description": "Couleurs du modèle en mode {mode}"
     },
     "plugins": {
       "browse-store": "Parcourir les plugins",
@@ -1596,8 +1664,11 @@
           "label": "Palette intégrée"
         },
         "button-borders": {
-          "description": "Dessinez des contours autour des boutons dans tout le shell",
-          "label": "Contour des boutons"
+          "description": "Dessine des contours autour des boutons dans tout le shell",
+          "label": "Contours des boutons"
+        },
+        "card-borders": {
+          "label": "Contours des sections"
         },
         "community-palette": {
           "description": "Choisir une palette dans le catalogue communautaire",
@@ -1628,16 +1699,45 @@
         "global-shadow-direction": {
           "description": "Direction de l’ombre projetée par les surfaces"
         },
+        "input-borders": {
+          "description": "Dessine des contours autour des champs d'entrée texte et autres composants d'entrée dans tout le shell"
+        },
         "language": {
           "description": "Remplacer la détection automatique de la langue",
           "label": "Langue"
+        },
+        "palette-inspector": {
+          "button": "Inspecter les couleurs",
+          "description": "Voir les noms, couleurs et valeurs hex des variables de modèle pour la palette actuelle",
+          "label": "Inspecteur de palette"
         },
         "palette-source": {
           "description": "Source de génération de la palette de couleurs",
           "label": "Source de la palette"
         },
+        "popup-borders": {
+          "description": "Dessine des contours autour des popups et des listes déroulantes",
+          "label": "Contours des popups"
+        },
+        "popup-shadows": {
+          "description": "Dessine des ombres derrière les popups et les listes déroulantes",
+          "label": "Ombres des popups"
+        },
         "pure-black-dark": {
-          "label": "Noir Pur"
+          "description": "Rendre les surfaces sombres complètement noires, pour éviter les bandes sur les écrans OLED (mode sombre uniquement)",
+          "label": "Noir pur"
+        },
+        "shell-theme-mode": {
+          "description": "Fixer le mode sombre ou clair de Noctalia; Suivre le synchronise avec le mode du thème",
+          "label": "Mode du thème du shell"
+        },
+        "show-close-buttons": {
+          "description": "Afficher un bouton « Fermer » sur les panneaux, notifications, popups, boîtes de dialogue et le menu des paramètres",
+          "label": "Afficher le bouton « Fermer »"
+        },
+        "sync-color-scheme": {
+          "description": "Synchroniser la préférence de mode sombre/clair lue par les navigateurs et autres applications avec le mode du thème",
+          "label": "Synchroniser les couleurs des applications"
         },
         "theme-mode": {
           "description": "Choisir sombre, clair ou automatique selon l’heure de la journée",
@@ -2229,6 +2329,14 @@
         }
       },
       "panels": {
+        "border-color": {
+          "description": "Couleur des contours pour les panneaux flottants. Choisis un role de thème pour suivre le thème actif, ou une couleur personnalisée",
+          "label": "Couleur des contours"
+        },
+        "border-width": {
+          "description": "Épaisseur des contours des panneaux flottants; 0 cache le trait",
+          "label": "Épaisseur des contours"
+        },
         "borders": {
           "description": "Affiche un contour sur les panneaux flottants",
           "label": "Contours"
@@ -2248,6 +2356,10 @@
         "control-center-width": {
           "description": "Définit la largeur du panneau du centre de contrôle en pixels. Les modes compact et sans barre latérale sont calculés à partir de cette valeur",
           "label": "Largeur du centre de contrôle"
+        },
+        "floating-layer": {
+          "description": "Utilise « Haut » si des panneaux flottants cachent des champs d'entrée ; « Superposition » place les panneaux au-dessus du contenu plein écran",
+          "label": "Placement des panneaux flottants"
         },
         "floating-offset": {
           "description": "Écart en pixels entre un panel flottant (ou détaché) et le bord de la barre.",
@@ -2270,7 +2382,7 @@
         },
         "launcher-grid": {
           "description": "Afficher une grille d'icônes d'applications avec les labels dessous lorsque les résultats sont uniquement des apps",
-          "label": "Vue en grille des applications"
+          "label": "Vue en grille"
         },
         "launcher-prefix-calculator": {
           "label": "Préfixe de la calculatrice"
@@ -2376,6 +2488,10 @@
         "transparency-mode": {
           "description": "Style d'effet de verre du panel, incluant l'opacité du panel flottant et des cards",
           "label": "Transparence"
+        },
+        "wallpaper-show-names": {
+          "description": "Légende chaque vignette de fond d'écran avec son nom de fichier dans le sélecteur de fond d'écran",
+          "label": "Afficher les noms de fichier"
         }
       },
       "power": {
@@ -2486,9 +2602,18 @@
           "label": "Son de notification",
           "placeholder": "/chemin/vers/le/son.wav"
         },
+        "screenshot-sounds": {
+          "description": "Jouer un son lorsque l'écran est capturé",
+          "label": "Son de capture"
+        },
         "shell-sounds": {
           "description": "Joue des effets sonores pour les événements de l’interface",
           "label": "Sons de l’interface"
+        },
+        "sound-theme": {
+          "default": "Par défaut",
+          "description": "Thème sonore pour les effets sonores du shell",
+          "label": "Thème sonore"
         },
         "sound-volume": {
           "description": "Volume des effets sonores de l’interface",
@@ -2813,6 +2938,18 @@
           "description": "Efface l’historique enregistré du temps d’utilisation au premier plan pour chaque application",
           "label": "Réinitialiser les données de temps d’écran"
         },
+        "screenshot-annotate": {
+          "description": "Ouvre l'éditeur d'annotations à chaque capture d'écran. « Terminé » applique les paramètres d'enregistrement, copie ou de commande de traitement",
+          "label": "Annoter avant de terminer"
+        },
+        "screenshot-close-on-copy": {
+          "description": "Ferme l'éditeur après avoir copié avec succès, y compris quand il a été ouvert directement",
+          "label": "Fermer l'éditeur après avoir copié"
+        },
+        "screenshot-close-on-save": {
+          "description": "Ferme l'éditeur après avoir enregistré avec succès, y compris quand il a été ouvert directement",
+          "label": "Fermer l'éditeur après avoir enregistré"
+        },
         "screenshot-confirm-region": {
           "description": "Après avoir dessiné une région, garde l'Overlay ouvert jusqu'à confirmation avec Entrée ou Espace",
           "label": "Confirmer la région"
@@ -2834,6 +2971,9 @@
           "description": "Capture le bureau avant la sélection de la zone afin que les éléments en mouvement restent figés",
           "label": "Figer l’écran"
         },
+        "screenshot-output": {
+          "description": "Actions appliquées après la capture, ou quand « Terminé » est choisi dans l'éditeur d'annotations"
+        },
         "screenshot-pipe-command": {
           "description": "Commande exécutée via /bin/sh -lc avec l’image PNG sur l’entrée standard. Utile pour les outils d’annotation ou d’envoi (par exemple : swappy -f - ou satty -f -)",
           "label": "Commande de traitement",
@@ -2842,6 +2982,10 @@
         "screenshot-pipe-to-command": {
           "description": "Transmet l’image PNG capturée à une commande shell via l’entrée standard",
           "label": "Transmettre à une commande"
+        },
+        "screenshot-region-modifier": {
+          "description": "Touche pour déplacer ou redimensionner une sélection: tirer vers la gauche pour déplacer, vers la droite pour redimensionner depuis les tiers extérieurs des bordures (les coins redimensionnent les deux bordures en même temps). « Aucun » (par défaut) préserve le comportement de base « tirer pour ajuster »",
+          "label": "Modificateur de mouvement et redimensionnement"
         },
         "screenshot-remember-last-region": {
           "description": "Pré-sélectionne la dernière région (dont la dernière après annulation) sur la prochaine capture région",
@@ -2894,6 +3038,7 @@
           "empty": "Aucun modèle communautaire disponible pour le moment. Activez les modèles communautaires et actualisez le catalogue.",
           "label": "Modèles communautaires"
         },
+        "dynamic-output": "Le chemin de sortie est déterminé quand le modèle est appliqué",
         "enable-builtins": {
           "description": "Utilise le catalogue intégré de modèles de thème pour les applications",
           "label": "Activer les modèles intégrés"
@@ -3011,6 +3156,24 @@
       "button": "Réinitialiser le stockage privé",
       "description": "Supprime de manière permanente l'historique sauvegardé du papier-press et le cache des événements du calendrier, puis rouvre le stockage privé (un fichier clé configuré ne sera jamais modifié)"
     },
+    "templates": {
+      "store": {
+        "browse": "Catalogue de modèles",
+        "categories": "Catégories",
+        "category-all": "Tous",
+        "empty": "Aucun modèle ne satisfait les filtres",
+        "enabled-count": "{count} actifs",
+        "filter-all": "Tous",
+        "filter-enabled": "Actif",
+        "results-count": "{count} modèles",
+        "search-placeholder": "Rechercher un modèle...",
+        "sort-category-asc": "Trier par catégorie (A-Z)",
+        "sort-category-desc": "Trier par catégorie (Z-A)",
+        "sort-name-asc": "Trier par nom (A-Z)",
+        "sort-name-desc": "Trier par nom (Z-A)",
+        "title": "Modéles communautaires"
+      }
+    },
     "widgets": {
       "actions": {
         "commands": {
@@ -3020,6 +3183,10 @@
           "osd-enable": {
             "description": "Activer les popups OSD",
             "label": "Activer l'OSD"
+          },
+          "templates-apply": {
+            "description": "Appliquer les modèles configurés avec la palette actuelle",
+            "label": "Appliquer les modèles de thème"
           },
           "volume-down": {
             "label": "Baisse le volume"

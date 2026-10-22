@@ -413,6 +413,7 @@ namespace {
         && a.audio == b.audio
         && a.brightness == b.brightness
         && a.battery == b.battery
+        && a.bluetooth == b.bluetooth
         && keybindsConfigEqual(a.keybinds, b.keybinds)
         && a.nightlight == b.nightlight
         && a.location == b.location
@@ -893,6 +894,7 @@ ConfigChangeSet computeConfigChangeSet(const Config& prev, const Config& next) {
       .audio = !(prev.audio == next.audio),
       .brightness = !(prev.brightness == next.brightness),
       .battery = !(prev.battery == next.battery),
+      .bluetooth = !(prev.bluetooth == next.bluetooth),
       .keybinds = !keybindsConfigEqual(prev.keybinds, next.keybinds),
       .nightlight = !(prev.nightlight == next.nightlight),
       .location = !(prev.location == next.location),

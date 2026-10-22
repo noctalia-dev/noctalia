@@ -98,6 +98,10 @@ namespace ui {
     void setCompactControls(bool compact) { m_compactControls = compact; }
     void setDragDropEnabled(bool enabled);
     void setDragDropOverlayRoot(Node* root);
+    // Abort an in-progress drag (preview removed, source restored, no drop
+    // callback) while keeping the retained tree and overlay wiring. For a host
+    // that is about to discard or hide its tree without tearing the scene down.
+    void cancelDragDrop();
 
     // Reconciles `tree` as the single child of `host`. Props are (re)applied on
     // every call — setters are change-checked, and the scale may differ between

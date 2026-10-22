@@ -202,6 +202,10 @@ The Settings actions menu includes **Export Config...**. It opens a chooser with
 - **Merged User Config** is recommended for dotfiles. It merges your explicit config files and GUI-managed overrides into one TOML file, while leaving built-in defaults implicit.
 - **Full Effective Config** exports the active config snapshot, including built-in defaults. Use it for inspection or sharing an exact state, but avoid treating it as your long-term curated config because it pins defaults that could otherwise evolve.
 
+The chooser warns that **both export modes may contain sensitive data**, such as API keys, passwords, or other secrets
+stored in your config, including by plugins. Treat exported files as private. Review their contents and remove sensitive
+data before sharing them or adding them to a public dotfiles repository.
+
 ## Validating your configuration
 
 Run the validator to catch problems before they silently take effect:

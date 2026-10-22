@@ -108,11 +108,52 @@ cache results keyed by app id instead of resolving on every `update()`.
 | `noctalia.notifyError(title, body)` | nothing | Shows an error notification. `body` is optional. |
 | `noctalia.copyToClipboard(text, mime)` | bool | Copies text to the clipboard with an explicit MIME type, for example `"text/plain"` or `"text/uri-list"`. |
 | `noctalia.clipboardText()` | string or `nil` | Latest text clipboard content (`nil` when empty or non-text). |
+| `noctalia.calendarEvents()` | table or `nil` | Synced calendar events, or `nil` before the first successful sync. Requires <PluginApiBadge feature="calendar-events" />. |
 
 `%s` in `formatTime()` expands to Unix epoch seconds.
 
 `formatTime()` and Luau's own `os.time()` are both whole-second. `nowMs()` is the only way to see sub-second time, for
 example to phase an entry's updates onto a second boundary.
+
+## Calendar
+
+`noctalia.calendarEvents()` returns the shell's merged, read-only view of the accounts configured
+under **Settings → Calendar** (Google, CalDAV, ICS, vdir). It returns `nil` until the first
+successful sync completes, which lets an entry tell "no upcoming events" apart from "not synced
+yet"; treat `nil` as unknown rather than empty.
+
+Each entry is one concrete event instance. Recurring events are expanded by the provider, so a
+weekly meeting appears as separate instances with their own resolved times rather than a rule you
+have to interpret.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | iCal UID / provider event id, stable across syncs. The same meeting on two calendars (for example a shared team calendar and your own) arrives as separate entries with different ids unless the user enables `[calendar] dedupe_events`. |
+| `title` | string | Event summary. |
+| `calendarName` | string | Display name of the owning calendar. |
+| `colorHex` | string | Owning calendar's color, for example `"#3367d6"`. Empty when unknown. |
+| `location` | string | Raw `LOCATION`, may be empty. |
+| `url` | string | Resolved http(s) meeting link, or empty. Already scheme-filtered host-side, so it is safe to hand to `xdg-open`. |
+| `startMs` | number | Start in wall-clock milliseconds, same base as `nowMs()`. |
+| `endMs` | number | End in wall-clock milliseconds. |
+| `allDay` | bool | True for all-day events, whose times are midnight-aligned. |
+
+```lua
+local events = noctalia.calendarEvents()
+if events == nil then
+  return -- not synced yet; leave the last known state alone
+end
+
+local now = noctalia.nowMs()
+for _, event in ipairs(events) do
+  if event.startMs > now and not event.allDay then
+    noctalia.log(`{event.title} at {noctalia.formatTime(noctalia.timeFormat(), event.startMs // 1000)}`)
+  end
+end
+```
+
+The view is read-only: an entry observes the shell's calendar but cannot add, edit, or remove
+events, and cannot reach account credentials.
 
 ## System stats
 
@@ -320,6 +361,68 @@ that already has a pending load returns `false`.
 Sound names are scoped to one runtime instance. Reloading or stopping it cancels pending callbacks and releases its
 cached names, while a sound already playing finishes safely. Playback honors `[audio].sound_volume`, the shell
 sound toggles do not affect it. Triggering the same loaded sound while it is still playing is suppressed.
+
+## Idle
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `noctalia.idle.watch(seconds: number, callback: (idle: boolean) -> (), options: { ignoreInhibitors: boolean? }?)` | number | Calls `callback(true)` after `seconds` without user input and `callback(false)` on the next input. Returns a watch id. Requires <PluginApiBadge feature="idle-watch" />. |
+| `noctalia.idle.unwatch(id: number)` | boolean | Removes a watch. Returns `false` for an unknown id. Requires <PluginApiBadge feature="idle-watch" />. |
+
+Watches use the compositor's idle notification (`ext-idle-notify-v1`) and work from every entry kind. `seconds` must be
+positive; fractions are allowed and rounded up to milliseconds. Any other value raises
+`noctalia.idle.watch: seconds must be a positive number`. One entry runtime holds at most eight watches; a ninth raises
+`noctalia.idle.watch: at most 8 watches per entry`. Watches are released automatically when the runtime reloads or stops.
+
+By default a watch honors idle inhibitors: apps holding a Wayland idle inhibitor, Noctalia's caffeine, and D-Bus
+`org.freedesktop.ScreenSaver` inhibits (for example browser video). If a D-Bus inhibit starts while the watch reports
+idle, it reports `false`; when the inhibit lifts, the timeout restarts. Pass `{ ignoreInhibitors = true }` to count only
+real user input (`ext-idle-notify` v2). On compositors with only v1 this falls back to honoring inhibitors and logs a
+warning once.
+
+Watching never changes the `[idle]` behaviors (lock, screen off, suspend).
+
+## Layers
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `noctalia.layer.show(entryId: string)` | nothing | Shows one of this plugin's `[[layer]]` entries. Requires <PluginApiBadge feature="layer-entry" />. |
+| `noctalia.layer.hide(entryId: string)` | nothing | Hides the layer and destroys its surfaces and runtimes. Requires <PluginApiBadge feature="layer-entry" />. |
+| `noctalia.layer.configure(entryId: string, props: LayerProps)` | nothing | Changes layer properties on every live instance immediately and on future shows. Requires <PluginApiBadge feature="layer-entry" />. |
+
+`entryId` is the local id of the plugin's own [`[[layer]]` entry](/noctalia/plugins/development/manifest/#layer-entries)
+(`"saver"`, not `"me/plugin:saver"`), so a plugin cannot drive another plugin's layers. An id containing `:` or `/` is
+a Lua error; an unknown id logs a warning. Any entry of the plugin may call these. `show` and `hide` are idempotent, and
+all three apply asynchronously on the main thread.
+
+`configure` takes camelCase keys with the same value sets as the manifest: `layer`, `anchors`, `width`, `height`,
+`margins` (missing sides are `0`), `exclusiveZone`, `keyboard`, `clickThrough`, and `output`. An unknown key raises
+`noctalia.layer.configure: unknown property '<key>'`. Configured values last until the plugin reloads.
+
+## OSD
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `noctalia.osd.show(icon: string, value: string?, opts: table?)` | nothing | Shows the shell OSD popup. Requires <PluginApiBadge feature="osd" />. |
+
+`icon` is a glyph name, the same names `ui.glyph` accepts, and must not be empty. `value` is the text shown next to the
+icon; it defaults to empty. `opts` is an optional table:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `progress` | number? | Fill level from `0` to `1`; values outside are clamped and NaN raises an error. Omit it for a text-only popup. |
+| `inactive` | boolean? | Draws the icon and text in the muted color, as the built-in popups do for "off" states. |
+
+```lua
+noctalia.osd.show("wifi", "VPN connected")
+noctalia.osd.show("wifi-off", "VPN disconnected", { inactive = true })
+noctalia.osd.show("brightness-low", "40%", { progress = 0.4 })
+noctalia.osd.show("volume-high", "", { progress = 0.4 }) -- bar without text
+```
+
+A wrong `opts` type, or a wrong `progress` or `inactive` type, raises an error at the call. The popup uses the same slot as the
+built-in OSDs, so a newer volume or brightness change replaces it and vice versa. Users can turn plugin popups off with
+`[osd.kinds].custom = false`, and nothing is shown while the OSD is disabled.
 
 ## HTTP and downloads
 

@@ -60,6 +60,8 @@ public:
   // supports auto-paste. The host schedules virtual-keyboard paste (clipboard path).
   void setCopiedActivationCallback(std::function<void()> callback) { m_onCopiedActivation = std::move(callback); }
 
+  void setOnAppLaunchCallback(std::function<void()> callback) { m_onAppLaunch = std::move(callback); }
+
   [[nodiscard]] float preferredWidth() const override;
   [[nodiscard]] float preferredHeight() const override;
   [[nodiscard]] LayerShellKeyboard keyboardMode() const override { return LayerShellKeyboard::Exclusive; }
@@ -68,6 +70,8 @@ public:
   [[nodiscard]] PanelPlacement panelPlacement() const noexcept override;
 
 private:
+  friend class LauncherPanelTestAccess;
+
   enum ActiveCategoryType { All, Pinned, RecentlyUsed, Category };
   enum class ResultsTransition : std::uint8_t { None, NavigationForward, NavigationBackward };
 
@@ -102,12 +106,13 @@ private:
   [[nodiscard]] bool shouldUseDetailPresentation() const;
   [[nodiscard]] bool startsWithLauncherPrefix(std::string_view text) const;
   void applyProviderConfig(LauncherProvider& provider) const;
-  void finishActivation(LauncherProvider& provider, const std::string& resultId, bool copied);
+  void finishActivation(LauncherProvider& provider, const std::string& resultId, bool copied, bool appLaunch = false);
   [[nodiscard]] std::vector<LauncherResult> providerOverviewResults(std::string_view text) const;
   [[nodiscard]] bool openAppActionsMenu(std::size_t index, float anchorX, float anchorY);
   void updateCategoryFilterModel(const std::vector<LauncherCategory>& categories);
   void rebuildCategoryFilter();
   void rebuildLauncherNavigation();
+  [[nodiscard]] ActiveCategoryType defaultCategoryType() const;
   void applyDefaultView();
   void updateCategorySelectionChrome();
   void updateLauncherOptionButtons();
@@ -199,4 +204,5 @@ private:
   std::unique_ptr<ContextMenuPopup> m_actionsMenu;
   Signal<>::ScopedConnection m_appIconColorizeConn;
   std::function<void()> m_onCopiedActivation;
+  std::function<void()> m_onAppLaunch;
 };

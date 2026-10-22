@@ -1,6 +1,7 @@
 #pragma once
 
 #include "scripting/plugin_i18n.h"
+#include "scripting/plugin_layer_config.h"
 #include "scripting/script_arg.h"
 
 #include <atomic>
@@ -201,6 +202,7 @@ public:
   void scriptPlaySound(std::string name);
   void scriptNotifyInfo(std::string title, std::string body);
   void scriptNotifyError(std::string title, std::string body);
+  void scriptShowOsd(std::string icon, std::string value, std::optional<double> progress, bool inactive);
   // Toggle the host wallpaper surface on an output. Queued as a side effect and
   // applied on the main thread (Wallpaper is not worker-thread safe).
   void scriptSetWallpaperEnabled(std::string connector, bool enabled);
@@ -212,6 +214,18 @@ public:
   void scriptTogglePanel(std::string panelId);
   // Open the settings window at this plugin's own settings. Queued, applied on the main thread.
   void scriptOpenSettings();
+  // noctalia.idle.watch()/unwatch(): compositor idle notifications. The Wayland objects live on
+  // the main thread, so both are queued as side effects; watches are released with the host.
+  // The callback ref doubles as the watch id returned to the script.
+  [[nodiscard]] bool scriptIdleWatch(std::uint32_t timeoutMs, bool ignoreInhibitors, int callbackRef);
+  [[nodiscard]] bool scriptIdleUnwatch(int watchId);
+  bool callIdleWatchCallback(int callbackRef, bool idle, std::chrono::milliseconds budget);
+  [[nodiscard]] bool hasIdleWatchCallback(int callbackRef) const;
+  // noctalia.layer.show()/hide()/configure() for this plugin's [[layer]] entry `localEntryId`.
+  // Queued, applied on the main thread.
+  void scriptLayerCommand(
+      scripting::PluginLayerCommand command, std::string localEntryId, scripting::PluginLayerConfigPatch patch
+  );
   [[nodiscard]] bool scriptCopyToClipboard(std::string text, std::string mimeType);
   [[nodiscard]] std::optional<std::string> scriptFocusedOutputName() const;
 
@@ -290,6 +304,7 @@ private:
   std::unordered_set<int> m_asyncHttpCallbackRefs;
   std::unordered_set<int> m_colorPickerCallbackRefs;
   std::unordered_map<int, std::string> m_soundLoadCallbacks;
+  std::unordered_set<int> m_idleWatchCallbackRefs;
   HttpClient* m_httpClient = nullptr;
   AsyncCommandResultHandler m_asyncCommandResultHandler;
   AsyncFileResultHandler m_asyncFileResultHandler;

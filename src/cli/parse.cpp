@@ -77,16 +77,6 @@ namespace noctalia::cli {
         return result;
       }
 
-      if (positionalIndex < command.positionals.size() && command.positionals[positionalIndex].joinRemaining) {
-        assigned[positionalIndex] = true;
-        for (std::size_t remaining = i; remaining < args.size(); ++remaining) {
-          if (!result.joinedRemaining.empty())
-            result.joinedRemaining.push_back(' ');
-          result.joinedRemaining.append(args[remaining]);
-        }
-        break;
-      }
-
       const Flag* flag = nullptr;
       std::string_view inlineValue;
       bool hasInlineValue = false;
@@ -126,6 +116,16 @@ namespace noctalia::cli {
         }
         result.flagValues.emplace_back(flag, flagValue);
         continue;
+      }
+
+      if (positionalIndex < command.positionals.size() && command.positionals[positionalIndex].joinRemaining) {
+        assigned[positionalIndex] = true;
+        for (std::size_t remaining = i; remaining < args.size(); ++remaining) {
+          if (!result.joinedRemaining.empty())
+            result.joinedRemaining.push_back(' ');
+          result.joinedRemaining.append(args[remaining]);
+        }
+        break;
       }
 
       if (positionalIndex >= command.positionals.size())
