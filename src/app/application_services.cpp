@@ -506,8 +506,9 @@ void Application::syncClipboardService() {
 
 void Application::syncStorageKeyProvider() {
   const StorageConfig& storage = m_configService.config().storage;
-  const bool encryptedDataExists =
-      m_clipboardService.hasEncryptedPersistence() || m_calendarService.hasEncryptedCache();
+  const bool encryptedDataExists = m_clipboardService.hasEncryptedPersistence()
+      || m_calendarService.hasEncryptedCache()
+      || m_notificationManager.hasEncryptedHistory();
   m_storageKeyProvider.configure(storage.keySource, storage.keyFile, encryptedDataExists);
 }
 
@@ -518,6 +519,8 @@ void Application::initServices() {
   m_storageKeyProvider.setChangeCallback([this]() {
     m_clipboardService.syncPersistence();
     m_calendarService.syncCachePersistence();
+    m_notificationManager.syncHistoryPersistence(m_storageKeyProvider);
+    m_settingsWindow.onExternalOptionsChanged();
     retrySecretServiceConsumers();
   });
   syncStorageKeyProvider();

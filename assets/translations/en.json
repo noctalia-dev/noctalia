@@ -3753,10 +3753,14 @@
       },
       "variant-label": "Button style"
     },
+    "notification-storage": {
+      "label": "Notification history storage",
+      "description": "Saved history is unavailable. Notifications work for this session; unlock private storage or restore its original key, then retry."
+    },
     "storage-recovery": {
       "button": "Reset Private Storage",
       "button-confirm": "Confirm Storage Reset",
-      "description": "Permanently delete saved clipboard history and the calendar event cache, then reopen private storage (a configured key file is never modified)",
+      "description": "Permanently delete saved clipboard and notification history, notification images, and the calendar event cache, then reopen private storage (a configured key file is never modified)",
       "error-delete": "Some private storage files could not be deleted. The storage key was preserved.",
       "error-key": "Private storage files were deleted, but secure storage could not be reopened. Fix access and retry.",
       "label": "Recover Private Storage",

@@ -23,6 +23,7 @@ namespace security {
   enum class StorageKeyPurpose : std::uint8_t {
     ClipboardHistory,
     CalendarEvents,
+    NotificationHistory,
   };
 
   class StorageKeyProvider {
