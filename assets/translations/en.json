@@ -284,7 +284,11 @@
     "calendar": {
       "all-day": "All day",
       "events": "Events",
+      "hide-past-events": "Hide {count} past event",
+      "hide-past-events-plural": "Hide {count} past events",
       "no-events": "No events.",
+      "past-events-hidden": "{count} past event hidden",
+      "past-events-hidden-plural": "{count} past events hidden",
       "today": "Today",
       "toggle-events-card": "Toggle events card"
     },
@@ -2997,6 +3001,14 @@
           "description-recovery": "The calendar event cache could not be authenticated or is damaged; retry after restoring the correct key, or reset private storage",
           "description-unavailable": "No Secret Service provider is available; calendar events remain available for this session only",
           "label": "Calendar Event Storage"
+        },
+        "calendar-hide-past-events": {
+          "description": "Hide today's finished events from the event list; when off, all past events are shown",
+          "label": "Hide Past Events"
+        },
+        "calendar-past-events-threshold": {
+          "description": "With Hide Past Events on, keep today's events visible for this many minutes after they end (0 hides them as soon as they end)",
+          "label": "Past Events Threshold"
         },
         "calendar-week-numbers": {
           "description": "Show ISO 8601 week numbers alongside the calendar grid",
