@@ -1,12 +1,8 @@
 # Noctalia
 
-Noctalia is a native Wayland desktop shell for people who want a polished, configurable Linux desktop without stitching
-together a separate bar, launcher, notification daemon, lock screen, wallpaper tool, and settings UI.
+Noctalia is a native Wayland desktop shell for people who want a polished, configurable Linux desktop without stitching together a separate bar, launcher, notification daemon, lock screen, wallpaper tool, and settings UI.
 
-It provides the shell layer around your compositor: bars, widgets, dock, launcher, control center, notifications,
-wallpaper, lock screen, session actions, clipboard history, OSDs, tray integration, and desktop widgets. The project is
-built directly on Wayland and OpenGL ES with no Qt or GTK dependency, so the UI, rendering, configuration, and IPC model
-are designed as one cohesive shell instead of a collection of unrelated panels and scripts.
+It provides the shell layer around your compositor: bars, widgets, dock, launcher, control center, notifications, wallpaper, lock screen, session actions, clipboard history, OSDs, tray integration, and desktop widgets. The project is built directly on Wayland and OpenGL ES with no Qt or GTK dependency, so the UI, rendering, configuration, and IPC model are designed as one cohesive shell instead of a collection of unrelated panels and scripts.
 
 <p><br/></p>
 
@@ -43,81 +39,54 @@ are designed as one cohesive shell instead of a collection of unrelated panels a
 
 ## Why Noctalia?
 
-Most Wayland setups leave the desktop shell to a stack of small tools: one bar, another launcher, another notification
-daemon, a lock screen, a wallpaper daemon, scripts for session actions, and separate config formats for each piece. That
-can be flexible, but it also makes a complete desktop feel fragile and hard to keep visually consistent.
+Most Wayland setups leave the desktop shell to a stack of small tools: one bar, another launcher, another notification daemon, a lock screen, a wallpaper daemon, scripts for session actions, and separate config formats for each piece. That can be flexible, but it also makes a complete desktop feel fragile and hard to keep visually consistent.
 
-Noctalia solves that by providing one configurable shell layer that owns the common desktop surfaces and services while
-still fitting into compositor-driven Wayland workflows. It is meant for users who want the control of a custom desktop
-environment with fewer moving parts and a consistent UI.
+Noctalia solves that by providing one configurable shell layer that owns the common desktop surfaces and services while still fitting into compositor-driven Wayland workflows. It is meant for users who want the control of a custom desktop environment with fewer moving parts and a consistent UI.
 
 To understand the values and philosophy guiding the project, read our [ethos](https://noctalia.dev/ethos).
 
 ## What It Includes
 
-- Multi-monitor bars with configurable widgets, taskbar, workspaces, system tray, media, network, battery, brightness,
-  weather, clipboard, and custom script-backed widgets.
-- Dock, launcher, control center, notification toasts/history, wallpaper picker, OSD overlays, lock screen, session
-  panel, and desktop widgets.
-- TOML configuration with hot reload, GUI-managed overrides, theme/palette support, template application, and IPC for
-  runtime control.
-- Direct Wayland integration for layer-shell, session lock, idle behavior, clipboard, foreign toplevels, workspaces,
-  fractional scaling, and compositor-specific workspace backends where needed.
+- Multi-monitor bars with configurable widgets, taskbar, workspaces, system tray, media, network, battery, brightness, weather, clipboard, and custom script-backed widgets.
+- Dock, launcher, control center, notification toasts/history, wallpaper picker, OSD overlays, lock screen, session panel, and desktop widgets.
+- TOML configuration with hot reload, GUI-managed overrides, theme/palette support, template application, and IPC for runtime control.
+- Direct Wayland integration for layer-shell, session lock, idle behavior, clipboard, foreign toplevels, workspaces, fractional scaling, and compositor-specific workspace backends where needed.
 
 ## Wayland Compositor Support
 
-Noctalia supports Wayland compositors that provide the layer-shell protocols it needs for shell surfaces. Workspace
-integration works through compositor-native backends where needed, or through `ext-workspace-v1` on compositors that
-implement it.
+Noctalia supports Wayland compositors that provide the layer-shell protocols it needs for shell surfaces. Workspace integration works through compositor-native backends where needed, or through `ext-workspace-v1` on compositors that implement it.
 
-Current compositor integrations include Niri, Hyprland, Sway, Scroll, Mango, Labwc, dwl, and other compatible
-Wayland compositors. Other compositors may run Noctalia but can have reduced workspace, window, output, or
-session-action integration depending on the protocols and IPC they expose.
+Current compositor integrations include Niri, Hyprland, Sway, Scroll, Mango, Labwc, dwl, and other compatible Wayland compositors. Other compositors may run Noctalia but can have reduced workspace, window, output, or session-action integration depending on the protocols and IPC they expose.
 
 ## Scope
 
-Noctalia is a desktop shell, not a full desktop environment. It provides the visual and service layer around your
-Wayland compositor: bars, panels, launcher, notifications, dock, lock screen, idle behavior, OSDs, theming, wallpapers,
-desktop widgets, and multi-monitor shell surfaces.
+Noctalia is a desktop shell, not a full desktop environment. It provides the visual and service layer around your Wayland compositor: bars, panels, launcher, notifications, dock, lock screen, idle behavior, OSDs, theming, wallpapers, desktop widgets, and multi-monitor shell surfaces.
 
-Window management, tiling, compositor configuration such as monitor arrangement and positions, file management,
-removable-drive mounting, printers management, and screen mirroring/casting belong to the compositor, dedicated desktop
-applications, or system services.
+Window management, tiling, compositor configuration such as monitor arrangement and positions, file management, removable-drive mounting, printers management, and screen mirroring/casting belong to the compositor, dedicated desktop applications, or system services.
 
-Display/login greeter support lives in the separate [Noctalia Greeter](https://github.com/noctalia-dev/noctalia-greeter)
-project. Noctalia may integrate with those pieces when useful, but it does not replace them.
+Display/login greeter support lives in the separate [Noctalia Greeter](https://github.com/noctalia-dev/noctalia-greeter) project. Noctalia may integrate with those pieces when useful, but it does not replace them.
 
-Core Noctalia is non-invasive: it does not manage your compositor settings or take over your dotfiles. Compositor-specific
-controls can be provided as opt-in plugins rather than becoming core shell behavior.
+Core Noctalia is non-invasive: it does not manage your compositor settings or take over your dotfiles. Compositor-specific controls can be provided as opt-in plugins rather than becoming core shell behavior.
 
-The plugin system is available for user-installed extensions. Features that are useful to some users but not essential
-to the core shell can live there: extra bar widgets, launcher providers, desktop widgets, panels, shortcuts, background
-services, compositor-specific extras and controls, hardware-specific controls, and third-party service integrations.
+The plugin system is available for user-installed extensions. Features that are useful to some users but not essential to the core shell can live there: extra bar widgets, launcher providers, desktop widgets, panels, shortcuts, background services, compositor-specific extras and controls, hardware-specific controls, and third-party service integrations.
 
 ## Build from source
 
-Source dependencies, distro-specific package commands, build modes, and install layouts live in
-[BUILDING.md](BUILDING.md).
+Source dependencies, distro-specific package commands, build modes, and install layouts live in [BUILDING.md](BUILDING.md).
 
 ## Configuration
 
-A ready-to-use starting config with all defaults is at [example.toml](example.toml). The full configuration reference
-lives in the [documentation site](https://docs.noctalia.dev/noctalia/). The source MDX files are in
-[`docs/user/`](docs/user/); sync them to a local docs checkout with `tools/sync-docs.sh`.
+A ready-to-use starting config with all defaults is at [example.toml](example.toml). The full configuration reference lives in the [documentation site](https://docs.noctalia.dev/noctalia/). The source MDX files are in [`docs/user/`](docs/user/); sync them to a local docs checkout with `tools/sync-docs.sh`.
 
 ## Contributing
 
-Developer notes, code style, contribution rules, testing, project layout, and debugging commands live in
-[CONTRIBUTING.md](CONTRIBUTING.md). The architecture and its invariants are described in
-[ARCHITECTURE.md](ARCHITECTURE.md).
+Developer notes, code style, contribution rules, testing, project layout, and debugging commands live in [CONTRIBUTING.md](CONTRIBUTING.md). The architecture and its invariants are described in [ARCHITECTURE.md](ARCHITECTURE.md).
 
-Bug reports, fixes, documentation updates, themes, and configuration examples are welcome. For general help and design
-discussion, join the community on [Discord](https://discord.noctalia.dev).
+Bug reports, fixes, documentation updates, themes, and configuration examples are welcome. For general help and design discussion, join the community on [Discord](https://discord.noctalia.dev).
 
 ## Credits
 
-Thank you to the [contributors](https://github.com/noctalia-dev/noctalia/graphs/contributors) and community
-members who test Noctalia, report issues, share configurations, and help shape the project.
+Thank you to the [contributors](https://github.com/noctalia-dev/noctalia/graphs/contributors) and community members who test Noctalia, report issues, share configurations, and help shape the project.
 
 ## Donations
 
@@ -138,8 +107,7 @@ MIT License. See [LICENSE](LICENSE) for details.
 
 ## Packaging
 
-Distro packaging notes (description, deps, install layout, Meson options) live in
-[PACKAGING.md](PACKAGING.md).
+Distro packaging notes (description, deps, install layout, Meson options) live in [PACKAGING.md](PACKAGING.md).
 
 ## Star History
 

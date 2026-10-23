@@ -5,8 +5,7 @@ sidebar:
   order: 6
 ---
 
-Add the following settings to your Umbriel configuration file, usually located at `~/.config/umbriel/config.toml`.
-Umbriel's packaged [`examples/config.toml`](https://github.com/noctalia-dev/umbriel/blob/main/examples/config.toml) is a useful reference for the complete configuration. Umbriel also provides dedicated documentation for [configuration](/umbriel/configuration/), [window rules](/umbriel/window-rules/), and [layer rules](/umbriel/layer-rules/).
+Add the following settings to your Umbriel configuration file, usually located at `~/.config/umbriel/config.toml`. Umbriel's packaged [`examples/config.toml`](https://github.com/noctalia-dev/umbriel/blob/main/examples/config.toml) is a useful reference for the complete configuration. Umbriel also provides dedicated documentation for [configuration](/umbriel/configuration/), [window rules](/umbriel/window-rules/), and [layer rules](/umbriel/layer-rules/).
 
 ## Autostart Noctalia
 
@@ -127,19 +126,15 @@ Close the overview when opening an app from the launcher.
 umbriel_overview_close_on_launch_enabled = true
 ```
 
-Only launching an application (a desktop entry or one of its desktop actions) closes the overview; other launcher results such as calculator or emoji do not.
-You can also enable this from **Settings → Umbriel → Overview**.
+Only launching an application (a desktop entry or one of its desktop actions) closes the overview; other launcher results such as calculator or emoji do not. You can also enable this from **Settings → Umbriel → Overview**.
 
 ## Audio-reactive Effects
 
-Enable **Settings → Umbriel → Audio → Provide Audio to Umbriel** to let Umbriel's
-audio-reactive effects respond to your audio. This is disabled by default. You can also
-enable it in Noctalia's configuration:
+Enable **Settings → Umbriel → Audio → Provide Audio to Umbriel** to let Umbriel's audio-reactive effects respond to your audio. This is disabled by default. You can also enable it in Noctalia's configuration:
 
 ```toml
 [shell]
 umbriel_audio_provider_enabled = true
 ```
 
-Enable an audio-reactive effect in Umbriel to see a response. No Noctalia visualizer widget
-is required.
+Enable an audio-reactive effect in Umbriel to see a response. No Noctalia visualizer widget is required.

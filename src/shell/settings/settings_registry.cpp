@@ -3138,6 +3138,7 @@ namespace settings {
         tr("settings.schema.services.shell-sounds.description"), {"audio", "enable_sounds"},
         ToggleSetting{cfg.audio.enableSounds}, "sound"
     ));
+    const std::size_t soundsGatedStart = entries.size();
     entries.push_back(makeEntry(
         SettingsSection::Services, "audio", tr("settings.schema.services.volume-sounds.label"),
         tr("settings.schema.services.volume-sounds.description"), {"audio", "enable_volume_sounds"},
@@ -3175,6 +3176,12 @@ namespace settings {
         tr("settings.schema.services.sound-theme.description"), {"audio", "sound_theme"},
         SelectSetting{std::move(soundThemeOptions), cfg.audio.soundTheme}, "sound theme"
     ));
+    for (std::size_t i = soundsGatedStart; i < entries.size(); ++i) {
+      SettingVisibility prev = std::move(entries[i].visibleWhen);
+      entries[i].visibleWhen = prev
+          ? SettingVisibility{[prev = std::move(prev)](const Config& c) { return c.audio.enableSounds && prev(c); }}
+          : SettingVisibility{[](const Config& c) { return c.audio.enableSounds; }};
+    }
     entries.push_back(makeEntry(
         SettingsSection::Services, "brightness", tr("settings.schema.services.ddcutil.label"),
         env.ddcutilAvailable ? tr("settings.schema.services.ddcutil.description")

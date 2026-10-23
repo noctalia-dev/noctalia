@@ -18,6 +18,7 @@
 #include "ui/controls/label.h"
 #include "ui/palette.h"
 #include "ui/style.h"
+#include "util/string_utils.h"
 #include "wayland/text_input_service.h"
 
 #include <algorithm>
@@ -1435,7 +1436,7 @@ void Input::handleKey(std::uint32_t sym, std::uint32_t utf32, std::uint32_t modi
     if (hasSelection()) {
       deleteSelection();
     }
-    const auto bytes = utf32ToUtf8(utf32);
+    const auto bytes = StringUtils::utf32ToUtf8(utf32);
     m_value.insert(m_cursorPos, bytes);
     if (preedit) {
       m_preeditStart = m_cursorPos;
@@ -2548,24 +2549,4 @@ std::size_t Input::prevCharPos(const std::string& s, std::size_t pos) {
     --pos;
   }
   return pos;
-}
-
-std::string Input::utf32ToUtf8(std::uint32_t cp) {
-  std::string result;
-  if (cp < 0x80U) {
-    result += static_cast<char>(cp);
-  } else if (cp < 0x800U) {
-    result += static_cast<char>(0xC0U | (cp >> 6U));
-    result += static_cast<char>(0x80U | (cp & 0x3FU));
-  } else if (cp < 0x10000U) {
-    result += static_cast<char>(0xE0U | (cp >> 12U));
-    result += static_cast<char>(0x80U | ((cp >> 6U) & 0x3FU));
-    result += static_cast<char>(0x80U | (cp & 0x3FU));
-  } else {
-    result += static_cast<char>(0xF0U | (cp >> 18U));
-    result += static_cast<char>(0x80U | ((cp >> 12U) & 0x3FU));
-    result += static_cast<char>(0x80U | ((cp >> 6U) & 0x3FU));
-    result += static_cast<char>(0x80U | (cp & 0x3FU));
-  }
-  return result;
 }

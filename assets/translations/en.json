@@ -319,7 +319,8 @@
       "active-player": "Active player",
       "nothing-playing": "Nothing Playing",
       "now-playing": "Now Playing",
-      "start-playback": "Start playback in an MPRIS app"
+      "start-playback": "Start playback in an MPRIS app",
+      "toggle-visualizer": "Toggle visualizer"
     },
     "network": {
       "anonymous-identity": "Anonymous identity (optional)",
@@ -1164,9 +1165,13 @@
         },
         "group": {
           "accordion": "Accordion",
+          "accordion-delay": "Unfold Delay",
+          "accordion-delay-description": "Milliseconds to hover before the group starts unfolding (0 reacts at once)",
           "accordion-description": "Show only the first widget; hovering the capsule reveals the rest",
-          "accordion-direction": "Reveal direction",
+          "accordion-direction": "Reveal Direction",
           "accordion-direction-description": "Side of the first widget where the hidden widgets unfold",
+          "accordion-duration": "Unfold Time",
+          "accordion-duration-description": "Milliseconds the group takes to unfold on hover (0 is instant)",
           "action": "Group",
           "border": "Border",
           "border-description": "Capsule outline color role; leave on Default for no outline",

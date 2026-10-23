@@ -517,6 +517,8 @@ _noctalia_sources = files(
   'src/idle/plugin_idle_watches.cpp',
   'src/ipc/ipc_client.cpp',
   'src/ipc/ipc_service.cpp',
+  'src/ipc/pixel_stream_client.cpp',
+  'src/ipc/pixel_stream_service.cpp',
   'src/launcher/app_provider.cpp',
   'src/launcher/dmenu_cli.cpp',
   'src/launcher/dmenu_ipc.cpp',
@@ -909,6 +911,7 @@ _noctalia_sources = files(
   'src/ui/controls/grid_view.cpp',
   'src/ui/controls/grid_tile.cpp',
   'src/ui/controls/image.cpp',
+  'src/ui/controls/pixel_stream_view.cpp',
   'src/ui/controls/lockscreen_transition_cover.cpp',
   'src/ui/controls/input.cpp',
   'src/core/input/keybind_matcher.cpp',
@@ -1153,11 +1156,12 @@ noctalia_exe = executable('noctalia',
 
 install_subdir('assets',
   install_dir: get_option('datadir') / 'noctalia',
-  exclude_files: ['dev.noctalia.Noctalia.desktop'],
+  exclude_files: ['dev.noctalia.Noctalia.desktop', 'dev.noctalia.Noctalia.Annotator.desktop'],
 )
 
 install_data(
   'assets/dev.noctalia.Noctalia.desktop',
+  'assets/dev.noctalia.Noctalia.Annotator.desktop',
   install_dir: get_option('datadir') / 'applications',
 )
 
@@ -1290,6 +1294,7 @@ if build_tests
     'plugin_recommendations',
     'plugin_source_locks',
     'plugin_source_paths',
+    'pixel_stream_client',
     'process',
     'scheme',
     'screenshot_region_badge',

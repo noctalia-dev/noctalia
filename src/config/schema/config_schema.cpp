@@ -535,6 +535,13 @@ namespace noctalia::config::schema {
       };
       return s;
     }
+
+    const Schema<ControlCenterConfig::MediaTabConfig>& mediaTabSchema() {
+      static const Schema<ControlCenterConfig::MediaTabConfig> s = {
+          field(&ControlCenterConfig::MediaTabConfig::showVisualizer, "show_visualizer"),
+      };
+      return s;
+    }
   } // namespace
 
   const Schema<ControlCenterConfig>& controlCenterSchema() {
@@ -546,6 +553,7 @@ namespace noctalia::config::schema {
         field(&ControlCenterConfig::showSessionButton, "show_session_button"),
         field(&ControlCenterConfig::hiddenTabs, "hidden_tabs"),
         subTable(&ControlCenterConfig::calendarTab, "calendar", calendarTabSchema()),
+        subTable(&ControlCenterConfig::mediaTab, "media", mediaTabSchema()),
         arrayOf<ControlCenterConfig, ShortcutConfig>(
             &ControlCenterConfig::shortcuts, "shortcuts", shortcutSchema(),
             [](const ShortcutConfig& sc) { return !sc.type.empty(); }
@@ -2211,6 +2219,10 @@ namespace noctalia::config::schema {
           field(&BarCapsuleGroupStyle::opacity, "opacity", kBarOpacityRange),
           field(&BarCapsuleGroupStyle::accordion, "accordion"),
           enumField(&BarCapsuleGroupStyle::accordionDirection, "accordion_direction", kBarAccordionDirections),
+          optionalIntField(
+              &BarCapsuleGroupStyle::accordionDurationMs, "accordion_duration", kBarCapsuleAccordionMsRange
+          ),
+          optionalIntField(&BarCapsuleGroupStyle::accordionDelayMs, "accordion_delay_ms", kBarCapsuleAccordionMsRange),
           optionalIntField(&BarCapsuleGroupStyle::widgetSpacing, "widget_spacing"),
       };
       return s;

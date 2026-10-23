@@ -529,6 +529,11 @@ enabled = false
 
 # ── Control Center ────────────────────────────────────────────────────────────
 
+# Media tab of the control center.
+
+[control_center.media]
+show_visualizer = true              # PipeWire audio visualizer beside the playback controls
+
 # Shortcut buttons shown on the right side of the dashboard (up to 6).
 # [[control_center.shortcuts]]
 # type = "wifi"

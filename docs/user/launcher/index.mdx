@@ -53,9 +53,7 @@ The launcher tracks how often you activate specific results (applications and wa
 The **Categories** view, marked with a tag icon, lets you switch between desktop-entry categories such as Internet, Development, Games, Office, System, and Utilities. Category tabs show icons and text by default. Enable **Category Icons Only** in **Settings → Panels → Launcher** (`shell.launcher.category_icons_only = true`) to hide their text labels; hover tooltips still show the full names. This setting applies only to app category tabs (and to the category chips in the Simple layout). **All** remains an uninterrupted list or grid.
 
 :::note[Application options]
-
 Right-click an application result to open its menu of additional per-app options. The same menu opens with **Shift + Validate** (default: `Shift+Return`).
-
 :::
 
 ---
@@ -81,19 +79,10 @@ Enabling `shell.launcher.app_grid` switches application browsing, global search 
 A built-in expression evaluator powered by [`libqalculate`](https://qalculate.github.io/).
 
 - **Prefix**: `/calc ` (also available globally).
-- **Trigger**: Automatically activates in global search when the query contains a digit. The explicit `/calc` prefix
-  also accepts digit-free expressions such as `/calc EUR`.
-- **Functionality**: Standard arithmetic and functions (`sin`, `cos`, `sqrt`, `pi`, `e`, …), plus
-  unit conversion (`10 cm to in`, `100 km/h to mph`), number bases (`0xff`), and currency conversion
-  (`10 USD to EUR`). Decimal and thousands separators follow the system numeric locale
-  (for example `10000,50+2000,25` under `pt_BR`). Pressing **Enter** copies the result to your clipboard.
-- **Currency rates**: Exchange rates are cached locally and refreshed in the background from libqalculate's
-  ECB/global providers when `shell.launcher.fetch_exchange_rates` is enabled (the default). Refresh is also
-  skipped when `[shell].offline_mode` is enabled; in either case the last cached rates are used.
-- **User definitions**: Constants, functions, and units you define in libqalculate's XML files under
-  `$XDG_DATA_HOME/qalculate/definitions/` (default `~/.local/share/qalculate/definitions/`) are available too. Edit
-  them by hand or graphically with [Qalculate! (GTK)](https://github.com/Qalculate/qalculate-gtk). Changes are picked up
-  the next time the launcher opens.
+- **Trigger**: Automatically activates in global search when the query contains a digit. The explicit `/calc` prefix also accepts digit-free expressions such as `/calc EUR`.
+- **Functionality**: Standard arithmetic and functions (`sin`, `cos`, `sqrt`, `pi`, `e`, …), plus unit conversion (`10 cm to in`, `100 km/h to mph`), number bases (`0xff`), and currency conversion (`10 USD to EUR`). Decimal and thousands separators follow the system numeric locale (for example `10000,50+2000,25` under `pt_BR`). Pressing **Enter** copies the result to your clipboard.
+- **Currency rates**: Exchange rates are cached locally and refreshed in the background from libqalculate's ECB/global providers when `shell.launcher.fetch_exchange_rates` is enabled (the default). Refresh is also skipped when `[shell].offline_mode` is enabled; in either case the last cached rates are used.
+- **User definitions**: Constants, functions, and units you define in libqalculate's XML files under `$XDG_DATA_HOME/qalculate/definitions/` (default `~/.local/share/qalculate/definitions/`) are available too. Edit them by hand or graphically with [Qalculate! (GTK)](https://github.com/Qalculate/qalculate-gtk). Changes are picked up the next time the launcher opens.
 
 ### Emoji
 
@@ -150,19 +139,13 @@ Find and focus any currently open window.
 printf 'alpha\nbeta\ngamma\n' | noctalia dmenu -p "Pick"
 ```
 
-It opens the launcher scoped to those candidates, prints the selected line to stdout, and exits `0`. Closing the launcher
-or pressing Escape prints nothing and exits `1`. `-p` / `--prompt` sets the launcher input placeholder for that picker.
-A tab inside a candidate splits the display into title and description, but the full original line is still returned. If
-the current filter has no candidate match, pressing Enter returns the typed text.
+It opens the launcher scoped to those candidates, prints the selected line to stdout, and exits `0`. Closing the launcher or pressing Escape prints nothing and exits `1`. `-p` / `--prompt` sets the launcher input placeholder for that picker. A tab inside a candidate splits the display into title and description, but the full original line is still returned. If the current filter has no candidate match, pressing Enter returns the typed text.
 
-The command talks to the running Noctalia instance on the same `XDG_RUNTIME_DIR` and `WAYLAND_DISPLAY`; start Noctalia
-first, then call `noctalia dmenu` from scripts or compositor commands.
+The command talks to the running Noctalia instance on the same `XDG_RUNTIME_DIR` and `WAYLAND_DISPLAY`; start Noctalia first, then call `noctalia dmenu` from scripts or compositor commands.
 
 ### Persistent dmenu entries
 
-You can also add persistent dmenu-style launcher providers from config. These are useful for custom command palettes,
-small script menus, SSH host lists, package-maintenance commands, and other actions you want to run from the launcher
-without writing a plugin.
+You can also add persistent dmenu-style launcher providers from config. These are useful for custom command palettes, small script menus, SSH host lists, package-maintenance commands, and other actions you want to run from the launcher without writing a plugin.
 
 Each entry lives under `[shell.launcher.dmenu.entry.<id>]`, where `<id>` is the provider's stable config id:
 
@@ -176,8 +159,7 @@ global = false
 exec = "case \"{selection}\" in Open*) xdg-open ~/.config/noctalia ;; Show*) notify-send \"$(date)\" ;; esac"
 ```
 
-Open the launcher, type `/cmd`, then select one of the listed results. `command` is run to produce newline-separated
-candidates. A tab in a candidate splits the display into title and description:
+Open the launcher, type `/cmd`, then select one of the listed results. `command` is run to produce newline-separated candidates. A tab in a candidate splits the display into title and description:
 
 ```toml
 [shell.launcher.dmenu.entry.commands]
@@ -201,13 +183,9 @@ Fields:
 | `global`   | Whether results participate in normal non-prefixed launcher search                                                                                                                   |
 | `freeform` | Whether non-empty typed text can become an activatable result                                                                                                                        |
 
-Noctalia runs `exec` as a detached command; it does not automatically open a terminal. For interactive commands such as
-`dnf upgrade`, launch your terminal emulator explicitly (`foot -e ...`, `kitty -e ...`, `alacritty -e ...`, etc.).
-That is different from Application results with `Terminal=true`, which use `$TERMINAL` / terminal discovery
-(see [Shell settings](/noctalia/configuration/shell/#shell-settings)).
+Noctalia runs `exec` as a detached command; it does not automatically open a terminal. For interactive commands such as `dnf upgrade`, launch your terminal emulator explicitly (`foot -e ...`, `kitty -e ...`, `alacritty -e ...`, etc.). That is different from Application results with `Terminal=true`, which use `$TERMINAL` / terminal discovery (see [Shell settings](/noctalia/configuration/shell/#shell-settings)).
 
-Set `freeform = true` when the typed text itself should be activatable. The typed text after the prefix is available as
-`{query}`:
+Set `freeform = true` when the typed text itself should be activatable. The typed text after the prefix is available as `{query}`:
 
 ```toml
 [shell.launcher.dmenu.entry.notify]
@@ -219,16 +197,13 @@ freeform = true
 exec = "notify-send \"{query}\""
 ```
 
-Typing `/notify Build finished` shows `Build finished` as a result. Activating it runs
-`notify-send "Build finished"`. `command` is optional for freeform entries; add one only when you also want suggested
-results.
+Typing `/notify Build finished` shows `Build finished` as a result. Activating it runs `notify-send "Build finished"`. `command` is optional for freeform entries; add one only when you also want suggested results.
 
 ---
 
 ## Text editing shortcuts
 
-When `shell.readline_shortcuts` is enabled (Settings → Shell → General), every text field, including the launcher input,
-supports readline-style shortcuts. Otherwise `Ctrl+A` selects all and `Ctrl+U` clears the field.
+When `shell.readline_shortcuts` is enabled (Settings → Shell → General), every text field, including the launcher input, supports readline-style shortcuts. Otherwise `Ctrl+A` selects all and `Ctrl+U` clears the field.
 
 | Shortcut            | Action                                  |
 | ------------------- | --------------------------------------- |
@@ -273,7 +248,7 @@ See [Shell: Launcher settings](/noctalia/configuration/shell/#shell-settings) fo
 The built-in providers can be configured without editing your config, under **Settings → Panels → Launcher → Providers**:
 
 - **Common Prefix Character**: the shared `provider_prefix` (defaults to `/`).
-- **&lt;Provider&gt; Prefix**: the trigger word for each built-in provider (Calculator, Emoji, Panels, Session, Wallpaper, Windows). Leave blank to fall back to the built-in default.
-- **&lt;Provider&gt; in Global Search**: toggles whether that provider also contributes results to the un-prefixed search.
+- **\<Provider> Prefix**: the trigger word for each built-in provider (Calculator, Emoji, Panels, Session, Wallpaper, Windows). Leave blank to fall back to the built-in default.
+- **\<Provider> in Global Search**: toggles whether that provider also contributes results to the un-prefixed search.
 
 Dmenu and plugin provider prefixes are configured only through their config tables (see the reference linked above); they do not appear in the Settings UI.

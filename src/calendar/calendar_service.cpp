@@ -631,7 +631,15 @@ void CalendarService::accountDone(
     const std::string& accountId, calendar::SyncFailure failure, std::vector<CalendarEvent> events
 ) {
   if (failure == calendar::SyncFailure::None) {
+    kLog.debug("calendar account {} refreshed: {} event(s)", accountId, events.size());
     m_eventsByAccount[accountId] = std::move(events);
+  } else {
+    const auto it = m_eventsByAccount.find(accountId);
+    const auto status = failure == calendar::SyncFailure::Cancelled ? "was cancelled" : "failed";
+    kLog.warn(
+        "calendar account {} refresh {}; keeping {} previously loaded event(s)", accountId, status,
+        it == m_eventsByAccount.end() ? 0 : it->second.size()
+    );
   }
   m_syncPhases.erase(accountId);
   ++m_syncStatusRevision;
@@ -855,15 +863,19 @@ void CalendarService::fetchCalDav(const CalendarConfig::Account& account) {
 
                 m_caldav.fetchEvents(
                     caldav, now - kWindowBefore, now + kWindowAfter, allowRedirectAuth,
-                    [ctx](calendar::SyncFailure failure, std::vector<CalendarEvent> events) {
+                    [ctx,
+                     calendarName = collection.name](calendar::SyncFailure failure, std::vector<CalendarEvent> events) {
                       if (failure == calendar::SyncFailure::None) {
                         ctx->anyOk = true;
                         ctx->events.insert(
                             ctx->events.end(), std::make_move_iterator(events.begin()),
                             std::make_move_iterator(events.end())
                         );
-                      } else if (ctx->firstFailure == calendar::SyncFailure::None) {
-                        ctx->firstFailure = failure;
+                      } else {
+                        kLog.warn("caldav account {}: calendar '{}' failed to load", ctx->accountId, calendarName);
+                        if (ctx->firstFailure == calendar::SyncFailure::None) {
+                          ctx->firstFailure = failure;
+                        }
                       }
                       if (ctx->pending > 0) {
                         --ctx->pending;

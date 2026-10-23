@@ -56,6 +56,19 @@ public:
   // preferred size is then only the fallback if no size is ever assigned.
   [[nodiscard]] virtual bool fillsWidth() const noexcept { return false; }
   [[nodiscard]] virtual bool fillsHeight() const noexcept { return false; }
+  // Content-fitted height: the panel shows at its content's height plus padding, up to
+  // preferredHeight(), which becomes the maximum. The surface is sized for that maximum
+  // once at open and only the visible card inside it follows the content, because
+  // resizing a layer surface blanks it for a frame on most compositors.
+  [[nodiscard]] virtual bool fitsContentHeight() const noexcept { return false; }
+  // Natural height of the content laid out at `contentWidth`, without padding. Called
+  // after layout() and only when fitsContentHeight() is true; may leave the content laid
+  // out at that height, so the caller lays it out again.
+  [[nodiscard]] virtual float measureContentHeight(Renderer& renderer, float contentWidth) {
+    (void)renderer;
+    (void)contentWidth;
+    return 0.0F;
+  }
   [[nodiscard]] virtual bool hasDecoration() const { return true; }
   [[nodiscard]] virtual LayerShellLayer layer() const { return LayerShellLayer::Top; }
   // Keyboard focus policy. `None` means the panel never takes keyboard focus, so the

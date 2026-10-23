@@ -11,45 +11,34 @@ A palette is the set of colors selected by [`[theme]`](/noctalia/theming/). The 
 
 User-facing color settings reference these 16 roles with lowercase `snake_case` names. Prefer role names so UI colors follow the active palette. Fixed hex colors (`#RGB`, `#RGBA`, `#RRGGBB`, `#RRGGBBAA`) are supported where a deliberately non-palette color is needed.
 
-| Role | Palette field | Description |
-|------|---------------|-------------|
-| `primary` | `mPrimary` | Primary accent for buttons, links, highlights, and active states. |
-| `on_primary` | `mOnPrimary` | Text and icons placed on primary surfaces. |
-| `secondary` | `mSecondary` | Secondary accent color. |
-| `on_secondary` | `mOnSecondary` | Text and icons placed on secondary surfaces. |
-| `tertiary` | `mTertiary` | Tertiary accent color. |
-| `on_tertiary` | `mOnTertiary` | Text and icons placed on tertiary surfaces. |
-| `error` | `mError` | Error and destructive-action color. |
-| `on_error` | `mOnError` | Text and icons placed on error surfaces. |
-| `surface` | `mSurface` | Main shell background color. |
-| `on_surface` | `mOnSurface` | Primary text and icon color on shell surfaces. |
-| `surface_variant` | `mSurfaceVariant` | Secondary background for cards, panels, and lower-emphasis surfaces. |
-| `on_surface_variant` | `mOnSurfaceVariant` | Secondary text and icon color on variant surfaces. |
-| `outline` | `mOutline` | Borders, separators, and subtle outlines. |
-| `shadow` | `mShadow` | Shadow color. |
-| `hover` | `mHover` | Hover and interactive highlight background. |
-| `on_hover` | `mOnHover` | Text and icons placed on hover surfaces. |
+| Role                 | Palette field       | Description                                                          |
+| -------------------- | ------------------- | -------------------------------------------------------------------- |
+| `primary`            | `mPrimary`          | Primary accent for buttons, links, highlights, and active states.    |
+| `on_primary`         | `mOnPrimary`        | Text and icons placed on primary surfaces.                           |
+| `secondary`          | `mSecondary`        | Secondary accent color.                                              |
+| `on_secondary`       | `mOnSecondary`      | Text and icons placed on secondary surfaces.                         |
+| `tertiary`           | `mTertiary`         | Tertiary accent color.                                               |
+| `on_tertiary`        | `mOnTertiary`       | Text and icons placed on tertiary surfaces.                          |
+| `error`              | `mError`            | Error and destructive-action color.                                  |
+| `on_error`           | `mOnError`          | Text and icons placed on error surfaces.                             |
+| `surface`            | `mSurface`          | Main shell background color.                                         |
+| `on_surface`         | `mOnSurface`        | Primary text and icon color on shell surfaces.                       |
+| `surface_variant`    | `mSurfaceVariant`   | Secondary background for cards, panels, and lower-emphasis surfaces. |
+| `on_surface_variant` | `mOnSurfaceVariant` | Secondary text and icon color on variant surfaces.                   |
+| `outline`            | `mOutline`          | Borders, separators, and subtle outlines.                            |
+| `shadow`             | `mShadow`           | Shadow color.                                                        |
+| `hover`              | `mHover`            | Hover and interactive highlight background.                          |
+| `on_hover`           | `mOnHover`          | Text and icons placed on hover surfaces.                             |
 
 Settings role pickers expose these role names first. Template files access these roles and the full Material token set through the [Template Reference](/noctalia/theming/templates/#available-color-tokens). Plugins can query the active theme's colors at runtime using [`noctalia.getColor(role)`](/noctalia/plugins/development/runtime-api/#runtime-and-settings).
 
 ## Palette Inspector
 
-Open **Settings → Appearance → Theme → Palette Inspector → Inspect Colors** to browse
-the active palette's template colors in a responsive grid. Each card shows a large
-color swatch, the canonical token name, and its hex value. Use the **All Colors**,
-**Palette**, and **Terminal** filters to browse related colors, including normal
-and bright terminal colors. Search by token name or hex value, then use the copy
-buttons to copy either value.
+Open **Settings → Appearance → Theme → Palette Inspector → Inspect Colors** to browse the active palette's template colors in a responsive grid. Each card shows a large color swatch, the canonical token name, and its hex value. Use the **All Colors**, **Palette**, and **Terminal** filters to browse related colors, including normal and bright terminal colors. Search by token name or hex value, then use the copy buttons to copy either value.
 
-The 16 normal and bright terminal colors have badges numbered **1-16**, alongside
-their **ANSI 0-15** indices. Normal black is `1 · ANSI 0`, normal white is
-`8 · ANSI 7`, bright black is `9 · ANSI 8`, and bright white is `16 · ANSI 15`.
-Foreground, background, cursor, and selection colors do not have numbered slots.
+The 16 normal and bright terminal colors have badges numbered **1-16**, alongside their **ANSI 0-15** indices. Normal black is `1 · ANSI 0`, normal white is `8 · ANSI 7`, bright black is `9 · ANSI 8`, and bright white is `16 · ANSI 15`. Foreground, background, cursor, and selection colors do not have numbered slots.
 
-The inspector follows **Theme Mode**, which controls generated templates, and
-updates when the resolved palette changes. If **Shell Theme Mode** differs from
-Theme Mode, the preview can differ from the shell's own colors. The description
-shows which mode is being inspected. Missing tokens are shown as **Unavailable**.
+The inspector follows **Theme Mode**, which controls generated templates, and updates when the resolved palette changes. If **Shell Theme Mode** differs from Theme Mode, the preview can differ from the shell's own colors. The description shows which mode is being inspected. Missing tokens are shown as **Unavailable**.
 
 ## Custom Palette Files
 
@@ -181,16 +170,16 @@ Each palette can provide `dark` and `light` variants. If `light` is omitted, Noc
 
 The `terminal` object provides colors for terminal templates:
 
-| Field | Description |
-|-------|-------------|
-| `background` | Terminal background. |
-| `foreground` | Default text color. |
-| `cursor` | Cursor color. |
-| `cursorText` | Text under the cursor. |
-| `selectionBg` | Selection background. |
-| `selectionFg` | Selection foreground. |
-| `normal` | Normal ANSI colors. |
-| `bright` | Bright ANSI colors. |
+| Field         | Description            |
+| ------------- | ---------------------- |
+| `background`  | Terminal background.   |
+| `foreground`  | Default text color.    |
+| `cursor`      | Cursor color.          |
+| `cursorText`  | Text under the cursor. |
+| `selectionBg` | Selection background.  |
+| `selectionFg` | Selection foreground.  |
+| `normal`      | Normal ANSI colors.    |
+| `bright`      | Bright ANSI colors.    |
 
 Good terminal colors are important for syntax highlighting. Test both dark and light variants with code, prompts, selections, and diffs.
 

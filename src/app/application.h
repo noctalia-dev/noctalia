@@ -24,6 +24,7 @@
 #include "idle/plugin_idle_watches.h"
 #include "ipc/ipc_poll_source.h"
 #include "ipc/ipc_service.h"
+#include "ipc/pixel_stream_service.h"
 #include "launcher/dmenu_ipc.h"
 #include "net/http_client.h"
 #include "net/http_client_poll_source.h"
@@ -348,6 +349,8 @@ private:
   RenderContext m_renderContext;
   // Image controls in panels retain cache-backed handles during teardown.
   AsyncTextureCache m_asyncTextureCache;
+  // Outlives the panels, widgets, and layers whose pixel stream views register with it.
+  PixelStreamService m_pixelStreamService;
   ThumbnailService m_thumbnailService;
   WallpaperScanner m_wallpaperScanner;
   Bar m_bar;

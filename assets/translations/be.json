@@ -29,6 +29,7 @@
   "bar": {
     "annotate": {
       "capture-new-region": "Захапіць новы рэгіён (скасоўвае бягучае рэдагаванне)",
+      "close": "Закрыць без выніку (Esc)",
       "color-black": "Чорны",
       "color-blue": "Сіні",
       "color-green": "Зялёны",
@@ -37,15 +38,41 @@
       "color-red": "Чырвоны",
       "color-white": "Белы",
       "color-yellow": "Жоўты",
+      "copy": "Скапіраваць анатаваную выяву (Ctrl+C)",
+      "cursor": "Паказваць указальнік, захоплены разам з экранам (p)",
+      "cursor-capture-failed": "Пераключальнік указальніка недаступны: кампазітар не змог прадаставіць асобную выяву курсора",
+      "cursor-live": "Спачатку замарозьце экран, каб змяніць захоплены указальнік (Z)",
+      "cursor-not-captured": "Пераключальнік указальніка недаступны: гэты кампазітар не падтрымлівае асобны захоп курсора",
       "done": "Прымяніць налады скрыншота (Enter)",
+      "fill-off": "Запаўненне фігуры: выключана (f)",
+      "fill-opaque": "Запаўненне фігуры: непразрыстае (f)",
+      "fill-semi": "Запаўненне фігуры: паўпразрыстае (f)",
+      "freeze": "Замарозіць экран пад анатацыямі (z)",
+      "move-toolbar": "Перацягніце, каб перамясціць панэль інструментаў",
       "redo": "Узнавіць (Ctrl+Shift+Z)",
+      "save": "Захаваць анатаваную выяву (Ctrl+S)",
+      "size-advanced": "Дакладнае рэгуляванне памеру",
+      "size-decrease": "Танчэй ([)",
+      "size-increase": "Таўсцей (])",
       "size-large": "Вялікі",
       "size-medium": "Сярэдні",
       "size-small": "Малы",
+      "tool-arrow": "Стрэлка (a) · утрымлівайце Shift, каб выраўняць кут",
+      "tool-blur": "Размыць рэгіён (u)",
+      "tool-brush": "Пэндзаль (b)",
+      "tool-circle": "Эліпс (o) · утрымлівайце Shift для круга",
+      "tool-crop": "Абрэзаць экспарт (c)",
+      "tool-eraser": "Сцірка (e)",
+      "tool-highlighter": "Маркер (h)",
+      "tool-line": "Лінія (l) · утрымлівайце Shift, каб выраўняць кут",
+      "tool-move": "Перамясціць анатацыю (m)",
+      "tool-numbering": "Нумарны маркер (n)",
+      "tool-rectangle": "Прамавугольнік (s) · утрымлівайце Shift для квадрата",
       "tool-text": "Тэкст (t)",
       "undo": "Адрабіць (Ctrl+Z)"
     },
     "screenshot": {
+      "annotate-export-failed": "Не ўдалося стварыць анатаваную выяву",
       "choose-display": "Выбраць дысплэй",
       "confirm-region": "{copy} для капіравання · {save} для захавання · Увод або Прабел для скіду · {cancel} для скасавання · Перацягванне для змены вобласці",
       "fullscreen": "Увесь экран",
@@ -61,7 +88,8 @@
       },
       "brightness": {
         "brightness": "Яркасць",
-        "display": "Дысплэй"
+        "display": "Дысплэй",
+        "unavailable": "Кіраванне яркасцю недаступнае"
       },
       "lock-keys": {
         "caps": "Caps",
@@ -78,6 +106,7 @@
       "network": {
         "active": "Актыўная",
         "band": "Частата",
+        "cellular": "Мабільны",
         "connected": "Падлучана",
         "connecting": "Ідзе падлучэнне",
         "download": "Спампоўка",
@@ -198,7 +227,9 @@
       "auto": "Аўтаматычна",
       "custom": "Уласны",
       "inherit": "Узяць з налад",
-      "off": "Выкл"
+      "inherit-value": "Узяць з налад ({value})",
+      "off": "Выкл",
+      "on": "Укл"
     }
   },
   "control-center": {
@@ -245,6 +276,7 @@
         "connected": "Падлучана",
         "paired": "Спалучана"
       },
+      "trust-and-allow": "Даверыць і дазволіць",
       "unavailable": "Сэрвіс Bluetooth недаступны",
       "unknown-device": "Невядомая прылада",
       "visible": "Бачны прыладам паблізу"
@@ -259,6 +291,7 @@
     "display": {
       "disabled": "Адключана",
       "no-displays": "Няма даступных манітораў",
+      "rescan": "Перасканаваць маніторы DDC/CI",
       "unknown-resolution": "Невядомая раздзяляльнасць"
     },
     "home": {
@@ -289,23 +322,39 @@
       "start-playback": "Пачніце прайграванне ў праграме MPRIS"
     },
     "network": {
+      "anonymous-identity": "Ананімная ідэнтычнасць (неабавязкова)",
       "available": "Даступна",
+      "ca-certificate": "Шлях да сертыфіката CA (неабавязкова)",
+      "cellular": "Мабільны",
       "cellular-connected": "Падлучана",
       "cellular-connecting": "Падлучэнне…",
+      "cellular-connection": "Мабільнае злучэнне",
       "cellular-enabling": "Уключэнне…",
       "cellular-failed": "Не ўдалося",
       "cellular-locked": "SIM-карта заблакаваная",
       "cellular-no-service": "Няма абслугоўвання",
       "cellular-off": "Выкл",
+      "cellular-registered": "Зарэгістравана",
       "cellular-searching": "Пошук…",
       "connect": "Злучыцца",
       "current-connection": "Бягучае злучэнне",
+      "domain-suffix-match": "Суфікс дамена сервера",
+      "eap-method": "Метад EAP",
+      "enterprise-prompt-for": "Увайдзіце ў {ssid}",
+      "error-ca-not-absolute": "Шлях да сертыфіката павінен быць абсалютным і пачынацца з /.",
+      "error-certificate-required": "Гэтая сетка патрабуе аўтэнтыфікацыі на аснове сертыфіката (EAP-TLS), якая пакуль не падтрымліваецца.",
+      "error-enterprise-unsupported": "Актыўны сеткавы бэкенд не можа наладжваць сеткі 802.1X.",
+      "error-missing-identity": "Увядзіце ідэнтычнасць, якую выдала ваша арганізацыя.",
+      "error-missing-password": "Увядзіце пароль.",
+      "error-unsupported-phase2": "PEAP патрабуе ўнутранай аўтэнтыфікацыі MSCHAPv2.",
       "external-ip": "WAN {ip}",
+      "identity": "Ідэнтычнасць",
       "no-networks": "У дыяпазоне няма сетак",
       "not-connected": "Не злучана",
       "password": "Пароль",
       "password-prompt": "Увядзіце пароль",
       "password-prompt-for": "Увядзіце пароль для {ssid}",
+      "phase2-auth": "Унутраная аўтэнтыфікацыя",
       "saved": "Захавана",
       "unavailable-detail": "Усталюйце і ўключыце NetworkManager, wpa_supplicant або iwd, каб кіраваць сеткамі тут.",
       "unavailable-title": "Сэрвіс сеткі недаступны",
@@ -506,7 +555,10 @@
         "select-sticker-image": "Выберыце відарыс для стыкеру"
       },
       "settings": {
+        "album-art-background": "Фон вокладкі альбома",
+        "album-art-blur": "Размыццё вокладкі альбома",
         "aspect-ratio": "Суадносіны бакоў",
+        "audio-visualizer": "Візуалізатар аўдыя",
         "background": "Фон",
         "background-color": "Колер",
         "background-opacity": "Непразрыстасць",
@@ -581,9 +633,12 @@
         "show-login-button": "Кнопка ўваходу",
         "show-media": "Медыя",
         "show-password-hint": "Падказка да пароля",
+        "show-password-reveal": "Паказ пароля",
+        "show-seconds": "Секундная стрэлка",
         "show-session-buttons": "Кнопкі сеанса",
         "show-unlock-hint": "Падказка",
         "show-vpn-label": "Паказваць пазнаку VPN",
+        "show-wave": "Паказваць хвалю",
         "show-weather": "Надвор'е",
         "show-week-numbers": "Паказваць нумары тыдняў",
         "show-when-idle": "Паказваць пры неактыўнасці",
@@ -669,6 +724,34 @@
     }
   },
   "launcher": {
+    "browser": {
+      "actions": {
+        "power": "Сілкаванне",
+        "settings": "Налады"
+      },
+      "navigation": {
+        "all": "Усе",
+        "all-apps": "Усе праграмы",
+        "categories": "Катэгорыі",
+        "pinned": "Замацаваныя",
+        "providers": "Пастаўшчыкі",
+        "recent": "Нядаўнія"
+      },
+      "options": {
+        "show-grid": "Паказваць сеткай",
+        "show-list": "Паказваць спісам",
+        "sort-by-frequency": "Спачатку частыя вынікі",
+        "use-default-order": "Выкарыстоўваць прадвызначаны парадак"
+      },
+      "sections": {
+        "all-apps": "Усе праграмы",
+        "other-apps": "Іншыя праграмы",
+        "pinned": "Замацаваныя",
+        "providers": "Пастаўшчыкі",
+        "recent": "Нядаўнія",
+        "search-results": "Вынікі пошуку"
+      }
+    },
     "categories": {
       "all": "Усе",
       "applications": {
@@ -733,6 +816,8 @@
           "polkit": "Запыт аўтэнтыфікацыі",
           "session": "Сесія",
           "setup-wizard": "Майстар налады",
+          "test": "Тэставая панэль",
+          "tray-drawer": "Высоўнае меню Tray",
           "wallpaper": "Шпалеры"
         },
         "title": "Панэлі"
@@ -796,6 +881,8 @@
       "calendar": "Каляндар",
       "calendar-credential-locked-body": "Разблакіруйце набор ключоў, які выкарыстоўваецца сэрвісам сакрэтаў, і паспрабуйце зноў. У праграме GNOME Keyring зрабіце прадвызначаным набор ключоў, які разблакіруецца аўтаматычна, напрыклад, «Login».",
       "calendar-credential-locked-title": "Набор ключоў календара заблакіраваны",
+      "calendar-digest-more": "Яшчэ {count}",
+      "calendar-digest-title": "Сённяшнія падзеі на ўвесь дзень",
       "calendar-google-connect-browser-failed": "Не ўдаецца адкрыць браўзер для аўтарызацыі праз Google. Праверце ваш прадвызначаны браўзер або налады xdg-open.",
       "calendar-google-connect-credential-store-failed": "Аўтарызацыя выканана, але токен абнаўлення не захоўваецца. Разблакіруйце або запусціце сэрвіс сакрэтаў, затым перападлуыцеся.",
       "calendar-google-connect-expired": "Аўтарызацыя Google пратэрмінавалася да сканчэння ўваходу. Паўтарыце працэс падлучэння.",
@@ -806,6 +893,13 @@
       "calendar-google-connect-start-failed": "Не ўдалося запусціць аўтарызацыю Google. Праверце ваша злучэнне з сеткай і паспрабуйце яшчэ раз.",
       "calendar-google-connect-start-http": "Не ўдалося запусціць аўтарызацыю Google. Брокер OAuth вярнуў код HTTP {status}.",
       "calendar-google-connect-timeout": "Скончыўся час чакання аўтарызацыі Google. Пачніце падлучэнне яшчэ раз, калі будзеце гатовыя ўвайсці.",
+      "calendar-reminder-catchup-body": "Хутка пачнуцца яшчэ {count} з падзей.",
+      "calendar-reminder-catchup-title": "Яшчэ некалькі блізкіх падзей",
+      "calendar-reminder-in": "Пачатак праз {minutes} хв. · {time}",
+      "calendar-reminder-now": "Пачатак зараз · {time}",
+      "calendar-reminder-open": "Адкрыць",
+      "calendar-reminder-untitled": "Падзея без назвы",
+      "calendar-reminder-with-location": "{when}\n{location}",
       "config-migration-body": "Абнавіце {path} у зыходным файле. Noctalia толькі тэрмінова прымяняе гэтую замену. Выканайце noctalia config validate, каб убачыць усе патрэбныя змены.",
       "config-migration-title": "Патрабуецца абнаўленне канфігурацыі",
       "dbus-disabled": "Апавяшчэнні DBus выключаныя",
@@ -814,10 +908,13 @@
       "greeter-sync": "Noctalia Greeter",
       "greeter-sync-pending": "Чаканне ухвалення адміністратара на запіс у Greeter.",
       "greeter-sync-pending-console": "Чаканне ухвалення адміністратара. Ухваліце запыт polkit у Noctalia, на TTY ці кансолі, або ўласнаручна выканайце pkexec.",
+      "greeter-sync-pending-legacy": "Сінхранізацыя праз састарэлы аўтэнтыфікаваны памочнік. Патрабуецца ўхваленне адміністратара.",
       "greeter-sync-pending-manual": "Файлы ў чаканні. Выканайце ў тэрмінале каманду: pkexec noctalia-greeter-apply-appearance \"$XDG_RUNTIME_DIR/noctalia-greeter-sync\". Або задайце shell.greeter_sync.privilege_command (напрыклад, ghostty -e pkexec) і сінхранізуйцеся паўторна.",
+      "greeter-sync-pending-manual-pkexec": "Сінхранізацыя выгляду ў Greeter. Калі патрабуецца аўтарызацыя адміністратара, а запыт не паказваецца, выканайце ў тэрмінале: pkexec noctalia-greeter-apply-appearance --sync \"/run/user/$(id -u)/noctalia-greeter-sync\".",
       "greeter-sync-success": "Выгляд сінхранізаваны. Змены прыменяцца на наступным экране блакіроўкі.",
       "greeter-sync-timeout": "Сінхранізацыя Greeter усё яшчэ чакае ухвалення адміністратара. Праверце TTY або кансоль на прадмет запыту polkit, уключыце агент polkit у наладах бяспекі, або ўласнаручна выканайце pkexec.",
       "greeter-sync-timeout-manual": "Сінхранізацыя Greeter усё яшчэ патрабуе ухвалення адміністратарам. Выканайце ў тэрмінале каманду: pkexec noctalia-greeter-apply-appearance \"$XDG_RUNTIME_DIR/noctalia-greeter-sync\"",
+      "greeter-sync-timeout-manual-pkexec": "Сінхранізацыя Greeter усё яшчэ патрабуе аўтарызацыі. Выканайце ў тэрмінале: pkexec noctalia-greeter-apply-appearance --sync \"/run/user/$(id -u)/noctalia-greeter-sync\"",
       "keybind-app": "Noctalia",
       "keybind-invalid-modifier": "Гэта спалучэнне можа быць адной клавішай без мадыфікатараў.",
       "keybind-invalid-printable": "Клавішам-сімвалам (літарам, лічбам, пунктуацыі і інш.) патрабуюцца мадыфікатары, такія як Ctrl або Alt.",
@@ -829,6 +926,15 @@
       "lockscreen-widgets-editor-blocked-locked": "Разблакіруйце сеанс перад тым, як рэдагаваць віджэты.",
       "lockscreen-widgets-editor-enabled": "Рэдактар віджэтаў экрана блакіроўкі ўключаны. Пераключыцеся на пустую прастору, каб вокны не перакрывалі рэдактар.",
       "mpris-disabled": "MPRIS выключаны",
+      "network": "Сетка",
+      "network-connect-failed-auth": "Пароль адхілены або не ўведзены.",
+      "network-connect-failed-generic": "NetworkManager не змог завяршыць падключэнне.",
+      "network-connect-failed-ip": "Падключэнне да сеткі ўсталявана, але не ўдалося атрымаць IP-адрас.",
+      "network-connect-failed-no-reply": "NetworkManager не адказаў. Магчыма, запыт на аўтарызацыю чакае, але няма агента polkit, які мог бы адказаць.",
+      "network-connect-failed-not-found": "Сетка больш не ў зоне дасяжнасці.",
+      "network-connect-failed-permission": "Няма правоў на змяненне сеткавых падключэнняў. Уключыце агент polkit у наладах бяспекі або дазвольце дзеянні NetworkManager у правіле polkit.",
+      "network-connect-failed-timeout": "Сетка не адказала своечасова.",
+      "network-connect-failed-title": "Не атрымалася падключыцца да {ssid}",
       "polkit-agent": "Агент Polkit",
       "polkit-no-session": "Агент Polkit патрабуе logind, elogind або XDG_SESSION_ID. На seatd-only сістэмах ён не можа выяўляць графічныя запыты. Скарыстайцеся pkexec праз тэрмінал, каб сінхранізаваць Greeter, або ўсталюйце elogind для праверкі сапраўднасці ў сеансе.",
       "screen-time-reset": "Экранны час",
@@ -929,6 +1035,7 @@
       "lock-and-suspend": "Заблакіраваць і прыпыніць",
       "logout": "Выйсці",
       "reboot": "Перазапусціць",
+      "reboot-uefi": "Перазапусціць у UEFI",
       "shutdown": "Завяршыць працу",
       "suspend": "Прыпыніць"
     },
@@ -954,6 +1061,8 @@
     "calendar-accounts": {
       "add-title": "Дадаць уліковы запіс календара",
       "calendars-label": "Календары",
+      "client-cert-label": "Кліенцкі сертыфікат (PEM)",
+      "client-key-label": "Кліенцкі ключ (PEM)",
       "color-label": "Колер",
       "credential-source-file": "Парольны файл",
       "credential-source-keyring": "Набор ключоў",
@@ -975,7 +1084,8 @@
         "custom": "CalDAV",
         "google": "Google",
         "icloud": "iCloud",
-        "ics": "URL-адрас ICS"
+        "ics": "URL-адрас ICS",
+        "vdir": "Лакальны (vdir)"
       },
       "provider-label": "Пастаўшчык",
       "save": "Захаваць",
@@ -1030,13 +1140,16 @@
       },
       "monitor-override": {
         "create": "Стварыць",
+        "custom": "Уласны",
         "delete": "Выдаліць",
         "delete-confirm-desc": "Гэты графічны манітор будзе выдалены з файла settings.toml.",
         "delete-confirm-title": "Выдаліць «{name}»?",
+        "exists": "Перавызначэнне для гэтага манітора ўжо існуе.",
         "label": "Манітор: {name}",
         "management": "Перавызначэнне манітора",
         "match-placeholder": "Суаднясенне манітора",
         "new": "Перавызначэнне манітора",
+        "new-title": "Новае перавызначэнне манітора",
         "rename": "Перайменаваць",
         "rename-save": "Захаваць"
       },
@@ -1057,6 +1170,8 @@
           "action": "Згрупіраваць",
           "border": "Мяжа",
           "border-description": "Колер контура капсулы; пакіньце на прадвызначаным, каб выключыць контур",
+          "border-width": "Шырыня мяжы",
+          "border-width-description": "Таўшчыня контуру капсулы ў пікселях; малюецца толькі пры зададзеным колеры мяжы",
           "clear": "Ачысціць",
           "deselect": "Зняць выбар",
           "drag": "Змяніць парадак",
@@ -1183,6 +1298,7 @@
       "sync-greeter": "Не ўдалося сінхранізаваць выгляд з Noctalia Greeter.",
       "sync-greeter-timeout": "Сінхранізацыя Greeter усё яшчэ чакае ухвалення адміністратара. Праверце TTY або кансоль на прадмет запыту polkit, уключыце агент polkit у наладах бяспекі, або ўласнаручна выканайце pkexec.",
       "sync-greeter-timeout-manual": "Сінхранізацыя Greeter усё яшчэ патрабуе ухвалення адміністратарам. Выканайце ў тэрмінале каманду: pkexec noctalia-greeter-apply-appearance \"$XDG_RUNTIME_DIR/noctalia-greeter-sync\"",
+      "sync-greeter-timeout-manual-pkexec": "Сінхранізацыя Greeter усё яшчэ патрабуе аўтарызацыі. Выканайце ў тэрмінале: pkexec noctalia-greeter-apply-appearance --sync \"/run/user/$(id -u)/noctalia-greeter-sync\"",
       "widget": {
         "rename": "Не ўдалося перайменаваць названы віджэт."
       },
@@ -1196,6 +1312,8 @@
       "merged-user-description": "Аб'ядноўвае файлы канфігурацыі і перавызначэнні графічнага інтэрфейсу ў адзін файл TOML. Убудаваныыя прадвызначэнні застануцца схаванымі.",
       "merged-user-save-title": "Захаваць аб'яднаную канфігурацыю",
       "merged-user-title": "Аб'яднаная канфігурацыя (рэкамендуецца)",
+      "privacy-warning-description": "Абодва рэжымы экспарту могуць уключаць API-ключы, паролі або іншыя канфідэнцыйныя даныя, якія захоўваюцца ў вашай канфігурацыі, у тым ліку ўбудовамі. Лічыце экспартаваныя файлы прыватнымі. Перад абагульваннем прагледзьце і выдаліце канфідэнцыйныя даныя.",
+      "privacy-warning-title": "Экспартаваныя файлы могуць змяшчаць сакрэты",
       "title": "Экспарт канфігурацыі"
     },
     "idle": {
@@ -1237,9 +1355,12 @@
         "background": "Фон",
         "battery": "Батарэя",
         "behavior": "Паводзіны",
+        "bluetooth": "Bluetooth",
         "borders": "Краі",
         "brightness": "Яркасць",
         "built-in": "Убудавана",
+        "calendar-accounts": "Уліковыя запісы",
+        "calendar-reminders": "Напаміны",
         "capsules": "Капсулы",
         "clipboard": "Буфер абмену",
         "community": "Супольнасць",
@@ -1288,6 +1409,9 @@
         "screen-corners": "Куты экрану",
         "screen-time": "Экранны час",
         "screenshot": "Здымак экрану",
+        "screenshot-annotation": "Анатацыя",
+        "screenshot-capture": "Здымак",
+        "screenshot-output": "Вывад",
         "security": "Бяспека",
         "session-panel": "Панэль сеансу",
         "shape": "Форма",
@@ -1299,13 +1423,15 @@
         "wallpaper": "Шпалеры",
         "weather": "Надвор'е",
         "widget-list": "Спіс віджэтаў",
-        "widgets": "Віджэты"
+        "widgets": "Віджэты",
+        "window-switcher": "Пераключальнік вокнаў"
       },
       "sections": {
         "accessibility": "Спец. магчымасці",
         "appearance": "Знешні выгляд",
         "backdrop": "Заднік",
         "bar": "Панэль",
+        "calendar": "Каляндар",
         "control-center": "Цэнтр кіравання",
         "desktop": "Працоўны стол",
         "dock": "Док",
@@ -1320,11 +1446,13 @@
         "plugins": "Убудовы",
         "popups": "Усплывальныя вокны",
         "power": "Сілкаванне",
+        "screenshot": "Здымак экрану",
         "security": "Бяспека",
         "services": "Сэрвісы",
         "shell": "Абалонка",
         "system": "Сістэма",
         "templates": "Шаблоны",
+        "umbriel": "Umbriel",
         "wallpaper": "Шпалеры"
       }
     },
@@ -1420,6 +1548,21 @@
         "overlay": "Накладка",
         "top": "Верх"
       },
+      "lockscreen": {
+        "transition": {
+          "diamond": "Ромб",
+          "disc": "Дыск",
+          "fade": "Затуханне",
+          "golden": "Залаты",
+          "honeycomb": "Соты",
+          "melt": "Раставанне",
+          "pixel": "Пікселі",
+          "stripes": "Палосы",
+          "vortex": "Віхор",
+          "wipe": "Сціранне",
+          "zoom": "Маштабаванне"
+        }
+      },
       "notification-urgency": {
         "critical": "Крытычная",
         "low": "Нізкая",
@@ -1454,7 +1597,30 @@
         "top-left": "Зверху злева",
         "top-right": "Зверху справа"
       },
+      "screenshot": {
+        "region-modifier": {
+          "alt": "Alt",
+          "ctrl": "Ctrl",
+          "none": "Няма",
+          "shift": "Shift",
+          "super": "Super"
+        }
+      },
       "shell": {
+        "launcher-default-view": {
+          "all": "Усе",
+          "categories": "Катэгорыі",
+          "pinned": "Замацаваныя",
+          "recent": "Нядаўнія"
+        },
+        "launcher-layout": {
+          "full": "Поўны",
+          "simple": "Просты"
+        },
+        "launcher-search-position": {
+          "bottom": "Унізе",
+          "top": "Наверсе"
+        },
         "panel-placement": {
           "attached": "Прымацавана",
           "floating": "Нефіксаваная"
@@ -1478,12 +1644,19 @@
           "up": "Уверх",
           "up-left": "Уверх налева",
           "up-right": "Уверх направа"
+        },
+        "window-switcher-style": {
+          "carousel": "Карусель",
+          "compact": "Кампактны"
         }
       },
       "theme": {
         "mode": {
           "dark": "Цёмная ",
           "light": "Светлая "
+        },
+        "shell-mode": {
+          "follow": "Як у абалонцы"
         },
         "source": {
           "built-in": "Убудаваныя",
@@ -1510,10 +1683,15 @@
           "random": "Выпадковая"
         },
         "transition": {
+          "diamond": "Ромб",
           "disc": "Дыск",
           "fade": "Затуханне",
+          "golden": "Залаты",
           "honeycomb": "Соты",
+          "melt": "Раставанне",
+          "pixel": "Пікселі",
           "stripes": "Палосы",
+          "vortex": "Віхор",
           "wipe": "Сціранне",
           "zoom": "Маштабаванне"
         }
@@ -1525,9 +1703,28 @@
         }
       }
     },
+    "palette-inspector": {
+      "copied": "Скапіравана {value}",
+      "copy-failed": "Не атрымалася скапіраваць колер у буфер абмену.",
+      "copy-hex": "Скапіраваць HEX-значэнне",
+      "copy-name": "Скапіраваць назву колеру",
+      "description": "Колеры шаблона ў рэжыме {mode}.",
+      "empty": "Няма адпаведных колераў.",
+      "filter-all": "Усе колеры",
+      "filter-palette": "Палітра",
+      "filter-terminal": "Тэрмінал",
+      "missing": "Недаступна",
+      "search-placeholder": "Пошук назваў колераў або HEX-значэнняў…",
+      "terminal-number": "{number} · ANSI {index}",
+      "title": "Інспектар палітры"
+    },
     "plugins": {
       "browse-store": "Даследаванне ўбудоў",
       "panels": {
+        "layer": {
+          "description": "Слой layer-shell, які выкарыстоўваецца, калі панэль нефіксаваная",
+          "label": "Слой"
+        },
         "open-near-click": {
           "description": "Адкрываць панэль побач з віджэтам, які яе актывіраваў",
           "label": "Побач з панэллю"
@@ -1553,6 +1750,8 @@
         "incompatible-plugin-api": "несумяшчальны API",
         "remove": "Выдаліць убудову",
         "requires": "Патрабуе {dependencies}",
+        "search-empty": "Няма ўбудоў, якія адпавядаюць «{query}».",
+        "search-placeholder": "Пошук усталяваных убудоў",
         "title": "Убудовы",
         "update-all": "Абнавіць усе ({count})",
         "update-available": "даступна абнаўленне",
@@ -1600,16 +1799,30 @@
         "held-back-hint": "Усталюе {version} для API {resolved}. Найноўшая версія {latest} патрабуе API {latestRequired}; ваша Noctalia падтрымлівае версіі да {current}.",
         "incompatible": "Несумяшчальная",
         "incompatible-hint": "Патрабуе API {required}; ваша Noctalia падтрымлівае API {oldest}–{current}.",
+        "installed": "Усталяваныя",
         "loading": "Загрузка каталога…",
         "no-readme": "Апісання няма",
+        "not-listed": "Не ў каталогу",
         "open-page": "Адкрыць старонку ўбудовы на noctalia.dev",
         "open-source": "Адкрыць рэпазіторый убудовы",
+        "recommend": "Рэкамендаваць",
+        "recommendation-error": "Змена не пацвердзілася. Папярэдняя рэкамендацыя не змянілася. Паўтарыце тую ж змену, каб узгадніць стан.",
+        "recommendation-not-recommendable": "Гэтая ўбудова не можа прыняць гэтую рэкамендацыю.",
+        "recommendation-pending": "Адпраўка рэкамендацыі…",
+        "recommendation-protocol-error": "Сэрвіс вярнуў нечаканы адказ. Папярэдняя рэкамендацыя не змянілася.",
+        "recommendation-rate-limited": "Занадта шмат запытаў. Пачакайце, перш чым паўтарыць гэтую змену.",
+        "recommendation-retry": "Паўтарыць змену рэкамендацыі",
+        "recommendation-state-error": "Не ўдалося прачытаць або захаваць стан рэкамендацыі. Праверце state.toml перад паўторнай спробай.",
+        "recommendation-unavailable": "Рэкамендацыі часова недаступныя. Ваша папярэдняя рэкамендацыя не змянілася. Паўтарыце спробу крыху пазней.",
+        "remove-recommendation": "Выдаліць рэкамендацыю",
         "results-count": "{count} убудовы(-оў)",
         "search-placeholder": "Шукаць убудовы…",
         "sort-added-at-asc": "Сартаваць па даце дадавання (спачатку старыя)",
         "sort-added-at-desc": "Сартаваць па даце дадавання (спачатку новыя)",
+        "sort-most-recommended": "Найбольш рэкамендаваныя",
         "sort-name-asc": "Сартаваць па назве (ад A да Z)",
         "sort-name-desc": "Сартаваць па назве (ад Z да A)",
+        "sort-trending": "Папулярныя",
         "sort-updated-at-asc": "Сартаваць па даце абнаўлення (спачатку старыя)",
         "sort-updated-at-desc": "Сартаваць па даце абнаўлення (спачатку новыя)",
         "source-all": "Усе крыніцы",
@@ -2203,23 +2416,81 @@
       }
     },
     "window": {
+      "export-config": "Экспарт канфігурацыі…",
+      "export-config-saved": "Экспарт канфігурацыі захаваны.",
+      "filter-overridden": "Перавызначаныя",
+      "legacy-config-warning": "Састарэлая налада: {issue}. Адрэдагуйце гэты зыходны запіс; Noctalia ужывае замену толькі часова. Выканайце noctalia config validate, каб атрымаць спіс усіх неабходных змен.",
+      "native-title": "Налады Noctalia",
+      "no-results": "Налад не знойдзена",
+      "no-results-hint": "Паспрабуйце іншую назву налады або ключ канфігурацыі.",
+      "offline-mode-notice": {
+        "appearance": "Загрузка палітраў супольнасці не будзе працаваць.",
+        "calendar": "Сінхранізацыя ўліковых запісаў календара не будзе працаваць.",
+        "calendar-account": "Выяўленне і сінхранізацыя календароў не будуць працаваць.",
+        "disable-hint": "Адключыце рэжым па-за сеткай у раздзеле «Бяспека».",
+        "launcher": "Атрыманне курсаў абмену валют не будзе працаваць.",
+        "location": "Пошук надвор'я і месцазнаходжання не будзе працаваць.",
+        "plugin-store": "Запыты да аддаленага каталога ўбудоў і загрузкі не будуць працаваць.",
+        "plugins": "HTTP-запыты ўбудоў не будуць працаваць. Крыніцы Git усё яшчэ могуць абнаўляцца.",
+        "security": "Вызначэнне знешняга IP і тэлеметрыя не будуць працаваць.",
+        "template-store": "Загрузка шаблонаў супольнасці не будзе працаваць.",
+        "templates": "Загрузка і абнаўленне шаблонаў супольнасці не будуць працаваць.",
+        "title": "Рэжым па-за сеткай"
+      },
+      "reset-page": "Скінуць старонку",
+      "reset-page-confirm": "Пацвярдзіць скід",
+      "search-placeholder": "Пошук налад…",
+      "search-truncated": "Паказаны першыя {count} супадзенняў. Удакладніце пошук, каб звузіць вынікі.",
+      "support-report": "Справаздача для падтрымкі",
+      "support-report-saved": "Справаздача для падтрымкі захавана.",
+      "support-report-title": "Захаваць справаздачу для падтрымкі",
       "title": "Налады"
     }
   },
   "setup-wizard": {
+    "browse": "Аглядзець",
+    "builtin-palette": "Убудаваная палітра",
+    "footer-note": "Вы зможаце змяніць гэта пазней у наладах.",
     "get-started": "Пачаць",
     "mode": "Рэжым",
-    "wallpaper": "Шпалеры"
+    "no-wallpaper-selected": "Шпалеры не выбраны",
+    "select-wallpaper": "Выбраць шпалеры",
+    "subtitle": "Некалькі хуткіх выбараў, каб пачаць.",
+    "title": "Вітаем у Noctalia",
+    "wallpaper": "Шпалеры",
+    "wallpaper-scheme": "Схема шпалер"
   },
   "system": {
     "hardware": {
-      "unknown-cpu": "Невядомы ЦП"
+      "unknown": "Невядома",
+      "unknown-cpu": "Невядомы ЦП",
+      "unknown-distro": "Невядомая дыстрыбуцыя",
+      "unknown-gpu": "Невядомы ГП"
+    }
+  },
+  "theme": {
+    "scheme": {
+      "dysfunctional": "Дысфункцыянальная",
+      "faithful": "Дакладная",
+      "m3-content": "M3 Змесціва",
+      "m3-fruit-salad": "M3 Фруктовы салат",
+      "m3-monochrome": "M3 Манахромная",
+      "m3-rainbow": "M3 Вясёлка",
+      "m3-tonal-spot": "M3 Танальная пляма",
+      "muted": "Прыглушаная",
+      "soft": "Мяккая",
+      "vibrant": "Насычаная"
     }
   },
   "time": {
     "duration": {
+      "less-than-day": "менш за 1 дзень",
+      "less-than-minute": "<1 хв.",
       "three-parts": "{first} {second} {third}",
       "two-parts": "{first} {second}"
+    },
+    "file": {
+      "unknown": "Невядома"
     },
     "relative": {
       "days-ago": "{count} дзень таму",
@@ -2245,11 +2516,21 @@
       "year-plural": "{count} гадоў"
     }
   },
+  "tray": {
+    "menu": {
+      "empty": "Няма пунктаў меню…",
+      "pin": "Замацаваць",
+      "unpin": "Адмацаваць"
+    }
+  },
   "ui": {
     "controls": {
       "search-picker": {
         "empty": "Няма вынікаў",
         "placeholder": "Пошук…"
+      },
+      "select": {
+        "placeholder": "Выберыце варыянт"
       }
     },
     "dialogs": {
@@ -2262,6 +2543,7 @@
           "save": "Захаваць",
           "select-folder": "Выбраць папку"
         },
+        "empty-filtered": "Няма файлаў, якія адпавядаюць бягучаму фільтру",
         "entry": {
           "folder": "Папка"
         },
@@ -2275,21 +2557,40 @@
           "size": "Памер"
         },
         "title": {
+          "default": "Дыялог файла",
           "open": "Адкрыць файл",
           "save": "Захаваць файл",
           "select-folder": "Выбраць папку"
         }
       },
       "glyph-picker": {
-        "all-categories": "Усе"
+        "all-categories": "Усе",
+        "search-placeholder": "Пошук гліфаў…",
+        "title": "Выбар гліфа"
       }
     }
   },
   "wallpaper": {
     "panel": {
       "all-monitors": "УСЕ",
+      "choose-color": "Выбраць колер шпалер",
+      "close": "Закрыць панэль шпалер",
+      "color-title": "Колер шпалер",
+      "favorite-add": "Дадаць у абранае",
+      "favorite-current": "Дадаць бягучыя шпалеры ў абранае",
+      "favorite-remove": "Выдаліць з абранага",
       "filter-placeholder": "Фільтр…",
-      "title": "Шпалеры"
+      "flatten": "Сплюшчыць",
+      "loading": "Загрузка шпалер…",
+      "navigate-up": "Перайсці ў бацькоўскую папку",
+      "refresh": "Абнавіць шпалеры",
+      "sort-date-asc": "Сартаваць па даце (спачатку старыя)",
+      "sort-date-desc": "Сартаваць па даце (спачатку новыя)",
+      "sort-name-asc": "Сартаваць па назве (А–Я)",
+      "sort-name-desc": "Сартаваць па назве (Я–А)",
+      "sort-random": "Сартаваць выпадкова (перамяшаць)",
+      "title": "Шпалеры",
+      "unfavorite-current": "Выдаліць бягучыя шпалеры з абранага"
     }
   },
   "weather": {
@@ -2320,9 +2621,17 @@
         "storm": "Шторм",
         "weather": "Надвор'е"
       }
+    },
+    "errors": {
+      "fetch-failed": "Не ўдалося атрымаць звесткі пра надвор'е",
+      "parse-weather": "Не ўдалося апрацаваць адказ сэрвісу надвор'я"
     }
   },
   "window-switcher": {
+    "count": "{count} акно",
+    "count-plural": "{count} акон",
+    "empty": "Няма адкрытых акон",
+    "hint": "Tab · Shift+Tab · стрэлкі · адпусціце мадыфікатар спалучэння, каб пераключыцца · Esc для скасавання",
     "title": "Вокны"
   }
 }

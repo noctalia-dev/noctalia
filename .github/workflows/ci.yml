@@ -26,7 +26,22 @@ jobs:
       - name: Check formatting
         env:
           PATH: /usr/lib/llvm22/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-        run: just format-check
+        run: just format-code-check
+
+  format-docs:
+    name: docs format
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:latest
+    steps:
+      - name: Install tools
+        run: |
+          pacman -Syu --noconfirm --needed git just nodejs npm
+
+      - uses: actions/checkout@v6
+
+      - name: Check formatting
+        run: just format-docs-check
 
   build:
     name: Build (debug)

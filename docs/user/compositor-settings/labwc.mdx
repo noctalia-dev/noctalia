@@ -8,6 +8,7 @@ sidebar:
 Add the following compositor settings inside your existing `<labwc_config>` element, located in your Labwc xml configuration file (found at `~/.config/labwc/rc.xml`)
 
 Example config structure:
+
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
 <labwc_config>
@@ -16,6 +17,7 @@ Example config structure:
 ```
 
 Recommended compositor settings:
+
 ```xml
   <core>
     <gap>10</gap>
@@ -27,13 +29,17 @@ Recommended compositor settings:
 ```
 
 ## Autostart noctalia
+
 Add the following to the Labwc autostart file `~/.config/labwc/autostart`
+
 ```
 noctalia
 ```
 
 ## IPC Keybinds
+
 Add these binds to your `rc.xml`
+
 ```xml
   <keyboard>
     <!-- Include the default Labwc keybinds -->
@@ -54,11 +60,15 @@ Add these binds to your `rc.xml`
 ```
 
 ## DPMS mode
+
 Install wlopm from extra repository for Arch Linux
+
 ```
 sudo pacman -S wlopm
 ```
+
 Create a custom command for dpms on and off using wlopm. Add the below commands to the toml config. Pass the Wayland connector name (e.g. DP-1, HDMI-A-1)
+
 ```
 [idle.behavior.screen-off]
 timeout = 600

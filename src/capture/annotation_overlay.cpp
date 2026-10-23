@@ -1278,7 +1278,9 @@ namespace capture {
         })
     ));
     addGhostButton("screenshot", "bar.annotate.capture-new-region", [this]() { requestCaptureRegion(); });
-    addGhostButton("x", "bar.annotate.close", [this]() { closeOverlay(); });
+    if (Style::closeButtonsEnabled()) {
+      addGhostButton("x", "bar.annotate.close", [this]() { closeOverlay(); });
+    }
 
     inst.toolbar = toolbar.get();
     refreshToolbar(inst, nullptr);

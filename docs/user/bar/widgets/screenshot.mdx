@@ -7,11 +7,11 @@ sidebar:
 
 Captures the screen through the compositor's `wlr-screencopy` protocol (Niri, Hyprland, Sway, and other compositors that expose it). The widget is omitted from the bar when screencopy is unavailable.
 
-| Setting | Type | Default | Description |
-|---------|------|---------|-------------|
-| `glyph` | string | `"screenshot"` | Bar glyph name: Noctalia alias, Tabler icon name, or `U+` / `0x` codepoint |
-| `custom_image` | string | `""` | Path to a custom image displayed instead of the glyph. Leave empty to use the glyph |
-| `custom_image_colorize` | bool | `false` | When `true`, tint the custom image with the widget icon color |
+| Setting                 | Type   | Default        | Description                                                                         |
+| ----------------------- | ------ | -------------- | ----------------------------------------------------------------------------------- |
+| `glyph`                 | string | `"screenshot"` | Bar glyph name: Noctalia alias, Tabler icon name, or `U+` / `0x` codepoint          |
+| `custom_image`          | string | `""`           | Path to a custom image displayed instead of the glyph. Leave empty to use the glyph |
+| `custom_image_colorize` | bool   | `false`        | When `true`, tint the custom image with the widget icon color                       |
 
 The capture **output policy** (save to file, output directory, filename pattern, file format, clipboard, freeze, pipe command) is global and lives under [`[shell.screenshot]`](/noctalia/configuration/shell/#shell-settings), shared by this widget and the IPC commands. The widget only sets its glyph; the left click is a [widget action](/noctalia/bar/actions/).
 
@@ -47,11 +47,11 @@ noctalia msg screenshot-window
 
 These commands use the global `[shell.screenshot]` output policy unless [per-call options](/noctalia/ipc/media-and-ui/#per-call-options) override it; `screenshot-window` needs the compositor's ext image capture protocols instead of `wlr-screencopy`. The canonical command list is also under [Keybinds & IPC → Media & UI → Screenshots](/noctalia/ipc/media-and-ui/#screenshots).
 
-| `screenshot-fullscreen` argument | Behavior |
-|----------------------------------|----------|
-| *(none)* | Focused monitor |
-| `pick` | Display picker (multi-monitor); immediate capture on one monitor |
-| `DP-2`, `HDMI-A-1`, … | Named output only - no picker; exact connector name or word-boundary match in the output description |
-| `all` or `*` | One combined desktop PNG |
+| `screenshot-fullscreen` argument | Behavior                                                                                             |
+| -------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| *(none)*                         | Focused monitor                                                                                      |
+| `pick`                           | Display picker (multi-monitor); immediate capture on one monitor                                     |
+| `DP-2`, `HDMI-A-1`, …            | Named output only - no picker; exact connector name or word-boundary match in the output description |
+| `all` or `*`                     | One combined desktop PNG                                                                             |
 
 The bar widget’s fullscreen action matches `pick` on multi-monitor setups. To capture a specific display from a script without UI, pass the connector name (for example `noctalia msg screenshot-fullscreen DP-1`).

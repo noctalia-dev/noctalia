@@ -456,6 +456,7 @@ location = "https://example.invalid/bad"
     c.controlCenter.sidebarSectionMode = ControlCenterSidebarMode::None;
     c.controlCenter.calendarTab.showEventsCard = false;
     c.controlCenter.calendarTab.showWeekNumbers = true;
+    c.controlCenter.mediaTab.showVisualizer = false;
     c.controlCenter.shortcuts = {{"wifi"}, {"bluetooth"}};
     c.calendar.enabled = true;
     c.calendar.dedupeEvents = true;
