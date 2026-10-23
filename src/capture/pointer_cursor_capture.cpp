@@ -1,5 +1,6 @@
 #include "capture/pointer_cursor_capture.h"
 
+#include "compositors/compositor_detect.h"
 #include "ext-image-capture-source-v1-client-protocol.h"
 #include "ext-image-copy-capture-v1-client-protocol.h"
 #include "wayland/wayland_connection.h"
@@ -41,6 +42,7 @@ struct PointerCursorCapturePending {
   ext_image_copy_capture_cursor_session_v1* cursorSession = nullptr;
   ext_image_copy_capture_session_v1* session = nullptr;
   ext_image_copy_capture_frame_v1* frame = nullptr;
+  wl_callback* initialSync = nullptr;
   wl_shm_pool* pool = nullptr;
   wl_buffer* buffer = nullptr;
   void* mapped = MAP_FAILED;
@@ -51,6 +53,7 @@ struct PointerCursorCapturePending {
   std::uint32_t format = 0;
   bool hasFormat = false;
   bool receivingConstraints = false;
+  bool receivedConstraints = false;
   bool entered = false;
   bool hasPosition = false;
   bool hasHotspot = false;
@@ -65,6 +68,9 @@ struct PointerCursorCapturePending {
   int bufferHeight = 0;
 
   ~PointerCursorCapturePending() {
+    if (initialSync != nullptr) {
+      wl_callback_destroy(initialSync);
+    }
     if (frame != nullptr) {
       ext_image_copy_capture_frame_v1_destroy(frame);
     }
@@ -128,6 +134,7 @@ struct PointerCursorCapturePending {
   static void constraintsDone(void* data, ext_image_copy_capture_session_v1*) {
     auto& pending = *static_cast<PointerCursorCapturePending*>(data);
     pending.receivingConstraints = false;
+    pending.receivedConstraints = true;
     if (pending.frame == nullptr) {
       pending.captureFrame();
     }
@@ -135,6 +142,17 @@ struct PointerCursorCapturePending {
 
   static void stopped(void* data, ext_image_copy_capture_session_v1*) {
     static_cast<PointerCursorCapturePending*>(data)->owner->fail("cursor capture session stopped");
+  }
+
+  static void initialSyncDone(void* data, wl_callback* callback, std::uint32_t) {
+    auto& pending = *static_cast<PointerCursorCapturePending*>(data);
+    pending.initialSync = nullptr;
+    wl_callback_destroy(callback);
+    // Hyprland publishes cursor constraints synchronously, but can stop an
+    // unsupported XWayland cursor session before installing its stopped listener.
+    if (!pending.receivedConstraints && !pending.receivingConstraints) {
+      pending.owner->fail("cursor image is unavailable (no initial buffer constraints)");
+    }
   }
 
   static void enter(void* data, ext_image_copy_capture_cursor_session_v1*) {
@@ -235,6 +253,9 @@ struct PointerCursorCapturePending {
       .dmabuf_format = dmabufFormat,
       .done = constraintsDone,
       .stopped = stopped,
+  };
+  inline static const wl_callback_listener initialSyncListener = {
+      .done = initialSyncDone,
   };
   inline static const ext_image_copy_capture_cursor_session_v1_listener cursorListener = {
       .enter = enter,
@@ -361,6 +382,16 @@ void PointerCursorCapture::capture(wl_output* output, CompletionCallback onCompl
   m_timeout.start(std::chrono::seconds(1), [this]() {
     fail("cursor capture timed out: compositor did not provide a capturable cursor image");
   });
+  if (compositors::isHyprland()) {
+    m_pending->initialSync = wl_display_sync(m_wayland.display());
+    if (m_pending->initialSync == nullptr
+        || wl_callback_add_listener(
+               m_pending->initialSync, &PointerCursorCapturePending::initialSyncListener, m_pending.get()
+           ) != 0) {
+      fail("failed to synchronize cursor capture session");
+      return;
+    }
+  }
   if (wl_display_flush(m_wayland.display()) < 0 && errno != EAGAIN) {
     fail("failed to submit cursor capture session");
   }
