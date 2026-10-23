@@ -584,11 +584,10 @@ public:
   [[nodiscard]] std::size_t itemCount() const override { return m_owner.m_filtered.size(); }
 
   [[nodiscard]] std::uint64_t itemKey(std::size_t index) const override {
-    const NotificationHistoryEntry* entry = m_owner.filteredEntry(index);
-    if (entry == nullptr) {
+    if (index >= m_owner.m_filtered.size()) {
       return static_cast<std::uint64_t>(index);
     }
-    return entry->notification.id;
+    return m_owner.m_filtered[index];
   }
 
   [[nodiscard]] std::uint64_t itemRevision(std::size_t index) const override {
@@ -778,7 +777,9 @@ void NotificationsTab::doLayout(Renderer& renderer, float contentWidth, float bo
     return;
   }
 
-  if (!filterSlideOutActive()) {
+  if (filterSlideOutActive()) {
+    dropVanishedFiltered();
+  } else {
     refreshDataSnapshot();
   }
   m_root->setSize(contentWidth, bodyHeight);
@@ -797,6 +798,7 @@ void NotificationsTab::doLayout(Renderer& renderer, float contentWidth, float bo
 
 void NotificationsTab::doUpdate(Renderer& renderer) {
   if (filterSlideOutActive()) {
+    dropVanishedFiltered();
     return;
   }
   if (refreshDataSnapshot() && m_root != nullptr) {
@@ -951,7 +953,6 @@ void NotificationsTab::clearAllNotifications() {
     (void)m_notifications->close(id, CloseReason::Dismissed);
   }
   m_notifications->clearHistory();
-  m_filtered.clear();
   m_expandedIds.clear();
   m_lastSerial = 0;
   if (m_list != nullptr) {
@@ -984,8 +985,6 @@ void NotificationsTab::removeNotificationEntry(uint32_t id, bool wasActive) {
     (void)m_notifications->close(id, CloseReason::Dismissed);
   }
   m_notifications->removeHistoryEntry(id);
-  // A filter slide-out keeps the snapshot frozen, so drop the row now rather than leave it bound to nothing.
-  std::erase(m_filtered, id);
   m_expandedIds.erase(id);
   m_lastSerial = 0;
   if (m_list != nullptr) {
@@ -1111,6 +1110,16 @@ std::optional<std::size_t> NotificationsTab::filteredIndexForId(uint32_t id) con
     return std::nullopt;
   }
   return static_cast<std::size_t>(it - m_filtered.begin());
+}
+
+void NotificationsTab::dropVanishedFiltered() {
+  if (m_notifications == nullptr) {
+    return;
+  }
+  const auto vanished = [this](uint32_t id) { return m_notifications->findHistoryEntry(id) == nullptr; };
+  if (std::erase_if(m_filtered, vanished) > 0 && m_list != nullptr) {
+    m_list->notifyDataChanged();
+  }
 }
 
 const NotificationHistoryEntry* NotificationsTab::filteredEntry(std::size_t index) const {

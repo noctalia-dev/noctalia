@@ -679,7 +679,7 @@ const std::deque<NotificationHistoryEntry>& NotificationManager::history() const
 
 const NotificationHistoryEntry* NotificationManager::findHistoryEntry(uint32_t id) const noexcept {
   const auto it = m_historyIndex.find(id);
-  return it != m_historyIndex.end() ? &m_history[it->second] : nullptr;
+  return it != m_historyIndex.end() && it->second < m_history.size() ? &m_history[it->second] : nullptr;
 }
 
 std::uint64_t NotificationManager::changeSerial() const noexcept { return m_changeSerial; }
