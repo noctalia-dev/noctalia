@@ -3184,7 +3184,7 @@ void LauncherPanel::applyActiveCategory() {
   switch (m_activeCategoryType) {
   case All:
     m_results = m_allResults;
-    if (!m_browserMode && m_scopedProviderId.empty() && m_query.empty()) {
+    if (m_scopedProviderId.empty() && m_query.empty()) {
       applyPinnedApplicationOrder();
     }
     break;
