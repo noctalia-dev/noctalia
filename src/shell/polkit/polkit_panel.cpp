@@ -214,7 +214,7 @@ void PolkitPanel::create() {
           .onChange =
               [this](const std::string& value) {
                 if (m_submitButton != nullptr) {
-                  m_submitButton->setEnabled(m_lastResponseRequired && !value.empty());
+                  m_submitButton->setEnabled(m_lastResponseRequired && (allowEmptyPassword() || !value.empty()));
                 }
               },
           .onSubmit = [this](const std::string& value) { submit(value); },
@@ -386,7 +386,7 @@ void PolkitPanel::doUpdate(Renderer& renderer) {
   m_supplementaryLabel->setColor(colorSpecFromRole(ColorRole::OnSurfaceVariant));
   m_input->setVisible(needsInput);
   m_submitButton->setVisible(needsInput);
-  m_submitButton->setEnabled(needsInput && !m_input->value().empty());
+  m_submitButton->setEnabled(needsInput && (allowEmptyPassword() || !m_input->value().empty()));
   if (needsInput != m_lastResponseRequired) {
     if (auto* manager = PanelManager::current(); manager != nullptr && manager->isOpenPanel("polkit")) {
       manager->relayoutActivePanelPreferredSize();
@@ -435,16 +435,20 @@ void PolkitPanel::resolveIcon(Renderer& renderer, const PolkitRequest& request) 
   m_fallbackIcon->setVisible(true);
 }
 
+bool PolkitPanel::allowEmptyPassword() const {
+  return m_config != nullptr && m_config->config().polkit.allowEmptyPassword;
+}
+
 void PolkitPanel::submit(std::string_view response) {
   PolkitAgent* agent = m_agentProvider != nullptr ? m_agentProvider() : nullptr;
   if (agent == nullptr || m_input == nullptr) {
     return;
   }
   const std::string password = response.empty() ? m_input->value() : std::string(response);
-  if (password.empty()) {
+  if (password.empty() && !allowEmptyPassword()) {
     return;
   }
-  agent->submitResponse(password);
+  agent->submitResponse(password, allowEmptyPassword());
   m_input->setValue("");
 }
 

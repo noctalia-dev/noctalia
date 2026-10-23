@@ -40,6 +40,7 @@ private:
   void onPanelCardOpacityChanged(float opacity) override;
   void doLayout(Renderer& renderer, float width, float height) override;
   void doUpdate(Renderer& renderer) override;
+  [[nodiscard]] bool allowEmptyPassword() const;
   void submit(std::string_view response = {});
   void cancelAuth();
   bool handleInputKeyEvent(std::uint32_t sym, std::uint32_t modifiers);
