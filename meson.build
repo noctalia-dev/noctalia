@@ -1463,6 +1463,11 @@ if build_tests
     dependencies: noctalia_core_dep,
     override_options: ['b_ndebug=false'],
   )
+  bluetooth_agent_pending_request_exe = executable('bluetooth_agent_pending_request_test',
+    sources: files('tests/bluetooth_agent_pending_request_test.cpp'),
+    dependencies: noctalia_core_dep,
+    override_options: ['b_ndebug=false'],
+  )
   if dbus_run_session.found()
     test('bluetooth_connect_pass_integration',
       dbus_run_session,
@@ -1473,6 +1478,15 @@ if build_tests
       ],
       depends: bluetooth_connect_pass_integration_exe,
       timeout: 60,
+    )
+    test('bluetooth_agent_pending_request',
+      dbus_run_session,
+      args: [
+        '--', 'sh', '-c',
+        'export DBUS_SYSTEM_BUS_ADDRESS="$DBUS_SESSION_BUS_ADDRESS"; exec "$1"',
+        'sh', bluetooth_agent_pending_request_exe.full_path(),
+      ],
+      depends: bluetooth_agent_pending_request_exe,
     )
   endif
 

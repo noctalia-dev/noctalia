@@ -1429,6 +1429,11 @@ void Application::initSystemBusServices() {
                                               shouldRefreshControlCenter](const BluetoothPairingRequest& /*request*/) {
           if (shouldRefreshControlCenter()) {
             m_panelManager.refresh();
+          } else {
+            // BlueZ cancels unanswered Agent1 requests after a few seconds, so the
+            // confirm/PIN UI must appear on its own instead of waiting for the user
+            // to have the control center already open on the bluetooth tab.
+            m_panelManager.openPanel("control-center", PanelOpenRequest{.context = "bluetooth"});
           }
         });
       } catch (const std::exception& e) {
