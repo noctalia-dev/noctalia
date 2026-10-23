@@ -1272,6 +1272,7 @@ if build_tests
     'network_display',
     'network_manager_security',
     'niri_workspace_backend',
+    'notification_action_availability',
     'notification_dnd',
     'notification_filter',
     'notification_history_dismiss',

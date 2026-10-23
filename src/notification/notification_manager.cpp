@@ -506,6 +506,10 @@ void NotificationManager::setReplyCallback(ReplyCallback callback) { m_replyCall
 
 bool NotificationManager::hasPendingDBusClose(uint32_t id) const noexcept { return m_pendingDBusClose.contains(id); }
 
+bool NotificationManager::canInvokeAction(uint32_t id, std::string_view actionKey) const {
+  return findInvokableAction(id, actionKey) != nullptr;
+}
+
 bool NotificationManager::invokeAction(uint32_t id, const std::string& actionKey, bool closeAfterInvoke) {
   return invokeAction(id, actionKey, {}, closeAfterInvoke);
 }
@@ -518,6 +522,17 @@ const Notification* NotificationManager::findInvokable(uint32_t id) const {
     return &m_history[histIt->second].notification;
   }
   return nullptr;
+}
+
+const Notification* NotificationManager::findInvokableAction(uint32_t id, std::string_view actionKey) const {
+  const Notification* notification = findInvokable(id);
+  if (notification == nullptr
+      || actionKey.empty()
+      || actionKey == kInlineReplyAction
+      || !notificationHasAction(*notification, actionKey)) {
+    return nullptr;
+  }
+  return notification;
 }
 
 void NotificationManager::dismissAfterInvoke(uint32_t id) {
@@ -535,20 +550,8 @@ void NotificationManager::dismissAfterInvoke(uint32_t id) {
 bool NotificationManager::invokeAction(
     uint32_t id, const std::string& actionKey, std::string activationToken, bool closeAfterInvoke
 ) {
-  if (actionKey.empty()) {
-    return false;
-  }
-
-  const Notification* notification = findInvokable(id);
+  const Notification* notification = findInvokableAction(id, actionKey);
   if (notification == nullptr) {
-    return false;
-  }
-
-  if (actionKey == kInlineReplyAction) {
-    // Inline replies are delivered via invokeInlineReply() and the NotificationReplied signal.
-    return false;
-  }
-  if (!notificationHasAction(*notification, actionKey)) {
     return false;
   }
 
