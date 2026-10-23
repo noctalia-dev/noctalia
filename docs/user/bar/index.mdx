@@ -112,7 +112,7 @@ Per-monitor overrides can carry their own `[bar.<name>.monitor.<match>.dead_zone
 
 ### Dead zone click-through
 
-Set `click_through = true` to drop the dead zone from the bar's input region, so clicks there reach the window underneath instead of the bar. This suits a transparent bar that only shows a few widgets, such as a floating workspace strip. Only the widget sections (stretched across the bar's thickness) take input; dead zone actions no longer fire.
+Set `click_through = true` to drop the dead zone from the bar's input region, so clicks there reach the window underneath instead of the bar. This suits a transparent bar that only shows a few widgets, such as a floating workspace strip. Only interactive widgets (stretched across the bar's thickness) take input; spacers and widgets with `interactive = false` pass clicks through as well, and dead zone actions no longer fire. Auto-hide bars ignore `click_through`.
 
 ```toml
 [bar.default.dead_zone]
