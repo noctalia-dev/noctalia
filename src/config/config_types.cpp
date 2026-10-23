@@ -429,7 +429,59 @@ namespace {
   effectiveLane(const std::optional<std::vector<std::string>>& monitorLane, const std::vector<std::string>& barLane) {
     return monitorLane.has_value() ? *monitorLane : barLane;
   }
+
+  const BarCapsuleGroupStyle* findGroupIn(const std::vector<BarCapsuleGroupStyle>& groups, std::string_view id) {
+    for (const auto& group : groups) {
+      if (group.id == id) {
+        return &group;
+      }
+    }
+    return nullptr;
+  }
 } // namespace
+
+bool capsuleGroupHasNestedRef(const BarCapsuleGroupStyle& group) {
+  for (const auto& member : group.members) {
+    if (isCapsuleGroupToken(member)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+std::vector<std::string> nestedCapsuleGroupIds(const BarCapsuleGroupStyle& group) {
+  std::vector<std::string> out;
+  for (const auto& member : group.members) {
+    if (!isCapsuleGroupToken(member)) {
+      continue;
+    }
+    std::string id = capsuleGroupTokenId(member);
+    if (!id.empty() && !std::ranges::contains(out, id)) {
+      out.push_back(std::move(id));
+    }
+  }
+  return out;
+}
+
+std::set<std::string>
+transitiveCapsuleGroupRefs(const std::set<std::string>& referenced, const std::vector<BarCapsuleGroupStyle>& groups) {
+  std::set<std::string> out = referenced;
+  std::vector<std::string> queue(out.begin(), out.end());
+  while (!queue.empty()) {
+    std::string id = std::move(queue.back());
+    queue.pop_back();
+    const BarCapsuleGroupStyle* group = findGroupIn(groups, id);
+    if (group == nullptr) {
+      continue;
+    }
+    for (const auto& nested : nestedCapsuleGroupIds(*group)) {
+      if (out.insert(nested).second) {
+        queue.push_back(nested);
+      }
+    }
+  }
+  return out;
+}
 
 std::set<std::string> capsuleGroupRefsForBarScope(const BarConfig& bar) {
   std::set<std::string> refs;
@@ -444,7 +496,9 @@ std::set<std::string> capsuleGroupRefsForBarScope(const BarConfig& bar) {
     collectCapsuleGroupRefs(effectiveLane(ovr.centerWidgets, bar.centerWidgets), refs);
     collectCapsuleGroupRefs(effectiveLane(ovr.endWidgets, bar.endWidgets), refs);
   }
-  return refs;
+  // Keep groups reachable only through nesting (a lane token's members referencing
+  // further groups); otherwise the next override reconcile would drop them.
+  return transitiveCapsuleGroupRefs(refs, bar.widgetCapsuleGroups);
 }
 
 std::set<std::string> capsuleGroupRefsForMonitorScope(const BarConfig& bar, const BarMonitorOverride& monitorOverride) {
@@ -452,13 +506,24 @@ std::set<std::string> capsuleGroupRefsForMonitorScope(const BarConfig& bar, cons
   collectCapsuleGroupRefs(effectiveLane(monitorOverride.startWidgets, bar.startWidgets), refs);
   collectCapsuleGroupRefs(effectiveLane(monitorOverride.centerWidgets, bar.centerWidgets), refs);
   collectCapsuleGroupRefs(effectiveLane(monitorOverride.endWidgets, bar.endWidgets), refs);
-  return refs;
+  const std::vector<BarCapsuleGroupStyle>& groups =
+      monitorOverride.widgetCapsuleGroups.has_value() ? *monitorOverride.widgetCapsuleGroups : bar.widgetCapsuleGroups;
+  return transitiveCapsuleGroupRefs(refs, groups);
 }
 
 std::vector<BarCapsuleGroupStyle> reconcileCapsuleGroups(
     const std::vector<BarCapsuleGroupStyle>& current, const std::vector<BarCapsuleGroupStyle>& base,
     const std::set<std::string>& referenced
 ) {
+  // A lane reset can reference a parent absent from the override array. Resolve
+  // its descendants using file definitions, while preserving edited membership.
+  std::vector<BarCapsuleGroupStyle> definitions = current;
+  for (const auto& group : base) {
+    if (findGroupIn(definitions, group.id) == nullptr) {
+      definitions.push_back(group);
+    }
+  }
+  const auto reachable = transitiveCapsuleGroupRefs(referenced, definitions);
   std::vector<BarCapsuleGroupStyle> out;
   out.reserve(current.size() + base.size());
   std::vector<bool> consumed(current.size(), false);
@@ -472,12 +537,12 @@ std::vector<BarCapsuleGroupStyle> reconcileCapsuleGroups(
         break;
       }
     }
-    if (!matched && referenced.contains(baseGroup.id)) {
+    if (!matched && reachable.contains(baseGroup.id)) {
       out.push_back(baseGroup);
     }
   }
   for (std::size_t i = 0; i < current.size(); ++i) {
-    if (!consumed[i] && referenced.contains(current[i].id)) {
+    if (!consumed[i] && reachable.contains(current[i].id)) {
       out.push_back(current[i]);
     }
   }

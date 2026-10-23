@@ -304,22 +304,51 @@ widget_spacing = 10                      # optional: gap between this group's wi
 # border, foreground, radius, enabled are optional
 ```
 
-| Setting               | Type    | Default                    | Description                                                                                                                                   |
-| --------------------- | ------- | -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| `id`                  | string  | *(required)*               | Group identifier. Lane entries reference the group with `group:<id>`.                                                                         |
-| `members`             | list    | *(required)*               | Ordered list of widget names belonging to this group.                                                                                         |
-| `enabled`             | bool    | `true`                     | Show or hide the entire group on the bar. Disabled groups are not populated and their widgets consume no resources.                           |
-| `fill`                | string  | `surface_variant`          | Background color role for the shared capsule; fixed hex colors are also supported.                                                            |
-| `border`              | string  | *(omitted)*                | Color role for the capsule border; fixed hex colors are also supported. Omit for no outline; present but empty (`""`) also means no outline.  |
-| `border_width`        | number  | `1`                        | Capsule outline thickness in logical pixels (clamped 0–8). Only drawn when `border` resolves to a color.                                      |
-| `foreground`          | string  | *(unset)*                  | Icon + label color role for all widgets inside this group; fixed hex colors are also supported.                                               |
-| `padding`             | number  | `6`                        | Inner padding between the capsule edge and its widgets, in logical pixels (clamped 0–48).                                                     |
-| `radius`              | number  | *(auto pill)*              | Capsule corner radius in logical pixels (0–80). Omit for automatic pill radius.                                                               |
-| `opacity`             | number  | `1.0`                      | Capsule background opacity (0.0–1.0).                                                                                                         |
-| `accordion`           | bool    | `false`                    | Collapse the group to its first widget; hovering the capsule expands it in place to reveal the rest. Needs at least two widgets in the group. |
-| `accordion_direction` | string  | `end`                      | Where the hidden widgets unfold relative to the first one along the lane: `end` (after it) or `start` (before it).                            |
-| `accordion_duration`  | integer | `200`                      | Duration of the unfold and collapse animations in milliseconds (0–2000, 0 is instant).                                                        |
-| `accordion_delay_ms`  | integer | `0`                        | Milliseconds to hover before unfolding starts (0–2000, 0 reacts at once; collapse begins without this delay).                                 |
-| `widget_spacing`      | integer | *(bar's `widget_spacing`)* | Gap between the group's widgets, in logical pixels. Omit to inherit the bar's `widget_spacing`.                                               |
+| Setting               | Type    | Default                    | Description                                                                                                                                               |
+| --------------------- | ------- | -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`                  | string  | *(required)*               | Group identifier. Lane entries reference the group with `group:<id>`.                                                                                     |
+| `members`             | list    | *(required)*               | Ordered list of widget names belonging to this group. An entry may also be a `group:<id>` token to nest another group one level deep (see Nested groups). |
+| `enabled`             | bool    | `true`                     | Show or hide the entire group on the bar. Disabled groups are not populated and their widgets consume no resources.                                       |
+| `fill`                | string  | `surface_variant`          | Background color role for the shared capsule; fixed hex colors are also supported.                                                                        |
+| `border`              | string  | *(omitted)*                | Color role for the capsule border; fixed hex colors are also supported. Omit for no outline; present but empty (`""`) also means no outline.              |
+| `border_width`        | number  | `1`                        | Capsule outline thickness in logical pixels (clamped 0–8). Only drawn when `border` resolves to a color.                                                  |
+| `foreground`          | string  | *(unset)*                  | Icon + label color role for all widgets inside this group; fixed hex colors are also supported.                                                           |
+| `padding`             | number  | `6`                        | Inner padding between the capsule edge and its widgets, in logical pixels (clamped 0–48).                                                                 |
+| `radius`              | number  | *(auto pill)*              | Capsule corner radius in logical pixels (0–80). Omit for automatic pill radius.                                                                           |
+| `opacity`             | number  | `1.0`                      | Capsule background opacity (0.0–1.0).                                                                                                                     |
+| `accordion`           | bool    | `false`                    | Collapse the group to its first widget; hovering the capsule expands it in place to reveal the rest. Needs at least two widgets in the group.             |
+| `accordion_direction` | string  | `end`                      | Where the hidden widgets unfold relative to the first one along the lane: `end` (after it) or `start` (before it).                                        |
+| `accordion_duration`  | integer | `200`                      | Duration of the unfold and collapse animations in milliseconds (0–2000, 0 is instant).                                                                    |
+| `accordion_delay_ms`  | integer | `0`                        | Milliseconds to hover before unfolding starts (0–2000, 0 reacts at once; collapse begins without this delay).                                             |
+| `widget_spacing`      | integer | *(bar's `widget_spacing`)* | Gap between the group's widgets, in logical pixels. Omit to inherit the bar's `widget_spacing`.                                                           |
 
 A group's style can be overridden per monitor by declaring `[[bar.<name>.monitor.<match>.capsule_group]]` tables with matching `id` values. A reused widget name (e.g. several `spacer` instances) can appear in different groups independently - membership is positional, not a per-widget flag.
+
+### Nested groups
+
+A `members` entry may itself be a `group:<id>` token, rendering that inner group's capsule **inside** the outer group's capsule (pill-in-pill). Nesting is one level deep. In the Settings GUI, drag a group by its handle and drop it inside another group's container; the nested group keeps its own background, border, padding and spacing. It can also be hand-edited in the config file:
+
+```toml
+[bar.default]
+end = ["group:outer"]
+
+[[bar.default.capsule_group]]
+id      = "outer"
+members = ["clock", "group:inner"]
+fill    = "surface_variant"
+
+[[bar.default.capsule_group]]
+id      = "inner"
+members = ["network", "volume"]
+fill    = "primary"
+```
+
+Rules:
+
+- Drops that would nest deeper than one level, nest a group inside itself, or create a cycle are ignored.
+- Member entries pointing at missing or disabled groups, and entries past one level of nesting, are skipped with a warning (`noctalia config validate` reports them too).
+- Groups containing nested groups stay expanded. Their accordion preference is preserved and applies again after their inner groups are removed. Inner groups can use their own accordion.
+- Inner capsules are inset inside the outer capsule. Fills stay as configured; choose distinct fills in each group's style editor to make the nesting visible.
+- Dragging the last member out dissolves a group. Ejecting an inner member moves it to the lane next to the outer group.
+- Ungrouping replaces every reference in the scope with the group's members, preserving order. Inner widgets remain inside their parent; ungrouping an outer group lifts its inner groups to the lane.
+- A lane's Override indicator and Reset include nested groups. Reset preserves unrelated groups in other lanes.
