@@ -56,6 +56,8 @@ namespace {
   constexpr Logger kLog("window-switcher");
   constexpr std::size_t kVisibleCards = 5;
   constexpr float kVisibleOpacityThreshold = 0.01F;
+  constexpr int kMinThumbnailWidth = 320;
+  constexpr int kMaxThumbnailWidth = 2048;
 
   [[nodiscard]] WindowSwitcherStyleLayout computeSwitcherLayout(
       float screenWidth, float screenHeight, float scale, std::size_t windowCount, std::size_t selectedIndex,
@@ -74,6 +76,25 @@ namespace {
       return computeWindowSwitcherCompactLayout(context);
     }
     return computeWindowSwitcherCarouselLayout(context);
+  }
+
+  // Physical-pixel size of the largest preview.
+  [[nodiscard]] ThumbnailTarget
+  thumbnailTargetFor(const WaylandOutput& output, float uiScale, const ShellConfig::WindowSwitcherConfig& config) {
+    const auto layout = computeSwitcherLayout(
+        static_cast<float>(output.effectiveLogicalWidth()), static_cast<float>(output.effectiveLogicalHeight()),
+        uiScale, 1, 0, config
+    );
+
+    const float cardWidth = layout.cards.empty() ? 0.0F : layout.cards.front().width;
+    const float previewWidth = std::max(0.0F, cardWidth - Style::spaceXs * uiScale * 2.0F);
+    const float renderScale = output.configuredScale() > 0.0F ? output.configuredScale() : 1.0F;
+    const int width =
+        std::clamp(static_cast<int>(std::lround(previewWidth * renderScale)), kMinThumbnailWidth, kMaxThumbnailWidth);
+    const int height =
+        std::max(1, static_cast<int>(std::lround(static_cast<float>(width) / Style::windowSwitcherPreviewAspect)));
+
+    return ThumbnailTarget{.width = width, .height = height};
   }
 
   [[nodiscard]] std::string resolveWindowIconPath(const std::string& appId, IconResolver& iconResolver, int iconSize) {
@@ -694,6 +715,7 @@ void WindowSwitcher::onConfigReload() {
   if (m_instance != nullptr) {
     m_instance->styleLayout = {};
   }
+  startThumbnailCaptures();
   requestSceneUpdate();
 }
 
@@ -708,8 +730,15 @@ void WindowSwitcher::onOutputChange() {
     const auto* out = findOutput(*m_wayland, m_output);
     if (out == nullptr) {
       hide();
+      return;
     }
   }
+
+  const auto target = currentThumbnailTarget();
+  if (!target.has_value() || *target != m_thumbnailTarget) {
+    startThumbnailCaptures();
+  }
+  requestSceneUpdate();
 }
 
 bool WindowSwitcher::mruEnabled() const { return m_config != nullptr && m_config->config().shell.windowSwitcher.mru; }
@@ -839,12 +868,17 @@ void WindowSwitcher::refreshWindows() {
   }
 
   std::optional<std::string> selectedKey;
-  std::unordered_map<std::string, std::shared_ptr<const ScreencopyImage>> thumbnails;
+  struct RetainedThumbnail {
+    std::shared_ptr<const ScreencopyImage> image;
+    int targetWidth = 0;
+  };
+
+  std::unordered_map<std::string, RetainedThumbnail> thumbnails;
   thumbnails.reserve(m_windows.size());
   for (const auto& entry : m_windows) {
     if (entry.thumbnail != nullptr) {
       if (std::string key = identityKeyForEntry(entry); !key.empty()) {
-        thumbnails.emplace(std::move(key), entry.thumbnail);
+        thumbnails.emplace(std::move(key), RetainedThumbnail{entry.thumbnail, entry.thumbnailTargetWidth});
       }
     }
   }
@@ -886,7 +920,8 @@ void WindowSwitcher::refreshWindows() {
   for (auto& entry : m_windows) {
     const auto thumbnail = thumbnails.find(identityKeyForEntry(entry));
     if (thumbnail != thumbnails.end()) {
-      entry.thumbnail = thumbnail->second;
+      entry.thumbnail = thumbnail->second.image;
+      entry.thumbnailTargetWidth = thumbnail->second.targetWidth;
     }
   }
 
@@ -905,6 +940,21 @@ void WindowSwitcher::refreshWindows() {
   }
 }
 
+std::optional<ThumbnailTarget> WindowSwitcher::currentThumbnailTarget() const {
+  if (m_wayland == nullptr) {
+    return std::nullopt;
+  }
+  const auto* output = findOutput(*m_wayland, m_output);
+  if (output == nullptr || !output->hasUsableGeometry()) {
+    return std::nullopt;
+  }
+
+  const ShellConfig::WindowSwitcherConfig switcherConfig =
+      m_config != nullptr ? m_config->config().shell.windowSwitcher : ShellConfig::WindowSwitcherConfig{};
+  const float uiScale = m_instance != nullptr ? m_instance->uiLayoutScale : shellUiScale(m_config);
+  return thumbnailTargetFor(*output, uiScale, switcherConfig);
+}
+
 void WindowSwitcher::startThumbnailCaptures() {
   cancelThumbnailCaptures();
   enqueueMissingThumbnailCaptures();
@@ -915,15 +965,24 @@ void WindowSwitcher::enqueueMissingThumbnailCaptures() {
     return;
   }
 
+  const auto resolvedTarget = currentThumbnailTarget();
+  if (!resolvedTarget.has_value()) {
+    kLog.debug("thumbnail captures skipped: output has no usable geometry");
+    return;
+  }
+  const ThumbnailTarget target = *resolvedTarget;
+  m_thumbnailTarget = target;
+
   std::vector<bool> queued(m_windows.size(), false);
-  auto enqueue = [this, &queued](std::size_t index) {
+  auto enqueue = [this, &queued, target](std::size_t index) {
     if (index >= m_windows.size() || queued[index]) {
       return;
     }
     queued[index] = true;
     const WindowSwitcherEntry& entry = m_windows[index];
     const std::string key = identityKeyForEntry(entry);
-    if (key.empty() || entry.captureHandle == 0 || entry.thumbnail != nullptr || key == m_inFlightThumbnailKey) {
+    const bool needsCapture = entry.thumbnailTargetWidth < target.width;
+    if (key.empty() || entry.captureHandle == 0 || !needsCapture || key == m_inFlightThumbnailKey) {
       return;
     }
     const bool alreadyQueued = std::ranges::any_of(m_thumbnailQueue, [&key](const ThumbnailRequest& request) {
@@ -932,7 +991,9 @@ void WindowSwitcher::enqueueMissingThumbnailCaptures() {
     if (alreadyQueued) {
       return;
     }
-    m_thumbnailQueue.push_back(ThumbnailRequest{.windowKey = key, .captureHandle = entry.captureHandle});
+    m_thumbnailQueue.push_back(
+        ThumbnailRequest{.windowKey = key, .captureHandle = entry.captureHandle, .target = target}
+    );
   };
   if (m_selectedIndex < m_windows.size()) {
     enqueue(m_selectedIndex);
@@ -966,15 +1027,17 @@ void WindowSwitcher::captureNextThumbnail() {
 
     m_inFlightThumbnailKey = request.windowKey;
     m_thumbnailCapture->capture(
-        handle, 640, 400,
-        [this, windowKey = std::move(request.windowKey)](std::optional<ScreencopyImage> image, std::string error) {
+        handle, request.target.width, request.target.height,
+        [this, windowKey = std::move(request.windowKey),
+         target = request.target](std::optional<ScreencopyImage> image, std::string error) {
           if (!error.empty()) {
             kLog.debug("thumbnail capture skipped for {}: {}", windowKey, error);
           } else if (m_active && image.has_value()) {
             auto thumbnail = std::make_shared<ScreencopyImage>(std::move(*image));
             for (auto& entry : m_windows) {
-              if (identityKeyForEntry(entry) == windowKey) {
+              if (identityKeyForEntry(entry) == windowKey && target.width >= entry.thumbnailTargetWidth) {
                 entry.thumbnail = thumbnail;
+                entry.thumbnailTargetWidth = target.width;
               }
             }
             if (m_instance != nullptr) {
@@ -991,6 +1054,7 @@ void WindowSwitcher::captureNextThumbnail() {
 }
 
 void WindowSwitcher::cancelThumbnailCaptures() {
+  m_thumbnailTarget = {};
   m_thumbnailQueue.clear();
   m_inFlightThumbnailKey.clear();
   if (m_thumbnailCapture != nullptr) {
@@ -1025,7 +1089,8 @@ void WindowSwitcher::cycleSelection(int delta) {
 void WindowSwitcher::navigateList(int delta) { cycleSelection(delta); }
 
 void WindowSwitcher::prioritizeSelectedThumbnail() {
-  if (m_selectedIndex >= m_windows.size() || m_windows[m_selectedIndex].thumbnail != nullptr) {
+  if (m_selectedIndex >= m_windows.size()
+      || m_windows[m_selectedIndex].thumbnailTargetWidth >= m_thumbnailTarget.width) {
     return;
   }
   const std::string selectedKey = identityKeyForEntry(m_windows[m_selectedIndex]);
