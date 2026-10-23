@@ -672,6 +672,17 @@ constexpr EnumOption<DockLauncherPosition> kDockLauncherPositions[] = {
     {DockLauncherPosition::End, "end", "settings.options.dock-launcher-position.end"},
 };
 
+// Ordering of the unpinned running apps in the dock.
+enum class DockRunningOrder : std::uint8_t {
+  Open = 0,   // append in launch order (historical behavior)
+  Layout = 1, // follow the compositor's layout order (workspace, column, row) where the backend tracks it
+};
+
+constexpr EnumOption<DockRunningOrder> kDockRunningOrders[] = {
+    {DockRunningOrder::Open, "open", "settings.options.dock-running-order.open"},
+    {DockRunningOrder::Layout, "layout", "settings.options.dock-running-order.layout"},
+};
+
 struct DockMonitorOverride {
   // tableName is the TOML subtable key; match may be overridden explicitly.
   std::string tableName;
@@ -696,6 +707,7 @@ struct DockMonitorOverride {
   std::optional<std::int32_t> marginEdge;
   std::optional<bool> shadow;
   std::optional<bool> showRunning;
+  std::optional<DockRunningOrder> runningOrder;
   std::optional<bool> autoHide;
   std::optional<bool> smartAutoHide;
   std::optional<std::string> layer;
@@ -739,9 +751,10 @@ struct DockConfig {
   std::int32_t marginEdge = 0;         // distance from the nearest screen edge (floats the dock when > 0)
   bool shadow = true;                  // use the global shell shadow
   bool showRunning = true;             // also show running apps not in pinned list
-  bool autoHide = false;               // slide out when not hovered (overlay mode)
-  bool smartAutoHide = false;          // hide while the active workspace has windows; show when it is empty
-  std::string layer = "top";           // top | overlay
+  DockRunningOrder runningOrder = DockRunningOrder::Open; // ordering of the unpinned running apps
+  bool autoHide = false;                                  // slide out when not hovered (overlay mode)
+  bool smartAutoHide = false; // hide while the active workspace has windows; show when it is empty
+  std::string layer = "top";  // top | overlay
 
   [[nodiscard]] constexpr bool isAutoHideEnabled() const noexcept { return autoHide || smartAutoHide; }
   bool reserveSpace = true;         // reserve compositor exclusive zone; applies with or without auto_hide

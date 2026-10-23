@@ -977,6 +977,11 @@ namespace settings {
           "windows"
       ));
       entries.push_back(makeEntry(
+          SettingsSection::Dock, "behavior", tr("settings.schema.dock.running-order.label"),
+          tr("settings.schema.dock.running-order.description"), path("running_order"),
+          enumSelect(kDockRunningOrders, dock.runningOrder), "order layout windows"
+      ));
+      entries.push_back(makeEntry(
           SettingsSection::Dock, "behavior", tr("settings.schema.dock.show-dots.label"),
           tr("settings.schema.dock.show-dots.description"), path("show_dots"), ToggleSetting{dock.showDots},
           "running dots"

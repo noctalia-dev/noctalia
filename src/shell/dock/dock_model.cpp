@@ -8,7 +8,10 @@
 #include "util/string_utils.h"
 #include "wayland/wayland_toplevels.h"
 
+#include <algorithm>
+#include <limits>
 #include <unordered_map>
+#include <utility>
 
 namespace {
 
@@ -70,6 +73,62 @@ namespace shell::dock {
       return false;
     }
 
+    // Unknown apps sort last; equal keys retain the backend's running-app order.
+    struct RunningLayoutKey {
+      static constexpr std::size_t kLayoutOrderUnknown = std::numeric_limits<std::size_t>::max();
+
+      std::size_t workspaceOrder = kLayoutOrderUnknown;
+      std::int32_t x = 0;
+      std::int32_t y = 0;
+    };
+
+    bool runningLayoutKeyLess(const RunningLayoutKey& lhs, const RunningLayoutKey& rhs) {
+      if (lhs.workspaceOrder != rhs.workspaceOrder) {
+        return lhs.workspaceOrder < rhs.workspaceOrder;
+      }
+      if (lhs.x != rhs.x) {
+        return lhs.x < rhs.x;
+      }
+      return lhs.y < rhs.y;
+    }
+
+    void sortRunningByCompositorLayout(
+        CompositorPlatform& platform, wl_output* outputFilter,
+        std::vector<std::pair<DesktopEntry, std::string>>& running
+    ) {
+      const auto displayKeys = platform.workspaceDisplayKeys(outputFilter);
+      std::unordered_map<std::string, std::size_t> workspaceOrder;
+      workspaceOrder.reserve(displayKeys.size());
+      for (std::size_t i = 0; i < displayKeys.size(); ++i) {
+        workspaceOrder.emplace(displayKeys[i], i);
+      }
+
+      // Use the earliest window in workspace/column/row order. Coordinates belong
+      // to the backend: zero or negative values do not identify floating windows.
+      std::unordered_map<std::string, RunningLayoutKey> keyByAppIdLower;
+      for (const auto& assignment : platform.workspaceWindowAssignments(outputFilter)) {
+        const auto wsIt = workspaceOrder.find(assignment.workspaceKey);
+        if (wsIt == workspaceOrder.end()) {
+          continue;
+        }
+        const RunningLayoutKey candidate{.workspaceOrder = wsIt->second, .x = assignment.x, .y = assignment.y};
+        auto& best = keyByAppIdLower[StringUtils::toLower(assignment.appId)];
+        if (best.workspaceOrder == RunningLayoutKey::kLayoutOrderUnknown || runningLayoutKeyLess(candidate, best)) {
+          best = candidate;
+        }
+      }
+
+      std::ranges::stable_sort(running, [&keyByAppIdLower](const auto& lhs, const auto& rhs) {
+        const auto keyOf = [&keyByAppIdLower](const auto& item) {
+          if (const auto it = keyByAppIdLower.find(item.second); it != keyByAppIdLower.end()) {
+            return it->second;
+          }
+          return RunningLayoutKey{};
+        };
+        return runningLayoutKeyLess(keyOf(lhs), keyOf(rhs));
+      });
+    }
+
   } // namespace
 
   std::vector<ToplevelInfo>
@@ -105,10 +164,18 @@ namespace shell::dock {
 
     std::vector<DesktopEntry> itemEntries = deps.pinnedEntries;
     if (deps.config.showRunning) {
+      std::vector<std::pair<DesktopEntry, std::string>> appendedRunning;
       for (const auto& run : resolvedRunning) {
         if (!alreadyListsResolvedEntry(itemEntries, run)) {
-          itemEntries.push_back(run.entry);
+          appendedRunning.emplace_back(run.entry, run.runningLower);
         }
+      }
+      if (deps.config.runningOrder == DockRunningOrder::Layout) {
+        sortRunningByCompositorLayout(deps.platform, snapshot.filterOutput, appendedRunning);
+      }
+      itemEntries.reserve(itemEntries.size() + appendedRunning.size());
+      for (auto& item : appendedRunning) {
+        itemEntries.push_back(std::move(item.first));
       }
     }
 

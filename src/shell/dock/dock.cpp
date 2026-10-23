@@ -705,6 +705,14 @@ void Dock::onWorkspaceChanged() {
     return;
   }
   scheduleSmartAutoHideReevaluation();
+  // With running_order = "layout" the dock mirrors the compositor's window layout,
+  // and layout-only changes (e.g. niri column moves) don't alter the toplevel set,
+  // so ask every affected instance to re-sync its model and re-sort promptly.
+  for (auto& inst : m_instances) {
+    if (inst->surface != nullptr && inst->config.runningOrder == DockRunningOrder::Layout) {
+      inst->surface->requestUpdateOnly();
+    }
+  }
 }
 
 void Dock::scheduleSmartAutoHideReevaluation() {

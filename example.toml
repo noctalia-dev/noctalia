@@ -458,6 +458,7 @@ margin_ends         = 0
 margin_edge         = 8
 shadow              = true
 show_running        = true
+running_order       = "open"      # open | layout - layout follows the window manager's window positions (niri columns)
 auto_hide           = false
 # smart_auto_hide   = false       # show when the active workspace is empty; hide when it has windows
 reserve_space       = true
