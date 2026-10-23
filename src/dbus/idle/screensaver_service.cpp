@@ -178,11 +178,13 @@ void ScreenSaverService::registerLogindIdleMonitor(SystemBus* systemBus) {
           if (interfaceName != kLogindManagerInterface) {
             return;
           }
-          const auto it = changedProperties.find("BlockInhibited");
-          if (it == changedProperties.end()) {
+          if (!changedProperties.contains("BlockInhibited")) {
             return;
           }
-          applyLogindBlockInhibited(it->second.get<std::string>());
+          // Any peer can send this signal directly to us, so read the value from logind instead.
+          applyLogindBlockInhibited(
+              m_logindProxy->getProperty("BlockInhibited").onInterface(kLogindManagerInterface).get<std::string>()
+          );
         });
 
     const auto blockInhibited =
