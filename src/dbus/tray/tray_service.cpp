@@ -33,6 +33,7 @@ namespace {
   constexpr auto kAyatanaItemPath = "/org/ayatana/NotificationItem";
   // SNI GetAll often carries IconPixmap; 200 ms drops slow-but-valid clients.
   constexpr auto kItemPropertyTimeout = std::chrono::milliseconds(3000);
+  constexpr auto kWatcherTimeout = std::chrono::milliseconds(1000);
   constexpr int kBusOnlyRegistrationProbeAttempts = 5;
   constexpr auto kBusOnlyRegistrationProbeBackoff = std::chrono::milliseconds(250);
 
@@ -609,6 +610,7 @@ bool TrayService::externalWatcherHasOwner() const {
     bool hasOwner = false;
     m_dbusProxy->callMethod("NameHasOwner")
         .onInterface(kDbusInterface)
+        .withTimeout(kWatcherTimeout)
         .withArguments(std::string(kWatcherBusName))
         .storeResultsTo(hasOwner);
     return hasOwner;
@@ -714,6 +716,7 @@ void TrayService::connectToExternalWatcher() {
     if (!m_hostBusName.empty()) {
       m_watcherProxy->callMethod("RegisterStatusNotifierHost")
           .onInterface(kWatcherInterface)
+          .withTimeout(kWatcherTimeout)
           .withArguments(m_hostBusName);
     }
 
@@ -725,9 +728,13 @@ void TrayService::connectToExternalWatcher() {
         .onInterface(kWatcherInterface)
         .call([this](const std::string& service) { onExternalItemUnregistered(service); });
 
-    const auto registered = m_watcherProxy->getProperty("RegisteredStatusNotifierItems")
-                                .onInterface(kWatcherInterface)
-                                .get<std::vector<std::string>>();
+    sdbus::Variant registeredProperty;
+    m_watcherProxy->callMethod("Get")
+        .onInterface("org.freedesktop.DBus.Properties")
+        .withTimeout(kWatcherTimeout)
+        .withArguments(std::string(kWatcherInterface), std::string("RegisteredStatusNotifierItems"))
+        .storeResultsTo(registeredProperty);
+    const auto registered = registeredProperty.get<std::vector<std::string>>();
     for (const auto& service : registered) {
       onExternalItemRegistered(service);
     }
@@ -1713,6 +1720,7 @@ std::uint32_t TrayService::connectionPidForBusName(const std::string& busName) c
     std::uint32_t pid = 0;
     m_dbusProxy->callMethod("GetConnectionUnixProcessID")
         .onInterface(kDbusInterface)
+        .withTimeout(std::chrono::milliseconds(200))
         .withArguments(busName)
         .storeResultsTo(pid);
     return pid;
