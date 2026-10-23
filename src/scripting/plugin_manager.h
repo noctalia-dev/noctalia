@@ -69,10 +69,10 @@ namespace scripting {
   public:
     explicit PluginManager(ConfigService& config) : m_config(config) {}
 
-    // Called after an out-of-band registry change that isn't a config reload — i.e. a
-    // git `update()` or a local manifest edit. Lets Application rebuild the bar and
-    // reconcile services for the new revision. Enable/disable already propagate via the
-    // config-reload path, so they don't use this.
+    // Called after an out-of-band registry change: a git `update()`, or a manifest edit
+    // found during a config reload where the plugins config hasn't changed. Lets
+    // Application rebuild the bar and reconcile services. Enable/disable already
+    // propagate via the config-reload path, so they don't use this.
     void setOnChanged(std::function<void()> onChanged) { m_onChanged = std::move(onChanged); }
 
     // Called when a plugin starts or finishes its background git export (the in-flight

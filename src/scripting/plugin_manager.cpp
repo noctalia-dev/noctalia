@@ -36,22 +36,28 @@ namespace scripting {
 
     std::filesystem::path sourceRootFor(const PluginSourceConfig& source) { return plugin_paths::registryRoot(source); }
 
-    // Snapshot active, winning manifests, not script files (which have their own
-    // hot-reload watches). Content detects same-size/same-mtime replacements too.
-    auto manifestSnapshot(const PluginsConfig& plugins) {
-      std::map<std::string, std::pair<std::filesystem::path, std::string>> snapshot;
+    // Registry source roots in precedence order, lowest first: enabled configured
+    // sources in config order, then the local data dir.
+    std::vector<std::filesystem::path> pluginSourceRoots(const PluginsConfig& plugins) {
       std::vector<std::filesystem::path> roots;
       for (const auto& source : plugins.sources) {
-        if (source.enabled) {
-          if (auto root = sourceRootFor(source); !root.empty()) {
-            roots.push_back(std::move(root));
-          }
+        if (!source.enabled) {
+          continue;
+        }
+        if (auto root = sourceRootFor(source); !root.empty()) {
+          roots.push_back(std::move(root));
         }
       }
-      if (auto local = plugin_paths::localSourceRoot(); !local.empty()) {
-        roots.push_back(std::move(local));
+      if (auto localRoot = plugin_paths::localSourceRoot(); !localRoot.empty()) {
+        roots.push_back(std::move(localRoot));
       }
-      for (const auto& root : roots) {
+      return roots;
+    }
+
+    // Contents of the active, winning plugin manifests, keyed by plugin id.
+    auto manifestSnapshot(const PluginsConfig& plugins) {
+      std::map<std::string, std::pair<std::filesystem::path, std::string>> snapshot;
+      for (const auto& root : pluginSourceRoots(plugins)) {
         std::error_code ec;
         for (const auto& sub : std::filesystem::directory_iterator(root, ec)) {
           if (!sub.is_directory(ec)) {
@@ -320,19 +326,8 @@ namespace scripting {
     // The registry keeps the last copy of a duplicate id, so a cloned official /
     // community repo added as a later source overrides the built-in one without
     // touching plugin ids, and a drop-in under the data dir overrides everything.
-    std::vector<std::filesystem::path> roots;
+    std::vector<std::filesystem::path> roots = pluginSourceRoots(plugins);
     std::unordered_set<std::string> enabled;
-    for (const auto& source : plugins.sources) {
-      if (!source.enabled) {
-        continue;
-      }
-      if (auto root = sourceRootFor(source); !root.empty()) {
-        roots.push_back(std::move(root));
-      }
-    }
-    if (auto localRoot = plugin_paths::localSourceRoot(); !localRoot.empty()) {
-      roots.push_back(std::move(localRoot));
-    }
     for (const auto& id : plugins.enabled) {
       if (isValidPluginId(id)) {
         enabled.insert(id);
