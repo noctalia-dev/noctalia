@@ -2157,6 +2157,12 @@ namespace settings {
         tr("settings.schema.shell.screenshot-close-on-save.description"), {"shell", "screenshot", "close_on_save"},
         ToggleSetting{cfg.shell.screenshot.closeOnSave}, "screenshot annotation close save exit"
     ));
+    entries.push_back(makeEntry(
+        SettingsSection::Screenshot, "screenshot-annotation",
+        tr("settings.schema.shell.screenshot-copy-on-escape.label"),
+        tr("settings.schema.shell.screenshot-copy-on-escape.description"), {"shell", "screenshot", "copy_on_escape"},
+        ToggleSetting{cfg.shell.screenshot.copyOnEscape}, "screenshot annotation escape esc copy clipboard close exit"
+    ));
 
     entries.push_back(makeEntry(
         SettingsSection::Screenshot, "screenshot-output",

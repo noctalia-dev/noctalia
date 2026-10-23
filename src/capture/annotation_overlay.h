@@ -89,6 +89,7 @@ namespace capture {
     void setFrozenScreenshots(std::vector<FrozenScreenshot> frozen);
     void setCursorVisible(bool visible);
     [[nodiscard]] bool cursorVisible() const noexcept;
+    void setCopyOnEscape(bool copy) noexcept { m_copyOnEscape = copy; }
 
     void begin();
     void beginImage(ScreenshotImage image, wl_output* target);
@@ -185,6 +186,7 @@ namespace capture {
     AnnotationToolState m_tools = defaultAnnotationToolState();
     bool m_active = false;
     bool m_cursorVisible = false;
+    bool m_copyOnEscape = false;
 
     // One gesture at a time, owned by the instance the press landed on.
     Instance* m_gestureInstance = nullptr;

@@ -2301,6 +2301,10 @@ namespace capture {
         }
         return true;
       }
+      if (m_copyOnEscape && m_mode != AnnotationMode::Live) {
+        // Closes even when the copy fails; the failure is already notified.
+        requestExport(AnnotationExport::Copy);
+      }
       closeOverlay();
       return true;
     }
