@@ -39,6 +39,7 @@ struct MprisPlayerInfo {
   std::string loopStatus{"None"};
   bool shuffle{false};
   double volume{1.0};
+  double rate{1.0};
   int64_t positionUs{0};
   int64_t lengthUs{0};
   bool canControl{false};
@@ -87,6 +88,8 @@ public:
   bool setPositionActive(int64_t positionUs);
   bool setVolume(const std::string& busName, double volume);
   bool setVolumeActive(double volume);
+  bool setRate(const std::string& busName, double rate);
+  bool setRateActive(double rate);
   bool setShuffle(const std::string& busName, bool shuffle);
   bool setShuffleActive(bool shuffle);
   bool setLoopStatus(const std::string& busName, std::string loopStatus);
@@ -95,6 +98,8 @@ public:
   [[nodiscard]] std::optional<int64_t> positionActive() const;
   [[nodiscard]] std::optional<double> volume(const std::string& busName) const;
   [[nodiscard]] std::optional<double> volumeActive() const;
+  [[nodiscard]] std::optional<double> rate(const std::string& busName) const;
+  [[nodiscard]] std::optional<double> rateActive() const;
   [[nodiscard]] std::optional<bool> shuffle(const std::string& busName) const;
   [[nodiscard]] std::optional<bool> shuffleActive() const;
   [[nodiscard]] std::optional<std::string> loopStatus(const std::string& busName) const;
@@ -170,6 +175,8 @@ private:
   bool onSetPositionActive(int64_t positionUs);
   bool onSetVolumePlayer(const std::string& busName, double volume);
   bool onSetVolumeActive(double volume);
+  bool onSetRatePlayer(const std::string& busName, double rate);
+  bool onSetRateActive(double rate);
   bool onSetShufflePlayer(const std::string& busName, bool shuffle);
   bool onSetShuffleActive(bool shuffle);
   bool onSetLoopStatusPlayer(const std::string& busName, const std::string& loopStatus);
@@ -178,6 +185,8 @@ private:
   int64_t onGetPositionActive() const;
   double onGetVolumePlayer(const std::string& busName) const;
   double onGetVolumeActive() const;
+  double onGetRatePlayer(const std::string& busName) const;
+  double onGetRateActive() const;
   bool onGetShufflePlayer(const std::string& busName) const;
   bool onGetShuffleActive() const;
   std::string onGetLoopStatusPlayer(const std::string& busName) const;
