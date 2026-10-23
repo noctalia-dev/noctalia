@@ -91,7 +91,7 @@ RangeSlider::RangeSlider() {
     updateFromLocalX(data.localX);
   });
   area->setOnAxisHandler([this](const InputArea::PointerData& data) {
-    if (!m_enabled || !m_wheelAdjustEnabled || data.axis != WL_POINTER_AXIS_VERTICAL_SCROLL) {
+    if (!m_enabled || data.axis != WL_POINTER_AXIS_VERTICAL_SCROLL) {
       return false;
     }
     const auto lines = static_cast<double>(data.scrollSteps());
@@ -104,7 +104,11 @@ RangeSlider::RangeSlider() {
     }
     const bool increase = lines < 0.0;
     // Wheel drives the thumb nearest the pointer; a pinned thumb declines so ancestor views scroll.
-    const bool adjustLow = std::abs(data.localX - thumbCenterX(m_low)) <= std::abs(data.localX - thumbCenterX(m_high));
+    const float lowX = thumbCenterX(m_low);
+    const float highX = thumbCenterX(m_high);
+    // On a tie (thumbs coincide) the pointer side picks, mirroring the press handler.
+    const bool adjustLow = std::abs(data.localX - lowX) < std::abs(data.localX - highX)
+        || (std::abs(data.localX - lowX) == std::abs(data.localX - highX) && data.localX < lowX);
     if (adjustLow) {
       if ((increase && m_low >= m_high - kValueEpsilon) || (!increase && m_low <= m_min + kValueEpsilon)) {
         return false;
@@ -280,8 +284,6 @@ void RangeSlider::setControlHeight(float height) {
   updateGeometry();
   markLayoutDirty();
 }
-
-void RangeSlider::setWheelAdjustEnabled(bool enabled) { m_wheelAdjustEnabled = enabled; }
 
 void RangeSlider::setOnLowChanged(std::function<void(double)> callback) { m_onLowChanged = std::move(callback); }
 
