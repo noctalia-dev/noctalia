@@ -703,23 +703,19 @@ std::string CalendarService::accountStatusText(const CalendarConfig::Account& ac
   const AccountStatus status = accountStatus(account);
   if (status.phase.has_value()) {
     return i18n::tr(
-        status.phase == AccountStatus::Phase::Connecting
-            ? "settings.schema.services.calendar-edit.description-syncing-connecting"
-            : "settings.schema.services.calendar-edit.description-syncing-downloading"
+        status.phase == AccountStatus::Phase::Connecting ? "calendar.sync.connecting" : "calendar.sync.downloading"
     );
   }
   if (status.failure.has_value()) {
     return i18n::tr(
-        "settings.schema.services.calendar-edit.description-sync-failed", "reason",
+        "calendar.sync.failed", "reason",
         i18n::tr(calendar::syncFailureMessageKey(*status.failure, account.type == "google"))
     );
   }
   if (status.lastSynced.has_value()) {
-    return i18n::tr(
-        "settings.schema.services.calendar-edit.description-synced", "when", formatTimeAgo(*status.lastSynced)
-    );
+    return i18n::tr("calendar.sync.synced", "when", formatTimeAgo(*status.lastSynced));
   }
-  return i18n::tr("settings.schema.services.calendar-edit.description-not-synced");
+  return i18n::tr("calendar.sync.not-synced");
 }
 
 void CalendarService::setSyncPhase(const std::string& accountId, AccountStatus::Phase phase) {

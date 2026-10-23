@@ -184,6 +184,30 @@
       }
     }
   },
+  "calendar": {
+    "sync": {
+      "connecting": "Syncing: connecting…",
+      "downloading": "Syncing: downloading events…",
+      "failed": "Sync failed: {reason}",
+      "failure": {
+        "access-denied": "The server denied access to the resource.",
+        "authentication": "The server rejected the username or password.",
+        "client-certificate": "The client certificate or key file could not be read.",
+        "configuration": "The account settings are incomplete.",
+        "credentials": "No password is stored for this account, or it could not be read.",
+        "credentials-locked": "The keyring holding its credentials is locked; unlock it, then retry.",
+        "google-authorization": "Google authorization is missing or was revoked; reconnect the account.",
+        "invalid-response": "The server's response could not be read.",
+        "network": "The server could not be reached.",
+        "no-calendars": "No calendars with events were found.",
+        "not-found": "No calendar was found at the configured address.",
+        "server": "The server reported an error.",
+        "timeout": "The server took too long to respond."
+      },
+      "not-synced": "Not synced yet",
+      "synced": "Synced {when}"
+    }
+  },
   "clipboard": {
     "actions": {
       "clear-all": "Clear everything",
@@ -2962,25 +2986,7 @@
         "calendar-edit": {
           "button": "Edit",
           "button-reconnect": "Reconnect",
-          "button-retry": "Retry",
-          "description-not-synced": "Not synced yet",
-          "description-sync-failed": "Sync failed: {reason}",
-          "description-synced": "Synced {when}",
-          "description-syncing-connecting": "Syncing: connecting…",
-          "description-syncing-downloading": "Syncing: downloading events…",
-          "failure-access-denied": "The server denied access to the resource.",
-          "failure-authentication": "The server rejected the username or password.",
-          "failure-client-certificate": "The client certificate or key file could not be read.",
-          "failure-configuration": "The account settings are incomplete.",
-          "failure-credentials": "No password is stored for this account, or it could not be read.",
-          "failure-credentials-locked": "The keyring holding its credentials is locked; unlock it, then retry.",
-          "failure-google-authorization": "Google authorization is missing or was revoked; reconnect the account.",
-          "failure-invalid-response": "The server's response could not be read.",
-          "failure-network": "The server could not be reached.",
-          "failure-no-calendars": "No calendars with events were found.",
-          "failure-not-found": "No calendar was found at the configured address.",
-          "failure-server": "The server reported an error.",
-          "failure-timeout": "The server took too long to respond."
+          "button-retry": "Retry"
         },
         "calendar-event-date-format": {
           "description": "The date format shown above the event list in calendar views",

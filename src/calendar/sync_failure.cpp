@@ -26,36 +26,36 @@ namespace calendar {
 
   std::string_view syncFailureMessageKey(SyncFailure failure, bool google) {
     if (google && (failure == SyncFailure::Authentication || failure == SyncFailure::Credentials)) {
-      return "settings.schema.services.calendar-edit.failure-google-authorization";
+      return "calendar.sync.failure.google-authorization";
     }
     switch (failure) {
     case SyncFailure::None:
     case SyncFailure::Cancelled:
       return {};
     case SyncFailure::Configuration:
-      return "settings.schema.services.calendar-edit.failure-configuration";
+      return "calendar.sync.failure.configuration";
     case SyncFailure::Credentials:
-      return "settings.schema.services.calendar-edit.failure-credentials";
+      return "calendar.sync.failure.credentials";
     case SyncFailure::CredentialsLocked:
-      return "settings.schema.services.calendar-edit.failure-credentials-locked";
+      return "calendar.sync.failure.credentials-locked";
     case SyncFailure::ClientCertificate:
-      return "settings.schema.services.calendar-edit.failure-client-certificate";
+      return "calendar.sync.failure.client-certificate";
     case SyncFailure::Authentication:
-      return "settings.schema.services.calendar-edit.failure-authentication";
+      return "calendar.sync.failure.authentication";
     case SyncFailure::AccessDenied:
-      return "settings.schema.services.calendar-edit.failure-access-denied";
+      return "calendar.sync.failure.access-denied";
     case SyncFailure::NotFound:
-      return "settings.schema.services.calendar-edit.failure-not-found";
+      return "calendar.sync.failure.not-found";
     case SyncFailure::NoCalendars:
-      return "settings.schema.services.calendar-edit.failure-no-calendars";
+      return "calendar.sync.failure.no-calendars";
     case SyncFailure::Timeout:
-      return "settings.schema.services.calendar-edit.failure-timeout";
+      return "calendar.sync.failure.timeout";
     case SyncFailure::Network:
-      return "settings.schema.services.calendar-edit.failure-network";
+      return "calendar.sync.failure.network";
     case SyncFailure::Server:
-      return "settings.schema.services.calendar-edit.failure-server";
+      return "calendar.sync.failure.server";
     case SyncFailure::InvalidResponse:
-      return "settings.schema.services.calendar-edit.failure-invalid-response";
+      return "calendar.sync.failure.invalid-response";
     }
     return {};
   }

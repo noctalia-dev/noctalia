@@ -2033,9 +2033,8 @@ void SettingsWindow::refreshSettingsRegistry(const Config& cfg) {
       using Action = CalendarService::AccountStatus::Action;
       const CalendarService::AccountStatus status =
           m_calendarService != nullptr ? m_calendarService->accountStatus(account) : CalendarService::AccountStatus{};
-      const std::string subtitle = m_calendarService != nullptr
-          ? m_calendarService->accountStatusText(account)
-          : i18n::tr("settings.schema.services.calendar-edit.description-not-synced");
+      const std::string subtitle = m_calendarService != nullptr ? m_calendarService->accountStatusText(account)
+                                                                : i18n::tr("calendar.sync.not-synced");
       const Action action = status.action;
       settings::SettingEntry btn{
           .section = settings::SettingsSection::Calendar,
