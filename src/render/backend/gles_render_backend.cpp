@@ -377,7 +377,7 @@ bool GlesRenderBackend::beginFrame(RenderTarget& target) {
   return true;
 }
 
-void GlesRenderBackend::endFrame(RenderTarget& target) {
+bool GlesRenderBackend::endFrame(RenderTarget& target) {
   auto& surface = glesSurfaceTarget(target);
   const auto swapStart = std::chrono::steady_clock::now();
   if (eglSwapBuffers(m_display, surface.eglSurface()) != EGL_TRUE) {
@@ -387,13 +387,14 @@ void GlesRenderBackend::endFrame(RenderTarget& target) {
     // context loss is detected separately via graphicsResetStatus(). Skip this
     // frame instead of killing the shell.
     kLog.warn("eglSwapBuffers failed ({}); skipping frame", eglErrorDetail(eglGetError()));
-    return;
+    return false;
   }
   const float ms = elapsedSince(swapStart);
   logSlowRenderOperation(
       ms, "eglSwapBuffers took {:.1F}ms ({}x{} logical, {}x{} buffer)", ms, target.logicalWidth(),
       target.logicalHeight(), target.bufferWidth(), target.bufferHeight()
   );
+  return true;
 }
 
 RenderGraphicsResetStatus GlesRenderBackend::graphicsResetStatus() { return currentGlContextResetStatus(); }

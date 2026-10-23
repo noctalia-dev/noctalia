@@ -2467,6 +2467,8 @@ void Bar::createInstance(const WaylandOutput& output, std::size_t barIndex, cons
     tickWidgets(inst->centerWidgets, deltaMs);
     tickWidgets(inst->endWidgets, deltaMs);
   });
+  instance->firstFrame.emplace(m_firstFrame);
+  instance->surface->setRenderedCallback([inst]() { inst->firstFrame->shown(); });
 
   instance->surface->setAnimationManager(&instance->animations);
   populateWidgets(*instance);
@@ -2479,6 +2481,10 @@ void Bar::createInstance(const WaylandOutput& output, std::size_t barIndex, cons
   m_surfaceMap[instance->surface->wlSurface()] = instance.get();
   m_instances.push_back(std::move(instance));
 }
+
+bool Bar::firstFrameShown() const noexcept { return m_firstFrame.done(); }
+
+void Bar::setFirstFrameCallback(std::function<void()> callback) { m_firstFrame.setCallback(std::move(callback)); }
 
 void Bar::destroyInstance(std::uint32_t outputName) {
   std::erase_if(m_instances, [outputName, this](const auto& inst) {

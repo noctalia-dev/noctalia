@@ -36,7 +36,7 @@ public:
   bool makeCurrent(RenderTarget& target) override;
   bool makeCurrentNoSurface() override;
   bool beginFrame(RenderTarget& target) override;
-  void endFrame(RenderTarget& target) override;
+  bool endFrame(RenderTarget& target) override;
   [[nodiscard]] RenderGraphicsResetStatus graphicsResetStatus() override;
   void invalidateGpuResources() override;
   void abandonAfterGraphicsReset() noexcept override;

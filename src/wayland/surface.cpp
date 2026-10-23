@@ -488,6 +488,8 @@ void Surface::setOutputChangedCallback(OutputChangedCallback callback) {
   m_outputChangedCallback = std::move(callback);
 }
 
+void Surface::setRenderedCallback(RenderedCallback callback) { m_renderedCallback = std::move(callback); }
+
 void Surface::setSceneRoot(Node* root) {
   if (m_sceneRoot == root) {
     return;
@@ -1258,8 +1260,10 @@ void Surface::render() {
 
   requestFrame();
   traceSurfaceEvent(*this, "render-begin");
-  const float renderMs = elapsedMs([this] {
-    m_renderContext->renderScene(m_renderTarget, m_sceneRoot, m_wallpaperMask ? &*m_wallpaperMask : nullptr);
+  bool presented = false;
+  const float renderMs = elapsedMs([this, &presented] {
+    presented =
+        m_renderContext->renderScene(m_renderTarget, m_sceneRoot, m_wallpaperMask ? &*m_wallpaperMask : nullptr);
   });
   traceSurfaceEvent(*this, "render-end");
   recordSurfaceProfileEvent(*this, SurfaceProfileEvent::Render, renderMs);
@@ -1272,6 +1276,10 @@ void Surface::render() {
     m_sceneRoot->clearDirty();
   }
   m_redrawRequested = false;
+
+  if (presented && m_renderedCallback) {
+    m_renderedCallback();
+  }
 }
 
 void Surface::requestFrame() {

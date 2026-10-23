@@ -121,6 +121,10 @@ public:
 
   void registerIpc(IpcService& ipc);
 
+  // True once every bar instance created at startup has rendered a frame.
+  [[nodiscard]] bool firstFrameShown() const noexcept;
+  void setFirstFrameCallback(std::function<void()> callback);
+
 private:
   void applyIpcVisibility(bool visible);
   void syncIdleInhibitorAnchors();
@@ -203,6 +207,7 @@ private:
   FileWatcher* m_fileWatcher = nullptr;
   scripting::ScriptApiContext* m_scriptApi = nullptr;
   std::unique_ptr<WidgetFactory> m_widgetFactory;
+  FirstFrameTracker m_firstFrame;
   std::vector<std::unique_ptr<BarInstance>> m_instances;
   // Wall-clock minute of the last full second-tick update, so minute-changing
   // widgets refresh on the first tick of a new minute even when it lands off

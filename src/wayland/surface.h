@@ -66,6 +66,7 @@ public:
   using FrameTickCallback = std::function<void(float deltaMs)>;
   using ScaleChangedCallback = std::function<void(float scale)>;
   using OutputChangedCallback = std::function<void(wl_output* output)>;
+  using RenderedCallback = std::function<void()>;
 
   explicit Surface(WaylandConnection& connection);
   virtual ~Surface();
@@ -83,6 +84,7 @@ public:
   void setFrameTickCallback(FrameTickCallback callback);
   void setScaleChangedCallback(ScaleChangedCallback callback);
   void setOutputChangedCallback(OutputChangedCallback callback);
+  void setRenderedCallback(RenderedCallback callback);
   void setInputRegion(const std::vector<InputRect>& rects);
   void setBlurRegion(const std::vector<InputRect>& rects);
   // Declares the whole surface opaque, or not, from its next commit, so the compositor can skip what lies beneath it.
@@ -203,6 +205,7 @@ private:
   FrameTickCallback m_frameTickCallback;
   ScaleChangedCallback m_scaleChangedCallback;
   OutputChangedCallback m_outputChangedCallback;
+  RenderedCallback m_renderedCallback;
   wl_callback* m_frameCallback = nullptr;
   ext_background_effect_surface_v1* m_backgroundEffect = nullptr;
   wp_viewport* m_viewport = nullptr;

@@ -118,7 +118,8 @@ public:
   virtual bool makeCurrentNoSurface() = 0;
   // Returns false if the frame could not begin; callers must skip drawing and endFrame.
   virtual bool beginFrame(RenderTarget& target) = 0;
-  virtual void endFrame(RenderTarget& target) = 0;
+  // Returns false if the frame was not presented.
+  virtual bool endFrame(RenderTarget& target) = 0;
   [[nodiscard]] virtual RenderGraphicsResetStatus graphicsResetStatus() = 0;
   virtual void invalidateGpuResources() = 0;
   // Tear down a lost context without attempting to preserve its invalid GL objects.

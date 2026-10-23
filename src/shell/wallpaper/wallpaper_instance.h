@@ -1,6 +1,7 @@
 #pragma once
 
 #include "config/config_types.h"
+#include "core/first_frame_tracker.h"
 #include "render/animation/animation_manager.h"
 #include "render/core/color.h"
 #include "render/core/shared_texture_cache.h"
@@ -11,6 +12,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 
 class Box;
@@ -27,6 +29,7 @@ struct WallpaperInstance {
   std::string connectorName;
   std::string description;
 
+  std::optional<FirstFrameTracker::Member> firstFrame;
   std::unique_ptr<LayerSurface> surface;
   AnimationManager animations;
   std::unique_ptr<Node> sceneRoot;

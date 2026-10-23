@@ -1,6 +1,7 @@
 #pragma once
 
 #include "config/config_types.h"
+#include "core/first_frame_tracker.h"
 #include "render/core/shared_texture_cache.h"
 #include "render/core/wallpaper_types.h"
 #include "shell/wallpaper/wallpaper_shuffle_state.h"
@@ -73,6 +74,10 @@ public:
   // previews while their UI is closed.
   [[nodiscard]] Signal<>& changed() noexcept { return m_changed; }
 
+  // True once every output has rendered its startup wallpaper: image decoded and any startup transition finished.
+  [[nodiscard]] bool firstFrameShown() const noexcept;
+  void setFirstFrameCallback(std::function<void()> callback);
+
 private:
   enum class TransitionRedirect {
     Unrelated,
@@ -134,6 +139,7 @@ private:
   void runQueuedWallpaper(WallpaperInstance& instance);
   void updateRendererState(WallpaperInstance& instance);
   void releaseInstanceTextures(WallpaperInstance& inst);
+  void onInstanceRendered(WallpaperInstance& instance);
 
   WaylandConnection* m_wayland = nullptr;
   ConfigService* m_config = nullptr;
@@ -148,6 +154,7 @@ private:
   wallpaper::ShuffleState m_shuffleState;
   Signal<>::ScopedConnection m_paletteConn;
   Signal<> m_changed;
+  FirstFrameTracker m_firstFrame;
   std::vector<std::unique_ptr<WallpaperInstance>> m_instances;
   std::unordered_set<std::string> m_externallyManagedOutputs;
 };

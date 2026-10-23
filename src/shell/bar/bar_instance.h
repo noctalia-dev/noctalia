@@ -1,6 +1,7 @@
 #pragma once
 
 #include "config/config_service.h"
+#include "core/first_frame_tracker.h"
 #include "core/timer_manager.h"
 #include "render/animation/animation_manager.h"
 #include "render/scene/input_area.h"
@@ -60,6 +61,7 @@ struct BarInstance {
   std::int32_t outputLogicalHeight = 0;
   std::size_t barIndex = 0;
   BarConfig barConfig;
+  std::optional<FirstFrameTracker::Member> firstFrame;
   std::unique_ptr<LayerSurface> surface;
   // sceneRoot must be destroyed before `animations` — ~Node() calls cancelForOwner().
   AnimationManager animations;

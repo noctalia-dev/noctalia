@@ -179,13 +179,13 @@ void RenderContext::notifyFontConfigChanged() {
   ++m_textMetricsGeneration;
 }
 
-void RenderContext::renderScene(RenderTarget& target, Node* sceneRoot, const WallpaperMaskDrawParams* wallpaperMask) {
+bool RenderContext::renderScene(RenderTarget& target, Node* sceneRoot, const WallpaperMaskDrawParams* wallpaperMask) {
   if (m_backend == nullptr || m_graphicsResetPending) {
-    return;
+    return false;
   }
   const auto totalStart = std::chrono::steady_clock::now();
   if (!m_backend->beginFrame(target)) {
-    return;
+    return false;
   }
   const float renderScale = target.contentScale();
 
@@ -225,13 +225,15 @@ void RenderContext::renderScene(RenderTarget& target, Node* sceneRoot, const Wal
       target.bufferWidth(), target.bufferHeight()
   );
 
-  m_backend->endFrame(target);
+  const bool presented = m_backend->endFrame(target);
   const RenderGraphicsResetStatus resetStatus = m_backend->graphicsResetStatus();
   ms = elapsedSince(totalStart);
   logSlowRenderOperation(ms, "renderScene took {:.1F}ms total", ms);
   if (resetStatus != RenderGraphicsResetStatus::NoError) {
     handleGraphicsReset(resetStatus);
+    return false;
   }
+  return presented;
 }
 
 TextMetrics RenderContext::measureTextScaled(

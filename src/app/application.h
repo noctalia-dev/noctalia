@@ -1,6 +1,7 @@
 #pragma once
 
 #include "app/deferred_call_poll_source.h"
+#include "app/service_notify.h"
 #include "app/timer_poll_source.h"
 #include "calendar/calendar_poll_source.h"
 #include "calendar/calendar_reminder_monitor.h"
@@ -194,6 +195,7 @@ private:
   // and on every output change so first-run stacking matches hot reload.
   void reconcileOutputSurfaces();
   void initIpc();
+  void reportFirstFrameWhenShown();
   // (Re)register plugin-backed launcher providers from the enabled plugin set.
   void reloadPluginLauncherProviders();
   // (Re)register config-driven dmenu launcher providers ([shell.launcher.dmenu.entry.*]).
@@ -424,6 +426,8 @@ private:
   CalendarPollSource m_calendarPollSource{m_calendarService};
   CalendarReminderPollSource m_calendarReminderPollSource{m_calendarReminderMonitor};
   Timer m_polkitInitTimer;
+  ServiceNotifier m_serviceNotifier;
+  bool m_firstFrameReported = false;
   Timer m_polkitIdleCloseTimer;
   Timer m_greeterSyncTimeoutTimer;
   Timer m_greeterAutoSyncTimer;

@@ -1305,6 +1305,8 @@ void Wallpaper::createInstance(const WaylandOutput& output) {
   instance->surface->setAnimationManager(&instance->animations);
 
   instance->surface->setUpdateCallback([this, inst]() { updateRendererState(*inst); });
+  instance->firstFrame.emplace(m_firstFrame);
+  instance->surface->setRenderedCallback([this, inst]() { onInstanceRendered(*inst); });
 
   if (!instance->surface->initialize(output.output)) {
     kLog.warn("failed to initialize surface for output {}", output.name);
@@ -1312,6 +1314,16 @@ void Wallpaper::createInstance(const WaylandOutput& output) {
   }
 
   m_instances.push_back(std::move(instance));
+}
+
+bool Wallpaper::firstFrameShown() const noexcept { return m_firstFrame.done(); }
+
+void Wallpaper::setFirstFrameCallback(std::function<void()> callback) { m_firstFrame.setCallback(std::move(callback)); }
+
+void Wallpaper::onInstanceRendered(WallpaperInstance& instance) {
+  if (instance.loadingPath.empty() && !instance.transitioning) {
+    instance.firstFrame->shown();
+  }
 }
 
 void Wallpaper::releaseInstanceTextures(WallpaperInstance& inst) {

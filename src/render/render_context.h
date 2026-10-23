@@ -32,7 +32,8 @@ public:
   void restoreAfterGraphicsReset(GlSharedContext& shared);
   void finishGraphicsResetRecovery() noexcept { m_graphicsResetPending = false; }
 
-  void renderScene(RenderTarget& target, Node* sceneRoot, const WallpaperMaskDrawParams* wallpaperMask = nullptr);
+  // Returns true when the frame was presented.
+  bool renderScene(RenderTarget& target, Node* sceneRoot, const WallpaperMaskDrawParams* wallpaperMask = nullptr);
   // Returns false if the surface could not be made current (e.g. teardown);
   // best-effort callers may ignore it, render paths must skip the frame.
   bool makeCurrent(RenderTarget& target);

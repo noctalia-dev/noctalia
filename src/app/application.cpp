@@ -202,6 +202,7 @@ Application::~Application() {
 }
 
 void Application::run(std::function<void()> startupReadyCallback) {
+  m_serviceNotifier.takeSocketFromEnvironment();
   initLogFile();
   initLogLevelFromEnvironment();
   kLog.info("noctalia {}", noctalia::build_info::displayVersion());
@@ -222,6 +223,9 @@ void Application::run(std::function<void()> startupReadyCallback) {
     m_pluginAutoUpdateTimer.startRepeating(std::chrono::hours(6), [this]() { runPluginAutoUpdate(); });
   });
   runStartupPhase("initUi", [this]() { initUi(); });
+  m_wallpaper.setFirstFrameCallback([this]() { DeferredCall::callLater([this]() { reportFirstFrameWhenShown(); }); });
+  m_bar.setFirstFrameCallback([this]() { DeferredCall::callLater([this]() { reportFirstFrameWhenShown(); }); });
+  reportFirstFrameWhenShown();
   runStartupPhase("initPluginServices", [this]() {
     // Outputs are enumerated by now (wallpaper created its surfaces in initUi); refresh
     // the script-visible output snapshot before any service/panel reads noctalia.outputs().
@@ -294,4 +298,13 @@ void Application::run(std::function<void()> startupReadyCallback) {
   }
   m_mainLoop->run();
   kLog.info("shutdown");
+}
+
+void Application::reportFirstFrameWhenShown() {
+  if (m_firstFrameReported || !m_wallpaper.firstFrameShown() || !m_bar.firstFrameShown()) {
+    return;
+  }
+  m_firstFrameReported = true;
+  kLog.info("first frame shown");
+  m_serviceNotifier.notifyReady();
 }
