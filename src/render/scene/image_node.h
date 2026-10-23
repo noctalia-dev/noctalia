@@ -5,6 +5,7 @@
 #include "render/core/texture_handle.h"
 #include "render/scene/node.h"
 
+#include <algorithm>
 #include <cstdint>
 
 enum class ImageFitMode : std::uint8_t {
@@ -20,6 +21,7 @@ public:
   [[nodiscard]] TextureId textureId() const noexcept { return m_textureId; }
   [[nodiscard]] const Color& tint() const noexcept { return m_tint; }
   [[nodiscard]] float radius() const noexcept { return m_radius; }
+  [[nodiscard]] float saturation() const noexcept { return m_saturation; }
   [[nodiscard]] const Color& borderColor() const noexcept { return m_borderColor; }
   [[nodiscard]] float borderWidth() const noexcept { return m_borderWidth; }
   [[nodiscard]] ImageFitMode fitMode() const noexcept { return m_fitMode; }
@@ -42,6 +44,15 @@ public:
       return;
     }
     m_tint = tint;
+    markPaintDirty();
+  }
+
+  void setSaturation(float saturation) {
+    saturation = std::clamp(saturation, 0.0F, 1.0F);
+    if (m_saturation == saturation) {
+      return;
+    }
+    m_saturation = saturation;
     markPaintDirty();
   }
 
@@ -106,6 +117,7 @@ public:
 private:
   TextureId m_textureId;
   Color m_tint = {1.0F, 1.0F, 1.0F, 1.0F};
+  float m_saturation = 1.0F;
   bool m_monochromeTint = false;
   bool m_alphaMaskTint = false;
   float m_radius = 0.0F;
