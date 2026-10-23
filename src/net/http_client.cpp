@@ -737,6 +737,7 @@ void HttpClient::finishRequestTransfer(CURL* easy, CURLcode result) {
 
   HttpResponse response;
   response.transportOk = result == CURLE_OK;
+  response.timedOut = result == CURLE_OPERATION_TIMEDOUT;
   response.status = responseCode;
   response.body = std::move(transfer.response);
   response.headers = std::move(transfer.responseHeaders);
