@@ -43,9 +43,9 @@ namespace {
   constexpr auto kMprisPlayerInterface = "org.mpris.MediaPlayer2.Player";
   constexpr auto kNoctaliaMprisInterface = "dev.noctalia.Mpris";
   constexpr auto kPropertiesDebounceWindow = std::chrono::milliseconds{120};
-  constexpr double kMediaVolumeStepDefault = 0.05;
-  constexpr auto kVolumeHoldWindow = std::chrono::milliseconds(800);
-  constexpr auto kVolumeHoldMinIpcInterval = std::chrono::milliseconds(50);
+  constexpr float kMediaVolumeStepDefault = 0.05F;
+  constexpr auto kVolumeHoldWindow = std::chrono::milliseconds{800};
+  constexpr auto kVolumeHoldMinIpcInterval = std::chrono::milliseconds{50};
   constexpr auto kVolumeWriteGuard = std::chrono::milliseconds{400};
   constexpr double kVolumeWriteGuardEpsilon = 0.02;
   constexpr auto kMediaVolumeStepError =
@@ -717,23 +717,26 @@ void MprisService::registerIpc(IpcService& ipc) {
       return setVolumeActive(*amount) ? "ok\n" : kMediaVolumeUnsupportedOrNoActive;
     }
     if (action == "volume-up" || action == "volume-down") {
-      const auto step = parts.size() == 1 ? std::optional<float>(static_cast<float>(kMediaVolumeStepDefault))
+      const auto step = parts.size() == 1 ? std::optional<float>(kMediaVolumeStepDefault)
                                           : noctalia::ipc::parseNormalizedOrPercent(parts[1]);
       if (!step.has_value()) {
         return kMediaVolumeStepError;
       }
 
-			const auto active = chooseActivePlayer();
-			if (!active.has_value()) {
-				return kMediaVolumeUnsupportedOrNoActive;
-			}
-			const auto current = volume(*active);
-			if (!current.has_value()) {
-				return kMediaVolumeUnsupportedOrNoActive;
-			}
-			const float direction = action == "volume-up" ? 1.0F : -1.0F;
-			const double newVolume = relativeAdjustTarget(*active, static_cast<int>(direction), *step, direction, static_cast<float>(*current), std::max(1.0F, static_cast<float>(*current)));
-			return setVolume(*active, newVolume) ? "ok\n" : kMediaVolumeUnsupportedOrNoActive;
+      const auto active = chooseActivePlayer();
+      if (!active.has_value()) {
+        return kMediaVolumeUnsupportedOrNoActive;
+      }
+      const auto current = volume(*active);
+      if (!current.has_value()) {
+        return kMediaVolumeUnsupportedOrNoActive;
+      }
+      const float direction = action == "volume-up" ? 1.0F : -1.0F;
+      const double newVolume = relativeAdjustTarget(
+          *active, static_cast<int>(direction), *step, direction, static_cast<float>(*current),
+          std::max(1.0F, static_cast<float>(*current))
+      );
+      return setVolume(*active, newVolume) ? "ok\n" : kMediaVolumeUnsupportedOrNoActive;
     }
     if (parts.size() != 1) {
       return "error: media requires exactly one action "
@@ -2242,7 +2245,7 @@ void MprisService::clearPlayerState(const std::string& busName) {
     m_lastActivePlayer.clear();
   }
   m_stoppedPlayers.erase(busName);
-	m_relativeAdjust.erase(busName);
+  m_relativeAdjust.erase(busName);
 }
 
 void MprisService::removePlayer(const std::string& busName) {
@@ -2855,9 +2858,11 @@ MprisPlayerInfo MprisService::readPlayerInfoFromProperties(
   };
 }
 
-float MprisService::relativeAdjustTarget(const std::string& busName, int gesture, float baseStep, float direction, float current, float maxVolume) {
+float MprisService::relativeAdjustTarget(
+    const std::string& busName, int gesture, float baseStep, float direction, float current, float maxVolume
+) {
   const auto now = std::chrono::steady_clock::now();
-	auto& relativeAdjust = m_relativeAdjust[busName];
+  auto& relativeAdjust = m_relativeAdjust[busName];
   const bool held = relativeAdjust.gesture == gesture && (now - relativeAdjust.lastAt) <= kVolumeHoldWindow;
 
   if (held && (now - relativeAdjust.lastAt) < kVolumeHoldMinIpcInterval) {
