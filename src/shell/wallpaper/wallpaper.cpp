@@ -31,6 +31,7 @@
 #include <chrono>
 #include <cmath>
 #include <filesystem>
+#include <nlohmann/json.hpp>
 #include <optional>
 #include <string_view>
 #include <system_error>
@@ -277,15 +278,18 @@ namespace {
 
     kLog.info("syncing wallpaper to KDE Plasma: {} (connector: {})", imagePath, connector);
 
+    // JSON string literal is a valid JS literal, so quotes in the filename cannot end the string.
+    const std::string imageUrl =
+        nlohmann::json("file://" + imagePath).dump(-1, ' ', false, nlohmann::json::error_handler_t::replace);
     std::string script;
     if (output == nullptr) {
       script = "var d = desktops();"
                "for (var i = 0; i < d.length; i++) {"
                "  d[i].wallpaperPlugin = 'org.kde.image';"
                "  d[i].currentConfigGroup = ['Wallpaper', 'org.kde.image', 'General'];"
-               "  d[i].writeConfig('Image', 'file://"
-          + imagePath
-          + "');"
+               "  d[i].writeConfig('Image', "
+          + imageUrl
+          + ");"
             "}";
     } else {
       script = "var d = desktops();"
@@ -302,9 +306,9 @@ namespace {
           + ") {"
             "    d[i].wallpaperPlugin = 'org.kde.image';"
             "    d[i].currentConfigGroup = ['Wallpaper', 'org.kde.image', 'General'];"
-            "    d[i].writeConfig('Image', 'file://"
-          + imagePath
-          + "');"
+            "    d[i].writeConfig('Image', "
+          + imageUrl
+          + ");"
             "  }"
             "}";
     }

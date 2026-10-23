@@ -1026,11 +1026,11 @@ void Application::initAuxServicesAndHooks() {
         if (path.empty()) {
           return;
         }
-        std::string cmd = "plasma-apply-wallpaperimage";
+        std::vector<std::string> cmd{"plasma-apply-wallpaperimage"};
         if (!connector.empty()) {
-          cmd += " --screen " + connector;
+          cmd.insert(cmd.end(), {"--screen", connector});
         }
-        cmd += " \"" + path + "\"";
+        cmd.push_back(path);
         (void)process::runAsync(cmd);
       };
       if (wallpaperChanges.empty()) {
