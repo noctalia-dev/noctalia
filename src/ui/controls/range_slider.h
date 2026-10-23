@@ -24,6 +24,8 @@ public:
   void setTrackHeight(float height);
   void setThumbSize(float size);
   void setControlHeight(float height);
+  // Opt out of hover-wheel adjustment where the wheel must keep scrolling an ancestor view.
+  void setWheelAdjustEnabled(bool enabled);
   void setOnLowChanged(std::function<void(double)> callback);
   void setOnHighChanged(std::function<void(double)> callback);
   void setOnDragEnd(std::function<void()> callback);
@@ -33,6 +35,7 @@ public:
   [[nodiscard]] double minValue() const noexcept { return m_min; }
   [[nodiscard]] double maxValue() const noexcept { return m_max; }
   [[nodiscard]] bool enabled() const noexcept { return m_enabled; }
+  [[nodiscard]] bool wheelAdjustEnabled() const noexcept { return m_wheelAdjustEnabled; }
   [[nodiscard]] bool dragging() const noexcept;
 
 private:
@@ -65,6 +68,7 @@ private:
   double m_high = 75.0;
   ActiveThumb m_activeThumb = ActiveThumb::None;
   bool m_enabled = true;
+  bool m_wheelAdjustEnabled = true;
   float m_trackHeight = Style::sliderTrackHeight;
   float m_thumbSizePx = Style::sliderThumbSize;
   float m_controlHeightPx = Style::controlHeight;

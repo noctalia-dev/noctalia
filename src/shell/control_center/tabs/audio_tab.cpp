@@ -1063,7 +1063,6 @@ namespace {
                       .trackHeight = Style::sliderTrackHeight * scale,
                       .thumbSize = Style::sliderThumbSize * scale,
                       .controlHeight = kCompactSliderControlHeight * scale,
-                      .wheelAdjustEnabled = true,
                       .flexGrow = 1.0F,
                       .onValueChanged =
                           [this](double value) {
@@ -1744,7 +1743,6 @@ std::unique_ptr<Flex> AudioTab::createDeviceVolumeCard(DeviceVolumeCardSpec card
               .trackHeight = Style::sliderTrackHeight * scale,
               .thumbSize = Style::sliderThumbSize * scale,
               .controlHeight = Style::controlHeight * scale,
-              .wheelAdjustEnabled = true,
               .flexGrow = 1.0F,
               .onValueChanged =
                   [this, state = &card.state, queueVolume = card.queueVolume](double value) {

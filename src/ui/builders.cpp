@@ -663,6 +663,9 @@ namespace ui {
     if (props.step.has_value()) {
       control->setStep(*props.step);
     }
+    if (props.wheelAdjustEnabled.has_value()) {
+      control->setWheelAdjustEnabled(*props.wheelAdjustEnabled);
+    }
     if (props.lowValue.has_value() || props.highValue.has_value()) {
       control->setValues(props.lowValue.value_or(control->lowValue()), props.highValue.value_or(control->highValue()));
     }

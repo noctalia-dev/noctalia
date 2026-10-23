@@ -358,6 +358,7 @@ namespace ui {
     std::optional<double> lowValue = std::nullopt;
     std::optional<double> highValue = std::nullopt;
     std::optional<bool> enabled = std::nullopt;
+    std::optional<bool> wheelAdjustEnabled = std::nullopt;
     std::optional<float> trackHeight = std::nullopt;
     std::optional<float> thumbSize = std::nullopt;
     std::optional<float> controlHeight = std::nullopt;

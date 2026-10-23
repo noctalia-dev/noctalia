@@ -88,7 +88,11 @@ Slider::Slider() {
     if (step <= 0.0) {
       return false;
     }
-    // Wayland convention: positive axisLines = scroll down. Scroll up should increase.
+    // Wayland convention: positive steps = scroll down. Scroll up should increase.
+    const bool increase = lines < 0.0;
+    if ((increase && m_value >= m_max - kValueEpsilon) || (!increase && m_value <= m_min + kValueEpsilon)) {
+      return false;
+    }
     setValue(m_value - lines * step);
     if (m_onDragEnd) {
       m_onDragEnd();

@@ -90,6 +90,37 @@ RangeSlider::RangeSlider() {
     }
     updateFromLocalX(data.localX);
   });
+  area->setOnAxisHandler([this](const InputArea::PointerData& data) {
+    if (!m_enabled || !m_wheelAdjustEnabled || data.axis != WL_POINTER_AXIS_VERTICAL_SCROLL) {
+      return false;
+    }
+    const auto lines = static_cast<double>(data.scrollSteps());
+    if (lines == 0.0) {
+      return false;
+    }
+    const double step = m_step > 0.0 ? m_step : (m_max - m_min) * 0.05;
+    if (step <= 0.0) {
+      return false;
+    }
+    const bool increase = lines < 0.0;
+    // Wheel drives the thumb nearest the pointer; a pinned thumb declines so ancestor views scroll.
+    const bool adjustLow = std::abs(data.localX - thumbCenterX(m_low)) <= std::abs(data.localX - thumbCenterX(m_high));
+    if (adjustLow) {
+      if ((increase && m_low >= m_high - kValueEpsilon) || (!increase && m_low <= m_min + kValueEpsilon)) {
+        return false;
+      }
+      setLowValue(m_low - lines * step);
+    } else {
+      if ((increase && m_high >= m_max - kValueEpsilon) || (!increase && m_high <= m_low + kValueEpsilon)) {
+        return false;
+      }
+      setHighValue(m_high - lines * step);
+    }
+    if (m_onDragEnd) {
+      m_onDragEnd();
+    }
+    return true;
+  });
   area->setFocusable(true);
   area->setOnFocusGain([this] {
     if (m_activeThumb == ActiveThumb::None) {
@@ -249,6 +280,8 @@ void RangeSlider::setControlHeight(float height) {
   updateGeometry();
   markLayoutDirty();
 }
+
+void RangeSlider::setWheelAdjustEnabled(bool enabled) { m_wheelAdjustEnabled = enabled; }
 
 void RangeSlider::setOnLowChanged(std::function<void(double)> callback) { m_onLowChanged = std::move(callback); }
 
