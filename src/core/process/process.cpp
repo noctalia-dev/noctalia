@@ -22,6 +22,8 @@
 #include <sstream>
 #include <string>
 #include <string_view>
+#include <sys/socket.h>
+#include <sys/un.h>
 #include <sys/wait.h>
 #include <system_error>
 #include <thread>
@@ -1014,5 +1016,46 @@ namespace process {
     }
 #endif
     return runAsync(args, activationToken, workingDir);
+  }
+
+  bool notifyServiceReady(std::string_view socketPath) {
+    if (socketPath.empty()) {
+      return true;
+    }
+    sockaddr_un address{};
+    address.sun_family = AF_UNIX;
+    if (socketPath.size() >= sizeof(address.sun_path) || (socketPath.front() != '/' && socketPath.front() != '@')) {
+      errno = EINVAL;
+      return false;
+    }
+    std::memcpy(address.sun_path, socketPath.data(), socketPath.size());
+    const bool abstract = socketPath.front() == '@';
+    if (abstract) {
+      address.sun_path[0] = '\0';
+    }
+    const auto length = static_cast<socklen_t>(offsetof(sockaddr_un, sun_path) + socketPath.size() + !abstract);
+    const int fd = socket(AF_UNIX, SOCK_DGRAM | SOCK_CLOEXEC, 0);
+    if (fd < 0) {
+      return false;
+    }
+    constexpr std::string_view ready = "READY=1";
+    ssize_t sent;
+    do {
+      sent = sendto(fd, ready.data(), ready.size(), MSG_NOSIGNAL, reinterpret_cast<sockaddr*>(&address), length);
+    } while (sent < 0 && errno == EINTR);
+    const int sendError = errno;
+    close(fd);
+    errno = sendError;
+    return sent == static_cast<ssize_t>(ready.size());
+  }
+
+  bool isDirectSystemdService(pid_t currentPid, const char* systemdExecPid) {
+    if (currentPid <= 0 || systemdExecPid == nullptr || systemdExecPid[0] == '\0') {
+      return false;
+    }
+    pid_t parsed = 0;
+    const std::string_view value(systemdExecPid);
+    const auto [end, error] = std::from_chars(value.data(), value.data() + value.size(), parsed);
+    return error == std::errc{} && end == value.data() + value.size() && parsed == currentPid;
   }
 } // namespace process
