@@ -5,6 +5,7 @@
 #include "config/widget_setting_value.h"
 #include "core/input/key_chord.h"
 #include "core/input/keybind_action.h"
+#include "render/core/renderer.h"
 #include "system/sysmon_threshold_profile.h"
 #include "ui/style.h"
 #include "ui/surface_shadow.h"
@@ -1118,6 +1119,11 @@ constexpr EnumOption<ScreenshotFormat> kScreenshotFormats[] = {
     {ScreenshotFormat::Jxl, "jxl", "settings.options.screenshot.format.jxl"},
 };
 
+constexpr EnumOption<FontStyle> kFontStyles[] = {
+    {FontStyle::Normal, "normal", "settings.options.font-style.normal"},
+    {FontStyle::Italic, "italic", "settings.options.font-style.italic"},
+};
+
 struct ShellConfig {
   struct AnimationConfig {
     bool enabled = true;
@@ -1336,6 +1342,7 @@ struct ShellConfig {
   bool cardBorders = true;
   bool showCloseButtons = true;
   std::string fontFamily = "sans-serif";
+  FontStyle fontStyle = FontStyle::Normal;
   std::string lang; // empty = auto-detect from $LC_ALL/$LC_MESSAGES/$LANG
   std::string timeFormat = "{:%H:%M}";
   std::string dateFormat = "%A, %x";

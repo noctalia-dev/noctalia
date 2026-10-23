@@ -32,6 +32,7 @@ card_borders          = true            # draw outlines around section cards ins
 show_close_buttons    = true            # show close buttons on shell surfaces (panels, toasts, popups, dialogs, Settings)
 popup_shadows         = true            # draw drop shadows behind popups and dropdowns
 font_family           = "sans-serif"    # Pango family string; Fontconfig handles fallback
+font_style            = "normal"        # "normal" or "italic"
 lang                  = ""              # empty = auto-detect; otherwise BCP-47 or POSIX locale
 time_format           = "{:%H:%M}"      # default time format for shell UI without its own setting
 date_format           = "%A, %x"        # default date format for shell UI without its own setting
@@ -236,6 +237,8 @@ Notes:
 - `circular_avatar` keeps the launcher and Control Center Home avatars circular by default. Disable it under **Settings → Shell → General → Circular Avatar**, or set `[shell].circular_avatar = false`, to follow the shell's corner roundness. Zero corner roundness gives square corners. Existing `control_center.circular_avatar` settings migrate to this key; update hand-maintained config files to use the new path.
 
 - `font_family` sets the primary Pango family for all shell text. Can be a concrete family like `Inter` or a generic like `sans-serif`.
+
+- `font_style` draws all shell text upright (`"normal"`, the default) or in italic (`"italic"`). Configure under **Settings → Appearance**. Icons stay upright, but Nerd Font icons and emoji placed inside text slant with it. Fonts without an italic face get a slanted version of the upright face.
 
 - `time_format` and `date_format` are fallbacks for shell-owned displays such as the home tab, calendar tab, and lock screen. Widget-specific clock formats still use their own widget settings. See [Date format tokens](/noctalia/configuration/date-format-tokens/).
 
