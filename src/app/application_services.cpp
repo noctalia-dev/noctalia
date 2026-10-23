@@ -1532,7 +1532,7 @@ void Application::initBrightnessAndPipewire() {
         },
         "umbriel-audio"
     );
-    m_soundPlayer = std::make_shared<SoundPlayer>(m_pipewireService->loop());
+    m_soundPlayer = std::make_shared<SoundPlayer>();
 
     auto applySoundConfig = [this]() {
       if (m_soundPlayer == nullptr) {
