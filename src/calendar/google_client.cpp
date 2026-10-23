@@ -190,6 +190,7 @@ namespace calendar {
     m_http.request(std::move(listReq), [this, bearer, start, end, cb = std::move(cb)](HttpResponse resp) mutable {
       if (!resp.transportOk || resp.status != 200) {
         if (resp.status != 401) {
+          // 401 is not logged, because that's the normal case of a cached token expiring
           kLog.warn("calendarList failed http={}", resp.status);
         }
         cb(syncFailureFromResponse(resp), {});

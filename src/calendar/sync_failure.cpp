@@ -8,8 +8,11 @@ namespace calendar {
     if (!response.transportOk) {
       return response.timedOut ? SyncFailure::Timeout : SyncFailure::Network;
     }
-    if (response.status == 401 || response.status == 403) {
+    if (response.status == 401) {
       return SyncFailure::Authentication;
+    }
+    if (response.status == 403) {
+      return SyncFailure::AccessDenied;
     }
     // 405: the address answers, but not as a CalDAV/WebDAV resource.
     if (response.status == 404 || response.status == 405 || response.status == 410) {
@@ -39,6 +42,8 @@ namespace calendar {
       return "settings.schema.services.calendar-edit.failure-client-certificate";
     case SyncFailure::Authentication:
       return "settings.schema.services.calendar-edit.failure-authentication";
+    case SyncFailure::AccessDenied:
+      return "settings.schema.services.calendar-edit.failure-access-denied";
     case SyncFailure::NotFound:
       return "settings.schema.services.calendar-edit.failure-not-found";
     case SyncFailure::NoCalendars:

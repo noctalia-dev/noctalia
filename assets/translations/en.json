@@ -2968,6 +2968,7 @@
           "description-synced": "Synced {when}",
           "description-syncing-connecting": "Syncing: connecting…",
           "description-syncing-downloading": "Syncing: downloading events…",
+          "failure-access-denied": "The server denied access to the resource.",
           "failure-authentication": "The server rejected the username or password.",
           "failure-client-certificate": "The client certificate or key file could not be read.",
           "failure-configuration": "The account settings are incomplete.",

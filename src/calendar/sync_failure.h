@@ -16,7 +16,8 @@ namespace calendar {
     Credentials,       // no password is stored, or the password file can't be read
     CredentialsLocked, // the keyring is locked or Secret Service is unavailable
     ClientCertificate, // the mTLS client certificate or key file (client_cert_file, client_key_file) can't be read
-    Authentication,    // the server rejected the credentials (HTTP 401/403, a revoked Google grant)
+    Authentication,    // the server rejected the credentials (HTTP 401, a revoked Google grant)
+    AccessDenied,      // authenticated, but server denied access (HTTP 403): no permission, Google quota or rate limit
     NotFound,          // nothing at the configured address: HTTP 404/405/410, a discovery step without an answer, a
                        // missing vdir directory
     NoCalendars,       // calendars were looked for, and none that hold events was found or selected
