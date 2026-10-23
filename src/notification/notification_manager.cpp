@@ -677,6 +677,11 @@ const std::deque<Notification>& NotificationManager::all() const noexcept { retu
 
 const std::deque<NotificationHistoryEntry>& NotificationManager::history() const noexcept { return m_history; }
 
+const NotificationHistoryEntry* NotificationManager::findHistoryEntry(uint32_t id) const noexcept {
+  const auto it = m_historyIndex.find(id);
+  return it != m_historyIndex.end() ? &m_history[it->second] : nullptr;
+}
+
 std::uint64_t NotificationManager::changeSerial() const noexcept { return m_changeSerial; }
 
 void NotificationManager::removeHistoryEntry(uint32_t id, std::optional<CloseReason> dbusCloseReason) {

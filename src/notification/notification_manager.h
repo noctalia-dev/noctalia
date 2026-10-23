@@ -143,6 +143,7 @@ public:
 
   // Recent notification history including closed notifications.
   [[nodiscard]] const std::deque<NotificationHistoryEntry>& history() const noexcept;
+  [[nodiscard]] const NotificationHistoryEntry* findHistoryEntry(uint32_t id) const noexcept;
   [[nodiscard]] std::uint64_t changeSerial() const noexcept;
   void removeHistoryEntry(uint32_t id, std::optional<CloseReason> dbusCloseReason = std::nullopt);
   void clearHistory();
