@@ -53,7 +53,7 @@ private:
   double m_step = 1.0;
   double m_value = 50.0;
   bool m_enabled = true;
-  bool m_wheelAdjustEnabled = false;
+  bool m_wheelAdjustEnabled = true;
   float m_trackHeight = Style::sliderTrackHeight;
   float m_thumbSizePx = Style::sliderThumbSize;
   float m_controlHeightPx = Style::controlHeight;
