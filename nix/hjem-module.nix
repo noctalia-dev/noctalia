@@ -1,5 +1,6 @@
 {
   config,
+  options,
   pkgs,
   lib,
   ...
@@ -29,6 +30,8 @@ let
   paletteFiles = mapAttrs (
     name: palette: json.generate "${name}-palette.json" palette
   ) cfg.customPalettes;
+
+  hasSystemd = options ? systemd;
 in
 {
   options.programs.noctalia = {
@@ -97,46 +100,54 @@ in
     };
   };
 
-  config = mkIf cfg.enable {
-    packages = optional (cfg.package != null) cfg.package;
+  config = mkIf cfg.enable (lib.mkMerge [
+    {
+      packages = optional (cfg.package != null) cfg.package;
 
-    systemd.services.noctalia = mkIf (cfg.systemd.enable) {
-      description = "Noctalia - A lightweight Wayland shell and bar";
-      documentation = [ "https://docs.noctalia.dev/noctalia/" ];
-      partOf = [ cfg.systemd.target ];
-      after = [ cfg.systemd.target ];
-      wantedBy = [ cfg.systemd.target ];
-      # without this the service will have the default
-      # Environment="PATH=coreutils:…", clobbering the PATH that the DE
-      # imported into the user manager.
-      enableDefaultPath = false;
-      restartTriggers = [
-        cfg.package
-      ]
-      ++ optional (cfg.settings != { }) configToml
-      ++ attrValues paletteFiles;
-      serviceConfig = {
-        ExecStart = lib.getExe cfg.package;
-        Restart = "on-failure";
+      xdg.config.files = lib.mkMerge [
+        (mkIf (cfg.settings != { }) {
+          "noctalia/config.toml".source = configToml;
+        })
+        (mapAttrs' (
+          name: source: lib.nameValuePair "noctalia/palettes/${name}.json" { inherit source; }
+        ) paletteFiles)
+      ];
+
+      assertions = [
+        {
+          assertion = !cfg.systemd.enable || cfg.package != null;
+          message = "programs.noctalia.package cannot be null when programs.noctalia.systemd.enable is true";
+        }
+        {
+          assertion = !cfg.systemd.enable || hasSystemd;
+          message = "programs.noctalia.systemd.enable is set, but this platform's Hjem module doesn't expose a `systemd` option";
+        }
+      ];
+    }
+
+    (lib.optionalAttrs hasSystemd {
+      systemd.services.noctalia = mkIf cfg.systemd.enable {
+        description = "Noctalia - A lightweight Wayland shell and bar";
+        documentation = [ "https://docs.noctalia.dev/noctalia/" ];
+        partOf = [ cfg.systemd.target ];
+        after = [ cfg.systemd.target ];
+        wantedBy = [ cfg.systemd.target ];
+        # without this the service will have the default
+        # Environment="PATH=coreutils:…", clobbering the PATH that the DE
+        # imported into the user manager.
+        enableDefaultPath = false;
+        restartTriggers = [
+          cfg.package
+        ]
+        ++ optional (cfg.settings != { }) configToml
+        ++ attrValues paletteFiles;
+        serviceConfig = {
+          ExecStart = lib.getExe cfg.package;
+          Restart = "on-failure";
+        };
       };
-    };
-
-    xdg.config.files = lib.mkMerge [
-      (mkIf (cfg.settings != { }) {
-        "noctalia/config.toml".source = configToml;
-      })
-      (mapAttrs' (
-        name: source: lib.nameValuePair "noctalia/palettes/${name}.json" { inherit source; }
-      ) paletteFiles)
-    ];
-
-    assertions = [
-      {
-        assertion = !cfg.systemd.enable || cfg.package != null;
-        message = "programs.noctalia.package cannot be null when programs.noctalia.systemd.enable is true";
-      }
-    ];
-  };
+    })
+  ]);
 
   _class = "hjem";
 }
