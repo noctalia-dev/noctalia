@@ -2664,6 +2664,10 @@
           "description": "Gap in pixels between a floating or detached panel and the bar edge",
           "label": "Floating Offset"
         },
+        "home-avatar-border": {
+          "description": "Show the accent ring around the Home tab avatar",
+          "label": "Show Avatar Border"
+        },
         "home-circular-avatar": {
           "description": "Use a circular avatar; disable to follow the shell's corner roundness",
           "label": "Circular Avatar"
