@@ -422,6 +422,9 @@ bool ControlCenterPanel::isContextActive(std::string_view context) const {
 }
 
 bool ControlCenterPanel::handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit) {
+  if (auto& tab = m_tabs[tabIndex(m_activeTab)]; tab != nullptr && tab->handleKey(sym, modifiers, pressed, preedit)) {
+    return true;
+  }
   if (!m_showSidebar || m_sidebarNav == nullptr || m_sidebarScrollView == nullptr || m_content == nullptr) {
     return false;
   }
