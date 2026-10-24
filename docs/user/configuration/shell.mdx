@@ -690,6 +690,8 @@ The compatibility path invokes the positional helper syntax through the normal a
 
 Only one greeter sync runs at a time. Additional Settings or auto-sync requests leave the active operation untouched; an overlapping `greeter-sync` IPC request reports that a sync is already in progress.
 
+When `[wallpaper].enabled = false`, greeter sync carries no wallpaper and removes the previously synced one, so the greeter shows a solid background in the synced palette's surface color.
+
 `privilege_command` wraps or replaces the detected privilege tool. With constrained sync it must ultimately launch `pkexec`, such as `ghostty -e pkexec`, because the helper verifies `PKEXEC_UID`. In legacy mode, the path retains support for administrator-authenticated alternatives such as `run0` or a terminal-wrapped `sudo`.
 
 **Settings → Security → Auto-Sync Greeter** and **Settings → Security → Greeter Sync Privilege Command**, or in TOML:
