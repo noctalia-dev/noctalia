@@ -353,6 +353,7 @@
       "error-missing-password": "Enter your password.",
       "error-unsupported-phase2": "PEAP requires MSCHAPv2 inner authentication.",
       "external-ip": "WAN {ip}",
+      "hotspot-active": "Wi-Fi is running a hotspot; turning Wi-Fi off stops it",
       "identity": "Identity",
       "no-networks": "No networks in range",
       "not-connected": "Not connected",

@@ -167,6 +167,7 @@ private:
   bool m_scanning = false;
   bool m_anyVpnConnected = false;
   bool m_anyCellularActive = false;
+  bool m_hotspotActive = false; // a Wi-Fi device is running in access-point mode
   std::int64_t m_scanBaselineLastScan = 0;
   Timer m_scanTimeoutTimer;
   std::uint64_t m_scanGeneration = 0;

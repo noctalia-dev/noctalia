@@ -1282,6 +1282,8 @@ NetworkTab::structureKey(const std::vector<AccessPointInfo>& aps, const std::vec
   key += wirelessEnabled ? '1' : '0';
   key += "\nscan:";
   key += scanning ? '1' : '0';
+  key += "\nhotspot:";
+  key += (m_network != nullptr && m_network->state().hotspotActive) ? '1' : '0';
   // Cellular rows live-sync their state/signal, so only the structural
   // identity (which modems exist) belongs to the key.
   key += "\ncellular:\n";
@@ -1325,9 +1327,11 @@ void NetworkTab::rebuildApList(Renderer& renderer) {
         .gap = Style::spaceSm * scale,
     });
     if (aps.empty()) {
+      const bool hotspotActive = m_network != nullptr && m_network->state().hotspotActive;
       container->addChild(
           ui::label({
-              .text = i18n::tr("control-center.network.no-networks"),
+              .text = hotspotActive ? i18n::tr("control-center.network.hotspot-active")
+                                    : i18n::tr("control-center.network.no-networks"),
               .fontSize = Style::fontSizeBody * scale,
               .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
           })

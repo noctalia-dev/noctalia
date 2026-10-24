@@ -131,6 +131,8 @@ Clicking a secured network you have not joined, or a password request from the b
 
 On the NetworkManager backend, a Wi-Fi connection that fails shows a notification naming the network and the reason when NetworkManager reports one: rejected or missing password, network out of range, no response, no IP address, or the request was not authorized. Cancelling a connection or switching to another network does not notify. An authorization failure usually means NetworkManager needed a polkit prompt and no agent answered it; see [the FAQ](/noctalia/getting-started/faq/#networkmanager-polkit).
 
+While NetworkManager runs a Wi-Fi device as a hotspot (an access-point-mode profile), the tab does not list the hotspot as a joined network or scan on that device, the Wi-Fi list says the device is running a hotspot, and the Wi-Fi shortcut shows a hotspot icon instead of the not-connected one. Turning Wi-Fi off stops the hotspot, since both use the same radio.
+
 ### Enterprise Wi-Fi (802.1X)
 
 Clicking a WPA2/WPA3-Enterprise network opens a credential form instead of the pre-shared-key field: EAP method (PEAP or TTLS), inner authentication, identity, anonymous identity, server domain suffix, and CA certificate path. The password field below the form is the one used for the EAP login.
