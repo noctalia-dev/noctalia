@@ -2159,9 +2159,9 @@ namespace settings {
     ));
     entries.push_back(makeEntry(
         SettingsSection::Screenshot, "screenshot-annotation",
-        tr("settings.schema.shell.screenshot-copy-on-escape.label"),
-        tr("settings.schema.shell.screenshot-copy-on-escape.description"), {"shell", "screenshot", "copy_on_escape"},
-        ToggleSetting{cfg.shell.screenshot.copyOnEscape}, "screenshot annotation escape esc copy clipboard close exit"
+        tr("settings.schema.shell.screenshot-copy-on-close.label"),
+        tr("settings.schema.shell.screenshot-copy-on-close.description"), {"shell", "screenshot", "copy_on_close"},
+        ToggleSetting{cfg.shell.screenshot.copyOnClose}, "screenshot annotation cancel copy clipboard close exit"
     ));
 
     entries.push_back(makeEntry(

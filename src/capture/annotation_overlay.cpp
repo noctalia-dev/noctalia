@@ -1279,7 +1279,7 @@ namespace capture {
     ));
     addGhostButton("screenshot", "bar.annotate.capture-new-region", [this]() { requestCaptureRegion(); });
     if (Style::closeButtonsEnabled()) {
-      addGhostButton("x", "bar.annotate.close", [this]() { closeOverlay(); });
+      addGhostButton("x", "bar.annotate.close", [this]() { requestClose(); });
     }
 
     inst.toolbar = toolbar.get();
@@ -2301,11 +2301,7 @@ namespace capture {
         }
         return true;
       }
-      if (m_copyOnEscape && m_mode != AnnotationMode::Live) {
-        // Closes even when the copy fails; the failure is already notified.
-        requestExport(AnnotationExport::Copy);
-      }
-      closeOverlay();
+      requestClose();
       return true;
     }
 
@@ -2515,6 +2511,14 @@ namespace capture {
     if (action == AnnotationExport::Done) {
       closeOverlay();
     }
+  }
+
+  void AnnotationOverlay::requestClose() {
+    if (m_copyOnClose && m_mode != AnnotationMode::Live) {
+      // Closes even when the copy fails; the failure is already notified.
+      requestExport(AnnotationExport::Copy);
+    }
+    closeOverlay();
   }
 
   void AnnotationOverlay::closeOverlay() {

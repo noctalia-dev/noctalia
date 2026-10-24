@@ -702,7 +702,7 @@ namespace {
       },
       ScreenshotBoolFlag{"--close-on-copy", "--no-close-on-copy", &ScreenshotService::OutputOptions::closeOnCopy},
       ScreenshotBoolFlag{"--close-on-save", "--no-close-on-save", &ScreenshotService::OutputOptions::closeOnSave},
-      ScreenshotBoolFlag{"--copy-on-escape", "--no-copy-on-escape", &ScreenshotService::OutputOptions::copyOnEscape},
+      ScreenshotBoolFlag{"--copy-on-close", "--no-copy-on-close", &ScreenshotService::OutputOptions::copyOnClose},
   };
 
 } // namespace
@@ -870,7 +870,7 @@ ScreenshotService::OutputOptions ScreenshotService::outputOptionsFromConfig(cons
   options.skipAnnotateOnCopySave = screenshot.skipAnnotateOnCopySave;
   options.closeOnCopy = screenshot.closeOnCopy;
   options.closeOnSave = screenshot.closeOnSave;
-  options.copyOnEscape = screenshot.copyOnEscape;
+  options.copyOnClose = screenshot.copyOnClose;
   options.pipeCommand = screenshot.pipeCommand;
   options.directory = screenshot.directory;
   options.filenamePattern = screenshot.filenamePattern;
@@ -1601,7 +1601,7 @@ void ScreenshotService::beginAnnotation(RenderContext& renderContext, const Outp
   }
   m_annotationOverlay->setToolState(loadAnnotationToolState());
   m_annotationOverlay->setCursorVisible(options.showCursor);
-  m_annotationOverlay->setCopyOnEscape(options.copyOnEscape);
+  m_annotationOverlay->setCopyOnClose(options.copyOnClose);
 
   if (freezeFirst) {
     m_freezeTarget = FreezeTarget::Annotation;
@@ -1648,7 +1648,7 @@ void ScreenshotService::beginImageAnnotation(
   m_pendingDelivery = PendingDelivery{.options = options, .destPath = std::move(destPath)};
   m_annotationOverlay->setToolState(loadAnnotationToolState());
   m_annotationOverlay->setCursorVisible(options.showCursor);
-  m_annotationOverlay->setCopyOnEscape(options.copyOnEscape);
+  m_annotationOverlay->setCopyOnClose(options.copyOnClose);
   m_annotationOverlay->beginImage(std::move(image), preferredCaptureOutput());
 }
 
