@@ -14,6 +14,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <vector>
 
@@ -26,6 +27,11 @@ class Label;
 class TaskbarWidgetTestAccess;
 struct wl_output;
 struct zwlr_foreign_toplevel_handle_v1;
+
+enum class TaskbarLabelSource {
+  Id,
+  Name,
+};
 
 enum class WorkspaceLabelPlacement {
   Corner,
@@ -44,6 +50,7 @@ struct TaskbarWidgetOptions {
   bool showAllOutputs = false;
   bool onlyActiveWorkspace = false;
   bool showWorkspaceLabel = true;
+  TaskbarLabelSource labelSource = TaskbarLabelSource::Name;
   WorkspaceLabelPlacement workspaceLabelPlacement = WorkspaceLabelPlacement::Corner;
   WorkspaceGroupContent workspaceGroupContent = WorkspaceGroupContent::Icons;
   bool hideEmptyWorkspaces = false;
@@ -194,6 +201,9 @@ private:
   [[nodiscard]] static std::string toLower(std::string value);
   [[nodiscard]] static const std::string& displayTitle(const TaskModel& task) noexcept;
   [[nodiscard]] static std::string workspaceLabel(const Workspace& workspace, std::size_t index);
+  [[nodiscard]] static std::string workspaceGroupLabel(
+      const Workspace& workspace, std::size_t index, std::string_view displayKey, TaskbarLabelSource source
+  );
   [[nodiscard]] static ModelComparison compareModels(
       bool groupByWorkspace, const std::vector<TaskModel>& previousTasks,
       const std::vector<WorkspaceModel>& previousWorkspaces, const std::vector<TaskModel>& nextTasks,
