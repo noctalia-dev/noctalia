@@ -63,6 +63,8 @@ public:
   }
 
   [[nodiscard]] virtual bool noGapAroundMe() const noexcept { return false; }
+  // Takes a share of its lane's free space (start and end lanes only; the center lane sizes to its content).
+  [[nodiscard]] virtual bool expandsInLane() const noexcept { return false; }
   // Layout-only or non-interactive bar widgets: clicks pass through to bar dead-zone handlers.
   [[nodiscard]] virtual bool isBarClickThrough() const noexcept { return m_nonInteractive; }
   // Widgets with interactive sub-items (workspaces, taskbar, tray) manage hover per item and

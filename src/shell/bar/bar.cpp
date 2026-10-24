@@ -1211,6 +1211,25 @@ namespace {
       section->layout(renderer);
     };
 
+    auto laneExpands = [](const Flex* section) {
+      return std::ranges::any_of(section->children(), [](const auto& child) { return child->flexGrow() > 0.0F; });
+    };
+
+    // Flex only hands out free space once the lane's main size is known, so an expanding lane is laid out again
+    // at its slot size. Not when its content overflows the slot: the natural size keeps the overflow clipping
+    // from the far end, which is what keeps the end lane's last widgets reachable.
+    auto stretchLaneToSlot = [&](Flex* section, float slotMain) {
+      const float naturalMain = isVertical ? section->height() : section->width();
+      if (!laneExpands(section) || slotMain <= naturalMain) {
+        return;
+      }
+      section->arrange(
+          renderer,
+          isVertical ? LayoutRect{.width = section->width(), .height = slotMain}
+                     : LayoutRect{.width = slotMain, .height = section->height()}
+      );
+    };
+
     if (screenEdgeClick) {
       if (isVertical) {
         instance.startSection->setPadding(paddingInsideSection, 0.0F, 0.0F, 0.0F);
@@ -1279,10 +1298,22 @@ namespace {
       // want it to be clipped by a super long start section, so the user loses access to settings.
       endSlotMain = std::min(endNaturalMain, contentMainSpan);
       startSlotMain = std::min(startNaturalMain, contentMainSpan - endSlotMain);
+      // With no center lane, expanding lanes split what the two leave free.
+      const bool startExpands = laneExpands(instance.startSection);
+      const bool endExpands = laneExpands(instance.endSection);
+      if (startExpands || endExpands) {
+        const float spare = std::max(0.0F, contentMainSpan - startSlotMain - endSlotMain);
+        const float share = startExpands && endExpands ? spare * 0.5F : spare;
+        startSlotMain += startExpands ? share : 0.0F;
+        endSlotMain += endExpands ? share : 0.0F;
+      }
       configureSlot(instance.startSlot, contentMainStart, startSlotMain);
       configureSlot(instance.centerSlot, contentMainStart + startSlotMain, 0.0F);
       configureSlot(instance.endSlot, contentMainEnd - endSlotMain, endSlotMain);
     }
+
+    stretchLaneToSlot(instance.startSection, startSlotMain);
+    stretchLaneToSlot(instance.endSection, endSlotMain);
 
     if (isVertical) {
       instance.startSection->setPosition((slotCross - instance.startSection->width()) * 0.5F, 0.0F);
@@ -2784,6 +2815,9 @@ void Bar::attachWidgetsToSections(BarInstance& instance) {
       if (widget.noGapAroundMe()) {
         section->setChildGapExcluded(added, true);
       }
+      if (widget.expandsInLane()) {
+        added->setFlexGrow(1.0F);
+      }
     };
 
     auto addSingleCapsule = [&](Widget& widget) {
@@ -2827,6 +2861,10 @@ void Bar::attachWidgetsToSections(BarInstance& instance) {
       auto* added = section->addChild(std::move(shell));
       if (widget.noGapAroundMe()) {
         section->setChildGapExcluded(added, true);
+      }
+      // The shell, not the widget root, is the lane's flex child.
+      if (widget.expandsInLane()) {
+        added->setFlexGrow(1.0F);
       }
     };
 

@@ -4509,6 +4509,10 @@
           "description": "Allow mouse wheel and trackpad scroll actions on this widget",
           "label": "Enable Scroll"
         },
+        "expand": {
+          "description": "Share the lane's free space with the other expanding spacers instead of using a fixed length",
+          "label": "Expand"
+        },
         "focused-color": {
           "description": "Color role used for the focused workspace; fixed hex colors are also supported",
           "label": "Focused Color"
