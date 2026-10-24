@@ -152,8 +152,8 @@ namespace {
     }
   }
 
-  void applyAvatarChrome(Image* avatar, bool highlighted) {
-    if (avatar == nullptr) {
+  void applyAvatarChrome(Image* avatar, bool highlighted, bool showBorder) {
+    if (avatar == nullptr || !showBorder) {
       return;
     }
     const float borderWidth = Style::borderWidth * 3.0F;
@@ -248,6 +248,7 @@ std::unique_ptr<Flex> HomeTab::create() {
 
   const float avatarSize = homeAvatarSize(scale);
   const bool circularAvatar = m_config == nullptr || m_config->config().controlCenter.circularAvatar;
+  const bool showAvatarBorder = m_config == nullptr || m_config->config().controlCenter.showAvatarBorder;
   const auto openAvatarPicker = [this]() {
     if (m_config == nullptr) {
       return;
@@ -299,17 +300,17 @@ std::unique_ptr<Flex> HomeTab::create() {
           .padding = 1.0F * scale,
           .width = avatarSize,
           .height = avatarSize,
-          .configure = [](Image& image) {
-            image.setBorder(colorSpecFromRole(ColorRole::Primary), Style::borderWidth * 3.0F);
+          .configure = [showAvatarBorder](Image& image) {
+            applyAvatarChrome(&image, false, showAvatarBorder);
             image.setHitTestVisible(false);
             image.setAsyncReadyCallback([]() { PanelManager::instance().refresh(); });
           },
       })
   );
-  const auto syncAvatarChrome = [this]() {
+  const auto syncAvatarChrome = [this, showAvatarBorder]() {
     const bool highlighted =
         m_userAvatarArea != nullptr && (m_userAvatarArea->focused() || m_userAvatarArea->hovered());
-    applyAvatarChrome(m_userAvatar, highlighted);
+    applyAvatarChrome(m_userAvatar, highlighted, showAvatarBorder);
     PanelManager::instance().requestRedraw();
   };
   avatarArea->setOnEnter([syncAvatarChrome](const InputArea::PointerData&) { syncAvatarChrome(); });
