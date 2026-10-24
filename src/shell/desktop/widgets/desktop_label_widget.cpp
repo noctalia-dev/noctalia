@@ -116,12 +116,15 @@ bool DesktopLabelWidget::applySetting(
   return DesktopWidget::applySetting(key, value, {}, renderer);
 }
 
-void DesktopLabelWidget::onFontFamilyChanged(const std::string& family, Renderer& /*renderer*/) {
+void DesktopLabelWidget::
+    onFontChanged(const std::string& family, std::optional<FontStyle> style, Renderer& /*renderer*/) {
   if (m_titleLabel != nullptr) {
     m_titleLabel->setFontFamily(family);
+    m_titleLabel->setFontStyle(style);
   }
   if (m_descriptionLabel != nullptr) {
     m_descriptionLabel->setFontFamily(family);
+    m_descriptionLabel->setFontStyle(style);
   }
 }
 

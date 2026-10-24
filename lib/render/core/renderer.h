@@ -3,6 +3,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -32,13 +33,15 @@ enum class FontWeight : int {
 
 enum class FontStyle : std::uint8_t { Normal, Italic };
 
-// Font selection for a run of text. An empty family means the renderer-global
-// family (shell.font_family). `features` is an OpenType feature list in Pango's
-// font-features syntax (e.g. "tnum"); empty applies the font defaults.
+// Font selection for a run of text. An empty family and an unset style mean the
+// renderer-global family and style (shell.font_family, shell.font_style).
+// `features` is an OpenType feature list in Pango's font-features syntax
+// (e.g. "tnum"); empty applies the font defaults.
 struct TextFont {
   FontWeight weight = FontWeight::Normal;
   std::string family;
   std::string features;
+  std::optional<FontStyle> style;
 
   bool operator==(const TextFont&) const = default;
 };

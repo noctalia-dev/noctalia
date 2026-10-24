@@ -49,6 +49,7 @@ scale              = 1.0         # content scale multiplier for icons, spacing, 
 font_scale         = 1.0         # additional text-only scale multiplier
 font_weight        = 500         # CSS weight 100–1000 (e.g. 400 regular, 700 bold); primary label weight for bar widgets
 font_family        = ""          # typeface for this bar's widgets; empty inherits the global font
+# font_style       = "italic"    # "normal" or "italic"; omit to inherit the global font style
 
 # Default capsule style for all widgets on this bar (see Widget Capsule section)
 capsule            = false
@@ -152,7 +153,7 @@ end                = ["volume", "clock"]
 
 `match` defaults to the subtable key name when omitted, so `[bar.default.monitor."DP-1"]` without a `match` field works too.
 
-Only the fields you specify are overridden; everything else falls through to the `[bar.*]` defaults. Supported override fields: all bar fields including `position`, `dead_zone`, plus `auto_hide`, `smart_auto_hide`, `show_on_workspace_switch`, `reserve_space`, `layer`, `scale`, `font_scale`, `background_opacity`, `compositor_blur`, `color`, `font_family`, and all `capsule_*` keys.
+Only the fields you specify are overridden; everything else falls through to the `[bar.*]` defaults. Supported override fields: all bar fields including `position`, `dead_zone`, plus `auto_hide`, `smart_auto_hide`, `show_on_workspace_switch`, `reserve_space`, `layer`, `scale`, `font_scale`, `background_opacity`, `compositor_blur`, `color`, `font_family`, `font_style`, and all `capsule_*` keys.
 
 `compositor_blur = true` publishes the bar's shape as a blur region when the compositor supports `ext-background-effect-v1`. Set it to `false` to clear the bar's blur request without changing blur for panels, the dock, notifications, or other surfaces. This setting is independent of `background_opacity`, defaults to `true`, applies immediately on reload, and can be overridden per monitor. In the Settings GUI it lives under **Bar → Effects** and only appears when the compositor supports `ext-background-effect-v1`; on other compositors the key has no effect.
 
@@ -167,6 +168,8 @@ Shadow blur, offset, and alpha are global under `[shell.shadow]`. Bars only expo
 `font_scale` multiplies widget text independently of icons, spacing, and other content. Its default is `1.0`, and its range is `0.2`–`2.5`. The effective text scale is the widget's normal content scale multiplied by the bar's `font_scale` and the widget's optional `font_scale`. It can also be set per monitor with a `[bar.<name>.monitor.*]` override; in Settings, select the monitor nested under the bar and use **Layout → Font Scale**.
 
 `font_family` sets the typeface for this bar's widget labels. Leave it empty (the default) to inherit the global `[shell] font_family`. A single widget can override it with `[widget.<name>] font_family`, and it can be set per monitor with a `[bar.<name>.monitor.*]` override. The Settings GUI exposes a searchable font picker under **Bar → Widgets**, with a per-widget picker in each widget's settings.
+
+`font_style` draws this bar's widget labels upright (`"normal"`) or in italic (`"italic"`). Leave it out to inherit the global `[shell] font_style`. Like `font_family`, a single widget can override it with `[widget.<name>] font_style`, and it can be set per monitor. In the Settings GUI, choose **Inherit**, **Normal** or **Italic** under **Bar → Widgets** or in a widget's settings.
 
 `border_width` draws an inside outline using `border`. Attached panels stay borderless so they remain visually clean against the bar.
 
@@ -248,6 +251,7 @@ Set under `[widget.<name>]`:
 | `font_scale`           | number  | `1.0`                     | Additional text-only multiplier for this widget, combined with the owning bar's `font_scale` (clamped 0.2–2.5).                                                                                                                                                                                                                                          |
 | `anchor`               | bool    | `false`                   | Pin this widget as the center lane's alignment anchor.                                                                                                                                                                                                                                                                                                   |
 | `font_family`          | string  | *(from bar)*              | Typeface for this widget. Leave empty to inherit the owning bar's font.                                                                                                                                                                                                                                                                                  |
+| `font_style`           | string  | *(from bar)*              | `"normal"` or `"italic"`. Leave unset to inherit the owning bar's style.                                                                                                                                                                                                                                                                                 |
 | `font_weight`          | integer | *(from bar)*              | CSS font weight `100`–`1000`. Leave unset to inherit the owning bar's weight.                                                                                                                                                                                                                                                                            |
 | `capsule`              | bool    | *(from bar)*              | Omit to inherit bar flag; `false` disables; `true` forces on.                                                                                                                                                                                                                                                                                            |
 | `capsule_radius`       | number  | *(from bar)*              | Per-widget corner radius (0–80). Omit or set `"auto"` to inherit the bar's `capsule_radius`; when the bar leaves it unset too, the automatic pill radius applies. `"auto"` is only accepted here: the bar's own `capsule_radius` takes a number or is omitted.                                                                                           |

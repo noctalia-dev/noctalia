@@ -114,6 +114,16 @@ namespace desktop_settings {
       return spec;
     }
 
+    // Empty value = inherit the shell font style.
+    WidgetSettingSpec fontStyleSpec() {
+      return selectSpec(
+          "font_style", "",
+          {{"", "common.states.inherit"},
+           {"normal", "settings.options.font-style.normal"},
+           {"italic", "settings.options.font-style.italic"}}
+      );
+    }
+
     // Resolve "author/plugin:entry" to its [[desktop_widget]] entry, or nullopt.
     std::optional<scripting::ResolvedPluginEntry>
     resolvePluginDesktopWidget(std::string_view type, scripting::PluginRegistry* pluginRegistry = nullptr) {
@@ -248,6 +258,7 @@ namespace desktop_settings {
       add(boolSpec("show_week_numbers", false));
       add(boolSpec("show_events_location", false));
       add(fontFamilySpec());
+      add(fontStyleSpec());
     } else if (type == "clock") {
       const WidgetSettingVisibility digitalOnly{{"clock_style", {"digital"}}};
       const WidgetSettingVisibility analogOnly{{"clock_style", {"analog"}}};
@@ -268,6 +279,7 @@ namespace desktop_settings {
       add(std::move(timezone));
       add(colorSpec("color", "on_surface"));
       add(fontFamilySpec());
+      add(fontStyleSpec());
       // Shadow is a text shadow on the digital label; analog mode has no shadow.
       auto shadow = boolSpec("shadow", true);
       shadow.visibleWhen = digitalOnly;
@@ -327,6 +339,7 @@ namespace desktop_settings {
     } else if (type == "weather") {
       add(colorSpec("color", "on_surface"));
       add(fontFamilySpec());
+      add(fontStyleSpec());
       add(boolSpec("shadow", true));
       add(boolSpec("show_forecast", false));
       auto forecastDays = stepperIntSpec("forecast_days", 3, 1.0, 6.0, 1.0);
@@ -340,6 +353,7 @@ namespace desktop_settings {
       ));
       add(colorSpec("color", "on_surface"));
       add(fontFamilySpec());
+      add(fontStyleSpec());
       add(boolSpec("shadow", true));
       add(boolSpec("album_art_background", false));
       auto albumArtBlur = intSpec("album_art_blur", 24, 0.0, 96.0, 4.0);
@@ -353,6 +367,7 @@ namespace desktop_settings {
       add(colorSpec("color", "on_surface"));
       add(doubleSpec("opacity", 1.0, 0.0, 1.0, 0.01));
       add(fontFamilySpec());
+      add(fontStyleSpec());
       add(boolSpec("shadow", true));
     } else if (type == "button") {
       add(boolSpec("background", true));
@@ -371,6 +386,7 @@ namespace desktop_settings {
       add(colorSpec("color"));
       add(colorSpec("hover_background", "hover"));
       add(fontFamilySpec());
+      add(fontStyleSpec());
     } else if (type == "sysmon") {
       const std::vector<WidgetSettingSelectOption> sysmonDisplay = {
           {"graph", "desktop-widgets.editor.settings.display-graph"},
@@ -436,6 +452,7 @@ namespace desktop_settings {
         add(std::move(highlight));
       }
       add(fontFamilySpec());
+      add(fontStyleSpec());
       add(boolSpec("show_label", true));
       {
         auto minW = intSpec("label_min_width", 0, 0.0, 200.0, 1.0);
@@ -459,6 +476,7 @@ namespace desktop_settings {
       add(boolSpec("show_device", true));
       add(stepperIntSpec("scroll_step", 5, 1.0, 25.0, 1.0));
       add(fontFamilySpec());
+      add(fontStyleSpec());
       add(boolSpec("shadow", true));
     } else if (type == "login_box") {
       add(segmentedSpec(

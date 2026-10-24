@@ -156,9 +156,10 @@ The `clock`, `weather`, `media_player`, `label`, and `sysmon` widget types addit
 | ------------- | ------ | ---------------- | ----------------------------------------------------------------------- |
 | `color`       | string | *(type default)* | Text/glyph color role; fixed hex colors are also supported              |
 | `font_family` | string | `""`             | Typeface for this widget; empty inherits the global shell font          |
+| `font_style`  | string | *(unset)*        | `"normal"` or `"italic"`; unset inherits the global shell font style    |
 | `shadow`      | bool   | `true`           | Draw a drop shadow behind text and glyphs for readability on wallpapers |
 
-The `button` and `volume` types also accept `font_family`; their remaining visual settings are listed in their type-specific sections below.
+The `button` and `volume` types also accept `font_family` and `font_style`; their remaining visual settings are listed in their type-specific sections below.
 
 ```toml
 [desktop_widgets.widget.clock_main.settings]
@@ -219,12 +220,13 @@ show_events_location = false
 font_family          = ""
 ```
 
-| Setting                | Type   | Default | Description                                                      |
-| ---------------------- | ------ | ------- | ---------------------------------------------------------------- |
-| `show_events`          | bool   | `true`  | Show the selected day's event list beside the month grid         |
-| `show_week_numbers`    | bool   | `false` | Show ISO week numbers beside the month grid                      |
-| `show_events_location` | bool   | `false` | Show each event's location below its time in the event list      |
-| `font_family`          | string | `""`    | Typeface for calendar text; empty inherits the global shell font |
+| Setting                | Type   | Default   | Description                                                                            |
+| ---------------------- | ------ | --------- | -------------------------------------------------------------------------------------- |
+| `show_events`          | bool   | `true`    | Show the selected day's event list beside the month grid                               |
+| `show_week_numbers`    | bool   | `false`   | Show ISO week numbers beside the month grid                                            |
+| `show_events_location` | bool   | `false`   | Show each event's location below its time in the event list                            |
+| `font_family`          | string | `""`      | Typeface for calendar text; empty inherits the global shell font                       |
+| `font_style`           | string | *(unset)* | `"normal"` or `"italic"` for calendar text; unset inherits the global shell font style |
 
 The event list uses the shared `event_date_format` and `event_time_format` from [`[calendar]`](/noctalia/services/calendar/), so the desktop widget and control center use the same event formatting. It also follows [`hide_past_events` and `past_events_threshold_minutes`](/noctalia/control-center/#calendar) from `[control_center.calendar]` when deciding which of today's finished events to list.
 

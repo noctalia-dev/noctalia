@@ -106,6 +106,20 @@ namespace settings::registry {
     return SelectSetting{std::move(opts), std::string(selected)};
   }
 
+  SelectSetting fontStyleOverrideSelect(std::optional<FontStyle> selected) {
+    std::vector<SelectOption> opts{SelectOption{"", i18n::tr("common.states.inherit")}};
+    std::string selectedValue;
+    for (const auto& option : kFontStyles) {
+      if (selected == option.value) {
+        selectedValue = std::string(option.key);
+      }
+      opts.push_back(SelectOption{std::string(option.key), i18n::tr(option.labelKey)});
+    }
+    SelectSetting select{std::move(opts), std::move(selectedValue)};
+    select.clearOnEmpty = true;
+    return select;
+  }
+
   std::string_view barAutoHideMode(bool autoHide, bool smartAutoHide) {
     if (smartAutoHide) {
       return "smart";

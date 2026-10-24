@@ -40,7 +40,7 @@ void DesktopWidget::layout(Renderer& renderer) {
 
   // Apply the configured font before measuring so text metrics are correct on the first pass and
   // the family survives widget rebuilds (the factory only stores it on the widget).
-  onFontFamilyChanged(m_fontFamily, renderer);
+  onFontChanged(m_fontFamily, m_fontStyle, renderer);
 
   // First pass measures the content at its natural (base) scale.
   m_contentScale = m_baseScale;
@@ -173,7 +173,16 @@ bool DesktopWidget::applySetting(
   if (key == "font_family") {
     if (const auto* v = std::get_if<std::string>(&value)) {
       m_fontFamily = *v;
-      onFontFamilyChanged(m_fontFamily, renderer);
+      onFontChanged(m_fontFamily, m_fontStyle, renderer);
+      requestLayout();
+      return true;
+    }
+    return false;
+  }
+  if (key == "font_style") {
+    if (const auto* v = std::get_if<std::string>(&value)) {
+      m_fontStyle = fontStyleFromKey(*v);
+      onFontChanged(m_fontFamily, m_fontStyle, renderer);
       requestLayout();
       return true;
     }

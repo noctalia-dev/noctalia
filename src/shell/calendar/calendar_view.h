@@ -1,7 +1,10 @@
 #pragma once
 
+#include "render/core/renderer.h"
+
 #include <chrono>
 #include <functional>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -57,6 +60,7 @@ namespace calendar_view {
     float scale = 1.0F;
     MonthLayout layout;
     std::string fontFamily;
+    std::optional<FontStyle> fontStyle; // unset = renderer-global style
     std::function<void(Date date, int monthShift)> onDateSelected;
     std::function<void(Date date)> onDateRightClicked;
   };
@@ -81,6 +85,7 @@ namespace calendar_view {
     std::string_view dateFormat;
     std::string_view timeFormat;
     std::string fontFamily;
+    std::optional<FontStyle> fontStyle; // unset = renderer-global style
     EventListState* state = nullptr;
     CompositorPlatform* platform = nullptr;
     bool hidePastEvents = false;              // applies only when the selected day is today

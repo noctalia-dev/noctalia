@@ -49,6 +49,7 @@ void BrightnessWidget::create() {
           .fontSize = Style::fontSizeBody * fontScale(),
           .fontWeight = labelFontWeight(),
           .fontFamily = labelFontFamily(),
+          .fontStyle = labelFontStyle(),
           .visible = m_showLabel,
       })
   );

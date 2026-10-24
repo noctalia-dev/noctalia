@@ -57,6 +57,8 @@ namespace settings::registry {
   SelectSetting
   plainSelect(std::initializer_list<std::pair<std::string_view, std::string_view>> items, std::string_view selected);
   SelectSetting positionSelect(std::string_view selected);
+  // Inherit / Normal / Italic; Inherit (empty) removes the override key.
+  SelectSetting fontStyleOverrideSelect(std::optional<FontStyle> selected);
 
   SliderSetting barCornerSlider(std::int32_t value);
   SliderSetting barReservedSlider(double value, double maxValue, double step, bool integer);

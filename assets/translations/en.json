@@ -657,6 +657,7 @@
         "fill-color": "Fill Color",
         "font-family": "Font",
         "font-family-default": "System default",
+        "font-style": "Font Style",
         "forecast-days": "Forecast Days",
         "format": "Format",
         "gauge-layout": "Gauge Layout",
@@ -2194,6 +2195,10 @@
         "font-scale": {
           "description": "Scale factor for text across all widgets on this bar; per-widget font_scale multiplies this",
           "label": "Font Scale"
+        },
+        "font-style": {
+          "description": "Text style for this bar's widgets; Inherit uses the global font style (per-widget Font Style overrides this)",
+          "label": "Font Style"
         },
         "font-weight": {
           "description": "Default weight for widget labels on this bar.",
@@ -4763,6 +4768,10 @@
         "font-scale": {
           "description": "Scale multiplier for text in this widget, independent of the widget's overall scale",
           "label": "Font Scale"
+        },
+        "font-style": {
+          "description": "Inherit uses the bar font style",
+          "label": "Font Style"
         },
         "font-weight": {
           "description": "Default inherits the bar font weight",

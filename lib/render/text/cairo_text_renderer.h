@@ -184,8 +184,8 @@ private:
   using MetricsMap = std::unordered_map<MetricsKey, TextMetrics, MetricsKeyHash>;
   using FontMetricsMap = std::unordered_map<FontMetricsKey, TextMetrics, FontMetricsKeyHash>;
 
-  // Font description for `font` at a raster pixel size; an empty family resolves to
-  // the active family, and the style is always the active style. Caller owns it (pango_font_description_free).
+  // Font description for `font` at a raster pixel size; an empty family and an unset
+  // style resolve to the active family and style. Caller owns it (pango_font_description_free).
   PangoFontDescription* newFontDescription(const TextFont& font, float rasterSize) const;
   // Build a PangoLayout at the given scaled size. Caller owns the layout (g_object_unref).
   PangoLayout* buildLayout(

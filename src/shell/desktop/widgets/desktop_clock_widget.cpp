@@ -558,9 +558,11 @@ bool DesktopClockWidget::applySetting(
   return DesktopWidget::applySetting(key, value, allSettings, renderer);
 }
 
-void DesktopClockWidget::onFontFamilyChanged(const std::string& family, Renderer& /*renderer*/) {
+void DesktopClockWidget::
+    onFontChanged(const std::string& family, std::optional<FontStyle> style, Renderer& /*renderer*/) {
   if (m_label != nullptr) {
     m_label->setFontFamily(family);
+    m_label->setFontStyle(style);
   }
 }
 
@@ -587,14 +589,21 @@ void DesktopClockWidget::updateStableDigitalWidth(Renderer& renderer, const std:
 
   const float fontSize = clockFontSize(contentScale());
 
-  // Re-pick the widest digit only when the font identity (size or family) changes.
-  if (fontSize != m_metricsFontSize || m_fontFamily != m_metricsFontFamily) {
+  // Re-pick the widest digit only when the font identity (size, family, style or the global font) changes.
+  const std::uint64_t generation = renderer.textMetricsGeneration();
+  if (fontSize != m_metricsFontSize
+      || m_fontFamily != m_metricsFontFamily
+      || m_fontStyle != m_metricsFontStyle
+      || generation != m_metricsGeneration) {
     m_metricsFontSize = fontSize;
     m_metricsFontFamily = m_fontFamily;
+    m_metricsFontStyle = m_fontStyle;
+    m_metricsGeneration = generation;
     float widest = -1.0F;
     for (char digit = '0'; digit <= '9'; ++digit) {
       const std::string glyph(1, digit);
-      const float advance = renderer.measureText(glyph, fontSize, {FontWeight::Bold, m_fontFamily, "tnum"}).width;
+      const float advance =
+          renderer.measureText(glyph, fontSize, {FontWeight::Bold, m_fontFamily, "tnum", m_fontStyle}).width;
       if (advance > widest) {
         widest = advance;
         m_widestDigit = digit;
@@ -616,7 +625,8 @@ void DesktopClockWidget::updateStableDigitalWidth(Renderer& renderer, const std:
   }
   m_stableSample = sample;
 
-  const float width = renderer.measureText(sample, fontSize, {FontWeight::Bold, m_fontFamily, "tnum"}).width;
+  const float width =
+      renderer.measureText(sample, fontSize, {FontWeight::Bold, m_fontFamily, "tnum", m_fontStyle}).width;
   if (std::abs(width - m_stableWidth) > 0.5F) {
     m_stableWidth = width;
     m_label->setMinWidth(m_stableWidth);

@@ -19,6 +19,7 @@ class PixelStreamView;
 class Renderer;
 class DragDropController;
 enum class FontWeight : int;
+enum class FontStyle : std::uint8_t;
 
 namespace ui {
 
@@ -86,10 +87,11 @@ namespace ui {
     void setFontScale(float scale);
     // Host text defaults for label/glyph props the tree leaves unset, so
     // declarative text matches the host's imperative text (e.g. the bar's
-    // per-widget font family/weight). Empty family = renderer-global font.
-    void setTextDefaults(std::string fontFamily, FontWeight fontWeight) {
+    // per-widget font family/weight/style). Empty family and unset style = renderer-global font.
+    void setTextDefaults(std::string fontFamily, FontWeight fontWeight, std::optional<FontStyle> fontStyle) {
       m_defaultFontFamily = std::move(fontFamily);
       m_defaultFontWeight = fontWeight;
+      m_defaultFontStyle = fontStyle;
     }
     // Host colors for labels and glyphs whose tree nodes leave color unset.
     void setColorDefaults(const ColorSpec& labelColor, const ColorSpec& glyphColor) {
@@ -168,6 +170,7 @@ namespace ui {
     float m_fontScale = 1.0F;
     std::string m_defaultFontFamily;
     FontWeight m_defaultFontWeight; // initialized in the ctor (opaque enum here)
+    std::optional<FontStyle> m_defaultFontStyle;
     ColorSpec m_defaultLabelColor = colorSpecFromRole(ColorRole::OnSurface);
     ColorSpec m_defaultGlyphColor = colorSpecFromRole(ColorRole::OnSurface);
     bool m_compactControls = false;

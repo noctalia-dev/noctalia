@@ -51,6 +51,7 @@ namespace {
     std::size_t seed = std::hash<std::string>{}(font.family);
     hashCombine(seed, std::hash<int>{}(static_cast<int>(font.weight)));
     hashCombine(seed, std::hash<std::string>{}(font.features));
+    hashCombine(seed, std::hash<int>{}(font.style.has_value() ? static_cast<int>(*font.style) : -1));
     return seed;
   }
 
@@ -381,7 +382,8 @@ PangoFontDescription* CairoTextRenderer::newFontDescription(const TextFont& font
   PangoFontDescription* desc = pango_font_description_new();
   pango_font_description_set_family(desc, font.family.empty() ? m_fontFamily.c_str() : font.family.c_str());
   pango_font_description_set_weight(desc, static_cast<PangoWeight>(font.weight));
-  pango_font_description_set_style(desc, m_fontStyle == FontStyle::Italic ? PANGO_STYLE_ITALIC : PANGO_STYLE_NORMAL);
+  const FontStyle style = font.style.value_or(m_fontStyle);
+  pango_font_description_set_style(desc, style == FontStyle::Italic ? PANGO_STYLE_ITALIC : PANGO_STYLE_NORMAL);
   pango_font_description_set_absolute_size(desc, static_cast<double>(rasterSize) * PANGO_SCALE);
   return desc;
 }

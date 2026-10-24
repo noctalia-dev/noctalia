@@ -225,6 +225,11 @@ namespace settings::registry {
             "typeface font"
         ));
       }
+      entries.push_back(makeEntry(
+          section, "widgets", tr("settings.schema.bar.font-style.label"),
+          tr("settings.schema.bar.font-style.description"), path("font_style"), fontStyleOverrideSelect(bar.fontStyle),
+          "italic slant font"
+      ));
       {
         std::vector<SelectOption> fontWeightOptions;
         const auto widgetOptions =

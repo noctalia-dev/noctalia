@@ -609,6 +609,15 @@ float resolveWidgetFontScale(float barFontScale, const WidgetConfig* widget, std
   return barFontScale * std::clamp(static_cast<float>(widgetFontScale), 0.2F, 2.5F);
 }
 
+std::optional<FontStyle> fontStyleFromKey(std::string_view key) {
+  for (const auto& option : kFontStyles) {
+    if (option.key == key) {
+      return option.value;
+    }
+  }
+  return std::nullopt;
+}
+
 CommonWidgetOptions resolveCommonWidgetOptions(
     const BarConfig& bar, const WidgetConfig* widget, std::string_view widgetType, float barScale
 ) {
@@ -635,6 +644,7 @@ CommonWidgetOptions resolveCommonWidgetOptions(
   options.labelFontFamily = widget->getString("font_family");
   options.customLabel = widget->getString("custom_label");
   options.showGlyph = widget->getBool("show_glyph", true);
+  options.labelFontStyle = fontStyleFromKey(widget->getString("font_style"));
   options.scrollRepeat = widget->getString("scroll_repeat", "auto");
   options.enableScroll = widget->getBool("enable_scroll", true);
   return options;

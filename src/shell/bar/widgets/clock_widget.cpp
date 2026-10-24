@@ -103,6 +103,7 @@ void ClockWidget::create() {
           .fontWeight = labelFontWeight(),
           .fontFamily = labelFontFamily(),
           .fontFeatures = "tnum",
+          .fontStyle = labelFontStyle(),
           .textAlign = TextAlign::Center,
       })
   );
@@ -114,6 +115,7 @@ void ClockWidget::create() {
           .fontWeight = labelFontWeight(),
           .fontFamily = labelFontFamily(),
           .fontFeatures = "tnum",
+          .fontStyle = labelFontStyle(),
           .textAlign = TextAlign::Center,
           .visible = false,
       })

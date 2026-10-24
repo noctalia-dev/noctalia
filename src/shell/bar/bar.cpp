@@ -2591,6 +2591,7 @@ void Bar::populateWidgets(BarInstance& instance) {
   const std::string barFontFamily = (instance.barConfig.fontFamily && !instance.barConfig.fontFamily->empty())
       ? *instance.barConfig.fontFamily
       : m_config->config().shell.fontFamily;
+  const FontStyle barFontStyle = instance.barConfig.fontStyle.value_or(m_config->config().shell.fontStyle);
   // Creates one widget for `name`. When `groupSpec` is set the widget is a member of a capsule group and
   // takes the group's capsule style + foreground; otherwise it resolves its own per-widget/bar capsule.
   auto createWidget = [&](const std::string& name, const WidgetBarCapsuleSpec* groupSpec,
@@ -2614,7 +2615,7 @@ void Bar::populateWidgets(BarInstance& instance) {
       return;
     }
     widget->setConfigName(name);
-    widget->applyCommonOptions(options, labelFontWeight, barFontFamily, std::format("widget.{}", name));
+    widget->applyCommonOptions(options, labelFontWeight, barFontFamily, barFontStyle, std::format("widget.{}", name));
     widget->setActionContext(
         IpcInvocationContext{
             .widgetName = name,
@@ -2682,6 +2683,7 @@ void Bar::populateWidgets(BarInstance& instance) {
     debugWidget->setFontScale(instance.barConfig.fontScale);
     debugWidget->setLabelFontWeight(labelFontWeight);
     debugWidget->setLabelFontFamily(barFontFamily);
+    debugWidget->setLabelFontStyle(barFontStyle);
     debugWidget->create();
     instance.endWidgets.insert(instance.endWidgets.begin(), std::move(debugWidget));
   }

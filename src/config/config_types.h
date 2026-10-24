@@ -137,6 +137,7 @@ struct BarMonitorOverride {
   std::optional<std::int32_t> panelOverlap;       // logical px the attached panel overlaps the bar edge (seam tuning)
   std::optional<float> capsuleThickness;          // capsule cross-size as a fraction of bar thickness
   std::optional<std::string> fontFamily;          // unset = inherit shell.font_family
+  std::optional<FontStyle> fontStyle;             // unset = inherit shell.font_style
   std::optional<float> scale;
   std::optional<float> fontScale;
   std::optional<std::vector<std::string>> startWidgets;
@@ -223,6 +224,8 @@ struct BarConfig {
   int fontWeight = 500;           // primary label weight for bar widgets
   // Typeface for this bar's widgets; unset inherits shell.font_family. Per-widget `font_family` overrides.
   std::optional<std::string> fontFamily;
+  // Style for this bar's widgets; unset inherits shell.font_style. Per-widget `font_style` overrides.
+  std::optional<FontStyle> fontStyle;
   std::vector<std::string> startWidgets = {"launcher", "wallpaper", "workspaces"};
   std::vector<std::string> centerWidgets = {"clock"};
   std::vector<std::string> endWidgets = {"media",   "tray",           "notifications", "clipboard",
@@ -457,6 +460,7 @@ struct CommonWidgetOptions {
   std::string labelFontFamily;
   std::string customLabel;
   bool showGlyph = true;
+  std::optional<FontStyle> labelFontStyle;
   WidgetBarCapsuleSpec capsule;
   std::string scrollRepeat = "auto";
   bool enableScroll = true;
@@ -1123,6 +1127,9 @@ constexpr EnumOption<FontStyle> kFontStyles[] = {
     {FontStyle::Normal, "normal", "settings.options.font-style.normal"},
     {FontStyle::Italic, "italic", "settings.options.font-style.italic"},
 };
+
+// A widget `font_style` setting value; empty means unset (inherit).
+[[nodiscard]] std::optional<FontStyle> fontStyleFromKey(std::string_view key);
 
 struct ShellConfig {
   struct AnimationConfig {

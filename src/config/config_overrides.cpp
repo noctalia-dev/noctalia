@@ -251,6 +251,9 @@ namespace {
     if (ovr.fontFamily) {
       resolved.fontFamily = *ovr.fontFamily;
     }
+    if (ovr.fontStyle) {
+      resolved.fontStyle = ovr.fontStyle;
+    }
     if (ovr.startWidgets) {
       resolved.startWidgets = *ovr.startWidgets;
     }
