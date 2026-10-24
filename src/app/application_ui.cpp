@@ -339,7 +339,12 @@ void Application::initLockScreenAndSession() {
       m_wayland, &m_renderContext, &m_configService, &m_sharedTextureCache, m_systemBus.get(), &m_compositorPlatform
   );
   m_lockScreen.setLoginBoxServices(&m_sessionActionRunner, m_mprisService.get(), &m_weatherService, &m_httpClient);
-  m_wallpaper.setAutomationGate([this]() { return !m_lockScreen.isActive(); });
+  m_wallpaper.setAutomationGate([this]() {
+    if (m_lockScreen.isActive()) {
+      return false;
+    }
+    return !m_configService.config().wallpaper.automation.pauseOnFullscreen || !m_wayland.hasFullscreenToplevel();
+  });
   m_configService.addReloadCallback([this]() {
     if (m_logindService != nullptr) {
       m_logindService->setSessionLockIntegrationEnabled(m_configService.isLockScreenEnabled());

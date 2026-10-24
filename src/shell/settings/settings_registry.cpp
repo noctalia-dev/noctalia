@@ -877,6 +877,12 @@ namespace settings {
         tr("settings.schema.wallpaper.automation-recursive.description"), {"wallpaper", "automation", "recursive"},
         ToggleSetting{cfg.wallpaper.automation.recursive}, "subdirectories", true
     ));
+    entries.push_back(makeEntry(
+        SettingsSection::Wallpaper, "automation", tr("settings.schema.wallpaper.automation-pause-on-fullscreen.label"),
+        tr("settings.schema.wallpaper.automation-pause-on-fullscreen.description"),
+        {"wallpaper", "automation", "pause_on_fullscreen"}, ToggleSetting{cfg.wallpaper.automation.pauseOnFullscreen},
+        "rotate slideshow game video"
+    ));
 
     // Templates
     const auto builtInTemplatesOn =

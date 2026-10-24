@@ -232,6 +232,7 @@ void WaylandToplevels::onHandleState(zwlr_foreign_toplevel_handle_v1* handle, wl
 
   bool activated = false;
   bool minimized = false;
+  bool fullscreen = false;
   if (state != nullptr) {
     auto* value = static_cast<const std::uint32_t*>(state->data);
     const auto count = state->size / sizeof(std::uint32_t);
@@ -240,6 +241,8 @@ void WaylandToplevels::onHandleState(zwlr_foreign_toplevel_handle_v1* handle, wl
         activated = true;
       } else if (value[i] == ZWLR_FOREIGN_TOPLEVEL_HANDLE_V1_STATE_MINIMIZED) {
         minimized = true;
+      } else if (value[i] == ZWLR_FOREIGN_TOPLEVEL_HANDLE_V1_STATE_FULLSCREEN) {
+        fullscreen = true;
       }
     }
   }
@@ -256,8 +259,15 @@ void WaylandToplevels::onHandleState(zwlr_foreign_toplevel_handle_v1* handle, wl
 
   it->second.activated = activated;
   it->second.minimized = minimized;
+  it->second.fullscreen = fullscreen;
   it->second.dirty = true;
   it->second.generation = ++m_generation;
+}
+
+bool WaylandToplevels::anyFullscreen() const {
+  return std::ranges::any_of(m_handles, [](const auto& entry) {
+    return entry.second.fullscreen && !entry.second.minimized;
+  });
 }
 
 wl_output* WaylandToplevels::currentOutput() const {

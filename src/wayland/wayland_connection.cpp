@@ -1013,6 +1013,8 @@ std::optional<ActiveToplevel> WaylandConnection::matchToplevelByTitleAndAppId(
 
 wl_output* WaylandConnection::activeToplevelOutput() const { return m_toplevelsHandler.currentOutput(); }
 
+bool WaylandConnection::hasFullscreenToplevel() const { return m_toplevelsHandler.anyFullscreen(); }
+
 std::vector<std::string> WaylandConnection::runningAppIds(wl_output* outputFilter) const {
   if (compositors::isKde() && m_extForeignToplevels.isBound() && !m_hasForeignToplevelManagerGlobal) {
     (void)outputFilter;

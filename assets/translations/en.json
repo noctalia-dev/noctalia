@@ -3671,6 +3671,10 @@
           "description": "Pick wallpapers randomly or alphabetically",
           "label": "Order"
         },
+        "automation-pause-on-fullscreen": {
+          "description": "Hold rotation while a window is fullscreen",
+          "label": "Pause in Fullscreen"
+        },
         "automation-recursive": {
           "description": "Search nested folders for wallpapers",
           "label": "Include Subfolders"

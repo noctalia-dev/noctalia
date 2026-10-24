@@ -547,6 +547,7 @@ struct WallpaperAutomationConfig {
   std::int32_t intervalSeconds = 1800;
   Order order = Order::Random;
   bool recursive = false;
+  bool pauseOnFullscreen = false;
 
   bool operator==(const WallpaperAutomationConfig&) const = default;
 };
