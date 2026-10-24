@@ -98,6 +98,14 @@ const char* batteryDeviceGlyphName(UPowerDeviceType type) {
   case UPowerDeviceType::Phone:
   case UPowerDeviceType::Pda:
     return "device-mobile";
+  case UPowerDeviceType::Headset:
+    return "headset";
+  case UPowerDeviceType::Headphones:
+    return "headphones";
+  case UPowerDeviceType::Speakers:
+    return "device-speaker";
+  case UPowerDeviceType::GamingInput:
+    return "device-gamepad-2";
   default:
     return "bluetooth";
   }
