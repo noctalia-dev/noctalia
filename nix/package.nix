@@ -43,6 +43,7 @@
   git,
   gsettings-desktop-schemas,
   autoAddDriverRunpath,
+  extraPackages ? [ ],
   rev ? "unknown",
   # DEPRECATED: no longer affects the build; kept for `.override` compat.
   cudaSupport ? config.cudaSupport,
@@ -74,7 +75,7 @@ lib.warnIf cudaSupport
 
   postFixup = ''
     wrapProgram $out/bin/noctalia \
-      --prefix PATH : ${lib.makeBinPath [ git ]} \
+      --prefix PATH : ${lib.makeBinPath ([ git ] ++ extraPackages)} \
       --prefix XDG_DATA_DIRS : "${glib.getSchemaDataDirPath gsettings-desktop-schemas}"
 
     $out/bin/noctalia completions bash | install -D /dev/stdin $out/share/bash-completion/completions/noctalia

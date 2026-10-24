@@ -218,6 +218,62 @@ The Home Manager module allows you to configure Noctalia's settings [(that you w
   </TabItem>
 </Tabs>
 
+### Nix-managed plugins {#plugins}
+
+Pin a plugin repository as a non-flake input alongside Noctalia:
+
+```nix
+inputs.noctalia-plugins = {
+  url = "github:noctalia-dev/official-plugins";
+  flake = false;
+};
+```
+
+Use it as a read-only `path` source in the Home Manager module. Plugin versions then follow your `flake.lock`,
+including updates and rollbacks:
+
+```nix
+{ inputs, pkgs, ... }:
+{
+  imports = [ inputs.noctalia.homeModules.default ];
+
+  programs.noctalia = {
+    enable = true;
+    package = inputs.noctalia.packages.${pkgs.stdenv.hostPlatform.system}.default.override {
+      extraPackages = [ pkgs.gpu-screen-recorder pkgs.slurp ];
+    };
+
+    settings = {
+      plugins = {
+        enabled = [ "noctalia/screen_recorder" ];
+        source = [
+          {
+            name = "official";
+            kind = "path";
+            location = "${inputs.noctalia-plugins}";
+            enabled = true;
+          }
+        ];
+      };
+      plugin_settings."noctalia/screen_recorder" = {
+        frame_rate = 30;
+        show_cursor = false;
+      };
+    };
+  };
+}
+```
+
+An explicit `plugins.source` list replaces the default sources. Noctalia reads path sources directly and never
+updates their contents. Choose plugin revisions compatible with your Noctalia version.
+
+The package's `extraPackages` argument adds executables to Noctalia's `PATH`, including when launched by systemd.
+List the packages required by your plugins; dependencies are not installed automatically from plugin manifests.
+Overriding this argument changes the package derivation and may require a local Noctalia build.
+
+Plugin settings use the keys declared in each plugin's `plugin.toml`. Runtime changes in Settings take precedence
+over the declarative defaults; see [Plugin settings](/noctalia/plugins/#plugin-settings).
+
 ### Hjem Module {#hjem}
 
 For those using Hjem instead of Home Manager, a Hjem module is also available.
