@@ -292,7 +292,7 @@ all_day_digest_time  = "09:00"  # one notification listing today's all-day event
 
 [control_center]
 circular_avatar             = true          # disable to use the shell's corner roundness
-show_avatar_border          = true          # hide the accent ring around the avatar
+show_avatar_border          = true          # disable to hide the accent ring around the avatar
 
 # Calendar tab of the control center.
 
