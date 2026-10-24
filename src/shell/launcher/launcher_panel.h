@@ -68,6 +68,7 @@ public:
   [[nodiscard]] InputArea* initialFocusArea() const override;
   [[nodiscard]] bool handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit) override;
   [[nodiscard]] PanelPlacement panelPlacement() const noexcept override;
+  [[nodiscard]] bool ignorePointerEvent() const override;
 
 private:
   friend class LauncherPanelTestAccess;

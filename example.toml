@@ -94,6 +94,7 @@ compact       = false                   # use smaller icons and tighter result r
 app_grid      = false                   # show apps, global searches, and the provider overview as icon grids
 track_usage   = true                    # record launcher history for Recent and usage-based sorting
 sort_by_usage = true                    # boost frequently used results
+ignore_mouse  = false                   # ignore mouse hover and clicks inside the launcher
 pinned        = []                      # ordered apps in the Pinned view, e.g. ["firefox", "code", "kitty"]
 fetch_exchange_rates = true             # refresh currency rates from third-party sources
 provider_prefix = "/"                     # common prefix character for provider trigger words (e.g. "/" or ".")

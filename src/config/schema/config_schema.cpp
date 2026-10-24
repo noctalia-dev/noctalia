@@ -1548,6 +1548,7 @@ namespace noctalia::config::schema {
           field(&ShellConfig::LauncherConfig::showAppActions, "show_app_actions"),
           field(&ShellConfig::LauncherConfig::trackUsage, "track_usage"),
           field(&ShellConfig::LauncherConfig::sortByUsage, "sort_by_usage"),
+          field(&ShellConfig::LauncherConfig::ignoreMouse, "ignore_mouse"),
           field(&ShellConfig::LauncherConfig::pinned, "pinned"),
           field(&ShellConfig::LauncherConfig::fetchExchangeRates, "fetch_exchange_rates"),
           field(&ShellConfig::LauncherConfig::providerPrefix, "provider_prefix"),

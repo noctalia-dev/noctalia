@@ -2740,6 +2740,10 @@
           "description": "Show results and the provider overview as an icon grid instead of rows",
           "label": "Grid View"
         },
+        "launcher-ignore-mouse": {
+          "description": "Ignore mouse hover, motion, and clicks inside the launcher for keyboard-only navigation",
+          "label": "Ignore Mouse Input"
+        },
         "launcher-ignored-panels": {
           "description": "Panels the panel provider never lists (e.g. authentication prompts, the setup wizard)",
           "label": "Panels Ignored"

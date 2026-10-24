@@ -1228,6 +1228,7 @@ struct ShellConfig {
     bool showAppActions = false;
     bool trackUsage = true;
     bool sortByUsage = true;
+    bool ignoreMouse = false;
     // Desktop entry IDs shown in manual order in the Pinned view.
     std::vector<std::string> pinned;
     /// When true, refresh currency exchange rates from libqalculate's online sources.
