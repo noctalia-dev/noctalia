@@ -217,6 +217,7 @@ annotate             = false                       # open the annotator before s
 skip_annotate_on_copy_save = false                 # region overlay Copy/Save deliver without the annotator
 close_on_copy        = true                        # close the annotation editor after a successful Copy
 close_on_save        = true                        # close the annotation editor after a successful Save
+copy_on_escape       = false                       # Escape copies the annotated image, then closes the editor
 pipe_to_command      = false                       # pipe the PNG to a shell command on stdin
 pipe_command         = ""                          # annotator/uploader, e.g. "swappy -f -" or "satty -f -"
 ```
@@ -402,6 +403,8 @@ Notes:
 - `close_on_copy` defaults to `true`: **Copy**, **Ctrl+C**, or **`[keybinds].copy`** closes the annotation editor after successfully placing the image on the clipboard, ready to paste elsewhere. Set it to `false` to keep editing after copying. Failed copies keep the editor open. Configure **Close Editor After Copying** under **Settings → Screenshot → Annotation**. This option also applies when you open the editor directly, so it remains available when **Edit Before Saving or Copying** is off.
 
 - `close_on_save` defaults to `true`: **Save**, **Ctrl+S**, or **`[keybinds].save`** closes the annotation editor after successfully writing the annotated image to disk. Set it to `false` to keep editing after saving. Failed saves keep the editor open. Configure **Close Editor After Saving** under **Settings → Screenshot → Annotation**. This option also applies when you open the editor directly, so it remains available when **Edit Before Saving or Copying** is off.
+
+- `copy_on_escape` defaults to `false`. Set it to `true` to make **`[keybinds].cancel`** copy the annotated image to the clipboard before closing the editor, like Satty's `--actions-on-escape save-to-clipboard`. Escape still cancels an in-progress stroke or a pending crop first; the copy happens on the press that closes the editor, which closes even if the copy fails. It does nothing in live mode, where there is no captured image to copy. Configure **Copy on Escape** under **Settings → Screenshot → Annotation**.
 
 - **Capture new region** in the annotation toolbar discards the current edit and starts a fresh region capture of the desktop, without the old ink or toolbar. The selected image opens in the editor even when `annotate = false`, with the same pointer control and remembered tool preferences. It keeps the editor's current pointer choice when starting from a captured image, and uses the settings of the command that opened the editor (config plus any per-call options) for region selection and delivery; cancelling the picker closes the capture.
 
