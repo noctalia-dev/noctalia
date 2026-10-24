@@ -112,6 +112,7 @@ void RenderContext::initialize(GlSharedContext& shared) {
       paths::assetPath("fonts/noctalia-tabler.ttf").string(), m_backend.get(), &m_backend->textureManager()
   );
   m_textRenderer.setFontFamily(m_textFontFamily);
+  m_textRenderer.setFontStyle(m_textFontStyle);
   m_textRenderer.setBaseDirection(m_textBaseDirRtl);
   ++m_textMetricsGeneration;
   m_graphicsResetPending = false;
@@ -161,6 +162,16 @@ void RenderContext::setTextFontFamily(std::string family) {
   makeCurrentNoSurface();
   m_textFontFamily = std::move(family);
   m_textRenderer.setFontFamily(m_textFontFamily);
+  ++m_textMetricsGeneration;
+}
+
+void RenderContext::setTextFontStyle(FontStyle style) {
+  if (m_textFontStyle == style) {
+    return;
+  }
+  makeCurrentNoSurface();
+  m_textFontStyle = style;
+  m_textRenderer.setFontStyle(m_textFontStyle);
   ++m_textMetricsGeneration;
 }
 

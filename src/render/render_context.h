@@ -37,6 +37,7 @@ public:
   // best-effort callers may ignore it, render paths must skip the frame.
   bool makeCurrent(RenderTarget& target);
   void setTextFontFamily(std::string family);
+  void setTextFontStyle(FontStyle style);
   void setTextBaseDirection(bool rtl);
   void notifyFontConfigChanged();
 
@@ -86,6 +87,7 @@ private:
   CairoTextRenderer m_textRenderer;
   CairoGlyphRenderer m_glyphRenderer;
   std::string m_textFontFamily = "sans-serif";
+  FontStyle m_textFontStyle = FontStyle::Normal;
   bool m_textBaseDirRtl = false;
   std::uint64_t m_textMetricsGeneration = 1;
   std::uint64_t m_gpuResourceGeneration = 0;

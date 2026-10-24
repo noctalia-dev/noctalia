@@ -30,6 +30,8 @@ enum class FontWeight : int {
   UltraHeavy = 1000,
 };
 
+enum class FontStyle : std::uint8_t { Normal, Italic };
+
 // Font selection for a run of text. An empty family means the renderer-global
 // family (shell.font_family).
 struct TextFont {

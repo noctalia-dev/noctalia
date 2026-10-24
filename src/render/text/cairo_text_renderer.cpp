@@ -336,6 +336,14 @@ void CairoTextRenderer::setFontFamily(std::string family) {
   clearCaches();
 }
 
+void CairoTextRenderer::setFontStyle(FontStyle style) {
+  if (m_fontStyle == style) {
+    return;
+  }
+  m_fontStyle = style;
+  clearCaches();
+}
+
 void CairoTextRenderer::setBaseDirection(bool rtl) {
   if (m_baseDirRtl == rtl) {
     return;
@@ -372,6 +380,7 @@ PangoFontDescription* CairoTextRenderer::newFontDescription(const TextFont& font
   PangoFontDescription* desc = pango_font_description_new();
   pango_font_description_set_family(desc, font.family.empty() ? m_fontFamily.c_str() : font.family.c_str());
   pango_font_description_set_weight(desc, static_cast<PangoWeight>(font.weight));
+  pango_font_description_set_style(desc, m_fontStyle == FontStyle::Italic ? PANGO_STYLE_ITALIC : PANGO_STYLE_NORMAL);
   pango_font_description_set_absolute_size(desc, static_cast<double>(rasterSize) * PANGO_SCALE);
   return desc;
 }
