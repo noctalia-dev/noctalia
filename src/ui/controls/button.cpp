@@ -600,7 +600,6 @@ void Button::applyColors(const Color& bg, const Color& border, const Color& labe
       m_badgeLabel->setColor(bg);
     }
   }
-  m_visualStateInitialized = true;
 }
 
 float Button::effectiveBorderWidth() const noexcept {
@@ -837,6 +836,12 @@ void Button::doLayout(Renderer& renderer) {
   if (m_animId == 0) {
     applyVisualState();
   }
+  // The first layout pass precedes the first paint. Until then, every color
+  // change (the constructor's default-variant seed, then whatever variant /
+  // palette / selected / enabled state the caller sets right after creating
+  // the button) snaps instead of animating, so a freshly created non-default
+  // button never visibly fades in from the default palette.
+  m_visualStateInitialized = true;
 }
 
 LayoutSize Button::doMeasure(Renderer& renderer, const LayoutConstraints& constraints) {
