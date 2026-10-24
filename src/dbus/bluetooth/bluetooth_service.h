@@ -111,6 +111,8 @@ public:
 
   // [bluetooth].connect_when_enabled; disabling cancels a queued or running connect pass.
   void setConnectWhenEnabled(bool enabled);
+  // [bluetooth].connection_notifications; when false, device connect/disconnect transitions stay silent.
+  void setConnectionNotifications(bool enabled);
 
 private:
   struct Impl;
@@ -144,6 +146,7 @@ private:
   std::uint64_t m_connectPassGeneration = 0;
   bool m_connectPassActive = false;
   bool m_connectWhenEnabled = false;
+  bool m_connectionNotifications = true;
   bool m_hasStateSnapshot = false;
   StateCallback m_stateCallback;
   DevicesCallback m_devicesCallback;

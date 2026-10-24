@@ -324,6 +324,7 @@ sound_theme = "freedesktop"
 
 [bluetooth]
 connect_when_enabled = false        # connect paired, trusted devices when Bluetooth turns on, at startup, and after resume
+connection_notifications = true     # show a notification when a Bluetooth device connects or disconnects
 
 # ── Brightness ────────────────────────────────────────────────────────────────
 

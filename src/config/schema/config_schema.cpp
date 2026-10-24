@@ -515,6 +515,7 @@ namespace noctalia::config::schema {
   const Schema<BluetoothConfig>& bluetoothSchema() {
     static const Schema<BluetoothConfig> s = {
         field(&BluetoothConfig::connectWhenEnabled, "connect_when_enabled"),
+        field(&BluetoothConfig::connectionNotifications, "connection_notifications"),
     };
     return s;
   }

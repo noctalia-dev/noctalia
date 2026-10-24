@@ -879,6 +879,9 @@
       "battery-device": "Battery device",
       "battery-low-body": "{device}: {percent}% remaining",
       "battery-low-title": "Battery low",
+      "bluetooth": "Bluetooth",
+      "bluetooth-connected-title": "{device} connected",
+      "bluetooth-disconnected-title": "{device} disconnected",
       "calendar": "Calendar",
       "calendar-credential-locked-body": "Unlock the keyring used by Secret Service, then retry in Settings. With GNOME Keyring, make an automatically unlocked keyring such as Login the default.",
       "calendar-credential-locked-title": "Calendar keyring is locked",
@@ -2931,6 +2934,10 @@
         "bluetooth-connect-when-enabled": {
           "description": "Connect paired, trusted devices when Bluetooth turns on, at startup, and after resume",
           "label": "Connect Devices When Bluetooth Turns On"
+        },
+        "bluetooth-connection-notifications": {
+          "description": "Show a notification when a Bluetooth device connects or disconnects",
+          "label": "Device Connection Notifications"
         },
         "calendar": {
           "description": "Show events from your online calendar accounts",

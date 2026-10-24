@@ -160,6 +160,8 @@ By default Noctalia does not dial out to devices: BlueZ and the devices handle r
 connect_when_enabled = true
 ```
 
+Noctalia shows a notification whenever a Bluetooth device connects or disconnects, naming the device. This includes devices connected by Noctalia itself, such as the auto-reconnect pass above, devices that were already connected when Noctalia started never trigger one. Set `[bluetooth] connection_notifications = false` to turn them off.
+
 ## Weather
 
 The Weather tab expands the Home weather summary into current conditions, forecast detail, and location/status information. It is hidden when `[weather].enabled = false`.

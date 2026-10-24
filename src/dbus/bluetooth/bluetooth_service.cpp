@@ -5,6 +5,7 @@
 #include "dbus/upower/upower_service.h"
 #include "i18n/i18n.h"
 #include "ipc/ipc_service.h"
+#include "notification/notifications.h"
 #include "system/rfkill_helper.h"
 #include "util/string_utils.h"
 
@@ -386,7 +387,15 @@ struct BluetoothService::Impl {
         BluetoothDeviceInfo updated = *dev;
         mergeDeviceProps(changed, updated);
         if (updated != *dev) {
+          // The flip is read before the move overwrites the previous value; a Connected entry in
+          // the changed dict that matches the cached value (redundant BlueZ signal) stays silent.
+          const bool connectedFlipped = updated.connected != dev->connected;
           *dev = std::move(updated);
+          if (connectedFlipped && self.m_connectionNotifications) {
+            const char* titleKey = dev->connected ? "notifications.internal.bluetooth-connected-title"
+                                                  : "notifications.internal.bluetooth-disconnected-title";
+            notify::info(i18n::tr("notifications.internal.bluetooth"), i18n::tr(titleKey, "device", dev->alias), "");
+          }
           self.emitDevices();
         }
       }
@@ -872,6 +881,8 @@ void BluetoothService::setConnectWhenEnabled(bool enabled) {
     cancelConnectPass();
   }
 }
+
+void BluetoothService::setConnectionNotifications(bool enabled) { m_connectionNotifications = enabled; }
 
 void BluetoothService::requestConnectPass() {
   if (!m_connectWhenEnabled || !m_state.powered || m_connectPassActive) {
