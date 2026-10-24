@@ -2387,6 +2387,7 @@ namespace noctalia::config::schema {
           optionalIntField(&DockMonitorOverride::crossAxisPadding, "cross_axis_padding", kDockPaddingRange),
           optionalIntField(&DockMonitorOverride::itemSpacing, "item_spacing", kDockItemSpacingRange),
           optionalFloatField(&DockMonitorOverride::backgroundOpacity, "background_opacity", kUnitRange),
+          optionalBoolField(&DockMonitorOverride::compositorBlur, "compositor_blur"),
           optionalColorField(&DockMonitorOverride::border, "border"),
           optionalFloatField(&DockMonitorOverride::borderWidth, "border_width", kDockBorderWidthRange),
           optionalIntField(&DockMonitorOverride::radius, "radius", kDockRadiusRange),
@@ -2451,6 +2452,7 @@ namespace noctalia::config::schema {
         field(&DockConfig::crossAxisPadding, "cross_axis_padding", kDockPaddingRange),
         field(&DockConfig::itemSpacing, "item_spacing", kDockItemSpacingRange),
         field(&DockConfig::backgroundOpacity, "background_opacity", kUnitRange),
+        field(&DockConfig::compositorBlur, "compositor_blur"),
         colorField(&DockConfig::border, "border"),
         field(&DockConfig::borderWidth, "border_width", kDockBorderWidthRange),
         custom<DockConfig>(

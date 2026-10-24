@@ -2232,6 +2232,10 @@
           "description": "Inside outline width for the dock",
           "label": "Border Width"
         },
+        "compositor-blur": {
+          "description": "Allow the compositor to blur behind the dock when the background effect protocol is available",
+          "label": "Compositor Blur"
+        },
         "concave-edge-corners": {
           "description": "Carve inward corners on the side that touches the screen edge; requires the margin to the screen edge to be 0",
           "label": "Concave Edge Corners"
