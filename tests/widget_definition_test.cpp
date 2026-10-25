@@ -183,6 +183,18 @@ int main() {
     fail("sysmon", "valid resolved options produced a semantic error");
   }
 
+  WidgetConfig splitCpuCores;
+  splitCpuCores.type = "sysmon";
+  splitCpuCores.settings["stat"] = std::string("cpu_usage");
+  splitCpuCores.settings["show_cpu_cores"] = true;
+  if (!sysmonWidgetDefinition().resolve(&splitCpuCores, "sysmon", {}).showCpuCores) {
+    fail("sysmon", "show_cpu_cores = true did not resolve");
+  }
+  splitCpuCores.settings["show_cpu_cores"] = false;
+  if (sysmonWidgetDefinition().resolve(&splitCpuCores, "sysmon", {}).showCpuCores) {
+    fail("sysmon", "show_cpu_cores = false did not resolve");
+  }
+
   WidgetConfig networkPrecision;
   networkPrecision.type = "sysmon";
   networkPrecision.settings["stat"] = std::string("net_rx");

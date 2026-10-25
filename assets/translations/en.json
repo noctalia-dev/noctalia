@@ -4858,6 +4858,10 @@
           "description": "Show weather condition text",
           "label": "Show Condition"
         },
+        "show-cpu-cores": {
+          "description": "Replace the single CPU gauge with one small gauge per logical core",
+          "label": "Show Per-Core Usage"
+        },
         "show-empty-label": {
           "description": "Show placeholder text when no window is focused instead of hiding the widget",
           "label": "Show Empty Label"
