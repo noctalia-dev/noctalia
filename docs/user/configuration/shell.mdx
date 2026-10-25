@@ -109,15 +109,17 @@ search_position = "bottom" # full layout: top | bottom; whole launcher toolbar p
 default_view   = "recent" # full layout: recent | pinned | all | categories
 categories     = true     # simple layout: show the category chip row
 category_icons_only = false # show app category icons without text labels
+show_navigation_labels = true # full layout: show text labels on the main view tabs
 show_settings_button = true # full layout: show the Settings shortcut
 show_session_button = true # full layout: show the session-actions shortcut
 show_icons      = true   # show application icons in launcher results
 show_app_origin_indicator = true # show package origin indicators on application results
 compact         = false  # smaller icons and tighter rows; hides subtitles
-app_grid        = false  # icon grid for applications, global searches, and the provider overview
+app_grid        = false  # icon grid for grid-capable providers and the provider overview
 show_app_actions = false  # include searchable .desktop actions alongside applications
 track_usage     = true   # record launcher history for Recent and usage-based sorting
 sort_by_usage   = true   # boost frequently used results
+ignore_mouse    = false  # ignore mouse hover and clicks inside the launcher
 pinned          = []     # ordered desktop entry IDs shown in the Pinned view
 fetch_exchange_rates = true  # refresh currency rates from third-party online sources
 provider_prefix = "/"    # common prefix character for provider trigger words (e.g. "/" or ".")
@@ -217,6 +219,7 @@ annotate             = false                       # open the annotator before s
 skip_annotate_on_copy_save = false                 # region overlay Copy/Save deliver without the annotator
 close_on_copy        = true                        # close the annotation editor after a successful Copy
 close_on_save        = true                        # close the annotation editor after a successful Save
+copy_on_close        = false                       # Closing the editor copies the annotated image first
 pipe_to_command      = false                       # pipe the PNG to a shell command on stdin
 pipe_command         = ""                          # annotator/uploader, e.g. "swappy -f -" or "satty -f -"
 ```
@@ -335,7 +338,7 @@ Notes:
 
 - `shell.panel.open_near_click_control_center`, `open_near_click_launcher`, `open_near_click_clipboard`, `open_near_click_wallpaper`, and `open_near_click_session` make a panel opened by clicking its bar widget appear next to that widget instead of at its `*_position` (centered or end-aligned along the bar). Panels opened without a click (IPC, shortcuts) still use `*_position`. They are ignored when a panel is `floating` with a `*_position` other than `auto`, since it is then pinned to a fixed screen position. Configure with each panel's **Open Near Clicked Widget** toggle.
 
-- `shell.launcher.layout` selects `full` (default) or `simple`. Full shows the profile, view tabs, and a toolbar with the search field and shortcuts. Simple shows a search field, an optional category chip row, and results at a fixed 560 × 500 size; `width`, `search_position`, `default_view`, `show_settings_button`, and `show_session_button` apply only to Full.
+- `shell.launcher.layout` selects `full` (default) or `simple`. Full shows the profile, view tabs, and a toolbar with the search field and shortcuts. Simple shows a search field, an optional category chip row, and results at a fixed 560 × 500 size; `width`, `search_position`, `default_view`, `show_navigation_labels`, `show_settings_button`, and `show_session_button` apply only to Full.
 
 - `shell.launcher.width` sets the Full launcher panel width in pixels from `560` to `1100` (default `760`).
 
@@ -347,19 +350,23 @@ Notes:
 
 - `shell.launcher.category_icons_only` hides text labels on app category tabs (Full) or chips (Simple) such as Internet and Games, keeping full names in hover tooltips. Disabled by default; category tabs show icons and text. It does not change the main view tabs.
 
+- `shell.launcher.show_navigation_labels` shows text on the Full layout's main view tabs: Recent, Pinned, All, Categories, and Providers (default `true`). Turn off **Show navigation labels** in the launcher settings for icons with names in hover tooltips at any panel width. Narrow panels use icons automatically even when this option is enabled.
+
 - `shell.launcher.show_icons` toggles application icons in launcher result rows. Prefixed-provider rows (for example emoji) still show their leading character when icons are hidden.
 
 - `shell.launcher.show_app_origin_indicator` toggles the package-origin overlays on application results, such as Flatpak, Snap, Nix, and AppImage.
 
 - `shell.launcher.compact` uses smaller icons, tighter padding, and single-line rows (subtitles hidden).
 
-- `shell.launcher.app_grid` switches application browsing, global search results, and the provider overview to a multi-column icon grid with labels underneath. Results from an explicitly selected or prefixed provider stay in the list layout.
+- `shell.launcher.app_grid` switches Applications, Emoji, Wallpaper, Session, and the provider overview between lists and a multi-column icon grid with labels underneath. Calculator, Windows, Panels, dmenu, and plugin providers use lists. Global searches use a list if any visible result requires one. The grid toggle is hidden for list-only providers and when `show_icons` is disabled.
 
 - `shell.launcher.show_app_actions` includes searchable `.desktop` actions alongside application results. Action rows show the action name with the parent application underneath and launch that action directly. Disabled by default; application actions remain available from an application's right-click menu.
 
 - `shell.launcher.track_usage` records local launcher history for the chronological **Recent** view and usage-based sorting. Disable it to stop recording launches, hide **Recent**, and disable usage ordering. Existing history remains stored until it is reset and becomes available again if tracking is re-enabled.
 
 - `shell.launcher.sort_by_usage` boosts frequently used results (applications, emoji, panels, wallpapers, and dmenu entries) toward the top while usage tracking is enabled. Disable it to keep each provider's default ordering while continuing to record frequency and recent launches. The ordering button above the results changes the same setting without leaving the launcher.
+
+- `shell.launcher.ignore_mouse` makes the launcher and its menus ignore pointer hover, motion, clicks, scrolling, and touch taps, so navigation is keyboard-only. Clicking outside the launcher still closes it. Disabled by default.
 
 - `shell.launcher.pinned` is an ordered list of desktop entry IDs shown in the **Pinned** view. Launcher pins are independent from `dock.pinned` and each taskbar widget's `pinned` list.
 
@@ -399,9 +406,11 @@ Notes:
 
 - `skip_annotate_on_copy_save` defaults to `false`, so with `annotate = true` every way of confirming a region opens the editor. Set it to `true` to make **`[keybinds].copy`** and **`[keybinds].save`** in the region overlay deliver immediately without the editor, while **Enter** and **Space** keep opening it; no effect while `annotate = false`.
 
-- `close_on_copy` defaults to `true`: **Copy**, **Ctrl+C**, or **`[keybinds].copy`** closes the annotation editor after successfully placing the image on the clipboard, ready to paste elsewhere. Set it to `false` to keep editing after copying. Failed copies keep the editor open. Configure **Close Editor After Copying** under **Settings → Screenshot → Annotation**. This option also applies when you open the editor directly, so it remains available when **Edit Before Saving or Copying** is off.
+- `close_on_copy` defaults to `true`: **Copy** or **`[keybinds].copy`** (default **Ctrl+C**) closes the annotation editor after successfully placing the image on the clipboard, ready to paste elsewhere. Set it to `false` to keep editing after copying. Failed copies keep the editor open. Configure **Close Editor After Copying** under **Settings → Screenshot → Annotation**. This option also applies when you open the editor directly, so it remains available when **Edit Before Saving or Copying** is off.
 
-- `close_on_save` defaults to `true`: **Save**, **Ctrl+S**, or **`[keybinds].save`** closes the annotation editor after successfully writing the annotated image to disk. Set it to `false` to keep editing after saving. Failed saves keep the editor open. Configure **Close Editor After Saving** under **Settings → Screenshot → Annotation**. This option also applies when you open the editor directly, so it remains available when **Edit Before Saving or Copying** is off.
+- `close_on_save` defaults to `true`: **Save** or **`[keybinds].save`** (default **Ctrl+S**) closes the annotation editor after successfully writing the annotated image to disk. Set it to `false` to keep editing after saving. Failed saves keep the editor open. Configure **Close Editor After Saving** under **Settings → Screenshot → Annotation**. This option also applies when you open the editor directly, so it remains available when **Edit Before Saving or Copying** is off.
+
+- `copy_on_close` defaults to `false`. Set it to `true` to copy the annotated image to the clipboard when closing the editor (**`[keybinds].cancel`** or the close button). The cancel key still cancels an in-progress stroke or a pending crop first; copying happens only when the editor closes. The editor closes even if the copy fails. This option does nothing in live mode, where there is no captured image to copy. Configure **Copy on Close** under **Settings → Screenshot → Annotation**.
 
 - **Capture new region** in the annotation toolbar discards the current edit and starts a fresh region capture of the desktop, without the old ink or toolbar. The selected image opens in the editor even when `annotate = false`, with the same pointer control and remembered tool preferences. It keeps the editor's current pointer choice when starting from a captured image, and uses the settings of the command that opened the editor (config plus any per-call options) for region selection and delivery; cancelling the picker closes the capture.
 
@@ -410,6 +419,10 @@ Notes:
 - **Window switcher** is an Alt+Tab-style overlay configured under `[shell.window_switcher]`; `style = "carousel"` is the default freestanding depth layout, while `style = "compact"` restores a boxed strip of equal-sized cards. `mru = true` orders windows by most recent use instead of workspace layout. `show_caption`, `show_count`, and `show_app_icon` independently control captions below previews, the counter above them, and application icons over previews. `show_all_outputs = false` lists only windows on the monitor where the switcher opens. Bind your compositor shortcut to `noctalia msg window-switcher` (see [Shell → Window switcher](/noctalia/ipc/shell/#window-switcher)). Carousel cards keep stable proportions at each depth and fit each captured snapshot inside a small themed frame, so differing window aspect ratios do not distort the layout. The selected preview stays centered and largest, its immediate neighbors remain medium-sized, and darker outer cards step farther back. Application icons scale with their rendered preview; left-side cards place them bottom-left, right-side cards place them bottom-right, and the selected card keeps the conventional bottom-left position. Close controls mirror the side at the top of left and right cards, while the selected card keeps its close control at the top-right. Position, scale, opacity, and pointer-hover lift animate using the global animation settings; the selected-card shadow follows `[shell.shadow]`. Each close control appears only while its card is hovered. Both styles rotate through larger window sets while keeping up to five cards visible. Compositors without foreign-toplevel image capture use application icons in the cards when `show_app_icon = true`. Tab / Shift+Tab, the arrow keys, or the mouse wheel cycle selection (wheel down or right moves to the next window, wheel up or left to the previous one); releasing the shortcut's primary modifier or pressing Enter confirms; Escape cancels. The switcher updates live when windows open, close, retitle, or receive their snapshot while the overlay stays open.
 
 - **Hot corners** let you trigger actions by pushing your mouse pointer into one of the four screen corners. When `[hot_corners].enabled = true`, the shell places invisible hit areas in each corner. `delay_ms` (default `0`) is how long the pointer must stay in the corner before the action runs; raise it to reduce accidental triggers. Each corner (`top_left`, `top_right`, `bottom_left`, `bottom_right`) takes an `action`. If `action` is `"command"`, provide a shell `command` to execute. Configure under **Settings → Desktop → Hot Corners**.
+
+- **Minimised windows** are tracked automatically on Umbriel, KDE Plasma, and labwc when the connected compositor backend reports window state and eligibility. The window switcher keeps minimised windows selectable, with a small dash and a **Minimised** status when captions are enabled. It updates their status live. Selecting one restores and focuses it. Previews use an available cached snapshot or the application icon; listing a minimised window does not restore it.
+
+- **Minimise actions** in the [taskbar](/noctalia/bar/widgets/taskbar/) and [dock](/noctalia/dock/#window-actions-and-minimise-state) need no additional configuration. Single-window icons minimise an already focused window when allowed, restore a minimised window, and focus an unfocused window. Multi-window icons continue cycling. Minimised windows stay in window counts and keep their workspace occupied. Bars and docks using smart auto-hide ignore windows known to be minimised, so they stay visible after the last visible window is minimised.
 
 ### Encrypted storage master key
 
@@ -518,7 +531,7 @@ When the lock screen is enabled, **`lock_before_suspend`** (default `true`) lock
 
 When enabled and `wlr-screencopy` is available, Noctalia can capture the desktop **before** the session lock engages and use that snapshot as the lock screen background instead of the wallpaper. Desktop capture is disabled by default. A lock transition also uses a frozen pre-lock capture, but only as a temporary layer drawn by the secure lock surface while the complete lock screen (including its blur and tint) is revealed or concealed.
 
-Configure under **`[lockscreen]`** in TOML, or use **Settings → Security → Lock Screen**. The **Desktop capture** and transition controls appear only when your compositor supports screencopy. Use **Wallpaper** to pick a custom lock screen image (empty uses the desktop wallpaper per output).
+Configure under **`[lockscreen]`** in TOML, or use **Settings → Security → Lock Screen**. The **Desktop capture** and transition controls appear only when your compositor supports screencopy. Use **Wallpaper** to pick a custom lock screen image (empty uses the desktop wallpaper per output). With **`[wallpaper].enabled = false`**, an empty **Wallpaper** shows a solid **`[wallpaper].fill_color`** background instead of an image, or opaque black when no fill color is set.
 
 The power buttons on the lock screen come from the session actions; to trigger one from the keyboard (for example suspend on Escape), set its `lockscreen_shortcut` as described in [Lock screen shortcuts](#lock-screen-shortcuts).
 
@@ -564,7 +577,7 @@ monitors              = []        # connectors that show the lock screen; empty 
 | `edge_smoothness`      | float  | `0.3`       | Feathering around transition boundaries (`0.0`–`1.0`).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | `blur_intensity`       | float  | `0.5`       | Blur strength for the active lock screen background (`0.0`–`1.0`).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `tint_intensity`       | float  | `0.3`       | Surface-color tint over the active lock screen background (`0.0`–`1.0`).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| `wallpaper`            | string | `""`        | Optional image path for the lock screen. When empty, each output uses its desktop wallpaper. Ignored when desktop capture is active.                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| `wallpaper`            | string | `""`        | Optional image path for the lock screen. When empty, each output uses its desktop wallpaper, or the `[wallpaper].fill_color` background (opaque black when unset) while `[wallpaper].enabled = false`. Ignored when desktop capture is active.                                                                                                                                                                                                                                                                                                             |
 | `monitors`             | array  | `[]`        | Connector names that show the lock screen. Empty shows it on all outputs; listed-only mode leaves other outputs black.                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 
 If capture fails (missing protocol, permission denied, etc.), the transition is skipped and the lock screen falls back to the normal per-output wallpaper when desktop capture was requested. The snapshot lives in memory only until unlock. Blur and tint sliders can be adjusted live from Settings while the session is locked.
@@ -750,6 +763,8 @@ The canonical path lets the greeter's dedicated Polkit action grant selected act
 The compatibility path invokes the positional helper syntax through the normal administrator-authenticated `pkexec` or `run0` flow. Its payload retains session actions and power commands because older greeters expect them. Greeter 1.5.0 keeps this entry point for mixed-version and custom-state installations, but its passwordless policy never covers it.
 
 Only one greeter sync runs at a time. Additional Settings or auto-sync requests leave the active operation untouched; an overlapping `greeter-sync` IPC request reports that a sync is already in progress.
+
+When `[wallpaper].enabled = false`, greeter sync carries no wallpaper and removes the previously synced one, so the greeter shows a solid background in the synced palette's surface color.
 
 `privilege_command` wraps or replaces the detected privilege tool. With constrained sync it must ultimately launch `pkexec`, such as `ghostty -e pkexec`, because the helper verifies `PKEXEC_UID`. In legacy mode, the path retains support for administrator-authenticated alternatives such as `run0` or a terminal-wrapped `sudo`.
 

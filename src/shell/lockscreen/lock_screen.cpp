@@ -1258,9 +1258,13 @@ std::string LockScreen::wallpaperPathForOutput(const std::string& connectorName)
   if (m_configService == nullptr) {
     return {};
   }
-  const std::string& customWallpaper = m_configService->config().lockscreen.wallpaper;
+  const auto& config = m_configService->config();
+  const std::string& customWallpaper = config.lockscreen.wallpaper;
   if (!customWallpaper.empty()) {
     return customWallpaper;
+  }
+  if (!config.wallpaper.enabled) {
+    return {};
   }
   return m_configService->getWallpaperPath(connectorName);
 }

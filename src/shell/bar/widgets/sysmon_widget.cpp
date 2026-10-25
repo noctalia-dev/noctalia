@@ -189,7 +189,8 @@ SysmonWidget::SysmonWidget(SystemMonitorService* monitor, ConfigService& configS
       m_networkSpeedLabelStyle(
           options.networkSpeedCompact ? FormatUnits::ByteRateLabelStyle::Compact : FormatUnits::ByteRateLabelStyle::Full
       ),
-      m_glyphOverride(std::move(options.glyph)), m_customLabelText(std::move(options.customLabel)),
+      m_networkSpeedDecimalPlaces(options.networkSpeedDecimalPlaces), m_glyphOverride(std::move(options.glyph)),
+      m_customLabelText(std::move(options.customLabel)),
       m_customImage(widget_custom_image::fromConfig(options.customImage, options.customImageColorize)),
       m_showUnits(options.showUnits), m_glyphPosition(options.glyphPosition) {
   if (m_monitor != nullptr) {
@@ -1079,12 +1080,14 @@ std::optional<std::string> SysmonWidget::formatValueFor(SysmonStat stat, const S
 
   case SysmonStat::NetRx:
     return FormatUnits::formatDecimalBytesPerSecond(
-        netRxFromStats(stats, m_networkInterface), m_networkSpeedUnit, m_networkSpeedLabelStyle
+        netRxFromStats(stats, m_networkInterface), m_networkSpeedUnit, m_networkSpeedLabelStyle,
+        m_networkSpeedDecimalPlaces
     );
 
   case SysmonStat::NetTx:
     return FormatUnits::formatDecimalBytesPerSecond(
-        netTxFromStats(stats, m_networkInterface), m_networkSpeedUnit, m_networkSpeedLabelStyle
+        netTxFromStats(stats, m_networkInterface), m_networkSpeedUnit, m_networkSpeedLabelStyle,
+        m_networkSpeedDecimalPlaces
     );
 
   case SysmonStat::DiskUsedPct:

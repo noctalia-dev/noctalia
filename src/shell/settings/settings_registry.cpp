@@ -1358,6 +1358,16 @@ namespace settings {
     }
     {
       auto e = makeEntry(
+          SettingsSection::Launcher, "launcher", tr("settings.schema.panels.launcher-show-navigation-labels.label"),
+          tr("settings.schema.panels.launcher-show-navigation-labels.description"),
+          {"shell", "launcher", "show_navigation_labels"}, ToggleSetting{cfg.shell.launcher.showNavigationLabels},
+          "launcher navigation tabs labels text recent pinned all categories providers icons"
+      );
+      e.visibleWhen = launcherFull;
+      entries.push_back(std::move(e));
+    }
+    {
+      auto e = makeEntry(
           SettingsSection::Launcher, "launcher", tr("settings.schema.panels.launcher-show-settings-button.label"),
           tr("settings.schema.panels.launcher-show-settings-button.description"),
           {"shell", "launcher", "show_settings_button"}, ToggleSetting{cfg.shell.launcher.showSettingsButton},
@@ -1401,6 +1411,11 @@ namespace settings {
         SettingsSection::Launcher, "behavior", tr("settings.schema.panels.launcher-app-actions.label"),
         tr("settings.schema.panels.launcher-app-actions.description"), {"shell", "launcher", "show_app_actions"},
         ToggleSetting{cfg.shell.launcher.showAppActions}, "launcher app actions show"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Launcher, "behavior", tr("settings.schema.panels.launcher-ignore-mouse.label"),
+        tr("settings.schema.panels.launcher-ignore-mouse.description"), {"shell", "launcher", "ignore_mouse"},
+        ToggleSetting{cfg.shell.launcher.ignoreMouse}, "launcher ignore disable mouse input pointer keyboard only"
     ));
     entries.push_back(makeEntry(
         SettingsSection::Launcher, "behavior", tr("settings.schema.panels.launcher-currency-exchange.label"),
@@ -1599,6 +1614,11 @@ namespace settings {
         SettingsSection::ControlCenter, "home", tr("settings.schema.panels.home-circular-avatar.label"),
         tr("settings.schema.panels.home-circular-avatar.description"), {"control_center", "circular_avatar"},
         ToggleSetting{cfg.controlCenter.circularAvatar}, "avatar profile picture circle radius roundness"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::ControlCenter, "home", tr("settings.schema.panels.home-avatar-border.label"),
+        tr("settings.schema.panels.home-avatar-border.description"), {"control_center", "show_avatar_border"},
+        ToggleSetting{cfg.controlCenter.showAvatarBorder}, "avatar border ring accent hide show"
     ));
 
     // Desktop
@@ -2146,6 +2166,12 @@ namespace settings {
         tr("settings.schema.shell.screenshot-close-on-save.label"),
         tr("settings.schema.shell.screenshot-close-on-save.description"), {"shell", "screenshot", "close_on_save"},
         ToggleSetting{cfg.shell.screenshot.closeOnSave}, "screenshot annotation close save exit"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Screenshot, "screenshot-annotation",
+        tr("settings.schema.shell.screenshot-copy-on-close.label"),
+        tr("settings.schema.shell.screenshot-copy-on-close.description"), {"shell", "screenshot", "copy_on_close"},
+        ToggleSetting{cfg.shell.screenshot.copyOnClose}, "screenshot annotation cancel copy clipboard close exit"
     ));
 
     entries.push_back(makeEntry(
@@ -3198,6 +3224,12 @@ namespace settings {
         tr("settings.schema.services.bluetooth-connect-when-enabled.description"),
         {"bluetooth", "connect_when_enabled"}, ToggleSetting{cfg.bluetooth.connectWhenEnabled},
         "bluetooth reconnect connect trusted paired devices startup resume"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Services, "bluetooth", tr("settings.schema.services.bluetooth-connection-notifications.label"),
+        tr("settings.schema.services.bluetooth-connection-notifications.description"),
+        {"bluetooth", "connection_notifications"}, ToggleSetting{cfg.bluetooth.connectionNotifications},
+        "bluetooth device connect disconnect notification"
     ));
     entries.push_back(makeEntry(
         SettingsSection::Services, "media", tr("settings.schema.services.mpris-blacklist.label"),

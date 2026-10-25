@@ -19,6 +19,7 @@ public:
   [[nodiscard]] std::string_view id() const override { return "Wallpaper"; }
   [[nodiscard]] std::string displayName() const override;
   [[nodiscard]] std::string_view defaultGlyphName() const override { return "wallpaper-selector"; }
+  [[nodiscard]] bool supportsGrid() const override { return true; }
   [[nodiscard]] bool trackUsage() const override { return true; }
 
   [[nodiscard]] std::vector<LauncherResult> query(std::string_view text) const override;

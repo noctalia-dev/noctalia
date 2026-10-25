@@ -1219,6 +1219,7 @@ struct ShellConfig {
     // Simple layout only: show the category chip row under the search field.
     bool categories = true;
     bool categoryIconsOnly = false;
+    bool showNavigationLabels = true;
     bool showSettingsButton = true;
     bool showSessionButton = true;
     bool showIcons = true;
@@ -1228,6 +1229,7 @@ struct ShellConfig {
     bool showAppActions = false;
     bool trackUsage = true;
     bool sortByUsage = true;
+    bool ignoreMouse = false;
     // Desktop entry IDs shown in manual order in the Pinned view.
     std::vector<std::string> pinned;
     /// When true, refresh currency exchange rates from libqalculate's online sources.
@@ -1285,6 +1287,7 @@ struct ShellConfig {
     bool skipAnnotateOnCopySave = false;
     bool closeOnCopy = true;
     bool closeOnSave = true;
+    bool copyOnClose = false;
     bool pipeToCommand = false;
     std::string pipeCommand;
     std::string directory;       // empty = XDG Pictures directory
@@ -1612,6 +1615,8 @@ struct BatteryConfig {
 struct BluetoothConfig {
   // Connect paired, trusted devices when Bluetooth turns on, at startup, and after resume.
   bool connectWhenEnabled = false;
+  // Show a notification when a Bluetooth device connects or disconnects.
+  bool connectionNotifications = true;
 
   bool operator==(const BluetoothConfig&) const = default;
 };
@@ -1889,6 +1894,7 @@ struct ControlCenterConfig {
   bool showShortcutLabels = true;
   bool showSessionButton = true;
   bool circularAvatar = true;
+  bool showAvatarBorder = true;
   CalendarTabConfig calendarTab;
   MediaTabConfig mediaTab;
   bool operator==(const ControlCenterConfig&) const = default;

@@ -277,11 +277,17 @@ namespace {
 
     const auto assignments = platform.workspaceWindowAssignments(output);
     for (const auto& assignment : assignments) {
+      if (assignment.minimizeState.has_value() && assignment.minimizeState->minimized) {
+        continue;
+      }
       if (workspaceKeyMatchesAssignment(assignment.workspaceKey, *active)) {
         return true;
       }
     }
     if (!assignments.empty()) {
+      return false;
+    }
+    if (platform.hasUnminimizedToplevels(output) == false) {
       return false;
     }
     return active->occupied;
@@ -1179,7 +1185,7 @@ void Dock::activateOrLaunchItem(shell::dock::DockInstance& instance, const shell
   }
 
   if (windows.size() == 1) {
-    m_platform->activateToplevelInfo(windows[0]);
+    m_platform->activateOrMinimizeToplevelInfo(windows[0]);
     return;
   }
 
@@ -1247,6 +1253,22 @@ void Dock::openItemMenu(shell::dock::DockInstance& instance, const shell::dock::
           [this, windows](std::size_t windowIndex) {
             if (windowIndex < windows.size()) {
               m_platform->closeToplevelInfo(windows[windowIndex]);
+            }
+          },
+      .setWindowMinimized =
+          [this, windows](std::size_t windowIndex, bool minimized) {
+            if (windowIndex >= windows.size()) {
+              return;
+            }
+            const auto& window = windows[windowIndex];
+            const auto state = m_platform->windowMinimizeState(window);
+            if (!state.has_value() || state->minimized == minimized) {
+              return;
+            }
+            if (minimized) {
+              (void)m_platform->minimizeToplevelInfo(window);
+            } else {
+              m_platform->activateToplevelInfo(window);
             }
           },
       .launchAction =

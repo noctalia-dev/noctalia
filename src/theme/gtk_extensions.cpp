@@ -102,7 +102,7 @@ namespace noctalia::theme {
       const auto value = entry->get_as<std::string>("gtk_extension");
       const auto toolkit = value != nullptr ? parseToolkit(value->get()) : std::nullopt;
       if (!toolkit) {
-        kLog.warn("{}.{}: gtk_extension must be \"gtk3\" or \"gtk4\"", templateId, entryId);
+        kLog.warn(R"({}.{}: gtk_extension must be "gtk3" or "gtk4")", templateId, entryId);
         removed.push_back(entryId);
         continue;
       }

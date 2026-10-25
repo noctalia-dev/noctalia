@@ -4,6 +4,7 @@
 #include "render/core/render_styles.h"
 #include "render/scene/input_area.h"
 #include "shell/switcher/window_switcher_style.h"
+#include "system/window_state.h"
 #include "ui/palette.h"
 
 #include <cstdint>
@@ -33,6 +34,7 @@ struct WindowSwitcherEntry {
   std::uintptr_t closeHandle = 0;
   std::uintptr_t captureHandle = 0;
   std::shared_ptr<const ScreencopyImage> thumbnail;
+  std::optional<WindowMinimizeState> minimizeState;
 };
 
 // Preview card shared by window-switcher presentation styles.
@@ -72,6 +74,7 @@ protected:
   Box* m_previewHost = nullptr;
   Image* m_thumbnail = nullptr;
   Box* m_toneOverlay = nullptr;
+  Box* m_minimizeIndicator = nullptr;
   Image* m_icon = nullptr;
   Glyph* m_fallbackGlyph = nullptr;
   Box* m_captionBadge = nullptr;

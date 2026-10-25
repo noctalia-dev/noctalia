@@ -46,6 +46,7 @@ shared_gl_context     = true         # startup-only; false isolates GPU contexts
 skip_annotate_on_copy_save = false  # Ctrl+C / Ctrl+S in the region overlay skip the annotation editor
 close_on_copy = true                # close the annotation editor after Copy or Ctrl+C succeeds
 close_on_save = true                # close the annotation editor after Save or Ctrl+S succeeds
+copy_on_close = false               # Closing the editor copies the annotated image first
 
 [shell.privacy]
 mic_filter_regex = ""                # microphone app names to ignore in privacy indicators and OSD
@@ -86,14 +87,16 @@ search_position = "top"                  # full layout: top | bottom; whole laun
 default_view   = "recent"                # full layout: recent | pinned | all | categories
 categories = true                        # simple layout: show the category chip row under the search field
 category_icons_only = false             # hide app category labels; keep names in hover tooltips
+show_navigation_labels = true           # full layout: show Recent, Pinned, All, Categories, and Providers labels
 show_settings_button = true              # show the Settings shortcut beside search
 show_session_button = true               # show the session-actions shortcut beside search
 show_icons    = true                    # show application icons in launcher results
 show_app_origin_indicator = true        # show package origin indicators on application results
 compact       = false                   # use smaller icons and tighter result rows
-app_grid      = false                   # show apps, global searches, and the provider overview as icon grids
+app_grid      = false                   # show grid-capable providers and the provider overview as icon grids
 track_usage   = true                    # record launcher history for Recent and usage-based sorting
 sort_by_usage = true                    # boost frequently used results
+ignore_mouse  = false                   # ignore mouse hover and clicks inside the launcher
 pinned        = []                      # ordered apps in the Pinned view, e.g. ["firefox", "code", "kitty"]
 fetch_exchange_rates = true             # refresh currency rates from third-party sources
 provider_prefix = "/"                     # common prefix character for provider trigger words (e.g. "/" or ".")
@@ -292,6 +295,7 @@ all_day_digest_time  = "09:00"  # one notification listing today's all-day event
 
 [control_center]
 circular_avatar             = true          # disable to use the shell's corner roundness
+show_avatar_border          = true          # disable to hide the accent ring around the avatar
 
 # Calendar tab of the control center.
 
@@ -324,6 +328,7 @@ sound_theme = "freedesktop"
 
 [bluetooth]
 connect_when_enabled = false        # connect paired, trusted devices when Bluetooth turns on, at startup, and after resume
+connection_notifications = true     # notify when a device connects or disconnects on its own, or a connect you start fails
 
 # ── Brightness ────────────────────────────────────────────────────────────────
 
@@ -588,12 +593,14 @@ show_visualizer = true              # PipeWire audio visualizer beside the playb
 # hide_when_no_unread = true
 
 # [widget.network_rx]
-# network_speed_unit = "mb"          # auto | kb | mb
-# network_speed_compact = true       # show "1.2M" instead of "1.2 MB/s"
+# network_speed_unit           = "mb" # auto | kb | mb
+# network_speed_compact        = true # show "1.2M" instead of "1.2 MB/s"
+# network_speed_decimal_places = 2    # compact precision from 0 to 3
 #
 # [widget.network_tx]
-# network_speed_unit = "mb"          # auto | kb | mb
-# network_speed_compact = true       # show "1.2M" instead of "1.2 MB/s"
+# network_speed_unit           = "mb" # auto | kb | mb
+# network_speed_compact        = true # show "1.2M" instead of "1.2 MB/s"
+# network_speed_decimal_places = 2    # compact precision from 0 to 3
 
 # [widget.network]
 # vpn_status     = "replace"         # replace | both | hidden
