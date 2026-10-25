@@ -5,9 +5,11 @@
 #include "core/input/keybind_matcher.h"
 #include "core/log.h"
 #include "core/ui_phase.h"
+#include "i18n/i18n.h"
 #include "render/render_context.h"
 #include "render/render_target.h"
 #include "render/scene/node.h"
+#include "ui/controls/context_menu_search.h"
 #include "ui/controls/scroll_view.h"
 #include "ui/popup_chrome.h"
 #include "ui/style.h"
@@ -72,6 +74,12 @@ void ContextMenuPopup::open(ContextMenuPopupRequest request) {
   m_scrollView = nullptr;
   m_menu = nullptr;
   m_highlightedIndex = request.initialHighlight < request.entries.size() ? request.initialHighlight : 0;
+  m_initialHighlight = m_highlightedIndex;
+  m_searchable = request.searchable;
+  m_searchQuery.clear();
+  m_allEntries = std::move(request.entries);
+  m_visibleEntries = m_allEntries;
+  m_keepHighlightOnBuild = false;
 
   const ContextMenuPopupPlacement defaultPlacement{
       .anchor = XDG_POSITIONER_ANCHOR_BOTTOM,
@@ -113,8 +121,7 @@ void ContextMenuPopup::open(ContextMenuPopupRequest request) {
     self->m_surface->requestLayout();
   });
 
-  m_surface->setPrepareFrameCallback([self, entries = std::move(request.entries), chrome,
-                                      contentScale](bool /*needsUpdate*/, bool needsLayout) {
+  m_surface->setPrepareFrameCallback([self, chrome, contentScale](bool /*needsUpdate*/, bool needsLayout) {
     if (self->m_surface == nullptr) {
       return;
     }
@@ -136,9 +143,10 @@ void ContextMenuPopup::open(ContextMenuPopupRequest request) {
 
     UiPhaseScope layoutPhase(UiPhase::Layout);
 
-    if (self->m_menu != nullptr) {
+    if (self->m_menu != nullptr && !self->m_keepHighlightOnBuild) {
       self->m_highlightedIndex = self->m_menu->highlightedIndex();
     }
+    self->m_keepHighlightOnBuild = false;
 
     const auto fw = static_cast<float>(width);
     const auto fh = static_cast<float>(height);
@@ -170,8 +178,8 @@ void ContextMenuPopup::open(ContextMenuPopupRequest request) {
     ctrl->setContentScale(contentScale);
     ctrl->setMenuWidth(chrome.contentWidth);
     // Lay out every entry; ScrollView clips to maxVisible viewport height.
-    ctrl->setMaxVisible(entries.size());
-    ctrl->setEntries(entries);
+    ctrl->setMaxVisible(std::max<std::size_t>(1, self->m_visibleEntries.size()));
+    ctrl->setEntries(self->m_visibleEntries);
     ctrl->setHighlightedIndex(self->m_highlightedIndex);
     self->m_highlightedIndex = ctrl->highlightedIndex();
     ctrl->setRedrawCallback([self]() {
@@ -240,6 +248,11 @@ void ContextMenuPopup::close() {
   m_wlSurface = nullptr;
   m_pointerParentSurface = nullptr;
   m_pointerInside = false;
+  m_searchable = false;
+  m_searchQuery.clear();
+  m_allEntries.clear();
+  m_visibleEntries.clear();
+  m_keepHighlightOnBuild = false;
   if (wasOpen && m_onDismissed) {
     m_onDismissed();
   }
@@ -396,7 +409,26 @@ void ContextMenuPopup::onKeyboardEvent(const KeyboardEvent& event) {
   const std::uint32_t sym = event.sym;
   const std::uint32_t modifiers = event.modifiers;
 
+  if (m_searchable) {
+    const bool plainText = (modifiers & (KeyMod::Ctrl | KeyMod::Alt | KeyMod::Super)) == 0;
+    if (plainText && event.utf32 >= 0x20U && event.utf32 != 0x7FU) {
+      ContextMenuSearch::appendCodepoint(m_searchQuery, event.utf32);
+      updateSearchResults();
+      return;
+    }
+    if (KeySymbol::isBackspace(sym) && !m_searchQuery.empty()) {
+      ContextMenuSearch::eraseLastCodepoint(m_searchQuery);
+      updateSearchResults();
+      return;
+    }
+  }
+
   if (KeybindMatcher::matches(KeybindAction::Cancel, sym, modifiers)) {
+    if (m_searchable && !m_searchQuery.empty()) {
+      m_searchQuery.clear();
+      updateSearchResults();
+      return;
+    }
     deferClose();
     return;
   }
@@ -431,6 +463,37 @@ void ContextMenuPopup::onKeyboardEvent(const KeyboardEvent& event) {
       ensureHighlightedVisible();
       requestVisualUpdate();
     }
+  }
+}
+
+void ContextMenuPopup::updateSearchResults() {
+  if (m_searchQuery.empty()) {
+    m_visibleEntries = m_allEntries;
+    m_highlightedIndex = m_visibleEntries.empty() ? 0 : std::min(m_initialHighlight, m_visibleEntries.size() - 1);
+  } else {
+    const std::vector<std::size_t> matches = ContextMenuSearch::matchingEntryIndices(m_allEntries, m_searchQuery);
+    m_visibleEntries.clear();
+    m_visibleEntries.reserve(matches.size() + (matches.empty() ? 1 : 0));
+    for (const std::size_t index : matches) {
+      m_visibleEntries.push_back(m_allEntries[index]);
+    }
+    if (m_visibleEntries.empty()) {
+      m_visibleEntries.push_back(
+          ContextMenuControlEntry{
+              .id = -1,
+              .label = i18n::tr("ui.controls.search-picker.empty"),
+              .enabled = false,
+          }
+      );
+    }
+    m_highlightedIndex = 0;
+  }
+
+  m_keepHighlightOnBuild = true;
+  m_scrollState = {};
+  if (m_surface != nullptr) {
+    m_surface->requestLayout();
+    m_surface->requestRedraw();
   }
 }
 

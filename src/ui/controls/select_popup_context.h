@@ -28,6 +28,8 @@ public:
     std::vector<ColorSwatchPreview> optionSwatchPreviews;
     std::size_t selectedIndex = static_cast<std::size_t>(-1);
     std::size_t maxVisibleOptions = 6;
+    // Typing while the dropdown is open narrows the options to fuzzy label matches.
+    bool searchable = false;
   };
 
   struct DropdownCallbacks {

@@ -702,7 +702,11 @@ void WallpaperPanel::create() {
                 m_dirty = true;
                 PanelManager::instance().refresh();
               },
-          .configure = [scale](Select& select) { select.setMinWidth(kFavoriteSelectMinWidth * scale); },
+          .configure =
+              [scale](Select& select) {
+                select.setMinWidth(kFavoriteSelectMinWidth * scale);
+                select.setSearchable(true);
+              },
       })
   );
 

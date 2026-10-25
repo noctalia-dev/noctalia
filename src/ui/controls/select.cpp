@@ -221,6 +221,8 @@ void Select::setColorSwatchPreviews(std::vector<ColorSwatchPreview> previews) {
 
 void Select::setNotifyOnReselect(bool enabled) { m_notifyOnReselect = enabled; }
 
+void Select::setSearchable(bool searchable) { m_searchable = searchable; }
+
 void Select::setOnSelectionChanged(std::function<void(std::size_t, std::string_view)> callback) {
   m_onSelectionChanged = std::move(callback);
 }
@@ -464,6 +466,7 @@ void Select::openPopupDropdown() {
       .optionSwatchPreviews = m_optionSwatchPreviews,
       .selectedIndex = m_selectedIndex,
       .maxVisibleOptions = static_cast<std::size_t>(kMaxVisibleOptions),
+      .searchable = m_searchable,
   };
 
   SelectPopupContext::DropdownCallbacks callbacks{

@@ -38,6 +38,8 @@ public:
   void setOptionIndicators(std::vector<ColorSpec> colors);
   void setColorSwatchPreviews(std::vector<ColorSwatchPreview> previews);
   void setNotifyOnReselect(bool enabled);
+  // Typing while the dropdown is open narrows the options to fuzzy label matches.
+  void setSearchable(bool searchable);
   void setOnSelectionChanged(std::function<void(std::size_t, std::string_view)> callback);
 
   [[nodiscard]] std::size_t selectedIndex() const noexcept { return m_selectedIndex; }
@@ -83,6 +85,7 @@ private:
   std::vector<ColorSpec> m_indicatorColors;
   std::vector<ColorSwatchPreview> m_optionSwatchPreviews;
   bool m_notifyOnReselect = false;
+  bool m_searchable = false;
   Signal<>::ScopedConnection m_paletteConn;
   Signal<>::ScopedConnection m_inputBordersConn;
 

@@ -11,6 +11,7 @@
 #include <functional>
 #include <memory>
 #include <optional>
+#include <string>
 #include <vector>
 
 class Node;
@@ -42,6 +43,9 @@ struct ContextMenuPopupRequest {
   // Scales row heights, fonts, and insets (select-style dropdowns derive this from their font size).
   float contentScale = 1.0F;
   std::size_t maxVisible = 0;
+  // Type-to-filter: printable keys narrow the menu to fuzzy label matches instead of doing
+  // nothing. Backspace edits the query, Escape clears it before closing.
+  bool searchable = false;
   // Entry highlighted (and scrolled into view) when the menu opens; out-of-range falls back to the
   // first interactive entry.
   std::size_t initialHighlight = static_cast<std::size_t>(-1);
@@ -92,12 +96,23 @@ private:
   ScrollView* m_scrollView = nullptr;
   ContextMenuControl* m_menu = nullptr;
   std::size_t m_highlightedIndex = 0;
+  // Original and filtered entry lists. The popup owns them so filtering can rebuild the scene
+  // without reopening the surface.
+  std::vector<ContextMenuControlEntry> m_allEntries;
+  std::vector<ContextMenuControlEntry> m_visibleEntries;
+  std::string m_searchQuery;
+  std::size_t m_initialHighlight = 0;
+  bool m_searchable = false;
+  // Set before requesting a rebuild when m_highlightedIndex was chosen deliberately; otherwise the
+  // rebuild inherits the highlight from the live menu.
+  bool m_keepHighlightOnBuild = false;
   wl_surface* m_wlSurface = nullptr;
   wl_surface* m_pointerParentSurface = nullptr;
   bool m_pointerInside = false;
 
   void restoreParentKeyboardInteractivity();
   void ensureHighlightedVisible();
+  void updateSearchResults();
   void requestVisualUpdate();
   void deferActivation(ContextMenuControlEntry entry);
   void deferClose();

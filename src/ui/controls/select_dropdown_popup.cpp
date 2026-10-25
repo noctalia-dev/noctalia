@@ -91,6 +91,7 @@ void SelectDropdownPopup::openSelectDropdown(const DropdownRequest& request, Dro
           .maxMenuWidth = std::max(request.menuWidth, request.maxMenuWidth),
           .contentScale = contentScale,
           .maxVisible = std::max<std::size_t>(1, request.maxVisibleOptions),
+          .searchable = request.searchable,
           .initialHighlight = request.selectedIndex,
           .anchor =
               PopupAnchorRect{
