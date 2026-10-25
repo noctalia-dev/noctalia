@@ -291,7 +291,7 @@ void SysmonWidget::create() {
     m_graph = static_cast<Graph*>(m_chartBg->addChild(std::move(graph)));
   }
 
-  if (m_visualization == SysmonVisualization::Gauge && splitCoresActive()) {
+  if (splitCoresActive()) {
     auto coreRaw = ui::row({.gap = kCoreGaugeGap * m_contentScale});
     m_coreGaugeRow = static_cast<Flex*>(coreRaw.get());
     graphOrGaugeNode = std::move(coreRaw);
@@ -610,9 +610,6 @@ void SysmonWidget::syncCoreGauge() {
     return;
   }
 
-  // Per-core ticks never advance sampledAt, so split gauges self-schedule on the sampler's own
-  // fixed cadence rather than the history-driven timing the graph uses.
-  m_updateTimer.startRepeating(SystemMonitorService::kCpuCoreInterval, [this]() { requestUpdate(); });
   if (!m_monitor->isRunning()) {
     m_lastCoreUsage.clear();
     for (ProgressBar* gauge : m_coreGauges) {
@@ -621,7 +618,11 @@ void SysmonWidget::syncCoreGauge() {
     return;
   }
 
-  const std::vector<double> cores = m_monitor->latest().cpuCoreUsagePercent;
+  // Per-core ticks never advance sampledAt, so split gauges self-schedule on the sampler's own
+  // fixed cadence rather than the history-driven timing the graph uses.
+  m_updateTimer.start(SystemMonitorService::kCpuCoreInterval, [this]() { requestUpdate(); });
+
+  std::vector<double> cores = m_monitor->latest().cpuCoreUsagePercent;
   if (cores.empty()) {
     return;
   }
@@ -630,10 +631,10 @@ void SysmonWidget::syncCoreGauge() {
     rebuildCoreGauge(cores.size());
   }
 
-  m_lastCoreUsage = cores;
   for (std::size_t i = 0; i < m_coreGauges.size(); ++i) {
     m_coreGauges[i]->setProgress(static_cast<float>(std::clamp(cores[i] / 100.0, 0.0, 1.0)));
   }
+  m_lastCoreUsage = std::move(cores);
   requestRedraw();
 }
 
@@ -646,10 +647,9 @@ void SysmonWidget::rebuildCoreGauge(std::size_t coreCount) {
   const ColorSpec track = gaugeTrackColor(widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface)));
   m_coreGauges.reserve(coreCount);
   for (std::size_t i = 0; i < coreCount; ++i) {
-    auto gauge = std::make_unique<ProgressBar>();
-    gauge->setTrack(track);
-    gauge->setProgress(0.0F);
-    m_coreGauges.push_back(static_cast<ProgressBar*>(m_coreGaugeRow->addChild(std::move(gauge))));
+    m_coreGauges.push_back(
+        static_cast<ProgressBar*>(m_coreGaugeRow->addChild(ui::progressBar({.track = track, .progress = 0.0F})))
+    );
   }
 }
 
