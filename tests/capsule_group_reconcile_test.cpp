@@ -1,4 +1,5 @@
 #include "config/config_types.h"
+#include "test_check.h"
 
 #include <print>
 #include <set>
@@ -129,6 +130,67 @@ int main() {
              "monitor scope collects its own lanes, falling back to the bar's lane where unset"
          )
         && ok;
+  }
+
+  // Nested groups (a member entry that is itself a group token) are reachable through their
+  // parent, so scopes keep them and reconcile never drops them while referenced.
+  {
+    BarCapsuleGroupStyle outer;
+    outer.id = "outer";
+    outer.members = {"clock", makeCapsuleGroupToken("inner")};
+    BarCapsuleGroupStyle inner;
+    inner.id = "inner";
+    inner.members = {"network", "volume"};
+    BarConfig bar;
+    bar.startWidgets = {makeCapsuleGroupToken("outer")};
+    bar.widgetCapsuleGroups = {outer, inner};
+
+    ok = expect(capsuleGroupHasNestedRef(outer), "outer reports a nested ref") && ok;
+    ok = expect(!capsuleGroupHasNestedRef(inner), "inner reports no nested ref") && ok;
+    ok = expect(nestedCapsuleGroupIds(outer) == std::vector<std::string>{"inner"}, "nested id listed") && ok;
+    ok = expect(
+             capsuleGroupRefsForBarScope(bar) == std::set<std::string>{"inner", "outer"},
+             "bar scope includes transitively nested groups"
+         )
+        && ok;
+
+    // Reconcile keeps the nested-only group while the outer is referenced (GUI-created groups
+    // have no file entry, so `base` is empty and survival depends entirely on `referenced`)...
+    const std::vector<BarCapsuleGroupStyle> current{outer, inner};
+    const std::set<std::string> nestedRefs = capsuleGroupRefsForBarScope(bar);
+    ok = expect(
+             ids(reconcileCapsuleGroups(current, {}, nestedRefs)) == std::vector<std::string>{"outer", "inner"},
+             "referenced nested group survives reconcile"
+         )
+        && ok;
+    // ...and drops it once nothing reaches it anymore.
+    ok =
+        expect(
+            reconcileCapsuleGroups(current, {}, std::set<std::string>{}).empty(), "unreferenced nested group is dropped"
+        )
+        && ok;
+  }
+
+  // Resetting a lane must restore the whole file-defined subtree, even when its
+  // parent is absent from the current override array and the child precedes it.
+  {
+    const auto outer = group("outer", {"clock", "group:inner"});
+    const auto inner = group("inner", {"network", "volume"});
+    const std::vector<BarCapsuleGroupStyle> nestedBase{inner, outer};
+    TEST_CHECK(reconcileCapsuleGroups({}, nestedBase, {"outer"}) == nestedBase);
+
+    // A retained override owns membership; do not revive children removed there.
+    const auto editedOuter = group("outer", {"clock"});
+    TEST_CHECK(
+        reconcileCapsuleGroups({editedOuter}, nestedBase, {"outer"}) == std::vector<BarCapsuleGroupStyle>{editedOuter}
+    );
+
+    // A restored parent may also reference a GUI-created child with edited style.
+    const auto editedInner = group("inner", {"network", "volume"}, 12.0F);
+    TEST_CHECK(
+        reconcileCapsuleGroups({editedInner}, {outer}, {"outer"})
+        == (std::vector<BarCapsuleGroupStyle>{outer, editedInner})
+    );
   }
 
   return ok ? 0 : 1;

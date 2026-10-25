@@ -758,6 +758,75 @@ namespace noctalia::config {
       }
     }
 
+    void validateCapsuleGroupNesting(
+        const std::string& scope, const std::vector<BarCapsuleGroupStyle>& groups, schema::Diagnostics& diag
+    ) {
+      const auto findGroup = [&](std::string_view id) -> const BarCapsuleGroupStyle* {
+        for (const auto& group : groups) {
+          if (group.id == id) {
+            return &group;
+          }
+        }
+        return nullptr;
+      };
+      const std::string path = scope + ".capsule_group";
+      for (const auto& group : groups) {
+        for (const auto& member : group.members) {
+          if (!isCapsuleGroupToken(member)) {
+            continue;
+          }
+          const std::string innerId = capsuleGroupTokenId(member);
+          if (innerId.empty() || innerId == group.id) {
+            diag.warn(path, "capsule_group \"" + group.id + "\" has invalid nested reference \"" + member + "\"");
+            continue;
+          }
+          const BarCapsuleGroupStyle* inner = findGroup(innerId);
+          if (inner == nullptr) {
+            diag.warn(
+                path, "capsule_group \"" + group.id + "\": nested entry \"" + member + "\" has no matching group"
+            );
+            continue;
+          }
+          for (const auto& innerMember : inner->members) {
+            if (!isCapsuleGroupToken(innerMember)) {
+              continue;
+            }
+            if (capsuleGroupTokenId(innerMember) == group.id) {
+              diag.warn(
+                  path,
+                  "capsule_group \""
+                      + group.id
+                      + "\" and \""
+                      + inner->id
+                      + "\" nest inside each other; the inner reference is skipped"
+              );
+            } else {
+              diag.warn(
+                  path,
+                  "capsule_group \""
+                      + inner->id
+                      + "\" is nested and its entry \""
+                      + innerMember
+                      + "\" would nest deeper than one level; it is skipped"
+              );
+            }
+          }
+          if (group.accordion) {
+            diag.warn(
+                path,
+                "capsule_group \""
+                    + group.id
+                    + "\" nests \""
+                    + inner->id
+                    + "\"; accordion is disabled for groups containing nested groups"
+            );
+          } else if (inner->accordion && capsuleGroupHasNestedRef(*inner)) {
+            diag.warn(path, "capsule_group \"" + inner->id + "\" nests further groups; accordion is disabled for it");
+          }
+        }
+      }
+    }
+
     void validateBars(const toml::table& root, schema::Diagnostics& diag) {
       const auto* bars = root["bar"].as_table();
       if (bars == nullptr) {
@@ -796,6 +865,7 @@ namespace noctalia::config {
         } catch (const std::exception& e) {
           diag.error(base, e.what());
         }
+        validateCapsuleGroupNesting(base, tmpBar.widgetCapsuleGroups, diag);
         if (const auto* monitors = (*barTbl)["monitor"].as_table()) {
           for (const auto& [match, monNode] : *monitors) {
             const auto* monTbl = monNode.as_table();
@@ -813,6 +883,11 @@ namespace noctalia::config {
               schema::readInto(*monTbl, tmpOvr, schema::barMonitorOverrideSchema(), monBase, diag);
             } catch (const std::exception& e) {
               diag.error(monBase, e.what());
+            }
+            // Nesting is a property of the group array itself, not of the lanes: only validate an
+            // override array here (an inheriting monitor shares the bar array validated above).
+            if (tmpOvr.widgetCapsuleGroups.has_value()) {
+              validateCapsuleGroupNesting(monBase, *tmpOvr.widgetCapsuleGroups, diag);
             }
           }
         }

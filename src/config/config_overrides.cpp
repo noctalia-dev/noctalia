@@ -847,11 +847,17 @@ namespace {
     }
     const std::vector<BarCapsuleGroupStyle>* groupsA = barLaneCapsuleGroups(a, lanePath);
     const std::vector<BarCapsuleGroupStyle>* groupsB = barLaneCapsuleGroups(b, lanePath);
-    for (const std::string& entry : *laneA) {
-      if (!isCapsuleGroupToken(entry)) {
-        continue;
-      }
-      const std::string id = capsuleGroupTokenId(entry);
+    std::set<std::string> roots;
+    collectLaneGroupIds(*laneA, roots);
+    std::set<std::string> referenced = roots;
+    if (groupsA != nullptr) {
+      referenced = transitiveCapsuleGroupRefs(roots, *groupsA);
+    }
+    if (groupsB != nullptr) {
+      const auto baselineRefs = transitiveCapsuleGroupRefs(roots, *groupsB);
+      referenced.insert(baselineRefs.begin(), baselineRefs.end());
+    }
+    for (const std::string& id : referenced) {
       const auto findGroup = [&id](const std::vector<BarCapsuleGroupStyle>* groups) -> const BarCapsuleGroupStyle* {
         if (groups == nullptr) {
           return nullptr;
@@ -2104,7 +2110,11 @@ bool ConfigService::resetBarLaneOverride(const std::vector<std::string>& lanePat
     if (baseGroups != nullptr && currentGroups != nullptr && baseLane != nullptr && currentLane != nullptr) {
       std::set<std::string> owned;
       collectLaneGroupIds(*baseLane, owned);
-      collectLaneGroupIds(*currentLane, owned);
+      owned = transitiveCapsuleGroupRefs(owned, *baseGroups);
+      std::set<std::string> currentOwned;
+      collectLaneGroupIds(*currentLane, currentOwned);
+      currentOwned = transitiveCapsuleGroupRefs(currentOwned, *currentGroups);
+      owned.insert(currentOwned.begin(), currentOwned.end());
 
       std::vector<BarCapsuleGroupStyle> restored;
       restored.reserve(currentGroups->size());
