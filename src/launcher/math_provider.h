@@ -22,6 +22,7 @@ public:
   [[nodiscard]] std::string_view id() const override { return "Calculator"; }
   [[nodiscard]] std::string displayName() const override;
   [[nodiscard]] std::string_view defaultGlyphName() const override { return "calculator"; }
+  [[nodiscard]] bool supportsGrid() const override { return false; }
   [[nodiscard]] bool supportsAutoPaste() const override { return true; }
 
   void initialize() override;

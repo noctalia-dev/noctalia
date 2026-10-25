@@ -29,7 +29,7 @@
   "bar": {
     "annotate": {
       "capture-new-region": "Capture new region (discards the current edit)",
-      "close": "Close without delivering (Esc)",
+      "close": "Close editor",
       "color-black": "Black",
       "color-blue": "Blue",
       "color-green": "Green",
@@ -223,6 +223,10 @@
       "apply": "Apply",
       "cancel": "Cancel"
     },
+    "minimize": "Minimise",
+    "minimized": "Minimised",
+    "minimized-count": "{count} minimised",
+    "restore": "Restore",
     "states": {
       "auto": "Auto",
       "custom": "Custom",
@@ -611,6 +615,7 @@
         "layout": "Layout",
         "mirrored": "Mirrored",
         "network-speed-compact": "Compact Network Speed",
+        "network-speed-decimal-places": "Network Speed Decimal Places",
         "network-speed-unit": "Network Speed Unit",
         "network-speed-unit-auto": "Auto",
         "network-speed-unit-kilobytes": "kB/s",
@@ -879,6 +884,10 @@
       "battery-device": "Battery device",
       "battery-low-body": "{device}: {percent}% remaining",
       "battery-low-title": "Battery low",
+      "bluetooth": "Bluetooth",
+      "bluetooth-connect-failed-title": "Could not connect to {device}",
+      "bluetooth-connected-title": "{device} connected",
+      "bluetooth-disconnected-title": "{device} disconnected",
       "calendar": "Calendar",
       "calendar-credential-locked-body": "Unlock the keyring used by Secret Service, then retry in Settings. With GNOME Keyring, make an automatically unlocked keyring such as Login the default.",
       "calendar-credential-locked-title": "Calendar keyring is locked",
@@ -2664,6 +2673,10 @@
           "description": "Gap in pixels between a floating or detached panel and the bar edge",
           "label": "Floating Offset"
         },
+        "home-avatar-border": {
+          "description": "Show the accent ring around the Home tab avatar",
+          "label": "Show Avatar Border"
+        },
         "home-circular-avatar": {
           "description": "Use a circular avatar; disable to follow the shell's corner roundness",
           "label": "Circular Avatar"
@@ -2737,8 +2750,12 @@
           "label": "Windows in Global Search"
         },
         "launcher-grid": {
-          "description": "Show results and the provider overview as an icon grid instead of rows",
+          "description": "Show grid-capable provider results and the provider overview as an icon grid instead of rows",
           "label": "Grid View"
+        },
+        "launcher-ignore-mouse": {
+          "description": "Ignore mouse hover, motion, and clicks inside the launcher for keyboard-only navigation",
+          "label": "Ignore Mouse Input"
         },
         "launcher-ignored-panels": {
           "description": "Panels the panel provider never lists (e.g. authentication prompts, the setup wizard)",
@@ -2796,6 +2813,10 @@
         "launcher-show-icons": {
           "description": "Show application icons in launcher results",
           "label": "Show App Icons"
+        },
+        "launcher-show-navigation-labels": {
+          "description": "Show text beside the Recent, Pinned, All, Categories, and Providers icons when space allows",
+          "label": "Show Navigation Labels"
         },
         "launcher-show-session-button": {
           "description": "Show a shortcut to the configured session actions",
@@ -2931,6 +2952,10 @@
         "bluetooth-connect-when-enabled": {
           "description": "Connect paired, trusted devices when Bluetooth turns on, at startup, and after resume",
           "label": "Connect Devices When Bluetooth Turns On"
+        },
+        "bluetooth-connection-notifications": {
+          "description": "Show a notification when a Bluetooth device connects or disconnects on its own, or when a connection you start fails",
+          "label": "Device Connection Notifications"
         },
         "calendar": {
           "description": "Show events from your online calendar accounts",
@@ -3483,6 +3508,10 @@
         "screenshot-close-on-save": {
           "description": "Close after a successful save from the editor, including when opened directly",
           "label": "Close Editor After Saving"
+        },
+        "screenshot-copy-on-close": {
+          "description": "Copy the annotated image to the clipboard when closing the editor with the cancel key or close button",
+          "label": "Copy on Close"
         },
         "screenshot-confirm-region": {
           "description": "After drawing a region, keep the overlay open until you confirm with Enter or Space",
@@ -4749,6 +4778,10 @@
         "network-speed-compact": {
           "description": "Use short unit suffixes such as 1.2M instead of 1.2 MB/s",
           "label": "Compact Network Speed"
+        },
+        "network-speed-decimal-places": {
+          "description": "Number of decimal places shown for compact network speeds, from 0 to 3",
+          "label": "Network Speed Decimal Places"
         },
         "network-speed-unit": {
           "description": "Unit used for network receive and transmit speeds; Auto switches between B/s, kB/s, MB/s, and GB/s",

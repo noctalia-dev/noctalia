@@ -257,6 +257,8 @@ public:
     m_extForeignToplevels.visitExtHandles(std::forward<Fn>(fn));
   }
   void activateToplevel(zwlr_foreign_toplevel_handle_v1* handle);
+  [[nodiscard]] bool minimizeToplevel(zwlr_foreign_toplevel_handle_v1* handle);
+  [[nodiscard]] std::optional<bool> toplevelMinimized(zwlr_foreign_toplevel_handle_v1* handle) const;
   void closeToplevel(zwlr_foreign_toplevel_handle_v1* handle);
   template <typename Fn> void visitWlrToplevelHandles(Fn&& fn) const {
     m_toplevelsHandler.visitWlrHandles(std::forward<Fn>(fn));

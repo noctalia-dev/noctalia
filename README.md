@@ -60,15 +60,7 @@ Current compositor integrations include Niri, Hyprland, Sway, Scroll, Mango, Lab
 
 ## Scope
 
-Noctalia is a desktop shell, not a full desktop environment. It provides the visual and service layer around your Wayland compositor: bars, panels, launcher, notifications, dock, lock screen, idle behavior, OSDs, theming, wallpapers, desktop widgets, and multi-monitor shell surfaces.
-
-Window management, tiling, compositor configuration such as monitor arrangement and positions, file management, removable-drive mounting, printers management, and screen mirroring/casting belong to the compositor, dedicated desktop applications, or system services.
-
-Display/login greeter support lives in the separate [Noctalia Greeter](https://github.com/noctalia-dev/noctalia-greeter) project. Noctalia may integrate with those pieces when useful, but it does not replace them.
-
-Core Noctalia is non-invasive: it does not manage your compositor settings or take over your dotfiles. Compositor-specific controls can be provided as opt-in plugins rather than becoming core shell behavior.
-
-The plugin system is available for user-installed extensions. Features that are useful to some users but not essential to the core shell can live there: extra bar widgets, launcher providers, desktop widgets, panels, shortcuts, background services, compositor-specific extras and controls, hardware-specific controls, and third-party service integrations.
+Noctalia is a desktop shell, not a full desktop environment. It provides the visual and service layer around your Wayland compositor; window management, compositor configuration, and standalone desktop applications belong elsewhere, and non-essential features live in plugins. See [SCOPE.md](SCOPE.md) for what the project takes on and declines.
 
 ## Build from source
 

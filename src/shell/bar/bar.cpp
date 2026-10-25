@@ -104,11 +104,17 @@ namespace {
 
     const auto assignments = platform.workspaceWindowAssignments(output);
     for (const auto& assignment : assignments) {
+      if (assignment.minimizeState.has_value() && assignment.minimizeState->minimized) {
+        continue;
+      }
       if (workspaceKeyMatchesAssignment(assignment.workspaceKey, *active)) {
         return true;
       }
     }
     if (!assignments.empty()) {
+      return false;
+    }
+    if (platform.hasUnminimizedToplevels(output) == false) {
       return false;
     }
     return active->occupied;

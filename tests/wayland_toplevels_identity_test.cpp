@@ -1,6 +1,7 @@
 #include "system/internal_app_metadata.h"
 #include "tests/test_check.h"
 #include "wayland/wayland_protocol_policy.h"
+#include "wlr-foreign-toplevel-management-unstable-v1-client-protocol.h"
 
 #include <cstdint>
 #include <functional>
@@ -75,6 +76,37 @@ int main() {
   toplevels.onHandleOutputLeave(handle, otherOutput);
   TEST_CHECK(it->second.output == nullptr);
   TEST_CHECK(toplevels.windowsForApp("sample-chat-desktop", "samplechat", someOutput).empty());
+
+  int wlrChanges = 0;
+  toplevels.setChangeCallback([&]() { ++wlrChanges; });
+  TEST_CHECK(!toplevels.minimized(handle).has_value());
+  std::uint32_t minimizedFlag = ZWLR_FOREIGN_TOPLEVEL_HANDLE_V1_STATE_MINIMIZED;
+  wl_array minimizedState{
+      .size = sizeof(minimizedFlag),
+      .alloc = sizeof(minimizedFlag),
+      .data = &minimizedFlag,
+  };
+  toplevels.onHandleState(handle, &minimizedState);
+  TEST_CHECK(!toplevels.windowsForApp("sample-chat-desktop", "samplechat")[0].minimizeState.has_value());
+  toplevels.onHandleDone(handle);
+  TEST_CHECK(wlrChanges == 1);
+  const auto minimizedWindows = toplevels.windowsForApp("sample-chat-desktop", "samplechat");
+  TEST_CHECK(minimizedWindows.size() == 1);
+  TEST_CHECK(minimizedWindows[0].handle == handle);
+  TEST_CHECK(minimizedWindows[0].order == windows[0].order);
+  TEST_CHECK(minimizedWindows[0].minimizeState.has_value());
+  TEST_CHECK(minimizedWindows[0].minimizeState->minimized);
+  TEST_CHECK(toplevels.minimized(handle) == true);
+
+  wl_array restoredState{};
+  toplevels.onHandleState(handle, &restoredState);
+  TEST_CHECK(toplevels.minimized(handle) == true);
+  toplevels.onHandleDone(handle);
+  TEST_CHECK(wlrChanges == 2);
+  TEST_CHECK(toplevels.minimized(handle) == false);
+  TEST_CHECK(!toplevels.windowsForApp("sample-chat-desktop", "samplechat")[0].minimizeState->minimized);
+  TEST_CHECK(!toplevels.minimized(nullptr).has_value());
+  TEST_CHECK(!toplevels.minimizeHandle(nullptr));
 
   WaylandExtForeignToplevels extToplevels;
   int changeCount = 0;

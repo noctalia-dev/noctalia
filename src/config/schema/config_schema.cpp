@@ -515,6 +515,7 @@ namespace noctalia::config::schema {
   const Schema<BluetoothConfig>& bluetoothSchema() {
     static const Schema<BluetoothConfig> s = {
         field(&BluetoothConfig::connectWhenEnabled, "connect_when_enabled"),
+        field(&BluetoothConfig::connectionNotifications, "connection_notifications"),
     };
     return s;
   }
@@ -549,6 +550,7 @@ namespace noctalia::config::schema {
         field(&ControlCenterConfig::showShortcutLabels, "show_shortcut_labels"),
         field(&ControlCenterConfig::showSessionButton, "show_session_button"),
         field(&ControlCenterConfig::circularAvatar, "circular_avatar"),
+        field(&ControlCenterConfig::showAvatarBorder, "show_avatar_border"),
         field(&ControlCenterConfig::hiddenTabs, "hidden_tabs"),
         subTable(&ControlCenterConfig::calendarTab, "calendar", calendarTabSchema()),
         subTable(&ControlCenterConfig::mediaTab, "media", mediaTabSchema()),
@@ -1539,6 +1541,7 @@ namespace noctalia::config::schema {
           enumField(&ShellConfig::LauncherConfig::defaultView, "default_view", ShellConfig::kLauncherDefaultViews),
           field(&ShellConfig::LauncherConfig::categories, "categories"),
           field(&ShellConfig::LauncherConfig::categoryIconsOnly, "category_icons_only"),
+          field(&ShellConfig::LauncherConfig::showNavigationLabels, "show_navigation_labels"),
           field(&ShellConfig::LauncherConfig::showSettingsButton, "show_settings_button"),
           field(&ShellConfig::LauncherConfig::showSessionButton, "show_session_button"),
           field(&ShellConfig::LauncherConfig::showIcons, "show_icons"),
@@ -1548,6 +1551,7 @@ namespace noctalia::config::schema {
           field(&ShellConfig::LauncherConfig::showAppActions, "show_app_actions"),
           field(&ShellConfig::LauncherConfig::trackUsage, "track_usage"),
           field(&ShellConfig::LauncherConfig::sortByUsage, "sort_by_usage"),
+          field(&ShellConfig::LauncherConfig::ignoreMouse, "ignore_mouse"),
           field(&ShellConfig::LauncherConfig::pinned, "pinned"),
           field(&ShellConfig::LauncherConfig::fetchExchangeRates, "fetch_exchange_rates"),
           field(&ShellConfig::LauncherConfig::providerPrefix, "provider_prefix"),
@@ -1622,6 +1626,7 @@ namespace noctalia::config::schema {
           field(&ShellConfig::ScreenshotConfig::skipAnnotateOnCopySave, "skip_annotate_on_copy_save"),
           field(&ShellConfig::ScreenshotConfig::closeOnCopy, "close_on_copy"),
           field(&ShellConfig::ScreenshotConfig::closeOnSave, "close_on_save"),
+          field(&ShellConfig::ScreenshotConfig::copyOnClose, "copy_on_close"),
           field(&ShellConfig::ScreenshotConfig::pipeToCommand, "pipe_to_command"),
           field(&ShellConfig::ScreenshotConfig::pipeCommand, "pipe_command"),
           field(&ShellConfig::ScreenshotConfig::directory, "directory"),

@@ -104,6 +104,12 @@ Umbriel can launch Noctalia IPC commands directly from its `[keybinds]` table. A
 
 `Mod` uses Umbriel's configured modifier from `general.mod_key` and defaults to Super in a native session. See [Keybinds](/umbriel/keybinds/) for more Noctalia IPC examples and the complete action reference.
 
+## Window minimisation
+
+Noctalia tracks Umbriel's minimise state in the [taskbar](/noctalia/bar/widgets/taskbar/), [dock](/noctalia/dock/), window switcher, and launcher window results. Clicking a focused single-window taskbar or dock icon minimises it when Umbriel marks it as eligible. Clicking a minimised window restores and focuses it; multi-window icons continue cycling.
+
+Use an Umbriel build that includes both boolean fields `minimized` and `minimizable` in its window IPC snapshots. If those fields are missing or invalid, or the IPC connection is unavailable, minimise state and controls remain unavailable. Missing or invalid fields are reported in Noctalia's logs; update Umbriel when using an older build.
+
 ## Optional Type to Launch
 
 Noctalia can open its launcher when you start typing in umbriel's overview.

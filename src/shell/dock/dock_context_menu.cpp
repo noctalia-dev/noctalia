@@ -154,7 +154,7 @@ namespace shell::dock {
 
     // IDs 0..N-1 -> desktop actions; negative constants -> windows / close commands.
     std::vector<ContextMenuControlEntry> entries;
-    entries.reserve(windows.size() + entry.actions.size() + 5);
+    entries.reserve(windows.size() * 2 + entry.actions.size() + 5);
 
     const bool isPinned = pinned_apps::containsEntry(dockConfig.pinned, entry);
     entries.push_back(
@@ -168,21 +168,37 @@ namespace shell::dock {
     );
 
     std::vector<ContextMenuControlEntry> bodyEntries;
-    bodyEntries.reserve(windows.size() + entry.actions.size() + 4);
+    bodyEntries.reserve(windows.size() * 2 + entry.actions.size() + 4);
 
-    for (std::size_t i = 0; i < windows.size(); ++i) {
-      const auto& title = windows[i].title.empty() ? entry.name : windows[i].title;
+    for (std::size_t i = 0; i < menu->windows.size(); ++i) {
+      auto& window = menu->windows[i];
+      window.minimizeState = platform.windowMinimizeState(window);
+      std::string title = window.title.empty() ? entry.name : window.title;
+      if (window.minimizeState.has_value() && window.minimizeState->minimized) {
+        title += " (" + i18n::tr("common.minimized") + ")";
+      }
       bodyEntries.push_back(
           ContextMenuControlEntry{
-              .id = kMenuWindowBaseId - static_cast<std::int32_t>(i),
+              .id = kMenuWindowBaseId - static_cast<std::int32_t>(i) * 2,
               .label = title,
-              .enabled = windows[i].handle != nullptr
-                  || !windows[i].identifier.empty()
-                  || (compositors::isKde() && (!windows[i].title.empty() || !windows[i].appId.empty())),
+              .enabled = window.handle != nullptr
+                  || !window.identifier.empty()
+                  || (compositors::isKde() && (!window.title.empty() || !window.appId.empty())),
               .separator = false,
               .hasSubmenu = false,
           }
       );
+      if (window.minimizeState.has_value()) {
+        const auto& state = *window.minimizeState;
+        bodyEntries.push_back(
+            ContextMenuControlEntry{
+                .id = kMenuWindowBaseId - static_cast<std::int32_t>(i) * 2 - 1,
+                .label = i18n::tr(state.minimized ? "common.restore" : "common.minimize"),
+                .enabled = callbacks.setWindowMinimized != nullptr && (state.minimized || state.minimizable),
+                .indentLevel = 1,
+            }
+        );
+      }
     }
 
     const bool hasWindowEntries = !windows.empty();
@@ -401,9 +417,16 @@ namespace shell::dock {
               callbacks.setEntryPinned(!isPinned);
             }
           } else if (id <= kMenuWindowBaseId) {
-            const auto idx = static_cast<std::size_t>(kMenuWindowBaseId - id);
-            if (idx < menuWindows.size() && callbacks.activateWindow) {
-              callbacks.activateWindow(idx);
+            const auto actionIndex = static_cast<std::size_t>(kMenuWindowBaseId - id);
+            const auto idx = actionIndex / 2;
+            if (idx < menuWindows.size()) {
+              if (actionIndex % 2 == 0 && callbacks.activateWindow) {
+                callbacks.activateWindow(idx);
+              } else if (
+                  actionIndex % 2 != 0 && menuWindows[idx].minimizeState.has_value() && callbacks.setWindowMinimized
+              ) {
+                callbacks.setWindowMinimized(idx, !menuWindows[idx].minimizeState->minimized);
+              }
             }
           } else if (id >= 0) {
             const auto idx = static_cast<std::size_t>(id);
