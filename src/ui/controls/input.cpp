@@ -887,10 +887,10 @@ void Input::rebuildCursorStopsFull(Renderer& renderer) {
     if (m_stopX.size() != m_stopByte.size()) {
       m_stopX.assign(m_stopByte.size(), 0.0F);
     }
-  }
-  m_stopsInLogicalOrder = std::ranges::is_sorted(m_stopX);
-  if (!m_multiline && !showPasswordGlyphs && !m_stopsInLogicalOrder) {
-    renderer.measureTextCharSpans(m_value, m_fontSize, m_stopByte, m_charSpans, m_label->font());
+    m_stopsInLogicalOrder = std::ranges::is_sorted(m_stopX);
+    if (!m_stopsInLogicalOrder) {
+      renderer.measureTextCharSpans(m_value, m_fontSize, m_stopByte, m_charSpans, m_label->font());
+    }
   }
 }
 
@@ -1361,7 +1361,7 @@ void Input::handleKey(std::uint32_t sym, std::uint32_t utf32, std::uint32_t modi
     resetUndoCoalescing();
     const bool left = KeySymbol::isLeft(sym);
     // Right-to-left runs put byte order and screen order apart; arrows follow the screen.
-    const bool visual = !m_multiline && !m_stopsInLogicalOrder;
+    const bool visual = !m_stopsInLogicalOrder;
     if (!shift && hasSelection()) {
       // Collapse to the selection edge on the arrow's side
       const bool startOnLeft = !visual || stopXForByte(selectionStart()) <= stopXForByte(selectionEnd());

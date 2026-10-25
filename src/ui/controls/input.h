@@ -218,7 +218,8 @@ private:
   std::vector<float> m_stopX;
   std::vector<std::size_t> m_stopByte;
   std::vector<TextCursorStop> m_stopRect;
-  // False when bidi reordering puts some cursor stops out of byte order (any right-to-left run).
+  // Single-line text only: false when bidi reordering puts some cursor stops out of byte order (any
+  // right-to-left run). Multiline and masked text keep it true.
   bool m_stopsInLogicalOrder = true;
   // Per-character screen extents (parallel to m_stopByte minus the last stop), measured only for
   // single-line text whose stops are out of byte order.
