@@ -71,11 +71,10 @@ void CalendarReminderMonitor::initialize() {
     return;
   }
   loadPersistedState();
-  m_notifications.setInternalActionCallback(
-      [this](std::uint32_t id, const std::string& actionKey, const std::string& activationToken) {
-        onNotificationAction(id, actionKey, activationToken);
-      }
-  );
+  m_notifications.setInternalActionCallback([this](
+                                                std::uint32_t id, const std::string& actionKey,
+                                                const std::string& activationToken, const std::string& /*sender*/
+                                            ) { onNotificationAction(id, actionKey, activationToken); });
   m_initialized = true;
 }
 
