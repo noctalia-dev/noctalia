@@ -405,7 +405,7 @@ Color SysmonWidget::currentValueColor(ColorSpec baseColor, std::optional<double>
   const Color base = resolveColorSpec(baseColor);
   const Color highlight = resolveColorSpec(m_highlightColor);
   const auto [activityThreshold, criticalThreshold] = currentThresholds();
-  const double gradientValue = value.value_or(currentGradientValue());
+  const double gradientValue = value ? *value : currentGradientValue();
   const auto factor = static_cast<float>(gradientFactor(gradientValue, activityThreshold, criticalThreshold));
   return lerpHsvChromaWeighted(base, highlight, factor);
 }
