@@ -159,7 +159,7 @@ private:
   void restoreEditSnapshot(const EditSnapshot& snapshot);
   [[nodiscard]] std::size_t xToByteOffset(float localX) const;
   [[nodiscard]] float stopXForByte(std::size_t bytePos) const;
-  [[nodiscard]] std::size_t visuallyAdjacentByte(std::size_t bytePos, bool left) const;
+  [[nodiscard]] std::size_t visuallyAdjacentByte(std::size_t bytePos, bool left, bool wordStart) const;
   [[nodiscard]] bool valueLaidOutRtl() const noexcept;
   [[nodiscard]] bool labelSlicingEnabled() const noexcept;
   [[nodiscard]] float restingScrollOffset() const;

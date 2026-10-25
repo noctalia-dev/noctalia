@@ -132,5 +132,34 @@ int main() {
     TEST_CHECK(pressKey(input, XKB_KEY_Right, KeyMod::Ctrl) == 0);
   }
 
+  // Ctrl+arrows also follow the screen inside an LTR run of an RTL paragraph. Pango draws the run's
+  // edges on the paragraph's side: the logical end sits left of "Hello" and its start right of "world".
+  {
+    Input input;
+    layOut(renderer, input, "مرحبا Hello big world");
+    const std::int32_t end = input.textInputState().cursor;
+    TEST_CHECK(pressKey(input, XKB_KEY_Right, KeyMod::Ctrl) == 17);
+    TEST_CHECK(pressKey(input, XKB_KEY_Right, KeyMod::Ctrl) == 21);
+    TEST_CHECK(pressKey(input, XKB_KEY_Right, KeyMod::Ctrl) == 11);
+    TEST_CHECK(pressKey(input, XKB_KEY_Right, KeyMod::Ctrl) == 0);
+    TEST_CHECK(pressKey(input, XKB_KEY_Left, KeyMod::Ctrl) == 11);
+    TEST_CHECK(pressKey(input, XKB_KEY_Left, KeyMod::Ctrl) == 21);
+    TEST_CHECK(pressKey(input, XKB_KEY_Left, KeyMod::Ctrl) == 17);
+    TEST_CHECK(pressKey(input, XKB_KEY_Left, KeyMod::Ctrl) == end);
+  }
+
+  // A caret inside a lone LTR word still moves toward the word's edge on the arrow's side.
+  {
+    Input input;
+    layOut(renderer, input, "مرحبا Hello");
+    const std::int32_t end = input.textInputState().cursor;
+    pressKey(input, XKB_KEY_Right);
+    pressKey(input, XKB_KEY_Right);
+    TEST_CHECK(pressKey(input, XKB_KEY_Left, KeyMod::Ctrl) == end);
+    pressKey(input, XKB_KEY_Right);
+    pressKey(input, XKB_KEY_Right);
+    TEST_CHECK(pressKey(input, XKB_KEY_Right, KeyMod::Ctrl) == 11);
+  }
+
   return 0;
 }

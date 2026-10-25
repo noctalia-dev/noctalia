@@ -1368,11 +1368,10 @@ void Input::handleKey(std::uint32_t sym, std::uint32_t utf32, std::uint32_t modi
       m_cursorPos = left == startOnLeft ? selectionStart() : selectionEnd();
       m_selectionAnchor = m_cursorPos;
     } else {
-      if (ctrl) {
-        const bool backward = left != valueLaidOutRtl();
-        m_cursorPos = backward ? previousWordStartForByteOffset(m_cursorPos) : nextWordStartForByteOffset(m_cursorPos);
-      } else if (visual) {
-        m_cursorPos = visuallyAdjacentByte(m_cursorPos, left);
+      if (visual) {
+        m_cursorPos = visuallyAdjacentByte(m_cursorPos, left, ctrl);
+      } else if (ctrl) {
+        m_cursorPos = left ? previousWordStartForByteOffset(m_cursorPos) : nextWordStartForByteOffset(m_cursorPos);
       } else {
         m_cursorPos = left ? prevCharPos(m_value, m_cursorPos) : nextCharPos(m_value, m_cursorPos);
       }
@@ -2563,12 +2562,30 @@ float Input::stopXForByte(std::size_t bytePos) const {
   return m_stopX.empty() ? 0.0F : m_stopX.back();
 }
 
-std::size_t Input::visuallyAdjacentByte(std::size_t bytePos, bool left) const {
+std::size_t Input::visuallyAdjacentByte(std::size_t bytePos, bool left, bool wordStart) const {
+  // A word move lands on the nearest word start on screen; the logical next or previous one can sit
+  // on the other side of the caret when it lies on a bidi run boundary.
+  std::vector<std::size_t> wordStarts;
+  if (wordStart) {
+    std::size_t pos = 0;
+    wordStarts.push_back(pos);
+    while (pos < m_value.size()) {
+      const std::size_t next = nextWordStartForByteOffset(pos);
+      if (next == pos) {
+        break;
+      }
+      pos = next;
+      wordStarts.push_back(pos);
+    }
+  }
   const float fromX = stopXForByte(bytePos);
   std::size_t best = bytePos;
   float bestX = fromX;
   bool found = false;
   for (std::size_t i = 0; i < m_stopX.size() && i < m_stopByte.size(); ++i) {
+    if (wordStart && !std::ranges::binary_search(wordStarts, m_stopByte[i])) {
+      continue;
+    }
     const float x = m_stopX[i];
     const bool ahead = left ? x < fromX - 0.5F : x > fromX + 0.5F;
     const bool closer = left ? x > bestX : x < bestX;
