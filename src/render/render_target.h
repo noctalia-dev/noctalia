@@ -49,6 +49,10 @@ public:
       std::string_view text, float fontSize, const std::vector<std::size_t>& byteOffsets, float maxWidth,
       std::vector<TextCursorStop>& outStops, const TextFont& font = {}
   ) override;
+  void measureTextCharSpans(
+      std::string_view text, float fontSize, const std::vector<std::size_t>& byteOffsets,
+      std::vector<TextCharSpan>& outSpans, const TextFont& font = {}
+  ) override;
   [[nodiscard]] TextMetrics measureGlyph(char32_t codepoint, float fontSize) override;
   [[nodiscard]] TextureManager& textureManager() override;
   [[nodiscard]] float renderScale() const noexcept override;

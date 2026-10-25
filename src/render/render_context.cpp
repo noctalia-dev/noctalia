@@ -283,6 +283,13 @@ void RenderContext::measureTextCursorStopsWrappedScaled(
   m_textRenderer.measureCursorStopsWrapped(scale, text, fontSize, byteOffsets, maxWidth, outStops, font);
 }
 
+void RenderContext::measureTextCharSpansScaled(
+    float scale, std::string_view text, float fontSize, const std::vector<std::size_t>& byteOffsets,
+    std::vector<TextCharSpan>& outSpans, const TextFont& font
+) {
+  m_textRenderer.measureCharSpans(scale, text, fontSize, byteOffsets, outSpans, font);
+}
+
 TextMetrics RenderContext::measureGlyphScaled(float scale, char32_t codepoint, float fontSize) {
   auto m = m_glyphRenderer.measureGlyph(scale, codepoint, fontSize);
   return TextMetrics{

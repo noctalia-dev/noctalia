@@ -847,8 +847,10 @@ void Input::rebuildCursorStopsFull(Renderer& renderer) {
   m_stopByte.clear();
   m_stopX.clear();
   m_stopRect.clear();
+  m_charSpans.clear();
   m_stopByte.push_back(0);
   m_stopX.push_back(0.0F);
+  m_stopsInLogicalOrder = true;
   m_stopsBuiltForWidth = textViewportWidth();
 
   if (m_value.empty()) {
@@ -886,6 +888,10 @@ void Input::rebuildCursorStopsFull(Renderer& renderer) {
       m_stopX.assign(m_stopByte.size(), 0.0F);
     }
   }
+  m_stopsInLogicalOrder = std::ranges::is_sorted(m_stopX);
+  if (!m_multiline && !showPasswordGlyphs && !m_stopsInLogicalOrder) {
+    renderer.measureTextCharSpans(m_value, m_fontSize, m_stopByte, m_charSpans, m_label->font());
+  }
 }
 
 void Input::rebuildCursorStops(Renderer& renderer) {
@@ -898,7 +904,7 @@ void Input::rebuildCursorStops(Renderer& renderer) {
 
 void Input::recomputeContentLeadSlack(Renderer& renderer, float width, bool showClearButton) {
   m_contentLeadSlack = 0.0F;
-  if (m_multiline || (m_textAlign != TextAlign::Center && !Style::rtl())) {
+  if (m_multiline || (m_textAlign != TextAlign::Center && !Style::rtl() && !valueLaidOutRtl())) {
     return;
   }
 
@@ -918,7 +924,7 @@ void Input::recomputeContentLeadSlack(Renderer& renderer, float width, bool show
   }
   if (viewportWidth > 0.0F && textExtent > 0.0F && textExtent + 0.5F < viewportWidth) {
     m_contentLeadSlack = m_textAlign == TextAlign::Center ? std::round((viewportWidth - textExtent) * 0.5F)
-                                                          : std::max(0.0F, viewportWidth - textExtent);
+                                                          : std::max(0.0F, viewportWidth - textExtent - kCursorWidth);
   }
 }
 
@@ -957,9 +963,10 @@ void Input::updateLabelVisibleSlice(Renderer& renderer) {
     return;
   }
 
+  const bool sliced = labelSlicingEnabled();
   std::size_t sliceStart = 0;
   std::size_t sliceEnd = m_value.size();
-  if (!Style::rtl()) {
+  if (sliced) {
     const float viewportW = textViewportWidth();
     const float pad = std::max(viewportW, m_fontSize * 4.0F);
     const float sliceContentW = std::min(kMaxLabelRasterWidth, viewportW + pad * 2.0F);
@@ -974,7 +981,7 @@ void Input::updateLabelVisibleSlice(Renderer& renderer) {
   }
 
   const std::string slice = m_value.substr(sliceStart, sliceEnd - sliceStart);
-  m_labelSliceOriginX = Style::rtl() ? 0.0F : stopXForByte(sliceStart);
+  m_labelSliceOriginX = sliced ? stopXForByte(sliceStart) : 0.0F;
   m_labelVisibleStartByte = sliceStart;
   if (slice != m_labelVisibleSlice) {
     m_labelVisibleSlice = slice;
@@ -1029,7 +1036,7 @@ void Input::doLayout(Renderer& renderer) {
   } else if (m_multiline) {
     clampScrollOffsetY();
   } else {
-    m_scrollOffset = 0.0F;
+    m_scrollOffset = restingScrollOffset();
   }
 
   if (m_multiline) {
@@ -1350,26 +1357,25 @@ void Input::handleKey(std::uint32_t sym, std::uint32_t utf32, std::uint32_t modi
       m_value.erase(m_cursorPos, next - m_cursorPos);
       changed = true;
     }
-  } else if (KeySymbol::isLeft(sym)) {
+  } else if (KeySymbol::isLeft(sym) || KeySymbol::isRight(sym)) {
     resetUndoCoalescing();
+    const bool left = KeySymbol::isLeft(sym);
+    // Right-to-left runs put byte order and screen order apart; arrows follow the screen.
+    const bool visual = !m_multiline && !m_stopsInLogicalOrder;
     if (!shift && hasSelection()) {
-      // Collapse to start of selection
-      m_cursorPos = selectionStart();
+      // Collapse to the selection edge on the arrow's side
+      const bool startOnLeft = !visual || stopXForByte(selectionStart()) <= stopXForByte(selectionEnd());
+      m_cursorPos = left == startOnLeft ? selectionStart() : selectionEnd();
       m_selectionAnchor = m_cursorPos;
     } else {
-      m_cursorPos = ctrl ? previousWordStartForByteOffset(m_cursorPos) : prevCharPos(m_value, m_cursorPos);
-      if (!shift) {
-        m_selectionAnchor = m_cursorPos;
+      if (ctrl) {
+        const bool backward = left != valueLaidOutRtl();
+        m_cursorPos = backward ? previousWordStartForByteOffset(m_cursorPos) : nextWordStartForByteOffset(m_cursorPos);
+      } else if (visual) {
+        m_cursorPos = visuallyAdjacentByte(m_cursorPos, left);
+      } else {
+        m_cursorPos = left ? prevCharPos(m_value, m_cursorPos) : nextCharPos(m_value, m_cursorPos);
       }
-    }
-  } else if (KeySymbol::isRight(sym)) {
-    resetUndoCoalescing();
-    if (!shift && hasSelection()) {
-      // Collapse to end of selection
-      m_cursorPos = selectionEnd();
-      m_selectionAnchor = m_cursorPos;
-    } else {
-      m_cursorPos = ctrl ? nextWordStartForByteOffset(m_cursorPos) : nextCharPos(m_value, m_cursorPos);
       if (!shift) {
         m_selectionAnchor = m_cursorPos;
       }
@@ -1722,10 +1728,10 @@ void Input::updateInteractiveGeometry() {
   if (shouldRevealCursor) {
     ensureCursorVisible();
   } else {
-    m_scrollOffset = 0.0F;
+    m_scrollOffset = restingScrollOffset();
   }
   if (std::abs(m_scrollOffset - previousScrollOffset) > 0.001F) {
-    if (Style::rtl()) {
+    if (!labelSlicingEnabled()) {
       syncLabelScrollPosition();
       markPaintDirty();
     } else {
@@ -1751,13 +1757,40 @@ void Input::updateInteractiveGeometry() {
   m_cursor->setPosition(cursorX, cursorY);
   m_cursor->setFrameSize(kCursorWidth, cursorHeight);
 
-  if (hasSelection()) {
+  if (hasSelection() && !m_charSpans.empty() && m_charSpans.size() + 1 == m_stopByte.size()) {
+    // In bidi text a logical selection can cover several separate pieces on screen.
+    std::vector<TextCharSpan> pieces;
+    for (std::size_t i = 0; i < m_charSpans.size(); ++i) {
+      if (m_stopByte[i] >= selectionStart() && m_stopByte[i] < selectionEnd()) {
+        pieces.push_back(m_charSpans[i]);
+      }
+    }
+    std::ranges::sort(pieces, {}, &TextCharSpan::left);
+    std::vector<TextCharSpan> merged;
+    for (const TextCharSpan& piece : pieces) {
+      if (!merged.empty() && piece.left <= merged.back().right + 0.5F) {
+        merged.back().right = std::max(merged.back().right, piece.right);
+      } else {
+        merged.push_back(piece);
+      }
+    }
+    m_selectionRect->setVisible(false);
+    syncSelectionLineRects(merged.size());
+    for (std::size_t i = 0; i < merged.size(); ++i) {
+      RectNode* rect = m_selectionLineRects[i];
+      rect->setPosition(merged[i].left - m_scrollOffset + m_contentLeadSlack, cursorY);
+      rect->setFrameSize(std::max(1.0F, merged[i].right - merged[i].left), cursorHeight);
+      rect->setVisible(true);
+    }
+  } else if (hasSelection()) {
+    syncSelectionLineRects(0);
     const float selX0 = stopXForByte(selectionStart()) - m_scrollOffset + m_contentLeadSlack;
     const float selX1 = stopXForByte(selectionEnd()) - m_scrollOffset + m_contentLeadSlack;
     m_selectionRect->setPosition(std::min(selX0, selX1), cursorY);
     m_selectionRect->setFrameSize(std::abs(selX1 - selX0), cursorHeight);
     m_selectionRect->setVisible(true);
   } else {
+    syncSelectionLineRects(0);
     m_selectionRect->setVisible(false);
   }
 }
@@ -2528,6 +2561,44 @@ float Input::stopXForByte(std::size_t bytePos) const {
     }
   }
   return m_stopX.empty() ? 0.0F : m_stopX.back();
+}
+
+std::size_t Input::visuallyAdjacentByte(std::size_t bytePos, bool left) const {
+  const float fromX = stopXForByte(bytePos);
+  std::size_t best = bytePos;
+  float bestX = fromX;
+  bool found = false;
+  for (std::size_t i = 0; i < m_stopX.size() && i < m_stopByte.size(); ++i) {
+    const float x = m_stopX[i];
+    const bool ahead = left ? x < fromX - 0.5F : x > fromX + 0.5F;
+    const bool closer = left ? x > bestX : x < bestX;
+    if (ahead && (!found || closer)) {
+      best = m_stopByte[i];
+      bestX = x;
+      found = true;
+    }
+  }
+  return best;
+}
+
+bool Input::valueLaidOutRtl() const noexcept {
+  // Pango resolves the paragraph direction from the text itself, independent of the UI direction. An RTL
+  // paragraph places the logical start on its right edge and the logical end on its left.
+  return !m_multiline && !passwordMasked() && m_stopX.size() > 1 && m_stopX.front() > m_stopX.back();
+}
+
+bool Input::labelSlicingEnabled() const noexcept {
+  // A slice is laid out on its own, which only lines up with the full-text stops when every stop
+  // advances left to right with the byte offset.
+  return !Style::rtl() && m_stopsInLogicalOrder;
+}
+
+float Input::restingScrollOffset() const {
+  // An unfocused field shows the logical start of its value, which is the right end of RTL text.
+  if (!valueLaidOutRtl()) {
+    return 0.0F;
+  }
+  return std::max(0.0F, *std::ranges::max_element(m_stopX) - textViewportWidth());
 }
 
 std::size_t Input::nextCharPos(const std::string& s, std::size_t pos) {

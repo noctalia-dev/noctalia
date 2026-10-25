@@ -655,6 +655,37 @@ void CairoTextRenderer::measureCursorStopsWrapped(
   g_object_unref(layout);
 }
 
+void CairoTextRenderer::measureCharSpans(
+    float contentScale, std::string_view text, float fontSize, const std::vector<std::size_t>& byteOffsets,
+    std::vector<TextCharSpan>& outSpans, const TextFont& font
+) {
+  maybeSyncFontConfig();
+  outSpans.clear();
+  if (m_pangoContext == nullptr || text.empty() || byteOffsets.size() < 2) {
+    return;
+  }
+  outSpans.reserve(byteOffsets.size() - 1);
+
+  // Same layout as measureCursorStops, so spans and caret stops share one coordinate space.
+  PangoLayout* layout = buildLayout(contentScale, text, fontSize, font, 0.0F, 0, TextAlign::Start);
+  const float invScale = 1.0F / contentScale;
+  const float pscale = 1.0F / static_cast<float>(PANGO_SCALE);
+  for (std::size_t i = 0; i + 1 < byteOffsets.size(); ++i) {
+    const std::size_t clampedOffset = std::min(byteOffsets[i], text.size());
+    const int index = clampedOffset > static_cast<std::size_t>(std::numeric_limits<int>::max())
+        ? std::numeric_limits<int>::max()
+        : static_cast<int>(clampedOffset);
+    PangoRectangle pos{};
+    // Width is negative for a right-to-left character.
+    pango_layout_index_to_pos(layout, index, &pos);
+    const float x0 = static_cast<float>(pos.x) * pscale * invScale;
+    const float x1 = static_cast<float>(pos.x + pos.width) * pscale * invScale;
+    outSpans.push_back(TextCharSpan{std::min(x0, x1), std::max(x0, x1)});
+  }
+
+  g_object_unref(layout);
+}
+
 // ── Rasterization ───────────────────────────────────────────────────────────
 
 void CairoTextRenderer::rasterizeLayout(

@@ -72,6 +72,10 @@ private:
       float scale, std::string_view text, float fontSize, const std::vector<std::size_t>& byteOffsets, float maxWidth,
       std::vector<TextCursorStop>& outStops, const TextFont& font
   );
+  void measureTextCharSpansScaled(
+      float scale, std::string_view text, float fontSize, const std::vector<std::size_t>& byteOffsets,
+      std::vector<TextCharSpan>& outSpans, const TextFont& font
+  );
   [[nodiscard]] TextMetrics measureGlyphScaled(float scale, char32_t codepoint, float fontSize);
 
   bool makeCurrentNoSurface();

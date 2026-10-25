@@ -49,6 +49,11 @@ struct TextCursorStop {
   float height = 0.0F;
 };
 
+struct TextCharSpan {
+  float left = 0.0F;
+  float right = 0.0F;
+};
+
 struct TextMetrics {
   float width = 0.0F;
   float left = 0.0F;
@@ -100,6 +105,15 @@ public:
       std::string_view text, float fontSize, const std::vector<std::size_t>& byteOffsets, float maxWidth,
       std::vector<TextCursorStop>& outStops, const TextFont& font = {}
   ) = 0;
+  // Horizontal extent of each character on screen: span i covers the bytes from byteOffsets[i] to
+  // byteOffsets[i + 1], laid out on one line like measureTextCursorStops. Right-to-left runs put the
+  // spans out of byte order. Leaves outSpans empty when the renderer cannot shape text.
+  virtual void measureTextCharSpans(
+      std::string_view /*text*/, float /*fontSize*/, const std::vector<std::size_t>& /*byteOffsets*/,
+      std::vector<TextCharSpan>& outSpans, const TextFont& /*font*/ = {}
+  ) {
+    outSpans.clear();
+  }
   [[nodiscard]] virtual TextMetrics measureGlyph(char32_t codepoint, float fontSize) = 0;
   [[nodiscard]] virtual TextureManager& textureManager() = 0;
   [[nodiscard]] virtual float renderScale() const noexcept = 0;

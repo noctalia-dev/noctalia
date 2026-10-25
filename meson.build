@@ -1257,6 +1257,7 @@ if build_tests
     'image_source_log',
     'inotify',
     'input_area',
+    'input_bidi',
     'input_dispatcher',
     'input_password_mode',
     'input_readline_shortcuts',

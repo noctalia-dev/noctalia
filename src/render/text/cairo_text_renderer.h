@@ -81,6 +81,10 @@ public:
       float contentScale, std::string_view text, float fontSize, const std::vector<std::size_t>& byteOffsets,
       float maxWidth, std::vector<TextCursorStop>& outStops, const TextFont& font = {}
   );
+  void measureCharSpans(
+      float contentScale, std::string_view text, float fontSize, const std::vector<std::size_t>& byteOffsets,
+      std::vector<TextCharSpan>& outSpans, const TextFont& font = {}
+  );
 
   void draw(
       float contentScale, float surfaceWidth, float surfaceHeight, float x, float baselineY, std::string_view text,
