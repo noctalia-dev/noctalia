@@ -249,7 +249,7 @@ namespace {
       resolved.capsuleThickness = *ovr.capsuleThickness;
     }
     if (ovr.fontFamily) {
-      resolved.fontFamily = *ovr.fontFamily;
+      resolved.fontFamily = ovr.fontFamily;
     }
     if (ovr.fontStyle) {
       resolved.fontStyle = ovr.fontStyle;
