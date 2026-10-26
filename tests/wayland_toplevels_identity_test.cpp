@@ -1,6 +1,7 @@
 #include "system/internal_app_metadata.h"
 #include "tests/test_check.h"
 #include "wayland/wayland_protocol_policy.h"
+#include "wlr-foreign-toplevel-management-unstable-v1-client-protocol.h"
 
 #include <cstdint>
 #include <functional>
@@ -33,7 +34,13 @@ int main() {
   TEST_CHECK(shouldBindExtForeignToplevelList(CompositorKind::Hyprland));
   TEST_CHECK(shouldBindExtForeignToplevelList(CompositorKind::Kde));
   TEST_CHECK(!shouldBindExtForeignToplevelList(CompositorKind::Unknown));
-  TEST_CHECK(!shouldBindExtForeignToplevelList(CompositorKind::Sway));
+  TEST_CHECK(shouldBindExtForeignToplevelList(CompositorKind::Sway));
+  TEST_CHECK(shouldBindExtForeignToplevelList(CompositorKind::Labwc));
+  TEST_CHECK(shouldBindExtForeignToplevelList(CompositorKind::Mango));
+  TEST_CHECK(toplevel_identity::wlr(0).empty());
+  TEST_CHECK(toplevel_identity::wlr(42) == "wlr:42");
+  TEST_CHECK(toplevel_identity::isWlr("wlr:42"));
+  TEST_CHECK(!toplevel_identity::isWlr("42"));
 
   WaylandToplevels toplevels;
   auto* handle = reinterpret_cast<zwlr_foreign_toplevel_handle_v1*>(0x1);
@@ -70,6 +77,37 @@ int main() {
   TEST_CHECK(it->second.output == nullptr);
   TEST_CHECK(toplevels.windowsForApp("sample-chat-desktop", "samplechat", someOutput).empty());
 
+  int wlrChanges = 0;
+  toplevels.setChangeCallback([&]() { ++wlrChanges; });
+  TEST_CHECK(!toplevels.minimized(handle).has_value());
+  std::uint32_t minimizedFlag = ZWLR_FOREIGN_TOPLEVEL_HANDLE_V1_STATE_MINIMIZED;
+  wl_array minimizedState{
+      .size = sizeof(minimizedFlag),
+      .alloc = sizeof(minimizedFlag),
+      .data = &minimizedFlag,
+  };
+  toplevels.onHandleState(handle, &minimizedState);
+  TEST_CHECK(!toplevels.windowsForApp("sample-chat-desktop", "samplechat")[0].minimizeState.has_value());
+  toplevels.onHandleDone(handle);
+  TEST_CHECK(wlrChanges == 1);
+  const auto minimizedWindows = toplevels.windowsForApp("sample-chat-desktop", "samplechat");
+  TEST_CHECK(minimizedWindows.size() == 1);
+  TEST_CHECK(minimizedWindows[0].handle == handle);
+  TEST_CHECK(minimizedWindows[0].order == windows[0].order);
+  TEST_CHECK(minimizedWindows[0].minimizeState.has_value());
+  TEST_CHECK(minimizedWindows[0].minimizeState->minimized);
+  TEST_CHECK(toplevels.minimized(handle) == true);
+
+  wl_array restoredState{};
+  toplevels.onHandleState(handle, &restoredState);
+  TEST_CHECK(toplevels.minimized(handle) == true);
+  toplevels.onHandleDone(handle);
+  TEST_CHECK(wlrChanges == 2);
+  TEST_CHECK(toplevels.minimized(handle) == false);
+  TEST_CHECK(!toplevels.windowsForApp("sample-chat-desktop", "samplechat")[0].minimizeState->minimized);
+  TEST_CHECK(!toplevels.minimized(nullptr).has_value());
+  TEST_CHECK(!toplevels.minimizeHandle(nullptr));
+
   WaylandExtForeignToplevels extToplevels;
   int changeCount = 0;
   extToplevels.setChangeCallback([&]() { ++changeCount; });
@@ -105,6 +143,12 @@ int main() {
   });
   TEST_CHECK(visited == 1);
 
+  // Exact identifier join reads committed state only
+  TEST_CHECK(extToplevels.extHandleForIdentifier("49") == extHandle);
+  TEST_CHECK(extToplevels.extHandleForIdentifier("50") == nullptr);
+  TEST_CHECK(extToplevels.extHandleForIdentifier("999") == nullptr);
+  TEST_CHECK(extToplevels.extHandleForIdentifier("") == nullptr);
+
   // Later property batches also remain hidden until their own `done`.
   extToplevels.onHandleTitle(extHandle, "renamed");
   extToplevels.onHandleIdentifier(extHandle, "50");
@@ -135,11 +179,14 @@ int main() {
   TEST_CHECK(extWindows.size() == 2);
   TEST_CHECK(extWindows[0].identifier == "50");
   TEST_CHECK(extWindows[1].identifier == "52");
+  TEST_CHECK(extToplevels.extHandleForIdentifier("50") == extHandle);
+  TEST_CHECK(extToplevels.extHandleForIdentifier("52") == duplicateHandle);
 
   // State removal is safe for both ready and not-yet-ready handles.
   extToplevels.removeHandle(duplicateHandle);
   TEST_CHECK(changeCount == 4);
   TEST_CHECK(extToplevels.windowsForApp("com.mitchellh.ghostty", "ghostty").size() == 1);
+  TEST_CHECK(extToplevels.extHandleForIdentifier("52") == nullptr);
   auto* pendingHandle = reinterpret_cast<ext_foreign_toplevel_handle_v1*>(0x32);
   extToplevels.m_handles.try_emplace(pendingHandle, WaylandExtForeignToplevels::ToplevelState{});
   extToplevels.removeHandle(pendingHandle);

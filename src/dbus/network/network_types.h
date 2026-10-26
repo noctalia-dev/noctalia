@@ -19,6 +19,12 @@ struct AccessPointInfo {
 
   [[nodiscard]] bool isEnterprise() const noexcept { return network_manager_security::isEnterprise(keyManagement); }
 
+  // True when the UI should collect credentials before connecting. OWE stays
+  // secured (lock icon) but has no password to ask for.
+  [[nodiscard]] bool requiresCredentials() const noexcept {
+    return network_manager_security::requiresCredentials(secured, keyManagement);
+  }
+
   bool operator==(const AccessPointInfo&) const = default;
 };
 
@@ -52,7 +58,7 @@ struct NetworkState {
   std::string interfaceName;       // e.g. "wlan0", "eth0"
   std::uint8_t signalStrength = 0; // 0..100, Wi-Fi only
   // Operating frequency of the associated BSS. Wi-Fi only; 0 when the backend
-  // does not report one (iwd).
+  // does not report one.
   std::uint32_t frequencyMhz = 0;
 
   bool operator==(const NetworkState&) const = default;

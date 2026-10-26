@@ -56,7 +56,8 @@ public:
     m_rootPtr = m_root.get();
     return std::move(m_root);
   }
-  [[nodiscard]] bool handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit);
+  [[nodiscard]] bool
+  handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit, bool repeat);
 
   [[nodiscard]] float preferredWidth() const { return scaled(800.0F); }
   [[nodiscard]] float preferredHeight() const { return scaled(560.0F); }

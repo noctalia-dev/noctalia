@@ -26,6 +26,7 @@ namespace {
         || key == lockscreen_login_box::kShowLoginButtonKey
         || key == lockscreen_login_box::kShowCapsLockKey
         || key == lockscreen_login_box::kShowUnlockHintKey
+        || key == lockscreen_login_box::kShowPasswordRevealKey
         || key == lockscreen_login_box::kInputOpacityKey
         || key == lockscreen_login_box::kInputRadiusKey;
   }

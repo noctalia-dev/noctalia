@@ -238,10 +238,14 @@ namespace {
     outW = img.width;
     outH = img.height;
     const int c = img.channels;
-    const int rs = (img.rowStride > 0) ? img.rowStride : (outW * c);
+    const std::size_t minStride = static_cast<std::size_t>(outW) * static_cast<std::size_t>(c);
+    const std::size_t rs = (img.rowStride > 0) ? static_cast<std::size_t>(img.rowStride) : minStride;
+    if (rs < minStride || img.data.size() < (static_cast<std::size_t>(outH) - 1U) * rs + minStride) {
+      return false;
+    }
     outRgba.resize(static_cast<std::size_t>(outW) * static_cast<std::size_t>(outH) * 4);
     for (int y = 0; y < outH; ++y) {
-      const std::uint8_t* row = img.data.data() + static_cast<std::size_t>(y) * static_cast<std::size_t>(rs);
+      const std::uint8_t* row = img.data.data() + static_cast<std::size_t>(y) * rs;
       std::uint8_t* dst = outRgba.data() + static_cast<std::size_t>(y) * static_cast<std::size_t>(outW) * 4;
       if (c == 4) {
         std::memcpy(dst, row, static_cast<std::size_t>(outW) * 4);
@@ -433,6 +437,7 @@ namespace {
     nlohmann::json j;
     j["id"] = n.id;
     j["origin"] = std::string(originStr(n.origin));
+    j["persist_in_history"] = n.persistInHistory;
     j["app_name"] = n.appName;
     j["summary"] = n.summary;
     j["body"] = n.body;
@@ -468,6 +473,7 @@ namespace {
     Notification n{};
     n.id = j.value("id", 0U);
     n.origin = originFrom(j.value("origin", std::string(kOriginExternal)));
+    n.persistInHistory = j.value("persist_in_history", false);
     n.appName = j.value("app_name", std::string());
     n.summary = j.value("summary", std::string());
     n.body = j.value("body", std::string());

@@ -228,6 +228,8 @@ namespace noctalia::theme {
     const Color onSurfaceVariant = toUiColor(palette.onSurfaceVariant);
     const Color outlineRaw = toUiColor(palette.outline);
     const Color shadow = toUiColor(palette.shadow);
+    const Color hover = toUiColor(palette.hover);
+    const Color onHover = toUiColor(palette.onHover);
 
     auto makeContainerDark = [](const Color& base) {
       auto [h, s, l] = base.toHsl();
@@ -310,10 +312,9 @@ namespace noctalia::theme {
         ? Color::fromHsl(surfaceVariantH, surfaceVariantS, std::min(surfaceVariantL + 0.12, 0.50))
         : Color::fromHsl(surfaceH, surfaceS, std::min(surfaceL + 0.03, 0.98));
 
+    // The outline role reads outline_variant, so it must be mOutline as given.
     const Color outline = ensureContrast(outlineRaw, surface, 3.0);
-    const auto [outlineH, outlineS, outlineL] = outline.toHsl();
-    const Color outlineVariant = isDark ? Color::fromHsl(outlineH, outlineS, std::max(outlineL - 0.15, 0.1))
-                                        : Color::fromHsl(outlineH, outlineS, std::min(outlineL + 0.15, 0.9));
+    const Color outlineVariant = outlineRaw;
     const Color scrim(0, 0, 0);
     const Color inverseSurface = isDark ? Color::fromHsl(surfaceH, 0.08, 0.90) : Color::fromHsl(surfaceH, 0.08, 0.15);
     const Color inverseOnSurface = isDark ? Color::fromHsl(surfaceH, 0.05, 0.15) : Color::fromHsl(surfaceH, 0.05, 0.90);
@@ -367,6 +368,8 @@ namespace noctalia::theme {
     setToken(result, "outline", outline);
     setToken(result, "outline_variant", outlineVariant);
     setToken(result, "shadow", shadow);
+    setToken(result, "hover", hover);
+    setToken(result, "on_hover", onHover);
     setToken(result, "scrim", scrim);
     setToken(result, "inverse_surface", inverseSurface);
     setToken(result, "inverse_on_surface", inverseOnSurface);
@@ -399,9 +402,16 @@ namespace noctalia::theme {
         .onSurfaceVariant = tokenToColor(t, "on_surface_variant"),
         .outline = tokenToColor(t, "outline_variant"),
         .shadow = tokenToColor(t, "shadow"),
-        .hover = tokenToColor(t, "tertiary"),
-        .onHover = tokenToColor(t, "on_tertiary"),
+        .hover = tokenToColor(t, "hover"),
+        .onHover = tokenToColor(t, "on_hover"),
     };
+  }
+
+  void setGeneratedHoverTokens(GeneratedPalette& palette) {
+    for (TokenMap* tokens : {&palette.dark, &palette.light}) {
+      (*tokens)["hover"] = tokens->at("tertiary");
+      (*tokens)["on_hover"] = tokens->at("on_tertiary");
+    }
   }
 
   TerminalPalette terminalPaletteFromTokens(const TokenMap& tokens) {

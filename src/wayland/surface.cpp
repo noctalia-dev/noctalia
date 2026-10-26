@@ -396,6 +396,9 @@ void Surface::handleFrameDone(void* data, wl_callback* callback, std::uint32_t c
   if (hasPendingWork) {
     self->queueFrameWork(runFrameTick, deltaMs);
   }
+
+  // Keep this last: a derived callback may schedule teardown of its owning surface.
+  self->onFrameCallbackDone();
 }
 
 void Surface::onSurfaceOutputEnter(wl_surface* surface, wl_output* output) {
@@ -468,6 +471,8 @@ void Surface::onConfigure(std::uint32_t width, std::uint32_t height) {
   m_redrawRequested = true;
   queueFrameWork();
 }
+
+void Surface::onFrameCallbackDone() {}
 
 void Surface::setConfigureCallback(ConfigureCallback callback) { m_configureCallback = std::move(callback); }
 
@@ -647,6 +652,26 @@ void Surface::setInputRegion(const std::vector<InputRect>& rects) {
 
   wl_surface_set_input_region(m_surface, region);
   wl_region_destroy(region);
+}
+
+void Surface::setOpaque(bool opaque) {
+  if (m_surface == nullptr || m_opaque == opaque) {
+    return;
+  }
+  if (!opaque) {
+    wl_surface_set_opaque_region(m_surface, nullptr);
+    m_opaque = false;
+    return;
+  }
+  wl_region* region = wl_compositor_create_region(m_connection.compositor());
+  if (region == nullptr) {
+    return;
+  }
+  // The compositor clips the region to the surface, so it stays valid across resizes.
+  wl_region_add(region, 0, 0, std::numeric_limits<std::int32_t>::max(), std::numeric_limits<std::int32_t>::max());
+  wl_surface_set_opaque_region(m_surface, region);
+  wl_region_destroy(region);
+  m_opaque = true;
 }
 
 bool Surface::prepareBlurEffect() {
@@ -1295,6 +1320,7 @@ void Surface::destroySurface() {
   if (m_surface != nullptr) {
     wl_surface_destroy(m_surface);
     m_surface = nullptr;
+    m_opaque = false;
   }
 
   m_running = false;

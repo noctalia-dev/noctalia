@@ -124,7 +124,6 @@ void ListEditor::rebuildRows() {
             .fontSize = Style::fontSizeCaption * m_scale,
             .controlHeight = suggestedAddHeight,
             .glyphSize = Style::fontSizeCaption * m_scale,
-            .enabled = !atCapacity,
             .width = labelCellWidth,
             .height = suggestedAddHeight,
         });

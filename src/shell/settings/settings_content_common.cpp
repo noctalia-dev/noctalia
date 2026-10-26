@@ -6,6 +6,7 @@
 #include "shell/settings/settings_content.h"
 #include "ui/builders.h"
 #include "ui/controls/collapsible.h"
+#include "ui/controls/scroll_view.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 #include "util/string_utils.h"
@@ -49,6 +50,9 @@ namespace settings {
     }
     if (key == "auto_hide") {
       return override->autoHide.has_value();
+    }
+    if (key == "auto_hide_delay_ms") {
+      return override->autoHideDelayMs.has_value();
     }
     if (key == "smart_auto_hide") {
       return override->smartAutoHide.has_value();
@@ -98,6 +102,9 @@ namespace settings {
     if (key == "background_opacity") {
       return override->backgroundOpacity.has_value();
     }
+    if (key == "compositor_blur") {
+      return override->compositorBlur.has_value();
+    }
     if (key == "border") {
       return override->border.has_value();
     }
@@ -121,6 +128,9 @@ namespace settings {
     }
     if (key == "capsule_border") {
       return override->widgetCapsuleBorderSpecified;
+    }
+    if (key == "capsule_border_width") {
+      return override->widgetCapsuleBorderWidth.has_value();
     }
     if (key == "capsule_foreground") {
       return override->widgetCapsuleForeground.has_value();
@@ -148,6 +158,9 @@ namespace settings {
     }
     if (key == "end") {
       return override->endWidgets.has_value();
+    }
+    if (path.size() >= 6 && path[4] == "dead_zone" && path[5] == "click_through") {
+      return override->deadZone.clickThrough.has_value();
     }
     if (path.size() >= 6 && path[4] == "dead_zone") {
       return override->deadZone.actions.has_value();
@@ -281,17 +294,39 @@ namespace settings {
           row.setBorder(colorSpecFromRole(error ? ColorRole::Error : ColorRole::Secondary, 0.45F), Style::borderWidth);
         },
     });
-    banner->addChild(
-        ui::label({
-            .out = props.messageOut,
-            .text = std::move(props.message),
-            .fontSize = Style::fontSizeCaption * scale,
-            .fontWeight = FontWeight::Bold,
-            .color = colorSpecFromRole(error ? ColorRole::Error : ColorRole::Secondary),
-            .maxLines = 3,
-            .flexGrow = 1.0F,
-        })
-    );
+    auto message = ui::label({
+        .out = props.messageOut,
+        .text = std::move(props.message),
+        .fontSize = Style::fontSizeCaption * scale,
+        .fontWeight = FontWeight::Bold,
+        .color = colorSpecFromRole(error ? ColorRole::Error : ColorRole::Secondary),
+        .maxLines = props.scrollable ? 0 : 3,
+        .flexGrow = props.scrollable ? 0.0F : 1.0F,
+    });
+    if (props.scrollable) {
+      auto messageColumn = ui::column({
+          .align = FlexAlign::Stretch,
+          .maxHeight = 160.0F * scale,
+          .flexGrow = 1.0F,
+      });
+      auto messageScroll = ui::scrollView({
+          .contentScale = scale,
+          .scrollbarVisible = true,
+          .viewportPaddingH = 0.0F,
+          .viewportPaddingV = 0.0F,
+          .flexGrow = 1.0F,
+          .configure = [](ScrollView& scroll) {
+            scroll.clearFill();
+            scroll.clearBorder();
+            scroll.content()->setAlign(FlexAlign::Stretch);
+          },
+      });
+      messageScroll->content()->addChild(std::move(message));
+      messageColumn->addChild(std::move(messageScroll));
+      banner->addChild(std::move(messageColumn));
+    } else {
+      banner->addChild(std::move(message));
+    }
     if (props.onDismiss) {
       banner->addChild(
           ui::button({
@@ -315,9 +350,10 @@ namespace settings {
     case SettingsSection::Templates:
     case SettingsSection::Launcher:
     case SettingsSection::Security:
-    case SettingsSection::Services:
     case SettingsSection::Location:
+    case SettingsSection::Calendar:
       return true;
+    case SettingsSection::Services:
     case SettingsSection::Wallpaper:
     case SettingsSection::Desktop:
     case SettingsSection::Dock:
@@ -332,6 +368,7 @@ namespace settings {
     case SettingsSection::Power:
     case SettingsSection::Hooks:
     case SettingsSection::Niri:
+    case SettingsSection::Umbriel:
     case SettingsSection::Bar:
     case SettingsSection::Plugins:
       return false;
@@ -349,10 +386,11 @@ namespace settings {
       return i18n::tr("settings.window.offline-mode-notice.launcher");
     case SettingsSection::Security:
       return i18n::tr("settings.window.offline-mode-notice.security");
-    case SettingsSection::Services:
-      return i18n::tr("settings.window.offline-mode-notice.services");
+    case SettingsSection::Calendar:
+      return i18n::tr("settings.window.offline-mode-notice.calendar");
     case SettingsSection::Location:
       return i18n::tr("settings.window.offline-mode-notice.location");
+    case SettingsSection::Services:
     case SettingsSection::Wallpaper:
     case SettingsSection::Desktop:
     case SettingsSection::Dock:
@@ -367,6 +405,7 @@ namespace settings {
     case SettingsSection::Power:
     case SettingsSection::Hooks:
     case SettingsSection::Niri:
+    case SettingsSection::Umbriel:
     case SettingsSection::Bar:
     case SettingsSection::Plugins:
       return {};
@@ -471,6 +510,7 @@ namespace settings {
         {"suspend", i18n::tr("session.actions.suspend"), {}},
         {"lock_and_suspend", i18n::tr("session.actions.lock-and-suspend"), {}},
         {"reboot", i18n::tr("session.actions.reboot"), {}},
+        {"reboot_uefi", i18n::tr("session.actions.reboot-uefi"), {}},
         {"shutdown", i18n::tr("session.actions.shutdown"), {}},
         {"command", i18n::tr("session.actions.custom"), {}},
     };

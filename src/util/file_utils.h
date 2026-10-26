@@ -10,6 +10,8 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <system_error>
+#include <unordered_set>
 #include <vector>
 
 namespace FileUtils {
@@ -519,6 +521,38 @@ namespace FileUtils {
       absolute = std::filesystem::path(path);
     }
     return expandUserPath(absolute.lexically_normal().string()).string();
+  }
+
+  // Walks `root` recursively, following directory symlinks. follow_directory_symlink has no cycle detection, so each
+  // real directory (by canonical path) is entered at most once: a link back up the tree or a second link to an
+  // already walked directory is skipped. `onDirectory(entry)` runs for each newly reached directory and returns
+  // whether to descend into it; `onFile(entry)` runs for every other entry. The root is claimed but not reported.
+  // Unreadable directories are skipped; any other iteration error ends the walk.
+  template <typename OnDirectory, typename OnFile>
+  void walkDirectoryTree(const std::filesystem::path& root, OnDirectory&& onDirectory, OnFile&& onFile) {
+    std::unordered_set<std::string> claimed;
+    const auto claim = [&claimed](const std::filesystem::path& dir) {
+      std::error_code ec;
+      const auto resolved = std::filesystem::canonical(dir, ec);
+      return !ec && claimed.insert(resolved.string()).second;
+    };
+    if (!claim(root)) {
+      return;
+    }
+
+    constexpr auto options = std::filesystem::directory_options::skip_permission_denied
+        | std::filesystem::directory_options::follow_directory_symlink;
+    std::error_code ec;
+    for (std::filesystem::recursive_directory_iterator it(root, options, ec), end; !ec && it != end; it.increment(ec)) {
+      std::error_code typeEc;
+      if (it->is_directory(typeEc) && !typeEc) {
+        if (!claim(it->path()) || !onDirectory(*it)) {
+          it.disable_recursion_pending();
+        }
+        continue;
+      }
+      onFile(*it);
+    }
   }
 
 } // namespace FileUtils

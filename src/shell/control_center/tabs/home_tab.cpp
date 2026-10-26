@@ -15,13 +15,14 @@
 #include "render/animation/animation_manager.h"
 #include "render/core/async_texture_cache.h"
 #include "render/scene/input_area.h"
-#include "scripting/plugin_registry.h"
+#include "scripting/plugin_id.h"
 #include "shell/control_center/shortcut_registry.h"
 #include "shell/panel/panel_button_style.h"
 #include "shell/panel/panel_manager.h"
 #include "shell/profile/avatar_path.h"
 #include "shell/wallpaper/wallpaper.h"
 #include "system/distro_info.h"
+#include "system/hardware_info.h"
 #include "system/weather_service.h"
 #include "time/time_format.h"
 #include "ui/builders.h"
@@ -121,6 +122,11 @@ namespace {
 
   std::string noctaliaVersionLine() { return std::format("Noctalia {}", noctalia::build_info::displayVersion()); }
 
+  // The compositor's own version line already names it; fall back to the detected name.
+  std::string compositorLine(const std::optional<std::string>& versionLine) {
+    return versionLine.has_value() && !versionLine->empty() ? *versionLine : compositorLabel();
+  }
+
   void applyHomeCardStyle(Flex& card, float scale, float fillOpacity) {
     applySectionCardStyle(card, scale, fillOpacity);
     card.setGap(Style::spaceSm * scale);
@@ -134,7 +140,7 @@ namespace {
   }
 
   // The whole home cards are clickable; on hover swap the card outline to the hover colour. No fill
-  // change — the user card's fill sits behind the wallpaper, so a thin hover border is the one hover
+  // change: the user card's fill sits behind the wallpaper, so a thin hover border is the one hover
   // signal that reads consistently across all three cards.
   void applyHomeCardHover(Flex& card, bool hovered) {
     if (hovered) {
@@ -146,8 +152,16 @@ namespace {
     }
   }
 
-  void applyAvatarChrome(Image* avatar, bool highlighted) {
+  bool avatarBorderEnabled(const ConfigService* config) {
+    return config == nullptr || config->config().controlCenter.showAvatarBorder;
+  }
+
+  void applyAvatarChrome(Image* avatar, bool highlighted, bool showBorder) {
     if (avatar == nullptr) {
+      return;
+    }
+    if (!showBorder) {
+      avatar->setBorder(colorSpecFromRole(ColorRole::Primary), 0.0F);
       return;
     }
     const float borderWidth = Style::borderWidth * 3.0F;
@@ -241,6 +255,9 @@ std::unique_ptr<Flex> HomeTab::create() {
   }
 
   const float avatarSize = homeAvatarSize(scale);
+  const bool circularAvatar = m_config == nullptr || m_config->config().controlCenter.circularAvatar;
+  m_avatarBorderShown = avatarBorderEnabled(m_config);
+  const bool showAvatarBorder = m_avatarBorderShown;
   const auto openAvatarPicker = [this]() {
     if (m_config == nullptr) {
       return;
@@ -274,7 +291,7 @@ std::unique_ptr<Flex> HomeTab::create() {
 
   auto avatarArea = ui::inputArea({});
   avatarArea->setSize(avatarSize, avatarSize);
-  avatarArea->setHitShape(InputArea::HitShape::Circle);
+  avatarArea->setHitShape(circularAvatar ? InputArea::HitShape::Circle : InputArea::HitShape::Rect);
   avatarArea->setFocusable(true);
   avatarArea->setCursorShape(WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_POINTER);
   avatarArea->setOnClick([openAvatarPicker](const InputArea::PointerData&) { openAvatarPicker(); });
@@ -288,27 +305,21 @@ std::unique_ptr<Flex> HomeTab::create() {
       ui::image({
           .out = &m_userAvatar,
           .fit = ImageFit::Cover,
-          .radius = avatarSize * 0.5F,
+          .radius = circularAvatar ? avatarSize * 0.5F : Style::scaledRadiusLg(scale),
           .padding = 1.0F * scale,
           .width = avatarSize,
           .height = avatarSize,
-          .configure = [](Image& image) {
-            image.setBorder(colorSpecFromRole(ColorRole::Primary), Style::borderWidth * 3.0F);
+          .configure = [showAvatarBorder](Image& image) {
+            applyAvatarChrome(&image, false, showAvatarBorder);
             image.setHitTestVisible(false);
             image.setAsyncReadyCallback([]() { PanelManager::instance().refresh(); });
           },
       })
   );
-  const auto syncAvatarChrome = [this]() {
-    const bool highlighted =
-        m_userAvatarArea != nullptr && (m_userAvatarArea->focused() || m_userAvatarArea->hovered());
-    applyAvatarChrome(m_userAvatar, highlighted);
-    PanelManager::instance().requestRedraw();
-  };
-  avatarArea->setOnEnter([syncAvatarChrome](const InputArea::PointerData&) { syncAvatarChrome(); });
-  avatarArea->setOnLeave([syncAvatarChrome]() { syncAvatarChrome(); });
-  avatarArea->setOnFocusGain(syncAvatarChrome);
-  avatarArea->setOnFocusLoss(syncAvatarChrome);
+  avatarArea->setOnEnter([this](const InputArea::PointerData&) { syncAvatarChrome(); });
+  avatarArea->setOnLeave([this]() { syncAvatarChrome(); });
+  avatarArea->setOnFocusGain([this]() { syncAvatarChrome(); });
+  avatarArea->setOnFocusLoss([this]() { syncAvatarChrome(); });
   const auto configureUserDetailLabel = [scale](Label& label) {
     label.setShadow(colorSpecFromRole(ColorRole::Shadow, 0.36F), 0.0F, 1.0F * scale);
   };
@@ -349,6 +360,13 @@ std::unique_ptr<Flex> HomeTab::create() {
           ui::label({
               .out = &m_userVersion,
               .text = noctaliaVersionLine(),
+              .fontSize = Style::fontSizeCaption * scale,
+              .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+              .configure = configureUserDetailLabel,
+          }),
+          ui::label({
+              .out = &m_userCompositor,
+              .text = compositorLine(std::nullopt),
               .fontSize = Style::fontSizeCaption * scale,
               .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
               .configure = configureUserDetailLabel,
@@ -402,7 +420,7 @@ std::unique_ptr<Flex> HomeTab::create() {
            .height = artSize},
           ui::glyph({
               .out = &m_mediaArtFallback,
-              .glyph = "disc-filled",
+              .glyph = "disc",
               .glyphSize = artSize * 0.55F,
               .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
           }),
@@ -491,7 +509,7 @@ std::unique_ptr<Flex> HomeTab::create() {
               .color = colorSpecFromRole(ColorRole::OnSurface),
           }),
           ui::row(
-              {.align = FlexAlign::Center, .gap = Style::spaceXs * scale},
+              {.out = &m_weatherRow, .align = FlexAlign::Center, .gap = Style::spaceXs * scale},
               ui::glyph({
                   .out = &m_weatherGlyph,
                   .glyph = "weather-cloud-sun",
@@ -500,7 +518,7 @@ std::unique_ptr<Flex> HomeTab::create() {
               }),
               ui::label({
                   .out = &m_weatherLine,
-                  .text = "—",
+                  .text = "--",
                   .fontSize = Style::fontSizeCaption * scale,
                   .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
               })
@@ -508,8 +526,10 @@ std::unique_ptr<Flex> HomeTab::create() {
       )
   );
 
-  // Clicking anywhere on the clock/weather card opens the weather tab.
-  m_dateTimeCardArea = addCardOverlay(*m_dateTimeCard, []() { openControlCenterTab("weather"); });
+  // Opens Weather when weather is enabled, otherwise Calendar.
+  m_dateTimeCardArea = addCardOverlay(*m_dateTimeCard, [this]() {
+    openControlCenterTab(m_weather != nullptr && m_weather->enabled() ? "weather" : "calendar");
+  });
 
   leftColumn->addChild(std::move(mediaCard));
   leftColumn->addChild(std::move(dateTimeCard));
@@ -555,7 +575,8 @@ std::unique_ptr<Flex> HomeTab::create() {
 
   // A plugin shortcut seeds its Luau runtime once, at construction. Plugin settings changed
   // since the last build means every reusable plugin instance is stale, so drop it and let
-  // ShortcutRegistry::create() re-seed from the current config.
+  // ShortcutRegistry::create() re-seed from the current config. Match on the id syntax, not
+  // the registry: a disabled plugin has already left the registry and must not be reused.
   const bool pluginsChanged = m_config != nullptr && !(m_config->config().plugins == m_lastPlugins);
   if (m_config != nullptr) {
     m_lastPlugins = m_config->config().plugins;
@@ -564,9 +585,7 @@ std::unique_ptr<Flex> HomeTab::create() {
   for (std::size_t i = 0; i < count; ++i) {
     const auto& sc = shortcuts[i];
     auto shortcut = takeReusable(sc.type);
-    if (shortcut != nullptr
-        && pluginsChanged
-        && scripting::isPluginEntryOfKind(sc.type, scripting::PluginEntryKind::Shortcut)) {
+    if (shortcut != nullptr && pluginsChanged && scripting::isValidPluginEntryId(sc.type)) {
       shortcut.reset();
     }
     const bool reused = shortcut != nullptr;
@@ -710,7 +729,9 @@ void HomeTab::doLayout(Renderer& renderer, float contentWidth, float bodyHeight)
     const float bottomRowGap = m_bottomRow != nullptr ? m_bottomRow->gap() : 0.0F;
     const bool stacked = m_shortcutPads.size() <= kHomeStackedShortcutMax;
     const std::size_t cols = stacked ? 1U : kHomeShortcutGridColumns;
-    const std::size_t rows = (m_shortcutPads.size() + cols - 1) / cols;
+    // Rows of height the bottom row reserves: a lone shortcut is one row, which would collapse the
+    // row (and the media/clock cards sized from it) to a single tile.
+    const std::size_t heightRows = std::max((m_shortcutPads.size() + cols - 1) / cols, kHomeStackedShortcutMax);
     const float padH = m_shortcutsGrid->paddingLeft() + m_shortcutsGrid->paddingRight();
     const float padV = m_shortcutsGrid->paddingTop() + m_shortcutsGrid->paddingBottom();
     const float colGap = m_shortcutsGrid->columnGap();
@@ -726,8 +747,9 @@ void HomeTab::doLayout(Renderer& renderer, float contentWidth, float bodyHeight)
     const float userCardReserve = homeAvatarSize(scale) + 2.0F * (Style::spaceSm + Style::spaceXs) * scale;
     const float rootGap = m_rootLayout->gap();
     const float availForGrid = std::max(1.0F, bodyHeight - userCardReserve - rootGap);
-    const float maxCellSide =
-        std::max(1.0F, (availForGrid - static_cast<float>(rows - 1) * rowGap - padV) / static_cast<float>(rows));
+    const float maxCellSide = std::max(
+        1.0F, (availForGrid - static_cast<float>(heightRows - 1) * rowGap - padV) / static_cast<float>(heightRows)
+    );
     const float maxGridWidth = static_cast<float>(cols) * (maxCellSide / kHomeShortcutSquareTrim)
         + static_cast<float>(cols - 1) * colGap
         + padH;
@@ -799,7 +821,8 @@ void HomeTab::doLayout(Renderer& renderer, float contentWidth, float bodyHeight)
             - Style::spaceXs * contentScale()
     );
     m_weatherLine->setMaxWidth(weatherTextWrap);
-    m_weatherLine->setMaxLines(2);
+    m_weatherLine->setMaxLines(1);
+    m_weatherLine->setEllipsize(TextEllipsize::End);
   }
   // Grow the album art square to fill the media card height so the row feels balanced
   // when the card flex-grows. A later bottom-row min-height pass can change the card
@@ -820,7 +843,7 @@ void HomeTab::doLayout(Renderer& renderer, float contentWidth, float bodyHeight)
 
   if (m_userCard != nullptr) {
     const float userWrap = innerWidth(m_userCard);
-    for (Label* label : {m_userHost, m_userUptime, m_userVersion}) {
+    for (Label* label : {m_userHost, m_userUptime, m_userVersion, m_userCompositor}) {
       if (label != nullptr) {
         label->setMaxWidth(userWrap);
         label->setMaxLines(1);
@@ -834,8 +857,12 @@ void HomeTab::doLayout(Renderer& renderer, float contentWidth, float bodyHeight)
     const float desiredAvatar = std::max(minAvatar, m_userMain->height());
     if (std::abs(m_userAvatar->width() - desiredAvatar) > 0.5F) {
       m_userAvatar->setSize(desiredAvatar, desiredAvatar);
-      m_userAvatar->setRadius(desiredAvatar * 0.5F);
       m_userAvatar->setPadding(1.0F * scale);
+    }
+    const bool circularAvatar = m_config == nullptr || m_config->config().controlCenter.circularAvatar;
+    m_userAvatar->setRadius(circularAvatar ? desiredAvatar * 0.5F : Style::scaledRadiusLg(scale));
+    if (m_userAvatarArea != nullptr) {
+      m_userAvatarArea->setHitShape(circularAvatar ? InputArea::HitShape::Circle : InputArea::HitShape::Rect);
     }
     m_userMain->setMinHeight(desiredAvatar);
     m_userMain->setSize(m_userMain->width(), desiredAvatar);
@@ -848,7 +875,8 @@ void HomeTab::doLayout(Renderer& renderer, float contentWidth, float bodyHeight)
     const float gridW = m_shortcutsGrid->width();
     const float innerGridW = std::max(1.0F, gridW - m_shortcutsGrid->paddingLeft() - m_shortcutsGrid->paddingRight());
     const std::size_t cols = std::max<std::size_t>(1, std::min(m_shortcutsGrid->columns(), m_shortcutPads.size()));
-    const std::size_t rows = (m_shortcutPads.size() + cols - 1) / cols;
+    // Height floor as in the pre-layout pass: one shortcut reserves the two-row stacked height.
+    const std::size_t heightRows = std::max((m_shortcutPads.size() + cols - 1) / cols, kHomeStackedShortcutMax);
     const float cellWidth = std::max(
         1.0F, (innerGridW - static_cast<float>(cols - 1) * m_shortcutsGrid->columnGap()) / static_cast<float>(cols)
     );
@@ -869,8 +897,8 @@ void HomeTab::doLayout(Renderer& renderer, float contentWidth, float bodyHeight)
     }
 
     const float gridH = std::round(
-        static_cast<float>(rows) * cellSide
-        + static_cast<float>(rows > 0 ? rows - 1 : 0) * m_shortcutsGrid->rowGap()
+        static_cast<float>(heightRows) * cellSide
+        + static_cast<float>(heightRows - 1) * m_shortcutsGrid->rowGap()
         + m_shortcutsGrid->paddingTop()
         + m_shortcutsGrid->paddingBottom()
     );
@@ -1160,7 +1188,7 @@ void HomeTab::syncWallpaperBackground(Renderer& renderer) {
   if (m_crispNeedsFade) {
     startCrispFade();
   } else {
-    // Ready on the first look (cached) — snap in without a crossfade.
+    // Ready on the first look (cached), so snap in without a crossfade.
     cancelCrispFade();
     m_wallpaperBg->setOpacity(1.0F);
     m_crispOpaque = true;
@@ -1209,8 +1237,18 @@ void HomeTab::syncHeaderActions() {
   }
 }
 
+void HomeTab::syncAvatarChrome() {
+  m_avatarBorderShown = avatarBorderEnabled(m_config);
+  const bool highlighted = m_userAvatarArea != nullptr && (m_userAvatarArea->focused() || m_userAvatarArea->hovered());
+  applyAvatarChrome(m_userAvatar, highlighted, m_avatarBorderShown);
+  PanelManager::instance().requestRedraw();
+}
+
 void HomeTab::doUpdate(Renderer& renderer) {
   syncHeaderActions();
+  if (m_avatarBorderShown != avatarBorderEnabled(m_config)) {
+    syncAvatarChrome();
+  }
   if (!m_active) {
     m_progressTimer.stop();
     return;
@@ -1299,11 +1337,13 @@ void HomeTab::onClose() {
   m_userAvatar = nullptr;
   m_timeLabel = nullptr;
   m_dateLabel = nullptr;
+  m_weatherRow = nullptr;
   m_weatherGlyph = nullptr;
   m_weatherLine = nullptr;
   m_userHost = nullptr;
   m_userUptime = nullptr;
   m_userVersion = nullptr;
+  m_userCompositor = nullptr;
   m_settingsButton = nullptr;
   m_sessionButton = nullptr;
   m_userCardKeyboardArea = nullptr;
@@ -1368,7 +1408,7 @@ void HomeTab::syncScaledFonts() {
   if (m_weatherLine != nullptr) {
     m_weatherLine->setFontSize(Style::fontSizeCaption * s);
   }
-  for (Label* label : {m_userHost, m_userUptime, m_userVersion}) {
+  for (Label* label : {m_userHost, m_userUptime, m_userVersion, m_userCompositor}) {
     if (label != nullptr) {
       label->setFontSize(Style::fontSizeCaption * s);
     }
@@ -1438,13 +1478,25 @@ void HomeTab::sync(Renderer& renderer) {
   if (m_userVersion != nullptr) {
     m_userVersion->setText(noctaliaVersionLine());
   }
+  if (m_userCompositor != nullptr) {
+    const std::weak_ptr<void> aliveGuard = m_aliveGuard;
+    const auto versionLine = compositorVersionLine([this, aliveGuard]() {
+      if (aliveGuard.expired() || m_userCompositor == nullptr) {
+        return;
+      }
+      m_userCompositor->setText(compositorLine(compositorVersionLine({})));
+      PanelManager::instance().requestLayout();
+    });
+    m_userCompositor->setText(compositorLine(versionLine));
+  }
 
-  if (m_weatherGlyph != nullptr && m_weatherLine != nullptr) {
-    if (m_weather == nullptr || !m_weather->enabled()) {
-      m_weatherGlyph->setGlyph("weather-cloud-off");
-      m_weatherGlyph->setColor(colorSpecFromRole(ColorRole::OnSurfaceVariant));
-      m_weatherLine->setText(i18n::tr("control-center.home.weather.disabled"));
-    } else if (!m_weather->locationConfigured()) {
+  const bool weatherEnabled = m_weather != nullptr && m_weather->enabled();
+  if (m_weatherRow != nullptr) {
+    m_weatherRow->setVisible(weatherEnabled);
+    m_weatherRow->setParticipatesInLayout(weatherEnabled);
+  }
+  if (weatherEnabled && m_weatherGlyph != nullptr && m_weatherLine != nullptr) {
+    if (!m_weather->locationConfigured()) {
       m_weatherGlyph->setGlyph("weather-cloud");
       m_weatherGlyph->setColor(colorSpecFromRole(ColorRole::OnSurfaceVariant));
       m_weatherLine->setText(i18n::tr("control-center.weather.no-location-title"));

@@ -25,19 +25,23 @@
 #include "system/terminal_launch.h"
 #include "time/time_format.h"
 #include "ui/dialogs/color_picker_dialog.h"
+#include "ui/palette.h"
 #include "util/file_utils.h"
 #include "util/fuzzy_match.h"
 #include "util/string_utils.h"
 
 #include <algorithm>
 #include <atomic>
+#include <cerrno>
 #include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <cstdlib>
 #include <ctime>
+#include <fcntl.h>
 #include <filesystem>
 #include <fstream>
+#include <limits>
 #include <nlohmann/json.hpp>
 #include <sstream>
 #include <stdexcept>
@@ -46,6 +50,7 @@
 #include <system_error>
 #include <thread>
 #include <type_traits>
+#include <unistd.h>
 #include <unordered_map>
 #include <variant>
 #include <vector>
@@ -71,6 +76,8 @@ namespace {
   constexpr int kMaxGlobalDetachedCommands = 32;
   constexpr std::size_t kMaxAsyncHttpPerHost = 8;
   constexpr std::size_t kMaxPendingSoundLoadsPerHost = 8;
+  constexpr std::size_t kMaxIdleWatchesPerHost = 8;
+  constexpr double kMaxIdleWatchSeconds = static_cast<double>(std::numeric_limits<std::uint32_t>::max()) / 1000.0;
   constexpr std::size_t kMaxStreamsPerHost = 4;
   constexpr std::size_t kMaxHttpStreamsPerHost = 4;
   // A single stream line can't exceed this; protects against a process spewing one
@@ -736,6 +743,22 @@ namespace {
     return 1;
   }
 
+  // getColor(role) -> "#RRGGBB" or nil.
+  // Resolves a color role (e.g. "primary", "surface", "on_surface") against the
+  // active theme palette. Returns nil for unknown role names.
+  int luau_getColor(lua_State* L) {
+    size_t len = 0;
+    const char* role = luaL_checklstring(L, 1, &len);
+    const auto colorRole = colorRoleFromToken(std::string_view(role, len));
+    if (!colorRole.has_value()) {
+      lua_pushnil(L);
+      return 1;
+    }
+    const std::string hex = formatRgbHex(colorForRoleSnapshot(*colorRole));
+    lua_pushlstring(L, hex.data(), hex.size());
+    return 1;
+  }
+
   int luau_wallpaperDirectory(lua_State* L) {
     auto* host = hostForState(L);
     if (host == nullptr) {
@@ -816,6 +839,43 @@ namespace {
     }
 
     lua_pushboolean(L, ok ? 1 : 0);
+    return 1;
+  }
+
+  // calendarEvents() -> the merged, read-only snapshot of synced calendar events, or nil when the
+  // calendar has never completed a sync (no accounts, sync still pending, or every account failing).
+  //
+  //   { { id, title, calendarName, colorHex, location, url, startMs, endMs, allDay }, ... }
+  //
+  // Recurring events arrive already expanded by the provider, so every entry is one concrete
+  // instance with its own resolved startMs/endMs (wall-clock milliseconds, same base as nowMs()).
+  // `url` is the resolved http(s) meeting link and is empty when the event has none; it is already
+  // scheme-filtered host-side, so a plugin can hand it to xdg-open. Read-only by design: plugins
+  // observe the shell's calendar, they do not mutate it.
+  int luau_calendarEvents(lua_State* L) {
+    auto* host = hostForState(L);
+    const auto events = host == nullptr ? nullptr : host->api().calendarEvents();
+    if (events == nullptr) {
+      lua_pushnil(L);
+      return 1;
+    }
+
+    lua_createtable(L, static_cast<int>(events->size()), 0);
+    int index = 1;
+    for (const auto& event : *events) {
+      lua_createtable(L, 0, 9);
+      setTableString(L, "id", event.id);
+      setTableString(L, "title", event.title);
+      setTableString(L, "calendarName", event.calendarName);
+      setTableString(L, "colorHex", event.colorHex);
+      setTableString(L, "location", event.location);
+      setTableString(L, "url", event.url);
+      setTableNumber(L, "startMs", event.startMs);
+      setTableNumber(L, "endMs", event.endMs);
+      setTableBool(L, "allDay", event.allDay);
+      lua_rawseti(L, -2, index);
+      ++index;
+    }
     return 1;
   }
 
@@ -1002,6 +1062,50 @@ namespace {
     return 0;
   }
 
+  // noctalia.osd.show(icon: string, value: string?, opts: { progress: number?, inactive: boolean? }?)
+  int luau_osd_show(lua_State* L) {
+    size_t iconLen = 0;
+    const char* icon = luaL_checklstring(L, 1, &iconLen);
+    if (iconLen == 0) {
+      luaL_argerror(L, 1, "expected a non-empty glyph name");
+    }
+    size_t valueLen = 0;
+    const char* value = luaL_optlstring(L, 2, "", &valueLen);
+
+    std::optional<double> progress;
+    bool inactive = false;
+    if (!lua_isnoneornil(L, 3)) {
+      luaL_checktype(L, 3, LUA_TTABLE);
+
+      lua_getfield(L, 3, "progress");
+      if (!lua_isnil(L, -1)) {
+        if (lua_type(L, -1) != LUA_TNUMBER) {
+          luaL_error(L, "osd.show: progress must be a number");
+        }
+        progress = lua_tonumber(L, -1);
+        // std::clamp passes NaN through, so reject it here where the plugin author sees the error.
+        if (std::isnan(*progress)) {
+          luaL_error(L, "osd.show: progress must not be NaN");
+        }
+      }
+      lua_pop(L, 1);
+
+      lua_getfield(L, 3, "inactive");
+      if (!lua_isnil(L, -1)) {
+        if (lua_type(L, -1) != LUA_TBOOLEAN) {
+          luaL_error(L, "osd.show: inactive must be a boolean");
+        }
+        inactive = lua_toboolean(L, -1) != 0;
+      }
+      lua_pop(L, 1);
+    }
+
+    if (auto* host = hostForState(L)) {
+      host->scriptShowOsd(std::string(icon, iconLen), std::string(value, valueLen), progress, inactive);
+    }
+    return 0;
+  }
+
   int luau_readFile(lua_State* L) {
     size_t len = 0;
     const char* path = luaL_checklstring(L, 1, &len);
@@ -1076,14 +1180,31 @@ namespace {
       return 2;
     }
     const BudgetCrossingScope budgetScope(host, "writeFile", std::string_view(path, pathLen));
-    std::ofstream file(resolveHostPath(host, std::string_view(path, pathLen)), std::ios::binary | std::ios::trunc);
-    if (!file) {
+    // New files are owner-only from creation; replacing a file keeps its existing mode.
+    const std::filesystem::path target = resolveHostPath(host, std::string_view(path, pathLen));
+    const int fd = ::open(target.c_str(), O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0600);
+    if (fd < 0) {
       lua_pushboolean(L, 0);
       lua_pushstring(L, "cannot open file for writing");
       return 2;
     }
-    file.write(data, static_cast<std::streamsize>(dataLen));
-    lua_pushboolean(L, file.good() ? 1 : 0);
+    bool ok = true;
+    size_t written = 0;
+    while (written < dataLen) {
+      const ssize_t n = ::write(fd, data + written, dataLen - written);
+      if (n < 0) {
+        if (errno == EINTR) {
+          continue;
+        }
+        ok = false;
+        break;
+      }
+      written += static_cast<size_t>(n);
+    }
+    if (::close(fd) != 0) {
+      ok = false;
+    }
+    lua_pushboolean(L, ok ? 1 : 0);
     return 1;
   }
 
@@ -1277,6 +1398,10 @@ namespace {
     }
     std::error_code ec;
     std::filesystem::create_directories(dir, ec);
+    if (!ec) {
+      // Plugin data often holds private state; keep it owner-only.
+      std::filesystem::permissions(dir, std::filesystem::perms::owner_all, std::filesystem::perm_options::replace, ec);
+    }
     if (ec) {
       lua_pushnil(L);
       lua_pushstring(L, ec.message().c_str());
@@ -1651,6 +1776,205 @@ namespace {
       {nullptr, nullptr},
   };
 
+  // noctalia.idle.watch(seconds, callback, { ignoreInhibitors = bool }?) -> id
+  int luau_idle_watch(lua_State* L) {
+    const double seconds = luaL_checknumber(L, 1);
+    luaL_checktype(L, 2, LUA_TFUNCTION);
+    if (!std::isfinite(seconds) || seconds <= 0.0 || seconds > kMaxIdleWatchSeconds) {
+      luaL_error(L, "noctalia.idle.watch: seconds must be a positive number");
+    }
+    bool ignoreInhibitors = false;
+    if (!lua_isnoneornil(L, 3)) {
+      luaL_checktype(L, 3, LUA_TTABLE);
+      lua_getfield(L, 3, "ignoreInhibitors");
+      if (!lua_isnil(L, -1)) {
+        luaL_checktype(L, -1, LUA_TBOOLEAN);
+        ignoreInhibitors = lua_toboolean(L, -1) != 0;
+      }
+      lua_pop(L, 1);
+    }
+    auto* host = hostForState(L);
+    if (host == nullptr) {
+      lua_pushnil(L);
+      return 1;
+    }
+    const int callbackRef = lua_ref(L, 2);
+    const auto timeoutMs = static_cast<std::uint32_t>(std::ceil(seconds * 1000.0));
+    if (!host->scriptIdleWatch(timeoutMs, ignoreInhibitors, callbackRef)) {
+      lua_unref(L, callbackRef);
+      luaL_error(L, "noctalia.idle.watch: at most %d watches per entry", static_cast<int>(kMaxIdleWatchesPerHost));
+    }
+    lua_pushinteger(L, callbackRef);
+    return 1;
+  }
+
+  // noctalia.idle.unwatch(id) -> bool (false when the id is not an active watch)
+  int luau_idle_unwatch(lua_State* L) {
+    const int watchId = luaL_checkinteger(L, 1);
+    auto* host = hostForState(L);
+    lua_pushboolean(L, host != nullptr && host->scriptIdleUnwatch(watchId) ? 1 : 0);
+    return 1;
+  }
+
+  const luaL_Reg kNoctaliaIdleLib[] = {
+      {"watch", luau_idle_watch},
+      {"unwatch", luau_idle_unwatch},
+      {nullptr, nullptr},
+  };
+
+  // noctalia.layer.*: show, hide, and configure this plugin's [[layer]] entries.
+
+  constexpr std::int64_t kMaxLayerExtent = 1 << 16;
+
+  std::string checkLayerEntryId(lua_State* L, const char* fn) {
+    size_t len = 0;
+    const char* id = luaL_checklstring(L, 1, &len);
+    const std::string_view view(id, len);
+    if (view.empty() || view.contains(':') || view.contains('/')) {
+      luaL_error(L, "noctalia.layer.%s: expected the entry id of one of this plugin's [[layer]] entries", fn);
+    }
+    return std::string(view);
+  }
+
+  std::int32_t checkLayerInteger(lua_State* L, int index, std::int64_t min, const char* what) {
+    if (lua_type(L, index) != LUA_TNUMBER) {
+      luaL_error(L, "noctalia.layer.configure: %s must be an integer", what);
+    }
+    const double value = lua_tonumber(L, index);
+    if (!std::isfinite(value)
+        || std::trunc(value) != value
+        || value < static_cast<double>(min)
+        || value > static_cast<double>(kMaxLayerExtent)) {
+      luaL_error(
+          L, "noctalia.layer.configure: %s must be an integer between %d and %d", what, static_cast<int>(min),
+          static_cast<int>(kMaxLayerExtent)
+      );
+    }
+    return static_cast<std::int32_t>(value);
+  }
+
+  std::string_view checkLayerString(lua_State* L, int index, const char* what) {
+    if (lua_type(L, index) != LUA_TSTRING) {
+      luaL_error(L, "noctalia.layer.configure: %s must be a string", what);
+    }
+    size_t len = 0;
+    const char* value = lua_tolstring(L, index, &len);
+    return {value, len};
+  }
+
+  scripting::PluginLayerConfigPatch readLayerPatch(lua_State* L, int table) {
+    scripting::PluginLayerConfigPatch patch;
+    lua_pushnil(L);
+    while (lua_next(L, table) != 0) {
+      const int value = lua_gettop(L);
+      if (lua_type(L, -2) != LUA_TSTRING) {
+        luaL_error(L, "noctalia.layer.configure: property names must be strings");
+      }
+      const std::string_view key = lua_tostring(L, -2);
+      if (key == "layer") {
+        const auto level = scripting::parsePluginLayerLevel(checkLayerString(L, value, "layer"));
+        if (!level.has_value()) {
+          luaL_error(L, R"(noctalia.layer.configure: layer must be "background", "bottom", "top", or "overlay")");
+        }
+        patch.layer = level;
+      } else if (key == "anchors") {
+        luaL_checktype(L, value, LUA_TTABLE);
+        std::uint32_t anchors = 0;
+        const int count = lua_objlen(L, value);
+        for (int i = 1; i <= count; ++i) {
+          lua_rawgeti(L, value, i);
+          const auto anchor =
+              lua_type(L, -1) == LUA_TSTRING ? scripting::parsePluginLayerAnchor(lua_tostring(L, -1)) : std::nullopt;
+          if (!anchor.has_value() || (anchors & *anchor) != 0) {
+            luaL_error(
+                L,
+                R"(noctalia.layer.configure: anchors must list distinct values from "top", "bottom", "left", "right")"
+            );
+          }
+          anchors |= *anchor;
+          lua_pop(L, 1);
+        }
+        patch.anchors = anchors;
+      } else if (key == "width") {
+        patch.width = static_cast<std::uint32_t>(checkLayerInteger(L, value, 0, "width"));
+      } else if (key == "height") {
+        patch.height = static_cast<std::uint32_t>(checkLayerInteger(L, value, 0, "height"));
+      } else if (key == "margins") {
+        luaL_checktype(L, value, LUA_TTABLE);
+        scripting::PluginLayerMargins margins;
+        const std::pair<const char*, std::int32_t*> sides[] = {
+            {"top", &margins.top}, {"right", &margins.right}, {"bottom", &margins.bottom}, {"left", &margins.left}
+        };
+        for (const auto& [side, target] : sides) {
+          lua_getfield(L, value, side);
+          if (!lua_isnil(L, -1)) {
+            *target = checkLayerInteger(L, lua_gettop(L), -kMaxLayerExtent, "margins");
+          }
+          lua_pop(L, 1);
+        }
+        patch.margins = margins;
+      } else if (key == "exclusiveZone") {
+        if (lua_type(L, value) == LUA_TSTRING && std::string_view(lua_tostring(L, value)) == "auto") {
+          patch.exclusiveZone = std::optional<std::int32_t>{};
+        } else {
+          patch.exclusiveZone = std::optional<std::int32_t>{checkLayerInteger(L, value, -1, "exclusiveZone")};
+        }
+      } else if (key == "keyboard") {
+        const auto keyboard = scripting::parsePluginLayerKeyboard(checkLayerString(L, value, "keyboard"));
+        if (!keyboard.has_value()) {
+          luaL_error(L, R"(noctalia.layer.configure: keyboard must be "none", "on_demand", or "exclusive")");
+        }
+        patch.keyboard = keyboard;
+      } else if (key == "clickThrough") {
+        luaL_checktype(L, value, LUA_TBOOLEAN);
+        patch.clickThrough = lua_toboolean(L, value) != 0;
+      } else if (key == "output") {
+        const std::string_view output = checkLayerString(L, value, "output");
+        if (output.empty()) {
+          luaL_error(L, "noctalia.layer.configure: output must not be empty");
+        }
+        patch.output = std::string(output);
+      } else {
+        luaL_error(L, "noctalia.layer.configure: unknown property '%s'", std::string(key).c_str());
+      }
+      lua_pop(L, 1);
+    }
+    return patch;
+  }
+
+  int luau_layer_show(lua_State* L) {
+    std::string id = checkLayerEntryId(L, "show");
+    if (auto* host = hostForState(L)) {
+      host->scriptLayerCommand(scripting::PluginLayerCommand::Show, std::move(id), {});
+    }
+    return 0;
+  }
+
+  int luau_layer_hide(lua_State* L) {
+    std::string id = checkLayerEntryId(L, "hide");
+    if (auto* host = hostForState(L)) {
+      host->scriptLayerCommand(scripting::PluginLayerCommand::Hide, std::move(id), {});
+    }
+    return 0;
+  }
+
+  int luau_layer_configure(lua_State* L) {
+    std::string id = checkLayerEntryId(L, "configure");
+    luaL_checktype(L, 2, LUA_TTABLE);
+    auto patch = readLayerPatch(L, 2);
+    if (auto* host = hostForState(L)) {
+      host->scriptLayerCommand(scripting::PluginLayerCommand::Configure, std::move(id), std::move(patch));
+    }
+    return 0;
+  }
+
+  const luaL_Reg kNoctaliaLayerLib[] = {
+      {"show", luau_layer_show},
+      {"hide", luau_layer_hide},
+      {"configure", luau_layer_configure},
+      {nullptr, nullptr},
+  };
+
   int luau_json_decode(lua_State* L) {
     size_t len = 0;
     const char* str = luaL_checklstring(L, 1, &len);
@@ -1683,6 +2007,11 @@ namespace {
   const luaL_Reg kNoctaliaSoundLib[] = {
       {"load", luau_sound_load},
       {"play", luau_sound_play},
+      {nullptr, nullptr},
+  };
+
+  const luaL_Reg kNoctaliaOsdLib[] = {
+      {"show", luau_osd_show},
       {nullptr, nullptr},
   };
 
@@ -1762,11 +2091,13 @@ namespace {
       {"togglePanel", luau_togglePanel},
       {"openSettings", luau_openSettings},
       {"isDarkMode", luau_isDarkMode},
+      {"getColor", luau_getColor},
       {"wallpaperDirectory", luau_wallpaperDirectory},
       {"notify", luau_notify},
       {"notifyError", luau_notifyError},
       {"copyToClipboard", luau_copyToClipboard},
       {"clipboardText", luau_clipboardText},
+      {"calendarEvents", luau_calendarEvents},
       {"getenv", luau_getenv},
       {"expandPath", luau_expandPath},
       {"formatTime", luau_formatTime},
@@ -1812,10 +2143,22 @@ namespace {
     lua_createtable(L, 0, 0);
     luaL_register(L, nullptr, kNoctaliaSoundLib);
     lua_setfield(L, -2, "sound");
+    // noctalia.osd = { show }
+    lua_createtable(L, 0, 0);
+    luaL_register(L, nullptr, kNoctaliaOsdLib);
+    lua_setfield(L, -2, "osd");
     // noctalia.string = { trim, urlEncode, urlDecode }
     lua_createtable(L, 0, 0);
     luaL_register(L, nullptr, kNoctaliaStringLib);
     lua_setfield(L, -2, "string");
+    // noctalia.idle = { watch, unwatch }
+    lua_createtable(L, 0, 0);
+    luaL_register(L, nullptr, kNoctaliaIdleLib);
+    lua_setfield(L, -2, "idle");
+    // noctalia.layer = { show, hide, configure }
+    lua_createtable(L, 0, 0);
+    luaL_register(L, nullptr, kNoctaliaLayerLib);
+    lua_setfield(L, -2, "layer");
     lua_pop(L, 1);
   }
 } // namespace
@@ -1923,6 +2266,7 @@ bool LuauHost::ensureDiskPathRetained(const std::string& path) {
 LuauHost::~LuauHost() {
   auto unloadPluginSounds = m_api.unloadPluginSoundsHook();
   auto clearWallpaperMasks = m_api.clearWallpaperMasksHook();
+  auto releaseIdleWatches = m_api.releaseIdleWatchesHook();
   // Terminate any long-lived stream subprocesses and HTTP streams before tearing
   // down the state.
   stopAllStreams();
@@ -1975,6 +2319,10 @@ LuauHost::~LuauHost() {
         lua_unref(m_T, callbackRef);
       }
       m_soundLoadCallbacks.clear();
+      for (int callbackRef : m_idleWatchCallbackRefs) {
+        lua_unref(m_T, callbackRef);
+      }
+      m_idleWatchCallbackRefs.clear();
     }
     if (m_threadRef != -1)
       lua_unref(m_L, m_threadRef);
@@ -1988,6 +2336,11 @@ LuauHost::~LuauHost() {
   if (clearWallpaperMasks) {
     DeferredCall::callLater([clearWallpaperMasks = std::move(clearWallpaperMasks), hostId = m_hostId]() mutable {
       clearWallpaperMasks(hostId);
+    });
+  }
+  if (releaseIdleWatches) {
+    DeferredCall::callLater([releaseIdleWatches = std::move(releaseIdleWatches), hostId = m_hostId]() mutable {
+      releaseIdleWatches(hostId);
     });
   }
 }
@@ -2762,6 +3115,18 @@ void LuauHost::scriptPlaySound(std::string name) {
   }
 }
 
+void LuauHost::scriptShowOsd(std::string icon, std::string value, std::optional<double> progress, bool inactive) {
+  if (m_scriptContext != nullptr) {
+    m_scriptContext->sideEffects.push_back(
+        {.kind = scripting::ScriptSideEffectKind::ShowOsd,
+         .title = std::move(icon),
+         .body = std::move(value),
+         .flag = inactive,
+         .number = progress}
+    );
+  }
+}
+
 void LuauHost::scriptSetWallpaperEnabled(std::string connector, bool enabled) {
   if (m_scriptContext != nullptr) {
     m_scriptContext->sideEffects.push_back(
@@ -2811,6 +3176,64 @@ void LuauHost::scriptOpenSettings() {
         {.kind = scripting::ScriptSideEffectKind::OpenPluginSettings, .title = m_pluginId, .body = {}}
     );
   }
+}
+
+void LuauHost::scriptLayerCommand(
+    scripting::PluginLayerCommand command, std::string localEntryId, scripting::PluginLayerConfigPatch patch
+) {
+  if (m_scriptContext == nullptr) {
+    return;
+  }
+  m_scriptContext->sideEffects.push_back({
+      .kind = scripting::ScriptSideEffectKind::LayerCommand,
+      .title = m_pluginId + ":" + localEntryId,
+      .layerCommand = command,
+      .layerPatch = std::move(patch),
+  });
+}
+
+bool LuauHost::scriptIdleWatch(std::uint32_t timeoutMs, bool ignoreInhibitors, int callbackRef) {
+  if (m_scriptContext == nullptr
+      || callbackRef <= LUA_REFNIL
+      || m_idleWatchCallbackRefs.size() >= kMaxIdleWatchesPerHost) {
+    return false;
+  }
+  m_idleWatchCallbackRefs.insert(callbackRef);
+  m_scriptContext->sideEffects.push_back(
+      {.kind = scripting::ScriptSideEffectKind::IdleWatch,
+       .hostId = m_hostId,
+       .callbackRef = callbackRef,
+       .timeoutMs = timeoutMs,
+       .flag = ignoreInhibitors}
+  );
+  return true;
+}
+
+bool LuauHost::scriptIdleUnwatch(int watchId) {
+  if (m_scriptContext == nullptr || m_T == nullptr || m_idleWatchCallbackRefs.erase(watchId) == 0) {
+    return false;
+  }
+  lua_unref(m_T, watchId);
+  m_scriptContext->sideEffects.push_back(
+      {.kind = scripting::ScriptSideEffectKind::IdleUnwatch, .hostId = m_hostId, .callbackRef = watchId}
+  );
+  return true;
+}
+
+bool LuauHost::hasIdleWatchCallback(int callbackRef) const { return m_idleWatchCallbackRefs.contains(callbackRef); }
+
+bool LuauHost::callIdleWatchCallback(int callbackRef, bool idle, std::chrono::milliseconds budget) {
+  if (m_T == nullptr || !m_idleWatchCallbackRefs.contains(callbackRef)) {
+    return false;
+  }
+  // Watch callbacks fire repeatedly; the ref lives until unwatch() or host teardown.
+  lua_getref(m_T, callbackRef);
+  if (!lua_isfunction(m_T, -1)) {
+    lua_pop(m_T, 1);
+    return false;
+  }
+  lua_pushboolean(m_T, idle ? 1 : 0);
+  return callWithBudget("idle watch callback", 1, 0, budget);
 }
 
 bool LuauHost::scriptCopyToClipboard(std::string text, std::string mimeType) {
@@ -3000,23 +3423,51 @@ bool LuauHost::pushRequiredModule(lua_State* L, std::string_view request, std::s
   const ScopeExit popModule([this] { m_moduleStack.pop_back(); });
 
   size_t bytecodeSize = 0;
-  char* bytecode = luau_compile(source.data(), source.size(), nullptr, &bytecodeSize);
-  if (bytecode == nullptr) {
+  // Owned: the Lua C API calls below can throw the memory-ceiling exception this function
+  // documents, and the buffer must not outlive the load in a require chain.
+  std::unique_ptr<char, decltype(&std::free)> bytecode(
+      luau_compile(source.data(), source.size(), nullptr, &bytecodeSize), &std::free
+  );
+  if (!bytecode) {
     error = "require: failed to compile '" + moduleKey + "'";
     return false;
   }
-  const int loadResult = luau_load(L, moduleKey.c_str(), bytecode, bytecodeSize, 0);
-  std::free(bytecode);
-  if (loadResult != 0) {
-    const char* message = lua_tostring(L, -1);
-    error = message != nullptr ? message : "module compilation failed";
-    lua_settop(L, initialTop);
+
+  // The restore guard below pushes without growing the stack, and it runs while that
+  // exception may be in flight, so reserve what it needs before anything else is on the
+  // stack.
+  if (!lua_checkstack(L, 8)) {
+    error = "require: not enough VM stack to load '" + moduleKey + "'";
     return false;
   }
 
   // Private globals for the module: writes land here, reads fall through to the
-  // shared sandboxed globals. The directory rides on the metatable so require() in
-  // any function closed over this env resolves lexically, whenever it runs.
+  // shared sandboxed globals, and _G is the module env (see docs/user/plugins/
+  // development/entries.mdx). The directory rides on the metatable so require() in any
+  // function closed over this env resolves lexically, whenever it runs.
+  //
+  // Luau only trusts its load-time global/builtin resolution cache when the closure's env
+  // is marked safe, and resolves it against the loading thread's globals; installing the
+  // module env there and marking it safe gives modules the same fast paths (LOP_GETIMPORT,
+  // LOP_FASTCALL*) the entry chunk gets from luaL_sandboxthread, instead of a metatable
+  // lookup per global access. A module that names the global _G keeps that table (the env
+  // itself) writable and readable under a name the cache can't account for, so it must stay
+  // unsafe. Token match, not substring, so e.g. MERGE_GAP doesn't cost a module its fast path.
+  const auto namesTheModuleEnv = [](std::string_view src) {
+    const auto isIdentifierChar = [](unsigned char c) {
+      return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_';
+    };
+    for (std::size_t at = src.find("_G"); at != std::string_view::npos; at = src.find("_G", at + 1)) {
+      const bool startsToken = at == 0 || !isIdentifierChar(static_cast<unsigned char>(src[at - 1]));
+      const bool endsToken = at + 2 >= src.size() || !isIdentifierChar(static_cast<unsigned char>(src[at + 2]));
+      if (startsToken && endsToken) {
+        return true;
+      }
+    }
+    return false;
+  };
+  const bool envCacheable = !namesTheModuleEnv(source);
+
   const std::string moduleDir = modulePath.parent_path().string();
   lua_newtable(L);
   lua_pushvalue(L, -1);
@@ -3028,7 +3479,40 @@ bool LuauHost::pushRequiredModule(lua_State* L, std::string_view request, std::s
   lua_setfield(L, -2, kModuleDirKey);
   lua_setreadonly(L, -1, true);
   lua_setmetatable(L, -2);
-  lua_setfenv(L, -2);
+  if (envCacheable) {
+    lua_setsafeenv(L, -1, true);
+  }
+
+  const int envIndex = lua_gettop(L);
+  lua_pushthread(L);
+  lua_pushvalue(L, envIndex);
+  lua_setfenv(L, -2); // thread globals = env, for the load
+  lua_pop(L, 1);
+
+  int loadResult = 0;
+  {
+    // Puts the thread globals back on every exit, including the C++ exception a
+    // memory-ceiling failure throws out of the loader.
+    const ScopeExit restoreThreadGlobals([&] {
+      lua_pushthread(L);
+      lua_getmetatable(L, envIndex);
+      lua_getfield(L, -1, "__index");
+      lua_setfenv(L, -3);
+      lua_pop(L, 2);
+    });
+    loadResult = luau_load(L, moduleKey.c_str(), bytecode.get(), bytecodeSize, 0);
+    bytecode.reset(); // released as soon as the loader is done; the guards cover a throw
+  }
+  if (loadResult != 0) {
+    const char* message = lua_tostring(L, -1);
+    error = message != nullptr ? message : "module compilation failed";
+    lua_settop(L, initialTop);
+    return false;
+  }
+
+  // The loader closes the chunk and its nested functions over the thread globals, which
+  // were the module env for the load, so the closure env is already right.
+  lua_remove(L, envIndex);
 
   if (lua_pcall(L, 0, LUA_MULTRET, 0) != 0) {
     const char* message = lua_tostring(L, -1);

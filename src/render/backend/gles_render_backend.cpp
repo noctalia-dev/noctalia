@@ -18,19 +18,6 @@
 #include <utility>
 #include <wayland-egl.h>
 
-#ifndef GL_GUILTY_CONTEXT_RESET
-#define GL_GUILTY_CONTEXT_RESET 0x8253
-#endif
-#ifndef GL_INNOCENT_CONTEXT_RESET
-#define GL_INNOCENT_CONTEXT_RESET 0x8254
-#endif
-#ifndef GL_UNKNOWN_CONTEXT_RESET
-#define GL_UNKNOWN_CONTEXT_RESET 0x8255
-#endif
-#ifndef GL_PURGED_CONTEXT_RESET_NV
-#define GL_PURGED_CONTEXT_RESET_NV 0x92BB
-#endif
-
 namespace {
 
   constexpr Logger kLog("render");
@@ -321,7 +308,6 @@ void GlesRenderBackend::initialize(GlSharedContext& shared) {
 
   verifyRequiredGlCapabilities();
 
-  resolveGraphicsResetStatusProc();
   m_viewportValid = false;
   m_blendMode.reset();
   m_scissorEnabled = false;
@@ -410,27 +396,7 @@ void GlesRenderBackend::endFrame(RenderTarget& target) {
   );
 }
 
-RenderGraphicsResetStatus GlesRenderBackend::graphicsResetStatus() {
-  if (m_graphicsResetStatus == nullptr) {
-    return RenderGraphicsResetStatus::NoError;
-  }
-
-  const GLenum status = m_graphicsResetStatus();
-  switch (status) {
-  case GL_NO_ERROR:
-    return RenderGraphicsResetStatus::NoError;
-  case GL_GUILTY_CONTEXT_RESET:
-    return RenderGraphicsResetStatus::Guilty;
-  case GL_INNOCENT_CONTEXT_RESET:
-    return RenderGraphicsResetStatus::Innocent;
-  case GL_UNKNOWN_CONTEXT_RESET:
-    return RenderGraphicsResetStatus::Unknown;
-  case GL_PURGED_CONTEXT_RESET_NV:
-    return RenderGraphicsResetStatus::Purged;
-  default:
-    return RenderGraphicsResetStatus::Other;
-  }
-}
+RenderGraphicsResetStatus GlesRenderBackend::graphicsResetStatus() { return currentGlContextResetStatus(); }
 
 void GlesRenderBackend::invalidateGpuResources() {
   if (m_display == EGL_NO_DISPLAY || m_context == EGL_NO_CONTEXT) {
@@ -462,7 +428,6 @@ void GlesRenderBackend::abandonAfterGraphicsReset() noexcept {
   m_display = EGL_NO_DISPLAY;
   m_config = nullptr;
   m_context = EGL_NO_CONTEXT;
-  m_graphicsResetStatus = nullptr;
   m_maxTextureSize = 0;
 }
 
@@ -683,6 +648,11 @@ void GlesRenderBackend::drawWallpaperMask(const WallpaperMaskDrawParams& params)
   m_wallpaperMaskProgram.draw(params);
 }
 
+void GlesRenderBackend::drawLockscreenTransition(const LockscreenTransitionDrawParams& params) {
+  m_lockscreenTransitionProgram.ensureInitialized();
+  m_lockscreenTransitionProgram.draw(params);
+}
+
 void GlesRenderBackend::drawFullscreenTexture(TextureId texture, bool flipY) {
   if (texture == 0) {
     return;
@@ -731,26 +701,6 @@ void GlesRenderBackend::ensureFullscreenTintProgram() {
   }
 }
 
-void GlesRenderBackend::resolveGraphicsResetStatusProc() {
-  m_graphicsResetStatus = reinterpret_cast<GraphicsResetStatusProc>(eglGetProcAddress("glGetGraphicsResetStatus"));
-  if (m_graphicsResetStatus == nullptr) {
-    m_graphicsResetStatus = reinterpret_cast<GraphicsResetStatusProc>(eglGetProcAddress("glGetGraphicsResetStatusKHR"));
-  }
-  if (m_graphicsResetStatus == nullptr) {
-    m_graphicsResetStatus = reinterpret_cast<GraphicsResetStatusProc>(eglGetProcAddress("glGetGraphicsResetStatusEXT"));
-  }
-
-  if (!m_resetStatusLogged) {
-    if (m_graphicsResetStatus != nullptr) {
-      const bool purge = hasGlExtension("GL_NV_robustness_video_memory_purge");
-      kLog.info("graphics reset status polling enabled{}", purge ? " with NVIDIA video-memory purge status" : "");
-    } else {
-      kLog.info("graphics reset status polling unavailable");
-    }
-    m_resetStatusLogged = true;
-  }
-}
-
 void GlesRenderBackend::destroyGpuObjects() {
   m_rectProgram.destroy();
   m_imageProgram.destroy();
@@ -764,6 +714,7 @@ void GlesRenderBackend::destroyGpuObjects() {
   m_graphProgram.destroy();
   m_wallpaperProgram.destroy();
   m_wallpaperMaskProgram.destroy();
+  m_lockscreenTransitionProgram.destroy();
   m_blurProgram.destroy();
   m_fullscreenTextureProgram.destroy();
   m_fullscreenTintProgram.destroy();
@@ -783,6 +734,7 @@ void GlesRenderBackend::abandonGpuObjects() noexcept {
   m_graphProgram.abandon();
   m_wallpaperProgram.abandon();
   m_wallpaperMaskProgram.abandon();
+  m_lockscreenTransitionProgram.abandon();
   m_blurProgram.abandon();
   m_fullscreenTextureProgram.abandon();
   m_fullscreenTintProgram.abandon();
@@ -806,7 +758,5 @@ void GlesRenderBackend::cleanup() {
   m_display = EGL_NO_DISPLAY;
   m_config = nullptr;
   m_context = EGL_NO_CONTEXT;
-  m_graphicsResetStatus = nullptr;
-  m_resetStatusLogged = false;
   m_maxTextureSize = 0;
 }

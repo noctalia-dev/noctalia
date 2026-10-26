@@ -18,10 +18,6 @@
 #include "compositors/sway/sway_keyboard_backend.h"
 #include "compositors/sway/sway_output_backend.h"
 #include "compositors/sway/sway_runtime.h"
-#include "compositors/triad/triad_keyboard_backend.h"
-#include "compositors/triad/triad_output_backend.h"
-#include "compositors/triad/triad_runtime.h"
-#include "compositors/triad/triad_workspace_backend.h"
 #include "compositors/umbriel/umbriel_keyboard_backend.h"
 #include "compositors/umbriel/umbriel_output_backend.h"
 #include "compositors/umbriel/umbriel_runtime.h"
@@ -29,6 +25,7 @@
 #include "compositors/workspace_alert_service.h"
 #include "core/log.h"
 #include "core/process/process.h"
+#include "util/string_utils.h"
 #include "wayland/output_probe.h"
 #include "wayland/wayland_connection.h"
 #include "wayland/wayland_workspaces.h"
@@ -42,6 +39,7 @@
 #include <optional>
 #include <string>
 #include <sys/types.h>
+#include <unordered_map>
 #include <unordered_set>
 #include <utility>
 
@@ -51,6 +49,8 @@ namespace compositors {
   public:
     virtual ~FocusedOutputBackend() = default;
     [[nodiscard]] virtual std::optional<std::string> focusedOutputName() const = 0;
+    [[nodiscard]] virtual std::unordered_map<std::string, bool> outputPowerStates() const = 0;
+    virtual void setOutputPowerChangeCallback(CompositorPlatform::ChangeCallback callback) = 0;
   };
 
   class OutputPowerBackend {
@@ -199,14 +199,15 @@ namespace {
     });
   }
 
-  void appendHyprlandExtOnlyWindows(
+  void mergeHyprlandExtWindows(
       std::vector<ToplevelInfo>& windows, const std::vector<ToplevelInfo>& extWindows,
       const compositors::hyprland::HyprlandToplevelMapping& mapping,
       const std::unordered_set<std::string>* outputWindowIds
   ) {
-    std::unordered_set<std::string> wlrRepresentedIds;
-    wlrRepresentedIds.reserve(windows.size());
-    for (const auto& window : windows) {
+    std::unordered_map<std::string, std::size_t> wlrIndexByWindowId;
+    wlrIndexByWindowId.reserve(windows.size());
+    for (std::size_t i = 0; i < windows.size(); ++i) {
+      const auto& window = windows[i];
       if (window.handle == nullptr) {
         continue;
       }
@@ -216,7 +217,7 @@ namespace {
       }
       const auto normalized = compositors::hyprland::normalizeWindowId(*windowId);
       if (!normalized.empty()) {
-        wlrRepresentedIds.insert(normalized);
+        wlrIndexByWindowId.try_emplace(normalized, i);
       }
     }
 
@@ -227,8 +228,8 @@ namespace {
       const auto windowId = mapping.windowIdForExtHandle(extWindow.extHandle);
       if (windowId.has_value()) {
         const auto normalized = compositors::hyprland::normalizeWindowId(*windowId);
-        // The wlr results above already cover this output, so skip the ext copy of anything in them.
-        if (!normalized.empty() && wlrRepresentedIds.contains(normalized)) {
+        if (const auto wlr = wlrIndexByWindowId.find(normalized); wlr != wlrIndexByWindowId.end()) {
+          windows[wlr->second].extHandle = extWindow.extHandle;
           continue;
         }
         // ext_foreign_toplevel_list has no per-output metadata; scope to this bar's monitor via IPC.
@@ -251,6 +252,19 @@ namespace {
 
     [[nodiscard]] std::optional<std::string> focusedOutputName() const override {
       return m_backend.focusedOutputName();
+    }
+
+    [[nodiscard]] std::unordered_map<std::string, bool> outputPowerStates() const override {
+      if constexpr (requires { m_backend.outputPowerStates(); }) {
+        return m_backend.outputPowerStates();
+      }
+      return {};
+    }
+
+    void setOutputPowerChangeCallback(CompositorPlatform::ChangeCallback callback) override {
+      if constexpr (requires { m_backend.setOutputPowerChangeCallback(std::move(callback)); }) {
+        m_backend.setOutputPowerChangeCallback(std::move(callback));
+      }
     }
 
   private:
@@ -344,10 +358,6 @@ namespace {
             return compositors::sway::setOutputPower(runtime, on);
           }
       );
-    case compositors::CompositorKind::Triad:
-      return std::make_unique<LambdaOutputPowerBackend>([&runtime = runtimeRegistry.triad()](
-                                                            WaylandConnection& /*wayland*/, bool on
-                                                        ) { return compositors::triad::setOutputPower(runtime, on); });
     case compositors::CompositorKind::Mango:
       return std::make_unique<LambdaOutputPowerBackend>(
           [&runtime = runtimeRegistry.mango()](WaylandConnection& wayland, bool on) {
@@ -379,13 +389,12 @@ namespace {
       return std::make_unique<FocusedOutputAdapter<NiriOutputBackend>>(runtimeRegistry.niri());
     case compositors::CompositorKind::Sway:
       return std::make_unique<FocusedOutputAdapter<SwayOutputBackend>>(runtimeRegistry.sway());
-    case compositors::CompositorKind::Triad:
-      return std::make_unique<FocusedOutputAdapter<TriadOutputBackend>>(runtimeRegistry.triad());
+    case compositors::CompositorKind::Umbriel:
+      return std::make_unique<FocusedOutputAdapter<UmbrielOutputBackend>>(runtimeRegistry.umbriel());
     case compositors::CompositorKind::Dwl:
     case compositors::CompositorKind::Labwc:
     case compositors::CompositorKind::Kde:
     case compositors::CompositorKind::Mango:
-    case compositors::CompositorKind::Umbriel:
     case compositors::CompositorKind::Unknown:
       break;
     }
@@ -395,8 +404,6 @@ namespace {
   [[nodiscard]] std::unique_ptr<compositors::WorkspaceMetadataBackend>
   createWorkspaceMetadataBackend(compositors::CompositorRuntimeRegistry& runtimeRegistry) {
     switch (compositors::detect()) {
-    case compositors::CompositorKind::Triad:
-      return std::make_unique<TriadWorkspaceBackend>(runtimeRegistry.triad());
     case compositors::CompositorKind::Niri:
       return std::make_unique<NiriWorkspaceBackend>(runtimeRegistry.niri());
     case compositors::CompositorKind::Umbriel:
@@ -424,8 +431,6 @@ namespace {
       return std::make_unique<KeyboardLayoutBackendAdapter<MangoKeyboardBackend>>(runtimeRegistry.mango());
     case compositors::CompositorKind::Sway:
       return std::make_unique<KeyboardLayoutBackendAdapter<SwayKeyboardBackend>>(runtimeRegistry.sway());
-    case compositors::CompositorKind::Triad:
-      return std::make_unique<KeyboardLayoutBackendAdapter<TriadKeyboardBackend>>(runtimeRegistry.triad());
     case compositors::CompositorKind::Umbriel:
       return std::make_unique<KeyboardLayoutBackendAdapter<UmbrielKeyboardBackend>>(runtimeRegistry.umbriel());
     case compositors::CompositorKind::Dwl:
@@ -506,6 +511,7 @@ namespace {
                   .title = window.title,
                   .x = window.x,
                   .y = window.y,
+                  .minimizeState = window.minimizeState,
               }
           );
           continue;
@@ -519,6 +525,7 @@ namespace {
                   .title = window.title,
                   .x = window.x,
                   .y = window.y,
+                  .minimizeState = window.minimizeState,
               }
           );
         }
@@ -533,6 +540,7 @@ namespace {
               .title = window.title,
               .x = window.x,
               .y = window.y,
+              .minimizeState = window.minimizeState,
           }
       );
     }
@@ -590,6 +598,9 @@ CompositorPlatform::CompositorPlatform(WaylandConnection& wayland)
     : m_wayland(wayland), m_runtimeRegistry(std::make_unique<compositors::CompositorRuntimeRegistry>()),
       m_workspaces(std::make_unique<WaylandWorkspaces>(*m_runtimeRegistry)) {
   m_workspaceMetadataBackend = createWorkspaceMetadataBackend(*m_runtimeRegistry);
+  if (m_workspaceMetadataBackend != nullptr) {
+    m_workspaceMetadataBackend->setWindowChangeCallback([this]() { notifyToplevelsChanged(); });
+  }
   if (auto focusedOutputBackend = createFocusedOutputBackend(*m_runtimeRegistry); focusedOutputBackend != nullptr) {
     m_focusedOutputBackends.push_back(std::move(focusedOutputBackend));
   }
@@ -615,12 +626,20 @@ CompositorPlatform::CompositorPlatform(WaylandConnection& wayland)
 }
 
 CompositorPlatform::~CompositorPlatform() {
+  m_toplevelChangeCallback = {};
+  m_workspaceChangeCallback = {};
+  if (m_workspaceMetadataBackend != nullptr) {
+    m_workspaceMetadataBackend->setChangeCallback({});
+    m_workspaceMetadataBackend->setWindowChangeCallback({});
+    m_workspaceMetadataBackend->setOverviewChangeCallback({});
+  }
   cleanup();
   m_wayland.setOutputLifecycleCallbacks({}, {});
   m_wayland.setWorkspaceManagerCallbacks({}, {});
   m_wayland.setKdeVirtualDesktopManagerCallback({});
   m_wayland.setHyprlandToplevelMappingManagerCallback({});
   m_wayland.setToplevelChangeCallback({});
+  m_wayland.setKeyboardLayoutChangeCallback({});
 }
 
 void CompositorPlatform::startKdeActiveWindow(SessionBus& bus) {
@@ -671,6 +690,14 @@ compositors::niri::NiriRuntime& CompositorPlatform::niriRuntime() noexcept { ret
 
 const compositors::niri::NiriRuntime& CompositorPlatform::niriRuntime() const noexcept {
   return m_runtimeRegistry->niri();
+}
+
+compositors::umbriel::UmbrielRuntime& CompositorPlatform::umbrielRuntime() noexcept {
+  return m_runtimeRegistry->umbriel();
+}
+
+const compositors::umbriel::UmbrielRuntime& CompositorPlatform::umbrielRuntime() const noexcept {
+  return m_runtimeRegistry->umbriel();
 }
 
 bool CompositorPlatform::hasXdgShell() const noexcept { return m_wayland.hasXdgShell(); }
@@ -854,9 +881,37 @@ std::optional<ActiveToplevel> CompositorPlatform::activeToplevel() const {
   return m_wayland.activeToplevel();
 }
 
-wl_output* CompositorPlatform::activeToplevelOutput() const { return m_wayland.activeToplevelOutput(); }
+wl_output* CompositorPlatform::activeToplevelOutput() const {
+  if (compositors::isKde() && m_kwinActiveWindow != nullptr) {
+    if (const auto focusedName = m_kwinActiveWindow->focusedOutputName(); focusedName.has_value()) {
+      if (wl_output* output = resolveOutputName(*focusedName); output != nullptr) {
+        return output;
+      }
+    }
+  }
+  if (compositors::detect() == compositors::CompositorKind::Mango && m_workspaces != nullptr) {
+    if (wl_output* selected = m_workspaces->mangoIpcSelectedOutput(); selected != nullptr) {
+      return selected;
+    }
+  }
+  if (compositors::detect() == compositors::CompositorKind::Dwl && m_workspaces != nullptr) {
+    if (wl_output* selected = m_workspaces->dwlIpcSelectedOutput(); selected != nullptr) {
+      return selected;
+    }
+  }
+  return m_wayland.activeToplevelOutput();
+}
 
 std::vector<std::string> CompositorPlatform::runningAppIds(wl_output* outputFilter) const {
+  if (compositors::isUmbriel() && hasExactWindowIdentity()) {
+    std::vector<std::string> ids;
+    for (const auto& window : m_workspaceMetadataBackend->workspaceWindows(connectorNameForOutput(outputFilter))) {
+      if (!window.appId.empty() && m_wayland.extHandleForIdentifier(window.windowId) != nullptr) {
+        ids.push_back(window.appId);
+      }
+    }
+    return ids;
+  }
   if (compositors::isKde() && m_kwinActiveWindow != nullptr && m_kwinActiveWindow->isAvailable()) {
     const auto ids = m_kwinActiveWindow->runningAppIds();
     if (!ids.empty()) {
@@ -870,6 +925,9 @@ std::vector<std::string> CompositorPlatform::runningAppIds(wl_output* outputFilt
 std::vector<ToplevelInfo> CompositorPlatform::windowsForApp(
     const std::string& idLower, const std::string& wmClassLower, wl_output* outputFilter
 ) const {
+  if (compositors::isUmbriel() && hasExactWindowIdentity()) {
+    return enrichedWindowsForApp(idLower, wmClassLower, outputFilter);
+  }
   if (compositors::isKde() && m_kwinActiveWindow != nullptr && m_kwinActiveWindow->isAvailable()) {
     const auto kdeWindows = m_kwinActiveWindow->windowsForApp(idLower, wmClassLower);
     if (!kdeWindows.empty()) {
@@ -879,6 +937,9 @@ std::vector<ToplevelInfo> CompositorPlatform::windowsForApp(
   }
 
   auto windows = m_wayland.windowsForApp(idLower, wmClassLower, outputFilter);
+  for (auto& window : windows) {
+    window.minimizeState = windowMinimizeState(window);
+  }
   if (!compositors::isHyprland() || m_hyprlandToplevelMapping == nullptr || !m_hyprlandToplevelMapping->available()) {
     return windows;
   }
@@ -889,7 +950,7 @@ std::vector<ToplevelInfo> CompositorPlatform::windowsForApp(
   if (!m_wayland.hasExtForeignToplevelList()) {
     return windows;
   }
-  appendHyprlandExtOnlyWindows(
+  mergeHyprlandExtWindows(
       windows, m_wayland.extWindowsForApp(idLower, wmClassLower), *m_hyprlandToplevelMapping,
       outputFilter != nullptr ? &outputWindowIds : nullptr
   );
@@ -897,12 +958,25 @@ std::vector<ToplevelInfo> CompositorPlatform::windowsForApp(
 }
 
 std::vector<ToplevelInfo> CompositorPlatform::windowsWithoutAppId(wl_output* outputFilter) const {
+  if (compositors::isUmbriel() && hasExactWindowIdentity()) {
+    return enrichedWindowsWithoutAppId(outputFilter);
+  }
   auto windows = m_wayland.windowsWithoutAppId(outputFilter);
+  for (auto& window : windows) {
+    window.minimizeState = windowMinimizeState(window);
+  }
   if (!compositors::isHyprland() || m_hyprlandToplevelMapping == nullptr || !m_hyprlandToplevelMapping->available()) {
     return windows;
   }
-  dropWindowsOnOtherOutputs(
-      windows, *m_hyprlandToplevelMapping, outputScopedWindowIds(m_workspaces.get(), outputFilter)
+  const auto outputWindowIds = outputScopedWindowIds(m_workspaces.get(), outputFilter);
+  dropWindowsOnOtherOutputs(windows, *m_hyprlandToplevelMapping, outputWindowIds);
+
+  if (!m_wayland.hasExtForeignToplevelList()) {
+    return windows;
+  }
+  mergeHyprlandExtWindows(
+      windows, m_wayland.extWindowsWithoutAppId(), *m_hyprlandToplevelMapping,
+      outputFilter != nullptr ? &outputWindowIds : nullptr
   );
   return windows;
 }
@@ -916,6 +990,7 @@ std::vector<ToplevelInfo> CompositorPlatform::enrichedWindowsForApp(
     auto windows = m_wayland.extWindowsForApp(idLower, wmClassLower);
     for (auto& w : windows) {
       w.exactIdentity = true;
+      w.minimizeState = windowMinimizeState(w);
     }
     if (!windows.empty()) {
       retainToplevelsWithWindowIds(windows, windowIdsFromAssignments(workspaceWindowAssignments(outputFilter)));
@@ -934,6 +1009,7 @@ std::vector<ToplevelInfo> CompositorPlatform::enrichedWindowsWithoutAppId(wl_out
     auto windows = m_wayland.extWindowsWithoutAppId();
     for (auto& w : windows) {
       w.exactIdentity = true;
+      w.minimizeState = windowMinimizeState(w);
     }
     if (!windows.empty()) {
       retainToplevelsWithWindowIds(windows, windowIdsFromAssignments(workspaceWindowAssignments(outputFilter)));
@@ -953,11 +1029,21 @@ void CompositorPlatform::activateToplevel(zwlr_foreign_toplevel_handle_v1* handl
   m_wayland.activateToplevel(handle);
 }
 
+void CompositorPlatform::activateToplevelForAppId(std::string_view appId) {
+  if (appId.empty()) {
+    return;
+  }
+  const std::string idLower = StringUtils::toLower(std::string(appId));
+  const auto windows = windowsForApp(idLower, idLower);
+  if (windows.empty()) {
+    return;
+  }
+  activateToplevelInfo(windows.back());
+}
+
 void CompositorPlatform::activateToplevelInfo(const ToplevelInfo& window) {
-  if (window.exactIdentity
-      && !window.identifier.empty()
-      && m_workspaceMetadataBackend != nullptr
-      && m_workspaceMetadataBackend->focusWindowById(window.identifier)) {
+  if (window.exactIdentity && !window.identifier.empty() && m_workspaceMetadataBackend != nullptr) {
+    (void)m_workspaceMetadataBackend->focusWindowById(window.identifier);
     return;
   }
   if (window.handle != nullptr) {
@@ -971,6 +1057,78 @@ void CompositorPlatform::activateToplevelInfo(const ToplevelInfo& window) {
   if (!window.identifier.empty()) {
     focusCompositorWindow(window.identifier);
   }
+}
+
+std::optional<WindowMinimizeState> CompositorPlatform::windowMinimizeState(const ToplevelInfo& window) const {
+  if (compositors::isUmbriel()
+      && m_workspaceMetadataBackend != nullptr
+      && window.exactIdentity
+      && m_wayland.extHandleForIdentifier(window.identifier) != nullptr) {
+    return m_workspaceMetadataBackend->windowMinimizeState(window.identifier);
+  }
+  if (compositors::isKde() && m_kwinActiveWindow != nullptr && m_kwinActiveWindow->isAvailable()) {
+    return m_kwinActiveWindow->windowMinimizeState(window.identifier);
+  }
+  if (compositors::isLabwc()) {
+    if (const auto minimized = m_wayland.toplevelMinimized(window.handle); minimized.has_value()) {
+      return WindowMinimizeState{.minimized = *minimized, .minimizable = true};
+    }
+  }
+  return std::nullopt;
+}
+
+bool CompositorPlatform::minimizeToplevelInfo(const ToplevelInfo& window) {
+  const auto state = windowMinimizeState(window);
+  if (!state.has_value() || !state->minimizable || state->minimized) {
+    return false;
+  }
+  if (compositors::isUmbriel()) {
+    return m_workspaceMetadataBackend->minimizeWindowById(window.identifier);
+  }
+  if (compositors::isKde()) {
+    return m_kwinActiveWindow->minimizeWindow(window.identifier);
+  }
+  return compositors::isLabwc() && m_wayland.minimizeToplevel(window.handle);
+}
+
+void CompositorPlatform::activateOrMinimizeToplevelInfo(const ToplevelInfo& window) {
+  const auto state = windowMinimizeState(window);
+  const auto active = activeToplevel();
+  const bool focused = window.handle != nullptr ? active.has_value() && active->handle == window.handle
+      : window.exactIdentity
+      ? focusedCompositorWindowId() == std::optional(window.identifier)
+      : active.has_value() && !window.identifier.empty() && active->identifier == window.identifier;
+  if (state.has_value() && !state->minimized && state->minimizable && focused) {
+    (void)minimizeToplevelInfo(window);
+    return;
+  }
+  activateToplevelInfo(window);
+}
+
+std::optional<bool> CompositorPlatform::hasUnminimizedToplevels(wl_output* outputFilter) const {
+  bool sawWindow = false;
+  bool unknown = false;
+  const auto inspect = [&](const std::vector<ToplevelInfo>& windows) {
+    for (const auto& window : windows) {
+      sawWindow = true;
+      if (!window.minimizeState.has_value()) {
+        unknown = true;
+      } else if (!window.minimizeState->minimized) {
+        return true;
+      }
+    }
+    return false;
+  };
+  for (const auto& appId : runningAppIds(outputFilter)) {
+    const auto lower = StringUtils::toLower(appId);
+    if (inspect(enrichedWindowsForApp(lower, lower, outputFilter))) {
+      return true;
+    }
+  }
+  if (inspect(enrichedWindowsWithoutAppId(outputFilter))) {
+    return true;
+  }
+  return sawWindow && !unknown ? std::optional(false) : std::nullopt;
 }
 
 void CompositorPlatform::closeToplevel(zwlr_foreign_toplevel_handle_v1* handle) { m_wayland.closeToplevel(handle); }
@@ -1096,13 +1254,7 @@ bool CompositorPlatform::isCompositorWindowIdKnown(const std::string_view window
   }
 
   if (const auto* extHandle = m_hyprlandToplevelMapping->extHandleForWindowId(normalized)) {
-    bool live = false;
-    m_wayland.visitExtToplevelHandles([&](ext_foreign_toplevel_handle_v1* handle) {
-      if (handle == extHandle) {
-        live = true;
-      }
-    });
-    if (live) {
+    if (extToplevelIsLive(extHandle)) {
       return true;
     }
   }
@@ -1122,6 +1274,49 @@ std::optional<std::string> CompositorPlatform::focusedCompositorWindowId() const
     }
   }
   return std::nullopt;
+}
+
+ext_foreign_toplevel_handle_v1*
+CompositorPlatform::extHandleForCompositorWindowId(const std::string_view windowId) const {
+  ext_foreign_toplevel_handle_v1* extHandle = nullptr;
+  if (m_hyprlandToplevelMapping != nullptr && m_hyprlandToplevelMapping->available()) {
+    const auto normalized = compositors::hyprland::normalizeWindowId(windowId);
+    if (normalized.empty()) {
+      return nullptr;
+    }
+    extHandle = m_hyprlandToplevelMapping->extHandleForWindowId(normalized);
+  } else if (hasExactExtToplevelIdentity()) {
+    extHandle = m_wayland.extHandleForIdentifier(windowId);
+  }
+  if (extHandle == nullptr) {
+    return nullptr;
+  }
+  return extToplevelIsLive(extHandle) ? extHandle : nullptr;
+}
+
+bool CompositorPlatform::extToplevelIsLive(const ext_foreign_toplevel_handle_v1* handle) const {
+  bool live = false;
+  m_wayland.visitExtToplevelHandles([&](ext_foreign_toplevel_handle_v1* candidate) {
+    if (candidate == handle) {
+      live = true;
+    }
+  });
+  return live;
+}
+
+std::optional<std::string> CompositorPlatform::focusedExtToplevelIdentifier() const {
+  const auto id = m_workspaces != nullptr ? m_workspaces->focusedExtToplevelIdentifier() : std::nullopt;
+  return id && !id->empty() ? id : std::nullopt;
+}
+
+bool CompositorPlatform::hasExactExtToplevelIdentity() const noexcept {
+  return hasExactWindowIdentity()
+      || (m_hyprlandToplevelMapping != nullptr
+          && m_hyprlandToplevelMapping->available()
+          && m_wayland.hasExtForeignToplevelList())
+      || (m_workspaces != nullptr
+          && m_wayland.hasExtForeignToplevelList()
+          && m_workspaces->publishesExtToplevelIdentity());
 }
 
 void CompositorPlatform::setWorkspaceChangeCallback(ChangeCallback callback) {
@@ -1381,10 +1576,15 @@ std::vector<WorkspaceWindowAssignment> CompositorPlatform::workspaceWindowAssign
             .title = window.title,
             .x = window.x,
             .y = window.y,
+            .minimizeState = window.minimizeState,
         }
     );
   }
   return result;
+}
+
+std::vector<std::string> CompositorPlatform::openOverlayWorkspaceKeys(wl_output* outputFilter) const {
+  return m_workspaces != nullptr ? m_workspaces->openOverlayWorkspaceKeys(outputFilter) : std::vector<std::string>{};
 }
 
 TaskbarAssignmentMode CompositorPlatform::taskbarAssignmentMode() const noexcept {
@@ -1423,6 +1623,14 @@ const char* CompositorPlatform::workspaceBackendName() const noexcept {
 }
 
 void CompositorPlatform::focusCompositorWindow(const std::string& windowId, bool warpPointer) const {
+  if (compositors::isLabwc() && toplevel_identity::isWlr(windowId)) {
+    m_wayland.visitWlrToplevels([&](const WlrToplevelSnapshot& window) {
+      if (toplevel_identity::wlr(reinterpret_cast<std::uintptr_t>(window.handle)) == windowId) {
+        m_wayland.activateToplevel(window.handle);
+      }
+    });
+    return;
+  }
   if (compositors::isKde() && m_kwinActiveWindow != nullptr && m_kwinActiveWindow->isAvailable() && !windowId.empty()) {
     m_kwinActiveWindow->activateWindow({}, {}, windowId, warpPointer);
     return;
@@ -1519,6 +1727,9 @@ void CompositorPlatform::setKeyboardLayoutChangeCallback(ChangeCallback callback
   if (m_keyboardLayoutBackend != nullptr) {
     m_keyboardLayoutBackend->setChangeCallback(m_keyboardLayoutChangeCallback);
     m_keyboardLayoutBackend->connectSocket();
+  } else {
+    // No compositor IPC: the seat's xkb group is the only layout source, so it drives change events.
+    m_wayland.setKeyboardLayoutChangeCallback(m_keyboardLayoutChangeCallback);
   }
 }
 
@@ -1540,6 +1751,13 @@ bool CompositorPlatform::requestSessionExit() const {
   const compositors::CompositorKind compositor = compositors::detect();
   logSessionExitContext(compositor);
 
+  constexpr std::chrono::milliseconds kUwsmProbeTimeout{2000};
+  if (process::commandExists("uwsm")
+      && process::runSyncWithTimeout({"uwsm", "check", "is-active", "compositor-only"}, kUwsmProbeTimeout).exitCode
+          == 0) {
+    return process::runAsync({"uwsm", "stop"});
+  }
+
   switch (compositor) {
   case compositors::CompositorKind::Hyprland: {
     auto& runtime = m_runtimeRegistry->hyprland();
@@ -1556,8 +1774,6 @@ bool CompositorPlatform::requestSessionExit() const {
     return m_runtimeRegistry->niri().requestAction(
         nlohmann::json{{"Quit", nlohmann::json{{"skip_confirmation", true}}}}, true
     );
-  case compositors::CompositorKind::Triad:
-    return m_runtimeRegistry->triad().requestAction("exit-session");
   case compositors::CompositorKind::Mango:
     return process::launchFirstAvailable({{"mmsg", "dispatch", "quit"}});
   case compositors::CompositorKind::Dwl:
@@ -1585,10 +1801,49 @@ bool CompositorPlatform::setOutputPower(bool on) const {
   if (m_outputPowerBackend == nullptr) {
     return false;
   }
-  if (m_outputPowerBackend->isPerOutputTargeted()) {
-    m_lastRequestedOutputPowerState = on;
+  // A failed multi-output request may still have powered off some outputs.
+  if (!on) {
+    m_lastRequestedOutputPowerState = false;
   }
-  return m_outputPowerBackend->setOutputPower(m_wayland, on);
+  if (!m_outputPowerBackend->setOutputPower(m_wayland, on)) {
+    return false;
+  }
+  m_lastRequestedOutputPowerState = on;
+  return true;
+}
+
+bool CompositorPlatform::shouldSuppressLockTransition() const {
+  if (m_outputPowerOffPending) {
+    return true;
+  }
+  std::unordered_map<std::string, bool> states;
+  for (const auto& backend : m_focusedOutputBackends) {
+    states = backend->outputPowerStates();
+  }
+  bool hasOutput = false;
+  bool allKnown = true;
+  for (const auto& output : m_wayland.outputs()) {
+    if (!output.done || output.output == nullptr || !output.hasUsableGeometry()) {
+      continue;
+    }
+    hasOutput = true;
+    const auto state = states.find(output.connectorName);
+    if (state == states.end()) {
+      allKnown = false;
+    } else if (!state->second) {
+      return true;
+    }
+  }
+  if (hasOutput && allKnown) {
+    return false;
+  }
+  return m_lastRequestedOutputPowerState == false;
+}
+
+void CompositorPlatform::setOutputPowerChangeCallback(ChangeCallback callback) {
+  for (auto& backend : m_focusedOutputBackends) {
+    backend->setOutputPowerChangeCallback(callback);
+  }
 }
 
 bool CompositorPlatform::tracksOverviewState() const noexcept {
@@ -1604,6 +1859,19 @@ bool CompositorPlatform::isOverviewOpen() const noexcept {
     return true;
   }
   return m_workspaceMetadataBackend->isOverviewOpen();
+}
+
+bool CompositorPlatform::closeOverview() const {
+  if (!tracksOverviewState() || !hasOverviewState() || !isOverviewOpen()) {
+    return false;
+  }
+  if (compositors::isUmbriel()) {
+    return umbrielRuntime().requestAction("overview-toggle");
+  }
+  if (compositors::isNiri()) {
+    return niriRuntime().requestAction(nlohmann::json{{"ToggleOverview", nlohmann::json::object()}});
+  }
+  return false;
 }
 
 void CompositorPlatform::bindExtWorkspace(ext_workspace_manager_v1* manager) {

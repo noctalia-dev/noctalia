@@ -27,7 +27,52 @@
     }
   },
   "bar": {
+    "annotate": {
+      "capture-new-region": "Cattura nuova regione (scarta l'edit corrente)",
+      "close": "Chiudi senza finalizzare (Esc)",
+      "color-black": "Nero",
+      "color-blue": "Blu",
+      "color-green": "Verde",
+      "color-orange": "Arancione",
+      "color-purple": "Viola",
+      "color-red": "Rosso",
+      "color-white": "Bianco",
+      "color-yellow": "Giallo",
+      "copy": "Copia l'immagine annotata (Ctrl+C)",
+      "cursor": "Mostra il puntatore catturato con lo schermo (p)",
+      "cursor-capture-failed": "Attiva/disattiva puntatore non disponibile: il compositor non è riuscito a fornire un puntatore separato",
+      "cursor-live": "Prima di cambiare il puntatore catturato (Z), blocca lo schermo",
+      "cursor-not-captured": "Attiva/disattiva puntatore non disponibile: il compositor non supporta la cattura separata del puntatore",
+      "done": "Applica le impostazioni dello screenshot (Invio)",
+      "fill-off": "Riempimento forma: off (f)",
+      "fill-opaque": "Riempimento forma: opaco (f)",
+      "fill-semi": "Riempimento della forma: semitrasparente (f)",
+      "freeze": "Congela lo schermo sotto l'inchiostro (z)",
+      "move-toolbar": "Trascina per spostare la barra degli strumenti",
+      "redo": "Ripeti (Ctrl+Maiusc+Z)",
+      "save": "Salva l'immagine annotata (Ctrl+S)",
+      "size-advanced": "Regolazione fine delle dimensioni",
+      "size-decrease": "Più sottile ([)",
+      "size-increase": "Più spesso (])",
+      "size-large": "Grande",
+      "size-medium": "Medio",
+      "size-small": "Piccolo",
+      "tool-arrow": "Freccia (a) · tieni premuto Maiusc per agganciare l'angolo",
+      "tool-blur": "Sfoca una regione (u)",
+      "tool-brush": "Pennello (b)",
+      "tool-circle": "Ellisse (o) · tieni premuto Maiusc per disegnare un cerchio",
+      "tool-crop": "Ritaglia l'esportazione (c)",
+      "tool-eraser": "Gomma (e)",
+      "tool-highlighter": "Evidenziatore (h)",
+      "tool-line": "Linea (l) · tieni premuto Maiusc per allineare l'angolo",
+      "tool-move": "Sposta un'annotazione (m)",
+      "tool-numbering": "Indicatore numerato (n)",
+      "tool-rectangle": "Rettangolo(i) · tieni premuto Maiusc per un quadrato",
+      "tool-text": "Testo (t)",
+      "undo": "Annulla (Ctrl+Z)"
+    },
     "screenshot": {
+      "annotate-export-failed": "Impossibile creare l'immagine annotata",
       "choose-display": "Scegli monitor",
       "confirm-region": "{copy} per copiare · {save} per salvare · Invio o Spazio per le impostazioni predefinite · {cancel} per annullare · Trascina per riselezionare",
       "fullscreen": "Schermo intero",
@@ -43,7 +88,8 @@
       },
       "brightness": {
         "brightness": "Luminosità",
-        "display": "Schermo"
+        "display": "Schermo",
+        "unavailable": "Controllo della luminosità non disponibile"
       },
       "lock-keys": {
         "caps": "Caps",
@@ -60,6 +106,7 @@
       "network": {
         "active": "Attiva",
         "band": "Banda",
+        "cellular": "Cellulare",
         "connected": "Connesso",
         "connecting": "Connessione in corso",
         "download": "Download",
@@ -73,8 +120,10 @@
         "not-connected": "Non connesso",
         "off": "Off",
         "on": "On",
+        "operator": "Operatore",
         "scanning": "Scansione",
         "signal": "Segnale",
+        "technology": "Tecnologia",
         "upload": "Upload",
         "vpn": "VPN",
         "wan-ip": "IP WAN",
@@ -178,7 +227,9 @@
       "auto": "Automatico",
       "custom": "Personalizzato",
       "inherit": "Eredita",
-      "off": "Disattivato"
+      "inherit-value": "Eredita ({value})",
+      "off": "Disattivato",
+      "on": "On"
     }
   },
   "control-center": {
@@ -225,6 +276,7 @@
         "connected": "Connessi",
         "paired": "Associati"
       },
+      "trust-and-allow": "Considera attendibile e consenti",
       "unavailable": "Servizio Bluetooth non disponibile",
       "unknown-device": "Dispositivo sconosciuto",
       "visible": "Rilevabile dai dispositivi vicini"
@@ -239,6 +291,7 @@
     "display": {
       "disabled": "Disabilitato",
       "no-displays": "Nessun monitor disponibile",
+      "rescan": "Ri-scansiona DDC/CI monitors",
       "unknown-resolution": "Risoluzione sconosciuta"
     },
     "home": {
@@ -259,7 +312,6 @@
       "uptime": "Tempo di attività – {uptime}",
       "weather": {
         "data-unavailable": "Dati meteo non disponibili.",
-        "disabled": "Il meteo è disabilitato nella configurazione.",
         "fetching": "Recupero previsioni meteo..."
       }
     },
@@ -270,15 +322,39 @@
       "start-playback": "Avvia la riproduzione in un'app MPRIS"
     },
     "network": {
+      "anonymous-identity": "Identità anonima (opzionale)",
       "available": "Disponibili",
+      "ca-certificate": "Percorso CA certificate (opzionale)",
+      "cellular": "Cellulare",
+      "cellular-connected": "Connesso",
+      "cellular-connecting": "Connessione...",
+      "cellular-connection": "Connessione cellulare",
+      "cellular-enabling": "Accensione…",
+      "cellular-failed": "Fallito",
+      "cellular-locked": "SIM bloccata",
+      "cellular-no-service": "Nessun servizio",
+      "cellular-off": "Off",
+      "cellular-registered": "Registrato",
+      "cellular-searching": "Ricerca in corso…",
       "connect": "Connetti",
       "current-connection": "Connessione corrente",
+      "domain-suffix-match": "Suffisso del domain server",
+      "eap-method": "Metodo EAP",
+      "enterprise-prompt-for": "Accedi a {ssid}",
+      "error-ca-not-absolute": "Il percorso del certificato deve essere assoluto, iniziando con /.",
+      "error-certificate-required": "Questa rete richiede autenticazione certificata (EAP-TLS), non ancora supportata.",
+      "error-enterprise-unsupported": "Il backend di rete attivo non può configurare reti 802.1X.",
+      "error-missing-identity": "Immetti l'identità che la tua organizzazione ti ha assegnato.",
+      "error-missing-password": "Immetti la tua password.",
+      "error-unsupported-phase2": "PEAP richiede autenticazione interna MSCHAPv2.",
       "external-ip": "WAN {ip}",
+      "identity": "Identità",
       "no-networks": "Nessuna rete nel raggio d'azione",
       "not-connected": "Non connesso",
       "password": "Password",
       "password-prompt": "Inserisci password",
       "password-prompt-for": "Inserisci password per {ssid}",
+      "phase2-auth": "Autenticazione interna",
       "saved": "Salvate",
       "unavailable-detail": "Installa e abilita NetworkManager, wpa_supplicant o iwd per gestire le reti da qui.",
       "unavailable-title": "Servizio di rete non disponibile",
@@ -479,7 +555,10 @@
         "select-sticker-image": "Seleziona immagine sticker"
       },
       "settings": {
+        "album-art-background": "Sfondo della copertina dell'album",
+        "album-art-blur": "Copertina dell'album sfocata",
         "aspect-ratio": "Proporzioni",
+        "audio-visualizer": "Visualizzatore audio",
         "background": "Sfondo",
         "background-color": "Colore",
         "background-opacity": "Opacità",
@@ -554,9 +633,12 @@
         "show-login-button": "Pulsante di login",
         "show-media": "Media",
         "show-password-hint": "Suggerimento password",
+        "show-password-reveal": "Mostra password",
+        "show-seconds": "Lancetta Secondi",
         "show-session-buttons": "Pulsanti di sessione",
         "show-unlock-hint": "Sblocca avvisi",
         "show-vpn-label": "Mostra etichetta VPN",
+        "show-wave": "Mostra onda",
         "show-weather": "Meteo",
         "show-week-numbers": "Mostra i numeri delle settimane",
         "show-when-idle": "Mostra quando inattivo",
@@ -642,6 +724,34 @@
     }
   },
   "launcher": {
+    "browser": {
+      "actions": {
+        "power": "Energia",
+        "settings": "Impostazioni"
+      },
+      "navigation": {
+        "all": "Tutto",
+        "all-apps": "Tutte le Apps",
+        "categories": "Categorie",
+        "pinned": "Fissate",
+        "providers": "Providers",
+        "recent": "Recenti"
+      },
+      "options": {
+        "show-grid": "Mostra Vista a Griglia",
+        "show-list": "Mostra Vista a Lista",
+        "sort-by-frequency": "Prioritizza Risultati Frequenti",
+        "use-default-order": "Usa Ordinamento di Default"
+      },
+      "sections": {
+        "all-apps": "Tutte le Apps",
+        "other-apps": "Altre Apps",
+        "pinned": "Fissate",
+        "providers": "Providers",
+        "recent": "Recenti",
+        "search-results": "Risultati ricerca"
+      }
+    },
     "categories": {
       "all": "Tutto",
       "applications": {
@@ -676,6 +786,7 @@
       "unpin-from-dock": "Sblocca dalla dock"
     },
     "empty": {
+      "loading": "Caricamento dei risultati...",
       "no-results": "Nessun risultato trovato",
       "type-to-search": "Digita per cercare..."
     },
@@ -696,6 +807,20 @@
       },
       "emoji": {
         "title": "Emoji"
+      },
+      "panel": {
+        "builtin": {
+          "clipboard": "Appunti",
+          "control-center": "Centro di controllo",
+          "launcher": "Launcher",
+          "polkit": "Richiesta di autenticazione",
+          "session": "Sessione",
+          "setup-wizard": "Procedura setup guidata",
+          "test": "Pannello di prova",
+          "tray-drawer": "Cassetto dei vassoi",
+          "wallpaper": "Sfondo"
+        },
+        "title": "Pannelli"
       },
       "session": {
         "action-subtitle": "Esegui azione di sessione",
@@ -756,6 +881,8 @@
       "calendar": "Calendario",
       "calendar-credential-locked-body": "Sblocca il portachiavi utilizzato dal Secret Service, quindi riprova in Impostazioni. Con GNOME Keyring, imposta come predefinito un portachiavi sbloccato automaticamente al Login.",
       "calendar-credential-locked-title": "Il portachiavi del calendario è bloccato",
+      "calendar-digest-more": "+{count} altro",
+      "calendar-digest-title": "Tutto il giorno oggi",
       "calendar-google-connect-browser-failed": "Impossibile avviare un browser per l'autorizzazione Google. Controlla il browser predefinito o la configurazione di xdg-open.",
       "calendar-google-connect-credential-store-failed": "Autorizzazione completata, ma non è stato possibile salvare il token di aggiornamento. Sblocca o avvia il Secret Service, quindi connettiti di nuovo.",
       "calendar-google-connect-expired": "L'autorizzazione Google è scaduta prima del completamento dell'accesso. Avvia di nuovo la connessione.",
@@ -766,6 +893,13 @@
       "calendar-google-connect-start-failed": "Impossibile avviare l'autorizzazione Google. Controlla la connessione di rete e riprova.",
       "calendar-google-connect-start-http": "Impossibile avviare l'autorizzazione Google. Il broker OAuth ha restituito HTTP {status}.",
       "calendar-google-connect-timeout": "Autorizzazione Google scaduta. Avvia di nuovo la connessione quando sei pronto ad accedere.",
+      "calendar-reminder-catchup-body": "{count} altri eventi inizieranno presto.",
+      "calendar-reminder-catchup-title": "Altri eventi in programma",
+      "calendar-reminder-in": "Inizia tra {minutes} min · {time}",
+      "calendar-reminder-now": "Inizia ora · {time}",
+      "calendar-reminder-open": "Apri",
+      "calendar-reminder-untitled": "Evento senza titolo",
+      "calendar-reminder-with-location": "{when}\n{location}",
       "config-migration-body": "Aggiorna {path} nel source file. Noctalia applica questa sostituzione solo temporaneamente. Esegui noctalia config validate per elencare tutte le modifiche richieste.",
       "config-migration-title": "È necessario l'aggiornamento della configurazione",
       "dbus-disabled": "Notifiche DBus disabilitate",
@@ -792,6 +926,15 @@
       "lockscreen-widgets-editor-blocked-locked": "Sblocca la sessione prima di modificare i widget del blocco schermo.",
       "lockscreen-widgets-editor-enabled": "L'editor dei widget della schermata di blocco è attivo. Passa a un'area di lavoro vuota in modo che le finestre aperte non coprano l'editor.",
       "mpris-disabled": "MPRIS disabilitato",
+      "network": "Rete",
+      "network-connect-failed-auth": "La password è stata rifiutata o non è stata fornita.",
+      "network-connect-failed-generic": "NetworkManager non è stato in grado di completare la connessione.",
+      "network-connect-failed-ip": "Connesso alla rete ma impossibile ottenere indirizzo IP",
+      "network-connect-failed-no-reply": "NetworkManager non ha risposto. Una richiesta di autorizzazione potrebbe stare aspettando senza risposta dall'agente polkit ",
+      "network-connect-failed-not-found": "La rete non è più nel raggio di copertura.",
+      "network-connect-failed-permission": "Non autorizzato a cambiare connessioni. Abilita l'agente polkit nelle impostazioni Sicurezza, o permetti azioni NetworkManager in una regola polkit.",
+      "network-connect-failed-timeout": "La rete non ha risposto in tempo.",
+      "network-connect-failed-title": "Impossibile connettersi a {ssid}",
       "polkit-agent": "Polkit Agent",
       "polkit-no-session": "L'agente Polkit necessita di logind, elogind o XDG_SESSION_ID. Nelle configurazioni seatd-only non è possibile registrarsi per i prompt grafici. Utilizza il terminale pkexec per la sincronizzazione del greeter o installa elogind per l'autenticazione in sessione.",
       "screen-time-reset": "Tempo schermo",
@@ -872,7 +1015,7 @@
         "device": "Batteria",
         "device-numbered": "Batteria {index}",
         "health": "Salute",
-        "rate": "Velocità",
+        "rate": "Potenza",
         "status": "Stato",
         "time-left": "Tempo rimanente",
         "time-to-full": "Tempo rimanente alla carica completa",
@@ -892,6 +1035,7 @@
       "lock-and-suspend": "Blocca e sospendi",
       "logout": "Disconnetti",
       "reboot": "Riavvia",
+      "reboot-uefi": "Riavvia in modalità UEFI",
       "shutdown": "Spegni",
       "suspend": "Sospendi"
     },
@@ -917,6 +1061,8 @@
     "calendar-accounts": {
       "add-title": "Aggiungi account calendario",
       "calendars-label": "Calendari",
+      "client-cert-label": "Certificato client (PEM)",
+      "client-key-label": "Chiave client (PEM)",
       "color-label": "Colore",
       "credential-source-file": "File password",
       "credential-source-keyring": "Keyring",
@@ -994,13 +1140,16 @@
       },
       "monitor-override": {
         "create": "Crea",
+        "custom": "Custom",
         "delete": "Elimina",
         "delete-confirm-desc": "Questa override monitor creato dalla GUI verrà rimosso da settings.toml.",
         "delete-confirm-title": "Eliminare \"{name}\"?",
+        "exists": "Esiste già un'opzione di override per questo monitor.",
         "label": "Monitor: {name}",
         "management": "Override monitor",
         "match-placeholder": "Corrispondenza monitor",
         "new": "Override monitor",
+        "new-title": "Nuovo override del monitor",
         "rename": "Rinomina",
         "rename-save": "Salva"
       },
@@ -1021,6 +1170,8 @@
           "action": "Raggruppa",
           "border": "Bordo",
           "border-description": "Ruolo colore del contorno capsula; lascia Predefinito per nessun contorno",
+          "border-width": "Dimensione Bordo",
+          "border-width-description": "Spessore del contorno capsula in pixels; disegnata solo quando il colore del bordo è impostato",
           "clear": "Cancella",
           "deselect": "Deseleziona",
           "drag": "Riordina",
@@ -1161,6 +1312,8 @@
       "merged-user-description": "Combina file di configurazione e override della GUI in un unico file TOML. I valori predefiniti integrati restano impliciti.",
       "merged-user-save-title": "Salva configurazione utente unificata",
       "merged-user-title": "Configurazione utente unificata (consigliata)",
+      "privacy-warning-description": "Entrambe le modalità di esportazione possono includere chiavi API, password o altri dati sensibili memorizzati nella configurazione, inclusi quelli dei plugin. Tratta i file esportati come privati. Rivedi e rimuovi i dati sensibili prima di condividerli.",
+      "privacy-warning-title": "Le esportazioni possono contenere segreti",
       "title": "Esporta configurazione"
     },
     "idle": {
@@ -1202,10 +1355,12 @@
         "background": "Sfondo",
         "battery": "Batteria",
         "behavior": "Comportamento",
+        "bluetooth": "Bluetooth",
         "borders": "Bordi",
         "brightness": "Luminosità",
         "built-in": "Integrato",
-        "calendar": "Calendario",
+        "calendar-accounts": "Account",
+        "calendar-reminders": "Promemoria",
         "capsules": "Capsule",
         "clipboard": "Appunti",
         "community": "Community",
@@ -1254,6 +1409,9 @@
         "screen-corners": "Angoli schermo",
         "screen-time": "Tempo schermo",
         "screenshot": "Cattura schermo",
+        "screenshot-annotation": "Annotazione",
+        "screenshot-capture": "Cattura",
+        "screenshot-output": "Output",
         "security": "Sicurezza",
         "session-panel": "Sessione",
         "shape": "Forma",
@@ -1273,6 +1431,7 @@
         "appearance": "Aspetto",
         "backdrop": "Sfondo pannelli",
         "bar": "Barra",
+        "calendar": "Calendario",
         "control-center": "Centro di controllo",
         "desktop": "Desktop",
         "dock": "Dock",
@@ -1287,11 +1446,13 @@
         "plugins": "Plugin",
         "popups": "Popup",
         "power": "Energia",
+        "screenshot": "Screenshot",
         "security": "Sicurezza",
         "services": "Servizi",
         "shell": "Shell",
         "system": "Sistema",
         "templates": "Template",
+        "umbriel": "Umbriel",
         "wallpaper": "Sfondo"
       }
     },
@@ -1387,6 +1548,21 @@
         "overlay": "Overlay",
         "top": "In alto"
       },
+      "lockscreen": {
+        "transition": {
+          "diamond": "Diamond",
+          "disc": "Disco",
+          "fade": "Dissolvenza",
+          "golden": "Golden",
+          "honeycomb": "Nido d'ape",
+          "melt": "Melt",
+          "pixel": "Pixel",
+          "stripes": "Strisce",
+          "vortex": "Vortex",
+          "wipe": "Wipe",
+          "zoom": "Zoom"
+        }
+      },
       "notification-urgency": {
         "critical": "Critica",
         "low": "Bassa",
@@ -1395,10 +1571,6 @@
       "orientation": {
         "horizontal": "Orizzontale",
         "vertical": "Verticale"
-      },
-      "panel-bar-alignment": {
-        "centered": "Centrato",
-        "near-trigger": "Vicino al click"
       },
       "panel-position": {
         "auto": "Segui la barra"
@@ -1421,7 +1593,30 @@
         "top-left": "Alto sinistra",
         "top-right": "Alto destra"
       },
+      "screenshot": {
+        "region-modifier": {
+          "alt": "Alt",
+          "ctrl": "Ctrl",
+          "none": "Nessuno",
+          "shift": "Shift",
+          "super": "Super"
+        }
+      },
       "shell": {
+        "launcher-default-view": {
+          "all": "Tutto",
+          "categories": "Categorie",
+          "pinned": "Fissate",
+          "recent": "Recenti"
+        },
+        "launcher-layout": {
+          "full": "Completo",
+          "simple": "Semplice"
+        },
+        "launcher-search-position": {
+          "bottom": "Basso",
+          "top": "Alto"
+        },
         "panel-placement": {
           "attached": "Attaccato",
           "floating": "Flottante"
@@ -1445,6 +1640,10 @@
           "up": "In alto",
           "up-left": "In alto a sinistra",
           "up-right": "In alto a destra"
+        },
+        "window-switcher-style": {
+          "carousel": "Carosello",
+          "compact": "Compatto"
         }
       },
       "theme": {
@@ -1480,10 +1679,15 @@
           "random": "Casuale"
         },
         "transition": {
+          "diamond": "Diamond",
           "disc": "Disco",
           "fade": "Dissolvenza",
+          "golden": "Golden",
           "honeycomb": "Nido d'ape",
+          "melt": "Melt",
+          "pixel": "Pixel",
           "stripes": "Strisce",
+          "vortex": "Vortex",
           "wipe": "Tendina",
           "zoom": "Zoom"
         }
@@ -1494,6 +1698,21 @@
           "metric": "Metrico"
         }
       }
+    },
+    "palette-inspector": {
+      "copied": "Copiato {value}",
+      "copy-failed": "Impossibile copiare il colore negli appunti.",
+      "copy-hex": "Copia il valore esadecimale",
+      "copy-name": "Copia il nome del colore",
+      "description": "Template colori in modalità {mode}.",
+      "empty": "Nessun abbinamento di colori.",
+      "filter-all": "Tutti i colori",
+      "filter-palette": "Palette",
+      "filter-terminal": "Terminale",
+      "missing": "Non disponibile",
+      "search-placeholder": "Cerca i nomi dei colori o i valori esadecimali...",
+      "terminal-number": "{number} · ANSI {index}",
+      "title": "Analizzatore palette"
     },
     "plugins": {
       "browse-store": "Sfoglia plugin",
@@ -1527,6 +1746,8 @@
         "incompatible-plugin-api": "API plugin incompatibile",
         "remove": "Rimuovi plugin",
         "requires": "Richiede: {dependencies}",
+        "search-empty": "Nessun plugin corrisponde a \"{query}\".",
+        "search-placeholder": "Cerca i plugin installati",
         "title": "Elenco plugin",
         "update-all": "Aggiorna tutti ({count})",
         "update-available": "aggiornamento disponibile",
@@ -1577,14 +1798,27 @@
         "installed": "Installato",
         "loading": "Caricamento catalogo...",
         "no-readme": "Nessuna descrizione disponibile.",
+        "not-listed": "Non in elenco",
         "open-page": "Apri la pagina plugin su noctalia.dev",
         "open-source": "Apri il repository dei sorgenti dei plugin",
+        "recommend": "Raccomandato",
+        "recommendation-error": "Il cambiamento non è stato confermato. La tua raccomandazione precedente non è cambiata. Riprova lo stesso cambiamento per riconciliarlo.",
+        "recommendation-not-recommendable": "Questo plugin non può accettare questa raccomandazione.",
+        "recommendation-pending": "Invio raccomandazione...",
+        "recommendation-protocol-error": "Il servizio ha ritornato una risposta inaspettata. La tua raccomandazione precedente è invariata.",
+        "recommendation-rate-limited": "Troppe richieste. Aspetta prima di riprovare questo cambiamento.",
+        "recommendation-retry": "Riprova cambiamento raccomandazione",
+        "recommendation-state-error": "Lo stato delle raccomandazioni non può essere letto o salvato. Controlla state.toml prima di riprovare.",
+        "recommendation-unavailable": "Raccomandazioni temporaneamente non disponibili. Le tue precedenti raccomandazioni sono invariate. Puoi riprovare fra poco.",
+        "remove-recommendation": "Rimuovi raccomandazione",
         "results-count": "{count} plugin",
         "search-placeholder": "Ricerca plugin...",
         "sort-added-at-asc": "Ordina per data di aggiunta (prima il più vecchio)",
         "sort-added-at-desc": "Ordina per data di aggiunta (prima il più recente)",
+        "sort-most-recommended": "Più raccomandati",
         "sort-name-asc": "Ordina per nome (A-Z)",
         "sort-name-desc": "Ordina per nome (Z-A)",
+        "sort-trending": "Popolare",
         "sort-updated-at-asc": "Ordina per data di aggiornamento (prima il più vecchio)",
         "sort-updated-at-desc": "Ordina per data di aggiornamento (prima il più recente)",
         "source-all": "Tutte le sorgenti",
@@ -1664,6 +1898,11 @@
           "description": "Sovrascrivi il rilevamento automatico della lingua",
           "label": "Lingua"
         },
+        "palette-inspector": {
+          "button": "Ispeziona i colori",
+          "description": "Visualizza i nomi dei colori del modello, i campioni e i valori esadecimali per la tavolozza attiva",
+          "label": "Analizzatore palette"
+        },
         "palette-source": {
           "description": "Da dove ricavare la palette colori",
           "label": "Sorgente palette"
@@ -1683,6 +1922,14 @@
         "shell-theme-mode": {
           "description": "Fissa la modalità chiara o scura di Noctalia; Segui la mantiene sincronizzata con la Modalità Tema.",
           "label": "Modalità tema Shell"
+        },
+        "show-close-buttons": {
+          "description": "Mostra i pulsanti di chiusura nei pannelli, notifiche, popup, finestre di dialogo e nella finestra delle impostazioni",
+          "label": "Mostra pulsanti Chiudi"
+        },
+        "sync-color-scheme": {
+          "description": "Imposta la preferenza scura/chiara del sistema letta dai browser e da altre app in modo che segua la Modalità Tema",
+          "label": "Sincronizza schema colore app"
         },
         "theme-mode": {
           "description": "Scegli tra Scuro, Chiaro o Automatico in base all'ora del giorno; questa opzione si applica anche alle app tramite i modelli.",
@@ -1714,6 +1961,10 @@
         "auto-hide": {
           "description": "Off mantiene la barra visibile; On la nasconde finché non sposti il ​​puntatore sul bordo dello schermo; Smart mostra la barra su un'area di lavoro vuota e la nasconde quando le finestre sono aperte"
         },
+        "auto-hide-delay": {
+          "description": "Attendi questo numero di millisecondi dopo che il puntatore esce prima di nascondere la barra; 0 nasconde immediatamente (solo in modalità attiva)",
+          "label": "Ritardo auto-hide"
+        },
         "background-opacity": {
           "description": "Opacità dello sfondo della barra"
         },
@@ -1728,6 +1979,10 @@
         "capsule-border": {
           "description": "Ruolo colore predefinito del contorno capsula; sono supportati anche codici colore in formato esadecimale",
           "label": "Bordo capsula"
+        },
+        "capsule-border-width": {
+          "description": "Spessore del contorno capsula in pixels; disegnata solo quando il colore del bordo capsula è impostato",
+          "label": "Dimensione Bordo Capsula"
         },
         "capsule-fill": {
           "description": "Ruolo colore predefinito dello sfondo capsula; sono supportati anche codici colore in formato esadecimale",
@@ -1756,6 +2011,10 @@
         "center-widgets": {
           "description": "Widget al centro della barra",
           "label": "Widget centrali"
+        },
+        "compositor-blur": {
+          "description": "Consenti al compositor di sfocare lo sfondo dietro questa barra quando è disponibile il protocollo per gli effetti di sfondo",
+          "label": "Sfocatura compositor"
         },
         "concave-edge-corners": {
           "description": "Intaglia delle tacche concave in due degli angoli della barra (è necessario che il margine del bordo sia impostato a 0); Se il margine delle estremità è impostato su 0, vengono intagliati gli angoli sul bordo interno della barra, in caso contrario, vengono intagliati gli angoli che toccano il bordo dello schermo",
@@ -1842,6 +2101,10 @@
         "show-on-workspace-switch": {
           "description": "Mostra brevemente la barra quando l'area di lavoro attiva cambia",
           "label": "Mostra al cambio area di lavoro"
+        },
+        "show-tooltip": {
+          "description": "Mostra i tooltip al passaggio del mouse per i widget su questa barra; l'impostazione Mostra tooltip del widget stesso ha la precedenza su questa",
+          "label": "Mostra suggerimenti"
         },
         "start-widgets": {
           "description": "Widget sul lato iniziale (sinistra/alto) della barra",
@@ -2033,10 +2296,6 @@
         "main-axis-padding": {
           "description": "Spaziatura interna alle estremità della riga di icone (prima della prima icona e dopo l'ultima)"
         },
-        "monitors": {
-          "description": "Scegli quali monitor mostrano la dock (lascia vuoto per tutti); il filtro monitor attivo si applica dentro questi monitor",
-          "label": "Monitor"
-        },
         "pinned-apps": {
           "description": "ID desktop entry delle app fissate alla dock",
           "label": "App fissate"
@@ -2209,6 +2468,10 @@
           "description": "Usa un'istantanea del desktop come sfondo del blocco schermo",
           "label": "Cattura desktop"
         },
+        "edge-smoothness": {
+          "description": "Sfumatura dei bordi di transizione della schermata di blocco",
+          "label": "Fluidità transizione"
+        },
         "enabled": {
           "description": "Abilita il blocco della sessione, l'integrazione con logind e le azioni di blocco",
           "label": "Blocco schermo"
@@ -2216,6 +2479,10 @@
         "fingerprint": {
           "description": "Sblocco con un lettore di impronte digitali tramite fprintd, insieme alla password",
           "label": "Sblocco con impronta"
+        },
+        "grace-period": {
+          "description": "Permetti lo sblocco senza password per questa quantità di secondi dopo il blocco; qualsiasi tasto o movimento del mouse lo sblocca. Imposta a 0 per richiedere sempre la password",
+          "label": "Periodo di grazia"
         },
         "lock-before-suspend": {
           "description": "Blocca la sessione prima della sospensione (chiudi il coperchio, sospendi systemctl, iberna); Le azioni Blocca e Sospendi si bloccano comunque per prime",
@@ -2228,6 +2495,14 @@
         "tint-intensity": {
           "description": "Tinta del colore superficie sopra lo sfondo del blocco schermo",
           "label": "Intensità tinta"
+        },
+        "transition-duration": {
+          "description": "Durata delle animazioni di blocco e sblocco in millisecondi",
+          "label": "Durata della transizione"
+        },
+        "transitions": {
+          "description": "Effetti disponibili durante il blocco e lo sblocco (ne viene scelto uno a caso)",
+          "label": "Effetti di transizione"
         },
         "wallpaper": {
           "description": "Immagine personalizzata per lo sfondo del blocco schermo; lascia vuoto per usare lo sfondo del desktop",
@@ -2260,6 +2535,14 @@
           "description": "Disegna un contorno attorno ai toast di notifica",
           "label": "Bordo"
         },
+        "border-color": {
+          "description": "Ruolo del colore per il contorno del messaggio di notifica; sono supportati anche codici colore in formato esadecimale",
+          "label": "Colore Bordo"
+        },
+        "border-width": {
+          "description": "Spessore del contorno dei toast notifica in pixels; 0 nasconde il contorno",
+          "label": "Dimensione Bordo"
+        },
         "collapse-on-dismiss": {
           "description": "Fa scorrere i toast rimanenti per chiudere gli spazi quando uno viene ignorato",
           "label": "Compatta alla chiusura"
@@ -2271,6 +2554,10 @@
         "filters": {
           "description": "Regole notifiche per mittente, cronologia e suoni; ha priorità il primo filtro abilitato corrispondente",
           "label": "Filtri notifiche"
+        },
+        "follow-focused-output": {
+          "description": "Mostra le nuove notifiche toast sul monitor attivo",
+          "label": "Segui l'output che ha il focus"
         },
         "history-retention-hours": {
           "description": "Rimuovi automaticamente le voci della cronologia delle notifiche più vecchie del numero di ore specificato (0 per conservarle per sempre)",
@@ -2319,9 +2606,21 @@
         "toast-opacity": {
           "description": "Opacità sfondo delle notifiche toast",
           "label": "Opacità sfondo"
+        },
+        "width": {
+          "description": "Larghezza del toast in pixel prima del ridimensionamento",
+          "label": "Larghezza"
         }
       },
       "panels": {
+        "border-color": {
+          "description": "Colore contorno per pannelli flottanti; un nome di un ruolo di un tema segue il tema attivo, o scegli un colore personalizzato",
+          "label": "Colore Bordo"
+        },
+        "border-width": {
+          "description": "Dimensione contorno per pannelli flottanti in pixel, 0 nasconde il contorno",
+          "label": "Dimensione Bordo"
+        },
         "borders": {
           "description": "Disegna un contorno sui pannelli mobili",
           "label": "Bordi"
@@ -2340,7 +2639,7 @@
         },
         "control-center-width": {
           "description": "Larghezza del pannello del Centro di controllo in pixel (le modalità compatta e senza barra laterale si riducono rispetto a questo valore)",
-          "label": "Larghezza Control Center"
+          "label": "Larghezza Centro di Controllo"
         },
         "floating-layer": {
           "description": "Usa Top se le finestre coinvolte al metodo di input sono nascoste dietro pannelli flottanti; Overlay mantiene i pannelli sopra il contenuto a schermo intero",
@@ -2366,10 +2665,6 @@
           "description": "Mostra le voci delle azioni accanto alle applicazioni nei risultati",
           "label": "Mostra azioni app"
         },
-        "launcher-app-grid": {
-          "description": "Mostra una griglia di icone delle applicazioni con le etichette sottostanti quando i risultati riguardano solo le app",
-          "label": "Vista app a griglia"
-        },
         "launcher-app-origin-indicator": {
           "description": "Mostra l'origine dei pacchetti nei risultati",
           "label": "Mostra origine app"
@@ -2379,8 +2674,12 @@
           "label": "Incolla automatico"
         },
         "launcher-categories": {
-          "description": "Mostra filtri categoria nel launcher; mostra con F6, poi scorri con F6 e Shift+F6",
+          "description": "Mostra Tutto, Usato Recentemente, e le categorie sotto il campo di ricerca",
           "label": "Mostra categorie"
+        },
+        "launcher-category-icons-only": {
+          "description": "Mostra solo le icone delle categorie, con i nomi completi nei tooltip visualizzati al passaggio del mouse",
+          "label": "Solo Icone Categorie"
         },
         "launcher-compact": {
           "description": "Usa icone più piccole e righe risultato più compatte",
@@ -2390,6 +2689,10 @@
           "description": "Recupera cambi da fonti online di terze parti",
           "label": "Conversione del cambio valuta"
         },
+        "launcher-default-view": {
+          "description": "Scegli la vista da mostrare all'apertura del launcher senza una ricerca",
+          "label": "Vista di Default"
+        },
         "launcher-global-calculator": {
           "description": "Mostra anche la calcolatrice nei risultati senza prefisso",
           "label": "Calcolatrice nella ricerca globale"
@@ -2397,6 +2700,10 @@
         "launcher-global-emoji": {
           "description": "Mostra anche emoji nei risultati senza prefisso",
           "label": "Emoji nella ricerca globale"
+        },
+        "launcher-global-panels": {
+          "description": "Mostra i pannelli anche nella ricerca senza prefisso",
+          "label": "Pannelli nella ricerca globale"
         },
         "launcher-global-session": {
           "description": "Mostra anche i comandi sessione nei risultati senza prefisso",
@@ -2410,8 +2717,20 @@
           "description": "Mostra anche le finestre aperte nei risultati senza prefisso",
           "label": "Finestre nella ricerca globale"
         },
+        "launcher-grid": {
+          "description": "Visualizza i risultati e la panoramica dei provider come griglia di icone anziché per righe",
+          "label": "Vista a Griglia"
+        },
+        "launcher-ignored-panels": {
+          "description": "Pannelli che il provider pannello non elenca mai (ad esempio, richieste di autenticazione, procedura guidata di configurazione)",
+          "label": "Pannelli ignorati"
+        },
+        "launcher-layout": {
+          "description": "Completo aggiunge schede di visualizzazione e una barra strumenti con il tuo porfilo e scorciatoie; Semplice mostra un campo di ricerca, tag di categoria opzionali, e i risultati",
+          "label": "Layout"
+        },
         "launcher-pinned-apps": {
-          "description": "ID desktop delle app fissate sul launcher; appaiono per primi quando si apre il launcher",
+          "description": "ID delle voci desktop visualizzate in ordine manuale nella vista Fissate",
           "label": "App fissate"
         },
         "launcher-prefix-calculator": {
@@ -2425,6 +2744,10 @@
         "launcher-prefix-emoji": {
           "description": "Prefisso di attivazione  per ricerca emoji",
           "label": "Prefisso Emoji"
+        },
+        "launcher-prefix-panels": {
+          "description": "Prefisso di attivazione per la ricerca nel pannello",
+          "label": "Prefisso pannelli"
         },
         "launcher-prefix-session": {
           "description": "Prefisso di attivazione per comandi di sessione",
@@ -2440,8 +2763,12 @@
         },
         "launcher-reset-usage": {
           "button": "Reset",
-          "description": "Cancella il conteggio delle esecuzioni e la cronologia Utilizzate di recente nell'ordinamento del launcher",
+          "description": "Pulisci la cronologia del Launcher usata da Recenti e ordinamento basato sull'utilizzo",
           "label": "Reimposta dati di utilizzo"
+        },
+        "launcher-search-position": {
+          "description": "Posiziona la barra strumenti del launcher in alto o in basso",
+          "label": "Posizione della barra degli strumenti"
         },
         "launcher-session-search": {
           "description": "Includere azioni di sessione (blocco, sospensione, riavvio, spegnimento, disconnessione) nelle ricerche generali del launcher, non solo attraverso l'uso del prefisso /session",
@@ -2451,9 +2778,25 @@
           "description": "Mostra icone applicazione nei risultati del launcher",
           "label": "Mostra icone app"
         },
+        "launcher-show-session-button": {
+          "description": "Mostra una scorciatoia per le azioni di sessione configurate",
+          "label": "Mostra Pulsante Sessione"
+        },
+        "launcher-show-settings-button": {
+          "description": "Mostra una scorciatoia per le Impostazioni Noctalia",
+          "label": "Mostra Pulsante Impostazioni"
+        },
         "launcher-sort-by-usage": {
-          "description": "Metti in evidenza le app utilizzate di frequente in cima e mostra un filtro di categoria Utilizzate di recente",
+          "description": "Prioritizza risultati utilizzati di frequente durante la normale navigazione e ricerca",
           "label": "Ordina per utilizzo"
+        },
+        "launcher-track-usage": {
+          "description": "Registra la cronologia del launcher per l'ordinamento in base ai Recenti e all'utilizzo",
+          "label": "Monitora Utilizzo"
+        },
+        "launcher-width": {
+          "description": "Imposta la larghezza del launcher",
+          "label": "Larghezza Launcher"
         },
         "list-item-background": {
           "description": "Disegna uno sfondo arrotondato dietro ogni elemento dell'elenco di avvio e appunti",
@@ -2537,6 +2880,10 @@
         "transparency-mode": {
           "description": "Stile vetro del pannello, incluse opacità dei pannelli flottanti e traslucenza delle schede",
           "label": "Trasparenza"
+        },
+        "wallpaper-show-names": {
+          "description": "Aggiungi a ciascuna miniatura la didascalia con il nome del file nello strumento di selezione dello sfondo.",
+          "label": "Mostra i nomi dei file"
         }
       },
       "power": {
@@ -2562,6 +2909,10 @@
           "description": "Consenti volume sopra il 100%",
           "label": "Overdrive audio"
         },
+        "bluetooth-connect-when-enabled": {
+          "description": "Connetti i dispositivi associati e attendibili quando il Bluetooth è attivo, all'avvio e dopo il resume",
+          "label": "Connetti i dispositivi quando il Bluetooth è attivo"
+        },
         "calendar": {
           "description": "Mostra eventi dai tuoi account calendario online",
           "label": "Calendario"
@@ -2580,6 +2931,18 @@
           "description-opening": "Le credenziali del calendario vengono aperte tramite Secret Service",
           "description-unavailable": "Nessun provider di Secret Service è disponibile in questa sessione",
           "label": "Archiviazione delle credenziali del calendario"
+        },
+        "calendar-dedupe-events": {
+          "description": "Raggruppa in un'unica voce gli eventi che compaiono in più di un calendario",
+          "label": "Unisci eventi duplicati"
+        },
+        "calendar-dedupe-ignore-patterns": {
+          "description": "Le espressioni regolari vengono rimosse dal titolo di un evento prima del confronto, in modo che i titoli che differiscono solo per una parte corrispondente vengano comunque uniti",
+          "label": "Ignora nel titolo durante l'unione"
+        },
+        "calendar-digest-time": {
+          "description": "Orario per la visualizzazione di una singola notifica con l'elenco degli eventi che si verificano durante la giornata. Lasciare vuoto per disattivare la notifica.",
+          "label": "Riassunto della giornata"
         },
         "calendar-edit": {
           "button": "Modifica",
@@ -2600,6 +2963,18 @@
         "calendar-refresh-interval": {
           "description": "Frequenza di sincronizzazione degli eventi calendario (minuti)",
           "label": "Intervallo aggiornamento"
+        },
+        "calendar-reminder-lead": {
+          "description": "Con quanto anticipo avvisare per eventi che non generano un promemoria automatico.",
+          "label": "Promemoria predefinito"
+        },
+        "calendar-reminder-use-event": {
+          "description": "Rispetta i promemoria impostati per ogni evento. Se disattivato, tutti gli eventi utilizzeranno il tempo di preavviso predefinito.",
+          "label": "Utilizza i promemoria degli eventi"
+        },
+        "calendar-reminders": {
+          "description": "Avvisa prima dell'inizio di un evento.",
+          "label": "Promemoria del calendario"
         },
         "calendar-storage": {
           "button": "Riprova",
@@ -2673,9 +3048,26 @@
           "label": "Suono notifica",
           "placeholder": "/percorso/al/suono.wav"
         },
+        "notification-sounds": {
+          "description": "Riproduci un suono all'arrivo delle notifiche",
+          "label": "Suoni notifiche"
+        },
+        "power-sounds": {
+          "description": "Riproduci un suono quando il caricabatterie si collega o si scollega",
+          "label": "Suoni collegamento energia"
+        },
+        "screenshot-sounds": {
+          "description": "Riproduci un suono alla cattura dello screenshot",
+          "label": "Suoni screenshot"
+        },
         "shell-sounds": {
-          "description": "Riproduci effetti sonori per gli eventi della shell",
+          "description": "Interruttore generale per gli effetti sonori della shell",
           "label": "Suoni shell"
+        },
+        "sound-theme": {
+          "default": "Default",
+          "description": "Tema sonoro utilizzato per gli effetti sonori della shell",
+          "label": "Tema sonoro"
         },
         "sound-volume": {
           "description": "Volume per gli effetti sonori della shell",
@@ -2742,6 +3134,10 @@
           "description": "File audio usato per il feedback del volume",
           "label": "Suono cambio volume",
           "placeholder": "/percorso/al/suono.wav"
+        },
+        "volume-sounds": {
+          "description": "Riproduci un suono quando cambia il volume di uscita o di ingresso.",
+          "label": "Suono volume"
         },
         "weather": {
           "description": "Abilita il servizio meteo via open-meteo.com",
@@ -2892,6 +3288,10 @@
           "label": "Comando di avvio app personalizzato",
           "placeholder": "$CMD"
         },
+        "niri-overview-close-on-launch": {
+          "description": "Chiudi la panoramica quando un'app viene avviata dal launcher mentre la panoramica di Niri è aperta",
+          "label": "Chiudi al lancio"
+        },
         "niri-overview-type-to-launch": {
           "description": "Apre il launcher quando si digita nella panoramica niri (overiew)",
           "label": "Digita per avviare launcher"
@@ -2908,9 +3308,25 @@
           "description": "Disegna un contorno attorno ai popup OSD",
           "label": "Bordo"
         },
+        "osd-border-color": {
+          "description": "Ruolo del colore per il contorno del popup OSD; sono supportati anche codici colore in formato esadecimale",
+          "label": "Colore del bordo"
+        },
+        "osd-border-width": {
+          "description": "Spessore del contorno dei popup OSD in pixel; 0 nasconde il contorno",
+          "label": "Larghezza del bordo"
+        },
         "osd-enabled": {
           "description": "Interruttore principale per tutti i popup OSD; quando è spento non viene mostrato alcun OSD",
           "label": "Abilita OSD"
+        },
+        "osd-follow-focused-output": {
+          "description": "Mostra i nuovi popup OSD sul monitor attivo; i popup visibili rimangono nella posizione in cui sono apparsi",
+          "label": "Segui l'output che ha il focus"
+        },
+        "osd-hide-delay": {
+          "description": "Per quanto tempo un popup OSD rimane visibile prima di sparire",
+          "label": "Ritardo scomparsa"
         },
         "osd-kinds-bluetooth": {
           "description": "Mostra un popup OSD quando il Bluetooth viene attivato/disattivato",
@@ -2923,6 +3339,10 @@
         "osd-kinds-caffeine": {
           "description": "Mostra un popup OSD quando cambia lo stato della modalità Caffeine (inibitore inattività)",
           "label": "Modalità Caffeine"
+        },
+        "osd-kinds-custom": {
+          "description": "Mostra i popup OSD personalizzati inviati da plugin o script",
+          "label": "Personalizzato"
         },
         "osd-kinds-dnd": {
           "description": "Mostra un popup OSD quando la modalità DND viene attivata/disattivata",
@@ -3020,6 +3440,10 @@
           "description": "Espressione regolare per ignorare le app di condivisione dello schermo negli indicatori di privacy e OSD",
           "label": "Filtro espressione regolare condivisone schermo"
         },
+        "readline-shortcuts": {
+          "description": "Utilizza scorciatoie stile readline in ogni campo di testo (Ctrl+A sposta il testo all'inizio della riga invece di selezionarla tutta)",
+          "label": "Scorciatoie readline"
+        },
         "screen-time-enabled": {
           "description": "Monitora l'uso per app e lo mostra nel centro di controllo",
           "label": "Tempo schermo"
@@ -3028,6 +3452,18 @@
           "button": "Reset",
           "description": "Cancella la cronologia di utilizzo in primo piano per app",
           "label": "Ripristina i dati del tempo schermo"
+        },
+        "screenshot-annotate": {
+          "description": "Apri l'editor di annotazioni su ogni screenshot; Fatto applica le impostazioni di salvataggio, appunti e pipe",
+          "label": "Annota prima della finalizzazione"
+        },
+        "screenshot-close-on-copy": {
+          "description": "Chiudi dopo una copia  riuscita dall'editor, anche quando aperto direttamente.",
+          "label": "Chiudi l'Editor dopo aver Copiato"
+        },
+        "screenshot-close-on-save": {
+          "description": "Chiudi dopo un salvataggio riuscito dall'editor, anche quando aperto direttamente",
+          "label": "Chiudi l'editor dopo aver salvato."
         },
         "screenshot-confirm-region": {
           "description": "Dopo aver selezionato un'area, mantieni aperta l'overlay finché non confermi con Invio o Spazio",
@@ -3050,6 +3486,9 @@
           "description": "Prima della cattura congela lo schermo per bloccare il contenuto",
           "label": "Congela schermo"
         },
+        "screenshot-output": {
+          "description": "Azioni applicate dopo la cattura, o quando scegli \"Fine\" nell'editor annotazioni."
+        },
         "screenshot-pipe-command": {
           "description": "Comando eseguito come /bin/sh -lc con il PNG su stdin; per annotatori o uploader (per esempio: swappy -f - o satty -f -)",
           "label": "Comando pipe",
@@ -3058,6 +3497,18 @@
         "screenshot-pipe-to-command": {
           "description": "Invia il PNG catturato a un comando shell su stdin",
           "label": "Invia a comando"
+        },
+        "screenshot-region-border-width": {
+          "description": "Ampiezza del bordo attorno all'area selezionata",
+          "label": "Larghezza del confine dell'area"
+        },
+        "screenshot-region-dim-opacity": {
+          "description": "Larghezza del confine dell'area",
+          "label": "Dim opacità area"
+        },
+        "screenshot-region-modifier": {
+          "description": "Modificatore per muovere o ridimensionare la regione selezionata: trascina-sinistro per muovere, trascina-destro per ridimensionare dai terzi esterni (gli angoli ridimensionano entrambi gli assi). Nessuno (default) mantiene il comportamento trascina-per-aggiustare semplice",
+          "label": "Modificatore Muovi/Ridimensiona"
         },
         "screenshot-remember-last-region": {
           "description": "Preseleziona l'ultima area (anche dopo l'annullamento) nella successiva azione di cattura schermo",
@@ -3070,6 +3521,22 @@
         "screenshot-show-cursor": {
           "description": "Includi il puntatore del mouse negli screenshot",
           "label": "Mostra cursore"
+        },
+        "screenshot-show-region-dimensions": {
+          "description": "Mostra l'indicatore di dimensione durante il ridimensionamento o lo spostamento di un'area",
+          "label": "Mostra le dimensioni dell'area"
+        },
+        "screenshot-show-region-hint": {
+          "description": "Mostra il suggerimento di conferma con le scorciatoie da tastiera (Copia, Salva, Annulla) durante la conferma di un'area",
+          "label": "Mostra suggerimento area"
+        },
+        "screenshot-skip-annotate-on-copy-save": {
+          "description": "Copia e salva nella zona di sovrapposizione, il salvataggio avviene immediatamente; Invio e Spazio aprono comunque l'editor.",
+          "label": "Salta l'editor quando copi o salvi"
+        },
+        "settings-expand-all-groups": {
+          "description": "Espandi tutti i gruppi di impostazioni anziché solo il primo in ogni pagina",
+          "label": "Espandi tutti i gruppi di impostazioni"
         },
         "settings-window-translucent": {
           "description": "Rendi traslucido lo sfondo delle Impostazioni per gli effetti del compositor",
@@ -3092,9 +3559,45 @@
           "description": "Formato ora predefinito per la shell UI senza impostazione propria",
           "label": "Formato ora"
         },
+        "umbriel-audio-provider": {
+          "description": "Condividi lo spettro audio con gli effetti Umbriel, anche senza un widget visualizzatore.",
+          "label": "Fornire l'audio a Umbriel"
+        },
+        "umbriel-overview-close-on-launch": {
+          "description": "Chiudi la panoramica quando un'app viene avviata dal launcher mentre la panoramica di Umbriel è aperta.",
+          "label": "Chiudi al lancio"
+        },
+        "umbriel-overview-type-to-launch": {
+          "description": "Apri il launcher mentre digiti in nella Overview di Umbriel; utilizza una piccola area di focus della tastiera mentre l'Overview è aperta",
+          "label": "Digita per avviare"
+        },
+        "window-switcher-current-workspace-only": {
+          "description": "Elenca solo le finestre dell'area di lavoro attiva; disattiva questa opzione per includere le finestre di tutte le aree di lavoro",
+          "label": "Solo l'area di lavoro corrente"
+        },
         "window-switcher-mru": {
           "description": "Nello switcher di finestre queste vengono ordinate in base all'utilizzo più recente, anziché in base all'area di lavoro e al layout dello schermo.",
           "label": "Ordina per più recenti"
+        },
+        "window-switcher-show-all-outputs": {
+          "description": "Elenca le finestre di tutti i monitor; disattiva questa opzione per visualizzare solo le finestre sul monitor che mostra lo switcher",
+          "label": "Mostra tutti i monitor"
+        },
+        "window-switcher-show-app-icon": {
+          "description": "Mostra l'icona di ciascuna applicazione sopra l'anteprima della finestra.",
+          "label": "Mostra l'icona dell'applicazione"
+        },
+        "window-switcher-show-caption": {
+          "description": "Mostra i titoli delle finestre e i nomi delle applicazioni sotto le rispettive anteprime.",
+          "label": "Mostra caption"
+        },
+        "window-switcher-show-count": {
+          "description": "Mostra la posizione corrente e il numero totale di finestre sopra le anteprime",
+          "label": "Mostra il numero di finestre"
+        },
+        "window-switcher-style": {
+          "description": "Scegli tra il carosello a profondità libera o la striscia compatta in scatola.",
+          "label": "Stile switcher"
         }
       },
       "system": {
@@ -3242,6 +3745,8 @@
       "success": "L'archiviazione privata è stata reimpostata correttamente."
     },
     "templates": {
+      "documentation": "Documentazione",
+      "readme": "Readme",
       "store": {
         "browse": "Sfoglia template",
         "categories": "Categorie",
@@ -3263,6 +3768,10 @@
       "actions": {
         "command-placeholder": "Comando della shell",
         "commands": {
+          "annotate": {
+            "description": "Disegna sullo schermo sopra le app in esecuzione; premi Z o il pulsante Freeze per catturare lo sfondo",
+            "label": "Annota lo schermo"
+          },
           "bar-auto-hide-set": {
             "description": "Imposta auto-nascondi per una barra",
             "label": "Imposta nascondi automatico barra"
@@ -3539,6 +4048,10 @@
             "description": "Abilita i popup OSD",
             "label": "Abilita OSD"
           },
+          "osd-show": {
+            "description": "Mostra un popup OSD personalizzato",
+            "label": "Mostra OSD personalizzato"
+          },
           "osd-toggle": {
             "description": "Attiva/disattiva i popup OSD",
             "label": "Attiva/disattiva OSD"
@@ -3571,6 +4084,10 @@
             "description": "Imposta il profilo di alimentazione UPower (ad esempio, prestazioni, bilanciato, risparmio energetico)",
             "label": "Imposta il profilo di risparmio energetico"
           },
+          "screenshot-annotate": {
+            "description": "Ferma lo schermo e annotalo, quindi copialo o salvalo.",
+            "label": "Annota lo screenshot"
+          },
           "screenshot-fullscreen": {
             "description": "Cattura il monitor attivo per impostazione predefinita, seleziona in modo interattivo con pick o tutte le uscite con all",
             "label": "Screenshot schermo intero"
@@ -3578,6 +4095,10 @@
           "screenshot-region": {
             "description": "Avvia uno screenshot interattivo di un'area",
             "label": "Screenshot area"
+          },
+          "screenshot-window": {
+            "description": "Cattura la finestra in focus",
+            "label": "Screenshot della finestra"
           },
           "session": {
             "description": "Eseguire un'azione di sessione integrata",
@@ -3860,6 +4381,10 @@
           "description": "Ruolo colore per il contorno capsula; sono supportati anche codici colore in formato esadecimale",
           "label": "Bordo capsula"
         },
+        "capsule-border-width": {
+          "description": "Spessore del contorno della capsula in pixel; viene disegnato solo quando è impostato un colore del bordo della capsula",
+          "label": "Dimensione Bordo Capsula"
+        },
         "capsule-fill": {
           "description": "Ruolo colore per lo sfondo capsula; sono supportati anche codici colore in formato esadecimale",
           "label": "Riempimento capsula"
@@ -3911,6 +4436,10 @@
           "description": "Tinge l'immagine personalizzata con l'impostazione Colore del widget",
           "label": "Colora immagine personalizzata"
         },
+        "custom-label": {
+          "description": "Testo personalizzato visualizzato accanto al glifo o immagine personalizzata; rimane visibile anche quando l'opzione \"Mostra glifo\" è disabilitata.",
+          "label": "Etichetta personalizzata"
+        },
         "detached-panel": {
           "description": "Apri il cassetto come un pannello mobile invece di ancorarlo al bordo della barra",
           "label": "Pannello separato"
@@ -3959,7 +4488,7 @@
         "focused-output-only": {
           "description": "Evidenzia solo l'area di lavoro attiva sul monitor focalizzato",
           "label": "Evidenzia solo il monitor focalizzato",
-          "taskbar-description": "Utilizza il colore focalizzato solo per l'area di lavoro attiva sul monitor in focus tramite tastiera o puntatore; gli altri monitor utilizzano il colore per occupato",
+          "taskbar-description": "Evidenzia solo l'area di lavoro attiva sul monitor che ha il focus su tastiera o puntatore; le aree di lavoro attive sugli altri monitor utilizzano il colore corrispondente all'area occupata e lo stile a capsula per le aree di lavoro inattive",
           "workspaces-description": "Evidenzia solo l'area di lavoro attiva sul monitor con il focus della tastiera o del puntatore; gli altri monitor mostrano invece lo spazio di lavoro attivo come occupato"
         },
         "font-family": {
@@ -3985,7 +4514,7 @@
           "volume-description": "Glifo personalizzato; lascia vuoto per utilizzare le icone dinamiche integrate"
         },
         "glyph-position": {
-          "description": "In quale ordine visualizzare il glifo in relazione al testo/grafico/indicatore",
+          "description": "Posiziona il glifo o l'immagine personalizzata e l'etichetta personalizzata in relazione al valore o alla visualizzazione.",
           "label": "Posizione glifo"
         },
         "group-by-workspace": {
@@ -4003,6 +4532,10 @@
         "hidden": {
           "description": "ID elementi vassoio da nascondere",
           "label": "Elementi nascosti"
+        },
+        "hidden-workspaces": {
+          "description": "Nomi di spazi di lavori le quali finestre sono lasciate fuori la taskbar a meno che quello spazio di lavoro è attivo",
+          "label": "Spazi di lavoro nascosti"
         },
         "hide-album-art": {
           "description": "Nasconde la copertina dell'album",
@@ -4036,6 +4569,10 @@
         "hide-when-full": {
           "description": "Nasconde il widget batteria quando è completamente carica",
           "label": "Nascondi quando piena"
+        },
+        "hide-when-idle": {
+          "description": "Nascondi il widget quando il lettore MPRIS attivo è in pausa o arrestato",
+          "label": "Nascondi quando inattivo"
         },
         "hide-when-inactive": {
           "description": "Nascondi il widget del microfono quando nessuna applicazione sta catturando l'audio",
@@ -4220,6 +4757,10 @@
           "description": "Invertire l'ordine delle frequenze da bassa ad alta delle barre",
           "label": "Invertito"
         },
+        "rotate-album-art": {
+          "description": "Ruota la copertina circolare dell'album mentre il contenuto multimediale è in riproduzione",
+          "label": "Ruota la copertina dell'album"
+        },
         "scale": {
           "description": "Scala questo widget rispetto alla scala contenuto della barra",
           "label": "Scala"
@@ -4284,6 +4825,10 @@
           "description": "Riempi lo sfondo del widget per mostrare l'avanzamento della riproduzione",
           "label": "Mostra l'avanzamento della riproduzione"
         },
+        "show-running": {
+          "description": "Mostra le finestre in esecuzione che non sono nell'elenco fissato",
+          "label": "Mostra in esecuzione"
+        },
         "show-scroll-lock": {
           "description": "Mostra stato Scroll Lock",
           "label": "Mostra Scroll Lock"
@@ -4291,6 +4836,10 @@
         "show-temperature": {
           "description": "Mostra valore attuale della temperatura",
           "label": "Mostra temperatura"
+        },
+        "show-tooltip": {
+          "description": "Mostra il tooltip di questo widget al passaggio del mouse.",
+          "label": "Mostra suggerimento"
         },
         "show-unlock-hint": {
           "description": "Mostra la scheda di stato sopra la casella di accesso per avvisi di sblocco e prompt di autenticazione; errori e avviso di capslock attivo verranno comunque visualizzati quando questo è disattivato",
@@ -4304,9 +4853,17 @@
           "description": "Sostituisce l'etichetta di rete con l'etichetta VPN in modalità di Sostituisci; aggiunge l'etichetta VPN accanto all'icona VPN in modalità Entrambi",
           "label": "Mostra etichetta VPN"
         },
+        "show-wave": {
+          "description": "Visualizza come area riempita ad onde anziché come barre discrete",
+          "label": "Mostra onda"
+        },
         "show-when-idle": {
           "description": "Mantiene visibile il visualizzatore anche quando nessun media è in riproduzione",
           "label": "Mostra quando inattivo"
+        },
+        "show-when-unavailable": {
+          "description": "Mantieni visibile il widget di regolazione della luminosità quando questo monitor non dispone di un controllo della luminosità.",
+          "label": "Mostra quando non disponibile"
         },
         "show-window-title": {
           "description": "Mostra il titolo della finestra accanto alla sua icona (solo su barre orizzontali)",
@@ -4441,6 +4998,7 @@
       "no-results-hint": "Prova un nome impostazione o una chiave configurazione diversa.",
       "offline-mode-notice": {
         "appearance": "I download delle palette della comunità non funzioneranno.",
+        "calendar": "La sincronizzazione dell'account del calendario non funzionerà.",
         "calendar-account": "Il rilevamento e la sincronizzazione del calendario non funzioneranno.",
         "disable-hint": "Disattiva la modalità offline nella sezione Sicurezza.",
         "launcher": "Il recupero del tasso di cambio valuta non funzionerà.",
@@ -4448,7 +5006,6 @@
         "plugin-store": "Il catalogo dei plugin remoti e le richieste di download non funzioneranno.",
         "plugins": "Le richieste HTTP dei plugin non funzioneranno. Le origini Git possono ancora essere aggiornate.",
         "security": "La ricerca dell'IP esterno e la telemetria non funzioneranno.",
-        "services": "La sincronizzazione dell'account del calendario non funzionerà.",
         "template-store": "I download dei template della community non funzioneranno.",
         "templates": "I download e gli aggiornamenti dei template della community non funzioneranno.",
         "title": "Modalità offline"
@@ -4592,7 +5149,9 @@
       "choose-color": "Scegli il colore dello sfondo",
       "close": "Chiudi il pannello sfondi",
       "color-title": "Colore sfondo",
+      "favorite-add": "Aggiungi ai preferiti",
       "favorite-current": "Aggiungi lo sfondo corrente ai preferiti",
+      "favorite-remove": "Rimuovi dai preferiti",
       "filter-placeholder": "Filtra...",
       "flatten": "Appiattisci",
       "loading": "Caricamento sfondi...",
@@ -4642,8 +5201,10 @@
     }
   },
   "window-switcher": {
+    "count": "{count} finestra",
+    "count-plural": "{count} finestre",
     "empty": "Nessuna finestra aperta",
-    "hint": "Tab · Shift+Tab · Tasti freccia · Rilascia Alt per cambiare · Esc per annullare",
+    "hint": "Tab · Maiusc+Tab · Tasti freccia · Rilascia il modificatore di scelta rapida per cambiare · Esc per annullare",
     "title": "Finestre"
   }
 }

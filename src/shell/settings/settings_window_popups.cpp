@@ -11,6 +11,7 @@
 #include "render/render_context.h"
 #include "render/scene/input_area.h"
 #include "scripting/plugin_catalog.h"
+#include "scripting/plugin_recommendations.h"
 #include "scripting/plugin_registry.h"
 #include "shell/settings/bar_widget_editor.h"
 #include "shell/settings/color_spec_picker.h"
@@ -19,6 +20,7 @@
 #include "shell/settings/settings_content_common.h"
 #include "shell/settings/settings_content_plugins.h"
 #include "shell/settings/settings_control_factory.h"
+#include "shell/settings/settings_registry.h"
 #include "shell/settings/settings_window.h"
 #include "shell/settings/template_store_content.h"
 #include "shell/settings/widget_settings_registry.h"
@@ -28,6 +30,7 @@
 #include "ui/controls/context_menu.h"
 #include "ui/controls/context_menu_popup.h"
 #include "ui/controls/flex.h"
+#include "ui/controls/input.h"
 #include "ui/controls/segmented.h"
 #include "ui/dialogs/file_dialog.h"
 #include "ui/popup_parent.h"
@@ -118,6 +121,8 @@ namespace {
     std::string password;
     CalendarCredentialSource credentialSource = CalendarCredentialSource::SecretService;
     std::string passwordFile;
+    std::string clientCertFile;
+    std::string clientKeyFile;
     std::string serverUrl;
     std::string path;
     std::string color;
@@ -127,6 +132,8 @@ namespace {
     bool usernameInvalid = false;
     bool passwordInvalid = false;
     bool passwordFileInvalid = false;
+    bool clientCertInvalid = false;
+    bool clientKeyInvalid = false;
     bool serverUrlInvalid = false;
     bool pathInvalid = false;
     bool credentialOperationInFlight = false;
@@ -482,7 +489,7 @@ void SettingsWindow::openSearchPickerPopup(settings::SearchPickerOpenRequest req
   }
 
   if (m_searchPickerPopup == nullptr) {
-    m_searchPickerPopup = std::make_unique<settings::SearchPickerPopup>();
+    m_searchPickerPopup = std::make_unique<SearchPickerPopup>();
     m_searchPickerPopup->initialize(*m_wayland, *m_config, *m_renderContext);
   }
 
@@ -529,7 +536,7 @@ void SettingsWindow::openSearchPickerPopup(settings::SearchPickerOpenRequest req
   XdgPopupParent parent = popupParentFor(*m_surface, output, m_wayland->lastInputSerial());
 
   m_searchPickerPopup->open(
-      settings::SearchPickerPopupRequest{
+      SearchPickerPopupRequest{
           .parent = parent,
           .title = std::move(request.title),
           .options = std::move(pickerOptions),
@@ -537,6 +544,222 @@ void SettingsWindow::openSearchPickerPopup(settings::SearchPickerOpenRequest req
           .placeholder = std::move(request.placeholder),
           .emptyText = std::move(request.emptyText),
           .scale = uiScale(),
+      }
+  );
+}
+
+void SettingsWindow::openMonitorOverrideCreateDialog(std::optional<std::string> barName) {
+  if (m_wayland == nullptr
+      || m_renderContext == nullptr
+      || m_surface == nullptr
+      || m_surface->xdgSurface() == nullptr
+      || m_config == nullptr) {
+    return;
+  }
+
+  if (m_editorSheetModal != nullptr && m_editorSheetModal->isOpen()) {
+    m_editorSheetModal->close();
+  }
+  if (m_widgetAddPopup != nullptr && m_widgetAddPopup->isOpen()) {
+    m_widgetAddPopup->close();
+  }
+  if (m_searchPickerPopup != nullptr && m_searchPickerPopup->isOpen()) {
+    m_searchPickerPopup->close();
+  }
+
+  const Config& cfg = m_config->config();
+  const BarConfig* bar = barName ? settings::findBar(cfg, *barName) : nullptr;
+  if (barName && bar == nullptr) {
+    return;
+  }
+
+  if (m_editorSheetModal == nullptr) {
+    m_editorSheetModal = std::make_unique<settings::SettingsSheetModal>();
+    m_editorSheetModal->initialize(m_modalHost, [this]() { dismissOpenSelectDropdown(); });
+  }
+
+  const float scale = uiScale();
+  const std::vector<settings::SelectOption> outputs = availableOutputs();
+
+  std::vector<std::string> existingMatches;
+  if (bar != nullptr) {
+    existingMatches.reserve(bar->monitorOverrides.size());
+    for (const auto& monitorOverride : bar->monitorOverrides) {
+      existingMatches.push_back(monitorOverride.match);
+    }
+  } else {
+    existingMatches.reserve(cfg.dock.monitorOverrides.size());
+    for (const auto& monitorOverride : cfg.dock.monitorOverrides) {
+      existingMatches.push_back(monitorOverride.match);
+    }
+  }
+
+  // Transient value of the pending match, shared between the segmented picker, the free-text input,
+  // and the create action. Held here (not on SettingsWindow) so it lives and dies with this dialog.
+  // Defaults to the first detected output so the common case (pick a connected monitor) is one click;
+  // with no detected outputs it stays empty and the "Custom" free-text field takes over.
+  auto matchState = std::make_shared<std::string>();
+  if (!outputs.empty()) {
+    *matchState = outputs.front().value;
+  }
+
+  auto populate = [this, scale, outputs, existingMatches, barName, matchState](Flex& body) {
+    // Derive the selected segment and whether the free-text input is shown from the current value.
+    // A detected connector match selects its segment and hides the input; anything else (an empty or
+    // free-text value) selects the trailing "Custom" segment and shows the input.
+    std::size_t selectedOutput = outputs.size();
+    for (std::size_t i = 0; i < outputs.size(); ++i) {
+      if (outputs[i].value == *matchState) {
+        selectedOutput = i;
+        break;
+      }
+    }
+    const bool customSelected = outputs.empty() || selectedOutput == outputs.size();
+
+    Input* inputPtr = nullptr;
+    auto input = ui::input({
+        .out = &inputPtr,
+        .value = *matchState,
+        .placeholder = i18n::tr("settings.entities.monitor-override.match-placeholder"),
+        .fontSize = Style::fontSizeBody * scale,
+        .controlHeight = Style::controlHeight * scale,
+        .horizontalPadding = Style::spaceSm * scale,
+        .width = 280.0F * scale,
+        .height = Style::controlHeight * scale,
+        .visible = customSelected ? std::nullopt : std::optional<bool>{false},
+        .participatesInLayout = customSelected ? std::nullopt : std::optional<bool>{false},
+    });
+    inputPtr->setOnChange([this, matchState, inputPtr](const std::string& value) {
+      *matchState = value;
+      inputPtr->setInvalid(false);
+      if (m_editorSheetModal != nullptr) {
+        m_editorSheetModal->clearStatusMessage();
+      }
+    });
+
+    auto doCreate = [this, existingMatches, barName, matchState, inputPtr]() {
+      const std::string match = StringUtils::trim(*matchState);
+      if (match.empty()) {
+        inputPtr->setInvalid(true);
+        return;
+      }
+      if (std::ranges::contains(existingMatches, match)) {
+        inputPtr->setInvalid(true);
+        if (m_editorSheetModal != nullptr) {
+          m_editorSheetModal->setStatusMessage(i18n::tr("settings.entities.monitor-override.exists"), true);
+        }
+        return;
+      }
+      if (barName) {
+        createMonitorOverride(*barName, match);
+      } else {
+        createDockMonitorOverride(match);
+      }
+      if (m_editorSheetModal != nullptr) {
+        m_editorSheetModal->close();
+      }
+    };
+    inputPtr->setOnSubmit([doCreate](const std::string& /*text*/) mutable { doCreate(); });
+
+    if (!outputs.empty()) {
+      // Wrapping, fill-width pill row (same idiom as the settings group-jump pills): one pill per
+      // detected output plus a trailing "Custom" pill. A fill-width wrapping row breaks onto the next
+      // line for many-monitor setups; a single Segmented cannot, since it keeps every segment on one
+      // line (its surface background would trail past the last segment when given room to wrap).
+      Flex* pickerRow = nullptr;
+      body.addChild(
+          ui::row({
+              .out = &pickerRow,
+              .align = FlexAlign::Center,
+              .wrap = true,
+              .gap = Style::spaceXs * scale,
+              .fillWidth = true,
+          })
+      );
+
+      const auto addPill = [&](std::string text, std::string tooltip, bool selected, std::function<void()> onSelect) {
+        pickerRow->addChild(
+            ui::button({
+                .text = std::move(text),
+                .fontSize = Style::fontSizeBody * scale,
+                .variant = selected ? ButtonVariant::Primary : ButtonVariant::Default,
+                .tooltip = tooltip.empty() ? std::nullopt : std::optional<std::string>{std::move(tooltip)},
+                .minHeight = Style::controlHeight * scale,
+                .paddingV = Style::spaceXs * scale,
+                .paddingH = Style::spaceMd * scale,
+                .radius = Style::scaledRadiusMd(scale),
+                .onClick = std::move(onSelect),
+            })
+        );
+      };
+
+      for (std::size_t i = 0; i < outputs.size(); ++i) {
+        // Connector name only on the pill (e.g. "DP-1"); the fuller "DP-1 (description)" label is the
+        // tooltip and would make the pills too wide.
+        addPill(
+            outputs[i].value, outputs[i].label, !customSelected && i == selectedOutput,
+            [this, matchState, value = outputs[i].value]() {
+              *matchState = value;
+              if (m_editorSheetModal != nullptr) {
+                m_editorSheetModal->clearStatusMessage();
+                m_editorSheetModal->rebuildBody();
+              }
+            }
+        );
+      }
+      // Trailing "Custom": clear the match so the free-text input takes over. Rebuild re-derives the
+      // selection and the input's visibility.
+      addPill(i18n::tr("settings.entities.monitor-override.custom"), {}, customSelected, [this, matchState]() {
+        matchState->clear();
+        if (m_editorSheetModal != nullptr) {
+          m_editorSheetModal->clearStatusMessage();
+          m_editorSheetModal->rebuildBody();
+        }
+      });
+    }
+
+    body.addChild(std::move(input));
+    body.addChild(
+        ui::row(
+            {
+                .align = FlexAlign::Center,
+                .justify = FlexJustify::End,
+                .gap = Style::spaceSm * scale,
+            },
+            ui::button({
+                .text = i18n::tr("common.actions.cancel"),
+                .fontSize = Style::fontSizeBody * scale,
+                .variant = ButtonVariant::Ghost,
+                .minHeight = Style::controlHeight * scale,
+                .paddingV = Style::spaceXs * scale,
+                .paddingH = Style::spaceMd * scale,
+                .radius = Style::scaledRadiusMd(scale),
+                .onClick =
+                    [this]() {
+                      if (m_editorSheetModal != nullptr) {
+                        m_editorSheetModal->close();
+                      }
+                    },
+            }),
+            ui::button({
+                .text = i18n::tr("settings.entities.monitor-override.create"),
+                .fontSize = Style::fontSizeBody * scale,
+                .variant = ButtonVariant::Primary,
+                .minHeight = Style::controlHeight * scale,
+                .paddingV = Style::spaceXs * scale,
+                .paddingH = Style::spaceMd * scale,
+                .radius = Style::scaledRadiusMd(scale),
+                .onClick = doCreate,
+            })
+        )
+    );
+  };
+
+  m_editorSheetModal->open(
+      settings::SettingsSheetRequest{
+          .sheetTitle = i18n::tr("settings.entities.monitor-override.new-title"),
+          .populateSheetBody = std::move(populate),
+          .scale = scale,
       }
   );
 }
@@ -976,7 +1199,7 @@ void SettingsWindow::openNotificationFilterCreateEditor() {
   auto ctx = makeContentContext(cfg, selectedBar, selectedMonitorOverride);
   ctx.openNotificationFilterEntryEditor = {};
   ctx.afterNotificationFilterApply = [this, rowState]() {
-    if (m_config == nullptr || rowState->match.empty()) {
+    if (m_config == nullptr || (rowState->match.empty() && rowState->matchContent.empty())) {
       return;
     }
     auto next = m_config->config().notification.filters;
@@ -1041,6 +1264,8 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
     draft->serverUrl = account->serverUrl;
     draft->credentialSource = account->credentialSource;
     draft->passwordFile = account->passwordFile;
+    draft->clientCertFile = account->clientCertFile;
+    draft->clientKeyFile = account->clientKeyFile;
     draft->color = account->color;
     draft->calendars = account->calendars;
     if (account->type == "google") {
@@ -1173,6 +1398,12 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
                 draft->credentialSource = CalendarCredentialSource::SecretService;
                 draft->passwordFile.clear();
               }
+              if (provider != CalendarAccountProvider::CustomCalDav) {
+                draft->clientCertFile.clear();
+                draft->clientKeyFile.clear();
+                draft->clientCertInvalid = false;
+                draft->clientKeyInvalid = false;
+              }
               bool isDefaultId = draft->id.empty()
                   || draft->id == "personal_icloud"
                   || draft->id == "home_nextcloud"
@@ -1229,6 +1460,8 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
     Input* usernameInput = nullptr;
     Input* passwordInput = nullptr;
     Input* passwordFileInput = nullptr;
+    Input* clientCertInput = nullptr;
+    Input* clientKeyInput = nullptr;
     Input* serverInput = nullptr;
     Input* pathInput = nullptr;
     if (draft->provider != CalendarAccountProvider::Google
@@ -1240,7 +1473,7 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
               .options =
                   std::vector<ui::SegmentedOption>{
                       {.label = i18n::tr("settings.calendar-accounts.credential-source-keyring"), .glyph = "key"},
-                      {.label = i18n::tr("settings.calendar-accounts.credential-source-file"), .glyph = "file-lock"},
+                      {.label = i18n::tr("settings.calendar-accounts.credential-source-file"), .glyph = "file-text"},
                   },
               .selectedIndex = draft->credentialSource == CalendarCredentialSource::File ? 1U : 0U,
               .scale = scale,
@@ -1316,6 +1549,32 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
               .onChange = [draft](const std::string& value) {
                 draft->serverUrl = value;
                 draft->serverUrlInvalid = false;
+              },
+          })
+      );
+      addField(
+          body, i18n::tr("settings.calendar-accounts.client-cert-label"),
+          ui::input({
+              .out = &clientCertInput,
+              .value = draft->clientCertFile,
+              .placeholder = "/path/to/client.pem",
+              .invalid = draft->clientCertInvalid,
+              .onChange = [draft](const std::string& value) {
+                draft->clientCertFile = value;
+                draft->clientCertInvalid = false;
+              },
+          })
+      );
+      addField(
+          body, i18n::tr("settings.calendar-accounts.client-key-label"),
+          ui::input({
+              .out = &clientKeyInput,
+              .value = draft->clientKeyFile,
+              .placeholder = "/path/to/client.key",
+              .invalid = draft->clientKeyInvalid,
+              .onChange = [draft](const std::string& value) {
+                draft->clientKeyFile = value;
+                draft->clientKeyInvalid = false;
               },
           })
       );
@@ -1444,7 +1703,8 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
     }
 
     const auto persistAccount = [this, draft, idInput, nameInput, usernameInput, passwordInput, passwordFileInput,
-                                 serverInput, pathInput](bool closeAfter, bool connectAfter) {
+                                 clientCertInput, clientKeyInput, serverInput,
+                                 pathInput](bool closeAfter, bool connectAfter) {
       if (m_config == nullptr) {
         return;
       }
@@ -1460,6 +1720,12 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
       if (passwordFileInput != nullptr) {
         draft->passwordFile = trimInput(passwordFileInput);
       }
+      if (clientCertInput != nullptr) {
+        draft->clientCertFile = trimInput(clientCertInput);
+      }
+      if (clientKeyInput != nullptr) {
+        draft->clientKeyFile = trimInput(clientKeyInput);
+      }
       draft->serverUrl = trimInput(serverInput);
       if (pathInput != nullptr) {
         draft->path = trimInput(pathInput);
@@ -1469,6 +1735,8 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
       draft->usernameInvalid = false;
       draft->passwordInvalid = false;
       draft->passwordFileInvalid = false;
+      draft->clientCertInvalid = false;
+      draft->clientKeyInvalid = false;
       draft->serverUrlInvalid = false;
       draft->pathInvalid = false;
 
@@ -1494,6 +1762,14 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
           && (draft->passwordFile.empty() || !std::filesystem::path(draft->passwordFile).is_absolute())) {
         draft->passwordFileInvalid = true;
       }
+      if (caldav) {
+        const auto absolute = [](const std::string& value) { return std::filesystem::path(value).is_absolute(); };
+        const bool hasCert = !draft->clientCertFile.empty();
+        const bool hasKey = !draft->clientKeyFile.empty();
+        // The cert and the key are only usable as a pair, so a lone one marks the missing side invalid.
+        draft->clientCertInvalid = hasCert ? !absolute(draft->clientCertFile) : hasKey;
+        draft->clientKeyInvalid = hasKey ? !absolute(draft->clientKeyFile) : hasCert;
+      }
       if (vdir) {
         const std::filesystem::path checkPath =
             draft->path.empty() ? calendar::defaultVdirPath() : FileUtils::expandUserPath(draft->path);
@@ -1506,6 +1782,8 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
           || draft->usernameInvalid
           || draft->passwordInvalid
           || draft->passwordFileInvalid
+          || draft->clientCertInvalid
+          || draft->clientKeyInvalid
           || draft->serverUrlInvalid
           || draft->pathInvalid) {
         showTransientStatus(i18n::tr("settings.calendar-accounts.invalid"), true);
@@ -1542,6 +1820,9 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
           );
           overrides.push_back({{base[0], base[1], base[2], "password_file"}, draft->passwordFile});
         }
+        // Plain paths, not secrets, so they stay editable after creation.
+        overrides.push_back({{base[0], base[1], base[2], "client_cert_file"}, draft->clientCertFile});
+        overrides.push_back({{base[0], base[1], base[2], "client_key_file"}, draft->clientKeyFile});
       }
       if (draft->provider == CalendarAccountProvider::CustomCalDav || ics) {
         overrides.push_back({{base[0], base[1], base[2], "server_url"}, draft->serverUrl});
@@ -1559,6 +1840,8 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
           staleKeys.push_back({base[0], base[1], base[2], "username"});
           staleKeys.push_back({base[0], base[1], base[2], "credential_source"});
           staleKeys.push_back({base[0], base[1], base[2], "password_file"});
+          staleKeys.push_back({base[0], base[1], base[2], "client_cert_file"});
+          staleKeys.push_back({base[0], base[1], base[2], "client_key_file"});
         }
         if (draft->provider != CalendarAccountProvider::CustomCalDav && !ics) {
           staleKeys.push_back({base[0], base[1], base[2], "server_url"});
@@ -2066,6 +2349,11 @@ void SettingsWindow::openPluginStore() {
   std::thread([this, manager, pluginsSnapshot = std::move(pluginsSnapshot)]() mutable {
     manager->fetchStaleCatalogs(pluginsSnapshot);
 
+    const auto activePlugins = manager->list(pluginsSnapshot, scripting::CatalogAccess::Network);
+    std::unordered_map<std::string, std::string> owners;
+    for (const auto& plugin : activePlugins) {
+      owners.emplace(plugin.id, plugin.source);
+    }
     std::vector<settings::StoreCatalogEntry> catalog;
     for (const auto& source : pluginsSnapshot.sources) {
       if (!source.enabled) {
@@ -2076,6 +2364,10 @@ void SettingsWindow::openPluginStore() {
         continue;
       }
       for (auto& entry : result.entries) {
+        const auto owner = owners.find(entry.id);
+        if (owner == owners.end() || owner->second != source.name) {
+          continue;
+        }
         catalog.push_back(
             settings::StoreCatalogEntry{
                 .entry = std::move(entry),
@@ -2086,7 +2378,7 @@ void SettingsWindow::openPluginStore() {
       }
     }
 
-    DeferredCall::callLater([this, catalog = std::move(catalog)]() mutable {
+    DeferredCall::callLater([this, catalog = std::move(catalog), owners = std::move(owners)]() mutable {
       if (m_wayland == nullptr
           || m_renderContext == nullptr
           || m_surface == nullptr
@@ -2101,10 +2393,11 @@ void SettingsWindow::openPluginStore() {
       }
 
       const float scale = uiScale();
+      auto catalogOwners = std::make_shared<std::unordered_map<std::string, std::string>>(std::move(owners));
 
-      auto catalogLookup = std::make_shared<std::unordered_map<std::string, scripting::CatalogEntry>>();
+      auto catalogLookup = std::make_shared<std::unordered_map<std::string, settings::StoreCatalogEntry>>();
       for (const auto& entry : catalog) {
-        catalogLookup->emplace(entry.entry.id, entry.entry);
+        catalogLookup->emplace(entry.entry.id, entry);
       }
 
       auto storeContent = std::make_shared<settings::PluginStoreContent>(
@@ -2125,10 +2418,11 @@ void SettingsWindow::openPluginStore() {
                       } else {
                         scripting::PluginStatus placeholder{.id = id, .name = id, .enabled = true};
                         if (auto it = catalogLookup->find(id); it != catalogLookup->end()) {
-                          placeholder.name = it->second.name;
-                          placeholder.version = it->second.version;
-                          placeholder.icon = it->second.icon;
-                          placeholder.description = it->second.description;
+                          placeholder.name = it->second.entry.name;
+                          placeholder.version = it->second.entry.version;
+                          placeholder.icon = it->second.entry.icon;
+                          placeholder.description = it->second.entry.description;
+                          placeholder.source = it->second.source;
                         }
                         m_pluginList.push_back(std::move(placeholder));
                       }
@@ -2147,10 +2441,24 @@ void SettingsWindow::openPluginStore() {
               .isInstalled = [this](
                                  const std::string& id
                              ) { return m_pluginManager != nullptr && m_pluginManager->isMaterialized(id); },
+              .ownsPlugin =
+                  [this](const std::string& id, const std::string& source) {
+                    const auto plugin = std::ranges::find(m_pluginList, id, &scripting::PluginStatus::id);
+                    return plugin == m_pluginList.end() || plugin->source == source;
+                  },
               .scale = scale,
           },
-          &m_pluginFileCache, &m_pluginStoreScrollState
+          &m_pluginFileCache, &m_pluginStoreScrollState, m_pluginRecommendations
       );
+
+      if (m_pluginRecommendations != nullptr) {
+        m_pluginRecommendations->setOnChanged([weak = std::weak_ptr(storeContent)]() {
+          if (const auto content = weak.lock()) {
+            content->onRecommendationsChanged();
+          }
+        });
+        m_pluginRecommendations->fetchMetrics();
+      }
 
       m_pluginFileCache.setOnReady([storeContent](
                                        const std::string& pluginId, const std::string& filename, const std::string& path
@@ -2162,7 +2470,7 @@ void SettingsWindow::openPluginStore() {
       }
 
       storeContent->setOnRebuildNeeded([this]() {
-        if (m_editorSheetModal != nullptr) {
+        if (m_pluginStoreSheetOpen && m_editorSheetModal != nullptr) {
           m_editorSheetModal->rebuildBody();
         }
       });
@@ -2264,6 +2572,7 @@ void SettingsWindow::openPluginStore() {
                   [storeContent, this]() {
                     storeContent->detachGrid();
                     m_pluginFileCache.setOnReady(nullptr);
+                    storeContent->setOnRebuildNeeded(nullptr);
                     m_pluginStoreSheetOpen = false;
                   },
           }

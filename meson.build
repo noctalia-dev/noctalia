@@ -1,5 +1,6 @@
 project('noctalia', ['c', 'cpp'],
-  version: '5.0.1',
+  version: files('VERSION'),
+  meson_version: '>=1.1',
   default_options: [
     'cpp_std=c++23',
     'cpp_extensions=false',
@@ -72,7 +73,7 @@ freetype2_dep       = dependency('freetype2')
 fontconfig_dep      = dependency('fontconfig')
 cairo_dep           = dependency('cairo')
 cairo_ft_dep        = dependency('cairo-ft')
-pango_dep           = dependency('pango')
+pango_dep           = dependency('pango', version: '>=1.50')
 pangocairo_dep      = dependency('pangocairo')
 pangoft2_dep        = dependency('pangoft2')
 harfbuzz_dep        = dependency('harfbuzz')
@@ -195,11 +196,11 @@ if not cc.has_header('stb/stb_image_write.h')
   error('stb/stb_image_write.h not found')
 endif
 
-# ── System: libwebp (WebP decode and thumbnail encode; demux for animations) ─
+# ── System: libwebp (WebP decode; thumbnail and screenshot encode; demux for animations) ─
 libwebp_dep       = dependency('libwebp', required: true)
 libwebpdemux_dep  = dependency('libwebpdemux', required: true)
 
-# ── System: libjxl (JPEG XL decode) ───────────────────────────────────────────
+# ── System: libjxl (JPEG XL decode and screenshot encode) ─────────────────────
 libjxl_dep          = dependency('libjxl', required: true)
 libjxl_threads_dep  = dependency('libjxl_threads', required: true)
 
@@ -263,6 +264,7 @@ _luau_sources = files(
   'third_party/luau/VM/src/ltm.cpp',
   'third_party/luau/VM/src/ludata.cpp',
   'third_party/luau/VM/src/lutf8lib.cpp',
+  'third_party/luau/VM/src/lvector.cpp',
   'third_party/luau/VM/src/lveclib.cpp',
   'third_party/luau/VM/src/lvmexecute.cpp',
   'third_party/luau/VM/src/lvmload.cpp',
@@ -417,6 +419,8 @@ _wlr_ls_c = custom_target('wlr-layer-shell-unstable-v1-client-source',
 _protocol_sources += _wlr_ls_c
 _protocol_headers += _wlr_ls_h
 
+alias_target('wayland-protocol-headers', _protocol_headers)
+
 # ── Main sources ──────────────────────────────────────────────────────────────
 _noctalia_sources = files(
   'src/app/application.cpp',
@@ -435,8 +439,11 @@ _noctalia_sources = files(
   'src/calendar/calendar_cache.cpp',
   'src/calendar/calendar_credential_store.cpp',
   'src/calendar/calendar_discovery_state.cpp',
+  'src/calendar/calendar_reminder_monitor.cpp',
+  'src/calendar/calendar_reminders.cpp',
   'src/calendar/calendar_service.cpp',
   'src/calendar/event_link.cpp',
+  'src/calendar/event_merge.cpp',
   'src/calendar/google_client.cpp',
   'src/calendar/google_oauth.cpp',
   'src/calendar/ical_parser.cpp',
@@ -469,6 +476,7 @@ _noctalia_sources = files(
   'src/dbus/accounts/accounts_service.cpp',
   'src/dbus/bluetooth/bluetooth_agent.cpp',
   'src/dbus/bluetooth/bluetooth_service.cpp',
+  'src/dbus/bluetooth/bluetooth_uuid_names.cpp',
   'src/dbus/idle/screensaver_service.cpp',
   'src/dbus/logind/logind_service.cpp',
   'src/dbus/modem/modem_manager_service.cpp',
@@ -476,6 +484,7 @@ _noctalia_sources = files(
   'src/dbus/mpris/mpris_service.cpp',
   'src/dbus/network/external_ip_service.cpp',
   'src/dbus/network/inetwork_service.cpp',
+  'src/dbus/network/iwd_diagnostics.cpp',
   'src/dbus/network/iwd_secret_agent.cpp',
   'src/dbus/network/iwd_service.cpp',
   'src/dbus/network/network_display.cpp',
@@ -488,6 +497,7 @@ _noctalia_sources = files(
   'src/dbus/notification/notification_poll_source.cpp',
   'src/dbus/notification/notification_service.cpp',
   'src/dbus/power/power_profiles_service.cpp',
+  'src/dbus/secret/secret_collection_probe.cpp',
   'src/dbus/session_bus.cpp',
   'src/dbus/system_bus.cpp',
   'src/dbus/tray/fcitx_status.cpp',
@@ -503,8 +513,11 @@ _noctalia_sources = files(
   'src/idle/idle_inhibitor.cpp',
   'src/idle/idle_grace_overlay.cpp',
   'src/idle/idle_manager.cpp',
+  'src/idle/plugin_idle_watches.cpp',
   'src/ipc/ipc_client.cpp',
   'src/ipc/ipc_service.cpp',
+  'src/ipc/pixel_stream_client.cpp',
+  'src/ipc/pixel_stream_service.cpp',
   'src/launcher/app_provider.cpp',
   'src/launcher/dmenu_cli.cpp',
   'src/launcher/dmenu_ipc.cpp',
@@ -513,6 +526,8 @@ _noctalia_sources = files(
   'src/launcher/dmenu_stdin_provider.cpp',
   'src/launcher/emoji_provider.cpp',
   'src/launcher/math_provider.cpp',
+  'src/launcher/panel_catalog.cpp',
+  'src/launcher/panel_provider.cpp',
   'src/launcher/plugin_launcher_provider.cpp',
   'src/launcher/session_provider.cpp',
   'src/launcher/wallpaper_provider.cpp',
@@ -526,8 +541,11 @@ _noctalia_sources = files(
   'src/notification/notification_display_name.cpp',
   'src/notification/notification_history_store.cpp',
   'src/pipewire/pipewire_service.cpp',
+  'src/pipewire/pipewire_error.cpp',
   'src/pipewire/audio_glyphs.cpp',
+  'src/pipewire/audio_media_class.cpp',
   'src/pipewire/audio_route_selection.cpp',
+  'src/pipewire/privacy_capture_classification.cpp',
   'src/pipewire/wireplumber_mixer.cpp',
   'src/pipewire/privacy_filter.cpp',
   'src/pipewire/pipewire_spectrum.cpp',
@@ -546,9 +564,12 @@ _noctalia_sources = files(
   'src/render/core/stb_image_resize_impl.cpp',
   'src/render/core/thumbnail_service.cpp',
   'src/render/core/image_decoder.cpp',
+  'src/render/core/heif_library.cpp',
   'src/render/core/image_encoder.cpp',
+  'src/render/core/image_orientation.cpp',
   'src/render/programs/glyph_program.cpp',
   'src/render/programs/image_program.cpp',
+  'src/render/programs/lockscreen_transition_program.cpp',
   'src/render/programs/linear_gradient_program.cpp',
   'src/render/programs/rect_program.cpp',
   'src/render/programs/screen_corner_program.cpp',
@@ -585,7 +606,9 @@ _noctalia_sources = files(
   'src/scripting/plugin_ipc.cpp',
   'src/scripting/plugin_lint.cpp',
   'src/scripting/plugin_manager.cpp',
+  'src/scripting/plugin_recommendations.cpp',
   'src/scripting/plugin_manifest.cpp',
+  'src/scripting/plugin_layer_config.cpp',
   'src/scripting/plugin_panel_shell.cpp',
   'src/scripting/plugin_registry.cpp',
   'src/scripting/plugin_script_watcher.cpp',
@@ -664,12 +687,17 @@ _noctalia_sources = files(
   'src/ui/dialogs/glyph_picker_dialog.cpp',
   'src/ui/dialogs/glyph_picker_dialog_popup.cpp',
   'src/ui/dialogs/layer_popup_host.cpp',
+  'src/ui/dialogs/search_picker_popup.cpp',
   'src/shell/launcher/launcher_panel.cpp',
   'src/shell/switcher/window_switcher.cpp',
+  'src/shell/switcher/window_switcher_style.cpp',
+  'src/shell/switcher/window_switcher_carousel_style.cpp',
+  'src/shell/switcher/window_switcher_compact_style.cpp',
   'src/shell/switcher/window_switcher_tile.cpp',
   'src/shell/profile/avatar_path.cpp',
   'src/shell/greeter/greeter_appearance_sync.cpp',
   'src/shell/lockscreen/lock_screen.cpp',
+  'src/shell/lockscreen/lockscreen_session_actions.cpp',
   'src/shell/lockscreen/lock_surface.cpp',
   'src/shell/notification/notification_toast.cpp',
   'src/shell/osd/audio_osd.cpp',
@@ -688,6 +716,8 @@ _noctalia_sources = files(
   'src/shell/panel/panel_manager.cpp',
   'src/shell/panel/persistent_panel_host.cpp',
   'src/shell/panel/plugin_panel.cpp',
+  'src/shell/plugin_layer/plugin_layer.cpp',
+  'src/shell/plugin_layer/plugin_layer_host.cpp',
   'src/shell/polkit/polkit_panel.cpp',
   'src/shell/session/session_action_meta.cpp',
   'src/shell/session/session_action_runner.cpp',
@@ -718,13 +748,13 @@ _noctalia_sources = files(
   'src/shell/settings/font_weight_catalog.cpp',
   'src/shell/settings/widget_settings_registry.cpp',
   'src/shell/settings/widget_add_popup.cpp',
-  'src/shell/settings/search_picker_popup.cpp',
   'src/shell/settings/settings_dialog_presenter.cpp',
   'src/shell/settings/settings_modal_host.cpp',
   'src/shell/settings/settings_sheet.cpp',
   'src/shell/settings/settings_sheet_modal.cpp',
   'src/shell/settings/settings_window_mutations.cpp',
   'src/shell/settings/settings_window_popups.cpp',
+  'src/shell/settings/settings_window_palette.cpp',
   'src/shell/settings/settings_window_scene.cpp',
   'src/shell/settings/settings_window.cpp',
   'src/shell/test/test_panel.cpp',
@@ -831,6 +861,7 @@ _noctalia_sources = files(
   'src/system/format_units.cpp',
   'src/system/hardware_info.cpp',
   'src/system/icon_resolver.cpp',
+  'src/system/icon_theme_poll_source.cpp',
   'src/system/internal_app_metadata.cpp',
   'src/system/easyeffects_service.cpp',
   'src/system/day_night_schedule.cpp',
@@ -838,11 +869,13 @@ _noctalia_sources = files(
   'src/system/location_service.cpp',
   'src/capture/screencopy_capture.cpp',
   'src/capture/pointer_cursor_capture.cpp',
+  'src/capture/toplevel_thumbnail_capture.cpp',
   'src/capture/screencopy_util.cpp',
   'src/capture/screenshot_capture.cpp',
   'src/capture/screenshot_image.cpp',
   'src/capture/screenshot_service.cpp',
   'src/capture/screenshot_region_overlay.cpp',
+  'src/capture/screenshot_region_badge.cpp',
   'src/capture/annotation_document.cpp',
   'src/capture/annotation_raster.cpp',
   'src/capture/annotation_overlay.cpp',
@@ -878,6 +911,8 @@ _noctalia_sources = files(
   'src/ui/controls/grid_view.cpp',
   'src/ui/controls/grid_tile.cpp',
   'src/ui/controls/image.cpp',
+  'src/ui/controls/pixel_stream_view.cpp',
+  'src/ui/controls/lockscreen_transition_cover.cpp',
   'src/ui/controls/input.cpp',
   'src/core/input/keybind_matcher.cpp',
   'src/ui/controls/keybind_recorder.cpp',
@@ -942,11 +977,8 @@ _noctalia_sources = files(
   'src/compositors/niri/niri_output_backend.cpp',
   'src/compositors/niri/niri_keyboard_backend.cpp',
   'src/compositors/niri/niri_workspace_backend.cpp',
-  'src/compositors/triad/triad_runtime.cpp',
-  'src/compositors/triad/triad_output_backend.cpp',
-  'src/compositors/triad/triad_keyboard_backend.cpp',
-  'src/compositors/triad/triad_workspace_backend.cpp',
   'src/compositors/umbriel/umbriel_runtime.cpp',
+  'src/compositors/umbriel/umbriel_audio_provider.cpp',
   'src/compositors/umbriel/umbriel_event_handler.cpp',
   'src/compositors/umbriel/umbriel_workspace_backend.cpp',
   'src/compositors/umbriel/umbriel_keyboard_backend.cpp',
@@ -984,11 +1016,13 @@ _noctalia_sources = files(
   'src/theme/custom_palettes.cpp',
   'src/theme/fixed_palette.cpp',
   'src/theme/template_apply_service.cpp',
+  'src/theme/gtk_extensions.cpp',
   'src/theme/theme_service.cpp',
   'src/theme/json_output.cpp',
   'src/theme/kde_color_scheme.cpp',
   'src/theme/firefox_theme/css.cpp',
   'src/theme/firefox_theme/firefox_theme.cpp',
+  'src/theme/firefox_theme/manifest.cpp',
   'src/theme/firefox_theme/native_messaging.cpp',
   'src/theme/firefox_theme/settings.cpp',
   'src/theme/hook_runner.cpp',
@@ -1123,11 +1157,12 @@ noctalia_exe = executable('noctalia',
 
 install_subdir('assets',
   install_dir: get_option('datadir') / 'noctalia',
-  exclude_files: ['dev.noctalia.Noctalia.desktop'],
+  exclude_files: ['dev.noctalia.Noctalia.desktop', 'dev.noctalia.Noctalia.Annotator.desktop'],
 )
 
 install_data(
   'assets/dev.noctalia.Noctalia.desktop',
+  'assets/dev.noctalia.Noctalia.Annotator.desktop',
   install_dir: get_option('datadir') / 'applications',
 )
 
@@ -1137,24 +1172,44 @@ install_data(
 )
 
 if build_tests
+  wayland_server_dep = dependency('wayland-server')
+
+  _wlr_screencopy_test_server_h = custom_target('wlr-screencopy-unstable-v1-test-server-header',
+    input: 'protocols/wlr-screencopy-unstable-v1.xml',
+    output: 'wlr-screencopy-unstable-v1-test-server-protocol.h',
+    command: [wayland_scanner, 'server-header', '@INPUT@', '@OUTPUT@'],
+  )
+
+  _idle_test_server_h = custom_target('ext-idle-notify-v1-test-server-header',
+    input: wayland_protos_dir / 'staging/ext-idle-notify/ext-idle-notify-v1.xml',
+    output: 'ext-idle-notify-v1-test-server-protocol.h',
+    command: [wayland_scanner, 'server-header', '@INPUT@', '@OUTPUT@'],
+  )
+
   _cpp_test_names = [
     'annotation_document',
     'annotation_raster',
     'animation_manager',
     'app_identity',
     'audio_glyphs',
+    'audio_media_class',
     'audio_route_selection',
     'battery_health',
     'battery_hook_state',
+    'battery_warning_threshold',
+    'bluetooth_uuid_names',
     'button_layout',
     'cairo_text_renderer',
     'caldav_client',
     'calendar_cache_permissions',
     'calendar_credential_store',
     'calendar_discovery_state',
+    'calendar_reminder_monitor',
+    'calendar_reminders',
     'calendar_view_passed_event',
     'capsule_group_lane_override',
     'capsule_group_reconcile',
+    'capsule_group_style_persist',
     'cli_help',
     'cli_parse',
     'cli_schema',
@@ -1172,16 +1227,25 @@ if build_tests
     'cpu_temp_sensor',
     'desktop_entry_launch',
     'desktop_entry_localization',
+    'desktop_entry_symlink',
+    'desktop_entry_watch',
+    'desktop_widget_output',
     'disk_mounts',
     'dock_edge_overlap',
     'dock_pinned_apps',
     'enterprise_credentials',
     'event_link',
+    'event_merge',
+    'ext_toplevel_capture_target',
     'fcitx_status',
+    'format_units',
     'freedesktop_key_file',
+    'firefox_theme_manifest',
     'google_client_calendar_list',
+    'google_client_reminders',
     'greeter_appearance_sync',
     'grid_item_cursor',
+    'gtk_extensions',
     'hook_manager',
     'hyprland_workspace_backend',
     'i18n_language_tag',
@@ -1190,18 +1254,23 @@ if build_tests
     'ico_decoder',
     'icon_resolver',
     'image_file_loader_data_uri',
+    'image_orientation',
     'image_source_log',
     'inotify',
     'input_area',
+    'input_bidi',
     'input_dispatcher',
     'input_password_mode',
     'input_readline_shortcuts',
     'ipc_service',
+    'iwd_diagnostics',
     'jxl_decoder',
     'kde_color_scheme',
     'keyboard_layout_label',
     'lane_selection_token',
+    'launcher_category_state',
     'location_service',
+    'lockscreen_session_actions',
     'log',
     'math_provider',
     'monitor_selector',
@@ -1211,47 +1280,67 @@ if build_tests
     'notification_dnd',
     'notification_filter',
     'notification_history_dismiss',
+    'notification_history_image_bounds',
     'notification_history_utf8',
+    'notification_inline_reply',
+    'notification_internal_history',
     'path_browse',
+    'pipewire_error',
+    'umbriel_audio_provider',
+    'privacy_capture_classification',
     'plugin_bindings',
     'plugin_catalog',
+    'plugin_file_privacy',
     'plugin_git_export',
     'plugin_i18n',
     'plugin_lifecycle',
     'plugin_manifest',
     'plugin_process',
+    'plugin_recommendations',
     'plugin_source_locks',
     'plugin_source_paths',
+    'pixel_stream_client',
     'process',
     'scheme',
+    'screenshot_region_badge',
+    'screenshot_ipc_request',
     'scrollbar_geometry',
     'secret_store',
     'security_primitives',
     'state_store',
     'string_utils',
     'surface_blur_region',
+    'sway_workspace_backend',
     'system_monitor_service',
     'taskbar_widget',
     'template_apply_notify',
+    'template_apply_shutdown',
     'template_hook_async',
     'template_hook_runner',
     'theme_shell_mode',
     'time_format',
+    'toplevel_thumbnail_capture',
     'tray_identifier',
     'tray_theme_path_index',
-    'triad_workspace_backend',
     'ui_tree_reconciler',
     'upower_charge_limit',
     'upower_device_catalog',
+    'uri',
     'vdir_reader',
     'virtual_grid_view_gesture',
+    'wallpaper_scan_symlink',
     'wallpaper_shuffle_state',
     'wayland_output_scale',
     'wayland_toplevels_identity',
     'webp_decoder',
     'widget_action',
     'widget_definition',
+    'widget_settings_schema',
+    'window_minimize_state',
+    'window_switcher_membership',
+    'window_switcher_shortcut_state',
     'workspace_alert_service',
+    'workspaces_widget',
   ]
 
   foreach test_name : _cpp_test_names
@@ -1270,11 +1359,59 @@ if build_tests
       test_args = [meson.project_source_root() / 'assets' / 'translations']
     endif
     test(test_name, test_exe, args: test_args)
+    if test_name == 'plugin_recommendations' and git_program.found()
+      recommendations_python = find_program('python3', required: false)
+      recommendations_openssl = find_program('openssl', required: false)
+      if recommendations_python.found() and recommendations_openssl.found()
+        test('plugin_recommendations_http', recommendations_python,
+          args: [files('tests/plugin_recommendations_http_test.py'), test_exe],
+          workdir: meson.project_source_root(),
+          timeout: 90,
+        )
+      endif
+    endif
   endforeach
+
+  screencopy_connection_isolation_exe = executable('screencopy_connection_isolation_test',
+    sources: files('tests/screencopy_connection_isolation_test.cpp') + [_wlr_screencopy_test_server_h],
+    dependencies: [noctalia_core_dep, wayland_server_dep],
+    override_options: ['b_ndebug=false'],
+  )
+  test('screencopy_connection_isolation', screencopy_connection_isolation_exe)
+
+  idle_manager_exe = executable('idle_manager_test',
+    sources: files('tests/idle_manager_test.cpp') + [_idle_test_server_h],
+    dependencies: [noctalia_core_dep, wayland_server_dep],
+    override_options: ['b_ndebug=false'],
+  )
+  test('idle_manager', idle_manager_exe)
+
+  brightness_service_exe = executable('brightness_service_test',
+    sources: files('tests/brightness_service_test.cpp'),
+    dependencies: [noctalia_core_dep, wayland_server_dep],
+    override_options: ['b_ndebug=false'],
+  )
+  test('brightness_service', brightness_service_exe, timeout: 60)
 
   upower_integration_exe = executable('upower_charge_limit_integration_test',
     sources: files('tests/upower_charge_limit_integration_test.cpp'),
     dependencies: noctalia_core_dep,
+    override_options: ['b_ndebug=false'],
+  )
+  secret_collection_probe_integration_exe = executable('secret_collection_probe_integration_test',
+    sources: files('tests/secret_collection_probe_integration_test.cpp'),
+    dependencies: noctalia_core_dep,
+    override_options: ['b_ndebug=false'],
+  )
+  tray_registration_integration_exe = executable('tray_registration_integration_test',
+    sources: files('tests/tray_registration_integration_test.cpp'),
+    dependencies: noctalia_core_dep,
+    override_options: ['b_ndebug=false'],
+  )
+  fingerprint_integration_exe = executable('fingerprint_authenticator_integration_test',
+    sources: files('tests/fingerprint_authenticator_integration_test.cpp'),
+    dependencies: noctalia_core_dep,
+    override_options: ['b_ndebug=false'],
   )
   dbus_run_session = find_program('dbus-run-session', required: false)
   if dbus_run_session.found()
@@ -1286,6 +1423,75 @@ if build_tests
         'sh', upower_integration_exe.full_path(),
       ],
       depends: upower_integration_exe,
+    )
+    test('secret_collection_probe_integration',
+      dbus_run_session,
+      args: ['--', secret_collection_probe_integration_exe.full_path()],
+      depends: secret_collection_probe_integration_exe,
+    )
+    foreach mode : ['registration', 'discovery']
+      test('tray_' + mode + '_integration',
+        dbus_run_session,
+        args: ['--', tray_registration_integration_exe.full_path(), mode],
+        depends: tray_registration_integration_exe,
+      )
+    endforeach
+    test('fingerprint_authenticator_integration',
+      dbus_run_session,
+      args: [
+        '--', 'sh', '-c',
+        'export DBUS_SYSTEM_BUS_ADDRESS="$DBUS_SESSION_BUS_ADDRESS"; exec "$1"',
+        'sh', fingerprint_integration_exe.full_path(),
+      ],
+      depends: fingerprint_integration_exe,
+    )
+  endif
+
+  bluetooth_property_integration_exe = executable('bluetooth_property_integration_test',
+    sources: files('tests/bluetooth_property_integration_test.cpp'),
+    dependencies: noctalia_core_dep,
+    override_options: ['b_ndebug=false'],
+  )
+  if dbus_run_session.found()
+    test('bluetooth_property_integration',
+      dbus_run_session,
+      args: [
+        '--', 'sh', '-c',
+        'export DBUS_SYSTEM_BUS_ADDRESS="$DBUS_SESSION_BUS_ADDRESS"; exec "$1"',
+        'sh', bluetooth_property_integration_exe.full_path(),
+      ],
+      depends: bluetooth_property_integration_exe,
+    )
+  endif
+
+  bluetooth_connect_pass_integration_exe = executable('bluetooth_connect_pass_integration_test',
+    sources: files('tests/bluetooth_connect_pass_integration_test.cpp'),
+    dependencies: noctalia_core_dep,
+    override_options: ['b_ndebug=false'],
+  )
+  if dbus_run_session.found()
+    test('bluetooth_connect_pass_integration',
+      dbus_run_session,
+      args: [
+        '--', 'sh', '-c',
+        'export DBUS_SYSTEM_BUS_ADDRESS="$DBUS_SESSION_BUS_ADDRESS"; exec "$1"',
+        'sh', bluetooth_connect_pass_integration_exe.full_path(),
+      ],
+      depends: bluetooth_connect_pass_integration_exe,
+      timeout: 60,
+    )
+  endif
+
+  notification_reply_integration_exe = executable('notification_reply_integration_test',
+    sources: files('tests/notification_reply_integration_test.cpp'),
+    dependencies: noctalia_core_dep,
+    override_options: ['b_ndebug=false'],
+  )
+  if dbus_run_session.found()
+    test('notification_reply_integration',
+      dbus_run_session,
+      args: ['--', notification_reply_integration_exe.full_path()],
+      depends: notification_reply_integration_exe,
     )
   endif
 
@@ -1307,6 +1513,16 @@ if build_tests
   test('template_undo_signal',
     bash_program,
     args: ['tests/template_undo_signal_test.sh', meson.current_source_dir() / 'assets/templates'],
+    workdir: meson.current_source_dir(),
+  )
+  test('umbriel_apply_include_comment',
+    bash_program,
+    args: ['tests/umbriel_apply_include_comment_test.sh', meson.current_source_dir() / 'assets/templates/umbriel/apply.sh'],
+    workdir: meson.current_source_dir(),
+  )
+  test('compositor_template_config',
+    bash_program,
+    args: ['tests/compositor_template_config_test.sh', meson.current_source_dir() / 'assets/templates'],
     workdir: meson.current_source_dir(),
   )
 endif # build_tests

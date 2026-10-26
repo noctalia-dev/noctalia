@@ -2,6 +2,7 @@
 
 #include "app/main_loop.h"
 #include "compositors/compositor_detect.h"
+#include "compositors/umbriel/umbriel_audio_provider.h"
 #include "config/config_types.h"
 #include "core/build_info.h"
 #include "core/deferred_call.h"
@@ -90,6 +91,7 @@
 #include "ui/dialogs/color_picker_dialog.h"
 #include "ui/dialogs/file_dialog.h"
 #include "ui/dialogs/glyph_picker_dialog.h"
+#include "ui/dialogs/search_picker_popup.h"
 #include "ui/style.h"
 #include "util/file_utils.h"
 #include "util/string_utils.h"
@@ -181,9 +183,13 @@ Application::Application()
 }
 
 Application::~Application() {
+  m_compositorPlatform.setOutputPowerChangeCallback({});
+  ++m_outputPowerRequestGeneration;
+  m_lockScreen.cancelOutputPowerOff();
   ColorPickerDialog::setPresenter(nullptr);
   GlyphPickerDialog::setPresenter(nullptr);
   FileDialog::setPresenter(nullptr);
+  SearchPickerDialog::setPopup(nullptr);
   m_settingsWindow.shutdownDialogPresenter();
   // m_systemMonitor is declared after the plugin hosts, so it is destroyed first; drop the script
   // API's pointer to it here, while both are still alive, or a plugin that used noctalia.cpuCores
@@ -201,6 +207,10 @@ void Application::run(std::function<void()> startupReadyCallback) {
   initLogFile();
   initLogLevelFromEnvironment();
   kLog.info("noctalia {}", noctalia::build_info::displayVersion());
+  // Claim the tray watcher name first. The tray UI itself is wired up later.
+  // Item callbacks run from deferred work on the main loop, after the shell
+  // is initialized.
+  initEarlySessionBusAndTray();
   runStartupPhase("initServices", [this]() { initServices(); });
   runStartupPhase("initPlugins", [this]() {
     // Configure the plugin registry from [plugins] before any UI consumes it, and
@@ -228,6 +238,7 @@ void Application::run(std::function<void()> startupReadyCallback) {
         m_pluginServiceHost.refresh(m_configService.config().plugins.pluginSettings);
         reloadPluginLauncherProviders();
         reloadPluginPanels();
+        reloadPluginLayers();
         m_settingsWindow.onPluginsChanged();
       }
     });
@@ -240,6 +251,7 @@ void Application::run(std::function<void()> startupReadyCallback) {
       m_bar.reload();
       reloadPluginLauncherProviders();
       reloadPluginPanels();
+      reloadPluginLayers();
       m_settingsWindow.onPluginsChanged();
     });
     // A git-source enable exports on a worker thread; redraw the plugins list so the
@@ -276,7 +288,6 @@ void Application::run(std::function<void()> startupReadyCallback) {
   });
 #endif
 
-  m_trayInitTimer.start(std::chrono::milliseconds(500), [this]() { startTrayService(); });
   m_polkitInitTimer.start(std::chrono::milliseconds(1000), [this]() { syncPolkitAgent(); });
 
   m_mainLoop = std::make_unique<MainLoop>(m_wayland, m_bar, [this]() { return currentPollSources(); });

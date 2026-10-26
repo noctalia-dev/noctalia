@@ -846,6 +846,62 @@ event_time_format = "%H:%M"
     );
   }
 
+  void checkDockMonitorAllowListMigration() {
+    toml::table sidecar = toml::parse(R"(
+config_version = 14
+[dock]
+enabled = true
+monitors = ["DP-1", "Dell Inc."]
+)");
+    noctalia::config::schema::Diagnostics diagnostics;
+    const int applied = noctalia::config::applyPendingConfigMigrations(sidecar, 14, diagnostics);
+    expect(applied == noctalia::config::currentConfigVersion(), "dock monitor allow-list migration was not applied");
+    expect(sidecar["dock"]["monitors"].node() == nullptr, "legacy dock monitors key was not removed");
+    expect(sidecar["dock"]["enabled"].value<bool>() == false, "migrated dock was not disabled globally");
+    expect(
+        sidecar["dock"]["monitor"]["DP-1"]["enabled"].value<bool>() == true,
+        "connector selector was not converted to an enabled monitor override"
+    );
+    expect(
+        sidecar["dock"]["monitor"]["Dell Inc."]["enabled"].value<bool>() == true,
+        "description selector was not converted to an enabled monitor override"
+    );
+
+    toml::table legacyConfig = toml::parse(R"(
+[dock]
+enabled = true
+monitors = ["eDP-1"]
+)");
+    noctalia::config::LegacyConfigIssues issues;
+    noctalia::config::normalizeLegacyConfig(legacyConfig, issues);
+    expect(
+        legacyConfig["dock"]["enabled"].value<bool>() == false
+            && legacyConfig["dock"]["monitor"]["eDP-1"]["enabled"].value<bool>() == true,
+        "hand-written dock monitor allow-list was not normalized"
+    );
+    expect(
+        issues.size() == 1 && hasIssuePath(issues, "dock.monitors"),
+        "hand-written dock monitor allow-list did not produce a migration issue"
+    );
+
+    noctalia::config::LegacyConfigIssues secondPassIssues;
+    noctalia::config::normalizeLegacyConfig(legacyConfig, secondPassIssues);
+    expect(secondPassIssues.empty(), "dock monitor allow-list normalization was not idempotent");
+
+    toml::table emptyList = toml::parse("[dock]\nenabled = true\nmonitors = []");
+    noctalia::config::LegacyConfigIssues emptyIssues;
+    noctalia::config::normalizeLegacyConfig(emptyList, emptyIssues);
+    expect(emptyList["dock"]["enabled"].value<bool>() == true, "empty dock monitor list changed global enablement");
+    expect(emptyList["dock"]["monitors"].node() == nullptr, "empty dock monitor list was not removed");
+    expect(emptyList["dock"]["monitor"].node() == nullptr, "empty dock monitor list created overrides");
+
+    toml::table disabled = toml::parse("[dock]\nenabled = false\nmonitors = [\"DP-1\"]");
+    noctalia::config::LegacyConfigIssues disabledIssues;
+    noctalia::config::normalizeLegacyConfig(disabled, disabledIssues);
+    expect(disabled["dock"]["enabled"].value<bool>() == false, "disabled dock was enabled by migration");
+    expect(disabled["dock"]["monitor"].node() == nullptr, "disabled dock gained enabled monitor overrides");
+  }
+
   void checkVersionGating() {
     toml::table legacy = toml::parse(R"(
 [bar.main]
@@ -992,6 +1048,7 @@ int main() {
   checkCustomButtonCommandsMigration();
   checkDeadZoneActionsMigration();
   checkCalendarEventFormatsMigration();
+  checkDockMonitorAllowListMigration();
   checkSysmonPresentationMigration();
   checkKeyboardLayoutShowGlyphMigration();
   checkKeyboardLayoutCustomLabelsMigration();

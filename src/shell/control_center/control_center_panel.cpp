@@ -20,6 +20,7 @@
 #include "ui/controls/scroll_view.h"
 #include "ui/scroll_into_view.h"
 #include "ui/split_pane_focus.h"
+#include "ui/style.h"
 
 #include <algorithm>
 #include <chrono>
@@ -272,14 +273,16 @@ void ControlCenterPanel::create() {
     }
   }
 
-  m_contentHeaderActions->addChild(
-      ui::button({
-          .out = &m_closeButton,
-          .glyph = "close",
-          .onClick = []() { PanelManager::instance().close(); },
-          .configure = [scale](Button& button) { panel_button_style::configureHeaderIconButton(button, scale); },
-      })
-  );
+  if (Style::closeButtonsEnabled()) {
+    m_contentHeaderActions->addChild(
+        ui::button({
+            .out = &m_closeButton,
+            .glyph = "close",
+            .onClick = []() { PanelManager::instance().close(); },
+            .configure = [scale](Button& button) { panel_button_style::configureHeaderIconButton(button, scale); },
+        })
+    );
+  }
   header->addChild(std::move(headerActions));
 
   content->addChild(std::move(header));
@@ -528,6 +531,18 @@ std::vector<ControlCenterPanel::TabCatalogEntry> ControlCenterPanel::hideableTab
       continue;
     }
     out.push_back({.key = meta.key, .titleKey = meta.titleKey});
+  }
+  return out;
+}
+
+std::vector<ControlCenterPanel::LauncherTabEntry> ControlCenterPanel::visibleTabsForLauncher() const {
+  std::vector<LauncherTabEntry> out;
+  out.reserve(kTabCount - 1);
+  for (const auto& meta : kTabs) {
+    if (meta.id == TabId::Home || !isTabVisible(meta.id)) {
+      continue;
+    }
+    out.push_back({.key = meta.key, .titleKey = meta.titleKey, .glyph = meta.glyph});
   }
   return out;
 }
@@ -870,7 +885,7 @@ void ControlCenterPanel::layoutFullSidebarWidth(Renderer& renderer) {
     if (!isTabVisible(meta.id)) {
       continue;
     }
-    const TextMetrics text = renderer.measureText(i18n::tr(meta.titleKey), fontSize, FontWeight::Bold);
+    const TextMetrics text = renderer.measureText(i18n::tr(meta.titleKey), fontSize, {FontWeight::Bold});
     maxTabWidth = std::max(maxTabWidth, paddingH + glyphW + gap + text.width);
   }
 

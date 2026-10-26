@@ -28,6 +28,7 @@ public:
   [[nodiscard]] bool lock() const;
   [[nodiscard]] bool requestSuspendDetached() const;
   [[nodiscard]] bool requestRebootDetached() const;
+  [[nodiscard]] bool requestRebootUefiDetached() const;
   [[nodiscard]] bool requestShutdownDetached() const;
   [[nodiscard]] bool lockThenSuspendDetached() const;
 
@@ -51,5 +52,6 @@ private:
   // Auto-detection cache: where to start scanning fallback variants next time.
   mutable std::optional<std::size_t> m_cachedSuspendAutoStartIdx;
   mutable std::optional<std::size_t> m_cachedRebootAutoStartIdx;
+  mutable std::optional<std::size_t> m_cachedRebootUefiAutoStartIdx;
   mutable std::optional<std::size_t> m_cachedShutdownAutoStartIdx;
 };

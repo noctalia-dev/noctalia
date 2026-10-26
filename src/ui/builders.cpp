@@ -243,9 +243,6 @@ namespace ui {
     if (props.passwordMode.has_value()) {
       control->setPasswordMode(*props.passwordMode);
     }
-    if (props.lineEditing.has_value()) {
-      control->setLineEditingEnabled(*props.lineEditing);
-    }
     if (props.invalid.has_value()) {
       control->setInvalid(*props.invalid);
     }
@@ -284,6 +281,9 @@ namespace ui {
     }
     if (props.surfaceOpacity.has_value()) {
       control->setSurfaceOpacity(*props.surfaceOpacity);
+    }
+    if (props.surfaceRole.has_value()) {
+      control->setSurfaceRole(*props.surfaceRole);
     }
     applyNodeProps(*control, props);
     if (props.configure) {

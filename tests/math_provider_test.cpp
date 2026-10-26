@@ -1,48 +1,77 @@
-#include "i18n/i18n_service.h"
 #include "launcher/math_provider.h"
-#include "net/http_client.h"
-#include "wayland/clipboard_service.h"
+#include "tests/test_check.h"
 
-#include <cstdio>
+#include <cstdlib>
 #include <filesystem>
-#include <print>
+#include <fstream>
 #include <string>
 #include <string_view>
-
-namespace i18n {
-
-  Service& Service::instance() {
-    static Service service;
-    return service;
-  }
-
-  std::string_view Service::lookup(std::string_view) const { return {}; }
-
-} // namespace i18n
-
-void HttpClient::download(std::string_view, const std::filesystem::path&, CompletionCallback) {}
-
-bool ClipboardService::copyText(std::string) { return false; }
+#include <unistd.h>
 
 namespace {
 
-  bool expect(bool condition, std::string_view message) {
-    if (!condition) {
-      std::println(stderr, "math_provider_test: {}", message);
-    }
-    return condition;
+  namespace fs = std::filesystem;
+
+  std::string firstTitle(const MathProvider& provider, std::string_view text) {
+    const auto results = provider.queryPrefixed(text);
+    return results.empty() ? std::string() : results.front().title;
+  }
+
+  void writeVariable(const fs::path& definitions, std::string_view name, std::string_view value) {
+    std::ofstream file(definitions / "variables.xml");
+    file
+        << "<?xml version=\"1.0\"?>\n<QALCULATE version=\"5.13.1\">\n  <variable>\n    <names>r:"
+        << name
+        << "</names>\n    <value>"
+        << value
+        << "</value>\n  </variable>\n</QALCULATE>\n";
+  }
+
+  // command() runs a program; it must stay disabled even after user definitions load.
+  bool commandRuns(const MathProvider& provider, const fs::path& marker) {
+    (void)provider.queryPrefixed(R"(command("touch", ")" + marker.string() + R"("))");
+    return fs::exists(marker);
   }
 
 } // namespace
 
 int main() {
+  // Keep libqalculate away from the real definitions and exchange rates.
+  const fs::path root = fs::temp_directory_path() / ("noctalia-math-provider-" + std::to_string(getpid()));
+  const fs::path definitions = root / "definitions";
+  const fs::path marker = root / "command-ran";
+  fs::create_directories(root);
+  setenv("QALCULATE_USER_DIR", root.c_str(), 1);
+
+  // Starts without a definitions directory, so no watch is set up.
   MathProvider provider(nullptr, nullptr, nullptr);
   provider.initialize();
 
-  bool ok = true;
-  ok = expect(provider.query("EUR").empty(), "digit-free global query should be filtered") && ok;
-  ok = expect(!provider.queryPrefixed("EUR").empty(), "digit-free prefixed query should be evaluated") && ok;
-  ok = expect(!provider.query("2 + 2").empty(), "numeric global query should be evaluated") && ok;
+  TEST_CHECK(provider.query("EUR").empty());
+  TEST_CHECK(!provider.queryPrefixed("EUR").empty());
+  TEST_CHECK(!provider.query("2 + 2").empty());
+  TEST_CHECK(!commandRuns(provider, marker));
 
-  return ok ? 0 : 1;
+  // A definitions directory created after startup is picked up on the next open.
+  TEST_CHECK(firstTitle(provider, "noctaliaprobe*2") != "= 480");
+  fs::create_directories(definitions);
+  writeVariable(definitions, "noctaliaprobe", "240");
+  provider.onLauncherOpened();
+  TEST_CHECK(firstTitle(provider, "noctaliaprobe*2") == "= 480");
+  TEST_CHECK(!commandRuns(provider, marker));
+
+  // Edits are picked up through the watch.
+  writeVariable(definitions, "noctaliaprobe", "100");
+  provider.onLauncherOpened();
+  TEST_CHECK(firstTitle(provider, "noctaliaprobe*2") == "= 200");
+
+  // Removed definitions disappear rather than lingering from the previous load.
+  fs::remove(definitions / "variables.xml");
+  provider.onLauncherOpened();
+  TEST_CHECK(firstTitle(provider, "noctaliaprobe*2") != "= 200");
+  TEST_CHECK(!commandRuns(provider, marker));
+
+  std::error_code ec;
+  fs::remove_all(root, ec);
+  return 0;
 }

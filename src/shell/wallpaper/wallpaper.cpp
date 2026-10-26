@@ -99,6 +99,28 @@ namespace {
       params.centerX = randomFloat(0.2F, 0.8F);
       params.centerY = randomFloat(0.2F, 0.8F);
       break;
+    case WallpaperTransition::Vortex:
+      params.centerX = randomFloat(0.2F, 0.8F);
+      params.centerY = randomFloat(0.2F, 0.8F);
+      break;
+    case WallpaperTransition::Pixel:
+      params.cellSize = randomFloat(0.02F, 0.05F);
+      params.centerX = randomFloat(0.2F, 0.8F);
+      params.centerY = randomFloat(0.2F, 0.8F);
+      break;
+    case WallpaperTransition::Diamond:
+      params.cellSize = randomFloat(0.0345F, 0.069F);
+      params.centerX = randomFloat(0.2F, 0.8F);
+      params.centerY = randomFloat(0.2F, 0.8F);
+      break;
+    case WallpaperTransition::Golden:
+      params.centerX = randomFloat(0.2F, 0.8F);
+      params.centerY = randomFloat(0.2F, 0.8F);
+      params.angle = randomFloat(0.0F, 360.0F);
+      break;
+    case WallpaperTransition::Melt:
+      params.angle = randomFloat(0.0F, 360.0F);
+      break;
     case WallpaperTransition::Fade:
     default:
       break;
@@ -160,21 +182,15 @@ namespace {
     }
 
     if (recursive) {
-      for (auto it = std::filesystem::recursive_directory_iterator(
-               directory, std::filesystem::directory_options::skip_permission_denied, ec
-           );
-           !ec && it != std::filesystem::end(it); it.increment(ec)) {
-        if (ec) {
-          break;
-        }
-        std::error_code typeEc;
-        if (!it->is_regular_file(typeEc) || typeEc) {
-          continue;
-        }
-        if (DirectoryScanner::isImagePath(it->path())) {
-          out.push_back(it->path().string());
-        }
-      }
+      FileUtils::walkDirectoryTree(
+          directory, [](const std::filesystem::directory_entry&) { return true; },
+          [&out](const std::filesystem::directory_entry& entry) {
+            std::error_code typeEc;
+            if (entry.is_regular_file(typeEc) && !typeEc && DirectoryScanner::isImagePath(entry.path())) {
+              out.push_back(entry.path().string());
+            }
+          }
+      );
       return;
     }
 
@@ -318,22 +334,31 @@ Wallpaper::~Wallpaper() {
   }
 }
 
-TextureHandle Wallpaper::currentTexture() const {
+const WallpaperInstance* Wallpaper::currentInstance() const {
+  const WallpaperInstance* firstAvailable = nullptr;
   for (const auto& inst : m_instances) {
-    if (inst->currentTexture.id != 0) {
-      return inst->currentTexture;
+    const TextureHandle texture = inst->currentImage.texture();
+    if (!texture.valid() || inst->currentPath.empty()) {
+      continue;
+    }
+    if (texture.sourceWidth > texture.sourceHeight) {
+      return inst.get();
+    }
+    if (firstAvailable == nullptr) {
+      firstAvailable = inst.get();
     }
   }
-  return {};
+  return firstAvailable;
+}
+
+TextureHandle Wallpaper::currentTexture() const {
+  const WallpaperInstance* inst = currentInstance();
+  return inst != nullptr ? inst->currentImage.texture() : TextureHandle{};
 }
 
 std::string Wallpaper::currentPath() const {
-  for (const auto& inst : m_instances) {
-    if (inst->currentTexture.id != 0 && !inst->currentPath.empty()) {
-      return inst->currentPath;
-    }
-  }
-  return {};
+  const WallpaperInstance* inst = currentInstance();
+  return inst != nullptr ? inst->currentPath : std::string{};
 }
 
 bool Wallpaper::ownsSurface(wl_surface* surface) const noexcept {
@@ -372,27 +397,8 @@ bool Wallpaper::onPointerEvent(const PointerEvent& event) {
 }
 
 void Wallpaper::onGpuResourcesInvalidated() {
+  // The texture cache re-uploads leased images after a reset; onImageChanged() applies them as they land.
   for (auto& inst : m_instances) {
-    if (inst->currentSourceKind == WallpaperSourceKind::Image && !inst->currentPath.empty()) {
-      if (m_textureCache != nullptr && m_textureCache->shared()) {
-        inst->currentTexture = m_textureCache->peek(inst->currentPath);
-      } else if (m_renderContext != nullptr) {
-        if (inst->currentTexture.id != 0) {
-          m_renderContext->backend().textureManager().unload(inst->currentTexture);
-        }
-        inst->currentTexture = m_renderContext->backend().textureManager().loadFromFile(inst->currentPath, 0, true);
-      }
-    }
-    if (inst->nextSourceKind == WallpaperSourceKind::Image && !inst->pendingPath.empty()) {
-      if (m_textureCache != nullptr && m_textureCache->shared()) {
-        inst->nextTexture = m_textureCache->peek(inst->pendingPath);
-      } else if (m_renderContext != nullptr) {
-        if (inst->nextTexture.id != 0) {
-          m_renderContext->backend().textureManager().unload(inst->nextTexture);
-        }
-        inst->nextTexture = m_renderContext->backend().textureManager().loadFromFile(inst->pendingPath, 0, true);
-      }
-    }
     updateRendererState(*inst);
     if (inst->surface != nullptr) {
       inst->surface->requestRedraw();
@@ -475,6 +481,7 @@ void Wallpaper::reload() {
   // Refresh renderer state on all instances to pick up fill mode / smoothness
   // changes that take effect immediately without a texture reload.
   for (auto& inst : m_instances) {
+    refreshTextureCoverage(*inst);
     updateRendererState(*inst);
     inst->surface->requestRedraw();
   }
@@ -485,6 +492,9 @@ void Wallpaper::onOutputChange() {
     return;
   }
   syncInstances();
+  for (auto& inst : m_instances) {
+    refreshTextureCoverage(*inst);
+  }
 
   // Span fill mode maps a single image across the whole desktop, so a geometry
   // change on any output shifts the slice shown on every other output. Refresh
@@ -510,15 +520,16 @@ std::vector<WallpaperChange> Wallpaper::onStateChange() {
     }
 
     if (newPath.empty()) {
-      if (!inst->currentPath.empty() || inst->currentTexture.id != 0 || inst->nextTexture.id != 0) {
+      if (!inst->currentPath.empty()
+          || !inst->currentImage.empty()
+          || !inst->nextImage.empty()
+          || !inst->loadingImage.empty()) {
         changes.push_back({.path = newPath, .connector = inst->connectorName});
         if (inst->transitionAnimId != 0) {
           inst->animations.cancel(inst->transitionAnimId);
           inst->transitionAnimId = 0;
         }
         releaseInstanceTextures(*inst);
-        inst->currentTexture = {};
-        inst->nextTexture = {};
         inst->currentSourceKind = WallpaperSourceKind::Image;
         inst->nextSourceKind = WallpaperSourceKind::Image;
         inst->currentColor = rgba(0.0F, 0.0F, 0.0F, 1.0F);
@@ -552,6 +563,10 @@ std::vector<WallpaperChange> Wallpaper::onStateChange() {
     }
 
     if (newPath == inst->currentPath) {
+      cancelLoading(*inst);
+      continue;
+    }
+    if (newPath == inst->loadingPath) {
       continue;
     }
 
@@ -592,6 +607,25 @@ void Wallpaper::onSecondTick() {
   }
   m_lastAutomationSecondStamp = secondStamp;
   runAutomation(secondStamp);
+}
+
+std::optional<std::chrono::system_clock::time_point> Wallpaper::nextAutomationDeadline() const {
+  if (m_config == nullptr || !m_config->config().wallpaper.enabled) {
+    return std::nullopt;
+  }
+  const auto& automation = m_config->config().wallpaper.automation;
+  if (!automation.enabled || m_instances.empty() || !automationAllowed()) {
+    return std::nullopt;
+  }
+
+  using namespace std::chrono;
+  // No switch yet: runAutomation() rotates on the very next tick.
+  if (m_lastAutomationSwitchSecond < 0) {
+    return system_clock::now();
+  }
+  return system_clock::time_point{
+      seconds{m_lastAutomationSwitchSecond + static_cast<std::int64_t>(automation.intervalSeconds)}
+  };
 }
 
 bool Wallpaper::isConnectorKnown(std::string_view connector) const {
@@ -1260,6 +1294,7 @@ void Wallpaper::createInstance(const WaylandOutput& output) {
     inst->wallpaperNode->setPosition(0.0F, 0.0F);
     inst->wallpaperNode->setSize(sw, sh);
 
+    refreshTextureCoverage(*inst);
     if (inst->currentPath.empty() && !wallpaperPath.empty()) {
       loadWallpaper(*inst, wallpaperPath);
     } else {
@@ -1280,41 +1315,28 @@ void Wallpaper::createInstance(const WaylandOutput& output) {
 }
 
 void Wallpaper::releaseInstanceTextures(WallpaperInstance& inst) {
-  releaseTexture(inst.currentTexture, inst.currentPath);
-  releaseTexture(inst.nextTexture, inst.pendingPath);
+  inst.currentImage.reset();
+  inst.nextImage.reset();
+  cancelLoading(inst);
 }
 
-TextureHandle Wallpaper::acquireTexture(const std::string& path) {
-  if (path.empty() || m_textureCache == nullptr) {
+void Wallpaper::cancelLoading(WallpaperInstance& instance) {
+  instance.loadingImage.reset();
+  instance.loadingPath.clear();
+}
+
+TextureCoverage Wallpaper::textureCoverage(const WallpaperInstance& instance) const {
+  if (m_wayland == nullptr || m_config == nullptr) {
     return {};
   }
-
-  auto handle = m_textureCache->acquire(path);
-  if (handle.id != 0 || m_textureCache->shared() || m_renderContext == nullptr) {
-    return handle;
-  }
-
-  m_renderContext->backend().makeCurrentNoSurface();
-  return m_renderContext->textureManager().loadFromFile(path, 0, true);
+  return wallpaperTextureCoverage(m_wayland->outputs(), instance.outputName, m_config->config().wallpaper.fillMode);
 }
 
-void Wallpaper::releaseTexture(TextureHandle& handle, const std::string& path) {
-  if (handle.id == 0) {
-    return;
-  }
-
-  if (m_textureCache != nullptr && m_textureCache->shared()) {
-    m_textureCache->release(handle, path);
-    return;
-  }
-
-  if (m_renderContext != nullptr) {
-    m_renderContext->backend().makeCurrentNoSurface();
-    m_renderContext->textureManager().unload(handle);
-    return;
-  }
-
-  handle = {};
+void Wallpaper::refreshTextureCoverage(WallpaperInstance& instance) {
+  const TextureCoverage coverage = textureCoverage(instance);
+  instance.currentImage.setCoverage(coverage);
+  instance.nextImage.setCoverage(coverage);
+  instance.loadingImage.setCoverage(coverage);
 }
 
 // ── Wallpaper loading & transitions ──────────────────────────────────────────
@@ -1322,6 +1344,7 @@ void Wallpaper::releaseTexture(TextureHandle& handle, const std::string& path) {
 void Wallpaper::loadWallpaper(WallpaperInstance& instance, const std::string& path) {
   // Nothing to do if we're already at (or heading toward) this wallpaper.
   if (!instance.transitioning && path == instance.currentPath) {
+    cancelLoading(instance);
     return;
   }
 
@@ -1332,36 +1355,78 @@ void Wallpaper::loadWallpaper(WallpaperInstance& instance, const std::string& pa
     return;
   }
 
-  TextureHandle newTex;
-  Color newColor = rgba(0.0F, 0.0F, 0.0F, 1.0F);
-  WallpaperSourceKind newSourceKind = WallpaperSourceKind::Image;
-  if (parseColorWallpaperPath(path, newColor)) {
-    newSourceKind = WallpaperSourceKind::Color;
-  } else {
-    newTex = acquireTexture(path);
-    if (newTex.id == 0) {
-      kLog.warn("failed to load {}", path);
+  Color color = rgba(0.0F, 0.0F, 0.0F, 1.0F);
+  if (parseColorWallpaperPath(path, color)) {
+    cancelLoading(instance);
+    beginWallpaperChange(instance, path, WallpaperSourceKind::Color, {}, color);
+    return;
+  }
+
+  if (path == instance.loadingPath) {
+    return;
+  }
+  SharedTextureCache::Lease image;
+  if (m_textureCache != nullptr) {
+    image = m_textureCache->acquire(
+        SharedTextureRequest{.path = path, .coverage = textureCoverage(instance)},
+        m_renderContext != nullptr ? &m_renderContext->backend() : nullptr,
+        [this, inst = &instance]() { onImageChanged(*inst); }
+    );
+  }
+  if (image.empty() || image.failed()) {
+    kLog.warn("failed to load {}", path);
+    return;
+  }
+  if (!image.texture().valid()) {
+    // Decoding off the main thread; the current wallpaper stays up until onImageChanged() starts the change.
+    instance.loadingImage = std::move(image);
+    instance.loadingPath = path;
+    return;
+  }
+
+  cancelLoading(instance);
+  beginWallpaperChange(instance, path, WallpaperSourceKind::Image, std::move(image), color);
+}
+
+void Wallpaper::onImageChanged(WallpaperInstance& instance) {
+  if (!instance.loadingImage.empty() && !instance.transitioning) {
+    if (instance.loadingImage.failed()) {
+      kLog.warn("failed to load {}", instance.loadingPath);
+      cancelLoading(instance);
+    } else if (instance.loadingImage.texture().valid()) {
+      SharedTextureCache::Lease image = std::move(instance.loadingImage);
+      const std::string path = std::exchange(instance.loadingPath, std::string{});
+      beginWallpaperChange(instance, path, WallpaperSourceKind::Image, std::move(image), rgba(0.0F, 0.0F, 0.0F, 1.0F));
       return;
     }
   }
 
+  // The shown or incoming image was re-uploaded after a GPU reset.
+  updateRendererState(instance);
+  instance.surface->requestRedraw();
+}
+
+void Wallpaper::beginWallpaperChange(
+    WallpaperInstance& instance, const std::string& path, WallpaperSourceKind kind, SharedTextureCache::Lease image,
+    const Color& color
+) {
   if (instance.currentPath.empty()) {
     const auto& wpConfig = m_config->config().wallpaper;
     if (wpConfig.transitionOnStartup && !wpConfig.transitions.empty()) {
       instance.currentSourceKind = WallpaperSourceKind::Color;
-      instance.currentTexture = {};
+      instance.currentImage.reset();
       instance.currentColor = rgba(0.0F, 0.0F, 0.0F, 0.0F);
-      instance.nextSourceKind = newSourceKind;
-      instance.nextTexture = newTex;
-      instance.nextColor = newColor;
+      instance.nextSourceKind = kind;
+      instance.nextImage = std::move(image);
+      instance.nextColor = color;
       instance.pendingPath = path;
       startTransition(instance);
       return;
     }
 
-    instance.currentSourceKind = newSourceKind;
-    instance.currentTexture = newTex;
-    instance.currentColor = newColor;
+    instance.currentSourceKind = kind;
+    instance.currentImage = std::move(image);
+    instance.currentColor = color;
     instance.currentPath = path;
     instance.pendingPath.clear();
     instance.queuedPath.clear();
@@ -1373,9 +1438,9 @@ void Wallpaper::loadWallpaper(WallpaperInstance& instance, const std::string& pa
     return;
   }
 
-  instance.nextSourceKind = newSourceKind;
-  instance.nextTexture = newTex;
-  instance.nextColor = newColor;
+  instance.nextSourceKind = kind;
+  instance.nextImage = std::move(image);
+  instance.nextColor = color;
   instance.pendingPath = path;
   startTransition(instance);
 }
@@ -1482,15 +1547,14 @@ void Wallpaper::finishTransition(WallpaperInstance& instance) {
 }
 
 void Wallpaper::promotePendingWallpaper(WallpaperInstance& instance) {
-  releaseTexture(instance.currentTexture, instance.currentPath);
   instance.currentSourceKind = std::exchange(instance.nextSourceKind, WallpaperSourceKind::Image);
-  instance.currentTexture = std::exchange(instance.nextTexture, {});
+  instance.currentImage = std::move(instance.nextImage);
   instance.currentColor = std::exchange(instance.nextColor, defaultWallpaperColor());
   instance.currentPath = std::exchange(instance.pendingPath, std::string{});
 }
 
 void Wallpaper::discardPendingWallpaper(WallpaperInstance& instance) {
-  releaseTexture(instance.nextTexture, instance.pendingPath);
+  instance.nextImage.reset();
   instance.nextSourceKind = WallpaperSourceKind::Image;
   instance.nextColor = defaultWallpaperColor();
   instance.pendingPath.clear();
@@ -1528,11 +1592,28 @@ void Wallpaper::updateRendererState(WallpaperInstance& instance) {
         }
     );
   }
+  const TextureHandle currentTexture = instance.currentImage.texture();
+  const TextureHandle nextTexture = instance.nextImage.texture();
+  if (instance.surface != nullptr) {
+    const auto coversOpaquely =
+        [&wpConfig](WallpaperSourceKind kind, const Color& color, const TextureHandle& texture) {
+          if (kind == WallpaperSourceKind::Color) {
+            return color.a >= 1.0F;
+          }
+          // Center and Fit leave the surface outside the image to the fill; the other modes cover all of it.
+          const bool fillsSurface =
+              wpConfig.fillMode != WallpaperFillMode::Center && wpConfig.fillMode != WallpaperFillMode::Fit;
+          return fillsSurface && texture.opaque;
+        };
+    // The fill spans the whole surface beneath every source, so either it or every source drawn now must be opaque.
+    const bool sourcesOpaque = coversOpaquely(instance.currentSourceKind, instance.currentColor, currentTexture)
+        && (!instance.transitioning || coversOpaquely(instance.nextSourceKind, instance.nextColor, nextTexture));
+    instance.surface->setOpaque(fillColor.a >= 1.0F || sourcesOpaque);
+  }
   wallpaperNode->setSources(
-      instance.currentSourceKind, instance.currentTexture.id, instance.currentColor, instance.nextSourceKind,
-      instance.nextTexture.id, instance.nextColor, static_cast<float>(instance.currentTexture.width),
-      static_cast<float>(instance.currentTexture.height), static_cast<float>(instance.nextTexture.width),
-      static_cast<float>(instance.nextTexture.height)
+      instance.currentSourceKind, currentTexture.id, instance.currentColor, instance.nextSourceKind, nextTexture.id,
+      instance.nextColor, static_cast<float>(currentTexture.width), static_cast<float>(currentTexture.height),
+      static_cast<float>(nextTexture.width), static_cast<float>(nextTexture.height)
   );
   wallpaperNode->setTransition(
       instance.activeTransition, transitionProgressForTime(instance.transitionTime), instance.transitionParams

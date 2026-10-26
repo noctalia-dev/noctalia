@@ -67,7 +67,7 @@ struct UPowerChargeLimitState {
   // Values configured in UPower. They are presets, not necessarily what the kernel currently applies.
   std::optional<std::uint32_t> configuredStart;
   std::optional<std::uint32_t> configuredEnd;
-  // Read-only values currently exposed by the kernel.
+  // Read-only values the kernel currently applies; empty while charge_types selects a mode other than Custom.
   std::optional<std::uint32_t> effectiveStart;
   std::optional<std::uint32_t> effectiveEnd;
   std::optional<std::uint32_t> supportedSettings;
@@ -81,13 +81,17 @@ struct UPowerChargeLimitState {
 
   // True when the effective thresholds actually hold charge below full: a start
   // threshold that delays resuming below full (0 < start < 100), or an end
-  // threshold that caps below full (end < 100). A start of 0 or 100 is not a limit.
+  // threshold that caps below full (end < 100). A start of 0 or 100 is not a
+  // limit. Huawei-WMI EC "full charge" defaults (start=95, end=100) are also
+  // treated as unrestricted.
   [[nodiscard]] bool hasRestrictiveThreshold() const;
 
   bool operator==(const UPowerChargeLimitState&) const = default;
 };
 
 [[nodiscard]] std::string batteryStateLabel(BatteryState state);
+// Whether the battery state implies external power; empty when the state does not say (Unknown, Empty).
+[[nodiscard]] std::optional<bool> batteryStatePlugged(BatteryState state);
 
 // Level-aware battery icon (battery-0..4 / charging / plugged), shared by the bar widget and Power tab.
 [[nodiscard]] const char* batteryGlyphName(double percentage, BatteryState state);

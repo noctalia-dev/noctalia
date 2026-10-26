@@ -132,6 +132,9 @@ void setResolvedThemeLight(bool light) noexcept;
 
 void setPalette(const Palette& p);
 
+// Snapshot accessor safe to call from non-main threads (e.g. plugin script workers).
+[[nodiscard]] Color colorForRoleSnapshot(ColorRole role);
+
 [[nodiscard]] inline ColorSpec scrollbarTrackColor() noexcept {
   return colorSpecFromRole(ColorRole::Outline, Style::disabledOutlineAlpha);
 }

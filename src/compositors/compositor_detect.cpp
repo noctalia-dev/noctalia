@@ -33,12 +33,6 @@ namespace compositors {
       if (const char* v = std::getenv("LABWC_PID"); v != nullptr && v[0] != '\0') {
         return CompositorKind::Labwc;
       }
-      if (const char* v = std::getenv("TRIAD_SOCKET"); v != nullptr && v[0] != '\0') {
-        return CompositorKind::Triad;
-      }
-      if (const char* v = std::getenv("RIVER_WM"); v != nullptr && StringUtils::containsInsensitive(v, "triad")) {
-        return CompositorKind::Triad;
-      }
       if (const char* v = std::getenv("NIRI_SOCKET"); v != nullptr && v[0] != '\0') {
         return CompositorKind::Niri;
       }
@@ -56,9 +50,6 @@ namespace compositors {
       const std::string hint = buildEnvHint();
       if (StringUtils::containsInsensitive(hint, "umbriel")) {
         return CompositorKind::Umbriel;
-      }
-      if (StringUtils::containsInsensitive(hint, "triad")) {
-        return CompositorKind::Triad;
       }
       if (StringUtils::containsInsensitive(hint, "niri")) {
         return CompositorKind::Niri;
@@ -93,8 +84,6 @@ namespace compositors {
 
   std::string_view name(CompositorKind kind) {
     switch (kind) {
-    case CompositorKind::Triad:
-      return "Triad";
     case CompositorKind::Niri:
       return "Niri";
     case CompositorKind::Hyprland:

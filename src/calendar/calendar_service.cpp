@@ -4,7 +4,9 @@
 #include "calendar/caldav_discovery.h"
 #include "calendar/calendar_cache.h"
 #include "calendar/calendar_discovery_state.h"
+#include "calendar/calendar_reminders.h"
 #include "calendar/event_link.h"
+#include "calendar/event_merge.h"
 #include "calendar/ical_parser.h"
 #include "calendar/vdir_reader.h"
 #include "config/config_service.h"
@@ -588,7 +590,14 @@ void CalendarService::startRefresh() {
 
 void CalendarService::accountDone(const std::string& accountId, bool ok, std::vector<CalendarEvent> events) {
   if (ok) {
+    kLog.debug("calendar account {} refreshed: {} event(s)", accountId, events.size());
     m_eventsByAccount[accountId] = std::move(events);
+  } else {
+    const auto it = m_eventsByAccount.find(accountId);
+    kLog.warn(
+        "calendar account {} refresh failed; keeping {} previously loaded event(s)", accountId,
+        it == m_eventsByAccount.end() ? 0 : it->second.size()
+    );
   }
   if (m_pendingAccounts > 0) {
     --m_pendingAccounts;
@@ -615,12 +624,9 @@ void CalendarService::rebuildSnapshot() {
     it = stillConfigured ? std::next(it) : m_discoveredVdirPathsByAccount.erase(it);
   }
 
-  std::vector<CalendarEvent> merged;
-  for (const auto& [accountId, events] : m_eventsByAccount) {
-    merged.insert(merged.end(), events.begin(), events.end());
-  }
-  std::ranges::sort(merged, {}, &CalendarEvent::start);
-  m_snapshot.events = std::move(merged);
+  m_snapshot.events = calendar::mergeCalendarEvents(
+      m_eventsByAccount, m_activeConfig.dedupeEvents, m_activeConfig.dedupeIgnorePatterns
+  );
   m_snapshot.valid = true;
 }
 
@@ -633,10 +639,18 @@ void CalendarService::fetchCalDav(const CalendarConfig::Account& account) {
     return;
   }
 
+  std::shared_ptr<const HttpTlsClientCert> tls;
+  if (!account.clientCertFile.empty() || !account.clientKeyFile.empty()) {
+    auto material = std::make_shared<HttpTlsClientCert>();
+    material->clientCertPath = account.clientCertFile;
+    material->clientKeyPath = account.clientKeyFile;
+    tls = std::move(material);
+  }
+
   lookupCalDavPassword(
       account,
-      [this, account, serverUrl,
-       username](security::SecretStoreStatus status, calendar::CalendarCredentialStore::Secret password) mutable {
+      [this, account, serverUrl, username,
+       tls](security::SecretStoreStatus status, calendar::CalendarCredentialStore::Secret password) mutable {
         if (status != security::SecretStoreStatus::Success || !password || password->empty()) {
           if (status == security::SecretStoreStatus::NotFound) {
             kLog.warn("caldav account {} has no stored password", account.id);
@@ -652,8 +666,8 @@ void CalendarService::fetchCalDav(const CalendarConfig::Account& account) {
         const bool allowRedirectAuth = account.provider == "icloud";
 
         calendar::discoverCalDavCollections(
-            m_httpClient, serverUrl, username, password, allowRedirectAuth,
-            [this, accountId, username, password, accountColor, selectedCalendars, allowRedirectAuth,
+            m_httpClient, serverUrl, username, password, allowRedirectAuth, tls,
+            [this, accountId, username, password, accountColor, selectedCalendars, allowRedirectAuth, tls,
              now](bool discovered, std::vector<calendar::CalDavCollection> collections) {
               if (!discovered) {
                 accountDone(accountId, false, {});
@@ -697,16 +711,19 @@ void CalendarService::fetchCalDav(const CalendarConfig::Account& account) {
                 caldav.password = password;
                 caldav.calendarName = collection.name;
                 caldav.color = accountColor.empty() ? collection.color : accountColor;
+                caldav.tls = tls;
 
                 m_caldav.fetchEvents(
                     caldav, now - kWindowBefore, now + kWindowAfter, allowRedirectAuth,
-                    [ctx](bool ok, std::vector<CalendarEvent> events) {
+                    [ctx, calendarName = collection.name](bool ok, std::vector<CalendarEvent> events) {
                       if (ok) {
                         ctx->anyOk = true;
                         ctx->events.insert(
                             ctx->events.end(), std::make_move_iterator(events.begin()),
                             std::make_move_iterator(events.end())
                         );
+                      } else {
+                        kLog.warn("caldav account {}: calendar '{}' failed to load", ctx->accountId, calendarName);
                       }
                       if (ctx->pending > 0) {
                         --ctx->pending;
@@ -1434,10 +1451,18 @@ bool CalendarService::parseCache(std::span<const std::uint8_t> contents) {
       event.calendarName = item.value("calendar", std::string{});
       event.colorHex = item.value("color", std::string{});
       event.location = item.value("location", std::string{});
-      event.url = calendar::resolveEventLink(event.location, item.value("url", std::string{}));
+      event.url = calendar::resolveEventLink(event.location, {}, item.value("url", std::string{}));
+      event.webUrl = calendar::resolveEventLink({}, {}, item.value("web_url", std::string{}));
       event.start = fromUnix(item.value("start", std::int64_t{0}));
       event.end = fromUnix(item.value("end", std::int64_t{0}));
       event.allDay = item.value("all_day", false);
+      // A missing key means the source said nothing; an empty array means "explicitly no reminder".
+      if (const auto reminders = item.find("reminders"); reminders != item.end() && reminders->is_array()) {
+        auto leads = reminders->get<std::vector<std::int32_t>>();
+        // Normalize on read so a hand-edited or corrupted cache cannot inflate the fired set.
+        calendar::normalizeReminderLeads(leads);
+        event.reminderLeadSeconds = std::move(leads);
+      }
       const std::string account = item.value("account", std::string{});
       parsed[account].push_back(std::move(event));
     }
@@ -1468,10 +1493,14 @@ void CalendarService::saveCache() {
           {"color", event.colorHex},
           {"location", event.location},
           {"url", event.url},
+          {"web_url", event.webUrl},
           {"start", toUnix(event.start)},
           {"end", toUnix(event.end)},
           {"all_day", event.allDay},
       });
+      if (event.reminderLeadSeconds.has_value()) {
+        events.back()["reminders"] = *event.reminderLeadSeconds;
+      }
     }
   }
 

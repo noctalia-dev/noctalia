@@ -53,10 +53,12 @@ namespace shell::dock {
   // screen edge by a logical pixel there, because the compositor can otherwise round the edge a
   // device pixel short and leave a gap.
   [[nodiscard]] DockSurfaceGeometry computeSurfaceGeometry(
-      const DockConfig& cfg, const ShellConfig::ShadowConfig& shadow, std::size_t itemCount, bool fractionalScale
+      const DockConfig& cfg, const ShellConfig::ShadowConfig& shadow, std::size_t itemCount, bool fractionalScale,
+      std::int32_t outputLogicalWidth, std::int32_t outputLogicalHeight
   );
   [[nodiscard]] LayerSurfaceConfig makeLayerSurfaceConfig(
-      const DockConfig& cfg, const ShellConfig::ShadowConfig& shadow, std::size_t itemCount, bool fractionalScale
+      const DockConfig& cfg, const ShellConfig::ShadowConfig& shadow, std::size_t itemCount, bool fractionalScale,
+      std::int32_t outputLogicalWidth, std::int32_t outputLogicalHeight
   );
   [[nodiscard]] DockPanelGeometry
   computePanelGeometry(const DockConfig& cfg, const ShellConfig::ShadowConfig& shadow, float surfaceW, float surfaceH);

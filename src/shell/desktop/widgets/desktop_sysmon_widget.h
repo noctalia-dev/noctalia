@@ -51,6 +51,7 @@ public:
     std::string networkInterface;
     FormatUnits::DecimalByteRateUnit networkSpeedUnit = FormatUnits::DecimalByteRateUnit::Auto;
     FormatUnits::ByteRateLabelStyle networkSpeedLabelStyle = FormatUnits::ByteRateLabelStyle::Full;
+    int networkSpeedDecimalPlaces = 1;
     bool showLabel = true;
     float labelMinWidth = 0.0F;
     bool shadow = true;
@@ -104,6 +105,7 @@ private:
   std::string m_networkInterface;
   FormatUnits::DecimalByteRateUnit m_networkSpeedUnit = FormatUnits::DecimalByteRateUnit::Auto;
   FormatUnits::ByteRateLabelStyle m_networkSpeedLabelStyle = FormatUnits::ByteRateLabelStyle::Full;
+  int m_networkSpeedDecimalPlaces = 1;
   bool m_showLabel;
   float m_labelMinWidth;
   bool m_shadow;

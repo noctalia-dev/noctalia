@@ -732,11 +732,13 @@ void TrayMenu::ensureSurface() {
   };
   popup_chrome::applyToConfig(popupConfig, chrome, placement.chromeAttachment);
 
-  // Layer-shell popups inherit their parent's keyboard interactivity. The bar is
+  // Layer-shell popups inherit their parent's keyboard interactivity. A bar is
   // None, so without this the grabbing popup would get no keyboard focus and ESC
-  // could not reach it. Flip the bar to OnDemand before the popup maps; the
+  // could not reach it. Flip a None parent to OnDemand before the popup maps; a
+  // parent that already takes keyboard (the tray drawer panel) is left alone. The
   // focus-grab path carries keyboard itself, so only the plain grab path needs it.
-  if (!useFocusGrab) {
+  const LayerSurface* parentOwner = m_wayland->layerSurfaceOwnerFor(parentWlSurface);
+  if (!useFocusGrab && parentOwner != nullptr && parentOwner->keyboardInteractivity() == LayerShellKeyboard::None) {
     m_keyboardBarLayerSurface = parentLayerSurface;
     m_keyboardBarWlSurface = parentWlSurface;
     zwlr_layer_surface_v1_set_keyboard_interactivity(
@@ -827,17 +829,17 @@ void TrayMenu::destroySurface() {
 }
 
 void TrayMenu::restoreBarKeyboardInteractivity() {
-  if (m_keyboardBarLayerSurface == nullptr) {
-    return;
-  }
-  zwlr_layer_surface_v1_set_keyboard_interactivity(
-      m_keyboardBarLayerSurface, static_cast<std::uint32_t>(LayerShellKeyboard::None)
-  );
-  if (m_keyboardBarWlSurface != nullptr) {
-    wl_surface_commit(m_keyboardBarWlSurface);
-  }
+  zwlr_layer_surface_v1* layerSurface = m_keyboardBarLayerSurface;
+  wl_surface* wlSurface = m_keyboardBarWlSurface;
   m_keyboardBarLayerSurface = nullptr;
   m_keyboardBarWlSurface = nullptr;
+  // The parent (a bar or the tray drawer panel) can be destroyed while the menu
+  // is open. Its proxies are then freed, so only touch it while still registered.
+  if (layerSurface == nullptr || m_wayland == nullptr || m_wayland->layerSurfaceFor(wlSurface) != layerSurface) {
+    return;
+  }
+  zwlr_layer_surface_v1_set_keyboard_interactivity(layerSurface, static_cast<std::uint32_t>(LayerShellKeyboard::None));
+  wl_surface_commit(wlSurface);
 }
 
 void TrayMenu::rebuildScenes() {
@@ -927,6 +929,7 @@ void TrayMenu::buildScene(MenuInstance& inst, uint32_t width, uint32_t height) {
       },
   });
   auto menu = std::make_unique<ContextMenuControl>();
+  menu->setReserveToggleSpace(true);
   menu->setContentScale(contentScale());
   menu->setMenuWidth(menuWidth);
   menu->setMaxVisible(entries.size()); // Always lay out all entries for scrolling
@@ -1289,6 +1292,7 @@ void TrayMenu::buildSubmenuScene(std::size_t levelIndex, MenuInstance& inst, uin
   });
 
   auto menu = std::make_unique<ContextMenuControl>();
+  menu->setReserveToggleSpace(true);
   menu->setContentScale(contentScale());
   menu->setMenuWidth(menuWidth);
   menu->setMaxVisible(entries.size()); // Always lay out all entries for scrolling

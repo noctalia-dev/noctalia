@@ -99,18 +99,19 @@ Examples:
 
 The built-in Material color tokens are:
 
-| Group | Tokens |
-|-------|--------|
-| Primary | `primary`, `on_primary`, `primary_container`, `on_primary_container`, `primary_fixed`, `primary_fixed_dim`, `on_primary_fixed`, `on_primary_fixed_variant` |
-| Secondary | `secondary`, `on_secondary`, `secondary_container`, `on_secondary_container`, `secondary_fixed`, `secondary_fixed_dim`, `on_secondary_fixed`, `on_secondary_fixed_variant` |
-| Tertiary | `tertiary`, `on_tertiary`, `tertiary_container`, `on_tertiary_container`, `tertiary_fixed`, `tertiary_fixed_dim`, `on_tertiary_fixed`, `on_tertiary_fixed_variant` |
-| Error | `error`, `on_error`, `error_container`, `on_error_container` |
-| Surface | `surface`, `on_surface`, `surface_variant`, `on_surface_variant`, `surface_dim`, `surface_bright`, `surface_container_lowest`, `surface_container_low`, `surface_container`, `surface_container_high`, `surface_container_highest` |
-| Outline and utility | `outline`, `outline_variant`, `shadow`, `scrim` |
-| Inverse | `inverse_surface`, `inverse_on_surface`, `inverse_primary` |
-| Background | `background`, `on_background` |
+| Group               | Tokens                                                                                                                                                                                                                             |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Primary             | `primary`, `on_primary`, `primary_container`, `on_primary_container`, `primary_fixed`, `primary_fixed_dim`, `on_primary_fixed`, `on_primary_fixed_variant`                                                                         |
+| Secondary           | `secondary`, `on_secondary`, `secondary_container`, `on_secondary_container`, `secondary_fixed`, `secondary_fixed_dim`, `on_secondary_fixed`, `on_secondary_fixed_variant`                                                         |
+| Tertiary            | `tertiary`, `on_tertiary`, `tertiary_container`, `on_tertiary_container`, `tertiary_fixed`, `tertiary_fixed_dim`, `on_tertiary_fixed`, `on_tertiary_fixed_variant`                                                                 |
+| Error               | `error`, `on_error`, `error_container`, `on_error_container`                                                                                                                                                                       |
+| Surface             | `surface`, `on_surface`, `surface_variant`, `on_surface_variant`, `surface_dim`, `surface_bright`, `surface_container_lowest`, `surface_container_low`, `surface_container`, `surface_container_high`, `surface_container_highest` |
+| Outline and utility | `outline`, `outline_variant`, `shadow`, `scrim`                                                                                                                                                                                    |
+| Inverse             | `inverse_surface`, `inverse_on_surface`, `inverse_primary`                                                                                                                                                                         |
+| Background          | `background`, `on_background`                                                                                                                                                                                                      |
+| Hover               | `hover`, `on_hover`                                                                                                                                                                                                                |
 
-This list covers the 48 Material color tokens exposed through `colors`. Terminal tokens are listed in [Terminal Tokens](#terminal-tokens). Custom colors add their generated token names at render time; see [Custom Colors](#custom-colors).
+This list covers the 48 Material color tokens plus the two hover roles exposed through `colors`. `hover` and `on_hover` carry the palette's [`mHover` and `mOnHover`](/noctalia/theming/palette/#color-roles); wallpaper-generated palettes set them to `tertiary` and `on_tertiary`. Terminal tokens are listed in [Terminal Tokens](#terminal-tokens). Custom colors add their generated token names at render time; see [Custom Colors](#custom-colors).
 
 ### Modes
 
@@ -135,13 +136,6 @@ The following values are available directly:
 `image` is the source image path when rendering from an image-driven theme.
 
 `closest_color` is populated during config-driven rendering when `compare_to` and `colors_to_compare` are used.
-
-### Color Aliases
-
-Supported aliases:
-
-- `hover` -> `surface_container_high`
-- `on_hover` -> `on_surface`
 
 ## Formats
 
@@ -522,21 +516,13 @@ output_path = "$XDG_CONFIG_HOME/foo/theme.css"
 
 Relative `input_path` and `output_path` values are resolved from the config file directory.
 
-A leading `$XDG_CONFIG_HOME`, `$XDG_DATA_HOME`, `$XDG_STATE_HOME`, or `$XDG_CACHE_HOME` token in
-`input_path`/`output_path` is expanded per the [XDG Base Directory spec](https://specifications.freedesktop.org/basedir/latest/):
-the environment variable when it is set, otherwise the spec default (`~/.config`, `~/.local/share`,
-`~/.local/state`, `~/.cache`). Prefer these tokens over a hardcoded `~/.config` so output lands in the right
-place when a config/data/cache home is relocated. A leading `~` still expands to `$HOME` only.
+A leading `$XDG_CONFIG_HOME`, `$XDG_DATA_HOME`, `$XDG_STATE_HOME`, or `$XDG_CACHE_HOME` token in `input_path`/`output_path` is expanded per the [XDG Base Directory spec](https://specifications.freedesktop.org/basedir/latest/): the environment variable when it is set, otherwise the spec default (`~/.config`, `~/.local/share`, `~/.local/state`, `~/.cache`). Prefer these tokens over a hardcoded `~/.config` so output lands in the right place when a config/data/cache home is relocated. A leading `~` still expands to `$HOME` only.
 
 `index` controls processing order and defaults to `0`. Entries are processed in ascending index order.
 
-`hook_async` controls how this entry's `post_hook` runs and defaults to `true`. A background hook lets the remaining
-templates render without waiting for it, which is what makes a slow hook (a browser or player patcher, a full
-application restart) stop holding up everything behind it.
+`hook_async` controls how this entry's `post_hook` runs and defaults to `true`. A background hook lets the remaining templates render without waiting for it, which is what makes a slow hook (a browser or player patcher, a full application restart) stop holding up everything behind it.
 
-Set `hook_async = false` when the hook must not overlap with another one. Such a hook runs inline, after every
-background hook started earlier in the same run has finished, and nothing else starts until it returns. Use it when
-two entries drive the same script or touch the same files, or when a later template depends on the hook's result.
+Set `hook_async = false` when the hook must not overlap with another one. Such a hook runs inline, after every background hook started earlier in the same run has finished, and nothing else starts until it returns. Use it when two entries drive the same script or touch the same files, or when a later template depends on the hook's result.
 
 ```toml
 [theme.templates.user.my_app]
@@ -549,6 +535,8 @@ hook_async  = false
 `requires_path` is optional. When set, the entry is skipped unless that path already exists on disk. Use it for explicit install checks (for example a Flatpak data directory).
 
 When several entries share the same `input_path` but write to different client config roots (for example Discord forks or VS Code vs VSCodium), the engine infers each output's client root and skips outputs whose root is missing. Single-app templates (one entry per input) still create missing directories as before.
+
+`gtk_extension` (`"gtk3"` or `"gtk4"`) is for community templates only. It marks the entry as app-scoped CSS for a GTK app: Noctalia renders it to `noctalia-extensions/<template>.<entry>.css` in the matching `gtk-3.0`/`gtk-4.0` config directory and lists it in `noctalia-extensions.css`, which the built-in GTK template's `noctalia.css` imports. The entry is skipped while that built-in GTK template is disabled, and an extension may not set `output_path`, `output_path_dynamic`, hooks, `post_action`, or `requires_path`. Disabling the template removes its import and file on the next application.
 
 ### Closest Color
 
@@ -574,17 +562,15 @@ Behavior:
 - `post_hook` runs after a template is processed successfully, even when rendered output was unchanged
 - `closest_color` is available inside hooks
 
-By default `post_hook` commands from different entries run in the background: they can overlap and finish in any order,
-and at most four run at a time. Set `hook_async = false` on an entry whose hook must not overlap with another one, for
-example when two entries restart or reconfigure the same application.
+Failed hooks whose stderr begins with `Warning:` show their diagnostic in Settings. Other hook failures are logged without a Settings banner.
 
-A theme change always waits for the hooks it started before reporting the theme as applied, and hooks left over from a
-superseded theme change are dropped or awaited before the next one is applied.
+By default `post_hook` commands from different entries run in the background: they can overlap and finish in any order, and at most four run at a time. Set `hook_async = false` on an entry whose hook must not overlap with another one, for example when two entries restart or reconfigure the same application.
 
-`post_action` selects a Noctalia-owned native operation that runs after all outputs are written successfully. The
-canonical `kde-color-scheme` action requires exactly one output, merges that generated KDE color scheme into
-`$XDG_CONFIG_HOME/kdeglobals`, and notifies running KDE applications over the session bus. Unknown action names fail
-the template entry.
+A theme change always waits for the hooks it started before reporting the theme as applied, and hooks left over from a superseded theme change are dropped or awaited before the next one is applied.
+
+When Noctalia exits, hooks that are still running get 5 seconds to finish. After that their process group is terminated, so a hook that never exits cannot keep Noctalia from quitting. `output_path_dynamic` commands follow the same rule. A hook that rewrites a file should write a temporary file and move it into place, so an interrupted run leaves the previous file intact.
+
+`post_action` selects a Noctalia-owned native operation that runs after all outputs are written successfully. The canonical `kde-color-scheme` action requires exactly one output, merges that generated KDE color scheme into `$XDG_CONFIG_HOME/kdeglobals`, and notifies running KDE applications over the session bus. Unknown action names fail the template entry.
 
 Additional variables available inside hooks and templates:
 
@@ -596,8 +582,7 @@ Additional variables available inside hooks and templates:
 
 ## Terminal Tokens
 
-Every resolved theme exposes flattened terminal tokens. Built-in and community palettes provide curated terminal
-colors, while wallpaper-derived themes synthesize terminal colors from the generated palette.
+Every resolved theme exposes flattened terminal tokens. Built-in and community palettes provide curated terminal colors, while wallpaper-derived themes synthesize terminal colors from the generated palette.
 
 - `terminal_foreground`
 - `terminal_background`
@@ -667,8 +652,7 @@ Render from a precomputed theme JSON:
 noctalia theme --theme-json theme.json -r input.txt:output.txt
 ```
 
-Combine both: `-c` and `-r` can be used in the same command. The config's
-`[config.custom_colors]` are loaded first, so the `-r` templates can reference them:
+Combine both: `-c` and `-r` can be used in the same command. The config's `[config.custom_colors]` are loaded first, so the `-r` templates can reference them:
 
 ```sh
 noctalia theme <image> -c templates.toml -r input.txt:output.txt

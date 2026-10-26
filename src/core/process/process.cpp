@@ -18,9 +18,10 @@
 #include <limits>
 #include <mutex>
 #include <optional>
+#include <poll.h>
 #include <sstream>
+#include <string>
 #include <string_view>
-#include <sys/poll.h>
 #include <sys/wait.h>
 #include <system_error>
 #include <thread>
@@ -376,12 +377,14 @@ namespace {
       return {-1, {}, {}};
     }
 
+    // O_CLOEXEC atomically: a concurrent fork() on another thread must not inherit the write
+    // ends, or EOF is delayed for that unrelated child's lifetime. dup2() clears the flag.
     int outPipe[2] = {-1, -1};
     int errPipe[2] = {-1, -1};
-    if (::pipe(outPipe) != 0) {
+    if (::pipe2(outPipe, O_CLOEXEC) != 0) {
       return {-1, {}, {}};
     }
-    if (::pipe(errPipe) != 0) {
+    if (::pipe2(errPipe, O_CLOEXEC) != 0) {
       closePipe(outPipe);
       return {-1, {}, {}};
     }
@@ -515,13 +518,15 @@ namespace {
       const std::vector<std::string>& args, pid_t* reportPid, const std::string& activationToken,
       const std::string& workingDir = {}
   ) {
+    // O_CLOEXEC atomically so concurrent forks on other threads cannot inherit the write ends
+    // and hold the handshake open. The grandchild's exec closes its copy, signalling success.
     int reportPipe[2] = {-1, -1};
     int execStatusPipe[2] = {-1, -1};
     const bool needPid = reportPid != nullptr;
-    if (::pipe(execStatusPipe) != 0) {
+    if (::pipe2(execStatusPipe, O_CLOEXEC) != 0) {
       return false;
     }
-    if (needPid && ::pipe(reportPipe) != 0) {
+    if (needPid && ::pipe2(reportPipe, O_CLOEXEC) != 0) {
       closePipe(execStatusPipe);
       return false;
     }
@@ -621,11 +626,6 @@ namespace {
       ::close(reportPipe[1]);
     }
 
-    const int flags = ::fcntl(execStatusPipe[1], F_GETFD);
-    if (flags >= 0) {
-      ::fcntl(execStatusPipe[1], F_SETFD, flags | FD_CLOEXEC);
-    }
-
     if (!workingDir.empty() && ::chdir(workingDir.c_str()) != 0) {
       const int err = errno;
       writePipeOrIgnore(execStatusPipe[1], &err, sizeof(err));
@@ -679,13 +679,17 @@ namespace {
     // script, e.g. vscode, would end prematurely when the script exits, and the actual app process
     // is still running.
     systemdArgs.emplace_back("--property=ExitType=cgroup");
+    // A child being selected by the OOM killer must not make systemd terminate every other
+    // process in the app unit, such as unrelated shells and terminal multiplexer sessions.
+    systemdArgs.emplace_back("--property=OOMPolicy=continue");
 
     // We launch the app as a systemd service instead of a scope so the user can:
     // 1. Place drop-in files in ~/.config/systemd/user/app-<desktop-id>@.service.d/ to set properties like resource
     // limits or env vars.
     // 2. See the app's output and exit code (if it fails) in `systemctl status`.
     if (!appName.empty()) {
-      const std::string uuid = StringUtils::generateUuid();
+      std::string uuid = StringUtils::generateUuid();
+      std::erase(uuid, '-');
       if (!uuid.empty()) {
         systemdArgs.push_back(std::format("--unit=app-{}@{}.service", escapeSystemdUnitName(appName), uuid));
       }
@@ -951,10 +955,12 @@ namespace process {
     return false;
   }
 
-  RunResult runSync(const std::string& command) {
+  RunResult runSync(const std::string& command) { return runSync(command, RunOptions{}); }
+
+  RunResult runSync(const std::string& command, RunOptions options) {
     if (command.empty())
       return {-1, {}, {}};
-    return runSync(std::vector<std::string>{"/bin/sh", "-lc", command});
+    return runSyncProcess(std::vector<std::string>{"/bin/sh", "-lc", command}, options);
   }
 
   bool launchFirstAvailable(std::initializer_list<std::initializer_list<const char*>> commandVariants) {

@@ -138,6 +138,12 @@ const noctalia::bar::WidgetDefinition<TaskbarWidgetOptions>& taskbarWidgetDefini
                               ),
                       }
                   ),
+                  field<&Options::showRunning>(
+                      {
+                          .key = "show_running",
+                          .presentation = presentation("taskbar.windows", matches("group_by_workspace", {"false"})),
+                      }
+                  ),
                   field<&Options::onlyActiveWorkspace>(
                       {
                           .key = "only_active_workspace",
@@ -154,6 +160,12 @@ const noctalia::bar::WidgetDefinition<TaskbarWidgetOptions>& taskbarWidgetDefini
                       {
                           .key = "hide_empty_workspaces",
                           .presentation = presentation("taskbar.grouping", groupedOnly(), true),
+                      }
+                  ),
+                  field<&Options::hiddenWorkspaces>(
+                      {
+                          .key = "hidden_workspaces",
+                          .presentation = presentation("taskbar.grouping", std::nullopt, true),
                       }
                   ),
                   field<&Options::workspaceGroupContent>(
@@ -251,14 +263,8 @@ const noctalia::bar::WidgetDefinition<TaskbarWidgetOptions>& taskbarWidgetDefini
                       {
                           .key = "focused_output_only",
                           .presentation = presentation(
-                              "taskbar.workspace-labels",
-                              all(
-                                  {
-                                      {"group_by_workspace", {"true"}},
-                                      {"show_workspace_label", {"true"}},
-                                  }
-                              ),
-                              true, "settings.widgets.settings.focused-output-only.taskbar-description"
+                              "taskbar.workspace-labels", groupedOnly(), true,
+                              "settings.widgets.settings.focused-output-only.taskbar-description"
                           ),
                       }
                   ),

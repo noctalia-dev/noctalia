@@ -146,7 +146,6 @@ namespace ui {
     std::optional<float> horizontalPadding = std::nullopt;
     std::optional<bool> clearButtonEnabled = std::nullopt;
     std::optional<bool> passwordMode = std::nullopt;
-    std::optional<bool> lineEditing = std::nullopt;
     std::optional<bool> invalid = std::nullopt;
     std::optional<bool> frameVisible = std::nullopt;
     std::optional<bool> embeddedOnSolidPrimary = std::nullopt;
@@ -155,6 +154,7 @@ namespace ui {
     std::optional<TextAlign> textAlign = std::nullopt;
     std::optional<bool> enabled = std::nullopt;
     std::optional<float> surfaceOpacity = std::nullopt;
+    std::optional<ColorRole> surfaceRole = std::nullopt;
     std::optional<float> width = std::nullopt;
     std::optional<float> height = std::nullopt;
     std::optional<float> flexGrow = std::nullopt;

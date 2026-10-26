@@ -56,6 +56,19 @@ public:
   // preferred size is then only the fallback if no size is ever assigned.
   [[nodiscard]] virtual bool fillsWidth() const noexcept { return false; }
   [[nodiscard]] virtual bool fillsHeight() const noexcept { return false; }
+  // Content-fitted height: the panel shows at its content's height plus padding, up to
+  // preferredHeight(), which becomes the maximum. The surface is sized for that maximum
+  // once at open and only the visible card inside it follows the content, because
+  // resizing a layer surface blanks it for a frame on most compositors.
+  [[nodiscard]] virtual bool fitsContentHeight() const noexcept { return false; }
+  // Natural height of the content laid out at `contentWidth`, without padding. Called
+  // after layout() and only when fitsContentHeight() is true; may leave the content laid
+  // out at that height, so the caller lays it out again.
+  [[nodiscard]] virtual float measureContentHeight(Renderer& renderer, float contentWidth) {
+    (void)renderer;
+    (void)contentWidth;
+    return 0.0F;
+  }
   [[nodiscard]] virtual bool hasDecoration() const { return true; }
   [[nodiscard]] virtual LayerShellLayer layer() const { return LayerShellLayer::Top; }
   // Keyboard focus policy. `None` means the panel never takes keyboard focus, so the
@@ -74,8 +87,9 @@ public:
   // Panel placement policy. `Attached` anchors the panel surface to a suitable
   // bar edge; `Floating` opens detached and uses panelScreenPosition().
   [[nodiscard]] virtual PanelPlacement panelPlacement() const noexcept { return PanelPlacement::Floating; }
-  // Floating screen position (one of kPanelPositions). Plugin panels override; built-in
-  // panels resolve through shell.panel.*_position in PanelManager.
+  // Screen position (one of kPanelPositions): pins a floating panel; aligns an attached
+  // panel when it lies on the bar's edge. Plugin panels override; built-in panels resolve
+  // through shell.panel.*_position in PanelManager.
   [[nodiscard]] virtual std::string panelScreenPosition() const { return "auto"; }
   [[nodiscard]] virtual bool panelOpenNearClick() const { return false; }
   // For attached panels: which bar edge to attach to when more than one bar exists on
@@ -89,6 +103,7 @@ public:
   [[nodiscard]] virtual float attachedBackgroundOpacityOverride() const noexcept { return 1.0F; }
   [[nodiscard]] virtual bool wantsCloseAnimation() const noexcept { return true; }
   [[nodiscard]] virtual bool dismissOnOutsideClick() const { return true; }
+  [[nodiscard]] virtual bool ignorePointerEvent() const { return false; }
   // True to live in PersistentPanelHost instead of PanelManager's single active
   // slot: opening another panel leaves it on screen, and only an explicit toggle
   // or close dismisses it.

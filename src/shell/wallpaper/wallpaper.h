@@ -1,12 +1,16 @@
 #pragma once
 
 #include "config/config_types.h"
+#include "render/core/shared_texture_cache.h"
+#include "render/core/wallpaper_types.h"
 #include "shell/wallpaper/wallpaper_shuffle_state.h"
 #include "ui/signal.h"
 
+#include <chrono>
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 #include <unordered_set>
 #include <vector>
@@ -14,11 +18,9 @@
 class ConfigService;
 class IpcService;
 class RenderContext;
-class SharedTextureCache;
 class WaylandConnection;
 enum class ThemeMode : std::uint8_t;
 enum class WallpaperTransitionDirection;
-struct TextureHandle;
 struct WallpaperInstance;
 struct PointerEvent;
 struct WaylandOutput;
@@ -49,6 +51,9 @@ public:
   void setOutputExternallyManaged(const std::string& connector, bool managed);
   [[nodiscard]] std::vector<WallpaperChange> onStateChange();
   void onSecondTick();
+  // When automation next needs a tick to rotate, or nullopt while it cannot run.
+  // Lets the time source wake for the rotation interval instead of polling.
+  [[nodiscard]] std::optional<std::chrono::system_clock::time_point> nextAutomationDeadline() const;
   void onGpuResourcesInvalidated();
   void registerIpc(IpcService& ipc);
   // Apply and persist a wallpaper image. nullopt connector targets all connected
@@ -59,6 +64,7 @@ public:
   [[nodiscard]] bool ownsSurface(wl_surface* surface) const noexcept;
   bool onPointerEvent(const PointerEvent& event);
 
+  // Prefer a landscape image; otherwise use the first available image.
   [[nodiscard]] TextureHandle currentTexture() const;
   [[nodiscard]] std::string currentPath() const;
 
@@ -86,6 +92,7 @@ private:
     Unavailable, // wallpaper disabled, target unknown, or no candidate images
   };
 
+  [[nodiscard]] const WallpaperInstance* currentInstance() const;
   [[nodiscard]] bool isConnectorKnown(std::string_view connector) const;
   // Persist a resolved image path to a single connector, or to every connected
   // output plus the default when no connector is given.
@@ -108,9 +115,16 @@ private:
       std::string_view scope, std::string_view source
   );
   void createInstance(const WaylandOutput& output);
-  [[nodiscard]] TextureHandle acquireTexture(const std::string& path);
-  void releaseTexture(TextureHandle& handle, const std::string& path);
   void loadWallpaper(WallpaperInstance& instance, const std::string& path);
+  void beginWallpaperChange(
+      WallpaperInstance& instance, const std::string& path, WallpaperSourceKind kind, SharedTextureCache::Lease image,
+      const Color& color
+  );
+  void onImageChanged(WallpaperInstance& instance);
+  static void cancelLoading(WallpaperInstance& instance);
+  [[nodiscard]] TextureCoverage textureCoverage(const WallpaperInstance& instance) const;
+  // Re-targets every leased image of the instance after an output or fill mode change.
+  void refreshTextureCoverage(WallpaperInstance& instance);
   TransitionRedirect redirectActiveTransition(WallpaperInstance& instance, const std::string& path);
   void startTransition(WallpaperInstance& instance);
   void startTransitionAnimation(WallpaperInstance& instance, float fromTime, WallpaperTransitionDirection direction);

@@ -195,7 +195,7 @@ namespace {
     if (text.empty()) {
       return 0.0F;
     }
-    const auto bounds = renderer.measureText(text, fontSize, fontWeight, maxWidth, maxLines);
+    const auto bounds = renderer.measureText(text, fontSize, {fontWeight}, maxWidth, maxLines);
     return std::max(0.0F, bounds.bottom - bounds.top);
   }
 
@@ -584,17 +584,18 @@ public:
   [[nodiscard]] std::size_t itemCount() const override { return m_owner.m_filtered.size(); }
 
   [[nodiscard]] std::uint64_t itemKey(std::size_t index) const override {
-    if (index >= m_owner.m_filtered.size() || m_owner.m_filtered[index] == nullptr) {
+    if (index >= m_owner.m_filtered.size()) {
       return static_cast<std::uint64_t>(index);
     }
-    return m_owner.m_filtered[index]->notification.id;
+    return m_owner.m_filtered[index];
   }
 
   [[nodiscard]] std::uint64_t itemRevision(std::size_t index) const override {
-    if (index >= m_owner.m_filtered.size() || m_owner.m_filtered[index] == nullptr) {
+    const NotificationHistoryEntry* found = m_owner.filteredEntry(index);
+    if (found == nullptr) {
       return 0;
     }
-    const auto& entry = *m_owner.m_filtered[index];
+    const auto& entry = *found;
     const bool expanded = m_owner.m_expandedIds.contains(entry.notification.id);
     std::uint64_t revision = revisionForEntry(entry, expanded, m_owner.m_lastRelativeTimeSlot);
     revision ^= static_cast<std::uint64_t>(Style::cornerRadiusScale() * 10000.0F) * 0xC2B2AE3D27D4EB4FULL;
@@ -602,10 +603,11 @@ public:
   }
 
   [[nodiscard]] float measureItem(Renderer& renderer, std::size_t index, float width) override {
-    if (index >= m_owner.m_filtered.size() || m_owner.m_filtered[index] == nullptr) {
+    const NotificationHistoryEntry* found = m_owner.filteredEntry(index);
+    if (found == nullptr) {
       return 1.0F;
     }
-    const auto& entry = *m_owner.m_filtered[index];
+    const auto& entry = *found;
     const bool expanded = m_owner.m_expandedIds.contains(entry.notification.id);
     const bool showHistoryActions =
         m_owner.m_notifications != nullptr && m_owner.m_notifications->hasPendingDBusClose(entry.notification.id);
@@ -617,14 +619,15 @@ public:
   }
 
   void bindItem(Renderer& renderer, Node& item, std::size_t index, float width, bool /*hovered*/) override {
-    if (index >= m_owner.m_filtered.size() || m_owner.m_filtered[index] == nullptr) {
+    const NotificationHistoryEntry* found = m_owner.filteredEntry(index);
+    if (found == nullptr) {
       return;
     }
     auto* row = dynamic_cast<NotificationHistoryRow*>(&item);
     if (row == nullptr) {
       return;
     }
-    const auto& entry = *m_owner.m_filtered[index];
+    const auto& entry = *found;
     const bool showHistoryActions =
         m_owner.m_notifications != nullptr && m_owner.m_notifications->hasPendingDBusClose(entry.notification.id);
     row->bind(
@@ -774,7 +777,9 @@ void NotificationsTab::doLayout(Renderer& renderer, float contentWidth, float bo
     return;
   }
 
-  if (!filterSlideOutActive()) {
+  if (filterSlideOutActive()) {
+    dropVanishedFiltered();
+  } else {
     refreshDataSnapshot();
   }
   m_root->setSize(contentWidth, bodyHeight);
@@ -793,6 +798,7 @@ void NotificationsTab::doLayout(Renderer& renderer, float contentWidth, float bo
 
 void NotificationsTab::doUpdate(Renderer& renderer) {
   if (filterSlideOutActive()) {
+    dropVanishedFiltered();
     return;
   }
   if (refreshDataSnapshot() && m_root != nullptr) {
@@ -1047,7 +1053,7 @@ bool NotificationsTab::refreshDataSnapshot() {
     m_filtered.reserve(m_notifications->history().size());
     for (const auto& historyEntry : std::views::reverse(m_notifications->history())) {
       if (matchesHistoryFilter(historyEntry, m_filterIndex)) {
-        m_filtered.push_back(&historyEntry);
+        m_filtered.push_back(historyEntry.notification.id);
       }
     }
   }
@@ -1099,12 +1105,28 @@ void NotificationsTab::updateEmptyState(bool hasHistory, bool hasFiltered) {
 }
 
 std::optional<std::size_t> NotificationsTab::filteredIndexForId(uint32_t id) const {
-  for (std::size_t i = 0; i < m_filtered.size(); ++i) {
-    if (m_filtered[i] != nullptr && m_filtered[i]->notification.id == id) {
-      return i;
-    }
+  const auto it = std::ranges::find(m_filtered, id);
+  if (it == m_filtered.end()) {
+    return std::nullopt;
   }
-  return std::nullopt;
+  return static_cast<std::size_t>(it - m_filtered.begin());
+}
+
+void NotificationsTab::dropVanishedFiltered() {
+  if (m_notifications == nullptr) {
+    return;
+  }
+  const auto vanished = [this](uint32_t id) { return m_notifications->findHistoryEntry(id) == nullptr; };
+  if (std::erase_if(m_filtered, vanished) > 0 && m_list != nullptr) {
+    m_list->notifyDataChanged();
+  }
+}
+
+const NotificationHistoryEntry* NotificationsTab::filteredEntry(std::size_t index) const {
+  if (index >= m_filtered.size() || m_notifications == nullptr) {
+    return nullptr;
+  }
+  return m_notifications->findHistoryEntry(m_filtered[index]);
 }
 
 void NotificationsTab::onPanelCardOpacityChanged(float opacity) {

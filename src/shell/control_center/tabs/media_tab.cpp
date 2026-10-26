@@ -11,6 +11,7 @@
 #include "render/core/renderer.h"
 #include "render/scene/node.h"
 #include "shell/control_center/tab.h"
+#include "shell/panel/panel_button_style.h"
 #include "shell/panel/panel_manager.h"
 #include "ui/builders.h"
 #include "ui/controls/context_menu.h"
@@ -170,6 +171,10 @@ void MediaTab::openPlayerMenu() {
 
 std::unique_ptr<Flex> MediaTab::create() {
   const float scale = contentScale();
+
+  if (m_config != nullptr) {
+    m_showVisualizer = m_config->config().controlCenter.mediaTab.showVisualizer;
+  }
 
   auto tab = ui::row({
       .out = &m_rootLayout,
@@ -469,6 +474,7 @@ std::unique_ptr<Flex> MediaTab::create() {
   m_visualizerSpectrum = visualizerSpectrum.get();
   visualizerBody->addChild(std::move(visualizerSpectrum));
   visualizerColumn->addChild(std::move(visualizerBody));
+  visualizerColumn->setVisible(m_showVisualizer);
   tab->addChild(std::move(mediaColumn));
   tab->addChild(std::move(visualizerColumn));
 
@@ -496,6 +502,27 @@ std::unique_ptr<Flex> MediaTab::create() {
   return tab;
 }
 
+std::unique_ptr<Flex> MediaTab::createHeaderActions() {
+  const float scale = contentScale();
+  if (m_config != nullptr) {
+    m_showVisualizer = m_config->config().controlCenter.mediaTab.showVisualizer;
+  }
+  return ui::row(
+      {
+          .align = FlexAlign::Center,
+          .gap = Style::spaceSm * scale,
+      },
+      ui::button({
+          .out = &m_toggleVisualizerButton,
+          .glyph = m_showVisualizer ? "chart-bar" : "chart-bar-off",
+          .selected = m_showVisualizer,
+          .tooltip = i18n::tr("control-center.media.toggle-visualizer"),
+          .onClick = [this]() { toggleVisualizer(); },
+          .configure = [scale](Button& button) { panel_button_style::configureHeaderIconButton(button, scale); },
+      })
+  );
+}
+
 void MediaTab::doLayout(Renderer& renderer, float contentWidth, float bodyHeight) {
   if (m_rootLayout == nullptr || m_nowCard == nullptr || m_mediaStack == nullptr) {
     return;
@@ -507,7 +534,8 @@ void MediaTab::doLayout(Renderer& renderer, float contentWidth, float bodyHeight
 
   const float cardInnerWidth =
       std::max(0.0F, m_nowCard->width() - (m_nowCard->paddingLeft() + m_nowCard->paddingRight()));
-  const float mediaWidth = std::clamp(cardInnerWidth, 1.0F, kMediaUnit * 11.0F * scale);
+  const float mediaWidth =
+      m_showVisualizer ? std::clamp(cardInnerWidth, 1.0F, kMediaUnit * 11.0F * scale) : std::max(cardInnerWidth, 1.0F);
   const float mediaStackHeight = m_mediaStack->height();
   m_mediaStack->setSize(mediaWidth, mediaStackHeight);
 
@@ -570,7 +598,7 @@ void MediaTab::doLayout(Renderer& renderer, float contentWidth, float bodyHeight
     m_mediaStack->layout(renderer);
   }
 
-  if (m_visualizerBody != nullptr && m_visualizerSpectrum != nullptr) {
+  if (m_showVisualizer && m_visualizerBody != nullptr && m_visualizerSpectrum != nullptr) {
     const float bodyWidth = std::max(
         0.0F, m_visualizerBody->width() - (m_visualizerBody->paddingLeft() + m_visualizerBody->paddingRight())
     );
@@ -589,7 +617,7 @@ void MediaTab::doUpdate(Renderer& renderer) {
     m_progressTimer.stop();
     return;
   }
-  if (m_visualizerSpectrum != nullptr && m_spectrum != nullptr && m_spectrumListenerId != 0) {
+  if (m_showVisualizer && m_visualizerSpectrum != nullptr && m_spectrum != nullptr && m_spectrumListenerId != 0) {
     if (!m_spectrum->idle() || !m_visualizerSpectrum->converged()) {
       m_visualizerSpectrum->setValues(m_spectrum->values(m_spectrumListenerId));
     }
@@ -619,7 +647,7 @@ void MediaTab::doUpdate(Renderer& renderer) {
 }
 
 void MediaTab::onFrameTick(float deltaMs) {
-  if (!m_active) {
+  if (!m_active || !m_showVisualizer) {
     return;
   }
 
@@ -636,19 +664,7 @@ void MediaTab::onFrameTick(float deltaMs) {
 void MediaTab::setActive(bool active) {
   const bool becameActive = active && !m_active;
   m_active = active;
-  if (m_spectrum != nullptr) {
-    if (active && m_spectrumListenerId == 0) {
-      m_spectrumListenerId = m_spectrum->addChangeListener(kVisualizerBandCount, [this]() {
-        if (!m_active || m_spectrum->idle()) {
-          return;
-        }
-        PanelManager::instance().requestFrameTick();
-      });
-    } else if (!active && m_spectrumListenerId != 0) {
-      m_spectrum->removeChangeListener(m_spectrumListenerId);
-      m_spectrumListenerId = 0;
-    }
-  }
+  updateSpectrumSubscription();
   if (!active) {
     m_progressTimer.stop();
     m_positionSampleAt = {};
@@ -664,11 +680,9 @@ void MediaTab::setActive(bool active) {
 
 void MediaTab::onClose() {
   m_progressTimer.stop();
-  if (m_spectrum != nullptr) {
-    if (m_spectrumListenerId != 0) {
-      m_spectrum->removeChangeListener(m_spectrumListenerId);
-      m_spectrumListenerId = 0;
-    }
+  if (m_spectrum != nullptr && m_spectrumListenerId != 0) {
+    m_spectrum->removeChangeListener(m_spectrumListenerId);
+    m_spectrumListenerId = 0;
   }
   m_active = false;
   m_rootLayout = nullptr;
@@ -676,6 +690,7 @@ void MediaTab::onClose() {
   m_visualizerColumn = nullptr;
   m_visualizerBody = nullptr;
   m_visualizerSpectrum = nullptr;
+  m_toggleVisualizerButton = nullptr;
   m_artwork = nullptr;
   m_artworkRow = nullptr;
   m_nowCard = nullptr;
@@ -1000,4 +1015,37 @@ void MediaTab::refresh(Renderer& renderer) {
   m_lastPlaybackStatus.clear();
   m_lastLoopStatus.clear();
   m_lastShuffle = false;
+}
+
+void MediaTab::toggleVisualizer() {
+  m_showVisualizer = !m_showVisualizer;
+  if (m_config != nullptr) {
+    m_config->setOverride({"control_center", "media", "show_visualizer"}, m_showVisualizer);
+  }
+  if (m_toggleVisualizerButton != nullptr) {
+    m_toggleVisualizerButton->setGlyph(m_showVisualizer ? "chart-bar" : "chart-bar-off");
+    m_toggleVisualizerButton->setSelected(m_showVisualizer);
+  }
+  if (m_visualizerColumn != nullptr) {
+    m_visualizerColumn->setVisible(m_showVisualizer);
+  }
+  updateSpectrumSubscription();
+}
+
+void MediaTab::updateSpectrumSubscription() {
+  if (m_spectrum == nullptr) {
+    return;
+  }
+  const bool shouldSubscribe = m_active && m_showVisualizer;
+  if (shouldSubscribe && m_spectrumListenerId == 0) {
+    m_spectrumListenerId = m_spectrum->addChangeListener(kVisualizerBandCount, [this]() {
+      if (!m_active || !m_showVisualizer || m_spectrum->idle()) {
+        return;
+      }
+      PanelManager::instance().requestFrameTick();
+    });
+  } else if (!shouldSubscribe && m_spectrumListenerId != 0) {
+    m_spectrum->removeChangeListener(m_spectrumListenerId);
+    m_spectrumListenerId = 0;
+  }
 }

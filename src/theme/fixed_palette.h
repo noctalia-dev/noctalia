@@ -90,6 +90,10 @@ namespace noctalia::theme {
   GeneratedPalette expandFixedPalettes(const ::Palette& dark, const ::Palette& light);
   ::Palette mapGeneratedPaletteMode(const TokenMap& tokens);
 
+  // Wallpaper schemes have no hover role of their own: hover mirrors the tertiary accent,
+  // the pairing the builtin palettes use.
+  void setGeneratedHoverTokens(GeneratedPalette& palette);
+
   void applyTerminalPalette(TokenMap& tokens, const TerminalPalette& terminal);
   void synthesizeTerminalPaletteTokens(TokenMap& tokens);
   void synthesizeTerminalPaletteTokens(GeneratedPalette& palette);

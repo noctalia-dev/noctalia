@@ -158,8 +158,7 @@ namespace {
   }
 
   [[nodiscard]] bool convertToRgba(
-      const std::uint8_t* src, int width, int height, int stride, std::uint32_t format, bool yInvert,
-      std::vector<std::uint8_t>& out
+      const std::uint8_t* src, int width, int height, int stride, std::uint32_t format, std::vector<std::uint8_t>& out
   ) {
     const int bytesPerPixel = bytesPerPixelFromStride(width, stride);
     if (bytesPerPixel == 0) {
@@ -169,8 +168,7 @@ namespace {
 
     out.resize(static_cast<std::size_t>(width) * static_cast<std::size_t>(height) * 4U);
     for (int y = 0; y < height; ++y) {
-      const int srcY = yInvert ? (height - 1 - y) : y;
-      const auto* row = src + static_cast<std::size_t>(srcY) * static_cast<std::size_t>(stride);
+      const auto* row = src + static_cast<std::size_t>(y) * static_cast<std::size_t>(stride);
       auto* dst = out.data() + static_cast<std::size_t>(y) * static_cast<std::size_t>(width) * 4U;
       for (int x = 0; x < width; ++x) {
         if (bytesPerPixel == 3) {
@@ -294,7 +292,7 @@ namespace {
             image.yInvert = pending->yInvert;
             if (!convertToRgba(
                     static_cast<const std::uint8_t*>(pending->mapped), pending->width, pending->height, pending->stride,
-                    pending->shmFormat, pending->yInvert, image.rgba
+                    pending->shmFormat, image.rgba
                 )) {
               zwlr_screencopy_frame_v1_destroy(frame);
               pending->frame = nullptr;

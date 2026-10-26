@@ -8,10 +8,9 @@
 #include <vector>
 
 namespace launcher {
-  inline constexpr std::array kBuiltinProviders = {
-      std::string_view("calculator"), std::string_view("emoji"), std::string_view("session"),
-      std::string_view("wallpaper"), std::string_view("windows")
-  };
+  inline constexpr std::array kBuiltinProviders = {std::string_view("calculator"), std::string_view("emoji"),
+                                                   std::string_view("panels"),     std::string_view("session"),
+                                                   std::string_view("wallpaper"),  std::string_view("windows")};
 } // namespace launcher
 
 struct LauncherCategory {
@@ -65,6 +64,9 @@ public:
   [[nodiscard]] virtual std::string displayName() const { return std::string(id()); }
   [[nodiscard]] virtual std::string_view defaultGlyphName() const { return "search"; }
 
+  // List-only providers keep their subtitles and text results visible.
+  [[nodiscard]] virtual bool supportsGrid() const { return false; }
+
   // Return true to opt in to usage-based score boosting. The panel will
   // record each activation and surface frequently used entries higher.
   [[nodiscard]] virtual bool trackUsage() const { return false; }
@@ -92,6 +94,10 @@ public:
   // be re-gathered when fresh results land. Synchronous providers ignore it.
   virtual void setResultsChangedCallback(std::function<void()> /*callback*/) {}
 
+  // True while an async provider is still producing results. The launcher uses
+  // it to show a loading state instead of "No results found".
+  [[nodiscard]] virtual bool isLoading() const { return false; }
+
   // Plugin-backed providers can request that the open launcher input be replaced,
   // e.g. to implement autocomplete.
   virtual void setQueryRequestedCallback(std::function<void(std::string)> /*callback*/) {}
@@ -103,6 +109,9 @@ public:
   virtual void setActivationDoneCallback(std::function<void(std::string, bool)> /*callback*/) {}
 
   virtual void initialize() {}
+
+  // Called each time the launcher panel opens, before the first query.
+  virtual void onLauncherOpened() {}
 
   // Called when the launcher panel closes. Async providers should drop any cached
   // result set so a later session doesn't briefly show the previous query's results.

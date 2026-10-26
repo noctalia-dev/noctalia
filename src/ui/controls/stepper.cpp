@@ -256,8 +256,8 @@ void Stepper::syncValueFieldMinWidth(Renderer& renderer) {
   const float fs = Style::fontSizeBody * m_scale;
   const std::string minText = std::to_string(m_min) + m_valueSuffix;
   const std::string maxText = std::to_string(m_max) + m_valueSuffix;
-  const float wMin = renderer.measureText(minText, fs, FontWeight::Normal).width;
-  const float wMax = renderer.measureText(maxText, fs, FontWeight::Normal).width;
+  const float wMin = renderer.measureText(minText, fs, {FontWeight::Normal}).width;
+  const float wMax = renderer.measureText(maxText, fs, {FontWeight::Normal}).width;
   const float textInset = valueInputHorizontalPadding(m_scale) + kInputTextInnerInset;
   m_valueInput->setMinLayoutWidth(std::max(wMin, wMax) + textInset * 2.0F);
 }

@@ -3,6 +3,7 @@
 #include "config/config_service.h"
 #include "core/input/key_symbols.h"
 #include "core/input/keybind_matcher.h"
+#include "core/ui_phase.h"
 #include "cursor-shape-v1-client-protocol.h"
 #include "i18n/i18n.h"
 #include "scripting/plugin_api.h"
@@ -101,7 +102,11 @@ namespace settings {
             thumbPath = it->second;
           }
         }
-        t->bind(storeEntry.entry, storeEntry.source, onDisk, selected, hovered, thumbPath, m_renderer, m_textureCache);
+        t->bind(
+            storeEntry.entry, storeEntry.source, onDisk, selected, hovered, thumbPath, m_renderer, m_textureCache,
+            m_content != nullptr ? m_content->recommendationCount(storeEntry) : std::nullopt,
+            m_content != nullptr && m_content->isRecommended(storeEntry), storeEntry.listed
+        );
       }
 
       void onActivate(std::size_t index) override {
@@ -125,13 +130,38 @@ namespace settings {
 
   PluginStoreContent::PluginStoreContent(
       std::vector<StoreCatalogEntry> catalog, ConfigService* config, PluginStoreCallbacks callbacks,
-      scripting::PluginFileCache* fileCache, ScrollViewState* scrollState
+      scripting::PluginFileCache* fileCache, ScrollViewState* scrollState,
+      scripting::PluginRecommendations* recommendations
   )
-      : m_catalog(std::move(catalog)), m_config(config), m_callbacks(std::move(callbacks)), m_fileCache(fileCache),
-        m_scrollState(scrollState) {
+      : m_catalog(std::move(catalog)), m_recommendations(recommendations), m_config(config),
+        m_callbacks(std::move(callbacks)), m_fileCache(fileCache), m_scrollState(scrollState) {
     if (m_config != nullptr) {
       if (const std::optional<std::string> sort = m_config->stateString("plugin_store", "sort")) {
         m_sortMode = sortModeFromState(*sort);
+      }
+    }
+    if (m_config != nullptr && m_recommendations != nullptr) {
+      for (const auto& key : m_recommendations->recommendedKeys()) {
+        const auto id = key.substr(key.find(':') + 1);
+        // A listed owner takes precedence over remembered, delisted identities.
+        if (std::ranges::any_of(m_catalog, [&](const auto& current) {
+              return current.listed && current.entry.id == id;
+            })) {
+          continue;
+        }
+        for (const auto& source : m_config->config().plugins.sources) {
+          if (scripting::PluginRecommendations::pluginKey(source, id) != key) {
+            continue;
+          }
+          m_catalog.push_back(
+              StoreCatalogEntry{
+                  .entry = {.id = id, .name = id, .icon = "puzzle", .compatible = true},
+                  .source = source.name,
+                  .sourceConfig = source,
+                  .listed = false,
+              }
+          );
+        }
       }
     }
     collectThumbnails();
@@ -178,6 +208,14 @@ namespace settings {
       next = SortMode::AddedAtAsc;
       break;
     case SortMode::AddedAtAsc:
+      next = m_recommendations != nullptr && m_recommendations->metricsAvailable() ? SortMode::MostRecommended
+                                                                                   : SortMode::NameAsc;
+      break;
+    case SortMode::MostRecommended:
+      next = m_recommendations != nullptr && m_recommendations->metricsAvailable() ? SortMode::Trending
+                                                                                   : SortMode::NameAsc;
+      break;
+    case SortMode::Trending:
       next = SortMode::NameAsc;
       break;
     }
@@ -199,6 +237,12 @@ namespace settings {
   }
 
   SortMode PluginStoreContent::sortModeFromState(std::string_view value) {
+    if (value == "most_recommended") {
+      return SortMode::MostRecommended;
+    }
+    if (value == "trending") {
+      return SortMode::Trending;
+    }
     if (value == "name_desc") {
       return SortMode::NameDesc;
     }
@@ -219,6 +263,10 @@ namespace settings {
 
   std::string_view PluginStoreContent::sortModeStateValue(SortMode mode) {
     switch (mode) {
+    case SortMode::MostRecommended:
+      return "most_recommended";
+    case SortMode::Trending:
+      return "trending";
     case SortMode::NameDesc:
       return "name_desc";
     case SortMode::UpdatedAtAsc:
@@ -237,6 +285,10 @@ namespace settings {
 
   std::string_view PluginStoreContent::sortModeGlyph(SortMode mode) {
     switch (mode) {
+    case SortMode::MostRecommended:
+      return "thumb-up";
+    case SortMode::Trending:
+      return "trending-up";
     case SortMode::NameDesc:
       return "sort-z-a";
     case SortMode::UpdatedAtAsc:
@@ -255,6 +307,10 @@ namespace settings {
 
   const char* PluginStoreContent::sortModeTooltipKey(SortMode mode) {
     switch (mode) {
+    case SortMode::MostRecommended:
+      return "settings.plugins.store.sort-most-recommended";
+    case SortMode::Trending:
+      return "settings.plugins.store.sort-trending";
     case SortMode::NameDesc:
       return "settings.plugins.store.sort-name-desc";
     case SortMode::UpdatedAtAsc:
@@ -275,9 +331,12 @@ namespace settings {
     if (m_sortButton == nullptr) {
       return;
     }
-    m_sortButton->setGlyph(sortModeGlyph(m_sortMode));
+    const bool unavailable = (m_sortMode == SortMode::MostRecommended || m_sortMode == SortMode::Trending)
+        && (m_recommendations == nullptr || !m_recommendations->metricsAvailable());
+    const auto displayedMode = unavailable ? SortMode::NameAsc : m_sortMode;
+    m_sortButton->setGlyph(sortModeGlyph(displayedMode));
     // Retargets a tooltip already on screen: setTooltip notifies TooltipManager.
-    m_sortButton->setTooltip(i18n::tr(sortModeTooltipKey(m_sortMode)));
+    m_sortButton->setTooltip(i18n::tr(sortModeTooltipKey(displayedMode)));
   }
 
   std::optional<std::string> PluginStoreContent::detailPageUrl() const {
@@ -309,6 +368,9 @@ namespace settings {
       return;
     }
     for (const auto& entry : m_catalog) {
+      if (!entry.listed) {
+        continue;
+      }
       std::string path = m_fileCache->resolve(entry.entry.id, entry.sourceConfig, "thumbnail.webp");
       if (!path.empty()) {
         m_thumbnailPaths[entry.entry.id] = path;
@@ -344,6 +406,32 @@ namespace settings {
     });
   }
 
+  std::optional<std::string> PluginStoreContent::recommendationKey(const StoreCatalogEntry& entry) const {
+    if (m_config == nullptr || m_recommendations == nullptr) {
+      return std::nullopt;
+    }
+    if (m_callbacks.ownsPlugin && !m_callbacks.ownsPlugin(entry.entry.id, entry.source)) {
+      return std::nullopt;
+    }
+    const auto& sources = m_config->config().plugins.sources;
+    if (!std::ranges::contains(sources, entry.sourceConfig)) {
+      return std::nullopt;
+    }
+    return scripting::PluginRecommendations::pluginKey(entry.sourceConfig, entry.entry.id);
+  }
+
+  std::optional<std::uint64_t> PluginStoreContent::recommendationCount(const StoreCatalogEntry& entry) const {
+    const auto key = recommendationKey(entry);
+    return key.has_value() ? m_recommendations->count(*key) : std::nullopt;
+  }
+
+  bool PluginStoreContent::isRecommended(const StoreCatalogEntry& entry) const {
+    const auto key = recommendationKey(entry);
+    return key.has_value() && m_recommendations->state(*key).recommended;
+  }
+
+  void PluginStoreContent::onRecommendationsChanged() { requestRebuild(); }
+
   void PluginStoreContent::sortEntries() {
     std::ranges::sort(m_filteredIndices, [this](std::size_t a, std::size_t b) {
       const int nameOrder =
@@ -357,6 +445,39 @@ namespace settings {
         return nameOrder < 0;
       };
       switch (m_sortMode) {
+      case SortMode::MostRecommended:
+      case SortMode::Trending: {
+        if (m_recommendations == nullptr || !m_recommendations->metricsAvailable()) {
+          return nameOrder < 0;
+        }
+        const auto& left = m_catalog[a];
+        const auto& right = m_catalog[b];
+        if (left.listed != right.listed) {
+          return left.listed;
+        }
+        if (left.entry.compatible != right.entry.compatible) {
+          return left.entry.compatible;
+        }
+        if (left.entry.deprecated != right.entry.deprecated) {
+          return !left.entry.deprecated;
+        }
+        const auto leftKey = recommendationKey(left);
+        const auto rightKey = recommendationKey(right);
+        const auto leftMetric = leftKey.has_value() ? m_recommendations->metric(*leftKey) : std::nullopt;
+        const auto rightMetric = rightKey.has_value() ? m_recommendations->metric(*rightKey) : std::nullopt;
+        if (leftMetric.has_value() != rightMetric.has_value()) {
+          return leftMetric.has_value();
+        }
+        if (leftMetric.has_value() && rightMetric.has_value()) {
+          if (m_sortMode == SortMode::MostRecommended && leftMetric->recommendations != rightMetric->recommendations) {
+            return leftMetric->recommendations > rightMetric->recommendations;
+          }
+          if (m_sortMode == SortMode::Trending && leftMetric->trendingScore != rightMetric->trendingScore) {
+            return leftMetric->trendingScore > rightMetric->trendingScore;
+          }
+        }
+        return nameOrder < 0;
+      }
       case SortMode::NameDesc:
         return nameOrder > 0;
       case SortMode::UpdatedAtAsc:
@@ -378,6 +499,9 @@ namespace settings {
     m_filteredIndices.clear();
     for (std::size_t i = 0; i < m_catalog.size(); ++i) {
       const auto& e = m_catalog[i];
+      if (!e.listed && m_recommendations != nullptr && !m_recommendations->state(e.key()).recommended) {
+        continue;
+      }
       if (!m_selectedSource.empty() && e.source != m_selectedSource) {
         continue;
       }
@@ -396,6 +520,13 @@ namespace settings {
   }
 
   void PluginStoreContent::populateBody(Flex& body, Renderer& renderer, AsyncTextureCache* textureCache) {
+    const auto detailKey = isDetailView() && *m_detailIndex < m_filteredIndices.size()
+        ? std::optional<std::string>(m_catalog[m_filteredIndices[*m_detailIndex]].key())
+        : std::nullopt;
+    applyFilter();
+    if (detailKey.has_value()) {
+      m_detailIndex = indexOfPluginKey(*detailKey);
+    }
     if (m_detailIndex.has_value()) {
       buildDetailView(body, renderer, textureCache);
     } else {
@@ -404,6 +535,7 @@ namespace settings {
   }
 
   void PluginStoreContent::buildGridView(Flex& body, Renderer& renderer, AsyncTextureCache* textureCache) {
+    uiAssertNotRendering("PluginStoreContent::buildGridView");
     m_renderer = &renderer;
     m_textureCache = textureCache;
     const float scale = m_callbacks.scale;
@@ -544,6 +676,7 @@ namespace settings {
         })
     );
 
+    syncSortButtonGlyph();
     body.addChild(std::move(toolbar));
 
     if (!m_tagFiltersCollapsed) {
@@ -587,8 +720,8 @@ namespace settings {
         .flexGrow = 1.0F,
         .onSelectionChanged =
             [this](std::optional<std::size_t> index) {
-              m_selectedPluginId = index.has_value() && *index < m_filteredIndices.size()
-                  ? std::optional{m_catalog[m_filteredIndices[*index]].entry.id}
+              m_selectedPluginKey = index.has_value() && *index < m_filteredIndices.size()
+                  ? std::optional{m_catalog[m_filteredIndices[*index]].key()}
                   : std::nullopt;
             },
         .configure = [](VirtualGridView& view) { view.setFillWidth(true); },
@@ -596,7 +729,7 @@ namespace settings {
     // The sheet hosts the store without an outer ScrollView, so the grid's own scroll fills the
     // available height and scrolls the catalog. No minimum height: a floor would overflow the
     // sheet bottom (and clip nothing) when the dialog is shorter than the floor.
-    if (const auto index = indexOfPluginId(m_selectedPluginId.value_or("")); index.has_value()) {
+    if (const auto index = indexOfPluginKey(m_selectedPluginKey.value_or("")); index.has_value()) {
       m_grid->setSelectedIndex(index);
     }
     body.addChild(std::move(grid));
@@ -613,6 +746,7 @@ namespace settings {
   }
 
   void PluginStoreContent::buildDetailView(Flex& body, Renderer& renderer, AsyncTextureCache* textureCache) {
+    uiAssertNotRendering("PluginStoreContent::buildDetailView");
     if (!m_detailIndex.has_value() || *m_detailIndex >= m_filteredIndices.size()) {
       return;
     }
@@ -640,7 +774,7 @@ namespace settings {
     dc->setAlign(FlexAlign::Stretch);
     dc->setGap(Style::spaceMd * scale);
 
-    auto header = ui::row({.align = FlexAlign::Stretch, .gap = Style::spaceMd * scale, .fillWidth = true});
+    auto header = ui::row({.align = FlexAlign::End, .gap = Style::spaceMd * scale, .fillWidth = true});
 
     auto pill = [&](const std::string& text, ColorRole fg, ColorRole bg, float bgAlpha, float maxWidth = 0.0F) {
       Label* label = nullptr;
@@ -667,19 +801,28 @@ namespace settings {
     };
 
     // Left side: plugin thumbnail (Contain-fit so it shows uncropped), or glyph fallback.
+    float thumbnailHeight = 80.0F * scale;
     auto thumbIt = m_thumbnailPaths.find(entry.id);
     if (thumbIt != m_thumbnailPaths.end() && !thumbIt->second.empty()) {
+      const float thumbnailWidth = 320.0F * scale;
+      thumbnailHeight = 200.0F * scale;
       auto img = ui::image({
           .fit = ImageFit::Contain,
           .radius = Style::scaledRadiusMd(scale),
-          .width = 320.0F * scale,
-          .height = 200.0F * scale,
+          .width = thumbnailWidth,
+          .height = thumbnailHeight,
       });
       const int thumbTargetSize = static_cast<int>(std::ceil(320.0F * scale));
       if (textureCache != nullptr) {
-        img->setSourceFileAsync(renderer, *textureCache, thumbIt->second, thumbTargetSize, true);
+        if (!img->setSourceFileAsync(renderer, *textureCache, thumbIt->second, thumbTargetSize, true)) {
+          img->setAsyncReadyCallback(m_onRebuildNeeded);
+        }
       } else {
         img->setSourceFile(renderer, thumbIt->second, thumbTargetSize, true);
+      }
+      if (img->hasImage()) {
+        thumbnailHeight = std::min(thumbnailHeight, thumbnailWidth / img->aspectRatio());
+        img->setSize(thumbnailWidth, thumbnailHeight);
       }
       header->addChild(std::move(img));
     } else {
@@ -697,7 +840,11 @@ namespace settings {
     // Right side: plugin info (name, author, tags, version/license/badges, description, action),
     // left-aligned and filling the space next to the thumbnail.
     auto info = ui::column(
-        {.align = FlexAlign::Start, .gap = Style::spaceXs * scale, .paddingV = Style::spaceSm * scale, .flexGrow = 1.0F}
+        {.align = FlexAlign::Start,
+         .gap = Style::spaceXs * scale,
+         .minHeight = thumbnailHeight,
+         .flexGrow = 1.0F,
+         .configure = [scale](Flex& column) { column.setPadding(Style::spaceSm * scale, 0.0F, 0.0F, 0.0F); }}
     );
     auto title = ui::row({.align = FlexAlign::Center, .wrap = true, .gap = Style::spaceXs * scale, .fillWidth = true});
     title->addChild(
@@ -810,16 +957,70 @@ namespace settings {
     }
 
     info->addChild(ui::spacer());
+    auto installActions = ui::row({.align = FlexAlign::Center, .wrap = true, .gap = Style::spaceSm * scale});
 
-    if (enabling) {
-      info->addChild(
+    if (const auto key = recommendationKey(storeEntry)) {
+      const auto state = m_recommendations->state(*key);
+      const auto count = m_recommendations->count(*key);
+      const bool online = m_config != nullptr && !m_config->config().shell.offlineMode;
+      const bool actionable = online
+          && (state.recommended
+              || state.failedDesired.has_value()
+              || (storeEntry.listed && onDisk && !entry.deprecated));
+      if (count.has_value() || actionable) {
+        const bool retry = state.failedDesired.has_value();
+        const bool desired = retry ? *state.failedDesired : !state.recommended;
+        installActions->addChild(
+            ui::button({
+                .text = count.has_value() ? std::to_string(*count) : std::string(),
+                .glyph = state.recommended ? "thumb-up-filled" : "thumb-up",
+                .fontSize = Style::fontSizeCaption * scale,
+                .glyphSize = Style::fontSizeTitle * scale,
+                .enabled = actionable
+                    && !state.pending
+                    && state.error != scripting::RecommendationError::Protocol
+                    && (state.error != scripting::RecommendationError::NotRecommendable || state.recommended),
+                .variant = state.recommended ? ButtonVariant::Primary : ButtonVariant::Default,
+                .tooltip = actionable
+                    ? i18n::tr(
+                          state.pending ? "settings.plugins.store.recommendation-pending"
+                                        : (retry ? "settings.plugins.store.recommendation-retry"
+                                                 : (state.recommended ? "settings.plugins.store.remove-recommendation"
+                                                                      : "settings.plugins.store.recommend"))
+                      )
+                    : std::string(),
+                .minWidth = Style::controlHeight * scale,
+                .minHeight = Style::controlHeight * scale,
+                .onClick = [this, source = storeEntry.sourceConfig, id = entry.id, desired]() {
+                  m_recommendations->setRecommended(source, id, desired);
+                },
+            })
+        );
+        if (state.pending) {
+          installActions->addChild(
+              ui::spinner({.spinnerSize = Style::controlHeightSm * scale * 0.7F, .spinning = true})
+          );
+        }
+      }
+    }
+
+    if (!storeEntry.listed) {
+      installActions->addChild(
+          ui::label({
+              .text = i18n::tr("settings.plugins.store.not-listed"),
+              .fontSize = Style::fontSizeCaption * scale,
+              .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+          })
+      );
+    } else if (enabling) {
+      installActions->addChild(
           ui::spinner({
               .spinnerSize = Style::controlHeightSm * scale * 0.7F,
               .spinning = true,
           })
       );
     } else if (!entry.compatible) {
-      info->addChild(
+      installActions->addChild(
           ui::button({
               .text = i18n::tr("settings.plugins.store.incompatible"),
               .fontSize = Style::fontSizeCaption * scale,
@@ -828,7 +1029,7 @@ namespace settings {
           })
       );
     } else if (!onDisk) {
-      info->addChild(
+      installActions->addChild(
           ui::button({
               .text = i18n::tr("settings.plugins.store.add"),
               .fontSize = Style::fontSizeCaption * scale,
@@ -841,7 +1042,7 @@ namespace settings {
           })
       );
     } else {
-      info->addChild(
+      installActions->addChild(
           ui::row(
               {.align = FlexAlign::Center, .gap = Style::spaceXs * scale},
               ui::glyph({
@@ -857,9 +1058,43 @@ namespace settings {
           )
       );
     }
-    header->addChild(std::move(info));
 
+    info->addChild(std::move(installActions));
+    header->addChild(std::move(info));
     dc->addChild(std::move(header));
+    if (const auto key = recommendationKey(storeEntry)) {
+      const auto state = m_recommendations->state(*key);
+      if (state.error != scripting::RecommendationError::None) {
+        const char* errorKey = "settings.plugins.store.recommendation-error";
+        switch (state.error) {
+        case scripting::RecommendationError::Protocol:
+          errorKey = "settings.plugins.store.recommendation-protocol-error";
+          break;
+        case scripting::RecommendationError::NotRecommendable:
+          errorKey = "settings.plugins.store.recommendation-not-recommendable";
+          break;
+        case scripting::RecommendationError::RateLimited:
+          errorKey = "settings.plugins.store.recommendation-rate-limited";
+          break;
+        case scripting::RecommendationError::State:
+          errorKey = "settings.plugins.store.recommendation-state-error";
+          break;
+        case scripting::RecommendationError::Unavailable:
+          errorKey = "settings.plugins.store.recommendation-unavailable";
+          break;
+        default:
+          break;
+        }
+        dc->addChild(
+            ui::label(
+                {.text = i18n::tr(errorKey),
+                 .fontSize = Style::fontSizeMini * scale,
+                 .color = colorSpecFromRole(ColorRole::Error),
+                 .maxLines = 3}
+            )
+        );
+      }
+    }
 
     dc->addChild(ui::separator({.spacing = Style::spaceSm * scale}));
 
@@ -892,12 +1127,12 @@ namespace settings {
       return;
     }
     m_detailIndex = filteredIndex;
-    m_selectedPluginId = m_catalog[m_filteredIndices[filteredIndex]].entry.id;
+    m_selectedPluginKey = m_catalog[m_filteredIndices[filteredIndex]].key();
     m_detailReadme.clear();
     m_detailReadmeLoading = false;
 
     const auto& storeEntry = m_catalog[m_filteredIndices[filteredIndex]];
-    if (m_fileCache != nullptr) {
+    if (storeEntry.listed && m_fileCache != nullptr) {
       m_detailReadmeLoading = true;
       std::string path = m_fileCache->resolve(storeEntry.entry.id, storeEntry.sourceConfig, "README.md");
       if (!path.empty()) {
@@ -921,7 +1156,7 @@ namespace settings {
 
   void PluginStoreContent::selectIndex(std::size_t index) {
     if (m_filteredIndices.empty()) {
-      m_selectedPluginId.reset();
+      m_selectedPluginKey.reset();
       if (m_grid != nullptr) {
         m_grid->setSelectedIndex(std::nullopt);
       }
@@ -931,14 +1166,14 @@ namespace settings {
     if (m_grid != nullptr) {
       m_grid->setSelectedIndex(index);
     }
-    m_selectedPluginId = m_catalog[m_filteredIndices[index]].entry.id;
+    m_selectedPluginKey = m_catalog[m_filteredIndices[index]].key();
   }
 
-  std::optional<std::size_t> PluginStoreContent::indexOfPluginId(std::string_view id) const {
-    if (id.empty()) {
+  std::optional<std::size_t> PluginStoreContent::indexOfPluginKey(std::string_view key) const {
+    if (key.empty()) {
       return std::nullopt;
     }
-    const auto it = std::ranges::find_if(m_filteredIndices, [&](std::size_t i) { return m_catalog[i].entry.id == id; });
+    const auto it = std::ranges::find_if(m_filteredIndices, [&](std::size_t i) { return m_catalog[i].key() == key; });
     if (it == m_filteredIndices.end()) {
       return std::nullopt;
     }
@@ -950,14 +1185,14 @@ namespace settings {
       return;
     }
     m_grid->notifyDataChanged();
-    m_grid->setSelectedIndex(indexOfPluginId(m_selectedPluginId.value_or("")));
+    m_grid->setSelectedIndex(indexOfPluginKey(m_selectedPluginKey.value_or("")));
   }
 
   void PluginStoreContent::moveSelection(int delta) {
     if (m_filteredIndices.empty()) {
       return;
     }
-    const auto index = indexOfPluginId(m_selectedPluginId.value_or(""));
+    const auto index = indexOfPluginKey(m_selectedPluginKey.value_or(""));
     if (!index.has_value()) {
       selectIndex(delta >= 0 ? 0 : m_filteredIndices.size() - 1);
       return;
@@ -971,7 +1206,7 @@ namespace settings {
     if (m_filteredIndices.empty()) {
       return false;
     }
-    std::optional<std::size_t> index = indexOfPluginId(m_selectedPluginId.value_or(""));
+    std::optional<std::size_t> index = indexOfPluginKey(m_selectedPluginKey.value_or(""));
     if (!index.has_value()) {
       selectIndex(0);
       index = 0;
@@ -986,7 +1221,7 @@ namespace settings {
     }
     const auto& storeEntry = m_catalog[m_filteredIndices[*m_detailIndex]];
     const auto& entry = storeEntry.entry;
-    if (!entry.compatible || (m_callbacks.isInstalled && m_callbacks.isInstalled(entry.id))) {
+    if (!storeEntry.listed || !entry.compatible || (m_callbacks.isInstalled && m_callbacks.isInstalled(entry.id))) {
       return false;
     }
     if (m_callbacks.isEnabling && m_callbacks.isEnabling(entry.id)) {

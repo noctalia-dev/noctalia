@@ -256,6 +256,7 @@ void KeybindRecorder::enterRecording() {
     return;
   }
   m_recording = true;
+  m_inputArea->setCapturesAllKeys(true);
   m_pendingModifiers = 0;
   applyVisualState(VisualState::Recording);
   refreshLabel();
@@ -266,6 +267,7 @@ void KeybindRecorder::exitRecording(bool /*commit*/) {
     return;
   }
   m_recording = false;
+  m_inputArea->setCapturesAllKeys(false);
   m_pendingModifiers = 0;
   applyVisualState(VisualState::Idle);
   refreshLabel();

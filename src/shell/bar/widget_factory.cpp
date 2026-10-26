@@ -221,7 +221,7 @@ std::unique_ptr<Widget> WidgetFactory::create(
 #endif
       {"keyboard_layout", [](const WidgetFactory& f, const BuiltinWidgetContext& context) {
             return createWidget<KeyboardLayoutWidget>(
-                context.contentScale, f.m_platform,
+                context.contentScale, f.m_platform, f.m_tray,
                 keyboardLayoutWidgetDefinition().resolve(context.config, context.settingContext),
                 f.m_config.shell.keyboardLayout.customLabels
             );
@@ -425,9 +425,10 @@ std::unique_ptr<Widget> WidgetFactory::create(
             .audioSpectrum = m_audioSpectrum,
             .mpris = m_mpris,
         },
-        barName, outputName, enableScroll
+        barName, outputName, context.verticalBar, enableScroll
     );
     widget->setContentScale(contentScale);
+    widget->setBarHoverTint(pluginEntry->entry->widgetHoverHighlight);
     return widget;
   }
 

@@ -23,7 +23,7 @@ namespace {
 
   shell::dock::DockSurfaceGeometry geometryFor(const DockConfig& cfg, bool fractionalScale) {
     const ShellConfig::ShadowConfig shadow;
-    return shell::dock::computeSurfaceGeometry(cfg, shadow, kItemCount, fractionalScale);
+    return shell::dock::computeSurfaceGeometry(cfg, shadow, kItemCount, fractionalScale, 1920, 1080);
   }
 
   int edgeMargin(const shell::dock::DockSurfaceGeometry& geometry, DockEdge edge) {
@@ -38,6 +38,22 @@ namespace {
       return geometry.marginRight;
     }
     return 0;
+  }
+
+  bool panelTouchesSurfaceEdge(
+      const shell::dock::DockPanelGeometry& panel, const shell::dock::DockSurfaceGeometry& surface, DockEdge edge
+  ) {
+    switch (edge) {
+    case DockEdge::Bottom:
+      return panel.panelY + panel.panelH == static_cast<float>(surface.surfaceH);
+    case DockEdge::Top:
+      return panel.panelY == 0.0F;
+    case DockEdge::Left:
+      return panel.panelX == 0.0F;
+    case DockEdge::Right:
+      return panel.panelX + panel.panelW == static_cast<float>(surface.surfaceW);
+    }
+    return false;
   }
 
 } // namespace
@@ -57,6 +73,32 @@ int main() {
     TEST_CHECK(integerGeometry.surfaceW == fractionalGeometry.surfaceW);
     TEST_CHECK(integerGeometry.surfaceH == fractionalGeometry.surfaceH);
     TEST_CHECK(integerGeometry.exclusiveZone == fractionalGeometry.exclusiveZone);
+  }
+
+  // Magnification reserves surface space away from the screen edge. Instance-count badges face
+  // inward, so enabling them must not move a flush panel away from its anchored edge.
+  for (const DockEdge edge : kEdges) {
+    DockConfig cfg = flushDock(edge);
+    cfg.magnification = true;
+    cfg.magnificationScale = 1.45F;
+    cfg.showInstanceCount = true;
+    const auto surface = geometryFor(cfg, /*fractionalScale=*/false);
+    const ShellConfig::ShadowConfig shadow;
+    const auto panel = shell::dock::computePanelGeometry(
+        cfg, shadow, static_cast<float>(surface.surfaceW), static_cast<float>(surface.surfaceH)
+    );
+    TEST_CHECK(panelTouchesSurfaceEdge(panel, surface, edge));
+  }
+
+  {
+    DockConfig top = flushDock(DockEdge::Top);
+    top.magnification = true;
+    top.showInstanceCount = true;
+    DockConfig bottom = top;
+    bottom.position = DockEdge::Bottom;
+    TEST_CHECK(
+        geometryFor(top, /*fractionalScale=*/false).surfaceH == geometryFor(bottom, /*fractionalScale=*/false).surfaceH
+    );
   }
 
   // A dock held off the edge by a margin is already clear of the rounding, so it never overlaps.
@@ -79,6 +121,19 @@ int main() {
     TEST_CHECK(fractionalRegion.size() == 1);
     TEST_CHECK(fractionalRegion[0].height == integerRegion[0].height + 1);
     TEST_CHECK(fractionalRegion[0].y == integerRegion[0].y - 1);
+  }
+
+  // Overflowing docks stop at the output ends so their item viewport can scroll.
+  for (const DockEdge edge : kEdges) {
+    DockConfig cfg = flushDock(edge);
+    cfg.marginEnds = 12;
+    const ShellConfig::ShadowConfig shadow;
+    const auto geometry = shell::dock::computeSurfaceGeometry(
+        cfg, shadow, 100, false, /*outputLogicalWidth=*/800, /*outputLogicalHeight=*/600
+    );
+    const std::uint32_t expectedLength = shell::dock::isVerticalEdge(edge) ? 576U : 776U;
+    const std::uint32_t actualLength = shell::dock::isVerticalEdge(edge) ? geometry.surfaceH : geometry.surfaceW;
+    TEST_CHECK(actualLength == expectedLength);
   }
 
   return 0;

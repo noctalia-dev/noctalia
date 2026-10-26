@@ -24,6 +24,8 @@ namespace shell::dock {
     bool running = false;
     bool active = false;
     std::size_t instanceCount = 0;
+    std::size_t minimizedCount = 0;
+    bool allMinimized = false;
   };
 
   struct DockSnapshot {

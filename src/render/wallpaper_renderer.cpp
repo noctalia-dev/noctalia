@@ -3,6 +3,7 @@
 #include "core/log.h"
 #include "render/backend/render_backend.h"
 #include "render/core/texture_manager.h"
+#include "render/gl_shared_context.h"
 #include "render/render_target.h"
 
 #include <chrono>
@@ -43,6 +44,7 @@ void WallpaperRenderer::bind(GlSharedContext& shared, wl_surface* surface) {
     throw std::runtime_error("wallpaper renderer requires a valid Wayland surface");
   }
 
+  m_shared = &shared;
   m_surface = surface;
   m_backend = createDefaultRenderBackend();
   m_backend->initialize(shared);
@@ -128,6 +130,7 @@ void WallpaperRenderer::render() {
   if (m_backend != nullptr) {
     const auto swapStart = std::chrono::steady_clock::now();
     m_backend->endFrame(*m_target);
+    checkGraphicsReset();
     ms = elapsedSince(swapStart);
     logSlowWallpaperRenderOperation(
         ms, "wallpaper swap took {:.1F}ms ({}x{} logical, {}x{} buffer)", ms, m_logicalWidth, m_logicalHeight,
@@ -312,11 +315,19 @@ void WallpaperRenderer::swapBuffers() {
 
   const auto start = std::chrono::steady_clock::now();
   m_backend->endFrame(*m_target);
+  checkGraphicsReset();
   const float ms = elapsedSince(start);
   logSlowWallpaperRenderOperation(
       ms, "wallpaper swap took {:.1F}ms ({}x{} logical, {}x{} buffer)", ms, m_logicalWidth, m_logicalHeight,
       m_bufferWidth, m_bufferHeight
   );
+}
+
+void WallpaperRenderer::checkGraphicsReset() {
+  const RenderGraphicsResetStatus status = m_backend->graphicsResetStatus();
+  if (status != RenderGraphicsResetStatus::NoError) {
+    m_shared->reportGraphicsReset(status, "wallpaper");
+  }
 }
 
 std::unique_ptr<RenderFramebuffer> WallpaperRenderer::createFramebuffer(std::uint32_t width, std::uint32_t height) {

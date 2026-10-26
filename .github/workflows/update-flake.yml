@@ -3,18 +3,54 @@ name: update flake
 on:
   schedule:
     - cron: "0 0 * * 0"
+    - cron: "0 * * * *"
   workflow_dispatch:
+
+concurrency:
+  group: update-flake
+  cancel-in-progress: false
 
 jobs:
   update:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     if: ${{ github.repository == 'noctalia-dev/noctalia' }}
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v6
       - uses: cachix/install-nix-action@v31
-      - run: nix flake update
+
+      - name: Compare glibc versions
+        id: glibc
+        if: ${{ github.event_name == 'schedule' && github.event.schedule == '0 * * * *' }}
+        run: |
+          set -euo pipefail
+          locked_glibc=$(nix eval --raw --inputs-from . nixpkgs#glibc.version)
+          unstable_glibc=$(nix eval --raw \
+            'https://channels.nixos.org/nixos-unstable/nixexprs.tar.xz#glibc.version')
+          echo "Locked glibc: $locked_glibc"
+          echo "Unstable glibc: $unstable_glibc"
+          if [[ "$locked_glibc" != "$unstable_glibc" ]]; then
+            echo "needs_update=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "needs_update=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Update nixpkgs for a glibc change
+        if: ${{ steps.glibc.outputs.needs_update == 'true' }}
+        run: nix flake update nixpkgs
+
+      - name: Update all flake inputs
+        if: ${{ github.event_name == 'workflow_dispatch' || github.event.schedule == '0 0 * * 0' }}
+        run: nix flake update
+
       - uses: stefanzweifel/git-auto-commit-action@v7
+        if: >-
+          ${{
+            steps.glibc.outputs.needs_update == 'true' ||
+            github.event_name == 'workflow_dispatch' ||
+            github.event.schedule == '0 0 * * 0'
+          }}
         with:
           commit_message: "chore(flake): update flake.lock"

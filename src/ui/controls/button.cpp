@@ -437,6 +437,7 @@ void Button::ensureBadge() {
   m_badgeLabel = static_cast<Label*>(badge->addChild(std::move(label)));
 
   m_badge = static_cast<Flex*>(addChild(std::move(badge)));
+  applyColors(m_targetBg, m_targetBorder, m_targetLabel);
 }
 
 void Button::updateInputArea() {
@@ -572,6 +573,9 @@ void Button::ensureGlyph() {
 }
 
 void Button::applyColors(const Color& bg, const Color& border, const Color& label) {
+  m_displayedBg = bg;
+  m_displayedBorder = border;
+  m_displayedLabel = label;
   setFill(bg);
   setBorder(border, effectiveBorderWidth());
   if (m_label != nullptr) {
@@ -671,9 +675,9 @@ void Button::applyVisualState() {
   }
 
   // Snapshot current display colors as the animation start point
-  m_fromBg = m_targetBg;
-  m_fromBorder = m_targetBorder;
-  m_fromLabel = m_targetLabel;
+  m_fromBg = m_displayedBg;
+  m_fromBorder = m_displayedBorder;
+  m_fromLabel = m_displayedLabel;
   m_targetBg = targetBg;
   m_targetBorder = targetBorder;
   m_targetLabel = targetLabel;

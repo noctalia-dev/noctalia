@@ -92,7 +92,16 @@ TextureHandle GlesTextureManager::loadFromFile(const std::string& path, int targ
     return {};
   }
 
-  return loadFromRgba(loaded->rgba.data(), loaded->width, loaded->height, mipmap);
+  auto handle = loadFromRgba(loaded->rgba.data(), loaded->width, loaded->height, mipmap);
+  bool opaque = true;
+  for (std::size_t index = 3; index < loaded->rgba.size(); index += 4) {
+    if (loaded->rgba[index] != 0xFF) {
+      opaque = false;
+      break;
+    }
+  }
+  handle.opaque = handle.valid() && opaque;
+  return handle;
 }
 
 TextureHandle GlesTextureManager::loadFromEncodedBytes(const std::uint8_t* data, std::size_t size, bool mipmap) {

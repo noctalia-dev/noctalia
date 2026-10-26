@@ -29,6 +29,11 @@ std::string formatTimeAgo(std::chrono::system_clock::time_point tp);
 // numeric specifiers such as "%-I".
 [[nodiscard]] std::string formatLocalTime(const char* fmt);
 
+// True when a clock format accepted by formatLocalTime() renders a value that
+// changes every second: %S, %T, %X, %r, %c, %s, including E/O-modified and
+// flag/width-prefixed forms such as %OS, %EX or %-S. "%%" is a literal percent.
+[[nodiscard]] bool formatShowsSeconds(std::string_view fmt) noexcept;
+
 // Empty selects system-local time. Non-empty values must name a zone in the active timezone database.
 [[nodiscard]] bool isValidTimezone(std::string_view tzName);
 

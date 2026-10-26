@@ -2,6 +2,7 @@
 
 #include "config/config_types.h"
 #include "scripting/plugin_catalog.h"
+#include "scripting/plugin_recommendations.h"
 
 #include <cstddef>
 #include <functional>
@@ -35,12 +36,16 @@ namespace settings {
     UpdatedAtDesc,
     AddedAtAsc,
     AddedAtDesc,
+    MostRecommended,
+    Trending,
   };
 
   struct StoreCatalogEntry {
     scripting::CatalogEntry entry;
     std::string source;
     PluginSourceConfig sourceConfig;
+    bool listed = true;
+    [[nodiscard]] std::string key() const { return source + ":" + entry.id; }
   };
 
   struct PluginStoreCallbacks {
@@ -49,6 +54,7 @@ namespace settings {
     // Whether the plugin's files are on disk right now. Queried per build so a failed
     // install keeps offering the add action instead of claiming the plugin is there.
     std::function<bool(const std::string& id)> isInstalled;
+    std::function<bool(const std::string& id, const std::string& source)> ownsPlugin;
     float scale = 1.0F;
   };
 
@@ -56,7 +62,8 @@ namespace settings {
   public:
     PluginStoreContent(
         std::vector<StoreCatalogEntry> catalog, ConfigService* config, PluginStoreCallbacks callbacks,
-        scripting::PluginFileCache* fileCache, ScrollViewState* scrollState
+        scripting::PluginFileCache* fileCache, ScrollViewState* scrollState,
+        scripting::PluginRecommendations* recommendations
     );
     ~PluginStoreContent();
 
@@ -64,6 +71,10 @@ namespace settings {
     void detachGrid() noexcept;
 
     void populateBody(Flex& body, Renderer& renderer, AsyncTextureCache* textureCache);
+
+    void onRecommendationsChanged();
+    [[nodiscard]] std::optional<std::uint64_t> recommendationCount(const StoreCatalogEntry& entry) const;
+    [[nodiscard]] bool isRecommended(const StoreCatalogEntry& entry) const;
 
     void onFileReady(const std::string& pluginId, const std::string& filename, const std::string& path);
 
@@ -101,14 +112,16 @@ namespace settings {
     void collectTags();
     void selectIndex(std::size_t index);
     // Position of a plugin in the current filtered order, or nullopt when the filter hides it.
-    [[nodiscard]] std::optional<std::size_t> indexOfPluginId(std::string_view id) const;
+    [[nodiscard]] std::optional<std::size_t> indexOfPluginKey(std::string_view key) const;
     // Rebind the grid to the filtered order and restore the selection onto the plugin it names.
     void syncGridSelection();
     void moveSelection(int delta);
     [[nodiscard]] bool activateSelection();
     [[nodiscard]] bool installDetailIfAvailable();
 
+    [[nodiscard]] std::optional<std::string> recommendationKey(const StoreCatalogEntry& entry) const;
     std::vector<StoreCatalogEntry> m_catalog;
+    scripting::PluginRecommendations* m_recommendations = nullptr;
     ConfigService* m_config = nullptr;
     std::vector<std::size_t> m_filteredIndices;
     std::vector<std::string> m_sources;
@@ -131,7 +144,7 @@ namespace settings {
     VirtualGridView* m_grid = nullptr;
     Label* m_countLabel = nullptr;
     Button* m_sortButton = nullptr;
-    std::optional<std::string> m_selectedPluginId;
+    std::optional<std::string> m_selectedPluginKey;
     std::function<void()> m_onRebuildNeeded;
 
     std::unordered_map<std::string, std::string> m_thumbnailPaths;

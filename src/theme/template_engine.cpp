@@ -145,11 +145,6 @@ namespace noctalia::theme {
 
     constexpr std::string_view kUnknownPrefix = "{{";
 
-    const std::unordered_map<std::string, std::string> kColorAliases = {
-        {"hover", "surface_container_high"},
-        {"on_hover", "on_surface"},
-    };
-
     const std::unordered_set<std::string> kKnownFormats = {
         "hex", "hex_stripped", "rgb",  "rgb_csv", "rgba", "hsl",        "hsla",
         "red", "green",        "blue", "alpha",   "hue",  "saturation", "lightness",
@@ -991,11 +986,9 @@ namespace noctalia::theme {
           logError();
           return "{{" + base + "}}";
         }
-        std::string colorName = match[1].str();
+        const std::string colorName = match[1].str();
         const std::string mode = match[2].str();
         const std::string formatType = match[3].str();
-        if (auto alias = kColorAliases.find(colorName); alias != kColorAliases.end())
-          colorName = alias->second;
 
         auto modeIt = m_themeData.find(mode == "default" ? m_options.defaultMode : mode);
         if (modeIt == m_themeData.end()) {
@@ -1623,11 +1616,15 @@ namespace noctalia::theme {
       renderOptions.configDir = configPath.has_parent_path() ? configPath.parent_path().string() : "";
       renderOptions.configFile = configPath.string();
 
+      // Dynamic path commands are user commands too, so the shutdown flag bounds them like hooks.
+      process::RunOptions pathCommandOptions;
+      pathCommandOptions.cancel = renderOptions.hookCancel;
+
       std::string effectiveInput = entry.inputPath;
       if (!entry.inputPathDynamic.empty()) {
         const auto cmdRendered = EngineImpl(m_themeData, renderOptions).render(entry.inputPathDynamic);
         if (cmdRendered.errorCount == 0 && !cmdRendered.text.empty()) {
-          const auto dynResult = process::runSync(cmdRendered.text);
+          const auto dynResult = process::runSync(cmdRendered.text, pathCommandOptions);
           if (dynResult.exitCode == 0) {
             std::vector<std::string> dynamicInputs;
             appendPathsFromDynamicStdout(configPath, dynamicInputs, dynResult.out);
@@ -1642,7 +1639,7 @@ namespace noctalia::theme {
       if (!entry.outputPathDynamic.empty()) {
         const auto cmdRendered = EngineImpl(m_themeData, renderOptions).render(entry.outputPathDynamic);
         if (cmdRendered.errorCount == 0 && !cmdRendered.text.empty()) {
-          const auto dynResult = process::runSync(cmdRendered.text);
+          const auto dynResult = process::runSync(cmdRendered.text, pathCommandOptions);
           if (dynResult.exitCode == 0) {
             appendPathsFromDynamicStdout(configPath, effectiveOutputs, dynResult.out);
           }
@@ -1659,10 +1656,33 @@ namespace noctalia::theme {
           return;
         }
 
+        HookRunner::FailureCallback onFailure;
+        if (renderOptions.hookWarningCallback) {
+          onFailure = [callback = renderOptions.hookWarningCallback, name = entry.name](std::string message) {
+            const std::string diagnostic = StringUtils::trim(message);
+            if (diagnostic.starts_with("Warning:")) {
+              callback(std::format("{}: {}", name, diagnostic));
+            }
+          };
+        }
         if (async && renderOptions.hookRunner != nullptr) {
-          renderOptions.hookRunner->enqueue(hookRendered.text, renderOptions.generation);
+          renderOptions.hookRunner->enqueue(hookRendered.text, renderOptions.generation, std::move(onFailure));
         } else {
-          [[maybe_unused]] const bool hookOk = process::runSync(hookRendered.text);
+          // A started hook is allowed to finish (a supersede waits it out; killing
+          // mid-write could corrupt an app's config). Only the shutdown flag, raised
+          // after the caller's grace period, terminates its process group.
+          process::RunOptions opts;
+          opts.cancel = renderOptions.hookCancel;
+          const process::RunResult result = process::runSync(hookRendered.text, opts);
+          if (!result && !(renderOptions.hookCancel && renderOptions.hookCancel->load())) {
+            const std::string message = result.err.empty()
+                ? std::format("hook failed with exit code {}", result.exitCode)
+                : StringUtils::trim(result.err);
+            kLog.warn("hook for template {} failed: {}", entry.name, message);
+            if (onFailure) {
+              onFailure(message);
+            }
+          }
         }
       };
 

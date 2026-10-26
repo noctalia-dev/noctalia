@@ -26,6 +26,8 @@ struct TextureHandle {
   int sourceWidth = 0;
   int sourceHeight = 0;
   std::uint64_t generation = 0;
+  // Every pixel has full alpha. Only image files decoded by loadFromFile report it; other sources leave it false.
+  bool opaque = false;
 
   [[nodiscard]] constexpr bool valid() const noexcept { return id.valid(); }
 };

@@ -10,8 +10,8 @@
 namespace {
 
   // Canonical raster image extensions: lowercase, dot-prefixed.
-  constexpr std::array<std::string_view, 7> kImageExtensions = {
-      ".jpg", ".jpeg", ".png", ".webp", ".jxl", ".bmp", ".gif",
+  constexpr std::array<std::string_view, 10> kImageExtensions = {
+      ".jpg", ".jpeg", ".png", ".webp", ".jxl", ".bmp", ".gif", ".heic", ".heif", ".avif",
   };
 
 } // namespace

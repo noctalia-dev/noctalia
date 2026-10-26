@@ -1,6 +1,7 @@
 #pragma once
 
 #include "config/config_types.h"
+#include "scripting/plugin_layer_config.h"
 
 #include <cstdint>
 #include <filesystem>
@@ -76,6 +77,7 @@ namespace scripting {
     DesktopWidget,
     LauncherProvider,
     Service,
+    Layer,
   };
 
   // A launcher result category, declared statically on a [[launcher_provider]]
@@ -97,6 +99,10 @@ namespace scripting {
     // gesture vocabulary and action grammar belong to the bar, not to the manifest parser.
     std::vector<std::pair<std::string, std::string>> widgetActions;
 
+    // Whether the bar draws its whole-widget hover highlight over this [[widget]] entry
+    // (`hover_highlight`, plugin_api >= 34). False when the widget draws its own per-item hover.
+    bool widgetHoverHighlight = true;
+
     // Launcher-provider routing metadata (parsed only for LauncherProvider entries);
     // static so the launcher routes/filters without invoking the plugin.
     std::string launcherPrefix;
@@ -117,6 +123,10 @@ namespace scripting {
     double panelHeight = 0.0;
     bool panelWidthFill = false;
     bool panelHeightFill = false;
+    // height = "content": the panel's height follows its rendered tree, capped at
+    // panelMaxHeight (required with it).
+    bool panelHeightContent = false;
+    double panelMaxHeight = 0.0;
     // Host-standard shell settings (see plugin_panel_shell.*). Optional
     // [[panel]] keys provide defaults; injected settings use "{id}_placement",
     // "{id}_layer", and the corresponding canonical suffixes.
@@ -141,6 +151,11 @@ namespace scripting {
     // the host, so the panel can drive its own key interactions. Verbatim spec strings:
     // the script is called back with the same text declared here.
     std::vector<std::string> panelCaptureKeys;
+
+    // Surface defaults of a [[layer]] entry (plugin_api >= 36); noctalia.layer.configure() changes
+    // them at runtime. `layerVisible` shows the layer as soon as its plugin loads.
+    PluginLayerConfig layerConfig;
+    bool layerVisible = false;
   };
 
   struct PluginManifest {

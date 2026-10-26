@@ -46,6 +46,7 @@ public:
   [[nodiscard]] std::unordered_map<std::uintptr_t, WorkspaceWindow>
   assignTaskbarWindows(const std::vector<TaskbarWindowCandidate>& windows, wl_output* output) const;
   [[nodiscard]] std::vector<WorkspaceWindow> workspaceWindows(wl_output* output) const;
+  [[nodiscard]] std::vector<std::string> openOverlayWorkspaceKeys(wl_output* output) const;
   void focusWindow(const std::string& windowId) const;
 
   [[nodiscard]] std::vector<Workspace> all() const;
@@ -57,6 +58,10 @@ public:
   [[nodiscard]] wl_output* dwlIpcSelectedOutput() const;
   [[nodiscard]] std::optional<std::pair<std::string, std::string>> dwlIpcFocusedClientOnOutput(wl_output* output) const;
   [[nodiscard]] std::optional<std::string> focusedWindowId() const;
+  // Sway's ext-foreign-toplevel identifier for the focused view; see WorkspaceBackend for why
+  // this is not the same namespace as focusedWindowId().
+  [[nodiscard]] std::optional<std::string> focusedExtToplevelIdentifier() const;
+  [[nodiscard]] bool publishesExtToplevelIdentity() const noexcept;
 
 private:
   void setActiveBackend(WorkspaceBackend* backend);
@@ -75,10 +80,8 @@ private:
   WorkspaceBackend* m_hyprlandBackend = nullptr;
   WorkspaceBackend* m_swayBackend = nullptr;
   WorkspaceBackend* m_kwinBackend = nullptr;
-  WorkspaceBackend* m_triadBackend = nullptr;
   WorkspaceSocketConnector* m_hyprlandConnector = nullptr;
   WorkspaceSocketConnector* m_swayConnector = nullptr;
-  WorkspaceSocketConnector* m_triadConnector = nullptr;
   WorkspaceBackend* m_activeBackend = nullptr;
   ChangeCallback m_changeCallback;
 };

@@ -71,9 +71,9 @@ void IdleManager::setScreenSaverInhibitLocks(std::int64_t locks) {
   m_screenSaverInhibitLocks = next;
   const bool inhibited = m_screenSaverInhibitLocks > 0;
   if (!wasInhibited && inhibited) {
+    const bool wasIdle = m_heartbeatCompositorIdle;
     m_heartbeatCompositorIdle = false;
-    if (m_liveIdleSeconds != 0) {
-      m_liveIdleSeconds = 0;
+    if (wasIdle) {
       notifyLiveIdleChanged();
     }
   }
@@ -88,7 +88,15 @@ void IdleManager::setSessionLocked(bool locked) {
     return;
   }
   m_sessionLocked = locked;
-  recreateBehaviorNotifications();
+  if (!locked) {
+    recreateBehaviorNotifications();
+    return;
+  }
+
+  // Completed actions retain their effects and resume listeners; fades finish on their current schedule.
+  for (auto& behavior : m_behaviors) {
+    syncBehaviorNotification(*behavior);
+  }
 }
 
 double IdleManager::effectiveTimeoutSeconds(const IdleBehaviorConfig& config) const {
@@ -96,6 +104,14 @@ double IdleManager::effectiveTimeoutSeconds(const IdleBehaviorConfig& config) co
     return config.lockedTimeoutSeconds;
   }
   return config.timeoutSeconds;
+}
+
+std::uint32_t IdleManager::effectiveTimeoutMilliseconds(const IdleBehaviorConfig& config) const {
+  const double timeout = effectiveTimeoutSeconds(config);
+  if (!config.enabled || !std::isfinite(timeout) || timeout <= 0.0) {
+    return 0;
+  }
+  return timeoutSecondsToMilliseconds(timeout);
 }
 
 void IdleManager::reload(const IdleConfig& config) {
@@ -123,17 +139,18 @@ void IdleManager::reload(const IdleConfig& config) {
   syncHeartbeat();
 }
 
-void IdleManager::onSecondTick() {
-  if (m_heartbeatCompositorIdle && m_screenSaverInhibitLocks == 0) {
-    ++m_liveIdleSeconds;
+std::int64_t IdleManager::liveIdleSeconds() const noexcept {
+  if (!m_heartbeatCompositorIdle) {
+    return 0;
   }
+  const auto elapsed = std::chrono::steady_clock::now() - m_heartbeatIdleSince;
+  return std::max<std::int64_t>(1, std::chrono::duration_cast<std::chrono::seconds>(elapsed).count());
 }
 
 void IdleManager::syncHeartbeat() {
   destroyHeartbeat();
   if (m_wayland == nullptr || !m_wayland->hasIdleNotifier() || m_wayland->seat() == nullptr) {
     m_heartbeatCompositorIdle = false;
-    m_liveIdleSeconds = 0;
     return;
   }
 
@@ -153,7 +170,6 @@ void IdleManager::destroyHeartbeat() {
     m_heartbeatNotification = nullptr;
   }
   m_heartbeatCompositorIdle = false;
-  m_liveIdleSeconds = 0;
 }
 
 void IdleManager::clearBehaviors() {
@@ -182,20 +198,28 @@ void IdleManager::recreateBehaviorNotification(BehaviorState& behavior) {
     ext_idle_notification_v1_destroy(behavior.notification);
     behavior.notification = nullptr;
   }
+  behavior.notificationTimeoutMs = 0;
   behavior.phase = BehaviorPhase::Waiting;
 
-  const double timeout = effectiveTimeoutSeconds(behavior.config);
-  if (!behavior.config.enabled || !std::isfinite(timeout) || timeout <= 0.0) {
+  const auto timeoutMs = effectiveTimeoutMilliseconds(behavior.config);
+  if (timeoutMs == 0) {
     return;
   }
 
-  const auto timeoutMs = timeoutSecondsToMilliseconds(timeout);
   behavior.notification = m_wayland->createIdleNotification(timeoutMs);
   if (behavior.notification == nullptr) {
     kLog.warn("failed to re-register idle behavior '{}'", behavior.config.name);
     return;
   }
+  behavior.notificationTimeoutMs = timeoutMs;
   ext_idle_notification_v1_add_listener(behavior.notification, &kIdleNotificationListener, &behavior);
+}
+
+void IdleManager::syncBehaviorNotification(BehaviorState& behavior) {
+  if (behavior.phase == BehaviorPhase::Waiting
+      && behavior.notificationTimeoutMs != effectiveTimeoutMilliseconds(behavior.config)) {
+    recreateBehaviorNotification(behavior);
+  }
 }
 
 void IdleManager::recreateBehaviorNotifications() {
@@ -410,6 +434,9 @@ void IdleManager::handleResumed(void* data, ext_idle_notification_v1* /*notifica
   if (behavior->phase == BehaviorPhase::Fading) {
     kLog.info("idle behavior '{}' pre-action fade cancelled (user active)", behavior->config.name);
     self.cancelActiveGrace(true);
+    for (auto& pending : self.m_behaviors) {
+      self.syncBehaviorNotification(*pending);
+    }
     return;
   }
 
@@ -420,6 +447,7 @@ void IdleManager::handleResumed(void* data, ext_idle_notification_v1* /*notifica
   behavior->phase = BehaviorPhase::Waiting;
   kLog.info("idle behavior '{}' resumed", behavior->config.name);
   self.runResumeBehavior(*behavior);
+  self.syncBehaviorNotification(*behavior);
 }
 
 void IdleManager::handleHeartbeatIdled(void* data, ext_idle_notification_v1* /*notification*/) {
@@ -431,7 +459,8 @@ void IdleManager::handleHeartbeatIdled(void* data, ext_idle_notification_v1* /*n
     return;
   }
   self->m_heartbeatCompositorIdle = true;
-  self->m_liveIdleSeconds = 1;
+  // The compositor reports idle only once the heartbeat timeout has already elapsed.
+  self->m_heartbeatIdleSince = std::chrono::steady_clock::now() - std::chrono::milliseconds(kHeartbeatTimeoutMs);
   self->notifyLiveIdleChanged();
 }
 
@@ -441,6 +470,5 @@ void IdleManager::handleHeartbeatResumed(void* data, ext_idle_notification_v1* /
     return;
   }
   self->m_heartbeatCompositorIdle = false;
-  self->m_liveIdleSeconds = 0;
   self->notifyLiveIdleChanged();
 }

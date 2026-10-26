@@ -1,6 +1,8 @@
+#include "cursor-shape-v1-client-protocol.h"
 #include "render/backend/render_backend.h"
 #include "render/core/renderer.h"
 #include "render/core/texture_manager.h"
+#include "render/scene/glyph_node.h"
 #include "render/scene/input_area.h"
 #include "render/scene/rect_node.h"
 #include "ui/controls/box.h"
@@ -8,6 +10,7 @@
 #include "ui/controls/drag_source.h"
 #include "ui/controls/drop_zone.h"
 #include "ui/controls/flex.h"
+#include "ui/controls/glyph.h"
 #include "ui/controls/graph.h"
 #include "ui/controls/input.h"
 #include "ui/controls/label.h"
@@ -17,6 +20,7 @@
 #include "ui/controls/spacer.h"
 #include "ui/controls/toggle.h"
 #include "ui/drag_drop_controller.h"
+#include "ui/scroll_into_view.h"
 #include "ui/style.h"
 #include "ui/ui_tree.h"
 #include "ui/ui_tree_reconciler.h"
@@ -40,17 +44,17 @@ namespace {
   class StubRenderer : public Renderer {
   public:
     TextMetrics measureText(
-        std::string_view text, float fontSize, FontWeight, float, int, TextAlign, std::string_view, TextEllipsize, bool
+        std::string_view text, float fontSize, const TextFont&, float, int, TextAlign, TextEllipsize, bool
     ) override {
       return TextMetrics{.width = static_cast<float>(text.size()) * fontSize * 0.5F, .bottom = fontSize};
     }
-    TextMetrics measureFont(float fontSize, FontWeight) override { return TextMetrics{.bottom = fontSize}; }
+    TextMetrics measureFont(float fontSize, const TextFont&) override { return TextMetrics{.bottom = fontSize}; }
     void measureTextCursorStops(
-        std::string_view, float, const std::vector<std::size_t>&, std::vector<float>&, FontWeight
+        std::string_view, float, const std::vector<std::size_t>&, std::vector<float>&, const TextFont&
     ) override {}
     void measureTextCursorStopsWrapped(
         std::string_view, float fontSize, const std::vector<std::size_t>& byteOffsets, float,
-        std::vector<TextCursorStop>& outStops, FontWeight
+        std::vector<TextCursorStop>& outStops, const TextFont&
     ) override {
       outStops.assign(byteOffsets.size(), TextCursorStop{0.0F, 0.0F, fontSize});
     }
@@ -191,6 +195,53 @@ int main() {
       ok = expect(column->children().size() == 1, "children removed") && ok;
       ok = expect(column->children()[0].get() == labelBefore, "surviving child reused on removal") && ok;
     }
+  }
+
+  // Host label/glyph colors apply only while the tree leaves color unset.
+  {
+    ui::UiTreeReconciler reconciler;
+    Flex host;
+    const Color labelDefault = rgbHex(0x112233);
+    const Color glyphDefault = rgbHex(0x445566);
+    reconciler.setColorDefaults(fixedColorSpec(labelDefault), fixedColorSpec(glyphDefault));
+
+    ui::UiTreeNode tree = makeNode("row");
+    tree.children.push_back(makeLabel("Default"));
+    ui::UiTreeNode glyphNode = makeNode("glyph");
+    glyphNode.props.emplace("name", std::string("cpu"));
+    tree.children.push_back(std::move(glyphNode));
+    (void)reconciler.reconcile(host, tree, renderer);
+
+    auto* row = dynamic_cast<Flex*>(host.children().front().get());
+    auto* label = row != nullptr ? dynamic_cast<Label*>(row->children()[0].get()) : nullptr;
+    auto* glyph = row != nullptr ? dynamic_cast<Glyph*>(row->children()[1].get()) : nullptr;
+    auto* renderedGlyph = glyph != nullptr ? findFirst<GlyphNode>(*glyph) : nullptr;
+    ok = expect(label != nullptr && label->color() == labelDefault, "label inherits host color") && ok;
+    ok = expect(renderedGlyph != nullptr && renderedGlyph->color() == glyphDefault, "glyph inherits host color") && ok;
+
+    const Color explicitLabel = rgbHex(0x778899);
+    const Color explicitGlyph = rgbHex(0xAABBCC);
+    tree.children[0].props["color"] = std::string("#778899");
+    tree.children[1].props["color"] = std::string("#aabbcc");
+    (void)reconciler.reconcile(host, tree, renderer);
+    ok = expect(label != nullptr && label->color() == explicitLabel, "explicit label color overrides host color") && ok;
+    ok = expect(
+             renderedGlyph != nullptr && renderedGlyph->color() == explicitGlyph,
+             "explicit glyph color overrides host color"
+         )
+        && ok;
+
+    const Color nextLabelDefault = rgbHex(0x102030);
+    const Color nextGlyphDefault = rgbHex(0x405060);
+    reconciler.setColorDefaults(fixedColorSpec(nextLabelDefault), fixedColorSpec(nextGlyphDefault));
+    tree.children[0].props.erase("color");
+    tree.children[1].props.erase("color");
+    (void)reconciler.reconcile(host, tree, renderer);
+    ok = expect(label != nullptr && label->color() == nextLabelDefault, "label restores changed host color") && ok;
+    ok = expect(
+             renderedGlyph != nullptr && renderedGlyph->color() == nextGlyphDefault, "glyph restores changed host color"
+         )
+        && ok;
   }
 
   // Keyed reorder reuses control instances.
@@ -980,6 +1031,73 @@ int main() {
     }
   }
 
+  // revealKey scrolls the keyed child into view by the minimum distance and
+  // re-applies only when the key changes or the child reappears.
+  {
+    ui::UiTreeReconciler reconciler;
+    Flex host;
+
+    // Rows sit in a column inside the scroll, so the key lookup has to recurse.
+    const auto makeTree = [](int rowCount, const std::string& revealKey) {
+      ui::UiTreeNode rows = makeNode("column");
+      rows.key = "rows";
+      for (int i = 1; i <= rowCount; ++i) {
+        ui::UiTreeNode row = makeNode("box");
+        row.key = "row-" + std::to_string(i);
+        row.props.emplace("height", 40.0);
+        rows.children.push_back(std::move(row));
+      }
+      ui::UiTreeNode scroll = makeNode("scroll");
+      scroll.key = "list";
+      if (!revealKey.empty()) {
+        scroll.props.emplace("revealKey", revealKey);
+      }
+      scroll.children.push_back(std::move(rows));
+      ui::UiTreeNode tree = makeNode("column");
+      tree.children.push_back(std::move(scroll));
+      return tree;
+    };
+
+    (void)reconciler.reconcile(host, makeTree(10, "row-1"), renderer);
+    auto* column = dynamic_cast<Flex*>(host.children().front().get());
+    auto* sv = column != nullptr ? dynamic_cast<ScrollView*>(column->children()[0].get()) : nullptr;
+    ok = expect(sv != nullptr, "reveal scroll built") && ok;
+    if (sv != nullptr) {
+      const auto render = [&](int rowCount, const std::string& revealKey) {
+        (void)reconciler.reconcile(host, makeTree(rowCount, revealKey), renderer);
+        sv->setSize(200.0F, 100.0F);
+        sv->layout(renderer);
+      };
+      const float viewport = 100.0F - sv->viewportPaddingV() * 2.0F;
+
+      render(10, "row-1");
+      ok = expect(sv->maxScrollOffset() == 400.0F - viewport, "reveal list overflows its viewport") && ok;
+      ok = expect(sv->scrollOffset() == 0.0F, "revealing a visible row does not scroll") && ok;
+
+      render(10, "row-5");
+      ok = expect(sv->scrollOffset() == 200.0F - viewport, "a row below the fold lands at the viewport bottom") && ok;
+
+      render(10, "row-4");
+      ok = expect(sv->scrollOffset() == 200.0F - viewport, "a fully visible row leaves the offset alone") && ok;
+
+      render(10, "row-2");
+      ok = expect(sv->scrollOffset() == 40.0F, "a row above the fold lands at the viewport top") && ok;
+
+      sv->setScrollOffset(300.0F);
+      render(10, "row-2");
+      ok = expect(sv->scrollOffset() == 300.0F, "an unchanged revealKey does not undo a manual scroll") && ok;
+
+      render(10, "row-12");
+      ok = expect(sv->scrollOffset() == 300.0F, "a key no child carries does not scroll") && ok;
+      render(12, "row-12");
+      ok = expect(sv->scrollOffset() == 480.0F - viewport, "the reveal lands on the render that adds the child") && ok;
+
+      render(1, "row-12");
+      render(12, "row-12");
+      ok = expect(sv->scrollOffset() == 480.0F - viewport, "a child that reappears is revealed again") && ok;
+    }
+  }
+
   // A button tooltip reaches the InputArea, and dropping the prop clears it on
   // the retained control.
   {
@@ -1002,6 +1120,56 @@ int main() {
       tree.children[0].props.erase("tooltip");
       (void)reconciler.reconcile(host, tree, renderer);
       ok = expect(!control->inputArea()->hasTooltip(), "dropped tooltip prop clears the tooltip") && ok;
+    }
+  }
+
+  // A tooltip on a plain container wraps it in a hover-only InputArea; dropping
+  // the only wrapper-requiring prop unwraps it. Alongside onClick, dropping just
+  // the tooltip keeps the wrapper and clears the tooltip on the retained node.
+  {
+    ui::UiTreeReconciler reconciler;
+    Flex host;
+
+    ui::UiTreeNode tree = makeNode("column");
+    ui::UiTreeNode box = makeNode("box");
+    box.props.emplace("tooltip", std::string("More info"));
+    tree.children.push_back(box);
+    (void)reconciler.reconcile(host, tree, renderer);
+
+    auto* column = dynamic_cast<Flex*>(host.children().front().get());
+    auto* area = column != nullptr && !column->children().empty()
+        ? dynamic_cast<InputArea*>(column->children()[0].get())
+        : nullptr;
+    ok = expect(area != nullptr, "tooltip-only box is wrapped in an InputArea") && ok;
+    if (area != nullptr) {
+      ok = expect(area->hasTooltip(), "container tooltip applied") && ok;
+      ok = expect(
+               area->acceptedButtons() == 0 && !area->focusable(),
+               "tooltip-only wrapper does not accept clicks or take focus"
+           )
+          && ok;
+    }
+
+    tree.children[0].props.erase("tooltip");
+    (void)reconciler.reconcile(host, tree, renderer);
+    Node* unwrapped = column != nullptr && !column->children().empty() ? column->children()[0].get() : nullptr;
+    ok = expect(dynamic_cast<Box*>(unwrapped) != nullptr, "box unwrapped after tooltip removed") && ok;
+
+    tree.children[0].props.emplace("onClick", std::string("activate"));
+    tree.children[0].props.emplace("tooltip", std::string("More info"));
+    (void)reconciler.reconcile(host, tree, renderer);
+    auto* clickable = column != nullptr && !column->children().empty()
+        ? dynamic_cast<InputArea*>(column->children()[0].get())
+        : nullptr;
+    ok = expect(clickable != nullptr && clickable->hasTooltip(), "clickable box carries a tooltip") && ok;
+    if (clickable != nullptr) {
+      tree.children[0].props.erase("tooltip");
+      (void)reconciler.reconcile(host, tree, renderer);
+      ok = expect(
+               dynamic_cast<InputArea*>(column->children()[0].get()) == clickable && !clickable->hasTooltip(),
+               "dropping tooltip keeps the click wrapper but clears the tooltip"
+           )
+          && ok;
     }
   }
 
@@ -2269,6 +2437,13 @@ int main() {
     }
   }
 
+  // content() hangs off the viewport clip node, not the ScrollView itself.
+  {
+    ScrollView scrollView;
+    Node* row = scrollView.content()->addChild(std::make_unique<Box>());
+    ok = expect(findEnclosingScrollView(row) == &scrollView, "a content child resolves to its scroll view") && ok;
+  }
+
   {
     ScrollView scrollView;
     scrollView.setOrientation(ScrollOrientation::Horizontal);
@@ -2662,6 +2837,117 @@ int main() {
              "an unchanged re-render keeps the graph's coalescing stream"
          )
         && ok;
+  }
+
+  // Sideways sortable list: inside a row, an expandOnDrag zone with a width
+  // opens a horizontal gap sized to the dragged item (a bar's pills); a
+  // whole-item source with grabCursor = false keeps the plain pointer until
+  // the drag starts, and a tap on it is a click, not a drag.
+  {
+    ui::UiTreeReconciler reconciler;
+    reconciler.setDragDropEnabled(true);
+    std::vector<std::string> fired;
+    reconciler.setCallbackSink([&fired](const ui::UiTreeReconciler::ControlCallback& cb) { fired.push_back(cb.fn); });
+    Node overlay;
+    overlay.setSize(400.0F, 40.0F);
+    overlay.setHitTestVisible(false);
+    reconciler.setDragDropOverlayRoot(&overlay);
+    Flex host;
+
+    ui::UiTreeNode pillSource = makeDragSource("pill-a", "pill", "ws:1");
+    pillSource.props["width"] = 90.0;
+    pillSource.props["height"] = 24.0;
+    pillSource.props.emplace("liftFromLayout", true);
+    pillSource.props.emplace("grabCursor", false);
+    pillSource.props.emplace("onClick", std::string("onPillClicked"));
+    pillSource.children.push_back(makeLabel("1 - alpha"));
+
+    ui::UiTreeNode gap = makeDropZone("gap-2", {"pill"}, "2", "onPillDropped");
+    gap.props["width"] = 4.0;
+    gap.props["height"] = 22.0;
+    gap.props.emplace("expandOnDrag", true);
+    gap.props.emplace("hitSlop", 14.0);
+
+    ui::UiTreeNode other = makeNode("row");
+    other.key = "pill-b";
+    other.props.emplace("width", 70.0);
+    other.props.emplace("height", 24.0);
+    other.children.push_back(makeLabel("2 - beta"));
+
+    ui::UiTreeNode tree = makeNode("row");
+    tree.props.emplace("gap", 2.0);
+    tree.children.push_back(std::move(pillSource));
+    tree.children.push_back(std::move(gap));
+    tree.children.push_back(std::move(other));
+    (void)reconciler.reconcile(host, tree, renderer);
+    host.setSize(400.0F, 40.0F);
+    host.layout(renderer);
+
+    auto* rootRow = dynamic_cast<Flex*>(host.children().front().get());
+    auto* source = rootRow != nullptr ? dynamic_cast<DragSource*>(rootRow->children()[0].get()) : nullptr;
+    auto* zone = rootRow != nullptr ? dynamic_cast<DropZone*>(rootRow->children()[1].get()) : nullptr;
+    ok = expect(source != nullptr && zone != nullptr && source->inputArea() != nullptr, "row drag fixture built") && ok;
+    if (source != nullptr && zone != nullptr && source->inputArea() != nullptr) {
+      ok = expect(
+               source->inputArea()->cursorShape() == WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_POINTER,
+               "grabCursor = false hovers with the plain pointer"
+           )
+          && ok;
+      ok = expect(zone->width() == 4.0F, "row insertion zone keeps its collapsed width at rest") && ok;
+
+      source->inputArea()->dispatchPress(2.0F, 2.0F, BTN_LEFT, true);
+      source->inputArea()->dispatchPress(2.0F, 2.0F, BTN_LEFT, false);
+      ok = expect(
+               fired.size() == 1 && fired.front() == "onPillClicked",
+               "a press released before the drag threshold is a click on the source"
+           )
+          && ok;
+      fired.clear();
+
+      source->inputArea()->dispatchPress(2.0F, 2.0F, BTN_LEFT, true);
+      source->inputArea()->dispatchMotion(-1.0F, 2.0F);
+      source->inputArea()->dispatchPress(-1.0F, 2.0F, BTN_LEFT, false);
+      ok = expect(fired.empty(), "a press that slides off the source below the threshold is not a click") && ok;
+
+      float localX = 0.0F;
+      float localY = 0.0F;
+      sourceLocalPointFor(*source, *zone, localX, localY);
+      const float sourceWidth = source->width();
+      source->inputArea()->dispatchPress(2.0F, 2.0F, BTN_LEFT, true);
+      source->inputArea()->dispatchMotion(localX, localY);
+      ok = expect(
+               source->dragging() && source->inputArea()->cursorShape() == WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_GRABBING,
+               "dragging shows the grabbing hand even without the grab hover cursor"
+           )
+          && ok;
+      ok = expect(
+               zone->minWidth() == sourceWidth && zone->maxWidth() == sourceWidth && zone->minHeight() == 22.0F,
+               "expandOnDrag inside a row opens a gap of the dragged width, not height"
+           )
+          && ok;
+      source->inputArea()->dispatchPress(localX, localY, BTN_LEFT, false);
+      ok = expect(zone->minWidth() == 4.0F && zone->maxWidth() == 4.0F, "the gap collapses again after the drop") && ok;
+      ok = expect(
+               fired.size() == 1 && fired.front() == "onPillDropped",
+               "a completed drag fires onDrop, never the source's onClick"
+           )
+          && ok;
+      fired.clear();
+
+      // A host that discards its tree mid-drag (script reload) cancels the
+      // gesture: preview gone, source restored, and the later release is inert.
+      source->inputArea()->dispatchPress(2.0F, 2.0F, BTN_LEFT, true);
+      source->inputArea()->dispatchMotion(localX, localY);
+      ok = expect(source->dragging() && !overlay.children().empty(), "drag in flight before the cancel") && ok;
+      reconciler.cancelDragDrop();
+      ok = expect(
+               !source->dragging() && overlay.children().empty() && zone->minWidth() == 4.0F,
+               "cancelDragDrop removes the preview, restores the source and collapses the gap"
+           )
+          && ok;
+      source->inputArea()->dispatchPress(localX, localY, BTN_LEFT, false);
+      ok = expect(fired.empty(), "a release after the cancel fires neither onDrop nor onClick") && ok;
+    }
   }
 
   return ok ? 0 : 1;

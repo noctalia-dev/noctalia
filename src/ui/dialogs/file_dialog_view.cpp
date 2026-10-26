@@ -140,39 +140,42 @@ void FileDialogView::create() {
   listFocus->setParticipatesInLayout(false);
   m_listFocusArea = static_cast<InputArea*>(root->addChild(std::move(listFocus)));
 
-  root->addChild(
-      ui::row(
-          {
-              .align = FlexAlign::Center,
-              .gap = Style::spaceSm * scale,
-          },
-          ui::label({
-              .out = &m_titleLabel,
-              .fontSize = Style::fontSizeTitle * scale,
-              .fontWeight = FontWeight::Bold,
-              .color = colorSpecFromRole(ColorRole::Primary),
-          }),
-          ui::spacer(),
-          ui::button({
-              .glyph = "close",
-              .glyphSize = Style::fontSizeBody * scale,
-              .variant = ButtonVariant::Default,
-              .minWidth = Style::controlHeightSm * scale,
-              .minHeight = Style::controlHeightSm * scale,
-              .padding = Style::spaceXs * scale,
-              .radius = Style::scaledRadiusMd(scale),
-              .onClick = [this]() {
-                const std::weak_ptr<void> aliveGuard = m_aliveGuard;
-                DeferredCall::callLater([this, aliveGuard]() {
-                  if (aliveGuard.expired()) {
-                    return;
-                  }
-                  cancelDialog();
-                });
-              },
-          })
-      )
+  auto headerRow = ui::row({
+      .align = FlexAlign::Center,
+      .gap = Style::spaceSm * scale,
+  });
+  headerRow->addChild(
+      ui::label({
+          .out = &m_titleLabel,
+          .fontSize = Style::fontSizeTitle * scale,
+          .fontWeight = FontWeight::Bold,
+          .color = colorSpecFromRole(ColorRole::Primary),
+      })
   );
+  headerRow->addChild(ui::spacer());
+  if (Style::closeButtonsEnabled()) {
+    headerRow->addChild(
+        ui::button({
+            .glyph = "close",
+            .glyphSize = Style::fontSizeBody * scale,
+            .variant = ButtonVariant::Default,
+            .minWidth = Style::controlHeightSm * scale,
+            .minHeight = Style::controlHeightSm * scale,
+            .padding = Style::spaceXs * scale,
+            .radius = Style::scaledRadiusMd(scale),
+            .onClick = [this]() {
+              const std::weak_ptr<void> aliveGuard = m_aliveGuard;
+              DeferredCall::callLater([this, aliveGuard]() {
+                if (aliveGuard.expired()) {
+                  return;
+                }
+                cancelDialog();
+              });
+            },
+        })
+    );
+  }
+  root->addChild(std::move(headerRow));
 
   root->addChild(
       ui::row({
@@ -628,7 +631,9 @@ void FileDialogView::doUpdate(Renderer& renderer) {
   requestRedraw();
 }
 
-bool FileDialogView::handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit) {
+bool FileDialogView::handleGlobalKey(
+    std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit, bool repeat
+) {
   if (!pressed || preedit) {
     return false;
   }
@@ -653,9 +658,18 @@ bool FileDialogView::handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers,
     return true;
   }
 
-  if (KeySymbol::isBackspace(sym) && !isTextInputFocused()) {
-    navigateUp();
-    return true;
+  if (KeySymbol::isBackspace(sym)) {
+    if (!isTextInputFocused()) {
+      navigateUp();
+      return true;
+    }
+
+    const bool emptySearchFocused =
+        m_searchInput != nullptr && hostFocusedArea() == m_searchInput->inputArea() && m_searchInput->value().empty();
+    if (emptySearchFocused && !repeat) {
+      navigateUp();
+      return true;
+    }
   }
 
   if (m_visibleEntries.empty()) {
@@ -1009,6 +1023,11 @@ void FileDialogView::navigateInto(const std::filesystem::path& path) {
     return;
   }
   m_currentDirectory = path;
+  m_filterQuery.clear();
+  if (m_searchInput != nullptr) {
+    m_searchInput->setValue("");
+  }
+  FileDialog::setLastBrowsedDirectory(path);
   refreshDirectory();
 }
 

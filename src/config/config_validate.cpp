@@ -22,9 +22,11 @@
 #include "time/time_format.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <filesystem>
 #include <optional>
+#include <span>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -404,6 +406,18 @@ namespace noctalia::config {
       if ((*calendar)["accounts"].as_array() != nullptr) {
         diag.error("calendar.accounts", "calendar accounts now use [calendar.account.<id>] named tables");
       }
+      // An unparseable digest time silently disables the all-day digest, so say so.
+      if (const auto* reminders = (*calendar)["reminders"].as_table(); reminders != nullptr) {
+        const auto digestTime = (*reminders)["all_day_digest_time"].value<std::string>();
+        if (digestTime.has_value()
+            && !digestTime->empty()
+            && !day_night_schedule::normalizedClock(*digestTime).has_value()) {
+          diag.warn(
+              "calendar.reminders.all_day_digest_time",
+              "\"" + *digestTime + "\" is not a time of day in HH:MM form; the all-day digest is disabled"
+          );
+        }
+      }
       const auto* accounts = (*calendar)["account"].as_table();
       if (accounts == nullptr) {
         return;
@@ -505,6 +519,79 @@ namespace noctalia::config {
       }
     }
 
+    // Wrong-type checks for the keys the desktop and lockscreen widget parsers read by hand
+    // (config_service.cpp parseWidgetsPlacementSection); those parsers skip bad values silently.
+    void validateWidgetSectionTypes(const toml::table& section, std::string_view prefix, schema::Diagnostics& diag) {
+      struct Expected {
+        std::string_view key;
+        bool (*matches)(const toml::node&);
+        std::string_view description;
+      };
+      constexpr auto isBool = [](const toml::node& n) { return n.is_boolean(); };
+      constexpr auto isInt = [](const toml::node& n) { return n.value<std::int64_t>().has_value(); };
+      constexpr auto isNumber = [](const toml::node& n) { return n.is_number(); };
+      constexpr auto isString = [](const toml::node& n) { return n.is_string(); };
+      constexpr auto isTable = [](const toml::node& n) { return n.is_table(); };
+      const auto check = [&diag](const toml::table& tbl, std::string_view base, std::span<const Expected> keys) {
+        for (const Expected& expected : keys) {
+          if (const toml::node* node = tbl.get(expected.key); node != nullptr && !expected.matches(*node)) {
+            schema::warnWrongType(diag, schema::joinPath(base, expected.key), *node, expected.description);
+          }
+        }
+      };
+
+      static constexpr std::array kSection = {
+          Expected{"enabled", isBool, "a boolean"},
+          Expected{"schema_version", isInt, "an integer"},
+          Expected{"grid", isTable, "a table"},
+          Expected{"widget", isTable, "a table"},
+      };
+      check(section, prefix, kSection);
+      if (const toml::node* order = section.get("widget_order"); order != nullptr) {
+        if (const auto* arr = order->as_array()) {
+          (void)schema::readStringArray(*arr, schema::joinPath(prefix, "widget_order"), diag);
+        } else {
+          schema::warnWrongType(diag, schema::joinPath(prefix, "widget_order"), *order, "an array of strings");
+        }
+      }
+      if (const auto* grid = section["grid"].as_table()) {
+        static constexpr std::array kGrid = {
+            Expected{"visible", isBool, "a boolean"},
+            Expected{"cell_size", isInt, "an integer"},
+            Expected{"major_interval", isInt, "an integer"},
+        };
+        check(*grid, schema::joinPath(prefix, "grid"), kGrid);
+      }
+      const auto* widgets = section["widget"].as_table();
+      if (widgets == nullptr) {
+        return;
+      }
+      static constexpr std::array kWidget = {
+          Expected{"id", isString, "a string"},
+          Expected{"type", isString, "a string"},
+          Expected{"output", isString, "a string"},
+          Expected{"cx", isNumber, "a number"},
+          Expected{"cy", isNumber, "a number"},
+          Expected{"placement_width", isNumber, "a number"},
+          Expected{"placement_height", isNumber, "a number"},
+          Expected{"box_width", isNumber, "a number"},
+          Expected{"box_height", isNumber, "a number"},
+          Expected{"rotation", isNumber, "a number"},
+          Expected{"flip_x", isBool, "a boolean"},
+          Expected{"flip_y", isBool, "a boolean"},
+          Expected{"enabled", isBool, "a boolean"},
+          Expected{"settings", isTable, "a table"},
+      };
+      const std::string widgetBase = schema::joinPath(prefix, "widget");
+      for (const auto& [id, node] : *widgets) {
+        if (const auto* tbl = node.as_table()) {
+          check(*tbl, schema::joinPath(widgetBase, id.str()), kWidget);
+        } else {
+          schema::warnWrongType(diag, schema::joinPath(widgetBase, id.str()), node, "a table");
+        }
+      }
+    }
+
     void validateDesktopWidgets(
         const toml::table& root, schema::Diagnostics& diag, scripting::PluginRegistry& pluginRegistry
     ) {
@@ -512,6 +599,7 @@ namespace noctalia::config {
       if (dw == nullptr) {
         return;
       }
+      validateWidgetSectionTypes(*dw, "desktop_widgets", diag);
       static const std::unordered_set<std::string> kTopLevel = {
           "enabled", "schema_version", "grid", "widget", "widget_order"
       };
@@ -595,6 +683,7 @@ namespace noctalia::config {
       if (section == nullptr) {
         return;
       }
+      validateWidgetSectionTypes(*section, "lockscreen_widgets", diag);
       static const std::unordered_set<std::string> kTopLevel = {
           "enabled", "schema_version", "grid", "widget", "widget_order"
       };
@@ -676,13 +765,22 @@ namespace noctalia::config {
       }
       for (const auto& [name, node] : *bars) {
         if (name.str() == std::string_view("order")) {
+          if (const auto* arr = node.as_array()) {
+            (void)schema::readStringArray(*arr, "bar.order", diag);
+          } else {
+            schema::warnWrongType(diag, "bar.order", node, "an array of strings");
+          }
           continue;
         }
         const auto* barTbl = node.as_table();
         if (barTbl == nullptr) {
+          schema::warnWrongType(diag, "bar." + std::string(name.str()), node, "a table");
           continue;
         }
         const std::string base = "bar." + std::string(name.str());
+        if (const toml::node* position = barTbl->get("position"); position != nullptr && !position->is_string()) {
+          schema::warnWrongType(diag, base + ".position", *position, "a string");
+        }
         std::vector<std::string> unknown;
         schema::collectUnknownKeys(*barTbl, schema::barFieldsSchema(), base, unknown);
         for (const auto& path : unknown) {

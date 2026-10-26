@@ -79,6 +79,7 @@ const std::unordered_map<std::string, std::string_view> kAliases = {
     {"powersaver", "leaf"},
     {"shutdown", "power"},
     {"reboot", "refresh"},
+    {"reboot-uefi", "device-desktop-cog"},
     {"suspend", "player-pause"},
     {"hibernate", "zzz"},
 

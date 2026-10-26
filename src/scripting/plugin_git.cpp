@@ -2,6 +2,7 @@
 
 #include "core/log.h"
 #include "core/process/process.h"
+#include "scripting/plugin_source_paths.h"
 
 #include <chrono>
 #include <cstdlib>
@@ -98,16 +99,34 @@ namespace scripting::plugin_git {
       }
       return s;
     }
+
+    GitResult setOrigin(const std::filesystem::path& dest, std::string_view sourceLocation) {
+      return run(
+          {"git", "-C", dest.string(), "remote", "set-url", "origin", std::string(sourceLocation)}, kLocalTimeout,
+          kProgressCap
+      );
+    }
+
+    bool hasOrigin(const std::filesystem::path& dest) {
+      return run({"git", "-C", dest.string(), "config", "--get", "remote.origin.url"}, kLocalTimeout, kProgressCap).ok;
+    }
+
+    GitResult failure(std::string message) {
+      return GitResult{.ok = false, .exitCode = -1, .out = {}, .err = std::move(message), .timedOut = false};
+    }
   } // namespace
 
   bool available() { return process::commandExists("git"); }
 
   GitResult cloneBlobless(const std::string& url, const std::filesystem::path& dest) {
-    // Blobless but NOT shallow: full commit/tree history (still tiny — no file
+    // Blobless but NOT shallow: full commit/tree history (still tiny, no file
     // blobs until needed), so later fetches can inspect history normally. A `--depth 1`
     // shallow clone grafts fetched commits as disjoint roots ("unrelated histories").
+    // `--origin origin` pins the remote name: a user `clone.defaultRemoteName` would
+    // otherwise rename it and every later `origin` operation would fail.
     return run(
-        {"git", "clone", "--filter=blob:none", "--no-checkout", url, dest.string()}, kNetworkTimeout, kProgressCap
+        {"git", "clone", "--origin", "origin", "--filter=blob:none", "--no-checkout", url, dest.string()},
+        kNetworkTimeout, kProgressCap
     );
   }
 
@@ -144,17 +163,46 @@ namespace scripting::plugin_git {
     );
   }
 
-  GitResult setOrigin(const std::filesystem::path& dest, std::string_view sourceLocation) {
-    return run(
-        {"git", "-C", dest.string(), "remote", "set-url", "origin", std::string(sourceLocation)}, kLocalTimeout,
-        kProgressCap
-    );
+  GitResult ensureRepo(const std::filesystem::path& dest, std::string_view sourceLocation) {
+    std::error_code ec;
+    const bool checkedOut = std::filesystem::exists(dest / ".git", ec);
+    if (checkedOut && hasOrigin(dest)) {
+      return setOrigin(dest, sourceLocation);
+    }
+    if (checkedOut) {
+      // No `origin`: the clone that created this cache named its remote something else.
+      // Nothing in the cache can fetch, so discard it and clone canonically.
+      kLog.info("source cache {} has no 'origin' remote; re-cloning", dest.string());
+      if (!plugin_paths::removeTreeUnder(dest, dest.parent_path())) {
+        return failure("cannot remove stale source cache " + dest.string());
+      }
+    }
+    std::filesystem::create_directories(dest.parent_path(), ec);
+    if (ec) {
+      return failure(ec.message());
+    }
+    const auto cloned = cloneBlobless(std::string(sourceLocation), dest);
+    if (!cloned) {
+      return cloned;
+    }
+    if (!hasOrigin(dest)) {
+      // `git clone --origin origin` reported success without an `origin` remote, so the
+      // repo config is not what git wrote: report it instead of re-cloning on every
+      // refresh.
+      return failure(
+          "clone of "
+          + std::string(sourceLocation)
+          + " left no 'origin' remote in "
+          + dest.string()
+          + "; check `git config --show-origin --get-all clone.defaultRemoteName`, GIT_CONFIG_* in the environment, "
+            "and "
+            "that the cache path is writable"
+      );
+    }
+    return cloned;
   }
 
-  GitResult fetch(const std::filesystem::path& dest, std::string_view sourceLocation) {
-    if (auto configured = setOrigin(dest, sourceLocation); !configured) {
-      return configured;
-    }
+  GitResult fetch(const std::filesystem::path& dest) {
     // Updates remote-tracking refs + FETCH_HEAD without touching the working tree.
     return run({"git", "-C", dest.string(), "fetch", "origin"}, kNetworkTimeout, kProgressCap);
   }

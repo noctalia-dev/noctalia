@@ -36,7 +36,7 @@ namespace notification_dbus {
   uint32_t ingestNotify(
       NotificationManager& manager, const std::string& app_name, uint32_t replaces_id, const std::string& app_icon,
       const std::string& summary, const std::string& body, const std::vector<std::string>& actions,
-      const std::map<std::string, sdbus::Variant>& hints, int32_t expire_timeout
+      const std::map<std::string, sdbus::Variant>& hints, int32_t expire_timeout, const std::string& sender = ""
   );
 
 } // namespace notification_dbus
@@ -63,11 +63,16 @@ private:
   );
 
   void onCloseNotification(uint32_t id);
-  void emitClose(uint32_t id, CloseReason reason);
+  void emitClose(uint32_t id, CloseReason reason, const std::string& sender);
 
   void onInvokeAction(uint32_t id, const std::string& actionKey);
-  void emitActionInvoked(uint32_t id, const std::string& actionKey, const std::string& activationToken);
-  void emitActivationToken(uint32_t id, const std::string& activationToken);
+  void emitActionInvoked(
+      uint32_t id, const std::string& actionKey, const std::string& activationToken, const std::string& sender
+  );
+  void emitActivationToken(uint32_t id, const std::string& activationToken, const std::string& sender = "");
+  void emitNotificationReplied(
+      uint32_t id, const std::string& text, const std::string& activationToken, const std::string& sender
+  );
 
   std::vector<std::map<std::string, sdbus::Variant>> onGetNotifications();
 

@@ -73,7 +73,7 @@ public:
   [[nodiscard]] float fontSize() const noexcept;
   [[nodiscard]] const Color& color() const noexcept;
   [[nodiscard]] float maxWidth() const noexcept;
-  [[nodiscard]] FontWeight fontWeight() const noexcept;
+  [[nodiscard]] const TextFont& font() const noexcept;
   [[nodiscard]] TextAlign textAlign() const noexcept;
   [[nodiscard]] TextEllipsize ellipsize() const noexcept;
   [[nodiscard]] LabelBaselineMode baselineMode() const noexcept { return m_baselineMode; }
@@ -129,7 +129,7 @@ private:
   int m_cachedMaxLines = 0;
   TextAlign m_cachedTextAlign = TextAlign::Start;
   LabelBaselineMode m_cachedBaselineMode = LabelBaselineMode::Text;
-  FontWeight m_cachedFontWeight = FontWeight::Normal;
+  TextFont m_cachedFont;
   bool m_cachedAutoScroll = false;
   bool m_cachedHasConstraintMaxWidth = false;
   bool m_measureCached = false;

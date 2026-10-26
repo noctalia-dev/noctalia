@@ -134,7 +134,8 @@ namespace {
 
   void collectWorkspaceWindows(
       const nlohmann::json& node, const std::string& currentWorkspace, const std::string& currentWorkspaceKey,
-      std::vector<WorkspaceWindow>& windows
+      std::vector<WorkspaceWindow>& windows, std::string& focusedExtToplevelIdentifier,
+      bool& publishesExtToplevelIdentity
   ) {
     if (!node.is_object()) {
       return;
@@ -174,9 +175,18 @@ namespace {
     const bool hasNodes = nodesIt != node.end() && nodesIt->is_array();
     const bool hasFloating = floatingIt != node.end() && floatingIt->is_array();
     const bool isLeaf = (!hasNodes || nodesIt->empty()) && (!hasFloating || floatingIt->empty());
-    std::string windowId;
+    std::string swayNodeId;
     if (const auto idIt = node.find("id"); idIt != node.end() && idIt->is_number_integer()) {
-      windowId = std::to_string(idIt->get<std::int64_t>());
+      swayNodeId = std::to_string(idIt->get<std::int64_t>());
+    }
+    // Present only on nodes holding a view, and independent of app_id, so XWayland views are
+    // covered even though sway reports no app_id for them.
+    const std::string extIdentifier = jsonStringValue(node, "foreign_toplevel_identifier");
+    if (!extIdentifier.empty()) {
+      publishesExtToplevelIdentity = true;
+      if (node.value("focused", false)) {
+        focusedExtToplevelIdentifier = extIdentifier;
+      }
     }
     std::int32_t x = 0;
     std::int32_t y = 0;
@@ -185,10 +195,10 @@ namespace {
       y = rectIt->value("y", 0);
     }
 
-    if (isLeaf && !workspaceName.empty() && !workspaceKey.empty() && (!appId.empty() || !windowId.empty())) {
+    if (isLeaf && !workspaceName.empty() && !workspaceKey.empty() && !appId.empty()) {
       windows.push_back(
           WorkspaceWindow{
-              .windowId = windowId,
+              .windowId = swayNodeId,
               .workspaceKey = workspaceKey,
               .appId = appId,
               .title = StringUtils::windowTitleSingleLine(jsonStringValue(node, "name")),
@@ -201,12 +211,16 @@ namespace {
 
     if (hasNodes) {
       for (const auto& child : *nodesIt) {
-        collectWorkspaceWindows(child, workspaceName, workspaceKey, windows);
+        collectWorkspaceWindows(
+            child, workspaceName, workspaceKey, windows, focusedExtToplevelIdentifier, publishesExtToplevelIdentity
+        );
       }
     }
     if (hasFloating) {
       for (const auto& child : *floatingIt) {
-        collectWorkspaceWindows(child, workspaceName, workspaceKey, windows);
+        collectWorkspaceWindows(
+            child, workspaceName, workspaceKey, windows, focusedExtToplevelIdentifier, publishesExtToplevelIdentity
+        );
       }
     }
   }
@@ -434,6 +448,14 @@ std::vector<WorkspaceWindow> SwayWorkspaceBackend::workspaceWindows(wl_output* o
   return filtered;
 }
 
+void SwayWorkspaceBackend::focusWindow(const std::string& windowId) {
+  if (m_socketFd < 0 || windowId.empty()) {
+    return;
+  }
+
+  sendMessage(kIpcRunCommand, "[con_id=" + windowId + "] focus");
+}
+
 void SwayWorkspaceBackend::cleanup() {
   if (m_socketFd >= 0) {
     ::close(m_socketFd);
@@ -443,6 +465,7 @@ void SwayWorkspaceBackend::cleanup() {
   m_workspaces.clear();
   m_workspaceApps.clear();
   m_workspaceWindows.clear();
+  m_focusedExtToplevelIdentifier.clear();
 }
 
 void SwayWorkspaceBackend::dispatchPoll(short revents) {
@@ -643,8 +666,13 @@ void SwayWorkspaceBackend::parseTree(const std::string& payload) {
     collectWorkspaceApps(json, std::string{}, appIdsByWorkspace, seenPerWorkspace);
     m_workspaceApps = std::move(appIdsByWorkspace);
     std::vector<WorkspaceWindow> workspaceWindows;
-    collectWorkspaceWindows(json, std::string{}, std::string{}, workspaceWindows);
+    std::string focusedExtToplevelIdentifier;
+    collectWorkspaceWindows(
+        json, std::string{}, std::string{}, workspaceWindows, focusedExtToplevelIdentifier,
+        m_publishesExtToplevelIdentity
+    );
     m_workspaceWindows = std::move(workspaceWindows);
+    m_focusedExtToplevelIdentifier = std::move(focusedExtToplevelIdentifier);
 
     if (!m_workspaces.empty()) {
       for (auto& workspace : m_workspaces) {
@@ -669,6 +697,7 @@ Workspace SwayWorkspaceBackend::toWorkspace(const SwayWorkspace& workspace) {
       .id = workspace.name,
       .name = workspace.name,
       .coordinates = {coord},
+      .index = workspace.num > 0 ? static_cast<std::uint32_t>(workspace.num) : 0,
       .active = workspace.visible,
       .urgent = workspace.urgent,
       .occupied = workspace.occupied,

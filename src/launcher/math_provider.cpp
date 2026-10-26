@@ -1,17 +1,26 @@
 #include "launcher/math_provider.h"
 
 #include "config/config_service.h"
+#include "core/log.h"
 #include "i18n/i18n.h"
 #include "net/http_client.h"
 #include "wayland/clipboard_service.h"
 
 #include <cctype>
 #include <filesystem>
+#include <libqalculate/BuiltinFunctions.h>
 #include <libqalculate/Calculator.h>
+#include <libqalculate/Function.h>
+#include <libqalculate/util.h>
 #include <memory>
 #include <string>
 
 namespace {
+
+  constexpr Logger kLog("math");
+
+  constexpr Inotify::WatchMask kDefinitionsWatchMask =
+      IN_CLOSE_WRITE | IN_CREATE | IN_DELETE | IN_MOVED_FROM | IN_MOVED_TO | IN_DELETE_SELF | IN_MOVE_SELF;
 
   // Cheap pre-filter: the provider participates in global search on every keystroke,
   // so reject anything without a digit to avoid evaluating plain search text
@@ -50,14 +59,70 @@ MathProvider::~MathProvider() = default;
 std::string MathProvider::displayName() const { return i18n::tr("launcher.providers.calculator.title"); }
 
 void MathProvider::initialize() {
+  m_definitionsDir = std::filesystem::path(getLocalDataDir()) / "definitions";
+  watchDefinitionsDir();
+  rebuildCalculator();
+  refreshExchangeRates();
+}
+
+void MathProvider::onLauncherOpened() {
+  if (!m_calc) {
+    return;
+  }
+
+  bool changed = false;
+  bool watchLost = false;
+  m_inotify.drain([&changed, &watchLost](const inotify_event* event) {
+    changed = true;
+    if ((event->mask & (IN_DELETE_SELF | IN_MOVE_SELF)) != 0) {
+      watchLost = true;
+    }
+  });
+  if (watchLost && m_definitionsWatcher.has_value()) {
+    m_inotify.unwatch(*m_definitionsWatcher);
+    m_definitionsWatcher.reset();
+  }
+
+  // No watch but the directory exists: it was created since the last open.
+  if (!m_definitionsWatcher.has_value() && watchDefinitionsDir()) {
+    changed = true;
+  }
+  if (!changed) {
+    return;
+  }
+
+  kLog.debug("libqalculate user definitions changed, reloading");
+  rebuildCalculator();
+}
+
+void MathProvider::rebuildCalculator() {
+  // Calculator::reset() leaves lazily cached items (e.g. the radian unit) dangling, full recreation instead.
+  // Destroy the old instance first: ~Calculator clears the global CALCULATOR pointer the new one sets.
+  m_calc.reset();
   m_calc = std::make_unique<Calculator>();
   // Load any cached rates before definitions so currency units pick them up.
   m_calc->loadExchangeRates();
   m_calc->loadGlobalDefinitions();
+  m_calc->loadLocalDefinitions();
+  // These run programs or touch files, so a pasted expression could execute code while it is typed.
+  // Must run after loadLocalDefinitions(), which re-activates any inactive non-local function.
+  for (const int id : {FUNCTION_ID_COMMAND, FUNCTION_ID_PLOT, FUNCTION_ID_LOAD, FUNCTION_ID_EXPORT}) {
+    if (MathFunction* function = m_calc->getFunctionById(id); function != nullptr) {
+      function->setActive(false);
+    }
+  }
   // Pre-warm internal state (GMP randstate) so the destructor path is safe.
   m_calc->calculate("0");
   m_calc->clearMessages();
-  refreshExchangeRates();
+}
+
+bool MathProvider::watchDefinitionsDir() {
+  std::error_code ec;
+  if (!std::filesystem::is_directory(m_definitionsDir, ec)) {
+    return false;
+  }
+  m_definitionsWatcher = m_inotify.watch(m_definitionsDir, kDefinitionsWatchMask);
+  return m_definitionsWatcher.has_value();
 }
 
 void MathProvider::refreshExchangeRates() {

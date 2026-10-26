@@ -187,6 +187,17 @@ private:
   bool onSetPreferredPlayers(const std::vector<std::string>& preferredBusNames);
   [[nodiscard]] std::tuple<bool, std::string, std::vector<std::string>> onGetPlayerPreferences() const;
 
+  /// @see PipeWireService::relativeAdjustTarget
+  [[nodiscard]] float relativeAdjustTarget(
+      const std::string& busName, int gesture, float baseStep, float direction, float current, float maxVolume
+  );
+  struct RelativeAdjust {
+    std::chrono::steady_clock::time_point lastAt;
+    float target = 0.0F;
+    int gesture = 0;
+  };
+  std::unordered_map<std::string, RelativeAdjust> m_relativeAdjust;
+
   SessionBus& m_bus;
   std::shared_ptr<void> m_aliveGuard = std::make_shared<int>(0);
   std::unique_ptr<sdbus::IObject> m_controlObject;

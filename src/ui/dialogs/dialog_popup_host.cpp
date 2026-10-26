@@ -2,7 +2,7 @@
 
 #include "config/config_service.h"
 #include "core/deferred_call.h"
-#include "core/input/key_symbols.h"
+#include "core/input/keybind_matcher.h"
 #include "core/ui_phase.h"
 #include "render/render_context.h"
 #include "render/scene/node.h"
@@ -337,7 +337,7 @@ void DialogPopupHost::onKeyboardEvent(const KeyboardEvent& event) {
     return;
   }
 
-  if (event.pressed && !event.preedit && KeySymbol::isEscape(event.sym)) {
+  if (event.pressed && !event.preedit && KeybindMatcher::matches(KeybindAction::Cancel, event.sym, event.modifiers)) {
     cancel();
     return;
   }

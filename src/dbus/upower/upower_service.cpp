@@ -48,6 +48,22 @@ std::string batteryStateLabel(BatteryState state) {
   }
 }
 
+std::optional<bool> batteryStatePlugged(BatteryState state) {
+  switch (state) {
+  case BatteryState::Charging:
+  case BatteryState::FullyCharged:
+  case BatteryState::PendingCharge:
+    return true;
+  case BatteryState::Discharging:
+  case BatteryState::PendingDischarge:
+    return false;
+  case BatteryState::Unknown:
+  case BatteryState::Empty:
+    return std::nullopt;
+  }
+  return std::nullopt;
+}
+
 const char* batteryGlyphName(double percentage, BatteryState state) {
   if (state == BatteryState::Charging) {
     return "battery-charging";
@@ -257,6 +273,10 @@ std::optional<double> UPowerDeviceInfo::healthPercent() const {
 }
 
 bool UPowerChargeLimitState::hasRestrictiveThreshold() const {
+  // Huawei-WMI EC expresses "no limit / full charge" as start=95 end=100 rather than 0/100.
+  if (effectiveStart == 95U && effectiveEnd == 100U) {
+    return false;
+  }
   return (effectiveStart.has_value() && *effectiveStart > 0U && *effectiveStart < 100U)
       || (effectiveEnd.has_value() && *effectiveEnd < 100U);
 }

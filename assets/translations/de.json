@@ -258,7 +258,6 @@
       "uptime": "Betriebszeit – {uptime}",
       "weather": {
         "data-unavailable": "Wetterdaten nicht verfügbar.",
-        "disabled": "Wetter ist in der Konfiguration deaktiviert.",
         "fetching": "Vorhersage wird abgerufen…"
       }
     },
@@ -907,7 +906,7 @@
       "inherited": "Geerbt",
       "monitor": "Monitor",
       "official": "Offiziell",
-      "override": "Überschrieben"
+      "override": "Überschreiben"
     },
     "calendar-accounts": {
       "add-title": "Kalenderkonto hinzufügen",
@@ -1197,7 +1196,6 @@
         "borders": "Rahmen",
         "brightness": "Helligkeit",
         "built-in": "Integriert",
-        "calendar": "Kalender",
         "capsules": "Kapseln",
         "clipboard": "Zwischenablage",
         "community": "Community",
@@ -1386,10 +1384,6 @@
       "orientation": {
         "horizontal": "Horizontal",
         "vertical": "Vertikal"
-      },
-      "panel-bar-alignment": {
-        "centered": "Zentriert",
-        "near-trigger": "Nahe Trigger"
       },
       "panel-position": {
         "auto": "Leiste folgen"
@@ -2012,10 +2006,6 @@
         "main-axis-padding": {
           "description": "Innenabstand an den Enden der Iconreihe (vor dem ersten und nach dem letzten Icon)"
         },
-        "monitors": {
-          "description": "Wähle, welche Monitore das Dock anzeigen (leer lassen für alle); die Filterung nach aktivem Monitor gilt innerhalb dieser Monitore",
-          "label": "Monitore"
-        },
         "pinned-apps": {
           "description": "Desktop-Eintrag-IDs der an das Dock angehefteten Apps",
           "label": "Angeheftete Apps"
@@ -2341,10 +2331,6 @@
           "description": "Zeige App-Aktionseinträge neben Apps in den Ergebnissen an",
           "label": "App-Aktionen anzeigen"
         },
-        "launcher-app-grid": {
-          "description": "Zeige ein Raster von App-Icons mit Beschriftungen darunter, wenn die Ergebnisse ausschließlich Apps sind",
-          "label": "App-Rasteransicht"
-        },
         "launcher-app-origin-indicator": {
           "description": "Zeige Paketherkunft-Indikatoren bei App-Ergebnissen an",
           "label": "App-Herkunft-Indikatoren anzeigen"
@@ -2354,7 +2340,7 @@
           "label": "Auto-Paste"
         },
         "launcher-categories": {
-          "description": "Zeige einen Kategoriefilter im Launcher; mit F6 einblenden, danach mit F6 und Shift+F6 wechseln",
+          "description": "Zeige die „Alle“-, „Zuletzt verwendet“- und Kategorie-Chips unter dem Suchfeld an",
           "label": "Kategorien anzeigen"
         },
         "launcher-compact": {
@@ -2385,8 +2371,12 @@
           "description": "Zeige offene Fenster auch in der unpräfixierten Suche",
           "label": "Fenster in globaler Suche"
         },
+        "launcher-grid": {
+          "description": "Zeige Ergebnisse und die Modulübersicht als Icon-Raster statt als Zeilen an",
+          "label": "Rasteransicht"
+        },
         "launcher-pinned-apps": {
-          "description": "Desktop-Entry-IDs von Apps, die im Launcher angeheftet sind; sie erscheinen zuerst, wenn der Launcher geöffnet wird",
+          "description": "Desktop-Entry-IDs, die in manueller Reihenfolge in der Ansicht „Angeheftet“ angezeigt werden",
           "label": "Angeheftete Apps"
         },
         "launcher-prefix-calculator": {
@@ -2415,7 +2405,7 @@
         },
         "launcher-reset-usage": {
           "button": "Zurücksetzen",
-          "description": "Lösche Startzähler und den Verlauf der zuletzt verwendeten Einträge, die für die Launcher-Sortierung genutzt werden",
+          "description": "Lösche den Launcher-Verlauf, der für „Zuletzt verwendet“ und die nutzungsbasierte Sortierung verwendet wird",
           "label": "Nutzungsdaten zurücksetzen"
         },
         "launcher-session-search": {
@@ -2427,7 +2417,7 @@
           "label": "App-Icons anzeigen"
         },
         "launcher-sort-by-usage": {
-          "description": "Schiebe häufig verwendete Apps weiter nach oben und zeige einen Filter für die Kategorie „Zuletzt verwendet“",
+          "description": "Priorisiere häufig verwendete Ergebnisse in der Standardansicht und bei der Suche",
           "label": "Nach Nutzung sortieren"
         },
         "list-item-background": {
@@ -3013,12 +3003,12 @@
           "label": "In Zwischenablage kopieren"
         },
         "screenshot-directory": {
-          "description": "Ordner für gespeicherte PNG-Dateien; leer lassen, um das Standard-XDG-Bilderverzeichnis zu verwenden",
+          "description": "Ordner für gespeicherte Screenshot-Dateien; leer lassen, um das Standard-XDG-Bilderverzeichnis zu verwenden",
           "label": "Ausgabeverzeichnis",
           "placeholder": "XDG-Bilderverzeichnis"
         },
         "screenshot-filename-pattern": {
-          "description": "strftime-Muster ohne Dateiendung (.png wird hinzugefügt); verwende %s für Unix-Epoche",
+          "description": "strftime-Muster ohne Dateiendung (die Endung des Formats wird automatisch hinzugefügt); verwende %s für Unix-Epoche",
           "label": "Dateinamenmuster"
         },
         "screenshot-freeze-screen": {
@@ -3039,7 +3029,7 @@
           "label": "Letzten Bereich merken"
         },
         "screenshot-save-to-file": {
-          "description": "Speichere Screenshots als PNG-Dateien in das Ausgabeverzeichnis",
+          "description": "Speichere Screenshots im gewählten Dateiformat im Ausgabeverzeichnis",
           "label": "In Datei speichern"
         },
         "screenshot-show-cursor": {
@@ -3947,7 +3937,7 @@
     "window": {
       "export-config": "Konfiguration exportieren…",
       "export-config-saved": "Konfigurationsexport gespeichert.",
-      "filter-overridden": "Überschrieben",
+      "filter-overridden": "Überschreiben",
       "legacy-config-warning": "Veraltete Einstellung: {issue}. Bearbeite diesen Quelleintrag; Noctalia wendet den Ersatz nur vorübergehend an. Führe noctalia config validate aus, um alle erforderlichen Änderungen aufzulisten.",
       "native-title": "Noctalia-Einstellungen",
       "no-results": "Keine Einstellungen gefunden",
@@ -3961,7 +3951,6 @@
         "plugin-store": "Fernzugriff auf den Plugin-Katalog und Download-Anfragen werden nicht funktionieren.",
         "plugins": "Plugin-HTTP-Anfragen werden nicht funktionieren; Git-Quellen können weiterhin aktualisiert werden.",
         "security": "Externe IP-Abfrage und Telemetrie werden nicht funktionieren.",
-        "services": "Kalenderkonten-Synchronisierung wird nicht funktionieren.",
         "template-store": "Community-Template-Downloads werden nicht funktionieren.",
         "templates": "Community-Template-Downloads und -Aktualisierungen werden nicht funktionieren.",
         "title": "Offline-Modus"
