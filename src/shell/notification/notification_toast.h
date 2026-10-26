@@ -191,7 +191,7 @@ private:
   [[nodiscard]] float cardSurfaceY(const Instance& inst, std::size_t entryIndex) const;
   void alignBottomStackToPlacementBottom(wl_output* output);
   [[nodiscard]] std::optional<float> findPlacementY(
-      float entryHeight, wl_output* output, std::optional<uint32_t> ignoreNotificationId = std::nullopt
+      float candidateHeight, wl_output* targetOutput, std::optional<uint32_t> ignoreNotificationId = std::nullopt
   ) const;
   [[nodiscard]] uint32_t surfaceHeightForOutput(wl_output* output) const;
   // Configured render scale of a notification output, for pre-surface sizing.

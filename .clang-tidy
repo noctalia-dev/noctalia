@@ -26,6 +26,7 @@ Checks: >-
   readability-container-contains,
   readability-container-data-pointer,
   readability-container-size-empty,
+  readability-inconsistent-declaration-parameter-name,
   readability-redundant-casting,
   readability-redundant-lambda-parameter-list,
   readability-redundant-member-init,

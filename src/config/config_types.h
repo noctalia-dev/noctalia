@@ -485,7 +485,7 @@ capsuleGroupRefsForMonitorScope(const BarConfig& bar, const BarMonitorOverride& 
 [[nodiscard]] float
 resolveWidgetContentScale(float barScale, const WidgetConfig* widget, std::string_view context = "widget.scale");
 [[nodiscard]] float
-resolveWidgetFontScale(float barScale, const WidgetConfig* widget, std::string_view context = "widget");
+resolveWidgetFontScale(float barFontScale, const WidgetConfig* widget, std::string_view context = "widget");
 
 // Shared output selector matching used by monitor-scoped config and IPC selectors.
 // Matches connector name exactly, or a word-boundary token within output description.
