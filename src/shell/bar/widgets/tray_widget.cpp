@@ -859,31 +859,9 @@ bool TrayWidget::isHiddenItem(const TrayItemInfo& item) const {
     return false;
   }
 
-  std::vector<std::string> candidates;
-  auto appendVariants = [&candidates](std::string_view text) {
-    for (const auto& variant : identifierVariants(text)) {
-      if (!std::ranges::contains(candidates, variant)) {
-        candidates.push_back(variant);
-      }
-    }
-  };
-
-  appendVariants(item.id);
-  appendVariants(item.busName);
-  appendVariants(item.objectPath);
-  appendVariants(item.itemName);
-  appendVariants(item.processName);
-  appendVariants(item.title);
-  appendVariants(item.iconName);
-  appendVariants(item.attentionIconName);
-
-  for (const auto& needle : m_hiddenItems) {
-    if (std::ranges::contains(candidates, needle)) {
-      return true;
-    }
-  }
-
-  return false;
+  return std::ranges::any_of(m_hiddenItems, [&](const auto& needle) {
+    return tray::hiddenTokenMatchesItem(needle, item);
+  });
 }
 
 bool TrayWidget::isPinnedItem(const TrayItemInfo& item) const {
@@ -891,7 +869,9 @@ bool TrayWidget::isPinnedItem(const TrayItemInfo& item) const {
     return false;
   }
 
-  return std::ranges::any_of(m_pinnedItems, [&](const auto& needle) { return tray::tokenMatchesItem(needle, item); });
+  return std::ranges::any_of(m_pinnedItems, [&](const auto& needle) {
+    return tray::pinnedTokenMatchesItem(needle, item);
+  });
 }
 
 void TrayWidget::buildDesktopIconIndex() {

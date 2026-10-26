@@ -996,7 +996,7 @@ bool TrayMenu::activeItemPinned() const {
   }
   const auto resolved = tray::resolvedTrayOptions(*m_config);
   return std::ranges::any_of(resolved.options.pinnedItems, [&](const auto& token) {
-    return tray::tokenMatchesItem(token, *item);
+    return tray::pinnedTokenMatchesItem(token, *item);
   });
 }
 
@@ -1014,10 +1014,10 @@ bool TrayMenu::toggleActiveItemPinned() {
     return tray::looksGenericStatusItemName(token) || tray::isTransientUniqueIdentifier(token);
   });
   const bool currentlyPinned =
-      std::ranges::any_of(pinned, [&](const std::string& token) { return tray::tokenMatchesItem(token, *item); });
+      std::ranges::any_of(pinned, [&](const std::string& token) { return tray::pinnedTokenMatchesItem(token, *item); });
 
   if (currentlyPinned) {
-    std::erase_if(pinned, [&](const std::string& token) { return tray::tokenMatchesItem(token, *item); });
+    std::erase_if(pinned, [&](const std::string& token) { return tray::pinnedTokenMatchesItem(token, *item); });
     kLog.info(
         "tray pin removed token for id={} itemName='{}' title='{}' sniTitle='{}' icon='{}' process='{}' "
         "bus='{}'",
