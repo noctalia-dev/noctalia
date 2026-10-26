@@ -224,15 +224,12 @@ namespace {
 
     std::vector<std::string> gpus;
     for (const auto& cardPath : cardPaths) {
-      const auto name = cardPath.filename().string();
-
       const auto deviceDir = cardPath / "device";
       if (!fs::exists(deviceDir)) {
         continue;
       }
 
-      auto driverLine = readSysfsLine(deviceDir / "uevent");
-      // uevent has multiple lines; re-read and search for DRIVER=
+      // uevent has multiple lines; search for DRIVER=
       std::string driver;
       {
         std::ifstream uevent{deviceDir / "uevent"};

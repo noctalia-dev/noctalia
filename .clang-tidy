@@ -2,6 +2,7 @@ Checks: >-
   -clang-diagnostic-gnu-statement-expression-from-macro-expansion,
   -clang-diagnostic-sign-conversion,
   bugprone-optional-value-conversion,
+  bugprone-unused-local-non-trivial-variable,
   bugprone-use-after-move,
   modernize-avoid-c-style-cast,
   modernize-loop-convert,
