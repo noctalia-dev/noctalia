@@ -111,7 +111,9 @@ namespace {
   [[nodiscard]] bool overviewTypeToLaunchEnabled(const ConfigService& configService) {
     if (compositors::isUmbriel()) {
       return configService.config().shell.umbrielOverviewTypeToLaunchEnabled;
-    } else if (compositors::isNiri()) {
+    }
+
+    if (compositors::isNiri()) {
       return configService.config().shell.niriOverviewTypeToLaunchEnabled;
     }
     return false;
@@ -120,7 +122,9 @@ namespace {
   [[nodiscard]] bool overviewCloseOnLaunchEnabled(const ConfigService& configService) {
     if (compositors::isUmbriel()) {
       return configService.config().shell.umbrielOverviewCloseOnLaunchEnabled;
-    } else if (compositors::isNiri()) {
+    }
+
+    if (compositors::isNiri()) {
       return configService.config().shell.niriOverviewCloseOnLaunchEnabled;
     }
     return false;

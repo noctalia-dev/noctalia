@@ -169,7 +169,9 @@ namespace {
       if (!token.empty()) {
         if (std::ranges::find(onlyShowIn, token) != onlyShowIn.end()) {
           return true;
-        } else if (std::ranges::find(notShowIn, token) != notShowIn.end()) {
+        }
+
+        if (std::ranges::find(notShowIn, token) != notShowIn.end()) {
           return false;
         }
       }

@@ -1018,7 +1018,9 @@ namespace noctalia::theme {
             return joinLower(formatColor(color, formatType), "-");
           if (name == "to_color") {
             continue;
-          } else if (kColorArgFilters.contains(name)) {
+          }
+
+          if (kColorArgFilters.contains(name)) {
             try {
               color = applyColorArgFilter(color, name, arg);
             } catch (...) {
@@ -1101,7 +1103,9 @@ namespace noctalia::theme {
             return joinLower(formatColor(color, formatType), "-");
           if (name == "to_color") {
             continue;
-          } else if (kColorArgFilters.contains(name)) {
+          }
+
+          if (kColorArgFilters.contains(name)) {
             try {
               color = applyColorArgFilter(color, name, arg);
             } catch (...) {

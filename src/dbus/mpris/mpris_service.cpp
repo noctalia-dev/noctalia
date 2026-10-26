@@ -1846,9 +1846,13 @@ void MprisService::addOrRefreshPlayer(const std::string& busName) {
                             m_positionResyncTimers.erase(it);
                           }
                           return;
-                        } else if (failureCount > kPlayerPropertiesFailureThreshold) {
+                        }
+
+                        if (failureCount > kPlayerPropertiesFailureThreshold) {
                           return;
-                        } else if (failureCount > 1) {
+                        }
+
+                        if (failureCount > 1) {
                           // Keep the first failure on the normal retry cadence before backing off.
                           // Apply exponential backoff
                           auto& backoff = m_playerPropertiesRefreshBackoffMs[busName];
