@@ -2587,7 +2587,8 @@ void Bar::populateWidgets(BarInstance& instance) {
   }
 
   const auto& widgetConfigs = m_config->config().widgets;
-  const auto labelFontWeight = static_cast<FontWeight>(instance.barConfig.fontWeight);
+  const auto labelFontWeight =
+      static_cast<FontWeight>(instance.barConfig.fontWeight.value_or(m_config->config().shell.fontWeight));
   const std::string barFontFamily = (instance.barConfig.fontFamily && !instance.barConfig.fontFamily->empty())
       ? *instance.barConfig.fontFamily
       : m_config->config().shell.fontFamily;

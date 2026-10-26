@@ -254,6 +254,9 @@ namespace {
     if (ovr.fontStyle) {
       resolved.fontStyle = ovr.fontStyle;
     }
+    if (ovr.fontWeight) {
+      resolved.fontWeight = ovr.fontWeight;
+    }
     if (ovr.startWidgets) {
       resolved.startWidgets = *ovr.startWidgets;
     }

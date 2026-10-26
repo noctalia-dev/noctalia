@@ -138,6 +138,7 @@ struct BarMonitorOverride {
   std::optional<float> capsuleThickness;          // capsule cross-size as a fraction of bar thickness
   std::optional<std::string> fontFamily;          // unset = inherit shell.font_family
   std::optional<FontStyle> fontStyle;             // unset = inherit shell.font_style
+  std::optional<std::int32_t> fontWeight;         // unset = inherit shell.font_weight
   std::optional<float> scale;
   std::optional<float> fontScale;
   std::optional<std::vector<std::string>> startWidgets;
@@ -221,7 +222,8 @@ struct BarConfig {
   float capsuleThickness = 0.76F; // capsule cross-size as a fraction of bar thickness
   float scale = 1.0F;             // content scale multiplier for glyphs and text
   float fontScale = 1.0F;         // font scale multiplier, independent of content scale
-  int fontWeight = 500;           // primary label weight for bar widgets
+  // Primary label weight for this bar's widgets; unset inherits shell.font_weight. Per-widget `font_weight` overrides.
+  std::optional<std::int32_t> fontWeight;
   // Typeface for this bar's widgets; unset inherits shell.font_family. Per-widget `font_family` overrides.
   std::optional<std::string> fontFamily;
   // Style for this bar's widgets; unset inherits shell.font_style. Per-widget `font_style` overrides.
@@ -1350,7 +1352,8 @@ struct ShellConfig {
   bool showCloseButtons = true;
   std::string fontFamily = "sans-serif";
   FontStyle fontStyle = FontStyle::Normal;
-  std::string lang; // empty = auto-detect from $LC_ALL/$LC_MESSAGES/$LANG
+  int fontWeight = 500; // label weight for bar widgets that leave font_weight unset
+  std::string lang;     // empty = auto-detect from $LC_ALL/$LC_MESSAGES/$LANG
   std::string timeFormat = "{:%H:%M}";
   std::string dateFormat = "%A, %x";
   bool offlineMode = false;

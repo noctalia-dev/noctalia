@@ -1076,11 +1076,15 @@ void Application::initWidgetControllersAndCallbacks() {
 
   std::string lastShellFontFamily = m_configService.config().shell.fontFamily;
   FontStyle lastShellFontStyle = m_configService.config().shell.fontStyle;
+  int lastShellFontWeight = m_configService.config().shell.fontWeight;
   m_configService.addReloadCallback(
-      [this, lastShellFontFamily, lastShellFontStyle] mutable {
+      [this, lastShellFontFamily, lastShellFontStyle, lastShellFontWeight] mutable {
         const std::string& newShellFontFamily = m_configService.config().shell.fontFamily;
         const FontStyle newShellFontStyle = m_configService.config().shell.fontStyle;
-        if (newShellFontFamily == lastShellFontFamily && newShellFontStyle == lastShellFontStyle) {
+        const int newShellFontWeight = m_configService.config().shell.fontWeight;
+        if (newShellFontFamily == lastShellFontFamily
+            && newShellFontStyle == lastShellFontStyle
+            && newShellFontWeight == lastShellFontWeight) {
           return;
         }
 
@@ -1090,6 +1094,7 @@ void Application::initWidgetControllersAndCallbacks() {
           m_renderContext.setTextFontFamily(newShellFontFamily);
         }
         lastShellFontStyle = newShellFontStyle;
+        lastShellFontWeight = newShellFontWeight;
         m_renderContext.setTextFontStyle(newShellFontStyle);
         m_bar.reload();
         m_dock.requestLayout();

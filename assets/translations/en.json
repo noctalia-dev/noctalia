@@ -1998,6 +1998,10 @@
           "description": "Font style for the shell interface",
           "label": "Font Style"
         },
+        "font-weight": {
+          "description": "Default weight for bar widget labels; bars and widgets can override it",
+          "label": "Font Weight"
+        },
         "global-shadow-alpha": {
           "description": "Global surface shadow opacity"
         },
@@ -2201,7 +2205,7 @@
           "label": "Font Style"
         },
         "font-weight": {
-          "description": "Default weight for widget labels on this bar.",
+          "description": "Weight for this bar's widget labels; Inherit uses the global font weight (per-widget Font Weight overrides this)",
           "label": "Font Weight"
         },
         "hover-highlight": {

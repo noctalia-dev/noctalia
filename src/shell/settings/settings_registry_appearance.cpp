@@ -191,6 +191,11 @@ namespace settings::registry {
         enumSelect(kFontStyles, cfg.shell.fontStyle), "italic slant typeface"
     ));
     entries.push_back(makeEntry(
+        SettingsSection::Appearance, "interface", tr("settings.schema.appearance.font-weight.label"),
+        tr("settings.schema.appearance.font-weight.description"), {"shell", "font_weight"},
+        fontWeightSelect(cfg.shell.fontFamily, cfg.shell.fontWeight, false), "bold weight typeface"
+    ));
+    entries.push_back(makeEntry(
         SettingsSection::Appearance, "interface", tr("settings.schema.appearance.language.label"),
         tr("settings.schema.appearance.language.description"), {"shell", "lang"}, languageSelect(cfg.shell.lang),
         "locale translation", true

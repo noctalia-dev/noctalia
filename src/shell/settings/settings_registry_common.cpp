@@ -6,6 +6,7 @@
 #include "shell/bar/widget_gesture.h"
 #include "shell/bar/widget_gesture_defaults.h"
 #include "shell/settings/color_spec_picker.h"
+#include "shell/settings/font_weight_catalog.h"
 #include "shell/settings/settings_registry.h"
 #include "ui/palette.h"
 #include "util/string_utils.h"
@@ -117,6 +118,21 @@ namespace settings::registry {
     }
     SelectSetting select{std::move(opts), std::move(selectedValue)};
     select.clearOnEmpty = true;
+    return select;
+  }
+
+  SelectSetting fontWeightSelect(std::string_view fontFamily, std::optional<int> selected, bool inherit) {
+    std::vector<SelectOption> opts;
+    if (inherit) {
+      opts.push_back(SelectOption{"", i18n::tr("common.states.inherit")});
+    }
+    for (const auto& option :
+         buildLabelFontWeightSelectOptions(fontFamily, FontWeightSelectKind::BarDefault, selected)) {
+      opts.push_back(SelectOption{option.value, i18n::tr(option.labelKey)});
+    }
+    SelectSetting select{std::move(opts), selected ? std::to_string(*selected) : std::string{}};
+    select.valueType = SelectValueType::Integer;
+    select.clearOnEmpty = inherit;
     return select;
   }
 

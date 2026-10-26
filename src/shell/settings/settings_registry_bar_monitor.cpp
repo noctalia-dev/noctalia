@@ -270,6 +270,14 @@ namespace settings::registry {
             fontStyleOverrideSelect(ovr.fontStyle), "italic slant font", true
         ));
         entries.push_back(makeEntry(
+            section, "widgets", tr("settings.schema.bar.font-weight.label"),
+            tr("settings.schema.bar.font-weight.description"), monitorPath("font_weight"),
+            fontWeightSelect(
+                ovr.fontFamily.value_or(bar.fontFamily.value_or(cfg.shell.fontFamily)), ovr.fontWeight, true
+            ),
+            "font text weight", true
+        ));
+        entries.push_back(makeEntry(
             section, "widgets", tr("settings.schema.bar.widget-spacing.label"),
             tr("settings.schema.bar.widget-spacing.description"), monitorPath("widget_spacing"),
             SliderSetting{ovr.widgetSpacing.value_or(bar.widgetSpacing), 0.0F, 32.0F, 1.0F, true}, "gap"

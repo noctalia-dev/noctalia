@@ -59,6 +59,8 @@ namespace settings::registry {
   SelectSetting positionSelect(std::string_view selected);
   // Inherit / Normal / Italic; Inherit (empty) removes the override key.
   SelectSetting fontStyleOverrideSelect(std::optional<FontStyle> selected);
+  // Weights the font provides; with `inherit`, a leading Inherit (empty) option removes the override key.
+  SelectSetting fontWeightSelect(std::string_view fontFamily, std::optional<int> selected, bool inherit);
 
   SliderSetting barCornerSlider(std::int32_t value);
   SliderSetting barReservedSlider(double value, double maxValue, double step, bool integer);

@@ -4,7 +4,6 @@
 #include "shell/app_icon_colorization_settings.h"
 #include "shell/bar/widget_gesture.h"
 #include "shell/control_center/shortcut_registry.h"
-#include "shell/settings/font_weight_catalog.h"
 #include "shell/settings/settings_registry.h"
 #include "shell/settings/settings_registry_common.h"
 
@@ -230,22 +229,11 @@ namespace settings::registry {
           tr("settings.schema.bar.font-style.description"), path("font_style"), fontStyleOverrideSelect(bar.fontStyle),
           "italic slant font"
       ));
-      {
-        std::vector<SelectOption> fontWeightOptions;
-        const auto widgetOptions =
-            buildLabelFontWeightSelectOptions(barResolvedFontFamily, FontWeightSelectKind::BarDefault, bar.fontWeight);
-        fontWeightOptions.reserve(widgetOptions.size());
-        for (const auto& option : widgetOptions) {
-          fontWeightOptions.push_back(SelectOption{option.value, tr(option.labelKey)});
-        }
-        SelectSetting fontWeightSelect{std::move(fontWeightOptions), std::to_string(bar.fontWeight)};
-        fontWeightSelect.valueType = SelectValueType::Integer;
-        entries.push_back(makeEntry(
-            section, "widgets", tr("settings.schema.bar.font-weight.label"),
-            tr("settings.schema.bar.font-weight.description"), path("font_weight"), std::move(fontWeightSelect),
-            "font text weight"
-        ));
-      }
+      entries.push_back(makeEntry(
+          section, "widgets", tr("settings.schema.bar.font-weight.label"),
+          tr("settings.schema.bar.font-weight.description"), path("font_weight"),
+          fontWeightSelect(barResolvedFontFamily, bar.fontWeight, true), "font text weight"
+      ));
       entries.push_back(makeEntry(
           section, "widgets", tr("settings.schema.bar.widget-spacing.label"),
           tr("settings.schema.bar.widget-spacing.description"), path("widget_spacing"),
