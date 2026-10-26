@@ -208,12 +208,8 @@ TaskbarWidget::TaskbarWidget(
 )
     : m_platform(platform), m_configService(config), m_output(output), m_configOptions(std::move(options)),
       m_showAllOutputs(m_configOptions.showAllOutputs),
-      m_workspaceGroupActiveBorder(
-          scaleAlpha(m_configOptions.workspaceGroupActiveBorderColor, m_configOptions.workspaceGroupActiveBorderOpacity)
-      ),
-      m_workspaceGroupInactiveBorder(scaleAlpha(
-          m_configOptions.workspaceGroupInactiveBorderColor, m_configOptions.workspaceGroupInactiveBorderOpacity
-      )),
+      m_workspaceGroupActiveBorder(m_configOptions.workspaceGroupActiveBorderColor),
+      m_workspaceGroupInactiveBorder(m_configOptions.workspaceGroupInactiveBorderColor),
       m_focusedOutputOnly(m_configOptions.focusedOutputOnly), m_minimal(m_configOptions.minimal),
       m_showActiveIndicator(m_configOptions.showActiveIndicator),
       m_activeIndicatorColor(m_configOptions.activeIndicatorColor), m_activeOpacity(m_configOptions.activeOpacity),

@@ -196,22 +196,8 @@ const noctalia::bar::WidgetDefinition<TaskbarWidgetOptions>& taskbarWidgetDefini
                       .key = "workspace_group_active_border_color",
                       .presentation = presentation("taskbar.grouping", groupedOnly(), true),
                   }),
-                  field<&Options::workspaceGroupActiveBorderOpacity>({
-                      .key = "workspace_group_active_border_opacity",
-                      .minValue = 0.0,
-                      .maxValue = 1.0,
-                      .step = 0.01,
-                      .presentation = presentation("taskbar.grouping", groupedOnly(), true),
-                  }),
                   field<&Options::workspaceGroupInactiveBorderColor>({
                       .key = "workspace_group_inactive_border_color",
-                      .presentation = presentation("taskbar.grouping", groupedOnly(), true),
-                  }),
-                  field<&Options::workspaceGroupInactiveBorderOpacity>({
-                      .key = "workspace_group_inactive_border_opacity",
-                      .minValue = 0.0,
-                      .maxValue = 1.0,
-                      .step = 0.01,
                       .presentation = presentation("taskbar.grouping", groupedOnly(), true),
                   }),
                   field<&Options::groupSingleIconPerApp>(
