@@ -52,7 +52,7 @@ struct PanelOpenRequest {
 class PanelManager : public PopupGrabHost {
 public:
   PanelManager();
-  ~PanelManager();
+  ~PanelManager() override;
 
   PanelManager(const PanelManager&) = delete;
   PanelManager& operator=(const PanelManager&) = delete;

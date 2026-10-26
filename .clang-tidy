@@ -15,6 +15,7 @@ Checks: >-
   modernize-use-auto,
   modernize-use-bool-literals,
   modernize-use-emplace,
+  modernize-use-override,
   modernize-use-ranges,
   modernize-use-scoped-lock,
   modernize-use-starts-ends-with,
