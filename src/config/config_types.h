@@ -762,7 +762,7 @@ struct DockConfig {
   bool showInstanceCount = true;    // show a badge with count when app has >1 window
   DockLauncherPosition launcherPosition = DockLauncherPosition::None;
   std::string launcherIcon = "grid-dots";   // Tabler glyph name
-  std::string launcherCustomImage = "";     // image path; overrides launcherIcon glyph when set
+  std::string launcherCustomImage;          // image path; overrides launcherIcon glyph when set
   bool launcherCustomImageColorize = false; // tint the custom image with the icon color role
   std::vector<std::string> pinned;          // desktop entry IDs to always show
   std::vector<DockMonitorOverride> monitorOverrides;
@@ -1793,8 +1793,8 @@ struct ThemeConfig {
   struct TemplateColorConfig {
     std::string name;
     std::string color;
-    std::string color_dark = "";
-    std::string color_light = "";
+    std::string color_dark;
+    std::string color_light;
     bool blend = true;
 
     bool operator==(const TemplateColorConfig&) const = default;
