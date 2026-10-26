@@ -2524,10 +2524,8 @@ bool LauncherPanel::handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers, 
     }
   }
 
-  if (m_categoryFilter != nullptr && m_categoryFilter->visible()) {
-    if (focused == m_categoryFilter->focusArea()) {
-      return false;
-    }
+  if (m_categoryFilter != nullptr && m_categoryFilter->visible() && focused == m_categoryFilter->focusArea()) {
+    return false;
   }
 
   return handleKeyEvent(sym, modifiers);
@@ -3683,13 +3681,12 @@ bool LauncherPanel::handleKeyEvent(std::uint32_t sym, std::uint32_t modifiers) {
       Node::absolutePosition(m_launcherSections, anchorX, anchorY);
       anchorX += m_launcherSections->width() * 0.5F;
       anchorY += m_launcherSections->height() * 0.5F;
-    } else if (m_grid == nullptr || !m_grid->absoluteAnchorForIndex(m_selectedIndex, anchorX, anchorY)) {
-      if (m_grid != nullptr) {
-        Node::absolutePosition(m_grid, anchorX, anchorY);
-        anchorX += m_grid->width() * 0.5F;
-        anchorY += m_grid->height() * 0.5F;
-      }
+    } else if (m_grid != nullptr && !m_grid->absoluteAnchorForIndex(m_selectedIndex, anchorX, anchorY)) {
+      Node::absolutePosition(m_grid, anchorX, anchorY);
+      anchorX += m_grid->width() * 0.5F;
+      anchorY += m_grid->height() * 0.5F;
     }
+
     return openAppActionsMenu(m_selectedIndex, anchorX, anchorY);
   }
 

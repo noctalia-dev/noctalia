@@ -1833,12 +1833,15 @@ bool PanelManager::onPointerEvent(const PointerEvent& event) {
       if (ignorePointer) {
         return true;
       }
-      if (pressed && event.surface == m_wlSurface && m_inputDispatcher.hoveredArea() == nullptr) {
-        if (m_activePanel != nullptr && m_activePanel->dismissTransientUi()) {
-          refresh();
-          return true;
-        }
+      if (pressed
+          && event.surface == m_wlSurface
+          && m_inputDispatcher.hoveredArea() == nullptr
+          && m_activePanel != nullptr
+          && m_activePanel->dismissTransientUi()) {
+        refresh();
+        return true;
       }
+
       m_inputDispatcher.pointerButton(
           static_cast<float>(event.sx), static_cast<float>(event.sy), event.button, pressed, event.serial, event.time,
           event.touch

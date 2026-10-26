@@ -37,6 +37,7 @@ Checks: >-
   readability-redundant-casting,
   readability-redundant-lambda-parameter-list,
   readability-redundant-member-init,
+  readability-redundant-nested-if,
   readability-redundant-string-init,
   readability-static-definition-in-anonymous-namespace,
   readability-uppercase-literal-suffix,

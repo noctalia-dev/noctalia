@@ -345,10 +345,8 @@ namespace {
 
     // Some providers omit children-display but still populate children ids.
     // Treat a non-empty children vector as submenu-capable to match qs behavior.
-    if (const auto it = props.find("children"); it != props.end()) {
-      if (hasInt32ChildrenInVariant(it->second)) {
-        out.hasSubmenu = true;
-      }
+    if (const auto it = props.find("children"); it != props.end() && hasInt32ChildrenInVariant(it->second)) {
+      out.hasSubmenu = true;
     }
 
     if (const auto it = props.find("toggle-type"); it != props.end()) {
@@ -1093,33 +1091,31 @@ void TrayService::requestMenuLayoutAfterAboutToShow(
             replyCache.rootLoaded = true;
           }
 
-          if (needsPropertyFallback) {
-            if (!layoutChildIds.empty()) {
-              replyCache.childrenByParent[parentId] = layoutChildIds;
-              fetchMenuProperties(itemId, layoutChildIds, [this, itemId, parentId, generation, before](bool fetched) {
-                auto postFetchCacheIt = m_menuCache.find(itemId);
-                if (postFetchCacheIt == m_menuCache.end() || postFetchCacheIt->second.proxy == nullptr) {
-                  return;
-                }
-                auto& postFetchCache = postFetchCacheIt->second;
-                if (postFetchCache.generation != generation) {
-                  return;
-                }
+          if (needsPropertyFallback && !layoutChildIds.empty()) {
+            replyCache.childrenByParent[parentId] = layoutChildIds;
+            fetchMenuProperties(itemId, layoutChildIds, [this, itemId, parentId, generation, before](bool fetched) {
+              auto postFetchCacheIt = m_menuCache.find(itemId);
+              if (postFetchCacheIt == m_menuCache.end() || postFetchCacheIt->second.proxy == nullptr) {
+                return;
+              }
+              auto& postFetchCache = postFetchCacheIt->second;
+              if (postFetchCache.generation != generation) {
+                return;
+              }
 
-                const auto afterFallback =
-                    entriesForParent(postFetchCache.entriesById, postFetchCache.childrenByParent, parentId);
-                if (fetched) {
-                  kLog.debug(
-                      "dbusmenu children-property fallback id={} parentId={} children={} entries={}", itemId, parentId,
-                      postFetchCache.childrenByParent[parentId].size(), afterFallback.size()
-                  );
-                }
-                if (before != afterFallback) {
-                  emitChanged();
-                }
-              });
-              return;
-            }
+              const auto afterFallback =
+                  entriesForParent(postFetchCache.entriesById, postFetchCache.childrenByParent, parentId);
+              if (fetched) {
+                kLog.debug(
+                    "dbusmenu children-property fallback id={} parentId={} children={} entries={}", itemId, parentId,
+                    postFetchCache.childrenByParent[parentId].size(), afterFallback.size()
+                );
+              }
+              if (before != afterFallback) {
+                emitChanged();
+              }
+            });
+            return;
           }
 
           if (before != after) {

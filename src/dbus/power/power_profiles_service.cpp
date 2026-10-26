@@ -317,17 +317,16 @@ void PowerProfilesService::registerIpc(IpcService& ipc, const StateFeedbackCallb
              "power-saver\n";
     }
     const auto& available = profiles();
-    if (!available.empty()) {
-      if (!std::ranges::contains(available, profile)) {
-        std::string suffix = "; available:";
-        for (const auto& availableProfile : available) {
-          suffix.push_back(' ');
-          suffix += availableProfile;
-        }
-        suffix.push_back('\n');
-        return "error: unknown profile \"" + profile + "\"" + suffix;
+    if (!available.empty() && !std::ranges::contains(available, profile)) {
+      std::string suffix = "; available:";
+      for (const auto& availableProfile : available) {
+        suffix.push_back(' ');
+        suffix += availableProfile;
       }
+      suffix.push_back('\n');
+      return "error: unknown profile \"" + profile + "\"" + suffix;
     }
+
     const std::string previous = activeProfile();
     if (!setActiveProfile(profile)) {
       return "error: failed to set power profile\n";

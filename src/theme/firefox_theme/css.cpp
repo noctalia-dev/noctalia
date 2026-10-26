@@ -173,14 +173,13 @@ namespace noctalia::theme::firefox_theme::css {
     const std::string filename = withCssExtension(name);
     const auto dst = chromePath / filename;
     std::error_code ec;
-    if (std::filesystem::is_regular_file(dst, ec)) {
-      if (!std::filesystem::remove(dst, ec)) {
-        if (message != nullptr) {
-          *message = "Could not remove custom CSS: " + ec.message();
-        }
-        return false;
+    if (std::filesystem::is_regular_file(dst, ec) && !std::filesystem::remove(dst, ec)) {
+      if (message != nullptr) {
+        *message = "Could not remove custom CSS: " + ec.message();
       }
+      return false;
     }
+
     if (message != nullptr) {
       *message = "Custom CSS: " + filename + " has been disabled";
     }

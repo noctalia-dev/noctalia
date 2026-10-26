@@ -1226,10 +1226,8 @@ void ClipboardService::handleSourceSend(void* source, const char* mimeType, int 
   const auto it = std::ranges::find(m_outgoingSources, source, &OutgoingSource::source);
   if (it != m_outgoingSources.end() && mimeType != nullptr) {
     const auto mimeIt = std::ranges::find(it->mimeTypes, std::string_view(mimeType));
-    if (mimeIt != it->mimeTypes.end()) {
-      if (queueOutgoingWrite(source, fd, it->data)) {
-        return;
-      }
+    if (mimeIt != it->mimeTypes.end() && queueOutgoingWrite(source, fd, it->data)) {
+      return;
     }
   }
   if (fd >= 0) {
@@ -1771,16 +1769,16 @@ bool ClipboardService::persistHistory(bool force) {
       entry.payloadPath = payloadPathForId(entry.storageId);
 
       activeStorageIds.insert(entry.storageId);
-      if (entry.payloadLoaded && !entry.data.empty()) {
-        if (!security::writeEncryptedFile(
-                entry.payloadPath, entry.data, *m_dataKey,
-                security::EncryptionContext{
-                    .purpose = std::string(kPayloadPurpose),
-                    .objectId = entry.storageId,
-                }
-            )) {
-          throw std::runtime_error("failed to write clipboard payload");
-        }
+      if (entry.payloadLoaded
+          && !entry.data.empty()
+          && !security::writeEncryptedFile(
+              entry.payloadPath, entry.data, *m_dataKey,
+              security::EncryptionContext{
+                  .purpose = std::string(kPayloadPurpose),
+                  .objectId = entry.storageId,
+              }
+          )) {
+        throw std::runtime_error("failed to write clipboard payload");
       }
 
       const auto capturedAtMs =

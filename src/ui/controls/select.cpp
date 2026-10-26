@@ -324,10 +324,8 @@ void Select::handleKey(std::uint32_t sym, std::uint32_t /*utf32*/, std::uint32_t
     return;
   }
 
-  if (KeybindMatcher::matches(KeybindAction::Validate, sym, modifiers)) {
-    if (!m_open) {
-      toggleOpen();
-    }
+  if (KeybindMatcher::matches(KeybindAction::Validate, sym, modifiers) && !m_open) {
+    toggleOpen();
   }
 }
 

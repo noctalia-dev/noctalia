@@ -831,11 +831,12 @@ bool ScreenshotService::onPointerEvent(const PointerEvent& event) {
 }
 
 bool ScreenshotService::onKeyboardEvent(const KeyboardEvent& event) {
-  if (m_annotationOverlay != nullptr && m_annotationOverlay->isActive()) {
-    if (m_annotationOverlay->onKeyboardEvent(event)) {
-      return true;
-    }
+  if (m_annotationOverlay != nullptr
+      && m_annotationOverlay->isActive()
+      && m_annotationOverlay->onKeyboardEvent(event)) {
+    return true;
   }
+
   if (!event.pressed) {
     return false;
   }

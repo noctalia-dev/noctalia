@@ -1705,17 +1705,15 @@ void Bar::reload() {
     return false;
   });
 
-  if (destroyedAny) {
-    // Drain pending Wayland events for the just-destroyed surfaces before
-    // creating new ones. Without this, the roundtrip inside LayerSurface::initialize
-    // reads stale closures for dead proxies, which libwayland drops without freeing.
-    if (wl_display_roundtrip(m_platform->display()) < 0) {
-      const int roundtripErrno = errno;
-      kLog.error(
-          "Wayland roundtrip failed after destroying stale bar surfaces: {}",
-          m_platform->wayland().describeDisplayError(roundtripErrno)
-      );
-    }
+  // Drain pending Wayland events for the just-destroyed surfaces before
+  // creating new ones. Without this, the roundtrip inside LayerSurface::initialize
+  // reads stale closures for dead proxies, which libwayland drops without freeing.
+  if (destroyedAny && wl_display_roundtrip(m_platform->display()) < 0) {
+    const int roundtripErrno = errno;
+    kLog.error(
+        "Wayland roundtrip failed after destroying stale bar surfaces: {}",
+        m_platform->wayland().describeDisplayError(roundtripErrno)
+    );
   }
 
   syncInstances();
@@ -1795,12 +1793,15 @@ void Bar::reevaluateSmartAutoHide() {
         syncBarSurfaceChrome(*instance);
         needsRedraw = true;
       }
-    } else if (!instance->pointerInside && instance->attachedPopupCount == 0 && !suppressAutoHide) {
-      if ((instance->hideOpacity > 0.0F || pinnedChanged)
-          && (!instance->barConfig.showOnWorkspaceSwitch || !isWorkspacePeekActive())) {
-        startHideFadeOut(*instance);
-        needsRedraw = true;
-      }
+    } else if (
+        !instance->pointerInside
+        && instance->attachedPopupCount == 0
+        && !suppressAutoHide
+        && (instance->hideOpacity > 0.0F || pinnedChanged)
+        && (!instance->barConfig.showOnWorkspaceSwitch || !isWorkspacePeekActive())
+    ) {
+      startHideFadeOut(*instance);
+      needsRedraw = true;
     }
 
     if (needsRedraw && instance->surface != nullptr) {
@@ -3814,11 +3815,12 @@ bool Bar::onPointerEvent(const PointerEvent& event) {
     consumed = m_hoveredInstance->inputDispatcher.pointerButton(
         sx, sy, event.button, pressed, event.serial, event.time, event.touch
     );
-    if (pressed && !consumed) {
-      if (handleBarDeadZoneButton(*m_hoveredInstance, sx, sy, event.button, m_platform, m_actionDispatcher)) {
-        consumed = true;
-      }
+    if (pressed
+        && !consumed
+        && handleBarDeadZoneButton(*m_hoveredInstance, sx, sy, event.button, m_platform, m_actionDispatcher)) {
+      consumed = true;
     }
+
     break;
   }
   case PointerEvent::Type::Axis: {

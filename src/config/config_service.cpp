@@ -883,11 +883,10 @@ void ConfigService::checkReload() {
   m_inotify.drain([this, &configChanged, &overridesChanged](const inotify_event* event) {
     if (event->len > 0) {
       const std::string_view name{event->name};
-      if (event->wd == m_configWatchWd) {
-        if (name.size() >= 5 && name.substr(name.size() - 5) == ".toml") {
-          configChanged = true;
-        }
+      if (event->wd == m_configWatchWd && name.size() >= 5 && name.substr(name.size() - 5) == ".toml") {
+        configChanged = true;
       }
+
       if (event->wd == m_overridesWatchWd) {
         const auto overridesFilename = std::filesystem::path(m_overridesPath).filename().string();
         if (name == overridesFilename) {

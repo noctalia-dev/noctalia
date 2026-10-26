@@ -299,12 +299,11 @@ struct BluetoothService::Impl {
   void onInterfacesAdded(const sdbus::ObjectPath& path, const ObjectInterfaces& interfaces) {
     bool stateDirty = false;
     bool devicesDirty = false;
-    if (auto it = interfaces.find(kAdapterInterface); it != interfaces.end()) {
-      if (adapterPath.empty()) {
-        adoptAdapter(path, it->second);
-        stateDirty = true;
-      }
+    if (auto it = interfaces.find(kAdapterInterface); it != interfaces.end() && adapterPath.empty()) {
+      adoptAdapter(path, it->second);
+      stateDirty = true;
     }
+
     if (auto it = interfaces.find(kDeviceInterface); it != interfaces.end()) {
       adoptDevice(path, it->second);
       ensureObjectProxy(path);
@@ -439,10 +438,8 @@ struct BluetoothService::Impl {
 
   void seedFromManagedObjects(const ManagedObjects& objects) {
     for (const auto& [path, interfaces] : objects) {
-      if (auto it = interfaces.find(kAdapterInterface); it != interfaces.end()) {
-        if (adapterPath.empty()) {
-          adoptAdapter(path, it->second);
-        }
+      if (auto it = interfaces.find(kAdapterInterface); it != interfaces.end() && adapterPath.empty()) {
+        adoptAdapter(path, it->second);
       }
     }
     for (const auto& [path, interfaces] : objects) {

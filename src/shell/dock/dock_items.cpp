@@ -951,11 +951,11 @@ namespace shell::dock {
     }
 
     // Magnification owns active/inactive scale via updateHoverZoom; kick it on focus updates.
-    if (cfg.magnification && instance.surface != nullptr) {
-      if (updateHoverZoom(instance, snapshot, kHoverZoomReferenceFrameMs)) {
-        instance.surface->requestFrameTick();
-        instance.surface->requestRedraw();
-      }
+    if (cfg.magnification
+        && instance.surface != nullptr
+        && updateHoverZoom(instance, snapshot, kHoverZoomReferenceFrameMs)) {
+      instance.surface->requestFrameTick();
+      instance.surface->requestRedraw();
     }
   }
 

@@ -1375,10 +1375,8 @@ void DesktopWidgetsEditor::updateSelectionVisuals(OverlaySurface& surface) {
       return;
     }
   }
-  if (!selectedIsLoginBox) {
-    if (surface.rotationRing == nullptr || surface.rotateArea == nullptr) {
-      return;
-    }
+  if (!selectedIsLoginBox && (surface.rotationRing == nullptr || surface.rotateArea == nullptr)) {
+    return;
   }
 
   const float width = selectedIt->second.intrinsicWidth;

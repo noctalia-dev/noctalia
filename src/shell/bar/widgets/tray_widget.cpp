@@ -861,12 +861,10 @@ void TrayWidget::buildDesktopIconIndex() {
 
 std::string TrayWidget::resolveIconPath(const TrayItemInfo& item) {
   const bool hasNamedIcon = item.needsAttention ? !item.attentionIconName.empty() : !item.iconName.empty();
-  if (const auto it = m_preferPixmap.find(item.id); it != m_preferPixmap.end() && it->second) {
-    // Some indicators publish pixmaps late (after startup) that are monochrome
-    // or stale. Keep using named-icon resolution when available.
-    if (!hasNamedIcon) {
-      return {};
-    }
+  // Some indicators publish pixmaps late (after startup) that are monochrome
+  // or stale. Keep using named-icon resolution when available.
+  if (const auto it = m_preferPixmap.find(item.id); it != m_preferPixmap.end() && it->second && !hasNamedIcon) {
+    return {};
   }
 
   if (const auto it = m_preferredIconPaths.find(item.id); it != m_preferredIconPaths.end() && !it->second.empty()) {

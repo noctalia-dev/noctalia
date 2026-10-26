@@ -1042,11 +1042,12 @@ void PipeWireService::dispatch() {
   }
 
   if (m_core == nullptr) {
-    if (m_reconnectAt.time_since_epoch().count() != 0 && std::chrono::steady_clock::now() >= m_reconnectAt) {
-      if (!connectRemote(false)) {
-        scheduleReconnect();
-      }
+    if (m_reconnectAt.time_since_epoch().count() != 0
+        && std::chrono::steady_clock::now() >= m_reconnectAt
+        && !connectRemote(false)) {
+      scheduleReconnect();
     }
+
     return;
   }
 

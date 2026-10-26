@@ -1870,10 +1870,8 @@ void NetworkManagerService::ensureWifiDeviceSubscribed(const std::string& device
             if (changedProperties.contains("AccessPoints") || changedProperties.contains("LastScan")) {
               refresh();
             }
-          } else if (interfaceName == kNmDeviceInterface) {
-            if (changedProperties.contains("State")) {
-              refresh();
-            }
+          } else if (interfaceName == kNmDeviceInterface && changedProperties.contains("State")) {
+            refresh();
           }
         });
     m_wifiDevices.emplace(devicePath, std::move(proxy));
@@ -2480,16 +2478,14 @@ void NetworkManagerService::rebindActiveDevice(const std::string& devicePath) {
                 || changedProperties.contains("Interface")) {
               refresh();
             }
-          } else if (interfaceName == kNmDeviceWirelessInterface) {
-            if (changedProperties.contains("ActiveAccessPoint")) {
-              std::string apPath;
-              try {
-                apPath = changedProperties.at("ActiveAccessPoint").get<sdbus::ObjectPath>();
-              } catch (const sdbus::Error&) {
-              }
-              rebindActiveAccessPoint(apPath);
-              refresh();
+          } else if (interfaceName == kNmDeviceWirelessInterface && changedProperties.contains("ActiveAccessPoint")) {
+            std::string apPath;
+            try {
+              apPath = changedProperties.at("ActiveAccessPoint").get<sdbus::ObjectPath>();
+            } catch (const sdbus::Error&) {
             }
+            rebindActiveAccessPoint(apPath);
+            refresh();
           }
         });
   } catch (const sdbus::Error& e) {

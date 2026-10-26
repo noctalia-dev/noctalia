@@ -119,11 +119,11 @@ namespace noctalia::config {
       if (launcherTbl == nullptr) {
         return;
       }
-      if (const auto* prefixVal = (*launcherTbl)["provider_prefix"].as_string()) {
-        if (prefixVal->get().empty()) {
-          diag.warn("shell.launcher.provider_prefix", "is empty, falling back to '/'");
-        }
+      if (const auto* prefixVal = (*launcherTbl)["provider_prefix"].as_string();
+          prefixVal && prefixVal->get().empty()) {
+        diag.warn("shell.launcher.provider_prefix", "is empty, falling back to '/'");
       }
+
       const auto* providersTbl = (*launcherTbl)["providers"].as_table();
       if (providersTbl == nullptr) {
         return;

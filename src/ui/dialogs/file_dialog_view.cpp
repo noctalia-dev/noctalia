@@ -673,12 +673,12 @@ bool FileDialogView::handleGlobalKey(
   }
 
   if (m_visibleEntries.empty()) {
-    if (KeybindMatcher::matches(KeybindAction::Validate, sym, modifiers)) {
-      if (m_options.mode == FileDialogMode::SelectFolder) {
-        submitDialog();
-        return true;
-      }
+    if (KeybindMatcher::matches(KeybindAction::Validate, sym, modifiers)
+        && m_options.mode == FileDialogMode::SelectFolder) {
+      submitDialog();
+      return true;
     }
+
     return false;
   }
 

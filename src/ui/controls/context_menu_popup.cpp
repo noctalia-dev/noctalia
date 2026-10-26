@@ -424,13 +424,11 @@ void ContextMenuPopup::onKeyboardEvent(const KeyboardEvent& event) {
     m_highlightedIndex = m_menu->highlightedIndex();
     ensureHighlightedVisible();
     requestVisualUpdate();
-  } else if (KeySymbol::isEnd(sym)) {
-    if (m_menu->entryCount() > 0) {
-      m_menu->setHighlightedIndex(m_menu->entryCount() - 1);
-      m_highlightedIndex = m_menu->highlightedIndex();
-      ensureHighlightedVisible();
-      requestVisualUpdate();
-    }
+  } else if (KeySymbol::isEnd(sym) && m_menu->entryCount() > 0) {
+    m_menu->setHighlightedIndex(m_menu->entryCount() - 1);
+    m_highlightedIndex = m_menu->highlightedIndex();
+    ensureHighlightedVisible();
+    requestVisualUpdate();
   }
 }
 

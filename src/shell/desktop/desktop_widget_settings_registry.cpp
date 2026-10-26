@@ -161,11 +161,10 @@ namespace desktop_settings {
     if (type == "login_box") {
       return i18n::tr("desktop-widgets.editor.types.login-box");
     }
-    if (auto entry = resolvePluginDesktopWidget(type); entry.has_value()) {
-      if (!entry->manifest->name.empty()) {
-        return entry->manifest->name;
-      }
+    if (auto entry = resolvePluginDesktopWidget(type); entry.has_value() && !entry->manifest->name.empty()) {
+      return entry->manifest->name;
     }
+
     return std::string(type);
   }
 

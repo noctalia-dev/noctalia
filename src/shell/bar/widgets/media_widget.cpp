@@ -251,12 +251,11 @@ void MediaWidget::applyTitleScrollMode(bool titleVisible) {
 }
 
 void MediaWidget::syncWidgetVisibility(bool showWidget) {
-  if (Node* rootNode = root(); rootNode != nullptr) {
-    if (rootNode->visible() != showWidget || rootNode->participatesInLayout() != showWidget) {
-      rootNode->setVisible(showWidget);
-      rootNode->setParticipatesInLayout(showWidget);
-      requestUpdate();
-    }
+  if (Node* rootNode = root();
+      rootNode != nullptr && (rootNode->visible() != showWidget || rootNode->participatesInLayout() != showWidget)) {
+    rootNode->setVisible(showWidget);
+    rootNode->setParticipatesInLayout(showWidget);
+    requestUpdate();
   }
 }
 
@@ -381,10 +380,8 @@ void MediaWidget::syncState(Renderer& renderer, const std::optional<MprisPlayerI
     }
   } else if (!m_lastArtUrl.empty() && !m_art->hasImage() && !m_hideAlbumArt) {
     const std::string artPath = cachedArtworkPath(m_lastArtUrl);
-    if (!artPath.empty()) {
-      if (m_art->setSourceFile(renderer, artPath, artDecodePx, false, true)) {
-        requestRedraw();
-      }
+    if (!artPath.empty() && m_art->setSourceFile(renderer, artPath, artDecodePx, false, true)) {
+      requestRedraw();
     }
   }
 

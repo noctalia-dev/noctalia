@@ -17,10 +17,12 @@ namespace {
     for (char ch : text) {
       if (std::isalnum(static_cast<unsigned char>(ch)) != 0 || ch == '-' || ch == '_') {
         out.push_back(ch);
-      } else if (std::isspace(static_cast<unsigned char>(ch)) != 0 || ch == '.' || ch == '/') {
-        if (!out.empty() && out.back() != '-') {
-          out.push_back('-');
-        }
+      } else if (
+          (std::isspace(static_cast<unsigned char>(ch)) != 0 || ch == '.' || ch == '/')
+          && !out.empty()
+          && out.back() != '-'
+      ) {
+        out.push_back('-');
       }
     }
     while (!out.empty() && out.back() == '-') {

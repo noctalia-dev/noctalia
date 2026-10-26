@@ -2426,13 +2426,11 @@ InputArea* NotificationToast::buildCard(
                             hasNotificationAction(entry.actions, "default")](const InputArea::PointerData& data) {
     if (data.button == BTN_RIGHT) {
       requestClose(id, CloseReason::Dismissed);
-    } else if (data.button == BTN_LEFT && hasDefaultAction) {
-      if (m_notifications != nullptr) {
-        const std::string activationToken =
-            m_wayland != nullptr ? m_wayland->requestActivationToken(sourceSurface) : std::string{};
-        if (!m_notifications->invokeAction(id, "default", activationToken, true)) {
-          kLog.warn("notification toast: failed to invoke default action for #{}", id);
-        }
+    } else if (data.button == BTN_LEFT && hasDefaultAction && m_notifications != nullptr) {
+      const std::string activationToken =
+          m_wayland != nullptr ? m_wayland->requestActivationToken(sourceSurface) : std::string{};
+      if (!m_notifications->invokeAction(id, "default", activationToken, true)) {
+        kLog.warn("notification toast: failed to invoke default action for #{}", id);
       }
     }
   });

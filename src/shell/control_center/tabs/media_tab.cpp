@@ -619,10 +619,12 @@ void MediaTab::doUpdate(Renderer& renderer) {
     m_progressTimer.stop();
     return;
   }
-  if (m_showVisualizer && m_visualizerSpectrum != nullptr && m_spectrum != nullptr && m_spectrumListenerId != 0) {
-    if (!m_spectrum->idle() || !m_visualizerSpectrum->converged()) {
-      m_visualizerSpectrum->setValues(m_spectrum->values(m_spectrumListenerId));
-    }
+  if (m_showVisualizer
+      && m_visualizerSpectrum != nullptr
+      && m_spectrum != nullptr
+      && m_spectrumListenerId != 0
+      && (!m_spectrum->idle() || !m_visualizerSpectrum->converged())) {
+    m_visualizerSpectrum->setValues(m_spectrum->values(m_spectrumListenerId));
   }
 
   const auto active = m_mpris != nullptr ? m_mpris->activePlayer() : std::nullopt;
@@ -654,11 +656,12 @@ void MediaTab::onFrameTick(float deltaMs) {
   }
 
   if (m_visualizerSpectrum != nullptr) {
-    if (m_spectrum != nullptr && m_spectrumListenerId != 0) {
-      if (!m_spectrum->idle() || !m_visualizerSpectrum->converged()) {
-        m_visualizerSpectrum->setValues(m_spectrum->values(m_spectrumListenerId));
-      }
+    if (m_spectrum != nullptr
+        && m_spectrumListenerId != 0
+        && (!m_spectrum->idle() || !m_visualizerSpectrum->converged())) {
+      m_visualizerSpectrum->setValues(m_spectrum->values(m_spectrumListenerId));
     }
+
     m_visualizerSpectrum->tick(deltaMs);
   }
 }

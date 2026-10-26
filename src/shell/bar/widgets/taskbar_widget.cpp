@@ -550,11 +550,11 @@ void TaskbarWidget::applyDragLayout() {
 
 bool TaskbarWidget::taskMatchesDesktopEntry(const TaskModel& task, const DesktopEntry& entry) {
   const std::string entryIdLower = StringUtils::toLower(entry.id);
-  if (!entryIdLower.empty()) {
-    if (task.idLower == entryIdLower || task.appIdLower == entryIdLower || task.desktopEntryId == entry.id) {
-      return true;
-    }
+  if (!entryIdLower.empty()
+      && (task.idLower == entryIdLower || task.appIdLower == entryIdLower || task.desktopEntryId == entry.id)) {
+    return true;
   }
+
   if (!entry.startupWmClassLower.empty()
       && (task.startupWmClassLower == entry.startupWmClassLower || task.appIdLower == entry.startupWmClassLower)) {
     return true;
@@ -2167,14 +2167,14 @@ void TaskbarWidget::updateModels() {
           if (toLower(assignment.appId) != task.appIdLower
               && toLower(assignment.appId) != task.idLower
               && toLower(assignment.appId) != task.startupWmClassLower
-              && toLower(assignment.appId) != task.nameLower) {
-            if (!assignment.appId.empty()
-                || !isOrphanAppIdentity(
-                    task.appId, task.appIdLower, task.idLower, task.startupWmClassLower, task.nameLower
-                )) {
-              continue;
-            }
+              && toLower(assignment.appId) != task.nameLower
+              && (!assignment.appId.empty()
+                  || !isOrphanAppIdentity(
+                      task.appId, task.appIdLower, task.idLower, task.startupWmClassLower, task.nameLower
+                  ))) {
+            continue;
           }
+
           if (!assigned.title.empty() && !assignment.title.empty() && assignment.title != assigned.title) {
             continue;
           }

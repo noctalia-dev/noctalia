@@ -1957,13 +1957,13 @@ namespace ui {
       if (const double* step = numProp(desired, "step")) {
         slider->setStep(*step);
       }
-      if (const double* value = numProp(desired, "value")) {
-        // Don't fight an in-progress drag, and only re-apply a changed value.
-        if (!slider->dragging() && (!slot.lastScalar.has_value() || *slot.lastScalar != *value)) {
-          slot.lastScalar = *value;
-          slider->setValue(*value);
-        }
+      // Don't fight an in-progress drag, and only re-apply a changed value.
+      if (const double* value = numProp(desired, "value");
+          value && !slider->dragging() && (!slot.lastScalar.has_value() || *slot.lastScalar != *value)) {
+        slot.lastScalar = *value;
+        slider->setValue(*value);
       }
+
       if (const bool* enabled = boolProp(desired, "enabled")) {
         slider->setEnabled(*enabled);
       }
@@ -1998,12 +1998,12 @@ namespace ui {
         select->setOptions(*options);
         slot.lastScalar.reset(); // re-apply the selection against the new option set
       }
-      if (const double* index = numProp(desired, "selectedIndex")) {
-        if (!slot.lastScalar.has_value() || *slot.lastScalar != *index) {
-          slot.lastScalar = *index;
-          select->setSelectedIndexSilently(static_cast<std::size_t>(std::max(0.0, *index)));
-        }
+      if (const double* index = numProp(desired, "selectedIndex");
+          index && (!slot.lastScalar.has_value() || *slot.lastScalar != *index)) {
+        slot.lastScalar = *index;
+        select->setSelectedIndexSilently(static_cast<std::size_t>(std::max(0.0, *index)));
       }
+
       if (const bool* enabled = boolProp(desired, "enabled")) {
         select->setEnabled(*enabled);
       }
@@ -2155,14 +2155,14 @@ namespace ui {
           }
         });
       }
-      if (const double* scrollToBottomRev = numProp(desired, "scrollToBottomRev")) {
-        if (!slot.lastScalar.has_value() || *slot.lastScalar != *scrollToBottomRev) {
-          slot.lastScalar = *scrollToBottomRev;
-          // Deferred: children reconcile after applyProps, so an immediate
-          // setScrollOffset would clamp against the previous scroll extent.
-          scroll->requestScrollToBottom();
-        }
+      if (const double* scrollToBottomRev = numProp(desired, "scrollToBottomRev");
+          scrollToBottomRev && (!slot.lastScalar.has_value() || *slot.lastScalar != *scrollToBottomRev)) {
+        slot.lastScalar = *scrollToBottomRev;
+        // Deferred: children reconcile after applyProps, so an immediate
+        // setScrollOffset would clamp against the previous scroll extent.
+        scroll->requestScrollToBottom();
       }
+
       // gap / padding / align / justify configure the inner content Flex that
       // hosts the children.
       Flex* content = scroll->content();

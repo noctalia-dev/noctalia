@@ -1429,11 +1429,9 @@ void HomeTab::syncScaledFonts() {
     if (pad.label != nullptr) {
       pad.label->setFontSize(Style::fontSizeMini * s);
     }
-    if (pad.glyph != nullptr) {
-      // Icon-only glyphs are sized from cell side in doLayout.
-      if (m_config == nullptr || m_config->config().controlCenter.showShortcutLabels) {
-        pad.glyph->setGlyphSize(Style::fontSizeTitle * 1.35F * s);
-      }
+    // Icon-only glyphs are sized from cell side in doLayout.
+    if (pad.glyph != nullptr && (m_config == nullptr || m_config->config().controlCenter.showShortcutLabels)) {
+      pad.glyph->setGlyphSize(Style::fontSizeTitle * 1.35F * s);
     }
   }
 }

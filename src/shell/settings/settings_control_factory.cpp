@@ -123,12 +123,11 @@ namespace settings {
           return true;
         }
       }
-      if (auto* area = dynamic_cast<InputArea*>(&root)) {
-        if (area->focusable() && area->tabStop()) {
-          area->setTabFocusKey(key);
-          return true;
-        }
+      if (auto* area = dynamic_cast<InputArea*>(&root); area && area->focusable() && area->tabStop()) {
+        area->setTabFocusKey(key);
+        return true;
       }
+
       for (const auto& child : root.children()) {
         if (tagTabFocusKey(*child, key)) {
           return true;

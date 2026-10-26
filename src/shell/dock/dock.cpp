@@ -774,11 +774,11 @@ void Dock::reevaluateSmartAutoHide() {
         shell::dock::revealAutoHideDock(*instance);
         needsRedraw = true;
       }
-    } else if (!instance->pointerInside && m_popupOwnerInstance == nullptr) {
-      if (instance->hideOpacity > 0.0F || pinnedChanged) {
-        shell::dock::startHideFadeOut(*instance);
-        needsRedraw = true;
-      }
+    } else if (
+        !instance->pointerInside && m_popupOwnerInstance == nullptr && (instance->hideOpacity > 0.0F || pinnedChanged)
+    ) {
+      shell::dock::startHideFadeOut(*instance);
+      needsRedraw = true;
     }
 
     if (needsRedraw && instance->surface != nullptr) {

@@ -291,11 +291,10 @@ void CalendarService::syncCachePersistence() {
       return;
     }
     m_cacheKey = std::move(*key);
-    if (!loadCache()) {
-      if (m_cachePersistenceState == CachePersistenceState::Opening) {
-        setCachePersistenceState(CachePersistenceState::BackendError, m_cacheMigrationPending);
-      }
+    if (!loadCache() && m_cachePersistenceState == CachePersistenceState::Opening) {
+      setCachePersistenceState(CachePersistenceState::BackendError, m_cacheMigrationPending);
     }
+
     return;
   }
 

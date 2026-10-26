@@ -1855,10 +1855,8 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
       }
 
       std::string connectActivationToken;
-      if (connectAfter) {
-        if (m_wayland != nullptr && m_surface != nullptr) {
-          connectActivationToken = m_wayland->requestActivationToken(m_surface->wlSurface());
-        }
+      if (connectAfter && m_wayland != nullptr && m_surface != nullptr) {
+        connectActivationToken = m_wayland->requestActivationToken(m_surface->wlSurface());
       }
 
       if (!caldav) {

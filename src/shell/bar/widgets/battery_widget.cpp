@@ -485,11 +485,9 @@ void BatteryWidget::syncState(Renderer& renderer) {
 
     // State icon
     const char* stateGlyph = batteryStateGlyph(s.state);
-    if (m_overlayGlyph != nullptr) {
-      if (stateGlyph != nullptr) {
-        m_overlayGlyph->setGlyph(stateGlyph);
-        m_overlayGlyph->measure(renderer);
-      }
+    if (m_overlayGlyph != nullptr && stateGlyph != nullptr) {
+      m_overlayGlyph->setGlyph(stateGlyph);
+      m_overlayGlyph->measure(renderer);
     }
 
     // A full battery needs no number, and three digits would stretch the narrow vertical body.
