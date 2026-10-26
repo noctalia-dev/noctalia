@@ -252,7 +252,7 @@ void LockscreenWidgetsHost::createInstance(
   desktop_widgets::clampStateToOutput(*m_wayland, clampedState, intrinsicWidth, intrinsicHeight);
 
   auto instance = std::make_unique<WidgetInstance>();
-  instance->state = clampedState;
+  instance->state = std::move(clampedState);
   instance->surface = &surface;
   instance->widget = std::move(widget);
   instance->intrinsicWidth = intrinsicWidth;

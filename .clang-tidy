@@ -23,6 +23,7 @@ Checks: >-
   performance-prefer-single-char-overloads,
   performance-unnecessary-copy-initialization,
   performance-unnecessary-value-param,
+  performance-use-std-move,
   readability-container-contains,
   readability-container-data-pointer,
   readability-container-size-empty,

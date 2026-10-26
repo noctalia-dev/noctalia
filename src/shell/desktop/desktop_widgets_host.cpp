@@ -355,7 +355,7 @@ void DesktopWidgetsHost::createInstance(const DesktopWidgetState& state, const W
   };
 
   auto instance = std::make_unique<DesktopWidgetInstance>();
-  instance->state = clampedState;
+  instance->state = std::move(clampedState);
   instance->effectiveOutputName = desktop_widgets::outputKey(output);
   instance->output = output.output;
   instance->widget = std::move(widget);
