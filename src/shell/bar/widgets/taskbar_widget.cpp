@@ -2873,12 +2873,7 @@ void TaskbarWidget::updateModels() {
   if (m_groupByWorkspace && m_hideEmptyWorkspaces && !nextWorkspaces.empty()) {
     m_allWorkspaces = nextWorkspaces;
     const auto workspaceHasTask = [](const WorkspaceModel& wsm, const std::vector<TaskModel>& tasks) {
-      for (const auto& t : tasks) {
-        if (taskInWorkspaceGroup(t, wsm)) {
-          return true;
-        }
-      }
-      return false;
+      return std::ranges::any_of(tasks, [&](const auto& t) { return taskInWorkspaceGroup(t, wsm); });
     };
     std::erase_if(nextWorkspaces, [&](const WorkspaceModel& wsm) {
       return !wsm.workspace.active && !workspaceHasTask(wsm, nextTasks);

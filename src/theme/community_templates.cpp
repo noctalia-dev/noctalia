@@ -305,12 +305,10 @@ namespace noctalia::theme {
       const std::filesystem::path path(raw);
       if (path.is_absolute())
         return false;
-      for (const auto& part : path) {
+      return std::ranges::all_of(path, [&](const auto& part) {
         const std::string token = part.string();
-        if (token == "." || token == ".." || token.empty())
-          return false;
-      }
-      return true;
+        return token != "." && token != ".." && !token.empty();
+      });
     }
 
     std::filesystem::path sidecarPath(const std::filesystem::path& path) {

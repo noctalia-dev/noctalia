@@ -1924,12 +1924,10 @@ void MprisService::applyPlayerSnapshot(
   const bool transitionedFromPlaying =
       info.playbackStatus != "Playing" && existing != m_players.end() && existing->second.playbackStatus == "Playing";
   const auto hasOtherPlayingPlayer = [this, &busName] {
-    for (const auto& [otherBusName, player] : m_players) {
-      if (otherBusName != busName && !isBlacklisted(player) && player.playbackStatus == "Playing") {
-        return true;
-      }
-    }
-    return false;
+    return std::ranges::any_of(m_players, [&](const auto& entry) {
+      const auto& [otherBusName, player] = entry;
+      return otherBusName != busName && !isBlacklisted(player) && player.playbackStatus == "Playing";
+    });
   };
 
   if (info.playbackStatus == "Playing") {
@@ -2373,16 +2371,12 @@ bool MprisService::isBlacklisted(const MprisPlayerInfo& player) const {
   const std::string identity = normalizeFilterToken(player.identity);
   const std::string desktopEntry = normalizeFilterToken(player.desktopEntry);
 
-  for (const auto& token : m_blacklist) {
+  return std::ranges::any_of(m_blacklist, [&](const auto& token) {
     if (token == busName || token == identity || token == desktopEntry) {
       return true;
     }
-    if (!token.empty() && busName.contains(token)) {
-      return true;
-    }
-  }
-
-  return false;
+    return !token.empty() && busName.contains(token);
+  });
 }
 
 bool MprisService::callPlayerMethod(const std::string& busName, const char* methodName) {

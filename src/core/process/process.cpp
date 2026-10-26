@@ -967,19 +967,16 @@ namespace process {
   }
 
   bool launchFirstAvailable(std::initializer_list<std::initializer_list<const char*>> commandVariants) {
-    for (const auto& variant : commandVariants) {
+    return std::ranges::any_of(commandVariants, [&](const auto& variant) {
       const auto command = makeCommand(variant);
       if (!command.has_value() || command->empty()) {
-        continue;
+        return false;
       }
       if (!commandExists(command->front().c_str())) {
-        continue;
+        return false;
       }
-      if (runAsync(*command)) {
-        return true;
-      }
-    }
-    return false;
+      return runAsync(*command);
+    });
   }
 
   bool cgroupIndicatesSystemdUserManager(std::string_view cgroupFileContents, unsigned int uid) {

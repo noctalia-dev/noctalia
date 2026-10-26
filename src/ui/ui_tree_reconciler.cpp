@@ -33,6 +33,7 @@
 #include "ui/ui_tree.h"
 #include "util/string_utils.h"
 
+#include <algorithm>
 #include <array>
 #include <charconv>
 #include <cmath>
@@ -1042,12 +1043,7 @@ namespace ui {
     if (slot.node == m_hoveredOwner) {
       return true;
     }
-    for (const Slot& child : slot.children) {
-      if (subtreeOwnsHover(child)) {
-        return true;
-      }
-    }
-    return false;
+    return std::ranges::any_of(slot.children, [&](const Slot& child) { return subtreeOwnsHover(child); });
   }
 
   // Both edges of a graph's pointer session are wired together: the enter/motion
@@ -1349,12 +1345,7 @@ namespace ui {
     if (slot.node == m_pointerOwner) {
       return true;
     }
-    for (const Slot& child : slot.children) {
-      if (subtreeOwnsPointer(child)) {
-        return true;
-      }
-    }
-    return false;
+    return std::ranges::any_of(slot.children, [&](const Slot& child) { return subtreeOwnsPointer(child); });
   }
 
   void UiTreeReconciler::applyProps(Slot& slot, const UiTreeNode& desired, Renderer& renderer) {

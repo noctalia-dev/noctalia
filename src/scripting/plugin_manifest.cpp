@@ -974,13 +974,11 @@ namespace scripting {
     if (a.size() != b.size()) {
       return false;
     }
-    for (const auto& [key, value] : a) {
+    return std::ranges::all_of(a, [&](const auto& entry) {
+      const auto& [key, value] = entry;
       const auto it = b.find(key);
-      if (it == b.end() || !valueEqual(value, it->second)) {
-        return false;
-      }
-    }
-    return true;
+      return it != b.end() && valueEqual(value, it->second);
+    });
   }
 
 } // namespace scripting

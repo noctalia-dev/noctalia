@@ -2,6 +2,7 @@
 
 #include "util/string_utils.h"
 
+#include <algorithm>
 #include <cctype>
 #include <regex>
 #include <unordered_set>
@@ -107,12 +108,7 @@ std::vector<std::string> normalizeNotificationMatchTokens(const std::vector<std:
 }
 
 bool notificationMatchesTokens(const std::vector<std::string>& tokens, const NotificationFilterFields& fields) {
-  for (const auto& token : tokens) {
-    if (notificationMatchesToken(token, fields)) {
-      return true;
-    }
-  }
-  return false;
+  return std::ranges::any_of(tokens, [&](const auto& token) { return notificationMatchesToken(token, fields); });
 }
 
 std::vector<NotificationFilterConfig> normalizeNotificationFilters(std::vector<NotificationFilterConfig> filters) {

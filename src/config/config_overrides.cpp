@@ -90,13 +90,11 @@ namespace {
     if (a.size() != b.size()) {
       return false;
     }
-    for (const auto& [key, value] : a) {
+    return std::ranges::all_of(a, [&](const auto& entry) {
+      const auto& [key, value] = entry;
       const auto it = b.find(key);
-      if (it == b.end() || !widgetSettingEqual(value, it->second)) {
-        return false;
-      }
-    }
-    return true;
+      return it != b.end() && widgetSettingEqual(value, it->second);
+    });
   }
 
   // PluginsConfig equality that compares the open-ended pluginSettings map with int/double coercion
@@ -108,13 +106,11 @@ namespace {
         || a.pluginSettings.size() != b.pluginSettings.size()) {
       return false;
     }
-    for (const auto& [id, aMap] : a.pluginSettings) {
+    return std::ranges::all_of(a.pluginSettings, [&](const auto& entry) {
+      const auto& [id, aMap] = entry;
       const auto it = b.pluginSettings.find(id);
-      if (it == b.pluginSettings.end() || !widgetSettingsEqual(aMap, it->second)) {
-        return false;
-      }
-    }
-    return true;
+      return it != b.pluginSettings.end() && widgetSettingsEqual(aMap, it->second);
+    });
   }
 
   // Like DesktopWidgetState's defaulted operator==, but compares the settings map with int/double coercion
@@ -343,13 +339,11 @@ namespace {
     if (a.size() != b.size()) {
       return false;
     }
-    for (const auto& [key, value] : a) {
+    return std::ranges::all_of(a, [&](const auto& entry) {
+      const auto& [key, value] = entry;
       const auto it = b.find(key);
-      if (it == b.end() || !widgetConfigEqual(value, it->second)) {
-        return false;
-      }
-    }
-    return true;
+      return it != b.end() && widgetConfigEqual(value, it->second);
+    });
   }
 
   bool isWidgetSettingOverridePath(const std::vector<std::string>& path) {
@@ -2467,12 +2461,7 @@ const std::vector<WallpaperFavorite>& ConfigService::wallpaperFavorites() const 
 
 bool ConfigService::isWallpaperFavorite(std::string_view path) const {
   const std::string normalized = FileUtils::normalizeWallpaperPath(path);
-  for (const auto& favorite : m_wallpaperFavorites) {
-    if (favorite.path == normalized) {
-      return true;
-    }
-  }
-  return false;
+  return std::ranges::any_of(m_wallpaperFavorites, [&](const auto& favorite) { return favorite.path == normalized; });
 }
 
 const WallpaperFavorite* ConfigService::wallpaperFavorite(std::string_view path) const {

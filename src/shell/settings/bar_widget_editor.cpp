@@ -500,18 +500,15 @@ namespace settings {
             || std::ranges::contains(end, widgetName)) {
           return true;
         }
-        for (const auto& group : groups) {
+        return std::ranges::any_of(groups, [&](const auto& group) {
           if (!std::ranges::contains(group.members, widgetName)) {
-            continue;
+            return false;
           }
           const std::string token = makeCapsuleGroupToken(group.id);
-          if (std::ranges::contains(start, token)
+          return std::ranges::contains(start, token)
               || std::ranges::contains(center, token)
-              || std::ranges::contains(end, token)) {
-            return true;
-          }
-        }
-        return false;
+              || std::ranges::contains(end, token);
+        });
       };
 
       for (const auto& bar : cfg.bars) {
@@ -545,13 +542,10 @@ namespace settings {
       if (id.empty()) {
         return false;
       }
-      for (char c : id) {
+      return std::ranges::all_of(id, [&](char c) {
         const auto uc = static_cast<unsigned char>(c);
-        if (!std::isalnum(uc) && c != '_' && c != '-') {
-          return false;
-        }
-      }
-      return true;
+        return std::isalnum(uc) != 0 || c == '_' || c == '-';
+      });
     }
 
     bool canRenameWidgetInstance(const Config& cfg, std::string_view oldName, std::string_view newName) {

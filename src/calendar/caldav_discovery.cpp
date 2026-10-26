@@ -4,6 +4,7 @@
 #include "net/http_client.h"
 #include "net/uri.h"
 
+#include <algorithm>
 #include <cctype>
 #include <cstring>
 #include <libxml/parser.h>
@@ -175,18 +176,15 @@ namespace calendar {
       if (supported == nullptr) {
         return true;
       }
-      for (xmlNode* comp : childElements(supported, "comp")) {
+      return std::ranges::any_of(childElements(supported, "comp"), [&](xmlNode* comp) {
         xmlChar* attr = xmlGetProp(comp, reinterpret_cast<const xmlChar*>("name"));
         if (attr == nullptr) {
-          continue;
+          return false;
         }
         const bool isEvent = std::strcmp(reinterpret_cast<const char*>(attr), "VEVENT") == 0;
         xmlFree(attr);
-        if (isEvent) {
-          return true;
-        }
-      }
-      return false;
+        return isEvent;
+      });
     }
 
     std::unique_ptr<xmlDoc, decltype(&xmlFreeDoc)> parseXml(const std::string& body) {

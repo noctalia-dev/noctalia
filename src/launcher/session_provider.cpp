@@ -199,11 +199,11 @@ bool SessionProvider::activate(const LauncherResult& result) {
     return false;
   }
 
-  for (const auto& entry : collectActions(m_config)) {
+  return std::ranges::any_of(collectActions(m_config), [&](const auto& entry) {
     if (entry.index == index && entry.config.action == action) {
       m_actionRunner->invoke(entry.config);
       return true;
     }
-  }
-  return false;
+    return false;
+  });
 }

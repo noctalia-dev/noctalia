@@ -1455,12 +1455,9 @@ bool CompositorPlatform::isKnownWorkspaceAlertKey(std::string_view workspaceId) 
   if (outputs.empty()) {
     return WorkspaceAlertService::isKnownWorkspaceToken(workspaceId, workspaces());
   }
-  for (const auto& output : outputs) {
-    if (WorkspaceAlertService::isKnownWorkspaceToken(workspaceId, workspaces(output.output))) {
-      return true;
-    }
-  }
-  return false;
+  return std::ranges::any_of(outputs, [&](const auto& output) {
+    return WorkspaceAlertService::isKnownWorkspaceToken(workspaceId, workspaces(output.output));
+  });
 }
 
 std::optional<std::string> CompositorPlatform::workspaceAlertKeyForWindow(std::string_view windowId) const {

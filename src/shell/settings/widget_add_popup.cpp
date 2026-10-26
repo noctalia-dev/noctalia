@@ -84,13 +84,10 @@ namespace settings {
       if (id.empty()) {
         return false;
       }
-      for (char c : id) {
+      return std::ranges::all_of(id, [&](char c) {
         const auto uc = static_cast<unsigned char>(c);
-        if (!std::isalnum(uc) && c != '_' && c != '-') {
-          return false;
-        }
-      }
-      return true;
+        return std::isalnum(uc) != 0 || c == '_' || c == '-';
+      });
     }
 
     std::string normalizedWidgetInstanceBase(std::string_view type) {

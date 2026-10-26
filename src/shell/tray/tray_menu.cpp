@@ -995,12 +995,9 @@ bool TrayMenu::activeItemPinned() const {
     return false;
   }
   const auto resolved = tray::resolvedTrayOptions(*m_config);
-  for (const auto& token : resolved.options.pinnedItems) {
-    if (tray::tokenMatchesItem(token, *item)) {
-      return true;
-    }
-  }
-  return false;
+  return std::ranges::any_of(resolved.options.pinnedItems, [&](const auto& token) {
+    return tray::tokenMatchesItem(token, *item);
+  });
 }
 
 bool TrayMenu::toggleActiveItemPinned() {

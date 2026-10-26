@@ -2892,12 +2892,9 @@ bool NotificationToast::isInlineReplyInputArea(const Instance& inst, const Input
   if (area == nullptr) {
     return false;
   }
-  for (const auto& cs : inst.cards) {
-    if (cs.inlineReplyInput != nullptr && cs.inlineReplyInput->inputArea() == area) {
-      return true;
-    }
-  }
-  return false;
+  return std::ranges::any_of(inst.cards, [&](const auto& cs) {
+    return cs.inlineReplyInput != nullptr && cs.inlineReplyInput->inputArea() == area;
+  });
 }
 
 void NotificationToast::clearInlineReplyFocus(Instance& inst) {

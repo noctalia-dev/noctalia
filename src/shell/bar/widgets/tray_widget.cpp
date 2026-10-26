@@ -836,13 +836,7 @@ bool TrayWidget::isPinnedItem(const TrayItemInfo& item) const {
     return false;
   }
 
-  for (const auto& needle : m_pinnedItems) {
-    if (tray::tokenMatchesItem(needle, item)) {
-      return true;
-    }
-  }
-
-  return false;
+  return std::ranges::any_of(m_pinnedItems, [&](const auto& needle) { return tray::tokenMatchesItem(needle, item); });
 }
 
 void TrayWidget::buildDesktopIconIndex() {

@@ -29,5 +29,6 @@ Checks: >-
   readability-redundant-string-init,
   readability-static-definition-in-anonymous-namespace,
   readability-uppercase-literal-suffix,
+  readability-use-anyofallof,
   readability-use-std-min-max,
 HeaderFilterRegex: '(^|/)src/.*\.h$'

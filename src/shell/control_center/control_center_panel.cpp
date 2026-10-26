@@ -845,12 +845,7 @@ bool ControlCenterPanel::isDirectSectionOpenContext(std::string_view context) co
   if (context.empty() || context == "home") {
     return false;
   }
-  for (const auto& tab : kTabs) {
-    if (tab.id != TabId::Home && context == tab.key) {
-      return true;
-    }
-  }
-  return false;
+  return std::ranges::any_of(kTabs, [&](const auto& tab) { return tab.id != TabId::Home && context == tab.key; });
 }
 
 ControlCenterSidebarMode ControlCenterPanel::sidebarModeForOpen(std::string_view context) const {

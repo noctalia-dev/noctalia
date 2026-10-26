@@ -66,12 +66,7 @@ namespace {
     }
     static constexpr std::string_view kBad[] = {"audio-src",   "audio-source", "audio-sink", "audio-output",
                                                 "audio-input", "output",       "input",      "stream"};
-    for (const auto token : kBad) {
-      if (normalized == token) {
-        return true;
-      }
-    }
-    return false;
+    return std::ranges::contains(kBad, normalized);
   }
 
   bool looksLikeRuntimeLauncher(std::string_view value) {
@@ -83,12 +78,9 @@ namespace {
         "wine",   "wine64",       "wine64-preloader", "wineserver",
         "proton", "protontricks", "steam-runtime",    "pressure-vessel",
     };
-    for (const auto token : kRuntimeTokens) {
-      if (normalized == token || normalized.contains(token)) {
-        return true;
-      }
-    }
-    return false;
+    return std::ranges::any_of(kRuntimeTokens, [&](const auto token) {
+      return normalized == token || normalized.contains(token);
+    });
   }
 
   bool looksLikeWaydroidRuntime(std::string_view value) {
@@ -321,12 +313,7 @@ namespace {
     // Spelled-out sequel ordinals (generic English product naming, not title-specific).
     static constexpr std::string_view kEnglishNumberWords[] = {"two",   "three", "four", "five",   "six",   "seven",
                                                                "eight", "nine",  "ten",  "eleven", "twelve"};
-    for (const auto w : kEnglishNumberWords) {
-      if (tok == w) {
-        return true;
-      }
-    }
-    return false;
+    return std::ranges::contains(kEnglishNumberWords, tok);
   }
 
   bool crossMatchDesktopSearch(std::string_view lookupKey, std::string_view desktopField) {
@@ -1658,13 +1645,10 @@ bool AudioTab::dragging() const noexcept {
       || (m_inputDeviceVolume.slider != nullptr && m_inputDeviceVolume.slider->dragging())) {
     return true;
   }
-  for (Flex* row : m_programRows) {
+  return std::ranges::any_of(m_programRows, [&](Flex* row) {
     auto* programRow = static_cast<ProgramVolumeRow*>(row);
-    if (programRow != nullptr && programRow->dragging()) {
-      return true;
-    }
-  }
-  return false;
+    return programRow != nullptr && programRow->dragging();
+  });
 }
 
 bool AudioTab::dismissTransientUi() {

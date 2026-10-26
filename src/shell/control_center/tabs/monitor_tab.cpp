@@ -163,12 +163,9 @@ void MonitorTab::onClose() {
 }
 
 bool MonitorTab::dragging() const noexcept {
-  for (const auto& card : m_cards) {
-    if (card.slider != nullptr && card.slider->dragging()) {
-      return true;
-    }
-  }
-  return false;
+  return std::ranges::any_of(m_cards, [&](const auto& card) {
+    return card.slider != nullptr && card.slider->dragging();
+  });
 }
 
 void MonitorTab::doLayout(Renderer& renderer, float contentWidth, float bodyHeight) {

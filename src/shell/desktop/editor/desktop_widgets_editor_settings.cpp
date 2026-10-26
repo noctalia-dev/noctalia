@@ -108,12 +108,7 @@ namespace {
     }
     auto matches = [&](const std::string& key, const std::vector<std::string>& values) {
       const auto current = settingValueAsString(s, key, allSpecs);
-      for (const auto& val : values) {
-        if (val == current) {
-          return true;
-        }
-      }
-      return false;
+      return std::ranges::contains(values, current);
     };
     for (const auto& cond : spec.visibleWhen->all) {
       if (!matches(cond.key, cond.values)) {
@@ -123,21 +118,11 @@ namespace {
     if (spec.visibleWhen->any.empty()) {
       return true;
     }
-    for (const auto& cond : spec.visibleWhen->any) {
-      if (matches(cond.key, cond.values)) {
-        return true;
-      }
-    }
-    return false;
+    return std::ranges::any_of(spec.visibleWhen->any, [&](const auto& cond) { return matches(cond.key, cond.values); });
   }
 
   bool hasVisibleSpecs(const std::vector<settings::WidgetSettingSpec>& specs, const Settings& s) {
-    for (const auto& spec : specs) {
-      if (isSpecVisible(spec, s, specs)) {
-        return true;
-      }
-    }
-    return false;
+    return std::ranges::any_of(specs, [&](const auto& spec) { return isSpecVisible(spec, s, specs); });
   }
 
   bool settingChangeAffectsInspectorVisibility(std::string_view type, std::string_view changedKey) {
