@@ -8,6 +8,8 @@
 #include <climits>
 #include <csignal>
 #include <cstdint>
+#include <cstdlib>
+#include <cstring>
 #include <ctime>
 #include <fcntl.h>
 #include <pthread.h>
@@ -133,10 +135,24 @@ namespace {
     return true;
   }
 
-  // A helper next to the running binary (build tree, portable bundle) wins over
-  // the installed one, so a dev build never talks to an older installed helper.
-  // Installed binaries have no helper beside them in bindir.
+  // NOCTALIA_PAM_HELPER_PATH replaces the lookup, so a shell built elsewhere
+  // (e.g. by Nix on another distribution) can pair with a helper built against
+  // the host's libpam. Otherwise a helper next to the binary (build tree,
+  // bundle) wins over the installed one, so a dev build never talks to an
+  // older installed helper. Logs why nothing was found.
   [[nodiscard]] std::string resolveHelperPath() {
+    if (const char* override = std::getenv("NOCTALIA_PAM_HELPER_PATH"); override != nullptr && *override != '\0') {
+      if (*override != '/') {
+        kLog.error("NOCTALIA_PAM_HELPER_PATH must be an absolute path, got {}", override);
+        return {};
+      }
+      if (::access(override, X_OK) != 0) {
+        kLog.error("NOCTALIA_PAM_HELPER_PATH={} is not executable: {}", override, std::strerror(errno));
+        return {};
+      }
+      return override;
+    }
+
     std::array<char, PATH_MAX> exe{};
     const ssize_t n = ::readlink("/proc/self/exe", exe.data(), exe.size() - 1);
     if (n > 0) {
@@ -150,7 +166,11 @@ namespace {
         }
       }
     }
-    return ::access(NOCTALIA_PAM_HELPER, X_OK) == 0 ? NOCTALIA_PAM_HELPER : std::string{};
+    if (::access(NOCTALIA_PAM_HELPER, X_OK) == 0) {
+      return NOCTALIA_PAM_HELPER;
+    }
+    kLog.error("{} not found (expected at {})", kHelperName, NOCTALIA_PAM_HELPER);
+    return {};
   }
 
 } // namespace
@@ -168,7 +188,6 @@ PamAuthenticator::authenticateCurrentUser(std::string_view password, const Messa
 
   const std::string helperPath = resolveHelperPath();
   if (helperPath.empty()) {
-    kLog.error("{} not found (expected at {})", kHelperName, NOCTALIA_PAM_HELPER);
     return fail();
   }
 

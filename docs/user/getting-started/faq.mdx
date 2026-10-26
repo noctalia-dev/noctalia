@@ -322,6 +322,8 @@ Find answers to common setup and troubleshooting questions for Noctalia.
   After a successful PAM unlock, Noctalia asks the same PAM stack to refresh existing credentials, such as Kerberos tickets or PAM-integrated GPG and keyring credentials.
 
   If the log says `noctalia-pam-helper not found`, the installation is incomplete: the helper must be installed next to the `noctalia` binary or in `<libexecdir>/noctalia/`.
+
+  If Noctalia was built on another system than the one it runs on (for example installed through Nix on Ubuntu, Debian, or Arch), its own `noctalia-pam-helper` links a libpam that cannot use your distribution's `/etc/pam.d`, and every password is rejected. Build the helper on the host (`meson setup build && meson compile -C build noctalia-pam-helper`, from the same Noctalia version) and set `NOCTALIA_PAM_HELPER_PATH` to its absolute path in the environment Noctalia starts from, such as your compositor's autostart or `home.sessionVariables`.
 </FaqItem>
 
 <FaqItem question="Does the lock screen engage before suspend?">

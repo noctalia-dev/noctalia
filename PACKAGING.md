@@ -121,7 +121,7 @@ Noctalia resolves the asset root in this order:
 
 A candidate is only accepted if it contains `emoji.json`, `fonts/noctalia-tabler.ttf`, `templates/builtin.toml`, and `translations/en.json`. If none qualifies, Noctalia logs a warning and uses the compiled install path.
 
-`noctalia-pam-helper` is looked up next to the executable first, then at the compiled install path (`<prefix>/<libexecdir>/noctalia/noctalia-pam-helper`).
+`noctalia-pam-helper` is looked up next to the executable first, then at the compiled install path (`<prefix>/<libexecdir>/noctalia/noctalia-pam-helper`). `NOCTALIA_PAM_HELPER_PATH`, when set, must be the absolute path of the helper and replaces both lookups; a value that is not executable is an error, not a fallback.
 
 Not shipped (don’t look for them in the install): AppStream / metainfo XML, man pages, systemd units.
 
@@ -181,6 +181,8 @@ Vendored versions: Wuffs 0.4.0-alpha.9, Luau 0.742 (0.724 also builds), fzy 1.1,
 | `libheif` (`libheif.so.1`)                         | Optional but recommended: HEIC, HEIF, and AVIF decoding for wallpapers, thumbnails, clipboard previews, and notification images. Loaded with `dlopen` on first use, so it is neither a build dependency nor a link dependency; declare it as a weak dependency (Arch `optdepends`, Debian/Fedora `Recommends`). AVIF needs libheif's dav1d or aom decoder plugin; HEIC needs an HEVC decoder plugin such as libde265. Fedora's main `libheif` lacks the HEVC decoder; RPM Fusion's `libheif-freeworld` provides it. |
 
 The lock screen runs PAM in `noctalia-pam-helper`, a small executable that links only libpam. If unprivileged password checks on your distribution need extra privileges, grant them to this helper, never to the `noctalia` binary.
+
+A shell built on one system can use a helper built on another: the helper links libpam and reads `/etc/pam.d`, the shell does not. A Nix-built Noctalia on a non-NixOS host, whose own helper links nixpkgs' libpam and cannot use the host's PAM stack, works with a helper built natively (`meson compile -C build noctalia-pam-helper`) and `NOCTALIA_PAM_HELPER_PATH` pointing at it. Shell and helper check a shared protocol version on every run, so build the helper from the same Noctalia version.
 
 ## Startup and IPC
 
