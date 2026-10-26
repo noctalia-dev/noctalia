@@ -261,10 +261,10 @@ void HttpClient::download(std::vector<std::string> urls, const std::filesystem::
   state->urls = std::move(urls);
   state->destPath = destPath;
   state->callback = std::move(cb);
-  downloadSequential(std::move(state));
+  downloadSequential(state);
 }
 
-void HttpClient::downloadSequential(std::shared_ptr<SequentialDownload> state) {
+void HttpClient::downloadSequential(const std::shared_ptr<SequentialDownload>& state) {
   const std::size_t index = state->index;
   // The captured shared state keeps urls/dest/callback alive across async hops;
   // advance to the next candidate only when the current one fails.

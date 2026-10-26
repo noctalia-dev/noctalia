@@ -191,7 +191,7 @@ void PowerProfilesService::refresh() {
     m_proxy->callMethodAsync("GetAll")
         .onInterface(kPropertiesInterface)
         .withArguments(std::string{kPowerProfilesInterface})
-        .uponReplyInvoke([this, lifetimeToken](std::optional<sdbus::Error> err, VariantMap properties) {
+        .uponReplyInvoke([this, lifetimeToken](std::optional<sdbus::Error> err, const VariantMap& properties) {
           if (lifetimeToken.expired()) {
             return;
           }
@@ -309,7 +309,7 @@ void PowerProfilesService::emitChangedIfNeeded(PowerProfilesState next, bool sta
   }
 }
 
-void PowerProfilesService::registerIpc(IpcService& ipc, StateFeedbackCallback stateFeedback) {
+void PowerProfilesService::registerIpc(IpcService& ipc, const StateFeedbackCallback& stateFeedback) {
   ipc.bind(noctalia::cli::msg::powerSet, [this, stateFeedback](const std::string& args) -> std::string {
     const std::string profile = StringUtils::trim(args);
     if (profile.empty()) {

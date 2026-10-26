@@ -92,7 +92,7 @@ namespace capture {
     void setScreenshotBackdrop(const BackdropConfig& backdrop);
     [[nodiscard]] const BackdropConfig& screenshotBackdrop() const noexcept { return m_backdrop; }
 
-    void setToolState(AnnotationToolState state);
+    void setToolState(const AnnotationToolState& state);
     [[nodiscard]] const AnnotationToolState& toolState() const noexcept { return m_tools; }
 
     // Empty vector selects Live, a non-empty one Frozen.

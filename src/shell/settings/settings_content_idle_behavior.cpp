@@ -52,7 +52,8 @@ namespace settings {
         .visible = showCustomCommands,
     });
 
-    const auto addCommandInput = [&](Flex& section, std::string label, std::string placeholder, std::string& target) {
+    const auto addCommandInput = [&](Flex& section, const std::string& label, std::string placeholder,
+                                     std::string& target) {
       auto block = ui::column(
           {.align = FlexAlign::Stretch, .gap = Style::spaceXs * scale},
           makeLabel(

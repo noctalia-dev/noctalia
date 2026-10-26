@@ -187,8 +187,8 @@ namespace settings {
     }
 
     std::unique_ptr<Node> makePathBrowseControl(
-        const BarWidgetEditorContext& ctx, std::vector<std::string> path, std::string currentValue, std::string glyph,
-        FileDialogOptions options, PathBrowseKind kind, std::string dialogStartValue = {}
+        const BarWidgetEditorContext& ctx, std::vector<std::string> path, const std::string& currentValue,
+        std::string glyph, FileDialogOptions options, PathBrowseKind kind, std::string dialogStartValue = {}
     ) {
       if (dialogStartValue.empty()) {
         dialogStartValue = currentValue;
@@ -1420,7 +1420,8 @@ namespace settings {
     }
 
     void addWidgetSettingsPanel(
-        Flex& item, std::string widgetName, const std::vector<std::string>& lanePath, const BarWidgetEditorContext& ctx
+        Flex& item, const std::string& widgetName, const std::vector<std::string>& lanePath,
+        const BarWidgetEditorContext& ctx
     ) {
       const auto widgetType = widgetTypeForReference(ctx.config, widgetName);
       if (widgetType.empty()) {
@@ -2163,7 +2164,7 @@ namespace settings {
     // Color picker control (no label) — placed into a standard settings row via ctx.makeRow.
     std::unique_ptr<Node> makeGroupColorControl(
         const BarWidgetEditorContext& ctx, std::string selectedValue, bool allowNone,
-        std::function<void(std::optional<ColorSpec>)> onChange
+        const std::function<void(std::optional<ColorSpec>)>& onChange
     ) {
       ColorSpecSelectOptions opts;
       opts.selectedValue = std::move(selectedValue);
@@ -2175,7 +2176,9 @@ namespace settings {
       opts.width = 190.0F * ctx.scale;
       return makeColorSpecSelect(
           std::move(opts),
-          [onChange](std::string value) { onChange(colorSpecFromConfigString(value, "bar.capsule_group.color")); },
+          [onChange](const std::string& value) {
+            onChange(colorSpecFromConfigString(value, "bar.capsule_group.color"));
+          },
           [onChange] { onChange(std::nullopt); }
       );
     }
@@ -2183,7 +2186,7 @@ namespace settings {
     // Slider + editable numeric value field (no label), matching the shell's standard slider control.
     std::unique_ptr<Node> makeGroupSliderControl(
         const BarWidgetEditorContext& ctx, double value, double minV, double maxV, double step, bool integerValue,
-        std::function<void(double)> onCommit
+        const std::function<void(double)>& onCommit
     ) {
       Input* valueInputPtr = nullptr;
       auto valueInput = ui::input({
@@ -2242,7 +2245,7 @@ namespace settings {
     // Radius Auto | Custom segmented control + stepper (no label).
     std::unique_ptr<Node> makeGroupRadiusControl(
         const BarWidgetEditorContext& ctx, std::optional<float> radius, float inheritedRadius,
-        std::function<void(std::optional<float>)> onChange
+        const std::function<void(std::optional<float>)>& onChange
     ) {
       const int radiusValue = static_cast<int>(std::lround(std::clamp(radius.value_or(inheritedRadius), 0.0F, 80.0F)));
       auto wrap = ui::row({.align = FlexAlign::Center, .gap = Style::spaceSm * ctx.scale});
@@ -2277,7 +2280,7 @@ namespace settings {
     // Spacing Auto | Custom segmented control + stepper (no label). "Auto" inherits the bar's widget spacing.
     std::unique_ptr<Node> makeGroupSpacingControl(
         const BarWidgetEditorContext& ctx, std::optional<std::int32_t> spacing, std::int32_t inherited,
-        std::function<void(std::optional<std::int32_t>)> onChange
+        const std::function<void(std::optional<std::int32_t>)>& onChange
     ) {
       const int spacingValue = std::clamp(static_cast<int>(spacing.value_or(inherited)), 0, 32);
       auto wrap = ui::row({.align = FlexAlign::Center, .gap = Style::spaceSm * ctx.scale});

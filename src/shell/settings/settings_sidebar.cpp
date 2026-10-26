@@ -29,7 +29,7 @@ namespace settings {
 
     void addNavButton(RovingListNavHost& nav, std::unique_ptr<Button> button, std::function<void()> onClick) {
       Button* raw = button.get();
-      nav.registerItem(raw, onClick);
+      nav.registerItem(raw, std::move(onClick));
       nav.addChild(std::move(button));
     }
 
@@ -415,7 +415,7 @@ namespace settings {
           .height = Style::controlHeightSm * scale,
       });
 
-      auto doCreate = [existingBarNames, createBar, inputPtr](std::string rawName) {
+      auto doCreate = [existingBarNames, createBar, inputPtr](const std::string& rawName) {
         const std::string name = normalizedConfigId(rawName);
         if (!isValidConfigId(name) || barNameExists(existingBarNames, name)) {
           inputPtr->setInvalid(true);

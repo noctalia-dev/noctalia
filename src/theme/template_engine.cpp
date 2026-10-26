@@ -1658,7 +1658,7 @@ namespace noctalia::theme {
 
         HookRunner::FailureCallback onFailure;
         if (renderOptions.hookWarningCallback) {
-          onFailure = [callback = renderOptions.hookWarningCallback, name = entry.name](std::string message) {
+          onFailure = [callback = renderOptions.hookWarningCallback, name = entry.name](const std::string& message) {
             const std::string diagnostic = StringUtils::trim(message);
             if (diagnostic.starts_with("Warning:")) {
               callback(std::format("{}: {}", name, diagnostic));

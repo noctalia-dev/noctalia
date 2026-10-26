@@ -155,7 +155,7 @@ private:
     std::size_t index = 0;
   };
 
-  void downloadSequential(std::shared_ptr<SequentialDownload> state);
+  void downloadSequential(const std::shared_ptr<SequentialDownload>& state);
   void finishTransfer(CURL* easy, CURLcode result);
   void finishPostTransfer(CURL* easy, CURLcode result);
   void finishRequestTransfer(CURL* easy, CURLcode result);

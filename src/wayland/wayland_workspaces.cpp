@@ -95,7 +95,7 @@ void WaylandWorkspaces::bindDwlIpcWorkspace(zdwl_ipc_manager_v2* manager) {
   }
 }
 
-void WaylandWorkspaces::setOutputNameResolver(std::function<std::string(wl_output*)> resolver) {
+void WaylandWorkspaces::setOutputNameResolver(const std::function<std::string(wl_output*)>& resolver) {
   for (auto* backend : m_outputNameResolvers) {
     if (backend != nullptr) {
       backend->setOutputNameResolver(resolver);

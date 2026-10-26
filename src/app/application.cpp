@@ -203,7 +203,7 @@ Application::~Application() {
   notify::setInstance(nullptr);
 }
 
-void Application::run(std::function<void()> startupReadyCallback) {
+void Application::run(const std::function<void()>& startupReadyCallback) {
   initLogFile();
   initLogLevelFromEnvironment();
   kLog.info("noctalia {}", noctalia::build_info::displayVersion());

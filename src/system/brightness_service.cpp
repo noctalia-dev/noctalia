@@ -500,7 +500,7 @@ namespace {
     process::RunOptions options;
     options.timeout = timeout;
     options.cancel = cancel;
-    process::RunResult runResult = process::runSync(args, std::move(options));
+    process::RunResult runResult = process::runSync(args, options);
 
     std::string output = std::move(runResult.out);
     if (!runResult.err.empty()) {
@@ -1715,7 +1715,7 @@ void BrightnessService::reload(const BrightnessConfig& config) { m_impl->reload(
 
 void BrightnessService::onOutputsChanged() { m_impl->onOutputsChanged(); }
 
-void BrightnessService::registerIpc(IpcService& ipc, std::function<void(BatchChangePhase)> onBatchChange) {
+void BrightnessService::registerIpc(IpcService& ipc, const std::function<void(BatchChangePhase)>& onBatchChange) {
   auto resolveTargets = [this,
                          &ipc](std::string_view token, std::vector<std::string>& ids, std::string& error) -> bool {
     if (!available()) {

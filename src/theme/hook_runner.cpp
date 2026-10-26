@@ -115,14 +115,16 @@ namespace noctalia::theme {
         }
       }
 
-      if (!launch(state, command, std::move(onFailure))) {
+      if (!launch(state, command, onFailure)) {
         std::scoped_lock lock(state->mutex);
         --state->running;
       }
     }
   }
 
-  bool HookRunner::launch(const std::shared_ptr<State>& state, const std::string& command, FailureCallback onFailure) {
+  bool HookRunner::launch(
+      const std::shared_ptr<State>& state, const std::string& command, const FailureCallback& onFailure
+  ) {
     process::RunCallbacks callbacks;
     callbacks.onExit = [state, command, onFailure](process::RunResult result) {
       if (!result) {

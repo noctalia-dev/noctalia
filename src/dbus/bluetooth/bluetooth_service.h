@@ -88,7 +88,7 @@ public:
   void setStateCallback(StateCallback callback);
   void setDevicesCallback(DevicesCallback callback);
   void refresh();
-  void registerIpc(IpcService& ipc, StateFeedbackCallback stateFeedback = {});
+  void registerIpc(IpcService& ipc, const StateFeedbackCallback& stateFeedback = {});
 
   [[nodiscard]] const BluetoothState& state() const noexcept { return m_state; }
   [[nodiscard]] bool hasStateSnapshot() const noexcept { return m_hasStateSnapshot; }

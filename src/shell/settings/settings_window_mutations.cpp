@@ -32,7 +32,7 @@ namespace {
     return std::ranges::any_of(paths, [](const auto& path) { return settingPathNeedsSceneRebuild(path); });
   }
 
-  std::string settingsMutationError(const ConfigService& config, std::string fallback) {
+  std::string settingsMutationError(const ConfigService& config, const std::string& fallback) {
     return config.lastMutationError().empty() ? fallback : config.lastMutationError();
   }
 
@@ -155,7 +155,7 @@ void SettingsWindow::setSettingOverrides(
     });
     const auto patchOverrides = overrides;
     const auto previousResetPaths = currentPageResetPaths();
-    if (m_config->setOverrides(std::move(overrides), &changed)) {
+    if (m_config->setOverrides(overrides, &changed)) {
       const bool registryPatched = changed && !needsSceneRebuild && tryPatchSettingsRegistryOverrides(patchOverrides);
       finishSettingsWrite(changed, needsSceneRebuild, previousResetPaths != currentPageResetPaths(), registryPatched);
       return;

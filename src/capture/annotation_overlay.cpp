@@ -589,7 +589,7 @@ namespace capture {
     m_backdropLayoutPadding = m_backdrop.enabled ? std::max(0, m_backdrop.padding) : 0;
   }
 
-  void AnnotationOverlay::setToolState(AnnotationToolState state) {
+  void AnnotationOverlay::setToolState(const AnnotationToolState& state) {
     m_tools = state;
     for (std::size_t i = 0; i < kAnnotationToolCount; ++i) {
       const auto tool = static_cast<AnnotationTool>(i);

@@ -326,7 +326,7 @@ namespace settings {
 
     SettingEntry makeEntry(
         SettingsSection section, std::string group, std::string title, std::string subtitle,
-        std::vector<std::string> path, SettingControl control, std::string tags = {}, bool advanced = false
+        std::vector<std::string> path, SettingControl control, const std::string& tags = {}, bool advanced = false
     ) {
       std::string searchText = std::string(settingsSectionId(section))
           + " "
@@ -934,7 +934,7 @@ namespace settings {
     // Dock and per-monitor dock pages share the same controls. Override pages display effective values while
     // writing to their own table, so untouched fields continue to inherit from the global dock.
     const auto addDockSettings = [&](const DockConfig& dock, std::vector<std::string> root,
-                                     std::optional<std::string> monitorTable) {
+                                     const std::optional<std::string>& monitorTable) {
       const auto path = [&root](std::string key) {
         auto result = root;
         result.push_back(std::move(key));

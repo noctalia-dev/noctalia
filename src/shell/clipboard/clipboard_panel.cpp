@@ -1515,7 +1515,7 @@ void ClipboardPanel::deleteSelectedEntry() {
   performDeleteSelectedEntry();
 }
 
-void ClipboardPanel::selectByStorageId(std::string storageId) {
+void ClipboardPanel::selectByStorageId(const std::string& storageId) {
   applyFilter();
 
   std::size_t newSelected = 0;

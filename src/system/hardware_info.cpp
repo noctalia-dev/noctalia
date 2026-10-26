@@ -520,7 +520,7 @@ std::optional<std::string> compositorVersionLine(std::function<void()> onResolve
       command,
       process::RunCallbacks{
           .onExit =
-              [finish](process::RunResult result) {
+              [finish](const process::RunResult& result) {
                 // Worker thread: extract here, publish on the main loop. Some compositors print to stderr.
                 std::string parsed = result.timedOut ? std::string{} : firstNonBlankLine(result.out);
                 if (parsed.empty() && !result.timedOut) {

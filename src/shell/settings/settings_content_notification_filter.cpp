@@ -24,7 +24,7 @@ namespace settings {
   namespace {
 
     void addToggleRow(
-        Flex& parent, float scale, std::string label, bool checked, const std::function<void(bool)>& onChange
+        Flex& parent, float scale, const std::string& label, bool checked, const std::function<void(bool)>& onChange
     ) {
       auto row = ui::row({
           .align = FlexAlign::Center,
@@ -162,7 +162,7 @@ namespace settings {
       } else {
         std::erase(selected, std::string(level));
       }
-      row.allowedUrgencies = normalizeFilterAllowedUrgencyStrings(std::move(selected));
+      row.allowedUrgencies = normalizeFilterAllowedUrgencyStrings(selected);
       persistDraft();
     };
     auto urgenciesBlock = ui::column(

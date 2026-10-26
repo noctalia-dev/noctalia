@@ -3316,7 +3316,7 @@ void TaskbarWidget::openTaskContextMenu(const TaskModel& task, InputArea& area, 
   );
 }
 
-std::string TaskbarWidget::toLower(std::string value) { return StringUtils::toLower(std::move(value)); }
+std::string TaskbarWidget::toLower(const std::string& value) { return StringUtils::toLower(value); }
 
 const std::string& TaskbarWidget::displayTitle(const TaskModel& task) noexcept {
   if (!StringUtils::trimLeftView(task.title).empty()) {

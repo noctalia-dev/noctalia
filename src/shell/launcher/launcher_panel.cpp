@@ -1506,7 +1506,7 @@ void LauncherPanel::addProvider(std::unique_ptr<LauncherProvider> provider) {
   applyProviderConfig(*provider);
   provider->initialize();
   provider->setResultsChangedCallback([this] { onProviderResultsChanged(); });
-  provider->setQueryRequestedCallback([this](std::string query) { setQuery(std::move(query)); });
+  provider->setQueryRequestedCallback([this](const std::string& query) { setQuery(query); });
   LauncherProvider* providerPtr = provider.get();
   provider->setActivationDoneCallback([this, providerPtr](const std::string& resultId, bool copied) {
     finishActivation(*providerPtr, resultId, copied);
@@ -2474,7 +2474,7 @@ void LauncherPanel::reapplyCurrentQuery() {
   refreshResults();
 }
 
-void LauncherPanel::setQuery(std::string query) {
+void LauncherPanel::setQuery(const std::string& query) {
   if (m_input == nullptr) {
     return;
   }

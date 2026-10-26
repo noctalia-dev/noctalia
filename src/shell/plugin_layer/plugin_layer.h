@@ -80,7 +80,7 @@ private:
   void startScript();
   void reloadScript();
   void startUpdateTimer();
-  void handleScriptResult(scripting::ScriptResult result);
+  void handleScriptResult(const scripting::ScriptResult& result);
   [[nodiscard]] scripting::ScriptSnapshot makeScriptSnapshot() const;
   [[nodiscard]] std::string resolvePluginPath(const std::string& path) const;
   [[nodiscard]] float contentScale() const;

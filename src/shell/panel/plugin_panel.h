@@ -56,7 +56,7 @@ struct PluginPanelOptions {
 // but never-opened plugin panels cost nothing.
 class PluginPanel : public Panel, public scripting::PluginIpcEndpoint {
 public:
-  PluginPanel(scripting::PluginRuntimeContext context, PluginPanelOptions options);
+  PluginPanel(scripting::PluginRuntimeContext context, const PluginPanelOptions& options);
   ~PluginPanel() override;
 
   void create() override;

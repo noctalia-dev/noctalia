@@ -78,7 +78,7 @@ private:
   void positionOverlays();
   void updateHueThumbStyle();
   // Shared drag wiring for the plane and the strips; a release after any pick commits.
-  InputArea* addPickArea(std::function<void(const InputArea::PointerData&)> pick);
+  InputArea* addPickArea(const std::function<void(const InputArea::PointerData&)>& pick);
   void applyPickFromSv(float localX, float localY);
   void applyPickFromHue(float localX);
   void applyPickFromAlpha(float localX);

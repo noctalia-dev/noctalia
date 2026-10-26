@@ -325,7 +325,7 @@ namespace {
   }
 
   std::unique_ptr<Flex> makeColorSpecRow(
-      std::string_view labelText, const std::string& key, std::string fallbackValue, const Settings& s,
+      std::string_view labelText, const std::string& key, const std::string& fallbackValue, const Settings& s,
       DesktopWidgetsEditor* editor
   ) {
     settings::ColorSpecSelectOptions options{

@@ -1840,7 +1840,7 @@ bool CompositorPlatform::shouldSuppressLockTransition() const {
   return m_lastRequestedOutputPowerState == false;
 }
 
-void CompositorPlatform::setOutputPowerChangeCallback(ChangeCallback callback) {
+void CompositorPlatform::setOutputPowerChangeCallback(const ChangeCallback& callback) {
   for (auto& backend : m_focusedOutputBackends) {
     backend->setOutputPowerChangeCallback(callback);
   }

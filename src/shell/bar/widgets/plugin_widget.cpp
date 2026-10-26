@@ -307,7 +307,7 @@ void PluginWidget::create() {
     if (result.modulePathsKnown) {
       m_scriptWatcher.setModulePaths(result.modulePaths);
     }
-    handleScriptResult(std::move(result));
+    handleScriptResult(result);
   });
 
   m_runtime->start(m_sourcePath.string(), std::move(source), makeScriptSnapshot());
@@ -671,7 +671,7 @@ void PluginWidget::runScriptUpdate() {
   }
 }
 
-void PluginWidget::handleScriptResult(scripting::ScriptResult result) {
+void PluginWidget::handleScriptResult(const scripting::ScriptResult& result) {
   if (result.hasOnIpcKnown) {
     m_hasOnIpc = result.hasOnIpc;
     m_hasOnIpcKnown = true;

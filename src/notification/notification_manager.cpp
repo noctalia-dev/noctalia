@@ -533,7 +533,7 @@ void NotificationManager::dismissAfterInvoke(uint32_t id) {
 }
 
 bool NotificationManager::invokeAction(
-    uint32_t id, const std::string& actionKey, std::string activationToken, bool closeAfterInvoke
+    uint32_t id, const std::string& actionKey, const std::string& activationToken, bool closeAfterInvoke
 ) {
   if (actionKey.empty()) {
     return false;
@@ -572,7 +572,7 @@ bool NotificationManager::invokeInlineReply(uint32_t id, const std::string& repl
 }
 
 bool NotificationManager::invokeInlineReply(
-    uint32_t id, const std::string& replyText, std::string activationToken, bool closeAfterInvoke
+    uint32_t id, const std::string& replyText, const std::string& activationToken, bool closeAfterInvoke
 ) {
   if (StringUtils::isBlank(replyText)) {
     return false;

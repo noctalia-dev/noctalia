@@ -1488,7 +1488,7 @@ void LockScreen::tryAuthenticate() {
   }).detach();
 }
 
-void LockScreen::handleAuthResult(std::uint64_t generation, PamAuthenticator::Result result) {
+void LockScreen::handleAuthResult(std::uint64_t generation, const PamAuthenticator::Result& result) {
   if (generation != m_authGeneration || !m_locked) {
     return;
   }

@@ -63,7 +63,7 @@ namespace {
 
 } // namespace
 
-std::string normalizeNotificationMatchToken(std::string token) { return normalizeFilterToken(token); }
+std::string normalizeNotificationMatchToken(const std::string& token) { return normalizeFilterToken(token); }
 
 bool notificationMatchesToken(std::string_view token, const NotificationFilterFields& fields) {
   if (token.empty()) {
@@ -88,7 +88,7 @@ bool notificationMatchesToken(std::string_view token, const NotificationFilterFi
   return !appName.empty() && appName.contains(normalizedToken);
 }
 
-std::vector<std::string> normalizeNotificationMatchTokens(std::vector<std::string> tokens) {
+std::vector<std::string> normalizeNotificationMatchTokens(const std::vector<std::string>& tokens) {
   std::unordered_set<std::string> seen;
   std::vector<std::string> normalized;
   normalized.reserve(tokens.size());
@@ -117,8 +117,8 @@ bool notificationMatchesTokens(const std::vector<std::string>& tokens, const Not
 
 std::vector<NotificationFilterConfig> normalizeNotificationFilters(std::vector<NotificationFilterConfig> filters) {
   for (auto& filter : filters) {
-    filter.match = normalizeNotificationMatchToken(std::move(filter.match));
-    filter.allowedUrgencies = normalizeFilterAllowedUrgencyStrings(std::move(filter.allowedUrgencies));
+    filter.match = normalizeNotificationMatchToken(filter.match);
+    filter.allowedUrgencies = normalizeFilterAllowedUrgencyStrings(filter.allowedUrgencies);
   }
   normalizeNotificationFilterNames(filters);
   return filters;
@@ -174,7 +174,7 @@ void normalizeNotificationFilterNames(std::vector<NotificationFilterConfig>& fil
   filters = std::move(normalized);
 }
 
-std::unordered_set<Urgency> normalizeAllowedUrgencies(std::vector<std::string> values) {
+std::unordered_set<Urgency> normalizeAllowedUrgencies(const std::vector<std::string>& values) {
   std::unordered_set<Urgency> allowed;
   for (auto& raw : values) {
     const std::string token = normalizeFilterToken(raw);
@@ -189,8 +189,8 @@ std::unordered_set<Urgency> normalizeAllowedUrgencies(std::vector<std::string> v
   return allowed;
 }
 
-std::vector<std::string> normalizeFilterAllowedUrgencyStrings(std::vector<std::string> values) {
-  const auto allowed = normalizeAllowedUrgencies(std::move(values));
+std::vector<std::string> normalizeFilterAllowedUrgencyStrings(const std::vector<std::string>& values) {
+  const auto allowed = normalizeAllowedUrgencies(values);
   if (allowed.empty() || allowed.size() == 3) {
     return {};
   }

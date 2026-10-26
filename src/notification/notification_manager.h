@@ -113,12 +113,13 @@ public:
   void setReplyCallback(ReplyCallback callback);
   [[nodiscard]] bool hasPendingDBusClose(uint32_t id) const noexcept;
   [[nodiscard]] bool invokeAction(uint32_t id, const std::string& actionKey, bool closeAfterInvoke = true);
-  [[nodiscard]] bool
-  invokeAction(uint32_t id, const std::string& actionKey, std::string activationToken, bool closeAfterInvoke = true);
+  [[nodiscard]] bool invokeAction(
+      uint32_t id, const std::string& actionKey, const std::string& activationToken, bool closeAfterInvoke = true
+  );
   // Passes non-blank reply text and the notification's D-Bus sender to the reply callback.
   [[nodiscard]] bool invokeInlineReply(uint32_t id, const std::string& replyText, bool closeAfterInvoke = true);
   [[nodiscard]] bool invokeInlineReply(
-      uint32_t id, const std::string& replyText, std::string activationToken, bool closeAfterInvoke = true
+      uint32_t id, const std::string& replyText, const std::string& activationToken, bool closeAfterInvoke = true
   );
 
   // Closes a notification by ID. Returns false if not found.

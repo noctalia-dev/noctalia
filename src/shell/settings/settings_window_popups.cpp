@@ -1624,7 +1624,8 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
                 .glyphSize = Style::fontSizeBody * scale,
                 .flexGrow = true,
             },
-            [draft](std::string value) { draft->color = StringUtils::trim(value); }, [draft] { draft->color.clear(); }
+            [draft](const std::string& value) { draft->color = StringUtils::trim(value); },
+            [draft] { draft->color.clear(); }
         )
     );
 

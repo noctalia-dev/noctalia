@@ -283,8 +283,8 @@ namespace noctalia::config::schema {
             [](toml::table&, const NotificationFilterConfig&) {}
         ),
         finalize<NotificationFilterConfig>([](NotificationFilterConfig& filter, std::string_view, Diagnostics&) {
-          filter.match = normalizeNotificationMatchToken(std::move(filter.match));
-          filter.allowedUrgencies = normalizeFilterAllowedUrgencyStrings(std::move(filter.allowedUrgencies));
+          filter.match = normalizeNotificationMatchToken(filter.match);
+          filter.allowedUrgencies = normalizeFilterAllowedUrgencyStrings(filter.allowedUrgencies);
         }),
     };
     return s;

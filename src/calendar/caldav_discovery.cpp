@@ -295,16 +295,16 @@ namespace calendar {
              "<C:supported-calendar-component-set/></D:prop></D:propfind>";
     }
 
-    void finish(std::shared_ptr<DiscoveryContext> ctx, bool ok, std::vector<CalDavCollection> collections = {}) {
+    void finish(const std::shared_ptr<DiscoveryContext>& ctx, bool ok, std::vector<CalDavCollection> collections = {}) {
       if (ctx->callback) {
         ctx->callback(ok, std::move(collections));
       }
     }
 
-    void discoverCalendarHome(std::shared_ptr<DiscoveryContext> ctx, const std::string& principalUrl);
-    void discoverCollections(std::shared_ptr<DiscoveryContext> ctx, const std::string& homeUrl);
+    void discoverCalendarHome(const std::shared_ptr<DiscoveryContext>& ctx, const std::string& principalUrl);
+    void discoverCollections(const std::shared_ptr<DiscoveryContext>& ctx, const std::string& homeUrl);
 
-    void discoverPrincipal(std::shared_ptr<DiscoveryContext> ctx) {
+    void discoverPrincipal(const std::shared_ptr<DiscoveryContext>& ctx) {
       ctx->http.request(
           propfindRequest(
               ctx->serverUrl, ctx->username, ctx->password, ctx->allowRedirectAuth, ctx->tls,
@@ -328,7 +328,7 @@ namespace calendar {
       );
     }
 
-    void discoverCalendarHome(std::shared_ptr<DiscoveryContext> ctx, const std::string& principalUrl) {
+    void discoverCalendarHome(const std::shared_ptr<DiscoveryContext>& ctx, const std::string& principalUrl) {
       ctx->http.request(
           propfindRequest(
               principalUrl, ctx->username, ctx->password, ctx->allowRedirectAuth, ctx->tls, calendarHomeSetBody(), 0
@@ -351,7 +351,7 @@ namespace calendar {
       );
     }
 
-    void discoverCollections(std::shared_ptr<DiscoveryContext> ctx, const std::string& homeUrl) {
+    void discoverCollections(const std::shared_ptr<DiscoveryContext>& ctx, const std::string& homeUrl) {
       ctx->http.request(
           propfindRequest(homeUrl, ctx->username, ctx->password, ctx->allowRedirectAuth, ctx->tls, calendarsBody(), 1),
           [ctx, homeUrl](HttpResponse resp) {
@@ -385,7 +385,7 @@ namespace calendar {
       finish(ctx, false);
       return;
     }
-    discoverPrincipal(std::move(ctx));
+    discoverPrincipal(ctx);
   }
 
 } // namespace calendar

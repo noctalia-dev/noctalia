@@ -2225,7 +2225,7 @@ bool ScreenshotService::finishDelivery(
 }
 
 void ScreenshotService::onCaptureComplete(
-    std::optional<capture::ScreenshotImage> image, const std::string& error, OutputOptions options,
+    std::optional<capture::ScreenshotImage> image, const std::string& error, const OutputOptions& options,
     std::optional<std::filesystem::path> destPath
 ) {
   if (!error.empty() || !image.has_value()) {

@@ -494,7 +494,7 @@ bool EasyEffectsService::loadEffectsProfile(AudioEffectsProfileKind kind, std::s
 }
 
 void EasyEffectsService::registerIpc(
-    IpcService& ipc, const ConfigService&, EffectsProfileFeedbackCallback effectsProfileFeedback
+    IpcService& ipc, const ConfigService&, const EffectsProfileFeedbackCallback& effectsProfileFeedback
 ) {
   ipc.bind(
       noctalia::cli::msg::effectsProfileSet, [this, effectsProfileFeedback](const std::string& args) -> std::string {

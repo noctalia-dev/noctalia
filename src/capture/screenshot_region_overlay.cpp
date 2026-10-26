@@ -203,7 +203,7 @@ namespace capture {
     }
 
     std::unique_ptr<Flex>
-    buildFullscreenPickerBar(const WaylandConnection& wayland, std::function<void(wl_output*)> onPick) {
+    buildFullscreenPickerBar(const WaylandConnection& wayland, const std::function<void(wl_output*)>& onPick) {
       auto bar = ui::row(
           {
               .align = FlexAlign::Center,

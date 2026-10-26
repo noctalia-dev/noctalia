@@ -22,6 +22,7 @@
 #include <string_view>
 #include <tuple>
 #include <unordered_set>
+#include <utility>
 
 std::string joinedArtists(const std::vector<std::string>& artists) {
   if (artists.empty()) {
@@ -415,7 +416,7 @@ void MprisService::refreshPlayerPosition(const std::string& busName, bool notify
         .onInterface(kPropertiesInterface)
         .withArguments(std::string{kMprisPlayerInterface}, std::string{"Position"})
         .uponReplyInvoke([this, aliveGuard, busName,
-                          notifyChange](std::optional<sdbus::Error> err, sdbus::Variant value) {
+                          notifyChange](std::optional<sdbus::Error> err, const sdbus::Variant& value) {
           if (aliveGuard.expired()) {
             return;
           }
@@ -1124,7 +1125,7 @@ bool MprisService::setShuffleActive(bool shuffle) {
   return setShuffle(*active, shuffle);
 }
 
-bool MprisService::setLoopStatus(const std::string& busName, std::string loopStatus) {
+bool MprisService::setLoopStatus(const std::string& busName, const std::string& loopStatus) {
   if (!is_valid_loop_status(loopStatus)) {
     return false;
   }
@@ -1151,12 +1152,12 @@ bool MprisService::setLoopStatus(const std::string& busName, std::string loopSta
   }
 }
 
-bool MprisService::setLoopStatusActive(std::string loopStatus) {
+bool MprisService::setLoopStatusActive(const std::string& loopStatus) {
   const auto active = chooseActivePlayer();
   if (!active.has_value()) {
     return false;
   }
-  return setLoopStatus(*active, std::move(loopStatus));
+  return setLoopStatus(*active, loopStatus);
 }
 
 std::optional<int64_t> MprisService::position(const std::string& busName) const {
@@ -1271,7 +1272,7 @@ void MprisService::setPreferredPlayers(std::vector<std::string> preferredBusName
   }
 }
 
-void MprisService::setBlacklist(std::vector<std::string> blacklist) {
+void MprisService::setBlacklist(const std::vector<std::string>& blacklist) {
   std::unordered_set<std::string> seen;
   std::vector<std::string> normalized;
   normalized.reserve(blacklist.size());
@@ -1599,7 +1600,7 @@ void MprisService::discoverPlayers() {
     const std::weak_ptr<void> aliveGuard = m_aliveGuard;
     m_dbusProxy->callMethodAsync("ListNames")
         .onInterface(kDbusInterface)
-        .uponReplyInvoke([this, aliveGuard](std::optional<sdbus::Error> err, std::vector<std::string> names) {
+        .uponReplyInvoke([this, aliveGuard](std::optional<sdbus::Error> err, const std::vector<std::string>& names) {
           if (aliveGuard.expired()) {
             return;
           }
@@ -1799,7 +1800,8 @@ void MprisService::addOrRefreshPlayer(const std::string& busName) {
         .onInterface(kPropertiesInterface)
         .withArguments(std::string{kMprisRootInterface})
         .uponReplyInvoke([this, aliveGuard, busName, hadPositionSignal](
-                             std::optional<sdbus::Error> rootErr, std::map<std::string, sdbus::Variant> rootProps
+                             std::optional<sdbus::Error> rootErr, // NOLINT(performance-unnecessary-value-param)
+                             std::map<std::string, sdbus::Variant> rootProps
                          ) {
           if (aliveGuard.expired()) {
             return;
@@ -1814,81 +1816,86 @@ void MprisService::addOrRefreshPlayer(const std::string& busName) {
             proxyLookup->second->callMethodAsync("GetAll")
                 .onInterface(kPropertiesInterface)
                 .withArguments(std::string{kMprisPlayerInterface})
-                .uponReplyInvoke([this, aliveGuard, busName, hadPositionSignal, rootErr,
-                                  rootProps = std::move(rootProps)](
-                                     std::optional<sdbus::Error> playerErr,
-                                     std::map<std::string, sdbus::Variant> playerProps
-                                 ) {
-                  if (aliveGuard.expired()) {
-                    return;
-                  }
+                .uponReplyInvoke(
+                    [this, aliveGuard, busName, hadPositionSignal, rootErr,
+                     rootProps = std::move(rootProps)](
+                        std::optional<sdbus::Error> playerErr, // NOLINT(performance-unnecessary-value-param)
 
-                  const bool rootFailed = rootErr.has_value();
-                  const bool playerFailed = playerErr.has_value();
-                  const bool hadFullRefreshFailure = rootFailed && playerFailed;
-
-                  // Track full-properties fetch failures and give up after threshold.
-                  if (hadFullRefreshFailure) {
-                    int& failureCount = m_playerPropertiesFailures[busName];
-                    ++failureCount;
-
-                    if (failureCount == kPlayerPropertiesFailureThreshold) {
-                      kLog.warn("player properties refresh disabled after {} failures name={}", failureCount, busName);
-                      // Cancel the timer to stop polling this player
-                      if (auto it = m_positionResyncTimers.find(busName); it != m_positionResyncTimers.end()) {
-                        TimerManager::instance().cancel(it->second);
-                        m_positionResyncTimers.erase(it);
+                        std::map<std::string, sdbus::Variant> playerProps
+                    ) {
+                      if (aliveGuard.expired()) {
+                        return;
                       }
-                      return;
-                    } else if (failureCount > kPlayerPropertiesFailureThreshold) {
-                      return;
-                    } else if (failureCount > 1) {
-                      // Keep the first failure on the normal retry cadence before backing off.
-                      // Apply exponential backoff
-                      auto& backoff = m_playerPropertiesRefreshBackoffMs[busName];
-                      if (backoff.count() == 0) {
-                        backoff = kPositionRetryInitialBackoff;
-                      } else {
-                        backoff = std::min(backoff * 2, kPositionRetryMaxBackoff);
+
+                      const bool rootFailed = rootErr.has_value();
+                      const bool playerFailed = playerErr.has_value();
+                      const bool hadFullRefreshFailure = rootFailed && playerFailed;
+
+                      // Track full-properties fetch failures and give up after threshold.
+                      if (hadFullRefreshFailure) {
+                        int& failureCount = m_playerPropertiesFailures[busName];
+                        ++failureCount;
+
+                        if (failureCount == kPlayerPropertiesFailureThreshold) {
+                          kLog.warn(
+                              "player properties refresh disabled after {} failures name={}", failureCount, busName
+                          );
+                          // Cancel the timer to stop polling this player
+                          if (auto it = m_positionResyncTimers.find(busName); it != m_positionResyncTimers.end()) {
+                            TimerManager::instance().cancel(it->second);
+                            m_positionResyncTimers.erase(it);
+                          }
+                          return;
+                        } else if (failureCount > kPlayerPropertiesFailureThreshold) {
+                          return;
+                        } else if (failureCount > 1) {
+                          // Keep the first failure on the normal retry cadence before backing off.
+                          // Apply exponential backoff
+                          auto& backoff = m_playerPropertiesRefreshBackoffMs[busName];
+                          if (backoff.count() == 0) {
+                            backoff = kPositionRetryInitialBackoff;
+                          } else {
+                            backoff = std::min(backoff * 2, kPositionRetryMaxBackoff);
+                          }
+                          kLog.debug(
+                              "player properties refresh backoff failures={} interval={}ms name={}", failureCount,
+                              backoff.count(), busName
+                          );
+                        }
                       }
-                      kLog.debug(
-                          "player properties refresh backoff failures={} interval={}ms name={}", failureCount,
-                          backoff.count(), busName
-                      );
+
+                      if (playerFailed) {
+                        if (rootFailed) {
+                          kLog.warn("player hydration failed (both interfaces) name={}", busName);
+                        } else {
+                          kLog.warn("player hydration failed (player interface) name={}", busName);
+                        }
+                        if (m_players.contains(busName)) {
+                          removePlayerCacheEntry(busName);
+                        }
+                        scheduleRecoveryDiscovery();
+                        return;
+                      }
+
+                      std::map<std::string, sdbus::Variant> effectiveRootProps;
+                      if (!rootFailed) {
+                        effectiveRootProps = rootProps;
+                      }
+
+                      std::map<std::string, sdbus::Variant> effectivePlayerProps;
+                      if (!playerFailed) {
+                        effectivePlayerProps = std::move(playerProps);
+                      }
+
+                      const MprisPlayerInfo info =
+                          readPlayerInfoFromProperties(busName, effectiveRootProps, effectivePlayerProps);
+                      if (!hasStrongNowPlayingMetadata(info)) {
+                        removePlayerCacheEntry(busName);
+                        return;
+                      }
+                      applyPlayerSnapshot(busName, info, hadPositionSignal, hadFullRefreshFailure);
                     }
-                  }
-
-                  if (playerFailed) {
-                    if (rootFailed) {
-                      kLog.warn("player hydration failed (both interfaces) name={}", busName);
-                    } else {
-                      kLog.warn("player hydration failed (player interface) name={}", busName);
-                    }
-                    if (m_players.contains(busName)) {
-                      removePlayerCacheEntry(busName);
-                    }
-                    scheduleRecoveryDiscovery();
-                    return;
-                  }
-
-                  std::map<std::string, sdbus::Variant> effectiveRootProps;
-                  if (!rootFailed) {
-                    effectiveRootProps = rootProps;
-                  }
-
-                  std::map<std::string, sdbus::Variant> effectivePlayerProps;
-                  if (!playerFailed) {
-                    effectivePlayerProps = playerProps;
-                  }
-
-                  const MprisPlayerInfo info =
-                      readPlayerInfoFromProperties(busName, effectiveRootProps, effectivePlayerProps);
-                  if (!hasStrongNowPlayingMetadata(info)) {
-                    removePlayerCacheEntry(busName);
-                    return;
-                  }
-                  applyPlayerSnapshot(busName, info, hadPositionSignal, hadFullRefreshFailure);
-                });
+                );
           } catch (const sdbus::Error& e) {
             kLog.warn("player query failed name={} err={}", busName, e.what());
             scheduleRecoveryDiscovery();

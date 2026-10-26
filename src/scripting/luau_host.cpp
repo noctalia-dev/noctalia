@@ -159,7 +159,7 @@ namespace {
     return true;
   }
 
-  bool startDetachedCommandInTerminalAsync(std::string command) {
+  bool startDetachedCommandInTerminalAsync(const std::string& command) {
     auto prepared = terminal_launch::prepareCommand(command);
     return prepared.has_value() && startDetachedProcessAsync(std::move(*prepared));
   }
@@ -1945,7 +1945,7 @@ namespace {
   int luau_layer_show(lua_State* L) {
     std::string id = checkLayerEntryId(L, "show");
     if (auto* host = hostForState(L)) {
-      host->scriptLayerCommand(scripting::PluginLayerCommand::Show, std::move(id), {});
+      host->scriptLayerCommand(scripting::PluginLayerCommand::Show, id, {});
     }
     return 0;
   }
@@ -1953,7 +1953,7 @@ namespace {
   int luau_layer_hide(lua_State* L) {
     std::string id = checkLayerEntryId(L, "hide");
     if (auto* host = hostForState(L)) {
-      host->scriptLayerCommand(scripting::PluginLayerCommand::Hide, std::move(id), {});
+      host->scriptLayerCommand(scripting::PluginLayerCommand::Hide, id, {});
     }
     return 0;
   }
@@ -1963,7 +1963,7 @@ namespace {
     luaL_checktype(L, 2, LUA_TTABLE);
     auto patch = readLayerPatch(L, 2);
     if (auto* host = hostForState(L)) {
-      host->scriptLayerCommand(scripting::PluginLayerCommand::Configure, std::move(id), std::move(patch));
+      host->scriptLayerCommand(scripting::PluginLayerCommand::Configure, id, std::move(patch));
     }
     return 0;
   }
@@ -2666,8 +2666,8 @@ bool LuauHost::callAsyncDownloadCallback(int callbackRef, bool ok, std::chrono::
   return callWithBudget("async download callback", 1, 0, budget);
 }
 
-void LuauHost::stateSet(const std::string& key, std::string json) {
-  scripting::PluginStateStore::instance().set(m_pluginId, key, std::move(json));
+void LuauHost::stateSet(const std::string& key, const std::string& json) {
+  scripting::PluginStateStore::instance().set(m_pluginId, key, json);
 }
 
 std::optional<std::string> LuauHost::stateGet(const std::string& key) const {
@@ -2726,7 +2726,7 @@ bool LuauHost::startStream(std::string command, int callbackRef) {
       buffer->clear(); // drop a pathological unbounded line
     }
   };
-  callbacks.onExit = [alive](process::RunResult) { alive->store(false, std::memory_order_relaxed); };
+  callbacks.onExit = [alive](const process::RunResult&) { alive->store(false, std::memory_order_relaxed); };
 
   process::RunOptions options;
   options.cancel = std::move(cancel);
@@ -3179,7 +3179,7 @@ void LuauHost::scriptOpenSettings() {
 }
 
 void LuauHost::scriptLayerCommand(
-    scripting::PluginLayerCommand command, std::string localEntryId, scripting::PluginLayerConfigPatch patch
+    scripting::PluginLayerCommand command, const std::string& localEntryId, scripting::PluginLayerConfigPatch patch
 ) {
   if (m_scriptContext == nullptr) {
     return;

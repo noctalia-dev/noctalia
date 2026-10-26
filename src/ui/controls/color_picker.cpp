@@ -215,7 +215,7 @@ InputArea* ColorPicker::primaryInputArea() const noexcept {
   return m_hexInput != nullptr ? m_hexInput->inputArea() : nullptr;
 }
 
-InputArea* ColorPicker::addPickArea(std::function<void(const InputArea::PointerData&)> pick) {
+InputArea* ColorPicker::addPickArea(const std::function<void(const InputArea::PointerData&)>& pick) {
   auto area = std::make_unique<InputArea>();
   area->setParticipatesInLayout(false);
   area->setZIndex(10);

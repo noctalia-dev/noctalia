@@ -1953,15 +1953,17 @@ bool ConfigService::validateOverride(
 bool ConfigService::setOverride(const std::vector<std::string>& path, ConfigOverrideValue value, bool* changed) {
   std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>> overrides;
   overrides.emplace_back(path, std::move(value));
-  return setOverrides(std::move(overrides), changed);
-}
-
-bool ConfigService::setOverrides(std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>> overrides) {
-  return setOverrides(std::move(overrides), nullptr);
+  return setOverrides(overrides, changed);
 }
 
 bool ConfigService::setOverrides(
-    std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>> overrides, bool* changed
+    const std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>>& overrides
+) {
+  return setOverrides(overrides, nullptr);
+}
+
+bool ConfigService::setOverrides(
+    const std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>>& overrides, bool* changed
 ) {
   if (changed != nullptr) {
     *changed = false;
@@ -2483,7 +2485,7 @@ const WallpaperFavorite* ConfigService::wallpaperFavorite(std::string_view path)
   return nullptr;
 }
 
-void ConfigService::addWallpaperFavorite(std::string path, std::optional<WallpaperFavorite> preset) {
+void ConfigService::addWallpaperFavorite(std::string path, const std::optional<WallpaperFavorite>& preset) {
   if (m_overridesPath.empty()) {
     return;
   }

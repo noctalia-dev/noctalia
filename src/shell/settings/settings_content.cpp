@@ -75,10 +75,10 @@ namespace settings {
         .pendingDeleteWidgetName = ctx.pendingDeleteWidgetName,
         .pendingDeleteWidgetSettingPath = ctx.pendingDeleteWidgetSettingPath,
         .renamingWidgetName = ctx.renamingWidgetName,
-        .makeGestureActionRow =
-            [&factory](const GestureActionSetting& setting, const std::string& title, std::vector<std::string> path) {
-              return factory.makeGestureActionRow(setting, title, std::move(path));
-            },
+        .makeGestureActionRow = [&factory](
+                                    const GestureActionSetting& setting, const std::string& title,
+                                    const std::vector<std::string>& path
+                                ) { return factory.makeGestureActionRow(setting, title, path); },
         .pendingGestureKey = ctx.pendingGestureKey,
         .pendingGestureVerb = ctx.pendingGestureVerb,
         .actionsExpandedFor = ctx.actionsExpandedFor,
@@ -104,32 +104,32 @@ namespace settings {
         .makeRow = [&factory](
                        Flex& section, const SettingEntry& entry, std::unique_ptr<Node> control
                    ) { factory.makeRow(section, entry, std::move(control)); },
-        .makeToggle = [&factory](bool checked, std::vector<std::string> path, std::optional<bool> clearWhenValue)
-            -> std::unique_ptr<Node> { return factory.makeToggle(checked, true, std::move(path), clearWhenValue); },
-        .makeSelect = [&factory](const SelectSetting& setting, std::vector<std::string> path) -> std::unique_ptr<Node> {
-          return factory.makeSelect(setting, std::move(path));
-        },
+        .makeToggle = [&factory](bool checked, const std::vector<std::string>& path, std::optional<bool> clearWhenValue)
+            -> std::unique_ptr<Node> { return factory.makeToggle(checked, true, path, clearWhenValue); },
+        .makeSelect = [&factory](const SelectSetting& setting, const std::vector<std::string>& path)
+            -> std::unique_ptr<Node> { return factory.makeSelect(setting, path); },
         .makeSearchPicker = [&factory](
                                 const SearchPickerSetting& setting, std::string title, std::vector<std::string> path
                             ) -> std::unique_ptr<Node> {
           return factory.makeSearchPicker(setting, std::move(title), std::move(path));
         },
         .makeSlider = [&factory](
-                          double value, double minValue, double maxValue, double step, std::vector<std::string> path,
-                          bool integerValue
+                          double value, double minValue, double maxValue, double step,
+                          const std::vector<std::string>& path, bool integerValue
                       ) -> std::unique_ptr<Node> {
-          return factory.makeSlider(value, minValue, maxValue, step, std::move(path), integerValue);
+          return factory.makeSlider(value, minValue, maxValue, step, path, integerValue);
         },
-        .makeOptionalNumber = [&factory](const OptionalNumberSetting& setting, std::vector<std::string> path)
-            -> std::unique_ptr<Node> { return factory.makeOptionalNumber(setting, std::move(path)); },
-        .makeOptionalStepper = [&factory](const OptionalStepperSetting& setting, std::vector<std::string> path)
-            -> std::unique_ptr<Node> { return factory.makeOptionalStepper(setting, std::move(path)); },
-        .makeStepper = [&factory](const StepperSetting& setting, std::vector<std::string> path)
-            -> std::unique_ptr<Node> { return factory.makeStepper(setting, std::move(path)); },
-        .makeText = [&factory](const std::string& value, const std::string& placeholder, std::vector<std::string> path)
-            -> std::unique_ptr<Node> { return factory.makeText(value, placeholder, std::move(path)); },
-        .makeColorSpecPicker = [&factory](const ColorSpecPickerSetting& setting, std::vector<std::string> path)
-            -> std::unique_ptr<Node> { return factory.makeColorSpecPicker(setting, std::move(path)); },
+        .makeOptionalNumber = [&factory](const OptionalNumberSetting& setting, const std::vector<std::string>& path)
+            -> std::unique_ptr<Node> { return factory.makeOptionalNumber(setting, path); },
+        .makeOptionalStepper = [&factory](const OptionalStepperSetting& setting, const std::vector<std::string>& path)
+            -> std::unique_ptr<Node> { return factory.makeOptionalStepper(setting, path); },
+        .makeStepper = [&factory](const StepperSetting& setting, const std::vector<std::string>& path)
+            -> std::unique_ptr<Node> { return factory.makeStepper(setting, path); },
+        .makeText = [&factory](
+                        const std::string& value, const std::string& placeholder, const std::vector<std::string>& path
+                    ) -> std::unique_ptr<Node> { return factory.makeText(value, placeholder, path); },
+        .makeColorSpecPicker = [&factory](const ColorSpecPickerSetting& setting, const std::vector<std::string>& path)
+            -> std::unique_ptr<Node> { return factory.makeColorSpecPicker(setting, path); },
         .makeListBlock = [&factory](
                              Flex& section, const SettingEntry& entry, const ListSetting& list
                          ) { factory.makeListBlock(section, entry, list); },
@@ -203,25 +203,26 @@ namespace settings {
       factory.makeRow(section, entry, std::move(control));
     };
 
-    const auto makeToggle = [&](bool checked, bool enabled, std::vector<std::string> path,
+    const auto makeToggle = [&](bool checked, bool enabled, const std::vector<std::string>& path,
                                 std::optional<bool> clearWhenValue = std::nullopt) {
-      return factory.makeToggle(checked, enabled, std::move(path), clearWhenValue);
+      return factory.makeToggle(checked, enabled, path, clearWhenValue);
     };
 
-    const auto makeSelect = [&](const SelectSetting& setting, std::vector<std::string> path) -> std::unique_ptr<Node> {
-      return factory.makeSelect(setting, std::move(path));
+    const auto makeSelect = [&](const SelectSetting& setting,
+                                const std::vector<std::string>& path) -> std::unique_ptr<Node> {
+      return factory.makeSelect(setting, path);
     };
 
     const auto makeSlider =
-        [&](double value, double minValue, double maxValue, double step, std::vector<std::string> path,
+        [&](double value, double minValue, double maxValue, double step, const std::vector<std::string>& path,
             bool integerValue = false, std::string valueSuffix = {},
-            std::function<std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>>(double)> linkedCommit =
-                {},
+            const std::function<std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>>(double)>&
+                linkedCommit = {},
             SliderSetting::InvertSlot invertSlot = SliderSetting::InvertSlot::None,
             bool invertEnabled = true) -> std::unique_ptr<Node> {
       return factory.makeSlider(
-          value, minValue, maxValue, step, std::move(path), integerValue, std::move(linkedCommit),
-          std::move(valueSuffix), invertSlot, invertEnabled
+          value, minValue, maxValue, step, path, integerValue, linkedCommit, std::move(valueSuffix), invertSlot,
+          invertEnabled
       );
     };
 
@@ -230,16 +231,16 @@ namespace settings {
       return factory.makeRangeSlider(setting, lowPath);
     };
 
-    const auto makeText = [&](const std::string& value, const std::string& placeholder, std::vector<std::string> path,
-                              float width = 0.0F) {
-      return factory.makeText(value, placeholder, std::move(path), width);
-    };
+    const auto makeText = [&](const std::string& value, const std::string& placeholder,
+                              const std::vector<std::string>& path,
+                              float width = 0.0F) { return factory.makeText(value, placeholder, path, width); };
 
     const auto makeTextWithPathBrowse = [&](const TextSetting& setting, const std::vector<std::string>& path) {
       return factory.makePathBrowse(setting, path);
     };
 
-    const auto makeGlyphText = [&](const TextSetting& setting, std::vector<std::string> path) -> std::unique_ptr<Node> {
+    const auto makeGlyphText = [&](const TextSetting& setting,
+                                   const std::vector<std::string>& path) -> std::unique_ptr<Node> {
       auto wrap = ui::row({.align = FlexAlign::Center, .gap = Style::spaceSm * scale});
       wrap->addChild(makeText(setting.value, setting.placeholder, path, setting.width));
 
@@ -271,21 +272,21 @@ namespace settings {
       return wrap;
     };
 
-    const auto makeOptionalNumber = [&](const OptionalNumberSetting& setting, std::vector<std::string> path) {
-      return factory.makeOptionalNumber(setting, std::move(path));
+    const auto makeOptionalNumber = [&](const OptionalNumberSetting& setting, const std::vector<std::string>& path) {
+      return factory.makeOptionalNumber(setting, path);
     };
 
-    const auto makeStepper = [&](const StepperSetting& setting, std::vector<std::string> path) {
-      return factory.makeStepper(setting, std::move(path));
+    const auto makeStepper = [&](const StepperSetting& setting, const std::vector<std::string>& path) {
+      return factory.makeStepper(setting, path);
     };
 
-    const auto makeOptionalStepper = [&](const OptionalStepperSetting& setting, std::vector<std::string> path) {
-      return factory.makeOptionalStepper(setting, std::move(path));
+    const auto makeOptionalStepper = [&](const OptionalStepperSetting& setting, const std::vector<std::string>& path) {
+      return factory.makeOptionalStepper(setting, path);
     };
 
     const auto makeColorSpecPicker = [&](const ColorSpecPickerSetting& setting,
-                                         std::vector<std::string> path) -> std::unique_ptr<Node> {
-      return factory.makeColorSpecPicker(setting, std::move(path));
+                                         const std::vector<std::string>& path) -> std::unique_ptr<Node> {
+      return factory.makeColorSpecPicker(setting, path);
     };
 
     const auto makeSearchPickerButton = [&](const SettingEntry& entry,

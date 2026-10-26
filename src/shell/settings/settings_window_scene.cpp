@@ -1152,7 +1152,7 @@ void SettingsWindow::rebuildSettingsContent() {
             .expandAllGroups = cfg.shell.settingsExpandAllGroups,
             .pluginsLoading = m_pluginListDirty || m_pluginListRefreshInFlight,
             .setEnabled =
-                [this](std::string id, bool enable) {
+                [this](const std::string& id, bool enable) {
                   if (enable) {
                     (void)m_pluginManager->enable(id);
                   } else {
@@ -1171,7 +1171,7 @@ void SettingsWindow::rebuildSettingsContent() {
                   requestSceneRebuild();
                 },
             .editSource = [this](PluginSourceConfig source) { openPluginSourceCreateEditor(std::move(source)); },
-            .updateSource = [this](std::string source) { m_pluginManager->update(std::move(source)); },
+            .updateSource = [this](const std::string& source) { m_pluginManager->update(source); },
             .refresh =
                 [this] {
                   markPluginListDirty();
@@ -1188,7 +1188,7 @@ void SettingsWindow::rebuildSettingsContent() {
             .config = &cfg,
             .onConfigure = [this](std::string id) { openPluginSettingsEditor(std::move(id)); },
             .onRemove =
-                [this](std::string id) {
+                [this](const std::string& id) {
                   if (m_pluginManager != nullptr) {
                     m_pluginManager->remove(id);
                     m_pendingDeletePluginId.clear();

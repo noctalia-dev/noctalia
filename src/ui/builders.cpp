@@ -102,7 +102,7 @@ namespace ui {
     }
   } // namespace
 
-  std::unique_ptr<Flex> flex(FlexDirection direction, FlexProps props) {
+  std::unique_ptr<Flex> flex(FlexDirection direction, const FlexProps& props) {
     auto flex = std::make_unique<Flex>();
     applyFlexProps(*flex, direction, props);
     if (props.configure) {

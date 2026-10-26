@@ -19,6 +19,7 @@ Checks: >-
   performance-move-const-arg,
   performance-prefer-single-char-overloads,
   performance-unnecessary-copy-initialization,
+  performance-unnecessary-value-param,
   readability-container-contains,
   readability-container-data-pointer,
   readability-container-size-empty,

@@ -99,7 +99,7 @@ namespace calendar {
       EventCallback callback;
     };
 
-    State() : worker([this](std::stop_token stopToken) { workerLoop(stopToken); }) {}
+    State() : worker([this](const std::stop_token& stopToken) { workerLoop(stopToken); }) {}
 
     ~State() { stop(); }
 
@@ -161,7 +161,7 @@ namespace calendar {
       }
       xmlFreeDoc(doc);
 
-      ICalParseControl control{.stopToken = stopToken};
+      ICalParseControl control{.stopToken = std::move(stopToken)};
 
       std::vector<CalendarEvent> events;
       std::size_t skipped = 0;
@@ -212,7 +212,7 @@ namespace calendar {
       return {true, std::move(events)};
     }
 
-    void workerLoop(std::stop_token stopToken) {
+    void workerLoop(const std::stop_token& stopToken) {
       while (true) {
         ParseRequest request;
         {

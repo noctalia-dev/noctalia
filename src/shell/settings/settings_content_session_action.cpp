@@ -49,7 +49,7 @@ namespace settings {
     // Every field is a caption label stacked over its control, with one gap inside
     // a field and a wider one between fields, so all labels and controls share the
     // same left edge and rhythm.
-    const auto field = [scale](std::string label, std::unique_ptr<Node> control, float grow) {
+    const auto field = [scale](const std::string& label, std::unique_ptr<Node> control, float grow) {
       auto block = ui::column(
           {.align = FlexAlign::Stretch, .gap = Style::spaceXs * scale, .flexGrow = grow},
           makeLabel(

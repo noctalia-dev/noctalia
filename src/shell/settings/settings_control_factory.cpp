@@ -69,7 +69,7 @@ namespace settings {
     // the same glyph+toggle but invisible, so a slider without a toggle keeps its slider and value
     // box column-aligned with sibling sliders while showing no controls.
     std::unique_ptr<Node> makeInvertSlot(
-        SliderSetting::InvertSlot slot, bool enabled, std::shared_ptr<bool> inverted,
+        SliderSetting::InvertSlot slot, bool enabled, const std::shared_ptr<bool>& inverted,
         std::function<void(double)> commitValue, Slider* sliderPtr, float scale
     ) {
       if (slot == SliderSetting::InvertSlot::None) {
@@ -287,7 +287,7 @@ namespace settings {
     if (!isTemplateEnableTogglePath(entry.path)) {
       copyProps.gap = Style::spaceXs * scale;
     }
-    auto copy = ui::column(std::move(copyProps));
+    auto copy = ui::column(copyProps);
     copy->addChild(std::move(titleRow));
 
     if (!entry.subtitle.empty()) {
@@ -326,7 +326,7 @@ namespace settings {
   }
 
   std::unique_ptr<Toggle> SettingsControlFactory::makeToggle(
-      bool checked, bool enabled, std::vector<std::string> path, std::optional<bool> clearWhenValue
+      bool checked, bool enabled, const std::vector<std::string>& path, std::optional<bool> clearWhenValue
   ) {
     auto& ctx = m_ctx;
     const float scale = m_scale;
@@ -360,7 +360,7 @@ namespace settings {
   }
 
   std::unique_ptr<Node>
-  SettingsControlFactory::makeSelect(const SelectSetting& setting, std::vector<std::string> path) {
+  SettingsControlFactory::makeSelect(const SelectSetting& setting, const std::vector<std::string>& path) {
     auto& ctx = m_ctx;
     const float scale = m_scale;
     if (setting.segmented) {
@@ -482,8 +482,9 @@ namespace settings {
   }
 
   std::unique_ptr<Flex> SettingsControlFactory::makeSlider(
-      double value, double minValue, double maxValue, double step, std::vector<std::string> path, bool integerValue,
-      std::function<std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>>(double)> linkedCommit,
+      double value, double minValue, double maxValue, double step, const std::vector<std::string>& path,
+      bool integerValue,
+      const std::function<std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>>(double)>& linkedCommit,
       std::string valueSuffix, SliderSetting::InvertSlot invertSlot, bool invertEnabled
   ) {
     auto& ctx = m_ctx;
@@ -710,7 +711,7 @@ namespace settings {
   }
 
   std::unique_ptr<Node> SettingsControlFactory::makeGestureActionRow(
-      const GestureActionSetting& setting, const std::string& title, std::vector<std::string> path
+      const GestureActionSetting& setting, const std::string& title, const std::vector<std::string>& path
   ) {
     auto& ctx = m_ctx;
     const float scale = m_scale;
@@ -873,7 +874,7 @@ namespace settings {
   }
 
   std::unique_ptr<Input> SettingsControlFactory::makeText(
-      const std::string& value, const std::string& placeholder, std::vector<std::string> path, float width
+      const std::string& value, const std::string& placeholder, const std::vector<std::string>& path, float width
   ) {
     auto& ctx = m_ctx;
     const float scale = m_scale;
@@ -965,8 +966,9 @@ namespace settings {
     );
   }
 
-  std::unique_ptr<Input>
-  SettingsControlFactory::makeOptionalNumber(const OptionalNumberSetting& setting, std::vector<std::string> path) {
+  std::unique_ptr<Input> SettingsControlFactory::makeOptionalNumber(
+      const OptionalNumberSetting& setting, const std::vector<std::string>& path
+  ) {
     auto& ctx = m_ctx;
     const float scale = m_scale;
     Input* inputPtr = nullptr;
@@ -1005,7 +1007,7 @@ namespace settings {
   }
 
   std::unique_ptr<Stepper>
-  SettingsControlFactory::makeStepper(const StepperSetting& setting, std::vector<std::string> path) {
+  SettingsControlFactory::makeStepper(const StepperSetting& setting, const std::vector<std::string>& path) {
     auto& ctx = m_ctx;
     const float scale = m_scale;
     const int minValue = std::min(setting.minValue, setting.maxValue);
@@ -1025,8 +1027,9 @@ namespace settings {
     });
   }
 
-  std::unique_ptr<Flex>
-  SettingsControlFactory::makeOptionalStepper(const OptionalStepperSetting& setting, std::vector<std::string> path) {
+  std::unique_ptr<Flex> SettingsControlFactory::makeOptionalStepper(
+      const OptionalStepperSetting& setting, const std::vector<std::string>& path
+  ) {
     auto& ctx = m_ctx;
     const float scale = m_scale;
     auto wrap = ui::row({.align = FlexAlign::Center, .gap = Style::spaceSm * scale});
@@ -1069,8 +1072,9 @@ namespace settings {
     return wrap;
   }
 
-  std::unique_ptr<Node>
-  SettingsControlFactory::makeColorSpecPicker(const ColorSpecPickerSetting& setting, std::vector<std::string> path) {
+  std::unique_ptr<Node> SettingsControlFactory::makeColorSpecPicker(
+      const ColorSpecPickerSetting& setting, const std::vector<std::string>& path
+  ) {
     auto& ctx = m_ctx;
     const float scale = m_scale;
     ColorSpecSelectOptions options{
@@ -1112,7 +1116,7 @@ namespace settings {
     if (!compactTitleDescription) {
       blockProps.gap = Style::spaceXs * scale;
     }
-    auto block = ui::column(std::move(blockProps));
+    auto block = ui::column(blockProps);
 
     auto titleRow = ui::row({
         .align = FlexAlign::Center,
@@ -1140,7 +1144,7 @@ namespace settings {
       copyProps.gap = Style::spaceXs * scale;
       copyProps.flexGrow = 1.0F;
     }
-    auto copy = ui::column(std::move(copyProps));
+    auto copy = ui::column(copyProps);
     copy->addChild(std::move(titleRow));
     if (!entry.subtitle.empty()) {
       auto subtitle = makeSettingSubtitleLabel(entry.subtitle, scale);

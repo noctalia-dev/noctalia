@@ -26,6 +26,7 @@
 #include <system_error>
 #include <thread>
 #include <unistd.h>
+#include <utility>
 
 namespace {
 
@@ -831,7 +832,7 @@ namespace process {
 
   bool runAsync(std::initializer_list<const char*> args, RunCallbacks callbacks, RunOptions options) {
     const auto command = makeCommand(args);
-    return command.has_value() && runAsync(*command, std::move(callbacks), options);
+    return command.has_value() && runAsync(*command, std::move(callbacks), std::move(options));
   }
 
   bool runAsync(const std::string& command) {
@@ -845,7 +846,7 @@ namespace process {
     if (command.empty()) {
       return false;
     }
-    return runAsync(std::vector<std::string>{"/bin/sh", "-lc", command}, std::move(callbacks), options);
+    return runAsync(std::vector<std::string>{"/bin/sh", "-lc", command}, std::move(callbacks), std::move(options));
   }
 
   std::optional<int> launchDetachedTracked(const std::vector<std::string>& args) {
@@ -882,7 +883,9 @@ namespace process {
 
   RunResult runSync(const std::vector<std::string>& args) { return runSyncProcess(args, {}); }
 
-  RunResult runSync(const std::vector<std::string>& args, RunOptions options) { return runSyncProcess(args, options); }
+  RunResult runSync(const std::vector<std::string>& args, const RunOptions& options) {
+    return runSyncProcess(args, options);
+  }
 
   RunResult runSync(std::initializer_list<const char*> args) {
     const auto command = makeCommand(args);
@@ -957,7 +960,7 @@ namespace process {
 
   RunResult runSync(const std::string& command) { return runSync(command, RunOptions{}); }
 
-  RunResult runSync(const std::string& command, RunOptions options) {
+  RunResult runSync(const std::string& command, const RunOptions& options) {
     if (command.empty())
       return {-1, {}, {}};
     return runSyncProcess(std::vector<std::string>{"/bin/sh", "-lc", command}, options);

@@ -793,7 +793,7 @@ namespace scripting {
     m_config.addPluginSource(source); // fires reload -> refresh re-injects the registry
   }
 
-  void PluginManager::update(std::string sourceName) {
+  void PluginManager::update(const std::string& sourceName) {
     const auto source = findSource(sourceName);
     if (!source.has_value()) {
       return; // unknown source

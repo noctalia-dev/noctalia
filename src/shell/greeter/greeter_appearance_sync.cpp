@@ -328,7 +328,7 @@ namespace {
         std::vector<std::string>{
             std::string(helper), std::string(kCapabilityArgument), std::string(kSecureSyncCapability)
         },
-        std::move(options)
+        options
     );
     return greeter::detail::classifyApplyHelperProtocol(result);
   }

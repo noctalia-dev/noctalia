@@ -490,7 +490,7 @@ BluetoothService::~BluetoothService() = default;
 void BluetoothService::setStateCallback(StateCallback callback) { m_stateCallback = std::move(callback); }
 void BluetoothService::setDevicesCallback(DevicesCallback callback) { m_devicesCallback = std::move(callback); }
 
-void BluetoothService::registerIpc(IpcService& ipc, StateFeedbackCallback stateFeedback) {
+void BluetoothService::registerIpc(IpcService& ipc, const StateFeedbackCallback& stateFeedback) {
   auto setBluetooth = [this, stateFeedback](bool enabled) -> std::string {
     if (!hasStateSnapshot()) {
       return "error: bluetooth state unavailable\n";
@@ -553,7 +553,7 @@ void BluetoothService::refresh() {
   }
   m_impl->root->callMethodAsync("GetManagedObjects")
       .onInterface(kObjectManagerInterface)
-      .uponReplyInvoke([this](std::optional<sdbus::Error> err, ManagedObjects objects) {
+      .uponReplyInvoke([this](std::optional<sdbus::Error> err, const ManagedObjects& objects) {
         if (err.has_value()) {
           kLog.debug("GetManagedObjects failed: {}", err->what());
           return;
@@ -620,7 +620,7 @@ void BluetoothService::setPowered(bool enabled) {
     if (!enabled && m_state.discovering) {
       m_impl->adapter->callMethodAsync("StopDiscovery")
           .onInterface(kAdapterInterface)
-          .uponReplyInvoke([](std::optional<sdbus::Error>) {});
+          .uponReplyInvoke([](std::optional<sdbus::Error>) {}); // NOLINT(performance-unnecessary-value-param)
     }
     m_impl->adapter->setPropertyAsync("Powered")
         .onInterface(kAdapterInterface)

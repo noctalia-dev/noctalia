@@ -81,7 +81,7 @@ struct BluetoothAgent::Impl {
       return;
     }
     pending.kind = BluetoothPairingKind::PinCode;
-    pending.devicePath = device;
+    pending.devicePath = std::move(device);
     pendingString = std::move(result);
     fireCallback();
   }
@@ -92,7 +92,7 @@ struct BluetoothAgent::Impl {
       return;
     }
     pending.kind = BluetoothPairingKind::DisplayPinCode;
-    pending.devicePath = device;
+    pending.devicePath = std::move(device);
     pending.pin = std::move(pincode);
     pendingVoid = std::move(result);
     fireCallback();
@@ -104,12 +104,12 @@ struct BluetoothAgent::Impl {
       return;
     }
     pending.kind = BluetoothPairingKind::Passkey;
-    pending.devicePath = device;
+    pending.devicePath = std::move(device);
     pendingUint = std::move(result);
     fireCallback();
   }
 
-  void onDisplayPasskey(sdbus::ObjectPath device, std::uint32_t passkey, std::uint16_t entered) {
+  void onDisplayPasskey(const sdbus::ObjectPath& device, std::uint32_t passkey, std::uint16_t entered) {
     // DisplayPasskey is fire-and-forget per the Agent1 spec. Show it, replace
     // any pending display state, but do not hold a reply context.
     if (pending.kind == BluetoothPairingKind::DisplayPasskey && pending.devicePath == std::string(device)) {
@@ -138,7 +138,7 @@ struct BluetoothAgent::Impl {
       return;
     }
     pending.kind = BluetoothPairingKind::Confirm;
-    pending.devicePath = device;
+    pending.devicePath = std::move(device);
     pending.passkey = passkey;
     pendingVoid = std::move(result);
     fireCallback();
@@ -150,7 +150,7 @@ struct BluetoothAgent::Impl {
       return;
     }
     pending.kind = BluetoothPairingKind::Authorize;
-    pending.devicePath = device;
+    pending.devicePath = std::move(device);
     pendingVoid = std::move(result);
     fireCallback();
   }
@@ -161,7 +161,7 @@ struct BluetoothAgent::Impl {
       return;
     }
     pending.kind = BluetoothPairingKind::AuthorizeService;
-    pending.devicePath = device;
+    pending.devicePath = std::move(device);
     pending.uuid = std::move(uuid);
     pendingVoid = std::move(result);
     fireCallback();
@@ -201,8 +201,8 @@ BluetoothAgent::BluetoothAgent(SystemBus& bus) : m_impl(std::make_unique<Impl>(b
               }),
           sdbus::registerMethod("DisplayPasskey")
               .withInputParamNames("device", "passkey", "entered")
-              .implementedAs([this](sdbus::ObjectPath device, std::uint32_t passkey, std::uint16_t entered) {
-                m_impl->onDisplayPasskey(std::move(device), passkey, entered);
+              .implementedAs([this](const sdbus::ObjectPath& device, std::uint32_t passkey, std::uint16_t entered) {
+                m_impl->onDisplayPasskey(device, passkey, entered);
               }),
           sdbus::registerMethod("RequestConfirmation")
               .withInputParamNames("device", "passkey")
