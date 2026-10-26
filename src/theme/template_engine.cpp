@@ -1054,7 +1054,7 @@ namespace noctalia::theme {
         std::string toneStr = match[2].str();
         const std::string formatType = match[3].str();
 
-        if (toneStr.starts_with("_"))
+        if (toneStr.starts_with('_'))
           toneStr = toneStr.substr(1);
 
         const auto mapped = paletteColorMap.find(family);

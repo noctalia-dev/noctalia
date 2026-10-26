@@ -1210,7 +1210,7 @@ namespace settings {
                 }
                 out += "\"" + concrete[i] + "\"";
               }
-              out += "]";
+              out += ']';
               return out;
             } else if constexpr (std::is_same_v<T, WidgetSettingStringMap>) {
               std::vector<std::string> keys;
@@ -1227,7 +1227,7 @@ namespace settings {
                 }
                 out += "\"" + keys[i] + "\" = \"" + concrete.at(keys[i]) + "\"";
               }
-              out += "}";
+              out += '}';
               return out;
             }
           },

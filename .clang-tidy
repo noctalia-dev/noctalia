@@ -17,6 +17,7 @@ Checks: >-
   modernize-use-std-print,
   performance-inefficient-vector-operation,
   performance-move-const-arg,
+  performance-prefer-single-char-overloads,
   performance-unnecessary-copy-initialization,
   readability-container-contains,
   readability-container-data-pointer,

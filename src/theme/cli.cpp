@@ -209,7 +209,7 @@ namespace noctalia::theme {
         }
         explicitConfigTitle += " (";
         explicitConfigTitle += templateConfigPath.filename().string();
-        explicitConfigTitle += ")";
+        explicitConfigTitle += ')';
       } else {
         userTemplates = loadConfiguredUserTemplateList();
       }

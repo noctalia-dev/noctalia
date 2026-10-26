@@ -1792,7 +1792,7 @@ void BrightnessService::registerIpc(IpcService& ipc, std::function<void(BatchCha
     if (available()) {
       error += " (available: " + joinBrightnessDisplayIds(*this) + ")";
     }
-    error += "\n";
+    error += '\n';
     return false;
   };
 

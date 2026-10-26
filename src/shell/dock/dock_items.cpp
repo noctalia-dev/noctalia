@@ -310,7 +310,7 @@ namespace {
     const auto& entry = model.entry;
     std::string text = !entry.name.empty() ? entry.name : !entry.genericName.empty() ? entry.genericName : entry.id;
     if (model.minimizedCount != 0) {
-      text += "\n";
+      text += '\n';
       text += model.instanceCount == 1 ? i18n::tr("common.minimized")
                                        : i18n::tr("common.minimized-count", "count", model.minimizedCount);
     }

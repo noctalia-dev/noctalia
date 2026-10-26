@@ -3954,7 +3954,7 @@ std::optional<std::string> Bar::collectBarIpcInstances(
     if (!knownOutputs.empty()) {
       error += " (available: " + StringUtils::join(knownOutputs, ", ") + ")";
     }
-    error += "\n";
+    error += '\n';
     return error;
   }
   if (outputMatches.size() > 1) {

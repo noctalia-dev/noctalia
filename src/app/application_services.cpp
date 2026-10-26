@@ -132,7 +132,7 @@ namespace {
     if (process::commandExists("gsettings")) {
       std::string cmd = "gsettings set org.gnome.desktop.interface color-scheme \"";
       cmd += pref;
-      cmd += "\"";
+      cmd += '\"';
       (void)process::runAsync(cmd);
     } else if (process::commandExists("dconf")) {
       std::string cmd = "dconf write /org/gnome/desktop/interface/color-scheme \"'";

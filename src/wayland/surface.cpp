@@ -124,14 +124,14 @@ namespace {
     for (std::size_t i = 0; i < previewCount; ++i) {
       const auto& rect = rects[i];
       if (i > 0) {
-        out += " ";
+        out += ' ';
       }
       out += std::format("{}:{}+{}x{}", rect.x, rect.y, rect.width, rect.height);
     }
     if (rects.size() > previewCount) {
       out += std::format(" +{}", rects.size() - previewCount);
     }
-    out += "]";
+    out += ']';
     return out;
   }
 

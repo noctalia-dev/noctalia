@@ -329,7 +329,7 @@ namespace settings {
       }
       text += " (";
       text += versionText;
-      text += ")";
+      text += ')';
       return text;
     }
 

@@ -413,7 +413,7 @@ namespace {
       if (!knownOutputs.empty()) {
         error += " (available: " + StringUtils::join(knownOutputs, ", ") + ")";
       }
-      error += "\n";
+      error += '\n';
       return std::unexpected(std::move(error));
     }
     if (matches.size() > 1) {

@@ -110,7 +110,7 @@ namespace noctalia::theme {
     void applyAnsiColors(TokenMap& tokens, std::string_view prefix, const TerminalAnsiColors& colors) {
       for (const auto key : kTerminalAnsiColorJsonKeys) {
         std::string tokenKey(prefix);
-        tokenKey += "_";
+        tokenKey += '_';
         tokenKey += key;
         setToken(tokens, tokenKey, ansiColorForKey(colors, key));
       }
