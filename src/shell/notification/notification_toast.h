@@ -7,6 +7,7 @@
 #include "system/icon_resolver.h"
 
 #include <memory>
+#include <string_view>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -173,7 +174,7 @@ private:
   canKeepPlacement(const PopupEntry& entry, std::optional<uint32_t> ignoreNotificationId = std::nullopt) const;
   [[nodiscard]] bool fitsOnSurface(const PopupEntry& entry, float surfaceHeight) const;
   [[nodiscard]] std::string notificationPosition() const;
-  [[nodiscard]] std::string notificationLayer() const;
+  [[nodiscard]] std::string_view notificationLayer() const;
   [[nodiscard]] std::vector<std::string> notificationMonitors() const;
   [[nodiscard]] bool shouldRenderOnOutput(const WaylandOutput& output) const;
   [[nodiscard]] bool entryTargetsOutput(const PopupEntry& entry, wl_output* output) const;

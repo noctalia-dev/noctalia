@@ -367,7 +367,7 @@ double WeatherService::displayTemperature(double celsius) const noexcept {
 
 const char* WeatherService::displayTemperatureUnit() const noexcept { return useImperial() ? "\u00b0F" : "\u00b0C"; }
 
-std::string WeatherService::glyphForCode(std::int32_t code, bool isDay) {
+std::string_view WeatherService::glyphForCode(std::int32_t code, bool isDay) {
   if (code == 0) {
     return isDay ? "weather-sun" : "weather-moon";
   }

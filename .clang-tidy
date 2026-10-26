@@ -21,6 +21,7 @@ Checks: >-
   modernize-use-starts-ends-with,
   modernize-use-std-numbers,
   modernize-use-std-print,
+  modernize-use-string-view,
   performance-inefficient-string-concatenation,
   performance-inefficient-vector-operation,
   performance-move-const-arg,

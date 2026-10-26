@@ -194,7 +194,7 @@ namespace settings {
       return SelectSetting{std::move(opts), std::string(selected)};
     }
 
-    [[nodiscard]] std::string barAutoHideMode(bool autoHide, bool smartAutoHide) {
+    [[nodiscard]] std::string_view barAutoHideMode(bool autoHide, bool smartAutoHide) {
       if (smartAutoHide) {
         return "smart";
       }

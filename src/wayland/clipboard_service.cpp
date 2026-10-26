@@ -134,7 +134,7 @@ namespace {
     return {reinterpret_cast<const char*>(data.data()), data.size()};
   }
 
-  std::string extensionForImageMimeType(std::string_view mimeType) {
+  std::string_view extensionForImageMimeType(std::string_view mimeType) {
     if (mimeType == "image/png")
       return ".png";
     if (mimeType == "image/jpeg" || mimeType == "image/jpg")
@@ -161,7 +161,7 @@ namespace {
   }
 
   std::string exportExtensionForEntry(const ClipboardEntry& entry) {
-    std::string extension = extensionForImageMimeType(entry.dataMimeType);
+    std::string extension(extensionForImageMimeType(entry.dataMimeType));
     if (extension != ".img") {
       return extension;
     }

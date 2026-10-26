@@ -247,7 +247,7 @@ void TrayWidget::doLayout(Renderer& renderer, float containerWidth, float contai
   }
   if (m_drawerMode && m_drawerChevron != nullptr && m_drawerTrigger != nullptr) {
     const bool panelOpen = PanelManager::instance().isOpenPanel("tray-drawer");
-    const std::string glyphName = drawerChevronGlyph(panelOpen);
+    const std::string_view glyphName = drawerChevronGlyph(panelOpen);
     if (m_drawerChevronGlyph != glyphName) {
       m_drawerChevronGlyph = glyphName;
       m_drawerChevron->setGlyph(glyphName);
@@ -786,7 +786,7 @@ void TrayWidget::rebuild(Renderer& renderer) {
   m_container->setVisible(!m_container->children().empty());
 }
 
-std::string TrayWidget::drawerChevronGlyph(bool panelOpen) const {
+std::string_view TrayWidget::drawerChevronGlyph(bool panelOpen) const {
   if (m_barPosition == "bottom") {
     return panelOpen ? "chevron-down" : "chevron-up";
   }

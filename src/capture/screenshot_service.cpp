@@ -181,7 +181,7 @@ namespace {
     return LogicalRect{.x = x, .y = y, .width = width, .height = height};
   }
 
-  [[nodiscard]] std::string defaultFilenamePattern() { return "screenshot_%Y%m%d_%H%M%S"; }
+  [[nodiscard]] std::string_view defaultFilenamePattern() { return "screenshot_%Y%m%d_%H%M%S"; }
   [[nodiscard]] std::string primaryKeybindLabel(const std::vector<KeyChord>& configured, KeybindAction action) {
     if (!configured.empty()) {
       return keyChordDisplayLabel(configured.front());
@@ -193,7 +193,7 @@ namespace {
   [[nodiscard]] std::string formatFilenameStem(std::string_view pattern, const std::string& labelBase, int suffix) {
     const auto now = std::chrono::system_clock::now();
     const auto unixSeconds = std::chrono::duration_cast<std::chrono::seconds>(now.time_since_epoch()).count();
-    const std::string resolvedPattern = pattern.empty() ? defaultFilenamePattern() : std::string(pattern);
+    const std::string_view resolvedPattern = pattern.empty() ? defaultFilenamePattern() : pattern;
     std::string stem = formatLocalUnixTime(unixSeconds, resolvedPattern);
     if (stem.empty()) {
       stem = "screenshot";

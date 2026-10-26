@@ -41,7 +41,7 @@ namespace {
     return i18n::tr("system.hardware.unknown-cpu");
   }
 
-  std::string shortVendorPrefix(const std::string& vendorName) {
+  std::string_view shortVendorPrefix(const std::string& vendorName) {
     if (vendorName.contains("AMD") || vendorName.contains("ATI")) {
       return "AMD";
     }
@@ -55,7 +55,7 @@ namespace {
   }
 
   std::string formatGpuName(const std::string& vendorName, const std::string& rawName) {
-    std::string prefix = shortVendorPrefix(vendorName);
+    std::string prefix(shortVendorPrefix(vendorName));
     std::string name = rawName;
 
     // pci.ids uses brackets inconsistently:
@@ -189,7 +189,7 @@ namespace {
       return formatGpuName(vendorName, deviceName);
     }
     if (!vendorName.empty()) {
-      return shortVendorPrefix(vendorName).empty() ? vendorName : shortVendorPrefix(vendorName);
+      return shortVendorPrefix(vendorName).empty() ? vendorName : std::string(shortVendorPrefix(vendorName));
     }
     return {};
   }

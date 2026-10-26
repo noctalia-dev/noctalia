@@ -1656,7 +1656,7 @@ std::string NotificationToast::notificationPosition() const {
   return m_config->config().notification.position;
 }
 
-std::string NotificationToast::notificationLayer() const {
+std::string_view NotificationToast::notificationLayer() const {
   if (m_config == nullptr) {
     return "top";
   }
@@ -2092,7 +2092,7 @@ void NotificationToast::ensureSurfaces() {
 
   const float scale = notificationUiScale(m_config);
   const std::string position = notificationPosition();
-  const std::string layer = notificationLayer();
+  const std::string_view layer = notificationLayer();
   const bool wasFollowingFocusedOutput = m_followFocusedOutput;
   m_followFocusedOutput = m_config->config().notification.followFocusedOutput;
   m_focusedOutput = m_followFocusedOutput && m_platform != nullptr ? m_platform->preferredInteractiveOutput() : nullptr;

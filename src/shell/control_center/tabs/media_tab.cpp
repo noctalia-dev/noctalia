@@ -55,7 +55,7 @@ namespace {
   constexpr auto kProgressSettleHold = std::chrono::milliseconds(2500);
   constexpr auto kPendingSeekTimeout = std::chrono::milliseconds(5000);
 
-  std::string playPauseGlyph(const std::string& playbackStatus) {
+  std::string_view playPauseGlyph(const std::string& playbackStatus) {
     return playbackStatus == "Playing" ? "media-pause" : "media-play";
   }
 
@@ -64,7 +64,9 @@ namespace {
     return static_cast<int>(std::round(kMediaUnit * 11.0F * scale));
   }
 
-  std::string repeatGlyph(const std::string& loopStatus) { return loopStatus == "Track" ? "repeat-once" : "repeat"; }
+  std::string_view repeatGlyph(const std::string& loopStatus) {
+    return loopStatus == "Track" ? "repeat-once" : "repeat";
+  }
 
   ButtonVariant toggleVariant(bool active) { return active ? ButtonVariant::Primary : ButtonVariant::Ghost; }
   constexpr int kVisualizerBandCount = 32;

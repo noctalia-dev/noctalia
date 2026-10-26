@@ -219,7 +219,7 @@ namespace {
     return std::nullopt;
   }
 
-  std::string effectsProfileKindName(AudioEffectsProfileKind kind) {
+  std::string_view effectsProfileKindName(AudioEffectsProfileKind kind) {
     return kind == AudioEffectsProfileKind::Input ? "input" : "output";
   }
 

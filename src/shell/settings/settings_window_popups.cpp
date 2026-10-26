@@ -163,7 +163,7 @@ namespace {
     return it != cfg.calendar.accounts.end() ? &*it : nullptr;
   }
 
-  std::string calendarProviderKey(CalendarAccountProvider provider) {
+  std::string_view calendarProviderKey(CalendarAccountProvider provider) {
     switch (provider) {
     case CalendarAccountProvider::ICloud:
       return "icloud";
@@ -1811,7 +1811,9 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
       // Manual calendar selection is currently populated by CalDAV discovery; Google uses CalendarList selected.
       overrides.push_back({{base[0], base[1], base[2], "calendars"}, draft->calendars});
       if (caldav) {
-        overrides.push_back({{base[0], base[1], base[2], "provider"}, calendarProviderKey(draft->provider)});
+        overrides.push_back(
+            {{base[0], base[1], base[2], "provider"}, std::string(calendarProviderKey(draft->provider))}
+        );
         overrides.push_back({{base[0], base[1], base[2], "username"}, draft->username});
         if (draft->creating) {
           overrides.push_back(
