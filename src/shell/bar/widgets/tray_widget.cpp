@@ -187,6 +187,9 @@ TrayWidget::TrayWidget(ConfigService& config, TrayService* tray, Options options
   normalizeTokens(m_pinnedItems);
   buildDesktopIconIndex();
   m_themePathIndexListener = tray::ThemePathIconStore::instance().addListener([this]() {
+    // Paths resolved while the scan was in flight fell back to the system theme and
+    // were cached; drop them so the app's own IconThemePath icon takes precedence.
+    m_preferredIconPaths.clear();
     m_rebuildPending = true;
     requestUpdate();
   });
