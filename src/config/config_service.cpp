@@ -883,7 +883,7 @@ void ConfigService::checkReload() {
   m_inotify.drain([this, &configChanged, &overridesChanged](const inotify_event* event) {
     if (event->len > 0) {
       const std::string_view name{event->name};
-      if (event->wd == m_configWatchWd && name.size() >= 5 && name.substr(name.size() - 5) == ".toml") {
+      if (event->wd == m_configWatchWd && name.ends_with(".toml")) {
         configChanged = true;
       }
 
@@ -910,7 +910,7 @@ void ConfigService::checkReload() {
       }
 
       // Any *.toml change in a watched [include] directory is a config change.
-      if (m_includeDirWds.contains(event->wd) && name.size() >= 5 && name.substr(name.size() - 5) == ".toml") {
+      if (m_includeDirWds.contains(event->wd) && name.ends_with(".toml")) {
         configChanged = true;
       }
     }
