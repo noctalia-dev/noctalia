@@ -430,11 +430,12 @@ namespace calendar_view {
 
   namespace {
 
-    // Chip at the top of the list: "N past events hidden" / "Hide N past events"; clicking flips state->showHiddenPast.
+    // Row at the top of the list: "Show N past events" / "Hide N past events"; clicking flips state->showHiddenPast.
+    // Left-aligned with no resting fill so it reads like the event rows below it.
     std::unique_ptr<Flex> buildHiddenPastToggle(const EventListBuildOptions& options, int count, bool expanded) {
       const float scale = options.scale;
       const std::string text = i18n::trp(
-          expanded ? "control-center.calendar.hide-past-events" : "control-center.calendar.past-events-hidden",
+          expanded ? "control-center.calendar.hide-past-events" : "control-center.calendar.show-past-events",
           static_cast<long>(count)
       );
       Flex* chip = nullptr;
@@ -443,11 +444,9 @@ namespace calendar_view {
       auto node = ui::row(
           {.out = &chip,
            .align = FlexAlign::Center,
-           .justify = FlexJustify::Center,
-           .gap = Style::spaceXs * scale,
+           .justify = FlexJustify::Start,
+           .gap = Style::spaceSm * scale,
            .paddingV = Style::spaceXs * scale,
-           .paddingH = Style::spaceSm * scale,
-           .fill = colorSpecFromRole(ColorRole::SurfaceVariant),
            .radius = Style::radiusSm * scale},
           ui::glyph({
               .out = &glyph,
@@ -471,7 +470,11 @@ namespace calendar_view {
       area->setZIndex(1);
       area->setCursorShape(WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_POINTER);
       const auto setHovered = [chip, label, glyph, requestRedraw = options.requestRedraw](bool hovered) {
-        chip->setFill(colorSpecFromRole(hovered ? ColorRole::Hover : ColorRole::SurfaceVariant));
+        if (hovered) {
+          chip->setFill(colorSpecFromRole(ColorRole::Hover));
+        } else {
+          chip->clearFill();
+        }
         const ColorSpec color = colorSpecFromRole(hovered ? ColorRole::OnHover : ColorRole::OnSurfaceVariant);
         label->setColor(color);
         glyph->setColor(color);

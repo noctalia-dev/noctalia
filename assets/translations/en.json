@@ -286,8 +286,8 @@
       "hide-past-events": "Hide {count} past event",
       "hide-past-events-plural": "Hide {count} past events",
       "no-events": "No events.",
-      "past-events-hidden": "{count} past event hidden",
-      "past-events-hidden-plural": "{count} past events hidden",
+      "show-past-events": "Show {count} past event",
+      "show-past-events-plural": "Show {count} past events",
       "today": "Today",
       "toggle-events-card": "Toggle events card"
     },
