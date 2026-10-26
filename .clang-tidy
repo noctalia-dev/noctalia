@@ -5,6 +5,7 @@ Checks: >-
   bugprone-unused-local-non-trivial-variable,
   bugprone-use-after-move,
   modernize-avoid-c-style-cast,
+  modernize-deprecated-headers,
   modernize-loop-convert,
   modernize-make-unique,
   modernize-min-max-use-initializer-list,
