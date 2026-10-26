@@ -33,10 +33,6 @@ namespace {
     return dataDirs;
   }
 
-} // namespace
-
-namespace {
-
   // Canonical form catches symlinked twins; the lexical form still matches when
   // canonicalization fails (an unreadable parent, a dangling link). An empty
   // canonical form means "no canonical answer", never "matches everything".
