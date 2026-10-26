@@ -45,6 +45,7 @@
 #include <format>
 #include <fstream>
 #include <nlohmann/json.hpp>
+#include <sstream>
 #include <stb/stb_image_resize2.h>
 #include <sys/wait.h>
 #include <thread>
@@ -164,8 +165,14 @@ namespace {
     int y = 0;
     int width = 0;
     int height = 0;
-    const std::string copy(text);
-    if (std::sscanf(copy.c_str(), "%d,%d,%d,%d", &x, &y, &width, &height) != 4) {
+    std::istringstream input{std::string(text)};
+    char firstSeparator = 0;
+    char secondSeparator = 0;
+    char thirdSeparator = 0;
+    if (!(input >> x >> firstSeparator >> y >> secondSeparator >> width >> thirdSeparator >> height)
+        || firstSeparator != ','
+        || secondSeparator != ','
+        || thirdSeparator != ',') {
       return std::nullopt;
     }
     if (width < 2 || height < 2) {

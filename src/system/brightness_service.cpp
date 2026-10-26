@@ -15,6 +15,7 @@
 #include <array>
 #include <atomic>
 #include <cctype>
+#include <charconv>
 #include <chrono>
 #include <cmath>
 #include <condition_variable>
@@ -437,7 +438,12 @@ namespace {
       return std::nullopt;
     }
 
-    return std::atoi(std::string(input.substr(start, end - start)).c_str());
+    int value = 0;
+    const auto result = std::from_chars(input.data() + start, input.data() + end, value);
+    if (result.ec != std::errc{} || result.ptr != input.data() + end) {
+      return std::nullopt;
+    }
+    return value;
   }
 
   std::optional<int> parseI2cBus(std::string_view line) {

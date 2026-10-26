@@ -8,6 +8,7 @@
 #include <cstring>
 #include <dirent.h>
 #include <fcntl.h>
+#include <fstream>
 #include <linux/rfkill.h>
 #include <optional>
 #include <string>
@@ -46,14 +47,9 @@ namespace {
   };
 
   [[nodiscard]] bool readSysfsUnsigned(const std::string& path, unsigned& out) {
-    FILE* file = fopen(path.c_str(), "r");
-    if (file == nullptr) {
-      return false;
-    }
+    std::ifstream file(path);
     unsigned value = 0;
-    const int scanned = fscanf(file, "%u", &value);
-    fclose(file);
-    if (scanned != 1) {
+    if (!(file >> value)) {
       return false;
     }
     out = value;

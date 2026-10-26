@@ -5,12 +5,13 @@
 #include <algorithm>
 #include <chrono>
 #include <cstdint>
-#include <cstdio>
 #include <ctime>
 #include <format>
+#include <iomanip>
 #include <langinfo.h>
 #include <locale>
 #include <optional>
+#include <sstream>
 #include <string>
 #include <string_view>
 
@@ -368,19 +369,15 @@ std::string formatLocalUnixTime(std::int64_t unixSeconds, std::string_view fmt) 
 
 std::string formatIsoTime(std::string_view isoTime, const char* fmt) {
   std::tm tm{};
-  int year = 0;
-  int month = 0;
-  int day = 0;
-  int hour = 0;
-  int minute = 0;
-  if (std::sscanf(std::string(isoTime).c_str(), "%d-%d-%dT%d:%d", &year, &month, &day, &hour, &minute) < 5) {
+  std::istringstream input{std::string(isoTime)};
+  if (!(input >> std::get_time(&tm, "%Y-%m-%dT%H:%M"))) {
     return std::string(isoTime);
   }
-  tm.tm_year = year - 1900;
-  tm.tm_mon = month - 1;
-  tm.tm_mday = day;
-  tm.tm_hour = hour;
-  tm.tm_min = minute;
+  const int year = tm.tm_year + 1900;
+  const int month = tm.tm_mon + 1;
+  const int day = tm.tm_mday;
+  const int hour = tm.tm_hour;
+  const int minute = tm.tm_min;
   tm.tm_isdst = -1;
   const std::time_t unixSeconds = mktime(&tm);
 
