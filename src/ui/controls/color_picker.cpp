@@ -160,7 +160,7 @@ ColorPicker::ColorPicker() {
           .controlHeight = Style::controlHeightSm,
           .variant = ButtonVariant::Ghost,
           .tooltip = i18n::tr("ui.dialogs.color-picker.copy"),
-          .onClick = [this]() {
+          .onClick = [this] {
             if (TextClipboard* clipboard = Input::textClipboard(); clipboard != nullptr) {
               clipboard->setClipboardText(colorText());
             }
@@ -825,7 +825,7 @@ ColorPickerSheet::ColorPickerSheet(float chromeScale) : m_chromeScale(std::max(0
             .minHeight = Style::controlHeightSm * m_chromeScale,
             .padding = Style::spaceXs * m_chromeScale,
             .radius = Style::scaledRadiusMd(m_chromeScale),
-            .onClick = [this]() {
+            .onClick = [this] {
               if (m_onCancel) {
                 m_onCancel();
               }
@@ -856,7 +856,7 @@ ColorPickerSheet::ColorPickerSheet(float chromeScale) : m_chromeScale(std::max(0
               .paddingH = Style::spaceMd * m_chromeScale,
               .radius = Style::scaledRadiusMd(m_chromeScale),
               .onClick =
-                  [this]() {
+                  [this] {
                     if (m_onCancel) {
                       m_onCancel();
                     }
@@ -870,7 +870,7 @@ ColorPickerSheet::ColorPickerSheet(float chromeScale) : m_chromeScale(std::max(0
               .paddingV = Style::spaceSm * m_chromeScale,
               .paddingH = Style::spaceMd * m_chromeScale,
               .radius = Style::scaledRadiusMd(m_chromeScale),
-              .onClick = [this]() {
+              .onClick = [this] {
                 if (m_picker != nullptr && m_onApply) {
                   m_onApply(m_picker->color());
                 }

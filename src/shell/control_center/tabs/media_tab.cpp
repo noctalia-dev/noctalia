@@ -139,7 +139,7 @@ void MediaTab::openPlayerMenu() {
   PanelManager::instance().beginAttachedPopup(parentCtx->surface);
   PanelManager::instance().setActivePopup(m_playerMenuPopup.get());
 
-  m_playerMenuPopup->setOnDismissed([parentSurface = parentCtx->surface]() {
+  m_playerMenuPopup->setOnDismissed([parentSurface = parentCtx->surface] {
     PanelManager::instance().clearActivePopup();
     PanelManager::instance().endAttachedPopup(parentSurface);
   });
@@ -218,7 +218,7 @@ std::unique_ptr<Flex> MediaTab::create() {
           .minWidth = Style::controlHeightSm * scale,
           .minHeight = Style::controlHeightSm * scale,
           .padding = Style::spaceXs * scale,
-          .onClick = [this]() {
+          .onClick = [this] {
             if (m_playerBusNames.empty()) {
               return;
             }
@@ -305,7 +305,7 @@ std::unique_ptr<Flex> MediaTab::create() {
                 m_progressSettleUntil = now + kProgressSettleHold;
               },
           .onDragEnd =
-              [this]() {
+              [this] {
                 if (m_syncingProgress || m_mpris == nullptr || m_progressSlider == nullptr) {
                   return;
                 }
@@ -328,9 +328,9 @@ std::unique_ptr<Flex> MediaTab::create() {
           .minHeight = kMediaControlsHeight * scale,
           .padding = Style::spaceSm * scale,
           .radius = Style::scaledRadiusLg(scale),
-          .onClick = [this]() {
+          .onClick = [this] {
             const std::weak_ptr<void> aliveGuard = m_aliveGuard;
-            DeferredCall::callLater([this, aliveGuard]() {
+            DeferredCall::callLater([this, aliveGuard] {
               if (aliveGuard.expired() || m_mpris == nullptr) {
                 return;
               }
@@ -352,9 +352,9 @@ std::unique_ptr<Flex> MediaTab::create() {
           .minHeight = kMediaControlsHeight * scale,
           .padding = Style::spaceSm * scale,
           .radius = Style::scaledRadiusLg(scale),
-          .onClick = [this]() {
+          .onClick = [this] {
             const std::weak_ptr<void> aliveGuard = m_aliveGuard;
-            DeferredCall::callLater([this, aliveGuard]() {
+            DeferredCall::callLater([this, aliveGuard] {
               if (aliveGuard.expired() || m_mpris == nullptr) {
                 return;
               }
@@ -374,9 +374,9 @@ std::unique_ptr<Flex> MediaTab::create() {
           .minHeight = kMediaPlayPauseHeight * scale,
           .padding = Style::spaceSm * scale,
           .radius = Style::scaledRadiusLg(scale),
-          .onClick = [this]() {
+          .onClick = [this] {
             const std::weak_ptr<void> aliveGuard = m_aliveGuard;
-            DeferredCall::callLater([this, aliveGuard]() {
+            DeferredCall::callLater([this, aliveGuard] {
               if (aliveGuard.expired() || m_mpris == nullptr) {
                 return;
               }
@@ -396,9 +396,9 @@ std::unique_ptr<Flex> MediaTab::create() {
           .minHeight = kMediaControlsHeight * scale,
           .padding = Style::spaceSm * scale,
           .radius = Style::scaledRadiusLg(scale),
-          .onClick = [this]() {
+          .onClick = [this] {
             const std::weak_ptr<void> aliveGuard = m_aliveGuard;
-            DeferredCall::callLater([this, aliveGuard]() {
+            DeferredCall::callLater([this, aliveGuard] {
               if (aliveGuard.expired() || m_mpris == nullptr) {
                 return;
               }
@@ -418,9 +418,9 @@ std::unique_ptr<Flex> MediaTab::create() {
           .minHeight = kMediaControlsHeight * scale,
           .padding = Style::spaceSm * scale,
           .radius = Style::scaledRadiusLg(scale),
-          .onClick = [this]() {
+          .onClick = [this] {
             const std::weak_ptr<void> aliveGuard = m_aliveGuard;
-            DeferredCall::callLater([this, aliveGuard]() {
+            DeferredCall::callLater([this, aliveGuard] {
               if (aliveGuard.expired() || m_mpris == nullptr) {
                 return;
               }
@@ -482,7 +482,7 @@ std::unique_ptr<Flex> MediaTab::create() {
     m_playerMenuPopup = std::make_unique<ContextMenuPopup>(*m_wayland, *m_renderContext);
     m_playerMenuPopup->setOnActivate([this](const ContextMenuControlEntry& entry) {
       const std::weak_ptr<void> aliveGuard = m_aliveGuard;
-      DeferredCall::callLater([this, aliveGuard, entry]() {
+      DeferredCall::callLater([this, aliveGuard, entry] {
         if (aliveGuard.expired() || m_mpris == nullptr) {
           return;
         }
@@ -517,7 +517,7 @@ std::unique_ptr<Flex> MediaTab::createHeaderActions() {
           .glyph = m_showVisualizer ? "chart-bar" : "chart-bar-off",
           .selected = m_showVisualizer,
           .tooltip = i18n::tr("control-center.media.toggle-visualizer"),
-          .onClick = [this]() { toggleVisualizer(); },
+          .onClick = [this] { toggleVisualizer(); },
           .configure = [scale](Button& button) { panel_button_style::configureHeaderIconButton(button, scale); },
       })
   );
@@ -631,7 +631,7 @@ void MediaTab::doUpdate(Renderer& renderer) {
   const bool playing = active.has_value() && active->playbackStatus == "Playing";
   if (playing || hasPendingSeek || withinProgressSettle) {
     if (!m_progressTimer.active()) {
-      m_progressTimer.startRepeating(std::chrono::milliseconds(1000), [this]() {
+      m_progressTimer.startRepeating(std::chrono::milliseconds(1000), [this] {
         if (!m_active) {
           return;
         }
@@ -757,7 +757,7 @@ void MediaTab::commitPendingSeek(double valueSeconds) {
   m_progressSettleUntil = now + kProgressSettleHold;
 
   const std::weak_ptr<void> aliveGuard = m_aliveGuard;
-  DeferredCall::callLater([this, aliveGuard, seekBusName, targetUs]() {
+  DeferredCall::callLater([this, aliveGuard, seekBusName, targetUs] {
     if (aliveGuard.expired() || m_mpris == nullptr) {
       return;
     }
@@ -1038,7 +1038,7 @@ void MediaTab::updateSpectrumSubscription() {
   }
   const bool shouldSubscribe = m_active && m_showVisualizer;
   if (shouldSubscribe && m_spectrumListenerId == 0) {
-    m_spectrumListenerId = m_spectrum->addChangeListener(kVisualizerBandCount, [this]() {
+    m_spectrumListenerId = m_spectrum->addChangeListener(kVisualizerBandCount, [this] {
       if (!m_active || !m_showVisualizer || m_spectrum->idle()) {
         return;
       }

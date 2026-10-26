@@ -46,7 +46,7 @@ void PrivacyWidget::create() {
       ui::inputArea(
           {
               .out = &m_area,
-              .tooltipProvider = [this]() -> TooltipContent {
+              .tooltipProvider = [this] -> TooltipContent {
                 std::vector<TooltipRow> rows = buildTooltipRows();
                 if (rows.empty()) {
                   return std::monostate{};

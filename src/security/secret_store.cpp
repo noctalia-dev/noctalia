@@ -301,7 +301,7 @@ namespace security {
       }
 
       CancellablePtr native(g_cancellable_new(), [](GCancellable* value) { g_object_unref(value); });
-      cancellation.setCancelCallback([native]() { g_cancellable_cancel(native.get()); });
+      cancellation.setCancelCallback([native] { g_cancellable_cancel(native.get()); });
       SecretStoreBackendResult result = function(native.get());
       cancellation.clearCancelCallback();
       return result;
@@ -644,7 +644,7 @@ namespace security {
       if (m_eventFd < 0) {
         throw std::runtime_error("failed to create SecretStore eventfd");
       }
-      m_worker = std::thread([this]() { workerLoop(); });
+      m_worker = std::thread([this] { workerLoop(); });
     }
 
     ~Impl() {
@@ -725,7 +725,7 @@ namespace security {
         Request request;
         {
           std::unique_lock lock(m_queueMutex);
-          m_queueCv.wait(lock, [this]() { return m_shutdown || !m_requests.empty(); });
+          m_queueCv.wait(lock, [this] { return m_shutdown || !m_requests.empty(); });
           if (m_shutdown) {
             return;
           }

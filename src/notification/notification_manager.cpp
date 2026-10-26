@@ -765,7 +765,7 @@ void NotificationManager::pauseExpiry(uint32_t id) {
 void NotificationManager::setHistoryRetentionHours(int hours) {
   m_historyRetentionHours = hours;
   if (hours > 0) {
-    m_historyRetentionTimer.startRepeating(std::chrono::seconds(60), [this]() { cleanupOldHistoryEntries(); });
+    m_historyRetentionTimer.startRepeating(std::chrono::seconds(60), [this] { cleanupOldHistoryEntries(); });
   } else {
     m_historyRetentionTimer.stop();
   }
@@ -880,7 +880,7 @@ void NotificationManager::schedulePersistHistory() {
     return;
   }
   m_persistScheduled = true;
-  DeferredCall::callLater([this]() {
+  DeferredCall::callLater([this] {
     m_persistScheduled = false;
     persistHistoryToDisk();
   });

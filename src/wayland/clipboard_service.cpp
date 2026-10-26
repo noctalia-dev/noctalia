@@ -1847,7 +1847,7 @@ void ClipboardService::trimHistoryToBudget() {
   };
 
   // Oldest first, since entries are inserted at the front of the unpinned run.
-  const auto oldestUnpinnedImage = [this]() -> std::optional<std::size_t> {
+  const auto oldestUnpinnedImage = [this] -> std::optional<std::size_t> {
     for (std::size_t i = m_history.size(); i-- > 0;) {
       if (!m_history[i].pinned && m_history[i].isImage()) {
         return i;
@@ -2053,7 +2053,7 @@ void ClipboardService::dispatchWriteEvents(int fd, short revents) {
     return;
   }
 
-  const auto findWrite = [this, fd]() { return std::ranges::find(m_activeWrites, fd, &ActiveWrite::fd); };
+  const auto findWrite = [this, fd] { return std::ranges::find(m_activeWrites, fd, &ActiveWrite::fd); };
 
   auto it = findWrite();
   if (it == m_activeWrites.end()) {

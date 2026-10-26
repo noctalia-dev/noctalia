@@ -119,7 +119,7 @@ namespace settings {
           .type = [] { return DefinitionAccessor().type; },
           .schemaFields = [] { return DefinitionAccessor().schemaFields(); },
           .presentedSettingSpecs = [] { return DefinitionAccessor().presentedSettingSpecs(); },
-          .commonOverrides = []() -> const std::vector<noctalia::bar::WidgetCommonSettingOverride>& {
+          .commonOverrides = [] -> const std::vector<noctalia::bar::WidgetCommonSettingOverride>& {
             return DefinitionAccessor().commonOverrides;
           },
           .glyph = [](const WidgetConfig* config) -> std::string {
@@ -994,7 +994,7 @@ namespace settings {
       }
       return false;
     };
-    const auto* widget = [&]() -> const WidgetConfig* {
+    const auto* widget = [&] -> const WidgetConfig* {
       const auto it = config.widgets.find(std::string(widgetName));
       return it != config.widgets.end() ? &it->second : nullptr;
     }();

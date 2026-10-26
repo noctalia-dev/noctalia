@@ -137,9 +137,9 @@ void SearchPickerPopup::populateContent(Node* contentParent, std::uint32_t /*wid
             .minHeight = Style::controlHeightSm * m_scale,
             .padding = Style::spaceXs * m_scale,
             .radius = Style::scaledRadiusMd(m_scale),
-            .onClick = [this]() {
+            .onClick = [this] {
               const std::weak_ptr<void> aliveGuard = m_aliveGuard;
-              DeferredCall::callLater([this, aliveGuard]() {
+              DeferredCall::callLater([this, aliveGuard] {
                 if (aliveGuard.expired()) {
                   return;
                 }
@@ -172,7 +172,7 @@ void SearchPickerPopup::populateContent(Node* contentParent, std::uint32_t /*wid
                       m_onSelect(option.value);
                     }
                     const std::weak_ptr<void> aliveGuard = m_aliveGuard;
-                    DeferredCall::callLater([this, aliveGuard]() {
+                    DeferredCall::callLater([this, aliveGuard] {
                       if (aliveGuard.expired()) {
                         return;
                       }
@@ -180,9 +180,9 @@ void SearchPickerPopup::populateContent(Node* contentParent, std::uint32_t /*wid
                     });
                   },
               .onCancel =
-                  [this]() {
+                  [this] {
                     const std::weak_ptr<void> aliveGuard = m_aliveGuard;
-                    DeferredCall::callLater([this, aliveGuard]() {
+                    DeferredCall::callLater([this, aliveGuard] {
                       if (aliveGuard.expired()) {
                         return;
                       }
@@ -220,7 +220,7 @@ void SearchPickerPopup::onSheetClose() {
   m_root = nullptr;
   m_searchPicker = nullptr;
   if (m_onDismissed) {
-    DeferredCall::callLater([callback = m_onDismissed]() { callback(); });
+    DeferredCall::callLater([callback = m_onDismissed] { callback(); });
   }
 }
 

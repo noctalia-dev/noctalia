@@ -402,7 +402,7 @@ bool TaskbarWidget::commitDragReorder() {
   // Writing config rebuilds the taskbar, which can destroy the InputArea whose handler we are
   // inside — defer so the write happens after this event finishes dispatching.
   ConfigService* config = &m_configService;
-  DeferredCall::callLater([config, widgetName = m_widgetName, pinned = std::move(pinned)]() mutable {
+  DeferredCall::callLater([config, widgetName = m_widgetName, pinned = std::move(pinned)] mutable {
     (void)config->setOverride({"widget", widgetName, "pinned"}, std::move(pinned));
   });
   return true;
@@ -488,7 +488,7 @@ void TaskbarWidget::endDrag(bool commit) {
   // the write — which normally destroys this widget outright, because a `widget.*` config change
   // reloads the bar. It therefore only runs when the write failed or changed nothing.
   m_dragParked = true;
-  DeferredCall::callLater([this, alive = std::weak_ptr<void>(m_aliveGuard)]() {
+  DeferredCall::callLater([this, alive = std::weak_ptr<void>(m_aliveGuard)] {
     if (alive.expired()) {
       return;
     }
@@ -607,7 +607,7 @@ void TaskbarWidget::setEntryPinned(const DesktopEntry& entry, bool pinned) {
   }
 
   ConfigService* config = &m_configService;
-  DeferredCall::callLater([config, widgetName = m_widgetName, pinnedList = std::move(pinnedList)]() mutable {
+  DeferredCall::callLater([config, widgetName = m_widgetName, pinnedList = std::move(pinnedList)] mutable {
     (void)config->setOverride({"widget", widgetName, "pinned"}, std::move(pinnedList));
   });
 }
@@ -620,7 +620,7 @@ void TaskbarWidget::launchDesktopEntry(const TaskModel& task) {
   auto& platform = m_platform;
   auto& configService = m_configService;
   wl_output* const launchOutput = m_output;
-  DeferredCall::callLater([&platform, &configService, entry = std::move(*entry), launchOutput]() mutable {
+  DeferredCall::callLater([&platform, &configService, entry = std::move(*entry), launchOutput] mutable {
     std::string token;
     if (platform.hasXdgActivation()) {
       token = platform.requestActivationToken(nullptr);
@@ -777,7 +777,7 @@ void TaskbarWidget::create() {
   container->addChild(std::move(root));
   setRoot(std::move(container));
 
-  m_appIconColorizeConn = shellAppIconColorizationChanged().connect([this]() {
+  m_appIconColorizeConn = shellAppIconColorizationChanged().connect([this] {
     m_rebuildPending = true;
     requestUpdate();
   });
@@ -948,7 +948,7 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
       );
       requestFrameTick();
     });
-    area.setOnLeave([this, hoverBoxPtr, progress]() {
+    area.setOnLeave([this, hoverBoxPtr, progress] {
       if (m_animations == nullptr)
         return;
       m_animations->cancelForOwner(hoverBoxPtr);
@@ -1046,7 +1046,7 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
       m_drag.startMain = pointerMainOnStrip(*dragArea, data.localX, data.localY);
       m_drag.currentMain = m_drag.startMain;
       m_drag.area = dragArea;
-      m_drag.holdTimer.start(kDragHoldDelay, [this, dragArea]() {
+      m_drag.holdTimer.start(kDragHoldDelay, [this, dragArea] {
         if (m_drag.area == dragArea && !m_drag.active) {
           m_drag.armed = true;
         }
@@ -1077,7 +1077,7 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
         updateDragTarget();
         moveDragTile();
       });
-      area->setOnCancel([this, dragArea]() {
+      area->setOnCancel([this, dragArea] {
         if (m_drag.area != dragArea) {
           return;
         }
@@ -1316,7 +1316,7 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
     }
     // Installed even for a currently empty title: a title arriving later must surface without a
     // rebuild. Empty content measures to nothing, so the popup never shows.
-    area->setTooltipProvider([this, taskRef, tooltipCandidates]() -> TooltipContent {
+    area->setTooltipProvider([this, taskRef, tooltipCandidates] -> TooltipContent {
       const TaskModel* current = resolveTask(m_tasks, taskRef, m_taskGeneration);
       if (current == nullptr) {
         return TooltipContent{std::monostate{}};
@@ -1425,7 +1425,7 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
 
       auto wsCopy = ws.workspace;
       wl_output* const wsHost = workspaceHostOutput(ws);
-      badge->setOnClick([this, wsCopy, wsHost]() { m_platform.activateWorkspace(wsHost, wsCopy); });
+      badge->setOnClick([this, wsCopy, wsHost] { m_platform.activateWorkspace(wsHost, wsCopy); });
 
       if (hover) {
         attachHover(*badge->inputArea(), disc.width, disc.height);
@@ -3189,7 +3189,7 @@ void TaskbarWidget::openTaskContextMenu(const TaskModel& task, InputArea& area, 
         auto& configService = m_configService;
         const bool dbusActivatable = menuEntry.has_value() && menuEntry->dbusActivatable;
         DeferredCall::callLater([action, appName = entryAppName, workingDir = entryWorkingDir, terminal = entryTerminal,
-                                 dbusActivatable, &platform, &configService]() {
+                                 dbusActivatable, &platform, &configService] {
           std::string token;
           if (platform.hasXdgActivation()) {
             token = platform.requestActivationToken(nullptr);

@@ -1064,7 +1064,7 @@ void WindowSwitcher::activateSelected() {
   // selection, tear the overlay down, then activate on the next loop tick.
   CompositorPlatform* platform = m_platform;
   hide();
-  DeferredCall::callLater([platform, entry]() { activateWindowSwitcherEntry(*platform, entry); });
+  DeferredCall::callLater([platform, entry] { activateWindowSwitcherEntry(*platform, entry); });
 }
 
 void WindowSwitcher::closeWindowAt(std::size_t index) {
@@ -1303,7 +1303,7 @@ void WindowSwitcher::syncSelection(bool animate) {
           instance->inputDispatcher.syncPointerHover();
         }
       },
-      [this, instance, transitions]() {
+      [this, instance, transitions] {
         if (m_instance != instance) {
           return;
         }
@@ -1384,7 +1384,7 @@ void WindowSwitcher::scheduleShortcutModifierReleaseCheck() {
   }
 
   const std::uint64_t generation = m_shortcutSessionGeneration;
-  DeferredCall::callLater([this, generation]() {
+  DeferredCall::callLater([this, generation] {
     if (generation != m_shortcutSessionGeneration) {
       return;
     }
@@ -1637,7 +1637,7 @@ void WindowSwitcher::ensureSurface() {
         *instPtr, static_cast<float>(instPtr->surface->width()), static_cast<float>(instPtr->surface->height())
     );
   });
-  inst->surface->setClosedCallback([this]() { DeferredCall::callLater([this]() { hide(); }); });
+  inst->surface->setClosedCallback([this] { DeferredCall::callLater([this] { hide(); }); });
 
   if (!inst->surface->initialize(m_output)) {
     kLog.warn("failed to initialize window switcher overlay");
@@ -1907,12 +1907,12 @@ void WindowSwitcher::buildScene(Instance& instance, std::uint32_t width, std::ui
       tile->setShadowStyle(selectedShadowStyle);
       tile->setShowCaption(switcherConfig.showCaption);
       tile->setShowAppIcon(switcherConfig.showAppIcon);
-      tile->setOnInvalidate([this]() { requestSceneUpdate(); });
-      tile->setOnActivate([this, windowIndex]() {
+      tile->setOnInvalidate([this] { requestSceneUpdate(); });
+      tile->setOnActivate([this, windowIndex] {
         setSelectedIndex(windowIndex);
         activateSelected();
       });
-      tile->setOnClose([this, windowIndex]() { closeWindowAt(windowIndex); });
+      tile->setOnClose([this, windowIndex] { closeWindowAt(windowIndex); });
       instance.tiles.push_back(tilePtr);
       strip->addChild(std::move(tile));
     }

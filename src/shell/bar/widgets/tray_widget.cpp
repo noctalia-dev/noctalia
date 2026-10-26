@@ -186,7 +186,7 @@ TrayWidget::TrayWidget(ConfigService& config, TrayService* tray, Options options
   normalizeTokens(m_hiddenItems);
   normalizeTokens(m_pinnedItems);
   buildDesktopIconIndex();
-  m_themePathIndexListener = tray::ThemePathIconStore::instance().addListener([this]() {
+  m_themePathIndexListener = tray::ThemePathIconStore::instance().addListener([this] {
     // Paths resolved while the scan was in flight fell back to the system theme and
     // were cached; drop them so the app's own IconThemePath icon takes precedence.
     m_preferredIconPaths.clear();
@@ -219,11 +219,11 @@ void TrayWidget::refreshAppIconColorization(Renderer& renderer) {
 }
 
 void TrayWidget::create() {
-  m_paletteConn = paletteChanged().connect([this]() {
+  m_paletteConn = paletteChanged().connect([this] {
     m_appIconColorizeDirty = true;
     requestUpdate();
   });
-  m_appIconColorizeConn = shellAppIconColorizationChanged().connect([this]() {
+  m_appIconColorizeConn = shellAppIconColorizationChanged().connect([this] {
     m_rebuildPending = true;
     requestUpdate();
   });
@@ -474,7 +474,7 @@ void TrayWidget::rebuild(Renderer& renderer) {
       requestFrameTick();
     });
 
-    area.setOnLeave([this, hoverBoxPtr, progress]() {
+    area.setOnLeave([this, hoverBoxPtr, progress] {
       if (m_animations == nullptr)
         return;
       m_animations->cancelForOwner(hoverBoxPtr);

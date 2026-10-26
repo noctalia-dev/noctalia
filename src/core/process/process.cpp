@@ -805,7 +805,7 @@ namespace process {
     }
 
     try {
-      std::thread([args, callbacks = std::move(callbacks), options]() mutable {
+      std::thread([args, callbacks = std::move(callbacks), options] mutable {
         if (!callbacks.onExit) {
           options.maxOutputBytes = 0;
         }

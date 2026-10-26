@@ -23,6 +23,7 @@ Checks: >-
   readability-container-data-pointer,
   readability-container-size-empty,
   readability-redundant-casting,
+  readability-redundant-lambda-parameter-list,
   readability-redundant-member-init,
   readability-static-definition-in-anonymous-namespace,
   readability-uppercase-literal-suffix,

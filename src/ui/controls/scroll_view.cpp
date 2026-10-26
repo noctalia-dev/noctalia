@@ -84,7 +84,7 @@ ScrollView::ScrollView() {
       startFling();
     }
   });
-  viewportArea->setOnLeave([this]() {
+  viewportArea->setOnLeave([this] {
     if (!m_dragging) {
       return;
     }
@@ -205,7 +205,7 @@ void ScrollView::animateScrollTo(float target, float durationMs) {
 
   m_scrollAnimId = animationManager()->animate(
       m_scrollOffset, clampedTarget, resolvedDuration, Easing::EaseOutCubic,
-      [this](float value) { applyScrollOffsetValue(value); }, [this]() { m_scrollAnimId = 0; }, this
+      [this](float value) { applyScrollOffsetValue(value); }, [this] { m_scrollAnimId = 0; }, this
   );
   markPaintDirty();
 }

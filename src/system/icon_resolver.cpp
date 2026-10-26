@@ -237,7 +237,7 @@ namespace {
   };
 
   GSettings* iconSettings() {
-    static std::unique_ptr<GSettings, GSettingsDeleter> settings = []() {
+    static std::unique_ptr<GSettings, GSettingsDeleter> settings = [] {
       GSettingsSchemaSource* source = g_settings_schema_source_get_default();
       if (source == nullptr) {
         return std::unique_ptr<GSettings, GSettingsDeleter>{nullptr};

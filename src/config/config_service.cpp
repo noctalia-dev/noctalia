@@ -591,7 +591,7 @@ void ConfigService::setNotificationManager(NotificationManager* manager) {
   if (m_notificationManager != nullptr && !m_pendingError.empty()) {
     ConfigProblem pendingError = std::move(m_pendingError);
     m_pendingError = {};
-    DeferredCall::callLater([this, pendingError = std::move(pendingError)]() mutable {
+    DeferredCall::callLater([this, pendingError = std::move(pendingError)] mutable {
       if (m_notificationManager == nullptr) {
         m_pendingError = std::move(pendingError);
         return;
@@ -600,7 +600,7 @@ void ConfigService::setNotificationManager(NotificationManager* manager) {
     });
   }
   if (m_notificationManager != nullptr && m_legacyReminderPending) {
-    DeferredCall::callLater([this]() { notifyLegacyConfigIssues(); });
+    DeferredCall::callLater([this] { notifyLegacyConfigIssues(); });
   }
 }
 
@@ -932,7 +932,7 @@ void ConfigService::checkReload() {
   // or briefly missing file is never applied.
   m_pendingConfigReload = m_pendingConfigReload || configChanged;
   m_pendingOverridesReload = m_pendingOverridesReload || overridesChanged;
-  m_watchReloadTimer.start(kWatchReloadDebounce, [this]() { applyPendingWatchReload(); });
+  m_watchReloadTimer.start(kWatchReloadDebounce, [this] { applyPendingWatchReload(); });
 }
 
 void ConfigService::applyPendingWatchReload() {
@@ -1357,7 +1357,7 @@ void ConfigService::updateLegacyConfigIssues(noctalia::config::LegacyConfigIssue
 
   const auto elapsed = std::chrono::seconds(now - reminderState->epochSeconds);
   const auto remaining = std::chrono::seconds(noctalia::config::kLegacyConfigReminderIntervalSeconds) - elapsed;
-  m_legacyReminderTimer.start(std::chrono::duration_cast<std::chrono::milliseconds>(remaining), [this]() {
+  m_legacyReminderTimer.start(std::chrono::duration_cast<std::chrono::milliseconds>(remaining), [this] {
     m_legacyReminderPending = true;
     notifyLegacyConfigIssues();
   });
@@ -1381,7 +1381,7 @@ void ConfigService::notifyLegacyConfigIssues() {
   (void)m_stateStore.setString(kMigrationReminderOwner, kMigrationReminderKey, std::format("{}\n{}", now, fingerprint));
   m_legacyReminderPending = false;
   m_legacyReminderTimer.start(
-      std::chrono::milliseconds(noctalia::config::kLegacyConfigReminderIntervalSeconds * 1000), [this]() {
+      std::chrono::milliseconds(noctalia::config::kLegacyConfigReminderIntervalSeconds * 1000), [this] {
         m_legacyReminderPending = true;
         notifyLegacyConfigIssues();
       }

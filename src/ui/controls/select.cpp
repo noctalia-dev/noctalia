@@ -63,7 +63,7 @@ Select::Select() {
     applyVisualState();
     markPaintDirty();
   });
-  triggerArea->setOnLeave([this]() {
+  triggerArea->setOnLeave([this] {
     applyVisualState();
     markPaintDirty();
   });
@@ -77,11 +77,11 @@ Select::Select() {
     }
     toggleOpen();
   });
-  triggerArea->setOnFocusGain([this]() {
+  triggerArea->setOnFocusGain([this] {
     applyVisualState();
     markPaintDirty();
   });
-  triggerArea->setOnFocusLoss([this]() {
+  triggerArea->setOnFocusLoss([this] {
     applyVisualState();
     markPaintDirty();
   });
@@ -392,7 +392,7 @@ void Select::animateCaret(bool open) {
           applyVisualState();
           markPaintDirty();
         },
-        [this]() { m_caretAnimId = 0; }, this
+        [this] { m_caretAnimId = 0; }, this
     );
     markPaintDirty();
   } else {
@@ -474,7 +474,7 @@ void Select::openPopupDropdown() {
             setSelectedIndex(index);
           },
       .onDismiss =
-          [this]() {
+          [this] {
             m_open = false;
             animateCaret(false);
           },

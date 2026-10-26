@@ -39,7 +39,7 @@ namespace noctalia::theme {
     // Hooks that already started own the shared state; wait them out instead of
     // killing a command halfway through rewriting an application's config. An owner
     // that must bound this raises the cancel flag, which ends them.
-    m_state->idleCv.wait(lock, [this]() { return m_state->running == 0; });
+    m_state->idleCv.wait(lock, [this] { return m_state->running == 0; });
   }
 
   void HookRunner::requestShutdown() {
@@ -79,7 +79,7 @@ namespace noctalia::theme {
 
   void HookRunner::waitIdle() {
     std::unique_lock lock(m_state->mutex);
-    m_state->idleCv.wait(lock, [this]() {
+    m_state->idleCv.wait(lock, [this] {
       return m_state->shutdown || (m_state->queue.empty() && m_state->running == 0);
     });
   }

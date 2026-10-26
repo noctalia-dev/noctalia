@@ -40,7 +40,7 @@ void MediaWidget::create() {
     applyTitleScrollMode(m_label != nullptr && m_label->visible());
     this->requestUpdate();
   });
-  area->setOnLeave([this]() {
+  area->setOnLeave([this] {
     applyTitleScrollMode(m_label != nullptr && m_label->visible());
     this->requestUpdate();
   });
@@ -295,7 +295,7 @@ void MediaWidget::syncProgress(const std::optional<MprisPlayerInfo>& active) {
   const float fillWidth = std::max(1.0F, m_progressBar->width());
   const auto intervalMs =
       static_cast<std::int64_t>(std::clamp(static_cast<float>(active->lengthUs / 1000) / fillWidth, 250.0F, 1000.0F));
-  m_progressTimer.start(std::chrono::milliseconds(intervalMs), [this]() { requestUpdate(); });
+  m_progressTimer.start(std::chrono::milliseconds(intervalMs), [this] { requestUpdate(); });
 }
 
 void MediaWidget::syncState(Renderer& renderer, const std::optional<MprisPlayerInfo>& active) {

@@ -49,7 +49,7 @@ Slider::Slider() {
     applyVisualState();
     markPaintDirty();
   });
-  area->setOnLeave([this]() {
+  area->setOnLeave([this] {
     applyVisualState();
     markPaintDirty();
   });
@@ -96,11 +96,11 @@ Slider::Slider() {
     return true;
   });
   area->setFocusable(true);
-  area->setOnFocusGain([this]() {
+  area->setOnFocusGain([this] {
     applyVisualState();
     markPaintDirty();
   });
-  area->setOnFocusLoss([this]() {
+  area->setOnFocusLoss([this] {
     applyVisualState();
     markPaintDirty();
   });

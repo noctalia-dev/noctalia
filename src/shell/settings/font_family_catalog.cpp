@@ -32,7 +32,7 @@ namespace settings {
     seen.reserve(4096);
 
     std::string token;
-    const auto flush = [&]() {
+    const auto flush = [&] {
       std::string family = StringUtils::trim(token);
       if (!family.empty()) {
         seen.insert(std::move(family));

@@ -165,7 +165,7 @@ void BatteryWidget::createGraphicMode() {
   );
 
   syncPalette();
-  m_paletteConn = paletteChanged().connect([this]() {
+  m_paletteConn = paletteChanged().connect([this] {
     syncPalette();
     requestRedraw();
   });
@@ -469,7 +469,7 @@ void BatteryWidget::syncState(Renderer& renderer) {
             updateFillGeometry();
             requestRedraw();
           },
-          [this]() { m_fillAnim = 0; }, this
+          [this] { m_fillAnim = 0; }, this
       );
       requestFrameTick();
     } else {

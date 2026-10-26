@@ -278,7 +278,7 @@ namespace {
     std::string currentActionId;
     ActionData currentActionData;
 
-    auto flushCurrentAction = [&]() {
+    auto flushCurrentAction = [&] {
       if (!currentActionId.empty()) {
         currentActionData.name = localizedValue(language, currentActionData.localizedNames, currentActionData.name);
         if (!currentActionData.name.empty() && !currentActionData.exec.empty()) {

@@ -241,7 +241,7 @@ namespace settings {
     const std::string group = std::move(props.group);
     if (props.pill != nullptr) {
       props.pill->setOnClick([expandedGroups, group, pill = props.pill, collapsibleRaw,
-                              scrollToTop = props.scrollToTop]() {
+                              scrollToTop = props.scrollToTop] {
         if (expandedGroups->contains(group)) {
           expandedGroups->erase(group);
           pill->setVariant(ButtonVariant::Default);
@@ -582,7 +582,7 @@ namespace settings {
     IdleBehaviorConfig norm = row;
     normalizeIdleBehaviorAction(norm);
 
-    const auto displayName = [&]() -> std::string {
+    const auto displayName = [&] -> std::string {
       if (norm.action == "lock") {
         return i18n::tr("settings.idle.behavior.kind.lock");
       }

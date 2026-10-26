@@ -178,7 +178,7 @@ void PluginWidget::create() {
     if (m_runtime)
       (void)m_runtime->enqueueCallBool("onHover", true, makeScriptSnapshot());
   });
-  area->setOnLeave([this]() {
+  area->setOnLeave([this] {
     if (m_runtime)
       (void)m_runtime->enqueueCallBool("onHover", false, makeScriptSnapshot());
   });
@@ -321,7 +321,7 @@ void PluginWidget::setupAudioSpectrum() {
     return;
   }
   m_audioSpectrumListenerId =
-      m_audioSpectrum->addChangeListener(m_audioSpectrumBands, [this]() { handleAudioSpectrumChanged(); });
+      m_audioSpectrum->addChangeListener(m_audioSpectrumBands, [this] { handleAudioSpectrumChanged(); });
 }
 
 void PluginWidget::teardownAudioSpectrum() {

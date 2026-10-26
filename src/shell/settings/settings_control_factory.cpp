@@ -194,7 +194,7 @@ namespace settings {
         .radius = Style::scaledRadiusMd(scale),
         .onClick = [clearOverrides = ctx.clearOverrides, requestConfirmation = ctx.requestResetConfirmation,
                     requestRebuild = ctx.requestRebuild, paths = std::move(paths), onConfirmed = std::move(onConfirmed),
-                    pendingConfirmation]() mutable {
+                    pendingConfirmation] mutable {
           if (!pendingConfirmation) {
             requestConfirmation(paths);
             requestRebuild();
@@ -463,7 +463,7 @@ namespace settings {
         .radius = Style::scaledRadiusMd(scale),
         .onClick = [openPopup = ctx.openSearchPickerPopup, title = std::move(title), options = setting.options,
                     selectedValue = setting.selectedValue, placeholder = setting.placeholder,
-                    emptyText = setting.emptyText, path = std::move(path), onSelect = setting.onSelect]() {
+                    emptyText = setting.emptyText, path = std::move(path), onSelect = setting.onSelect] {
           if (openPopup) {
             openPopup(
                 SearchPickerOpenRequest{
@@ -560,7 +560,7 @@ namespace settings {
       commitValue = [commit, inverted](double magValue) { commit(*inverted ? -magValue : magValue); };
     }
 
-    slider->setOnDragEnd([commitValue, sliderPtr]() { commitValue(sliderPtr->value()); });
+    slider->setOnDragEnd([commitValue, sliderPtr] { commitValue(sliderPtr->value()); });
 
     const auto commitInputText = [commitValue, sliderPtr, valueInputPtr, minValue, maxValue,
                                   integerValue](const std::string& text) {
@@ -580,7 +580,7 @@ namespace settings {
 
     valueInput->setOnChange([valueInputPtr](const std::string& /*text*/) { valueInputPtr->setInvalid(false); });
     valueInput->setOnSubmit([commitInputText](const std::string& text) { (void)commitInputText(text); });
-    valueInput->setOnFocusLoss([commitInputText, valueInputPtr]() { (void)commitInputText(valueInputPtr->value()); });
+    valueInput->setOnFocusLoss([commitInputText, valueInputPtr] { (void)commitInputText(valueInputPtr->value()); });
 
     // Invert toggle leads, then slider, then the numeric value field on the right (reset from makeRow
     // stays left of this cluster).
@@ -655,7 +655,7 @@ namespace settings {
     };
 
     // Drag commits both ends together — they are one linked pair (reset clears both).
-    slider->setOnDragEnd([commitTo, sliderPtr, lowPath, highPath]() {
+    slider->setOnDragEnd([commitTo, sliderPtr, lowPath, highPath] {
       commitTo(lowPath, sliderPtr->lowValue());
       commitTo(highPath, sliderPtr->highValue());
     });
@@ -688,14 +688,14 @@ namespace settings {
     lowInput->setOnSubmit([commitInput, lowInputPtr, lowPath, minValue, maxValue](const std::string& /*text*/) {
       (void)commitInput(lowInputPtr, lowPath, minValue, maxValue, true);
     });
-    lowInput->setOnFocusLoss([commitInput, lowInputPtr, lowPath, minValue, maxValue]() {
+    lowInput->setOnFocusLoss([commitInput, lowInputPtr, lowPath, minValue, maxValue] {
       (void)commitInput(lowInputPtr, lowPath, minValue, maxValue, true);
     });
     highInput->setOnChange([highInputPtr](const std::string& /*text*/) { highInputPtr->setInvalid(false); });
     highInput->setOnSubmit([commitInput, highInputPtr, highPath, minValue, maxValue](const std::string& /*text*/) {
       (void)commitInput(highInputPtr, highPath, minValue, maxValue, false);
     });
-    highInput->setOnFocusLoss([commitInput, highInputPtr, highPath, minValue, maxValue]() {
+    highInput->setOnFocusLoss([commitInput, highInputPtr, highPath, minValue, maxValue] {
       (void)commitInput(highInputPtr, highPath, minValue, maxValue, false);
     });
 
@@ -930,7 +930,7 @@ namespace settings {
             .radius = Style::scaledRadiusMd(scale),
             .onClick = [setOverride = ctx.setOverride, requestRebuild = ctx.requestRebuild, path = std::move(path),
                         inputPtr, selectFolder, extensions = setting.browseFileExtensions,
-                        fallbackDirectory = setting.browseFallbackDirectory]() {
+                        fallbackDirectory = setting.browseFallbackDirectory] {
               FileDialogOptions options;
               options.mode = selectFolder ? FileDialogMode::SelectFolder : FileDialogMode::Open;
               options.defaultViewMode = FileDialogViewMode::List;
@@ -1087,7 +1087,7 @@ namespace settings {
     return makeColorSpecSelect(
         std::move(options), [setOverride = ctx.setOverride, path](std::string value) { setOverride(path, value); },
         [configService = ctx.configService, clearOverride = ctx.clearOverride, requestRebuild = ctx.requestRebuild,
-         path]() {
+         path] {
           if (configService != nullptr && configService->hasOverride(path)) {
             clearOverride(path);
           } else {
@@ -1294,7 +1294,7 @@ namespace settings {
               .variant = ButtonVariant::Ghost,
               .minWidth = Style::controlHeight * scale,
               .minHeight = Style::controlHeight * scale,
-              .onClick = [removeAndCommit, key, value]() {
+              .onClick = [removeAndCommit, key, value] {
                 if (!value.empty()) {
                   removeAndCommit(key);
                 }
@@ -1355,7 +1355,7 @@ namespace settings {
               .variant = ButtonVariant::Ghost,
               .minWidth = Style::controlHeight * scale,
               .minHeight = Style::controlHeight * scale,
-              .onClick = [removeAndCommit, key]() { removeAndCommit(key); },
+              .onClick = [removeAndCommit, key] { removeAndCommit(key); },
           })
       );
       block->addChild(std::move(row));
@@ -1408,7 +1408,7 @@ namespace settings {
             .variant = ButtonVariant::Ghost,
             .minWidth = Style::controlHeight * scale,
             .minHeight = Style::controlHeight * scale,
-            .onClick = [keyInput, valueInput, setAndCommit]() {
+            .onClick = [keyInput, valueInput, setAndCommit] {
               if (keyInput == nullptr || valueInput == nullptr) {
                 return;
               }

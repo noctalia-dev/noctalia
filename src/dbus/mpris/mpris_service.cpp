@@ -424,7 +424,7 @@ void MprisService::refreshPlayerPosition(const std::string& busName, bool notify
             return;
           }
           const auto rawPositionUs = value.get<int64_t>();
-          DeferredCall::callLater([this, aliveGuard, busName, notifyChange, rawPositionUs]() {
+          DeferredCall::callLater([this, aliveGuard, busName, notifyChange, rawPositionUs] {
             if (aliveGuard.expired()) {
               return;
             }
@@ -460,7 +460,7 @@ void MprisService::schedulePositionRefreshRetry(
   auto& timerId = m_positionResyncTimers[busName];
   const std::weak_ptr<void> timerAliveGuard = m_aliveGuard;
   const auto retryInterval = propertiesRefreshRetryInterval(busName, fallback, usePropertiesBackoff);
-  timerId = TimerManager::instance().start(timerId, retryInterval, [this, timerAliveGuard, busName]() {
+  timerId = TimerManager::instance().start(timerId, retryInterval, [this, timerAliveGuard, busName] {
     if (timerAliveGuard.expired()) {
       return;
     }
@@ -784,7 +784,7 @@ MprisService::makeAsyncReplyHandler(std::string op, std::string busName) {
       return;
     }
 
-    DeferredCall::callLater([this, aliveGuard, busName]() {
+    DeferredCall::callLater([this, aliveGuard, busName] {
       if (aliveGuard.expired()) {
         return;
       }
@@ -808,7 +808,7 @@ MprisService::makeAsyncReplyHandler(std::string op, std::string busName, std::st
 
     kLog.debug("{} name={} method={}", op, busName, method);
 
-    DeferredCall::callLater([this, aliveGuard, busName]() {
+    DeferredCall::callLater([this, aliveGuard, busName] {
       if (aliveGuard.expired()) {
         return;
       }
@@ -1010,7 +1010,7 @@ bool MprisService::setPosition(const std::string& busName, int64_t positionUs) {
   const int64_t currentPositionUs = projectedPositionUs(it->second);
   const bool preferRelativeSeek = it->second.trackId.empty() || busName.contains("spotify");
 
-  auto fallback_seek = [this, busName, currentPositionUs, positionUs]() {
+  auto fallback_seek = [this, busName, currentPositionUs, positionUs] {
     const int64_t offsetUs = positionUs - currentPositionUs;
     if (offsetUs == 0) {
       return true;
@@ -1335,7 +1335,7 @@ void MprisService::registerControlApi() {
           sdbus::registerSignal("TrackChanged")
               .withParameters<std::string, std::map<std::string, sdbus::Variant>>("player_bus_name", "player"),
 
-          sdbus::registerMethod("GetPlayers").withOutputParamNames("players").implementedAs([this]() {
+          sdbus::registerMethod("GetPlayers").withOutputParamNames("players").implementedAs([this] {
             std::vector<std::map<std::string, sdbus::Variant>> players;
             for (const auto& player : listPlayers()) {
               players.push_back(to_dbus_player(player));
@@ -1343,7 +1343,7 @@ void MprisService::registerControlApi() {
             return players;
           }),
 
-          sdbus::registerMethod("GetActivePlayer").withOutputParamNames("found", "player").implementedAs([this]() {
+          sdbus::registerMethod("GetActivePlayer").withOutputParamNames("found", "player").implementedAs([this] {
             const auto active = activePlayer();
             if (!active.has_value()) {
               return std::make_tuple(false, std::map<std::string, sdbus::Variant>{});
@@ -1356,7 +1356,7 @@ void MprisService::registerControlApi() {
               .withOutputParamNames("success")
               .implementedAs([this](const std::string& busName) { return onSetActivePlayerPreference(busName); }),
 
-          sdbus::registerMethod("ClearActivePlayerPreference").withOutputParamNames("success").implementedAs([this]() {
+          sdbus::registerMethod("ClearActivePlayerPreference").withOutputParamNames("success").implementedAs([this] {
             return onClearActivePlayerPreference();
           }),
 
@@ -1369,14 +1369,14 @@ void MprisService::registerControlApi() {
 
           sdbus::registerMethod("GetPlayerPreferences")
               .withOutputParamNames("has_pinned", "pinned_bus_name", "preferred_bus_names")
-              .implementedAs([this]() { return onGetPlayerPreferences(); }),
+              .implementedAs([this] { return onGetPlayerPreferences(); }),
 
           sdbus::registerMethod("GetPositionPlayer")
               .withInputParamNames("player_bus_name")
               .withOutputParamNames("position_us")
               .implementedAs([this](const std::string& busName) { return onGetPositionPlayer(busName); }),
 
-          sdbus::registerMethod("GetPositionActive").withOutputParamNames("position_us").implementedAs([this]() {
+          sdbus::registerMethod("GetPositionActive").withOutputParamNames("position_us").implementedAs([this] {
             return onGetPositionActive();
           }),
 
@@ -1385,7 +1385,7 @@ void MprisService::registerControlApi() {
               .withOutputParamNames("volume")
               .implementedAs([this](const std::string& busName) { return onGetVolumePlayer(busName); }),
 
-          sdbus::registerMethod("GetVolumeActive").withOutputParamNames("volume").implementedAs([this]() {
+          sdbus::registerMethod("GetVolumeActive").withOutputParamNames("volume").implementedAs([this] {
             return onGetVolumeActive();
           }),
 
@@ -1406,7 +1406,7 @@ void MprisService::registerControlApi() {
               .withOutputParamNames("shuffle")
               .implementedAs([this](const std::string& busName) { return onGetShufflePlayer(busName); }),
 
-          sdbus::registerMethod("GetShuffleActive").withOutputParamNames("shuffle").implementedAs([this]() {
+          sdbus::registerMethod("GetShuffleActive").withOutputParamNames("shuffle").implementedAs([this] {
             return onGetShuffleActive();
           }),
 
@@ -1427,7 +1427,7 @@ void MprisService::registerControlApi() {
               .withOutputParamNames("loop_status")
               .implementedAs([this](const std::string& busName) { return onGetLoopStatusPlayer(busName); }),
 
-          sdbus::registerMethod("GetLoopStatusActive").withOutputParamNames("loop_status").implementedAs([this]() {
+          sdbus::registerMethod("GetLoopStatusActive").withOutputParamNames("loop_status").implementedAs([this] {
             return onGetLoopStatusActive();
           }),
 
@@ -1497,27 +1497,27 @@ void MprisService::registerControlApi() {
               .withOutputParamNames("success")
               .implementedAs([this](const std::string& busName) { return onPreviousPlayer(busName); }),
 
-          sdbus::registerMethod("PlayPauseActive").withOutputParamNames("success").implementedAs([this]() {
+          sdbus::registerMethod("PlayPauseActive").withOutputParamNames("success").implementedAs([this] {
             return onPlayPauseActive();
           }),
 
-          sdbus::registerMethod("PlayActive").withOutputParamNames("success").implementedAs([this]() {
+          sdbus::registerMethod("PlayActive").withOutputParamNames("success").implementedAs([this] {
             return onPlayActive();
           }),
 
-          sdbus::registerMethod("PauseActive").withOutputParamNames("success").implementedAs([this]() {
+          sdbus::registerMethod("PauseActive").withOutputParamNames("success").implementedAs([this] {
             return onPauseActive();
           }),
 
-          sdbus::registerMethod("StopActive").withOutputParamNames("success").implementedAs([this]() {
+          sdbus::registerMethod("StopActive").withOutputParamNames("success").implementedAs([this] {
             return onStopActive();
           }),
 
-          sdbus::registerMethod("NextActive").withOutputParamNames("success").implementedAs([this]() {
+          sdbus::registerMethod("NextActive").withOutputParamNames("success").implementedAs([this] {
             return onNextActive();
           }),
 
-          sdbus::registerMethod("PreviousActive").withOutputParamNames("success").implementedAs([this]() {
+          sdbus::registerMethod("PreviousActive").withOutputParamNames("success").implementedAs([this] {
             return onPreviousActive();
           })
       )
@@ -1631,7 +1631,7 @@ void MprisService::scheduleDiscoveryDrain() {
 
   m_discoveryDrainScheduled = true;
   const std::weak_ptr<void> aliveGuard = m_aliveGuard;
-  DeferredCall::callLater([this, aliveGuard]() {
+  DeferredCall::callLater([this, aliveGuard] {
     m_discoveryDrainScheduled = false;
     if (aliveGuard.expired() || m_pendingDiscoveryBusNames.empty()) {
       return;
@@ -1653,7 +1653,7 @@ void MprisService::scheduleStartupRediscovery() {
   }
 
   const std::weak_ptr<void> aliveGuard = m_aliveGuard;
-  DeferredCall::callLater([this, aliveGuard]() {
+  DeferredCall::callLater([this, aliveGuard] {
     if (aliveGuard.expired()) {
       return;
     }
@@ -1675,7 +1675,7 @@ void MprisService::scheduleRecoveryDiscovery() {
   m_recoveryBackoffMs = std::min(m_recoveryBackoffMs * 2, kMaxBackoff);
 
   const std::weak_ptr<void> aliveGuard = m_aliveGuard;
-  m_recoveryTimer.start(delay, [this, aliveGuard]() {
+  m_recoveryTimer.start(delay, [this, aliveGuard] {
     if (aliveGuard.expired()) {
       return;
     }
@@ -1719,7 +1719,7 @@ void MprisService::addOrRefreshPlayer(const std::string& busName) {
                 const std::weak_ptr<void> aliveGuard = m_aliveGuard;
                 const auto remaining =
                     std::chrono::ceil<std::chrono::milliseconds>(kPropertiesDebounceWindow - (now - last_it->second));
-                timerId = TimerManager::instance().start(timerId, remaining, [this, aliveGuard, busName]() {
+                timerId = TimerManager::instance().start(timerId, remaining, [this, aliveGuard, busName] {
                   if (aliveGuard.expired()) {
                     return;
                   }
@@ -1916,7 +1916,7 @@ void MprisService::applyPlayerSnapshot(
       info.playbackStatus == "Playing" && (existing == m_players.end() || existing->second.playbackStatus != "Playing");
   const bool transitionedFromPlaying =
       info.playbackStatus != "Playing" && existing != m_players.end() && existing->second.playbackStatus == "Playing";
-  const auto hasOtherPlayingPlayer = [this, &busName]() {
+  const auto hasOtherPlayingPlayer = [this, &busName] {
     for (const auto& [otherBusName, player] : m_players) {
       if (otherBusName != busName && !isBlacklisted(player) && player.playbackStatus == "Playing") {
         return true;
@@ -1972,7 +1972,7 @@ void MprisService::applyPlayerSnapshot(
 
     if (info.playbackStatus != "Stopped" || info.positionUs > 0) {
       const std::weak_ptr<void> aliveGuard = m_aliveGuard;
-      DeferredCall::callLater([this, aliveGuard, busName]() {
+      DeferredCall::callLater([this, aliveGuard, busName] {
         if (aliveGuard.expired()) {
           return;
         }
@@ -2175,7 +2175,7 @@ void MprisService::applyPlayerSnapshot(
 
     if (trackChanged || previous_info.playbackStatus != merged.playbackStatus) {
       const std::weak_ptr<void> aliveGuard = m_aliveGuard;
-      DeferredCall::callLater([this, aliveGuard, busName]() {
+      DeferredCall::callLater([this, aliveGuard, busName] {
         if (aliveGuard.expired()) {
           return;
         }

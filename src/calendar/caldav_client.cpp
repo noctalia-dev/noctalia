@@ -117,7 +117,7 @@ namespace calendar {
 
     void deliver(EventCallback callback, bool ok, std::vector<CalendarEvent> events) {
       const std::weak_ptr<State> weak = weak_from_this();
-      DeferredCall::callLater([weak, callback = std::move(callback), ok, events = std::move(events)]() mutable {
+      DeferredCall::callLater([weak, callback = std::move(callback), ok, events = std::move(events)] mutable {
         const auto state = weak.lock();
         if (!state || !state->accepting()) {
           return;
@@ -217,7 +217,7 @@ namespace calendar {
         ParseRequest request;
         {
           std::unique_lock lock(mutex);
-          cv.wait(lock, [this]() { return stopping || !requests.empty(); });
+          cv.wait(lock, [this] { return stopping || !requests.empty(); });
           if (stopping) {
             return;
           }

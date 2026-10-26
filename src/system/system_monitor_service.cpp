@@ -1195,7 +1195,7 @@ void SystemMonitorService::start() {
   m_running = true;
   m_prevNetBytes.clear();
   try {
-    m_thread = std::thread([this]() { samplingLoop(); });
+    m_thread = std::thread([this] { samplingLoop(); });
   } catch (...) {
     m_running = false;
     throw;
@@ -1565,7 +1565,7 @@ void SystemMonitorService::samplingLoop() {
     considerWake(historyEnabled, nextHistory);
 
     std::unique_lock wakeLock{m_wakeMutex};
-    m_wakeCv.wait_until(wakeLock, nextWake, [this, wakeGeneration]() {
+    m_wakeCv.wait_until(wakeLock, nextWake, [this, wakeGeneration] {
       return !m_running.load() || m_wakeGeneration.load() != wakeGeneration;
     });
   }

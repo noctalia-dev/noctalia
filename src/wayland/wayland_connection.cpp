@@ -369,7 +369,7 @@ namespace wayland {
 
     std::vector<bool> prepared(activeTargets.size(), false);
     std::vector<pollfd> pollFds(activeTargets.size());
-    auto cancelPreparedReads = [&]() {
+    auto cancelPreparedReads = [&] {
       for (std::size_t i = 0; i < activeTargets.size(); ++i) {
         if (prepared[i]) {
           wl_display_cancel_read(activeTargets[i].connection->display());
@@ -672,7 +672,7 @@ namespace {
             .role = "capture",
         },
     };
-    const wayland::DispatchResult result = wayland::dispatchUntil(targets, deadline, [&state]() { return state.done; });
+    const wayland::DispatchResult result = wayland::dispatchUntil(targets, deadline, [&state] { return state.done; });
     if (state.callback != nullptr) {
       wl_callback_destroy(state.callback);
       state.callback = nullptr;

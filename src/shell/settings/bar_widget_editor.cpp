@@ -211,7 +211,7 @@ namespace settings {
               .paddingH = Style::spaceSm * ctx.scale,
               .radius = Style::scaledRadiusMd(ctx.scale),
               .onClick = [setOverride = ctx.setOverride, requestRebuild = ctx.requestRebuild, path = std::move(path),
-                          options = std::move(options), kind, dialogStartValue = std::move(dialogStartValue)]() {
+                          options = std::move(options), kind, dialogStartValue = std::move(dialogStartValue)] {
                 FileDialogOptions dialogOptions = options;
                 applyPathDialogStartValue(dialogOptions, dialogStartValue, kind);
                 (void)FileDialog::open(
@@ -1400,7 +1400,7 @@ namespace settings {
                   .padding = Style::spaceXs * ctx.scale,
                   .radius = Style::scaledRadiusSm(ctx.scale),
                   .onClick = [&pendingDeleteWidgetSettingPath = ctx.pendingDeleteWidgetSettingPath, deleteKey, path,
-                              clearOverride = ctx.clearOverride, requestRebuild = ctx.requestRebuild]() {
+                              clearOverride = ctx.clearOverride, requestRebuild = ctx.requestRebuild] {
                     if (pendingDeleteWidgetSettingPath != deleteKey) {
                       pendingDeleteWidgetSettingPath = deleteKey;
                       requestRebuild();
@@ -1513,7 +1513,7 @@ namespace settings {
                   .paddingH = Style::spaceSm * ctx.scale,
                   .radius = Style::scaledRadiusMd(ctx.scale),
                   .onClick = [setOverride = ctx.setOverride, requestRebuild = ctx.requestRebuild, path,
-                              currentValue = std::move(currentValue)]() {
+                              currentValue = std::move(currentValue)] {
                     GlyphPickerDialogOptions options;
                     if (!currentValue.empty()) {
                       options.initialGlyph = currentValue;
@@ -1852,7 +1852,7 @@ namespace settings {
                   .paddingV = Style::spaceXs * ctx.scale,
                   .paddingH = Style::spaceSm * ctx.scale,
                   .radius = Style::scaledRadiusSm(ctx.scale),
-                  .onClick = [openCapsuleGroupInspector = ctx.openCapsuleGroupInspector, laneListPath, editGroupId]() {
+                  .onClick = [openCapsuleGroupInspector = ctx.openCapsuleGroupInspector, laneListPath, editGroupId] {
                     if (openCapsuleGroupInspector) {
                       openCapsuleGroupInspector(laneListPath, editGroupId);
                     }
@@ -1891,7 +1891,7 @@ namespace settings {
                     .paddingH = Style::spaceSm * ctx.scale,
                     .radius = Style::scaledRadiusSm(ctx.scale),
                     .onClick = [&selectedLaneWidgets = ctx.selectedLaneWidgets, setOverrides = ctx.setOverrides,
-                                sourceItems, sourcePath, targetItems, targetPath, widgetName]() mutable {
+                                sourceItems, sourcePath, targetItems, targetPath, widgetName] mutable {
                       auto it = std::ranges::find(sourceItems, widgetName);
                       if (it == sourceItems.end()) {
                         return;
@@ -1917,7 +1917,7 @@ namespace settings {
                     .radius = Style::scaledRadiusSm(ctx.scale),
                     .onClick = [&renamingWidgetName = ctx.renamingWidgetName,
                                 &pendingDeleteWidgetName = ctx.pendingDeleteWidgetName, widgetName,
-                                requestRebuild = ctx.requestRebuild]() {
+                                requestRebuild = ctx.requestRebuild] {
                       renamingWidgetName = widgetName;
                       pendingDeleteWidgetName.clear();
                       requestRebuild();
@@ -1938,7 +1938,7 @@ namespace settings {
                     .radius = Style::scaledRadiusSm(ctx.scale),
                     .onClick = [&pendingDeleteWidgetName = ctx.pendingDeleteWidgetName,
                                 &renamingWidgetName = ctx.renamingWidgetName, widgetName,
-                                requestRebuild = ctx.requestRebuild]() {
+                                requestRebuild = ctx.requestRebuild] {
                       pendingDeleteWidgetName = widgetName;
                       renamingWidgetName.clear();
                       requestRebuild();
@@ -1998,7 +1998,7 @@ namespace settings {
                   .paddingV = Style::spaceXs * ctx.scale,
                   .paddingH = Style::spaceSm * ctx.scale,
                   .radius = Style::scaledRadiusSm(ctx.scale),
-                  .onClick = [doRename, inputPtr]() mutable { doRename(inputPtr->value()); },
+                  .onClick = [doRename, inputPtr] mutable { doRename(inputPtr->value()); },
               })
           );
           renameRow->addChild(
@@ -2010,7 +2010,7 @@ namespace settings {
                   .paddingV = Style::spaceXs * ctx.scale,
                   .paddingH = Style::spaceSm * ctx.scale,
                   .radius = Style::scaledRadiusSm(ctx.scale),
-                  .onClick = [&renamingWidgetName = ctx.renamingWidgetName, requestRebuild = ctx.requestRebuild]() {
+                  .onClick = [&renamingWidgetName = ctx.renamingWidgetName, requestRebuild = ctx.requestRebuild] {
                     renamingWidgetName.clear();
                     requestRebuild();
                   },
@@ -2053,7 +2053,7 @@ namespace settings {
                       .radius = Style::scaledRadiusSm(ctx.scale),
                       .onClick =
                           [&pendingDeleteWidgetName = ctx.pendingDeleteWidgetName,
-                           requestRebuild = ctx.requestRebuild]() {
+                           requestRebuild = ctx.requestRebuild] {
                             pendingDeleteWidgetName.clear();
                             requestRebuild();
                           },
@@ -2071,7 +2071,7 @@ namespace settings {
                       .onClick = [&pendingDeleteWidgetName = ctx.pendingDeleteWidgetName,
                                   &selectedLaneWidgets = ctx.selectedLaneWidgets, config = ctx.config, widgetName,
                                   clearOverride = ctx.clearOverride, setOverrides = ctx.setOverrides,
-                                  closeHostedEditor = ctx.closeHostedEditor]() {
+                                  closeHostedEditor = ctx.closeHostedEditor] {
                         pendingDeleteWidgetName.clear();
                         auto referenceRemovals = widgetReferenceRemovalOverrides(config, widgetName);
                         if (!referenceRemovals.empty()) {
@@ -2148,7 +2148,7 @@ namespace settings {
                       ui::button({
                           .text = i18n::tr("settings.entities.widget.inspector.reset-defaults"),
                           .variant = ButtonVariant::Ghost,
-                          .onClick = [clearOverrides = ctx.clearOverrides, paths = std::move(resetPaths)]() mutable {
+                          .onClick = [clearOverrides = ctx.clearOverrides, paths = std::move(resetPaths)] mutable {
                             clearOverrides(std::move(paths));
                           },
                       })
@@ -2176,7 +2176,7 @@ namespace settings {
       return makeColorSpecSelect(
           std::move(opts),
           [onChange](std::string value) { onChange(colorSpecFromConfigString(value, "bar.capsule_group.color")); },
-          [onChange]() { onChange(std::nullopt); }
+          [onChange] { onChange(std::nullopt); }
       );
     }
 
@@ -2214,7 +2214,7 @@ namespace settings {
           },
       });
       valueInputPtr->setValue(formatSliderValue(sliderPtr->value(), integerValue));
-      slider->setOnDragEnd([sliderPtr, onCommit]() { onCommit(sliderPtr->value()); });
+      slider->setOnDragEnd([sliderPtr, onCommit] { onCommit(sliderPtr->value()); });
 
       const auto commitInputText = [sliderPtr, valueInputPtr, minV, maxV, integerValue,
                                     onCommit](const std::string& text) {
@@ -2231,7 +2231,7 @@ namespace settings {
       };
       valueInput->setOnChange([valueInputPtr](const std::string& /*text*/) { valueInputPtr->setInvalid(false); });
       valueInput->setOnSubmit([commitInputText](const std::string& text) { (void)commitInputText(text); });
-      valueInput->setOnFocusLoss([commitInputText, valueInputPtr]() { (void)commitInputText(valueInputPtr->value()); });
+      valueInput->setOnFocusLoss([commitInputText, valueInputPtr] { (void)commitInputText(valueInputPtr->value()); });
 
       auto wrap = ui::row({.align = FlexAlign::Center, .gap = Style::spaceSm * ctx.scale});
       wrap->addChild(std::move(slider));
@@ -2524,7 +2524,7 @@ namespace settings {
               .paddingH = Style::spaceSm * ctx.scale,
               .radius = Style::scaledRadiusSm(ctx.scale),
               .onClick = [&selectedLaneWidgets = ctx.selectedLaneWidgets, setOverrides = ctx.setOverrides, groupId,
-                          groupPath, laneListPath, config = &ctx.config, closeHostedEditor = ctx.closeHostedEditor]() {
+                          groupPath, laneListPath, config = &ctx.config, closeHostedEditor = ctx.closeHostedEditor] {
                 std::vector<BarCapsuleGroupStyle> currentGroups = capsuleGroupsForLanePath(*config, laneListPath);
                 const BarCapsuleGroupStyle* g = findCapsuleGroupStyle(currentGroups, groupId);
                 if (g == nullptr) {
@@ -2648,7 +2648,7 @@ namespace settings {
                 .onClick = [setOverrides = ctx.setOverrides, config = &ctx.config, laneKey = plan.laneKey,
                             indices = plan.indices, members = plan.members, laneListPath = entry.path,
                             &selectedLaneWidgets = ctx.selectedLaneWidgets,
-                            openCapsuleGroupInspector = ctx.openCapsuleGroupInspector]() {
+                            openCapsuleGroupInspector = ctx.openCapsuleGroupInspector] {
                   const std::vector<std::string> groupPath = capsuleGroupPathForLanePath(laneListPath);
                   if (groupPath.empty() || indices.empty()) {
                     return;
@@ -2695,7 +2695,7 @@ namespace settings {
               .paddingV = Style::spaceXs * ctx.scale,
               .paddingH = Style::spaceSm * ctx.scale,
               .radius = Style::scaledRadiusSm(ctx.scale),
-              .onClick = [&selectedLaneWidgets = ctx.selectedLaneWidgets, requestRebuild = ctx.requestRebuild]() {
+              .onClick = [&selectedLaneWidgets = ctx.selectedLaneWidgets, requestRebuild = ctx.requestRebuild] {
                 selectedLaneWidgets.clear();
                 requestRebuild();
               },
@@ -2826,7 +2826,7 @@ namespace settings {
                          &selectedLaneWidgets = ctx.selectedLaneWidgets, setOverride = ctx.setOverride,
                          setOverrides = ctx.setOverrides, homeZoneIndex,
                          itemIndex](float localX, float localY, bool pressed) {
-        const auto clearHighlight = [&]() {
+        const auto clearHighlight = [&] {
           if (dragState->highlightZoneIndex.has_value() && dragState->highlightItemIndex.has_value()) {
             setCardCombineHighlight(*zones, *dragState->highlightZoneIndex, *dragState->highlightItemIndex, false);
           }
@@ -2892,14 +2892,14 @@ namespace settings {
         if (!dragState->moved) {
           return;
         }
-        const auto clearHighlight = [&]() {
+        const auto clearHighlight = [&] {
           if (dragState->highlightZoneIndex.has_value() && dragState->highlightItemIndex.has_value()) {
             setCardCombineHighlight(*zones, *dragState->highlightZoneIndex, *dragState->highlightItemIndex, false);
           }
           dragState->highlightZoneIndex = std::nullopt;
           dragState->highlightItemIndex = std::nullopt;
         };
-        const auto clear = [&]() {
+        const auto clear = [&] {
           dragState->targetZoneIndex = std::nullopt;
           dragState->targetInsertionIndex = std::nullopt;
           dragState->combineZoneIndex = std::nullopt;
@@ -3045,7 +3045,7 @@ namespace settings {
                 .minHeight = iconSize,
                 .padding = iconPad,
                 .radius = Style::scaledRadiusSm(ctx.scale),
-                .onClick = [openWidgetInspector = ctx.openWidgetInspector, laneListPath = entry.path, name]() {
+                .onClick = [openWidgetInspector = ctx.openWidgetInspector, laneListPath = entry.path, name] {
                   if (openWidgetInspector) {
                     openWidgetInspector(laneListPath, name);
                   }
@@ -3070,7 +3070,7 @@ namespace settings {
                 .padding = iconPad,
                 .radius = Style::scaledRadiusSm(ctx.scale),
                 .opacity = widgetEnabled ? 1.0F : 0.38F,
-                .onClick = [setOverride = ctx.setOverride, requestRebuild = ctx.requestRebuild, name, widgetEnabled]() {
+                .onClick = [setOverride = ctx.setOverride, requestRebuild = ctx.requestRebuild, name, widgetEnabled] {
                   setOverride({"widget", name, "enabled"}, !widgetEnabled);
                   if (requestRebuild) {
                     requestRebuild();
@@ -3207,14 +3207,14 @@ namespace settings {
                 .paddingV = Style::spaceXs * ctx.scale,
                 .paddingH = Style::spaceSm * ctx.scale,
                 .radius = Style::scaledRadiusSm(ctx.scale),
-                .onClick = [setOverride = ctx.setOverride, items, path]() { setOverride(path, items); },
+                .onClick = [setOverride = ctx.setOverride, items, path] { setOverride(path, items); },
             })
         );
       }
       // Reset reverts the whole lane: its widget list and the capsule groups it holds.
       if (overridden || (monitorLaneExplicit && hasGuiOverride)) {
         laneHeader->addChild(ctx.makeResetActionButton(
-            lanePath, [&selectedLaneWidgets = ctx.selectedLaneWidgets, resetBarLane = ctx.resetBarLane, lanePath]() {
+            lanePath, [&selectedLaneWidgets = ctx.selectedLaneWidgets, resetBarLane = ctx.resetBarLane, lanePath] {
               // Lane contents are replaced wholesale; every index-keyed token in it is stale.
               selectedLaneWidgets.clear();
               resetBarLane(lanePath);
@@ -3255,7 +3255,7 @@ namespace settings {
                       .padding = Style::spaceXs * ctx.scale,
                       .radius = Style::scaledRadiusSm(ctx.scale),
                       .onClick = [&selectedLaneWidgets = ctx.selectedLaneWidgets, setOverride = ctx.setOverride,
-                                  items = laneItems, lanePath, laneKey, i]() mutable {
+                                  items = laneItems, lanePath, laneKey, i] mutable {
                         items.erase(items.begin() + static_cast<std::ptrdiff_t>(i));
                         reindexLaneSelectionAfterRemoval(selectedLaneWidgets, laneKey, i);
                         setOverride(lanePath, items);
@@ -3341,7 +3341,7 @@ namespace settings {
                   .radius = Style::scaledRadiusSm(ctx.scale),
                   .opacity = group->enabled ? 1.0F : 0.38F,
                   .onClick = [setOverrides = ctx.setOverrides, groups = laneGroups, lanePathCopy = lanePath, gid,
-                              requestRebuild = ctx.requestRebuild]() {
+                              requestRebuild = ctx.requestRebuild] {
                     std::vector<BarCapsuleGroupStyle> updated = groups;
                     for (auto& g : updated) {
                       if (g.id == gid) {
@@ -3370,7 +3370,7 @@ namespace settings {
                   .padding = iconPad,
                   .radius = Style::scaledRadiusSm(ctx.scale),
                   .onClick = [openCapsuleGroupInspector = ctx.openCapsuleGroupInspector, laneListPath = entry.path,
-                              gid]() {
+                              gid] {
                     if (openCapsuleGroupInspector) {
                       openCapsuleGroupInspector(laneListPath, gid);
                     }
@@ -3389,7 +3389,7 @@ namespace settings {
                     .padding = iconPad,
                     .radius = Style::scaledRadiusSm(ctx.scale),
                     .onClick = [&selectedLaneWidgets = ctx.selectedLaneWidgets, config = &ctx.config, lanePath, gid,
-                                setOverrides = ctx.setOverrides]() {
+                                setOverrides = ctx.setOverrides] {
                       std::vector<BarCapsuleGroupStyle> groups = capsuleGroupsForLanePath(*config, lanePath);
                       const BarCapsuleGroupStyle* g = findCapsuleGroupStyle(groups, gid);
                       if (g == nullptr) {
@@ -3457,7 +3457,7 @@ namespace settings {
             std::function<void()> eject;
             if (!inherited) {
               eject = [&selectedLaneWidgets = ctx.selectedLaneWidgets, config = &ctx.config, lanePath, gid, m,
-                       setOverrides = ctx.setOverrides]() {
+                       setOverrides = ctx.setOverrides] {
                 const std::vector<std::string> groupPath = capsuleGroupPathForLanePath(lanePath);
                 if (groupPath.empty()) {
                   return;
@@ -3525,7 +3525,7 @@ namespace settings {
               && !widgetHasPlacementAfterLaneEdit(ctx.config, lanePath, items, entryName);
           removeClose = [&selectedLaneWidgets = ctx.selectedLaneWidgets, setOverride = ctx.setOverride,
                          clearOverride = ctx.clearOverride, items = std::move(items), lanePath, entryName,
-                         removeInstance, laneKey, i]() {
+                         removeInstance, laneKey, i] {
             reindexLaneSelectionAfterRemoval(selectedLaneWidgets, laneKey, i);
             setOverride(lanePath, items);
             if (removeInstance) {
@@ -3536,7 +3536,7 @@ namespace settings {
         std::function<void()> toggleSelect;
         if (!inherited) {
           toggleSelect = [&selectedLaneWidgets = ctx.selectedLaneWidgets, selectionToken,
-                          requestRebuild = ctx.requestRebuild]() {
+                          requestRebuild = ctx.requestRebuild] {
             const auto it = std::ranges::find(selectedLaneWidgets, selectionToken);
             if (it != selectedLaneWidgets.end()) {
               selectedLaneWidgets.erase(it);
@@ -3593,7 +3593,7 @@ namespace settings {
                 .onClick = [&editingWidgetName = ctx.editingWidgetName, &renamingWidgetName = ctx.renamingWidgetName,
                             &pendingDeleteWidgetName = ctx.pendingDeleteWidgetName,
                             &pendingDeleteWidgetSettingPath = ctx.pendingDeleteWidgetSettingPath,
-                            openWidgetAddPopup = ctx.openWidgetAddPopup, lanePath]() {
+                            openWidgetAddPopup = ctx.openWidgetAddPopup, lanePath] {
                   editingWidgetName.clear();
                   renamingWidgetName.clear();
                   pendingDeleteWidgetName.clear();

@@ -137,7 +137,7 @@ struct CalendarService::VdirWorker : std::enable_shared_from_this<CalendarServic
   ) {
     const std::weak_ptr<VdirWorker> weak = weak_from_this();
     DeferredCall::callLater([weak, cb = std::move(request.callback), ok, sources = std::move(sources),
-                             watchedPaths = std::move(watchedPaths), events = std::move(events)]() mutable {
+                             watchedPaths = std::move(watchedPaths), events = std::move(events)] mutable {
       const auto state = weak.lock();
       if (!state || !state->accepting()) {
         return;
@@ -170,7 +170,7 @@ private:
       Request request;
       {
         std::unique_lock lock(mutex);
-        cv.wait(lock, [this, &stopToken]() { return stopping || stopToken.stop_requested() || !requests.empty(); });
+        cv.wait(lock, [this, &stopToken] { return stopping || stopToken.stop_requested() || !requests.empty(); });
         if (stopping || stopToken.stop_requested()) {
           return;
         }
@@ -262,8 +262,8 @@ CalendarService::~CalendarService() = default;
 
 void CalendarService::initialize() {
   m_activeConfig = m_configService.config().calendar;
-  m_configService.addReloadCallback([this]() { onConfigReload(); });
-  m_credentials.setChangeCallback([this]() {
+  m_configService.addReloadCallback([this] { onConfigReload(); });
+  m_credentials.setChangeCallback([this] {
     notifyChanged();
     if (m_credentialChangeCallback) {
       m_credentialChangeCallback();
@@ -368,7 +368,7 @@ calendar::CredentialMigration CalendarService::credentialMigration() {
     append("_refresh_token", calendar::CredentialKind::RefreshToken);
   }
 
-  migration.finalize = [this]() {
+  migration.finalize = [this] {
     if (!m_configService.clearStateOwner(kCredentialOwner)) {
       return false;
     }

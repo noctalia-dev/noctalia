@@ -956,7 +956,7 @@ void BluetoothService::requestConnectPass() {
   }
   m_connectPassActive = true;
   // The controller is not ready to connect the instant Powered flips.
-  m_connectPassTimer.start(std::chrono::seconds(2), [this]() { startConnectPass(); });
+  m_connectPassTimer.start(std::chrono::seconds(2), [this] { startConnectPass(); });
 }
 
 void BluetoothService::cancelConnectPass() {
@@ -990,7 +990,7 @@ void BluetoothService::connectNextQueued() {
       continue;
     }
     const std::uint64_t generation = m_connectPassGeneration;
-    if (dispatchConnect(path, [this, generation]() {
+    if (dispatchConnect(path, [this, generation] {
           if (generation == m_connectPassGeneration) {
             connectNextQueued();
           }

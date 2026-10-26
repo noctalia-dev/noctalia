@@ -176,7 +176,7 @@ namespace noctalia::theme {
   TemplateApplyService::TemplateApplyService(ConfigService& config, std::chrono::milliseconds hookShutdownGrace)
       : m_config(config), m_hookShutdownGrace(hookShutdownGrace),
         m_hookRunner(std::make_unique<HookRunner>(HookRunner::kDefaultMaxConcurrent, m_hookCancel)) {
-    m_worker = std::thread([this]() { workerLoop(); });
+    m_worker = std::thread([this] { workerLoop(); });
   }
 
   TemplateApplyService::~TemplateApplyService() {
@@ -196,9 +196,9 @@ namespace noctalia::theme {
     std::mutex graceMutex;
     std::condition_variable graceCv;
     bool hooksDone = false;
-    std::thread graceThread([this, &graceMutex, &graceCv, &hooksDone]() {
+    std::thread graceThread([this, &graceMutex, &graceCv, &hooksDone] {
       std::unique_lock lock(graceMutex);
-      if (graceCv.wait_for(lock, m_hookShutdownGrace, [&hooksDone]() { return hooksDone; })) {
+      if (graceCv.wait_for(lock, m_hookShutdownGrace, [&hooksDone] { return hooksDone; })) {
         return;
       }
       m_hookCancel->store(true);
@@ -253,7 +253,7 @@ namespace noctalia::theme {
         if (m_paletteChangedOwed && !m_inFlight && !m_pendingRequest.has_value()) {
           m_paletteChangedOwed = false;
           if (m_afterApplyCallback) {
-            undeliverable = [callback = m_afterApplyCallback, mode = request.defaultMode]() {
+            undeliverable = [callback = m_afterApplyCallback, mode = request.defaultMode] {
               callback(mode, /*paletteChanged=*/true);
             };
           }
@@ -343,7 +343,7 @@ namespace noctalia::theme {
     options.imagePath = request.imagePath;
     options.schemeType = request.schemeType;
     options.verbose = true;
-    options.cancelRequested = [this, generation = request.generation]() { return requestSuperseded(generation); };
+    options.cancelRequested = [this, generation = request.generation] { return requestSuperseded(generation); };
     options.configTable = request.configTable;
     options.hookRunner = &hookRunner;
     options.generation = request.generation;
@@ -360,7 +360,7 @@ namespace noctalia::theme {
     std::vector<std::string> undoneCommunity = undoCommunityTemplates(request);
     if (!undoneBuiltin.empty() || !undoneCommunity.empty()) {
       DeferredCall::callLater([this, undoneBuiltin = std::move(undoneBuiltin),
-                               undoneCommunity = std::move(undoneCommunity)]() {
+                               undoneCommunity = std::move(undoneCommunity)] {
         forgetAppliedIds(m_builtinIds, undoneBuiltin);
         forgetAppliedIds(m_communityIds, undoneCommunity);
       });
@@ -619,7 +619,7 @@ namespace noctalia::theme {
         std::unique_lock lock(m_mutex);
 
         // Wait for initial request
-        m_cv.wait(lock, [this]() { return m_shutdown || m_pendingRequest.has_value(); });
+        m_cv.wait(lock, [this] { return m_shutdown || m_pendingRequest.has_value(); });
 
         if (m_shutdown) {
           return;
@@ -674,13 +674,13 @@ namespace noctalia::theme {
         if (!m_shutdown && request.generation == m_nextGeneration) {
           if (m_afterApplyCallback) {
             const bool paletteChanged = std::exchange(m_paletteChangedOwed, false);
-            afterApplyCallback = [callback = m_afterApplyCallback, mode = request.defaultMode, paletteChanged]() {
+            afterApplyCallback = [callback = m_afterApplyCallback, mode = request.defaultMode, paletteChanged] {
               callback(mode, paletteChanged);
             };
           }
           if (m_warningCallback && !m_pendingWarnings.empty()) {
             warningCallback = [callback = m_warningCallback, warnings = std::move(m_pendingWarnings),
-                               warningGeneration = m_warningGeneration, generation = request.generation]() {
+                               warningGeneration = m_warningGeneration, generation = request.generation] {
               if (warningGeneration->load() != generation) {
                 return;
               }

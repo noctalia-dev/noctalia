@@ -620,7 +620,7 @@ namespace settings {
               .glyphSize = Style::fontSizeCaption * scale,
               .contentAlign = ButtonContentAlign::Start,
               .variant = ButtonVariant::Ghost,
-              .onClick = [this]() {
+              .onClick = [this] {
                 m_tagFiltersCollapsed = !m_tagFiltersCollapsed;
                 requestRebuild();
               },
@@ -637,7 +637,7 @@ namespace settings {
               .fontSize = Style::fontSizeCaption * scale,
               .variant = selected ? ButtonVariant::Primary : ButtonVariant::Default,
               .radius = Style::scaledRadiusMd(scale),
-              .onClick = [this, tag = std::move(tag)]() {
+              .onClick = [this, tag = std::move(tag)] {
                 m_selectedTag = tag;
                 applyFilter();
                 requestRebuild();
@@ -672,7 +672,7 @@ namespace settings {
             .minHeight = Style::controlHeight * scale,
             .padding = Style::spaceXs * scale,
             .radius = Style::scaledRadiusMd(scale),
-            .onClick = [this]() { cycleSortMode(); },
+            .onClick = [this] { cycleSortMode(); },
         })
     );
 
@@ -991,7 +991,7 @@ namespace settings {
                     : std::string(),
                 .minWidth = Style::controlHeight * scale,
                 .minHeight = Style::controlHeight * scale,
-                .onClick = [this, source = storeEntry.sourceConfig, id = entry.id, desired]() {
+                .onClick = [this, source = storeEntry.sourceConfig, id = entry.id, desired] {
                   m_recommendations->setRecommended(source, id, desired);
                 },
             })
@@ -1034,7 +1034,7 @@ namespace settings {
               .text = i18n::tr("settings.plugins.store.add"),
               .fontSize = Style::fontSizeCaption * scale,
               .variant = ButtonVariant::Primary,
-              .onClick = [this, id = entry.id]() {
+              .onClick = [this, id = entry.id] {
                 if (m_callbacks.setEnabled) {
                   m_callbacks.setEnabled(id, true);
                 }

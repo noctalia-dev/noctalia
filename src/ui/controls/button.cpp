@@ -194,7 +194,7 @@ Button::Button() {
       m_onEnter();
     }
   });
-  area->setOnLeave([this]() {
+  area->setOnLeave([this] {
     applyVisualState();
     if (m_onLeave) {
       m_onLeave();
@@ -229,8 +229,8 @@ Button::Button() {
     }
   });
   area->setFocusable(true);
-  area->setOnFocusGain([this]() { applyVisualState(); });
-  area->setOnFocusLoss([this]() { applyVisualState(); });
+  area->setOnFocusGain([this] { applyVisualState(); });
+  area->setOnFocusLoss([this] { applyVisualState(); });
   area->setOnKeyDown([this](const InputArea::KeyData& key) {
     if (!key.pressed || !m_enabled || !m_onClick) {
       return;
@@ -695,7 +695,7 @@ void Button::applyVisualState() {
             lerpColor(m_fromLabel, m_targetLabel, t)
         );
       },
-      [this]() { m_animId = 0; }
+      [this] { m_animId = 0; }
   );
   markPaintDirty();
 }

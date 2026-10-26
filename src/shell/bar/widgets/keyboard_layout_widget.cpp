@@ -312,7 +312,7 @@ void KeyboardLayoutWidget::scheduleRefreshBurst() {
 }
 
 void KeyboardLayoutWidget::armRefreshTick() {
-  m_refreshTimer.start(kRefreshTickInterval, [this]() {
+  m_refreshTimer.start(kRefreshTickInterval, [this] {
     if (m_refreshAttemptsRemaining <= 0) {
       m_pendingLayoutName.clear();
       m_refreshTimer.stop();

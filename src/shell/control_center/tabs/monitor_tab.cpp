@@ -123,7 +123,7 @@ std::unique_ptr<Flex> MonitorTab::createHeaderActions() {
           .glyph = "refresh",
           .tooltip = i18n::tr("control-center.display.rescan"),
           .onClick =
-              [this]() {
+              [this] {
                 if (m_brightness != nullptr) {
                   m_brightness->requestDdcRescan();
                 }
@@ -389,7 +389,7 @@ void MonitorTab::rebuildCards(Renderer& /*renderer*/) {
                 }
               }
             },
-        .onDragEnd = [this]() { flushPendingBrightness(true); },
+        .onDragEnd = [this] { flushPendingBrightness(true); },
     });
     sliderRow->addChild(std::move(slider));
 
@@ -444,7 +444,7 @@ void MonitorTab::queueBrightness(const std::string& displayId, float value) {
   }
 
   if (!m_debounceTimer.active()) {
-    m_debounceTimer.start(kBrightnessCommitInterval, [this]() { flushPendingBrightness(); });
+    m_debounceTimer.start(kBrightnessCommitInterval, [this] { flushPendingBrightness(); });
   }
 }
 

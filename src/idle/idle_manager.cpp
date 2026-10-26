@@ -101,7 +101,7 @@ void IdleManager::setScreenSaverInhibitLocks(std::int64_t locks) {
     return;
   }
   m_inhibitReleasePending = true;
-  m_inhibitReleaseTimer.start(kInhibitReleaseDebounce, [this]() { applyScreenSaverInhibitRelease(); });
+  m_inhibitReleaseTimer.start(kInhibitReleaseDebounce, [this] { applyScreenSaverInhibitRelease(); });
 }
 
 void IdleManager::applyScreenSaverInhibitRelease() {
@@ -449,15 +449,15 @@ void IdleManager::handleIdled(void* data, ext_idle_notification_v1* /*notificati
     const bool willLockSession = idleKind == IdleActionKind::Lock || idleKind == IdleActionKind::LockAndSuspend;
     self.joinActiveGrace(*behavior);
     const std::uint64_t generation = ++self.m_graceGeneration;
-    self.m_graceFallbackTimer.start(fade + std::chrono::milliseconds(250), [&self, generation]() {
+    self.m_graceFallbackTimer.start(fade + std::chrono::milliseconds(250), [&self, generation] {
       if (self.m_graceGeneration != generation || !self.hasActiveGrace()) {
         return;
       }
       kLog.debug("idle pre-action fade fallback completed");
       self.graceFadeComplete();
     });
-    self.m_onGraceBegin(behavior->config.name, fade, willLockSession, [ptr = &self, generation]() {
-      DeferredCall::callLater([ptr, generation]() {
+    self.m_onGraceBegin(behavior->config.name, fade, willLockSession, [ptr = &self, generation] {
+      DeferredCall::callLater([ptr, generation] {
         if (ptr->m_graceGeneration != generation || !ptr->hasActiveGrace()) {
           return;
         }

@@ -43,7 +43,7 @@ void ScreenshotCapture::capture(
 }
 
 void ScreenshotCapture::captureBackground() {
-  m_timeout.start(std::chrono::seconds(1), [this]() {
+  m_timeout.start(std::chrono::seconds(1), [this] {
     m_backgroundCapture.cancelInFlight();
     finish(std::nullopt, "screencopy frame timed out");
   });

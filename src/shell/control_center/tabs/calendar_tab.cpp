@@ -53,7 +53,7 @@ std::unique_ptr<Flex> CalendarTab::create() {
 
   if (m_calendar != nullptr && !m_changeCallbackRegistered) {
     m_changeCallbackRegistered = true;
-    (void)m_calendar->addChangeCallback([this]() {
+    (void)m_calendar->addChangeCallback([this] {
       m_eventsDirty = true;
       PanelManager::instance().refresh();
     });
@@ -134,7 +134,7 @@ std::unique_ptr<Flex> CalendarTab::create() {
           .variant = ButtonVariant::Ghost,
           .minWidth = kCalendarNavButtonSize * scale,
           .minHeight = kCalendarNavButtonSize * scale,
-          .onClick = [this]() { changeMonthBy(-1); },
+          .onClick = [this] { changeMonthBy(-1); },
       })
   );
   header->addChild(std::move(previousSlot));
@@ -159,7 +159,7 @@ std::unique_ptr<Flex> CalendarTab::create() {
           .variant = ButtonVariant::Ghost,
           .minWidth = kCalendarNavButtonSize * scale,
           .minHeight = kCalendarNavButtonSize * scale,
-          .onClick = [this]() { changeMonthBy(1); },
+          .onClick = [this] { changeMonthBy(1); },
       })
   );
   header->addChild(std::move(nextSlot));
@@ -230,7 +230,7 @@ std::unique_ptr<Flex> CalendarTab::createHeaderActions() {
           .glyph = m_showEventsCard ? "calendar-event" : "calendar-off",
           .selected = m_showEventsCard,
           .tooltip = i18n::tr("control-center.calendar.toggle-events-card"),
-          .onClick = [this]() { toggleEventsCard(); },
+          .onClick = [this] { toggleEventsCard(); },
           .configure = [scale](Button& button) { panel_button_style::configureHeaderIconButton(button, scale); },
       })
   );
@@ -313,7 +313,7 @@ void CalendarTab::setActive(bool active) {
   }
   focusToday();
   if (!m_eventFadeTimer.active()) {
-    m_eventFadeTimer.startRepeating(std::chrono::minutes{1}, [this]() {
+    m_eventFadeTimer.startRepeating(std::chrono::minutes{1}, [this] {
       m_eventsDirty = true;
       PanelManager::instance().refresh();
     });
@@ -439,7 +439,7 @@ void CalendarTab::beginSlideOut(int delta) {
         applyMonthSlide(progress, false);
         PanelManager::instance().requestRedraw();
       },
-      [this]() {
+      [this] {
         m_monthSlideAnimId = 0;
         m_monthOffset += m_pendingMonthDelta;
         m_pendingMonthDelta = 0;
@@ -466,7 +466,7 @@ void CalendarTab::beginSlideIn() {
         applyMonthSlide(progress, true);
         PanelManager::instance().requestRedraw();
       },
-      [this]() {
+      [this] {
         m_monthSlideAnimId = 0;
         if (m_grid != nullptr) {
           m_grid->setPosition(0.0F, 0.0F);
@@ -614,11 +614,11 @@ void CalendarTab::rebuildEventList(float scale) {
       .hidePastEvents = tabConfig.hidePastEvents,
       .pastEventsThresholdMinutes = tabConfig.pastEventsThresholdMinutes,
       .onToggleHiddenPast =
-          [this]() {
+          [this] {
             m_eventsDirty = true;
             PanelManager::instance().refresh();
           },
-      .requestRedraw = []() { PanelManager::instance().requestRedraw(); },
+      .requestRedraw = [] { PanelManager::instance().requestRedraw(); },
   });
 }
 

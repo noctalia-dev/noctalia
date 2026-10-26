@@ -482,7 +482,7 @@ void Application::initIpc() {
     return "ok\n";
   });
 
-  auto workspaceAlertStatus = [this]() {
+  auto workspaceAlertStatus = [this] {
     const auto tokens = m_workspaceAlertService.tokens();
     if (tokens.empty()) {
       return std::string{"(no workspace alerts)\n"};
@@ -762,8 +762,8 @@ void Application::initIpc() {
   m_dock.registerIpc(m_ipcService);
   m_wallpaper.registerIpc(m_ipcService);
   greeter::registerIpc(
-      m_ipcService, m_configService, [this]() { return m_themeService.resolvedShellMode(); }, &m_compositorPlatform,
-      [this]() { return m_logindService != nullptr; }
+      m_ipcService, m_configService, [this] { return m_themeService.resolvedShellMode(); }, &m_compositorPlatform,
+      [this] { return m_logindService != nullptr; }
   );
   if (m_mprisService) {
     m_mprisService->registerIpc(m_ipcService);

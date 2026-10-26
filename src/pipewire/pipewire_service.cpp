@@ -1294,7 +1294,7 @@ void PipeWireService::onRegistryGlobal(std::uint32_t id, const char* type, std::
         spa_zero(*md->listener);
         pw_metadata_add_listener(proxy, md->listener, &kMetadataEvents, md);
         pw_core_sync(md->service->coreHandle(), PW_ID_CORE, 0);
-        m_metadataCleanups.emplace_back([md]() {
+        m_metadataCleanups.emplace_back([md] {
           if (md->listener != nullptr) {
             spa_hook_remove(md->listener);
             delete md->listener;

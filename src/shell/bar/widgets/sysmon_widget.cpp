@@ -343,7 +343,7 @@ void SysmonWidget::create() {
   setRoot(std::move(container));
 
   syncVisualPalette();
-  m_paletteConn = paletteChanged().connect([this]() {
+  m_paletteConn = paletteChanged().connect([this] {
     syncVisualPalette();
     requestRedraw();
   });
@@ -620,7 +620,7 @@ void SysmonWidget::syncCoreGauge() {
 
   // Per-core ticks never advance sampledAt, so split gauges self-schedule on the sampler's own
   // fixed cadence rather than the history-driven timing the graph uses.
-  m_updateTimer.start(SystemMonitorService::kCpuCoreInterval, [this]() { requestUpdate(); });
+  m_updateTimer.start(SystemMonitorService::kCpuCoreInterval, [this] { requestUpdate(); });
 
   std::vector<double> cores = m_monitor->latest().cpuCoreUsagePercent;
   if (cores.empty()) {
@@ -757,21 +757,21 @@ void SysmonWidget::doLayout(Renderer& renderer, float containerWidth, float cont
 
   if (isVerticalBar) {
     const float contentW = std::max({identitySize.width, visualizationW, labelW});
-    const auto placeIdentity = [&]() {
+    const auto placeIdentity = [&] {
       if (!hasIdentity) {
         return;
       }
       const float y = nextPosition(identitySize.height);
       m_identityGroup->setPosition((contentW - identitySize.width) * 0.5F, y);
     };
-    const auto placeVisualization = [&]() {
+    const auto placeVisualization = [&] {
       if (visualizationNode == nullptr) {
         return;
       }
       const float y = nextPosition(visualizationH);
       visualizationNode->setPosition(std::round((contentW - visualizationW) * 0.5F), y);
     };
-    const auto placeValue = [&]() {
+    const auto placeValue = [&] {
       if (m_label == nullptr) {
         return;
       }
@@ -791,21 +791,21 @@ void SysmonWidget::doLayout(Renderer& renderer, float containerWidth, float cont
     rootNode->setSize(contentW, cursor);
   } else {
     const float contentH = std::max({identitySize.height, visualizationH, labelH});
-    const auto placeIdentity = [&]() {
+    const auto placeIdentity = [&] {
       if (!hasIdentity) {
         return;
       }
       const float x = nextPosition(identitySize.width);
       m_identityGroup->setPosition(x, (contentH - identitySize.height) * 0.5F);
     };
-    const auto placeVisualization = [&]() {
+    const auto placeVisualization = [&] {
       if (visualizationNode == nullptr) {
         return;
       }
       const float x = nextPosition(visualizationW);
       visualizationNode->setPosition(x, std::round((contentH - visualizationH) * 0.5F));
     };
-    const auto placeValue = [&]() {
+    const auto placeValue = [&] {
       if (m_label == nullptr) {
         return;
       }
@@ -875,7 +875,7 @@ void SysmonWidget::onFrameTick(float deltaMs) {
     m_redrawLimiter.reset();
     return;
   }
-  if (!m_redrawLimiter.shouldStep([this]() { requestRedraw(); })) {
+  if (!m_redrawLimiter.shouldStep([this] { requestRedraw(); })) {
     return;
   }
   m_scrollProgress = scrollProgressForSample(m_lastSampleAt);
@@ -893,7 +893,7 @@ bool SysmonWidget::needsFrameTick() const {
 
 void SysmonWidget::scheduleNextUpdate(std::chrono::steady_clock::time_point latestSampleAt) {
   if (latestSampleAt == std::chrono::steady_clock::time_point{}) {
-    m_updateTimer.start(kInitialSampleRetryDelay, [this]() { requestUpdate(); });
+    m_updateTimer.start(kInitialSampleRetryDelay, [this] { requestUpdate(); });
     return;
   }
 
@@ -901,7 +901,7 @@ void SysmonWidget::scheduleNextUpdate(std::chrono::steady_clock::time_point late
   const auto nextExpectedAt = latestSampleAt + historyInterval(m_monitor) + kSamplePublishSlack;
   const auto delay = now < nextExpectedAt ? std::chrono::duration_cast<std::chrono::milliseconds>(nextExpectedAt - now)
                                           : kSampleRetryDelay;
-  m_updateTimer.start(delay, [this]() { requestUpdate(); });
+  m_updateTimer.start(delay, [this] { requestUpdate(); });
 }
 
 void SysmonWidget::clearGraph() {
@@ -1045,7 +1045,7 @@ double SysmonWidget::normalizedFromStats(
     return 0.0;
 
   case SysmonStat::NetRx: {
-    const double value = networkInterface.empty() ? stats.netRxBytesPerSec : [&stats, networkInterface]() {
+    const double value = networkInterface.empty() ? stats.netRxBytesPerSec : [&stats, networkInterface] {
       if (const auto it = stats.netThroughputByInterface.find(std::string(networkInterface));
           it != stats.netThroughputByInterface.end()) {
         return it->second.rxBytesPerSec;
@@ -1057,7 +1057,7 @@ double SysmonWidget::normalizedFromStats(
   }
 
   case SysmonStat::NetTx: {
-    const double value = networkInterface.empty() ? stats.netTxBytesPerSec : [&stats, networkInterface]() {
+    const double value = networkInterface.empty() ? stats.netTxBytesPerSec : [&stats, networkInterface] {
       if (const auto it = stats.netThroughputByInterface.find(std::string(networkInterface));
           it != stats.netThroughputByInterface.end()) {
         return it->second.txBytesPerSec;

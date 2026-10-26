@@ -267,7 +267,7 @@ WeatherService::WeatherService(ConfigService& configService, HttpClient& httpCli
 
 void WeatherService::initialize() {
   m_activeConfig = m_configService.config().weather;
-  m_configService.addReloadCallback([this]() { onConfigReload(); });
+  m_configService.addReloadCallback([this] { onConfigReload(); });
   loadCache();
   requestRefresh();
 }

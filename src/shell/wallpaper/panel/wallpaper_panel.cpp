@@ -412,7 +412,7 @@ WallpaperPanel::WallpaperPanel(
     }
   }
   if (m_scanner != nullptr) {
-    m_scanner->setOnComplete([this]() { onScanComplete(); });
+    m_scanner->setOnComplete([this] { onScanComplete(); });
   }
 }
 
@@ -468,7 +468,7 @@ void WallpaperPanel::create() {
                   return;
                 }
                 m_pendingFilterQuery = text;
-                m_filterDebounceTimer.start(kFilterDebounceInterval, [this]() {
+                m_filterDebounceTimer.start(kFilterDebounceInterval, [this] {
                   if (m_pendingFilterQuery == m_filterQuery) {
                     return;
                   }
@@ -496,7 +496,7 @@ void WallpaperPanel::create() {
           .minHeight = Style::controlHeightSm * scale,
           .padding = Style::spaceXs * scale,
           .radius = Style::scaledRadiusMd(scale),
-          .onClick = [this]() { navigateUp(); },
+          .onClick = [this] { navigateUp(); },
       })
   );
 
@@ -563,7 +563,7 @@ void WallpaperPanel::create() {
           .minHeight = Style::controlHeightSm * scale,
           .padding = Style::spaceXs * scale,
           .radius = Style::scaledRadiusMd(scale),
-          .onClick = [this]() { applyColorWallpaper(); },
+          .onClick = [this] { applyColorWallpaper(); },
       })
   );
 
@@ -578,7 +578,7 @@ void WallpaperPanel::create() {
           .minHeight = Style::controlHeightSm * scale,
           .padding = Style::spaceXs * scale,
           .radius = Style::scaledRadiusMd(scale),
-          .onClick = [this]() { cycleSortMode(); },
+          .onClick = [this] { cycleSortMode(); },
       })
   );
 
@@ -593,7 +593,7 @@ void WallpaperPanel::create() {
           .minHeight = Style::controlHeightSm * scale,
           .padding = Style::spaceXs * scale,
           .radius = Style::scaledRadiusMd(scale),
-          .onClick = [this]() {
+          .onClick = [this] {
             if (m_scanner != nullptr) {
               m_scanner->invalidate();
             }
@@ -618,7 +618,7 @@ void WallpaperPanel::create() {
             .minHeight = Style::controlHeightSm * scale,
             .padding = Style::spaceXs * scale,
             .radius = Style::scaledRadiusMd(scale),
-            .onClick = []() { PanelManager::instance().close(); },
+            .onClick = [] { PanelManager::instance().close(); },
         })
     );
   }
@@ -697,7 +697,7 @@ void WallpaperPanel::create() {
           .paddingH = Style::spaceSm * scale,
           .radius = Style::scaledRadiusMd(scale),
           .visible = false,
-          .onClick = [this]() { openFavoritePaletteDetailPicker(); },
+          .onClick = [this] { openFavoritePaletteDetailPicker(); },
       })
   );
 
@@ -712,7 +712,7 @@ void WallpaperPanel::create() {
           .minHeight = Style::controlHeightSm * scale,
           .padding = Style::spaceXs * scale,
           .radius = Style::scaledRadiusMd(scale),
-          .onClick = [this]() { toggleFavoriteForPath(currentWallpaperPathForSelection()); },
+          .onClick = [this] { toggleFavoriteForPath(currentWallpaperPathForSelection()); },
       })
   );
 
@@ -793,7 +793,7 @@ void WallpaperPanel::create() {
   );
 
   if (m_grid != nullptr && m_grid->focusArea() != nullptr) {
-    m_grid->focusArea()->setOnFocusGain([this]() {
+    m_grid->focusArea()->setOnFocusGain([this] {
       m_gridKeyboardActive = true;
       if (m_grid != nullptr && hasVisibleSelection()) {
         m_syncingGridSelectionVisual = true;
@@ -801,7 +801,7 @@ void WallpaperPanel::create() {
         m_syncingGridSelectionVisual = false;
       }
     });
-    m_grid->focusArea()->setOnFocusLoss([this]() {
+    m_grid->focusArea()->setOnFocusLoss([this] {
       m_gridKeyboardActive = false;
       if (m_grid != nullptr) {
         m_syncingGridSelectionVisual = true;
@@ -843,7 +843,7 @@ void WallpaperPanel::create() {
   }
 
   if (m_thumbnails != nullptr) {
-    m_thumbnailPendingSub = m_thumbnails->subscribePendingUpload([this]() {
+    m_thumbnailPendingSub = m_thumbnails->subscribePendingUpload([this] {
       if (m_rootLayout == nullptr) {
         return;
       }

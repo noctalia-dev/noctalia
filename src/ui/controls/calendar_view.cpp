@@ -325,14 +325,14 @@ namespace calendar_view {
         }
       }
 
-      const auto selectDate = [callback = options.onDateSelected, date, monthShift]() {
+      const auto selectDate = [callback = options.onDateSelected, date, monthShift] {
         if (callback) {
           callback(date, monthShift);
         }
       };
       button->setOnClick(selectDate);
       if (options.onDateRightClicked) {
-        button->setOnRightClick([callback = options.onDateRightClicked, date]() { callback(date); });
+        button->setOnRightClick([callback = options.onDateRightClicked, date] { callback(date); });
       }
       tile->addChild(std::move(button));
 
@@ -483,7 +483,7 @@ namespace calendar_view {
         }
       };
       area->setOnEnter([setHovered](const InputArea::PointerData&) { setHovered(true); });
-      area->setOnLeave([setHovered]() { setHovered(false); });
+      area->setOnLeave([setHovered] { setHovered(false); });
       area->setOnClick([state = options.state, toggle = options.onToggleHiddenPast](const InputArea::PointerData&) {
         state->showHiddenPast = !state->showHiddenPast;
         if (toggle) {
@@ -647,7 +647,7 @@ namespace calendar_view {
             }
           };
           area->setOnEnter([setHovered](const InputArea::PointerData&) { setHovered(true); });
-          area->setOnLeave([setHovered]() { setHovered(false); });
+          area->setOnLeave([setHovered] { setHovered(false); });
           area->setOnClick([url = link](const InputArea::PointerData&) { (void)net::openInBrowser(url); });
 
           options.state->linkOverlays.push_back({.row = row, .area = area.get()});

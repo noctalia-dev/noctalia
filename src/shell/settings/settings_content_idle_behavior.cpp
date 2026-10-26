@@ -69,7 +69,7 @@ namespace settings {
           .horizontalPadding = Style::spaceSm * scale,
       });
       auto* targetPtr = &target;
-      const auto commit = [targetPtr, persist, inputPtr]() {
+      const auto commit = [targetPtr, persist, inputPtr] {
         *targetPtr = StringUtils::trim(inputPtr->value());
         inputPtr->setInvalid(false);
         inputPtr->setValue(*targetPtr);
@@ -155,7 +155,7 @@ namespace settings {
         .controlHeight = Style::controlHeight * scale,
         .horizontalPadding = Style::spaceSm * scale,
     });
-    const auto commitName = [&row, persist, namePtr]() {
+    const auto commitName = [&row, persist, namePtr] {
       const std::string name = sanitizedIdleBehaviorName(namePtr->value());
       if (name.empty()) {
         namePtr->setInvalid(true);
@@ -188,7 +188,7 @@ namespace settings {
         .controlHeight = Style::controlHeight * scale,
         .horizontalPadding = Style::spaceSm * scale,
     });
-    const auto commitTimeout = [&row, persist, timeoutPtr]() {
+    const auto commitTimeout = [&row, persist, timeoutPtr] {
       const auto parsed = parseDoubleInput(timeoutPtr->value());
       constexpr double kMaxIdleTimeoutSeconds = static_cast<double>(std::numeric_limits<std::uint32_t>::max()) / 1000.0;
       if (!parsed.has_value() || *parsed < 0.0 || *parsed > kMaxIdleTimeoutSeconds) {
@@ -223,7 +223,7 @@ namespace settings {
           .controlHeight = Style::controlHeight * scale,
           .horizontalPadding = Style::spaceSm * scale,
       });
-      const auto commitLockedTimeout = [&row, persist, lockedTimeoutPtr]() {
+      const auto commitLockedTimeout = [&row, persist, lockedTimeoutPtr] {
         const auto parsed = parseDoubleInput(lockedTimeoutPtr->value());
         constexpr double kMaxIdleTimeoutSeconds =
             static_cast<double>(std::numeric_limits<std::uint32_t>::max()) / 1000.0;
@@ -264,7 +264,7 @@ namespace settings {
             .radius = Style::scaledRadiusMd(scale),
             .flexGrow = 1.0F,
             .onClick = [commitName, commitTimeout, applyHostedEditor = ctx.afterIdleBehaviorApply,
-                        closeHostedEditor = ctx.closeHostedEditor]() {
+                        closeHostedEditor = ctx.closeHostedEditor] {
               commitName();
               commitTimeout();
               if (applyHostedEditor) {

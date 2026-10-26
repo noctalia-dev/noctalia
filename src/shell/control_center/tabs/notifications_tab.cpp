@@ -416,11 +416,11 @@ namespace {
       m_expand->setVisible(metrics.canExpand);
       m_expand->setEnabled(metrics.canExpand);
       m_expand->setGlyph(metrics.expanded ? "chevron-up" : "chevron-down");
-      m_expand->setOnClick([onToggleExpanded = std::move(onToggleExpanded), id = entry.notification.id]() {
+      m_expand->setOnClick([onToggleExpanded = std::move(onToggleExpanded), id = entry.notification.id] {
         onToggleExpanded(id);
       });
 
-      m_dismiss->setOnClick([onRemove = std::move(onRemove), id = entry.notification.id, active = entry.active]() {
+      m_dismiss->setOnClick([onRemove = std::move(onRemove), id = entry.notification.id, active = entry.active] {
         onRemove(id, active);
       });
 
@@ -457,7 +457,7 @@ namespace {
               .fontSize = Style::fontSizeCaption * m_scale,
               .variant = ButtonVariant::Default,
           });
-          button->setOnClick([onAction, id = entry.notification.id, key = std::string(actionKey)]() {
+          button->setOnClick([onAction, id = entry.notification.id, key = std::string(actionKey)] {
             onAction(id, key);
           });
           buttons.push_back(std::move(button));
@@ -754,7 +754,7 @@ std::unique_ptr<Flex> NotificationsTab::createHeaderActions() {
           .out = &m_clearAllButton,
           .glyph = "trash",
           .tooltip = i18n::tr("control-center.notifications.clear-all"),
-          .onClick = [this]() { clearAllNotifications(); },
+          .onClick = [this] { clearAllNotifications(); },
           .configure =
               [scale](Button& button) {
                 panel_button_style::configureHeaderIconButton(button, scale);
@@ -767,7 +767,7 @@ std::unique_ptr<Flex> NotificationsTab::createHeaderActions() {
           .selected = dndEnabled,
           .tooltip =
               i18n::tr(dndEnabled ? "control-center.notifications.dnd-off" : "control-center.notifications.dnd-on"),
-          .onClick = [this]() { toggleDoNotDisturb(); },
+          .onClick = [this] { toggleDoNotDisturb(); },
           .configure = [scale](Button& button) { panel_button_style::configureHeaderIconButton(button, scale); },
       })
   );
@@ -895,7 +895,7 @@ void NotificationsTab::beginFilterSlideOut(std::size_t nextIndex) {
         applyFilterSlide(progress, false);
         PanelManager::instance().requestRedraw();
       },
-      [this]() {
+      [this] {
         m_filterSlideAnimId = 0;
         if (m_pendingFilterIndex != std::numeric_limits<std::size_t>::max()) {
           m_filterIndex = m_pendingFilterIndex;
@@ -929,7 +929,7 @@ void NotificationsTab::beginFilterSlideIn() {
         applyFilterSlide(progress, true);
         PanelManager::instance().requestRedraw();
       },
-      [this]() {
+      [this] {
         m_filterSlideAnimId = 0;
         if (m_list != nullptr) {
           m_list->setPosition(m_filterSlideBaseX, m_filterSlideBaseY);

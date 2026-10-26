@@ -603,7 +603,7 @@ for (const window of workspace.windowList()) {{
   }
 
   bool KwinActiveWindow::installScript(const std::string& scriptPath) {
-    auto scriptingProxy = [&]() { return sdbus::createProxy(m_bus.connection(), kKwinBusName, kKwinScriptingPath); };
+    auto scriptingProxy = [&] { return sdbus::createProxy(m_bus.connection(), kKwinBusName, kKwinScriptingPath); };
 
     try {
       scriptingProxy()

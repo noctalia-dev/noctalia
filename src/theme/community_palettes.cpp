@@ -139,7 +139,7 @@ namespace noctalia::theme {
         kLog.warn("community palette catalog downloaded but contained no palettes");
       }
       if (m_readyCallback) {
-        DeferredCall::callLater([callback = m_readyCallback]() { callback(); });
+        DeferredCall::callLater([callback = m_readyCallback] { callback(); });
       }
     });
   }

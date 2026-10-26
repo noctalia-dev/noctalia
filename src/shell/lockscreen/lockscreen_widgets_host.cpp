@@ -263,22 +263,22 @@ void LockscreenWidgetsHost::createInstance(
 
   auto* rawInstance = instance.get();
   instance->widget->setAnimationManager(&instance->animations);
-  instance->widget->setUpdateCallback([rawInstance]() {
+  instance->widget->setUpdateCallback([rawInstance] {
     if (rawInstance->surface != nullptr) {
       rawInstance->surface->requestUpdateOnly();
     }
   });
-  instance->widget->setLayoutCallback([rawInstance]() {
+  instance->widget->setLayoutCallback([rawInstance] {
     if (rawInstance->surface != nullptr) {
       rawInstance->surface->requestUpdate();
     }
   });
-  instance->widget->setRedrawCallback([rawInstance]() {
+  instance->widget->setRedrawCallback([rawInstance] {
     if (rawInstance->surface != nullptr) {
       rawInstance->surface->requestRedraw();
     }
   });
-  instance->widget->setFrameTickRequestCallback([this, rawInstance]() {
+  instance->widget->setFrameTickRequestCallback([this, rawInstance] {
     if (rawInstance->surface != nullptr) {
       syncSurfaceFrameTick(rawInstance->surface);
       rawInstance->surface->requestFrameTick();

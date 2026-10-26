@@ -955,7 +955,7 @@ namespace ui {
       if (*onClick != slot.callbackName) {
         slot.callbackName = *onClick;
         if (inputArea != nullptr) {
-          wireWrapperActivation(inputArea, [this, name = slot.callbackName]() {
+          wireWrapperActivation(inputArea, [this, name = slot.callbackName] {
             if (m_sink) {
               m_sink(ControlCallback{name});
             }
@@ -975,7 +975,7 @@ namespace ui {
         if (inputArea != nullptr) {
           inputArea->setOnEnter([this, name = slot.hoverCallbackName, key = desired.key,
                                  node](const InputArea::PointerData&) { openHover(name, key, node); });
-          inputArea->setOnLeave([this, node]() { releaseHover(node); });
+          inputArea->setOnLeave([this, node] { releaseHover(node); });
         }
       }
     } else if (!slot.hoverCallbackName.empty()) {
@@ -1097,7 +1097,7 @@ namespace ui {
       report(pointer);
     });
     inputArea->setOnMotion(report);
-    inputArea->setOnLeave([this, node]() { releasePointer(node); });
+    inputArea->setOnLeave([this, node] { releasePointer(node); });
   }
 
   void UiTreeReconciler::openPointer(const Node* owner, std::string leaveCallback, std::string streamKey) {
@@ -1439,7 +1439,7 @@ namespace ui {
       if (const std::string* onClick = callbackProp(desired, "onClick"); onClick != nullptr) {
         if (*onClick != slot.callbackName) {
           slot.callbackName = *onClick;
-          source->setOnClick([this, name = slot.callbackName]() {
+          source->setOnClick([this, name = slot.callbackName] {
             if (m_sink) {
               m_sink(ControlCallback{name});
             }
@@ -1841,10 +1841,10 @@ namespace ui {
         if (*onHover != slot.hoverCallbackName) {
           releaseHover(node);
           slot.hoverCallbackName = *onHover;
-          button->setOnEnter([this, name = slot.hoverCallbackName, key = desired.key, node]() {
+          button->setOnEnter([this, name = slot.hoverCallbackName, key = desired.key, node] {
             openHover(name, key, node);
           });
-          button->setOnLeave([this, node]() { releaseHover(node); });
+          button->setOnLeave([this, node] { releaseHover(node); });
         }
       } else if (!slot.hoverCallbackName.empty()) {
         releaseHover(node);
@@ -1855,7 +1855,7 @@ namespace ui {
       if (const std::string* onClick = strProp(desired, "onClick");
           onClick != nullptr && *onClick != slot.callbackName) {
         slot.callbackName = *onClick;
-        button->setOnClick([this, name = slot.callbackName]() {
+        button->setOnClick([this, name = slot.callbackName] {
           if (m_sink) {
             m_sink(ControlCallback{name});
           }
@@ -1988,7 +1988,7 @@ namespace ui {
       if (const std::string* onDragEnd = strProp(desired, "onDragEnd");
           onDragEnd != nullptr && *onDragEnd != slot.dragEndCallbackName) {
         slot.dragEndCallbackName = *onDragEnd;
-        slider->setOnDragEnd([this, name = slot.dragEndCallbackName]() {
+        slider->setOnDragEnd([this, name = slot.dragEndCallbackName] {
           if (m_sink) {
             m_sink(ControlCallback{name});
           }

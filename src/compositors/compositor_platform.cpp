@@ -599,7 +599,7 @@ CompositorPlatform::CompositorPlatform(WaylandConnection& wayland)
       m_workspaces(std::make_unique<WaylandWorkspaces>(*m_runtimeRegistry)) {
   m_workspaceMetadataBackend = createWorkspaceMetadataBackend(*m_runtimeRegistry);
   if (m_workspaceMetadataBackend != nullptr) {
-    m_workspaceMetadataBackend->setWindowChangeCallback([this]() { notifyToplevelsChanged(); });
+    m_workspaceMetadataBackend->setWindowChangeCallback([this] { notifyToplevelsChanged(); });
   }
   if (auto focusedOutputBackend = createFocusedOutputBackend(*m_runtimeRegistry); focusedOutputBackend != nullptr) {
     m_focusedOutputBackends.push_back(std::move(focusedOutputBackend));
@@ -619,7 +619,7 @@ CompositorPlatform::CompositorPlatform(WaylandConnection& wayland)
   m_wayland.setHyprlandToplevelMappingManagerCallback([this](hyprland_toplevel_mapping_manager_v1* manager) {
     bindHyprlandToplevelMappingManager(manager);
   });
-  m_wayland.setToplevelChangeCallback([this]() { notifyToplevelsChanged(); });
+  m_wayland.setToplevelChangeCallback([this] { notifyToplevelsChanged(); });
   m_wayland.setOutputLifecycleCallbacks(
       [this](wl_output* output) { onOutputAdded(output); }, [this](wl_output* output) { onOutputRemoved(output); }
   );
@@ -648,7 +648,7 @@ void CompositorPlatform::startKdeActiveWindow(SessionBus& bus) {
   }
 
   m_kwinActiveWindow = std::make_unique<compositors::kde::KwinActiveWindow>(bus);
-  m_kwinActiveWindow->setChangeCallback([this]() { notifyToplevelsChanged(); });
+  m_kwinActiveWindow->setChangeCallback([this] { notifyToplevelsChanged(); });
   m_kwinActiveWindow->start();
 }
 
@@ -1165,7 +1165,7 @@ void CompositorPlatform::bindHyprlandToplevelMappingManager(hyprland_toplevel_ma
   }
   if (m_hyprlandToplevelMapping == nullptr) {
     m_hyprlandToplevelMapping = std::make_unique<compositors::hyprland::HyprlandToplevelMapping>();
-    m_hyprlandToplevelMapping->setChangeCallback([this]() { notifyToplevelsChanged(); });
+    m_hyprlandToplevelMapping->setChangeCallback([this] { notifyToplevelsChanged(); });
   }
   m_hyprlandToplevelMapping->initialize(manager);
   syncHyprlandToplevelMappings();
@@ -1323,7 +1323,7 @@ void CompositorPlatform::setWorkspaceChangeCallback(ChangeCallback callback) {
   m_workspaceChangeCallback = std::move(callback);
   m_lastWorkspaceModelSnapshot = workspaceModelSnapshot();
   m_lastFocusedCompositorWindowId = focusedCompositorWindowId();
-  auto wrapper = [this]() {
+  auto wrapper = [this] {
     auto nextSnapshot = workspaceModelSnapshot();
     auto nextFocused = focusedCompositorWindowId();
     if (sameWorkspaceModelSnapshot(nextSnapshot, m_lastWorkspaceModelSnapshot)

@@ -181,7 +181,7 @@ BluetoothAgent::BluetoothAgent(SystemBus& bus) : m_impl(std::make_unique<Impl>(b
 
   m_impl->object
       ->addVTable(
-          sdbus::registerMethod("Release").implementedAs([]() {}),
+          sdbus::registerMethod("Release").implementedAs([] {}),
           sdbus::registerMethod("RequestPinCode")
               .withInputParamNames("device")
               .withOutputParamNames("pincode")
@@ -219,7 +219,7 @@ BluetoothAgent::BluetoothAgent(SystemBus& bus) : m_impl(std::make_unique<Impl>(b
               .implementedAs([this](sdbus::Result<>&& result, sdbus::ObjectPath device, std::string uuid) {
                 m_impl->onAuthorizeService(std::move(result), std::move(device), std::move(uuid));
               }),
-          sdbus::registerMethod("Cancel").implementedAs([this]() { m_impl->onCancel(); })
+          sdbus::registerMethod("Cancel").implementedAs([this] { m_impl->onCancel(); })
       )
       .forInterface(kAgentInterface);
 

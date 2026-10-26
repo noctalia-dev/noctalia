@@ -252,7 +252,7 @@ namespace settings {
           .paddingV = Style::spaceXs * scale,
           .paddingH = Style::spaceSm * scale,
           .radius = Style::scaledRadiusMd(scale),
-          .onClick = [setOverride = ctx.setOverride, path, currentValue = setting.value]() {
+          .onClick = [setOverride = ctx.setOverride, path, currentValue = setting.value] {
             GlyphPickerDialogOptions options;
             if (!currentValue.empty()) {
               options.initialGlyph = currentValue;
@@ -386,7 +386,7 @@ namespace settings {
       const auto options = std::make_shared<std::vector<noctalia::theme::AvailableTemplate>>(setting.options);
       const auto path = entry.path;
 
-      auto commit = [setOverride = ctx.setOverride, path, options, selected]() {
+      auto commit = [setOverride = ctx.setOverride, path, options, selected] {
         std::vector<std::string> ordered;
         ordered.reserve(selected->size());
         for (const auto& opt : *options) {
@@ -404,7 +404,7 @@ namespace settings {
       std::unique_ptr<Flex> row;
       std::size_t countInRow = 0;
 
-      auto flushRow = [&]() {
+      auto flushRow = [&] {
         if (row == nullptr) {
           return;
         }
@@ -521,7 +521,7 @@ namespace settings {
                   .tooltip = i18n::tr("settings.templates.documentation"),
                   .width = Style::controlHeightSm * scale,
                   .height = Style::controlHeightSm * scale,
-                  .onClick = [url = option.documentationUrl]() { (void)net::openInBrowser(url); },
+                  .onClick = [url = option.documentationUrl] { (void)net::openInBrowser(url); },
                   .configure = [](Button& button) { button.setZIndex(2); },
               })
           );
@@ -537,7 +537,7 @@ namespace settings {
           documentationButton->setCustomPalette(palette);
         };
         const auto syncTileState = [checkedState, card, documentationButton, titleLabel, categoryLabel,
-                                    syncDocumentationColor]() {
+                                    syncDocumentationColor] {
           const bool linkHovered = documentationButton != nullptr && documentationButton->hovered();
           card->setHoveredVisual(linkHovered);
           const bool hovered = card->hovered() || linkHovered;
@@ -590,7 +590,7 @@ namespace settings {
           documentationButton->setOnEnter(syncTileState);
           documentationButton->setOnLeave(syncTileState);
         }
-        card->setOnClick([checkedState, setTileActive]() mutable { setTileActive(!*checkedState); });
+        card->setOnClick([checkedState, setTileActive] mutable { setTileActive(!*checkedState); });
         const std::string tooltip = noctalia::theme::formatTemplateTooltip(option);
         if (!tooltip.empty()) {
           card->setTooltip(tooltip);
@@ -695,7 +695,7 @@ namespace settings {
             .maxHeight = Style::controlHeightSm * scale,
             .padding = Style::spaceXs * scale,
             .radius = Style::scaledRadiusSm(scale),
-            .onClick = [commitItems, items = keybinds.items, i]() mutable {
+            .onClick = [commitItems, items = keybinds.items, i] mutable {
               if (i >= items.size()) {
                 return;
               }
@@ -814,7 +814,7 @@ namespace settings {
       if (ctx.bindSessionActionsEditState) {
         ctx.bindSessionActionsEditState(state);
       }
-      const auto commit = [setOverride = ctx.setOverride, path = entry.path, state, req = ctx.requestContentRebuild]() {
+      const auto commit = [setOverride = ctx.setOverride, path = entry.path, state, req = ctx.requestContentRebuild] {
         setOverride(path, *state);
         req();
       };
@@ -853,7 +853,7 @@ namespace settings {
             .minHeight = iconBtnH,
             .padding = Style::spaceXs * scale,
             .radius = Style::scaledRadiusMd(scale),
-            .onClick = [state, rowIndex = idx, commit]() {
+            .onClick = [state, rowIndex = idx, commit] {
               if (rowIndex == 0 || rowIndex >= state->size()) {
                 return;
               }
@@ -872,7 +872,7 @@ namespace settings {
             .minHeight = iconBtnH,
             .padding = Style::spaceXs * scale,
             .radius = Style::scaledRadiusMd(scale),
-            .onClick = [state, rowIndex = idx, commit]() {
+            .onClick = [state, rowIndex = idx, commit] {
               if (rowIndex + 1 >= state->size()) {
                 return;
               }
@@ -891,7 +891,7 @@ namespace settings {
             .minHeight = Style::controlHeightSm * scale,
             .padding = Style::spaceXs * scale,
             .radius = Style::scaledRadiusSm(scale),
-            .onClick = [openEntry = ctx.openSessionActionEntryEditor, rowIndex = idx]() {
+            .onClick = [openEntry = ctx.openSessionActionEntryEditor, rowIndex = idx] {
               if (openEntry) {
                 openEntry(rowIndex);
               }
@@ -926,7 +926,7 @@ namespace settings {
           .paddingV = Style::spaceSm * scale,
           .paddingH = Style::spaceMd * scale,
           .radius = Style::scaledRadiusMd(scale),
-          .onClick = [state, commit]() {
+          .onClick = [state, commit] {
             state->push_back(
                 SessionPanelActionConfig{
                     .action = "command",
@@ -949,7 +949,7 @@ namespace settings {
 
       auto state = std::make_shared<std::vector<IdleBehaviorConfig>>(idle.items);
       normalizeIdleBehaviorNames(*state);
-      const auto commit = [setOverride = ctx.setOverride, path = entry.path, state, req = ctx.requestContentRebuild]() {
+      const auto commit = [setOverride = ctx.setOverride, path = entry.path, state, req = ctx.requestContentRebuild] {
         normalizeIdleBehaviorNames(*state);
         setOverride(path, *state);
         req();
@@ -983,7 +983,7 @@ namespace settings {
             .minHeight = iconBtnH,
             .padding = Style::spaceXs * scale,
             .radius = Style::scaledRadiusMd(scale),
-            .onClick = [state, rowIndex = idx, commit]() {
+            .onClick = [state, rowIndex = idx, commit] {
               if (rowIndex == 0 || rowIndex >= state->size()) {
                 return;
               }
@@ -1002,7 +1002,7 @@ namespace settings {
             .minHeight = iconBtnH,
             .padding = Style::spaceXs * scale,
             .radius = Style::scaledRadiusMd(scale),
-            .onClick = [state, rowIndex = idx, commit]() {
+            .onClick = [state, rowIndex = idx, commit] {
               if (rowIndex + 1 >= state->size()) {
                 return;
               }
@@ -1021,7 +1021,7 @@ namespace settings {
             .minHeight = Style::controlHeightSm * scale,
             .padding = Style::spaceXs * scale,
             .radius = Style::scaledRadiusSm(scale),
-            .onClick = [openEntry = ctx.openIdleBehaviorEntryEditor, rowIndex = idx]() {
+            .onClick = [openEntry = ctx.openIdleBehaviorEntryEditor, rowIndex = idx] {
               if (openEntry) {
                 openEntry(rowIndex);
               }
@@ -1056,7 +1056,7 @@ namespace settings {
           .paddingV = Style::spaceSm * scale,
           .paddingH = Style::spaceMd * scale,
           .radius = Style::scaledRadiusMd(scale),
-          .onClick = [openCreate = ctx.openIdleBehaviorCreateEditor]() {
+          .onClick = [openCreate = ctx.openIdleBehaviorCreateEditor] {
             if (openCreate) {
               openCreate();
             }
@@ -1075,7 +1075,7 @@ namespace settings {
 
       auto state = std::make_shared<std::vector<NotificationFilterConfig>>(filters.items);
       normalizeNotificationFilterNames(*state);
-      const auto commit = [setOverride = ctx.setOverride, path = entry.path, state, req = ctx.requestContentRebuild]() {
+      const auto commit = [setOverride = ctx.setOverride, path = entry.path, state, req = ctx.requestContentRebuild] {
         normalizeNotificationFilterNames(*state);
         setOverride(path, *state);
         req();
@@ -1105,7 +1105,7 @@ namespace settings {
             .minHeight = Style::controlHeightSm * scale,
             .padding = Style::spaceXs * scale,
             .radius = Style::scaledRadiusSm(scale),
-            .onClick = [openEntry = ctx.openNotificationFilterEntryEditor, rowIndex = idx]() {
+            .onClick = [openEntry = ctx.openNotificationFilterEntryEditor, rowIndex = idx] {
               if (openEntry) {
                 openEntry(rowIndex);
               }
@@ -1141,7 +1141,7 @@ namespace settings {
           .paddingV = Style::spaceSm * scale,
           .paddingH = Style::spaceMd * scale,
           .radius = Style::scaledRadiusMd(scale),
-          .onClick = [openCreate = ctx.openNotificationFilterCreateEditor]() {
+          .onClick = [openCreate = ctx.openNotificationFilterCreateEditor] {
             if (openCreate) {
               openCreate();
             }

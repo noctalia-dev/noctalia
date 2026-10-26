@@ -197,8 +197,8 @@ Input::Input() {
   area->setTextInputClient(this);
   area->setCursorShape(WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_TEXT);
   area->setOnEnter([this](const InputArea::PointerData& /*data*/) { applyVisualState(); });
-  area->setOnLeave([this]() { applyVisualState(); });
-  area->setOnFocusGain([this]() {
+  area->setOnLeave([this] { applyVisualState(); });
+  area->setOnFocusGain([this] {
     revealCursor();
     startCursorBlink();
     applyVisualState();
@@ -206,7 +206,7 @@ Input::Input() {
     // Focus gain is delivered before pointer press in the same dispatch pass.
     // Defer scroll-to-caret so click placement sees the blurred scroll offset (0).
     const std::weak_ptr<int> alive = m_aliveToken;
-    DeferredCall::callLater([this, alive]() {
+    DeferredCall::callLater([this, alive] {
       if (alive.expired() || m_inputArea == nullptr || !m_inputArea->focused()) {
         return;
       }
@@ -216,7 +216,7 @@ Input::Input() {
       m_onFocusGain();
     }
   });
-  area->setOnFocusLoss([this]() {
+  area->setOnFocusLoss([this] {
     const bool removedPreedit = removePreeditText();
     stopCursorBlink();
     updateCursorVisibility();
@@ -378,7 +378,7 @@ Input::Input() {
   // Optional clear button, kept above the full-field input area for hit-testing.
   auto clearButtonArea = std::make_unique<InputArea>();
   clearButtonArea->setOnEnter([this](const InputArea::PointerData& /*data*/) { applyVisualState(); });
-  clearButtonArea->setOnLeave([this]() { applyVisualState(); });
+  clearButtonArea->setOnLeave([this] { applyVisualState(); });
   clearButtonArea->setOnClick([this](const InputArea::PointerData& data) {
     if (data.button == BTN_LEFT) {
       clearFromButton();
@@ -1944,14 +1944,14 @@ void Input::revealCursor() {
   updateCursorVisibility();
   markPaintDirty();
   if (m_inputArea != nullptr && m_inputArea->focused()) {
-    m_cursorBlinkTimer.start(kCursorBlinkResumeDelay, [this]() { startCursorBlink(); });
+    m_cursorBlinkTimer.start(kCursorBlinkResumeDelay, [this] { startCursorBlink(); });
   } else {
     m_cursorBlinkTimer.stop();
   }
 }
 
 void Input::startCursorBlink() {
-  m_cursorBlinkTimer.startRepeating(kCursorBlinkInterval, [this]() {
+  m_cursorBlinkTimer.startRepeating(kCursorBlinkInterval, [this] {
     if (m_inputArea == nullptr || !m_inputArea->focused()) {
       stopCursorBlink();
       return;
@@ -2200,7 +2200,7 @@ void Input::animatePasswordGlyphIn(GlyphNode& glyph) {
         const float wobble = kWobbleAmplitude * std::sin(t * kWobbleSwings * std::numbers::pi_v<float>) * wobbleDecay;
         glyphPtr->setRotation(wobble);
       },
-      [glyphPtr]() {
+      [glyphPtr] {
         glyphPtr->setOpacity(1.0F);
         glyphPtr->setScale(1.0F);
         glyphPtr->setRotation(0.0F);

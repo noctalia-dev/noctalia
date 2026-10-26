@@ -74,7 +74,7 @@ AsyncTextureCache::AsyncTextureCache() {
   const std::size_t workerCount = std::clamp<std::size_t>(suggested, kMinWorkers, kMaxWorkers);
   m_workers.reserve(workerCount);
   for (std::size_t i = 0; i < workerCount; ++i) {
-    m_workers.emplace_back([this]() { workerLoop(); });
+    m_workers.emplace_back([this] { workerLoop(); });
   }
 }
 
@@ -353,7 +353,7 @@ void AsyncTextureCache::workerLoop() {
     RequestKey key;
     {
       std::unique_lock<std::mutex> lock(m_queueMutex);
-      m_queueCv.wait(lock, [this]() { return m_shutdown.load() || !m_jobQueue.empty(); });
+      m_queueCv.wait(lock, [this] { return m_shutdown.load() || !m_jobQueue.empty(); });
       if (m_shutdown.load()) {
         return;
       }

@@ -53,7 +53,7 @@ RangeSlider::RangeSlider() {
     applyVisualState();
     markPaintDirty();
   });
-  area->setOnLeave([this]() {
+  area->setOnLeave([this] {
     applyVisualState();
     markPaintDirty();
   });
@@ -91,14 +91,14 @@ RangeSlider::RangeSlider() {
     updateFromLocalX(data.localX);
   });
   area->setFocusable(true);
-  area->setOnFocusGain([this]() {
+  area->setOnFocusGain([this] {
     if (m_activeThumb == ActiveThumb::None) {
       m_activeThumb = ActiveThumb::Low;
     }
     applyVisualState();
     markPaintDirty();
   });
-  area->setOnFocusLoss([this]() {
+  area->setOnFocusLoss([this] {
     m_activeThumb = ActiveThumb::None;
     applyVisualState();
     markPaintDirty();

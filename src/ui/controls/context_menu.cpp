@@ -465,7 +465,7 @@ void ContextMenuControl::rebuildRows(Renderer& renderer) {
       };
 
       row->setOnEnter([this, i](const InputArea::PointerData& /*data*/) { setHighlightedIndex(i); });
-      row->setOnLeave([this]() {
+      row->setOnLeave([this] {
         applyHighlightVisuals();
         if (m_redrawCallback) {
           m_redrawCallback();

@@ -399,7 +399,7 @@ void ScreenTimeService::scheduleNextTick() {
   const auto now = system_clock::now();
   const auto nextCheckpoint = floor<minutes>(now) + minutes{1};
   const auto delay = std::max(duration_cast<milliseconds>(nextCheckpoint - now), milliseconds{1});
-  m_tickTimer.start(delay, [this]() { tick(); });
+  m_tickTimer.start(delay, [this] { tick(); });
 }
 
 void ScreenTimeService::tick() {

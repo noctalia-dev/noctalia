@@ -37,14 +37,14 @@ namespace {
     if (!cb) {
       return;
     }
-    DeferredCall::callLater([cb = std::move(cb)]() { cb(false); });
+    DeferredCall::callLater([cb = std::move(cb)] { cb(false); });
   }
 
   void deferFailures(std::vector<HttpClient::CompletionCallback> callbacks) {
     if (callbacks.empty()) {
       return;
     }
-    DeferredCall::callLater([callbacks = std::move(callbacks)]() mutable {
+    DeferredCall::callLater([callbacks = std::move(callbacks)] mutable {
       for (auto& callback : callbacks) {
         if (callback) {
           callback(false);
@@ -57,14 +57,14 @@ namespace {
     if (!cb) {
       return;
     }
-    DeferredCall::callLater([cb = std::move(cb)]() mutable { cb(HttpResponse{}); });
+    DeferredCall::callLater([cb = std::move(cb)] mutable { cb(HttpResponse{}); });
   }
 
   void deferStreamClose(HttpClient::StreamCloseCallback cb) {
     if (!cb) {
       return;
     }
-    DeferredCall::callLater([cb = std::move(cb)]() mutable { cb(HttpStreamResult{}); });
+    DeferredCall::callLater([cb = std::move(cb)] mutable { cb(HttpStreamResult{}); });
   }
 
   std::size_t captureResponse(char* ptr, std::size_t size, std::size_t nmemb, void* userdata) {

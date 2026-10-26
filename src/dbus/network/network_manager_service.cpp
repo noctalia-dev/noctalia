@@ -378,7 +378,7 @@ void NetworkManagerService::refresh() {
 
   // Must stay local: `pending` must not own a callback that captures `pending`, or the refresh
   // state cannot be freed when the completion path is skipped (e.g. lifetime expiry).
-  auto onAllComplete = [this, pending, lifetimeToken]() {
+  auto onAllComplete = [this, pending, lifetimeToken] {
     if (lifetimeToken.expired()) {
       return;
     }
@@ -425,7 +425,7 @@ void NetworkManagerService::refresh() {
     });
   };
 
-  auto onOpComplete = [pending, lifetimeToken, onAllComplete]() {
+  auto onOpComplete = [pending, lifetimeToken, onAllComplete] {
     if (lifetimeToken.expired()) {
       return;
     }
@@ -633,7 +633,7 @@ bool NetworkManagerService::addAndActivateAccessPoint(
     refresh();
   };
 
-  auto fallback = [this, lifetimeToken, settings, devicePath, apPath, ssid, onActivated]() {
+  auto fallback = [this, lifetimeToken, settings, devicePath, apPath, ssid, onActivated] {
     try {
       m_nm->callMethodAsync("AddAndActivateConnection")
           .onInterface(kNmInterface)
@@ -934,7 +934,7 @@ bool NetworkManagerService::deactivateConnectionsByProfilePaths(
           auto lookup = std::make_shared<DeactivateLookup>();
           lookup->pending = static_cast<int>(activePaths.size());
 
-          auto onLookupComplete = [this, lifetimeToken, lookup, tag]() {
+          auto onLookupComplete = [this, lifetimeToken, lookup, tag] {
             if (lifetimeToken.expired()) {
               return;
             }
@@ -1310,7 +1310,7 @@ void NetworkManagerService::forgetSsid(const std::string& ssid) {
   auto op = std::make_shared<ForgetOp>();
   op->ssid = ssid;
   const std::weak_ptr<int> lifetimeToken = m_lifetimeToken;
-  op->onComplete = [this, lifetimeToken]() {
+  op->onComplete = [this, lifetimeToken] {
     if (lifetimeToken.expired()) {
       return;
     }
@@ -1435,7 +1435,7 @@ void NetworkManagerService::refreshSavedConnections(std::function<void()> onComp
           auto savedState = std::make_shared<SavedConnectionsState>();
           savedState->pending = static_cast<int>(connectionPaths.size());
 
-          auto finishOne = [this, savedState, onComplete]() {
+          auto finishOne = [this, savedState, onComplete] {
             if (--savedState->pending == 0) {
               finishSavedConnections(
                   savedState->ssids, savedState->wiredConnectionPaths, savedState->cellularConnectionPaths, onComplete
@@ -1569,7 +1569,7 @@ void NetworkManagerService::refreshVpnAndActiveConnections(std::function<void()>
           auto vpnState = std::make_shared<VpnRefreshState>();
           vpnState->pending = static_cast<int>(connectionPaths.size());
 
-          auto finalize = [this, lifetimeToken, vpnState, onComplete]() {
+          auto finalize = [this, lifetimeToken, vpnState, onComplete] {
             if (lifetimeToken.expired()) {
               return;
             }
@@ -1583,7 +1583,7 @@ void NetworkManagerService::refreshVpnAndActiveConnections(std::function<void()>
             onComplete();
           };
 
-          auto markActiveAndFinalize = [this, lifetimeToken, vpnState, finalize]() {
+          auto markActiveAndFinalize = [this, lifetimeToken, vpnState, finalize] {
             if (lifetimeToken.expired()) {
               return;
             }
@@ -1626,7 +1626,7 @@ void NetworkManagerService::refreshVpnAndActiveConnections(std::function<void()>
                   auto activeState = std::make_shared<ActiveConnectionScan>();
                   activeState->pending = static_cast<int>(activePaths.size());
 
-                  auto onActiveComplete = [this, lifetimeToken, vpnState, activeState, finalize]() {
+                  auto onActiveComplete = [this, lifetimeToken, vpnState, activeState, finalize] {
                     if (lifetimeToken.expired()) {
                       return;
                     }
@@ -2029,7 +2029,7 @@ void NetworkManagerService::refreshAccessPoints(std::function<void()> onComplete
                                             } catch (const sdbus::Error&) {
                                             }
                                           }
-                                          const auto wpaFlags = [&properties]() {
+                                          const auto wpaFlags = [&properties] {
                                             if (auto wpaFlagsIt = properties.find("WpaFlags");
                                                 wpaFlagsIt != properties.end()) {
                                               try {
@@ -2040,7 +2040,7 @@ void NetworkManagerService::refreshAccessPoints(std::function<void()> onComplete
                                             }
                                             return 0U;
                                           }();
-                                          const auto rsnFlags = [&properties]() {
+                                          const auto rsnFlags = [&properties] {
                                             if (auto rsnFlagsIt = properties.find("RsnFlags");
                                                 rsnFlagsIt != properties.end()) {
                                               try {
@@ -2520,7 +2520,7 @@ void NetworkManagerService::readStateAsync(std::function<void(NetworkState)> onC
   const std::string activeDevicePath = m_activeDevicePath;
   const std::string activeApPath = m_activeApPath;
 
-  auto finish = [lifetimeToken, next, vpnFromList, onComplete]() {
+  auto finish = [lifetimeToken, next, vpnFromList, onComplete] {
     if (lifetimeToken.expired()) {
       return;
     }
@@ -2532,7 +2532,7 @@ void NetworkManagerService::readStateAsync(std::function<void(NetworkState)> onC
     onComplete(std::move(*next));
   };
 
-  auto readActiveAccessPoint = [this, lifetimeToken, next, finish, activeApPath]() {
+  auto readActiveAccessPoint = [this, lifetimeToken, next, finish, activeApPath] {
     if (activeApPath.empty() || activeApPath == "/") {
       finish();
       return;
@@ -2579,7 +2579,7 @@ void NetworkManagerService::readStateAsync(std::function<void(NetworkState)> onC
     }
   };
 
-  auto readDeviceState = [this, lifetimeToken, next, finish, readActiveAccessPoint, activeDevicePath]() {
+  auto readDeviceState = [this, lifetimeToken, next, finish, readActiveAccessPoint, activeDevicePath] {
     if (activeDevicePath.empty() || activeDevicePath == "/") {
       finish();
       return;
@@ -2639,7 +2639,7 @@ void NetworkManagerService::readStateAsync(std::function<void(NetworkState)> onC
               // Remaining device types (wireguard, tun, …) are VPN/overlay virtual
               // links and must not be reported as wired; kind stays Unknown.
 
-              auto finishAfterIp4 = [lifetimeToken, finish, readActiveAccessPoint, deviceType]() {
+              auto finishAfterIp4 = [lifetimeToken, finish, readActiveAccessPoint, deviceType] {
                 if (lifetimeToken.expired()) {
                   return;
                 }
@@ -2721,7 +2721,7 @@ void NetworkManagerService::readStateAsync(std::function<void(NetworkState)> onC
     }
   };
 
-  auto readActiveConnectionState = [this, lifetimeToken, next, finish, readDeviceState, activeConnectionPath]() {
+  auto readActiveConnectionState = [this, lifetimeToken, next, finish, readDeviceState, activeConnectionPath] {
     if (activeConnectionPath.empty() || activeConnectionPath == "/") {
       readDeviceState();
       return;
@@ -2799,7 +2799,7 @@ void NetworkManagerService::readStateAsync(std::function<void(NetworkState)> onC
 void NetworkManagerService::beginScan(std::int64_t lastScanBaseline) {
   m_scanning = true;
   m_scanBaselineLastScan = lastScanBaseline;
-  m_scanTimeoutTimer.start(kScanTimeout, [this]() {
+  m_scanTimeoutTimer.start(kScanTimeout, [this] {
     if (!m_scanning) {
       return;
     }

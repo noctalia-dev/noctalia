@@ -158,7 +158,7 @@ namespace scripting {
         const auto value =
             node.value<std::int64_t>().transform(
                                           [](std::int64_t integer) { return static_cast<double>(integer); }
-            ).or_else([&node]() { return node.value<double>(); });
+            ).or_else([&node] { return node.value<double>(); });
         if (!value.has_value() || !std::isfinite(*value)) {
           error = "setting '" + out.key + "' double default must be a finite number";
           return false;

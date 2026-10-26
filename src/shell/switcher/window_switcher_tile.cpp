@@ -33,7 +33,7 @@ WindowSwitcherTile::WindowSwitcherTile(float contentScale, AsyncTextureCache* as
     }
   });
   setOnEnter([this](const InputArea::PointerData&) { setPointerHovered(true); });
-  setOnLeave([this]() { setPointerHovered(false); });
+  setOnLeave([this] { setPointerHovered(false); });
 
   addChild(
       ui::box({
@@ -106,7 +106,7 @@ WindowSwitcherTile::WindowSwitcherTile(float contentScale, AsyncTextureCache* as
           .width = (Style::controlHeightSm - Style::spaceSm) * m_contentScale,
           .height = (Style::controlHeightSm - Style::spaceSm) * m_contentScale,
           .participatesInLayout = false,
-          .onClick = [this]() {
+          .onClick = [this] {
             if (m_onClose) {
               m_onClose();
             }
@@ -131,8 +131,8 @@ WindowSwitcherTile::WindowSwitcherTile(float contentScale, AsyncTextureCache* as
           .bottom = closeHitSlop,
       }
   );
-  m_close->setOnEnter([this]() { setPointerHovered(true); });
-  m_close->setOnLeave([this]() { setPointerHovered(false); });
+  m_close->setOnEnter([this] { setPointerHovered(true); });
+  m_close->setOnLeave([this] { setPointerHovered(false); });
 
   auto captionBadge = ui::box({
       .out = &m_captionBadge,
@@ -174,7 +174,7 @@ WindowSwitcherTile::WindowSwitcherTile(float contentScale, AsyncTextureCache* as
   captionBadge->setZIndex(2);
   addChild(std::move(captionBadge));
 
-  m_icon->setAsyncReadyCallback([this]() {
+  m_icon->setAsyncReadyCallback([this] {
     if (!m_showAppIcon || m_icon == nullptr || m_fallbackGlyph == nullptr || !m_icon->hasImage()) {
       return;
     }

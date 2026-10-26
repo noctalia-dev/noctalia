@@ -1113,7 +1113,7 @@ HyprlandWorkspaceBackend::parseJsonWorkspaceIdentity(const nlohmann::json& json,
       identity.selector = identity.key;
       return identity;
     }
-    const auto id = [&]() -> std::optional<std::uint64_t> {
+    const auto id = [&] -> std::optional<std::uint64_t> {
       if (idIt->is_number_unsigned()) {
         return idIt->get<std::uint64_t>();
       }

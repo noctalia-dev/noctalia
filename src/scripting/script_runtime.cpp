@@ -285,7 +285,7 @@ namespace scripting {
       }
 
       auto self = shared_from_this();
-      DeferredCall::callLater([self, id, replay = std::move(replay)]() mutable {
+      DeferredCall::callLater([self, id, replay = std::move(replay)] mutable {
         ScriptResultCallback subscriber;
         {
           std::scoped_lock replayLock(self->mutex);
@@ -999,7 +999,7 @@ namespace scripting {
 
     void postResult(ScriptResult result) {
       auto self = shared_from_this();
-      DeferredCall::callLater([self, result = std::move(result)]() mutable { self->deliverResult(std::move(result)); });
+      DeferredCall::callLater([self, result = std::move(result)] mutable { self->deliverResult(std::move(result)); });
     }
 
     void deliverResult(ScriptResult result) {

@@ -433,28 +433,28 @@ namespace {
 std::string cpuModelName() {
   static std::once_flag flag;
   static std::string cached;
-  std::call_once(flag, [&]() { cached = readCpuModel(); });
+  std::call_once(flag, [&] { cached = readCpuModel(); });
   return cached;
 }
 
 std::string gpuLabel() {
   static std::once_flag flag;
   static std::string cached;
-  std::call_once(flag, [&]() { cached = detectGpu(); });
+  std::call_once(flag, [&] { cached = detectGpu(); });
   return cached;
 }
 
 std::string motherboardLabel() {
   static std::once_flag flag;
   static std::string cached;
-  std::call_once(flag, [&]() { cached = detectMotherboard(); });
+  std::call_once(flag, [&] { cached = detectMotherboard(); });
   return cached;
 }
 
 std::string memoryTotalLabel() {
   static std::once_flag flag;
   static std::string cached;
-  std::call_once(flag, [&]() { cached = detectMemoryTotal(); });
+  std::call_once(flag, [&] { cached = detectMemoryTotal(); });
   return cached;
 }
 
@@ -526,7 +526,7 @@ std::optional<std::string> compositorVersionLine(std::function<void()> onResolve
                 if (parsed.empty() && !result.timedOut) {
                   parsed = firstNonBlankLine(result.err);
                 }
-                DeferredCall::callLater([finish, parsed = std::move(parsed)]() mutable { finish(std::move(parsed)); });
+                DeferredCall::callLater([finish, parsed = std::move(parsed)] mutable { finish(std::move(parsed)); });
               },
       },
       options

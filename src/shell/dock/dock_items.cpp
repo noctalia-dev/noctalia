@@ -693,7 +693,7 @@ namespace shell::dock {
           drag.startMain = pointerMainOnRow(dockCfg, instPtr->items[itemIndex].area, d.localX, d.localY);
           drag.currentMain = drag.startMain;
           drag.targetIndex = itemIndex;
-          drag.holdTimer.start(kDragHoldDelay, [instPtr, itemIndex]() {
+          drag.holdTimer.start(kDragHoldDelay, [instPtr, itemIndex] {
             if (instPtr->drag.sourceIndex == itemIndex && !instPtr->drag.active) {
               instPtr->drag.armed = true;
               dismissDockTooltipImpl();

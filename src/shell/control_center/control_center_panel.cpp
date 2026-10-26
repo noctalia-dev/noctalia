@@ -177,7 +177,7 @@ void ControlCenterPanel::create() {
 
     for (const auto& tab : kTabs) {
       const std::size_t idx = tabIndex(tab.id);
-      const auto onClick = [this, id = tab.id]() {
+      const auto onClick = [this, id = tab.id] {
         selectTab(id, true);
         PanelManager::instance().refresh();
       };
@@ -278,7 +278,7 @@ void ControlCenterPanel::create() {
         ui::button({
             .out = &m_closeButton,
             .glyph = "close",
-            .onClick = []() { PanelManager::instance().close(); },
+            .onClick = [] { PanelManager::instance().close(); },
             .configure = [scale](Button& button) { panel_button_style::configureHeaderIconButton(button, scale); },
         })
     );
@@ -729,7 +729,7 @@ void ControlCenterPanel::startTabTransition(TabId from, TabId to) {
         applyTabTransitionLayout();
         PanelManager::instance().requestRedraw();
       },
-      [this]() {
+      [this] {
         m_tabTransitionAnimId = 0;
         finishTabTransition();
         PanelManager::instance().requestLayout();
@@ -830,7 +830,7 @@ void ControlCenterPanel::scheduleMprisRefreshFor(TabId tab) {
 
   m_lastMprisRefreshAt = now;
   m_mprisRefreshScheduled = true;
-  DeferredCall::callLater([this]() {
+  DeferredCall::callLater([this] {
     m_mprisRefreshScheduled = false;
     if (m_mpris == nullptr || !PanelManager::instance().isOpenPanel("control-center")) {
       return;

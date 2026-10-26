@@ -1470,7 +1470,7 @@ namespace noctalia::theme {
   } // namespace
 
   bool TemplateEngine::processConfigFile(const std::filesystem::path& configPath) {
-    auto cancelRequested = [this]() { return m_options.cancelRequested && m_options.cancelRequested(); };
+    auto cancelRequested = [this] { return m_options.cancelRequested && m_options.cancelRequested(); };
     if (cancelRequested()) {
       return true;
     }
@@ -1569,7 +1569,7 @@ namespace noctalia::theme {
   }
 
   bool TemplateEngine::processConfigTemplates(const toml::table& root, const std::filesystem::path& configPath) {
-    auto cancelRequested = [this]() { return m_options.cancelRequested && m_options.cancelRequested(); };
+    auto cancelRequested = [this] { return m_options.cancelRequested && m_options.cancelRequested(); };
     if (cancelRequested()) {
       return true;
     }
@@ -1686,7 +1686,7 @@ namespace noctalia::theme {
         }
       };
 
-      auto runPostAction = [&]() {
+      auto runPostAction = [&] {
         if (entry.postAction.empty()) {
           return true;
         }

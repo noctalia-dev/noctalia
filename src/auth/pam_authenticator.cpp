@@ -337,7 +337,7 @@ PamAuthenticator::Result PamAuthenticator::authenticateCurrentUser(
 ) const {
   // Re-exec before invoking PAM so the helper cannot inherit locked library
   // state from the shell's other threads.
-  const auto fail = [startFailureMessage]() {
+  const auto fail = [startFailureMessage] {
     return Result{.success = false, .message = std::string(startFailureMessage)};
   };
 

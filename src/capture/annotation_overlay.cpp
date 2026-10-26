@@ -722,7 +722,7 @@ namespace capture {
     });
     if (m_mode == AnnotationMode::Image) {
       if (findOutput(*m_wayland, m_imageOutput) == nullptr) {
-        DeferredCall::callLater([this]() { cancel(); });
+        DeferredCall::callLater([this] { cancel(); });
       }
       return;
     }
@@ -957,7 +957,7 @@ namespace capture {
     m_active = false;
     kLog.warn("aborting annotation overlay: {}", message);
     FailureCallback onFailure = m_onFailure;
-    DeferredCall::callLater([this, onFailure, message]() {
+    DeferredCall::callLater([this, onFailure, message] {
       m_active = true; // cancel() only fires the closed callback for an active overlay
       cancel();
       if (onFailure) {
@@ -1166,7 +1166,7 @@ namespace capture {
       ));
     }
 
-    const auto makeDimStrip = [&]() {
+    const auto makeDimStrip = [&] {
       auto strip = ui::box({
           // Fixed black scrim so the cropped-away area darkens under every theme.
           .fill = fixedColorSpec(rgba(0.0F, 0.0F, 0.0F, 1.0F)),
@@ -1337,7 +1337,7 @@ namespace capture {
         .borderWidth = Style::borderWidth,
     });
 
-    const auto addSeparator = [&]() {
+    const auto addSeparator = [&] {
       return static_cast<Separator*>(toolbar->addChild(
           ui::separator({
               .orientation = SeparatorOrientation::VerticalRule,
@@ -1370,7 +1370,7 @@ namespace capture {
       }
     });
     if (InputArea* dragArea = inst.dragHandle->inputArea(); dragArea != nullptr) {
-      dragArea->setOnCancel([this, instPtr]() {
+      dragArea->setOnCancel([this, instPtr] {
         if (m_toolbarDragInstance == instPtr) {
           m_toolbarDragInstance = nullptr;
         }
@@ -1379,12 +1379,12 @@ namespace capture {
 
     // Editor controls lead the bar, keeping Close well away from Done at the trailing end.
     if (Style::closeButtonsEnabled()) {
-      addGhostButton("x", "bar.annotate.close", [this]() { requestClose(); });
+      addGhostButton("x", "bar.annotate.close", [this] { requestClose(); });
     }
     addSeparator();
 
-    inst.undoButton = addGhostButton("arrow-back-up", "bar.annotate.undo", [this]() { undo(); });
-    inst.redoButton = addGhostButton("arrow-forward-up", "bar.annotate.redo", [this]() { redo(); });
+    inst.undoButton = addGhostButton("arrow-back-up", "bar.annotate.undo", [this] { undo(); });
+    inst.redoButton = addGhostButton("arrow-forward-up", "bar.annotate.redo", [this] { redo(); });
     addSeparator();
 
     for (const auto& spec : kToolButtons) {
@@ -1394,7 +1394,7 @@ namespace capture {
               .selected = m_tools.tool == spec.tool,
               .variant = ButtonVariant::Ghost,
               .tooltip = i18n::tr(spec.tooltipKey),
-              .onClick = [this, tool = spec.tool]() { selectTool(tool); },
+              .onClick = [this, tool = spec.tool] { selectTool(tool); },
           })
       ));
     }
@@ -1415,14 +1415,14 @@ namespace capture {
             .radius = Style::radiusSm,
             .width = kStrokeButtonSize,
             .height = kStrokeButtonSize,
-            .onClick = [this]() { toggleStrokePanel(); },
+            .onClick = [this] { toggleStrokePanel(); },
         })
     ));
-    inst.fillButton = addGhostButton("bucket-off", "bar.annotate.fill-off", [this]() { cycleFill(); });
-    inst.fillButton->setOnRightClick([this]() { cycleFill(false); });
+    inst.fillButton = addGhostButton("bucket-off", "bar.annotate.fill-off", [this] { cycleFill(); });
+    inst.fillButton->setOnRightClick([this] { cycleFill(false); });
 
     addSeparator();
-    inst.cursorButton = addGhostButton("pointer", "bar.annotate.cursor", [this, instPtr]() { toggleCursor(instPtr); });
+    inst.cursorButton = addGhostButton("pointer", "bar.annotate.cursor", [this, instPtr] { toggleCursor(instPtr); });
     if (const ScreenshotImage* image = screenshot(inst);
         image != nullptr && !image->canToggleCursor() && image->cursorVisible) {
       // Keep the captured-on state visible even when this capture cannot be toggled.
@@ -1433,20 +1433,20 @@ namespace capture {
       }
       inst.cursorButton->setCustomPalette(palette);
     }
-    inst.freezeButton = addGhostButton("snowflake", "bar.annotate.freeze", [this]() { requestFreeze(); });
-    addGhostButton("screenshot", "bar.annotate.capture-new-region", [this]() { requestCaptureRegion(); });
+    inst.freezeButton = addGhostButton("snowflake", "bar.annotate.freeze", [this] { requestFreeze(); });
+    addGhostButton("screenshot", "bar.annotate.capture-new-region", [this] { requestCaptureRegion(); });
 
     inst.exportSeparator = addSeparator();
-    inst.backdropButton = addGhostButton("background", "bar.annotate.backdrop", [this]() { toggleBackdropPanel(); });
-    inst.copyButton = addGhostButton("copy", "bar.annotate.copy", [this]() { requestExport(AnnotationExport::Copy); });
+    inst.backdropButton = addGhostButton("background", "bar.annotate.backdrop", [this] { toggleBackdropPanel(); });
+    inst.copyButton = addGhostButton("copy", "bar.annotate.copy", [this] { requestExport(AnnotationExport::Copy); });
     inst.saveButton =
-        addGhostButton("device-floppy", "bar.annotate.save", [this]() { requestExport(AnnotationExport::Save); });
+        addGhostButton("device-floppy", "bar.annotate.save", [this] { requestExport(AnnotationExport::Save); });
     inst.doneButton = static_cast<Button*>(toolbar->addChild(
         ui::button({
             .glyph = std::string("check"),
             .variant = ButtonVariant::Primary,
             .tooltip = i18n::tr("bar.annotate.done"),
-            .onClick = [this]() { requestExport(AnnotationExport::Done); },
+            .onClick = [this] { requestExport(AnnotationExport::Done); },
         })
     ));
 
@@ -1867,7 +1867,7 @@ namespace capture {
       return;
     }
     const auto crop = documentFor(inst).crop();
-    const auto hide = [&]() {
+    const auto hide = [&] {
       for (Box* box : {inst.dimTop, inst.dimBottom, inst.dimLeft, inst.dimRight, inst.cropFrame}) {
         if (box != nullptr) {
           box->setVisible(false);
@@ -2643,7 +2643,7 @@ namespace capture {
       return;
     }
     FreezeCallback onFreeze = m_onFreeze;
-    DeferredCall::callLater([onFreeze]() { onFreeze(); });
+    DeferredCall::callLater([onFreeze] { onFreeze(); });
   }
 
   void AnnotationOverlay::requestCaptureRegion() {
@@ -2651,7 +2651,7 @@ namespace capture {
       return;
     }
     CaptureRegionCallback onCaptureRegion = m_onCaptureRegion;
-    DeferredCall::callLater([onCaptureRegion]() { onCaptureRegion(); });
+    DeferredCall::callLater([onCaptureRegion] { onCaptureRegion(); });
   }
 
   void AnnotationOverlay::toggleCursor(Instance* instance) {
@@ -2669,7 +2669,7 @@ namespace capture {
       if (m_onFeedback) {
         const std::string message = i18n::tr(cursorTooltipKey(*instance));
         FeedbackCallback onFeedback = m_onFeedback;
-        DeferredCall::callLater([onFeedback, message]() { onFeedback(message); });
+        DeferredCall::callLater([onFeedback, message] { onFeedback(message); });
       }
       return;
     }
@@ -2724,7 +2724,7 @@ namespace capture {
     if (!m_active) {
       return;
     }
-    DeferredCall::callLater([this]() { cancel(); });
+    DeferredCall::callLater([this] { cancel(); });
   }
 
   std::unique_ptr<Flex> AnnotationOverlay::buildBackdropPanel(Instance& inst) {
@@ -2820,7 +2820,7 @@ namespace capture {
       };
       valueInput->setOnChange([valueInput](const std::string& /*text*/) { valueInput->setInvalid(false); });
       valueInput->setOnSubmit(commitText);
-      valueInput->setOnFocusLoss([commitText, valueInput]() { commitText(valueInput->value()); });
+      valueInput->setOnFocusLoss([commitText, valueInput] { commitText(valueInput->value()); });
       inst.backdropValueInputs[index] = valueInput;
       row->addChild(std::move(input));
       return row;
@@ -3076,7 +3076,7 @@ namespace capture {
               .radius = Style::radiusSm,
               .width = kSwatchSize,
               .height = kSwatchSize,
-              .onClick = [this, color]() { setToolColor(color); },
+              .onClick = [this, color] { setToolColor(color); },
           })
       ));
     }
@@ -3105,7 +3105,7 @@ namespace capture {
             .glyph = std::string("minus"),
             .variant = ButtonVariant::Ghost,
             .tooltip = i18n::tr("bar.annotate.size-decrease"),
-            .onClick = [this]() { adjustToolWidth(-1.0); },
+            .onClick = [this] { adjustToolWidth(-1.0); },
         })
     ));
     inst.sizeLabel = static_cast<Label*>(stepper->addChild(
@@ -3121,7 +3121,7 @@ namespace capture {
             .glyph = std::string("plus"),
             .variant = ButtonVariant::Ghost,
             .tooltip = i18n::tr("bar.annotate.size-increase"),
-            .onClick = [this]() { adjustToolWidth(1.0); },
+            .onClick = [this] { adjustToolWidth(1.0); },
         })
     ));
     sizes->addChild(std::move(stepper));

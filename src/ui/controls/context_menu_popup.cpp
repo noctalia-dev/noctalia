@@ -174,7 +174,7 @@ void ContextMenuPopup::open(ContextMenuPopupRequest request) {
     ctrl->setEntries(entries);
     ctrl->setHighlightedIndex(self->m_highlightedIndex);
     self->m_highlightedIndex = ctrl->highlightedIndex();
-    ctrl->setRedrawCallback([self]() {
+    ctrl->setRedrawCallback([self] {
       if (self->m_surface)
         self->m_surface->requestRedraw();
     });
@@ -195,7 +195,7 @@ void ContextMenuPopup::open(ContextMenuPopupRequest request) {
     self->m_surface->setSceneRoot(self->m_sceneRoot.get());
   });
 
-  m_surface->setDismissedCallback([self]() { self->deferClose(); });
+  m_surface->setDismissedCallback([self] { self->deferClose(); });
 
   // Layer-shell popups inherit their parent's keyboard interactivity. A bar is
   // None, so flip it to OnDemand before the popup maps or the grabbing popup
@@ -251,7 +251,7 @@ void ContextMenuPopup::deferActivation(ContextMenuControlEntry entry) {
   auto* self = this;
   const std::weak_ptr<bool> alive = m_alive;
   auto onActivate = m_onActivate;
-  DeferredCall::callLater([self, alive, onActivate = std::move(onActivate), entry = std::move(entry)]() {
+  DeferredCall::callLater([self, alive, onActivate = std::move(onActivate), entry = std::move(entry)] {
     const auto token = alive.lock();
     if (token == nullptr || !*token) {
       return;
@@ -270,7 +270,7 @@ void ContextMenuPopup::deferActivation(ContextMenuControlEntry entry) {
 void ContextMenuPopup::deferClose() {
   auto* self = this;
   const std::weak_ptr<bool> alive = m_alive;
-  DeferredCall::callLater([self, alive]() {
+  DeferredCall::callLater([self, alive] {
     const auto token = alive.lock();
     if (token != nullptr && *token) {
       self->close();

@@ -583,7 +583,7 @@ namespace {
     DdcCandidate current;
     bool inDisplay = false;
 
-    auto flushCurrent = [&]() {
+    auto flushCurrent = [&] {
       if (cancel->load(std::memory_order_relaxed)) {
         current = DdcCandidate{};
         return;
@@ -749,7 +749,7 @@ struct BrightnessService::Impl {
       : bus(systemBus), wayland(compositorPlatform.wayland()), platform(compositorPlatform),
         activeConfig(std::move(config)) {
     setupPollFds();
-    workerThread = std::thread([this]() { workerLoop(); });
+    workerThread = std::thread([this] { workerLoop(); });
   }
 
   ~Impl() {

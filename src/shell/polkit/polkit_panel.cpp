@@ -161,7 +161,7 @@ void PolkitPanel::create() {
               .text = i18n::tr("common.actions.cancel"),
               .variant = ButtonVariant::Outline,
               .onClick =
-                  [this]() {
+                  [this] {
                     cancelAuth();
                     PanelManager::instance().close();
                   },
@@ -170,7 +170,7 @@ void PolkitPanel::create() {
               .out = &m_submitButton,
               .text = i18n::tr("auth.polkit.authenticate"),
               .variant = ButtonVariant::Primary,
-              .onClick = [this]() { submit(); },
+              .onClick = [this] { submit(); },
           })
       )
   );
