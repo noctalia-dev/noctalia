@@ -157,7 +157,7 @@ namespace {
       if (line.size() >= 2 && line[0] == '\t' && line[1] == '\t') {
         if (inDevice && !subVendorId.empty() && !subDeviceId.empty()) {
           auto stripped = StringUtils::trim(line);
-          const std::string subKey = subVendorId + " " + subDeviceId;
+          const std::string subKey = std::format("{} {}", subVendorId, subDeviceId);
           if (stripped.starts_with(subKey)) {
             const auto nameStart = stripped.find("  ");
             if (nameStart != std::string::npos) {
@@ -268,7 +268,7 @@ namespace {
           auto amdName = lookupAmdGpuIds(deviceHex, revisionHex);
           if (!amdName.empty()) {
             if (!amdName.contains("AMD")) {
-              amdName = "AMD " + amdName;
+              amdName.insert(0, "AMD ");
             }
             if (!std::ranges::contains(gpus, amdName)) {
               gpus.push_back(std::move(amdName));

@@ -34,6 +34,7 @@
 #include <array>
 #include <cmath>
 #include <cstdint>
+#include <format>
 #include <functional>
 #include <memory>
 #include <string_view>
@@ -3195,7 +3196,7 @@ std::vector<LauncherResult> LauncherPanel::providerOverviewResults(std::string_v
 
     const std::string title(provider->displayName());
     const std::string prefixText(prefix);
-    const std::string searchable = StringUtils::toLower(title + " " + prefixText);
+    const std::string searchable = StringUtils::toLower(std::format("{} {}", title, prefixText));
     const double score = filter.empty() ? 0.0 : FuzzyMatch::score(filter, searchable);
     if (!filter.empty() && !FuzzyMatch::isMatch(score)) {
       continue;

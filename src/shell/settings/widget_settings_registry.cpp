@@ -597,7 +597,7 @@ namespace settings {
       std::string label = pluginWidgetDisplayLabel(entry);
       // Lead with the entry id so same-plugin widgets stay distinguishable.
       std::string description = appendVersion(entry.manifest->description, entry.manifest->version);
-      description = description.empty() ? entryId : entryId + " - " + description;
+      description = description.empty() ? entryId : std::format("{} - {}", entryId, description);
       entries.push_back(
           WidgetPickerEntry{
               .value = entryId,

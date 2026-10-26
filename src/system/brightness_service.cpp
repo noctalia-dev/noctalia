@@ -24,6 +24,7 @@
 #include <cstring>
 #include <dirent.h>
 #include <filesystem>
+#include <format>
 #include <fstream>
 #include <map>
 #include <memory>
@@ -311,7 +312,7 @@ namespace {
         continue;
       }
 
-      const auto drmConnectorPath = fs::canonical(drmClassPath + "/" + name, ec);
+      const auto drmConnectorPath = fs::canonical(fs::path(drmClassPath) / name, ec);
       if (ec) {
         continue;
       }
@@ -895,7 +896,7 @@ struct BrightnessService::Impl {
         continue;
       }
 
-      const std::string path = backlightDir + "/" + name;
+      const std::string path = std::format("{}/{}", backlightDir, name);
       const int maxBrightness = readSysfsInt(path + "/max_brightness");
       if (maxBrightness <= 0) {
         continue;
