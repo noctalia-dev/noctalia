@@ -696,7 +696,7 @@ namespace settings {
     capsuleForeground.visibleWhen = capsuleOn;
 
     auto capsulePadding = withGroup(
-        intSpec("capsule_padding", static_cast<double>(Style::barCapsulePadding), 0.0, 48.0, 1.0), "presentation"
+        intSpec("capsule_padding", static_cast<std::int64_t>(Style::barCapsulePadding), 0.0, 48.0, 1.0), "presentation"
     );
     capsulePadding.visibleWhen = capsuleOn;
     auto capsuleRadius = withGroup(optionalDoubleSpec("capsule_radius", 0.0, 80.0), "presentation");

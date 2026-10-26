@@ -1414,7 +1414,7 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
           .radius = resolvedBarCapsuleRadius(disc.width, disc.height),
           .width = disc.width,
           .height = disc.height,
-          .configure = [this, fontWeight, fontFamily](Button& b) {
+          .configure = [fontWeight, fontFamily](Button& b) {
             if (b.label() != nullptr) {
               b.label()->setFontWeight(fontWeight);
               b.label()->setFontFamily(fontFamily);

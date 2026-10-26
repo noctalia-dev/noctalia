@@ -1,7 +1,6 @@
 #include "shell/lockscreen/lockscreen_widgets_host.h"
 
 #include "config/config_service.h"
-#include "core/log.h"
 #include "render/render_context.h"
 #include "render/scene/node.h"
 #include "scripting/plugin_id.h"
@@ -18,8 +17,6 @@
 #include <wayland-client-protocol.h>
 
 namespace {
-
-  constexpr Logger kLog("lockscreen");
 
   DesktopWidgetState* findStateById(LockscreenWidgetsSnapshot& snapshot, const std::string& id) {
     for (auto& widget : snapshot.widgets) {

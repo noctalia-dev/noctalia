@@ -1,5 +1,6 @@
 Checks: >-
-  -clang-diagnostic-*,
+  -clang-diagnostic-gnu-statement-expression-from-macro-expansion,
+  -clang-diagnostic-sign-conversion,
   bugprone-optional-value-conversion,
   bugprone-use-after-move,
   modernize-avoid-c-style-cast,

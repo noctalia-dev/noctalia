@@ -544,7 +544,7 @@ bool Dock::onPointerEvent(const PointerEvent& event) {
       const float current = m_hoveredInstance->hideOpacity;
       m_hoveredInstance->hideAnimId = m_hoveredInstance->animations.animate(
           current, 1.0F, Style::animNormal, Easing::EaseOutCubic,
-          [inst = m_hoveredInstance, this](float v) {
+          [inst = m_hoveredInstance](float v) {
             inst->hideOpacity = v;
             const auto& cfg = inst->config;
             shell::dock::syncDockSlideLayerTransform(*inst, cfg);

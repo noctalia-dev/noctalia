@@ -238,9 +238,8 @@ namespace {
       }
       const std::string name = extractDefaultMetadataNodeName(std::string_view(value));
       if (!name.empty()) {
-        spa_dict_item items[1];
-        items[0] = SPA_DICT_ITEM_INIT(key, name.c_str());
-        spa_dict dict = SPA_DICT_INIT(items, 1);
+        spa_dict_item items[] = {{.key = key, .value = name.c_str()}};
+        spa_dict dict{.flags = 0, .n_items = 1, .items = items};
         md->service->parseDefaultNodes(&dict);
       }
       return 0;

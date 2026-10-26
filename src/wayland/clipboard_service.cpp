@@ -2121,7 +2121,7 @@ std::string ClipboardService::buildTextPreview(const std::vector<std::uint8_t>& 
   std::size_t i = 0;
   while (i < limit) {
     const auto b = static_cast<uint8_t>(data[i]);
-    int seqLen = 1;
+    std::size_t seqLen = 1;
     if ((b & 0x80) == 0)
       seqLen = 1;
     else if ((b & 0xE0) == 0xC0)
@@ -2130,7 +2130,7 @@ std::string ClipboardService::buildTextPreview(const std::vector<std::uint8_t>& 
       seqLen = 3;
     else if ((b & 0xF8) == 0xF0)
       seqLen = 4;
-    if (i + static_cast<std::size_t>(seqLen) > limit)
+    if (i + seqLen > limit)
       break;
     safeSize = i + seqLen;
     i += seqLen;

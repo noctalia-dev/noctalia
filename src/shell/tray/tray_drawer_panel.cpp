@@ -107,7 +107,7 @@ void TrayDrawerPanel::create() {
         .anchorX = ax.has_value() ? std::round(*ax) : 0.0F,
         .anchorY = ay.has_value() ? std::round(*ay) : 0.0F,
         .hasAnchorPosition = ax.has_value() && ay.has_value(),
-        .context = std::string(context),
+        .context = context,
     };
     if (activation == Widget::PanelActivation::Open) {
       PanelManager::instance().openPanel(std::string(id), request);

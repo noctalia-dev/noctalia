@@ -459,8 +459,9 @@ namespace noctalia::bar {
     WidgetDefinitionField<Options> definitionField{
         .schema = std::move(schema),
         .presentation = std::move(spec.presentation),
-        .resolve = [key, defaultValue, choices = std::move(spec.choices),
-                    effectiveRange](Options& options, const WidgetConfig* config, std::string_view context) {
+        .resolve = [=, choices = std::move(spec.choices)](
+                       Options& options, const WidgetConfig* config, std::string_view context
+                   ) {
           T value = defaultValue;
           if (config != nullptr) {
             if constexpr (std::is_same_v<T, WidgetSettingStringMap>) {

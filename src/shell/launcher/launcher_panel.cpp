@@ -2022,7 +2022,7 @@ void LauncherPanel::animateResultsTransition() {
   viewport->setPosition(m_resultsTransitionBaseX + direction * travel, viewport->y());
   animations->animate(
       0.0F, 1.0F, duration, Easing::EaseOutCubic,
-      [this, viewport, startOpacity, direction, travel](float progress) {
+      [this, viewport, direction, travel](float progress) {
         viewport->setOpacity(startOpacity + (1.0F - startOpacity) * progress);
         viewport->setPosition(m_resultsTransitionBaseX + direction * travel * (1.0F - progress), viewport->y());
       },
